@@ -1,0 +1,9 @@
+{
+  "versao": "0.8.7.2",
+  "data": "2026-08-05",
+  "url": "https://github.com/Peixe225/multfiscal-releases/releases/download/v0.8.7.2/MultFiscal_Setup_0.8.7.2.exe",
+  "sha256": "0ed4d09c483bb6ba3ef4d9597de3140fcf9b5c06505b2c12bdb998f2a9bb82b8",
+  "notas": "Agora você pode trocar a sua senha, em Configurações → Acesso →\n\"Alterar minha senha\". Pede a senha atual e vale só neste computador.\nSe esquecer a senha, só o suporte redefine: (33) 99126-9149.\n\nO guia \"Base única × Base dupla por UF\" saiu das Configurações e foi\npara a aba CÁLCULO DE ICMS, na linha de botões de baixo.\n\nDentro desse guia você agora cadastra a regra de qualquer estado:\nescolha DIFAL ou ANTECIPAÇÃO, clique na sigla e em \"Ajustar esta UF\".\nO que você gravar passa a valer no lugar da tabela do sistema e\nsobrevive à atualização. O Rio de Janeiro já vem cadastrado:\nantecipação por base dupla.\n\nVencimento do Espírito Santo agora aparece por imposto. A antecipação\nparcial mostra ANTES DA ENTRADA NO ES — não é data de calendário, e o\nDUA tem que acompanhar a mercadoria.",
+  "obrigatoria": false,
+  "minima_suportada": ""
+}
