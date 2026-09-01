@@ -15,6 +15,28 @@ from ..models import Canal, StatusMensagem, TipoCanal
 
 
 @dataclass(slots=True)
+class AnexoRecebido:
+    """Um arquivo anunciado pelo provedor.
+
+    `referencia` e o id da midia no provedor; `dados` ja vem preenchido quando
+    o proprio webhook trouxe o conteudo (e-mail, por exemplo). Um dos dois
+    sempre existe.
+    """
+
+    nome: str
+    referencia: str | None = None
+    dados: bytes | None = None
+    tipo_conteudo: str | None = None
+
+
+@dataclass(slots=True)
+class ArquivoParaEnviar:
+    nome: str
+    tipo_conteudo: str
+    dados: bytes
+
+
+@dataclass(slots=True)
 class MensagemRecebida:
     identificador: str          # como o contato e identificado no canal
     conteudo: str
@@ -22,6 +44,7 @@ class MensagemRecebida:
     externo_id: str | None = None
     assunto: str | None = None
     metadados: dict = field(default_factory=dict)
+    anexos: list[AnexoRecebido] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -78,6 +101,17 @@ class AdaptadorCanal(ABC):
     def coletar(self) -> list[MensagemRecebida]:
         """Canais sem webhook (e-mail via IMAP) buscam mensagens aqui."""
         return []
+
+    def baixar_anexo(self, anexo: AnexoRecebido) -> bytes:
+        """Busca no provedor os bytes de um arquivo anunciado no webhook."""
+        if anexo.dados is not None:
+            return anexo.dados
+        raise ErroCanal(f"o canal {self.tipo.value} nao sabe baixar anexos")
+
+    @property
+    def envia_arquivos(self) -> bool:
+        """Se falso, um anexo na resposta e recusado antes de gravar nada."""
+        return False
 
     # ----------------------------------------------------------------- saida
     @abstractmethod

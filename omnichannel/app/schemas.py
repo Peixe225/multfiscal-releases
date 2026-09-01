@@ -113,6 +113,16 @@ class EtiquetaSaida(Modelo):
 
 
 # ------------------------------------------------------------------- mensagens
+class AnexoSaida(Modelo):
+    id: int
+    nome: str
+    tipo_conteudo: str
+    tamanho: int
+    erro: str | None = None
+    imagem: bool = False
+    url: str | None = None
+
+
 class MensagemEntrada(BaseModel):
     conteudo: str = Field(min_length=1, max_length=8000)
 
@@ -128,6 +138,7 @@ class MensagemSaida(Modelo):
     erro: str | None = None
     atendente_id: int | None = None
     autor: str | None = None
+    anexos: list[AnexoSaida] = []
     criada_em: datetime
 
 
@@ -200,6 +211,7 @@ class WidgetMensagemSaida(BaseModel):
     conteudo: str
     criada_em: datetime
     autor: str | None = None
+    anexos: list[AnexoSaida] = []
 
 
 # -------------------------------------------------------------------- metricas

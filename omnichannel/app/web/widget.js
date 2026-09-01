@@ -68,7 +68,18 @@
       .msg.entrada { align-self: flex-end; background: ${config.cor}; color: #fff; border-bottom-right-radius: 4px; }
       .msg.saida { align-self: flex-start; background: #fff; border: 1px solid #e2e7f0; border-bottom-left-radius: 4px; }
       .msg .autor { display: block; font-size: 11px; opacity: .7; margin-bottom: 2px; }
-      form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e7f0; background: #fff; }
+      form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e7f0; background: #fff; align-items: center; }
+      .clipe {
+        border: 1px solid #dde3ef; background: #f5f7fb; border-radius: 10px;
+        width: 36px; height: 36px; cursor: pointer; font-size: 15px; flex: none;
+      }
+      .clipe:disabled { opacity: .5; cursor: progress; }
+      .msg img { max-width: 100%; border-radius: 9px; display: block; margin-top: 6px; cursor: zoom-in; }
+      .msg .arquivo {
+        display: flex; align-items: center; gap: 7px; margin-top: 6px; padding: 7px 9px;
+        border-radius: 9px; text-decoration: none; color: inherit; font-size: 13px;
+        background: rgba(127, 127, 127, .16);
+      }
       input, textarea {
         flex: 1; border: 1px solid #dde3ef; border-radius: 10px; padding: 9px 11px;
         font: inherit; resize: none; min-width: 0;
@@ -102,6 +113,8 @@
       <div class="aviso" id="aviso" style="display:none"></div>
 
       <form id="form" style="display:none">
+        <input type="file" id="arquivo" hidden>
+        <button type="button" class="clipe" id="clipe" title="Anexar arquivo">📎</button>
         <textarea id="texto" rows="1" placeholder="Escreva sua mensagem…"></textarea>
         <button class="enviar" type="submit">Enviar</button>
       </form>
@@ -163,6 +176,34 @@
     }
   });
 
+  q("#clipe").addEventListener("click", () => q("#arquivo").click());
+
+  q("#arquivo").addEventListener("change", async () => {
+    const arquivo = q("#arquivo").files?.[0];
+    if (!arquivo) return;
+    const formulario = new FormData();
+    formulario.append("arquivo", arquivo);
+    formulario.append("conteudo", q("#texto").value.trim());
+    q("#clipe").disabled = true;
+    try {
+      // sem Content-Type: o navegador define o boundary do multipart
+      const resposta = await fetch(`${config.base}/api/widget/anexos`, {
+        method: "POST",
+        headers: { "X-Sessao": token },
+        body: formulario,
+      });
+      if (resposta.status === 401) return reiniciarSessao();
+      if (!resposta.ok) throw new Error("não foi possível enviar o arquivo");
+      q("#texto").value = "";
+      desenhar(await resposta.json());
+    } catch (erro) {
+      mostrarAviso(erro.message);
+    } finally {
+      q("#clipe").disabled = false;
+      q("#arquivo").value = "";
+    }
+  });
+
   q("#texto").addEventListener("keydown", (evento) => {
     if (evento.key === "Enter" && !evento.shiftKey) {
       evento.preventDefault();
@@ -220,7 +261,25 @@
       autor.textContent = mensagem.autor;
       elemento.appendChild(autor);
     }
-    elemento.appendChild(document.createTextNode(mensagem.conteudo));
+    if (mensagem.conteudo) elemento.appendChild(document.createTextNode(mensagem.conteudo));
+    for (const anexo of mensagem.anexos || []) {
+      // o id basta: o widget monta a própria URL, com o token da sessão
+      const endereco = `${config.base}/api/widget/anexos/${anexo.id}?token=${encodeURIComponent(token)}`;
+      if (anexo.imagem) {
+        const imagem = document.createElement("img");
+        imagem.src = endereco;
+        imagem.alt = anexo.nome;
+        imagem.onclick = () => window.open(endereco, "_blank", "noopener");
+        elemento.appendChild(imagem);
+      } else {
+        const link = document.createElement("a");
+        link.className = "arquivo";
+        link.href = endereco;
+        link.download = anexo.nome;
+        link.textContent = `📄 ${anexo.nome}`;
+        elemento.appendChild(link);
+      }
+    }
     const conversa = q("#conversa");
     conversa.appendChild(elemento);
     conversa.scrollTop = conversa.scrollHeight;

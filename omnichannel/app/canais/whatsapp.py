@@ -6,10 +6,20 @@ from typing import Mapping
 from ..models import StatusMensagem, TipoCanal
 from ..security import assinatura_valida
 from ..util import normalizar_telefone
-from .base import AdaptadorCanal, AtualizacaoStatus, ErroCanal, MensagemRecebida, ResultadoEnvio
+from .base import (
+    AdaptadorCanal,
+    AnexoRecebido,
+    ArquivoParaEnviar,
+    AtualizacaoStatus,
+    ErroCanal,
+    MensagemRecebida,
+    ResultadoEnvio,
+)
 from .http import cliente
 
 VERSAO_API = "v20.0"
+BASE = f"https://graph.facebook.com/{VERSAO_API}"
+TIPOS_COM_ARQUIVO = ("image", "audio", "video", "document", "sticker")
 
 _STATUS = {
     "sent": StatusMensagem.ENVIADA,
@@ -50,6 +60,9 @@ class AdaptadorWhatsApp(AdaptadorCanal):
                     conteudo = self._extrair_conteudo(msg)
                     if conteudo is None:
                         continue
+                    anexos = self._anexos_de(msg)
+                    if not conteudo and not anexos:
+                        continue  # nada que valha uma mensagem
                     remetente = normalizar_telefone(msg.get("from", ""))
                     recebidas.append(
                         MensagemRecebida(
@@ -58,9 +71,28 @@ class AdaptadorWhatsApp(AdaptadorCanal):
                             nome_exibicao=perfis.get(remetente),
                             externo_id=self._prefixar(msg.get("id")),
                             metadados={"tipo_whatsapp": msg.get("type")},
+                            anexos=anexos,
                         )
                     )
         return recebidas
+
+    @staticmethod
+    def _anexos_de(msg: dict) -> list[AnexoRecebido]:
+        tipo = msg.get("type")
+        if tipo not in TIPOS_COM_ARQUIVO:
+            return []
+        midia = msg.get(tipo) or {}
+        if not midia.get("id"):
+            return []
+        mime = (midia.get("mime_type") or "").split(";")[0].strip()
+        extensao = mime.split("/")[-1] if "/" in mime else "bin"
+        return [
+            AnexoRecebido(
+                nome=midia.get("filename") or f"{tipo}.{extensao}",
+                referencia=midia["id"],
+                tipo_conteudo=mime or None,
+            )
+        ]
 
     @staticmethod
     def _extrair_conteudo(msg: dict) -> str | None:
@@ -75,9 +107,9 @@ class AdaptadorWhatsApp(AdaptadorCanal):
                 if chave in interativo:
                     return interativo[chave].get("title", "")
             return None
-        if tipo in {"image", "audio", "video", "document", "sticker"}:
-            legenda = (msg.get(tipo) or {}).get("caption")
-            return legenda or f"[{tipo} recebido]"
+        if tipo in TIPOS_COM_ARQUIVO:
+            # o arquivo vem junto como anexo; sem legenda, a mensagem é só ele
+            return (msg.get(tipo) or {}).get("caption") or ""
         if tipo == "location":
             local = msg.get("location") or {}
             return f"[localizacao] {local.get('latitude')},{local.get('longitude')}"
@@ -93,9 +125,56 @@ class AdaptadorWhatsApp(AdaptadorCanal):
                         atualizacoes.append(AtualizacaoStatus(self._prefixar(st["id"]), novo))
         return atualizacoes
 
+    def baixar_anexo(self, anexo: AnexoRecebido) -> bytes:
+        if anexo.dados is not None:
+            return anexo.dados
+        if not anexo.referencia:
+            raise ErroCanal("anexo sem referencia de midia")
+        cabecalhos = {"Authorization": f"Bearer {self.credenciais['token']}"}
+        with cliente() as http:
+            try:
+                # a Meta entrega uma URL temporaria, que ainda exige o token
+                metadados = http.get(f"{BASE}/{anexo.referencia}", headers=cabecalhos)
+                if metadados.status_code >= 400:
+                    raise ErroCanal(f"midia indisponivel ({metadados.status_code})")
+                url = metadados.json().get("url")
+                if not url:
+                    raise ErroCanal("a resposta da Meta nao trouxe a URL da midia")
+                arquivo = http.get(url, headers=cabecalhos)
+            except ErroCanal:
+                raise
+            except Exception as exc:
+                raise ErroCanal(f"falha de rede ao baixar a midia: {exc}") from exc
+        if arquivo.status_code >= 400:
+            raise ErroCanal(f"download da midia falhou ({arquivo.status_code})")
+        return arquivo.content
+
     # ------------------------------------------------------------------ saida
+    @property
+    def envia_arquivos(self) -> bool:
+        return True
+
+    def _subir_midia(self, arquivo: ArquivoParaEnviar) -> str:
+        """A Meta exige subir o arquivo antes de citá-lo numa mensagem."""
+        with cliente() as http:
+            try:
+                resposta = http.post(
+                    f"{BASE}/{self.credenciais['id_numero']}/media",
+                    headers={"Authorization": f"Bearer {self.credenciais['token']}"},
+                    data={"messaging_product": "whatsapp"},
+                    files={"file": (arquivo.nome, arquivo.dados, arquivo.tipo_conteudo)},
+                )
+            except Exception as exc:
+                raise ErroCanal(f"falha de rede ao subir o arquivo: {exc}") from exc
+        if resposta.status_code >= 400:
+            raise ErroCanal(f"upload recusado ({resposta.status_code}): {resposta.text[:200]}")
+        identificador = resposta.json().get("id")
+        if not identificador:
+            raise ErroCanal("a Meta nao devolveu o id da midia")
+        return identificador
+
     def _enviar(self, destino: str, conteudo: str, contexto: dict) -> ResultadoEnvio:
-        url = f"https://graph.facebook.com/{VERSAO_API}/{self.credenciais['id_numero']}/messages"
+        url = f"{BASE}/{self.credenciais['id_numero']}/messages"
         corpo = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -103,6 +182,19 @@ class AdaptadorWhatsApp(AdaptadorCanal):
             "type": "text",
             "text": {"preview_url": False, "body": conteudo},
         }
+        arquivos: list[ArquivoParaEnviar] = contexto.get("arquivos") or []
+        if arquivos:
+            # uma mensagem carrega uma mídia; o texto vira legenda dela
+            arquivo = arquivos[0]
+            especie = "image" if arquivo.tipo_conteudo.startswith("image/") else "document"
+            midia = {"id": self._subir_midia(arquivo)}
+            if conteudo:
+                midia["caption"] = conteudo
+            if especie == "document":
+                midia["filename"] = arquivo.nome
+            corpo.pop("text")
+            corpo["type"] = especie
+            corpo[especie] = midia
         with cliente() as http:
             try:
                 resposta = http.post(

@@ -217,6 +217,38 @@ class Mensagem(Base):
 
     conversa: Mapped[Conversa] = relationship(back_populates="mensagens")
     atendente: Mapped[Atendente | None] = relationship(lazy="joined")
+    anexos: Mapped[list["Anexo"]] = relationship(
+        back_populates="mensagem",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        passive_deletes=True,
+    )
+
+
+class Anexo(Base):
+    """Arquivo trocado numa conversa.
+
+    Os bytes ficam no armazenamento (`app/armazenamento.py`); aqui guardamos
+    só o suficiente para servir e listar. Quando o download no provedor falha,
+    a linha continua existindo com `erro` preenchido: o atendente precisa saber
+    que veio um arquivo, mesmo que não tenha sido possível buscá-lo.
+    """
+
+    __tablename__ = "anexos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mensagem_id: Mapped[int] = mapped_column(
+        ForeignKey("mensagens.id", ondelete="CASCADE"), index=True
+    )
+    nome: Mapped[str] = mapped_column(String(160))
+    tipo_conteudo: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    tamanho: Mapped[int] = mapped_column(Integer, default=0)
+    chave: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    externo_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    erro: Mapped[str | None] = mapped_column(Text, nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+
+    mensagem: Mapped["Mensagem"] = relationship(back_populates="anexos")
 
 
 class RespostaRapida(Base):

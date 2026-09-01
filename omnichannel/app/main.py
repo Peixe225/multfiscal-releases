@@ -12,7 +12,18 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import coletor
-from .api import atendentes, canais, catalogo, contatos, conversas, eventos, metricas, webhooks, widget
+from .api import (
+    anexos,
+    atendentes,
+    canais,
+    catalogo,
+    contatos,
+    conversas,
+    eventos,
+    metricas,
+    webhooks,
+    widget,
+)
 from .config import obter_config
 from .db import criar_tabelas
 
@@ -58,6 +69,7 @@ def criar_app() -> FastAPI:
 
     for modulo in (
         auth,
+        anexos,
         atendentes,
         canais,
         contatos,

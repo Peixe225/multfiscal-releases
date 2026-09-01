@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..canais.base import AtualizacaoStatus, MensagemRecebida
+from ..canais.base import ArquivoParaEnviar, AtualizacaoStatus, MensagemRecebida
 from ..canais.registro import adaptador_para
 from ..eventos import barramento
 from ..models import (
@@ -20,6 +20,7 @@ from ..models import (
 )
 from ..serializacao import conversa_saida, json_de, mensagem_saida
 from ..util import resumir
+from . import anexos as svc_anexos
 from .contatos import identificador_no_canal, resolver_contato
 from .conversas import obter_ou_criar_conversa, registrar_evento
 
@@ -27,6 +28,12 @@ from .conversas import obter_ou_criar_conversa, registrar_evento
 def _tocar_conversa(conversa: Conversa, mensagem: Mensagem) -> None:
     conversa.ultima_mensagem_em = mensagem.criada_em or agora()
     conversa.previa = resumir(mensagem.conteudo, 180)
+
+
+def _previa_de_arquivo(conversa: Conversa, mensagem: Mensagem, anexos) -> None:
+    """Mensagem só com arquivo precisa de uma prévia; senão a lista fica vazia."""
+    if not mensagem.conteudo.strip() and anexos:
+        conversa.previa = f"📎 {anexos[0].nome}"
 
 
 def ja_processada(sessao: Session, externo_id: str | None) -> Mensagem | None:
@@ -60,22 +67,39 @@ def registrar_entrada(sessao: Session, canal: Canal, recebida: MensagemRecebida)
     conversa.nao_lidas += 1
     _tocar_conversa(conversa, mensagem)
     sessao.flush()
+
+    if recebida.anexos:
+        guardados = svc_anexos.guardar_recebidos(sessao, adaptador_para(canal), mensagem, recebida.anexos)
+        _previa_de_arquivo(conversa, mensagem, guardados)
     sessao.refresh(mensagem)
     return mensagem
 
 
+class CanalSemArquivos(Exception):
+    """O canal da conversa não transporta arquivos."""
+
+
 def enviar_mensagem(
-    sessao: Session, conversa: Conversa, conteudo: str, atendente: Atendente | None = None
+    sessao: Session,
+    conversa: Conversa,
+    conteudo: str,
+    atendente: Atendente | None = None,
+    arquivos: list[ArquivoParaEnviar] | None = None,
 ) -> Mensagem:
     """Responde ao contato pelo mesmo canal em que ele falou."""
     adaptador = adaptador_para(conversa.canal)
     destino = identificador_no_canal(sessao, conversa.contato, conversa.canal.tipo)
+    arquivos = arquivos or []
+    if arquivos and not adaptador.envia_arquivos:
+        raise CanalSemArquivos(f"o canal {conversa.canal.tipo} não envia arquivos")
 
     if destino is None:
         resultado_status = StatusMensagem.FALHOU
         externo_id, erro = None, f"contato sem identificacao no canal {conversa.canal.tipo}"
     else:
-        resultado = adaptador.enviar(destino, conteudo, contexto_de_envio(sessao, conversa))
+        contexto = contexto_de_envio(sessao, conversa)
+        contexto["arquivos"] = arquivos
+        resultado = adaptador.enviar(destino, conteudo, contexto)
         resultado_status, externo_id, erro = resultado.status, resultado.externo_id, resultado.erro
 
     mensagem = Mensagem(
@@ -97,6 +121,12 @@ def enviar_mensagem(
         conversa.status = StatusConversa.ABERTA.value
         conversa.resolvida_em = None
     sessao.flush()
+
+    # guardado mesmo quando o envio falha: o atendente reenvia sem subir de novo
+    guardados = [
+        svc_anexos.guardar(sessao, mensagem, a.nome, a.dados, a.tipo_conteudo) for a in arquivos
+    ]
+    _previa_de_arquivo(conversa, mensagem, guardados)
     sessao.refresh(mensagem)
     return mensagem
 

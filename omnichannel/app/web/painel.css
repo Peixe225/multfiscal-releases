@@ -215,6 +215,29 @@ button, input, textarea, select { font: inherit; color: inherit; }
   padding: 11px 12px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie-2);
 }
 .rodape-redator { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.anexar {
+  border: 1px solid var(--borda); background: var(--superficie-2); cursor: pointer;
+  width: 34px; height: 34px; border-radius: 8px; font-size: 16px; line-height: 1;
+}
+.anexar:hover { background: var(--marca-fraca); }
+.anexar:disabled { opacity: .5; cursor: not-allowed; }
+
+.anexos { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.anexos img {
+  max-width: 100%; max-height: 300px; width: auto; border-radius: 9px;
+  display: block; cursor: zoom-in; background: var(--superficie-2);
+}
+.arquivo {
+  display: flex; align-items: center; gap: 9px; text-decoration: none; color: inherit;
+  padding: 8px 10px; border-radius: 9px; border: 1px solid var(--borda);
+  background: var(--superficie-2); font-size: 13px; max-width: 300px;
+}
+.balao.saida .arquivo { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .3); }
+.arquivo:hover { filter: brightness(1.05); }
+.arquivo .icone { font-size: 18px; flex: none; }
+.arquivo .nome { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arquivo .tamanho { opacity: .7; font-size: 11px; }
+.arquivo.indisponivel { border-style: dashed; opacity: .75; cursor: default; }
 .dica { font-size: 12px; color: var(--texto-fraco); }
 .sugestoes {
   position: absolute; bottom: 100%; left: 18px; right: 18px; margin-bottom: 6px;

@@ -13,6 +13,11 @@ class AdaptadorWebchat(AdaptadorCanal):
     def configurado(self) -> bool:
         return True
 
+    @property
+    def envia_arquivos(self) -> bool:
+        # o arquivo ja esta guardado aqui; o visitante o busca pela API
+        return True
+
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
         """O widget usa rotas proprias; um webhook aqui e opcional."""
         identificador = payload.get("visitante") or payload.get("identificador")

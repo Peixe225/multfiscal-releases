@@ -32,6 +32,10 @@ class Configuracao(BaseSettings):
 
     timeout_http: float = 15.0
 
+    # anexos
+    pasta_anexos: str = "./anexos"
+    tamanho_max_anexo_mb: int = 20
+
     # coleta de e-mail por IMAP (canais sem webhook)
     coletor_ativo: bool = True
     intervalo_coleta: int = 60

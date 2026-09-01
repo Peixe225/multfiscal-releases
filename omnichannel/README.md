@@ -71,6 +71,14 @@ resolvida há pouco tempo é *reaberta* em vez de duplicada: quem responde
 (`OMNI_HORAS_REABERTURA`). Conversas novas são distribuídas para o atendente
 disponível com a menor fila.
 
+**Anexos** (`app/armazenamento.py`, `app/servicos/anexos.py`) — imagem e
+documento entram e saem por todos os canais. O que chega é baixado do provedor
+e guardado; o que sai é guardado antes de subir, para que um envio que falha
+possa ser repetido sem reenviar o arquivo. Quando o download no provedor falha,
+o anexo fica registrado com o erro: o atendente precisa saber que veio um
+arquivo mesmo quando não foi possível buscá-lo. O nome do arquivo nunca vira
+caminho — a chave de armazenamento é gerada pelo sistema.
+
 **Tempo real** (`app/eventos.py`) — os eventos são publicados *depois* do
 commit, para que o painel nunca receba um evento cujo dado ainda não está no
 banco. A entrega passa por `call_soon_threadsafe` porque as rotas são síncronas
@@ -155,6 +163,9 @@ que já existe.
   tempo médio até a primeira resposta.
 - Mensagem que falhou aparece marcada, com o erro do provedor e um botão de
   reenviar — o texto digitado nunca se perde.
+- Anexos pelo clipe: imagem aparece embutida na conversa, outros formatos viram
+  link de download. O visitante também anexa pelo widget — no suporte, "manda
+  um print" é metade dos atendimentos.
 
 ---
 
@@ -169,6 +180,8 @@ Todas as rotas de `/api` (menos `/api/auth/login` e `/api/widget/*`) pedem
 | `GET` | `/api/conversas` | caixa de entrada, com filtros e busca |
 | `GET` | `/api/conversas/{id}` | conversa com todas as mensagens |
 | `POST` | `/api/conversas/{id}/mensagens` | responder pelo canal de origem |
+| `POST` | `/api/conversas/{id}/anexos` | responder com arquivo (multipart) |
+| `GET` | `/api/anexos/{id}` | baixar um arquivo |
 | `POST` | `/api/conversas/{id}/notas` | nota interna |
 | `POST` | `/api/conversas/{id}/atribuir` | trocar o responsável |
 | `POST` | `/api/conversas/{id}/status` | aberta / pendente / resolvida |
@@ -209,9 +222,11 @@ tests/
 
 ## Limites conhecidos
 
-- Anexos (imagem, áudio, PDF) são registrados como texto — `[imagem recebida]`,
-  com a legenda quando houver. Guardar o arquivo pede um lugar para guardar, o
-  que é decisão de infraestrutura.
+- Os anexos são gravados em disco local (`OMNI_PASTA_ANEXOS`). Serve bem uma
+  instalação só; com mais de uma máquina, entra um armazenamento compartilhado
+  — `Armazenamento` em `app/armazenamento.py` é a interface a implementar.
+- Arquivo recebido não passa por antivírus. Se o time for abrir anexo de
+  desconhecido, vale plugar uma verificação em `guardar_recebidos`.
 - O esquema é criado com `create_all`. Para evoluir o banco em produção com
   dados dentro, entra Alembic.
 - O barramento de eventos é em memória: com mais de um processo do app, cada um

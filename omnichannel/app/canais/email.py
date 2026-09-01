@@ -15,7 +15,14 @@ from email.utils import parseaddr
 
 from ..models import StatusMensagem, TipoCanal
 from ..util import resumir
-from .base import AdaptadorCanal, ErroCanal, MensagemRecebida, ResultadoEnvio
+from .base import (
+    AdaptadorCanal,
+    AnexoRecebido,
+    ArquivoParaEnviar,
+    ErroCanal,
+    MensagemRecebida,
+    ResultadoEnvio,
+)
 
 LIMITE_COLETA = 25
 
@@ -40,6 +47,32 @@ def _corpo_texto(mensagem: email.message.Message) -> str:
         return "[mensagem sem corpo em texto]"
     carga = mensagem.get_payload(decode=True) or b""
     return carga.decode(mensagem.get_content_charset() or "utf-8", errors="replace")
+
+
+def _anexos_de(mensagem: email.message.Message) -> list[AnexoRecebido]:
+    """Junta as partes que o cliente de e-mail marcou como arquivo."""
+    if not mensagem.is_multipart():
+        return []
+    anexos: list[AnexoRecebido] = []
+    for parte in mensagem.walk():
+        if parte.get_content_maintype() == "multipart":
+            continue
+        disposicao = str(parte.get("Content-Disposition", ""))
+        nome = parte.get_filename()
+        # sem nome e sem "attachment" e corpo, nao anexo
+        if "attachment" not in disposicao and not nome:
+            continue
+        dados = parte.get_payload(decode=True)
+        if not dados:
+            continue
+        anexos.append(
+            AnexoRecebido(
+                nome=_decodificar(nome) or "arquivo",
+                dados=dados,
+                tipo_conteudo=parte.get_content_type(),
+            )
+        )
+    return anexos
 
 
 class AdaptadorEmail(AdaptadorCanal):
@@ -94,6 +127,7 @@ class AdaptadorEmail(AdaptadorCanal):
                             externo_id=self._prefixar(mensagem.get("Message-Id")),
                             assunto=_decodificar(mensagem.get("Subject")),
                             metadados={"referencias": mensagem.get("Message-Id")},
+                            anexos=_anexos_de(mensagem),
                         )
                     )
                     imap.store(identificador, "+FLAGS", "\\Seen")
@@ -102,6 +136,10 @@ class AdaptadorEmail(AdaptadorCanal):
         return recebidas
 
     # ------------------------------------------------------------------ saida
+    @property
+    def envia_arquivos(self) -> bool:
+        return True
+
     def _enviar(self, destino: str, conteudo: str, contexto: dict) -> ResultadoEnvio:
         assunto = contexto.get("assunto") or "Atendimento"
         if not assunto.lower().startswith("re:"):
@@ -115,6 +153,14 @@ class AdaptadorEmail(AdaptadorCanal):
             mensagem["In-Reply-To"] = referencia
             mensagem["References"] = referencia
         mensagem.set_content(conteudo)
+        for arquivo in contexto.get("arquivos") or []:
+            principal, _, secundario = arquivo.tipo_conteudo.partition("/")
+            mensagem.add_attachment(
+                arquivo.dados,
+                maintype=principal or "application",
+                subtype=secundario or "octet-stream",
+                filename=arquivo.nome,
+            )
         porta = int(self.credenciais.get("smtp_porta", 587))
         try:
             if porta == 465:

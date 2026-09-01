@@ -5,15 +5,24 @@ formato - se divergirem, o painel mostra uma coisa e recebe outra.
 """
 from __future__ import annotations
 
+from .armazenamento import TIPOS_IMAGEM
 from .canais.registro import adaptador_para
-from .models import Canal, Conversa, Mensagem, TipoMensagem
-from .schemas import CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
+from .models import Anexo, Canal, Conversa, Mensagem, TipoMensagem
+from .schemas import AnexoSaida, CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
 
 
 def canal_saida(canal: Canal) -> CanalSaida:
     dados = CanalSaida.model_validate(canal)
     dados.configurado = adaptador_para(canal).configurado
     dados.url_webhook = f"/webhooks/{canal.id}"
+    return dados
+
+
+def anexo_saida(anexo: Anexo, base: str = "/api/anexos") -> AnexoSaida:
+    dados = AnexoSaida.model_validate(anexo)
+    dados.imagem = anexo.tipo_conteudo in TIPOS_IMAGEM
+    # sem chave o arquivo não chegou a ser guardado: link nenhum a oferecer
+    dados.url = f"{base}/{anexo.id}" if anexo.chave else None
     return dados
 
 
@@ -30,6 +39,7 @@ def mensagem_saida(mensagem: Mensagem) -> MensagemSaida:
     dados.autor = autor_de(mensagem)
     # o widget filtra o fluxo de eventos por contato, nao por conversa
     dados.contato_id = mensagem.conversa.contato_id if mensagem.conversa else None
+    dados.anexos = [anexo_saida(a) for a in mensagem.anexos]
     return dados
 
 

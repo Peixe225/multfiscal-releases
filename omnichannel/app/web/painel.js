@@ -303,6 +303,8 @@ function balao(mensagem) {
   elemento.dataset.id = mensagem.id;
   elemento.append(criar("div", "texto", mensagem.conteudo));
 
+  if (mensagem.anexos?.length) elemento.append(desenharAnexos(mensagem.anexos));
+
   const meta = criar("div", "meta");
   meta.append(criar("span", "", `${nota ? "nota de " : ""}${mensagem.autor || ""}`));
   meta.append(criar("span", "", hora(mensagem.criada_em)));
@@ -316,6 +318,53 @@ function balao(mensagem) {
   }
   elemento.append(meta);
   return elemento;
+}
+
+function desenharAnexos(anexos) {
+  const caixa = criar("div", "anexos");
+  for (const anexo of anexos) {
+    // o token vai na query porque <img> e <a download> não mandam cabeçalho
+    const endereco = anexo.url ? `${anexo.url}?token=${encodeURIComponent(estado.token)}` : null;
+
+    if (!endereco) {
+      const falho = criar("div", "arquivo indisponivel");
+      falho.append(criar("span", "icone", "⚠"));
+      const corpo = criar("div");
+      corpo.append(criar("div", "nome", anexo.nome));
+      corpo.append(criar("div", "tamanho", anexo.erro || "arquivo não recuperado"));
+      falho.append(corpo);
+      caixa.append(falho);
+      continue;
+    }
+
+    if (anexo.imagem) {
+      const imagem = criar("img");
+      imagem.src = endereco;
+      imagem.alt = anexo.nome;
+      imagem.loading = "lazy";
+      imagem.onclick = () => window.open(endereco, "_blank", "noopener");
+      caixa.append(imagem);
+      continue;
+    }
+
+    const link = criar("a", "arquivo");
+    link.href = endereco;
+    link.download = anexo.nome;
+    link.append(criar("span", "icone", "📄"));
+    const corpo = criar("div");
+    corpo.append(criar("div", "nome", anexo.nome));
+    corpo.append(criar("div", "tamanho", tamanhoLegivel(anexo.tamanho)));
+    link.append(corpo);
+    caixa.append(link);
+  }
+  return caixa;
+}
+
+function tamanhoLegivel(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
 function rotuloStatus(status) {
@@ -493,6 +542,43 @@ caixaTexto.addEventListener("keydown", (evento) => {
   if (evento.key === "Enter" && !evento.shiftKey) {
     evento.preventDefault();
     $("#redator").requestSubmit();
+  }
+});
+
+const campoArquivo = $("#arquivo");
+$("#botao-anexar").addEventListener("click", () => campoArquivo.click());
+
+campoArquivo.addEventListener("change", async () => {
+  const arquivo = campoArquivo.files?.[0];
+  if (!arquivo || !estado.atualId) return;
+  if (estado.modo === "nota") {
+    avisar("Anexo vai junto com a resposta, não com a nota interna.", true);
+    campoArquivo.value = "";
+    return;
+  }
+
+  const formulario = new FormData();
+  formulario.append("arquivo", arquivo);
+  formulario.append("conteudo", caixaTexto.value.trim()); // o texto vira legenda
+  const botao = $("#botao-anexar");
+  botao.disabled = true;
+  try {
+    // sem Content-Type: o navegador precisa definir o boundary do multipart
+    const resposta = await fetch(`/api/conversas/${estado.atualId}/anexos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${estado.token}` },
+      body: formulario,
+    });
+    const corpo = await resposta.json().catch(() => ({}));
+    if (!resposta.ok) throw new Error(corpo.detail || "não foi possível enviar o arquivo");
+    caixaTexto.value = "";
+    acrescentarMensagem(corpo);
+    if (corpo.status === "falhou") avisar(`Arquivo guardado, mas não saiu: ${corpo.erro}`, true);
+  } catch (erro) {
+    avisar(erro.message, true);
+  } finally {
+    botao.disabled = false;
+    campoArquivo.value = ""; // permite reenviar o mesmo arquivo
   }
 });
 

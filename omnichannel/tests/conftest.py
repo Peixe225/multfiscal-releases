@@ -26,6 +26,7 @@ sys.path.insert(0, str(RAIZ))
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.armazenamento import ArmazenamentoLocal, definir_armazenamento  # noqa: E402
 from app.canais import http as canal_http  # noqa: E402
 from app.db import Base, SessaoLocal, engine  # noqa: E402
 from app.main import criar_app  # noqa: E402
@@ -34,11 +35,14 @@ from app.security import gerar_chave, gerar_hash_senha  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def banco_limpo():
+def banco_limpo(tmp_path):
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    # anexos vão para uma pasta descartável, nunca para a do projeto
+    definir_armazenamento(ArmazenamentoLocal(tmp_path / "anexos"))
     yield
     canal_http.definir_transporte(None)
+    definir_armazenamento(None)
 
 
 @pytest.fixture
@@ -119,6 +123,25 @@ def canal_telegram():
 @pytest.fixture
 def canal_webchat():
     return criar_canal(TipoCanal.WEBCHAT, "Chat do site")
+
+
+def payload_whatsapp_midia(numero: str, externo_id: str, midia: dict, tipo: str = "image") -> dict:
+    return {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "contacts": [{"wa_id": numero, "profile": {"name": "Cliente"}}],
+                            "messages": [
+                                {"from": numero, "id": externo_id, "type": tipo, tipo: midia}
+                            ],
+                        }
+                    }
+                ]
+            }
+        ]
+    }
 
 
 def payload_whatsapp(numero: str, texto: str, externo_id: str, nome: str = "Cliente") -> dict:
