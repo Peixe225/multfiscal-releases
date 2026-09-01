@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%232c5cf6"/><path d="M8 11h16v9a2 2 0 0 1-2 2h-8l-4 4v-4H8z" fill="white"/></svg>'>
+  <title>Widget de webchat — OmniChannel 2</title>
+  <style>
+    :root { color-scheme: light dark; --marca: #2c5cf6; }
+    body {
+      margin: 0; min-height: 100vh; padding: 56px 24px;
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6fb; color: #131a2a;
+    }
+    main { max-width: 680px; margin: 0 auto; }
+    h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.02em; }
+    p.sub { color: #66708a; margin-top: 0; }
+    .cartao { background: #fff; border: 1px solid #dde3ef; border-radius: 14px; padding: 22px; margin-top: 26px; }
+    label { display: block; font-size: 13px; color: #66708a; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 10px 12px; border: 1px solid #dde3ef;
+      border-radius: 9px; font: inherit; background: #f7f9fd; color: inherit;
+    }
+    button {
+      margin-top: 12px; border: 0; background: var(--marca); color: #fff;
+      padding: 10px 18px; border-radius: 9px; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    pre {
+      background: #131a2a; color: #e8ecf6; padding: 16px; border-radius: 10px;
+      overflow-x: auto; font-size: 13px; line-height: 1.5;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0e1220; color: #e8ecf6; }
+      .cartao { background: #161c2e; border-color: #2a3348; }
+      input { background: #1e2740; border-color: #2a3348; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Widget de webchat</h1>
+  <p class="sub">
+    Esta página simula o site de um cliente. Informe a chave pública do canal de
+    webchat (ela aparece no fim do <code>scripts/seed.py</code> e em
+    Canais → credenciais) e o widget carrega no canto da tela.
+  </p>
+
+  <div class="cartao">
+    <label for="chave">Chave pública do canal de webchat</label>
+    <input id="chave" placeholder="wc_..." autocomplete="off">
+    <button id="carregar">Carregar widget</button>
+  </div>
+
+  <div class="cartao">
+    <p style="margin-top:0"><strong>Para colocar no site de verdade</strong>, basta uma linha antes do <code>&lt;/body&gt;</code>:</p>
+    <pre><code>&lt;script src="<span id="host"></span>/widget.js"
+        data-chave="SUA_CHAVE_PUBLICA"
+        data-titulo="Suporte MultFiscal"
+        data-cor="#2c5cf6"&gt;&lt;/script&gt;</code></pre>
+    <p style="margin-bottom:0;color:#66708a;font-size:14px">
+      As mensagens caem na mesma caixa de entrada do WhatsApp, do Telegram e do
+      e-mail. Se o visitante informar um e-mail já conhecido, a conversa entra
+      na ficha que já existe.
+    </p>
+  </div>
+</main>
+
+<script>
+  document.getElementById("host").textContent = location.origin;
+
+  const parametros = new URLSearchParams(location.search);
+  const campo = document.getElementById("chave");
+  campo.value = parametros.get("chave") || "";
+
+  function carregar() {
+    const chave = campo.value.trim();
+    if (!chave) return campo.focus();
+    if (document.getElementById("widget-omni")) {
+      location.search = `?chave=${encodeURIComponent(chave)}`;
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "widget-omni";
+    script.src = "/widget.js";
+    script.dataset.chave = chave;
+    script.dataset.titulo = "Suporte MultFiscal";
+    script.dataset.saudacao = "Olá! Dúvida sobre cálculo de ICMS, licença ou instalação?";
+    document.body.appendChild(script);
+  }
+
+  document.getElementById("carregar").addEventListener("click", carregar);
+  if (campo.value) carregar();
+</script>
+</body>
+</html>

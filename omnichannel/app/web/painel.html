@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%232c5cf6"/><path d="M8 11h16v9a2 2 0 0 1-2 2h-8l-4 4v-4H8z" fill="white"/></svg>'>
+  <title>OmniChannel 2 — Central de atendimento</title>
+  <link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+
+<div id="tela-login" class="tela-login">
+  <form id="form-login" class="cartao-login">
+    <h1>OmniChannel 2</h1>
+    <p>Central de atendimento MultFiscal</p>
+    <label class="campo">
+      <span>E-mail</span>
+      <input type="email" name="email" autocomplete="username" required autofocus>
+    </label>
+    <label class="campo">
+      <span>Senha</span>
+      <input type="password" name="senha" autocomplete="current-password" required>
+    </label>
+    <button class="botao largo" type="submit">Entrar</button>
+    <p class="erro" id="erro-login"></p>
+  </form>
+</div>
+
+<div id="app" class="app" hidden>
+  <header class="topo">
+    <div class="marca"><i class="ponto"></i> OmniChannel <small>2</small></div>
+    <div class="indicadores" id="indicadores"></div>
+    <div class="usuario">
+      <div class="avatar" id="avatar"></div>
+      <div>
+        <div id="nome-atendente" style="font-size:13px;font-weight:600"></div>
+        <button class="aba" id="sair" style="padding:0;font-size:12px">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="grade">
+    <aside class="coluna filtros">
+      <div class="titulo-coluna">Caixa de entrada</div>
+      <div id="filtros-fixos"></div>
+      <div class="titulo-coluna">Canais</div>
+      <div id="filtros-canais"></div>
+      <div class="titulo-coluna">Etiquetas</div>
+      <div id="filtros-etiquetas"></div>
+    </aside>
+
+    <section class="coluna lista">
+      <div class="busca">
+        <input id="busca" type="search" placeholder="Buscar contato ou mensagem…" autocomplete="off">
+      </div>
+      <div id="lista-conversas"></div>
+    </section>
+
+    <section class="conversa">
+      <div id="conversa-vazia" class="vazio">
+        <p>Escolha uma conversa à esquerda para começar o atendimento.</p>
+      </div>
+
+      <div id="conversa-conteudo" hidden style="display:contents">
+        <header class="cabecalho-conversa">
+          <div>
+            <h2 id="titulo-conversa"></h2>
+            <div class="dica" id="subtitulo-conversa"></div>
+          </div>
+          <div class="acoes">
+            <select id="seletor-atendente" title="Atendente responsável"></select>
+            <select id="seletor-prioridade" title="Prioridade">
+              <option value="baixa">Baixa</option>
+              <option value="normal">Normal</option>
+              <option value="alta">Alta</option>
+            </select>
+            <select id="seletor-status" title="Situação">
+              <option value="aberta">Aberta</option>
+              <option value="pendente">Pendente</option>
+              <option value="resolvida">Resolvida</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="linha-do-tempo" id="linha-do-tempo"></div>
+
+        <form class="redator" id="redator">
+          <div class="abas-redator">
+            <button type="button" class="aba ativa" data-modo="resposta">Responder</button>
+            <button type="button" class="aba nota-aba" data-modo="nota">Nota interna</button>
+          </div>
+          <div id="sugestoes" class="sugestoes" hidden></div>
+          <textarea id="texto" placeholder="Escreva sua resposta…  (/ para respostas rápidas)"></textarea>
+          <div class="rodape-redator">
+            <span class="dica" id="dica-redator">Enter envia · Shift+Enter quebra linha</span>
+            <button class="botao" type="submit" style="margin-left:auto">Enviar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <aside class="coluna ficha" id="ficha"></aside>
+  </div>
+</div>
+
+<script src="/static/painel.js"></script>
+</body>
+</html>

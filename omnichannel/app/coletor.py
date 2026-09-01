@@ -24,9 +24,10 @@ def coletar_uma_vez() -> int:
             select(Canal).where(Canal.tipo == TipoCanal.EMAIL.value, Canal.ativo.is_(True))
         ).all()
         for canal in canais:
+            # nao se checa `configurado` aqui: aquilo mede as credenciais de
+            # ENVIO, e uma caixa pode estar configurada so para leitura.
+            # `coletar()` devolve lista vazia quando nao ha IMAP.
             adaptador = adaptador_para(canal)
-            if not adaptador.configurado:
-                continue
             try:
                 recebidas = adaptador.coletar()
             except ErroCanal as exc:
