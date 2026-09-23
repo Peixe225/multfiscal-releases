@@ -6,9 +6,11 @@ mantenha tudo na mesma thread.
 """
 from __future__ import annotations
 
+import contextlib
 import email
 import imaplib
 import smtplib
+import ssl
 from email.header import decode_header, make_header
 from email.message import EmailMessage
 from email.utils import parseaddr
@@ -23,8 +25,51 @@ from .base import (
     MensagemRecebida,
     ResultadoEnvio,
 )
+from .campos import campos_de
 
 LIMITE_COLETA = 25
+# o admin espera olhando para a tela: melhor um erro claro em 10 s do que a
+# roda girando pelos 20 s do envio
+TEMPO_VERIFICACAO = 10
+
+
+def _contexto_tls() -> ssl.SSLContext:
+    """Contexto que confere certificado e nome do servidor.
+
+    Sem ele, smtplib e imaplib aceitam qualquer certificado: quem estiver no
+    caminho (Wi-Fi do escritorio, DNS trocado) recebe a senha no login e o
+    teste ainda responderia "ok".
+    """
+    return ssl.create_default_context()
+
+
+def _rotulo(chave: str) -> str:
+    """Nome do campo como o formulario mostra; quem le o erro nunca viu a chave."""
+    for campo in campos_de(TipoCanal.EMAIL.value):
+        if campo.chave == chave:
+            return campo.rotulo
+    return {"imap_porta": "Porta IMAP"}.get(chave, chave)
+
+
+def _erro_de_certificado(servico: str, host: str, exc: ssl.SSLCertVerificationError) -> ErroCanal:
+    motivo = getattr(exc, "verify_message", None) or str(exc)
+    return ErroCanal(
+        f"o certificado TLS do servidor {servico} {host} não é válido ({motivo}); a senha não "
+        "foi enviada. Confira o endereço do servidor: é preciso o nome que consta no certificado"
+    )
+
+
+def _erro_de_caractere(servico: str) -> ErroCanal:
+    # smtplib e imaplib codificam o login em ASCII: "senhação" nem sai daqui
+    return ErroCanal(
+        f"o usuário ou a senha do {servico} tem acento ou outro caractere fora do ASCII, que o "
+        f"login {servico} não transmite; use uma senha sem acentos (ou uma senha de app)"
+    )
+
+
+def _resposta_smtp(exc: smtplib.SMTPResponseException) -> str:
+    texto = exc.smtp_error.decode(errors="replace") if isinstance(exc.smtp_error, bytes) else str(exc.smtp_error)
+    return f"{exc.smtp_code} {texto}".strip()
 
 
 def _decodificar(valor: str | None) -> str:
@@ -79,6 +124,100 @@ class AdaptadorEmail(AdaptadorCanal):
     tipo = TipoCanal.EMAIL
     campos_obrigatorios = ("smtp_host", "smtp_usuario", "smtp_senha", "remetente")
 
+    # ------------------------------------------------------------------ estado
+    def _porta(self, campo: str, padrao: int) -> int:
+        # a API ja recusa porta invalida; isto cobre o que foi gravado antes dela
+        valor = self.credenciais.get(campo) or padrao
+        try:
+            porta = int(valor)
+        except (TypeError, ValueError):
+            porta = 0
+        if not 1 <= porta <= 65535:
+            raise ErroCanal(f"{_rotulo(campo)} inválida: {valor!r}; use um número, ex.: {padrao}")
+        return porta
+
+    def verificar_conexao(self) -> str:
+        """Entra no SMTP e, se houver, no IMAP, sem enviar nem ler nada.
+
+        Cada erro diz a etapa (conexao, STARTTLS, login) porque cada uma tem um
+        culpado diferente: host/porta errados, porta trocada, senha.
+        """
+        if not self.configurado:
+            return super().verificar_conexao()  # a base diz o que falta preencher
+        feito = [self._verificar_smtp()]
+        if self.credenciais.get("imap_host"):
+            feito.append(self._verificar_imap())
+        else:
+            feito.append("sem servidor IMAP, a caixa não é lida: e-mails só chegam pelo webhook do provedor")
+        return "; ".join(feito)
+
+    def _verificar_smtp(self) -> str:
+        host = self.credenciais["smtp_host"]
+        porta = self._porta("smtp_porta", 587)
+        seguranca = "SSL" if porta == 465 else "STARTTLS"
+        etapa = f"conectar ao servidor SMTP {host}:{porta}"
+        servidor = None
+        tls = _contexto_tls()
+        try:
+            if porta == 465:
+                servidor = smtplib.SMTP_SSL(host, porta, timeout=TEMPO_VERIFICACAO, context=tls)
+            else:
+                servidor = smtplib.SMTP(host, porta, timeout=TEMPO_VERIFICACAO)
+                etapa = f"iniciar STARTTLS em {host}:{porta}"
+                servidor.starttls(context=tls)
+            etapa = "entrar no SMTP"
+            servidor.login(self.credenciais["smtp_usuario"], self.credenciais["smtp_senha"])
+        except smtplib.SMTPAuthenticationError as exc:
+            raise ErroCanal(f"o servidor SMTP recusou o usuário e a senha: {_resposta_smtp(exc)}") from exc
+        except ssl.SSLCertVerificationError as exc:
+            # antes do OSError (que ele tambem e): a dica da porta 465 la seria enganosa
+            raise _erro_de_certificado("SMTP", host, exc) from exc
+        except UnicodeError as exc:
+            if etapa == "entrar no SMTP":
+                raise _erro_de_caractere("SMTP") from exc
+            raise ErroCanal(f"falha ao {etapa}: endereço com caractere inválido ({exc})") from exc
+        except (smtplib.SMTPException, OSError) as exc:
+            # quem usa SSL direto e esquece a porta 465 cai aqui, no STARTTLS
+            dica = " (servidor com SSL direto usa a porta 465)" if "STARTTLS" in etapa else ""
+            raise ErroCanal(f"falha ao {etapa}: {exc}{dica}") from exc
+        finally:
+            if servidor is not None:
+                with contextlib.suppress(Exception):
+                    servidor.quit()
+                servidor.close()
+        return f"SMTP ok (login em {host}:{porta} com {seguranca})"
+
+    def _verificar_imap(self) -> str:
+        host = self.credenciais["imap_host"]
+        porta = self._porta("imap_porta", 993)
+        usuario = self.credenciais.get("imap_usuario") or self.credenciais.get("smtp_usuario")
+        senha = self.credenciais.get("imap_senha") or self.credenciais.get("smtp_senha")
+        etapa = f"conectar ao servidor IMAP {host}:{porta}"
+        imap = None
+        try:
+            imap = imaplib.IMAP4_SSL(host, porta, ssl_context=_contexto_tls(), timeout=TEMPO_VERIFICACAO)
+            etapa = "entrar no IMAP"
+            imap.login(usuario, senha)
+        except ssl.SSLCertVerificationError as exc:
+            raise _erro_de_certificado("IMAP", host, exc) from exc
+        except UnicodeError as exc:
+            if etapa == "entrar no IMAP":
+                raise _erro_de_caractere("IMAP") from exc
+            raise ErroCanal(f"falha ao {etapa}: endereço com caractere inválido ({exc})") from exc
+        except imaplib.IMAP4.error as exc:
+            # o imaplib usa a mesma excecao para senha errada e resposta
+            # estranha na conexao; a etapa separa as duas
+            if etapa == "entrar no IMAP":
+                raise ErroCanal(f"o servidor IMAP recusou o usuário e a senha: {exc}") from exc
+            raise ErroCanal(f"falha ao {etapa}: {exc}") from exc
+        except OSError as exc:
+            raise ErroCanal(f"falha ao {etapa}: {exc}") from exc
+        finally:
+            if imap is not None:
+                with contextlib.suppress(Exception):
+                    imap.logout()
+        return f"IMAP ok (login em {host}:{porta})"
+
     # ---------------------------------------------------------------- entrada
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
         """Formato generico de provedores (Mailgun, SendGrid Inbound Parse...)."""
@@ -105,9 +244,13 @@ class AdaptadorEmail(AdaptadorCanal):
         usuario = self.credenciais.get("imap_usuario") or self.credenciais.get("smtp_usuario")
         senha = self.credenciais.get("imap_senha") or self.credenciais.get("smtp_senha")
         recebidas: list[MensagemRecebida] = []
+        porta = self._porta("imap_porta", 993)
         try:
-            with imaplib.IMAP4_SSL(host, int(self.credenciais.get("imap_porta", 993))) as imap:
-                imap.login(usuario, senha)
+            with imaplib.IMAP4_SSL(host, porta, ssl_context=_contexto_tls()) as imap:
+                try:
+                    imap.login(usuario, senha)
+                except UnicodeError as exc:
+                    raise _erro_de_caractere("IMAP") from exc
                 imap.select(self.credenciais.get("imap_pasta", "INBOX"))
                 _, dados = imap.search(None, "UNSEEN")
                 ids = (dados[0] or b"").split()[:LIMITE_COLETA]
@@ -131,6 +274,8 @@ class AdaptadorEmail(AdaptadorCanal):
                         )
                     )
                     imap.store(identificador, "+FLAGS", "\\Seen")
+        except ssl.SSLCertVerificationError as exc:
+            raise _erro_de_certificado("IMAP", host, exc) from exc
         except (imaplib.IMAP4.error, OSError) as exc:
             raise ErroCanal(f"falha ao ler a caixa de entrada: {exc}") from exc
         return recebidas
@@ -161,17 +306,25 @@ class AdaptadorEmail(AdaptadorCanal):
                 subtype=secundario or "octet-stream",
                 filename=arquivo.nome,
             )
-        porta = int(self.credenciais.get("smtp_porta", 587))
+        # ErroCanal, nao ValueError: vira mensagem "falhou" com reenviar, nao 500
+        porta = self._porta("smtp_porta", 587)
+        host = self.credenciais["smtp_host"]
+        tls = _contexto_tls()
         try:
             if porta == 465:
-                servidor = smtplib.SMTP_SSL(self.credenciais["smtp_host"], porta, timeout=20)
+                servidor = smtplib.SMTP_SSL(host, porta, timeout=20, context=tls)
             else:
-                servidor = smtplib.SMTP(self.credenciais["smtp_host"], porta, timeout=20)
+                servidor = smtplib.SMTP(host, porta, timeout=20)
             with servidor:
                 if porta != 465:
-                    servidor.starttls()
-                servidor.login(self.credenciais["smtp_usuario"], self.credenciais["smtp_senha"])
+                    servidor.starttls(context=tls)
+                try:
+                    servidor.login(self.credenciais["smtp_usuario"], self.credenciais["smtp_senha"])
+                except UnicodeError as exc:
+                    raise _erro_de_caractere("SMTP") from exc
                 servidor.send_message(mensagem)
+        except ssl.SSLCertVerificationError as exc:
+            raise _erro_de_certificado("SMTP", host, exc) from exc
         except (smtplib.SMTPException, OSError) as exc:
             raise ErroCanal(f"falha ao enviar e-mail: {exc}") from exc
         return ResultadoEnvio(status=StatusMensagem.ENVIADA, externo_id=self._prefixar(mensagem.get("Message-Id")))

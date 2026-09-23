@@ -29,13 +29,92 @@ _STATUS = {
 }
 
 
+def _explicar_erro_meta(status: int, dados: dict, texto: str) -> str:
+    """Repete a mensagem da Meta e, nos erros comuns, diz onde corrigir."""
+    erro = dados.get("error") if isinstance(dados.get("error"), dict) else {}
+    mensagem = erro.get("message") or texto[:300] or f"HTTP {status}"
+    codigo = erro.get("code")
+    if codigo == 190 or status == 401:
+        dica = "o token está inválido ou expirou; gere um token permanente (usuário do sistema)"
+    elif codigo == 100:
+        dica = "confira o ID do número: é o 'Phone number ID', não o telefone"
+    else:
+        return f"a Meta recusou ({status}): {mensagem}"
+    return f"a Meta recusou ({status}): {mensagem} — {dica}"
+
+
 class AdaptadorWhatsApp(AdaptadorCanal):
     tipo = TipoCanal.WHATSAPP
     campos_obrigatorios = ("token", "id_numero")
 
+    # ------------------------------------------------------------------ estado
+    def verificar_conexao(self) -> str:
+        if not self.configurado:
+            return super().verificar_conexao()  # a base diz o que falta preencher
+        id_numero = self.credenciais["id_numero"]
+        with cliente() as http:
+            try:
+                resposta = http.get(
+                    f"{BASE}/{id_numero}",
+                    params={"fields": "display_phone_number,verified_name"},
+                    headers={"Authorization": f"Bearer {self.credenciais['token']}"},
+                )
+            except Exception as exc:
+                raise ErroCanal(f"falha de rede com a API do WhatsApp: {exc}") from exc
+        try:
+            dados = resposta.json()
+        except ValueError:
+            dados = {}
+        if not isinstance(dados, dict):
+            dados = {}
+        if resposta.status_code >= 400:
+            raise ErroCanal(_explicar_erro_meta(resposta.status_code, dados, resposta.text))
+        numero = dados.get("display_phone_number") or id_numero
+        nome = dados.get("verified_name")
+        return f"Conectado ao número {numero} ({nome})" if nome else f"Conectado ao número {numero}"
+
+    # ------------------------------------------------------------- assinatura
+    def _segredo_de_assinatura(self) -> tuple[str | None, str]:
+        """O segredo que confere as entregas e de onde ele veio.
+
+        A Meta assina com o App Secret do app dela, nunca com um segredo nosso.
+        Ordem: `segredo_app` (o campo da tela); `segredo_webhook` dentro das
+        credenciais, que e onde o README antigo mandava pôr o App Secret via
+        curl; por ultimo a coluna do canal, que o cadastro antigo enchia com um
+        valor aleatorio que a Meta nunca conheceu.
+        """
+        for chave in ("segredo_app", "segredo_webhook"):
+            if self.credenciais.get(chave):
+                return self.credenciais[chave], "app_secret"
+        if self.canal.segredo_webhook:
+            return self.canal.segredo_webhook, "legada"
+        return None, "nenhuma"
+
+    @property
+    def origem_assinatura(self) -> str:
+        """Um de "app_secret", "legada" ou "nenhuma": a tela avisa cada caso de um jeito."""
+        return self._segredo_de_assinatura()[1]
+
+    @property
+    def alerta_de_assinatura(self) -> str | None:
+        """O que o admin precisa saber mesmo com o token funcionando."""
+        origem = self.origem_assinatura
+        if origem == "nenhuma":
+            return (
+                "sem o App Secret, a assinatura das entregas não é conferida: quem souber a URL "
+                "do webhook pode forjar mensagens de clientes. Preencha-o em Editar"
+            )
+        if origem == "legada":
+            # quem semeou a base antes da correcao cai aqui sem ter feito nada
+            return (
+                "há um segredo antigo, gerado pelo sistema, que a Meta não conhece: toda entrega "
+                "da Meta será recusada (401) até você preencher o App Secret em Editar"
+            )
+        return None
+
     # ---------------------------------------------------------------- entrada
     def verificar_assinatura(self, corpo: bytes, cabecalhos: Mapping[str, str]) -> bool:
-        segredo = self.canal.segredo_webhook
+        segredo, _ = self._segredo_de_assinatura()
         if not segredo:
             return True
         return assinatura_valida(segredo, corpo, cabecalhos.get("x-hub-signature-256"))

@@ -159,10 +159,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .selo.canal-email    { background: #f1ecfd; color: #6b3fd4; border-color: #ddd2f8; }
 .selo.canal-webchat  { background: #fdf0e6; color: #b45f10; border-color: #f6dcc2; }
 
-.form-novo { margin-top: 10px; padding: 14px; border: 1px solid var(--borda); border-radius: 12px; background: var(--superficie); }
+.form-novo { margin-top: 14px; padding: 14px; border: 1px solid var(--borda); border-radius: 12px; background: var(--superficie); }
 
 /* -------------------------------------------------------------- celular */
 .area-celular { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+/* no computador o celular fica à vista enquanto a lista de canais rola */
+@media (min-width: 761px) { .area-celular { position: sticky; top: 16px; align-self: start; } }
 .quem { margin: 0 0 10px; font-size: 14px; color: var(--texto-fraco); text-align: center; overflow-wrap: anywhere; }
 .quem b { color: var(--texto); }
 
@@ -228,6 +230,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .tela-conversa { overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; }
 .tela-vazia { margin: auto; max-width: 260px; text-align: center; font-size: 13px; padding: 10px 14px; border-radius: 10px; background: var(--deles); color: var(--deles-texto); opacity: .9; }
+.tela-vazia .botao { display: block; margin: 10px auto 0; padding: 7px 14px; font-size: 13px; }
 .dia {
   align-self: center; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
   padding: 3px 10px; border-radius: 8px; margin: 6px 0; background: var(--deles); color: var(--deles-texto); opacity: .85;
@@ -300,7 +303,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   .palco { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 0 16px 24px; }
   /* personas e canais viram trilhos horizontais para o celular aparecer logo */
   .personas, .canais { flex-direction: row; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
-  .persona, .canal { flex: 0 0 auto; width: auto; max-width: 250px; scroll-snap-align: start; }
+  .persona, .canal { flex: 0 0 auto; width: auto; scroll-snap-align: start; }
+  .persona .linha { white-space: nowrap; }
   .canal .linha { max-width: 190px; }
   .titulo-coluna:not(:first-child) { margin-top: 14px; }
   .celular { width: 100%; height: max(460px, 72vh); border-width: 0; border-radius: 16px; }

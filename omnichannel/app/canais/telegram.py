@@ -6,11 +6,14 @@ funciona ate no computador do dono, sem endereco publico nenhum.
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import logging
 import re
 import threading
+from dataclasses import dataclass
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -34,6 +37,10 @@ BASE = "https://api.telegram.org"
 # mensagem: quem escreve nesse meio-tempo aparece na hora. Curto para nao
 # prender a thread do coletor nem atrasar o desligamento do servidor.
 ESPERA_GETUPDATES = 2
+# Prazo de leitura do getUpdates alem da espera: o timeout_http geral (15 s)
+# somado a ela deixava uma API que aceita a conexao e nunca responde prender a
+# coleta do canal por 17 s a cada tentativa.
+FOLGA_GETUPDATES = 5
 # so o que vira mensagem; o resto (entrada em grupo, enquete...) nem precisa
 # trafegar
 TIPOS_DE_UPDATE = ["message", "edited_message", "channel_post"]
@@ -50,6 +57,17 @@ TOKEN_RECUSADO = (
 # deduplicacao em vez de virar mensagem em dobro.
 _offsets: dict[tuple[int, str], int] = {}
 _trava_offsets = threading.Lock()
+
+
+@dataclass(slots=True)
+class _AnexoIndisponivel(AnexoRecebido):
+    """Anexo cujo download ja falhou na coleta.
+
+    Guarda o motivo para que a gravacao registre o anexo com o erro sem voltar
+    a rede, o que aconteceria dentro da transacao do banco.
+    """
+
+    erro: str = ""
 
 
 def esquecer_offsets() -> None:
@@ -82,13 +100,18 @@ logging.getLogger("httpx").addFilter(_FiltroLogHttpx())
 
 
 def _conflito_webhook(url: str | None = None) -> str:
+    # Nada de ensinar a abrir api.telegram.org/bot<token>/deleteWebhook no
+    # navegador: o token iria para o historico (sincronizado entre aparelhos)
+    # e quem o tiver desvia as mensagens do bot. O token so trafega entre este
+    # servidor e o Telegram: o botao do painel pede a remocao ao servidor
+    # (remover_webhook).
     onde = f" ({url})" if url else ""
     return (
         f"o bot tem um webhook ativo{onde}, e o Telegram não entrega mensagens por polling "
         "enquanto ele existir. Duas saídas: se esse endereço aponta para este servidor, mude "
-        "'Como receber mensagens' para 'webhook'; ou, para continuar no polling, remova o "
-        "webhook abrindo no navegador https://api.telegram.org/bot<SEU_TOKEN>/deleteWebhook "
-        "e verifique a conexão de novo"
+        "'Como receber mensagens' para 'webhook'; ou, para continuar no polling, use "
+        "'Remover webhook' neste canal (ou desligue-o no sistema que o cadastrou) e "
+        "verifique a conexão de novo"
     )
 
 
@@ -96,16 +119,22 @@ def _explicar_conflito(descricao: str) -> str:
     """O 409 do Telegram tem duas causas, e cada uma pede uma acao diferente."""
     if "webhook" in descricao.lower():
         return _conflito_webhook()
+    # Dois canais deste servidor com o mesmo token nao chegam aqui: o coletor
+    # so deixa o de menor id buscar (ver chave_coleta). Sobra quem esta fora
+    # deste processo, inclusive uma segunda copia aberta no mesmo computador.
     return (
-        "outra instância está buscando as mensagens deste bot ao mesmo tempo (outro "
-        "computador ou programa com o mesmo token). Deixe só uma ligada, ou gere um token "
-        "novo no @BotFather (/revoke) para usar só aqui"
+        "outro programa está buscando as mensagens deste bot ao mesmo tempo: outra cópia "
+        "do OmniChannel (neste ou em outro computador) ou outro sistema com o mesmo token. "
+        "Deixe só um ligado, ou gere um token novo no @BotFather (/revoke) para usar só aqui"
     )
 
 
 class AdaptadorTelegram(AdaptadorCanal):
     tipo = TipoCanal.TELEGRAM
     campos_obrigatorios = ("token",)
+    # offset que o proximo getUpdates mandara, quando o coletor confirmar que
+    # gravou o lote: (chave em _offsets, offset)
+    _a_confirmar: tuple[tuple[int, str], int] | None = None
 
     def _url(self, metodo: str) -> str:
         return f"{BASE}/bot{self.credenciais['token']}/{metodo}"
@@ -116,8 +145,24 @@ class AdaptadorTelegram(AdaptadorCanal):
         modo = str(self.credenciais.get("modo_recebimento") or "").strip().lower()
         return "webhook" if modo == "webhook" else "polling"
 
+    @property
+    def chave_coleta(self) -> str | None:
+        """Identifica o bot de onde este canal busca, para o coletor achar repetidos.
+
+        Dois canais com o mesmo token buscando ao mesmo tempo dividem as
+        conversas de um cliente ao acaso entre eles (cada getUpdates leva o que
+        chegou desde o outro). Vai um resumo do token, nunca o token.
+        """
+        if not self.configurado or self.modo_recebimento == "webhook":
+            return None
+        return "telegram:" + hashlib.sha256(str(self.credenciais["token"]).encode()).hexdigest()[:16]
+
     def _chamar(
-        self, http: httpx.Client, metodo: str, corpo: dict | None = None, timeout: float | None = None
+        self,
+        http: httpx.Client,
+        metodo: str,
+        corpo: dict | None = None,
+        timeout: float | httpx.Timeout | None = None,
     ) -> Any:
         """Chama um metodo da Bot API e devolve o `result`, ou ErroCanal legivel."""
         extras = {"timeout": timeout} if timeout is not None else {}
@@ -146,17 +191,62 @@ class AdaptadorTelegram(AdaptadorCanal):
             return super().verificar_conexao()  # a base diz o que falta preencher
         with cliente() as http:
             bot = self._chamar(http, "getMe") or {}
-            webhook = (self._chamar(http, "getWebhookInfo") or {}).get("url")
+            webhook = self._chamar(http, "getWebhookInfo") or {}
         nome = f"@{bot['username']}" if bot.get("username") else (bot.get("first_name") or "o bot")
-        if self.modo_recebimento == "polling" and webhook:
+        url = webhook.get("url")
+        if self.modo_recebimento == "polling" and url:
             # sem isso o admin ve "conectado" e as mensagens nunca chegam
-            raise ErroCanal(_conflito_webhook(webhook))
-        if self.modo_recebimento == "webhook" and not webhook:
-            return (
-                f"Conectado como {nome}, mas o bot ainda não tem webhook cadastrado: as "
-                "mensagens só chegam depois do setWebhook apontando para este servidor"
-            )
+            raise ErroCanal(_conflito_webhook(url))
+        if self.modo_recebimento == "webhook":
+            if not url:
+                return (
+                    f"Conectado como {nome}, mas o bot ainda não tem webhook cadastrado: as "
+                    "mensagens só chegam depois do setWebhook apontando para este servidor"
+                )
+            self._conferir_webhook(webhook)
         return f"Conectado como {nome}"
+
+    def _conferir_webhook(self, info: dict) -> None:
+        """No modo webhook, getMe respondendo nao basta: o token pode estar
+        perfeito e as mensagens irem para outro sistema, ou baterem aqui e
+        serem recusadas. O getWebhookInfo ja diz as duas coisas."""
+        url = str(info.get("url") or "")
+        esperado = f"/webhooks/{self.canal.id}"
+        # so o caminho e conferivel: o endereco publico deste servidor (tunel,
+        # proxy) o sistema nao conhece
+        if self.canal.id is not None and not urlsplit(url).path.rstrip("/").endswith(esperado):
+            raise ErroCanal(
+                f"o webhook do bot aponta para outro endereço ({url}): as mensagens vão para lá, "
+                f"não para este canal. Refaça o setWebhook com a URL deste canal, terminada em {esperado}"
+            )
+        falha = str(info.get("last_error_message") or "").strip()
+        # O Telegram guarda o ultimo erro mesmo depois de resolvido. Com
+        # entrega pendente, porem, ele ainda esta tentando: o erro e atual.
+        if falha and int(info.get("pending_update_count") or 0) > 0:
+            dica = ""
+            if "401" in falha:
+                # a rota recusa a entrega sem o segredo que o cadastro gerou
+                dica = (
+                    " O setWebhook foi feito sem o secret_token deste canal (ou com outro): "
+                    "refaça-o passando o secret_token mostrado no cadastro do canal"
+                )
+            raise ErroCanal(f"o Telegram não consegue entregar as mensagens no webhook: {falha}.{dica}")
+
+    def remover_webhook(self) -> str:
+        """Apaga o webhook do bot para o polling voltar a receber.
+
+        So por clique explicito do admin: e uma mudanca no bot dele, e outro
+        sistema pode depender desse webhook, por isso o coletor nunca chama
+        isto sozinho ao ver o 409. Feito pelo servidor para o token nao
+        precisar aparecer em URL nenhuma no navegador. As mensagens que
+        esperavam o webhook ficam (drop_pending_updates falso): o proximo
+        getUpdates as traz.
+        """
+        if not self.configurado:
+            raise ErroCanal("preencha: token")
+        with cliente() as http:
+            self._chamar(http, "deleteWebhook", {"drop_pending_updates": False})
+        return "Webhook removido: o bot volta a entregar as mensagens por polling"
 
     def coletar(self) -> list[MensagemRecebida]:
         """Modo polling: busca no Telegram o que chegou desde a ultima coleta."""
@@ -168,20 +258,18 @@ class AdaptadorTelegram(AdaptadorCanal):
         corpo: dict = {"timeout": ESPERA_GETUPDATES, "allowed_updates": TIPOS_DE_UPDATE}
         if offset is not None:
             corpo["offset"] = offset
+        prazo = httpx.Timeout(obter_config().timeout_http, read=ESPERA_GETUPDATES + FOLGA_GETUPDATES)
         with cliente() as http:
-            # o prazo da requisicao soma a espera que o proprio Telegram faz
-            resultado = self._chamar(
-                http, "getUpdates", corpo, timeout=obter_config().timeout_http + ESPERA_GETUPDATES
-            )
+            resultado = self._chamar(http, "getUpdates", corpo, timeout=prazo)
         updates = [u for u in resultado if isinstance(u, dict)] if isinstance(resultado, list) else []
 
         ids = [u["update_id"] for u in updates if isinstance(u.get("update_id"), int)]
-        if ids:
-            # nao se confirma nada aqui: e o proximo getUpdates, com este
-            # offset, que diz ao Telegram que estes updates podem ser apagados.
-            # O max() impede que uma coleta atrasada faca o offset voltar.
-            with _trava_offsets:
-                _offsets[chave] = max(_offsets.get(chave, 0), max(ids) + 1)
+        # O offset so anda em confirmar_coleta, depois que o coletor gravou: e
+        # o proximo getUpdates com ele que manda o Telegram apagar o lote. Se
+        # andasse aqui, qualquer falha ao gravar (banco travado, disco cheio)
+        # perderia o lote inteiro; assim ele volta e a deduplicacao descarta o
+        # que ja tinha entrado.
+        self._a_confirmar = (chave, max(ids) + 1) if ids else None
 
         recebidas: list[MensagemRecebida] = []
         for update in updates:
@@ -189,9 +277,41 @@ class AdaptadorTelegram(AdaptadorCanal):
                 recebidas.extend(self.analisar_webhook(update))
             except Exception:
                 # um update num formato inesperado nao pode travar a fila do
-                # bot para sempre: o offset ja passou por ele
+                # bot para sempre: sai do lote e e confirmado com ele
                 log.exception("canal %s: update %s ignorado", self.canal.nome, update.get("update_id"))
         return recebidas
+
+    def confirmar_coleta(self) -> None:
+        """O coletor chama depois de gravar o lote da ultima coleta."""
+        if self._a_confirmar is None:
+            return
+        chave, proximo = self._a_confirmar
+        self._a_confirmar = None
+        with _trava_offsets:
+            # o max() impede que uma coleta atrasada faca o offset voltar
+            _offsets[chave] = max(_offsets.get(chave, 0), proximo)
+
+    def preparar_entrada(self, recebida: MensagemRecebida) -> None:
+        """Baixa os arquivos da mensagem antes de o coletor abrir a transacao.
+
+        Baixar la dentro (registrar_entrada -> guardar_recebidos) prende a
+        trava de escrita do SQLite pelo tempo do download: um PDF grande de um
+        cliente fazia a gravacao de outro canal esperar os 5 s do banco e
+        falhar. Uma mensagem por vez, para um lote de documentos nao ficar
+        inteiro na memoria.
+        """
+        for posicao, anexo in enumerate(recebida.anexos):
+            if anexo.dados is not None:
+                continue
+            try:
+                anexo.dados = self.baixar_anexo(anexo)
+            except ErroCanal as exc:
+                recebida.anexos[posicao] = _AnexoIndisponivel(
+                    nome=anexo.nome,
+                    referencia=anexo.referencia,
+                    tipo_conteudo=anexo.tipo_conteudo,
+                    erro=str(exc),
+                )
 
     def verificar_assinatura(self, corpo: bytes, cabecalhos: Mapping[str, str]) -> bool:
         segredo = self.canal.segredo_webhook
@@ -249,16 +369,25 @@ class AdaptadorTelegram(AdaptadorCanal):
     def baixar_anexo(self, anexo: AnexoRecebido) -> bytes:
         if anexo.dados is not None:
             return anexo.dados
+        if isinstance(anexo, _AnexoIndisponivel):
+            raise ErroCanal(anexo.erro)
         if not anexo.referencia:
             raise ErroCanal("anexo sem file_id")
         with cliente() as http:
             try:
                 # getFile devolve um caminho valido por cerca de uma hora
                 descricao = http.get(self._url("getFile"), params={"file_id": anexo.referencia})
-                dados = descricao.json() if descricao.status_code < 400 else {}
+                # o erro tambem vem em JSON, e o motivo ("file is too big", o
+                # limite de 20 MB do getFile) e o que o atendente precisa ver
+                try:
+                    dados = descricao.json()
+                except ValueError:
+                    dados = {}
+                dados = dados if isinstance(dados, dict) else {}
                 caminho = (dados.get("result") or {}).get("file_path")
                 if not caminho:
-                    raise ErroCanal(f"o Telegram nao devolveu o arquivo: {dados.get('description')}")
+                    motivo = dados.get("description") or f"resposta {descricao.status_code}"
+                    raise ErroCanal(f"o Telegram nao devolveu o arquivo: {motivo}")
                 arquivo = http.get(f"{BASE}/file/bot{self.credenciais['token']}/{caminho}")
             except ErroCanal:
                 raise

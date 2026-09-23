@@ -3,23 +3,39 @@
 Nenhum teste toca a rede: a API do Telegram é simulada com MockTransport.
 """
 import asyncio
+import contextlib
 import json
 import logging
+import re
+import sqlite3
+import threading
+import time
 
 import httpx
 import pytest
 from conftest import criar_canal
+from sqlalchemy.exc import OperationalError
 
 from app import coletor
+from app.armazenamento import ArmazenamentoLocal, definir_armazenamento
 from app.canais import http as canal_http
 from app.canais.base import ErroCanal
 from app.canais.registro import adaptador_para
-from app.canais.telegram import esquecer_offsets
-from app.coletor import CanalAtivo, canais_a_coletar, coletar_uma_vez
+from app.canais.telegram import ESPERA_GETUPDATES, esquecer_offsets
+from app.coletor import (
+    JANELA_RECUPERACAO,
+    CanalAtivo,
+    SituacaoColeta,
+    anotar_resultado,
+    canais_a_coletar,
+    coletar_uma_vez,
+    repetidos,
+)
 from app.db import SessaoLocal
-from app.models import Anexo, Canal, Mensagem, TipoCanal
+from app.models import Anexo, Canal, Contato, ContatoIdentidade, Conversa, Mensagem, TipoCanal
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"conteudo falso de imagem"
+PDF = b"%PDF-1.4 contrato falso"
 
 CONFLITO_WEBHOOK = (
     "Conflict: can't use getUpdates method while webhook is active; "
@@ -30,12 +46,23 @@ CONFLITO_INSTANCIA = (
 )
 
 
+def esperar_threads_do_coletor(prazo: float = 5.0) -> None:
+    # as threads do laço são daemon e seguem depois do cancelamento; sem
+    # esperar, uma delas gravaria no banco do teste seguinte
+    for thread in threading.enumerate():
+        if thread.name.startswith("coletor-"):
+            thread.join(prazo)
+
+
 @pytest.fixture(autouse=True)
-def offsets_zerados():
-    # o offset vive em memória no módulo; cada teste começa como um servidor recém-ligado
+def memoria_zerada():
+    # offset e situação vivem em memória no módulo; cada teste começa como um servidor recém-ligado
     esquecer_offsets()
+    coletor.esquecer_situacoes()
     yield
+    esperar_threads_do_coletor()
     esquecer_offsets()
+    coletor.esquecer_situacoes()
 
 
 def transporte(handler):
@@ -73,6 +100,40 @@ def canal_polling(nome: str = "Telegram", token: str = "tk", **credenciais):
     return criar_canal(TipoCanal.TELEGRAM, nome, credenciais={"token": token, **credenciais})
 
 
+class TelegramFalso:
+    """Bot API que segue a regra do offset: pedir com offset=N apaga os updates menores que N.
+
+    Sem essa regra, um teste não enxerga a perda: o update "confirmado cedo
+    demais" continuaria disponível na simulação, e não no Telegram de verdade.
+    """
+
+    def __init__(self):
+        self.fila: list[dict] = []
+        self.offsets: list[int | None] = []
+        self.arquivos: dict[str, bytes] = {}
+
+    def chegar(self, *updates: dict) -> None:
+        self.fila.extend(updates)
+
+    def responder(self, requisicao: httpx.Request) -> httpx.Response:
+        if metodo(requisicao) == "getUpdates":
+            offset = corpo(requisicao).get("offset")
+            self.offsets.append(offset)
+            if offset is not None:
+                self.fila = [u for u in self.fila if u["update_id"] >= offset]
+            return ok(list(self.fila))
+        if metodo(requisicao) == "getFile":
+            return ok({"file_path": f"docs/{requisicao.url.params['file_id']}"})
+        if requisicao.url.path.startswith("/file/bot"):
+            return httpx.Response(200, content=self.arquivos[metodo(requisicao)])
+        return httpx.Response(404)
+
+
+def conteudos() -> list[str]:
+    with SessaoLocal() as sessao:
+        return sorted(m.conteudo for m in sessao.query(Mensagem))
+
+
 # ---------------------------------------------------------------- coleta
 def test_updates_viram_mensagens_na_caixa_de_entrada(cliente, cabecalho_atendente):
     canal_polling()
@@ -107,6 +168,17 @@ def test_segundo_getupdates_manda_o_offset_avancado():
     assert primeiro["allowed_updates"] == ["message", "edited_message", "channel_post"]
     assert 0 < primeiro["timeout"] <= 5  # espera curta, para não prender o coletor
     assert segundo["offset"] == 44  # max(update_id) + 1 confirma os dois de uma vez
+
+
+def test_getupdates_tem_prazo_de_leitura_curto():
+    canal_polling()
+    prazos = []
+    transporte(lambda r: prazos.append(r.extensions["timeout"]) or ok([]))
+
+    coletar_uma_vez()
+    # o timeout_http geral (15 s) somado à espera deixava uma API muda
+    # prender a coleta do canal por 17 s a cada tentativa
+    assert ESPERA_GETUPDATES < prazos[0]["read"] <= ESPERA_GETUPDATES + 5
 
 
 def test_update_repetido_nao_duplica_nem_depois_de_reiniciar():
@@ -163,7 +235,7 @@ def test_sem_token_nao_chama_a_api():
 
 @pytest.mark.parametrize(
     "descricao, trecho",
-    [(CONFLITO_WEBHOOK, "webhook ativo"), (CONFLITO_INSTANCIA, "outra instância")],
+    [(CONFLITO_WEBHOOK, "webhook ativo"), (CONFLITO_INSTANCIA, "outra cópia do OmniChannel")],
 )
 def test_conflito_409_e_registrado_sem_derrubar_outro_canal(caplog, descricao, trecho):
     canal_polling("Bot em conflito", token="conflito")
@@ -237,19 +309,330 @@ def test_foto_recebida_por_polling_vira_anexo():
         assert anexo.mensagem.conteudo == "olha o erro"
 
 
+def test_download_que_falha_registra_o_anexo_sem_voltar_a_rede():
+    canal_polling()
+    arquivos_pedidos = []
+
+    def responder(requisicao):
+        if metodo(requisicao) == "getUpdates":
+            return ok([update(9, "", caption="segue o boleto", document={"file_id": "boleto"})])
+        arquivos_pedidos.append(metodo(requisicao))
+        return recusa(400, "Bad Request: file is too big")
+
+    transporte(responder)
+    assert coletar_uma_vez() == 1
+
+    with SessaoLocal() as sessao:
+        anexo = sessao.query(Anexo).one()
+        assert "file is too big" in anexo.erro and anexo.externo_id == "boleto"
+    # a gravação usa o erro guardado na coleta; uma segunda tentativa ali
+    # seria rede dentro da transação do banco
+    assert arquivos_pedidos == ["getFile"]
+
+
+# ---------------------------------------- confirmação só depois de gravar
+def test_falha_ao_gravar_nao_confirma_o_lote(monkeypatch):
+    canal_polling()
+    telegram = TelegramFalso()
+    telegram.chegar(update(10, "Oi", chat_id=1), update(11, "Quero comprar", chat_id=2))
+    transporte(telegram.responder)
+    original = coletor.registrar_entrada
+    travar = {"Quero comprar": 1}
+
+    def registrar(sessao, canal, recebida):
+        if travar.get(recebida.conteudo):
+            travar[recebida.conteudo] -= 1
+            # outro gravador segurou o SQLite além dos 5 s de espera
+            raise OperationalError("INSERT INTO contatos", {}, sqlite3.OperationalError("database is locked"))
+        return original(sessao, canal, recebida)
+
+    monkeypatch.setattr(coletor, "registrar_entrada", registrar)
+
+    coletar_uma_vez()  # a falha fica no log e na situação, não sobe
+    assert conteudos() == ["Oi"]
+    assert len(telegram.fila) == 2  # nada confirmado: o Telegram ainda tem o lote
+
+    # o lote volta inteiro; "Oi" morre na deduplicação e "Quero comprar" entra
+    assert coletar_uma_vez() == 1
+    coletar_uma_vez()
+    assert conteudos() == ["Oi", "Quero comprar"]
+    assert telegram.offsets == [None, None, 12]
+    assert telegram.fila == []
+
+
+def test_disco_cheio_segura_o_lote_ate_voltar(tmp_path):
+    canal_polling()
+    telegram = TelegramFalso()
+    telegram.arquivos["foto"] = PNG
+    telegram.chegar(
+        update(10, "Ana aqui", chat_id=1),
+        update(11, "", chat_id=2, caption="print do erro", photo=[{"file_id": "foto"}]),
+        update(12, "Carla aqui", chat_id=3),
+    )
+    transporte(telegram.responder)
+
+    class DiscoCheio(ArmazenamentoLocal):
+        cheio = True
+
+        def salvar(self, dados, nome):
+            if self.cheio:
+                raise OSError(28, "No space left on device")
+            return super().salvar(dados, nome)
+
+    disco = DiscoCheio(tmp_path / "anexos-cheio")
+    definir_armazenamento(disco)
+
+    coletar_uma_vez()
+    assert conteudos() == ["Ana aqui"]
+    assert len(telegram.fila) == 3  # nada confirmado
+
+    disco.cheio = False
+    assert coletar_uma_vez() == 2
+    coletar_uma_vez()
+    assert conteudos() == ["Ana aqui", "Carla aqui", "print do erro"]
+    assert telegram.fila == []
+    with SessaoLocal() as sessao:
+        assert sessao.query(Anexo).one().tamanho == len(PNG)
+
+
+def test_mensagem_com_defeito_e_pulada_sem_levar_as_do_lote(monkeypatch, caplog):
+    canal_polling()
+    telegram = TelegramFalso()
+    telegram.chegar(
+        update(10, "Ana", chat_id=1), update(11, "Bruno", chat_id=2), update(12, "Carla", chat_id=3)
+    )
+    transporte(telegram.responder)
+    original = coletor.registrar_entrada
+
+    def registrar(sessao, canal, recebida):
+        if recebida.conteudo == "Bruno":
+            raise ValueError("formato que nunca vai gravar")
+        return original(sessao, canal, recebida)
+
+    monkeypatch.setattr(coletor, "registrar_entrada", registrar)
+
+    with caplog.at_level(logging.ERROR, logger="omnichannel.coletor"):
+        assert coletar_uma_vez() == 2
+    coletar_uma_vez()
+
+    assert conteudos() == ["Ana", "Carla"]
+    # um defeito permanente não pode travar a fila do bot para sempre
+    assert telegram.fila == []
+    assert any("descartada" in r.getMessage() for r in caplog.records)
+
+
+def test_mesmo_cliente_em_dois_bots_ao_mesmo_tempo_nao_perde_mensagem(monkeypatch):
+    canal_polling()
+    telegram = TelegramFalso()
+    telegram.chegar(update(10, "Quero comprar", chat_id=7))
+    transporte(telegram.responder)
+    from app.servicos import contatos
+
+    original = contatos._por_dado_conhecido
+    corrida = {"pendente": True}
+
+    def outra_thread_grava_antes(sessao, canal_tipo, identificador):
+        # entre a consulta e a gravação, a coleta do outro bot cria a mesma identidade
+        if corrida.pop("pendente", False):
+            with SessaoLocal() as outra:
+                contato = Contato(nome="Ana (pelo outro bot)")
+                outra.add(contato)
+                outra.flush()
+                outra.add(ContatoIdentidade(contato_id=contato.id, canal_tipo="telegram", identificador="7"))
+                outra.commit()
+        return original(sessao, canal_tipo, identificador)
+
+    monkeypatch.setattr(contatos, "_por_dado_conhecido", outra_thread_grava_antes)
+
+    assert coletar_uma_vez() == 1
+    with SessaoLocal() as sessao:
+        assert sessao.query(Contato).count() == 1
+        assert sessao.query(Mensagem).one().conversa.contato.nome == "Ana (pelo outro bot)"
+
+
+def test_download_lento_de_um_bot_nao_trava_a_gravacao_de_outro():
+    canal_polling("Vendas", token="vendas")
+    canal_polling("Suporte", token="suporte")
+    download_comecou = threading.Event()
+    gravou_durante_o_download = {}
+
+    def gravada(texto):
+        with SessaoLocal() as sessao:
+            return sessao.query(Mensagem).filter_by(conteudo=texto).count() > 0
+
+    documento = {"file_id": "contrato", "file_name": "contrato.pdf", "mime_type": "application/pdf"}
+    vendas, suporte = TelegramFalso(), TelegramFalso()
+    vendas.chegar(update(20, "", chat_id=1, caption="segue o contrato", document=documento))
+    suporte.chegar(update(21, "Oi, preciso de suporte", chat_id=2))
+
+    def responder(requisicao):
+        token = re.search(r"/bot([^/]+)/", requisicao.url.path).group(1)
+        if token == "suporte" and metodo(requisicao) == "getUpdates":
+            # o cliente do Suporte escreve enquanto o PDF do Vendas desce
+            download_comecou.wait(3)
+        if token == "vendas" and requisicao.url.path.startswith("/file/"):
+            download_comecou.set()
+            # download lento: só termina quando o Suporte gravou (ou em 3 s).
+            # Com a rede dentro da transação, o Vendas seguraria o SQLite e o
+            # Suporte ficaria esperando a trava até desistir.
+            prazo = time.monotonic() + 3
+            while time.monotonic() < prazo and not gravada("Oi, preciso de suporte"):
+                time.sleep(0.05)
+            gravou_durante_o_download["suporte"] = gravada("Oi, preciso de suporte")
+            return httpx.Response(200, content=PDF)
+        return (vendas if token == "vendas" else suporte).responder(requisicao)
+
+    transporte(responder)
+
+    async def rodar():
+        tarefa = asyncio.create_task(coletor.laco(intervalo_coleta=60, intervalo_polling=1))
+        for _ in range(200):
+            if len(conteudos()) == 2 and not vendas.fila and not suporte.fila:
+                break
+            await asyncio.sleep(0.05)
+        tarefa.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await tarefa
+
+    asyncio.run(rodar())
+
+    assert gravou_durante_o_download == {"suporte": True}
+    assert conteudos() == ["Oi, preciso de suporte", "segue o contrato"]
+    assert vendas.fila == [] and suporte.fila == []  # confirmados só depois de gravados
+    with SessaoLocal() as sessao:
+        assert sessao.query(Anexo).one().tamanho == len(PDF)
+
+
+# ------------------------------------------------ mesmo token, dois canais
+def test_chave_de_coleta_identifica_o_bot_sem_expor_o_token():
+    def chave(**credenciais):
+        return adaptador_para(canal_polling(**credenciais)).chave_coleta
+
+    mesmo = chave(token="123:segredo")
+    assert mesmo == chave(token="123:segredo") != chave(token="456:outro")
+    assert "segredo" not in mesmo
+    # no modo webhook o Telegram entrega num endereço só: ninguém disputa o getUpdates
+    assert chave(token="123:segredo", modo_recebimento="webhook") is None
+
+
+def test_agenda_so_deixa_o_canal_mais_antigo_buscar_o_mesmo_bot():
+    antigo = CanalAtivo(1, TipoCanal.TELEGRAM.value, "Bot antigo", "telegram:abc")
+    email = CanalAtivo(2, TipoCanal.EMAIL.value, "E-mail")
+    novo = CanalAtivo(3, TipoCanal.TELEGRAM.value, "Bot novo", "telegram:abc")
+    outro = CanalAtivo(4, TipoCanal.TELEGRAM.value, "Outro bot", "telegram:xyz")
+    canais = [novo, antigo, email, outro]
+
+    assert repetidos(canais) == {3: antigo}
+    assert canais_a_coletar(canais, {}, set(), 0, 3, 60) == [antigo, email, outro]
+
+
+def test_canal_estranho_nao_impede_a_coleta_dos_outros():
+    with SessaoLocal() as sessao:
+        # tipo que o registro não conhece: a listagem monta o adaptador de
+        # todos para achar repetidos, e um erro ali pararia a coleta de todos
+        sessao.add(Canal(nome="Canal legado", tipo="fax", credenciais={}, ativo=True))
+        sessao.commit()
+    canal_polling(token=12345)  # token salvo como número, via curl
+    transporte(lambda r: ok([update(1, "chegou")]))
+
+    assert [c.nome for c in coletor.canais_ativos()] == ["Canal legado", "Telegram"]
+    assert coletar_uma_vez() == 1
+
+
+def test_mesmo_token_em_dois_canais_nao_divide_o_cliente(caplog):
+    antigo = canal_polling("Bot antigo", token="mesmo")
+    novo = canal_polling("Bot novo", token="mesmo")
+    telegram = TelegramFalso()
+    transporte(telegram.responder)
+
+    with caplog.at_level(logging.WARNING, logger="omnichannel.coletor"):
+        for i in range(4):
+            telegram.chegar(update(100 + i, f"msg {i}", chat_id=7))
+            coletar_uma_vez()
+
+    with SessaoLocal() as sessao:
+        conversa = sessao.query(Conversa).one()  # um cliente, uma conversa
+        assert conversa.canal_id == antigo.id
+        assert sorted(m.conteudo for m in conversa.mensagens) == ["msg 0", "msg 1", "msg 2", "msg 3"]
+    avisos = [r.getMessage() for r in caplog.records if r.name == "omnichannel.coletor"]
+    # a instrução aponta o outro canal deste servidor, não "outro computador"
+    assert len(avisos) == 1 and "Bot novo" in avisos[0] and "'Bot antigo'" in avisos[0]
+    assert coletor.situacao(novo.id)["recebendo"] is False
+    assert coletor.situacao(antigo.id)["recebendo"] is True
+
+
+# -------------------------------------------------- situação da coleta
+def test_situacao_so_diz_que_voltou_depois_de_uma_janela_sem_erro():
+    situacao = SituacaoColeta()
+    assert anotar_resultado(situacao, "409", 0) == "falhou"
+    # outra cópia disputando o bot: um sucesso no meio não quer dizer que acabou
+    assert anotar_resultado(situacao, None, 3) is None
+    assert anotar_resultado(situacao, "409", 6) is None  # o mesmo erro não se repete no log
+    assert anotar_resultado(situacao, "sem rede", 9) == "falhou"  # mudou: vale registrar
+    assert (situacao.erro, situacao.erro_desde, situacao.ultima_coleta_ok) == ("sem rede", 0, 3)
+
+    assert anotar_resultado(situacao, None, 9 + JANELA_RECUPERACAO - 1) is None
+    assert situacao.erro == "sem rede"
+    assert anotar_resultado(situacao, None, 9 + JANELA_RECUPERACAO) == "voltou"
+    assert situacao.erro is None and situacao.erro_desde is None
+
+
+def test_falha_intermitente_fica_visivel_e_nao_alterna_no_log(caplog):
+    canal = canal_polling()
+    respostas = iter([recusa(409, CONFLITO_INSTANCIA), ok([])] * 3)
+    transporte(lambda r: next(respostas))
+    assert coletor.situacao(canal.id) is None  # o coletor ainda não passou por ele
+
+    with caplog.at_level(logging.INFO, logger="omnichannel.coletor"):
+        for _ in range(6):
+            coletar_uma_vez()
+
+    situacao = coletor.situacao(canal.id)
+    # o "Testar conexão" diria "Conectado": é isto que mostra que não está recebendo
+    assert situacao["recebendo"] is False and "outra cópia do OmniChannel" in situacao["erro"]
+    assert situacao["erro_desde"] is not None and situacao["ultima_coleta_ok"] is not None
+    linhas = [r.getMessage() for r in caplog.records if r.name == "omnichannel.coletor"]
+    assert len(linhas) == 1 and "voltou" not in linhas[0]
+
+    with SessaoLocal() as sessao:
+        sessao.get(Canal, canal.id).ativo = False
+        sessao.commit()
+    coletar_uma_vez()
+    assert coletor.situacao(canal.id) is None  # desativado não tem coleta a mostrar
+
+
+def test_erro_inesperado_na_situacao_nao_carrega_o_sql(monkeypatch):
+    canal = canal_polling()
+    transporte(lambda r: ok([update(1, "texto do cliente")]))
+
+    def banco_fora(*args):
+        raise OperationalError(
+            "INSERT INTO mensagens (conteudo) VALUES (?)",
+            ("texto do cliente",),
+            sqlite3.OperationalError("disk I/O error"),
+        )
+
+    monkeypatch.setattr(coletor, "registrar_entrada", banco_fora)
+    coletar_uma_vez()
+
+    erro = coletor.situacao(canal.id)["erro"]
+    assert "disk I/O error" in erro
+    assert "texto do cliente" not in erro and "INSERT" not in erro
+
+
 # --------------------------------------------------------- verificação
 def adaptador(**credenciais):
     return adaptador_para(canal_polling(**credenciais))
 
 
-def api_do_bot(webhook: str = "", status_getme: int = 200):
+def api_do_bot(webhook: str = "", status_getme: int = 200, **info_webhook):
     def responder(requisicao):
         if metodo(requisicao) == "getMe":
             if status_getme != 200:
                 return recusa(status_getme, "Unauthorized" if status_getme == 401 else "Not Found")
             return ok({"id": 1, "is_bot": True, "first_name": "Suporte", "username": "suporte_bot"})
         if metodo(requisicao) == "getWebhookInfo":
-            return ok({"url": webhook, "pending_update_count": 0})
+            return ok({"url": webhook, "pending_update_count": 0, **info_webhook})
         return httpx.Response(404)
 
     return responder
@@ -275,18 +658,67 @@ def test_verificar_conexao_aponta_conflito_de_webhook_no_modo_polling():
 
     mensagem = str(erro.value)
     assert "webhook ativo" in mensagem and "https://servidor-antigo.com.br/hook" in mensagem
-    # as duas saídas: trocar o modo ou remover o webhook
-    assert "'webhook'" in mensagem and "deleteWebhook" in mensagem
+    # as duas saídas: trocar o modo ou remover o webhook pelo próprio sistema
+    assert "'webhook'" in mensagem and "Remover webhook" in mensagem
     assert "123:segredo" not in mensagem  # a mensagem vai para a tela e para o log
+    # nada de mandar abrir uma URL com o token no navegador (histórico, extensões, proxy)
+    assert "api.telegram.org" not in mensagem and "TOKEN" not in mensagem
+
+
+def test_remover_webhook_pede_ao_telegram_sem_descartar_pendentes():
+    pedidos = []
+    transporte(lambda r: pedidos.append((metodo(r), corpo(r))) or ok(True))
+
+    assert "Webhook removido" in adaptador().remover_webhook()
+    # drop_pending_updates falso: as mensagens que esperavam o webhook chegam pelo polling
+    assert pedidos == [("deleteWebhook", {"drop_pending_updates": False})]
+
+    with pytest.raises(ErroCanal, match="preencha: token"):
+        adaptador_para(criar_canal(TipoCanal.TELEGRAM, "Sem token")).remover_webhook()
 
 
 def test_verificar_conexao_no_modo_webhook():
-    transporte(api_do_bot(webhook="https://meu-host/webhooks/1"))
-    assert adaptador(modo_recebimento="webhook").verificar_conexao() == "Conectado como @suporte_bot"
+    canal = canal_polling(modo_recebimento="webhook")
+    transporte(api_do_bot(webhook=f"https://meu-host/webhooks/{canal.id}"))
+    assert adaptador_para(canal).verificar_conexao() == "Conectado como @suporte_bot"
 
     transporte(api_do_bot(webhook=""))
-    aviso = adaptador(modo_recebimento="webhook").verificar_conexao()
+    aviso = adaptador_para(canal).verificar_conexao()
     assert aviso.startswith("Conectado como @suporte_bot") and "setWebhook" in aviso
+
+
+def test_verificar_conexao_no_modo_webhook_aponta_endereco_de_outro_sistema():
+    canal = canal_polling(modo_recebimento="webhook")
+    transporte(api_do_bot(webhook="https://n8n.outra-empresa.com/webhook/abc"))
+
+    with pytest.raises(ErroCanal) as erro:
+        adaptador_para(canal).verificar_conexao()
+    mensagem = str(erro.value)
+    assert "outro endereço" in mensagem and "n8n.outra-empresa.com" in mensagem
+    assert f"/webhooks/{canal.id}" in mensagem  # o que o setWebhook precisa ter
+
+
+def test_verificar_conexao_no_modo_webhook_mostra_entrega_recusada():
+    canal = canal_polling(modo_recebimento="webhook")
+    url = f"https://meu-host.com.br/webhooks/{canal.id}"
+    transporte(
+        api_do_bot(
+            webhook=url,
+            pending_update_count=3,
+            last_error_date=1_700_000_000,
+            last_error_message="Wrong response from the webhook: 401 Unauthorized",
+        )
+    )
+    with pytest.raises(ErroCanal) as erro:
+        adaptador_para(canal).verificar_conexao()
+    mensagem = str(erro.value)
+    # a nossa rota recusa a entrega sem o segredo: a dica é o secret_token
+    assert "401 Unauthorized" in mensagem and "secret_token" in mensagem
+
+    # o Telegram guarda o último erro mesmo depois de resolvido; sem entrega
+    # pendente, ele é passado
+    transporte(api_do_bot(webhook=url, last_error_message="Wrong response from the webhook: 401 Unauthorized"))
+    assert adaptador_para(canal).verificar_conexao() == "Conectado como @suporte_bot"
 
 
 def test_verificar_conexao_sem_rede_e_sem_token():
@@ -356,4 +788,36 @@ def test_laco_continua_quando_um_canal_falha_e_nao_repete_o_aviso(caplog):
         assert sessao.query(Mensagem).one().conteudo == "chegou pelo laço"
     avisos = [r.getMessage() for r in caplog.records if r.name == "omnichannel.coletor"]
     # o mesmo erro a cada ciclo viraria ruído: registra uma vez só
-    assert len(avisos) == 1 and "outra instância" in avisos[0]
+    assert len(avisos) == 1 and "outra cópia do OmniChannel" in avisos[0]
+
+
+def test_desligar_o_laco_nao_espera_a_api_muda():
+    canal_polling()
+    chamou, solta = threading.Event(), threading.Event()
+
+    def api_muda(requisicao):
+        # aceita a conexão e nunca responde (proxy travado, rede que descarta pacotes)
+        chamou.set()
+        solta.wait(10)
+        return ok([])
+
+    transporte(api_muda)
+
+    async def rodar():
+        tarefa = asyncio.create_task(coletor.laco(intervalo_coleta=60, intervalo_polling=1))
+        for _ in range(100):
+            if chamou.is_set():
+                break
+            await asyncio.sleep(0.05)
+        tarefa.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await tarefa
+
+    inicio = time.monotonic()
+    try:
+        asyncio.run(rodar())
+        # com o executor padrão, o asyncio.run esperaria a thread presa no
+        # getUpdates, e o Ctrl+C ficaria travado pelo prazo inteiro do httpx
+        assert chamou.is_set() and time.monotonic() - inicio < 3
+    finally:
+        solta.set()

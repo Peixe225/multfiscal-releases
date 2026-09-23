@@ -30,6 +30,12 @@
   <header class="topo">
     <div class="marca"><i class="ponto"></i> OmniChannel <small>2</small></div>
     <div class="indicadores" id="indicadores"></div>
+    <nav class="atalhos" aria-label="Ferramentas">
+      <a class="atalho" href="/simulador" target="_blank" rel="noopener"
+         title="Escrever como cliente pelo WhatsApp, Telegram ou e-mail (abre em nova aba)">Simulador ↗</a>
+      <button type="button" class="atalho" id="abrir-canais" hidden
+              aria-haspopup="dialog" aria-controls="canais">Canais</button>
+    </nav>
     <div class="usuario">
       <div class="avatar" id="avatar"></div>
       <div>
@@ -102,6 +108,19 @@
     </section>
 
     <aside class="coluna ficha" id="ficha"></aside>
+  </div>
+
+  <!-- só para admin; o conteúdo é montado pelo painel.js a partir de /api/canais/tipos -->
+  <div id="canais" class="gaveta-fundo" hidden>
+    <section class="gaveta" role="dialog" aria-modal="true" aria-labelledby="titulo-canais">
+      <header class="cabecalho-gaveta">
+        <button type="button" class="icone-gaveta" id="canais-voltar" hidden aria-label="Voltar à lista de canais">←</button>
+        <h2 id="titulo-canais">Canais</h2>
+        <button type="button" class="botao pequeno" id="canais-novo">Novo canal</button>
+        <button type="button" class="icone-gaveta" id="canais-fechar" aria-label="Fechar (Esc)">×</button>
+      </header>
+      <div class="corpo-gaveta" id="corpo-canais"></div>
+    </section>
   </div>
 </div>
 

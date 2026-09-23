@@ -54,6 +54,10 @@ body {
 
 button, input, textarea, select { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
+/* só para quem navega pelo teclado; o clique do mouse não ganha contorno */
+button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--marca); outline-offset: 2px;
+}
 
 /* ---------------------------------------------------------------- login */
 .tela-login {
@@ -96,6 +100,9 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .botao:disabled { opacity: .55; cursor: progress; }
 .botao.largo { width: 100%; }
 .botao.discreto { background: var(--superficie-2); color: var(--texto); border: 1px solid var(--borda); font-weight: 500; }
+.botao.pequeno { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+.botao.perigo { background: var(--vermelho); }
+.botao.discreto.perigo-texto { color: var(--vermelho); }
 .erro { color: var(--vermelho); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
 
 /* ----------------------------------------------------------------- topo */
@@ -115,6 +122,13 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .indicadores { display: flex; gap: 18px; margin-left: auto; font-size: 13px; }
 .indicador b { display: block; font-size: 17px; line-height: 1.1; }
 .indicador span { color: var(--texto-fraco); }
+.atalhos { display: flex; gap: 6px; align-items: center; }
+.atalho {
+  border: 1px solid var(--borda); background: var(--superficie-2); color: var(--texto);
+  padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.atalho:hover { background: var(--marca-fraca); color: var(--marca); }
 .usuario { display: flex; align-items: center; gap: 10px; padding-left: 18px; border-left: 1px solid var(--borda); }
 .avatar {
   width: 32px; height: 32px; border-radius: 50%;
@@ -147,6 +161,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .filtro .contagem { flex: none; }
 .filtro.ativo { background: var(--marca-fraca); color: var(--marca); font-weight: 600; }
 .filtro .contagem { margin-left: auto; font-size: 12px; color: var(--texto-fraco); }
+.filtro .contagem.falhou { color: var(--vermelho); font-weight: 600; }
 .ponto-etiqueta { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 
 /* ---------------------------------------------------------------- lista */
@@ -264,9 +279,97 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .aviso {
   position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
   background: var(--texto); color: var(--fundo); padding: 10px 18px;
-  border-radius: 20px; font-size: 14px; box-shadow: var(--sombra); z-index: 20;
+  border-radius: 20px; font-size: 14px; box-shadow: var(--sombra);
+  z-index: 40; /* acima da gaveta de canais, que também avisa por aqui */
 }
 .aviso.falha { background: var(--vermelho); color: #fff; }
 
+/* ---------------------------------------------------------------- canais */
+.gaveta-fundo {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; justify-content: flex-end;
+  background: rgba(8, 12, 24, .45);
+}
+.gaveta {
+  width: min(660px, 100vw); height: 100%;
+  display: grid; grid-template-rows: auto 1fr;
+  background: var(--fundo); border-left: 1px solid var(--borda);
+  box-shadow: -12px 0 40px rgba(8, 12, 24, .18);
+}
+.cabecalho-gaveta {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: var(--superficie); border-bottom: 1px solid var(--borda);
+}
+.cabecalho-gaveta h2 { margin: 0 auto 0 0; font-size: 17px; }
+.icone-gaveta {
+  border: 0; background: transparent; color: var(--texto-fraco); cursor: pointer;
+  width: 34px; height: 34px; border-radius: 8px; font-size: 22px; line-height: 1;
+}
+.icone-gaveta:hover { background: var(--superficie-2); color: var(--texto); }
+.corpo-gaveta { overflow-y: auto; padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 12px; }
+
+.cartao-canal { background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px; }
+.cartao-canal.inativo { background: var(--superficie-2); }
+.cartao-canal.inativo h3 { color: var(--texto-fraco); }
+.cartao-canal .linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cartao-canal h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.cartao-canal .explicacao { margin: 4px 0 0; }
+.situacao { margin-left: auto; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; border: 1px solid currentColor; }
+.situacao.conectado { color: var(--verde); }
+.situacao.sandbox { color: var(--ambar); }
+.situacao.desativado { color: var(--texto-fraco); }
+/* credencial salva ainda não é conexão: só o teste pinta de verde */
+.situacao.nao-testado, .situacao.ressalva { color: var(--ambar); }
+.situacao.falhou { color: var(--vermelho); }
+.situacao.andamento { color: var(--texto-fraco); border-style: dashed; }
+.alerta-canal {
+  margin: 0; padding: 8px 11px; border-radius: 8px; font-size: 13px;
+  background: var(--nota); border: 1px solid var(--nota-borda); color: var(--texto);
+}
+.form-canal > .alerta-canal { margin-top: 12px; }
+
+.copiar-bloco { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.copiar-bloco .dica { margin: 0; }
+.copiavel .rotulo { font-size: 12px; color: var(--texto-fraco); margin-bottom: 4px; }
+.linha-copiavel { display: flex; gap: 6px; align-items: flex-start; }
+.linha-copiavel .valor {
+  flex: 1; min-width: 0; margin: 0; overflow-x: auto; white-space: pre;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--borda); background: var(--superficie-2);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.link-externo { font-size: 13px; color: var(--marca); font-weight: 600; }
+
+.acoes-canal { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.confirmacao { margin-top: 12px; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--vermelho); font-size: 13px; }
+.confirmacao p { margin: 0; }
+.confirmacao .acoes-canal { margin-top: 10px; }
+
+/* vazia continua no DOM (é região "status"), só não ocupa espaço */
+.resultado-teste { font-size: 13px; overflow-wrap: anywhere; }
+.resultado-teste:not(:empty) { margin-top: 10px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--borda); }
+.resultado-teste.ok { color: var(--verde); border-color: currentColor; }
+.resultado-teste.falha { color: var(--vermelho); border-color: currentColor; }
+.resultado-teste.andamento { color: var(--texto-fraco); border-style: dashed; }
+.resultado-teste.ressalva { background: var(--nota); border-color: var(--nota-borda); color: var(--texto); }
+.resultado-teste .alerta-teste { display: block; margin-top: 4px; }
+.resultado-teste:focus { outline: 2px solid var(--marca); outline-offset: 2px; }
+.resultado-teste strong { margin-right: 2px; }
+
+.linha-form { display: grid; grid-template-columns: 160px 1fr; gap: 12px; margin-top: 10px; }
+.campo-canal { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+.linha-form .campo-canal { margin-top: 0; }
+.campo-canal label { font-size: 13px; font-weight: 600; }
+.campo-canal .obrigatorio { margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--texto-fraco); }
+.campo-canal input, .campo-canal select {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--borda);
+  border-radius: 8px; background: var(--superficie-2);
+}
+.campo-canal input:focus { outline: 2px solid var(--marca); outline-offset: -1px; }
+.campo-canal input:disabled { opacity: .6; }
+.campo-canal .apagar-segredo { align-self: flex-start; }
+.apagar-segredo[aria-pressed="true"] { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
+.novo-canal .erro:empty { display: none; }
+
 @media (max-width: 1200px) { .grade { grid-template-columns: 180px 280px minmax(0, 1fr); } .ficha { display: none; } }
 @media (max-width: 900px) { .grade { grid-template-columns: 260px minmax(0, 1fr); } .coluna.filtros { display: none; } }
+@media (max-width: 560px) { .linha-form { grid-template-columns: 1fr; } .indicadores { display: none; } }

@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import select  # noqa: E402
 
+from app.api.canais import segredos_iniciais  # noqa: E402
 from app.canais.base import MensagemRecebida  # noqa: E402
 from app.db import SessaoLocal, criar_tabelas  # noqa: E402
 from app.models import (  # noqa: E402
@@ -27,7 +28,7 @@ from app.models import (  # noqa: E402
     RespostaRapida,
     TipoCanal,
 )
-from app.security import gerar_chave, gerar_hash_senha  # noqa: E402
+from app.security import gerar_hash_senha  # noqa: E402
 from app.servicos.mensagens import enviar_mensagem, registrar_entrada  # noqa: E402
 
 CANAIS = [
@@ -86,13 +87,9 @@ def semear(demo: bool = False) -> None:
 
         canais = {}
         for nome, tipo in CANAIS:
-            canal = Canal(
-                nome=nome,
-                tipo=tipo.value,
-                credenciais={},
-                chave_publica=gerar_chave("wc_") if tipo is TipoCanal.WEBCHAT else None,
-                segredo_webhook=None if tipo is TipoCanal.WEBCHAT else gerar_chave(),
-            )
+            # mesma regra do cadastro pela API: um segredo gerado aqui para o
+            # WhatsApp faria recusar todo webhook real, assinado pela Meta
+            canal = Canal(nome=nome, tipo=tipo.value, credenciais={}, **segredos_iniciais(tipo))
             sessao.add(canal)
             canais[tipo] = canal
 

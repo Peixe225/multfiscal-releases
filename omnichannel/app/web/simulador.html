@@ -55,10 +55,9 @@
   <section class="faixa">
     <div>
       <b>Você é o cliente.</b>
-      Escolha quem você é, escreva no celular e a mensagem entra na caixa de
-      entrada de verdade, como se tivesse chegado pelo WhatsApp, pelo Telegram
-      ou por e-mail. Abra o painel em outra aba e responda: a resposta aparece
-      aqui na hora, sem recarregar.
+      O que você escreve no celular entra na caixa de entrada de verdade, como
+      se viesse do WhatsApp, do Telegram ou do e-mail. Responda pelo painel em
+      outra aba e veja a resposta chegar aqui, sem recarregar.
     </div>
     <a class="botao" href="/painel" target="_blank" rel="noopener">Abrir o painel ↗</a>
   </section>
@@ -67,6 +66,9 @@
     <aside class="lado">
       <h2 class="titulo-coluna">Quem você é</h2>
       <div id="personas" class="personas"></div>
+
+      <h2 class="titulo-coluna">Pelo canal</h2>
+      <div id="canais" class="canais"></div>
 
       <form id="form-novo" class="form-novo" hidden novalidate>
         <label class="campo">
@@ -80,9 +82,6 @@
         <button class="botao largo" type="submit">Abrir a conversa</button>
         <p class="erro" id="erro-novo" role="alert"></p>
       </form>
-
-      <h2 class="titulo-coluna">Pelo canal</h2>
-      <div id="canais" class="canais"></div>
     </aside>
 
     <section class="area-celular">

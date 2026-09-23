@@ -3,10 +3,12 @@
    como um webhook de verdade, e a resposta do atendente volta pelo mesmo fluxo
    de eventos que alimenta o painel. Sem framework, como o painel. */
 
+// E-mail sempre em domínio reservado (RFC 2606): se o canal ganhar SMTP
+// depois, a resposta a uma conversa de teste não chega à caixa de ninguém
 const PERSONAS = [
   { id: "ian", nome: "Ian Dantas", tipo: "whatsapp", identificador: "5533991269149" },
   { id: "marcos", nome: "Marcos Contabilidade", tipo: "telegram", identificador: "884412" },
-  { id: "financeiro", nome: "Financeiro Loja Exemplo", tipo: "email", identificador: "financeiro@lojaexemplo.com.br" },
+  { id: "financeiro", nome: "Financeiro Loja Exemplo", tipo: "email", identificador: "financeiro@loja.example" },
   { id: "novo", nome: "Novo cliente", tipo: null },
 ];
 
@@ -15,11 +17,17 @@ const NOMES_CANAL = { whatsapp: "WhatsApp", telegram: "Telegram", email: "E-mail
 const CAMPO_IDENTIFICADOR = {
   whatsapp: { rotulo: "Número com DDI e DDD", exemplo: "55 11 91234-5678", tipo: "tel" },
   telegram: { rotulo: "ID do chat (negativo para grupos)", exemplo: "123456789", tipo: "text" },
-  email: { rotulo: "E-mail", exemplo: "cliente@empresa.com.br", tipo: "email" },
+  email: { rotulo: "E-mail", exemplo: "cliente@empresa.example", tipo: "email" },
 };
 
 // o que o cliente nunca vê: conversa da equipe e envio que o provedor recusou
 const INTERNAS = new Set(["nota_interna", "sistema"]);
+
+// o que o AdaptadorEmail põe no assunto da resposta quando a conversa não tem um
+const ASSUNTO_SEM_ASSUNTO = "Atendimento";
+
+// nomes dos campos nos erros de validação que o servidor devolve em lista
+const ROTULOS_CAMPO = { conteudo: "mensagem", assunto: "assunto", identificador: "identificador", nome: "nome" };
 
 const CHAVE_PREFERENCIAS = "omni_simulador";
 
@@ -28,9 +36,11 @@ const estado = {
   canais: [],
   personaId: "ian",
   canalPorPersona: {},
-  novo: { identificador: "", nome: "" },
+  // o tipo diz em que canal o identificador foi digitado: um número de
+  // WhatsApp não serve de e-mail nem de id do Telegram
+  novo: { identificador: "", nome: "", tipo: null },
   contatoId: null,
-  conversas: new Map(), // conversa_id -> assunto (o e-mail mostra em cada cartão)
+  conversas: new Map(), // conversa_id -> assunto (as respostas ao vivo usam o dela)
   mostradas: new Set(),
   ultimoDia: null,
   geracao: 0, // descarta a resposta de um histórico pedido antes de trocar de cliente
@@ -70,7 +80,13 @@ function recuperarPreferencias() {
     const salvas = JSON.parse(lerArmazenado(CHAVE_PREFERENCIAS) || "{}");
     if (PERSONAS.some((p) => p.id === salvas.personaId)) estado.personaId = salvas.personaId;
     if (salvas.canalPorPersona) estado.canalPorPersona = salvas.canalPorPersona;
-    if (salvas.novo) estado.novo = { identificador: salvas.novo.identificador || "", nome: salvas.novo.nome || "" };
+    if (salvas.novo) {
+      estado.novo = {
+        identificador: salvas.novo.identificador || "",
+        nome: salvas.novo.nome || "",
+        tipo: salvas.novo.tipo || null,
+      };
+    }
   } catch { /* preferência corrompida: começa do zero */ }
 }
 
@@ -97,11 +113,30 @@ async function api(metodo, caminho, corpo) {
   }
   if (!resposta.ok) {
     const detalhe = await resposta.json().catch(() => ({}));
-    // erros do pydantic chegam como lista; os nossos, como frase
-    const texto = typeof detalhe.detail === "string" ? detalhe.detail : `falha na requisição (${resposta.status})`;
+    const texto = textoDoErro(detalhe.detail, resposta.status);
+    // o servidor pode ter voltado sem sandbox com a página aberta
+    if (resposta.status === 404 && caminho.startsWith("/api/simulador") && /desligado/.test(texto)) {
+      if (estado.fonte) estado.fonte.close();
+      estado.fonte = null;
+      mostrarTela("#tela-desligado");
+    }
     throw new ErroApi(texto, resposta.status);
   }
   return resposta.status === 204 ? null : resposta.json();
+}
+
+// os nossos erros chegam como frase; os de validação do pydantic, como lista.
+// Sem ler a lista, um campo longo demais virava um "falha (422)" que não diz
+// o que corrigir
+function textoDoErro(detalhe, situacao) {
+  if (typeof detalhe === "string") return detalhe;
+  const primeiro = Array.isArray(detalhe) ? detalhe[0] : null;
+  if (!primeiro) return `falha na requisição (${situacao})`;
+  const chave = Array.isArray(primeiro.loc) ? primeiro.loc[primeiro.loc.length - 1] : null;
+  const campo = ROTULOS_CAMPO[chave] || chave || "dados";
+  if (primeiro.type === "string_too_long") return `${campo}: no máximo ${primeiro.ctx?.max_length} caracteres`;
+  if (primeiro.type === "string_too_short" || primeiro.type === "missing") return `${campo}: preencha este campo`;
+  return `${campo}: ${primeiro.msg}`;
 }
 
 function avisar(mensagem, falha = false) {
@@ -186,17 +221,33 @@ function canaisDaPersona(persona) {
 }
 
 function canalAtual() {
+  const persona = personaAtual();
   const id = estado.canalPorPersona[estado.personaId];
-  return estado.canais.find((c) => c.id === id && c.disponivel) || null;
+  // o id sozinho não basta: apagado um canal, o SQLite dá o mesmo id ao
+  // próximo, de qualquer tipo, e a preferência salva (ou a de outro banco na
+  // mesma origem) poria o Ian do WhatsApp escrevendo pelo Telegram
+  return estado.canais.find(
+    (c) => c.id === id && c.disponivel && (!persona.tipo || c.tipo === persona.tipo),
+  ) || null;
 }
 
 function escolherCanalPadrao(persona) {
-  if (canalAtual()) return;
-  const primeiro = canaisDaPersona(persona).find((c) => c.disponivel);
-  estado.canalPorPersona[persona.id] = primeiro ? primeiro.id : null;
+  if (!canalAtual()) {
+    const primeiro = canaisDaPersona(persona).find((c) => c.disponivel);
+    estado.canalPorPersona[persona.id] = primeiro ? primeiro.id : null;
+  }
+  if (!persona.tipo) ajustarNovoAoCanal();
 }
 
-function selecionarPersona(id) {
+// o identificador do novo cliente só vale no tipo de canal em que foi
+// digitado; num canal de outro tipo, começa em branco
+function ajustarNovoAoCanal() {
+  const tipo = canalAtual()?.tipo;
+  if (!tipo || estado.novo.tipo === tipo) return;
+  estado.novo = { ...estado.novo, identificador: "", tipo };
+}
+
+function selecionarPersona(id, peloUsuario = false) {
   estado.personaId = id;
   const persona = personaAtual();
   escolherCanalPadrao(persona);
@@ -205,6 +256,7 @@ function selecionarPersona(id) {
   prepararFormNovo();
   lembrarPreferencias();
   carregarConversa();
+  if (peloUsuario) levarAoFormNovo();
 }
 
 function iniciais(nome) {
@@ -229,7 +281,7 @@ function desenharPersonas() {
     const botao = criar("button", "persona");
     botao.type = "button";
     botao.classList.toggle("ativo", persona.id === estado.personaId);
-    botao.onclick = () => selecionarPersona(persona.id);
+    botao.onclick = () => selecionarPersona(persona.id, true);
 
     const avatar = criar("span", `avatar tipo-${persona.tipo || "novo"}`, persona.tipo ? iniciais(persona.nome) : "+");
     const corpo = criar("span", "corpo");
@@ -268,13 +320,13 @@ function desenharCanais() {
     botao.classList.toggle("esmaecido", !canal.disponivel);
     botao.classList.toggle("ativo", canal.disponivel && canal.id === escolhido);
     botao.onclick = () => {
-      // um número de WhatsApp não serve de e-mail: trocar de tipo zera o campo
-      if (!persona.tipo && canalAtual()?.tipo !== canal.tipo) estado.novo.identificador = "";
       estado.canalPorPersona[persona.id] = canal.id;
+      if (!persona.tipo) ajustarNovoAoCanal();
       desenharCanais();
       prepararFormNovo();
       lembrarPreferencias();
       carregarConversa();
+      levarAoFormNovo();
     };
 
     const corpo = criar("span", "corpo");
@@ -282,7 +334,7 @@ function desenharCanais() {
     if (!canal.disponivel) {
       const motivo = criar("div", "linha", canal.motivo || "indisponível");
       // o webchat tem página própria de teste; o motivo já diz qual
-      if (canal.link && canal.link.startsWith("/")) {
+      if (canal.link && canal.link.startsWith("/widget/")) {
         motivo.textContent = "tem widget de verdade: ";
         const link = criar("a", "", "abrir o widget ↗");
         link.href = canal.link;
@@ -291,8 +343,6 @@ function desenharCanais() {
         motivo.append(link);
       }
       corpo.append(motivo);
-    } else if (!persona.tipo) {
-      corpo.append(criar("div", "linha", "modo sandbox: nada sai para o provedor"));
     }
     botao.append(corpo, criar("span", `selo canal-${canal.tipo}`, NOMES_CANAL[canal.tipo] || canal.tipo));
     alvo.append(botao);
@@ -317,11 +367,21 @@ function prepararFormNovo() {
   $("#erro-novo").textContent = "";
 }
 
+// Num notebook o formulário fica abaixo da lista de canais, fora da tela: ao
+// escolher o novo cliente, leva até ele o que falta preencher
+function levarAoFormNovo() {
+  if (estado.personaId !== "novo" || clienteAtual() || !canalAtual()) return;
+  const form = $("#form-novo");
+  form.scrollIntoView({ block: "nearest" });
+  $("#novo-identificador").focus({ preventScroll: true });
+}
+
 $("#form-novo").addEventListener("submit", (evento) => {
   evento.preventDefault();
   estado.novo = {
     identificador: $("#novo-identificador").value.trim(),
     nome: $("#novo-nome").value.trim(),
+    tipo: canalAtual()?.tipo || null,
   };
   $("#erro-novo").textContent = "";
   lembrarPreferencias();
@@ -334,7 +394,7 @@ function clienteAtual() {
   const canal = canalAtual();
   if (!canal) return null;
   if (persona.tipo) return { canal, identificador: persona.identificador, nome: persona.nome };
-  if (!estado.novo.identificador) return null;
+  if (!estado.novo.identificador || estado.novo.tipo !== canal.tipo) return null;
   return { canal, identificador: estado.novo.identificador, nome: estado.novo.nome || null };
 }
 
@@ -395,6 +455,11 @@ async function carregarConversa() {
       travarRedator("Sem canal disponível");
     } else {
       mostrarVazio("Preencha quem é o novo cliente e clique em “Abrir a conversa”.");
+      // no celular ou numa tela baixa o formulário pode estar longe daqui
+      const ir = criar("button", "botao", "Preencher agora");
+      ir.type = "button";
+      ir.onclick = levarAoFormNovo;
+      $("#conversa .tela-vazia").append(ir);
       travarRedator("Preencha quem é o cliente");
     }
     return;
@@ -415,7 +480,7 @@ async function carregarConversa() {
     if (geracao !== estado.geracao || erro.situacao === 401) return;
     if (estado.personaId === "novo") {
       $("#erro-novo").textContent = erro.message;
-      mostrarVazio("Confira o identificador ao lado.");
+      mostrarVazio("Confira o identificador do cliente.");
       travarRedator("Identificador inválido");
     } else {
       mostrarVazio(`Não foi possível carregar a conversa: ${erro.message}`);
@@ -423,11 +488,14 @@ async function carregarConversa() {
   }
 }
 
+const comoResposta = (assunto) => (/^re:/i.test(assunto) ? assunto : `Re: ${assunto}`);
+
 function preencherAssunto(mensagens) {
-  // e-mail respondido mantém a thread: o assunto segue o da conversa
+  // como num programa de e-mail: o próximo responde ao último, com "Re:".
+  // Cortado no tamanho do campo, porque o maxlength só barra o que se digita
   const campo = $("#assunto");
   const ultimo = [...mensagens].reverse().find((m) => m.assunto);
-  campo.value = ultimo ? (/^re:/i.test(ultimo.assunto) ? ultimo.assunto : `Re: ${ultimo.assunto}`) : "";
+  campo.value = ultimo ? comoResposta(ultimo.assunto).slice(0, campo.maxLength) : "";
 }
 
 function desenharHistorico(mensagens) {
@@ -443,9 +511,10 @@ function visivelParaCliente(mensagem) {
 function acrescentar(mensagem, animar = true) {
   if (estado.mostradas.has(mensagem.id) || !visivelParaCliente(mensagem)) return;
   estado.mostradas.add(mensagem.id);
-  if (!estado.conversas.has(mensagem.conversa_id) || mensagem.assunto) {
-    estado.conversas.set(mensagem.conversa_id, mensagem.assunto || estado.conversas.get(mensagem.conversa_id) || null);
-  }
+  // o que vem do simulador traz o assunto da conversa; o que chega pelo fluxo
+  // de eventos, não
+  if ("assunto_conversa" in mensagem) estado.conversas.set(mensagem.conversa_id, mensagem.assunto_conversa);
+  else if (!estado.conversas.has(mensagem.conversa_id)) estado.conversas.set(mensagem.conversa_id, null);
   const conversa = $("#conversa");
   conversa.querySelector(".tela-vazia")?.remove();
 
@@ -483,9 +552,14 @@ function cartaoEmail(mensagem) {
   const elemento = criar("article", `carta ${minha ? "minha" : "deles"}`);
   elemento.dataset.id = mensagem.id;
 
-  const assunto = estado.conversas.get(mensagem.conversa_id) || "(sem assunto)";
+  // cada e-mail tem a sua linha de assunto, e o servidor diz qual foi. A
+  // resposta que chega ao vivo não traz: é a da conversa com "Re:", como o
+  // adaptador de e-mail envia
+  const assunto = "assunto" in mensagem
+    ? mensagem.assunto
+    : comoResposta(estado.conversas.get(mensagem.conversa_id) || ASSUNTO_SEM_ASSUNTO);
   const cabecalho = criar("div", "cabecalho");
-  cabecalho.append(criar("div", "assunto-linha", minha || /^re:/i.test(assunto) ? assunto : `Re: ${assunto}`));
+  cabecalho.append(criar("div", "assunto-linha", assunto || "(sem assunto)"));
   const voce = cliente ? `${cliente.nome ? `${cliente.nome} ` : ""}<${cliente.identificador}>` : "você";
   const empresa = canal ? canal.nome : "suporte";
   const de = minha ? voce : `${empresa}${mensagem.autor ? ` (${mensagem.autor})` : ""}`;
