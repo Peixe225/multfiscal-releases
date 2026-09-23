@@ -21,6 +21,7 @@ from .api import (
     conversas,
     eventos,
     metricas,
+    simulador,
     webhooks,
     widget,
 )
@@ -77,6 +78,7 @@ def criar_app() -> FastAPI:
         conversas,
         eventos,
         metricas,
+        simulador,
         widget,
         webhooks,
     ):
@@ -95,6 +97,10 @@ def criar_app() -> FastAPI:
     @app.get("/painel", include_in_schema=False)
     def painel() -> FileResponse:
         return FileResponse(WEB / "painel.html")
+
+    @app.get("/simulador", include_in_schema=False)
+    def pagina_simulador() -> FileResponse:
+        return FileResponse(WEB / "simulador.html")
 
     @app.get("/widget.js", include_in_schema=False)
     def widget_js() -> FileResponse:

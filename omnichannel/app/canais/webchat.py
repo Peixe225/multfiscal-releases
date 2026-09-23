@@ -18,6 +18,9 @@ class AdaptadorWebchat(AdaptadorCanal):
         # o arquivo ja esta guardado aqui; o visitante o busca pela API
         return True
 
+    def verificar_conexao(self) -> str:
+        return "O webchat não depende de provedor externo: está sempre pronto."
+
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
         """O widget usa rotas proprias; um webhook aqui e opcional."""
         identificador = payload.get("visitante") or payload.get("identificador")

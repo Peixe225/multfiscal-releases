@@ -113,6 +113,18 @@ class AdaptadorCanal(ABC):
         """Se falso, um anexo na resposta e recusado antes de gravar nada."""
         return False
 
+    def verificar_conexao(self) -> str:
+        """Confere, no provedor, se as credenciais funcionam.
+
+        Devolve uma frase curta para o painel ("Conectado como @bot_suporte")
+        ou levanta ErroCanal dizendo o que está errado. E o que da ao admin a
+        resposta imediata "meu token funcionou?" ao ligar um canal.
+        """
+        faltando = [c for c in self.campos_obrigatorios if not self.credenciais.get(c)]
+        if faltando:
+            raise ErroCanal(f"preencha: {', '.join(faltando)}")
+        raise ErroCanal(f"o canal {self.tipo.value} nao tem verificacao automatica")
+
     # ----------------------------------------------------------------- saida
     @abstractmethod
     def _enviar(self, destino: str, conteudo: str, contexto: dict) -> ResultadoEnvio:
