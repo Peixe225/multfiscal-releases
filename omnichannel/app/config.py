@@ -36,9 +36,13 @@ class Configuracao(BaseSettings):
     pasta_anexos: str = "./anexos"
     tamanho_max_anexo_mb: int = 20
 
-    # coleta de e-mail por IMAP (canais sem webhook)
+    # coleta dos canais que buscam as mensagens em vez de recebe-las por webhook
     coletor_ativo: bool = True
+    # IMAP e lento e caro (login e busca a cada ciclo): uma vez por minuto basta
     intervalo_coleta: int = 60
+    # chat (Telegram em modo polling) e conversa: o contato espera ver a
+    # mensagem chegar em segundos, e um getUpdates vazio custa quase nada
+    intervalo_polling: int = 3
 
     # origens liberadas para o widget de webchat embutido em outros sites
     origens_permitidas: list[str] = ["*"]
