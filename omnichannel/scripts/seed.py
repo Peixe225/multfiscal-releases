@@ -112,7 +112,7 @@ def _conversas_de_exemplo(sessao, canais, atendente) -> None:
     roteiro = [
         (
             TipoCanal.WHATSAPP,
-            "5533991269149",
+            "5500912345678",
             "Ian Dantas",
             "Bom dia! O DIFAL do Rio está saindo com base dupla, isso está certo?",
             "Bom dia, Ian! Está correto: o RJ já vem cadastrado com antecipação por base dupla "
@@ -128,7 +128,7 @@ def _conversas_de_exemplo(sessao, canais, atendente) -> None:
         ),
         (
             TipoCanal.EMAIL,
-            "financeiro@lojaexemplo.com.br",
+            "financeiro@loja.example",
             "Financeiro Loja Exemplo",
             "Preciso da segunda via do boleto da licença deste mês.",
             None,

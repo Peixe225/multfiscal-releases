@@ -6,7 +6,7 @@
 // E-mail sempre em domínio reservado (RFC 2606): se o canal ganhar SMTP
 // depois, a resposta a uma conversa de teste não chega à caixa de ninguém
 const PERSONAS = [
-  { id: "ian", nome: "Ian Dantas", tipo: "whatsapp", identificador: "5533991269149" },
+  { id: "ian", nome: "Ian Dantas", tipo: "whatsapp", identificador: "5500912345678" },
   { id: "marcos", nome: "Marcos Contabilidade", tipo: "telegram", identificador: "884412" },
   { id: "financeiro", nome: "Financeiro Loja Exemplo", tipo: "email", identificador: "financeiro@loja.example" },
   { id: "novo", nome: "Novo cliente", tipo: null },
@@ -763,8 +763,8 @@ const HORA = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digi
 const DATA_HORA = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 const DIA = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
-// o SQLite devolve datas sem fuso; elas são UTC, e sem o "Z" o navegador as
-// leria como hora local
+// a API manda as datas com fuso; o "Z" acrescentado aqui é só defesa para
+// um servidor antigo, que as mandava sem, e o navegador as leria como locais
 function data(valor) {
   return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(valor) ? valor : `${valor}Z`);
 }

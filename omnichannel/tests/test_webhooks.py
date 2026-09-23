@@ -11,7 +11,7 @@ from app.models import Conversa, Mensagem, TipoCanal
 def test_webhook_whatsapp_cria_contato_conversa_e_mensagem(cliente, canal_whatsapp):
     resposta = cliente.post(
         f"/webhooks/{canal_whatsapp.id}",
-        json=payload_whatsapp("5533991269149", "Bom dia, preciso de ajuda", "wamid.1", "Ian"),
+        json=payload_whatsapp("5500912345678", "Bom dia, preciso de ajuda", "wamid.1", "Ian"),
     )
     assert resposta.status_code == 200
     assert resposta.json()["recebidas"] == 1
@@ -19,7 +19,7 @@ def test_webhook_whatsapp_cria_contato_conversa_e_mensagem(cliente, canal_whatsa
     with SessaoLocal() as sessao:
         conversa = sessao.query(Conversa).one()
         assert conversa.contato.nome == "Ian"
-        assert conversa.contato.telefone == "5533991269149"
+        assert conversa.contato.telefone == "5500912345678"
         assert conversa.nao_lidas == 1
         assert conversa.previa == "Bom dia, preciso de ajuda"
         mensagem = sessao.query(Mensagem).one()
@@ -28,7 +28,7 @@ def test_webhook_whatsapp_cria_contato_conversa_e_mensagem(cliente, canal_whatsa
 
 
 def test_reentrega_do_mesmo_webhook_nao_duplica(cliente, canal_whatsapp):
-    payload = payload_whatsapp("5533991269149", "oi", "wamid.repetido")
+    payload = payload_whatsapp("5500912345678", "oi", "wamid.repetido")
     primeira = cliente.post(f"/webhooks/{canal_whatsapp.id}", json=payload)
     segunda = cliente.post(f"/webhooks/{canal_whatsapp.id}", json=payload)
 

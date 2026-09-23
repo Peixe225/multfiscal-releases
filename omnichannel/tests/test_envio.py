@@ -21,7 +21,7 @@ def canal_whatsapp_configurado():
     )
 
 
-def _abrir_conversa(cliente, canal, numero="5533991269149", externo="wamid.1"):
+def _abrir_conversa(cliente, canal, numero="5500912345678", externo="wamid.1"):
     cliente.post(f"/webhooks/{canal.id}", json=payload_whatsapp(numero, "oi", externo))
     with SessaoLocal() as sessao:
         return sessao.query(Conversa).one().id
@@ -53,7 +53,7 @@ def test_envio_pelo_whatsapp_chama_a_api_da_meta(
     import json as _json
 
     corpo = _json.loads(requisicao.content)
-    assert corpo["to"] == "5533991269149"
+    assert corpo["to"] == "5500912345678"
     assert corpo["text"]["body"] == "Bom dia!"
 
     with SessaoLocal() as sessao:

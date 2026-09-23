@@ -37,7 +37,7 @@ def test_imagem_do_whatsapp_e_baixada_e_guardada(cliente, cabecalho_atendente, c
     resposta = cliente.post(
         f"/webhooks/{canal_configurado.id}",
         json=payload_whatsapp_midia(
-            "5533991269149",
+            "5500912345678",
             "wamid.img",
             {"id": "media-1", "mime_type": "image/png", "caption": "Segue o print do erro"},
         ),
@@ -140,7 +140,7 @@ def test_atendente_envia_arquivo_pelo_whatsapp(cliente, cabecalho_atendente, can
 
     transporte(responder)
     cliente.post(
-        f"/webhooks/{canal_configurado.id}", json=payload_whatsapp("5533991269149", "oi", "wamid.1")
+        f"/webhooks/{canal_configurado.id}", json=payload_whatsapp("5500912345678", "oi", "wamid.1")
     )
     with SessaoLocal() as sessao:
         conversa_id = sessao.query(Conversa).one().id

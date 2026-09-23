@@ -23,12 +23,35 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
 
 from .db import Base
+from .util import garantir_utc
 
 
 def agora() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class DataHoraUTC(TypeDecorator):
+    """Data e hora sempre gravadas em UTC e sempre devolvidas com fuso.
+
+    O SQLite não guarda fuso: sem isto, a data volta "ingênua", sai da API
+    sem o "+00:00", e o navegador no horário de Brasília mostra a hora UTC
+    como se fosse local — três horas adiantada. Resolver aqui, na coluna,
+    vale para toda leitura; remendar cada tela deixaria uma sempre esquecida.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, valor, dialeto):
+        if valor is None:
+            return None
+        return garantir_utc(valor)
+
+    def process_result_value(self, valor, dialeto):
+        return garantir_utc(valor)
 
 
 class TipoCanal(str, enum.Enum):
@@ -93,7 +116,7 @@ class Atendente(Base):
     papel: Mapped[str] = mapped_column(String(20), default=Papel.ATENDENTE.value)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     disponivel: Mapped[bool] = mapped_column(Boolean, default=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
     @property
     def e_admin(self) -> bool:
@@ -113,7 +136,7 @@ class Canal(Base):
     chave_publica: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     # segredo compartilhado para validar a assinatura dos webhooks
     segredo_webhook: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
     conversas: Mapped[list["Conversa"]] = relationship(back_populates="canal")
 
@@ -128,8 +151,8 @@ class Contato(Base):
     email: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
     telefone: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
-    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora, onupdate=agora)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+    atualizado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, onupdate=agora)
 
     # passive_deletes deixa o ON DELETE CASCADE do banco fazer o trabalho, em
     # vez de o ORM carregar e apagar filho por filho
@@ -150,7 +173,7 @@ class ContatoIdentidade(Base):
     canal_tipo: Mapped[str] = mapped_column(String(20))
     identificador: Mapped[str] = mapped_column(String(200))
     nome_exibicao: Mapped[str | None] = mapped_column(String(160), nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
     contato: Mapped[Contato] = relationship(back_populates="identidades")
 
@@ -177,11 +200,11 @@ class Conversa(Base):
     assunto: Mapped[str | None] = mapped_column(String(200), nullable=True)
     previa: Mapped[str | None] = mapped_column(String(200), nullable=True)
     nao_lidas: Mapped[int] = mapped_column(Integer, default=0)
-    criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
-    atualizada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora, onupdate=agora)
-    ultima_mensagem_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora, index=True)
-    primeira_resposta_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    resolvida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+    atualizada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, onupdate=agora)
+    ultima_mensagem_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, index=True)
+    primeira_resposta_em: Mapped[datetime | None] = mapped_column(DataHoraUTC, nullable=True)
+    resolvida_em: Mapped[datetime | None] = mapped_column(DataHoraUTC, nullable=True)
 
     contato: Mapped[Contato] = relationship(back_populates="conversas", lazy="joined")
     canal: Mapped[Canal] = relationship(back_populates="conversas", lazy="joined")
@@ -213,7 +236,7 @@ class Mensagem(Base):
     externo_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     erro: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadados: Mapped[dict] = mapped_column(JSON, default=dict)
-    criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora, index=True)
+    criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, index=True)
 
     conversa: Mapped[Conversa] = relationship(back_populates="mensagens")
     atendente: Mapped[Atendente | None] = relationship(lazy="joined")
@@ -246,7 +269,7 @@ class Anexo(Base):
     chave: Mapped[str | None] = mapped_column(String(200), nullable=True)
     externo_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     erro: Mapped[str | None] = mapped_column(Text, nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
     mensagem: Mapped["Mensagem"] = relationship(back_populates="anexos")
 
@@ -258,7 +281,7 @@ class RespostaRapida(Base):
     atalho: Mapped[str] = mapped_column(String(40), unique=True)
     titulo: Mapped[str] = mapped_column(String(120))
     conteudo: Mapped[str] = mapped_column(Text)
-    criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
 
 class Evento(Base):
@@ -275,7 +298,7 @@ class Evento(Base):
     )
     tipo: Mapped[str] = mapped_column(String(40))
     descricao: Mapped[str] = mapped_column(String(300))
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
 
 class SessaoWidget(Base):
@@ -286,4 +309,4 @@ class SessaoWidget(Base):
     token: Mapped[str] = mapped_column(String(64), primary_key=True)
     canal_id: Mapped[int] = mapped_column(ForeignKey("canais.id", ondelete="CASCADE"))
     contato_id: Mapped[int] = mapped_column(ForeignKey("contatos.id", ondelete="CASCADE"))
-    criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)

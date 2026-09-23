@@ -12,7 +12,7 @@ from app.models import Conversa, Mensagem, StatusConversa, agora
 def conversa_id(cliente, canal_whatsapp):
     cliente.post(
         f"/webhooks/{canal_whatsapp.id}",
-        json=payload_whatsapp("5533991269149", "Bom dia, tenho uma dúvida", "wamid.1", "Ian"),
+        json=payload_whatsapp("5500912345678", "Bom dia, tenho uma dúvida", "wamid.1", "Ian"),
     )
     with SessaoLocal() as sessao:
         return sessao.query(Conversa).one().id
@@ -96,7 +96,7 @@ def test_mensagem_logo_apos_resolver_reabre_a_mesma_conversa(cliente, cabecalho_
     )
     cliente.post(
         f"/webhooks/{canal_whatsapp.id}",
-        json=payload_whatsapp("5533991269149", "Obrigado!", "wamid.2", "Ian"),
+        json=payload_whatsapp("5500912345678", "Obrigado!", "wamid.2", "Ian"),
     )
     with SessaoLocal() as sessao:
         assert sessao.query(Conversa).count() == 1
@@ -117,7 +117,7 @@ def test_mensagem_muito_depois_abre_conversa_nova(
 
     cliente.post(
         f"/webhooks/{canal_whatsapp.id}",
-        json=payload_whatsapp("5533991269149", "Oi, outro assunto", "wamid.3", "Ian"),
+        json=payload_whatsapp("5500912345678", "Oi, outro assunto", "wamid.3", "Ian"),
     )
     with SessaoLocal() as sessao:
         assert sessao.query(Conversa).count() == 2
@@ -201,3 +201,18 @@ def test_distribuicao_automatica_equilibra_a_carga(cliente, canal_whatsapp, admi
 
 def test_conversa_inexistente(cliente, cabecalho_atendente):
     assert cliente.get("/api/conversas/999", headers=cabecalho_atendente).status_code == 404
+
+
+def test_datas_da_api_saem_com_fuso(cliente, cabecalho_atendente, conversa_id):
+    """Sem o fuso, o navegador em Brasília mostra a hora UTC como local: 3 h adiantada."""
+    import re
+    from datetime import datetime
+
+    cliente.post(
+        f"/api/conversas/{conversa_id}/mensagens", headers=cabecalho_atendente, json={"conteudo": "Oi!"}
+    )
+    detalhe = cliente.get(f"/api/conversas/{conversa_id}", headers=cabecalho_atendente).json()
+    datas = [detalhe["ultima_mensagem_em"], detalhe["criada_em"]] + [m["criada_em"] for m in detalhe["mensagens"]]
+    for valor in datas:
+        assert re.search(r"(Z|[+-]\d\d:\d\d)$", valor), valor
+        assert datetime.fromisoformat(valor.replace("Z", "+00:00")).utcoffset().total_seconds() == 0

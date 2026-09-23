@@ -410,13 +410,13 @@ def test_testar_whatsapp_conectado(cliente, cabecalho_admin):
         chamadas.append(requisicao)
         return httpx.Response(
             200,
-            json={"display_phone_number": "+55 33 99126-9149", "verified_name": "MultFiscal", "id": "10987654321"},
+            json={"display_phone_number": "+55 00 91234-5678", "verified_name": "MultFiscal", "id": "10987654321"},
         )
 
     transporte(meta)
     assert pedir_teste(cliente, cabecalho_admin, canal["id"]) == {
         "ok": True,
-        "mensagem": "Conectado ao número +55 33 99126-9149 (MultFiscal)",
+        "mensagem": "Conectado ao número +55 00 91234-5678 (MultFiscal)",
         "alerta": None,  # com App Secret e ativo, nada a ressalvar
     }
     requisicao = chamadas[0]

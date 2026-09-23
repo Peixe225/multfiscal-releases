@@ -8,8 +8,8 @@ from app.servicos.contatos import identificador_no_canal, mesclar, resolver_cont
 
 def test_mesmo_numero_em_dois_webhooks_e_um_so_contato(cliente, canal_whatsapp):
     outro_canal = criar_canal(TipoCanal.WHATSAPP, "WhatsApp Vendas")
-    cliente.post(f"/webhooks/{canal_whatsapp.id}", json=payload_whatsapp("5533991269149", "oi", "w1"))
-    cliente.post(f"/webhooks/{outro_canal.id}", json=payload_whatsapp("5533991269149", "oi de novo", "w2"))
+    cliente.post(f"/webhooks/{canal_whatsapp.id}", json=payload_whatsapp("5500912345678", "oi", "w1"))
+    cliente.post(f"/webhooks/{outro_canal.id}", json=payload_whatsapp("5500912345678", "oi de novo", "w2"))
 
     with SessaoLocal() as sessao:
         assert sessao.query(Contato).count() == 1
@@ -18,22 +18,22 @@ def test_mesmo_numero_em_dois_webhooks_e_um_so_contato(cliente, canal_whatsapp):
 
 
 def test_contato_de_email_reconhecido_pelo_endereco(sessao):
-    contato = Contato(nome="Loja Exemplo", email="financeiro@lojaexemplo.com.br")
+    contato = Contato(nome="Loja Exemplo", email="financeiro@loja.example")
     sessao.add(contato)
     sessao.commit()
 
-    encontrado = resolver_contato(sessao, TipoCanal.EMAIL.value, "Financeiro@LojaExemplo.com.BR")
+    encontrado = resolver_contato(sessao, TipoCanal.EMAIL.value, "Financeiro@Loja.EXAMPLE")
     sessao.commit()
     assert encontrado.id == contato.id
     assert [i.canal_tipo for i in encontrado.identidades] == [TipoCanal.EMAIL.value]
 
 
 def test_contato_de_whatsapp_reconhecido_pelo_telefone(sessao):
-    contato = Contato(nome="Ian", telefone="5533991269149")
+    contato = Contato(nome="Ian", telefone="5500912345678")
     sessao.add(contato)
     sessao.commit()
 
-    encontrado = resolver_contato(sessao, TipoCanal.WHATSAPP.value, "+55 (33) 99126-9149", "Ian D.")
+    encontrado = resolver_contato(sessao, TipoCanal.WHATSAPP.value, "+55 (00) 91234-5678", "Ian D.")
     sessao.commit()
     assert encontrado.id == contato.id
 
@@ -97,7 +97,7 @@ def test_telefone_editado_no_painel_e_normalizado(cliente, cabecalho_atendente, 
     cliente.patch(
         f"/api/contatos/{contato.id}",
         headers=cabecalho_atendente,
-        json={"telefone": "+55 (33) 99126-9149"},
+        json={"telefone": "+55 (00) 91234-5678"},
     )
     with SessaoLocal() as s:
-        assert s.get(Contato, contato.id).telefone == "5533991269149"
+        assert s.get(Contato, contato.id).telefone == "5500912345678"

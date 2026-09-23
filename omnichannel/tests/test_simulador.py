@@ -87,7 +87,7 @@ def test_whatsapp_entra_pelo_adaptador_com_numero_normalizado(
     monkeypatch.setattr(simulador, "publicar_mensagem", lambda m: publicadas.append(m.id))
 
     resposta = escrever(
-        cliente, cabecalho_atendente, canal_whatsapp, "+55 (33) 99126-9149",
+        cliente, cabecalho_atendente, canal_whatsapp, "+55 (00) 91234-5678",
         "Bom dia! O DIFAL está certo?", nome="Ian Dantas",
     )
     assert resposta.status_code == 201, resposta.text
@@ -102,9 +102,9 @@ def test_whatsapp_entra_pelo_adaptador_com_numero_normalizado(
         assert mensagem.metadados["tipo_whatsapp"] == "text"  # veio do adaptador
         assert mensagem.metadados["simulada_por"] == atendente.id
         identidade = sessao.query(ContatoIdentidade).one()
-        assert (identidade.canal_tipo, identidade.identificador) == ("whatsapp", "5533991269149")
+        assert (identidade.canal_tipo, identidade.identificador) == ("whatsapp", "5500912345678")
         assert identidade.contato.nome == "Ian Dantas"
-        assert identidade.contato.telefone == "5533991269149"
+        assert identidade.contato.telefone == "5500912345678"
 
     # e aparece na caixa de entrada como qualquer mensagem de WhatsApp
     conversas = cliente.get("/api/conversas", headers=cabecalho_atendente).json()
@@ -132,7 +132,7 @@ def test_email_entra_pelo_adaptador_com_endereco_minusculo_e_assunto(
     cliente, cabecalho_atendente, canal_email
 ):
     resposta = escrever(
-        cliente, cabecalho_atendente, canal_email, "Financeiro@LojaExemplo.com.br",
+        cliente, cabecalho_atendente, canal_email, "Financeiro@Loja.EXAMPLE",
         "Preciso da segunda via do boleto.",
         nome='Financeiro, Loja "Exemplo"', assunto="Segunda via do boleto",
     )
@@ -144,7 +144,7 @@ def test_email_entra_pelo_adaptador_com_endereco_minusculo_e_assunto(
         assert mensagem.externo_id.startswith("email:<")
         assert mensagem.conversa.assunto == "Segunda via do boleto"
         identidade = sessao.query(ContatoIdentidade).one()
-        assert identidade.identificador == "financeiro@lojaexemplo.com.br"
+        assert identidade.identificador == "financeiro@loja.example"
         # virgula e aspas no nome sobrevivem ao cabecalho From
         assert identidade.contato.nome == 'Financeiro, Loja "Exemplo"'
 
@@ -224,7 +224,7 @@ def test_email_de_antes_do_assunto_nao_herda_o_que_veio_depois(cliente, cabecalh
 
 
 def test_whatsapp_e_telegram_nao_tem_assunto(cliente, cabecalho_atendente, canal_whatsapp):
-    corpo = escrever(cliente, cabecalho_atendente, canal_whatsapp, "5533991269149", assunto="ignorado").json()
+    corpo = escrever(cliente, cabecalho_atendente, canal_whatsapp, "5500912345678", assunto="ignorado").json()
     assert corpo["assunto"] is None and corpo["assunto_conversa"] is None
 
 
@@ -232,7 +232,7 @@ def test_mensagens_repetidas_do_mesmo_cliente_caem_na_mesma_conversa(
     cliente, cabecalho_atendente, canal_whatsapp
 ):
     # formatos diferentes do mesmo numero: continua sendo um cliente so
-    for indice, numero in enumerate(["5533991269149", "+55 33 99126-9149", "55 33 991269149"]):
+    for indice, numero in enumerate(["5500912345678", "+55 00 91234-5678", "55 00 912345678"]):
         resposta = escrever(cliente, cabecalho_atendente, canal_whatsapp, numero, f"mensagem {indice}")
         assert resposta.status_code == 201, resposta.text
 
@@ -247,12 +247,12 @@ def test_mensagens_repetidas_do_mesmo_cliente_caem_na_mesma_conversa(
 def test_historico_tem_resposta_do_atendente_e_nao_tem_nota_interna(
     cliente, cabecalho_atendente, canal_whatsapp, sem_rede
 ):
-    assert historico(cliente, cabecalho_atendente, canal_whatsapp, "5533991269149") == {
+    assert historico(cliente, cabecalho_atendente, canal_whatsapp, "5500912345678") == {
         "contato_id": None,
         "mensagens": [],
     }
 
-    enviada = escrever(cliente, cabecalho_atendente, canal_whatsapp, "5533991269149", "Bom dia!").json()
+    enviada = escrever(cliente, cabecalho_atendente, canal_whatsapp, "5500912345678", "Bom dia!").json()
     conversa_id = enviada["conversa_id"]
     cliente.post(
         f"/api/conversas/{conversa_id}/notas",
@@ -267,7 +267,7 @@ def test_historico_tem_resposta_do_atendente_e_nao_tem_nota_interna(
     assert resposta.json()["status"] == "simulada"
 
     # pedido com o numero formatado: a normalizacao e a mesma da gravacao
-    vista = historico(cliente, cabecalho_atendente, canal_whatsapp, "+55 (33) 99126-9149")
+    vista = historico(cliente, cabecalho_atendente, canal_whatsapp, "+55 (00) 91234-5678")
     assert vista["contato_id"] == enviada["contato_id"]
     assert [(m["direcao"], m["conteudo"]) for m in vista["mensagens"]] == [
         ("entrada", "Bom dia!"),
@@ -279,10 +279,10 @@ def test_historico_tem_resposta_do_atendente_e_nao_tem_nota_interna(
 
 def test_historico_fica_no_canal_pedido(cliente, cabecalho_atendente, canal_whatsapp):
     outro = criar_canal(TipoCanal.WHATSAPP, "WhatsApp Vendas")
-    escrever(cliente, cabecalho_atendente, canal_whatsapp, "5533991269149", "no suporte")
-    escrever(cliente, cabecalho_atendente, outro, "5533991269149", "em vendas")
+    escrever(cliente, cabecalho_atendente, canal_whatsapp, "5500912345678", "no suporte")
+    escrever(cliente, cabecalho_atendente, outro, "5500912345678", "em vendas")
 
-    vista = historico(cliente, cabecalho_atendente, outro, "5533991269149")
+    vista = historico(cliente, cabecalho_atendente, outro, "5500912345678")
     assert [m["conteudo"] for m in vista["mensagens"]] == ["em vendas"]
 
 
@@ -292,11 +292,11 @@ def test_sandbox_desligado_esconde_o_simulador(cliente, cabecalho_atendente, can
 
     respostas = [
         cliente.get("/api/simulador/canais", headers=cabecalho_atendente),
-        escrever(cliente, cabecalho_atendente, canal_whatsapp, "5533991269149"),
+        escrever(cliente, cabecalho_atendente, canal_whatsapp, "5500912345678"),
         cliente.get(
             "/api/simulador/conversa",
             headers=cabecalho_atendente,
-            params={"canal_id": canal_whatsapp.id, "identificador": "5533991269149"},
+            params={"canal_id": canal_whatsapp.id, "identificador": "5500912345678"},
         ),
         # desligado, nem a falta de token denuncia que a rota existe
         cliente.get("/api/simulador/canais"),
@@ -309,9 +309,9 @@ def test_sandbox_desligado_esconde_o_simulador(cliente, cabecalho_atendente, can
 
 def test_exige_atendente_autenticado(cliente, canal_whatsapp):
     assert cliente.get("/api/simulador/canais").status_code == 401
-    assert escrever(cliente, {}, canal_whatsapp, "5533991269149").status_code == 401
+    assert escrever(cliente, {}, canal_whatsapp, "5500912345678").status_code == 401
     assert escrever(
-        cliente, {"Authorization": "Bearer inventado"}, canal_whatsapp, "5533991269149"
+        cliente, {"Authorization": "Bearer inventado"}, canal_whatsapp, "5500912345678"
     ).status_code == 401
 
 
@@ -319,7 +319,7 @@ def test_recusa_canal_configurado_de_verdade(cliente, cabecalho_atendente):
     real = criar_canal(
         TipoCanal.WHATSAPP, "WhatsApp real", credenciais={"token": "EAAG", "id_numero": "123"}
     )
-    resposta = escrever(cliente, cabecalho_atendente, real, "5533991269149")
+    resposta = escrever(cliente, cabecalho_atendente, real, "5500912345678")
     assert resposta.status_code == 409
     assert "provedor real" in resposta.json()["detail"]
     with SessaoLocal() as sessao:
@@ -369,10 +369,10 @@ def test_ajuste_sem_credencial_continua_simulavel(cliente, cabecalho_atendente, 
 
 def test_recusa_canal_inexistente_ou_desativado(cliente, cabecalho_atendente):
     desligado = criar_canal(TipoCanal.WHATSAPP, "WhatsApp antigo", ativo=False)
-    assert escrever(cliente, cabecalho_atendente, desligado, "5533991269149").status_code == 404
+    assert escrever(cliente, cabecalho_atendente, desligado, "5500912345678").status_code == 404
 
     fantasma = Canal(id=9999)
-    assert escrever(cliente, cabecalho_atendente, fantasma, "5533991269149").status_code == 404
+    assert escrever(cliente, cabecalho_atendente, fantasma, "5500912345678").status_code == 404
 
 
 def test_recusa_webchat_apontando_o_widget(cliente, cabecalho_atendente, canal_webchat):
@@ -385,7 +385,7 @@ def test_recusa_webchat_apontando_o_widget(cliente, cabecalho_atendente, canal_w
     "tipo, identificador",
     [
         (TipoCanal.WHATSAPP, "123456"),            # curto demais
-        (TipoCanal.WHATSAPP, "5533991269149000"),  # 16 digitos
+        (TipoCanal.WHATSAPP, "5500912345678000"),  # 16 digitos
         (TipoCanal.WHATSAPP, "ian dantas"),
         (TipoCanal.TELEGRAM, "@marcos"),
         (TipoCanal.TELEGRAM, "88a12"),
@@ -409,7 +409,7 @@ def test_recusa_identificador_invalido_para_o_canal(cliente, cabecalho_atendente
 
 
 def test_recusa_mensagem_vazia(cliente, cabecalho_atendente, canal_whatsapp):
-    assert escrever(cliente, cabecalho_atendente, canal_whatsapp, "5533991269149", "   ").status_code == 422
+    assert escrever(cliente, cabecalho_atendente, canal_whatsapp, "5500912345678", "   ").status_code == 422
 
 
 # ------------------------------------------------- a pagina, no navegador
@@ -497,7 +497,7 @@ def test_pagina_ignora_canal_salvo_de_outro_tipo(abrir_simulador, canal_whatsapp
     pagina.locator(".msg.minha").wait_for()
     with SessaoLocal() as sessao:
         identidades = {(i.canal_tipo, i.identificador) for i in sessao.query(ContatoIdentidade)}
-        assert identidades == {("whatsapp", "5533991269149")}
+        assert identidades == {("whatsapp", "5500912345678")}
 
 
 def test_novo_cliente_nao_reaproveita_identificador_de_outro_tipo(
@@ -507,7 +507,7 @@ def test_novo_cliente_nao_reaproveita_identificador_de_outro_tipo(
         "personaId": "novo",
         "canalPorPersona": {"novo": canal_telegram.id},
         # digitado quando o canal do novo cliente era um WhatsApp
-        "novo": {"identificador": "5533991269149", "nome": "Cliente X", "tipo": "whatsapp"},
+        "novo": {"identificador": "5500912345678", "nome": "Cliente X", "tipo": "whatsapp"},
     })
     assert pagina.locator("#celular").get_attribute("data-tipo") == "telegram"
     assert pagina.locator("#novo-identificador").input_value() == ""
@@ -576,13 +576,13 @@ def test_erro_de_validacao_diz_o_campo(abrir_simulador, canal_whatsapp):
     # o servidor recusa com a lista do pydantic, nao com uma frase
     erro = pagina.evaluate(
         "(canal) => api('POST', '/api/simulador/mensagens',"
-        " {canal_id: canal, identificador: '5533991269149', conteudo: '   '}).catch((e) => e.message)",
+        " {canal_id: canal, identificador: '5500912345678', conteudo: '   '}).catch((e) => e.message)",
         canal_whatsapp.id,
     )
     assert erro == "mensagem: preencha este campo"
     erro = pagina.evaluate(
         "(canal) => api('POST', '/api/simulador/mensagens',"
-        " {canal_id: canal, identificador: '5533991269149', conteudo: 'oi', assunto: 'A'.repeat(999)})"
+        " {canal_id: canal, identificador: '5500912345678', conteudo: 'oi', assunto: 'A'.repeat(999)})"
         ".catch((e) => e.message)",
         canal_whatsapp.id,
     )
