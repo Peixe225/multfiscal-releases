@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%232c5cf6"/><path d="M8 11h16v9a2 2 0 0 1-2 2h-8l-4 4v-4H8z" fill="white"/></svg>'>
+  <title>IHchat — Central de atendimento</title>
+  <link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+
+<div id="tela-login" class="tela-login">
+  <form id="form-login" class="cartao-login">
+    <h1>IHchat</h1>
+    <p>Central de atendimento MultFiscal</p>
+    <label class="campo">
+      <span>E-mail</span>
+      <input type="email" name="email" autocomplete="username" required autofocus>
+    </label>
+    <label class="campo">
+      <span>Senha</span>
+      <input type="password" name="senha" autocomplete="current-password" required>
+    </label>
+    <button class="botao largo" type="submit">Entrar</button>
+    <p class="erro" id="erro-login"></p>
+  </form>
+</div>
+
+<div id="app" class="app" hidden>
+  <header class="topo">
+    <div class="marca"><i class="ponto"></i> IHchat <small>2</small></div>
+    <div class="indicadores" id="indicadores"></div>
+    <nav class="atalhos" aria-label="Ferramentas">
+      <a class="atalho" href="/simulador" target="_blank" rel="noopener"
+         title="Escrever como cliente pelo WhatsApp, Telegram ou e-mail (abre em nova aba)">Simulador ↗</a>
+      <button type="button" class="atalho" id="abrir-canais" hidden
+              aria-haspopup="dialog" aria-controls="canais">Canais</button>
+      <button type="button" class="atalho" id="abrir-equipe" hidden
+              aria-haspopup="dialog" aria-controls="equipe">Equipe</button>
+    </nav>
+    <div class="usuario">
+      <!-- quem responde aparece assim para o cliente: nome e setor -->
+      <button type="button" class="perfil" id="abrir-perfil" aria-haspopup="dialog" aria-controls="perfil"
+              title="Como o cliente vê você. Clique para mudar o setor ou a disponibilidade.">
+        <span class="avatar" id="avatar"></span>
+        <span class="perfil-texto">
+          <span class="perfil-rotulo">Atendendo como</span>
+          <span id="nome-atendente" class="perfil-nome"></span>
+        </span>
+        <i class="ponto-disponivel" id="ponto-disponivel" aria-hidden="true"></i>
+      </button>
+      <button class="aba" id="sair" type="button">Sair</button>
+    </div>
+  </header>
+
+  <div class="grade">
+    <aside class="coluna filtros">
+      <div class="titulo-coluna">Caixa de entrada</div>
+      <div id="filtros-fixos"></div>
+      <div class="titulo-coluna">Canais</div>
+      <div id="filtros-canais"></div>
+      <div class="titulo-coluna">Etiquetas</div>
+      <div id="filtros-etiquetas"></div>
+    </aside>
+
+    <section class="coluna lista">
+      <div class="busca">
+        <input id="busca" type="search" placeholder="Buscar contato ou mensagem…" autocomplete="off">
+      </div>
+      <div id="lista-conversas"></div>
+    </section>
+
+    <section class="conversa">
+      <div id="conversa-vazia" class="vazio">
+        <p>Escolha uma conversa à esquerda para começar o atendimento.</p>
+      </div>
+
+      <div id="conversa-conteudo" hidden style="display:contents">
+        <header class="cabecalho-conversa">
+          <!-- celular: lista e conversa se revezam na tela -->
+          <button type="button" class="botao discreto pequeno" id="voltar-lista" aria-label="Voltar para a lista de conversas">← Conversas</button>
+          <div class="titulo-conversa">
+            <h2 id="titulo-conversa"></h2>
+            <div class="dica" id="subtitulo-conversa"></div>
+          </div>
+          <div class="acoes">
+            <button type="button" class="botao discreto pequeno" id="abrir-ficha"
+                    aria-controls="ficha" aria-expanded="false">Ficha do cliente</button>
+            <select id="seletor-atendente" title="Atendente responsável"></select>
+            <select id="seletor-prioridade" title="Prioridade">
+              <option value="baixa">Baixa</option>
+              <option value="normal">Normal</option>
+              <option value="alta">Alta</option>
+            </select>
+            <select id="seletor-status" title="Situação">
+              <option value="aberta">Aberta</option>
+              <option value="pendente">Pendente</option>
+              <option value="resolvida">Resolvida</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="linha-do-tempo" id="linha-do-tempo"></div>
+
+        <form class="redator" id="redator">
+          <div class="abas-redator">
+            <button type="button" class="aba ativa" data-modo="resposta">Responder</button>
+            <button type="button" class="aba nota-aba" data-modo="nota">Nota interna</button>
+          </div>
+          <div id="sugestoes" class="sugestoes" hidden></div>
+          <textarea id="texto" placeholder="Escreva sua resposta…  (/ para respostas rápidas)"></textarea>
+          <div class="rodape-redator">
+            <input type="file" id="arquivo" hidden>
+            <button type="button" class="anexar" id="botao-anexar" title="Anexar arquivo">📎</button>
+            <span class="dica" id="dica-redator">Enter envia · Shift+Enter quebra linha</span>
+            <span class="dica assinatura-redator" id="assinatura-redator"></span>
+            <button class="botao" type="submit" style="margin-left:auto">Enviar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- em tela média a ficha vira gaveta: Fechar, Esc ou clique fora fecham -->
+    <div class="fundo-ficha" id="fundo-ficha" hidden></div>
+    <aside class="coluna ficha" id="ficha" aria-labelledby="titulo-ficha">
+      <header class="cabecalho-ficha">
+        <h2 id="titulo-ficha">Ficha do cliente</h2>
+        <button type="button" class="icone-gaveta" id="fechar-ficha" aria-label="Fechar a ficha (Esc)">×</button>
+      </header>
+      <div id="corpo-ficha" class="corpo-ficha"></div>
+    </aside>
+  </div>
+
+  <!-- perfil: o setor aparece para o cliente junto com o nome -->
+  <div id="perfil" class="gaveta-fundo perfil-fundo" hidden>
+    <form class="janela-perfil" id="form-perfil" role="dialog" aria-modal="true" aria-labelledby="titulo-perfil">
+      <header class="cabecalho-gaveta">
+        <h2 id="titulo-perfil">Como o cliente vê você</h2>
+        <button type="button" class="icone-gaveta" id="fechar-perfil" aria-label="Fechar (Esc)">×</button>
+      </header>
+      <div class="corpo-perfil">
+        <p class="dica">Cada resposta chega ao cliente com o seu nome e o seu setor, no jeito de cada
+          canal: no WhatsApp em negrito na primeira linha, no Telegram na primeira linha, no
+          e-mail como assinatura no fim e no chat do site ao lado da mensagem.</p>
+        <label class="campo-canal" for="perfil-setor">Setor
+          <input id="perfil-setor" name="setor" list="setores-sugeridos" maxlength="60" autocomplete="off"
+                 placeholder="Ex.: Suporte técnico">
+        </label>
+        <datalist id="setores-sugeridos">
+          <option value="Suporte técnico"></option>
+          <option value="Financeiro"></option>
+          <option value="Comercial"></option>
+          <option value="Implantação"></option>
+        </datalist>
+        <div class="sugestoes-setor" id="sugestoes-setor"></div>
+        <label class="linha-check"><input type="checkbox" id="perfil-disponivel">
+          Disponível para receber conversas novas</label>
+        <div class="previa-assinatura">
+          <span class="rotulo">O cliente verá</span>
+          <strong id="previa-assinatura"></strong>
+        </div>
+        <p class="erro" id="erro-perfil" role="alert"></p>
+        <div class="acoes-canal">
+          <button type="submit" class="botao pequeno" id="salvar-perfil">Salvar</button>
+          <button type="button" class="botao discreto pequeno" id="cancelar-perfil">Cancelar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- só para admin; o conteúdo é montado pelo painel.js a partir de /api/canais/tipos -->
+  <div id="canais" class="gaveta-fundo" hidden>
+    <section class="gaveta" role="dialog" aria-modal="true" aria-labelledby="titulo-canais">
+      <header class="cabecalho-gaveta">
+        <button type="button" class="icone-gaveta" id="canais-voltar" hidden aria-label="Voltar à lista de canais">←</button>
+        <h2 id="titulo-canais">Canais</h2>
+        <button type="button" class="botao pequeno" id="canais-novo">Novo canal</button>
+        <button type="button" class="icone-gaveta" id="canais-fechar" aria-label="Fechar (Esc)">×</button>
+      </header>
+      <div class="corpo-gaveta" id="corpo-canais"></div>
+    </section>
+  </div>
+
+  <!-- só para admin: quem atende, com que papel e setor; montado pelo painel.js -->
+  <div id="equipe" class="gaveta-fundo" hidden>
+    <section class="gaveta" role="dialog" aria-modal="true" aria-labelledby="titulo-equipe">
+      <header class="cabecalho-gaveta">
+        <h2 id="titulo-equipe">Equipe</h2>
+        <button type="button" class="botao pequeno" id="equipe-novo">Novo atendente</button>
+        <button type="button" class="icone-gaveta" id="equipe-fechar" aria-label="Fechar (Esc)">×</button>
+      </header>
+      <div class="corpo-gaveta" id="corpo-equipe"></div>
+    </section>
+  </div>
+</div>
+
+<script src="/static/eventos.js"></script>
+<script src="/static/painel.js"></script>
+</body>
+</html>
