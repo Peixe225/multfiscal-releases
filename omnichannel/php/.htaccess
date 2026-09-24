@@ -1,0 +1,36 @@
+# Pasta do OmniChannel 2 (public_html/omnichannel2/).
+#
+# Aqui nada é servido direto. O ideal é o subdomínio apontar para public/; se
+# ele apontar para esta pasta, tudo é reescrito para public/ (que tem o próprio
+# .htaccess: https, front controller, instalador) e app/, dados/, config.php,
+# cron.php e console.php ficam inalcançáveis pela web. Sem mod_rewrite, nega tudo.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteRule ^public/ - [L]
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Sem mod_rewrite: nega tudo em vez de expor o código.
+<IfModule !mod_rewrite.c>
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</IfModule>
+
+<FilesMatch "^(config.*\.php|cron\.php|console\.php|VERSAO|.*\.sqlite.*|.*\.log|.*\.codigo|.*\.lock|.*\.md|\..*)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

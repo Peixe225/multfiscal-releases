@@ -11,7 +11,6 @@ from sqlalchemy import select
 from typing import Annotated
 
 from ..dependencias import Sessao
-from ..eventos import barramento
 from ..models import (
     Anexo,
     Canal,
@@ -23,14 +22,30 @@ from ..models import (
     TipoCanal,
     TipoMensagem,
 )
-from ..schemas import MensagemEntrada, WidgetMensagemSaida, WidgetSessaoEntrada, WidgetSessaoSaida
+from ..schemas import (
+    AssinaturaSaida,
+    EventosDesdeSaida,
+    MensagemEntrada,
+    WidgetMensagemSaida,
+    WidgetSessaoEntrada,
+    WidgetSessaoSaida,
+)
 from ..security import gerar_chave
 from ..canais.base import AnexoRecebido, MensagemRecebida
-from ..serializacao import anexo_saida
+from ..serializacao import anexo_saida, assinatura_de
 from ..servicos import anexos as svc_anexos
 from ..servicos.mensagens import publicar_conversa, publicar_mensagem, registrar_entrada
 from ..api.anexos import resposta_de_arquivo
-from ..api.eventos import CABECALHOS
+from ..api.eventos import (
+    CABECALHOS,
+    LIMITE_PADRAO,
+    Depois,
+    Limite,
+    cursor_inicial,
+    do_visitante,
+    fluxo_persistido,
+    ler_desde,
+)
 
 rotas = APIRouter(prefix="/api/widget", tags=["widget"])
 LIMITE_HISTORICO = 100
@@ -137,19 +152,30 @@ def historico(sessao: Sessao, x_sessao: Annotated[str | None, Header()] = None) 
             Mensagem.conversa.has(contato_id=registro.contato_id),
             Mensagem.tipo != TipoMensagem.NOTA_INTERNA.value,
         )
-        .order_by(Mensagem.criada_em.asc())
+        # as mais novas primeiro para o limite cortar o passado, nao o presente
+        .order_by(Mensagem.criada_em.desc(), Mensagem.id.desc())
         .limit(LIMITE_HISTORICO)
-    )
-    return [_saida_widget(m, m.atendente.nome if m.atendente else None) for m in mensagens]
+    ).all()
+    return [_saida_widget(m, _autor_para_o_visitante(m)) for m in reversed(mensagens)]
+
+
+def _autor_para_o_visitante(mensagem: Mensagem) -> str | None:
+    """Quem respondeu, com o nome gravado no envio (o que o cliente viu)."""
+    assinatura = assinatura_de(mensagem)
+    if assinatura:
+        return assinatura["nome"]
+    return mensagem.atendente.nome if mensagem.atendente else None
 
 
 def _saida_widget(mensagem: Mensagem, autor: str | None) -> WidgetMensagemSaida:
+    assinatura = assinatura_de(mensagem) if mensagem.direcao == Direcao.SAIDA.value else None
     return WidgetMensagemSaida(
         id=mensagem.id,
         direcao=Direcao(mensagem.direcao),
         conteudo=mensagem.conteudo,
         criada_em=mensagem.criada_em,
         autor=autor,
+        assinatura=AssinaturaSaida(**assinatura) if assinatura else None,
         anexos=[anexo_saida(a, base="/api/widget/anexos") for a in mensagem.anexos],
     )
 
@@ -212,19 +238,31 @@ def baixar_anexo(anexo_id: int, sessao: Sessao, token: str = Query(description="
 
 
 @rotas.get("/stream")
-def stream(sessao: Sessao, token: str = Query(description="token da sessao do widget")) -> StreamingResponse:
+def stream(
+    sessao: Sessao,
+    token: str = Query(description="token da sessao do widget"),
+    depois: Depois = None,
+    last_event_id: Annotated[str | None, Header()] = None,
+) -> StreamingResponse:
     registro = _sessao_widget(sessao, token)
-    contato_id = registro.contato_id
-
-    def so_do_visitante(evento: dict) -> bool:
-        dados = evento.get("dados") or {}
-        return (
-            evento.get("tipo") == "mensagem.nova"
-            and dados.get("contato_id") == contato_id
-            and dados.get("direcao") == Direcao.SAIDA.value
-            and dados.get("tipo") != TipoMensagem.NOTA_INTERNA.value
-        )
-
     return StreamingResponse(
-        barramento.fluxo(so_do_visitante), media_type="text/event-stream", headers=CABECALHOS
+        fluxo_persistido(cursor_inicial(depois, last_event_id), do_visitante(registro.contato_id)),
+        media_type="text/event-stream",
+        headers=CABECALHOS,
     )
+
+
+@rotas.get("/eventos/desde", response_model=EventosDesdeSaida)
+def eventos_desde(
+    sessao: Sessao,
+    token: str | None = Query(default=None, description="token da sessao do widget"),
+    depois: Depois = None,
+    limite: Limite = LIMITE_PADRAO,
+    x_sessao: Annotated[str | None, Header()] = None,
+) -> dict:
+    """Consulta por cursor (o contrato do PHP): só a resposta para o visitante.
+
+    A sessão vem em ?token= (como no stream) ou no cabeçalho X-Sessao.
+    """
+    registro = _sessao_widget(sessao, token or x_sessao)
+    return ler_desde(depois, limite, do_visitante(registro.contato_id))

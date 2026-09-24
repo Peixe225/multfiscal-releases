@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, field_validator
 from pydantic_core import PydanticCustomError
 
 from .models import Direcao, Papel, Prioridade, StatusConversa, TipoCanal
@@ -14,11 +15,24 @@ class Modelo(BaseModel):
 
 
 # ----------------------------------------------------------------- atendentes
+MAX_SETOR = 60
+
+
+def _aparar(valor):
+    """Espaço em volta não conta no limite; em branco é "sem setor"."""
+    return valor.strip() if isinstance(valor, str) else valor
+
+
+# o setor aparece para o cliente ao lado do nome ("Ana · Suporte técnico")
+Setor = Annotated[Annotated[str, Field(max_length=MAX_SETOR)] | None, BeforeValidator(_aparar)]
+
+
 class AtendenteEntrada(BaseModel):
     nome: str = Field(min_length=2, max_length=120)
     email: EmailStr
     senha: str = Field(min_length=6, max_length=128)
     papel: Papel = Papel.ATENDENTE
+    setor: Setor = None
 
 
 class AtendenteAtualizacao(BaseModel):
@@ -27,6 +41,8 @@ class AtendenteAtualizacao(BaseModel):
     papel: Papel | None = None
     ativo: bool | None = None
     disponivel: bool | None = None
+    # PATCH: ausente mantém; null ou "" limpa (ver model_fields_set na rota)
+    setor: Setor = None
 
 
 class AtendenteSaida(Modelo):
@@ -36,6 +52,12 @@ class AtendenteSaida(Modelo):
     papel: str
     ativo: bool
     disponivel: bool
+    setor: str | None = None
+
+    @field_validator("setor")
+    @classmethod
+    def _vazio_e_nulo(cls, valor: str | None) -> str | None:
+        return valor or None
 
 
 class Credenciais(BaseModel):
@@ -179,6 +201,13 @@ class AnexoSaida(Modelo):
     url: str | None = None
 
 
+class AssinaturaSaida(BaseModel):
+    """Quem respondeu, como o cliente viu: gravado na mensagem no envio."""
+
+    nome: str
+    setor: str | None = None
+
+
 class MensagemEntrada(BaseModel):
     conteudo: str = Field(min_length=1, max_length=8000)
 
@@ -194,6 +223,7 @@ class MensagemSaida(Modelo):
     erro: str | None = None
     atendente_id: int | None = None
     autor: str | None = None
+    assinatura: AssinaturaSaida | None = None
     anexos: list[AnexoSaida] = []
     criada_em: datetime
 
@@ -267,7 +297,22 @@ class WidgetMensagemSaida(BaseModel):
     conteudo: str
     criada_em: datetime
     autor: str | None = None
+    # nome e setor de quem respondeu: o visitante precisa saber com quem fala
+    assinatura: AssinaturaSaida | None = None
     anexos: list[AnexoSaida] = []
+
+
+class EventoSaida(BaseModel):
+    id: int
+    tipo: str
+    dados: Any = None
+
+
+class EventosDesdeSaida(BaseModel):
+    """GET /api/eventos/desde: o que houve depois do cursor, e o cursor novo."""
+
+    eventos: list[EventoSaida] = []
+    ultimo: int
 
 
 # -------------------------------------------------------------------- metricas

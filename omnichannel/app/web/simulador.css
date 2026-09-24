@@ -262,6 +262,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .carta .cabecalho div { overflow-wrap: anywhere; }
 .carta .assunto-linha { font-weight: 700; color: var(--texto); font-size: 14px; margin-bottom: 2px; }
 .carta .texto { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* quem respondeu, como cada canal mostra: no WhatsApp a primeira linha em
+   negrito (o *...* do WhatsApp), no Telegram a primeira linha em texto puro,
+   no e-mail a assinatura no fim, depois do "-- " */
+.msg .assinatura { display: block; }
+.celular[data-tipo="whatsapp"] .msg .assinatura { font-weight: 700; }
+.carta .assinatura-email { white-space: pre-wrap; color: var(--texto-fraco); margin-top: 10px; font-size: 13px; }
 
 .anexos { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .anexos img { max-width: 100%; max-height: 260px; border-radius: 8px; display: block; cursor: zoom-in; }

@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from .armazenamento import TIPOS_IMAGEM
 from .canais.registro import adaptador_para
-from .models import Anexo, Canal, Conversa, Mensagem, TipoMensagem
-from .schemas import AnexoSaida, CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
+from .models import Anexo, Canal, Conversa, Direcao, Mensagem, TipoMensagem
+from .schemas import AnexoSaida, AssinaturaSaida, CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
 
 
 def canal_saida(canal: Canal) -> CanalSaida:
@@ -26,17 +26,32 @@ def anexo_saida(anexo: Anexo, base: str = "/api/anexos") -> AnexoSaida:
     return dados
 
 
+def assinatura_de(mensagem: Mensagem) -> dict | None:
+    """{nome, setor} gravado no envio, ou None (entrada, sistema, base antiga)."""
+    valor = mensagem.assinatura
+    if not isinstance(valor, dict) or not valor.get("nome"):
+        return None
+    return {"nome": str(valor["nome"]), "setor": valor.get("setor") or None}
+
+
 def autor_de(mensagem: Mensagem) -> str:
     if mensagem.tipo == TipoMensagem.SISTEMA.value:
         return "Sistema"
     if mensagem.atendente is not None:
         return mensagem.atendente.nome
+    # atendente apagado: a resposta continua com o nome que o cliente viu,
+    # em vez de virar o nome do próprio cliente
+    assinatura = assinatura_de(mensagem)
+    if mensagem.direcao == Direcao.SAIDA.value and assinatura:
+        return assinatura["nome"]
     return mensagem.conversa.contato.nome if mensagem.conversa else "Contato"
 
 
 def mensagem_saida(mensagem: Mensagem) -> MensagemSaida:
     dados = MensagemSaida.model_validate(mensagem)
     dados.autor = autor_de(mensagem)
+    assinatura = assinatura_de(mensagem)
+    dados.assinatura = AssinaturaSaida(**assinatura) if assinatura else None
     # o widget filtra o fluxo de eventos por contato, nao por conversa
     dados.contato_id = mensagem.conversa.contato_id if mensagem.conversa else None
     dados.anexos = [anexo_saida(a) for a in mensagem.anexos]

@@ -1,7 +1,8 @@
 /* OmniChannel 2 - simulador de clientes.
    Faz o papel do contato: o que se escreve aqui entra pelo adaptador do canal,
-   como um webhook de verdade, e a resposta do atendente volta pelo mesmo fluxo
-   de eventos que alimenta o painel. Sem framework, como o painel. */
+   como um webhook de verdade, e a resposta do atendente volta pelos mesmos
+   eventos que alimentam o painel (eventos.js: EventSource no Python, consulta
+   a cada 2 s no PHP). Sem framework, como o painel. */
 
 // E-mail sempre em domínio reservado (RFC 2606): se o canal ganhar SMTP
 // depois, a resposta a uma conversa de teste não chega à caixa de ninguém
@@ -44,8 +45,7 @@ const estado = {
   mostradas: new Set(),
   ultimoDia: null,
   geracao: 0, // descarta a resposta de um histórico pedido antes de trocar de cliente
-  fonte: null,
-  jaConectou: false, // depois da primeira conexão, reconectar pede o que se perdeu
+  eventos: null, // OmniEventos: o cursor garante que nada se perde ao reconectar
   naoVistas: 0,
 };
 
@@ -116,8 +116,7 @@ async function api(metodo, caminho, corpo) {
     const texto = textoDoErro(detalhe.detail, resposta.status);
     // o servidor pode ter voltado sem sandbox com a página aberta
     if (resposta.status === 404 && caminho.startsWith("/api/simulador") && /desligado/.test(texto)) {
-      if (estado.fonte) estado.fonte.close();
-      estado.fonte = null;
+      pararEventos();
       mostrarTela("#tela-desligado");
     }
     throw new ErroApi(texto, resposta.status);
@@ -155,8 +154,7 @@ function mostrarTela(id) {
 }
 
 function mostrarLogin() {
-  if (estado.fonte) estado.fonte.close();
-  estado.fonte = null;
+  pararEventos();
   mostrarTela("#tela-login");
   $("#form-login [name=email]").focus();
 }
@@ -209,7 +207,7 @@ async function iniciar() {
   $("#nome-atendente").textContent = atendente.nome;
   mostrarTela("#app");
   recuperarPreferencias();
-  conectarEventos();
+  await conectarEventos();
   selecionarPersona(estado.personaId);
 }
 
@@ -533,13 +531,32 @@ function rolarParaFim() {
   conversa.scrollTop = conversa.scrollHeight;
 }
 
+/* "Ana · Suporte técnico": nome e setor gravados no envio da resposta. */
+function linhaAssinatura(mensagem) {
+  const assinatura = mensagem.assinatura;
+  if (!assinatura || !assinatura.nome) return null;
+  return assinatura.setor ? `${assinatura.nome} · ${assinatura.setor}` : assinatura.nome;
+}
+
 function balao(mensagem) {
   const minha = mensagem.direcao === "entrada";
   const elemento = criar("div", `msg ${minha ? "minha" : "deles"}`);
   elemento.dataset.id = mensagem.id;
-  // o nome do atendente ajuda quem testa; o cliente real veria só a empresa
-  if (!minha && mensagem.autor) elemento.append(criar("div", "autor", mensagem.autor));
-  if (mensagem.conteudo) elemento.append(criar("div", "texto", mensagem.conteudo));
+  const assinatura = minha ? null : linhaAssinatura(mensagem);
+  if (assinatura) {
+    // é assim que chega ao aparelho: a primeira linha da mensagem diz quem
+    // responde (em negrito no WhatsApp, texto puro no Telegram)
+    const linha = criar("span", "assinatura", assinatura);
+    linha.title = "Quem respondeu: a primeira linha que o cliente recebe";
+    const texto = criar("div", "texto");
+    texto.append(linha);
+    if (mensagem.conteudo) texto.append(document.createTextNode(mensagem.conteudo));
+    elemento.append(texto);
+  } else {
+    // resposta sem assinatura (base antiga): mostra o autor para quem testa
+    if (!minha && mensagem.autor) elemento.append(criar("div", "autor", mensagem.autor));
+    if (mensagem.conteudo) elemento.append(criar("div", "texto", mensagem.conteudo));
+  }
   if (mensagem.anexos?.length) elemento.append(desenharAnexos(mensagem.anexos));
   elemento.append(criar("div", "meta", `${hora(mensagem.criada_em)}${minha ? " ✓✓" : ""}`));
   return elemento;
@@ -562,13 +579,19 @@ function cartaoEmail(mensagem) {
   cabecalho.append(criar("div", "assunto-linha", assunto || "(sem assunto)"));
   const voce = cliente ? `${cliente.nome ? `${cliente.nome} ` : ""}<${cliente.identificador}>` : "você";
   const empresa = canal ? canal.nome : "suporte";
-  const de = minha ? voce : `${empresa}${mensagem.autor ? ` (${mensagem.autor})` : ""}`;
+  const quem = minha ? null : mensagem.assinatura?.nome || mensagem.autor;
+  const de = minha ? voce : `${empresa}${quem ? ` (${quem})` : ""}`;
   cabecalho.append(criar("div", "", `De: ${de}`));
   cabecalho.append(criar("div", "", `Para: ${minha ? empresa : voce}`));
   cabecalho.append(criar("div", "", dataHora(mensagem.criada_em)));
   elemento.append(cabecalho);
 
   if (mensagem.conteudo) elemento.append(criar("div", "texto", mensagem.conteudo));
+  if (!minha && mensagem.assinatura?.nome) {
+    // no e-mail a assinatura vai no fim, depois do separador "-- "
+    const { nome, setor } = mensagem.assinatura;
+    elemento.append(criar("div", "assinatura-email", `-- \n${nome}${setor ? `\n${setor}` : ""}`));
+  }
   if (mensagem.anexos?.length) elemento.append(desenharAnexos(mensagem.anexos));
   return elemento;
 }
@@ -672,61 +695,59 @@ async function enviar() {
 }
 
 /* ----------------------------------------------------------------- eventos */
-function conectarEventos() {
-  if (estado.fonte) estado.fonte.close();
-  const fonte = new EventSource(`/api/eventos/stream?token=${encodeURIComponent(estado.token)}`);
-  estado.fonte = fonte;
-  const indicador = $("#ao-vivo");
-
-  fonte.onopen = () => {
-    indicador.textContent = "ao vivo";
-    indicador.classList.add("ligado");
-    // o barramento não guarda eventos: o que chegou com o fluxo caído só
-    // aparece pedindo o histórico de novo
-    if (estado.jaConectou) sincronizar(false);
-    estado.jaConectou = true;
-  };
-
-  fonte.addEventListener("mensagem.nova", (evento) => {
-    const mensagem = JSON.parse(evento.data);
-    // o que o cliente escreveu vem da resposta do POST, que traz o assunto;
-    // o eco pelo fluxo pode chegar antes dela e desenharia o cartão sem ele
-    if (mensagem.direcao !== "saida") return;
-    if (!estado.contatoId || mensagem.contato_id !== estado.contatoId) return;
-    if (!visivelParaCliente(mensagem)) return;
-    if (estado.conversas.has(mensagem.conversa_id)) {
-      acrescentar(mensagem);
-      rolarParaFim();
-      sinalizarNaoVista();
-      return;
-    }
-    // mesmo contato, conversa desconhecida: pode ser de outro canal; o
-    // histórico do servidor é quem sabe filtrar por canal
-    sincronizar(true);
-  });
-
-  fonte.onerror = () => {
-    indicador.classList.remove("ligado");
-    if (fonte.readyState === EventSource.CLOSED) {
-      // resposta que não é 200 (token vencido, por exemplo) não reconecta
-      // sozinha: confere a sessão e tenta de novo
-      indicador.textContent = "desconectado";
-      setTimeout(() => reconectar(fonte), 3000);
-    } else {
-      indicador.textContent = "reconectando…";
-    }
-  };
+function pararEventos() {
+  if (estado.eventos) estado.eventos.fechar();
+  estado.eventos = null;
 }
 
-async function reconectar(fonte) {
-  if (estado.fonte !== fonte) return; // já trocaram de fluxo ou de usuário
-  try {
-    await api("GET", "/api/auth/eu");
-    conectarEventos();
-  } catch (erro) {
-    if (erro.situacao === 401) return; // o login já está na tela
-    setTimeout(() => reconectar(fonte), 5000);
+async function conectarEventos() {
+  pararEventos();
+  const token = encodeURIComponent(estado.token);
+  const cursor = (depois) => (depois === null || depois === undefined ? "" : `&depois=${depois}`);
+  const indicador = $("#ao-vivo");
+  const eventos = OmniEventos.criar({
+    stream: (depois) => `/api/eventos/stream?token=${token}${cursor(depois)}`,
+    desde: (depois) => `/api/eventos/desde?token=${token}${cursor(depois)}`,
+    tipos: ["mensagem.nova"],
+    // com o simulador noutra aba, o título ainda avisa (mais devagar)
+    intervaloOculto: 10000,
+    aoEvento: (tipo, mensagem) => tipo === "mensagem.nova" && receber(mensagem),
+    aoEstado: (situacao) => {
+      indicador.classList.toggle("ligado", situacao === "ao-vivo");
+      indicador.textContent = {
+        conectando: "conectando…",
+        "ao-vivo": "ao vivo",
+        reconectando: "reconectando…",
+        desconectado: "desconectado",
+      }[situacao] || situacao;
+    },
+    aoRecusar: () => {
+      gravarArmazenado("omni_token", null);
+      estado.token = null;
+      mostrarLogin();
+    },
+  });
+  estado.eventos = eventos;
+  // o cursor antes do histórico: o que chegar enquanto ele carrega vem depois
+  await eventos.preparar().catch(() => null);
+  if (estado.eventos === eventos) eventos.iniciar();
+}
+
+function receber(mensagem) {
+  // o que o cliente escreveu vem da resposta do POST, que traz o assunto;
+  // o eco pelos eventos pode chegar antes dela e desenharia o cartão sem ele
+  if (mensagem.direcao !== "saida") return;
+  if (!estado.contatoId || mensagem.contato_id !== estado.contatoId) return;
+  if (!visivelParaCliente(mensagem)) return;
+  if (estado.conversas.has(mensagem.conversa_id)) {
+    acrescentar(mensagem);
+    rolarParaFim();
+    sinalizarNaoVista();
+    return;
   }
+  // mesmo contato, conversa desconhecida: pode ser de outro canal; o
+  // histórico do servidor é quem sabe filtrar por canal
+  sincronizar(true);
 }
 
 async function sincronizar(veioDoAtendente) {

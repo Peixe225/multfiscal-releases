@@ -1,0 +1,9 @@
+# gerado na instalação: senha do banco e chave secreta
+config.php
+config.*.php
+!config.exemplo.php
+# anexos, logs, banco SQLite de desenvolvimento
+dados/
+# cópia do front feita pelo pacote de deploy (a fonte é app/web)
+public/web/
+vendor/

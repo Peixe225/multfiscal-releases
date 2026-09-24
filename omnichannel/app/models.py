@@ -8,19 +8,25 @@ unico mesmo quando ele troca de canal.
 from __future__ import annotations
 
 import enum
+import json
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     JSON,
     String,
     Table,
     Text,
     UniqueConstraint,
+    event,
+    inspect,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -52,6 +58,31 @@ class DataHoraUTC(TypeDecorator):
 
     def process_result_value(self, valor, dialeto):
         return garantir_utc(valor)
+
+
+class JSONEmTexto(TypeDecorator):
+    """Objeto pequeno gravado como texto JSON numa coluna VARCHAR.
+
+    É o formato da coluna `mensagens.assinatura` no PHP (VARCHAR(255) com
+    `{"nome", "setor"}`): o tipo JSON do SQLAlchemy viraria JSON nativo no
+    MySQL, e uma base criada por um lado não abriria igual no outro.
+    """
+
+    impl = String(255)
+    cache_ok = True
+
+    def process_bind_param(self, valor, dialeto):
+        if valor is None:
+            return None
+        return json.dumps(valor, ensure_ascii=False, separators=(",", ":"))
+
+    def process_result_value(self, valor, dialeto):
+        if valor is None or valor == "":
+            return None
+        try:
+            return json.loads(valor)
+        except (TypeError, ValueError):
+            return None  # texto que não é JSON não derruba a leitura da conversa
 
 
 class TipoCanal(str, enum.Enum):
@@ -116,6 +147,9 @@ class Atendente(Base):
     papel: Mapped[str] = mapped_column(String(20), default=Papel.ATENDENTE.value)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     disponivel: Mapped[bool] = mapped_column(Boolean, default=True)
+    # mostrado ao cliente junto com o nome de quem responde ("Ana · Suporte
+    # técnico"); cada atendente ajusta o seu no painel
+    setor: Mapped[str | None] = mapped_column(String(80), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
     @property
@@ -236,6 +270,9 @@ class Mensagem(Base):
     externo_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     erro: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadados: Mapped[dict] = mapped_column(JSON, default=dict)
+    # {"nome", "setor"} de quem respondeu, gravado NO ENVIO: se o atendente
+    # mudar de setor depois, o histórico continua dizendo o que o cliente viu
+    assinatura: Mapped[dict | None] = mapped_column(JSONEmTexto, nullable=True)
     criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, index=True)
 
     conversa: Mapped[Conversa] = relationship(back_populates="mensagens")
@@ -310,3 +347,60 @@ class SessaoWidget(Base):
     canal_id: Mapped[int] = mapped_column(ForeignKey("canais.id", ondelete="CASCADE"))
     contato_id: Mapped[int] = mapped_column(ForeignKey("contatos.id", ondelete="CASCADE"))
     criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+
+
+class FilaEvento(Base):
+    """Eventos de tempo real guardados, para quem consulta em vez de escutar.
+
+    O SSE entrega só a quem está conectado; esta fila deixa o painel e o
+    widget pedirem "o que houve depois do id N" (GET /api/eventos/desde), o
+    mesmo contrato do servidor PHP, e não perde o que chegou com a conexão
+    caída. AUTOINCREMENT no SQLite: id nunca reaproveitado, senão um cursor
+    antigo pularia eventos novos. Mesmo DDL da migração do PHP.
+    """
+
+    __tablename__ = "fila_eventos"
+    __table_args__ = (
+        Index("ix_fila_eventos_contato", "contato_id", "id"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+    )
+    tipo: Mapped[str] = mapped_column(String(60))
+    dados: Mapped[str] = mapped_column(Text)  # JSON pronto: sai como veio
+    contato_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, index=True)
+
+
+# ---------------------------------------------------------------- migração
+# O create_all só cria tabela que falta: coluna nova numa tabela que já
+# existe não aparece numa base antiga. Estas são acrescentadas na subida,
+# uma vez, e só se faltarem (idempotente).
+COLUNAS_ACRESCENTADAS = (
+    ("atendentes", "setor", "VARCHAR(80)"),
+    ("mensagens", "assinatura", "VARCHAR(255)"),
+)
+
+
+def acrescentar_colunas_faltantes(conexao) -> list[str]:
+    """ALTER TABLE ... ADD COLUMN para cada coluna nova que a base não tem."""
+    inspetor = inspect(conexao)
+    tabelas = set(inspetor.get_table_names())
+    feitas = []
+    for tabela, coluna, tipo in COLUNAS_ACRESCENTADAS:
+        if tabela not in tabelas:
+            continue
+        if coluna in {c["name"] for c in inspetor.get_columns(tabela)}:
+            continue
+        # nomes fixos daqui, nunca vindos de fora: nada a escapar
+        conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo} NULL"))
+        feitas.append(f"{tabela}.{coluna}")
+    return feitas
+
+
+@event.listens_for(Base.metadata, "after_create")
+def _migrar_depois_do_create_all(alvo, conexao, **_):
+    # todo create_all (subida do app, seed, testes) passa por aqui
+    acrescentar_colunas_faltantes(conexao)

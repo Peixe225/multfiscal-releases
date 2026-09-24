@@ -370,6 +370,76 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .apagar-segredo[aria-pressed="true"] { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
 .novo-canal .erro:empty { display: none; }
 
-@media (max-width: 1200px) { .grade { grid-template-columns: 180px 280px minmax(0, 1fr); } .ficha { display: none; } }
+/* ---------------------------------------------------------------- perfil */
+.perfil {
+  display: flex; align-items: center; gap: 9px; text-align: left;
+  border: 1px solid transparent; background: transparent; cursor: pointer;
+  padding: 4px 10px 4px 4px; border-radius: 24px; max-width: 280px;
+}
+.perfil:hover { background: var(--superficie-2); border-color: var(--borda); }
+.perfil .avatar { flex: none; }
+.perfil-texto { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.perfil-rotulo { font-size: 11px; color: var(--texto-fraco); }
+.perfil-nome { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ponto-disponivel { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); flex: none; }
+.ponto-disponivel.fora { background: var(--texto-fraco); }
+#sair { font-size: 12px; }
+.perfil-fundo { justify-content: flex-end; align-items: flex-start; }
+.janela-perfil {
+  margin: 62px 14px 0 0; width: min(400px, calc(100vw - 28px));
+  background: var(--fundo); border: 1px solid var(--borda); border-radius: 14px;
+  box-shadow: var(--sombra); overflow: hidden;
+}
+.corpo-perfil { padding: 6px 16px 16px; }
+.corpo-perfil > .dica { margin: 10px 0 0; line-height: 1.5; }
+.corpo-perfil .campo-canal { font-size: 13px; font-weight: 600; }
+.sugestoes-setor { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sugestoes-setor button {
+  border: 1px solid var(--borda); background: var(--superficie-2); border-radius: 20px;
+  padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
+.sugestoes-setor button[aria-pressed="true"] { background: var(--marca-fraca); color: var(--marca); border-color: var(--marca); }
+.linha-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; }
+.previa-assinatura {
+  margin-top: 14px; padding: 10px 12px; border-radius: 10px;
+  background: var(--superficie); border: 1px solid var(--borda);
+}
+.previa-assinatura .rotulo { display: block; font-size: 11px; color: var(--texto-fraco); }
+.previa-assinatura strong { font-size: 14px; }
+.corpo-perfil .erro:empty { display: none; }
+
+/* quem respondeu, como o cliente viu (gravado no envio) */
+.balao .meta .quem { font-weight: 600; }
+.assinatura-redator { margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assinatura-redator b { color: var(--texto); font-weight: 600; }
+
+/* ----------------------------------------------------------- ficha (gaveta) */
+.cabecalho-ficha {
+  display: none; align-items: center; gap: 10px;
+  padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--borda);
+  position: sticky; top: 0; background: var(--superficie); z-index: 1;
+}
+.cabecalho-ficha h2 { margin: 0 auto 0 0; font-size: 15px; }
+#abrir-ficha { display: none; }
+.fundo-ficha { position: fixed; inset: 0; z-index: 25; background: rgba(8, 12, 24, .45); }
+
+@media (max-width: 1200px) {
+  .grade { grid-template-columns: 180px 280px minmax(0, 1fr); }
+  /* sem espaço para a quarta coluna: a ficha vira gaveta, aberta pelo botão
+     do cabeçalho e fechada pelo × dela, pelo Esc ou por um clique fora */
+  .ficha {
+    display: none; position: fixed; top: 0; right: 0; bottom: 0; z-index: 26;
+    width: min(340px, 92vw); border-left: 1px solid var(--borda); border-right: 0;
+    box-shadow: -12px 0 40px rgba(8, 12, 24, .18);
+  }
+  .ficha.aberta { display: block; }
+  .ficha .cabecalho-ficha { display: flex; }
+  #abrir-ficha { display: inline-block; }
+}
 @media (max-width: 900px) { .grade { grid-template-columns: 260px minmax(0, 1fr); } .coluna.filtros { display: none; } }
-@media (max-width: 560px) { .linha-form { grid-template-columns: 1fr; } .indicadores { display: none; } }
+@media (max-width: 560px) {
+  .linha-form { grid-template-columns: 1fr; }
+  .indicadores { display: none; }
+  .perfil-texto { display: none; }
+}
+@media (max-width: 1100px) { .indicadores { display: none; } .usuario { margin-left: auto; } }

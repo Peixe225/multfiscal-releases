@@ -1,20 +1,29 @@
 """Entrada e saida de mensagens - o coracao do atendimento."""
 from __future__ import annotations
 
-from sqlalchemy import select
+import json
+import logging
+import random
+import re
+from datetime import timedelta
+
+from sqlalchemy import String, cast, delete, select
 from sqlalchemy.orm import Session
 
 from ..canais.base import ArquivoParaEnviar, AtualizacaoStatus, MensagemRecebida
 from ..canais.registro import adaptador_para
+from ..db import SessaoLocal
 from ..eventos import barramento
 from ..models import (
     Atendente,
     Canal,
     Conversa,
     Direcao,
+    FilaEvento,
     Mensagem,
     StatusConversa,
     StatusMensagem,
+    TipoCanal,
     TipoMensagem,
     agora,
 )
@@ -23,6 +32,8 @@ from ..util import resumir
 from . import anexos as svc_anexos
 from .contatos import identificador_no_canal, resolver_contato
 from .conversas import obter_ou_criar_conversa, registrar_evento
+
+log = logging.getLogger(__name__)
 
 
 def _tocar_conversa(conversa: Conversa, mensagem: Mensagem) -> None:
@@ -75,6 +86,74 @@ def registrar_entrada(sessao: Session, canal: Canal, recebida: MensagemRecebida)
     return mensagem
 
 
+# ------------------------------------------------------------- assinatura
+# Quem responde aparece para o cliente. A mensagem grava {nome, setor} do
+# atendente NO ENVIO; o texto que vai ao provedor leva a assinatura no jeito
+# de cada canal, e o `conteudo` gravado fica sem ela (o painel não mostra o
+# nome duas vezes). Mesmo formato do PHP (Atendimento/Assinaturas.php):
+#   WhatsApp  primeira linha "*Ana · Suporte técnico*" (negrito do WhatsApp)
+#   Telegram  primeira linha "Ana · Suporte técnico" (texto puro)
+#   e-mail    no fim, depois do separador de assinatura "-- "
+#   webchat   texto intacto: o widget mostra nome e setor em campos próprios
+SEPARADOR_ASSINATURA = " · "
+
+
+def assinatura_do_atendente(atendente: Atendente | None) -> dict | None:
+    if atendente is None:
+        return None
+    return {"nome": atendente.nome, "setor": (atendente.setor or "").strip() or None}
+
+
+def _uma_linha(texto: str | None) -> str:
+    # quebra de linha no nome ou no setor desmontaria o formato (e, no
+    # e-mail, pareceria parte da mensagem)
+    return re.sub(r"\s+", " ", texto or "").strip()
+
+
+def linha_da_assinatura(assinatura: dict) -> str:
+    nome, setor = _uma_linha(assinatura.get("nome")), _uma_linha(assinatura.get("setor"))
+    return f"{nome}{SEPARADOR_ASSINATURA}{setor}" if setor else nome
+
+
+def aplicar_assinatura(tipo_canal: str, conteudo: str, assinatura: dict | None) -> str:
+    """O texto como o cliente vai recebê-lo no canal."""
+    if not assinatura or not _uma_linha(assinatura.get("nome")):
+        return conteudo
+    linha = linha_da_assinatura(assinatura)
+    if tipo_canal == TipoCanal.WHATSAPP.value:
+        cabecalho = f"*{linha}*"
+    elif tipo_canal == TipoCanal.TELEGRAM.value:
+        cabecalho = linha
+    elif tipo_canal == TipoCanal.EMAIL.value:
+        setor = _uma_linha(assinatura.get("setor"))
+        bloco = "-- \n" + _uma_linha(assinatura.get("nome")) + (f"\n{setor}" if setor else "")
+        return f"{conteudo.rstrip()}\n\n{bloco}" if conteudo else bloco
+    else:
+        return conteudo
+    return f"{cabecalho}\n{conteudo}" if conteudo else cabecalho
+
+
+def tem_entrada_simulada(sessao: Session, conversa: Conversa) -> bool:
+    """Alguma mensagem do cliente nesta conversa foi escrita pelo simulador?
+
+    O simulador inventa o número ou o endereço do cliente: se o canal ganhar
+    credencial depois, a resposta não pode sair para esse destino, que pode
+    ser de alguém de verdade.
+    """
+    return (
+        sessao.scalar(
+            select(Mensagem.id)
+            .where(
+                Mensagem.conversa_id == conversa.id,
+                Mensagem.direcao == Direcao.ENTRADA.value,
+                cast(Mensagem.metadados, String).like('%"simulada_por"%'),
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
 class CanalSemArquivos(Exception):
     """O canal da conversa não transporta arquivos."""
 
@@ -93,13 +172,18 @@ def enviar_mensagem(
     if arquivos and not adaptador.envia_arquivos:
         raise CanalSemArquivos(f"o canal {conversa.canal.tipo} não envia arquivos")
 
+    assinatura = assinatura_do_atendente(atendente)
     if destino is None:
         resultado_status = StatusMensagem.FALHOU
         externo_id, erro = None, f"contato sem identificacao no canal {conversa.canal.tipo}"
+    elif conversa.canal.tipo != TipoCanal.WEBCHAT.value and tem_entrada_simulada(sessao, conversa):
+        resultado_status, externo_id, erro = StatusMensagem.SIMULADA, None, None
     else:
         contexto = contexto_de_envio(sessao, conversa)
         contexto["arquivos"] = arquivos
-        resultado = adaptador.enviar(destino, conteudo, contexto)
+        contexto["assinatura"] = assinatura
+        texto = aplicar_assinatura(conversa.canal.tipo, conteudo, assinatura)
+        resultado = adaptador.enviar(destino, texto, contexto)
         resultado_status, externo_id, erro = resultado.status, resultado.externo_id, resultado.erro
 
     mensagem = Mensagem(
@@ -111,6 +195,7 @@ def enviar_mensagem(
         atendente_id=atendente.id if atendente else None,
         externo_id=externo_id,
         erro=erro,
+        assinatura=assinatura,
         criada_em=agora(),
     )
     sessao.add(mensagem)
@@ -175,10 +260,40 @@ def aplicar_status_externo(sessao: Session, atualizacoes: list[AtualizacaoStatus
 
 # ------------------------------------------------------------------- eventos
 # As rotas publicam *depois* do commit, para que o painel nunca receba um
-# evento cujo dado ainda nao esta no banco.
+# evento cujo dado ainda nao esta no banco. Cada evento vai para a tabela
+# fila_eventos (quem consulta por /api/eventos/desde, e quem reconecta o SSE
+# com Last-Event-ID, nao perde nada) e depois acorda os fluxos SSE.
+HORAS_RETENCAO = 48
+CHANCE_PODA = 50  # uma poda a cada N publicacoes, em media
+
+
+def publicar_evento(tipo: str, dados: dict, contato_id: int | None) -> int | None:
+    """Grava o evento na fila e avisa o barramento. Devolve o id gravado."""
+    evento_id = None
+    try:
+        with SessaoLocal() as sessao:
+            evento = FilaEvento(
+                tipo=tipo,
+                dados=json.dumps(dados, ensure_ascii=False, default=str),
+                contato_id=contato_id,
+                criado_em=agora(),
+            )
+            sessao.add(evento)
+            if random.randint(1, CHANCE_PODA) == 1:
+                limite = agora() - timedelta(hours=HORAS_RETENCAO)
+                sessao.execute(delete(FilaEvento).where(FilaEvento.criado_em < limite))
+            sessao.commit()
+            evento_id = evento.id
+    except Exception:  # pragma: no cover - o dado ja foi gravado; o SSE ainda entrega
+        log.exception("nao foi possivel gravar o evento %s na fila", tipo)
+    barramento.publicar(tipo, dados)
+    return evento_id
+
+
 def publicar_mensagem(mensagem: Mensagem, tipo: str = "mensagem.nova") -> None:
-    barramento.publicar(tipo, json_de(mensagem_saida(mensagem)))
+    dados = json_de(mensagem_saida(mensagem))
+    publicar_evento(tipo, dados, dados.get("contato_id"))
 
 
 def publicar_conversa(conversa: Conversa, tipo: str = "conversa.atualizada") -> None:
-    barramento.publicar(tipo, json_de(conversa_saida(conversa)))
+    publicar_evento(tipo, json_de(conversa_saida(conversa)), conversa.contato_id)

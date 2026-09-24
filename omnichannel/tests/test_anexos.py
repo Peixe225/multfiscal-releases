@@ -165,7 +165,7 @@ def test_atendente_envia_arquivo_pelo_whatsapp(cliente, cabecalho_atendente, can
     assert envio["type"] == "document"
     assert envio["document"] == {
         "id": "media-subida",
-        "caption": "Segue o manual",
+        "caption": "*Ana*\nSegue o manual",  # quem responde vai na primeira linha
         "filename": "manual.pdf",
     }
 

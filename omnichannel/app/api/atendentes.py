@@ -1,4 +1,8 @@
-"""Cadastro de atendentes."""
+"""Cadastro de atendentes.
+
+O `setor` aparece para o cliente junto com o nome de quem responde ("Ana ·
+Suporte técnico"), então cada atendente pode ajustar o seu no painel.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
@@ -26,6 +30,7 @@ def criar(dados: AtendenteEntrada, sessao: Sessao, _: AdminAtual) -> Atendente:
         email=dados.email.lower(),
         senha_hash=gerar_hash_senha(dados.senha),
         papel=dados.papel.value,
+        setor=dados.setor or None,
     )
     sessao.add(atendente)
     sessao.flush()
@@ -54,5 +59,8 @@ def atualizar(
         alvo.ativo = dados.ativo
     if dados.disponivel is not None:
         alvo.disponivel = dados.disponivel
+    if "setor" in dados.model_fields_set:
+        # null ou "" limpa: o cliente passa a ver só o nome
+        alvo.setor = dados.setor or None
     sessao.flush()
     return alvo

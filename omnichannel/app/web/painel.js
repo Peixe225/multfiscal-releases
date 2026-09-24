@@ -1,6 +1,7 @@
 /* OmniChannel 2 - painel do atendente.
    Sem framework de propósito: o painel é uma tela só, e o que muda nela chega
-   pelo fluxo de eventos do servidor. */
+   pelos eventos do servidor (eventos.js: EventSource no app Python, consulta a
+   cada 2 s no PHP da hospedagem compartilhada). */
 
 const estado = {
   token: localStorage.getItem("omni_token") || null,
@@ -15,7 +16,7 @@ const estado = {
   respostas: [],
   atendentes: [],
   modo: "resposta",
-  fonte: null,
+  eventos: null, // OmniEventos: stream ou consulta, conforme o /saude
   marcada: 0,
 };
 
@@ -100,8 +101,13 @@ function sair() {
   localStorage.removeItem("omni_token");
   estado.token = null;
   estado.atendente = null; // o próximo login pode ser de outra pessoa, com outro papel
-  if (estado.fonte) estado.fonte.close();
+  if (estado.eventos) estado.eventos.fechar();
+  estado.eventos = null;
+  estado.atualId = null;
+  estado.detalhe = null;
   fecharCanais();
+  fecharPerfil();
+  fecharFicha();
   esquecerCanais();
   $("#abrir-canais").hidden = true;
   $("#app").hidden = true;
@@ -114,10 +120,14 @@ async function iniciar() {
   $("#app").hidden = false;
 
   estado.atendente = estado.atendente || (await api("GET", "/api/auth/eu"));
-  $("#nome-atendente").textContent = estado.atendente.nome;
-  $("#avatar").textContent = iniciais(estado.atendente.nome);
+  desenharPerfil();
   // a API recusa do mesmo jeito; esconder só poupa o atendente de um 403
   $("#abrir-canais").hidden = estado.atendente.papel !== "admin";
+
+  // o cursor dos eventos vem ANTES das listas: o que chegar enquanto elas
+  // carregam é entregue depois (repetido, no máximo, e os desenhos ignoram)
+  criarEventos();
+  await estado.eventos.preparar().catch(() => null);
 
   [estado.canais, estado.etiquetas, estado.respostas, estado.atendentes] = await Promise.all([
     api("GET", "/api/canais"),
@@ -128,7 +138,7 @@ async function iniciar() {
 
   desenharFiltros();
   await Promise.all([carregarConversas(), carregarMetricas()]);
-  conectarEventos();
+  estado.eventos.iniciar();
 }
 
 function iniciais(nome) {
@@ -301,7 +311,7 @@ function desenharLinhaDoTempo(mensagens) {
   alvo.innerHTML = "";
   let ultimoDia = null;
   for (const mensagem of mensagens) {
-    const dia = new Date(mensagem.criada_em).toDateString();
+    const dia = data(mensagem.criada_em).toDateString();
     if (dia !== ultimoDia) {
       alvo.append(criar("div", "dia", diaLegivel(mensagem.criada_em)));
       ultimoDia = dia;
@@ -321,7 +331,16 @@ function balao(mensagem) {
   if (mensagem.anexos?.length) elemento.append(desenharAnexos(mensagem.anexos));
 
   const meta = criar("div", "meta");
-  meta.append(criar("span", "", `${nota ? "nota de " : ""}${mensagem.autor || ""}`));
+  if (nota) {
+    meta.append(criar("span", "", `nota de ${mensagem.autor || ""}`));
+  } else if (mensagem.direcao === "saida" && mensagem.assinatura) {
+    // exatamente o que o cliente viu: nome e setor gravados no envio
+    const quem = criar("span", "quem", linhaAssinatura(mensagem.assinatura));
+    quem.title = "Como o cliente viu quem respondeu";
+    meta.append(quem);
+  } else {
+    meta.append(criar("span", "", mensagem.autor || ""));
+  }
   meta.append(criar("span", "", hora(mensagem.criada_em)));
   if (mensagem.direcao === "saida" && !nota) meta.append(criar("span", "estado", rotuloStatus(mensagem.status)));
   if (mensagem.status === "falhou") {
@@ -388,8 +407,8 @@ function rotuloStatus(status) {
 
 /* ---------------------------------------------------------------- ficha */
 function desenharFicha(conversa) {
-  const ficha = $("#ficha");
-  ficha.innerHTML = "";
+  const ficha = $("#corpo-ficha");
+  ficha.replaceChildren();
   const contato = conversa.contato;
 
   const bloco = criar("div", "bloco");
@@ -413,7 +432,9 @@ function desenharFicha(conversa) {
     canais.append(criar("h3", "", "Também fala por"));
     const lista = criar("div", "etiquetas");
     for (const identidade of contato.identidades) {
-      lista.append(selo(identidade.canal_tipo, `${NOMES_CANAL[identidade.canal_tipo]}: ${identidade.identificador}`));
+      // no webchat o identificador é um código aleatório da sessão: não diz nada
+      const quem = identidade.canal_tipo === "webchat" ? "visitante do site" : identidade.identificador;
+      lista.append(selo(identidade.canal_tipo, `${NOMES_CANAL[identidade.canal_tipo] || identidade.canal_tipo}: ${quem}`));
     }
     canais.append(lista);
     ficha.append(canais);
@@ -650,38 +671,199 @@ async function carregarMetricas() {
 }
 
 /* --------------------------------------------------------------- eventos */
-function conectarEventos() {
-  if (estado.fonte) estado.fonte.close();
-  const fonte = new EventSource(`/api/eventos/stream?token=${encodeURIComponent(estado.token)}`);
-  estado.fonte = fonte;
-
-  fonte.addEventListener("mensagem.nova", (evento) => {
-    const mensagem = JSON.parse(evento.data);
-    acrescentarMensagem(mensagem);
-    if (mensagem.direcao === "entrada" && mensagem.conversa_id !== estado.atualId) {
-      avisar(`Nova mensagem de ${mensagem.autor}`);
-    }
+function criarEventos() {
+  if (estado.eventos) estado.eventos.fechar();
+  const token = encodeURIComponent(estado.token);
+  const cursor = (depois) => (depois === null || depois === undefined ? "" : `&depois=${depois}`);
+  estado.eventos = OmniEventos.criar({
+    stream: (depois) => `/api/eventos/stream?token=${token}${cursor(depois)}`,
+    desde: (depois) => `/api/eventos/desde?token=${token}${cursor(depois)}`,
+    tipos: ["mensagem.nova", "mensagem.status", "conversa.atualizada"],
+    aoEvento: tratarEvento,
+    aoEstado: (situacao) => {
+      if (situacao === "reconectando" || situacao === "desconectado") console.warn(`eventos: ${situacao}`);
+    },
+    aoRecusar: sair,
   });
-
-  fonte.addEventListener("mensagem.status", (evento) => {
-    const mensagem = JSON.parse(evento.data);
-    const balaoExistente = document.querySelector(`.balao[data-id="${mensagem.id}"] .estado`);
-    if (balaoExistente) balaoExistente.textContent = rotuloStatus(mensagem.status);
-  });
-
-  fonte.addEventListener("conversa.atualizada", (evento) => {
-    const conversa = JSON.parse(evento.data);
-    const indice = estado.conversas.findIndex((c) => c.id === conversa.id);
-    if (indice >= 0) estado.conversas[indice] = conversa;
-    else estado.conversas.unshift(conversa);
-    estado.conversas.sort((a, b) => new Date(b.ultima_mensagem_em) - new Date(a.ultima_mensagem_em));
-    desenharLista();
-    carregarMetricas();
-  });
-
-  // o navegador reconecta sozinho; só avisamos quem está olhando
-  fonte.onerror = () => console.warn("fluxo de eventos caiu; reconectando…");
 }
+
+function tratarEvento(tipo, dados) {
+  if (tipo === "mensagem.nova") {
+    acrescentarMensagem(dados);
+    if (dados.direcao === "entrada" && dados.conversa_id !== estado.atualId) {
+      avisar(`Nova mensagem de ${dados.autor}`);
+    }
+  } else if (tipo === "mensagem.status") {
+    const balaoExistente = document.querySelector(`.balao[data-id="${Number(dados.id)}"] .estado`);
+    if (balaoExistente) balaoExistente.textContent = rotuloStatus(dados.status);
+  } else if (tipo === "conversa.atualizada") {
+    atualizarConversaNaLista(dados);
+  }
+}
+
+function atualizarConversaNaLista(conversa) {
+  const indice = estado.conversas.findIndex((c) => c.id === conversa.id);
+  if (indice >= 0) estado.conversas[indice] = conversa;
+  else if (cabeNoFiltro(conversa)) estado.conversas.unshift(conversa);
+  // a conversa aberta já foi lida por quem está olhando
+  if (conversa.id === estado.atualId) {
+    const local = estado.conversas.find((c) => c.id === conversa.id);
+    if (local) local.nao_lidas = 0;
+  }
+  estado.conversas.sort((a, b) => data(b.ultima_mensagem_em) - data(a.ultima_mensagem_em));
+  desenharLista();
+  carregarMetricas().catch(() => null);
+}
+
+/* Conversa nova só entra na lista se for do filtro em uso: sem isto, uma
+   conversa do WhatsApp aparecia no filtro "Telegram" até recarregar. */
+function cabeNoFiltro(conversa) {
+  const { tipo, valor } = estado.filtro;
+  if (estado.busca) return false; // a busca é do servidor: espera a próxima
+  if (tipo === "canal") return conversa.canal.id === valor;
+  if (tipo === "etiqueta") return conversa.etiquetas.some((e) => e.id === valor);
+  if (tipo === "minhas") return conversa.atendente?.id === estado.atendente?.id;
+  if (tipo === "sem") return !conversa.atendente;
+  if (["aberta", "pendente", "resolvida"].includes(tipo)) return conversa.status === tipo;
+  return true;
+}
+
+/* ---------------------------------------------------------------- perfil */
+/* O cliente vê o nome e o setor de quem responde. Cada atendente define o
+   seu setor aqui (sugestões ou texto livre) e se está disponível. */
+const SETORES = ["Suporte técnico", "Financeiro", "Comercial", "Implantação"];
+const telaPerfil = $("#perfil");
+
+function linhaAssinatura(assinatura) {
+  if (!assinatura) return "";
+  return assinatura.setor ? `${assinatura.nome} · ${assinatura.setor}` : assinatura.nome;
+}
+
+function desenharPerfil() {
+  const eu = estado.atendente;
+  if (!eu) return;
+  const linha = linhaAssinatura({ nome: eu.nome, setor: eu.setor });
+  $("#nome-atendente").textContent = linha;
+  $("#avatar").textContent = iniciais(eu.nome);
+  const ponto = $("#ponto-disponivel");
+  ponto.classList.toggle("fora", !eu.disponivel);
+  ponto.title = eu.disponivel ? "Disponível para conversas novas" : "Fora da distribuição de conversas novas";
+  $("#abrir-perfil").setAttribute("aria-label", `Atendendo como ${linha}. Mudar setor ou disponibilidade`);
+  const assinatura = $("#assinatura-redator");
+  assinatura.replaceChildren("· O cliente vê ", criar("b", "", linha));
+}
+
+$("#abrir-perfil").addEventListener("click", abrirPerfil);
+$("#fechar-perfil").addEventListener("click", fecharPerfil);
+$("#cancelar-perfil").addEventListener("click", fecharPerfil);
+telaPerfil.addEventListener("mousedown", (evento) => {
+  if (evento.target === telaPerfil) fecharPerfil();
+});
+$("#perfil-setor").addEventListener("input", previaDoPerfil);
+
+function abrirPerfil() {
+  const eu = estado.atendente;
+  if (!eu) return;
+  $("#perfil-setor").value = eu.setor || "";
+  $("#perfil-disponivel").checked = Boolean(eu.disponivel);
+  $("#erro-perfil").textContent = "";
+  const sugestoes = $("#sugestoes-setor");
+  sugestoes.replaceChildren(
+    ...SETORES.map((setor) => {
+      const botao = criar("button", "", setor);
+      botao.type = "button";
+      botao.onclick = () => {
+        $("#perfil-setor").value = setor;
+        previaDoPerfil();
+      };
+      return botao;
+    })
+  );
+  previaDoPerfil();
+  telaPerfil.hidden = false;
+  $("#perfil-setor").focus();
+}
+
+function previaDoPerfil() {
+  const setor = $("#perfil-setor").value.trim();
+  $("#previa-assinatura").textContent = linhaAssinatura({ nome: estado.atendente?.nome || "", setor });
+  $("#sugestoes-setor").querySelectorAll("button").forEach((botao) => {
+    botao.setAttribute("aria-pressed", String(botao.textContent === setor));
+  });
+}
+
+function fecharPerfil() {
+  if (telaPerfil.hidden) return;
+  telaPerfil.hidden = true;
+  $("#abrir-perfil").focus();
+}
+
+$("#form-perfil").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const botao = $("#salvar-perfil");
+  botao.disabled = true;
+  $("#erro-perfil").textContent = "";
+  try {
+    const atualizado = await api("PATCH", `/api/atendentes/${estado.atendente.id}`, {
+      setor: $("#perfil-setor").value.trim() || null,
+      disponivel: $("#perfil-disponivel").checked,
+    });
+    estado.atendente = atualizado;
+    const naLista = estado.atendentes.findIndex((a) => a.id === atualizado.id);
+    if (naLista >= 0) estado.atendentes[naLista] = atualizado;
+    desenharPerfil();
+    fecharPerfil();
+    avisar(`Agora o cliente vê: ${linhaAssinatura(atualizado)}`);
+  } catch (erro) {
+    $("#erro-perfil").textContent = erro.message;
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+/* ------------------------------------------------------ ficha como gaveta */
+/* Em tela média (até 1200 px) a ficha sai da grade e vira gaveta. Tem de
+   fechar de todo jeito: o × dentro dela, o Esc e um clique fora. */
+const ficha = $("#ficha");
+const fundoFicha = $("#fundo-ficha");
+const fichaEmGaveta = window.matchMedia("(max-width: 1200px)");
+
+$("#abrir-ficha").addEventListener("click", () => (ficha.classList.contains("aberta") ? fecharFicha() : abrirFicha()));
+$("#fechar-ficha").addEventListener("click", () => fecharFicha(true));
+fundoFicha.addEventListener("mousedown", () => fecharFicha(true));
+// voltou a caber como coluna: some o fundo escuro que ficaria preso na tela
+fichaEmGaveta.addEventListener("change", () => fichaEmGaveta.matches || fecharFicha());
+
+function abrirFicha() {
+  if (!estado.detalhe) return;
+  ficha.classList.add("aberta");
+  fundoFicha.hidden = false;
+  ficha.setAttribute("role", "dialog");
+  ficha.setAttribute("aria-modal", "true");
+  $("#abrir-ficha").setAttribute("aria-expanded", "true");
+  $("#fechar-ficha").focus();
+}
+
+function fecharFicha(devolverFoco = false) {
+  const estavaAberta = ficha.classList.contains("aberta");
+  ficha.classList.remove("aberta");
+  fundoFicha.hidden = true;
+  ficha.removeAttribute("role");
+  ficha.removeAttribute("aria-modal");
+  $("#abrir-ficha").setAttribute("aria-expanded", "false");
+  if (estavaAberta && devolverFoco) $("#abrir-ficha").focus();
+}
+
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape") return;
+  if (!telaPerfil.hidden) {
+    evento.preventDefault();
+    fecharPerfil();
+  } else if (ficha.classList.contains("aberta")) {
+    evento.preventDefault();
+    fecharFicha(true);
+  }
+});
 
 /* ---------------------------------------------------------------- canais */
 /* Tela do admin para ligar os canais sem curl: colar o token, salvar e ver na
@@ -991,8 +1173,58 @@ function acoesDoCanal(canal) {
     telaCanais.removendo = canal.id;
     redesenharCartao(canal.id, ".cancelar-remocao");
   };
-  acoes.append(testar, editar, alternar, remover);
+  acoes.append(testar, editar, alternar);
+  acoes.append(...botoesDeWebhook(canal));
+  acoes.append(remover);
   return acoes;
+}
+
+/* Telegram: o servidor faz o setWebhook/deleteWebhook do bot (o token nunca
+   passa pelo navegador). Só aparece quando o servidor conhece o próprio
+   endereço público com HTTPS (url_publica), que é quando a url_webhook do
+   canal já vem absoluta: sem isso o Telegram recusaria a URL. */
+function botoesDeWebhook(canal) {
+  if (canal.tipo !== "telegram") return [];
+  const dados = telaCanais.credenciais[canal.id] || { credenciais: {} };
+  const emWebhook = (dados.credenciais.modo_recebimento || "polling") === "webhook";
+  const botoes = [];
+  if (/^https:\/\//i.test(canal.url_webhook || "") && canal.configurado) {
+    const conectar = botaoDeTeste(emWebhook ? "Reconectar webhook" : "Conectar webhook", "botao discreto pequeno conectar-webhook", canal.id);
+    conectar.title = `O Telegram passa a entregar as mensagens em ${canal.url_webhook}`;
+    conectar.onclick = () => acaoDeWebhook(canal, "conectar-webhook", "Conectando o webhook no Telegram…");
+    botoes.push(conectar);
+  }
+  if (emWebhook) {
+    const remover = botaoDeTeste("Remover webhook", "botao discreto pequeno remover-webhook", canal.id);
+    remover.title = "Apaga o webhook do bot e volta a buscar as mensagens por polling";
+    remover.onclick = () => acaoDeWebhook(canal, "remover-webhook", "Removendo o webhook do Telegram…");
+    botoes.push(remover);
+  }
+  return botoes;
+}
+
+async function acaoDeWebhook(canal, rota, andamento) {
+  const vez = ++sequenciaTeste;
+  telaCanais.vezDoTeste[canal.id] = vez;
+  telaCanais.testes[canal.id] = "andamento";
+  telaCanais.resultados[canal.id] = { andamento: true };
+  refletirTeste(canal.id);
+  corpoCanais.querySelector(`[data-resultado-canal="${canal.id}"]`)?.replaceChildren(andamento);
+  let resultado;
+  try {
+    resultado = await api("POST", `/api/canais/${canal.id}/${rota}`);
+  } catch (erro) {
+    resultado = { ok: false, mensagem: erro.message };
+  }
+  if (telaCanais.vezDoTeste[canal.id] !== vez) return;
+  telaCanais.testes[canal.id] = resultado.ok ? (resultado.alerta ? "ressalva" : "ok") : "falha";
+  telaCanais.resultados[canal.id] = resultado;
+  if (resultado.ok) {
+    // o modo de recebimento mudou (webhook ou polling): o cartão mostra o novo
+    await recarregarCanais().catch(() => null);
+    if (telaCanais.editando === null) redesenharCartao(canal.id, `[data-resultado-canal="${canal.id}"]`);
+  }
+  refletirTeste(canal.id);
 }
 
 function confirmacaoRemover(canal) {
@@ -1152,11 +1384,15 @@ function avisoDeEnderecoLocal(quem) {
 function blocoParaCopiar(canal) {
   const bloco = criar("div", "copiar-bloco");
   const dados = telaCanais.credenciais[canal.id] || { credenciais: {}, secretos_definidos: [] };
-  const url = `${location.origin}${canal.url_webhook}`;
+  // o servidor PHP já manda a URL absoluta (o endereço público configurado,
+  // url_publica); o Python manda o caminho, e vale o endereço deste painel
+  const absoluta = /^https?:\/\//i.test(canal.url_webhook || "");
+  const url = absoluta ? canal.url_webhook : `${location.origin}${canal.url_webhook}`;
   const juntar = (...itens) => bloco.append(...itens.filter(Boolean));
+  const avisoLocal = (quem) => (absoluta && /^https:/i.test(url) ? null : avisoDeEnderecoLocal(quem));
 
   if (canal.tipo === "whatsapp") {
-    juntar(linhaCopiavel("URL do webhook — na Meta: WhatsApp → Configuração → Webhook", url), avisoDeEnderecoLocal("A Meta"));
+    juntar(linhaCopiavel("URL do webhook — na Meta: WhatsApp → Configuração → Webhook", url), avisoLocal("A Meta"));
     const verificacao = dados.credenciais.token_verificacao;
     if (verificacao) {
       juntar(linhaCopiavel("Token de verificação — o mesmo, no cadastro do webhook", verificacao));
@@ -1180,7 +1416,7 @@ function blocoParaCopiar(canal) {
     }
   } else if (canal.tipo === "telegram") {
     if ((dados.credenciais.modo_recebimento || "polling") === "webhook") {
-      juntar(linhaCopiavel("URL do webhook — vai no setWebhook do bot", url), avisoDeEnderecoLocal("O Telegram"));
+      juntar(linhaCopiavel("URL do webhook — vai no setWebhook do bot", url), avisoLocal("O Telegram"));
       if (dados.segredo_webhook) juntar(linhaCopiavel("secret_token do setWebhook", dados.segredo_webhook));
     } else {
       juntar(criar("p", "dica", "Recebe por polling: não precisa de URL pública, funciona até neste computador."));
@@ -1192,7 +1428,7 @@ function blocoParaCopiar(canal) {
     } else {
       juntar(
         linhaCopiavel("Sem IMAP: aponte o webhook de entrada do provedor (Mailgun, SendGrid) para", url),
-        avisoDeEnderecoLocal("O provedor de e-mail")
+        avisoLocal("O provedor de e-mail")
       );
     }
   } else if (canal.tipo === "webchat" && canal.chave_publica) {
@@ -1428,26 +1664,34 @@ const HORA = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digi
 const DATA_HORA = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 const DIA = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
-const hora = (valor) => HORA.format(new Date(valor));
-const dataHora = (valor) => DATA_HORA.format(new Date(valor));
+/* Os dois servidores mandam as datas em UTC COM fuso ("...Z" ou "+00:00"),
+   e o navegador mostra no horário local. O "Z" acrescentado aqui é defesa
+   para uma data sem fuso: lida como local, ficaria três horas deslocada. */
+function data(valor) {
+  if (valor instanceof Date) return valor;
+  const texto = String(valor || "");
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(texto) ? texto : `${texto}Z`);
+}
+const hora = (valor) => HORA.format(data(valor));
+const dataHora = (valor) => DATA_HORA.format(data(valor));
 
 function diaLegivel(valor) {
-  const data = new Date(valor);
+  const alvo = data(valor);
   const hoje = new Date();
   const ontem = new Date(hoje.getTime() - 86400000);
-  if (data.toDateString() === hoje.toDateString()) return "Hoje";
-  if (data.toDateString() === ontem.toDateString()) return "Ontem";
-  return DIA.format(data);
+  if (alvo.toDateString() === hoje.toDateString()) return "Hoje";
+  if (alvo.toDateString() === ontem.toDateString()) return "Ontem";
+  return DIA.format(alvo);
 }
 
 function quando(valor) {
-  const data = new Date(valor);
-  const minutos = Math.round((Date.now() - data.getTime()) / 60000);
+  const alvo = data(valor);
+  const minutos = Math.round((Date.now() - alvo.getTime()) / 60000);
   if (minutos < 1) return "agora";
   if (minutos < 60) return `${minutos} min`;
-  if (data.toDateString() === new Date().toDateString()) return hora(valor);
+  if (alvo.toDateString() === new Date().toDateString()) return hora(valor);
   if (minutos < 60 * 24 * 7) return `${Math.floor(minutos / 1440)} d`;
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(alvo);
 }
 
 function duracao(segundos) {
