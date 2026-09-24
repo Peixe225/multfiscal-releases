@@ -13,7 +13,7 @@ import random
 
 import pytest
 
-from utilitarios import criar_canal, estrito, exigir_rota, unico
+from utilitarios import criar_canal, exigir_rota, unico
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"conteudo falso de imagem"
 
@@ -37,11 +37,8 @@ def payload_midia(numero_: str, externo_id: str, midia: dict, tipo: str = "image
 
 
 def exigir_provedor(servidor, provedor) -> None:
-    if provedor.chamadas():
-        return
-    if servidor.alvo == "python" and not estrito():
-        pytest.skip("o alvo ainda não usa o provedor falso (OMNI_TESTE_PROVEDOR)")
-    raise AssertionError("o servidor não chamou o provedor falso")
+    """Os dois alvos leem OMNI_TESTE_PROVEDOR: sem chamada registrada, o envio nem saiu."""
+    assert provedor.chamadas(), f"o servidor ({servidor.alvo}) não chamou o provedor falso"
 
 
 def conversa_do_canal(cliente, cabecalho, canal_id: int) -> dict:
@@ -108,7 +105,7 @@ def test_imagem_do_whatsapp_e_baixada_e_guardada(cliente, cabecalho_atendente, c
     assert baixado.status_code == 200 and baixado.content == PNG
     assert baixado.headers["content-type"].startswith("image/png")
     assert baixado.headers["content-disposition"].startswith("inline")
-    assert baixado.headers["x-content-type-options"] == "nosniff" or servidor.alvo == "python"
+    assert baixado.headers["x-content-type-options"] == "nosniff"
 
 
 def test_documento_sem_legenda_vira_previa_com_o_nome(cliente, cabecalho_atendente, canal_configurado, servidor, provedor):
@@ -300,7 +297,6 @@ def test_nome_com_caminho_nao_escapa_da_pasta(cliente, cabecalho_atendente, cana
 
 
 def test_html_enviado_nunca_roda_na_origem_do_painel(cliente, cabecalho_atendente, canal_whatsapp, servidor, request):
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: serve HTML de anexo inline"))
     cliente.post(f"/webhooks/{canal_whatsapp['id']}", json=payload_whatsapp(numero(), "oi", unico("w.")))
     conversa = conversa_do_canal(cliente, cabecalho_atendente, canal_whatsapp["id"])
     # disfarçado de imagem: o tipo guardado vem dos bytes, não do que o navegador disse
@@ -331,7 +327,6 @@ def conferir_download_inerte(resposta) -> None:
 
 
 def test_xsl_do_atendente_sai_como_download_isolado(cliente, cabecalho_atendente, canal_whatsapp, servidor, request):
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: serve anexo inline com o tipo informado"))
     cliente.post(f"/webhooks/{canal_whatsapp['id']}", json=payload_whatsapp(numero(), "oi", unico("w.")))
     conversa = conversa_do_canal(cliente, cabecalho_atendente, canal_whatsapp["id"])
     anexo = _anexo_guardado(cliente, cabecalho_atendente, conversa["id"], nome="relatorio.xsl", dados=XSL, tipo="text/xsl")
@@ -340,7 +335,6 @@ def test_xsl_do_atendente_sai_como_download_isolado(cliente, cabecalho_atendente
 
 
 def test_xsl_mandado_por_visitante_anonimo_nao_roda_no_painel(cliente, cabecalho_atendente, canal_webchat, servidor, request):
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: serve anexo inline com o tipo informado"))
     visitante = exigir_rota(
         cliente.post("/api/widget/sessao", json={"chave_publica": canal_webchat["chave_publica"]}), "POST /api/widget/sessao"
     ).json()
@@ -356,7 +350,6 @@ def test_xsl_mandado_por_visitante_anonimo_nao_roda_no_painel(cliente, cabecalho
 
 def test_xsl_declarado_pelo_remetente_do_telegram_nao_roda_no_painel(cliente, cabecalho_admin, cabecalho_atendente, servidor, provedor, request):
     """O tipo do Telegram (document.mime_type) é o que o remetente disse."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: serve anexo inline com o tipo informado"))
     canal = criar_canal(cliente, cabecalho_admin, "telegram", credenciais={"token": "bot"})
     segredo = cliente.get(f"/api/canais/{canal['id']}/credenciais", headers=cabecalho_admin).json()["segredo_webhook"]
     provedor.roteirar("/getFile", json={"ok": True, "result": {"file_path": "documents/x.xsl"}})

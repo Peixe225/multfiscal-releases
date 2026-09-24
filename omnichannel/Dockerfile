@@ -49,7 +49,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 #    um token de administrador; guardada, os logins sobrevivem a recriar o
 #    container.
 # 2. roda o seed, que não mexe numa base que já existe; as conversas de
-#    exemplo só com OMNI_DEMO=1. OMNI_SENHA_ADMIN vazia (a linha do .env
+#    exemplo e a atendente ana@ (senha pública, está no repositório) só com
+#    OMNI_DEMO=1. OMNI_SENHA_ADMIN vazia (a linha do .env
 #    apagada só do lado direito) conta como ausente: o seed gravaria um
 #    administrador que entra sem senha.
 # 3. exec: o uvicorn vira o processo principal e recebe o SIGTERM do
@@ -63,5 +64,5 @@ CMD if [ -z "$OMNI_CHAVE_SECRETA" ] || [ "$OMNI_CHAVE_SECRETA" = troque-esta-cha
         OMNI_CHAVE_SECRETA="$(cat /dados/.chave_secreta)" && export OMNI_CHAVE_SECRETA; \
     fi \
     && { [ -n "$OMNI_SENHA_ADMIN" ] || unset OMNI_SENHA_ADMIN; } \
-    && if [ "$OMNI_DEMO" = 1 ]; then python -m scripts.seed --demo; else python -m scripts.seed; fi \
+    && if [ "$OMNI_DEMO" = 1 ]; then python -m scripts.seed --demo; else python -m scripts.seed --producao; fi \
     && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 3

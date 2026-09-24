@@ -12,9 +12,11 @@
  * Cada resposta mostra quem atende: "Ana · Suporte técnico". O cliente
  * precisa saber com quem está falando.
  *
- * Tempo real nos dois servidores: o /saude diz se o servidor segura conexão
- * aberta ("stream": EventSource, no app Python) ou não ("consulta": pergunta
- * a cada 2 s, no PHP da hospedagem compartilhada). Os eventos têm id
+ * Tempo real nos dois servidores: /api/widget/saude diz se o servidor segura
+ * conexão aberta ("stream": EventSource, no app Python) ou não ("consulta":
+ * pergunta a cada 2 s, no PHP da hospedagem compartilhada). É uma rota do
+ * widget, com o mesmo CORS do resto do /api/widget/* nos dois servidores (o
+ * /saude geral depende de origens_permitidas). Os eventos têm id
  * crescente; o widget guarda o último visto e, ao reconectar, pede a partir
  * dele: nada se perde, nada se repete. É a mesma lógica de app/web/eventos.js,
  * copiada aqui porque o widget precisa ser um arquivo só.
@@ -52,6 +54,10 @@
   }
   let aberto = false;
   const mostradas = new Set(); // ids já desenhados: evento e histórico se cruzam
+  // enquanto o histórico carrega, o que for desenhado (resposta que chegou
+  // pelos eventos, mensagem que o visitante mandou) fica anotado aqui para
+  // sobreviver à troca da tela pelo histórico (ver abrirConversa)
+  let durante = null;
 
   // ------------------------------------------------------------ montagem
   const hospedeiro = document.createElement("div");
@@ -256,17 +262,30 @@
     // o cursor ANTES do histórico: o que chegar enquanto ele carrega vem
     // pelos eventos (e o que vier repetido é descartado pelo id)
     await eventos.preparar();
+    const chegadas = new Map();
+    durante = chegadas;
     try {
       const resposta = await fetch(`${config.base}/api/widget/mensagens`, {
         headers: { "X-Sessao": token },
       });
       if (resposta.status === 401) return reiniciarSessao();
       if (!resposta.ok) throw new Error();
+      const historico = await resposta.json();
+      if (durante !== chegadas) return; // outra abertura começou no meio
+      // o histórico é um retrato de quando o servidor o montou: a resposta
+      // que chegou pelos eventos depois disso já passou do cursor e não
+      // volta. Então a tela nova é o histórico MAIS o que chegou no meio
+      const vistos = new Set(historico.map((m) => m.id));
+      const todas = historico.concat([...chegadas.values()].filter((m) => !vistos.has(m.id)));
+      todas.sort((a, b) => a.id - b.id);
+      durante = null;
       conversa.replaceChildren();
       mostradas.clear();
-      (await resposta.json()).forEach(desenhar);
+      todas.forEach(desenhar);
     } catch (erro) {
       mostrarAviso("não foi possível carregar o histórico");
+    } finally {
+      if (durante === chegadas) durante = null;
     }
     eventos.iniciar();
     texto.focus();
@@ -295,6 +314,7 @@
   }
 
   function desenhar(mensagem) {
+    if (durante && mensagem.id !== undefined) durante.set(mensagem.id, mensagem);
     if (mensagem.id !== undefined) {
       if (mostradas.has(mensagem.id)) return;
       mostradas.add(mensagem.id);
@@ -342,7 +362,9 @@
   // Cópia enxuta de app/web/eventos.js (ver o comentário do topo).
   const eventos = (function () {
     const INTERVALO = 2000;
+    const LIMITE = 200; // o padrão do servidor por consulta
     let modo = null; // "stream" | "consulta"
+    let perguntaModo = null;
     let cursor = null;
     let fonte = null;
     let temporizador = null;
@@ -353,16 +375,22 @@
     const url = (caminho, depois) =>
       `${config.base}${caminho}?token=${encodeURIComponent(token)}${depois === null ? "" : `&depois=${depois}`}`;
 
-    async function descobrirModo() {
-      if (modo) return modo;
-      try {
-        const resposta = await fetch(`${config.base}/saude`, { cache: "no-store" });
-        const dados = resposta.ok ? await resposta.json() : {};
-        modo = dados.eventos === "stream" && "EventSource" in window ? "stream" : "consulta";
-      } catch (erro) {
-        return "consulta"; // sem resposta agora: pergunta de novo da próxima vez
+    /* Uma pergunta só, e a resposta fica: sem isto, uma falha deixava o
+       modo sem definir, e a volta da aba (que só religa a consulta) nunca
+       mais pedia nada. Na falha fica "consulta", que funciona nos dois
+       servidores (o Python também responde /api/widget/eventos/desde). */
+    function descobrirModo() {
+      if (modo) return Promise.resolve(modo);
+      if (!perguntaModo) {
+        perguntaModo = fetch(`${config.base}/api/widget/saude`, { cache: "no-store" })
+          .then((resposta) => (resposta.ok ? resposta.json() : {}))
+          .catch(() => ({}))
+          .then((dados) => {
+            modo = dados.eventos === "stream" && "EventSource" in window ? "stream" : "consulta";
+            return modo;
+          });
       }
-      return modo;
+      return perguntaModo;
     }
 
     async function perguntar(depois) {
@@ -438,7 +466,8 @@
       pedindo = true;
       try {
         if (cursor === null) await preparar();
-        const dados = await perguntar(cursor);
+        const pedido = cursor;
+        const dados = await perguntar(pedido);
         falhas = 0;
         for (const evento of dados.eventos || []) {
           if (evento.tipo === "mensagem.nova") entregar(Number(evento.id), evento.dados);
@@ -446,7 +475,12 @@
         const ultimo = Number(dados.ultimo);
         if (Number.isFinite(ultimo) && (cursor === null || ultimo > cursor)) cursor = ultimo;
         pedindo = false;
-        if (ativo) temporizador = setTimeout(consultar, (dados.eventos || []).length >= 200 ? 0 : INTERVALO);
+        // o servidor lê até 200 ids e só devolve os do visitante: quase nunca
+        // vêm 200 eventos, mas o cursor anda 200 quando havia mais a ler
+        // (depois da aba oculta, por exemplo). Aí pergunta de novo na hora
+        const cheio =
+          (dados.eventos || []).length >= LIMITE || (pedido !== null && Number.isFinite(ultimo) && ultimo - pedido >= LIMITE);
+        if (ativo) temporizador = setTimeout(consultar, cheio ? 0 : INTERVALO);
       } catch (erro) {
         pedindo = false;
         if (erro.sessao) return reiniciarSessao();
@@ -456,7 +490,8 @@
     }
 
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && ativo && modo === "consulta") consultar();
+      // no stream o navegador cuida da conexão; nos outros casos, pergunta já
+      if (!document.hidden && ativo && modo !== "stream") consultar();
     });
 
     function fechar() {

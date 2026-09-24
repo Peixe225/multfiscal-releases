@@ -7,12 +7,8 @@ o webhook não exige assinatura) e cada teste filtra pelo SEU canal, porque a
 base é compartilhada pela sessão inteira.
 
 Setor e assinatura (quem responde aparece para o cliente) valem nos dois
-alvos. Os testes não perguntam "qual alvo", perguntam o que ele TEM:
-`com_setor` pula só se AtendenteSaida não tiver "setor"; `setor_da_ana`
-marca xfail (não pula) se o seed do alvo não deu à Ana o setor "Suporte
-técnico" — a divergência aparece no relatório em vez de sumir; os testes que
-dependem do provedor falso (OMNI_TESTE_PROVEDOR) pulam no Python como no
-resto da suíte, e com OMNI_CONTRATO_ESTRITO=1 viram falha.
+alvos: os dois seeds dão à Ana o setor "Suporte técnico", e os dois servidores
+leem o provedor falso (OMNI_TESTE_PROVEDOR).
 """
 from __future__ import annotations
 
@@ -25,7 +21,7 @@ from urllib.parse import parse_qsl
 import httpx
 import pytest
 
-from utilitarios import CAMPOS_ATENDENTE, criar_canal, data_com_fuso, estrito, exigir_rota, unico
+from utilitarios import CAMPOS_ATENDENTE, criar_canal, data_com_fuso, exigir_rota, unico
 
 NOME_ANA = "Ana Suporte"
 SETOR_ANA = "Suporte técnico"
@@ -93,31 +89,20 @@ def conversas(cliente, cabecalho, canal: dict, **filtros) -> list[dict]:
 
 @pytest.fixture
 def com_setor(login_atendente):
-    """O alvo tem o campo setor no atendente (e a assinatura nas respostas)?"""
-    if "setor" not in login_atendente["atendente"]:
-        pytest.skip("o alvo ainda não tem o setor do atendente")
+    """AtendenteSaida tem o campo setor (e as respostas, a assinatura)."""
+    assert "setor" in login_atendente["atendente"], login_atendente["atendente"]
 
 
 @pytest.fixture
-def setor_da_ana(com_setor, login_atendente, request):
-    """A assinatura esperada usa o setor que o seed dá à Ana."""
-    setor = login_atendente["atendente"].get("setor")
-    request.applymarker(pytest.mark.xfail(
-        setor != SETOR_ANA, reason=f"o seed do alvo deu à Ana o setor {setor!r}, não {SETOR_ANA!r}", strict=False
-    ))
+def setor_da_ana(com_setor, login_atendente):
+    """A assinatura esperada usa o setor que os dois seeds dão à Ana."""
+    assert login_atendente["atendente"].get("setor") == SETOR_ANA, login_atendente["atendente"]
 
 
 @pytest.fixture
-def provedor_do_alvo(servidor, provedor):
-    """O provedor falso, quando o alvo o lê (o app Python ainda não lê OMNI_TESTE_PROVEDOR)."""
-    if servidor.alvo == "python" and not estrito():
-        pytest.skip("o alvo ainda não usa o provedor falso (OMNI_TESTE_PROVEDOR)")
+def provedor_do_alvo(provedor):
+    """O provedor falso (os dois alvos leem OMNI_TESTE_PROVEDOR)."""
     return provedor
-
-
-def xfail_no_python(servidor, request, motivo: str) -> None:
-    """Regra que o PHP já corrigiu e o app Python ainda não (pendência de paridade)."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason=motivo, strict=False))
 
 
 @pytest.fixture
@@ -158,11 +143,10 @@ def test_listar_e_abrir_conversa_zera_nao_lidas(cliente, cabecalho_atendente, ca
     assert conversas(cliente, cabecalho_atendente, canal_whatsapp)[0]["nao_lidas"] == 0
 
 
-def test_conversa_nova_entra_na_distribuicao(login_atendente, conversa):
+def test_conversa_nova_entra_na_distribuicao(conversa):
     # algum atendente disponível recebe a conversa na hora (menor fila primeiro)
     assert conversa["atendente"] is not None
-    campos = CAMPOS_ATENDENTE if "setor" in login_atendente["atendente"] else CAMPOS_ATENDENTE - {"setor"}
-    assert set(conversa["atendente"]) >= campos
+    assert set(conversa["atendente"]) >= CAMPOS_ATENDENTE
 
 
 def test_responder_grava_saida_simulada(cliente, cabecalho_atendente, login_atendente, canal_whatsapp, conversa):
@@ -490,12 +474,11 @@ def test_entrada_simulada_nunca_sai_pelo_provedor(cliente, cabecalho_admin, cabe
 
 
 def test_resposta_sai_quando_o_cliente_real_escreve_depois_da_simulacao(
-    cliente, cabecalho_admin, cabecalho_atendente, servidor, request, provedor_do_alvo
+    cliente, cabecalho_admin, cabecalho_atendente, provedor_do_alvo
 ):
     """O dono testa no simulador com o próprio número, liga o canal e escreve
     de verdade do celular: a MESMA conversa recebe a entrada real, e a
     resposta tem de sair pelo provedor (antes ficava "simulada" para sempre)."""
-    xfail_no_python(servidor, request, "app Python: qualquer entrada simulada na conversa bloqueia o envio")
     provedor = provedor_do_alvo
     canal = criar_canal(cliente, cabecalho_admin, "whatsapp")
     numero = numero_novo()
@@ -602,3 +585,20 @@ def test_busca_com_maiuscula_acentuada(cliente, cabecalho_atendente, canal_whats
     for termo in (f"CÁLCULO DE SERVIÇO {marca}", f"JOÃO ÁVILA {marca}", f"ÁVILA {marca.lower()}", marca):
         achadas = conversas(cliente, cabecalho_atendente, canal_whatsapp, q=termo)
         assert [c["id"] for c in achadas] == [conversa["id"]], termo
+
+
+def test_resposta_so_com_espacos_e_recusada(cliente, cabecalho_atendente, conversa):
+    """Espaços não são uma resposta: nada vai ao cliente e nada fica gravado."""
+    antes = len(cliente.get(f"/api/conversas/{conversa['id']}", headers=cabecalho_atendente).json()["mensagens"])
+    for texto in ("", "   ", "\n\t "):
+        resposta = responder(cliente, cabecalho_atendente, conversa["id"], texto)
+        assert resposta.status_code == 422, (texto, resposta.text)
+    depois = cliente.get(f"/api/conversas/{conversa['id']}", headers=cabecalho_atendente).json()["mensagens"]
+    assert len(depois) == antes
+
+
+def test_sem_login_e_401_antes_de_saber_se_a_conversa_existe(cliente, conversa):
+    """Sem token, "existe" e "não existe" respondem igual: nada de enumerar ids."""
+    for conversa_id in (conversa["id"], 99999999):
+        assert cliente.get(f"/api/conversas/{conversa_id}").status_code == 401
+        assert cliente.post(f"/api/conversas/{conversa_id}/mensagens", json={"conteudo": "x"}).status_code == 401

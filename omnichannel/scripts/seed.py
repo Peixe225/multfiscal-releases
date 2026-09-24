@@ -2,9 +2,13 @@
 
     python -m scripts.seed                 # so o essencial
     python -m scripts.seed --demo          # com conversas de exemplo
+    python -m scripts.seed --producao      # sem a atendente de exemplo (VPS)
 
 Sem argumentos, cria um administrador com a senha informada em OMNI_SENHA_ADMIN
-(ou 'admin123', que deve ser trocada no primeiro acesso).
+(ou 'admin123', que deve ser trocada no primeiro acesso) e a atendente de
+exemplo ana@multfiscal.com.br / ana12345. Em producao (--producao, que o
+container usa com OMNI_DEMO=0) a Ana nao nasce: a senha dela e publica, esta
+no repositorio. E o que o instalador PHP faz (BaseInicial).
 """
 from __future__ import annotations
 
@@ -64,7 +68,7 @@ RESPOSTAS = [
 ]
 
 
-def semear(demo: bool = False) -> None:
+def semear(demo: bool = False, producao: bool = False) -> None:
     criar_tabelas()
     with SessaoLocal() as sessao:
         if sessao.scalar(select(Atendente).limit(1)):
@@ -78,12 +82,17 @@ def semear(demo: bool = False) -> None:
             senha_hash=gerar_hash_senha(senha),
             papel=Papel.ADMIN.value,
         )
-        ana = Atendente(
-            nome="Ana Suporte",
-            email="ana@multfiscal.com.br",
-            senha_hash=gerar_hash_senha("ana12345"),
-        )
-        sessao.add_all([admin, ana])
+        sessao.add(admin)
+        ana = None
+        if not producao:
+            ana = Atendente(
+                nome="Ana Suporte",
+                email="ana@multfiscal.com.br",
+                senha_hash=gerar_hash_senha("ana12345"),
+                # o cliente lê "Ana Suporte · Suporte técnico" (igual ao Seed.php)
+                setor="Suporte técnico",
+            )
+            sessao.add(ana)
 
         canais = {}
         for nome, tipo in CANAIS:
@@ -98,13 +107,14 @@ def semear(demo: bool = False) -> None:
         sessao.flush()
 
         if demo:
-            _conversas_de_exemplo(sessao, canais, ana)
+            _conversas_de_exemplo(sessao, canais, ana or admin)
 
         sessao.commit()
 
         print("Base criada.")
         print(f"  admin: admin@multfiscal.com.br / {senha}")
-        print("  atendente: ana@multfiscal.com.br / ana12345")
+        if ana is not None:
+            print("  atendente: ana@multfiscal.com.br / ana12345")
         print(f"  chave pública do webchat: {canais[TipoCanal.WEBCHAT].chave_publica}")
 
 
@@ -147,4 +157,8 @@ def _conversas_de_exemplo(sessao, canais, atendente) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Popula a base do OmniChannel 2")
     parser.add_argument("--demo", action="store_true", help="cria conversas de exemplo")
-    semear(parser.parse_args().demo)
+    parser.add_argument(
+        "--producao", action="store_true", help="sem a atendente de exemplo (a senha dela é pública)"
+    )
+    argumentos = parser.parse_args()
+    semear(argumentos.demo, producao=argumentos.producao)

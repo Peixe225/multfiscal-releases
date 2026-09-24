@@ -529,3 +529,25 @@ def test_dockerignore_deixa_dados_e_segredos_fora_em_qualquer_pasta():
         assert _fica_fora_da_imagem(segredo, padroes), segredo
     for codigo in ("app/main.py", "scripts/seed.py", "requirements.txt", "app/web/painel.js"):
         assert not _fica_fora_da_imagem(codigo, padroes), codigo
+
+
+def test_seed_de_producao_nao_cria_a_atendente_de_senha_publica(cliente, monkeypatch, capsys):
+    """Na VPS (OMNI_DEMO=0 no container) a base nasce só com o administrador,
+    como a do instalador PHP: ana12345 está no repositório."""
+    from scripts.seed import semear
+
+    monkeypatch.setenv("OMNI_SENHA_ADMIN", "senha-do-dono-9")
+    semear(producao=True)
+    saida = capsys.readouterr().out
+    assert "ana@" not in saida
+    tentar = _tentar_pela_api(cliente)
+    assert tentar("admin@multfiscal.com.br", "senha-do-dono-9")
+    assert not tentar("ana@multfiscal.com.br", "ana12345")
+    token = cliente.post(
+        "/api/auth/login", json={"email": "admin@multfiscal.com.br", "senha": "senha-do-dono-9"}
+    ).json()["token"]
+    equipe = cliente.get("/api/atendentes", headers={"Authorization": f"Bearer {token}"}).json()
+    assert [a["email"] for a in equipe] == ["admin@multfiscal.com.br"]
+    # os canais e o webchat nascem do mesmo jeito (o e-mail já com o segredo do webhook)
+    canais = cliente.get("/api/canais", headers={"Authorization": f"Bearer {token}"}).json()
+    assert sorted(c["tipo"] for c in canais) == ["email", "telegram", "webchat", "whatsapp"]

@@ -180,8 +180,8 @@ final class ApiConversas
 
     /**
      * MensagemEntrada: conteudo de 1 a 8000 caracteres, gravado sem espaços
-     * nas pontas. Só espaços é recusado (o Python aceitaria e mandaria uma
-     * mensagem vazia ao provedor, que a recusa).
+     * nas pontas. Só espaços é recusado (seria uma mensagem vazia ao
+     * provedor, que a recusa); o Python mede do mesmo jeito (TextoDeMensagem).
      */
     private static function conteudo(Requisicao $req): string
     {

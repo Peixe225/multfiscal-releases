@@ -100,7 +100,7 @@ def test_webhook_do_telegram(cliente, canal_telegram):
     with SessaoLocal() as sessao:
         conversa = sessao.query(Conversa).one()
         assert conversa.contato.nome == "Marcos Silva"
-        assert conversa.mensagens[0].externo_id == "telegram:884412-7"
+        assert conversa.mensagens[0].externo_id == f"telegram:{canal_telegram.id}:884412-7"
 
 
 def test_canal_desativado_recusa_webhook(cliente, canal_whatsapp):

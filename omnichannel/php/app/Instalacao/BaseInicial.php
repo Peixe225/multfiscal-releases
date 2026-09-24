@@ -27,7 +27,9 @@ use OmniChannel\Nucleo\Texto;
  * que vai atender clientes: a Ana dos exemplos fica desativada e com uma
  * senha aleatória que ninguém conhece (a do Seed, "ana12345", é pública). As
  * conversas continuam atribuídas a ela para a demonstração; quem quiser usar
- * a Ana a reativa e define a senha pelo administrador.
+ * a Ana a reativa e define a senha pelo administrador. Pelo mesmo motivo, os
+ * canais de exemplo que recebem webhook (WhatsApp, Telegram, e-mail) ficam
+ * desativados: sem credencial, o WhatsApp aceitaria webhook forjado.
  *
  * Antes de qualquer DDL, confere que o banco é nosso: sem tabela nenhuma, ou
  * só com tabelas do OmniChannel (instalação anterior). Escolher por engano o
@@ -97,6 +99,12 @@ final class BaseInicial
             'UPDATE atendentes SET senha_hash = ?, ativo = ?, disponivel = ? WHERE email = ?',
             [Senhas::gerarHash(bin2hex(random_bytes(32))), 0, 0, Seed::EMAIL_ATENDENTE]
         );
+        // os canais de exemplo nascem sem credencial; o WhatsApp sem App Secret
+        // aceita QUALQUER POST em /webhooks/<id> (id previsível) e deixaria um
+        // estranho injetar "clientes" falsos na base de produção. Ficam
+        // desativados até o dono pôr as credenciais e ativá-los pelo painel;
+        // só o chat do site, que não recebe webhook, continua no ar
+        Banco::executar('UPDATE canais SET ativo = ? WHERE tipo <> ?', [0, 'webchat']);
         return ['chave_webchat' => $resultado['chave_webchat'], 'exemplos' => true];
     }
 

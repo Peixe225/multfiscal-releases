@@ -20,7 +20,8 @@ return [
     // --- segurança -------------------------------------------------------
     // Assina os tokens dos atendentes. Mínimo de 32 caracteres fora do sandbox;
     // gere com: php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
-    // Use A MESMA chave no app Python (OMNI_CHAVE_SECRETA) para migrar sem deslogar ninguém.
+    // Ao migrar o banco para a VPS (app Python), use lá a MESMA chave
+    // (OMNI_CHAVE_SECRETA): os atendentes continuam logados.
     'chave_secreta' => 'troque-esta-chave-em-producao',
     'horas_token' => 12,
 
@@ -39,6 +40,7 @@ return [
     // --- pastas ----------------------------------------------------------
     // anexos, logs e travas; precisa ser gravável e ficar fora do public/
     'pasta_dados' => __DIR__ . '/dados',
-    // front (painel, widget). Padrão: public/web se existir, senão ../app/web
-    // 'pasta_web' => __DIR__ . '/public/web',
+    // front (painel, widget). Padrão: web/ ao lado deste arquivo (o pacote),
+    // senão public/web, senão ../app/web (desenvolvimento, a fonte única)
+    // 'pasta_web' => __DIR__ . '/web',
 ];

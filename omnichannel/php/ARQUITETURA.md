@@ -21,9 +21,19 @@ php/app/                código (namespace OmniChannel\..., autoload PSR-4 próp
   Banco/                Banco (PDO), Esquema, Migracao, Migracoes/M*.php
   Auth/                 Token, Senhas, Auth (guardas), Atendentes, Rotas
   Eventos/              Eventos (fila de tempo real), Rotas
-  Instalacao/           Seed
-  Tarefas/              tarefas do cron (uma classe por arquivo)
+  Atendimento/          contatos, conversas, mensagens, anexos, distribuição,
+                        assinatura; ApiConversas/ApiContatos/ApiAtendentes/ApiCatalogo
+  Canais/               adaptadores (WhatsApp, Telegram, e-mail, webchat),
+                        cadastro de canais e webhooks (Rotas), SMTP/IMAP próprios
+  Anexos/               envio e download de arquivos (Rotas)
+  Widget/               sessão do visitante, histórico, eventos, limites, faxina
+  Simulador/            cliente de mentira para testar sem provedor (Rotas)
+  Instalacao/           Instalador (/instalar), BaseInicial (admin + webchat)
+                        e Seed (base de desenvolvimento, com Ana e exemplos)
+  Tarefas/              tarefas do cron (uma classe por arquivo): PodarEventos,
+                        FaxinaWidget; Canais/Tarefas/ColetarCanais (IMAP, polling)
   Api/                  rotas das demais áreas (uma classe por arquivo)
+php/web/                só no pacote: cópia de app/web, fora do public
 php/dados/              criado em execução: anexos, logs, travas (nunca público)
 php/config.php          gerado na instalação; NUNCA versionado (config.exemplo.php é o modelo)
 php/console.php         CLI: esquema | semear [--demo] | hash-senha | rotas

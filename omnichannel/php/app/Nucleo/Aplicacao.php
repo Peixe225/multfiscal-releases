@@ -53,9 +53,7 @@ final class Aplicacao
                 $resposta->cabecalho($nome, $valor);
             }
         } catch (ErroConfiguracao $erro) {
-            // o motivo vai para o log; ao visitante, só que não está pronto
-            Log::erro('configuração recusada: ' . $erro->getMessage());
-            $resposta = Resposta::erro(503, 'servidor não configurado; veja o log de instalação');
+            $resposta = self::semConfiguracao($req, $erro);
         } catch (\PDOException $erro) {
             Banco::desfazerPendente();
             Log::excecao($erro, "banco em {$req->metodo} {$req->caminho}");
@@ -67,6 +65,24 @@ final class Aplicacao
         }
         self::cabecalhosPadrao($req, $resposta);
         return $resposta;
+    }
+
+    /**
+     * Sem config.php a instalação ainda não foi feita: quem abre o endereço no
+     * navegador vai para o instalador, e a API diz onde instalar. Com um
+     * config.php recusado (senha errada, driver...), o motivo vai só para o
+     * log: ao visitante, só que não está pronto.
+     */
+    private static function semConfiguracao(Requisicao $req, ErroConfiguracao $erro): Resposta
+    {
+        if (!is_file(Config::caminhoDoArquivo())) {
+            if ($req->metodo === 'GET' && in_array($req->caminho, ['/', '/painel'], true)) {
+                return Resposta::redirecionar('/instalar');
+            }
+            return Resposta::erro(503, 'servidor ainda não instalado: abra /instalar para concluir a instalação');
+        }
+        Log::erro('configuração recusada: ' . $erro->getMessage());
+        return Resposta::erro(503, 'servidor não configurado; veja o log de instalação');
     }
 
     private static function despachar(Requisicao $req): Resposta

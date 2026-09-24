@@ -136,7 +136,7 @@ def conteudos() -> list[str]:
 
 # ---------------------------------------------------------------- coleta
 def test_updates_viram_mensagens_na_caixa_de_entrada(cliente, cabecalho_atendente):
-    canal_polling()
+    canal = canal_polling()
     transporte(
         lambda r: ok([update(100, "Oi, preciso de ajuda", chat_id=7), update(101, "Boa tarde", chat_id=8)])
     )
@@ -148,7 +148,7 @@ def test_updates_viram_mensagens_na_caixa_de_entrada(cliente, cabecalho_atendent
     with SessaoLocal() as sessao:
         externos = sorted(m.externo_id for m in sessao.query(Mensagem))
     # mesmo formato do webhook: quem trocar de modo não recebe tudo em dobro
-    assert externos == ["telegram:7-100", "telegram:8-101"]
+    assert externos == [f"telegram:{canal.id}:7-100", f"telegram:{canal.id}:8-101"]
 
 
 def test_segundo_getupdates_manda_o_offset_avancado():
@@ -673,7 +673,7 @@ def test_remover_webhook_pede_ao_telegram_sem_descartar_pendentes():
     # drop_pending_updates falso: as mensagens que esperavam o webhook chegam pelo polling
     assert pedidos == [("deleteWebhook", {"drop_pending_updates": False})]
 
-    with pytest.raises(ErroCanal, match="preencha: token"):
+    with pytest.raises(ErroCanal, match="preencha: Token do bot"):
         adaptador_para(criar_canal(TipoCanal.TELEGRAM, "Sem token")).remover_webhook()
 
 
@@ -821,3 +821,70 @@ def test_desligar_o_laco_nao_espera_a_api_muda():
         assert chamou.is_set() and time.monotonic() - inicio < 3
     finally:
         solta.set()
+
+
+# ------------------------------------------- endereço público (url_publica)
+@pytest.fixture
+def url_publica(monkeypatch):
+    """Instalação com endereço público HTTPS, como a da hospedagem."""
+    from app.config import obter_config
+
+    monkeypatch.setattr(obter_config(), "url_publica", "https://atendimento.exemplo.com.br/")
+    return "https://atendimento.exemplo.com.br"
+
+
+def test_com_url_publica_o_telegram_novo_nasce_em_webhook(cliente, cabecalho_admin, url_publica):
+    tipos = cliente.get("/api/canais/tipos", headers=cabecalho_admin).json()
+    assert next(c for c in tipos["telegram"] if c["chave"] == "modo_recebimento")["padrao"] == "webhook"
+    canal = cliente.post("/api/canais", json={"nome": "Bot", "tipo": "telegram"}, headers=cabecalho_admin).json()
+    # o modo fica GRAVADO, e a URL mostrada ao admin é a absoluta
+    assert canal["url_webhook"] == f"{url_publica}/webhooks/{canal['id']}"
+    credenciais = cliente.get(f"/api/canais/{canal['id']}/credenciais", headers=cabecalho_admin).json()
+    assert credenciais["credenciais"]["modo_recebimento"] == "webhook"
+
+
+def test_conectar_webhook_faz_o_setwebhook_com_o_segredo_do_canal(cliente, cabecalho_admin, url_publica):
+    pedidos = []
+    transporte(lambda r: pedidos.append((metodo(r), corpo(r), str(r.url))) or ok(True))
+    canal = cliente.post(
+        "/api/canais",
+        json={"nome": "Bot", "tipo": "telegram", "credenciais": {"token": "123:abc", "modo_recebimento": "polling"}},
+        headers=cabecalho_admin,
+    ).json()
+    segredo = cliente.get(f"/api/canais/{canal['id']}/credenciais", headers=cabecalho_admin).json()["segredo_webhook"]
+
+    resposta = cliente.post(f"/api/canais/{canal['id']}/conectar-webhook", headers=cabecalho_admin)
+    assert resposta.status_code == 200 and resposta.json()["ok"] is True, resposta.text
+    [(nome, enviado, url)] = pedidos
+    assert nome == "setWebhook" and url.endswith("/bot123:abc/setWebhook")
+    assert enviado == {
+        "url": f"{url_publica}/webhooks/{canal['id']}",
+        "secret_token": segredo,
+        "allowed_updates": ["message", "edited_message", "channel_post"],
+        "drop_pending_updates": False,
+    }
+    # o token do bot nunca volta ao navegador
+    assert "123:abc" not in resposta.text
+    credenciais = cliente.get(f"/api/canais/{canal['id']}/credenciais", headers=cabecalho_admin).json()
+    assert credenciais["credenciais"]["modo_recebimento"] == "webhook"
+
+
+def test_testar_em_modo_webhook_sem_webhook_ja_o_conecta(cliente, cabecalho_admin, url_publica):
+    """"Salvar e testar" deixa o canal recebendo: com endereço HTTPS, o
+    servidor mesmo faz o setWebhook que faltava."""
+    pedidos = []
+
+    def responder(requisicao):
+        pedidos.append(metodo(requisicao))
+        if metodo(requisicao) == "setWebhook":
+            return ok(True)
+        return api_do_bot(webhook="")(requisicao)
+
+    transporte(responder)
+    canal = cliente.post(
+        "/api/canais", json={"nome": "Bot", "tipo": "telegram", "credenciais": {"token": "123:abc"}}, headers=cabecalho_admin
+    ).json()
+    resultado = cliente.post(f"/api/canais/{canal['id']}/testar", headers=cabecalho_admin).json()
+    assert resultado["ok"] is True, resultado
+    assert resultado["mensagem"].startswith("Conectado como @suporte_bot. Webhook conectado")
+    assert pedidos == ["getMe", "getWebhookInfo", "setWebhook"]

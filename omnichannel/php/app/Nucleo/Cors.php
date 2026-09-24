@@ -4,8 +4,9 @@ declare(strict_types=1);
 namespace OmniChannel\Nucleo;
 
 /**
- * CORS só onde um site de terceiros precisa: o widget (widget.js e
- * /api/widget/*). O painel é servido na mesma origem da API e não precisa;
+ * CORS só onde um site de terceiros precisa: o widget (widget.js,
+ * /api/widget/* e o /saude, que diz ao widget se o tempo real é por consulta
+ * ou por fluxo). O painel é servido na mesma origem da API e não precisa;
  * liberar CORS nele só aumentaria a superfície de ataque.
  *
  * Mesmo comportamento do CORSMiddleware do Starlette (allow_credentials=False):
@@ -17,7 +18,9 @@ final class Cors
 
     public static function aplica(string $caminho): bool
     {
-        return $caminho === '/widget.js' || str_starts_with($caminho, '/api/widget/');
+        // sem o /saude, o widget colado em outro site não descobria o modo de
+        // tempo real e parava de receber respostas ao voltar de outra aba
+        return $caminho === '/widget.js' || $caminho === '/saude' || str_starts_with($caminho, '/api/widget/');
     }
 
     public static function ePreflight(Requisicao $req): bool

@@ -9,6 +9,9 @@ const estado = {
   conversas: [],
   atualId: null,
   detalhe: null,
+  // conversa sendo aberta: o que chega pelos eventos durante o GET dela fica
+  // guardado aqui e entra no detalhe quando ele volta (ver abrirConversa)
+  abrindo: null,
   filtro: { tipo: "aberta" },
   busca: "",
   canais: [],
@@ -105,11 +108,15 @@ function sair() {
   estado.eventos = null;
   estado.atualId = null;
   estado.detalhe = null;
+  estado.abrindo = null;
+  $("#app").classList.remove("com-conversa");
   fecharCanais();
+  fecharEquipe();
   fecharPerfil();
   fecharFicha();
   esquecerCanais();
   $("#abrir-canais").hidden = true;
+  $("#abrir-equipe").hidden = true;
   $("#app").hidden = true;
   $("#tela-login").hidden = false;
 }
@@ -123,6 +130,7 @@ async function iniciar() {
   desenharPerfil();
   // a API recusa do mesmo jeito; esconder só poupa o atendente de um 403
   $("#abrir-canais").hidden = estado.atendente.papel !== "admin";
+  $("#abrir-equipe").hidden = estado.atendente.papel !== "admin";
 
   // o cursor dos eventos vem ANTES das listas: o que chegar enquanto elas
   // carregam é entregue depois (repetido, no máximo, e os desenhos ignoram)
@@ -271,15 +279,50 @@ function selo(tipo, texto) {
 }
 
 /* ------------------------------------------------------------- conversa */
+/* O detalhe é um retrato do servidor. O que chegar pelos eventos enquanto ele
+   viaja (o cliente mandando várias mensagens seguidas bem na hora do clique)
+   já passou do cursor e não volta: fica guardado em estado.abrindo e entra no
+   detalhe quando ele chega, sem repetir o que o retrato já tinha. */
 async function abrirConversa(id) {
+  const abrindo = { id, mensagens: new Map(), status: new Map() };
+  estado.abrindo = abrindo;
   estado.atualId = id;
-  estado.detalhe = await api("GET", `/api/conversas/${id}`);
+  $("#app").classList.add("com-conversa");
+  let detalhe;
+  try {
+    detalhe = await api("GET", `/api/conversas/${id}`);
+  } finally {
+    if (estado.abrindo === abrindo) estado.abrindo = null;
+  }
+  if (estado.atualId !== id) return; // outro clique chegou antes desta resposta
+  juntarChegadas(detalhe, abrindo);
+  estado.detalhe = detalhe;
   const local = estado.conversas.find((c) => c.id === id);
   if (local) local.nao_lidas = 0;
   desenharLista();
   desenharConversa();
-  carregarMetricas();
+  agendarMetricas();
 }
+
+function juntarChegadas(detalhe, abrindo) {
+  const vistos = new Set(detalhe.mensagens.map((m) => m.id));
+  let novas = false;
+  for (const mensagem of abrindo.mensagens.values()) {
+    if (vistos.has(mensagem.id)) continue;
+    detalhe.mensagens.push(mensagem);
+    novas = true;
+  }
+  if (novas) detalhe.mensagens.sort((a, b) => data(a.criada_em) - data(b.criada_em) || a.id - b.id);
+  for (const mensagem of detalhe.mensagens) {
+    if (abrindo.status.has(mensagem.id)) mensagem.status = abrindo.status.get(mensagem.id);
+  }
+}
+
+$("#voltar-lista").addEventListener("click", () => {
+  $("#app").classList.remove("com-conversa");
+  fecharFicha();
+  document.querySelector(`#lista-conversas .item[data-id="${Number(estado.atualId)}"]`)?.focus();
+});
 
 function desenharConversa() {
   const conversa = estado.detalhe;
@@ -419,6 +462,8 @@ function desenharFicha(conversa) {
     ["CNPJ/CPF", contato.documento],
     ["E-mail", contato.email],
     ["Telefone", contato.telefone],
+    // o e-mail digitado no widget fica aqui, não confirmado
+    ["Observações", contato.observacoes],
   ]) {
     if (!valor) continue;
     const dado = criar("div", "dado");
@@ -640,7 +685,12 @@ async function enviar(conteudo, modo) {
 }
 
 function acrescentarMensagem(mensagem) {
-  if (mensagem.conversa_id !== estado.atualId || !estado.detalhe) return;
+  if (estado.abrindo && estado.abrindo.id === mensagem.conversa_id) {
+    estado.abrindo.mensagens.set(mensagem.id, mensagem);
+  }
+  // o detalhe na tela é o de ESTA conversa: durante a abertura de outra, ele
+  // ainda é o da anterior, e o balão iria parar na conversa errada
+  if (!estado.detalhe || estado.detalhe.id !== mensagem.conversa_id) return;
   if (estado.detalhe.mensagens.some((m) => m.id === mensagem.id)) return;
   estado.detalhe.mensagens.push(mensagem);
   const alvo = $("#linha-do-tempo");
@@ -691,14 +741,59 @@ function tratarEvento(tipo, dados) {
   if (tipo === "mensagem.nova") {
     acrescentarMensagem(dados);
     if (dados.direcao === "entrada" && dados.conversa_id !== estado.atualId) {
-      avisar(`Nova mensagem de ${dados.autor}`);
+      avisarNovaMensagem(dados.autor);
     }
   } else if (tipo === "mensagem.status") {
+    if (estado.abrindo && estado.abrindo.id === dados.conversa_id) estado.abrindo.status.set(dados.id, dados.status);
+    const guardada = estado.detalhe?.mensagens.find((m) => m.id === dados.id);
+    if (guardada) guardada.status = dados.status;
     const balaoExistente = document.querySelector(`.balao[data-id="${Number(dados.id)}"] .estado`);
     if (balaoExistente) balaoExistente.textContent = rotuloStatus(dados.status);
   } else if (tipo === "conversa.atualizada") {
     atualizarConversaNaLista(dados);
   }
+}
+
+/* Na consulta (PHP) os eventos chegam em lote: depois de uma queda de rede
+   ou de a aba voltar, até 200 de uma vez. Cada um redesenhando a lista, pedindo
+   as métricas e empilhando um aviso virava uma rajada de requisições (cada
+   uma um processo PHP na hospedagem) e de avisos. Os efeitos se juntam:
+   a lista é redesenhada uma vez por lote, as métricas no máximo uma vez a
+   cada ESPERA_METRICAS, e os avisos viram um resumo. */
+const ESPERA_METRICAS = 1500;
+let listaAgendada = false;
+let metricasAgendadas = null;
+const avisosPendentes = [];
+
+function agendarLista() {
+  if (listaAgendada) return;
+  listaAgendada = true;
+  // microtarefa: roda depois do laço que entrega o lote, mesmo com a aba oculta
+  queueMicrotask(() => {
+    listaAgendada = false;
+    desenharLista();
+  });
+}
+
+function agendarMetricas() {
+  if (metricasAgendadas !== null) return;
+  metricasAgendadas = setTimeout(() => {
+    metricasAgendadas = null;
+    if (estado.token) carregarMetricas().catch(() => null);
+  }, ESPERA_METRICAS);
+}
+
+function avisarNovaMensagem(autor) {
+  avisosPendentes.push(autor || "cliente");
+  if (avisosPendentes.length > 1) return;
+  setTimeout(() => {
+    const autores = [...new Set(avisosPendentes)];
+    const total = avisosPendentes.length;
+    avisosPendentes.length = 0;
+    if (total === 1) return avisar(`Nova mensagem de ${autores[0]}`);
+    const quem = autores.length <= 2 ? autores.join(" e ") : `${autores.slice(0, 2).join(", ")} e mais ${autores.length - 2}`;
+    avisar(`${total} mensagens novas (${quem})`);
+  }, 400);
 }
 
 function atualizarConversaNaLista(conversa) {
@@ -711,8 +806,8 @@ function atualizarConversaNaLista(conversa) {
     if (local) local.nao_lidas = 0;
   }
   estado.conversas.sort((a, b) => data(b.ultima_mensagem_em) - data(a.ultima_mensagem_em));
-  desenharLista();
-  carregarMetricas().catch(() => null);
+  agendarLista();
+  agendarMetricas();
 }
 
 /* Conversa nova só entra na lista se for do filtro em uso: sem isto, uma
@@ -884,6 +979,9 @@ function telaCanaisVazia() {
     criando: false,
     removendo: null, // id do canal com a confirmação de remoção aberta
     focoAnterior: null,
+    // o servidor tem as rotas de webhook do Telegram? Os dois têm; um servidor
+    // anterior responde 404 no clique, e aí os botões somem (acaoDeWebhook)
+    rotasDeWebhook: true,
   };
 }
 
@@ -925,13 +1023,13 @@ document.addEventListener("keydown", (evento) => {
 
 /* Com a gaveta aberta o Tab não pode cair na caixa de entrada escondida atrás
    dela: quem navega por teclado se perderia sem ver onde está o foco. */
-function prenderFoco(evento) {
-  const focaveis = [...gavetaCanais.querySelectorAll("button, a[href], input, select, textarea, [tabindex='0']")]
+function prenderFoco(evento, gaveta = gavetaCanais) {
+  const focaveis = [...gaveta.querySelectorAll("button, a[href], input, select, textarea, [tabindex='0']")]
     .filter((elemento) => !elemento.disabled && elemento.offsetParent !== null);
   if (!focaveis.length) return;
   const primeiro = focaveis[0];
   const ultimo = focaveis[focaveis.length - 1];
-  const dentro = gavetaCanais.contains(document.activeElement);
+  const dentro = gaveta.contains(document.activeElement);
   if (evento.shiftKey && (!dentro || document.activeElement === primeiro)) {
     evento.preventDefault();
     ultimo.focus();
@@ -947,13 +1045,20 @@ async function abrirCanais() {
   gavetaCanais.hidden = false;
   mostrarCabecalhoCanais();
   corpoCanais.replaceChildren(criar("p", "dica", "Carregando canais…"));
-  $("#canais-novo").focus();
+  // "Novo canal" só depois de carregar: clicado antes, o formulário era
+  // redesenhado quando a lista chegava e o tipo escolhido voltava ao
+  // primeiro da lista (criava um WhatsApp em vez do Telegram escolhido)
+  const novo = $("#canais-novo");
+  novo.disabled = true;
   try {
     telaCanais.tipos = telaCanais.tipos || (await api("GET", "/api/canais/tipos"));
     await recarregarCanais();
     mostrarListaCanais();
   } catch (erro) {
     corpoCanais.replaceChildren(criar("p", "erro", `Não foi possível carregar os canais: ${erro.message}`));
+  } finally {
+    novo.disabled = false;
+    if (!gavetaCanais.hidden && !gavetaCanais.contains(document.activeElement)) novo.focus();
   }
 }
 
@@ -1180,46 +1285,80 @@ function acoesDoCanal(canal) {
 }
 
 /* Telegram: o servidor faz o setWebhook/deleteWebhook do bot (o token nunca
-   passa pelo navegador). Só aparece quando o servidor conhece o próprio
-   endereço público com HTTPS (url_publica), que é quando a url_webhook do
-   canal já vem absoluta: sem isso o Telegram recusaria a URL. */
+   passa pelo navegador). PHP e Python têm as rotas; num servidor anterior o
+   clique dá 404 e os botões somem. "Conectar" ainda exige o endereço público
+   com HTTPS (url_publica), que é quando a url_webhook do canal já vem
+   absoluta: sem isso o Telegram recusa. */
+
 function botoesDeWebhook(canal) {
-  if (canal.tipo !== "telegram") return [];
+  if (canal.tipo !== "telegram" || telaCanais.rotasDeWebhook !== true) return [];
   const dados = telaCanais.credenciais[canal.id] || { credenciais: {} };
   const emWebhook = (dados.credenciais.modo_recebimento || "polling") === "webhook";
+  // no polling, o teste avisa quando um webhook de outro sistema trava a entrega
+  // e manda usar "Remover webhook": o botão precisa estar lá
+  const ultimo = telaCanais.resultados[canal.id];
+  const pedeRemocao = /remover webhook/i.test(`${ultimo?.mensagem || ""} ${ultimo?.alerta || ""}`);
   const botoes = [];
   if (/^https:\/\//i.test(canal.url_webhook || "") && canal.configurado) {
     const conectar = botaoDeTeste(emWebhook ? "Reconectar webhook" : "Conectar webhook", "botao discreto pequeno conectar-webhook", canal.id);
     conectar.title = `O Telegram passa a entregar as mensagens em ${canal.url_webhook}`;
-    conectar.onclick = () => acaoDeWebhook(canal, "conectar-webhook", "Conectando o webhook no Telegram…");
+    conectar.onclick = () =>
+      acaoDeWebhook(canal, "conectar-webhook", "Conectando o webhook no Telegram…", "✓ Webhook conectado.", "✗ Não conectou.");
     botoes.push(conectar);
   }
-  if (emWebhook) {
+  if (emWebhook || pedeRemocao) {
     const remover = botaoDeTeste("Remover webhook", "botao discreto pequeno remover-webhook", canal.id);
     remover.title = "Apaga o webhook do bot e volta a buscar as mensagens por polling";
-    remover.onclick = () => acaoDeWebhook(canal, "remover-webhook", "Removendo o webhook do Telegram…");
+    remover.onclick = () =>
+      acaoDeWebhook(canal, "remover-webhook", "Removendo o webhook do Telegram…", "✓ Webhook removido.", "✗ Não removeu.");
     botoes.push(remover);
   }
   return botoes;
 }
 
-async function acaoDeWebhook(canal, rota, andamento) {
+async function acaoDeWebhook(canal, rota, andamento, tituloOk, tituloFalha) {
   const vez = ++sequenciaTeste;
+  const situacaoAntes = telaCanais.testes[canal.id];
   telaCanais.vezDoTeste[canal.id] = vez;
   telaCanais.testes[canal.id] = "andamento";
   telaCanais.resultados[canal.id] = { andamento: true };
   refletirTeste(canal.id);
   corpoCanais.querySelector(`[data-resultado-canal="${canal.id}"]`)?.replaceChildren(andamento);
   let resultado;
+  let semRota = false;
   try {
-    resultado = await api("POST", `/api/canais/${canal.id}/${rota}`);
+    const resposta = await fetch(`/api/canais/${canal.id}/${rota}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${estado.token}` },
+    });
+    if (resposta.status === 401) {
+      sair();
+      return;
+    }
+    const corpo = await resposta.json().catch(() => ({}));
+    if (resposta.status === 404 && corpo.detail === "Not Found") {
+      semRota = true;
+      resultado = { ok: false, mensagem: "este servidor não oferece esta ação; faça pelo próprio Telegram (API do bot)." };
+    } else if (!resposta.ok) {
+      resultado = { ok: false, mensagem: corpo.detail || `falha na requisição (${resposta.status})` };
+    } else {
+      resultado = corpo;
+    }
   } catch (erro) {
     resultado = { ok: false, mensagem: erro.message };
   }
   if (telaCanais.vezDoTeste[canal.id] !== vez) return;
-  telaCanais.testes[canal.id] = resultado.ok ? (resultado.alerta ? "ressalva" : "ok") : "falha";
+  const removendo = rota === "remover-webhook";
+  resultado = { ...resultado, titulo: resultado.ok ? (resultado.alerta ? undefined : tituloOk) : tituloFalha };
+  // remover que falha não diz nada sobre as credenciais: o selo fica como estava
+  telaCanais.testes[canal.id] = resultado.ok
+    ? resultado.alerta ? "ressalva" : "ok"
+    : removendo || semRota ? situacaoAntes : "falha";
   telaCanais.resultados[canal.id] = resultado;
-  if (resultado.ok) {
+  if (semRota) {
+    telaCanais.rotasDeWebhook = false;
+    if (telaCanais.editando === null) redesenharCartao(canal.id, `[data-resultado-canal="${canal.id}"]`);
+  } else if (resultado.ok) {
     // o modo de recebimento mudou (webhook ou polling): o cartão mostra o novo
     await recarregarCanais().catch(() => null);
     if (telaCanais.editando === null) redesenharCartao(canal.id, `[data-resultado-canal="${canal.id}"]`);
@@ -1698,6 +1837,250 @@ function duracao(segundos) {
   if (segundos < 60) return `${Math.round(segundos)}s`;
   if (segundos < 3600) return `${Math.round(segundos / 60)}min`;
   return `${(segundos / 3600).toFixed(1)}h`;
+}
+
+/* ---------------------------------------------------------------- equipe */
+/* Só o administrador: quem atende, com que papel e setor, e quem saiu (fica
+   desativado, não apagado: o histórico continua dizendo quem respondeu). Sem
+   esta tela o dono chamaria a API na mão — e na hospedagem não há /docs. As
+   regras são as de /api/atendentes, iguais nos dois servidores. */
+const gavetaEquipe = $("#equipe");
+const corpoEquipe = $("#corpo-equipe");
+const telaEquipe = { editando: null, criando: false, focoAnterior: null };
+const PAPEIS = { atendente: "Atendente", admin: "Administrador" };
+// o bcrypt guarda só os 72 primeiros bytes da senha (a API recusa acima disso)
+const SENHA_MAX_BYTES = 72;
+
+$("#abrir-equipe").addEventListener("click", abrirEquipe);
+$("#equipe-fechar").addEventListener("click", fecharEquipe);
+$("#equipe-novo").addEventListener("click", () => {
+  Object.assign(telaEquipe, { criando: true, editando: null });
+  desenharEquipe();
+  corpoEquipe.querySelector("form input")?.focus();
+});
+gavetaEquipe.addEventListener("mousedown", (evento) => {
+  if (evento.target === gavetaEquipe) fecharEquipe();
+});
+document.addEventListener("keydown", (evento) => {
+  if (gavetaEquipe.hidden) return;
+  if (evento.key === "Escape") {
+    evento.preventDefault();
+    fecharEquipe();
+  } else if (evento.key === "Tab") {
+    prenderFoco(evento, gavetaEquipe);
+  }
+});
+
+async function abrirEquipe() {
+  telaEquipe.focoAnterior = document.activeElement;
+  Object.assign(telaEquipe, { editando: null, criando: false });
+  gavetaEquipe.hidden = false;
+  corpoEquipe.replaceChildren(criar("p", "dica", "Carregando a equipe…"));
+  // mesmo motivo do "Novo canal": clicado antes de a lista chegar, o
+  // formulário seria redesenhado por cima do que a pessoa já digitou
+  const novo = $("#equipe-novo");
+  novo.disabled = true;
+  try {
+    estado.atendentes = await api("GET", "/api/atendentes");
+    desenharEquipe();
+  } catch (erro) {
+    corpoEquipe.replaceChildren(criar("p", "erro", `Não foi possível carregar a equipe: ${erro.message}`));
+  } finally {
+    novo.disabled = false;
+    if (!gavetaEquipe.hidden && !gavetaEquipe.contains(document.activeElement)) novo.focus();
+  }
+}
+
+function fecharEquipe() {
+  if (gavetaEquipe.hidden) return;
+  gavetaEquipe.hidden = true;
+  corpoEquipe.replaceChildren();
+  telaEquipe.focoAnterior?.focus?.();
+}
+
+function desenharEquipe() {
+  const itens = [];
+  if (telaEquipe.criando) itens.push(formularioAtendente(null));
+  for (const pessoa of estado.atendentes) {
+    itens.push(telaEquipe.editando === pessoa.id ? formularioAtendente(pessoa) : cartaoDoAtendente(pessoa));
+  }
+  corpoEquipe.replaceChildren(...itens);
+}
+
+function cartaoDoAtendente(pessoa) {
+  const eu = pessoa.id === estado.atendente?.id;
+  const cartao = criar("article", `cartao-canal cartao-atendente${pessoa.ativo ? "" : " inativo"}`);
+  cartao.dataset.atendente = pessoa.id;
+  const titulo = criar("h3", "", pessoa.nome);
+  titulo.id = `atendente-${pessoa.id}-nome`;
+  cartao.setAttribute("aria-labelledby", titulo.id);
+
+  const [rotulo, classe] = !pessoa.ativo
+    ? ["Desativado", "desativado"]
+    : pessoa.disponivel
+      ? ["Disponível", "conectado"]
+      : ["Fora da distribuição", "sandbox"];
+  const topo = criar("div", "linha");
+  topo.append(titulo, criar("span", "selo", PAPEIS[pessoa.papel] || pessoa.papel));
+  if (eu) topo.append(criar("span", "selo", "você"));
+  topo.append(criar("span", `situacao ${classe}`, rotulo));
+  cartao.append(topo, criar("p", "dica explicacao", pessoa.email));
+  cartao.append(criar("p", "dica", `O cliente vê: ${linhaAssinatura(pessoa)}`));
+
+  const acoes = criar("div", "acoes-canal");
+  const editar = botaoPequeno("Editar", "botao discreto pequeno editar");
+  editar.onclick = () => {
+    Object.assign(telaEquipe, { editando: pessoa.id, criando: false });
+    desenharEquipe();
+    corpoEquipe.querySelector(`form[data-atendente="${pessoa.id}"] input`)?.focus();
+  };
+  acoes.append(editar);
+  if (!eu) {
+    // desativar a si mesmo trancaria o administrador do lado de fora
+    const alternar = botaoPequeno(pessoa.ativo ? "Desativar" : "Reativar", "botao discreto pequeno alternar");
+    alternar.onclick = () => alternarAtendente(pessoa, alternar);
+    acoes.append(alternar);
+  }
+  // cada botão diz a quem pertence, para quem usa leitor de tela
+  acoes.querySelectorAll("button").forEach((botao) => botao.setAttribute("aria-describedby", titulo.id));
+  cartao.append(acoes);
+  return cartao;
+}
+
+async function alternarAtendente(pessoa, botao) {
+  botao.disabled = true;
+  try {
+    const atualizado = await api("PATCH", `/api/atendentes/${pessoa.id}`, { ativo: !pessoa.ativo });
+    guardarAtendente(atualizado);
+    avisar(atualizado.ativo ? `${atualizado.nome} pode entrar de novo.` : `${atualizado.nome} não entra mais; o histórico fica.`);
+    desenharEquipe();
+    corpoEquipe.querySelector(`[data-atendente="${pessoa.id}"] .alternar`)?.focus();
+  } catch (erro) {
+    avisar(erro.message, true);
+    botao.disabled = false;
+  }
+}
+
+/* A lista de atendentes também alimenta o seletor da conversa aberta e, se
+   for o próprio perfil, o "Atendendo como" do topo. */
+function guardarAtendente(atualizado) {
+  const posicao = estado.atendentes.findIndex((pessoa) => pessoa.id === atualizado.id);
+  if (posicao >= 0) estado.atendentes[posicao] = atualizado;
+  else estado.atendentes.push(atualizado);
+  estado.atendentes.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  if (atualizado.id === estado.atendente?.id) {
+    estado.atendente = atualizado;
+    desenharPerfil();
+  }
+  if (estado.detalhe) desenharConversa();
+}
+
+/* Conferido aqui, em português, antes de ir à API (a validação do servidor
+   continua valendo; a do Python responderia em inglês). */
+function problemaDaSenha(senha, obrigatoria) {
+  if (!senha) return obrigatoria ? "Defina uma senha." : null;
+  if (senha.length < 6) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (new TextEncoder().encode(senha).length > SENHA_MAX_BYTES) {
+    return `A senha pode ter no máximo ${SENHA_MAX_BYTES} bytes (letra com acento conta 2).`;
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(senha)) return "A senha não pode ter tabulação nem quebra de linha.";
+  return null;
+}
+
+function formularioAtendente(pessoa) {
+  const novo = pessoa === null;
+  const eu = !novo && pessoa.id === estado.atendente?.id;
+  const form = criar("form", "cartao-canal form-atendente");
+  form.noValidate = true;
+  form.setAttribute("aria-label", novo ? "Novo atendente" : `Editar ${pessoa.nome}`);
+  if (!novo) form.dataset.atendente = pessoa.id;
+  form.append(criar("h3", "", novo ? "Novo atendente" : pessoa.nome));
+
+  const nome = campoDeNome(pessoa?.nome || "");
+  nome.name = "nome";
+  const email = criar("input");
+  Object.assign(email, { name: "email", type: "email", value: pessoa?.email || "", maxLength: 160, autocomplete: "off" });
+  // o e-mail é o login: a API não o troca depois do cadastro
+  email.readOnly = !novo;
+  email.addEventListener("input", () => email.setCustomValidity(""));
+  const senha = criar("input");
+  Object.assign(senha, { name: "senha", type: "password", autocomplete: "new-password" });
+  if (!novo) senha.placeholder = "em branco = mantém a atual";
+  const papel = criar("select");
+  papel.name = "papel";
+  for (const [valor, rotulo] of Object.entries(PAPEIS)) papel.append(new Option(rotulo, valor));
+  papel.value = pessoa?.papel || "atendente";
+  // tirar de si mesmo o papel de administrador fecharia esta tela para sempre
+  papel.disabled = eu;
+  const setor = criar("input");
+  Object.assign(setor, { name: "setor", value: pessoa?.setor || "", maxLength: 60, autocomplete: "off", placeholder: "Ex.: Suporte técnico" });
+  setor.setAttribute("list", "setores-sugeridos");
+
+  form.append(
+    campoRotulado("Nome", nome, "Vai em cada resposta ao cliente", true),
+    campoRotulado("E-mail", email, novo ? "É o login" : "É o login; não muda", novo),
+    campoRotulado("Senha", senha, novo ? "Pelo menos 6 caracteres" : "Só para trocar a senha", novo),
+    campoRotulado("Papel", papel, eu ? "Você não muda o próprio papel" : "Administrador cuida dos canais e da equipe"),
+    campoRotulado("Setor", setor, "Aparece ao lado do nome; em branco, só o nome"),
+  );
+  const previa = criar("p", "dica previa-equipe");
+  const atualizarPrevia = () => {
+    previa.textContent = `O cliente verá: ${linhaAssinatura({ nome: nome.value.trim() || "…", setor: setor.value.trim() })}`;
+  };
+  nome.addEventListener("input", atualizarPrevia);
+  setor.addEventListener("input", atualizarPrevia);
+  atualizarPrevia();
+
+  const erro = criar("p", "erro");
+  erro.setAttribute("role", "alert");
+  const salvar = criar("button", "botao pequeno", novo ? "Cadastrar" : "Salvar");
+  salvar.type = "submit";
+  const cancelar = botaoPequeno("Cancelar", "botao discreto pequeno");
+  cancelar.onclick = () => {
+    Object.assign(telaEquipe, { criando: false, editando: null });
+    desenharEquipe();
+    (novo ? $("#equipe-novo") : corpoEquipe.querySelector(`[data-atendente="${pessoa.id}"] .editar`))?.focus();
+  };
+  const acoes = criar("div", "acoes-canal");
+  acoes.append(salvar, cancelar);
+  form.append(previa, erro, acoes);
+
+  form.onsubmit = async (evento) => {
+    evento.preventDefault();
+    erro.textContent = "";
+    const nomeLimpo = nomeValido(nome);
+    if (nomeLimpo === null) return;
+    if (novo) {
+      email.setCustomValidity(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()) ? "" : "Informe um e-mail válido.");
+      if (!email.reportValidity()) return;
+    }
+    const problema = problemaDaSenha(senha.value, novo);
+    if (problema) {
+      erro.textContent = problema;
+      senha.focus();
+      return;
+    }
+    const corpo = { nome: nomeLimpo, setor: setor.value.trim() || null };
+    if (!eu) corpo.papel = papel.value;
+    if (novo) corpo.email = email.value.trim();
+    if (senha.value) corpo.senha = senha.value;
+    salvar.disabled = true;
+    try {
+      const salvo = novo
+        ? await api("POST", "/api/atendentes", corpo)
+        : await api("PATCH", `/api/atendentes/${pessoa.id}`, corpo);
+      guardarAtendente(salvo);
+      Object.assign(telaEquipe, { criando: false, editando: null });
+      avisar(novo ? `${salvo.nome} cadastrado. Passe a ele o e-mail e a senha.` : "Alterações salvas.");
+      desenharEquipe();
+      corpoEquipe.querySelector(`[data-atendente="${salvo.id}"] .editar`)?.focus();
+    } catch (falha) {
+      erro.textContent = falha.message;
+      salvar.disabled = false;
+    }
+  };
+  return form;
 }
 
 /* ------------------------------------------------------------------ boot */

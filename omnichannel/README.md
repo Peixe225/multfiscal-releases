@@ -146,8 +146,10 @@ O canal de webchat ganha uma chave pública. Uma linha no site basta:
 ```
 
 O widget vive num shadow root — o CSS do site não interfere nele, nem o dele no
-site. Se o visitante informar um e-mail já conhecido, a conversa entra na ficha
-que já existe.
+site. Cada visitante ganha uma ficha própria e só vê a conversa que ele mesmo
+teve no site. O e-mail que ele digita não é confirmado: fica nas observações da
+ficha, e quem junta as fichas do mesmo cliente é a equipe, no painel (mesclar).
+Assim ninguém lê o histórico de outra pessoa só por digitar o e-mail dela.
 
 ---
 
@@ -166,6 +168,9 @@ que já existe.
 - Anexos pelo clipe: imagem aparece embutida na conversa, outros formatos viram
   link de download. O visitante também anexa pelo widget — no suporte, "manda
   um print" é metade dos atendimentos.
+- Para o administrador: **Canais** (cadastro, teste de conexão e, no Telegram,
+  conectar ou remover o webhook) e **Equipe** (cadastrar quem atende, com papel
+  e setor; quem sai é desativado e o histórico fica).
 
 ---
 

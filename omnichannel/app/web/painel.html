@@ -35,6 +35,8 @@
          title="Escrever como cliente pelo WhatsApp, Telegram ou e-mail (abre em nova aba)">Simulador ↗</a>
       <button type="button" class="atalho" id="abrir-canais" hidden
               aria-haspopup="dialog" aria-controls="canais">Canais</button>
+      <button type="button" class="atalho" id="abrir-equipe" hidden
+              aria-haspopup="dialog" aria-controls="equipe">Equipe</button>
     </nav>
     <div class="usuario">
       <!-- quem responde aparece assim para o cliente: nome e setor -->
@@ -75,7 +77,9 @@
 
       <div id="conversa-conteudo" hidden style="display:contents">
         <header class="cabecalho-conversa">
-          <div>
+          <!-- celular: lista e conversa se revezam na tela -->
+          <button type="button" class="botao discreto pequeno" id="voltar-lista" aria-label="Voltar para a lista de conversas">← Conversas</button>
+          <div class="titulo-conversa">
             <h2 id="titulo-conversa"></h2>
             <div class="dica" id="subtitulo-conversa"></div>
           </div>
@@ -174,6 +178,18 @@
         <button type="button" class="icone-gaveta" id="canais-fechar" aria-label="Fechar (Esc)">×</button>
       </header>
       <div class="corpo-gaveta" id="corpo-canais"></div>
+    </section>
+  </div>
+
+  <!-- só para admin: quem atende, com que papel e setor; montado pelo painel.js -->
+  <div id="equipe" class="gaveta-fundo" hidden>
+    <section class="gaveta" role="dialog" aria-modal="true" aria-labelledby="titulo-equipe">
+      <header class="cabecalho-gaveta">
+        <h2 id="titulo-equipe">Equipe</h2>
+        <button type="button" class="botao pequeno" id="equipe-novo">Novo atendente</button>
+        <button type="button" class="icone-gaveta" id="equipe-fechar" aria-label="Fechar (Esc)">×</button>
+      </header>
+      <div class="corpo-gaveta" id="corpo-equipe"></div>
     </section>
   </div>
 </div>

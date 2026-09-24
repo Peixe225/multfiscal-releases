@@ -37,7 +37,8 @@ final class Saidas
             'ativo' => (bool) $canal['ativo'],
             'chave_publica' => self::textoOuNulo($canal['chave_publica'] ?? null),
             'configurado' => Adaptadores::para($canal)->configurado(),
-            'url_webhook' => '/webhooks/' . (int) $canal['id'],
+            // absoluta com url_publica, igual a GET /api/canais (o admin copia daqui)
+            'url_webhook' => \OmniChannel\Canais\Canais::urlWebhook((int) $canal['id']),
         ];
     }
 

@@ -8,9 +8,11 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
 from ..canais.base import ErroCanal
-from ..canais.campos import CAMPOS, campos_de
+from ..canais.campos import campos_de, modo_telegram_padrao, todos_os_campos
 from ..canais.registro import CanalNaoSuportado, adaptador_para
+from ..canais.telegram import AdaptadorTelegram
 from ..canais.whatsapp import AdaptadorWhatsApp
+from ..config import url_publica_https
 from ..dependencias import AdminAtual, AtendenteAtual, Sessao
 from ..models import Canal, Conversa, TipoCanal
 from ..schemas import (
@@ -22,7 +24,7 @@ from ..schemas import (
     TesteConexaoSaida,
 )
 from ..security import gerar_chave
-from ..serializacao import canal_saida
+from ..serializacao import canal_saida, url_webhook
 
 log = logging.getLogger("omnichannel.canais")
 
@@ -48,18 +50,43 @@ _DESTINOS_DOS_SEGREDOS: dict[str, tuple[tuple[tuple[str, ...], tuple[str, ...]],
 }
 
 
+# tipos cujo cadastro gera segredo_webhook (Telegram: secret_token do
+# setWebhook; e-mail: o token que o provedor manda ao webhook)
+TIPOS_COM_SEGREDO = (TipoCanal.TELEGRAM.value, TipoCanal.EMAIL.value)
+
+
 def segredos_iniciais(tipo: TipoCanal) -> dict:
     """Chave publica e segredo de webhook que o proprio sistema gera no cadastro.
 
-    So o Telegram usa um segredo escolhido por nos: ele vai no secret_token do
-    setWebhook e volta em cada entrega. A Meta assina o WhatsApp com o App
-    Secret do app dela (o campo `segredo_app`), entao um segredo gerado aqui
-    faria recusar com 401 todo webhook real. O e-mail generico nao assina nada.
+    Telegram e e-mail usam um segredo escolhido por nos: o do Telegram vai no
+    secret_token do setWebhook e volta em cada entrega; o do e-mail e o token
+    que o provedor manda ao webhook (X-Omni-Token ou ?token=). A Meta assina o
+    WhatsApp com o App Secret do app dela (o campo `segredo_app`), entao um
+    segredo gerado aqui faria recusar com 401 todo webhook real.
     """
     return {
         "chave_publica": gerar_chave("wc_") if tipo is TipoCanal.WEBCHAT else None,
-        "segredo_webhook": gerar_chave() if tipo is TipoCanal.TELEGRAM else None,
+        "segredo_webhook": gerar_chave() if tipo.value in TIPOS_COM_SEGREDO else None,
     }
+
+
+def _com_modo_efetivo(tipo: str, credenciais: dict) -> dict:
+    """Telegram sem modo_recebimento ganha o modo padrao desta instalacao GRAVADO.
+
+    O painel, o coletor e o outro servidor (PHP, cujo padrao com HTTPS e
+    webhook) passam a ver o mesmo modo, em vez de cada um supor o seu.
+    """
+    modo = credenciais.get("modo_recebimento")
+    if tipo == TipoCanal.TELEGRAM.value and not (isinstance(modo, str) and modo.strip()):
+        return {**credenciais, "modo_recebimento": modo_telegram_padrao()}
+    return credenciais
+
+
+def _garantir_segredo(canal: Canal) -> None:
+    """Canal de e-mail cadastrado antes do segredo (ou gravado a mao) ganha um
+    na primeira vez que o admin o abre: sem segredo o webhook recusa tudo."""
+    if canal.tipo == TipoCanal.EMAIL.value and not canal.segredo_webhook:
+        canal.segredo_webhook = gerar_chave()
 
 
 def _e_secreta(tipo: str, chave: str) -> bool:
@@ -172,7 +199,7 @@ def tipos(_: AtendenteAtual) -> dict:
     """Campos de credencial de cada tipo: a tela de canais monta o formulario daqui."""
     return {
         tipo: [{**campo.como_dict(), "destinos": _destinos_de(tipo, campo.chave)} for campo in campos]
-        for tipo, campos in CAMPOS.items()
+        for tipo, campos in todos_os_campos().items()
     }
 
 
@@ -181,7 +208,7 @@ def criar(dados: CanalEntrada, sessao: Sessao, _: AdminAtual) -> CanalSaida:
     canal = Canal(
         nome=dados.nome,
         tipo=dados.tipo.value,
-        credenciais=_mesclar_credenciais(dados.tipo.value, {}, dados.credenciais),
+        credenciais=_com_modo_efetivo(dados.tipo.value, _mesclar_credenciais(dados.tipo.value, {}, dados.credenciais)),
         ativo=dados.ativo,
         **segredos_iniciais(dados.tipo),
     )
@@ -193,14 +220,18 @@ def criar(dados: CanalEntrada, sessao: Sessao, _: AdminAtual) -> CanalSaida:
 @rotas.get("/{canal_id}/credenciais", response_model=CredenciaisCanalSaida)
 def ver_credenciais(canal_id: int, sessao: Sessao, _: AdminAtual) -> CredenciaisCanalSaida:
     canal = _canal(sessao, canal_id)
-    atuais = canal.credenciais or {}
+    _garantir_segredo(canal)
+    # o modo que o servidor usa de fato: sem ele, a tela supunha "polling" num
+    # canal que o servidor tratava como webhook
+    atuais = _com_modo_efetivo(canal.tipo, canal.credenciais or {})
     adaptador = adaptador_para(canal)
     return CredenciaisCanalSaida(
         credenciais={k: v for k, v in atuais.items() if not _e_secreta(canal.tipo, k)},
         secretos_definidos=[k for k, v in atuais.items() if v and _e_secreta(canal.tipo, k)],
-        # so o do Telegram tem uso fora daqui: vai no secret_token do setWebhook.
-        # O de um WhatsApp antigo e legado e nao e o que a Meta usa para assinar
-        segredo_webhook=canal.segredo_webhook if canal.tipo == TipoCanal.TELEGRAM.value else None,
+        # Telegram: vai no secret_token do setWebhook. E-mail: o token do
+        # webhook de entrada (X-Omni-Token ou ?token=). O de um WhatsApp antigo
+        # e legado e nao e o que a Meta usa para assinar
+        segredo_webhook=canal.segredo_webhook if canal.tipo in TIPOS_COM_SEGREDO else None,
         chave_publica=canal.chave_publica,
         campos_obrigatorios=list(adaptador.campos_obrigatorios),
         # o valor do segredo legado nunca sai, mas a tela precisa saber que ele
@@ -216,8 +247,9 @@ def atualizar(canal_id: int, dados: CanalAtualizacao, sessao: Sessao, _: AdminAt
     if dados.credenciais is not None or dados.limpar:
         # atribuicao de um dict novo: o SQLAlchemy nao percebe mudanca feita
         # dentro do JSON ja carregado
-        canal.credenciais = _mesclar_credenciais(
-            canal.tipo, canal.credenciais or {}, dados.credenciais or {}, dados.limpar
+        canal.credenciais = _com_modo_efetivo(
+            canal.tipo,
+            _mesclar_credenciais(canal.tipo, canal.credenciais or {}, dados.credenciais or {}, dados.limpar),
         )
     if dados.nome is not None:
         canal.nome = dados.nome  # o schema ja aparou e mediu
@@ -271,9 +303,89 @@ def testar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
     alertas = []
     if isinstance(adaptador, AdaptadorWhatsApp) and adaptador.alerta_de_assinatura:
         alertas.append(adaptador.alerta_de_assinatura)
+    if isinstance(adaptador, AdaptadorTelegram) and adaptador.sem_webhook_cadastrado:
+        # modo webhook sem setWebhook: o canal nao recebe nada. Com endereco
+        # publico HTTPS, o "Salvar e testar" ja deixa o canal recebendo
+        if canal.ativo and url_publica_https():
+            conexao = _conectar_telegram(sessao, canal)
+            if not conexao.ok:
+                return TesteConexaoSaida(ok=False, mensagem=f"{mensagem}; ao cadastrar o webhook: {conexao.mensagem}")
+            mensagem = re.sub(r", mas o bot ainda não tem webhook cadastrado.*$", "", mensagem) + ". " + conexao.mensagem
+        else:
+            alertas.append(
+                "o bot ainda não tem webhook cadastrado: nenhuma mensagem chega até você usar "
+                "'Conectar webhook' (com o endereço público HTTPS) ou trocar para 'polling'"
+            )
     if not canal.ativo:
         alertas.append("o canal está desativado: não recebe mensagens novas até você ativá-lo")
     return TesteConexaoSaida(ok=True, mensagem=mensagem, alerta="; ".join(alertas) or None)
+
+
+def _definir_modo(canal: Canal, modo: str) -> None:
+    # dict novo: o SQLAlchemy nao percebe mudanca dentro do JSON carregado
+    canal.credenciais = {**(canal.credenciais or {}), "modo_recebimento": modo}
+
+
+def _conectar_telegram(sessao, canal: Canal) -> TesteConexaoSaida:
+    """setWebhook do canal Telegram com o segredo dele, e o canal passa ao modo
+    webhook. Usado pelo botao "Conectar webhook" e pelo testar."""
+    if not url_publica_https():
+        return TesteConexaoSaida(
+            ok=False,
+            mensagem="o endereço público desta instalação (url_publica, com https) não está configurado: "
+            "o Telegram só entrega mensagens num endereço HTTPS público. Enquanto isso, use o modo polling",
+        )
+    adaptador = AdaptadorTelegram(canal)
+    if not adaptador.configurado:
+        return TesteConexaoSaida(ok=False, mensagem="preencha: Token do bot")
+    if not canal.segredo_webhook:
+        # canal cadastrado a mao, sem segredo: sem ele qualquer um que
+        # soubesse a URL poderia forjar mensagens de clientes
+        canal.segredo_webhook = gerar_chave()
+    try:
+        mensagem = adaptador.conectar_webhook(url_webhook(canal.id), canal.segredo_webhook)
+    except ErroCanal as exc:
+        return TesteConexaoSaida(ok=False, mensagem=str(exc))
+    _definir_modo(canal, "webhook")
+    sessao.flush()
+    alerta = None if canal.ativo else (
+        "o canal está desativado: as entregas do Telegram serão recusadas (409) até você ativá-lo"
+    )
+    return TesteConexaoSaida(ok=True, mensagem=mensagem, alerta=alerta)
+
+
+@rotas.post("/{canal_id}/conectar-webhook", response_model=TesteConexaoSaida)
+def conectar_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+    """Telegram: cadastra no bot o webhook deste canal (url_publica +
+    /webhooks/{id}) com o secret_token do canal, e passa o canal para o modo
+    webhook. Sempre 200 com {ok, mensagem, alerta}, como o testar. O token do
+    bot nunca passa pelo navegador."""
+    canal = _canal(sessao, canal_id)
+    if canal.tipo != TipoCanal.TELEGRAM.value:
+        if canal.tipo == TipoCanal.WHATSAPP.value:
+            mensagem = (
+                f"no WhatsApp o webhook é cadastrado no painel da Meta: use a URL {url_webhook(canal.id)}"
+                " e o token de verificação deste canal"
+            )
+        else:
+            mensagem = "este tipo de canal não tem webhook a conectar"
+        return TesteConexaoSaida(ok=False, mensagem=mensagem)
+    return _conectar_telegram(sessao, canal)
+
+
+@rotas.post("/{canal_id}/remover-webhook", response_model=TesteConexaoSaida)
+def remover_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+    """Telegram: apaga o webhook do bot e volta o canal ao polling."""
+    canal = _canal(sessao, canal_id)
+    if canal.tipo != TipoCanal.TELEGRAM.value:
+        return TesteConexaoSaida(ok=False, mensagem="este tipo de canal não tem webhook a remover")
+    try:
+        mensagem = AdaptadorTelegram(canal).remover_webhook()
+    except ErroCanal as exc:
+        return TesteConexaoSaida(ok=False, mensagem=str(exc))
+    _definir_modo(canal, "polling")
+    sessao.flush()
+    return TesteConexaoSaida(ok=True, mensagem=mensagem)
 
 
 @rotas.delete("/{canal_id}", status_code=status.HTTP_204_NO_CONTENT)

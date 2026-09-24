@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from conftest import criar_canal
+from conftest import criar_canal, payload_whatsapp
 
 from app.api import simulador
 from app.canais import http as canal_http
@@ -123,7 +123,7 @@ def test_telegram_entra_pelo_adaptador_com_id_numerico(cliente, cabecalho_atende
 
     with SessaoLocal() as sessao:
         mensagem = sessao.get(Mensagem, resposta.json()["id"])
-        assert mensagem.externo_id.startswith("telegram:884412-")
+        assert mensagem.externo_id.startswith(f"telegram:{canal_telegram.id}:884412-")
         identidades = {i.identificador: i.contato.nome for i in sessao.query(ContatoIdentidade)}
         assert identidades == {"884412": "Marcos Contabilidade", "-1001234": "Contadores"}
 
@@ -141,7 +141,7 @@ def test_email_entra_pelo_adaptador_com_endereco_minusculo_e_assunto(
 
     with SessaoLocal() as sessao:
         mensagem = sessao.get(Mensagem, resposta.json()["id"])
-        assert mensagem.externo_id.startswith("email:<")
+        assert mensagem.externo_id.startswith(f"email:{canal_email.id}:<")
         assert mensagem.conversa.assunto == "Segunda via do boleto"
         identidade = sessao.query(ContatoIdentidade).one()
         assert identidade.identificador == "financeiro@loja.example"
@@ -275,6 +275,82 @@ def test_historico_tem_resposta_do_atendente_e_nao_tem_nota_interna(
     ]
     assert vista["mensagens"][1]["autor"] == "Ana"
     assert sem_rede == []  # nada saiu para provedor nenhum
+
+
+def test_resposta_sai_quando_o_cliente_real_escreve_depois_da_simulacao(cliente, cabecalho_atendente, canal_whatsapp):
+    """Vale a ÚLTIMA entrada (como no PHP): o dono simulou com o próprio
+    número, ligou o canal e escreveu de verdade na mesma conversa; a
+    resposta precisa sair pelo provedor, não ficar "simulada" para sempre."""
+    chamadas = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        chamadas.append(requisicao)
+        return httpx.Response(200, json={"messages": [{"id": "wamid.saiu"}]})
+
+    canal_http.definir_transporte(httpx.MockTransport(responder))
+    numero = "5500999990000"
+    assert escrever(cliente, cabecalho_atendente, canal_whatsapp, numero, "teste").status_code == 201
+    with SessaoLocal() as sessao:
+        canal = sessao.get(Canal, canal_whatsapp.id)
+        canal.credenciais = {"token": "tk-1", "id_numero": "5599"}
+        sessao.commit()
+    webhook = cliente.post(f"/webhooks/{canal_whatsapp.id}", json=payload_whatsapp(numero, "agora é de verdade", "wamid.real"))
+    assert webhook.json()["recebidas"] == 1
+    with SessaoLocal() as sessao:
+        [conversa] = sessao.query(Conversa).all()
+        conversa_id = conversa.id
+
+    resposta = cliente.post(
+        f"/api/conversas/{conversa_id}/mensagens", headers=cabecalho_atendente, json={"conteudo": "Oi!"}
+    ).json()
+    assert resposta["status"] == "enviada", resposta
+    assert len(chamadas) == 1 and chamadas[0].url.path.endswith("/5599/messages")
+
+
+def test_simulacao_depois_da_entrada_real_volta_a_segurar_a_resposta(cliente, cabecalho_atendente, canal_whatsapp, sem_rede):
+    numero = "5500999990001"
+    cliente.post(f"/webhooks/{canal_whatsapp.id}", json=payload_whatsapp(numero, "real", "wamid.r1"))
+    escrever(cliente, cabecalho_atendente, canal_whatsapp, numero, "simulada por último")
+    with SessaoLocal() as sessao:
+        canal = sessao.get(Canal, canal_whatsapp.id)
+        canal.credenciais = {"token": "tk-1", "id_numero": "5599"}
+        sessao.commit()
+        conversa_id = sessao.query(Conversa).one().id
+    resposta = cliente.post(
+        f"/api/conversas/{conversa_id}/mensagens", headers=cabecalho_atendente, json={"conteudo": "Oi!"}
+    ).json()
+    assert resposta["status"] == "simulada"
+    assert sem_rede == []
+
+
+def test_username_simulada_por_no_telegram_nao_trava_a_resposta(cliente, cabecalho_atendente):
+    """A chave é conferida no dicionário dos metadados, não com LIKE no texto."""
+    canal = criar_canal(TipoCanal.TELEGRAM, "Telegram ao vivo", credenciais={"token": "123:abc"})
+    chamadas = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        chamadas.append(requisicao)
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": 9}})
+
+    canal_http.definir_transporte(httpx.MockTransport(responder))
+    cliente.post(
+        f"/webhooks/{canal.id}",
+        json={
+            "message": {
+                "message_id": 7,
+                "chat": {"id": 884413},
+                "from": {"first_name": "Marcos", "username": "simulada_por"},
+                "text": "oi",
+            }
+        },
+    )
+    with SessaoLocal() as sessao:
+        conversa_id = sessao.query(Conversa).one().id
+    resposta = cliente.post(
+        f"/api/conversas/{conversa_id}/mensagens", headers=cabecalho_atendente, json={"conteudo": "Olá"}
+    ).json()
+    assert resposta["status"] == "enviada", resposta
+    assert len(chamadas) == 1
 
 
 def test_historico_fica_no_canal_pedido(cliente, cabecalho_atendente, canal_whatsapp):

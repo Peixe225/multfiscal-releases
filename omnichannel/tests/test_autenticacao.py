@@ -61,3 +61,32 @@ def test_atendente_edita_o_proprio_nome(cliente, cabecalho_atendente, atendente)
     )
     assert resposta.status_code == 200
     assert resposta.json()["nome"] == "Ana Paula"
+
+
+# ------------------------------------------------ base migrada da hospedagem PHP
+# gerados pelo password_hash do PHP 8.4 (bcrypt "$2y$", custo 12)
+HASH_PHP_ANA = "$2y$12$I/.wLv3n/mrJFuMhZMbi3.hGcp2BP0pkliAJZVjZ6G1AEK5rwv0k2"  # ana12345
+HASH_PHP_LONGA = "$2y$12$Q/uu/fJRzwhvEBO9KPznVuNpYe50obgnInm0Yb0fWTQZoHMRB.PnO"  # "é" * 40 + "fim"
+
+
+def test_senha_com_hash_do_php_confere():
+    from app.security import conferir_senha
+
+    assert conferir_senha("ana12345", HASH_PHP_ANA) is True
+    assert conferir_senha("ana12346", HASH_PHP_ANA) is False
+    # o bcrypt do PHP só olha os 72 primeiros bytes: o mesmo vale aqui, sem erro
+    assert conferir_senha("é" * 40 + "fim", HASH_PHP_LONGA) is True
+    assert conferir_senha("é" * 36, HASH_PHP_LONGA) is True
+    assert conferir_senha("é" * 35, HASH_PHP_LONGA) is False
+    assert conferir_senha("ana12345", "$2y$12$corrompido") is False
+
+
+def test_login_com_hash_migrado_do_php(cliente, admin):
+    from app.db import SessaoLocal
+    from app.models import Atendente
+
+    with SessaoLocal() as sessao:
+        sessao.get(Atendente, admin.id).senha_hash = HASH_PHP_ANA
+        sessao.commit()
+    resposta = cliente.post("/api/auth/login", json={"email": admin.email, "senha": "ana12345"})
+    assert resposta.status_code == 200, resposta.text

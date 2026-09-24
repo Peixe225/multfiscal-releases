@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import contextlib
 import email
+import hmac
 import imaplib
 import smtplib
 import ssl
 from email.header import decode_header, make_header
 from email.message import EmailMessage
-from email.utils import parseaddr
+from email.parser import HeaderParser
+from email.utils import make_msgid, parseaddr
+from typing import Mapping
 
 from ..models import StatusMensagem, TipoCanal
 from ..util import resumir
@@ -120,6 +123,14 @@ def _anexos_de(mensagem: email.message.Message) -> list[AnexoRecebido]:
     return anexos
 
 
+def _message_id_dos_cabecalhos(cabecalhos: str | None) -> str | None:
+    """Message-ID de um bloco de cabeçalhos crus (o campo "headers" do SendGrid)."""
+    if not cabecalhos:
+        return None
+    valor = HeaderParser().parsestr(cabecalhos).get("Message-ID")
+    return str(valor).strip() or None if valor else None
+
+
 class AdaptadorEmail(AdaptadorCanal):
     tipo = TipoCanal.EMAIL
     campos_obrigatorios = ("smtp_host", "smtp_usuario", "smtp_senha", "remetente")
@@ -219,22 +230,56 @@ class AdaptadorEmail(AdaptadorCanal):
         return f"IMAP ok (login em {host}:{porta})"
 
     # ---------------------------------------------------------------- entrada
+    def verificar_assinatura(self, corpo: bytes, cabecalhos: Mapping[str, str]) -> bool:
+        """O webhook genérico de e-mail exige o segredo do canal.
+
+        Gerado no cadastro (segredo_webhook), vem no cabeçalho X-Omni-Token ou
+        em ?token= na URL cadastrada no provedor (a rota junta os dois). Sem
+        ele, qualquer um que achasse a URL (ids são sequenciais) punha
+        mensagens na ficha de um cliente real, com o e-mail dele, e a resposta
+        do atendente ia para o cliente de verdade. Canal sem segredo recusa tudo.
+        """
+        segredo = self.canal.segredo_webhook or ""
+        enviado = cabecalhos.get("x-omni-token") or ""
+        if not segredo or not enviado:
+            return False
+        return hmac.compare_digest(enviado.encode(), segredo.encode())
+
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
-        """Formato generico de provedores (Mailgun, SendGrid Inbound Parse...)."""
-        remetente = payload.get("from") or payload.get("sender") or ""
-        endereco = parseaddr(remetente)[1].lower()
-        texto = payload.get("text") or payload.get("body-plain") or payload.get("stripped-text") or ""
-        if not endereco or not texto:
+        """Formato generico de provedores: JSON, ou os campos do formulário do
+        SendGrid Inbound Parse (from, text, subject, headers) e das rotas do
+        Mailgun (sender, body-plain, stripped-text, Message-Id)."""
+        def texto(chave: str) -> str | None:
+            valor = payload.get(chave)
+            return valor if isinstance(valor, str) and valor else None
+
+        remetente = _decodificar(texto("from") or texto("sender") or "")
+        nome, endereco = parseaddr(remetente)
+        endereco = endereco.lower()
+        conteudo = texto("text") or texto("body-plain") or texto("stripped-text") or ""
+        if not endereco or not conteudo:
             return []
+        message_id = texto("message-id") or texto("Message-Id") or _message_id_dos_cabecalhos(texto("headers"))
         return [
             MensagemRecebida(
                 identificador=endereco,
-                conteudo=texto.strip(),
-                nome_exibicao=parseaddr(remetente)[0] or endereco,
-                externo_id=self._prefixar(payload.get("message-id") or payload.get("Message-Id")),
-                assunto=payload.get("subject"),
+                conteudo=conteudo.strip(),
+                nome_exibicao=nome or endereco,
+                # com o canal: o cliente que escreve para suporte@ e vendas@
+                # manda o mesmo Message-ID às duas caixas, e as duas o recebem
+                externo_id=self._prefixar_no_canal(message_id),
+                assunto=texto("subject"),
             )
         ]
+
+    def analisar_formulario(self, campos: dict, arquivos: list[AnexoRecebido]) -> list[MensagemRecebida]:
+        """Entrega em formulário (multipart ou urlencoded), como a do SendGrid e
+        a do Mailgun: os campos viram o payload de analisar_webhook, e os
+        arquivos (attachment1, attachment-1...) viram anexos da mensagem."""
+        recebidas = self.analisar_webhook(campos)
+        for recebida in recebidas:
+            recebida.anexos = list(arquivos)
+        return recebidas
 
     def coletar(self) -> list[MensagemRecebida]:
         """Busca os nao lidos por IMAP e os marca como lidos."""
@@ -267,7 +312,7 @@ class AdaptadorEmail(AdaptadorCanal):
                             identificador=endereco,
                             conteudo=_corpo_texto(mensagem).strip(),
                             nome_exibicao=_decodificar(parseaddr(mensagem.get("From", ""))[0]) or endereco,
-                            externo_id=self._prefixar(mensagem.get("Message-Id")),
+                            externo_id=self._prefixar_no_canal(mensagem.get("Message-Id")),
                             assunto=_decodificar(mensagem.get("Subject")),
                             metadados={"referencias": mensagem.get("Message-Id")},
                             anexos=_anexos_de(mensagem),
@@ -297,6 +342,11 @@ class AdaptadorEmail(AdaptadorCanal):
         if referencia:
             mensagem["In-Reply-To"] = referencia
             mensagem["References"] = referencia
+        # O Message-ID é gerado aqui (o smtplib não o cria): vira o id externo
+        # da resposta, e é o que o cliente de e-mail do contato cita no
+        # In-Reply-To quando ele responde de volta
+        dominio = parseaddr(self.credenciais["remetente"])[1].rpartition("@")[2] or None
+        mensagem["Message-ID"] = make_msgid(domain=dominio)
         mensagem.set_content(conteudo)
         for arquivo in contexto.get("arquivos") or []:
             principal, _, secundario = arquivo.tipo_conteudo.partition("/")
@@ -327,4 +377,4 @@ class AdaptadorEmail(AdaptadorCanal):
             raise _erro_de_certificado("SMTP", host, exc) from exc
         except (smtplib.SMTPException, OSError) as exc:
             raise ErroCanal(f"falha ao enviar e-mail: {exc}") from exc
-        return ResultadoEnvio(status=StatusMensagem.ENVIADA, externo_id=self._prefixar(mensagem.get("Message-Id")))
+        return ResultadoEnvio(status=StatusMensagem.ENVIADA, externo_id=self._prefixar_no_canal(mensagem["Message-ID"]))

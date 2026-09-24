@@ -8,18 +8,32 @@ O pacote é a pasta que vai inteira para public_html/omnichannel2/:
 
     omnichannel2/.htaccess        se o subdomínio apontar para cá, reescreve para public/
     omnichannel2/app/             código PHP (+ .htaccess que nega tudo)
-    omnichannel2/public/          DocumentRoot: index.php, instalar.php, .htaccess (e nada mais)
+    omnichannel2/public/          DocumentRoot: index.php, instalar.php, .htaccess e .user.ini
+                                  (limites de upload para os anexos de 20 MB e display_errors
+                                  desligado; o LiteSpeed lê o .user.ini, e o FilesMatch "^\\."
+                                  do .htaccess impede que ele seja baixado)
     omnichannel2/web/             o front (cópia de app/web, a fonte única), FORA do public:
                                   sai só por /painel, /widget.js e /static/, pelo index.php,
                                   com os cabeçalhos anti-moldura (um public/web deixaria
                                   /web/painel.html ser emoldurado por qualquer site)
-    omnichannel2/cron.php, console.php, config.exemplo.php
+    omnichannel2/cron.php, console.php
+    omnichannel2/config.exemplo.php  o modelo, com 'pasta_web' => __DIR__ . '/web' ATIVO: um
+                                  config.php refeito à mão a partir dele acha o front (sem
+                                  essa linha, /painel e /widget.js dariam 404)
     omnichannel2/VERSAO           versão, commit e data do pacote
 
-O que NUNCA entra: config.php (senha do banco e chave secreta), dados/
-(banco SQLite, anexos, logs, código de instalação), testes, documentação de
-desenvolvimento, bancos e logs perdidos. Se algo assim aparecer dentro de
-php/ com outro nome, a conferência final recusa o pacote.
+O que NUNCA entra: config.php e qualquer cópia dele (config.*.php, como no
+.gitignore; só o config.exemplo.php vai), dados/ (banco SQLite, anexos, logs,
+código de instalação), testes, documentação de desenvolvimento, bancos, dumps
+SQL, backups, zips e logs perdidos. Se algo assim aparecer dentro de php/ com
+outro nome, a conferência final recusa o pacote; ela recusa também qualquer
+arquivo com uma chave_secreta de verdade (64 hex), seja qual for o nome.
+
+No zip, cada arquivo leva a data de modificação real (não uma data fixa). O
+ETag dos arquivos do front hoje vem do conteúdo (Nucleo\Estaticos), mas um
+servidor com o Estaticos antigo (data e tamanho) ainda depende disso: uma
+correção do mesmo tamanho extraída com a data antiga ficaria presa no cache
+dos navegadores (304 com o JS velho).
 
 Com o PHP instalado localmente, cada .php do pacote passa por `php -l`.
 O manifesto (caminho, tamanho, sha256) sai na tela e em dist/manifesto.json,
@@ -47,14 +61,31 @@ NOME = "omnichannel2"
 
 # relativo a php/: pastas inteiras fora do pacote
 PASTAS_EXCLUIDAS = {"tests", "dados", "public/web", "web", "vendor"}
-# nomes de arquivo fora do pacote (em qualquer pasta)
+# nomes de arquivo fora do pacote (em qualquer pasta). Os config* seguem o
+# php/.gitignore (config.php e config.*.php guardam senha do banco e chave
+# secreta); a comparação diferencia maiúsculas (fnmatchcase), senão no
+# Windows o "config.php" pegaria a classe app/Nucleo/Config.php
 ARQUIVOS_EXCLUIDOS = [
-    "config.php", "config.json", "config.local.php", ".env", ".env.*", "*.sqlite", "*.sqlite-*", "*.db",
-    "*.log", "*.lock", "*.codigo", "*.md", "*.bak", "*.swp", "*~", ".DS_Store", "composer.json", "composer.lock",
-    "phpunit.xml", ".gitignore", ".git",
+    "config.php", "config.*.php", "config-*.php", "config_*.php", "config.json", "config.local.php",
+    ".env", ".env.*", "*.env", "*.sqlite", "*.sqlite-*", "*.db", "*.sql", "*.sql.*", "*.dump",
+    "*.log", "*.lock", "*.codigo", "*.md", "*.bak", "*.old", "*.orig", "*.swp", "*~", ".DS_Store",
+    "*.zip", "*.tar", "*.tar.*", "*.tgz", "*.gz", "*.pem", "*.key",
+    "composer.json", "composer.lock", "phpunit.xml", ".gitignore", ".git",
 ]
+# os únicos que casam com um padrão acima e vão mesmo assim
+EXCECOES = {"config.exemplo.php"}
 # conferência final: se algum destes aparecer no pacote, algo deu errado
-PROIBIDOS_NO_PACOTE = ["config.php", "*.sqlite*", "*.db", "*.log", "*.codigo", ".env*", "*Teste.php"]
+PROIBIDOS_NO_PACOTE = [
+    "config*.php", "*.sqlite*", "*.db", "*.sql", "*.sql.*", "*.dump", "*.log", "*.codigo", ".env*", "*.env",
+    "*.bak", "*.old", "*.orig", "*.zip", "*.tar", "*.tar.*", "*.tgz", "*.gz", "*.pem", "*.key", "*Teste.php",
+]
+# ocultos que vão (os demais ocultos ficam de fora)
+OCULTOS_PERMITIDOS = {".htaccess"}
+OCULTOS_PERMITIDOS_EM = {"public/.user.ini"}
+# uma chave_secreta de verdade (a do instalador tem 64 hex): arquivo recusado, qualquer que seja o nome
+CHAVE_DE_VERDADE = re.compile(rb"""['"]chave_secreta['"]\s*=>\s*['"][0-9a-fA-F]{32,}['"]""")
+# no pacote o front fica em web/, fora do public (o padrão do Config procura public/web)
+PASTA_WEB_NO_MODELO = "    'pasta_web' => __DIR__ . '/web',"
 
 NEGAR_TUDO = """# Código do OmniChannel 2: nunca servido pela web.
 <IfModule mod_authz_core.c>
@@ -73,7 +104,11 @@ def _excluido(relativo: Path) -> bool:
         return True
     if any(parte in ("__pycache__", ".git") for parte in relativo.parts):
         return True
-    return any(fnmatch.fnmatch(relativo.name, padrao) for padrao in ARQUIVOS_EXCLUIDOS)
+    if texto in EXCECOES:
+        return False
+    if relativo.name.startswith(".") and relativo.name not in OCULTOS_PERMITIDOS and texto not in OCULTOS_PERMITIDOS_EM:
+        return True
+    return any(fnmatch.fnmatchcase(relativo.name, padrao) for padrao in ARQUIVOS_EXCLUIDOS)
 
 
 def _versao() -> dict:
@@ -127,12 +162,11 @@ def montar(saida: Path) -> tuple[Path, dict]:
 
     for arquivo in sorted(PHP_DIR.rglob("*")):
         relativo = arquivo.relative_to(PHP_DIR)
-        # .htaccess é oculto mas é parte do pacote; os demais ocultos não
+        # ocultos: só .htaccess e o public/.user.ini (ver _excluido)
         if arquivo.is_dir() or _excluido(relativo):
             continue
-        if arquivo.name.startswith(".") and arquivo.name != ".htaccess":
-            continue
         _copiar(arquivo, pacote / relativo)
+    _ajustar_modelo_de_config(pacote / "config.exemplo.php")
 
     # front: fonte única em app/web, copiada para web/ (fora do public)
     for arquivo in sorted(WEB_DIR.rglob("*")):
@@ -163,22 +197,56 @@ def montar(saida: Path) -> tuple[Path, dict]:
     return pacote, manifesto
 
 
+def _ajustar_modelo_de_config(modelo: Path) -> None:
+    """Deixa 'pasta_web' => __DIR__ . '/web' ATIVO no config.exemplo.php do pacote.
+
+    O Config da fundação, sem pasta_web, procura public/web e depois ../app/web;
+    no pacote o front mora em omnichannel2/web. Só o instalador grava a linha:
+    quem refaz o config.php à mão a partir do modelo (o caminho de "perdi o
+    config.php") ficaria com /painel e /widget.js em 404, e o chat sumiria de
+    todos os sites que embutem o widget.
+    """
+    if not modelo.is_file():
+        return
+    linhas = [
+        linha for linha in modelo.read_text(encoding="utf-8").splitlines()
+        if not re.match(r"\s*(//\s*)?'pasta_web'\s*=>", linha)
+        and not re.match(r"\s*//\s*front \(painel, widget\)", linha)
+    ]
+    fim = max((i for i, linha in enumerate(linhas) if linha.strip() == "];"), default=None)
+    if fim is None:
+        raise SystemExit(f"{modelo.name}: não achei o '];' final para acrescentar pasta_web")
+    linhas[fim:fim] = [
+        "    // front (painel, widget): no pacote fica em omnichannel2/web, FORA do public/",
+        "    // (sai só pelo index.php, com os cabeçalhos anti-moldura). Sem esta linha,",
+        "    // /painel e /widget.js respondem 404.",
+        PASTA_WEB_NO_MODELO,
+    ]
+    modelo.write_text("\n".join(linhas) + "\n", encoding="utf-8")
+
+
 def _conferir(pacote: Path) -> None:
-    """Recusa o pacote se algo sensível ou de teste entrou."""
+    """Recusa o pacote se algo sensível ou de teste entrou (ou se falta o essencial)."""
     problemas = []
     for arquivo in pacote.rglob("*"):
         relativo = arquivo.relative_to(pacote)
-        if any(fnmatch.fnmatch(arquivo.name, p) for p in PROIBIDOS_NO_PACOTE) and relativo.as_posix() != "config.exemplo.php":
-            problemas.append(relativo.as_posix())
+        texto = relativo.as_posix()
+        if texto not in EXCECOES and any(fnmatch.fnmatchcase(arquivo.name, p) for p in PROIBIDOS_NO_PACOTE):
+            problemas.append(texto)
         if relativo.parts and relativo.parts[0] in ("dados", "tests"):
-            problemas.append(relativo.as_posix())
-    obrigatorios = ["public/index.php", "public/instalar.php", "public/.htaccess", ".htaccess", "app/autoload.php",
-                    "cron.php", "web/painel.html", "web/widget.js"]
+            problemas.append(texto)
+        if arquivo.is_file() and arquivo.stat().st_size < 2_000_000 and CHAVE_DE_VERDADE.search(arquivo.read_bytes()):
+            problemas.append(f"{texto} (tem uma chave_secreta de verdade: é uma cópia do config.php?)")
+    obrigatorios = ["public/index.php", "public/instalar.php", "public/.htaccess", "public/.user.ini", ".htaccess",
+                    "app/autoload.php", "cron.php", "config.exemplo.php", "web/painel.html", "web/widget.js"]
     problemas += [f"faltando: {o}" for o in obrigatorios if not (pacote / o).is_file()]
+    modelo = pacote / "config.exemplo.php"
+    if modelo.is_file() and PASTA_WEB_NO_MODELO not in modelo.read_text(encoding="utf-8").splitlines():
+        problemas.append("config.exemplo.php sem 'pasta_web' => __DIR__ . '/web' ativo")
     # em public/ só o que o .htaccess deixa sair: nada de página servida sem o PHP
-    permitidos_no_public = {"public/index.php", "public/instalar.php", "public/.htaccess"}
+    permitidos_no_public = {"public/index.php", "public/instalar.php", "public/.htaccess", "public/.user.ini"}
     problemas += [
-        f"fora do lugar (public/ só tem index.php, instalar.php e .htaccess): {p.relative_to(pacote).as_posix()}"
+        f"fora do lugar (public/ só tem index.php, instalar.php, .htaccess e .user.ini): {p.relative_to(pacote).as_posix()}"
         for p in (pacote / "public").rglob("*")
         if p.is_file() and p.relative_to(pacote).as_posix() not in permitidos_no_public
     ]
@@ -197,11 +265,19 @@ def conferir_sintaxe(pacote: Path, php: str) -> list[str]:
 
 
 def zipar(pacote: Path, destino: Path) -> Path:
-    """Zip com omnichannel2/ na raiz, em ordem estável (dá para comparar pacotes)."""
+    """Zip com omnichannel2/ na raiz, em ordem estável.
+
+    Cada entrada leva a data de modificação real do arquivo (a cópia do
+    pacote preserva a da fonte). O unzip e o ZipArchive do PHP gravam essa
+    data no disco, e o ETag do front é md5(data-tamanho): com uma data fixa,
+    uma correção do mesmo tamanho ficaria com o ETag antigo e o navegador
+    seguiria com o JS velho (304).
+    """
     with zipfile.ZipFile(destino, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for arquivo in sorted(p for p in pacote.rglob("*") if p.is_file()):
             nome = f"{NOME}/{arquivo.relative_to(pacote).as_posix()}"
-            info = zipfile.ZipInfo(nome, date_time=(2026, 1, 1, 0, 0, 0))
+            # strict_timestamps=False: data anterior a 1980 vira 1980 (o zip não tem antes)
+            info = zipfile.ZipInfo.from_file(arquivo, nome, strict_timestamps=False)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             z.writestr(info, arquivo.read_bytes())

@@ -27,6 +27,7 @@ from .base import (
     MensagemRecebida,
     ResultadoEnvio,
 )
+from .campos import modo_telegram_padrao
 from .http import cliente
 
 log = logging.getLogger("omnichannel.telegram")
@@ -44,6 +45,14 @@ FOLGA_GETUPDATES = 5
 # so o que vira mensagem; o resto (entrada em grupo, enquete...) nem precisa
 # trafegar
 TIPOS_DE_UPDATE = ["message", "edited_message", "channel_post"]
+# O sendPhoto recomprime a imagem e so processa JPEG, PNG e WebP: SVG, HEIC ou
+# BMP voltam "IMAGE_PROCESS_FAILED", e um GIF perderia a animacao. O resto vai
+# por sendDocument, que entrega qualquer arquivo como esta.
+TIPOS_DE_FOTO = ("image/jpeg", "image/png", "image/webp")
+
+
+def vai_como_foto(tipo_conteudo: str) -> bool:
+    return (tipo_conteudo or "").split(";")[0].strip().lower() in TIPOS_DE_FOTO
 
 TOKEN_RECUSADO = (
     "token recusado pelo Telegram: confira se colou o token inteiro que o @BotFather "
@@ -141,8 +150,9 @@ class AdaptadorTelegram(AdaptadorCanal):
 
     @property
     def modo_recebimento(self) -> str:
-        # ausente ou desconhecido = polling, o unico que funciona sem URL publica
-        modo = str(self.credenciais.get("modo_recebimento") or "").strip().lower()
+        # ausente = o padrao desta instalacao (webhook so com URL publica
+        # HTTPS); desconhecido = polling, o unico que funciona sem URL publica
+        modo = str(self.credenciais.get("modo_recebimento") or "").strip().lower() or modo_telegram_padrao()
         return "webhook" if modo == "webhook" else "polling"
 
     @property
@@ -197,14 +207,20 @@ class AdaptadorTelegram(AdaptadorCanal):
         if self.modo_recebimento == "polling" and url:
             # sem isso o admin ve "conectado" e as mensagens nunca chegam
             raise ErroCanal(_conflito_webhook(url))
+        self.sem_webhook_cadastrado = False
         if self.modo_recebimento == "webhook":
             if not url:
+                self.sem_webhook_cadastrado = True
                 return (
                     f"Conectado como {nome}, mas o bot ainda não tem webhook cadastrado: as "
                     "mensagens só chegam depois do setWebhook apontando para este servidor"
                 )
             self._conferir_webhook(webhook)
         return f"Conectado como {nome}"
+
+    # a ultima verificar_conexao achou o bot em modo webhook sem webhook
+    # cadastrado: o canal nao recebe nada ate o setWebhook (o testar o faz)
+    sem_webhook_cadastrado = False
 
     def _conferir_webhook(self, info: dict) -> None:
         """No modo webhook, getMe respondendo nao basta: o token pode estar
@@ -228,9 +244,26 @@ class AdaptadorTelegram(AdaptadorCanal):
                 # a rota recusa a entrega sem o segredo que o cadastro gerou
                 dica = (
                     " O setWebhook foi feito sem o secret_token deste canal (ou com outro): "
-                    "refaça-o passando o secret_token mostrado no cadastro do canal"
+                    'use "Conectar webhook" neste canal para refazê-lo com o segredo certo'
                 )
             raise ErroCanal(f"o Telegram não consegue entregar as mensagens no webhook: {falha}.{dica}")
+
+    def conectar_webhook(self, url: str, segredo: str) -> str:
+        """Cadastra no bot o webhook deste canal, com o segredo que o cadastro gerou.
+
+        Feito pelo servidor: o token nunca aparece em URL nenhuma do navegador.
+        """
+        if not self.configurado:
+            raise ErroCanal("preencha: Token do bot")
+        with cliente() as http:
+            self._chamar(http, "setWebhook", {
+                "url": url,
+                "secret_token": segredo,
+                "allowed_updates": TIPOS_DE_UPDATE,
+                # o que chegou enquanto nao havia webhook vem na primeira entrega
+                "drop_pending_updates": False,
+            })
+        return f"Webhook conectado: o Telegram entrega as mensagens em {url}"
 
     def remover_webhook(self) -> str:
         """Apaga o webhook do bot para o polling voltar a receber.
@@ -243,7 +276,7 @@ class AdaptadorTelegram(AdaptadorCanal):
         getUpdates as traz.
         """
         if not self.configurado:
-            raise ErroCanal("preencha: token")
+            raise ErroCanal("preencha: Token do bot")
         with cliente() as http:
             self._chamar(http, "deleteWebhook", {"drop_pending_updates": False})
         return "Webhook removido: o bot volta a entregar as mensagens por polling"
@@ -321,22 +354,29 @@ class AdaptadorTelegram(AdaptadorCanal):
         return hmac.compare_digest(enviado, segredo)
 
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
-        msg = payload.get("message") or payload.get("edited_message") or payload.get("channel_post")
+        msg = next(
+            (payload[c] for c in ("message", "edited_message", "channel_post") if isinstance(payload.get(c), dict) and payload[c]),
+            None,
+        )
         if not msg:
             return []
-        texto = msg.get("text") or msg.get("caption") or ""
+        texto = next((v for v in (msg.get("text"), msg.get("caption")) if isinstance(v, str) and v), "")
         anexos = self._anexos_de(msg)
         if not texto and not anexos:
             return []
-        chat = msg.get("chat") or {}
-        autor = msg.get("from") or {}
+        chat = msg.get("chat") if isinstance(msg.get("chat"), dict) else {}
+        autor = msg.get("from") if isinstance(msg.get("from"), dict) else {}
+        if chat.get("id") is None:
+            return []  # sem chat nao ha a quem responder (o "None" virava contato)
         nome = " ".join(filter(None, [autor.get("first_name"), autor.get("last_name")])) or chat.get("title")
         return [
             MensagemRecebida(
                 identificador=str(chat.get("id")),
                 conteudo=texto,
                 nome_exibicao=nome or autor.get("username"),
-                externo_id=self._prefixar(f"{chat.get('id')}-{msg.get('message_id')}"),
+                # com o canal: dois bots conversando com o mesmo usuario numeram
+                # as mensagens do mesmo jeito (chat.id = id do usuario, desde 1)
+                externo_id=self._prefixar_no_canal(f"{chat.get('id')}-{msg.get('message_id')}"),
                 metadados={"usuario": autor.get("username")},
                 anexos=anexos,
             )
@@ -407,7 +447,7 @@ class AdaptadorTelegram(AdaptadorCanal):
             try:
                 if arquivos:
                     arquivo = arquivos[0]
-                    imagem = arquivo.tipo_conteudo.startswith("image/")
+                    imagem = vai_como_foto(arquivo.tipo_conteudo)
                     metodo = "sendPhoto" if imagem else "sendDocument"
                     campo = "photo" if imagem else "document"
                     resposta = http.post(
@@ -428,4 +468,4 @@ class AdaptadorTelegram(AdaptadorCanal):
             raise ErroCanal(f"Telegram recusou o envio: {dados.get('description')}")
         resultado = dados.get("result") or {}
         externo = f"{destino}-{resultado.get('message_id')}" if resultado.get("message_id") else None
-        return ResultadoEnvio(status=StatusMensagem.ENVIADA, externo_id=self._prefixar(externo))
+        return ResultadoEnvio(status=StatusMensagem.ENVIADA, externo_id=self._prefixar_no_canal(externo))

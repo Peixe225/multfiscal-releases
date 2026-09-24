@@ -81,7 +81,28 @@ class AdaptadorCanal(ABC):
         """Garante unicidade global do id externo entre provedores."""
         return f"{self.tipo.value}:{externo_id}" if externo_id else None
 
+    def _prefixar_no_canal(self, externo_id: str | None) -> str | None:
+        """Id externo que só é único DENTRO do canal ("telegram:5:777001-3").
+
+        O wamid da Meta é global, mas o message_id do Telegram recomeça em 1 em
+        cada conversa bot-usuário (e o chat.id de um chat privado é o id do
+        usuário), e o Message-ID de um e-mail mandado para duas caixas é o
+        mesmo nas duas. Sem o canal no id, a mensagem ao segundo bot (ou à
+        segunda caixa) morria na deduplicação como se fosse reentrega. Mesmo
+        formato do PHP (Adaptador::prefixarNoCanal), para as bases migrarem.
+        """
+        if not externo_id:
+            return None
+        if self.canal.id:
+            return f"{self.tipo.value}:{self.canal.id}:{externo_id}"
+        return self._prefixar(externo_id)
+
     # ---------------------------------------------------------------- entrada
+    @property
+    def recebe_webhook(self) -> bool:
+        """Se falso, POST /webhooks/{id} responde 404 (o webchat tem rotas próprias)."""
+        return True
+
     def verificar_assinatura(self, corpo: bytes, cabecalhos: Mapping[str, str]) -> bool:
         """Sem segredo cadastrado, nao ha o que verificar."""
         return True

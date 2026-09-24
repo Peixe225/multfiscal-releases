@@ -48,7 +48,20 @@ def test_desde_exige_token_e_aceita_na_query(cliente, cabecalho_atendente):
     assert cliente.get("/api/eventos/desde", params={"token": token, "depois": 0}).status_code == 200
 
 
-@pytest.mark.parametrize("parametros", [{"depois": "abc"}, {"depois": -1}, {"depois": 0, "limite": 0}, {"depois": 0, "limite": 501}])
+@pytest.mark.parametrize(
+    "parametros",
+    [
+        {"depois": "abc"},
+        {"depois": -1},
+        {"depois": 0, "limite": 0},
+        {"depois": 0, "limite": 501},
+        # maior que o inteiro de 64 bits do banco: era 500 (OverflowError)
+        {"depois": "9223372036854775808"},
+        {"depois": "99999999999999999999"},
+        # 19 dígitos: o PHP (Validador::inteiro) aceita no máximo 18
+        {"depois": str(10**18)},
+    ],
+)
 def test_desde_valida_parametros(cliente, cabecalho_atendente, parametros):
     assert desde(cliente, cabecalho_atendente, **parametros).status_code == 422
 
@@ -167,6 +180,61 @@ def test_last_event_id_vence_o_depois():
     assert rotas_eventos.cursor_inicial(None, "lixo") is None
 
 
+@pytest.mark.parametrize("cabecalho", ["²", "99999999999999999999", "9223372036854775808", "-3", "1e3"])
+def test_last_event_id_estranho_e_ignorado(cabecalho):
+    """"²".isdigit() é True e um número enorme quebrava a consulta do fluxo."""
+    assert rotas_eventos.cursor_inicial(5, cabecalho) == 5
+
+
+def test_desde_no_teto_do_cursor_responde(cliente, cabecalho_atendente):
+    resposta = desde(cliente, cabecalho_atendente, depois=str(10**18 - 1))
+    assert resposta.status_code == 200
+    assert resposta.json() == {"eventos": [], "ultimo": 10**18 - 1}
+
+
+def test_fluxo_aberto_para_quando_quem_escuta_perde_o_acesso(monkeypatch):
+    """Atendente desativado com a aba aberta não segue recebendo: o fluxo
+    confere de tempos em tempos e se encerra."""
+    monkeypatch.setattr(rotas_eventos, "VERIFICACAO", 0.05)
+    monkeypatch.setattr(rotas_eventos, "REVALIDACAO", 0)  # confere a cada volta
+    pode = {"sim": True}
+
+    async def consumir():
+        fluxo = rotas_eventos.fluxo_persistido(0, validar=lambda: pode["sim"])
+        recebidos = []
+        try:
+            assert (await fluxo.__anext__()).startswith(": conectado")
+            with SessaoLocal() as sessao:
+                sessao.add(FilaEvento(tipo="mensagem.nova", dados='{"id": 1}', contato_id=None))
+                sessao.commit()
+            recebidos.append(await asyncio.wait_for(fluxo.__anext__(), timeout=3))
+            pode["sim"] = False  # o admin desativou quem escuta
+            with SessaoLocal() as sessao:
+                sessao.add(FilaEvento(tipo="mensagem.nova", dados='{"id": 2, "segredo": true}', contato_id=None))
+                sessao.commit()
+            async for trecho in fluxo:  # termina sozinho, sem entregar o segundo
+                recebidos.append(trecho)
+        finally:
+            await fluxo.aclose()
+        return recebidos
+
+    recebidos = asyncio.run(asyncio.wait_for(consumir(), timeout=5))
+    assert len(recebidos) == 1 and recebidos[0].startswith("id: 1\n")
+
+
+def test_stream_do_painel_revalida_o_atendente(cliente, atendente, monkeypatch):
+    """A validação que o fluxo usa olha o atendente de novo no banco."""
+    from app.security import criar_token
+
+    token = criar_token(atendente.id)
+    assert rotas_eventos._ainda_pode(token) is True
+    with SessaoLocal() as sessao:
+        sessao.get(type(atendente), atendente.id).ativo = False
+        sessao.commit()
+    assert rotas_eventos._ainda_pode(token) is False
+    assert rotas_eventos._ainda_pode("lixo") is False
+
+
 def test_stream_do_widget_recusa_sessao_invalida(cliente):
     assert cliente.get("/api/widget/stream", params={"token": "ws_falsa"}).status_code == 401
 
@@ -191,3 +259,45 @@ def test_stream_ve_evento_gravado_por_outro_processo(monkeypatch):
 
     trecho = asyncio.run(consumir())
     assert trecho.startswith("id: 1\nevent: mensagem.nova\n")
+
+
+def test_stream_do_widget_entrega_o_formato_do_widget(cliente, cabecalho_atendente, canal_webchat):
+    """O SSE do widget troca a MensagemSaida do painel pelo formato do
+    histórico do widget (sem status, erro nem ids da equipe)."""
+    from app.api import widget as rotas_widget
+
+    visitante = abrir_sessao(cliente, canal_webchat, nome="Visitante")
+    mandar(cliente, visitante, "oi")
+    [conversa] = cliente.get("/api/conversas", headers=cabecalho_atendente).json()
+    cursor = desde(cliente, cabecalho_atendente).json()["ultimo"]
+    cliente.post(f"/api/conversas/{conversa['id']}/mensagens", headers=cabecalho_atendente, json={"conteudo": "olá!"})
+
+    async def consumir():
+        fluxo = rotas_eventos.fluxo_persistido(
+            cursor,
+            rotas_eventos.do_visitante(visitante["contato_id"]),
+            transformar=rotas_widget._para_o_visitante(visitante["token"]),
+        )
+        try:
+            async for trecho in fluxo:
+                if trecho.startswith("id:"):
+                    return trecho
+        finally:
+            await fluxo.aclose()
+
+    trecho = asyncio.run(asyncio.wait_for(consumir(), timeout=5))
+    dados = json.loads(trecho.split("data: ", 1)[1])
+    assert set(dados) == {"id", "direcao", "conteudo", "criada_em", "autor", "assinatura", "anexos"}
+    assert dados["conteudo"] == "olá!"
+
+
+def test_sessao_do_widget_deixa_de_valer_com_o_canal_desativado(cliente, canal_webchat):
+    from app.api import widget as rotas_widget
+    from app.models import Canal
+
+    visitante = abrir_sessao(cliente, canal_webchat)
+    assert rotas_widget._sessao_valida(visitante["token"]) is True
+    with SessaoLocal() as sessao:
+        sessao.get(Canal, canal_webchat.id).ativo = False
+        sessao.commit()
+    assert rotas_widget._sessao_valida(visitante["token"]) is False

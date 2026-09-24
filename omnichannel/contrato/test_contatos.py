@@ -9,9 +9,7 @@ from __future__ import annotations
 import json
 import random
 
-import pytest
-
-from utilitarios import criar_canal, estrito, exigir_rota, unico
+from utilitarios import criar_canal, exigir_rota, unico
 
 
 def numero_novo() -> str:
@@ -152,6 +150,11 @@ def test_rota_de_mesclagem(cliente, cabecalho_atendente, canal_whatsapp, canal_w
     visitante(cliente, canal_webchat, "Duplicado B", email=email)
     secundario = contato_do_canal(cliente, cabecalho_atendente, canal_webchat)
     assert secundario["id"] != principal["id"]
+    # o e-mail digitado no widget não tem prova de posse e não vai para a
+    # ficha (fica nas observações); quem o grava é a atendente, que confirmou
+    assert secundario["email"] is None
+    patch = cliente.patch(f"/api/contatos/{secundario['id']}", json={"email": email}, headers=cabecalho_atendente)
+    assert patch.status_code == 200, patch.text
 
     resposta = cliente.post(f"/api/contatos/{principal['id']}/mesclar/{secundario['id']}", headers=cabecalho_atendente)
     assert resposta.status_code == 200
@@ -202,11 +205,6 @@ def test_resposta_vai_para_o_numero_que_escreveu_na_conversa(
     """Dois números no mesmo canal (pessoal e empresa), mesclados num contato:
     a resposta de cada conversa vai para o número que escreveu NELA, nunca
     para "o primeiro número do contato" (poderia ser outra pessoa)."""
-    if servidor.alvo == "python" and not estrito():
-        pytest.skip("o alvo ainda não usa o provedor falso (OMNI_TESTE_PROVEDOR)")
-    request.applymarker(pytest.mark.xfail(
-        servidor.alvo == "python", reason="app Python: identificador_no_canal pega a primeira identidade", strict=False
-    ))
     canal = criar_canal(cliente, cabecalho_admin, "whatsapp", credenciais={"token": "tk", "id_numero": "5599"})
     provedor.roteirar("graph.facebook.com", metodo="POST", json={"messages": [{"id": unico("wamid.r")}]})
     pessoal, empresa = numero_novo(), numero_novo()
@@ -235,9 +233,6 @@ def test_resposta_vai_para_o_numero_que_escreveu_na_conversa(
 def test_telefone_longo_demais_e_recusado(cliente, cabecalho_atendente, canal_whatsapp, servidor, request):
     """O telefone é gravado só com dígitos numa coluna de 32: com mais que
     isso, 422 (e não 500 do MySQL estrito)."""
-    request.applymarker(pytest.mark.xfail(
-        servidor.alvo == "python", reason="app Python: não limita os dígitos do telefone", strict=False
-    ))
     whatsapp_entra(cliente, canal_whatsapp, numero_novo(), nome="Longo")
     contato = contato_do_canal(cliente, cabecalho_atendente, canal_whatsapp)
     url = f"/api/contatos/{contato['id']}"
@@ -254,3 +249,25 @@ def test_busca_de_contato_com_maiuscula_acentuada(cliente, cabecalho_atendente, 
     for termo in (f"ÁUREA LTDA {marca}", f"ÁUREA LTDA {marca.lower()}", marca):
         resposta = cliente.get("/api/contatos", headers=cabecalho_atendente, params={"q": termo})
         assert [c["nome"] for c in resposta.json()] == [f"ÁUREA LTDA {marca}"], termo
+
+
+def test_patch_do_contato_respeita_os_limites_das_colunas(cliente, cabecalho_atendente, canal_whatsapp):
+    """Nome é obrigatório (null não "limpa") e nada passa do tamanho da coluna:
+    422 com o campo, em vez do 500 do banco."""
+    whatsapp_entra(cliente, canal_whatsapp, numero_novo(), nome="Limites")
+    contato = contato_do_canal(cliente, cabecalho_atendente, canal_whatsapp)
+    url = f"/api/contatos/{contato['id']}"
+    for corpo, campo in (
+        ({"nome": None}, "nome"),
+        ({"nome": ""}, "nome"),
+        ({"nome": "x" * 161}, "nome"),
+        ({"empresa": "x" * 161}, "empresa"),
+        ({"documento": "1" * 33}, "documento"),
+    ):
+        resposta = cliente.patch(url, json=corpo, headers=cabecalho_atendente)
+        assert resposta.status_code == 422, (corpo, resposta.text)
+        assert resposta.json()["detail"][0]["loc"] == ["body", campo]
+    assert cliente.get(url, headers=cabecalho_atendente).json()["nome"] == "Limites"
+    # dentro do limite, e null limpando o que é opcional
+    resposta = cliente.patch(url, json={"empresa": "x" * 160, "documento": None}, headers=cabecalho_atendente)
+    assert resposta.status_code == 200 and resposta.json()["empresa"] == "x" * 160

@@ -193,9 +193,11 @@
       if (document.hidden && cfg.intervaloOculto === null) return; // volta no visibilitychange
       pedindo = true;
       let dados = null;
+      let pedido = null;
       try {
         if (cursor === null) await preparar();
-        dados = await pedirJson(cfg.desde(cursor));
+        pedido = cursor;
+        dados = await pedirJson(cfg.desde(pedido));
         falhas = 0;
         mudar("ao-vivo");
       } catch (erro) {
@@ -212,7 +214,11 @@
       // o cursor anda mesmo quando o filtro do servidor não devolveu nada
       const ultimo = Number(dados.ultimo);
       if (Number.isFinite(ultimo) && (cursor === null || ultimo > cursor)) cursor = ultimo;
-      const cheio = (dados.eventos || []).length >= LIMITE;
+      // veio cheio: o servidor leu LIMITE ids (o filtro dele pode ter devolvido
+      // menos, como no widget). ultimo - depois >= LIMITE só erra para mais
+      // (lacuna de id), e aí custa uma consulta extra, não um atraso
+      const cheio =
+        (dados.eventos || []).length >= LIMITE || (pedido !== null && Number.isFinite(ultimo) && ultimo - pedido >= LIMITE);
       const pausa = cheio ? 0 : document.hidden ? cfg.intervaloOculto : cfg.intervalo;
       temporizador = setTimeout(consultar, pausa);
     }

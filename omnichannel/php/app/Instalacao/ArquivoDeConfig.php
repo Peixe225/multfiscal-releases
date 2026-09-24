@@ -101,8 +101,10 @@ final class ArquivoDeConfig
             . " *\n"
             . " * Contém a senha do banco e a chave que assina os logins: NUNCA publique,\n"
             . " * versione ou envie este arquivo. Modelo comentado: config.exemplo.php.\n"
-            . " * Para migrar para a VPS (app Python), use a mesma chave_secreta em\n"
-            . " * OMNI_CHAVE_SECRETA e ninguém precisa entrar de novo.\n"
+            . " * Na VPS (app Python): reuse esta chave_secreta em OMNI_CHAVE_SECRETA SÓ\n"
+            . " * se levar este banco junto (ninguém precisa entrar de novo). Com base\n"
+            . " * nova, use chave nova: o token assina só o id, e um login daqui valeria\n"
+            . " * lá para quem tiver o mesmo id na base nova.\n"
             . " */\n"
             . "return [\n" . implode("\n", $linhas) . "\n];\n";
     }

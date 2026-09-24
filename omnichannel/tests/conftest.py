@@ -94,6 +94,11 @@ def cabecalho_atendente(cliente, atendente):
     return _autenticar(cliente, "ana@teste.com.br", "ana12345")
 
 
+# o webhook de e-mail exige o segredo do canal (X-Omni-Token ou ?token=)
+SEGREDO_EMAIL = "segredo-do-webhook-de-email"
+TOKEN_EMAIL = {"X-Omni-Token": SEGREDO_EMAIL}
+
+
 def criar_canal(tipo: TipoCanal, nome: str | None = None, **campos) -> Canal:
     with SessaoLocal() as sessao:
         canal = Canal(
@@ -101,7 +106,7 @@ def criar_canal(tipo: TipoCanal, nome: str | None = None, **campos) -> Canal:
             tipo=tipo.value,
             credenciais=campos.pop("credenciais", {}),
             chave_publica=gerar_chave("wc_") if tipo is TipoCanal.WEBCHAT else None,
-            segredo_webhook=campos.pop("segredo_webhook", None),
+            segredo_webhook=campos.pop("segredo_webhook", SEGREDO_EMAIL if tipo is TipoCanal.EMAIL else None),
             **campos,
         )
         sessao.add(canal)

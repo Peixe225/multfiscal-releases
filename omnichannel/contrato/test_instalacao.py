@@ -9,7 +9,10 @@ para o front controller.
     OMNI_CONTRATO_ALVO=php ../.venv/bin/python -m pytest contrato/test_instalacao.py -q
 
 Com OMNI_CONTRATO_MYSQL="dsn|usuario|senha" (banco descartável, nome com
-"teste" ou "contrato"), também instala num MySQL/MariaDB de verdade.
+"teste" ou "contrato"), também instala num MySQL/MariaDB de verdade — num
+banco PRÓPRIO, "<nome>_instalador" (criado se o usuário puder), ou no de
+OMNI_CONTRATO_MYSQL_INSTALACAO. Nunca no da suíte: a instalação começa
+esvaziando o banco, e o servidor da sessão (conftest) está usando aquele.
 """
 from __future__ import annotations
 
@@ -154,7 +157,12 @@ def test_formulario_sem_config_e_seguro(novo):
         # sem o arquivo de código, a página explica como criá-lo
         assert "instalacao.codigo" in resposta.text
         # o resto do sistema ainda não está pronto (e não vaza detalhe)
-        assert c.get("/api/auth/eu").status_code == 503
+        eu = c.get("/api/auth/eu")
+        assert eu.status_code == 503 and "/instalar" in eu.json()["detail"]
+        # quem abre o endereço no navegador cai no instalador
+        for caminho in ("/", "/painel"):
+            raiz = c.get(caminho)
+            assert raiz.status_code in (302, 307) and raiz.headers["location"] == "/instalar", caminho
 
 
 def test_sem_arquivo_de_codigo_nada_instala(novo):
@@ -241,6 +249,50 @@ def test_banco_inacessivel_explica_e_nao_grava_config(novo):
     assert novo.codigo.exists()
 
 
+def test_senha_acima_de_72_bytes_e_recusada_e_72_vale_inteira(novo):
+    """O bcrypt só usa os primeiros 72 bytes: acima disso a regra olharia uma
+    senha e o login conferiria outra (bastaria o começo para entrar)."""
+    novo.criar_codigo()
+    enchimento = "a" * 72 + "Bc1#x"  # passaria na regra antiga; a senha efetiva seria "a" x 72
+    acentos = "é" * 36 + "Ab1#"  # 40 caracteres, 76 bytes
+    with novo.cliente() as c:
+        for senha in (enchimento, acentos):
+            resposta = c.post("/instalar", json=pedido(admin_senha=senha, admin_senha_confirmacao=senha))
+            assert resposta.status_code == 422, resposta.text
+            erro = [e for e in resposta.json()["detail"] if e["loc"][-1] == "admin_senha"]
+            assert erro and "72 bytes" in erro[0]["msg"]
+            assert senha not in resposta.text
+        assert not novo.config.exists()
+
+        # exatamente 72 bytes: vale, e vale INTEIRA (o último caractere conta)
+        senha = "Atendimento#2026-" + "x7Kq" * 13 + "Zw!"
+        assert len(senha.encode()) == 72
+        instalacao = c.post("/instalar", json=pedido(admin_senha=senha, admin_senha_confirmacao=senha))
+        assert instalacao.status_code == 201, instalacao.text
+        assert c.post("/api/auth/login", json={"email": "ian@oprojeto.online", "senha": senha}).status_code == 200
+        assert c.post("/api/auth/login", json={"email": "ian@oprojeto.online", "senha": senha[:-1] + "?"}).status_code == 401
+
+
+@pytest.mark.parametrize("controle", ["\u0000", "\n", "\t", "\u007f"])
+def test_senha_com_caractere_de_controle_da_422_e_nao_500(novo, controle):
+    """O password_hash lança ValueError com o byte nulo; antes virava 500."""
+    novo.criar_codigo()
+    senha = f"Senha{controle}Forte#2026"
+    with novo.cliente() as c:
+        resposta = c.post("/instalar", json=pedido(admin_senha=senha, admin_senha_confirmacao=senha))
+        assert resposta.status_code == 422, resposta.text
+        erro = [e for e in resposta.json()["detail"] if e["loc"][-1] == "admin_senha"]
+        assert erro and "controle" in erro[0]["msg"]
+        # o formulário HTML (que manda %00) explica em vez de "erro interno"
+        pagina = c.post("/instalar", data=pedido(admin_senha=senha, admin_senha_confirmacao=senha))
+        assert pagina.status_code == 422
+        assert "caracteres de controle" in pagina.text and "erro interno" not in pagina.text
+        assert not novo.config.exists()
+        assert novo.codigo.exists()
+        # nada ficou pela metade: a instalação certa passa em seguida
+        assert c.post("/instalar", json=pedido()).status_code == 201
+
+
 # ------------------------------------------------------------ a instalação
 
 
@@ -313,11 +365,45 @@ def test_instalacao_pelo_formulario_html(novo):
         assert resposta.status_code == 200, resposta.text
         assert "Instalação concluída" in resposta.text
         assert "data-chave=&quot;wc_" in resposta.text  # trecho do widget, escapado
-        assert "ana12345" in resposta.text  # o aviso de desativar a Ana dos exemplos
-        # com exemplos: a Ana existe e o admin é o informado
-        assert c.post("/api/auth/login", json={"email": "ian@oprojeto.online", "senha": SENHA_FORTE}).status_code == 200
-        assert c.post("/api/auth/login", json={"email": "ana@multfiscal.com.br", "senha": "ana12345"}).status_code == 200
+        # os avisos da tela de conclusão: Ana desativada, canais de exemplo desativados
+        assert "desativada" in resposta.text and "ana12345" in resposta.text
+        assert "App Secret" in resposta.text
+        conferir_exemplos_desativados(c, "ian@oprojeto.online")
         assert c.post("/api/auth/login", json={"email": "admin@multfiscal.com.br", "senha": SENHA_FORTE}).status_code == 401
+
+
+def conferir_exemplos_desativados(c: httpx.Client, email_admin: str) -> None:
+    """Com exemplos: a base é a de produção, então nada de porta aberta.
+
+    A Ana existe (as conversas de exemplo são dela), mas desativada e com
+    senha aleatória: a do Seed (ana12345) é pública. Os canais de exemplo que
+    recebem webhook ficam desativados: sem App Secret, o WhatsApp aceitaria um
+    POST anônimo em /webhooks/<id> e qualquer um injetaria "clientes" falsos.
+    """
+    login = c.post("/api/auth/login", json={"email": email_admin, "senha": SENHA_FORTE})
+    assert login.status_code == 200, login.text
+    cabecalho = {"Authorization": f"Bearer {login.json()['token']}"}
+    assert c.post("/api/auth/login", json={"email": "ana@multfiscal.com.br", "senha": "ana12345"}).status_code == 401
+    equipe = {a["email"]: a for a in c.get("/api/atendentes", headers=cabecalho).json()}
+    assert equipe["ana@multfiscal.com.br"]["ativo"] is False
+    assert equipe["ana@multfiscal.com.br"]["disponivel"] is False
+    assert equipe[email_admin]["papel"] == "admin" and equipe[email_admin]["ativo"] is True
+
+    canais = {k["tipo"]: k for k in c.get("/api/canais", headers=cabecalho).json()}
+    assert {t: k["ativo"] for t, k in canais.items()} == {
+        "whatsapp": False, "telegram": False, "email": False, "webchat": True,
+    }
+    # o ataque do achado: payload da Meta, sem assinatura, no id previsível
+    forjado = {"object": "whatsapp_business_account", "entry": [{"id": "1", "changes": [{"field": "messages", "value": {
+        "messaging_product": "whatsapp", "metadata": {"display_phone_number": "5511900000000", "phone_number_id": "1"},
+        "contacts": [{"profile": {"name": "Banco Oficial"}, "wa_id": "5511999990000"}],
+        "messages": [{"from": "5511999990000", "id": "wamid.forjado-1", "timestamp": "1790000000", "type": "text",
+                      "text": {"body": "Seu pagamento falhou, informe a senha do painel"}}],
+    }}]}]}
+    resposta = c.post(f"/webhooks/{canais['whatsapp']['id']}", json=forjado)
+    assert resposta.status_code in (401, 404, 409), resposta.text
+    conversas = c.get("/api/conversas", headers=cabecalho).json()
+    assert "Banco Oficial" not in json.dumps(conversas, ensure_ascii=False)
 
 
 def test_banco_ja_usado_nao_e_sobrescrito(novo):
@@ -339,11 +425,46 @@ def test_metodo_errado_no_instalador(novo):
         assert c.delete("/instalar").status_code == 405
 
 
-@pytest.mark.skipif(not os.environ.get("OMNI_CONTRATO_MYSQL"), reason="defina OMNI_CONTRATO_MYSQL para instalar num MySQL")
+def _partes_do_dsn(dsn: str) -> dict[str, str]:
+    return dict(p.split("=", 1) for p in dsn.split(":", 1)[1].split(";") if "=" in p)
+
+
+def banco_mysql_do_instalador() -> tuple[str, str, str]:
+    """(dsn, usuario, senha) de um banco só deste teste, que ele pode esvaziar.
+
+    O OMNI_CONTRATO_MYSQL é o banco do servidor da sessão: esvaziá-lo no meio
+    da suíte derrubava todos os testes seguintes (métricas, simulador,
+    webhooks, widget). Sem OMNI_CONTRATO_MYSQL_INSTALACAO, cria
+    "<nome>_instalador" com o mesmo usuário; sem permissão para isso, pula.
+    """
+    proprio = os.environ.get("OMNI_CONTRATO_MYSQL_INSTALACAO")
+    if proprio:
+        dsn, usuario, senha = (proprio.split("|") + ["", ""])[:3]
+        if proprio.split("|")[0] == os.environ.get("OMNI_CONTRATO_MYSQL", "").split("|")[0]:
+            pytest.skip("OMNI_CONTRATO_MYSQL_INSTALACAO não pode ser o banco da suíte")
+        return dsn, usuario, senha
+    dsn, usuario, senha = (os.environ["OMNI_CONTRATO_MYSQL"].split("|") + ["", ""])[:3]
+    partes = _partes_do_dsn(dsn)
+    nome = partes["dbname"] + "_instalador"
+    servidor = f"mysql:host={partes.get('host', '127.0.0.1')};port={partes.get('port', '3306')}"
+    criar = (
+        "$pdo = new PDO($argv[1], $argv[2], $argv[3], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);"
+        "$pdo->exec('CREATE DATABASE IF NOT EXISTS `' . $argv[4] . '` CHARACTER SET utf8mb4');"
+    )
+    resultado = subprocess.run([PHP, "-r", criar, servidor, usuario, senha, nome], capture_output=True, text=True)
+    if resultado.returncode != 0:
+        pytest.skip(f"sem permissão para criar {nome}; defina OMNI_CONTRATO_MYSQL_INSTALACAO (banco só deste teste)")
+    return f"{servidor};dbname={nome}", usuario, senha
+
+
+@pytest.mark.skipif(
+    not (os.environ.get("OMNI_CONTRATO_MYSQL") or os.environ.get("OMNI_CONTRATO_MYSQL_INSTALACAO")),
+    reason="defina OMNI_CONTRATO_MYSQL (ou OMNI_CONTRATO_MYSQL_INSTALACAO) para instalar num MySQL",
+)
 @pytest.mark.parametrize("exemplos", [False, True])
 def test_instalacao_em_mysql(novo, exemplos):
-    dsn, usuario, senha = (os.environ["OMNI_CONTRATO_MYSQL"].split("|") + ["", ""])[:3]
-    partes = dict(p.split("=", 1) for p in dsn.split(":", 1)[1].split(";") if "=" in p)
+    dsn, usuario, senha = banco_mysql_do_instalador()
+    partes = _partes_do_dsn(dsn)
     nome = partes["dbname"]
     assert "teste" in nome or "contrato" in nome, "use um banco descartável"
     limpar = (
@@ -363,9 +484,13 @@ def test_instalacao_em_mysql(novo, exemplos):
         assert resposta.status_code == 201, resposta.text
         assert resposta.json()["banco"] == "mysql"
         assert resposta.json()["exemplos"] is exemplos
+        # a Ana do Seed (ana12345, senha pública) nunca entra: sem exemplos ela
+        # nem existe; com exemplos, fica desativada e com senha aleatória
         ana = c.post("/api/auth/login", json={"email": "ana@multfiscal.com.br", "senha": "ana12345"})
-        assert ana.status_code == (200 if exemplos else 401)
+        assert ana.status_code == 401
         texto = novo.config.read_text()
         assert "'driver' => 'mysql'" in texto
         assert c.post("/api/auth/login", json={"email": "ian@oprojeto.online", "senha": SENHA_FORTE}).status_code == 200
+        if exemplos:
+            conferir_exemplos_desativados(c, "ian@oprojeto.online")
         assert c.get("/instalar").status_code == 404

@@ -52,17 +52,25 @@ def test_nota_interna_nao_aparece_para_o_visitante(cliente, cabecalho_atendente,
     assert len(historico) == 1
 
 
-def test_visitante_com_email_reaproveita_a_ficha_existente(cliente, canal_webchat, sessao):
+def test_email_digitado_no_widget_nao_liga_a_sessao_a_ficha_existente(cliente, canal_webchat, sessao):
+    """O e-mail digitado não prova nada: a sessão ganha uma ficha própria, a
+    ficha que já tinha o endereço não é renomeada, e o endereço vai só para as
+    observações (em contatos.email, o e-mail real que chegasse depois cairia
+    na ficha de quem digitou)."""
     sessao.add(Contato(nome="Loja Exemplo", email="contato@loja.com.br"))
     sessao.commit()
 
     dados = cliente.post(
         "/api/widget/sessao",
-        json={"chave_publica": canal_webchat.chave_publica, "email": "Contato@Loja.com.br"},
+        json={"chave_publica": canal_webchat.chave_publica, "email": "Contato@Loja.com.br", "nome": "Estranho"},
     ).json()
     with SessaoLocal() as s:
-        assert s.query(Contato).count() == 1
-        assert dados["contato_id"] == s.query(Contato).one().id
+        loja = s.query(Contato).filter_by(email="contato@loja.com.br").one()
+        assert loja.nome == "Loja Exemplo"
+        assert dados["contato_id"] != loja.id
+        nova = s.get(Contato, dados["contato_id"])
+        assert nova.email is None
+        assert "contato@loja.com.br" in (nova.observacoes or "")
 
 
 def test_chave_publica_invalida(cliente):
@@ -164,3 +172,35 @@ def test_arquivo_vazio_no_widget(cliente, canal_webchat):
         files={"arquivo": ("vazio.txt", b"", "text/plain")},
     )
     assert resposta.status_code == 422
+
+
+def test_faxina_apaga_sessao_vazia_antiga_e_o_contato_intocado(cliente, canal_webchat):
+    from datetime import timedelta
+
+    from app.api.widget import limpar_sessoes_vazias
+    from app.models import ContatoIdentidade, SessaoWidget, agora
+
+    vazia = abrir_sessao(cliente, canal_webchat, nome="Desistiu")
+    conversou = abrir_sessao(cliente, canal_webchat, nome="Conversou")
+    cliente.post("/api/widget/mensagens", headers={"X-Sessao": conversou}, json={"conteudo": "oi"})
+    recente = abrir_sessao(cliente, canal_webchat, nome="Recente")
+    with SessaoLocal() as s:
+        for token in (vazia, conversou):
+            s.get(SessaoWidget, token).criada_em = agora() - timedelta(hours=30)
+        contato_vazio = s.get(SessaoWidget, vazia).contato_id
+        s.commit()
+        assert limpar_sessoes_vazias(s) == (1, 1)
+        assert s.get(SessaoWidget, vazia) is None
+        assert s.get(SessaoWidget, conversou) is not None and s.get(SessaoWidget, recente) is not None
+        assert s.get(Contato, contato_vazio) is None
+        assert s.query(ContatoIdentidade).filter_by(contato_id=contato_vazio).count() == 0
+
+
+def test_sessao_por_ip_tem_limite_por_hora():
+    from app.api.widget import ContadorPorIp
+
+    contador = ContadorPorIp()
+    assert contador.nova_sessao("203.0.113.7", maximo=2)
+    assert contador.nova_sessao("203.0.113.7", maximo=2)
+    assert not contador.nova_sessao("203.0.113.7", maximo=2)
+    assert contador.nova_sessao("198.51.100.1", maximo=2)

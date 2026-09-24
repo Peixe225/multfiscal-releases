@@ -21,8 +21,15 @@ class AdaptadorWebchat(AdaptadorCanal):
     def verificar_conexao(self) -> str:
         return "O webchat não depende de provedor externo: está sempre pronto."
 
+    @property
+    def recebe_webhook(self) -> bool:
+        # O widget tem rotas próprias, com sessão e limites (api/widget.py). O
+        # webhook sem autenticação só servia para forjar conversas em nome de
+        # qualquer visitante: recusado, como no PHP.
+        return False
+
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
-        """O widget usa rotas proprias; um webhook aqui e opcional."""
+        """Mantido para testes de unidade; a rota /webhooks recusa o webchat."""
         identificador = payload.get("visitante") or payload.get("identificador")
         conteudo = (payload.get("conteudo") or payload.get("texto") or "").strip()
         if not identificador or not conteudo:

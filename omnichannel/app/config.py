@@ -47,6 +47,21 @@ class Configuracao(BaseSettings):
     # origens liberadas para o widget de webchat embutido em outros sites
     origens_permitidas: list[str] = ["*"]
 
+    # Endereço público desta instalação (ex.: https://atendimento.oprojeto.online),
+    # sem barra final. Com ele a URL de webhook mostrada ao admin é absoluta, o
+    # Telegram passa a receber por webhook por padrão e "Conectar webhook" faz
+    # o setWebhook. Vazio = só local (polling), como no PHP sem url_publica.
+    url_publica: str = ""
+
+
+def url_publica() -> str:
+    """O endereço público sem barra final ('' quando não configurado)."""
+    return obter_config().url_publica.strip().rstrip("/")
+
+
+def url_publica_https() -> bool:
+    return url_publica().lower().startswith("https://")
+
 
 @lru_cache
 def obter_config() -> Configuracao:

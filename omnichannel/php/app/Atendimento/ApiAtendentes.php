@@ -20,6 +20,12 @@ use OmniChannel\Nucleo\Validador;
 final class ApiAtendentes
 {
     public const MAX_SETOR = 60;
+    /**
+     * O bcrypt do password_hash só olha os 72 primeiros BYTES: uma senha maior
+     * seria cortada em silêncio (quem digitasse só o começo entraria), e um
+     * caractere nulo faz o password_hash lançar erro. Mesma regra no Python.
+     */
+    public const SENHA_MAX_BYTES = 72;
 
     /** @return list<array<string, mixed>> */
     public static function listar(Requisicao $req): array
@@ -41,6 +47,7 @@ final class ApiAtendentes
         $senha = $v->texto('senha', min: 6, max: 128);
         $papel = $v->opcao('papel', Atendentes::PAPEIS, obrigatorio: false, padrao: Atendentes::PAPEL_ATENDENTE);
         $setor = $v->texto('setor', max: self::MAX_SETOR, obrigatorio: false, aparar: true);
+        self::conferirSenha($v, $senha);
         $v->validar();
 
         $email = mb_strtolower((string) $email);
@@ -81,6 +88,7 @@ final class ApiAtendentes
         $ativo = $v->booleano('ativo', obrigatorio: false);
         $disponivel = $v->booleano('disponivel', obrigatorio: false);
         $setor = $v->texto('setor', max: self::MAX_SETOR, obrigatorio: false, aparar: true);
+        self::conferirSenha($v, $senha);
         $v->validar();
 
         $alvo = Atendentes::porId($p['atendente_id']);
@@ -118,5 +126,18 @@ final class ApiAtendentes
         }
         Banco::atualizar('atendentes', $mudancas, 'id = ?', [$alvo['id']]);
         return Atendentes::saida(Atendentes::porId($alvo['id']) ?? $alvo);
+    }
+
+    /** Limite em bytes e sem caractere de controle (ver SENHA_MAX_BYTES). */
+    private static function conferirSenha(Validador $v, #[\SensitiveParameter] ?string $senha): void
+    {
+        if ($senha === null) {
+            return;
+        }
+        if (preg_match('/[\x00-\x1F\x7F]/', $senha) === 1) {
+            $v->falhar('senha', 'senha: não pode ter caracteres de controle (tabulação, quebra de linha, caractere nulo)');
+        } elseif (strlen($senha) > self::SENHA_MAX_BYTES) {
+            $v->falhar('senha', 'senha: pode ter no máximo ' . self::SENHA_MAX_BYTES . ' bytes (letra com acento conta 2)');
+        }
     }
 }

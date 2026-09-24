@@ -3,11 +3,13 @@ declare(strict_types=1);
 
 namespace OmniChannel\Instalacao;
 
+use OmniChannel\Atendimento\Adaptadores;
+use OmniChannel\Atendimento\MensagemRecebida;
+use OmniChannel\Atendimento\Mensagens;
 use OmniChannel\Auth\Atendentes;
 use OmniChannel\Auth\Senhas;
 use OmniChannel\Banco\Banco;
 use OmniChannel\Banco\Esquema;
-use OmniChannel\Nucleo\Config;
 use OmniChannel\Nucleo\Datas;
 use OmniChannel\Nucleo\Json;
 use OmniChannel\Nucleo\Texto;
@@ -73,7 +75,7 @@ final class Seed
         }
         $senhaAdmin = $senhaAdmin ?? (getenv('OMNI_SENHA_ADMIN') ?: 'admin123');
 
-        return Banco::transacao(static function () use ($demo, $senhaAdmin): array {
+        $saida = Banco::transacao(static function () use ($senhaAdmin): array {
             $agora = Datas::agoraBanco();
             Banco::inserir('atendentes', [
                 'nome' => 'Administrador', 'email' => self::EMAIL_ADMIN, 'senha_hash' => Senhas::gerarHash($senhaAdmin),
@@ -89,18 +91,16 @@ final class Seed
             $chaveWebchat = null;
             foreach (self::CANAIS as [$nome, $tipo]) {
                 // mesma regra do cadastro pela API: só o webchat tem chave
-                // pública e só o Telegram tem segredo gerado por nós (o
-                // WhatsApp é assinado pela Meta com o App Secret dela)
+                // pública; Telegram e e-mail têm segredo gerado por nós (o
+                // secret_token do setWebhook e o token do webhook de e-mail).
+                // O WhatsApp é assinado pela Meta com o App Secret dela
                 $chave = $tipo === 'webchat' ? Texto::gerarChave('wc_') : null;
-                $canais[$tipo] = [
-                    'id' => Banco::inserir('canais', [
-                        'nome' => $nome, 'tipo' => $tipo, 'ativo' => true, 'credenciais' => Json::objeto([]),
-                        'chave_publica' => $chave,
-                        'segredo_webhook' => $tipo === 'telegram' ? Texto::gerarChave() : null,
-                        'criado_em' => $agora,
-                    ]),
-                    'nome' => $nome,
-                ];
+                $canais[$tipo] = Banco::inserir('canais', [
+                    'nome' => $nome, 'tipo' => $tipo, 'ativo' => true, 'credenciais' => Json::objeto([]),
+                    'chave_publica' => $chave,
+                    'segredo_webhook' => in_array($tipo, ['telegram', 'email'], true) ? Texto::gerarChave() : null,
+                    'criado_em' => $agora,
+                ]);
                 $chaveWebchat = $chave ?? $chaveWebchat;
             }
             foreach (self::ETIQUETAS as [$nome, $cor]) {
@@ -110,108 +110,55 @@ final class Seed
                 Banco::inserir('respostas_rapidas', ['atalho' => $atalho, 'titulo' => $titulo, 'conteudo' => $conteudo, 'criada_em' => $agora]);
             }
 
-            if ($demo) {
-                $ana = Atendentes::porId($anaId);
-                foreach (self::ROTEIRO as [$tipo, $identificador, $nome, $pergunta, $resposta]) {
-                    self::conversaDeExemplo($canais[$tipo], $tipo, $identificador, $nome, $pergunta, $resposta, $ana);
-                }
-            }
-
             $senhaExibida = getenv('OMNI_SENHA_ADMIN') ? '(a de OMNI_SENHA_ADMIN)' : $senhaAdmin;
             return [
                 'criada' => true,
                 'mensagem' => "Base criada.\n  admin: " . self::EMAIL_ADMIN . " / {$senhaExibida}\n  atendente: "
                     . self::EMAIL_ATENDENTE . ' / ' . self::SENHA_ATENDENTE . "\n  chave pública do webchat: {$chaveWebchat}",
                 'chave_webchat' => $chaveWebchat,
+                'canais' => $canais,
+                'ana' => $anaId,
             ];
         });
+
+        if ($demo) {
+            // depois da base confirmada, pelos MESMOS serviços que atendem os
+            // webhooks e o painel (como o scripts/seed.py): contato, conversa,
+            // distribuição e assinatura saem exatamente como numa conversa real
+            $ana = Atendentes::porId($saida['ana']);
+            foreach (self::ROTEIRO as [$tipo, $identificador, $nome, $pergunta, $resposta]) {
+                self::conversaDeExemplo($saida['canais'][$tipo], $identificador, $nome, $pergunta, $resposta, $ana);
+            }
+        }
+        unset($saida['canais'], $saida['ana']);
+        return $saida;
     }
 
     /**
-     * Reproduz o que registrar_entrada + enviar_mensagem fazem no Python para
-     * uma conversa nova, sem depender dos serviços de mensagens (que vêm em
-     * outra etapa do porte). Canais sem credencial: resposta "simulada" no
-     * sandbox, "falhou" fora dele — exatamente como o adaptador faria.
+     * Uma conversa de exemplo: o cliente escreve e, se houver resposta, a Ana
+     * responde. Canais sem credencial: "simulada" no sandbox, "falhou" fora
+     * dele — exatamente como numa conversa real. Sem eventos de tempo real
+     * (ninguém está olhando) e sem marcar como lida: fica na caixa como nova.
      *
-     * @param array{id: int, nome: string} $canal
      * @param array<string, mixed>|null $atendente
      */
     private static function conversaDeExemplo(
-        array $canal,
-        string $tipo,
+        int $canalId,
         string $identificador,
         string $nome,
         string $pergunta,
         ?string $resposta,
         ?array $atendente,
     ): void {
-        $agora = Datas::agoraBanco();
-        // mesma normalização do resolver_contato do Python
-        $identificador = match ($tipo) {
-            'whatsapp' => Texto::normalizarTelefone($identificador),
-            'email' => mb_strtolower(trim($identificador)),
-            default => trim($identificador),
-        };
-        $contatoId = Banco::inserir('contatos', [
-            'nome' => $nome,
-            'telefone' => $tipo === 'whatsapp' ? Texto::normalizarTelefone($identificador) : null,
-            'email' => $tipo === 'email' ? mb_strtolower($identificador) : null,
-            'criado_em' => $agora, 'atualizado_em' => $agora,
-        ]);
-        Banco::inserir('contato_identidades', [
-            'contato_id' => $contatoId, 'canal_tipo' => $tipo, 'identificador' => $identificador,
-            'nome_exibicao' => $nome, 'criado_em' => $agora,
-        ]);
-
-        $responsavel = self::proximoAtendente();
-        $conversaId = Banco::inserir('conversas', [
-            'contato_id' => $contatoId, 'canal_id' => $canal['id'], 'atendente_id' => $responsavel['id'] ?? null,
-            'status' => 'aberta', 'prioridade' => 'normal', 'nao_lidas' => 1, 'previa' => Texto::resumir($pergunta, 180),
-            'criada_em' => $agora, 'atualizada_em' => $agora, 'ultima_mensagem_em' => $agora,
-        ]);
-        if ($responsavel !== null) {
-            Banco::inserir('eventos', [
-                'conversa_id' => $conversaId, 'atendente_id' => null, 'tipo' => 'conversa.atribuida',
-                'descricao' => "Atribuida automaticamente a {$responsavel['nome']}", 'criado_em' => $agora,
-            ]);
-        }
-        Banco::inserir('mensagens', [
-            'conversa_id' => $conversaId, 'direcao' => 'entrada', 'tipo' => 'texto', 'conteudo' => $pergunta,
-            'status' => 'recebida', 'metadados' => Json::objeto([]), 'criada_em' => $agora,
-        ]);
-
-        if ($resposta === null || $atendente === null) {
+        $canal = Adaptadores::canal($canalId) ?? throw new \RuntimeException("canal {$canalId} sumiu");
+        $entrada = Mensagens::registrarEntrada(
+            $canal,
+            new MensagemRecebida(identificador: $identificador, conteudo: $pergunta, nome_exibicao: $nome),
+            publicar: false,
+        );
+        if ($entrada === null || $resposta === null || $atendente === null) {
             return;
         }
-        $sandbox = Config::obter()->modo_sandbox;
-        $enviada = Datas::agoraBanco();
-        Banco::inserir('mensagens', [
-            'conversa_id' => $conversaId, 'direcao' => 'saida', 'tipo' => 'texto', 'conteudo' => $resposta,
-            'status' => $sandbox ? 'simulada' : 'falhou',
-            'erro' => $sandbox ? null : "canal {$canal['nome']} sem credenciais configuradas",
-            'atendente_id' => $atendente['id'], 'metadados' => Json::objeto([]),
-            'assinatura' => Json::codificar(Atendentes::assinatura($atendente)), 'criada_em' => $enviada,
-        ]);
-        $mudancas = ['previa' => Texto::resumir($resposta, 180), 'ultima_mensagem_em' => $enviada, 'atualizada_em' => $enviada];
-        if ($sandbox) {
-            $mudancas['primeira_resposta_em'] = $enviada;
-        }
-        Banco::atualizar('conversas', $mudancas, 'id = ?', [$conversaId]);
-    }
-
-    /** Menor fila primeiro, empate pelo id (app/servicos/distribuicao.py). @return array<string, mixed>|null */
-    private static function proximoAtendente(): ?array
-    {
-        if (!Config::obter()->distribuicao_automatica) {
-            return null;
-        }
-        return Banco::um(
-            "SELECT a.id, a.nome FROM atendentes a
-             LEFT JOIN (SELECT atendente_id, COUNT(id) AS total FROM conversas
-                        WHERE status <> 'resolvida' GROUP BY atendente_id) c ON c.atendente_id = a.id
-             WHERE a.ativo = 1 AND a.disponivel = 1
-             ORDER BY COALESCE(c.total, 0) ASC, a.id ASC
-             LIMIT 1"
-        );
+        Mensagens::enviarMensagem((int) $entrada['conversa_id'], $resposta, $atendente, publicar: false, marcarLida: false);
     }
 }

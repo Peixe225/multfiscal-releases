@@ -6,8 +6,8 @@ falso fica nos testes de unidade de cada lado; aqui, as conversas com a Meta e
 o Telegram passam pelo provedor falso (OMNI_TESTE_PROVEDOR) e as com SMTP por
 um servidor falso de verdade, aberto pelo próprio teste em 127.0.0.1.
 
-Alvo sem suporte ao provedor falso (o app Python, até aceitar
-OMNI_TESTE_PROVEDOR): os testes que dependem dele são pulados, não falham.
+Os dois alvos leem OMNI_TESTE_PROVEDOR (só com sandbox): um teste que
+depende do provedor e não o viu ser chamado falha, não é pulado.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from utilitarios import criar_canal, estrito, exigir_rota, unico
+from utilitarios import criar_canal, exigir_rota, unico
 
 WHATSAPP_COMPLETO = {
     "token": "EAAG-token-secreto",
@@ -64,12 +64,8 @@ def pedir_teste(cliente, cabecalho, canal_id: int) -> dict:
 
 
 def exigir_provedor(servidor, provedor) -> None:
-    """Pula quando o alvo não usou o provedor falso (ainda não lê OMNI_TESTE_PROVEDOR)."""
-    if provedor.chamadas():
-        return
-    if servidor.alvo == "python" and not estrito():
-        pytest.skip("o alvo ainda não usa o provedor falso (OMNI_TESTE_PROVEDOR)")
-    raise AssertionError("o servidor não chamou o provedor falso")
+    """Os dois alvos leem OMNI_TESTE_PROVEDOR: sem chamada registrada, o envio nem saiu."""
+    assert provedor.chamadas(), f"o servidor ({servidor.alvo}) não chamou o provedor falso"
 
 
 def numero() -> str:
@@ -737,7 +733,6 @@ def test_remover_webhook_com_token_recusado(cliente, cabecalho_admin, servidor, 
 def test_telegram_sem_modo_ganha_o_modo_efetivo(cliente, cabecalho_admin, servidor, request):
     """A tela lia "polling" quando o campo faltava, enquanto o servidor (com
     url_publica https) tratava o canal como webhook: os dois veem o mesmo modo."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: não grava o modo padrão"))
     canal = criar(cliente, cabecalho_admin, "telegram")
     cliente.patch(f"/api/canais/{canal['id']}", json={"credenciais": {"token": "123:abc"}}, headers=cabecalho_admin)
     modo = next(c for c in cliente.get("/api/canais/tipos", headers=cabecalho_admin).json()["telegram"] if c["chave"] == "modo_recebimento")
@@ -746,7 +741,6 @@ def test_telegram_sem_modo_ganha_o_modo_efetivo(cliente, cabecalho_admin, servid
 
 def test_canal_de_email_tem_segredo_para_o_webhook(cliente, cabecalho_admin, servidor, request):
     """O webhook genérico de e-mail só aceita entregas com este segredo."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: webhook de e-mail sem segredo"))
     canal = criar(cliente, cabecalho_admin, "email")
     segredo = credenciais_de(cliente, cabecalho_admin, canal["id"])["segredo_webhook"]
     assert isinstance(segredo, str) and len(segredo) >= 32

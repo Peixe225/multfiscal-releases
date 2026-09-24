@@ -9,7 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
 
-from ..armazenamento import ErroArmazenamento
+from ..armazenamento import ErroArmazenamento, disposicao, exibivel
 from ..canais.base import ErroCanal
 from ..dependencias import AtendenteAtual, AtendenteDeArquivo, ConversaAtual, Sessao
 from ..models import Anexo
@@ -28,19 +28,26 @@ rotas = APIRouter(prefix="/api", tags=["anexos"])
 
 
 def resposta_de_arquivo(anexo: Anexo) -> Response:
+    """Os bytes de um anexo (também serve à rota do widget).
+
+    Inline só a lista fechada (o painel exibe imagem, PDF, áudio, texto); o
+    nome vale no "salvar como". O resto — inclusive anexos gravados antes do
+    filtro de tipos, com "text/html" ou "text/xsl" — vai como download inerte
+    e isolado, que o navegador nunca abre na origem do painel.
+    """
     try:
         dados = svc.bytes_de(anexo)
     except (ErroCanal, ErroArmazenamento) as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    return Response(
-        content=dados,
-        media_type=anexo.tipo_conteudo,
-        headers={
-            # inline para o navegador exibir a imagem; o nome vale no "salvar como"
-            "Content-Disposition": f'inline; filename="{anexo.nome}"',
-            "Cache-Control": "private, max-age=3600",
-        },
-    )
+    cabecalhos = {"Cache-Control": "private, max-age=3600"}
+    if exibivel(anexo.tipo_conteudo):
+        tipo = anexo.tipo_conteudo.split(";")[0].strip().lower()
+        cabecalhos["Content-Disposition"] = disposicao("inline", anexo.nome)
+    else:
+        tipo = "application/octet-stream"
+        cabecalhos["Content-Disposition"] = disposicao("attachment", anexo.nome)
+        cabecalhos["Content-Security-Policy"] = "sandbox; default-src 'none'"
+    return Response(content=dados, media_type=tipo, headers=cabecalhos)
 
 
 @rotas.post(

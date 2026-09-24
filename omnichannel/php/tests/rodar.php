@@ -47,6 +47,8 @@ function preparar_ambiente(array $extra = []): void
     Esquema::aplicar($pdo);
     Datas::congelar(null);
     Cliente::definirTransporte(null);
+    // um teste que troca a fábrica de adaptadores não pode vazar para o próximo
+    \OmniChannel\Atendimento\Adaptadores::definir(null);
     Aplicacao::reiniciar();
 }
 

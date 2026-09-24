@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from ..armazenamento import adivinhar_tipo, armazenamento
+from ..armazenamento import armazenamento, tipo_seguro
 from ..canais.base import AdaptadorCanal, AnexoRecebido, ArquivoParaEnviar, ErroCanal
 from ..config import obter_config
 from ..models import Anexo, Mensagem
@@ -32,7 +32,9 @@ def guardar(sessao: Session, mensagem: Mensagem, nome: str, dados: bytes, tipo: 
     anexo = Anexo(
         mensagem_id=mensagem.id,
         nome=nome,
-        tipo_conteudo=adivinhar_tipo(nome, tipo),
+        # pelos bytes, não pelo que o remetente disse: um HTML chamado
+        # "foto.png" não pode virar página na origem do painel
+        tipo_conteudo=tipo_seguro(nome, tipo, dados),
         tamanho=len(dados),
         chave=armazenamento().salvar(dados, nome),
     )
@@ -60,7 +62,8 @@ def guardar_recebidos(
             anexo = Anexo(
                 mensagem_id=mensagem.id,
                 nome=recebido.nome,
-                tipo_conteudo=adivinhar_tipo(recebido.nome, recebido.tipo_conteudo),
+                # sem bytes: só o anúncio, filtrado (nunca um tipo executável)
+                tipo_conteudo=tipo_seguro(recebido.nome, recebido.tipo_conteudo),
                 externo_id=recebido.referencia,
                 erro=str(exc),
             )
@@ -82,4 +85,4 @@ def bytes_de(anexo: Anexo) -> bytes:
 
 def para_envio(nome: str, dados: bytes, tipo: str | None = None) -> ArquivoParaEnviar:
     conferir_tamanho(dados)
-    return ArquivoParaEnviar(nome=nome, tipo_conteudo=adivinhar_tipo(nome, tipo), dados=dados)
+    return ArquivoParaEnviar(nome=nome, tipo_conteudo=tipo_seguro(nome, tipo, dados), dados=dados)

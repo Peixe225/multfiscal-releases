@@ -7,14 +7,21 @@ from __future__ import annotations
 
 from .armazenamento import TIPOS_IMAGEM
 from .canais.registro import adaptador_para
+from .config import url_publica
 from .models import Anexo, Canal, Conversa, Direcao, Mensagem, TipoMensagem
 from .schemas import AnexoSaida, AssinaturaSaida, CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
+
+
+def url_webhook(canal_id: int) -> str:
+    """"/webhooks/5", ou "https://atendimento.../webhooks/5" com url_publica:
+    é o que o admin cola na Meta ou vê no setWebhook."""
+    return f"{url_publica()}/webhooks/{canal_id}"
 
 
 def canal_saida(canal: Canal) -> CanalSaida:
     dados = CanalSaida.model_validate(canal)
     dados.configurado = adaptador_para(canal).configurado
-    dados.url_webhook = f"/webhooks/{canal.id}"
+    dados.url_webhook = url_webhook(canal.id)
     return dados
 
 

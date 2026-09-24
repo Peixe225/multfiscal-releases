@@ -13,7 +13,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from conftest import criar_canal, payload_whatsapp
+from conftest import TOKEN_EMAIL, criar_canal, payload_whatsapp
 
 from app.canais import http as canal_http
 from app.canais.base import ErroCanal
@@ -250,7 +250,8 @@ def test_limpar_apaga_o_segredo_e_devolve_o_canal_ao_sandbox(cliente, cabecalho_
 
     resposta = cliente.patch(url, json={"limpar": ["token"]}, headers=cabecalho_admin)
     assert resposta.status_code == 200 and resposta.json()["configurado"] is False
-    assert credenciais_gravadas(canal["id"]) == {}
+    # sobra só o modo de recebimento, gravado com o padrão da instalação
+    assert credenciais_gravadas(canal["id"]) == {"modo_recebimento": "polling"}
     dados = cliente.get(f"{url}/credenciais", headers=cabecalho_admin).json()
     assert dados["secretos_definidos"] == []
 
@@ -733,7 +734,9 @@ def test_porta_invalida_gravada_antes_da_validacao(cliente, cabecalho_admin, cab
     assert resultado["ok"] is False and "Porta SMTP inválida" in resultado["mensagem"]
 
     # a resposta do atendente vira "falhou" com o motivo, não um 500 sem registro
-    cliente.post(f"/webhooks/{canal.id}", json={"from": "Loja <financeiro@loja.com.br>", "text": "2a via?"})
+    cliente.post(
+        f"/webhooks/{canal.id}", json={"from": "Loja <financeiro@loja.com.br>", "text": "2a via?"}, headers=TOKEN_EMAIL
+    )
     with SessaoLocal() as sessao:
         conversa_id = sessao.query(Conversa).one().id
     resposta = cliente.post(
@@ -933,7 +936,7 @@ def test_apagar_o_token_pela_tela_devolve_o_canal_ao_sandbox(abrir_canais):
     formulario = pagina.locator(f'form[data-canal="{canal.id}"]')
     expect(formulario.locator(".resultado-teste")).to_contain_text("preencha: Token do bot")
     expect(formulario.locator(".alerta-canal")).to_contain_text("está no sandbox")
-    assert credenciais_gravadas(canal.id) == {}
+    assert credenciais_gravadas(canal.id) == {"modo_recebimento": "polling"}
     expect(pagina.locator(f'#filtros-canais [data-chave="canal-{canal.id}"]')).to_contain_text("sandbox")
 
 

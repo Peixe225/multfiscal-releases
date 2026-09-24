@@ -1,6 +1,7 @@
 """Contratos de entrada e saida da API (pydantic v2)."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -27,12 +28,32 @@ def _aparar(valor):
 Setor = Annotated[Annotated[str, Field(max_length=MAX_SETOR)] | None, BeforeValidator(_aparar)]
 
 
+# O bcrypt (password_hash do PHP, e o que a base migrada usa) só olha os 72
+# primeiros BYTES: uma senha maior seria cortada em silêncio, e quem digitasse
+# só o começo entraria. Caractere de controle (NUL, quebra de linha) derruba o
+# password_hash do PHP. As mesmas regras nos dois servidores.
+SENHA_MAX_BYTES = 72
+_CONTROLE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _senha_valida(valor: str | None) -> str | None:
+    if valor is None:
+        return valor
+    if _CONTROLE.search(valor):
+        raise ValueError("senha: não pode ter caracteres de controle (tabulação, quebra de linha, caractere nulo)")
+    if len(valor.encode()) > SENHA_MAX_BYTES:
+        raise ValueError(f"senha: pode ter no máximo {SENHA_MAX_BYTES} bytes (letra com acento conta 2)")
+    return valor
+
+
 class AtendenteEntrada(BaseModel):
     nome: str = Field(min_length=2, max_length=120)
     email: EmailStr
     senha: str = Field(min_length=6, max_length=128)
     papel: Papel = Papel.ATENDENTE
     setor: Setor = None
+
+    senha_valida = field_validator("senha")(_senha_valida)
 
 
 class AtendenteAtualizacao(BaseModel):
@@ -43,6 +64,8 @@ class AtendenteAtualizacao(BaseModel):
     disponivel: bool | None = None
     # PATCH: ausente mantém; null ou "" limpa (ver model_fields_set na rota)
     setor: Setor = None
+
+    senha_valida = field_validator("senha")(_senha_valida)
 
 
 class AtendenteSaida(Modelo):
@@ -158,13 +181,46 @@ class IdentidadeSaida(Modelo):
     nome_exibicao: str | None = None
 
 
+# o telefone é gravado só com dígitos numa coluna de 32 (contatos.telefone)
+MAX_DIGITOS_TELEFONE = 32
+
+
 class ContatoAtualizacao(BaseModel):
-    nome: str | None = None
-    empresa: str | None = None
-    documento: str | None = None
+    """PATCH da ficha: só os campos enviados mudam; null limpa (menos o nome).
+
+    Os limites são os das colunas: sem eles, texto longo demais virava 500 do
+    banco (o MySQL estrito recusa), em vez de um 422 que a tela mostra.
+    """
+
+    nome: str | None = Field(default=None, min_length=1, max_length=160)
+    empresa: str | None = Field(default=None, max_length=160)
+    documento: str | None = Field(default=None, max_length=32)
     email: EmailStr | None = None
-    telefone: str | None = None
-    observacoes: str | None = None
+    telefone: str | None = Field(default=None, max_length=40)
+    observacoes: str | None = Field(default=None, max_length=10000)
+
+    @field_validator("nome", mode="before")
+    @classmethod
+    def _nome_nao_nulo(cls, valor):
+        # o nome é obrigatório na ficha: null não "limpa", é erro (era 500)
+        if valor is None:
+            raise ValueError("nome: não pode ser vazio")
+        return valor
+
+    @field_validator("email")
+    @classmethod
+    def _email_cabe(cls, valor):
+        if valor is not None and len(valor) > 160:
+            raise ValueError("email: pode ter no máximo 160 caracteres")
+        return valor
+
+    @field_validator("telefone")
+    @classmethod
+    def _telefone_cabe(cls, valor):
+        # o limite vale DEPOIS de tirar a formatação: é o que vai para o banco
+        if valor is not None and len(re.sub(r"\D", "", valor)) > MAX_DIGITOS_TELEFONE:
+            raise ValueError(f"telefone: pode ter no máximo {MAX_DIGITOS_TELEFONE} dígitos")
+        return valor
 
 
 class ContatoSaida(Modelo):
@@ -208,8 +264,13 @@ class AssinaturaSaida(BaseModel):
     setor: str | None = None
 
 
+# Espaço em volta não conta: "   " não é mensagem (viraria uma linha vazia na
+# caixa da equipe ou uma resposta em branco ao cliente). Mede depois de aparar.
+TextoDeMensagem = Annotated[str, BeforeValidator(_aparar), Field(min_length=1, max_length=8000)]
+
+
 class MensagemEntrada(BaseModel):
-    conteudo: str = Field(min_length=1, max_length=8000)
+    conteudo: TextoDeMensagem
 
 
 class MensagemSaida(Modelo):
@@ -265,8 +326,13 @@ class EtiquetaConversaEntrada(BaseModel):
 
 
 # ------------------------------------------------------------ respostas rapidas
+def _atalho(valor):
+    # a barra que o painel usa para chamar o atalho não faz parte dele
+    return valor.strip().lstrip("/").strip() if isinstance(valor, str) else valor
+
+
 class RespostaRapidaEntrada(BaseModel):
-    atalho: str = Field(min_length=1, max_length=40)
+    atalho: Annotated[str, BeforeValidator(_atalho), Field(min_length=1, max_length=40)]
     titulo: str = Field(min_length=1, max_length=120)
     conteudo: str = Field(min_length=1, max_length=4000)
 

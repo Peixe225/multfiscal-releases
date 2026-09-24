@@ -5,9 +5,10 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import or_, select
 
 from ..dependencias import AtendenteAtual, Sessao
-from ..models import Contato
+from ..models import Contato, Conversa
 from ..schemas import ContatoAtualizacao, ContatoSaida
 from ..servicos.contatos import mesclar
+from ..servicos.mensagens import publicar_conversa
 from ..util import normalizar_telefone
 
 rotas = APIRouter(prefix="/api/contatos", tags=["contatos"])
@@ -67,4 +68,14 @@ def mesclar_contatos(contato_id: int, outro_id: int, sessao: Sessao, _: Atendent
     secundario = sessao.get(Contato, outro_id)
     if principal is None or secundario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "contato nao encontrado")
-    return mesclar(sessao, principal, secundario)
+    movidas = [] if principal.id == secundario.id else list(
+        sessao.scalars(select(Conversa.id).where(Conversa.contato_id == secundario.id))
+    )
+    principal = mesclar(sessao, principal, secundario)
+    sessao.commit()
+    # o painel atualiza a ficha nas conversas que mudaram de dono
+    for conversa_id in movidas:
+        conversa = sessao.get(Conversa, conversa_id)
+        if conversa is not None:
+            publicar_conversa(conversa)
+    return principal

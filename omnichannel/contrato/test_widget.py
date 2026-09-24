@@ -74,13 +74,25 @@ def test_sessao_sem_nome_vira_visitante_do_site(cliente, canal_webchat):
     assert abrir_sessao(cliente, canal_webchat)["nome"] == "Visitante do site"
 
 
-def test_visitante_com_email_conhecido_reaproveita_a_ficha(cliente, canal_webchat):
+def test_email_digitado_nao_liga_a_sessao_a_ficha_de_ninguem(cliente, cabecalho_atendente, canal_webchat):
+    """O e-mail digitado no widget não prova nada (a chave pública está no
+    HTML do site): cada sessão tem a sua ficha, a segunda sessão com o mesmo
+    endereço não lê a primeira, e a ficha da primeira não é renomeada."""
     email = f"{unico('cliente')}@Empresa.example"
     primeira = abrir_sessao(cliente, canal_webchat, nome="Maria", email=email)
-    segunda = abrir_sessao(cliente, canal_webchat, nome="Maria Souza", email=email.lower())
-    assert segunda["contato_id"] == primeira["contato_id"]
-    assert segunda["nome"] == "Maria Souza"
-    assert segunda["token"] != primeira["token"]
+    mandar(cliente, primeira, "meu CPF é 123.456.789-00")
+    segunda = abrir_sessao(cliente, canal_webchat, nome="Estranho", email=email.lower())
+    assert segunda["contato_id"] != primeira["contato_id"]
+    assert segunda["nome"] == "Estranho"
+    assert historico(cliente, segunda) == []
+    assert [m["conteudo"] for m in historico(cliente, primeira)] == ["meu CPF é 123.456.789-00"]
+
+    ficha = cliente.get(f"/api/contatos/{primeira['contato_id']}", headers=cabecalho_atendente).json()
+    assert ficha["nome"] == "Maria"
+    # o endereço fica à vista da equipe, sem virar o e-mail da ficha
+    nova = cliente.get(f"/api/contatos/{segunda['contato_id']}", headers=cabecalho_atendente).json()
+    assert nova["email"] is None
+    assert email.lower() in (nova["observacoes"] or "")
 
 
 def test_chave_publica_desconhecida(cliente):
@@ -143,6 +155,8 @@ def test_visitante_escreve_e_cai_na_caixa_de_entrada(cliente, cabecalho_atendent
 def test_mensagem_vazia_ou_longa_demais(cliente, canal_webchat):
     visitante = abrir_sessao(cliente, canal_webchat)
     assert mandar(cliente, visitante, "").status_code == 422
+    # só espaços também: viraria uma mensagem vazia na caixa da equipe
+    assert mandar(cliente, visitante, "   ").status_code == 422
     assert mandar(cliente, visitante, "x" * 8001).status_code == 422
 
 
@@ -221,6 +235,51 @@ def test_eventos_do_widget_aceitam_a_sessao_no_cabecalho(cliente, canal_webchat)
     visitante = abrir_sessao(cliente, canal_webchat)
     resposta = cliente.get("/api/widget/eventos/desde", headers={"X-Sessao": visitante["token"]})
     assert resposta.status_code == 200
+    # ?token= vazio conta como ausente: vale o cabeçalho (era 401 no PHP)
+    vazio = cliente.get("/api/widget/eventos/desde?token=&depois=0", headers={"X-Sessao": visitante["token"]})
+    assert vazio.status_code == 200, vazio.text
+    assert vazio.json()["eventos"] == []
+
+
+@pytest.mark.parametrize("depois", ["99999999999999999999", "9223372036854775808", str(10**18)])
+def test_cursor_enorme_do_widget_e_422(cliente, canal_webchat, depois):
+    """Maior que 18 dígitos: 422 nos dois (no Python era 500)."""
+    visitante = abrir_sessao(cliente, canal_webchat)
+    resposta = cliente.get("/api/widget/eventos/desde", params={"token": visitante["token"], "depois": depois})
+    assert resposta.status_code == 422, resposta.text
+
+
+def test_widget_descobre_o_modo_de_eventos_numa_rota_com_cors(cliente):
+    """O widget roda no site de terceiros: o /saude do PHP não tem CORS, então
+    o modo ("stream" ou "consulta") também sai em /api/widget/saude."""
+    resposta = exigir_rota(
+        cliente.get("/api/widget/saude", headers={"Origin": "https://loja.example"}), "GET /api/widget/saude"
+    )
+    assert resposta.status_code == 200
+    assert resposta.headers.get("access-control-allow-origin") in ("*", "https://loja.example")
+    assert resposta.json()["eventos"] == cliente.get("/saude").json()["eventos"]
+    assert resposta.json()["eventos"] in ("stream", "consulta")
+
+
+def test_evento_do_widget_tem_o_formato_do_historico(cliente, cabecalho_atendente, canal_webchat):
+    """Nada da MensagemSaida do painel (status, erro, atendente_id, conversa_id)
+    vai ao navegador do visitante; o anexo aponta para a rota do widget."""
+    visitante = abrir_sessao(cliente, canal_webchat)
+    mandar(cliente, visitante, "oi")
+    conversa = conversa_do_canal(cliente, cabecalho_atendente, canal_webchat)
+    cursor = desde_widget(cliente, visitante).json()["ultimo"]
+    enviada = cliente.post(
+        f"/api/conversas/{conversa['id']}/anexos",
+        headers=cabecalho_atendente,
+        files={"arquivo": ("tela.png", PNG, "image/png")},
+        data={"conteudo": "veja"},
+    )
+    assert enviada.status_code == 201, enviada.text
+    [evento] = desde_widget(cliente, visitante, cursor).json()["eventos"]
+    assert set(evento["dados"]) == CAMPOS_WIDGET
+    [anexo] = evento["dados"]["anexos"]
+    assert anexo["url"] == f"/api/widget/anexos/{anexo['id']}"
+    assert evento["dados"] == historico(cliente, visitante)[-1]
 
 
 def test_mensagem_do_proprio_visitante_nao_volta_como_evento(cliente, canal_webchat):

@@ -8,14 +8,13 @@ services:
     image: omnichannel2
     ports:
       # Só esta máquina acessa. Antes de trocar por "8000:8000" (abrir para a
-      # rede), tire do ar os logins de exemplo, que valem mesmo com OMNI_DEMO=0:
+      # rede), tire do ar os logins de exemplo:
       #   - administrador admin@multfiscal.com.br: a senha é OMNI_SENHA_ADMIN,
       #     lida só na primeira carga da base (sem ela, admin123);
-      #   - atendente ana@multfiscal.com.br / ana12345, criada sempre.
-      # Para trocar uma senha numa base que já existe: em
-      # http://localhost:8000/docs, POST /api/auth/login como administrador e
-      # PATCH /api/atendentes/{id} com {"senha": "..."} (ou {"ativo": false}
-      # para desativar a ana), pondo "Bearer <token>" no campo authorization.
+      #   - atendente ana@multfiscal.com.br / ana12345, criada só com
+      #     OMNI_DEMO=1 (o padrão daqui; na VPS use OMNI_DEMO=0).
+      # Para trocar uma senha ou desativar alguém numa base que já existe:
+      # entre no painel como administrador e use Equipe (Editar / Desativar).
       # A chave que assina os logins é gerada no primeiro start e guardada no
       # volume; a de exemplo do .env.example é ignorada.
       - "127.0.0.1:8000:8000"

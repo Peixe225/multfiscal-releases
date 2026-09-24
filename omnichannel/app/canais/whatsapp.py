@@ -20,6 +20,62 @@ from .http import cliente
 VERSAO_API = "v20.0"
 BASE = f"https://graph.facebook.com/{VERSAO_API}"
 TIPOS_COM_ARQUIVO = ("image", "audio", "video", "document", "sticker")
+# O tipo "image" da Cloud API so aceita JPEG e PNG (WebP e so figurinha): um
+# GIF, SVG ou HEIC como "image" e recusado e a mensagem fica "falhou". Como
+# documento, com o nome, a Meta entrega o que a lista dela aceitar.
+TIPOS_DE_IMAGEM = ("image/jpeg", "image/png")
+
+
+def especie_da_midia(tipo_conteudo: str) -> str:
+    return "image" if (tipo_conteudo or "").split(";")[0].strip().lower() in TIPOS_DE_IMAGEM else "document"
+
+
+# ----------------------------------------------------- leitura defensiva
+# A entrega vem de fora: qualquer campo pode ter o tipo errado. Um .get() sobre
+# uma lista derrubava o webhook inteiro com 500 (e a Meta reenvia sem parar).
+def _lista(valor) -> list[dict]:
+    """Itens-objeto de uma lista JSON; qualquer outra coisa vira lista vazia."""
+    return [v for v in valor if isinstance(v, dict)] if isinstance(valor, list) else []
+
+
+def _objeto(valor) -> dict:
+    return valor if isinstance(valor, dict) else {}
+
+
+def _texto(valor) -> str | None:
+    if isinstance(valor, str):
+        return valor or None
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        return str(valor)
+    return None
+
+
+def _valores(payload: dict) -> list[dict]:
+    """Os "value" de entry[].changes[] do webhook da Meta."""
+    return [
+        mudanca["value"]
+        for entrada in _lista(payload.get("entry"))
+        for mudanca in _lista(entrada.get("changes"))
+        if isinstance(mudanca.get("value"), dict)
+    ]
+
+
+def valores_por_numero(payload: dict) -> list[tuple[str | None, dict]]:
+    """O número (Phone number ID) de cada "value" da entrega, na ordem.
+
+    A Meta cadastra a URL do webhook por APP, não por número: com dois números
+    no mesmo app (um por setor, por exemplo), as entregas dos dois chegam na
+    mesma URL, e o metadata.phone_number_id diz de qual é cada uma.
+    """
+    return [(_texto(_objeto(v.get("metadata")).get("phone_number_id")), v) for v in _valores(payload)]
+
+
+def entrega_com(valores: list[dict]) -> dict:
+    """Uma entrega só com os "value" dados (o que outro canal recebe dela)."""
+    return {
+        "object": "whatsapp_business_account",
+        "entry": [{"changes": [{"field": "messages", "value": v} for v in valores]}],
+    }
 
 _STATUS = {
     "sent": StatusMensagem.ENVIADA,
@@ -125,34 +181,47 @@ class AdaptadorWhatsApp(AdaptadorCanal):
             return parametros.get("hub.challenge")
         return None
 
+    @property
+    def id_numero(self) -> str:
+        """O Phone number ID deste canal ('' quando não preenchido)."""
+        return str(self.credenciais.get("id_numero") or "").strip()
+
+    def _valores_deste_numero(self, payload: dict) -> list[dict]:
+        """Os "value" que são deste canal: sem metadata (entrega montada à mão)
+        ou sem id_numero cadastrado (sandbox), tudo; senão, só os do seu
+        número. A rota já encaminha os dos outros números ao canal certo; isto
+        garante que, mesmo sem ela, a conversa do número B nunca abre no A."""
+        meu = self.id_numero
+        return [v for numero, v in valores_por_numero(payload) if numero is None or not meu or numero == meu]
+
     def analisar_webhook(self, payload: dict) -> list[MensagemRecebida]:
         recebidas: list[MensagemRecebida] = []
-        for entrada in payload.get("entry", []):
-            for mudanca in entrada.get("changes", []):
-                valor = mudanca.get("value", {}) or {}
-                # os dois lados sao normalizados: o numero pode vir formatado
-                perfis = {
-                    normalizar_telefone(c.get("wa_id", "")): (c.get("profile") or {}).get("name")
-                    for c in valor.get("contacts", []) or []
-                }
-                for msg in valor.get("messages", []) or []:
-                    conteudo = self._extrair_conteudo(msg)
-                    if conteudo is None:
-                        continue
-                    anexos = self._anexos_de(msg)
-                    if not conteudo and not anexos:
-                        continue  # nada que valha uma mensagem
-                    remetente = normalizar_telefone(msg.get("from", ""))
-                    recebidas.append(
-                        MensagemRecebida(
-                            identificador=remetente,
-                            conteudo=conteudo,
-                            nome_exibicao=perfis.get(remetente),
-                            externo_id=self._prefixar(msg.get("id")),
-                            metadados={"tipo_whatsapp": msg.get("type")},
-                            anexos=anexos,
-                        )
+        for valor in self._valores_deste_numero(payload):
+            # os dois lados sao normalizados: o numero pode vir formatado
+            perfis = {
+                normalizar_telefone(_texto(c.get("wa_id")) or ""): _texto(_objeto(c.get("profile")).get("name"))
+                for c in _lista(valor.get("contacts"))
+            }
+            for msg in _lista(valor.get("messages")):
+                conteudo = self._extrair_conteudo(msg)
+                if conteudo is None:
+                    continue
+                anexos = self._anexos_de(msg)
+                if not conteudo and not anexos:
+                    continue  # nada que valha uma mensagem
+                remetente = normalizar_telefone(_texto(msg.get("from")) or "")
+                if not remetente:
+                    continue
+                recebidas.append(
+                    MensagemRecebida(
+                        identificador=remetente,
+                        conteudo=conteudo,
+                        nome_exibicao=perfis.get(remetente),
+                        externo_id=self._prefixar(_texto(msg.get("id"))),
+                        metadados={"tipo_whatsapp": _texto(msg.get("type"))},
+                        anexos=anexos,
                     )
+                )
         return recebidas
 
     @staticmethod
@@ -160,15 +229,16 @@ class AdaptadorWhatsApp(AdaptadorCanal):
         tipo = msg.get("type")
         if tipo not in TIPOS_COM_ARQUIVO:
             return []
-        midia = msg.get(tipo) or {}
-        if not midia.get("id"):
+        midia = _objeto(msg.get(tipo))
+        referencia = _texto(midia.get("id"))
+        if not referencia:
             return []
-        mime = (midia.get("mime_type") or "").split(";")[0].strip()
+        mime = (_texto(midia.get("mime_type")) or "").split(";")[0].strip()
         extensao = mime.split("/")[-1] if "/" in mime else "bin"
         return [
             AnexoRecebido(
-                nome=midia.get("filename") or f"{tipo}.{extensao}",
-                referencia=midia["id"],
+                nome=_texto(midia.get("filename")) or f"{tipo}.{extensao}",
+                referencia=referencia,
                 tipo_conteudo=mime or None,
             )
         ]
@@ -176,32 +246,34 @@ class AdaptadorWhatsApp(AdaptadorCanal):
     @staticmethod
     def _extrair_conteudo(msg: dict) -> str | None:
         tipo = msg.get("type")
+        parte = _objeto(msg.get(tipo)) if isinstance(tipo, str) else {}
         if tipo == "text":
-            return (msg.get("text") or {}).get("body", "")
+            return _texto(parte.get("body")) or ""
         if tipo == "button":
-            return (msg.get("button") or {}).get("text", "")
+            return _texto(parte.get("text")) or ""
         if tipo == "interactive":
-            interativo = msg.get("interactive") or {}
             for chave in ("button_reply", "list_reply"):
-                if chave in interativo:
-                    return interativo[chave].get("title", "")
+                if chave in parte:
+                    return _texto(_objeto(parte[chave]).get("title")) or ""
             return None
         if tipo in TIPOS_COM_ARQUIVO:
             # o arquivo vem junto como anexo; sem legenda, a mensagem é só ele
-            return (msg.get(tipo) or {}).get("caption") or ""
+            return _texto(parte.get("caption")) or ""
         if tipo == "location":
-            local = msg.get("location") or {}
-            return f"[localizacao] {local.get('latitude')},{local.get('longitude')}"
+            return f"[localizacao] {parte.get('latitude')},{parte.get('longitude')}"
         return None
 
     def analisar_status(self, payload: dict) -> list[AtualizacaoStatus]:
         atualizacoes: list[AtualizacaoStatus] = []
-        for entrada in payload.get("entry", []):
-            for mudanca in entrada.get("changes", []):
-                for st in (mudanca.get("value", {}) or {}).get("statuses", []) or []:
-                    novo = _STATUS.get(st.get("status"))
-                    if novo and st.get("id"):
-                        atualizacoes.append(AtualizacaoStatus(self._prefixar(st["id"]), novo))
+        for valor in self._valores_deste_numero(payload):
+            for st in _lista(valor.get("statuses")):
+                # status em formato inesperado (lista, número) é ignorado: como
+                # chave de dicionário, derrubava a entrega inteira com TypeError
+                status = _texto(st.get("status"))
+                novo = _STATUS.get(status) if isinstance(st.get("status"), str) else None
+                identificador = _texto(st.get("id"))
+                if novo and identificador:
+                    atualizacoes.append(AtualizacaoStatus(self._prefixar(identificador), novo))
         return atualizacoes
 
     def baixar_anexo(self, anexo: AnexoRecebido) -> bytes:
@@ -265,7 +337,7 @@ class AdaptadorWhatsApp(AdaptadorCanal):
         if arquivos:
             # uma mensagem carrega uma mídia; o texto vira legenda dela
             arquivo = arquivos[0]
-            especie = "image" if arquivo.tipo_conteudo.startswith("image/") else "document"
+            especie = especie_da_midia(arquivo.tipo_conteudo)
             midia = {"id": self._subir_midia(arquivo)}
             if conteudo:
                 midia["caption"] = conteudo

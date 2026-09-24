@@ -12,7 +12,7 @@ import socket
 
 import pytest
 
-from utilitarios import criar_canal, estrito, exigir_rota, unico
+from utilitarios import criar_canal, exigir_rota, unico
 
 
 def numero() -> str:
@@ -27,11 +27,8 @@ def payload_whatsapp(numero_: str, texto: str, externo_id: str) -> dict:
 
 
 def exigir_provedor(servidor, provedor) -> None:
-    if provedor.chamadas():
-        return
-    if servidor.alvo == "python" and not estrito():
-        pytest.skip("o alvo ainda não usa o provedor falso (OMNI_TESTE_PROVEDOR)")
-    raise AssertionError("o servidor não chamou o provedor falso")
+    """Os dois alvos leem OMNI_TESTE_PROVEDOR: sem chamada registrada, o envio nem saiu."""
+    assert provedor.chamadas(), f"o servidor ({servidor.alvo}) não chamou o provedor falso"
 
 
 def abrir_conversa(cliente, cabecalho, canal: dict, entrega: dict, cabecalhos: dict | None = None) -> int:
@@ -178,7 +175,7 @@ def test_email_com_servidor_fora_do_ar_vira_falha_com_o_motivo(cliente, cabecalh
         "smtp_usuario": "u", "smtp_senha": "senha-que-nao-aparece",
     })
     endereco = f"{unico('cliente')}@empresa.com.br"
-    # o webhook de e-mail exige o segredo do canal (o PHP o exige; o Python ainda não)
+    # o webhook de e-mail exige o segredo do canal
     segredo = cliente.get(f"/api/canais/{canal['id']}/credenciais", headers=cabecalho_admin).json()["segredo_webhook"]
     conversa_id = abrir_conversa(
         cliente, cabecalho_atendente, canal,
@@ -196,7 +193,6 @@ def test_email_com_servidor_fora_do_ar_vira_falha_com_o_motivo(cliente, cabecalh
 def test_mensagem_do_cliente_com_o_id_de_uma_enviada_por_outro_bot(cliente, cabecalho_admin, cabecalho_atendente, servidor, provedor, request):
     """O bot A mandou a mensagem 7 ao usuário U; a mensagem 7 que U manda
     depois ao bot B é outra mensagem e não pode sumir como repetida."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: id externo sem o canal"))
     chat = random.randint(10**8, 10**9)
     canal_a, assinatura_a = _telegram(cliente, cabecalho_admin)
     conversa_id = abrir_conversa(
@@ -223,7 +219,6 @@ def test_whatsapp_so_manda_como_imagem_o_que_a_meta_aceita(
     cliente, cabecalho_atendente, whatsapp_configurado, servidor, provedor, request, nome, tipo, dados, especie
 ):
     """O tipo "image" da Cloud API só aceita JPEG e PNG; o resto vai como documento."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python" and especie == "document", reason="app Python: todo image/* vai como image"))
     conversa_id = abrir_conversa(cliente, cabecalho_atendente, whatsapp_configurado, payload_whatsapp(numero(), "oi", unico("wamid.")))
     provedor.roteirar("/media", metodo="POST", json={"id": "midia-1"})
     provedor.roteirar("/messages", metodo="POST", json={"messages": [{"id": unico("wamid.env")}]})
@@ -248,7 +243,6 @@ def test_telegram_so_usa_o_sendphoto_com_o_que_ele_processa(
     cliente, cabecalho_admin, cabecalho_atendente, servidor, provedor, request, nome, tipo, dados, metodo
 ):
     """O sendPhoto recusa SVG, HEIC, BMP (IMAGE_PROCESS_FAILED); o sendDocument entrega qualquer arquivo."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python" and metodo == "sendDocument", reason="app Python: todo image/* vai no sendPhoto"))
     canal, assinatura = _telegram(cliente, cabecalho_admin)
     conversa_id = abrir_conversa(
         cliente, cabecalho_atendente, canal,

@@ -12,9 +12,7 @@ import hmac
 import json
 import random
 
-import pytest
-
-from utilitarios import criar_canal, data_com_fuso, estrito, exigir_rota, unico
+from utilitarios import criar_canal, data_com_fuso, exigir_rota, unico
 
 
 # ------------------------------------------------------------------ apoio
@@ -46,17 +44,14 @@ def detalhe(cliente, cabecalho, conversa_id: int) -> dict:
 
 
 def token_do_email(cliente, cabecalho_admin, canal: dict) -> dict:
-    """Cabeçalho com o segredo do webhook de e-mail (o PHP o exige; o Python ainda não tem)."""
+    """Cabeçalho com o segredo do webhook de e-mail (X-Omni-Token)."""
     segredo = cliente.get(f"/api/canais/{canal['id']}/credenciais", headers=cabecalho_admin).json()["segredo_webhook"]
     return {"X-Omni-Token": segredo} if segredo else {}
 
 
 def exigir_provedor(servidor, provedor) -> None:
-    if provedor.chamadas():
-        return
-    if servidor.alvo == "python" and not estrito():
-        pytest.skip("o alvo ainda não usa o provedor falso (OMNI_TESTE_PROVEDOR)")
-    raise AssertionError("o servidor não chamou o provedor falso")
+    """Os dois alvos leem OMNI_TESTE_PROVEDOR: sem chamada registrada, o envio nem saiu."""
+    assert provedor.chamadas(), f"o servidor ({servidor.alvo}) não chamou o provedor falso"
 
 
 # ------------------------------------------------------------- WhatsApp
@@ -210,7 +205,6 @@ def test_recibo_de_entrega_atualiza_status(cliente, cabecalho_admin, cabecalho_a
 def test_dois_numeros_no_mesmo_app_da_meta(cliente, cabecalho_admin, cabecalho_atendente, servidor, request):
     """A Meta cadastra a URL do webhook por app: as entregas de todos os números
     chegam na mesma URL, e o metadata.phone_number_id diz de qual é cada uma."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: ignora metadata.phone_number_id"))
     id_a, id_b, sem_dono = (str(random.randint(10**14, 10**15)) for _ in range(3))
     canal_a = criar_canal(cliente, cabecalho_admin, "whatsapp", credenciais={"token": "tk", "id_numero": id_a})
     canal_b = criar_canal(cliente, cabecalho_admin, "whatsapp", credenciais={"token": "tk", "id_numero": id_b})
@@ -256,7 +250,6 @@ def test_webhook_do_telegram_confere_o_secret_token(cliente, cabecalho_admin, ca
 def test_dois_bots_do_telegram_com_o_mesmo_chat_e_message_id(cliente, cabecalho_admin, cabecalho_atendente, servidor, request):
     """Em chat privado o chat.id é o id do usuário e cada conversa bot-usuário
     numera as mensagens desde 1: dois bots recebem o mesmo par de verdade."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: id externo sem o canal"))
     chat = random.randint(10**8, 10**9)
     for texto in ("oi bot A", "mensagem para o bot B"):
         canal = criar_canal(cliente, cabecalho_admin, "telegram")
@@ -308,7 +301,6 @@ def test_email_sem_remetente_ou_corpo_e_ignorado(cliente, cabecalho_admin, canal
 def test_webhook_de_email_exige_o_token_do_canal(cliente, cabecalho_admin, cabecalho_atendente, canal_email, servidor, request):
     """Sem o segredo, qualquer um que achasse a URL (ids sequenciais) punha
     mensagens na ficha de um cliente real, e a resposta ia para o cliente."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: webhook de e-mail sem autenticação"))
     url = f"/webhooks/{canal_email['id']}"
     corpo = {"from": f"Cliente <{unico('c')}@empresa.com.br>", "text": "Cancelem meu pedido", "message-id": f"<{unico()}@x>"}
     for cabecalhos in ({}, {"X-Omni-Token": "chute"}):
@@ -322,7 +314,6 @@ def test_webhook_de_email_exige_o_token_do_canal(cliente, cabecalho_admin, cabec
 
 def test_webhook_de_email_em_formulario_do_sendgrid_e_do_mailgun(cliente, cabecalho_admin, cabecalho_atendente, canal_email, servidor, request):
     """SendGrid Inbound Parse (multipart, com anexo) e Mailgun (urlencoded) não mandam JSON."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: webhook de e-mail só aceita JSON"))
     url = f"/webhooks/{canal_email['id']}"
     segredo = token_do_email(cliente, cabecalho_admin, canal_email)["X-Omni-Token"]
     endereco = f"{unico('sg')}@empresa.com.br"
@@ -349,7 +340,6 @@ def test_webhook_de_email_em_formulario_do_sendgrid_e_do_mailgun(cliente, cabeca
 
 def test_mesmo_message_id_em_duas_caixas_chega_nas_duas(cliente, cabecalho_admin, servidor, request):
     """O cliente que escreve para suporte@ e vendas@ manda o mesmo Message-ID às duas."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: id externo sem o canal"))
     corpo = {"from": f"{unico('c')}@empresa.com.br", "text": "Para os dois setores", "message-id": f"<{unico()}@empresa.com.br>"}
     for _ in range(2):
         canal = criar_canal(cliente, cabecalho_admin, "email")
@@ -359,7 +349,6 @@ def test_mesmo_message_id_em_duas_caixas_chega_nas_duas(cliente, cabecalho_admin
 
 def test_webhook_do_webchat_e_recusado(cliente, cabecalho_atendente, canal_webchat, servidor, request):
     """O widget tem rotas próprias, com sessão; o webhook só servia para forjar conversas."""
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: webhook do webchat sem autenticação"))
     resposta = cliente.post(f"/webhooks/{canal_webchat['id']}", json={"visitante": "vis-1", "conteudo": "forjado", "nome": "Fulano"})
     assert resposta.status_code == 404 and resposta.json() == {"detail": "este canal nao recebe por webhook"}
     assert conversas_do_canal(cliente, cabecalho_atendente, canal_webchat["id"]) == []
@@ -396,8 +385,7 @@ def test_corpo_que_nao_e_json(cliente, canal_whatsapp):
 
 
 def test_payload_em_formato_inesperado_nao_derruba(cliente, canal_whatsapp, servidor, request):
-    # o adaptador Python ainda faz .get() sobre o que vier: 500 com "entry" que não é lista
-    request.applymarker(pytest.mark.xfail(servidor.alvo == "python", reason="app Python: 500 com payload fora do formato"))
+    # a entrega vem de fora: tipo errado em qualquer campo é ignorado, não 500
     for payload in (
         {"entry": "x"},
         {"entry": [{"changes": [{"value": None}]}]},

@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from ..models import Contato, ContatoIdentidade, Conversa, TipoCanal
+from ..models import Contato, ContatoIdentidade, Conversa, SessaoWidget, TipoCanal
 from ..util import normalizar_telefone
 
 # canais cujo identificador ja e um dado de contato conhecido - permitem
@@ -36,15 +36,21 @@ def _por_dado_conhecido(sessao: Session, canal_tipo: str, identificador: str) ->
     return None
 
 
+def normalizar_identificador(canal_tipo: str, identificador: str) -> str:
+    """Como a identidade fica gravada: telefone só com dígitos, e-mail minúsculo."""
+    identificador = (identificador or "").strip()
+    if canal_tipo in CANAIS_TELEFONE:
+        return normalizar_telefone(identificador)
+    if canal_tipo in CANAIS_EMAIL:
+        return identificador.lower()
+    return identificador
+
+
 def resolver_contato(
     sessao: Session, canal_tipo: str, identificador: str, nome_exibicao: str | None = None
 ) -> Contato:
     """Devolve o contato dono daquela identidade, criando-o se for a primeira vez."""
-    identificador = identificador.strip()
-    if canal_tipo in CANAIS_TELEFONE:
-        identificador = normalizar_telefone(identificador)
-    elif canal_tipo in CANAIS_EMAIL:
-        identificador = identificador.lower()
+    identificador = normalizar_identificador(canal_tipo, identificador)
 
     contato = _por_identidade(sessao, canal_tipo, identificador)
     if contato is not None:
@@ -76,12 +82,21 @@ def resolver_contato(
 
 
 def identificador_no_canal(sessao: Session, contato: Contato, canal_tipo: str) -> str | None:
-    """Para onde responder este contato dentro de um canal."""
+    """Uma identidade do contato no canal (a mais antiga).
+
+    Para responder a uma conversa use mensagens.destino_da_conversa, que
+    prefere o número que escreveu NELA: depois de uma mesclagem o contato
+    pode ter dois números no mesmo canal, e "o primeiro" seria o de outra
+    conversa — talvez de outra pessoa.
+    """
     identidade = sessao.scalar(
-        select(ContatoIdentidade).where(
+        select(ContatoIdentidade)
+        .where(
             ContatoIdentidade.contato_id == contato.id,
             ContatoIdentidade.canal_tipo == canal_tipo,
         )
+        .order_by(ContatoIdentidade.id)
+        .limit(1)
     )
     if identidade:
         return identidade.identificador
@@ -93,7 +108,14 @@ def identificador_no_canal(sessao: Session, contato: Contato, canal_tipo: str) -
 
 
 def mesclar(sessao: Session, principal: Contato, secundario: Contato) -> Contato:
-    """Junta um contato duplicado no principal, preservando todo o historico."""
+    """Junta um contato duplicado no principal, preservando todo o historico.
+
+    As sessões do widget dos DOIS contatos são ENCERRADAS, não transferidas:
+    mesclar é uma decisão da atendente, não uma prova de identidade, e o
+    histórico da ficha acabou de ganhar as conversas (e as respostas) da
+    outra. O widget recebe 401, abre uma sessão nova e o visitante continua
+    conversando; a equipe segue vendo tudo unificado no painel.
+    """
     if principal.id == secundario.id:
         return principal
 
@@ -113,10 +135,17 @@ def mesclar(sessao: Session, principal: Contato, secundario: Contato) -> Contato
     sessao.execute(
         update(Conversa).where(Conversa.contato_id == secundario.id).values(contato_id=principal.id)
     )
+    # os dois lados: nenhum navegador herda o histórico da outra ficha
+    sessao.execute(delete(SessaoWidget).where(SessaoWidget.contato_id.in_([principal.id, secundario.id])))
     principal.email = principal.email or secundario.email
     principal.telefone = principal.telefone or secundario.telefone
     principal.empresa = principal.empresa or secundario.empresa
     principal.documento = principal.documento or secundario.documento
+    # observações das duas fichas ficam juntas (o e-mail que o visitante
+    # digitou no widget, por exemplo, está nelas)
+    obs_p, obs_s = (principal.observacoes or "").strip(), (secundario.observacoes or "").strip()
+    if obs_s and obs_s != obs_p:
+        principal.observacoes = f"{obs_p}\n\n{obs_s}" if obs_p else obs_s
     sessao.flush()
     sessao.expire(secundario)
     sessao.delete(secundario)

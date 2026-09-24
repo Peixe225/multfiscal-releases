@@ -77,9 +77,10 @@ final class PaginaInstalador
                 <legend>Administrador</legend>
                 <label>Nome <input name="admin_nome" required minlength="2" maxlength="120" value="{$v('admin_nome')}"></label>
                 <label>E-mail (é o login) <input name="admin_email" type="email" required value="{$v('admin_email')}"></label>
-                <label>Senha <input name="admin_senha" type="password" required minlength="10" autocomplete="new-password"></label>
-                <label>Repita a senha <input name="admin_senha_confirmacao" type="password" required minlength="10" autocomplete="new-password"></label>
-                <p class="dica">Pelo menos 10 caracteres, misturando três tipos entre minúsculas, maiúsculas, números e símbolos.</p>
+                <label>Senha <input name="admin_senha" type="password" required minlength="10" maxlength="72" autocomplete="new-password"></label>
+                <label>Repita a senha <input name="admin_senha_confirmacao" type="password" required minlength="10" maxlength="72" autocomplete="new-password"></label>
+                <p class="dica">De 10 a 72 caracteres (letra com acento conta 2), misturando três tipos entre minúsculas,
+                  maiúsculas, números e símbolos.</p>
               </fieldset>
               <fieldset>
                 <legend>Endereço</legend>
@@ -87,7 +88,7 @@ final class PaginaInstalador
                 <p class="dica">É o endereço que vai nas URLs de webhook do WhatsApp e do Telegram e no código do widget.
                   Só o endereço do subdomínio, sem pasta no fim.</p>
                 <label class="caixa"><input type="checkbox" name="exemplos" value="1"{$exemplos}>
-                  Carregar exemplos (atendente Ana, canais, etiquetas e conversas fictícias) — só para conhecer o sistema</label>
+                  Carregar exemplos (atendente Ana e canais desativados, etiquetas e conversas fictícias) — só para conhecer o sistema</label>
               </fieldset>
               <button type="submit">Instalar</button>
             </form>
@@ -112,8 +113,12 @@ final class PaginaInstalador
         if (!empty($r['exemplos'])) {
             $aviso = '<p class="alerta">Os exemplos criaram a atendente <b>ana@multfiscal.com.br</b> <b>desativada</b> '
                 . 'e com uma senha aleatória: a senha de demonstração (ana12345, que é pública) não entra aqui. '
-                . 'As conversas de exemplo ficam atribuídas a ela. Para usar a Ana, o administrador a reativa e '
-                . 'define uma senha (<code>PATCH /api/atendentes/&lt;id&gt;</code> com <code>{"ativo": true, "senha": "..."}</code>).</p>';
+                . 'As conversas de exemplo ficam atribuídas a ela. Para usar a Ana, o administrador abre '
+                . '<b>Equipe</b> no painel, define uma senha para ela (Editar) e a reativa.</p>'
+                . '<p class="alerta">Os canais de exemplo <b>WhatsApp, Telegram e e-mail</b> foram criados <b>desativados</b>: '
+                . 'sem credenciais, o webhook do WhatsApp aceitaria mensagens forjadas por qualquer pessoa. Em Canais, '
+                . 'preencha as credenciais (no WhatsApp, o <b>App Secret</b>) e só então clique em Ativar. '
+                . 'O chat do site já está ativo.</p>';
         }
         $corpo = <<<HTML
             <h1>Instalação concluída</h1>

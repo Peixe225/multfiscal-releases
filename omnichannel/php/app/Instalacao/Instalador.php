@@ -35,6 +35,8 @@ final class Instalador
 {
     /** Tipos de banco aceitos no formulário. */
     public const BANCOS = ['mysql', 'sqlite'];
+    /** O bcrypt ignora o que passa disso (ver problemaDaSenha). */
+    public const SENHA_MAX_BYTES = 72;
     private const SENHAS_OBVIAS = ['1234567890', 'senha12345', 'password123', 'admin12345', 'qwertyuiop', 'omnichannel'];
 
     /** Ponto de entrada de public/instalar.php. */
@@ -251,14 +253,29 @@ final class Instalador
         ];
     }
 
-    /** Frase do problema, ou null se a senha serve para um administrador. */
+    /**
+     * Frase do problema, ou null se a senha serve para um administrador.
+     *
+     * O hash é bcrypt (password_hash com PASSWORD_DEFAULT), que só usa os
+     * primeiros 72 BYTES e recusa o byte nulo com ValueError. Por isso o
+     * limite é em bytes (strlen, não mb_strlen): acima dele a regra de força
+     * olharia uma senha e o login conferiria outra, só o começo dela ("a" x 72
+     * + "Bc1#x" passaria na regra, e bastaria "a" x 72 para entrar). E os
+     * caracteres de controle viram 422 aqui, em vez de 500 no password_hash.
+     */
     public static function problemaDaSenha(#[\SensitiveParameter] string $senha, string $email, string $nome): ?string
     {
+        if (preg_match('/[\x00-\x1F\x7F]/', $senha) === 1) {
+            return 'não pode ter caracteres de controle (tabulação, quebra de linha, caractere nulo)';
+        }
+        if (!mb_check_encoding($senha, 'UTF-8')) {
+            return 'use só texto (UTF-8)';
+        }
         if (mb_strlen($senha) < 10) {
             return 'precisa ter pelo menos 10 caracteres';
         }
-        if (mb_strlen($senha) > 128) {
-            return 'pode ter no máximo 128 caracteres';
+        if (strlen($senha) > self::SENHA_MAX_BYTES) {
+            return 'pode ter no máximo ' . self::SENHA_MAX_BYTES . ' bytes (letra com acento conta 2)';
         }
         $classes = (int) (preg_match('/[a-z]/', $senha) === 1) + (int) (preg_match('/[A-Z]/', $senha) === 1)
             + (int) (preg_match('/\d/', $senha) === 1) + (int) (preg_match('/[^A-Za-z0-9]/', $senha) === 1);

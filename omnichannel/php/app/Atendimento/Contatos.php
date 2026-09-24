@@ -138,11 +138,17 @@ final class Contatos
      * conversas passam para o principal; dados que só o secundário tinha
      * completam a ficha. Devolve o id do principal.
      *
-     * As sessões do widget do secundário são ENCERRADAS, não transferidas
-     * (como o ON DELETE CASCADE faz no Python): mesclar é uma decisão da
-     * atendente, não uma prova de identidade, e o navegador anônimo que era o
-     * secundário não pode herdar o histórico de WhatsApp/e-mail do principal.
-     * O visitante abre uma sessão nova e continua conversando.
+     * As sessões do widget dos DOIS contatos são ENCERRADAS, não
+     * transferidas: mesclar é uma decisão da atendente, não uma prova de
+     * identidade. O widget mostra ao navegador o histórico do contato ligado
+     * à sessão, e esse histórico acabou de ganhar as conversas (e as
+     * identidades, ou seja, as mensagens futuras) da outra ficha. Encerrar só
+     * a do secundário (como o ON DELETE CASCADE do Python) deixava o caminho
+     * inverso aberto: o visitante anônimo que diz "sou a Maria do e-mail",
+     * mesclado como PRINCIPAL, passava a ler o e-mail e o WhatsApp da Maria,
+     * e dois visitantes do mesmo site juntados liam um a conversa do outro.
+     * O widget recebe 401, abre uma sessão nova e o visitante continua
+     * conversando; a equipe segue vendo tudo unificado no painel.
      */
     public static function mesclar(int $principalId, int $secundarioId): int
     {
@@ -177,7 +183,9 @@ final class Contatos
                 'id'
             ));
             Banco::executar('UPDATE conversas SET contato_id = ? WHERE contato_id = ?', [$principalId, $secundarioId]);
-            Banco::executar('DELETE FROM sessoes_widget WHERE contato_id = ?', [$secundarioId]);
+            // os dois lados (ver o comentário da função): nenhum navegador
+            // herda o histórico da outra ficha
+            Banco::executar('DELETE FROM sessoes_widget WHERE contato_id IN (?, ?)', [$principalId, $secundarioId]);
 
             $mudancas = [];
             foreach (['email', 'telefone', 'empresa', 'documento'] as $campo) {

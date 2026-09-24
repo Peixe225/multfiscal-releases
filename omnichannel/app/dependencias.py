@@ -64,7 +64,10 @@ def admin_atual(atendente: AtendenteAtual) -> Atendente:
 AdminAtual = Annotated[Atendente, Depends(admin_atual)]
 
 
-def conversa_por_id(conversa_id: Annotated[int, Path()], sessao: Sessao) -> Conversa:
+def conversa_por_id(conversa_id: Annotated[int, Path()], sessao: Sessao, _: AtendenteAtual) -> Conversa:
+    """A conversa da rota, DEPOIS do login: sem token, "existe" e "não existe"
+    respondem o mesmo 401, e ninguém enumera ids (igual ao PHP). O
+    atendente_atual fica em cache na requisição: a rota não o calcula de novo."""
     conversa = sessao.get(Conversa, conversa_id)
     if conversa is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "conversa nao encontrada")

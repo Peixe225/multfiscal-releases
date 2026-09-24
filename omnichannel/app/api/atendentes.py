@@ -33,7 +33,11 @@ def criar(dados: AtendenteEntrada, sessao: Sessao, _: AdminAtual) -> Atendente:
         setor=dados.setor or None,
     )
     sessao.add(atendente)
-    sessao.flush()
+    # commit ANTES da resposta: a dependência (escopo "request" do FastAPI)
+    # só confirma depois de a resposta sair, e o próximo pedido do navegador
+    # podia chegar antes e não ver o dado
+    sessao.commit()
+    sessao.refresh(atendente)
     return atendente
 
 
@@ -62,5 +66,6 @@ def atualizar(
     if "setor" in dados.model_fields_set:
         # null ou "" limpa: o cliente passa a ver só o nome
         alvo.setor = dados.setor or None
-    sessao.flush()
+    sessao.commit()  # antes da resposta (ver criar)
+    sessao.refresh(alvo)
     return alvo

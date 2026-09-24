@@ -84,13 +84,17 @@ final class Config
     }
 
     /**
-     * Onde está o front: no pacote de deploy ele é copiado para public/web; em
-     * desenvolvimento a fonte única é app/web do projeto Python.
+     * Onde está o front, na ordem: web/ ao lado de app/ (o layout do pacote de
+     * deploy: fora do public, servido só pelo front controller, com os
+     * cabeçalhos anti-moldura), public/web (pacotes antigos) e, em
+     * desenvolvimento, app/web do projeto Python — a fonte única.
      */
     private static function pastaWebPadrao(string $raizPhp): string
     {
-        if (is_dir($raizPhp . '/public/web')) {
-            return $raizPhp . '/public/web';
+        foreach ([$raizPhp . '/web', $raizPhp . '/public/web'] as $pasta) {
+            if (is_file($pasta . '/painel.html')) {
+                return $pasta;
+            }
         }
         return dirname($raizPhp) . '/app/web';
     }

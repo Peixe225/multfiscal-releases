@@ -58,8 +58,11 @@ final class Estaticos
         }
         $extensao = strtolower(pathinfo($arquivo, PATHINFO_EXTENSION));
         $resposta = Resposta::arquivo($arquivo, self::TIPOS[$extensao] ?? 'application/octet-stream', confiavel: true);
-        // front muda a cada deploy: revalida sempre, mas 304 barato pelo ETag
-        $etag = '"' . md5(filemtime($arquivo) . '-' . filesize($arquivo)) . '"';
+        // front muda a cada deploy: revalida sempre, mas 304 barato pelo ETag.
+        // Pelo CONTEÚDO, não por data e tamanho: o envio pela API de upload
+        // pode gravar a data do envio (ou manter a antiga) e uma troca de
+        // mesmo tamanho passaria como igual. Os arquivos do front são pequenos
+        $etag = '"' . (hash_file('sha256', $arquivo) ?: md5(filemtime($arquivo) . '-' . filesize($arquivo))) . '"';
         $resposta->cabecalho('ETag', $etag);
         $resposta->cabecalho('Last-Modified', gmdate('D, d M Y H:i:s', (int) filemtime($arquivo)) . ' GMT');
         $resposta->cabecalho('Cache-Control', 'no-cache');

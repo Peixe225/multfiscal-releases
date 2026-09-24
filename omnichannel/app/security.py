@@ -20,7 +20,19 @@ def gerar_hash_senha(senha: str) -> str:
     return f"pbkdf2_sha256${ITERACOES}${sal}${derivada.hex()}"
 
 
+# prefixos do bcrypt: "$2y$" é o que o password_hash do PHP grava
+_PREFIXOS_BCRYPT = ("$2y$", "$2b$", "$2a$")
+
+
 def conferir_senha(senha: str, armazenado: str) -> bool:
+    """Confere a senha contra o hash gravado, no formato deste app ou do PHP.
+
+    A base da hospedagem (PHP, password_hash = bcrypt "$2y$") migra para a VPS
+    sem ninguém redefinir senha: os dois formatos valem nos dois servidores.
+    """
+    armazenado = armazenado or ""
+    if armazenado.startswith(_PREFIXOS_BCRYPT):
+        return _conferir_bcrypt(senha, armazenado)
     try:
         algoritmo, iteracoes, sal, esperado = armazenado.split("$")
     except ValueError:
@@ -29,6 +41,22 @@ def conferir_senha(senha: str, armazenado: str) -> bool:
         return False
     derivada = hashlib.pbkdf2_hmac("sha256", senha.encode(), sal.encode(), int(iteracoes))
     return hmac.compare_digest(derivada.hex(), esperado)
+
+
+def _conferir_bcrypt(senha: str, armazenado: str) -> bool:
+    import bcrypt  # só quem migrou uma base do PHP precisa dele
+
+    # o bcrypt do PHP só olha os 72 primeiros bytes da senha; o pacote bcrypt
+    # (5.x) recusa com erro o que passa disso. Cortar aqui dá o mesmo
+    # resultado que o password_verify daria.
+    dados = senha.encode()[:72]
+    if b"\x00" in dados:
+        return False  # o PHP também não aceita NUL na senha
+    try:
+        # "$2y$" e "$2b$" são o mesmo algoritmo; o pacote só conhece o "$2b$"
+        return bcrypt.checkpw(dados, ("$2b$" + armazenado[4:]).encode())
+    except ValueError:
+        return False  # hash corrompido
 
 
 def _b64(dados: bytes) -> str:

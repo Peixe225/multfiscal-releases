@@ -1,5 +1,5 @@
 """Canal de e-mail: entrada por webhook, coleta e contexto da resposta."""
-from conftest import criar_canal
+from conftest import TOKEN_EMAIL, criar_canal
 
 from app.canais.registro import adaptador_para
 from app.canais.base import MensagemRecebida
@@ -19,18 +19,33 @@ def test_webhook_de_provedor_de_email_abre_conversa_com_assunto(cliente):
             "text": "Bom dia, preciso da segunda via.\n",
             "message-id": "<abc@loja.com.br>",
         },
+        headers=TOKEN_EMAIL,
     )
     assert resposta.json()["recebidas"] == 1
     with SessaoLocal() as sessao:
         conversa = sessao.query(Conversa).one()
         assert conversa.assunto == "Segunda via do boleto"
         assert conversa.contato.email == "financeiro@loja.com.br"
-        assert conversa.mensagens[0].externo_id == "email:<abc@loja.com.br>"
+        # com o canal: o mesmo Message-ID mandado a duas caixas chega nas duas
+        assert conversa.mensagens[0].externo_id == f"email:{canal.id}:<abc@loja.com.br>"
 
 
 def test_email_sem_remetente_ou_corpo_e_ignorado(cliente):
     canal = criar_canal(TipoCanal.EMAIL, "Suporte")
-    assert cliente.post(f"/webhooks/{canal.id}", json={"subject": "vazio"}).json()["recebidas"] == 0
+    assert cliente.post(f"/webhooks/{canal.id}", json={"subject": "vazio"}, headers=TOKEN_EMAIL).json()["recebidas"] == 0
+
+
+def test_webhook_de_email_sem_o_segredo_do_canal_e_recusado(cliente):
+    canal = criar_canal(TipoCanal.EMAIL, "Suporte")
+    corpo = {"from": "cliente@empresa.com.br", "text": "Cancelem meu pedido"}
+    for cabecalhos in ({}, {"X-Omni-Token": "chute"}):
+        resposta = cliente.post(f"/webhooks/{canal.id}", json=corpo, headers=cabecalhos)
+        assert resposta.status_code == 401
+    # o provedor não escolhe cabeçalhos: o token também vale na URL cadastrada
+    resposta = cliente.post(f"/webhooks/{canal.id}", params={"token": TOKEN_EMAIL["X-Omni-Token"]}, json=corpo)
+    assert resposta.json()["recebidas"] == 1
+    sem_segredo = criar_canal(TipoCanal.EMAIL, "Legado", segredo_webhook=None)
+    assert cliente.post(f"/webhooks/{sem_segredo.id}", json=corpo, headers=TOKEN_EMAIL).status_code == 401
 
 
 def test_resposta_reaproveita_assunto_e_thread(cliente, sessao):
@@ -43,6 +58,7 @@ def test_resposta_reaproveita_assunto_e_thread(cliente, sessao):
             "text": "Segue o print.",
             "message-id": "<original@empresa.com.br>",
         },
+        headers=TOKEN_EMAIL,
     )
     with SessaoLocal() as s:
         conversa = s.query(Conversa).one()

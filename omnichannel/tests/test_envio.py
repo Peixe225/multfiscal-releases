@@ -116,7 +116,8 @@ def test_envio_pelo_telegram(cliente, cabecalho_atendente):
     ).json()
     assert corpo["status"] == "enviada"
     with SessaoLocal() as sessao:
-        assert sessao.get(Mensagem, corpo["id"]).externo_id == "telegram:884412-55"
+        # com o canal: o message_id do Telegram recomeça em cada conversa bot-usuário
+        assert sessao.get(Mensagem, corpo["id"]).externo_id == f"telegram:{canal.id}:884412-55"
 
 
 def test_telegram_recusando_o_envio(cliente, cabecalho_atendente):
