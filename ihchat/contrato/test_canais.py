@@ -118,7 +118,8 @@ def test_tipos_exigem_login(cliente):
 def test_lista_traz_canal_saida(cliente, cabecalho_atendente, canal_webchat):
     canais = cliente.get("/api/canais", headers=cabecalho_atendente).json()
     achado = next(c for c in canais if c["id"] == canal_webchat["id"])
-    assert set(achado) == {"id", "nome", "tipo", "ativo", "chave_publica", "configurado", "url_webhook"}
+    assert set(achado) == {"id", "nome", "tipo", "ativo", "chave_publica", "configurado", "url_webhook", "conexao"}
+    assert achado["conexao"] is None  # só o WhatsApp pelo QR Code tem estado de conexão
     assert achado["configurado"] is True and achado["chave_publica"].startswith("wc_")
     # relativa sem url_publica; absoluta quando a instalação conhece o endereço
     assert achado["url_webhook"].endswith(f"/webhooks/{canal_webchat['id']}")

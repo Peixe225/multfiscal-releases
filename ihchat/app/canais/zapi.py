@@ -20,7 +20,9 @@ from .whatsapp_qr import (
     EstadoConexao,
     Evento,
     ProvedorQR,
+    METADADO_LID,
     e_conversa_privada,
+    e_lid,
     especie_de_envio,
     extensao,
     frase_do_estado,
@@ -220,6 +222,13 @@ class ProvedorZApi(ProvedorQR):
             self.adaptador, identificador, texto(payload.get("messageId")), conteudo, anexos, nome, especie
         )
         if mensagem is not None:
+            # "phone" pode vir ora com o número, ora com o próprio @lid; o
+            # chatLid é o estável (developer.z-api.io/tips/lid). Com os dois, o
+            # webhook liga o @lid ao contato do número; só com o @lid, acha o
+            # contato por ele — o mesmo cliente não vira duas conversas
+            lid = texto(payload.get("chatLid"))
+            if e_lid(lid) and not e_lid(identificador):
+                mensagem.metadados[METADADO_LID] = lid
             (evento.do_celular if de_mim else evento.recebidas).append(mensagem)
 
     @staticmethod

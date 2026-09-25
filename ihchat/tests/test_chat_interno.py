@@ -78,6 +78,118 @@ def test_base_antiga_ganha_as_tabelas_na_subida(cliente, atendente):
         assert sessao.get(Atendente, atendente.id) is not None
 
 
+def _ddl_antigo(nome: str) -> str:
+    """O DDL que a versão anterior criava: sem AUTOINCREMENT e, nos membros,
+    sem visivel_desde."""
+    from sqlalchemy.schema import CreateTable
+
+    from app.db import Base
+
+    ddl = str(CreateTable(Base.metadata.tables[nome]).compile(dialect=engine.dialect))
+    ddl = ddl.replace(" AUTOINCREMENT", "")
+    return "\n".join(linha for linha in ddl.splitlines() if "visivel_desde" not in linha)
+
+
+def test_base_sqlite_antiga_ganha_autoincremento_sem_perder_dados(cliente, admin, atendente):
+    """No SQLite sem AUTOINCREMENT o id do último grupo apagado voltava na
+    próxima sala. A subida reconstrói as tabelas (não há ALTER para isso),
+    mantém ids, membros e mensagens, e esvazia na fila os eventos de salas
+    que já não existem (os que o id reaproveitado entregaria)."""
+    with engine.begin() as conexao:
+        for tabela in TABELAS:
+            conexao.execute(text(f"DROP TABLE {tabela}"))
+        for tabela in reversed(TABELAS):
+            conexao.execute(text(_ddl_antigo(tabela)))
+        conexao.execute(
+            text(
+                "INSERT INTO interno_salas (id, tipo, nome, chave, criada_em, atualizada_em) "
+                "VALUES (1, 'geral', 'Geral', 'geral', '2026-09-01 10:00:00', '2026-09-01 10:00:00')"
+            )
+        )
+        conexao.execute(
+            text(
+                "INSERT INTO interno_membros (sala_id, atendente_id, lida_ate, silenciada, entrou_em) "
+                "VALUES (1, :a, 0, 0, '2026-09-01 10:00:00'), (1, :b, 0, 0, '2026-09-01 10:00:00')"
+            ),
+            {"a": admin.id, "b": atendente.id},
+        )
+        conexao.execute(
+            text(
+                "INSERT INTO interno_mensagens (id, sala_id, autor_id, conteudo, mencoes, criada_em, apagada) "
+                "VALUES (7, 1, :a, 'bom dia', '[]', '2026-09-01 10:01:00', 0)"
+            ),
+            {"a": admin.id},
+        )
+        # evento de um grupo (id 2) apagado antes da correção, com o texto
+        segredo = json.dumps({"id": 8, "sala_id": 2, "conteudo": "senha do cofre 1234"})
+        conexao.execute(
+            text("INSERT INTO fila_eventos (tipo, dados, criado_em) VALUES ('interno.mensagem', :d, '2026-09-01 10:02:00')"),
+            {"d": segredo},
+        )
+        conexao.execute(
+            text("INSERT INTO fila_eventos (tipo, dados, criado_em) VALUES ('interno.mensagem', :d, '2026-09-01 10:03:00')"),
+            {"d": json.dumps({"id": 7, "sala_id": 1, "conteudo": "bom dia"})},
+        )
+
+    criar_tabelas()  # a subida do app
+
+    with engine.connect() as conexao:
+        ddl = dict(conexao.execute(text("SELECT name, sql FROM sqlite_master WHERE type = 'table'")).all())
+        assert "AUTOINCREMENT" in ddl["interno_salas"] and "AUTOINCREMENT" in ddl["interno_mensagens"]
+        assert "visivel_desde" in ddl["interno_membros"]
+        assert conexao.execute(text("SELECT id, conteudo FROM interno_mensagens")).all() == [(7, "bom dia")]
+        membros = conexao.execute(text("SELECT atendente_id, visivel_desde FROM interno_membros ORDER BY 1")).all()
+        assert membros == sorted([(admin.id, 0), (atendente.id, 0)])
+        # as chaves estrangeiras continuam apontando para a tabela nova
+        assert conexao.execute(text("PRAGMA foreign_key_check")).all() == []
+        alvos = {linha[2] for linha in conexao.execute(text("PRAGMA foreign_key_list(interno_membros)")).all()}
+        assert "interno_salas" in alvos
+        fila = conexao.execute(text("SELECT tipo, dados FROM fila_eventos ORDER BY id")).all()
+    assert fila == [(svc.TIPO_REMOVIDO, "{}"), ("interno.mensagem", json.dumps({"id": 7, "sala_id": 1, "conteudo": "bom dia"}))]
+    indices = {i["name"] for i in inspect(engine).get_indexes("interno_salas")}
+    assert {"uq_interno_salas_chave", "ix_interno_salas_tipo"} <= indices
+    assert "ix_interno_mensagens_sala" in {i["name"] for i in inspect(engine).get_indexes("interno_mensagens")}
+    # idempotente: na próxima subida não há o que fazer
+    from app.db import migrar_chat_interno
+
+    assert migrar_chat_interno(engine) == []
+    # e o chat funciona na base migrada, com o id novo depois do maior já usado
+    with SessaoLocal() as sessao:
+        sessao.add(SalaInterna(id=None, tipo="grupo", nome="Depois"))
+        sessao.commit()
+        assert sessao.scalar(select(func.max(SalaInterna.id))) == 2
+        sessao.execute(text("DELETE FROM interno_salas WHERE id = 2"))
+        sessao.commit()
+        nova = SalaInterna(tipo="grupo", nome="Outro")
+        sessao.add(nova)
+        sessao.commit()
+        assert nova.id == 3  # AUTOINCREMENT: o 2 apagado não volta
+
+
+def test_grupo_apagado_nao_cede_o_id_nem_deixa_o_texto_na_fila(
+    cliente, admin, atendente, cabecalho_admin, cabecalho_atendente
+):
+    caio, cabecalho_caio = pessoa(cliente, "Caio Reis")
+    grupo = cliente.post(
+        "/api/interno/grupos", json={"nome": "Diretoria", "membros": [admin.id]}, headers=cabecalho_atendente
+    ).json()
+    enviar(cliente, cabecalho_atendente, grupo["id"], "a senha do cofre é 1234")
+    for cabecalho in (cabecalho_atendente, cabecalho_admin):
+        assert cliente.post(f"/api/interno/salas/{grupo['id']}/sair", headers=cabecalho).status_code == 204
+    nova = direta(cliente, cabecalho_caio, admin.id)
+    assert nova["id"] != grupo["id"]
+    for cabecalho in (cabecalho_caio, cabecalho_admin, cabecalho_atendente):
+        eventos = cliente.get("/api/eventos/desde", params={"depois": 0}, headers=cabecalho).json()["eventos"]
+        assert "1234" not in json.dumps(eventos)
+        # do grupo apagado, só o "você saiu" de quem saiu (sem conteúdo)
+        do_grupo = [e for e in eventos if e["tipo"].startswith("interno.") and e["dados"].get("sala_id") == grupo["id"]]
+        assert all(e["dados"].get("acao") == "saiu" and "para" in e["dados"] for e in do_grupo), do_grupo
+    eventos_caio = cliente.get("/api/eventos/desde", params={"depois": 0}, headers=cabecalho_caio).json()["eventos"]
+    assert all(e["dados"].get("sala_id") != grupo["id"] for e in eventos_caio if e["tipo"].startswith("interno."))
+    with SessaoLocal() as sessao:
+        assert "1234" not in json.dumps([e.dados for e in sessao.scalars(select(FilaEvento))])
+
+
 # --------------------------------------------------------- tempo real (SSE)
 def _ler_stream(token: str, ate: str = "event: conversa.atualizada") -> list[str]:
     """Consome a resposta da ROTA /api/eventos/stream (com o filtro dela) até
@@ -139,18 +251,25 @@ def test_fila_sem_filtro_nunca_solta_o_chat(cliente, atendente, cabecalho_atende
 
 def test_filtro_de_membro_le_as_salas_uma_vez_por_lote(monkeypatch):
     chamadas = []
-    monkeypatch.setattr(svc, "ids_das_salas", lambda atendente_id: chamadas.append(atendente_id) or {7})
+    monkeypatch.setattr(svc, "salas_visiveis", lambda atendente_id: chamadas.append(atendente_id) or {7: 0, 9: 50})
     filtro = rotas_eventos.FiltroDoAtendente(3)
     linha = FilaEvento(tipo="interno.mensagem", dados="{}")
-    assert filtro(linha, {"sala_id": 7}) is True
-    assert filtro(linha, {"sala_id": 8}) is False
+    assert filtro(linha, {"sala_id": 7, "id": 1}) is True
+    assert filtro(linha, {"sala_id": 8, "id": 1}) is False
+    # sala de setor: mensagem de antes de a pessoa entrar não vai, a de depois vai
+    assert filtro(linha, {"sala_id": 9, "id": 50}) is False
+    assert filtro(FilaEvento(tipo="interno.mensagem.atualizada"), {"sala_id": 9, "id": 12}) is False
+    assert filtro(linha, {"sala_id": 9, "id": 51}) is True
+    assert filtro(FilaEvento(tipo="interno.sala"), {"sala_id": 9, "acao": "atualizada"}) is True
+    # evento de sala apagada (esvaziado) não vai para ninguém
+    assert filtro(FilaEvento(tipo=svc.TIPO_REMOVIDO), {}) is False
     assert filtro(FilaEvento(tipo="interno.lida"), {"sala_id": 7, "para": [4]}) is False
     assert filtro(FilaEvento(tipo="interno.lida"), {"sala_id": 8, "para": [3]}) is True
     assert filtro(linha, None) is False
     assert filtro(FilaEvento(tipo="mensagem.nova"), {"qualquer": 1}) is True
     assert chamadas == [3]
     filtro.novo_lote()  # quem saiu de uma sala deixa de receber já no próximo lote
-    filtro(linha, {"sala_id": 7})
+    filtro(linha, {"sala_id": 7, "id": 1})
     assert chamadas == [3, 3]
 
 
@@ -205,6 +324,17 @@ def test_resolver_mencoes():
     assert svc.resolver_mencoes("eu mesma: @Ana Lima", candidatos, 1) == []
     assert svc.resolver_mencoes("sem arroba", candidatos, None) == []
     assert svc.resolver_mencoes("(@ana)", candidatos, None) == [1]
+
+
+def test_nome_repetido_nao_menciona_ninguem():
+    """Nome e setor são editáveis no próprio perfil: quem copia o nome de
+    outra pessoa não pode passar a receber as menções dela."""
+    candidatos = [(1, "Administrador"), (2, "Ana Lima"), (5, "administrador ")]
+    assert svc.resolver_mencoes("@Administrador pode ver?", candidatos, None) == []
+    assert svc.resolver_mencoes("@Administrador pode ver?", candidatos, 2) == []
+    # o autor com o mesmo nome também deixa o nome ambíguo
+    assert svc.resolver_mencoes("@Administrador", candidatos, 5) == []
+    assert svc.resolver_mencoes("@Ana Lima e @Administrador", candidatos, None) == [2]
 
 
 # ------------------------------------------------------------- privacidade

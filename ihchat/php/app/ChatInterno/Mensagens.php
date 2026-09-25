@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace IHchat\ChatInterno;
 
+use IHchat\Auth\Atendentes;
 use IHchat\Banco\Banco;
 use IHchat\Eventos\Eventos;
 use IHchat\Nucleo\Datas;
@@ -12,7 +13,7 @@ use IHchat\Nucleo\Json;
 /**
  * Mensagens do chat interno (o mesmo contrato de app/servicos/chat_interno.py).
  *
- * MensagemInternaSaida {id, sala_id, autor {id, nome, setor} | null, conteudo,
+ * MensagemInternaSaida {id, sala_id, autor {id, nome, setor, admin} | null, conteudo,
  *   mencoes [ids], conversa_id, conversa {id, contato, canal_tipo, canal_nome,
  *   status, assunto} | null, criada_em, editada_em, apagada}
  *
@@ -40,13 +41,15 @@ final class Mensagens
         $autores = [];
         if ($idsAutores !== []) {
             foreach (Banco::todos(
-                'SELECT id, nome, setor FROM atendentes WHERE id IN (' . Salas::marcadores($idsAutores) . ')',
+                'SELECT id, nome, setor, papel FROM atendentes WHERE id IN (' . Salas::marcadores($idsAutores) . ')',
                 $idsAutores
             ) as $a) {
                 $autores[(int) $a['id']] = [
                     'id' => (int) $a['id'],
                     'nome' => (string) $a['nome'],
                     'setor' => isset($a['setor']) && $a['setor'] !== '' ? (string) $a['setor'] : null,
+                    // do papel (só o admin muda): nome e setor dá para imitar, isto não
+                    'admin' => Atendentes::eAdmin($a),
                 ];
             }
         }
@@ -129,18 +132,23 @@ final class Mensagens
         } catch (ErroHttp) {
             throw ErroHttp::naoEncontrado('mensagem não encontrada');
         }
+        if ((int) $mensagem['id'] <= (int) ($sala['visivel_desde'] ?? 0)) {
+            // de antes de a pessoa entrar na sala de setor: para ela não existe
+            throw ErroHttp::naoEncontrado('mensagem não encontrada');
+        }
         return [$mensagem, $sala];
     }
 
     /**
-     * Página de mensagens (mais novas por último) e se há mais antigas.
+     * Página de mensagens (mais novas por último) e se há mais antigas. Só as
+     * de id maior que $visivelDesde (sala de setor: desde que a pessoa entrou).
      *
      * @return array{mensagens: list<array<string, mixed>>, tem_mais: bool}
      */
-    public static function pagina(int $salaId, ?int $antes, int $limite): array
+    public static function pagina(int $salaId, int $visivelDesde, ?int $antes, int $limite): array
     {
-        $sql = 'SELECT * FROM interno_mensagens WHERE sala_id = ?';
-        $parametros = [$salaId];
+        $sql = 'SELECT * FROM interno_mensagens WHERE sala_id = ? AND id > ?';
+        $parametros = [$salaId, $visivelDesde];
         if ($antes !== null) {
             $sql .= ' AND id < ?';
             $parametros[] = $antes;
@@ -172,6 +180,10 @@ final class Mensagens
      * Ids mencionados por @Nome Completo, ou por @Primeiro nome quando só um
      * membro tem esse primeiro nome. Só membros ativos da sala; nunca o autor.
      *
+     * Nome completo repetido na sala não menciona ninguém: o nome é editável
+     * no próprio perfil, e quem copiasse o nome de outra pessoa passaria a
+     * receber as menções dela (o autor conta na repetição).
+     *
      * @param list<array{0: int, 1: string}> $candidatos
      * @return list<int>
      */
@@ -182,18 +194,24 @@ final class Mensagens
         }
         $partesDe = [];
         $primeiros = [];
+        $completos = [];
         foreach ($candidatos as [$id, $nome]) {
             $partes = preg_split('/\s+/u', trim($nome), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             $partesDe[$id] = $partes;
             if ($partes !== []) {
                 $chave = mb_strtolower($partes[0]);
                 $primeiros[$chave] = ($primeiros[$chave] ?? 0) + 1;
+                $completo = mb_strtolower(implode(' ', $partes));
+                $completos[$completo] = ($completos[$completo] ?? 0) + 1;
             }
         }
         $achados = [];
         foreach ($candidatos as [$id]) {
             $partes = $partesDe[$id];
             if ($id === $autorId || $partes === []) {
+                continue;
+            }
+            if (($completos[mb_strtolower(implode(' ', $partes))] ?? 0) > 1) {
                 continue;
             }
             if (preg_match(self::padrao($partes), $conteudo) === 1) {

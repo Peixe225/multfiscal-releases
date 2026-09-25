@@ -253,7 +253,8 @@ def test_zapi_qr_aguardando_leitura_e_depois_conectado(cliente, cabecalho_admin,
     provedor.roteirar("/device", metodo="GET", json={"phone": "5511988887777", "name": "Loja"})
     corpo = qr(cliente, cabecalho_admin, canal)
     assert corpo == {"status": "conectado", "qr": None, "numero": "5511988887777", "mensagem": corpo["mensagem"]}
-    assert "5511988887777" in corpo["mensagem"]
+    # a frase já vem com o número legível, como o painel o mostra
+    assert "+55 (11) 98888-7777" in corpo["mensagem"]
     gravadas = credenciais(cliente, cabecalho_admin, canal)["credenciais"]
     assert gravadas["estado_conexao"] == "conectado" and gravadas["numero_conectado"] == "5511988887777"
 
@@ -366,7 +367,7 @@ def test_testar_conexao_mostra_o_estado_da_instancia(cliente, cabecalho_admin, p
     provedor.roteirar("/status", metodo="GET", json={"connected": True})
     provedor.roteirar("/device", metodo="GET", json={"phone": "5511944443333"})
     resultado = cliente.post(f"/api/canais/{canal['id']}/testar", headers=cabecalho_admin).json()
-    assert resultado["ok"] is True and "5511944443333" in resultado["mensagem"]
+    assert resultado["ok"] is True and "+55 (11) 94444-3333" in resultado["mensagem"]
 
     provedor.limpar()
     provedor.roteirar("/status", metodo="GET", status=404, json={"error": "Instance not found"})
@@ -513,6 +514,8 @@ def test_zapi_resposta_pelo_celular_entra_como_saida_sem_reenviar(cliente, cabec
     assert saida["direcao"] == "saida" and saida["status"] == "enviada"
     assert saida["autor"] == "Enviada pelo celular" and saida["atendente_id"] is None
     assert saida["assinatura"] == {"nome": "Enviada pelo celular", "setor": None}
+    # o painel distingue a resposta do celular (selo próprio) da que saiu pelo IHchat
+    assert saida["pelo_celular"] is True and entrada["pelo_celular"] is False
 
     # a que o próprio IHchat mandou pela API volta com fromApi: ignorada
     resposta = webhook(cliente, canal, segredo, zapi_texto(telefone, unico("zme"), "via API", fromMe=True, fromApi=True))
@@ -659,22 +662,32 @@ def test_evolution_texto_midia_e_resposta_pelo_celular(cliente, cabecalho_atende
     resposta = webhook(cliente, canal, segredo, evolution_upsert(instancia, jid, unico("EV"), {"conversation": "Quero um orçamento"}, "conversation"))
     assert resposta.json() == {"recebidas": 1, "status_atualizados": 0, "enviadas_pelo_celular": 0}
 
-    # com webhook base64 a mídia já vem no corpo: nenhuma ida ao servidor
+    # webhook antigo, cadastrado com base64: a mídia já vem no corpo, nenhuma ida ao servidor
     imagem = {"imageMessage": {"caption": "a peça", "mimetype": "image/png"}, "base64": base64.b64encode(PNG).decode()}
     assert webhook(cliente, canal, segredo, evolution_upsert(instancia, jid, unico("EV"), imagem, "imageMessage")).json()["recebidas"] == 1
     assert provedor.chamadas() == []
 
-    # sem base64: busca pela API da Evolution
+    # sem base64 (o webhook que o IHchat cadastra): busca pela API da Evolution,
+    # mandando a mensagem inteira do webhook (a Evolution baixa por ela mesmo
+    # sem tê-la guardado no banco)
     id_doc = unico("EVD")
     provedor.roteirar("/chat/getBase64FromMediaMessage/", metodo="POST", json={
         "mediaType": "documentMessage", "fileName": "nota.pdf", "mimetype": "application/pdf", "base64": base64.b64encode(b"%PDF nota").decode(),
     })
-    documento = {"documentMessage": {"fileName": "nota.pdf", "mimetype": "application/pdf", "caption": "nota fiscal"}}
-    assert webhook(cliente, canal, segredo, evolution_upsert(instancia, jid, id_doc, documento, "documentMessage")).json()["recebidas"] == 1
-    busca = provedor.chamadas()[-1]
+    documento = {"documentMessage": {
+        "fileName": "nota.pdf", "mimetype": "application/pdf", "caption": "nota fiscal",
+        "url": "https://mmg.whatsapp.net/d/f/x.enc", "mediaKey": "Y2hhdmU=", "directPath": "/v/t62/x.enc",
+    }}
+    # uma mediaUrl no webhook NÃO é seguida: quem forja a entrega escolheria o endereço
+    entrega = evolution_upsert(instancia, jid, id_doc, {**documento, "mediaUrl": "http://169.254.169.254/latest/"}, "documentMessage")
+    assert webhook(cliente, canal, segredo, entrega).json()["recebidas"] == 1
+    [busca] = provedor.chamadas()
     assert busca["url"] == f"{SERVIDOR_EVOLUTION}/chat/getBase64FromMediaMessage/{instancia}"
     assert busca["cabecalhos"]["apikey"] == API_KEY
-    assert json.loads(busca["corpo"]) == {"message": {"key": {"id": id_doc}}, "convertToMp4": False}
+    assert json.loads(busca["corpo"]) == {
+        "message": {"key": {"remoteJid": jid, "fromMe": False, "id": id_doc}, "message": documento},
+        "convertToMp4": False,
+    }
 
     # o dono respondeu pelo celular (fromMe): saída, sem reenviar
     resposta = webhook(cliente, canal, segredo, evolution_upsert(instancia, jid, unico("EVM"), {"conversation": "Já te mando"}, "conversation", de_mim=True))

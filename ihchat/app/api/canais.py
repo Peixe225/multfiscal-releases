@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
@@ -22,6 +22,8 @@ from ..canais.whatsapp_qr import (
     AdaptadorWhatsAppQR,
     EstadoConexao,
     credenciais_com_conexao,
+    problema_no_endereco_evolution,
+    sem_dados_de_outra_instancia,
 )
 from ..config import url_publica, url_publica_https
 from ..dependencias import AdminAtual, AtendenteAtual, Sessao
@@ -35,7 +37,8 @@ from ..schemas import (
     TesteConexaoSaida,
 )
 from ..security import gerar_chave
-from ..serializacao import canal_saida, url_webhook
+from ..serializacao import canal_saida, conexao_do_canal, url_webhook
+from ..servicos.mensagens import publicar_canal
 
 log = logging.getLogger("ihchat.canais")
 
@@ -167,11 +170,9 @@ def _normalizar_whatsapp_qr(tipo: str, chave: str, valor):
         return provedor
     if chave == "url_servidor":
         endereco = str(valor).rstrip("/")
-        partes = urlsplit(endereco)
-        if partes.scheme.lower() not in ("http", "https") or not partes.netloc:
-            raise HTTPException(
-                INVALIDO, f"{_rotulo(tipo, chave)} precisa começar com https:// (ou http://), ex.: https://evolution.suaempresa.com.br"
-            )
+        problema = problema_no_endereco_evolution(endereco)
+        if problema:
+            raise HTTPException(INVALIDO, f"{_rotulo(tipo, chave)} {problema}")
         return endereco
     return valor
 
@@ -219,6 +220,9 @@ def _mesclar_credenciais(tipo: str, atuais: dict, enviadas: dict, limpar: list[s
         else:
             resultado[chave] = valor
     _exigir_senha_para_servidor_novo(tipo, atuais, resultado, enviadas)
+    if tipo == TipoCanal.WHATSAPP_QR.value:
+        # outra instância: o webhook, o estado e o número gravados eram da antiga
+        resultado = sem_dados_de_outra_instancia(atuais, resultado)
     return resultado
 
 
@@ -359,13 +363,20 @@ def testar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
             )
     if isinstance(adaptador, AdaptadorWhatsAppQR):
         if adaptador.ultimo_estado is not None and adaptador.ultimo_estado.status != ERRO:
-            _gravar_conexao(canal, adaptador.ultimo_estado.status, adaptador.ultimo_estado.numero)
+            _gravar_conexao(sessao, canal, adaptador.ultimo_estado.status, adaptador.ultimo_estado.numero)
         if adaptador.alerta_de_conexao:
             alertas.append(adaptador.alerta_de_conexao)
-        if not (canal.credenciais or {}).get(CHAVE_WEBHOOK):
+        gravado = (canal.credenciais or {}).get(CHAVE_WEBHOOK)
+        if not gravado:
             alertas.append(
                 "o webhook ainda não foi conectado: sem ele as mensagens dos clientes não chegam. "
                 "Use “Conectar webhook” (precisa do endereço público desta instalação)"
+            )
+        elif gravado != url_webhook(canal.id):
+            # o endereço público mudou depois do cadastro: o provedor entrega no antigo
+            alertas.append(
+                f"o webhook foi cadastrado no provedor para {gravado}, que não é mais o endereço deste "
+                "IHchat: as mensagens não chegam até você usar “Reconectar webhook”"
             )
     if not canal.ativo:
         alertas.append("o canal está desativado: não recebe mensagens novas até você ativá-lo")
@@ -432,11 +443,21 @@ def _faltando(canal: Canal, adaptador) -> list[str]:
     return [_rotulo(canal.tipo, c) for c in adaptador.campos_obrigatorios if not adaptador.credenciais.get(c)]
 
 
-def _gravar_conexao(canal: Canal, estado: str, numero: str | None) -> None:
-    """estado_conexao (e o número) nas credenciais, só se mudou."""
+def _gravar_conexao(sessao, canal: Canal, estado: str, numero: str | None) -> None:
+    """estado_conexao (e o número) nas credenciais, só se mudou.
+
+    Quando o ESTADO muda (conectou, caiu), a equipe inteira fica sabendo pelo
+    evento "canal.atualizado": o painel marca o canal desconectado e avisa no
+    redator. O commit vem antes do evento, como em toda publicação.
+    """
     novas = credenciais_com_conexao(canal.credenciais or {}, estado, numero)
-    if novas is not None:
-        canal.credenciais = novas  # dict novo: o SQLAlchemy percebe a mudança
+    if novas is None:
+        return
+    anterior = conexao_do_canal(canal)
+    canal.credenciais = novas  # dict novo: o SQLAlchemy percebe a mudança
+    if conexao_do_canal(canal) != anterior:
+        sessao.commit()
+        publicar_canal(canal)
 
 
 def _sem_segredo_do_canal(canal: Canal, texto: str) -> str:
@@ -471,15 +492,19 @@ def qr_code(canal_id: int, sessao: Sessao, _: AdminAtual, so_estado: bool = Fals
     adaptador, motivo = _adaptador_qr(canal)
     if adaptador is None:
         return EstadoConexao(ERRO, mensagem=motivo or "").como_dict()
+    webhook = _webhook_do_canal(canal)
+    # se a Evolution precisar (re)criar a instância, ela já nasce com o webhook
+    adaptador.webhook_da_instancia = webhook[1] if webhook else None
     try:
         estado = adaptador.estado_qr(com_qr=not so_estado)
     except Exception:
         log.exception("QR Code do canal %s terminou com erro inesperado", canal.id)
         estado = EstadoConexao(ERRO, mensagem="erro inesperado ao falar com o provedor; detalhes no log do servidor")
     estado.mensagem = _sem_segredo_do_canal(canal, estado.mensagem)
+    _registrar_instancia_criada(canal, adaptador, webhook)
     if estado.status != ERRO:
-        _gravar_conexao(canal, estado.status, estado.numero)
-        sessao.flush()
+        _gravar_conexao(sessao, canal, estado.status, estado.numero)
+    sessao.flush()
     return estado.como_dict()
 
 
@@ -496,9 +521,32 @@ def desconectar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSai
         mensagem = adaptador.desconectar()
     except ErroCanal as exc:
         return TesteConexaoSaida(ok=False, mensagem=_sem_segredo_do_canal(canal, str(exc)))
-    _gravar_conexao(canal, DESCONECTADO, None)
+    _gravar_conexao(sessao, canal, DESCONECTADO, None)
     sessao.flush()
     return TesteConexaoSaida(ok=True, mensagem=mensagem)
+
+
+def _webhook_do_canal(canal: Canal) -> tuple[str, str] | None:
+    """(URL gravada, URL com o token) do webhook do canal; None sem endereço
+    público HTTPS (não há o que cadastrar no provedor)."""
+    if not url_publica_https():
+        return None
+    if not canal.segredo_webhook:
+        canal.segredo_webhook = gerar_chave()
+    endereco = url_webhook(canal.id)
+    return endereco, f"{endereco}?token={quote(canal.segredo_webhook, safe='')}"
+
+
+def _registrar_instancia_criada(canal: Canal, adaptador: AdaptadorWhatsAppQR, webhook: tuple[str, str] | None) -> None:
+    """A Evolution (re)criou a instância: com o webhook junto, ele passa a ser o
+    gravado; sem ele, o gravado era da instância que sumiu e sai."""
+    if not adaptador.instancia_criada:
+        return
+    credenciais = {k: v for k, v in (canal.credenciais or {}).items() if k != CHAVE_WEBHOOK}
+    if adaptador.webhook_na_criacao and webhook:
+        credenciais[CHAVE_WEBHOOK] = webhook[0]
+    if credenciais != (canal.credenciais or {}):
+        canal.credenciais = credenciais  # dict novo: o SQLAlchemy percebe a mudança
 
 
 def _conectar_whatsapp_qr(sessao, canal: Canal) -> TesteConexaoSaida:
@@ -516,16 +564,25 @@ def _conectar_whatsapp_qr(sessao, canal: Canal) -> TesteConexaoSaida:
             mensagem="o endereço público desta instalação (url_publica) não está configurado: sem ele o "
             "provedor não tem para onde mandar as mensagens. Configure-o (com https) e tente de novo",
         )
-    if adaptador.chave_provedor == "zapi" and not url_publica_https():
-        return TesteConexaoSaida(
-            ok=False, mensagem="a Z-API só entrega em endereço HTTPS: configure o endereço público (url_publica) com https://"
+    webhook = _webhook_do_canal(canal)
+    if webhook is None:
+        # a URL leva o token do canal, e cada entrega leva as mensagens dos
+        # clientes: por http:// os dois iriam sem criptografia pela internet
+        mensagem = (
+            "a Z-API só entrega em endereço HTTPS"
+            if adaptador.chave_provedor == "zapi"
+            else "o webhook leva o token do canal e as mensagens dos clientes, e só vai para endereço HTTPS"
         )
-    if not canal.segredo_webhook:
-        canal.segredo_webhook = gerar_chave()
-    endereco = url_webhook(canal.id)
+        return TesteConexaoSaida(
+            ok=False, mensagem=f"{mensagem}: configure o endereço público (url_publica) com https://"
+        )
+    endereco, com_token = webhook
+    adaptador.webhook_da_instancia = com_token
     try:
-        mensagem = adaptador.conectar_webhook(f"{endereco}?token={quote(canal.segredo_webhook, safe='')}")
+        mensagem = adaptador.conectar_webhook(com_token)
     except ErroCanal as exc:
+        _registrar_instancia_criada(canal, adaptador, webhook)
+        sessao.flush()
         return TesteConexaoSaida(ok=False, mensagem=_sem_segredo_do_canal(canal, str(exc)))
     canal.credenciais = {**(canal.credenciais or {}), CHAVE_WEBHOOK: endereco}
     sessao.flush()

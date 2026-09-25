@@ -109,6 +109,11 @@
           <div class="acoes">
             <button type="button" class="botao discreto pequeno" id="abrir-ficha"
                     aria-controls="ficha" aria-expanded="false">Ficha do cliente</button>
+            <!-- manda um cartão desta conversa para uma sala do chat da equipe
+                 (chat-interno.js); nada daqui chega ao cliente -->
+            <button type="button" class="botao discreto pequeno" id="compartilhar-equipe" hidden
+                    aria-label="Compartilhar com a equipe"
+                    title="Mandar esta conversa como cartão no chat da equipe (o cliente não vê)">Compartilhar<span class="rotulo-extra"> com a equipe</span></button>
             <select id="seletor-atendente" title="Atendente responsável"></select>
             <select id="seletor-prioridade" title="Prioridade">
               <option value="baixa">Baixa</option>
@@ -131,6 +136,8 @@
             <button type="button" class="aba nota-aba" data-modo="nota">Nota interna</button>
           </div>
           <div id="sugestoes" class="sugestoes" hidden></div>
+          <!-- WhatsApp pelo QR Code com o celular desconectado: a resposta não sai -->
+          <p class="alerta-conexao" id="alerta-conexao" role="status" hidden></p>
           <textarea id="texto" placeholder="Escreva sua resposta…  (/ para respostas rápidas)"></textarea>
           <div class="rodape-redator">
             <input type="file" id="arquivo" hidden>

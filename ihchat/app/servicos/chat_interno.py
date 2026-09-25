@@ -20,6 +20,11 @@ não existe: 404, sem revelar nada. Os eventos "interno.*" levam o sala_id e
 o filtro de app/api/eventos.py só os entrega a membros; os que são de uma
 pessoa só (cursor de leitura, "você saiu") levam "para": [ids].
 
+O setor é editável no próprio perfil; por isso quem ENTRA numa sala de setor
+só vê dali para a frente (membro.visivel_desde): trocar o setor não abre o
+histórico de outro setor, nem pela API nem pelos eventos guardados na fila.
+Grupo apagado (o último saiu) tem os eventos esvaziados na fila na hora.
+
 Mesmo contrato no PHP (php/app/ChatInterno). Formatos de saída neste arquivo.
 """
 from __future__ import annotations
@@ -61,6 +66,9 @@ LIMITE_MAXIMO = 100
 # disso o banco estouraria o inteiro de 64 bits e sairia 500 em vez de 422
 MAIOR_ID = 10**18 - 1
 TENTATIVAS = 3
+# o evento de uma sala apagada fica na fila com este tipo e sem dados: o
+# filtro não o entrega a ninguém, e a linha não sai (sem lacuna de id)
+TIPO_REMOVIDO = "interno.removido"
 
 Evento = tuple[str, dict]
 
@@ -72,12 +80,16 @@ class AtendenteResumo(BaseModel):
     setor: str | None = None
     ativo: bool
     disponivel: bool
+    # vem do papel, que só o admin muda: nome e setor qualquer um troca no
+    # próprio perfil, então é o que não dá para imitar
+    admin: bool
 
 
 class AutorResumo(BaseModel):
     id: int
     nome: str
     setor: str | None = None
+    admin: bool
 
 
 class ConversaCartao(BaseModel):
@@ -223,14 +235,19 @@ def _sincronizar(sessao: Session) -> list[Evento]:
     faltam = sorted(esperado - atuais)
     sobram = sorted(atuais - esperado)
     if faltam:
-        # quem entra vê o histórico, mas o que veio antes não conta como não lido
+        # o que veio antes não conta como não lido. Na Geral quem entra vê o
+        # histórico (só o admin ativa alguém); no setor, não: o setor qualquer
+        # um troca no próprio perfil, e isso não pode abrir a conversa de outro
         ultimas = _ultimas_ids(sessao, {sala_id for sala_id, _ in faltam})
+        setores = {s.id for s in automaticas.values() if s.tipo == TipoSala.SETOR.value}
         for sala_id, atendente_id in faltam:
+            ultima = ultimas.get(sala_id, 0)
             sessao.add(
                 MembroSala(
                     sala_id=sala_id,
                     atendente_id=atendente_id,
-                    lida_ate=ultimas.get(sala_id, 0),
+                    lida_ate=ultima,
+                    visivel_desde=ultima if sala_id in setores else 0,
                     silenciada=False,
                     entrou_em=momento,
                 )
@@ -241,13 +258,54 @@ def _sincronizar(sessao: Session) -> list[Evento]:
         )
     if faltam or sobram:
         sessao.flush()
-    return [
-        ("interno.sala", {"sala_id": sala_id, "acao": "entrou", "para": [atendente_id]})
-        for sala_id, atendente_id in faltam
-    ] + [
-        ("interno.sala", {"sala_id": sala_id, "acao": "saiu", "para": [atendente_id]})
-        for sala_id, atendente_id in sobram
-    ]
+    return (
+        [
+            ("interno.sala", {"sala_id": sala_id, "acao": "entrou", "para": [atendente_id]})
+            for sala_id, atendente_id in faltam
+        ]
+        + [
+            ("interno.sala", {"sala_id": sala_id, "acao": "saiu", "para": [atendente_id]})
+            for sala_id, atendente_id in sobram
+        ]
+        + _acertar_administracao(sessao)
+    )
+
+
+def _acertar_administracao(sessao: Session) -> list[Evento]:
+    """Grupo cujo administrador foi desativado (ou removido) passa a quem
+    está nele há mais tempo entre os ativos, como se ele tivesse saído.
+
+    Desativar não tira a pessoa dos grupos (a direta e o grupo são
+    histórico), e sem isto o grupo ficava sem ninguém que o administrasse.
+    """
+    orfaos = list(
+        sessao.scalars(
+            select(SalaInterna)
+            .outerjoin(Atendente, Atendente.id == SalaInterna.criada_por)
+            .where(SalaInterna.tipo == TipoSala.GRUPO.value, or_(Atendente.id.is_(None), Atendente.ativo.is_(False)))
+        )
+    )
+    eventos: list[Evento] = []
+    for sala in orfaos:
+        novo = _mais_antigo_ativo(sessao, sala.id)
+        if novo is not None and novo != sala.criada_por:
+            sala.criada_por = novo
+            sala.atualizada_em = agora()
+            eventos.append(("interno.sala", {"sala_id": sala.id, "acao": "atualizada"}))
+    if eventos:
+        sessao.flush()
+    return eventos
+
+
+def _mais_antigo_ativo(sessao: Session, sala_id: int, entre: set[int] | None = None) -> int | None:
+    consulta = (
+        select(MembroSala.atendente_id)
+        .join(Atendente, Atendente.id == MembroSala.atendente_id)
+        .where(MembroSala.sala_id == sala_id, Atendente.ativo.is_(True))
+    )
+    if entre is not None:
+        consulta = consulta.where(MembroSala.atendente_id.in_(list(entre)))
+    return sessao.scalar(consulta.order_by(MembroSala.entrou_em, MembroSala.atendente_id).limit(1))
 
 
 def _ultimas_ids(sessao: Session, salas: set[int]) -> dict[int, int]:
@@ -264,10 +322,16 @@ def _ultimas_ids(sessao: Session, salas: set[int]) -> dict[int, int]:
 
 
 # ------------------------------------------------------------------ acesso
-def ids_das_salas(atendente_id: int) -> set[int]:
-    """Salas de que a pessoa é membro agora (o filtro dos eventos usa)."""
+def salas_visiveis(atendente_id: int) -> dict[int, int]:
+    """{sala_id: visivel_desde} das salas de que a pessoa é membro agora (o
+    filtro dos eventos usa: mensagem de id até visivel_desde não é para ela)."""
     with SessaoLocal() as sessao:
-        return set(sessao.scalars(select(MembroSala.sala_id).where(MembroSala.atendente_id == atendente_id)))
+        return {
+            int(sala_id): int(desde or 0)
+            for sala_id, desde in sessao.execute(
+                select(MembroSala.sala_id, MembroSala.visivel_desde).where(MembroSala.atendente_id == atendente_id)
+            )
+        }
 
 
 def exigir_sala(sessao: Session, sala_id: int, atendente: Atendente) -> tuple[SalaInterna, MembroSala]:
@@ -293,10 +357,14 @@ def exigir_mensagem(
     except HTTPException:
         # de outra sala: não confirma nem que a mensagem existe
         raise HTTPException(status.HTTP_404_NOT_FOUND, "mensagem não encontrada") from None
+    if mensagem.id <= int(membro.visivel_desde or 0):
+        # de antes de a pessoa entrar na sala de setor: para ela não existe
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "mensagem não encontrada")
     return mensagem, sala, membro
 
 
 def pode_administrar(sala: SalaInterna, atendente: Atendente) -> bool:
+    """Quem criou (ou herdou: ver _acertar_administracao) e o admin do sistema."""
     return sala.tipo == TipoSala.GRUPO.value and (sala.criada_por == atendente.id or atendente.e_admin)
 
 
@@ -308,6 +376,7 @@ def _resumo(atendente: Atendente) -> AtendenteResumo:
         setor=atendente.setor or None,
         ativo=bool(atendente.ativo),
         disponivel=bool(atendente.disponivel),
+        admin=bool(atendente.e_admin),
     )
 
 
@@ -344,7 +413,11 @@ def mensagens_saida(sessao: Session, mensagens: list[MensagemInterna]) -> list[M
             MensagemInternaSaida(
                 id=m.id,
                 sala_id=m.sala_id,
-                autor=AutorResumo(id=autor.id, nome=autor.nome, setor=autor.setor or None) if autor else None,
+                autor=(
+                    AutorResumo(id=autor.id, nome=autor.nome, setor=autor.setor or None, admin=bool(autor.e_admin))
+                    if autor
+                    else None
+                ),
                 conteudo="" if m.apagada else m.conteudo,
                 mencoes=[] if m.apagada else list(m.mencoes or []),
                 conversa_id=cartao.id if cartao else None,
@@ -436,7 +509,7 @@ def salas_saida(
                 nao_lidas=int(nao_lidas.get(sala.id, 0)),
                 lida_ate=int(membro.lida_ate or 0),
                 silenciada=bool(membro.silenciada),
-                ultima_mensagem=ultimas.get(sala.id),
+                ultima_mensagem=_se_visivel(ultimas.get(sala.id), membro),
                 atualizada_em=sala.atualizada_em,
             )
         )
@@ -449,6 +522,13 @@ def salas_saida(
         )
     )
     return saida
+
+
+def _se_visivel(mensagem: MensagemInternaSaida | None, membro: MembroSala) -> MensagemInternaSaida | None:
+    # a última da sala é de antes de a pessoa entrar (setor): nenhuma é visível
+    if mensagem is None or mensagem.id <= int(membro.visivel_desde or 0):
+        return None
+    return mensagem
 
 
 def listar_salas(sessao: Session, atendente: Atendente) -> list[SalaSaida]:
@@ -472,8 +552,12 @@ def sala_detalhe(sessao: Session, sala: SalaInterna, membro: MembroSala, atenden
 
 
 # --------------------------------------------------------------- mensagens
-def pagina(sessao: Session, sala: SalaInterna, antes: int | None, limite: int) -> PaginaMensagens:
-    consulta = select(MensagemInterna).where(MensagemInterna.sala_id == sala.id)
+def pagina(
+    sessao: Session, sala: SalaInterna, membro: MembroSala, antes: int | None, limite: int
+) -> PaginaMensagens:
+    consulta = select(MensagemInterna).where(
+        MensagemInterna.sala_id == sala.id, MensagemInterna.id > int(membro.visivel_desde or 0)
+    )
     if antes is not None:
         consulta = consulta.where(MensagemInterna.id < antes)
     linhas = list(sessao.scalars(consulta.order_by(MensagemInterna.id.desc()).limit(limite + 1)))
@@ -492,13 +576,21 @@ def _padrao_nome(nome: str) -> str:
 def resolver_mencoes(conteudo: str, candidatos: list[tuple[int, str]], autor_id: int | None) -> list[int]:
     """Ids mencionados por @Nome Completo, ou por @Primeiro nome quando só
     um membro da sala tem esse primeiro nome. Só membros ativos da sala
-    (menção a quem não vai ler não avisa ninguém); nunca o próprio autor."""
+    (menção a quem não vai ler não avisa ninguém); nunca o próprio autor.
+
+    Nome completo repetido na sala não menciona ninguém: o nome é editável
+    no próprio perfil, e quem copiasse o nome de outra pessoa passaria a
+    receber as menções dela. (O autor conta: dois "Ana Lima" são ambíguos
+    mesmo quando é uma delas quem escreve.)"""
     if "@" not in conteudo:
         return []
     primeiros = Counter(nome.split()[0].lower() for _, nome in candidatos if nome.split())
+    completos = Counter(" ".join(nome.split()).lower() for _, nome in candidatos if nome.split())
     achados: set[int] = set()
     for atendente_id, nome in candidatos:
         if atendente_id == autor_id or not nome.split():
+            continue
+        if completos[" ".join(nome.split()).lower()] > 1:
             continue
         if re.search(_padrao_nome(nome), conteudo, re.IGNORECASE):
             achados.add(atendente_id)
@@ -623,6 +715,28 @@ def _sanear_fila(sessao: Session, mensagem: MensagemInterna, atual: dict) -> Non
             continue
         if isinstance(lido, dict) and lido.get("id") == mensagem.id and lido.get("sala_id") == mensagem.sala_id:
             sessao.execute(update(FilaEvento).where(FilaEvento.id == evento_id).values(dados=novo))
+
+
+def _esvaziar_eventos_da_sala(sessao: Session, sala: SalaInterna) -> None:
+    """Os eventos "interno.*" guardados de uma sala que vai ser apagada viram
+    TIPO_REMOVIDO sem dados. A fila os guarda por 48 h: sem isto o texto do
+    grupo apagado continuaria lá, e se o id da sala voltasse (SQLite antigo,
+    base de outro servidor) chegaria a quem estivesse na sala nova."""
+    ids = []
+    for evento_id, dados in sessao.execute(
+        # toda a fila do chat (48 h no máximo), sem corte por data: é raro
+        select(FilaEvento.id, FilaEvento.dados).where(
+            FilaEvento.tipo.like("interno.%"), FilaEvento.tipo != TIPO_REMOVIDO
+        )
+    ):
+        try:
+            lido = json.loads(dados)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(lido, dict) and lido.get("sala_id") == sala.id:
+            ids.append(evento_id)
+    if ids:
+        sessao.execute(update(FilaEvento).where(FilaEvento.id.in_(ids)).values(tipo=TIPO_REMOVIDO, dados="{}"))
 
 
 def marcar_lida(
@@ -793,15 +907,20 @@ def alterar_sala(
 
 
 def _passar_administracao(sessao: Session, sala: SalaInterna, restantes: set[int]) -> None:
-    """Quem criou saiu: administra quem está no grupo há mais tempo."""
+    """Quem criou saiu: administra quem está no grupo há mais tempo entre os
+    ATIVOS (um desativado não administraria nada). Sem ativo nenhum, fica
+    com quem está há mais tempo; a sincronização passa adiante depois."""
     if sala.criada_por in restantes or not restantes:
         return
-    sala.criada_por = sessao.scalar(
-        select(MembroSala.atendente_id)
-        .where(MembroSala.sala_id == sala.id, MembroSala.atendente_id.in_(list(restantes)))
-        .order_by(MembroSala.entrou_em, MembroSala.atendente_id)
-        .limit(1)
-    )
+    novo = _mais_antigo_ativo(sessao, sala.id, restantes)
+    if novo is None:
+        novo = sessao.scalar(
+            select(MembroSala.atendente_id)
+            .where(MembroSala.sala_id == sala.id, MembroSala.atendente_id.in_(list(restantes)))
+            .order_by(MembroSala.entrou_em, MembroSala.atendente_id)
+            .limit(1)
+        )
+    sala.criada_por = novo
 
 
 def sair(sessao: Session, sala: SalaInterna, atendente: Atendente) -> list[Evento]:
@@ -811,7 +930,9 @@ def sair(sessao: Session, sala: SalaInterna, atendente: Atendente) -> list[Event
     restantes = set(sessao.scalars(select(MembroSala.atendente_id).where(MembroSala.sala_id == sala.id)))
     eventos: list[Evento] = [("interno.sala", {"sala_id": sala.id, "acao": "saiu", "para": [atendente.id]})]
     if not restantes:
-        # grupo sem ninguém não volta a ser visto: sai do banco com as mensagens
+        # grupo sem ninguém não volta a ser visto: sai do banco com as
+        # mensagens, e os eventos dele na fila (com o texto) são esvaziados
+        _esvaziar_eventos_da_sala(sessao, sala)
         sessao.delete(sala)
     else:
         _passar_administracao(sessao, sala, restantes)

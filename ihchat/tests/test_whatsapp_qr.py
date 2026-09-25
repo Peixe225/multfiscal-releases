@@ -111,7 +111,7 @@ def test_zapi_traduz_localizacao_contato_botoes_e_recibos():
     recebidas = []
     for i, extra in enumerate(
         (
-            {"location": {"latitude": -23.5, "longitude": -46.6}},
+            {"location": {"latitude": -23.561414213562372, "longitude": -46.65588379999999}},
             {"contact": {"displayName": "Maria"}},
             {"buttonsResponseMessage": {"buttonId": "1", "message": "Sim"}},
             {"listResponseMessage": {"title": "Financeiro", "message": "Financeiro"}},
@@ -120,7 +120,7 @@ def test_zapi_traduz_localizacao_contato_botoes_e_recibos():
         )
     ):
         recebidas += qr.analisar_webhook({**base, "messageId": f"m{i}", **extra})
-    assert [r.conteudo for r in recebidas] == ["[localizacao] -23.5,-46.6", "[contato] Maria", "Sim", "Financeiro"]
+    assert [r.conteudo for r in recebidas] == ["[localizacao] -23.561414213562372,-46.65588379999999", "[contato] Maria", "Sim", "Financeiro"]
     assert recebidas[0].externo_id == "whatsapp_qr:7:m0" and recebidas[0].nome_exibicao == "Zé"
 
     recibos = qr.analisar_status({"type": "MessageStatusCallback", "status": "READ_BY_ME", "ids": ["a"]})
@@ -184,13 +184,16 @@ def test_evolution_recibo_de_mensagem_recebida_e_ignorado():
 
 
 # -------------------------------------------------------------- assinatura
-def test_assinatura_na_primeira_linha_e_sem_duplicar():
+def test_assinatura_na_primeira_linha_pelo_nucleo():
+    """O núcleo assina o QR como o WhatsApp oficial; o adaptador não assina de novo."""
+    from app.servicos.mensagens import aplicar_assinatura
+
     assinatura = {"nome": "Ana", "setor": "Suporte"}
-    assert AdaptadorWhatsAppQR.com_assinatura("Oi", assinatura) == "*Ana · Suporte*\nOi"
-    # se o núcleo um dia passar a assinar este tipo, o texto não ganha a linha duas vezes
-    assert AdaptadorWhatsAppQR.com_assinatura("*Ana · Suporte*\nOi", assinatura) == "*Ana · Suporte*\nOi"
-    assert AdaptadorWhatsAppQR.com_assinatura("", assinatura) == "*Ana · Suporte*"
-    assert AdaptadorWhatsAppQR.com_assinatura("Oi", None) == "Oi"
+    assert aplicar_assinatura("whatsapp_qr", "Oi", assinatura) == "*Ana · Suporte*\nOi"
+    assert aplicar_assinatura("whatsapp_qr", "Oi", assinatura) == aplicar_assinatura("whatsapp", "Oi", assinatura)
+    assert aplicar_assinatura("whatsapp_qr", "", assinatura) == "*Ana · Suporte*"
+    assert aplicar_assinatura("whatsapp_qr", "Oi", None) == "Oi"
+    assert not hasattr(AdaptadorWhatsAppQR, "com_assinatura")
 
 
 def test_api_oficial_da_meta_na_versao_vigente():

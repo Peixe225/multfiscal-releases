@@ -93,10 +93,15 @@ final class Eventos
         return self::montar($linhas, $depois, self::doMembro($atendenteId));
     }
 
+    /** Eventos que levam o texto de uma mensagem (dados = MensagemInternaSaida). */
+    private const TIPOS_COM_MENSAGEM = ['interno.mensagem', 'interno.mensagem.atualizada'];
+
     /**
      * O filtro do painel. Evento "interno.*" passa se tiver "para" com o id
      * de quem lê, ou (sem "para") se quem lê for membro da sala do sala_id.
-     * As salas são lidas uma vez por consulta, e só se vier evento interno.
+     * Mensagem de id até o visivel_desde do membro (sala de setor: o que veio
+     * antes de ele entrar) não passa. As salas são lidas uma vez por
+     * consulta, e só se vier evento interno.
      *
      * @return callable(array<string, mixed>, mixed): bool
      */
@@ -104,7 +109,8 @@ final class Eventos
     {
         $salas = null;
         return static function (array $linha, mixed $dados) use ($atendenteId, &$salas): bool {
-            if (!str_starts_with((string) $linha['tipo'], self::PREFIXO_INTERNO)) {
+            $tipo = (string) $linha['tipo'];
+            if (!str_starts_with($tipo, self::PREFIXO_INTERNO)) {
                 return true;
             }
             if ($atendenteId === null || !is_array($dados)) {
@@ -113,8 +119,15 @@ final class Eventos
             if (array_key_exists('para', $dados)) {
                 return is_array($dados['para']) && in_array($atendenteId, $dados['para'], true);
             }
-            $salas ??= array_flip(\IHchat\ChatInterno\Salas::idsDoAtendente($atendenteId));
-            return is_int($dados['sala_id'] ?? null) && isset($salas[$dados['sala_id']]);
+            $salas ??= \IHchat\ChatInterno\Salas::visiveisDoAtendente($atendenteId);
+            $salaId = $dados['sala_id'] ?? null;
+            if (!is_int($salaId) || !isset($salas[$salaId])) {
+                return false;
+            }
+            if (in_array($tipo, self::TIPOS_COM_MENSAGEM, true)) {
+                return is_int($dados['id'] ?? null) && $dados['id'] > $salas[$salaId];
+            }
+            return true;
         };
     }
 

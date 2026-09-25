@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace IHchat\Canais\WhatsAppQr;
 
 use IHchat\Atendimento\AnexoRecebido;
+use IHchat\Atendimento\Anexos;
 use IHchat\Atendimento\ArquivoParaEnviar;
 use IHchat\Atendimento\MensagemRecebida;
 use IHchat\Canais\AdaptadorWhatsAppQr;
@@ -76,33 +77,37 @@ abstract class Provedor
 
     /**
      * Mídia hospedada pelo provedor: GET simples, SEM as credenciais (a URL
-     * veio no webhook e não pode receber o token de ninguém).
+     * veio no webhook e não pode receber o token de ninguém). Só endereço
+     * público e até o limite de anexos: a URL pode ter sido forjada por quem
+     * tem o token do webhook (RedeExterna).
      */
     protected function baixarUrl(string $url): string
     {
-        try {
-            $resposta = Cliente::pedir('GET', $url);
-        } catch (ErroTransporte $erro) {
-            throw new ErroCanal('falha de rede ao baixar a mídia: ' . $erro->getMessage());
-        }
-        if ($resposta->status >= 400) {
-            throw new ErroCanal("download da mídia falhou ({$resposta->status})");
-        }
-        return $resposta->corpo;
+        return RedeExterna::baixar($url, Anexos::limiteBytes());
     }
 
-    /** A mensagem traduzida, ou null quando não há nada que valha registrar. @param list<AnexoRecebido> $anexos */
-    protected function montar(string $identificador, ?string $idMensagem, ?string $conteudo, array $anexos, ?string $nome, ?string $tipo): ?MensagemRecebida
+    /**
+     * A mensagem traduzida, ou null quando não há nada que valha registrar.
+     * $lid: o "@lid" do contato quando a entrega também traz o número.
+     *
+     * @param list<AnexoRecebido> $anexos
+     */
+    protected function montar(string $identificador, ?string $idMensagem, ?string $conteudo, array $anexos, ?string $nome, ?string $tipo, ?string $lid = null): ?MensagemRecebida
     {
         if ($conteudo === null || ($conteudo === '' && $anexos === [])) {
             return null;
+        }
+        $metadados = ['tipo_whatsapp' => $tipo];
+        if ($lid !== null && Leitura::eLid($lid) && !Leitura::eLid($identificador)) {
+            // o @lid do contato, para o webhook ligá-lo ao número (Rotas::ligarLid)
+            $metadados[AdaptadorWhatsAppQr::METADADO_LID] = $lid;
         }
         return new MensagemRecebida(
             identificador: $identificador,
             conteudo: $conteudo,
             nome_exibicao: $nome,
             externo_id: $this->adaptador->idExterno($idMensagem),
-            metadados: ['tipo_whatsapp' => $tipo],
+            metadados: $metadados,
             anexos: $anexos,
         );
     }

@@ -3,7 +3,7 @@
  *   <script src="https://SEU-HOST/widget.js"
  *           data-chave="wc_..."            chave pública do canal de webchat
  *           data-titulo="Suporte"
- *           data-cor="#2c5cf6"
+ *           data-cor="#ff9e3d"             opcional; o padrão é o laranja da I&H
  *           data-saudacao="Como podemos ajudar?"></script>
  *
  * Tudo vive dentro de um shadow root, então o CSS do site não interfere no
@@ -29,7 +29,7 @@
   const config = {
     chave: script.dataset.chave,
     titulo: script.dataset.titulo || "Fale com a gente",
-    cor: corSegura(script.dataset.cor) || "#2c5cf6",
+    cor: corSegura(script.dataset.cor) || "#ff9e3d", // laranja da I&H
     saudacao: script.dataset.saudacao || "Olá! Como podemos ajudar?",
     base: new URL(script.src).origin,
   };
@@ -70,7 +70,7 @@
     :host, * { box-sizing: border-box; }
     .bolha {
       position: fixed; bottom: 20px; right: 20px; width: 58px; height: 58px;
-      border-radius: 50%; border: 0; cursor: pointer; color: #fff; background: var(--cor);
+      border-radius: 50%; border: 0; cursor: pointer; color: var(--cor-texto); background: var(--cor);
       box-shadow: 0 6px 24px rgba(0,0,0,.24); font-size: 24px; line-height: 1;
       display: grid; place-items: center; transition: transform .15s ease;
     }
@@ -78,25 +78,25 @@
     .janela {
       position: fixed; bottom: 90px; right: 20px; width: min(370px, calc(100vw - 32px));
       height: min(540px, calc(100vh - 120px));
-      background: #fff; color: #131a2a; border-radius: 16px; overflow: hidden;
+      background: #fff; color: #0e1222; border-radius: 16px; overflow: hidden;
       box-shadow: 0 18px 60px rgba(0,0,0,.28); display: none;
       grid-template-rows: auto 1fr auto auto;
       font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     }
     .janela.aberta { display: grid; }
-    header { background: var(--cor); color: #fff; padding: 14px 16px; }
+    header { background: var(--cor); color: var(--cor-texto); padding: 14px 16px; }
     header b { display: block; font-size: 15px; }
     header span { font-size: 12px; opacity: .9; display: block; }
-    .conversa { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; background: #f5f7fb; }
+    .conversa { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; background: #f4f5fa; }
     .msg { max-width: 84%; padding: 9px 12px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
-    .msg.entrada { align-self: flex-end; background: var(--cor); color: #fff; border-bottom-right-radius: 4px; }
-    .msg.saida { align-self: flex-start; background: #fff; border: 1px solid #e2e7f0; border-bottom-left-radius: 4px; }
+    .msg.entrada { align-self: flex-end; background: var(--cor); color: var(--cor-texto); border-bottom-right-radius: 4px; }
+    .msg.saida { align-self: flex-start; background: #fff; border: 1px solid #dcdfeb; border-bottom-left-radius: 4px; }
     .msg .autor { display: block; font-size: 12px; margin-bottom: 3px; white-space: normal; }
     .msg .autor b { font-weight: 700; }
     .msg .autor .setor { opacity: .7; }
-    form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e7f0; background: #fff; align-items: center; }
+    form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #dcdfeb; background: #fff; align-items: center; }
     .clipe {
-      border: 1px solid #dde3ef; background: #f5f7fb; border-radius: 10px;
+      border: 1px solid #dcdfeb; background: #f4f5fa; border-radius: 10px;
       width: 36px; height: 36px; cursor: pointer; font-size: 15px; flex: none;
     }
     .clipe:disabled { opacity: .5; cursor: progress; }
@@ -107,23 +107,48 @@
       background: rgba(127, 127, 127, .16);
     }
     input, textarea {
-      flex: 1; border: 1px solid #dde3ef; border-radius: 10px; padding: 9px 11px;
+      flex: 1; border: 1px solid #dcdfeb; border-radius: 10px; padding: 9px 11px;
       font: inherit; resize: none; min-width: 0;
     }
-    button.enviar { border: 0; background: var(--cor); color: #fff; border-radius: 10px; padding: 0 16px; cursor: pointer; font-weight: 600; min-height: 38px; }
-    .apresentacao { padding: 16px; display: grid; gap: 10px; align-content: start; background: #f5f7fb; }
-    .apresentacao p { margin: 0 0 4px; color: #66708a; font-size: 13px; }
-    .aviso { font-size: 12px; color: #d93a3a; padding: 6px 14px; background: #f5f7fb; }
+    button.enviar { border: 0; background: var(--cor); color: var(--cor-texto); border-radius: 10px; padding: 0 16px; cursor: pointer; font-weight: 600; min-height: 38px; }
+    .apresentacao { padding: 16px; display: grid; gap: 10px; align-content: start; background: #f4f5fa; }
+    .apresentacao p { margin: 0 0 4px; color: #585f76; font-size: 13px; }
+    .aviso { font-size: 12px; color: #c42b2b; padding: 6px 14px; background: #f4f5fa; }
+    /* escuro: o azul-noite e o lilás do logo da I&H */
     @media (prefers-color-scheme: dark) {
-      .janela { background: #161c2e; color: #e8ecf6; }
-      .conversa, .apresentacao, .aviso { background: #0e1220; }
-      .msg.saida { background: #1e2740; border-color: #2a3348; }
-      form { background: #161c2e; border-color: #2a3348; }
-      input, textarea { background: #1e2740; border-color: #2a3348; color: #e8ecf6; }
+      .janela { background: #0d1120; color: #eaedf7; }
+      .conversa, .apresentacao, .aviso { background: #060912; }
+      .apresentacao p { color: #9ba2bd; }
+      .aviso { color: #ff6b6b; }
+      .msg.saida { background: #161b2e; border-color: #262c43; }
+      form { background: #0d1120; border-color: #262c43; }
+      input, textarea, .clipe { background: #161b2e; border-color: #262c43; color: #eaedf7; }
     }
   `;
   raiz.appendChild(estilo);
   hospedeiro.style.setProperty("--cor", config.cor);
+  hospedeiro.style.setProperty("--cor-texto", textoSobre(config.cor));
+
+  /* Branco ou azul-noite, o que contrastar mais com a cor do site. Branco no
+     laranja da I&H dá 2,06:1 (WCAG pede 4,5:1); azul-noite dá 9,67:1. A cor
+     pode vir em qualquer formato CSS, então o navegador a converte para rgb. */
+  function textoSobre(cor) {
+    const sonda = document.createElement("span");
+    sonda.style.color = cor;
+    sonda.style.display = "none";
+    document.body.appendChild(sonda);
+    const partes = (getComputedStyle(sonda).color.match(/[\d.]+/g) || []).map(Number);
+    sonda.remove();
+    if (partes.length < 3) return "#fff";
+    const canal = (c) => {
+      const v = c / 255;
+      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    };
+    const luz = 0.2126 * canal(partes[0]) + 0.7152 * canal(partes[1]) + 0.0722 * canal(partes[2]);
+    const contraBranco = 1.05 / (luz + 0.05);
+    const contraNoite = (luz + 0.05) / (0.0028 + 0.05); // #060912 tem luminância ~0,0028
+    return contraBranco >= contraNoite ? "#fff" : "#060912";
+  }
 
   /** Elemento com texto (nunca HTML: título e saudação vêm do site). */
   function el(tag, atributos = {}, ...filhos) {

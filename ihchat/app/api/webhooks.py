@@ -1,21 +1,31 @@
 """Recepcao de mensagens vindas dos provedores."""
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from starlette.datastructures import UploadFile
 
-from ..canais.base import AdaptadorCanal, AnexoRecebido, MensagemRecebida
+from ..canais.base import AdaptadorCanal, AnexoRecebido, AtualizacaoStatus, MensagemRecebida
 from ..canais.email import AdaptadorEmail
 from ..canais.registro import CanalNaoSuportado, adaptador_para
 from ..canais.whatsapp import AdaptadorWhatsApp, entrega_com, valores_por_numero
-from ..canais.whatsapp_qr import ASSINATURA_DO_CELULAR, AdaptadorWhatsAppQR, credenciais_com_conexao
+from ..canais.whatsapp_qr import (
+    ASSINATURA_DO_CELULAR,
+    METADADO_LID,
+    RECIBO_SUBSTITUI,
+    AdaptadorWhatsAppQR,
+    credenciais_com_conexao,
+    e_lid,
+)
 from ..dependencias import Sessao
 from ..models import (
     Canal,
+    ContatoIdentidade,
     Conversa,
     Direcao,
     Mensagem,
@@ -25,12 +35,14 @@ from ..models import (
     TipoMensagem,
     agora,
 )
+from ..serializacao import conexao_do_canal
 from ..servicos import anexos as svc_anexos
 from ..servicos.contatos import resolver_contato
 from ..servicos.conversas import obter_ou_criar_conversa
 from ..servicos.mensagens import (
     aplicar_status_externo,
     ja_processada,
+    publicar_canal,
     publicar_conversa,
     publicar_mensagem,
     registrar_entrada,
@@ -145,6 +157,95 @@ def _destinos(sessao, canal: Canal, adaptador: AdaptadorCanal, payload: dict) ->
     ]
 
 
+# ---------------------------------------- WhatsApp pelo QR Code: o @lid
+def _dono_da_identidade(sessao, canal_tipo: str, identificador: str) -> int | None:
+    return sessao.scalar(
+        select(ContatoIdentidade.contato_id).where(
+            ContatoIdentidade.canal_tipo == canal_tipo, ContatoIdentidade.identificador == identificador
+        )
+    )
+
+
+def _ligar_identidade(sessao, contato_id: int, canal_tipo: str, identificador: str, nome: str | None) -> None:
+    """Mais uma identidade do contato; se outra entrega a gravou ao mesmo
+    tempo (índice único), fica valendo a dela."""
+    try:
+        with sessao.begin_nested():
+            sessao.add(
+                ContatoIdentidade(contato_id=contato_id, canal_tipo=canal_tipo, identificador=identificador, nome_exibicao=nome)
+            )
+    except IntegrityError:
+        pass
+
+
+def ligar_lid(sessao, canal: Canal, recebida: MensagemRecebida) -> MensagemRecebida:
+    """O mesmo cliente com número e com @lid fica UM contato (e uma conversa).
+
+    O WhatsApp esconde o número de parte dos contatos atrás de um "@lid", e o
+    provedor manda ora um, ora outro. Quando a entrega traz os dois, o @lid
+    vira mais uma identidade do contato do número; quando traz só o @lid, a
+    mensagem vai para o número já ligado a ele (é para o número que a
+    resposta volta). Igual ao Rotas::ligarLid do PHP.
+    """
+    tipo = canal.tipo
+    if ja_processada(sessao, recebida.externo_id) is not None:
+        return recebida  # reentrega: nada a ligar
+    if e_lid(recebida.identificador):
+        dono = _dono_da_identidade(sessao, tipo, recebida.identificador)
+        if dono is None:
+            return recebida
+        numero = sessao.scalar(
+            select(ContatoIdentidade.identificador)
+            .where(
+                ContatoIdentidade.contato_id == dono,
+                ContatoIdentidade.canal_tipo == tipo,
+                ContatoIdentidade.identificador.not_like("%@lid"),
+            )
+            .order_by(ContatoIdentidade.id)
+            .limit(1)
+        )
+        return dataclasses.replace(recebida, identificador=numero) if numero else recebida
+    lid = (recebida.metadados or {}).get(METADADO_LID)
+    if not e_lid(lid):
+        return recebida
+    do_numero = _dono_da_identidade(sessao, tipo, recebida.identificador)
+    do_lid = _dono_da_identidade(sessao, tipo, lid)
+    if do_numero is None and do_lid is not None:
+        # o cliente escreveu antes só com o @lid: o número passa a ser dele
+        _ligar_identidade(sessao, do_lid, tipo, recebida.identificador, recebida.nome_exibicao)
+    elif do_lid is None:
+        dono = do_numero or resolver_contato(sessao, tipo, recebida.identificador, recebida.nome_exibicao).id
+        _ligar_identidade(sessao, dono, tipo, lid, recebida.nome_exibicao)
+    sessao.flush()
+    return recebida
+
+
+def aplicar_recibos_em_ordem(sessao, recibos: list[AtualizacaoStatus]) -> list[Mensagem]:
+    """Recibos do WhatsApp pelo QR Code: só AVANÇAM o status (RECIBO_SUBSTITUI).
+
+    A condição vai no próprio UPDATE: dois recibos quase simultâneos (entrega
+    e leitura com o cliente na conversa) não se atropelam. Igual ao PHP.
+    """
+    alteradas: list[Mensagem] = []
+    for recibo in recibos:
+        anteriores = RECIBO_SUBSTITUI.get(recibo.status.value)
+        if not anteriores or not recibo.externo_id:
+            continue
+        resultado = sessao.execute(
+            update(Mensagem)
+            .where(Mensagem.externo_id == recibo.externo_id, Mensagem.status.in_(anteriores))
+            .values(status=recibo.status.value)
+            .execution_options(synchronize_session=False)
+        )
+        if resultado.rowcount:
+            mensagem = sessao.scalar(select(Mensagem).where(Mensagem.externo_id == recibo.externo_id))
+            if mensagem is not None:
+                sessao.refresh(mensagem)
+                alteradas.append(mensagem)
+    sessao.flush()
+    return alteradas
+
+
 # ------------------------------------------- WhatsApp pelo QR Code: o celular
 def _conversa_do_celular(sessao, contato, canal: Canal) -> Conversa:
     """Onde entra a resposta que o dono deu pelo celular.
@@ -176,6 +277,7 @@ def registrar_do_celular(
     próprio IHchat mandou e voltou pelo webhook). Igual ao DoCelular.php."""
     if ja_processada(sessao, recebida.externo_id) is not None:
         return None
+    recebida = ligar_lid(sessao, canal, recebida)
     contato = resolver_contato(sessao, canal.tipo, recebida.identificador, recebida.nome_exibicao)
     conversa = _conversa_do_celular(sessao, contato, canal)
     tinha_entrada = sessao.scalar(
@@ -245,14 +347,18 @@ async def receber(canal_id: int, request: Request, sessao: Sessao) -> dict:
 
     novas, conversas, atualizadas = [], {}, []
     for destino, recebidas, recibos in lotes:
+        qr = destino.tipo == TipoCanal.WHATSAPP_QR.value
         for recebida in recebidas:
+            if qr:
+                recebida = ligar_lid(sessao, destino, recebida)
             mensagem = registrar_entrada(sessao, destino, recebida)
             if mensagem is not None:  # None = reentrega do mesmo webhook
                 novas.append(mensagem)
                 conversas[mensagem.conversa_id] = mensagem.conversa
-        atualizadas.extend(aplicar_status_externo(sessao, recibos))
+        atualizadas.extend(aplicar_recibos_em_ordem(sessao, recibos) if qr else aplicar_status_externo(sessao, recibos))
 
     do_celular = []
+    conexao_mudou = False
     if isinstance(adaptador, AdaptadorWhatsAppQR):
         for recebida in adaptador.analisar_do_celular(payload):
             mensagem = registrar_do_celular(sessao, canal, adaptador, recebida)
@@ -264,8 +370,12 @@ async def receber(canal_id: int, request: Request, sessao: Sessao) -> dict:
             # dict novo: o SQLAlchemy não percebe mudança dentro do JSON carregado
             credenciais = credenciais_com_conexao(canal.credenciais or {}, *conexao)
             if credenciais is not None:
+                antes = conexao_do_canal(canal)
                 canal.credenciais = credenciais
+                conexao_mudou = conexao_do_canal(canal) != antes
     sessao.commit()
+    if conexao_mudou:
+        publicar_canal(canal)  # o celular conectou ou caiu: a equipe vê na hora
 
     for mensagem in [*novas, *do_celular]:
         publicar_mensagem(mensagem)

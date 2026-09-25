@@ -55,6 +55,12 @@
     leitura: null,
     atendentes: null, // cache de /api/atendentes para os formulários
     iniciando: null,
+    carregandoSalas: null, // a recarga da lista em andamento (uma só por vez)
+    salasSujas: false, // chegou pedido de recarga durante a que está em andamento
+    salasCarregadas: false, // já veio a primeira lista (antes disso, sala "nova" não é novidade)
+    pendentes: new Map(), // sala ainda desconhecida -> mensagens que chegaram dela
+    novasAbaixo: 0, // chegaram com a pessoa lendo mais acima: não contam como lidas
+    naoEnviada: null, // {conteudo, conversa, sala}: a sala sumiu no envio; volta no redator
   };
 
   /* ----------------------------------------------------------- utilidades */
@@ -235,6 +241,12 @@
   rolagem.setAttribute("aria-relevant", "additions");
   rolagem.setAttribute("aria-labelledby", "interno-sala-titulo");
   rolagem.tabIndex = 0;
+  // "N mensagens novas": quem está lendo mais acima não é puxado para baixo,
+  // e o que chegou não conta como lido até ele descer
+  const areaMensagens = el("div", "interno-mensagens-area");
+  const novasBotao = botao("", "interno-novas");
+  novasBotao.hidden = true;
+  areaMensagens.append(rolagem, novasBotao);
 
   const redator = el("form", "interno-redator");
   redator.setAttribute("aria-label", "Escrever para a sala");
@@ -256,6 +268,8 @@
   const rodapeRedator = el("div", "interno-redator-rodape");
   const anexarConversa = botao("+ Conversa aberta", "botao discreto pequeno");
   anexarConversa.title = "Anexar como cartão a conversa de cliente aberta no painel";
+  // sempre ativo: a conversa aberta no painel muda por trás da gaveta, e o
+  // clique confere qual é (sem nenhuma, avisa)
   const dicaRedator = el("span", "interno-dica", "Enter envia · Shift+Enter quebra linha · @ menciona");
   const enviarBotao = el("button", "botao pequeno", "Enviar");
   enviarBotao.type = "submit";
@@ -269,7 +283,7 @@
     el("p", "", "Escolha uma sala para conversar com a equipe."),
     el("p", "interno-dica", "Nada daqui chega aos clientes."),
   );
-  sala.append(salaTopo, rolagem, redator);
+  sala.append(salaTopo, areaMensagens, redator);
   sala.hidden = true;
 
   // formulários (conversa direta, novo grupo, membros)
@@ -330,7 +344,13 @@
       editando: null,
       ordem: [],
       atendentes: null,
+      salasCarregadas: false,
+      salasSujas: false,
+      novasAbaixo: 0,
+      naoEnviada: null,
     });
+    estado.pendentes.clear();
+    atualizarNovasAbaixo();
     estado.salas.clear();
     estado.detalhes.clear();
     estado.mensagens.clear();
@@ -366,9 +386,38 @@
   });
 
   /* ---------------------------------------------------------------- salas */
-  async function carregarSalas() {
-    if (!estado.token) return;
+  /**
+   * Recarrega a lista de salas, um pedido por vez: um lote de eventos chega
+   * de uma vez só (várias mensagens de uma sala nova), e cada uma pedindo a
+   * lista viraria uma rajada de GETs (na hospedagem, um processo PHP cada).
+   * Quem pede durante a recarga recebe a mesma promessa, e ela refaz uma vez
+   * no fim (o que chegou pode ser mais novo que a resposta em andamento).
+   */
+  function carregarSalas() {
+    if (!estado.token) return Promise.resolve();
+    if (estado.carregandoSalas) {
+      estado.salasSujas = true;
+      return estado.carregandoSalas;
+    }
+    const esta = (async () => {
+      try {
+        do {
+          estado.salasSujas = false;
+          await buscarSalas();
+        } while (estado.salasSujas && estado.token);
+      } finally {
+        if (estado.carregandoSalas === esta) estado.carregandoSalas = null;
+      }
+    })();
+    estado.carregandoSalas = esta;
+    return esta;
+  }
+
+  async function buscarSalas() {
+    const token = estado.token;
     const salas = await api("GET", "/api/interno/salas");
+    if (estado.token !== token) return; // saiu (ou trocou de pessoa) no meio
+    estado.salasCarregadas = true;
     estado.salas = new Map(salas.map((s) => [s.id, s]));
     estado.ordem = salas.map((s) => s.id);
     for (const id of [...estado.mencionado]) {
@@ -525,6 +574,24 @@
   }
 
   abrirBotao.addEventListener("click", () => (gaveta.hidden ? abrirGaveta() : fecharGaveta()));
+
+  // Clicar numa conversa da lista do painel com a gaveta por cima da coluna
+  // da conversa (notebook): a conversa abriria escondida, sem retorno
+  // nenhum. Fecha a gaveta (como o cartão faz); o que estava na sala fica.
+  // Em captura: o painel pode redesenhar a lista no próprio clique.
+  document.addEventListener(
+    "click",
+    (evento) => {
+      if (gaveta.hidden || !evento.target.closest?.("#lista-conversas .item")) return;
+      const conversa = document.querySelector(".conversa");
+      if (!conversa) return;
+      const r = conversa.getBoundingClientRect();
+      const g = gaveta.getBoundingClientRect();
+      const coberto = Math.max(0, Math.min(r.right, g.right) - Math.max(r.left, g.left));
+      if (r.width === 0 || coberto > r.width / 2) fecharGaveta(false);
+    },
+    true,
+  );
   fechar.addEventListener("click", () => fecharGaveta());
   voltar.addEventListener("click", () => {
     fecharSala();
@@ -558,6 +625,16 @@
     if (anterior !== id) {
       texto.value = "";
       ajustarAltura();
+      estado.novasAbaixo = 0;
+      atualizarNovasAbaixo();
+    }
+    const perdida = estado.naoEnviada;
+    if (perdida && perdida.sala !== id) {
+      // a mensagem que não foi (a sala sumiu no envio) volta para ser revista aqui
+      estado.naoEnviada = null;
+      texto.value = perdida.conteudo;
+      if (perdida.conversa !== null) estado.anexada = perdida.conversa;
+      ajustarAltura();
     }
     desenharAnexo();
     mostrar("sala");
@@ -588,13 +665,22 @@
   function fecharSala() {
     estado.aberta = null;
     estado.editando = null;
+    estado.novasAbaixo = 0;
+    atualizarNovasAbaixo();
     fecharSugestoes();
     mostrar("lista");
     desenharLista();
   }
 
-  function salaSumiu(id) {
-    const nome = estado.salas.get(id)?.nome;
+  /**
+   * A sala deixou de ser minha (tirada do grupo, setor trocado, 404). Se eu
+   * estava escrevendo nela, o texto (e o cartão) não se perde: volta no
+   * redator da próxima sala que eu abrir. `motivo` "envio": era o envio.
+   */
+  function salaSumiu(id, motivo) {
+    const nome = estado.salas.get(id)?.nome || estado.naoEnviada?.nome;
+    const escrevendo = estado.aberta === id && (texto.value.trim() !== "" || estado.anexada !== null);
+    if (escrevendo) estado.naoEnviada = { conteudo: texto.value, conversa: estado.anexada, sala: id, nome };
     estado.salas.delete(id);
     estado.ordem = estado.ordem.filter((x) => x !== id);
     estado.detalhes.delete(id);
@@ -603,7 +689,14 @@
     if (estado.aberta === id) fecharSala();
     else desenharLista();
     atualizarContador();
-    if (nome) avisar(`Você não participa mais de “${nome}”.`);
+    const onde = nome ? `“${nome}”` : "essa sala";
+    if (motivo === "envio") {
+      avisar(`Sua mensagem não foi enviada: você não participa mais de ${onde}. O texto volta no campo quando você abrir outra sala.`);
+    } else if (nome || escrevendo) {
+      avisar(
+        `Você não participa mais de ${onde}.${escrevendo ? " O que você estava escrevendo volta no campo quando abrir outra sala." : ""}`,
+      );
+    }
   }
 
   function desenharCabecalhoSala() {
@@ -863,6 +956,22 @@
     return cartao;
   }
 
+  function seloAdmin() {
+    const selo = el("span", "interno-selo", "admin");
+    selo.title = "Administrador do IHchat (o nome e o setor cada um muda no perfil; isto não)";
+    return selo;
+  }
+
+  /** Nomes que aparecem mais de uma vez na lista: esses ganham o #id ao lado. */
+  function nomesRepetidos(pessoas) {
+    const contagem = new Map();
+    for (const p of pessoas) {
+      const chave = semAcento(String(p.nome).trim().replace(/\s+/g, " "));
+      contagem.set(chave, (contagem.get(chave) || 0) + 1);
+    }
+    return (p) => (contagem.get(semAcento(String(p.nome).trim().replace(/\s+/g, " "))) || 0) > 1;
+  }
+
   function elementoDaMensagem(m, continua) {
     const minha = m.autor?.id === estado.eu?.id;
     const mencionaMe = !m.apagada && (m.mencoes || []).includes(estado.eu?.id);
@@ -879,6 +988,8 @@
     const avatar = el("span", "interno-avatar", iniciais(autor));
     avatar.setAttribute("aria-hidden", "true");
     cabecalho.append(avatar, el("strong", "interno-msg-autor", autor));
+    // vem do papel (só o admin muda); nome e setor qualquer um troca no perfil
+    if (m.autor?.admin) cabecalho.append(seloAdmin());
     if (m.autor?.setor) cabecalho.append(el("span", "interno-msg-setor", m.autor.setor));
     const quando = el("time", "interno-msg-hora", hora(m.criada_em));
     quando.dateTime = m.criada_em;
@@ -1010,9 +1121,19 @@
       ajustarAltura();
       estado.anexada = null;
       desenharAnexo();
+      // o cartão compartilhado já foi: a faixa "anexado nesta sala" sai junto
+      if (conversaId !== null && estado.compartilhando === null) faixaCompartilhar.hidden = true;
       receberMensagem(mensagem, true);
     } catch (erro) {
-      if (erro.situacao === 404 && erro.message.includes("sala")) return salaSumiu(id);
+      if (erro.situacao === 404 && erro.message.includes("sala")) {
+        // a sala sumiu (setor trocado, tirada do grupo): o texto não se perde,
+        // volta no redator da próxima sala aberta
+        // (se o aviso de "saiu" chegou antes da resposta, o texto já foi guardado)
+        if (!estado.naoEnviada) {
+          estado.naoEnviada = { conteudo, conversa: conversaId, sala: id, nome: estado.salas.get(id)?.nome };
+        }
+        return salaSumiu(id, "envio");
+      }
       mostrarErro(erro.message);
     } finally {
       enviarBotao.disabled = false;
@@ -1065,6 +1186,7 @@
       })
       .slice(0, 6);
     if (!achados.length) return fecharSugestoes();
+    const repetido = nomesRepetidos(estado.detalhes.get(estado.aberta)?.membros || []);
     sugestoes.replaceChildren(
       ...achados.map((m, i) => {
         const li = el("li", "interno-sugestao");
@@ -1072,6 +1194,9 @@
         li.setAttribute("role", "option");
         li.dataset.nome = m.nome;
         li.append(el("strong", "", m.nome));
+        if (m.admin) li.append(seloAdmin());
+        // nome repetido na sala: o servidor não menciona ninguém por ele
+        if (repetido(m)) li.append(el("span", "interno-repetido", `#${m.id} · nome repetido, não avisa`));
         if (m.setor) li.append(el("span", "", m.setor));
         li.addEventListener("mousedown", (evento) => {
           evento.preventDefault(); // não tira o foco do texto
@@ -1133,23 +1258,33 @@
 
   /* ------------------------------------------------ conversa de cliente */
   function conversaAbertaNoPainel() {
-    const item = document.querySelector("#lista-conversas .item.ativo[data-id]");
-    const id = item ? Number(item.dataset.id) : NaN;
+    // o painel marca a conversa na tela, mesmo fora do filtro da lista; o item
+    // ativo da lista fica como reserva para um painel antigo em cache
+    const aberta = document.querySelector("#conversa-conteudo:not([hidden])[data-conversa-id]");
+    const item = aberta ? null : document.querySelector("#lista-conversas .item.ativo[data-id]");
+    const id = Number(aberta ? aberta.dataset.conversaId : item?.dataset.id);
     return Number.isInteger(id) && id > 0 ? id : null;
   }
 
+  /** Só o título: o botão fica sempre ativo e o clique confere a conversa. */
   function atualizarAnexarConversa() {
     const id = conversaAbertaNoPainel();
-    anexarConversa.disabled = id === null;
     anexarConversa.title =
       id === null
-        ? "Abra uma conversa de cliente no painel para anexá-la aqui"
+        ? "Anexar como cartão a conversa de cliente aberta no painel (abra uma na lista)"
         : `Anexar a conversa #${id} (aberta no painel) como cartão`;
   }
 
+  anexarConversa.addEventListener("pointerenter", atualizarAnexarConversa);
+  anexarConversa.addEventListener("focus", atualizarAnexarConversa);
   anexarConversa.addEventListener("click", () => {
     const id = conversaAbertaNoPainel();
-    if (id === null) return atualizarAnexarConversa();
+    atualizarAnexarConversa();
+    if (id === null) {
+      mostrarErro("Nenhuma conversa de cliente aberta: abra uma na lista do painel e clique de novo.");
+      return texto.focus();
+    }
+    mostrarErro("");
     estado.anexada = id;
     desenharAnexo();
     texto.focus();
@@ -1399,12 +1534,15 @@
     }
 
     const ul = el("ul", "interno-pessoas");
+    const repetido = nomesRepetidos(detalhe.membros);
     for (const m of detalhe.membros) {
       const li = el("li", "interno-pessoa");
       const avatar = el("span", "interno-avatar", iniciais(m.nome));
       avatar.setAttribute("aria-hidden", "true");
       const nome = el("span", "interno-pessoa-nome");
       const extra = [m.setor || "sem setor"];
+      if (m.admin) extra.push("admin do IHchat");
+      if (repetido(m)) extra.push(`#${m.id}, nome repetido`);
       if (!m.ativo) extra.push("inativo");
       if (detalhe.tipo === "grupo" && m.id === detalhe.criada_por) extra.push("administra");
       if (m.id === estado.eu?.id) extra.push("você");
@@ -1505,6 +1643,7 @@
       const id = estado.aberta;
       const s = estado.salas.get(id);
       if (!s || !vendo(id)) return;
+      if (!pertoDoFim()) return atualizarNovasAbaixo(); // lendo mais acima: o que está embaixo não foi lido
       const ultima = estado.mensagens.get(id)?.lista.at(-1)?.id || s.ultima_mensagem?.id || 0;
       if (!s.nao_lidas && s.lida_ate >= ultima && !estado.mencionado.has(id)) return;
       try {
@@ -1527,6 +1666,28 @@
     desenharLista();
     atualizarContador();
   }
+
+  function atualizarNovasAbaixo() {
+    const n = estado.novasAbaixo;
+    novasBotao.hidden = n === 0;
+    novasBotao.textContent = n === 1 ? "1 mensagem nova ↓" : `${n} mensagens novas ↓`;
+    novasBotao.setAttribute("aria-label", `${novasBotao.textContent.slice(0, -2)}: ir para o fim`);
+  }
+
+  novasBotao.addEventListener("click", () => {
+    rolagem.scrollTop = rolagem.scrollHeight;
+    chegouAoFim();
+    rolagem.focus({ preventScroll: true });
+  });
+
+  function chegouAoFim() {
+    if (!estado.novasAbaixo || !pertoDoFim()) return;
+    estado.novasAbaixo = 0;
+    atualizarNovasAbaixo();
+    marcarLidaEmBreve();
+  }
+
+  rolagem.addEventListener("scroll", chegouAoFim, { passive: true });
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && estado.aberta !== null) marcarLidaEmBreve();
@@ -1555,6 +1716,14 @@
       const s = estado.salas.get(dados.sala_id);
       if (s?.ultima_mensagem?.id === dados.id) s.ultima_mensagem = dados;
       guardarMensagem(dados);
+      if (dados.apagada) {
+        // chegou (e contou, e avisou) antes de ser apagada: o aviso sai da
+        // tela e o total volta do servidor, que não conta mensagem apagada
+        for (const aviso of toasts.querySelectorAll(".interno-toast[data-mensagem]")) {
+          if (Number(aviso.dataset.mensagem) === dados.id) aviso.remove();
+        }
+        if (s && dados.autor?.id !== estado.eu?.id && dados.id > (s.lida_ate || 0)) recarregarSalasEmBreve();
+      }
       if (estado.editando === dados.id && dados.apagada) {
         estado.editando = null; // apagada em outra aba: não há o que editar
         estado.rascunho = "";
@@ -1566,7 +1735,16 @@
     if (tipo === "interno.sala") {
       if (dados.acao === "saiu") return salaSumiu(dados.sala_id);
       estado.detalhes.delete(dados.sala_id);
-      recarregarSalasEmBreve();
+      if (estado.salasCarregadas && !estado.salas.has(dados.sala_id)) {
+        // sala que eu não tinha: me puseram num grupo (criado ou "atualizado"
+        // com adicionar), entrei num setor. Recarrega já e avisa.
+        const id = dados.sala_id;
+        carregarSalas()
+          .then(() => avisarInclusao(id))
+          .catch(() => null);
+      } else {
+        recarregarSalasEmBreve();
+      }
       if (estado.aberta === dados.sala_id) {
         api("GET", `/api/interno/salas/${dados.sala_id}`)
           .then((detalhe) => {
@@ -1584,29 +1762,32 @@
   function chegouMensagem(m) {
     const s = estado.salas.get(m.sala_id);
     const minha = m.autor?.id === estado.eu?.id;
-    const mencionaMe = (m.mencoes || []).includes(estado.eu?.id);
+    const mencionaMe = !m.apagada && (m.mencoes || []).includes(estado.eu?.id);
     if (!s) {
-      // sala nova para mim (alguém abriu uma direta ou me pôs num grupo): o
-      // servidor já conta esta mensagem como não lida; só falta avisar
-      carregarSalas()
-        .then(() => {
-          const nova = estado.salas.get(m.sala_id);
-          if (!nova || minha) return;
-          if (mencionaMe) estado.mencionado.add(nova.id);
-          atualizarContador();
-          if (!nova.silenciada || mencionaMe) avisarMensagem(m, nova);
-        })
-        .catch(() => null);
+      if (!m.apagada) chegouDeSalaNova(m);
       return;
     }
     // já vista: repetida pela reconexão, ou contada quando a lista veio
     const jaVista =
       (s.ultima_mensagem && m.id <= s.ultima_mensagem.id) ||
       Boolean(estado.mensagens.get(m.sala_id)?.lista.some((x) => x.id === m.id));
+    const noFim = pertoDoFim(); // antes de redesenhar com a mensagem nova
     receberMensagem(m);
-    if (jaVista || minha) return;
+    // apagada antes de chegar (a fila guarda a versão apagada): só ocupa o
+    // lugar; não é não lida (o servidor também não conta) nem avisa
+    if (jaVista || minha || m.apagada) return;
     if (vendo(m.sala_id)) {
-      marcarLidaEmBreve();
+      if (noFim) {
+        marcarLidaEmBreve();
+        return;
+      }
+      // lendo mais acima: fica não lida, com o "N mensagens novas ↓"
+      s.nao_lidas = (s.nao_lidas || 0) + 1;
+      if (mencionaMe) estado.mencionado.add(s.id);
+      estado.novasAbaixo += 1;
+      atualizarNovasAbaixo();
+      desenharLista();
+      atualizarContador();
       return;
     }
     s.nao_lidas = (s.nao_lidas || 0) + 1;
@@ -1616,28 +1797,120 @@
     if (!s.silenciada || mencionaMe) avisarMensagem(m, s);
   }
 
-  /* ------------------------------------------------ toast e navegador */
-  function avisar(mensagem) {
-    const aviso = el("div", "interno-toast simples", mensagem);
-    toasts.append(aviso);
-    while (toasts.children.length > MAX_TOASTS) toasts.firstChild.remove();
-    setTimeout(() => aviso.remove(), 4000);
+  /**
+   * Mensagem de uma sala que ainda não está na lista (alguém abriu uma direta
+   * ou me pôs num grupo). As do mesmo lote esperam UMA recarga da lista e
+   * viram UM aviso; o servidor já as conta como não lidas.
+   */
+  function chegouDeSalaNova(m) {
+    const fila = estado.pendentes.get(m.sala_id);
+    if (fila) {
+      fila.push(m);
+      return;
+    }
+    estado.pendentes.set(m.sala_id, [m]);
+    carregarSalas()
+      .catch(() => null)
+      .then(() => avisarPendentes(m.sala_id));
   }
 
-  function avisarMensagem(m, s) {
+  function avisarPendentes(salaId) {
+    const fila = estado.pendentes.get(salaId) || [];
+    estado.pendentes.delete(salaId);
+    const s = estado.salas.get(salaId);
+    if (!s) return;
+    const deOutros = fila.filter((m) => m.autor?.id !== estado.eu?.id && !m.apagada && m.id > (s.lida_ate || 0));
+    if (!deOutros.length) return;
+    const mencionaMe = deOutros.some((m) => (m.mencoes || []).includes(estado.eu?.id));
+    if (mencionaMe) estado.mencionado.add(salaId);
+    desenharLista();
+    atualizarContador();
+    if (!s.silenciada || mencionaMe) avisarMensagem(deOutros[deOutros.length - 1], s, deOutros.length, mencionaMe);
+  }
+
+  /** "Você foi incluído no grupo": sem isto a pessoa só descobria abrindo a gaveta. */
+  function avisarInclusao(salaId) {
+    const s = estado.salas.get(salaId);
+    // direta nova avisa pela primeira mensagem; a mensagem do mesmo lote já avisa
+    if (!s || s.tipo === "direta" || estado.pendentes.has(salaId)) return;
+    if (s.tipo === "grupo" && s.criada_por === estado.eu?.id) return; // eu mesmo criei (o evento chegou antes da resposta)
+    if (!gaveta.hidden && lista.getClientRects().length > 0) return; // a sala nova já aparece na lista
+    const textoAviso = s.tipo === "grupo" ? `Você foi incluído no grupo “${s.nome}”.` : `Você agora participa de “${s.nome}”.`;
+    const toast = botao(undefined, "interno-toast");
+    // a primeira mensagem da sala toma o lugar deste aviso (um aviso por sala)
+    toast.dataset.sala = String(salaId);
+    toast.dataset.quantas = "0";
+    toast.append(el("span", "interno-toast-topo", textoAviso), el("span", "interno-toast-texto", "Abrir no chat da equipe"));
+    toast.setAttribute("aria-label", `${textoAviso} Abrir no chat da equipe`);
+    toast.addEventListener("click", () => {
+      toast.remove();
+      abrirGaveta(salaId);
+    });
+    mostrarToast(toast, 6500);
+  }
+
+  /* ------------------------------------------------ toast e navegador */
+  /**
+   * Os avisos ficam acima do redator que estiver na tela (o da resposta ao
+   * cliente ou o do próprio chat): por cima dele, um clique no "Enviar" caía
+   * no aviso e a resposta não ia. Sem redator à vista, no canto de baixo.
+   */
+  function posicionarToasts() {
+    const redatores = [document.getElementById("redator")];
+    if (!gaveta.hidden && !sala.hidden) redatores.push(redator);
+    let topo = Infinity;
+    for (const r of redatores) {
+      if (!r || !r.getClientRects().length) continue;
+      const caixa = r.getBoundingClientRect();
+      if (caixa.height > 0 && caixa.top > 0 && caixa.top < window.innerHeight) topo = Math.min(topo, caixa.top);
+    }
+    toasts.style.bottom = topo === Infinity ? "" : `${Math.max(16, Math.round(window.innerHeight - topo + 12))}px`;
+  }
+
+  function mostrarToast(toast, duracao) {
+    posicionarToasts();
+    toasts.append(toast);
+    while (toasts.children.length > MAX_TOASTS) toasts.firstChild.remove();
+    setTimeout(() => toast.remove(), duracao);
+  }
+
+  function avisar(mensagem) {
+    mostrarToast(el("div", "interno-toast simples", mensagem), 4000);
+  }
+
+  /**
+   * Aviso de mensagem nova. Um por sala: se já há um desta sala na tela, ele
+   * passa a contar esta também ("3 mensagens novas"), em vez de empilhar um
+   * por mensagem. `quantas` > 1 quando várias chegaram juntas.
+   */
+  function avisarMensagem(m, s, quantas = 1, mencionaTodas = null) {
+    if (m.apagada) return; // nada a mostrar: nem aviso vazio, nem Notification
     const autor = m.autor?.nome || "Alguém da equipe";
     const onde = s ? (s.tipo === "direta" ? "mensagem direta" : s.nome) : "chat da equipe";
-    const mencionaMe = (m.mencoes || []).includes(estado.eu?.id);
-    const corpo = m.conteudo ? resumo(m.conteudo, 120) : m.conversa ? `Compartilhou a conversa de ${m.conversa.contato}` : "";
+    let mencionaMe = mencionaTodas ?? (m.mencoes || []).includes(estado.eu?.id);
+    const ultima = m.conteudo ? resumo(m.conteudo, 120) : m.conversa ? `Compartilhou a conversa de ${m.conversa.contato}` : "";
+    const juntar = (n) => (n > 1 ? `${n} mensagens novas. Última: ${ultima}` : ultima);
 
     if (document.hidden) {
-      notificarNavegador(m, s, autor, onde, corpo, mencionaMe);
+      notificarNavegador(m, s, autor, onde, juntar(quantas), mencionaMe);
       return;
     }
     if (vendo(m.sala_id)) return;
     // gaveta aberta com a lista à vista: o contador na sala já é o aviso
     if (!gaveta.hidden && lista.getClientRects().length > 0) return;
+    const anterior = [...toasts.querySelectorAll(".interno-toast[data-sala]")].find(
+      (t) => Number(t.dataset.sala) === m.sala_id,
+    );
+    if (anterior) {
+      quantas += Number(anterior.dataset.quantas ?? 1);
+      mencionaMe = mencionaMe || anterior.classList.contains("mencao");
+      anterior.remove();
+    }
+    const corpo = juntar(quantas);
     const toast = botao(undefined, `interno-toast${mencionaMe ? " mencao" : ""}`);
+    toast.dataset.sala = String(m.sala_id);
+    toast.dataset.mensagem = String(m.id); // se ela for apagada, o aviso sai
+    toast.dataset.quantas = String(quantas);
     const linha = el("span", "interno-toast-topo");
     linha.append(el("strong", "", autor), el("span", "", mencionaMe ? `mencionou você em ${onde}` : onde));
     toast.append(linha, el("span", "interno-toast-texto", corpo));
@@ -1646,9 +1919,7 @@
       toast.remove();
       abrirGaveta(m.sala_id);
     });
-    toasts.append(toast);
-    while (toasts.children.length > MAX_TOASTS) toasts.firstChild.remove();
-    setTimeout(() => toast.remove(), 6500);
+    mostrarToast(toast, 6500);
   }
 
   function notificarNavegador(m, s, autor, onde, corpo, mencionaMe) {

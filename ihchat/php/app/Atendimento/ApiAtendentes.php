@@ -7,8 +7,10 @@ use IHchat\Auth\Atendentes;
 use IHchat\Auth\Auth;
 use IHchat\Auth\Senhas;
 use IHchat\Banco\Banco;
+use IHchat\ChatInterno\Salas;
 use IHchat\Nucleo\Datas;
 use IHchat\Nucleo\ErroHttp;
+use IHchat\Nucleo\Log;
 use IHchat\Nucleo\Requisicao;
 use IHchat\Nucleo\Validador;
 
@@ -71,6 +73,7 @@ final class ApiAtendentes
             }
             throw $erro;
         }
+        self::sincronizarChat();
         return Atendentes::saida(Atendentes::porId($id) ?? []);
     }
 
@@ -125,7 +128,24 @@ final class ApiAtendentes
             $mudancas['setor'] = $setor === null || $setor === '' ? null : $setor;
         }
         Banco::atualizar('atendentes', $mudancas, 'id = ?', [$alvo['id']]);
+        self::sincronizarChat();
         return Atendentes::saida(Atendentes::porId($alvo['id']) ?? $alvo);
+    }
+
+    /**
+     * Geral e salas de setor acompanham o cadastro NA HORA: quem entra, muda
+     * de setor ou é desativado ganha ou perde a sala já (com o evento
+     * "interno.sala" entrou/saiu), sem esperar a próxima chamada a
+     * /api/interno. Uma falha aqui não desfaz o cadastro já gravado: a
+     * próxima chamada ao chat acerta de novo. Igual a _sincronizar_chat do Python.
+     */
+    private static function sincronizarChat(): void
+    {
+        try {
+            Salas::sincronizar();
+        } catch (\Throwable $erro) {
+            Log::erro('não foi possível sincronizar as salas do chat interno', ['erro' => $erro->getMessage()]);
+        }
     }
 
     /** Limite em bytes e sem caractere de controle (ver SENHA_MAX_BYTES). */

@@ -5,6 +5,7 @@ namespace IHchat\Canais\WhatsAppQr;
 
 use IHchat\Atendimento\AnexoRecebido;
 use IHchat\Atendimento\ArquivoParaEnviar;
+use IHchat\Canais\AdaptadorWhatsAppQr;
 use IHchat\Canais\ErroCanal;
 
 /**
@@ -34,6 +35,19 @@ final class ProvedorEvolution extends Provedor
         'ERROR' => 'falhou',
     ];
 
+    /**
+     * Mídia recebida: o webhook é cadastrado com base64=false (a Evolution
+     * poria o arquivo inteiro no JSON, e acima do post_max_size da hospedagem
+     * a entrega leva 413 e some, legenda junto). O IHchat baixa depois, pela
+     * API do próprio servidor Evolution (getBase64FromMediaMessage), mandando
+     * a mensagem que veio no webhook: assim não depende do banco da Evolution
+     * ter guardado a mensagem. Fica aqui entre a tradução da entrega e o
+     * download, na mesma requisição.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private static array $mensagensABaixar = [];
+
     /** messageType -> [tipo, nome padrão do arquivo] */
     private const MIDIAS = [
         'imageMessage' => ['image', 'imagem'],
@@ -49,9 +63,11 @@ final class ProvedorEvolution extends Provedor
     private function url(string $caminho): string
     {
         $base = rtrim($this->credencial('url_servidor'), '/');
-        $esquema = strtolower((string) parse_url($base, PHP_URL_SCHEME));
-        if (!in_array($esquema, ['http', 'https'], true) || (string) parse_url($base, PHP_URL_HOST) === '') {
-            throw new ErroCanal('o endereço do servidor Evolution precisa começar com https:// (ou http://)');
+        // conferido também aqui: um endereço gravado antes da regra (ou à mão)
+        // não leva a API key por http:// à internet
+        $problema = AdaptadorWhatsAppQr::problemaNoEnderecoEvolution($base);
+        if ($problema !== null) {
+            throw new ErroCanal('o endereço do servidor Evolution ' . $problema);
         }
         return $base . $caminho;
     }
@@ -120,12 +136,30 @@ final class ProvedorEvolution extends Provedor
         return $mensagem === '' || str_contains($mensagem, 'does not exist') || str_contains($mensagem, 'not found');
     }
 
-    /** Cria a instância (Baileys, com QR Code, ignorando grupos). @return array<string, mixed> */
+    /** O webhook do IHchat, igual no webhook/set e no instance/create. @return array<string, mixed> */
+    public static function corpoDoWebhook(string $url): array
+    {
+        return ['enabled' => true, 'url' => $url, 'byEvents' => false, 'base64' => false, 'events' => self::EVENTOS];
+    }
+
+    /**
+     * Cria a instância (Baileys, com QR Code, ignorando grupos). Com o webhook
+     * pedido pelo chamador, ela já nasce entregando ao IHchat (o InstanceDto
+     * aceita "webhook"). Sem ele, nasce sem webhook nenhum, e o adaptador avisa
+     * ($instanciaCriada) para o webhook gravado sair.
+     *
+     * @return array<string, mixed>
+     */
     private function criarInstancia(): array
     {
-        [$status, $dados] = $this->chamar('POST', '/instance/create', [
+        $corpo = [
             'instanceName' => $this->instancia(), 'integration' => 'WHATSAPP-BAILEYS', 'qrcode' => true, 'groupsIgnore' => true,
-        ]);
+        ];
+        $webhook = $this->adaptador->webhookDaInstancia;
+        if ($webhook !== null && $webhook !== '') {
+            $corpo['webhook'] = self::corpoDoWebhook($webhook);
+        }
+        [$status, $dados] = $this->chamar('POST', '/instance/create', $corpo);
         if ($status === 403 && str_contains(self::mensagensDoErro($dados) ?? '', 'already in use')) {
             return []; // criada por outra requisição ao mesmo tempo
         }
@@ -136,7 +170,28 @@ final class ProvedorEvolution extends Provedor
         if ($status >= 400) {
             throw new ErroCanal($this->explicar($status, $dados));
         }
+        $this->adaptador->instanciaCriada = true;
+        $this->adaptador->webhookNaCriacao = isset($corpo['webhook']);
         return Leitura::objeto($dados);
+    }
+
+    /**
+     * A API key vale neste servidor? (ErroCanal se não.) Para uma instância que
+     * não existe, a Evolution responde 404 ANTES de conferir a chave (os guards
+     * rodam na ordem instanceExists, auth): o connectionState não diz nada
+     * sobre ela. O fetchInstances passa só pela autenticação: 401/403 com
+     * chave errada; com a global, 404 ou a lista.
+     */
+    private function conferirChave(): void
+    {
+        [$status, $dados] = $this->chamar('GET', '/instance/fetchInstances', query: ['instanceName' => $this->instancia()]);
+        if ($status === 403) {
+            throw new ErroCanal($this->explicar($status, $dados) . '. A instância “' . $this->instancia() . '” ainda não existe, e para o '
+                . 'IHchat criá-la a API key precisa ser a global do servidor (AUTHENTICATION_API_KEY)');
+        }
+        if ($status === 401) {
+            throw new ErroCanal($this->explicar($status, $dados));
+        }
     }
 
     // ---------------------------------------------------------------- estado
@@ -176,6 +231,7 @@ final class ProvedorEvolution extends Provedor
         [$status, $dados] = $this->chamar('GET', $this->caminho('/instance/connectionState'));
         if (self::inexistente($status, $dados)) {
             if (!$comQr) {
+                $this->conferirChave();
                 return new EstadoConexao(EstadoConexao::DESCONECTADO, mensagem: 'a instância “' . $this->instancia()
                     . '” ainda não existe no servidor Evolution: “Conectar pelo QR Code” a cria');
             }
@@ -223,14 +279,8 @@ final class ProvedorEvolution extends Provedor
 
     public function conectarWebhook(string $url): string
     {
-        $corpo = ['webhook' => [
-            'enabled' => true,
-            'url' => $url,
-            'byEvents' => false,
-            // a mídia recebida já vem no webhook: sem outra ida ao servidor
-            'base64' => true,
-            'events' => self::EVENTOS,
-        ]];
+        // base64 false: a mídia é baixada depois (veja $mensagensABaixar)
+        $corpo = ['webhook' => self::corpoDoWebhook($url)];
         [$status, $dados] = $this->chamar('POST', $this->caminho('/webhook/set'), $corpo);
         if (self::inexistente($status, $dados)) {
             $this->criarInstancia();
@@ -299,6 +349,11 @@ final class ProvedorEvolution extends Provedor
             }
         } elseif ($tipo === 'MESSAGES_UPDATE') {
             foreach ($itens as $item) {
+                if (($item['message'] ?? null) !== null || ($item['pollUpdates'] ?? null) !== null) {
+                    // edição ou voto em enquete: o Baileys não manda status, e a
+                    // Evolution preenche "SERVER_ACK" — não é recibo nenhum
+                    continue;
+                }
                 $novo = self::STATUS[Leitura::texto($item['status'] ?? null) ?? ''] ?? null;
                 $id = Leitura::texto($item['keyId'] ?? null) ?? Leitura::texto(Leitura::objeto($item['key'] ?? null)['id'] ?? null);
                 // só as NOSSAS mensagens têm recibo a aplicar
@@ -327,8 +382,13 @@ final class ProvedorEvolution extends Provedor
     {
         $chave = Leitura::objeto($item['key'] ?? null);
         $jid = Leitura::texto($chave['remoteJid'] ?? null);
-        if ($jid !== null && str_ends_with($jid, '@lid') && Leitura::texto($chave['remoteJidAlt'] ?? null) !== null) {
-            $jid = Leitura::texto($chave['remoteJidAlt']); // o número de verdade, quando o WhatsApp o dá
+        $alternativo = Leitura::texto($chave['remoteJidAlt'] ?? null);
+        $lid = null;
+        if (Leitura::eLid($jid) && $alternativo !== null && !Leitura::eLid($alternativo)) {
+            // o número de verdade, quando o WhatsApp o dá; o @lid fica ligado a ele
+            [$lid, $jid] = [$jid, $alternativo];
+        } elseif (Leitura::eLid($alternativo) && !Leitura::eLid($jid)) {
+            $lid = $alternativo;
         }
         if (!Leitura::eConversaPrivada($jid)) {
             return;
@@ -342,7 +402,7 @@ final class ProvedorEvolution extends Provedor
         [$conteudo, $anexos, $especie] = self::conteudo($item, $idMensagem);
         // o pushName de uma mensagem do próprio dono é "Você": não é o contato
         $nome = $deMim ? null : Leitura::texto($item['pushName'] ?? null);
-        $mensagem = $this->montar($identificador, $idMensagem, $conteudo, $anexos, $nome, $especie);
+        $mensagem = $this->montar($identificador, $idMensagem, $conteudo, $anexos, $nome, $especie, $lid);
         if ($mensagem !== null) {
             if ($deMim) {
                 $evento->doCelular[] = $mensagem;
@@ -382,14 +442,23 @@ final class ProvedorEvolution extends Provedor
                 ? (Leitura::texto($midia['fileName'] ?? null) ?? Leitura::texto($midia['title'] ?? null))
                 : null;
             $nome ??= $nomePadrao . '.' . Leitura::extensao($mime, $especie === 'sticker' ? 'webp' : 'bin');
-            // com webhook base64 a mídia já vem aqui; senão, pela URL (S3) ou pela API
+            // webhook antigo, cadastrado com base64: a mídia já vem aqui. Senão,
+            // pela API do servidor Evolution (nunca pela mediaUrl do webhook:
+            // uma entrega forjada escolheria o endereço a buscar)
             $dados = Leitura::base64OuNada($mensagem['base64'] ?? null);
-            $referencia = Leitura::urlDeMidia($mensagem['mediaUrl'] ?? null) ?? $idMensagem;
+            $referencia = null;
+            if ($dados === null && $idMensagem !== null) {
+                $referencia = $idMensagem;
+                // base64 e mediaUrl são acréscimos da Evolution, não da mensagem do WhatsApp
+                $proto = $mensagem;
+                unset($proto['base64'], $proto['mediaUrl']);
+                self::$mensagensABaixar[$referencia] = ['key' => Leitura::objeto($item['key'] ?? null), 'message' => $proto];
+            }
             $anexos = [];
             if ($dados !== null || $referencia !== null) {
                 $anexos[] = new AnexoRecebido(
                     nome: $nome,
-                    referencia: $dados !== null ? null : $referencia,
+                    referencia: $referencia,
                     dados: $dados,
                     tipo_conteudo: $mime === '' ? null : $mime,
                 );
@@ -415,12 +484,12 @@ final class ProvedorEvolution extends Provedor
     public function baixar(AnexoRecebido $anexo): string
     {
         $referencia = (string) $anexo->referencia;
-        $url = Leitura::urlDeMidia($referencia);
-        if ($url !== null) {
-            return $this->baixarUrl($url);
-        }
+        // a mensagem inteira, como veio no webhook: a Evolution baixa por ela
+        // mesmo sem tê-la guardado; sem ela, só pelo id (busca no banco dela)
+        $mensagem = self::$mensagensABaixar[$referencia] ?? ['key' => ['id' => $referencia]];
+        unset(self::$mensagensABaixar[$referencia]);
         [$status, $dados] = $this->chamar('POST', $this->caminho('/chat/getBase64FromMediaMessage'), [
-            'message' => ['key' => ['id' => $referencia]], 'convertToMp4' => false,
+            'message' => $mensagem, 'convertToMp4' => false,
         ]);
         if ($status >= 400) {
             throw new ErroCanal($this->explicar($status, $dados));

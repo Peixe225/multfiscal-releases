@@ -17,9 +17,24 @@ use IHchat\Nucleo\Texto;
  */
 final class Contatos
 {
-    /** Canais cujo identificador já é um dado de contato conhecido. */
-    public const CANAIS_TELEFONE = ['whatsapp'];
+    /**
+     * Canais cujo identificador já é um dado de contato conhecido. O WhatsApp
+     * pelo QR Code também: quem escreve pelo número da empresa no celular é o
+     * mesmo cliente já atendido pela API oficial.
+     */
+    public const CANAIS_TELEFONE = ['whatsapp', 'whatsapp_qr'];
     public const CANAIS_EMAIL = ['email'];
+
+    /**
+     * O identificador é um número de telefone? No WhatsApp pelo QR Code ele
+     * pode ser um "@lid" (id oculto do WhatsApp, sem telefone): fica inteiro,
+     * é para ele que a resposta volta, e não acha ninguém pelo telefone.
+     * Igual a e_telefone do Python.
+     */
+    public static function eTelefone(string $canalTipo, ?string $identificador): bool
+    {
+        return in_array($canalTipo, self::CANAIS_TELEFONE, true) && !str_contains((string) $identificador, '@');
+    }
 
     /** @return array<string, mixed>|null a linha do contato */
     public static function porId(int $id): ?array
@@ -31,7 +46,7 @@ final class Contatos
     public static function normalizarIdentificador(string $canalTipo, string $identificador): string
     {
         $identificador = trim($identificador);
-        if (in_array($canalTipo, self::CANAIS_TELEFONE, true)) {
+        if (self::eTelefone($canalTipo, $identificador)) {
             return Texto::normalizarTelefone($identificador);
         }
         if (in_array($canalTipo, self::CANAIS_EMAIL, true)) {
@@ -67,7 +82,7 @@ final class Contatos
                 $agora = Datas::agoraBanco();
                 $contatoId = Banco::inserir('contatos', [
                     'nome' => mb_substr($nomeExibicao ?? $identificador, 0, 160),
-                    'telefone' => in_array($canalTipo, self::CANAIS_TELEFONE, true) ? mb_substr($identificador, 0, 32) : null,
+                    'telefone' => self::eTelefone($canalTipo, $identificador) ? mb_substr($identificador, 0, 32) : null,
                     'email' => in_array($canalTipo, self::CANAIS_EMAIL, true) ? mb_substr($identificador, 0, 160) : null,
                     'criado_em' => $agora,
                     'atualizado_em' => $agora,
@@ -225,6 +240,9 @@ final class Contatos
     private static function porDadoConhecido(string $canalTipo, string $identificador): ?int
     {
         if (in_array($canalTipo, self::CANAIS_TELEFONE, true)) {
+            if (!self::eTelefone($canalTipo, $identificador)) {
+                return null; // um @lid não é telefone de ninguém
+            }
             $telefone = Texto::normalizarTelefone($identificador);
             if ($telefone === '') {
                 return null;

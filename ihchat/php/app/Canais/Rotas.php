@@ -3,10 +3,16 @@ declare(strict_types=1);
 
 namespace IHchat\Canais;
 
+use IHchat\Atendimento\Concorrencia;
+use IHchat\Atendimento\Contatos;
+use IHchat\Atendimento\MensagemRecebida;
 use IHchat\Atendimento\Mensagens;
+use IHchat\Atendimento\Saidas;
 use IHchat\Auth\Auth;
 use IHchat\Canais\WhatsAppQr\DoCelular;
 use IHchat\Canais\WhatsAppQr\EstadoConexao;
+use IHchat\Canais\WhatsAppQr\Leitura;
+use IHchat\Eventos\Eventos;
 use IHchat\Banco\Banco;
 use IHchat\Nucleo\Datas;
 use IHchat\Nucleo\ErroHttp;
@@ -234,9 +240,14 @@ final class Rotas
             if ($adaptador->alertaDeConexao !== null) {
                 $alertas[] = $adaptador->alertaDeConexao;
             }
-            if (!self::preenchido($canal['credenciais'][AdaptadorWhatsAppQr::CHAVE_WEBHOOK] ?? null)) {
+            $gravado = $canal['credenciais'][AdaptadorWhatsAppQr::CHAVE_WEBHOOK] ?? null;
+            if (!self::preenchido($gravado)) {
                 $alertas[] = 'o webhook ainda não foi conectado: sem ele as mensagens dos clientes não chegam. '
                     . 'Use “Conectar webhook” (precisa do endereço público desta instalação)';
+            } elseif ($gravado !== Canais::urlWebhook($canal['id'])) {
+                // o endereço público mudou depois do cadastro: o provedor entrega no antigo
+                $alertas[] = 'o webhook foi cadastrado no provedor para ' . (is_scalar($gravado) ? (string) $gravado : '?')
+                    . ', que não é mais o endereço deste IHchat: as mensagens não chegam até você usar “Reconectar webhook”';
             }
         }
         if (!$canal['ativo']) {
@@ -336,19 +347,27 @@ final class Rotas
     public static function qrCode(Requisicao $req, array $p): array
     {
         Auth::admin($req);
+        $soEstado = self::booleanoDaConsulta($req, 'so_estado');
         $canal = self::canal($p['canal_id']);
         [$adaptador, $motivo] = self::adaptadorQr($canal);
         if ($adaptador === null) {
             return EstadoConexao::erro((string) $motivo)->saida();
         }
+        $webhook = self::webhookDoCanal($canal);
+        if ($webhook !== null) {
+            $canal = self::canal($canal['id']); // o segredo pode ter acabado de nascer
+            [$adaptador] = self::adaptadorQr($canal);
+            // se a Evolution precisar (re)criar a instância, ela já nasce com o webhook
+            $adaptador->webhookDaInstancia = $webhook[1];
+        }
         try {
-            $soEstado = in_array(strtolower((string) $req->consulta('so_estado')), ['1', 'true', 'sim', 'yes', 'on'], true);
             $estado = $adaptador->estadoQr(!$soEstado);
         } catch (\Throwable $erro) {
             Log::excecao($erro, "QR Code do canal {$canal['id']}");
             $estado = EstadoConexao::erro('erro inesperado ao falar com o provedor; detalhes no log do servidor');
         }
         $estado = $estado->comMensagem(self::semSegredoDoCanal($canal, $estado->mensagem));
+        self::registrarInstanciaCriada($canal, $adaptador, $webhook);
         if ($estado->status !== EstadoConexao::ERRO) {
             self::gravarConexao($canal, $estado->status, $estado->numero);
         }
@@ -394,28 +413,79 @@ final class Rotas
             return self::teste(false, 'o endereço público desta instalação (url_publica) não está configurado: sem ele o '
                 . 'provedor não tem para onde mandar as mensagens. Configure-o (com https) e tente de novo');
         }
-        if ($adaptador->chaveProvedor() === 'zapi' && !self::urlPublicaHttps()) {
-            return self::teste(false, 'a Z-API só entrega em endereço HTTPS: configure o endereço público (url_publica) com https://');
+        $webhook = self::webhookDoCanal($canal);
+        if ($webhook === null) {
+            // a URL leva o token do canal, e cada entrega leva as mensagens dos
+            // clientes: por http:// os dois iriam sem criptografia pela internet
+            $motivo = $adaptador->chaveProvedor() === 'zapi'
+                ? 'a Z-API só entrega em endereço HTTPS'
+                : 'o webhook leva o token do canal e as mensagens dos clientes, e só vai para endereço HTTPS';
+            return self::teste(false, $motivo . ': configure o endereço público (url_publica) com https://');
         }
-        $segredo = $canal['segredo_webhook'];
-        if ($segredo === null) {
-            // canal gravado à mão, sem segredo: sem ele o webhook recusaria tudo
-            $segredo = Texto::gerarChave();
-            Banco::atualizar('canais', ['segredo_webhook' => $segredo], 'id = ?', [$canal['id']]);
-            $canal['segredo_webhook'] = $segredo;
-            $adaptador = new AdaptadorWhatsAppQr($canal);
-        }
-        $endereco = Canais::urlWebhook($canal['id']);
+        $canal = self::canal($canal['id']); // o segredo pode ter acabado de nascer
+        $adaptador = new AdaptadorWhatsAppQr($canal);
+        [$endereco, $comToken] = $webhook;
+        $adaptador->webhookDaInstancia = $comToken;
         try {
-            $mensagem = $adaptador->conectarWebhook($endereco . '?token=' . rawurlencode($segredo));
+            $mensagem = $adaptador->conectarWebhook($comToken);
         } catch (ErroCanal $erro) {
+            self::registrarInstanciaCriada($canal, $adaptador, $webhook);
             return self::teste(false, self::semSegredoDoCanal($canal, $erro->getMessage()));
         }
+        $canal = self::canal($canal['id']);
         $credenciais = $canal['credenciais'];
         $credenciais[AdaptadorWhatsAppQr::CHAVE_WEBHOOK] = $endereco;
         Banco::atualizar('canais', ['credenciais' => Json::objeto($credenciais)], 'id = ?', [$canal['id']]);
         $alerta = $canal['ativo'] ? null : 'o canal está desativado: as entregas do provedor serão recusadas (409) até você ativá-lo';
         return self::teste(true, $mensagem, $alerta);
+    }
+
+    /**
+     * [URL gravada, URL com o token] do webhook do canal; null sem endereço
+     * público HTTPS (não há o que cadastrar no provedor). Canal gravado à mão,
+     * sem segredo, ganha um aqui: sem ele o webhook recusaria tudo.
+     *
+     * @param array<string, mixed> $canal
+     * @return array{0: string, 1: string}|null
+     */
+    private static function webhookDoCanal(array $canal): ?array
+    {
+        if (!self::urlPublicaHttps()) {
+            return null;
+        }
+        $segredo = $canal['segredo_webhook'];
+        if ($segredo === null) {
+            $segredo = Texto::gerarChave();
+            Banco::atualizar('canais', ['segredo_webhook' => $segredo], 'id = ?', [$canal['id']]);
+        }
+        $endereco = Canais::urlWebhook($canal['id']);
+        return [$endereco, $endereco . '?token=' . rawurlencode($segredo)];
+    }
+
+    /**
+     * A Evolution (re)criou a instância: com o webhook junto, ele passa a ser o
+     * gravado; sem ele, o gravado era da instância que sumiu e sai.
+     *
+     * @param array<string, mixed> $canal
+     * @param array{0: string, 1: string}|null $webhook
+     */
+    private static function registrarInstanciaCriada(array $canal, AdaptadorWhatsAppQr $adaptador, ?array $webhook): void
+    {
+        if (!$adaptador->instanciaCriada) {
+            return;
+        }
+        $atual = Canais::porId((int) $canal['id']);
+        if ($atual === null) {
+            return;
+        }
+        $credenciais = $atual['credenciais'];
+        unset($credenciais[AdaptadorWhatsAppQr::CHAVE_WEBHOOK]);
+        if ($adaptador->webhookNaCriacao && $webhook !== null) {
+            $credenciais[AdaptadorWhatsAppQr::CHAVE_WEBHOOK] = $webhook[0];
+        }
+        if ($credenciais !== $atual['credenciais']) {
+            Banco::atualizar('canais', ['credenciais' => Json::objeto($credenciais)], 'id = ?', [$atual['id']]);
+        }
     }
 
     /**
@@ -437,6 +507,26 @@ final class Rotas
         return [$adaptador, null];
     }
 
+    /**
+     * Booleano da query como o FastAPI o lê (1/0, true/false, yes/no, on/off,
+     * t/f, y/n; ausente = falso). Outro valor é 422, como no Python.
+     */
+    private static function booleanoDaConsulta(Requisicao $req, string $nome): bool
+    {
+        $valor = $req->consulta($nome);
+        if ($valor === null) {
+            return false;
+        }
+        $valor = strtolower(trim($valor));
+        if (in_array($valor, ['1', 'true', 'yes', 'on', 't', 'y'], true)) {
+            return true;
+        }
+        if (in_array($valor, ['0', 'false', 'no', 'off', 'f', 'n'], true)) {
+            return false;
+        }
+        throw ErroHttp::invalido("{$nome}: use 1 ou 0 (true ou false)");
+    }
+
     /** estado_conexao (e o número) nas credenciais, só se mudou. @param array<string, mixed> $canal */
     private static function gravarConexao(array $canal, string $estado, ?string $numero): void
     {
@@ -445,8 +535,16 @@ final class Rotas
             return;
         }
         $novas = AdaptadorWhatsAppQr::credenciaisComConexao($atual['credenciais'], $estado, $numero);
-        if ($novas !== null) {
-            Banco::atualizar('canais', ['credenciais' => Json::objeto($novas)], 'id = ?', [$atual['id']]);
+        if ($novas === null) {
+            return;
+        }
+        Banco::atualizar('canais', ['credenciais' => Json::objeto($novas)], 'id = ?', [$atual['id']]);
+        // o ESTADO mudou (conectou, caiu): a equipe inteira vê na hora, pelo
+        // "canal.atualizado" com o CanalSaida (sem credenciais). Sem contato:
+        // vai a todo atendente logado, como a lista de /api/canais.
+        $depois = [...$atual, 'credenciais' => $novas];
+        if (Canais::conexao($depois) !== Canais::conexao($atual)) {
+            Eventos::publicar('canal.atualizado', Canais::saida($depois));
         }
     }
 
@@ -528,12 +626,16 @@ final class Rotas
         $novas = 0;
         $atualizadas = 0;
         foreach ($lotes as [$destino, , $recebidas, $recibos]) {
+            $qr = $destino['tipo'] === Campos::WHATSAPP_QR;
             foreach ($recebidas as $recebida) {
+                if ($qr) {
+                    $recebida = self::ligarLid($destino, $recebida);
+                }
                 if (self::gravarRecebida($destino, $recebida) !== null) { // null = reentrega do mesmo webhook
                     $novas++;
                 }
             }
-            $atualizadas += count(Mensagens::aplicarStatusExterno($recibos));
+            $atualizadas += $qr ? self::aplicarRecibosEmOrdem($recibos) : count(Mensagens::aplicarStatusExterno($recibos));
         }
         $resposta = ['recebidas' => $novas, 'status_atualizados' => $atualizadas];
         if ($adaptador instanceof AdaptadorWhatsAppQr && isset($payload)) {
@@ -650,6 +752,7 @@ final class Rotas
      */
     private static function gravarDoCelular(array $canal, AdaptadorWhatsAppQr $adaptador, \IHchat\Atendimento\MensagemRecebida $recebida): ?array
     {
+        $recebida = self::ligarLid($canal, $recebida);
         try {
             return DoCelular::registrar($canal, $adaptador, $recebida);
         } catch (\PDOException $erro) {
@@ -658,6 +761,138 @@ final class Rotas
             }
             return DoCelular::registrar($canal, $adaptador, $recebida);
         }
+    }
+
+    // --------------------------------------------- WhatsApp pelo QR Code: @lid
+
+    /** O contato dono da identidade (null se ninguém a tem). */
+    private static function donoDaIdentidade(string $canalTipo, string $identificador): ?int
+    {
+        $dono = Banco::valor(
+            'SELECT contato_id FROM contato_identidades WHERE canal_tipo = ? AND identificador = ?',
+            [$canalTipo, $identificador]
+        );
+        return $dono === null ? null : (int) $dono;
+    }
+
+    /**
+     * Mais uma identidade do contato; se outra entrega a gravou ao mesmo tempo
+     * (índice único), fica valendo a dela.
+     */
+    private static function ligarIdentidade(int $contatoId, string $canalTipo, string $identificador, ?string $nome): void
+    {
+        try {
+            Banco::inserir('contato_identidades', [
+                'contato_id' => $contatoId,
+                'canal_tipo' => $canalTipo,
+                'identificador' => mb_substr($identificador, 0, 200),
+                'nome_exibicao' => $nome === null ? null : mb_substr($nome, 0, 160),
+                'criado_em' => Datas::agoraBanco(),
+            ]);
+        } catch (\PDOException $erro) {
+            if (!Banco::eUnicidade($erro)) {
+                throw $erro;
+            }
+        }
+    }
+
+    /**
+     * O mesmo cliente com número e com @lid fica UM contato (e uma conversa)
+     * (ligar_lid de app/api/webhooks.py).
+     *
+     * O WhatsApp esconde o número de parte dos contatos atrás de um "@lid", e o
+     * provedor manda ora um, ora outro. Quando a entrega traz os dois, o @lid
+     * vira mais uma identidade do contato do número; quando traz só o @lid, a
+     * mensagem vai para o número já ligado a ele (é para o número que a
+     * resposta volta).
+     *
+     * @param array<string, mixed> $canal
+     */
+    private static function ligarLid(array $canal, MensagemRecebida $recebida): MensagemRecebida
+    {
+        $tipo = (string) $canal['tipo'];
+        $externoId = $recebida->externo_id === null ? null : mb_substr($recebida->externo_id, 0, 200);
+        if ($externoId !== null && Mensagens::jaProcessada($externoId) !== null) {
+            return $recebida; // reentrega: nada a ligar
+        }
+        if (Leitura::eLid($recebida->identificador)) {
+            $dono = self::donoDaIdentidade($tipo, $recebida->identificador);
+            if ($dono === null) {
+                return $recebida;
+            }
+            $numero = Banco::valor(
+                "SELECT identificador FROM contato_identidades WHERE contato_id = ? AND canal_tipo = ? AND identificador NOT LIKE '%@lid' ORDER BY id LIMIT 1",
+                [$dono, $tipo]
+            );
+            if ($numero === null) {
+                return $recebida;
+            }
+            return new MensagemRecebida(
+                identificador: (string) $numero,
+                conteudo: $recebida->conteudo,
+                nome_exibicao: $recebida->nome_exibicao,
+                externo_id: $recebida->externo_id,
+                assunto: $recebida->assunto,
+                metadados: $recebida->metadados,
+                anexos: $recebida->anexos,
+            );
+        }
+        $lid = $recebida->metadados[AdaptadorWhatsAppQr::METADADO_LID] ?? null;
+        if (!is_string($lid) || !Leitura::eLid($lid)) {
+            return $recebida;
+        }
+        $doNumero = self::donoDaIdentidade($tipo, $recebida->identificador);
+        $doLid = self::donoDaIdentidade($tipo, $lid);
+        if ($doNumero === null && $doLid !== null) {
+            // o cliente escreveu antes só com o @lid: o número passa a ser dele
+            self::ligarIdentidade($doLid, $tipo, $recebida->identificador, $recebida->nome_exibicao);
+        } elseif ($doLid === null) {
+            $dono = $doNumero ?? Contatos::resolver($tipo, $recebida->identificador, $recebida->nome_exibicao);
+            self::ligarIdentidade($dono, $tipo, $lid, $recebida->nome_exibicao);
+        }
+        return $recebida;
+    }
+
+    /**
+     * Recibos do WhatsApp pelo QR Code: só AVANÇAM o status
+     * (AdaptadorWhatsAppQr::RECIBO_SUBSTITUI). A condição vai no próprio
+     * UPDATE: dois recibos quase simultâneos (entrega e leitura com o cliente
+     * na conversa) não se atropelam. Devolve quantas mensagens mudaram.
+     *
+     * @param list<array<string, mixed>|object> $recibos
+     */
+    private static function aplicarRecibosEmOrdem(array $recibos): int
+    {
+        if ($recibos === []) {
+            return 0;
+        }
+        return Concorrencia::transacao(static function () use ($recibos): int {
+            $alteradas = 0;
+            foreach ($recibos as $recibo) {
+                $recibo = is_array($recibo) ? $recibo : get_object_vars($recibo);
+                $status = (string) ($recibo['status'] ?? '');
+                $externoId = (string) ($recibo['externo_id'] ?? '');
+                $anteriores = AdaptadorWhatsAppQr::RECIBO_SUBSTITUI[$status] ?? null;
+                if ($anteriores === null || $externoId === '') {
+                    continue;
+                }
+                $marcas = implode(', ', array_fill(0, count($anteriores), '?'));
+                $mudou = Banco::executar(
+                    "UPDATE mensagens SET status = ? WHERE externo_id = ? AND status IN ({$marcas})",
+                    [$status, $externoId, ...$anteriores]
+                );
+                if ($mudou === 0) {
+                    continue;
+                }
+                $id = Mensagens::jaProcessada($externoId);
+                $saida = $id === null ? null : Saidas::mensagemPorId($id);
+                if ($saida !== null) {
+                    Eventos::publicar('mensagem.status', $saida, $saida['contato_id']);
+                    $alteradas++;
+                }
+            }
+            return $alteradas;
+        });
     }
 
     // ------------------------------------------------------------------- apoio

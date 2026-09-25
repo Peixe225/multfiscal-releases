@@ -31,7 +31,8 @@ final class Assinaturas
         }
         $linha = self::linha($assinatura);
         return match ($tipoCanal) {
-            'whatsapp' => self::emCima('*' . $linha . '*', $conteudo),
+            // o WhatsApp pelo QR Code mostra igual à API oficial: negrito na 1ª linha
+            'whatsapp', 'whatsapp_qr' => self::emCima('*' . $linha . '*', $conteudo),
             'telegram' => self::emCima($linha, $conteudo),
             'email' => self::noFim($assinatura, $conteudo),
             default => $conteudo,

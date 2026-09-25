@@ -215,6 +215,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .filtro.ativo { background: var(--marca-fraca); color: var(--marca-texto); font-weight: 600; }
 .filtro .contagem { margin-left: auto; font-size: 12px; color: var(--texto-fraco); }
 .filtro .contagem.falhou { color: var(--vermelho); font-weight: 600; }
+.alerta-conexao {
+  margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+  color: var(--vermelho); background: var(--superficie-2); border: 1px solid var(--vermelho);
+}
 .ponto-etiqueta { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 
 /* ---------------------------------------------------------------- lista */
@@ -555,6 +559,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   .grade { grid-template-columns: 260px minmax(0, 1fr); }
   .coluna.filtros { display: none; }
   #dica-redator { display: none; } /* o atalho do Enter cede lugar ao "Enviar" */
+  #compartilhar-equipe .rotulo-extra { display: none; } /* "Compartilhar" basta; o aria-label diz o resto */
   .cabecalho-conversa, .redator { padding-left: 12px; padding-right: 12px; }
 }
 /* celular: uma coluna só; a lista some quando uma conversa abre e volta

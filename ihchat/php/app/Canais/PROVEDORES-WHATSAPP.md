@@ -49,12 +49,46 @@ Entrega recebida:
   mandou pela API não é duplicada (Z-API: `fromApi`; os dois: o id externo já
   gravado no envio);
 - idempotente pelo id externo (`whatsapp_qr:<canal>:<id da mensagem>`);
-- recibos (enviada, entregue, lida, falhou) atualizam a mensagem de saída;
-- eventos de conexão atualizam `estado_conexao`.
+- recibos (enviada, entregue, lida, falhou) atualizam a mensagem de saída, e
+  só para a frente: chegam fora de ordem (a Evolution dispara cada webhook sem
+  esperar o anterior), e um "entregue" atrasado não desfaz o "lida". O
+  "falhou" só vale enquanto a mensagem está "enviada". A condição vai no
+  próprio `UPDATE ... WHERE status IN (...)`;
+- eventos de conexão atualizam `estado_conexao`, que sai no `CanalSaida`
+  como `conexao` (null nos outros tipos) e, quando muda, no evento
+  `canal.atualizado` para toda a equipe (o painel marca o canal
+  "desconectado" e avisa no redator);
+- a mensagem que o dono mandou pelo celular sai na `MensagemSaida` com
+  `pelo_celular: true` (o painel mostra um selo próprio);
+- o contato ganha o telefone e é reconhecido pelo número, como no WhatsApp
+  oficial (`CANAIS_TELEFONE` inclui `whatsapp_qr`); um `@lid` fica inteiro e
+  não vira telefone;
+- o mesmo cliente com número e com `@lid` (id oculto do WhatsApp) é UM
+  contato: quando a entrega traz os dois (Z-API: `phone` + `chatLid`;
+  Evolution: `remoteJid` + `remoteJidAlt`), o `@lid` vira mais uma
+  identidade do contato do número; quando traz só o `@lid`, a mensagem vai
+  para o número já ligado a ele, e a resposta sai para o número;
+- mídia por URL (Z-API) só é baixada de endereço público: o host é resolvido
+  e loopback, rede privada, link-local, reservado e multicast são recusados
+  (o anexo fica registrado com o motivo); a conexão vai ao IP conferido, sem
+  seguir redirecionamento, e para ao passar do limite de anexos
+  (`tamanho_max_anexo_mb`). Quem tem o token do webhook pode forjar uma
+  entrega; sem isso, ela faria o IHchat buscar endereços da rede interna.
+
+`webhook_url`, `estado_conexao` e `numero_conectado` são da instância: ao
+trocar provedor, ID/token da instância (Z-API) ou servidor/nome (Evolution),
+os três saem das credenciais, e o "Testar conexão" volta a pedir o webhook. Se
+o endereço público mudar, o teste avisa que o webhook gravado aponta para o
+antigo. `conectar-webhook` exige `url_publica` com https nos dois provedores
+(a URL leva o token do canal). Fora do sandbox, o servidor Evolution precisa
+de `https://` (a API key vai num cabeçalho de cada chamada); `http://` só para
+localhost.
 
 Envio: texto e mídia (uma mídia por mensagem, o texto vira legenda), com a
 assinatura do atendente na primeira linha como no WhatsApp oficial
-(`*Ana · Suporte*`). Falha do provedor: mensagem "falhou" com o erro. Sem
+(`*Ana · Suporte*`), aplicada pelo núcleo (`Assinaturas::aplicar` /
+`aplicar_assinatura` tratam `whatsapp_qr` como `whatsapp`; o adaptador envia
+o texto como recebe). Falha do provedor: mensagem "falhou" com o erro. Sem
 credencial no sandbox: "simulada".
 
 ## Z-API
@@ -93,6 +127,11 @@ Webhooks (POST JSON; o campo `type` diz o evento):
   longitude}`; `contact {displayName}`; `buttonsResponseMessage {message}`;
   `listResponseMessage {message, title}`. As mídias ficam 30 dias no
   armazenamento da Z-API: o IHchat baixa pela URL na hora.
+- `chatLid` — <https://developer.z-api.io/tips/lid.md>: "`phone`: pode conter o
+  número real ou o próprio `@lid`"; "`chatLid`: é o identificador único mais
+  estável". Os dois exemplos da página: `{"chatLid": "…@lid", "phone":
+  "5544…"}` e `{"chatLid": "…@lid", "phone": "…@lid"}`. Dá para enviar
+  para o `@lid` também, mas o IHchat responde ao número quando o conhece.
 - `MessageStatusCallback` `{"status": "SENT" | "RECEIVED" | "READ" | "READ_BY_ME" | "PLAYED", "ids": [...]}` —
   <https://developer.z-api.io/webhooks/on-whatsapp-message-status-changes.md>
   (SENT → enviada, RECEIVED → entregue, READ/PLAYED → lida; READ_BY_ME é a
@@ -119,15 +158,15 @@ commit `fa09d37` (06/05/2026). Documentação: <https://docs.evolutionfoundation
 
 | Uso no IHchat | Rota (código: `src/api/routes/*.router.ts`) | Resposta |
 | --- | --- | --- |
-| criar instância | `POST /instance/create` `{"instanceName", "integration": "WHATSAPP-BAILEYS", "qrcode": true, "groupsIgnore": true}` — <https://docs.evolutionfoundation.com.br/evolution-api/create-instance.md> | 201 `{"instance": {...}, "hash", "qrcode": {"base64": "data:image/png;base64,...", "code", "pairingCode", "count"}}`. Sem `integration` válido: 400 "Invalid integration" (`channel.controller.ts`). |
+| criar instância | `POST /instance/create` `{"instanceName", "integration": "WHATSAPP-BAILEYS", "qrcode": true, "groupsIgnore": true, "webhook"?: {…como no webhook/set}}` — <https://docs.evolutionfoundation.com.br/evolution-api/create-instance.md> | 201 `{"instance": {...}, "hash", "qrcode": {"base64": "data:image/png;base64,...", "code", "pairingCode", "count"}}`. Sem `integration` válido: 400 "Invalid integration" (`channel.controller.ts`). O `webhook` (campos `url`, `byEvents`, `base64`, `events` do `InstanceDto`, `instance.controller.ts: createInstance`) vai quando há `url_publica` https: uma instância (re)criada pelo QR já nasce entregando ao IHchat. Sem ele, o `webhook_url` gravado sai (era da instância que sumiu). |
 | QR Code | `GET /instance/connect/{instancia}` — <https://docs.evolutionfoundation.com.br/evolution-api/connect-instance.md> | `{"base64", "code", "pairingCode", "count"}`; se já conectada, `{"instance": {"instanceName", "state": "open"}}` (`instance.controller.ts: connectToWhatsapp`) |
 | estado | `GET /instance/connectionState/{instancia}` — <https://docs.evolutionfoundation.com.br/evolution-api/get-connection-state.md> | `{"instance": {"instanceName", "state": "open" \| "connecting" \| "close"}}` |
-| número conectado | `GET /instance/fetchInstances?instanceName=` | lista de instâncias com `ownerJid` ("5511...@s.whatsapp.net") |
+| número conectado; conferir a API key | `GET /instance/fetchInstances?instanceName=` | lista de instâncias com `ownerJid` ("5511...@s.whatsapp.net"). Os guards rodam na ordem `instanceExistsGuard`, `authGuard` (`index.router.ts`), então o `connectionState` de uma instância que não existe dá 404 com QUALQUER chave. O `fetchInstances` é pulado pelo `instanceExistsGuard` e passa só pela autenticação (`auth.guard.ts`): 401 com chave errada; com a global e instância inexistente, 404 `Instance "x" not found` (`monitor.service.ts: instanceInfo`). É assim que o "Testar conexão" confere a chave antes de dizer que ela foi aceita. |
 | desconectar | `DELETE /instance/logout/{instancia}` — <https://docs.evolutionfoundation.com.br/evolution-api/logout-instance.md> | `{"status": "SUCCESS", "error": false, "response": {"message": "Instance logged out"}}`; já desconectada: 400 "... is not connected" (o IHchat trata como sucesso) |
-| webhook | `POST /webhook/set/{instancia}` `{"webhook": {"enabled": true, "url", "byEvents": false, "base64": true, "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "QRCODE_UPDATED"]}}` — <https://docs.evolutionfoundation.com.br/evolution-api/set-webhook.md> | 201. O corpo aninhado em `webhook` é o do código (`webhook.schema.ts`); a página de configuração mostra um formato plano antigo. `base64: true` faz a mídia recebida vir no próprio webhook. |
+| webhook | `POST /webhook/set/{instancia}` `{"webhook": {"enabled": true, "url", "byEvents": false, "base64": false, "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "QRCODE_UPDATED"]}}` — <https://docs.evolutionfoundation.com.br/evolution-api/set-webhook.md> | 201. O corpo aninhado em `webhook` é o do código (`webhook.schema.ts`); a página de configuração mostra um formato plano antigo. `base64: false` de propósito: com `true`, a Evolution põe o arquivo inteiro no JSON (`whatsapp.baileys.service.ts`, `webhookBase64`), e um vídeo ou documento acima de ~75% do `post_max_size` da hospedagem leva 413; a Evolution tenta 10 vezes (413 não está em `NON_RETRYABLE_STATUS_CODES`, `webhook.controller.ts`) e descarta a entrega, legenda junto. Webhook cadastrado antes desta regra: use "Reconectar webhook". |
 | texto | `POST /message/sendText/{instancia}` `{"number", "text"}` — <https://docs.evolutionfoundation.com.br/evolution-api/send-text-message.md> | 201 com a mensagem: `{"key": {"id", "remoteJid", "fromMe": true}, ...}` |
 | mídia | `POST /message/sendMedia/{instancia}` `{"number", "mediatype": "image" \| "video" \| "document", "mimetype", "media": "<base64 puro>", "fileName", "caption"}` — <https://docs.evolutionfoundation.com.br/evolution-api/send-media-message.md> | idem. Base64 de documento exige `fileName` (`sendMessage.controller.ts`). |
-| baixar mídia (quando o webhook veio sem base64) | `POST /chat/getBase64FromMediaMessage/{instancia}` `{"message": {"key": {"id"}}, "convertToMp4": false}` | `{"mediaType", "fileName", "mimetype", "base64"}` |
+| baixar mídia | `POST /chat/getBase64FromMediaMessage/{instancia}` `{"message": {"key": {...}, "message": {...}}, "convertToMp4": false}` — a mensagem como veio no webhook (sem `base64` e `mediaUrl`, que são acréscimos da Evolution) | `{"mediaType", "fileName", "mimetype", "base64"}`. Com `message.message` preenchido a Evolution baixa por ele, sem depender de ter guardado a mensagem (`SAVE_DATA.NEW_MESSAGE`); só com `key.id`, ela busca no banco (`whatsapp.baileys.service.ts: getBase64FromMediaMessage`). O IHchat nunca segue a `mediaUrl` do webhook: numa entrega forjada ela apontaria a rede interna. |
 
 Webhook (POST JSON) `{"event": "messages.upsert", "instance": "<nome>", "data": {...}, "date_time", "sender", "server_url", "apikey"}`
 (`webhook.controller.ts: emit`). O IHchat ignora a entrega de outra
@@ -139,12 +178,17 @@ instância (campo `instance`).
   `conversation`; `imageMessage {caption, mimetype}`; `videoMessage`;
   `audioMessage`; `documentMessage {fileName, caption, mimetype}`;
   `stickerMessage`; `locationMessage {degreesLatitude, degreesLongitude}`;
-  `contactMessage {displayName}`; com `base64` ligado, `message.base64`. Jid
+  `contactMessage {displayName}`; com `base64` ligado (webhook antigo),
+  `message.base64`, que o IHchat ainda aceita. Jid
   de grupo termina em `@g.us`; status é `status@broadcast`. Com
   `emitOwnEvents: false` (fixo no código), o que a própria API envia NÃO volta
   como `messages.upsert` (vem como `send.message`, que o IHchat não assina):
   `fromMe` em `messages.upsert` é o dono escrevendo pelo celular.
 - `messages.update`: `data = {"keyId", "remoteJid", "fromMe", "status": "ERROR" | "PENDING" | "SERVER_ACK" | "DELIVERY_ACK" | "READ" | "PLAYED"}`
   (SERVER_ACK → enviada, DELIVERY_ACK → entregue, READ/PLAYED → lida, ERROR → falhou).
+  Item com `message` (edição) ou `pollUpdates` (voto em enquete) é ignorado:
+  o Baileys o emite sem status e a Evolution preenche
+  `status[update.status] ?? 'SERVER_ACK'` (`whatsapp.baileys.service.ts`),
+  o que não é recibo nenhum.
 - `connection.update`: `data = {"instance", "state": "open" | "close" | "connecting" | "refused", "wuid"?, "statusReason"}`.
 - `qrcode.updated`: `data = {"qrcode": {"base64", "code", "pairingCode"}}`.

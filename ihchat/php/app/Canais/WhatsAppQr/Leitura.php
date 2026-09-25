@@ -48,17 +48,78 @@ final class Leitura
         return $valor === true || (is_string($valor) && strtolower($valor) === 'true');
     }
 
-    /** Número como o Python o escreveria (None quando ausente; 23.0 fica 23.0). */
+    /**
+     * Número como str() do Python o escreve (whatsapp_qr.numero_python): a
+     * MENOR representação que volta ao mesmo float ("-23.561414213562372",
+     * "23.0", "1e-05"). O (string) do PHP segue o ini precision=14 e cortava
+     * a coordenada do GPS ("-23.561414213562"); aqui não depende de ini.
+     */
     public static function numero(mixed $valor): string
     {
         if ($valor === null || is_bool($valor)) {
             return 'None';
         }
         if (is_float($valor)) {
-            $texto = (string) $valor;
-            return str_contains($texto, '.') || str_contains($texto, 'E') || str_contains($texto, 'e') ? $texto : $texto . '.0';
+            return self::floatComoPython($valor);
         }
         return is_scalar($valor) ? (string) $valor : 'None';
+    }
+
+    private static function floatComoPython(float $valor): string
+    {
+        if (is_nan($valor)) {
+            return 'nan';
+        }
+        if (is_infinite($valor)) {
+            return $valor > 0 ? 'inf' : '-inf';
+        }
+        $negativo = $valor < 0 || ($valor == 0.0 && fdiv(1.0, $valor) < 0);
+        $absoluto = abs($valor);
+        if ($absoluto == 0.0) {
+            return $negativo ? '-0.0' : '0.0';
+        }
+        // os menos dígitos que ainda voltam ao mesmo número (no máximo 17)
+        $cientifico = sprintf('%.16e', $absoluto);
+        for ($digitos = 1; $digitos <= 17; $digitos++) {
+            $tentativa = sprintf('%.' . ($digitos - 1) . 'e', $absoluto);
+            if ((float) $tentativa === $absoluto) {
+                $cientifico = $tentativa;
+                break;
+            }
+        }
+        [$mantissa, $expoente] = explode('e', $cientifico);
+        $expoente = (int) $expoente;
+        $algarismos = rtrim(str_replace('.', '', $mantissa), '0');
+        $algarismos = $algarismos === '' ? '0' : $algarismos;
+        if ($expoente < -4 || $expoente >= 16) {
+            // notação científica, como o Python: "1e-05", "1.5e+16"
+            $texto = strlen($algarismos) > 1 ? $algarismos[0] . '.' . substr($algarismos, 1) : $algarismos;
+            $texto .= 'e' . ($expoente < 0 ? '-' : '+') . str_pad((string) abs($expoente), 2, '0', STR_PAD_LEFT);
+        } elseif ($expoente < 0) {
+            $texto = '0.' . str_repeat('0', -$expoente - 1) . $algarismos;
+        } else {
+            $inteiro = substr(str_pad($algarismos, $expoente + 1, '0'), 0, $expoente + 1);
+            $fracao = substr($algarismos, $expoente + 1);
+            $texto = $inteiro . '.' . ($fracao === '' ? '0' : $fracao);
+        }
+        return ($negativo ? '-' : '') . $texto;
+    }
+
+    /** "+55 (11) 98888-7777", como o painel mostra (numeroLegivel do painel.js). */
+    public static function numeroLegivel(?string $numero): string
+    {
+        $digitos = (string) $numero;
+        if (preg_match('/^55(\d{2})(\d{4,5})(\d{4})$/', $digitos, $m) === 1) {
+            return "+55 ({$m[1]}) {$m[2]}-{$m[3]}";
+        }
+        return preg_match('/^\d+$/', $digitos) === 1 ? '+' . $digitos : $digitos;
+    }
+
+    /** "81896604192873@lid": o id oculto do WhatsApp, sem telefone. */
+    public static function eLid(?string $valor): bool
+    {
+        $partes = explode('@', trim((string) $valor), 2);
+        return count($partes) === 2 && $partes[0] !== '' && $partes[1] === 'lid';
     }
 
     public static function mimeLimpo(?string $tipo): string

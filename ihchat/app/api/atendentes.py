@@ -5,6 +5,8 @@ Suporte técnico"), então cada atendente pode ajustar o seu no painel.
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
@@ -12,8 +14,23 @@ from ..dependencias import AdminAtual, AtendenteAtual, Sessao
 from ..models import Atendente
 from ..schemas import AtendenteAtualizacao, AtendenteEntrada, AtendenteSaida
 from ..security import gerar_hash_senha
+from ..servicos import chat_interno
 
 rotas = APIRouter(prefix="/api/atendentes", tags=["atendentes"])
+log = logging.getLogger("ihchat.atendentes")
+
+
+def _sincronizar_chat(sessao) -> None:
+    """Geral e salas de setor acompanham o cadastro NA HORA: quem entra, muda
+    de setor ou é desativado ganha ou perde a sala já (com o evento
+    "interno.sala" entrou/saiu), sem esperar a próxima chamada a /api/interno.
+    Uma falha aqui não desfaz o cadastro já confirmado: a próxima chamada ao
+    chat acerta de novo (a sincronização é idempotente). Igual ao PHP."""
+    try:
+        chat_interno.sincronizar(sessao)
+    except Exception:  # pragma: no cover - o cadastro já foi gravado
+        sessao.rollback()
+        log.exception("não foi possível sincronizar as salas do chat interno")
 
 
 @rotas.get("", response_model=list[AtendenteSaida])
@@ -37,6 +54,7 @@ def criar(dados: AtendenteEntrada, sessao: Sessao, _: AdminAtual) -> Atendente:
     # só confirma depois de a resposta sair, e o próximo pedido do navegador
     # podia chegar antes e não ver o dado
     sessao.commit()
+    _sincronizar_chat(sessao)
     sessao.refresh(atendente)
     return atendente
 
@@ -67,5 +85,6 @@ def atualizar(
         # null ou "" limpa: o cliente passa a ver só o nome
         alvo.setor = dados.setor or None
     sessao.commit()  # antes da resposta (ver criar)
+    _sincronizar_chat(sessao)
     sessao.refresh(alvo)
     return alvo

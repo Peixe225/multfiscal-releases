@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace IHchat\Canais;
 
 use IHchat\Banco\Banco;
+use IHchat\Canais\WhatsAppQr\EstadoConexao;
 use IHchat\Nucleo\Config;
 use IHchat\Nucleo\Json;
 
@@ -50,7 +51,7 @@ final class Canais
     }
 
     /**
-     * CanalSaida: {id, nome, tipo, ativo, chave_publica, configurado, url_webhook}.
+     * CanalSaida: {id, nome, tipo, ativo, chave_publica, configurado, url_webhook, conexao}.
      *
      * url_webhook é absoluta quando a instalação conhece o próprio endereço
      * (url_publica): é o que o admin cola na Meta ou vê no setWebhook.
@@ -74,7 +75,27 @@ final class Canais
             'chave_publica' => $canal['chave_publica'],
             'configurado' => $configurado,
             'url_webhook' => self::urlWebhook($canal['id']),
+            'conexao' => self::conexao($canal),
         ];
+    }
+
+    /**
+     * Só no WhatsApp pelo QR Code: "conectado", "aguardando_leitura" ou
+     * "desconectado", o último estado que o servidor viu (webhook, /qr ou
+     * testar); null nos outros tipos e antes da primeira conferência. Não é
+     * segredo: é o que deixa a equipe ver que o celular caiu. Igual a
+     * conexao_do_canal do Python.
+     *
+     * @param array<string, mixed> $canal já tipado
+     */
+    public static function conexao(array $canal): ?string
+    {
+        if (($canal['tipo'] ?? null) !== 'whatsapp_qr') {
+            return null;
+        }
+        $estado = $canal['credenciais'][AdaptadorWhatsAppQr::CHAVE_ESTADO] ?? null;
+        $validos = [EstadoConexao::CONECTADO, EstadoConexao::AGUARDANDO, EstadoConexao::DESCONECTADO];
+        return in_array($estado, $validos, true) ? $estado : null;
     }
 
     /** "/webhooks/5", ou "https://atendimento.../webhooks/5" com url_publica configurada. */

@@ -1,9 +1,15 @@
 # IHchat na Hostinger: passo a passo
 
-Este guia coloca o IHchat no ar em **https://atendimento.oprojeto.online**,
-numa pasta própria (`public_html/ihchat/`) que não mexe em nenhum outro
-sistema do domínio. No fim há o caminho para a futura VPS (app Python com
-Docker, o mesmo painel).
+Este guia coloca o IHchat (a central de atendimento da I&H) no ar em
+**https://atendimento.oprojeto.online**, numa pasta própria
+(`public_html/ihchat/`) que não mexe em nenhum outro sistema do domínio. O
+subdomínio aponta para **`public_html/ihchat/public`**. No fim há o caminho
+para a futura VPS (app Python com Docker, o mesmo painel).
+
+Resumo do que o sistema tem: caixa de entrada única para WhatsApp (API
+oficial da Meta, Graph API **v26.0**, ou um número comum conectado **pelo QR
+Code** via Z-API ou Evolution API), Telegram, e-mail e chat do site; o **chat
+da equipe** (sala Geral, salas por setor, diretas e grupos); e a marca da I&H.
 
 ## O que vai para onde
 
@@ -185,7 +191,7 @@ mudar de nome ou de setor depois). O cliente vê assim:
 
 | Canal | Como aparece |
 |---|---|
-| WhatsApp | primeira linha em negrito: **Ana · Suporte técnico** |
+| WhatsApp (oficial ou QR Code) | primeira linha em negrito: **Ana · Suporte técnico** |
 | Telegram | primeira linha: Ana · Suporte técnico |
 | E-mail | no fim, como assinatura (`-- `, nome e setor) |
 | Chat do site | nome e setor acima da resposta, no balão |
@@ -224,6 +230,71 @@ tempo real é por consulta; na VPS, instantâneo).
 A Meta só deixa a empresa iniciar conversa com modelo aprovado; responder a
 quem escreveu é livre por 24 horas depois da última mensagem do cliente.
 
+O IHchat chama a Graph API **v26.0** (constante `VERSAO_API` em
+`app/Canais/AdaptadorWhatsApp.php`). A v20.0 de versões antigas já saiu do ar;
+se a Meta anunciar o fim da v26.0, troque só essa constante (e a do Python).
+
+### WhatsApp pelo QR Code (Z-API ou Evolution API)
+
+Um número de WhatsApp comum (o do celular da empresa), conectado lendo um QR
+Code como no WhatsApp Web. A hospedagem compartilhada não mantém a sessão do
+WhatsApp ligada, então ela fica num **provedor online** e o IHchat conversa
+com ele (detalhes técnicos em `app/Canais/PROVEDORES-WHATSAPP.md`, no
+repositório).
+
+**Custos** (consultados em setembro de 2026; confira antes de contratar):
+
+- **Z-API** (serviço hospedado, brasileiro): R$ 99,99 por mês por número
+  (instância), mensagens ilimitadas, 2 dias grátis para testar sem cartão.
+  Planos Partner com preço menor por instância para volume.
+- **Evolution API v2** (software livre): gratuita, mas precisa de um servidor
+  seu com https (uma VPS pequena com Docker e banco PostgreSQL ou MySQL) e de
+  alguém para mantê-lo atualizado. Na hospedagem compartilhada ela **não roda**.
+
+**Riscos:**
+
+- **Não é oficial.** O WhatsApp pode **banir o número**, principalmente com
+  envio em massa, contatos que não pediram mensagem ou muitas denúncias. Use
+  para responder a quem escreveu; para campanha, use a API oficial.
+- **O celular tem de continuar conectado.** Se ele sair de "Aparelhos
+  conectados" (troca de aparelho, reinstalação, dias sem internet), as
+  mensagens param. O painel marca o canal como **desconectado** na barra
+  lateral e avisa no campo de resposta; o admin lê o QR Code de novo.
+- **Um terceiro no caminho**: as mensagens passam pela Z-API (as mídias ficam
+  30 dias lá) ou pelo seu servidor Evolution.
+- O que for respondido **direto no celular** aparece no histórico com o selo
+  "Enviada pelo celular" (não é reenviado nem leva assinatura).
+
+**Passo a passo com a Z-API:**
+
+1. Crie a conta em z-api.io e uma instância. Anote o **ID da instância**, o
+   **token da instância** e, se ativou em Segurança, o **Client-Token**.
+2. No painel do IHchat (admin): **Canais → Novo canal → WhatsApp (QR Code)**,
+   provedor **Z-API**, preencha os campos e salve.
+3. **Conectar pelo QR Code**: no celular, WhatsApp → **Aparelhos conectados**
+   → **Conectar aparelho**, e aponte para o código na tela (ele se renova a
+   cada ~15 s). Quando conectar, o painel mostra o número.
+4. **Conectar webhook**: o IHchat cadastra na Z-API o endereço
+   `https://atendimento.oprojeto.online/webhooks/<id>?token=<segredo>`. Exige
+   o **endereço público** (`url_publica`) com https no `config.php`, que o
+   instalador já grava.
+5. **Testar conexão** e mande uma mensagem de outro celular para o número.
+
+**Passo a passo com a Evolution API:**
+
+1. Na sua VPS, suba a Evolution API v2 (Docker) com https e anote a
+   `AUTHENTICATION_API_KEY` (a chave global; é ela que cria a instância).
+2. No IHchat: **Canais → Novo canal → WhatsApp (QR Code)**, provedor
+   **Evolution**: endereço do servidor (`https://...`), API key e um nome para
+   a instância.
+3. **Conectar pelo QR Code**: o IHchat cria a instância nessa hora (já com o
+   webhook) e mostra o código para ler no celular.
+4. **Conectar webhook** (numa instância criada antes, use **Reconectar
+   webhook**) e **Testar conexão**.
+
+O cliente que já falou pela API oficial é reconhecido pelo telefone: mesmo
+contato, mesmo histórico.
+
 ### Telegram
 
 1. No Telegram, fale com **@BotFather**, envie `/newbot` e copie o token.
@@ -232,6 +303,17 @@ quem escreveu é livre por 24 horas depois da última mensagem do cliente.
    `setWebhook` com a URL e um segredo próprios).
 3. Mande uma mensagem para o bot. (O modo "polling" também funciona, via cron,
    com até 1 minuto de atraso.)
+
+### Chat da equipe
+
+Não tem configuração: depois de instalar (ou atualizar), o botão **Chat da
+equipe** aparece no topo do painel para todo atendente. A sala **Geral** e as
+salas de **setor** se montam sozinhas a partir do cadastro em **Equipe** (quem
+muda de setor ou é desativado ganha ou perde a sala na hora); diretas e grupos
+cada um cria. As tabelas entram pela migração automática na primeira
+requisição depois da atualização. Os eventos do chat só chegam a quem é
+membro da sala. Na conversa de um cliente, **Compartilhar com a equipe** manda
+um cartão dela para uma sala; o cartão abre a conversa.
 
 ### E-mail (caixa da Hostinger)
 
@@ -292,6 +374,10 @@ arquivos, e um deles quebrado derruba a API inteira.
 | Perdi o `config.php` | Copie `ihchat/config.exemplo.php` para `ihchat/config.php` e troque os dados do banco (`dsn`, `usuario`, `senha`), a `chave_secreta` (64 caracteres aleatórios: `php -r "echo bin2hex(random_bytes(32));"`; uma chave nova só desloga todo mundo) e a `url_publica`. Mantenha a linha `'pasta_web' => __DIR__ . '/web'`: sem ela, painel e widget respondem 404. |
 | `/painel` e `/widget.js` dão 404, `/saude` funciona | O `config.php` não aponta o front: acrescente `'pasta_web' => __DIR__ . '/web',` antes do `];` final. |
 | WhatsApp não recebe | Canal **ativo** (o de exemplo vem desativado; entregas a canal desativado dão 409), URL e token de verificação iguais nos dois lados, campo "messages" assinado, App Secret certo (assinatura inválida é recusada). |
+| WhatsApp (QR Code) "desconectado" | O celular saiu de "Aparelhos conectados": em Canais, **Conectar pelo QR Code** e leia de novo. |
+| WhatsApp (QR Code) conecta mas não recebe | Falta o webhook: **Conectar webhook** (precisa de `url_publica` com https). Se o endereço público mudou, o teste avisa: use **Reconectar webhook**. |
+| QR Code não aparece (Z-API) | Aparelho com Chave de Acesso: conclua a conexão no painel da Z-API. |
+| QR Code não aparece (Evolution) | A API key precisa ser a global (`AUTHENTICATION_API_KEY`) para criar a instância; com o token de uma instância, crie-a no painel da Evolution. |
 
 ## Futuro: VPS com o app Python
 

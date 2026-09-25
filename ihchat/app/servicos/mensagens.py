@@ -28,7 +28,7 @@ from ..models import (
     TipoMensagem,
     agora,
 )
-from ..serializacao import conversa_saida, json_de, mensagem_saida
+from ..serializacao import canal_saida, conversa_saida, json_de, mensagem_saida
 from ..util import resumir
 from . import anexos as svc_anexos
 from .contatos import identificador_no_canal, normalizar_identificador, resolver_contato
@@ -152,7 +152,9 @@ def aplicar_assinatura(tipo_canal: str, conteudo: str, assinatura: dict | None) 
     if not assinatura or not _uma_linha(assinatura.get("nome")):
         return conteudo
     linha = linha_da_assinatura(assinatura)
-    if tipo_canal == TipoCanal.WHATSAPP.value:
+    # o WhatsApp pelo QR Code mostra o texto igual ao da API oficial: negrito
+    # com *...* na primeira linha (o adaptador recebe o texto já assinado)
+    if tipo_canal in (TipoCanal.WHATSAPP.value, TipoCanal.WHATSAPP_QR.value):
         cabecalho = f"*{linha}*"
     elif tipo_canal == TipoCanal.TELEGRAM.value:
         cabecalho = linha
@@ -333,3 +335,10 @@ def publicar_mensagem(mensagem: Mensagem, tipo: str = "mensagem.nova") -> None:
 
 def publicar_conversa(conversa: Conversa, tipo: str = "conversa.atualizada") -> None:
     publicar_evento(tipo, json_de(conversa_saida(conversa)), conversa.contato_id)
+
+
+def publicar_canal(canal) -> None:
+    """'canal.atualizado' com o CanalSaida (sem credenciais): hoje, quando o
+    WhatsApp pelo QR Code conecta ou cai, para a equipe inteira ver na hora.
+    Sem contato: vai a todo atendente logado, como a lista de /api/canais."""
+    publicar_evento("canal.atualizado", json_de(canal_saida(canal)), None)

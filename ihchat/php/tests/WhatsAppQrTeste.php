@@ -12,12 +12,15 @@ declare(strict_types=1);
  */
 
 use IHchat\Atendimento\AnexoRecebido;
+use IHchat\Atendimento\Assinaturas;
 use IHchat\Auth\Token;
 use IHchat\Banco\Banco;
 use IHchat\Canais\AdaptadorWhatsApp;
 use IHchat\Canais\AdaptadorWhatsAppQr;
 use IHchat\Canais\ErroCanal;
 use IHchat\Canais\WhatsAppQr\Leitura;
+use IHchat\Canais\WhatsAppQr\RedeExterna;
+use IHchat\Nucleo\Config;
 use IHchat\Instalacao\Seed;
 use IHchat\Nucleo\Aplicacao;
 use IHchat\Nucleo\Datas;
@@ -117,7 +120,8 @@ return [
         $qr = adaptador_qr(QR_ZAPI);
         $base = ['type' => 'ReceivedCallback', 'phone' => '5511999990000', 'fromMe' => false, 'senderName' => 'Zé'];
         $extras = [
-            ['location' => ['latitude' => -23.5, 'longitude' => -46.6]],
+            // precisão de GPS de celular: o (string) do PHP (precision=14) cortava os últimos dígitos
+            ['location' => ['latitude' => -23.561414213562372, 'longitude' => -46.65588379999999]],
             ['contact' => ['displayName' => 'Maria']],
             ['buttonsResponseMessage' => ['buttonId' => '1', 'message' => 'Sim']],
             ['listResponseMessage' => ['title' => 'Financeiro', 'message' => 'Financeiro']],
@@ -128,7 +132,7 @@ return [
         foreach ($extras as $i => $extra) {
             array_push($recebidas, ...$qr->analisarWebhook($base + ['messageId' => "m{$i}"] + $extra));
         }
-        Afirmar::igual(['[localizacao] -23.5,-46.6', '[contato] Maria', 'Sim', 'Financeiro'], array_map(static fn ($r) => $r->conteudo, $recebidas));
+        Afirmar::igual(['[localizacao] -23.561414213562372,-46.65588379999999', '[contato] Maria', 'Sim', 'Financeiro'], array_map(static fn ($r) => $r->conteudo, $recebidas));
         Afirmar::igual('whatsapp_qr:7:m0', $recebidas[0]->externo_id);
         Afirmar::igual('Zé', $recebidas[0]->nome_exibicao);
         Afirmar::igual([], $qr->analisarStatus(['type' => 'MessageStatusCallback', 'status' => 'READ_BY_ME', 'ids' => ['a']]));
@@ -175,12 +179,14 @@ return [
         ]]);
         Afirmar::igual([['externo_id' => 'whatsapp_qr:7:b', 'status' => 'lida']], $recibos);
     },
-    'assinatura na primeira linha, sem duplicar' => function (): void {
+    'assinatura na primeira linha pelo nucleo' => function (): void {
+        // o núcleo assina o QR como o WhatsApp oficial; o adaptador não assina de novo
         $assinatura = ['nome' => 'Ana', 'setor' => 'Suporte'];
-        Afirmar::igual("*Ana · Suporte*\nOi", AdaptadorWhatsAppQr::comAssinatura('Oi', $assinatura));
-        Afirmar::igual("*Ana · Suporte*\nOi", AdaptadorWhatsAppQr::comAssinatura("*Ana · Suporte*\nOi", $assinatura));
-        Afirmar::igual('*Ana · Suporte*', AdaptadorWhatsAppQr::comAssinatura('', $assinatura));
-        Afirmar::igual('Oi', AdaptadorWhatsAppQr::comAssinatura('Oi', null));
+        Afirmar::igual("*Ana · Suporte*\nOi", Assinaturas::aplicar('whatsapp_qr', 'Oi', $assinatura));
+        Afirmar::igual(Assinaturas::aplicar('whatsapp', 'Oi', $assinatura), Assinaturas::aplicar('whatsapp_qr', 'Oi', $assinatura));
+        Afirmar::igual('*Ana · Suporte*', Assinaturas::aplicar('whatsapp_qr', '', $assinatura));
+        Afirmar::igual('Oi', Assinaturas::aplicar('whatsapp_qr', 'Oi', null));
+        Afirmar::verdade(!method_exists(AdaptadorWhatsAppQr::class, 'comAssinatura'), 'o adaptador não deve assinar de novo');
     },
     'api oficial da meta na versao vigente' => function (): void {
         Afirmar::igual('v26.0', AdaptadorWhatsApp::VERSAO_API);
@@ -208,5 +214,63 @@ return [
         Afirmar::igual([$detalhe['contato']['nome'], 'Enviada pelo celular'], array_map(static fn (array $m) => $m['autor'], $detalhe['mensagens']));
         [$status] = pedir_qr('POST', "/webhooks/{$canal}", [], Json::codificar($entrega), ['token' => 'errado']);
         Afirmar::igual(401, $status);
+    },
+    'numero como o python o escreve' => function (): void {
+        $casos = [
+            [-23.561414213562372, '-23.561414213562372'], [-46.65588379999999, '-46.65588379999999'],
+            [23.0, '23.0'], [-100.0, '-100.0'], [0.1, '0.1'], [1e-05, '1e-05'], [0.0001, '0.0001'],
+            [1.5e16, '1.5e+16'], [1e16, '1e+16'], [9999999999999998.0, '9999999999999998.0'],
+            [-0.0, '-0.0'], [5e-324, '5e-324'], [1.7976931348623157e308, '1.7976931348623157e+308'],
+            [7, '7'], [null, 'None'], [true, 'None'],
+        ];
+        foreach ($casos as [$valor, $esperado]) {
+            Afirmar::igual($esperado, Leitura::numero($valor), var_export($valor, true));
+        }
+    },
+    'numero legivel e lid' => function (): void {
+        Afirmar::igual('+55 (11) 98888-7777', Leitura::numeroLegivel('5511988887777'));
+        Afirmar::igual('+14155550100', Leitura::numeroLegivel('14155550100'));
+        Afirmar::verdade(Leitura::eLid('81896604192873@lid'));
+        Afirmar::verdade(!Leitura::eLid('5511988887777') && !Leitura::eLid('@lid') && !Leitura::eLid(null));
+    },
+    'trocar a instancia apaga webhook, estado e numero' => function (): void {
+        $atuais = QR_ZAPI + ['webhook_url' => 'https://x/webhooks/1', 'estado_conexao' => 'conectado', 'numero_conectado' => '5511'];
+        Afirmar::igual($atuais, AdaptadorWhatsAppQr::semDadosDeOutraInstancia($atuais, $atuais + ['client_token' => 'outro']));
+        $nova = ['instancia_id' => 'NOVA'] + $atuais;
+        Afirmar::igual(array_diff_key($nova, array_flip(AdaptadorWhatsAppQr::CHAVES_DA_INSTANCIA)),
+            AdaptadorWhatsAppQr::semDadosDeOutraInstancia($atuais, $nova));
+        $evolucao = ['provedor' => 'evolution', 'url_servidor' => 'https://evo', 'nome_instancia' => 'a', 'webhook_url' => 'w'];
+        // a mesma instância escrita com barra no fim continua sendo a mesma
+        Afirmar::igual('w', AdaptadorWhatsAppQr::semDadosDeOutraInstancia($evolucao, ['url_servidor' => 'https://evo/'] + $evolucao)['webhook_url'] ?? null);
+        Afirmar::verdade(!isset(AdaptadorWhatsAppQr::semDadosDeOutraInstancia($evolucao, ['nome_instancia' => 'b'] + $evolucao)['webhook_url']));
+    },
+    'endereco da evolution: https fora do sandbox, http so em localhost' => function (): void {
+        Afirmar::igual(null, AdaptadorWhatsAppQr::problemaNoEnderecoEvolution('http://evo.exemplo.com'), 'no sandbox http passa');
+        preparar_ambiente(['modo_sandbox' => false, 'chave_secreta' => str_repeat('k', 40)]);
+        Afirmar::verdade(str_contains((string) AdaptadorWhatsAppQr::problemaNoEnderecoEvolution('http://evo.exemplo.com'), 'https://'));
+        foreach (['http://localhost:8080', 'http://127.0.0.1:8080', 'http://[::1]:8080', 'https://evo.exemplo.com'] as $bom) {
+            Afirmar::igual(null, AdaptadorWhatsAppQr::problemaNoEnderecoEvolution($bom), $bom);
+        }
+        Afirmar::verdade(str_starts_with((string) AdaptadorWhatsAppQr::problemaNoEnderecoEvolution('evo.exemplo.com'), 'precisa começar com https://'));
+    },
+    'midia: so endereco publico' => function (): void {
+        $casos = [
+            '93.184.216.34' => true, '2606:2800:220:1:248:1893:25c8:1946' => true,
+            '127.0.0.1' => false, '10.1.2.3' => false, '172.16.0.1' => false, '192.168.0.10' => false,
+            '169.254.169.254' => false, '100.64.0.1' => false, '0.0.0.0' => false, '224.0.0.1' => false,
+            '::1' => false, 'fe80::1' => false, 'fd00::1' => false, '::ffff:127.0.0.1' => false, '::ffff:10.0.0.1' => false,
+        ];
+        foreach ($casos as $ip => $publico) {
+            Afirmar::igual($publico, RedeExterna::enderecoPublico((string) $ip), (string) $ip);
+        }
+        Afirmar::lanca(ErroCanal::class, static fn () => RedeExterna::destinoConferido('http://127.0.0.1:3306/'),
+            static fn (ErroCanal $e) => Afirmar::verdade(str_contains($e->getMessage(), 'rede interna')));
+        Afirmar::lanca(ErroCanal::class, static fn () => RedeExterna::destinoConferido('http://localhost/x'));
+    },
+    'midia acima do limite de anexos para' => function (): void {
+        preparar_ambiente(['tamanho_max_anexo_mb' => 1]);
+        provedor_qr(static fn (string $metodo, string $url): RespostaHttp => new RespostaHttp(200, str_repeat('x', 1024 * 1024 + 1)));
+        Afirmar::lanca(ErroCanal::class, static fn () => RedeExterna::baixar('https://storage.z-api.teste/v.mp4', 1024 * 1024),
+            static fn (ErroCanal $e) => Afirmar::verdade(str_contains($e->getMessage(), 'limite de 1 MB')));
     },
 ];

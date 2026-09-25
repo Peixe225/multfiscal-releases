@@ -8,9 +8,21 @@ from ..models import Contato, ContatoIdentidade, Conversa, SessaoWidget, TipoCan
 from ..util import normalizar_telefone
 
 # canais cujo identificador ja e um dado de contato conhecido - permitem
-# reconhecer que o "novo" contato e alguem que ja fala por outro canal
-CANAIS_TELEFONE = {TipoCanal.WHATSAPP.value}
+# reconhecer que o "novo" contato e alguem que ja fala por outro canal. O
+# WhatsApp pelo QR Code tambem: o cliente que escreve pelo numero da empresa
+# no celular e o mesmo que ja foi atendido pela API oficial.
+CANAIS_TELEFONE = {TipoCanal.WHATSAPP.value, TipoCanal.WHATSAPP_QR.value}
 CANAIS_EMAIL = {TipoCanal.EMAIL.value}
+
+
+def e_telefone(canal_tipo: str, identificador: str | None) -> bool:
+    """O identificador e um numero de telefone?
+
+    No WhatsApp pelo QR Code ele pode ser um "@lid" (id oculto do WhatsApp,
+    sem telefone): esse fica inteiro, e para ele que a resposta volta, e nao
+    serve para achar ninguem pelo telefone. Igual a Contatos::eTelefone.
+    """
+    return canal_tipo in CANAIS_TELEFONE and "@" not in (identificador or "")
 
 
 def _por_identidade(sessao: Session, canal_tipo: str, identificador: str) -> Contato | None:
@@ -27,6 +39,8 @@ def _por_identidade(sessao: Session, canal_tipo: str, identificador: str) -> Con
 def _por_dado_conhecido(sessao: Session, canal_tipo: str, identificador: str) -> Contato | None:
     """Reconhece o contato que ja existe com o mesmo telefone ou e-mail."""
     if canal_tipo in CANAIS_TELEFONE:
+        if not e_telefone(canal_tipo, identificador):
+            return None  # um @lid nao e telefone de ninguem
         telefone = normalizar_telefone(identificador)
         # o telefone e sempre gravado so com digitos (ver api/contatos.py),
         # entao a comparacao direta funciona em qualquer banco
@@ -39,7 +53,7 @@ def _por_dado_conhecido(sessao: Session, canal_tipo: str, identificador: str) ->
 def normalizar_identificador(canal_tipo: str, identificador: str) -> str:
     """Como a identidade fica gravada: telefone só com dígitos, e-mail minúsculo."""
     identificador = (identificador or "").strip()
-    if canal_tipo in CANAIS_TELEFONE:
+    if e_telefone(canal_tipo, identificador):
         return normalizar_telefone(identificador)
     if canal_tipo in CANAIS_EMAIL:
         return identificador.lower()
@@ -62,7 +76,7 @@ def resolver_contato(
     if contato is None:
         contato = Contato(
             nome=nome_exibicao or identificador,
-            telefone=identificador if canal_tipo in CANAIS_TELEFONE else None,
+            telefone=identificador if e_telefone(canal_tipo, identificador) else None,
             email=identificador if canal_tipo in CANAIS_EMAIL else None,
         )
         sessao.add(contato)

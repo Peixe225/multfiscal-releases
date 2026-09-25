@@ -172,6 +172,11 @@ class CanalSaida(Modelo):
     chave_publica: str | None = None
     configurado: bool = False
     url_webhook: str | None = None
+    # só no WhatsApp pelo QR Code: "conectado", "aguardando_leitura" ou
+    # "desconectado", o último estado que o servidor viu (webhook, /qr ou
+    # testar). None nos outros tipos e antes da primeira conferência. Não é
+    # segredo: é o que deixa a equipe ver que o celular caiu.
+    conexao: str | None = None
 
 
 # -------------------------------------------------------------------- contatos
@@ -287,6 +292,10 @@ class MensagemSaida(Modelo):
     assinatura: AssinaturaSaida | None = None
     anexos: list[AnexoSaida] = []
     criada_em: datetime
+    # WhatsApp pelo QR Code: o dono respondeu direto pelo celular. Não saiu
+    # pelo IHchat nem levou a assinatura de ninguém; o painel mostra um selo
+    # próprio em vez de "como o cliente viu quem respondeu".
+    pelo_celular: bool = False
 
 
 # ------------------------------------------------------------------- conversas

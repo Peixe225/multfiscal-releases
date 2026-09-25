@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace IHchat\Canais;
 
 use IHchat\Atendimento\AnexoRecebido;
-use IHchat\Atendimento\Assinaturas;
 use IHchat\Atendimento\MensagemRecebida;
 use IHchat\Atendimento\ResultadoEnvio;
 use IHchat\Canais\WhatsAppQr\EstadoConexao;
@@ -41,6 +40,34 @@ final class AdaptadorWhatsAppQr extends Adaptador
     public const CHAVE_WEBHOOK = 'webhook_url';
 
     /**
+     * Dados que valem para UMA instância do provedor. Trocar de instância
+     * (outro ID na Z-API, outro servidor ou nome na Evolution, outro
+     * provedor) os invalida: a instância nova nasce sem webhook e sem número
+     * conectado, e mantê-los fazia o painel dizer "webhook cadastrado"
+     * enquanto nenhuma mensagem chegava.
+     */
+    public const CHAVES_DA_INSTANCIA = [self::CHAVE_ESTADO, self::CHAVE_NUMERO, self::CHAVE_WEBHOOK];
+
+    /**
+     * Metadado da mensagem recebida com o "@lid" do contato quando a entrega
+     * traz também o número: o webhook liga as duas identidades ao mesmo contato.
+     */
+    public const METADADO_LID = 'lid_whatsapp';
+
+    /**
+     * Recibos chegam fora de ordem (a Evolution dispara cada webhook sem
+     * esperar o anterior; a Z-API pode mandar o RECEIVED depois do READ): o
+     * recibo só AVANÇA o status. Para cada status novo, os atuais que ele pode
+     * substituir. "enviada" não substitui nada (a mensagem já nasce enviada),
+     * e "falhou" só vale enquanto ninguém confirmou a entrega.
+     */
+    public const RECIBO_SUBSTITUI = [
+        'entregue' => ['enviada', 'falhou'],
+        'lida' => ['enviada', 'entregue', 'falhou'],
+        'falhou' => ['enviada'],
+    ];
+
+    /**
      * O "autor" de uma resposta que o dono mandou pelo celular: gravado em
      * mensagens.assinatura, que os dois servidores já leem.
      */
@@ -49,6 +76,17 @@ final class AdaptadorWhatsAppQr extends Adaptador
     /** Preenchidos por verificarConexao, para o "Testar conexão". */
     public ?EstadoConexao $ultimoEstado = null;
     public ?string $alertaDeConexao = null;
+
+    /**
+     * Evolution: quem chama pode pedir que uma instância criada agora já nasça
+     * com o webhook (a URL com o token do canal). Depois da chamada,
+     * $instanciaCriada diz se o provedor criou a instância, e
+     * $webhookNaCriacao se ela nasceu com esse webhook: uma instância recriada
+     * sem ele não recebe nada, e o webhook gravado deixa de valer.
+     */
+    public ?string $webhookDaInstancia = null;
+    public bool $instanciaCriada = false;
+    public bool $webhookNaCriacao = false;
 
     /** @var array{0: array<string, mixed>, 1: Evento}|null a última entrega traduzida */
     private ?array $traduzido = null;
@@ -226,6 +264,82 @@ final class AdaptadorWhatsAppQr extends Adaptador
         return $novas === $credenciais ? null : $novas;
     }
 
+    /**
+     * O que identifica a instância no provedor (a sessão do WhatsApp).
+     *
+     * @param array<string, mixed> $credenciais
+     * @return list<string>
+     */
+    public static function identidadeDaInstancia(array $credenciais): array
+    {
+        $provedor = $credenciais['provedor'] ?? null;
+        $provedor = is_string($provedor) && trim($provedor) !== '' ? strtolower(trim($provedor)) : self::PROVEDOR_PADRAO;
+        $valor = static function (string $chave) use ($credenciais): string {
+            $bruto = $credenciais[$chave] ?? null;
+            return is_scalar($bruto) ? trim(is_bool($bruto) ? ($bruto ? 'True' : 'False') : (string) $bruto) : '';
+        };
+        if ($provedor === 'evolution') {
+            return [$provedor, rtrim($valor('url_servidor'), '/'), $valor('nome_instancia')];
+        }
+        return [$provedor, $valor('instancia_id'), $valor('instancia_token')];
+    }
+
+    /**
+     * As credenciais novas sem estado, número e webhook quando a instância mudou.
+     *
+     * @param array<string, mixed> $atuais
+     * @param array<string, mixed> $novas
+     * @return array<string, mixed>
+     */
+    public static function semDadosDeOutraInstancia(array $atuais, array $novas): array
+    {
+        if (self::identidadeDaInstancia($atuais) === self::identidadeDaInstancia($novas)) {
+            return $novas;
+        }
+        foreach (self::CHAVES_DA_INSTANCIA as $chave) {
+            unset($novas[$chave]);
+        }
+        return $novas;
+    }
+
+    /** localhost ou IP de loopback: o tráfego não sai do próprio servidor. */
+    public static function hostLocal(string $host): bool
+    {
+        $nome = trim(rtrim(strtolower(trim($host)), '.'), '[]');
+        if ($nome === 'localhost' || str_ends_with($nome, '.localhost')) {
+            return true;
+        }
+        if (filter_var($nome, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            return str_starts_with($nome, '127.');
+        }
+        if (filter_var($nome, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            return inet_pton($nome) === inet_pton('::1');
+        }
+        return false;
+    }
+
+    /**
+     * Por que o endereço do servidor Evolution não serve (null = serve).
+     *
+     * A API key (muitas vezes a GLOBAL, que controla todas as instâncias) vai
+     * num cabeçalho de cada chamada: por http:// ela passaria sem criptografia
+     * pela internet a cada consulta do diálogo, envio e teste. Fora do
+     * sandbox, só https://, ou http:// para o próprio servidor (localhost).
+     */
+    public static function problemaNoEnderecoEvolution(string $endereco): ?string
+    {
+        $esquema = strtolower((string) parse_url($endereco, PHP_URL_SCHEME));
+        $host = (string) parse_url($endereco, PHP_URL_HOST);
+        if (!in_array($esquema, ['http', 'https'], true) || $host === '') {
+            return 'precisa começar com https://, ex.: https://evolution.suaempresa.com.br';
+        }
+        if ($esquema === 'http' && !self::hostLocal($host) && !self::sandbox()) {
+            return 'precisa usar https://: por http:// a API key iria sem criptografia pela internet '
+                . '(http:// só vale para um servidor Evolution nesta mesma máquina, em localhost)';
+        }
+        return null;
+    }
+
     // ----------------------------------------------------------------- saída
 
     public function enviaArquivos(): bool
@@ -233,30 +347,12 @@ final class AdaptadorWhatsAppQr extends Adaptador
         return true;
     }
 
-    /**
-     * Primeira linha "*Ana · Suporte*", como no WhatsApp oficial. O núcleo
-     * (Assinaturas::aplicar) só assina os tipos que conhece; se um dia ele
-     * passar a assinar este também, o texto já chega assinado e não ganha a
-     * linha duas vezes.
-     *
-     * @param array{nome: string, setor: ?string}|null $assinatura
-     */
-    public static function comAssinatura(string $conteudo, ?array $assinatura): string
-    {
-        if ($assinatura === null) {
-            return $conteudo;
-        }
-        $cabecalho = Assinaturas::aplicar(Campos::WHATSAPP, '', $assinatura);
-        if ($cabecalho === '' || $conteudo === $cabecalho || str_starts_with($conteudo, $cabecalho . "\n")) {
-            return $conteudo;
-        }
-        return Assinaturas::aplicar(Campos::WHATSAPP, $conteudo, $assinatura);
-    }
-
     protected function enviarDeFato(string $destino, string $conteudo, array $contexto): ResultadoEnvio
     {
         $provedor = $this->provedor();
-        $texto = self::comAssinatura($conteudo, is_array($contexto['assinatura'] ?? null) ? $contexto['assinatura'] : null);
+        // o texto já chega assinado ("*Ana · Suporte*" na primeira linha) pelo
+        // núcleo (Assinaturas::aplicar), como no WhatsApp oficial
+        $texto = $conteudo;
         $arquivos = $contexto['arquivos'] ?? [];
         $numero = Leitura::identificadorDoContato($destino) ?? $destino;
         // uma mensagem carrega uma mídia; o texto vira a legenda dela

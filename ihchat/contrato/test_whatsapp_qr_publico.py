@@ -150,6 +150,10 @@ def test_evolution_cadastra_o_webhook_e_cria_a_instancia_se_preciso(cliente_publ
         "http://evo.interno:8080/instance/create",
         f"http://evo.interno:8080/webhook/set/{instancia}",
     ]
+    # a instância criada aqui já nasce com o webhook do IHchat
+    criacao = json.loads(provedor.chamadas()[1]["corpo"])
+    assert criacao["webhook"]["url"] == f"{URL_PUBLICA}/webhooks/{canal['id']}?token={segredo}"
+    assert criacao["webhook"]["base64"] is False
 
     provedor.limpar()
     provedor.roteirar("/webhook/set/", metodo="POST", status=201, json={"id": "w1", "enabled": True})
@@ -158,7 +162,9 @@ def test_evolution_cadastra_o_webhook_e_cria_a_instancia_se_preciso(cliente_publ
     chamada = provedor.chamadas()[-1]
     assert chamada["cabecalhos"]["apikey"] == "chave-evo"
     webhook = json.loads(chamada["corpo"])["webhook"]
-    assert webhook["enabled"] is True and webhook["byEvents"] is False and webhook["base64"] is True
+    # base64 false: a mídia é baixada depois pela API; no JSON do webhook, um
+    # vídeo grande estouraria o post_max_size da hospedagem (413) e sumiria
+    assert webhook["enabled"] is True and webhook["byEvents"] is False and webhook["base64"] is False
     assert webhook["events"] == ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
     assert webhook["url"] == f"{URL_PUBLICA}/webhooks/{canal['id']}?token={segredo}"
 

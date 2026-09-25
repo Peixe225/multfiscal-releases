@@ -32,7 +32,7 @@ final class Seed
     private const CANAIS = [
         ['WhatsApp Suporte', 'whatsapp'],
         ['Telegram Suporte', 'telegram'],
-        ['suporte@multfiscal', 'email'],
+        ['E-mail Suporte', 'email'],
         ['Chat do site', 'webchat'],
     ];
 
@@ -45,7 +45,7 @@ final class Seed
     ];
 
     private const RESPOSTAS = [
-        ['bomdia', 'Saudação', 'Bom dia! Aqui é o suporte MultFiscal. Como posso ajudar?'],
+        ['bomdia', 'Saudação', 'Bom dia! Aqui é o suporte da I&H. Como posso ajudar?'],
         ['versao', 'Versão atual', 'A versão mais recente é a 0.8.7.2. Você atualiza pelo próprio sistema, em Configurações → Atualizações.'],
         ['senha', 'Redefinição de senha', 'A troca de senha fica em Configurações → Acesso → "Alterar minha senha". Se você esqueceu a senha, só o suporte redefine — me confirme o CNPJ da empresa.'],
         ['aguarde', 'Pedir um instante', 'Só um instante, por favor, já verifico isso para você.'],

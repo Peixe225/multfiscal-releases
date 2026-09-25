@@ -84,18 +84,24 @@ def ultimo_id() -> int:
 PREFIXO_INTERNO = "interno."
 
 
+# eventos que levam o texto de uma mensagem (dados = MensagemInternaSaida)
+TIPOS_COM_MENSAGEM = ("interno.mensagem", "interno.mensagem.atualizada")
+
+
 class FiltroDoAtendente:
     """O que um atendente pode receber: tudo do atendimento e, do chat
     interno, só o das salas de que é membro AGORA.
 
     Evento "interno.*" com "para": [ids] é de uma pessoa só (cursor de
-    leitura, "você saiu do grupo") e vai só para ela. As salas são lidas uma
-    vez por lote (novo_lote), e só se o lote tiver evento interno.
+    leitura, "você saiu do grupo") e vai só para ela. Mensagem de id até o
+    visivel_desde do membro (sala de setor: o que veio antes de ele entrar)
+    também não vai. As salas são lidas uma vez por lote (novo_lote), e só se
+    o lote tiver evento interno.
     """
 
     def __init__(self, atendente_id: int):
         self.atendente_id = atendente_id
-        self._salas: set[int] | None = None
+        self._salas: dict[int, int] | None = None
 
     def novo_lote(self) -> None:
         self._salas = None
@@ -109,10 +115,16 @@ class FiltroDoAtendente:
             para = dados["para"]
             return isinstance(para, list) and self.atendente_id in para
         if self._salas is None:
-            from ..servicos.chat_interno import ids_das_salas
+            from ..servicos import chat_interno
 
-            self._salas = ids_das_salas(self.atendente_id)
-        return dados.get("sala_id") in self._salas
+            self._salas = chat_interno.salas_visiveis(self.atendente_id)
+        sala_id = dados.get("sala_id")
+        if not isinstance(sala_id, int) or isinstance(sala_id, bool) or sala_id not in self._salas:
+            return False
+        if linha.tipo in TIPOS_COM_MENSAGEM:
+            mensagem_id = dados.get("id")
+            return isinstance(mensagem_id, int) and mensagem_id > self._salas[sala_id]
+        return True
 
 
 def ler_desde(depois: int | None, limite: int = LIMITE_PADRAO, filtro: Filtro | None = None) -> dict:

@@ -131,8 +131,8 @@ def listar_mensagens(
     limite: Annotated[int, Query(ge=1, le=LIMITE_MAXIMO)] = LIMITE_PADRAO,
 ) -> PaginaMensagens:
     svc.sincronizar(sessao)
-    sala, _ = svc.exigir_sala(sessao, sala_id, atual)
-    return svc.pagina(sessao, sala, antes, limite)
+    sala, membro = svc.exigir_sala(sessao, sala_id, atual)
+    return svc.pagina(sessao, sala, membro, antes, limite)
 
 
 @rotas.post(

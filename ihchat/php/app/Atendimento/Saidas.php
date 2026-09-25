@@ -130,6 +130,13 @@ final class Saidas
 
     // ---------------------------------------------------------- mensagens
 
+    /** A mensagem veio do celular do dono (metadados.enviada_pelo_celular)? */
+    private static function peloCelular(mixed $metadados): bool
+    {
+        $dados = is_array($metadados) ? $metadados : Json::ler(is_string($metadados) ? $metadados : null, []);
+        return is_array($dados) && ($dados['enviada_pelo_celular'] ?? false) === true;
+    }
+
     public static function mensagemPorId(int $id): ?array
     {
         $linha = Banco::um('SELECT * FROM mensagens WHERE id = ?', [$id]);
@@ -181,6 +188,9 @@ final class Saidas
                 'assinatura' => $assinatura,
                 'anexos' => $anexos[$id] ?? [],
                 'criada_em' => Datas::iso((string) $l['criada_em']),
+                // WhatsApp pelo QR Code: o dono respondeu direto pelo celular
+                // (não saiu pelo IHchat nem levou assinatura). Igual ao Python.
+                'pelo_celular' => self::peloCelular($l['metadados'] ?? null),
             ];
         }
         return $saida;

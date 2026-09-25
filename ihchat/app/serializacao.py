@@ -6,9 +6,10 @@ formato - se divergirem, o painel mostra uma coisa e recebe outra.
 from __future__ import annotations
 
 from .armazenamento import TIPOS_IMAGEM
+from .canais import whatsapp_qr
 from .canais.registro import adaptador_para
 from .config import url_publica
-from .models import Anexo, Canal, Conversa, Direcao, Mensagem, TipoMensagem
+from .models import Anexo, Canal, Conversa, Direcao, Mensagem, TipoCanal, TipoMensagem
 from .schemas import AnexoSaida, AssinaturaSaida, CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
 
 
@@ -22,7 +23,16 @@ def canal_saida(canal: Canal) -> CanalSaida:
     dados = CanalSaida.model_validate(canal)
     dados.configurado = adaptador_para(canal).configurado
     dados.url_webhook = url_webhook(canal.id)
+    dados.conexao = conexao_do_canal(canal)
     return dados
+
+
+def conexao_do_canal(canal: Canal) -> str | None:
+    """O estado da conexão gravado pelo servidor (só no WhatsApp pelo QR Code)."""
+    if canal.tipo != TipoCanal.WHATSAPP_QR.value:
+        return None
+    estado = (canal.credenciais or {}).get(whatsapp_qr.CHAVE_ESTADO)
+    return estado if estado in (whatsapp_qr.CONECTADO, whatsapp_qr.AGUARDANDO, whatsapp_qr.DESCONECTADO) else None
 
 
 def anexo_saida(anexo: Anexo, base: str = "/api/anexos") -> AnexoSaida:
@@ -62,6 +72,8 @@ def mensagem_saida(mensagem: Mensagem) -> MensagemSaida:
     # o widget filtra o fluxo de eventos por contato, nao por conversa
     dados.contato_id = mensagem.conversa.contato_id if mensagem.conversa else None
     dados.anexos = [anexo_saida(a) for a in mensagem.anexos]
+    metadados = mensagem.metadados if isinstance(mensagem.metadados, dict) else {}
+    dados.pelo_celular = metadados.get("enviada_pelo_celular") is True
     return dados
 
 

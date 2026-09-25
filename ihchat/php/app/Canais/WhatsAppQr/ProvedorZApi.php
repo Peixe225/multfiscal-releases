@@ -240,7 +240,12 @@ final class ProvedorZApi extends Provedor
         $nome = $deMim
             ? Leitura::texto($payload['chatName'] ?? null)
             : (Leitura::texto($payload['senderName'] ?? null) ?? Leitura::texto($payload['chatName'] ?? null));
-        $mensagem = $this->montar($identificador, Leitura::texto($payload['messageId'] ?? null), $conteudo, $anexos, $nome, $especie);
+        // "phone" pode vir ora com o número, ora com o próprio @lid; o chatLid é
+        // o estável (developer.z-api.io/tips/lid). Com os dois, o webhook liga o
+        // @lid ao contato do número; só com o @lid, acha o contato por ele —
+        // o mesmo cliente não vira duas conversas
+        $lid = Leitura::texto($payload['chatLid'] ?? null);
+        $mensagem = $this->montar($identificador, Leitura::texto($payload['messageId'] ?? null), $conteudo, $anexos, $nome, $especie, $lid);
         if ($mensagem !== null) {
             if ($deMim) {
                 $evento->doCelular[] = $mensagem;

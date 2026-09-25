@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import base64
 import json
-from urllib.parse import quote, urlsplit
+from collections import OrderedDict
+from urllib.parse import quote
 
 from ..models import StatusMensagem
 from .base import AnexoRecebido, ArquivoParaEnviar, AtualizacaoStatus, ErroCanal
@@ -23,7 +24,9 @@ from .whatsapp_qr import (
     Evento,
     ProvedorQR,
     base64_ou_nada,
+    METADADO_LID,
     e_conversa_privada,
+    e_lid,
     especie_de_envio,
     extensao,
     frase_do_estado,
@@ -33,9 +36,9 @@ from .whatsapp_qr import (
     montar_mensagem,
     numero_python,
     objeto,
+    problema_no_endereco_evolution,
     qr_como_imagem,
     texto,
-    url_de_midia,
     verdade,
 )
 
@@ -50,6 +53,24 @@ STATUS_EVOLUTION = {
     "PLAYED": StatusMensagem.LIDA,
     "ERROR": StatusMensagem.FALHOU,
 }
+
+# Mídia recebida: o webhook é cadastrado com base64=false (a Evolution poria o
+# arquivo inteiro no JSON, e acima do post_max_size da hospedagem a entrega
+# leva 413 e some, legenda junto). O IHchat baixa depois, pela API do próprio
+# servidor Evolution (getBase64FromMediaMessage), mandando a mensagem que veio
+# no webhook: assim não depende do banco da Evolution ter guardado a mensagem.
+# A mensagem fica aqui entre a tradução da entrega e o download (a mesma
+# requisição); o limite só impede acumular numa entrega que nunca baixou.
+_MENSAGENS_A_BAIXAR: "OrderedDict[str, dict]" = OrderedDict()
+_MAXIMO_A_BAIXAR = 200
+
+
+def _guardar_para_baixar(referencia: str, mensagem: dict) -> None:
+    _MENSAGENS_A_BAIXAR[referencia] = mensagem
+    _MENSAGENS_A_BAIXAR.move_to_end(referencia)
+    while len(_MENSAGENS_A_BAIXAR) > _MAXIMO_A_BAIXAR:
+        _MENSAGENS_A_BAIXAR.popitem(last=False)
+
 
 # messageType -> (tipo, nome padrão do arquivo)
 MIDIAS_EVOLUTION = {
@@ -86,8 +107,11 @@ class ProvedorEvolution(ProvedorQR):
     # ----------------------------------------------------------- transporte
     def _url(self, caminho: str) -> str:
         base = self.credencial("url_servidor").rstrip("/")
-        if urlsplit(base).scheme not in ("http", "https") or not urlsplit(base).netloc:
-            raise ErroCanal("o endereço do servidor Evolution precisa começar com https:// (ou http://)")
+        # conferido também aqui: um endereço gravado antes da regra (ou à mão)
+        # não leva a API key por http:// à internet
+        problema = problema_no_endereco_evolution(base)
+        if problema:
+            raise ErroCanal(f"o endereço do servidor Evolution {problema}")
         return f"{base}{caminho}"
 
     @property
@@ -120,13 +144,23 @@ class ProvedorEvolution(ProvedorQR):
         mensagem = (_mensagens_do_erro(dados if isinstance(dados, dict) else {}) or "").lower()
         return "does not exist" in mensagem or "not found" in mensagem or not mensagem
 
+    @staticmethod
+    def corpo_do_webhook(url: str) -> dict:
+        """O webhook do IHchat, igual no webhook/set e no instance/create."""
+        return {"enabled": True, "url": url, "byEvents": False, "base64": False, "events": EVENTOS_EVOLUTION}
+
     def _criar_instancia(self) -> dict:
-        """Cria a instância (Baileys, com QR Code, ignorando grupos)."""
-        status, dados = self._chamar(
-            "POST",
-            "/instance/create",
-            {"instanceName": self.instancia, "integration": "WHATSAPP-BAILEYS", "qrcode": True, "groupsIgnore": True},
-        )
+        """Cria a instância (Baileys, com QR Code, ignorando grupos).
+
+        Com o webhook pedido pelo chamador, ela já nasce entregando ao IHchat
+        (o InstanceDto aceita "webhook"). Sem ele, nasce sem webhook nenhum, e
+        o adaptador avisa (instancia_criada) para o webhook gravado sair.
+        """
+        corpo = {"instanceName": self.instancia, "integration": "WHATSAPP-BAILEYS", "qrcode": True, "groupsIgnore": True}
+        webhook = self.adaptador.webhook_da_instancia
+        if webhook:
+            corpo["webhook"] = self.corpo_do_webhook(webhook)
+        status, dados = self._chamar("POST", "/instance/create", corpo)
         if status == 403 and "already in use" in (_mensagens_do_erro(objeto(dados)) or ""):
             return {}  # criada por outra requisição ao mesmo tempo
         if status in (401, 403):
@@ -136,7 +170,25 @@ class ProvedorEvolution(ProvedorQR):
             )
         if status >= 400:
             raise ErroCanal(self._explicar(status, dados))
+        self.adaptador.instancia_criada = True
+        self.adaptador.webhook_na_criacao = bool(webhook)
         return objeto(dados)
+
+    def _conferir_chave(self) -> None:
+        """A API key vale neste servidor? (ErroCanal se não.)
+
+        Para uma instância que não existe, a Evolution responde 404 ANTES de
+        conferir a chave (os guards rodam na ordem instanceExists, auth): o
+        connectionState não diz nada sobre ela. O fetchInstances passa só pela
+        autenticação: 401/403 com chave errada; com a global, 404 ou a lista.
+        """
+        status, dados = self._chamar("GET", "/instance/fetchInstances", params={"instanceName": self.instancia})
+        if status in (401, 403):
+            raise ErroCanal(
+                f"{self._explicar(status, dados)}. A instância “{self.instancia}” ainda não existe, e para o "
+                "IHchat criá-la a API key precisa ser a global do servidor (AUTHENTICATION_API_KEY)"
+                if status == 403 else self._explicar(status, dados)
+            )
 
     # --------------------------------------------------------------- estado
     def _numero_conectado(self) -> str | None:
@@ -166,6 +218,7 @@ class ProvedorEvolution(ProvedorQR):
         status, dados = self._chamar("GET", self._caminho("/instance/connectionState"))
         if self._inexistente(status, dados):
             if not com_qr:
+                self._conferir_chave()
                 return EstadoConexao(
                     DESCONECTADO,
                     mensagem=f"a instância “{self.instancia}” ainda não existe no servidor Evolution: "
@@ -200,16 +253,8 @@ class ProvedorEvolution(ProvedorQR):
         raise ErroCanal(self._explicar(status, dados))
 
     def conectar_webhook(self, url: str) -> str:
-        corpo = {
-            "webhook": {
-                "enabled": True,
-                "url": url,
-                "byEvents": False,
-                # a mídia recebida já vem no webhook: sem outra ida ao servidor
-                "base64": True,
-                "events": EVENTOS_EVOLUTION,
-            }
-        }
+        # base64 false: a mídia é baixada depois (veja _MENSAGENS_A_BAIXAR)
+        corpo = {"webhook": self.corpo_do_webhook(url)}
         status, dados = self._chamar("POST", self._caminho("/webhook/set"), corpo)
         if self._inexistente(status, dados):
             self._criar_instancia()
@@ -259,6 +304,10 @@ class ProvedorEvolution(ProvedorQR):
                 self._mensagem(item, evento)
         elif tipo == "MESSAGES_UPDATE":
             for item in itens:
+                if item.get("message") is not None or item.get("pollUpdates") is not None:
+                    # edição ou voto em enquete: o Baileys não manda status, e a
+                    # Evolution preenche "SERVER_ACK" — não é recibo nenhum
+                    continue
                 novo = STATUS_EVOLUTION.get(texto(item.get("status")) or "")
                 identificador = texto(item.get("keyId")) or texto(objeto(item.get("key")).get("id"))
                 # só as NOSSAS mensagens têm recibo a aplicar
@@ -279,8 +328,13 @@ class ProvedorEvolution(ProvedorQR):
     def _mensagem(self, item: dict, evento: Evento) -> None:
         chave = objeto(item.get("key"))
         jid = texto(chave.get("remoteJid"))
-        if jid and jid.endswith("@lid") and texto(chave.get("remoteJidAlt")):
-            jid = texto(chave.get("remoteJidAlt"))  # o número de verdade, quando o WhatsApp o dá
+        alternativo = texto(chave.get("remoteJidAlt"))
+        lid = None
+        if e_lid(jid) and alternativo and not e_lid(alternativo):
+            # o número de verdade, quando o WhatsApp o dá; o @lid fica ligado a ele
+            lid, jid = jid, alternativo
+        elif e_lid(alternativo) and not e_lid(jid):
+            lid = alternativo
         if not e_conversa_privada(jid):
             return
         identificador = identificador_do_contato(jid)
@@ -292,6 +346,8 @@ class ProvedorEvolution(ProvedorQR):
         nome = None if de_mim else texto(item.get("pushName"))
         mensagem = montar_mensagem(self.adaptador, identificador, texto(chave.get("id")), conteudo, anexos, nome, especie)
         if mensagem is not None:
+            if lid:
+                mensagem.metadados[METADADO_LID] = lid
             (evento.do_celular if de_mim else evento.recebidas).append(mensagem)
 
     @staticmethod
@@ -310,10 +366,17 @@ class ProvedorEvolution(ProvedorQR):
             mime = mime_limpo(texto(midia.get("mimetype")))
             nome = (texto(midia.get("fileName")) or texto(midia.get("title"))) if especie == "document" else None
             nome = nome or f"{nome_padrao}.{extensao(mime, 'webp' if especie == 'sticker' else 'bin')}"
-            # com webhook base64 a mídia já vem aqui; senão, pela URL (S3) ou pela API
+            # webhook antigo, cadastrado com base64: a mídia já vem aqui. Senão,
+            # pela API do servidor Evolution (nunca pela mediaUrl do webhook:
+            # uma entrega forjada escolheria o endereço a buscar)
             dados = base64_ou_nada(mensagem.get("base64"))
-            referencia = url_de_midia(mensagem.get("mediaUrl")) or id_mensagem
-            anexo = AnexoRecebido(nome=nome, referencia=None if dados is not None else referencia, dados=dados, tipo_conteudo=mime or None)
+            referencia = None
+            if dados is None and id_mensagem:
+                referencia = id_mensagem
+                # base64 e mediaUrl são acréscimos da Evolution, não da mensagem do WhatsApp
+                proto = {k: v for k, v in mensagem.items() if k not in ("base64", "mediaUrl")}
+                _guardar_para_baixar(referencia, {"key": objeto(item.get("key")), "message": proto})
+            anexo = AnexoRecebido(nome=nome, referencia=referencia, dados=dados, tipo_conteudo=mime or None)
             anexos = [anexo] if (anexo.dados is not None or anexo.referencia) else []
             return texto(midia.get("caption")) or "", anexos, especie
         if tipo == "locationMessage":
@@ -335,13 +398,13 @@ class ProvedorEvolution(ProvedorQR):
 
     def baixar(self, anexo: AnexoRecebido) -> bytes:
         referencia = anexo.referencia or ""
-        url = url_de_midia(referencia)
-        if url is not None:
-            return self.baixar_url(url)
+        # a mensagem inteira, como veio no webhook: a Evolution baixa por ela
+        # mesmo sem tê-la guardado; sem ela, só pelo id (busca no banco dela)
+        mensagem = _MENSAGENS_A_BAIXAR.pop(referencia, None) or {"key": {"id": referencia}}
         status, dados = self._chamar(
             "POST",
             self._caminho("/chat/getBase64FromMediaMessage"),
-            {"message": {"key": {"id": referencia}}, "convertToMp4": False},
+            {"message": mensagem, "convertToMp4": False},
         )
         if status >= 400:
             raise ErroCanal(self._explicar(status, dados))

@@ -8,6 +8,7 @@ use IHchat\Banco\Banco;
 use IHchat\Eventos\Eventos;
 use IHchat\Nucleo\Datas;
 use IHchat\Nucleo\ErroHttp;
+use IHchat\Nucleo\Json;
 
 /**
  * Salas do chat interno (o mesmo contrato de app/servicos/chat_interno.py).
@@ -25,6 +26,11 @@ use IHchat\Nucleo\ErroHttp;
  *
  * Quem não é membro recebe 404 em tudo da sala: ela "não existe" para ele.
  *
+ * O setor é editável no próprio perfil; por isso quem ENTRA numa sala de
+ * setor só vê dali para a frente (interno_membros.visivel_desde): trocar o
+ * setor não abre o histórico de outro setor, nem pela API nem pelos eventos
+ * guardados na fila. Grupo apagado (o último saiu) tem os eventos esvaziados.
+ *
  * SalaSaida {id, tipo, nome, setor, com, criada_por, administrador,
  *            total_membros, nao_lidas, lida_ate, silenciada, ultima_mensagem,
  *            atualizada_em}  (+ membros no detalhe)
@@ -40,6 +46,8 @@ final class Salas
     public const MAX_NOME_GRUPO = 80;
     public const MAX_MEMBROS = 200;
     private const TENTATIVAS = 3;
+    /** Evento de sala apagada: fica na fila sem dados, e o filtro não o entrega. */
+    public const TIPO_REMOVIDO = 'interno.removido';
     private const ORDEM_TIPO = [self::GERAL => 0, self::SETOR => 1, self::GRUPO => 2, self::DIRETA => 3];
 
     // ---------------------------------------------------------------- chaves
@@ -142,13 +150,18 @@ final class Salas
         $faltam = array_diff_key($esperado, $atuais);
         $sobram = array_diff_key($atuais, $esperado);
         if ($faltam !== []) {
-            // quem entra vê o histórico, mas o que veio antes não conta como não lido
+            // o que veio antes não conta como não lido. Na Geral quem entra vê
+            // o histórico (só o admin ativa alguém); no setor, não: o setor
+            // qualquer um troca no próprio perfil, e isso não pode abrir a
+            // conversa de outro setor
             $ultimas = self::ultimasIds(array_values(array_unique(array_column($faltam, 0))));
             foreach (self::ordenar($faltam) as [$salaId, $atendenteId]) {
+                $ultima = $ultimas[$salaId] ?? 0;
                 Banco::inserir('interno_membros', [
                     'sala_id' => $salaId,
                     'atendente_id' => $atendenteId,
-                    'lida_ate' => $ultimas[$salaId] ?? 0,
+                    'lida_ate' => $ultima,
+                    'visivel_desde' => $salaId === $geral ? 0 : $ultima,
                     'silenciada' => false,
                     'entrou_em' => $agora,
                 ]);
@@ -159,6 +172,55 @@ final class Salas
             Banco::executar('DELETE FROM interno_membros WHERE sala_id = ? AND atendente_id = ?', [$salaId, $atendenteId]);
             Eventos::publicar('interno.sala', ['sala_id' => $salaId, 'acao' => 'saiu', 'para' => [$atendenteId]]);
         }
+        self::acertarAdministracao();
+    }
+
+    /**
+     * Grupo cujo administrador foi desativado (ou removido) passa a quem está
+     * nele há mais tempo entre os ativos, como se ele tivesse saído.
+     * Desativar não tira a pessoa dos grupos (são histórico), e sem isto o
+     * grupo ficava sem ninguém que o administrasse.
+     */
+    private static function acertarAdministracao(): void
+    {
+        $orfaos = Banco::todos(
+            "SELECT s.id, s.criada_por FROM interno_salas s
+             LEFT JOIN atendentes a ON a.id = s.criada_por
+             WHERE s.tipo = 'grupo' AND (a.id IS NULL OR a.ativo = 0)"
+        );
+        foreach ($orfaos as $sala) {
+            $novo = self::maisAntigoAtivo((int) $sala['id']);
+            if ($novo !== null && $novo !== ($sala['criada_por'] !== null ? (int) $sala['criada_por'] : null)) {
+                Banco::atualizar(
+                    'interno_salas',
+                    ['criada_por' => $novo, 'atualizada_em' => Datas::agoraBanco()],
+                    'id = ?',
+                    [(int) $sala['id']]
+                );
+                Eventos::publicar('interno.sala', ['sala_id' => (int) $sala['id'], 'acao' => 'atualizada']);
+            }
+        }
+    }
+
+    /**
+     * Membro ativo há mais tempo na sala (entre $entre, se vier).
+     *
+     * @param list<int>|null $entre
+     */
+    private static function maisAntigoAtivo(int $salaId, ?array $entre = null): ?int
+    {
+        $sql = 'SELECT m.atendente_id FROM interno_membros m JOIN atendentes a ON a.id = m.atendente_id
+                WHERE m.sala_id = ? AND a.ativo = 1';
+        $parametros = [$salaId];
+        if ($entre !== null) {
+            if ($entre === []) {
+                return null;
+            }
+            $sql .= ' AND m.atendente_id IN (' . self::marcadores($entre) . ')';
+            $parametros = [...$parametros, ...$entre];
+        }
+        $id = Banco::valor($sql . ' ORDER BY m.entrou_em, m.atendente_id LIMIT 1', $parametros);
+        return $id !== null ? (int) $id : null;
     }
 
     /**
@@ -201,13 +263,22 @@ final class Salas
 
     // ----------------------------------------------------------------- acesso
 
-    /** Salas de que a pessoa é membro agora (o filtro dos eventos usa). @return list<int> */
-    public static function idsDoAtendente(int $atendenteId): array
+    /**
+     * [sala_id => visivel_desde] das salas de que a pessoa é membro agora. O
+     * filtro dos eventos usa: mensagem de id até visivel_desde não é para ela.
+     *
+     * @return array<int, int>
+     */
+    public static function visiveisDoAtendente(int $atendenteId): array
     {
-        return array_map('intval', array_column(
-            Banco::todos('SELECT sala_id FROM interno_membros WHERE atendente_id = ?', [$atendenteId]),
-            'sala_id'
-        ));
+        $saida = [];
+        foreach (Banco::todos(
+            'SELECT sala_id, visivel_desde FROM interno_membros WHERE atendente_id = ?',
+            [$atendenteId]
+        ) as $linha) {
+            $saida[(int) $linha['sala_id']] = (int) ($linha['visivel_desde'] ?? 0);
+        }
+        return $saida;
     }
 
     /**
@@ -219,7 +290,7 @@ final class Salas
     public static function exigir(int $salaId, array $eu): array
     {
         $linha = Banco::um(
-            'SELECT s.*, m.lida_ate, m.silenciada, m.entrou_em FROM interno_salas s
+            'SELECT s.*, m.lida_ate, m.silenciada, m.entrou_em, m.visivel_desde FROM interno_salas s
              JOIN interno_membros m ON m.sala_id = s.id
              WHERE s.id = ? AND m.atendente_id = ?',
             [$salaId, (int) $eu['id']]
@@ -249,7 +320,7 @@ final class Salas
     public static function listar(array $eu): array
     {
         return self::saidas(Banco::todos(
-            'SELECT s.*, m.lida_ate, m.silenciada FROM interno_salas s
+            'SELECT s.*, m.lida_ate, m.silenciada, m.visivel_desde FROM interno_salas s
              JOIN interno_membros m ON m.sala_id = s.id
              WHERE m.atendente_id = ?',
             [(int) $eu['id']]
@@ -339,7 +410,10 @@ final class Salas
                 'nao_lidas' => $naoLidas[$id] ?? 0,
                 'lida_ate' => (int) ($l['lida_ate'] ?? 0),
                 'silenciada' => (bool) ($l['silenciada'] ?? false),
-                'ultima_mensagem' => $ultimas[$id] ?? null,
+                // a última da sala é de antes de a pessoa entrar (setor): nenhuma é visível
+                'ultima_mensagem' => isset($ultimas[$id]) && $ultimas[$id]['id'] > (int) ($l['visivel_desde'] ?? 0)
+                    ? $ultimas[$id]
+                    : null,
                 'atualizada_em' => Datas::iso((string) $l['atualizada_em']),
                 '_ordem' => (string) $l['atualizada_em'],
             ];
@@ -391,7 +465,9 @@ final class Salas
     }
 
     /**
-     * AtendenteResumo {id, nome, setor, ativo, disponivel}: sem e-mail, sem senha.
+     * AtendenteResumo {id, nome, setor, ativo, disponivel, admin}: sem e-mail,
+     * sem senha. `admin` vem do papel, que só o admin muda: nome e setor
+     * qualquer um troca no próprio perfil, então é o que não dá para imitar.
      *
      * @param array<string, mixed> $a
      * @return array<string, mixed>
@@ -404,6 +480,7 @@ final class Salas
             'setor' => isset($a['setor']) && $a['setor'] !== '' ? (string) $a['setor'] : null,
             'ativo' => (bool) $a['ativo'],
             'disponivel' => (bool) $a['disponivel'],
+            'admin' => Atendentes::eAdmin($a),
         ];
     }
 
@@ -631,7 +708,9 @@ final class Salas
     }
 
     /**
-     * Quem criou saiu: administra quem está no grupo há mais tempo.
+     * Quem criou saiu: administra quem está no grupo há mais tempo entre os
+     * ATIVOS (um desativado não administraria nada). Sem ativo nenhum, fica
+     * com quem está há mais tempo; a sincronização passa adiante depois.
      *
      * @param array<string, mixed> $sala
      * @param list<int> $restantes
@@ -642,7 +721,7 @@ final class Salas
         if ($restantes === [] || ($criador !== null && in_array($criador, $restantes, true))) {
             return;
         }
-        $novo = Banco::valor(
+        $novo = self::maisAntigoAtivo((int) $sala['id'], $restantes) ?? Banco::valor(
             'SELECT atendente_id FROM interno_membros WHERE sala_id = ? AND atendente_id IN (' . self::marcadores($restantes) . ')
              ORDER BY entrou_em, atendente_id LIMIT 1',
             [(int) $sala['id'], ...$restantes]
@@ -666,7 +745,9 @@ final class Salas
             Eventos::publicar('interno.sala', ['sala_id' => $salaId, 'acao' => 'saiu', 'para' => [$euId]]);
             $restantes = self::membrosDe($salaId);
             if ($restantes === []) {
-                // grupo sem ninguém não volta a ser visto: sai do banco com as mensagens
+                // grupo sem ninguém não volta a ser visto: sai do banco com as
+                // mensagens, e os eventos dele na fila (com o texto) são esvaziados
+                self::esvaziarEventosDaSala($salaId);
                 Banco::executar('DELETE FROM interno_salas WHERE id = ?', [$salaId]);
                 return;
             }
@@ -674,5 +755,32 @@ final class Salas
             Banco::atualizar('interno_salas', ['atualizada_em' => Datas::agoraBanco()], 'id = ?', [$salaId]);
             Eventos::publicar('interno.sala', ['sala_id' => $salaId, 'acao' => 'atualizada']);
         });
+    }
+
+    /**
+     * Os eventos "interno.*" guardados de uma sala que vai ser apagada viram
+     * TIPO_REMOVIDO sem dados. A fila os guarda por 48 h: sem isto o texto do
+     * grupo apagado continuaria lá, e se o id da sala voltasse (base SQLite
+     * criada pelo Python antigo) chegaria a quem estivesse na sala nova. A
+     * linha fica: apagar abriria uma lacuna de id que faz o cursor esperar.
+     */
+    private static function esvaziarEventosDaSala(int $salaId): void
+    {
+        $ids = [];
+        foreach (Banco::todos(
+            "SELECT id, dados FROM fila_eventos WHERE tipo LIKE 'interno.%' AND tipo <> ?",
+            [self::TIPO_REMOVIDO]
+        ) as $linha) {
+            $dados = Json::ler((string) $linha['dados'], null);
+            if (is_array($dados) && ($dados['sala_id'] ?? null) === $salaId) {
+                $ids[] = (int) $linha['id'];
+            }
+        }
+        if ($ids !== []) {
+            Banco::executar(
+                "UPDATE fila_eventos SET tipo = ?, dados = '{}' WHERE id IN (" . self::marcadores($ids) . ')',
+                [self::TIPO_REMOVIDO, ...$ids]
+            );
+        }
     }
 }

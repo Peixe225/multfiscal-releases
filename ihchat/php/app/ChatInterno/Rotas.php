@@ -111,7 +111,7 @@ final class Rotas
         $limite = $q->inteiro('limite', obrigatorio: false, padrao: Mensagens::LIMITE_PADRAO, minimo: 1, maximo: Mensagens::LIMITE_MAXIMO);
         $q->validar();
         $sala = Salas::exigir($p['sala_id'], $eu);
-        return Mensagens::pagina((int) $sala['id'], $antes, (int) $limite);
+        return Mensagens::pagina((int) $sala['id'], (int) ($sala['visivel_desde'] ?? 0), $antes, (int) $limite);
     }
 
     /**

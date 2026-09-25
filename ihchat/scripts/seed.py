@@ -38,7 +38,7 @@ from app.servicos.mensagens import enviar_mensagem, registrar_entrada  # noqa: E
 CANAIS = [
     ("WhatsApp Suporte", TipoCanal.WHATSAPP),
     ("Telegram Suporte", TipoCanal.TELEGRAM),
-    ("suporte@multfiscal", TipoCanal.EMAIL),
+    ("E-mail Suporte", TipoCanal.EMAIL),
     ("Chat do site", TipoCanal.WEBCHAT),
 ]
 
@@ -51,7 +51,7 @@ ETIQUETAS = [
 ]
 
 RESPOSTAS = [
-    ("bomdia", "Saudação", "Bom dia! Aqui é o suporte MultFiscal. Como posso ajudar?"),
+    ("bomdia", "Saudação", "Bom dia! Aqui é o suporte da I&H. Como posso ajudar?"),
     (
         "versao",
         "Versão atual",

@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import base64
 import hmac
+import ipaddress
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Mapping
 from urllib.parse import urlsplit
 
+from ..config import obter_config
 from ..models import StatusMensagem, TipoCanal
 from ..util import normalizar_telefone
 from .base import (
@@ -48,9 +50,31 @@ CHAVE_ESTADO = "estado_conexao"
 CHAVE_NUMERO = "numero_conectado"
 CHAVE_WEBHOOK = "webhook_url"
 
+# Dados que valem para UMA instância do provedor. Trocar de instância (outro
+# ID na Z-API, outro servidor ou nome na Evolution, outro provedor) os
+# invalida: a instância nova nasce sem webhook e sem número conectado, e
+# mantê-los fazia o painel dizer "webhook cadastrado" enquanto nenhuma
+# mensagem chegava. Igual ao AdaptadorWhatsAppQr.php.
+CHAVES_DA_INSTANCIA = (CHAVE_ESTADO, CHAVE_NUMERO, CHAVE_WEBHOOK)
+
 # o que o painel mostra como "autor" de uma resposta que o dono mandou pelo
 # celular: gravado em mensagens.assinatura, que os dois servidores já leem
 ASSINATURA_DO_CELULAR = {"nome": "Enviada pelo celular", "setor": None}
+
+# metadado da mensagem recebida com o "@lid" do contato quando a entrega traz
+# também o número: o webhook liga as duas identidades ao mesmo contato
+METADADO_LID = "lid_whatsapp"
+
+# Recibos chegam fora de ordem (a Evolution dispara cada webhook sem esperar
+# o anterior; a Z-API pode mandar o RECEIVED depois do READ): o recibo só
+# AVANÇA o status. Para cada status novo, os atuais que ele pode substituir.
+# "enviada" não substitui nada (a mensagem já nasce enviada), e "falhou" só
+# vale enquanto ninguém confirmou a entrega. Igual ao PHP.
+RECIBO_SUBSTITUI = {
+    StatusMensagem.ENTREGUE.value: (StatusMensagem.ENVIADA.value, StatusMensagem.FALHOU.value),
+    StatusMensagem.LIDA.value: (StatusMensagem.ENVIADA.value, StatusMensagem.ENTREGUE.value, StatusMensagem.FALHOU.value),
+    StatusMensagem.FALHOU.value: (StatusMensagem.ENVIADA.value,),
+}
 
 # o que vai como imagem ou vídeo; o resto segue como documento, com o nome
 # (um GIF ou HEIC como "imagem" pode ser recusado ou chegar estragado)
@@ -82,12 +106,48 @@ def verdade(valor) -> bool:
 
 
 def numero_python(valor) -> str:
-    """Número como o PHP o escreve na localização (e como str() do Python)."""
+    """Número como str() do Python o escreve (o PHP imita em Leitura::numero)."""
     if isinstance(valor, bool) or valor is None:
         return "None"
     if isinstance(valor, (int, float)):
         return str(valor)
     return texto(valor) or "None"
+
+
+def numero_legivel(numero: str | None) -> str:
+    """"+55 (11) 98888-7777", como o painel mostra (numeroLegivel do painel.js)."""
+    digitos = str(numero or "")
+    brasil = re.fullmatch(r"55(\d{2})(\d{4,5})(\d{4})", digitos)
+    if brasil:
+        return f"+55 ({brasil[1]}) {brasil[2]}-{brasil[3]}"
+    return f"+{digitos}" if digitos.isdigit() else digitos
+
+
+def e_lid(valor: str | None) -> bool:
+    """"81896604192873@lid": o id oculto do WhatsApp, sem telefone."""
+    usuario, arroba, servidor = (valor or "").strip().partition("@")
+    return bool(usuario) and arroba == "@" and servidor == "lid"
+
+
+def identidade_da_instancia(credenciais: dict) -> tuple:
+    """O que identifica a instância no provedor (a sessão do WhatsApp)."""
+    provedor = credenciais.get("provedor")
+    provedor = provedor.strip().lower() if isinstance(provedor, str) and provedor.strip() else PROVEDOR_PADRAO
+
+    def valor(chave: str) -> str:
+        bruto = credenciais.get(chave)
+        return str(bruto).strip() if bruto is not None else ""
+
+    if provedor == "evolution":
+        return (provedor, valor("url_servidor").rstrip("/"), valor("nome_instancia"))
+    return (provedor, valor("instancia_id"), valor("instancia_token"))
+
+
+def sem_dados_de_outra_instancia(atuais: dict, novas: dict) -> dict:
+    """As credenciais novas sem estado, número e webhook quando a instância mudou."""
+    if identidade_da_instancia(atuais) == identidade_da_instancia(novas):
+        return novas
+    return {chave: valor for chave, valor in novas.items() if chave not in CHAVES_DA_INSTANCIA}
 
 
 def mime_limpo(tipo: str | None) -> str:
@@ -144,6 +204,37 @@ def url_de_midia(valor) -> str | None:
     if not endereco:
         return None
     return endereco if urlsplit(endereco).scheme in ("http", "https") else None
+
+
+def host_local(host: str) -> bool:
+    """localhost ou IP de loopback: o tráfego não sai do próprio servidor."""
+    nome = (host or "").strip().lower().rstrip(".").strip("[]")
+    if nome == "localhost" or nome.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(nome).is_loopback
+    except ValueError:
+        return False
+
+
+def problema_no_endereco_evolution(endereco: str) -> str | None:
+    """Por que o endereço do servidor Evolution não serve (None = serve).
+
+    A API key (muitas vezes a GLOBAL, que controla todas as instâncias) vai
+    num cabeçalho de cada chamada: por http:// ela passaria sem criptografia
+    pela internet a cada consulta do diálogo, envio e teste. Fora do sandbox,
+    só https://, ou http:// para o próprio servidor (localhost). Igual ao PHP.
+    """
+    partes = urlsplit(endereco)
+    esquema = partes.scheme.lower()
+    if esquema not in ("http", "https") or not partes.hostname:
+        return "precisa começar com https://, ex.: https://evolution.suaempresa.com.br"
+    if esquema == "http" and not host_local(partes.hostname) and not obter_config().modo_sandbox:
+        return (
+            "precisa usar https://: por http:// a API key iria sem criptografia pela internet "
+            "(http:// só vale para um servidor Evolution nesta mesma máquina, em localhost)"
+        )
+    return None
 
 
 def qr_como_imagem(valor: str | None) -> str | None:
@@ -231,15 +322,13 @@ class ProvedorQR(ABC):
 
     def baixar_url(self, url: str) -> bytes:
         """Mídia hospedada pelo provedor: GET simples, SEM as credenciais (a URL
-        veio no webhook e não pode receber o token de ninguém)."""
-        with cliente() as http:
-            try:
-                resposta = http.get(url)
-            except Exception as exc:
-                raise ErroCanal(f"falha de rede ao baixar a mídia: {exc}") from exc
-        if resposta.status_code >= 400:
-            raise ErroCanal(f"download da mídia falhou ({resposta.status_code})")
-        return resposta.content
+        veio no webhook e não pode receber o token de ninguém). Só endereço
+        público e até o limite de anexos: a URL pode ter sido forjada por quem
+        tem o token do webhook (rede.py)."""
+        from ..servicos.anexos import limite_bytes  # tardia: anexos importa os canais
+        from .rede import baixar_publico
+
+        return baixar_publico(url, limite_bytes())
 
     @abstractmethod
     def estado(self, com_qr: bool) -> EstadoConexao: ...
@@ -265,7 +354,7 @@ class ProvedorQR(ABC):
 
 def frase_do_estado(estado: str, numero: str | None = None) -> str:
     if estado == CONECTADO:
-        return f"WhatsApp conectado ao número {numero}" if numero else "WhatsApp conectado"
+        return f"WhatsApp conectado ao número {numero_legivel(numero)}" if numero else "WhatsApp conectado"
     if estado == AGUARDANDO:
         return "Abra o WhatsApp no celular e leia o QR Code"
     return "O WhatsApp não está conectado: leia o QR Code para conectar"
@@ -281,6 +370,14 @@ class AdaptadorWhatsAppQR(AdaptadorCanal):
         # preenchidos por verificar_conexao, para o "Testar conexão"
         self.ultimo_estado: EstadoConexao | None = None
         self.alerta_de_conexao: str | None = None
+        # Evolution: quem chama pode pedir que uma instância criada agora já
+        # nasça com o webhook (a URL com o token do canal). Depois da chamada,
+        # instancia_criada diz se o provedor criou a instância, e
+        # webhook_na_criacao se ela nasceu com esse webhook: uma instância
+        # recriada sem ele não recebe nada, e o webhook gravado deixa de valer
+        self.webhook_da_instancia: str | None = None
+        self.instancia_criada = False
+        self.webhook_na_criacao = False
 
     # ------------------------------------------------------------ provedor
     @property
@@ -390,26 +487,11 @@ class AdaptadorWhatsAppQR(AdaptadorCanal):
     def envia_arquivos(self) -> bool:
         return True
 
-    @staticmethod
-    def com_assinatura(conteudo: str, assinatura: dict | None) -> str:
-        """Primeira linha "*Ana · Suporte*", como no WhatsApp oficial.
-
-        O núcleo (Assinaturas/aplicar_assinatura) só assina os tipos que
-        conhece; se um dia ele passar a assinar este também, o texto já chega
-        assinado e não ganha a linha duas vezes.
-        """
-        from ..servicos.mensagens import aplicar_assinatura  # tardia: mensagens importa o registro
-
-        if not assinatura:
-            return conteudo
-        cabecalho = aplicar_assinatura(TipoCanal.WHATSAPP.value, "", assinatura)
-        if not cabecalho or conteudo == cabecalho or conteudo.startswith(f"{cabecalho}\n"):
-            return conteudo
-        return aplicar_assinatura(TipoCanal.WHATSAPP.value, conteudo, assinatura)
-
     def _enviar(self, destino: str, conteudo: str, contexto: dict) -> ResultadoEnvio:
         provedor = self.provedor
-        texto_ = self.com_assinatura(conteudo, contexto.get("assinatura"))
+        # o texto já chega assinado ("*Ana · Suporte*" na primeira linha) pelo
+        # núcleo (aplicar_assinatura), como no WhatsApp oficial
+        texto_ = conteudo
         arquivos: list[ArquivoParaEnviar] = contexto.get("arquivos") or []
         numero = identificador_do_contato(destino) or destino
         if arquivos:

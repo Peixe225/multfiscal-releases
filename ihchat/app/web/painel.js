@@ -109,6 +109,7 @@ function sair() {
   estado.atualId = null;
   estado.detalhe = null;
   estado.abrindo = null;
+  desenharConversa(); // some a conversa do login anterior (e o id que o chat lê)
   $("#app").classList.remove("com-conversa");
   fecharCanais();
   fecharEquipe();
@@ -153,6 +154,29 @@ function iniciais(nome) {
   return nome.split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 }
 
+/* WhatsApp pelo QR Code: "conexao" vem no CanalSaida e muda ao vivo pelo
+   evento "canal.atualizado" (o provedor avisa por webhook que o celular caiu).
+   Só "desconectado" alarma: "aguardando_leitura" é o admin no meio do QR. */
+const TEXTO_CANAL_CAIU =
+  "O WhatsApp deste canal está desconectado: as respostas não chegam ao cliente até o admin ler o QR Code de novo (Canais).";
+const canalCaiu = (canal) => canal?.tipo === "whatsapp_qr" && canal.ativo && canal.conexao === "desconectado";
+
+function desenharAlertaConexao() {
+  const alerta = $("#alerta-conexao");
+  const canal = estado.detalhe && estado.canais.find((c) => c.id === estado.detalhe.canal.id);
+  alerta.hidden = !canalCaiu(canal);
+  alerta.textContent = alerta.hidden ? "" : TEXTO_CANAL_CAIU;
+}
+
+function atualizarCanal(canal) {
+  if (!canal || !Number.isInteger(canal.id)) return;
+  const indice = estado.canais.findIndex((c) => c.id === canal.id);
+  if (indice === -1) return; // canal novo aparece no próximo carregamento
+  estado.canais[indice] = { ...estado.canais[indice], ...canal };
+  desenharFiltros();
+  desenharAlertaConexao();
+}
+
 /* -------------------------------------------------------------- filtros */
 function desenharFiltros() {
   const fixos = $("#filtros-fixos");
@@ -174,6 +198,10 @@ function desenharFiltros() {
       botao.append(criar("span", "contagem", "desativado"));
     } else if (!canal.configurado && canal.tipo !== "webchat") {
       botao.append(criar("span", "contagem", "sandbox"));
+    } else if (canalCaiu(canal)) {
+      // WhatsApp pelo QR Code: o celular saiu, as respostas não chegam ao cliente
+      botao.append(criar("span", "contagem falhou", "desconectado"));
+      botao.title = TEXTO_CANAL_CAIU;
     } else if (telaCanais.testes[canal.id] === "falha") {
       // só o admin testa; para ele, sumir o "sandbox" não pode parecer "funciona"
       botao.append(criar("span", "contagem falhou", "falhou"));
@@ -324,10 +352,39 @@ $("#voltar-lista").addEventListener("click", () => {
   document.querySelector(`#lista-conversas .item[data-id="${Number(estado.atualId)}"]`)?.focus();
 });
 
+/* Chat da equipe (chat-interno.js). O cartão de uma conversa de cliente dispara
+   "ihchat:abrir-conversa" no document; o painel abre a conversa e avisa que
+   tratou (preventDefault), senão o chat cairia no recurso de reserva. A
+   conversa pode estar fora do filtro da lista: abrirConversa busca pelo id. */
+document.addEventListener("ihchat:abrir-conversa", (evento) => {
+  const id = Number(evento.detail?.id);
+  if (!Number.isInteger(id) || id <= 0 || !estado.token) return;
+  evento.preventDefault();
+  abrirConversa(id).catch((falha) => {
+    // sem acesso ou apagada: volta a apontar para o que continua na tela
+    if (estado.atualId === id) estado.atualId = estado.detalhe?.id ?? null;
+    if (!estado.detalhe) $("#app").classList.remove("com-conversa");
+    avisar(`Não deu para abrir a conversa #${id}: ${falha.message}`, true);
+  });
+});
+
+$("#compartilhar-equipe").addEventListener("click", () => {
+  const id = estado.detalhe?.id;
+  if (!id) return;
+  if (!window.IHchatInterno?.compartilharConversa(id)) {
+    avisar("O chat da equipe ainda está carregando. Tente de novo em instantes.", true);
+  }
+});
+
 function desenharConversa() {
   const conversa = estado.detalhe;
   $("#conversa-vazia").hidden = Boolean(conversa);
   $("#conversa-conteudo").hidden = !conversa;
+  // o chat da equipe lê daqui qual conversa está aberta (anexar como cartão),
+  // mesmo quando ela não aparece na lista filtrada
+  if (conversa) $("#conversa-conteudo").dataset.conversaId = String(conversa.id);
+  else delete $("#conversa-conteudo").dataset.conversaId;
+  $("#compartilhar-equipe").hidden = !conversa || !window.IHchatInterno;
   if (!conversa) return;
 
   $("#titulo-conversa").textContent = conversa.contato.nome;
@@ -347,6 +404,7 @@ function desenharConversa() {
 
   desenharLinhaDoTempo(conversa.mensagens);
   desenharFicha(conversa);
+  desenharAlertaConexao();
 }
 
 function desenharLinhaDoTempo(mensagens) {
@@ -376,6 +434,11 @@ function balao(mensagem) {
   const meta = criar("div", "meta");
   if (nota) {
     meta.append(criar("span", "", `nota de ${mensagem.autor || ""}`));
+  } else if (mensagem.pelo_celular) {
+    // o dono respondeu direto no WhatsApp do celular: não saiu pelo IHchat
+    const quem = criar("span", "quem pelo-celular", "📱 Enviada pelo celular");
+    quem.title = "Respondida direto no WhatsApp do celular, fora do IHchat (sem assinatura)";
+    meta.append(quem);
   } else if (mensagem.direcao === "saida" && mensagem.assinatura) {
     // exatamente o que o cliente viu: nome e setor gravados no envio
     const quem = criar("span", "quem", linhaAssinatura(mensagem.assinatura));
@@ -728,7 +791,7 @@ function criarEventos() {
   estado.eventos = IHchatEventos.criar({
     stream: (depois) => `/api/eventos/stream?token=${token}${cursor(depois)}`,
     desde: (depois) => `/api/eventos/desde?token=${token}${cursor(depois)}`,
-    tipos: ["mensagem.nova", "mensagem.status", "conversa.atualizada"],
+    tipos: ["mensagem.nova", "mensagem.status", "conversa.atualizada", "canal.atualizado"],
     aoEvento: tratarEvento,
     aoEstado: (situacao) => {
       if (situacao === "reconectando" || situacao === "desconectado") console.warn(`eventos: ${situacao}`);
@@ -751,6 +814,8 @@ function tratarEvento(tipo, dados) {
     if (balaoExistente) balaoExistente.textContent = rotuloStatus(dados.status);
   } else if (tipo === "conversa.atualizada") {
     atualizarConversaNaLista(dados);
+  } else if (tipo === "canal.atualizado") {
+    atualizarCanal(dados);
   }
 }
 
@@ -1169,7 +1234,12 @@ function situacaoDoCanal(canal) {
   if (!canal.configurado) {
     return ["Sandbox", "sandbox", "Sem credenciais: as respostas ficam só registradas aqui, não saem de verdade."];
   }
-  if (canal.tipo === "whatsapp_qr" && !telaCanais.testes[canal.id]) return situacaoDoQr(canal);
+  // WhatsApp pelo QR Code: "o provedor aceitou" não quer dizer número
+  // conectado. O teste só manda no selo enquanto roda ou quando falha; no
+  // resto vale o estado da conexão, que o teste acabou de gravar no servidor
+  if (canal.tipo === "whatsapp_qr" && !["andamento", "falha"].includes(telaCanais.testes[canal.id])) {
+    return situacaoDoQr(canal);
+  }
   // "configurado" só quer dizer campos preenchidos; quem diz se conecta é o teste
   switch (telaCanais.testes[canal.id]) {
     case "andamento":
@@ -1183,6 +1253,16 @@ function situacaoDoCanal(canal) {
     default:
       return ["Não testado", "nao-testado", "Credenciais salvas, ainda não conferidas: “Testar conexão” pergunta ao provedor."];
   }
+}
+
+/* O webhook gravado vale se aponta para o endereço atual deste IHchat: o
+   servidor o apaga ao trocar a instância, mas o endereço público pode ter
+   mudado depois do cadastro. "cadastrado" | "outro-endereco" | null. */
+function webhookDoQr(canal) {
+  const gravado = telaCanais.credenciais[canal.id]?.credenciais?.webhook_url;
+  if (!gravado) return null;
+  const atual = /^https?:\/\//i.test(canal.url_webhook || "") ? canal.url_webhook : `${location.origin}${canal.url_webhook}`;
+  return gravado === atual ? "cadastrado" : "outro-endereco";
 }
 
 /* WhatsApp pelo QR Code sem teste nesta sessão: vale o que o servidor soube
@@ -1435,16 +1515,60 @@ function confirmacaoRemover(canal) {
         "removido: desative-o para parar de receber sem perder o histórico."
     )
   );
+  // WhatsApp pelo QR Code: apagar o canal aqui não desliga nada no provedor.
+  // O número continuaria em "Aparelhos conectados" e o provedor seguiria
+  // entregando num endereço que não existe mais
+  const qrNoProvedor = canal.tipo === "whatsapp_qr" && canal.configurado;
+  if (qrNoProvedor) {
+    caixa.append(
+      alertaCanal(
+        "O número continua conectado no provedor (Z-API ou Evolution) depois de remover o canal: o celular segue " +
+          "listando o aparelho em “Aparelhos conectados”. “Desconectar e remover” desliga o número antes."
+      )
+    );
+  }
   const acoes = criar("div", "acoes-canal");
-  const confirmar = botaoPequeno("Remover de vez", "botao pequeno perigo");
+  const confirmar = botaoPequeno(qrNoProvedor ? "Desconectar e remover" : "Remover de vez", "botao pequeno perigo");
+  const soRemover = qrNoProvedor ? botaoPequeno("Só remover", "botao discreto pequeno perigo-texto so-remover") : null;
   // o foco começa em "Cancelar": um Enter distraído não apaga nada
   const cancelar = botaoPequeno("Cancelar", "botao discreto pequeno cancelar-remocao");
   cancelar.onclick = () => {
     telaCanais.removendo = null;
     redesenharCartao(canal.id, ".remover");
   };
-  confirmar.onclick = async () => {
+  const remover = async (desconectarAntes) => {
     confirmar.disabled = true;
+    if (soRemover) soRemover.disabled = true;
+    let avisoDesconexao = "";
+    if (desconectarAntes) {
+      // canal com conversas não sai (o servidor recusa): desconectar antes
+      // deixaria o número desligado e o canal ainda ali
+      let comConversas = false;
+      try {
+        comConversas = (await api("GET", `/api/conversas?canal_id=${canal.id}&limite=1`)).length > 0;
+      } catch {
+        // na dúvida, segue: o DELETE do servidor é quem decide
+      }
+      if (comConversas) {
+        telaCanais.removendo = null;
+        telaCanais.resultados[canal.id] = {
+          ok: false,
+          titulo: "Não foi removido.",
+          mensagem:
+            "o canal tem conversas no histórico e não pode ser removido; desative-o para parar de receber sem perder nada " +
+            "(o número continua conectado)",
+        };
+        redesenharCartao(canal.id, ".alternar");
+        return;
+      }
+      // se o provedor não responder, remove mesmo assim e diz o que ficou para trás
+      try {
+        const resultado = await api("POST", `/api/canais/${canal.id}/desconectar`);
+        if (!resultado.ok) avisoDesconexao = resultado.mensagem;
+      } catch (erro) {
+        avisoDesconexao = erro.message;
+      }
+    }
     try {
       await api("DELETE", `/api/canais/${canal.id}`);
       telaCanais.removendo = null;
@@ -1453,14 +1577,26 @@ function confirmacaoRemover(canal) {
       await recarregarCanais();
       mostrarListaCanais();
       $("#canais-novo").focus();
-      avisar(`Canal “${canal.nome}” removido.`);
+      if (avisoDesconexao) {
+        avisar(
+          `Canal “${canal.nome}” removido, mas o número não foi desconectado no provedor (${avisoDesconexao}). ` +
+            "Desconecte pelo painel do provedor ou pelo celular, em “Aparelhos conectados”.",
+          true
+        );
+      } else {
+        avisar(desconectarAntes ? `Número desconectado e canal “${canal.nome}” removido.` : `Canal “${canal.nome}” removido.`);
+      }
     } catch (erro) {
       telaCanais.removendo = null;
-      telaCanais.resultados[canal.id] = { ok: false, titulo: "Não foi removido.", mensagem: erro.message };
+      const mensagem = avisoDesconexao ? `${erro.message} (e o número não foi desconectado: ${avisoDesconexao})` : erro.message;
+      telaCanais.resultados[canal.id] = { ok: false, titulo: "Não foi removido.", mensagem };
+      await recarregarCanais().catch(() => null);
       redesenharCartao(canal.id, ".alternar");
     }
   };
-  acoes.append(confirmar, cancelar);
+  confirmar.onclick = () => remover(qrNoProvedor);
+  if (soRemover) soRemover.onclick = () => remover(false);
+  acoes.append(...[confirmar, soRemover, cancelar].filter(Boolean));
   caixa.append(acoes);
   return caixa;
 }
@@ -1548,6 +1684,19 @@ async function testarCanal(canalId) {
   }
   // um teste mais novo, ou outra pessoa entrando na aba, manda mais que este
   if (telaCanais.vezDoTeste[canalId] !== vez) return resultado;
+  if (resultado.ok && estado.canais.find((c) => c.id === canalId)?.tipo === "whatsapp_qr") {
+    // o teste gravou no servidor o estado da conexão: o selo mostra esse
+    // estado ("Desconectado", "Falta o QR Code"), não "Conectado, com ressalva"
+    try {
+      telaCanais.credenciais[canalId] = await api("GET", `/api/canais/${canalId}/credenciais`);
+    } catch {
+      // fica o que já se sabia; o resultado do teste aparece mesmo assim
+    }
+    if (telaCanais.vezDoTeste[canalId] !== vez) return resultado;
+    if (telaCanais.credenciais[canalId]?.credenciais?.estado_conexao !== "conectado") {
+      resultado = { ...resultado, titulo: "✓ Credenciais aceitas; falta conectar o número." };
+    }
+  }
   telaCanais.testes[canalId] = resultado.ok ? (resultado.alerta ? "ressalva" : "ok") : "falha";
   telaCanais.resultados[canalId] = resultado;
   refletirTeste(canalId);
@@ -1619,10 +1768,18 @@ function blocoParaCopiar(canal) {
     }
   } else if (canal.tipo === "whatsapp_qr") {
     const webhook = dados.credenciais.webhook_url;
+    const situacaoWebhook = webhookDoQr(canal);
     if (!canal.configurado) {
       juntar(criar("p", "dica", "Preencha em Editar as credenciais do provedor (Z-API ou Evolution API) e depois use “Conectar pelo QR Code”."));
-    } else if (webhook) {
+    } else if (situacaoWebhook === "cadastrado") {
       juntar(criar("p", "dica", `Recebe as mensagens pelo webhook ${webhook} (cadastrado no provedor).`));
+    } else if (situacaoWebhook === "outro-endereco") {
+      juntar(
+        alertaCanal(
+          `O webhook foi cadastrado no provedor para ${webhook}, que não é mais o endereço deste IHchat: ` +
+            "as mensagens dos clientes não chegam até você usar “Reconectar webhook”."
+        )
+      );
     } else {
       juntar(
         criar(
@@ -1668,7 +1825,7 @@ function trechoDoWidget(chave) {
     `<script src="${location.origin}/widget.js"`,
     `        data-chave="${chave}"`,
     `        data-titulo="Fale com a gente"`,
-    `        data-cor="#2c5cf6"></script>`,
+    `        data-cor="#ff9e3d"></script>`,
   ].join("\n");
 }
 
@@ -1785,7 +1942,16 @@ function formularioDeEdicao(canal) {
   form.append(topo);
   if (canal.tipo === "whatsapp_qr") form.append(criar("p", "dica aviso-nao-oficial", AVISO_NAO_OFICIAL));
 
-  if (campos.length && !canal.configurado) {
+  if (canal.tipo === "whatsapp_qr" && !canal.configurado) {
+    // o Simulador não imita este tipo: prometer "o Simulador faz o papel do
+    // cliente" mandava o dono procurar um canal que não está lá
+    form.append(
+      alertaCanal(
+        "Sem credenciais, nada sai de verdade: as respostas ficam só registradas aqui. Preencha os dados da " +
+          "Z-API ou da Evolution API, salve e conecte o número pelo QR Code."
+      )
+    );
+  } else if (campos.length && !canal.configurado) {
     // colar um token de teste tira o canal do sandbox: sem o aviso, o
     // Simulador "some" com ele e ninguém sabe por quê
     form.append(
@@ -1841,8 +2007,14 @@ function formularioDeEdicao(canal) {
   if (canal.tipo === "whatsapp_qr") {
     prepararCamposDoQr(controles, porChave);
     // o QR usa o que está GRAVADO: com mudança por salvar, ele falaria com o provedor antigo
-    const conectar = botaoDoQr(canal);
+    const conectar = botaoDoQr({ ...canal, configurado: true });
+    conectar.setAttribute("aria-haspopup", "dialog");
     conectar.onclick = () => {
+      if (!canal.configurado) {
+        avisar("Preencha e salve as credenciais do provedor (“Salvar e testar”) antes de conectar pelo QR Code.", true);
+        salvar.focus();
+        return;
+      }
       const mudou = controles.some(([campo, controle]) =>
         campo.secreto ? controle.value.trim() || controle.dataset.limpar : controle.value.trim() !== controle.dataset.salvo.trim()
       );
@@ -1923,6 +2095,17 @@ const dialogoQr = {
 };
 
 function botaoDoQr(canal) {
+  // sem credenciais o provedor só responderia "preencha: ...": o botão leva a
+  // Editar (discreto, para não parecer o próximo passo natural do cartão)
+  if (!canal.configurado) {
+    const botao = botaoPequeno("Conectar pelo QR Code", "botao discreto pequeno conectar-qr");
+    botao.title = "Preencha as credenciais do provedor primeiro";
+    botao.onclick = () => {
+      abrirEdicao(canal.id);
+      avisar("Preencha as credenciais do provedor e salve; depois conecte pelo QR Code.");
+    };
+    return botao;
+  }
   const botao = botaoPequeno("Conectar pelo QR Code", "botao pequeno conectar-qr");
   botao.setAttribute("aria-haspopup", "dialog");
   botao.onclick = () => abrirDialogoQr(canal.id, botao);
@@ -1933,7 +2116,7 @@ function botaoDoQr(canal) {
    com o token do canal). Sem endereço absoluto, o cartão ensina o caminho à mão. */
 function botoesDeWebhookQr(canal) {
   if (canal.tipo !== "whatsapp_qr" || !canal.configurado || !/^https?:\/\//i.test(canal.url_webhook || "")) return [];
-  const conectado = Boolean(telaCanais.credenciais[canal.id]?.credenciais?.webhook_url);
+  const conectado = webhookDoQr(canal) !== null;
   const botao = botaoDeTeste(conectado ? "Reconectar webhook" : "Conectar webhook", "botao discreto pequeno conectar-webhook", canal.id);
   botao.title = `O provedor passa a entregar as mensagens em ${canal.url_webhook}`;
   botao.onclick = () =>
@@ -2193,6 +2376,15 @@ function desenharQr(resposta) {
     const desconectar = botaoPequeno("Desconectar este número", "botao discreto pequeno perigo-texto qr-desconectar");
     desconectar.onclick = pedirDesconexao;
     botoes.push(desconectar);
+  } else if (resposta.status === "erro" && /^preencha:/i.test(resposta.mensagem || "")) {
+    // falta credencial: tentar de novo daria o mesmo erro; o caminho é Editar
+    const editar = botaoPequeno("Editar credenciais", "botao pequeno qr-editar");
+    editar.onclick = () => {
+      const canalId = dialogoQr.canalId;
+      fecharDialogoQr();
+      abrirEdicao(canalId);
+    };
+    botoes.push(editar);
   } else if (resposta.status !== "aguardando_leitura") {
     const denovo = botaoPequeno(resposta.status === "erro" ? "Tentar de novo" : "Gerar QR Code", "botao pequeno qr-gerar");
     denovo.onclick = () => {
@@ -2270,10 +2462,17 @@ function cancelarDesconexao() {
    abertura); sem ele, a linha explica o que falta. */
 async function conectarWebhookDoQr() {
   const canal = estado.canais.find((c) => c.id === dialogoQr.canalId);
-  const dados = telaCanais.credenciais[dialogoQr.canalId];
   const linha = dialogoQr.elemento?.querySelector(".qr-webhook");
-  if (!canal || !linha || dialogoQr.webhookTentado || dados?.credenciais?.webhook_url) return;
+  // o /qr que acabou de responder pode ter criado a instância (com ou sem o
+  // webhook): o que vale é o gravado AGORA, não o de quando a lista carregou
+  if (!canal || !linha || dialogoQr.webhookTentado) return;
   dialogoQr.webhookTentado = true;
+  try {
+    telaCanais.credenciais[canal.id] = await api("GET", `/api/canais/${canal.id}/credenciais`);
+  } catch {
+    // sem a releitura, tenta cadastrar: cadastrar de novo não faz mal
+  }
+  if (!dialogoQr.elemento?.contains(linha) || webhookDoQr(canal) === "cadastrado") return;
   if (!/^https?:\/\//i.test(canal.url_webhook || "")) {
     linha.textContent =
       "Atenção: este IHchat ainda não tem endereço público (url_publica), então o provedor não tem para onde mandar " +

@@ -379,7 +379,8 @@ class FilaEvento(Base):
 
 # ------------------------------------------------------------ chat interno
 # Conversa da equipe entre si, sem misturar com os clientes. Mesmas tabelas,
-# colunas e nomes de índice da migração PHP M20260924_1200_ChatInterno: uma
+# colunas e nomes de índice das migrações PHP M20260924_1200_ChatInterno e
+# M20260925_0900_ChatInternoVisibilidade: uma
 # base criada por um lado abre no outro. Regras em app/servicos/chat_interno.py.
 class TipoSala(str, enum.Enum):
     GERAL = "geral"  # todos os atendentes ativos
@@ -412,10 +413,15 @@ class ListaJSONEmTexto(TypeDecorator):
 class SalaInterna(Base):
     __tablename__ = "interno_salas"
     # `chave` torna única a sala automática ("geral", "setor:<hash>") e a
-    # direta de cada par ("direta:3:8"); grupo não tem chave (NULL repete)
+    # direta de cada par ("direta:3:8"); grupo não tem chave (NULL repete).
+    # AUTOINCREMENT no SQLite (o {ID} da migração PHP): sem ele o id do grupo
+    # apagado mais recente voltaria na próxima sala, e quem estivesse nela
+    # passaria a "ser membro" dos eventos antigos daquele grupo na fila.
+    # Bases criadas antes disso são reconstruídas na subida (app/db.py).
     __table_args__ = (
         Index("uq_interno_salas_chave", "chave", unique=True),
         Index("ix_interno_salas_tipo", "tipo"),
+        {"sqlite_autoincrement": True},
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -445,13 +451,18 @@ class MembroSala(Base):
     )
     # id da última mensagem lida: não lidas = mensagens de outros com id maior
     lida_ate: Mapped[int] = mapped_column(Integer, default=0)
+    # só vê mensagens com id maior que este. Na sala de setor é a última
+    # mensagem de quando a pessoa entrou: o setor é editável no próprio
+    # perfil, e trocá-lo não pode abrir o histórico de outro setor. 0 = tudo.
+    visivel_desde: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     silenciada: Mapped[bool] = mapped_column(Boolean, default=False)
     entrou_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
 
 class MensagemInterna(Base):
     __tablename__ = "interno_mensagens"
-    __table_args__ = (Index("ix_interno_mensagens_sala", "sala_id", "id"),)
+    # AUTOINCREMENT no SQLite, como a sala: id de mensagem nunca volta
+    __table_args__ = (Index("ix_interno_mensagens_sala", "sala_id", "id"), {"sqlite_autoincrement": True})
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sala_id: Mapped[int] = mapped_column(ForeignKey("interno_salas.id", ondelete="CASCADE"))

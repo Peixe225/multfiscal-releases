@@ -50,6 +50,10 @@ final class Credenciais
             }
         }
         self::exigirSenhaParaServidorNovo($tipo, $atuais, $resultado, $enviadas);
+        if ($tipo === Campos::WHATSAPP_QR) {
+            // outra instância: o webhook, o estado e o número gravados eram da antiga
+            $resultado = AdaptadorWhatsAppQr::semDadosDeOutraInstancia($atuais, $resultado);
+        }
         return $resultado;
     }
 
@@ -89,11 +93,9 @@ final class Credenciais
         }
         if ($chave === 'url_servidor') {
             $endereco = rtrim(self::comoTexto($valor), '/');
-            $esquema = strtolower((string) parse_url($endereco, PHP_URL_SCHEME));
-            $host = (string) parse_url($endereco, PHP_URL_HOST);
-            if (!in_array($esquema, ['http', 'https'], true) || $host === '') {
-                throw ErroHttp::invalido(Campos::rotulo($tipo, $chave)
-                    . ' precisa começar com https:// (ou http://), ex.: https://evolution.suaempresa.com.br');
+            $problema = AdaptadorWhatsAppQr::problemaNoEnderecoEvolution($endereco);
+            if ($problema !== null) {
+                throw ErroHttp::invalido(Campos::rotulo($tipo, $chave) . ' ' . $problema);
             }
             return $endereco;
         }

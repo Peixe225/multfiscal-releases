@@ -180,6 +180,17 @@ Banco::transacao(function () use (...) {
   (só `mensagem.nova` de saída do próprio contato, sem nota interna); a rota
   `GET /api/widget/eventos/desde?depois=&token=<sessão>` usa
   `Eventos\Rotas::cursor($req)` para ler os parâmetros.
+- Privacidade do chat da equipe: tipo que começa com `interno.` só sai para
+  quem é **membro da sala** do `sala_id` no momento da entrega; com
+  `"para": [ids]` nos dados, só para essas pessoas (é o caso de `entrou`,
+  `saiu` e `interno.lida`). Por isso o painel chama
+  `Eventos::desde($depois, $limite, atendenteId: <id do login>)`: sem
+  atendente identificado, nenhum `interno.*` sai. Evento `interno.*` é
+  publicado com `contato_id` NULL. Regra igual à `FiltroDoAtendente` do Python.
+- `canal.atualizado` (dados = CanalSaida, sem credenciais, contato NULL): sai
+  quando o WhatsApp pelo QR Code muda de estado (`conexao` conectado,
+  aguardando_leitura, desconectado), por webhook, `/qr`, `/testar` ou
+  `/desconectar`; vai a todo atendente logado.
 - Retenção de 48 h: poda oportunista na publicação e tarefa `PodarEventos`.
 - `GET /saude` responde `"eventos": "consulta"` (o Python responde `"stream"`).
 

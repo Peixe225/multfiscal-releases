@@ -133,7 +133,7 @@ def test_geral_com_todos_os_ativos(equipe):
     detalhe = ana.get(f"/api/interno/salas/{geral_ana['id']}").json()
     assert {ana.id, bia.id} <= _ids(detalhe["membros"])
     # resumo sem e-mail (e sem senha, claro)
-    assert set(detalhe["membros"][0]) == {"id", "nome", "setor", "ativo", "disponivel"}
+    assert set(detalhe["membros"][0]) == {"id", "nome", "setor", "ativo", "disponivel", "admin"}
     assert detalhe["total_membros"] == len([m for m in detalhe["membros"] if m["ativo"]])
 
 
@@ -171,6 +171,45 @@ def test_sala_de_setor_segue_o_perfil(equipe):
     # sem setor: fica só com a Geral (e diretas/grupos)
     bia.patch(f"/api/atendentes/{bia.id}", {"setor": None})
     assert bia.sala("setor", id=sala["id"]) is None
+
+
+def test_quem_troca_de_setor_nao_ve_o_historico_do_outro(equipe):
+    """O setor é editável no próprio perfil: trocá-lo põe a pessoa na sala do
+    setor novo, mas só do momento em que entrou para a frente — nem a lista
+    de mensagens, nem a prévia, nem os eventos guardados na fila entregam o
+    que foi dito antes."""
+    setor = unico("Financeiro ")
+    fabi, gil = equipe(setor=setor), equipe(setor=setor)
+    caio = equipe(setor=unico("Suporte "))
+    sala = fabi.sala("setor", nome=setor)
+    cursor_caio = caio.cursor()
+    segredo = fabi.enviar(sala["id"], unico("folha: salário do João = R$ 12.000 "))
+    assert caio.get(f"/api/interno/salas/{sala['id']}/mensagens").status_code == 404
+
+    assert caio.patch(f"/api/atendentes/{caio.id}", {"setor": setor}).status_code == 200
+    vista = caio.sala("setor", id=sala["id"])
+    assert vista is not None and vista["ultima_mensagem"] is None and vista["nao_lidas"] == 0
+    pagina = caio.get(f"/api/interno/salas/{sala['id']}/mensagens").json()
+    assert pagina == {"mensagens": [], "tem_mais": False}
+    assert caio.get(f"/api/interno/salas/{sala['id']}/mensagens", params={"antes": segredo["id"] + 1}).json()["mensagens"] == []
+    assert segredo["conteudo"] not in str(caio.eventos(cursor_caio))
+    # quem já era do setor continua vendo tudo
+    assert segredo["id"] in [m["id"] for m in gil.get(f"/api/interno/salas/{sala['id']}/mensagens").json()["mensagens"]]
+
+    # dali para a frente, sim
+    depois = gil.enviar(sala["id"], unico("bem-vindo, Caio "))
+    assert [m["id"] for m in caio.get(f"/api/interno/salas/{sala['id']}/mensagens").json()["mensagens"]] == [depois["id"]]
+    assert caio.sala("setor", id=sala["id"])["ultima_mensagem"]["id"] == depois["id"]
+    recebidas = [e["dados"]["id"] for e in caio.eventos(cursor_caio) if e["tipo"] == "interno.mensagem"]
+    assert depois["id"] in recebidas and segredo["id"] not in recebidas
+
+    # sair e voltar não reabre o que foi dito enquanto estava fora
+    caio.patch(f"/api/atendentes/{caio.id}", {"setor": unico("Suporte ")})
+    assert caio.get(f"/api/interno/salas/{sala['id']}/mensagens").status_code == 404
+    fora = fabi.enviar(sala["id"], unico("enquanto o Caio estava fora "))
+    caio.patch(f"/api/atendentes/{caio.id}", {"setor": setor})
+    ids = [m["id"] for m in caio.get(f"/api/interno/salas/{sala['id']}/mensagens").json()["mensagens"]]
+    assert fora["id"] not in ids and segredo["id"] not in ids
 
 
 def test_desativado_perde_acesso(equipe, cliente, cabecalho_admin):
@@ -264,6 +303,35 @@ def test_grupo_quem_cria_administra(equipe):
     assert _ids(ficou["membros"]) == {bia.id}
 
 
+def test_criador_desativado_passa_a_administracao(equipe, cliente, cabecalho_admin):
+    """Desativar quem criou o grupo equivale a ele sair: administra quem está
+    no grupo há mais tempo entre os ativos (senão ninguém mais o altera)."""
+    gil, hana, ivo = equipe(), equipe(), equipe()
+    grupo = _grupo(gil, unico("Plantão "), [hana])
+    resposta = cliente.patch(f"/api/atendentes/{gil.id}", json={"ativo": False}, headers=cabecalho_admin)
+    assert resposta.status_code == 200, resposta.text
+
+    visto = hana.get(f"/api/interno/salas/{grupo['id']}").json()
+    assert visto["criada_por"] == hana.id and visto["administrador"] is True
+    posto = hana.patch(f"/api/interno/salas/{grupo['id']}", {"adicionar": [ivo.id]})
+    assert posto.status_code == 200, posto.text
+    assert ivo.get(f"/api/interno/salas/{grupo['id']}").json()["administrador"] is False
+    # o desativado continua listado (é histórico), e pode ser tirado
+    tirado = hana.patch(f"/api/interno/salas/{grupo['id']}", {"remover": [gil.id]})
+    assert tirado.status_code == 200, tirado.text
+    assert _ids(tirado.json()["membros"]) == {hana.id, ivo.id}
+
+
+def test_administracao_nao_passa_a_desativado(equipe, cliente, cabecalho_admin):
+    ana, bia, caio = equipe(), equipe(), equipe()
+    grupo = _grupo(ana, unico("Turno "), [bia, caio])
+    # Bia está no grupo há tanto tempo quanto Caio e tem id menor, mas foi desativada
+    assert cliente.patch(f"/api/atendentes/{bia.id}", json={"ativo": False}, headers=cabecalho_admin).status_code == 200
+    assert ana.post(f"/api/interno/salas/{grupo['id']}/sair").status_code == 204
+    visto = caio.get(f"/api/interno/salas/{grupo['id']}").json()
+    assert visto["criada_por"] == caio.id and visto["administrador"] is True
+
+
 def test_grupo_validacoes(equipe):
     ana, bia = equipe(), equipe()
     assert ana.post("/api/interno/grupos", {"nome": "   ", "membros": [bia.id]}).status_code == 422
@@ -297,7 +365,7 @@ def test_enviar_e_listar_paginado(equipe):
     primeira = enviadas[0]
     assert set(primeira) == CAMPOS_MENSAGEM
     assert primeira["sala_id"] == sala["id"]
-    assert primeira["autor"] == {"id": ana.id, "nome": ana.nome, "setor": None}
+    assert primeira["autor"] == {"id": ana.id, "nome": ana.nome, "setor": None, "admin": False}
     assert primeira["mencoes"] == [] and primeira["conversa"] is None and primeira["apagada"] is False
     assert primeira["editada_em"] is None
     data_com_fuso(primeira["criada_em"])
@@ -358,6 +426,29 @@ def test_mencoes_resolvidas_no_servidor(equipe):
     assert ambiguo["mencoes"] == []
     completo = ana.enviar(grupo["id"], f"oi @Bia{marca} Alves")
     assert completo["mencoes"] == [xara.id]
+
+
+def test_nome_repetido_nao_recebe_mencao_de_outro(equipe):
+    """Nome e setor são editáveis no próprio perfil: quem copia o nome de
+    outra pessoa não passa a receber as menções dela, e o papel de admin
+    (que só o admin muda) aparece no autor e nos membros."""
+    marca = unico()
+    chefe = equipe(nome=f"Chefe{marca}", papel="admin")
+    ana = equipe(nome=f"Ana{marca} Lima")
+    bia = equipe(nome=f"Bia{marca} Souza")
+    grupo = _grupo(chefe, "Diretoria", [ana, bia])
+    antes = bia.enviar(grupo["id"], f"@Chefe{marca} pode ver?")
+    assert antes["mencoes"] == [chefe.id]
+
+    assert ana.patch(f"/api/atendentes/{ana.id}", {"nome": f"chefe{marca}"}).status_code == 200
+    imitada = bia.enviar(grupo["id"], f"@Chefe{marca} pode ver?")
+    assert imitada["mencoes"] == []  # ambíguo: ninguém, e não os dois
+
+    do_chefe = chefe.enviar(grupo["id"], "sou eu mesmo")
+    da_ana = ana.enviar(grupo["id"], "sou eu mesmo")
+    assert do_chefe["autor"]["admin"] is True and da_ana["autor"]["admin"] is False
+    membros = {m["id"]: m for m in bia.get(f"/api/interno/salas/{grupo['id']}").json()["membros"]}
+    assert membros[chefe.id]["admin"] is True and membros[ana.id]["admin"] is False
 
 
 def test_editar_e_apagar_a_propria_mensagem(equipe):
@@ -513,6 +604,33 @@ def test_evento_de_mensagem_so_para_membros(equipe):
             assert evento["dados"].get("sala_id") not in salas_proibidas, evento
     # mas o cursor dele anda por cima (não relê os eventos dos outros para sempre)
     assert resposta["ultimo"] > cursores[caio.id]
+
+
+def test_grupo_apagado_nao_deixa_o_texto_na_fila(equipe):
+    """O último sai, o grupo é apagado com as mensagens, e os eventos dele
+    guardados na fila (48 h) são esvaziados: nem quem era membro relê o
+    texto, nem uma sala criada depois (que no SQLite antigo podia herdar o
+    id) recebe algo dele."""
+    ana, bia, caio, duda = equipe(), equipe(), equipe(), equipe()
+    cursores = {p.id: p.cursor() for p in (ana, bia, caio, duda)}
+    grupo = _grupo(ana, "Diretoria", [bia])
+    segredo = unico("a senha do cofre é ")
+    ana.enviar(grupo["id"], segredo)
+    ana.patch(f"/api/interno/mensagens/{ana.enviar(grupo['id'], 'rascunho')['id']}", {"conteudo": unico("editada ")})
+    assert ana.post(f"/api/interno/salas/{grupo['id']}/sair").status_code == 204
+    assert bia.post(f"/api/interno/salas/{grupo['id']}/sair").status_code == 204
+    assert bia.get(f"/api/interno/salas/{grupo['id']}").status_code == 404
+
+    nova = caio.direta(duda)
+    _grupo(caio, "Outro", [duda])
+    for pessoa in (ana, bia, caio, duda):
+        eventos = pessoa.eventos(cursores[pessoa.id])
+        assert segredo not in str(eventos)
+        do_grupo = [e["dados"] for e in _do_chat(eventos) if e["dados"].get("sala_id") == grupo["id"]]
+        # sobra só o "você saiu" de quem saiu, sem conteúdo
+        assert all(d.get("acao") == "saiu" and d.get("para") == [pessoa.id] for d in do_grupo), do_grupo
+        assert not [e for e in eventos if e["tipo"] == "interno.removido"]
+    assert nova["id"] != grupo["id"]
 
 
 def test_evento_de_sala_e_de_leitura(equipe):

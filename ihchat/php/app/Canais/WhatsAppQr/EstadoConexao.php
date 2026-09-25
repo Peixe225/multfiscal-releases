@@ -30,7 +30,9 @@ final class EstadoConexao
     public static function frase(string $estado, ?string $numero = null): string
     {
         return match ($estado) {
-            self::CONECTADO => $numero !== null ? "WhatsApp conectado ao número {$numero}" : 'WhatsApp conectado',
+            self::CONECTADO => $numero !== null && $numero !== ''
+                ? 'WhatsApp conectado ao número ' . Leitura::numeroLegivel($numero)
+                : 'WhatsApp conectado',
             self::AGUARDANDO => 'Abra o WhatsApp no celular e leia o QR Code',
             default => 'O WhatsApp não está conectado: leia o QR Code para conectar',
         };

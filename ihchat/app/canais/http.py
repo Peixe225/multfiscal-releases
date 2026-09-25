@@ -14,7 +14,9 @@ import base64
 import contextlib
 import fcntl
 import json
+import logging
 import os
+import re
 from typing import Iterator
 
 import httpx
@@ -119,6 +121,48 @@ def _transporte_do_ambiente() -> httpx.BaseTransport | None:
     if roteiro and obter_config().modo_sandbox:
         return TransporteRoteirado(roteiro)
     return None
+
+
+def usa_provedor_falso() -> bool:
+    """As chamadas vão para um transporte trocado (teste), não para a rede."""
+    return _transporte is not None or _transporte_do_ambiente() is not None
+
+
+# ------------------------------------------------------ segredos fora do log
+# O httpx registra cada requisição em INFO com a URL inteira, e a Z-API põe o
+# token da instância no caminho (/instances/{id}/token/{token}/...): com o
+# diálogo do QR consultando a cada 3 s, o token iria para o log do servidor
+# milhares de vezes, e quem o lê poderia mandar mensagens como o número. O
+# log de acesso do uvicorn (quando ligado) grava "POST /webhooks/5?token=..."
+# a cada entrega, e esse token forja mensagens de clientes. O PHP não
+# registra URLs. (O token do bot do Telegram tem o filtro dele em telegram.py.)
+_SEGREDOS_NA_URL = (
+    (re.compile(r"/token/[^/\s\"?#]+"), "/token/<oculto>"),
+    (re.compile(r"([?&](?:token|apikey|api_key)=)[^&\s\"#]+", re.IGNORECASE), r"\1<oculto>"),
+)
+
+
+def sem_segredos_na_url(texto: str) -> str:
+    for padrao, troca in _SEGREDOS_NA_URL:
+        texto = padrao.sub(troca, texto)
+    return texto
+
+
+class FiltroSegredosNaUrl(logging.Filter):
+    def filter(self, registro: logging.LogRecord) -> bool:
+        try:
+            texto = registro.getMessage()
+        except Exception:  # registro malformado: deixa o logging reclamar dele
+            return True
+        limpo = sem_segredos_na_url(texto)
+        if limpo != texto:
+            registro.msg, registro.args = limpo, None
+        return True
+
+
+_FILTRO_DE_SEGREDOS = FiltroSegredosNaUrl()
+for _nome in ("httpx", "uvicorn.access"):
+    logging.getLogger(_nome).addFilter(_FILTRO_DE_SEGREDOS)
 
 
 @contextlib.contextmanager
