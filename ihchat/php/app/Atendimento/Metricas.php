@@ -16,17 +16,25 @@ final class Metricas
      *
      * "Hoje" é o dia UTC, como no Python.
      *
+     * $recorte: condição SQL sobre o alias "c" de conversas (com parâmetros)
+     * que limita os números às conversas de um setor (Visibilidade); null =
+     * o atendimento inteiro.
+     *
+     * @param array{0: string, 1: list<mixed>}|null $recorte
      * @return array<string, mixed>
      */
-    public static function resumo(): array
+    public static function resumo(?array $recorte = null): array
     {
         $inicio = Datas::paraBanco(Datas::agora()->setTime(0, 0));
-        $contar = static fn (string $onde, array $p = []): int => (int) Banco::valor("SELECT COUNT(id) FROM conversas WHERE {$onde}", $p);
+        [$dentro, $pr] = $recorte ?? ['1 = 1', []];
+        $contar = static fn (string $onde, array $p = []): int
+            => (int) Banco::valor("SELECT COUNT(c.id) FROM conversas c WHERE {$onde} AND {$dentro}", [...$p, ...$pr]);
 
         $porCanal = [];
         foreach (Banco::todos(
             "SELECT ca.nome, COUNT(c.id) AS total FROM canais ca JOIN conversas c ON c.canal_id = ca.id
-             WHERE c.status <> 'resolvida' GROUP BY ca.nome ORDER BY ca.nome"
+             WHERE c.status <> 'resolvida' AND {$dentro} GROUP BY ca.nome ORDER BY ca.nome",
+            $pr
         ) as $linha) {
             $porCanal[(string) $linha['nome']] = (int) $linha['total'];
         }
@@ -34,7 +42,10 @@ final class Metricas
         // tempo até a primeira resposta, só das conversas já respondidas
         $soma = 0.0;
         $quantas = 0;
-        foreach (Banco::todos('SELECT criada_em, primeira_resposta_em FROM conversas WHERE primeira_resposta_em IS NOT NULL') as $linha) {
+        foreach (Banco::todos(
+            "SELECT c.criada_em, c.primeira_resposta_em FROM conversas c WHERE c.primeira_resposta_em IS NOT NULL AND {$dentro}",
+            $pr
+        ) as $linha) {
             $criada = Datas::doBanco((string) $linha['criada_em']);
             $resposta = Datas::doBanco((string) $linha['primeira_resposta_em']);
             if ($criada === null || $resposta === null) {
@@ -45,11 +56,16 @@ final class Metricas
         }
 
         return [
-            'abertas' => $contar("status = 'aberta'"),
-            'pendentes' => $contar("status = 'pendente'"),
-            'resolvidas_hoje' => $contar("status = 'resolvida' AND resolvida_em >= ?", [$inicio]),
-            'sem_atendente' => $contar("atendente_id IS NULL AND status <> 'resolvida'"),
-            'mensagens_hoje' => (int) Banco::valor('SELECT COUNT(id) FROM mensagens WHERE criada_em >= ?', [$inicio]),
+            'abertas' => $contar("c.status = 'aberta'"),
+            'pendentes' => $contar("c.status = 'pendente'"),
+            'resolvidas_hoje' => $contar("c.status = 'resolvida' AND c.resolvida_em >= ?", [$inicio]),
+            'sem_atendente' => $contar("c.atendente_id IS NULL AND c.status <> 'resolvida'"),
+            'mensagens_hoje' => $recorte === null
+                ? (int) Banco::valor('SELECT COUNT(id) FROM mensagens WHERE criada_em >= ?', [$inicio])
+                : (int) Banco::valor(
+                    "SELECT COUNT(m.id) FROM mensagens m JOIN conversas c ON c.id = m.conversa_id WHERE m.criada_em >= ? AND {$dentro}",
+                    [$inicio, ...$pr]
+                ),
             'por_canal' => Json::objeto($porCanal),
             'tempo_medio_primeira_resposta_seg' => $quantas === 0 ? null : round($soma / $quantas, 1),
         ];

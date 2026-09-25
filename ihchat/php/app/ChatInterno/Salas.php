@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace IHchat\ChatInterno;
 
 use IHchat\Auth\Atendentes;
+use IHchat\Auth\Permissoes;
 use IHchat\Banco\Banco;
 use IHchat\Eventos\Eventos;
 use IHchat\Nucleo\Datas;
@@ -14,22 +15,28 @@ use IHchat\Nucleo\Json;
  * Salas do chat interno (o mesmo contrato de app/servicos/chat_interno.py).
  *
  *   geral   todos os atendentes ativos; uma só (chave "geral");
- *   setor   uma por setor do perfil (chave "setor:<hash do setor normalizado>");
+ *   setor   uma por setor do cadastro (chave "setor:id:<setor_id>", coluna
+ *           setor_id); quem está no setor está na sala. Salas de setor do
+ *           tempo do texto livre ("setor:<hash>") foram ligadas ao cadastro
+ *           pela migração M20260925_1500_CargosESetores;
  *   direta  uma por par de atendentes (chave "direta:<menor id>:<maior id>");
  *   grupo   criado por qualquer atendente com os membros escolhidos; quem
  *           cria administra (e o admin do sistema também).
  *
- * Geral e setores não têm cadastro: sincronizar() acerta os membros a partir
- * de atendentes.ativo/setor no começo de TODA rota /api/interno. Como nenhuma
+ * Geral e setores não têm cadastro próprio: sincronizar() acerta os membros
+ * (e o nome da sala de setor, se o setor foi renomeado) a partir de
+ * atendentes.ativo/setor_id no começo de TODA rota /api/interno e sempre que
+ * a equipe ou um setor muda. Como nenhuma
  * mensagem entra numa sala sem essa conferência antes, o evento de uma sala
  * nunca vai para quem já saiu dela (o filtro de Eventos lê os membros).
  *
  * Quem não é membro recebe 404 em tudo da sala: ela "não existe" para ele.
  *
- * O setor é editável no próprio perfil; por isso quem ENTRA numa sala de
- * setor só vê dali para a frente (interno_membros.visivel_desde): trocar o
- * setor não abre o histórico de outro setor, nem pela API nem pelos eventos
- * guardados na fila. Grupo apagado (o último saiu) tem os eventos esvaziados.
+ * O setor só muda por quem gerencia a equipe (antes cada um mudava o seu),
+ * e mesmo assim quem ENTRA numa sala de setor só vê dali para a frente
+ * (interno_membros.visivel_desde): trocar de setor não abre o histórico de
+ * outro setor, nem pela API nem pelos eventos guardados na fila. Grupo
+ * apagado (o último saiu) tem os eventos esvaziados.
  *
  * SalaSaida {id, tipo, nome, setor, com, criada_por, administrador,
  *            total_membros, nao_lidas, lida_ate, silenciada, ultima_mensagem,
@@ -66,6 +73,12 @@ final class Salas
     {
         $normal = self::normalizarSetor($setor);
         return $normal === '' ? null : 'setor:' . substr(hash('sha256', $normal), 0, 40);
+    }
+
+    /** A sala do setor do cadastro. */
+    public static function chaveDoSetor(int $setorId): string
+    {
+        return 'setor:id:' . $setorId;
     }
 
     public static function chaveDireta(int $a, int $b): string
@@ -105,22 +118,36 @@ final class Salas
     private static function acertarAutomaticas(): void
     {
         $agora = Datas::agoraBanco();
-        $ativos = Banco::todos('SELECT id, setor FROM atendentes WHERE ativo = 1 ORDER BY id');
+        $ativos = Banco::todos(
+            'SELECT a.id, a.setor_id, s.nome AS setor_nome FROM atendentes a
+             LEFT JOIN setores s ON s.id = a.setor_id
+             WHERE a.ativo = 1 ORDER BY a.id'
+        );
         $automaticas = [];
-        foreach (Banco::todos("SELECT id, chave FROM interno_salas WHERE tipo IN ('geral', 'setor')") as $linha) {
+        $nomes = [];
+        foreach (Banco::todos("SELECT id, chave, nome FROM interno_salas WHERE tipo IN ('geral', 'setor')") as $linha) {
             $automaticas[(string) $linha['chave']] = (int) $linha['id'];
+            $nomes[(int) $linha['id']] = (string) ($linha['nome'] ?? '');
         }
-        $sala = static function (string $chave, string $tipo, string $nome, ?string $setor) use (&$automaticas, $agora): int {
+        $sala = static function (string $chave, string $tipo, string $nome, ?int $setorId) use (&$automaticas, &$nomes, $agora): int {
             if (!isset($automaticas[$chave])) {
                 $automaticas[$chave] = Banco::inserir('interno_salas', [
                     'tipo' => $tipo,
                     'nome' => $nome,
-                    'setor' => $setor,
+                    'setor' => $setorId === null ? null : $nome,
+                    'setor_id' => $setorId,
                     'chave' => $chave,
                     'criada_por' => null,
                     'criada_em' => $agora,
                     'atualizada_em' => $agora,
                 ]);
+                $nomes[$automaticas[$chave]] = $nome;
+            } elseif ($setorId !== null && $nomes[$automaticas[$chave]] !== $nome) {
+                // o setor foi renomeado: a sala acompanha (e quem está nela fica sabendo)
+                $id = $automaticas[$chave];
+                Banco::atualizar('interno_salas', ['nome' => $nome, 'setor' => $nome, 'atualizada_em' => $agora], 'id = ?', [$id]);
+                $nomes[$id] = $nome;
+                Eventos::publicar('interno.sala', ['sala_id' => $id, 'acao' => 'atualizada']);
             }
             return $automaticas[$chave];
         };
@@ -130,12 +157,10 @@ final class Salas
         foreach ($ativos as $linha) {
             $id = (int) $linha['id'];
             $esperado["{$geral}:{$id}"] = [$geral, $id];
-            $chave = self::chaveSetor($linha['setor'] ?? null);
-            if ($chave !== null) {
-                // o primeiro atendente (menor id) dá o nome de exibição da sala
-                $exibicao = mb_substr(self::espacos((string) $linha['setor']), 0, 80);
-                $setorId = $sala($chave, self::SETOR, $exibicao, $exibicao);
-                $esperado["{$setorId}:{$id}"] = [$setorId, $id];
+            if ($linha['setor_id'] !== null && $linha['setor_nome'] !== null) {
+                $setorId = (int) $linha['setor_id'];
+                $salaId = $sala(self::chaveDoSetor($setorId), self::SETOR, (string) $linha['setor_nome'], $setorId);
+                $esperado["{$salaId}:{$id}"] = [$salaId, $id];
             }
         }
 
@@ -151,9 +176,9 @@ final class Salas
         $sobram = array_diff_key($atuais, $esperado);
         if ($faltam !== []) {
             // o que veio antes não conta como não lido. Na Geral quem entra vê
-            // o histórico (só o admin ativa alguém); no setor, não: o setor
-            // qualquer um troca no próprio perfil, e isso não pode abrir a
-            // conversa de outro setor
+            // o histórico; no setor, não: quem muda de setor não leva junto
+            // a conversa antiga do setor novo (nem quem é transferido de volta
+            // vê o que se falou na ausência)
             $ultimas = self::ultimasIds(array_values(array_unique(array_column($faltam, 0))));
             foreach (self::ordenar($faltam) as [$salaId, $atendenteId]) {
                 $ultima = $ultimas[$salaId] ?? 0;
@@ -302,13 +327,15 @@ final class Salas
     }
 
     /**
+     * Quem criou o grupo administra; quem modera o chat (chat.moderar) também.
+     *
      * @param array<string, mixed> $sala
      * @param array<string, mixed> $eu
      */
     public static function podeAdministrar(array $sala, array $eu): bool
     {
         return $sala['tipo'] === self::GRUPO
-            && ((int) ($sala['criada_por'] ?? 0) === (int) $eu['id'] || Atendentes::eAdmin($eu));
+            && ((int) ($sala['criada_por'] ?? 0) === (int) $eu['id'] || Permissoes::tem($eu, 'chat.moderar'));
     }
 
     // ----------------------------------------------------------------- saídas
@@ -403,6 +430,7 @@ final class Salas
                 'tipo' => (string) $l['tipo'],
                 'nome' => $nome,
                 'setor' => $l['tipo'] === self::SETOR && ($l['setor'] ?? '') !== '' ? (string) $l['setor'] : null,
+                'setor_id' => $l['tipo'] === self::SETOR && isset($l['setor_id']) ? (int) $l['setor_id'] : null,
                 'com' => $com !== null ? self::resumo($com) : null,
                 'criada_por' => $l['tipo'] === self::GRUPO && $l['criada_por'] !== null ? (int) $l['criada_por'] : null,
                 'administrador' => self::podeAdministrar($l, $eu),
@@ -466,8 +494,7 @@ final class Salas
 
     /**
      * AtendenteResumo {id, nome, setor, ativo, disponivel, admin}: sem e-mail,
-     * sem senha. `admin` vem do papel, que só o admin muda: nome e setor
-     * qualquer um troca no próprio perfil, então é o que não dá para imitar.
+     * sem senha. `admin` = cargo Administrador, que só quem gerencia concede.
      *
      * @param array<string, mixed> $a
      * @return array<string, mixed>
@@ -488,6 +515,22 @@ final class Salas
     public static function recarregar(int $salaId, array $eu): array
     {
         return self::detalhe(self::exigir($salaId, $eu), $eu);
+    }
+
+    /**
+     * sincronizar() depois de mexer na equipe ou num setor: quem entra, muda
+     * de setor ou é desativado ganha ou perde a sala NA HORA (evento
+     * "interno.sala" entrou/saiu), sem esperar a próxima chamada ao chat. Uma
+     * falha aqui não desfaz o cadastro já gravado: a próxima chamada ao chat
+     * acerta de novo. Igual a _sincronizar_chat do Python.
+     */
+    public static function sincronizarSemFalhar(): void
+    {
+        try {
+            self::sincronizar();
+        } catch (\Throwable $erro) {
+            \IHchat\Nucleo\Log::erro('não foi possível sincronizar as salas do chat interno', ['erro' => $erro->getMessage()]);
+        }
     }
 
     // ----------------------------------------------------------------- gestão

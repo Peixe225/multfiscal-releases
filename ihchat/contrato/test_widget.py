@@ -50,15 +50,16 @@ def desde_widget(cliente, visitante: dict, depois=None):
 
 
 @pytest.fixture
-def ana_com_setor(cliente, cabecalho_atendente, login_atendente):
-    """A Ana responde como "Suporte técnico" (e volta ao setor de antes)."""
+def ana_com_setor(cliente, cabecalho_atendente, cabecalho_admin, login_atendente):
+    """A Ana responde como "Suporte técnico" (e volta ao setor de antes). O
+    setor é de quem gerencia a equipe: o admin põe e tira."""
     eu = login_atendente["atendente"]
     antes = cliente.get("/api/auth/eu", headers=cabecalho_atendente).json().get("setor")
-    mudou = cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": "Suporte técnico"}, headers=cabecalho_atendente)
+    mudou = cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": "Suporte técnico"}, headers=cabecalho_admin)
     if "setor" not in mudou.json():
         pytest.skip("o alvo ainda não tem o setor do atendente")
     yield {"nome": eu["nome"], "setor": "Suporte técnico"}
-    cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": antes}, headers=cabecalho_atendente)
+    cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": antes}, headers=cabecalho_admin)
 
 
 # ----------------------------------------------------------------- sessão

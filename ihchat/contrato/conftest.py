@@ -220,9 +220,46 @@ def login_admin(servidor) -> dict:
         return entrar(c, ADMIN_EMAIL, ADMIN_SENHA)
 
 
+# O que o papel "atendente" podia fazer antes dos cargos (tudo menos cuidar
+# de canais e da equipe). A Ana dos seeds é Colaboradora — vê só as próprias
+# conversas e a fila —, mas a suíte usa a Ana como "o atendente comum de
+# sempre", que lê qualquer conversa, mescla contato, cria etiqueta... Por isso
+# ela ganha, uma vez por sessão, um cargo com essas permissões. As regras dos
+# cargos de fábrica (Colaborador, Conferente...) são testadas com pessoas
+# criadas pelos próprios testes (test_cargos_*.py).
+CARGO_ATENDENTE_LEGADO = "Atendente (suíte de contrato)"
+PERMISSOES_ATENDENTE_LEGADO = [
+    "equipe.ver", "canais.ver", "conversas.ver_todas", "conversas.ver_setor", "conversas.transferir",
+    "conversas.resolver", "conversas.reabrir", "contatos.editar", "contatos.mesclar", "respostas.gerenciar",
+    "etiquetas.gerenciar", "metricas.ver_todas", "metricas.ver_setor", "chat.criar_grupo", "simulador.usar",
+]
+
+
+def _dar_a_ana_o_cargo_de_antes(c: httpx.Client, token_admin: str) -> None:
+    cabecalho = {"Authorization": f"Bearer {token_admin}"}
+    cargos = c.get("/api/cargos", headers=cabecalho)
+    if cargos.status_code == 404:
+        return  # servidor sem cargos (externo antigo): a Ana já pode tudo isso
+    assert cargos.status_code == 200, cargos.text
+    cargo = next((x for x in cargos.json() if x["nome"] == CARGO_ATENDENTE_LEGADO), None)
+    if cargo is None:
+        criado = c.post(
+            "/api/cargos",
+            json={"nome": CARGO_ATENDENTE_LEGADO, "nivel": 30, "permissoes": PERMISSOES_ATENDENTE_LEGADO},
+            headers=cabecalho,
+        )
+        assert criado.status_code == 201, criado.text
+        cargo = criado.json()
+    ana = next(p for p in c.get("/api/atendentes", headers=cabecalho).json() if p["email"] == ATENDENTE_EMAIL)
+    if ana["cargo"]["id"] != cargo["id"]:
+        mudou = c.patch(f"/api/atendentes/{ana['id']}", json={"cargo_id": cargo["id"]}, headers=cabecalho)
+        assert mudou.status_code == 200, mudou.text
+
+
 @pytest.fixture(scope="session")
-def login_atendente(servidor) -> dict:
+def login_atendente(servidor, login_admin) -> dict:
     with httpx.Client(base_url=servidor.url, timeout=15.0) as c:
+        _dar_a_ana_o_cargo_de_antes(c, login_admin["token"])
         return entrar(c, ATENDENTE_EMAIL, ATENDENTE_SENHA)
 
 

@@ -10,7 +10,7 @@ use IHchat\Nucleo\ErroHttp;
 use IHchat\Nucleo\Requisicao;
 use IHchat\Nucleo\Validador;
 
-/** Etiquetas e respostas rápidas (app/api/catalogo.py). */
+/** Etiquetas e respostas rápidas (app/api/catalogo.py): ler é de todos; criar e apagar pedem etiquetas.gerenciar / respostas.gerenciar. */
 final class ApiCatalogo
 {
     /** @return list<array<string, mixed>> */
@@ -23,7 +23,7 @@ final class ApiCatalogo
     /** @return array<string, mixed> */
     public static function criarEtiqueta(Requisicao $req): array
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'etiquetas.gerenciar');
         $v = Validador::corpo($req);
         $nome = (string) $v->texto('nome', min: 1, max: 60);
         $cor = $v->texto('cor', max: 9, obrigatorio: false, padrao: '#6b7cff', anulavel: false);
@@ -45,7 +45,7 @@ final class ApiCatalogo
     /** @param array{etiqueta_id: int} $p */
     public static function removerEtiqueta(Requisicao $req, array $p): void
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'etiquetas.gerenciar');
         Banco::transacao(static function () use ($p): void {
             if (Banco::executar('DELETE FROM etiquetas WHERE id = ?', [$p['etiqueta_id']]) === 0) {
                 throw ErroHttp::naoEncontrado('etiqueta nao encontrada');
@@ -66,7 +66,7 @@ final class ApiCatalogo
     /** @return array<string, mixed> */
     public static function criarResposta(Requisicao $req): array
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'respostas.gerenciar');
         $v = Validador::corpo($req);
         $atalho = $v->texto('atalho', min: 1, max: 40);
         $titulo = $v->texto('titulo', min: 1, max: 120);
@@ -96,16 +96,25 @@ final class ApiCatalogo
     /** @param array{resposta_id: int} $p */
     public static function removerResposta(Requisicao $req, array $p): void
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'respostas.gerenciar');
         if (Banco::executar('DELETE FROM respostas_rapidas WHERE id = ?', [$p['resposta_id']]) === 0) {
             throw ErroHttp::naoEncontrado('resposta nao encontrada');
         }
     }
 
-    /** @return array<string, mixed> MetricasSaida */
+    /**
+     * metricas.ver_todas: o atendimento inteiro; metricas.ver_setor: o recorte
+     * do próprio setor (as conversas que o setor vê); sem nenhuma das duas, 403.
+     *
+     * @return array<string, mixed> MetricasSaida
+     */
     public static function metricas(Requisicao $req): array
     {
-        Auth::atendente($req);
-        return Metricas::resumo();
+        $eu = Auth::atendente($req);
+        if (\IHchat\Auth\Permissoes::tem($eu, 'metricas.ver_todas')) {
+            return Metricas::resumo();
+        }
+        \IHchat\Auth\Permissoes::exigir($eu, 'metricas.ver_setor');
+        return Metricas::resumo(Visibilidade::condicao($eu, 'c', comoSetor: true));
     }
 }

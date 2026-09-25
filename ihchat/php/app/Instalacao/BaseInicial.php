@@ -65,8 +65,8 @@ final class BaseInicial
             $agora = Datas::agoraBanco();
             Banco::inserir('atendentes', [
                 'nome' => $nome, 'email' => $email, 'senha_hash' => Senhas::gerarHash($senha),
-                'papel' => Atendentes::PAPEL_ADMIN, 'ativo' => true, 'disponivel' => true, 'setor' => null,
-                'criado_em' => $agora,
+                'papel' => Atendentes::PAPEL_ADMIN, 'cargo_id' => \IHchat\Auth\Cargos::deFabrica(\IHchat\Auth\Cargos::ADMINISTRADOR)['id'],
+                'ativo' => true, 'disponivel' => true, 'setor' => null, 'criado_em' => $agora,
             ]);
             // mesma regra do cadastro pela API: webchat tem chave pública, sem segredo
             $chave = Texto::gerarChave('wc_');

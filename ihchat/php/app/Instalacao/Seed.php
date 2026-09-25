@@ -7,17 +7,20 @@ use IHchat\Atendimento\Adaptadores;
 use IHchat\Atendimento\MensagemRecebida;
 use IHchat\Atendimento\Mensagens;
 use IHchat\Auth\Atendentes;
+use IHchat\Auth\Cargos;
 use IHchat\Auth\Senhas;
 use IHchat\Banco\Banco;
 use IHchat\Banco\Esquema;
+use IHchat\Equipe\Setores;
 use IHchat\Nucleo\Datas;
 use IHchat\Nucleo\Json;
 use IHchat\Nucleo\Texto;
 
 /**
  * Base inicial, equivalente a scripts/seed.py:
- *   admin@multfiscal.com.br (senha informada, padrão admin123) e
- *   ana@multfiscal.com.br / ana12345, os quatro canais, etiquetas e
+ *   admin@multfiscal.com.br (senha informada, padrão admin123, cargo
+ *   Administrador) e ana@multfiscal.com.br / ana12345 (Colaboradora do setor
+ *   "Suporte técnico"), os quatro canais, etiquetas e
  *   respostas rápidas; com $demo, três conversas de exemplo.
  *
  * Só age em base vazia (nenhum atendente): rodar de novo não duplica nada.
@@ -28,6 +31,7 @@ final class Seed
     public const EMAIL_ADMIN = 'admin@multfiscal.com.br';
     public const EMAIL_ATENDENTE = 'ana@multfiscal.com.br';
     public const SENHA_ATENDENTE = 'ana12345';
+    public const SETOR_ATENDENTE = 'Suporte técnico';
 
     private const CANAIS = [
         ['WhatsApp Suporte', 'whatsapp'],
@@ -77,13 +81,18 @@ final class Seed
 
         $saida = Banco::transacao(static function () use ($senhaAdmin): array {
             $agora = Datas::agoraBanco();
+            // admin = Administrador; a Ana é Colaboradora do Suporte técnico
+            // (o mesmo que a migração faz com papel "atendente" e o texto do setor)
+            $suporte = Setores::porNome(self::SETOR_ATENDENTE) ?? Setores::criar(self::SETOR_ATENDENTE);
             Banco::inserir('atendentes', [
                 'nome' => 'Administrador', 'email' => self::EMAIL_ADMIN, 'senha_hash' => Senhas::gerarHash($senhaAdmin),
-                'papel' => Atendentes::PAPEL_ADMIN, 'ativo' => true, 'disponivel' => true, 'setor' => null, 'criado_em' => $agora,
+                'papel' => Atendentes::PAPEL_ADMIN, 'cargo_id' => Cargos::deFabrica(Cargos::ADMINISTRADOR)['id'],
+                'ativo' => true, 'disponivel' => true, 'setor' => null, 'setor_id' => null, 'criado_em' => $agora,
             ]);
             $anaId = Banco::inserir('atendentes', [
                 'nome' => 'Ana Suporte', 'email' => self::EMAIL_ATENDENTE, 'senha_hash' => Senhas::gerarHash(self::SENHA_ATENDENTE),
-                'papel' => Atendentes::PAPEL_ATENDENTE, 'ativo' => true, 'disponivel' => true, 'setor' => 'Suporte técnico',
+                'papel' => Atendentes::PAPEL_ATENDENTE, 'cargo_id' => Cargos::deFabrica(Cargos::COLABORADOR)['id'],
+                'ativo' => true, 'disponivel' => true, 'setor' => $suporte['nome'], 'setor_id' => $suporte['id'],
                 'criado_em' => $agora,
             ]);
 

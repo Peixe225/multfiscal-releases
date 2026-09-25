@@ -103,7 +103,7 @@ def test_canal_saida_mostra_a_conexao_e_o_evento_avisa_a_equipe(cliente, cabecal
     do_canal = [e["dados"] for e in eventos if e["tipo"] == "canal.atualizado" and e["dados"]["id"] == canal["id"]]
     assert [d["conexao"] for d in do_canal] == ["conectado", "desconectado"]
     # o evento é o CanalSaida: nada de credenciais
-    assert set(do_canal[-1]) == {"id", "nome", "tipo", "ativo", "chave_publica", "configurado", "url_webhook", "conexao"}
+    assert set(do_canal[-1]) == {"id", "nome", "tipo", "ativo", "chave_publica", "configurado", "url_webhook", "conexao", "setor_padrao_id"}
     assert "tok-instancia-secreto" not in json.dumps(do_canal)
 
 

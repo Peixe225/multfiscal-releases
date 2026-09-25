@@ -64,9 +64,8 @@ final class Rotas
     {
         $atendente = Auth::atendente($req);
         $conversaId = (int) $p['conversa_id'];
-        if (Banco::valor('SELECT id FROM conversas WHERE id = ?', [$conversaId]) === null) {
-            throw ErroHttp::naoEncontrado('conversa nao encontrada');
-        }
+        // quem não vê a conversa (outro setor) recebe o mesmo 404 da inexistente
+        \IHchat\Atendimento\Visibilidade::exigir($atendente, $conversaId);
         $arquivo = $req->arquivo('arquivo');
         if ($arquivo === null) {
             throw ErroValidacao::um('missing', ['body', 'arquivo'], 'arquivo: campo obrigatório');
@@ -92,9 +91,13 @@ final class Rotas
     /** Download (cabeçalho Authorization ou ?token=, porque <img src> não manda cabeçalho). */
     public static function baixar(Requisicao $req, array $p): Resposta
     {
-        Auth::atendenteDeArquivo($req);
-        $anexo = Banco::um('SELECT * FROM anexos WHERE id = ?', [(int) $p['anexo_id']]);
-        if ($anexo === null) {
+        $eu = Auth::atendenteDeArquivo($req);
+        $anexo = Banco::um(
+            'SELECT a.*, m.conversa_id AS conversa_do_anexo FROM anexos a JOIN mensagens m ON m.id = a.mensagem_id WHERE a.id = ?',
+            [(int) $p['anexo_id']]
+        );
+        // o arquivo é da conversa: quem não a vê não baixa (o mesmo 404)
+        if ($anexo === null || !\IHchat\Atendimento\Visibilidade::podeVerId($eu, (int) $anexo['conversa_do_anexo'])) {
             throw ErroHttp::naoEncontrado('anexo não encontrado');
         }
         return self::resposta($anexo);

@@ -94,9 +94,16 @@ final class Conversas
             }
 
             $agora = Datas::agoraBanco();
+            // o canal pode mandar as conversas novas para a fila de um setor
+            $setorId = Banco::valor(
+                'SELECT s.id FROM canais ca JOIN setores s ON s.id = ca.setor_padrao_id WHERE ca.id = ? AND s.ativo = 1',
+                [$canalId]
+            );
+            $setorId = $setorId === null ? null : (int) $setorId;
             $id = Banco::inserir('conversas', [
                 'contato_id' => $contatoId,
                 'canal_id' => $canalId,
+                'setor_id' => $setorId,
                 'atendente_id' => null,
                 'status' => 'aberta',
                 'prioridade' => 'normal',
@@ -108,7 +115,7 @@ final class Conversas
                 'ultima_mensagem_em' => $agora,
             ]);
             if (Config::obter()->distribuicao_automatica) {
-                $atendente = Distribuicao::proximoAtendente();
+                $atendente = Distribuicao::proximoAtendente($setorId);
                 if ($atendente !== null) {
                     Banco::atualizar('conversas', ['atendente_id' => $atendente['id']], 'id = ?', [$id]);
                     self::registrarEvento($id, 'conversa.atribuida', "Atribuida automaticamente a {$atendente['nome']}");
@@ -119,18 +126,38 @@ final class Conversas
     }
 
     /**
-     * @param array<string, mixed>|null $destino atendente que recebe (null: volta para a fila geral)
+     * Atribui (e, com $mudaSetor, transfere de setor) e registra no histórico.
+     *
+     * @param array<string, mixed>|null $destino atendente que recebe (null: fica na fila)
      * @param array<string, mixed>|null $autor quem fez a mudança
+     * @param array<string, mixed>|null $setor o setor novo (null: fila geral), só com $mudaSetor
      */
-    public static function atribuir(int $conversaId, ?array $destino, ?array $autor = null): void
+    public static function atribuir(int $conversaId, ?array $destino, ?array $autor = null, ?array $setor = null, bool $mudaSetor = false): void
     {
-        Banco::transacao(static function () use ($conversaId, $destino, $autor): void {
-            Banco::atualizar('conversas', [
+        Banco::transacao(static function () use ($conversaId, $destino, $autor, $setor, $mudaSetor): void {
+            $mudancas = [
                 'atendente_id' => $destino === null ? null : (int) $destino['id'],
                 'atualizada_em' => Datas::agoraBanco(),
-            ], 'id = ?', [$conversaId]);
-            $descricao = $destino !== null ? "Atribuida a {$destino['nome']}" : 'Devolvida a fila geral';
-            self::registrarEvento($conversaId, 'conversa.atribuida', $descricao, $autor === null ? null : (int) $autor['id']);
+            ];
+            if ($mudaSetor) {
+                $mudancas['setor_id'] = $setor === null ? null : (int) $setor['id'];
+            }
+            Banco::atualizar('conversas', $mudancas, 'id = ?', [$conversaId]);
+            if ($mudaSetor) {
+                $para = $setor === null ? 'a fila geral' : "o setor {$setor['nome']}";
+                $descricao = $destino !== null ? "Transferida para {$destino['nome']} ({$para})" : "Transferida para {$para}";
+                $tipo = 'conversa.transferida';
+            } else {
+                $setorAtual = Banco::valor(
+                    'SELECT s.nome FROM conversas c JOIN setores s ON s.id = c.setor_id WHERE c.id = ?',
+                    [$conversaId]
+                );
+                $descricao = $destino !== null
+                    ? "Atribuida a {$destino['nome']}"
+                    : ($setorAtual === null ? 'Devolvida a fila geral' : "Devolvida a fila do setor {$setorAtual}");
+                $tipo = 'conversa.atribuida';
+            }
+            self::registrarEvento($conversaId, $tipo, $descricao, $autor === null ? null : (int) $autor['id']);
         });
     }
 
@@ -200,14 +227,26 @@ final class Conversas
     /**
      * Caixa de entrada com filtros (GET /api/conversas).
      *
-     * @param array{status?: ?string, atendente?: ?string, canal_id?: ?int, etiqueta_id?: ?int, q?: ?string, limite?: int, deslocamento?: int} $filtros
-     * @param int $euId o atendente logado (filtro "eu")
+     * Só as conversas que $eu vê (Visibilidade), com os filtros por cima.
+     *
+     * @param array{status?: ?string, atendente?: ?string, canal_id?: ?int, setor_id?: ?int, etiqueta_id?: ?int, q?: ?string, limite?: int, deslocamento?: int} $filtros
+     * @param array<string, mixed> $eu o atendente logado (visibilidade e filtro "eu")
      * @return list<array<string, mixed>> ConversaSaida
      */
-    public static function listar(array $filtros, int $euId): array
+    public static function listar(array $filtros, array $eu): array
     {
+        $euId = (int) $eu['id'];
         $onde = [];
         $p = [];
+        $visiveis = Visibilidade::condicao($eu, 'c');
+        if ($visiveis !== null) {
+            $onde[] = $visiveis[0];
+            array_push($p, ...$visiveis[1]);
+        }
+        if (($filtros['setor_id'] ?? null) !== null) {
+            $onde[] = 'c.setor_id = ?';
+            $p[] = (int) $filtros['setor_id'];
+        }
         if (($filtros['status'] ?? null) !== null) {
             $onde[] = 'c.status = ?';
             $p[] = $filtros['status'];

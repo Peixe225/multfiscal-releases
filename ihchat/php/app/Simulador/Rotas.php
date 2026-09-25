@@ -62,7 +62,7 @@ final class Rotas
     public static function canais(Requisicao $req): array
     {
         self::exigirSandbox();
-        Auth::atendente($req);
+        Auth::exigir($req, 'simulador.usar');
         $ativos = Banco::todos('SELECT * FROM canais WHERE ativo = 1 ORDER BY tipo, nome, id');
         return array_map(static fn (array $c): array => self::situacao(Canais::tipar($c)), $ativos);
     }
@@ -71,7 +71,7 @@ final class Rotas
     public static function escreverComoCliente(Requisicao $req): array
     {
         self::exigirSandbox();
-        $atendente = Auth::atendente($req);
+        $atendente = Auth::exigir($req, 'simulador.usar');
         $v = Validador::corpo($req);
         $canalId = $v->inteiro('canal_id');
         $identificador = $v->texto('identificador', min: 1, max: 200);
@@ -132,7 +132,7 @@ final class Rotas
     public static function conversaDoCliente(Requisicao $req): array
     {
         self::exigirSandbox();
-        Auth::atendente($req);
+        Auth::exigir($req, 'simulador.usar');
         $q = Validador::consulta($req);
         $canalId = $q->inteiro('canal_id');
         $identificador = $q->texto('identificador', min: 1, max: 200);

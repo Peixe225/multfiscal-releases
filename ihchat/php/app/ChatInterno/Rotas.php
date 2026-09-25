@@ -19,8 +19,8 @@ use IHchat\Nucleo\Validador;
  *   POST   /api/interno/salas/{id}/mensagens        {conteudo, conversa_id?} -> 201
  *   POST   /api/interno/salas/{id}/lida             {ate?}
  *   PATCH  /api/interno/mensagens/{id}              {conteudo} (só quem escreveu)
- *   DELETE /api/interno/mensagens/{id}              vira "mensagem apagada"
- *   POST   /api/interno/grupos                      {nome, membros} -> 201
+ *   DELETE /api/interno/mensagens/{id}              vira "mensagem apagada" (quem escreveu ou chat.moderar)
+ *   POST   /api/interno/grupos                      {nome, membros} -> 201 (chat.criar_grupo)
  *   POST   /api/interno/diretas                     {atendente_id}
  *
  * Toda rota confere o login, depois sincroniza Geral e setores (Salas::sincronizar)
@@ -172,6 +172,7 @@ final class Rotas
     public static function criarGrupo(Requisicao $req): array
     {
         $eu = self::entrar($req);
+        \IHchat\Auth\Permissoes::exigir($eu, 'chat.criar_grupo');
         $v = Validador::corpo($req);
         $nome = $v->texto('nome', max: 200);
         $membros = self::listaDeIds($v, 'membros') ?? [];

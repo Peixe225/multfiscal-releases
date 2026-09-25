@@ -41,14 +41,14 @@ final class Mensagens
         $autores = [];
         if ($idsAutores !== []) {
             foreach (Banco::todos(
-                'SELECT id, nome, setor, papel FROM atendentes WHERE id IN (' . Salas::marcadores($idsAutores) . ')',
+                'SELECT id, nome, setor, papel, cargo_id FROM atendentes WHERE id IN (' . Salas::marcadores($idsAutores) . ')',
                 $idsAutores
             ) as $a) {
                 $autores[(int) $a['id']] = [
                     'id' => (int) $a['id'],
                     'nome' => (string) $a['nome'],
                     'setor' => isset($a['setor']) && $a['setor'] !== '' ? (string) $a['setor'] : null,
-                    // do papel (só o admin muda): nome e setor dá para imitar, isto não
+                    // do cargo (só quem gerencia concede): o nome dá para imitar, isto não
                     'admin' => Atendentes::eAdmin($a),
                 ];
             }
@@ -246,12 +246,18 @@ final class Mensagens
         return (string) preg_replace('/^\s+|\s+$/u', '', (string) $texto);
     }
 
-    private static function exigirConversa(?int $conversaId): ?int
+    /**
+     * Só se compartilha conversa que a própria pessoa pode ver (a mesma regra
+     * da caixa de entrada): a que ela não vê é "não encontrada".
+     *
+     * @param array<string, mixed> $eu
+     */
+    private static function exigirConversa(?int $conversaId, array $eu): ?int
     {
         if ($conversaId === null) {
             return null;
         }
-        if (Banco::valor('SELECT id FROM conversas WHERE id = ?', [$conversaId]) === null) {
+        if (!\IHchat\Atendimento\Visibilidade::podeVerId($eu, $conversaId)) {
             throw ErroHttp::naoEncontrado('conversa nao encontrada');
         }
         return $conversaId;
@@ -267,7 +273,7 @@ final class Mensagens
     public static function enviar(array $sala, array $eu, ?string $conteudo, ?int $conversaId): array
     {
         $texto = self::aparar($conteudo);
-        $conversaId = self::exigirConversa($conversaId);
+        $conversaId = self::exigirConversa($conversaId, $eu);
         if ($texto === '' && $conversaId === null) {
             throw ErroHttp::invalido('conteudo: não pode ficar vazio');
         }
@@ -360,7 +366,9 @@ final class Mensagens
      */
     public static function apagar(array $mensagem, array $eu): array
     {
-        if ((int) ($mensagem['autor_id'] ?? 0) !== (int) $eu['id']) {
+        // quem modera o chat (chat.moderar) apaga a de qualquer um, nas salas
+        // em que está (Mensagens::exigir já deu 404 fora delas)
+        if ((int) ($mensagem['autor_id'] ?? 0) !== (int) $eu['id'] && !\IHchat\Auth\Permissoes::tem($eu, 'chat.moderar')) {
             throw ErroHttp::proibido('só quem escreveu pode apagar a mensagem');
         }
         $id = (int) $mensagem['id'];

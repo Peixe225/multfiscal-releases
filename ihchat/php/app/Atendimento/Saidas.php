@@ -21,7 +21,8 @@ use IHchat\Nucleo\Json;
  *   MensagemSaida  {id, conversa_id, contato_id, direcao, tipo, conteudo, status, erro,
  *                   atendente_id, autor, assinatura, anexos, criada_em}
  *   ConversaSaida  {id, status, prioridade, assunto, previa, nao_lidas, ultima_mensagem_em,
- *                   criada_em, contato, canal, atendente, etiquetas}  (+ mensagens no detalhe)
+ *                   criada_em, contato, canal, atendente, etiquetas, setor_id, setor}
+ *                   (+ mensagens e historico no detalhe)
  */
 final class Saidas
 {
@@ -251,7 +252,34 @@ final class Saidas
         $conversa['mensagens'] = self::mensagens(
             Banco::todos('SELECT * FROM mensagens WHERE conversa_id = ? ORDER BY criada_em, id', [$id])
         );
+        $conversa['historico'] = self::historico($id);
         return $conversa;
+    }
+
+    /**
+     * A trilha da conversa (tabela eventos): atribuições, transferências de
+     * setor, status. HistoricoSaida {id, tipo, descricao, atendente_id, autor, criado_em}
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function historico(int $conversaId): array
+    {
+        $saida = [];
+        foreach (Banco::todos(
+            'SELECT e.*, a.nome AS autor FROM eventos e LEFT JOIN atendentes a ON a.id = e.atendente_id
+             WHERE e.conversa_id = ? ORDER BY e.criado_em, e.id',
+            [$conversaId]
+        ) as $e) {
+            $saida[] = [
+                'id' => (int) $e['id'],
+                'tipo' => (string) $e['tipo'],
+                'descricao' => (string) $e['descricao'],
+                'atendente_id' => self::inteiroOuNulo($e['atendente_id'] ?? null),
+                'autor' => self::textoOuNulo($e['autor'] ?? null),
+                'criado_em' => Datas::iso((string) $e['criado_em']),
+            ];
+        }
+        return $saida;
     }
 
     /**
@@ -277,6 +305,11 @@ final class Saidas
             $atendentes[(int) $a['id']] = Atendentes::saida(Atendentes::tipar($a));
         }
 
+        $setores = [];
+        foreach (self::porIds('SELECT id, nome FROM setores WHERE id IN (%s)', array_map(static fn (array $l): ?int => self::inteiroOuNulo($l['setor_id'] ?? null), $linhas)) as $st) {
+            $setores[(int) $st['id']] = (string) $st['nome'];
+        }
+
         $etiquetas = [];
         foreach (self::porIds(
             'SELECT ce.conversa_id, e.id, e.nome, e.cor FROM conversa_etiqueta ce
@@ -290,6 +323,7 @@ final class Saidas
         foreach ($linhas as $l) {
             $id = (int) $l['id'];
             $atendenteId = self::inteiroOuNulo($l['atendente_id'] ?? null);
+            $setorId = self::inteiroOuNulo($l['setor_id'] ?? null);
             $saida[] = [
                 'id' => $id,
                 'status' => (string) $l['status'],
@@ -303,6 +337,9 @@ final class Saidas
                 'canal' => $canais[(int) $l['canal_id']] ?? null,
                 'atendente' => $atendenteId === null ? null : ($atendentes[$atendenteId] ?? null),
                 'etiquetas' => $etiquetas[$id] ?? [],
+                // a fila de setor em que a conversa está (null: fila geral)
+                'setor_id' => $setorId,
+                'setor' => $setorId === null ? null : ($setores[$setorId] ?? null),
             ];
         }
         return $saida;

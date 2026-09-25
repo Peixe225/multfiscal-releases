@@ -118,7 +118,7 @@ def test_tipos_exigem_login(cliente):
 def test_lista_traz_canal_saida(cliente, cabecalho_atendente, canal_webchat):
     canais = cliente.get("/api/canais", headers=cabecalho_atendente).json()
     achado = next(c for c in canais if c["id"] == canal_webchat["id"])
-    assert set(achado) == {"id", "nome", "tipo", "ativo", "chave_publica", "configurado", "url_webhook", "conexao"}
+    assert set(achado) == {"id", "nome", "tipo", "ativo", "chave_publica", "configurado", "url_webhook", "conexao", "setor_padrao_id"}
     assert achado["conexao"] is None  # só o WhatsApp pelo QR Code tem estado de conexão
     assert achado["configurado"] is True and achado["chave_publica"].startswith("wc_")
     # relativa sem url_publica; absoluta quando a instalação conhece o endereço
@@ -316,7 +316,7 @@ def test_atendente_comum_nao_apaga_segredo(cliente, cabecalho_atendente, canal_t
         f"/api/canais/{canal_telegram['id']}", json={"limpar": ["token"]}, headers=cabecalho_atendente
     )
     assert resposta.status_code == 403
-    assert resposta.json() == {"detail": "acao restrita a administradores"}
+    assert resposta.json() == {"detail": "sem permissão para cadastrar e configurar canais"}
 
 
 # ----------------------------------------------------------------- segredos

@@ -63,6 +63,15 @@ function atend_http(string $metodo, string $caminho, ?array $corpo = null, array
 function atend_ana(): array { return Atendentes::porEmail('ana@multfiscal.com.br'); }
 function atend_token_ana(): string { return Token::criar(atend_ana()['id']); }
 function atend_token_admin(): string { return Token::criar(Atendentes::porEmail('admin@multfiscal.com.br')['id']); }
+/**
+ * A Ana do seed é Colaboradora (vê só as próprias conversas e a fila, não
+ * mescla contato nem cria resposta rápida). Os testes que exercitam a ROTA,
+ * e não a permissão, a promovem a um cargo que pode tudo o que o teste faz.
+ */
+function atend_promover_ana(string $chave = 'gerente'): void
+{
+    Banco::executar('UPDATE atendentes SET cargo_id = ? WHERE email = ?', [\IHchat\Auth\Cargos::deFabrica($chave)['id'], 'ana@multfiscal.com.br']);
+}
 
 return [
     'seed de exemplo passa pelos servicos de mensagens' => function (): void {
@@ -276,6 +285,7 @@ return [
     },
     'rotas: lista, filtros, detalhe, nota e etiquetas' => function (): void {
         Seed::semear();
+        atend_promover_ana();
         $wa = atend_canal('whatsapp');
         $tg = atend_canal('telegram');
         $m1 = Mensagens::registrarEntrada($wa, new MensagemRecebida('5500912345678', 'Bom dia, tenho uma dúvida', 'Ian', 'whatsapp:1'));
@@ -319,6 +329,7 @@ return [
     },
     'rotas: metricas' => function (): void {
         Seed::semear();
+        atend_promover_ana();
         $t = atend_token_ana();
         $wa = atend_canal('whatsapp');
         $ids = [];
@@ -340,23 +351,31 @@ return [
         $adm = atend_token_admin();
         [$s, $novo] = atend_http('POST', '/api/atendentes', ['nome' => 'Bia', 'email' => 'Bia@Empresa.com.br', 'senha' => '123456', 'setor' => ' Financeiro '], [], $adm);
         Afirmar::igual(201, $s);
-        Afirmar::igual(['id', 'nome', 'email', 'papel', 'ativo', 'disponivel', 'setor'], array_keys($novo));
-        Afirmar::igual(['bia@empresa.com.br', 'Financeiro', 'atendente'], [$novo['email'], $novo['setor'], $novo['papel']]);
+        Afirmar::igual(['id', 'nome', 'email', 'papel', 'ativo', 'disponivel', 'setor', 'setor_id', 'cargo', 'permissoes'], array_keys($novo));
+        Afirmar::igual(['bia@empresa.com.br', 'Financeiro', 'atendente', 'Colaborador'], [$novo['email'], $novo['setor'], $novo['papel'], $novo['cargo']['nome']]);
         Afirmar::igual([409, ['detail' => 'ja existe um atendente com esse e-mail']], atend_http('POST', '/api/atendentes', ['nome' => 'Bia', 'email' => 'bia@empresa.com.br', 'senha' => '123456'], [], $adm));
         Afirmar::igual(403, atend_http('POST', '/api/atendentes', ['nome' => 'X', 'email' => 'x@e.com.br', 'senha' => '123456'], [], atend_token_ana())[0]);
         $t = atend_token_ana();
-        [$s, $eu] = atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => 'Comercial', 'disponivel' => false], [], $t);
-        Afirmar::igual([200, 'Comercial', false], [$s, $eu['setor'], $eu['disponivel']]);
-        Afirmar::igual([403, ['detail' => 'somente admin altera papel ou acesso']], atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['papel' => 'admin'], [], $t));
-        Afirmar::igual([403, ['detail' => 'acao restrita a administradores']], atend_http('PATCH', '/api/atendentes/' . $novo['id'], ['nome' => 'Outra'], [], $t));
-        Afirmar::igual(null, atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => ''], [], $t)[1]['setor']);
-        Afirmar::igual(422, atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => str_repeat('x', 61)], [], $t)[0]);
+        // no próprio perfil só a disponibilidade e a senha; o setor é de quem gerencia
+        [$s, $eu] = atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['disponivel' => false], [], $t);
+        Afirmar::igual([200, 'Suporte técnico', false], [$s, $eu['setor'], $eu['disponivel']]);
+        $proprio = ['detail' => 'no próprio perfil você só altera a senha e a disponibilidade'];
+        Afirmar::igual([403, $proprio], atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => 'Comercial'], [], $t));
+        Afirmar::igual([403, $proprio], atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['papel' => 'admin'], [], $t));
+        // o mesmo nome de agora não é mudança (formulário que reenvia tudo)
+        Afirmar::igual(200, atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['nome' => 'Ana Suporte', 'setor' => 'suporte  TÉCNICO'], [], $t)[0]);
+        Afirmar::igual([403, ['detail' => 'sem permissão para gerenciar pessoas de cargo abaixo do seu (cadastrar, editar, desativar)']], atend_http('PATCH', '/api/atendentes/' . $novo['id'], ['nome' => 'Outra'], [], $t));
+        [$s, $mudada] = atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => 'Comercial'], [], $adm);
+        Afirmar::igual([200, 'Comercial'], [$s, $mudada['setor']]);
+        Afirmar::igual(null, atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => ''], [], $adm)[1]['setor']);
+        Afirmar::igual(422, atend_http('PATCH', '/api/atendentes/' . atend_ana()['id'], ['setor' => str_repeat('x', 61)], [], $adm)[0]);
         Afirmar::igual([404, ['detail' => 'atendente nao encontrado']], atend_http('PATCH', '/api/atendentes/9999', ['nome' => 'Outra'], [], $adm));
         [$s, $lista] = atend_http('GET', '/api/atendentes', null, [], $t);
         Afirmar::igual(['Administrador', 'Ana Suporte', 'Bia'], array_column($lista, 'nome'));
     },
     'rotas: contatos' => function (): void {
         Seed::semear();
+        atend_promover_ana();
         $t = atend_token_ana();
         $a = Contatos::resolver('whatsapp', '5511911110000', 'Padaria do Zé');
         $b = Contatos::resolver('email', 'duplicado@empresa.com.br', 'Duplicado B');
@@ -374,6 +393,7 @@ return [
     },
     'rotas: respostas rapidas' => function (): void {
         Seed::semear();
+        atend_promover_ana();
         $t = atend_token_ana();
         [$s, $r] = atend_http('POST', '/api/respostas-rapidas', ['atalho' => ' /ola ', 'titulo' => 'Oi', 'conteudo' => 'Olá!'], [], $t);
         Afirmar::igual([201, 'ola'], [$s, $r['atalho']]);

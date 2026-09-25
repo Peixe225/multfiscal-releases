@@ -22,7 +22,9 @@ use IHchat\Nucleo\Json;
  * rollback leva o evento junto. Os tipos e o formato de `dados` são os mesmos
  * que o Python manda pelo SSE (app/servicos/mensagens.py).
  *
- * Privacidade: os eventos de atendimento vão a todo atendente; os do chat
+ * Privacidade: os eventos de conversa ("mensagem.*", "conversa.*") só vão a
+ * quem pode ver a conversa AGORA (Atendimento\Visibilidade: a pessoa de
+ * outro setor não recebe nem a mensagem nova nem a atualização); os do chat
  * interno ("interno.*") só a quem é membro da sala do `sala_id` (ou a quem
  * está em "para": [ids], nos que são de uma pessoa só). Quem lê sem dizer
  * quem é (atendenteId null) não recebe nenhum "interno.*".
@@ -90,7 +92,68 @@ final class Eventos
             'SELECT id, tipo, dados, criado_em FROM fila_eventos WHERE id > ? ORDER BY id LIMIT ?',
             [$depois, self::limitar($limite)]
         );
-        return self::montar($linhas, $depois, self::doMembro($atendenteId));
+        return self::montar($linhas, $depois, self::doAtendente($atendenteId));
+    }
+
+    /** Eventos que são de uma conversa de cliente (dados = MensagemSaida ou ConversaSaida). */
+    public const PREFIXOS_DE_CONVERSA = ['mensagem.', 'conversa.'];
+
+    /**
+     * O filtro completo do painel: chat interno por membro da sala
+     * (doMembro) e conversa por visibilidade. O atendente é lido uma vez por
+     * consulta; desativado no meio do caminho, não recebe mais nada.
+     *
+     * @return callable(array<string, mixed>, mixed): bool
+     */
+    public static function doAtendente(?int $atendenteId): callable
+    {
+        $membro = self::doMembro($atendenteId);
+        if ($atendenteId === null) {
+            return $membro;
+        }
+        $visivel = null;
+        return static function (array $linha, mixed $dados) use ($membro, $atendenteId, &$visivel): bool {
+            $tipo = (string) $linha['tipo'];
+            if (str_starts_with($tipo, self::PREFIXO_INTERNO)) {
+                return $membro($linha, $dados);
+            }
+            $conversaId = self::conversaDoEvento($tipo, $dados);
+            if ($conversaId === null) {
+                return !self::eDeConversa($tipo); // evento de conversa sem id não sai
+            }
+            if ($visivel === null) {
+                $eu = \IHchat\Auth\Atendentes::porId($atendenteId);
+                $visivel = $eu === null || !$eu['ativo']
+                    ? static fn (int $id): bool => false
+                    : \IHchat\Atendimento\Visibilidade::filtro($eu);
+            }
+            return $visivel($conversaId);
+        };
+    }
+
+    private static function eDeConversa(string $tipo): bool
+    {
+        foreach (self::PREFIXOS_DE_CONVERSA as $prefixo) {
+            if (str_starts_with($tipo, $prefixo)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** O id da conversa do evento: conversa_id na mensagem, id na conversa. */
+    private static function conversaDoEvento(string $tipo, mixed $dados): ?int
+    {
+        if (!is_array($dados)) {
+            return null;
+        }
+        if (str_starts_with($tipo, 'mensagem.')) {
+            return is_int($dados['conversa_id'] ?? null) ? $dados['conversa_id'] : null;
+        }
+        if (str_starts_with($tipo, 'conversa.')) {
+            return is_int($dados['id'] ?? null) ? $dados['id'] : null;
+        }
+        return null;
     }
 
     /** Eventos que levam o texto de uma mensagem (dados = MensagemInternaSaida). */

@@ -10,6 +10,9 @@ import pytest
 
 from utilitarios import CAMPOS_ATENDENTE, unico
 
+GERENCIAR_EQUIPE = "sem permissão para gerenciar pessoas de cargo abaixo do seu (cadastrar, editar, desativar)"
+PROPRIO_PERFIL = "no próprio perfil você só altera a senha e a disponibilidade"
+
 
 @pytest.fixture
 def campos_atendente() -> set[str]:
@@ -115,8 +118,9 @@ def test_criar_atendente_valida_e_exige_admin(cliente, cabecalho_admin, cabecalh
         "/api/atendentes", json={"nome": "Zé", "email": f"{unico('z')}@empresa.com.br", "senha": "123456"},
         headers=cabecalho_atendente,
     )
+    # cadastrar pessoas é de quem gerencia a equipe (equipe.gerenciar)
     assert comum.status_code == 403
-    assert comum.json() == {"detail": "acao restrita a administradores"}
+    assert comum.json() == {"detail": GERENCIAR_EQUIPE}
 
 
 def test_atendente_cuida_do_proprio_perfil(cliente, cabecalho_atendente, login_atendente, cabecalho_admin):
@@ -129,14 +133,20 @@ def test_atendente_cuida_do_proprio_perfil(cliente, cabecalho_atendente, login_a
         volta = cliente.patch(f"/api/atendentes/{eu['id']}", json={"disponivel": True}, headers=cabecalho_atendente)
         assert volta.json()["disponivel"] is True
 
+    # no próprio perfil, só senha e disponibilidade: cargo, nome e setor são de quem gerencia
     papel = cliente.patch(f"/api/atendentes/{eu['id']}", json={"papel": "admin"}, headers=cabecalho_atendente)
     assert papel.status_code == 403
-    assert papel.json() == {"detail": "somente admin altera papel ou acesso"}
+    assert papel.json() == {"detail": PROPRIO_PERFIL}
+    nome = cliente.patch(f"/api/atendentes/{eu['id']}", json={"nome": "Outro Nome"}, headers=cabecalho_atendente)
+    assert nome.status_code == 403 and nome.json() == {"detail": PROPRIO_PERFIL}
+    # reenviar o nome de agora não é mudança (formulário que manda tudo de novo)
+    igual = cliente.patch(f"/api/atendentes/{eu['id']}", json={"nome": eu["nome"]}, headers=cabecalho_atendente)
+    assert igual.status_code == 200
 
     outro = _criar_atendente(cliente, cabecalho_admin)
     alheio = cliente.patch(f"/api/atendentes/{outro['id']}", json={"nome": "Mexido"}, headers=cabecalho_atendente)
     assert alheio.status_code == 403
-    assert alheio.json() == {"detail": "acao restrita a administradores"}
+    assert alheio.json() == {"detail": GERENCIAR_EQUIPE}
 
 
 def test_admin_desativa_e_atendente_perde_acesso(cliente, cabecalho_admin):
@@ -164,14 +174,21 @@ def test_setor_do_atendente(cliente, cabecalho_admin, com_setor):
     assert longo.status_code == 422
 
 
-def test_atendente_muda_o_proprio_setor(cliente, cabecalho_atendente, login_atendente, com_setor):
+def test_atendente_nao_muda_o_proprio_setor(cliente, cabecalho_atendente, cabecalho_admin, login_atendente, com_setor):
+    """Antes cada um mudava o próprio setor (e passava a ver a sala de outro
+    setor no chat). Agora só quem gerencia a equipe muda."""
     eu = login_atendente["atendente"]
     antes = eu["setor"]
+    resposta = cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": "Implantação"}, headers=cabecalho_atendente)
+    assert resposta.status_code == 403
+    assert resposta.json() == {"detail": PROPRIO_PERFIL}
+    assert cliente.get("/api/auth/eu", headers=cabecalho_atendente).json()["setor"] == antes
     try:
-        resposta = cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": "Implantação"}, headers=cabecalho_atendente)
-        assert resposta.status_code == 200 and resposta.json()["setor"] == "Implantação"
+        mudado = cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": "Implantação"}, headers=cabecalho_admin)
+        assert mudado.status_code == 200 and mudado.json()["setor"] == "Implantação"
     finally:
-        cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": antes}, headers=cabecalho_atendente)
+        volta = cliente.patch(f"/api/atendentes/{eu['id']}", json={"setor": antes}, headers=cabecalho_admin)
+        assert volta.status_code == 200 and volta.json()["setor"] == antes
 
 
 # --------------------------------------------------------------- etiquetas

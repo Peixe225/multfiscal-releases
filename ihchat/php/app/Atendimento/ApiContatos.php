@@ -59,7 +59,7 @@ final class ApiContatos
      */
     public static function atualizar(Requisicao $req, array $p): array
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'contatos.editar');
         $v = Validador::corpo($req);
         $campos = [
             'nome' => $v->texto('nome', min: 1, max: 160, obrigatorio: false, anulavel: false),
@@ -110,7 +110,7 @@ final class ApiContatos
      */
     public static function mesclar(Requisicao $req, array $p): array
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'contatos.mesclar');
         if (Contatos::porId($p['contato_id']) === null || Contatos::porId($p['outro_id']) === null) {
             throw ErroHttp::naoEncontrado('contato nao encontrado');
         }

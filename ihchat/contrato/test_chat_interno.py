@@ -2,8 +2,8 @@
 
 Contrato (igual nos dois servidores):
     Salas automáticas: "Geral" com todos os atendentes ativos e uma sala por
-    setor do perfil (mantida em dia quando o setor muda ou alguém é
-    desativado). Direta única por par. Grupo com os membros escolhidos; quem
+    setor do cadastro (mantida em dia quando quem gerencia a equipe muda o
+    setor de alguém ou desativa alguém; o próprio atendente não muda o seu). Direta única por par. Grupo com os membros escolhidos; quem
     cria administra. Quem não é membro recebe 404 em tudo da sala (nem sabe
     se ela existe), e os eventos "interno.*" só chegam a membros.
 
@@ -18,7 +18,7 @@ from utilitarios import data_com_fuso, entrar, exigir_rota, unico
 
 SENHA = "senha-da-equipe-123"
 CAMPOS_SALA = {
-    "id", "tipo", "nome", "setor", "com", "criada_por", "administrador", "total_membros",
+    "id", "tipo", "nome", "setor", "setor_id", "com", "criada_por", "administrador", "total_membros",
     "nao_lidas", "lida_ate", "silenciada", "ultima_mensagem", "atualizada_em",
 }
 CAMPOS_MENSAGEM = {
@@ -29,12 +29,19 @@ CAMPOS_MENSAGEM = {
 
 # ------------------------------------------------------------------ apoio
 class Pessoa:
-    def __init__(self, cliente, dados: dict, token: str):
+    def __init__(self, cliente, dados: dict, token: str, cab_admin: dict | None = None):
         self.cliente = cliente
         self.id = dados["id"]
         self.nome = dados["nome"]
         self.dados = dados
         self.cab = {"Authorization": f"Bearer {token}"}
+        self.cab_admin = cab_admin
+
+    def mudar(self, corpo: dict):
+        """Nome e setor são de quem gerencia a equipe: o admin muda por ela."""
+        resposta = self.cliente.patch(f"/api/atendentes/{self.id}", json=corpo, headers=self.cab_admin)
+        assert resposta.status_code == 200, resposta.text
+        return resposta
 
     def get(self, caminho, **kw):
         return self.cliente.get(caminho, headers=self.cab, **kw)
@@ -83,7 +90,7 @@ class Pessoa:
 def equipe(cliente, cabecalho_admin):
     """Fábrica de atendentes novos (criados pelo admin, já com login)."""
 
-    def nova(setor: str | None = None, nome: str | None = None, papel: str = "atendente") -> Pessoa:
+    def nova(setor: str | None = None, nome: str | None = None, papel: str = "atendente", cargo: str | None = None) -> Pessoa:
         corpo = {
             "nome": nome or unico("Pessoa "),
             "email": f"{unico('equipe')}@exemplo.com.br",
@@ -92,9 +99,12 @@ def equipe(cliente, cabecalho_admin):
         }
         if setor is not None:
             corpo["setor"] = setor
+        if cargo is not None:  # pelo nome ("Gerente"): o id muda de base para base
+            cargos = cliente.get("/api/cargos", headers=cabecalho_admin).json()
+            corpo["cargo_id"] = next(c["id"] for c in cargos if c["nome"] == cargo)
         resposta = cliente.post("/api/atendentes", json=corpo, headers=cabecalho_admin)
         assert resposta.status_code == 201, resposta.text
-        return Pessoa(cliente, resposta.json(), entrar(cliente, corpo["email"], SENHA)["token"])
+        return Pessoa(cliente, resposta.json(), entrar(cliente, corpo["email"], SENHA)["token"], cabecalho_admin)
 
     return nova
 
@@ -157,11 +167,15 @@ def test_sala_de_setor_segue_o_perfil(equipe):
     assert caio.get(f"/api/interno/salas/{sala['id']}/mensagens").status_code == 404
     assert caio.post(f"/api/interno/salas/{sala['id']}/mensagens", {"conteudo": "oi"}).status_code == 404
 
-    # Caio muda de setor no perfil: entra na sala nova e sai da antiga
+    # Caio não muda o próprio setor (antes mudava e caía na sala de outro setor)
     antiga = caio.sala("setor", nome=outro_setor)
     assert antiga is not None
-    resposta = caio.patch(f"/api/atendentes/{caio.id}", {"setor": setor})
-    assert resposta.status_code == 200, resposta.text
+    recusado = caio.patch(f"/api/atendentes/{caio.id}", {"setor": setor})
+    assert recusado.status_code == 403, recusado.text
+    assert caio.sala("setor", id=sala["id"]) is None
+
+    # quem gerencia muda o setor do Caio: ele entra na sala nova e sai da antiga
+    caio.mudar({"setor": setor})
     assert caio.sala("setor", id=sala["id"]) is not None
     assert caio.sala("setor", id=antiga["id"]) is None
     assert caio.get(f"/api/interno/salas/{antiga['id']}").status_code == 404
@@ -169,12 +183,12 @@ def test_sala_de_setor_segue_o_perfil(equipe):
     assert _ids(detalhe["membros"]) == {ana.id, bia.id, caio.id}
 
     # sem setor: fica só com a Geral (e diretas/grupos)
-    bia.patch(f"/api/atendentes/{bia.id}", {"setor": None})
+    bia.mudar({"setor": None})
     assert bia.sala("setor", id=sala["id"]) is None
 
 
 def test_quem_troca_de_setor_nao_ve_o_historico_do_outro(equipe):
-    """O setor é editável no próprio perfil: trocá-lo põe a pessoa na sala do
+    """Trocar de setor (quem gerencia a equipe troca) põe a pessoa na sala do
     setor novo, mas só do momento em que entrou para a frente — nem a lista
     de mensagens, nem a prévia, nem os eventos guardados na fila entregam o
     que foi dito antes."""
@@ -186,7 +200,7 @@ def test_quem_troca_de_setor_nao_ve_o_historico_do_outro(equipe):
     segredo = fabi.enviar(sala["id"], unico("folha: salário do João = R$ 12.000 "))
     assert caio.get(f"/api/interno/salas/{sala['id']}/mensagens").status_code == 404
 
-    assert caio.patch(f"/api/atendentes/{caio.id}", {"setor": setor}).status_code == 200
+    caio.mudar({"setor": setor})
     vista = caio.sala("setor", id=sala["id"])
     assert vista is not None and vista["ultima_mensagem"] is None and vista["nao_lidas"] == 0
     pagina = caio.get(f"/api/interno/salas/{sala['id']}/mensagens").json()
@@ -204,10 +218,10 @@ def test_quem_troca_de_setor_nao_ve_o_historico_do_outro(equipe):
     assert depois["id"] in recebidas and segredo["id"] not in recebidas
 
     # sair e voltar não reabre o que foi dito enquanto estava fora
-    caio.patch(f"/api/atendentes/{caio.id}", {"setor": unico("Suporte ")})
+    caio.mudar({"setor": unico("Suporte ")})
     assert caio.get(f"/api/interno/salas/{sala['id']}/mensagens").status_code == 404
     fora = fabi.enviar(sala["id"], unico("enquanto o Caio estava fora "))
-    caio.patch(f"/api/atendentes/{caio.id}", {"setor": setor})
+    caio.mudar({"setor": setor})
     ids = [m["id"] for m in caio.get(f"/api/interno/salas/{sala['id']}/mensagens").json()["mensagens"]]
     assert fora["id"] not in ids and segredo["id"] not in ids
 
@@ -429,9 +443,9 @@ def test_mencoes_resolvidas_no_servidor(equipe):
 
 
 def test_nome_repetido_nao_recebe_mencao_de_outro(equipe):
-    """Nome e setor são editáveis no próprio perfil: quem copia o nome de
-    outra pessoa não passa a receber as menções dela, e o papel de admin
-    (que só o admin muda) aparece no autor e nos membros."""
+    """Quem tem o nome igual ao de outra pessoa não passa a receber as
+    menções dela, e o cargo de Administrador (que só quem gerencia concede)
+    aparece no autor e nos membros."""
     marca = unico()
     chefe = equipe(nome=f"Chefe{marca}", papel="admin")
     ana = equipe(nome=f"Ana{marca} Lima")
@@ -440,7 +454,7 @@ def test_nome_repetido_nao_recebe_mencao_de_outro(equipe):
     antes = bia.enviar(grupo["id"], f"@Chefe{marca} pode ver?")
     assert antes["mencoes"] == [chefe.id]
 
-    assert ana.patch(f"/api/atendentes/{ana.id}", {"nome": f"chefe{marca}"}).status_code == 200
+    ana.mudar({"nome": f"chefe{marca}"})
     imitada = bia.enviar(grupo["id"], f"@Chefe{marca} pode ver?")
     assert imitada["mencoes"] == []  # ambíguo: ninguém, e não os dois
 
@@ -532,7 +546,7 @@ def test_quem_entra_na_geral_nao_herda_nao_lidas(equipe):
 
 
 def test_compartilhar_conversa_de_cliente(equipe, cliente, canal_webchat, cabecalho_admin):
-    ana, bia = equipe(), equipe()
+    ana, bia = equipe(cargo="Gerente"), equipe()  # a Ana vê todas as conversas
     sala = ana.direta(bia)
     visitante_nome = unico("Visitante ")
     sessao = exigir_rota(
@@ -675,8 +689,9 @@ def test_evento_de_edicao_chega_aos_membros(equipe):
 
 
 def test_eventos_de_atendimento_continuam_para_todos(equipe, cliente, canal_webchat):
-    """O filtro novo não pode esconder o atendimento de ninguém."""
-    ana = equipe()
+    """O filtro do chat não pode esconder o atendimento de quem o vê (quem
+    não vê a conversa não recebe: test_cargos_visibilidade.py)."""
+    ana = equipe(cargo="Gerente")
     cursor = ana.cursor()
     sessao = cliente.post(
         "/api/widget/sessao", json={"chave_publica": canal_webchat["chave_publica"], "nome": unico("Cliente ")}
