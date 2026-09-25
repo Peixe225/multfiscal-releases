@@ -51,7 +51,7 @@ final class Canais
     }
 
     /**
-     * CanalSaida: {id, nome, tipo, ativo, chave_publica, configurado, url_webhook, conexao}.
+     * CanalSaida: {id, nome, tipo, ativo, chave_publica, configurado, url_webhook, conexao, setor_padrao_id}.
      *
      * url_webhook é absoluta quando a instalação conhece o próprio endereço
      * (url_publica): é o que o admin cola na Meta ou vê no setWebhook.
@@ -76,6 +76,10 @@ final class Canais
             'configurado' => $configurado,
             'url_webhook' => self::urlWebhook($canal['id']),
             'conexao' => self::conexao($canal),
+            // conversa nova deste canal entra na fila deste setor (null: fila geral)
+            'setor_padrao_id' => isset($canal['setor_padrao_id']) && $canal['setor_padrao_id'] !== null
+                ? (int) $canal['setor_padrao_id']
+                : null,
         ];
     }
 

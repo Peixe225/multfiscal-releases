@@ -12,6 +12,11 @@ use IHchat\Banco\Banco;
  * o SQLite devolvem inteiros/booleanos de jeitos diferentes). Toda rota que
  * devolve um atendente usa `saida()`: é o que garante que senha_hash nunca
  * sai para o navegador.
+ *
+ * Cargo e setor são cadastros (cargo_id, setor_id). As colunas antigas
+ * continuam gravadas para o JSON de sempre: `papel` ("admin" se o cargo é
+ * Administrador, senão "atendente") e `setor` (o nome do setor, que também
+ * vai na assinatura das mensagens).
  */
 final class Atendentes
 {
@@ -43,32 +48,49 @@ final class Atendentes
         $linha['ativo'] = (bool) $linha['ativo'];
         $linha['disponivel'] = (bool) $linha['disponivel'];
         $linha['setor'] = isset($linha['setor']) && $linha['setor'] !== '' ? (string) $linha['setor'] : null;
+        $linha['cargo_id'] = isset($linha['cargo_id']) && $linha['cargo_id'] !== '' ? (int) $linha['cargo_id'] : null;
+        $linha['setor_id'] = isset($linha['setor_id']) && $linha['setor_id'] !== '' ? (int) $linha['setor_id'] : null;
         return $linha;
     }
 
     /**
-     * AtendenteSaida: {id, nome, email, papel, ativo, disponivel, setor}
+     * AtendenteSaida: {id, nome, email, papel, ativo, disponivel, setor,
+     * setor_id, cargo: {id, nome, nivel}, permissoes}. `papel` vem do cargo
+     * (o front antigo e o contrato ainda o leem); `permissoes` é a lista
+     * efetiva, que o painel usa para esconder o que a pessoa não pode fazer
+     * (quem decide de verdade é o servidor, rota a rota).
      *
      * @param array<string, mixed> $atendente
      * @return array<string, mixed>
      */
     public static function saida(array $atendente): array
     {
+        $atendente = self::tipar($atendente);
+        $cargo = Permissoes::cargoDe($atendente);
         return [
-            'id' => (int) $atendente['id'],
+            'id' => $atendente['id'],
             'nome' => (string) $atendente['nome'],
             'email' => (string) $atendente['email'],
-            'papel' => (string) $atendente['papel'],
-            'ativo' => (bool) $atendente['ativo'],
-            'disponivel' => (bool) $atendente['disponivel'],
-            'setor' => isset($atendente['setor']) && $atendente['setor'] !== '' ? (string) $atendente['setor'] : null,
+            'papel' => Cargos::eAdministrador($cargo) ? self::PAPEL_ADMIN : self::PAPEL_ATENDENTE,
+            'ativo' => $atendente['ativo'],
+            'disponivel' => $atendente['disponivel'],
+            'setor' => $atendente['setor'],
+            'setor_id' => $atendente['setor_id'],
+            'cargo' => Cargos::resumo($cargo),
+            'permissoes' => Permissoes::de($atendente),
         ];
     }
 
-    /** @param array<string, mixed> $atendente */
+    /** Tem o cargo Administrador? (o cargo decide; o papel é só espelho) @param array<string, mixed> $atendente */
     public static function eAdmin(array $atendente): bool
     {
-        return ($atendente['papel'] ?? null) === self::PAPEL_ADMIN;
+        return Permissoes::eAdministrador($atendente);
+    }
+
+    /** O papel antigo que acompanha o cargo (gravado junto, na coluna papel). @param array<string, mixed> $cargo */
+    public static function papelDoCargo(array $cargo): string
+    {
+        return Cargos::eAdministrador($cargo) ? self::PAPEL_ADMIN : self::PAPEL_ATENDENTE;
     }
 
     /**

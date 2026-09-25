@@ -32,6 +32,17 @@ final class Esquema
         return (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     }
 
+    /**
+     * A conexão da migração, para migrações que também MOVEM DADOS (com
+     * prepare/execute: nunca valor concatenado no SQL). A migração usa esta
+     * conexão, e não Banco::, para continuar funcionando igual mesmo que o
+     * código do app mude depois dela.
+     */
+    public function pdo(): PDO
+    {
+        return $this->pdo;
+    }
+
     public function mysql(): bool
     {
         return $this->driver() === 'mysql';

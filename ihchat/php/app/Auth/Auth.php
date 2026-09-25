@@ -10,7 +10,8 @@ use IHchat\Nucleo\Requisicao;
  * Guardas de autenticação, equivalentes às dependências de app/dependencias.py.
  *
  *     $eu = Auth::atendente($req);          // Authorization: Bearer <token>
- *     $eu = Auth::admin($req);              // idem, e papel admin (senão 403)
+ *     $eu = Auth::exigir($req, 'canais.gerenciar'); // idem, e a permissão (senão 403)
+ *     $eu = Auth::admin($req);              // idem, e cargo Administrador (senão 403)
  *     $eu = Auth::atendenteDeArquivo($req); // cabeçalho OU ?token= (img, download, eventos)
  *
  * Devolvem a linha do atendente já tipada (Atendentes::tipar) e a guardam em
@@ -33,6 +34,19 @@ final class Auth
     public static function atendenteDeArquivo(Requisicao $req): array
     {
         return self::doToken($req, $req->tokenBearer() ?? $req->consulta('token'));
+    }
+
+    /**
+     * Login + permissão do catálogo (Permissoes::CATALOGO); 403 com a frase
+     * "sem permissão para ..." se o cargo não a tiver.
+     *
+     * @return array<string, mixed>
+     */
+    public static function exigir(Requisicao $req, string $permissao): array
+    {
+        $atendente = self::atendente($req);
+        Permissoes::exigir($atendente, $permissao);
+        return $atendente;
     }
 
     /** @return array<string, mixed> */

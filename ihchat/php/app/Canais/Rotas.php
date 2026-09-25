@@ -60,14 +60,14 @@ final class Rotas
     /** @return list<array<string, mixed>> */
     public static function listar(Requisicao $req): array
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'canais.ver');
         return array_map([Canais::class, 'saida'], Canais::todos());
     }
 
     /** Campos de credencial de cada tipo: a tela de canais monta o formulário daqui. */
     public static function tipos(Requisicao $req): array
     {
-        Auth::atendente($req);
+        Auth::exigir($req, 'canais.ver');
         $saida = [];
         foreach (Campos::todos() as $tipo => $campos) {
             $saida[$tipo] = array_map(
@@ -80,13 +80,15 @@ final class Rotas
 
     public static function criar(Requisicao $req): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $v = Validador::corpo($req);
         $nome = self::nome($v, obrigatorio: true);
         $tipo = $v->opcao('tipo', Campos::TIPOS);
         $credenciais = $v->objeto('credenciais', padrao: [], anulavel: false);
         $ativo = $v->booleano('ativo', obrigatorio: false, padrao: true, anulavel: false);
+        $setorPadrao = $v->inteiro('setor_padrao_id', obrigatorio: false, minimo: 1);
         $v->validar();
+        self::conferirSetorPadrao($setorPadrao);
 
         $credenciais = self::comModoEfetivo((string) $tipo, Credenciais::mesclar((string) $tipo, [], $credenciais ?? []));
         $id = Banco::inserir('canais', [
@@ -101,6 +103,7 @@ final class Rotas
             // App Secret DELA: um segredo nosso recusaria tudo
             'chave_publica' => $tipo === Campos::WEBCHAT ? Texto::gerarChave('wc_') : null,
             'segredo_webhook' => in_array($tipo, self::TIPOS_COM_SEGREDO, true) ? Texto::gerarChave() : null,
+            'setor_padrao_id' => $setorPadrao,
             'criado_em' => Datas::agoraBanco(),
         ]);
         return Canais::saida(self::canal($id));
@@ -108,7 +111,7 @@ final class Rotas
 
     public static function verCredenciais(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $canal = self::garantirSegredo(self::canal($p['canal_id']));
         $tipo = (string) $canal['tipo'];
         $visiveis = [];
@@ -141,16 +144,22 @@ final class Rotas
 
     public static function atualizar(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $v = Validador::corpo($req);
         $nome = self::nome($v, obrigatorio: false);
         $credenciais = $v->objeto('credenciais', padrao: null);
         $limpar = $v->lista('limpar', padrao: [], anulavel: false, deTexto: true) ?? [];
         $ativo = $v->booleano('ativo', obrigatorio: false);
+        $setorPadrao = $v->inteiro('setor_padrao_id', obrigatorio: false, minimo: 1);
         $v->validar();
 
         $canal = self::canal($p['canal_id']);
         $mudancas = [];
+        if ($v->tem('setor_padrao_id')) {
+            // null tira o setor: as conversas novas voltam para a fila geral
+            self::conferirSetorPadrao($setorPadrao);
+            $mudancas['setor_padrao_id'] = $setorPadrao;
+        }
         // antes de mexer no canal: uma credencial recusada não salva o resto pela metade
         $novas = $canal['credenciais'];
         if ($credenciais !== null || $limpar !== []) {
@@ -182,13 +191,25 @@ final class Rotas
         return Canais::saida(self::canal($canal['id']));
     }
 
+    /** O setor padrão do canal precisa existir e estar ativo (404 / 422). */
+    private static function conferirSetorPadrao(?int $setorId): void
+    {
+        if ($setorId === null) {
+            return;
+        }
+        $setor = \IHchat\Equipe\Setores::porId($setorId) ?? throw ErroHttp::naoEncontrado('setor nao encontrado');
+        if (!$setor['ativo']) {
+            throw ErroHttp::invalido('setor inativo: reative-o ou escolha outro');
+        }
+    }
+
     /**
      * Confere no provedor se as credenciais funcionam. Sempre 200: credencial
      * errada é o resultado esperado de um teste, não uma falha da requisição.
      */
     public static function testar(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $canal = self::canal($p['canal_id']);
         try {
             $adaptador = Registro::adaptadorPara($canal);
@@ -263,7 +284,7 @@ final class Rotas
      */
     public static function conectarWebhook(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $canal = self::canal($p['canal_id']);
         if ($canal['tipo'] === Campos::WHATSAPP_QR) {
             return self::conectarWhatsAppQr($canal);
@@ -316,7 +337,7 @@ final class Rotas
     /** Telegram: apaga o webhook do bot e volta o canal ao polling (cron). */
     public static function removerWebhook(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $canal = self::canal($p['canal_id']);
         if ($canal['tipo'] !== Campos::TELEGRAM) {
             return self::teste(false, 'este tipo de canal não tem webhook a remover');
@@ -346,7 +367,7 @@ final class Rotas
      */
     public static function qrCode(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $soEstado = self::booleanoDaConsulta($req, 'so_estado');
         $canal = self::canal($p['canal_id']);
         [$adaptador, $motivo] = self::adaptadorQr($canal);
@@ -377,7 +398,7 @@ final class Rotas
     /** Desconecta o número no provedor (o celular sai de "Aparelhos conectados"). */
     public static function desconectar(Requisicao $req, array $p): array
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $canal = self::canal($p['canal_id']);
         if ($canal['tipo'] !== Campos::WHATSAPP_QR) {
             return self::teste(false, 'este tipo de canal não tem conexão por QR Code a desconectar');
@@ -557,7 +578,7 @@ final class Rotas
 
     public static function remover(Requisicao $req, array $p): void
     {
-        Auth::admin($req);
+        Auth::exigir($req, 'canais.gerenciar');
         $canal = self::canal($p['canal_id']);
         $conversas = (int) Banco::valor('SELECT COUNT(*) FROM conversas WHERE canal_id = ?', [$canal['id']]);
         if ($conversas > 0) {
