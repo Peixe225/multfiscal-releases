@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 301 410" role="img" aria-label="I&amp;H">
+  <!-- O mesmo símbolo de ih.svg com o H em azul-noite, para fundo claro. -->
+  <circle cx="53" cy="53" r="52" fill="none" stroke="#ff9e3d" stroke-opacity=".75" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+  <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+  <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+  <rect x="93" y="235" width="128" height="67" rx="8" fill="#060912"/>
+  <rect x="213" y="66" width="80" height="336" rx="8" fill="#060912"/>
+</svg>

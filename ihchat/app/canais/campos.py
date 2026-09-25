@@ -41,6 +41,29 @@ CAMPOS: dict[str, tuple[Campo, ...]] = {
         Campo("segredo_app", "App Secret (valida a assinatura)", secreto=True,
               ajuda="Meta for Developers → Configurações do app → Básico → Chave secreta do app"),
     ),
+    # WhatsApp comum pelo QR Code: a sessão fica num provedor online. Quais
+    # campos valem depende do provedor (o painel mostra só os dele); por isso
+    # só o provedor é obrigatório aqui, e o adaptador diz o resto
+    # (AdaptadorWhatsAppQR.campos_obrigatorios). Igual ao Campos.php.
+    TipoCanal.WHATSAPP_QR.value: (
+        Campo("provedor", "Provedor da conexão", obrigatorio=True, padrao="zapi",
+              opcoes=("zapi", "evolution"),
+              ajuda="Z-API: serviço online pago, nada para instalar. Evolution API: software livre, "
+                    "num servidor seu (a VPS)"),
+        Campo("instancia_id", "ID da instância (Z-API)",
+              ajuda="Painel da Z-API → Instâncias → a sua instância → ID"),
+        Campo("instancia_token", "Token da instância (Z-API)", secreto=True,
+              ajuda="Na mesma tela do ID da instância"),
+        Campo("client_token", "Client-Token da conta (Z-API)", secreto=True,
+              ajuda="Painel da Z-API → Segurança → Token de segurança da conta. "
+                    "Obrigatório se você ativou esse token"),
+        Campo("url_servidor", "Endereço do servidor Evolution",
+              ajuda="Ex.: https://evolution.suaempresa.com.br"),
+        Campo("api_key", "API key (Evolution)", secreto=True,
+              ajuda="A AUTHENTICATION_API_KEY do servidor: com ela o IHchat cria a instância sozinho"),
+        Campo("nome_instancia", "Nome da instância (Evolution)",
+              ajuda="Um nome sem espaços, ex.: ihchat-suporte. Se não existir, é criada no primeiro QR Code"),
+    ),
     TipoCanal.TELEGRAM.value: (
         Campo("token", "Token do bot", secreto=True, obrigatorio=True,
               ajuda="Fale com @BotFather no Telegram, envie /newbot e cole o token aqui"),

@@ -71,7 +71,7 @@ def test_tipos_trazem_os_campos_de_cada_canal(cliente, cabecalho_atendente):
     assert resposta.status_code == 200
     tipos = resposta.json()
 
-    assert set(tipos) == {"whatsapp", "telegram", "email", "webchat"}
+    assert set(tipos) == {"whatsapp", "whatsapp_qr", "telegram", "email", "webchat"}
     whatsapp = {c["chave"]: c for c in tipos["whatsapp"]}
     assert whatsapp["token"]["secreto"] and whatsapp["token"]["obrigatorio"]
     assert whatsapp["segredo_app"]["secreto"] and not whatsapp["segredo_app"]["obrigatorio"]
@@ -422,7 +422,7 @@ def test_testar_whatsapp_conectado(cliente, cabecalho_admin):
     }
     requisicao = chamadas[0]
     assert requisicao.method == "GET"
-    assert requisicao.url.path == "/v20.0/10987654321"
+    assert requisicao.url.path == "/v26.0/10987654321"
     assert requisicao.url.params["fields"] == "display_phone_number,verified_name"
     assert requisicao.headers["authorization"] == "Bearer EAAG-token-secreto"
 

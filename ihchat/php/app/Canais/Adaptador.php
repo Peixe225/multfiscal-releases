@@ -46,10 +46,21 @@ abstract class Adaptador implements AdaptadorDeCanal
         return static::TIPO;
     }
 
+    /**
+     * Campos sem os quais o canal não fala com o provedor. Quase sempre a
+     * constante; o WhatsApp pelo QR Code depende do provedor escolhido.
+     *
+     * @return list<string>
+     */
+    public function camposObrigatorios(): array
+    {
+        return static::CAMPOS_OBRIGATORIOS;
+    }
+
     /** Tem as credenciais de ENVIO? Sem elas, o envio é só simulado (sandbox). */
     public function configurado(): bool
     {
-        foreach (static::CAMPOS_OBRIGATORIOS as $campo) {
+        foreach ($this->camposObrigatorios() as $campo) {
             if (!$this->preenchido($campo)) {
                 return false;
             }
@@ -60,7 +71,7 @@ abstract class Adaptador implements AdaptadorDeCanal
     /** @return list<string> */
     public function faltando(): array
     {
-        return array_values(array_filter(static::CAMPOS_OBRIGATORIOS, fn (string $c): bool => !$this->preenchido($c)));
+        return array_values(array_filter($this->camposObrigatorios(), fn (string $c): bool => !$this->preenchido($c)));
     }
 
     protected function preenchido(string $campo): bool

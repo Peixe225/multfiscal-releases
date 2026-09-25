@@ -58,6 +58,9 @@ final class Credenciais
         if (is_string($valor)) {
             $valor = trim($valor);
         }
+        if ($tipo === Campos::WHATSAPP_QR && $valor !== null && $valor !== '') {
+            return self::normalizarWhatsAppQr($tipo, $chave, $valor);
+        }
         if ($valor === null || $valor === '' || !str_ends_with($chave, '_porta')) {
             return $valor;
         }
@@ -69,6 +72,32 @@ final class Credenciais
             throw ErroHttp::invalido(Campos::rotulo($tipo, $chave) . " precisa ser um número de 1 a 65535{$exemplo}");
         }
         return (string) $porta;
+    }
+
+    /**
+     * Provedor e endereço da Evolution conferidos ao salvar, com a frase na
+     * tela, em vez de só estourar no primeiro QR Code (canais.py do Python).
+     */
+    private static function normalizarWhatsAppQr(string $tipo, string $chave, mixed $valor): mixed
+    {
+        if ($chave === 'provedor') {
+            $provedor = strtolower(self::comoTexto($valor));
+            if (!in_array($provedor, AdaptadorWhatsAppQr::PROVEDORES, true)) {
+                throw ErroHttp::invalido(Campos::rotulo($tipo, $chave) . ' precisa ser zapi ou evolution');
+            }
+            return $provedor;
+        }
+        if ($chave === 'url_servidor') {
+            $endereco = rtrim(self::comoTexto($valor), '/');
+            $esquema = strtolower((string) parse_url($endereco, PHP_URL_SCHEME));
+            $host = (string) parse_url($endereco, PHP_URL_HOST);
+            if (!in_array($esquema, ['http', 'https'], true) || $host === '') {
+                throw ErroHttp::invalido(Campos::rotulo($tipo, $chave)
+                    . ' precisa começar com https:// (ou http://), ex.: https://evolution.suaempresa.com.br');
+            }
+            return $endereco;
+        }
+        return $valor;
     }
 
     /**

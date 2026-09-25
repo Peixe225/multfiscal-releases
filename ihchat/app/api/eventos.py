@@ -12,6 +12,11 @@ com id crescente. Daí saem os dois jeitos de acompanhar:
   devolve só o cursor atual, para a tela começar "de agora".
 
 O front lê /saude ("eventos": "stream" aqui, "consulta" no PHP) e escolhe.
+
+Privacidade: os eventos de atendimento vão a todo atendente, mas os do chat
+interno ("interno.*") só a quem é membro da sala (FiltroDoAtendente). Sem
+filtro nenhum, "interno.*" não sai para ninguém: quem esquecer de filtrar
+erra para o lado seguro.
 """
 from __future__ import annotations
 
@@ -76,6 +81,40 @@ def ultimo_id() -> int:
         return int(sessao.scalar(select(func.max(FilaEvento.id))) or 0)
 
 
+PREFIXO_INTERNO = "interno."
+
+
+class FiltroDoAtendente:
+    """O que um atendente pode receber: tudo do atendimento e, do chat
+    interno, só o das salas de que é membro AGORA.
+
+    Evento "interno.*" com "para": [ids] é de uma pessoa só (cursor de
+    leitura, "você saiu do grupo") e vai só para ela. As salas são lidas uma
+    vez por lote (novo_lote), e só se o lote tiver evento interno.
+    """
+
+    def __init__(self, atendente_id: int):
+        self.atendente_id = atendente_id
+        self._salas: set[int] | None = None
+
+    def novo_lote(self) -> None:
+        self._salas = None
+
+    def __call__(self, linha: FilaEvento, dados) -> bool:
+        if not linha.tipo.startswith(PREFIXO_INTERNO):
+            return True
+        if not isinstance(dados, dict):
+            return False
+        if "para" in dados:
+            para = dados["para"]
+            return isinstance(para, list) and self.atendente_id in para
+        if self._salas is None:
+            from ..servicos.chat_interno import ids_das_salas
+
+            self._salas = ids_das_salas(self.atendente_id)
+        return dados.get("sala_id") in self._salas
+
+
 def ler_desde(depois: int | None, limite: int = LIMITE_PADRAO, filtro: Filtro | None = None) -> dict:
     """Eventos depois do cursor, respeitando lacunas recentes.
 
@@ -85,6 +124,9 @@ def ler_desde(depois: int | None, limite: int = LIMITE_PADRAO, filtro: Filtro | 
     """
     if depois is None:
         return {"eventos": [], "ultimo": ultimo_id()}
+    novo_lote = getattr(filtro, "novo_lote", None)
+    if novo_lote is not None:
+        novo_lote()  # quem entrou ou saiu de uma sala vale a partir deste lote
     with SessaoLocal() as sessao:
         linhas = sessao.scalars(
             select(FilaEvento).where(FilaEvento.id > depois).order_by(FilaEvento.id).limit(limite)
@@ -104,7 +146,10 @@ def ler_desde(depois: int | None, limite: int = LIMITE_PADRAO, filtro: Filtro | 
             dados = json.loads(linha.dados)
         except (TypeError, ValueError):
             dados = None
-        if filtro is not None and not filtro(linha, dados):
+        if filtro is None:
+            if linha.tipo.startswith(PREFIXO_INTERNO):
+                continue  # chat interno só com filtro de membro
+        elif not filtro(linha, dados):
             continue
         eventos.append({"id": linha.id, "tipo": linha.tipo, "dados": dados})
     return {"eventos": eventos, "ultimo": ultimo}
@@ -208,8 +253,9 @@ def stream(
     """EventSource nao permite cabecalhos, entao o token vem na query string."""
     if not atendente_pode_escutar(sessao, token):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token invalido ou expirado")
+    filtro = FiltroDoAtendente(ler_token(token))
     return StreamingResponse(
-        fluxo_persistido(cursor_inicial(depois, last_event_id), validar=lambda: _ainda_pode(token)),
+        fluxo_persistido(cursor_inicial(depois, last_event_id), filtro, validar=lambda: _ainda_pode(token)),
         media_type="text/event-stream",
         headers=CABECALHOS,
     )
@@ -229,6 +275,6 @@ def _ainda_pode(token: str) -> bool:
 
 
 @rotas.get("/desde", response_model=EventosDesdeSaida)
-def desde(_: AtendenteDeArquivo, depois: Depois = None, limite: Limite = LIMITE_PADRAO) -> dict:
+def desde(atual: AtendenteDeArquivo, depois: Depois = None, limite: Limite = LIMITE_PADRAO) -> dict:
     """Token no cabeçalho Authorization ou em ?token= (mesma regra dos arquivos)."""
-    return ler_desde(depois, limite)
+    return ler_desde(depois, limite, FiltroDoAtendente(atual.id))

@@ -1,6 +1,11 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="app/web/marca/ih.svg">
+  <img src="app/web/marca/ih-fundo-claro.svg" alt="I&H" width="56">
+</picture>
+
 # IHchat
 
-Central de atendimento unificada: WhatsApp, Telegram, e-mail e webchat numa
+A central de atendimento da **I&H**: WhatsApp, Telegram, e-mail e webchat numa
 única caixa de entrada, com a ficha do cliente sempre do lado da conversa.
 
 A promessa é simples: **um cliente, um histórico**. Se o mesmo contato pergunta
@@ -141,8 +146,8 @@ O canal de webchat ganha uma chave pública. Uma linha no site basta:
 ```html
 <script src="https://SEU-HOST/widget.js"
         data-chave="wc_..."
-        data-titulo="Suporte MultFiscal"
-        data-cor="#2c5cf6"></script>
+        data-titulo="Suporte I&H"
+        data-cor="#ff9e3d"></script>
 ```
 
 O widget vive num shadow root — o CSS do site não interfere nele, nem o dele no
@@ -219,11 +224,62 @@ app/
   servicos/     regras de negócio: contatos, conversas, mensagens, distribuição
   api/          rotas HTTP
   web/          painel e widget (sem build; é só abrir)
+    marca/      logo "iH" da I&H, favicon e ícone de toque (ver "Marca")
   models.py     domínio
   eventos.py    barramento SSE
 scripts/seed.py carga inicial
 tests/
 ```
+
+## Marca
+
+O IHchat usa a identidade da I&H. O símbolo "iH" foi redesenhado em SVG a
+partir do logo oficial (`oprojeto.online/assets/logo-ih.png`), com as mesmas
+medidas, e mora em `app/web/marca/`:
+
+| Arquivo | Uso |
+|---|---|
+| `ih.svg` | símbolo com as cores oficiais, para fundo escuro (o "H" é lilás) |
+| `ih-fundo-claro.svg` | o mesmo símbolo com o "H" em azul-noite, para fundo claro |
+| `favicon.svg`, `favicon-32.png` | ícone da aba: o "iH" num quadro azul-noite, sem o anel do pingo (a 16 px ele vira borrão) |
+| `apple-touch-icon.png` | 180×180 para a tela inicial do celular |
+
+Nos cabeçalhos o símbolo vai em linha no HTML, com o "H" em `currentColor`:
+segue o tema sozinho. Os PNGs saem dos SVGs pelo Chromium do Playwright (o
+mesmo dos testes de navegador), sem dependência nova.
+
+**Cores.** Laranja `#ff9e3d` (o "i"), lilás `#eaedf7` (o "H") e azul-noite
+`#060912` (o fundo). O azul-noite é o fundo do modo escuro e das superfícies de
+marca (tela de login, trechos de código); os neutros puxam para o lilás.
+
+O laranja é claro demais para texto branco em cima, e para ser texto sobre
+branco. Por isso tem três papéis (tokens no topo de `app/web/painel.css`):
+
+| Token | Claro | Escuro | Para quê |
+|---|---|---|---|
+| `--marca` | `#ff9e3d` | `#ff9e3d` | preenchimento: botão, balão de saída, contador |
+| `--marca-contraste` | `#060912` | `#060912` | texto sobre `--marca` |
+| `--marca-texto` | `#a35200` | `#ffa654` | laranja que vira texto (links, filtro ativo) |
+| `--marca-linha` | `#d16900` | `#ff9e3d` | foco, barra do item ativo, borda de seleção |
+
+Razões de contraste conferidas (WCAG 2.x; AA pede 4,5:1 para texto e 3:1 para
+contorno e estado):
+
+| Par | Claro | Escuro |
+|---|---|---|
+| branco sobre `#ff9e3d` (**não usar**) | 2,06 | — |
+| `--marca-contraste` sobre `--marca` | 9,67 | 9,67 |
+| `--marca-texto` sobre superfície / superfície-2 / `--marca-fraca` | 5,58 / 4,90 / 5,03 | 9,69 / 8,81 / 8,53 |
+| `--marca-linha` sobre fundo / superfície-2 (não texto, mínimo 3) | 3,37 / 3,22 | 9,67 / 8,30 |
+| texto sobre superfície-2 | 16,35 | 14,59 |
+| texto fraco sobre superfície-2 (o pior caso) | 5,57 | 6,74 |
+| verde / âmbar / vermelho como texto (pior fundo) | 4,73 / 4,89 / 4,95 | 8,55 / 7,54 / 6,15 |
+| texto sobre o botão de perigo | 5,63 (branco) | 7,17 (azul-noite) |
+| balão de saída: hora e status (texto a 75%) | 6,17 | 6,17 |
+
+Exceção consciente: no simulador, o celular imita o WhatsApp e o Telegram de
+verdade (o botão verde de enviar, o balão azul do Telegram) e fica com as cores
+deles.
 
 ## Limites conhecidos
 

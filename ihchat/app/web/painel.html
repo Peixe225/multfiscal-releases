@@ -3,16 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%232c5cf6"/><path d="M8 11h16v9a2 2 0 0 1-2 2h-8l-4 4v-4H8z" fill="white"/></svg>'>
-  <title>IHchat — Central de atendimento</title>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1120" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/static/marca/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/static/marca/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/marca/apple-touch-icon.png">
+  <title>IHchat — Central de atendimento I&amp;H</title>
   <link rel="stylesheet" href="/static/painel.css">
+  <link rel="stylesheet" href="/static/chat-interno.css">
 </head>
 <body>
 
 <div id="tela-login" class="tela-login">
-  <form id="form-login" class="cartao-login">
+  <header class="marca-login">
+    <img src="/static/marca/ih.svg" alt="" width="58" height="79">
     <h1>IHchat</h1>
-    <p>Central de atendimento MultFiscal</p>
+    <p>Central de atendimento I&amp;H</p>
+  </header>
+  <form id="form-login" class="cartao-login" aria-label="Entrar no IHchat">
     <label class="campo">
       <span>E-mail</span>
       <input type="email" name="email" autocomplete="username" required autofocus>
@@ -28,9 +36,24 @@
 
 <div id="app" class="app" hidden>
   <header class="topo">
-    <div class="marca"><i class="ponto"></i> IHchat <small>2</small></div>
+    <!-- "iH" do logo (app/web/marca/ih.svg) sem o anel, que some neste tamanho;
+         o "H" usa currentColor para seguir o tema -->
+    <div class="marca">
+      <svg class="simbolo" viewBox="11 3.5 284 401" aria-hidden="true" focusable="false">
+        <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+        <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+        <rect x="93" y="235" width="128" height="67" rx="8" fill="currentColor"/>
+        <rect x="213" y="66" width="80" height="336" rx="8" fill="currentColor"/>
+      </svg>
+      <span class="nome-marca">IHchat</span>
+    </div>
     <div class="indicadores" id="indicadores"></div>
     <nav class="atalhos" aria-label="Ferramentas">
+      <!-- chat interno da equipe (chat-interno.js monta a gaveta e mostra o botão depois do login) -->
+      <button type="button" class="atalho atalho-interno" id="abrir-interno" hidden
+              aria-haspopup="dialog" aria-controls="interno" aria-expanded="false"
+              title="Conversar com a equipe (nada daqui chega aos clientes)">Chat<span class="interno-rotulo-extra"> da equipe</span>
+        <span class="contador-interno" id="contador-interno" hidden aria-hidden="true"></span></button>
       <a class="atalho" href="/simulador" target="_blank" rel="noopener"
          title="Escrever como cliente pelo WhatsApp, Telegram ou e-mail (abre em nova aba)">Simulador ↗</a>
       <button type="button" class="atalho" id="abrir-canais" hidden
@@ -196,5 +219,6 @@
 
 <script src="/static/eventos.js"></script>
 <script src="/static/painel.js"></script>
+<script src="/static/chat-interno.js"></script>
 </body>
 </html>

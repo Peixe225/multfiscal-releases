@@ -17,7 +17,11 @@ from .base import (
 )
 from .http import cliente
 
-VERSAO_API = "v20.0"
+# Versão da Graph API: o ÚNICO lugar a mudar quando a Meta lançar outra (cada
+# versão vale cerca de dois anos; a v20.0 expirou em 24/09/2026). A v26.0 saiu
+# em 29/07/2026: https://developers.facebook.com/docs/graph-api/changelog/
+# O PHP tem a mesma constante em php/app/Canais/AdaptadorWhatsApp.php.
+VERSAO_API = "v26.0"
 BASE = f"https://graph.facebook.com/{VERSAO_API}"
 TIPOS_COM_ARQUIVO = ("image", "audio", "video", "document", "sticker")
 # O tipo "image" da Cloud API so aceita JPEG e PNG (WebP e so figurinha): um

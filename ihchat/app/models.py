@@ -86,7 +86,10 @@ class JSONEmTexto(TypeDecorator):
 
 
 class TipoCanal(str, enum.Enum):
-    WHATSAPP = "whatsapp"
+    WHATSAPP = "whatsapp"  # API oficial da Meta (Cloud API)
+    # WhatsApp comum conectado pelo QR Code, com a sessão num provedor online
+    # (Z-API ou Evolution API): ver app/canais/whatsapp_qr.py
+    WHATSAPP_QR = "whatsapp_qr"
     TELEGRAM = "telegram"
     EMAIL = "email"
     WEBCHAT = "webchat"
@@ -372,6 +375,99 @@ class FilaEvento(Base):
     dados: Mapped[str] = mapped_column(Text)  # JSON pronto: sai como veio
     contato_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, index=True)
+
+
+# ------------------------------------------------------------ chat interno
+# Conversa da equipe entre si, sem misturar com os clientes. Mesmas tabelas,
+# colunas e nomes de índice da migração PHP M20260924_1200_ChatInterno: uma
+# base criada por um lado abre no outro. Regras em app/servicos/chat_interno.py.
+class TipoSala(str, enum.Enum):
+    GERAL = "geral"  # todos os atendentes ativos
+    SETOR = "setor"  # quem tem o mesmo setor no perfil
+    DIRETA = "direta"  # dois atendentes, uma sala só por par
+    GRUPO = "grupo"  # membros escolhidos por quem criou
+
+
+class ListaJSONEmTexto(TypeDecorator):
+    """Lista pequena (ids mencionados) gravada como texto JSON.
+
+    O tipo JSON do SQLAlchemy viraria JSON nativo no MySQL, e a migração do
+    PHP cria LONGTEXT: texto nos dois lados, para a base abrir igual.
+    """
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, valor, dialeto):
+        return json.dumps(list(valor or []), separators=(",", ":"))
+
+    def process_result_value(self, valor, dialeto):
+        try:
+            lido = json.loads(valor) if valor else []
+        except (TypeError, ValueError):
+            return []  # texto estragado não derruba a leitura da sala
+        return [int(item) for item in lido if isinstance(item, int)] if isinstance(lido, list) else []
+
+
+class SalaInterna(Base):
+    __tablename__ = "interno_salas"
+    # `chave` torna única a sala automática ("geral", "setor:<hash>") e a
+    # direta de cada par ("direta:3:8"); grupo não tem chave (NULL repete)
+    __table_args__ = (
+        Index("uq_interno_salas_chave", "chave", unique=True),
+        Index("ix_interno_salas_tipo", "tipo"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(10))
+    nome: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # setor como foi digitado (o da sala de setor); a chave guarda a forma normalizada
+    setor: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    chave: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    criada_por: Mapped[int | None] = mapped_column(
+        ForeignKey("atendentes.id", ondelete="SET NULL"), nullable=True
+    )
+    criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+    atualizada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+
+
+class MembroSala(Base):
+    """Quem está na sala, até onde leu (cursor por membro) e se silenciou."""
+
+    __tablename__ = "interno_membros"
+    __table_args__ = (Index("ix_interno_membros_atendente", "atendente_id"),)
+
+    sala_id: Mapped[int] = mapped_column(
+        ForeignKey("interno_salas.id", ondelete="CASCADE"), primary_key=True
+    )
+    atendente_id: Mapped[int] = mapped_column(
+        ForeignKey("atendentes.id", ondelete="CASCADE"), primary_key=True
+    )
+    # id da última mensagem lida: não lidas = mensagens de outros com id maior
+    lida_ate: Mapped[int] = mapped_column(Integer, default=0)
+    silenciada: Mapped[bool] = mapped_column(Boolean, default=False)
+    entrou_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+
+
+class MensagemInterna(Base):
+    __tablename__ = "interno_mensagens"
+    __table_args__ = (Index("ix_interno_mensagens_sala", "sala_id", "id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sala_id: Mapped[int] = mapped_column(ForeignKey("interno_salas.id", ondelete="CASCADE"))
+    autor_id: Mapped[int | None] = mapped_column(
+        ForeignKey("atendentes.id", ondelete="SET NULL"), nullable=True
+    )
+    conteudo: Mapped[str] = mapped_column(Text)
+    mencoes: Mapped[list] = mapped_column(ListaJSONEmTexto, default=list)
+    # "compartilhar uma conversa de cliente": vira um cartão que abre a conversa
+    conversa_id: Mapped[int | None] = mapped_column(
+        ForeignKey("conversas.id", ondelete="SET NULL"), nullable=True
+    )
+    criada_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+    editada_em: Mapped[datetime | None] = mapped_column(DataHoraUTC, nullable=True)
+    # apagar é "mensagem apagada": o texto sai do banco, a linha fica no lugar
+    apagada: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 # ---------------------------------------------------------------- migração

@@ -4,6 +4,11 @@ As rotas que gravam no banco sao sincronas (rodam no threadpool do FastAPI),
 enquanto os assinantes SSE sao corrotinas. Por isso a entrega passa por
 `call_soon_threadsafe`: `asyncio.Queue.put_nowait` chamado de outra thread nao
 acorda o consumidor de forma confiavel.
+
+Hoje o barramento e so o DESPERTADOR dos fluxos (app/api/eventos.py): o que
+vai para o navegador sai da tabela fila_eventos, ja filtrado por quem escuta
+(o chat interno so chega a membros da sala). Nao repasse o `dados` daqui
+direto a um cliente: ele nao passa por filtro nenhum.
 """
 from __future__ import annotations
 

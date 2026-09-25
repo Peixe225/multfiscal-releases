@@ -8,6 +8,7 @@ final class Registro
 {
     public const ADAPTADORES = [
         Campos::WHATSAPP => AdaptadorWhatsApp::class,
+        Campos::WHATSAPP_QR => AdaptadorWhatsAppQr::class,
         Campos::TELEGRAM => AdaptadorTelegram::class,
         Campos::EMAIL => AdaptadorEmail::class,
         Campos::WEBCHAT => AdaptadorWebchat::class,

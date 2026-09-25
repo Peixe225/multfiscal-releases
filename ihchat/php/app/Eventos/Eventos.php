@@ -21,6 +21,11 @@ use IHchat\Nucleo\Json;
  * assim ninguém recebe um evento cujo dado ainda não está no banco, e um
  * rollback leva o evento junto. Os tipos e o formato de `dados` são os mesmos
  * que o Python manda pelo SSE (app/servicos/mensagens.py).
+ *
+ * Privacidade: os eventos de atendimento vão a todo atendente; os do chat
+ * interno ("interno.*") só a quem é membro da sala do `sala_id` (ou a quem
+ * está em "para": [ids], nos que são de uma pessoa só). Quem lê sem dizer
+ * quem é (atendenteId null) não recebe nenhum "interno.*".
  */
 final class Eventos
 {
@@ -38,6 +43,9 @@ final class Eventos
 
     /** Uma poda a cada N publicações, em média (o cron também poda). */
     private const CHANCE_PODA = 50;
+
+    /** Eventos do chat interno: só para membros da sala (ver doMembro). */
+    public const PREFIXO_INTERNO = 'interno.';
 
     /**
      * Grava o evento e devolve o id.
@@ -66,13 +74,14 @@ final class Eventos
     }
 
     /**
-     * Eventos depois do cursor, para o painel (todos os tipos).
+     * Eventos depois do cursor, para o painel: todos os de atendimento e,
+     * do chat interno, só os das salas de que $atendenteId é membro agora.
      *
      * $depois = null: nenhum evento, só o cursor atual ("começar de agora").
      *
      * @return array{eventos: list<array{id: int, tipo: string, dados: mixed}>, ultimo: int}
      */
-    public static function desde(?int $depois, int $limite = self::LIMITE_PADRAO): array
+    public static function desde(?int $depois, int $limite = self::LIMITE_PADRAO, ?int $atendenteId = null): array
     {
         if ($depois === null) {
             return ['eventos' => [], 'ultimo' => self::ultimoId()];
@@ -81,7 +90,32 @@ final class Eventos
             'SELECT id, tipo, dados, criado_em FROM fila_eventos WHERE id > ? ORDER BY id LIMIT ?',
             [$depois, self::limitar($limite)]
         );
-        return self::montar($linhas, $depois, null);
+        return self::montar($linhas, $depois, self::doMembro($atendenteId));
+    }
+
+    /**
+     * O filtro do painel. Evento "interno.*" passa se tiver "para" com o id
+     * de quem lê, ou (sem "para") se quem lê for membro da sala do sala_id.
+     * As salas são lidas uma vez por consulta, e só se vier evento interno.
+     *
+     * @return callable(array<string, mixed>, mixed): bool
+     */
+    public static function doMembro(?int $atendenteId): callable
+    {
+        $salas = null;
+        return static function (array $linha, mixed $dados) use ($atendenteId, &$salas): bool {
+            if (!str_starts_with((string) $linha['tipo'], self::PREFIXO_INTERNO)) {
+                return true;
+            }
+            if ($atendenteId === null || !is_array($dados)) {
+                return false;
+            }
+            if (array_key_exists('para', $dados)) {
+                return is_array($dados['para']) && in_array($atendenteId, $dados['para'], true);
+            }
+            $salas ??= array_flip(\IHchat\ChatInterno\Salas::idsDoAtendente($atendenteId));
+            return is_int($dados['sala_id'] ?? null) && isset($salas[$dados['sala_id']]);
+        };
     }
 
     /**

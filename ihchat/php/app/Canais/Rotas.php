@@ -5,6 +5,8 @@ namespace IHchat\Canais;
 
 use IHchat\Atendimento\Mensagens;
 use IHchat\Auth\Auth;
+use IHchat\Canais\WhatsAppQr\DoCelular;
+use IHchat\Canais\WhatsAppQr\EstadoConexao;
 use IHchat\Banco\Banco;
 use IHchat\Nucleo\Datas;
 use IHchat\Nucleo\ErroHttp;
@@ -20,9 +22,10 @@ use IHchat\Nucleo\Validador;
  * Cadastro de canais (app/api/canais.py) e recepção dos webhooks dos
  * provedores (app/api/webhooks.py), com o mesmo contrato HTTP do Python.
  *
- * Só no PHP (a hospedagem tem HTTPS público): conectar-webhook e
- * remover-webhook, que fazem o setWebhook/deleteWebhook do Telegram pelo
- * servidor — o token do bot nunca passa pelo navegador.
+ * conectar-webhook e remover-webhook fazem o setWebhook/deleteWebhook do
+ * Telegram pelo servidor — o token do bot nunca passa pelo navegador. No
+ * WhatsApp pelo QR Code, conectar-webhook cadastra o webhook no provedor, e
+ * /qr e /desconectar cuidam da conexão do número (PROVEDORES-WHATSAPP.md).
  */
 final class Rotas
 {
@@ -38,6 +41,8 @@ final class Rotas
         $r->post('/api/canais/{canal_id:int}/testar', [self::class, 'testar']);
         $r->post('/api/canais/{canal_id:int}/conectar-webhook', [self::class, 'conectarWebhook']);
         $r->post('/api/canais/{canal_id:int}/remover-webhook', [self::class, 'removerWebhook']);
+        $r->get('/api/canais/{canal_id:int}/qr', [self::class, 'qrCode']);
+        $r->post('/api/canais/{canal_id:int}/desconectar', [self::class, 'desconectar']);
         $r->delete('/api/canais/{canal_id:int}', [self::class, 'remover'], status: 204);
 
         $r->get('/webhooks/{canal_id:int}', [self::class, 'verificarWebhook']);
@@ -83,10 +88,11 @@ final class Rotas
             'tipo' => $tipo,
             'ativo' => (bool) $ativo,
             'credenciais' => Json::objeto($credenciais),
-            // só o webchat tem chave pública. Telegram e e-mail têm segredo gerado
-            // aqui: o do Telegram vai no secret_token do setWebhook, e o do e-mail
-            // é o token que o provedor manda ao webhook (AdaptadorEmail). A Meta
-            // assina o WhatsApp com o App Secret DELA: um segredo nosso recusaria tudo
+            // só o webchat tem chave pública. Telegram, e-mail e WhatsApp pelo
+            // QR Code têm segredo gerado aqui: o do Telegram vai no secret_token
+            // do setWebhook; o do e-mail e o do QR Code são o token que o
+            // provedor manda ao webhook. A Meta assina o WhatsApp oficial com o
+            // App Secret DELA: um segredo nosso recusaria tudo
             'chave_publica' => $tipo === Campos::WEBCHAT ? Texto::gerarChave('wc_') : null,
             'segredo_webhook' => in_array($tipo, self::TIPOS_COM_SEGREDO, true) ? Texto::gerarChave() : null,
             'criado_em' => Datas::agoraBanco(),
@@ -120,7 +126,7 @@ final class Rotas
             // antigo é legado e não é o que a Meta usa para assinar
             'segredo_webhook' => in_array($tipo, self::TIPOS_COM_SEGREDO, true) ? $canal['segredo_webhook'] : null,
             'chave_publica' => $canal['chave_publica'],
-            'campos_obrigatorios' => $adaptador === null ? [] : $adaptador::CAMPOS_OBRIGATORIOS,
+            'campos_obrigatorios' => $adaptador === null ? [] : $adaptador->camposObrigatorios(),
             // o valor do segredo legado nunca sai, mas a tela precisa saber que
             // ele existe: com ele, toda entrega da Meta leva 401
             'assinatura' => $adaptador instanceof AdaptadorWhatsApp ? $adaptador->origemAssinatura() : null,
@@ -221,6 +227,18 @@ final class Rotas
                     . "'Conectar webhook' (com o endereço público HTTPS) ou trocar para 'polling'";
             }
         }
+        if ($adaptador instanceof AdaptadorWhatsAppQr) {
+            if ($adaptador->ultimoEstado !== null && $adaptador->ultimoEstado->status !== EstadoConexao::ERRO) {
+                self::gravarConexao($canal, $adaptador->ultimoEstado->status, $adaptador->ultimoEstado->numero);
+            }
+            if ($adaptador->alertaDeConexao !== null) {
+                $alertas[] = $adaptador->alertaDeConexao;
+            }
+            if (!self::preenchido($canal['credenciais'][AdaptadorWhatsAppQr::CHAVE_WEBHOOK] ?? null)) {
+                $alertas[] = 'o webhook ainda não foi conectado: sem ele as mensagens dos clientes não chegam. '
+                    . 'Use “Conectar webhook” (precisa do endereço público desta instalação)';
+            }
+        }
         if (!$canal['ativo']) {
             $alertas[] = 'o canal está desativado: não recebe mensagens novas até você ativá-lo';
         }
@@ -236,6 +254,9 @@ final class Rotas
     {
         Auth::admin($req);
         $canal = self::canal($p['canal_id']);
+        if ($canal['tipo'] === Campos::WHATSAPP_QR) {
+            return self::conectarWhatsAppQr($canal);
+        }
         if ($canal['tipo'] !== Campos::TELEGRAM) {
             return self::teste(false, $canal['tipo'] === Campos::WHATSAPP
                 ? 'no WhatsApp o webhook é cadastrado no painel da Meta: use a URL ' . Canais::urlWebhook($canal['id'])
@@ -296,6 +317,144 @@ final class Rotas
         }
         self::definirModo($canal, 'polling');
         return self::teste(true, $mensagem);
+    }
+
+    // --------------------------------------------------- WhatsApp pelo QR Code
+
+    /**
+     * Estado da conexão e o QR Code a ler, perguntados ao provedor. Sempre 200
+     * {status, qr, numero, mensagem}: "erro" é um resultado que o painel
+     * mostra, não uma falha da requisição. Token e API key nunca saem; o QR é
+     * só a imagem. A Evolution cria a instância se ela não existir.
+     *
+     * ?so_estado=1 só confere se conectou (sem gerar QR, "qr" sempre null): é
+     * o que o painel consulta a cada ~3 s; o QR novo, a cada ~15 s, porque a
+     * Z-API pede de 10 a 20 s entre um QR e outro.
+     *
+     * @return array{status: string, qr: ?string, numero: ?string, mensagem: string}
+     */
+    public static function qrCode(Requisicao $req, array $p): array
+    {
+        Auth::admin($req);
+        $canal = self::canal($p['canal_id']);
+        [$adaptador, $motivo] = self::adaptadorQr($canal);
+        if ($adaptador === null) {
+            return EstadoConexao::erro((string) $motivo)->saida();
+        }
+        try {
+            $soEstado = in_array(strtolower((string) $req->consulta('so_estado')), ['1', 'true', 'sim', 'yes', 'on'], true);
+            $estado = $adaptador->estadoQr(!$soEstado);
+        } catch (\Throwable $erro) {
+            Log::excecao($erro, "QR Code do canal {$canal['id']}");
+            $estado = EstadoConexao::erro('erro inesperado ao falar com o provedor; detalhes no log do servidor');
+        }
+        $estado = $estado->comMensagem(self::semSegredoDoCanal($canal, $estado->mensagem));
+        if ($estado->status !== EstadoConexao::ERRO) {
+            self::gravarConexao($canal, $estado->status, $estado->numero);
+        }
+        return $estado->saida();
+    }
+
+    /** Desconecta o número no provedor (o celular sai de "Aparelhos conectados"). */
+    public static function desconectar(Requisicao $req, array $p): array
+    {
+        Auth::admin($req);
+        $canal = self::canal($p['canal_id']);
+        if ($canal['tipo'] !== Campos::WHATSAPP_QR) {
+            return self::teste(false, 'este tipo de canal não tem conexão por QR Code a desconectar');
+        }
+        [$adaptador, $motivo] = self::adaptadorQr($canal);
+        if ($adaptador === null) {
+            return self::teste(false, (string) $motivo);
+        }
+        try {
+            $mensagem = $adaptador->desconectar();
+        } catch (ErroCanal $erro) {
+            return self::teste(false, self::semSegredoDoCanal($canal, $erro->getMessage()));
+        }
+        self::gravarConexao($canal, EstadoConexao::DESCONECTADO, null);
+        return self::teste(true, $mensagem);
+    }
+
+    /**
+     * Cadastra no provedor url_publica + /webhooks/{id}?token=<segredo do canal>.
+     * O token vai na URL porque a Z-API não deixa escolher cabeçalhos; o
+     * webhook o confere com hash_equals. Nenhuma frase devolvida o mostra.
+     *
+     * @param array<string, mixed> $canal
+     * @return array{ok: bool, mensagem: string, alerta: ?string}
+     */
+    private static function conectarWhatsAppQr(array $canal): array
+    {
+        [$adaptador, $motivo] = self::adaptadorQr($canal);
+        if ($adaptador === null) {
+            return self::teste(false, (string) $motivo);
+        }
+        if (Canais::urlPublica() === '') {
+            return self::teste(false, 'o endereço público desta instalação (url_publica) não está configurado: sem ele o '
+                . 'provedor não tem para onde mandar as mensagens. Configure-o (com https) e tente de novo');
+        }
+        if ($adaptador->chaveProvedor() === 'zapi' && !self::urlPublicaHttps()) {
+            return self::teste(false, 'a Z-API só entrega em endereço HTTPS: configure o endereço público (url_publica) com https://');
+        }
+        $segredo = $canal['segredo_webhook'];
+        if ($segredo === null) {
+            // canal gravado à mão, sem segredo: sem ele o webhook recusaria tudo
+            $segredo = Texto::gerarChave();
+            Banco::atualizar('canais', ['segredo_webhook' => $segredo], 'id = ?', [$canal['id']]);
+            $canal['segredo_webhook'] = $segredo;
+            $adaptador = new AdaptadorWhatsAppQr($canal);
+        }
+        $endereco = Canais::urlWebhook($canal['id']);
+        try {
+            $mensagem = $adaptador->conectarWebhook($endereco . '?token=' . rawurlencode($segredo));
+        } catch (ErroCanal $erro) {
+            return self::teste(false, self::semSegredoDoCanal($canal, $erro->getMessage()));
+        }
+        $credenciais = $canal['credenciais'];
+        $credenciais[AdaptadorWhatsAppQr::CHAVE_WEBHOOK] = $endereco;
+        Banco::atualizar('canais', ['credenciais' => Json::objeto($credenciais)], 'id = ?', [$canal['id']]);
+        $alerta = $canal['ativo'] ? null : 'o canal está desativado: as entregas do provedor serão recusadas (409) até você ativá-lo';
+        return self::teste(true, $mensagem, $alerta);
+    }
+
+    /**
+     * [adaptador, null] ou [null, a frase que explica por que não dá].
+     *
+     * @param array<string, mixed> $canal
+     * @return array{0: ?AdaptadorWhatsAppQr, 1: ?string}
+     */
+    private static function adaptadorQr(array $canal): array
+    {
+        if ($canal['tipo'] !== Campos::WHATSAPP_QR) {
+            return [null, 'este canal não conecta pelo QR Code: só o tipo WhatsApp (QR Code)'];
+        }
+        $adaptador = new AdaptadorWhatsAppQr($canal);
+        $faltando = array_map(static fn (string $c): string => Campos::rotulo(Campos::WHATSAPP_QR, $c), $adaptador->faltando());
+        if ($faltando !== []) {
+            return [null, 'preencha: ' . implode(', ', $faltando)];
+        }
+        return [$adaptador, null];
+    }
+
+    /** estado_conexao (e o número) nas credenciais, só se mudou. @param array<string, mixed> $canal */
+    private static function gravarConexao(array $canal, string $estado, ?string $numero): void
+    {
+        $atual = Canais::porId((int) $canal['id']);
+        if ($atual === null) {
+            return;
+        }
+        $novas = AdaptadorWhatsAppQr::credenciaisComConexao($atual['credenciais'], $estado, $numero);
+        if ($novas !== null) {
+            Banco::atualizar('canais', ['credenciais' => Json::objeto($novas)], 'id = ?', [$atual['id']]);
+        }
+    }
+
+    /** O token do webhook vai na URL cadastrada no provedor: nunca numa frase da tela. @param array<string, mixed> $canal */
+    private static function semSegredoDoCanal(array $canal, string $texto): string
+    {
+        $segredo = $canal['segredo_webhook'] ?? null;
+        return is_string($segredo) && $segredo !== '' ? str_replace($segredo, '<oculto>', $texto) : $texto;
     }
 
     public static function remover(Requisicao $req, array $p): void
@@ -376,7 +535,22 @@ final class Rotas
             }
             $atualizadas += count(Mensagens::aplicarStatusExterno($recibos));
         }
-        return ['recebidas' => $novas, 'status_atualizados' => $atualizadas];
+        $resposta = ['recebidas' => $novas, 'status_atualizados' => $atualizadas];
+        if ($adaptador instanceof AdaptadorWhatsAppQr && isset($payload)) {
+            // o dono respondendo pelo celular: vira saída no histórico, sem reenviar
+            $doCelular = 0;
+            foreach ($adaptador->analisarDoCelular($payload) as $recebida) {
+                if (self::gravarDoCelular($canal, $adaptador, $recebida) !== null) {
+                    $doCelular++;
+                }
+            }
+            $conexao = $adaptador->analisarConexao($payload);
+            if ($conexao !== null) {
+                self::gravarConexao($canal, $conexao[0], $conexao[1]);
+            }
+            $resposta['enviadas_pelo_celular'] = $doCelular;
+        }
+        return $resposta;
     }
 
     /**
@@ -467,6 +641,25 @@ final class Rotas
         }
     }
 
+    /**
+     * Resposta dada pelo celular, com a mesma segunda tentativa de
+     * gravarRecebida em corrida de unicidade da identidade do contato.
+     *
+     * @param array<string, mixed> $canal
+     * @return array<string, mixed>|null
+     */
+    private static function gravarDoCelular(array $canal, AdaptadorWhatsAppQr $adaptador, \IHchat\Atendimento\MensagemRecebida $recebida): ?array
+    {
+        try {
+            return DoCelular::registrar($canal, $adaptador, $recebida);
+        } catch (\PDOException $erro) {
+            if (!Banco::eUnicidade($erro)) {
+                throw $erro;
+            }
+            return DoCelular::registrar($canal, $adaptador, $recebida);
+        }
+    }
+
     // ------------------------------------------------------------------- apoio
 
     /** @return array<string, mixed> */
@@ -531,8 +724,11 @@ final class Rotas
         return $valor;
     }
 
-    /** Tipos cujo cadastro gera segredo_webhook (Telegram: secret_token; e-mail: token do webhook). */
-    private const TIPOS_COM_SEGREDO = [Campos::TELEGRAM, Campos::EMAIL];
+    /**
+     * Tipos cujo cadastro gera segredo_webhook (Telegram: secret_token; e-mail
+     * e WhatsApp pelo QR Code: o token que o provedor manda ao webhook).
+     */
+    private const TIPOS_COM_SEGREDO = [Campos::TELEGRAM, Campos::EMAIL, Campos::WHATSAPP_QR];
 
     /**
      * Telegram sem modo_recebimento ganha o modo padrão desta instalação
@@ -548,6 +744,12 @@ final class Rotas
         if ($tipo === Campos::TELEGRAM && (!is_string($modo) || trim($modo) === '')) {
             $credenciais['modo_recebimento'] = Campos::modoTelegramPadrao();
         }
+        $provedor = $credenciais['provedor'] ?? null;
+        if ($tipo === Campos::WHATSAPP_QR && (!is_string($provedor) || trim($provedor) === '')) {
+            // o formulário só manda o que mudou: sem isto, "zapi" (o padrão da
+            // tela) nunca ficaria gravado e cada lado suporia o seu
+            $credenciais['provedor'] = AdaptadorWhatsAppQr::PROVEDOR_PADRAO;
+        }
         return $credenciais;
     }
 
@@ -560,7 +762,7 @@ final class Rotas
      */
     private static function garantirSegredo(array $canal): array
     {
-        if ($canal['tipo'] === Campos::EMAIL && $canal['segredo_webhook'] === null) {
+        if (in_array($canal['tipo'], [Campos::EMAIL, Campos::WHATSAPP_QR], true) && $canal['segredo_webhook'] === null) {
             $canal['segredo_webhook'] = Texto::gerarChave();
             Banco::atualizar('canais', ['segredo_webhook' => $canal['segredo_webhook']], 'id = ?', [$canal['id']]);
         }

@@ -3,14 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%230f9d63"/><rect x="10" y="5" width="12" height="22" rx="3" fill="white"/><rect x="12" y="8" width="8" height="14" rx="1" fill="%230f9d63"/></svg>'>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1120" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/static/marca/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/static/marca/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/marca/apple-touch-icon.png">
   <title>Simulador de clientes — IHchat</title>
   <link rel="stylesheet" href="/static/simulador.css">
 </head>
 <body>
 
 <header class="topo">
-  <div class="marca"><i class="ponto"></i> IHchat <small>2</small></div>
+  <!-- "iH" do logo sem o anel (ver painel.html); o "H" segue a cor do texto -->
+  <div class="marca">
+    <svg class="simbolo" viewBox="11 3.5 284 401" aria-hidden="true" focusable="false">
+      <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+      <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+      <rect x="93" y="235" width="128" height="67" rx="8" fill="currentColor"/>
+      <rect x="213" y="66" width="80" height="336" rx="8" fill="currentColor"/>
+    </svg>
+    <span class="nome-marca">IHchat</span>
+  </div>
   <span class="etiqueta-sim">Simulador de clientes</span>
   <div class="usuario" id="usuario" hidden>
     <span id="nome-atendente"></span>

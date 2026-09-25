@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
@@ -12,7 +13,17 @@ from ..canais.campos import campos_de, modo_telegram_padrao, todos_os_campos
 from ..canais.registro import CanalNaoSuportado, adaptador_para
 from ..canais.telegram import AdaptadorTelegram
 from ..canais.whatsapp import AdaptadorWhatsApp
-from ..config import url_publica_https
+from ..canais.whatsapp_qr import (
+    CHAVE_WEBHOOK,
+    DESCONECTADO,
+    ERRO,
+    PROVEDOR_PADRAO,
+    PROVEDORES,
+    AdaptadorWhatsAppQR,
+    EstadoConexao,
+    credenciais_com_conexao,
+)
+from ..config import url_publica, url_publica_https
 from ..dependencias import AdminAtual, AtendenteAtual, Sessao
 from ..models import Canal, Conversa, TipoCanal
 from ..schemas import (
@@ -47,12 +58,16 @@ _DESTINOS_DOS_SEGREDOS: dict[str, tuple[tuple[tuple[str, ...], tuple[str, ...]],
         (("smtp_senha",), ("smtp_host", "smtp_porta", "smtp_usuario")),
         (("imap_senha", "smtp_senha"), ("imap_host", "imap_porta", "imap_usuario")),
     ),
+    # a API key da Evolution vai para o servidor que o admin escreveu; a da
+    # Z-API vai sempre para api.z-api.io, então não tem destino a proteger
+    TipoCanal.WHATSAPP_QR.value: ((("api_key",), ("url_servidor",)),),
 }
 
 
 # tipos cujo cadastro gera segredo_webhook (Telegram: secret_token do
-# setWebhook; e-mail: o token que o provedor manda ao webhook)
-TIPOS_COM_SEGREDO = (TipoCanal.TELEGRAM.value, TipoCanal.EMAIL.value)
+# setWebhook; e-mail e WhatsApp pelo QR Code: o token que o provedor manda ao
+# webhook, na URL cadastrada nele)
+TIPOS_COM_SEGREDO = (TipoCanal.TELEGRAM.value, TipoCanal.EMAIL.value, TipoCanal.WHATSAPP_QR.value)
 
 
 def segredos_iniciais(tipo: TipoCanal) -> dict:
@@ -79,13 +94,18 @@ def _com_modo_efetivo(tipo: str, credenciais: dict) -> dict:
     modo = credenciais.get("modo_recebimento")
     if tipo == TipoCanal.TELEGRAM.value and not (isinstance(modo, str) and modo.strip()):
         return {**credenciais, "modo_recebimento": modo_telegram_padrao()}
+    provedor = credenciais.get("provedor")
+    if tipo == TipoCanal.WHATSAPP_QR.value and not (isinstance(provedor, str) and provedor.strip()):
+        # o formulário só manda o que mudou: sem isto, "zapi" (o padrão da
+        # tela) nunca ficaria gravado e cada lado suporia o seu
+        return {**credenciais, "provedor": PROVEDOR_PADRAO}
     return credenciais
 
 
 def _garantir_segredo(canal: Canal) -> None:
     """Canal de e-mail cadastrado antes do segredo (ou gravado a mao) ganha um
     na primeira vez que o admin o abre: sem segredo o webhook recusa tudo."""
-    if canal.tipo == TipoCanal.EMAIL.value and not canal.segredo_webhook:
+    if canal.tipo in (TipoCanal.EMAIL.value, TipoCanal.WHATSAPP_QR.value) and not canal.segredo_webhook:
         canal.segredo_webhook = gerar_chave()
 
 
@@ -117,6 +137,8 @@ def _destinos_de(tipo: str, segredo: str) -> list[str]:
 def _normalizar(tipo: str, chave: str, valor):
     if isinstance(valor, str):
         valor = valor.strip()  # token colado com espaco ou quebra de linha
+    if tipo == TipoCanal.WHATSAPP_QR.value and valor is not None and valor != "":
+        return _normalizar_whatsapp_qr(tipo, chave, valor)
     if valor is None or valor == "" or not chave.endswith("_porta"):
         return valor
     # gravada como texto livre, "porta 587" so estourava no envio, como 500 e
@@ -133,6 +155,25 @@ def _normalizar(tipo: str, chave: str, valor):
             f"{_rotulo(tipo, chave)} precisa ser um número de 1 a 65535{exemplo}",
         )
     return str(porta)
+
+
+def _normalizar_whatsapp_qr(tipo: str, chave: str, valor):
+    """Provedor e endereço da Evolution conferidos ao salvar, com a frase na
+    tela, em vez de só estourar no primeiro QR Code. Igual ao Credenciais.php."""
+    if chave == "provedor":
+        provedor = str(valor).lower()
+        if provedor not in PROVEDORES:
+            raise HTTPException(INVALIDO, f"{_rotulo(tipo, chave)} precisa ser zapi ou evolution")
+        return provedor
+    if chave == "url_servidor":
+        endereco = str(valor).rstrip("/")
+        partes = urlsplit(endereco)
+        if partes.scheme.lower() not in ("http", "https") or not partes.netloc:
+            raise HTTPException(
+                INVALIDO, f"{_rotulo(tipo, chave)} precisa começar com https:// (ou http://), ex.: https://evolution.suaempresa.com.br"
+            )
+        return endereco
+    return valor
 
 
 def _exigir_senha_para_servidor_novo(tipo: str, atuais: dict, resultado: dict, enviadas: dict) -> None:
@@ -316,6 +357,16 @@ def testar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
                 "o bot ainda não tem webhook cadastrado: nenhuma mensagem chega até você usar "
                 "'Conectar webhook' (com o endereço público HTTPS) ou trocar para 'polling'"
             )
+    if isinstance(adaptador, AdaptadorWhatsAppQR):
+        if adaptador.ultimo_estado is not None and adaptador.ultimo_estado.status != ERRO:
+            _gravar_conexao(canal, adaptador.ultimo_estado.status, adaptador.ultimo_estado.numero)
+        if adaptador.alerta_de_conexao:
+            alertas.append(adaptador.alerta_de_conexao)
+        if not (canal.credenciais or {}).get(CHAVE_WEBHOOK):
+            alertas.append(
+                "o webhook ainda não foi conectado: sem ele as mensagens dos clientes não chegam. "
+                "Use “Conectar webhook” (precisa do endereço público desta instalação)"
+            )
     if not canal.ativo:
         alertas.append("o canal está desativado: não recebe mensagens novas até você ativá-lo")
     return TesteConexaoSaida(ok=True, mensagem=mensagem, alerta="; ".join(alertas) or None)
@@ -361,6 +412,8 @@ def conectar_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConex
     webhook. Sempre 200 com {ok, mensagem, alerta}, como o testar. O token do
     bot nunca passa pelo navegador."""
     canal = _canal(sessao, canal_id)
+    if canal.tipo == TipoCanal.WHATSAPP_QR.value:
+        return _conectar_whatsapp_qr(sessao, canal)
     if canal.tipo != TipoCanal.TELEGRAM.value:
         if canal.tipo == TipoCanal.WHATSAPP.value:
             mensagem = (
@@ -371,6 +424,115 @@ def conectar_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConex
             mensagem = "este tipo de canal não tem webhook a conectar"
         return TesteConexaoSaida(ok=False, mensagem=mensagem)
     return _conectar_telegram(sessao, canal)
+
+
+# ------------------------------------------------ WhatsApp pelo QR Code
+def _faltando(canal: Canal, adaptador) -> list[str]:
+    """Os campos obrigatórios em branco, com os rótulos do formulário."""
+    return [_rotulo(canal.tipo, c) for c in adaptador.campos_obrigatorios if not adaptador.credenciais.get(c)]
+
+
+def _gravar_conexao(canal: Canal, estado: str, numero: str | None) -> None:
+    """estado_conexao (e o número) nas credenciais, só se mudou."""
+    novas = credenciais_com_conexao(canal.credenciais or {}, estado, numero)
+    if novas is not None:
+        canal.credenciais = novas  # dict novo: o SQLAlchemy percebe a mudança
+
+
+def _sem_segredo_do_canal(canal: Canal, texto: str) -> str:
+    """O token do webhook vai na URL cadastrada no provedor: nunca numa frase da tela."""
+    return texto.replace(canal.segredo_webhook, "<oculto>") if canal.segredo_webhook else texto
+
+
+def _adaptador_qr(canal: Canal) -> tuple[AdaptadorWhatsAppQR | None, str | None]:
+    """(adaptador, None) ou (None, a frase que explica por que não dá)."""
+    if canal.tipo != TipoCanal.WHATSAPP_QR.value:
+        return None, "este canal não conecta pelo QR Code: só o tipo WhatsApp (QR Code)"
+    adaptador = AdaptadorWhatsAppQR(canal)
+    faltando = _faltando(canal, adaptador)
+    if faltando:
+        return None, f"preencha: {', '.join(faltando)}"
+    return adaptador, None
+
+
+@rotas.get("/{canal_id}/qr")
+def qr_code(canal_id: int, sessao: Sessao, _: AdminAtual, so_estado: bool = False) -> dict:
+    """Estado da conexão e o QR Code a ler, perguntados ao provedor.
+
+    Sempre 200 {status, qr, numero, mensagem}: "erro" é um resultado que o
+    painel mostra, não uma falha da requisição. Token e API key nunca saem;
+    o QR é só a imagem. A Evolution cria a instância se ela não existir.
+
+    ?so_estado=1 só confere se conectou (sem gerar QR, "qr" sempre null): é
+    o que o painel consulta a cada ~3 s; o QR novo, a cada ~15 s, porque a
+    Z-API pede de 10 a 20 s entre um QR e outro.
+    """
+    canal = _canal(sessao, canal_id)
+    adaptador, motivo = _adaptador_qr(canal)
+    if adaptador is None:
+        return EstadoConexao(ERRO, mensagem=motivo or "").como_dict()
+    try:
+        estado = adaptador.estado_qr(com_qr=not so_estado)
+    except Exception:
+        log.exception("QR Code do canal %s terminou com erro inesperado", canal.id)
+        estado = EstadoConexao(ERRO, mensagem="erro inesperado ao falar com o provedor; detalhes no log do servidor")
+    estado.mensagem = _sem_segredo_do_canal(canal, estado.mensagem)
+    if estado.status != ERRO:
+        _gravar_conexao(canal, estado.status, estado.numero)
+        sessao.flush()
+    return estado.como_dict()
+
+
+@rotas.post("/{canal_id}/desconectar", response_model=TesteConexaoSaida)
+def desconectar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+    """Desconecta o número no provedor (o celular sai de "Aparelhos conectados")."""
+    canal = _canal(sessao, canal_id)
+    if canal.tipo != TipoCanal.WHATSAPP_QR.value:
+        return TesteConexaoSaida(ok=False, mensagem="este tipo de canal não tem conexão por QR Code a desconectar")
+    adaptador, motivo = _adaptador_qr(canal)
+    if adaptador is None:
+        return TesteConexaoSaida(ok=False, mensagem=motivo or "")
+    try:
+        mensagem = adaptador.desconectar()
+    except ErroCanal as exc:
+        return TesteConexaoSaida(ok=False, mensagem=_sem_segredo_do_canal(canal, str(exc)))
+    _gravar_conexao(canal, DESCONECTADO, None)
+    sessao.flush()
+    return TesteConexaoSaida(ok=True, mensagem=mensagem)
+
+
+def _conectar_whatsapp_qr(sessao, canal: Canal) -> TesteConexaoSaida:
+    """Cadastra no provedor url_publica + /webhooks/{id}?token=<segredo do canal>.
+
+    O token vai na URL porque a Z-API não deixa escolher cabeçalhos; a rota
+    do webhook o confere em tempo constante. Nenhuma frase devolvida o mostra.
+    """
+    adaptador, motivo = _adaptador_qr(canal)
+    if adaptador is None:
+        return TesteConexaoSaida(ok=False, mensagem=motivo or "")
+    if not url_publica():
+        return TesteConexaoSaida(
+            ok=False,
+            mensagem="o endereço público desta instalação (url_publica) não está configurado: sem ele o "
+            "provedor não tem para onde mandar as mensagens. Configure-o (com https) e tente de novo",
+        )
+    if adaptador.chave_provedor == "zapi" and not url_publica_https():
+        return TesteConexaoSaida(
+            ok=False, mensagem="a Z-API só entrega em endereço HTTPS: configure o endereço público (url_publica) com https://"
+        )
+    if not canal.segredo_webhook:
+        canal.segredo_webhook = gerar_chave()
+    endereco = url_webhook(canal.id)
+    try:
+        mensagem = adaptador.conectar_webhook(f"{endereco}?token={quote(canal.segredo_webhook, safe='')}")
+    except ErroCanal as exc:
+        return TesteConexaoSaida(ok=False, mensagem=_sem_segredo_do_canal(canal, str(exc)))
+    canal.credenciais = {**(canal.credenciais or {}), CHAVE_WEBHOOK: endereco}
+    sessao.flush()
+    alerta = None if canal.ativo else (
+        "o canal está desativado: as entregas do provedor serão recusadas (409) até você ativá-lo"
+    )
+    return TesteConexaoSaida(ok=True, mensagem=mensagem, alerta=alerta)
 
 
 @rotas.post("/{canal_id}/remover-webhook", response_model=TesteConexaoSaida)

@@ -24,6 +24,15 @@
      eventos.iniciar();          // começa a entregar o que veio depois dele
      eventos.fechar();
 
+   Carona: outra parte da mesma tela (o chat interno, chat-interno.js) ouve
+   tipos a mais SEM abrir outra conexão:
+
+     const parar = IHchatEventos.assinar(["interno.mensagem"], (tipo, dados, id) => {...});
+
+   Toda conexão criada aqui (a do painel) passa a pedir esses tipos também e
+   entrega a cada assinante o que é dele, uma vez por id. Na hospedagem, uma
+   segunda consulta a cada 2 s por aba dobraria os processos PHP.
+
    O widget (embutido em sites de terceiros) tem uma cópia enxuta desta
    lógica dentro dele: precisa ser um arquivo só. */
 (function (global) {
@@ -34,6 +43,35 @@
   const ESPERA_MAXIMA = 30000;
 
   const modos = new Map(); // origem -> Promise<"stream" | "consulta">
+
+  /* ------------------------------------------------------------ carona */
+  const assinantes = new Set(); // {tipos: Set, aoEvento, ultimo}
+  const conexoes = new Set(); // conexões vivas: recebem os tipos de quem assinar depois
+
+  function assinar(tipos, aoEvento) {
+    const assinatura = { tipos: new Set(tipos), aoEvento, ultimo: 0 };
+    assinantes.add(assinatura);
+    for (const conexao of conexoes) conexao.ouvir(tipos);
+    return () => assinantes.delete(assinatura);
+  }
+
+  function tiposDosAssinantes() {
+    const todos = new Set();
+    for (const assinatura of assinantes) for (const tipo of assinatura.tipos) todos.add(tipo);
+    return todos;
+  }
+
+  function repassar(tipo, dados, id) {
+    for (const assinatura of assinantes) {
+      if (!assinatura.tipos.has(tipo)) continue;
+      // duas conexões na mesma tela não entregam o mesmo evento duas vezes
+      if (id !== null) {
+        if (id <= assinatura.ultimo) continue;
+        assinatura.ultimo = id;
+      }
+      try { assinatura.aoEvento(tipo, dados, id); } catch (erro) { console.error("assinante não tratou", tipo, erro); }
+    }
+  }
 
   /** Pergunta ao servidor como ele entrega eventos (uma vez por origem). */
   function modo(base = "") {
@@ -85,6 +123,18 @@
     let ativo = false;
     let estado = null;
     let pedindo = false;
+    let ouvidos = new Set(); // tipos já com ouvinte no EventSource aberto
+    let receberDoFluxo = null;
+
+    /** O EventSource só entrega os tipos que têm ouvinte: acrescenta os que faltam. */
+    function ouvir(tipos) {
+      if (!fonte || !receberDoFluxo) return; // na consulta vem tudo; o fluxo novo pede todos
+      for (const tipo of tipos) {
+        if (ouvidos.has(tipo)) continue;
+        ouvidos.add(tipo);
+        fonte.addEventListener(tipo, receberDoFluxo);
+      }
+    }
 
     function mudar(novo) {
       if (novo === estado) return;
@@ -96,6 +146,7 @@
       if (cursor !== null && id <= cursor) return; // já visto (reconexão, lote repetido)
       cursor = id;
       try { cfg.aoEvento(tipo, dados, id); } catch (erro) { console.error("evento não tratado", tipo, erro); }
+      repassar(tipo, dados, id);
     }
 
     function espera() {
@@ -142,6 +193,7 @@
       if (fonte) fonte.close();
       const atual = new EventSource(cfg.stream(cursor));
       fonte = atual;
+      ouvidos = new Set();
       atual.onopen = () => {
         falhas = 0;
         mudar("ao-vivo");
@@ -154,9 +206,11 @@
         else {
           // servidor antigo, sem id: entrega mesmo assim (sem como deduplicar)
           try { cfg.aoEvento(evento.type, dados, null); } catch (erro) { console.error(erro); }
+          repassar(evento.type, dados, null);
         }
       };
-      for (const tipo of cfg.tipos) atual.addEventListener(tipo, receber);
+      receberDoFluxo = receber;
+      ouvir([...cfg.tipos, ...tiposDosAssinantes()]);
       atual.onerror = () => {
         if (fonte !== atual) return;
         if (atual.readyState === EventSource.CONNECTING) {
@@ -239,8 +293,12 @@
 
     function destruir() {
       fechar();
+      conexoes.delete(conexao);
       document.removeEventListener("visibilitychange", aoMudarVisibilidade);
     }
+
+    const conexao = { ouvir };
+    conexoes.add(conexao);
 
     return {
       preparar,
@@ -253,5 +311,11 @@
     };
   }
 
-  global.IHchatEventos = { criar, modo };
+  global.IHchatEventos = {
+    criar,
+    modo,
+    assinar,
+    /** Quantas conexões estão abertas nesta tela (o chat interno confere). */
+    get conexoes() { return conexoes.size; },
+  };
 })(window);

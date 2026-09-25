@@ -8,18 +8,34 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
-from ..canais.base import AdaptadorCanal, AnexoRecebido
+from ..canais.base import AdaptadorCanal, AnexoRecebido, MensagemRecebida
 from ..canais.email import AdaptadorEmail
 from ..canais.registro import CanalNaoSuportado, adaptador_para
 from ..canais.whatsapp import AdaptadorWhatsApp, entrega_com, valores_por_numero
+from ..canais.whatsapp_qr import ASSINATURA_DO_CELULAR, AdaptadorWhatsAppQR, credenciais_com_conexao
 from ..dependencias import Sessao
-from ..models import Canal, TipoCanal
+from ..models import (
+    Canal,
+    Conversa,
+    Direcao,
+    Mensagem,
+    StatusConversa,
+    StatusMensagem,
+    TipoCanal,
+    TipoMensagem,
+    agora,
+)
+from ..servicos import anexos as svc_anexos
+from ..servicos.contatos import resolver_contato
+from ..servicos.conversas import obter_ou_criar_conversa
 from ..servicos.mensagens import (
     aplicar_status_externo,
+    ja_processada,
     publicar_conversa,
     publicar_mensagem,
     registrar_entrada,
 )
+from ..util import resumir
 
 log = logging.getLogger("ihchat.webhooks")
 
@@ -129,6 +145,72 @@ def _destinos(sessao, canal: Canal, adaptador: AdaptadorCanal, payload: dict) ->
     ]
 
 
+# ------------------------------------------- WhatsApp pelo QR Code: o celular
+def _conversa_do_celular(sessao, contato, canal: Canal) -> Conversa:
+    """Onde entra a resposta que o dono deu pelo celular.
+
+    A conversa viva do contato neste canal; senão a mais recente, mesmo
+    resolvida (o dono respondendo "de nada" não reabre atendimento para a
+    equipe); senão uma nova, como se o cliente tivesse escrito.
+    """
+    base = select(Conversa).where(Conversa.contato_id == contato.id, Conversa.canal_id == canal.id)
+    viva = sessao.scalar(
+        base.where(Conversa.status != StatusConversa.RESOLVIDA.value)
+        .order_by(Conversa.ultima_mensagem_em.desc(), Conversa.id.desc())
+        .limit(1)
+    )
+    if viva is not None:
+        return viva
+    recente = sessao.scalar(base.order_by(Conversa.ultima_mensagem_em.desc(), Conversa.id.desc()).limit(1))
+    if recente is not None:
+        return recente
+    return obter_ou_criar_conversa(sessao, contato, canal)[0]
+
+
+def registrar_do_celular(
+    sessao, canal: Canal, adaptador: AdaptadorCanal, recebida: MensagemRecebida
+) -> Mensagem | None:
+    """Mensagem que o dono mandou pelo próprio WhatsApp (fromMe): entra no
+    histórico como SAÍDA "Enviada pelo celular" e NÃO é reenviada. Assim a
+    equipe vê a conversa inteira. None = já registrada (reentrega, ou a que o
+    próprio IHchat mandou e voltou pelo webhook). Igual ao DoCelular.php."""
+    if ja_processada(sessao, recebida.externo_id) is not None:
+        return None
+    contato = resolver_contato(sessao, canal.tipo, recebida.identificador, recebida.nome_exibicao)
+    conversa = _conversa_do_celular(sessao, contato, canal)
+    tinha_entrada = sessao.scalar(
+        select(Mensagem.id)
+        .where(Mensagem.conversa_id == conversa.id, Mensagem.direcao == Direcao.ENTRADA.value)
+        .limit(1)
+    ) is not None
+    mensagem = Mensagem(
+        conversa_id=conversa.id,
+        direcao=Direcao.SAIDA.value,
+        tipo=TipoMensagem.TEXTO.value,
+        conteudo=recebida.conteudo,
+        status=StatusMensagem.ENVIADA.value,
+        externo_id=recebida.externo_id,
+        metadados={**(recebida.metadados or {}), "enviada_pelo_celular": True},
+        # o painel mostra "Enviada pelo celular" no lugar do atendente
+        assinatura=dict(ASSINATURA_DO_CELULAR),
+        criada_em=agora(),
+    )
+    sessao.add(mensagem)
+    conversa.ultima_mensagem_em = mensagem.criada_em
+    conversa.previa = resumir(recebida.conteudo, 180)
+    if tinha_entrada and conversa.primeira_resposta_em is None:
+        # o cliente foi atendido, só que pelo celular
+        conversa.primeira_resposta_em = mensagem.criada_em
+    conversa.nao_lidas = 0  # quem respondeu já leu, como numa resposta pelo painel
+    sessao.flush()
+    if recebida.anexos:
+        guardados = svc_anexos.guardar_recebidos(sessao, adaptador, mensagem, recebida.anexos)
+        if not recebida.conteudo.strip() and guardados:
+            conversa.previa = f"📎 {guardados[0].nome}"
+    sessao.refresh(mensagem)
+    return mensagem
+
+
 @rotas.post("/{canal_id}")
 async def receber(canal_id: int, request: Request, sessao: Sessao) -> dict:
     canal = _canal(sessao, canal_id)
@@ -169,13 +251,30 @@ async def receber(canal_id: int, request: Request, sessao: Sessao) -> dict:
                 novas.append(mensagem)
                 conversas[mensagem.conversa_id] = mensagem.conversa
         atualizadas.extend(aplicar_status_externo(sessao, recibos))
+
+    do_celular = []
+    if isinstance(adaptador, AdaptadorWhatsAppQR):
+        for recebida in adaptador.analisar_do_celular(payload):
+            mensagem = registrar_do_celular(sessao, canal, adaptador, recebida)
+            if mensagem is not None:
+                do_celular.append(mensagem)
+                conversas[mensagem.conversa_id] = mensagem.conversa
+        conexao = adaptador.analisar_conexao(payload)
+        if conexao is not None:
+            # dict novo: o SQLAlchemy não percebe mudança dentro do JSON carregado
+            credenciais = credenciais_com_conexao(canal.credenciais or {}, *conexao)
+            if credenciais is not None:
+                canal.credenciais = credenciais
     sessao.commit()
 
-    for mensagem in novas:
+    for mensagem in [*novas, *do_celular]:
         publicar_mensagem(mensagem)
     for conversa in conversas.values():
         publicar_conversa(conversa)
     for mensagem in atualizadas:
         publicar_mensagem(mensagem, "mensagem.status")
 
-    return {"recebidas": len(novas), "status_atualizados": len(atualizadas)}
+    resposta = {"recebidas": len(novas), "status_atualizados": len(atualizadas)}
+    if isinstance(adaptador, AdaptadorWhatsAppQR):
+        resposta["enviadas_pelo_celular"] = len(do_celular)
+    return resposta

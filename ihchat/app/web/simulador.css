@@ -1,36 +1,51 @@
 /* Simulador de clientes. Os tokens são os do painel (painel.css), copiados em
-   vez de importados: o painel trava o scroll do body, e aqui a página rola. */
+   vez de importados: o painel trava o scroll do body, e aqui a página rola.
+   Os papéis do laranja (--marca, --marca-texto, --marca-linha) e as razões de
+   contraste estão explicados no topo do painel.css. */
 :root {
   color-scheme: light dark;
-  --fundo: #f4f6fb;
+  --noite: #060912;
+  --lilas: #eaedf7;
+  --laranja: #ff9e3d;
+
+  --fundo: #f4f5fa;
   --superficie: #ffffff;
-  --superficie-2: #eef1f8;
-  --borda: #dde3ef;
-  --texto: #131a2a;
-  --texto-fraco: #66708a;
-  --marca: #2c5cf6;
-  --marca-fraca: #e6ecff;
-  --verde: #0f9d63;
-  --ambar: #d98307;
-  --vermelho: #d93a3a;
+  --superficie-2: #eef0f7;
+  --borda: #dcdfeb;
+  --texto: #0e1222;
+  --texto-fraco: #585f76;
+  --marca: var(--laranja);
+  --marca-contraste: var(--noite);  /* texto sobre o laranja: 9,67:1 */
+  --marca-texto: #a35200;           /* laranja que pode ser texto: 4,90:1 ou mais */
+  --marca-linha: #d16900;           /* foco e seleção (3:1 ou mais) */
+  --marca-fraca: #fff1e2;
+  --verde: #0a7a4c;
+  --ambar: #9a5800;
+  --vermelho: #c42b2b;
+  --perigo-texto: #ffffff;
   --raio: 10px;
-  --sombra: 0 1px 2px rgba(19, 26, 42, .06), 0 8px 24px rgba(19, 26, 42, .06);
+  --sombra: 0 1px 2px rgba(6, 9, 18, .06), 0 8px 24px rgba(6, 9, 18, .07);
+
+  --fonte: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fundo: #0e1220;
-    --superficie: #161c2e;
-    --superficie-2: #1e2740;
-    --borda: #2a3348;
-    --texto: #e8ecf6;
-    --texto-fraco: #9aa4bf;
-    --marca: #6b8dff;
-    --marca-fraca: #223057;
+    --fundo: var(--noite);
+    --superficie: #0d1120;
+    --superficie-2: #161b2e;
+    --borda: #262c43;
+    --texto: var(--lilas);
+    --texto-fraco: #9ba2bd;
+    --marca-texto: #ffa654;
+    --marca-linha: var(--laranja);
+    --marca-fraca: #2a1c0e;
     --verde: #3ecf8e;
     --ambar: #f0b429;
     --vermelho: #ff6b6b;
-    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    --perigo-texto: var(--noite);
+    --sombra: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 24px rgba(0, 0, 0, .3);
   }
 }
 
@@ -39,14 +54,16 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font: 15px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.5 var(--fonte);
   background: var(--fundo);
   color: var(--texto);
 }
 
 button, input, textarea, select { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+code { font-family: var(--fonte-mono); font-size: .9em; }
+::selection { background: var(--marca); color: var(--marca-contraste); }
+:focus-visible { outline: 2px solid var(--marca-linha); outline-offset: 2px; }
 
 /* ----------------------------------------------------------------- topo */
 .topo {
@@ -54,16 +71,16 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   padding: 10px 24px; min-height: 58px;
   background: var(--superficie); border-bottom: 1px solid var(--borda);
 }
-.marca { font-weight: 700; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; }
-.marca .ponto { width: 10px; height: 10px; border-radius: 50%; background: var(--marca); }
-.marca small { font-weight: 500; color: var(--texto-fraco); }
+.marca { font-size: 17px; font-weight: 800; letter-spacing: -.03em; display: flex; align-items: center; gap: 9px; }
+/* o "iH" do logo: "i" laranja fixo, "H" na cor do texto (ver painel.css) */
+.simbolo { flex: none; height: 26px; width: auto; color: var(--texto); }
 .etiqueta-sim {
   font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
   background: #e7f8ee; color: #0b7a4b; border: 1px solid #bfe8d3;
 }
 .usuario { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .usuario #nome-atendente { font-weight: 600; }
-.link { border: 0; background: transparent; padding: 0; color: var(--marca); cursor: pointer; font-size: 13px; }
+.link { border: 0; background: transparent; padding: 0; color: var(--marca-texto); cursor: pointer; font-size: 13px; font-weight: 600; }
 .link:hover { text-decoration: underline; }
 
 /* -------------------------------------------------------- login / avisos */
@@ -81,15 +98,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   width: 100%; padding: 9px 12px;
   border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie-2);
 }
-.campo input:focus { outline: 2px solid var(--marca); outline-offset: -1px; }
+.campo input:focus { outline: 2px solid var(--marca-linha); outline-offset: -1px; }
 .campo input:disabled { opacity: .55; }
 
 .botao {
   display: inline-block; text-align: center; text-decoration: none;
   border: 0; border-radius: var(--raio); padding: 10px 16px;
-  background: var(--marca); color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap;
+  background: var(--marca); color: var(--marca-contraste); font-weight: 650; cursor: pointer; white-space: nowrap;
 }
-.botao:hover { filter: brightness(1.07); }
+.botao:hover { filter: brightness(1.06) saturate(1.05); }
 .botao:disabled { opacity: .55; cursor: progress; }
 .botao.largo { width: 100%; }
 .erro { color: var(--vermelho); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
@@ -101,7 +118,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--texto); color: var(--fundo); padding: 10px 18px;
   border-radius: 20px; font-size: 14px; box-shadow: var(--sombra); z-index: 20;
 }
-.aviso.falha { background: var(--vermelho); color: #fff; }
+.aviso.falha { background: var(--vermelho); color: var(--perigo-texto); }
 
 /* ---------------------------------------------------------------- faixa */
 .faixa {
@@ -110,7 +127,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--marca-fraca); border: 1px solid var(--borda); border-radius: 14px;
   font-size: 14px;
 }
-.faixa b { color: var(--marca); }
+.faixa b { color: var(--marca-texto); }
 .faixa .botao { margin-left: auto; flex: none; }
 
 /* ---------------------------------------------------------------- palco */
@@ -130,23 +147,24 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   padding: 10px 12px; border: 1px solid var(--borda); border-radius: 12px;
   background: var(--superficie); cursor: pointer;
 }
-.persona:hover, .canal:hover:not(:disabled) { border-color: var(--marca); }
-.persona.ativo, .canal.ativo { border-color: var(--marca); box-shadow: inset 0 0 0 1px var(--marca); background: var(--marca-fraca); }
+.persona:hover, .canal:hover:not(:disabled) { border-color: var(--marca-linha); }
+.persona.ativo, .canal.ativo { border-color: var(--marca-linha); box-shadow: inset 0 0 0 1px var(--marca-linha); background: var(--marca-fraca); }
 .persona .corpo, .canal .corpo { min-width: 0; flex: 1; }
 .persona .nome, .canal .nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .persona .linha, .canal .linha { font-size: 12px; color: var(--texto-fraco); overflow-wrap: anywhere; }
 .esmaecido { opacity: .6; }
 .canal:disabled { cursor: not-allowed; background: var(--superficie-2); }
-.canal .linha a { color: var(--marca); }
+.canal .linha a { color: var(--marca-texto); }
 .vazio-lista { font-size: 13px; color: var(--texto-fraco); padding: 4px 2px; }
 
 .avatar {
   flex: none; width: 36px; height: 36px; border-radius: 50%;
   display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff;
-  background: var(--texto-fraco);
+  background: #585f76; /* fixo: o --texto-fraco do escuro é claro e o branco daria 2,53:1 */
 }
-.avatar.tipo-whatsapp { background: #25a35a; }
-.avatar.tipo-telegram { background: #2a8bd6; }
+/* iniciais brancas com 4,5:1 ou mais: 5,17 / 5,16 / 5,07 */
+.avatar.tipo-whatsapp { background: #1a7d45; }
+.avatar.tipo-telegram { background: #1e71b3; }
 .avatar.tipo-email { background: #7c52e0; }
 .avatar.tipo-novo { background: var(--superficie-2); color: var(--texto-fraco); border: 1px dashed var(--borda); }
 
@@ -157,7 +175,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .selo.canal-whatsapp { background: #e7f8ee; color: #0b7a4b; border-color: #bfe8d3; }
 .selo.canal-telegram { background: #e6f2fd; color: #1666a8; border-color: #c2ddf5; }
 .selo.canal-email    { background: #f1ecfd; color: #6b3fd4; border-color: #ddd2f8; }
-.selo.canal-webchat  { background: #fdf0e6; color: #b45f10; border-color: #f6dcc2; }
+.selo.canal-webchat  { background: #fdf0e6; color: #9a4f0c; border-color: #f6dcc2; } /* 5,37:1 */
 
 .form-novo { margin-top: 14px; padding: 14px; border: 1px solid var(--borda); border-radius: 12px; background: var(--superficie); }
 
@@ -178,13 +196,14 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   --deles: #ffffff;
   --deles-texto: #111b21;
   --botao-enviar: #00a884;
+  --botao-enviar-texto: #ffffff;
   --campo: #ffffff;
 
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(410px, 100%);
   height: clamp(520px, calc(100vh - 250px), 780px);
   border: 10px solid #151a24; border-radius: 38px; overflow: hidden;
-  background: var(--tela-fundo); box-shadow: var(--sombra), 0 20px 50px rgba(19, 26, 42, .18);
+  background: var(--tela-fundo); box-shadow: var(--sombra), 0 20px 50px rgba(6, 9, 18, .18);
 }
 .celular[data-tipo="telegram"] {
   --tela-fundo: #cfdde9;
@@ -198,6 +217,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   --tela-topo: var(--superficie);
   --tela-topo-texto: var(--texto);
   --botao-enviar: var(--marca);
+  --botao-enviar-texto: var(--marca-contraste); /* o laranja pede texto escuro */
   --campo: var(--superficie-2);
 }
 @media (prefers-color-scheme: dark) {
@@ -220,7 +240,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   display: grid; place-items: center; font-weight: 700; font-size: 14px;
   background: rgba(255, 255, 255, .22);
 }
-.celular[data-tipo="email"] .tela-avatar { background: var(--marca-fraca); color: var(--marca); }
+.celular[data-tipo="email"] .tela-avatar { background: var(--marca-fraca); color: var(--marca-texto); }
 .tela-titulo { min-width: 0; flex: 1; line-height: 1.25; }
 .tela-titulo b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tela-titulo span { font-size: 12px; opacity: .8; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -254,7 +274,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 /* e-mail: cartões com cabeçalho, como numa caixa de correio */
 .carta {
   background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px;
-  padding: 12px 14px; font-size: 14px; border-left: 4px solid var(--marca);
+  padding: 12px 14px; font-size: 14px; border-left: 4px solid var(--marca-linha);
 }
 .carta.deles { border-left-color: var(--verde); }
 .carta.nova { animation: chegar .35s ease-out; }
@@ -296,7 +316,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .linha-redator textarea:focus, .assunto:focus { outline: 2px solid var(--botao-enviar); outline-offset: -1px; }
 .enviar {
   flex: none; width: 42px; height: 42px; border: 0; border-radius: 50%;
-  background: var(--botao-enviar); color: #fff; font-size: 17px; cursor: pointer;
+  background: var(--botao-enviar); color: var(--botao-enviar-texto); font-size: 17px; cursor: pointer;
 }
 .enviar:disabled { opacity: .45; cursor: not-allowed; }
 .tela-redator textarea:disabled { opacity: .6; }

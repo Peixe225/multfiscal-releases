@@ -3,41 +3,77 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%232c5cf6"/><path d="M8 11h16v9a2 2 0 0 1-2 2h-8l-4 4v-4H8z" fill="white"/></svg>'>
+  <meta name="theme-color" content="#f4f5fa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#060912" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/static/marca/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/static/marca/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/marca/apple-touch-icon.png">
   <title>Widget de webchat — IHchat</title>
+  <!-- Paleta do IHchat (ver o topo de painel.css): laranja da I&H como acento,
+       sempre com texto azul-noite por cima; neutros puxados para o lilás -->
   <style>
-    :root { color-scheme: light dark; --marca: #2c5cf6; }
-    body {
-      margin: 0; min-height: 100vh; padding: 56px 24px;
-      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: #f4f6fb; color: #131a2a;
+    :root {
+      color-scheme: light dark;
+      --noite: #060912; --lilas: #eaedf7; --laranja: #ff9e3d;
+      --fundo: #f4f5fa; --superficie: #ffffff; --superficie-2: #eef0f7; --borda: #dcdfeb;
+      --texto: #0e1222; --texto-fraco: #585f76; --marca-texto: #a35200; --marca-linha: #d16900;
     }
-    main { max-width: 680px; margin: 0 auto; }
-    h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.02em; }
-    p.sub { color: #66708a; margin-top: 0; }
-    .cartao { background: #fff; border: 1px solid #dde3ef; border-radius: 14px; padding: 22px; margin-top: 26px; }
-    label { display: block; font-size: 13px; color: #66708a; margin-bottom: 6px; }
-    input {
-      width: 100%; padding: 10px 12px; border: 1px solid #dde3ef;
-      border-radius: 9px; font: inherit; background: #f7f9fd; color: inherit;
-    }
-    button {
-      margin-top: 12px; border: 0; background: var(--marca); color: #fff;
-      padding: 10px 18px; border-radius: 9px; font: inherit; font-weight: 600; cursor: pointer;
-    }
-    pre {
-      background: #131a2a; color: #e8ecf6; padding: 16px; border-radius: 10px;
-      overflow-x: auto; font-size: 13px; line-height: 1.5;
-    }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     @media (prefers-color-scheme: dark) {
-      body { background: #0e1220; color: #e8ecf6; }
-      .cartao { background: #161c2e; border-color: #2a3348; }
-      input { background: #1e2740; border-color: #2a3348; }
+      :root {
+        --fundo: var(--noite); --superficie: #0d1120; --superficie-2: #161b2e; --borda: #262c43;
+        --texto: var(--lilas); --texto-fraco: #9ba2bd; --marca-texto: #ffa654; --marca-linha: var(--laranja);
+      }
     }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 0 16px 56px;
+      font: 16px/1.6 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--fundo); color: var(--texto);
+    }
+    .topo {
+      max-width: 680px; margin: 0 auto; padding: 22px 0 0;
+      display: flex; align-items: center; gap: 9px; font-size: 15px;
+    }
+    .topo b { font-weight: 800; letter-spacing: -.03em; font-size: 17px; }
+    .topo span { color: var(--texto-fraco); }
+    .simbolo { height: 24px; width: auto; flex: none; color: var(--texto); }
+    main { max-width: 680px; margin: 0 auto; padding-top: 36px; }
+    h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.03em; line-height: 1.2; }
+    p.sub { color: var(--texto-fraco); margin-top: 0; }
+    .cartao { background: var(--superficie); border: 1px solid var(--borda); border-radius: 14px; padding: 22px; margin-top: 26px; }
+    label { display: block; font-size: 13px; color: var(--texto-fraco); margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--borda);
+      border-radius: 9px; font: inherit; background: var(--superficie-2); color: inherit;
+    }
+    input:focus { outline: 2px solid var(--marca-linha); outline-offset: -1px; }
+    /* laranja com texto azul-noite: 9,67:1 (branco daria 2,06:1) */
+    button {
+      margin-top: 12px; border: 0; background: var(--laranja); color: var(--noite);
+      padding: 10px 18px; border-radius: 9px; font: inherit; font-weight: 650; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.06) saturate(1.05); }
+    button:focus-visible { outline: 2px solid var(--marca-linha); outline-offset: 2px; }
+    /* o trecho para copiar numa superfície de marca: azul-noite com o lilás do "H" */
+    pre {
+      background: var(--noite); color: var(--lilas); padding: 16px; border-radius: 10px;
+      overflow-x: auto; font-size: 13px; line-height: 1.5; border: 1px solid var(--borda);
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre .atributo { color: #ffa654; } /* 10,26:1 no azul-noite */
+    .nota { margin-bottom: 0; color: var(--texto-fraco); font-size: 14px; }
   </style>
 </head>
 <body>
+<header class="topo">
+  <svg class="simbolo" viewBox="11 3.5 284 401" aria-hidden="true" focusable="false">
+    <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+    <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+    <rect x="93" y="235" width="128" height="67" rx="8" fill="currentColor"/>
+    <rect x="213" y="66" width="80" height="336" rx="8" fill="currentColor"/>
+  </svg>
+  <b>IHchat</b> <span>· página de teste do widget</span>
+</header>
 <main>
   <h1>Widget de webchat</h1>
   <p class="sub">
@@ -56,10 +92,10 @@
   <div class="cartao">
     <p style="margin-top:0"><strong>Para colocar no site de verdade</strong>, basta uma linha antes do <code>&lt;/body&gt;</code>:</p>
     <pre><code>&lt;script src="<span id="host"></span>/widget.js"
-        data-chave="SUA_CHAVE_PUBLICA"
-        data-titulo="Suporte MultFiscal"
-        data-cor="#2c5cf6"&gt;&lt;/script&gt;</code></pre>
-    <p style="margin-bottom:0;color:#66708a;font-size:14px">
+        <span class="atributo">data-chave</span>="SUA_CHAVE_PUBLICA"
+        <span class="atributo">data-titulo</span>="Suporte I&amp;H"
+        <span class="atributo">data-cor</span>="#ff9e3d"&gt;&lt;/script&gt;</code></pre>
+    <p class="nota">
       As mensagens caem na mesma caixa de entrada do WhatsApp, do Telegram e do
       e-mail. Cada visitante ganha uma ficha própria e só vê a conversa que ele
       mesmo teve no site: o e-mail que ele digita não é confirmado, então fica
@@ -86,7 +122,7 @@
     script.id = "widget-ihchat";
     script.src = "/widget.js";
     script.dataset.chave = chave;
-    script.dataset.titulo = "Suporte MultFiscal";
+    script.dataset.titulo = "Suporte I&H";
     script.dataset.saudacao = "Olá! Dúvida sobre cálculo de ICMS, licença ou instalação?";
     document.body.appendChild(script);
   }

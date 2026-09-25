@@ -68,7 +68,7 @@ def test_envio_pelo_whatsapp_chama_a_api_da_meta(cliente, cabecalho_atendente, w
     assert resposta.json()["status"] == "enviada" and resposta.json()["erro"] is None
 
     chamada = provedor.chamadas()[-1]
-    assert chamada["url"] == "https://graph.facebook.com/v20.0/5599/messages"
+    assert chamada["url"] == "https://graph.facebook.com/v26.0/5599/messages"
     assert chamada["cabecalhos"]["authorization"] == "Bearer tk-123"
     corpo = json.loads(chamada["corpo"])
     assert corpo["to"] == telefone and corpo["type"] == "text"

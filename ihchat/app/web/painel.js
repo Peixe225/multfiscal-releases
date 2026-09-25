@@ -991,9 +991,47 @@ const corpoCanais = $("#corpo-canais");
 let sequenciaCampo = 0;
 let sequenciaTeste = 0;
 
+/* Dois jeitos de ligar o WhatsApp: a API oficial da Meta ("whatsapp") e o QR
+   Code, com a sessão num provedor online ("whatsapp_qr"). Na caixa de entrada
+   os dois são só "WhatsApp" (é onde o cliente está); aqui, cada tipo diz o que é. */
+NOMES_CANAL.whatsapp_qr ??= "WhatsApp";
+const ROTULOS_DE_TIPO = { whatsapp: "WhatsApp (API oficial)", whatsapp_qr: "WhatsApp (QR Code)" };
+const rotuloDoTipo = (tipo) => ROTULOS_DE_TIPO[tipo] || NOMES_CANAL[tipo] || tipo;
+
+/* Campos de cada provedor do QR Code: o formulário mostra só os do escolhido.
+   Os obrigatórios são os mesmos que o servidor exige (campos_obrigatorios). */
+const PROVEDORES_QR = {
+  zapi: {
+    rotulo: "Z-API (online, nada para instalar)",
+    nome: "Z-API",
+    campos: ["instancia_id", "instancia_token", "client_token"],
+    obrigatorios: ["instancia_id", "instancia_token"],
+  },
+  evolution: {
+    rotulo: "Evolution API (servidor próprio)",
+    nome: "Evolution API",
+    campos: ["url_servidor", "api_key", "nome_instancia"],
+    obrigatorios: ["url_servidor", "api_key", "nome_instancia"],
+  },
+};
+const provedorQrDe = (credenciais) => PROVEDORES_QR[credenciais?.provedor] || PROVEDORES_QR.zapi;
+
+const AVISO_NAO_OFICIAL =
+  "Conexão não oficial (a mesma do WhatsApp Web): o WhatsApp pode bloquear o número que mandar mensagens em " +
+  "massa ou receber muitas denúncias. Para uso oficial, use o tipo “WhatsApp (API oficial)”.";
+
+/* "5511988887777" -> "+55 (11) 98888-7777"; outro país ou id oculto (@lid) sai como veio. */
+function numeroLegivel(numero) {
+  const digitos = String(numero || "");
+  const br = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(digitos);
+  if (br) return `+55 (${br[1]}) ${br[2]}-${br[3]}`;
+  return /^\d+$/.test(digitos) ? `+${digitos}` : digitos;
+}
+
 /* Chamado ao sair: a próxima pessoa na mesma aba pode ser uma atendente, e o
    secret_token do Telegram guardado aqui deixaria forjar mensagens. */
 function esquecerCanais() {
+  fecharDialogoQr();
   Object.assign(telaCanais, telaCanaisVazia());
 }
 
@@ -1012,7 +1050,8 @@ gavetaCanais.addEventListener("mousedown", (evento) => {
 });
 
 document.addEventListener("keydown", (evento) => {
-  if (gavetaCanais.hidden) return;
+  // o diálogo do QR Code (modal, por cima da gaveta) cuida das próprias teclas
+  if (gavetaCanais.hidden || dialogoQr.elemento?.open) return;
   if (evento.key === "Escape") {
     evento.preventDefault();
     fecharCanais();
@@ -1064,6 +1103,7 @@ async function abrirCanais() {
 
 function fecharCanais() {
   if (gavetaCanais.hidden) return;
+  fecharDialogoQr();
   gavetaCanais.hidden = true;
   corpoCanais.replaceChildren();
   telaCanais.focoAnterior?.focus?.();
@@ -1129,6 +1169,7 @@ function situacaoDoCanal(canal) {
   if (!canal.configurado) {
     return ["Sandbox", "sandbox", "Sem credenciais: as respostas ficam só registradas aqui, não saem de verdade."];
   }
+  if (canal.tipo === "whatsapp_qr" && !telaCanais.testes[canal.id]) return situacaoDoQr(canal);
   // "configurado" só quer dizer campos preenchidos; quem diz se conecta é o teste
   switch (telaCanais.testes[canal.id]) {
     case "andamento":
@@ -1142,6 +1183,20 @@ function situacaoDoCanal(canal) {
     default:
       return ["Não testado", "nao-testado", "Credenciais salvas, ainda não conferidas: “Testar conexão” pergunta ao provedor."];
   }
+}
+
+/* WhatsApp pelo QR Code sem teste nesta sessão: vale o que o servidor soube
+   do provedor por último (o /qr, o teste ou um evento de conexão). */
+function situacaoDoQr(canal) {
+  const credenciais = telaCanais.credenciais[canal.id]?.credenciais || {};
+  if (credenciais.estado_conexao === "conectado") {
+    const numero = credenciais.numero_conectado ? ` ao número ${numeroLegivel(credenciais.numero_conectado)}` : "";
+    return ["Conectado", "conectado", `WhatsApp conectado${numero}. A sessão fica online, no provedor.`];
+  }
+  if (credenciais.estado_conexao) {
+    return ["Desconectado", "nao-testado", "O número não está conectado: use “Conectar pelo QR Code” e leia o código com o celular."];
+  }
+  return ["Falta o QR Code", "nao-testado", "Credenciais salvas. Falta conectar o número: use “Conectar pelo QR Code”."];
 }
 
 /* Atualiza o selo sem redesenhar o cartão, que tiraria o foco do botão. */
@@ -1204,7 +1259,7 @@ function formularioNovoCanal() {
 
   const tipo = criar("select");
   tipo.id = "novo-canal-tipo";
-  for (const chave of Object.keys(telaCanais.tipos)) tipo.append(new Option(NOMES_CANAL[chave] || chave, chave));
+  for (const chave of Object.keys(telaCanais.tipos)) tipo.append(new Option(rotuloDoTipo(chave), chave));
   const nome = campoDeNome("");
   const sugerirNome = () => (nome.placeholder = `Ex.: ${NOMES_CANAL[tipo.value] || tipo.value} Suporte`);
   tipo.addEventListener("change", sugerirNome);
@@ -1255,7 +1310,7 @@ function cartaoDoCanal(canal) {
 
   const [rotulo, classe, explicacao] = situacaoDoCanal(canal);
   const topo = criar("div", "linha");
-  topo.append(titulo, selo(canal.tipo, NOMES_CANAL[canal.tipo] || canal.tipo), criar("span", `situacao ${classe}`, rotulo));
+  topo.append(titulo, selo(canal.tipo, rotuloDoTipo(canal.tipo)), criar("span", `situacao ${classe}`, rotulo));
   cartao.append(topo, criar("p", "dica explicacao", explicacao), blocoParaCopiar(canal));
 
   cartao.append(areaDeResultado(canal.id));
@@ -1267,7 +1322,9 @@ function cartaoDoCanal(canal) {
 
 function acoesDoCanal(canal) {
   const acoes = criar("div", "acoes-canal");
-  const testar = botaoDeTeste("Testar conexão", "botao pequeno testar", canal.id);
+  const qr = canal.tipo === "whatsapp_qr";
+  if (qr) acoes.append(botaoDoQr(canal));
+  const testar = botaoDeTeste("Testar conexão", qr ? "botao discreto pequeno testar" : "botao pequeno testar", canal.id);
   testar.onclick = () => testarCanal(canal.id);
   const editar = botaoPequeno("Editar", "botao discreto pequeno editar");
   editar.onclick = () => abrirEdicao(canal.id);
@@ -1279,7 +1336,7 @@ function acoesDoCanal(canal) {
     redesenharCartao(canal.id, ".cancelar-remocao");
   };
   acoes.append(testar, editar, alternar);
-  acoes.append(...botoesDeWebhook(canal));
+  acoes.append(...botoesDeWebhook(canal), ...botoesDeWebhookQr(canal));
   acoes.append(remover);
   return acoes;
 }
@@ -1560,6 +1617,31 @@ function blocoParaCopiar(canal) {
     } else {
       juntar(criar("p", "dica", "Recebe por polling: não precisa de URL pública, funciona até neste computador."));
     }
+  } else if (canal.tipo === "whatsapp_qr") {
+    const webhook = dados.credenciais.webhook_url;
+    if (!canal.configurado) {
+      juntar(criar("p", "dica", "Preencha em Editar as credenciais do provedor (Z-API ou Evolution API) e depois use “Conectar pelo QR Code”."));
+    } else if (webhook) {
+      juntar(criar("p", "dica", `Recebe as mensagens pelo webhook ${webhook} (cadastrado no provedor).`));
+    } else {
+      juntar(
+        criar(
+          "p",
+          "dica",
+          absoluta
+            ? "Falta conectar o webhook: sem ele as mensagens dos clientes não chegam. Use “Conectar webhook”."
+            : "Para as mensagens chegarem, o provedor precisa de um endereço público deste IHchat (url_publica). " +
+                "Sem ele, cadastre à mão, no provedor, a URL abaixo."
+        )
+      );
+      // a URL leva o token do canal: é o que o webhook confere (só o admin a vê)
+      if (dados.segredo_webhook) {
+        juntar(
+          linhaCopiavel("URL do webhook, com o token do canal", `${url}?token=${encodeURIComponent(dados.segredo_webhook)}`),
+          avisoLocal("O provedor")
+        );
+      }
+    }
   } else if (canal.tipo === "email") {
     const imap = dados.credenciais.imap_host;
     if (imap) {
@@ -1699,8 +1781,9 @@ function formularioDeEdicao(canal) {
 
   const titulo = criar("h3", "", canal.nome);
   const topo = criar("div", "linha");
-  topo.append(titulo, selo(canal.tipo, NOMES_CANAL[canal.tipo] || canal.tipo));
+  topo.append(titulo, selo(canal.tipo, rotuloDoTipo(canal.tipo)));
   form.append(topo);
+  if (canal.tipo === "whatsapp_qr") form.append(criar("p", "dica aviso-nao-oficial", AVISO_NAO_OFICIAL));
 
   if (campos.length && !canal.configurado) {
     // colar um token de teste tira o canal do sandbox: sem o aviso, o
@@ -1754,7 +1837,25 @@ function formularioDeEdicao(canal) {
   const voltar = botaoPequeno("Voltar à lista", "botao discreto pequeno");
   voltar.onclick = () => mostrarListaCanais(canal.id);
   const acoes = criar("div", "acoes-canal");
-  acoes.append(salvar, voltar);
+  acoes.append(salvar);
+  if (canal.tipo === "whatsapp_qr") {
+    prepararCamposDoQr(controles, porChave);
+    // o QR usa o que está GRAVADO: com mudança por salvar, ele falaria com o provedor antigo
+    const conectar = botaoDoQr(canal);
+    conectar.onclick = () => {
+      const mudou = controles.some(([campo, controle]) =>
+        campo.secreto ? controle.value.trim() || controle.dataset.limpar : controle.value.trim() !== controle.dataset.salvo.trim()
+      );
+      if (mudou) {
+        avisar("Salve as credenciais (“Salvar e testar”) antes de conectar pelo QR Code.", true);
+        salvar.focus();
+        return;
+      }
+      abrirDialogoQr(canal.id, conectar);
+    };
+    acoes.append(conectar);
+  }
+  acoes.append(voltar);
   form.append(resultado, acoes);
 
   form.onsubmit = async (evento) => {
@@ -1796,6 +1897,400 @@ function formularioDeEdicao(canal) {
     }
   };
   return form;
+}
+
+/* ---------------------------------------- canais: WhatsApp pelo QR Code */
+/* A sessão do WhatsApp fica num provedor online (Z-API ou Evolution API): o
+   servidor pergunta a ele e devolve só o estado e a imagem do QR, nunca token
+   nem API key. O diálogo confere o estado a cada ~3 s (?so_estado=1, sem gerar
+   QR) e pede um QR novo a cada ~15 s: o WhatsApp troca o código a cada ~20 s e
+   a Z-API pede de 10 a 20 s entre um pedido e outro. Depois de alguns códigos
+   sem leitura ele para e oferece gerar outro (também recomendação da Z-API),
+   em vez de ficar chamando o provedor com a janela esquecida aberta. */
+
+const QR_INTERVALO_ESTADO = 3000;
+const QR_INTERVALO_CODIGO = 15000;
+const QR_MAXIMO_DE_CODIGOS = 4;
+
+const dialogoQr = {
+  elemento: null, // o <dialog> aberto (um por vez)
+  canalId: null,
+  origem: null, // o botão que abriu: o foco volta para ele
+  timers: [],
+  vez: 0, // cada ciclo novo invalida as respostas do anterior ainda no caminho
+  codigos: 0, // QR Codes mostrados sem leitura
+  webhookTentado: false,
+};
+
+function botaoDoQr(canal) {
+  const botao = botaoPequeno("Conectar pelo QR Code", "botao pequeno conectar-qr");
+  botao.setAttribute("aria-haspopup", "dialog");
+  botao.onclick = () => abrirDialogoQr(canal.id, botao);
+  return botao;
+}
+
+/* O webhook do provedor aponta para este IHchat (url_publica + /webhooks/{id}
+   com o token do canal). Sem endereço absoluto, o cartão ensina o caminho à mão. */
+function botoesDeWebhookQr(canal) {
+  if (canal.tipo !== "whatsapp_qr" || !canal.configurado || !/^https?:\/\//i.test(canal.url_webhook || "")) return [];
+  const conectado = Boolean(telaCanais.credenciais[canal.id]?.credenciais?.webhook_url);
+  const botao = botaoDeTeste(conectado ? "Reconectar webhook" : "Conectar webhook", "botao discreto pequeno conectar-webhook", canal.id);
+  botao.title = `O provedor passa a entregar as mensagens em ${canal.url_webhook}`;
+  botao.onclick = () =>
+    acaoDeWebhook(canal, "conectar-webhook", "Cadastrando o webhook no provedor…", "✓ Webhook conectado.", "✗ Não conectou.");
+  return [botao];
+}
+
+/* Formulário do QR Code: só os campos do provedor escolhido, com os
+   obrigatórios dele, e o provedor com um nome que diga o que é. */
+function prepararCamposDoQr(controles, porChave) {
+  const escolha = porChave.provedor;
+  if (!escolha) return;
+  for (const opcao of escolha.options) opcao.textContent = PROVEDORES_QR[opcao.value]?.rotulo || opcao.value;
+  const mostrar = () => {
+    const provedor = PROVEDORES_QR[escolha.value] || PROVEDORES_QR.zapi;
+    for (const [campo, controle] of controles) {
+      const caixa = controle.closest(".campo-canal");
+      const deAlgum = Object.values(PROVEDORES_QR).some((p) => p.campos.includes(campo.chave));
+      if (!caixa || !deAlgum) continue;
+      caixa.hidden = !provedor.campos.includes(campo.chave);
+      const etiqueta = caixa.querySelector("label");
+      etiqueta.querySelector(".obrigatorio")?.remove();
+      if (provedor.obrigatorios.includes(campo.chave)) etiqueta.append(criar("span", "obrigatorio", "obrigatório"));
+    }
+  };
+  escolha.addEventListener("change", mostrar);
+  mostrar();
+}
+
+function pararConsultasQr() {
+  dialogoQr.timers.forEach(clearTimeout);
+  dialogoQr.timers = [];
+  dialogoQr.vez += 1;
+}
+
+function agendarQr(acao, espera) {
+  dialogoQr.timers.push(setTimeout(acao, espera));
+}
+
+function fecharDialogoQr() {
+  pararConsultasQr();
+  if (dialogoQr.elemento?.open) dialogoQr.elemento.close(); // o "close" arruma o resto
+}
+
+function abrirDialogoQr(canalId, origem) {
+  const canal = estado.canais.find((c) => c.id === canalId);
+  if (!canal) return;
+  fecharDialogoQr();
+  dialogoQr.elemento?.remove();
+  Object.assign(dialogoQr, { canalId, origem, codigos: 0, webhookTentado: false });
+
+  const dialogo = criar("dialog", "dialogo-qr");
+  dialogo.setAttribute("aria-labelledby", "qr-titulo");
+  dialogo.setAttribute("aria-describedby", "qr-passos");
+  const cabecalho = criar("div", "cabecalho-dialogo");
+  const titulo = criar("h2", "", "Conectar o WhatsApp pelo QR Code");
+  titulo.id = "qr-titulo";
+  const fechar = criar("button", "icone-gaveta", "×");
+  Object.assign(fechar, { type: "button", title: "Fechar" });
+  fechar.setAttribute("aria-label", "Fechar");
+  fechar.onclick = fecharDialogoQr;
+  cabecalho.append(titulo, fechar);
+
+  const provedor = provedorQrDe(telaCanais.credenciais[canal.id]?.credenciais);
+  const quem = criar("p", "dica qr-canal", `Canal “${canal.nome}”, pela ${provedor.nome}.`);
+
+  // região "status" que já existe antes de mudar: o leitor de tela anuncia cada troca
+  const situacao = criar("div", "qr-situacao");
+  situacao.setAttribute("role", "status");
+  const selo = criar("span", "situacao andamento", "Consultando…");
+  const frase = criar("span", "qr-frase", "Perguntando ao provedor como está a conexão…");
+  situacao.append(selo, frase);
+
+  const imagem = criar("div", "qr-imagem");
+  const passos = criar("ol", "qr-passos");
+  passos.id = "qr-passos";
+  const passo = (...partes) => {
+    const item = criar("li");
+    item.append(...partes.map((parte) => (Array.isArray(parte) ? criar("strong", "", parte[0]) : parte)));
+    return item;
+  };
+  passos.append(
+    passo("Abra o ", ["WhatsApp"], " no celular do número que vai atender."),
+    passo("Toque em ", ["⋮ Mais opções"], " (Android) ou ", ["Configurações"], " (iPhone) → ", ["Aparelhos conectados"], " → ", ["Conectar aparelho"], "."),
+    passo("Aponte a câmera do celular para este QR Code e espere: esta janela avisa quando conectar.")
+  );
+  const corpo = criar("div", "qr-corpo");
+  corpo.append(imagem, passos);
+
+  const webhook = criar("p", "dica qr-webhook");
+  webhook.setAttribute("role", "status");
+
+  const acoes = criar("div", "acoes-canal qr-acoes");
+  const confirmacao = criar("div", "confirmacao qr-confirmacao");
+  confirmacao.hidden = true;
+
+  dialogo.append(cabecalho, quem, situacao, corpo, webhook, acoes, confirmacao);
+  // Esc fecha só o diálogo (a gaveta e a ficha atrás dele têm os próprios Esc)
+  dialogo.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape") return;
+    evento.preventDefault();
+    evento.stopPropagation();
+    if (!confirmacao.hidden) return cancelarDesconexao();
+    fecharDialogoQr();
+  });
+  // outros pedidos de fechar (o "voltar" do Android) passam pelo mesmo caminho
+  dialogo.addEventListener("cancel", (evento) => {
+    evento.preventDefault();
+    if (!confirmacao.hidden) cancelarDesconexao();
+    else fecharDialogoQr();
+  });
+  dialogo.addEventListener("close", () => aoFecharDialogoQr(dialogo));
+  // clique no fundo escuro (fora da caixa) também fecha
+  dialogo.addEventListener("mousedown", (evento) => {
+    if (evento.target === dialogo) fecharDialogoQr();
+  });
+  document.body.append(dialogo);
+  dialogoQr.elemento = dialogo;
+  dialogo.showModal();
+  fechar.focus();
+  cicloQr();
+}
+
+function aoFecharDialogoQr(dialogo) {
+  pararConsultasQr();
+  const canalId = dialogoQr.canalId;
+  const origem = dialogoQr.origem;
+  dialogo.remove();
+  if (dialogoQr.elemento === dialogo) dialogoQr.elemento = null;
+  if (origem?.isConnected) origem.focus();
+  // o diálogo acabou de perguntar ao provedor: um "Testar conexão" de antes
+  // (ex.: "falta ler o QR Code") não pode continuar pintando o cartão
+  delete telaCanais.testes[canalId];
+  delete telaCanais.resultados[canalId];
+  refletirTeste(canalId);
+  // o estado da conexão mudou no servidor: o cartão mostra o novo
+  if (!gavetaCanais.hidden && estado.token) {
+    recarregarCanais()
+      .then(() => {
+        if (!gavetaCanais.hidden && telaCanais.editando === null) redesenharCartao(canalId, ".conectar-qr");
+      })
+      .catch(() => null);
+  }
+}
+
+/* Um QR Code novo (e a consulta de estado que o acompanha). */
+function cicloQr() {
+  pararConsultasQr();
+  consultarQr(false, dialogoQr.vez);
+}
+
+async function consultarQr(soEstado, vez) {
+  const canalId = dialogoQr.canalId;
+  let resposta;
+  try {
+    resposta = await api("GET", `/api/canais/${canalId}/qr${soEstado ? "?so_estado=1" : ""}`);
+  } catch (erro) {
+    resposta = { status: "erro", qr: null, numero: null, mensagem: erro.message };
+  }
+  // fechado, ou já veio um ciclo mais novo: esta resposta não vale mais
+  if (vez !== dialogoQr.vez || !dialogoQr.elemento?.open) return;
+
+  if (resposta.status === "conectado") {
+    pararConsultasQr();
+    desenharQr(resposta);
+    conectarWebhookDoQr();
+    return;
+  }
+  if (resposta.status === "erro") {
+    pararConsultasQr();
+    desenharQr(resposta);
+    return;
+  }
+  if (soEstado) {
+    // ainda não leu: o QR na tela continua valendo
+    agendarQr(() => consultarQr(true, vez), QR_INTERVALO_ESTADO);
+    return;
+  }
+  desenharQr(resposta);
+  conectarWebhookDoQr(); // a instância já existe no provedor
+  if (resposta.status !== "aguardando_leitura") return; // desconectado: o botão pede um QR
+  if (!resposta.qr) {
+    // o provedor ainda está gerando o código: pergunta de novo logo
+    agendarQr(cicloQr, QR_INTERVALO_ESTADO);
+    return;
+  }
+  dialogoQr.codigos += 1;
+  agendarQr(() => consultarQr(true, vez), QR_INTERVALO_ESTADO);
+  agendarQr(() => {
+    if (dialogoQr.codigos >= QR_MAXIMO_DE_CODIGOS) {
+      pararConsultasQr();
+      desenharQr({
+        status: "expirado",
+        qr: null,
+        numero: null,
+        mensagem: "O QR Code expirou sem ser lido. Gere outro quando estiver com o celular em mãos.",
+      });
+    } else {
+      cicloQr();
+    }
+  }, QR_INTERVALO_CODIGO);
+}
+
+const SITUACOES_QR = {
+  conectado: ["Conectado", "conectado"],
+  aguardando_leitura: ["Aguardando leitura", "nao-testado"],
+  desconectado: ["Desconectado", "desativado"],
+  expirado: ["QR Code expirado", "desativado"],
+  erro: ["Não conectou", "falhou"],
+};
+
+function desenharQr(resposta) {
+  const dialogo = dialogoQr.elemento;
+  if (!dialogo) return;
+  const [rotulo, classe] = SITUACOES_QR[resposta.status] || SITUACOES_QR.erro;
+  const selo = dialogo.querySelector(".qr-situacao .situacao");
+  selo.className = `situacao ${classe}`;
+  selo.textContent = rotulo;
+  const frase =
+    resposta.status === "conectado" && resposta.numero
+      ? `WhatsApp conectado ao número ${numeroLegivel(resposta.numero)}. Já pode fechar esta janela.`
+      : resposta.status === "conectado"
+        ? "WhatsApp conectado. Já pode fechar esta janela."
+        : resposta.mensagem || "";
+  dialogo.querySelector(".qr-frase").textContent = frase;
+  dialogo.classList.toggle("com-erro", resposta.status === "erro");
+  dialogo.classList.toggle("sem-qr", resposta.status !== "aguardando_leitura");
+
+  const imagem = dialogo.querySelector(".qr-imagem");
+  const passos = dialogo.querySelector(".qr-passos");
+  const aguardando = resposta.status === "aguardando_leitura";
+  passos.hidden = !aguardando;
+  imagem.hidden = resposta.status === "erro";
+  if (aguardando && resposta.qr) {
+    let foto = imagem.querySelector("img");
+    if (!foto) {
+      foto = criar("img");
+      foto.alt = "QR Code para conectar o WhatsApp: leia com o celular";
+      foto.width = 264;
+      foto.height = 264;
+      imagem.replaceChildren(foto);
+    }
+    // só "data:image/...": o servidor normaliza, e nada mais vira src aqui
+    if (/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(resposta.qr)) foto.src = resposta.qr;
+  } else if (aguardando) {
+    imagem.replaceChildren(criar("span", "qr-marcador", "Gerando o QR Code…"));
+  } else if (resposta.status === "conectado") {
+    imagem.replaceChildren(criar("span", "qr-marcador qr-ok", "✓"));
+  } else {
+    const aviso = resposta.status === "expirado" ? "O QR Code expirou" : "Nenhum número conectado";
+    imagem.replaceChildren(criar("span", "qr-marcador", aviso));
+  }
+
+  const acoes = dialogo.querySelector(".qr-acoes");
+  const botoes = [];
+  if (resposta.status === "conectado") {
+    const desconectar = botaoPequeno("Desconectar este número", "botao discreto pequeno perigo-texto qr-desconectar");
+    desconectar.onclick = pedirDesconexao;
+    botoes.push(desconectar);
+  } else if (resposta.status !== "aguardando_leitura") {
+    const denovo = botaoPequeno(resposta.status === "erro" ? "Tentar de novo" : "Gerar QR Code", "botao pequeno qr-gerar");
+    denovo.onclick = () => {
+      dialogoQr.codigos = 0;
+      desenharQr({ status: "aguardando_leitura", qr: null, numero: null, mensagem: "Pedindo um QR Code ao provedor…" });
+      cicloQr();
+    };
+    botoes.push(denovo);
+  }
+  const fechar = botaoPequeno("Fechar", resposta.status === "conectado" ? "botao pequeno" : "botao discreto pequeno");
+  fechar.onclick = fecharDialogoQr;
+  botoes.push(fechar);
+  const focado = acoes.contains(document.activeElement);
+  acoes.replaceChildren(...botoes);
+  acoes.hidden = !dialogo.querySelector(".qr-confirmacao").hidden;
+  // o botão que tinha o foco sumiu: o foco não pode cair no fundo da página
+  if (focado) botoes[0].focus();
+}
+
+function pedirDesconexao() {
+  const dialogo = dialogoQr.elemento;
+  const caixa = dialogo.querySelector(".qr-confirmacao");
+  caixa.setAttribute("role", "group");
+  caixa.setAttribute("aria-label", "Confirmar desconexão");
+  const texto = criar(
+    "p",
+    "",
+    "Desconectar este número do IHchat? As mensagens dos clientes param de chegar aqui até alguém ler um QR Code de novo. " +
+      "O WhatsApp no celular continua funcionando normalmente."
+  );
+  const sim = botaoPequeno("Sim, desconectar", "botao perigo pequeno qr-confirmar");
+  const nao = botaoPequeno("Cancelar", "botao discreto pequeno");
+  nao.onclick = cancelarDesconexao;
+  sim.onclick = async () => {
+    sim.disabled = nao.disabled = true;
+    sim.textContent = "Desconectando…";
+    let resultado;
+    try {
+      resultado = await api("POST", `/api/canais/${dialogoQr.canalId}/desconectar`);
+    } catch (erro) {
+      resultado = { ok: false, mensagem: erro.message };
+    }
+    if (dialogoQr.elemento !== dialogo) return;
+    caixa.hidden = true;
+    caixa.replaceChildren();
+    if (resultado.ok) {
+      avisar("WhatsApp desconectado.");
+      desenharQr({ status: "desconectado", qr: null, numero: null, mensagem: resultado.mensagem });
+    } else {
+      desenharQr({ status: "erro", qr: null, numero: null, mensagem: `Não desconectou: ${resultado.mensagem}` });
+    }
+    dialogo.querySelector(".qr-acoes button")?.focus();
+  };
+  const linha = criar("div", "acoes-canal");
+  linha.append(sim, nao);
+  caixa.replaceChildren(texto, linha);
+  caixa.hidden = false;
+  dialogo.querySelector(".qr-acoes").hidden = true;
+  nao.focus();
+}
+
+function cancelarDesconexao() {
+  const dialogo = dialogoQr.elemento;
+  if (!dialogo) return;
+  const caixa = dialogo.querySelector(".qr-confirmacao");
+  caixa.hidden = true;
+  caixa.replaceChildren();
+  const acoes = dialogo.querySelector(".qr-acoes");
+  acoes.hidden = false;
+  acoes.querySelector(".qr-desconectar, button")?.focus();
+}
+
+/* Sem webhook cadastrado, o número conecta mas nenhuma mensagem chega. Com o
+   endereço público configurado, o servidor cadastra sozinho (uma vez por
+   abertura); sem ele, a linha explica o que falta. */
+async function conectarWebhookDoQr() {
+  const canal = estado.canais.find((c) => c.id === dialogoQr.canalId);
+  const dados = telaCanais.credenciais[dialogoQr.canalId];
+  const linha = dialogoQr.elemento?.querySelector(".qr-webhook");
+  if (!canal || !linha || dialogoQr.webhookTentado || dados?.credenciais?.webhook_url) return;
+  dialogoQr.webhookTentado = true;
+  if (!/^https?:\/\//i.test(canal.url_webhook || "")) {
+    linha.textContent =
+      "Atenção: este IHchat ainda não tem endereço público (url_publica), então o provedor não tem para onde mandar " +
+      "as mensagens. Configure-o, ou cadastre no provedor a URL do webhook mostrada no cartão do canal.";
+    return;
+  }
+  linha.textContent = "Cadastrando o webhook no provedor, para as mensagens chegarem aqui…";
+  let resultado;
+  try {
+    resultado = await api("POST", `/api/canais/${canal.id}/conectar-webhook`);
+  } catch (erro) {
+    resultado = { ok: false, mensagem: erro.message };
+  }
+  if (!dialogoQr.elemento?.contains(linha)) return;
+  linha.textContent = resultado.ok
+    ? "✓ Webhook conectado: as mensagens dos clientes vão chegar ao IHchat."
+    : `⚠ O webhook não foi cadastrado: ${resultado.mensagem}. Tente “Conectar webhook” no cartão do canal.`;
 }
 
 /* ------------------------------------------------------------------ datas */

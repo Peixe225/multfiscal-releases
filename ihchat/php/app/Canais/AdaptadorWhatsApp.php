@@ -15,7 +15,13 @@ final class AdaptadorWhatsApp extends Adaptador
     public const TIPO = Campos::WHATSAPP;
     public const CAMPOS_OBRIGATORIOS = ['token', 'id_numero'];
 
-    public const VERSAO_API = 'v20.0';
+    /**
+     * Versão da Graph API: o ÚNICO lugar a mudar quando a Meta lançar outra
+     * (cada versão vale cerca de dois anos; a v20.0 expirou em 24/09/2026). A
+     * v26.0 saiu em 29/07/2026: https://developers.facebook.com/docs/graph-api/changelog/
+     * O Python tem a mesma constante em app/canais/whatsapp.py.
+     */
+    public const VERSAO_API = 'v26.0';
     public const BASE = 'https://graph.facebook.com/' . self::VERSAO_API;
     private const TIPOS_COM_ARQUIVO = ['image', 'audio', 'video', 'document', 'sticker'];
     /** O que o tipo "image" da Cloud API aceita (especieDaMidia). */

@@ -14,7 +14,8 @@ use IHchat\Nucleo\Validador;
  * Token pelo cabeçalho Authorization OU por ?token= (mesma regra dos arquivos).
  * Sem "depois": devolve só o cursor atual, para a tela começar "de agora".
  * Resposta: {"eventos": [{"id", "tipo", "dados"}], "ultimo": <id>}; o cliente
- * manda de volta "ultimo" como "depois" na próxima consulta.
+ * manda de volta "ultimo" como "depois" na próxima consulta. Os eventos do
+ * chat interno só chegam a membros da sala (Eventos::doMembro).
  */
 final class Rotas
 {
@@ -26,9 +27,10 @@ final class Rotas
     /** @return array{eventos: list<array<string, mixed>>, ultimo: int} */
     public static function desde(Requisicao $req): array
     {
-        Auth::atendenteDeArquivo($req);
+        $eu = Auth::atendenteDeArquivo($req);
         [$depois, $limite] = self::cursor($req);
-        return Eventos::desde($depois, $limite);
+        // o chat interno ("interno.*") só sai para membros da sala
+        return Eventos::desde($depois, $limite, (int) $eu['id']);
     }
 
     /**

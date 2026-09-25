@@ -15,10 +15,12 @@ use IHchat\Nucleo\Config;
 final class Campos
 {
     public const WHATSAPP = 'whatsapp';
+    /** WhatsApp comum pelo QR Code, com a sessão num provedor online (AdaptadorWhatsAppQr). */
+    public const WHATSAPP_QR = 'whatsapp_qr';
     public const TELEGRAM = 'telegram';
     public const EMAIL = 'email';
     public const WEBCHAT = 'webchat';
-    public const TIPOS = [self::WHATSAPP, self::TELEGRAM, self::EMAIL, self::WEBCHAT];
+    public const TIPOS = [self::WHATSAPP, self::WHATSAPP_QR, self::TELEGRAM, self::EMAIL, self::WEBCHAT];
 
     /**
      * Para onde vai cada senha guardada: [senhas na ordem em que o adaptador as
@@ -30,6 +32,11 @@ final class Campos
         self::EMAIL => [
             [['smtp_senha'], ['smtp_host', 'smtp_porta', 'smtp_usuario']],
             [['imap_senha', 'smtp_senha'], ['imap_host', 'imap_porta', 'imap_usuario']],
+        ],
+        // a API key da Evolution vai para o servidor que o admin escreveu; a da
+        // Z-API vai sempre para api.z-api.io, então não tem destino a proteger
+        self::WHATSAPP_QR => [
+            [['api_key'], ['url_servidor']],
         ],
     ];
 
@@ -50,6 +57,29 @@ final class Campos
                 // um segredo que este sistema possa escolher ou gerar
                 self::campo('segredo_app', 'App Secret (valida a assinatura)', secreto: true,
                     ajuda: 'Meta for Developers → Configurações do app → Básico → Chave secreta do app'),
+            ],
+            // WhatsApp comum pelo QR Code: a sessão fica num provedor online.
+            // Quais campos valem depende do provedor (o painel mostra só os
+            // dele); por isso só o provedor é obrigatório aqui, e o adaptador
+            // diz o resto (AdaptadorWhatsAppQr::camposObrigatorios)
+            self::WHATSAPP_QR => [
+                self::campo('provedor', 'Provedor da conexão', obrigatorio: true, padrao: 'zapi',
+                    opcoes: ['zapi', 'evolution'],
+                    ajuda: 'Z-API: serviço online pago, nada para instalar. Evolution API: software livre, '
+                        . 'num servidor seu (a VPS)'),
+                self::campo('instancia_id', 'ID da instância (Z-API)',
+                    ajuda: 'Painel da Z-API → Instâncias → a sua instância → ID'),
+                self::campo('instancia_token', 'Token da instância (Z-API)', secreto: true,
+                    ajuda: 'Na mesma tela do ID da instância'),
+                self::campo('client_token', 'Client-Token da conta (Z-API)', secreto: true,
+                    ajuda: 'Painel da Z-API → Segurança → Token de segurança da conta. '
+                        . 'Obrigatório se você ativou esse token'),
+                self::campo('url_servidor', 'Endereço do servidor Evolution',
+                    ajuda: 'Ex.: https://evolution.suaempresa.com.br'),
+                self::campo('api_key', 'API key (Evolution)', secreto: true,
+                    ajuda: 'A AUTHENTICATION_API_KEY do servidor: com ela o IHchat cria a instância sozinho'),
+                self::campo('nome_instancia', 'Nome da instância (Evolution)',
+                    ajuda: 'Um nome sem espaços, ex.: ihchat-suporte. Se não existir, é criada no primeiro QR Code'),
             ],
             self::TELEGRAM => [
                 self::campo('token', 'Token do bot', secreto: true, obrigatorio: true,
