@@ -10,7 +10,15 @@ from .canais import whatsapp_qr
 from .canais.registro import adaptador_para
 from .config import url_publica
 from .models import Anexo, Canal, Conversa, Direcao, Mensagem, TipoCanal, TipoMensagem
-from .schemas import AnexoSaida, AssinaturaSaida, CanalSaida, ConversaDetalhe, ConversaSaida, MensagemSaida
+from .schemas import (
+    AnexoSaida,
+    AssinaturaSaida,
+    CanalSaida,
+    ConversaDetalhe,
+    ConversaSaida,
+    HistoricoSaida,
+    MensagemSaida,
+)
 
 
 def url_webhook(canal_id: int) -> str:
@@ -87,7 +95,32 @@ def conversa_detalhe(conversa: Conversa) -> ConversaDetalhe:
     dados = ConversaDetalhe.model_validate(conversa)
     dados.canal = canal_saida(conversa.canal)
     dados.mensagens = [mensagem_saida(m) for m in conversa.mensagens]
+    dados.historico = historico_de(conversa)
     return dados
+
+
+def historico_de(conversa: Conversa) -> list[HistoricoSaida]:
+    """A trilha da conversa (tabela eventos): atribuições, transferências, status."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import object_session
+
+    from .models import Atendente, Evento
+
+    sessao = object_session(conversa)
+    if sessao is None:
+        return []
+    linhas = sessao.execute(
+        select(Evento, Atendente.nome)
+        .outerjoin(Atendente, Atendente.id == Evento.atendente_id)
+        .where(Evento.conversa_id == conversa.id)
+        .order_by(Evento.criado_em, Evento.id)
+    ).all()
+    return [
+        HistoricoSaida(
+            id=e.id, tipo=e.tipo, descricao=e.descricao, atendente_id=e.atendente_id, autor=nome, criado_em=e.criado_em
+        )
+        for e, nome in linhas
+    ]
 
 
 def json_de(modelo) -> dict:

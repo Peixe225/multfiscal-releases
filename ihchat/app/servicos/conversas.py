@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import obter_config
-from ..models import Atendente, Canal, Contato, Conversa, Evento, StatusConversa, agora
+from ..models import Atendente, Canal, Contato, Conversa, Evento, Setor, StatusConversa, agora
 from ..util import garantir_utc
 from .distribuicao import proximo_atendente
 
@@ -64,9 +64,15 @@ def obter_ou_criar_conversa(
         sessao.flush()
         return recente, False
 
+    # o canal pode mandar as conversas novas para a fila de um setor (ativo)
+    setor_id = None
+    if canal.setor_padrao_id is not None:
+        setor = sessao.get(Setor, canal.setor_padrao_id)
+        setor_id = setor.id if setor is not None and setor.ativo else None
     conversa = Conversa(
         contato_id=contato.id,
         canal_id=canal.id,
+        setor_id=setor_id,
         assunto=assunto,
         status=StatusConversa.ABERTA.value,
         ultima_mensagem_em=agora(),
@@ -74,7 +80,7 @@ def obter_ou_criar_conversa(
     sessao.add(conversa)
     sessao.flush()
     if obter_config().distribuicao_automatica:
-        atendente = proximo_atendente(sessao)
+        atendente = proximo_atendente(sessao, setor_id)
         if atendente is not None:
             conversa.atendente_id = atendente.id
             registrar_evento(
@@ -86,11 +92,28 @@ def obter_ou_criar_conversa(
 
 
 def atribuir(
-    sessao: Session, conversa: Conversa, atendente: Atendente | None, autor: Atendente | None = None
+    sessao: Session,
+    conversa: Conversa,
+    atendente: Atendente | None,
+    autor: Atendente | None = None,
+    setor: Setor | None = None,
+    muda_setor: bool = False,
 ) -> Conversa:
+    """Atribui (e, com muda_setor, transfere de setor) e registra no histórico."""
     conversa.atendente_id = atendente.id if atendente else None
-    descricao = f"Atribuida a {atendente.nome}" if atendente else "Devolvida a fila geral"
-    registrar_evento(sessao, conversa, "conversa.atribuida", descricao, autor)
+    if muda_setor:
+        conversa.setor_id = setor.id if setor else None
+        para = f"o setor {setor.nome}" if setor else "a fila geral"
+        descricao = f"Transferida para {atendente.nome} ({para})" if atendente else f"Transferida para {para}"
+        tipo = "conversa.transferida"
+    else:
+        atual = sessao.get(Setor, conversa.setor_id) if conversa.setor_id is not None else None
+        if atendente:
+            descricao = f"Atribuida a {atendente.nome}"
+        else:
+            descricao = f"Devolvida a fila do setor {atual.nome}" if atual else "Devolvida a fila geral"
+        tipo = "conversa.atribuida"
+    registrar_evento(sessao, conversa, tipo, descricao, autor)
     sessao.flush()
     sessao.refresh(conversa)
     return conversa

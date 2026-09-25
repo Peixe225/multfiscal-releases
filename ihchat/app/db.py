@@ -41,6 +41,87 @@ def criar_tabelas() -> None:
 
     Base.metadata.create_all(bind=engine)
     migrar_chat_interno(engine)
+    migrar_cargos_e_setores(engine)
+
+
+# ------------------------------------------------- cargos e setores: subida
+def migrar_cargos_e_setores(motor) -> list[str]:
+    """Os dados antigos no formato novo (idempotente; a mesma regra da
+    migração PHP M20260925_1500_CargosESetores):
+
+    - papel "admin" vira o cargo Administrador e o resto Colaborador;
+    - o texto de setor vira um setor do cadastro (sem diferença de
+      maiúsculas e espaços repetidos; o primeiro atendente, de menor id, dá o
+      nome), e a sala de setor do chat passa a apontar para ele, com os
+      membros e o histórico.
+    As colunas papel e setor continuam gravadas (papel = espelho do cargo;
+    setor = nome do setor). Devolve o que foi feito.
+    """
+    import hashlib
+
+    from .models import criar_cargos_de_fabrica
+
+    feitas: list[str] = []
+    with motor.begin() as conexao:
+        tabelas = set(inspect(conexao).get_table_names())
+        if not {"cargos", "setores", "atendentes"} <= tabelas:
+            return feitas
+        cargos = criar_cargos_de_fabrica(conexao)
+        admins = conexao.execute(
+            text("UPDATE atendentes SET cargo_id = :c WHERE cargo_id IS NULL AND papel = 'admin'"),
+            {"c": cargos["administrador"]},
+        ).rowcount
+        outros = conexao.execute(
+            text("UPDATE atendentes SET cargo_id = :c, papel = 'atendente' WHERE cargo_id IS NULL"),
+            {"c": cargos["colaborador"]},
+        ).rowcount
+        if admins or outros:
+            feitas.append(f"cargos: {admins} administrador(es), {outros} colaborador(es)")
+
+        existentes = {
+            " ".join(nome.split()).lower(): int(setor_id)
+            for setor_id, nome in conexao.execute(text("SELECT id, nome FROM setores")).all()
+        }
+        pessoas = conexao.execute(
+            text("SELECT id, setor FROM atendentes WHERE setor_id IS NULL AND setor IS NOT NULL AND setor <> '' ORDER BY id")
+        ).all()
+        salas: dict[str, tuple[int, str]] = {}
+        for pessoa_id, texto in pessoas:
+            limpo = " ".join((texto or "").split())
+            if not limpo:
+                continue
+            nome = limpo[:60]
+            chave = nome.lower()
+            if chave not in existentes:
+                from .models import Setor, agora
+
+                conexao.execute(Setor.__table__.insert().values(nome=nome, descricao=None, ativo=True, criado_em=agora()))
+                existentes[chave] = int(
+                    conexao.execute(text("SELECT id FROM setores WHERE nome = :n"), {"n": nome}).scalar()
+                )
+                feitas.append(f"setor criado: {nome}")
+            setor_id = existentes[chave]
+            oficial = conexao.execute(text("SELECT nome FROM setores WHERE id = :i"), {"i": setor_id}).scalar()
+            conexao.execute(
+                text("UPDATE atendentes SET setor_id = :s, setor = :n WHERE id = :i"),
+                {"s": setor_id, "n": oficial, "i": pessoa_id},
+            )
+            # a chave antiga era o hash do texto normalizado inteiro
+            antiga = "setor:" + hashlib.sha256(limpo.lower().encode()).hexdigest()[:40]
+            salas.setdefault(antiga, (setor_id, oficial))
+        if "interno_salas" in tabelas:
+            for antiga, (setor_id, nome) in salas.items():
+                nova = f"setor:id:{setor_id}"
+                if conexao.execute(text("SELECT id FROM interno_salas WHERE chave = :c"), {"c": nova}).first():
+                    continue
+                conexao.execute(
+                    text(
+                        "UPDATE interno_salas SET setor_id = :s, chave = :nova, nome = :n, setor = :n "
+                        "WHERE chave = :antiga AND tipo = 'setor'"
+                    ),
+                    {"s": setor_id, "nova": nova, "n": nome, "antiga": antiga},
+                )
+    return feitas
 
 
 # ------------------------------------------------------- chat interno: subida

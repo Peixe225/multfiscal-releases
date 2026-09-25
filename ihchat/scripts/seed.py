@@ -23,7 +23,7 @@ from sqlalchemy import select  # noqa: E402
 
 from app.api.canais import segredos_iniciais  # noqa: E402
 from app.canais.base import MensagemRecebida  # noqa: E402
-from app.db import SessaoLocal, criar_tabelas  # noqa: E402
+from app.db import SessaoLocal, criar_tabelas, engine, migrar_cargos_e_setores  # noqa: E402
 from app.models import (  # noqa: E402
     Atendente,
     Canal,
@@ -110,6 +110,10 @@ def semear(demo: bool = False, producao: bool = False) -> None:
             _conversas_de_exemplo(sessao, canais, ana or admin)
 
         sessao.commit()
+        # papel e texto de setor viram cargo e setor do cadastro pela MESMA
+        # migração que converte uma base antiga (admin = Administrador; a Ana
+        # vira Colaboradora do setor "Suporte técnico"), como no Seed.php
+        migrar_cargos_e_setores(engine)
 
         print("Base criada.")
         print(f"  admin: admin@multfiscal.com.br / {senha}")

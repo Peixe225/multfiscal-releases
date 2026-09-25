@@ -316,6 +316,9 @@
       const eu = await api("GET", "/api/auth/eu");
       if (estado.iniciando !== esta) return; // saiu (ou trocou de pessoa) no meio
       estado.eu = eu;
+      // criar grupo depende do cargo (chat.criar_grupo); sem a lista (servidor
+      // antigo), o botão fica e o servidor decide
+      novoGrupo.hidden = Array.isArray(eu.permissoes) && !eu.permissoes.includes("chat.criar_grupo");
     } catch {
       return;
     }
@@ -1009,15 +1012,21 @@
       if (m.conversa) artigo.append(cartaoDaConversa(m.conversa));
     }
 
-    if (minha && !m.apagada && estado.editando !== m.id) {
+    // editar é só de quem escreveu; apagar, também de quem modera o chat
+    // (chat.moderar). O servidor confere de novo: aqui só não oferece o que dá 403
+    const modera = (estado.eu?.permissoes || []).includes("chat.moderar");
+    if ((minha || modera) && !m.apagada && estado.editando !== m.id) {
       const acoes = el("div", "interno-msg-acoes");
-      const editar = botao("Editar", "interno-acao", "Editar a mensagem");
-      const apagar = botao("Apagar", "interno-acao perigo", "Apagar a mensagem");
-      editar.dataset.acao = "editar";
+      if (minha) {
+        const editar = botao("Editar", "interno-acao", "Editar a mensagem");
+        editar.dataset.acao = "editar";
+        editar.addEventListener("click", () => iniciarEdicao(m.id));
+        acoes.append(editar);
+      }
+      const apagar = botao("Apagar", "interno-acao perigo", minha ? "Apagar a mensagem" : "Apagar a mensagem (moderação)");
       apagar.dataset.acao = "apagar";
-      editar.addEventListener("click", () => iniciarEdicao(m.id));
       apagar.addEventListener("click", () => apagarMensagem(m));
-      acoes.append(editar, apagar);
+      acoes.append(apagar);
       artigo.append(acoes);
     }
     return artigo;

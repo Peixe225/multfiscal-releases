@@ -22,7 +22,12 @@ from sqlalchemy import select
 
 from ..canais.registro import CanalNaoSuportado, adaptador_para
 from ..config import obter_config
-from ..dependencias import AtendenteAtual, Sessao
+from typing import Annotated
+
+from ..dependencias import Sessao, com_permissao
+from ..models import Atendente as _Atendente
+
+Simula = Annotated[_Atendente, com_permissao("simulador.usar")]
 from ..models import (
     Canal,
     ContatoIdentidade,
@@ -316,14 +321,14 @@ def _vista(mensagem: Mensagem, batizada_em: datetime | None = None) -> MensagemV
 
 # -------------------------------------------------------------------- rotas
 @rotas.get("/canais", response_model=list[CanalSimulado])
-def canais(sessao: Sessao, _: AtendenteAtual) -> list[CanalSimulado]:
+def canais(sessao: Sessao, _: Simula) -> list[CanalSimulado]:
     ativos = sessao.scalars(select(Canal).where(Canal.ativo.is_(True)).order_by(Canal.tipo, Canal.nome))
     return [_situacao(c) for c in ativos]
 
 
 @rotas.post("/mensagens", response_model=MensagemVista, status_code=status.HTTP_201_CREATED)
 def escrever_como_cliente(
-    dados: MensagemDoCliente, sessao: Sessao, atendente: AtendenteAtual
+    dados: MensagemDoCliente, sessao: Sessao, atendente: Simula
 ) -> MensagemVista:
     canal = _canal_ativo(sessao, dados.canal_id)
     situacao = _situacao(canal)
@@ -361,7 +366,7 @@ def escrever_como_cliente(
 @rotas.get("/conversa", response_model=ConversaDoCliente)
 def conversa_do_cliente(
     sessao: Sessao,
-    _: AtendenteAtual,
+    _: Simula,
     canal_id: int = Query(),
     identificador: str = Query(min_length=1, max_length=200),
 ) -> ConversaDoCliente:

@@ -30,7 +30,7 @@ from app.armazenamento import ArmazenamentoLocal, definir_armazenamento  # noqa:
 from app.canais import http as canal_http  # noqa: E402
 from app.db import Base, SessaoLocal, engine  # noqa: E402
 from app.main import criar_app  # noqa: E402
-from app.models import Atendente, Canal, Papel, TipoCanal  # noqa: E402
+from app.models import Atendente, Canal, Cargo, Papel, TipoCanal  # noqa: E402
 from app.security import gerar_chave, gerar_hash_senha  # noqa: E402
 
 
@@ -73,9 +73,28 @@ def admin():
     return _criar_atendente("Admin", "admin@teste.com.br", "admin123", Papel.ADMIN)
 
 
+# O que o papel "atendente" podia fazer antes dos cargos (tudo menos canais
+# e equipe). Com papel "atendente" e sem cargo, a Ana seria Colaboradora (vê
+# só as próprias conversas e a fila); os testes que a usam como "o atendente
+# comum de sempre" pedem este cargo. As regras dos cargos de fábrica ficam em
+# tests/test_cargos.py e na suíte de contrato (test_cargos_*.py).
+PERMISSOES_ATENDENTE_LEGADO = [
+    "equipe.ver", "canais.ver", "conversas.ver_todas", "conversas.ver_setor", "conversas.transferir",
+    "conversas.resolver", "conversas.reabrir", "contatos.editar", "contatos.mesclar", "respostas.gerenciar",
+    "etiquetas.gerenciar", "metricas.ver_todas", "metricas.ver_setor", "chat.criar_grupo", "simulador.usar",
+]
+
+
 @pytest.fixture
 def atendente():
-    return _criar_atendente("Ana", "ana@teste.com.br", "ana12345", Papel.ATENDENTE)
+    ana = _criar_atendente("Ana", "ana@teste.com.br", "ana12345", Papel.ATENDENTE)
+    with SessaoLocal() as sessao:
+        cargo = Cargo(nome="Atendente (testes)", nivel=30, permissoes=PERMISSOES_ATENDENTE_LEGADO, sistema=False)
+        sessao.add(cargo)
+        sessao.flush()
+        sessao.get(Atendente, ana.id).cargo_id = cargo.id
+        sessao.commit()
+        return sessao.get(Atendente, ana.id)
 
 
 def _autenticar(cliente: TestClient, email: str, senha: str) -> dict:

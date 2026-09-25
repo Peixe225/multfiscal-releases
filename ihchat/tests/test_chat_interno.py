@@ -17,6 +17,7 @@ from app.api import eventos as rotas_eventos
 from app.db import SessaoLocal, criar_tabelas, engine
 from app.models import (
     Atendente,
+    Cargo,
     Conversa,
     FilaEvento,
     MembroSala,
@@ -215,6 +216,10 @@ def _ler_stream(token: str, ate: str = "event: conversa.atualizada") -> list[str
 
 def test_stream_so_entrega_o_chat_a_membros(cliente, admin, atendente, cabecalho_admin, cabecalho_atendente):
     caio, _ = pessoa(cliente, "Caio Reis")
+    with SessaoLocal() as sessao:  # o Caio vê todas as conversas (recebe o evento do cliente)
+        gerente = sessao.scalar(select(Cargo).where(Cargo.chave == "gerente"))
+        sessao.get(Atendente, caio.id).cargo_id = gerente.id
+        sessao.commit()
     sala = direta(cliente, cabecalho_atendente, admin.id)
     enviar(cliente, cabecalho_atendente, sala["id"], "segredo da direta")
     # um evento de atendimento depois, para o fluxo de quem não é membro ter o que entregar
@@ -266,7 +271,9 @@ def test_filtro_de_membro_le_as_salas_uma_vez_por_lote(monkeypatch):
     assert filtro(FilaEvento(tipo="interno.lida"), {"sala_id": 7, "para": [4]}) is False
     assert filtro(FilaEvento(tipo="interno.lida"), {"sala_id": 8, "para": [3]}) is True
     assert filtro(linha, None) is False
-    assert filtro(FilaEvento(tipo="mensagem.nova"), {"qualquer": 1}) is True
+    # evento de conversa sem o id da conversa não sai; o de canal vai para todos
+    assert filtro(FilaEvento(tipo="mensagem.nova"), {"qualquer": 1}) is False
+    assert filtro(FilaEvento(tipo="canal.atualizado"), {"id": 5}) is True
     assert chamadas == [3]
     filtro.novo_lote()  # quem saiu de uma sala deixa de receber já no próximo lote
     filtro(linha, {"sala_id": 7, "id": 1})

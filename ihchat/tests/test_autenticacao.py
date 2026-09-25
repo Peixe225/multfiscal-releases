@@ -55,12 +55,17 @@ def test_atendente_nao_muda_papel_de_ninguem(cliente, cabecalho_atendente, atend
     assert resposta.status_code == 403
 
 
-def test_atendente_edita_o_proprio_nome(cliente, cabecalho_atendente, atendente):
+def test_nome_e_de_quem_gerencia(cliente, cabecalho_atendente, cabecalho_admin, atendente):
+    """No próprio perfil só senha e disponibilidade; o nome é de quem gerencia."""
     resposta = cliente.patch(
         f"/api/atendentes/{atendente.id}", headers=cabecalho_atendente, json={"nome": "Ana Paula"}
     )
+    assert resposta.status_code == 403
+    resposta = cliente.patch(f"/api/atendentes/{atendente.id}", headers=cabecalho_admin, json={"nome": "Ana Paula"})
     assert resposta.status_code == 200
     assert resposta.json()["nome"] == "Ana Paula"
+    senha = cliente.patch(f"/api/atendentes/{atendente.id}", headers=cabecalho_atendente, json={"senha": "nova-senha"})
+    assert senha.status_code == 200
 
 
 # ------------------------------------------------ base migrada da hospedagem PHP

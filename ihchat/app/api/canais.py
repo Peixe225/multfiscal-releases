@@ -26,7 +26,10 @@ from ..canais.whatsapp_qr import (
     sem_dados_de_outra_instancia,
 )
 from ..config import url_publica, url_publica_https
-from ..dependencias import AdminAtual, AtendenteAtual, Sessao
+from typing import Annotated
+
+from ..dependencias import Sessao, com_permissao
+from ..models import Atendente as _Atendente, Setor as _Setor
 from ..models import Canal, Conversa, TipoCanal
 from ..schemas import (
     CampoCanalSaida,
@@ -226,6 +229,22 @@ def _mesclar_credenciais(tipo: str, atuais: dict, enviadas: dict, limpar: list[s
     return resultado
 
 
+# ver a lista é de quem atende (os filtros do painel); o resto é configurar
+VerCanais = Annotated[_Atendente, com_permissao("canais.ver")]
+GerenteDeCanais = Annotated[_Atendente, com_permissao("canais.gerenciar")]
+
+
+def _conferir_setor_padrao(sessao, setor_id: int | None) -> None:
+    """O setor padrão do canal precisa existir (404) e estar ativo (422)."""
+    if setor_id is None:
+        return
+    setor = sessao.get(_Setor, setor_id)
+    if setor is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "setor nao encontrado")
+    if not setor.ativo:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "setor inativo: reative-o ou escolha outro")
+
+
 def _canal(sessao, canal_id: int) -> Canal:
     canal = sessao.get(Canal, canal_id)
     if canal is None:
@@ -234,13 +253,13 @@ def _canal(sessao, canal_id: int) -> Canal:
 
 
 @rotas.get("", response_model=list[CanalSaida])
-def listar(sessao: Sessao, _: AtendenteAtual) -> list[CanalSaida]:
+def listar(sessao: Sessao, _: VerCanais) -> list[CanalSaida]:
     canais = sessao.scalars(select(Canal).order_by(Canal.nome))
     return [canal_saida(c) for c in canais]
 
 
 @rotas.get("/tipos", response_model=dict[str, list[CampoCanalSaida]])
-def tipos(_: AtendenteAtual) -> dict:
+def tipos(_: VerCanais) -> dict:
     """Campos de credencial de cada tipo: a tela de canais monta o formulario daqui."""
     return {
         tipo: [{**campo.como_dict(), "destinos": _destinos_de(tipo, campo.chave)} for campo in campos]
@@ -249,12 +268,14 @@ def tipos(_: AtendenteAtual) -> dict:
 
 
 @rotas.post("", response_model=CanalSaida, status_code=status.HTTP_201_CREATED)
-def criar(dados: CanalEntrada, sessao: Sessao, _: AdminAtual) -> CanalSaida:
+def criar(dados: CanalEntrada, sessao: Sessao, _: GerenteDeCanais) -> CanalSaida:
+    _conferir_setor_padrao(sessao, dados.setor_padrao_id)
     canal = Canal(
         nome=dados.nome,
         tipo=dados.tipo.value,
         credenciais=_com_modo_efetivo(dados.tipo.value, _mesclar_credenciais(dados.tipo.value, {}, dados.credenciais)),
         ativo=dados.ativo,
+        setor_padrao_id=dados.setor_padrao_id,
         **segredos_iniciais(dados.tipo),
     )
     sessao.add(canal)
@@ -263,7 +284,7 @@ def criar(dados: CanalEntrada, sessao: Sessao, _: AdminAtual) -> CanalSaida:
 
 
 @rotas.get("/{canal_id}/credenciais", response_model=CredenciaisCanalSaida)
-def ver_credenciais(canal_id: int, sessao: Sessao, _: AdminAtual) -> CredenciaisCanalSaida:
+def ver_credenciais(canal_id: int, sessao: Sessao, _: GerenteDeCanais) -> CredenciaisCanalSaida:
     canal = _canal(sessao, canal_id)
     _garantir_segredo(canal)
     # o modo que o servidor usa de fato: sem ele, a tela supunha "polling" num
@@ -286,8 +307,12 @@ def ver_credenciais(canal_id: int, sessao: Sessao, _: AdminAtual) -> Credenciais
 
 
 @rotas.patch("/{canal_id}", response_model=CanalSaida)
-def atualizar(canal_id: int, dados: CanalAtualizacao, sessao: Sessao, _: AdminAtual) -> CanalSaida:
+def atualizar(canal_id: int, dados: CanalAtualizacao, sessao: Sessao, _: GerenteDeCanais) -> CanalSaida:
     canal = _canal(sessao, canal_id)
+    if "setor_padrao_id" in dados.model_fields_set:
+        # null tira o setor: as conversas novas voltam para a fila geral
+        _conferir_setor_padrao(sessao, dados.setor_padrao_id)
+        canal.setor_padrao_id = dados.setor_padrao_id
     # antes de mexer no canal: uma credencial recusada nao salva o resto pela metade
     if dados.credenciais is not None or dados.limpar:
         # atribuicao de um dict novo: o SQLAlchemy nao percebe mudanca feita
@@ -312,7 +337,7 @@ def atualizar(canal_id: int, dados: CanalAtualizacao, sessao: Sessao, _: AdminAt
 
 
 @rotas.post("/{canal_id}/testar", response_model=TesteConexaoSaida)
-def testar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+def testar(canal_id: int, sessao: Sessao, _: GerenteDeCanais) -> TesteConexaoSaida:
     """Confere no provedor se as credenciais funcionam.
 
     Sempre 200: credencial errada e o resultado esperado de um teste, nao uma
@@ -417,7 +442,7 @@ def _conectar_telegram(sessao, canal: Canal) -> TesteConexaoSaida:
 
 
 @rotas.post("/{canal_id}/conectar-webhook", response_model=TesteConexaoSaida)
-def conectar_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+def conectar_webhook(canal_id: int, sessao: Sessao, _: GerenteDeCanais) -> TesteConexaoSaida:
     """Telegram: cadastra no bot o webhook deste canal (url_publica +
     /webhooks/{id}) com o secret_token do canal, e passa o canal para o modo
     webhook. Sempre 200 com {ok, mensagem, alerta}, como o testar. O token do
@@ -477,7 +502,7 @@ def _adaptador_qr(canal: Canal) -> tuple[AdaptadorWhatsAppQR | None, str | None]
 
 
 @rotas.get("/{canal_id}/qr")
-def qr_code(canal_id: int, sessao: Sessao, _: AdminAtual, so_estado: bool = False) -> dict:
+def qr_code(canal_id: int, sessao: Sessao, _: GerenteDeCanais, so_estado: bool = False) -> dict:
     """Estado da conexão e o QR Code a ler, perguntados ao provedor.
 
     Sempre 200 {status, qr, numero, mensagem}: "erro" é um resultado que o
@@ -509,7 +534,7 @@ def qr_code(canal_id: int, sessao: Sessao, _: AdminAtual, so_estado: bool = Fals
 
 
 @rotas.post("/{canal_id}/desconectar", response_model=TesteConexaoSaida)
-def desconectar(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+def desconectar(canal_id: int, sessao: Sessao, _: GerenteDeCanais) -> TesteConexaoSaida:
     """Desconecta o número no provedor (o celular sai de "Aparelhos conectados")."""
     canal = _canal(sessao, canal_id)
     if canal.tipo != TipoCanal.WHATSAPP_QR.value:
@@ -593,7 +618,7 @@ def _conectar_whatsapp_qr(sessao, canal: Canal) -> TesteConexaoSaida:
 
 
 @rotas.post("/{canal_id}/remover-webhook", response_model=TesteConexaoSaida)
-def remover_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexaoSaida:
+def remover_webhook(canal_id: int, sessao: Sessao, _: GerenteDeCanais) -> TesteConexaoSaida:
     """Telegram: apaga o webhook do bot e volta o canal ao polling."""
     canal = _canal(sessao, canal_id)
     if canal.tipo != TipoCanal.TELEGRAM.value:
@@ -608,7 +633,7 @@ def remover_webhook(canal_id: int, sessao: Sessao, _: AdminAtual) -> TesteConexa
 
 
 @rotas.delete("/{canal_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remover(canal_id: int, sessao: Sessao, _: AdminAtual) -> None:
+def remover(canal_id: int, sessao: Sessao, _: GerenteDeCanais) -> None:
     canal = _canal(sessao, canal_id)
     conversas = sessao.scalar(
         select(func.count()).select_from(Conversa).where(Conversa.canal_id == canal.id)

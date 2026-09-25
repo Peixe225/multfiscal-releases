@@ -117,10 +117,21 @@ final class Etiquetas
   `arquivo('arquivo')` (`ArquivoEnviado`: `nome`, `tipo()`, `tamanho`,
   `dados()`, `tipoDetectado()`), `campo('conteudo')` (multipart),
   `tokenBearer()`, `urlBase()`.
-- Autenticação: `Auth::atendente($req)`, `Auth::admin($req)`,
-  `Auth::atendenteDeArquivo($req)` (aceita `?token=`). Devolvem a linha do
-  atendente já tipada. Saída de atendente: SEMPRE `Atendentes::saida($linha)`
-  (nunca expõe `senha_hash`).
+- Autenticação: `Auth::atendente($req)`, `Auth::exigir($req, 'canais.gerenciar')`
+  (login + permissão do catálogo `Auth\Permissoes`; 403 "sem permissão para ..."),
+  `Auth::admin($req)` (cargo Administrador), `Auth::atendenteDeArquivo($req)`
+  (aceita `?token=`). Devolvem a linha do atendente já tipada. Saída de
+  atendente: SEMPRE `Atendentes::saida($linha)` (nunca expõe `senha_hash`;
+  traz `cargo`, `setor_id` e `permissoes` efetivas).
+- Cargos, permissões e setores: catálogo fixo em `Auth\Permissoes` (espelho
+  de `app/permissoes.py`), cargos em `Auth\Cargos` (Administrador tem todas,
+  sempre), regras de hierarquia em `Equipe\Hierarquia` (nível abaixo do seu,
+  último Administrador, próprio perfil só senha/disponibilidade), rotas
+  `/api/permissoes`, `/api/cargos`, `/api/setores` em `Equipe\Rotas`.
+- Conversa de cliente: use `Atendimento\Visibilidade::exigir($eu, $id)` (404
+  para quem não a vê: outro setor), nunca `Conversas::exigir` numa rota. A
+  lista usa `Visibilidade::condicao`; os eventos "mensagem.*"/"conversa.*"
+  passam pelo mesmo filtro (`Eventos::doAtendente`).
 
 ## Banco
 

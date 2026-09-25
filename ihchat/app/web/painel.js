@@ -18,6 +18,8 @@ const estado = {
   etiquetas: [],
   respostas: [],
   atendentes: [],
+  setores: [], // cadastro de setores (/api/setores): transferência, equipe, canais
+  cargos: [], // /api/cargos: a tela da equipe e os selos
   modo: "resposta",
   eventos: null, // IHchatEventos: stream ou consulta, conforme o /saude
   marcada: 0,
@@ -30,6 +32,36 @@ const criar = (tag, classe, texto) => {
   if (texto !== undefined) elemento.textContent = texto;
   return elemento;
 };
+
+/* O que o cargo de quem está logado permite (a lista vem em /api/auth/eu).
+   Esconder botão é só conforto: quem decide é o servidor, rota a rota. Sem a
+   lista (servidor de antes dos cargos), vale o papel antigo. */
+function pode(permissao) {
+  const eu = estado.atendente;
+  if (!eu) return false;
+  if (Array.isArray(eu.permissoes)) return eu.permissoes.includes(permissao);
+  return eu.papel === "admin";
+}
+
+const nivelDe = (pessoa) => pessoa?.cargo?.nivel ?? (pessoa?.papel === "admin" ? 100 : 20);
+const eAdministrador = (pessoa) => pessoa?.papel === "admin";
+
+/* Posso gerenciar esta pessoa? A mesma regra do servidor (Hierarquia): nível
+   abaixo do meu e, se não defino setor, do meu setor; o Administrador pode tudo. */
+function possoGerenciar(pessoa) {
+  const eu = estado.atendente;
+  if (!pode("equipe.gerenciar") || !eu || pessoa.id === eu.id) return false;
+  if (eAdministrador(eu)) return true;
+  if (nivelDe(pessoa) >= nivelDe(eu)) return false;
+  return pode("equipe.definir_setor") || (pessoa.setor_id ?? null) === (eu.setor_id ?? null);
+}
+
+/* Botões e abas conforme o cargo. */
+function aplicarPermissoes() {
+  $("#abrir-canais").hidden = !pode("canais.gerenciar");
+  $("#abrir-equipe").hidden = !(pode("equipe.gerenciar") || pode("cargos.gerenciar") || pode("setores.gerenciar"));
+  $("#abrir-simulador").hidden = !pode("simulador.usar");
+}
 
 const FILTROS_FIXOS = [
   { chave: "aberta", rotulo: "Abertas", params: { status: "aberta" } },
@@ -118,6 +150,7 @@ function sair() {
   esquecerCanais();
   $("#abrir-canais").hidden = true;
   $("#abrir-equipe").hidden = true;
+  $("#abrir-simulador").hidden = true;
   $("#app").hidden = true;
   $("#tela-login").hidden = false;
 }
@@ -130,19 +163,23 @@ async function iniciar() {
   estado.atendente = estado.atendente || (await api("GET", "/api/auth/eu"));
   desenharPerfil();
   // a API recusa do mesmo jeito; esconder só poupa o atendente de um 403
-  $("#abrir-canais").hidden = estado.atendente.papel !== "admin";
-  $("#abrir-equipe").hidden = estado.atendente.papel !== "admin";
+  aplicarPermissoes();
 
   // o cursor dos eventos vem ANTES das listas: o que chegar enquanto elas
   // carregam é entregue depois (repetido, no máximo, e os desenhos ignoram)
   criarEventos();
   await estado.eventos.preparar().catch(() => null);
 
-  [estado.canais, estado.etiquetas, estado.respostas, estado.atendentes] = await Promise.all([
-    api("GET", "/api/canais"),
+  // cada lista depende do cargo: a que não pode (ou o servidor antigo sem
+  // cargos e setores) vira lista vazia, e o painel abre do mesmo jeito
+  const ouVazia = (caminho, permitido = true) => (permitido ? api("GET", caminho).catch(() => []) : Promise.resolve([]));
+  [estado.canais, estado.etiquetas, estado.respostas, estado.atendentes, estado.setores, estado.cargos] = await Promise.all([
+    ouVazia("/api/canais", pode("canais.ver")),
     api("GET", "/api/etiquetas"),
     api("GET", "/api/respostas-rapidas"),
-    api("GET", "/api/atendentes"),
+    ouVazia("/api/atendentes", pode("equipe.ver")),
+    ouVazia("/api/setores"),
+    ouVazia("/api/cargos"),
   ]);
 
   desenharFiltros();
@@ -319,6 +356,10 @@ async function abrirConversa(id) {
   let detalhe;
   try {
     detalhe = await api("GET", `/api/conversas/${id}`);
+  } catch (erro) {
+    // transferida para outro setor (ou outra pessoa): para mim ela não existe mais
+    if (estado.atualId === id) esquecerConversa(id, "Esta conversa não está mais com você nem com o seu setor.");
+    throw erro;
   } finally {
     if (estado.abrindo === abrindo) estado.abrindo = null;
   }
@@ -330,6 +371,34 @@ async function abrirConversa(id) {
   desenharLista();
   desenharConversa();
   agendarMetricas();
+}
+
+/* A conversa saiu do que eu posso ver (transferida): some da lista e, se
+   estava aberta, fecha. */
+function esquecerConversa(id, motivo) {
+  estado.conversas = estado.conversas.filter((c) => c.id !== id);
+  if (estado.atualId === id) {
+    estado.atualId = null;
+    estado.detalhe = null;
+    $("#app").classList.remove("com-conversa");
+    desenharConversa();
+  }
+  desenharLista();
+  if (motivo) avisar(motivo);
+}
+
+/* Relê a conversa aberta depois de uma ação (transferir, status). */
+async function recarregarDetalhe() {
+  const id = estado.atualId;
+  if (!id) return;
+  try {
+    const detalhe = await api("GET", `/api/conversas/${id}`);
+    if (estado.atualId !== id) return;
+    estado.detalhe = detalhe;
+    desenharConversa();
+  } catch {
+    esquecerConversa(id, "A conversa saiu da sua caixa (agora é de outra pessoa ou setor).");
+  }
 }
 
 function juntarChegadas(detalhe, abrindo) {
@@ -392,14 +461,8 @@ function desenharConversa() {
     `${NOMES_CANAL[conversa.canal.tipo] || conversa.canal.tipo} · ${conversa.canal.nome}` +
     (conversa.assunto ? ` · ${conversa.assunto}` : "");
 
-  const seletor = $("#seletor-atendente");
-  seletor.innerHTML = "";
-  seletor.append(new Option("Sem atendente", ""));
-  for (const pessoa of estado.atendentes) {
-    seletor.append(new Option(pessoa.nome, String(pessoa.id)));
-  }
-  seletor.value = conversa.atendente ? String(conversa.atendente.id) : "";
-  $("#seletor-status").value = conversa.status;
+  desenharTransferencia(conversa);
+  desenharStatus(conversa);
   $("#seletor-prioridade").value = conversa.prioridade;
 
   desenharLinhaDoTempo(conversa.mensagens);
@@ -592,23 +655,131 @@ function desenharFicha(conversa) {
   const mensagens = criar("div", "dado");
   mensagens.append(criar("span", "", "Mensagens"), document.createTextNode(String(conversa.mensagens.length)));
   resumo.append(mensagens);
+  const fila = criar("div", "dado");
+  fila.append(criar("span", "", "Setor"), document.createTextNode(conversa.setor || "Fila geral"));
+  resumo.append(fila);
   ficha.append(resumo);
+
+  // quem atribuiu, transferiu, resolveu (o mais recente primeiro)
+  const historico = (conversa.historico || []).slice(-12).reverse();
+  if (historico.length) {
+    const bloco = criar("div", "bloco");
+    bloco.append(criar("h3", "", "Histórico"));
+    const lista = criar("ol", "historico-conversa");
+    for (const item of historico) {
+      const linha = criar("li");
+      linha.append(criar("time", "", dataHora(item.criado_em)), criar("span", "", item.descricao));
+      if (item.autor) linha.append(criar("small", "dica", `por ${item.autor}`));
+      lista.append(linha);
+    }
+    bloco.append(lista);
+    ficha.append(bloco);
+  }
 }
 
 /* ------------------------------------------------------------- controles */
-$("#seletor-atendente").addEventListener("change", async (evento) => {
+/* Transferir: o setor (fila) e a pessoa. Com conversas.transferir, qualquer
+   pessoa ativa (a conversa vai junto para o setor dela) ou a fila de qualquer
+   setor. Sem ela, só pegar da fila para si e devolver a sua. */
+function desenharTransferencia(conversa) {
+  const eu = estado.atendente;
+  const transfere = pode("conversas.transferir");
+  const seletorSetor = $("#seletor-setor");
+  const opcoesSetor = [new Option("Fila geral", "")];
+  for (const setor of estado.setores) {
+    if (setor.ativo || setor.id === conversa.setor_id) opcoesSetor.push(new Option(setor.nome, String(setor.id)));
+  }
+  if (conversa.setor_id && !estado.setores.some((s) => s.id === conversa.setor_id)) {
+    opcoesSetor.push(new Option(conversa.setor || "Setor", String(conversa.setor_id)));
+  }
+  seletorSetor.replaceChildren(...opcoesSetor);
+  seletorSetor.value = conversa.setor_id ? String(conversa.setor_id) : "";
+  seletorSetor.disabled = !transfere;
+  // sem setores cadastrados, o seletor só atrapalharia
+  seletorSetor.hidden = !estado.setores.length && !conversa.setor_id;
+
+  const seletor = $("#seletor-atendente");
+  const atual = conversa.atendente;
+  const fila = new Option(conversa.setor ? `Fila de ${conversa.setor}` : "Sem atendente (fila)", "");
+  const itens = [fila];
+  if (transfere) {
+    // agrupadas por setor: escolher alguém de outro setor leva a conversa junto
+    const grupos = new Map();
+    for (const pessoa of estado.atendentes) {
+      if (!pessoa.ativo && pessoa.id !== atual?.id) continue;
+      const chave = pessoa.setor || "Sem setor";
+      if (!grupos.has(chave)) grupos.set(chave, []);
+      grupos.get(chave).push(pessoa);
+    }
+    for (const [nome, pessoas] of grupos) {
+      const grupo = document.createElement("optgroup");
+      grupo.label = nome;
+      for (const pessoa of pessoas) {
+        grupo.append(new Option(pessoa.id === eu?.id ? `${pessoa.nome} (você)` : pessoa.nome, String(pessoa.id)));
+      }
+      itens.push(grupo);
+    }
+  } else if (eu) {
+    itens.push(new Option(`${eu.nome} (você)`, String(eu.id)));
+  }
+  if (atual && !itens.some((item) => item.value === String(atual.id) || item.querySelector?.(`option[value="${Number(atual.id)}"]`))) {
+    itens.push(new Option(atual.nome, String(atual.id)));
+  }
+  seletor.replaceChildren(...itens);
+  seletor.value = atual ? String(atual.id) : "";
+  // sem transferir, a conversa de outra pessoa não se mexe daqui
+  seletor.disabled = !transfere && Boolean(atual) && atual.id !== eu?.id;
+}
+
+/* Resolver e reabrir dependem do cargo; aberta <-> pendente é de todos. */
+function desenharStatus(conversa) {
+  const seletor = $("#seletor-status");
+  seletor.value = conversa.status;
+  const resolvida = conversa.status === "resolvida";
+  for (const opcao of seletor.options) {
+    if (opcao.value === "resolvida") opcao.disabled = !resolvida && !pode("conversas.resolver");
+    else opcao.disabled = resolvida && !pode("conversas.reabrir");
+  }
+  seletor.disabled = resolvida && !pode("conversas.reabrir");
+}
+
+async function transferir(corpo, aviso) {
+  try {
+    await api("POST", `/api/conversas/${estado.atualId}/atribuir`, corpo);
+    avisar(aviso);
+    carregarConversas().catch(() => null);
+    agendarMetricas();
+  } catch (erro) {
+    avisar(erro.message, true);
+  }
+  await recarregarDetalhe();
+}
+
+$("#seletor-atendente").addEventListener("change", (evento) => {
   const valor = evento.target.value;
-  await api("POST", `/api/conversas/${estado.atualId}/atribuir`, {
-    atendente_id: valor ? Number(valor) : null,
-  });
-  avisar(valor ? "Conversa atribuída." : "Conversa devolvida à fila.");
+  const nome = evento.target.selectedOptions[0]?.textContent || "";
+  transferir({ atendente_id: valor ? Number(valor) : null }, valor ? `Conversa com ${nome}.` : "Conversa devolvida à fila.");
+});
+
+$("#seletor-setor").addEventListener("change", (evento) => {
+  const valor = evento.target.value;
+  const nome = evento.target.selectedOptions[0]?.textContent || "";
+  transferir(
+    { setor_id: valor ? Number(valor) : null, atendente_id: null },
+    valor ? `Conversa transferida para a fila de ${nome}.` : "Conversa transferida para a fila geral."
+  );
 });
 
 $("#seletor-status").addEventListener("change", async (evento) => {
-  await api("POST", `/api/conversas/${estado.atualId}/status`, { status: evento.target.value });
-  avisar(`Conversa marcada como ${evento.target.value}.`);
-  carregarConversas();
-  carregarMetricas();
+  try {
+    await api("POST", `/api/conversas/${estado.atualId}/status`, { status: evento.target.value });
+    avisar(`Conversa marcada como ${evento.target.value}.`);
+    carregarConversas();
+    agendarMetricas();
+  } catch (erro) {
+    avisar(erro.message, true);
+  }
+  await recarregarDetalhe();
 });
 
 $("#seletor-prioridade").addEventListener("change", async (evento) => {
@@ -764,9 +935,15 @@ function acrescentarMensagem(mensagem) {
 
 /* ------------------------------------------------------------- métricas */
 async function carregarMetricas() {
-  const resumo = await api("GET", "/api/metricas/resumo");
   const alvo = $("#indicadores");
+  // sem métricas no cargo (Colaborador), o topo fica sem os números
+  if (!pode("metricas.ver_todas") && !pode("metricas.ver_setor")) {
+    alvo.replaceChildren();
+    return;
+  }
+  const resumo = await api("GET", "/api/metricas/resumo");
   alvo.innerHTML = "";
+  if (!pode("metricas.ver_todas")) alvo.title = "Números do seu setor";
   const cartoes = [
     ["Abertas", resumo.abertas],
     ["Pendentes", resumo.pendentes],
@@ -862,6 +1039,12 @@ function avisarNovaMensagem(autor) {
 }
 
 function atualizarConversaNaLista(conversa) {
+  if (conversa.id === estado.atualId && estado.detalhe) {
+    // atribuída ou transferida por outra pessoa: o topo da conversa acompanha
+    Object.assign(estado.detalhe, conversa, { mensagens: estado.detalhe.mensagens, historico: estado.detalhe.historico });
+    desenharTransferencia(estado.detalhe);
+    desenharStatus(estado.detalhe);
+  }
   const indice = estado.conversas.findIndex((c) => c.id === conversa.id);
   if (indice >= 0) estado.conversas[indice] = conversa;
   else if (cabeNoFiltro(conversa)) estado.conversas.unshift(conversa);
@@ -889,9 +1072,10 @@ function cabeNoFiltro(conversa) {
 }
 
 /* ---------------------------------------------------------------- perfil */
-/* O cliente vê o nome e o setor de quem responde. Cada atendente define o
-   seu setor aqui (sugestões ou texto livre) e se está disponível. */
-const SETORES = ["Suporte técnico", "Financeiro", "Comercial", "Implantação"];
+/* O cliente vê o nome e o setor de quem responde. Nome, setor e cargo são de
+   quem gerencia a equipe (antes cada um trocava o próprio setor e caía na sala
+   de outro setor no chat); aqui cada um muda a disponibilidade e a senha. O
+   Administrador, que se gerencia, também escolhe o próprio setor. */
 const telaPerfil = $("#perfil");
 
 function linhaAssinatura(assinatura) {
@@ -908,7 +1092,8 @@ function desenharPerfil() {
   const ponto = $("#ponto-disponivel");
   ponto.classList.toggle("fora", !eu.disponivel);
   ponto.title = eu.disponivel ? "Disponível para conversas novas" : "Fora da distribuição de conversas novas";
-  $("#abrir-perfil").setAttribute("aria-label", `Atendendo como ${linha}. Mudar setor ou disponibilidade`);
+  const cargo = eu.cargo?.nome ? ` (${eu.cargo.nome})` : "";
+  $("#abrir-perfil").setAttribute("aria-label", `Atendendo como ${linha}${cargo}. Ver o perfil, a disponibilidade e a senha`);
   const assinatura = $("#assinatura-redator");
   assinatura.replaceChildren("· O cliente vê ", criar("b", "", linha));
 }
@@ -919,37 +1104,48 @@ $("#cancelar-perfil").addEventListener("click", fecharPerfil);
 telaPerfil.addEventListener("mousedown", (evento) => {
   if (evento.target === telaPerfil) fecharPerfil();
 });
-$("#perfil-setor").addEventListener("input", previaDoPerfil);
+$("#perfil-setor").addEventListener("change", previaDoPerfil);
+
+/* Só o Administrador muda o próprio setor (e ninguém o próprio cargo ou nome). */
+const mudaOProprioSetor = () => eAdministrador(estado.atendente) && pode("equipe.definir_setor");
 
 function abrirPerfil() {
   const eu = estado.atendente;
   if (!eu) return;
-  $("#perfil-setor").value = eu.setor || "";
+  $("#perfil-cargo").textContent = eu.cargo?.nome || (eu.papel === "admin" ? "Administrador" : "Atendente");
+  $("#perfil-setor-leitura").textContent = eu.setor || "sem setor";
+  const editavel = mudaOProprioSetor();
+  $("#rotulo-perfil-setor").hidden = !editavel;
+  // quem escolhe o setor aqui vê o seletor; os outros, o setor só para ler
+  $("#perfil-setor-leitura").hidden = editavel;
+  $("#perfil-setor-leitura").previousElementSibling.hidden = editavel;
+  $("#perfil-quem-muda").hidden = editavel;
+  if (editavel) {
+    const seletor = $("#perfil-setor");
+    const opcoes = [new Option("Sem setor", "")];
+    for (const setor of estado.setores) {
+      if (setor.ativo || setor.id === eu.setor_id) opcoes.push(new Option(setor.nome, String(setor.id)));
+    }
+    seletor.replaceChildren(...opcoes);
+    seletor.value = eu.setor_id ? String(eu.setor_id) : "";
+  }
   $("#perfil-disponivel").checked = Boolean(eu.disponivel);
+  $("#perfil-senha").value = "";
   $("#erro-perfil").textContent = "";
-  const sugestoes = $("#sugestoes-setor");
-  sugestoes.replaceChildren(
-    ...SETORES.map((setor) => {
-      const botao = criar("button", "", setor);
-      botao.type = "button";
-      botao.onclick = () => {
-        $("#perfil-setor").value = setor;
-        previaDoPerfil();
-      };
-      return botao;
-    })
-  );
   previaDoPerfil();
   telaPerfil.hidden = false;
-  $("#perfil-setor").focus();
+  $("#perfil-disponivel").focus();
+}
+
+function setorEscolhidoNoPerfil() {
+  if (!mudaOProprioSetor()) return { id: estado.atendente?.setor_id ?? null, nome: estado.atendente?.setor || "" };
+  const seletor = $("#perfil-setor");
+  return { id: seletor.value ? Number(seletor.value) : null, nome: seletor.value ? seletor.selectedOptions[0].textContent : "" };
 }
 
 function previaDoPerfil() {
-  const setor = $("#perfil-setor").value.trim();
+  const setor = setorEscolhidoNoPerfil().nome;
   $("#previa-assinatura").textContent = linhaAssinatura({ nome: estado.atendente?.nome || "", setor });
-  $("#sugestoes-setor").querySelectorAll("button").forEach((botao) => {
-    botao.setAttribute("aria-pressed", String(botao.textContent === setor));
-  });
 }
 
 function fecharPerfil() {
@@ -961,19 +1157,34 @@ function fecharPerfil() {
 $("#form-perfil").addEventListener("submit", async (evento) => {
   evento.preventDefault();
   const botao = $("#salvar-perfil");
-  botao.disabled = true;
+  const eu = estado.atendente;
   $("#erro-perfil").textContent = "";
+  // só o que mudou: o servidor recusa nome/setor/cargo no próprio perfil
+  const corpo = {};
+  const disponivel = $("#perfil-disponivel").checked;
+  if (disponivel !== Boolean(eu.disponivel)) corpo.disponivel = disponivel;
+  const senha = $("#perfil-senha").value;
+  if (senha) {
+    const problema = problemaDaSenha(senha, false);
+    if (problema) {
+      $("#erro-perfil").textContent = problema;
+      $("#perfil-senha").focus();
+      return;
+    }
+    corpo.senha = senha;
+  }
+  const setor = setorEscolhidoNoPerfil();
+  if (mudaOProprioSetor() && setor.id !== (eu.setor_id ?? null)) corpo.setor_id = setor.id;
+  if (!Object.keys(corpo).length) return fecharPerfil();
+  botao.disabled = true;
   try {
-    const atualizado = await api("PATCH", `/api/atendentes/${estado.atendente.id}`, {
-      setor: $("#perfil-setor").value.trim() || null,
-      disponivel: $("#perfil-disponivel").checked,
-    });
+    const atualizado = await api("PATCH", `/api/atendentes/${eu.id}`, corpo);
     estado.atendente = atualizado;
     const naLista = estado.atendentes.findIndex((a) => a.id === atualizado.id);
     if (naLista >= 0) estado.atendentes[naLista] = atualizado;
     desenharPerfil();
     fecharPerfil();
-    avisar(`Agora o cliente vê: ${linhaAssinatura(atualizado)}`);
+    avisar(corpo.senha ? "Senha trocada." : `Agora o cliente vê: ${linhaAssinatura(atualizado)}`);
   } catch (erro) {
     $("#erro-perfil").textContent = erro.message;
   } finally {
@@ -1144,6 +1355,8 @@ function prenderFoco(evento, gaveta = gavetaCanais) {
 }
 
 async function abrirCanais() {
+  // os setores podem ter mudado desde o login (o seletor de setor padrão lê daqui)
+  api("GET", "/api/setores").then((setores) => (estado.setores = setores)).catch(() => null);
   telaCanais.focoAnterior = document.activeElement;
   Object.assign(telaCanais, { editando: null, criando: false, removendo: null });
   gavetaCanais.hidden = false;
@@ -1965,6 +2178,14 @@ function formularioDeEdicao(canal) {
 
   const nome = campoDeNome(canal.nome);
   form.append(campoRotulado("Nome do canal", nome, "Só para a equipe: aparece nos filtros e em cada conversa."));
+  // conversa nova deste canal entra na fila do setor (e só é distribuída entre quem é dele)
+  const setorPadrao = criar("select");
+  setorPadrao.append(new Option("Fila geral (qualquer pessoa disponível)", ""));
+  for (const setor of estado.setores) {
+    if (setor.ativo || setor.id === canal.setor_padrao_id) setorPadrao.append(new Option(setor.nome, String(setor.id)));
+  }
+  setorPadrao.value = canal.setor_padrao_id ? String(canal.setor_padrao_id) : "";
+  form.append(campoRotulado("Setor das conversas novas", setorPadrao, "Cadastre os setores em Equipe → Setores."));
 
   const porChave = {};
   const controles = campos.map((campo) => {
@@ -2038,6 +2259,8 @@ function formularioDeEdicao(canal) {
     // atual), campo comum apagado vai vazio (o servidor limpa)
     const corpo = {};
     if (nomeLimpo !== canal.nome) corpo.nome = nomeLimpo;
+    const setorId = setorPadrao.value ? Number(setorPadrao.value) : null;
+    if (setorId !== (canal.setor_padrao_id ?? null)) corpo.setor_padrao_id = setorId;
     const credenciais = {};
     const limpar = [];
     for (const [campo, controle] of controles) {
@@ -2534,16 +2757,20 @@ function duracao(segundos) {
 }
 
 /* ---------------------------------------------------------------- equipe */
-/* Só o administrador: quem atende, com que papel e setor, e quem saiu (fica
-   desativado, não apagado: o histórico continua dizendo quem respondeu). Sem
-   esta tela o dono chamaria a API na mão — e na hospedagem não há /docs. As
-   regras são as de /api/atendentes, iguais nos dois servidores. */
+/* Equipe: três abas.
+     Pessoas  quem atende, com que cargo e setor, e quem saiu (desativado, não
+              apagado: o histórico continua dizendo quem respondeu);
+     Cargos   nível e permissões de cada cargo (matriz por grupo); o
+              Administrador tem tudo, sempre, e fica travado;
+     Setores  criar, renomear, desativar.
+   Cada controle aparece só para quem pode (as regras de hierarquia são as do
+   servidor, conferidas de novo lá). */
 const gavetaEquipe = $("#equipe");
 const corpoEquipe = $("#corpo-equipe");
-const telaEquipe = { editando: null, criando: false, focoAnterior: null };
-const PAPEIS = { atendente: "Atendente", admin: "Administrador" };
+const telaEquipe = { aba: "pessoas", editando: null, criando: false, focoAnterior: null, catalogo: [] };
 // o bcrypt guarda só os 72 primeiros bytes da senha (a API recusa acima disso)
 const SENHA_MAX_BYTES = 72;
+const ROTULO_NOVO = { pessoas: "Novo atendente", cargos: "Novo cargo", setores: "Novo setor" };
 
 $("#abrir-equipe").addEventListener("click", abrirEquipe);
 $("#equipe-fechar").addEventListener("click", fecharEquipe);
@@ -2564,6 +2791,28 @@ document.addEventListener("keydown", (evento) => {
     prenderFoco(evento, gavetaEquipe);
   }
 });
+document.querySelectorAll(".abas-equipe .aba").forEach((aba) => {
+  aba.addEventListener("click", () => trocarAbaEquipe(aba.dataset.aba));
+});
+
+function abasPermitidas() {
+  return {
+    pessoas: pode("equipe.ver"),
+    cargos: true, // ler os cargos é de todos; editar pede cargos.gerenciar
+    setores: true,
+  };
+}
+
+function trocarAbaEquipe(aba) {
+  Object.assign(telaEquipe, { aba, editando: null, criando: false });
+  document.querySelectorAll(".abas-equipe .aba").forEach((botao) => {
+    const ativa = botao.dataset.aba === aba;
+    botao.classList.toggle("ativa", ativa);
+    botao.setAttribute("aria-selected", String(ativa));
+  });
+  corpoEquipe.setAttribute("aria-labelledby", `aba-${aba}`);
+  desenharEquipe();
+}
 
 async function abrirEquipe() {
   telaEquipe.focoAnterior = document.activeElement;
@@ -2574,14 +2823,24 @@ async function abrirEquipe() {
   // formulário seria redesenhado por cima do que a pessoa já digitou
   const novo = $("#equipe-novo");
   novo.disabled = true;
+  const permitidas = abasPermitidas();
+  document.querySelectorAll(".abas-equipe .aba").forEach((aba) => (aba.hidden = !permitidas[aba.dataset.aba]));
+  if (!permitidas[telaEquipe.aba]) telaEquipe.aba = Object.keys(permitidas).find((a) => permitidas[a]);
   try {
-    estado.atendentes = await api("GET", "/api/atendentes");
-    desenharEquipe();
+    const [pessoas, cargos, setores, catalogo] = await Promise.all([
+      pode("equipe.ver") ? api("GET", "/api/atendentes") : Promise.resolve([]),
+      api("GET", "/api/cargos"),
+      api("GET", "/api/setores"),
+      api("GET", "/api/permissoes"),
+    ]);
+    Object.assign(estado, { atendentes: pessoas, cargos, setores });
+    telaEquipe.catalogo = catalogo;
+    trocarAbaEquipe(telaEquipe.aba);
   } catch (erro) {
     corpoEquipe.replaceChildren(criar("p", "erro", `Não foi possível carregar a equipe: ${erro.message}`));
   } finally {
     novo.disabled = false;
-    if (!gavetaEquipe.hidden && !gavetaEquipe.contains(document.activeElement)) novo.focus();
+    if (!gavetaEquipe.hidden && !gavetaEquipe.contains(document.activeElement)) $(`#aba-${telaEquipe.aba}`)?.focus();
   }
 }
 
@@ -2592,15 +2851,29 @@ function fecharEquipe() {
   telaEquipe.focoAnterior?.focus?.();
 }
 
+function podeCriarNaAba(aba) {
+  if (aba === "pessoas") return pode("equipe.gerenciar");
+  if (aba === "cargos") return pode("cargos.gerenciar");
+  return pode("setores.gerenciar");
+}
+
 function desenharEquipe() {
+  const aba = telaEquipe.aba;
+  const novo = $("#equipe-novo");
+  novo.textContent = ROTULO_NOVO[aba];
+  novo.hidden = !podeCriarNaAba(aba);
+  if (aba === "cargos") return desenharCargos();
+  if (aba === "setores") return desenharSetores();
   const itens = [];
   if (telaEquipe.criando) itens.push(formularioAtendente(null));
   for (const pessoa of estado.atendentes) {
     itens.push(telaEquipe.editando === pessoa.id ? formularioAtendente(pessoa) : cartaoDoAtendente(pessoa));
   }
+  if (!itens.length) itens.push(criar("p", "dica", "Ninguém cadastrado ainda."));
   corpoEquipe.replaceChildren(...itens);
 }
 
+/* --------------------------------------------------------- equipe: pessoas */
 function cartaoDoAtendente(pessoa) {
   const eu = pessoa.id === estado.atendente?.id;
   const cartao = criar("article", `cartao-canal cartao-atendente${pessoa.ativo ? "" : " inativo"}`);
@@ -2615,29 +2888,33 @@ function cartaoDoAtendente(pessoa) {
       ? ["Disponível", "conectado"]
       : ["Fora da distribuição", "sandbox"];
   const topo = criar("div", "linha");
-  topo.append(titulo, criar("span", "selo", PAPEIS[pessoa.papel] || pessoa.papel));
+  topo.append(titulo, criar("span", "selo", pessoa.cargo?.nome || (pessoa.papel === "admin" ? "Administrador" : "Atendente")));
   if (eu) topo.append(criar("span", "selo", "você"));
   topo.append(criar("span", `situacao ${classe}`, rotulo));
-  cartao.append(topo, criar("p", "dica explicacao", pessoa.email));
+  cartao.append(topo, criar("p", "dica explicacao", `${pessoa.email} · ${pessoa.setor || "sem setor"}`));
   cartao.append(criar("p", "dica", `O cliente vê: ${linhaAssinatura(pessoa)}`));
 
-  const acoes = criar("div", "acoes-canal");
-  const editar = botaoPequeno("Editar", "botao discreto pequeno editar");
-  editar.onclick = () => {
-    Object.assign(telaEquipe, { editando: pessoa.id, criando: false });
-    desenharEquipe();
-    corpoEquipe.querySelector(`form[data-atendente="${pessoa.id}"] input`)?.focus();
-  };
-  acoes.append(editar);
-  if (!eu) {
-    // desativar a si mesmo trancaria o administrador do lado de fora
-    const alternar = botaoPequeno(pessoa.ativo ? "Desativar" : "Reativar", "botao discreto pequeno alternar");
-    alternar.onclick = () => alternarAtendente(pessoa, alternar);
-    acoes.append(alternar);
+  // o próprio perfil (menos o do Administrador) e quem está acima de mim não se mexem daqui
+  const gerencio = possoGerenciar(pessoa) || (eu && eAdministrador(estado.atendente));
+  if (gerencio) {
+    const acoes = criar("div", "acoes-canal");
+    const editar = botaoPequeno("Editar", "botao discreto pequeno editar");
+    editar.onclick = () => {
+      Object.assign(telaEquipe, { editando: pessoa.id, criando: false });
+      desenharEquipe();
+      corpoEquipe.querySelector(`form[data-atendente="${pessoa.id}"] input`)?.focus();
+    };
+    acoes.append(editar);
+    if (!eu) {
+      // desativar a si mesmo trancaria o administrador do lado de fora
+      const alternar = botaoPequeno(pessoa.ativo ? "Desativar" : "Reativar", "botao discreto pequeno alternar");
+      alternar.onclick = () => alternarAtendente(pessoa, alternar);
+      acoes.append(alternar);
+    }
+    // cada botão diz a quem pertence, para quem usa leitor de tela
+    acoes.querySelectorAll("button").forEach((botao) => botao.setAttribute("aria-describedby", titulo.id));
+    cartao.append(acoes);
   }
-  // cada botão diz a quem pertence, para quem usa leitor de tela
-  acoes.querySelectorAll("button").forEach((botao) => botao.setAttribute("aria-describedby", titulo.id));
-  cartao.append(acoes);
   return cartao;
 }
 
@@ -2665,6 +2942,7 @@ function guardarAtendente(atualizado) {
   if (atualizado.id === estado.atendente?.id) {
     estado.atendente = atualizado;
     desenharPerfil();
+    aplicarPermissoes();
   }
   if (estado.detalhe) desenharConversa();
 }
@@ -2682,9 +2960,15 @@ function problemaDaSenha(senha, obrigatoria) {
   return null;
 }
 
+/* Cargos que posso dar: abaixo do meu nível (o Administrador dá qualquer um). */
+function cargosQuePossoDar() {
+  const eu = estado.atendente;
+  return estado.cargos.filter((cargo) => eAdministrador(eu) || cargo.nivel < nivelDe(eu));
+}
+
 function formularioAtendente(pessoa) {
   const novo = pessoa === null;
-  const eu = !novo && pessoa.id === estado.atendente?.id;
+  const euMesmo = !novo && pessoa.id === estado.atendente?.id;
   const form = criar("form", "cartao-canal form-atendente");
   form.noValidate = true;
   form.setAttribute("aria-label", novo ? "Novo atendente" : `Editar ${pessoa.nome}`);
@@ -2701,29 +2985,43 @@ function formularioAtendente(pessoa) {
   const senha = criar("input");
   Object.assign(senha, { name: "senha", type: "password", autocomplete: "new-password" });
   if (!novo) senha.placeholder = "em branco = mantém a atual";
-  const papel = criar("select");
-  papel.name = "papel";
-  for (const [valor, rotulo] of Object.entries(PAPEIS)) papel.append(new Option(rotulo, valor));
-  papel.value = pessoa?.papel || "atendente";
-  // tirar de si mesmo o papel de administrador fecharia esta tela para sempre
-  papel.disabled = eu;
-  const setor = criar("input");
-  Object.assign(setor, { name: "setor", value: pessoa?.setor || "", maxLength: 60, autocomplete: "off", placeholder: "Ex.: Suporte técnico" });
-  setor.setAttribute("list", "setores-sugeridos");
+
+  // cargo: só os que posso conceder (e o atual, para ele aparecer)
+  const cargo = criar("select");
+  cargo.name = "cargo_id";
+  const colaborador = estado.cargos.find((c) => c.nome === "Colaborador") || estado.cargos[estado.cargos.length - 1];
+  const opcoesCargo = cargosQuePossoDar();
+  if (pessoa?.cargo && !opcoesCargo.some((c) => c.id === pessoa.cargo.id)) opcoesCargo.unshift(pessoa.cargo);
+  for (const item of opcoesCargo) cargo.append(new Option(`${item.nome} (nível ${item.nivel})`, String(item.id)));
+  cargo.value = String(pessoa?.cargo?.id ?? colaborador?.id ?? "");
+  const defineCargo = pode("equipe.definir_cargo") && !(euMesmo && !eAdministrador(estado.atendente));
+  cargo.disabled = !defineCargo;
+
+  // setor: do cadastro; quem não define setor cadastra no próprio
+  const setor = criar("select");
+  setor.name = "setor_id";
+  setor.append(new Option("Sem setor", ""));
+  for (const item of estado.setores) {
+    if (item.ativo || item.id === pessoa?.setor_id) setor.append(new Option(item.nome, String(item.id)));
+  }
+  const meuSetor = estado.atendente?.setor_id ?? null;
+  setor.value = String((novo ? (pode("equipe.definir_setor") ? "" : meuSetor) : pessoa.setor_id) ?? "");
+  setor.disabled = !pode("equipe.definir_setor");
 
   form.append(
     campoRotulado("Nome", nome, "Vai em cada resposta ao cliente", true),
     campoRotulado("E-mail", email, novo ? "É o login" : "É o login; não muda", novo),
     campoRotulado("Senha", senha, novo ? "Pelo menos 6 caracteres" : "Só para trocar a senha", novo),
-    campoRotulado("Papel", papel, eu ? "Você não muda o próprio papel" : "Administrador cuida dos canais e da equipe"),
-    campoRotulado("Setor", setor, "Aparece ao lado do nome; em branco, só o nome"),
+    campoRotulado("Cargo", cargo, defineCargo ? "Define o que a pessoa pode fazer (aba Cargos)" : "Você não define cargos"),
+    campoRotulado("Setor", setor, setor.disabled ? "Você cadastra no seu setor" : "Aparece ao lado do nome; define a fila e a sala do chat"),
   );
   const previa = criar("p", "dica previa-equipe");
   const atualizarPrevia = () => {
-    previa.textContent = `O cliente verá: ${linhaAssinatura({ nome: nome.value.trim() || "…", setor: setor.value.trim() })}`;
+    const nomeSetor = setor.value ? setor.selectedOptions[0].textContent : "";
+    previa.textContent = `O cliente verá: ${linhaAssinatura({ nome: nome.value.trim() || "…", setor: nomeSetor })}`;
   };
   nome.addEventListener("input", atualizarPrevia);
-  setor.addEventListener("input", atualizarPrevia);
+  setor.addEventListener("change", atualizarPrevia);
   atualizarPrevia();
 
   const erro = criar("p", "erro");
@@ -2755,20 +3053,298 @@ function formularioAtendente(pessoa) {
       senha.focus();
       return;
     }
-    const corpo = { nome: nomeLimpo, setor: setor.value.trim() || null };
-    if (!eu) corpo.papel = papel.value;
+    // só o que mudou (o servidor confere cada mudança pela hierarquia)
+    const corpo = {};
+    const setorId = setor.value ? Number(setor.value) : null;
+    const cargoId = cargo.value ? Number(cargo.value) : null;
+    if (novo || nomeLimpo !== pessoa.nome) corpo.nome = nomeLimpo;
+    if (!setor.disabled && (novo || setorId !== (pessoa.setor_id ?? null))) corpo.setor_id = setorId;
+    if (!cargo.disabled && cargoId && (novo || cargoId !== pessoa.cargo?.id)) corpo.cargo_id = cargoId;
     if (novo) corpo.email = email.value.trim();
     if (senha.value) corpo.senha = senha.value;
     salvar.disabled = true;
     try {
       const salvo = novo
         ? await api("POST", "/api/atendentes", corpo)
-        : await api("PATCH", `/api/atendentes/${pessoa.id}`, corpo);
+        : Object.keys(corpo).length
+          ? await api("PATCH", `/api/atendentes/${pessoa.id}`, corpo)
+          : pessoa;
       guardarAtendente(salvo);
       Object.assign(telaEquipe, { criando: false, editando: null });
       avisar(novo ? `${salvo.nome} cadastrado. Passe a ele o e-mail e a senha.` : "Alterações salvas.");
       desenharEquipe();
       corpoEquipe.querySelector(`[data-atendente="${salvo.id}"] .editar`)?.focus();
+    } catch (falha) {
+      erro.textContent = falha.message;
+      salvar.disabled = false;
+    }
+  };
+  return form;
+}
+
+/* ---------------------------------------------------------- equipe: cargos */
+function desenharCargos() {
+  const itens = [];
+  if (telaEquipe.criando) itens.push(formularioCargo(null));
+  for (const cargo of estado.cargos) {
+    itens.push(telaEquipe.editando === cargo.id ? formularioCargo(cargo) : cartaoDoCargo(cargo));
+  }
+  corpoEquipe.replaceChildren(...itens);
+}
+
+const eCargoAdministrador = (cargo) => cargo.sistema && cargo.nivel >= 100;
+
+function possoMexerNoCargo(cargo) {
+  if (!pode("cargos.gerenciar") || eCargoAdministrador(cargo)) return false;
+  return eAdministrador(estado.atendente) || cargo.nivel < nivelDe(estado.atendente);
+}
+
+function cartaoDoCargo(cargo) {
+  const cartao = criar("article", "cartao-canal cartao-cargo");
+  cartao.dataset.cargo = cargo.id;
+  const titulo = criar("h3", "", cargo.nome);
+  titulo.id = `cargo-${cargo.id}-nome`;
+  cartao.setAttribute("aria-labelledby", titulo.id);
+  const topo = criar("div", "linha");
+  topo.append(titulo, criar("span", "selo", `nível ${cargo.nivel}`));
+  if (cargo.sistema) topo.append(criar("span", "selo", "de fábrica"));
+  topo.append(criar("span", "situacao desativado", `${cargo.total_pessoas} ${cargo.total_pessoas === 1 ? "pessoa" : "pessoas"}`));
+  cartao.append(topo);
+  const rotulos = new Map(telaEquipe.catalogo.map((p) => [p.chave, p.rotulo]));
+  const resumo = eCargoAdministrador(cargo)
+    ? "Todas as permissões, sempre (não se edita)."
+    : cargo.permissoes.length
+      ? cargo.permissoes.map((chave) => rotulos.get(chave) || chave).join(" · ")
+      : "Nenhuma permissão.";
+  cartao.append(criar("p", "dica explicacao", resumo));
+  if (possoMexerNoCargo(cargo)) {
+    const acoes = criar("div", "acoes-canal");
+    const editar = botaoPequeno("Editar permissões", "botao discreto pequeno editar");
+    editar.onclick = () => {
+      Object.assign(telaEquipe, { editando: cargo.id, criando: false });
+      desenharEquipe();
+      corpoEquipe.querySelector(`form[data-cargo="${cargo.id}"] input`)?.focus();
+    };
+    acoes.append(editar);
+    if (!cargo.sistema) {
+      const apagar = botaoPequeno("Apagar", "botao discreto pequeno perigo");
+      apagar.disabled = cargo.total_pessoas > 0;
+      apagar.title = cargo.total_pessoas > 0 ? "Mude o cargo de quem o tem antes de apagar" : "";
+      apagar.onclick = async () => {
+        if (!window.confirm(`Apagar o cargo “${cargo.nome}”?`)) return;
+        try {
+          await api("DELETE", `/api/cargos/${cargo.id}`);
+          estado.cargos = estado.cargos.filter((c) => c.id !== cargo.id);
+          avisar("Cargo apagado.");
+          desenharEquipe();
+        } catch (erro) {
+          avisar(erro.message, true);
+        }
+      };
+      acoes.append(apagar);
+    }
+    acoes.querySelectorAll("button").forEach((botao) => botao.setAttribute("aria-describedby", titulo.id));
+    cartao.append(acoes);
+  }
+  return cartao;
+}
+
+/* Matriz de permissões: uma caixa por permissão, agrupadas. A que eu não
+   tenho vem travada (ninguém dá o que não tem; o servidor recusa também). */
+function formularioCargo(cargo) {
+  const novo = cargo === null;
+  const form = criar("form", "cartao-canal form-cargo");
+  form.noValidate = true;
+  form.setAttribute("aria-label", novo ? "Novo cargo" : `Editar o cargo ${cargo.nome}`);
+  if (!novo) form.dataset.cargo = cargo.id;
+  form.append(criar("h3", "", novo ? "Novo cargo" : cargo.nome));
+
+  const nome = campoDeNome(cargo?.nome || "");
+  nome.maxLength = 60;
+  const nivel = criar("input");
+  const teto = eAdministrador(estado.atendente) ? 99 : Math.max(1, nivelDe(estado.atendente) - 1);
+  Object.assign(nivel, { type: "number", min: 1, max: teto, step: 1, value: String(cargo?.nivel ?? Math.min(30, teto)) });
+  form.append(
+    campoRotulado("Nome do cargo", nome, null, true),
+    campoRotulado("Nível", nivel, `De 1 a ${teto}. Quem tem nível maior gerencia quem tem menor.`, true),
+  );
+
+  const minhas = new Set(estado.atendente?.permissoes || []);
+  const marcadas = new Set(cargo?.permissoes || []);
+  const caixas = [];
+  const grupos = new Map();
+  for (const permissao of telaEquipe.catalogo) {
+    if (!grupos.has(permissao.grupo)) grupos.set(permissao.grupo, []);
+    grupos.get(permissao.grupo).push(permissao);
+  }
+  const matriz = criar("div", "matriz-permissoes");
+  for (const [grupo, permissoes] of grupos) {
+    const conjunto = criar("fieldset", "grupo-permissoes");
+    conjunto.append(criar("legend", "", grupo));
+    for (const permissao of permissoes) {
+      const rotulo = criar("label", "linha-check");
+      const caixa = criar("input");
+      caixa.type = "checkbox";
+      caixa.value = permissao.chave;
+      caixa.checked = marcadas.has(permissao.chave);
+      // tirar o que eu não tenho continua possível; dar, não
+      caixa.disabled = !minhas.has(permissao.chave) && !caixa.checked;
+      rotulo.append(caixa, document.createTextNode(` ${permissao.rotulo}`));
+      if (caixa.disabled) rotulo.title = "Você não tem esta permissão, então não pode dá-la";
+      conjunto.append(rotulo);
+      caixas.push(caixa);
+    }
+    matriz.append(conjunto);
+  }
+  form.append(criar("p", "dica", "Permissões"), matriz);
+
+  const erro = criar("p", "erro");
+  erro.setAttribute("role", "alert");
+  const salvar = criar("button", "botao pequeno", novo ? "Criar cargo" : "Salvar");
+  salvar.type = "submit";
+  const cancelar = botaoPequeno("Cancelar", "botao discreto pequeno");
+  cancelar.onclick = () => {
+    Object.assign(telaEquipe, { criando: false, editando: null });
+    desenharEquipe();
+  };
+  const acoes = criar("div", "acoes-canal");
+  acoes.append(salvar, cancelar);
+  form.append(erro, acoes);
+
+  form.onsubmit = async (evento) => {
+    evento.preventDefault();
+    erro.textContent = "";
+    const nomeLimpo = nomeValido(nome);
+    if (nomeLimpo === null) return;
+    const valorNivel = Number(nivel.value);
+    if (!Number.isInteger(valorNivel) || valorNivel < 1 || valorNivel > teto) {
+      erro.textContent = `O nível vai de 1 a ${teto}.`;
+      nivel.focus();
+      return;
+    }
+    const corpo = { nome: nomeLimpo, nivel: valorNivel, permissoes: caixas.filter((c) => c.checked).map((c) => c.value) };
+    salvar.disabled = true;
+    try {
+      const salvo = novo ? await api("POST", "/api/cargos", corpo) : await api("PATCH", `/api/cargos/${cargo.id}`, corpo);
+      const posicao = estado.cargos.findIndex((c) => c.id === salvo.id);
+      if (posicao >= 0) estado.cargos[posicao] = salvo;
+      else estado.cargos.push(salvo);
+      estado.cargos.sort((a, b) => b.nivel - a.nivel || a.nome.localeCompare(b.nome, "pt-BR"));
+      Object.assign(telaEquipe, { criando: false, editando: null });
+      avisar(novo ? "Cargo criado." : "Cargo salvo. Vale na hora para quem o tem.");
+      // o meu próprio cargo pode ter mudado de permissões
+      estado.atendente = await api("GET", "/api/auth/eu");
+      aplicarPermissoes();
+      desenharEquipe();
+    } catch (falha) {
+      erro.textContent = falha.message;
+      salvar.disabled = false;
+    }
+  };
+  return form;
+}
+
+/* --------------------------------------------------------- equipe: setores */
+function desenharSetores() {
+  const itens = [];
+  if (telaEquipe.criando) itens.push(formularioSetor(null));
+  for (const setor of estado.setores) {
+    itens.push(telaEquipe.editando === setor.id ? formularioSetor(setor) : cartaoDoSetor(setor));
+  }
+  if (!itens.length) itens.push(criar("p", "dica", "Nenhum setor ainda. Sem setores, tudo cai na fila geral."));
+  corpoEquipe.replaceChildren(...itens);
+}
+
+function cartaoDoSetor(setor) {
+  const cartao = criar("article", `cartao-canal cartao-setor${setor.ativo ? "" : " inativo"}`);
+  cartao.dataset.setor = setor.id;
+  const titulo = criar("h3", "", setor.nome);
+  titulo.id = `setor-${setor.id}-nome`;
+  cartao.setAttribute("aria-labelledby", titulo.id);
+  const topo = criar("div", "linha");
+  topo.append(titulo);
+  topo.append(criar("span", `situacao ${setor.ativo ? "conectado" : "desativado"}`, setor.ativo ? "Ativo" : "Desativado"));
+  cartao.append(topo);
+  const partes = [`${setor.total_pessoas} ${setor.total_pessoas === 1 ? "pessoa ativa" : "pessoas ativas"}`];
+  if (setor.descricao) partes.unshift(setor.descricao);
+  cartao.append(criar("p", "dica explicacao", partes.join(" · ")));
+  if (pode("setores.gerenciar")) {
+    const acoes = criar("div", "acoes-canal");
+    const editar = botaoPequeno("Renomear", "botao discreto pequeno editar");
+    editar.onclick = () => {
+      Object.assign(telaEquipe, { editando: setor.id, criando: false });
+      desenharEquipe();
+      corpoEquipe.querySelector(`form[data-setor="${setor.id}"] input`)?.focus();
+    };
+    const alternar = botaoPequeno(setor.ativo ? "Desativar" : "Reativar", "botao discreto pequeno alternar");
+    alternar.onclick = async () => {
+      alternar.disabled = true;
+      try {
+        await guardarSetor(await api("PATCH", `/api/setores/${setor.id}`, { ativo: !setor.ativo }));
+        avisar(setor.ativo ? "Setor desativado: os canais dele voltam para a fila geral." : "Setor reativado.");
+      } catch (erro) {
+        avisar(erro.message, true);
+        alternar.disabled = false;
+      }
+    };
+    acoes.append(editar, alternar);
+    acoes.querySelectorAll("button").forEach((botao) => botao.setAttribute("aria-describedby", titulo.id));
+    cartao.append(acoes);
+  }
+  return cartao;
+}
+
+async function guardarSetor(salvo) {
+  const posicao = estado.setores.findIndex((s) => s.id === salvo.id);
+  if (posicao >= 0) estado.setores[posicao] = salvo;
+  else estado.setores.push(salvo);
+  estado.setores.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  // renomear muda o setor (e a assinatura) de quem está nele
+  if (pode("equipe.ver")) estado.atendentes = await api("GET", "/api/atendentes").catch(() => estado.atendentes);
+  estado.atendente = await api("GET", "/api/auth/eu").catch(() => estado.atendente);
+  desenharPerfil();
+  Object.assign(telaEquipe, { criando: false, editando: null });
+  desenharEquipe();
+}
+
+function formularioSetor(setor) {
+  const novo = setor === null;
+  const form = criar("form", "cartao-canal form-setor");
+  form.noValidate = true;
+  form.setAttribute("aria-label", novo ? "Novo setor" : `Renomear ${setor.nome}`);
+  if (!novo) form.dataset.setor = setor.id;
+  form.append(criar("h3", "", novo ? "Novo setor" : setor.nome));
+  const nome = campoDeNome(setor?.nome || "");
+  nome.maxLength = 60;
+  const descricao = criar("input");
+  Object.assign(descricao, { value: setor?.descricao || "", maxLength: 255, autocomplete: "off", placeholder: "Opcional" });
+  form.append(
+    campoRotulado("Nome do setor", nome, "Aparece para o cliente ao lado do nome de quem responde", true),
+    campoRotulado("Descrição", descricao, null),
+  );
+  const erro = criar("p", "erro");
+  erro.setAttribute("role", "alert");
+  const salvar = criar("button", "botao pequeno", novo ? "Criar setor" : "Salvar");
+  salvar.type = "submit";
+  const cancelar = botaoPequeno("Cancelar", "botao discreto pequeno");
+  cancelar.onclick = () => {
+    Object.assign(telaEquipe, { criando: false, editando: null });
+    desenharEquipe();
+  };
+  const acoes = criar("div", "acoes-canal");
+  acoes.append(salvar, cancelar);
+  form.append(erro, acoes);
+  form.onsubmit = async (evento) => {
+    evento.preventDefault();
+    erro.textContent = "";
+    const nomeLimpo = nomeValido(nome);
+    if (nomeLimpo === null) return;
+    const corpo = { nome: nomeLimpo, descricao: descricao.value.trim() || null };
+    salvar.disabled = true;
+    try {
+      const salvo = novo ? await api("POST", "/api/setores", corpo) : await api("PATCH", `/api/setores/${setor.id}`, corpo);
+      await guardarSetor(salvo);
+      avisar(novo ? "Setor criado." : "Setor salvo.");
     } catch (falha) {
       erro.textContent = falha.message;
       salvar.disabled = false;

@@ -587,3 +587,26 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   .atalhos { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .atalhos::-webkit-scrollbar { display: none; }
 }
+
+/* ------------------------------------------------ equipe: abas e cargos */
+.abas-equipe { display: flex; gap: 6px; padding: 8px 20px 0; border-bottom: 1px solid var(--borda); flex-wrap: wrap; }
+.abas-equipe .aba { border-radius: 7px 7px 0 0; }
+.abas-equipe .aba.ativa { background: var(--marca); color: var(--marca-contraste); }
+.matriz-permissoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.grupo-permissoes { border: 1px solid var(--borda); border-radius: var(--raio); padding: 8px 12px 10px; margin: 0; min-width: 0; }
+.grupo-permissoes legend { font-size: 12px; font-weight: 700; color: var(--texto-fraco); padding: 0 4px; }
+.grupo-permissoes .linha-check { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; margin-top: 6px; }
+.grupo-permissoes .linha-check input { margin-top: 2px; accent-color: var(--marca-linha); }
+.grupo-permissoes .linha-check:has(input:disabled) { color: var(--texto-fraco); }
+.botao.perigo, .botao.discreto.perigo { color: var(--vermelho); }
+.perfil-dados { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0; font-size: 14px; }
+.perfil-dados dt { color: var(--texto-fraco); }
+.perfil-dados dd { margin: 0; font-weight: 600; }
+#seletor-setor[hidden] { display: none; }
+.historico-conversa { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.historico-conversa li { display: grid; gap: 2px; }
+.historico-conversa time { font-size: 11px; color: var(--texto-fraco); }
+@media (max-width: 600px) {
+  .matriz-permissoes { grid-template-columns: 1fr; }
+  .abas-equipe { padding: 8px 16px 0; }
+}

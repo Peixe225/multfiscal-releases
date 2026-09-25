@@ -13,10 +13,12 @@ com id crescente. Daí saem os dois jeitos de acompanhar:
 
 O front lê /saude ("eventos": "stream" aqui, "consulta" no PHP) e escolhe.
 
-Privacidade: os eventos de atendimento vão a todo atendente, mas os do chat
-interno ("interno.*") só a quem é membro da sala (FiltroDoAtendente). Sem
-filtro nenhum, "interno.*" não sai para ninguém: quem esquecer de filtrar
-erra para o lado seguro.
+Privacidade: os eventos de conversa ("mensagem.*", "conversa.*") só vão a
+quem pode ver a conversa AGORA (servicos/visibilidade.py: a pessoa de outro
+setor não recebe nem a mensagem nova nem a atualização), e os do chat interno
+("interno.*") só a quem é membro da sala (FiltroDoAtendente). Sem filtro
+nenhum, "interno.*" não sai para ninguém: quem esquecer de filtrar erra para
+o lado seguro.
 """
 from __future__ import annotations
 
@@ -84,6 +86,18 @@ def ultimo_id() -> int:
 PREFIXO_INTERNO = "interno."
 
 
+# eventos de uma conversa de cliente (dados = MensagemSaida ou ConversaSaida)
+PREFIXOS_DE_CONVERSA = ("mensagem.", "conversa.")
+
+
+def conversa_do_evento(tipo: str, dados) -> int | None:
+    """O id da conversa do evento: conversa_id na mensagem, id na conversa."""
+    if not isinstance(dados, dict):
+        return None
+    valor = dados.get("conversa_id") if tipo.startswith("mensagem.") else dados.get("id")
+    return valor if isinstance(valor, int) and not isinstance(valor, bool) else None
+
+
 # eventos que levam o texto de uma mensagem (dados = MensagemInternaSaida)
 TIPOS_COM_MENSAGEM = ("interno.mensagem", "interno.mensagem.atualizada")
 
@@ -102,13 +116,29 @@ class FiltroDoAtendente:
     def __init__(self, atendente_id: int):
         self.atendente_id = atendente_id
         self._salas: dict[int, int] | None = None
+        self._conversas: dict[int, bool] = {}
 
     def novo_lote(self) -> None:
         self._salas = None
+        self._conversas = {}  # transferida no meio do caminho: vale a partir deste lote
+
+    def _ve_conversa(self, conversa_id: int) -> bool:
+        if conversa_id not in self._conversas:
+            from ..servicos import visibilidade
+
+            with SessaoLocal() as sessao:
+                atendente = sessao.get(Atendente, self.atendente_id)
+                self._conversas[conversa_id] = bool(
+                    atendente is not None and atendente.ativo and visibilidade.pode_ver_id(sessao, atendente, conversa_id)
+                )
+        return self._conversas[conversa_id]
 
     def __call__(self, linha: FilaEvento, dados) -> bool:
         if not linha.tipo.startswith(PREFIXO_INTERNO):
-            return True
+            if not linha.tipo.startswith(PREFIXOS_DE_CONVERSA):
+                return True  # canal.atualizado e afins: para toda a equipe
+            conversa_id = conversa_do_evento(linha.tipo, dados)
+            return conversa_id is not None and self._ve_conversa(conversa_id)
         if not isinstance(dados, dict):
             return False
         if "para" in dados:

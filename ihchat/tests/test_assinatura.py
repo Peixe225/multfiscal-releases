@@ -65,10 +65,14 @@ def test_setor_no_cadastro_e_no_patch(cliente, cabecalho_admin):
     assert cliente.patch(url, headers=cabecalho_admin, json={"setor": "x" * 61}).status_code == 422
 
 
-def test_atendente_muda_o_proprio_setor(cliente, cabecalho_atendente, atendente):
+def test_setor_so_quem_gerencia_muda(cliente, cabecalho_atendente, cabecalho_admin, atendente):
+    """Antes cada um mudava o próprio setor (e caía na sala de outro setor no chat)."""
     resposta = cliente.patch(f"/api/atendentes/{atendente.id}", headers=cabecalho_atendente, json={"setor": "Implantação"})
+    assert resposta.status_code == 403
+    assert resposta.json() == {"detail": "no próprio perfil você só altera a senha e a disponibilidade"}
+    resposta = cliente.patch(f"/api/atendentes/{atendente.id}", headers=cabecalho_admin, json={"setor": "Implantação"})
     assert resposta.status_code == 200
-    assert resposta.json()["setor"] == "Implantação"
+    assert resposta.json()["setor"] == "Implantação" and resposta.json()["setor_id"] is not None
     assert cliente.get("/api/auth/eu", headers=cabecalho_atendente).json()["setor"] == "Implantação"
 
 
@@ -168,7 +172,10 @@ def test_base_antiga_ganha_as_colunas_novas(tmp_path):
         conexao.execute(text("CREATE TABLE mensagens (id INTEGER PRIMARY KEY, conteudo TEXT)"))
         conexao.execute(text("INSERT INTO atendentes (nome) VALUES ('Ana')"))
     with motor.begin() as conexao:
-        assert sorted(acrescentar_colunas_faltantes(conexao)) == ["atendentes.setor", "mensagens.assinatura"]
+        assert sorted(acrescentar_colunas_faltantes(conexao)) == [
+            "atendentes.cargo_id", "atendentes.setor", "atendentes.setor_id",
+            "ix_atendentes_cargo_id", "ix_atendentes_setor_id", "mensagens.assinatura",
+        ]
     with motor.begin() as conexao:
         assert acrescentar_colunas_faltantes(conexao) == []  # idempotente
     colunas = {c["name"] for c in inspect(motor).get_columns("atendentes")}

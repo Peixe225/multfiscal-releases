@@ -54,7 +54,7 @@
               aria-haspopup="dialog" aria-controls="interno" aria-expanded="false"
               title="Conversar com a equipe (nada daqui chega aos clientes)">Chat<span class="interno-rotulo-extra"> da equipe</span>
         <span class="contador-interno" id="contador-interno" hidden aria-hidden="true"></span></button>
-      <a class="atalho" href="/simulador" target="_blank" rel="noopener"
+      <a class="atalho" id="abrir-simulador" hidden href="/simulador" target="_blank" rel="noopener"
          title="Escrever como cliente pelo WhatsApp, Telegram ou e-mail (abre em nova aba)">Simulador ↗</a>
       <button type="button" class="atalho" id="abrir-canais" hidden
               aria-haspopup="dialog" aria-controls="canais">Canais</button>
@@ -64,7 +64,7 @@
     <div class="usuario">
       <!-- quem responde aparece assim para o cliente: nome e setor -->
       <button type="button" class="perfil" id="abrir-perfil" aria-haspopup="dialog" aria-controls="perfil"
-              title="Como o cliente vê você. Clique para mudar o setor ou a disponibilidade.">
+              title="Como o cliente vê você. Clique para ver o perfil, mudar a disponibilidade ou a senha.">
         <span class="avatar" id="avatar"></span>
         <span class="perfil-texto">
           <span class="perfil-rotulo">Atendendo como</span>
@@ -114,7 +114,9 @@
             <button type="button" class="botao discreto pequeno" id="compartilhar-equipe" hidden
                     aria-label="Compartilhar com a equipe"
                     title="Mandar esta conversa como cartão no chat da equipe (o cliente não vê)">Compartilhar<span class="rotulo-extra"> com a equipe</span></button>
-            <select id="seletor-atendente" title="Atendente responsável"></select>
+            <!-- transferir: a fila de setor e a pessoa (o que o cargo não permite vem desativado) -->
+            <select id="seletor-setor" title="Setor (fila) da conversa" aria-label="Setor da conversa"></select>
+            <select id="seletor-atendente" title="Atendente responsável" aria-label="Atendente responsável"></select>
             <select id="seletor-prioridade" title="Prioridade">
               <option value="baixa">Baixa</option>
               <option value="normal">Normal</option>
@@ -161,7 +163,9 @@
     </aside>
   </div>
 
-  <!-- perfil: o setor aparece para o cliente junto com o nome -->
+  <!-- perfil: o setor aparece para o cliente junto com o nome. Nome, setor e
+       cargo são de quem gerencia a equipe; aqui cada um muda a disponibilidade
+       e a senha (o Administrador também o próprio setor) -->
   <div id="perfil" class="gaveta-fundo perfil-fundo" hidden>
     <form class="janela-perfil" id="form-perfil" role="dialog" aria-modal="true" aria-labelledby="titulo-perfil">
       <header class="cabecalho-gaveta">
@@ -172,19 +176,20 @@
         <p class="dica">Cada resposta chega ao cliente com o seu nome e o seu setor, no jeito de cada
           canal: no WhatsApp em negrito na primeira linha, no Telegram na primeira linha, no
           e-mail como assinatura no fim e no chat do site ao lado da mensagem.</p>
-        <label class="campo-canal" for="perfil-setor">Setor
-          <input id="perfil-setor" name="setor" list="setores-sugeridos" maxlength="60" autocomplete="off"
-                 placeholder="Ex.: Suporte técnico">
+        <dl class="perfil-dados">
+          <dt>Cargo</dt><dd id="perfil-cargo"></dd>
+          <dt>Setor</dt><dd id="perfil-setor-leitura"></dd>
+        </dl>
+        <label class="campo-canal" for="perfil-setor" id="rotulo-perfil-setor" hidden>Setor
+          <select id="perfil-setor" name="setor_id"></select>
         </label>
-        <datalist id="setores-sugeridos">
-          <option value="Suporte técnico"></option>
-          <option value="Financeiro"></option>
-          <option value="Comercial"></option>
-          <option value="Implantação"></option>
-        </datalist>
-        <div class="sugestoes-setor" id="sugestoes-setor"></div>
+        <p class="dica" id="perfil-quem-muda">Nome, setor e cargo são definidos por quem gerencia a equipe.</p>
         <label class="linha-check"><input type="checkbox" id="perfil-disponivel">
           Disponível para receber conversas novas</label>
+        <label class="campo-canal" for="perfil-senha">Nova senha
+          <input id="perfil-senha" type="password" autocomplete="new-password" maxlength="72"
+                 placeholder="em branco = mantém a atual">
+        </label>
         <div class="previa-assinatura">
           <span class="rotulo">O cliente verá</span>
           <strong id="previa-assinatura"></strong>
@@ -211,7 +216,7 @@
     </section>
   </div>
 
-  <!-- só para admin: quem atende, com que papel e setor; montado pelo painel.js -->
+  <!-- quem gerencia a equipe: pessoas, cargos (permissões) e setores; montado pelo painel.js -->
   <div id="equipe" class="gaveta-fundo" hidden>
     <section class="gaveta" role="dialog" aria-modal="true" aria-labelledby="titulo-equipe">
       <header class="cabecalho-gaveta">
@@ -219,7 +224,12 @@
         <button type="button" class="botao pequeno" id="equipe-novo">Novo atendente</button>
         <button type="button" class="icone-gaveta" id="equipe-fechar" aria-label="Fechar (Esc)">×</button>
       </header>
-      <div class="corpo-gaveta" id="corpo-equipe"></div>
+      <div class="abas-equipe" role="tablist" aria-label="Partes da equipe">
+        <button type="button" class="aba ativa" role="tab" data-aba="pessoas" id="aba-pessoas" aria-selected="true">Pessoas</button>
+        <button type="button" class="aba" role="tab" data-aba="cargos" id="aba-cargos" aria-selected="false">Cargos</button>
+        <button type="button" class="aba" role="tab" data-aba="setores" id="aba-setores" aria-selected="false">Setores</button>
+      </div>
+      <div class="corpo-gaveta" id="corpo-equipe" role="tabpanel"></div>
     </section>
   </div>
 </div>

@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from ..models import Atendente, Conversa, StatusConversa
 
 
-def proximo_atendente(sessao: Session) -> Atendente | None:
+def proximo_atendente(sessao: Session, setor_id: int | None = None) -> Atendente | None:
     """Menor fila primeiro: entrega a quem tem menos conversas em andamento.
 
     Empate e desfeito pelo id, o que faz a distribuicao circular entre
-    atendentes com a mesma carga.
+    atendentes com a mesma carga. Conversa de um setor só vai para quem está
+    disponível NAQUELE setor; sem ninguém, fica sem atendente na fila do
+    setor (não "vaza" para outro). Conversa sem setor vai para qualquer um.
     """
     carga = (
         select(Conversa.atendente_id, func.count(Conversa.id).label("total"))
@@ -26,4 +28,6 @@ def proximo_atendente(sessao: Session) -> Atendente | None:
         .order_by(func.coalesce(carga.c.total, 0).asc(), Atendente.id.asc())
         .limit(1)
     )
+    if setor_id is not None:
+        consulta = consulta.where(Atendente.setor_id == setor_id)
     return sessao.scalar(consulta)

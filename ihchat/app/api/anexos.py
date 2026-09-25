@@ -81,8 +81,11 @@ async def enviar_arquivo(
 
 
 @rotas.get("/anexos/{anexo_id}")
-def baixar(anexo_id: int, sessao: Sessao, _: AtendenteDeArquivo) -> Response:
+def baixar(anexo_id: int, sessao: Sessao, atual: AtendenteDeArquivo) -> Response:
+    from ..servicos import visibilidade
+
     anexo = sessao.get(Anexo, anexo_id)
-    if anexo is None:
+    # o arquivo é da conversa: quem não a vê (outro setor) não baixa (o mesmo 404)
+    if anexo is None or not visibilidade.pode_ver_id(sessao, atual, anexo.mensagem.conversa_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "anexo não encontrado")
     return resposta_de_arquivo(anexo)
