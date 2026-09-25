@@ -4,8 +4,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
-from ..dependencias import AtendenteAtual, Sessao
-from ..models import Etiqueta, RespostaRapida
+from typing import Annotated
+
+from ..dependencias import AtendenteAtual, Sessao, com_permissao
+from ..models import Atendente, Etiqueta, RespostaRapida
 from ..schemas import (
     EtiquetaEntrada,
     EtiquetaSaida,
@@ -15,6 +17,10 @@ from ..schemas import (
 
 rotas = APIRouter(prefix="/api", tags=["catalogo"])
 
+# ler é de todos; criar e apagar pedem a permissão do catálogo
+GerenteDeEtiquetas = Annotated[Atendente, com_permissao("etiquetas.gerenciar")]
+GerenteDeRespostas = Annotated[Atendente, com_permissao("respostas.gerenciar")]
+
 
 @rotas.get("/etiquetas", response_model=list[EtiquetaSaida])
 def listar_etiquetas(sessao: Sessao, _: AtendenteAtual) -> list[Etiqueta]:
@@ -22,7 +28,7 @@ def listar_etiquetas(sessao: Sessao, _: AtendenteAtual) -> list[Etiqueta]:
 
 
 @rotas.post("/etiquetas", response_model=EtiquetaSaida, status_code=status.HTTP_201_CREATED)
-def criar_etiqueta(dados: EtiquetaEntrada, sessao: Sessao, _: AtendenteAtual) -> Etiqueta:
+def criar_etiqueta(dados: EtiquetaEntrada, sessao: Sessao, _: GerenteDeEtiquetas) -> Etiqueta:
     if sessao.scalar(select(Etiqueta).where(func.lower(Etiqueta.nome) == dados.nome.lower())):
         raise HTTPException(status.HTTP_409_CONFLICT, "ja existe uma etiqueta com esse nome")
     etiqueta = Etiqueta(nome=dados.nome, cor=dados.cor)
@@ -32,7 +38,7 @@ def criar_etiqueta(dados: EtiquetaEntrada, sessao: Sessao, _: AtendenteAtual) ->
 
 
 @rotas.delete("/etiquetas/{etiqueta_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remover_etiqueta(etiqueta_id: int, sessao: Sessao, _: AtendenteAtual) -> None:
+def remover_etiqueta(etiqueta_id: int, sessao: Sessao, _: GerenteDeEtiquetas) -> None:
     etiqueta = sessao.get(Etiqueta, etiqueta_id)
     if etiqueta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "etiqueta nao encontrada")
@@ -47,7 +53,7 @@ def listar_respostas(sessao: Sessao, _: AtendenteAtual) -> list[RespostaRapida]:
 @rotas.post(
     "/respostas-rapidas", response_model=RespostaRapidaSaida, status_code=status.HTTP_201_CREATED
 )
-def criar_resposta(dados: RespostaRapidaEntrada, sessao: Sessao, _: AtendenteAtual) -> RespostaRapida:
+def criar_resposta(dados: RespostaRapidaEntrada, sessao: Sessao, _: GerenteDeRespostas) -> RespostaRapida:
     atalho = dados.atalho.strip().lstrip("/")
     if sessao.scalar(select(RespostaRapida).where(RespostaRapida.atalho == atalho)):
         raise HTTPException(status.HTTP_409_CONFLICT, "ja existe uma resposta com esse atalho")
@@ -58,7 +64,7 @@ def criar_resposta(dados: RespostaRapidaEntrada, sessao: Sessao, _: AtendenteAtu
 
 
 @rotas.delete("/respostas-rapidas/{resposta_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remover_resposta(resposta_id: int, sessao: Sessao, _: AtendenteAtual) -> None:
+def remover_resposta(resposta_id: int, sessao: Sessao, _: GerenteDeRespostas) -> None:
     resposta = sessao.get(RespostaRapida, resposta_id)
     if resposta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "resposta nao encontrada")

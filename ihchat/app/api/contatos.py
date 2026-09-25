@@ -4,8 +4,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import or_, select
 
-from ..dependencias import AtendenteAtual, Sessao
-from ..models import Contato, Conversa
+from typing import Annotated
+
+from ..dependencias import AtendenteAtual, Sessao, com_permissao
+from ..models import Atendente, Contato, Conversa
 from ..schemas import ContatoAtualizacao, ContatoSaida
 from ..servicos.contatos import mesclar
 from ..servicos.mensagens import publicar_conversa
@@ -46,7 +48,7 @@ def obter(contato_id: int, sessao: Sessao, _: AtendenteAtual) -> Contato:
 
 @rotas.patch("/{contato_id}", response_model=ContatoSaida)
 def atualizar(
-    contato_id: int, dados: ContatoAtualizacao, sessao: Sessao, _: AtendenteAtual
+    contato_id: int, dados: ContatoAtualizacao, sessao: Sessao, _: Annotated[Atendente, com_permissao("contatos.editar")]
 ) -> Contato:
     contato = sessao.get(Contato, contato_id)
     if contato is None:
@@ -62,7 +64,9 @@ def atualizar(
 
 
 @rotas.post("/{contato_id}/mesclar/{outro_id}", response_model=ContatoSaida)
-def mesclar_contatos(contato_id: int, outro_id: int, sessao: Sessao, _: AtendenteAtual) -> Contato:
+def mesclar_contatos(
+    contato_id: int, outro_id: int, sessao: Sessao, _: Annotated[Atendente, com_permissao("contatos.mesclar")]
+) -> Contato:
     """Junta duas fichas do mesmo cliente que chegaram por canais diferentes."""
     principal = sessao.get(Contato, contato_id)
     secundario = sessao.get(Contato, outro_id)
