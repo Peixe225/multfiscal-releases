@@ -26,11 +26,13 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     inspect,
+    select,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from sqlalchemy.types import TypeDecorator
 
+from . import permissoes as perm
 from .db import Base
 from .util import garantir_utc
 
@@ -140,6 +142,87 @@ conversa_etiqueta = Table(
 )
 
 
+class ListaDeTextoJSON(TypeDecorator):
+    """Lista de textos (as permissões de um cargo) gravada como texto JSON,
+    como a coluna {JSON} (LONGTEXT) da migração PHP."""
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, valor, dialeto):
+        return json.dumps([str(item) for item in (valor or [])], ensure_ascii=False, separators=(",", ":"))
+
+    def process_result_value(self, valor, dialeto):
+        try:
+            lido = json.loads(valor) if valor else []
+        except (TypeError, ValueError):
+            return []
+        return [item for item in lido if isinstance(item, str)] if isinstance(lido, list) else []
+
+
+class Cargo(Base):
+    """Cargo da equipe: nível (hierarquia) e permissões (app/permissoes.py).
+
+    `chave` identifica os de fábrica ("administrador", "gerente", "lider",
+    "conferente", "colaborador"); cargo criado pelo admin tem chave NULL.
+    `sistema` = de fábrica, não pode ser apagado. Mesmas colunas e índices da
+    migração PHP M20260925_1500_CargosESetores. AUTOINCREMENT no SQLite, como
+    o {ID} do PHP: id de cargo apagado nunca volta.
+    """
+
+    __tablename__ = "cargos"
+    __table_args__ = (
+        Index("uq_cargos_chave", "chave", unique=True),
+        Index("uq_cargos_nome", "nome", unique=True),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chave: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    nome: Mapped[str] = mapped_column(String(60))
+    nivel: Mapped[int] = mapped_column(Integer)
+    permissoes: Mapped[list] = mapped_column(ListaDeTextoJSON, default=list)
+    sistema: Mapped[bool] = mapped_column(Boolean, default=False)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+
+    @property
+    def e_administrador(self) -> bool:
+        return self.chave == perm.ADMINISTRADOR
+
+    @property
+    def permissoes_efetivas(self) -> list[str]:
+        """O Administrador tem todas, sempre: não depende do que está gravado."""
+        return list(perm.TODAS) if self.e_administrador else perm.ordenar(self.permissoes or [])
+
+    @classmethod
+    def vazio(cls, chave: str) -> "Cargo":
+        """Cargo que não está no banco (base sem a migração): o Administrador
+        continua com tudo; qualquer outro fica sem nada."""
+        admin = chave == perm.ADMINISTRADOR
+        return cls(
+            id=0,
+            chave=chave,
+            nome="Administrador" if admin else "Colaborador",
+            nivel=perm.NIVEL_ADMINISTRADOR if admin else 0,
+            permissoes=list(perm.TODAS) if admin else [],
+            sistema=True,
+        )
+
+
+class Setor(Base):
+    """Setor (departamento). O nome é único sem diferença de maiúsculas e
+    espaços repetidos (conferido no código: servicos/setores.py)."""
+
+    __tablename__ = "setores"
+    __table_args__ = (Index("uq_setores_nome", "nome", unique=True), {"sqlite_autoincrement": True})
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(60))
+    descricao: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+
+
 class Atendente(Base):
     __tablename__ = "atendentes"
 
@@ -147,17 +230,61 @@ class Atendente(Base):
     nome: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(160), unique=True, index=True)
     senha_hash: Mapped[str] = mapped_column(String(255))
+    # espelho do cargo ("admin" se Administrador, senão "atendente"): o JSON
+    # antigo e o front ainda o leem. Quem decide é o cargo.
     papel: Mapped[str] = mapped_column(String(20), default=Papel.ATENDENTE.value)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     disponivel: Mapped[bool] = mapped_column(Boolean, default=True)
-    # mostrado ao cliente junto com o nome de quem responde ("Ana · Suporte
-    # técnico"); cada atendente ajusta o seu no painel
+    # o NOME do setor (setor_id), mostrado ao cliente junto com o nome de quem
+    # responde ("Ana · Suporte técnico"); gravado junto com o setor_id
     setor: Mapped[str | None] = mapped_column(String(80), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+    # sem chave estrangeira, como na migração PHP (o SQLite não acrescenta FK
+    # com ALTER TABLE); apagar cargo ou setor em uso é recusado pela API
+    cargo_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    setor_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
+    cargo_rel: Mapped[Cargo | None] = relationship(
+        primaryjoin="foreign(Atendente.cargo_id) == Cargo.id", lazy="joined", viewonly=True
+    )
+
+    @property
+    def cargo(self) -> Cargo:
+        """O cargo efetivo. Sem cargo_id (linha gravada por código antigo),
+        vale o papel: admin é Administrador, o resto é Colaborador — a mesma
+        regra da migração. Assim ninguém fica sem cargo nem ganha mais."""
+        cargo = self.cargo_rel
+        sessao = object_session(self)
+        if self.cargo_id is not None and (cargo is None or cargo.id != self.cargo_id) and sessao is not None:
+            cargo = sessao.get(Cargo, self.cargo_id)  # mudou nesta sessão: a relação ainda é a velha
+        if cargo is not None and self.cargo_id is not None:
+            return cargo
+        chave = perm.ADMINISTRADOR if self.papel == Papel.ADMIN.value else perm.COLABORADOR
+        if sessao is not None:
+            achado = sessao.scalar(select(Cargo).where(Cargo.chave == chave))
+            if achado is not None:
+                return achado
+        return Cargo.vazio(chave)
+
+    @property
+    def permissoes(self) -> list[str]:
+        """Efetivas, na ordem do catálogo. Inativo não tem nenhuma."""
+        if not self.ativo:
+            return []
+        return self.cargo.permissoes_efetivas
+
+    @property
+    def nivel(self) -> int:
+        return int(self.cargo.nivel)
 
     @property
     def e_admin(self) -> bool:
-        return self.papel == Papel.ADMIN.value
+        """Tem o cargo Administrador (o papel é só espelho)."""
+        return self.cargo.e_administrador
+
+    @property
+    def papel_efetivo(self) -> str:
+        return Papel.ADMIN.value if self.e_admin else Papel.ATENDENTE.value
 
 
 class Canal(Base):
@@ -174,6 +301,8 @@ class Canal(Base):
     # segredo compartilhado para validar a assinatura dos webhooks
     segredo_webhook: Mapped[str | None] = mapped_column(String(120), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
+    # conversa nova deste canal entra na fila deste setor (NULL: fila geral)
+    setor_padrao_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     conversas: Mapped[list["Conversa"]] = relationship(back_populates="canal")
 
@@ -242,7 +371,12 @@ class Conversa(Base):
     ultima_mensagem_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora, index=True)
     primeira_resposta_em: Mapped[datetime | None] = mapped_column(DataHoraUTC, nullable=True)
     resolvida_em: Mapped[datetime | None] = mapped_column(DataHoraUTC, nullable=True)
+    # a fila de setor em que a conversa está (NULL: fila geral)
+    setor_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
+    setor_rel: Mapped[Setor | None] = relationship(
+        primaryjoin="foreign(Conversa.setor_id) == Setor.id", lazy="joined", viewonly=True
+    )
     contato: Mapped[Contato] = relationship(back_populates="conversas", lazy="joined")
     canal: Mapped[Canal] = relationship(back_populates="conversas", lazy="joined")
     atendente: Mapped[Atendente | None] = relationship(lazy="joined")
@@ -253,6 +387,18 @@ class Conversa(Base):
         passive_deletes=True,
     )
     etiquetas: Mapped[list[Etiqueta]] = relationship(secondary=conversa_etiqueta, lazy="selectin")
+
+    @property
+    def setor(self) -> str | None:
+        """O nome do setor da fila (a relação pode estar velha se o setor_id
+        mudou nesta sessão: aí busca de novo)."""
+        if self.setor_id is None:
+            return None
+        setor = self.setor_rel
+        if setor is None or setor.id != self.setor_id:
+            sessao = object_session(self)
+            setor = sessao.get(Setor, self.setor_id) if sessao is not None else None
+        return setor.nome if setor is not None else None
 
 
 class Mensagem(Base):
@@ -427,8 +573,10 @@ class SalaInterna(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tipo: Mapped[str] = mapped_column(String(10))
     nome: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    # setor como foi digitado (o da sala de setor); a chave guarda a forma normalizada
+    # o nome do setor da sala de setor (acompanha o cadastro de setores)
     setor: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # sala de setor: o setor do cadastro (chave "setor:id:<setor_id>")
+    setor_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     chave: Mapped[str | None] = mapped_column(String(120), nullable=True)
     criada_por: Mapped[int | None] = mapped_column(
         ForeignKey("atendentes.id", ondelete="SET NULL"), nullable=True
@@ -488,6 +636,18 @@ class MensagemInterna(Base):
 COLUNAS_ACRESCENTADAS = (
     ("atendentes", "setor", "VARCHAR(80)"),
     ("mensagens", "assinatura", "VARCHAR(255)"),
+    # cargos e setores (migração PHP M20260925_1500_CargosESetores)
+    ("atendentes", "cargo_id", "INTEGER"),
+    ("atendentes", "setor_id", "INTEGER"),
+    ("canais", "setor_padrao_id", "INTEGER"),
+    ("conversas", "setor_id", "INTEGER"),
+    ("interno_salas", "setor_id", "INTEGER"),
+)
+# índices das colunas acima (nomes iguais aos da migração PHP)
+INDICES_ACRESCENTADOS = (
+    ("atendentes", "ix_atendentes_cargo_id", "cargo_id"),
+    ("atendentes", "ix_atendentes_setor_id", "setor_id"),
+    ("conversas", "ix_conversas_setor_id", "setor_id"),
 )
 
 
@@ -504,10 +664,37 @@ def acrescentar_colunas_faltantes(conexao) -> list[str]:
         # nomes fixos daqui, nunca vindos de fora: nada a escapar
         conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo} NULL"))
         feitas.append(f"{tabela}.{coluna}")
+    inspetor = inspect(conexao)
+    for tabela, nome, coluna in INDICES_ACRESCENTADOS:
+        if tabela not in tabelas or nome in {i["name"] for i in inspetor.get_indexes(tabela)}:
+            continue
+        conexao.execute(text(f"CREATE INDEX {nome} ON {tabela} ({coluna})"))
+        feitas.append(nome)
     return feitas
+
+
+def criar_cargos_de_fabrica(conexao) -> dict[str, int]:
+    """Os cinco cargos de fábrica, se faltarem (idempotente). {chave: id}."""
+    if "cargos" not in set(inspect(conexao).get_table_names()):
+        return {}
+    ids: dict[str, int] = {}
+    for chave, (nome, nivel, permissoes) in perm.FABRICA.items():
+        existente = conexao.execute(text("SELECT id FROM cargos WHERE chave = :chave"), {"chave": chave}).scalar()
+        if existente is None:
+            conexao.execute(
+                Cargo.__table__.insert().values(
+                    chave=chave, nome=nome, nivel=nivel, permissoes=list(permissoes), sistema=True, criado_em=agora()
+                )
+            )
+            existente = conexao.execute(text("SELECT id FROM cargos WHERE chave = :chave"), {"chave": chave}).scalar()
+        ids[chave] = int(existente)
+    return ids
 
 
 @event.listens_for(Base.metadata, "after_create")
 def _migrar_depois_do_create_all(alvo, conexao, **_):
-    # todo create_all (subida do app, seed, testes) passa por aqui
+    # todo create_all (subida do app, seed, testes) passa por aqui: colunas
+    # novas em tabelas antigas e os cargos de fábrica (sem eles ninguém tem
+    # permissão nenhuma; a migração dos dados antigos fica em app/db.py)
     acrescentar_colunas_faltantes(conexao)
+    criar_cargos_de_fabrica(conexao)

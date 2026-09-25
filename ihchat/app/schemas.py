@@ -5,9 +5,10 @@ import re
 from datetime import datetime
 from typing import Annotated, Any
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, field_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, field_validator
 from pydantic_core import PydanticCustomError
 
+from . import permissoes as perm
 from .models import Direcao, Papel, Prioridade, StatusConversa, TipoCanal
 
 
@@ -47,11 +48,19 @@ def _senha_valida(valor: str | None) -> str | None:
 
 
 class AtendenteEntrada(BaseModel):
+    """Cadastro: cargo_id e setor_id (o jeito novo) ou, por compatibilidade,
+    papel ("admin" = Administrador, "atendente" = Colaborador) e setor (o
+    nome). Sem cargo, Colaborador; sem setor, o de quem cadastra se ele não
+    pode definir setor."""
+
     nome: str = Field(min_length=2, max_length=120)
     email: EmailStr
     senha: str = Field(min_length=6, max_length=128)
-    papel: Papel = Papel.ATENDENTE
+    papel: Papel | None = None
+    cargo_id: int | None = Field(default=None, ge=1)
     setor: Setor = None
+    setor_id: int | None = Field(default=None, ge=1)
+    disponivel: bool = True
 
     senha_valida = field_validator("senha")(_senha_valida)
 
@@ -60,27 +69,132 @@ class AtendenteAtualizacao(BaseModel):
     nome: str | None = Field(default=None, min_length=2, max_length=120)
     senha: str | None = Field(default=None, min_length=6, max_length=128)
     papel: Papel | None = None
+    cargo_id: int | None = Field(default=None, ge=1)
     ativo: bool | None = None
     disponivel: bool | None = None
     # PATCH: ausente mantém; null ou "" limpa (ver model_fields_set na rota)
     setor: Setor = None
+    setor_id: int | None = Field(default=None, ge=1)
 
     senha_valida = field_validator("senha")(_senha_valida)
+
+    @field_validator("cargo_id", mode="before")
+    @classmethod
+    def _cargo_nao_nulo(cls, valor):
+        if valor is None:
+            raise ValueError("cargo_id: não pode ser vazio")
+        return valor
+
+
+class CargoResumo(Modelo):
+    """O que vai dentro do atendente: {id, nome, nivel}."""
+
+    id: int
+    nome: str
+    nivel: int
 
 
 class AtendenteSaida(Modelo):
     id: int
     nome: str
     email: str
-    papel: str
+    # derivado do cargo ("admin" só para o Administrador): o front antigo lê
+    papel: str = Field(validation_alias=AliasChoices("papel_efetivo", "papel"))
     ativo: bool
     disponivel: bool
     setor: str | None = None
+    setor_id: int | None = None
+    cargo: CargoResumo
+    # permissões efetivas: o painel esconde o que a pessoa não pode (quem
+    # decide de verdade é o servidor, rota a rota)
+    permissoes: list[str] = []
 
     @field_validator("setor")
     @classmethod
     def _vazio_e_nulo(cls, valor: str | None) -> str | None:
         return valor or None
+
+
+# ---------------------------------------------------------- cargos e setores
+def _nome_limpo(valor):
+    """Espaços nas pontas e repetidos não contam ("  Suporte   técnico")."""
+    return " ".join(valor.split()) if isinstance(valor, str) else valor
+
+
+NomeDeCadastro = Annotated[str, BeforeValidator(_nome_limpo), Field(min_length=2, max_length=60)]
+
+
+def _permissoes_do_catalogo(valor):
+    if valor is None:
+        return valor
+    desconhecidas = [c for c in valor if not perm.existe(c)]
+    if desconhecidas:
+        raise ValueError("permissoes: permissão desconhecida: " + ", ".join(desconhecidas[:5]))
+    return perm.ordenar(valor)
+
+
+class CargoEntrada(BaseModel):
+    nome: NomeDeCadastro
+    nivel: int = Field(ge=1, le=perm.NIVEL_MAXIMO_OUTROS)
+    permissoes: list[str]
+
+    _validar = field_validator("permissoes")(_permissoes_do_catalogo)
+
+
+class CargoAtualizacao(BaseModel):
+    nome: NomeDeCadastro | None = None
+    nivel: int | None = Field(default=None, ge=1, le=perm.NIVEL_MAXIMO_OUTROS)
+    permissoes: list[str] | None = None
+
+    _validar = field_validator("permissoes")(_permissoes_do_catalogo)
+
+    @field_validator("nome", "nivel", "permissoes", mode="before")
+    @classmethod
+    def _nao_nulo(cls, valor):
+        if valor is None:
+            raise ValueError("não pode ser vazio")
+        return valor
+
+
+class CargoSaida(BaseModel):
+    id: int
+    nome: str
+    nivel: int
+    permissoes: list[str]
+    sistema: bool
+    total_pessoas: int = 0
+
+
+class SetorEntrada(BaseModel):
+    nome: NomeDeCadastro
+    descricao: Annotated[str | None, BeforeValidator(_aparar), Field(max_length=255)] = None
+
+
+class SetorAtualizacao(BaseModel):
+    nome: NomeDeCadastro | None = None
+    descricao: Annotated[str | None, BeforeValidator(_aparar), Field(max_length=255)] = None
+    ativo: bool | None = None
+
+    @field_validator("nome", "ativo", mode="before")
+    @classmethod
+    def _nao_nulo(cls, valor):
+        if valor is None:
+            raise ValueError("não pode ser vazio")
+        return valor
+
+
+class SetorSaida(BaseModel):
+    id: int
+    nome: str
+    descricao: str | None = None
+    ativo: bool
+    total_pessoas: int = 0
+
+
+class PermissaoSaida(BaseModel):
+    chave: str
+    rotulo: str
+    grupo: str
 
 
 class Credenciais(BaseModel):
@@ -114,6 +228,8 @@ class CanalEntrada(BaseModel):
     tipo: TipoCanal
     credenciais: dict = Field(default_factory=dict)
     ativo: bool = True
+    # conversa nova do canal entra na fila deste setor (None: fila geral)
+    setor_padrao_id: int | None = Field(default=None, ge=1)
 
     _validar_nome = field_validator("nome")(_nome_de_canal)
 
@@ -127,6 +243,8 @@ class CanalAtualizacao(BaseModel):
     # isto um token colado num canal de demonstracao nao teria volta ao sandbox
     limpar: list[str] = Field(default_factory=list)
     ativo: bool | None = None
+    # PATCH: ausente mantém; null tira o setor (volta para a fila geral)
+    setor_padrao_id: int | None = Field(default=None, ge=1)
 
     _validar_nome = field_validator("nome")(_nome_de_canal)
 
@@ -177,6 +295,8 @@ class CanalSaida(Modelo):
     # testar). None nos outros tipos e antes da primeira conferência. Não é
     # segredo: é o que deixa a equipe ver que o celular caiu.
     conexao: str | None = None
+    # conversa nova deste canal entra na fila deste setor (None: fila geral)
+    setor_padrao_id: int | None = None
 
 
 # -------------------------------------------------------------------- contatos
@@ -312,14 +432,33 @@ class ConversaSaida(Modelo):
     canal: CanalSaida
     atendente: AtendenteSaida | None = None
     etiquetas: list[EtiquetaSaida] = []
+    # a fila de setor em que a conversa está (None: fila geral)
+    setor_id: int | None = None
+    setor: str | None = None
+
+
+class HistoricoSaida(BaseModel):
+    """A trilha da conversa (tabela eventos): atribuições, transferências, status."""
+
+    id: int
+    tipo: str
+    descricao: str
+    atendente_id: int | None = None
+    autor: str | None = None
+    criado_em: datetime
 
 
 class ConversaDetalhe(ConversaSaida):
     mensagens: list[MensagemSaida] = []
+    historico: list[HistoricoSaida] = []
 
 
 class AtribuicaoEntrada(BaseModel):
+    """Atribui a uma pessoa e/ou transfere para a fila de um setor. Sem
+    setor_id, a conversa acompanha a pessoa (vai para o setor dela)."""
+
     atendente_id: int | None = None
+    setor_id: int | None = Field(default=None, ge=1)
 
 
 class StatusEntrada(BaseModel):

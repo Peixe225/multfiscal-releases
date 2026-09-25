@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends, Header, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
+from . import permissoes as perm
 from .db import obter_sessao
 from .models import Atendente, Conversa
 from .security import ler_token
@@ -56,6 +57,7 @@ AtendenteDeArquivo = Annotated[Atendente, Depends(atendente_de_arquivo)]
 
 
 def admin_atual(atendente: AtendenteAtual) -> Atendente:
+    """Cargo Administrador (o papel "admin" é só o espelho dele)."""
     if not atendente.e_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "acao restrita a administradores")
     return atendente
@@ -64,14 +66,28 @@ def admin_atual(atendente: AtendenteAtual) -> Atendente:
 AdminAtual = Annotated[Atendente, Depends(admin_atual)]
 
 
-def conversa_por_id(conversa_id: Annotated[int, Path()], sessao: Sessao, _: AtendenteAtual) -> Conversa:
+def com_permissao(permissao: str):
+    """Login + permissão do catálogo (app/permissoes.py); 403 com a frase
+    "sem permissão para ..." se o cargo não a tiver. Uso:
+
+        def criar(..., atual: Annotated[Atendente, com_permissao("canais.gerenciar")])
+    """
+
+    def dependencia(atendente: AtendenteAtual) -> Atendente:
+        perm.exigir(atendente, permissao)
+        return atendente
+
+    return Depends(dependencia)
+
+
+def conversa_por_id(conversa_id: Annotated[int, Path()], sessao: Sessao, atual: AtendenteAtual) -> Conversa:
     """A conversa da rota, DEPOIS do login: sem token, "existe" e "não existe"
-    respondem o mesmo 401, e ninguém enumera ids (igual ao PHP). O
-    atendente_atual fica em cache na requisição: a rota não o calcula de novo."""
-    conversa = sessao.get(Conversa, conversa_id)
-    if conversa is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "conversa nao encontrada")
-    return conversa
+    respondem o mesmo 401, e ninguém enumera ids (igual ao PHP). A conversa
+    que a pessoa não pode ver (servicos/visibilidade.py: outro setor) também
+    é 404. O atendente_atual fica em cache na requisição."""
+    from .servicos import visibilidade  # import tardio: servicos importa daqui
+
+    return visibilidade.exigir(sessao, atual, conversa_id)
 
 
 ConversaAtual = Annotated[Conversa, Depends(conversa_por_id)]

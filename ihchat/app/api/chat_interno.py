@@ -24,6 +24,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Path, Query, Response, status
 from pydantic import BaseModel, Field
 
+from .. import permissoes as perm
 from ..dependencias import AtendenteAtual, Sessao
 from ..servicos import chat_interno as svc
 from ..servicos.chat_interno import (
@@ -185,6 +186,7 @@ def apagar(mensagem_id: MensagemId, sessao: Sessao, atual: AtendenteAtual) -> Me
 @rotas.post("/grupos", response_model=SalaDetalhe, status_code=status.HTTP_201_CREATED)
 def criar_grupo(dados: GrupoEntrada, sessao: Sessao, atual: AtendenteAtual) -> SalaDetalhe:
     svc.sincronizar(sessao)
+    perm.exigir(atual, "chat.criar_grupo")
     detalhe, eventos = svc.criar_grupo(sessao, atual, dados.nome, list(dados.membros))
     _confirmar(sessao, eventos)
     return detalhe

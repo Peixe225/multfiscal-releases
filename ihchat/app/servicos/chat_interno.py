@@ -4,25 +4,29 @@ Os atendentes conversam entre si sem misturar com os clientes. Quatro tipos
 de sala (models.TipoSala):
 
   geral   todos os atendentes ativos; uma só (chave "geral");
-  setor   uma por setor do perfil (chave "setor:<hash do setor normalizado>");
+  setor   uma por setor do cadastro (chave "setor:id:<setor_id>", coluna
+          setor_id); quem está no setor está na sala. As salas do tempo do
+          texto livre ("setor:<hash>") foram ligadas ao cadastro na migração;
   direta  uma por par de atendentes (chave "direta:<menor id>:<maior id>");
-  grupo   criado por qualquer atendente com os membros escolhidos; quem cria
-          administra (renomeia, põe e tira gente), e o admin do sistema também.
+  grupo   criado por quem pode (chat.criar_grupo) com os membros escolhidos;
+          quem cria administra (renomeia, põe e tira gente), e quem modera o
+          chat (chat.moderar) também.
 
-Geral e setores não têm cadastro: são SINCRONIZADAS no começo de toda chamada
-a /api/interno, a partir de atendentes.ativo e atendentes.setor. Mudou o setor
-no perfil ou alguém foi desativado, a próxima chamada de qualquer pessoa
-acerta os membros; e como nenhuma mensagem entra numa sala sem passar por
-essa conferência antes, o evento de uma sala nunca vai para quem já saiu dela.
+Geral e setores não têm cadastro próprio: são SINCRONIZADAS no começo de toda
+chamada a /api/interno e sempre que a equipe ou um setor muda, a partir de
+atendentes.ativo/setor_id (e o nome da sala segue o nome do setor). Como
+nenhuma mensagem entra numa sala sem passar por essa conferência antes, o
+evento de uma sala nunca vai para quem já saiu dela.
 
 Privacidade: só membro lê ou escreve; para quem não é, a sala (e a mensagem)
 não existe: 404, sem revelar nada. Os eventos "interno.*" levam o sala_id e
 o filtro de app/api/eventos.py só os entrega a membros; os que são de uma
 pessoa só (cursor de leitura, "você saiu") levam "para": [ids].
 
-O setor é editável no próprio perfil; por isso quem ENTRA numa sala de setor
-só vê dali para a frente (membro.visivel_desde): trocar o setor não abre o
-histórico de outro setor, nem pela API nem pelos eventos guardados na fila.
+O setor só muda por quem gerencia a equipe (antes cada um mudava o seu), e
+mesmo assim quem ENTRA numa sala de setor só vê dali para a frente
+(membro.visivel_desde): trocar de setor não abre o histórico de outro setor,
+nem pela API nem pelos eventos guardados na fila.
 Grupo apagado (o último saiu) tem os eventos esvaziados na fila na hora.
 
 Mesmo contrato no PHP (php/app/ChatInterno). Formatos de saída neste arquivo.
@@ -41,6 +45,7 @@ from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .. import permissoes as perm
 from ..db import SessaoLocal
 from ..models import (
     Atendente,
@@ -51,6 +56,7 @@ from ..models import (
     MembroSala,
     MensagemInterna,
     SalaInterna,
+    Setor,
     TipoSala,
     agora,
 )
@@ -80,8 +86,7 @@ class AtendenteResumo(BaseModel):
     setor: str | None = None
     ativo: bool
     disponivel: bool
-    # vem do papel, que só o admin muda: nome e setor qualquer um troca no
-    # próprio perfil, então é o que não dá para imitar
+    # cargo Administrador (só quem gerencia concede): o nome dá para imitar, isto não
     admin: bool
 
 
@@ -121,6 +126,7 @@ class SalaSaida(BaseModel):
     tipo: str
     nome: str
     setor: str | None = None
+    setor_id: int | None = None
     com: AtendenteResumo | None = None  # na direta: a outra pessoa
     criada_por: int | None = None
     administrador: bool  # quem pede pode renomear e mexer nos membros (grupo)
@@ -166,6 +172,11 @@ def chave_setor(setor: str | None) -> str | None:
     return "setor:" + hashlib.sha256(normal.encode()).hexdigest()[:40]
 
 
+def chave_do_setor(setor_id: int) -> str:
+    """A sala do setor do cadastro."""
+    return f"setor:id:{int(setor_id)}"
+
+
 def chave_direta(a: int, b: int) -> str:
     menor, maior = sorted((int(a), int(b)))
     return f"direta:{menor}:{maior}"
@@ -192,10 +203,27 @@ def sincronizar(sessao: Session) -> None:
     publicar(mudancas)
 
 
+def sincronizar_sem_falhar(sessao: Session) -> None:
+    """sincronizar() depois de mexer na equipe ou num setor: quem entra, muda
+    de setor ou é desativado ganha ou perde a sala NA HORA (evento
+    "interno.sala" entrou/saiu). Uma falha aqui não desfaz o cadastro já
+    confirmado: a próxima chamada ao chat acerta de novo. Igual ao PHP."""
+    try:
+        sincronizar(sessao)
+    except Exception:  # pragma: no cover - o cadastro já foi gravado
+        sessao.rollback()
+        import logging
+
+        logging.getLogger("ihchat.chat_interno").exception("não foi possível sincronizar as salas do chat interno")
+
+
 def _sincronizar(sessao: Session) -> list[Evento]:
     momento = agora()
     ativos = sessao.execute(
-        select(Atendente.id, Atendente.setor).where(Atendente.ativo.is_(True)).order_by(Atendente.id)
+        select(Atendente.id, Atendente.setor_id, Setor.nome)
+        .outerjoin(Setor, Setor.id == Atendente.setor_id)
+        .where(Atendente.ativo.is_(True))
+        .order_by(Atendente.id)
     ).all()
     automaticas = {
         s.chave: s
@@ -203,27 +231,39 @@ def _sincronizar(sessao: Session) -> list[Evento]:
             select(SalaInterna).where(SalaInterna.tipo.in_([TipoSala.GERAL.value, TipoSala.SETOR.value]))
         )
     }
+    renomeadas: list[Evento] = []
 
-    def sala_automatica(chave: str, tipo: TipoSala, nome: str, setor: str | None) -> SalaInterna:
+    def sala_automatica(chave: str, tipo: TipoSala, nome: str, setor_id: int | None) -> SalaInterna:
         sala = automaticas.get(chave)
         if sala is None:
             sala = SalaInterna(
-                tipo=tipo.value, nome=nome, setor=setor, chave=chave, criada_em=momento, atualizada_em=momento
+                tipo=tipo.value,
+                nome=nome,
+                setor=nome if setor_id is not None else None,
+                setor_id=setor_id,
+                chave=chave,
+                criada_em=momento,
+                atualizada_em=momento,
             )
             sessao.add(sala)
             sessao.flush()
             automaticas[chave] = sala
+        elif setor_id is not None and sala.nome != nome:
+            # o setor foi renomeado: a sala acompanha (e quem está nela fica sabendo)
+            sala.nome = nome
+            sala.setor = nome
+            sala.atualizada_em = momento
+            sessao.flush()
+            renomeadas.append(("interno.sala", {"sala_id": sala.id, "acao": "atualizada"}))
         return sala
 
     geral = sala_automatica(CHAVE_GERAL, TipoSala.GERAL, NOME_GERAL, None)
     esperado: set[tuple[int, int]] = set()
-    for atendente_id, setor in ativos:
+    for atendente_id, setor_id, setor_nome in ativos:
         esperado.add((geral.id, atendente_id))
-        chave = chave_setor(setor)
-        if chave is not None:
-            # o primeiro atendente (menor id) dá o nome de exibição da sala
-            exibicao = " ".join(setor.split())[:80]
-            esperado.add((sala_automatica(chave, TipoSala.SETOR, exibicao, exibicao).id, atendente_id))
+        if setor_id is not None and setor_nome is not None:
+            sala = sala_automatica(chave_do_setor(setor_id), TipoSala.SETOR, setor_nome, setor_id)
+            esperado.add((sala.id, atendente_id))
 
     ids_salas = [s.id for s in automaticas.values()]
     atuais = {
@@ -236,8 +276,8 @@ def _sincronizar(sessao: Session) -> list[Evento]:
     sobram = sorted(atuais - esperado)
     if faltam:
         # o que veio antes não conta como não lido. Na Geral quem entra vê o
-        # histórico (só o admin ativa alguém); no setor, não: o setor qualquer
-        # um troca no próprio perfil, e isso não pode abrir a conversa de outro
+        # histórico; no setor, não: quem muda de setor não leva junto a
+        # conversa antiga do setor novo (nem vê o que se falou na ausência)
         ultimas = _ultimas_ids(sessao, {sala_id for sala_id, _ in faltam})
         setores = {s.id for s in automaticas.values() if s.tipo == TipoSala.SETOR.value}
         for sala_id, atendente_id in faltam:
@@ -259,7 +299,8 @@ def _sincronizar(sessao: Session) -> list[Evento]:
     if faltam or sobram:
         sessao.flush()
     return (
-        [
+        renomeadas
+        + [
             ("interno.sala", {"sala_id": sala_id, "acao": "entrou", "para": [atendente_id]})
             for sala_id, atendente_id in faltam
         ]
@@ -364,8 +405,10 @@ def exigir_mensagem(
 
 
 def pode_administrar(sala: SalaInterna, atendente: Atendente) -> bool:
-    """Quem criou (ou herdou: ver _acertar_administracao) e o admin do sistema."""
-    return sala.tipo == TipoSala.GRUPO.value and (sala.criada_por == atendente.id or atendente.e_admin)
+    """Quem criou (ou herdou: ver _acertar_administracao) e quem modera o chat."""
+    return sala.tipo == TipoSala.GRUPO.value and (
+        sala.criada_por == atendente.id or perm.tem(atendente, "chat.moderar")
+    )
 
 
 # ----------------------------------------------------------- serialização
@@ -502,6 +545,7 @@ def salas_saida(
                 tipo=sala.tipo,
                 nome=nome,
                 setor=sala.setor if sala.tipo == TipoSala.SETOR.value else None,
+                setor_id=sala.setor_id if sala.tipo == TipoSala.SETOR.value else None,
                 com=_resumo(com) if com else None,
                 criada_por=sala.criada_por if sala.tipo == TipoSala.GRUPO.value else None,
                 administrador=pode_administrar(sala, atendente),
@@ -617,10 +661,14 @@ def _aparar(conteudo: str | None) -> str:
     return (conteudo or "").strip()
 
 
-def exigir_conversa(sessao: Session, conversa_id: int | None) -> int | None:
+def exigir_conversa(sessao: Session, conversa_id: int | None, atendente: Atendente) -> int | None:
+    """Só se compartilha conversa que a própria pessoa pode ver (a regra da
+    caixa de entrada): a que ela não vê é "não encontrada"."""
     if conversa_id is None:
         return None
-    if sessao.get(Conversa, conversa_id) is None:
+    from . import visibilidade  # import tardio: visibilidade puxa dependências da API
+
+    if not visibilidade.pode_ver_id(sessao, atendente, conversa_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "conversa nao encontrada")
     return conversa_id
 
@@ -634,7 +682,7 @@ def enviar(
     conversa_id: int | None,
 ) -> tuple[MensagemInternaSaida, list[Evento]]:
     texto = _aparar(conteudo)
-    conversa_id = exigir_conversa(sessao, conversa_id)
+    conversa_id = exigir_conversa(sessao, conversa_id, atendente)
     if not texto and conversa_id is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "conteudo: não pode ficar vazio")
     momento = agora()
@@ -678,7 +726,9 @@ def editar(
 def apagar(
     sessao: Session, mensagem: MensagemInterna, atendente: Atendente
 ) -> tuple[MensagemInternaSaida, list[Evento]]:
-    if mensagem.autor_id != atendente.id:
+    # quem modera o chat apaga a de qualquer um, nas salas em que está
+    # (exigir_mensagem já deu 404 fora delas)
+    if mensagem.autor_id != atendente.id and not perm.tem(atendente, "chat.moderar"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "só quem escreveu pode apagar a mensagem")
     if not mensagem.apagada:
         # o texto sai do banco de verdade; fica só o lugar ("mensagem apagada")
