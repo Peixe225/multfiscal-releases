@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1120" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/static/marca/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/static/marca/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/marca/apple-touch-icon.png">
+  <title>Simulador de clientes — IHchat</title>
+  <link rel="stylesheet" href="/static/simulador.css">
+</head>
+<body>
+
+<header class="topo">
+  <!-- "iH" do logo sem o anel (ver painel.html); o "H" segue a cor do texto -->
+  <div class="marca">
+    <svg class="simbolo" viewBox="11 3.5 284 401" aria-hidden="true" focusable="false">
+      <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+      <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+      <rect x="93" y="235" width="128" height="67" rx="8" fill="currentColor"/>
+      <rect x="213" y="66" width="80" height="336" rx="8" fill="currentColor"/>
+    </svg>
+    <span class="nome-marca">IHchat</span>
+  </div>
+  <span class="etiqueta-sim">Simulador de clientes</span>
+  <div class="usuario" id="usuario" hidden>
+    <span id="nome-atendente"></span>
+    <button type="button" class="link" id="trocar">Trocar usuário</button>
+  </div>
+</header>
+
+<main id="tela-carregando" class="centro">
+  <p class="dica">Carregando…</p>
+</main>
+
+<main id="tela-login" class="centro" hidden>
+  <form id="form-login" class="cartao">
+    <h1>Entrar no simulador</h1>
+    <p>Use o mesmo login do painel. É ele que autoriza escrever como cliente.</p>
+    <label class="campo">
+      <span>E-mail</span>
+      <input type="email" name="email" autocomplete="username" required>
+    </label>
+    <label class="campo">
+      <span>Senha</span>
+      <input type="password" name="senha" autocomplete="current-password" required>
+    </label>
+    <button class="botao largo" type="submit">Entrar</button>
+    <p class="erro" id="erro-login" role="alert"></p>
+  </form>
+</main>
+
+<main id="tela-desligado" class="centro" hidden>
+  <div class="cartao">
+    <h1>Simulador desligado</h1>
+    <p>
+      O simulador só existe no <b>modo sandbox</b> (<code>IHCHAT_MODO_SANDBOX=true</code>).
+      Fora dele, qualquer atendente conseguiria forjar mensagens de cliente na
+      caixa de entrada, então a rota nem responde.
+    </p>
+    <a class="botao largo" href="/painel">Ir para o painel</a>
+  </div>
+</main>
+
+<main id="app" class="app" hidden>
+  <section class="faixa">
+    <div>
+      <b>Você é o cliente.</b>
+      O que você escreve no celular entra na caixa de entrada de verdade, como
+      se viesse do WhatsApp, do Telegram ou do e-mail. Responda pelo painel em
+      outra aba e veja a resposta chegar aqui, sem recarregar.
+    </div>
+    <a class="botao" href="/painel" target="_blank" rel="noopener">Abrir o painel ↗</a>
+  </section>
+
+  <div class="palco">
+    <aside class="lado">
+      <h2 class="titulo-coluna">Quem você é</h2>
+      <div id="personas" class="personas"></div>
+
+      <h2 class="titulo-coluna">Pelo canal</h2>
+      <div id="canais" class="canais"></div>
+
+      <form id="form-novo" class="form-novo" hidden novalidate>
+        <label class="campo">
+          <span id="rotulo-identificador">Identificador</span>
+          <input name="identificador" id="novo-identificador" autocomplete="off" required>
+        </label>
+        <label class="campo">
+          <span>Nome (opcional)</span>
+          <input name="nome" id="novo-nome" autocomplete="off" maxlength="160">
+        </label>
+        <button class="botao largo" type="submit">Abrir a conversa</button>
+        <p class="erro" id="erro-novo" role="alert"></p>
+      </form>
+    </aside>
+
+    <section class="area-celular">
+      <p class="quem" id="quem"></p>
+
+      <div class="celular" id="celular" data-tipo="whatsapp">
+        <header class="tela-topo">
+          <div class="tela-avatar" id="tela-avatar"></div>
+          <div class="tela-titulo">
+            <b id="tela-nome"></b>
+            <span id="tela-sub"></span>
+          </div>
+          <span class="ao-vivo" id="ao-vivo" title="As respostas do atendente chegam sozinhas, sem recarregar">conectando…</span>
+        </header>
+
+        <div class="tela-conversa" id="conversa" aria-live="polite"></div>
+
+        <form class="tela-redator" id="redator">
+          <input id="assunto" class="assunto" placeholder="Assunto" maxlength="200" autocomplete="off" hidden>
+          <div class="linha-redator">
+            <textarea id="texto" rows="1" maxlength="8000" placeholder="Mensagem"></textarea>
+            <button class="enviar" id="enviar" type="submit" aria-label="Enviar" title="Enviar">➤</button>
+          </div>
+        </form>
+      </div>
+      <p class="dica">Enter envia · Shift+Enter quebra linha</p>
+    </section>
+  </div>
+</main>
+
+<script src="/static/eventos.js"></script>
+<script src="/static/simulador.js"></script>
+</body>
+</html>

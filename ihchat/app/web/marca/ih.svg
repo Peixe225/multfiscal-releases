@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 301 410" role="img" aria-label="I&amp;H">
+  <!-- Símbolo "iH" da I&H, redesenhado a partir de oprojeto.online/assets/logo-ih.png.
+       Cores oficiais, para fundo escuro (azul-noite #060912). Em fundo claro use
+       ih-fundo-claro.svg: o H lilás some no branco.
+       O anel é fino no original e fica deslocado para baixo do pingo; o traço não
+       escala (vector-effect) para continuar visível em tamanhos pequenos. -->
+  <circle cx="53" cy="53" r="52" fill="none" stroke="#ff9e3d" stroke-opacity=".6" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+  <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+  <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+  <rect x="93" y="235" width="128" height="67" rx="8" fill="#eaedf7"/>
+  <rect x="213" y="66" width="80" height="336" rx="8" fill="#eaedf7"/>
+</svg>

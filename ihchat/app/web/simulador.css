@@ -1,0 +1,337 @@
+/* Simulador de clientes. Os tokens são os do painel (painel.css), copiados em
+   vez de importados: o painel trava o scroll do body, e aqui a página rola.
+   Os papéis do laranja (--marca, --marca-texto, --marca-linha) e as razões de
+   contraste estão explicados no topo do painel.css. */
+:root {
+  color-scheme: light dark;
+  --noite: #060912;
+  --lilas: #eaedf7;
+  --laranja: #ff9e3d;
+
+  --fundo: #f4f5fa;
+  --superficie: #ffffff;
+  --superficie-2: #eef0f7;
+  --borda: #dcdfeb;
+  --texto: #0e1222;
+  --texto-fraco: #585f76;
+  --marca: var(--laranja);
+  --marca-contraste: var(--noite);  /* texto sobre o laranja: 9,67:1 */
+  --marca-texto: #a35200;           /* laranja que pode ser texto: 4,90:1 ou mais */
+  --marca-linha: #d16900;           /* foco e seleção (3:1 ou mais) */
+  --marca-fraca: #fff1e2;
+  --verde: #0a7a4c;
+  --ambar: #9a5800;
+  --vermelho: #c42b2b;
+  --perigo-texto: #ffffff;
+  --raio: 10px;
+  --sombra: 0 1px 2px rgba(6, 9, 18, .06), 0 8px 24px rgba(6, 9, 18, .07);
+
+  --fonte: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: var(--noite);
+    --superficie: #0d1120;
+    --superficie-2: #161b2e;
+    --borda: #262c43;
+    --texto: var(--lilas);
+    --texto-fraco: #9ba2bd;
+    --marca-texto: #ffa654;
+    --marca-linha: var(--laranja);
+    --marca-fraca: #2a1c0e;
+    --verde: #3ecf8e;
+    --ambar: #f0b429;
+    --vermelho: #ff6b6b;
+    --perigo-texto: var(--noite);
+    --sombra: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font: 15px/1.5 var(--fonte);
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+code { font-family: var(--fonte-mono); font-size: .9em; }
+::selection { background: var(--marca); color: var(--marca-contraste); }
+:focus-visible { outline: 2px solid var(--marca-linha); outline-offset: 2px; }
+
+/* ----------------------------------------------------------------- topo */
+.topo {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 24px; min-height: 58px;
+  background: var(--superficie); border-bottom: 1px solid var(--borda);
+}
+.marca { font-size: 17px; font-weight: 800; letter-spacing: -.03em; display: flex; align-items: center; gap: 9px; }
+/* o "iH" do logo: "i" laranja fixo, "H" na cor do texto (ver painel.css) */
+.simbolo { flex: none; height: 26px; width: auto; color: var(--texto); }
+.etiqueta-sim {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+  background: #e7f8ee; color: #0b7a4b; border: 1px solid #bfe8d3;
+}
+.usuario { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.usuario #nome-atendente { font-weight: 600; }
+.link { border: 0; background: transparent; padding: 0; color: var(--marca-texto); cursor: pointer; font-size: 13px; font-weight: 600; }
+.link:hover { text-decoration: underline; }
+
+/* -------------------------------------------------------- login / avisos */
+.centro { min-height: calc(100vh - 58px); display: grid; place-items: center; padding: 24px 16px; }
+.cartao {
+  width: min(400px, 100%);
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 16px;
+  padding: 28px; box-shadow: var(--sombra);
+}
+.cartao h1 { margin: 0 0 6px; font-size: 21px; letter-spacing: -.01em; }
+.cartao p { margin: 0 0 20px; color: var(--texto-fraco); font-size: 14px; }
+.campo { display: block; margin-bottom: 12px; }
+.campo span { display: block; font-size: 13px; color: var(--texto-fraco); margin-bottom: 5px; }
+.campo input {
+  width: 100%; padding: 9px 12px;
+  border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie-2);
+}
+.campo input:focus { outline: 2px solid var(--marca-linha); outline-offset: -1px; }
+.campo input:disabled { opacity: .55; }
+
+.botao {
+  display: inline-block; text-align: center; text-decoration: none;
+  border: 0; border-radius: var(--raio); padding: 10px 16px;
+  background: var(--marca); color: var(--marca-contraste); font-weight: 650; cursor: pointer; white-space: nowrap;
+}
+.botao:hover { filter: brightness(1.06) saturate(1.05); }
+.botao:disabled { opacity: .55; cursor: progress; }
+.botao.largo { width: 100%; }
+.erro { color: var(--vermelho); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
+.dica { font-size: 12px; color: var(--texto-fraco); margin: 8px 0 0; text-align: center; }
+
+.aviso {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: calc(100vw - 32px);
+  background: var(--texto); color: var(--fundo); padding: 10px 18px;
+  border-radius: 20px; font-size: 14px; box-shadow: var(--sombra); z-index: 20;
+}
+.aviso.falha { background: var(--vermelho); color: var(--perigo-texto); }
+
+/* ---------------------------------------------------------------- faixa */
+.faixa {
+  display: flex; align-items: center; gap: 18px;
+  max-width: 1100px; margin: 18px auto; padding: 14px 18px;
+  background: var(--marca-fraca); border: 1px solid var(--borda); border-radius: 14px;
+  font-size: 14px;
+}
+.faixa b { color: var(--marca-texto); }
+.faixa .botao { margin-left: auto; flex: none; }
+
+/* ---------------------------------------------------------------- palco */
+.palco {
+  display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px;
+  max-width: 1100px; margin: 0 auto; padding: 0 0 32px;
+}
+.titulo-coluna {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--texto-fraco); margin: 6px 2px 8px; font-weight: 700;
+}
+.titulo-coluna:not(:first-child) { margin-top: 22px; }
+
+.personas, .canais { display: flex; flex-direction: column; gap: 6px; }
+.persona, .canal {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--borda); border-radius: 12px;
+  background: var(--superficie); cursor: pointer;
+}
+.persona:hover, .canal:hover:not(:disabled) { border-color: var(--marca-linha); }
+.persona.ativo, .canal.ativo { border-color: var(--marca-linha); box-shadow: inset 0 0 0 1px var(--marca-linha); background: var(--marca-fraca); }
+.persona .corpo, .canal .corpo { min-width: 0; flex: 1; }
+.persona .nome, .canal .nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.persona .linha, .canal .linha { font-size: 12px; color: var(--texto-fraco); overflow-wrap: anywhere; }
+.esmaecido { opacity: .6; }
+.canal:disabled { cursor: not-allowed; background: var(--superficie-2); }
+.canal .linha a { color: var(--marca-texto); }
+.vazio-lista { font-size: 13px; color: var(--texto-fraco); padding: 4px 2px; }
+
+.avatar {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff;
+  background: #585f76; /* fixo: o --texto-fraco do escuro é claro e o branco daria 2,53:1 */
+}
+/* iniciais brancas com 4,5:1 ou mais: 5,17 / 5,16 / 5,07 */
+.avatar.tipo-whatsapp { background: #1a7d45; }
+.avatar.tipo-telegram { background: #1e71b3; }
+.avatar.tipo-email { background: #7c52e0; }
+.avatar.tipo-novo { background: var(--superficie-2); color: var(--texto-fraco); border: 1px dashed var(--borda); }
+
+.selo {
+  flex: none; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+  background: var(--superficie-2); color: var(--texto-fraco); border: 1px solid var(--borda);
+}
+.selo.canal-whatsapp { background: #e7f8ee; color: #0b7a4b; border-color: #bfe8d3; }
+.selo.canal-telegram { background: #e6f2fd; color: #1666a8; border-color: #c2ddf5; }
+.selo.canal-email    { background: #f1ecfd; color: #6b3fd4; border-color: #ddd2f8; }
+.selo.canal-webchat  { background: #fdf0e6; color: #9a4f0c; border-color: #f6dcc2; } /* 5,37:1 */
+
+.form-novo { margin-top: 14px; padding: 14px; border: 1px solid var(--borda); border-radius: 12px; background: var(--superficie); }
+
+/* -------------------------------------------------------------- celular */
+.area-celular { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+/* no computador o celular fica à vista enquanto a lista de canais rola */
+@media (min-width: 761px) { .area-celular { position: sticky; top: 16px; align-self: start; } }
+.quem { margin: 0 0 10px; font-size: 14px; color: var(--texto-fraco); text-align: center; overflow-wrap: anywhere; }
+.quem b { color: var(--texto); }
+
+.celular {
+  /* cada canal só troca estas variáveis */
+  --tela-fundo: #efeae2;
+  --tela-topo: #008069;
+  --tela-topo-texto: #ffffff;
+  --minha: #d9fdd3;
+  --minha-texto: #111b21;
+  --deles: #ffffff;
+  --deles-texto: #111b21;
+  --botao-enviar: #00a884;
+  --botao-enviar-texto: #ffffff;
+  --campo: #ffffff;
+
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(410px, 100%);
+  height: clamp(520px, calc(100vh - 250px), 780px);
+  border: 10px solid #151a24; border-radius: 38px; overflow: hidden;
+  background: var(--tela-fundo); box-shadow: var(--sombra), 0 20px 50px rgba(6, 9, 18, .18);
+}
+.celular[data-tipo="telegram"] {
+  --tela-fundo: #cfdde9;
+  --tela-topo: #517da2;
+  --minha: #3390ec;
+  --minha-texto: #ffffff;
+  --botao-enviar: #3390ec;
+}
+.celular[data-tipo="email"] {
+  --tela-fundo: var(--fundo);
+  --tela-topo: var(--superficie);
+  --tela-topo-texto: var(--texto);
+  --botao-enviar: var(--marca);
+  --botao-enviar-texto: var(--marca-contraste); /* o laranja pede texto escuro */
+  --campo: var(--superficie-2);
+}
+@media (prefers-color-scheme: dark) {
+  .celular { border-color: #000; --tela-fundo: #0b141a; --tela-topo: #202c33; --minha: #005c4b; --minha-texto: #e9edef; --deles: #202c33; --deles-texto: #e9edef; --campo: #2a3942; }
+  .celular[data-tipo="telegram"] { --tela-fundo: #0e1621; --tela-topo: #17212b; --minha: #2b5278; --minha-texto: #f5f5f5; --deles: #182533; --deles-texto: #f5f5f5; --campo: #17212b; }
+  .celular[data-tipo="email"] { --tela-fundo: var(--fundo); --tela-topo: var(--superficie); --campo: var(--superficie-2); }
+  .etiqueta-sim, .selo.canal-whatsapp { background: #10331f; color: #4bd48b; border-color: #1d5334; }
+  .selo.canal-telegram { background: #10263c; color: #62aef1; border-color: #1c3f5f; }
+  .selo.canal-email    { background: #241c3f; color: #a98bf5; border-color: #372a5e; }
+  .selo.canal-webchat  { background: #382412; color: #e79a4d; border-color: #543722; }
+}
+
+.tela-topo {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  background: var(--tela-topo); color: var(--tela-topo-texto);
+}
+.celular[data-tipo="email"] .tela-topo { border-bottom: 1px solid var(--borda); }
+.tela-avatar {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: 14px;
+  background: rgba(255, 255, 255, .22);
+}
+.celular[data-tipo="email"] .tela-avatar { background: var(--marca-fraca); color: var(--marca-texto); }
+.tela-titulo { min-width: 0; flex: 1; line-height: 1.25; }
+.tela-titulo b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tela-titulo span { font-size: 12px; opacity: .8; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ao-vivo { flex: none; font-size: 11px; display: flex; align-items: center; gap: 5px; opacity: .9; }
+.ao-vivo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ambar); }
+.ao-vivo.ligado::before { background: #4ade80; box-shadow: 0 0 0 3px rgba(74, 222, 128, .25); }
+
+.tela-conversa { overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.tela-vazia { margin: auto; max-width: 260px; text-align: center; font-size: 13px; padding: 10px 14px; border-radius: 10px; background: var(--deles); color: var(--deles-texto); opacity: .9; }
+.tela-vazia .botao { display: block; margin: 10px auto 0; padding: 7px 14px; font-size: 13px; }
+.dia {
+  align-self: center; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  padding: 3px 10px; border-radius: 8px; margin: 6px 0; background: var(--deles); color: var(--deles-texto); opacity: .85;
+}
+
+/* balões de WhatsApp e Telegram: do ponto de vista do cliente, o que ele
+   escreveu (entrada no sistema) é "meu" e fica à direita */
+.msg {
+  max-width: 82%; padding: 6px 9px 5px; border-radius: 10px;
+  box-shadow: 0 1px .5px rgba(11, 20, 26, .13); font-size: 14.5px;
+}
+.msg.minha { align-self: flex-end; background: var(--minha); color: var(--minha-texto); border-top-right-radius: 3px; }
+.msg.deles { align-self: flex-start; background: var(--deles); color: var(--deles-texto); border-top-left-radius: 3px; }
+.msg .autor { font-size: 12px; font-weight: 600; color: var(--botao-enviar); }
+.celular[data-tipo="telegram"] .msg .autor { color: #3390ec; }
+.msg .texto { white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg .meta { font-size: 11px; opacity: .65; text-align: right; margin-top: 2px; }
+.msg.nova { animation: chegar .35s ease-out; }
+@keyframes chegar { from { transform: translateY(6px); opacity: 0; } }
+
+/* e-mail: cartões com cabeçalho, como numa caixa de correio */
+.carta {
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px;
+  padding: 12px 14px; font-size: 14px; border-left: 4px solid var(--marca-linha);
+}
+.carta.deles { border-left-color: var(--verde); }
+.carta.nova { animation: chegar .35s ease-out; }
+.carta .cabecalho { font-size: 12px; color: var(--texto-fraco); padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--borda); }
+.carta .cabecalho div { overflow-wrap: anywhere; }
+.carta .assunto-linha { font-weight: 700; color: var(--texto); font-size: 14px; margin-bottom: 2px; }
+.carta .texto { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* quem respondeu, como cada canal mostra: no WhatsApp a primeira linha em
+   negrito (o *...* do WhatsApp), no Telegram a primeira linha em texto puro,
+   no e-mail a assinatura no fim, depois do "-- " */
+.msg .assinatura { display: block; }
+.celular[data-tipo="whatsapp"] .msg .assinatura { font-weight: 700; }
+.carta .assinatura-email { white-space: pre-wrap; color: var(--texto-fraco); margin-top: 10px; font-size: 13px; }
+
+.anexos { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.anexos img { max-width: 100%; max-height: 260px; border-radius: 8px; display: block; cursor: zoom-in; }
+.arquivo {
+  display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;
+  padding: 7px 9px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, .3);
+  background: rgba(127, 127, 127, .08); font-size: 13px;
+}
+.arquivo .nome { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arquivo .tamanho { opacity: .7; font-size: 11px; }
+.arquivo.indisponivel { border-style: dashed; opacity: .75; }
+
+.tela-redator { padding: 8px 10px 10px; background: var(--tela-fundo); }
+.celular[data-tipo="email"] .tela-redator { background: var(--superficie); border-top: 1px solid var(--borda); }
+.assunto {
+  width: 100%; margin-bottom: 6px; padding: 8px 12px;
+  border: 1px solid var(--borda); border-radius: 8px; background: var(--campo);
+}
+.linha-redator { display: flex; align-items: flex-end; gap: 8px; }
+.linha-redator textarea {
+  flex: 1; min-width: 0; resize: none; max-height: 132px;
+  padding: 9px 14px; border: 0; border-radius: 20px; background: var(--campo);
+  box-shadow: 0 1px .5px rgba(11, 20, 26, .13); line-height: 1.4;
+}
+.celular[data-tipo="email"] .linha-redator textarea { border-radius: 8px; border: 1px solid var(--borda); box-shadow: none; min-height: 64px; }
+.linha-redator textarea:focus, .assunto:focus { outline: 2px solid var(--botao-enviar); outline-offset: -1px; }
+.enviar {
+  flex: none; width: 42px; height: 42px; border: 0; border-radius: 50%;
+  background: var(--botao-enviar); color: var(--botao-enviar-texto); font-size: 17px; cursor: pointer;
+}
+.enviar:disabled { opacity: .45; cursor: not-allowed; }
+.tela-redator textarea:disabled { opacity: .6; }
+
+/* --------------------------------------------------------------- celular */
+@media (max-width: 760px) {
+  .topo { padding: 10px 16px; }
+  .faixa { flex-direction: column; align-items: stretch; margin: 12px 16px; gap: 12px; }
+  .faixa .botao { margin-left: 0; }
+  .palco { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 0 16px 24px; }
+  /* personas e canais viram trilhos horizontais para o celular aparecer logo */
+  .personas, .canais { flex-direction: row; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+  .persona, .canal { flex: 0 0 auto; width: auto; scroll-snap-align: start; }
+  .persona .linha { white-space: nowrap; }
+  .canal .linha { max-width: 190px; }
+  .titulo-coluna:not(:first-child) { margin-top: 14px; }
+  .celular { width: 100%; height: max(460px, 72vh); border-width: 0; border-radius: 16px; }
+}

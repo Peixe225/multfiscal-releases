@@ -1,0 +1,19 @@
+# O contexto do build leva só o que a imagem usa. Banco, anexos e .env são
+# dados e segredos desta máquina: nunca podem ir parar numa camada da imagem.
+# Com **/ em todos: sem ele o padrão só casa na raiz, e uma base criada com o
+# seed rodado de dentro de scripts/ (scripts/ihchat.db) entraria no COPY.
+**/.env
+**/.env.gravando
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/anexos
+**/*.log
+**/*.lock
+**/.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+tests
+.git

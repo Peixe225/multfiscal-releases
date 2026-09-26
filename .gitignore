@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+*.db
+*.db-journal
+.env
+ihchat/anexos/
+
+# backend PHP: config gerado na instalação (senha do banco, chave secreta),
+# dados em tempo de execução e pacotes de deploy
+ihchat/php/config.php
+ihchat/php/dados/
+ihchat/php/public/web/
+ihchat/dist/
+dist/

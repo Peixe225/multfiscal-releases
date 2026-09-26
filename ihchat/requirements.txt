@@ -1,0 +1,9 @@
+fastapi>=0.111
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+pydantic[email]>=2.7
+pydantic-settings>=2.3
+httpx>=0.27
+python-multipart>=0.0.9
+# confere as senhas de uma base migrada do PHP (password_hash = bcrypt $2y$)
+bcrypt>=4.1

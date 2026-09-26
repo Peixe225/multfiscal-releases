@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Ícone do IHchat: o "iH" da I&H num quadro azul-noite. Sem o anel do
+       pingo, que a 16 px vira um borrão. -->
+  <rect width="32" height="32" rx="7" fill="#060912"/>
+  <g transform="translate(7.126 4.183) scale(.058)">
+    <circle cx="53" cy="45.5" r="40" fill="#ff9e3d"/>
+    <rect x="13" y="135" width="80" height="267" rx="8" fill="#ff9e3d"/>
+    <rect x="93" y="235" width="128" height="67" rx="8" fill="#eaedf7"/>
+    <rect x="213" y="66" width="80" height="336" rx="8" fill="#eaedf7"/>
+  </g>
+</svg>

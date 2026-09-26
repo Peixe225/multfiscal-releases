@@ -1,0 +1,157 @@
+#cloud-config
+# IHchat — servidor de WhatsApp pelo QR Code, grátis (Evolution API v2.3.7).
+#
+# Cole este arquivo INTEIRO em "Cloud-init script" / "Automação" / "Startup
+# script" ao criar uma máquina Ubuntu 22.04 ou 24.04 (Oracle Cloud Always
+# Free, Google Cloud e2-micro, ou qualquer VPS). Em ~5 minutos a máquina sobe
+# sozinha: Docker, Evolution API, PostgreSQL, Redis e HTTPS automático em
+# https://<IP-da-máquina>.sslip.io — nada para instalar no seu computador.
+#
+# Antes de colar, troque as duas linhas marcadas com "TROQUE":
+#   CHAVE_API  a chave que o IHchat usa para falar com a Evolution (32+ letras
+#              e números; o IHchat pede a mesma em Canais > WhatsApp QR).
+#              Deixando __GERAR__, a máquina gera uma e grava em
+#              /opt/ihchat-whatsapp/CHAVE_API.txt (aí você precisa entrar por SSH para ler).
+#   DOMINIO    deixe __AUTO__ para usar <IP>.sslip.io, ou ponha um subdomínio
+#              seu (ex.: whatsapp.oprojeto.online) com registro A apontando
+#              para o IP da máquina.
+#
+# Portas que precisam estar abertas na nuvem: 80 e 443 (TCP). O Guia
+# (LEIAME.md, ao lado) mostra onde marcar isso em cada provedor.
+# A Evolution em si (porta 8080) nunca fica exposta: só o Caddy (HTTPS) fala com ela.
+
+write_files:
+  - path: /opt/ihchat-whatsapp/configurar.sh
+    permissions: "0700"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      CHAVE_API="__GERAR__"          # TROQUE (ou deixe gerar)
+      DOMINIO="__AUTO__"             # TROQUE se tiver subdomínio próprio
+      VERSAO_EVOLUTION="v2.3.7"
+
+      cd /opt/ihchat-whatsapp
+      exec > >(tee -a /opt/ihchat-whatsapp/instalacao.log) 2>&1
+      echo "== $(date -u) configurando o servidor de WhatsApp do IHchat"
+
+      # memória: máquinas de 1 GB precisam de swap para o PostgreSQL + Evolution
+      if ! swapon --show | grep -q /swapfile; then
+        fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+        chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+        grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      fi
+
+      # Docker (script oficial) + plugin compose
+      if ! command -v docker >/dev/null; then
+        curl -fsSL https://get.docker.com | sh
+      fi
+      systemctl enable --now docker
+
+      # firewall local: as imagens Ubuntu da Oracle rejeitam tudo menos a 22
+      for porta in 80 443; do
+        iptables -C INPUT -p tcp --dport "$porta" -j ACCEPT 2>/dev/null \
+          || iptables -I INPUT 1 -p tcp --dport "$porta" -j ACCEPT
+      done
+      if command -v netfilter-persistent >/dev/null; then netfilter-persistent save || true; fi
+      if command -v ufw >/dev/null && ufw status | grep -q active; then ufw allow 80/tcp; ufw allow 443/tcp; fi
+
+      if [ "$CHAVE_API" = "__GERAR__" ]; then
+        if [ -s CHAVE_API.txt ]; then CHAVE_API="$(cat CHAVE_API.txt)"; else CHAVE_API="$(openssl rand -hex 24)"; fi
+      fi
+      umask 077
+      echo "$CHAVE_API" > CHAVE_API.txt
+
+      if [ "$DOMINIO" = "__AUTO__" ]; then
+        IP="$(curl -fsS https://api.ipify.org || curl -fsS https://ifconfig.me)"
+        DOMINIO="$(echo "$IP" | tr '.' '-').sslip.io"
+      fi
+      echo "$DOMINIO" > DOMINIO.txt
+
+      if [ -s SENHA_BANCO.txt ]; then SENHA_BANCO="$(cat SENHA_BANCO.txt)"; else SENHA_BANCO="$(openssl rand -hex 16)"; echo "$SENHA_BANCO" > SENHA_BANCO.txt; fi
+
+      cat > .env <<ENV
+      SERVER_TYPE=http
+      SERVER_PORT=8080
+      SERVER_URL=https://${DOMINIO}
+      LANGUAGE=pt-BR
+      DEL_INSTANCE=false
+      QRCODE_LIMIT=30
+      LOG_LEVEL=ERROR,WARN,INFO
+      LOG_COLOR=false
+      CONFIG_SESSION_PHONE_CLIENT=IHchat
+      CONFIG_SESSION_PHONE_NAME=Chrome
+      AUTHENTICATION_API_KEY=${CHAVE_API}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=false
+      DATABASE_ENABLED=true
+      DATABASE_PROVIDER=postgresql
+      DATABASE_CONNECTION_URI=postgresql://evolution:${SENHA_BANCO}@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME=ihchat
+      DATABASE_SAVE_DATA_INSTANCE=true
+      DATABASE_SAVE_DATA_NEW_MESSAGE=false
+      DATABASE_SAVE_MESSAGE_UPDATE=false
+      DATABASE_SAVE_DATA_CONTACTS=false
+      DATABASE_SAVE_DATA_CHATS=false
+      DATABASE_SAVE_DATA_LABELS=false
+      DATABASE_SAVE_DATA_HISTORIC=false
+      CACHE_REDIS_ENABLED=true
+      CACHE_REDIS_URI=redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY=ihchat
+      CACHE_REDIS_SAVE_INSTANCES=false
+      CACHE_LOCAL_ENABLED=false
+      ENV
+
+      cat > Caddyfile <<CADDY
+      ${DOMINIO} {
+          encode gzip
+          reverse_proxy evolution:8080
+      }
+      CADDY
+
+      cat > docker-compose.yml <<COMPOSE
+      services:
+        evolution:
+          image: evoapicloud/evolution-api:${VERSAO_EVOLUTION}
+          restart: always
+          env_file: .env
+          volumes:
+            - evolution_instancias:/evolution/instances
+          depends_on: [postgres, redis]
+        postgres:
+          image: postgres:16-alpine
+          restart: always
+          environment:
+            POSTGRES_USER: evolution
+            POSTGRES_PASSWORD: ${SENHA_BANCO}
+            POSTGRES_DB: evolution
+          command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40"]
+          volumes:
+            - postgres_dados:/var/lib/postgresql/data
+        redis:
+          image: redis:7-alpine
+          restart: always
+          command: ["redis-server", "--save", "60", "1", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+          volumes:
+            - redis_dados:/data
+        caddy:
+          image: caddy:2-alpine
+          restart: always
+          ports: ["80:80", "443:443"]
+          volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - caddy_dados:/data
+            - caddy_config:/config
+          depends_on: [evolution]
+      volumes:
+        evolution_instancias:
+        postgres_dados:
+        redis_dados:
+        caddy_dados:
+        caddy_config:
+      COMPOSE
+
+      docker compose pull
+      docker compose up -d
+      echo "== pronto: https://${DOMINIO} (chave em /opt/ihchat-whatsapp/CHAVE_API.txt)"
+
+runcmd:
+  - [bash, /opt/ihchat-whatsapp/configurar.sh]

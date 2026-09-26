@@ -1,0 +1,350 @@
+/* IHchat - chat interno da equipe (chat-interno.js).
+   Só os tokens de cor do painel.css (claro e escuro já resolvidos lá): nada
+   de cor fixa aqui. A gaveta NÃO é modal: fica à direita, abaixo do topo, e
+   o painel continua usável por trás (dá para abrir uma conversa e voltar). */
+
+/* ---------------------------------------------------------- botão do topo */
+.atalho-interno { display: inline-flex; align-items: center; gap: 6px; }
+.atalho-interno[aria-expanded="true"] {
+  background: var(--marca-fraca); color: var(--marca-texto); border-color: var(--marca-linha);
+}
+.contador-interno {
+  background: var(--marca); color: var(--marca-contraste);
+  font-size: 11px; font-weight: 800; line-height: 1;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  display: inline-grid; place-items: center;
+}
+
+/* ----------------------------------------------------------------- gaveta */
+.interno {
+  position: fixed; top: 58px; right: 0; bottom: 0; z-index: 28; /* acima da ficha (26), abaixo das gavetas modais (30) */
+  width: min(820px, 100vw);
+  /* coluna flexível, não grade: a faixa escondida sai do fluxo e a grade de
+     linhas fixas empurrava o corpo para uma linha "auto" (sem altura) */
+  display: flex; flex-direction: column;
+  background: var(--fundo); border-left: 1px solid var(--borda);
+  box-shadow: var(--sombra);
+}
+.interno-topo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px 10px 16px; background: var(--superficie); border-bottom: 1px solid var(--borda);
+}
+.interno-topo h2 { margin: 0 auto 0 0; font-size: 16px; }
+.interno-alertas {
+  border: 1px solid var(--borda); background: var(--superficie-2); color: var(--texto);
+  border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.interno-alertas:hover { border-color: var(--marca-linha); color: var(--marca-texto); }
+
+.interno-faixa {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 16px; font-size: 13px;
+  background: var(--marca-fraca); color: var(--texto); border-bottom: 1px solid var(--borda);
+}
+.interno-faixa span { flex: 1 1 200px; }
+
+.interno-grade {
+  flex: 1 1 auto;
+  display: grid; grid-template-columns: 264px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+}
+.interno-grade > * { min-height: 0; min-width: 0; }
+
+/* ------------------------------------------------------------ lista */
+.interno-lista {
+  overflow-y: auto; background: var(--superficie); border-right: 1px solid var(--borda);
+  padding-bottom: 24px;
+}
+.interno-novo { display: flex; gap: 6px; padding: 12px; flex-wrap: wrap; position: sticky; top: 0; background: var(--superficie); z-index: 1; }
+.interno-novo .botao { flex: 1 1 auto; }
+.interno-secao-titulo {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--texto-fraco); padding: 10px 14px 4px; margin: 0; font-weight: 700;
+}
+.interno-itens { list-style: none; margin: 0; padding: 0 6px; }
+.interno-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px; border: 0; border-radius: 8px; background: transparent;
+  text-align: left; cursor: pointer; color: var(--texto);
+}
+.interno-item:hover { background: var(--superficie-2); }
+.interno-item[aria-current="true"] { background: var(--marca-fraca); box-shadow: inset 3px 0 0 var(--marca-linha); }
+.interno-icone {
+  position: relative; flex: none;
+  width: 32px; height: 32px; border-radius: 9px;
+  display: grid; place-items: center; font-weight: 800; font-size: 13px;
+  background: var(--superficie-2); color: var(--texto-fraco); border: 1px solid var(--borda);
+}
+.interno-icone.tipo-geral { color: var(--marca-texto); background: var(--marca-fraca); border-color: transparent; font-size: 16px; }
+.interno-icone.tipo-direta { border-radius: 50%; color: var(--marca-texto); background: var(--marca-fraca); border-color: transparent; }
+.interno-ponto {
+  width: 10px; height: 10px; border-radius: 50%; flex: none;
+  background: var(--texto-fraco); border: 2px solid var(--superficie);
+}
+.interno-icone .interno-ponto { position: absolute; right: -2px; bottom: -2px; }
+.interno-ponto.disponivel { background: var(--verde); }
+.interno-ponto.ausente { background: var(--ambar); }
+.interno-ponto.inativo { background: var(--borda); }
+.interno-item-corpo { min-width: 0; flex: 1; display: grid; gap: 1px; }
+.interno-item-linha { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.interno-item-nome { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interno-item.tem-nao-lidas .interno-item-nome { font-weight: 800; }
+.interno-item-quando { margin-left: auto; font-size: 11px; color: var(--texto-fraco); white-space: nowrap; }
+.interno-item-previa { font-size: 12px; color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.interno-item.tem-nao-lidas .interno-item-previa { color: var(--texto); }
+.interno-item .bolha-nao-lidas { flex: none; }
+.interno-mudo {
+  font-size: 10px; color: var(--texto-fraco); border: 1px solid var(--borda);
+  border-radius: 10px; padding: 0 6px; flex: none;
+}
+.interno-arroba {
+  flex: none; font-weight: 800; font-size: 12px; color: var(--marca-texto);
+  width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--marca-linha);
+}
+
+/* ------------------------------------------------------------ sala */
+/* coluna minmax(0, 1fr): a implícita ("auto") crescia até o subtítulo sem
+   quebra e empurrava o "Enviar" para fora da tela do celular */
+.interno-sala {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); min-height: 0;
+}
+.interno-sala[hidden] { display: none; }
+.interno-sala-topo {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; background: var(--superficie); border-bottom: 1px solid var(--borda);
+}
+.interno-voltar { display: none; }
+.interno-sala-titulos { min-width: 0; margin-right: auto; }
+.interno-sala-titulos h3 { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interno-sala-sub { margin: 0; font-size: 12px; color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interno-silenciar[aria-pressed="true"] { color: var(--marca-texto); border-color: var(--marca-linha); }
+
+.interno-vazio {
+  display: grid; place-content: center; text-align: center; gap: 2px;
+  color: var(--texto-fraco); padding: 32px;
+}
+.interno-vazio p { margin: 0; }
+
+/* a área dá lugar ao botão "N mensagens novas ↓" por cima da rolagem */
+.interno-mensagens-area {
+  position: relative; min-height: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
+}
+.interno-mensagens {
+  overflow-y: auto; padding: 12px 16px 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.interno-novas {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2;
+  border: 1px solid var(--marca-linha); background: var(--marca); color: var(--marca-contraste);
+  border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  box-shadow: var(--sombra);
+}
+.interno-novas[hidden] { display: none; }
+.interno-novas:focus-visible { outline: 2px solid var(--marca-linha); outline-offset: 2px; }
+/* papel de admin (não dá para imitar trocando nome e setor no perfil) */
+.interno-selo {
+  font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 6px;
+  background: var(--marca-fraca); color: var(--marca-texto); border: 1px solid var(--marca-linha);
+}
+.interno-repetido { color: var(--texto-fraco); font-size: 11px; }
+.interno-mensagens:focus-visible { outline: 2px solid var(--marca-linha); outline-offset: -2px; }
+.interno-anteriores { align-self: center; margin: 4px 0 10px; }
+.interno-comeco, .interno-carregando { text-align: center; margin: 24px 0; }
+.interno-dia {
+  display: flex; align-items: center; gap: 10px; margin: 12px 0 6px;
+  font-size: 11px; font-weight: 700; color: var(--texto-fraco); text-transform: uppercase; letter-spacing: .06em;
+}
+.interno-dia::before, .interno-dia::after { content: ""; flex: 1; height: 1px; background: var(--borda); }
+
+.interno-msg {
+  position: relative;
+  display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px;
+  padding: 6px 8px; border-radius: 8px; margin-top: 6px;
+}
+.interno-msg:hover, .interno-msg:focus-within { background: var(--superficie); }
+.interno-msg:focus-visible { outline: 2px solid var(--marca-linha); outline-offset: -2px; }
+.interno-msg.continua { margin-top: 0; padding-top: 2px; }
+.interno-msg.continua .interno-msg-topo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.interno-msg.para-mim { background: var(--marca-fraca); box-shadow: inset 3px 0 0 var(--marca-linha); }
+.interno-msg-topo { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.interno-msg > :not(.interno-msg-topo) { grid-column: 2; }
+.interno-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex: none;
+  display: inline-grid; place-items: center; font-size: 12px; font-weight: 700;
+  background: var(--superficie-2); color: var(--texto-fraco); border: 1px solid var(--borda);
+  align-self: start;
+}
+.interno-msg-topo .interno-avatar { margin-bottom: -22px; } /* o avatar desce ao lado do texto */
+.interno-msg.minha .interno-msg-topo .interno-avatar { background: var(--marca-fraca); color: var(--marca-texto); border-color: transparent; }
+.interno-msg-autor { font-size: 14px; }
+.interno-msg-setor { font-size: 12px; color: var(--texto-fraco); }
+.interno-msg-hora, .interno-msg-editada { font-size: 11px; color: var(--texto-fraco); }
+.interno-msg-texto { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.interno-msg-texto a { color: var(--marca-texto); }
+.interno-apagada { color: var(--texto-fraco); font-style: italic; }
+.interno-mencao {
+  background: var(--marca-fraca); color: var(--marca-texto);
+  border-radius: 4px; padding: 0 3px; font-weight: 600;
+}
+.interno-mencao.eu { background: var(--marca); color: var(--marca-contraste); }
+
+.interno-msg-acoes {
+  position: absolute; top: 4px; right: 6px; display: flex; gap: 4px;
+  opacity: 0; transition: opacity .12s;
+}
+.interno-msg:hover .interno-msg-acoes, .interno-msg:focus-within .interno-msg-acoes { opacity: 1; }
+@media (hover: none) { .interno-msg-acoes { position: static; opacity: 1; margin-top: 4px; } }
+.interno-acao {
+  border: 1px solid var(--borda); background: var(--superficie); color: var(--texto-fraco);
+  font-size: 12px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
+}
+.interno-acao:hover { color: var(--texto); border-color: var(--marca-linha); }
+.interno-acao.perigo:hover { color: var(--vermelho); border-color: var(--vermelho); }
+
+.interno-cartao {
+  display: grid; gap: 2px; justify-items: start; text-align: left;
+  width: min(360px, 100%); margin-top: 6px; padding: 10px 12px;
+  border: 1px solid var(--borda); border-left: 3px solid var(--marca-linha); border-radius: 10px;
+  background: var(--superficie); color: var(--texto); cursor: pointer;
+}
+.interno-cartao:hover { border-color: var(--marca-linha); }
+.interno-cartao-topo { display: flex; gap: 8px; align-items: center; width: 100%; }
+.interno-cartao-rotulo { font-size: 11px; font-weight: 700; color: var(--texto-fraco); text-transform: uppercase; letter-spacing: .05em; }
+.interno-cartao-status {
+  margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px;
+  border: 1px solid var(--borda); color: var(--texto-fraco);
+}
+.interno-cartao-status.status-aberta { color: var(--verde); border-color: currentColor; }
+.interno-cartao-status.status-pendente { color: var(--ambar); border-color: currentColor; }
+.interno-cartao-nome { font-size: 14px; }
+.interno-cartao-detalhe { font-size: 12px; color: var(--texto-fraco); }
+.interno-cartao-abrir { font-size: 12px; font-weight: 600; color: var(--marca-texto); margin-top: 2px; }
+
+.interno-edicao { display: grid; gap: 6px; margin-top: 4px; }
+.interno-edicao-acoes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* ----------------------------------------------------------- redator */
+.interno-redator {
+  position: relative; padding: 10px 14px 12px;
+  background: var(--superficie); border-top: 1px solid var(--borda);
+}
+.interno-texto {
+  width: 100%; resize: none; min-height: 40px; max-height: 160px;
+  padding: 9px 12px; border: 1px solid var(--borda); border-radius: var(--raio);
+  background: var(--superficie-2); line-height: 1.4;
+}
+.interno-texto:focus { outline: 2px solid var(--marca-linha); outline-offset: -1px; }
+.interno-redator-rodape { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.interno-redator-rodape .botao[type="submit"] { margin-left: auto; }
+.interno-dica { font-size: 12px; color: var(--texto-fraco); }
+.interno-erro:empty { display: none; }
+.interno-anexo {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  padding: 6px 8px 6px 12px; font-size: 13px;
+  border: 1px dashed var(--marca-linha); border-radius: 8px; background: var(--marca-fraca);
+}
+.interno-anexo span { flex: 1; }
+.interno-anexo-tirar {
+  border: 0; background: transparent; color: var(--texto-fraco); cursor: pointer;
+  width: 26px; height: 26px; border-radius: 6px; font-size: 18px; line-height: 1;
+}
+.interno-anexo-tirar:hover { background: var(--superficie); color: var(--texto); }
+
+.interno-sugestoes {
+  position: absolute; left: 14px; right: 14px; bottom: calc(100% - 6px);
+  list-style: none; margin: 0; padding: 4px; max-height: 240px; overflow-y: auto;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px;
+  box-shadow: var(--sombra); z-index: 2;
+}
+.interno-sugestao { display: flex; gap: 8px; align-items: baseline; padding: 7px 10px; border-radius: 7px; cursor: pointer; }
+.interno-sugestao span { font-size: 12px; color: var(--texto-fraco); }
+.interno-sugestao[aria-selected="true"], .interno-sugestao:hover { background: var(--marca-fraca); color: var(--marca-texto); }
+.interno-sugestao .interno-selo { font-size: 10px; color: var(--marca-texto); }
+
+/* ------------------------------------------------------- formulários */
+.interno-form { display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.interno-form[hidden] { display: none; }
+.interno-form-topo {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; background: var(--superficie); border-bottom: 1px solid var(--borda);
+}
+.interno-form-topo h3 { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interno-form-corpo { overflow-y: auto; padding: 14px 16px 32px; display: grid; gap: 10px; align-content: start; }
+.interno-form-grupo { display: grid; gap: 10px; }
+.interno-campo { display: grid; gap: 6px; font-size: 13px; color: var(--texto-fraco); }
+.interno-campo input, .interno-busca, .interno-linha-form input, .interno-linha-form select {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--borda); border-radius: var(--raio);
+  background: var(--superficie-2); color: var(--texto);
+}
+.interno-campo input:focus, .interno-busca:focus, .interno-linha-form input:focus, .interno-linha-form select:focus {
+  outline: 2px solid var(--marca-linha); outline-offset: -1px;
+}
+.interno-linha-form { display: flex; gap: 8px; align-items: center; }
+.interno-linha-form .botao { flex: none; }
+.interno-pessoas { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.interno-pessoa {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--texto);
+  text-align: left; cursor: pointer;
+}
+button.interno-pessoa:hover, label.interno-pessoa:hover { background: var(--superficie); }
+li.interno-pessoa { cursor: default; }
+.interno-pessoa input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--marca-linha); flex: none; }
+.interno-pessoa-nome { display: grid; min-width: 0; margin-right: auto; }
+.interno-pessoa-nome strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interno-pessoa-nome span { font-size: 12px; color: var(--texto-fraco); }
+.interno-sair { justify-self: start; margin-top: 8px; }
+
+/* ------------------------------------------------------------ toasts */
+/* embaixo à direita, mas ACIMA do redator da resposta ao cliente (o JS
+   acerta o `bottom` pela altura dele a cada aviso): em cima dele o aviso
+   tapava o "Enviar" e o campo, e o clique abria o chat em vez de mandar a
+   resposta. No alto ele tapava a situação e a prioridade da conversa; sobre
+   a linha do tempo só cobre leitura. */
+.interno-toasts {
+  position: fixed; right: 16px; bottom: 16px; z-index: 45;
+  display: grid; gap: 8px; justify-items: end; width: min(340px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.interno-toast {
+  pointer-events: auto; width: 100%;
+  display: grid; gap: 2px; text-align: left; cursor: pointer;
+  padding: 10px 14px; border-radius: 12px;
+  background: var(--superficie); color: var(--texto);
+  border: 1px solid var(--borda); border-left: 3px solid var(--marca-linha);
+  box-shadow: var(--sombra); font-size: 13px;
+  animation: interno-chega .18s ease-out;
+}
+.interno-toast.simples { cursor: default; border-left-color: var(--borda); }
+.interno-toast.mencao { background: var(--marca-fraca); }
+.interno-toast-topo { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.interno-toast-topo span { color: var(--texto-fraco); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interno-toast-texto { color: var(--texto-fraco); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@keyframes interno-chega { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .interno-toast { animation: none; } .interno-msg-acoes { transition: none; } }
+
+/* ------------------------------------------------ telas menores */
+/* abaixo de 760 px: uma coluna só; lista, sala e formulário se revezam */
+@media (max-width: 760px) {
+  .interno-grade { grid-template-columns: minmax(0, 1fr); }
+  .interno[data-visao="sala"] .interno-lista,
+  .interno[data-visao="form"] .interno-lista,
+  .interno[data-visao="lista"] .interno-sala,
+  .interno[data-visao="lista"] .interno-vazio { display: none; }
+  .interno-lista { border-right: 0; }
+  .interno-voltar { display: inline-block; }
+  .interno-vazio { display: none; }
+}
+@media (max-width: 640px) {
+  .interno-rotulo-extra { display: none; }
+  .interno-dica.interno-atalhos { display: none; }
+  .interno-mensagens { padding: 10px 8px 6px; }
+  .interno-redator { padding: 8px 10px 10px; }
+  .interno-redator-rodape .interno-dica { display: none; }
+  .interno-toasts { right: 8px; left: 8px; width: auto; }
+  .interno-sala-topo { padding: 8px 10px; gap: 6px; }
+  .interno-sala-topo .botao.pequeno { padding: 6px 9px; }
+}
