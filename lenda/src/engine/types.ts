@@ -252,6 +252,8 @@ export interface RealHistory {
   worldCup: { year: number; champion: string; runnerUp: string; score?: string; host?: string }[]
   /** Campeões reais recentes: competitionId → [{season, clubId|countryCode}] */
   champions: Record<string, { season: number; winner: string }[]>
+  /** Indicados reais à próxima Bola de Ouro (a de 2026 ainda não foi entregue: o jogo simula). */
+  ballonDorShortlist?: { year: number; ceremony?: string; players: string[] }
 }
 
 // ───────────────────────────── partidas e tabelas ─────────────────────────────
@@ -432,6 +434,15 @@ export interface TrophyWin {
   /** Clube ou seleção pela qual foi conquistado. */
   teamId: string
   scope: 'club' | 'national'
+  // ── aditivos (motor da carreira): permitem detectar conquistas e montar a vitrine sem GameData ──
+  /** Tipo da competição (liga, copa, continental…). */
+  kind?: CompetitionKind
+  /** Confederação do clube (scope club) ou da seleção (scope national). */
+  confed?: Confed
+  /** Divisão quando kind = 'league' (título da Série B = 2). */
+  tier?: 1 | 2 | 3
+  /** Taça menor (estadual, supercopa): conta na vitrine, não em "tríplice coroa" e afins. */
+  minor?: boolean
 }
 
 export interface AwardWin {
@@ -465,6 +476,16 @@ export interface SeasonRecord {
   awards: AwardWin[]
   national?: { apps: number; goals: number; assists: number; tournament?: { competitionId: string; reached: string } }
   captain?: boolean
+  // ── aditivos (motor da carreira) ──
+  /** País (FIFA) e confederação da liga do clube nesta temporada. */
+  country?: string
+  confed?: Confed
+  /** Seleção que o jogador representava (muda com o evento "avô estrangeiro"). */
+  nationality?: string
+  /** Posição em campo nesta temporada (muda com "recuar de posição"). */
+  position?: Position
+  /** Prestígio (0–5) do clube nesta temporada. */
+  clubPrestige?: number
 }
 
 export type EffectKind = 'positive' | 'negative' | 'neutral' | 'fixed'
@@ -604,6 +625,11 @@ export interface CareerState {
   log: CareerLogEntry[]
   retired: boolean
   retiredReason?: string
+  // ── aditivos (motor da carreira) ──
+  /** Conquistas (ids do catálogo) já desbloqueadas nesta carreira. */
+  achievements?: string[]
+  /** Memória interna do motor da carreira (JSON; a UI não deve depender dela). */
+  engine?: Record<string, unknown>
 }
 
 /** Resumo final (tela "Ver resumo" e card compartilhável). */

@@ -111,11 +111,12 @@
   :where([data-theme="transmissao"]) .lx-tabs__ind { display: none; }
 
   .lx-seg { position: relative; }
+  .lx-seg__item { position: relative; }
   .lx-seg__thumb { position: absolute; inset: 0; z-index: 0; border-radius: 9px; pointer-events: none; }
   .lx-seg__label { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px; }
   :where([data-theme="noite"]) .lx-seg__thumb { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong), 0 4px 12px -4px #000; }
   :where([data-theme="noite"]) .lx-seg--solid .lx-seg__thumb { border-radius: 10px; background: var(--accent); box-shadow: 0 6px 16px -6px rgba(255, 255, 255, .4); }
-  :where([data-theme="noite"]) .lx-seg--animated .lx-seg__item[aria-pressed="true"] { background: transparent; box-shadow: none; }
+  :where([data-theme="noite"]) .lx-seg--animated .lx-seg__item:is([aria-pressed="true"], [aria-checked="true"], .is-on) { background: transparent; box-shadow: none; }
   :where([data-theme="noite"]) .lx-seg--full { display: flex; width: 100%; }
   :where([data-theme="noite"]) .lx-seg--full .lx-seg__item { flex: 1; }
   :where([data-theme="noite"]) .lx-seg--solid .lx-seg__item { height: 36px; border-radius: 10px; }

@@ -132,6 +132,7 @@ export type ClubVars = CSSProperties & {
   '--club-2': string
   '--club-ink': string
   '--club-glow': string
+  '--club-hi': string
 }
 
 /** The four runtime variables for a club subtree. Accepts ClubColors or a Club. */
@@ -143,19 +144,34 @@ export function clubVars(c: ClubColors | (ClubLike)): ClubVars {
     '--club-2': normHex(cc.secondary),
     '--club-ink': cc.ink ?? bestInk(primary),
     '--club-glow': ambientGlow(cc),
+    '--club-hi': clubHighlight(cc),
   } as ClubVars
 }
 
-/** Per-row variables (career table, standings, summary strip). Uses YIQ ink like Copero's age badge. */
-export function rowClubVars(c: ClubColors | (ClubLike) | null | undefined): CSSProperties {
+/**
+ * Per-row variables (career table, standings, summary strip, option cards).
+ *   --row-club / --row-club-ink → age badge + club strip fill (the real kit colour, YIQ ink like Copero)
+ *   --rc → row tint (ambient-safe: white/black kits tint with their glow colour instead)
+ *   --oc → option-card tint
+ */
+export function rowClubVars(c: ClubColors | ClubLike | null | undefined): CSSProperties {
   if (!c) return {}
   const cc: ClubColors = 'primary' in c ? (c as ClubColors) : clubColors(c as ClubLike)
   const primary = normHex(cc.primary)
+  const glow = ambientGlow(cc)
   return {
-    '--row-club': cc.glow && luminance(primary) > 0.7 ? primary : primary,
+    '--row-club': primary,
     '--row-club-ink': cc.ink ?? yiqInk(primary),
-    '--oc': ambientGlow(cc),
+    '--rc': glow,
+    '--oc': glow,
   } as CSSProperties
+}
+
+/** Club colour lifted towards white (progress bars, celebration kicker) — L ≥ ~80%. */
+export function clubHighlight(c: ClubColors | ClubLike): string {
+  const cc: ClubColors = c && 'primary' in c ? (c as ClubColors) : clubColors(c as ClubLike)
+  const g = ambientGlow(cc)
+  return lighten(g, luminance(g) > 0.35 ? 0.15 : 0.45)
 }
 
 /** Nation colours as a ClubColors (identity step tints the stage with the nation). */
