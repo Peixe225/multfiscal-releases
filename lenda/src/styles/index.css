@@ -1,1 +1,30 @@
+/* LENDA — CSS entry. Everything goes through Tailwind so @theme / @utility /
+   @custom-variant compile. Fonts are self-hosted (@fontsource); @font-face is lazy,
+   so the browser only downloads the families/weights a screen actually renders. */
 @import "tailwindcss";
+
+/* Noite de Final (Modo Clássico) */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/inter-tight";
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/barlow-condensed/800.css";
+@import "@fontsource-variable/cormorant-garamond/wght-italic.css";
+/* Transmissão (Modo Imersivo, fase 2) */
+@import "@fontsource/barlow-condensed/700-italic.css";
+@import "@fontsource/barlow-condensed/800-italic.css";
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+@import "@fontsource/barlow/700.css";
+
+/* one shared Tailwind bridge, then the two theme-scoped files, then app primitives */
+@import "../ui/theme/bridge.css";
+@import "../ui/theme/theme-noite.css";
+@import "../ui/theme/theme-transmissao.css";
+@import "../ui/theme/lenda.css";
+
+/* class scanning: the app only (the design snippets in docs/ are reference HTML) */
+@source not "../../docs";
+@source not "../../scripts";

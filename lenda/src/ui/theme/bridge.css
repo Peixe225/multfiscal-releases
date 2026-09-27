@@ -1,0 +1,120 @@
+/* =============================================================================
+   LENDA · bridge.css — the ONE shared Tailwind v4 bridge for both themes.
+   Loaded once from src/styles/index.css, before theme-noite.css and theme-transmissao.css.
+
+   Rules (see docs/design/DESIGN-SPEC-noite.md §1.4):
+   - Colours use `@theme inline` so utilities reference the runtime token directly
+     (bg-surface → var(--surface); bg-surface/50 → color-mix). Works inside any [data-theme].
+   - Radii / fonts / easings share their Tailwind key with the contract token (--radius-lg IS
+     the Tailwind key) → registered NON-inline; the [data-theme] blocks override at runtime.
+     Never write `@theme inline { --radius-lg: var(--radius-lg) }` (self-reference).
+   - Shadows are plain @utility (Tailwind inlines --shadow-* at build time).
+   ============================================================================= */
+
+@custom-variant noite (&:where([data-theme="noite"], [data-theme="noite"] *));
+@custom-variant transmissao (&:where([data-theme="transmissao"], [data-theme="transmissao"] *));
+/* In-game "reduzir animações" or the OS setting — use `motion-off:` for static fallbacks. */
+@custom-variant motion-off (&:where([data-motion="reduced"], [data-motion="reduced"] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-glass: var(--glass);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-positive: var(--positive);
+  --color-positive-bg: var(--positive-bg);
+  --color-negative: var(--negative);
+  --color-negative-bg: var(--negative-bg);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  /* gold "glory" (titles, records) — same role in both themes */
+  --color-glory: var(--metal-gold-6);
+  --color-club: var(--club);
+  --color-club-2: var(--club-2);
+  --color-club-ink: var(--club-ink);
+  --color-tier-bronze: var(--tier-bronze-2);
+  --color-tier-silver: var(--tier-silver-2);
+  --color-tier-gold: var(--tier-gold-2);
+  --color-tier-lenda: var(--tier-lenda-2);
+  --color-tier-bronze-1: var(--tier-bronze-1);
+  --color-tier-bronze-2: var(--tier-bronze-2);
+  --color-tier-bronze-3: var(--tier-bronze-3);
+  --color-tier-silver-1: var(--tier-silver-1);
+  --color-tier-silver-2: var(--tier-silver-2);
+  --color-tier-silver-3: var(--tier-silver-3);
+  --color-tier-gold-1: var(--tier-gold-1);
+  --color-tier-gold-2: var(--tier-gold-2);
+  --color-tier-gold-3: var(--tier-gold-3);
+  --color-tier-lenda-1: var(--tier-lenda-1);
+  --color-tier-lenda-2: var(--tier-lenda-2);
+  --color-tier-lenda-3: var(--tier-lenda-3);
+  --color-metal-gold: var(--metal-gold-6);
+  --color-metal-silver: var(--metal-silver-6);
+  --color-metal-bronze: var(--metal-bronze-6);
+
+  /* stagger helpers (keyframes lx-rise / lx-slide / lx-wipe-in are global, from theme-transmissao.css) */
+  --animate-lx-rise: lx-rise var(--dur-3) var(--ease-out) backwards;
+  --animate-lx-slide: lx-slide var(--dur-2) var(--ease-out) backwards;
+  --animate-lx-wipe: lx-wipe-in var(--dur-3) var(--ease-out) backwards;
+}
+
+@theme {
+  /* mobile-first breakpoints (shared) */
+  --breakpoint-sm: 36rem; /*  576px */
+  --breakpoint-md: 45rem; /*  720px */
+  --breakpoint-lg: 69rem; /* 1104px */
+  --breakpoint-xl: 80rem; /* 1280px */
+
+  /* pre-theme defaults (Noite); [data-theme] blocks override at runtime */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Inter Tight Variable', 'Inter Variable', system-ui, sans-serif;
+  --font-num: 'Barlow Condensed', 'Inter Tight Variable', system-ui, sans-serif;
+  --default-font-family: var(--font-ui);
+
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+@utility shadow-1 { box-shadow: var(--shadow-1); }
+@utility shadow-2 { box-shadow: var(--shadow-2); }
+@utility shadow-3 { box-shadow: var(--shadow-3); }
+@utility shadow-glow { box-shadow: var(--glow-accent); }
+/* Transmissão names (aliases) */
+@utility elev-1 { box-shadow: var(--shadow-1); }
+@utility elev-2 { box-shadow: var(--shadow-2); }
+@utility elev-3 { box-shadow: var(--shadow-3); }
+@utility glow-accent { box-shadow: var(--glow-accent); }
+/* numbers: condensed + tabular (Barlow digits are proportional by default) */
+@utility num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: .005em;
+}
+@utility dur-1 { transition-duration: var(--dur-1); }
+@utility dur-2 { transition-duration: var(--dur-2); }
+@utility dur-3 { transition-duration: var(--dur-3); }
+/* hide scrollbars on horizontally scrolling strips (tabs, chips) */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* animatable 0..1 value (meters, attribute bars) — shared by both themes */
+@property --lx-v { syntax: "<number>"; inherits: true; initial-value: 0; }

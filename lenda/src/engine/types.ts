@@ -82,6 +82,23 @@ export interface League {
   /** Vagas continentais a partir da classificação final: [principal, secundária]. */
   continentalSlots: [number, number]
   trophyId: string
+  // ── campos opcionais acrescentados pelo pipeline de dados (aditivos) ──
+  /** Nível real na pirâmide quando `tier` (limitado a 3) não basta — ex.: League Two = 4. */
+  level?: number
+  /** Ligas de Apertura/Clausura: 2 campeões por temporada (México, Argentina, Colômbia…). */
+  tournamentsPerSeason?: 1 | 2
+  /**
+   * Play-off de acesso definido na liga DE BAIXO. `promotion` da liga de baixo e `relegation`
+   * da de cima já incluem `spots`. Ex.: Championship 3º–6º → 1 vaga; 2. Bundesliga 3º enfrenta
+   * o 16º da Bundesliga (`upperPosition`) → quem vencer fica/sobe.
+   */
+  promotionPlayoff?: { positions: [number, number]; spots: number; upperPosition?: number }
+  /** Vagas para a continental terciária (Liga Conferência), depois das [principal, secundária]. */
+  continentalTertiarySlots?: number
+  /** Segunda copa nacional (Copa da Liga Inglesa). */
+  secondaryCupId?: string
+  /** Snapshot da ESPN desatualizado (Suíça/Romênia): a tabela real foi zerada. */
+  stale?: boolean
 }
 
 export interface CrestRef {
@@ -108,6 +125,8 @@ export interface Club {
   prestige: number
   /** Restrições de elenco reais (Athletic só bascos/ESP, Chivas só MEX). */
   onlyNationality?: string
+  /** UF do clube brasileiro (SP, RJ, MG…) — define o estadual que disputa. */
+  state?: string
 }
 
 export type CompetitionKind =
@@ -133,6 +152,32 @@ export interface Competition {
   schedule?: { firstYear: number; every: number }
   trophyId: string
   logo?: string
+  /** Supercopa (Recopa, Supercopa da UEFA): jogo único entre campeões, não é a "principal". */
+  superCup?: boolean
+  /** Estadual brasileiro: UF dos clubes participantes (Club.state). */
+  region?: string
+}
+
+/** Competições de cada confederação (atalho para o motor não "adivinhar" pelo kind). */
+export interface ConfedCompetitions {
+  primary?: string
+  secondary?: string
+  tertiary?: string
+  superCup?: string
+  national: string
+}
+
+/** Metadados do snapshot real de cada liga (gerado pelo pipeline). */
+export interface LeagueSnapshot {
+  season: number
+  /** Fase atual em pt-BR ("Clausura 2026", "2026/27"…). */
+  phase: string
+  /** Jogos por clube na fase atual (tabela + restantes). */
+  gamesPerTeam: number
+  /** true se `fixtures` cobre todos os jogos que faltam; false = o motor completa o calendário. */
+  fixturesComplete: boolean
+  /** Tabela zerada porque a ESPN não tem a temporada atual. */
+  stale?: boolean
 }
 
 /** Família visual do troféu — decide a arte SVG e a ordem na vitrine. */
@@ -196,6 +241,10 @@ export interface GameData {
    * (ex.: Shakhtar, Slavia Praga, Qarabağ). Mesmo formato de Club com leagueId = "none".
    */
   extraClubIds: string[]
+  /** Competições por confederação (principal, secundária, supercopa, seleções). */
+  confederations?: Partial<Record<Confed, ConfedCompetitions>>
+  /** Metadados do snapshot por liga (fase, calendário completo ou não, desatualizado). */
+  snapshot?: Record<string, LeagueSnapshot>
 }
 
 export interface RealHistory {
