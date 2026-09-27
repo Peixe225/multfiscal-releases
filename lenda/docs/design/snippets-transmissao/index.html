@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snippets Transmissão</title>
+<link rel="stylesheet" href="_fonts/fonts.css">
+<link rel="stylesheet" href="../theme-transmissao.css">
+<style>
+  body { margin: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 32px 24px 56px; }
+  .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 14px; }
+  a.lx-plate { display: block; padding: 14px 16px; color: inherit; text-decoration: none; }
+  a.lx-plate b { display: block; font: italic 800 20px/1.05 var(--font-display); text-transform: uppercase; margin-top: 6px; }
+  a.lx-plate p { margin: 6px 0 0; font: 400 13px/1.45 var(--font-ui); color: var(--text-3); }
+  h2 { margin: 30px 0 0; }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+<main class="wrap">
+  <span class="lx-kicker">LENDA · tema Transmissão · Modo Imersivo</span>
+  <h1 class="lx-t-display" style="margin-top:8px">Snippets</h1>
+  <p class="lx-t-body" style="max-width:760px;margin-top:8px">Cada arquivo depende só de <code>../theme-transmissao.css</code> e de <code>_fonts/fonts.css</code> (cópia offline das mesmas fontes @fontsource). Nada de rede. Especificação completa: <code>DESIGN-SPEC-transmissao.md</code>.</p>
+
+  <h2 class="lx-t-sec" style="font-size:22px">Efeitos do sistema</h2>
+  <div class="g">
+    <a class="lx-plate lx-plate--interactive" href="effects/plates-shapes.html"><span class="lx-kicker">Base</span><b>Placas, recortes, botões, foco</b><p>Borda-gradiente no chanfro, glass, gold, selected, anel de foco fora do clip, chips, fx, texto metálico, lower-third.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/ovr-badges.html"><span class="lx-kicker">Base</span><b>Badges de OVR</b><p>4 tiers (bronze, prata, ouro, lenda), tamanhos, ghost, contagem + flip ao trocar de tier.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/club-theming.html"><span class="lx-kicker">Runtime</span><b>Tema por clube</b><p>--club/--club-2/--club-ink/--club-tint, placa do jogador, linhas da carreira, clubInk(), escudo com IDs únicos.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/stadium.html"><span class="lx-kicker">Fundo</span><b>Atmosfera de estádio</b><p>Completo, calm, gala, clube · chão holográfico em perspectiva · cone de luz simétrico.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/celebration.html"><span class="lx-kicker">Momento</span><b>Celebração · Campeão!</b><p>Blur do fundo, raios, anéis, halo, confete com seed, troféu com overshoot, placar em wipe.</p></a>
+  </div>
+
+  <h2 class="lx-t-sec" style="font-size:22px">Superfícies do Modo Imersivo</h2>
+  <div class="g">
+    <a class="lx-plate lx-plate--interactive" href="effects/match-screen.html"><span class="lx-kicker">Partida</span><b>Tela de jogo ao vivo</b><p>Layout 290 / fluido / 310, campo 105×68, lances, estatísticas, momentum, narração, ticker de outros jogos.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/scoreboard-bug.html"><span class="lx-kicker">Partida</span><b>Bug de placar</b><p>Relógio tabular, gol (flash + autor), acréscimos, INT/FIM, expulsões, mobile. Abra com #goal ou #stop.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/key-moment.html"><span class="lx-kicker">Partida</span><b>Lance decisivo</b><p>Holofote no campo, prompt com barra + anel de 10 s, urgência, teclas 1-2-3, padrão automático, bottom sheet no mobile.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/hub-week.html"><span class="lx-kicker">Semana</span><b>Central / calendário</b><p>Próximo jogo, probabilidades, medidores segmentados, faixa de 7 dias, caixa de entrada, janela aberta.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/press-conference.html"><span class="lx-kicker">Mídia</span><b>Coletiva</b><p>Parede de patrocínio, microfones fictícios, pergunta em lower-third, 4 tons de resposta, flashes, repercussão.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/social-feed.html"><span class="lx-kicker">Mídia</span><b>Rede social</b><p>Perfil, humor da torcida, posts (veículo, clube oficial, torcedor), em alta, respostas prontas.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/contract.html"><span class="lx-kicker">Carreira</span><b>Negociação de contrato</b><p>Sliders com teto do clube, rodadas, paciência da diretoria, chance de aceite ao vivo, conselho do empresário.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="effects/ceremony.html"><span class="lx-kicker">Gala</span><b>Cerimônia</b><p>Indicados, spots que balançam e convergem, vencedor sobe, nome em ouro. Abra com #reveal.</p></a>
+  </div>
+
+  <h2 class="lx-t-sec" style="font-size:22px">Arte SVG</h2>
+  <div class="g">
+    <a class="lx-plate lx-plate--interactive" href="trophies/index.html"><span class="lx-kicker lx-kicker--gold">Troféus</span><b>11 troféus + sprite</b><p>Libertadores, Brasileirão, Copa do Brasil, Copa América, LaLiga, Champions, Copa do Mundo, Bola de Ouro, Chuteira de Ouro, Artilheiro, Estadual.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="art/index.html"><span class="lx-kicker">Arte</span><b>Camisa paramétrica</b><p>--jersey-body/-body-2/-trim/-ink.</p></a>
+    <a class="lx-plate lx-plate--interactive" href="art/index.html#pitch"><span class="lx-kicker">Arte</span><b>Campos</b><p>pitch-live (partida), pitch-vertical (posição), pitch-floor (hero).</p></a>
+    <a class="lx-plate lx-plate--interactive" href="art/index.html"><span class="lx-kicker">Arte</span><b>Ícones esportivos</b><p>bola, chuteira, jogos, campo, banco, cartão, apito, braçadeira, luva, trave, substituição, VAR.</p></a>
+  </div>
+</main>
+</body>
+</html>

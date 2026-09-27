@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rede social</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  body { margin: 0; }
+  .page { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 22px 24px 48px; display: grid; grid-template-columns: 280px minmax(0, 600px) 300px; gap: 18px; justify-content: center; }
+  .col { display: grid; gap: 12px; align-content: start; }
+  .me { padding: 18px; text-align: center; display: grid; justify-items: center; gap: 8px; }
+  .me .lx-avatar { width: 72px; height: 72px; }
+  .me b.big { font: italic 800 34px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .post { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; }
+  .post header { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .post .nm { font: 700 15px/1.2 var(--font-ui); }
+  .post .h { font: 400 13px/1.2 var(--font-ui); color: var(--text-3); }
+  .post .ver { width: 15px; height: 15px; color: var(--accent); align-self: center; }
+  .post p { margin: 6px 0 0; font: 400 15px/1.45 var(--font-ui); color: var(--text); }
+  .post p .lx-handle { font-weight: 600; }
+  .media { margin-top: 10px; aspect-ratio: 16 / 9; background: url("../art/pitch-floor.svg") center / cover; position: relative; overflow: hidden; }
+  .media .lx-score { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.72); }
+  .acts { display: flex; gap: 22px; margin-top: 10px; }
+  .ribbon { position: absolute; top: 12px; right: -1px; z-index: 2; font: 800 10.5px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; padding: 4px 10px; color: var(--lx-gold-ink); background: linear-gradient(90deg, #FFD55A, #E9A61E); clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%); }
+  .compose { padding: 14px 16px; }
+  .compose .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .trend { padding: 14px 16px; }
+  .trend ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+  .trend li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .trend li b { display: block; font: 700 15px/1.2 var(--font-ui); color: var(--accent); }
+  .trend li span { font: 400 12.5px/1.3 var(--font-ui); color: var(--text-3); }
+  .sent { padding: 14px 16px; }
+  .sent .segs { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 10px; }
+  .sent .segs i { height: 14px; background: rgb(255 255 255 / .08); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  @media (max-width: 1100px) { .page { grid-template-columns: minmax(0, 600px); } .col.l, .col.r { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); } }
+  @media (max-width: 640px) { .page { padding: 12px; } .acts { gap: 16px; } }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="ver" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" fill="currentColor"/><path d="m9 12 2 2 4-4" fill="none" stroke="#06103A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-msg" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="i-rep" viewBox="0 0 24 24"><path d="m2 9 3-3 3 3M13 18H7a2 2 0 0 1-2-2V6M22 15l-3 3-3-3M11 6h6a2 2 0 0 1 2 2v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="var(--heart-fill, none)" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol></svg>
+
+<main class="page">
+  <aside class="col l">
+    <section class="lx-plate me" style="--club:#0A7A45">
+      <span class="lx-avatar lx-avatar--club" style="display:grid;place-items:center;font:italic 800 26px/1 var(--font-display);background:linear-gradient(135deg,#0A7A45,#00502C)">9</span>
+      <div><div class="lx-t-card">Rafael Silva</div><div class="lx-handle" style="font:600 13px/1.4 var(--font-ui)">@silva9 <svg class="ver" style="width:13px;height:13px;vertical-align:-2px"><use href="#ver"/></svg></div></div>
+      <span class="lx-label">Seguidores</span><b class="big">12,4 mi</b>
+      <span class="lx-chip lx-chip--sm lx-chip--pos-ok">+184K esta semana</span>
+    </section>
+    <section class="lx-plate lx-plate--flat sent">
+      <span class="lx-kicker">Humor da torcida</span>
+      <div class="segs" aria-label="Sentimento: 67% positivo"><i style="background:var(--negative)"></i><i style="background:var(--negative)"></i><i style="background:var(--text-3)"></i><i style="background:var(--text-3)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i><i style="background:var(--positive)"></i></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px"><span class="lx-label" style="color:var(--negative)">17%</span><span class="lx-label">16%</span><span class="lx-label" style="color:var(--positive)">67%</span></div>
+    </section>
+  </aside>
+
+  <section class="col" aria-label="Feed">
+    <div class="lx-plate lx-plate--flat compose lx-c-sm">
+      <span class="lx-kicker">Postar após o jogo</span>
+      <div class="opts"><button class="lx-btn lx-btn--line lx-btn--xs">"Obrigado, torcida! 💚"</button><button class="lx-btn lx-btn--line lx-btn--xs">Foto do gol</button><button class="lx-btn lx-btn--line lx-btn--xs">Provocar o rival</button><button class="lx-btn lx-btn--line lx-btn--xs">Ficar em silêncio</button></div>
+    </div>
+
+    <article class="lx-plate lx-plate--flat lx-post post lx-anim-rise" style="--i:0">
+      <span class="ribbon">Em alta</span>
+      <span class="lx-avatar" style="display:grid;place-items:center;font:800 14px/1 var(--font-display);color:#06103A;background:linear-gradient(180deg,#9AF3FF,#1FB8FF)">LT</span>
+      <div>
+        <header><span class="nm">LENDA TV</span><svg class="ver"><use href="#ver"/></svg><span class="h">@lendatv · 12 min</span></header>
+        <p>QUE FINAL! 🏆 <span class="lx-handle">@silva9</span> marca aos 88' e o Palmeiras é campeão da América pela 2ª vez com ele em campo. <span class="lx-handle">#SilvaNoReal</span>?</p>
+        <div class="media lx-cut lx-c-sm"><div class="lx-score"><div class="lx-score__tm is-home" style="--club:#0A7A45;--club-2:#00502C;--club-ink:#fff">PAL</div><div class="lx-score__res">2 × 1</div><div class="lx-score__tm is-away" style="--club:#0B3C8C;--club-2:#082A66;--club-ink:#fff">BOC</div></div></div>
+        <div class="acts"><button class="lx-post__action"><svg><use href="#i-msg"/></svg>2,1 mil</button><button class="lx-post__action"><svg><use href="#i-rep"/></svg>18,4 mil</button><button class="lx-post__action is-like" aria-pressed="true" style="--heart-fill:currentColor"><svg><use href="#i-heart"/></svg>96,2 mil</button><button class="lx-post__action"><svg><use href="#i-eye"/></svg>1,2 mi</button></div>
+      </div>
+    </article>
+
+    <article class="lx-plate lx-plate--flat lx-post lx-post--official post lx-anim-rise" style="--i:1;--club:#0A7A45">
+      <span class="lx-avatar lx-avatar--club" style="display:grid;place-items:center;font:italic 800 13px/1 var(--font-display);background:#00502C">PAL</span>
+      <div>
+        <header><span class="nm">Palmeiras</span><svg class="ver"><use href="#ver"/></svg><span class="h">@palmeiras · 30 min</span></header>
+        <p>BI DA AMÉRICA COM O NOSSO 9! Renovação? A gente conversa amanhã, <span class="lx-handle">@silva9</span> 😉</p>
+        <div class="acts"><button class="lx-post__action"><svg><use href="#i-msg"/></svg>4,8 mil</button><button class="lx-post__action"><svg><use href="#i-rep"/></svg>31 mil</button><button class="lx-post__action is-like" aria-pressed="false"><svg><use href="#i-heart"/></svg>210 mil</button><button class="lx-post__action"><svg><use href="#i-eye"/></svg>3,4 mi</button></div>
+      </div>
+    </article>
+
+    <article class="lx-plate lx-plate--flat lx-post post lx-anim-rise" style="--i:2">
+      <span class="lx-avatar" style="display:grid;place-items:center;font:700 14px/1 var(--font-ui);background:var(--surface-3)">JP</span>
+      <div>
+        <header><span class="nm">João Pedro</span><span class="h">@jp_verdao · 41 min</span></header>
+        <p>Se esse cara for pro Real eu nunca mais assisto futebol. Fica, Silva!!!</p>
+        <div class="acts"><button class="lx-post__action"><svg><use href="#i-msg"/></svg>312</button><button class="lx-post__action"><svg><use href="#i-rep"/></svg>1,1 mil</button><button class="lx-post__action is-like" aria-pressed="false"><svg><use href="#i-heart"/></svg>8,7 mil</button><button class="lx-post__action"><svg><use href="#i-eye"/></svg>94 mil</button></div>
+      </div>
+    </article>
+  </section>
+
+  <aside class="col r">
+    <section class="lx-plate lx-plate--flat trend">
+      <span class="lx-kicker">Em alta no Brasil</span>
+      <ol>
+        <li><span class="lx-label">1</span><div><b>#SilvaNoReal</b><span>184 mil posts</span></div></li>
+        <li><span class="lx-label">2</span><div><b>#BiDaAmérica</b><span>122 mil posts</span></div></li>
+        <li><span class="lx-label">3</span><div><b>Boca</b><span>Esportes · 64 mil posts</span></div></li>
+      </ol>
+    </section>
+  </aside>
+</main>
+</body>
+</html>

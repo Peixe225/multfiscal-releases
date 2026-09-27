@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-champions-league-t">
+  <title id="lx-champions-league-t">UEFA Champions League</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-champions-league-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-champions-league-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+    <linearGradient id="lx-champions-league-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+  </defs>
+  <path d="M47 46 C16 38 10 104 46 114 L50 104 C24 96 26 58 48 60 Z" fill="url(#lx-champions-league-sil)"/>
+  <path d="M73 46 C104 38 110 104 74 114 L70 104 C96 96 94 58 72 60 Z" fill="url(#lx-champions-league-sil)"/>
+  <rect x="42" y="34" width="36" height="7" rx="2" fill="url(#lx-champions-league-silv)"/>
+  <path d="M45 41 L75 41 C75 74 71 104 64 124 L56 124 C49 104 45 74 45 41 Z" fill="url(#lx-champions-league-sil)"/>
+  <path d="M50 46 C50 72 52 96 56 114" stroke="#fff" stroke-opacity=".6" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M55 124 L65 124 L70 154 L50 154 Z" fill="url(#lx-champions-league-sil)"/>
+  <ellipse cx="60" cy="136" rx="7" ry="2.6" fill="url(#lx-champions-league-silv)"/>
+  <path d="M42 154 L78 154 L84 190 L36 190 Z" fill="url(#lx-champions-league-sil)"/>
+  <rect x="34" y="189" width="52" height="7" rx="1.2" fill="url(#lx-champions-league-silv)"/>
+</svg>

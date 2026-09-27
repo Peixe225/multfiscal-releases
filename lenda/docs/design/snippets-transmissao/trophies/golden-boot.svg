@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-golden-boot-t">
+  <title id="lx-golden-boot-t">Chuteira de Ouro</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-golden-boot-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-golden-boot-gold" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-gold-5,#6A3F03)"/><stop offset="0.15" style="stop-color:var(--metal-gold-3,#D6951A)"/><stop offset="0.3" style="stop-color:var(--metal-gold-1,#FFEAA6)"/><stop offset="0.45" style="stop-color:var(--metal-gold-2,#F3BD3A)"/><stop offset="0.62" style="stop-color:var(--metal-gold-4,#A56B0A)"/><stop offset="0.8" style="stop-color:var(--metal-gold-2,#F6CF62)"/><stop offset="1" style="stop-color:var(--metal-gold-5,#744704)"/></linearGradient>
+    <linearGradient id="lx-golden-boot-onyx" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:#0B0D14"/><stop offset="0.35" style="stop-color:#3B4155"/><stop offset="0.7" style="stop-color:#1A1D29"/><stop offset="1" style="stop-color:#08090E"/></linearGradient>
+    <linearGradient id="lx-golden-boot-goldv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#FFF3C4)"/><stop offset="0.5" style="stop-color:var(--metal-gold-2,#EDB53A)"/><stop offset="1" style="stop-color:var(--metal-gold-4,#94600A)"/></linearGradient>
+  </defs>
+  <path d="M29 74 C29 64 37 60 45 62 L57 66 C61 80 70 88 85 92 C99 96 106 104 101 114 L97 118 L33 118 C29 118 27 114 27 108 Z" fill="url(#lx-golden-boot-gold)"/>
+  <path d="M47 72 L55 69 M50 78 L58 75 M53 84 L61 81" style="stroke:var(--metal-gold-5,#7A4A04)" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
+  <path d="M34 70 C33 84 34 100 36 112" style="stroke:var(--metal-gold-1,#FFF1C0)" stroke-opacity=".6" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M29 118 L99 118 L96 125 L32 125 Z" style="fill:var(--metal-gold-4,#8A5606)"/>
+  <rect x="38" y="125" width="6" height="5" style="fill:var(--metal-gold-4,#A56B0A)"/><rect x="56" y="125" width="6" height="5" style="fill:var(--metal-gold-4,#A56B0A)"/><rect x="74" y="125" width="6" height="5" style="fill:var(--metal-gold-4,#A56B0A)"/><rect x="88" y="125" width="5" height="5" style="fill:var(--metal-gold-4,#A56B0A)"/>
+  <path d="M44 134 L76 134 L80 144 L40 144 Z" fill="url(#lx-golden-boot-gold)"/>
+  <path d="M36 144 L84 144 L84 194 L36 194 Z" fill="url(#lx-golden-boot-onyx)"/>
+  <rect x="44" y="160" width="32" height="2" style="fill:var(--metal-gold-2,#E9B94A)" opacity=".8"/>
+  <rect x="34" y="192" width="52" height="5" rx="1" fill="url(#lx-golden-boot-goldv)"/>
+</svg>

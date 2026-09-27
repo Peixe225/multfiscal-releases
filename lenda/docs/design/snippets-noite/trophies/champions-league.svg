@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 180" width="130" height="180" role="img" aria-labelledby="ucl-title" class="lx-trophy" data-trophy="champions-league">
+  <title id="ucl-title">UEFA Champions League (Orelhuda)</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <linearGradient id="ucl-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <linearGradient id="ucl-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="ucl-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="ucl-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <path d="M41,24 C13,17 3,44 11,66 C17,83 34,91 51,88" stroke="url(#ucl-lg-silver)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
+  <path d="M89,24 C117,17 127,44 119,66 C113,83 96,91 79,88" stroke="url(#ucl-lg-silver)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
+  <path d="M40,27 C18,23 10,44 16,62" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/>
+  <path fill="url(#ucl-lg-silver)" d="M37.6,18 L92.4,18 C93.4,50 86,78 72,92.4 L69.4,98.6 L60.6,98.6 L58,92.4 C44,78 36.6,50 37.6,18 Z"/>
+  <path d="M40,40 C50,44 80,44 90,40" stroke="#646c79" stroke-width=".9" fill="none"/>
+  <path fill="url(#ucl-lg-sheen)" opacity=".7" d="M37.6,18 L92.4,18 C93.4,50 86,78 72,92.4 L69.4,98.6 L60.6,98.6 L58,92.4 C44,78 36.6,50 37.6,18 Z"/>
+  <ellipse cx="65" cy="18" rx="27.4" ry="3.8" fill="url(#ucl-lg-silver-v)"/>
+  <ellipse cx="65" cy="17.8" rx="24.6" ry="2.5" fill="#363b44"/>
+  <path fill="url(#ucl-lg-silver)" d="M60.4,98 L69.6,98 L71,128 L59,128 Z"/>
+  <ellipse cx="65" cy="110" rx="7.4" ry="3.2" fill="url(#ucl-lg-silver)"/>
+  <path fill="url(#ucl-lg-silver)" d="M50,128 L80,128 L86.4,146 L43.6,146 Z"/>
+  <path fill="url(#ucl-lg-silver-d)" d="M39.6,146 L90.4,146 L92.4,161 L37.6,161 Z"/>
+  <rect x="36.6" y="160" width="56.8" height="4" rx="1" fill="url(#ucl-lg-silver)"/>
+  </g>
+</svg>

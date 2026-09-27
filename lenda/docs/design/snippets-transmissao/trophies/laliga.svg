@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-laliga-t">
+  <title id="lx-laliga-t">LaLiga</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-laliga-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-laliga-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+    <linearGradient id="lx-laliga-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+  </defs>
+  <circle cx="60" cy="22" r="6" fill="url(#lx-laliga-silv)"/>
+  <path d="M54 27 L66 27 L64 36 L56 36 Z" fill="url(#lx-laliga-sil)"/>
+  <path d="M40 50 C40 40 49 35 60 35 C71 35 80 40 80 50 Z" fill="url(#lx-laliga-sil)"/>
+  <rect x="35" y="49" width="50" height="6" rx="2" fill="url(#lx-laliga-silv)"/>
+  <path d="M36 58 C24 58 22 80 38 84" stroke="url(#lx-laliga-sil)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M84 58 C96 58 98 80 82 84" stroke="url(#lx-laliga-sil)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M36 55 L84 55 C84 84 75 100 60 104 C45 100 36 84 36 55 Z" fill="url(#lx-laliga-sil)"/>
+  <rect x="37" y="66" width="46" height="5" fill="#FF4B44" opacity=".9"/>
+  <path d="M44 60 C43 76 47 88 53 96" stroke="#fff" stroke-opacity=".55" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M55 104 L65 104 L63 132 L57 132 Z" fill="url(#lx-laliga-sil)"/>
+  <ellipse cx="60" cy="116" rx="7" ry="2.8" fill="url(#lx-laliga-silv)"/>
+  <path d="M46 132 L74 132 L80 144 L40 144 Z" fill="url(#lx-laliga-sil)"/>
+  <rect x="38" y="144" width="44" height="7" fill="#FF4B44"/>
+  <path d="M38 151 L82 151 L86 190 L34 190 Z" fill="url(#lx-laliga-sil)"/>
+  <rect x="32" y="189" width="56" height="7" rx="1.2" fill="url(#lx-laliga-silv)"/>
+</svg>

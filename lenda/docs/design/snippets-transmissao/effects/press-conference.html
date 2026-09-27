@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coletiva de imprensa</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  html, body { margin: 0; min-height: 100%; }
+  .scene { position: relative; min-height: 100vh; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+  /* parede de patrocínio: marca LENDA + veículo fictício, padrão em quincunce, 8% */
+  .scene { --lx-press-logo:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='110'><path d='M30 30h30l-6 36H24z' fill='%23F3BF3E'/><path d='M36 37h7l-3.6 17H49l-1.2 5.5H31.8z' fill='%230A0F3A'/><text x='70' y='60' font-family='Arial Narrow,Arial' font-weight='700' font-style='italic' font-size='24' fill='%23F4F6FF'>LENDA</text></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='110'><text x='40' y='62' font-family='Arial Narrow,Arial' font-weight='700' font-size='22' letter-spacing='3' fill='%233BE4FF'>LENDA TV</text></svg>"); }
+  .scene .spot { position: absolute; left: 50%; top: -12%; width: 900px; height: 110%; transform: translateX(-50%); background: conic-gradient(from 180deg at 50% 0%, transparent 160deg, rgb(200 215 255 / .10) 172deg, rgb(220 230 255 / .16) 180deg, rgb(200 215 255 / .10) 188deg, transparent 200deg); filter: blur(10px); pointer-events: none; }
+  .table { position: absolute; left: 0; right: 0; bottom: 0; height: 360px; background: linear-gradient(180deg, #0C1450, #060A26 40%, #03051A); border-top: 1px solid rgb(134 156 255 / .3); }
+  .mics { position: absolute; left: 50%; bottom: 360px; transform: translate(-50%, 42%); width: 320px; filter: drop-shadow(0 20px 30px rgb(0 0 0 / .6)); }
+  .nameplate { position: absolute; left: 50%; bottom: 312px; transform: translateX(-50%); z-index: 1; }
+  .top { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; padding: 22px 28px; gap: 16px; }
+  .gauge { width: 300px; padding: 12px 14px; }
+  .gauge .bar { position: relative; height: 10px; margin-top: 10px; background: linear-gradient(90deg, var(--negative), rgb(160 175 230 / .4) 50%, var(--positive)); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  .gauge .needle { position: absolute; top: -5px; width: 4px; height: 20px; background: #fff; box-shadow: 0 0 10px #fff; left: calc(var(--lx-v, .5) * 100%); transform: translateX(-2px); transition: left 600ms var(--ease-spring); }
+  .gauge .ends { display: flex; justify-content: space-between; margin-top: 6px; }
+  .bottom { position: relative; z-index: 2; padding: 0 28px 28px; display: grid; gap: 14px; justify-items: center; }
+  .q { width: min(980px, 100%); }
+  .q .lx-lt { display: flex; width: 100%; }
+  .q .lx-lt__b { flex: 1; padding: 12px 22px 14px 18px; white-space: normal; }
+  .q .lx-lt__v { font: 500 21px/1.35 var(--font-ui); text-transform: none; white-space: normal; margin-top: 4px; }
+  .q .lx-lt__a { min-width: 74px; flex-direction: column; font: italic 800 18px/1 var(--font-display); }
+  .answers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: min(1180px, 100%); }
+  .answers .lx-option { min-height: 150px; }
+  .answers blockquote { margin: 0; font: 400 15px/1.45 var(--font-ui); color: var(--text); }
+  .answers .fxs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; }
+  .pips { display: flex; gap: 6px; align-items: center; }
+  .pips i { width: 26px; height: 6px; background: rgb(255 255 255 / .14); clip-path: polygon(2px 0, 100% 0, calc(100% - 2px) 100%, 0 100%); }
+  .pips i.on { background: var(--accent); } .pips i.done { background: var(--text-2); }
+  @media (max-width: 900px) { .answers { grid-template-columns: 1fr 1fr; } .gauge { display: none; } }
+  @media (max-width: 560px) { .answers { grid-template-columns: 1fr; } .answers .lx-option { min-height: 0; } .mics { width: 200px; } .q .lx-lt__v { font-size: 17px; } }
+</style>
+</head>
+<body>
+<div class="scene lx-stadium--press">
+  <div class="lx-press-wall"></div><div class="spot"></div>
+  <div class="table"></div>
+  <img class="mics" src="../art/mic-cluster.svg" alt="">
+  <div class="nameplate lx-chip" style="height:30px;padding:0 16px;font-size:16px;background:#060A26;box-shadow:inset 0 1px 0 rgb(255 255 255 / .12)">Rafael Silva · Palmeiras</div>
+
+  <div class="top">
+    <div class="lx-lt lx-lt--live"><div class="lx-lt__a" style="font:800 13px/1 var(--font-display);letter-spacing:.14em">AO VIVO</div><div class="lx-lt__b"><span class="lx-lt__k">Coletiva · pós-jogo</span><span class="lx-lt__v">Palmeiras 2×1 Boca · Final</span></div></div>
+    <div class="lx-plate lx-plate--flat gauge" id="gauge" style="--lx-v:.62">
+      <div style="display:flex;justify-content:space-between"><span class="lx-kicker">Repercussão</span><span class="pips" aria-label="Pergunta 2 de 4"><i class="done"></i><i class="on"></i><i></i><i></i></span></div>
+      <div class="bar"><span class="needle"></span></div>
+      <div class="ends"><span class="lx-label" style="color:var(--negative)">Crise</span><span class="lx-label">Neutro</span><span class="lx-label" style="color:var(--positive)">Ídolo</span></div>
+    </div>
+  </div>
+  <div></div>
+  <div class="bottom">
+    <div class="q lx-anim-rise">
+      <div class="lx-lt lx-lt--accent" style="filter:drop-shadow(0 18px 30px rgb(0 0 0 / .6))">
+        <div class="lx-lt__a">RA<span style="font:700 9px/1 var(--font-display);letter-spacing:.14em;margin-top:4px">Rádio</span></div>
+        <div class="lx-lt__b"><span class="lx-lt__k">Marina Lopes · Rádio Arquibancada</span><span class="lx-lt__v" id="question">"O Real Madrid ofereceu €68 milhões. Depois de marcar o gol do título, você garante que fica no Palmeiras?"</span></div>
+      </div>
+    </div>
+    <div class="answers lx-options" id="answers">
+      <button class="lx-option lx-anim-rise" style="--i:1" aria-pressed="false"><span class="lx-tone" data-tone="humilde">Humilde</span><blockquote>"Hoje é dia de comemorar com a torcida. Futuro a gente conversa depois."</blockquote><span class="fxs"><span class="lx-chip lx-chip--sm lx-chip--pos-ok">Torcida +</span><span class="lx-chip lx-chip--sm lx-chip--pos-ok">Técnico +</span></span></button>
+      <button class="lx-option lx-anim-rise" style="--i:2" aria-pressed="false"><span class="lx-tone" data-tone="confiante">Confiante</span><blockquote>"Eu nasci pra jogar grandes finais. Onde eu estiver, vou ganhar."</blockquote><span class="fxs"><span class="lx-chip lx-chip--sm lx-chip--pos-ok">Mídia ++</span><span class="lx-chip lx-chip--sm lx-chip--gold">Valor +3%</span></span></button>
+      <button class="lx-option lx-anim-rise" style="--i:3" aria-pressed="false"><span class="lx-tone" data-tone="polemico">Polêmico</span><blockquote>"Se a diretoria não valorizar, tem clube na Europa que valoriza."</blockquote><span class="fxs"><span class="lx-chip lx-chip--sm lx-chip--neg">Diretoria −−</span><span class="lx-chip lx-chip--sm lx-chip--gold">Proposta ▲</span></span></button>
+      <button class="lx-option lx-anim-rise" style="--i:4" aria-pressed="false"><span class="lx-tone" data-tone="evasivo">Evasivo</span><blockquote>"Meu empresário cuida disso. Eu só penso no próximo jogo."</blockquote><span class="fxs"><span class="lx-chip lx-chip--sm">Sem efeito</span><span class="lx-chip lx-chip--sm lx-chip--neg">Mídia −</span></span></button>
+    </div>
+  </div>
+</div>
+<script>
+/* escolha → flashes de câmera (seed fixa; nenhum sob movimento reduzido) + ponteiro de repercussão */
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const scene = document.querySelector('.scene'), wrap = document.getElementById('answers');
+const shift = { Humilde: .08, Confiante: .12, 'Polêmico': -.22, Evasivo: -.04 };
+wrap.querySelectorAll('.lx-option').forEach(b => b.addEventListener('click', () => {
+  wrap.querySelectorAll('.lx-option').forEach(o => o.setAttribute('aria-pressed', o === b));
+  wrap.classList.add('has-choice');
+  const g = document.getElementById('gauge'); g.style.setProperty('--lx-v', Math.max(0, Math.min(1, .62 + shift[b.querySelector('.lx-tone').textContent])));
+  if (reduce) return;
+  let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 5; i++) setTimeout(() => {
+    const f = document.createElement('span'); f.className = 'lx-camera-flash';
+    f.style.left = (8 + rnd() * 84) + '%'; f.style.top = (12 + rnd() * 40) + '%';
+    scene.appendChild(f); f.addEventListener('animationend', () => f.remove());
+  }, i * 90 + rnd() * 60);
+}));
+</script>
+</body>
+</html>

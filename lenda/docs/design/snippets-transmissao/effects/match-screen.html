@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Partida ao vivo</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  /* ======== layout de referência da tela de partida (1440×900) ======== */
+  html, body { margin: 0; height: 100%; }
+  .page { position: relative; z-index: 1; display: grid; grid-template-rows: 64px minmax(0, 1fr) 44px; height: 100vh; }
+  .topbar { display: flex; align-items: center; gap: 16px; padding: 0 24px; background: linear-gradient(180deg, rgb(4 7 30 / .85), rgb(4 7 30 / .35)); border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 10px; font: italic 800 26px/1 var(--font-display); letter-spacing: .05em; }
+  .brand svg { width: 30px; height: 30px; }
+  .comp { display: flex; align-items: center; gap: 10px; margin-left: 18px; }
+  .spacer { flex: 1; }
+  .main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 310px; gap: 16px; padding: 14px 24px; min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .center { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+  /* campo */
+  .pitchbox { position: relative; width: 100%; aspect-ratio: 1050 / 680; flex: none; }
+  .pitchbox .field { position: absolute; inset: 1px; overflow: hidden; background: url("../art/pitch-live.svg") center / cover; }
+  .pitchbox svg.players { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bugpos { position: absolute; left: 16px; top: 14px; z-index: 3; }
+  .ltpos { position: absolute; left: 16px; bottom: 16px; z-index: 3; }
+  .controls { display: flex; align-items: center; gap: 14px; padding: 10px 14px; flex-wrap: wrap; }
+  .controls .grp { display: flex; align-items: center; gap: 10px; }
+  .controls .lx-seg > button { height: 30px; padding: 0 14px; font-size: 13px; }
+  /* momentum */
+  .momentum { height: 64px; padding: 8px 12px; }
+  .momentum svg { width: 100%; height: 100%; display: block; }
+  /* painéis */
+  .panel { padding: 14px 14px 12px; min-height: 0; }
+  .panel h3 { margin: 4px 0 10px; }
+  .ev { display: grid; grid-template-columns: 44px 22px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 44px; padding: 6px 8px 6px 0; }
+  .ev + .ev { border-top: 1px solid var(--border); }
+  .ev .min { display: grid; place-items: center; height: 24px; font: italic 800 15px/1 var(--font-num); font-variant-numeric: tabular-nums; background: rgb(160 175 230 / .12); clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); }
+  .ev.me .min { color: var(--lx-gold-ink); background: linear-gradient(180deg, #FFE9A0, #E9A61E); }
+  .ev .ic { width: 18px; height: 18px; color: var(--text-2); }
+  .ev b { display: block; font: 700 15px/1.1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+  .ev span { font: 400 12.5px/1.3 var(--font-ui); color: var(--text-3); }
+  .ev.goal { box-shadow: inset 3px 0 0 var(--club); padding-left: 0; }
+  .ev.is-new { animation: lx-stamp 900ms var(--ease-out) both, lx-drop-in 300ms var(--ease-out) both; }
+  .stat { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px; margin-top: 10px; }
+  .stat .v { font: 800 17px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .stat .v.r { text-align: right; }
+  .stat .k { text-align: center; }
+  .split { display: flex; height: 6px; gap: 2px; margin-top: 5px; grid-column: 1 / -1; }
+  .split i { display: block; height: 100%; }
+  .me-card { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; }
+  .rating { display: grid; place-items: center; min-width: 48px; height: 32px; padding: 0 8px; font: italic 800 22px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--accent-ink); background: var(--positive); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+  .kvs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 14px 12px; }
+  .kvs div { text-align: center; }
+  .kvs b { display: block; font: italic 800 20px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .narr { flex: 1; overflow: auto; padding-right: 4px; }
+  .narr p { margin: 0; padding: 8px 0; border-top: 1px solid var(--border); font: 400 13.5px/1.45 var(--font-ui); color: var(--text-2); }
+  .narr p b { color: var(--text); font-weight: 600; }
+  .narr p .m { font: 800 13px/1 var(--font-num); color: var(--accent); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .mini { display: grid; grid-template-columns: 22px minmax(0, 1fr) 28px 34px; align-items: center; height: 26px; font: 700 14px/1 var(--font-display); text-transform: uppercase; padding-left: 6px; }
+  .mini .p { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .mini .d { text-align: right; font-size: 12px; color: var(--positive); }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm lx-stadium--club" style="--club:#0A7A45"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+
+<div class="page">
+  <header class="topbar">
+    <div class="brand"><svg viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="bm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF3C0"/><stop offset=".5" stop-color="#F3BF3E"/><stop offset="1" stop-color="#A86A06"/></linearGradient></defs><path d="M8 2h30l-6 36H2z" fill="url(#bm)"/><path d="M14 9h7l-3.6 17H27l-1.2 5.5H9.8z" fill="#0A0F3A"/></svg>LENDA</div>
+    <div class="comp"><span class="lx-chip lx-chip--live">Ao vivo</span><span class="lx-label" style="color:var(--text-2)">Libertadores 2035 · Final · Estadio Centenario</span></div>
+    <div class="spacer"></div>
+    <span class="lx-chip lx-chip--accent">Imersivo</span>
+    <button class="lx-icon-btn" aria-label="Pausar"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></button>
+  </header>
+
+  <main class="main">
+    <!-- esquerda: lances + estatísticas -->
+    <aside class="col">
+      <section class="lx-plate lx-plate--flat panel" style="flex:1" aria-label="Lances">
+        <span class="lx-kicker">Lances</span>
+        <div id="events" aria-live="polite">
+          <div class="ev goal me is-new" style="--club:#0A7A45"><span class="min">67'</span><svg class="ic" style="color:var(--lx-gold)"><use href="#i-ball"/></svg><div><b>Gol · Silva</b><span>Assist.: Pereira · PAL 2–1</span></div></div>
+          <div class="ev"><span class="min">61'</span><svg class="ic" style="color:var(--lx-card-red)"><use href="#i-card"/></svg><div><b>Expulso · Medina</b><span>2º amarelo · BOC com 10</span></div></div>
+          <div class="ev goal" style="--club:#0B3C8C"><span class="min">52'</span><svg class="ic"><use href="#i-ball"/></svg><div><b>Gol · Zeballos</b><span>Cabeça · BOC 1–1</span></div></div>
+          <div class="ev"><span class="min">46'</span><svg class="ic" style="color:var(--positive)"><use href="#i-sub"/></svg><div><b>Sai Vítor · entra Luan</b><span>PAL · mudança tática</span></div></div>
+          <div class="ev goal" style="--club:#0A7A45"><span class="min">34'</span><svg class="ic"><use href="#i-ball"/></svg><div><b>Gol · Pereira</b><span>Assist.: Silva · PAL 1–0</span></div></div>
+          <div class="ev"><span class="min">21'</span><svg class="ic" style="color:var(--lx-card-yellow)"><use href="#i-card"/></svg><div><b>Amarelo · Medina</b><span>Falta em Silva</span></div></div>
+        </div>
+      </section>
+      <section class="lx-plate lx-plate--flat panel" aria-label="Estatísticas">
+        <span class="lx-kicker">Estatísticas</span>
+        <div class="stat"><span class="v">58%</span><span class="lx-label k">Posse</span><span class="v r">42%</span><div class="split"><i style="width:58%;background:#0A7A45"></i><i style="width:42%;background:#0B3C8C"></i></div></div>
+        <div class="stat"><span class="v">14</span><span class="lx-label k">Finalizações</span><span class="v r">7</span><div class="split"><i style="width:66%;background:#0A7A45"></i><i style="width:34%;background:#0B3C8C"></i></div></div>
+        <div class="stat"><span class="v">1,84</span><span class="lx-label k">xG</span><span class="v r">0,71</span><div class="split"><i style="width:72%;background:#0A7A45"></i><i style="width:28%;background:#0B3C8C"></i></div></div>
+      </section>
+    </aside>
+
+    <!-- centro: campo + momentum -->
+    <section class="center">
+      <div class="lx-plate lx-plate--flat lx-c-lg pitchbox">
+        <div class="field">
+          <svg class="players" viewBox="0 0 1050 680" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <g font-family="Barlow Condensed" font-weight="800" font-size="12" text-anchor="middle">
+              <g fill="#0B3C8C" stroke="#F2B900" stroke-width="2.5"><circle cx="990" cy="340" r="11"/><circle cx="880" cy="250" r="11"/><circle cx="890" cy="430" r="11"/><circle cx="820" cy="330" r="11"/><circle cx="720" cy="200" r="11"/><circle cx="700" cy="470" r="11"/><circle cx="610" cy="330" r="11"/><circle cx="520" cy="240" r="11"/><circle cx="520" cy="430" r="11"/><circle cx="430" cy="340" r="11"/></g>
+              <g fill="#F4F6FF" stroke="#0A7A45" stroke-width="2.5"><circle cx="70" cy="340" r="11"/><circle cx="220" cy="230" r="11"/><circle cx="210" cy="450" r="11"/><circle cx="330" cy="340" r="11"/><circle cx="470" cy="160" r="11"/><circle cx="560" cy="520" r="11"/><circle cx="640" cy="260" r="11"/><circle cx="660" cy="410" r="11"/><circle cx="760" cy="300" r="11"/><circle cx="780" cy="560" r="11"/></g>
+              <g fill="#0A7A45"><text x="70" y="344">1</text><text x="220" y="234">3</text><text x="210" y="454">4</text><text x="330" y="344">5</text><text x="470" y="164">2</text><text x="560" y="524">6</text><text x="640" y="264">8</text><text x="660" y="414">10</text><text x="760" y="304">7</text><text x="780" y="564">11</text></g>
+              <path d="M760 300 Q800 290 850 318" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2" stroke-dasharray="4 6"/>
+              <circle class="lx-pitch-me" cx="860" cy="322" r="22" fill="none" stroke="#3BE4FF" stroke-width="2"/>
+              <circle cx="860" cy="322" r="14" fill="#F4F6FF" stroke="#3BE4FF" stroke-width="3"/><text x="860" y="327" fill="#0A7A45" font-size="14">9</text>
+              <circle cx="848" cy="334" r="6" fill="#fff" stroke="#0A0F3A" stroke-width="1.5"/>
+            </g>
+          </svg>
+        </div>
+        <div class="bugpos">
+          <div class="lx-bug" data-phase="live">
+            <span class="lx-bug__comp"><svg viewBox="0 0 24 24" width="22" height="22" style="color:var(--lx-gold)"><use href="#i-ball"/></svg></span>
+            <span class="lx-bug__team is-home" style="--club:#0A7A45;--club-2:#00502C"><i class="lx-bug__bar"></i>PAL</span>
+            <span class="lx-bug__score"><span>2</span><i>–</i><span>1</span></span>
+            <span class="lx-bug__team is-away" style="--club:#F2B900;--club-2:#0B3C8C">BOC<i class="lx-bug__red"></i><i class="lx-bug__bar"></i></span>
+            <span class="lx-bug__clock"><i class="lx-dot-accent"></i><span id="clock">71:36</span></span>
+          </div>
+        </div>
+        <div class="ltpos">
+          <div class="lx-lt lx-lt--red"><div class="lx-lt__a"><svg viewBox="0 0 24 24" width="22" height="22"><use href="#i-card"/></svg></div><div class="lx-lt__b"><span class="lx-lt__k">Cartão vermelho · 61'</span><span class="lx-lt__v">Medina · Boca Juniors</span></div></div>
+        </div>
+      </div>
+      <div class="lx-plate lx-plate--flat momentum" aria-label="Pressão ofensiva por minuto">
+        <svg viewBox="0 0 900 48" preserveAspectRatio="none" id="mom"></svg>
+      </div>
+      <div class="lx-plate lx-plate--flat controls">
+        <div class="grp"><span class="lx-label">Postura</span>
+          <div class="lx-seg" role="radiogroup" aria-label="Postura do jogador"><button role="radio" aria-checked="false">Pedir a bola</button><button role="radio" aria-checked="true">Equilibrada</button><button role="radio" aria-checked="false">Poupar energia</button></div>
+        </div>
+        <span class="spacer"></span>
+        <div class="grp"><span class="lx-label">Velocidade</span>
+          <div class="lx-seg" role="radiogroup" aria-label="Velocidade"><button role="radio" aria-checked="false">1×</button><button role="radio" aria-checked="true">2×</button><button role="radio" aria-checked="false">4×</button></div>
+          <button class="lx-btn lx-btn--line lx-btn--xs">Próx. lance ›</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- direita: você + narração + tabela ao vivo -->
+    <aside class="col">
+      <section class="lx-plate" style="--lx-c:14px">
+        <div class="me-card">
+          <div class="lx-ovr lx-ovr--md" data-tier="gold"><span class="lx-ovr__label">OVR</span><span class="lx-ovr__num">84</span></div>
+          <div><div class="lx-t-card" style="font-size:22px">Silva</div><div class="lx-label" style="margin-top:4px">CA · #9 · 71 min</div></div>
+          <span class="rating" aria-label="Nota 7,8">7.8</span>
+        </div>
+        <div class="kvs"><div><span class="lx-label">Gols</span><b class="lx-hi">1</b></div><div><span class="lx-label">Chutes</span><b>4</b></div><div><span class="lx-label">Passes</span><b>86%</b></div><div><span class="lx-label">Energia</span><b>64</b></div></div>
+        <div style="padding:0 14px 14px"><div class="lx-meter" data-level="good" style="--lx-v:.64"></div></div>
+      </section>
+      <section class="lx-plate lx-plate--flat panel" style="flex:1;display:flex;flex-direction:column">
+        <span class="lx-kicker">Narração</span>
+        <div class="narr">
+          <p><span class="m">71'</span>Boca tenta sair jogando, <b>Silva</b> pressiona e força o chutão.</p>
+          <p><span class="m">69'</span>Escanteio para o Palmeiras. Pereira cobra fechado, o goleiro soca.</p>
+          <p><span class="m">67'</span><b>GOOOL! Silva!</b> Recebe de Pereira, corta para dentro e bate no canto. Palmeiras 2 a 1!</p>
+          <p><span class="m">61'</span>Medina entra atrasado em Silva e recebe o segundo amarelo.</p>
+        </div>
+      </section>
+      <section class="lx-plate lx-plate--flat panel">
+        <span class="lx-kicker">Tabela ao vivo · Grupo</span>
+        <div style="margin-top:8px">
+          <div class="mini lx-zone" data-zone="lib"><span class="num">1</span><span>Palmeiras</span><span class="p">13</span><span class="d">▲1</span></div>
+          <div class="mini lx-zone" data-zone="lib"><span class="num">2</span><span>Boca Jrs.</span><span class="p">10</span><span class="d" style="color:var(--negative)">▼1</span></div>
+          <div class="mini"><span class="num">3</span><span>Nacional</span><span class="p">7</span><span class="d"></span></div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div class="lx-ticker" aria-label="Outros jogos">
+    <div class="lx-ticker__tag"><span class="lx-chip lx-chip--live" style="height:20px;padding:0 8px;font-size:12px">Ao vivo</span><span>Outros jogos</span></div>
+    <div class="lx-ticker__vp"><div class="lx-ticker__track" id="track">
+      <span class="lx-ticker__sec">Brasileirão · 31ª rodada</span>
+      <span class="lx-ticker__it"><b>FLA</b>1–0<b>SAO</b><span class="lx-ticker__pts">54'</span></span>
+      <span class="lx-ticker__it"><b>CRU</b>2–2<b>CAM</b><span class="lx-ticker__pts">71'</span></span>
+      <span class="lx-ticker__it"><b>BOT</b>0–1<b>FLU</b><span class="lx-ticker__pts">INT</span></span><span class="lx-ticker__sep"></span>
+      <span class="lx-ticker__sec">Artilharia</span><span class="lx-ticker__it"><b>Silva</b>12 gols<span class="lx-ticker__pts">1º</span></span><span class="lx-ticker__sep"></span>
+    </div></div>
+  </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5l3.8 2.8-1.5 4.4H9.7L8.2 10.3z" fill="currentColor"/><path d="M12 7.5V3.2M15.8 10.3l4-1.4M14.3 14.7l2.6 3.6M9.7 14.7l-2.6 3.6M8.2 10.3l-4-1.4" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="6.5" y="3" width="11" height="16" rx="1.2" transform="rotate(10 12 11)" fill="currentColor"/></symbol>
+  <symbol id="i-sub" viewBox="0 0 24 24"><path d="M7 4v13M3.5 13.5L7 17l3.5-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/><path d="M17 20V7M13.5 10.5L17 7l3.5 3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<script>
+/* ticker: duplica o conteúdo (cópia aria-hidden) e fixa a velocidade em px/s */
+const track = document.getElementById('track');
+const copy = document.createElement('span'); copy.setAttribute('aria-hidden', 'true'); copy.style.display = 'contents';
+copy.innerHTML = track.innerHTML; track.appendChild(copy);
+requestAnimationFrame(() => { const half = track.scrollWidth / 2; track.style.setProperty('--lx-crawl-dur', (half / 45).toFixed(1) + 's'); });
+
+/* momentum: barras por minuto — casa para cima, visitante para baixo; gols = losango */
+const mom = document.getElementById('mom'); let s = '<line x1="0" x2="900" y1="24" y2="24" stroke="rgb(134 156 255 / .25)"/>';
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let m = 0; m < 90; m++) {
+  const x = m * 10 + 1, v = rnd() * 20, home = rnd() > (m > 60 ? .3 : .45);
+  if (m > 71) continue;
+  s += home ? `<rect x="${x}" y="${24 - v}" width="8" height="${v}" fill="#0A7A45"/>` : `<rect x="${x}" y="24" width="8" height="${v}" fill="#0B3C8C"/>`;
+}
+[[34, 1], [52, 0], [67, 1]].forEach(([m, h]) => s += `<path d="M${m * 10 + 5} ${h ? 2 : 38} l5 5 -5 5 -5 -5z" fill="${h ? '#F7C948' : '#F4F6FF'}"/>`);
+s += '<line x1="716" x2="716" y1="0" y2="48" stroke="#3BE4FF" stroke-width="2"/>';
+mom.innerHTML = s;
+
+/* relógio */
+let t = 71 * 60 + 36; const fmt = x => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+setInterval(() => { t++; document.getElementById('clock').textContent = fmt(t); }, 250);
+</script>
+</body>
+</html>

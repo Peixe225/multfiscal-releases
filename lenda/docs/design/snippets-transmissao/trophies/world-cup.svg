@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-world-cup-t">
+  <title id="lx-world-cup-t">Copa do Mundo FIFA</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-world-cup-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-world-cup-gold" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-gold-5,#6A3F03)"/><stop offset="0.15" style="stop-color:var(--metal-gold-3,#D6951A)"/><stop offset="0.3" style="stop-color:var(--metal-gold-1,#FFEAA6)"/><stop offset="0.45" style="stop-color:var(--metal-gold-2,#F3BD3A)"/><stop offset="0.62" style="stop-color:var(--metal-gold-4,#A56B0A)"/><stop offset="0.8" style="stop-color:var(--metal-gold-2,#F6CF62)"/><stop offset="1" style="stop-color:var(--metal-gold-5,#744704)"/></linearGradient>
+    <radialGradient id="lx-world-cup-ball" cx=".36" cy=".3" r=".78"><stop offset="0" style="stop-color:var(--metal-gold-1,#FFF9DC)"/><stop offset="0.22" style="stop-color:var(--metal-gold-2,#FFDB6E)"/><stop offset="0.58" style="stop-color:var(--metal-gold-3,#E0A01E)"/><stop offset="1" style="stop-color:var(--metal-gold-5,#7C4A04)"/></radialGradient>
+    <radialGradient id="lx-world-cup-spec" cx=".5" cy=".5" r=".5"><stop offset="0" style="stop-color:#FFFFFF;stop-opacity:0.85"/><stop offset="1" style="stop-color:#FFFFFF;stop-opacity:0"/></radialGradient>
+    <linearGradient id="lx-world-cup-mala" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:#042A1A"/><stop offset="0.3" style="stop-color:#0E7A4B"/><stop offset="0.46" style="stop-color:#36C98A"/><stop offset="0.7" style="stop-color:#0C6A41"/><stop offset="1" style="stop-color:#032417"/></linearGradient>
+  </defs>
+  <path d="M40.5 66 C45 84 50.5 95 50.5 115 C50.5 127 46.5 135 44.5 143 L75.5 143 C73.5 135 69.5 127 69.5 115 C69.5 95 75 84 79.5 66 C73.5 74 66 77 60 77 C54 77 46.5 74 40.5 66 Z" fill="url(#lx-world-cup-gold)"/>
+  <path d="M42 68 C33 52 37 32 49 24" stroke="url(#lx-world-cup-gold)" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+  <path d="M78 68 C87 52 83 32 71 24" stroke="url(#lx-world-cup-gold)" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+  <circle cx="60" cy="45" r="24.5" fill="url(#lx-world-cup-ball)"/>
+  <path d="M44 38 C50 34 54 40 60 37 C64 35 66 30 72 32 M46 52 C52 48 56 56 63 52 C68 49 71 54 76 50 M52 62 C56 60 60 64 66 61" style="stroke:var(--metal-gold-5,#7A4A04)" stroke-opacity=".45" stroke-width="1.6" fill="none"/>
+  <ellipse cx="51" cy="36" rx="8" ry="5" fill="url(#lx-world-cup-spec)" opacity=".6"/>
+  <path d="M47 72 C58 86 66 98 61 132 M73 72 C62 86 54 98 59 132" style="stroke:var(--metal-gold-5,#7A4A04)" stroke-opacity=".5" stroke-width="1.6" fill="none"/>
+  <path d="M48 80 C49 95 51 108 50 120" style="stroke:var(--metal-gold-1,#FFF1C0)" stroke-opacity=".6" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <path d="M43 143 L77 143 L82 152 L38 152 Z" fill="url(#lx-world-cup-gold)"/>
+  <rect x="36.5" y="152" width="47" height="10" fill="url(#lx-world-cup-mala)"/>
+  <rect x="35.5" y="162" width="49" height="5" fill="url(#lx-world-cup-gold)"/>
+  <rect x="34.5" y="167" width="51" height="10" fill="url(#lx-world-cup-mala)"/>
+  <path d="M33.5 177 L86.5 177 L89 196 L31 196 Z" fill="url(#lx-world-cup-gold)"/>
+</svg>

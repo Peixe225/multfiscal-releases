@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bug de placar ao vivo</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  body { margin: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; display: grid; gap: 30px; }
+  .stage { position: relative; height: 150px; padding: 20px 24px; overflow: hidden; background: url("../art/pitch-live.svg") center / cover; }
+  .stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(3 5 26 / .55), rgb(3 5 26 / .1) 60%); }
+  .stage > * { position: relative; z-index: 1; }
+  .ctl { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cap { font: 600 12px/1.4 var(--font-ui); color: var(--text-3); margin-top: 8px; }
+  code { color: var(--text-2); }
+  .phone { width: 390px; padding: 12px; background: var(--bg-2); box-shadow: 0 0 0 1px var(--border-strong); }
+  .phone .lx-bug { --lx-bug-h: 40px; display: flex; width: 100%; }
+  .phone .lx-bug__team { flex: 1; min-width: 0; font-size: 18px; padding: 0 10px; }
+  .phone .lx-bug__score { min-width: 70px; font-size: 24px; }
+  .phone .lx-bug__clock { min-width: 72px; font-size: 18px; padding: 0 12px 0 8px; }
+  .phone .lx-bug__comp { width: 40px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm lx-stadium--club" style="--club:#0A7A45"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+<main class="wrap">
+  <header>
+    <span class="lx-kicker"><span class="lx-live-dot"></span> Modo Imersivo · partida</span>
+    <h1 class="lx-t-display" style="margin-top:8px">Bug de placar</h1>
+    <p class="lx-t-body" style="max-width:820px;margin-top:10px">Canto sup.-esq., 20px/24px da borda, altura 44px (40 no mobile). Relógio e placar com <code>tabular-nums</code> (Barlow tem dígitos proporcionais — sem isso o relógio "treme"). Entra com wipe da esquerda (700 ms). Gol: placar pisca ouro 1,2 s e a célula do time que marcou abre para 220px com o autor por 4 s.</p>
+  </header>
+
+  <section>
+    <div class="stage">
+      <div class="lx-bug" id="bug" data-phase="live" role="group" aria-label="Placar">
+        <span class="lx-bug__comp"><svg viewBox="0 0 120 200" width="16" height="26" aria-hidden="true"><use href="#t-mini"/></svg></span>
+        <span class="lx-bug__team is-home" style="--club:#0A7A45;--club-2:#00502C;--club-ink:#fff"><i class="lx-bug__bar"></i><span class="lx-bug__scorer" id="scorer">Silva 67'</span>PAL</span>
+        <span class="lx-bug__score" id="score"><span id="h">1</span><i>–</i><span id="a">1</span></span>
+        <span class="lx-bug__team is-away" style="--club:#F2B900;--club-2:#0B3C8C;--club-ink:#07103A">BOC<i class="lx-bug__red" title="1 expulso"></i><i class="lx-bug__bar"></i></span>
+        <span class="lx-bug__clock"><i class="lx-dot-accent"></i><span id="clock">66:48</span></span>
+        <span class="lx-bug__extra" id="extra" hidden>+3</span>
+      </div>
+      <p class="sr-only" aria-live="polite" id="announce"></p>
+    </div>
+    <div class="ctl" style="margin-top:14px">
+      <button class="lx-btn lx-btn--primary lx-btn--sm" id="goal">Gol da casa</button>
+      <button class="lx-btn lx-btn--line lx-btn--sm" id="stop">Acréscimos</button>
+      <button class="lx-btn lx-btn--line lx-btn--sm" id="ht">Intervalo</button>
+      <button class="lx-btn lx-btn--line lx-btn--sm" id="ft">Fim de jogo</button>
+    </div>
+    <p class="cap">Estados: <code>data-phase="live|ht|ft"</code> · <code>.is-goal[data-side-scored="home|away"]</code> · <code>.lx-bug__extra</code> (acréscimos, cai 8px) · <code>.lx-bug__red</code> (um por expulso). A cor do time é só a faixa de 6px — o nome fica sempre branco sobre navy, então qualquer clube funciona.</p>
+  </section>
+
+  <section>
+    <span class="lx-label">Mobile · 390px</span>
+    <div class="phone" style="margin-top:10px">
+      <div class="lx-bug" data-phase="live">
+        <span class="lx-bug__comp"><svg viewBox="0 0 120 200" width="14" height="23" aria-hidden="true"><use href="#t-mini"/></svg></span>
+        <span class="lx-bug__team is-home" style="--club:#0A7A45;--club-2:#00502C"><i class="lx-bug__bar"></i>PAL</span>
+        <span class="lx-bug__score"><span>2</span><i>–</i><span>1</span></span>
+        <span class="lx-bug__team is-away" style="--club:#F2B900;--club-2:#0B3C8C">BOC<i class="lx-bug__bar"></i></span>
+        <span class="lx-bug__clock"><span>88:02</span></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="mg" x1="0" x2="1"><stop offset="0" stop-color="#4E5873"/><stop offset=".3" stop-color="#fff"/><stop offset=".6" stop-color="#6B7690"/><stop offset="1" stop-color="#4E5873"/></linearGradient>
+  <symbol id="t-mini" viewBox="0 0 120 200"><path d="M41 65 C41 55 49.5 47.5 60 47.5 C70.5 47.5 79 55 79 65 Z M36.5 69 L83.5 69 C83.5 91 74.5 105 60 107 C45.5 105 36.5 91 36.5 69 Z M55 107 L65 107 L66.5 129 L53.5 129 Z M35.5 141 L84.5 141 L90.5 194 L29.5 194 Z M45.5 129 L74.5 129 L78.5 137 L41.5 137 Z" fill="url(#mg)"/></symbol>
+</defs></svg>
+
+<script>
+/* relógio de demonstração: 1 s real = 12 s de jogo */
+const $ = id => document.getElementById(id), bug = $('bug');
+let t = 66 * 60 + 48, running = true;
+const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+setInterval(() => { if (!running) return; t += 1; $('clock').textContent = fmt(t); }, 1000 / 12);
+$('goal').onclick = () => {
+  $('h').textContent = +$('h').textContent + 1;
+  $('scorer').textContent = `Silva ${Math.floor(t / 60) + 1}'`;
+  bug.dataset.sideScored = 'home'; bug.classList.remove('is-goal'); void bug.offsetWidth; bug.classList.add('is-goal');
+  $('announce').textContent = `Gol do Palmeiras, Silva. Palmeiras ${$('h').textContent}, Boca ${$('a').textContent}.`;
+  clearTimeout(bug._t); bug._t = setTimeout(() => bug.classList.remove('is-goal'), 4000);
+};
+$('stop').onclick = () => { $('extra').hidden = false; t = Math.max(t, 90 * 60); };
+$('ht').onclick = () => { running = false; bug.dataset.phase = 'ht'; $('clock').textContent = 'INT'; };
+/* deep-link de estado para revisão: #goal, #stop */
+if (location.hash === '#goal') setTimeout(() => $('goal').click(), 900);
+if (location.hash === '#stop') setTimeout(() => $('stop').click(), 300);
+$('ft').onclick = () => { running = false; bug.dataset.phase = 'ft'; $('clock').textContent = 'FIM'; $('extra').hidden = true; };
+</script>
+</body>
+</html>

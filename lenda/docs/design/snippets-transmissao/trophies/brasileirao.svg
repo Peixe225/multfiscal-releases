@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-brasileirao-t">
+  <title id="lx-brasileirao-t">Brasileirão Série A</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-brasileirao-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-brasileirao-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+    <linearGradient id="lx-brasileirao-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+    <linearGradient id="lx-brasileirao-core" x1="0" x2="1" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#FFF0B0)"/><stop offset="0.45" style="stop-color:var(--metal-gold-3,#F0B52E)"/><stop offset="1" style="stop-color:var(--metal-gold-4,#8E5A06)"/></linearGradient>
+    <linearGradient id="lx-brasileirao-onyx" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:#0B0D14"/><stop offset="0.35" style="stop-color:#3B4155"/><stop offset="0.7" style="stop-color:#1A1D29"/><stop offset="1" style="stop-color:#08090E"/></linearGradient>
+  </defs>
+  <ellipse cx="60" cy="40" rx="33" ry="6.5" fill="url(#lx-brasileirao-silv)"/>
+  <ellipse cx="60" cy="40" rx="29" ry="4.4" style="fill:var(--metal-silver-5,#4A536C)"/>
+  <path d="M27 40 C29 84 46 122 54 150 L66 150 C74 122 91 84 93 40 C86 44 74 46 60 46 C46 46 34 44 27 40 Z" fill="url(#lx-brasileirao-sil)"/>
+  <path d="M27 40 C29 84 46 122 54 150 L60 150 L60 46 C46 46 34 44 27 40 Z" fill="#0A1030" opacity=".16"/>
+  <path d="M60 54 L75 94 L60 142 L45 94 Z" fill="url(#lx-brasileirao-core)"/>
+  <path d="M60 54 L60 142 L45 94 Z" fill="#fff" opacity=".22"/>
+  <path d="M60 54 L75 94 L60 142" style="stroke:var(--metal-gold-1,#FFF6D0)" stroke-opacity=".6" stroke-width=".8" fill="none"/>
+  <path d="M36 50 C40 80 49 110 55 136" stroke="#fff" stroke-opacity=".6" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <rect x="52" y="149" width="16" height="10" fill="url(#lx-brasileirao-sil)"/>
+  <path d="M41 159 L79 159 L83 192 L37 192 Z" fill="url(#lx-brasileirao-onyx)"/>
+  <rect x="39.6" y="170" width="40.8" height="4.2" fill="#0FA35A"/>
+  <rect x="39.2" y="175.4" width="41.6" height="2.4" fill="#F7D117"/>
+  <rect x="35" y="190" width="50" height="6.5" rx="1.2" fill="url(#lx-brasileirao-silv)"/>
+</svg>

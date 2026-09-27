@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 680" width="1050" height="680" aria-hidden="true">
+  <!-- NOVO · campo da partida ao vivo (Modo Imersivo), escala 1u = 10 cm (105 × 68 m).
+       Coordenadas do motor de simulação: x 0..105, y 0..68 → multiplique por 10. Casa ataca → direita.
+       Jogadores, bola e rastro são desenhados por cima (ver effects/live-pitch.html). -->
+  <defs>
+    <linearGradient id="lx-pl-grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0F6149"/><stop offset="1" stop-color="#0A4638"/>
+    </linearGradient>
+    <radialGradient id="lx-pl-vignette" cx=".5" cy=".5" r=".75">
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#020618" stop-opacity=".55"/>
+    </radialGradient>
+  </defs>
+  <rect width="1050" height="680" fill="url(#lx-pl-grass)"/>
+  <g fill="#fff" opacity=".04">
+    <rect x="0" width="75" height="680"/><rect x="150" width="75" height="680"/><rect x="300" width="75" height="680"/><rect x="450" width="75" height="680"/>
+    <rect x="600" width="75" height="680"/><rect x="750" width="75" height="680"/><rect x="900" width="75" height="680"/>
+  </g>
+  <g fill="none" stroke="#DFFCF2" stroke-opacity=".62" stroke-width="3">
+    <rect x="10" y="10" width="1030" height="660"/>
+    <line x1="525" y1="10" x2="525" y2="670"/>
+    <circle cx="525" cy="340" r="91.5"/>
+    <rect x="10" y="138.5" width="165" height="403"/><rect x="875" y="138.5" width="165" height="403"/>
+    <rect x="10" y="248.5" width="55" height="183"/><rect x="985" y="248.5" width="55" height="183"/>
+    <path d="M175 266 A91.5 91.5 0 0 1 175 414"/><path d="M875 266 A91.5 91.5 0 0 0 875 414"/>
+    <path d="M10 20 A10 10 0 0 0 20 10 M1030 10 A10 10 0 0 0 1040 20 M10 660 A10 10 0 0 1 20 670 M1040 660 A10 10 0 0 0 1030 670"/>
+  </g>
+  <g fill="#DFFCF2" fill-opacity=".7"><circle cx="525" cy="340" r="5"/><circle cx="120" cy="340" r="4"/><circle cx="930" cy="340" r="4"/></g>
+  <g fill="none" stroke="#DFFCF2" stroke-opacity=".45" stroke-width="3"><rect x="0" y="303" width="10" height="74"/><rect x="1040" y="303" width="10" height="74"/></g>
+  <rect width="1050" height="680" fill="url(#lx-pl-vignette)"/>
+</svg>

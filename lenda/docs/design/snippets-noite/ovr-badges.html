@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="noite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LENDA · OVR tiers (Noite)</title>
+<!-- Self-contained snippet: only depends on ../theme-noite.css (tokens + .lx-* classes).
+     Fonts come from @fontsource in the app; here they fall back to system fonts if not installed. -->
+<link rel="stylesheet" href="../theme-noite.css">
+<style>
+  body { margin: 0; min-height: 100vh; }
+  .app { position: relative; z-index: 1; }
+  .wrap { padding: 40px; display: grid; gap: 34px; }
+  .row { display: flex; gap: 28px; align-items: flex-end; flex-wrap: wrap; }
+  .cap { font-size: 11px; color: var(--text-3); margin-top: 10px; text-align: center; }
+  .ovr-wrap { position: relative; }
+  .pills { display: flex; gap: 10px; align-items: center; }
+  /* landing "A trajetória" strip */
+  .trail { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 14px; white-space: nowrap; }
+  .trail .lab { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; margin-right: 4px; }
+  .trail .st { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; color: var(--text-2); }
+  .trail .lx-ovr-pill { height: 20px; min-width: 32px; font-size: 14px; }
+  .trail svg { width: 14px; height: 14px; color: var(--nx-text-4); }
+</style>
+</head>
+<body>
+<div class="lx-stage" aria-hidden="true"></div>
+<main class="app wrap">
+  <section>
+    <p class="lx-eyebrow">Badge · --w 100px (hero) · sheen sweeps every 5.5s</p>
+    <div class="row">
+      <div><div class="ovr-wrap"><div class="lx-ovr lx-tier-bronze lx-sheen " style="--w:100px" role="img" aria-label="OVR 52"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">52</span></div><span class="lx-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7M12 19V5"/></svg>2</span></div><div class="cap" style="margin-top:18px">52</div></div><div><div class="ovr-wrap"><div class="lx-ovr lx-tier-silver lx-sheen " style="--w:100px" role="img" aria-label="OVR 75"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">75</span></div><span class="lx-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7M12 19V5"/></svg>2</span></div><div class="cap" style="margin-top:18px">75</div></div><div><div class="ovr-wrap"><div class="lx-ovr lx-tier-gold lx-sheen " style="--w:100px" role="img" aria-label="OVR 87"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">87</span></div><span class="lx-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7M12 19V5"/></svg>2</span></div><div class="cap" style="margin-top:18px">87</div></div><div><div class="ovr-wrap"><div class="lx-ovr lx-tier-lenda lx-sheen " style="--w:100px" role="img" aria-label="OVR 94"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">94</span></div><span class="lx-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7M12 19V5"/></svg>2</span></div><div class="cap" style="margin-top:18px">94</div></div>
+    </div>
+  </section>
+  <section>
+    <p class="lx-eyebrow">--w 58px (identity) · --w 50px compact (match) · --w 40px compact (season)</p>
+    <div class="row"><div class="lx-ovr lx-tier-bronze lx-sheen " style="--w:58px" role="img" aria-label="OVR 50"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">50</span></div><div class="lx-ovr lx-tier-silver lx-sheen " style="--w:58px" role="img" aria-label="OVR 72"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">72</span></div><div class="lx-ovr lx-tier-gold lx-sheen " style="--w:58px" role="img" aria-label="OVR 88"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">88</span></div><div class="lx-ovr lx-tier-lenda lx-sheen " style="--w:58px" role="img" aria-label="OVR 91"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">91</span></div><div class="lx-ovr lx-tier-gold lx-sheen lx-ovr--compact" style="--w:50px" role="img" aria-label="OVR 87"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">87</span></div><div class="lx-ovr lx-tier-bronze lx-sheen lx-ovr--compact" style="--w:40px" role="img" aria-label="OVR 52"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">52</span></div></div>
+  </section>
+  <section>
+    <p class="lx-eyebrow">Table pill · 38×22 · radius 7 · Barlow 800 15px</p>
+    <div class="pills"><span class="lx-ovr-pill lx-tier-bronze">52</span><span class="lx-ovr-pill lx-tier-bronze">66</span><span class="lx-ovr-pill lx-tier-silver">70</span><span class="lx-ovr-pill lx-tier-silver">79</span><span class="lx-ovr-pill lx-tier-gold">82</span><span class="lx-ovr-pill lx-tier-gold">87</span><span class="lx-ovr-pill lx-tier-lenda">94</span><span class="lx-ovr-pill lx-ovr-pill--ghost">—</span><span class="lx-ovr-pill lx-tier-gold" style="opacity:.55">87</span></div>
+  </section>
+  <section>
+    <div class="trail lx-glass-tag"><span class="lab">A trajetória</span>
+      <span class="st"><span class="lx-ovr-pill lx-tier-bronze">52</span>16 anos</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      <span class="st"><span class="lx-ovr-pill lx-tier-silver">75</span>21</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      <span class="st"><span class="lx-ovr-pill lx-tier-gold">87</span>25</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      <span class="st"><span class="lx-ovr-pill lx-tier-lenda">94</span>29 · Lenda</span></div>
+  </section>
+</main>
+</body>
+</html>

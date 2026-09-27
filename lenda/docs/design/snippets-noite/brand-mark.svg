@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="lx-bm-t">
+  <title id="lx-bm-t">LENDA</title>
+  <!-- LENDA brand mark (Noite de Final): gold shield, recessed night field, "L" monogram + star.
+       Render at 30×30 in the top bar next to the wordmark (Inter Tight 900, 19px, letter-spacing .16em). -->
+  <defs>
+    <linearGradient id="lx-bm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/>
+      <stop offset=".5" style="stop-color:var(--metal-gold-5,#e7b54a)"/>
+      <stop offset="1" style="stop-color:var(--metal-gold-3,#8a5a0c)"/>
+    </linearGradient>
+  </defs>
+  <path d="M16 1.8 28.4 6.6V16c0 7.2-5.6 12.3-12.4 14.2C9.2 28.3 3.6 23.2 3.6 16V6.6z" fill="url(#lx-bm)"/>
+  <path d="M16 4.9 25.5 8.6V16c0 5.7-4.3 9.8-9.5 11.3C10.8 25.8 6.5 21.7 6.5 16V8.6z" style="fill:var(--bg-2,#0b0d12)"/>
+  <path d="M12.6 10.2v11.2h7.6" stroke="url(#lx-bm)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m19.6 9.2.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" style="fill:var(--metal-gold-8,#fff3c4)"/>
+</svg>

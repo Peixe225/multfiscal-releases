@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="wc-title" class="lx-trophy" data-trophy="world-cup">
+  <title id="wc-title">Copa do Mundo FIFA</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <linearGradient id="wc-lg-gold" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/>
+  <stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/>
+  <stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/>
+  <stop offset=".89" style="stop-color:var(--metal-gold-6,#f3d170)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#4f3104)"/>
+  </linearGradient>
+  <radialGradient id="wc-rg-gold" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-gold-8,#fffbe6)"/><stop offset=".14" style="stop-color:var(--metal-gold-7,#ffe697)"/>
+  <stop offset=".42" style="stop-color:var(--metal-gold-5,#e3aa31)"/><stop offset=".72" style="stop-color:var(--metal-gold-3,#9c6510)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3f2702)"/>
+  </radialGradient>
+  <clipPath id="wc-cp-globe"><circle cx="50" cy="43" r="24.5"/></clipPath>
+  <filter id="wc-f-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+  <linearGradient id="wc-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="wc-lg-mala" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-malachite-1,#032a1b)"/><stop offset=".3" style="stop-color:var(--metal-malachite-2,#0d7a4a)"/>
+  <stop offset=".48" style="stop-color:var(--metal-malachite-3,#43d796)"/><stop offset=".66" style="stop-color:var(--metal-malachite-2,#0c6b41)"/><stop offset="1" style="stop-color:var(--metal-malachite-1,#02231a)"/>
+  </linearGradient>
+  <linearGradient id="wc-lg-gold-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".35" style="stop-color:var(--metal-gold-3,#9a6a14)"/>
+  <stop offset=".52" style="stop-color:var(--metal-gold-5,#e2b54a)"/><stop offset=".75" style="stop-color:var(--metal-gold-3,#83580c)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#321f02)"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <path fill="url(#wc-lg-gold)" d="M32.5,142 C33.5,126 41.5,116 44.2,106 C40,96 29.5,88 25.6,72 C24,65 24.6,59 27,55 L73,55 C75.4,59 76,65 74.4,72 C70.5,88 60,96 55.8,106 C58.5,116 66.5,126 67.5,142 Z"/>
+  <g fill="none" stroke-linecap="round">
+  <path d="M37,140 C40,125 51,115 55.5,104 C61,92 71,84 73.6,66" stroke="#5f3c05" stroke-opacity=".65" stroke-width="1.5"/>
+  <path d="M63,140 C60,125 49,115 44.5,104 C39,92 29,84 26.4,66" stroke="#5f3c05" stroke-opacity=".45" stroke-width="1.2"/>
+  <path d="M38.2,139 C41.2,124.5 52,114.6 56.4,103.6" stroke="#fff4c8" stroke-opacity=".5" stroke-width=".7"/>
+  <path d="M46,116 C49,112 52,112 55,116" stroke="#5f3c05" stroke-opacity=".4" stroke-width="1"/>
+  </g>
+  <circle cx="50" cy="43" r="24.5" fill="url(#wc-rg-gold)"/>
+  <g clip-path="url(#wc-cp-globe)" fill="#7a4d06" opacity=".38">
+  <path d="M31,30 C36,24 45,25 47,31 C49,37 43,40 44,46 C45,52 40,56 37,52 C34,48 36,43 32,40 C28,37 28,33 31,30 Z"/>
+  <path d="M54,23 C60,21 68,25 69,31 C70,35 65,36 62,34 C59,32 56,34 55,31 C54,28 51,25 54,23 Z"/>
+  <path d="M56,42 C61,39 69,42 70,49 C71,56 64,62 59,60 C55,58 57,53 55,50 C53,47 53,44 56,42 Z"/>
+  </g>
+  <ellipse cx="41" cy="31" rx="8" ry="4.6" transform="rotate(-30 41 31)" fill="#fff" opacity=".55" filter="url(#wc-f-soft)"/>
+  <path d="M27.4,66 C22.6,57 23.6,45 27.2,37" stroke="url(#wc-lg-gold)" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+  <path d="M72.6,66 C77.4,57 76.4,45 72.8,37" stroke="url(#wc-lg-gold)" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+  <path fill="url(#wc-lg-sheen)" opacity=".55" d="M32.5,142 C33.5,126 41.5,116 44.2,106 C40,96 29.5,88 25.6,72 C24,65 24.6,59 27,55 L73,55 C75.4,59 76,65 74.4,72 C70.5,88 60,96 55.8,106 C58.5,116 66.5,126 67.5,142 Z"/>
+  <path fill="url(#wc-lg-gold)" d="M31.5,141.5 L68.5,141.5 L69.5,146 L30.5,146 Z"/>
+  <path fill="url(#wc-lg-mala)" d="M30.5,146 L69.5,146 L70.5,155 L29.5,155 Z"/>
+  <path fill="url(#wc-lg-gold)" d="M29.5,155 L70.5,155 L71,158.5 L29,158.5 Z"/>
+  <path fill="url(#wc-lg-mala)" d="M29,158.5 L71,158.5 L72,167.5 L28,167.5 Z"/>
+  <path fill="url(#wc-lg-gold-d)" d="M28,167.5 L72,167.5 L72.8,173.2 C72.8,175 27.2,175 27.2,173.2 Z"/>
+  </g>
+</svg>

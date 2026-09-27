@@ -1,0 +1,247 @@
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <!-- LENDA · Noite de Final · trophy sprite. Mount ONCE inline inside the [data-theme] root (e.g. <TrophySprite/> in App).
+       Use: <svg class="lx-trophy" viewBox="(see data-viewbox)"><use href="#lx-trophy-world-cup"/></svg>
+       viewBoxes: libertadores=0 0 100 180 · brasileirao=0 0 100 180 · ballon-dor=0 0 100 140 · world-cup=0 0 100 180 · golden-boot=0 0 140 112 · champions-league=0 0 130 180 · copa-do-brasil=0 0 120 180 · estadual=0 0 100 150 · laliga=0 0 110 180 · copa-america=0 0 100 180 -->
+  <defs>
+  <linearGradient id="lx-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-gold" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/>
+  <stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/>
+  <stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/>
+  <stop offset=".89" style="stop-color:var(--metal-gold-6,#f3d170)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#4f3104)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-gold-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".35" style="stop-color:var(--metal-gold-3,#9a6a14)"/>
+  <stop offset=".52" style="stop-color:var(--metal-gold-5,#e2b54a)"/><stop offset=".75" style="stop-color:var(--metal-gold-3,#83580c)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#321f02)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-gold-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-8,#fff6d2)"/><stop offset=".5" style="stop-color:var(--metal-gold-5,#e2ae3c)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#7a520c)"/>
+  </linearGradient>
+  <radialGradient id="lx-rg-gold" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-gold-8,#fffbe6)"/><stop offset=".14" style="stop-color:var(--metal-gold-7,#ffe697)"/>
+  <stop offset=".42" style="stop-color:var(--metal-gold-5,#e3aa31)"/><stop offset=".72" style="stop-color:var(--metal-gold-3,#9c6510)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3f2702)"/>
+  </radialGradient>
+  <radialGradient id="lx-rg-silver" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".2" style="stop-color:var(--metal-silver-7,#e9edf2)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-5,#a0a9b6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#586070)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2c3038)"/>
+  </radialGradient>
+  <linearGradient id="lx-lg-wood" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-wood-1,#1c0f07)"/><stop offset=".25" style="stop-color:var(--metal-wood-2,#4f2d15)"/>
+  <stop offset=".48" style="stop-color:var(--metal-wood-3,#7d4b23)"/><stop offset=".7" style="stop-color:var(--metal-wood-2,#4a2a13)"/><stop offset="1" style="stop-color:var(--metal-wood-1,#170c05)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-mala" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-malachite-1,#032a1b)"/><stop offset=".3" style="stop-color:var(--metal-malachite-2,#0d7a4a)"/>
+  <stop offset=".48" style="stop-color:var(--metal-malachite-3,#43d796)"/><stop offset=".66" style="stop-color:var(--metal-malachite-2,#0c6b41)"/><stop offset="1" style="stop-color:var(--metal-malachite-1,#02231a)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-black" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#26282e)"/>
+  <stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="lx-f-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+  <clipPath id="lx-cp-ball"><circle cx="50" cy="46" r="37.5"/></clipPath>
+  <clipPath id="lx-cp-globe"><circle cx="50" cy="43" r="24.5"/></clipPath>
+  <clipPath id="lx-cp-cdb"><path d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/></clipPath>
+  </defs>
+  <symbol id="lx-trophy-libertadores" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-silver)" d="M47.2,12.8 C48.6,12 51.4,12 52.8,12.9 L56.2,17.4 L61.4,20.2 L60.6,22.6 L55,20.6 L54.6,27.4 L58.4,31.2 L63.4,32.6 L62.8,35.2 L56,34.4 L51.2,30 L49.4,35.2 L48.8,39.4 L45.6,39.4 L46,34.2 L46.4,27.6 L46,20.8 L41.6,24.6 L39.8,22.8 Z"/>
+    <circle cx="49.6" cy="8" r="4.3" fill="url(#lx-rg-silver)"/>
+    <circle cx="50" cy="49.5" r="10.2" fill="url(#lx-rg-silver)"/>
+    <path d="M44,45 q6,-3.5 12,0 M42.5,51 q7.5,3 15,0" stroke="#5b6370" stroke-width=".6" fill="none" opacity=".7"/>
+    <rect x="46" y="58" width="8" height="5" fill="url(#lx-lg-silver-d)"/>
+    <path fill="url(#lx-lg-silver)" d="M28.6,62.6 C29.6,77 39.6,92.6 46,100.6 L54,100.6 C60.4,92.6 70.4,77 71.4,62.6 Z"/>
+    <path d="M31,70 C40,73 60,73 69,70" stroke="#646c79" stroke-width=".9" fill="none"/>
+    <path d="M33.6,77.5 C42,80 58,80 66.4,77.5" stroke="#fff" stroke-opacity=".5" stroke-width=".6" fill="none"/>
+    <ellipse cx="50" cy="62.6" rx="21.4" ry="3.6" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="50" cy="62.4" rx="17" ry="2.1" fill="#3b414b" opacity=".55"/>
+    <rect x="47" y="100" width="6" height="12" fill="url(#lx-lg-silver)"/>
+    <ellipse cx="50" cy="104" rx="6.4" ry="2.8" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M35.5,112 L64.5,112 L68.5,121 L31.5,121 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M26,121 L74,121 L78,171 L22,171 Z"/>
+    <g fill="url(#lx-lg-gold)" opacity=".92">
+    <rect x="29.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="38.20" y="128" width="6.60" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="46.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="55.20" y="128" width="6.60" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="63.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="28.52" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="37.52" y="137.5" width="6.95" height="5.4" rx=".6" /><rect x="46.52" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="55.52" y="137.5" width="6.95" height="5.4" rx=".6" /><rect x="64.53" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="27.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="36.85" y="147" width="7.30" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="46.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="55.85" y="147" width="7.30" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="65.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="26.18" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="36.17" y="156.5" width="7.65" height="5.4" rx=".6" /><rect x="46.17" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="56.17" y="156.5" width="7.65" height="5.4" rx=".6" /><rect x="66.17" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/>
+    </g>
+    <rect x="20.5" y="170" width="59" height="5" rx="1.2" fill="url(#lx-lg-silver-d)"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M28.6,62.6 C29.6,77 39.6,92.6 46,100.6 L54,100.6 C60.4,92.6 70.4,77 71.4,62.6 Z"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-brasileirao" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-gold)" d="M31,20 L69,20 C66,56 60,94 54.5,128 L45.5,128 C40,94 34,56 31,20 Z"/>
+    <path fill="#fff6cf" opacity=".55" d="M50,24 L63.5,40 L50,124 L36.5,40 Z"/>
+    <path fill="#8a5a0c" opacity=".35" d="M50,24 L63.5,40 L50,48 Z M50,24 L36.5,40 L50,48 Z"/>
+    <path fill="url(#lx-lg-silver)" fill-rule="evenodd" d="M16,9 L84,9 C82,52 73,98 64.5,137 L35.5,137 C27,98 18,52 16,9 Z M29,19 L71,19 C68,55 61.5,93 55.5,128 L44.5,128 C38.5,93 32,55 29,19 Z"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".6" d="M16,9 L84,9 C82,52 73,98 64.5,137 L35.5,137 C27,98 18,52 16,9 Z"/>
+    <ellipse cx="50" cy="9" rx="34" ry="3.2" fill="url(#lx-lg-silver-v)"/>
+    <path fill="url(#lx-lg-silver)" d="M35.5,136.5 L64.5,136.5 L66.5,143 L33.5,143 Z"/>
+    <path fill="#0f9a50" d="M33,143 L67,143 L68,149 L32,149 Z"/>
+    <path fill="#ffd21f" d="M32,149 L68,149 L68.6,153 L31.4,153 Z"/>
+    <path fill="url(#lx-lg-black)" d="M30,153 L70,153 L73.5,172 L26.5,172 Z"/>
+    <rect x="25.5" y="171" width="49" height="4" rx="1" fill="url(#lx-lg-silver-d)"/>
+    <rect x="42" y="159" width="16" height="7" rx="1" fill="url(#lx-lg-silver)" opacity=".9"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-ballon-dor" viewBox="0 0 100 140">
+    <g>
+    <circle cx="50" cy="46" r="38" fill="url(#lx-rg-gold)"/>
+    <g clip-path="url(#lx-cp-ball)" fill="none" stroke-linejoin="round">
+    <path d="M51.29,37.00 L59.14,44.42 L54.36,54.03 L43.56,52.54 L41.66,42.01 Z M51.291,36.996 L52.621,27.718 M52.621,27.718 L61.104,22.663 L73.410,34.310 L68.551,42.794 M61.104,22.663 L60.761,15.371 M73.410,34.310 L80.859,34.391 M59.136,44.421 L68.551,42.794 M68.551,42.794 L76.078,49.138 L68.578,64.207 L58.843,62.300 M76.078,49.138 L83.049,46.565 M68.578,64.207 L70.802,71.174 M54.355,54.027 L58.843,62.300 M58.843,62.300 L55.013,71.276 L38.071,68.942 L36.913,59.280 M55.013,71.276 L59.664,76.978 M38.071,68.942 L31.997,73.167 M43.555,52.540 L36.913,59.280 M36.913,59.280 L27.019,58.483 L24.048,41.971 L33.068,37.907 M27.019,58.483 L22.923,64.580 M24.048,41.971 L18.071,37.615 M41.661,42.014 L33.068,37.907 M33.068,37.907 L30.783,28.439 L45.889,20.567 L52.621,27.718 M30.783,28.439 L23.601,26.504 M45.889,20.567 L48.270,13.650 " stroke="#6b4206" stroke-opacity=".5" stroke-width="1.05"/>
+    <path d="M51.29,37.00 L59.14,44.42 L54.36,54.03 L43.56,52.54 L41.66,42.01 Z M51.291,36.996 L52.621,27.718 M52.621,27.718 L61.104,22.663 L73.410,34.310 L68.551,42.794 M61.104,22.663 L60.761,15.371 M73.410,34.310 L80.859,34.391 M59.136,44.421 L68.551,42.794 M68.551,42.794 L76.078,49.138 L68.578,64.207 L58.843,62.300 M76.078,49.138 L83.049,46.565 M68.578,64.207 L70.802,71.174 M54.355,54.027 L58.843,62.300 M58.843,62.300 L55.013,71.276 L38.071,68.942 L36.913,59.280 M55.013,71.276 L59.664,76.978 M38.071,68.942 L31.997,73.167 M43.555,52.540 L36.913,59.280 M36.913,59.280 L27.019,58.483 L24.048,41.971 L33.068,37.907 M27.019,58.483 L22.923,64.580 M24.048,41.971 L18.071,37.615 M41.661,42.014 L33.068,37.907 M33.068,37.907 L30.783,28.439 L45.889,20.567 L52.621,27.718 M30.783,28.439 L23.601,26.504 M45.889,20.567 L48.270,13.650 " stroke="#fff3c6" stroke-opacity=".42" stroke-width=".6" transform="translate(-.55,-.7)"/>
+    <path d="M51.29,37.00 L59.14,44.42 L54.36,54.03 L43.56,52.54 L41.66,42.01 Z" fill="#8a5a0c" fill-opacity=".22" stroke="none"/>
+    </g>
+    <ellipse cx="35" cy="25" rx="12" ry="6.5" transform="rotate(-28 35 25)" fill="#fff" opacity=".6" filter="url(#lx-f-soft)"/>
+    <circle cx="50" cy="46" r="37.4" fill="none" stroke="#fff3c0" stroke-opacity=".35" stroke-width=".8"/>
+    <path fill="url(#lx-lg-gold)" d="M41,82 C44,87.5 56,87.5 59,82 L61,92 L39,92 Z"/>
+    <rect x="29" y="91.5" width="42" height="4.5" rx="1" fill="url(#lx-lg-gold)"/>
+    <path fill="url(#lx-lg-black)" d="M28,96 L72,96 L75.5,128 L24.5,128 Z"/>
+    <path fill="#fff" opacity=".07" d="M28,96 L40,96 L37,128 L24.5,128 Z"/>
+    <rect x="40.5" y="105" width="19" height="10" rx="1.2" fill="url(#lx-lg-gold)"/>
+    <rect x="21.5" y="127.5" width="57" height="6" rx="1.4" fill="url(#lx-lg-gold)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-world-cup" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-gold)" d="M32.5,142 C33.5,126 41.5,116 44.2,106 C40,96 29.5,88 25.6,72 C24,65 24.6,59 27,55 L73,55 C75.4,59 76,65 74.4,72 C70.5,88 60,96 55.8,106 C58.5,116 66.5,126 67.5,142 Z"/>
+    <g fill="none" stroke-linecap="round">
+    <path d="M37,140 C40,125 51,115 55.5,104 C61,92 71,84 73.6,66" stroke="#5f3c05" stroke-opacity=".65" stroke-width="1.5"/>
+    <path d="M63,140 C60,125 49,115 44.5,104 C39,92 29,84 26.4,66" stroke="#5f3c05" stroke-opacity=".45" stroke-width="1.2"/>
+    <path d="M38.2,139 C41.2,124.5 52,114.6 56.4,103.6" stroke="#fff4c8" stroke-opacity=".5" stroke-width=".7"/>
+    <path d="M46,116 C49,112 52,112 55,116" stroke="#5f3c05" stroke-opacity=".4" stroke-width="1"/>
+    </g>
+    <circle cx="50" cy="43" r="24.5" fill="url(#lx-rg-gold)"/>
+    <g clip-path="url(#lx-cp-globe)" fill="#7a4d06" opacity=".38">
+    <path d="M31,30 C36,24 45,25 47,31 C49,37 43,40 44,46 C45,52 40,56 37,52 C34,48 36,43 32,40 C28,37 28,33 31,30 Z"/>
+    <path d="M54,23 C60,21 68,25 69,31 C70,35 65,36 62,34 C59,32 56,34 55,31 C54,28 51,25 54,23 Z"/>
+    <path d="M56,42 C61,39 69,42 70,49 C71,56 64,62 59,60 C55,58 57,53 55,50 C53,47 53,44 56,42 Z"/>
+    </g>
+    <ellipse cx="41" cy="31" rx="8" ry="4.6" transform="rotate(-30 41 31)" fill="#fff" opacity=".55" filter="url(#lx-f-soft)"/>
+    <path d="M27.4,66 C22.6,57 23.6,45 27.2,37" stroke="url(#lx-lg-gold)" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+    <path d="M72.6,66 C77.4,57 76.4,45 72.8,37" stroke="url(#lx-lg-gold)" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".55" d="M32.5,142 C33.5,126 41.5,116 44.2,106 C40,96 29.5,88 25.6,72 C24,65 24.6,59 27,55 L73,55 C75.4,59 76,65 74.4,72 C70.5,88 60,96 55.8,106 C58.5,116 66.5,126 67.5,142 Z"/>
+    <path fill="url(#lx-lg-gold)" d="M31.5,141.5 L68.5,141.5 L69.5,146 L30.5,146 Z"/>
+    <path fill="url(#lx-lg-mala)" d="M30.5,146 L69.5,146 L70.5,155 L29.5,155 Z"/>
+    <path fill="url(#lx-lg-gold)" d="M29.5,155 L70.5,155 L71,158.5 L29,158.5 Z"/>
+    <path fill="url(#lx-lg-mala)" d="M29,158.5 L71,158.5 L72,167.5 L28,167.5 Z"/>
+    <path fill="url(#lx-lg-gold-d)" d="M28,167.5 L72,167.5 L72.8,173.2 C72.8,175 27.2,175 27.2,173.2 Z"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-golden-boot" viewBox="0 0 140 112">
+    <g>
+    <path fill="url(#lx-lg-gold-v)" d="M24,42 C24,35 28,31.6 34.6,31.2 L53.6,29.4 C57.8,29 60.4,30.6 61.8,33.8 L65.6,40.6 C73.6,46.6 86,52.2 100.4,55.8 C114.6,59 122.8,63.4 124.4,69.2 C125.2,73.4 121.2,76.2 114.4,76.2 L30,76.2 C23.6,76.2 20.4,72.4 20.6,66 Z"/>
+    <path fill="url(#lx-lg-gold)" opacity=".6" d="M20.6,64 C44,60 86,60 124,68.6 C125,73.4 121.2,76.2 114.4,76.2 L30,76.2 C23.6,76.2 20.4,72.4 20.6,64 Z"/>
+    <path fill="#4a2e04" d="M33.4,33.2 C40,30.6 50,29.8 57.6,31 C56,34.4 50,36 43,36.2 C38,36.3 34.6,35.4 33.4,33.2 Z"/>
+    <g stroke="#6b4206" stroke-width="1.7" stroke-linecap="round" opacity=".85">
+    <path d="M63.6,42.6 l4.4,-5 M69.8,45.8 l4.4,-5 M76,48.8 l4.4,-5 M82.4,51.4 l4.4,-5"/>
+    </g>
+    <path d="M26,46 C36,44 48,48 54,62" stroke="#fff4c8" stroke-opacity=".5" stroke-width="1.3" fill="none"/>
+    <path d="M92,58 C104,60 114,62 120,66" stroke="#fff4c8" stroke-opacity=".6" stroke-width="1.1" fill="none"/>
+    <path fill="url(#lx-lg-gold-d)" d="M20.4,72.6 C50,74 92,73 124.6,70 C124.2,77 120,80.6 112,80.6 L30,80.6 C24,80.6 20.6,77.6 20.4,72.6 Z"/>
+    <g fill="url(#lx-lg-gold-d)"><rect x="30" y="79.8" width="7" height="6.2" rx="1.4"/><rect x="46" y="79.8" width="7" height="6.2" rx="1.4"/><rect x="84" y="79.8" width="7" height="6.2" rx="1.4"/><rect x="104" y="79.8" width="7" height="6.2" rx="1.4"/></g>
+    <rect x="24" y="86" width="96" height="5" rx="1.2" fill="url(#lx-lg-gold)"/>
+    <path fill="url(#lx-lg-black)" d="M28,91 L116,91 L120,108 L24,108 Z"/>
+    <rect x="58" y="95.5" width="28" height="8" rx="1" fill="url(#lx-lg-gold)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-champions-league" viewBox="0 0 130 180">
+    <g>
+    <path d="M41,24 C13,17 3,44 11,66 C17,83 34,91 51,88" stroke="url(#lx-lg-silver)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
+    <path d="M89,24 C117,17 127,44 119,66 C113,83 96,91 79,88" stroke="url(#lx-lg-silver)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
+    <path d="M40,27 C18,23 10,44 16,62" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/>
+    <path fill="url(#lx-lg-silver)" d="M37.6,18 L92.4,18 C93.4,50 86,78 72,92.4 L69.4,98.6 L60.6,98.6 L58,92.4 C44,78 36.6,50 37.6,18 Z"/>
+    <path d="M40,40 C50,44 80,44 90,40" stroke="#646c79" stroke-width=".9" fill="none"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M37.6,18 L92.4,18 C93.4,50 86,78 72,92.4 L69.4,98.6 L60.6,98.6 L58,92.4 C44,78 36.6,50 37.6,18 Z"/>
+    <ellipse cx="65" cy="18" rx="27.4" ry="3.8" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="65" cy="17.8" rx="24.6" ry="2.5" fill="#363b44"/>
+    <path fill="url(#lx-lg-silver)" d="M60.4,98 L69.6,98 L71,128 L59,128 Z"/>
+    <ellipse cx="65" cy="110" rx="7.4" ry="3.2" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M50,128 L80,128 L86.4,146 L43.6,146 Z"/>
+    <path fill="url(#lx-lg-silver-d)" d="M39.6,146 L90.4,146 L92.4,161 L37.6,161 Z"/>
+    <rect x="36.6" y="160" width="56.8" height="4" rx="1" fill="url(#lx-lg-silver)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-copa-do-brasil" viewBox="0 0 120 180">
+    <g>
+    <path d="M26,30 C9,29 7,56 30,62" stroke="url(#lx-lg-silver)" stroke-width="5.4" fill="none" stroke-linecap="round"/>
+    <path d="M94,30 C111,29 113,56 90,62" stroke="url(#lx-lg-silver)" stroke-width="5.4" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-silver)" d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/>
+    <g clip-path="url(#lx-cp-cdb)"><rect x="0" y="33" width="120" height="4.4" fill="#119a52"/><rect x="0" y="37.4" width="120" height="3.2" fill="#ffd21f"/></g>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/>
+    <ellipse cx="60" cy="22" rx="36" ry="4" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="60" cy="21.8" rx="33" ry="2.6" fill="#353a43"/>
+    <path fill="url(#lx-lg-silver)" d="M53.6,89.6 L66.4,89.6 L64.4,114 L55.6,114 Z"/>
+    <ellipse cx="60" cy="101" rx="7.6" ry="3.2" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M44,114 L76,114 L80.4,126 L39.6,126 Z"/>
+    <path fill="url(#lx-lg-black)" d="M35.6,126 L84.4,126 L88.6,153 L31.4,153 Z"/>
+    <rect x="49" y="134" width="22" height="10" rx="1.2" fill="url(#lx-lg-silver)"/>
+    <rect x="30.4" y="152" width="59.2" height="4.4" rx="1.1" fill="url(#lx-lg-silver-d)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-estadual" viewBox="0 0 100 150">
+    <g>
+    <path d="M31,26 C19,26 18,46 35,50" stroke="url(#lx-lg-silver)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M69,26 C81,26 82,46 65,50" stroke="url(#lx-lg-silver)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-silver)" d="M29,18 L71,18 C71,48 62,64 55,70 L45,70 C38,64 29,48 29,18 Z"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M29,18 L71,18 C71,48 62,64 55,70 L45,70 C38,64 29,48 29,18 Z"/>
+    <ellipse cx="50" cy="18" rx="21" ry="3" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="50" cy="17.8" rx="18.6" ry="1.9" fill="#363b44"/>
+    <path fill="url(#lx-lg-silver)" d="M46,70 L54,70 L53,96 L47,96 Z"/>
+    <ellipse cx="50" cy="82" rx="5.4" ry="2.4" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M39,96 L61,96 L64,106 L36,106 Z"/>
+    <path fill="url(#lx-lg-black)" d="M33,106 L67,106 L70,140 L30,140 Z"/>
+    <rect x="42" y="116" width="16" height="9" rx="1" fill="url(#lx-lg-silver)"/>
+    <rect x="29" y="139" width="42" height="4" rx="1" fill="url(#lx-lg-silver-d)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-laliga" viewBox="0 0 110 180">
+    <g>
+    <circle cx="55" cy="9" r="5" fill="url(#lx-rg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M44,14 L66,14 C70,18 74,22 76,26 L34,26 C36,22 40,18 44,14 Z"/>
+    <path d="M32,36 C14,34 12,66 34,72" stroke="url(#lx-lg-silver)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M78,36 C96,34 98,66 76,72" stroke="url(#lx-lg-silver)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-silver)" d="M30,26 L80,26 C81,64 71,88 61,96 L49,96 C39,88 29,64 30,26 Z"/>
+    <path d="M32,44 C44,48 66,48 78,44" stroke="#c9a23b" stroke-width="2.2" fill="none"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M30,26 L80,26 C81,64 71,88 61,96 L49,96 C39,88 29,64 30,26 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M50,96 L60,96 L59,122 L51,122 Z"/>
+    <ellipse cx="55" cy="108" rx="6.4" ry="2.8" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M41,122 L69,122 L73,134 L37,134 Z"/>
+    <path fill="url(#lx-lg-silver-d)" d="M33,134 L77,134 L80,170 L30,170 Z"/>
+    <rect x="29" y="169" width="52" height="4.4" rx="1" fill="url(#lx-lg-silver)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-copa-america" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-silver)" d="M47,4 L53,4 L54,14 L46,14 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M36,14 L64,14 L70,24 L30,24 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M28,24 L72,24 C74,52 66,68 56,76 L44,76 C34,68 26,52 28,24 Z"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M28,24 L72,24 C74,52 66,68 56,76 L44,76 C34,68 26,52 28,24 Z"/>
+    <path d="M30,34 C42,38 58,38 70,34" stroke="#646c79" stroke-width=".9" fill="none"/>
+    <path fill="url(#lx-lg-silver)" d="M46,76 L54,76 L55,96 L45,96 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M36,96 L64,96 L68,106 L32,106 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M30,106 L70,106 L72,126 L28,126 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M24,126 L76,126 L79,150 L21,150 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M18,150 L82,150 L85,174 L15,174 Z"/>
+    <g fill="url(#lx-lg-silver)" opacity=".85">
+    <rect x="33" y="112" width="6.4" height="4.4" rx=".5"/><rect x="42" y="112" width="6.4" height="4.4" rx=".5"/><rect x="51" y="112" width="6.4" height="4.4" rx=".5"/><rect x="60" y="112" width="6.4" height="4.4" rx=".5"/>
+    <rect x="27.5" y="134" width="7" height="5" rx=".5"/><rect x="37.1" y="134" width="7" height="5" rx=".5"/><rect x="46.7" y="134" width="7" height="5" rx=".5"/><rect x="56.3" y="134" width="7" height="5" rx=".5"/><rect x="65.9" y="134" width="7" height="5" rx=".5"/>
+    <rect x="21" y="158" width="7.6" height="5.4" rx=".5"/><rect x="31.2" y="158" width="7.6" height="5.4" rx=".5"/><rect x="41.4" y="158" width="7.6" height="5.4" rx=".5"/><rect x="51.599999999999994" y="158" width="7.6" height="5.4" rx=".5"/><rect x="61.8" y="158" width="7.6" height="5.4" rx=".5"/><rect x="72" y="158" width="7.6" height="5.4" rx=".5"/>
+    </g>
+    </g>
+  </symbol>
+</svg>

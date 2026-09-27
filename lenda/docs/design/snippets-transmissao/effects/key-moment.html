@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lance decisivo</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  body { margin: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 24px 24px 48px; }
+  /* ---- área do campo: plate 16:10 com o campo e os overlays ---- */
+  .pitch { position: relative; aspect-ratio: 1050 / 680; margin-top: 16px; overflow: hidden; }
+  .field { position: absolute; inset: 1px; overflow: hidden; }
+  .field > img, .field > svg.players { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pitch.is-paused .field > img, .pitch.is-paused .field > svg.players { filter: brightness(.7) saturate(.8); transition: filter var(--dur-2) var(--ease-out); }
+  /* ---- o prompt ---- */
+  .km { position: absolute; left: 50%; bottom: 20px; width: min(760px, calc(100% - 40px)); transform: translateX(-50%); animation: km-in var(--dur-2) var(--ease-out) both; }
+  @keyframes km-in { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  .km .lx-plate { padding: 16px 16px 14px; }
+  .km .lx-countdown { position: absolute; left: 0; right: 0; top: 0; z-index: 2; }
+  .km-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .km-h p { margin-top: 5px; max-width: 520px; }
+  .km-t { position: relative; display: grid; place-items: center; flex: none; }
+  .km-t .lx-cd-num { position: absolute; }
+  .lx-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+  .lx-option .fxs { display: grid; gap: 6px; margin-top: 2px; }
+  .km-f { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
+  .km-f .lx-t-small b { color: var(--text-2); font-weight: 600; }
+  .default-tag { font: 800 9.5px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); padding: 3px 5px; box-shadow: inset 0 0 0 1px var(--border-strong); margin-left: auto; }
+  .result { position: absolute; left: 24px; bottom: 24px; }
+  /* mobile: campo em cima (16:10, sem placa), prompt vira "bottom sheet" colado embaixo, opções empilhadas */
+  @media (max-width: 720px) {
+    .wrap { padding: 12px; }
+    .pitch { aspect-ratio: auto; clip-path: none; background: none; overflow: visible; margin-left: -12px; margin-right: -12px; }
+    .pitch::before { display: none; }
+    .field { position: relative; inset: auto; aspect-ratio: 1050 / 680; }
+    .km { position: relative; left: auto; bottom: auto; width: auto; margin: -18px 0 0; transform: none; animation-name: km-in-m; }
+    @keyframes km-in-m { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .lx-options { grid-template-columns: 1fr; }
+    .lx-option { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .lx-option .fxs { grid-template-columns: 1fr 1fr; width: 100%; }
+    .km-f { flex-direction: column; gap: 4px; }
+    .result { position: relative; left: auto; bottom: auto; margin: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm lx-stadium--club" style="--club:#0A7A45"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+<main class="wrap">
+  <span class="lx-kicker">Modo Imersivo · lance decisivo</span>
+  <h1 class="lx-t-sec" style="margin-top:6px">A simulação pausa, o campo escurece, você decide</h1>
+
+  <div class="lx-plate lx-plate--flat lx-c-lg pitch is-paused" id="pitch">
+    <div class="field">
+    <img src="../art/pitch-live.svg" alt="">
+    <!-- mesmo sistema de coordenadas do motor (x 0..1050, y 0..680); casa ataca → direita -->
+    <svg class="players" viewBox="0 0 1050 680" aria-hidden="true">
+      <g font-family="Barlow Condensed" font-weight="800" font-size="12" text-anchor="middle">
+        <!-- rastro da bola -->
+        <circle cx="820" cy="300" r="5" fill="#fff" opacity=".15"/><circle cx="838" cy="306" r="5" fill="#fff" opacity=".3"/><circle cx="856" cy="312" r="5" fill="#fff" opacity=".5"/>
+        <!-- adversários (Boca: azul, anel amarelo) -->
+        <g fill="#0B3C8C" stroke="#F2B900" stroke-width="2.5">
+          <circle cx="1000" cy="340" r="11"/><circle cx="930" cy="280" r="11"/><circle cx="940" cy="400" r="11"/><circle cx="890" cy="350" r="11"/><circle cx="840" cy="230" r="11"/>
+        </g>
+        <!-- companheiros (Palmeiras): verde do clube ≈ grama → fill branco + anel/número na cor do clube (regra no spec §9.1) -->
+        <g fill="#F4F6FF" stroke="#0A7A45" stroke-width="2.5">
+          <circle cx="800" cy="420" r="11"/><circle cx="760" cy="250" r="11"/><circle cx="700" cy="340" r="11"/>
+        </g>
+        <g fill="#0A7A45"><text x="800" y="424">10</text><text x="760" y="254">7</text><text x="700" y="344">8</text></g>
+        <!-- você: anel ciano pulsando + etiqueta -->
+        <circle class="lx-pitch-me" cx="872" cy="318" r="22" fill="none" stroke="#3BE4FF" stroke-width="2"/>
+        <circle cx="872" cy="318" r="14" fill="#F4F6FF" stroke="#3BE4FF" stroke-width="3"/>
+        <text x="872" y="323" fill="#0A7A45" font-size="14">9</text>
+        <circle cx="880" cy="332" r="6" fill="#fff" stroke="#0A0F3A" stroke-width="1.5"/>
+        <g transform="translate(872 280)"><path d="M-34 -22 H38 L32 -2 H-40 Z" fill="#06103A" stroke="#3BE4FF" stroke-opacity=".6"/><text y="-7" fill="#F4F6FF" font-size="14" font-style="italic">SILVA · 7.4</text></g>
+      </g>
+    </svg>
+    <!-- holofote no lance (posição em % do campo) -->
+    <div class="lx-spotlight" id="spot" style="--lx-x:83%;--lx-y:47%"></div>
+    </div>
+
+    <section class="km" role="alertdialog" aria-modal="false" aria-labelledby="km-title" aria-describedby="km-desc" id="km">
+      <div class="lx-elev-2">
+        <div class="lx-plate lx-c-lg">
+          <div class="lx-countdown" id="bar" style="--lx-cd-dur:10s" data-urgency="ok"><i class="lx-countdown__fill"></i></div>
+          <div class="km-h">
+            <div>
+              <span class="lx-kicker"><span class="lx-live-dot"></span>Lance decisivo · 78'</span>
+              <h2 class="lx-t-sec" id="km-title" style="font-size:28px;margin-top:6px">Cara a cara com o goleiro</h2>
+              <p class="lx-t-body" id="km-desc" style="font-size:14.5px">Pereira rolou na medida. Rossi sai do gol. <b style="color:var(--text)">Placar 1–1</b>, a Libertadores em jogo.</p>
+            </div>
+            <div class="km-t" aria-hidden="true">
+              <svg class="lx-cd-ring" id="ring" viewBox="0 0 44 44" style="--lx-cd-dur:10s"><circle class="lx-cd-ring__track" cx="22" cy="22" r="19" pathLength="100"/><circle class="lx-cd-ring__fill" cx="22" cy="22" r="19" pathLength="100"/></svg>
+              <span class="lx-cd-num" id="sec">10</span>
+            </div>
+          </div>
+          <div class="lx-options" id="opts">
+            <button class="lx-option" data-k="1" aria-pressed="false">
+              <span style="display:flex;align-items:center;gap:8px"><span class="lx-option__key">1</span><span class="lx-option__meta">FIN 84 · CHUTE</span></span>
+              <span class="lx-option__title">Chutar colocado</span>
+              <span class="fxs"><span class="lx-fx lx-fx--gold lx-fx--sm"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg></span>Gol<span class="lx-fx__p">62%</span></span><span class="lx-fx lx-fx--neu lx-fx--sm"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></span>Defesa<span class="lx-fx__p">38%</span></span></span>
+            </button>
+            <button class="lx-option" data-k="2" aria-pressed="false">
+              <span style="display:flex;align-items:center;gap:8px"><span class="lx-option__key">2</span><span class="lx-option__meta">DRI 79 · DRIBLE</span></span>
+              <span class="lx-option__title">Driblar o goleiro</span>
+              <span class="fxs"><span class="lx-fx lx-fx--gold lx-fx--sm"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg></span>Gol<span class="lx-fx__p">48%</span></span><span class="lx-fx lx-fx--down lx-fx--sm"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 7l6 6 4-4 8 8"/></svg></span>Perde · moral −<span class="lx-fx__p">52%</span></span></span>
+            </button>
+            <button class="lx-option" data-k="3" aria-pressed="false">
+              <span style="display:flex;align-items:center;gap:8px"><span class="lx-option__key">3</span><span class="lx-option__meta">PAS 71 · PASSE</span><span class="default-tag">Padrão</span></span>
+              <span class="lx-option__title">Rolar para o Pereira</span>
+              <span class="fxs"><span class="lx-fx lx-fx--up lx-fx--sm"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 17l6-6 4 4 8-8"/></svg></span>Assist. · técnico +<span class="lx-fx__p">55%</span></span><span class="lx-fx lx-fx--neu lx-fx--sm"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></span>Corte<span class="lx-fx__p">45%</span></span></span>
+            </button>
+          </div>
+          <div class="km-f">
+            <span class="lx-t-small">Sem resposta → <b>opção Padrão</b> · teclas <b>1 2 3</b></span>
+            <span class="lx-t-small">Cronômetro: <b>Ajustes › Acessibilidade</b></span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="result" id="result" hidden></div>
+    <p id="live" aria-live="assertive" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></p>
+  </div>
+</main>
+
+<script>
+/* ---- lógica de referência (no app: hook useCountdown + motion) ---- */
+const $ = id => document.getElementById(id);
+const DUR = 10, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const km = $('km'), opts = [...document.querySelectorAll('.lx-option')];
+let left = DUR, done = false;
+$('live').textContent = `Lance decisivo. ${DUR} segundos. Opções 1, 2 ou 3.`;
+if (location.hash !== '#nofocus') opts[0].focus({ preventScroll: true });
+const setUrg = u => { $('bar').dataset.urgency = u; $('ring').dataset.urgency = u; };
+const tick = setInterval(() => {
+  if (done || document.hidden) return;          // pausa se a aba perde o foco
+  left -= 1; $('sec').textContent = left;
+  if (left <= 3) setUrg('crit'); else if (left <= 5) setUrg('warn');
+  if (left === 3) $('live').textContent = '3 segundos.';
+  if (left <= 0) choose(opts.find(o => o.querySelector('.default-tag')));
+}, 1000);
+function choose(btn) {
+  if (done) return; done = true; clearInterval(tick);
+  btn.setAttribute('aria-pressed', 'true'); $('opts').classList.add('has-choice');
+  document.querySelectorAll('.lx-countdown, .lx-cd-ring').forEach(e => e.classList.add('is-paused'));
+  setTimeout(() => {
+    km.hidden = true; $('pitch').classList.remove('is-paused'); $('spot').style.opacity = 0;
+    const goal = btn.dataset.k === '1';
+    $('result').hidden = false;
+    $('result').innerHTML = goal
+      ? `<div class="lx-lt"><div class="lx-lt__a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.8 2.8-1.5 4.4H9.7L8.2 10.3z" fill="currentColor"/></svg></div><div class="lx-lt__b"><span class="lx-lt__k">Gol · 78'</span><span class="lx-lt__v">Silva · Palmeiras 2–1</span></div></div>`
+      : `<div class="lx-lt lx-lt--accent"><div class="lx-lt__a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h15"/></svg></div><div class="lx-lt__b"><span class="lx-lt__k">Lance · 78'</span><span class="lx-lt__v">${btn.querySelector('.lx-option__title').textContent}</span></div></div>`;
+    $('live').textContent = goal ? 'Gol! Silva, Palmeiras 2 a 1.' : 'Lance resolvido.';
+  }, reduce ? 0 : 650);
+}
+opts.forEach(o => o.addEventListener('click', () => choose(o)));
+addEventListener('keydown', e => { const o = opts.find(x => x.dataset.k === e.key); if (o) choose(o); });
+</script>
+</body>
+</html>

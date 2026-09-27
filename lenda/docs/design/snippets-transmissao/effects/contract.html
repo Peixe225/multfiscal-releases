@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Negociação de contrato</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  body { margin: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 24px 24px 48px; }
+  .sheet { padding: 20px 22px 18px; }
+  .hd { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .hd svg { width: 52px; height: 60px; flex: none; }
+  .rounds { display: flex; gap: 5px; margin-left: auto; align-items: center; }
+  .rounds i { width: 30px; height: 8px; background: rgb(255 255 255 / .12); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  .rounds i.done { background: var(--text-2); } .rounds i.on { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; margin-top: 18px; }
+  .terms { display: grid; }
+  .term { display: grid; grid-template-columns: 170px 140px minmax(0, 1fr) 92px; align-items: center; gap: 16px; min-height: 64px; border-top: 1px solid var(--border); }
+  .term .club b { display: block; font: 800 22px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .term .you { display: flex; align-items: center; gap: 12px; }
+  .term .you output { min-width: 92px; font: italic 800 24px/1 var(--font-num); font-variant-numeric: tabular-nums; text-align: right; }
+  .term .delta { justify-self: end; }
+  .th { min-height: 34px; border-top: 0; }
+  .side { display: grid; gap: 12px; align-content: start; }
+  .accept { padding: 16px; text-align: center; }
+  .accept b { display: block; font: italic 800 64px/.9 var(--font-num); font-variant-numeric: tabular-nums; margin: 8px 0 10px; transition: color var(--dur-2) var(--ease-out); }
+  .agent { padding: 12px 14px; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
+  .agent .av { display: grid; place-items: center; width: 36px; height: 36px; font: italic 800 15px/1 var(--font-display); color: var(--accent-ink); background: linear-gradient(180deg, #9AF3FF, #1FB8FF); clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+  .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+  @media (max-width: 900px) {
+    .body { grid-template-columns: 1fr; }
+    .term { grid-template-columns: 1fr auto; grid-template-areas: "k d" "c c" "y y"; gap: 6px 12px; padding: 10px 0; }
+    .term > :nth-child(1) { grid-area: k; } .term > :nth-child(2) { grid-area: c; } .term > :nth-child(3) { grid-area: y; } .term > :nth-child(4) { grid-area: d; }
+    .th { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm lx-stadium--club" style="--club:#0A7A45"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+<main class="wrap">
+  <section class="lx-plate lx-c-xl sheet" style="--club:#0A7A45;--club-2:#00502C;--club-ink:#fff" aria-labelledby="ttl">
+    <div class="lx-hl-top"></div>
+    <div class="hd">
+      <svg viewBox="0 0 48 56" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A7A45"/><stop offset="1" stop-color="#00502C"/></linearGradient></defs><path d="M24 1.5 L45 7 L45 26 C45 40 36 49 24 54.5 C12 49 3 40 3 26 L3 7 Z" fill="url(#cg)" stroke="#fff" stroke-width="2"/><text x="24" y="33" text-anchor="middle" font-family="Barlow Condensed" font-weight="800" font-style="italic" font-size="14" fill="#fff">PAL</text></svg>
+      <div><span class="lx-kicker">Negociação · renovação</span><h1 class="lx-t-sec" id="ttl" style="margin-top:6px">Palmeiras × Silva</h1></div>
+      <div class="rounds" aria-label="Rodada 2 de 3"><span class="lx-label" style="margin-right:6px">Rodada 2/3</span><i class="done"></i><i class="on"></i><i></i></div>
+    </div>
+    <div style="margin-top:14px;max-width:560px">
+      <div style="display:flex;justify-content:space-between"><span class="lx-label">Paciência da diretoria</span><span class="lx-label" id="patL" style="color:var(--warning)">6/10</span></div>
+      <div class="lx-meter lx-meter--seg" id="pat" data-level="warn" style="--lx-v:.6;margin-top:6px"></div>
+    </div>
+
+    <div class="body">
+      <div class="terms" role="group" aria-label="Termos">
+        <div class="term th"><span class="lx-label">Termo</span><span class="lx-label">Clube oferece</span><span class="lx-label">Sua contraproposta</span><span class="lx-label" style="text-align:right">Δ</span></div>
+        <div class="term"><span class="lx-t-row">Salário / ano</span><span class="club"><b>€4,2M</b></span>
+          <span class="you"><span class="lx-range-wrap" style="flex:1;--lx-cap:.52"><input class="lx-range" type="range" min="3" max="9" step=".1" value="6.8" data-fmt="eur" aria-label="Salário por ano"><i class="lx-range-wrap__cap" title="Teto do clube: €6,1M"></i></span><output>€6,8M</output></span>
+          <span class="delta lx-chip lx-chip--sm lx-chip--gold">+62%</span></div>
+        <div class="term"><span class="lx-t-row">Duração</span><span class="club"><b>4 anos</b></span>
+          <span class="you"><div class="lx-seg" role="radiogroup" aria-label="Duração"><button role="radio" aria-checked="false">2</button><button role="radio" aria-checked="false">3</button><button role="radio" aria-checked="true">4</button><button role="radio" aria-checked="false">5</button></div><span class="lx-label">anos</span></span>
+          <span class="delta lx-chip lx-chip--sm">=</span></div>
+        <div class="term"><span class="lx-t-row">Luvas</span><span class="club"><b>€1,0M</b></span>
+          <span class="you"><span class="lx-range-wrap" style="flex:1;--lx-cap:.7"><input class="lx-range" type="range" min="0" max="5" step=".1" value="3.9" data-fmt="eur" aria-label="Luvas"><i class="lx-range-wrap__cap"></i></span><output>€3,9M</output></span>
+          <span class="delta lx-chip lx-chip--sm lx-chip--gold">+290%</span></div>
+        <div class="term"><span class="lx-t-row">Multa p/ Europa</span><span class="club"><b>€90M</b></span>
+          <span class="you"><span class="lx-range-wrap" style="flex:1;--lx-cap:.25"><input class="lx-range" type="range" min="40" max="120" step="1" value="60" data-fmt="int" aria-label="Multa rescisória para clubes europeus"><i class="lx-range-wrap__cap"></i></span><output>€60M</output></span>
+          <span class="delta lx-chip lx-chip--sm lx-chip--neg">−33%</span></div>
+        <div class="term"><span class="lx-t-row">Papel</span><span class="club"><b>Titular</b></span>
+          <span class="you"><div class="lx-seg" role="radiogroup" aria-label="Papel no elenco"><button role="radio" aria-checked="false">Rotação</button><button role="radio" aria-checked="false">Titular</button><button role="radio" aria-checked="true">Capitão</button></div></span>
+          <span class="delta lx-chip lx-chip--sm lx-chip--gold">Pedido</span></div>
+      </div>
+
+      <aside class="side">
+        <div class="lx-plate lx-plate--flat accept" aria-live="polite">
+          <span class="lx-label">Chance de aceite</span>
+          <b id="pct">59%</b>
+          <div class="lx-meter" id="accM" style="--lx-v:.54" data-level="warn"></div>
+          <p class="lx-t-small" style="margin-top:10px">Acima do teto (▼ ouro) em 2 termos</p>
+        </div>
+        <div class="lx-plate lx-plate--flat agent lx-c-sm">
+          <span class="av">AG</span>
+          <p class="lx-t-body" style="margin:0;font-size:14px"><b style="color:var(--text)">Seu empresário:</b> "O teto deles é €6,1M. Segura o salário e pede luvas — eles cedem na braçadeira."</p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="actions">
+      <button class="lx-btn lx-btn--line lx-btn--sm" style="color:var(--negative)">Recusar</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm">Enviar contraproposta</button>
+      <button class="lx-btn lx-btn--primary lx-btn--sm">Aceitar proposta</button>
+    </div>
+  </section>
+</main>
+<script>
+/* sliders: React só precisa manter --lx-v = (valor-min)/(max-min) no <input> */
+const fmt = (v, f) => f === 'eur' ? `€${(+v).toFixed(1).replace('.', ',')}M` : `€${v}M`;
+const sync = r => { const p = (r.value - r.min) / (r.max - r.min); r.style.setProperty('--lx-v', p); r.closest('.you').querySelector('output').textContent = fmt(r.value, r.dataset.fmt); };
+const ranges = [...document.querySelectorAll('.lx-range')];
+const score = () => {
+  const over = ranges.reduce((a, r) => { const p = (r.value - r.min) / (r.max - r.min), cap = +getComputedStyle(r.parentElement).getPropertyValue('--lx-cap'); return a + Math.max(0, p - cap); }, 0);
+  const pct = Math.round(Math.max(5, Math.min(95, 80 - over * 110)));
+  const el = document.getElementById('pct'), m = document.getElementById('accM');
+  el.textContent = pct + '%'; m.style.setProperty('--lx-v', pct / 100);
+  const lvl = pct >= 65 ? 'good' : pct >= 35 ? 'warn' : 'crit';
+  m.dataset.level = lvl; el.style.color = lvl === 'good' ? 'var(--positive)' : lvl === 'warn' ? 'var(--warning)' : 'var(--negative)';
+};
+ranges.forEach(r => { sync(r); r.addEventListener('input', () => { sync(r); score(); }); });
+document.querySelectorAll('.lx-seg').forEach(g => g.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === b)); }));
+score();
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="noite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LENDA · Identity controls (Noite)</title>
+<!-- Self-contained snippet: only depends on ../theme-noite.css (tokens + .lx-* classes).
+     Fonts come from @fontsource in the app; here they fall back to system fonts if not installed. -->
+<link rel="stylesheet" href="../theme-noite.css">
+<style>
+  body { margin: 0; min-height: 100vh; }
+  .app { position: relative; z-index: 1; }
+  .panel { max-width: 1100px; margin: 30px auto; display: grid; grid-template-columns: 350px minmax(0, 1fr) 372px; border-radius: 26px; overflow: hidden; }
+  .col { padding: 18px 20px; display: flex; flex-direction: column; } .col + .col { border-left: 1px solid var(--border); }
+  .col-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .col-h h2 { font: 800 16px/1.2 var(--font-display); margin: 0; display: flex; gap: 9px; align-items: baseline; } .col-h h2 .k { font: 700 13px/1 var(--font-num); color: var(--text-3); }
+  .ok { font-size: 11px; font-weight: 700; color: var(--positive); display: inline-flex; gap: 4px; align-items: center; } .ok svg { width: 13px; height: 13px; stroke-width: 3; }
+  .jersey-stage { position: relative; height: 236px; display: grid; place-items: center; margin: -6px 0 8px; --kit-base:#ffd21f;--kit-base-2:#ffe45c;--kit-trim:#0f9a50;--kit-ink:#0d4fa3;--kit-stroke:rgba(0,0,0,.14) }
+  .jersey-stage::before { content: ''; position: absolute; left: 50%; top: -30px; width: 240px; height: 330px; transform: translateX(-50%); filter: blur(4px); background: conic-gradient(from 160deg at 50% 0%, transparent 0 8deg, rgba(255,255,255,.07) 14deg 26deg, transparent 32deg); }
+  .jersey-stage::after { content: ''; position: absolute; left: 50%; bottom: 8px; width: 220px; height: 34px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.7), transparent); }
+  .jersey-stage .lx-kit { width: 226px; height: 226px; margin-left: 30px; position: relative; z-index: 1; filter: drop-shadow(0 24px 30px rgba(0,0,0,.55)); }
+  .jersey-stage .lx-ovr { position: absolute; left: 4px; top: 12px; z-index: 2; }
+  .jersey-stage .cap { position: absolute; left: 0; top: 84px; width: 58px; text-align: center; font-size: 9.5px; font-weight: 700; letter-spacing: .1em; color: var(--text-3); text-transform: uppercase; }
+  .jersey-stage .lx-icon-btn { position: absolute; right: 2px; top: 16px; z-index: 2; }
+  .field { display: grid; gap: 6px; min-width: 0; } .field label { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; }
+  .inputs { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 10px; }
+  .lx-input .cnt { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--text-3); }
+  .lx-seg { display: grid; grid-template-columns: 1fr 1fr; border-radius: 13px; background: rgba(0,0,0,.35); border-color: var(--border-strong); }
+  .lx-seg .lx-seg__item { height: 36px; border-radius: 10px; } .lx-seg svg { width: 15px; height: 15px; }
+  .range-l { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-3); font-weight: 600; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px; border-radius: 16px; border: 1px solid var(--border); background: rgba(0,0,0,.18); }
+  .ct { height: 50px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 650; border: 1px solid transparent; text-align: left; }
+  .ct:hover { background: var(--surface); } .ct img { width: 32px; height: 24px; }
+  .ct[aria-checked="true"] { background: linear-gradient(90deg, color-mix(in srgb, var(--club) 22%, transparent), color-mix(in srgb, var(--club-2) 6%, transparent)); border-color: color-mix(in srgb, var(--club-2) 35%, transparent); box-shadow: 0 10px 30px -14px color-mix(in srgb, var(--club) 70%, transparent); }
+  .ct .chk { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; background: var(--club-2); color: #0b3b1e; display: grid; place-items: center; } .ct .chk svg { width: 13px; height: 13px; stroke-width: 3.2; }
+  .pitch { position: relative; width: 100%; aspect-ratio: 328 / 400; border-radius: 18px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 20px 40px -20px #000; }
+  .pitch > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pos-card { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+  .ph { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; } .ph b { font: 800 16px/1.2 var(--font-display); }
+  .attr { display: grid; grid-template-columns: 110px 1fr 26px; align-items: center; gap: 10px; height: 22px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .attr .lx-bar { --from: #ff6b81; --to: #ffb1be; } .attr b { font: 700 15px/1 var(--font-num); color: var(--text); text-align: right; }
+  @media (max-width: 1103.98px) { .panel { grid-template-columns: 1fr 1fr; } .col.pos { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); } }
+  @media (max-width: 719.98px) { .panel { grid-template-columns: minmax(0, 1fr); } .col + .col { border-left: 0; border-top: 1px solid var(--border); } }
+</style>
+</head>
+<body>
+<div style="--club:#009c3b;--club-2:#ffd600;--club-ink:#fff">
+<div class="lx-stage lx-stage--duo" aria-hidden="true"></div>
+<section class="app panel lx-glass">
+  <div class="col">
+    <div class="col-h"><h2><span class="k">01</span>Identidade</h2><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pronto</span></div>
+    <div class="jersey-stage">
+      <div class="lx-ovr lx-tier-bronze lx-sheen" style="--w:58px"><span class="lx-ovr__l">OVR</span><span class="lx-ovr__n">50</span></div><div class="cap">Inicial</div>
+      <button class="lx-icon-btn" aria-label="Girar camisa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="lx-kit lx-sway" aria-hidden="true">
+  <defs>
+    <linearGradient id="k1-shade" x1="0" x2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".38"/><stop offset=".22" stop-color="#000" stop-opacity=".05"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".1"/><stop offset=".78" stop-color="#000" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".4"/>
+    </linearGradient>
+    <linearGradient id="k1-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color:var(--kit-base-2,#0f8a4a)"/><stop offset="1" style="stop-color:var(--kit-base,#0b6b3a)"/>
+    </linearGradient>
+    <clipPath id="k1-clip"><path d="M58,22 C66,28 82,32 100,32 C118,32 134,28 142,22 L178,37 C184,40 188,45 190,51 L199,86 L168,98 L160,80 L160,184 C160,190 156,194 150,194 L50,194 C44,194 40,190 40,184 L40,80 L32,98 L1,86 L10,51 C12,45 16,40 22,37 Z"/></clipPath>
+  </defs>
+  <path d="M58,22 C66,28 82,32 100,32 C118,32 134,28 142,22 L178,37 C184,40 188,45 190,51 L199,86 L168,98 L160,80 L160,184 C160,190 156,194 150,194 L50,194 C44,194 40,190 40,184 L40,80 L32,98 L1,86 L10,51 C12,45 16,40 22,37 Z" fill="url(#k1-body)"/>
+  <g clip-path="url(#k1-clip)">
+    <g style="opacity:var(--kit-stripe-on,0)">
+      <rect x="92" y="0" width="16" height="200" style="fill:var(--kit-stripe,#d4121c)" opacity=".9"/>
+      <rect x="84" y="0" width="8" height="200" style="fill:var(--kit-trim,#ffffff)"/>
+      <rect x="108" y="0" width="8" height="200" style="fill:var(--kit-trim,#ffffff)"/>
+    </g>
+    <path d="M1,86 L32,98 L35,90 L4,78 Z M199,86 L168,98 L165,90 L196,78 Z" style="fill:var(--kit-trim,#ffffff)"/>
+    <path d="M40,80 L40,194 M160,80 L160,194" style="stroke:var(--kit-trim,#ffffff)" stroke-width="3" opacity=".8"/>
+    <path d="M70,120 C80,140 76,170 64,194 M136,110 C126,136 130,168 142,194" stroke="#000" stroke-opacity=".07" stroke-width="10" fill="none"/>
+    <rect x="0" y="0" width="200" height="200" fill="url(#k1-shade)"/>
+  </g>
+  <path d="M72,23 C80,28 90,30 100,30 C110,30 120,28 128,23 C124,31 114,36 100,36 C86,36 76,31 72,23 Z" style="fill:var(--kit-trim,#ffffff)"/>
+  <path d="M58,22 C66,28 82,32 100,32 C118,32 134,28 142,22 L178,37 C184,40 188,45 190,51 L199,86 L168,98 L160,80 L160,184 C160,190 156,194 150,194 L50,194 C44,194 40,190 40,184 L40,80 L32,98 L1,86 L10,51 C12,45 16,40 22,37 Z" fill="none" style="stroke:var(--kit-stroke,rgba(0,0,0,.25))" stroke-width="1.5"/>
+  <text x="100" y="72" text-anchor="middle" style="fill:var(--kit-ink,#ffffff);font-family:'Inter Tight Variable','Inter Tight',Inter,sans-serif;font-weight:900" font-size="20" letter-spacing="2.2">RIBEIRO</text>
+  <text x="100" y="165" text-anchor="middle" style="fill:var(--kit-ink,#ffffff);font-family:'Barlow Condensed',sans-serif;font-weight:800" font-size="96">9</text>
+</svg>
+    </div>
+    <div class="inputs">
+      <div class="field"><label for="sn">Sobrenome</label><div class="lx-input lx-input--name"><input id="sn" value="RIBEIRO" maxlength="12"><span class="cnt">7/12</span></div></div>
+      <div class="field"><label>Número</label><div class="lx-stepper"><button aria-label="Diminuir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></button><output>9</output><button aria-label="Aumentar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
+    </div>
+    <div class="field" style="margin-top:14px"><label>Perna dominante</label>
+      <div class="lx-seg lx-seg--solid" role="group"><button class="lx-seg__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:scaleX(-1)"><path d="M3.5 5.5h5.2l1 3.6 3.3 2.1 5.4 1.3a3 3 0 0 1 2.3 2.9v1.1H3.5z"/><path d="M6 16.5v2.2M10 16.5v2.2M17 16.5v2.2"/></svg>Esquerda</button><button class="lx-seg__item" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h5.2l1 3.6 3.3 2.1 5.4 1.3a3 3 0 0 1 2.3 2.9v1.1H3.5z"/><path d="M6 16.5v2.2M10 16.5v2.2M17 16.5v2.2"/></svg>Direita</button></div></div>
+    <div class="field" style="margin-top:14px"><label for="alt" style="display:flex;justify-content:space-between">Altura <b class="lx-num" style="font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">1,84 m</b></label>
+      <input id="alt" class="lx-range" type="range" min="160" max="200" value="184" style="--pct:58%" oninput="this.style.setProperty('--pct', ((this.value-160)/40*100)+'%')">
+      <div class="range-l"><span>1,60</span><span>Mais forte no jogo aéreo</span><span>2,00</span></div></div>
+  </div>
+  <div class="col">
+    <div class="col-h"><h2><span class="k">02</span>Nacionalidade</h2><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Brasil</span></div>
+    <label class="lx-input" style="color:var(--text-3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="17" height="17"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.6-4.6"/></svg><input placeholder="Buscar país"><kbd class="lx-kbd">/</kbd></label>
+    <div class="grid" role="radiogroup" aria-label="País" style="margin-top:12px">
+      <button class="ct" role="radio" aria-checked="false"><img class="lx-flag" src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2028%2020'%3E%3Crect%20width%3D'28'%20height%3D'20'%20fill%3D'%2374acdf'%2F%3E%3Crect%20y%3D'6.67'%20width%3D'28'%20height%3D'6.67'%20fill%3D'%23fff'%2F%3E%3Ccircle%20cx%3D'14'%20cy%3D'10'%20r%3D'2'%20fill%3D'%23f6b40e'%2F%3E%3C%2Fsvg%3E" alt="">Argentina</button>
+      <button class="ct" role="radio" aria-checked="true"><img class="lx-flag" src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2028%2020'%3E%3Crect%20width%3D'28'%20height%3D'20'%20fill%3D'%23009c3b'%2F%3E%3Cpath%20d%3D'M14%202.2%2025.6%2010%2014%2017.8%202.4%2010z'%20fill%3D'%23ffdf00'%2F%3E%3Ccircle%20cx%3D'14'%20cy%3D'10'%20r%3D'4.4'%20fill%3D'%23002776'%2F%3E%3C%2Fsvg%3E" alt="">Brasil<span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+      <button class="ct" role="radio" aria-checked="false"><img class="lx-flag" src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2028%2020'%3E%3Crect%20width%3D'28'%20height%3D'20'%20fill%3D'%23c60b1e'%2F%3E%3Crect%20y%3D'5'%20width%3D'28'%20height%3D'10'%20fill%3D'%23ffc400'%2F%3E%3C%2Fsvg%3E" alt="">Espanha</button>
+      <button class="ct" role="radio" aria-checked="false"><img class="lx-flag" src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2028%2020'%3E%3Crect%20width%3D'28'%20height%3D'20'%20fill%3D'%23fff'%2F%3E%3Crect%20width%3D'9.33'%20height%3D'20'%20fill%3D'%23002395'%2F%3E%3Crect%20x%3D'18.67'%20width%3D'9.33'%20height%3D'20'%20fill%3D'%23ed2939'%2F%3E%3C%2Fsvg%3E" alt="">França</button>
+    </div>
+  </div>
+  <div class="col pos">
+    <div class="col-h"><h2><span class="k">03</span>Posição</h2><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Centroavante</span></div>
+    <div class="pitch" role="radiogroup" aria-label="Posição"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 328 400" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="lx-pv-grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f4a2c"/><stop offset=".5" stop-color="#0c3d24"/><stop offset="1" stop-color="#0a321e"/></linearGradient>
+    <radialGradient id="lx-pv-spot" cx=".5" cy=".12" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <pattern id="lx-pv-stripes" width="328" height="50" patternUnits="userSpaceOnUse"><rect width="328" height="25" fill="#fff" fill-opacity=".028"/></pattern>
+  </defs>
+  <rect width="328" height="400" fill="url(#lx-pv-grass)"/>
+  <rect width="328" height="400" fill="url(#lx-pv-stripes)"/>
+  <rect width="328" height="400" fill="url(#lx-pv-spot)"/>
+  <g fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.4">
+    <rect x="12" y="12" width="304" height="376" rx="2"/>
+    <path d="M12 200 H316"/><circle cx="164" cy="200" r="40"/>
+    <rect x="86" y="12" width="156" height="58"/><rect x="126" y="12" width="76" height="22"/><path d="M134 70 A 34 34 0 0 0 194 70"/>
+    <rect x="86" y="330" width="156" height="58"/><rect x="126" y="366" width="76" height="22"/><path d="M134 330 A 34 34 0 0 1 194 330"/>
+  </g>
+  <circle cx="164" cy="200" r="2.4" fill="#fff" fill-opacity=".5"/>
+</svg>
+
+      <button class="lx-pchip lx-pchip--atk" role="radio" aria-checked="true" style="left:50%;top:11%">CA</button><button class="lx-pchip lx-pchip--atk" role="radio" aria-checked="false" style="left:17%;top:19%">PE</button><button class="lx-pchip lx-pchip--atk" role="radio" aria-checked="false" style="left:83%;top:19%">PD</button><button class="lx-pchip lx-pchip--mid" role="radio" aria-checked="false" style="left:50%;top:31%">MEI</button><button class="lx-pchip lx-pchip--mid" role="radio" aria-checked="false" style="left:15%;top:45%">ME</button><button class="lx-pchip lx-pchip--mid" role="radio" aria-checked="false" style="left:50%;top:46%">MC</button><button class="lx-pchip lx-pchip--mid" role="radio" aria-checked="false" style="left:85%;top:45%">MD</button><button class="lx-pchip lx-pchip--mid" role="radio" aria-checked="false" style="left:50%;top:60%">VOL</button><button class="lx-pchip lx-pchip--def" role="radio" aria-checked="false" style="left:15%;top:69%">LE</button><button class="lx-pchip lx-pchip--def" role="radio" aria-checked="false" style="left:85%;top:69%">LD</button><button class="lx-pchip lx-pchip--def" role="radio" aria-checked="false" style="left:50%;top:77%">ZAG</button><button class="lx-pchip lx-pchip--gk" role="radio" aria-checked="false" style="left:50%;top:91%">GOL</button>
+    </div>
+    <div class="pos-card"><div class="ph"><b>Centroavante</b><span class="lx-chip lx-chip--atk" style="height:22px">Ataque</span></div>
+      <div class="attr"><span>Finalização</span><span class="lx-bar" style="--v:62%"></span><b>62</b></div>
+      <div class="attr"><span>Posicionamento</span><span class="lx-bar" style="--v:58%"></span><b>58</b></div>
+      <div class="attr"><span>Cabeceio</span><span class="lx-bar" style="--v:54%"></span><b>54</b></div></div>
+  </div>
+</section>
+</div>
+</body>
+</html>

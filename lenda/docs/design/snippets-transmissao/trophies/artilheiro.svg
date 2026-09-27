@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-artilheiro-t">
+  <title id="lx-artilheiro-t">Artilheiro do Brasileirão (chuteira de prata)</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-artilheiro-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-artilheiro-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+    <linearGradient id="lx-artilheiro-wood" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-wood-4,#1E0F07)"/><stop offset="0.3" style="stop-color:var(--metal-wood-2,#5A3219)"/><stop offset="0.46" style="stop-color:var(--metal-wood-1,#83502B)"/><stop offset="0.7" style="stop-color:var(--metal-wood-3,#4A2813)"/><stop offset="1" style="stop-color:var(--metal-wood-5,#190B05)"/></linearGradient>
+    <linearGradient id="lx-artilheiro-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+  </defs>
+  <path d="M29 74 C29 64 37 60 45 62 L57 66 C61 80 70 88 85 92 C99 96 106 104 101 114 L97 118 L33 118 C29 118 27 114 27 108 Z" fill="url(#lx-artilheiro-sil)"/>
+  <path d="M47 72 L55 69 M50 78 L58 75 M53 84 L61 81" style="stroke:var(--metal-silver-5,#39425A)" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
+  <path d="M29 118 L99 118 L96 125 L32 125 Z" style="fill:var(--metal-silver-5,#59637C)"/>
+  <path d="M44 134 L76 134 L80 144 L40 144 Z" fill="url(#lx-artilheiro-sil)"/>
+  <path d="M36 144 L84 144 L84 194 L36 194 Z" fill="url(#lx-artilheiro-wood)"/>
+  <rect x="46" y="158" width="28" height="14" rx="1" fill="url(#lx-artilheiro-silv)" opacity=".85"/>
+  <rect x="34" y="192" width="52" height="5" rx="1" fill="url(#lx-artilheiro-silv)"/>
+</svg>

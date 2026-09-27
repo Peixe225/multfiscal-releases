@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Placas e recortes</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  /* layout do snippet (não faz parte do sistema) */
+  body { margin: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 32px 28px 48px; display: grid; gap: 28px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .cap { margin-top: 8px; font: 600 12px/1.3 var(--font-ui); color: var(--text-3); }
+  .cap code { color: var(--text-2); }
+  .demo-plate { width: 230px; height: 128px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .shape { width: 150px; height: 64px; display: grid; place-items: center; background: var(--surface-3); color: var(--text-2); font: 700 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; }
+  .busy { position: relative; padding: 18px; background: repeating-linear-gradient(45deg, #1F3BFF 0 18px, #0A7A45 18px 36px, #FF2E55 36px 54px); }
+  /* DEMO: força o visual de :focus-visible para o screenshot (no app isso vem do teclado) */
+  .demo-focus.lx-btn::after { opacity: 1; }
+  .demo-focus.lx-plate { --lx-bw: 2px; --lx-bd: var(--accent); --lx-plate-inner: inset 0 0 22px -6px rgb(59 228 255 / .65); }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-l2"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__beam is-r2"></i><i class="lx-stadium__haze"></i><i class="lx-stadium__bokeh"></i><i class="lx-noise-layer"></i></div>
+
+<main class="wrap">
+  <header>
+    <span class="lx-kicker">Sistema · Transmissão</span>
+    <h1 class="lx-t-display" style="margin-top:8px">Placas, recortes e foco</h1>
+    <p class="lx-t-body" style="max-width:720px;margin-top:10px">A borda-gradiente é o <b>fundo</b> da placa; o miolo é um <code>::before</code> 1px para dentro com o mesmo <code>clip-path</code> — por isso o chanfro também ganha filete (~1,4px). Sombras externas seriam cortadas pelo clip: elevação vai no wrapper (<code>.lx-elev-*</code>, via <code>filter</code>) e o foco é desenhado por dentro.</p>
+  </header>
+
+  <!-- ===== placas ===== -->
+  <section>
+    <span class="lx-label">Placas · .lx-plate</span>
+    <div class="row" style="margin-top:12px">
+      <div><div class="lx-plate demo-plate"><span class="lx-kicker">Padrão</span><span class="lx-t-card">Proposta</span></div><div class="cap"><code>.lx-plate</code> · chanfro 14px</div></div>
+      <div><div class="lx-plate lx-plate--flat lx-c-lg demo-plate"><span class="lx-label">Flat</span><span class="lx-t-num">313</span></div><div class="cap"><code>--flat .lx-c-lg</code> · dados/tabelas</div></div>
+      <div class="busy"><div class="lx-plate lx-plate--glass demo-plate" style="width:194px"><span class="lx-label" style="color:var(--text-2)">Glass</span><span class="lx-t-card">Vidro</span></div><div class="cap" style="color:#fff">sobre fundo movimentado</div></div>
+      <div><div class="lx-plate lx-plate--gold lx-c-lg demo-plate"><span class="lx-kicker lx-kicker--gold">Gala</span><span class="lx-t-card lx-metal-gold">Bola de Ouro</span></div><div class="cap"><code>--gold</code> · cerimônias</div></div>
+      <div><div class="lx-plate lx-plate--selected demo-plate" aria-checked="true"><span class="lx-kicker">Selecionado</span><span class="lx-t-card">Modo imersivo</span></div><div class="cap"><code>aria-checked="true"</code></div></div>
+      <div><div class="lx-plate demo-plate demo-focus"><span class="lx-kicker">Foco (teclado)</span><span class="lx-t-card">2px ciano</span></div><div class="cap"><code>:focus-visible</code> — borda 2px + brilho interno</div></div>
+      <div class="lx-elev-3"><div class="lx-plate lx-plate--premium lx-c-xl demo-plate lx-sweep"><span class="lx-kicker lx-kicker--gold">Premium + sweep</span><span class="lx-t-card">Card do jogador</span></div><div class="cap" style="margin-top:8px"><code>.lx-elev-3</code> no wrapper</div></div>
+    </div>
+  </section>
+
+  <!-- ===== recortes ===== -->
+  <section>
+    <span class="lx-label">Recortes · clip-path</span>
+    <div class="row" style="margin-top:12px">
+      <div><div class="shape lx-cut lx-c-md">.lx-cut</div><div class="cap">sup.-dir. + inf.-esq.</div></div>
+      <div><div class="shape lx-cut-tr lx-c-sm">.lx-cut-tr</div><div class="cap">tooltip, efeito</div></div>
+      <div><div class="shape lx-cut-tl-br lx-c-md">.lx-cut-tl-br</div><div class="cap">OVR, icon-button</div></div>
+      <div><div class="shape lx-skew lx-k-md">.lx-skew</div><div class="cap">botão, chip, aba</div></div>
+      <div><div class="shape lx-skew-r lx-k-lg">.lx-skew-r</div><div class="cap">ribbon, tag, casa</div></div>
+      <div><div class="shape lx-skew-l lx-k-lg">.lx-skew-l</div><div class="cap">visitante</div></div>
+      <div><div class="shape lx-cut-tr lx-edge lx-c-sm" style="--lx-edge:var(--positive)">.lx-edge</div><div class="cap">barra 3px (inset)</div></div>
+    </div>
+  </section>
+
+  <!-- ===== botões ===== -->
+  <section>
+    <span class="lx-label">Botões · .lx-btn (host sem clip; ::before = preenchimento; ::after = anel de foco)</span>
+    <div class="row" style="margin-top:14px;align-items:center">
+      <button class="lx-btn lx-btn--primary">Começar carreira
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+      <button class="lx-btn lx-btn--primary demo-focus">Com foco</button>
+      <button class="lx-btn lx-btn--ghost">Discurso</button>
+      <button class="lx-btn lx-btn--line lx-btn--sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H5M11 6l-6 6 6 6"/></svg>Voltar</button>
+      <button class="lx-btn lx-btn--accent lx-btn--sm">Ir para o jogo</button>
+      <button class="lx-btn lx-btn--line lx-btn--sq" aria-label="Conquistas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14.5" r="6.5"/><path d="M7 2h4l2 5M17 2h-4l-2 5"/></svg></button>
+      <button class="lx-icon-btn" aria-label="Ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/></svg></button>
+      <button class="lx-btn lx-btn--primary" disabled>Desabilitado</button>
+    </div>
+  </section>
+
+  <!-- ===== chips / fx ===== -->
+  <section>
+    <span class="lx-label">Chips · .lx-chip &nbsp;·&nbsp; efeitos · .lx-fx</span>
+    <div class="row" style="margin-top:12px;align-items:center">
+      <span class="lx-chip"><svg viewBox="0 0 28 20" style="width:20px;height:14px"><rect width="28" height="20" fill="#009C3B"/><path d="M14 3 25 10 14 17 3 10z" fill="#FFDF00"/><circle cx="14" cy="10" r="4" fill="#002776"/></svg>BRA</span>
+      <span class="lx-chip lx-chip--pos">CA</span>
+      <span class="lx-chip lx-chip--num">#9 Silva</span>
+      <span class="lx-chip lx-chip--accent">Clássico</span>
+      <span class="lx-chip lx-chip--gold">1.184 pts</span>
+      <span class="lx-chip lx-chip--live">Ao vivo</span>
+      <span class="lx-chip lx-chip--new">Novo</span>
+      <span class="lx-you">Seu clube</span>
+      <span class="lx-form" data-r="V">V</span><span class="lx-form" data-r="E">E</span><span class="lx-form" data-r="D">D</span>
+      <span class="lx-rank" data-zone="champ">1º</span><span class="lx-rank" data-zone="lib">3º</span><span class="lx-rank" data-zone="sul">9º</span><span class="lx-rank" data-zone="reb">18º</span>
+    </div>
+    <div class="row" style="margin-top:12px;max-width:760px">
+      <div class="lx-fx lx-fx--up" style="flex:1 1 220px"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg></span>+2 OVR<span class="lx-fx__p">70%</span></div>
+      <div class="lx-fx lx-fx--down" style="flex:1 1 220px"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 10h18M5 10v9M19 10v9M3 14h18"/></svg></span>Reserva · −2 OVR<span class="lx-fx__p">45%</span></div>
+      <div class="lx-fx lx-fx--gold" style="flex:1 1 220px"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg></span>Capitão do time<span class="lx-fx__p">100%</span></div>
+      <div class="lx-fx lx-fx--neu" style="flex:1 1 220px"><span class="lx-fx__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2" stroke-linecap="round"/></svg></span>Sem mudança<span class="lx-fx__p">—</span></div>
+    </div>
+  </section>
+
+  <!-- ===== tipografia metálica / lower-third ===== -->
+  <section class="row" style="align-items:center;gap:40px">
+    <div>
+      <div class="lx-t-hero lx-metal-gold lx-gold-glow" style="font-size:96px">Campeão!</div>
+      <div class="cap"><code>.lx-t-hero .lx-metal-gold .lx-gold-glow</code> (padding-right .07em evita cortar o "!")</div>
+    </div>
+    <div>
+      <div class="lx-t-display lx-metal-silver">Vice</div>
+      <div class="lx-t-display lx-text-accent" style="margin-top:6px">Ao vivo</div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <div class="lx-lt"><div class="lx-lt__a"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6 6 20.9l1.3-6.7-5-4.7 6.8-.8z"/></svg></div><div class="lx-lt__b"><span class="lx-lt__k">Bola de Ouro 2037</span><span class="lx-lt__v">1º · Silva</span></div></div>
+      <div class="lx-lt lx-lt--accent"><div class="lx-lt__a"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 15.5l-8-5V4.5a1.5 1.5 0 00-3 0v6l-8 5V18l8-2.5V20l-2.5 1.5V23L12 22l4.5 1v-1.5L14 20v-4.5l7 2.5z"/></svg></div><div class="lx-lt__b"><span class="lx-lt__k">Transferência</span><span class="lx-lt__v">Real Madrid · €68M</span></div></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

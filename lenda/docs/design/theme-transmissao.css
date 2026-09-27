@@ -1,0 +1,1061 @@
+/* =============================================================================
+   LENDA · tema "TRANSMISSÃO"  —  data-theme="transmissao"  (Modo Imersivo)
+   -----------------------------------------------------------------------------
+   Grafismo de TV esportiva: noite azul-marinho, placas com chanfro (clip-path),
+   varreduras de luz, caixa-alta condensada itálica, numerais tabulares, ciano
+   para "ao vivo/seleção" e ouro só para glória.
+
+   Como usar (Vite + React 19 + Tailwind v4):
+     1) src/main.tsx — fontes locais via npm (nada de CDN em runtime):
+          import "@fontsource/barlow-condensed/600.css";
+          import "@fontsource/barlow-condensed/700.css";
+          import "@fontsource/barlow-condensed/800.css";
+          import "@fontsource/barlow-condensed/700-italic.css";
+          import "@fontsource/barlow-condensed/800-italic.css";
+          import "@fontsource/barlow/400.css";
+          import "@fontsource/barlow/500.css";
+          import "@fontsource/barlow/600.css";
+          import "@fontsource/barlow/700.css";
+     2) src/styles/app.css:
+          @import "tailwindcss";
+          @import "./theme-transmissao.css";      (este arquivo)
+          @import "./theme-noite.css";            (o outro tema, mesmo contrato)
+     3) <html lang="pt-BR" data-theme="transmissao">  — troque o atributo para mudar de tema.
+
+   Organização:
+     §1  PONTE TAILWIND v4 (compartilhada — idêntica nos dois temas; mantenha 1 cópia)
+     §2  CONTRATO DE TOKENS  [data-theme="transmissao"]
+     §3  TOKENS PRIVADOS DO TEMA (--lx-*) — não use em componentes compartilhados
+     §4  BASE
+     §5  EFEITOS E PRIMITIVAS .lx-*  (@layer components → utilitários Tailwind vencem)
+     §6  SUPERFÍCIES DO MODO IMERSIVO
+     §7  KEYFRAMES
+     §8  ACESSIBILIDADE: reduced-motion, forced-colors
+   ============================================================================= */
+
+
+/* =============================================================================
+   §1  PONTE TAILWIND v4 — COMPARTILHADA
+   Regras: cores com nome diferente do token → @theme inline (resolve no elemento,
+   funciona com data-theme em qualquer container). Tokens que já têm o nome de um
+   namespace do Tailwind (--font-*, --radius-*, --ease-*) → @theme comum com um
+   valor literal de fallback; o bloco [data-theme] sobrescreve em runtime porque
+   os utilitários referenciam var(--radius-lg) etc. (NÃO repetir em @theme inline:
+   "--radius-lg: var(--radius-lg)" vira referência cíclica).
+   Fora do Tailwind (snippets), estes at-rules são ignorados pelo navegador.
+   ============================================================================= */
+@custom-variant transmissao (&:where([data-theme="transmissao"], [data-theme="transmissao"] *));
+@custom-variant noite (&:where([data-theme="noite"], [data-theme="noite"] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-glass: var(--glass);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-positive: var(--positive);
+  --color-positive-bg: var(--positive-bg);
+  --color-negative: var(--negative);
+  --color-negative-bg: var(--negative-bg);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-glory: var(--metal-gold-2);          /* ouro de "glória": títulos, recordes */
+  --color-club: var(--club);
+  --color-club-2: var(--club-2);
+  --color-club-ink: var(--club-ink);
+  --color-tier-bronze: var(--tier-bronze-2);
+  --color-tier-silver: var(--tier-silver-2);
+  --color-tier-gold: var(--tier-gold-2);
+  --color-tier-lenda: var(--tier-lenda-2);
+
+  --animate-lx-rise: lx-rise var(--dur-3) var(--ease-out) backwards;
+  --animate-lx-slide: lx-slide var(--dur-2) var(--ease-out) backwards;
+  --animate-lx-wipe: lx-wipe-in var(--dur-3) var(--ease-out) backwards;
+}
+
+@theme {
+  /* fallbacks literais — os valores reais vêm de [data-theme] */
+  --font-ui: "Barlow", system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-num: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --default-font-family: var(--font-ui);        /* preflight do Tailwind usa a fonte do tema */
+  --radius-xs: 2px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-pill: 9999px;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-spring: cubic-bezier(.2, .9, .2, 1.1);
+}
+
+/* numerais tabulares: Barlow tem dígitos PROPORCIONAIS por padrão ("1" = 285u vs "0" = 443u).
+   Todo número que muda (relógio, placar, tabela, OVR) usa `num`. */
+@utility num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+@utility elev-1 { box-shadow: var(--shadow-1); }
+@utility elev-2 { box-shadow: var(--shadow-2); }
+@utility elev-3 { box-shadow: var(--shadow-3); }
+@utility glow-accent { box-shadow: var(--glow-accent); }
+@utility dur-1 { transition-duration: var(--dur-1); }
+@utility dur-2 { transition-duration: var(--dur-2); }
+@utility dur-3 { transition-duration: var(--dur-3); }
+
+
+/* valores 0..1 animáveis (medidores, barras de atributo) — registro global, idêntico nos dois temas */
+@property --lx-v { syntax: "<number>"; inherits: true; initial-value: 0; }
+
+/* =============================================================================
+   §2  CONTRATO DE TOKENS — [data-theme="transmissao"]
+   ============================================================================= */
+@layer base {
+  [data-theme="transmissao"] {
+    color-scheme: dark;
+
+    /* fundo e superfícies */
+    --bg: #03051A;                                  /* noite base */
+    --bg-2: #060A26;                                /* topbar, faixas, ticker */
+    --surface: #0C1344;                             /* painel / área de gráfico */
+    --surface-2: #111A57;                           /* placa elevada */
+    --surface-3: #18236E;                           /* hover / selecionado */
+    --glass: rgb(26 36 118 / .55);
+    --border: rgb(134 156 255 / .13);               /* divisores */
+    --border-strong: rgb(134 156 255 / .24);        /* contorno de inputs/chips */
+
+    /* texto (contraste sobre --surface: 16.3 / 10.0 / 5.0) */
+    --text: #F4F6FF;
+    --text-2: #B9C1EA;
+    --text-3: #7C86BE;
+
+    /* semântica — cada cor tem UM papel */
+    --accent: #3BE4FF;                              /* seleção, ao vivo, aba ativa, foco */
+    --accent-ink: #06103A;
+    --positive: #33F0A8;
+    --positive-bg: rgb(51 240 168 / .12);
+    --negative: #FF5A78;
+    --negative-bg: rgb(255 90 120 / .12);
+    --warning: #FF9F43;                             /* âmbar-laranja: nunca confundir com ouro */
+    --info: #7FA8FF;
+
+    /* tiers do OVR: -1 claro · -2 meio · -3 sombra (brilho e tinta são derivados em .lx-ovr) */
+    --tier-bronze-1: #E39A5A;  --tier-bronze-2: #B8652A;  --tier-bronze-3: #7C3A12;   /* < 70 */
+    --tier-silver-1: #D7DEEC;  --tier-silver-2: #A5B0C8;  --tier-silver-3: #6E7A96;   /* 70–79 */
+    --tier-gold-1:   #FFD65C;  --tier-gold-2:   #E7A51C;  --tier-gold-3:   #A86A06;   /* 80–89 */
+    --tier-lenda-1:  #8AF0FF;  --tier-lenda-2:  #6F7BFF;  --tier-lenda-3:  #B04DFF;   /* 90+ holográfico */
+
+    /* metais dos troféus: 1 = especular … 5 = sombra mais profunda */
+    --metal-gold-1: #FFF3C4;   --metal-gold-2: #F7C948;   --metal-gold-3: #E3A21C;   --metal-gold-4: #A56B0A;   --metal-gold-5: #6A3F03;
+    --metal-silver-1: #FFFFFF; --metal-silver-2: #C8D0E0; --metal-silver-3: #A8B2C8; --metal-silver-4: #6B7690; --metal-silver-5: #4E5873;
+    --metal-bronze-1: #FFD2A6; --metal-bronze-2: #E39A5A; --metal-bronze-3: #B8652A; --metal-bronze-4: #7C3A12; --metal-bronze-5: #4A1E06;
+    --metal-wood-1: #83502B;   --metal-wood-2: #5A3219;   --metal-wood-3: #4A2813;   --metal-wood-4: #1E0F07;   --metal-wood-5: #190B05;
+
+    /* forma: Transmissão NÃO arredonda — a forma vem dos recortes .lx-cut/.lx-skew.
+       xs = escudos/bandeiras/kbd; pill = bolinhas (ao vivo, avatar de rádio, dots do campo). */
+    --radius-xs: 2px;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --radius-pill: 9999px;
+
+    /* elevação (box-shadow → só em elementos SEM clip-path; para placas recortadas use .lx-elev-*) */
+    --shadow-1: inset 0 1px 0 rgb(255 255 255 / .05), 0 10px 30px -12px rgb(0 0 0 / .6);
+    --shadow-2: 0 24px 60px -20px rgb(0 0 0 / .75), 0 0 0 1px rgb(134 156 255 / .10);
+    --shadow-3: 0 40px 80px -24px rgb(0 0 0 / .8), 0 0 48px -8px rgb(59 110 255 / .35);
+    --glow-accent: 0 0 0 1px rgb(59 228 255 / .55), 0 0 24px -4px rgb(59 228 255 / .55);
+
+    /* tipografia */
+    --font-ui: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+    --font-num: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+
+    /* motion */
+    --ease-out: cubic-bezier(.2, .8, .2, 1);        /* entradas, wipes, linhas */
+    --ease-spring: cubic-bezier(.2, .9, .2, 1.1);   /* troféu, badge, vencedor (overshoot leve) */
+    --dur-1: 180ms;                                 /* hover, press, sublinhado de aba */
+    --dur-2: 450ms;                                 /* linhas, chips, lower-thirds */
+    --dur-3: 700ms;                                 /* placas, placar, troféu */
+
+    /* clube — defaults; o React injeta inline por container: --club, --club-2, --club-ink (e opcional --club-tint) */
+    --club: #3D5BFF;
+    --club-2: #1A2B8E;
+    --club-ink: #FFFFFF;
+  }
+}
+
+
+/* =============================================================================
+   §3  TOKENS PRIVADOS (só este tema / só dentro de .lx-*)
+   ============================================================================= */
+@layer base {
+  [data-theme="transmissao"] {
+    --lx-bg-3: #0A1036;
+    --lx-line-3: rgb(160 180 255 / .40);            /* divisores inclinados */
+    --lx-text-4: #505A94;                           /* SÓ decorativo (2.7:1) — zeros apagados, linhas futuras */
+    --lx-accent-2: #00A8FF;                         /* base de gradientes de barra */
+    --lx-blue: #3D5BFF;
+    --lx-violet: #6B4DFF;
+    --lx-gold: var(--metal-gold-2);
+    --lx-gold-hi: #FFEDB0;
+    --lx-gold-lo: #B67B0B;
+    --lx-gold-ink: #241400;
+    --lx-live: #FF2E55;
+    --lx-pos-1: #E0195A;                            /* chip de posição (CA, MEI…) */
+    --lx-pos-2: #B3123F;
+    --lx-zone-lib: var(--accent);
+    --lx-zone-pre: #7FA8FF;
+    --lx-zone-sul: var(--positive);
+    --lx-zone-reb: var(--negative);
+    --lx-card-yellow: #FFD21F;
+    --lx-card-red: #E5213C;
+    --lx-series-1: #17A86C;                         /* validado (dataviz) sobre --surface */
+    --lx-series-2: #7F80EC;
+    --lx-series-3: #C4821A;
+    --lx-turf-1: #0E5B45;
+    --lx-turf-2: #083A33;
+    --lx-turf-stripe: rgb(255 255 255 / .035);
+    --lx-turf-line: rgb(158 247 224 / .55);
+    --lx-holo-line: rgb(91 230 255 / .75);          /* campo "tático" azul (landing) */
+
+    --lx-tier-bronze-ink: #1C0901;
+    --lx-tier-silver-ink: #141B2E;
+    --lx-tier-gold-ink: #1D1300;
+    --lx-tier-lenda-ink: #0A0B2A;
+
+    /* recortes */
+    --lx-cut-xs: 4px;
+    --lx-cut-sm: 8px;
+    --lx-cut-md: 14px;
+    --lx-cut-lg: 18px;
+    --lx-cut-xl: 28px;
+    --lx-skew-sm: 6px;
+    --lx-skew-md: 10px;
+    --lx-skew-lg: 14px;
+
+    /* placa */
+    --lx-plate-bd: linear-gradient(140deg, rgb(140 165 255 / .46), rgb(120 145 255 / .10) 38%, rgb(120 145 255 / .08) 70%, rgb(59 228 255 / .34));
+    --lx-plate-bg: linear-gradient(180deg, rgb(20 30 104 / .78), rgb(11 17 62 / .92));
+    --lx-plate-flat: linear-gradient(180deg, rgb(14 21 78 / .86), rgb(9 14 52 / .94));
+    --lx-plate-glass: linear-gradient(180deg, rgb(26 36 118 / .55), rgb(12 18 66 / .70));
+    --lx-plate-gold-bd: linear-gradient(160deg, rgb(255 230 160 / .6), rgb(255 210 120 / .12) 40%, rgb(255 210 120 / .08) 70%, rgb(255 230 160 / .4));
+    --lx-plate-gold-bg: linear-gradient(180deg, rgb(26 22 40 / .86), rgb(10 9 24 / .94));
+    --lx-plate-sel-bd: linear-gradient(140deg, rgb(59 228 255 / .9), rgb(59 228 255 / .25) 40%, rgb(59 228 255 / .12) 70%, rgb(59 228 255 / .6));
+    --lx-plate-sel-bg: linear-gradient(180deg, rgb(18 52 130 / .85), rgb(10 22 74 / .95));
+
+    /* elevação via filter (segue a silhueta recortada; aplique no PAI não-recortado) */
+    --lx-drop-1: drop-shadow(0 4px 6px rgb(0 0 0 / .55));
+    --lx-drop-2: drop-shadow(0 14px 24px rgb(0 0 0 / .5));
+    --lx-drop-3: drop-shadow(0 40px 60px rgb(0 0 0 / .6)) drop-shadow(0 0 40px rgb(59 110 255 / .35));
+    --lx-drop-glow: drop-shadow(0 0 1px rgb(59 228 255 / .9)) drop-shadow(0 0 14px rgb(59 228 255 / .55));
+    --lx-drop-gold: drop-shadow(0 24px 30px rgb(0 0 0 / .6)) drop-shadow(0 0 28px rgb(247 201 72 / .35));
+    --lx-drop-trophy: drop-shadow(0 16px 20px rgb(0 0 0 / .6));
+
+    --lx-ease-in: cubic-bezier(.5, 0, .75, 0);
+    --lx-ease-sweep: cubic-bezier(.6, 0, .2, 1);
+    --lx-crawl-speed: 45;                           /* px/s — o React calcula --lx-crawl-dur */
+
+    --lx-noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+}
+
+
+/* =============================================================================
+   §4  BASE
+   ============================================================================= */
+@layer base {
+  [data-theme="transmissao"] body,
+  body[data-theme="transmissao"] {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+  }
+  [data-theme="transmissao"] [hidden]:not([hidden="until-found"]) { display: none !important; } /* .lx-* definem display; sem isto [hidden] não esconde (fora do preflight do Tailwind) */
+  [data-theme="transmissao"] ::selection { background: rgb(59 228 255 / .32); color: var(--text); }
+  [data-theme="transmissao"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [data-theme="transmissao"] img.crest,
+  [data-theme="transmissao"] .lx-crest { object-fit: contain; filter: drop-shadow(0 2px 4px rgb(0 0 0 / .45)); }
+  [data-theme="transmissao"] .lx-flag { border-radius: var(--radius-xs); box-shadow: 0 0 0 1px rgb(255 255 255 / .18); object-fit: cover; }
+  [data-theme="transmissao"] * { scrollbar-width: thin; scrollbar-color: rgb(134 156 255 / .3) transparent; }
+}
+
+
+/* =============================================================================
+   §5  EFEITOS E PRIMITIVAS
+   ============================================================================= */
+@layer components {
+
+  /* ---------- 5.1 papéis tipográficos ---------------------------------------- */
+  .lx-t-hero      { font: italic 800 96px/.86 var(--font-display); letter-spacing: -.01em; text-transform: uppercase; }
+  .lx-t-celebrate { font: italic 800 150px/1 var(--font-display); letter-spacing: -.01em; text-transform: uppercase; }
+  .lx-t-gala      { font: italic 800 124px/.86 var(--font-display); letter-spacing: -.01em; text-transform: uppercase; }
+  .lx-t-display   { font: italic 800 52px/.9 var(--font-display); letter-spacing: -.005em; text-transform: uppercase; }
+  .lx-t-sec       { font: italic 800 30px/1 var(--font-display); letter-spacing: .005em; text-transform: uppercase; }
+  .lx-t-card      { font: italic 800 24px/1 var(--font-display); text-transform: uppercase; }
+  .lx-t-row       { font: 700 17px/1.1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
+  .lx-t-body      { font: 400 15px/1.5 var(--font-ui); color: var(--text-2); }
+  .lx-t-small     { font: 500 13px/1.4 var(--font-ui); color: var(--text-3); }
+  .lx-t-num-xl    { font: italic 800 70px/.86 var(--font-num); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .lx-t-num-lg    { font: italic 800 40px/.9 var(--font-num); font-variant-numeric: tabular-nums; }
+  .lx-t-num       { font: italic 800 33px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .lx-t-num-row   { font: 700 18px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+
+  .lx-kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 700 12px/1 var(--font-display); letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .lx-kicker::before { content: ""; flex: none; width: 14px; height: 10px; background: currentColor; clip-path: polygon(35% 0, 100% 0, 65% 100%, 0 100%); }
+  .lx-kicker--gold { color: var(--lx-gold); }
+  .lx-kicker--plain::before { display: none; }
+  .lx-label { font: 700 11px/1.2 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+
+  /* ---------- 5.2 recortes (clip-path) ---------------------------------------- */
+  /* tamanhos: .lx-c-xs|sm|md|lg|xl (chanfro)  ·  .lx-k-sm|md|lg (inclinação) */
+  .lx-c-xs { --lx-c: var(--lx-cut-xs); }
+  .lx-c-sm { --lx-c: var(--lx-cut-sm); }
+  .lx-c-md { --lx-c: var(--lx-cut-md); }
+  .lx-c-lg { --lx-c: var(--lx-cut-lg); }
+  .lx-c-xl { --lx-c: var(--lx-cut-xl); }
+  .lx-k-sm { --lx-k: var(--lx-skew-sm); }
+  .lx-k-md { --lx-k: var(--lx-skew-md); }
+  .lx-k-lg { --lx-k: var(--lx-skew-lg); }
+
+  /* chanfro sup.-dir. + inf.-esq. (placa padrão) */
+  .lx-cut    { clip-path: polygon(0 0, calc(100% - var(--lx-c, 14px)) 0, 100% var(--lx-c, 14px), 100% 100%, var(--lx-c, 14px) 100%, 0 calc(100% - var(--lx-c, 14px))); }
+  /* só sup.-dir. (tooltip, efeito, promo) */
+  .lx-cut-tr { clip-path: polygon(0 0, calc(100% - var(--lx-c, 8px)) 0, 100% var(--lx-c, 8px), 100% 100%, 0 100%); }
+  /* espelhado: sup.-esq. + inf.-dir. (badge OVR, icon-button — "encaixa" na placa) */
+  .lx-cut-tl-br { clip-path: polygon(var(--lx-c, 8px) 0, 100% 0, 100% calc(100% - var(--lx-c, 8px)), calc(100% - var(--lx-c, 8px)) 100%, 0 100%, 0 var(--lx-c, 8px)); }
+  /* paralelogramo (botão, chip, idade, aba, ticker) */
+  .lx-skew   { clip-path: polygon(var(--lx-k, 10px) 0, 100% 0, calc(100% - var(--lx-k, 10px)) 100%, 0 100%); }
+  /* só o lado direito inclinado (ribbon, tag do ticker, time da casa no placar) */
+  .lx-skew-r { clip-path: polygon(0 0, 100% 0, calc(100% - var(--lx-k, 10px)) 100%, 0 100%); }
+  /* só o lado esquerdo inclinado (time visitante) */
+  .lx-skew-l { clip-path: polygon(var(--lx-k, 10px) 0, 100% 0, 100% 100%, 0 100%); }
+  /* barra de dados à esquerda (zona, efeito, fato) — sobrevive ao clip porque é inset */
+  .lx-edge   { box-shadow: inset 3px 0 0 var(--lx-edge, var(--accent)); }
+
+  /* ---------- 5.3 placa (painel com borda-gradiente que acompanha o chanfro) ---- */
+  .lx-plate {
+    --lx-c: var(--lx-cut-md);
+    --lx-bw: 1px;
+    --lx-shape: polygon(0 0, calc(100% - var(--lx-c)) 0, 100% var(--lx-c), 100% 100%, var(--lx-c) 100%, 0 calc(100% - var(--lx-c)));
+    --lx-bd: var(--lx-plate-bd);
+    --lx-bg: var(--lx-plate-bg);
+    position: relative;
+    isolation: isolate;
+    clip-path: var(--lx-shape);
+    background: var(--lx-bd);                 /* a "borda" é o fundo… */
+  }
+  .lx-plate::before {                         /* …e o miolo é esta camada, 1px para dentro */
+    content: "";
+    position: absolute;
+    inset: var(--lx-bw);
+    z-index: -1;
+    background: var(--lx-bg);
+    clip-path: var(--lx-shape);
+    box-shadow: var(--lx-plate-inner, none);
+    transition: box-shadow var(--dur-1) var(--ease-out);
+  }
+  .lx-plate--tr    { --lx-shape: polygon(0 0, calc(100% - var(--lx-c)) 0, 100% var(--lx-c), 100% 100%, 0 100%); }
+  .lx-plate--flat  { --lx-bg: var(--lx-plate-flat); }
+  .lx-plate--glass { --lx-bg: var(--lx-plate-glass); }
+  .lx-plate--glass { -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); } /* no host: clip-path cria "backdrop root", um ::before não enxergaria a página */
+  .lx-plate--gold  { --lx-bd: var(--lx-plate-gold-bd); --lx-bg: var(--lx-plate-gold-bg); }
+  .lx-plate--selected, .lx-plate[aria-pressed="true"], .lx-plate[aria-checked="true"], .lx-plate[aria-selected="true"] {
+    --lx-bd: var(--lx-plate-sel-bd); --lx-bg: var(--lx-plate-sel-bg);
+  }
+  .lx-plate--premium { --lx-bd: linear-gradient(150deg, rgb(255 255 255 / .55), rgb(160 175 255 / .14) 40%, rgb(160 175 255 / .10) 70%, rgb(255 236 160 / .45)); }
+  /* placa interativa: hover sobe 2px; foco = borda vira 2px ciano sólido + brilho interno
+     (outline/box-shadow externos seriam cortados pelo clip-path) */
+  .lx-plate--interactive { cursor: pointer; transition: transform var(--dur-1) var(--ease-out); }
+  .lx-plate--interactive:hover { transform: translateY(-2px); }
+  .lx-plate--interactive:active { transform: translateY(0); }
+  .lx-plate--interactive:focus-visible,
+  .lx-plate:focus-visible {
+    outline: none;
+    --lx-bw: 2px;
+    --lx-bd: var(--accent);
+    --lx-plate-inner: inset 0 0 22px -6px rgb(59 228 255 / .65);
+  }
+  /* hairline de destaque no topo (card de decisão / lance decisivo) */
+  .lx-hl-top { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent) 20%, rgb(59 228 255 / .2) 70%, transparent); pointer-events: none; }
+
+  /* elevação para formas recortadas: aplique no WRAPPER (sem clip-path) */
+  .lx-elev-1 { filter: var(--lx-drop-1); }
+  .lx-elev-2 { filter: var(--lx-drop-2); }
+  .lx-elev-3 { filter: var(--lx-drop-3); }
+  .lx-elev-glow { filter: var(--lx-drop-glow); }
+  .lx-elev-gold { filter: var(--lx-drop-gold); }
+
+  /* ---------- 5.4 vidro ------------------------------------------------------ */
+  .lx-glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+    backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: inset 0 0 0 1px var(--border-strong), inset 0 1px 0 rgb(255 255 255 / .06);
+  }
+
+  /* ---------- 5.5 ruído / grão ---------------------------------------------- */
+  .lx-noise-layer,
+  .lx-noise::after {
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: .07;
+    mix-blend-mode: overlay;
+    background-image: var(--lx-noise);
+    background-size: 160px 160px;
+  }
+  .lx-noise { position: relative; isolation: isolate; }
+
+  /* ---------- 5.6 texto metálico -------------------------------------------- */
+  .lx-metal-gold,
+  .lx-metal-silver,
+  .lx-text-accent {
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    padding-right: .07em;               /* itálico 800 corta a última letra sem isto */
+    margin-right: -.07em;
+  }
+  .lx-metal-gold   { background-image: linear-gradient(180deg, color-mix(in oklab, var(--metal-gold-1), #fff 30%) 0%, color-mix(in oklab, var(--metal-gold-2), var(--metal-gold-1) 35%) 45%, var(--metal-gold-3) 70%, color-mix(in oklab, var(--metal-gold-1), var(--metal-gold-2) 30%) 100%); }
+  .lx-metal-silver { background-image: linear-gradient(180deg, var(--metal-silver-1) 0%, var(--metal-silver-2) 45%, var(--metal-silver-3) 70%, #F4F6FF 100%); }
+  .lx-text-accent  { background-image: linear-gradient(180deg, #E8FCFF 0%, #7BEFFF 50%, #1FB8FF 100%); }
+  /* sombra "chapada" + halo das palavras de celebração (CAMPEÃO!, nome na gala) */
+  .lx-gold-glow    { filter: drop-shadow(0 8px 0 rgb(90 50 0 / .55)) drop-shadow(0 0 40px rgb(255 200 80 / .45)); }
+  .lx-gold-glow-sm { filter: drop-shadow(0 6px 30px rgb(247 201 72 / .35)); }
+
+  /* ---------- 5.7 varredura de luz (a cada 7 s) ------------------------------ */
+  .lx-sweep { position: relative; overflow: hidden; }
+  .lx-sweep::after {
+    content: "";
+    position: absolute; top: -20%; bottom: -20%; left: -60%;
+    width: 45%;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 0%, rgb(255 255 255 / 0) 30%, rgb(255 255 255 / .20) 50%, rgb(255 255 255 / 0) 70%, transparent 100%);
+    transform: skewX(-18deg);
+    animation: lx-sweep 7s var(--lx-ease-sweep) 1.2s infinite;
+  }
+  .lx-sweep--once::after { animation-iteration-count: 1; animation-duration: 1.6s; animation-delay: var(--lx-sweep-delay, .3s); }
+
+  /* ---------- 5.8 clube (--club / --club-2 / --club-ink injetados inline) ------ */
+  /* brilho ambiente atrás de heróis / tela de jogo */
+  .lx-club-glow {
+    background:
+      radial-gradient(70% 90% at 0% 0%, color-mix(in oklab, var(--club) 32%, transparent), transparent 70%),
+      radial-gradient(50% 70% at 100% 100%, color-mix(in oklab, var(--club-2) 22%, transparent), transparent 70%);
+  }
+  /* placa de cabeçalho do jogador */
+  .lx-club-plate {
+    --lx-c: 16px;
+    position: relative; overflow: hidden; isolation: isolate;
+    color: #fff;
+    clip-path: polygon(0 0, calc(100% - var(--lx-c)) 0, 100% var(--lx-c), 100% 100%, var(--lx-c) 100%, 0 calc(100% - var(--lx-c)));
+    background: linear-gradient(100deg, var(--club-tint, var(--club)) 0%, color-mix(in srgb, var(--club-tint, var(--club-2)) 85%, #000) 46%, rgb(8 12 44 / .96) 100%);
+  }
+  /* --club-tint (opcional) tem prioridade: clubes amarelos (Mirassol) ficam na 2ª cor em vez de "marrom".
+     clubes claros (Real Madrid, Santos, River…): clampa a luminosidade no PRÓPRIO elemento
+     (um token na raiz congelaria o --club da raiz — custom properties herdam o valor computado) */
+  @supports (color: oklch(from red l c h)) {
+    .lx-club-plate { background: linear-gradient(100deg, oklch(from var(--club-tint, var(--club)) min(l, .52) c h) 0%, color-mix(in srgb, oklch(from var(--club-tint, var(--club-2)) min(l, .42) c h) 85%, #000) 46%, rgb(8 12 44 / .96) 100%); }
+  }
+  .lx-club-plate::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: repeating-linear-gradient(115deg, rgb(255 255 255 / .045) 0 2px, transparent 2px 12px), linear-gradient(180deg, rgb(255 255 255 / .12), transparent 40%);
+  }
+  .lx-club-plate__wm {                        /* escudo marca-d'água */
+    position: absolute; top: 50%; right: 108px; width: 190px; height: 190px; z-index: -1; pointer-events: none;
+    transform: translateY(-50%) rotate(-10deg); opacity: .16; mix-blend-mode: screen; filter: grayscale(.2) contrast(1.2);
+  }
+  .lx-club-plate__edge { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, #fff, rgb(255 255 255 / .2)); }
+  /* rastro colorido de linha de carreira / classificação */
+  .lx-club-row { position: relative; isolation: isolate; }
+  .lx-club-row::before {
+    content: ""; position: absolute; inset: 0 0 0 22px; z-index: -1;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--club-tint, var(--club)) 34%, transparent) 0%, color-mix(in srgb, var(--club-tint, var(--club)) 10%, transparent) 38%, rgb(20 28 92 / .30) 70%, rgb(20 28 92 / .22) 100%);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  }
+  .lx-club-row--loan::before { background: linear-gradient(90deg, color-mix(in srgb, var(--club-tint, var(--club)) 20%, transparent) 0%, rgb(20 28 92 / .26) 45%, rgb(20 28 92 / .18) 100%); }
+  /* badge de idade no paralelogramo com a cor do clube */
+  .lx-club-age {
+    display: inline-grid; place-items: center; width: 44px; height: 26px;
+    font: italic 800 18px/1 var(--font-num); font-variant-numeric: tabular-nums;
+    color: var(--club-ink);
+    background: linear-gradient(135deg, var(--club), var(--club-2));
+    clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .3);
+  }
+  .lx-club-age--current { box-shadow: inset 0 0 0 1.5px var(--accent), inset 0 0 10px rgb(59 228 255 / .55); } /* inset: sombra externa seria cortada pelo clip */
+  /* faixa de cor (placar, lower-third de substituição) */
+  .lx-club-bar { background: linear-gradient(180deg, var(--club), var(--club-2)); }
+  /* halo atrás do escudo nas opções de decisão */
+  .lx-club-halo { position: relative; display: grid; place-items: center; }
+  .lx-club-halo::before { content: ""; position: absolute; width: 150px; height: 96px; background: radial-gradient(50% 50% at 50% 50%, color-mix(in oklab, var(--club) 90%, white 10%), transparent 72%); opacity: .55; pointer-events: none; }
+
+  /* ---------- 5.9 botões ------------------------------------------------------ */
+  /* host sem clip (o foco desenha um anel FORA); o preenchimento é o ::before recortado */
+  .lx-btn {
+    --lx-k: 12px;
+    --lx-btn-fill: linear-gradient(180deg, rgb(40 54 160 / .55), rgb(20 28 92 / .7));
+    --lx-btn-line: none;
+    position: relative; isolation: isolate;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    height: 54px; padding: 0 30px;
+    font: italic 800 19px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+    color: var(--text);
+    background: none; border: 0; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform var(--dur-1) var(--ease-out), filter var(--dur-1) var(--ease-out);
+  }
+  .lx-btn::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: var(--lx-btn-fill);
+    box-shadow: var(--lx-btn-line);
+    clip-path: polygon(var(--lx-k) 0, 100% 0, calc(100% - var(--lx-k)) 100%, 0 100%);
+  }
+  .lx-btn::after {                            /* anel de foco: 2px, 3px afastado, mesmo ângulo */
+    content: ""; position: absolute; inset: -5px; z-index: -2; pointer-events: none;
+    background: var(--accent);
+    opacity: 0;
+    clip-path: polygon(evenodd,
+      calc(var(--lx-k) + 2px) 0, 100% 0, calc(100% - var(--lx-k) - 2px) 100%, 0 100%, calc(var(--lx-k) + 2px) 0,
+      calc(var(--lx-k) + 3.2px) 2px, calc(100% - 2px) 2px, calc(100% - var(--lx-k) - 3.2px) calc(100% - 2px), 2px calc(100% - 2px), calc(var(--lx-k) + 3.2px) 2px);
+    transition: opacity var(--dur-1) var(--ease-out);
+  }
+  .lx-btn:focus-visible { outline: none; }
+  .lx-btn:focus-visible::after { opacity: 1; }
+  .lx-btn:hover { filter: brightness(1.08); }
+  .lx-btn:active { transform: translateY(1px) scale(.99); }
+  .lx-btn:disabled, .lx-btn[aria-disabled="true"] { cursor: not-allowed; filter: saturate(.3) brightness(.7); }
+  .lx-btn > svg { width: 18px; height: 18px; flex: none; }
+
+  .lx-btn--primary { color: var(--lx-gold-ink); --lx-btn-fill: linear-gradient(180deg, #FFF3C0 0%, #FFD55A 40%, #E9A61E 100%); --lx-btn-line: inset 0 -3px 0 rgb(120 70 0 / .35); }
+  .lx-btn--accent  { color: var(--accent-ink); --lx-btn-fill: linear-gradient(180deg, #9AF3FF, #1FB8FF); }
+  .lx-btn--ghost   { --lx-btn-line: inset 0 0 0 1.5px rgb(140 165 255 / .5); }
+  .lx-btn--line    { --lx-btn-fill: rgb(18 26 86 / .6); --lx-btn-line: inset 0 0 0 1.5px rgb(140 165 255 / .38); }
+  .lx-btn--danger  { color: #fff; --lx-btn-fill: linear-gradient(180deg, #FF6F88, #D6203F); }
+  .lx-btn--sm      { --lx-k: 10px; height: 42px; padding: 0 20px; font-size: 16px; }
+  .lx-btn--xs      { --lx-k: 7px; height: 32px; padding: 0 14px; font-size: 14px; letter-spacing: .08em; }
+  .lx-btn--sq      { --lx-k: 10px; width: 54px; padding: 0; }
+  .lx-btn--sm.lx-btn--sq { width: 42px; }
+  .lx-btn--block   { display: flex; width: 100%; }
+
+  /* botão-ícone (chanfro espelhado) */
+  .lx-icon-btn {
+    position: relative; display: grid; place-items: center; width: 40px; height: 40px;
+    color: var(--text-2); background: rgb(28 38 120 / .55); border: 0; cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    box-shadow: inset 0 0 0 1px rgb(140 165 255 / .25);
+    transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+  }
+  .lx-icon-btn:hover { color: var(--text); background: rgb(40 54 160 / .6); }
+  .lx-icon-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 12px rgb(59 228 255 / .45); color: var(--text); }
+  .lx-icon-btn > svg { width: 20px; height: 20px; }
+
+  /* foco genérico para qualquer elemento recortado pequeno (chips-botão, segmentos, linhas) */
+  .lx-focus-inset:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 12px rgb(59 228 255 / .45); }
+
+  /* ---------- 5.10 chips ------------------------------------------------------ */
+  .lx-chip {
+    display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+    font: 700 14px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+    color: var(--text); background: rgb(8 12 44 / .55);
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  }
+  .lx-chip > img.lx-flag { width: 20px; height: 14px; }
+  .lx-chip > svg { width: 14px; height: 14px; }
+  .lx-chip--pos    { color: #fff; background: linear-gradient(90deg, var(--lx-pos-1), var(--lx-pos-2)); }
+  .lx-chip--num    { background: rgb(255 255 255 / .12); }
+  .lx-chip--accent { color: var(--accent); background: rgb(59 228 255 / .14); }
+  .lx-chip--gold   { color: var(--lx-gold); background: rgb(247 201 72 / .14); }
+  .lx-chip--pos-ok { color: var(--positive); background: var(--positive-bg); }
+  .lx-chip--neg    { color: var(--negative); background: var(--negative-bg); }
+  .lx-chip--solid-gold { color: var(--lx-gold-ink); background: linear-gradient(90deg, #FFD55A, #E9A61E); }
+  .lx-chip--live   { color: #fff; background: var(--lx-live); }
+  .lx-chip--live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; animation: lx-blink 1.4s infinite; }
+  .lx-chip--sm { height: 20px; padding: 0 7px; font-size: 11px; letter-spacing: .12em; clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); }
+  .lx-chip--new { height: 16px; padding: 0 5px; font-size: 9.5px; font-weight: 800; letter-spacing: .12em; color: var(--lx-gold-ink); background: var(--lx-gold); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  .lx-live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--lx-live); box-shadow: 0 0 10px var(--lx-live); animation: lx-blink 1.4s infinite; }
+  .lx-dot-accent { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+  /* ---------- 5.11 chips de efeito (consequências visíveis antes de escolher) --- */
+  .lx-fx {
+    --lx-fx: var(--text-2);
+    display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px 0 8px;
+    font: 700 16px/1 var(--font-display); letter-spacing: .03em; text-transform: uppercase;
+    color: var(--lx-fx);
+    background: color-mix(in srgb, var(--lx-fx) 12%, transparent);
+    box-shadow: inset 3px 0 0 var(--lx-fx);
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  }
+  .lx-fx__ic { display: grid; place-items: center; flex: none; width: 24px; height: 24px; background: color-mix(in srgb, var(--lx-fx) 16%, transparent); }
+  .lx-fx__ic > svg { width: 16px; height: 16px; }
+  .lx-fx__p { margin-left: auto; padding: 2px 7px; font-size: 15px; font-variant-numeric: tabular-nums; background: rgb(0 0 0 / .25); }
+  .lx-fx--up   { --lx-fx: var(--positive); }
+  .lx-fx--down { --lx-fx: var(--negative); }
+  .lx-fx--gold { --lx-fx: var(--lx-gold); }
+  .lx-fx--info { --lx-fx: var(--info); }
+  .lx-fx--neu  { --lx-fx: var(--text-2); box-shadow: inset 3px 0 0 var(--text-3); background: rgb(160 175 230 / .08); }
+  .lx-fx--sm   { height: 30px; gap: 7px; font-size: 13px; padding: 0 6px; }
+  .lx-fx--sm .lx-fx__ic { width: 20px; height: 20px; }
+  .lx-fx--sm .lx-fx__p { font-size: 12.5px; padding: 1px 5px; }
+
+  /* ---------- 5.12 badges de OVR --------------------------------------------- */
+  .lx-ovr {
+    --lx-c: 14px;
+    --t1: var(--tier-gold-1); --t2: var(--tier-gold-2); --t3: var(--tier-gold-3); --tink: var(--lx-tier-gold-ink);
+    position: relative; isolation: isolate;
+    display: grid; place-items: center; align-content: center; text-align: center;
+    color: var(--tink);
+    background: linear-gradient(150deg, color-mix(in oklab, var(--t1), #fff 55%) 0%, var(--t1) 28%, var(--t2) 62%, var(--t3) 100%);
+    clip-path: polygon(var(--lx-c) 0, 100% 0, 100% calc(100% - var(--lx-c)), calc(100% - var(--lx-c)) 100%, 0 100%, 0 var(--lx-c));
+  }
+  .lx-ovr::before {                           /* reflexo diagonal + micro-listras (soft-light) */
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / .55) 42%, transparent 54%), repeating-linear-gradient(135deg, rgb(255 255 255 / .07) 0 2px, transparent 2px 6px);
+    mix-blend-mode: soft-light;
+  }
+  .lx-ovr::after {                            /* hairline interna branca */
+    content: ""; position: absolute; inset: 3px; pointer-events: none;
+    border: 1px solid rgb(255 255 255 / .45);
+    clip-path: polygon(calc(var(--lx-c) - 1px) 0, 100% 0, 100% calc(100% - var(--lx-c) + 1px), calc(100% - var(--lx-c) + 1px) 100%, 0 100%, 0 calc(var(--lx-c) - 1px));
+  }
+  .lx-ovr[data-tier="bronze"] { --t1: var(--tier-bronze-1); --t2: var(--tier-bronze-2); --t3: var(--tier-bronze-3); --tink: var(--lx-tier-bronze-ink); }
+  .lx-ovr[data-tier="silver"] { --t1: var(--tier-silver-1); --t2: var(--tier-silver-2); --t3: var(--tier-silver-3); --tink: var(--lx-tier-silver-ink); }
+  .lx-ovr[data-tier="lenda"]  { --t1: var(--tier-lenda-1);  --t2: var(--tier-lenda-2);  --t3: var(--tier-lenda-3);  --tink: var(--lx-tier-lenda-ink); }
+  .lx-ovr__label { font: 800 13px/1 var(--font-display); letter-spacing: .2em; text-transform: uppercase; opacity: .72; }
+  .lx-ovr__num   { font: italic 800 64px/.86 var(--font-num); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-right: .06em; }
+  .lx-ovr--xl { --lx-c: 18px; width: 116px; height: 126px; }
+  .lx-ovr--xl .lx-ovr__num { font-size: 70px; }
+  .lx-ovr--md { --lx-c: 9px; width: 54px; height: 60px; }
+  .lx-ovr--md .lx-ovr__num { font-size: 32px; }
+  .lx-ovr--md .lx-ovr__label { font-size: 9px; }
+
+  .lx-ovr-s {
+    --t1: var(--tier-gold-1); --t2: var(--tier-gold-2); --t3: var(--tier-gold-3); --tink: var(--lx-tier-gold-ink);
+    display: inline-grid; place-items: center; width: 44px; height: 24px;
+    font: italic 800 17px/1 var(--font-num); font-variant-numeric: tabular-nums;
+    color: var(--tink);
+    background: linear-gradient(150deg, color-mix(in oklab, var(--t1), #fff 55%) 0%, var(--t1) 28%, var(--t2) 62%, var(--t3) 100%);
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  }
+  .lx-ovr-s[data-tier="bronze"] { --t1: var(--tier-bronze-1); --t2: var(--tier-bronze-2); --t3: var(--tier-bronze-3); --tink: var(--lx-tier-bronze-ink); }
+  .lx-ovr-s[data-tier="silver"] { --t1: var(--tier-silver-1); --t2: var(--tier-silver-2); --t3: var(--tier-silver-3); --tink: var(--lx-tier-silver-ink); }
+  .lx-ovr-s[data-tier="lenda"]  { --t1: var(--tier-lenda-1);  --t2: var(--tier-lenda-2);  --t3: var(--tier-lenda-3);  --tink: var(--lx-tier-lenda-ink); }
+  .lx-ovr-s--ghost { color: var(--text-2); background: rgb(140 160 255 / .14); box-shadow: inset 0 0 0 1px rgb(140 160 255 / .3); }
+  .lx-ovr-flip { animation: lx-flip var(--dur-2) var(--ease-out); transform-style: preserve-3d; }
+
+  /* ---------- 5.13 abas, segmentado, inputs ---------------------------------- */
+  .lx-tabs { display: flex; align-items: stretch; gap: 2px; height: 50px; padding: 0 14px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .lx-tab {
+    position: relative; display: flex; align-items: center; gap: 8px; padding: 0 14px; white-space: nowrap;
+    font: 800 15px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-3); background: none; border: 0; cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+  .lx-tab:hover { color: var(--text-2); }
+  .lx-tab > svg { width: 15px; height: 15px; }
+  .lx-tab[aria-selected="true"], .lx-tab.is-active { color: var(--text); }
+  .lx-tab::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; background: var(--accent); box-shadow: 0 0 14px var(--accent); transform: scaleX(0); transition: transform var(--dur-1) var(--ease-out); }
+  .lx-tab[aria-selected="true"]::after, .lx-tab.is-active::after { transform: scaleX(1); }
+  .lx-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+
+  .lx-seg { display: flex; gap: 4px; padding: 4px; background: rgb(8 12 48 / .75); box-shadow: inset 0 0 0 1px var(--border-strong); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+  .lx-seg > button {
+    height: 36px; padding: 0 20px;
+    font: 800 15px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-3); background: none; border: 0; cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+  }
+  .lx-seg > button:hover { color: var(--text-2); }
+  .lx-seg > button[aria-pressed="true"], .lx-seg > button[aria-checked="true"], .lx-seg > button.is-active { color: #0A0F3A; background: linear-gradient(180deg, #F4F6FF, #C9D1F0); }
+  .lx-seg > button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+
+  .lx-field {
+    display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px;
+    font: 800 22px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text);
+    background: rgb(6 10 40 / .7);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    transition: box-shadow var(--dur-1) var(--ease-out);
+  }
+  .lx-field:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent), inset 0 0 20px rgb(59 228 255 / .12); }
+  .lx-field > input { flex: 1; min-width: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0; outline: none; caret-color: var(--accent); }
+  .lx-field--search { height: 46px; font: 400 15px/1 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-3); }
+  .lx-kbd { font: 700 11px/1 var(--font-display); letter-spacing: .1em; padding: 3px 6px; color: var(--lx-text-4); box-shadow: inset 0 0 0 1px var(--border-strong); border-radius: var(--radius-xs); }
+
+  /* ---------- 5.14 lower-third ---------------------------------------------- */
+  /* bloco-ícone colorido + placa navy (rótulo + valor). Aplique sombra no wrapper. */
+  .lx-lt { display: inline-flex; align-items: stretch; filter: drop-shadow(0 14px 24px rgb(0 0 0 / .5)); }
+  .lx-lt__a { display: grid; place-items: center; min-width: 44px; padding: 0 12px; color: var(--lx-gold-ink); background: linear-gradient(180deg, #FFF1B8, #F3BF3E 50%, #C88A12); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+  .lx-lt__a > svg { width: 22px; height: 22px; }
+  .lx-lt__a > img { width: 28px; height: 28px; }
+  .lx-lt__b { display: flex; flex-direction: column; justify-content: center; margin-left: -6px; padding: 6px 18px 6px 16px; background: linear-gradient(180deg, rgb(18 28 100 / .96), rgb(9 14 58 / .96)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .12); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+  .lx-lt__k { font: 700 11px/1.2 var(--font-display); letter-spacing: .2em; text-transform: uppercase; color: var(--text-3); }
+  .lx-lt__v { font: italic 800 21px/1.05 var(--font-display); text-transform: uppercase; white-space: nowrap; }
+  .lx-lt--accent .lx-lt__a { color: var(--accent-ink); background: linear-gradient(180deg, #9AF3FF, #1FB8FF); }
+  .lx-lt--club .lx-lt__a   { color: var(--club-ink); background: linear-gradient(180deg, var(--club), var(--club-2)); }
+  .lx-lt--yellow .lx-lt__a { color: #1B1400; background: linear-gradient(180deg, #FFE36B, var(--lx-card-yellow)); }
+  .lx-lt--red .lx-lt__a    { color: #fff; background: linear-gradient(180deg, #FF5A6E, var(--lx-card-red)); }
+  .lx-lt--live .lx-lt__a   { color: #fff; background: var(--lx-live); }
+
+  /* ---------- 5.15 ticker (crawl de TV) -------------------------------------- */
+  /* estrutura: .lx-ticker > .lx-ticker__tag + .lx-ticker__vp > .lx-ticker__track > [conteúdo][cópia aria-hidden] */
+  .lx-ticker { position: relative; display: flex; align-items: stretch; height: 44px; overflow: hidden; background: linear-gradient(180deg, rgb(8 13 52 / .96), rgb(4 7 32 / .98)); border-top: 1px solid var(--border-strong); }
+  .lx-ticker__tag { position: relative; z-index: 2; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 22px 0 18px; font: italic 800 17px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--lx-gold-ink); background: linear-gradient(90deg, #FFD55A, #E9A61E); clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+  .lx-ticker__tag > img { width: 22px; height: 22px; }
+  .lx-ticker__vp { flex: 1; min-width: 0; display: flex; overflow: hidden; margin-left: -14px; -webkit-mask: linear-gradient(90deg, transparent 0, #000 48px, #000 calc(100% - 70px), transparent); mask: linear-gradient(90deg, transparent 0, #000 48px, #000 calc(100% - 70px), transparent); }
+  .lx-ticker__track { display: flex; align-items: center; width: max-content; padding-left: 40px; white-space: nowrap; animation: lx-crawl var(--lx-crawl-dur, 70s) linear 3.5s infinite; will-change: transform; }
+  .lx-ticker:hover .lx-ticker__track, .lx-ticker:focus-within .lx-ticker__track, .lx-ticker.is-paused .lx-ticker__track { animation-play-state: paused; }
+  .lx-ticker__it { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; font: 600 16px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+  .lx-ticker__it b { color: var(--text); font-weight: 800; }
+  .lx-ticker__it img { width: 20px; height: 20px; }
+  .lx-ticker__pos { min-width: 14px; text-align: right; font-weight: 800; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .lx-ticker__pts { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .lx-ticker__sec { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px 0 22px; font: italic 800 16px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--lx-gold); }
+  .lx-ticker__sep { width: 8px; height: 8px; margin: 0 6px; background: var(--accent); opacity: .6; transform: rotate(45deg); }
+
+  /* ---------- 5.16 tabelas: zona, forma, pendente, futuro --------------------- */
+  .lx-zone { position: relative; }
+  .lx-zone::after { content: ""; position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; background: var(--lx-z, transparent); } /* ::after: combina com .lx-row-me / .lx-club-row (::before) */
+  .lx-zone[data-zone="lib"] { --lx-z: var(--lx-zone-lib); }
+  .lx-zone[data-zone="pre"] { --lx-z: var(--lx-zone-pre); }
+  .lx-zone[data-zone="sul"] { --lx-z: var(--lx-zone-sul); }
+  .lx-zone[data-zone="reb"] { --lx-z: var(--lx-zone-reb); }
+  .lx-form { display: inline-grid; place-items: center; width: 18px; height: 18px; font: 800 11px/1 var(--font-display); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  .lx-form[data-r="V"] { color: var(--positive); background: rgb(51 240 168 / .2); }
+  .lx-form[data-r="E"] { color: var(--text-2); background: rgb(160 175 230 / .14); }
+  .lx-form[data-r="D"] { color: var(--negative); background: rgb(255 90 120 / .18); }
+  .lx-rank { display: inline-grid; place-items: center; min-width: 30px; height: 20px; padding: 0 5px; font: 800 13px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text-2); background: rgb(160 175 230 / .10); clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); }
+  .lx-rank[data-zone="champ"] { color: var(--lx-gold-ink); background: linear-gradient(180deg, #FFE9A0, #E9A61E); }
+  .lx-rank[data-zone="lib"]   { color: var(--accent); background: rgb(59 228 255 / .16); }
+  .lx-rank[data-zone="sul"]   { color: var(--positive); background: rgb(51 240 168 / .14); }
+  .lx-rank[data-zone="reb"]   { color: var(--negative); background: rgb(255 90 120 / .18); }
+  .lx-you { font: 800 10px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; padding: 3px 6px; color: var(--accent-ink); background: var(--accent); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  .lx-row-me { position: relative; isolation: isolate; }
+  .lx-row-me::before { content: ""; position: absolute; inset: 1px 0; z-index: -1; background: linear-gradient(90deg, rgb(59 228 255 / .22), rgb(59 228 255 / .06)); box-shadow: inset 0 0 0 1px rgb(59 228 255 / .45); clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+  .lx-pending { position: relative; isolation: isolate; }
+  .lx-pending::before { content: ""; position: absolute; inset: 0 0 0 22px; z-index: -1; background: repeating-linear-gradient(115deg, rgb(59 228 255 / .07) 0 8px, rgb(59 228 255 / .02) 8px 16px); box-shadow: inset 0 0 0 1px rgb(59 228 255 / .35); clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+  .lx-pending__q { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font: 800 14px/1 var(--font-display); color: var(--accent); background: rgb(59 228 255 / .14); animation: lx-blink 1.6s infinite; }
+  .lx-stamp { animation: lx-stamp 900ms var(--ease-out); }   /* linha nova "carimbada" */
+  .lx-zero { color: var(--lx-text-4); }                          /* 0 apagado (decorativo) */
+  .lx-hi { color: var(--lx-gold); }                              /* 20+ gols etc. */
+
+  /* ---------- 5.17 prateleira de troféus ------------------------------------- */
+  .lx-trophy { display: block; overflow: visible; filter: var(--lx-drop-trophy); }
+  .lx-shelf { position: relative; display: flex; align-items: flex-end; justify-content: space-around; gap: 10px; }
+  .lx-shelf::after { content: ""; position: absolute; left: 0; right: 0; bottom: 15px; height: 2px; background: linear-gradient(90deg, transparent, rgb(247 201 72 / .55), rgb(255 255 255 / .8), rgb(247 201 72 / .55), transparent); box-shadow: 0 0 18px rgb(247 201 72 / .45); }
+  .lx-shelf::before { content: ""; position: absolute; left: 10%; right: 10%; bottom: 6px; height: 28px; background: radial-gradient(50% 100% at 50% 100%, rgb(247 201 72 / .18), transparent); }
+  .lx-trophy-stack { display: flex; align-items: flex-end; }
+  .lx-trophy-stack > * + * { margin-left: -14px; }
+  .lx-trophy-halo { position: relative; display: grid; place-items: center; }
+  .lx-trophy-halo::before { content: ""; position: absolute; width: 190px; height: 190px; border-radius: 50%; background: radial-gradient(closest-side, rgb(247 201 72 / .3), transparent); }
+
+  /* ---------- 5.18 atmosfera de estádio (camada fixa de fundo) ---------------- */
+  /* <div class="lx-stadium [--calm|--gala|--club|--press]"> 4×.lx-stadium__beam (+ .is-l .is-l2 .is-r .is-r2),
+     2×.lx-stadium__lights (.is-l .is-r, 18 <i>), .lx-stadium__haze, __pitchlines, __bokeh, .lx-noise-layer </div> */
+  .lx-stadium {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+    background:
+      radial-gradient(1100px 620px at 12% -12%, rgb(72 96 255 / .40), transparent 62%),
+      radial-gradient(900px 520px at 92% -8%, rgb(0 186 255 / .22), transparent 60%),
+      radial-gradient(1300px 700px at 50% 118%, rgb(58 28 160 / .45), transparent 62%),
+      linear-gradient(180deg, #081038 0%, #050926 38%, #03051A 70%, #02030F 100%);
+  }
+  .lx-stadium__beam { position: absolute; top: -10%; width: 60vw; height: 120vh; transform-origin: 50% 0; mix-blend-mode: screen; filter: blur(6px);
+    background: conic-gradient(from 180deg at 50% 0%, transparent 0deg, rgb(150 180 255 / .10) 8deg, rgb(190 215 255 / .16) 12deg, rgb(150 180 255 / .08) 17deg, transparent 26deg); }
+  .lx-stadium__beam.is-l  { left: -18vw; transform: rotate(-28deg); }
+  .lx-stadium__beam.is-l2 { left: -4vw;  transform: rotate(-14deg); opacity: .55; }
+  .lx-stadium__beam.is-r  { right: -18vw; transform: rotate(28deg); }
+  .lx-stadium__beam.is-r2 { right: -4vw;  transform: rotate(14deg); opacity: .55; }
+  .lx-stadium__lights { position: absolute; top: 22px; display: grid; grid-template-columns: repeat(6, 6px); gap: 5px; filter: drop-shadow(0 0 6px rgb(200 225 255 / .9)) drop-shadow(0 0 22px rgb(120 160 255 / .8)); }
+  .lx-stadium__lights > i { width: 6px; height: 6px; border-radius: 50%; background: #EAF2FF; opacity: .85; }
+  .lx-stadium__lights.is-l { left: 5vw; transform: rotate(-6deg); }
+  .lx-stadium__lights.is-r { right: 5vw; transform: rotate(6deg); }
+  .lx-stadium__haze { position: absolute; left: -10%; right: -10%; bottom: -20%; height: 60%; background: radial-gradient(60% 60% at 50% 100%, rgb(80 110 255 / .14), transparent 70%); }
+  .lx-stadium__pitchlines { position: absolute; left: 50%; bottom: -6%; width: 170vw; height: 60vh; transform: translateX(-50%) perspective(900px) rotateX(64deg); transform-origin: 50% 100%;
+    background: repeating-linear-gradient(90deg, rgb(120 150 255 / .07) 0 1px, transparent 1px 9%), repeating-linear-gradient(0deg, rgb(120 150 255 / .06) 0 1px, transparent 1px 12%);
+    -webkit-mask: linear-gradient(0deg, #000 10%, transparent 90%); mask: linear-gradient(0deg, #000 10%, transparent 90%); }
+  .lx-stadium__bokeh { position: absolute; inset: 0; opacity: .5;
+    background:
+      radial-gradient(3px 3px at 8% 14%, rgb(255 255 255 / .5), transparent), radial-gradient(2px 2px at 14% 22%, rgb(255 255 255 / .35), transparent),
+      radial-gradient(2px 2px at 22% 9%, rgb(190 210 255 / .45), transparent), radial-gradient(3px 3px at 79% 12%, rgb(255 255 255 / .45), transparent),
+      radial-gradient(2px 2px at 86% 20%, rgb(190 210 255 / .4), transparent), radial-gradient(2px 2px at 93% 8%, rgb(255 255 255 / .35), transparent),
+      radial-gradient(2px 2px at 64% 6%, rgb(190 210 255 / .25), transparent), radial-gradient(2px 2px at 36% 5%, rgb(190 210 255 / .25), transparent); }
+  .lx-stadium--calm .lx-stadium__beam { opacity: .45; }
+  .lx-stadium--calm .lx-stadium__beam.is-l2, .lx-stadium--calm .lx-stadium__beam.is-r2 { opacity: .25; }
+  .lx-stadium--calm .lx-stadium__lights { display: none; }
+  /* gala (cerimônias): ouro quente em vez de azul */
+  .lx-stadium--gala { background: radial-gradient(900px 600px at 34% 38%, rgb(255 196 80 / .22), transparent 60%), radial-gradient(1200px 700px at 50% 120%, rgb(120 70 10 / .35), transparent 60%), linear-gradient(180deg, #07081C 0%, #04040F 60%, #020208 100%); }
+  /* ATENÇÃO: em conic-gradient os ângulos das paradas são RELATIVOS ao "from". Cone simétrico para baixo = from 163deg + 0…34deg.
+     (o mockup usava "from 180deg … 163–197deg", que aponta para CIMA e fica invisível — mesmo bug no spot do hero e no armário da identidade) */
+  .lx-stadium--gala .lx-stadium__beam { background: conic-gradient(from 163deg at 50% 0%, transparent 0deg, rgb(255 220 150 / .20) 11deg, rgb(255 236 190 / .30) 17deg, rgb(255 220 150 / .20) 23deg, transparent 34deg); filter: blur(8px); }
+  /* holofote central simétrico (hero da landing, armário da camisa, palco) */
+  .lx-spot-cone { position: absolute; left: 50%; top: -120px; width: 560px; height: 760px; transform: translateX(-50%); pointer-events: none; mix-blend-mode: screen; filter: blur(8px);
+    background: conic-gradient(from 150deg at 50% 0%, transparent 0deg, rgb(170 200 255 / .16) 20deg, rgb(200 225 255 / .22) 30deg, rgb(170 200 255 / .16) 40deg, transparent 60deg); }
+  /* partida / hub: o clube do jogador tinge a noite */
+  .lx-stadium--club::after { content: ""; position: absolute; inset: 0; background: radial-gradient(900px 520px at 10% -10%, color-mix(in oklab, var(--club) 30%, transparent), transparent 62%); }
+  /* coletiva: parede de patrocinadores + spot central */
+  .lx-stadium--press { background: radial-gradient(700px 520px at 50% 18%, rgb(120 150 255 / .20), transparent 65%), linear-gradient(180deg, #0A1036 0%, #060A26 60%, #03051A 100%); }
+
+  /* ---------- 5.19 celebração (CAMPEÃO!) ------------------------------------- */
+  .lx-dim-behind { filter: blur(6px) brightness(.42) saturate(.7); transform: scale(1.01); transition: filter var(--dur-3) var(--ease-out); }
+  .lx-cele { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: hidden; background: radial-gradient(60% 60% at 50% 45%, rgb(20 14 0 / 0), rgb(2 3 16 / .75) 80%); }
+  .lx-cele__rays { position: absolute; left: 50%; top: 44%; width: 1800px; height: 1800px; transform: translate(-50%, -50%);
+    background: repeating-conic-gradient(from 0deg, rgb(255 215 110 / .13) 0deg 5deg, transparent 5deg 15deg);
+    -webkit-mask: radial-gradient(closest-side, #000 8%, rgb(0 0 0 / .6) 30%, transparent 62%); mask: radial-gradient(closest-side, #000 8%, rgb(0 0 0 / .6) 30%, transparent 62%);
+    animation: lx-spin 60s linear infinite; }
+  .lx-cele__halo { position: absolute; left: 50%; top: 40%; width: 760px; height: 760px; border-radius: 50%; transform: translate(-50%, -50%); filter: blur(6px);
+    background: radial-gradient(closest-side, rgb(255 214 102 / .55), rgb(255 190 60 / .18) 45%, transparent 72%); animation: lx-pulse 3s ease-in-out infinite; }
+  .lx-cele__flash { position: absolute; left: 50%; top: 40%; width: 260px; height: 260px; border-radius: 50%; transform: translate(-50%, -50%); filter: blur(10px); background: radial-gradient(closest-side, rgb(255 255 255 / .55), transparent); }
+  .lx-cele__ring { position: absolute; left: 50%; top: 40%; width: 560px; height: 560px; border-radius: 50%; transform: translate(-50%, -50%); border: 1px solid rgb(255 230 150 / .22); box-shadow: inset 0 0 60px rgb(255 210 100 / .12); }
+  .lx-cele__ring.is-outer { width: 720px; height: 720px; border-color: rgb(255 230 150 / .10); }
+  .lx-cele__confetti { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .lx-cele__confetti > i { position: absolute; top: -20px; display: block; animation: lx-fall linear infinite; }
+  .lx-trophy-in { animation: lx-trophy-in 1s var(--ease-spring) backwards; }
+  .lx-tap-hint { display: flex; align-items: center; gap: 10px; font: 700 13px/1 var(--font-display); letter-spacing: .3em; text-transform: uppercase; color: rgb(220 228 255 / .6); animation: lx-blink 2s infinite; }
+  .lx-tap-hint::before, .lx-tap-hint::after { content: ""; width: 40px; height: 1px; background: rgb(220 228 255 / .3); }
+
+  /* placar de transmissão (final, celebração, Copa) */
+  .lx-score { display: flex; align-items: stretch; filter: drop-shadow(0 18px 30px rgb(0 0 0 / .6)); }
+  .lx-score__tm { display: flex; align-items: center; gap: 14px; height: 62px; min-width: 250px; padding: 0 22px; font: italic 800 26px/1 var(--font-display); text-transform: uppercase; color: var(--club-ink); }
+  .lx-score__tm > img { width: 40px; height: 40px; }
+  .lx-score__tm.is-home { justify-content: flex-end; background: linear-gradient(90deg, var(--club), var(--club-2)); clip-path: polygon(16px 0, 100% 0, 100% 100%, 0 100%); }
+  .lx-score__tm.is-away { background: linear-gradient(90deg, var(--club), var(--club-2)); clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%); }
+  .lx-score__res { display: grid; place-items: center; min-width: 130px; font: italic 800 40px/1 var(--font-num); letter-spacing: .04em; font-variant-numeric: tabular-nums; color: #0A0F3A; background: linear-gradient(180deg, #F4F6FF, #C8D0EE); }
+}
+
+
+/* =============================================================================
+   §6  SUPERFÍCIES DO MODO IMERSIVO
+   ============================================================================= */
+@layer components {
+
+  /* ---------- 6.1 bug de placar ao vivo -------------------------------------- */
+  /* <div class="lx-bug [is-goal] [data-side-scored=home|away]">
+       <span class="lx-bug__comp"><img/></span>
+       <span class="lx-bug__team is-home" style="--club:…;--club-2:…;--club-ink:…"><i class="lx-bug__bar"></i>PAL<i class="lx-bug__red"></i></span>
+       <span class="lx-bug__score num">2<i>–</i>1</span>
+       <span class="lx-bug__team is-away" style="…">BOC<i class="lx-bug__bar"></i></span>
+       <span class="lx-bug__clock"><i class="lx-dot-accent"></i><span class="num">67:12</span></span>
+       <span class="lx-bug__extra">+3</span>
+     </div> */
+  .lx-bug { --lx-bug-h: 44px; position: relative; display: inline-flex; align-items: stretch; height: var(--lx-bug-h); filter: drop-shadow(0 10px 18px rgb(0 0 0 / .55)); animation: lx-wipe-in var(--dur-3) var(--ease-out) backwards; } /* backwards: o clip some no fim e a sombra volta */
+  .lx-bug__comp { display: grid; place-items: center; width: calc(var(--lx-bug-h) + 8px); background: var(--bg-2); clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%); }
+  .lx-bug__comp > img, .lx-bug__comp > svg { width: 26px; height: 26px; object-fit: contain; }
+  .lx-bug__team { position: relative; display: flex; align-items: center; gap: 8px; min-width: 76px; padding: 0 14px; font: italic 800 22px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--text); background: linear-gradient(180deg, #16217A, #0C1450); overflow: hidden; transition: min-width var(--dur-2) var(--ease-out); }
+  .lx-bug__team.is-home { justify-content: flex-end; }
+  .lx-bug__bar { position: absolute; top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, var(--club), var(--club-2)); }
+  .lx-bug__team.is-home .lx-bug__bar { left: 0; }
+  .lx-bug__team.is-away .lx-bug__bar { right: 0; }
+  .lx-bug__red { display: inline-block; width: 6px; height: 9px; background: var(--lx-card-red); box-shadow: 0 0 0 1px rgb(0 0 0 / .3); }
+  .lx-bug__score { display: grid; grid-auto-flow: column; align-items: center; gap: 6px; min-width: 84px; justify-content: center; padding: 0 12px; font: italic 800 28px/1 var(--font-num); font-variant-numeric: tabular-nums; color: #0A0F3A; background: linear-gradient(180deg, #F4F6FF, #C8D0EE); }
+  .lx-bug__score > i { font-style: normal; opacity: .45; font-size: .8em; }
+  .lx-bug__clock { display: flex; align-items: center; gap: 8px; min-width: 88px; padding: 0 16px 0 12px; font: 700 22px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .02em; color: var(--text); background: var(--bg-2); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+  .lx-bug__extra { position: absolute; right: 18px; top: 100%; height: 22px; padding: 0 10px 0 12px; display: grid; place-items: center; font: italic 800 15px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--lx-gold-ink); background: linear-gradient(90deg, #FFD55A, #E9A61E); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); animation: lx-drop-in var(--dur-2) var(--ease-out) backwards; }
+  .lx-bug__scorer { display: none; font: 700 14px/1 var(--font-display); letter-spacing: .06em; color: var(--lx-gold); white-space: nowrap; }
+  .lx-bug.is-goal .lx-bug__score { animation: lx-goal-flash 1200ms var(--ease-out); }
+  .lx-bug.is-goal[data-side-scored="home"] .lx-bug__team.is-home,
+  .lx-bug.is-goal[data-side-scored="away"] .lx-bug__team.is-away { min-width: 220px; }
+  .lx-bug.is-goal[data-side-scored="home"] .lx-bug__team.is-home .lx-bug__scorer,
+  .lx-bug.is-goal[data-side-scored="away"] .lx-bug__team.is-away .lx-bug__scorer { display: inline; animation: lx-rise var(--dur-2) var(--ease-out) backwards; }
+  .lx-bug[data-phase="ht"] .lx-bug__clock, .lx-bug[data-phase="ft"] .lx-bug__clock { color: var(--lx-gold); font-style: italic; font-weight: 800; letter-spacing: .1em; }
+
+  /* ---------- 6.2 cronômetro de decisão (barra + anel) ------------------------ */
+  /* barra: <div class="lx-countdown" style="--lx-cd-dur:10s" data-urgency="ok|warn|crit"><i class="lx-countdown__fill"></i></div> */
+  .lx-countdown { --lx-cd-color: var(--accent); position: relative; height: 4px; overflow: hidden; background: rgb(255 255 255 / .08); }
+  .lx-countdown__fill { position: absolute; inset: 0; transform-origin: 0 50%; background: linear-gradient(90deg, color-mix(in oklab, var(--lx-cd-color), transparent 40%), var(--lx-cd-color)); box-shadow: 0 0 12px var(--lx-cd-color); animation: lx-deplete var(--lx-cd-dur, 10s) linear both; }
+  .lx-countdown[data-urgency="warn"] { --lx-cd-color: var(--warning); }
+  .lx-countdown[data-urgency="crit"] { --lx-cd-color: var(--negative); }
+  .lx-countdown[data-urgency="crit"] .lx-countdown__fill { animation: lx-deplete var(--lx-cd-dur, 10s) linear both, lx-blink .5s steps(2) infinite; }
+  .lx-countdown.is-paused .lx-countdown__fill, .lx-cd-ring.is-paused .lx-cd-ring__fill { animation-play-state: paused; }
+  /* anel: <svg class="lx-cd-ring" viewBox="0 0 44 44"><circle class="lx-cd-ring__track" cx="22" cy="22" r="19" pathLength="100"/><circle class="lx-cd-ring__fill" …/></svg> */
+  .lx-cd-ring { --lx-cd-color: var(--accent); width: 44px; height: 44px; transform: rotate(-90deg); overflow: visible; }
+  .lx-cd-ring__track { fill: none; stroke: rgb(255 255 255 / .10); stroke-width: 4; }
+  .lx-cd-ring__fill { fill: none; stroke: var(--lx-cd-color); stroke-width: 4; stroke-linecap: butt; stroke-dasharray: 100 100; filter: drop-shadow(0 0 4px var(--lx-cd-color)); animation: lx-ring var(--lx-cd-dur, 10s) linear both; }
+  .lx-cd-ring[data-urgency="warn"] { --lx-cd-color: var(--warning); }
+  .lx-cd-ring[data-urgency="crit"] { --lx-cd-color: var(--negative); }
+  .lx-cd-num { font: italic 800 20px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+
+  /* ---------- 6.3 "lance decisivo": destaque do campo + tile de opção ---------- */
+  .lx-spotlight { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at var(--lx-x, 50%) var(--lx-y, 50%), transparent 0 70px, rgb(3 5 26 / .66) 170px); transition: opacity var(--dur-2) var(--ease-out); }
+  .lx-option {
+    --lx-c: 12px;
+    position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px; text-align: left; cursor: pointer; border: 0; color: var(--text);
+    clip-path: polygon(0 0, calc(100% - var(--lx-c)) 0, 100% var(--lx-c), 100% 100%, var(--lx-c) 100%, 0 calc(100% - var(--lx-c)));
+    background: var(--lx-plate-bd);
+    transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-1) var(--ease-out);
+  }
+  .lx-option::before { content: ""; position: absolute; inset: var(--lx-bw, 1px); z-index: -1; background: var(--lx-plate-bg); clip-path: inherit; box-shadow: var(--lx-plate-inner, none); }
+  .lx-option:hover { transform: translateY(-2px); }
+  .lx-option:focus-visible { outline: none; --lx-bw: 2px; background: var(--accent); --lx-plate-inner: inset 0 0 22px -6px rgb(59 228 255 / .65); }
+  .lx-option[aria-pressed="true"] { background: var(--accent); --lx-plate-inner: inset 0 0 0 999px rgb(59 228 255 / .12); }
+  .lx-options.has-choice .lx-option:not([aria-pressed="true"]) { opacity: .4; }
+  .lx-option__key { display: inline-grid; place-items: center; width: 22px; height: 22px; font: 800 13px/1 var(--font-display); color: var(--accent); background: rgb(59 228 255 / .12); box-shadow: inset 0 0 0 1px rgb(59 228 255 / .45); clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); }
+  .lx-option__title { font: italic 800 20px/1 var(--font-display); text-transform: uppercase; }
+  .lx-option__meta { font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+
+  /* ---------- 6.4 GOL! stinger ------------------------------------------------ */
+  .lx-stinger { position: absolute; left: 0; right: 0; top: 50%; height: 120px; transform: translateY(-50%) skewY(-4deg); display: grid; place-items: center; overflow: hidden; pointer-events: none;
+    background: linear-gradient(90deg, rgb(233 166 30 / 0), #E9A61E 12%, #FFD55A 50%, #E9A61E 88%, rgb(233 166 30 / 0));
+    animation: lx-wipe-in 350ms var(--ease-out) backwards; }
+  .lx-stinger.is-out { animation: lx-wipe-out 350ms var(--lx-ease-in) both; }
+  .lx-stinger__txt { font: italic 800 110px/1 var(--font-display); letter-spacing: -.01em; text-transform: uppercase; color: var(--lx-gold-ink); transform: skewY(4deg); }
+
+  /* ---------- 6.5 medidores (energia, moral, paciência da diretoria) ------------ */
+  /* <div class="lx-meter" style="--lx-v:.72" data-level="ok|warn|crit"></div> */
+  .lx-meter { --lx-meter-c: var(--accent); height: 6px; background: linear-gradient(90deg, var(--lx-meter-c) calc(var(--lx-v, 0) * 100%), rgb(255 255 255 / .08) 0); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); transition: --lx-v var(--dur-2) var(--ease-out); }
+  .lx-meter--seg { height: 10px; -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent calc(10% - 3px) 10%); mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent calc(10% - 3px) 10%); }
+  .lx-meter[data-level="good"] { --lx-meter-c: var(--positive); }
+  .lx-meter[data-level="warn"] { --lx-meter-c: var(--warning); }
+  .lx-meter[data-level="crit"] { --lx-meter-c: var(--negative); }
+  .lx-attr-bar { transition: --lx-v var(--dur-2) var(--ease-out); height: 5px; background: rgb(120 140 230 / .14); clip-path: polygon(2px 0, 100% 0, calc(100% - 2px) 100%, 0 100%); }
+  .lx-attr-bar > i { display: block; height: 100%; width: calc(var(--lx-v, 0) * 100%); background: linear-gradient(90deg, var(--lx-accent-2), var(--accent)); }
+
+  /* ---------- 6.6 slider de negociação ----------------------------------------- */
+  /* <input type="range" class="lx-range" style="--lx-v:.45; --lx-cap:.62"> (React atualiza --lx-v) */
+  .lx-range { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: none; cursor: pointer; }
+  .lx-range::-webkit-slider-runnable-track { height: 6px; background: linear-gradient(90deg, var(--lx-accent-2), var(--accent)) 0 0 / calc(var(--lx-v, 0) * 100%) 100% no-repeat, rgb(255 255 255 / .10); }
+  .lx-range::-moz-range-track { height: 6px; background: rgb(255 255 255 / .10); }
+  .lx-range::-moz-range-progress { height: 6px; background: linear-gradient(90deg, var(--lx-accent-2), var(--accent)); }
+  .lx-range::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 26px; margin-top: -10px; border: 0; border-radius: 0; background: #F4F6FF; box-shadow: 0 0 0 1px rgb(6 16 58 / .6), 0 0 14px rgb(59 228 255 / .6); }
+  .lx-range::-moz-range-thumb { width: 16px; height: 26px; border: 0; border-radius: 0; background: #F4F6FF; box-shadow: 0 0 0 1px rgb(6 16 58 / .6), 0 0 14px rgb(59 228 255 / .6); }
+  .lx-range:focus-visible { outline: none; }
+  .lx-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 0 18px rgb(59 228 255 / .8); }
+  .lx-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 0 18px rgb(59 228 255 / .8); }
+  .lx-range-wrap { position: relative; }
+  .lx-range-wrap__cap { position: absolute; top: -2px; left: calc(var(--lx-cap, 1) * 100%); width: 0; height: 0; transform: translateX(-6px); border: 6px solid transparent; border-top-color: var(--lx-gold); } /* teto do clube ▼ */
+
+  /* ---------- 6.7 dia do calendário (faixa semanal) ---------------------------- */
+  .lx-day { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 6px; min-width: 128px; padding: 12px 14px; background: rgb(20 28 92 / .35); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+  .lx-day__dow { font: 700 11px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+  .lx-day__date { font: italic 800 22px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .lx-day.is-past { opacity: .6; }
+  .lx-day.is-today { background: linear-gradient(180deg, rgb(59 228 255 / .16), rgb(59 228 255 / .04)); box-shadow: inset 0 3px 0 var(--accent), inset 0 0 0 1px rgb(59 228 255 / .45); }
+  .lx-day.is-match { background: linear-gradient(160deg, color-mix(in srgb, var(--club-tint, var(--club)) 30%, transparent), rgb(20 28 92 / .35) 70%); }
+  .lx-window-band { background: repeating-linear-gradient(115deg, rgb(59 228 255 / .10) 0 8px, rgb(59 228 255 / .03) 8px 16px); box-shadow: inset 0 0 0 1px rgb(59 228 255 / .3); }
+
+  /* ---------- 6.8 post da rede social ------------------------------------------ */
+  .lx-post { --lx-c: var(--lx-cut-sm); padding: 14px 16px; }
+  .lx-avatar { width: 40px; height: 40px; flex: none; object-fit: cover; background: var(--surface-3); clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+  .lx-avatar--club { box-shadow: inset 0 0 0 2px var(--club); }
+  .lx-handle { color: var(--accent); }
+  .lx-post--official { box-shadow: inset 3px 0 0 var(--club); }
+  .lx-post__action { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); background: none; border: 0; cursor: pointer; transition: color var(--dur-1) var(--ease-out); }
+  .lx-post__action:hover { color: var(--text); }
+  .lx-post__action[aria-pressed="true"].is-like { color: var(--negative); }
+  .lx-post__action > svg { width: 16px; height: 16px; }
+
+  /* ---------- 6.9 coletiva: parede de patrocínio + flash de câmeras ----------- */
+  .lx-press-wall { position: absolute; inset: 0; opacity: .06; pointer-events: none; background-image: var(--lx-press-logo, none); background-size: 180px 110px; background-position: 0 0, 90px 55px;
+    -webkit-mask: radial-gradient(75% 65% at 50% 32%, #000 30%, transparent 85%); mask: radial-gradient(75% 65% at 50% 32%, #000 30%, transparent 85%); }
+  .lx-camera-flash { position: absolute; width: 180px; height: 180px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgb(255 255 255 / .9), rgb(255 255 255 / 0)); mix-blend-mode: screen; animation: lx-camera 220ms ease-out both; }
+  .lx-tone { align-self: flex-start; justify-self: start; font: 800 11px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; padding: 4px 8px; clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); }
+  .lx-tone[data-tone="humilde"]   { color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); }
+  .lx-tone[data-tone="confiante"] { color: var(--accent); background: rgb(59 228 255 / .14); }
+  .lx-tone[data-tone="polemico"]  { color: var(--negative); background: var(--negative-bg); }
+  .lx-tone[data-tone="evasivo"]   { color: var(--text-2); background: rgb(160 175 230 / .12); }
+
+  /* ---------- 6.10 jogador no campo (usado dentro do SVG do campo) ------------ */
+  .lx-pitch-me { animation: lx-me-pulse 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+
+  /* stagger declarativo: style="--i: n".
+     Entradas usam fill-mode BACKWARDS: segura o estado inicial durante o delay e solta no fim —
+     "both" prenderia opacity/transform e anularia hover (translateY) e o esmaecido de .has-choice. */
+  .lx-anim-rise  { animation: lx-rise var(--dur-3) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+  .lx-anim-slide { animation: lx-slide var(--dur-2) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 35ms); }
+  .lx-anim-wipe  { animation: lx-wipe-in var(--dur-3) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+}
+
+
+/* =============================================================================
+   §7  KEYFRAMES
+   ============================================================================= */
+@keyframes lx-rise     { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-slide    { from { transform: translateX(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-drop-in  { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-wipe-in  { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes lx-wipe-out { from { clip-path: inset(0 0 0 0); } to { clip-path: inset(0 0 0 100%); } }
+@keyframes lx-sweep    { 0% { left: -60%; } 28%, 100% { left: 130%; } }
+@keyframes lx-blink    { 50% { opacity: .35; } }
+@keyframes lx-crawl    { to { transform: translateX(-50%); } }
+@keyframes lx-spin     { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes lx-pulse    { 50% { opacity: .8; transform: translate(-50%, -50%) scale(1.04); } }
+@keyframes lx-fall     { 0% { transform: translateY(-40px) rotate(0) rotateY(0); } 100% { transform: translateY(110vh) rotate(720deg) rotateY(720deg); } }
+@keyframes lx-trophy-in { from { transform: translateY(40px) scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-deplete  { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes lx-ring     { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 100; } }
+@keyframes lx-goal-flash {
+  0%   { background: linear-gradient(180deg, #F4F6FF, #C8D0EE); }
+  12%  { background: linear-gradient(180deg, #FFF3C0, #FFD55A); color: var(--lx-gold-ink); }
+  70%  { background: linear-gradient(180deg, #FFF3C0, #FFD55A); color: var(--lx-gold-ink); }
+  100% { background: linear-gradient(180deg, #F4F6FF, #C8D0EE); }
+}
+@keyframes lx-stamp    { 0% { background-color: rgb(59 228 255 / .35); } 100% { background-color: transparent; } }
+@keyframes lx-flip     { 0% { transform: perspective(600px) rotateY(0); } 50% { transform: perspective(600px) rotateY(90deg); } 100% { transform: perspective(600px) rotateY(0); } }
+@keyframes lx-camera   { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.1); } }
+@keyframes lx-me-pulse { 50% { transform: scale(1.18); opacity: .55; } }
+
+
+/* =============================================================================
+   §8  ACESSIBILIDADE
+   ============================================================================= */
+/* Movimento reduzido: sistema OU ajuste do jogo (<html data-motion="reduced">).
+   Mantém: fades curtos, o cronômetro de decisão (é informação — vira degraus de 1 s). */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="transmissao"] *, [data-theme="transmissao"] *::before, [data-theme="transmissao"] *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important;
+    transition-duration: 1ms !important; scroll-behavior: auto !important;
+  }
+  [data-theme="transmissao"] .lx-sweep::after, [data-theme="transmissao"] .lx-cele__rays, [data-theme="transmissao"] .lx-cele__halo,
+  [data-theme="transmissao"] .lx-cele__confetti, [data-theme="transmissao"] .lx-camera-flash, [data-theme="transmissao"] .lx-pitch-me,
+  [data-theme="transmissao"] .lx-live-dot, [data-theme="transmissao"] .lx-chip--live::before, [data-theme="transmissao"] .lx-pending__q,
+  [data-theme="transmissao"] .lx-tap-hint { animation: none !important; }
+  [data-theme="transmissao"] .lx-cele__confetti { display: none; }
+  [data-theme="transmissao"] .lx-ticker__track { animation: none !important; padding-left: 16px; }
+  [data-theme="transmissao"] .lx-ticker__vp { overflow-x: auto; scrollbar-width: none; }
+  [data-theme="transmissao"] .lx-ticker__track > [aria-hidden="true"] { display: none; }
+  [data-theme="transmissao"] .lx-countdown__fill { animation: lx-deplete var(--lx-cd-dur, 10s) steps(var(--lx-cd-steps, 10), end) both !important; }
+  [data-theme="transmissao"] .lx-cd-ring__fill { animation: lx-ring var(--lx-cd-dur, 10s) steps(var(--lx-cd-steps, 10), end) both !important; }
+}
+:root[data-motion="reduced"][data-theme="transmissao"] *, :root[data-motion="reduced"][data-theme="transmissao"] *::before, :root[data-motion="reduced"][data-theme="transmissao"] *::after {
+  animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: 1ms !important;
+}
+:root[data-motion="reduced"][data-theme="transmissao"] .lx-sweep::after { animation: none !important; }
+:root[data-motion="reduced"][data-theme="transmissao"] :is(.lx-cele__rays, .lx-cele__halo, .lx-camera-flash, .lx-pitch-me, .lx-live-dot, .lx-pending__q, .lx-tap-hint) { animation: none !important; }
+:root[data-motion="reduced"][data-theme="transmissao"] .lx-cele__confetti { display: none; }
+:root[data-motion="reduced"][data-theme="transmissao"] .lx-ticker__track { animation: none !important; }
+:root[data-motion="reduced"][data-theme="transmissao"] .lx-ticker__vp { overflow-x: auto; }
+:root[data-motion="reduced"][data-theme="transmissao"] .lx-countdown__fill { animation: lx-deplete var(--lx-cd-dur, 10s) steps(var(--lx-cd-steps, 10), end) both !important; }
+:root[data-motion="reduced"][data-theme="transmissao"] .lx-cd-ring__fill { animation: lx-ring var(--lx-cd-dur, 10s) steps(var(--lx-cd-steps, 10), end) both !important; }
+
+/* Alto contraste do Windows: recortes e gradientes somem → bordas reais */
+@media (forced-colors: active) {
+  [data-theme="transmissao"] :is(.lx-plate, .lx-option, .lx-club-plate, .lx-post) { clip-path: none; border: 1px solid CanvasText; background: Canvas; }
+  [data-theme="transmissao"] :is(.lx-plate, .lx-option)::before { display: none; }
+  [data-theme="transmissao"] .lx-btn::before { clip-path: none; background: ButtonFace; border: 2px solid ButtonText; }
+  [data-theme="transmissao"] .lx-btn:focus-visible { outline: 3px solid Highlight; outline-offset: 3px; }
+  [data-theme="transmissao"] :is(.lx-metal-gold, .lx-metal-silver, .lx-text-accent) { background: none; color: CanvasText; -webkit-text-fill-color: CanvasText; }
+  [data-theme="transmissao"] :is(.lx-ovr, .lx-ovr-s, .lx-chip, .lx-club-age) { forced-color-adjust: none; }
+  [data-theme="transmissao"] :is(.lx-plate, .lx-option):focus-visible { outline: 3px solid Highlight; outline-offset: -3px; }
+}

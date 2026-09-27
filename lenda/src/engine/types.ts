@@ -189,6 +189,13 @@ export interface GameData {
   fixtures: Record<string, Fixture[]>
   /** Histórico real recente para "Mundo" e Bola de Ouro. */
   history: RealHistory
+  /** Competições em andamento hoje (Libertadores nas semis, Champions na fase de liga…). */
+  cupsInProgress: Record<string, import('./api').CupInProgress>
+  /**
+   * Clubes que não jogam liga simulada (países sem dados) mas disputam continentais
+   * (ex.: Shakhtar, Slavia Praga, Qarabağ). Mesmo formato de Club com leagueId = "none".
+   */
+  extraClubIds: string[]
 }
 
 export interface RealHistory {

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atmosfera de estádio</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  .ui { position: fixed; left: 0; bottom: 0; z-index: 2; padding: 20px 28px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  /* chão "holográfico" em perspectiva (hero da landing) */
+  .art { position: absolute; left: 50%; top: 52%; width: 720px; height: 700px; transform: translate(-50%, -50%) scale(var(--s, 1)); z-index: 1; }
+  .floor { position: absolute; left: 50%; bottom: -40px; width: 1000px; height: 560px; transform: translateX(-50%) perspective(900px) rotateX(64deg); transform-origin: 50% 100%;
+    -webkit-mask: radial-gradient(60% 70% at 50% 60%, #000 40%, transparent 75%); mask: radial-gradient(60% 70% at 50% 60%, #000 40%, transparent 75%); }
+  .floor img { width: 100%; height: 100%; display: block; }
+  .glow-cyan { position: absolute; left: 50%; top: 140px; width: 520px; height: 420px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(circle, rgb(59 228 255 / .35), transparent 65%); }
+  .glow-gold { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgb(247 201 72 / .45), rgb(247 201 72 / .08) 45%, transparent 70%); filter: blur(4px); }
+  .num-bg { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); font: italic 800 560px/.8 var(--font-display); letter-spacing: -.04em; color: transparent; -webkit-text-stroke: 2px rgb(120 150 255 / .16); user-select: none; }
+  .pos-node { position: absolute; font: 800 15px/1 var(--font-display); letter-spacing: .08em; color: rgb(200 215 255 / .75); padding: 5px 10px; background: rgb(14 22 80 / .7); box-shadow: inset 0 0 0 1px rgb(120 150 255 / .35); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+  .pos-node.on { color: #0A0F3A; background: var(--accent); }
+  .t-bdo { position: absolute; left: 34px; top: 300px; filter: var(--lx-drop-gold); }
+  .t-wc { position: absolute; right: 48px; top: 250px; filter: var(--lx-drop-gold); }
+  @media (max-width: 760px) { .art { --s: .55; } }
+</style>
+</head>
+<body>
+<div class="lx-stadium" id="st">
+  <i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-l2"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__beam is-r2"></i>
+  <div class="lx-stadium__lights is-l"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="lx-stadium__lights is-r"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <i class="lx-stadium__haze"></i><i class="lx-stadium__pitchlines"></i><i class="lx-stadium__bokeh"></i><i class="lx-noise-layer"></i>
+</div>
+<div class="ui">
+  <span class="lx-kicker">.lx-stadium · variantes</span>
+  <div class="lx-seg" role="radiogroup" aria-label="Variante" id="seg">
+    <button role="radio" aria-checked="true" data-v="">Completo</button><button role="radio" aria-checked="false" data-v="lx-stadium--calm">Calm</button><button role="radio" aria-checked="false" data-v="lx-stadium--gala">Gala</button><button role="radio" aria-checked="false" data-v="lx-stadium--calm lx-stadium--club">Clube</button>
+  </div>
+</div>
+<div class="art" aria-hidden="true">
+  <div class="lx-spot-cone"></div>
+  <div class="floor"><img src="../art/pitch-floor.svg" alt=""></div>
+  <div class="glow-gold" style="left:-10px;top:300px;width:300px;height:300px"></div>
+  <div class="glow-gold" style="right:10px;top:250px;width:240px;height:240px;opacity:.7"></div>
+  <div class="glow-cyan"></div>
+  <div class="num-bg">9</div>
+  <span class="pos-node" style="left:96px;top:578px">LE</span><span class="pos-node" style="left:250px;top:600px">VOL</span>
+  <span class="pos-node" style="right:250px;top:602px">MC</span><span class="pos-node" style="right:92px;top:580px">LD</span>
+  <span class="pos-node on" style="left:50%;top:560px;transform:translateX(-50%);box-shadow:0 0 20px var(--accent)">CA</span>
+  <img class="t-wc" src="../trophies/world-cup.svg" width="112" height="187" alt="">
+  <img class="t-bdo" src="../trophies/ballon-dor.svg" width="150" height="250" alt="">
+</div>
+<script>
+const st = document.getElementById('st');
+document.getElementById('seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#seg button').forEach(x => x.setAttribute('aria-checked', x === b));
+  st.className = 'lx-stadium ' + b.dataset.v; st.style.setProperty('--club', '#D0152F');
+});
+</script>
+</body>
+</html>

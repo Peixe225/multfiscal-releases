@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" preserveAspectRatio="none" aria-hidden="true">
+  <!-- Campo "holográfico" azul do hero da landing. Use dentro de um wrapper com
+       transform: perspective(900px) rotateX(64deg); transform-origin: 50% 100%;
+       e máscara radial (ver effects/stadium.html). Linhas leem accent. -->
+  <defs>
+    <filter id="lx-floor-glow" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1000" height="560" fill="#081A36"/>
+  <g fill="#0D2A4C" opacity=".55">
+    <rect x="0" width="50" height="560"/><rect x="100" width="50" height="560"/><rect x="200" width="50" height="560"/><rect x="300" width="50" height="560"/><rect x="400" width="50" height="560"/>
+    <rect x="500" width="50" height="560"/><rect x="600" width="50" height="560"/><rect x="700" width="50" height="560"/><rect x="800" width="50" height="560"/><rect x="900" width="50" height="560"/>
+  </g>
+  <g fill="none" style="stroke:var(--accent,#5BE6FF)" stroke-opacity=".75" stroke-width="3" filter="url(#lx-floor-glow)">
+    <rect x="40" y="30" width="920" height="500"/>
+    <line x1="500" y1="30" x2="500" y2="530"/>
+    <circle cx="500" cy="280" r="80"/>
+    <rect x="40" y="150" width="140" height="260"/><rect x="820" y="150" width="140" height="260"/>
+    <rect x="40" y="220" width="50" height="120"/><rect x="910" y="220" width="50" height="120"/>
+  </g>
+  <circle cx="500" cy="280" r="6" style="fill:var(--accent,#5BE6FF)"/>
+</svg>

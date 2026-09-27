@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="bra-title" class="lx-trophy" data-trophy="brasileirao">
+  <title id="bra-title">Brasileirão Série A</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <linearGradient id="bra-lg-gold" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/>
+  <stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/>
+  <stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/>
+  <stop offset=".89" style="stop-color:var(--metal-gold-6,#f3d170)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#4f3104)"/>
+  </linearGradient>
+  <linearGradient id="bra-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <linearGradient id="bra-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="bra-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="bra-lg-black" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#26282e)"/>
+  <stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/>
+  </linearGradient>
+  <linearGradient id="bra-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <path fill="url(#bra-lg-gold)" d="M31,20 L69,20 C66,56 60,94 54.5,128 L45.5,128 C40,94 34,56 31,20 Z"/>
+  <path fill="#fff6cf" opacity=".55" d="M50,24 L63.5,40 L50,124 L36.5,40 Z"/>
+  <path fill="#8a5a0c" opacity=".35" d="M50,24 L63.5,40 L50,48 Z M50,24 L36.5,40 L50,48 Z"/>
+  <path fill="url(#bra-lg-silver)" fill-rule="evenodd" d="M16,9 L84,9 C82,52 73,98 64.5,137 L35.5,137 C27,98 18,52 16,9 Z M29,19 L71,19 C68,55 61.5,93 55.5,128 L44.5,128 C38.5,93 32,55 29,19 Z"/>
+  <path fill="url(#bra-lg-sheen)" opacity=".6" d="M16,9 L84,9 C82,52 73,98 64.5,137 L35.5,137 C27,98 18,52 16,9 Z"/>
+  <ellipse cx="50" cy="9" rx="34" ry="3.2" fill="url(#bra-lg-silver-v)"/>
+  <path fill="url(#bra-lg-silver)" d="M35.5,136.5 L64.5,136.5 L66.5,143 L33.5,143 Z"/>
+  <path fill="#0f9a50" d="M33,143 L67,143 L68,149 L32,149 Z"/>
+  <path fill="#ffd21f" d="M32,149 L68,149 L68.6,153 L31.4,153 Z"/>
+  <path fill="url(#bra-lg-black)" d="M30,153 L70,153 L73.5,172 L26.5,172 Z"/>
+  <rect x="25.5" y="171" width="49" height="4" rx="1" fill="url(#bra-lg-silver-d)"/>
+  <rect x="42" y="159" width="16" height="7" rx="1" fill="url(#bra-lg-silver)" opacity=".9"/>
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-labelledby="lx-mark-t">
+  <title id="lx-mark-t">LENDA</title>
+  <!-- Marca LENDA: "L" vazado num paralelogramo de ouro. Ouro lê metal-gold-1/2/4. Mínimo 24px. -->
+  <defs>
+    <linearGradient id="lx-mark-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color:var(--metal-gold-1,#FFF3C0)"/>
+      <stop offset=".5" style="stop-color:var(--metal-gold-2,#F3BF3E)"/>
+      <stop offset="1" style="stop-color:var(--metal-gold-4,#A86A06)"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 2h30l-6 36H2z" fill="url(#lx-mark-g)"/>
+  <path d="M14 9h7l-3.6 17H27l-1.2 5.5H9.8z" fill="#0A0F3A"/>
+</svg>

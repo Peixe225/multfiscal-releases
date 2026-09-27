@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" width="320" height="160" aria-hidden="true">
+  <!-- NOVO · buquê de microfones da coletiva. Veículos FICTÍCIOS (LTV, R+, ARQ) — nunca usar marcas reais.
+       Cubos leem accent / lx-live / metal-gold-2 via fallback. -->
+  <defs>
+    <linearGradient id="lx-mic-head" x1="0" x2="1"><stop offset="0" stop-color="#1A1D29"/><stop offset=".45" stop-color="#4A5068"/><stop offset="1" stop-color="#0B0D14"/></linearGradient>
+    <linearGradient id="lx-mic-stem" x1="0" x2="1"><stop offset="0" stop-color="#0B0D14"/><stop offset=".5" stop-color="#2E3244"/><stop offset="1" stop-color="#08090E"/></linearGradient>
+    <pattern id="lx-mic-mesh" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".8" fill="#000" opacity=".45"/></pattern>
+  </defs>
+  <g transform="rotate(-14 90 150)">
+    <rect x="84" y="60" width="12" height="100" fill="url(#lx-mic-stem)"/>
+    <rect x="70" y="52" width="40" height="30" style="fill:var(--accent,#3BE4FF)"/>
+    <text x="90" y="73" text-anchor="middle" font-family="Barlow Condensed, sans-serif" font-weight="800" font-style="italic" font-size="15" fill="#06103A">LTV</text>
+    <ellipse cx="90" cy="34" rx="17" ry="22" fill="url(#lx-mic-head)"/><ellipse cx="90" cy="34" rx="17" ry="22" fill="url(#lx-mic-mesh)"/>
+  </g>
+  <g>
+    <rect x="154" y="58" width="12" height="102" fill="url(#lx-mic-stem)"/>
+    <rect x="138" y="48" width="44" height="32" style="fill:var(--lx-live,#FF2E55)"/>
+    <text x="160" y="70" text-anchor="middle" font-family="Barlow Condensed, sans-serif" font-weight="800" font-style="italic" font-size="16" fill="#fff">R+</text>
+    <ellipse cx="160" cy="28" rx="18" ry="23" fill="url(#lx-mic-head)"/><ellipse cx="160" cy="28" rx="18" ry="23" fill="url(#lx-mic-mesh)"/>
+  </g>
+  <g transform="rotate(13 230 150)">
+    <rect x="224" y="62" width="12" height="98" fill="url(#lx-mic-stem)"/>
+    <rect x="210" y="54" width="40" height="30" style="fill:var(--metal-gold-2,#F7C948)"/>
+    <text x="230" y="75" text-anchor="middle" font-family="Barlow Condensed, sans-serif" font-weight="800" font-style="italic" font-size="15" fill="#241400">ARQ</text>
+    <ellipse cx="230" cy="36" rx="17" ry="22" fill="url(#lx-mic-head)"/><ellipse cx="230" cy="36" rx="17" ry="22" fill="url(#lx-mic-mesh)"/>
+  </g>
+</svg>

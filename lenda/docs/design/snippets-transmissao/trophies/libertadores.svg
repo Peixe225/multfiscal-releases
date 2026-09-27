@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-libertadores-t">
+  <title id="lx-libertadores-t">CONMEBOL Libertadores</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-libertadores-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-libertadores-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+    <linearGradient id="lx-libertadores-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+    <linearGradient id="lx-libertadores-wood" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-wood-4,#1E0F07)"/><stop offset="0.3" style="stop-color:var(--metal-wood-2,#5A3219)"/><stop offset="0.46" style="stop-color:var(--metal-wood-1,#83502B)"/><stop offset="0.7" style="stop-color:var(--metal-wood-3,#4A2813)"/><stop offset="1" style="stop-color:var(--metal-wood-5,#190B05)"/></linearGradient>
+  </defs>
+  <circle cx="70.5" cy="38" r="4.3" fill="url(#lx-libertadores-silv)"/>
+  <circle cx="57" cy="13.5" r="4.6" fill="url(#lx-libertadores-silv)"/>
+  <path d="M52.6 19.6 Q57 18 61.6 19.6 L63.2 30.4 Q58 32.4 53.8 30.8 Z" fill="url(#lx-libertadores-sil)"/>
+  <path d="M52.8 20.6 L45.6 27.4 L47.2 29 L54.6 23.2 Z M61.2 20.6 L67.6 25 L66.6 26.8 L60.2 23.6 Z" fill="url(#lx-libertadores-silv)"/>
+  <path d="M54.6 30.2 L57.8 30.8 L57 44 L54 44 Z" fill="url(#lx-libertadores-sil)"/>
+  <path d="M59.6 29.8 L62.8 30.8 L68.4 35.8 L66.6 37.8 Z" fill="url(#lx-libertadores-sil)"/>
+  <rect x="53.5" y="43" width="13" height="5" rx="1.6" fill="url(#lx-libertadores-sil)"/>
+  <path d="M41 65 C41 55 49.5 47.5 60 47.5 C70.5 47.5 79 55 79 65 Z" fill="url(#lx-libertadores-sil)"/>
+  <path d="M37 71 C27 70 26 87 38.5 89" stroke="url(#lx-libertadores-sil)" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <path d="M83 71 C93 70 94 87 81.5 89" stroke="url(#lx-libertadores-sil)" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <rect x="35" y="63.5" width="50" height="5.5" rx="2" fill="url(#lx-libertadores-silv)"/>
+  <path d="M36.5 69 L83.5 69 C83.5 91 74.5 105 60 107 C45.5 105 36.5 91 36.5 69 Z" fill="url(#lx-libertadores-sil)"/>
+  <path d="M38 78 L82 78" style="stroke:var(--metal-silver-5,#39425A)" stroke-opacity=".45" stroke-width="1.2"/>
+  <path d="M44 72 C43 86 47 96 52 101" stroke="#fff" stroke-opacity=".55" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M55 107 L65 107 L63 118 L66.5 124 L66.5 129 L53.5 129 L53.5 124 L57 118 Z" fill="url(#lx-libertadores-sil)"/>
+  <ellipse cx="60" cy="118.5" rx="6.4" ry="2.6" fill="url(#lx-libertadores-silv)"/>
+  <path d="M45.5 129 L74.5 129 L78.5 137 L41.5 137 Z" fill="url(#lx-libertadores-sil)"/>
+  <rect x="33" y="136.5" width="54" height="4.5" rx="1" fill="url(#lx-libertadores-silv)"/>
+  <path d="M35.5 141 L84.5 141 L90.5 194 L29.5 194 Z" fill="url(#lx-libertadores-wood)"/>
+  <rect x="39.11" y="148" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="47.91" y="148" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="56.70" y="148" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="65.49" y="148" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="74.29" y="148" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="37.89" y="159" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="47.29" y="159" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="56.70" y="159" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="66.11" y="159" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="75.51" y="159" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="36.67" y="170" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="46.68" y="170" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="56.70" y="170" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="66.72" y="170" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="76.73" y="170" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="35.44" y="181" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="46.07" y="181" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="56.70" y="181" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="67.33" y="181" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/><rect x="77.96" y="181" width="6.6" height="6.2" rx=".8" fill="url(#lx-libertadores-silv)" opacity=".9"/>
+  <rect x="28" y="192.5" width="64" height="5.5" rx="1.2" fill="url(#lx-libertadores-silv)"/>
+</svg>

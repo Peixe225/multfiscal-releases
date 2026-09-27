@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="noite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LENDA · Stage / club ambient (Noite)</title>
+<!-- Self-contained snippet: only depends on ../theme-noite.css (tokens + .lx-* classes).
+     Fonts come from @fontsource in the app; here they fall back to system fonts if not installed. -->
+<link rel="stylesheet" href="../theme-noite.css">
+<style>
+  body { margin: 0; min-height: 100vh; }
+  .app { position: relative; z-index: 1; }
+  .wrap { padding: 40px; max-width: 760px; }
+  h1 { font: 800 36px/1.05 var(--font-display); letter-spacing: -.03em; margin: 6px 0 12px; }
+  p { color: var(--text-2); max-width: 560px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+  .card { margin-top: 24px; padding: 18px; display: flex; gap: 16px; align-items: center; }
+</style>
+</head>
+<body>
+<!-- The stage is position:fixed behind everything. Club colour comes from --club / --club-glow on an ancestor. -->
+<div id="root" style="--club:#0b7a43;--club-2:#ffffff;--club-ink:#ffffff">
+  <div class="lx-stage" id="stage" aria-hidden="true"></div>
+  <main class="app wrap">
+    <span class="lx-eyebrow">.lx-stage · floodlights · grain · vignette</span>
+    <h1>A luz do estádio muda com o clube.</h1>
+    <p>Três fontes: <b>glow A</b> (34%, canto superior esquerdo, 900×620), <b>glow B</b> (16%, canto inferior direito, 700×520) e <b>glow C</b> (--club-2 a 3,5%, piso). A troca de clube faz crossfade de 800ms via <code>@property</code>.</p>
+    <div class="btns">
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-c="#0b7a43" data-c2="#ffffff">Palmeiras</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-c="#c8161e" data-c2="#111111">Flamengo</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-c="#ece6d2" data-c2="#1b2a5a" data-g="#a082ff">Real Madrid (glow lilás)</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-c="#1b1b1b" data-c2="#ffffff" data-g="#c8c8c8">Botafogo (glow neutro)</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-preset="lx-stage--brand">Preset landing</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-preset="lx-stage--legend">Preset resumo</button>
+      <button class="lx-btn lx-btn--ghost lx-btn--sm" data-preset="lx-stage--ceremony">Preset Bola de Ouro</button>
+    </div>
+    <div class="card lx-glass"><span class="lx-dot lx-dot--blink"></span><span>Surfaces are translucent, so the stage tints every card slightly.</span></div>
+  </main>
+</div>
+<script>
+  const root = document.getElementById('root'), stage = document.getElementById('stage');
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
+    stage.className = 'lx-stage';
+    root.style.setProperty('--club', b.dataset.c); root.style.setProperty('--club-2', b.dataset.c2);
+    b.dataset.g ? root.style.setProperty('--club-glow', b.dataset.g) : root.style.removeProperty('--club-glow');
+  });
+  document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => { stage.className = 'lx-stage ' + b.dataset.preset; });
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid slice" role="img" aria-labelledby="lx-ph-t">
+  <title id="lx-ph-t">Campo (horizontal) — partida</title>
+  <!-- Match pitch (home attacks →). Full pitch viewBox 0 0 1000 560.
+       Broadcast crop used in the mockup (attacking 3/4): viewBox="236 -10 780 580" with preserveAspectRatio="xMidYMid slice".
+       Player tokens: circle r=15, home fill radial #3be08c→#0a6b3a stroke #fff .8, away radial #ff4d55→#8e0e14 stroke #111 .7,
+       number Barlow Condensed 800 15px white. "You": white disc r=18 + pulsing ring r 20→34 (2s) + white label pill above. -->
+  <defs>
+    <linearGradient id="lx-ph-grass" x1="0" x2="1"><stop offset="0" stop-color="#0c3a23"/><stop offset=".5" stop-color="#0f4a2c"/><stop offset="1" stop-color="#0c3a23"/></linearGradient>
+    <pattern id="lx-ph-stripes" width="100" height="560" patternUnits="userSpaceOnUse"><rect width="50" height="560" fill="#fff" fill-opacity=".03"/></pattern>
+    <radialGradient id="lx-ph-light" cx=".82" cy=".45" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lx-ph-home" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#3be08c"/><stop offset="1" stop-color="#0a6b3a"/></radialGradient>
+    <radialGradient id="lx-ph-away" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ff4d55"/><stop offset="1" stop-color="#8e0e14"/></radialGradient>
+    <marker id="lx-ph-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#fff"/></marker>
+  </defs>
+  <rect x="0" y="-40" width="1100" height="640" fill="url(#lx-ph-grass)"/>
+  <rect x="0" y="-40" width="1100" height="640" fill="url(#lx-ph-stripes)"/>
+  <rect x="0" y="-40" width="1100" height="640" fill="url(#lx-ph-light)"/>
+  <g fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2">
+    <rect x="30" y="30" width="940" height="500" rx="3"/><path d="M500 30 V530"/><circle cx="500" cy="280" r="70"/>
+    <rect x="30" y="160" width="130" height="240"/><rect x="30" y="220" width="46" height="120"/><path d="M160 232 A 70 70 0 0 1 160 328"/>
+    <rect x="840" y="160" width="130" height="240"/><rect x="924" y="220" width="46" height="120"/><path d="M840 232 A 70 70 0 0 0 840 328"/>
+    <rect x="970" y="244" width="14" height="72" stroke-opacity=".6"/>
+    <rect x="16" y="244" width="14" height="72" stroke-opacity=".6"/>
+  </g>
+  <circle cx="500" cy="280" r="3" fill="#fff" fill-opacity=".5"/>
+  <!-- shot cone + shot path + run path (decisive moment overlay) -->
+  <path d="M790 262 L970 246 L970 314 Z" fill="#fff" fill-opacity=".07"/>
+  <path d="M790 262 C 860 240, 920 250, 962 268" stroke="#fff" stroke-width="2.4" stroke-dasharray="6 7" fill="none" marker-end="url(#lx-ph-arrow)" opacity=".85"/>
+  <path d="M760 330 C 770 305, 778 290, 786 270" stroke="#3ee6a4" stroke-width="2" stroke-dasharray="4 6" fill="none" opacity=".8"/>
+  <g font-family="'Barlow Condensed',sans-serif" font-weight="800" font-size="15" text-anchor="middle">
+    <g transform="translate(760 330)"><circle r="15" fill="url(#lx-ph-home)" stroke="#fff" stroke-opacity=".8" stroke-width="1.6"/><text y="5" fill="#fff">11</text></g>
+    <g transform="translate(948 282)"><circle r="15" fill="url(#lx-ph-away)" stroke="#111" stroke-opacity=".7" stroke-width="1.6"/><text y="5" fill="#fff">1</text></g>
+    <g transform="translate(872 360)"><circle r="15" fill="url(#lx-ph-away)" stroke="#111" stroke-opacity=".7" stroke-width="1.6"/><text y="5" fill="#fff">4</text></g>
+  </g>
+  <g transform="translate(790 262)">
+    <circle r="34" fill="#fff" fill-opacity=".08"/>
+    <circle r="26" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.5"><animate attributeName="r" values="20;34;20" dur="2s" repeatCount="indefinite"/><animate attributeName="stroke-opacity" values=".6;0;.6" dur="2s" repeatCount="indefinite"/></circle>
+    <circle r="18" fill="#fff"/><text y="6" text-anchor="middle" fill="#0b7a43" font-family="'Barlow Condensed',sans-serif" font-weight="800" font-size="19">9</text>
+  </g>
+  <circle cx="806" cy="274" r="6" fill="#fff" stroke="#000" stroke-opacity=".4"/>
+</svg>

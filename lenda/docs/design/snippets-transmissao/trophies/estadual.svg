@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-estadual-t">
+  <title id="lx-estadual-t">Campeonato Estadual (novo — mesmo sistema)</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-estadual-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-estadual-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+    <linearGradient id="lx-estadual-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+    <linearGradient id="lx-estadual-goldv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#FFF3C4)"/><stop offset="0.5" style="stop-color:var(--metal-gold-2,#EDB53A)"/><stop offset="1" style="stop-color:var(--metal-gold-4,#94600A)"/></linearGradient>
+    <linearGradient id="lx-estadual-core" x1="0" x2="1" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#FFF0B0)"/><stop offset="0.45" style="stop-color:var(--metal-gold-3,#F0B52E)"/><stop offset="1" style="stop-color:var(--metal-gold-4,#8E5A06)"/></linearGradient>
+    <linearGradient id="lx-estadual-gold" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-gold-5,#6A3F03)"/><stop offset="0.15" style="stop-color:var(--metal-gold-3,#D6951A)"/><stop offset="0.3" style="stop-color:var(--metal-gold-1,#FFEAA6)"/><stop offset="0.45" style="stop-color:var(--metal-gold-2,#F3BD3A)"/><stop offset="0.62" style="stop-color:var(--metal-gold-4,#A56B0A)"/><stop offset="0.8" style="stop-color:var(--metal-gold-2,#F6CF62)"/><stop offset="1" style="stop-color:var(--metal-gold-5,#744704)"/></linearGradient>
+    <linearGradient id="lx-estadual-wood" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-wood-4,#1E0F07)"/><stop offset="0.3" style="stop-color:var(--metal-wood-2,#5A3219)"/><stop offset="0.46" style="stop-color:var(--metal-wood-1,#83502B)"/><stop offset="0.7" style="stop-color:var(--metal-wood-3,#4A2813)"/><stop offset="1" style="stop-color:var(--metal-wood-5,#190B05)"/></linearGradient>
+    <linearGradient id="lx-estadual-onyx" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:#0B0D14"/><stop offset="0.35" style="stop-color:#3B4155"/><stop offset="0.7" style="stop-color:#1A1D29"/><stop offset="1" style="stop-color:#08090E"/></linearGradient>
+  </defs>
+  <circle cx="60" cy="14" r="4.6" fill="url(#lx-estadual-silv)"/>
+  <path d="M57.2 18 L62.8 18 L62 24 L58 24 Z" fill="url(#lx-estadual-sil)"/>
+  <path d="M44 37 C44 28 51 23 60 23 C69 23 76 28 76 37 Z" fill="url(#lx-estadual-sil)"/>
+  <path d="M49 31 C51 27 55 25.5 58.5 25.2" stroke="#fff" stroke-opacity=".55" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <rect x="40" y="36" width="40" height="5" rx="2" fill="url(#lx-estadual-goldv)"/>
+  <path d="M42 47 C27 45 25 68 44 75" stroke="url(#lx-estadual-sil)" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+  <path d="M78 47 C93 45 95 68 76 75" stroke="url(#lx-estadual-sil)" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+  <path d="M41.5 41 L78.5 41 C80.5 59 76.5 75 68 85 C65 89 63 93 63 99 L57 99 C57 93 55 89 52 85 C43.5 75 39.5 59 41.5 41 Z" fill="url(#lx-estadual-sil)"/>
+  <path d="M42.5 52 L77.5 52" style="stroke:var(--metal-silver-5,#39425A)" stroke-opacity=".4" stroke-width="1.2"/>
+  <path d="M60 55.5 L62 60.6 L67.4 60.9 L63.2 64.3 L64.6 69.6 L60 66.6 L55.4 69.6 L56.8 64.3 L52.6 60.9 L58 60.6 Z" fill="url(#lx-estadual-core)"/>
+  <path d="M47 46 C46 60 49 72 55 81" stroke="#fff" stroke-opacity=".55" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M57 99 L63 99 L62 119 L58 119 Z" fill="url(#lx-estadual-sil)"/>
+  <ellipse cx="60" cy="109" rx="6.2" ry="2.6" fill="url(#lx-estadual-silv)"/>
+  <path d="M46 119 L74 119 L78 129 L42 129 Z" fill="url(#lx-estadual-sil)"/>
+  <rect x="40" y="128.5" width="40" height="5" fill="url(#lx-estadual-gold)"/>
+  <path d="M38 133.5 L82 133.5 L85.5 161 L34.5 161 Z" fill="url(#lx-estadual-wood)"/>
+  <path d="M52 139 L68 139 L68 149 C68 153 64.5 156 60 157.5 C55.5 156 52 153 52 149 Z" fill="url(#lx-estadual-silv)" opacity=".9"/>
+  <path d="M60 142 L61.2 145 L64.4 145.2 L61.9 147.2 L62.7 150.3 L60 148.6 L57.3 150.3 L58.1 147.2 L55.6 145.2 L58.8 145 Z" style="fill:var(--metal-silver-5,#39425A)" fill-opacity=".55"/>
+  <path d="M32.5 161 L87.5 161 L90 190 L30 190 Z" fill="url(#lx-estadual-onyx)"/>
+  <rect x="33" y="161" width="54" height="1.6" fill="url(#lx-estadual-gold)" opacity=".9"/>
+  <rect x="44" y="171" width="32" height="2" style="fill:var(--metal-gold-2,#E9B94A)" opacity=".8"/>
+  <rect x="49" y="177" width="22" height="2" style="fill:var(--metal-gold-2,#E9B94A)" opacity=".55"/>
+  <rect x="28" y="189" width="64" height="7" rx="1.2" fill="url(#lx-estadual-silv)"/>
+</svg>

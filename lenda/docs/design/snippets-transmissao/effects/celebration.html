@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Celebração · Campeão</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  /* conteúdo "atrás" (no app: a tela de carreira inteira recebe .lx-dim-behind) */
+  .behind { position: fixed; inset: 0; display: grid; grid-template-columns: 548px 1fr; gap: 18px; padding: 80px 24px 60px; }
+  .behind > div { background: var(--surface-2); }
+  .stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .top { display: flex; align-items: center; gap: 14px; animation: lx-rise .6s .1s var(--ease-out) backwards; }
+  .top .t { font: 800 18px/1.1 var(--font-display); letter-spacing: .28em; text-transform: uppercase; color: var(--lx-gold-hi); text-align: left; }
+  .top .t small { display: block; font-size: 12px; letter-spacing: .3em; color: rgb(255 236 176 / .6); }
+  .trophy { position: relative; margin-top: 6px; }
+  .trophy svg { filter: drop-shadow(0 30px 40px rgb(0 0 0 / .7)) drop-shadow(0 0 40px rgb(255 220 120 / .55)); }
+  .trophy::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 260px; height: 30px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgb(255 210 100 / .45), transparent); }
+  .champ { margin-top: -18px; padding: 0 .08em; animation: lx-rise .7s .35s var(--ease-out) backwards; }
+  .subline { font: 700 22px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; animation: lx-rise .6s .5s var(--ease-out) backwards; }
+  .subline b { color: var(--lx-gold); }
+  .scorewrap { margin-top: 22px; animation: lx-wipe-in var(--dur-3) .65s var(--ease-out) backwards; }
+  .goals { display: flex; gap: 22px; justify-content: center; margin-top: 14px; font: 400 14px/1 var(--font-ui); color: var(--text-2); animation: lx-rise .6s .8s var(--ease-out) backwards; }
+  .goals b { color: var(--text); font-weight: 700; }
+  .goals .me b { color: var(--lx-gold); }
+  .rewards { display: flex; gap: 10px; justify-content: center; margin-top: 22px; animation: lx-rise .6s .95s var(--ease-out) backwards; }
+  .rw { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 16px 0 10px; background: rgb(8 12 48 / .82); box-shadow: inset 0 0 0 1px rgb(255 230 160 / .22); }
+  .rw .ic { display: grid; place-items: center; width: 28px; height: 28px; color: var(--lx-gold); background: rgb(247 201 72 / .16); }
+  .rw .k { font: 700 10.5px/1.1 var(--font-display); letter-spacing: .18em; color: var(--text-3); text-transform: uppercase; text-align: left; }
+  .rw .v { font: italic 800 18px/1.05 var(--font-display); text-transform: uppercase; text-align: left; white-space: nowrap; }
+  .rw .v span { color: var(--positive); }
+  .tap { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 3; }
+  .sides { position: absolute; top: 0; bottom: 0; width: 30%; pointer-events: none; }
+  .sides.l { left: 0; background: linear-gradient(90deg, color-mix(in oklab, var(--club) 35%, transparent), transparent); }
+  .sides.r { right: 0; background: linear-gradient(270deg, color-mix(in oklab, var(--club) 35%, transparent), transparent); }
+  @media (max-width: 700px) {
+    .lx-t-celebrate { font-size: 84px; } .trophy svg { width: 150px; height: 250px; }
+    .lx-score__tm { min-width: 0; font-size: 18px; padding: 0 12px; height: 50px; } .lx-score__res { min-width: 84px; font-size: 28px; }
+    .rewards { flex-direction: column; align-items: center; } .subline { font-size: 16px; } .goals { flex-wrap: wrap; gap: 8px 16px; }
+  }
+</style>
+</head>
+<body>
+<!-- 1) a carreira por baixo, desfocada -->
+<div class="lx-dim-behind">
+  <div class="lx-stadium lx-stadium--calm"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i></div>
+  <div class="behind"><div class="lx-cut lx-c-lg"></div><div class="lx-cut lx-c-lg"></div></div>
+</div>
+
+<!-- 2) overlay: raios → anéis → halo → flash → confete → palco -->
+<div class="lx-cele" role="dialog" aria-modal="true" aria-labelledby="ttl" style="--club:#0A7A45" tabindex="-1">
+  <div class="sides l"></div><div class="sides r"></div>
+  <div class="lx-cele__rays"></div><div class="lx-cele__ring is-outer"></div><div class="lx-cele__ring"></div><div class="lx-cele__halo"></div><div class="lx-cele__flash"></div>
+  <div class="lx-cele__confetti" id="confetti" aria-hidden="true"></div>
+  <div class="stage">
+    <div class="top"><svg viewBox="0 0 48 56" width="44" height="52" aria-hidden="true"><path d="M24 1.5 L45 7 L45 26 C45 40 36 49 24 54.5 C12 49 3 40 3 26 L3 7 Z" fill="#0B1A4A" stroke="#E9B94A" stroke-width="2"/><text x="24" y="33" text-anchor="middle" font-family="Barlow Condensed" font-weight="800" font-size="12" fill="#E9B94A">LIB</text></svg><div class="t">CONMEBOL Libertadores<small>Grande final · 2035</small></div></div>
+    <div class="trophy lx-trophy-in"><img src="../trophies/libertadores.svg" width="200" height="333" alt="Troféu da Libertadores"></div>
+    <div class="champ lx-t-celebrate lx-metal-gold lx-gold-glow" id="ttl">Campeão!</div>
+    <div class="subline">Palmeiras conquista a América · <b>2ª Libertadores</b> de Silva</div>
+    <div class="scorewrap">
+      <div class="lx-score">
+        <div class="lx-score__tm is-home" style="--club:#0A7A45;--club-2:#00502C;--club-ink:#fff">Palmeiras</div>
+        <div class="lx-score__res">2 × 1</div>
+        <div class="lx-score__tm is-away" style="--club:#0B3C8C;--club-2:#082A66;--club-ink:#fff">Boca Juniors</div>
+      </div>
+    </div>
+    <div class="goals"><span><b>Pereira</b> 34'</span><span><b>Zeballos</b> 61'</span><span class="me"><b>Silva</b> 88' — gol do título</span></div>
+    <div class="rewards">
+      <div class="rw lx-skew lx-k-sm"><span class="ic lx-skew lx-k-sm">★</span><div><div class="k">Bola de Ouro · prévia</div><div class="v">7º <span>→ 4º</span></div></div></div>
+      <div class="rw lx-skew lx-k-sm"><span class="ic lx-skew lx-k-sm">▲</span><div><div class="k">Valor de mercado</div><div class="v">€37M <span>→ €45M</span></div></div></div>
+      <div class="rw lx-skew lx-k-sm"><span class="ic lx-skew lx-k-sm">♛</span><div><div class="k">Craque da final</div><div class="v">Nota 9,1</div></div></div>
+    </div>
+  </div>
+  <div class="lx-tap-hint tap">Toque para continuar</div>
+</div>
+
+<script>
+/* confete determinístico (seed fixa → mesmo resultado em todo render/screenshot) */
+let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const cols = ['#FFD55A', '#FFF1B8', '#F3BF3E', '#FFFFFF', '#0FA35A', '#3BE4FF', '#E9A61E'];
+let html = '';
+for (let i = 0; i < 110; i++) {
+  const w = 6 + rnd() * 8, h = w * (.35 + rnd() * .5), x = rnd() * 100, d = 4 + rnd() * 5, del = -rnd() * d, c = cols[Math.floor(rnd() * cols.length)], r = rnd() * 360;
+  html += `<i style="left:${x.toFixed(2)}%;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;background:${c};opacity:${(.65 + rnd() * .35).toFixed(2)};animation-duration:${d.toFixed(2)}s;animation-delay:${del.toFixed(2)}s;transform:rotate(${r.toFixed(0)}deg)"></i>`;
+}
+document.getElementById('confetti').innerHTML = html;
+document.querySelector('.lx-cele').focus();
+</script>
+</body>
+</html>

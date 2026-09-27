@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="120" height="200" role="img" aria-labelledby="lx-copa-do-brasil-t">
+  <title id="lx-copa-do-brasil-t">Copa do Brasil</title>
+  <!-- LENDA · tema Transmissão · arte vetorial de troféu (viewBox 120x200, base em y=196).
+       Metais: stop-color/fill leem as variáveis CSS metal-(gold|silver|wood)-(1..5) do contrato; o fallback é o hex exato do mockup.
+       IDs prefixados com "lx-copa-do-brasil-" para poder inlinar vários troféus diferentes na mesma página. -->
+  <defs>
+    <linearGradient id="lx-copa-do-brasil-sil" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-silver-5,#4E5873)"/><stop offset="0.14" style="stop-color:var(--metal-silver-2,#B9C2D6)"/><stop offset="0.28" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.44" style="stop-color:var(--metal-silver-3,#A8B2C8)"/><stop offset="0.6" style="stop-color:var(--metal-silver-4,#6B7690)"/><stop offset="0.8" style="stop-color:var(--metal-silver-2,#D3DAE8)"/><stop offset="1" style="stop-color:var(--metal-silver-5,#5D6781)"/></linearGradient>
+    <linearGradient id="lx-copa-do-brasil-silv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#FFFFFF)"/><stop offset="0.5" style="stop-color:var(--metal-silver-2,#C4CCDC)"/><stop offset="1" style="stop-color:var(--metal-silver-4,#7D879F)"/></linearGradient>
+    <linearGradient id="lx-copa-do-brasil-gold" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--metal-gold-5,#6A3F03)"/><stop offset="0.15" style="stop-color:var(--metal-gold-3,#D6951A)"/><stop offset="0.3" style="stop-color:var(--metal-gold-1,#FFEAA6)"/><stop offset="0.45" style="stop-color:var(--metal-gold-2,#F3BD3A)"/><stop offset="0.62" style="stop-color:var(--metal-gold-4,#A56B0A)"/><stop offset="0.8" style="stop-color:var(--metal-gold-2,#F6CF62)"/><stop offset="1" style="stop-color:var(--metal-gold-5,#744704)"/></linearGradient>
+  </defs>
+  <path d="M36 56 C12 52 10 94 44 100" stroke="url(#lx-copa-do-brasil-sil)" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+  <path d="M84 56 C108 52 110 94 76 100" stroke="url(#lx-copa-do-brasil-sil)" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+  <rect x="30" y="44" width="60" height="8" rx="2.5" fill="url(#lx-copa-do-brasil-silv)"/>
+  <path d="M33 52 L87 52 C87 88 77 108 60 112 C43 108 33 88 33 52 Z" fill="url(#lx-copa-do-brasil-sil)"/>
+  <path d="M36 64 L84 64" style="stroke:var(--metal-silver-5,#39425A)" stroke-opacity=".4" stroke-width="1.2"/>
+  <path d="M42 58 C41 76 45 92 52 103" stroke="#fff" stroke-opacity=".55" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <path d="M54 112 L66 112 L64 132 L56 132 Z" fill="url(#lx-copa-do-brasil-sil)"/>
+  <ellipse cx="60" cy="122" rx="7" ry="2.8" fill="url(#lx-copa-do-brasil-silv)"/>
+  <path d="M44 132 L76 132 L80 142 L40 142 Z" fill="url(#lx-copa-do-brasil-sil)"/>
+  <rect x="38" y="142" width="44" height="8" fill="url(#lx-copa-do-brasil-gold)"/>
+  <path d="M36 150 L84 150 L88 190 L32 190 Z" fill="url(#lx-copa-do-brasil-sil)"/>
+  <rect x="44" y="160" width="32" height="18" rx="1.5" style="fill:var(--metal-silver-5,#39425A)" opacity=".35"/>
+  <rect x="30" y="189" width="60" height="7" rx="1.2" fill="url(#lx-copa-do-brasil-silv)"/>
+</svg>

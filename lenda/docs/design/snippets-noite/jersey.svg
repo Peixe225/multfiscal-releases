@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" class="lx-kit" role="img" aria-labelledby="lx-kit-t">
+  <title id="lx-kit-t">Camisa (costas) — RIBEIRO 9</title>
+  <!-- LENDA player "portrait": the back of the shirt. Themeable through CSS custom properties set on any
+       ancestor when inlined (fallbacks = Palmeiras home):
+         kit-base (body bottom) · kit-base-2 (body top) · kit-trim (collar, cuffs, piping) · kit-ink (name + number)
+         kit-stroke (outline) · kit-stripe (centre stripe colour) · kit-stripe-on (1 shows the stripe, default 0)
+       In React: make the gradient/clip ids unique per instance (useId) and swap the text content.
+       Name: Inter Tight 900, 20px (17px when longer than 8 chars), letter-spacing 2.2. Number: Barlow Condensed 800, 96px.
+       Presets (base/base-2/trim/ink): pal #0b6b3a/#0f8a4a/#fff/#fff · rma #f4f2ea/#fff/#c9a44a/#1b2a5a
+         bah #f5f6f8/#fff/#1a64c4/#1a64c4 + stripe #d4121c · bra #ffd21f/#ffe45c/#0f9a50/#0d4fa3
+         cor #f4f4f4/#fff/#111/#111 · blank #e9ebef/#fff/#1b1d24/#111318 -->
+  <defs>
+    <linearGradient id="lx-kit-shade" x1="0" x2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".38"/><stop offset=".22" stop-color="#000" stop-opacity=".05"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".1"/><stop offset=".78" stop-color="#000" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".4"/>
+    </linearGradient>
+    <linearGradient id="lx-kit-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color:var(--kit-base-2,#0f8a4a)"/><stop offset="1" style="stop-color:var(--kit-base,#0b6b3a)"/>
+    </linearGradient>
+    <clipPath id="lx-kit-clip"><path d="M58,22 C66,28 82,32 100,32 C118,32 134,28 142,22 L178,37 C184,40 188,45 190,51 L199,86 L168,98 L160,80 L160,184 C160,190 156,194 150,194 L50,194 C44,194 40,190 40,184 L40,80 L32,98 L1,86 L10,51 C12,45 16,40 22,37 Z"/></clipPath>
+  </defs>
+  <path d="M58,22 C66,28 82,32 100,32 C118,32 134,28 142,22 L178,37 C184,40 188,45 190,51 L199,86 L168,98 L160,80 L160,184 C160,190 156,194 150,194 L50,194 C44,194 40,190 40,184 L40,80 L32,98 L1,86 L10,51 C12,45 16,40 22,37 Z" fill="url(#lx-kit-body)"/>
+  <g clip-path="url(#lx-kit-clip)">
+    <g style="opacity:var(--kit-stripe-on,0)">
+      <rect x="92" y="0" width="16" height="200" style="fill:var(--kit-stripe,#d4121c)" opacity=".9"/>
+      <rect x="84" y="0" width="8" height="200" style="fill:var(--kit-trim,#ffffff)"/>
+      <rect x="108" y="0" width="8" height="200" style="fill:var(--kit-trim,#ffffff)"/>
+    </g>
+    <path d="M1,86 L32,98 L35,90 L4,78 Z M199,86 L168,98 L165,90 L196,78 Z" style="fill:var(--kit-trim,#ffffff)"/>
+    <path d="M40,80 L40,194 M160,80 L160,194" style="stroke:var(--kit-trim,#ffffff)" stroke-width="3" opacity=".8"/>
+    <path d="M70,120 C80,140 76,170 64,194 M136,110 C126,136 130,168 142,194" stroke="#000" stroke-opacity=".07" stroke-width="10" fill="none"/>
+    <rect x="0" y="0" width="200" height="200" fill="url(#lx-kit-shade)"/>
+  </g>
+  <path d="M72,23 C80,28 90,30 100,30 C110,30 120,28 128,23 C124,31 114,36 100,36 C86,36 76,31 72,23 Z" style="fill:var(--kit-trim,#ffffff)"/>
+  <path d="M58,22 C66,28 82,32 100,32 C118,32 134,28 142,22 L178,37 C184,40 188,45 190,51 L199,86 L168,98 L160,80 L160,184 C160,190 156,194 150,194 L50,194 C44,194 40,190 40,184 L40,80 L32,98 L1,86 L10,51 C12,45 16,40 22,37 Z" fill="none" style="stroke:var(--kit-stroke,rgba(0,0,0,.25))" stroke-width="1.5"/>
+  <text x="100" y="72" text-anchor="middle" style="fill:var(--kit-ink,#ffffff);font-family:'Inter Tight Variable','Inter Tight',Inter,sans-serif;font-weight:900" font-size="20" letter-spacing="2.2">RIBEIRO</text>
+  <text x="100" y="165" text-anchor="middle" style="fill:var(--kit-ink,#ffffff);font-family:'Barlow Condensed',sans-serif;font-weight:800" font-size="96">9</text>
+</svg>

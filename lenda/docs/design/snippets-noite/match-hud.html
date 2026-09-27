@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="noite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LENDA · Match HUD (Noite)</title>
+<!-- Self-contained snippet: only depends on ../theme-noite.css (tokens + .lx-* classes).
+     Fonts come from @fontsource in the app; here they fall back to system fonts if not installed. -->
+<link rel="stylesheet" href="../theme-noite.css">
+<style>
+  body { margin: 0; min-height: 100vh; }
+  .app { position: relative; z-index: 1; }
+  body { overflow: hidden; height: 100vh; }
+  .top { position: relative; height: 66px; }
+  .sb { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); display: flex; align-items: stretch; height: 46px; border-radius: 14px; overflow: hidden; box-shadow: 0 16px 40px -16px #000, inset 0 0 0 1px rgba(255,255,255,.1); }
+  .sb .comp { display: flex; align-items: center; gap: 8px; padding: 0 14px; background: rgba(0,0,0,.55); font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--text-2); text-transform: uppercase; }
+  .sb .comp .lx-trophy { height: 26px; }
+  .sb .tm { display: flex; align-items: center; gap: 10px; padding: 0 14px; font: 800 15px/1 var(--font-display); letter-spacing: .04em; color: var(--club-ink); }
+  .sb .tm img { width: 28px; height: 28px; }
+  .sb .home { background: linear-gradient(90deg, var(--club), color-mix(in oklab, var(--club) 88%, #fff)); }
+  .sb .away { --club: #b3121a; --club-ink: #fff; background: linear-gradient(90deg, var(--club), color-mix(in oklab, var(--club) 80%, #000)); }
+  .sb .score { display: flex; align-items: center; gap: 8px; padding: 0 16px; background: #f4f5f8; color: #0a0b10; font: 800 28px/1 var(--font-num); letter-spacing: .04em; }
+  .sb .clock { display: flex; align-items: center; gap: 7px; padding: 0 14px; background: rgba(0,0,0,.7); font: 700 20px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .sb .clock small { font-size: 13px; color: #ffb3bf; }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 6px 24px 20px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; height: calc(100vh - 66px); box-sizing: border-box; }
+  .main { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .mom { border-radius: 18px; padding: 10px 14px; display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 14px; height: 76px; box-sizing: border-box; }
+  .mom b { display: block; font: 800 14px/1.2 var(--font-display); text-transform: none; letter-spacing: -.005em; color: var(--text); margin-top: 3px; }
+  .mom svg { width: 100%; height: 56px; }
+  .pitch { position: relative; flex: 1; min-height: 0; border-radius: 22px; overflow: hidden; box-shadow: var(--shadow-2), inset 0 0 0 1px rgba(255,255,255,.08); }
+  .pitch > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .moment { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(820px, calc(100% - 32px)); padding: 16px; box-sizing: border-box; }
+  .mh { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .timer { width: 48px; height: 48px; position: relative; flex: none; } .timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .timer circle.p { transition: stroke-dashoffset 1s linear; }
+  .timer b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 20px/1 var(--font-num); }
+  .mh h2 { font: 800 22px/1.1 var(--font-display); letter-spacing: -.02em; margin: 3px 0 0; }
+  .mh .attr { margin-left: auto; display: flex; gap: 8px; }
+  .mh .attr span { height: 30px; padding: 0 10px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 650; color: var(--text-2); }
+  .mh .attr b { font: 700 15px/1 var(--font-num); color: var(--text); }
+  .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ch { text-align: left; border-radius: 16px; padding: 12px 12px 10px; background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border: 1px solid var(--border-strong); transition: all var(--dur-2) var(--ease-out); }
+  .ch:hover, .ch[aria-checked="true"] { border-color: rgba(255,255,255,.45); transform: translateY(-2px); box-shadow: 0 0 0 4px rgba(255,255,255,.06), 0 20px 40px -18px rgba(62,230,164,.5); }
+  .ch .t { display: flex; align-items: center; justify-content: space-between; }
+  .ch .ic { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: var(--surface-2); } .ch .ic svg { width: 18px; height: 18px; }
+  .ch .nm { font: 800 16px/1.2 var(--font-display); margin-top: 10px; } .ch .ds { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .ch .prob { display: flex; align-items: center; gap: 8px; margin-top: 10px; } .ch .prob .lx-bar { flex: 1; } .ch .prob b { font: 800 17px/1 var(--font-num); min-width: 38px; text-align: right; }
+  .ch .fxl { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+  .ch .fxl span { height: 20px; padding: 0 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; }
+  .g { color: var(--positive); background: var(--positive-bg); } .rd { color: var(--negative); background: var(--negative-bg); } .a { color: var(--warning); background: var(--nx-warning-bg); }
+  .side { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .box { border-radius: 20px; padding: 14px; }
+  .box h3 { font: 800 14.5px/1.2 var(--font-display); margin: 0 0 10px; display: flex; justify-content: space-between; } .box h3 span { font: 600 11px/1.2 var(--font-ui); color: var(--text-3); }
+  .me { display: flex; align-items: center; gap: 12px; } .me .nm { font-weight: 800; font-size: 15px; } .me .ds { font-size: 11.5px; color: var(--text-2); }
+  .rate { margin-left: auto; text-align: center; } .rate b { width: 48px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(180deg, #3ee6a4, #16a870); color: #062116; font: 800 22px/1 var(--font-num); }
+  .rate span { font-size: 9.5px; font-weight: 800; letter-spacing: .1em; color: var(--text-3); }
+  .meters { display: grid; gap: 8px; margin-top: 12px; }
+  .meter { display: grid; grid-template-columns: 78px 1fr 34px; gap: 10px; align-items: center; font-size: 11.5px; font-weight: 650; color: var(--text-2); } .meter b { font: 700 14px/1 var(--font-num); color: var(--text); text-align: right; }
+  .stat { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 10px; height: 30px; font-size: 12px; }
+  .stat .v { font: 700 16px/1 var(--font-num); } .stat .vr { text-align: right; } .stat .mid { text-align: center; color: var(--text-2); font-weight: 600; font-size: 11.5px; }
+  .stat .tw { grid-column: 1 / -1; display: flex; gap: 3px; height: 4px; margin-top: -4px; } .stat .tw i { border-radius: 3px; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+  <linearGradient id="lx-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-gold" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/>
+  <stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/>
+  <stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/>
+  <stop offset=".89" style="stop-color:var(--metal-gold-6,#f3d170)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#4f3104)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-gold-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".35" style="stop-color:var(--metal-gold-3,#9a6a14)"/>
+  <stop offset=".52" style="stop-color:var(--metal-gold-5,#e2b54a)"/><stop offset=".75" style="stop-color:var(--metal-gold-3,#83580c)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#321f02)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-gold-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-8,#fff6d2)"/><stop offset=".5" style="stop-color:var(--metal-gold-5,#e2ae3c)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#7a520c)"/>
+  </linearGradient>
+  <radialGradient id="lx-rg-gold" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-gold-8,#fffbe6)"/><stop offset=".14" style="stop-color:var(--metal-gold-7,#ffe697)"/>
+  <stop offset=".42" style="stop-color:var(--metal-gold-5,#e3aa31)"/><stop offset=".72" style="stop-color:var(--metal-gold-3,#9c6510)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3f2702)"/>
+  </radialGradient>
+  <radialGradient id="lx-rg-silver" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".2" style="stop-color:var(--metal-silver-7,#e9edf2)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-5,#a0a9b6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#586070)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2c3038)"/>
+  </radialGradient>
+  <linearGradient id="lx-lg-wood" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-wood-1,#1c0f07)"/><stop offset=".25" style="stop-color:var(--metal-wood-2,#4f2d15)"/>
+  <stop offset=".48" style="stop-color:var(--metal-wood-3,#7d4b23)"/><stop offset=".7" style="stop-color:var(--metal-wood-2,#4a2a13)"/><stop offset="1" style="stop-color:var(--metal-wood-1,#170c05)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-mala" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-malachite-1,#032a1b)"/><stop offset=".3" style="stop-color:var(--metal-malachite-2,#0d7a4a)"/>
+  <stop offset=".48" style="stop-color:var(--metal-malachite-3,#43d796)"/><stop offset=".66" style="stop-color:var(--metal-malachite-2,#0c6b41)"/><stop offset="1" style="stop-color:var(--metal-malachite-1,#02231a)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-black" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#26282e)"/>
+  <stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/>
+  </linearGradient>
+  <linearGradient id="lx-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="lx-f-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+  <clipPath id="lx-cp-ball"><circle cx="50" cy="46" r="37.5"/></clipPath>
+  <clipPath id="lx-cp-globe"><circle cx="50" cy="43" r="24.5"/></clipPath>
+  <clipPath id="lx-cp-cdb"><path d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/></clipPath>
+  </defs>
+  <symbol id="lx-trophy-libertadores" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-silver)" d="M47.2,12.8 C48.6,12 51.4,12 52.8,12.9 L56.2,17.4 L61.4,20.2 L60.6,22.6 L55,20.6 L54.6,27.4 L58.4,31.2 L63.4,32.6 L62.8,35.2 L56,34.4 L51.2,30 L49.4,35.2 L48.8,39.4 L45.6,39.4 L46,34.2 L46.4,27.6 L46,20.8 L41.6,24.6 L39.8,22.8 Z"/>
+    <circle cx="49.6" cy="8" r="4.3" fill="url(#lx-rg-silver)"/>
+    <circle cx="50" cy="49.5" r="10.2" fill="url(#lx-rg-silver)"/>
+    <path d="M44,45 q6,-3.5 12,0 M42.5,51 q7.5,3 15,0" stroke="#5b6370" stroke-width=".6" fill="none" opacity=".7"/>
+    <rect x="46" y="58" width="8" height="5" fill="url(#lx-lg-silver-d)"/>
+    <path fill="url(#lx-lg-silver)" d="M28.6,62.6 C29.6,77 39.6,92.6 46,100.6 L54,100.6 C60.4,92.6 70.4,77 71.4,62.6 Z"/>
+    <path d="M31,70 C40,73 60,73 69,70" stroke="#646c79" stroke-width=".9" fill="none"/>
+    <path d="M33.6,77.5 C42,80 58,80 66.4,77.5" stroke="#fff" stroke-opacity=".5" stroke-width=".6" fill="none"/>
+    <ellipse cx="50" cy="62.6" rx="21.4" ry="3.6" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="50" cy="62.4" rx="17" ry="2.1" fill="#3b414b" opacity=".55"/>
+    <rect x="47" y="100" width="6" height="12" fill="url(#lx-lg-silver)"/>
+    <ellipse cx="50" cy="104" rx="6.4" ry="2.8" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M35.5,112 L64.5,112 L68.5,121 L31.5,121 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M26,121 L74,121 L78,171 L22,171 Z"/>
+    <g fill="url(#lx-lg-gold)" opacity=".92">
+    <rect x="29.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="38.20" y="128" width="6.60" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="46.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="55.20" y="128" width="6.60" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="63.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="28.52" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="37.52" y="137.5" width="6.95" height="5.4" rx=".6" /><rect x="46.52" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="55.52" y="137.5" width="6.95" height="5.4" rx=".6" /><rect x="64.53" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="27.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="36.85" y="147" width="7.30" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="46.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="55.85" y="147" width="7.30" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="65.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="26.18" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="36.17" y="156.5" width="7.65" height="5.4" rx=".6" /><rect x="46.17" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/><rect x="56.17" y="156.5" width="7.65" height="5.4" rx=".6" /><rect x="66.17" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lx-lg-silver)"/>
+    </g>
+    <rect x="20.5" y="170" width="59" height="5" rx="1.2" fill="url(#lx-lg-silver-d)"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M28.6,62.6 C29.6,77 39.6,92.6 46,100.6 L54,100.6 C60.4,92.6 70.4,77 71.4,62.6 Z"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-brasileirao" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-gold)" d="M31,20 L69,20 C66,56 60,94 54.5,128 L45.5,128 C40,94 34,56 31,20 Z"/>
+    <path fill="#fff6cf" opacity=".55" d="M50,24 L63.5,40 L50,124 L36.5,40 Z"/>
+    <path fill="#8a5a0c" opacity=".35" d="M50,24 L63.5,40 L50,48 Z M50,24 L36.5,40 L50,48 Z"/>
+    <path fill="url(#lx-lg-silver)" fill-rule="evenodd" d="M16,9 L84,9 C82,52 73,98 64.5,137 L35.5,137 C27,98 18,52 16,9 Z M29,19 L71,19 C68,55 61.5,93 55.5,128 L44.5,128 C38.5,93 32,55 29,19 Z"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".6" d="M16,9 L84,9 C82,52 73,98 64.5,137 L35.5,137 C27,98 18,52 16,9 Z"/>
+    <ellipse cx="50" cy="9" rx="34" ry="3.2" fill="url(#lx-lg-silver-v)"/>
+    <path fill="url(#lx-lg-silver)" d="M35.5,136.5 L64.5,136.5 L66.5,143 L33.5,143 Z"/>
+    <path fill="#0f9a50" d="M33,143 L67,143 L68,149 L32,149 Z"/>
+    <path fill="#ffd21f" d="M32,149 L68,149 L68.6,153 L31.4,153 Z"/>
+    <path fill="url(#lx-lg-black)" d="M30,153 L70,153 L73.5,172 L26.5,172 Z"/>
+    <rect x="25.5" y="171" width="49" height="4" rx="1" fill="url(#lx-lg-silver-d)"/>
+    <rect x="42" y="159" width="16" height="7" rx="1" fill="url(#lx-lg-silver)" opacity=".9"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-ballon-dor" viewBox="0 0 100 140">
+    <g>
+    <circle cx="50" cy="46" r="38" fill="url(#lx-rg-gold)"/>
+    <g clip-path="url(#lx-cp-ball)" fill="none" stroke-linejoin="round">
+    <path d="M51.29,37.00 L59.14,44.42 L54.36,54.03 L43.56,52.54 L41.66,42.01 Z M51.291,36.996 L52.621,27.718 M52.621,27.718 L61.104,22.663 L73.410,34.310 L68.551,42.794 M61.104,22.663 L60.761,15.371 M73.410,34.310 L80.859,34.391 M59.136,44.421 L68.551,42.794 M68.551,42.794 L76.078,49.138 L68.578,64.207 L58.843,62.300 M76.078,49.138 L83.049,46.565 M68.578,64.207 L70.802,71.174 M54.355,54.027 L58.843,62.300 M58.843,62.300 L55.013,71.276 L38.071,68.942 L36.913,59.280 M55.013,71.276 L59.664,76.978 M38.071,68.942 L31.997,73.167 M43.555,52.540 L36.913,59.280 M36.913,59.280 L27.019,58.483 L24.048,41.971 L33.068,37.907 M27.019,58.483 L22.923,64.580 M24.048,41.971 L18.071,37.615 M41.661,42.014 L33.068,37.907 M33.068,37.907 L30.783,28.439 L45.889,20.567 L52.621,27.718 M30.783,28.439 L23.601,26.504 M45.889,20.567 L48.270,13.650 " stroke="#6b4206" stroke-opacity=".5" stroke-width="1.05"/>
+    <path d="M51.29,37.00 L59.14,44.42 L54.36,54.03 L43.56,52.54 L41.66,42.01 Z M51.291,36.996 L52.621,27.718 M52.621,27.718 L61.104,22.663 L73.410,34.310 L68.551,42.794 M61.104,22.663 L60.761,15.371 M73.410,34.310 L80.859,34.391 M59.136,44.421 L68.551,42.794 M68.551,42.794 L76.078,49.138 L68.578,64.207 L58.843,62.300 M76.078,49.138 L83.049,46.565 M68.578,64.207 L70.802,71.174 M54.355,54.027 L58.843,62.300 M58.843,62.300 L55.013,71.276 L38.071,68.942 L36.913,59.280 M55.013,71.276 L59.664,76.978 M38.071,68.942 L31.997,73.167 M43.555,52.540 L36.913,59.280 M36.913,59.280 L27.019,58.483 L24.048,41.971 L33.068,37.907 M27.019,58.483 L22.923,64.580 M24.048,41.971 L18.071,37.615 M41.661,42.014 L33.068,37.907 M33.068,37.907 L30.783,28.439 L45.889,20.567 L52.621,27.718 M30.783,28.439 L23.601,26.504 M45.889,20.567 L48.270,13.650 " stroke="#fff3c6" stroke-opacity=".42" stroke-width=".6" transform="translate(-.55,-.7)"/>
+    <path d="M51.29,37.00 L59.14,44.42 L54.36,54.03 L43.56,52.54 L41.66,42.01 Z" fill="#8a5a0c" fill-opacity=".22" stroke="none"/>
+    </g>
+    <ellipse cx="35" cy="25" rx="12" ry="6.5" transform="rotate(-28 35 25)" fill="#fff" opacity=".6" filter="url(#lx-f-soft)"/>
+    <circle cx="50" cy="46" r="37.4" fill="none" stroke="#fff3c0" stroke-opacity=".35" stroke-width=".8"/>
+    <path fill="url(#lx-lg-gold)" d="M41,82 C44,87.5 56,87.5 59,82 L61,92 L39,92 Z"/>
+    <rect x="29" y="91.5" width="42" height="4.5" rx="1" fill="url(#lx-lg-gold)"/>
+    <path fill="url(#lx-lg-black)" d="M28,96 L72,96 L75.5,128 L24.5,128 Z"/>
+    <path fill="#fff" opacity=".07" d="M28,96 L40,96 L37,128 L24.5,128 Z"/>
+    <rect x="40.5" y="105" width="19" height="10" rx="1.2" fill="url(#lx-lg-gold)"/>
+    <rect x="21.5" y="127.5" width="57" height="6" rx="1.4" fill="url(#lx-lg-gold)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-world-cup" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-gold)" d="M32.5,142 C33.5,126 41.5,116 44.2,106 C40,96 29.5,88 25.6,72 C24,65 24.6,59 27,55 L73,55 C75.4,59 76,65 74.4,72 C70.5,88 60,96 55.8,106 C58.5,116 66.5,126 67.5,142 Z"/>
+    <g fill="none" stroke-linecap="round">
+    <path d="M37,140 C40,125 51,115 55.5,104 C61,92 71,84 73.6,66" stroke="#5f3c05" stroke-opacity=".65" stroke-width="1.5"/>
+    <path d="M63,140 C60,125 49,115 44.5,104 C39,92 29,84 26.4,66" stroke="#5f3c05" stroke-opacity=".45" stroke-width="1.2"/>
+    <path d="M38.2,139 C41.2,124.5 52,114.6 56.4,103.6" stroke="#fff4c8" stroke-opacity=".5" stroke-width=".7"/>
+    <path d="M46,116 C49,112 52,112 55,116" stroke="#5f3c05" stroke-opacity=".4" stroke-width="1"/>
+    </g>
+    <circle cx="50" cy="43" r="24.5" fill="url(#lx-rg-gold)"/>
+    <g clip-path="url(#lx-cp-globe)" fill="#7a4d06" opacity=".38">
+    <path d="M31,30 C36,24 45,25 47,31 C49,37 43,40 44,46 C45,52 40,56 37,52 C34,48 36,43 32,40 C28,37 28,33 31,30 Z"/>
+    <path d="M54,23 C60,21 68,25 69,31 C70,35 65,36 62,34 C59,32 56,34 55,31 C54,28 51,25 54,23 Z"/>
+    <path d="M56,42 C61,39 69,42 70,49 C71,56 64,62 59,60 C55,58 57,53 55,50 C53,47 53,44 56,42 Z"/>
+    </g>
+    <ellipse cx="41" cy="31" rx="8" ry="4.6" transform="rotate(-30 41 31)" fill="#fff" opacity=".55" filter="url(#lx-f-soft)"/>
+    <path d="M27.4,66 C22.6,57 23.6,45 27.2,37" stroke="url(#lx-lg-gold)" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+    <path d="M72.6,66 C77.4,57 76.4,45 72.8,37" stroke="url(#lx-lg-gold)" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".55" d="M32.5,142 C33.5,126 41.5,116 44.2,106 C40,96 29.5,88 25.6,72 C24,65 24.6,59 27,55 L73,55 C75.4,59 76,65 74.4,72 C70.5,88 60,96 55.8,106 C58.5,116 66.5,126 67.5,142 Z"/>
+    <path fill="url(#lx-lg-gold)" d="M31.5,141.5 L68.5,141.5 L69.5,146 L30.5,146 Z"/>
+    <path fill="url(#lx-lg-mala)" d="M30.5,146 L69.5,146 L70.5,155 L29.5,155 Z"/>
+    <path fill="url(#lx-lg-gold)" d="M29.5,155 L70.5,155 L71,158.5 L29,158.5 Z"/>
+    <path fill="url(#lx-lg-mala)" d="M29,158.5 L71,158.5 L72,167.5 L28,167.5 Z"/>
+    <path fill="url(#lx-lg-gold-d)" d="M28,167.5 L72,167.5 L72.8,173.2 C72.8,175 27.2,175 27.2,173.2 Z"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-golden-boot" viewBox="0 0 140 112">
+    <g>
+    <path fill="url(#lx-lg-gold-v)" d="M24,42 C24,35 28,31.6 34.6,31.2 L53.6,29.4 C57.8,29 60.4,30.6 61.8,33.8 L65.6,40.6 C73.6,46.6 86,52.2 100.4,55.8 C114.6,59 122.8,63.4 124.4,69.2 C125.2,73.4 121.2,76.2 114.4,76.2 L30,76.2 C23.6,76.2 20.4,72.4 20.6,66 Z"/>
+    <path fill="url(#lx-lg-gold)" opacity=".6" d="M20.6,64 C44,60 86,60 124,68.6 C125,73.4 121.2,76.2 114.4,76.2 L30,76.2 C23.6,76.2 20.4,72.4 20.6,64 Z"/>
+    <path fill="#4a2e04" d="M33.4,33.2 C40,30.6 50,29.8 57.6,31 C56,34.4 50,36 43,36.2 C38,36.3 34.6,35.4 33.4,33.2 Z"/>
+    <g stroke="#6b4206" stroke-width="1.7" stroke-linecap="round" opacity=".85">
+    <path d="M63.6,42.6 l4.4,-5 M69.8,45.8 l4.4,-5 M76,48.8 l4.4,-5 M82.4,51.4 l4.4,-5"/>
+    </g>
+    <path d="M26,46 C36,44 48,48 54,62" stroke="#fff4c8" stroke-opacity=".5" stroke-width="1.3" fill="none"/>
+    <path d="M92,58 C104,60 114,62 120,66" stroke="#fff4c8" stroke-opacity=".6" stroke-width="1.1" fill="none"/>
+    <path fill="url(#lx-lg-gold-d)" d="M20.4,72.6 C50,74 92,73 124.6,70 C124.2,77 120,80.6 112,80.6 L30,80.6 C24,80.6 20.6,77.6 20.4,72.6 Z"/>
+    <g fill="url(#lx-lg-gold-d)"><rect x="30" y="79.8" width="7" height="6.2" rx="1.4"/><rect x="46" y="79.8" width="7" height="6.2" rx="1.4"/><rect x="84" y="79.8" width="7" height="6.2" rx="1.4"/><rect x="104" y="79.8" width="7" height="6.2" rx="1.4"/></g>
+    <rect x="24" y="86" width="96" height="5" rx="1.2" fill="url(#lx-lg-gold)"/>
+    <path fill="url(#lx-lg-black)" d="M28,91 L116,91 L120,108 L24,108 Z"/>
+    <rect x="58" y="95.5" width="28" height="8" rx="1" fill="url(#lx-lg-gold)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-champions-league" viewBox="0 0 130 180">
+    <g>
+    <path d="M41,24 C13,17 3,44 11,66 C17,83 34,91 51,88" stroke="url(#lx-lg-silver)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
+    <path d="M89,24 C117,17 127,44 119,66 C113,83 96,91 79,88" stroke="url(#lx-lg-silver)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
+    <path d="M40,27 C18,23 10,44 16,62" stroke="#fff" stroke-opacity=".5" stroke-width="1" fill="none"/>
+    <path fill="url(#lx-lg-silver)" d="M37.6,18 L92.4,18 C93.4,50 86,78 72,92.4 L69.4,98.6 L60.6,98.6 L58,92.4 C44,78 36.6,50 37.6,18 Z"/>
+    <path d="M40,40 C50,44 80,44 90,40" stroke="#646c79" stroke-width=".9" fill="none"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M37.6,18 L92.4,18 C93.4,50 86,78 72,92.4 L69.4,98.6 L60.6,98.6 L58,92.4 C44,78 36.6,50 37.6,18 Z"/>
+    <ellipse cx="65" cy="18" rx="27.4" ry="3.8" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="65" cy="17.8" rx="24.6" ry="2.5" fill="#363b44"/>
+    <path fill="url(#lx-lg-silver)" d="M60.4,98 L69.6,98 L71,128 L59,128 Z"/>
+    <ellipse cx="65" cy="110" rx="7.4" ry="3.2" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M50,128 L80,128 L86.4,146 L43.6,146 Z"/>
+    <path fill="url(#lx-lg-silver-d)" d="M39.6,146 L90.4,146 L92.4,161 L37.6,161 Z"/>
+    <rect x="36.6" y="160" width="56.8" height="4" rx="1" fill="url(#lx-lg-silver)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-copa-do-brasil" viewBox="0 0 120 180">
+    <g>
+    <path d="M26,30 C9,29 7,56 30,62" stroke="url(#lx-lg-silver)" stroke-width="5.4" fill="none" stroke-linecap="round"/>
+    <path d="M94,30 C111,29 113,56 90,62" stroke="url(#lx-lg-silver)" stroke-width="5.4" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-silver)" d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/>
+    <g clip-path="url(#lx-cp-cdb)"><rect x="0" y="33" width="120" height="4.4" fill="#119a52"/><rect x="0" y="37.4" width="120" height="3.2" fill="#ffd21f"/></g>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/>
+    <ellipse cx="60" cy="22" rx="36" ry="4" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="60" cy="21.8" rx="33" ry="2.6" fill="#353a43"/>
+    <path fill="url(#lx-lg-silver)" d="M53.6,89.6 L66.4,89.6 L64.4,114 L55.6,114 Z"/>
+    <ellipse cx="60" cy="101" rx="7.6" ry="3.2" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M44,114 L76,114 L80.4,126 L39.6,126 Z"/>
+    <path fill="url(#lx-lg-black)" d="M35.6,126 L84.4,126 L88.6,153 L31.4,153 Z"/>
+    <rect x="49" y="134" width="22" height="10" rx="1.2" fill="url(#lx-lg-silver)"/>
+    <rect x="30.4" y="152" width="59.2" height="4.4" rx="1.1" fill="url(#lx-lg-silver-d)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-estadual" viewBox="0 0 100 150">
+    <g>
+    <path d="M31,26 C19,26 18,46 35,50" stroke="url(#lx-lg-silver)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M69,26 C81,26 82,46 65,50" stroke="url(#lx-lg-silver)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-silver)" d="M29,18 L71,18 C71,48 62,64 55,70 L45,70 C38,64 29,48 29,18 Z"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M29,18 L71,18 C71,48 62,64 55,70 L45,70 C38,64 29,48 29,18 Z"/>
+    <ellipse cx="50" cy="18" rx="21" ry="3" fill="url(#lx-lg-silver-v)"/>
+    <ellipse cx="50" cy="17.8" rx="18.6" ry="1.9" fill="#363b44"/>
+    <path fill="url(#lx-lg-silver)" d="M46,70 L54,70 L53,96 L47,96 Z"/>
+    <ellipse cx="50" cy="82" rx="5.4" ry="2.4" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M39,96 L61,96 L64,106 L36,106 Z"/>
+    <path fill="url(#lx-lg-black)" d="M33,106 L67,106 L70,140 L30,140 Z"/>
+    <rect x="42" y="116" width="16" height="9" rx="1" fill="url(#lx-lg-silver)"/>
+    <rect x="29" y="139" width="42" height="4" rx="1" fill="url(#lx-lg-silver-d)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-laliga" viewBox="0 0 110 180">
+    <g>
+    <circle cx="55" cy="9" r="5" fill="url(#lx-rg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M44,14 L66,14 C70,18 74,22 76,26 L34,26 C36,22 40,18 44,14 Z"/>
+    <path d="M32,36 C14,34 12,66 34,72" stroke="url(#lx-lg-silver)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M78,36 C96,34 98,66 76,72" stroke="url(#lx-lg-silver)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path fill="url(#lx-lg-silver)" d="M30,26 L80,26 C81,64 71,88 61,96 L49,96 C39,88 29,64 30,26 Z"/>
+    <path d="M32,44 C44,48 66,48 78,44" stroke="#c9a23b" stroke-width="2.2" fill="none"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M30,26 L80,26 C81,64 71,88 61,96 L49,96 C39,88 29,64 30,26 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M50,96 L60,96 L59,122 L51,122 Z"/>
+    <ellipse cx="55" cy="108" rx="6.4" ry="2.8" fill="url(#lx-lg-silver)"/>
+    <path fill="url(#lx-lg-silver)" d="M41,122 L69,122 L73,134 L37,134 Z"/>
+    <path fill="url(#lx-lg-silver-d)" d="M33,134 L77,134 L80,170 L30,170 Z"/>
+    <rect x="29" y="169" width="52" height="4.4" rx="1" fill="url(#lx-lg-silver)"/>
+    </g>
+  </symbol>
+  <symbol id="lx-trophy-copa-america" viewBox="0 0 100 180">
+    <g>
+    <path fill="url(#lx-lg-silver)" d="M47,4 L53,4 L54,14 L46,14 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M36,14 L64,14 L70,24 L30,24 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M28,24 L72,24 C74,52 66,68 56,76 L44,76 C34,68 26,52 28,24 Z"/>
+    <path fill="url(#lx-lg-sheen)" opacity=".7" d="M28,24 L72,24 C74,52 66,68 56,76 L44,76 C34,68 26,52 28,24 Z"/>
+    <path d="M30,34 C42,38 58,38 70,34" stroke="#646c79" stroke-width=".9" fill="none"/>
+    <path fill="url(#lx-lg-silver)" d="M46,76 L54,76 L55,96 L45,96 Z"/>
+    <path fill="url(#lx-lg-silver)" d="M36,96 L64,96 L68,106 L32,106 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M30,106 L70,106 L72,126 L28,126 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M24,126 L76,126 L79,150 L21,150 Z"/>
+    <path fill="url(#lx-lg-wood)" d="M18,150 L82,150 L85,174 L15,174 Z"/>
+    <g fill="url(#lx-lg-silver)" opacity=".85">
+    <rect x="33" y="112" width="6.4" height="4.4" rx=".5"/><rect x="42" y="112" width="6.4" height="4.4" rx=".5"/><rect x="51" y="112" width="6.4" height="4.4" rx=".5"/><rect x="60" y="112" width="6.4" height="4.4" rx=".5"/>
+    <rect x="27.5" y="134" width="7" height="5" rx=".5"/><rect x="37.1" y="134" width="7" height="5" rx=".5"/><rect x="46.7" y="134" width="7" height="5" rx=".5"/><rect x="56.3" y="134" width="7" height="5" rx=".5"/><rect x="65.9" y="134" width="7" height="5" rx=".5"/>
+    <rect x="21" y="158" width="7.6" height="5.4" rx=".5"/><rect x="31.2" y="158" width="7.6" height="5.4" rx=".5"/><rect x="41.4" y="158" width="7.6" height="5.4" rx=".5"/><rect x="51.599999999999994" y="158" width="7.6" height="5.4" rx=".5"/><rect x="61.8" y="158" width="7.6" height="5.4" rx=".5"/><rect x="72" y="158" width="7.6" height="5.4" rx=".5"/>
+    </g>
+    </g>
+  </symbol>
+</svg>
+
+<div style="--club:#0b7a43;--club-2:#ffffff;--club-ink:#ffffff">
+<div class="lx-stage lx-stage--versus" style="--lx-glow-b:#c8161e" aria-hidden="true"></div>
+<header class="app top">
+  <div class="sb" role="status" aria-label="Final da Libertadores, Palmeiras 1, Flamengo 1, 87 minutos">
+    <div class="comp"><svg class="lx-trophy " viewBox="0 0 100 180" style="aspect-ratio:0.5556;" aria-hidden="true"><use href="#lx-trophy-libertadores"/></svg>Final</div>
+    <div class="tm home"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2040%2044'%3E%3Cpath%20d%3D'M20%201%2038%207v14c0%2011-8%2019-18%2022C10%2040%202%2032%202%2021V7z'%20fill%3D'%23fff'%2F%3E%3Cpath%20d%3D'M20%204%2035%209v12c0%209.4-6.8%2016.3-15%2019C11.8%2037.3%205%2030.4%205%2021V9z'%20fill%3D'%230b7a43'%2F%3E%3Ctext%20x%3D'20'%20y%3D'27'%20text-anchor%3D'middle'%20font-family%3D'Arial%2Csans-serif'%20font-weight%3D'900'%20font-size%3D'12'%20fill%3D'%23fff'%3EP%3C%2Ftext%3E%3C%2Fsvg%3E" alt="">PAL</div>
+    <div class="score">1<span style="opacity:.35">–</span>1</div>
+    <div class="tm away">FLA<img src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2040%2044'%3E%3Cpath%20d%3D'M20%201%2038%207v14c0%2011-8%2019-18%2022C10%2040%202%2032%202%2021V7z'%20fill%3D'%23111'%2F%3E%3Cpath%20d%3D'M20%204%2035%209v12c0%209.4-6.8%2016.3-15%2019C11.8%2037.3%205%2030.4%205%2021V9z'%20fill%3D'%23c8161e'%2F%3E%3Ctext%20x%3D'20'%20y%3D'27'%20text-anchor%3D'middle'%20font-family%3D'Arial%2Csans-serif'%20font-weight%3D'900'%20font-size%3D'12'%20fill%3D'%23111'%3EF%3C%2Ftext%3E%3C%2Fsvg%3E" alt=""></div>
+    <div class="clock"><span class="lx-dot lx-dot--blink" style="--lx-dot:var(--negative);width:7px;height:7px;box-shadow:0 0 8px var(--negative)"></span>87:42<small>+4</small></div>
+  </div>
+</header>
+<main class="app wrap">
+  <section class="main">
+    <div class="mom lx-glass"><div class="lx-eyebrow">Pressão<b>Palmeiras domina</b></div><svg viewBox="0 0 900 56" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="900" y1="28" y2="28" stroke="rgba(255,255,255,.12)"/><rect x="0.0" y="14.2" width="7" height="13.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.66"/><rect x="10.0" y="5.1" width="7" height="22.9" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.70"/><rect x="20.0" y="13.7" width="7" height="14.3" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.74"/><rect x="30.0" y="19.2" width="7" height="8.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.86"/><rect x="40.0" y="15.6" width="7" height="12.4" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.79"/><rect x="50.0" y="28" width="7" height="9.9" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.49"/><rect x="60.0" y="7.8" width="7" height="20.2" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.80"/><rect x="70.0" y="28" width="7" height="11.6" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.57"/><rect x="80.0" y="6.5" width="7" height="21.5" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.51"/><rect x="90.0" y="11.3" width="7" height="16.7" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.86"/><rect x="100.0" y="15.5" width="7" height="12.5" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.94"/><rect x="110.0" y="21.9" width="7" height="6.1" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.81"/><rect x="120.0" y="28" width="7" height="8.8" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.90"/><rect x="130.0" y="8.2" width="7" height="19.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.90"/><rect x="140.0" y="28" width="7" height="8.2" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.53"/><rect x="150.0" y="28" width="7" height="19.9" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.82"/><rect x="160.0" y="28" width="7" height="17.3" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.67"/><rect x="170.0" y="10.5" width="7" height="17.5" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.51"/><rect x="180.0" y="28" width="7" height="17.8" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.63"/><rect x="190.0" y="28" width="7" height="3.2" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.78"/><rect x="200.0" y="28" width="7" height="12.9" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.79"/><rect x="210.0" y="5.2" width="7" height="22.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.72"/><rect x="220.0" y="28" width="7" height="20.8" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.66"/><rect x="230.0" y="28" width="7" height="12.1" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.56"/><rect x="240.0" y="22.9" width="7" height="5.1" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.91"/><rect x="250.0" y="16.3" width="7" height="11.7" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.78"/><rect x="260.0" y="13.6" width="7" height="14.4" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.55"/><rect x="270.0" y="20.2" width="7" height="7.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.79"/><rect x="280.0" y="28" width="7" height="19.5" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.50"/><rect x="290.0" y="28" width="7" height="20.7" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.84"/><rect x="300.0" y="28" width="7" height="9.7" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.88"/><rect x="310.0" y="28" width="7" height="12.0" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.60"/><rect x="320.0" y="28" width="7" height="7.7" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.93"/><rect x="330.0" y="28" width="7" height="19.2" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.52"/><rect x="340.0" y="2.8" width="7" height="25.2" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.85"/><rect x="350.0" y="5.8" width="7" height="22.2" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.68"/><rect x="360.0" y="28" width="7" height="11.7" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.70"/><rect x="370.0" y="21.8" width="7" height="6.2" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.90"/><rect x="380.0" y="28" width="7" height="7.8" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.83"/><rect x="390.0" y="28" width="7" height="18.4" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.67"/><rect x="400.0" y="23.5" width="7" height="4.5" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.52"/><rect x="410.0" y="28" width="7" height="8.4" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.85"/><rect x="420.0" y="28" width="7" height="14.4" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.94"/><rect x="430.0" y="28" width="7" height="16.5" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.54"/><rect x="440.0" y="28" width="7" height="11.9" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.57"/><rect x="450.0" y="13.1" width="7" height="14.9" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.81"/><rect x="460.0" y="17.4" width="7" height="10.6" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.75"/><rect x="470.0" y="21.4" width="7" height="6.6" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.81"/><rect x="480.0" y="28" width="7" height="11.9" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.73"/><rect x="490.0" y="7.0" width="7" height="21.0" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.69"/><rect x="500.0" y="11.4" width="7" height="16.6" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.69"/><rect x="510.0" y="12.7" width="7" height="15.3" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.96"/><rect x="520.0" y="20.4" width="7" height="7.6" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.92"/><rect x="530.0" y="28" width="7" height="16.0" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.57"/><rect x="540.0" y="18.8" width="7" height="9.2" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.66"/><rect x="550.0" y="28" width="7" height="15.4" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.73"/><rect x="560.0" y="12.7" width="7" height="15.3" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.72"/><rect x="570.0" y="28" width="7" height="3.4" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.84"/><rect x="580.0" y="28" width="7" height="3.5" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.84"/><rect x="590.0" y="10.5" width="7" height="17.5" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.50"/><rect x="600.0" y="28" width="7" height="20.4" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.90"/><rect x="610.0" y="20.3" width="7" height="7.7" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.68"/><rect x="620.0" y="2.0" width="7" height="26.0" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.88"/><rect x="630.0" y="20.0" width="7" height="8.0" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.78"/><rect x="640.0" y="2.2" width="7" height="25.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.66"/><rect x="650.0" y="13.8" width="7" height="14.2" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.98"/><rect x="660.0" y="28" width="7" height="4.5" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.74"/><rect x="670.0" y="5.1" width="7" height="22.9" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.75"/><rect x="680.0" y="20.0" width="7" height="8.0" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.96"/><rect x="690.0" y="21.0" width="7" height="7.0" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.78"/><rect x="700.0" y="9.9" width="7" height="18.1" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.92"/><rect x="710.0" y="11.6" width="7" height="16.4" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.94"/><rect x="720.0" y="28" width="7" height="16.8" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.53"/><rect x="730.0" y="7.6" width="7" height="20.4" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.89"/><rect x="740.0" y="8.2" width="7" height="19.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.92"/><rect x="750.0" y="16.4" width="7" height="11.6" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.75"/><rect x="760.0" y="22.2" width="7" height="5.8" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.76"/><rect x="770.0" y="28" width="7" height="20.5" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.72"/><rect x="780.0" y="28" width="7" height="18.7" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.64"/><rect x="790.0" y="28" width="7" height="12.7" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.78"/><rect x="800.0" y="3.3" width="7" height="24.7" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.57"/><rect x="810.0" y="28" width="7" height="3.8" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.61"/><rect x="820.0" y="28" width="7" height="16.9" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.92"/><rect x="830.0" y="28" width="7" height="3.6" rx="2" fill="var(--lx-away,#e5484d)" opacity="0.45"/><rect x="840.0" y="23.6" width="7" height="4.4" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.76"/><rect x="850.0" y="11.3" width="7" height="16.7" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.74"/><rect x="860.0" y="18.7" width="7" height="9.3" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.90"/><rect x="870.0" y="22.6" width="7" height="5.4" rx="2" fill="var(--lx-home,#2fd07f)" opacity="0.95"/><circle cx="343" cy="4" r="4" fill="#fff"/><circle cx="613" cy="52" r="4" fill="#fff"/></svg></div>
+    <div class="pitch"><svg xmlns="http://www.w3.org/2000/svg" viewBox="236 -10 780 580" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="lx-ph-grass" x1="0" x2="1"><stop offset="0" stop-color="#0c3a23"/><stop offset=".5" stop-color="#0f4a2c"/><stop offset="1" stop-color="#0c3a23"/></linearGradient>
+    <pattern id="lx-ph-stripes" width="100" height="560" patternUnits="userSpaceOnUse"><rect width="50" height="560" fill="#fff" fill-opacity=".03"/></pattern>
+    <radialGradient id="lx-ph-light" cx=".82" cy=".45" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lx-ph-home" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#3be08c"/><stop offset="1" stop-color="#0a6b3a"/></radialGradient>
+    <radialGradient id="lx-ph-away" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ff4d55"/><stop offset="1" stop-color="#8e0e14"/></radialGradient>
+    <marker id="lx-ph-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#fff"/></marker>
+  </defs>
+  <rect x="0" y="-40" width="1100" height="640" fill="url(#lx-ph-grass)"/>
+  <rect x="0" y="-40" width="1100" height="640" fill="url(#lx-ph-stripes)"/>
+  <rect x="0" y="-40" width="1100" height="640" fill="url(#lx-ph-light)"/>
+  <g fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2">
+    <rect x="30" y="30" width="940" height="500" rx="3"/><path d="M500 30 V530"/><circle cx="500" cy="280" r="70"/>
+    <rect x="30" y="160" width="130" height="240"/><rect x="30" y="220" width="46" height="120"/><path d="M160 232 A 70 70 0 0 1 160 328"/>
+    <rect x="840" y="160" width="130" height="240"/><rect x="924" y="220" width="46" height="120"/><path d="M840 232 A 70 70 0 0 0 840 328"/>
+    <rect x="970" y="244" width="14" height="72" stroke-opacity=".6"/>
+    <rect x="16" y="244" width="14" height="72" stroke-opacity=".6"/>
+  </g>
+  <circle cx="500" cy="280" r="3" fill="#fff" fill-opacity=".5"/>
+  <!-- shot cone + shot path + run path (decisive moment overlay) -->
+  <path d="M790 262 L970 246 L970 314 Z" fill="#fff" fill-opacity=".07"/>
+  <path d="M790 262 C 860 240, 920 250, 962 268" stroke="#fff" stroke-width="2.4" stroke-dasharray="6 7" fill="none" marker-end="url(#lx-ph-arrow)" opacity=".85"/>
+  <path d="M760 330 C 770 305, 778 290, 786 270" stroke="#3ee6a4" stroke-width="2" stroke-dasharray="4 6" fill="none" opacity=".8"/>
+  <g font-family="'Barlow Condensed',sans-serif" font-weight="800" font-size="15" text-anchor="middle">
+    <g transform="translate(760 330)"><circle r="15" fill="url(#lx-ph-home)" stroke="#fff" stroke-opacity=".8" stroke-width="1.6"/><text y="5" fill="#fff">11</text></g>
+    <g transform="translate(948 282)"><circle r="15" fill="url(#lx-ph-away)" stroke="#111" stroke-opacity=".7" stroke-width="1.6"/><text y="5" fill="#fff">1</text></g>
+    <g transform="translate(872 360)"><circle r="15" fill="url(#lx-ph-away)" stroke="#111" stroke-opacity=".7" stroke-width="1.6"/><text y="5" fill="#fff">4</text></g>
+  </g>
+  <g transform="translate(790 262)">
+    <circle r="34" fill="#fff" fill-opacity=".08"/>
+    <circle r="26" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.5"><animate attributeName="r" values="20;34;20" dur="2s" repeatCount="indefinite"/><animate attributeName="stroke-opacity" values=".6;0;.6" dur="2s" repeatCount="indefinite"/></circle>
+    <circle r="18" fill="#fff"/><text y="6" text-anchor="middle" fill="#0b7a43" font-family="'Barlow Condensed',sans-serif" font-weight="800" font-size="19">9</text>
+  </g>
+  <circle cx="806" cy="274" r="6" fill="#fff" stroke="#000" stroke-opacity=".4"/>
+</svg>
+
+      <div class="moment lx-glass-hud" role="dialog" aria-labelledby="mom-t">
+        <div class="mh">
+          <div class="timer" role="timer" aria-label="6 segundos"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="4"/><circle class="p" cx="24" cy="24" r="21" fill="none" stroke="#ffc857" stroke-width="4" stroke-linecap="round" stroke-dasharray="132" stroke-dashoffset="52"/></svg><b>6</b></div>
+          <div><span class="lx-eyebrow" style="color:var(--warning);display:flex;gap:8px;align-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="13" height="13"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>Lance decisivo · 88'</span><h2 id="mom-t">Cara a cara com o goleiro</h2></div>
+          <div class="attr"><span>Finalização <b>84</b></span><span>Frieza <b>79</b></span><span>Fôlego <b>41%</b></span></div>
+        </div>
+        <div class="choices" role="radiogroup">
+          <button class="ch" role="radio" aria-checked="true"><div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.5"/></svg></span><kbd class="lx-kbd">1</kbd></div><div class="nm">Chute colocado</div><div class="ds">No canto, rasteiro, de chapa</div>
+            <div class="prob"><span class="lx-bar" style="--v:62%;--from:#16a870;--to:#3ee6a4"></span><b>62%</b></div><div class="fxl"><span class="g">Gol do título</span><span class="a">+1 OVR</span></div></button>
+          <button class="ch" role="radio" aria-checked="false"><div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></span><kbd class="lx-kbd">2</kbd></div><div class="nm">Cavadinha</div><div class="ds">Humilhar o goleiro na final</div>
+            <div class="prob"><span class="lx-bar" style="--v:34%;--from:#c98a1c;--to:#ffc857"></span><b>34%</b></div><div class="fxl"><span class="a">+ Hype mundial</span><span class="rd">− Moral se errar</span></div></button>
+          <button class="ch" role="radio" aria-checked="false"><div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span><kbd class="lx-kbd">3</kbd></div><div class="nm">Tocar para Kauan</div><div class="ds">Ele chega livre pela esquerda</div>
+            <div class="prob"><span class="lx-bar" style="--v:71%;--from:#3f6fff;--to:#8fb0ff"></span><b>71%</b></div><div class="fxl"><span class="g">Assistência</span><span class="a">+ Química</span></div></button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <aside class="side">
+    <div class="box lx-glass">
+      <div class="me"><div class="lx-ovr lx-ovr--compact lx-tier-gold" style="--w:50px"><span class="lx-ovr__n">87</span></div><div><div class="nm">RIBEIRO <span style="color:var(--text-3);font-weight:600">#9</span></div><div class="ds">Centroavante · 88 min em campo</div></div><div class="rate"><b>7.8</b><span>NOTA</span></div></div>
+      <div class="meters">
+        <div class="meter">Fôlego<span class="lx-bar" style="--v:41%;--from:#ff9f43;--to:#ffc857"></span><b>41%</b></div>
+        <div class="meter">Confiança<span class="lx-bar" style="--v:82%;--from:#16a870;--to:#3ee6a4"></span><b>82</b></div>
+        <div class="meter">Torcida<span class="lx-bar" style="--v:94%;--from:#9a7cff;--to:#e2d4ff"></span><b>94</b></div>
+      </div>
+    </div>
+    <div class="box lx-glass"><h3>Estatísticas <span>Ao vivo</span></h3>
+      <div class="stat"><span class="v">57%</span><span class="mid">Posse de bola</span><span class="v vr">43%</span><span class="tw"><i style="flex:0.570;background:#2fd07f"></i><i style="flex:0.430;background:rgba(229,72,77,.8)"></i></span></div><div class="stat"><span class="v">14</span><span class="mid">Finalizações</span><span class="v vr">9</span><span class="tw"><i style="flex:0.609;background:#2fd07f"></i><i style="flex:0.391;background:rgba(229,72,77,.8)"></i></span></div><div class="stat"><span class="v">6</span><span class="mid">No alvo</span><span class="v vr">3</span><span class="tw"><i style="flex:0.667;background:#2fd07f"></i><i style="flex:0.333;background:rgba(229,72,77,.8)"></i></span></div><div class="stat"><span class="v">1.84</span><span class="mid">xG</span><span class="v vr">0.92</span><span class="tw"><i style="flex:0.667;background:#2fd07f"></i><i style="flex:0.333;background:rgba(229,72,77,.8)"></i></span></div><div class="stat"><span class="v">7</span><span class="mid">Escanteios</span><span class="v vr">3</span><span class="tw"><i style="flex:0.700;background:#2fd07f"></i><i style="flex:0.300;background:rgba(229,72,77,.8)"></i></span></div>
+    </div>
+  </aside>
+</main>
+</div>
+</body>
+</html>

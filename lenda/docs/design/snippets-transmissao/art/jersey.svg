@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-labelledby="lx-jersey-t">
+  <title id="lx-jersey-t">Camisa do jogador</title>
+  <!-- LENDA · Transmissão · camisa paramétrica (extraída de L.jersey do mockup).
+       Cores: variáveis CSS jersey-body, jersey-body-2, jersey-trim, jersey-ink (fallback = Seleção Brasileira).
+       Textos: troque "SILVA" e "9". Em React, gere os ids com useId() se houver mais de uma camisa na página. -->
+  <defs>
+    <linearGradient id="lx-jersey-body" x1="0" x2="1">
+      <stop offset="0" style="stop-color:var(--jersey-body-2,#F2B800)"/>
+      <stop offset=".35" style="stop-color:var(--jersey-body,#FFD200)"/>
+      <stop offset=".65" style="stop-color:var(--jersey-body,#FFD200)"/>
+      <stop offset="1" style="stop-color:var(--jersey-body-2,#F2B800)"/>
+    </linearGradient>
+    <linearGradient id="lx-jersey-shade" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".22"/>
+    </linearGradient>
+    <clipPath id="lx-jersey-clip"><path d="M96 40 L124 29 C132 44 168 44 176 29 L204 40 L263 72 L246 126 L214 113 L214 270 C214 276 209 281 203 281 L97 281 C91 281 86 276 86 270 L86 113 L54 126 L37 72 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#lx-jersey-clip)">
+    <rect width="300" height="300" fill="url(#lx-jersey-body)"/>
+    <path d="M37 72 L96 40 L104 126 L54 126Z M263 72 L204 40 L196 126 L246 126Z" fill="#000" opacity=".06"/>
+    <rect width="300" height="300" fill="url(#lx-jersey-shade)"/>
+    <path d="M110 120 C118 170 112 220 118 281" stroke="#000" stroke-opacity=".07" stroke-width="10" fill="none"/>
+    <path d="M190 120 C182 170 188 220 182 281" stroke="#000" stroke-opacity=".07" stroke-width="10" fill="none"/>
+    <path d="M37 72 L46 67 L63 121 L54 126Z M263 72 L254 67 L237 121 L246 126Z" style="fill:var(--jersey-trim,#0A8A3E)"/>
+    <path d="M86 113 L92 110 L92 281 L86 281Z M214 113 L208 110 L208 281 L214 281Z" style="fill:var(--jersey-trim,#0A8A3E)" opacity=".85"/>
+  </g>
+  <path d="M124 29 C132 48 168 48 176 29 L167 26 C160 38 140 38 133 26 Z" style="fill:var(--jersey-trim,#0A8A3E)"/>
+  <text x="150" y="104" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="30" letter-spacing="3" style="fill:var(--jersey-ink,#0A5E2E)">SILVA</text>
+  <text x="150" y="232" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="128" letter-spacing="-2" style="fill:var(--jersey-ink,#0A5E2E)">9</text>
+</svg>

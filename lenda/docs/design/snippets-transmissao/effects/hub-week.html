@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="transmissao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central da semana</title>
+<link rel="stylesheet" href="../_fonts/fonts.css">
+<link rel="stylesheet" href="../../theme-transmissao.css">
+<style>
+  body { margin: 0; }
+  .page { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 18px 24px 40px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
+  .span-8 { grid-column: span 8; } .span-4 { grid-column: span 4; } .span-12 { grid-column: span 12; } .span-5 { grid-column: span 5; } .span-3 { grid-column: span 3; }
+  .head { grid-column: span 12; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  /* próximo jogo */
+  .next { position: relative; padding: 18px 22px; min-height: 230px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; overflow: hidden; }
+  .next .glow { position: absolute; inset: 0; z-index: -1; }
+  .vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 18px; margin-top: 14px; }
+  .team { display: flex; align-items: center; gap: 14px; }
+  .team.r { flex-direction: row-reverse; text-align: right; }
+  .team svg { width: 76px; height: 88px; flex: none; filter: drop-shadow(0 8px 14px rgb(0 0 0 / .6)); }
+  .team .nm { font: italic 800 32px/.95 var(--font-display); text-transform: uppercase; }
+  .team .fm { display: flex; gap: 3px; margin-top: 6px; }
+  .team.r .fm { justify-content: flex-end; }
+  .x { font: italic 800 26px/1 var(--font-display); color: var(--text-3); }
+  .when { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .probs { display: flex; height: 8px; gap: 2px; margin-top: 14px; }
+  .probs i { display: block; height: 100%; }
+  .probs-l { display: flex; justify-content: space-between; margin-top: 6px; font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; }
+  .next .side { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; gap: 10px; }
+  .count { text-align: right; }
+  .count b { display: block; font: italic 800 56px/.9 var(--font-num); font-variant-numeric: tabular-nums; }
+  /* status */
+  .status { padding: 16px 18px; display: grid; gap: 14px; align-content: start; }
+  .meter-row .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .meter-row .top b { font: 800 18px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+  .spark { display: flex; align-items: flex-end; gap: 4px; height: 34px; }
+  .spark i { width: 14px; display: block; clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
+  /* faixa da semana */
+  .week { padding: 14px; }
+  .days { display: grid; grid-template-columns: repeat(7, minmax(128px, 1fr)); gap: 6px; margin-top: 12px; overflow-x: auto; }
+  .lx-day .act { display: flex; align-items: center; gap: 8px; font: 700 15px/1.1 var(--font-display); letter-spacing: .03em; text-transform: uppercase; }
+  .lx-day .act svg { width: 18px; height: 18px; flex: none; color: var(--text-2); }
+  .lx-day .imp { margin-top: auto; }
+  .lx-day.is-past .dow::after { content: " ✓"; color: var(--positive); }
+  .lx-day.is-match .act svg { width: 26px; height: 30px; }
+  .news { padding: 14px 16px; }
+  .news article { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .news article i { background: var(--lx-edge, var(--accent)); }
+  .news h4 { margin: 0; font: 700 16px/1.2 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
+  .news p { margin: 3px 0 0; font: 400 13px/1.4 var(--font-ui); color: var(--text-3); }
+  @media (max-width: 1023px) { .span-8, .span-4, .span-5, .span-3 { grid-column: span 12; } }
+  @media (max-width: 640px) {
+    .page { padding: 12px; gap: 12px; }
+    .next { grid-template-columns: 1fr; padding: 14px; }
+    .next .side { align-items: stretch; }
+    .team svg { width: 48px; height: 56px; } .team .nm { font-size: 22px; }
+    .days { grid-template-columns: repeat(7, 132px); scroll-snap-type: x mandatory; -webkit-mask: linear-gradient(90deg, #000 85%, transparent); mask: linear-gradient(90deg, #000 85%, transparent); }
+    .lx-day { scroll-snap-align: start; }
+  }
+</style>
+</head>
+<body>
+<div class="lx-stadium lx-stadium--calm lx-stadium--club" style="--club:#0A7A45"><i class="lx-stadium__beam is-l"></i><i class="lx-stadium__beam is-r"></i><i class="lx-stadium__haze"></i><i class="lx-noise-layer"></i></div>
+<main class="page" style="--club:#0A7A45;--club-2:#00502C;--club-ink:#fff">
+  <div class="head">
+    <div><span class="lx-kicker">Central · Semana 23 · 14–20 out 2035</span><h1 class="lx-t-display" style="margin-top:8px">Sua semana</h1></div>
+    <button class="lx-btn lx-btn--primary">Simular até o jogo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+  </div>
+
+  <section class="lx-plate lx-c-lg next span-8 lx-anim-rise" style="--i:0">
+    <div class="glow lx-club-glow"></div>
+    <div>
+      <span class="lx-kicker">Próximo jogo · Brasileirão · 31ª rodada</span>
+      <div class="vs">
+        <div class="team" style="--club:#0A7A45;--club-2:#00502C;--club-ink:#fff">
+          <svg viewBox="0 0 48 56"><defs><linearGradient id="c1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A7A45"/><stop offset="1" stop-color="#00502C"/></linearGradient></defs><path d="M24 1.5 L45 7 L45 26 C45 40 36 49 24 54.5 C12 49 3 40 3 26 L3 7 Z" fill="url(#c1)" stroke="#fff" stroke-width="2"/><text x="24" y="33" text-anchor="middle" font-family="Barlow Condensed" font-weight="800" font-style="italic" font-size="14" fill="#fff">PAL</text></svg>
+          <div><div class="nm">Palmeiras</div><div class="lx-label">2º · 57 pts</div><div class="fm"><span class="lx-form" data-r="V">V</span><span class="lx-form" data-r="V">V</span><span class="lx-form" data-r="E">E</span><span class="lx-form" data-r="V">V</span><span class="lx-form" data-r="V">V</span></div></div>
+        </div>
+        <span class="x">×</span>
+        <div class="team r">
+          <svg viewBox="0 0 48 56"><defs><linearGradient id="c2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2D36"/><stop offset="1" stop-color="#111318"/></linearGradient></defs><path d="M24 1.5 L45 7 L45 26 C45 40 36 49 24 54.5 C12 49 3 40 3 26 L3 7 Z" fill="url(#c2)" stroke="#fff" stroke-width="2"/><text x="24" y="33" text-anchor="middle" font-family="Barlow Condensed" font-weight="800" font-style="italic" font-size="14" fill="#fff">COR</text></svg>
+          <div><div class="nm">Corinthians</div><div class="lx-label">14º · 32 pts</div><div class="fm"><span class="lx-form" data-r="D">D</span><span class="lx-form" data-r="E">E</span><span class="lx-form" data-r="V">V</span><span class="lx-form" data-r="D">D</span><span class="lx-form" data-r="E">E</span></div></div>
+        </div>
+      </div>
+      <div class="when"><span class="lx-chip">Sáb 18/10 · 16:00</span><span class="lx-chip">Allianz Parque</span><span class="lx-chip lx-chip--accent">Titular provável</span></div>
+      <div class="probs" aria-label="Probabilidades: vitória 48%, empate 27%, derrota 25%"><i style="width:48%;background:var(--positive)"></i><i style="width:27%;background:var(--text-3)"></i><i style="width:25%;background:var(--negative)"></i></div>
+      <div class="probs-l"><span style="color:var(--positive)">Vitória 48%</span><span style="color:var(--text-2)">Empate 27%</span><span style="color:var(--negative)">Derrota 25%</span></div>
+    </div>
+    <div class="side">
+      <div class="count"><span class="lx-label">Faltam</span><b>2 dias</b></div>
+      <button class="lx-btn lx-btn--accent lx-btn--sm">Ir para o jogo</button>
+    </div>
+  </section>
+
+  <section class="lx-plate lx-plate--flat lx-c-lg status span-4 lx-anim-rise" style="--i:1">
+    <span class="lx-kicker">Condição</span>
+    <div class="meter-row"><div class="top"><span class="lx-label">Energia</span><b>82</b></div><div class="lx-meter lx-meter--seg" data-level="good" style="--lx-v:.82"></div></div>
+    <div class="meter-row"><div class="top"><span class="lx-label">Moral</span><b>74</b></div><div class="lx-meter lx-meter--seg" style="--lx-v:.74"></div></div>
+    <div class="meter-row"><div class="top"><span class="lx-label">Confiança do técnico</span><b>41</b></div><div class="lx-meter lx-meter--seg" data-level="warn" style="--lx-v:.41"></div></div>
+    <div class="meter-row"><div class="top"><span class="lx-label">Forma · últimas 5 notas</span><b style="color:var(--positive)">7,4</b></div>
+      <div class="spark" aria-label="Notas 6,8 7,1 6,4 7,9 8,6"><i style="height:48%;background:var(--text-3)"></i><i style="height:56%;background:var(--positive)"></i><i style="height:40%;background:var(--text-3)"></i><i style="height:70%;background:var(--positive)"></i><i style="height:92%;background:var(--lx-gold)"></i></div></div>
+  </section>
+
+  <section class="lx-plate lx-plate--flat lx-c-lg week span-12 lx-anim-rise" style="--i:2">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="lx-kicker">Agenda</span><span class="lx-label"><span style="display:inline-block;width:10px;height:10px;vertical-align:-1px" class="lx-window-band"></span>&nbsp; Janela de transferências aberta até 31/10</span></div>
+    <div class="days">
+      <div class="lx-day is-past"><span class="lx-day__dow dow">Seg</span><span class="lx-day__date">14</span><span class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 6.5 17.5 17.5M21 21l-1-1M3 3l1 1M18 22l4-4M2 6l4-4M3 10l7-7M14 21l7-7"/></svg>Treino físico</span><span class="imp lx-chip lx-chip--sm lx-chip--pos-ok">+2 físico</span></div>
+      <div class="lx-day is-past"><span class="lx-day__dow dow">Ter</span><span class="lx-day__date">15</span><span class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="19" height="16" rx="1.5"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/></svg>Treino tático</span><span class="imp lx-chip lx-chip--sm lx-chip--accent">Entrosamento +</span></div>
+      <div class="lx-day is-today"><span class="lx-day__dow">Qua · hoje</span><span class="lx-day__date">16</span><span class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19v3M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>Coletiva</span><span class="imp lx-chip lx-chip--sm lx-chip--gold">Mídia ±</span></div>
+      <div class="lx-day"><span class="lx-day__dow">Qui</span><span class="lx-day__date">17</span><span class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8l4 4v15H6z"/><path d="M9 11h6M9 15h6"/></svg>Reunião com empresário</span><span class="imp lx-chip lx-chip--sm">Proposta?</span></div>
+      <div class="lx-day"><span class="lx-day__dow">Sex</span><span class="lx-day__date">18</span><span class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></svg>Descanso</span><span class="imp lx-chip lx-chip--sm lx-chip--pos-ok">+12 energia</span></div>
+      <div class="lx-day is-match" style="--club:#0A7A45"><span class="lx-day__dow">Sáb · 16:00</span><span class="lx-day__date">19</span><span class="act"><svg viewBox="0 0 48 56"><path d="M24 1.5 L45 7 L45 26 C45 40 36 49 24 54.5 C12 49 3 40 3 26 L3 7 Z" fill="#2A2D36" stroke="#fff" stroke-width="2.5"/></svg>vs COR (C)</span><span class="imp lx-chip lx-chip--sm lx-chip--live">Jogo</span></div>
+      <div class="lx-day"><span class="lx-day__dow">Dom</span><span class="lx-day__date">20</span><span class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Recuperação</span><span class="imp lx-chip lx-chip--sm">Fisioterapia</span></div>
+    </div>
+  </section>
+
+  <section class="lx-plate lx-plate--flat news span-5 lx-anim-rise" style="--i:3">
+    <span class="lx-kicker">Caixa de entrada</span>
+    <article style="--lx-edge:var(--lx-gold)"><i></i><div><h4>Real Madrid monitora Silva</h4><p>Olheiros no Allianz no sábado. Proposta pode chegar na janela.</p></div></article>
+    <article style="--lx-edge:var(--warning)"><i></i><div><h4>Técnico cobra intensidade</h4><p>"Precisa voltar para marcar." Confiança caiu para 41.</p></div></article>
+    <article><i></i><div><h4>Convocação: Seleção</h4><p>Lista sai na segunda. Você está na pré-lista.</p></div></article>
+  </section>
+  <section class="lx-plate lx-plate--flat news span-4 lx-anim-rise" style="--i:4">
+    <span class="lx-kicker">Classificação</span>
+    <div style="margin-top:8px;display:grid;gap:3px">
+      <div class="lx-zone" data-zone="lib" style="display:grid;grid-template-columns:30px 1fr 40px;height:28px;align-items:center;padding-left:6px"><span class="num">1</span><span class="lx-t-row" style="font-size:15px">Flamengo</span><b class="num" style="text-align:right">60</b></div>
+      <div class="lx-zone lx-row-me" data-zone="lib" style="display:grid;grid-template-columns:30px 1fr 40px;height:28px;align-items:center;padding-left:6px"><span class="num">2</span><span class="lx-t-row" style="font-size:15px">Palmeiras <span class="lx-you">Seu clube</span></span><b class="num" style="text-align:right">57</b></div>
+      <div class="lx-zone" data-zone="lib" style="display:grid;grid-template-columns:30px 1fr 40px;height:28px;align-items:center;padding-left:6px"><span class="num">3</span><span class="lx-t-row" style="font-size:15px">Athletico-PR</span><b class="num" style="text-align:right">49</b></div>
+    </div>
+  </section>
+  <section class="lx-plate lx-plate--flat news span-3 lx-anim-rise" style="--i:5">
+    <span class="lx-kicker">Em alta</span>
+    <article><i></i><div><h4 class="lx-handle">#SilvaNoReal</h4><p>184 mil posts · torcida dividida</p></div></article>
+    <article style="--lx-edge:var(--positive)"><i></i><div><h4>+184K seguidores</h4><p>12,4 mi no total</p></div></article>
+  </section>
+</main>
+</body>
+</html>

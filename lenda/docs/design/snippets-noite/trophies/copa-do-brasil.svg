@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180" width="120" height="180" role="img" aria-labelledby="cdb-title" class="lx-trophy" data-trophy="copa-do-brasil">
+  <title id="cdb-title">Copa do Brasil</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <linearGradient id="cdb-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <clipPath id="cdb-cp-cdb"><path d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/></clipPath>
+  <linearGradient id="cdb-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="cdb-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="cdb-lg-black" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#26282e)"/>
+  <stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/>
+  </linearGradient>
+  <linearGradient id="cdb-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <path d="M26,30 C9,29 7,56 30,62" stroke="url(#cdb-lg-silver)" stroke-width="5.4" fill="none" stroke-linecap="round"/>
+  <path d="M94,30 C111,29 113,56 90,62" stroke="url(#cdb-lg-silver)" stroke-width="5.4" fill="none" stroke-linecap="round"/>
+  <path fill="url(#cdb-lg-silver)" d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/>
+  <g clip-path="url(#cdb-cp-cdb)"><rect x="0" y="33" width="120" height="4.4" fill="#119a52"/><rect x="0" y="37.4" width="120" height="3.2" fill="#ffd21f"/></g>
+  <path fill="url(#cdb-lg-sheen)" opacity=".7" d="M24,22 L96,22 C97,58 83,82 68,90 L52,90 C37,82 23,58 24,22 Z"/>
+  <ellipse cx="60" cy="22" rx="36" ry="4" fill="url(#cdb-lg-silver-v)"/>
+  <ellipse cx="60" cy="21.8" rx="33" ry="2.6" fill="#353a43"/>
+  <path fill="url(#cdb-lg-silver)" d="M53.6,89.6 L66.4,89.6 L64.4,114 L55.6,114 Z"/>
+  <ellipse cx="60" cy="101" rx="7.6" ry="3.2" fill="url(#cdb-lg-silver)"/>
+  <path fill="url(#cdb-lg-silver)" d="M44,114 L76,114 L80.4,126 L39.6,126 Z"/>
+  <path fill="url(#cdb-lg-black)" d="M35.6,126 L84.4,126 L88.6,153 L31.4,153 Z"/>
+  <rect x="49" y="134" width="22" height="10" rx="1.2" fill="url(#cdb-lg-silver)"/>
+  <rect x="30.4" y="152" width="59.2" height="4.4" rx="1.1" fill="url(#cdb-lg-silver-d)"/>
+  </g>
+</svg>

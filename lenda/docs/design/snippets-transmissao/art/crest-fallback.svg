@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 56" width="48" height="56" role="img" aria-labelledby="lx-crest-t">
+  <title id="lx-crest-t">Escudo genérico</title>
+  <!-- Escudo de fallback enquanto o escudo real (cache local) não carrega, ou para clubes fictícios.
+       Cores: club, club-2, club-ink (as mesmas variáveis injetadas pelo React). Troque "PAL" pela sigla. -->
+  <defs>
+    <linearGradient id="lx-crest-g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color:var(--club,#0A7A45)"/>
+      <stop offset="1" style="stop-color:var(--club-2,#00502C)"/>
+    </linearGradient>
+    <linearGradient id="lx-crest-sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".35"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 1.5 L45 7 L45 26 C45 40 36 49 24 54.5 C12 49 3 40 3 26 L3 7 Z" fill="url(#lx-crest-g)" stroke="#fff" stroke-opacity=".85" stroke-width="2"/>
+  <path d="M24 5.5 L41 10 L41 26 C41 37.5 34 45 24 50 C14 45 7 37.5 7 26 L7 10 Z" fill="none" style="stroke:var(--club-ink,#fff)" stroke-opacity=".35" stroke-width="1"/>
+  <path d="M3 7 L24 1.5 L45 7 L45 20 C30 18 16 23 3 30 Z" fill="url(#lx-crest-sheen)"/>
+  <text x="24" y="33" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-style="italic" font-size="15" letter-spacing=".5" style="fill:var(--club-ink,#fff)">PAL</text>
+</svg>
