@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" width="100" height="150" role="img" aria-labelledby="est-title" class="lx-trophy" data-trophy="estadual">
+  <title id="est-title">Campeonato Estadual (Paulistão / genérico)</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <linearGradient id="est-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <linearGradient id="est-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="est-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="est-lg-black" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#26282e)"/>
+  <stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/>
+  </linearGradient>
+  <linearGradient id="est-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <path d="M31,26 C19,26 18,46 35,50" stroke="url(#est-lg-silver)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M69,26 C81,26 82,46 65,50" stroke="url(#est-lg-silver)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path fill="url(#est-lg-silver)" d="M29,18 L71,18 C71,48 62,64 55,70 L45,70 C38,64 29,48 29,18 Z"/>
+  <path fill="url(#est-lg-sheen)" opacity=".7" d="M29,18 L71,18 C71,48 62,64 55,70 L45,70 C38,64 29,48 29,18 Z"/>
+  <ellipse cx="50" cy="18" rx="21" ry="3" fill="url(#est-lg-silver-v)"/>
+  <ellipse cx="50" cy="17.8" rx="18.6" ry="1.9" fill="#363b44"/>
+  <path fill="url(#est-lg-silver)" d="M46,70 L54,70 L53,96 L47,96 Z"/>
+  <ellipse cx="50" cy="82" rx="5.4" ry="2.4" fill="url(#est-lg-silver)"/>
+  <path fill="url(#est-lg-silver)" d="M39,96 L61,96 L64,106 L36,106 Z"/>
+  <path fill="url(#est-lg-black)" d="M33,106 L67,106 L70,140 L30,140 Z"/>
+  <rect x="42" y="116" width="16" height="9" rx="1" fill="url(#est-lg-silver)"/>
+  <rect x="29" y="139" width="42" height="4" rx="1" fill="url(#est-lg-silver-d)"/>
+  </g>
+</svg>

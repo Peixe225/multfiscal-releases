@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 180" width="110" height="180" role="img" aria-labelledby="lga-title" class="lx-trophy" data-trophy="laliga">
+  <title id="lga-title">Liga europeia (LaLiga / genérica)</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <radialGradient id="lga-rg-silver" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".2" style="stop-color:var(--metal-silver-7,#e9edf2)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-5,#a0a9b6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#586070)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2c3038)"/>
+  </radialGradient>
+  <linearGradient id="lga-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <linearGradient id="lga-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="lga-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <circle cx="55" cy="9" r="5" fill="url(#lga-rg-silver)"/>
+  <path fill="url(#lga-lg-silver)" d="M44,14 L66,14 C70,18 74,22 76,26 L34,26 C36,22 40,18 44,14 Z"/>
+  <path d="M32,36 C14,34 12,66 34,72" stroke="url(#lga-lg-silver)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M78,36 C96,34 98,66 76,72" stroke="url(#lga-lg-silver)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path fill="url(#lga-lg-silver)" d="M30,26 L80,26 C81,64 71,88 61,96 L49,96 C39,88 29,64 30,26 Z"/>
+  <path d="M32,44 C44,48 66,48 78,44" stroke="#c9a23b" stroke-width="2.2" fill="none"/>
+  <path fill="url(#lga-lg-sheen)" opacity=".7" d="M30,26 L80,26 C81,64 71,88 61,96 L49,96 C39,88 29,64 30,26 Z"/>
+  <path fill="url(#lga-lg-silver)" d="M50,96 L60,96 L59,122 L51,122 Z"/>
+  <ellipse cx="55" cy="108" rx="6.4" ry="2.8" fill="url(#lga-lg-silver)"/>
+  <path fill="url(#lga-lg-silver)" d="M41,122 L69,122 L73,134 L37,134 Z"/>
+  <path fill="url(#lga-lg-silver-d)" d="M33,134 L77,134 L80,170 L30,170 Z"/>
+  <rect x="29" y="169" width="52" height="4.4" rx="1" fill="url(#lga-lg-silver)"/>
+  </g>
+</svg>

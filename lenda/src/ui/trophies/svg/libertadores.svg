@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="lib-title" class="lx-trophy" data-trophy="libertadores">
+  <title id="lib-title">CONMEBOL Libertadores</title>
+  <!-- LENDA · Noite de Final · trophy art. Gradient stops read the metal-* CSS custom properties from theme-noite.css when inlined, and fall back to the original mockup hex when loaded as an img. -->
+  <defs>
+  <linearGradient id="lib-lg-silver" x1="0" x2="1" y1="0" y2="0">
+  <stop offset="0" style="stop-color:var(--metal-silver-2,#4b525e)"/><stop offset=".12" style="stop-color:var(--metal-silver-6,#bfc7d2)"/>
+  <stop offset=".28" style="stop-color:var(--metal-silver-5,#8a93a1)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/>
+  <stop offset=".56" style="stop-color:var(--metal-silver-7,#dfe4ea)"/><stop offset=".74" style="stop-color:var(--metal-silver-5,#939cab)"/>
+  <stop offset=".88" style="stop-color:var(--metal-silver-7,#e6eaef)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#424854)"/>
+  </linearGradient>
+  <radialGradient id="lib-rg-silver" cx=".34" cy=".28" r=".8">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".2" style="stop-color:var(--metal-silver-7,#e9edf2)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-5,#a0a9b6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#586070)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2c3038)"/>
+  </radialGradient>
+  <linearGradient id="lib-lg-silver-d" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-1,#2f343c)"/><stop offset=".3" style="stop-color:var(--metal-silver-4,#7c8593)"/>
+  <stop offset=".5" style="stop-color:var(--metal-silver-6,#c4cbd5)"/><stop offset=".72" style="stop-color:var(--metal-silver-4,#6c7482)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#262a31)"/>
+  </linearGradient>
+  <linearGradient id="lib-lg-silver-v" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0" style="stop-color:var(--metal-silver-8,#ffffff)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#b9c1cc)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5b6370)"/>
+  </linearGradient>
+  <linearGradient id="lib-lg-wood" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-wood-1,#1c0f07)"/><stop offset=".25" style="stop-color:var(--metal-wood-2,#4f2d15)"/>
+  <stop offset=".48" style="stop-color:var(--metal-wood-3,#7d4b23)"/><stop offset=".7" style="stop-color:var(--metal-wood-2,#4a2a13)"/><stop offset="1" style="stop-color:var(--metal-wood-1,#170c05)"/>
+  </linearGradient>
+  <linearGradient id="lib-lg-gold" x1="0" x2="1">
+  <stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/>
+  <stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/>
+  <stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/>
+  <stop offset=".89" style="stop-color:var(--metal-gold-6,#f3d170)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#4f3104)"/>
+  </linearGradient>
+  <linearGradient id="lib-lg-sheen" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  </defs>
+  <g>
+  <path fill="url(#lib-lg-silver)" d="M47.2,12.8 C48.6,12 51.4,12 52.8,12.9 L56.2,17.4 L61.4,20.2 L60.6,22.6 L55,20.6 L54.6,27.4 L58.4,31.2 L63.4,32.6 L62.8,35.2 L56,34.4 L51.2,30 L49.4,35.2 L48.8,39.4 L45.6,39.4 L46,34.2 L46.4,27.6 L46,20.8 L41.6,24.6 L39.8,22.8 Z"/>
+  <circle cx="49.6" cy="8" r="4.3" fill="url(#lib-rg-silver)"/>
+  <circle cx="50" cy="49.5" r="10.2" fill="url(#lib-rg-silver)"/>
+  <path d="M44,45 q6,-3.5 12,0 M42.5,51 q7.5,3 15,0" stroke="#5b6370" stroke-width=".6" fill="none" opacity=".7"/>
+  <rect x="46" y="58" width="8" height="5" fill="url(#lib-lg-silver-d)"/>
+  <path fill="url(#lib-lg-silver)" d="M28.6,62.6 C29.6,77 39.6,92.6 46,100.6 L54,100.6 C60.4,92.6 70.4,77 71.4,62.6 Z"/>
+  <path d="M31,70 C40,73 60,73 69,70" stroke="#646c79" stroke-width=".9" fill="none"/>
+  <path d="M33.6,77.5 C42,80 58,80 66.4,77.5" stroke="#fff" stroke-opacity=".5" stroke-width=".6" fill="none"/>
+  <ellipse cx="50" cy="62.6" rx="21.4" ry="3.6" fill="url(#lib-lg-silver-v)"/>
+  <ellipse cx="50" cy="62.4" rx="17" ry="2.1" fill="#3b414b" opacity=".55"/>
+  <rect x="47" y="100" width="6" height="12" fill="url(#lib-lg-silver)"/>
+  <ellipse cx="50" cy="104" rx="6.4" ry="2.8" fill="url(#lib-lg-silver)"/>
+  <path fill="url(#lib-lg-silver)" d="M35.5,112 L64.5,112 L68.5,121 L31.5,121 Z"/>
+  <path fill="url(#lib-lg-wood)" d="M26,121 L74,121 L78,171 L22,171 Z"/>
+  <g fill="url(#lib-lg-gold)" opacity=".92">
+  <rect x="29.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="38.20" y="128" width="6.60" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="46.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="55.20" y="128" width="6.60" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="63.70" y="128" width="6.60" height="5.4" rx=".6" /><rect x="28.52" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="37.52" y="137.5" width="6.95" height="5.4" rx=".6" /><rect x="46.52" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="55.52" y="137.5" width="6.95" height="5.4" rx=".6" /><rect x="64.53" y="137.5" width="6.95" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="27.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="36.85" y="147" width="7.30" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="46.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="55.85" y="147" width="7.30" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="65.35" y="147" width="7.30" height="5.4" rx=".6" /><rect x="26.18" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="36.17" y="156.5" width="7.65" height="5.4" rx=".6" /><rect x="46.17" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/><rect x="56.17" y="156.5" width="7.65" height="5.4" rx=".6" /><rect x="66.17" y="156.5" width="7.65" height="5.4" rx=".6" fill="url(#lib-lg-silver)"/>
+  </g>
+  <rect x="20.5" y="170" width="59" height="5" rx="1.2" fill="url(#lib-lg-silver-d)"/>
+  <path fill="url(#lib-lg-sheen)" opacity=".7" d="M28.6,62.6 C29.6,77 39.6,92.6 46,100.6 L54,100.6 C60.4,92.6 70.4,77 71.4,62.6 Z"/>
+  </g>
+</svg>
