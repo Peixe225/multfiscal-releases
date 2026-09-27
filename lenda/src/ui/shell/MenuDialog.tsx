@@ -2,7 +2,7 @@
  * Menu (sheet on phones, dialog on desktop): navigation, settings, abandon career.
  */
 import { useState } from 'react'
-import { ChevronRight, Crown, Flag as FlagIcon, House, LineChart, Play, Radio, Settings2, Sparkles, Trash2, UserRound } from 'lucide-react'
+import { ChevronRight, Crown, Flag as FlagIcon, House, ChartLine, Play, Radio, Settings2, Sparkles, Trash, UserRound } from 'lucide-react'
 import { navigate, useApp, type RoutePath } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { useData } from '@/store/data'
@@ -52,7 +52,7 @@ export function MenuDialog() {
         <NavRow icon={House} label="Início" to="/" onGo={close} />
         {active && state && <NavRow icon={Play} label="Continuar carreira" sub={`${state.identity.surname} · ${state.age} anos · OVR ${state.ovr}`} to="/carreira" onGo={close} />}
         <NavRow icon={UserRound} label="Nova carreira" sub="Modo Clássico" to="/identidade" onGo={close} />
-        {state && <NavRow icon={LineChart} label="Resumo da carreira" to="/resumo" onGo={close} />}
+        {state && <NavRow icon={ChartLine} label="Resumo da carreira" to="/resumo" onGo={close} />}
         <NavRow icon={Radio} label="Ligas ao vivo" sub="Tabelas reais de hoje" to="/ligas" onGo={close} />
         <NavRow icon={Crown} label="Hall da Fama" sub="Suas carreiras anteriores" to="/hall" onGo={close} />
         {import.meta.env.DEV && <NavRow icon={Sparkles} label="Design kit" sub="Primitivos e estados" to="/kit" onGo={close} />}
@@ -115,7 +115,7 @@ export function MenuDialog() {
                 <Button
                   variant="danger"
                   size="sm"
-                  icon={Trash2}
+                  icon={Trash}
                   onClick={async () => {
                     await abandon()
                     setConfirm(false)
@@ -132,7 +132,7 @@ export function MenuDialog() {
               </div>
             </div>
           ) : (
-            <Button variant="text" size="sm" icon={Trash2} onClick={() => setConfirm(true)}>
+            <Button variant="text" size="sm" icon={Trash} onClick={() => setConfirm(true)}>
               Abandonar carreira atual
             </Button>
           )}

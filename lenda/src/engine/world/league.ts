@@ -105,7 +105,7 @@ export function leaguePlayoffs(
   }
   const ko = runKnockout(ctx, rng, seeds, {
     kind,
-    legs: (size) => (twoLegs ? 2 : size === 2 && league.country === 'ARG' ? 1 : 1),
+    legs: () => (twoLegs ? 2 : 1),
     neutral: (size) => size === 2 && league.country === 'ARG',
     extraTime: true,
     mode: 'bracket',
@@ -228,10 +228,10 @@ export function promotionExchange(
     const seeds = upperSeat && !down.includes(upperSeat) ? [upperSeat, ...pool] : pool
     if (seeds.length >= 2) {
       const rng = subRng(ctx.seed, 'season', ctx.season, 'promotion', lower.id)
-      const twoLegs = lower.country !== 'ENG' || true
       const ko = runKnockout(ctx, rng, seeds, {
         kind: 'league',
-        legs: (size) => (size === 2 && lower.country === 'ENG' ? 1 : twoLegs ? 2 : 1),
+        // semifinais em ida e volta; final única em Wembley no caso inglês
+        legs: (size) => (size === 2 && lower.country === 'ENG' ? 1 : 2),
         neutral: (size) => size === 2 && lower.country === 'ENG',
         extraTime: true,
         mode: 'bracket',
