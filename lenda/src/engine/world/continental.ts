@@ -16,7 +16,7 @@ import type { Competition, CompetitionKind, Confed, CupResult, StandingRow } fro
 import { rng as subRng, type Rng } from '../rng'
 import { CONFEDS, confedOfClub, play, type DataIndex, type SeasonCtx } from './context'
 import { inProgress, presetFrom, reachedFromCompleted } from './cups'
-import { drawGroups, playTie, runGroups, runKnockout, runSwiss, stageName, type PresetTie } from './knockout'
+import { drawGroups, forceInto, playTie, runGroups, runKnockout, runSwiss, stageName, type PresetTie } from './knockout'
 import { fillPairings } from './schedule'
 import { addResult, sortTable } from './table'
 
@@ -266,6 +266,21 @@ function knockoutPhase(
   )
 }
 
+/** Título forçado: o clube do jogador eliminado na fase de liga ocupa a última vaga do mata-mata. */
+function forceRow(ctx: SeasonCtx, kind: CompetitionKind, table: StandingRow[]): StandingRow[] {
+  const ids = table.map((r) => r.clubId)
+  const cut = table.length >= 24 ? 23 : table.length >= 16 ? 15 : 7
+  const forcedIds = forceInto(ctx, kind, ids, ids.slice(0, cut + 1), cut)
+  if (forcedIds.length === cut + 1 && forcedIds[cut] !== ids[cut]) {
+    const i = ids.indexOf(forcedIds[cut])
+    const out = table.slice()
+    const [row] = out.splice(i, 1)
+    out.splice(cut, 0, row)
+    return out
+  }
+  return table
+}
+
 /** Oitavas a partir dos grupos: 1º do grupo i × 2º do grupo i+1 (sem repetir grupo). */
 function groupKnockoutSeeds(tables: { name: string; table: StandingRow[] }[]): string[] {
   const g = tables.length
@@ -418,12 +433,13 @@ export function simulateContinental(
     const tables = runGroups(ctx, rng, groups, { kind, rounds: 2 })
     groupsOut = tables
     for (const t of tables) for (const r of t.table.slice(2)) reached[r.clubId] = 'Fase de grupos'
-    const res = knockoutPhase(ctx, rng, kind, f, groupKnockoutSeeds(tables), 'fixed')
+    const seeds = forceInto(ctx, kind, list, groupKnockoutSeeds(tables), 1)
+    const res = knockoutPhase(ctx, rng, kind, f, seeds, 'fixed')
     stages.push(...res.stages)
     Object.assign(reached, res.reached)
     ko = res
   } else if (f.type === 'swiss') {
-    const table = runSwiss(ctx, rng, list, f.matches ?? 8, kind)
+    const table = forceRow(ctx, kind, runSwiss(ctx, rng, list, f.matches ?? 8, kind))
     groupsOut = [{ name: 'Fase de liga', table }]
     ko = swissKnockout(ctx, rng, kind, f, table, reached, stages)
   } else {
@@ -610,7 +626,7 @@ export function clubWorldCup(
   const tables = runGroups(ctx, rng, groups, { kind: comp.kind, rounds: 1, neutral: true })
   const reached: Record<string, string> = {}
   for (const t of tables) for (const r of t.table.slice(2)) reached[r.clubId] = 'Fase de grupos'
-  const seeds = groupKnockoutSeeds(tables)
+  const seeds = forceInto(ctx, comp.kind, teams, groupKnockoutSeeds(tables), 1)
   const ko = runKnockout(ctx, rng, seeds, {
     kind: comp.kind,
     legs: () => 1,

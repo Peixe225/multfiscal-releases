@@ -197,6 +197,12 @@ describe('motor do mundo — fixture sintético', () => {
       expect(s.strength).toBeGreaterThanOrEqual(40)
       expect(s.strength).toBeLessThanOrEqual(92)
     }
+    // temporadas antigas compactadas: tabelas completas mantidas, detalhes pesados descartados
+    const old = world.seasons[FIXTURE_FIRST_SEASON]
+    expect(old.clubStats).toBeUndefined()
+    expect(old.leagues['bra.1'].table).toHaveLength(20)
+    expect(old.awards.find((a) => a.award === 'ballon_dor')!.ranking).toHaveLength(10)
+    expect(world.seasons[FIXTURE_FIRST_SEASON + 29].clubStats).toBeDefined()
     const perSeasonKB = JSON.stringify(results[29]).length / 1024
     expect(perSeasonKB).toBeLessThan(150)
     expect(ms).toBeLessThan(250)
@@ -217,6 +223,24 @@ describe('jogador do usuário', () => {
     const favorite = worldEngine.simulateSeason(data, w1, NO_USER).result.cups['conmebol.libertadores'].winner
     const lose = worldEngine.simulateSeason(data, w1, { ...NO_USER, clubId: favorite, forceTrophy: { kind: 'continental_primary', chance: -1 } })
     expect(lose.result.cups['conmebol.libertadores'].winner).not.toBe(favorite)
+  })
+
+  it('forceTrophy em liga de pontos corridos e em Copa do Mundo', () => {
+    const w0 = worldEngine.createWorld(data, 'force-league')
+    const w1 = worldEngine.simulateSeason(data, w0, NO_USER).world
+    const mid = data.clubs.filter((c) => w1.clubs[c.id].leagueId === 'eng.1').sort((a, b) => a.strength - b.strength)[5].id
+    const r = worldEngine.simulateSeason(data, w1, { ...NO_USER, clubId: mid, forceTrophy: { kind: 'league', chance: 1 } })
+    expect(r.result.leagues['eng.1'].champion).toBe(mid)
+    expect(worldEngine.clubSeason(r.result, data, mid).leagueChampion).toBe(true)
+    const leader = worldEngine.simulateSeason(data, w1, NO_USER).result.leagues['eng.1'].champion
+    const r2 = worldEngine.simulateSeason(data, w1, { ...NO_USER, clubId: leader, forceTrophy: { kind: 'league', chance: -1 } })
+    expect(r2.result.leagues['eng.1'].champion).not.toBe(leader)
+    // Copa do Mundo 2030 (temporada 2029) com uma seleção média
+    let w = worldEngine.createWorld(data, 'force-wc')
+    for (let s = FIXTURE_FIRST_SEASON; s < 2029; s++) w = worldEngine.simulateSeason(data, w, NO_USER).world
+    const wc = worldEngine.simulateSeason(data, w, { ...NO_USER, nationalTeam: 'NOR', forceTrophy: { kind: 'world_cup', chance: 1 } })
+    const t = wc.result.national['fifa.world']
+    if (t.reached['NOR']) expect(t.winner).toBe('NOR')
   })
 
   it('reforço do jogador e prioridade mudam o desempenho do clube', () => {

@@ -44,12 +44,11 @@ import {
   singleFinal,
 } from './continental'
 import { inProgress, simulateDomesticCup, simulateRegionalCup } from './cups'
-import { promotionExchange, simulateLeague, type LeagueRun } from './league'
+import { leagueTopScorers, promotionExchange, simulateLeague, type LeagueRun } from './league'
 import { isScheduled, nationFriendlies, simulateNationalTournament, tournamentYear } from './national'
 import { createRivals, nationalityWeights, offseasonRivals, rivalSeasonStats } from './rivals'
 import { evolveClubs, evolveNations, topTalent } from './strength'
 import { clubSeason, nationSeason } from './summary'
-import { randomName } from './names'
 import { sortTable } from './table'
 
 export { simulateMatch, simulateTwoLegs, expectedGoals, MATCH } from './match'
@@ -132,34 +131,6 @@ function decideForce(seed: string, season: number, user: UserSeasonContext): Sea
   if (!f || !f.chance) return null
   const hit = subRng(seed, 'season', season, 'force', f.kind).chance(Math.min(1, Math.abs(f.chance)))
   return hit ? { kind: f.kind, win: f.chance > 0 } : null
-}
-
-/** Artilharia da liga: craques reais do elenco + um artilheiro sintético por clube (nome estável por ~4 anos). */
-function leagueTopScorers(
-  ctx: SeasonCtx,
-  lr: LeagueSeasonResult,
-  rivalsByClub: Map<string, { name: string; goals: number }[]>,
-): LeagueSeasonResult['topScorers'] {
-  const list: LeagueSeasonResult['topScorers'] = []
-  const rng = subRng(ctx.seed, 'season', ctx.season, 'scorers', lr.leagueId)
-  for (const row of lr.table) {
-    const club = ctx.ix.club.get(row.clubId)
-    const rv = rivalsByClub.get(row.clubId) ?? []
-    let used = 0
-    for (const r of rv) {
-      if (r.goals > 0) list.push({ name: r.name, clubId: row.clubId, goals: r.goals })
-      used += r.goals
-    }
-    const remaining = Math.max(0, row.gf - used)
-    const goals = Math.round(remaining * rng.range(0.2, 0.36))
-    if (goals > 0) {
-      const nrng = subRng(ctx.seed, 'scorer-name', row.clubId, Math.floor(ctx.season / 4))
-      const nat = nrng.chance(0.78) ? (club?.country ?? 'INT') : nrng.pick(['BRA', 'ARG', 'COL', 'FRA', 'ESP', 'NGA', 'SEN', 'POR', 'URU'])
-      list.push({ name: randomName(nat, nrng).name, clubId: row.clubId, goals })
-    }
-  }
-  list.sort((a, b) => b.goals - a.goals || (a.name < b.name ? -1 : 1))
-  return list.slice(0, 5)
 }
 
 export function simulateSeason(

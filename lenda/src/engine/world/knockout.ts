@@ -345,6 +345,18 @@ export function runKnockout(
   return { winner: alive[0] ?? '', runnerUp, stages, reached, survivors: alive }
 }
 
+/**
+ * Título forçado (evento da carreira): se o time do jogador disputa a fase mas ficou fora da lista
+ * de classificados, entra no lugar de `slot` (o mata-mata depois garante o resultado).
+ */
+export function forceInto(ctx: SeasonCtx, kind: CompetitionKind, participants: readonly string[], qualified: string[], slot: number): string[] {
+  const ent = userEntity(ctx, kind)
+  if (!ent || forced(ctx, kind, ent) !== 'win' || !participants.includes(ent) || qualified.includes(ent) || !qualified.length) return qualified
+  const out = qualified.slice()
+  out[Math.max(0, Math.min(out.length - 1, slot))] = ent
+  return out
+}
+
 // ───────────────────────── grupos e fase de liga ─────────────────────────
 
 export interface GroupOpts {

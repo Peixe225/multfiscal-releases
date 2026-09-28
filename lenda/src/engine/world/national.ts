@@ -8,7 +8,7 @@
 import type { Competition, Confed, Country, NationalTournamentResult, StandingRow } from '../types'
 import { rng as subRng, type Rng } from '../rng'
 import { CONFEDS, type SeasonCtx } from './context'
-import { drawGroups, runGroups, runKnockout } from './knockout'
+import { drawGroups, forceInto, runGroups, runKnockout } from './knockout'
 import { compareRows } from './table'
 
 /** Cotas da Copa de 48 (2026+): 16 UEFA, 9 CAF, 8 AFC, 6 CONMEBOL, 6 CONCACAF, 1 OFC + 2 repescagem. */
@@ -113,7 +113,7 @@ export function simulateNationalTournament(ctx: SeasonCtx, comp: Competition): N
   const cands: { row: StandingRow; pos: number }[] = []
   for (const t of tables) t.table.forEach((row, pos) => cands.push({ row, pos }))
   cands.sort((a, b) => a.pos - b.pos || compareRows(a.row, b.row))
-  const qualified = cands.slice(0, K).map((c) => c.row.clubId)
+  const qualified = forceInto(ctx, comp.kind, teams, cands.slice(0, K).map((c) => c.row.clubId), K - 1)
   const reached: Record<string, string> = {}
   for (const t of teams) if (!qualified.includes(t)) reached[t] = 'Fase de grupos'
   const ko = runKnockout(ctx, rng, qualified, {
@@ -141,7 +141,7 @@ export function simulateNationalTournament(ctx: SeasonCtx, comp: Competition): N
 }
 
 /**
- * Jogos de seleções fora dos torneios (eliminatórias + amistosos): 7–10 por temporada
+ * Jogos de seleções fora dos torneios (eliminatórias + amistosos): 8–10 por temporada
  * (5–7 para quem jogou torneio). Gols ~ Poisson contra um adversário médio da confederação.
  */
 export function nationFriendlies(ctx: SeasonCtx, inTournament: Set<string>): void {
@@ -152,7 +152,7 @@ export function nationFriendlies(ctx: SeasonCtx, inTournament: Set<string>): voi
     confedMean.set(cf, list.length ? list.reduce((s, c) => s + (ctx.nat.get(c.code) ?? c.strength), 0) / list.length : 60)
   }
   for (const c of ctx.data.countries) {
-    const games = inTournament.has(c.code) ? rng.int(5, 7) : rng.int(7, 10)
+    const games = inTournament.has(c.code) ? rng.int(5, 7) : rng.int(8, 10)
     const s = ctx.nat.get(c.code) ?? c.strength
     const opp = (confedMean.get(c.confed) ?? 60) + 4
     const lambda = 1.3 * Math.exp(0.038 * (s - opp))

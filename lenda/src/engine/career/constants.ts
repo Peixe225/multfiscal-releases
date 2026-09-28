@@ -164,20 +164,12 @@ export const ASSIST_RATES: Record<RateRole, number[]> = {
   goalkeeper: [0, 0, 0, 0, 0, 0, 0],
 }
 
-/** Peso do grupo de posição na força individual para prêmios/mercado (Copero: apoio 0,5; defesa 0,25). */
-export const GROUP_WEIGHT: Record<PositionGroup, number> = {
-  attacking: 1,
-  support: 0.6,
-  defensive: 0.4,
-  goalkeeper: 1,
-}
-
 /** Vagas "reais" por posição na seleção (quantos rivais melhores ele aceita e ainda é convocado). */
 export const NATIONAL_SLOTS: Record<PositionGroup, number> = {
   goalkeeper: 3,
-  defensive: 7,
-  support: 6,
-  attacking: 7,
+  defensive: 8,
+  support: 7,
+  attacking: 6,
 }
 
 /** Jogos oficiais de referência quando o mundo não informa (liga + copas). */

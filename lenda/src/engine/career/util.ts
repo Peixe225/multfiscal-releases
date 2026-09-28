@@ -45,16 +45,20 @@ export function roleShortLabel(role: SquadRole): string {
   return 'Reserva'
 }
 
+/** Mesmo agrupamento do mundo (src/engine/world/awards.ts): defesa, meio (apoio), ataque. */
 export function positionGroup(position: Position): PositionGroup {
   switch (position) {
     case 'GOL':
       return 'goalkeeper'
     case 'ZAG':
-    case 'VOL':
-      return 'defensive'
     case 'LD':
     case 'LE':
+    case 'VOL':
+      return 'defensive'
     case 'MC':
+    case 'ME':
+    case 'MD':
+    case 'MEI':
       return 'support'
     default:
       return 'attacking'

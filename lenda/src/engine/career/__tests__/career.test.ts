@@ -200,9 +200,10 @@ describe('helpers para a UI', () => {
     expect(positionGroup('GOL')).toBe('goalkeeper')
     expect(positionGroup('ZAG')).toBe('defensive')
     expect(positionGroup('VOL')).toBe('defensive')
-    expect(positionGroup('LD')).toBe('support')
+    expect(positionGroup('LD')).toBe('defensive')
     expect(positionGroup('MC')).toBe('support')
-    expect(positionGroup('MEI')).toBe('attacking')
+    expect(positionGroup('MEI')).toBe('support')
+    expect(positionGroup('PE')).toBe('attacking')
     expect(positionGroup('CA')).toBe('attacking')
   })
 

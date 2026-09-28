@@ -4,10 +4,11 @@
  */
 import type { KnockoutStage, League, LeagueSeasonResult, StandingRow } from '../types'
 import { rng as subRng, type Rng } from '../rng'
-import { play, type SeasonCtx } from './context'
-import { playTie, runKnockout } from './knockout'
+import { forced, play, type SeasonCtx } from './context'
+import { forceInto, playTie, runKnockout } from './knockout'
 import { remainingSchedule, seasonSchedule, type Pairing } from './schedule'
-import { addResult, newRow, sortTable, sumTables } from './table'
+import { randomName } from './names'
+import { addResult, compareRows, newRow, sortTable, sumTables } from './table'
 
 /** LeagueSeasonResult + campeões de cada torneio (Apertura/Clausura). */
 export interface LeagueRun {
@@ -80,6 +81,7 @@ export function leaguePlayoffs(
       if (!seeds.includes(row.clubId)) seeds.push(row.clubId)
     }
   } else seeds = sorted.slice(0, P).map((r) => r.clubId)
+  seeds = forceInto(ctx, 'league', sorted.map((r) => r.clubId), seeds, seeds.length - 1)
 
   const twoLegs = TWO_LEG_PLAYOFFS.has(league.country)
   const kind = 'league' as const
@@ -135,6 +137,57 @@ function playMatches(ctx: SeasonCtx, rng: Rng, rows: Map<string, StandingRow>, p
   }
 }
 
+/**
+ * Título de liga forçado/impedido (eventos da carreira) em pontos corridos: converte derrotas/empates
+ * do clube do jogador em vitórias até passar o líder (ou vitórias em empates até cair para 2º).
+ */
+export function enforceLeagueForce(ctx: SeasonCtx, sorted: StandingRow[]): StandingRow[] {
+  const f = ctx.userClub ? forced(ctx, 'league', ctx.userClub) : null
+  if (!f || sorted.length < 2) return sorted
+  const rows = sorted.map((r) => ({ ...r }))
+  const i = rows.findIndex((r) => r.clubId === ctx.userClub)
+  if (i < 0) return sorted
+  const u = rows[i]
+  if (f === 'win' && i > 0) {
+    const leader = rows[0]
+    for (let k = 0; k < 100 && compareRows(leader, u) < 0 && (u.lost > 0 || u.drawn > 0); k++) {
+      if (u.lost > 0) (u.lost--, u.won++, (u.points += 3), u.gf++, (u.ga = Math.max(0, u.ga - 1)))
+      else (u.drawn--, u.won++, (u.points += 2), u.gf++)
+    }
+  } else if (f === 'lose' && i === 0) {
+    const second = rows[1]
+    for (let k = 0; k < 100 && compareRows(u, second) < 0 && u.won > 0; k++) (u.won--, u.drawn++, (u.points -= 2), (u.gf = Math.max(0, u.gf - 1)))
+  }
+  return sortTable(rows)
+}
+
+/** Artilharia da liga: craques reais do elenco + um artilheiro sintético por clube (nome estável por ~4 anos). */
+export function leagueTopScorers(
+  ctx: SeasonCtx,
+  lr: LeagueSeasonResult,
+  rivalsByClub: Map<string, { name: string; goals: number }[]>,
+): LeagueSeasonResult['topScorers'] {
+  const list: LeagueSeasonResult['topScorers'] = []
+  const rng = subRng(ctx.seed, 'season', ctx.season, 'scorers', lr.leagueId)
+  for (const row of lr.table) {
+    const club = ctx.ix.club.get(row.clubId)
+    let used = 0
+    for (const r of rivalsByClub.get(row.clubId) ?? []) {
+      if (r.goals > 0) list.push({ name: r.name, clubId: row.clubId, goals: r.goals })
+      used += r.goals
+    }
+    // o artilheiro "da casa" fica com 20–36% dos gols que sobram para o resto do elenco
+    const goals = Math.round(Math.max(0, row.gf - used) * rng.range(0.2, 0.36))
+    if (goals > 0) {
+      const nrng = subRng(ctx.seed, 'scorer-name', row.clubId, Math.floor(ctx.season / 4))
+      const nat = nrng.chance(0.78) ? (club?.country ?? 'INT') : nrng.pick(['BRA', 'ARG', 'COL', 'FRA', 'ESP', 'NGA', 'SEN', 'POR', 'URU'])
+      list.push({ name: randomName(nat, nrng).name, clubId: row.clubId, goals })
+    }
+  }
+  list.sort((a, b) => b.goals - a.goals || (a.name < b.name ? -1 : 1))
+  return list.slice(0, 5)
+}
+
 /** Simula a temporada de uma liga. `clubs` = participantes nesta temporada. */
 export function simulateLeague(ctx: SeasonCtx, league: League, clubs: readonly string[]): LeagueRun {
   const rng = subRng(ctx.seed, 'season', ctx.season, 'league', league.id)
@@ -180,7 +233,8 @@ export function simulateLeague(ctx: SeasonCtx, league: League, clubs: readonly s
     }
     playMatches(ctx, rng, rows, pairs)
     for (const r of rows.values()) if (!groups) delete r.group
-    const sorted = sortTable([...rows.values()])
+    let sorted = sortTable([...rows.values()])
+    if (league.format.playoffTeams < 2) sorted = enforceLeagueForce(ctx, sorted)
     tables.push(sorted)
     if (league.format.playoffTeams >= 2) {
       const po = leaguePlayoffs(ctx, rng, league, sorted, tournaments === 2 ? `${names[t]} — ` : '')
