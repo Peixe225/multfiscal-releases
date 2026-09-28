@@ -50,6 +50,8 @@ interface AppStore {
   /** Direction hint for page transitions (1 forward, -1 back). */
   navDir: 1 | -1
   dialog: DialogId
+  /** Active visual theme on <html data-theme> (the shell sets it per route). */
+  theme: 'noite' | 'transmissao'
   settings: Settings
   /** OS prefers-reduced-motion (live). */
   osReducedMotion: boolean
@@ -86,6 +88,7 @@ export const useApp = create<AppStore>()(
       prevPath: null,
       navDir: 1,
       dialog: null,
+      theme: 'noite',
       settings: DEFAULT_SETTINGS,
       osReducedMotion: !!osMq?.matches,
       setSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),
@@ -149,7 +152,11 @@ export function syncDocumentFlags() {
 
 /** Router bootstrap: listen to hashchange. Returns an unsubscribe fn. */
 export function startRouter() {
-  const on = () => useApp.getState()._setRoute(parseHash())
+  const on = () => {
+    // in-page anchors (#conteudo) are not routes
+    if (location.hash && !location.hash.startsWith('#/')) return
+    useApp.getState()._setRoute(parseHash())
+  }
   window.addEventListener('hashchange', on)
   on()
   return () => window.removeEventListener('hashchange', on)

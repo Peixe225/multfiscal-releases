@@ -32,6 +32,15 @@ export function playerKeys(name) {
   return keys
 }
 
+/** Siglas de país da ESPN que não são o código FIFA (territórios franceses → FRA). */
+const ESPN_NAT = { MOR: 'MAR', CRM: 'CMR', RDC: 'COD', KORS: 'KOR', SBA: 'SRB', ROM: 'ROU', MTG: 'MNE', XKX: 'KOS', PAL: 'PLE', LIB: 'LBN', SUD: 'SDN', NCD: 'NCL', MARQ: 'FRA', GLP: 'FRA', GUF: 'FRA', SMA: 'FRA', BOE: 'CUW', HOL: 'NED', SAU: 'KSA', GER: 'GER' }
+export const fixNat = (c) => (c ? ESPN_NAT[c] || c : null)
+
+const statOf = (a, name) => {
+  for (const cat of a.statistics?.splits?.categories || []) for (const st of cat.stats || []) if (st.name === name) return Number(st.value) || 0
+  return 0
+}
+
 /** Baixa os elencos da ESPN de uma lista de clubes [{espnId, leagueId}]. */
 export async function fetchRosters(list, conc = 8) {
   const out = new Map()
@@ -47,8 +56,10 @@ export async function fetchRosters(list, conc = 8) {
         pos: a.position?.abbreviation || '',
         age: a.age,
         dob: a.dateOfBirth,
-        nat: a.citizenshipCountry?.abbreviation || nationCode(a.citizenship) || null,
+        nat: fixNat(a.citizenshipCountry?.abbreviation) || nationCode(a.citizenship) || null,
         jersey: a.jersey ? Number(a.jersey) : undefined,
+        apps: statOf(a, 'appearances'),
+        subs: statOf(a, 'subIns'),
       })))
     },
     conc,
@@ -91,10 +102,13 @@ export function buildStars({ eaPlayers, eaClubToId, realStars, clubsByName, rost
   const stars = new Map()
   const keyOf = (name, by) => `${fold(name)}|${by}`
   const byNameLoose = new Map()
+  const ids = new Set()
   const add = (p) => {
     if (!p.clubId || !clubIds.has(p.clubId)) return false
     const k = keyOf(p.name, p.birthYear)
     if (stars.has(k)) return false
+    if (ids.has(p.id)) p.id = `${p.id}-${p.birthYear}`
+    ids.add(p.id)
     stars.set(k, p)
     for (const pk of playerKeys(p.name)) byNameLoose.set(`${pk}|${p.birthYear}`, p)
     return true
@@ -118,12 +132,18 @@ export function buildStars({ eaPlayers, eaClubToId, realStars, clubsByName, rost
     if (!ok && !clubId) skipped++
   }
   // 2) EA FC 27
+  const realList = [...stars.values()].map((q) => ({ ...q, toks: [q.name, q.shortName].flatMap((x) => fold(x).split(' ')).filter((t) => t.length >= 3 && !['junior', 'jr'].includes(t)) }))
   for (const p of eaPlayers) {
     if (p.ovr < minOvr) continue
     const name = p.name
     const birthYear = SEASON_YEAR - (p.age || 25)
     const loose = playerKeys(name).some((k) => byNameLoose.has(`${k}|${birthYear}`) || byNameLoose.has(`${k}|${birthYear - 1}`) || byNameLoose.has(`${k}|${birthYear + 1}`))
     if (loose) continue
+    // mesmo jogador com grafia diferente ("Gabriel" × "Gabriel Magalhães", "Vini Jr." × "Vinícius Júnior")
+    const nat = nationCode(p.nation)
+    const toks = new Set([name, p.first, p.last].filter(Boolean).flatMap((x) => fold(x).split(' ')).filter((t) => t.length >= 3 && !['junior', 'jr'].includes(t)))
+    const same = realList.some((q) => q.nationality === nat && Math.abs(q.birthYear - birthYear) <= 1 && Math.abs(q.ovr - p.ovr) <= 3 && q.toks.some((t) => toks.has(t) || [...toks].some((u) => u.length >= 4 && t.length >= 4 && (u.startsWith(t.slice(0, 4)) && t.startsWith(u.slice(0, 4))))))
+    if (same) continue
     const hit = rosterIdx ? findInRosters(rosterIdx, [p.first, p.last].filter(Boolean).join(' ') || name, birthYear) || findInRosters(rosterIdx, name, birthYear) : null
     const clubId = hit?.clubId || eaClubToId(p)
     const pos = EA_POS[p.pos] || 'MC'
@@ -158,47 +178,63 @@ const D_CYCLE = ['ZAG', 'ZAG', 'LD', 'LE', 'ZAG', 'LD', 'LE', 'ZAG']
 const M_CYCLE = ['VOL', 'MC', 'MEI', 'MC', 'VOL', 'ME', 'MD', 'MEI']
 const F_CYCLE = ['CA', 'PE', 'PD', 'CA', 'PE', 'PD']
 
-/** OVR estimado de um jogador sem nota EA: força do clube, idade e posição no elenco. */
-export function estimateOvr(strength, age, rank, total) {
-  // titulares ~ força do clube; reservas caem; jovens e veteranos um pouco abaixo
-  const depth = rank < 11 ? 0.5 : rank < 16 ? -2 : rank < 22 ? -4.5 : -7
-  const ageAdj = age <= 18 ? -8 : age <= 20 ? -5 : age <= 22 ? -2 : age >= 35 ? -3 : age >= 33 ? -1 : 0
-  void total
-  return Math.round(clamp(strength + depth + ageAdj, 40, 90))
+/** OVR estimado de um jogador sem nota EA: força do clube, papel no elenco (titularidade) e idade. */
+export function estimateOvr(strength, age, rank) {
+  let o
+  if (rank < 11) o = strength + 3 - 0.45 * rank
+  else if (rank < 18) o = strength - 2 - 0.5 * (rank - 11)
+  else o = strength - 5.5 - 0.4 * (rank - 18)
+  o = Math.max(o, strength - 14)
+  if (age <= 17) o -= 4
+  else if (age <= 19) o -= 2
+  else if (age >= 35) o -= 1.5
+  return Math.round(clamp(o, 40, 90))
 }
 
-export function buildRosters({ rosters, clubs, eaByClub }) {
+export function buildRosters({ rosters, clubs, eaByClub, stars }) {
   const out = {}
+  const starsByClub = new Map()
+  for (const s of stars || []) {
+    if (!starsByClub.has(s.clubId)) starsByClub.set(s.clubId, [])
+    starsByClub.get(s.clubId).push(s)
+  }
   for (const club of clubs) {
     const list = rosters.get(club.id)
     if (!list || !list.length) continue
-    const ea = eaByClub.get(club.id) || []
     const eaIdx = new Map()
-    for (const p of ea) for (const k of playerKeys([p.first, p.last].filter(Boolean).join(' ') || p.name).concat(playerKeys(p.name))) eaIdx.set(k, p)
+    for (const p of eaByClub.get(club.id) || []) for (const k of playerKeys([p.first, p.last].filter(Boolean).join(' ') || p.name).concat(playerKeys(p.name))) if (k.includes(' ')) eaIdx.set(k, p)
+    const stIdx = new Map()
+    for (const p of starsByClub.get(club.id) || []) for (const k of playerKeys(p.name).concat(playerKeys(p.shortName))) if (k.includes(' ') || k.length > 4) stIdx.set(k, p)
     const counters = { D: 0, M: 0, F: 0 }
-    // ordena por "importância" presumida: EA primeiro (por OVR), depois idade central
     const enriched = list.map((p) => {
       let m = null
-      for (const k of playerKeys(p.name)) if (eaIdx.has(k)) { m = eaIdx.get(k); break }
-      return { p, m }
+      let st = null
+      for (const k of playerKeys(p.name)) {
+        if (!m && eaIdx.has(k)) m = eaIdx.get(k)
+        if (!st && stIdx.has(k)) st = stIdx.get(k)
+      }
+      const starts = Math.max(0, (p.apps || 0) - (p.subs || 0))
+      return { p, m, st, starts }
     })
-    const rankable = enriched.map((x) => ({ ...x, key: x.m ? 100 + x.m.ovr : 50 - Math.abs((x.p.age || 25) - 26) }))
-    rankable.sort((a, b) => b.key - a.key)
-    const players = rankable.map((x, i) => {
+    // ordem de importância: titularidade na temporada (ESPN), depois idade "de auge"
+    const byRole = [...enriched].sort((a, b) => b.starts - a.starts || (b.p.apps || 0) - (a.p.apps || 0) || Math.abs((a.p.age || 26) - 26) - Math.abs((b.p.age || 26) - 26))
+    const roleRank = new Map(byRole.map((x, i) => [x, i]))
+    const players = enriched.map((x) => {
       const coarse = (x.p.pos || 'M')[0]
-      let position = x.m ? EA_POS[x.m.pos] || COARSE[coarse] : null
+      let position = x.m ? EA_POS[x.m.pos] : x.st ? x.st.position : null
       if (!position) {
         const n = counters[coarse] ?? 0
         if (coarse in counters) counters[coarse] = n + 1
         position = coarse === 'G' ? 'GOL' : coarse === 'D' ? D_CYCLE[n % D_CYCLE.length] : coarse === 'F' ? F_CYCLE[n % F_CYCLE.length] : M_CYCLE[n % M_CYCLE.length]
       }
       const age = x.p.age || (x.m?.age ?? 24)
-      const ovr = x.m ? x.m.ovr : estimateOvr(club.strength, age, i, list.length)
+      const ovr = x.m ? x.m.ovr : x.st ? x.st.ovr : estimateOvr(club.strength, age, roleRank.get(x))
       const pl = { name: x.p.name, position, age, nationality: x.p.nat || club.country, ovr }
       if (x.p.jersey) pl.number = x.p.jersey
       if (x.m) pl.ea = true
       return pl
     })
+    players.sort((a, b) => b.ovr - a.ovr)
     out[club.id] = players
   }
   return out

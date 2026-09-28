@@ -205,6 +205,9 @@ export const EA_ALIASES = {
   'PAOK FC': '605',
   'N.E.C. Nijmegen': '147',
   'Go Ahead Eagles': '3706',
+  'Laval MFC': '3266',
+  // clubes EA que NÃO devem casar com ninguém (nome parecido com outro clube)
+  'Bengaluru FC': null,
 }
 
 /** Agrupa as cartas EA por clube (clube + liga EA), juntando grupos minúsculos ao grupo principal. */
@@ -256,7 +259,9 @@ export function matchEaClubs(eaClubs, candidates) {
   const byId = new Map(candidates.map((c) => [c.id, c]))
   const pairs = []
   for (const ea of eaClubs) {
-    const alias = EA_ALIASES[`${ea.club}|${ea.leagueEaId}`] ?? EA_ALIASES[ea.club]
+    const k1 = `${ea.club}|${ea.leagueEaId}`
+    const alias = k1 in EA_ALIASES ? EA_ALIASES[k1] : EA_ALIASES[ea.club]
+    if (alias === null) continue
     if (alias && byId.has(alias)) {
       pairs.push({ ea, id: alias, sim: 2 })
       continue
@@ -280,6 +285,8 @@ export function matchEaClubs(eaClubs, candidates) {
   const unmatched = eaClubs.filter((e) => !usedEa.has(e))
   return { matched: out, unmatched }
 }
+
+const RESERVE = /^jong |\s(ii|b|u2[13])$|fortuna$/i
 
 export const eaToScale = (top14) => 80 + 1.25 * (top14 - 80)
 
@@ -361,9 +368,11 @@ export function computeStrengths(clubs, leagues) {
         c.strengthSource = 'ea'
       } else {
         const zPr = c.meta?.prestige !== undefined ? clamp((c.meta.prestige - mPr) / sPr, -2, 2.5) : -0.3
-        s = bMean + bSd * (0.5 * zPr + 0.6 * wFormNo * c._z)
+        s = bMean + bSd * (0.6 * zPr + 0.9 * wFormNo * c._z)
         c.strengthSource = 'formula'
       }
+      // times B / sub-23 (Jong Ajax, Real Sociedad B…) ficam abaixo da média da liga
+      if (c.strengthSource !== 'manual' && RESERVE.test(`${c.team?.displayName || ''}`)) s -= c.strengthSource === 'ea' ? 0.5 : 2.5
       c.strength = round1(clamp(s, 40, 92))
     }
     void coverage

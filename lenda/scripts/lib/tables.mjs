@@ -60,23 +60,48 @@ export function scoreboardYears(league) {
 }
 
 /** Jogos ainda não disputados da fase atual (mesma temporada e seasonType da tabela). */
-export async function remainingFixtures(slug, { seasonYear, seasonType, clubIds, years = ['2026', '2027'] }) {
+export async function remainingFixtures(slug, { seasonYear, seasonType, clubIds, years = ['2026', '2027'], special = false }) {
   const seen = new Set()
   const out = []
+  // O scoreboard usa ids GLOBAIS de fase (ex.: 13907); a tabela usa o id local (1, 6…).
+  // leagues[0].season.type = {id: local, type: global} da fase atual.
+  let globalType = null
+  const loaded = []
   for (const y of years) {
-    const { events } = await getEvents(slug, y)
+    const res = await getEvents(slug, y)
+    loaded.push(res)
+    const t = res.season?.type
+    if (!globalType && t && String(t.id) === String(seasonType) && res.season?.year === seasonYear) globalType = Number(t.type)
+  }
+  // Sem o id global da fase (tabela pedida com ?seasontype=, ex.: Equador), a fase da tabela já
+  // acabou ou está congelada: não misturamos jogos de outra fase.
+  if (!globalType && special) return []
+  const KO = /final|semi|quarter|round-of|playoff|play-in|eliminat|promotion|relegation|championship|wild-card/i
+  const cand = []
+  for (const { events } of loaded) {
     for (const e of events) {
       if (seen.has(e.id)) continue
       seen.add(e.id)
       if (seasonYear && e.seasonYear !== seasonYear) continue
-      if (seasonType && e.seasonType !== seasonType) continue
-      if (e.completed) continue
+      if (globalType ? e.seasonType !== globalType : KO.test(e.stage || '')) continue
       if (/cancel|abandon/i.test(e.statusName || '')) continue
       const home = 'e' + e.home.id
       const away = 'e' + e.away.id
       if (clubIds && (!clubIds.has(home) || !clubIds.has(away))) continue
-      out.push({ date: e.date, home, away })
+      cand.push({ e, home, away })
     }
+  }
+  // Jogo adiado que já foi remarcado (novo evento com o mesmo mando) não conta duas vezes.
+  const pairKey = (x) => `${x.home}>${x.away}`
+  const byPair = new Map()
+  for (const x of cand) {
+    if (!byPair.has(pairKey(x))) byPair.set(pairKey(x), [])
+    byPair.get(pairKey(x)).push(x)
+  }
+  for (const x of cand) {
+    if (x.e.completed) continue
+    if (/postpon|suspend|delay/i.test(x.e.statusName || '') && byPair.get(pairKey(x)).some((y) => y !== x && (y.e.completed || !/postpon/i.test(y.e.statusName || '')) && y.e.date > x.e.date)) continue
+    out.push({ date: x.e.date, home: x.home, away: x.away })
   }
   out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
   return out

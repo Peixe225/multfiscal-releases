@@ -48,3 +48,24 @@ export const Stage = memo(function Stage({ preset = 'club', club, colors, glowA,
     </div>
   )
 })
+
+/**
+ * Transmissão (data-theme="transmissao") ambient stadium: beams, light towers, haze, grain.
+ *   <Stadium variant="calm" />   variants: 'calm' | 'club' | 'gala' | 'press' | undefined (full)
+ */
+export const Stadium = memo(function Stadium({ variant, className, style }: { variant?: 'calm' | 'club' | 'gala' | 'press'; className?: string; style?: CSSProperties }) {
+  return (
+    <div className={cx('lx-stadium', variant && `lx-stadium--${variant}`, className)} style={style} aria-hidden="true">
+      <i className="lx-stadium__beam is-l" />
+      <i className="lx-stadium__beam is-r" />
+      {variant !== 'calm' && (
+        <>
+          <i className="lx-stadium__beam is-l2" />
+          <i className="lx-stadium__beam is-r2" />
+        </>
+      )}
+      <i className="lx-stadium__haze" />
+      <i className="lx-noise-layer" />
+    </div>
+  )
+})

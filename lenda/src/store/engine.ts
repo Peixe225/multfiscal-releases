@@ -7,6 +7,8 @@
  * VITE_LENDA_ENGINE, or settings.engine ('auto' default).
  */
 import type { CareerEngine, WorldEngine } from '@/engine/api'
+import type { Achievement } from '@/engine/types'
+import { registerAchievementCatalog } from '@/ui/shell/achievementsRegistry'
 import type { DataSource } from './data'
 import { useApp } from './app'
 
@@ -45,15 +47,25 @@ async function loadReal(): Promise<CareerEngine | null> {
   const load = careerModules['../engine/career/index.ts']
   if (!load) return null
   const mod = (await load()) as Record<string, unknown>
+  const engine = await pickEngine(mod)
+  // the real engine ships its achievement catalogue — the shell counters/dialog read the registry
+  if (engine && Array.isArray(mod.ACHIEVEMENTS)) registerAchievementCatalog(mod.ACHIEVEMENTS as Achievement[])
+  return engine
+}
+
+async function pickEngine(mod: Record<string, unknown>): Promise<CareerEngine | null> {
   if (mod.careerEngine && typeof (mod.careerEngine as CareerEngine).choose === 'function') return mod.careerEngine as CareerEngine
   if (typeof mod.createCareerEngine === 'function') {
-    let world: WorldEngine | undefined
+    // the factory needs the world engine — without it the real engine cannot run yet
     const wl = worldModules['../engine/world/index.ts']
-    if (wl) {
-      const wm = (await wl()) as Record<string, unknown>
-      world = (wm.worldEngine as WorldEngine) ?? (typeof wm.createWorldEngine === 'function' ? (wm.createWorldEngine as () => WorldEngine)() : undefined)
+    if (!wl) {
+      console.info('[LENDA] motor da carreira pronto, mas src/engine/world/index.ts ainda não existe — usando o motor de exemplo.')
+      return null
     }
-    return (mod.createCareerEngine as (w?: WorldEngine) => CareerEngine)(world)
+    const wm = (await wl()) as Record<string, unknown>
+    const world = (wm.worldEngine as WorldEngine) ?? (typeof wm.createWorldEngine === 'function' ? (wm.createWorldEngine as () => WorldEngine)() : undefined)
+    if (!world) return null
+    return (mod.createCareerEngine as (w: WorldEngine) => CareerEngine)(world)
   }
   if (mod.default && typeof (mod.default as CareerEngine).choose === 'function') return mod.default as CareerEngine
   return null

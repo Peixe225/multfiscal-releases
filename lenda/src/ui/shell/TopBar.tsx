@@ -29,10 +29,12 @@ const PACE_LABEL = { intensa: 'Ritmo Intenso', normal: 'Ritmo Normal', expressa:
 export function SessionPill({ className }: { className?: string }) {
   const s = useCareer((x) => x.state)
   if (!s) return null
-  const lg = getLeague(s.clubId ? (s.seasons[s.seasons.length - 1]?.leagueId ?? null) : null)
+  // the last season played (the pending decision belongs to it), like the mockup "Temporada 2035"
+  const last = s.seasons[s.seasons.length - 1]
+  const lg = getLeague(last?.leagueId ?? null)
   return (
     <div className={cx('lx-session', className)}>
-      <b className="tabular-nums">Temporada {formatSeason(s.season, lg?.calendar)}</b>
+      <b className="tabular-nums">Temporada {formatSeason(last?.season ?? s.season, lg?.calendar)}</b>
       <span className="lx-session__dot" aria-hidden="true" />
       {PACE_LABEL[s.pace]}
     </div>

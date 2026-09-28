@@ -285,7 +285,7 @@ export const CLUB_META: Record<string, ClubMeta> = {
   '7': { name: 'Colón', shortName: 'Colón', prestige: 2 },
   '7764': { prestige: 1.5 },
   '7767': { prestige: 1.5 },
-  '8950': { name: 'Defensa y Justicia', shortName: 'Defensa y Just', prestige: 1.5 },
+  '8950': { name: 'Defensa y Justicia', shortName: 'Defensa y J.', prestige: 1.5 },
   '2975': { prestige: 1.5 },
   '6756': { prestige: 1.5 },
   '9785': { name: 'Atlético Tucumán', shortName: 'Atl. Tucumán', prestige: 1.5 },
@@ -308,7 +308,7 @@ export const CLUB_META: Record<string, ClubMeta> = {
   '5584': { name: 'Nacional (PAR)', shortName: 'Nacional-PAR', prestige: 2 },
   '5264': { name: 'Atlético Nacional', shortName: 'Atl. Nacional', prestige: 4 },
   '5484': { name: 'Millonarios', prestige: 3.5 },
-  '8109': { name: 'América de Cali', shortName: 'América de Cali', prestige: 3.5 },
+  '8109': { name: 'América de Cali', shortName: 'América Cali', prestige: 3.5 },
   '4815': { name: 'Junior Barranquilla', shortName: 'Junior', prestige: 3 },
   '5488': { name: 'Independiente Santa Fe', shortName: 'Santa Fe', prestige: 3 },
   '2672': { name: 'Deportivo Cali', shortName: 'Dep. Cali', prestige: 3 },
@@ -325,7 +325,7 @@ export const CLUB_META: Record<string, ClubMeta> = {
   '4816': { name: 'LDU Quito', shortName: 'LDU', prestige: 3.5 },
   '17086': { name: 'Independiente del Valle', shortName: 'Ind. del Valle', abbr: 'IDV', prestige: 3 },
   '6017': { prestige: 2 },
-  '9283': { name: 'Universidad Católica (EQU)', shortName: 'U. Católica EQU', prestige: 2 },
+  '9283': { name: 'Universidad Católica (EQU)', shortName: 'U. Católica-EQ', prestige: 2 },
   '2681': { name: 'Bolívar', prestige: 3 },
   '2687': { name: 'The Strongest', prestige: 3 },
   '2682': { prestige: 2 },
@@ -400,6 +400,9 @@ export const CLUB_META: Record<string, ClubMeta> = {
   '7085': { name: 'Orlando Pirates', shortName: 'Orl. Pirates', prestige: 3 },
   '7081': { name: 'Kaizer Chiefs', shortName: 'Kaizer Chiefs', prestige: 3 },
   '20179': { country: 'AND' },
+  '20983': { name: 'Real Sociedad B', shortName: 'R. Sociedad B' },
+  '10144': { shortName: 'U. La Calera' },
+  '3616': { name: 'Charleroi', shortName: 'Charleroi' },
 }
 
 /**
@@ -428,7 +431,7 @@ export const EXTRA_CLUBS: ExtraClub[] = [
   X('20024', 'ARM', 1, 61, { name: 'Ararat-Armênia', shortName: 'Ararat-Armênia', colors: ['#C8102E', '#FFFFFF'] }),
   X('597', 'CRO', 3, undefined, { name: 'Dinamo Zagreb', shortName: 'Dinamo Zagreb' }),
   X('622', 'HUN', 2.5, undefined, { name: 'Ferencváros', shortName: 'Ferencváros' }),
-  X('13083', 'ISR', 1.5, 67, { name: "Hapoel Be'er Sheva", shortName: "Hapoel B. Sheva" }),
+  X('13083', 'ISR', 1.5, 67, { name: "Hapoel Be'er Sheva", shortName: 'H. Beer Sheva' }),
   X('11505', 'POL', 1.5, undefined, { name: 'Jagiellonia', shortName: 'Jagiellonia' }),
   X('2990', 'POL', 2, undefined, { name: 'Lech Poznań', shortName: 'Lech Poznań' }),
   X('490', 'BUL', 2, 64, { name: 'Levski Sofia', shortName: 'Levski Sofia' }),
@@ -446,7 +449,7 @@ export const EXTRA_CLUBS: ExtraClub[] = [
   X('2528', 'KAZ', 1.5, 63, { name: 'Kairat Almaty', shortName: 'Kairat' }),
   X('20028', 'LTU', 0.5, 57, { name: 'Kauno Žalgiris', shortName: 'Kauno Žalgiris', colors: ['#00843D', '#FFFFFF'] }),
   X('8169', 'FIN', 1, 60, { name: 'KuPS', shortName: 'KuPS', colors: ['#FFD700', '#111111'] }),
-  X('17856', 'GIB', 0.5, 51, { name: 'Lincoln Red Imps', shortName: 'Lincoln R. Imps' }),
+  X('17856', 'GIB', 0.5, 51, { name: 'Lincoln Red Imps', shortName: 'Lincoln Imps' }),
   X('22281', 'CYP', 1.5, 68, { name: 'Pafos', shortName: 'Pafos' }),
   X('2290', 'SRB', 3, 71, { name: 'Estrela Vermelha', shortName: 'Estrela Verm.' }),
   X('19246', 'LVA', 0.5, 57, { name: 'Riga FC', shortName: 'Riga FC' }),
@@ -538,6 +541,10 @@ export const EXTRA_CLUBS: ExtraClub[] = [
   X('8054', 'ZAM', 1, 57, { name: 'Power Dynamos', shortName: 'Power Dynamos', colors: ['#F26522', '#111111'] }),
   X('18601', 'GHA', 1, 57, { name: 'Medeama', shortName: 'Medeama', colors: ['#FFD700', '#6E2C8E'] }),
   X('8004', 'KEN', 1, 56, { name: 'Gor Mahia', shortName: 'Gor Mahia', colors: ['#00843D', '#FFFFFF'] }),
+  // ── EUA (Open Cup 2026: equipes da USL que chegaram às oitavas) ──
+  X('21821', 'USA', 0.5, 58, { name: 'One Knoxville', shortName: 'One Knoxville', abbr: 'KNX', colors: ['#F26522', '#1B2F6B'] }),
+  X('17832', 'USA', 1, 61, { name: 'Louisville City', shortName: 'Louisville', abbr: 'LOU', colors: ['#6E2C8E', '#FFD700'] }),
+  X('17830', 'USA', 0.5, 59, { name: 'Colorado Springs Switchbacks', shortName: 'Switchbacks', abbr: 'COS', colors: ['#111111', '#0B6AA2'] }),
   // ── OFC ──
   X('7279', 'NZL', 1.5, 58, { name: 'Auckland City', shortName: 'Auckland City', colors: ['#0033A0', '#FFFFFF'] }),
 ]
@@ -560,4 +567,95 @@ export const EXTRA_TEAM_SOURCES = [
   'fifa.cwc',
   'conmebol.libertadores',
   'conmebol.sudamericana',
+  'usa.open',
 ]
+
+/**
+ * Forças fixadas à mão (id ESPN → força) para ligas que a EA não cobre (Rússia, Japão,
+ * África do Sul) e ajustes finos onde a nota EA/fórmula destoa da realidade atual
+ * (Argentina, alguns sul-americanos). O Brasileirão A/B está em CLUB_META.
+ */
+export const STRENGTH_OVERRIDES: Record<string, number> = {
+  // Argentina (Liga Profesional)
+  '16': 77, '5': 76.5, '15': 74, '8': 74, '21': 73, '11': 73, '12': 72.5, '4': 72.5, '17': 72.5, '19': 71.5,
+  '3': 71, '18': 70.5, '10': 70, '7764': 70, '9744': 70, '14': 69, '20': 69, '2975': 69, '8950': 69,
+  '7767': 68.5, '9785': 68, '9': 68, '10060': 67.5, '11989': 67, '235': 67, '11972': 67, '9739': 66.5,
+  '10158': 66.5, '17702': 65.5, '19685': 64.5,
+  // Rússia
+  '2533': 74, '11336': 73, '1941': 72, '1963': 71, '442': 71, '596': 71, '3851': 68, '3852': 68, '2991': 67,
+  '21949': 67, '22300': 67, '3850': 66, '18285': 65, '22271': 65, '21927': 64, '21539': 63,
+  // Japão (J1)
+  '7477': 71.5, '7114': 71, '7115': 71, '7476': 70.5, '22167': 70.5, '3385': 70, '7112': 70, '7116': 69,
+  '7102': 69, '3384': 69, '7109': 68.5, '21361': 68.5, '7108': 68, '22522': 67.5, '7104': 67.5, '7107': 67.5,
+  '3393': 67, '7111': 66.5, '131701': 66, '19001': 66,
+  // África do Sul
+  '7084': 71, '7085': 69, '7081': 66, '18615': 65, '20814': 64.5, '7079': 64, '19298': 63, '7077': 63,
+  '7099': 62.5, '11913': 62, '22348': 62, '21990': 62, '18825': 61.5, '131361': 60.5, '22350': 60, '13317': 60,
+  // CONMEBOL: líderes e grandes que a EA subestima ou não cobre
+  '5264': 69, '8109': 68.5, '5484': 68, '6137': 66, '2672': 65.5, '2919': 65,
+  '19002': 67, '5492': 64, '1007': 63, '10000': 63,
+  '17176': 64, '2668': 64.5,
+  '2670': 68, '5584': 65,
+  '2680': 66, '21819': 64, '7312': 63,
+  '2688': 68.5, '4139': 66.5,
+  '2681': 66, '2687': 63.5,
+}
+
+/** Cores corrigidas à mão (id ESPN → [principal, secundária]) onde as da ESPN destoam do uniforme. */
+export const COLOR_OVERRIDES: Record<string, [Hex, Hex]> = {
+  '83': ['#A50044', '#004D98'], // Barcelona
+  '86': ['#FFFFFF', '#FEBE10'], // Real Madrid
+  '1068': ['#CB3524', '#FFFFFF'], // Atlético
+  '382': ['#6CABDD', '#1C2C5B'], // Man. City
+  '361': ['#111111', '#FFFFFF'], // Newcastle
+  '360': ['#DA291C', '#111111'], // Man. United
+  '103': ['#FB090B', '#111111'], // Milan
+  '111': ['#111111', '#FFFFFF'], // Juventus
+  '436': ['#FFED00', '#002D72'], // Fenerbahçe
+  '437': ['#0033A0', '#FFFFFF'], // Porto
+  '148': ['#E30613', '#FFFFFF'], // PSV
+  '142': ['#E30613', '#FFFFFF'], // Feyenoord
+  '139': ['#D2122E', '#FFFFFF'], // Ajax
+  '256': ['#018749', '#FFFFFF'], // Celtic
+  '16': ['#FFFFFF', '#E2001A'], // River Plate
+  '15': ['#6CB4EE', '#FFFFFF'], // Racing
+  '8': ['#E2001A', '#FFFFFF'], // Estudiantes
+  '2688': ['#FFFFFF', '#111111'], // Colo-Colo
+  '4139': ['#0033A0', '#C8102E'], // U. de Chile
+  '2684': ['#FFFFFF', '#1D3D8F'], // Nacional (URU)
+  '2685': ['#F3E5AB', '#8B0000'], // Universitario
+  '2680': ['#0B1F5C', '#FFFFFF'], // Alianza Lima
+  '4816': ['#FFFFFF', '#0B1F5C'], // LDU
+  '2671': ['#D52B1E', '#0033A0'], // Cerro Porteño
+  '227': ['#FFD700', '#0A2240'], // América (MEX)
+  '218': ['#0047BB', '#FFFFFF'], // Cruz Azul
+  '5264': ['#00843D', '#FFFFFF'], // Atl. Nacional
+  '5484': ['#0033A0', '#FFFFFF'], // Millonarios
+  '8109': ['#D6001C', '#FFFFFF'], // América de Cali
+  '20232': ['#F7B5CD', '#231F20'], // Inter Miami
+  '5': ['#0033A0', '#FCB000'], // Boca Juniors
+  '11': ['#E2001A', '#FFFFFF'], // Independiente
+  '18': ['#0033A0', '#E2001A'], // San Lorenzo
+  '21': ['#FFFFFF', '#0033A0'], // Vélez
+  '1895': ['#111111', '#FFFFFF'], // Beşiktaş
+  '432': ['#A90432', '#FDB912'], // Galatasaray
+  '124': ['#FDE100', '#111111'], // Dortmund
+  '167': ['#FFFFFF', '#1D3D8F'], // Lyon
+  '176': ['#FFFFFF', '#2FAEE0'], // Marselha
+  '2533': ['#0098DC', '#FFFFFF'], // Zenit
+  '104': ['#8E1F2F', '#F0BC42'], // Roma
+  '112': ['#87D8F7', '#FFFFFF'], // Lazio
+  '93': ['#EE2523', '#FFFFFF'], // Athletic
+  '94': ['#FFFFFF', '#111111'], // Valencia
+  '2250': ['#008057', '#FFFFFF'], // Sporting
+  '929': ['#1E3C96', '#FFFFFF'], // Al-Hilal
+  '817': ['#FFE600', '#1E3C96'], // Al-Nassr
+  // Romênia e Liga de Expansión (sem cores na ESPN)
+  '9682': ['#0033A0', '#FFFFFF'], '20725': ['#6E2C8E', '#FFFFFF'], '22314': ['#FFD700', '#0033A0'],
+  '6912': ['#C8102E', '#FFFFFF'], '6731': ['#0033A0', '#FFFFFF'], '8091': ['#111111', '#FFFFFF'],
+  '19265': ['#C8102E', '#111111'], '12603': ['#FFD700', '#0033A0'], '21032': ['#C8102E', '#FFFFFF'],
+  '130880': ['#0033A0', '#C8102E'],
+  '20720': ['#C8102E', '#FFFFFF'], '21534': ['#C8102E', '#FFFFFF'], '20722': ['#00843D', '#FFFFFF'],
+  '20721': ['#0033A0', '#FFFFFF'], '21533': ['#0B6AA2', '#FFFFFF'], '131881': ['#111111', '#C8102E'],
+  '20724': ['#0033A0', '#FFFFFF'],
+}

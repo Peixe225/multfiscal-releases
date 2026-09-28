@@ -3,7 +3,7 @@
  *
  *   <Pill tone="positive" icon={ArrowUp}>ACESSO</Pill>      tones: neutral|positive|negative|warning|gold|info|solid
  *   <Tag kind="up">Acesso</Tag>   <Tag kind="down">Rebaixado</Tag>   <Tag kind="gold" icon={Trophy}>Bola 3º</Tag>
- *   <LivePill>Temporada 2026 ao vivo</LivePill>   <YouBadge />   <NewBadge />   <Kbd>Esc</Kbd>   <Eyebrow>Vitrine</Eyebrow>
+ *   <LivePill>Temporada 2026 ao vivo</LivePill>   <LivePill red blink>Cerimônia ao vivo</LivePill>   <YouBadge />   <NewBadge />   <Kbd>Esc</Kbd>   <Eyebrow>Vitrine</Eyebrow>
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import { ArrowDown, ArrowUp, type LucideProps } from 'lucide-react'
@@ -43,10 +43,10 @@ export function Tag({ kind, icon, children, label, className }: { kind: 'up' | '
   )
 }
 
-export function LivePill({ children, red, className }: { children: ReactNode; red?: boolean; className?: string }) {
+export function LivePill({ children, red, blink, className }: { children: ReactNode; red?: boolean; blink?: boolean; className?: string }) {
   return (
     <span className={cx('lx-live', red && 'lx-live--red', className)}>
-      <span className="lx-dot lx-dot--pulse" aria-hidden="true" />
+      <span className={cx('lx-dot', (blink ?? red) && 'lx-dot--blink')} aria-hidden="true" />
       {children}
     </span>
   )

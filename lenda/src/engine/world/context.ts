@@ -275,7 +275,7 @@ export function recordKnown(ctx: SeasonCtx, r: MatchResult, kind: CompetitionKin
 }
 
 /** Forma da temporada: pequeno ruído por clube (técnico, lesões, sorte). */
-export const FORM_SD = 1.5
+export const FORM_SD = 2
 
 export function clampStrength(s: number): number {
   return clamp(s, 40, 92)

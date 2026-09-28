@@ -2,7 +2,7 @@
  * Memória interna do motor (guardada em `CareerState.engine`, 100% JSON).
  * A UI não deve depender destes campos.
  */
-import type { CareerState, CompetitionKind, SquadRole } from '../types'
+import type { CareerState, CompetitionKind, Confed, SquadRole } from '../types'
 
 export interface DevCycle {
   /** Idade-alvo da janela de 2 anos (tabela do Copero). */
@@ -75,13 +75,15 @@ export interface CareerMemory {
   retrainedFrom?: string
   /** Fez a proposta milionária (Arábia/MLS): prêmios individuais ficam distantes. */
   farFromSpotlight: boolean
+  /** Confederação de cada seleção que ele já pôde defender (detecção pura de conquistas). */
+  natConfeds: Record<string, Confed>
 }
 
 export function emptyPeriod(): PeriodEffects {
   return { roleShift: 0, boostAdj: 0, statsMult: 1, valueMult: 1 }
 }
 
-export function newMemory(nationality: string): CareerMemory {
+export function newMemory(nationality: string, confed?: Confed): CareerMemory {
   return {
     step: 0,
     devCycle: null,
@@ -100,6 +102,7 @@ export function newMemory(nationality: string): CareerMemory {
     salary: 0,
     seasonsAtClub: 0,
     farFromSpotlight: false,
+    natConfeds: confed ? { [nationality]: confed } : {},
   }
 }
 

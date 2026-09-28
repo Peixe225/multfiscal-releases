@@ -239,15 +239,15 @@ export function careerNew(data: GameData = mockGameData, identity: PlayerIdentit
 export function careerEnd(data: GameData = mockGameData): CareerState {
   const engine = createMockEngine()
   let s = careerMid(data)
-  s = { ...s, seed: 'fixture-end' }
+  // one season per decision from here, never retire early → last season at 39
+  s = { ...s, seed: 'fixture-end', pace: 'intensa' }
   for (let guard = 0; guard < 40 && s.phase !== 'finished'; guard++) {
     const d = s.pendingDecision
     if (!d) break
-    let opt = d.options[0]
-    if (d.kind === 'retirement') opt = s.age >= 39 ? d.options.find((o) => o.id === 'retire') ?? opt : d.options.find((o) => o.id !== 'retire') ?? opt
+    const opt = d.kind === 'retirement' ? (d.options.find((o) => o.id !== 'retire') ?? d.options[0]) : d.options[0]
     s = engine.choose(data, s, opt.id).state
   }
-  return s
+  return { ...s, pace: 'normal' }
 }
 
 /** A reveal with trophies + a Bola de Ouro + tier crossing (87 → 90 Lenda). */

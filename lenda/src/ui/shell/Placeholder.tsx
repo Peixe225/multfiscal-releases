@@ -21,7 +21,7 @@ export interface PlaceholderProps {
 export function PlaceholderScreen({ eyebrow, title, description, icon: Ico, items, actions, children }: PlaceholderProps) {
   const rm = useReducedMotion()
   return (
-    <main id="conteudo" className="relative z-[1] flex-1 grid place-items-center px-4 py-10 sm:px-6">
+    <main id="conteudo" tabIndex={-1} className="relative z-[1] flex-1 grid place-items-center px-4 py-10 sm:px-6 outline-none">
       <motion.div className="w-full max-w-[560px]" initial={rm ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
         <Card padding="lg" radius="xl" className="overflow-hidden">
           <div className="absolute inset-x-0 -top-24 h-48 pointer-events-none" style={{ background: 'radial-gradient(closest-side, color-mix(in srgb, var(--club-glow, var(--club)) 35%, transparent), transparent)' }} aria-hidden />

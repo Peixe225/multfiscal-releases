@@ -307,7 +307,11 @@ export function applyEffects(data: GameData, s: CareerState, fx: EffectSpec, log
   if (fx.forceTrophy) s.modifiers.forceTrophy = { competitionKind: fx.forceTrophy.kind, chance: fx.forceTrophy.win ? 1 : -1 }
   if (fx.national) m.period.national = fx.national
   if (fx.nationalBoost) m.period.nationalBoost = (m.period.nationalBoost ?? 0) + fx.nationalBoost
-  if (fx.switchNationality) s.identity = { ...s.identity, nationality: fx.switchNationality }
+  if (fx.switchNationality) {
+    s.identity = { ...s.identity, nationality: fx.switchNationality }
+    const cf = indexData(data).country.get(fx.switchNationality)?.confed
+    if (cf) m.natConfeds[fx.switchNationality] = cf
+  }
   if (fx.retireNational) m.nationalRetired = true
   if (fx.declineFactor) m.declineFactor = Math.max(0.35, m.declineFactor * fx.declineFactor)
   if (fx.offerBoost) m.offerBoost = fx.offerBoost
@@ -399,7 +403,7 @@ export function createCareerEngine(world: WorldEngine): CareerEngine {
         log: [{ season: START_SEASON, age: START_AGE, type: 'decision', text: 'Começa a jornada: 16 anos, OVR 50, sem clube.' }],
         retired: false,
         achievements: [],
-        engine: { ...newMemory(id.nationality), engineVersion: ENGINE_VERSION } as unknown as Record<string, unknown>,
+        engine: { ...newMemory(id.nationality, indexData(data).country.get(id.nationality)?.confed), engineVersion: ENGINE_VERSION } as unknown as Record<string, unknown>,
       }
       s.pendingDecision = academyDecision(data, s)
       return s

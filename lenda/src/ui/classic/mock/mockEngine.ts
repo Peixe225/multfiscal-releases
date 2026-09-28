@@ -711,7 +711,8 @@ export function createMockEngine(): CareerEngine {
       const kind = retireNow ? null : nextDecisionKind(data, s, nr)
       if (!kind) {
         s.retired = true
-        s.retiredReason = retireNow ? `Aposentou-se aos ${s.age} anos` : 'Aposentadoria aos 40 anos'
+        const lastAge = s.seasons[s.seasons.length - 1]?.age ?? s.age
+        s.retiredReason = retireNow ? `Aposentou-se aos ${lastAge} anos` : `Pendurou as chuteiras aos ${lastAge} anos`
         s.phase = 'finished'
         s.pendingDecision = null
         log.push({ season: s.season, age: s.age, type: 'retired', text: s.retiredReason })

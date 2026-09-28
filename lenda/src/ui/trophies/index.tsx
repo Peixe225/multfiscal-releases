@@ -1,15 +1,26 @@
 /**
- * Arte de troféus (SVG). Contrato estável usado por toda a UI:
+ * Arte de troféus. Contrato estável usado por toda a UI:
  *
  *   <TrophyArt id="libertadores" size={64} />
  *
- * `id` = Trophy.id (ou Trophy.art) do catálogo. Cada arte vive em ./svg/<id>.svg e é
- * carregada sob demanda (code-split). Os ids internos do SVG (gradientes, filtros) são
- * prefixados por instância para que várias cópias na mesma página não se "roubem" as cores.
- * Sem arte específica, cai numa arte genérica escolhida pela família do troféu.
+ * `id` = Trophy.id (ou Trophy.art) do catálogo. Duas fontes de arte:
+ *
+ * 1. **Foto real recortada** — public/trophies/<id>.webp (720 px de altura, fundo transparente),
+ *    listada em ./photo-manifest.ts (regenere com `node src/ui/trophies/gen-photo-manifest.mjs`).
+ *    Créditos/licenças em docs/CREDITOS.md.
+ * 2. **SVG** — ./svg/<id>.svg, carregado sob demanda (code-split). Os ids internos do SVG
+ *    (gradientes, filtros) são prefixados por instância para que várias cópias na mesma página
+ *    não se "roubem" as cores. Sem arte específica, cai numa arte genérica da família do troféu.
+ *
+ * `variant` (padrão `auto`): foto quando `size >= 40` e há recorte; abaixo disso (ícones de
+ * tabela) fica o SVG, mais nítido. Se o id não tem SVG próprio, a foto é usada em qualquer
+ * tamanho. `svg`/`photo` forçam uma das fontes (caindo na outra se ela não existir).
  */
 import { useEffect, useId, useState, type CSSProperties } from 'react'
 import type { Trophy, TrophyFamily } from '@/engine/types'
+import { TROPHY_PHOTO_ASPECT, TROPHY_PHOTO_IDS } from './photo-manifest'
+
+export type TrophyArtVariant = 'auto' | 'svg' | 'photo'
 
 export interface TrophyArtProps {
   id: string
@@ -20,6 +31,37 @@ export interface TrophyArtProps {
   className?: string
   style?: CSSProperties
   title?: string
+  /** Fonte da arte: `auto` (padrão), `svg` ou `photo`. */
+  variant?: TrophyArtVariant
+}
+
+/** Abaixo desta altura o modo `auto` prefere o SVG (ícones pequenos ficam mais nítidos). */
+export const PHOTO_MIN_SIZE = 40
+
+const photoIds = new Set(TROPHY_PHOTO_IDS)
+
+/** Há recorte fotográfico real para este id? */
+export function hasTrophyPhoto(id: string): boolean {
+  return photoIds.has(id)
+}
+
+/** URL pública do recorte (respeita o `base` do Vite). */
+export function trophyPhotoUrl(id: string): string {
+  return `${import.meta.env.BASE_URL}trophies/${id}.webp`
+}
+
+function wantsPhoto(id: string, size: number, variant: TrophyArtVariant): boolean {
+  if (!hasTrophyPhoto(id)) return false
+  if (variant === 'photo') return true
+  if (variant === 'svg') return !hasTrophyArt(id)
+  return size >= PHOTO_MIN_SIZE || !hasTrophyArt(id)
+}
+
+/** Sombra proporcional ao tamanho: assenta o metal no fundo escuro sem "halo". */
+function photoShadow(size: number): string {
+  const y = Math.max(1, Math.round(size * 0.035))
+  const blur = Math.max(2, Math.round(size * 0.06))
+  return `drop-shadow(0 ${y}px ${blur}px rgba(0,0,0,.5)) drop-shadow(0 1px 1px rgba(0,0,0,.35))`
 }
 
 const files = import.meta.glob('./svg/*.svg', { query: '?raw', import: 'default' }) as Record<
@@ -94,8 +136,10 @@ function prepare(raw: string, prefix: string, size: number, title?: string): str
   return svg
 }
 
-export function TrophyArt({ id, size = 48, trophy, className, style, title }: TrophyArtProps) {
-  const art = resolveArt(id, trophy?.family)
+export function TrophyArt({ id, size = 48, trophy, className, style, title, variant = 'auto' }: TrophyArtProps) {
+  const [photoFailed, setPhotoFailed] = useState<string | null>(null)
+  const photo = photoFailed !== id && wantsPhoto(id, size, variant)
+  const art = photo ? null : resolveArt(id, trophy?.family)
   const reactId = useId()
   const prefix = `t${reactId.replace(/[^a-zA-Z0-9]/g, '')}-`
   const [raw, setRaw] = useState<string | null>(() => (art ? (loaded.get(art) ?? null) : null))
@@ -113,6 +157,34 @@ export function TrophyArt({ id, size = 48, trophy, className, style, title }: Tr
       alive = false
     }
   }, [art])
+
+  if (photo) {
+    const aspect = TROPHY_PHOTO_ASPECT[id]
+    return (
+      <span className={className} style={{ display: 'inline-block', lineHeight: 0, ...style }}>
+        <img
+          src={trophyPhotoUrl(id)}
+          alt={title ?? ''}
+          aria-hidden={title ? undefined : true}
+          height={size}
+          width={aspect ? Math.round(size * aspect) : undefined}
+          loading={size >= 120 ? 'eager' : 'lazy'}
+          decoding="async"
+          draggable={false}
+          onError={() => setPhotoFailed(id)}
+          style={{
+            display: 'block',
+            height: size,
+            width: 'auto',
+            maxWidth: 'none',
+            objectFit: 'contain',
+            filter: photoShadow(size),
+            userSelect: 'none',
+          }}
+        />
+      </span>
+    )
+  }
 
   if (!art || !raw) {
     return <FallbackTrophy size={size} className={className} style={style} title={title} metal={trophy?.metal} />

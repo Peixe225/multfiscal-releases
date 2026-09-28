@@ -142,9 +142,23 @@ export function simulateTwoLegs(
   if (aggA !== aggB) {
     winner = aggA > aggB ? 'a' : 'b'
   } else {
-    const d = decide(second.score, lh, la, a - b, rng, opts.extraTime !== false)
-    second = d
-    winner = d.winner === 0 ? 'a' : 'b'
+    // agregado empatado: prorrogação no 2º jogo (se houver) e, persistindo, pênaltis
+    const s2: [number, number] = [second.score[0], second.score[1]]
+    const aet = opts.extraTime !== false
+    if (aet) {
+      s2[0] += rng.poisson(lh * MATCH.extraTime)
+      s2[1] += rng.poisson(la * MATCH.extraTime)
+    }
+    const fa = first.score[1] + s2[0]
+    const fb = first.score[0] + s2[1]
+    if (fa !== fb) {
+      winner = fa > fb ? 'a' : 'b'
+      second = { score: s2, aet: true, winner: winner === 'a' ? 0 : 1 }
+    } else {
+      const pens = penaltyShootout(rng, Math.max(-1, Math.min(1, (a - b) / 20)))
+      winner = pens[0] > pens[1] ? 'a' : 'b'
+      second = { score: s2, aet: aet || undefined, pens, winner: winner === 'a' ? 0 : 1 }
+    }
   }
   const finalA = first.score[1] + second.score[0]
   const finalB = first.score[0] + second.score[1]

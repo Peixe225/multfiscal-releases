@@ -116,6 +116,15 @@ export function leaguePlayoffs(
   return { champion: ko.winner, stages: [...stages, ...ko.stages] }
 }
 
+/** Jogos reais já disputados entram nas estatísticas da temporada (sem-sofrer-gol estimado por Poisson). */
+function seedRealStats(ctx: SeasonCtx, r: StandingRow) {
+  if (r.played <= 0) return
+  const cs = Math.round(r.played * Math.exp(-r.ga / r.played))
+  const cur = ctx.cs.get(r.clubId)
+  if (cur) (cur[0] += r.played), (cur[1] += r.gf), (cur[2] += r.ga), (cur[3] += cs)
+  else ctx.cs.set(r.clubId, [r.played, r.gf, r.ga, cs])
+}
+
 function playMatches(ctx: SeasonCtx, rng: Rng, rows: Map<string, StandingRow>, pairs: Pairing[]) {
   for (const [h, a] of pairs) {
     const rh = rows.get(h)
@@ -136,7 +145,9 @@ export function simulateLeague(ctx: SeasonCtx, league: League, clubs: readonly s
   const defaultGames = groups
     ? Math.max(...[...new Set(groups.values())].map((g) => [...groups.values()].filter((x) => x === g).length)) - 1
     : clubs.length - 1
-  const target = snap?.gamesPerTeam && snap.gamesPerTeam > 0 ? snap.gamesPerTeam : defaultGames * rounds
+  let target = snap?.gamesPerTeam && snap.gamesPerTeam > 0 ? snap.gamesPerTeam : defaultGames * rounds
+  // calendário incompleto com jogos adiados duplicados (ex.: 39 no Brasileirão): limita a um turno completo
+  if (snap && !snap.fixturesComplete && !groups && tournaments === 1) target = Math.min(target, (clubs.length - 1) * rounds)
 
   const realRows = (ctx.data.standings[league.id] ?? []).filter((r) => clubs.includes(r.clubId))
   const stale = !!(league.stale || snap?.stale) || (snap?.season !== undefined && snap.season !== ctx.season)
@@ -159,7 +170,10 @@ export function simulateLeague(ctx: SeasonCtx, league: League, clubs: readonly s
     for (const c of clubs) rows.set(c, newRow(c, groups?.get(c)))
     let pairs: Pairing[]
     if (canContinue && t === current) {
-      for (const r of realRows) rows.set(r.clubId, { ...r, group: groups?.get(r.clubId) ?? r.group })
+      for (const r of realRows) {
+        rows.set(r.clubId, { ...r, group: groups?.get(r.clubId) ?? r.group })
+        seedRealStats(ctx, r)
+      }
       pairs = remainingSchedule([...rows.values()], ctx.data.fixtures?.[league.id], target, rng, snap?.fixturesComplete)
     } else {
       pairs = seasonSchedule(clubs, rounds, rng, target, groups)

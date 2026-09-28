@@ -361,7 +361,8 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
   if (part < 0 && m.declineFactor < 1) part = -stochasticRound(Math.abs(part) * m.declineFactor, rd.next())
   // bônus do LENDA: jovem (18–23) que brilha ou ganha títulos jogando evolui um pouco mais
   let bonus = 0
-  if (age >= 18 && age <= 23 && apps > 0 && (stats.rating >= 7.2 || (trophies.length > 0 && isPlayingRole(role))) && rd.chance(0.5)) bonus = 1
+  const bigTitle = trophies.some((t) => !t.minor && (t.kind === 'league' || t.kind === 'continental_primary' || t.kind === 'world_cup' || t.kind === 'national_continental'))
+  if (age >= 18 && age <= 23 && apps > 0 && (stats.rating >= 7.5 || (bigTitle && isPlayingRole(role))) && rd.chance(0.2)) bonus = 1
   s.ovr = clampOvr(s.ovr + part + bonus)
 
   // OVR temporário devolvido depois desta temporada (ou no fim do período)

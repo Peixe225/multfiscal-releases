@@ -92,7 +92,8 @@ export function fitName(s, max = 14) {
   s = String(s || '').trim()
   if (s.length <= max) return s
   const words = s.split(/\s+/)
-  while (words.length > 1 && words.join(' ').length > max) words.pop()
+  const weak = /^(de|da|do|del|la|el|y|e|and|&|of|the|fc|cf|sc|ac)$/i
+  while (words.length > 1 && (words.join(' ').length > max || weak.test(words[words.length - 1]))) words.pop()
   const out = words.join(' ')
   return out.length <= max ? out : out.slice(0, max - 1).trimEnd() + '.'
 }

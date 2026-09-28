@@ -22,7 +22,7 @@ export { CountUp, useCountUp, easeOutCubic, type CountUpProps, type CountUpOptio
 export { ClubChip, type ClubChipProps } from './ClubChip'
 export { AgeBadge, type AgeBadgeProps } from './AgeBadge'
 export { Card, Glass, CardHeader, Hairline, type CardProps, type SurfaceVariant } from './Surface'
-export { Stage, type StageProps, type StagePreset } from './Stage'
+export { Stage, Stadium, type StageProps, type StagePreset } from './Stage'
 export { Skeleton, SkeletonCircle, SkeletonText } from './Skeleton'
 export { Toaster, toast, useToasts, type ToastItem, type ToastTone } from './Toast'
 export { Brand, BrandMark } from './Brand'

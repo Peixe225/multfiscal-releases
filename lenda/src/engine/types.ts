@@ -306,6 +306,11 @@ export interface CupResult {
   knockout: KnockoutStage[]
   /** Participantes e até onde cada um chegou (0 = eliminado na 1ª fase … N = campeão). */
   reached: Record<string, string> // id → nome da fase alcançada ("Campeão", "Final", "Semifinal"…)
+  /**
+   * (aditivo, motor do mundo) Troféu da competição. Necessário porque `WorldEngine.nationSeason`
+   * recebe só o resultado (sem GameData) e precisa devolver `trophyId`.
+   */
+  trophyId?: string
 }
 
 export interface LeagueSeasonResult {
@@ -318,6 +323,11 @@ export interface LeagueSeasonResult {
   /** Artilheiros simulados da liga (inclui o jogador do usuário quando for o caso). */
   topScorers: { name: string; clubId: string; goals: number; isUser?: boolean }[]
   playoffs?: KnockoutStage[]
+  /**
+   * (aditivo, motor do mundo) Ligas de Apertura/Clausura (`tournamentsPerSeason: 2`) coroam dois
+   * campeões por temporada; `champion` é o do último torneio e `table` é a tabela anual (soma).
+   */
+  champions?: { name: string; clubId: string }[]
 }
 
 // ───────────────────────────── prêmios ─────────────────────────────
@@ -372,6 +382,14 @@ export interface SeasonWorldResult {
   cups: Record<string, CupResult> // domésticas + continentais + mundial de clubes, por competitionId
   national: Record<string, NationalTournamentResult> // torneios de seleções que terminaram nesta temporada
   awards: AwardResult[]
+  /**
+   * (aditivo, motor do mundo) Totais compactos por clube em TODOS os jogos oficiais da temporada
+   * (liga + copas + continentais + Mundial): [jogos, gols pró, gols contra, jogos sem sofrer gol].
+   * Necessário porque `clubSeason(result, …)` precisa desses totais e não guardamos cada partida.
+   */
+  clubStats?: Record<string, [number, number, number, number]>
+  /** (aditivo, motor do mundo) Por seleção: [jogos, gols pró] (eliminatórias, amistosos e torneio). */
+  nationStats?: Record<string, [number, number]>
 }
 
 export interface Rival {

@@ -8,7 +8,7 @@
 import type { CompetitionKind, KnockoutStage, MatchResult, StandingRow } from '../types'
 import type { Rng } from '../rng'
 import { forced, isNationalKind, play, recordKnown, strengthIn, userEntity, type SeasonCtx } from './context'
-import { roundRobin, swissPairings } from './schedule'
+import { remainingSchedule, roundRobin, swissPairings } from './schedule'
 import { addResult, newRow, sortTable } from './table'
 
 export function stageName(size: number): string {
@@ -384,6 +384,8 @@ export function runSwiss(
   matches: number,
   kind: CompetitionKind,
   start?: StandingRow[],
+  /** Jogos reais já sorteados (continuação): jogados primeiro, o resto é completado. */
+  fixtures?: readonly import('../types').Fixture[],
 ): StandingRow[] {
   const rows = new Map<string, StandingRow>()
   for (const t of teams) rows.set(t, newRow(t))
@@ -393,7 +395,10 @@ export function runSwiss(
     rows.set(r.clubId, { ...r })
     already.set(r.clubId, r.played)
   }
-  for (const [h, a] of swissPairings([...rows.keys()], matches, rng, already)) {
+  const pairs = fixtures?.length
+    ? remainingSchedule([...rows.values()], fixtures, matches, rng, false)
+    : swissPairings([...rows.keys()], matches, rng, already)
+  for (const [h, a] of pairs) {
     const m = play(ctx, rng, h, a, { kind })
     addResult(rows.get(m.home)!, rows.get(m.away)!, m.score[0], m.score[1])
   }
