@@ -154,6 +154,7 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
   const cup = !national && item.competitionId !== s.leagueId
   let youthPlan = false
   let rotationPlan = false
+  let debut = false
   if (injured) {
     status = 'out'
     reason = `Lesionado: ${s.condition.injury!.name.toLowerCase()} (${s.condition.injury!.weeksLeft} sem.)`
@@ -204,6 +205,17 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
         rotationPlan = true
       }
     }
+    // garoto da base já no banco: segue o mesmo plano de minutos (não o critério de briga por posição)
+    if (status === 'bench' && !gk && s.age <= 19 && !rotationPlan) youthPlan = true
+    // estreia garantida: sem jogos na temporada e já passou ao menos um jogo do clube → relacionado e entra
+    if (!gk && s.age <= 19 && status !== 'starter' && s.seasonStats.apps === 0) {
+      const seen = s.calendar.filter((i) => i.kind === 'match' && i.season === s.season && i.done).length
+      if (seen >= 1) {
+        status = 'bench'
+        youthPlan = true
+        debut = true
+      }
+    }
     const coachTxt = s.relationships.coach >= 65 ? 'o técnico confia em você' : s.relationships.coach < 38 ? 'o técnico anda desconfiado' : ''
     const gap = ovr - teamStr
     reason =
@@ -214,7 +226,9 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
           ? 'Titular: peça-chave do time'
           : `Titular${coachTxt ? `: ${coachTxt}` : c.form >= 62 ? ': boa fase' : ''}`
         : status === 'bench'
-          ? youthPlan
+          ? debut
+            ? 'No banco: o técnico prometeu a sua estreia hoje'
+            : youthPlan
             ? 'No banco: o técnico quer dar minutos ao garoto da base'
             : rotationPlan
               ? 'No banco: rodízio para o jogo de copa'
@@ -235,7 +249,15 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
   if (status === 'starter') onAt = 0
   else if (status === 'bench') {
     const youthTarget = s.age <= 17 ? 0.42 : 0.3
-    const p = gk ? 0.03 : youthPlan ? clamp(0.62 - importance * 0.45 + Math.max(0, youthTarget * m.clubMatches - s.seasonStats.apps) * 0.12, 0.2, 0.9) : rotationPlan ? 0.5 : clamp(0.55 + sel / 50, 0.15, 0.9)
+    const p = gk
+      ? 0.03
+      : debut
+        ? 0.92
+        : youthPlan
+          ? clamp(0.7 - importance * 0.4 + Math.max(0, youthTarget * m.clubMatches - s.seasonStats.apps) * 0.12, 0.3, 0.92)
+          : rotationPlan
+            ? 0.5
+            : clamp(0.55 + sel / 50, 0.15, 0.9)
     if (r.chance(p)) onAt = youthPlan ? r.int(62, 84) : r.int(56, 82)
   }
   const frac = onAt === 0 ? 0.95 : onAt < 999 ? (90 - onAt) / 90 : 0
