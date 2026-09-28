@@ -8,7 +8,7 @@
  */
 import { useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
-import { toast } from '@/ui/primitives'
+import { toast, useToasts } from '@/ui/primitives'
 import { achievementById } from '@/ui/shell/achievementsRegistry'
 import { MedalIcon } from '@/ui/primitives'
 import { achievementIcon, RARITY } from './meta'
@@ -16,11 +16,14 @@ import { achievementIcon, RARITY } from './meta'
 const MAX_ICONS = 4
 let installed = false
 const shown = new Set<string>()
+/** Ids in the achievement toast that is still on screen (or queued): a new batch merges into it. */
+let live: string[] = []
+const KEY = 'achievements'
 
 function stack(ids: string[]) {
   const list = ids.map((id) => achievementById(id)).filter((a): a is NonNullable<typeof a> => !!a)
   return (
-    <span className="inline-flex items-center mt-1.5" aria-hidden="true">
+    <span className="lx-toast__stack inline-flex items-center mt-1.5" aria-hidden="true">
       {list.slice(0, MAX_ICONS).map((a, i) => {
         const Ico = achievementIcon(a)
         const r = RARITY[a.rarity] ?? RARITY.comum
@@ -43,13 +46,18 @@ export function showUnlockToast(ids: string[]) {
   const fresh = [...new Set(ids)].filter((id) => !shown.has(id))
   if (!fresh.length) return
   fresh.forEach((id) => shown.add(id))
-  const sorted = fresh
+  const t = useToasts.getState()
+  const alive = [...t.items, ...t.queue].some((x) => x.key === KEY)
+  const all = alive ? [...new Set([...live, ...fresh])] : fresh
+  live = all
+  const sorted = all
     .map((id) => achievementById(id))
     .filter((a): a is NonNullable<typeof a> => !!a)
     .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'))
   if (!sorted.length) return
   const one = sorted.length === 1
   toast({
+    key: KEY,
     tone: 'gold',
     icon: one ? achievementIcon(sorted[0]) : MedalIcon,
     title: one ? 'Conquista desbloqueada!' : `Você desbloqueou ${sorted.length} conquistas`,
@@ -59,9 +67,10 @@ export function showUnlockToast(ids: string[]) {
         {!one && stack(sorted.map((a) => a.id))}
       </>
     ),
-    duration: 5600,
+    duration: 4000,
     action: {
       label: 'Ver conquistas',
+      icon: MedalIcon,
       onClick: () => window.setTimeout(() => useApp.getState().openDialog('achievements'), 250),
     },
   })

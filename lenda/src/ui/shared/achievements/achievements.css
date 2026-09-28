@@ -27,7 +27,7 @@
 .ac-rpill--rara { color: #dfe6f0; background: rgba(200, 210, 225, .1); border-color: rgba(200, 210, 225, .26); }
 .ac-rpill--epica { color: #ffe39a; background: rgba(255, 200, 90, .12); border-color: rgba(255, 200, 90, .3); }
 .ac-rpill--lendaria { color: #e7dbff; background: linear-gradient(90deg, rgba(200, 170, 255, .16), rgba(159, 243, 220, .12)); border-color: rgba(214, 190, 255, .35); }
-.ac-new { height: 17px; padding: 0 6px; border-radius: 5px; display: inline-flex; align-items: center; font: 800 9.5px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #1b1405; background: linear-gradient(100deg, #ffe7a3, #f3c65c); }
+.ac-new { flex: none; height: 17px; padding: 0 6px; border-radius: 5px; display: inline-flex; align-items: center; font: 800 9.5px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #1b1405; background: linear-gradient(100deg, #ffe7a3, #f3c65c); }
 .ac-new--dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; padding: 0; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg-2, #0b0c10); }
 
 .ac-tile { position: relative; flex: none; display: grid; place-items: center; border-radius: 14px; }

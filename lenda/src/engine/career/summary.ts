@@ -6,6 +6,7 @@ import type { AwardId, CareerState, CareerSummary, GameData, TrophyFamily, Troph
 import { START_OVR } from './constants'
 import { totalsOf } from './season'
 import { indexData, withArticle } from './util'
+import { HISTORIC_RECORDS, REAL_LEGENDS, type Legend } from '../../data/catalog/legends'
 
 const FAMILY_ORDER: TrophyFamily[] = [
   'world_cup',
@@ -33,20 +34,40 @@ const AWARD_ORDER: AwardId[] = [
   'team_of_the_year',
 ]
 
-/** Números de carreira de lendas reais (arredondados, fontes públicas até 2026). */
-export const LEGENDS: { name: string; goals: number; goalsNote: string; worldCups: number; ballonDor: number; champions: number; libertadores: number }[] = [
-  { name: 'Pelé', goals: 757, goalsNote: '757 gols oficiais', worldCups: 3, ballonDor: 0, champions: 0, libertadores: 2 },
-  { name: 'Romário', goals: 1000, goalsNote: 'mais de 1.000 gols pela contagem dele', worldCups: 1, ballonDor: 0, champions: 0, libertadores: 0 },
-  { name: 'Cristiano Ronaldo', goals: 900, goalsNote: 'mais de 900 gols', worldCups: 0, ballonDor: 5, champions: 5, libertadores: 0 },
-  { name: 'Messi', goals: 850, goalsNote: 'mais de 850 gols', worldCups: 1, ballonDor: 8, champions: 4, libertadores: 0 },
-  { name: 'Zico', goals: 500, goalsNote: 'mais de 500 gols só pelo Flamengo', worldCups: 0, ballonDor: 0, champions: 0, libertadores: 1 },
-  { name: 'Neymar', goals: 400, goalsNote: 'mais de 400 gols', worldCups: 0, ballonDor: 0, champions: 1, libertadores: 1 },
-  { name: 'Ronaldo Fenômeno', goals: 400, goalsNote: 'cerca de 400 gols', worldCups: 2, ballonDor: 2, champions: 0, libertadores: 0 },
-  { name: 'Maradona', goals: 300, goalsNote: 'mais de 300 gols', worldCups: 1, ballonDor: 0, champions: 0, libertadores: 0 },
-  { name: 'Rivaldo', goals: 300, goalsNote: 'cerca de 300 gols', worldCups: 1, ballonDor: 1, champions: 0, libertadores: 0 },
-  { name: 'Ronaldinho', goals: 250, goalsNote: 'cerca de 250 gols', worldCups: 1, ballonDor: 1, champions: 1, libertadores: 1 },
-  { name: 'Kaká', goals: 200, goalsNote: 'cerca de 200 gols', worldCups: 1, ballonDor: 1, champions: 1, libertadores: 0 },
-]
+/** Lendas usadas nas barras de gols do Resumo (os números vêm da base curada do Hall das Lendas). */
+const SUMMARY_LEGEND_IDS = ['pele', 'romario', 'cristiano-ronaldo', 'messi', 'zico', 'neymar', 'ronaldo', 'maradona', 'rivaldo', 'ronaldinho', 'kaka']
+
+export interface SummaryLegend {
+  id: string
+  name: string
+  /** Gols oficiais (clube + seleção principal). */
+  goals: number
+  /** Valor com fontes divergentes/estimado: a UI mostra "≈". */
+  approx: boolean
+  goalsNote: string
+  worldCups: number
+  ballonDor: number
+  champions: number
+  libertadores: number
+}
+
+const byId = new Map(REAL_LEGENDS.map((l) => [l.id, l]))
+const approxGoals = (l: Legend) => !!(l.active || l.uncertain?.includes('goals'))
+
+/** Números de carreira de lendas reais — derivados de src/data/catalog/legends.ts (gols oficiais). */
+export const LEGENDS: SummaryLegend[] = SUMMARY_LEGEND_IDS.map((id) => byId.get(id))
+  .filter((l): l is Legend => !!l)
+  .map((l) => ({
+    id: l.id,
+    name: l.name,
+    goals: l.goals,
+    approx: approxGoals(l),
+    goalsNote: `${approxGoals(l) ? '≈' : ''}${l.goals.toLocaleString('pt-BR')} gols oficiais`,
+    worldCups: l.worldCups,
+    ballonDor: l.ballonDor,
+    champions: l.ucl,
+    libertadores: l.libertadores,
+  }))
 
 const n = (v: number) => v.toLocaleString('pt-BR')
 
@@ -210,7 +231,9 @@ function headline(
   const idx = indexData(data)
   const bdo = wins('ballon_dor')
   if (!s.seasons.length) return 'Uma história por escrever'
-  if (bdo >= 5) return 'O melhor de todos os tempos'
+  // superlativo só acima do recorde real (8 de Messi): o Hall das Lendas é quem diz quem é o nº 1
+  if (bdo >= 9) return 'O melhor de todos os tempos'
+  if (bdo >= 5) return 'Colecionador de Bolas de Ouro'
   if (k.worldCup >= 1 && bdo >= 1) return 'Campeão do mundo e melhor do planeta'
   if (bdo >= 2) return 'Dono da Bola de Ouro'
   if (k.lib >= 3) return 'Rei da Libertadores'
@@ -230,32 +253,54 @@ function headline(
   return 'Operário da bola'
 }
 
+/** "Messi (8)", "Cruyff, Platini e Van Basten (3)". */
+function namesOf(ls: Legend[]): string {
+  const names = ls.map((l) => l.name)
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`
+}
+
+/**
+ * Frase de contagem contra a base curada: bate/iguala o recorde real (HISTORIC_RECORDS) ou passa a
+ * lenda com o maior valor abaixo do seu. `get` lê o campo da lenda; `label(v)` escreve "3 Bolas de Ouro".
+ */
+function countLine(v: number, get: (l: Legend) => number, label: (v: number) => string, metric: string): string | null {
+  if (v <= 0) return null
+  const rec = HISTORIC_RECORDS.find((r) => r.metric === metric)
+  if (rec && v > rec.value) return `${label(v)}: mais que ${rec.holder} (${rec.value}), o recorde.`
+  if (rec && v === rec.value) return `${label(v)}: igualou ${rec.holder}, o recorde.`
+  const pool = REAL_LEGENDS.filter((l) => get(l) > 0)
+  const at = (x: number) => pool.filter((l) => get(l) === x).slice(0, 3)
+  const below = Math.max(0, ...pool.map(get).filter((x) => x < v))
+  if (below > 0) return `${label(v)}: mais que ${namesOf(at(below))} (${below}).`
+  const same = at(v)
+  return same.length ? `${label(v)}, como ${namesOf(same)}.` : null
+}
+
+const plural = (v: number, one: string, many: string) => `${v} ${v === 1 ? one : many}`
+
 function comparisons(k: KindCounts, wins: (a: AwardId) => number, t: ReturnType<typeof totalsOf>): string[] {
   const out: string[] = []
-  const byGoals = LEGENDS.slice().sort((a, b) => b.goals - a.goals)
-  const beaten = byGoals.find((l) => t.goals > l.goals)
-  if (beaten) out.push(`Seus ${n(t.goals)} gols superam ${beaten.name} (${beaten.goalsNote}).`)
-  const above = byGoals.filter((l) => l.goals >= t.goals).pop()
-  if (above && t.goals >= 100) out.push(`Faltaram ${n(above.goals - t.goals + 1)} gols para passar ${above.name} (${above.goalsNote}).`)
+  // gols oficiais (clube + seleção) contra a base inteira do Hall, só de quem vive de gols
+  const scorers = REAL_LEGENDS.filter((l) => l.position !== 'GOL' && l.goals >= 150).sort((a, b) => b.goals - a.goals)
+  const note = (l: Legend) => `${approxGoals(l) ? '≈' : ''}${n(l.goals)} gols oficiais`
+  const beaten = scorers.find((l) => t.goals > l.goals)
+  if (beaten) out.push(`Seus ${n(t.goals)} gols superam ${beaten.name} (${note(beaten)}).`)
+  const above = scorers.filter((l) => l.goals >= t.goals).pop()
+  if (above && t.goals >= 100) out.push(`Faltaram ${n(above.goals - t.goals + 1)} gols para passar ${above.name} (${note(above)}).`)
 
-  const bdo = wins('ballon_dor')
-  if (bdo > 8) out.push(`${bdo} Bolas de Ouro: mais que as 8 de Messi, o recordista.`)
-  else if (bdo === 8) out.push('8 Bolas de Ouro: igualou Messi, o recordista.')
-  else if (bdo > 5) out.push(`${bdo} Bolas de Ouro: mais que as 5 de Cristiano Ronaldo.`)
-  else if (bdo === 5) out.push('5 Bolas de Ouro, como Cristiano Ronaldo.')
-  else if (bdo >= 3) out.push(`${bdo} Bolas de Ouro: mais que as 2 de Ronaldo Fenômeno.`)
-  else if (bdo === 2) out.push('2 Bolas de Ouro, como Ronaldo Fenômeno.')
-  else if (bdo === 1) out.push('Bola de Ouro no currículo, como Kaká, Rivaldo e Ronaldinho.')
-
-  if (k.worldCup >= 3) out.push(`${k.worldCup} Copas do Mundo: ${k.worldCup > 3 ? 'mais que' : 'igualou'} Pelé, o único tricampeão.`)
-  else if (k.worldCup === 2) out.push('Bicampeão do mundo, como Ronaldo Fenômeno.')
-  else if (k.worldCup === 1) out.push('Campeão do mundo, como Maradona, Romário e Messi — coisa que Zico e Cristiano Ronaldo nunca conseguiram.')
-
-  if (k.ucl >= 5) out.push(`${k.ucl} Champions: ${k.ucl > 5 ? 'mais que' : 'tantas quanto'} Cristiano Ronaldo (5).`)
-  else if (k.ucl === 4) out.push('4 Champions, como Messi.')
-  if (k.lib >= 3) out.push(`${k.lib} Libertadores: mais que Pelé (2), Zico, Neymar e Ronaldinho (1 cada).`)
-  else if (k.lib === 2) out.push('2 Libertadores, como Pelé.')
-
-  if (k.all >= 45) out.push(`${k.all} títulos: nível Messi, o jogador mais vitorioso da história (mais de 40).`)
+  const bdo = countLine(wins('ballon_dor'), (l) => l.ballonDor, (v) => plural(v, 'Bola de Ouro', 'Bolas de Ouro'), 'ballonDor')
+  if (bdo) out.push(bdo)
+  const wc = countLine(k.worldCup, (l) => l.worldCups, (v) => plural(v, 'Copa do Mundo', 'Copas do Mundo'), 'worldCups')
+  if (wc) out.push(k.worldCup === 1 ? 'Campeão do mundo, como Pelé, Maradona, Romário e Messi — coisa que Zico e Cristiano Ronaldo nunca conseguiram.' : wc)
+  if (k.ucl >= 2) {
+    const line = countLine(k.ucl, (l) => l.ucl, (v) => `${v} Champions`, 'ucl')
+    if (line) out.push(line)
+  }
+  if (k.lib >= 2) {
+    const line = countLine(k.lib, (l) => l.libertadores, (v) => `${v} Libertadores`, 'libertadores')
+    if (line) out.push(line)
+  }
+  const titles = HISTORIC_RECORDS.find((r) => r.metric === 'titles')
+  if (titles && k.all >= titles.value - 5) out.push(`${k.all} títulos: nível ${titles.holder}, o jogador mais vitorioso da história (${titles.value}).`)
   return out.slice(0, 5)
 }

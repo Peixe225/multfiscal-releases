@@ -315,7 +315,10 @@ const NationalTeamRow = memo(function NationalTeamRow({ data, gk }: { data: Cock
         </span>
         <span role="cell" className="ck-row__club">
           <Flag code={stats.code} h={14} w={20} radius={3} decorative className="ck-nat__mini" />
-          <span className="ck-row__nm">{stats.name}</span>
+          <span className="ck-row__nm" title={stats.name}>
+            <span className="ck-nat__full">{stats.name}</span>
+            <span className="ck-nat__short">Seleção</span>
+          </span>
           {trophies.trophies.length > 0 && (
             <span className="ck-row__honors">
               {trophies.trophies.map((it) => (

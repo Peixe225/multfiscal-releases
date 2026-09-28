@@ -15,16 +15,18 @@
  * `createImmersiveEngine(world?)` ou default) › motor de exemplo (src/ui/immersive/mock).
  * Cada carreira salva lembra o motor que a criou (a memória opaca `state.engine` não é portável).
  *
- * Persistência (IndexedDB via ./persist): chave "immersive:current" após cada ação.
+ * Persistência (IndexedDB via ./persist): chave "immersive:current" após cada ação (na partida: na
+ * troca de fase e no máximo a cada 6 s). Aposentadoria → a run entra no Hall das Lendas.
  */
 import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import type { WorldEngine } from '@/engine/api'
 import type { ImmersiveAction, ImmersiveEffect, ImmersiveEngine, ImmersiveState, LiveMatch } from '@/engine/immersive/types'
 import type { GameData, PlayerIdentity } from '@/engine/types'
-import { kv } from './persist'
+import { kv, KV_KEYS } from './persist'
 import { useData } from './data'
 import { engineFlag } from './engine'
+import { useCareer, withRunNumbers, type HallEntry } from './career'
 
 export type ImmersiveEngineKind = 'real' | 'mock' | 'custom'
 
@@ -42,6 +44,15 @@ let injected: { engine: ImmersiveEngine; kind: ImmersiveEngineKind } | null = nu
 export interface EngineCatalog {
   postTemplates?: { id: string; label: string; text: string; tone: 'positive' | 'negative' | 'neutral'; hint: string; when?: string[] }[]
   lifestyleItems?: readonly { id: string; name: string; price: number; morale: number }[]
+}
+
+/** Chances de uma contraproposta (mesma conta do motor): aceite, melhora, desistência; teto do clube. */
+export interface CounterOdds {
+  accept: number
+  improve: number
+  walk: number
+  ceiling: number
+  roundsLeft: number
 }
 const catalogs: Partial<Record<'real' | 'mock', EngineCatalog>> = {}
 const cache: Partial<Record<'real' | 'mock', Promise<ImmersiveEngine | null>>> = {}
@@ -156,6 +167,8 @@ interface ImmersiveStore {
   busy: boolean
   error: string | null
   saving: boolean
+  /** Última gravação falhou (IndexedDB/localStorage cheio ou bloqueado). */
+  saveFailed: boolean
   isFixture: boolean
   fixture: string | null
 
@@ -164,6 +177,8 @@ interface ImmersiveStore {
   dispatch(action: ImmersiveAction): Promise<ImmersiveEffect[]>
   abandon(): Promise<void>
   saveNow(): Promise<boolean>
+  /** Chances da contraproposta pelo motor (null = o motor não calcula; a UI usa a mesma conta). */
+  counterOdds(offerId: string, counter: { salary?: number; years?: number; role?: 'Titular' | 'Rotação' | 'Reserva' | 'Promessa' }): CounterOdds | null
   loadFixture(name: string): Promise<void>
   /** Troca o motor em tempo de execução (testes). */
   setEngine(engine: ImmersiveEngine, kind?: ImmersiveEngineKind): void
@@ -192,12 +207,98 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
   }
 
   const persist = async () => {
+    if (pending) {
+      clearTimeout(pending)
+      pending = 0
+    }
     const { state, isFixture, engineKind } = get()
     if (isFixture) return true
     set({ saving: true })
-    const ok = state ? await kv.set(IMMERSIVE_KEY, { kind: engineKind ?? 'mock', state, savedAt: new Date().toISOString() } satisfies Saved) : (await kv.del(IMMERSIVE_KEY), true)
-    set({ saving: false })
+    let ok = false
+    try {
+      ok = state ? await kv.set(IMMERSIVE_KEY, { kind: engineKind ?? 'mock', state, savedAt: new Date().toISOString() } satisfies Saved) : (await kv.del(IMMERSIVE_KEY), true)
+    } catch (err) {
+      console.warn('[LENDA] falha ao salvar a carreira imersiva', err)
+    }
+    set({ saving: false, saveFailed: !ok })
     return ok
+  }
+  /**
+   * Durante a partida o estado muda a cada lance: grava na troca de fase (intervalo, fim) e, no
+   * meio de um tempo, no máximo a cada 6 s. Fora da partida grava a cada ação.
+   */
+  let pending = 0
+  const phaseKey = (x: ImmersiveState | null) => (x?.live ? `${x.live.itemId}:${x.live.phase}:${x.live.pendingMoment ? 1 : 0}` : `-:${x?.cursor ?? 0}`)
+  const schedulePersist = (before: ImmersiveState | null, after: ImmersiveState | null) => {
+    if (after?.live && before?.live && phaseKey(before) === phaseKey(after)) {
+      if (!pending) pending = window.setTimeout(() => void persist(), 6000)
+      return
+    }
+    void persist()
+  }
+  if (typeof window !== 'undefined') {
+    const flush = () => {
+      if (pending) void persist()
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush())
+  }
+
+  /** Aposentadoria: a run imersiva entra no Hall das Lendas (quando o motor sabe resumir). */
+  const addToHall = async (state: ImmersiveState, engine: ImmersiveEngine, data: GameData, kind: ImmersiveEngineKind) => {
+    if (!engine.summarize || get().isFixture) return
+    try {
+      const hall = useCareer.getState().finishedCareers
+      if (hall.some((h) => h.id === state.id)) return
+      const summary = engine.summarize(data, state)
+      let legacy: HallEntry['legacy']
+      try {
+        const { evaluateRun } = await import('@/engine/legacy')
+        const run = evaluateRun({ id: state.id, identity: state.identity, seasons: state.seasons, national: state.national }, { finished: true })
+        legacy = { score: run.score, raw: Math.round(run.raw * 100) / 100, at: new Date().toISOString() }
+      } catch (err) {
+        console.warn('[LENDA] nota de legado (imersivo) falhou', err)
+      }
+      const career = {
+        version: 1,
+        id: state.id,
+        mode: 'immersive',
+        pace: 'intensa',
+        seed: state.seed,
+        identity: state.identity,
+        createdAt: state.createdAt,
+        age: state.age,
+        ovr: state.ovr,
+        clubId: state.clubId,
+        seasons: state.seasons,
+        national: state.national,
+        trophies: state.trophies,
+        awards: state.awards,
+        log: state.log,
+        retired: true,
+        retiredReason: state.retiredReason,
+        phase: 'finished',
+      } as unknown as HallEntry['career']
+      const entry: HallEntry = {
+        runNo: Math.max(hall.length, ...hall.map((h) => h.runNo ?? 0)) + 1,
+        id: state.id,
+        finishedAt: new Date().toISOString(),
+        identity: state.identity,
+        pace: 'intensa',
+        mode: 'immersive',
+        summary,
+        retiredReason: state.retiredReason,
+        career,
+        engine: kind === 'real' ? 'real' : 'mock',
+        legacy,
+      }
+      const nota = (h: HallEntry) => h.legacy?.raw ?? h.summary.legacyScore
+      const list = withRunNumbers([entry, ...hall].sort((a, b) => nota(b) - nota(a)).slice(0, 100))
+      useCareer.setState({ finishedCareers: list })
+      await kv.set(KV_KEYS.hall, list)
+    } catch (err) {
+      console.warn('[LENDA] não foi possível registrar a carreira imersiva no Hall', err)
+    }
   }
 
   const push = (effects: ImmersiveEffect[], action: QueuedEffect['action']) => {
@@ -223,6 +324,7 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
     busy: false,
     error: null,
     saving: false,
+    saveFailed: false,
     isFixture: false,
     fixture: null,
 
@@ -244,6 +346,9 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
 
     async start(identity, opts = {}) {
       set({ busy: true, error: null })
+      // a Central já vai carregando enquanto o motor monta a carreira
+      void import('@/ui/immersive/ImmersiveApp').catch(() => {})
+      void import('@/ui/immersive/hub/HubScreen').catch(() => {})
       try {
         const { engine, data } = await ensure(null)
         const seed = opts.seed ?? randomSeed()
@@ -264,12 +369,13 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
         if (!cur) return []
         set({ busy: true, error: null })
         try {
-          const { engine, data } = await ensure()
+          const { engine, data, kind } = await ensure()
           const { state, effects } = engine.dispatch(data, cur, action)
           const endedMatch = cur.live && !state.live ? cur.live : null
           set({ state, previous: cur, busy: false, ...(endedMatch ? { lastMatch: endedMatch } : {}) })
           push(effects, action.type)
-          void persist()
+          schedulePersist(cur, state)
+          if (state.retired && !cur.retired) void addToHall(state, engine, data, kind)
           return effects
         } catch (err) {
           console.error('[LENDA] dispatch imersivo falhou', action, err)
@@ -288,6 +394,16 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
     },
 
     saveNow: () => persist(),
+
+    counterOdds(offerId, counter) {
+      const { engine, data, state } = get()
+      if (!engine || !data || !state) return null
+      try {
+        return engine.acceptChance ? engine.acceptChance(data, state, offerId, counter) : null
+      } catch {
+        return null
+      }
+    },
 
     async loadFixture(name) {
       const { engine, data } = await ensure()

@@ -64,7 +64,8 @@ function kickerFor(it: ShelfItem, rec: SeasonRecord | undefined, confed: Confed 
       return `CAMPEÃO ${confed ? CONFED_WHERE[confed] : 'CONTINENTAL'} · ${y}`
     case 'continental_secondary':
     case 'continental_tertiary':
-      return `CAMPEÃO CONTINENTAL · ${y}`
+      // 2º/3º nível (Liga Europa, Conference, Sul-Americana): o nome da taça, sem "campeão da Europa"
+      return `CAMPEÃO DA ${up(it.name)} · ${y}`
     case 'league': {
       const lg = getLeague(rec?.leagueId)
       if (lg && lg.tier > 1) return `CAMPEÃO DA ${up(lg.shortName)} · ${y}`
@@ -85,7 +86,9 @@ function kickerFor(it: ShelfItem, rec: SeasonRecord | undefined, confed: Confed 
   }
 }
 
-function subtitleFor(it: ShelfItem, team: string | undefined, rec: SeasonRecord | undefined, surname: string): string {
+const CONFED_CUP: Partial<Record<Confed, string>> = { UEFA: 'europeia', CONMEBOL: 'sul-americana', CONCACAF: 'da Concacaf', CAF: 'africana', AFC: 'asiática' }
+
+function subtitleFor(it: ShelfItem, team: string | undefined, rec: SeasonRecord | undefined, surname: string, confed?: Confed): string {
   const goals = rec?.stats.goals ?? 0
   const art = (n: string) => clubArticle({ name: n, shortName: n })
   switch (it.family as TrophyFamily) {
@@ -96,9 +99,12 @@ function subtitleFor(it: ShelfItem, team: string | undefined, rec: SeasonRecord 
     case 'club_world_cup':
       return `${team ? `${art(team) === 'a' ? 'A' : 'O'} ${team}` : 'Seu clube'} é o melhor time do planeta.`
     case 'continental_primary':
-    case 'continental_secondary':
-    case 'continental_tertiary':
       return team ? `${art(team) === 'a' ? 'A' : 'O'} ${team} conquista o continente — com a sua assinatura.` : 'A conquista do continente tem a sua assinatura.'
+    case 'continental_secondary':
+    case 'continental_tertiary': {
+      const kind = `taça ${(confed && CONFED_CUP[confed]) || 'continental'}`
+      return team ? `Uma ${kind} para a galeria ${art(team) === 'a' ? 'da' : 'do'} ${team} — com a sua assinatura.` : `Uma ${kind} com a sua assinatura.`
+    }
     case 'league':
       return goals > 0 ? `Campeão com ${goals} ${goals === 1 ? 'gol seu' : 'gols seus'} na temporada.` : team ? `Campeão com ${art(team)} ${team}.` : 'Campeão com o seu clube.'
     case 'domestic_cup':
@@ -150,7 +156,7 @@ export function celebrationItems(reveal: RevealScript | null, prev: CareerState 
         ...it,
         kind: it.scope === 'award' ? 'award' : 'trophy',
         kicker: kickerFor(it, r, confed),
-        subtitle: subtitleFor(it, teamName, r, surname),
+        subtitle: subtitleFor(it, teamName, r, surname, confed),
         teamName,
         teamId,
         record: r,

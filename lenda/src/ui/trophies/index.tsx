@@ -3,11 +3,17 @@
  *
  *   <TrophyArt id="libertadores" size={64} />
  *
- * `id` = Trophy.id (ou Trophy.art) do catálogo. Duas fontes de arte:
+ * `id` = Trophy.id (ou Trophy.art) do catálogo. Um id "cru" (League.trophyId, Competition.trophyId)
+ * sem arquivo próprio é resolvido pelo catálogo (src/data/catalog/trophies.ts): primeiro a `art`
+ * do troféu, depois a arte genérica da sua `family` (estaduais → estadual, copas → cup-generic…).
+ * Duas fontes de arte:
  *
- * 1. **Foto real recortada** — public/trophies/<id>.webp (720 px de altura, fundo transparente),
- *    listada em ./photo-manifest.ts (regenere com `node src/ui/trophies/gen-photo-manifest.mjs`).
- *    Créditos/licenças em docs/CREDITOS.md.
+ * 1. **Foto real recortada** — public/trophies/<id>.webp (720 px de altura, fundo transparente) e as
+ *    variantes leves h160/ e h320/, listadas em ./photo-manifest.ts (regenere com
+ *    `node src/ui/trophies/gen-photo-manifest.mjs`). Créditos/licenças em docs/CREDITOS.md.
+ *    A foto nunca deixa o espaço vazio: o SVG (ou a silhueta) é desenhado por baixo até a foto
+ *    carregar, e então as duas se cruzam em fade. `preloadTrophyArt()` aquece fotos e SVGs antes
+ *    de uma revelação.
  * 2. **SVG** — ./svg/<id>.svg, carregado sob demanda (code-split). Os ids internos do SVG
  *    (gradientes, filtros) são prefixados por instância para que várias cópias na mesma página
  *    não se "roubem" as cores. Sem arte específica, cai numa arte genérica da família do troféu.
@@ -16,9 +22,10 @@
  * tabela) fica o SVG, mais nítido. Se o id não tem SVG próprio, a foto é usada em qualquer
  * tamanho. `svg`/`photo` forçam uma das fontes (caindo na outra se ela não existir).
  */
-import { useEffect, useId, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useId, useState, type CSSProperties } from 'react'
 import type { Trophy, TrophyFamily } from '@/engine/types'
-import { TROPHY_PHOTO_ASPECT, TROPHY_PHOTO_IDS } from './photo-manifest'
+import { TROPHIES } from '@/data/catalog/trophies'
+import { TROPHY_PHOTO_ASPECT, TROPHY_PHOTO_IDS, TROPHY_PHOTO_VARIANTS } from './photo-manifest'
 
 export type TrophyArtVariant = 'auto' | 'svg' | 'photo'
 
@@ -26,8 +33,11 @@ export interface TrophyArtProps {
   id: string
   /** Altura em px (a largura segue a proporção da arte). */
   size?: number
-  /** Metadados do catálogo para o fallback genérico. */
-  trophy?: Pick<Trophy, 'family' | 'metal' | 'accent'>
+  /**
+   * Metadados do catálogo para o fallback genérico. Se vier o Trophy inteiro (com `id`), um `id`
+   * genérico (ex.: `cup-generic` de dados antigos) ainda mostra a arte própria do troféu.
+   */
+  trophy?: Pick<Trophy, 'family' | 'metal' | 'accent'> & { id?: string }
   className?: string
   style?: CSSProperties
   title?: string
@@ -45,9 +55,17 @@ export function hasTrophyPhoto(id: string): boolean {
   return photoIds.has(id)
 }
 
-/** URL pública do recorte (respeita o `base` do Vite). */
-export function trophyPhotoUrl(id: string): string {
-  return `${import.meta.env.BASE_URL}trophies/${id}.webp`
+/**
+ * URL pública do recorte (respeita o `base` do Vite). Com `height` (px de tela), escolhe a menor
+ * variante que cobre `height × devicePixelRatio` (h160, h320 ou a original de 720 px).
+ */
+export function trophyPhotoUrl(id: string, height?: number): string {
+  const base = `${import.meta.env.BASE_URL}trophies/`
+  if (!height) return `${base}${id}.webp`
+  const dpr = typeof window !== 'undefined' ? Math.min(3, window.devicePixelRatio || 1) : 1
+  const need = height * dpr
+  const h = TROPHY_PHOTO_VARIANTS.find((v) => v >= need)
+  return h ? `${base}h${h}/${id}.webp` : `${base}${id}.webp`
 }
 
 function wantsPhoto(id: string, size: number, variant: TrophyArtVariant): boolean {
@@ -81,9 +99,9 @@ export function hasTrophyArt(id: string): boolean {
 /** Arte genérica por família quando o troféu não tem SVG próprio. */
 const FAMILY_FALLBACK: Partial<Record<TrophyFamily, string[]>> = {
   world_cup: ['world-cup'],
-  national_continental: ['copa-america', 'estadual'],
-  club_world_cup: ['club-world-cup', 'world-cup'],
-  continental_primary: ['champions-league', 'estadual'],
+  national_continental: ['cup-generic', 'estadual'],
+  club_world_cup: ['cup-generic', 'estadual'],
+  continental_primary: ['cup-generic', 'estadual'],
   continental_secondary: ['cup-generic', 'copa-do-brasil', 'estadual'],
   continental_tertiary: ['cup-generic', 'estadual'],
   league: ['league-generic', 'estadual'],
@@ -91,9 +109,38 @@ const FAMILY_FALLBACK: Partial<Record<TrophyFamily, string[]>> = {
   award: ['award-generic', 'golden-boot'],
 }
 
-function resolveArt(id: string, family?: TrophyFamily): string | null {
-  if (hasTrophyArt(id)) return id
-  for (const alt of (family && FAMILY_FALLBACK[family]) ?? ['league-generic', 'estadual']) {
+const CATALOG: ReadonlyMap<string, Trophy> = new Map(TROPHIES.map((t) => [t.id, t]))
+
+/** Sem família conhecida: uma taça neutra (não a taça de liga com tampa). */
+const DEFAULT_FALLBACK = ['cup-generic', 'league-generic', 'estadual']
+
+const hasOwnArt = (id: string) => hasTrophyArt(id) || hasTrophyPhoto(id)
+
+/**
+ * Chave de arte de um id: o próprio id se tem arquivo (SVG ou foto); senão a `art` do catálogo
+ * (se tiver arquivo); senão o id do `trophy` passado junto (dados antigos com `art` genérica).
+ */
+export function trophyArtKey(id: string, trophy?: { id?: string }): string {
+  if (hasOwnArt(id)) {
+    // `id` genérico (cup-generic…) mas o troféu real tem arte própria → a do troféu.
+    if (trophy?.id && trophy.id !== id && !CATALOG.has(id) && hasOwnArt(trophy.id)) return trophy.id
+    return id
+  }
+  const art = CATALOG.get(id)?.art
+  if (art && art !== id && hasOwnArt(art)) return art
+  if (trophy?.id && trophy.id !== id && hasOwnArt(trophy.id)) return trophy.id
+  return id
+}
+
+/** SVG a desenhar para uma chave: o próprio, ou o genérico da família (do prop ou do catálogo). */
+export function trophySvgKey(key: string, family?: TrophyFamily): string | null {
+  return resolveArt(key, family)
+}
+
+function resolveArt(key: string, family?: TrophyFamily): string | null {
+  if (hasTrophyArt(key)) return key
+  const fam = family ?? CATALOG.get(key)?.family
+  for (const alt of (fam && FAMILY_FALLBACK[fam]) ?? DEFAULT_FALLBACK) {
     if (hasTrophyArt(alt)) return alt
   }
   return null
@@ -136,10 +183,71 @@ function prepare(raw: string, prefix: string, size: number, title?: string): str
   return svg
 }
 
+/**
+ * Fotos pré-carregadas. Os <img> ficam vivos aqui de propósito: assim o navegador mantém a imagem
+ * decodificada na "lista de imagens disponíveis" do documento e um <img> novo com a mesma URL já
+ * nasce `complete` (sem fade, sem espaço vazio).
+ */
+const preloaded = new Map<string, { img: HTMLImageElement; done: Promise<void> }>()
+
+function preloadPhoto(url: string): Promise<void> {
+  if (typeof Image === 'undefined') return Promise.resolve()
+  let entry = preloaded.get(url)
+  if (!entry) {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+    const done = (img.decode ? img.decode() : new Promise<void>((ok, ko) => ((img.onload = () => ok()), (img.onerror = ko)))).catch(() => {
+      preloaded.delete(url)
+    })
+    entry = { img, done }
+    preloaded.set(url, entry)
+  }
+  return entry.done
+}
+
+/**
+ * Aquece a arte de troféus que vai aparecer em seguida (celebração, revelação, aba nova): baixa a
+ * variante de foto do tamanho pedido e o SVG (placeholder / ícone). Seguro chamar várias vezes.
+ */
+export function preloadTrophyArt(ids: readonly string[], size = 64): Promise<void> {
+  const jobs: Promise<unknown>[] = []
+  for (const raw of ids) {
+    if (!raw) continue
+    const key = trophyArtKey(raw)
+    const svg = resolveArt(key)
+    if (svg) jobs.push(loadSvg(svg).catch(() => undefined))
+    if (hasTrophyPhoto(key) && size >= PHOTO_MIN_SIZE) jobs.push(preloadPhoto(trophyPhotoUrl(key, size)))
+  }
+  return Promise.all(jobs).then(() => undefined)
+}
+
+let warmed = false
+/** Uma vez por sessão, em tempo ocioso: variantes h160 de todas as fotos (~120 KB no total). */
+function warmIdle() {
+  if (warmed || typeof window === 'undefined') return
+  warmed = true
+  const run = () => {
+    for (const id of TROPHY_PHOTO_IDS) void preloadPhoto(trophyPhotoUrl(id, 1))
+  }
+  const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+  if (ric) ric(run, { timeout: 4000 })
+  else setTimeout(run, 1500)
+}
+
 export function TrophyArt({ id, size = 48, trophy, className, style, title, variant = 'auto' }: TrophyArtProps) {
+  const key = trophyArtKey(id, trophy)
   const [photoFailed, setPhotoFailed] = useState<string | null>(null)
-  const photo = photoFailed !== id && wantsPhoto(id, size, variant)
-  const art = photo ? null : resolveArt(id, trophy?.family)
+  const photo = wantsPhoto(key, size, variant)
+  const photoUrl = photo ? (photoFailed === trophyPhotoUrl(key, size) ? trophyPhotoUrl(key) : trophyPhotoUrl(key, size)) : null
+  const photoDead = photo && photoFailed === trophyPhotoUrl(key)
+  // URL que ESTE <img> já mostrou; `instant` = já estava em cache ao montar (sem fade).
+  const [shown, setShown] = useState<{ url: string; instant: boolean } | null>(null)
+  const showPhoto = photo && !photoDead
+  const photoReady = !!photoUrl && shown?.url === photoUrl
+  const instant = photoReady && !!shown?.instant
+  // SVG: a arte em si (sem foto) ou o placeholder por baixo da foto até ela carregar (e no fade).
+  const art = !showPhoto || !instant ? resolveArt(key, trophy?.family) : null
   const reactId = useId()
   const prefix = `t${reactId.replace(/[^a-zA-Z0-9]/g, '')}-`
   const [raw, setRaw] = useState<string | null>(() => (art ? (loaded.get(art) ?? null) : null))
@@ -158,46 +266,89 @@ export function TrophyArt({ id, size = 48, trophy, className, style, title, vari
     }
   }, [art])
 
-  if (photo) {
-    const aspect = TROPHY_PHOTO_ASPECT[id]
+  useEffect(() => {
+    if (showPhoto) warmIdle()
+  }, [showPhoto])
+
+  const imgRef = useCallback(
+    (el: HTMLImageElement | null) => {
+      // Já decodificada ao montar (cache / preloadTrophyArt): mostra direto, antes do 1º paint.
+      if (el && photoUrl && el.complete && el.naturalWidth > 0) setShown((s) => (s?.url === photoUrl ? s : { url: photoUrl, instant: true }))
+    },
+    [photoUrl],
+  )
+  const onPhotoLoad = () => {
+    if (photoUrl) setShown((s) => (s?.url === photoUrl ? s : { url: photoUrl, instant: false }))
+  }
+
+  const svgNode = (fill: boolean) =>
+    art && raw && loaded.get(art) === raw ? (
+      <span
+        role={fill ? undefined : 'img'}
+        aria-label={fill ? undefined : title}
+        aria-hidden={fill ? true : undefined}
+        className={fill ? undefined : className}
+        style={fill ? { display: 'block', lineHeight: 0 } : { display: 'inline-block', lineHeight: 0, ...style }}
+        dangerouslySetInnerHTML={{ __html: prepare(raw, prefix, size, title) }}
+      />
+    ) : (
+      <FallbackTrophy size={size} className={fill ? undefined : className} style={fill ? undefined : style} title={fill ? undefined : title} metal={trophy?.metal} />
+    )
+
+  if (showPhoto && photoUrl) {
+    const aspect = TROPHY_PHOTO_ASPECT[key]
+    const fade = 'opacity .24s ease-out'
     return (
       <span className={className} style={{ display: 'inline-block', lineHeight: 0, ...style }}>
-        <img
-          src={trophyPhotoUrl(id)}
-          alt={title ?? ''}
-          aria-hidden={title ? undefined : true}
-          height={size}
-          width={aspect ? Math.round(size * aspect) : undefined}
-          loading={size >= 120 ? 'eager' : 'lazy'}
-          decoding="async"
-          draggable={false}
-          onError={() => setPhotoFailed(id)}
-          style={{
-            display: 'block',
-            height: size,
-            width: 'auto',
-            maxWidth: 'none',
-            objectFit: 'contain',
-            filter: photoShadow(size),
-            userSelect: 'none',
-          }}
-        />
+        <span style={{ position: 'relative', display: 'inline-block', lineHeight: 0, verticalAlign: 'bottom' }}>
+          {!instant ? (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: 0,
+                transform: 'translateX(-50%)',
+                pointerEvents: 'none',
+                opacity: photoReady ? 0 : 1,
+                transition: fade,
+              }}
+            >
+              {svgNode(true)}
+            </span>
+          ) : null}
+          <img
+            ref={imgRef}
+            src={photoUrl}
+            alt={title ?? ''}
+            aria-hidden={title ? undefined : true}
+            height={size}
+            width={aspect ? Math.round(size * aspect) : undefined}
+            loading={size >= 120 ? 'eager' : 'lazy'}
+            fetchPriority={size >= 160 ? 'high' : undefined}
+            decoding="async"
+            draggable={false}
+            onLoad={onPhotoLoad}
+            onError={() => setPhotoFailed(photoUrl)}
+            style={{
+              position: 'relative',
+              display: 'block',
+              height: size,
+              width: 'auto',
+              maxWidth: 'none',
+              objectFit: 'contain',
+              filter: photoShadow(size),
+              userSelect: 'none',
+              opacity: photoReady ? 1 : 0,
+              transition: instant ? undefined : fade,
+            }}
+          />
+        </span>
       </span>
     )
   }
 
-  if (!art || !raw) {
-    return <FallbackTrophy size={size} className={className} style={style} title={title} metal={trophy?.metal} />
-  }
-  return (
-    <span
-      role="img"
-      aria-label={title}
-      className={className}
-      style={{ display: 'inline-block', lineHeight: 0, ...style }}
-      dangerouslySetInnerHTML={{ __html: prepare(raw, prefix, size, title) }}
-    />
-  )
+  return svgNode(false)
 }
 
 const METALS = {

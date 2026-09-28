@@ -1,9 +1,17 @@
 /**
  * Catálogo de troféus (escrito à mão). `id` é referenciado por League.trophyId e
- * Competition.trophyId. `art` = chave da arte em src/ui/trophies/svg (arquivos que existem hoje:
- * world-cup, ballon-dor, golden-boot, champions-league, libertadores, brasileirao, copa-do-brasil,
- * copa-america, laliga, estadual). Os demais usam um id descritivo (kebab) para uma arte futura;
- * enquanto ela não existir, a UI cai na arte genérica da `family` com `metal`/`accent`.
+ * Competition.trophyId. `art` = chave da arte usada pelo <TrophyArt> (src/ui/trophies):
+ *
+ * - Troféu com arte própria → `art` = o próprio `id`. A arte é um SVG em
+ *   src/ui/trophies/svg/<id>.svg e/ou um recorte fotográfico em public/trophies/<id>.webp
+ *   (o teste src/ui/trophies/art.test.ts garante que nenhum troféu com arquivo próprio aponte
+ *   para uma arte genérica).
+ * - Sem arte própria → uma arte genérica: `league-generic` (ligas), `cup-generic` (copas e
+ *   continentais menores) ou `estadual` (estaduais). `metal`/`accent` colorem a silhueta
+ *   provisória e as medalhas de prêmio.
+ *
+ * Nunca aponte um troféu para a arte de OUTRO troféu real (ex.: Artilheiro da Liga → golden-boot):
+ * a mesma peça apareceria como duas conquistas diferentes.
  */
 import type { Trophy, TrophyFamily } from '../../engine/types'
 
@@ -34,15 +42,15 @@ export const TROPHIES: Trophy[] = [
   ...make('continental_primary', [
     ['champions-league', 'Liga dos Campeões da UEFA', 'champions-league', 'silver', '#0b1f5c'],
     ['libertadores', 'Copa Libertadores', 'libertadores', 'silver', '#c8a13a'],
-    ['concacaf-champions', 'Copa dos Campeões da Concacaf', 'cup-generic', 'silver', '#1d3b8f'],
-    ['afc-champions', 'Liga dos Campeões da AFC', 'cup-generic', 'silver', '#8a1538'],
-    ['caf-champions', 'Liga dos Campeões da CAF', 'cup-generic', 'gold', '#1f7a3a'],
+    ['concacaf-champions', 'Copa dos Campeões da Concacaf', 'concacaf-champions', 'silver', '#1d3b8f'],
+    ['afc-champions', 'Liga dos Campeões da AFC', 'afc-champions', 'silver', '#8a1538'],
+    ['caf-champions', 'Liga dos Campeões da CAF', 'caf-champions', 'gold', '#1f7a3a'],
   ]),
   ...make('continental_secondary', [
     ['europa-league', 'Liga Europa', 'europa-league', 'silver', '#f26a1b'],
     ['sudamericana', 'Copa Sul-Americana', 'sudamericana', 'gold', '#0b3d91'],
     ['recopa', 'Recopa Sul-Americana', 'recopa', 'silver', '#c8a13a'],
-    ['uefa-super-cup', 'Supercopa da UEFA', 'cup-generic', 'silver', '#0b1f5c'],
+    ['uefa-super-cup', 'Supercopa da UEFA', 'uefa-super-cup', 'silver', '#0b1f5c'],
     ['afc-champions-two', 'Liga dos Campeões da AFC 2', 'cup-generic', 'silver', '#b5892b'],
     ['caf-confed', 'Copa das Confederações da CAF', 'cup-generic', 'gold', '#b5892b'],
   ]),
@@ -68,7 +76,7 @@ export const TROPHIES: Trophy[] = [
     ['eredivisie', 'Eredivisie', 'eredivisie', 'silver', '#f36c21'],
     ['eerste-divisie', 'Eerste Divisie', 'league-generic', 'silver', '#f36c21'],
     ['pro-league-belgium', 'Pro League Belga', 'league-generic', 'silver', '#c8102e'],
-    ['scottish-premiership', 'Premiership Escocesa', 'league-generic', 'silver', '#5b2d8e'],
+    ['scottish-premiership', 'Premiership Escocesa', 'scottish-premiership', 'silver', '#5b2d8e'],
     ['scottish-championship', 'Championship Escocesa', 'league-generic', 'silver', '#1d3b8f'],
     ['super-lig', 'Süper Lig', 'super-lig', 'gold', '#e30a17'],
     ['russian-premier-league', 'Premier League Russa', 'league-generic', 'silver', '#0039a6'],
@@ -108,13 +116,13 @@ export const TROPHIES: Trophy[] = [
   ...make('domestic_cup', [
     ['copa-do-brasil', 'Copa do Brasil', 'copa-do-brasil', 'gold', '#1f7a3a'],
     ['fa-cup', 'Copa da Inglaterra', 'fa-cup', 'silver', '#c8102e'],
-    ['league-cup', 'Copa da Liga Inglesa', 'cup-generic', 'silver', '#1fa04a'],
-    ['copa-del-rey', 'Copa do Rei', 'cup-generic', 'silver', '#c60b1e'],
+    ['league-cup', 'Copa da Liga Inglesa', 'league-cup', 'silver', '#1fa04a'],
+    ['copa-del-rey', 'Copa do Rei', 'copa-del-rey', 'silver', '#c60b1e'],
     ['coppa-italia', 'Copa da Itália', 'coppa-italia', 'silver', '#1f4fa8'],
     ['dfb-pokal', 'Copa da Alemanha', 'dfb-pokal', 'silver', '#d20515'],
     ['coupe-de-france', 'Copa da França', 'coupe-de-france', 'silver', '#1c2a5c'],
     ['taca-portugal', 'Taça de Portugal', 'taca-portugal', 'silver', '#b0102b'],
-    ['knvb-beker', 'Copa da Holanda', 'cup-generic', 'silver', '#f36c21'],
+    ['knvb-beker', 'Copa da Holanda', 'knvb-beker', 'silver', '#f36c21'],
     ['belgian-cup', 'Copa da Bélgica', 'cup-generic', 'silver', '#c8102e'],
     ['scottish-cup', 'Copa da Escócia', 'cup-generic', 'silver', '#0b1f4b'],
     ['turkish-cup', 'Copa da Turquia', 'cup-generic', 'silver', '#e30a17'],
@@ -162,10 +170,10 @@ export const TROPHIES: Trophy[] = [
     ['the-best', 'The Best FIFA', 'the-best', 'gold', '#0b1f5c'],
     ['kopa', 'Troféu Kopa', 'kopa', 'gold', '#c8102e'],
     ['puskas', 'Prêmio Puskás', 'puskas', 'gold', '#0b6aa2'],
-    ['league-top-scorer', 'Artilheiro da Liga', 'golden-boot', 'silver', '#8a8f9c'],
-    ['league-best-player', 'Craque da Liga', undefined, 'gold', '#8a8f9c'],
-    ['wc-golden-ball', 'Bola de Ouro da Copa', 'ballon-dor', 'gold', '#1f7a3a'],
-    ['wc-golden-boot', 'Chuteira de Ouro da Copa', 'golden-boot', 'gold', '#1f7a3a'],
-    ['team-of-the-year', 'Seleção do Ano', undefined, 'silver', '#8a8f9c'],
+    ['league-top-scorer', 'Artilheiro da Liga', 'league-top-scorer', 'silver', '#8a8f9c'],
+    ['league-best-player', 'Craque da Liga', 'league-best-player', 'gold', '#8a8f9c'],
+    ['wc-golden-ball', 'Bola de Ouro da Copa', 'wc-golden-ball', 'gold', '#1f7a3a'],
+    ['wc-golden-boot', 'Chuteira de Ouro da Copa', 'wc-golden-boot', 'gold', '#1f7a3a'],
+    ['team-of-the-year', 'Seleção do Ano', 'team-of-the-year', 'silver', '#8a8f9c'],
   ]),
 ]

@@ -1,4 +1,5 @@
 /** Carreira inteira no automático + números de desempenho (dados reais). */
+import { cpus, loadavg } from 'node:os'
 import { describe, expect, it, vi } from 'vitest'
 import type { GameData } from '../types'
 import { worldEngine } from '../world'
@@ -8,6 +9,13 @@ import type { ImmersiveAction, ImmersiveState } from './types'
 
 // simulações pesadas: margem para máquinas carregadas (CI, vários agentes)
 vi.setConfig({ testTimeout: 120_000 })
+
+/**
+ * Limites de tempo relativos à carga da máquina (load average ÷ núcleos, mín. 1): com vários
+ * processos disputando a CPU os números absolutos sobem sem que o motor tenha piorado.
+ * `LENDA_PERF_STRICT=1` força os limites absolutos.
+ */
+const loadFactor = process.env.LENDA_PERF_STRICT ? 1 : Math.max(1, loadavg()[0] / Math.max(1, cpus().length))
 
 describe.skipIf(!hasRealData)('carreira imersiva', () => {
   const data = hasRealData ? realData() : (null as unknown as GameData)
@@ -103,8 +111,9 @@ describe.skipIf(!hasRealData)('carreira imersiva', () => {
     console.log(`pré-simulação da agenda: média ${preAvg.toFixed(0)} ms · máx ${Math.max(...pre).toFixed(0)} ms · temporada completa (consolidação): média ${fullAvg.toFixed(0)} ms`)
     console.log(`dispatch: ${all.length} ações · p50 ${p50.toFixed(1)} ms · p90 ${p90.toFixed(1)} ms · máx ${all[all.length - 1].toFixed(0)} ms\n  ${lines.join('\n  ')}`)
     console.log(`amostra da temporada 2027:\n  ${sample.join('\n  ')}`)
-    expect(preAvg).toBeLessThan(200)
-    expect(p50).toBeLessThan(30)
-    expect(p90).toBeLessThan(30)
+    console.log(`fator de carga da máquina: ${loadFactor.toFixed(2)}`)
+    expect(preAvg).toBeLessThan(200 * loadFactor)
+    expect(p50).toBeLessThan(30 * loadFactor)
+    expect(p90).toBeLessThan(30 * loadFactor)
   })
 })

@@ -68,6 +68,19 @@
 /* ── hero art ── */
 .ld-art { position: relative; height: 384px; margin: 0 -16px; overflow: hidden; order: -1; }
 @media (min-width: 36rem) { .ld-art { height: 560px; margin: 0 -24px; } }
+.ld-lead__short { display: none; }
+/* celular (< 720px): título, modo, ritmo e "Começar carreira" na primeira tela; a arte vem depois */
+@media (max-width: 44.99rem) {
+  .ld-art { order: 0; height: 330px; margin-top: 18px; }
+  .ld-h1 { font-size: clamp(36px, 10.4vw, 48px); margin: 12px 0 10px; }
+  .ld-lead { font-size: 14px; line-height: 1.5; margin: 0 0 14px; }
+  .ld-rhythm { margin: 12px 0 14px; }
+}
+@media (max-width: 35.98rem) {
+  .ld-lead__long { display: none; }
+  .ld-lead__short { display: inline; }
+}
+@media (min-width: 36rem) and (max-width: 44.99rem) { .ld-art { height: 460px; } }
 @media (min-width: 69rem) { .ld-art { order: 0; height: 684px; margin: 0; overflow: visible; } }
 .ld-art .lx-halo { width: 520px; top: 36%; }
 .ld-art .lx-rays { width: 700px; top: 36%; }

@@ -1,8 +1,11 @@
 /**
  * GERADO por gen-photo-manifest.mjs — não edite à mão.
- * Recortes fotográficos reais disponíveis em public/trophies/<id>.webp (720 px de altura, WebP com alfa).
- * Fontes e licenças: docs/CREDITOS.md.
+ * Recortes fotográficos reais disponíveis em public/trophies/<id>.webp (720 px de altura, WebP com alfa),
+ * mais as variantes reduzidas h160/ e h320/. Fontes e licenças: docs/CREDITOS.md.
  */
+/** Alturas das variantes reduzidas em public/trophies/h<altura>/<id>.webp (a original tem 720 px). */
+export const TROPHY_PHOTO_VARIANTS: readonly number[] = [160, 320]
+
 export const TROPHY_PHOTO_IDS: readonly string[] = [
   'ballon-dor',
   'brasileirao',

@@ -27,8 +27,7 @@ import './identity.css'
 /** Engine constant (career/constants.ts START_OVR): every career starts at 50. */
 const START_OVR = 50
 
-function Steps({ current }: { current: 1 | 2 | 3 }) {
-  const items = ['Identidade', 'Clube de base', 'Estreia']
+function Steps({ current, items = ['Identidade', 'Clube de base', 'Estreia'] }: { current: 1 | 2 | 3; items?: string[] }) {
   return (
     <ol className="id-steps m-0 p-0 list-none" aria-label="Etapas da nova carreira">
       {items.map((label, i) => (
@@ -114,11 +113,11 @@ export default function IdentityScreen() {
     {
       sub: 'NOVA CARREIRA',
       height: 62,
-      center: <Steps current={1} />,
+      center: <Steps current={1} items={immersive ? ['Identidade', 'Central da semana'] : undefined} />,
       actions: <IconButton label="Fechar e voltar ao início" icon={X} onClick={() => navigate('/')} />,
       stage: { preset: 'duo', colors: colors ?? { primary: '#3a3f4d', secondary: '#8a8f9c' } },
     },
-    [colors?.primary, colors?.secondary],
+    [colors?.primary, colors?.secondary, immersive],
   )
 
   const surname = draft.surname
@@ -144,7 +143,9 @@ export default function IdentityScreen() {
     try {
       sfx.play('whistle')
       if (immersive) {
-        await useImmersive.getState().start(identity)
+        // Modo Imersivo: sobrenome em caixa normal nas frases (o grafismo põe em caixa-alta pelo CSS)
+        const surname = identity.surname.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_m, a: string, b: string) => a + b.toUpperCase())
+        await useImmersive.getState().start({ ...identity, surname })
         navigate('/imersivo')
         return
       }

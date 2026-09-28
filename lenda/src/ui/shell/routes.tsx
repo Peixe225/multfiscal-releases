@@ -47,4 +47,4 @@ export const prefetchRoute = (path: RoutePath) => {
 
 /** Theme per route (Transmissão only for the immersive mode). */
 export const themeFor = (path: RoutePath, query: Record<string, string>): 'noite' | 'transmissao' =>
-  query.theme === 'transmissao' || query.theme === 'noite' ? (query.theme as 'noite' | 'transmissao') : path === '/imersivo' ? 'transmissao' : 'noite'
+  query.theme === 'transmissao' || query.theme === 'noite' ? (query.theme as 'noite' | 'transmissao') : path === '/imersivo' || (path === '/identidade' && query.modo === 'imersivo') ? 'transmissao' : 'noite'

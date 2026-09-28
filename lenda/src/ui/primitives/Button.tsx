@@ -2,7 +2,7 @@
  * <Button variant="primary" size="lg" iconRight={ArrowRight}>Começar carreira</Button>
  * <Button variant="gold" size="xl">Continuar</Button>
  * <Button variant="ghost" size="sm" icon={Save} loading>Salvando</Button>
- * <Button href="#/hall" variant="outline">Hall da Fama</Button>      // renders <a>
+ * <Button href="#/hall" variant="outline">Hall das Lendas</Button>      // renders <a>
  * <IconButton label="Som" icon={Volume2} pressed={sound} dot />
  */
 import { forwardRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from 'react'

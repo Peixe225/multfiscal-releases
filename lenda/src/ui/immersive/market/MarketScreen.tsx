@@ -3,30 +3,101 @@
  * (salário/duração/papel, teto estimado, paciência da diretoria, chance de aceite, contraproposta
  * → resposta do clube) + contrato atual e estilo de vida.
  */
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { ArrowRight, BadgeDollarSign, Check, CircleSlash, Clock3, Crown, FileSignature, Handshake, Repeat2, ShoppingBag, Sparkles, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { ArrowRight, BadgeDollarSign, Banknote, Check, CircleSlash, Clock3, Crown, FileSignature, Handshake, Repeat2, Shirt, ShoppingBag, Sparkles, Star, TrendingDown, TrendingUp, X } from 'lucide-react'
 import type { ContractOffer, ImmersiveState } from '@/engine/immersive/types'
 import { useApp } from '@/store/app'
 import { getClub, getCountry, getLeague } from '@/store/data'
-import { useImmersive } from '@/store/immersive'
-import { Button, Crest, Flag, Modal, Segmented, clubVars, cx, formatMoney, formatPercent } from '@/ui/primitives'
-import { CompLogo, PanelHead } from '../bits'
+import { useImmersive, type CounterOdds } from '@/store/immersive'
+import { Button, Crest, Flag, Modal, clubVars, cx, formatPercent } from '@/ui/primitives'
+import { CompLogo, ImDlgTitle, ImSeg, PanelHead } from '../bits'
 import { LIFESTYLE_ITEMS } from '../model/constants'
 import { ContractStrip } from '../hub/panels'
-import { currentItem } from '../model/view'
+import { currentItem, fmtMoney, yearsLabel } from '../model/view'
 
 const KIND: Record<ContractOffer['kind'], string> = { transfer: 'Transferência', loan: 'Empréstimo', renewal: 'Renovação', free_agent: 'Sem clube' }
 const ROLE_RANK: Record<ContractOffer['role'], number> = { Promessa: 0, Reserva: 1, Rotação: 2, Titular: 3 }
-const ROLES: ContractOffer['role'][] = ['Reserva', 'Rotação', 'Titular']
+const ROLES: ContractOffer['role'][] = ['Promessa', 'Reserva', 'Rotação', 'Titular']
+const MINUTES: Record<ContractOffer['role'], number> = { Titular: 0.85, Rotação: 0.55, Reserva: 0.25, Promessa: 0.15 }
 
-/** Estimativa do empresário (mesma forma do motor de exemplo; o real pode divergir). */
-function acceptChance(o: ContractOffer, ask: { salary: number; years: number; role: ContractOffer['role'] }) {
-  const over = Math.max(0, ask.salary / o.salary - 1)
-  const p = 0.92 - over * 1.4 - Math.max(0, ROLE_RANK[ask.role] - ROLE_RANK[o.role]) * 0.22 - Math.abs(ask.years - o.years) * 0.05
-  return ask.salary > o.salary * 1.45 ? Math.min(0.08, p) : Math.max(0.05, Math.min(0.95, p))
+/**
+ * Chances da contraproposta: o motor calcula (mesma conta do `offer_respond`); se ele não souber,
+ * a UI repete a conta do motor real (interesse × pedido × teto do clube).
+ */
+function counterOddsUI(s: ImmersiveState, o: ContractOffer, ask: { salary: number; years: number; role: ContractOffer['role'] }): CounterOdds {
+  const fromEngine = useImmersive.getState().counterOdds(o.id, ask)
+  if (fromEngine) return fromEngine
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
+  const str = (s.world?.clubs?.[o.clubId]?.strength as number | undefined) ?? getClub(o.clubId)?.strength ?? 60
+  const interest = clamp(0.55 + (s.ovr - str) * 0.04 + (s.reputation - 30) / 150 + (s.condition.form - 50) / 150 + (o.kind === 'renewal' ? 0.1 : 0), 0.1, 0.95)
+  const base = ((s.engine as { offerBase?: Record<string, number> }).offerBase?.[o.id]) ?? o.salary
+  const ceiling = base * (1.2 + 0.3 * interest)
+  const askSalary = Math.max(o.salary, ask.salary)
+  const ratio = askSalary / Math.max(1, o.salary)
+  const roleGap = Math.max(0, ROLE_RANK[ask.role] - ROLE_RANK[o.role])
+  let accept = clamp(interest * 1.1 - (ratio - 1) * 2.2 - Math.abs(ask.years - o.years) * 0.08 - roleGap * 0.15, 0, 0.95)
+  if (askSalary > ceiling) accept = 0
+  const improve = o.salary >= ceiling ? 0 : Math.min(1 - accept, 0.4 * Math.max(0, 1 - (ratio - 1) * 2))
+  return { accept, improve, walk: Math.max(0, 1 - accept - improve), ceiling, roundsLeft: o.roundsLeft }
 }
 
-function OfferCard({ o, s, onNegotiate, i }: { o: ContractOffer; s: ImmersiveState; onNegotiate: () => void; i: number }) {
+/** Rodadas iniciais de cada proposta (para os pips: o motor dá 2, ou 3 com superempresário). */
+const firstRounds = new Map<string, number>()
+const roundsOf = (o: ContractOffer) => {
+  const v = Math.max(firstRounds.get(o.id) ?? 0, o.roundsLeft, 1)
+  firstRounds.set(o.id, v)
+  return v
+}
+
+/** Nota da proposta (para destacar a melhor com o único botão dourado). */
+const offerScore = (o: ContractOffer) => ROLE_RANK[o.role] * 30 + (getClub(o.clubId)?.strength ?? 60) + (getClub(o.clubId)?.prestige ?? 0) * 4 + Math.log10(Math.max(1, o.salary)) * 3
+
+/** Consequências (com chance) de assinar — princípio "consequência antes da escolha". */
+function OfferFx({ o, s }: { o: ContractOffer; s: ImmersiveState }) {
+  const c = getClub(o.clubId)
+  const str = (s.world?.clubs?.[o.clubId]?.strength as number | undefined) ?? c?.strength ?? 60
+  const curPrestige = getClub(s.clubId)?.prestige ?? 0
+  const pres = (c?.prestige ?? 0) - curPrestige
+  const minutes = MINUTES[o.role]
+  const gap = str - s.ovr
+  const growth = s.age <= 23 ? (gap >= 0 && gap <= 14 ? Math.min(0.9, minutes + 0.15) : gap > 14 ? minutes * 0.7 : 0.35) : minutes * 0.5
+  const sal = s.finance.salary ? o.salary / s.finance.salary - 1 : 0
+  return (
+    <div className="im-offer__fx">
+      <span className={cx('lx-fx lx-fx--sm', minutes >= 0.5 ? 'lx-fx--up' : minutes >= 0.25 ? 'lx-fx--neu' : 'lx-fx--down')}>
+        <span className="lx-fx__ic">
+          <Shirt size={14} aria-hidden="true" />
+        </span>
+        Minutos
+        <span className="lx-fx__p">{formatPercent(minutes)}</span>
+      </span>
+      <span className={cx('lx-fx lx-fx--sm', growth >= 0.5 ? 'lx-fx--up' : 'lx-fx--info')}>
+        <span className="lx-fx__ic">
+          <TrendingUp size={14} aria-hidden="true" />
+        </span>
+        OVR +
+        <span className="lx-fx__p">{formatPercent(growth)}</span>
+      </span>
+      {pres !== 0 ? (
+        <span className={cx('lx-fx lx-fx--sm', pres > 0 ? 'lx-fx--gold' : 'lx-fx--down')}>
+          <span className="lx-fx__ic">
+            <Star size={14} aria-hidden="true" />
+          </span>
+          Prestígio {pres > 0 ? '+' : '−'}
+          {Math.abs(pres) > 1 ? (pres > 0 ? '+' : '−') : ''}
+        </span>
+      ) : (
+        <span className={cx('lx-fx lx-fx--sm', sal >= 0 ? 'lx-fx--up' : 'lx-fx--down')}>
+          <span className="lx-fx__ic">{sal >= 0 ? <Banknote size={14} aria-hidden="true" /> : <TrendingDown size={14} aria-hidden="true" />}</span>
+          Salário
+          <span className="lx-fx__p num">{sal >= 0 ? '+' : '−'}{Math.round(Math.abs(sal) * 100)}%</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+function OfferCard({ o, s, onNegotiate, i, best }: { o: ContractOffer; s: ImmersiveState; onNegotiate: () => void; i: number; best: boolean }) {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const c = getClub(o.clubId)
@@ -34,9 +105,11 @@ function OfferCard({ o, s, onNegotiate, i }: { o: ContractOffer; s: ImmersiveSta
   const country = c ? getCountry(c.country) : undefined
   const vars = c ? (clubVars(c) as CSSProperties) : undefined
   const left = o.expiresWeek - s.week
+  const total = roundsOf(o)
   return (
-    <article className="lx-plate lx-c-lg im-offer lx-anim-rise" style={{ ...vars, ['--i' as string]: i }}>
+    <article className={cx('lx-plate lx-c-lg im-offer lx-anim-rise', best && 'is-best')} style={{ ...vars, ['--i' as string]: i }}>
       <div className="lx-club-glow" aria-hidden="true" />
+      {best && <span className="im-offer__ribbon">Melhor proposta</span>}
       <div className="im-offer__head">
         {c && <Crest club={c} size={58} decorative />}
         <div className="min-w-0">
@@ -57,48 +130,45 @@ function OfferCard({ o, s, onNegotiate, i }: { o: ContractOffer; s: ImmersiveSta
           <span className={cx('im-offer__exp', left <= 1 && 'is-warn')}>
             <Clock3 size={13} aria-hidden="true" /> {left <= 0 ? 'Expira hoje' : `${left} sem.`}
           </span>
-          <span className="im-pips" title={`${o.roundsLeft} rodadas de negociação`} aria-label={`${o.roundsLeft} rodadas de negociação restantes`}>
-            {[0, 1, 2].map((k) => (
-              <i key={k} className={k < o.roundsLeft ? 'is-on' : undefined} />
+          <span className="im-pips" title={`${o.roundsLeft} de ${total} rodadas de negociação`} aria-label={`${o.roundsLeft} de ${total} rodadas de negociação restantes`}>
+            {Array.from({ length: total }).map((_, k) => (
+              <i key={k} className={k < o.roundsLeft ? 'is-on' : 'is-done'} />
             ))}
           </span>
         </span>
       </div>
       <dl className="im-offer__terms">
-        {o.fee ? (
-          <div>
-            <dt>Valor</dt>
-            <dd className="lx-hi num">{formatMoney(o.fee)}</dd>
-          </div>
-        ) : null}
+        <div>
+          <dt>Valor</dt>
+          <dd className={cx('num', o.fee && 'lx-hi')}>{o.fee ? fmtMoney(o.fee) : '—'}</dd>
+        </div>
         <div>
           <dt>Salário</dt>
-          <dd className="num">{formatMoney(o.salary)}/ano</dd>
+          <dd className="num">{fmtMoney(o.salary)}</dd>
         </div>
         <div>
           <dt>Duração</dt>
-          <dd className="num">{o.years} anos</dd>
+          <dd className="num">{yearsLabel(o.years)}</dd>
         </div>
         <div>
           <dt>Papel</dt>
           <dd className={cx(o.role === 'Titular' && 'text-positive')}>{o.role}</dd>
         </div>
-        {o.signingBonus ? (
-          <div className="max-sm:hidden">
-            <dt>Luvas</dt>
-            <dd className="num">{formatMoney(o.signingBonus)}</dd>
-          </div>
-        ) : null}
+        <div>
+          <dt>Luvas</dt>
+          <dd className="num">{o.signingBonus ? fmtMoney(o.signingBonus) : '—'}</dd>
+        </div>
       </dl>
+      <OfferFx o={o} s={s} />
       {o.note && <p className="im-offer__note">“{o.note}”</p>}
       <div className="im-offer__foot">
         <Button variant="ghost" size="sm" icon={X} onClick={() => void dispatch({ type: 'offer_respond', offerId: o.id, response: 'reject' })} disabled={busy}>
           Recusar
         </Button>
-        <Button variant="ghost" size="sm" icon={Handshake} onClick={onNegotiate} disabled={busy || o.roundsLeft <= 0}>
+        <Button variant="outline" size="sm" icon={Handshake} onClick={onNegotiate} disabled={busy || o.roundsLeft <= 0}>
           Negociar
         </Button>
-        <Button variant="primary" size="sm" icon={FileSignature} onClick={() => void dispatch({ type: 'offer_respond', offerId: o.id, response: 'accept' })} loading={busy}>
+        <Button variant={best ? 'primary' : 'outline'} size="sm" icon={FileSignature} onClick={() => void dispatch({ type: 'offer_respond', offerId: o.id, response: 'accept' })} loading={busy && best}>
           Aceitar
         </Button>
       </div>
@@ -120,95 +190,119 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   const [years, setYears] = useState(o?.years ?? 3)
   const [role, setRole] = useState<ContractOffer['role']>(o?.role ?? 'Rotação')
   const [reply, setReply] = useState<string | null>(null)
+  const total = useRef(3)
+  // abre com os termos do clube (a contraproposta parte da oferta, nunca abaixo dela)
   useEffect(() => {
     if (!o) return
-    setSalary(Math.round((o.salary * 1.2) / 1000) * 1000)
+    total.current = roundsOf(o)
+    setSalary(o.salary)
     setYears(o.years)
-    setRole(o.role === 'Promessa' ? 'Reserva' : o.role)
+    setRole(o.role)
     setReply(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offerId])
+  // proposta melhorada: o slider não fica abaixo do novo valor
+  useEffect(() => {
+    if (live && salary < live.salary) setSalary(live.salary)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live?.salary])
   if (!o) return null
   const c = getClub(o.clubId)
-  const min = Math.round((o.salary * 0.8) / 1000) * 1000
-  const max = Math.round((o.salary * 1.9) / 1000) * 1000
-  const cap = o.salary * 1.45
-  const p = acceptChance(o, { salary, years, role })
+  const odds = counterOddsUI(s, o, { salary, years, role })
+  const step = o.salary >= 10_000_000 ? 1_000_000 : o.salary >= 1_000_000 ? 100_000 : 10_000
+  const min = o.salary
+  const max = Math.max(min + step * 4, Math.ceil((Math.max(odds.ceiling, o.salary) * 1.25) / step) * step)
+  const cap = odds.ceiling
+  const p = odds.accept
   const tone = p >= 0.65 ? 'pos' : p >= 0.35 ? 'warn' : 'neg'
-  const overTerms = (salary > cap ? 1 : 0) + (ROLE_RANK[role] > ROLE_RANK[o.role] ? 1 : 0)
-  const patience = Math.round((o.roundsLeft / 3) * 10)
+  const overTerms = (salary > cap ? 1 : 0) + (ROLE_RANK[role] > ROLE_RANK[o.role] ? 1 : 0) + (years !== o.years ? 1 : 0)
+  const patience = Math.round((o.roundsLeft / Math.max(1, total.current)) * 10)
   const closed = !live
+  const loan = o.kind === 'loan'
   const delta = (a: number, b: number, fmt: (n: number) => string) => (a === b ? <span className="lx-chip lx-chip--sm">=</span> : <span className={cx('lx-chip lx-chip--sm', a > b ? 'lx-chip--gold' : 'lx-chip--neg')}>{a > b ? '+' : '−'}{fmt(Math.abs(a - b))}</span>)
   const send = async () => {
     const before = JSON.stringify(live)
-    await dispatch({ type: 'offer_respond', offerId: o.id, response: 'counter', counter: { salary, years, role } })
+    await dispatch({ type: 'offer_respond', offerId: o.id, response: 'counter', counter: loan ? { salary } : { salary, years, role } })
     const after = useImmersive.getState().state?.offers.find((x) => x.id === o.id)
     if (!after) setReply('A diretoria encerrou a negociação. Chegaram ao limite deles.')
     else if (JSON.stringify(after) !== before) setReply(after.note ?? 'Nova proposta na mesa.')
   }
+  const advice =
+    reply ??
+    (salary > cap
+      ? `Acima do teto deles (${fmtMoney(cap)}): assim eles não aceitam. Baixa o salário.`
+      : p >= 0.65
+        ? 'Dá para pedir isso tranquilo. Eles querem fechar.'
+        : p >= 0.35
+          ? `Arriscado, mas possível. Se não aceitarem, ${odds.walk > 0.3 ? 'podem levantar da mesa' : 'devem melhorar a oferta'}.`
+          : 'Assim eles levantam da mesa. Eu baixaria o salário ou o papel.')
   return (
     <Modal
       open={!!offerId}
       onClose={onClose}
       size="xl"
       media={c ? <Crest club={c} size={52} decorative /> : undefined}
-      title={<span className="im-neg__t">{`${c?.shortName ?? 'Clube'} × ${s.identity.surname}`}</span>}
-      description={`Negociação · ${KIND[o.kind]}`}
+      title={<ImDlgTitle kicker={`Negociação · ${o.kind === 'renewal' ? 'Renovação' : o.fee ? `Transferência · ${fmtMoney(o.fee)}` : KIND[o.kind]}`}>{`${c?.shortName ?? 'Clube'} × ${s.identity.surname}`}</ImDlgTitle>}
       className="im-neg-modal im-dlg"
     >
       <div className="im-neg" style={c ? (clubVars(c) as CSSProperties) : undefined}>
         <div className="im-neg__head">
-          <span className="lx-kicker">
-            {o.kind === 'renewal' ? 'Renovação' : o.fee ? `Transferência · ${formatMoney(o.fee)}` : KIND[o.kind]}
-          </span>
+          <div className="im-neg__pat">
+            <span className="lx-label">Paciência da diretoria</span>
+            <span className="lx-meter lx-meter--seg" data-level={patience >= 7 ? 'good' : patience >= 4 ? 'warn' : 'crit'} style={{ ['--lx-v' as string]: patience / 10 }} />
+            <b className="num">{patience}/10</b>
+          </div>
           <div className="im-neg__rounds">
-            <span className="lx-label">Rodadas</span>
+            <span className="lx-label">
+              Rodada {Math.min(total.current, total.current - o.roundsLeft + 1)}/{total.current}
+            </span>
             <span className="im-pips is-lg">
-              {[0, 1, 2].map((k) => (
-                <i key={k} className={k < o.roundsLeft ? 'is-on' : 'is-done'} />
+              {Array.from({ length: total.current }).map((_, k) => (
+                <i key={k} className={k < total.current - o.roundsLeft ? 'is-done' : k === total.current - o.roundsLeft ? 'is-on' : undefined} />
               ))}
             </span>
           </div>
         </div>
-        <div className="im-neg__pat">
-          <span className="lx-label">Paciência da diretoria</span>
-          <span className="lx-meter lx-meter--seg" data-level={patience >= 7 ? 'good' : patience >= 4 ? 'warn' : 'crit'} style={{ ['--lx-v' as string]: patience / 10 }} />
-          <b className="num">{patience}/10</b>
-        </div>
         <div className="im-neg__body">
           <div className="im-neg__terms">
+            <div className="im-term is-head" aria-hidden="true">
+              <span />
+              <span className="lx-label">Clube oferece</span>
+              <span className="lx-label">Sua contraproposta</span>
+              <span />
+            </div>
             <div className="im-term">
               <span className="lx-t-row">Salário/ano</span>
-              <span className="im-term__club num">{formatMoney(o.salary)}</span>
+              <span className="im-term__club num">{fmtMoney(o.salary)}</span>
               <div className="im-term__ctl">
-                <div className="lx-range-wrap" style={{ ['--lx-cap' as string]: (cap - min) / (max - min) }}>
-                  <span className="lx-range-wrap__cap" title="Teto estimado do clube" />
-                  <input type="range" className="lx-range" min={min} max={max} step={1000} value={salary} onChange={(e) => setSalary(Number(e.target.value))} style={{ ['--lx-v' as string]: (salary - min) / (max - min) }} aria-label="Seu pedido de salário anual" disabled={closed} />
+                <div className="lx-range-wrap" style={{ ['--lx-cap' as string]: Math.max(0, Math.min(1, (cap - min) / (max - min))) }}>
+                  <span className="lx-range-wrap__cap" title={`Teto do clube: ${fmtMoney(cap)}`} />
+                  <input type="range" className="lx-range" min={min} max={max} step={step} value={salary} onChange={(e) => setSalary(Number(e.target.value))} style={{ ['--lx-v' as string]: (salary - min) / (max - min) }} aria-label="Seu pedido de salário anual" aria-valuetext={fmtMoney(salary)} disabled={closed} />
                 </div>
-                <b className="im-term__v num">{formatMoney(salary)}</b>
+                <b className="im-term__v num">{fmtMoney(salary)}</b>
               </div>
-              {delta(salary, o.salary, (n) => formatMoney(n))}
+              {delta(salary, o.salary, (n) => fmtMoney(n))}
             </div>
             <div className="im-term">
               <span className="lx-t-row">Duração</span>
-              <span className="im-term__club num">{o.years} anos</span>
+              <span className="im-term__club num">{yearsLabel(o.years)}</span>
               <div className="im-term__ctl">
-                <Segmented<string> size="sm" value={String(years)} onChange={(v) => setYears(Number(v))} aria-label="Duração do contrato" options={[1, 2, 3, 4, 5].map((y) => ({ value: String(y), label: `${y}`, disabled: closed }))} />
+                <ImSeg<string> size="touch" value={String(years)} onChange={(v) => setYears(Number(v))} label="Duração do contrato em anos" disabled={closed || loan} options={[1, 2, 3, 4, 5].map((y) => ({ value: String(y), label: `${y}`, hint: yearsLabel(y) }))} />
               </div>
-              {delta(years, o.years, (n) => `${n}a`)}
+              {delta(years, o.years, (n) => (n === 1 ? '1 ano' : `${n} anos`))}
             </div>
             <div className="im-term">
               <span className="lx-t-row">Papel</span>
               <span className="im-term__club">{o.role}</span>
               <div className="im-term__ctl">
-                <Segmented<ContractOffer['role']> size="sm" value={role} onChange={setRole} aria-label="Papel no elenco" options={ROLES.map((r) => ({ value: r, label: r, disabled: closed }))} />
+                <ImSeg<ContractOffer['role']> size="touch" value={role} onChange={setRole} label="Papel no elenco" disabled={closed || loan} options={ROLES.map((r) => ({ value: r, label: r }))} />
               </div>
               {ROLE_RANK[role] === ROLE_RANK[o.role] ? <span className="lx-chip lx-chip--sm">=</span> : <span className={cx('lx-chip lx-chip--sm', ROLE_RANK[role] > ROLE_RANK[o.role] ? 'lx-chip--gold' : 'lx-chip--neg')}>{ROLE_RANK[role] > ROLE_RANK[o.role] ? '▲' : '▼'}</span>}
             </div>
             {o.releaseClause ? (
               <div className="im-term is-static">
                 <span className="lx-t-row">Multa rescisória</span>
-                <span className="im-term__club num">{formatMoney(o.releaseClause)}</span>
+                <span className="im-term__club num">{fmtMoney(o.releaseClause)}</span>
                 <span className="lx-t-small">Fixada pelo clube</span>
                 <span />
               </div>
@@ -218,10 +312,18 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
             <span className="lx-label">Chance de aceite</span>
             <b className={cx('im-neg__p num', `is-${tone}`)}>{formatPercent(p)}</b>
             <span className="lx-meter" data-level={tone === 'pos' ? 'good' : tone === 'warn' ? 'warn' : 'crit'} style={{ ['--lx-v' as string]: p }} />
-            <span className="lx-t-small">{overTerms ? `Acima do teto em ${overTerms} ${overTerms === 1 ? 'termo' : 'termos'}` : 'Dentro do que o clube pode pagar'}</span>
+            <div className="im-neg__odds">
+              <span>
+                Melhoram <b className="num">{formatPercent(odds.improve)}</b>
+              </span>
+              <span className={cx(odds.walk >= 0.3 && 'is-neg')}>
+                Desistem <b className="num">{formatPercent(odds.walk)}</b>
+              </span>
+            </div>
+            <span className="lx-t-small">{overTerms ? `Você pede mais em ${overTerms} ${overTerms === 1 ? 'termo' : 'termos'}` : 'Os termos do clube'}{salary > cap ? ' · acima do teto' : ''}</span>
             <div className="im-agent">
               <span className="im-agent__av">AG</span>
-              <p>{reply ?? (p >= 0.65 ? 'Dá para pedir isso tranquilo. Eles querem fechar.' : p >= 0.35 ? 'Arriscado, mas possível. Cada contraproposta gasta paciência.' : 'Assim eles levantam da mesa. Eu baixaria o salário ou o papel.')}</p>
+              <p>{advice}</p>
             </div>
           </aside>
         </div>
@@ -230,7 +332,7 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
             Recusar
           </Button>
           <span className="flex-1" />
-          <Button variant="ghost" size="md" icon={Repeat2} onClick={() => void send()} loading={busy} disabled={closed || o.roundsLeft <= 0}>
+          <Button variant="ghost" size="md" icon={Repeat2} onClick={() => void send()} loading={busy} disabled={closed || o.roundsLeft <= 0 || (salary === o.salary && years === o.years && role === o.role)}>
             Enviar contraproposta
           </Button>
           <Button variant="primary" size="md" icon={Check} onClick={() => { void dispatch({ type: 'offer_respond', offerId: o.id, response: 'accept' }); onClose() }} disabled={busy || closed}>
@@ -256,7 +358,7 @@ export default function MarketScreen() {
   }, [query.proposta, fixture])
   const it = currentItem(s)
   const open = it?.kind === 'transfer_window'
-  const offers = useMemo(() => s.offers.slice().sort((a, b) => (a.kind === 'renewal' ? 1 : 0) - (b.kind === 'renewal' ? 1 : 0)), [s.offers])
+  const offers = useMemo(() => s.offers.slice().sort((a, b) => offerScore(b) - offerScore(a)), [s.offers])
   const owned = new Set((s.finance.lifestyle ?? []).map((l) => l.id))
   const shop = useImmersive((x) => x.catalog.lifestyleItems) ?? LIFESTYLE_ITEMS
   return (
@@ -286,14 +388,22 @@ export default function MarketScreen() {
               <p className="lx-t-small m-0">As ofertas chegam nas janelas de transferência. Jogar bem (e aparecer na mídia) faz o telefone tocar.</p>
             </div>
           ) : (
-            offers.map((o, i) => <OfferCard key={o.id} o={o} s={s} i={i} onNegotiate={() => setNeg(o.id)} />)
+            offers.map((o, i) => <OfferCard key={o.id} o={o} s={s} i={i} best={i === 0} onNegotiate={() => setNeg(o.id)} />)
           )}
         </section>
         <aside className="im-market__side">
           <section className="lx-plate lx-plate--flat lx-c-md im-panel">
             <PanelHead kicker="Seu contrato" icon={BadgeDollarSign} right={s.captain ? <span className="lx-chip lx-chip--sm lx-chip--gold"><Crown size={11} aria-hidden="true" /> Capitão</span> : undefined} />
-            <ContractStrip s={s} />
-            <p className="lx-t-small m-0 mt-3">Valor de mercado: <b className="text-text num">{formatMoney(s.marketValue)}</b></p>
+            {s.clubId ? <ContractStrip s={s} balance /> : <p className="lx-t-small m-0">Sem contrato: a primeira proposta que você aceitar define salário e duração.</p>}
+            <p className="lx-t-small m-0 mt-3">
+              Valor de mercado: <b className="text-text num">{fmtMoney(s.marketValue)}</b>
+              {!s.clubId && (
+                <>
+                  {' '}
+                  · Saldo: <b className="text-text num">{fmtMoney(s.finance.balance)}</b>
+                </>
+              )}
+            </p>
           </section>
           <section className="lx-plate lx-plate--flat lx-c-md im-panel">
             <PanelHead kicker="Estilo de vida" icon={ShoppingBag} />
@@ -305,7 +415,7 @@ export default function MarketScreen() {
                     <small>Moral +{it2.morale}</small>
                   </span>
                   <Button variant={owned.has(it2.id) ? 'ghost' : 'outline'} size="sm" icon={owned.has(it2.id) ? Check : Sparkles} disabled={busy || owned.has(it2.id) || s.finance.balance < it2.price} onClick={() => void dispatch({ type: 'buy', itemId: it2.id })}>
-                    {owned.has(it2.id) ? 'Seu' : formatMoney(it2.price)}
+                    {owned.has(it2.id) ? 'Seu' : fmtMoney(it2.price)}
                   </Button>
                 </li>
               ))}

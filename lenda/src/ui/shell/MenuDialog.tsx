@@ -54,7 +54,7 @@ export function MenuDialog() {
         <NavRow icon={UserRound} label="Nova carreira" sub="Modo Clássico" to="/identidade" onGo={close} />
         {state && <NavRow icon={ChartLine} label="Resumo da carreira" to="/resumo" onGo={close} />}
         <NavRow icon={Radio} label="Ligas ao vivo" sub="Tabelas reais de hoje" to="/ligas" onGo={close} />
-        <NavRow icon={Crown} label="Hall da Fama" sub="Suas carreiras anteriores" to="/hall" onGo={close} />
+        <NavRow icon={Crown} label="Hall das Lendas" sub="Suas runs contra as lendas" to="/hall" onGo={close} />
         <NavRow icon={ScrollText} label="Créditos" sub="Fotos, fontes, dados e licenças" to="/creditos" onGo={close} />
         {import.meta.env.DEV && <NavRow icon={Sparkles} label="Design kit" sub="Primitivos e estados" to="/kit" onGo={close} />}
       </div>
@@ -110,7 +110,7 @@ export function MenuDialog() {
           {confirm ? (
             <div className="rounded-md p-3 bg-negative-bg border border-[rgba(255,94,120,.22)]">
               <p className="m-0 text-[13px] text-text-2">
-                Abandonar a carreira de <b className="text-text">{state.identity.surname}</b>? O progresso atual será apagado (o Hall da Fama continua).
+                Abandonar a carreira de <b className="text-text">{state.identity.surname}</b>? O progresso atual será apagado (o Hall das Lendas continua).
               </p>
               <div className="flex gap-2 mt-3">
                 <Button

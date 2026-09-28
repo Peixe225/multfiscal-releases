@@ -10,7 +10,7 @@ import { Button } from '@/ui/primitives'
 import { ContractStrip, AgendaStrip, AttributesPanel, ConditionPanel, InboxDialog, InboxPanel, MiniTable, NewsPanel, PlayerPlate } from './panels'
 import { EmptyNow, GenericCard, MatchHero, PressCard, StoryDecision, TrainingPicker, WindowCard } from './NowPanel'
 import { SocialMini } from '../social/SocialScreen'
-import { currentItem, nextMatch, weekLabel } from '../model/view'
+import { currentItem, nextMatch } from '../model/view'
 
 export default function HubScreen() {
   const s = useImmersive((x) => x.state)!
@@ -53,7 +53,7 @@ export default function HubScreen() {
       <header className="im-hub__head lx-anim-rise">
         <div className="min-w-0">
           <span className="lx-kicker">
-            Central · {weekLabel(s)} · {s.age} anos
+            Central · {it?.week ? `Semana ${it.week}` : 'Pré-temporada'} · {s.season} · {s.age} anos
           </span>
           <h1 className="lx-t-display im-hub__title">Sua semana</h1>
         </div>
@@ -62,7 +62,7 @@ export default function HubScreen() {
             Rede social
           </Button>
           {it && it.kind !== 'match' && it.kind !== 'national_match' && it.kind !== 'season_end' && it.kind !== 'awards' && nm && (
-            <Button variant="primary" size="md" iconRight={FastForward} loading={busy} onClick={() => void dispatch({ type: 'auto', until: 'next_match' })} title="Treinos com o foco padrão, coletivas puladas, eventos com a opção mais segura">
+            <Button variant="outline" size="md" iconRight={FastForward} loading={busy} onClick={() => void dispatch({ type: 'auto', until: 'next_match' })} title="Treinos com o foco padrão, coletivas puladas, eventos com a opção mais segura">
               Simular até o jogo
             </Button>
           )}
@@ -81,6 +81,7 @@ export default function HubScreen() {
           <ContractStrip s={s} />
           <ConditionPanel s={s} />
         </aside>
+
         <div className="im-hub__agenda">
           <AgendaStrip s={s} />
         </div>

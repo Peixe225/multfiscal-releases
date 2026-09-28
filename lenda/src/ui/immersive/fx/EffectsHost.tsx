@@ -1,42 +1,99 @@
 /**
- * Consumidor global da fila de efeitos do Modo Imersivo: toasts, OVR, transferências,
- * conquistas e a celebração "CAMPEÃO!" (fila de troféus). Eventos de partida ficam com a tela
- * da partida; prêmios individuais ficam com a cerimônia.
+ * Consumidor global da fila de efeitos do Modo Imersivo: toasts (lower-thirds da Transmissão),
+ * OVR, transferências, conquistas e a celebração "CAMPEÃO!" (fila de troféus). Eventos de partida
+ * ficam com a tela da partida; prêmios individuais ficam com a cerimônia.
+ *
+ * Toasts: no máximo 2 visíveis, duplicados colapsados, e a próxima ação do jogador limpa os
+ * anteriores (nada de pilha cobrindo a Central). Recusas de ação por corrida da UI não viram aviso.
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Medal, TrendingUp } from 'lucide-react'
+import type { ImmersiveEffect } from '@/engine/immersive/types'
 import type { TrophyWin } from '@/engine/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
-import { toast } from '@/ui/primitives'
-import { sfx } from '@/ui/shell/sfx'
+import { toast, useToasts } from '@/ui/primitives'
+import { achievementById } from '@/ui/shell/achievementsRegistry'
 import { goTab } from '../shell/ImTopBar'
+import { imSfx } from '../hooks'
 import { TrophyCelebration } from './TrophyCelebration'
+
+/** Ações que a UI pode disparar "atrasadas" (o motor já seguiu adiante): recusa silenciosa. */
+const RACE = new Set(['match_choose', 'match_timeout', 'match_sim', 'press_answer', 'press_skip', 'match_sub_request', 'advance', 'auto'])
+const ACTION_PT: Record<string, string> = {
+  retire: 'A aposentadoria só é possível a partir dos 34 anos.',
+  train: 'Não há treino agora.',
+  match_start: 'Não há jogo agora.',
+  offer_respond: 'Esta proposta não está mais na mesa.',
+  decision_choose: 'Esta decisão já foi tomada.',
+  social_post: 'Você já postou nesta semana.',
+  buy: 'Compra indisponível agora.',
+  inbox_read: 'Mensagem indisponível.',
+}
+/** Conquistas do motor de exemplo (o catálogo do Clássico cobre as do motor real). */
+const IMM_ACH: Record<string, string> = {
+  'imersivo-estreia': 'Estreia profissional',
+  'imersivo-primeiro-gol': 'Primeiro gol',
+  'imersivo-hat-trick': 'Hat-trick',
+  'imersivo-selecao': 'Estreia pela seleção',
+}
 
 export function EffectsHost() {
   const [queue, setQueue] = useState<TrophyWin[]>([])
-  useEffectStream((e, q) => {
+  const shown = useRef<Set<string>>(new Set())
+
+  // cada nova ação limpa os avisos da anterior
+  useEffect(
+    () =>
+      useImmersive.subscribe((s, p) => {
+        if (s.busy && !p.busy) {
+          const t = useToasts.getState()
+          for (const x of [...t.items, ...t.queue]) t.dismiss(x.id)
+          shown.current.clear()
+        }
+        if (s.saveFailed && !p.saveFailed) toast({ title: 'Não foi possível salvar', description: 'O navegador recusou a gravação (armazenamento cheio ou bloqueado). O jogo continua, mas o progresso pode se perder.', tone: 'danger' })
+      }),
+    [],
+  )
+
+  const say = (key: string, t: Parameters<typeof toast>[0]) => {
+    if (shown.current.has(key)) return
+    shown.current.add(key)
+    toast(t)
+  }
+
+  useEffectStream((e: ImmersiveEffect, q) => {
     if (q.action === 'fixture') return
     switch (e.type) {
       case 'toast': {
+        if (e.tone === 'danger' && /indispon[ií]vel/i.test(e.title)) {
+          const id = e.description ?? ''
+          if (RACE.has(id)) return
+          say(`deny:${id}`, { title: 'Agora não dá', description: ACTION_PT[id] ?? 'Essa ação não está disponível neste momento.', tone: 'danger' })
+          return
+        }
         const tone = e.tone === 'info' ? 'default' : e.tone
-        toast({ title: e.title, description: e.description, tone })
+        // "Bem-vindo ao …" e o efeito de transferência são o mesmo aviso: vale o primeiro
+        say(/^bem-vindo/i.test(e.title) ? 'welcome' : `t:${e.title}`, { title: e.title, description: e.description, tone })
         break
       }
       case 'ovr_change':
         if (e.to !== e.from) {
-          toast({ title: `OVR ${e.from} → ${e.to}`, description: e.to > e.from ? 'Evolução confirmada pelo departamento técnico.' : 'Queda de rendimento.', tone: e.to > e.from ? 'gold' : 'danger', icon: TrendingUp })
-          if (e.to > e.from) sfx.play('unlock')
+          say('ovr', { title: `OVR ${e.from} → ${e.to}`, description: e.to > e.from ? 'Evolução confirmada pelo departamento técnico.' : 'Queda de rendimento.', tone: e.to > e.from ? 'gold' : 'danger', icon: TrendingUp })
+          if (e.to > e.from) imSfx.play('unlock')
         }
         break
       case 'transfer': {
         const c = getClub(e.clubId)
-        toast({ title: `Bem-vindo ao ${c?.name ?? 'novo clube'}!`, description: e.fee ? 'Transferência concluída. Apresentação na próxima semana.' : 'Contrato assinado.', tone: 'gold', icon: ArrowUpRight })
+        say('welcome', { title: `Bem-vindo ao ${c?.name ?? 'novo clube'}!`, description: e.fee ? 'Transferência concluída. Apresentação na próxima semana.' : 'Contrato assinado.', tone: 'gold', icon: ArrowUpRight })
         break
       }
-      case 'achievement':
-        toast({ title: 'Conquista desbloqueada', description: e.id.replace(/[_-]/g, ' ').replace(/^./, (c) => c.toUpperCase()), tone: 'gold', icon: Medal })
+      case 'achievement': {
+        const a = achievementById(e.id)
+        const name = a?.title ?? IMM_ACH[e.id] ?? e.id.replace(/[_-]/g, ' ').replace(/^./, (c) => c.toUpperCase())
+        say(`a:${e.id}`, { title: 'Conquista desbloqueada', description: name, tone: 'gold', icon: Medal })
         break
+      }
       case 'trophy':
         setQueue((x) => [...x, e.trophy])
         break
@@ -45,7 +102,7 @@ export function EffectsHost() {
         setTimeout(() => goTab('temporada'), 400)
         break
       case 'retired':
-        toast({ title: 'Fim de carreira', description: 'Obrigado por tudo, craque.', tone: 'gold' })
+        say('ret', { title: 'Fim de carreira', description: 'Obrigado por tudo, craque. A sua trajetória entrou no Hall das Lendas.', tone: 'gold' })
         break
       default:
         break

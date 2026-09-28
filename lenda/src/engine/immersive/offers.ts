@@ -177,7 +177,7 @@ export function respondOffer(
     fx.push({ type: 'toast', tone: 'info', title: 'Proposta recusada', description: name })
     return true
   }
-  if (a.response === 'counter') return counter(data, s, o, a.counter ?? {}, fx)
+  if (a.response === 'counter') return counter(data, s, o, (a.counter ?? {}) as CounterAsk, fx)
   // aceitar
   s.offers = s.offers.filter((x) => x.id !== o.id)
   if (o.kind === 'renewal') {
@@ -198,28 +198,41 @@ export function respondOffer(
 
 const ROLES: ContractOffer['role'][] = ['Promessa', 'Reserva', 'Rotação', 'Titular']
 
+export interface CounterAsk {
+  salary?: number
+  years?: number
+  role?: ContractOffer['role']
+}
+
+export interface CounterOdds {
+  /** Probabilidades da resposta do clube (somam 1). */
+  accept: number
+  improve: number
+  walk: number
+  /** Teto de salário do clube para esta proposta (acima dele, nunca aceita). */
+  ceiling: number
+  /** Rodadas de negociação que restam (0 = proposta final). */
+  roundsLeft: number
+}
+
 /**
- * Contraproposta. Entradas validadas (salário finito > 0, anos inteiros 1–5, papel conhecido; em
- * empréstimo só o salário) — inválida = ação recusada. O clube tem um TETO de salário (≈ 1,2–1,5× a
- * oferta original, conforme o interesse): acima dele nunca aceita; "melhorar" fica cada vez menos
- * provável quanto maior o pedido (0,4 × (1 − 2·(pedido/oferta − 1))) e nunca passa do teto.
+ * Probabilidades da contraproposta — a MESMA conta usada ao responder (`offer_respond` com
+ * `response: 'counter'`). `null` = pedido inválido (salário não finito/≤ 0, anos fora de 1–5 ou
+ * não inteiros, papel desconhecido, anos em empréstimo) ou proposta inexistente.
+ * Sem rodadas restantes: accept = improve = 0, walk = 0 (o clube só repete que a oferta é final).
  */
-function counter(data: GameData, s: ImmersiveState, o: ContractOffer, c: { salary?: number; years?: number; role?: ContractOffer['role'] }, fx: ImmersiveEffect[]): boolean {
+export function counterOdds(data: GameData | undefined, s: ImmersiveState, o: ContractOffer, c: CounterAsk): CounterOdds | null {
   const m = mem(s)
-  if (c.salary !== undefined && (typeof c.salary !== 'number' || !Number.isFinite(c.salary) || c.salary <= 0)) return false
-  if (c.years !== undefined && (typeof c.years !== 'number' || !Number.isInteger(c.years) || c.years < 1 || c.years > 5)) return false
-  if (c.role !== undefined && !ROLES.includes(c.role)) return false
-  if (o.kind === 'loan' && c.years !== undefined && c.years !== o.years) return false
-  const name = clubOf(data, o.clubId)?.name ?? o.clubId
-  if (o.roundsLeft <= 0) {
-    fx.push({ type: 'toast', tone: 'danger', title: 'Sem margem', description: `${name} disse que a proposta é final.` })
-    return true
-  }
-  const r = irng(s, 'counter', o.id, o.roundsLeft)
-  const str = clubStrength(s.world, data, o.clubId)
+  if (!c || typeof c !== 'object') return null
+  if (c.salary !== undefined && (typeof c.salary !== 'number' || !Number.isFinite(c.salary) || c.salary <= 0)) return null
+  if (c.years !== undefined && (typeof c.years !== 'number' || !Number.isInteger(c.years) || c.years < 1 || c.years > 5)) return null
+  if (c.role !== undefined && !ROLES.includes(c.role)) return null
+  if (o.kind === 'loan' && c.years !== undefined && c.years !== o.years) return null
+  const str = data ? clubStrength(s.world, data, o.clubId) : (s.world.clubs[o.clubId]?.strength ?? 60)
   const interest = clamp(0.55 + (s.ovr - str) * 0.04 + (s.reputation - 30) / 150 + (s.condition.form - 50) / 150 + (o.kind === 'renewal' ? 0.1 : 0), 0.1, 0.95)
   const base = m.offerBase?.[o.id] ?? o.salary
   const ceiling = roundMoney(base * (1.2 + 0.3 * interest))
+  if (o.roundsLeft <= 0) return { accept: 0, improve: 0, walk: 0, ceiling, roundsLeft: 0 }
   const askSalary = roundMoney(Math.max(o.salary, c.salary ?? o.salary))
   const ratio = askSalary / Math.max(1, o.salary)
   const maxYears = Math.min(5, Math.max(o.years, contractYears(s.age) + 1))
@@ -227,10 +240,39 @@ function counter(data: GameData, s: ImmersiveState, o: ContractOffer, c: { salar
   const roleGap = c.role ? Math.max(0, ROLES.indexOf(c.role) - ROLES.indexOf(o.role)) : 0
   let pAccept = clamp(interest * 1.1 - (ratio - 1) * 2.2 - Math.abs(years - o.years) * 0.08 - Math.max(0, years - maxYears) * 0.3 - roleGap * 0.15, 0, 0.95)
   if (askSalary > ceiling) pAccept = 0
-  const pImprove = o.salary >= ceiling ? 0 : 0.4 * Math.max(0, 1 - (ratio - 1) * 2)
+  const pImprove = Math.min(1 - pAccept, o.salary >= ceiling ? 0 : 0.4 * Math.max(0, 1 - (ratio - 1) * 2))
+  const r2 = (v: number) => Math.round(v * 1000) / 1000
+  return { accept: r2(pAccept), improve: r2(pImprove), walk: r2(Math.max(0, 1 - pAccept - pImprove)), ceiling, roundsLeft: o.roundsLeft }
+}
+
+/** Chances da contraproposta para a UI (proposta pelo id). */
+export function acceptChance(s: ImmersiveState, offerId: string, c: CounterAsk, data?: GameData): CounterOdds | null {
+  const o = s.offers.find((x) => x.id === offerId)
+  return o ? counterOdds(data, s, o, c) : null
+}
+
+/**
+ * Contraproposta. Entradas validadas (salário finito > 0, anos inteiros 1–5, papel conhecido; em
+ * empréstimo só o salário) — inválida = ação recusada. O clube tem um TETO de salário (≈ 1,2–1,5× a
+ * oferta original, conforme o interesse): acima dele nunca aceita; "melhorar" fica cada vez menos
+ * provável quanto maior o pedido (0,4 × (1 − 2·(pedido/oferta − 1))) e nunca passa do teto.
+ * Probabilidades: `counterOdds` (exportada como `acceptChance` para a UI).
+ */
+function counter(data: GameData, s: ImmersiveState, o: ContractOffer, c: CounterAsk, fx: ImmersiveEffect[]): boolean {
+  const odds = counterOdds(data, s, o, c)
+  if (!odds) return false
+  const name = clubOf(data, o.clubId)?.name ?? o.clubId
+  if (o.roundsLeft <= 0) {
+    fx.push({ type: 'toast', tone: 'danger', title: 'Sem margem', description: `${name} disse que a proposta é final.` })
+    return true
+  }
+  const r = irng(s, 'counter', o.id, o.roundsLeft)
+  const askSalary = roundMoney(Math.max(o.salary, c.salary ?? o.salary))
+  const maxYears = Math.min(5, Math.max(o.years, contractYears(s.age) + 1))
+  const years = c.years ?? o.years
   const u = r.next()
   o.roundsLeft--
-  if (u < pAccept) {
+  if (u < odds.accept) {
     o.salary = askSalary
     o.years = years
     if (c.role) o.role = c.role
@@ -238,8 +280,8 @@ function counter(data: GameData, s: ImmersiveState, o: ContractOffer, c: { salar
     o.expiresWeek = Math.max(o.expiresWeek, s.week + 2)
     addInbox(s, 'Seu empresário', `${name} aceitou!`, `Fechamos em ${formatMoney(o.salary)}/ano por ${o.years} ${o.years === 1 ? 'ano' : 'anos'}${c.role ? ` como ${c.role.toLowerCase()}` : ''}. É só assinar.`, { offerId: o.id })
     fx.push({ type: 'toast', tone: 'success', title: 'Contraproposta aceita', description: name })
-  } else if (u < pAccept + pImprove) {
-    o.salary = roundMoney(Math.min(ceiling, o.salary + (askSalary - o.salary) * 0.5))
+  } else if (u < odds.accept + odds.improve) {
+    o.salary = roundMoney(Math.min(odds.ceiling, o.salary + (askSalary - o.salary) * 0.5))
     o.years = clamp(Math.round((o.years + Math.min(years, maxYears)) / 2), 1, 5)
     o.note = o.roundsLeft > 0 ? 'O clube melhorou a oferta.' : 'Oferta final do clube.'
     addInbox(s, 'Seu empresário', `${name} melhorou a proposta`, `Subiram para ${formatMoney(o.salary)}/ano (${o.years} ${o.years === 1 ? 'ano' : 'anos'}). ${o.roundsLeft > 0 ? 'Ainda dá para apertar um pouco.' : 'Disseram que é a última oferta.'}`, { offerId: o.id })

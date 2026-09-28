@@ -221,10 +221,10 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
                 <div className="min-w-0 flex-1">
                   <h3 className="ac-item__t">
                     {secret ? 'Conquista secreta' : a.title}
-                    {fresh && <span className="ac-new">Nova</span>}
                   </h3>
                   <p className="ac-item__d">{secret ? 'Continue jogando para descobrir.' : a.description}</p>
                   <div className="ac-item__m">
+                    {fresh && <span className="ac-new">Nova</span>}
                     <span className={cx('ac-rpill', `ac-rpill--${a.rarity}`)}>{r.label}</span>
                     {u?.context && <span className="truncate">{u.context}</span>}
                   </div>

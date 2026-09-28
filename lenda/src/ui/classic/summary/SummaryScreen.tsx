@@ -5,7 +5,7 @@
  *   evolução do OVR por idade · sala de troféus · por clube · seleção · prêmios · Bola de Ouro ano a
  *   ano · comparações com lendas · card para compartilhar (PNG 1080×1350) · Jogar novamente.
  *
- * Source: the current career (`useCareer.state`, summarized by the engine) or a Hall da Fama entry
+ * Source: the current career (`useCareer.state`, summarized by the engine) or a Hall das Lendas entry
  * (`#/resumo?id=<hallId>`). Finished careers are saved to the Hall automatically by the store.
  */
 import { memo, useMemo, type CSSProperties } from 'react'
@@ -97,7 +97,7 @@ export default function SummaryScreen() {
             Começar uma carreira
           </Button>
           <Button variant="ghost" onClick={() => navigate('/hall')}>
-            Hall da Fama
+            Hall das Lendas
           </Button>
         </div>
       </PlaceholderScreen>
@@ -147,7 +147,7 @@ function PlayAgain({ size = 'md', live, finished }: { size?: 'sm' | 'md' | 'lg';
       size={size}
       icon={RotateCcw}
       onClick={async () => {
-        // the finished career is already in the Hall da Fama; clear it only when it is the current one
+        // the finished career is already in the Hall das Lendas; clear it only when it is the current one
         if (live) await abandon()
         navigate(hasActive && !live ? '/carreira' : '/identidade')
       }}
@@ -413,10 +413,10 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
           <h2 id="sm-share-h">Card para compartilhar</h2>
           {saved ? (
             <button type="button" className="sm-saved" onClick={() => navigate('/hall')}>
-              <Landmark aria-hidden="true" /> Salvo no Hall da Fama <ArrowRight aria-hidden="true" />
+              <Landmark aria-hidden="true" /> Salvo no Hall das Lendas <ArrowRight aria-hidden="true" />
             </button>
           ) : (
-            <span className="sm-panel__aside">{finished ? 'Salvando no Hall da Fama…' : 'Vai para o Hall da Fama quando a carreira terminar'}</span>
+            <span className="sm-panel__aside">{finished ? 'Salvando no Hall das Lendas…' : 'Vai para o Hall das Lendas quando a carreira terminar'}</span>
           )}
         </header>
         <SharePanel m={share} compact={!desktop} />
@@ -430,7 +430,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
           </Button>
         )}
         <Button variant="text" size="lg" icon={Users} onClick={() => navigate('/hall')}>
-          Hall da Fama
+          Hall das Lendas
         </Button>
       </footer>
     </div>
@@ -496,7 +496,7 @@ function Records({ career, summary, saved }: { career: SummaryCareer; summary: C
   if (best && best.stats.goals > 0) items.push({ icon: BallIcon as unknown as typeof Star, lead: `${best.stats.goals} gols`, rest: `em ${best.season} · recorde pessoal` })
   if (caps) items.push({ icon: Crown, lead: `Capitão`, rest: `em ${caps} ${caps === 1 ? 'temporada' : 'temporadas'}` })
   if (promos) items.push({ icon: TrophyIcon, lead: `${promos} ${promos === 1 ? 'acesso' : 'acessos'}`, rest: 'de divisão' })
-  if (saved) items.push({ icon: Landmark, lead: 'Hall da Fama', rest: 'LENDA' })
+  if (saved) items.push({ icon: Landmark, lead: 'Salvo', rest: 'no Hall das Lendas' })
   if (!items.length) return null
   return (
     <div className="sm-records">
@@ -637,7 +637,7 @@ function AwardsCard({ summary }: { summary: CareerSummary }) {
 
 function LegendsCard({ summary }: { summary: CareerSummary }) {
   const you = summary.totals.goals
-  const bars = [...LEGENDS.map((l) => ({ name: l.name, goals: l.goals, you: false })), { name: 'Você', goals: you, you: true }].sort((a, b) => b.goals - a.goals)
+  const bars = [...LEGENDS.map((l) => ({ name: l.name, goals: l.goals, approx: l.approx, you: false })), { name: 'Você', goals: you, approx: false, you: true }].sort((a, b) => b.goals - a.goals)
   const max = Math.max(...bars.map((b) => b.goals), 1)
   const at = bars.findIndex((b) => b.you)
   const shown = bars.filter((_, i) => i < 3 || Math.abs(i - at) <= 2 || i === bars.length - 1)
@@ -645,7 +645,7 @@ function LegendsCard({ summary }: { summary: CareerSummary }) {
     <section className="lx-glass sm-panel sm-legends" aria-labelledby="sm-lg-h">
       <header className="sm-panel__h">
         <h2 id="sm-lg-h">Comparação com lendas</h2>
-        <span className="sm-panel__aside">Gols na carreira</span>
+        <span className="sm-panel__aside">Gols oficiais na carreira</span>
       </header>
       <ol className="sm-lg">
         {shown.map((b) => (
@@ -654,7 +654,10 @@ function LegendsCard({ summary }: { summary: CareerSummary }) {
             <span className="sm-lg__bar" aria-hidden="true">
               <i style={{ width: `${Math.max(3, (b.goals / max) * 100)}%` }} />
             </span>
-            <span className="sm-lg__v num">{formatInt(b.goals)}</span>
+            <span className="sm-lg__v num">
+              {b.approx ? '≈' : ''}
+              {formatInt(b.goals)}
+            </span>
           </li>
         ))}
       </ol>

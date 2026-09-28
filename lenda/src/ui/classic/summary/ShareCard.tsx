@@ -294,7 +294,7 @@ export function ShareActions({
       a.click()
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 4000)
-      toast.success('Imagem salva.', file, { action: { label: 'Ver', onClick: () => void viewNow() } })
+      toast.success('Imagem salva.', file, { action: { label: 'Ver imagem', icon: Expand, onClick: () => void viewNow() } })
     })
   const share = () =>
     run('share', async () => {

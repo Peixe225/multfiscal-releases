@@ -19,7 +19,7 @@ import type { AttributeKey, ImmersiveEffect, ImmersiveState } from './types'
 import { mem, type Deltas } from './mem'
 import { addInbox, addNews, applyDeltas } from './media'
 import { joinClub } from './offers'
-import { applyGrowth, convertAttributes, isGK, ovrOf, shiftOvr } from './player'
+import { applyGrowth, attributesFor, convertAttributes, isGK, ovrOf, shiftOvr } from './player'
 import { retireNow } from './season'
 import { shadowCareer } from './shadow'
 import { clamp, clubOf, countryOf, irng, trng } from './util'
@@ -69,8 +69,8 @@ const MINI: MiniDef[] = [
     title: 'Treino extra',
     description: 'O preparador físico propõe sessões extras depois das atividades, a semana toda.',
     options: [
-      { id: 'sim', title: 'Topar', p: 0.75, ok: { form: 4, coach: 3, xp: [] }, bad: { fitness: -15 }, okText: 'Semana puxada, mas você voa no treino.', badText: 'Exagerou: o corpo cobrou.', chips: [['Técnico +', 'positive'], ['Energia −', 'negative']] },
-      { id: 'nao', title: 'Recusar educadamente', p: 1, ok: { fitness: 5 }, okText: 'Você preferiu descansar.', chips: [['Energia +', 'neutral']] },
+      { id: 'sim', title: 'Topar', p: 0.75, ok: { form: 4, coach: 3, fitness: -6, xp: [] }, bad: { fitness: -15 }, okText: 'Semana puxada, mas você voa no treino.', badText: 'Exagerou: o corpo cobrou.', chips: [['Técnico +', 'positive'], ['Energia −', 'negative']] },
+      { id: 'nao', title: 'Recusar educadamente', p: 1, ok: { fitness: 5, coach: -1 }, okText: 'Você preferiu descansar.', chips: [['Energia +', 'positive'], ['Técnico −', 'negative']] },
     ],
   },
   {
@@ -102,8 +102,8 @@ const MINI: MiniDef[] = [
     title: 'Garoto da base',
     description: 'Um jovem da base pede conselhos e quer treinar finalização com você depois das atividades.',
     options: [
-      { id: 'ajudar', title: 'Ajudar', p: 1, ok: { teammates: 4, morale: 2, media: 1 }, okText: 'O garoto não sai do seu lado. Vestiário aprova.', chips: [['Vestiário +', 'positive']] },
-      { id: 'semtempo', title: 'Sem tempo agora', p: 1, ok: { teammates: -1 }, okText: 'Fica para outra hora.', chips: [['Vestiário −', 'negative']] },
+      { id: 'ajudar', title: 'Ajudar', p: 1, ok: { teammates: 3, morale: 1, fitness: -5 }, okText: 'O garoto não sai do seu lado. Vestiário aprova.', chips: [['Vestiário +', 'positive'], ['Energia −', 'negative']] },
+      { id: 'semtempo', title: 'Sem tempo agora', p: 1, ok: { teammates: -1.5, fitness: 3 }, okText: 'Fica para outra hora.', chips: [['Vestiário −', 'negative'], ['Energia +', 'positive']] },
     ],
   },
   {
@@ -132,8 +132,8 @@ const MINI: MiniDef[] = [
     title: 'Visita ao hospital infantil',
     description: 'O clube organiza uma visita a um hospital infantil na folga da semana.',
     options: [
-      { id: 'ir', title: 'Ir', p: 1, ok: { fans: 4, media: 3, morale: 3 }, okText: 'Um dia que você não vai esquecer.', chips: [['Torcida +', 'positive'], ['Moral +', 'positive']] },
-      { id: 'nao', title: 'Não dá desta vez', p: 1, ok: { media: -1, fitness: 4 }, okText: 'Você descansou em casa.', chips: [['Energia +', 'neutral']] },
+      { id: 'ir', title: 'Ir', p: 1, ok: { fans: 3, media: 2, morale: 2, fitness: -6 }, okText: 'Um dia que você não vai esquecer.', chips: [['Torcida +', 'positive'], ['Folga perdida', 'negative']] },
+      { id: 'nao', title: 'Não dá desta vez', p: 1, ok: { media: -2, fitness: 4 }, okText: 'Você descansou em casa.', chips: [['Energia +', 'positive'], ['Mídia −', 'negative']] },
     ],
   },
   {
@@ -142,7 +142,7 @@ const MINI: MiniDef[] = [
     title: 'Conversa com o técnico',
     description: 'O técnico te chama na sala dele para corrigir seu posicionamento com vídeos.',
     options: [
-      { id: 'ouvir', title: 'Ouvir e aplicar', p: 1, ok: { coach: 5, xp: [] }, okText: 'Detalhes que fazem diferença.', chips: [['Técnico +', 'positive'], ['Evolução +', 'positive']] },
+      { id: 'ouvir', title: 'Ouvir e aplicar', p: 0.8, ok: { coach: 4, morale: -1, xp: [] }, bad: { coach: 1, morale: -2 }, okText: 'Detalhes que fazem diferença.', badText: 'Você tentou, mas não pegou o jeito ainda.', chips: [['Técnico +', 'positive'], ['Evolução +?', 'positive'], ['Moral −', 'negative']] },
       { id: 'discordar', title: 'Discordar', p: 0.3, ok: { coach: 2, morale: 2 }, bad: { coach: -7 }, okText: 'Ele gostou da personalidade.', badText: 'O técnico ficou irritado.', chips: [['Técnico −?', 'negative']] },
     ],
   },
@@ -183,8 +183,8 @@ const MINI: MiniDef[] = [
     title: 'Conselho de veterano',
     description: 'O capitão do time se oferece para te ensinar alguns segredos depois do treino.',
     options: [
-      { id: 'aprender', title: 'Aprender', p: 1, ok: { teammates: 2, xp: [] }, okText: 'Você absorve cada detalhe.', chips: [['Evolução +', 'positive']] },
-      { id: 'agradecer', title: 'Agradecer e seguir', p: 1, ok: {}, okText: 'Fica para outro dia.', chips: [['Nada muda', 'neutral']] },
+      { id: 'aprender', title: 'Aprender', p: 1, ok: { teammates: 2, fitness: -5, xp: [] }, okText: 'Você absorve cada detalhe.', chips: [['Evolução +', 'positive'], ['Energia −', 'negative']] },
+      { id: 'agradecer', title: 'Agradecer e seguir', p: 1, ok: { fitness: 2, teammates: -0.5 }, okText: 'Fica para outro dia.', chips: [['Energia +', 'positive']] },
     ],
   },
   {
@@ -194,7 +194,7 @@ const MINI: MiniDef[] = [
     description: 'Um jogador rival te provoca nas redes sociais antes do próximo clássico.',
     options: [
       { id: 'responder', title: 'Responder à altura', p: 0.6, ok: { fans: 4, followers: 4000, media: -2 }, bad: { media: -5, coach: -3 }, okText: 'A torcida foi à loucura.', badText: 'O clube pediu para você apagar o post.', chips: [['Torcida +', 'positive'], ['Mídia −', 'negative']] },
-      { id: 'ignorar', title: 'Ignorar', p: 1, ok: { media: 2 }, okText: 'Resposta dentro de campo.', chips: [['Mídia +', 'positive']] },
+      { id: 'ignorar', title: 'Ignorar', p: 1, ok: { media: 2, fans: -1.5 }, okText: 'Resposta dentro de campo.', chips: [['Mídia +', 'positive'], ['Torcida −', 'negative']] },
     ],
   },
   {
@@ -208,15 +208,82 @@ const MINI: MiniDef[] = [
       { id: 'nao', title: 'Não agora', p: 1, ok: {}, okText: 'Segue a dieta do clube.', chips: [['Nada muda', 'neutral']] },
     ],
   },
+  {
+    key: 'podcast',
+    weight: 2,
+    when: (s) => s.age >= 18,
+    title: 'Convite para podcast',
+    description: 'Um podcast famoso (e polêmico) quer você numa conversa de três horas, sem cortes.',
+    options: [
+      { id: 'ir', title: 'Topar', p: 0.6, ok: { followers: 5000, media: 2, fans: 1 }, bad: { media: -5, coach: -2, followers: 2000 }, okText: 'Episódio viralizou pelo lado bom.', badText: 'Um trecho sobre o técnico virou manchete.', chips: [['Seguidores +', 'positive'], ['Risco de polêmica', 'negative']] },
+      { id: 'recusar', title: 'Recusar', p: 1, ok: { media: -1, coach: 0.5 }, okText: 'Discrição total.', chips: [['Mídia −', 'negative']] },
+    ],
+  },
+  {
+    key: 'clinica',
+    weight: 2,
+    title: 'Clínica para crianças',
+    description: 'Uma escolinha do bairro pede que você passe a folga ensinando a garotada.',
+    options: [
+      { id: 'sim', title: 'Passar a folga lá', p: 1, ok: { fans: 3, morale: 2, fitness: -5 }, okText: 'A garotada não esquece — nem a torcida.', chips: [['Torcida +', 'positive'], ['Folga perdida', 'negative']] },
+      { id: 'nao', title: 'Mandar camisas autografadas', p: 1, ok: { fitness: 3, fans: 0.5, balance: -5_000 }, okText: 'As camisas fizeram sucesso.', chips: [['Energia +', 'positive'], ['−€5K', 'negative']] },
+    ],
+  },
+  {
+    key: 'videogame',
+    weight: 2,
+    when: (s) => s.age <= 30,
+    title: 'Maratona de videogame',
+    description: 'Os amigos marcam uma maratona de videogame online… que costuma ir até de madrugada.',
+    options: [
+      { id: 'jogar', title: 'Entrar na partida', p: 0.6, ok: { morale: 3, followers: 800 }, bad: { fitness: -10, coach: -2 }, okText: 'Diversão sem exagero.', badText: 'Foi até as 4h. O treino cobrou.', chips: [['Moral +', 'positive'], ['Risco: energia', 'negative']] },
+      { id: 'dormir', title: 'Dormir cedo', p: 1, ok: { fitness: 4, morale: -1 }, okText: 'Oito horas de sono, corpo em dia.', chips: [['Energia +', 'positive'], ['Moral −', 'negative']] },
+    ],
+  },
+  {
+    key: 'capitao_cobra',
+    weight: 2,
+    when: (s) => !s.captain,
+    title: 'Cobrança do capitão',
+    description: 'O capitão cobra mais intensidade de você na frente de todo mundo no treino.',
+    options: [
+      { id: 'aceitar', title: 'Aceitar a crítica', p: 1, ok: { teammates: 3, morale: -2, coach: 1 }, okText: 'Você respondeu no treino seguinte.', chips: [['Vestiário +', 'positive'], ['Moral −', 'negative']] },
+      { id: 'responder', title: 'Responder na hora', p: 0.4, ok: { teammates: 2, morale: 2 }, bad: { teammates: -5, coach: -3 }, okText: 'Ganhou respeito: ninguém te cobra mais assim.', badText: 'Bate-boca feio. O técnico separou.', chips: [['Respeito?', 'neutral'], ['Risco: vestiário', 'negative']] },
+    ],
+  },
+  {
+    key: 'jornal_estrangeiro',
+    weight: 1,
+    when: (s) => s.reputation >= 15,
+    title: 'Entrevista a jornal estrangeiro',
+    description: 'Um jornal europeu quer saber do seu futuro — e se você sonha em jogar lá fora.',
+    options: [
+      { id: 'falar', title: 'Falar abertamente', p: 0.7, ok: { media: 3, followers: 2000, reputation: 0.5 }, bad: { fans: -4, coach: -2 }, okText: 'Repercussão ótima: seu nome circula no mercado.', badText: 'A frase sobre "sonhar em sair" irritou a torcida.', chips: [['Vitrine +', 'positive'], ['Risco: torcida', 'negative']] },
+      { id: 'negar', title: 'Desconversar', p: 1, ok: { media: -1, fans: 1 }, okText: 'Foco no clube. A torcida gostou.', chips: [['Torcida +', 'positive'], ['Mídia −', 'negative']] },
+    ],
+  },
+  {
+    key: 'desfalque',
+    weight: 2,
+    title: 'Companheiro lesionado',
+    description: 'Seu concorrente direto se machucou. O técnico pergunta se você aguenta jogar tudo nas próximas semanas.',
+    options: [
+      { id: 'aguento', title: '“Aguento!”', p: 1, ok: { coach: 4, fitness: -10 }, okText: 'O técnico conta com você.', chips: [['Técnico +', 'positive'], ['Energia −', 'negative']] },
+      { id: 'rodizio', title: 'Pedir rodízio', p: 1, ok: { fitness: 5, coach: -2 }, okText: 'Corpo preservado; o técnico ficou com um pé atrás.', chips: [['Energia +', 'positive'], ['Técnico −', 'negative']] },
+    ],
+  },
 ]
 
 function miniDecision(s: ImmersiveState, r: ReturnType<typeof subRng>): Decision | null {
   const m = mem(s)
   const recent = m.recentMini ?? []
-  const pool = MINI.filter((d) => (!d.when || d.when(s)) && !recent.includes(d.key))
+  const seen = (m.miniSeen ??= {})
+  // o mesmo mini-evento no máx. uma vez a cada 2 temporadas (e nunca entre os 6 últimos)
+  const pool = MINI.filter((d) => (!d.when || d.when(s)) && !recent.includes(d.key) && !(seen[d.key] !== undefined && s.season - seen[d.key] < 2))
   if (!pool.length) return null
   const def = r.weighted(pool, (d) => d.weight)
   m.recentMini = [...recent, def.key].slice(-6)
+  seen[def.key] = s.season
   const mini: NonNullable<NonNullable<typeof m.story>['mini']> = {}
   const options: DecisionOption[] = def.options.map((o) => {
     const id = `${def.key}-${o.id}`
@@ -338,7 +405,8 @@ function applyMini(s: ImmersiveState, f: Fx, fx: ImmersiveEffect[]) {
   applyDeltas(s, deltas)
   if (balance) s.finance.balance = Math.max(0, s.finance.balance + (Math.abs(balance) === 1 ? Math.sign(balance) * Math.max(20_000, Math.round(s.finance.salary * 0.15)) : balance))
   if (injuryWeeks) {
-    s.condition.injury = { name: 'Lesão muscular', weeksLeft: injuryWeeks }
+    // uma lesão nova nunca encurta a que já existe
+    if ((s.condition.injury?.weeksLeft ?? 0) < injuryWeeks) s.condition.injury = { name: 'Lesão muscular', weeksLeft: injuryWeeks }
     m.injuries++
   }
   if (xp) {
@@ -363,6 +431,23 @@ function changeOvr(s: ImmersiveState, delta: number, fx: ImmersiveEffect[]) {
 export function applyClassicEffects(data: GameData, s: ImmersiveState, e: EffectSpec, fx: ImmersiveEffect[]): void {
   const m = mem(s)
   const R = s.relationships
+  if (e.newPosition && e.newPosition !== s.identity.position) {
+    // mudança de posição: atributos rebalanceados para o perfil da posição nova MANTENDO o OVR (a
+    // perda prometida pelo evento vem depois, em `e.ovr`)
+    m.retrainedFrom = s.identity.position
+    const before = s.ovr
+    const toGK = e.newPosition === 'GOL'
+    let a = toGK !== isGK(s.identity.position) ? convertAttributes(s.attributes, e.newPosition) : { ...s.attributes }
+    const prof = attributesFor(e.newPosition, before) as unknown as Record<string, number>
+    const cur = a as unknown as Record<string, number>
+    for (const k of Object.keys(prof)) cur[k] = Math.round(((cur[k] ?? prof[k]) + prof[k]) / 2)
+    a = cur as unknown as typeof a
+    shiftOvr(a, e.newPosition, before - ovrOf(a, e.newPosition))
+    s.attributes = a
+    s.identity = { ...s.identity, position: e.newPosition }
+    s.ovr = ovrOf(s.attributes, s.identity.position)
+    if (s.ovr !== before) fx.push({ type: 'ovr_change', from: before, to: s.ovr })
+  }
   if (e.ovr) changeOvr(s, e.ovr, fx)
   if (e.temp) m.tempOvr = { delta: e.temp.delta, untilSeason: s.season + Math.max(0, (e.temp.afterSeasons ?? 1) - 1) }
   if (e.roleOverride) {
@@ -377,7 +462,11 @@ export function applyClassicEffects(data: GameData, s: ImmersiveState, e: Effect
     s.log.push({ season: s.season, age: s.age, type: 'decision', text: 'Suspenso por 15 jogos.' })
   }
   if (e.boost) applyDeltas(s, { teammates: e.boost * 4, coach: e.boost * 2, morale: e.boost * 2 })
-  if (e.priority) m.priority = e.priority
+  if (e.priority) {
+    // vale para a temporada em curso (e a próxima, se o evento vier já na reta final)
+    m.priority = e.priority
+    m.priorityUntil = s.season + (m.clubMatches >= 25 ? 1 : 0)
+  }
   if (e.forceTrophy) applyDeltas(s, { morale: 5 })
   if (e.national) {
     m.nationalFlag = e.national
@@ -405,22 +494,13 @@ export function applyClassicEffects(data: GameData, s: ImmersiveState, e: Effect
   if (e.renewYears) s.finance.contractUntil = s.season + e.renewYears
   if (e.valueMult) m.valueMult *= e.valueMult
   if (e.statsMult) applyDeltas(s, e.statsMult > 1 ? { form: 10, morale: 5 } : { form: -10, morale: -3 })
-  if (e.newPosition && e.newPosition !== s.identity.position) {
-    m.retrainedFrom = s.identity.position
-    const before = s.ovr
-    const toGK = e.newPosition === 'GOL'
-    if (toGK !== isGK(s.identity.position)) s.attributes = convertAttributes(s.attributes, e.newPosition)
-    s.identity = { ...s.identity, position: e.newPosition }
-    s.ovr = ovrOf(s.attributes, s.identity.position)
-    if (s.ovr !== before) fx.push({ type: 'ovr_change', from: before, to: s.ovr })
-  }
   if (e.spotlightOff) {
     m.farFromSpotlight = true
     s.reputation = clamp(s.reputation - 5, 0, 100)
   }
   if (e.injury) {
     const weeks = clamp(Math.abs(e.injury.ovrDelta) * 3 + 2, 2, 30)
-    s.condition.injury = { name: e.injury.name, weeksLeft: weeks, ovrDelta: e.injury.ovrDelta }
+    if ((s.condition.injury?.weeksLeft ?? 0) < weeks) s.condition.injury = { name: e.injury.name, weeksLeft: weeks, ovrDelta: e.injury.ovrDelta }
     changeOvr(s, e.injury.ovrDelta, fx)
     m.seasonInjury = e.injury
     m.injuries++

@@ -182,10 +182,14 @@ export const FOCUS_SHARES: Record<TrainingFocus, { outfield: Partial<Record<Attr
   recovery: { outfield: {}, gk: {} },
 }
 
+/**
+ * Intensidade do treino: leve (pouco ganho, energia), normal, intensa (+70% de ganho — o extra não
+ * sofre com a condição —, mais ritmo e confiança do técnico, mas desgasta e arrisca lesão).
+ */
 export const INTENSITY = {
   leve: { gain: 0.55, fitness: -4, injury: 0.001, sharp: 2 },
-  normal: { gain: 1, fitness: -9, injury: 0.004, sharp: 4 },
-  intensa: { gain: 1.5, fitness: -16, injury: 0.012, sharp: 6 },
+  normal: { gain: 1, fitness: -8, injury: 0.004, sharp: 4 },
+  intensa: { gain: 1.7, fitness: -13, injury: 0.01, sharp: 6 },
 } as const
 
 /** Semanas de treino por temporada (normaliza o ganho semanal). */

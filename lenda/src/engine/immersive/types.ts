@@ -272,6 +272,8 @@ export interface LiveMatch {
   /** Posse de bola/finalizações ao vivo para o placar da TV. */
   team: { possession: [number, number]; shots: [number, number]; onTarget: [number, number] }
   importance: number
+  /** (aditivo) Por que o técnico escalou/deixou no banco/fora (pt-BR), para o pré-jogo. */
+  selectionReason?: string
 }
 
 // ───────────────────────────── mídia, social, caixa de entrada ─────────────────────────────
@@ -424,7 +426,16 @@ export type ImmersiveEffect =
   | { type: 'ovr_change'; from: number; to: number }
   | { type: 'match_event'; event: MatchEvent }
   | { type: 'key_moment'; moment: KeyMoment }
-  | { type: 'moment_result'; success: boolean; text: string; goal?: boolean }
+  | {
+      type: 'moment_result'
+      success: boolean
+      text: string
+      goal?: boolean
+      /** (aditivo) Opção efetivamente resolvida (em pênalti, a do lado escolhido no minijogo). */
+      optionId?: string
+      /** (aditivo) Pênalti: canto da cobrança e do pulo do goleiro (visão da câmera atrás do batedor). */
+      penalty?: { shot: 'left' | 'center' | 'right'; keeper: 'left' | 'center' | 'right' }
+    }
   | { type: 'trophy'; trophy: TrophyWin }
   | { type: 'award'; award: AwardResult }
   | { type: 'transfer'; clubId: string; fee?: number }
@@ -448,4 +459,14 @@ export interface ImmersiveEngine {
   validActions?(state: ImmersiveState): ImmersiveAction['type'][]
   /** Resumo de carreira no formato do Clássico (tela final, Hall das Lendas). */
   summarize?(data: GameData, state: ImmersiveState): import('../types').CareerSummary
+  /**
+   * Chances da contraproposta (mesma conta do `offer_respond` com `response: 'counter'`):
+   * { accept, improve, walk } somam 1; `ceiling` = teto de salário do clube; null = pedido inválido.
+   */
+  acceptChance?(
+    data: GameData,
+    state: ImmersiveState,
+    offerId: string,
+    counter: { salary?: number; years?: number; role?: ContractOffer['role'] },
+  ): { accept: number; improve: number; walk: number; ceiling: number; roundsLeft: number } | null
 }

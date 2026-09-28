@@ -3,7 +3,7 @@
  * Hero with the fanned player cards, mode cards, ritmo, CTAs (Começar / Continuar / Conquistas),
  * "AO VIVO · Líderes de hoje" ticker from the real standings, features and footer.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowRight, Check, Clock3, Layers, Play, Trophy, Tv2 } from 'lucide-react'
 import type { Pace } from '@/engine/types'
@@ -29,7 +29,7 @@ export function LandingNav() {
     ['Modo Clássico', '#/identidade'],
     ['Modo Imersivo', '#/imersivo', true],
     ['Ligas ao vivo', '#/ligas'],
-    ['Hall da Fama', '#/hall'],
+    ['Hall das Lendas', '#/hall'],
   ]
   return (
     <nav aria-label="Principal" className="ld-nav max-lg:hidden">
@@ -66,6 +66,14 @@ export default function LandingScreen() {
   useEffect(() => {
     void peekSavedImmersive().then(setImm).catch(() => {})
   }, [])
+  // só há carreira imersiva salva (nenhuma clássica ativa): a landing já abre no Modo Imersivo, com "Continuar"
+  const careerStatus = useCareer((s) => s.status)
+  const autoMode = useRef(false)
+  useEffect(() => {
+    if (autoMode.current || !imm || imm.retired || query.modo || careerStatus !== 'ready') return
+    autoMode.current = true
+    if (!active) setMode('imersivo')
+  }, [imm, active, careerStatus, query.modo])
 
   // screenshots / deep links: #/?conquistas=1 opens the achievements dialog
   useEffect(() => {
@@ -108,7 +116,12 @@ export default function LandingScreen() {
               Construa sua carreira no <span className="lx-metal-text">futebol.</span>
             </motion.h1>
             <motion.p className="ld-lead" {...rise(rm, 2)}>
-              Escolha sua origem, tome decisões importantes e deixe o destino te levar a uma trajetória única de <b>títulos, Bolas de Ouro e noites de Copa do Mundo</b>.
+              <span className="ld-lead__long">
+                Escolha sua origem, tome decisões importantes e deixe o destino te levar a uma trajetória única de <b>títulos, Bolas de Ouro e noites de Copa do Mundo</b>.
+              </span>
+              <span className="ld-lead__short">
+                Decisões que mudam tudo, rumo a <b>títulos, Bolas de Ouro e noites de Copa</b>.
+              </span>
             </motion.p>
 
             <motion.div className="ld-modes" role="group" aria-label="Modo de jogo" {...rise(rm, 3)}>
@@ -205,6 +218,19 @@ export default function LandingScreen() {
                   </span>
                 </Button>
               )}
+              {mode === 'classico' && imm && !imm.retired && !(state && !state.retired && active) && (
+                <Button variant="ghost" size="xl" className="ld-ctas__continue" onClick={() => navigate('/imersivo')} aria-label={`Continuar carreira imersiva: ${imm.identity.surname}, ${imm.age} anos, OVR ${imm.ovr}`}>
+                  <span className="ld-continue">
+                    <Tv2 size={18} aria-hidden />
+                    <span className="min-w-0">
+                      <span className="ld-continue__t">Continuar · Imersivo</span>
+                      <span className="ld-continue__s">
+                        {imm.identity.surname} · {imm.age} anos · OVR {imm.ovr}
+                      </span>
+                    </span>
+                  </span>
+                </Button>
+              )}
               {mode === 'classico' && state && !state.retired && active && (
                 <Button variant="ghost" size="xl" className="ld-ctas__continue" onClick={() => navigate('/carreira')} aria-label={`Continuar carreira: ${state.identity.surname}, ${state.age} anos, OVR ${state.ovr}`}>
                   <span className="ld-continue">
@@ -271,7 +297,7 @@ export default function LandingScreen() {
           </div>
         }
       >
-        <p className="m-0 text-[13.5px] text-text-2 leading-relaxed">A carreira atual só é substituída quando você confirmar a nova identidade. Carreiras encerradas continuam no Hall da Fama.</p>
+        <p className="m-0 text-[13.5px] text-text-2 leading-relaxed">A carreira atual só é substituída quando você confirmar a nova identidade. Carreiras encerradas continuam no Hall das Lendas.</p>
       </Modal>
     </main>
   )

@@ -7,9 +7,9 @@ import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import type { LiveMatch, MatchEvent } from '@/engine/immersive/types'
 
-export type Speed = 1 | 2 | 0
+export type Speed = 1 | 2 | 4 | 0
 
-export const MS_PER_MIN: Record<Speed, number> = { 1: 380, 2: 150, 0: 0 }
+export const MS_PER_MIN: Record<Speed, number> = { 1: 380, 2: 150, 4: 70, 0: 0 }
 
 interface PB {
   itemId: string | null
@@ -29,9 +29,14 @@ interface PB {
   burst: MatchEvent[]
   /** Pedido de pular o replay (consumido no próximo quadro). */
   skipping: boolean
+  /** Pausa pedida pelo usuário (botão ⏸ da barra / da transmissão). */
+  userPaused: boolean
   setSpeed(s: Speed): void
   /** Pula o replay em andamento (Espaço). */
   skip(): void
+  togglePause(v?: boolean): void
+  /** Pré-jogo: a partida vai começar do zero (replay desde o apito, inclusive "da tribuna"). */
+  prime(itemId: string): void
 }
 
 export const usePlayback = create<PB>()((set) => ({
@@ -45,6 +50,7 @@ export const usePlayback = create<PB>()((set) => ({
   revealSeq: 0,
   burst: [],
   skipping: false,
+  userPaused: false,
   setSpeed: (speed) => {
     set({ speed })
     try {
@@ -54,12 +60,14 @@ export const usePlayback = create<PB>()((set) => ({
     }
   },
   skip: () => set({ hold: 0, skipping: true }),
+  togglePause: (v) => set((st) => ({ userPaused: v ?? !st.userPaused })),
+  prime: (itemId) => set({ itemId, shown: 0, clock: 0, settled: false, hold: 0, last: null, burst: [], skipping: false, userPaused: false }),
 }))
 
 try {
   const raw = localStorage.getItem('lenda:imm:speed')
   const v = raw == null ? NaN : Number(raw)
-  if (v === 1 || v === 2 || v === 0) usePlayback.setState({ speed: v as Speed })
+  if (v === 1 || v === 2 || v === 4 || v === 0) usePlayback.setState({ speed: v as Speed })
 } catch {
   /* ignore */
 }
@@ -79,12 +87,14 @@ export function usePlaybackDriver(live: LiveMatch | null, paused: boolean) {
   const pausedRef = useRef(paused)
   pausedRef.current = paused
 
-  // nova partida → sincroniza sem replay
+  // nova partida → sincroniza sem replay (recarregar no meio do jogo); se o pré-jogo "armou" esta
+  // partida (prime), o replay começa do apito inicial — inclusive quando você assiste da tribuna.
   const itemId = live?.itemId ?? null
   useEffect(() => {
     const l = liveRef.current
     if (!l) return
-    usePlayback.setState({ itemId: l.itemId, shown: l.events.length, clock: targetOf(l), settled: true, hold: 0, last: null, burst: [] })
+    if (usePlayback.getState().itemId === l.itemId) return
+    usePlayback.setState({ itemId: l.itemId, shown: l.events.length, clock: targetOf(l), settled: true, hold: 0, last: null, burst: [], userPaused: false })
   }, [itemId])
 
   useEffect(() => {
@@ -104,7 +114,7 @@ export function usePlaybackDriver(live: LiveMatch | null, paused: boolean) {
         usePlayback.setState({ shown: evs.length })
         return
       }
-      if (pausedRef.current || document.hidden) return
+      if (pausedRef.current || st.userPaused || document.hidden) return
       const instant = st.speed === 0 || st.skipping
       if (instant) {
         if (st.shown < evs.length || st.clock !== target || !st.settled || st.skipping) {
@@ -126,7 +136,7 @@ export function usePlaybackDriver(live: LiveMatch | null, paused: boolean) {
       if (next) {
         const em = next.minute
         if (st.clock + rate >= em || em <= st.clock) {
-          const k = st.speed === 2 ? 0.5 : 1
+          const k = st.speed === 4 ? 0.25 : st.speed === 2 ? 0.5 : 1
           gap = GAP * k
           usePlayback.setState({ shown: st.shown + 1, clock: Math.max(st.clock, Math.min(em, target || em)), last: next, revealSeq: st.revealSeq + 1, burst: [next], hold: (HOLD[next.type] ?? 0) * k, settled: false })
         } else usePlayback.setState({ clock: st.clock + rate, settled: false })

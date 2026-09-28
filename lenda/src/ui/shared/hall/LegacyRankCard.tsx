@@ -7,23 +7,21 @@
 import { useMemo } from 'react'
 import { ArrowRight, Landmark, Quote, Trophy, Zap } from 'lucide-react'
 import type { CareerState } from '@/engine/types'
-import { compareRun, evaluateHall, nextTarget, placeRun } from '@/engine/legacy'
+import { compareRun, nextTarget, placeRun } from '@/engine/legacy'
 import { navigate } from '@/store/app'
-import { useCareer } from '@/store/career'
 import { cx } from '@/ui/primitives'
 import { LegendAvatar, NotaRing } from './parts'
-import { careerToRun, gapText, hallEntryToRun } from './model'
+import { careerToRun, gapText, useHallModel } from './model'
 import './hall.css'
 
 export function LegacyRankCard({ career, className }: { career: CareerState | Omit<CareerState, 'world'>; className?: string }) {
-  const list = useCareer((s) => s.finishedCareers)
+  const hall = useHallModel()
   const finished = !!career.retired || career.phase === 'finished'
+  const inHall = hall.runById.has(career.id)
   const p = useMemo(() => {
-    const inputs = list.map((h) => hallEntryToRun(h))
     // já está no Hall: a mesma avaliação da tela #/hall (posição atual entre todas as runs e lendas)
-    if (list.some((h) => h.id === career.id)) {
-      const hall = evaluateHall(inputs)
-      const run = hall.runs.find((r) => r.id === career.id)!
+    const run = hall.runById.get(career.id)
+    if (run) {
       return {
         run,
         rank: hall.overall.find((r) => r.entry === run)?.rank ?? 0,
@@ -36,10 +34,9 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
       }
     }
     // carreira em andamento (ou ainda não salva): contra tudo o que já está no Hall
-    return placeRun(careerToRun(career), inputs, { finished })
-  }, [list, career, finished])
+    return placeRun(careerToRun(career), hall.runs.map((r) => r.input), { finished })
+  }, [hall, career, finished])
   const { run } = p
-  const inHall = list.some((h) => h.id === career.id)
   return (
     <section className={cx('lx-glass hl-lrc', className)} aria-labelledby="hl-lrc-h">
       <div className="hl-lrc__main">
@@ -63,10 +60,12 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
           <Trophy size={14} aria-hidden />
           <b>{run.historic.length}</b> {run.historic.length === 1 ? 'recorde histórico' : 'recordes históricos'}
         </span>
-        <span>
-          <Zap size={14} aria-hidden />
-          <b>{run.personal.length}</b> {run.personal.length === 1 ? 'recorde das suas runs' : 'recordes das suas runs'}
-        </span>
+        {run.personal.length > 0 && (
+          <span title="Só selo: não entra na nota nem é comparado com as lendas">
+            <Zap size={14} aria-hidden />
+            <b>{run.personal.length}</b> {run.personal.length === 1 ? 'recorde das suas runs' : 'recordes das suas runs'}
+          </span>
+        )}
         {p.next && (
           <span>
             <LegendAvatar legend={p.next.legend} size={18} />

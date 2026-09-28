@@ -1,8 +1,12 @@
 /**
- * Partida ao vivo — pré-jogo (seu status, adversário, estádio) → transmissão: bug de placar com
- * relógio, campo 2D, lances, narração, estatísticas, momentum, lance decisivo com cronômetro,
- * minijogos, controles (próximo lance, velocidade 1×/2×/instantâneo, auto), intervalo e fim de
- * jogo (nota, estatísticas, craque do jogo) → "Voltar à Central".
+ * Partida ao vivo — pré-jogo (seu status, adversário, mando) → transmissão: bug de placar com
+ * relógio, campo 2D, lances, narração, estatísticas, tabela ao vivo, momentum, lance decisivo com
+ * cronômetro (dentro do campo), minijogos, controles numa linha (postura · velocidade · pausa ·
+ * próximo lance), ticker "outros jogos", intervalo e fim de jogo (nota, estatísticas, craque do
+ * jogo) → "Voltar à Central".
+ *
+ * Tudo o que é "seu" (em campo, minutos, nota) segue o relógio EXIBIDO do replay, não o estado
+ * final do motor — o banco só entra quando a substituição aparece na transmissão.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -16,27 +20,33 @@ import {
   Flag as FlagIcon,
   HeartPulse,
   List,
+  LogOut,
   Megaphone,
   MessageSquareText,
+  MoreHorizontal,
   Pause,
   Play,
   Shirt,
   SkipForward,
   Square,
+  Table2,
   Tv,
   Zap,
 } from 'lucide-react'
-import type { KeyMoment, LiveMatch, MatchEvent } from '@/engine/immersive/types'
+import type { KeyMoment, LiveMatch, MatchEvent, UserMatchStats } from '@/engine/immersive/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
-import { BallIcon, Button, Segmented, Tabs, clubVars, cx, useMediaQuery, useReducedMotion } from '@/ui/primitives'
-import { sfx } from '@/ui/shell/sfx'
-import { CompLogo, ImOvr, Kpi, LowerThird, Meter, PanelHead, RatingBadge, SplitStat, TeamMark } from '../bits'
-import { compInfo, fmtRating, isGoal, oppTeam, ratingTone, scoreFrom, teamInfo, userTeam, visibleColor, type TeamInfo } from '../model/view'
+import { getClub } from '@/store/data'
+import { BallIcon, Button, Crest, Tabs, clubVars, cx, useIsTouch, useMediaQuery, useReducedMotion } from '@/ui/primitives'
+import { CompLogo, ImOvr, ImSeg, Kpi, LowerThird, Meter, PanelHead, RatingBadge, SplitStat, TeamMark } from '../bits'
+import { compInfo, fmtRating, isGoal, oppTeam, optionSide, presenceAt, ratingTone, scoreColors, scoreFrom, surnameOf, teamInfo, userTeam, visibleColor, type PitchPresence, type TeamInfo } from '../model/view'
+import { liveStandings, roundGames } from '../model/round'
+import { imSfx, keyBlocked, useFocusTrap } from '../hooks'
 import { Confetti } from '../fx/TrophyCelebration'
 import { KeyMomentPrompt, type MomentChoice } from './KeyMoment'
 import { Pitch } from './Pitch'
 import { ScoreBug } from './ScoreBug'
 import { usePlayback, usePlaybackDriver, useShownEvents, type Speed } from './playback'
+import { LiveTicker } from '../shell/ImTicker'
 
 // ───────────────────────── helpers ─────────────────────────
 
@@ -98,14 +108,20 @@ function shotsFrom(events: MatchEvent[]): { shots: [number, number]; on: [number
   return { shots, on }
 }
 
+/** Nome curto que cabe na faixa do placar (senão a sigla). */
+const fitName = (t: TeamInfo, max = 11) => (t.short.length <= max ? t.short : t.abbr)
+
+/** Jogo grande: final, decisão, mata-mata decisivo — ouro e confete só aqui. */
+const isBigGame = (l: LiveMatch) => l.importance >= 0.8 || (l.knockout && /final/i.test(l.stage ?? ''))
+
 /** Craque do jogo: você (nota ≥ 7,8 sem derrota) ou quem mais decidiu pelo vencedor. */
-function manOfMatch(live: LiveMatch, surname: string): { name: string; team: TeamInfo; you: boolean; note: string } {
+function manOfMatch(live: LiveMatch, surname: string): { name: string; team: TeamInfo; you: boolean; note: string; goals: number } {
   const us = userTeam(live)
   const them = oppTeam(live)
   const usG = live.userSide === 'home' ? live.score[0] : live.score[1]
   const thG = live.userSide === 'home' ? live.score[1] : live.score[0]
   const lost = live.pens ? (live.userSide === 'home' ? live.pens[0] < live.pens[1] : live.pens[1] < live.pens[0]) : usG < thG
-  if (live.stats.minutes > 0 && live.stats.rating >= 7.8 && !lost) return { name: surname, team: teamInfo(us.id, us), you: true, note: `Nota ${fmtRating(live.stats.rating)}` }
+  if (live.stats.minutes > 0 && live.stats.rating >= 7.8 && !lost) return { name: surname, team: teamInfo(us.id, us), you: true, note: `Nota ${fmtRating(live.stats.rating)}`, goals: live.stats.goals }
   const winnerSide: 'home' | 'away' = live.score[0] >= live.score[1] ? 'home' : 'away'
   const tally = new Map<string, number>()
   for (const e of live.events) {
@@ -116,8 +132,39 @@ function manOfMatch(live: LiveMatch, surname: string): { name: string; team: Tea
   }
   const best = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]
   const side = winnerSide === 'home' ? live.home : live.away
-  if (best) return { name: best[0], team: teamInfo(side.id, side), you: false, note: `${Math.floor(best[1] / 3)} gol${Math.floor(best[1] / 3) === 1 ? '' : 's'}` }
-  return { name: side.id === us.id ? surname : 'Goleiro do ' + them.shortName, team: teamInfo(side.id, side), you: side.id === us.id, note: 'Destaque' }
+  if (best) {
+    const g = Math.floor(best[1] / 3)
+    const a = best[1] % 3
+    return { name: best[0], team: teamInfo(side.id, side), you: false, note: [g ? `${g} gol${g === 1 ? '' : 's'}` : '', a ? `${a} assist.` : ''].filter(Boolean).join(' · ') || 'Destaque', goals: g }
+  }
+  return { name: side.id === us.id ? surname : 'Goleiro do ' + them.shortName, team: teamInfo(side.id, side), you: side.id === us.id, note: 'Destaque', goals: 0 }
+}
+
+// ───────────────────────── postura ─────────────────────────
+
+export type Posture = 'ataque' | 'equilibrada' | 'poupar'
+const POSTURE_HINT: Record<Posture, string> = {
+  ataque: 'Pede a bola: no tempo esgotado, a jogada padrão é a que pode virar gol',
+  equilibrada: 'Equilibrada: no tempo esgotado, a jogada mais provável',
+  poupar: 'Poupa energia: jogada mais segura e pede para sair quando cansar',
+}
+const readPosture = (): Posture => {
+  try {
+    const v = localStorage.getItem('lenda:imm:postura')
+    return v === 'ataque' || v === 'poupar' ? v : 'equilibrada'
+  } catch {
+    return 'equilibrada'
+  }
+}
+/** Opção padrão do lance pela postura. */
+function postureDefault(m: KeyMoment, p: Posture): string | undefined {
+  const opts = m.options.slice()
+  if (!opts.length) return undefined
+  if (p === 'ataque') {
+    const goalish = (id: string, label: string) => /shot|chute|finaliz|bater|pen_|gol|cabece|chip|long|cut|direto|left|right|center|dive|stay/i.test(`${id} ${label}`)
+    return opts.sort((a, b) => b.chance * (goalish(b.id, b.label) ? 1.7 : 1) - a.chance * (goalish(a.id, a.label) ? 1.7 : 1))[0].id
+  }
+  return opts.sort((a, b) => b.chance - a.chance)[0].id
 }
 
 // ───────────────────────── pré-jogo ─────────────────────────
@@ -131,6 +178,10 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
   const away = teamInfo(live.away.id, live.away)
   const comp = compInfo(live.competitionId)
   const st = live.userStatus
+  // a transmissão desta partida começa do apito inicial (inclusive assistindo da tribuna)
+  useEffect(() => {
+    usePlayback.getState().prime(live.itemId)
+  }, [live.itemId])
   const statusText = st === 'starter' ? 'Titular' : st === 'bench' ? 'Banco de reservas' : 'Fora da partida'
   const statusSub =
     st === 'starter'
@@ -141,9 +192,9 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
           ? `${s.condition.injury.name}: você acompanha da tribuna.`
           : (s.condition.suspendedMatches ?? 0) > 0
             ? 'Suspenso: você acompanha da tribuna.'
-            : 'Não relacionado pelo técnico: você acompanha da tribuna.'
+            : 'Não relacionado pelo técnico: você acompanha o jogo da tribuna. Treine e ganhe a confiança dele para entrar na lista.'
   const start = (accept?: boolean) => {
-    sfx.play('whistle')
+    imSfx.play('whistle')
     void dispatch({ type: 'match_start', accept })
   }
   return (
@@ -153,7 +204,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
         <div className="lx-club-glow" aria-hidden="true" />
         <div className="im-pre__top">
           <span className="lx-kicker">
-            <span className="lx-live-dot" /> Pré-jogo · {comp.short}
+            <span className="lx-live-dot" /> Pré-jogo · {comp.name}
             {live.stage ? ` · ${live.stage}` : ''}
           </span>
           <CompLogo id={live.competitionId} size={34} />
@@ -174,7 +225,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
         </div>
         <div className="im-pre__meta">
           <span className="lx-chip lx-chip--sm">
-            <Megaphone size={12} aria-hidden="true" /> {home.national ? 'Estádio nacional' : `Casa do ${home.short}`}
+            <Megaphone size={12} aria-hidden="true" /> {home.national ? 'Estádio nacional' : `Mando: ${home.short}`}
           </span>
           <span className="lx-chip lx-chip--sm">{live.knockout ? 'Mata-mata' : 'Pontos corridos'}</span>
           {live.importance >= 0.8 && <span className="lx-chip lx-chip--sm lx-chip--gold">Jogo decisivo</span>}
@@ -186,7 +237,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
           <div className="min-w-0">
             <span className="lx-label">Seu status</span>
             <b className="im-pre__st">{statusText}</b>
-            <p className="lx-t-small m-0">{statusSub}</p>
+            <p className="lx-t-small m-0">{live.selectionReason ?? statusSub}</p>
           </div>
           <div className="im-pre__meters">
             <Meter label="Energia" value={s.condition.fitness} icon={BatteryMedium} />
@@ -200,7 +251,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
             </Button>
           )}
           <Button variant="primary" size="xl" icon={Play} loading={busy} onClick={() => start(true)} autoFocus>
-            {st === 'out' ? 'Assistir à partida' : st === 'bench' ? 'Ir para o banco' : 'Entrar em campo'}
+            {st === 'out' ? 'Assistir da tribuna' : st === 'bench' ? 'Ir para o banco' : 'Entrar em campo'}
           </Button>
         </div>
       </div>
@@ -210,22 +261,47 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
 
 // ───────────────────────── painéis ─────────────────────────
 
+function evDetail(e: MatchEvent, t: TeamInfo, home: TeamInfo, away: TeamInfo, scoreAfter: [number, number]): string {
+  if (isGoal(e)) {
+    const sc = `${home.abbr} ${scoreAfter[0]}–${scoreAfter[1]} ${away.abbr}`
+    return e.assist ? `Assist.: ${e.assist} · ${sc}` : sc
+  }
+  if (e.type === 'sub_on') return `${t.abbr} · entra ${e.player ?? '—'}${e.assist ? `, sai ${e.assist}` : ''}`
+  if (e.type === 'sub_off') return `${t.abbr} · sai ${e.player ?? '—'}${e.assist ? `, entra ${e.assist}` : ''}`
+  if (e.type === 'penalty_miss') return `${t.abbr} · ${e.player ?? 'cobrança'} desperdiça`
+  if (e.type === 'save') return `${t.abbr} · finalização defendida`
+  if (e.type === 'woodwork') return `${t.abbr} · ${e.player ?? 'chute'} carimba a trave`
+  return t.short
+}
+
 const EventsList = memo(function EventsList({ events, home, away }: { events: MatchEvent[]; home: TeamInfo; away: TeamInfo }) {
-  const list = events.filter((e) => KEY_TYPES.has(e.type)).slice().reverse()
+  const rows = useMemo(() => {
+    const sc: [number, number] = [0, 0]
+    const out: { e: MatchEvent; i: number; sc: [number, number] }[] = []
+    events.forEach((e, i) => {
+      if (e.type === 'goal' || e.type === 'penalty_goal') sc[e.side === 'home' ? 0 : 1]++
+      else if (e.type === 'own_goal') sc[e.side === 'home' ? 1 : 0]++
+      if (KEY_TYPES.has(e.type)) out.push({ e, i, sc: [sc[0], sc[1]] })
+    })
+    return out.reverse()
+  }, [events])
   return (
     <ol className="im-evs" aria-live="polite" aria-label="Lances">
-      {list.length === 0 && <li className="lx-t-small im-evs__empty">Nenhum lance importante ainda.</li>}
-      {list.map((e, i) => {
+      {rows.length === 0 && <li className="lx-t-small im-evs__empty">Nenhum lance importante ainda.</li>}
+      {rows.map(({ e, i, sc }, k) => {
         const t = e.side === 'home' ? home : away
         return (
-          <li key={`${e.minute}-${e.type}-${i}-${list.length}`} className={cx('im-ev', i === 0 && 'lx-anim-slide lx-stamp', isGoal(e) && 'is-goal', e.byUser && 'is-me')} style={{ ['--tc' as string]: t.colors.primary } as CSSProperties}>
+          <li key={`ev-${i}`} className={cx('im-ev', k === 0 && 'is-new', isGoal(e) && 'is-goal', e.byUser && 'is-me')} style={{ ['--tc' as string]: t.colors.primary } as CSSProperties}>
             <span className="im-ev__min num">{e.minute}&apos;</span>
             <span className="im-ev__ic">
               <EvIcon e={e} />
             </span>
             <span className="im-ev__txt">
-              <b>{EV_LABEL[e.type]}{e.player ? ` · ${e.player}` : ''}</b>
-              <small>{t.short}{e.assist && isGoal(e) ? ` · assist. ${e.assist}` : ''}</small>
+              <b>
+                {EV_LABEL[e.type]}
+                {e.player && e.type !== 'sub_on' && e.type !== 'sub_off' ? ` · ${e.player}` : ''}
+              </b>
+              <small>{evDetail(e, t, home, away, sc)}</small>
             </span>
           </li>
         )
@@ -235,11 +311,11 @@ const EventsList = memo(function EventsList({ events, home, away }: { events: Ma
 })
 
 const Narration = memo(function Narration({ events }: { events: MatchEvent[] }) {
-  const list = events.slice().reverse()
+  const list = events.map((e, i) => ({ e, i })).reverse()
   return (
     <ol className="im-narr" aria-label="Narração">
-      {list.map((e, i) => (
-        <li key={`${e.minute}-${i}-${list.length}`} className={cx(i === 0 && 'lx-anim-rise', (isGoal(e) || e.byUser) && 'is-strong', isGoal(e) && 'is-goal')}>
+      {list.map(({ e, i }, k) => (
+        <li key={`n-${i}`} className={cx(k === 0 && 'is-new', (isGoal(e) || e.byUser) && 'is-strong', isGoal(e) && 'is-goal')}>
           <span className="im-narr__min num">{e.minute}&apos;</span>
           <span>{e.text}</span>
         </li>
@@ -263,13 +339,10 @@ const StatsPanel = memo(function StatsPanel({ live, events, home, away }: { live
   )
 })
 
-const YouCard = memo(function YouCard({ live, clock, events }: { live: LiveMatch; clock: number; events: MatchEvent[] }) {
+const YouCard = memo(function YouCard({ live, me, stats }: { live: LiveMatch; me: PitchPresence; stats: UserMatchStats }) {
   const s = useImmersive((x) => x.state)!
-  const st = live.stats
   const gk = s.identity.position === 'GOL'
-  const entered = live.userStatus === 'starter' ? 0 : events.find((e) => e.type === 'sub_on' && e.byUser)?.minute ?? clock
-  const mins = live.userOnPitch ? Math.max(0, clock - entered) : st.minutes
-  const status = live.userOnPitch ? 'Em campo' : live.userStatus === 'bench' ? (st.minutes ? 'Substituído' : 'No banco') : live.userStatus === 'out' ? 'Fora' : 'Substituído'
+  const def = s.identity.position === 'ZAG' || s.identity.position === 'VOL'
   return (
     <section className="lx-plate lx-plate--flat lx-c-md im-you" aria-label="Você na partida">
       <div className="im-you__top">
@@ -277,62 +350,124 @@ const YouCard = memo(function YouCard({ live, clock, events }: { live: LiveMatch
         <div className="min-w-0 flex-1">
           <b className="im-you__name">{s.identity.surname}</b>
           <span className="im-you__meta">
-            {s.identity.position} · #{s.squadNumber} · {status}
-            {live.userOnPitch || st.minutes ? ` · ${mins} min` : ''}
+            {s.identity.position} · #{s.squadNumber} · {me.label}
+            {me.played ? ` · ${me.minutes} min` : ''}
           </span>
         </div>
-        <RatingBadge rating={st.rating} live />
+        {me.played ? <RatingBadge rating={stats.rating} live /> : <span className="im-rating is-none" aria-label="Sem nota: não entrou em campo">—</span>}
       </div>
       <div className="im-you__kpis">
         {gk ? (
           <>
-            <Kpi label="Defesas" value={st.saves ?? 0} />
-            <Kpi label="Sofridos" value={st.conceded ?? 0} />
+            <Kpi label="Defesas" value={stats.saves ?? 0} />
+            <Kpi label="Sofridos" value={stats.conceded ?? 0} />
           </>
         ) : (
           <>
-            <Kpi label="Gols" value={st.goals} gold={st.goals > 0} />
-            <Kpi label="Assist." value={st.assists} />
+            <Kpi label="Gols" value={stats.goals} gold={stats.goals > 0} />
+            <Kpi label="Assist." value={stats.assists} />
           </>
         )}
-        <Kpi label={gk ? 'Passes' : 'Finaliz.'} value={gk ? st.keyPasses : `${st.shotsOnTarget}/${st.shots}`} />
-        <Kpi label={gk ? 'Saídas' : s.identity.position === 'ZAG' || s.identity.position === 'VOL' ? 'Desarmes' : 'Dribles'} value={gk ? st.tackles : s.identity.position === 'ZAG' || s.identity.position === 'VOL' ? st.tackles : st.dribbles} />
+        <Kpi label={gk ? 'Passes' : 'Finaliz.'} value={gk ? stats.keyPasses : `${stats.shotsOnTarget}/${stats.shots}`} />
+        <Kpi label={gk ? 'Saídas' : def ? 'Desarmes' : 'Dribles'} value={gk || def ? stats.tackles : stats.dribbles} />
       </div>
       <Meter label="Energia" value={s.condition.fitness} icon={BatteryMedium} />
     </section>
   )
 })
 
-/** Momentum: barras por janela de 3 min (casa ↑, visitante ↓), gols = losangos, minuto atual ciano. */
-const Momentum = memo(function Momentum({ events, clock, home, away, userSide }: { events: MatchEvent[]; clock: number; home: TeamInfo; away: TeamInfo; userSide: 'home' | 'away' }) {
-  const W = { goal: 5, penalty_goal: 5, own_goal: 4, chance: 3, save: 3, woodwork: 3, penalty_miss: 3, key_moment: 2, yellow: 1, red: 2, var: 1 } as Partial<Record<MatchEvent['type'], number>>
-  const buckets = Array.from({ length: 31 }, () => [0, 0])
+/** Momentum: 1 barra por minuto de um sinal contínuo de pressão (posse + lances, suavizado); gols = losangos sem distorção. */
+const Momentum = memo(function Momentum({ live, events, clock, home, away }: { live: LiveMatch; events: MatchEvent[]; clock: number; home: TeamInfo; away: TeamInfo }) {
   const hc = visibleColor(home.colors)
   const ac = visibleColor(away.colors, hc)
-  for (const e of events) {
-    const w = W[e.type]
-    if (!w) continue
-    const b = Math.min(30, Math.floor(e.minute / 3))
-    buckets[b][e.side === 'home' ? 0 : 1] += w
-  }
+  const span = live.phase === 'extra_time' || live.phase === 'penalties' || clock > 92 ? 120 : 90
+  const bars = useMemo(() => {
+    const W: Partial<Record<MatchEvent['type'], number>> = { goal: 1.6, penalty_goal: 1.4, own_goal: 1.1, chance: 1, save: 0.9, woodwork: 1, penalty_miss: 0.9, key_moment: 0.7, yellow: -0.25, red: -0.5, var: 0.3 }
+    const base = (live.team.possession[0] - 50) / 50
+    let seed = 0
+    for (const ch of live.itemId) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0
+    const noise = (m: number) => {
+      const x = Math.sin(seed * 0.001 + m * 12.9898) * 43758.5453
+      return (x - Math.floor(x)) * 2 - 1
+    }
+    const raw: number[] = []
+    const upto = Math.min(span, Math.floor(clock))
+    for (let m = 0; m <= upto; m++) {
+      let v = base * 0.35 + noise(m) * 0.32
+      for (const e of events) {
+        const w = W[e.type]
+        if (!w) continue
+        const d = (m - e.minute) / 2.2
+        if (d < -2.5 || d > 3.5) continue
+        const sideW = e.side === 'home' ? 1 : -1
+        v += sideW * w * Math.exp(-d * d)
+      }
+      raw.push(v)
+    }
+    return raw.map((v, i) => (0.25 * (raw[i - 1] ?? v) + 0.5 * v + 0.25 * (raw[i + 1] ?? v)))
+  }, [events, clock, live.team.possession, live.itemId, span])
+  const goals = events.filter(isGoal)
+  const step = 900 / span
   return (
     <div className="lx-plate lx-plate--flat lx-c-sm im-mom" aria-label="Momentum da partida">
       <span className="lx-label im-mom__l">Momentum</span>
-      <svg viewBox="0 0 930 48" preserveAspectRatio="none" className="im-mom__svg" aria-hidden="true">
-        <line x1="0" x2="930" y1="24" y2="24" stroke="var(--border-strong)" strokeWidth="1" />
-        {buckets.map(([h, a], i) => (
-          <g key={i}>
-            {h > 0 && <rect x={i * 30 + 6} y={24 - Math.min(22, h * 3.4)} width="18" height={Math.min(22, h * 3.4)} fill={hc} opacity=".85" />}
-            {a > 0 && <rect x={i * 30 + 6} y={24} width="18" height={Math.min(22, a * 3.4)} fill={ac} opacity=".85" />}
-          </g>
-        ))}
-        {events.filter(isGoal).map((e, i) => {
+      <div className="im-mom__box">
+        <svg viewBox="0 0 900 48" preserveAspectRatio="none" className="im-mom__svg" aria-hidden="true">
+          <line x1="0" x2="900" y1="24" y2="24" stroke="var(--border-strong)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <line x1={(45 / span) * 900} x2={(45 / span) * 900} y1="4" y2="44" stroke="rgb(160 175 230 / .18)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          {bars.map((v, i) => {
+            const h = Math.min(22, Math.abs(v) * 13 + 1.5)
+            return <rect key={i} x={i * step + step * 0.12} y={v >= 0 ? 24 - h : 24} width={Math.max(1, step * 0.76)} height={h} fill={v >= 0 ? hc : ac} opacity={0.88} />
+          })}
+        </svg>
+        {goals.map((e, i) => {
           const side = e.type === 'own_goal' ? (e.side === 'home' ? 'away' : 'home') : e.side
-          return <rect key={i} x={(e.minute / 90) * 930 - 5} y={side === 'home' ? 2 : 36} width="10" height="10" transform={`rotate(45 ${(e.minute / 90) * 930} ${side === 'home' ? 7 : 41})`} fill={side === userSide ? '#F7C948' : '#F4F6FF'} />
+          return <i key={i} className={cx('im-mom__goal', side === 'home' ? 'is-home' : 'is-away', side === live.userSide && 'is-us')} style={{ left: `${(Math.min(span, e.minute) / span) * 100}%` }} title={`Gol ${e.minute}'`} />
         })}
-        <line x1={(Math.min(90, clock) / 90) * 930} x2={(Math.min(90, clock) / 90) * 930} y1="0" y2="48" stroke="#3BE4FF" strokeWidth="2" />
-      </svg>
+        <i className="im-mom__now" style={{ left: `${(Math.min(span, clock) / span) * 100}%` }} />
+      </div>
     </div>
+  )
+})
+
+/** Tabela ao vivo (liga): 5 linhas em volta do seu clube, com ▲/▼ em relação ao início da rodada. */
+const LiveTable = memo(function LiveTable({ live, clock, score, done }: { live: LiveMatch; clock: number; score: [number, number]; done: boolean }) {
+  const s = useImmersive((x) => x.state)!
+  const engine = useImmersive((x) => x.engine)
+  const data = useImmersive((x) => x.data)
+  const base = useMemo(() => {
+    if (!engine || !data) return []
+    try {
+      return engine.liveTable(data, s)
+    } catch {
+      return []
+    }
+    // a base é a tabela antes da rodada: não muda durante a partida
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, data, live.itemId])
+  const games = useMemo(() => roundGames(s, live), [s, live])
+  const rows = useMemo(() => liveStandings(base, s, live, games, clock, score, done), [base, s, live, games, clock, score, done])
+  const me = rows.findIndex((r) => r.row.clubId === s.clubId)
+  if (me < 0) return <p className="lx-t-small m-0">Jogo fora da liga: a tabela não muda nesta partida.</p>
+  const from = Math.max(0, Math.min(rows.length - 5, me - 2))
+  return (
+    <ol className="im-ltable">
+      {rows.slice(from, from + 5).map((r) => {
+        const c = getClub(r.row.clubId)
+        const mine = r.row.clubId === s.clubId
+        return (
+          <li key={r.row.clubId} className={cx(mine && 'is-me')}>
+            <span className="num im-ltable__pos">{r.pos}</span>
+            <span className={cx('im-ltable__d', r.delta > 0 ? 'is-up' : r.delta < 0 && 'is-down')} aria-label={r.delta ? `${r.delta > 0 ? 'sobe' : 'cai'} ${Math.abs(r.delta)}` : 'mantém'}>
+              {r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : '–'}
+            </span>
+            {c && <Crest club={c} size={18} decorative />}
+            <b className="truncate">{c?.shortName ?? r.row.clubId}</b>
+            <span className="num im-ltable__pts">{r.row.points}</span>
+          </li>
+        )
+      })}
+    </ol>
   )
 })
 
@@ -354,10 +489,60 @@ function useLowerThirds(speed: Speed) {
   const push = useCallback((lt: Omit<Lt, 'id'>) => setList((l) => [...l.slice(-2), { ...lt, id: ++idRef.current }]), [])
   useEffect(() => {
     if (!list.length) return
-    const t = setTimeout(() => setList((l) => l.slice(1)), speed === 2 ? 2000 : 3500)
+    const t = setTimeout(() => setList((l) => l.slice(1)), speed === 4 ? 1400 : speed === 2 ? 2000 : 3500)
     return () => clearTimeout(t)
   }, [list, speed])
   return { current: list[0] ?? null, push }
+}
+
+// ───────────────────────── menu "⋯" dos controles ─────────────────────────
+
+function MoreMenu({ items, label = 'Mais opções' }: { items: { label: string; icon: typeof Zap; onClick: () => void; disabled?: boolean; checked?: boolean; group?: string }[]; label?: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const off = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('pointerdown', off)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('pointerdown', off)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  return (
+    <div className="im-more" ref={ref}>
+      <button type="button" className="lx-icon-btn im-more__btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} onPointerUp={(e) => e.currentTarget.blur()}>
+        <MoreHorizontal aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="im-more__menu" role="menu">
+          {items.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              role={it.checked != null ? 'menuitemradio' : 'menuitem'}
+              aria-checked={it.checked}
+              className={cx('im-more__it', it.checked && 'is-on', it.group && items[i - 1]?.group !== it.group && 'is-sep')}
+              disabled={it.disabled}
+              onClick={() => {
+                setOpen(false)
+                it.onClick()
+              }}
+            >
+              <it.icon size={16} aria-hidden="true" />
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ───────────────────────── partida ─────────────────────────
@@ -375,38 +560,70 @@ function LiveMatchView() {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const rm = useReducedMotion()
+  const touch = useIsTouch()
   const phone = useMediaQuery('(max-width: 44.99rem)')
   const home = useMemo(() => teamInfo(live.home.id, live.home), [live.home])
   const away = useMemo(() => teamInfo(live.away.id, live.away), [live.away])
-  const [auto, setAuto] = useState(() => {
+  const [auto, setAutoState] = useState(() => {
     try {
       return localStorage.getItem('lenda:imm:auto') !== '0'
     } catch {
       return true
     }
   })
+  const setAuto = (v: boolean) => {
+    setAutoState(v)
+    try {
+      localStorage.setItem('lenda:imm:auto', v ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
+  const [posture, setPostureState] = useState<Posture>(readPosture)
+  const setPosture = (p: Posture) => {
+    setPostureState(p)
+    try {
+      localStorage.setItem('lenda:imm:postura', p)
+    } catch {
+      /* ignore */
+    }
+  }
   const [active, setActive] = useState<KeyMoment | null>(null)
   const [mBusy, setMBusy] = useState(false)
   const [stinger, setStinger] = useState<{ id: number; mine: boolean; own: boolean } | null>(null)
-  const [tab, setTab] = useState<'lances' | 'narracao' | 'stats'>('lances')
+  const [tab, setTab] = useState<'lances' | 'narracao' | 'stats' | 'tabela'>('lances')
   const speed = usePlayback((x) => x.speed)
   const setSpeed = usePlayback((x) => x.setSpeed)
   const settled = usePlayback((x) => x.settled)
+  const userPaused = usePlayback((x) => x.userPaused)
   const last = usePlayback((x) => x.last)
   const seq = usePlayback((x) => x.revealSeq)
   const burst = usePlayback((x) => x.burst)
-  const clock = usePlayback((x) => Math.floor(x.clock))
+  const clockF = usePlayback((x) => Math.floor(x.clock * 4) / 4)
+  const clock = Math.floor(clockF)
   const lt = useLowerThirds(speed)
   const paused = !!active || !!stinger
 
   usePlaybackDriver(live, !!active)
   const events = useShownEvents(live)
-  const score = useMemo(() => (settled && live.phase !== 'penalties' ? live.score : scoreFrom(events)), [settled, live.score, live.phase, events])
+  const allShown = events.length === live.events.length
+  const target = live.phase === 'pre' ? 0 : live.minute
+  const atTarget = usePlayback((x) => x.clock >= target - 0.001)
+  // "tudo exibido": sem eventos pendentes e relógio no minuto do motor (evita abrir o lance antes da hora)
+  const done = settled && allShown && atTarget
+  const score = useMemo<[number, number]>(() => (done && live.phase !== 'penalties' ? live.score : scoreFrom(events)), [done, live.score, live.phase, events])
+  const me = useMemo(() => presenceAt(live, events, clockF, done), [live, events, clockF, done])
+
+  // estatísticas "congeladas" enquanto o lance decisivo/minijogo anima (nada de spoiler do resultado)
+  const frozen = useRef<UserMatchStats | null>(null)
+  if (active && !frozen.current) frozen.current = live.stats
+  if (!active && frozen.current) frozen.current = null
+  const stats = frozen.current ?? live.stats
 
   // lance decisivo aparece quando o replay alcança o minuto
   useEffect(() => {
-    if (settled && live.pendingMoment && !active) setActive(live.pendingMoment)
-  }, [settled, live.pendingMoment, active])
+    if (done && live.pendingMoment && !active) setActive(live.pendingMoment)
+  }, [done, live.pendingMoment, active])
   useEffect(() => {
     if (active && !mBusy && live.pendingMoment?.id !== active.id) setActive(null)
   }, [live.pendingMoment, mBusy, active])
@@ -421,22 +638,22 @@ function LiveMatchView() {
         const scorer = e.type === 'own_goal' ? (e.side === 'home' ? 'away' : 'home') : e.side
         const mine = scorer === live.userSide
         setStinger({ id: seq, mine, own: !!e.byUser })
-        sfx.play(mine ? 'goal' : 'miss')
+        imSfx.play(mine ? 'goal' : 'miss')
         lt.push({ k: `${EV_LABEL[e.type]} · ${e.minute}'`, v: `${e.player ?? t.short} · ${(scorer === 'home' ? home : away).short}`, tone: mine ? undefined : 'accent', mark: scorer === 'home' ? home : away })
       } else if (e.type === 'yellow' || e.type === 'red') lt.push({ k: `${EV_LABEL[e.type]} · ${e.minute}'`, v: `${e.player ?? ''} · ${t.short}`, tone: e.type === 'red' ? 'red' : 'yellow', icon: Square })
       else if (e.type === 'sub_on') lt.push({ k: `Substituição · ${e.minute}'`, v: `Entra ${e.player ?? ''}${e.assist ? ` · sai ${e.assist}` : ''}`, tone: 'club', icon: ArrowLeftRight, style: clubVars(t.colors) as CSSProperties })
       else if (e.type === 'injury') lt.push({ k: `Lesão · ${e.minute}'`, v: e.player ?? t.short, tone: 'red', icon: HeartPulse })
       else if (e.type === 'var') lt.push({ k: 'VAR', v: e.text.slice(0, 48), tone: 'accent', icon: Tv })
       else if (e.type === 'half_time') {
-        lt.push({ k: 'Intervalo', v: `${home.short} ${live.score[0]} × ${live.score[1]} ${away.short}`, tone: 'live', icon: FlagIcon })
-        sfx.play('whistle')
-      } else if (e.type === 'full_time') sfx.play('whistle')
+        lt.push({ k: 'Intervalo', v: `${home.abbr} ${scoreFrom(events)[0]} × ${scoreFrom(events)[1]} ${away.abbr}`, tone: 'live', icon: FlagIcon })
+        imSfx.play('whistle')
+      } else if (e.type === 'full_time') imSfx.play('whistle')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seq])
   useEffect(() => {
     if (!stinger) return
-    const t = setTimeout(() => setStinger(null), rm ? 900 : speed === 2 ? 1300 : 2300)
+    const t = setTimeout(() => setStinger(null), rm ? 900 : speed === 4 ? 900 : speed === 2 ? 1300 : 2300)
     return () => clearTimeout(t)
   }, [stinger, rm, speed])
 
@@ -446,43 +663,78 @@ function LiveMatchView() {
   })
 
   const running = live.phase === 'first_half' || live.phase === 'second_half' || live.phase === 'extra_time' || (live.phase === 'penalties' && !live.pendingMoment)
-  const canSim = settled && !busy && !active && !live.pendingMoment && running
+  const canSim = done && !busy && !active && !live.pendingMoment && running
+  const locked = !!active
 
-  // auto: segue até o próximo lance
+  // auto: segue até o próximo lance (a não ser que a transmissão esteja pausada)
   useEffect(() => {
-    if (!auto || !canSim || stinger) return
-    const t = setTimeout(() => void dispatch({ type: 'match_sim' }), speed === 0 ? 80 : 900)
+    if (!auto || userPaused || !canSim || stinger) return
+    const t = setTimeout(() => void dispatch({ type: 'match_sim' }), speed === 0 ? 80 : speed === 4 ? 350 : 900)
     return () => clearTimeout(t)
-  }, [auto, canSim, stinger, speed, dispatch, live.minute, live.events.length])
+  }, [auto, userPaused, canSim, stinger, speed, dispatch, live.minute, live.events.length])
+
+  // postura "poupar energia": pede para sair uma vez quando o gás acaba
+  const subAsked = useRef(false)
+  useEffect(() => {
+    if (posture !== 'poupar' || subAsked.current || !done || !live.userOnPitch || locked || busy) return
+    if (s.condition.fitness < 45 && running) {
+      subAsked.current = true
+      void dispatch({ type: 'match_sub_request' })
+    }
+  }, [posture, done, live.userOnPitch, locked, busy, s.condition.fitness, running, dispatch])
 
   const next = useCallback(() => {
-    if (!settled) {
+    if (locked) return
+    usePlayback.getState().togglePause(false)
+    if (!done) {
       usePlayback.getState().skip()
       return
     }
     if (live.phase === 'half_time') return void dispatch({ type: 'match_sim' })
     if (canSim) void dispatch({ type: 'match_sim' })
-  }, [settled, live.phase, canSim, dispatch])
+  }, [done, live.phase, canSim, dispatch, locked])
+
+  const playPause = useCallback(() => {
+    const st = usePlayback.getState()
+    const nowPaused = !st.userPaused && auto
+    if (nowPaused) {
+      st.togglePause(true)
+      setAuto(false)
+    } else {
+      st.togglePause(false)
+      setAuto(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto])
 
   const simToEnd = useCallback(async () => {
     setSpeed(0)
     setAuto(true)
-    for (let i = 0; i < 30; i++) {
+    usePlayback.getState().togglePause(false)
+    for (let i = 0; i < 40; i++) {
       const l = useImmersive.getState().state?.live
       if (!l || l.phase === 'full_time') break
-      if (l.pendingMoment) {
-        const best = l.pendingMoment.options.slice().sort((a, b) => b.chance - a.chance)[0]
-        await dispatch({ type: 'match_choose', optionId: best.id, minigame: l.pendingMoment.minigame === 'timing' ? { timing: 0.6 } : l.pendingMoment.minigame ? { side: best.id as 'left' } : undefined })
+      const pm = l.pendingMoment
+      if (pm) {
+        const id = postureDefault(pm, posture) ?? pm.options[0].id
+        const idx = Math.max(0, pm.options.findIndex((o) => o.id === id))
+        await dispatch({ type: 'match_choose', optionId: id, minigame: pm.minigame === 'timing' ? { timing: 0.6 } : pm.minigame ? { side: optionSide(id, idx, pm.options.length) } : undefined })
       } else await dispatch({ type: 'match_sim' })
     }
     setActive(null)
-  }, [dispatch, setSpeed])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, setSpeed, posture])
 
-  // teclado: Espaço = próximo lance / pular replay
+  // teclado: Espaço = próximo lance / pular replay (também com o foco num botão dos controles)
+  const rootRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== ' ' || active || e.target instanceof HTMLInputElement || (e.target instanceof HTMLElement && e.target.closest('[role="dialog"]'))) return
-      if (e.target instanceof HTMLButtonElement) return
+      if (e.key !== ' ' || active) return
+      if (keyBlocked(e)) return
+      const t = e.target as HTMLElement | null
+      const inCtrl = !!t?.closest?.('.im-ctrl')
+      if (t instanceof HTMLButtonElement && !inCtrl) return
+      if (t?.getAttribute?.('role') === 'radio' && !inCtrl) return
       e.preventDefault()
       next()
     }
@@ -493,18 +745,23 @@ function LiveMatchView() {
   const choose: MomentChoice = useCallback(async (optionId, minigame) => dispatch({ type: 'match_choose', optionId, minigame }), [dispatch])
   const timeout = useCallback(() => {
     setMBusy(true)
-    void dispatch({ type: 'match_timeout' }).finally(() => setMBusy(false))
-  }, [dispatch])
+    const pm = useImmersive.getState().state?.live?.pendingMoment
+    const id = pm && posture !== 'equilibrada' ? postureDefault(pm, posture) : undefined
+    const idx = pm && id ? pm.options.findIndex((o) => o.id === id) : -1
+    const p = id && pm ? dispatch({ type: 'match_choose', optionId: id, minigame: pm.minigame === 'timing' ? { timing: 0.5 } : pm.minigame ? { side: optionSide(id, idx, pm.options.length) } : undefined }) : dispatch({ type: 'match_timeout' })
+    void p.finally(() => setMBusy(false))
+  }, [dispatch, posture])
 
-  const ft = live.phase === 'full_time' && settled
-  const ht = live.phase === 'half_time' && settled
-  const meLabel = `${s.identity.surname} · ${fmtRating(live.stats.rating)}`
+  const ft = live.phase === 'full_time' && done && !active
+  const ht = live.phase === 'half_time' && done && !active
+  const meLabel = me.played ? `${s.identity.surname} · ${fmtRating(stats.rating)}` : s.identity.surname
   const vars = clubVars(userTeam(live).id === home.id ? home.colors : away.colors) as CSSProperties
+  const keeperTeam = active?.minigame === 'penalty_save' ? (live.userSide === 'home' ? home : away) : live.userSide === 'home' ? away : home
 
   const bug = <ScoreBug live={live} home={home} away={away} score={score} events={events} last={last} seq={seq} />
   const pitch = (
-    <div className="im-field">
-      <Pitch live={live} home={home} away={away} userPos={s.identity.position} userNumber={s.squadNumber} focus={last} focusSeq={seq} moment={active} dim={!!active} meLabel={meLabel} dotScale={phone ? 1.7 : 1} />
+    <div className={cx('im-field', active && 'has-moment')}>
+      <Pitch live={live} home={home} away={away} userPos={s.identity.position} userNumber={s.squadNumber} focus={last} focusSeq={seq} moment={active} dim={!!active} meLabel={meLabel} showMe={me.on} />
       {!phone && <div className="im-field__bug">{bug}</div>}
       <AnimatePresence>
         {lt.current && !active && (
@@ -521,66 +778,85 @@ function LiveMatchView() {
         </div>
       )}
       {stinger?.own && !rm && <Confetti n={46} seed={stinger.id} />}
-      {active && <KeyMomentPrompt key={active.id} live={live} moment={active} onChoose={choose} onTimeout={timeout} onBusy={setMBusy} />}
-      {ht && <HalfTime live={live} home={home} away={away} events={events} onNext={next} busy={busy} />}
+      {!phone && active && <KeyMomentPrompt key={active.id} live={live} moment={active} defaultId={postureDefault(active, posture)} keeperTeam={keeperTeam} onChoose={choose} onTimeout={timeout} onBusy={setMBusy} />}
+      {me.label === 'Tribuna' && !active && !ft && <span className="im-field__tag">Você assiste da tribuna</span>}
+      {ht && <HalfTime live={live} home={home} away={away} events={events} me={me} stats={stats} onNext={next} busy={busy} />}
     </div>
   )
 
+  const togglePlay = (
+    <button type="button" className={cx('lx-icon-btn im-play', !(auto && !userPaused) && 'is-paused')} aria-pressed={!(auto && !userPaused)} aria-label={auto && !userPaused ? 'Pausar a transmissão' : 'Continuar a transmissão'} title={auto && !userPaused ? 'Pausar' : 'Continuar'} onClick={playPause} onPointerUp={(e) => e.currentTarget.blur()} disabled={locked}>
+      {auto && !userPaused ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+    </button>
+  )
+  const moreItems = [
+    ...(phone
+      ? (['ataque', 'equilibrada', 'poupar'] as Posture[]).map((p) => ({ label: p === 'ataque' ? 'Postura: pedir a bola' : p === 'poupar' ? 'Postura: poupar energia' : 'Postura: equilibrada', icon: Activity, checked: posture === p, group: 'p', onClick: () => setPosture(p) }))
+      : []),
+    { label: 'Simular até o fim', icon: SkipForward, group: 'a', onClick: () => void simToEnd(), disabled: busy || live.phase === 'full_time' || locked },
+    ...(me.on && live.phase !== 'full_time' && live.phase !== 'penalties' ? [{ label: 'Pedir para sair', icon: LogOut, group: 'a', onClick: () => void dispatch({ type: 'match_sub_request' }), disabled: busy || locked }] : []),
+  ]
   const controls = (
-    <div className={cx('lx-plate lx-plate--flat lx-c-sm im-ctrl', phone && 'is-dock')}>
-      <div className="im-ctrl__grp max-sm:hidden">
-        <span className="lx-label">Velocidade</span>
-        <Segmented<'1' | '2' | '0'>
-          size="sm"
-          value={String(speed) as '1' | '2' | '0'}
-          onChange={(v) => setSpeed(Number(v) as Speed)}
-          aria-label="Velocidade da transmissão"
-          options={[
-            { value: '1', label: '1×' },
-            { value: '2', label: '2×' },
-            { value: '0', label: 'Instantâneo', icon: FastForward },
-          ]}
-        />
-      </div>
-      <button
-        type="button"
-        className={cx('im-auto lx-focus-inset', auto && 'is-on')}
-        aria-pressed={auto}
-        onClick={() => {
-          setAuto(!auto)
-          try {
-            localStorage.setItem('lenda:imm:auto', auto ? '0' : '1')
-          } catch {
-            /* ignore */
-          }
-        }}
-        title="Seguir automaticamente até o próximo lance"
-      >
-        {auto ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
-        {auto ? 'Auto' : 'Pausado'}
-      </button>
-      {phone && (
-        <button type="button" className="im-auto lx-focus-inset" onClick={() => setSpeed(speed === 1 ? 2 : speed === 2 ? 0 : 1)} aria-label="Trocar velocidade">
+    <div className={cx('lx-plate lx-plate--flat lx-c-sm im-ctrl', phone && 'is-dock', locked && 'is-locked', ht && 'is-ht')} aria-disabled={locked || undefined}>
+      {!phone && (
+        <div className="im-ctrl__grp" title={POSTURE_HINT[posture]}>
+          <span className="lx-label">Postura</span>
+          <ImSeg<Posture>
+            size="xs"
+            label="Postura em campo"
+            value={posture}
+            onChange={setPosture}
+            disabled={locked}
+            options={[
+              { value: 'ataque', label: 'Pedir a bola', hint: POSTURE_HINT.ataque },
+              { value: 'equilibrada', label: 'Equilibrada', hint: POSTURE_HINT.equilibrada },
+              { value: 'poupar', label: 'Poupar', hint: POSTURE_HINT.poupar },
+            ]}
+          />
+        </div>
+      )}
+      {!phone ? (
+        <div className="im-ctrl__grp">
+          <span className="lx-label">Velocidade</span>
+          <ImSeg<'1' | '2' | '4' | '0'>
+            size="xs"
+            label="Velocidade da transmissão"
+            value={String(speed) as '1' | '2' | '4' | '0'}
+            onChange={(v) => setSpeed(Number(v) as Speed)}
+            disabled={locked}
+            options={[
+              { value: '1', label: '1×' },
+              { value: '2', label: '2×' },
+              { value: '4', label: '4×' },
+              { value: '0', label: '', icon: FastForward, hint: 'Instantâneo' },
+            ]}
+          />
+        </div>
+      ) : (
+        <button type="button" className="im-auto lx-focus-inset" onClick={() => setSpeed(speed === 1 ? 2 : speed === 2 ? 4 : speed === 4 ? 0 : 1)} aria-label={`Velocidade: ${speed === 0 ? 'instantânea' : `${speed}×`}`} disabled={locked}>
           <FastForward size={14} aria-hidden="true" /> {speed === 0 ? 'Inst.' : `${speed}×`}
         </button>
       )}
+      {togglePlay}
       <span className="flex-1" />
-      {live.userOnPitch && live.phase !== 'full_time' && s.condition.fitness < 55 && (
-        <Button variant="ghost" size="sm" onClick={() => void dispatch({ type: 'match_sub_request' })} className="max-sm:hidden">
-          Pedir para sair
+      <MoreMenu items={moreItems} />
+      {!ht && (
+        <Button variant="outline" size="sm" iconRight={ArrowRight} onClick={next} onPointerUp={(e) => e.currentTarget.blur()} disabled={locked || live.phase === 'full_time' || (done && !canSim && live.phase !== 'half_time')} kbd={touch ? undefined : 'Espaço'} className="im-ctrl__next">
+          {!done ? 'Pular' : 'Próx. lance'}
         </Button>
       )}
-      <Button variant="ghost" size="sm" icon={SkipForward} onClick={() => void simToEnd()} disabled={busy || live.phase === 'full_time'} className="max-sm:hidden">
-        Simular até o fim
-      </Button>
-      <Button variant="primary" size="sm" iconRight={ArrowRight} onClick={next} disabled={!!active || live.phase === 'full_time' || (settled && !canSim && live.phase !== 'half_time')} kbd="Espaço">
-        {!settled ? 'Pular' : live.phase === 'half_time' ? '2º tempo' : 'Próx. lance'}
-      </Button>
     </div>
   )
 
+  const tabs = [
+    { value: 'lances' as const, label: 'Lances', icon: List },
+    { value: 'narracao' as const, label: 'Narração', icon: MessageSquareText },
+    { value: 'stats' as const, label: 'Números', icon: Activity },
+    { value: 'tabela' as const, label: 'Tabela', icon: Table2 },
+  ]
+
   return (
-    <main id="conteudo" tabIndex={-1} className={cx('im-match outline-none', phone && 'is-phone')} style={vars}>
+    <main ref={rootRef} id="conteudo" tabIndex={-1} className={cx('im-match outline-none', phone && 'is-phone', active && 'has-moment')} style={vars}>
       {phone && <div className="im-match__bugbar">{bug}</div>}
       <div className="im-match__grid">
         <aside className="im-match__l max-lg:hidden">
@@ -595,38 +871,41 @@ function LiveMatchView() {
         </aside>
         <div className="im-match__c">
           {pitch}
-          <Momentum events={events} clock={clock} home={home} away={away} userSide={live.userSide} />
+          {phone && active && <KeyMomentPrompt key={active.id} live={live} moment={active} defaultId={postureDefault(active, posture)} keeperTeam={keeperTeam} onChoose={choose} onTimeout={timeout} onBusy={setMBusy} />}
+          <Momentum live={live} events={events} clock={clockF} home={home} away={away} />
           {!phone && controls}
           {phone && (
             <div className="im-match__tabs">
-              <Tabs
-                value={tab}
-                onChange={setTab}
-                idPrefix="im-mt"
-                variant="underline"
-                aria-label="Painéis da partida"
-                tabs={[
-                  { value: 'lances', label: 'Lances', icon: List },
-                  { value: 'narracao', label: 'Narração', icon: MessageSquareText },
-                  { value: 'stats', label: 'Números', icon: Activity },
-                ]}
-              />
+              <Tabs value={tab} onChange={setTab} idPrefix="im-mt" variant="underline" aria-label="Painéis da partida" tabs={tabs} />
               <div className="im-match__tabp">
-                {tab === 'lances' ? <EventsList events={events} home={home} away={away} /> : tab === 'narracao' ? <Narration events={events} /> : <StatsPanel live={live} events={events} home={home} away={away} />}
+                {tab === 'lances' ? (
+                  <EventsList events={events} home={home} away={away} />
+                ) : tab === 'narracao' ? (
+                  <Narration events={events} />
+                ) : tab === 'stats' ? (
+                  <StatsPanel live={live} events={events} home={home} away={away} />
+                ) : (
+                  <LiveTable live={live} clock={clockF} score={score} done={done && live.phase === 'full_time'} />
+                )}
               </div>
-              <YouCard live={live} clock={clock} events={events} />
+              <YouCard live={live} me={me} stats={stats} />
             </div>
           )}
         </div>
         <aside className="im-match__r max-lg:hidden">
-          <YouCard live={live} clock={clock} events={events} />
+          <YouCard live={live} me={me} stats={stats} />
           <section className="lx-plate lx-plate--flat lx-c-md im-panel is-fill">
             <PanelHead kicker="Narração" icon={MessageSquareText} />
             <Narration events={events} />
           </section>
+          <section className="lx-plate lx-plate--flat lx-c-md im-panel im-ltable-panel">
+            <PanelHead kicker="Tabela ao vivo" icon={Table2} />
+            <LiveTable live={live} clock={clockF} score={score} done={done && live.phase === 'full_time'} />
+          </section>
         </aside>
       </div>
-      {phone && controls}
+      {phone && !active && controls}
+      {!phone && <LiveTicker live={live} clock={clockF} done={done && live.phase === 'full_time'} />}
       {ft && <FullTime live={live} home={home} away={away} />}
       {paused && <span className="sr-only">Transmissão pausada</span>}
     </main>
@@ -635,22 +914,31 @@ function LiveMatchView() {
 
 // ───────────────────────── intervalo ─────────────────────────
 
-function HalfTime({ live, home, away, events, onNext, busy }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; events: MatchEvent[]; onNext: () => void; busy: boolean }) {
+function HalfTime({ live, home, away, events, me, stats, onNext, busy }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; events: MatchEvent[]; me: PitchPresence; stats: UserMatchStats; onNext: () => void; busy: boolean }) {
   const rm = useReducedMotion()
+  const touch = useIsTouch()
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref)
   return (
-    <motion.div className="im-ht" initial={rm ? { opacity: 0 } : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} role="dialog" aria-labelledby="im-ht-t">
+    <motion.div ref={ref} tabIndex={-1} className="im-ht outline-none" initial={rm ? { opacity: 0 } : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} role="dialog" aria-modal="true" aria-labelledby="im-ht-t">
       <div className="lx-plate lx-plate--glass lx-c-lg im-ht__card">
         <i className="lx-hl-top" aria-hidden="true" />
         <span className="lx-kicker lx-kicker--gold" id="im-ht-t">
           Intervalo
         </span>
-        <ScorePlate live={live} home={home} away={away} />
+        <ScorePlate live={live} home={home} away={away} score={scoreFrom(events)} />
         <StatsPanel live={live} events={events} home={home} away={away} />
         <div className="im-ht__you">
-          <span className="lx-label">Sua nota no 1º tempo</span>
-          <RatingBadge rating={live.stats.rating} />
+          {me.played ? (
+            <>
+              <span className="lx-label">Sua nota no 1º tempo</span>
+              <RatingBadge rating={stats.rating} />
+            </>
+          ) : (
+            <span className="lx-label">{me.label === 'Tribuna' ? 'Você acompanha da tribuna' : 'Você segue no banco · aquecendo para o 2º tempo'}</span>
+          )}
         </div>
-        <Button variant="primary" size="lg" icon={Play} onClick={onNext} loading={busy} autoFocus kbd="Espaço" block>
+        <Button variant="primary" size="lg" icon={Play} onClick={onNext} loading={busy} kbd={touch ? undefined : 'Espaço'} block>
           Começar o 2º tempo
         </Button>
       </div>
@@ -658,19 +946,24 @@ function HalfTime({ live, home, away, events, onNext, busy }: { live: LiveMatch;
   )
 }
 
-function ScorePlate({ live, home, away }: { live: LiveMatch; home: TeamInfo; away: TeamInfo }) {
+function ScorePlate({ live, home, away, score }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; score?: [number, number] }) {
+  const sc = score ?? live.score
   return (
     <div className="lx-score im-scoreplate">
-      <div className="lx-score__tm is-home" style={clubVars(home.colors) as CSSProperties}>
-        <span className="truncate">{home.short}</span>
+      <div className="lx-score__tm is-home" style={scoreColors(home.colors) as CSSProperties}>
+        <span className="truncate" title={home.name}>
+          {fitName(home)}
+        </span>
         <TeamMark team={home} size={34} />
       </div>
       <div className="lx-score__res num">
-        {live.score[0]} × {live.score[1]}
+        {sc[0]} × {sc[1]}
       </div>
-      <div className="lx-score__tm is-away" style={clubVars(away.colors) as CSSProperties}>
+      <div className="lx-score__tm is-away" style={scoreColors(away.colors) as CSSProperties}>
         <TeamMark team={away} size={34} />
-        <span className="truncate">{away.short}</span>
+        <span className="truncate" title={away.name}>
+          {fitName(away)}
+        </span>
       </div>
     </div>
   )
@@ -683,28 +976,33 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const rm = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref)
   const st = live.stats
   const played = st.minutes > 0
-  const motm = manOfMatch(live, s.identity.surname)
+  const motm = manOfMatch(live, surnameOf(s))
   const us = live.userSide === 'home' ? live.score[0] : live.score[1]
   const them = live.userSide === 'home' ? live.score[1] : live.score[0]
   const won = live.pens ? (live.userSide === 'home' ? live.pens[0] > live.pens[1] : live.pens[1] > live.pens[0]) : us > them
   const lost = live.pens ? !won : us < them
+  const glory = won && isBigGame(live)
   const goals = live.events.filter(isGoal)
   const gk = s.identity.position === 'GOL'
   const back = () => void dispatch({ type: 'match_finish' })
   useEffect(() => {
-    sfx.play(won ? 'trophy' : 'whistle')
-  }, [won])
+    imSfx.play(glory ? 'trophy' : 'whistle')
+  }, [glory])
   return (
-    <div className="im-ft" role="dialog" aria-modal="true" aria-labelledby="im-ft-t">
-      {won && !rm && <Confetti n={40} seed={us * 7 + them} />}
+    <div ref={ref} tabIndex={-1} className="im-ft outline-none" role="dialog" aria-modal="true" aria-labelledby="im-ft-t">
+      {glory && !rm && <Confetti n={40} seed={us * 7 + them} />}
       <motion.div className="im-ft__inner" initial={rm ? { opacity: 0 } : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
-        <span className="lx-kicker lx-kicker--gold" id="im-ft-t">
-          Fim de jogo · {compInfo(live.competitionId).short}
+        <span className="lx-kicker lx-kicker--gold">
+          Fim de jogo · {compInfo(live.competitionId).name}
           {live.stage ? ` · ${live.stage}` : ''}
         </span>
-        <h1 className={cx('im-ft__res', won ? 'is-win' : lost ? 'is-loss' : 'is-draw')}>{won ? 'Vitória!' : lost ? 'Derrota' : 'Empate'}</h1>
+        <h1 id="im-ft-t" className={cx('im-ft__res', glory ? 'is-glory' : won ? 'is-win' : lost ? 'is-loss' : 'is-draw')}>
+          {won ? 'Vitória!' : lost ? 'Derrota' : 'Empate'}
+        </h1>
         <ScorePlate live={live} home={home} away={away} />
         {live.pens && (
           <p className="im-ft__pens num">
@@ -734,6 +1032,8 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
                     <>
                       <Kpi label="Defesas" value={st.saves ?? 0} />
                       <Kpi label="Sofridos" value={st.conceded ?? 0} />
+                      <Kpi label="Passes" value={st.keyPasses} />
+                      <Kpi label="Saídas" value={st.tackles} />
                     </>
                   ) : (
                     <>
@@ -741,13 +1041,13 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
                       <Kpi label="Assist." value={st.assists} />
                       <Kpi label="Finaliz." value={`${st.shotsOnTarget}/${st.shots}`} />
                       <Kpi label="Dribles" value={st.dribbles} />
+                      <Kpi label="Desarmes" value={st.tackles} />
                     </>
                   )}
-                  <Kpi label="Desarmes" value={st.tackles} />
                 </div>
               </>
             ) : (
-              <p className="lx-t-body m-0 mt-2">Você não entrou em campo desta vez.</p>
+              <p className="lx-t-body m-0 mt-2">{live.userStatus === 'out' ? 'Você acompanhou da tribuna. Treine forte e conquiste o técnico para ser relacionado.' : 'Você ficou no banco e não entrou em campo desta vez.'}</p>
             )}
           </section>
           <section className={cx('lx-plate lx-c-md im-ft__motm', motm.you && 'lx-plate--gold')}>
@@ -755,12 +1055,16 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
               <Crown size={12} aria-hidden="true" /> Craque do jogo
             </span>
             <div className="im-ft__motm-b">
-              <TeamMark team={motm.team} size={44} />
+              <span className="im-ft__motm-art" style={clubVars(motm.team.colors) as CSSProperties}>
+                <Shirt size={40} aria-hidden="true" />
+                <TeamMark team={motm.team} size={26} className="im-ft__motm-crest" />
+              </span>
               <div className="min-w-0">
                 <b>{motm.name}</b>
-                <small>
-                  {motm.team.short} · {motm.note}
-                </small>
+                <small>{motm.team.short}</small>
+                <span className="im-ft__motm-note">
+                  {motm.you ? <RatingBadge rating={st.rating} size="sm" /> : motm.goals ? <span className="lx-chip lx-chip--sm lx-chip--gold">{motm.note}</span> : <span className="lx-chip lx-chip--sm">{motm.note}</span>}
+                </span>
               </div>
             </div>
           </section>
@@ -770,7 +1074,7 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
           </section>
         </div>
         <div className="im-ft__cta">
-          <Button variant="primary" size="xl" iconRight={ArrowRight} onClick={back} loading={busy} autoFocus>
+          <Button variant="primary" size="xl" iconRight={ArrowRight} onClick={back} loading={busy}>
             Voltar à Central
           </Button>
         </div>
@@ -778,4 +1082,3 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
     </div>
   )
 }
-

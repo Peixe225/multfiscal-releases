@@ -120,8 +120,14 @@ export function SplitStat({ label, home, away, homeColor, awayColor, pct }: { la
         <b className="num">{away}{pct ? '%' : ''}</b>
       </div>
       <div className="im-split__bar" aria-hidden="true">
-        <i style={{ width: `${(home / total) * 100}%`, background: homeColor }} />
-        <i style={{ width: `${(away / total) * 100}%`, background: awayColor }} />
+        {home + away > 0 ? (
+          <>
+            <i style={{ width: `${(home / total) * 100}%`, background: homeColor }} />
+            <i style={{ width: `${(away / total) * 100}%`, background: awayColor }} />
+          </>
+        ) : (
+          <i className="is-empty" />
+        )}
       </div>
     </div>
   )
@@ -167,6 +173,59 @@ export function ImOvrS({ ovr, className, title }: { ovr: number; className?: str
   return (
     <span className={cx('lx-ovr-s', className)} data-tier={tierOf(ovr)} title={title ?? `OVR ${ovr}`}>
       {ovr}
+    </span>
+  )
+}
+
+/** Segmentado compacto (radiogroup) no desenho .lx-seg — alvos de toque ≥ 40 px no tamanho "touch". */
+export function ImSeg<T extends string>({ value, onChange, options, label, size = 'sm', className, disabled }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; icon?: LucideIcon; hint?: string; disabled?: boolean }[]; label: string; size?: 'xs' | 'sm' | 'touch'; className?: string; disabled?: boolean }) {
+  const move = (dir: number) => {
+    const list = options.filter((o) => !o.disabled)
+    const i = list.findIndex((o) => o.value === value)
+    const n = list[(i + dir + list.length) % list.length]
+    if (n) onChange(n.value)
+  }
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cx('lx-seg im-seg', `is-${size}`, className)}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') (e.preventDefault(), move(1))
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') (e.preventDefault(), move(-1))
+      }}
+    >
+      {options.map((o) => {
+        const on = o.value === value
+        const Ico = o.icon
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            disabled={disabled || o.disabled}
+            title={o.hint}
+            aria-label={typeof o.label === 'string' ? undefined : o.hint}
+            onClick={() => onChange(o.value)}
+            onPointerUp={(e) => e.currentTarget.blur()}
+          >
+            {Ico && <Ico size={14} aria-hidden="true" />}
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Título de diálogo no sistema da Transmissão: kicker + título 800 itálico em caixa-alta. */
+export function ImDlgTitle({ kicker, children }: { kicker?: ReactNode; children: ReactNode }) {
+  return (
+    <span className="im-dlgt">
+      {kicker && <span className="lx-kicker im-dlgt__k">{kicker}</span>}
+      <span className="lx-t-sec im-dlgt__t">{children}</span>
     </span>
   )
 }

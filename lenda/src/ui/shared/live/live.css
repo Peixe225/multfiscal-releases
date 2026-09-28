@@ -10,8 +10,8 @@
 /* league chips */
 .lv-chips-wrap { position: relative; margin: 0 -16px 14px; display: flex; align-items: flex-start; gap: 8px; }
 @media (min-width: 36rem) { .lv-chips-wrap { margin: 0 0 14px; } }
-.lv-chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 4px 16px 8px; scroll-snap-type: x proximity; scrollbar-width: none; mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 40px), transparent); }
-@media (min-width: 36rem) { .lv-chips { padding: 4px 28px 8px 2px; } }
+.lv-chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 4px 16px 8px; padding-inline: 16px; scroll-padding-inline: 16px; scroll-snap-type: x proximity; scrollbar-width: none; mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 40px), transparent); }
+@media (min-width: 36rem) { .lv-chips { padding: 4px 28px 8px 2px; scroll-padding-inline: 2px 28px; } }
 .lv-chips::-webkit-scrollbar { display: none; }
 .lv-chip { flex: none; scroll-snap-align: start; height: 38px; padding: 0 12px 0 6px; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2), border-color var(--dur-2), transform var(--dur-2) var(--ease-out); }
 .lv-chip:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }

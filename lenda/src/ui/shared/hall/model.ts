@@ -44,6 +44,17 @@ export function useHallModel(): HallModel {
   }, [list, leagues])
 }
 
+/**
+ * Título honorífico da run no Hall. O superlativo do Resumo ("O melhor de todos os tempos") só
+ * aparece para o nº 1 geral — senão contradiz o ranking logo ao lado (ex.: 7º de 52).
+ */
+export function runHeadline(h: HallEntry | undefined, run: RunLegacy, rank: number): string {
+  const hl = h?.summary.headline
+  if (!hl) return run.tier.label
+  if (/melhor de todos os tempos/i.test(hl) && rank !== 1) return run.values.ballonDor >= 5 ? 'Colecionador de Bolas de Ouro' : run.tier.label
+  return hl
+}
+
 /** "2004–" / "1956–1977". */
 export const yearsLabel = (y: [number, number | null]) => `${y[0]}–${y[1] ?? ''}`
 

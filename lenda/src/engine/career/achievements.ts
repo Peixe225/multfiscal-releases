@@ -48,7 +48,7 @@ const DEFS: AchievementDef[] = [
     title: 'Senhor das Américas',
     description: 'Ganhe a Copa América pela seleção e a Libertadores por um clube na mesma carreira.',
     icon: 'crown',
-    rarity: 'epica',
+    rarity: 'rara',
     check: (c) => count(c, (t) => t.kind === 'national_continental' && t.confed === 'CONMEBOL') > 0 && lib(c) > 0,
   },
   {
@@ -76,7 +76,7 @@ const DEFS: AchievementDef[] = [
       return BIG_FIVE.every((k) => won.has(k))
     },
   },
-  { id: 'mr_champions', title: 'Mr. Champions', description: 'Levante a Champions League cinco vezes.', icon: 'star', rarity: 'lendaria', check: (c) => ucl(c) >= 5 },
+  { id: 'mr_champions', title: 'Mr. Champions', description: 'Levante a Champions League cinco vezes.', icon: 'star', rarity: 'epica', check: (c) => ucl(c) >= 5 },
   {
     id: 'goat',
     title: 'GOAT',
@@ -95,14 +95,14 @@ const DEFS: AchievementDef[] = [
     hidden: true,
     check: (c) => worldCups(c) >= 3 && c.goals > 1000,
   },
-  { id: 'black_spider', title: 'Aranha Negra', description: 'Ganhe seis vezes o prêmio de melhor goleiro do ano.', icon: 'hand', rarity: 'lendaria', check: (c) => c.wins('golden_glove') >= 6 },
-  { id: 'net_terror', title: 'Terror das redes', description: 'Ganhe seis Chuteiras de Ouro.', icon: 'flame', rarity: 'lendaria', check: (c) => c.wins('golden_boot') >= 6 },
+  { id: 'black_spider', title: 'Aranha Negra', description: 'Ganhe seis vezes o prêmio de melhor goleiro do ano.', icon: 'hand', rarity: 'epica', check: (c) => c.wins('golden_glove') >= 6 },
+  { id: 'net_terror', title: 'Terror das redes', description: 'Ganhe seis Chuteiras de Ouro.', icon: 'flame', rarity: 'epica', check: (c) => c.wins('golden_boot') >= 6 },
   {
     id: 'complete_football',
     title: 'Futebol completo',
     description: 'Copa do Mundo, Copa América ou Euro, Libertadores, Champions, liga + copa na América do Sul e na Europa, Bola de Ouro e Chuteira de Ouro.',
     icon: 'gem',
-    rarity: 'lendaria',
+    rarity: 'epica',
     check: (c) =>
       worldCups(c) >= 1 &&
       count(c, (t) => t.kind === 'national_continental' && (t.confed === 'CONMEBOL' || t.confed === 'UEFA')) > 0 &&
@@ -127,7 +127,7 @@ const DEFS: AchievementDef[] = [
     title: 'Herói nacional',
     description: 'Ganhe a Copa do Mundo com uma seleção que nunca tinha sido campeã.',
     icon: 'flag',
-    rarity: 'lendaria',
+    rarity: 'epica',
     check: (c) => c.seasons.some((r) => r.trophies.some((t) => t.kind === 'world_cup' && !WC_WINNERS.has(t.teamId))),
   },
   {
@@ -143,7 +143,7 @@ const DEFS: AchievementDef[] = [
     title: 'Da periferia ao topo',
     description: 'Ganhe a Bola de Ouro defendendo uma seleção da África, Ásia, Oceania ou América do Norte/Central.',
     icon: 'sunrise',
-    rarity: 'lendaria',
+    rarity: 'epica',
     check: (c) =>
       c.seasons.some((r) => r.awards.some((a) => a.award === 'ballon_dor' && a.place === 1) && PERIPHERY.has(natConfed(c, r))),
   },
@@ -152,10 +152,10 @@ const DEFS: AchievementDef[] = [
     title: 'De Ushuaia a Darién',
     description: 'Jogue em clubes de dez países diferentes da América do Sul.',
     icon: 'mountain',
-    rarity: 'lendaria',
+    rarity: 'epica',
     check: (c) => new Set(c.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country)).size >= 10,
   },
-  { id: 'nomad', title: 'Nômade', description: 'Jogue em clubes das seis confederações.', icon: 'compass', rarity: 'lendaria', check: (c) => new Set(c.seasons.map((r) => r.confed).filter(Boolean)).size >= 6 },
+  { id: 'nomad', title: 'Nômade', description: 'Jogue em clubes das seis confederações.', icon: 'compass', rarity: 'epica', check: (c) => new Set(c.seasons.map((r) => r.confed).filter(Boolean)).size >= 6 },
   {
     id: 'from_the_bottom',
     title: 'Lá de baixo',
@@ -183,34 +183,34 @@ const DEFS: AchievementDef[] = [
     title: 'Tríplice coroa',
     description: 'Ganhe liga, copa nacional e o torneio continental na mesma temporada.',
     icon: 'layers',
-    rarity: 'epica',
+    rarity: 'rara',
     check: (c) => sameSeason(c, ['league', 'domestic_cup', 'continental_primary']),
   },
   { id: 'baldosero', title: 'Mochileiro', description: 'Jogue por 24 clubes diferentes (só dá no ritmo Intensa, um clube por temporada).', icon: 'backpack', rarity: 'lendaria', check: (c) => clubsOf(c).size >= 24 },
 
   // ─────────────── LENDA (30) ───────────────
   { id: 'first_title', title: 'Primeira taça', description: 'Conquiste o seu primeiro título.', icon: 'trophy', rarity: 'comum', check: (c) => c.trophies.length >= 1 },
-  { id: 'ballon_dor', title: 'Bola de Ouro', description: 'Seja eleito o melhor jogador do mundo.', icon: 'circle-dot', rarity: 'epica', check: (c) => c.wins('ballon_dor') >= 1 },
-  { id: 'ballon_tri', title: 'Tri da Bola de Ouro', description: 'Ganhe três Bolas de Ouro.', icon: 'circle-dot', rarity: 'lendaria', check: (c) => c.wins('ballon_dor') >= 3 },
+  { id: 'ballon_dor', title: 'Bola de Ouro', description: 'Seja eleito o melhor jogador do mundo.', icon: 'circle-dot', rarity: 'rara', check: (c) => c.wins('ballon_dor') >= 1 },
+  { id: 'ballon_tri', title: 'Tri da Bola de Ouro', description: 'Ganhe três Bolas de Ouro.', icon: 'circle-dot', rarity: 'epica', check: (c) => c.wins('ballon_dor') >= 3 },
   {
     id: 'hexa',
     title: 'É hexa!',
     description: 'Dê ao Brasil a sexta Copa do Mundo.',
     icon: 'star',
-    rarity: 'lendaria',
+    rarity: 'rara',
     check: (c) => c.trophies.some((t) => t.kind === 'world_cup' && t.teamId === 'BRA'),
   },
-  { id: 'world_champion', title: 'Campeão do mundo', description: 'Ganhe uma Copa do Mundo.', icon: 'globe', rarity: 'epica', check: (c) => worldCups(c) >= 1 },
-  { id: 'tri_libertadores', title: 'Rei da América', description: 'Ganhe três Libertadores.', icon: 'crown', rarity: 'lendaria', check: (c) => lib(c) >= 3 },
+  { id: 'world_champion', title: 'Campeão do mundo', description: 'Ganhe uma Copa do Mundo.', icon: 'globe', rarity: 'rara', check: (c) => worldCups(c) >= 1 },
+  { id: 'tri_libertadores', title: 'Rei da América', description: 'Ganhe três Libertadores.', icon: 'crown', rarity: 'epica', check: (c) => lib(c) >= 3 },
   { id: 'libertadores', title: 'Glória eterna', description: 'Ganhe a Libertadores.', icon: 'trophy', rarity: 'rara', check: (c) => lib(c) >= 1 },
-  { id: 'orelhuda', title: 'Orelhuda', description: 'Ganhe a Champions League.', icon: 'trophy', rarity: 'epica', check: (c) => ucl(c) >= 1 },
-  { id: 'golden_boot', title: 'Chuteira de Ouro', description: 'Seja o maior artilheiro da Europa numa temporada.', icon: 'footprints', rarity: 'epica', check: (c) => c.wins('golden_boot') >= 1 },
-  { id: 'league_top_scorer', title: 'Artilheiro da liga', description: 'Termine uma temporada como artilheiro do campeonato.', icon: 'target', rarity: 'rara', check: (c) => c.wins('league_top_scorer') >= 1 },
+  { id: 'orelhuda', title: 'Orelhuda', description: 'Ganhe a Champions League.', icon: 'trophy', rarity: 'rara', check: (c) => ucl(c) >= 1 },
+  { id: 'golden_boot', title: 'Chuteira de Ouro', description: 'Seja o maior artilheiro da Europa numa temporada.', icon: 'footprints', rarity: 'rara', check: (c) => c.wins('golden_boot') >= 1 },
+  { id: 'league_top_scorer', title: 'Artilheiro da liga', description: 'Termine uma temporada como artilheiro do campeonato.', icon: 'target', rarity: 'comum', check: (c) => c.wins('league_top_scorer') >= 1 },
   { id: 'goals_300', title: '300 gols', description: 'Marque 300 gols na carreira (clube + seleção).', icon: 'goal', rarity: 'rara', check: (c) => c.goals >= 300 },
   { id: 'goals_500', title: '500 gols', description: 'Marque 500 gols na carreira.', icon: 'goal', rarity: 'epica', check: (c) => c.goals >= 500 },
-  { id: 'goals_800', title: '800 gols', description: 'Marque 800 gols na carreira.', icon: 'goal', rarity: 'lendaria', check: (c) => c.goals >= 800 },
+  { id: 'goals_800', title: '800 gols', description: 'Marque 800 gols na carreira.', icon: 'goal', rarity: 'epica', check: (c) => c.goals >= 800 },
   { id: 'apps_500', title: '500 jogos', description: 'Chegue a 500 jogos na carreira (clube + seleção).', icon: 'calendar', rarity: 'comum', check: (c) => c.apps >= 500 },
-  { id: 'apps_1000', title: 'Mil jogos', description: 'Chegue a 1.000 jogos na carreira.', icon: 'infinity', rarity: 'lendaria', check: (c) => c.apps >= 1000 },
+  { id: 'apps_1000', title: 'Mil jogos', description: 'Chegue a 1.000 jogos na carreira.', icon: 'infinity', rarity: 'rara', check: (c) => c.apps >= 1000 },
   {
     id: 'promotion_to_title',
     title: 'Do acesso ao título',
@@ -228,7 +228,7 @@ const DEFS: AchievementDef[] = [
     rarity: 'comum',
     check: (c) => c.finished && c.seasons.length >= 18 && !c.seasons.some((r) => r.relegated),
   },
-  { id: 'globetrotter', title: 'Globetrotter', description: 'Jogue em clubes de cinco países diferentes.', icon: 'plane', rarity: 'rara', check: (c) => new Set(c.seasons.map((r) => r.country).filter(Boolean)).size >= 5 },
+  { id: 'globetrotter', title: 'Globetrotter', description: 'Jogue em clubes de cinco países diferentes.', icon: 'plane', rarity: 'comum', check: (c) => new Set(c.seasons.map((r) => r.country).filter(Boolean)).size >= 5 },
   {
     id: 'one_club_only',
     title: 'Um clube só',
@@ -237,7 +237,7 @@ const DEFS: AchievementDef[] = [
     rarity: 'epica',
     check: (c) => c.finished && c.seasons.length >= 20 && c.seasons.every((r) => r.clubId === c.seasons[0].clubId && !r.loan),
   },
-  { id: 'club_world_champion', title: 'Campeão mundial de clubes', description: 'Ganhe o Mundial de Clubes.', icon: 'globe-2', rarity: 'epica', check: (c) => count(c, kind('club_world_cup')) >= 1 },
+  { id: 'club_world_champion', title: 'Campeão mundial de clubes', description: 'Ganhe o Mundial de Clubes.', icon: 'globe-2', rarity: 'rara', check: (c) => count(c, kind('club_world_cup')) >= 1 },
   { id: 'playmaker', title: 'Garçom', description: 'Dê 150 assistências na carreira.', icon: 'hand-helping', rarity: 'rara', check: (c) => c.assists >= 150 },
   {
     id: 'wall',
@@ -247,7 +247,7 @@ const DEFS: AchievementDef[] = [
     rarity: 'epica',
     check: (c) => c.cleanSheets >= 250,
   },
-  { id: 'legend_90', title: 'Lenda 90+', description: 'Alcance OVR 90.', icon: 'sparkles', rarity: 'epica', check: (c) => peak(c) >= 90 },
+  { id: 'legend_90', title: 'Lenda 90+', description: 'Alcance OVR 90.', icon: 'sparkles', rarity: 'rara', check: (c) => peak(c) >= 90 },
   { id: 'perfection', title: 'Perfeição', description: 'Alcance OVR 99.', icon: 'gem', rarity: 'lendaria', hidden: true, check: (c) => peak(c) >= 99 },
   {
     id: 'idol',
@@ -261,9 +261,9 @@ const DEFS: AchievementDef[] = [
       return Math.max(0, ...n.values()) >= 10
     },
   },
-  { id: 'continental_national', title: 'Campeão continental', description: 'Ganhe o torneio continental de seleções (Copa América, Euro…).', icon: 'medal', rarity: 'epica', check: (c) => count(c, kind('national_continental')) >= 1 },
+  { id: 'continental_national', title: 'Campeão continental', description: 'Ganhe o torneio continental de seleções (Copa América, Euro…).', icon: 'medal', rarity: 'rara', check: (c) => count(c, kind('national_continental')) >= 1 },
   { id: 'kopa', title: 'Revelação', description: 'Ganhe o Troféu Kopa de melhor jogador sub-21.', icon: 'baby', rarity: 'rara', check: (c) => c.wins('kopa') >= 1 },
-  { id: 'the_best', title: 'The Best', description: 'Ganhe o prêmio The Best da FIFA.', icon: 'award', rarity: 'epica', check: (c) => c.wins('the_best') >= 1 },
+  { id: 'the_best', title: 'The Best', description: 'Ganhe o prêmio The Best da FIFA.', icon: 'award', rarity: 'rara', check: (c) => c.wins('the_best') >= 1 },
   {
     id: 'captain_champion',
     title: 'Capitão campeão',
@@ -273,55 +273,55 @@ const DEFS: AchievementDef[] = [
     check: (c) => c.seasons.some((r) => r.captain && r.trophies.some((t) => t.kind === 'league' && (t.tier ?? r.tier) === 1)),
   },
   { id: 'puskas', title: 'Golaço', description: 'Ganhe o Prêmio Puskás de gol mais bonito do ano.', icon: 'zap', rarity: 'rara', check: (c) => c.wins('puskas') >= 1 },
-  { id: 'wc_golden_ball', title: 'Craque da Copa', description: 'Seja eleito o melhor jogador de uma Copa do Mundo.', icon: 'circle-dot', rarity: 'lendaria', check: (c) => c.wins('wc_golden_ball') >= 1 },
+  { id: 'wc_golden_ball', title: 'Craque da Copa', description: 'Seja eleito o melhor jogador de uma Copa do Mundo.', icon: 'circle-dot', rarity: 'rara', check: (c) => c.wins('wc_golden_ball') >= 1 },
   // ─────────────── Hall das Lendas: conquistas em níveis por categoria ───────────────
   // Bolas de Ouro (1 e 3 acima: ballon_dor, ballon_tri)
-  { id: 'ballon_5', title: 'Penta da Bola de Ouro', description: 'Ganhe cinco Bolas de Ouro, como Cristiano Ronaldo.', icon: 'circle-dot', rarity: 'lendaria', check: (c) => c.wins('ballon_dor') >= 5 },
-  { id: 'ballon_8', title: 'Oito, como Messi', description: 'Ganhe oito Bolas de Ouro e iguale o recorde de Messi.', icon: 'circle-dot', rarity: 'lendaria', check: (c) => c.wins('ballon_dor') >= 8 },
+  { id: 'ballon_5', title: 'Penta da Bola de Ouro', description: 'Ganhe cinco Bolas de Ouro, como Cristiano Ronaldo.', icon: 'circle-dot', rarity: 'epica', check: (c) => c.wins('ballon_dor') >= 5 },
+  { id: 'ballon_8', title: 'Oito, como Messi', description: 'Ganhe oito Bolas de Ouro e iguale o recorde de Messi.', icon: 'circle-dot', rarity: 'epica', check: (c) => c.wins('ballon_dor') >= 8 },
   { id: 'ballon_9', title: 'Além de Messi', description: 'Ganhe nove Bolas de Ouro ou mais: um recorde que nenhum ser humano tem.', icon: 'crown', rarity: 'lendaria', hidden: true, check: (c) => c.wins('ballon_dor') >= 9 },
   // Copas do Mundo (1 acima: world_champion)
-  { id: 'world_cup_2', title: 'Bicampeão do mundo', description: 'Ganhe duas Copas do Mundo, como Ronaldo Fenômeno e Cafu.', icon: 'globe', rarity: 'lendaria', check: (c) => worldCups(c) >= 2 },
-  { id: 'world_cup_3', title: 'Tri, como Pelé', description: 'Ganhe três Copas do Mundo e iguale o Rei.', icon: 'crown', rarity: 'lendaria', check: (c) => worldCups(c) >= 3 },
+  { id: 'world_cup_2', title: 'Bicampeão do mundo', description: 'Ganhe duas Copas do Mundo, como Ronaldo Fenômeno e Cafu.', icon: 'globe', rarity: 'epica', check: (c) => worldCups(c) >= 2 },
+  { id: 'world_cup_3', title: 'Tri, como Pelé', description: 'Ganhe três Copas do Mundo e iguale o Rei.', icon: 'crown', rarity: 'epica', check: (c) => worldCups(c) >= 3 },
   { id: 'world_cup_4', title: 'Além do Rei', description: 'Ganhe quatro Copas do Mundo: mais que Pelé.', icon: 'crown', rarity: 'lendaria', hidden: true, check: (c) => worldCups(c) >= 4 },
   // Chuteiras de Ouro (1 e 6 acima: golden_boot, net_terror)
-  { id: 'golden_boot_3', title: 'Tri da Chuteira de Ouro', description: 'Seja o maior artilheiro da Europa em três temporadas.', icon: 'footprints', rarity: 'lendaria', check: (c) => c.wins('golden_boot') >= 3 },
+  { id: 'golden_boot_3', title: 'Tri da Chuteira de Ouro', description: 'Seja o maior artilheiro da Europa em três temporadas.', icon: 'footprints', rarity: 'epica', check: (c) => c.wins('golden_boot') >= 3 },
   { id: 'golden_boot_7', title: 'Mais que Messi na Chuteira', description: 'Ganhe sete Chuteiras de Ouro ou mais.', icon: 'flame', rarity: 'lendaria', hidden: true, check: (c) => c.wins('golden_boot') >= 7 },
   // Champions (1 e 5 acima: orelhuda, mr_champions)
-  { id: 'ucl_3', title: 'Tri da Champions', description: 'Levante a Champions League três vezes.', icon: 'star', rarity: 'lendaria', check: (c) => ucl(c) >= 3 },
+  { id: 'ucl_3', title: 'Tri da Champions', description: 'Levante a Champions League três vezes.', icon: 'star', rarity: 'epica', check: (c) => ucl(c) >= 3 },
   { id: 'ucl_7', title: 'Sete orelhudas', description: 'Ganhe sete Champions: mais que Gento, Modrić, Kroos, Carvajal e Nacho.', icon: 'star', rarity: 'lendaria', hidden: true, check: (c) => ucl(c) >= 7 },
   // Libertadores (1 e 3 acima: libertadores, tri_libertadores)
-  { id: 'libertadores_5', title: 'Penta da América', description: 'Ganhe cinco Libertadores.', icon: 'crown', rarity: 'lendaria', check: (c) => lib(c) >= 5 },
+  { id: 'libertadores_5', title: 'Penta da América', description: 'Ganhe cinco Libertadores.', icon: 'crown', rarity: 'epica', check: (c) => lib(c) >= 5 },
   { id: 'libertadores_7', title: 'Maior que Francisco Sá', description: 'Ganhe sete Libertadores e passe o recordista histórico (6).', icon: 'crown', rarity: 'lendaria', hidden: true, check: (c) => lib(c) >= 7 },
   // Títulos nacionais (primeira divisão)
   { id: 'league_titles_5', title: 'Pentacampeão nacional', description: 'Ganhe cinco campeonatos nacionais de primeira divisão.', icon: 'medal', rarity: 'rara', check: (c) => topLeagues(c) >= 5 },
   { id: 'league_titles_10', title: 'Dez ligas', description: 'Ganhe dez campeonatos nacionais de primeira divisão.', icon: 'medal', rarity: 'epica', check: (c) => topLeagues(c) >= 10 },
-  { id: 'league_titles_20', title: 'Colecionador de ligas', description: 'Ganhe vinte campeonatos nacionais de primeira divisão.', icon: 'medal', rarity: 'lendaria', check: (c) => topLeagues(c) >= 20 },
+  { id: 'league_titles_20', title: 'Colecionador de ligas', description: 'Ganhe vinte campeonatos nacionais de primeira divisão.', icon: 'medal', rarity: 'epica', check: (c) => topLeagues(c) >= 20 },
   // Clubes (um clube só: one_club_only)
   { id: 'clubs_3', title: 'Três camisas', description: 'Jogue por três clubes diferentes.', icon: 'shirt', rarity: 'comum', check: (c) => clubsOf(c).size >= 3 },
-  { id: 'clubs_6', title: 'Rodado', description: 'Jogue por seis clubes diferentes.', icon: 'plane', rarity: 'rara', check: (c) => clubsOf(c).size >= 6 },
-  { id: 'clubs_10', title: 'Dez escudos', description: 'Jogue por dez clubes diferentes.', icon: 'backpack', rarity: 'epica', check: (c) => clubsOf(c).size >= 10 },
+  { id: 'clubs_6', title: 'Rodado', description: 'Jogue por seis clubes diferentes.', icon: 'plane', rarity: 'comum', check: (c) => clubsOf(c).size >= 6 },
+  { id: 'clubs_10', title: 'Dez escudos', description: 'Jogue por dez clubes diferentes.', icon: 'backpack', rarity: 'rara', check: (c) => clubsOf(c).size >= 10 },
   // Gols (300/500/800 acima)
   { id: 'goals_100', title: '100 gols', description: 'Marque 100 gols na carreira (clube + seleção).', icon: 'goal', rarity: 'comum', check: (c) => c.goals >= 100 },
-  { id: 'goals_1000', title: 'O milésimo', description: 'Marque 1.000 gols na carreira.', icon: 'goal', rarity: 'lendaria', check: (c) => c.goals >= 1000 },
+  { id: 'goals_1000', title: 'O milésimo', description: 'Marque 1.000 gols na carreira.', icon: 'goal', rarity: 'epica', check: (c) => c.goals >= 1000 },
   { id: 'goals_1300', title: 'Fora da curva', description: 'Marque 1.300 gols na carreira.', icon: 'flame', rarity: 'lendaria', hidden: true, check: (c) => c.goals >= 1300 },
   // Assistências (150 acima: playmaker)
   { id: 'assists_100', title: '100 assistências', description: 'Dê 100 assistências na carreira.', icon: 'hand-helping', rarity: 'comum', check: (c) => c.assists >= 100 },
   { id: 'assists_250', title: 'Maestro', description: 'Dê 250 assistências na carreira.', icon: 'hand-helping', rarity: 'epica', check: (c) => c.assists >= 250 },
-  { id: 'assists_400', title: 'Garçom da história', description: 'Dê 400 assistências na carreira, a marca de Messi.', icon: 'hand-helping', rarity: 'lendaria', check: (c) => c.assists >= 400 },
+  { id: 'assists_400', title: 'Garçom da história', description: 'Dê 400 assistências na carreira, a marca de Messi.', icon: 'hand-helping', rarity: 'epica', check: (c) => c.assists >= 400 },
   // Média de gols (ao fim da carreira, com 300 jogos ou mais)
   { id: 'gpg_05', title: 'Meio gol por jogo', description: 'Encerre a carreira com 300 jogos ou mais e média de 0,5 gol por jogo.', icon: 'target', rarity: 'rara', check: (c) => gpgAtEnd(c) >= 0.5 },
   { id: 'gpg_07', title: 'Matador', description: 'Encerre a carreira com 300 jogos ou mais e média de 0,7 gol por jogo.', icon: 'target', rarity: 'epica', check: (c) => gpgAtEnd(c) >= 0.7 },
   { id: 'gpg_09', title: 'Máquina de gols', description: 'Encerre a carreira com 300 jogos ou mais e média de 0,9 gol por jogo, nível Pelé.', icon: 'target', rarity: 'lendaria', check: (c) => gpgAtEnd(c) >= 0.9 },
   // Recordes históricos (contra o futebol real)
   { id: 'records_1', title: 'Recordista', description: 'Quebre um recorde histórico do futebol real (Bolas de Ouro, gols, Libertadores…).', icon: 'zap', rarity: 'epica', check: (c) => c.legacy().historic.length >= 1 },
-  { id: 'records_5', title: 'Livro dos recordes', description: 'Quebre cinco recordes históricos do futebol real.', icon: 'zap', rarity: 'lendaria', check: (c) => c.legacy().historic.length >= 5 },
+  { id: 'records_5', title: 'Livro dos recordes', description: 'Quebre cinco recordes históricos do futebol real.', icon: 'zap', rarity: 'epica', check: (c) => c.legacy().historic.length >= 5 },
   { id: 'records_10', title: 'Reescreveu a história', description: 'Quebre dez recordes históricos do futebol real.', icon: 'zap', rarity: 'lendaria', hidden: true, check: (c) => c.legacy().historic.length >= 10 },
   // Nota de Legado (ao fim da carreira)
   { id: 'legacy_60', title: 'Legado de craque', description: 'Encerre a carreira com Nota de Legado 60 ou mais.', icon: 'award', rarity: 'rara', check: (c) => c.finished && c.legacy().score >= 60 },
   { id: 'legacy_80', title: 'Legado de lenda', description: 'Encerre a carreira com Nota de Legado 80 ou mais.', icon: 'award', rarity: 'epica', check: (c) => c.finished && c.legacy().score >= 80 },
   { id: 'legacy_95', title: 'Legado imortal', description: 'Encerre a carreira com Nota de Legado 95 ou mais.', icon: 'gem', rarity: 'lendaria', check: (c) => c.finished && c.legacy().score >= 95 },
   // Hall das Lendas
-  { id: 'legend_top10', title: 'Entre os dez maiores', description: 'Encerre a carreira no top 10 do Hall das Lendas, acima de craques reais.', icon: 'sparkles', rarity: 'lendaria', check: (c) => c.finished && legendsAbove(c) < 10 },
+  { id: 'legend_top10', title: 'Entre os dez maiores', description: 'Encerre a carreira no top 10 do Hall das Lendas, acima de craques reais.', icon: 'sparkles', rarity: 'epica', check: (c) => c.finished && legendsAbove(c) < 10 },
   { id: 'beat_pele', title: 'Maior que Pelé', description: 'Encerre a carreira com Nota de Legado maior que a de Pelé.', icon: 'crown', rarity: 'lendaria', check: (c) => c.finished && beats(c, 'pele') },
   { id: 'beat_all', title: 'Acima de todos', description: 'Encerre a carreira com a maior Nota de Legado do Hall, acima de todas as lendas reais.', icon: 'goat', rarity: 'lendaria', hidden: true, check: (c) => c.finished && legendsAbove(c) === 0 },
 ]

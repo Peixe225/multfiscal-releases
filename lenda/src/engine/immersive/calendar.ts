@@ -290,8 +290,18 @@ export function placeFixtures(data: GameData, s: ImmersiveState, fixtures: Fx[],
     const mid = Math.floor((L0 + L1) / 2)
     const span = tournaments === 2 && tNames.length === 2 ? (t === 0 ? [L0, mid - 6] : [mid + 1, L1]) : [L0, L1]
     const lo = Math.max(span[0], first ? start + 1 : span[0])
+    // semanas livres; se não couber (1ª temporada começando no meio do torneio), o torneio se estende
+    // (até perto do próximo) para no máx. 2 rodadas por semana — e nunca mais de 3
+    const hard = tournaments === 2 && tNames.length === 2 && t === 0 ? mid - 2 : kind === 'split' ? 44 : TOURNAMENT_WEEK.calendar - 1
+    let endW = span[1]
     const avail: number[] = []
-    for (let w = lo; w <= span[1]; w++) if (!FIFA_WEEKS[kind].includes(w)) avail.push(w)
+    const fill = () => {
+      avail.length = 0
+      for (let w = lo; w <= endW; w++) if (!FIFA_WEEKS[kind].includes(w)) avail.push(w)
+    }
+    fill()
+    while (avail.length * 2 < list.length && endW < hard) (endW++, fill())
+    while (avail.length * 3 < list.length && endW < END_WEEK) (endW++, fill())
     if (!avail.length) avail.push(lo)
     const ordered = list.slice().sort((a, b) => matchdayOf(m, a.round) - matchdayOf(m, b.round) || a.seq - b.seq)
     const n = ordered.length
@@ -349,7 +359,6 @@ export function placeFixtures(data: GameData, s: ImmersiveState, fixtures: Fx[],
   }
   const tb = TOURNAMENT_WEEK[kind]
   const hasCwc = fixtures.some((f) => f.kind === 'club_world_cup' && compOf(data, f.competitionId)?.schedule)
-  const clamp1 = new Map<string, number>()
   for (const f of fixtures) {
     if (f.kind === 'league') continue
     const comp = compOf(data, f.competitionId)
@@ -401,10 +410,9 @@ export function placeFixtures(data: GameData, s: ImmersiveState, fixtures: Fx[],
     }
     w = avoidFifa(kind, w)
     if (first && w <= start) {
-      // 1ª temporada: fases em andamento começam logo depois da data do snapshot
-      const c = clamp1.get(f.competitionId) ?? 0
-      clamp1.set(f.competitionId, c + 1)
-      w = avoidFifa(kind, start + 1 + c)
+      // 1ª temporada: fases em andamento começam logo depois da data do snapshot (o ajuste de
+      // congestionamento espalha as partidas pelas semanas seguintes)
+      w = avoidFifa(kind, start + 1)
     }
     out.set(f.key, { week: w, order })
   }
@@ -422,30 +430,56 @@ export function placeFixtures(data: GameData, s: ImmersiveState, fixtures: Fx[],
   return out
 }
 
+/** Partidas por semana (futuras) — para espalhar copas/continentais. */
+export type WeekLoad = Map<number, number>
+
 /**
- * Ajuste à posição atual: numa mesma competição (fora os pontos corridos) cada partida fica depois da
- * anterior, e uma partida ainda não jogada nunca fica em/antes de `minPos` (fase revelada por nova
- * pré-simulação com semana de gabarito já passada) — vai para a semana seguinte, e a posição fica
- * gravada em `m.slots` para não mudar de novo.
+ * Ajuste à posição atual e ao congestionamento. Para cada partida VISÍVEL ainda não jogada (fora os
+ * pontos corridos), em ordem dentro da competição:
+ *   - fica depois da partida anterior da mesma competição (ida → volta com ≥ 1 semana) e depois de
+ *     `minPos` (fase revelada por nova pré-simulação cuja semana do gabarito já passou);
+ *   - evita semanas cheias: procura, a partir da semana do gabarito, uma semana com ≤ 1 jogo nas 3
+ *     seguintes; senão a primeira com ≤ 2 (nunca mais de 3 jogos na semana);
+ *   - a posição escolhida fica gravada em `m.slots` (estável nas próximas pré-simulações: o que já
+ *     apareceu no calendário não muda de semana).
+ * Partidas escondidas (fases futuras) não são posicionadas nem contam.
  */
-export function adjustPlacements(s: ImmersiveState, fixtures: Fx[], placed: Map<string, Placed>, minPos: number): void {
+export function adjustPlacements(s: ImmersiveState, fixtures: Fx[], placed: Map<string, Placed>, minPos: number, visible?: Set<string>, load?: WeekLoad): void {
   const m = mem(s)
   const kind = m.calKind
   const slots = (m.slots ??= {})
   const prevBy = new Map<string, number>()
+  const cnt = load ?? new Map<number, number>()
+  const free = (w: number, max: number) => (cnt.get(w) ?? 0) <= max
+  const pickWeek = (w0: number): number => {
+    for (let d = 0, w = w0; d <= 3; d++, w = avoidFifa(kind, w + 1)) if (free(w, 1)) return w
+    let w = w0
+    for (let g = 0; g < 40 && !free(w, 2); g++) w = avoidFifa(kind, w + 1)
+    return w
+  }
   const list = fixtures.filter((f) => !isRegularLeague(f)).sort((a, b) => a.seq - b.seq)
   for (const f of list) {
     const p = placed.get(f.key)
     if (!p) continue
-    let pos = slots[f.key] ?? p.week * 1000 + p.order
     const prev = prevBy.get(f.competitionId) ?? -1
-    if (slots[f.key] === undefined && !m.fixed[f.key] && (pos <= minPos || pos <= prev)) {
-      const after = Math.max(minPos, prev)
-      const w = avoidFifa(kind, Math.max(p.week, Math.floor(after / 1000) + 1))
-      pos = w * 1000 + p.order
-      slots[f.key] = pos
+    let pos = slots[f.key] ?? p.week * 1000 + p.order
+    if (m.fixed[f.key]) {
+      placed.set(f.key, { week: Math.floor(pos / 1000), order: pos % 1000 })
+      prevBy.set(f.competitionId, Math.max(prev, pos))
+      continue
     }
-    placed.set(f.key, { week: Math.floor(pos / 1000), order: pos % 1000 })
+    if (visible && !visible.has(f.key)) continue
+    if (slots[f.key] === undefined) {
+      let w = p.week
+      const after = Math.max(minPos, prev)
+      if (w * 1000 + p.order <= after) w = Math.floor(after / 1000) + 1
+      w = pickWeek(avoidFifa(kind, w))
+      pos = w * 1000 + p.order
+      if (visible) slots[f.key] = pos
+    }
+    const wk = Math.floor(pos / 1000)
+    placed.set(f.key, { week: wk, order: pos % 1000 })
+    cnt.set(wk, (cnt.get(wk) ?? 0) + 1)
     prevBy.set(f.competitionId, Math.max(prev, pos))
   }
 }
@@ -536,8 +570,14 @@ export function buildCalendar(data: GameData, s: ImmersiveState, minPos = -1): C
   const vis = visibleFixtures(m.agenda, m.fixed).filter((f) => m.fixed[f.key] || !awaitingQualification(data, s, f))
   const natVis = visibleFixtures(nat, m.fixed)
   const placed = placeFixtures(data, s, m.agenda, nat)
-  adjustPlacements(s, m.agenda, placed, minPos)
-  adjustPlacements(s, nat, placed, minPos)
+  const visible = new Set([...vis, ...natVis].map((f) => f.key))
+  const load: WeekLoad = new Map()
+  for (const f of vis) {
+    const p = placed.get(f.key)
+    if (p && isRegularLeague(f) && !m.fixed[f.key] && p.week * 1000 + p.order > minPos) load.set(p.week, (load.get(p.week) ?? 0) + 1)
+  }
+  adjustPlacements(s, m.agenda, placed, minPos, visible, load)
+  adjustPlacements(s, nat, placed, minPos, visible, load)
   const lastRound = m.league?.matches.length ? Math.max(...m.league.matches.map((x) => x[4])) : 0
   const start = m.startWeek
   let lastClubWeek = start

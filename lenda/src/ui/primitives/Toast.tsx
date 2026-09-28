@@ -4,18 +4,22 @@
  *   toast({ title: 'Carreira salva', tone: 'success' })
  *   toast.gold('Conquista desbloqueada', 'Hat-trick de Bolas de Ouro', { icon: Medal })
  *   toast.error('Não foi possível salvar')
+ *   toast({ key: 'achievements', … })   // substitui (e reinicia) o toast vivo com a mesma chave
  *
- * - Desktop: pilha no canto inferior direito (fora da coluna da decisão). Celular (< 720px): compactos, no topo, abaixo da safe-area
- *   (não cobrem a tabela da carreira nem a barra de decisão).
- * - No máximo 2 visíveis; os demais esperam na fila e entram quando um sai.
- * - Duração padrão: curta para avisos sem ação (2,8 s; erro 4 s; dourado 3,8 s) e longa quando há
- *   um botão (6 s). O timer pausa com o ponteiro/foco em cima e só começa quando o toast aparece.
+ * - Desktop: no canto superior direito, logo abaixo da barra do topo (fora da coluna da decisão e das
+ *   últimas linhas da tabela, onde a revelação acontece), 340px, no máximo 2 visíveis.
+ * - Celular (< 720px): 1 visível, compacto (1 linha de título + 1 de texto), opaco, abaixo da barra
+ *   do topo (menu/som/salvar continuam livres).
+ * - A ação aparece só como ícone (o rótulo fica no aria-label/title), para não cortar o título.
+ * - Os demais esperam na fila (chip "+N") e entram quando um sai.
+ * - Duração padrão: curta para avisos sem ação (2,4 s; erro 4 s; dourado 3,2 s) e 4,5 s quando há
+ *   um botão. O timer pausa com o ponteiro/foco em cima e só começa quando o toast aparece.
  */
-import { useEffect, useRef, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useRef, type ComponentType, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { create } from 'zustand'
-import { Check, Info, Sparkles, TriangleAlert, X, type LucideProps } from 'lucide-react'
+import { ArrowRight, Check, Info, Sparkles, TriangleAlert, X, type LucideProps } from 'lucide-react'
 import { cx } from './cx'
 import { useIsDesktop, useReducedMotion } from './hooks'
 import { sfx } from '@/ui/shell/sfx'
@@ -27,14 +31,27 @@ export interface ToastItem {
   description?: ReactNode
   tone: ToastTone
   icon?: ComponentType<LucideProps>
-  /** ms; 0 = sticky. Default: 2800 (erro 4000, dourado 3800); com ação, 6000. */
+  /** ms; 0 = sticky. Default: 2400 (erro 4000, dourado 3200); com ação, 4500. */
   duration: number
-  action?: { label: string; onClick: () => void }
+  /** Ação: botão só com ícone (padrão: seta); o rótulo vira aria-label/title. */
+  action?: { label: string; onClick: () => void; icon?: ComponentType<LucideProps> }
+  /** Chave de agrupamento: um novo toast com a mesma chave substitui o vivo (visível ou na fila). */
+  key?: string
+  /** Incrementa a cada substituição (reinicia o timer). */
+  rev?: number
 }
 type ToastInput = Partial<Omit<ToastItem, 'id'>> & { title: ReactNode }
 
-/** Toasts visíveis ao mesmo tempo. */
+/** Toasts visíveis ao mesmo tempo (desktop; no celular, 1). */
 export const MAX_VISIBLE_TOASTS = 2
+const PHONE_QUERY = '(max-width: 44.99rem)'
+function maxVisible(): number {
+  try {
+    return typeof matchMedia === 'function' && matchMedia(PHONE_QUERY).matches ? 1 : MAX_VISIBLE_TOASTS
+  } catch {
+    return MAX_VISIBLE_TOASTS
+  }
+}
 /** Fila máxima (os mais antigos sem ação são descartados primeiro). */
 const MAX_QUEUE = 6
 
@@ -48,8 +65,8 @@ interface ToastStore {
 }
 
 function defaultDuration(tone: ToastTone, actionable: boolean): number {
-  if (actionable) return 6000
-  return tone === 'danger' ? 4000 : tone === 'gold' ? 3800 : 2800
+  if (actionable) return 4500
+  return tone === 'danger' ? 4000 : tone === 'gold' ? 3200 : 2400
 }
 
 function trimQueue(q: ToastItem[]): ToastItem[] {
@@ -75,10 +92,19 @@ export const useToasts = create<ToastStore>()((set, get) => ({
     const tone = t.tone ?? 'default'
     const item: ToastItem = { ...t, id, tone, duration: t.duration ?? defaultDuration(tone, !!t.action) } as ToastItem
     const { items, queue } = get()
+    // same key (e.g. achievements): replace the live one in place and restart its timer
+    if (t.key) {
+      const hit = [...items, ...queue].find((x) => x.key === t.key)
+      if (hit) {
+        const next: ToastItem = { ...item, id: hit.id, rev: (hit.rev ?? 0) + 1 }
+        set({ items: items.map((x) => (x.id === hit.id ? next : x)), queue: queue.map((x) => (x.id === hit.id ? next : x)) })
+        return hit.id
+      }
+    }
     // the same plain-text notice twice in a row (double click, repeated failure): keep one
     const same = [...items, ...queue].find((x) => typeof x.title === 'string' && x.title === t.title && x.tone === tone && x.description === t.description)
     if (same) return same.id
-    if (items.length < MAX_VISIBLE_TOASTS && !queue.length) {
+    if (items.length < maxVisible() && !queue.length) {
       set({ items: [...items, item] })
       onShow(item)
     } else set({ queue: trimQueue([...queue, item]) })
@@ -88,7 +114,7 @@ export const useToasts = create<ToastStore>()((set, get) => ({
     const { items, queue } = get()
     if (queue.some((q) => q.id === id)) return set({ queue: queue.filter((q) => q.id !== id) })
     const rest = items.filter((i) => i.id !== id)
-    const free = MAX_VISIBLE_TOASTS - rest.length
+    const free = maxVisible() - rest.length
     const promoted = free > 0 ? queue.slice(0, free) : []
     set({ items: [...rest, ...promoted], queue: queue.slice(promoted.length) })
     promoted.forEach(onShow)
@@ -123,17 +149,18 @@ function useAutoDismiss(t: ToastItem, dismiss: (id: string) => void) {
     left.current -= Date.now() - started.current
   }
   useEffect(() => {
+    left.current = t.duration
     run()
     return () => {
       clearTimeout(timer.current)
       timer.current = 0
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t.id, t.duration])
+  }, [t.id, t.duration, t.rev])
   return { pause, resume: run }
 }
 
-function ToastView({ t, fromTop }: { t: ToastItem; fromTop: boolean }) {
+function ToastView({ t, fromTop, ref }: { t: ToastItem; fromTop: boolean; ref?: Ref<HTMLDivElement> }) {
   const rm = useReducedMotion()
   const dismiss = useToasts((s) => s.dismiss)
   const { pause, resume } = useAutoDismiss(t, dismiss)
@@ -141,6 +168,7 @@ function ToastView({ t, fromTop }: { t: ToastItem; fromTop: boolean }) {
   const dy = fromTop ? -18 : 24
   return (
     <motion.div
+      ref={ref}
       layout={!rm}
       role={t.tone === 'danger' ? 'alert' : 'status'}
       className={cx('lx-toast', t.tone !== 'default' && `lx-toast--${t.tone}`)}
@@ -161,8 +189,18 @@ function ToastView({ t, fromTop }: { t: ToastItem; fromTop: boolean }) {
         {t.description && <div className="lx-toast__desc">{t.description}</div>}
       </div>
       {t.action && (
-        <button type="button" className="lx-btn lx-btn--ghost lx-btn--sm lx-toast__action flex-none" onClick={() => (t.action!.onClick(), dismiss(t.id))}>
-          {t.action.label}
+        <button
+          type="button"
+          className="lx-btn lx-btn--ghost lx-btn--sm lx-toast__action flex-none"
+          aria-label={t.action.label}
+          title={t.action.label}
+          onClick={() => (t.action!.onClick(), dismiss(t.id))}
+        >
+          <span className="lx-toast__action-label">{t.action.label}</span>
+          {(() => {
+            const A = t.action.icon ?? ArrowRight
+            return <A className="lx-toast__action-ic" aria-hidden="true" />
+          })()}
         </button>
       )}
       <button type="button" className="lx-icon-btn lx-icon-btn--sm lx-toast__x flex-none" aria-label="Dispensar" onClick={() => dismiss(t.id)}>
@@ -173,15 +211,18 @@ function ToastView({ t, fromTop }: { t: ToastItem; fromTop: boolean }) {
 }
 
 export function Toaster() {
-  const items = useToasts((s) => s.items)
-  const queued = useToasts((s) => s.queue.length)
+  const all = useToasts((s) => s.items)
+  const queuedCount = useToasts((s) => s.queue.length)
   const desktop = useIsDesktop()
   if (typeof document === 'undefined') return null
+  // a viewport that shrank to phone width keeps the extra visible ones hidden (they count as queued)
+  const items = desktop ? all : all.slice(0, 1)
+  const queued = queuedCount + (all.length - items.length)
   return createPortal(
     <div className="lx-toaster" aria-live="polite" aria-relevant="additions">
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         {items.map((t) => (
-          <ToastView key={t.id} t={t} fromTop={!desktop} />
+          <ToastView key={t.id} t={t} fromTop />
         ))}
       </AnimatePresence>
       {queued > 0 && (

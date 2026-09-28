@@ -4,8 +4,8 @@
  * Coletiva: 2–3 perguntas por contexto (pré-jogo grande, clássico, fase boa/ruim, banco, rumor de
  * transferência, seleção, final). Tons: humilde (mídia/técnico +), confiante (moral/torcida +),
  * provocador (torcida ++, mídia/técnico/vestiário −), evasivo (mídia −). Pular a coletiva: mídia −4.
- * Posts do jogador: modelos com efeito em torcida/mídia/técnico/moral/seguidores (o mesmo post na
- * mesma semana rende metade).
+ * Posts do jogador: modelos com efeito em torcida/mídia/técnico/moral/seguidores (na mesma semana
+ * cada post rende metade do anterior; "foco no treino" mexe com o técnico no máx. 1× a cada 4 semanas).
  */
 import type { Rng } from '../rng'
 import type { GameData } from '../types'
@@ -126,11 +126,17 @@ interface PressCtx {
   club: string
 }
 
+/**
+ * Tons (cada um com ganho e custo): humilde agrada imprensa/técnico, mas soa morno (moral −, torcida
+ * quer sangue em jogo grande); confiante sobe moral/torcida e custa com o técnico quando se está no
+ * banco; provocador incendeia a torcida e queima imprensa/técnico/vestiário; evasivo protege o grupo
+ * (técnico +) e irrita a imprensa.
+ */
 const TONE_FX: Record<Tone, Deltas> = {
-  humilde: { media: 2, coach: 1.5, fans: 1, teammates: 1 },
-  confiante: { morale: 3, fans: 2, media: 1, followers: 400 },
+  humilde: { media: 2, coach: 1.2, teammates: 1, fans: 0.5, morale: -1 },
+  confiante: { morale: 3, fans: 2, media: 1, coach: -0.3, followers: 400 },
   provocador: { fans: 4, media: -4, coach: -2, teammates: -1.5, followers: 1500, morale: 1 },
-  evasivo: { media: -3, morale: 0.5 },
+  evasivo: { media: -2.5, coach: 0.6, morale: 1 },
 }
 
 const QUESTIONS: QDef[] = [
@@ -300,6 +306,8 @@ export function buildPress(data: GameData, s: ImmersiveState, item: CalendarItem
         d.media = (d.media ?? 0) - 1
       }
       if (tone === 'confiante' && ctx.bench) d.coach = (d.coach ?? 0) - 1
+      // resposta morna em jogo grande/clássico: a torcida queria mais
+      if (tone === 'humilde' && (ctx.big || ctx.derby || ctx.final)) d.fans = (d.fans ?? 0) - 1.5
       deltas[qid][aid] = d
       answers.push({ id: aid, label: vars(label), tone, effects: deltaLabels(d) })
     }
@@ -354,13 +362,17 @@ export const POST_TEMPLATES: PostTemplate[] = [
   { id: 'obrigado_torcida', label: '“Obrigado, torcida!”', text: 'Obrigado, torcida! Vocês empurraram a gente do começo ao fim. Juntos! 💚', tone: 'positive', hint: 'Torcida +', fx: { fans: 3, followers: 900 } },
   { id: 'foto_gol', label: 'Foto do gol', text: 'Esse vai pro quadro. ⚽🔥 #{club}', tone: 'positive', hint: 'Seguidores ++', fx: { followers: 2500, fans: 1 } },
   { id: 'provocar_rival', label: 'Provocar o rival', text: 'Tem gente que fala demais durante a semana… no campo a conversa é outra. 🤫', tone: 'negative', hint: 'Torcida ++ · Mídia −', fx: { fans: 4, media: -3, coach: -1, followers: 3500 } },
-  { id: 'foco_treino', label: 'Foco no treino', text: 'Cabeça no próximo jogo. Treino, descanso e trabalho. 💪', tone: 'neutral', hint: 'Técnico +', fx: { coach: 2, followers: 300 } },
+  { id: 'foco_treino', label: 'Foco no treino', text: 'Cabeça no próximo jogo. Treino, descanso e trabalho. 💪', tone: 'neutral', hint: 'Técnico +', fx: { coach: 1.5, followers: 300 } },
   { id: 'pedir_desculpas', label: 'Pedir desculpas', text: 'Hoje não deu. Assumo minha parte e a gente volta mais forte. Desculpa, torcida.', tone: 'neutral', hint: 'Torcida + · Moral −', fx: { fans: 2, morale: -1, media: 1 } },
   { id: 'mirar_titulo', label: 'Mirar o título', text: 'Ninguém aqui veio para ser coadjuvante. O objetivo é um só: taça. 🏆', tone: 'positive', hint: 'Mídia + · Pressão ▲', fx: { media: 2, morale: 1, followers: 1200 } },
   { id: 'familia', label: 'Post com a família', text: 'Tudo por eles. Obrigado por estarem sempre comigo. ❤️', tone: 'positive', hint: 'Moral +', fx: { morale: 3, followers: 700 } },
   { id: 'silencio', label: 'Ficar em silêncio', text: '', tone: 'neutral', hint: 'Sem efeito', fx: {} },
 ]
 
+/**
+ * Post do jogador. Na mesma semana cada post rende metade do anterior (1, ½, ¼…) — spam não compra
+ * relação; "Foco no treino" só mexe com o técnico 1× a cada 4 semanas e às vezes soa ensaiado (mídia −).
+ */
 export function userPost(data: GameData, s: ImmersiveState, templateId: string, fx: ImmersiveEffect[]): boolean {
   const t = POST_TEMPLATES.find((x) => x.id === templateId)
   if (!t) return false
@@ -370,13 +382,39 @@ export function userPost(data: GameData, s: ImmersiveState, templateId: string, 
     return true
   }
   const club = clubOf(data, s.clubId)
-  const repeat = m.lastPostWeek === s.season * 100 + s.week
-  m.lastPostWeek = s.season * 100 + s.week
-  const scale = repeat ? 0.5 : 1
+  const wk = s.season * 100 + s.week
+  const n = m.lastPostWeek === wk ? (m.postsWeek ?? 0) : 0
+  m.lastPostWeek = wk
+  m.postsWeek = n + 1
+  m.postsCount = (m.postsCount ?? 0) + 1
+  const scale = Math.pow(0.5, n)
   const d: Deltas = {}
   for (const [k, v] of Object.entries(t.fx)) (d as Record<string, number>)[k] = (v as number) * scale
+  let note = ''
+  if (t.id === 'foco_treino') {
+    // o técnico nota o recado no máximo uma vez a cada 4 semanas
+    const last = m.focusPostWeek ?? -99
+    const sameStretch = Math.floor(last / 100) === s.season && s.week - (last % 100) < 4
+    if (sameStretch) d.coach = 0
+    else {
+      // e cada recado na temporada vale menos (1,5 · 1/(1+k))
+      const k = Math.floor(last / 100) === s.season ? (m.focusPostsSeason ?? 0) : 0
+      m.focusPostsSeason = k + 1
+      d.coach = (d.coach ?? 0) / (1 + k)
+      m.focusPostWeek = wk
+      if (trng(s, 'focus-post', m.postsCount).chance(0.2)) {
+        d.media = (d.media ?? 0) - 1.5
+        note = ' · a imprensa achou ensaiado'
+      }
+    }
+  }
+  if (n >= 2) {
+    // postar demais cansa: a imprensa torce o nariz e os seguidores param de engajar
+    d.media = (d.media ?? 0) - 0.25 * (n - 1)
+    d.followers = Math.round((d.followers ?? 0) * 0.5)
+  }
   const followers = s.followers ?? 0
-  const likes = followers * (0.05 + (t.tone === 'positive' ? 0.04 : 0.02)) * (0.6 + s.reputation / 100)
+  const likes = followers * (0.05 + (t.tone === 'positive' ? 0.04 : 0.02)) * (0.6 + s.reputation / 100) * scale
   addPost(s, `${s.identity.surname} (você)`, `@${slug(s.identity.surname)}${s.identity.number}`, t.text.replace('{club}', slug(club?.shortName ?? 'lenda')), t.tone, {
     byUser: true,
     likes,
@@ -386,8 +424,8 @@ export function userPost(data: GameData, s: ImmersiveState, templateId: string, 
   applyDeltas(s, d)
   const r = trng(s, 'post-react', m.idSeq ?? 0)
   const fan = `@${slug(club?.abbr ?? 'fc')}_${r.pick(['na_veia', 'raiz', 'ate_morrer', 'fiel'])}`
-  addPost(s, 'Torcedor', fan, t.tone === 'negative' ? r.pick(['Kkkkk provocou mesmo! 🔥', 'Tá certo! Respeita o camisa!', 'Isso vai dar o que falar…']) : r.pick(['Tamo junto, craque! 👏', 'Orgulho da torcida!', 'Esse é dos nossos!']), 'positive', { likes: likes * 0.05 })
-  fx.push({ type: 'toast', tone: 'success', title: 'Post publicado', description: repeat ? `${t.hint} (efeito menor: já postou esta semana)` : t.hint })
+  addPost(s, 'Torcedor', fan, n >= 2 ? r.pick(['De novo? Menos post e mais bola.', 'Joga mais e posta menos, craque.', 'Já vimos esse filme essa semana…']) : t.tone === 'negative' ? r.pick(['Kkkkk provocou mesmo! 🔥', 'Tá certo! Respeita o camisa!', 'Isso vai dar o que falar…']) : r.pick(['Tamo junto, craque! 👏', 'Orgulho da torcida!', 'Esse é dos nossos!']), n >= 2 ? 'negative' : 'positive', { likes: likes * 0.05 })
+  fx.push({ type: 'toast', tone: 'success', title: 'Post publicado', description: n ? `${t.hint} (efeito menor: ${n + 1}º post da semana)${note}` : `${t.hint}${note}` })
   return true
 }
 
@@ -473,7 +511,9 @@ export function buyItem(s: ImmersiveState, itemId: string, fx: ImmersiveEffect[]
   s.finance.balance -= item.price
   s.finance.lifestyle = [...(s.finance.lifestyle ?? []), { id: item.id, name: item.name, price: item.price, season: s.season }]
   const morale = Math.max(1, Math.round(item.morale / (1 + owned)))
-  applyDeltas(s, { morale, fans: item.id === 'instituto' ? 4 : 0, media: item.id === 'instituto' ? 3 : item.id === 'jatinho' || item.id === 'iate' ? -1 : 0 })
+  // repetir a compra rende cada vez menos (moral e imagem)
+  const img = 1 / (1 + owned * 2)
+  applyDeltas(s, { morale, fans: item.id === 'instituto' ? 4 * img : 0, media: item.id === 'instituto' ? 3 * img : item.id === 'jatinho' || item.id === 'iate' ? -1 : 0 })
   fx.push({ type: 'toast', tone: 'gold', title: item.name, description: `Moral +${morale}` })
   if (item.price >= 1_000_000) addNews(s, item.id === 'instituto' ? `${s.identity.surname} inaugura instituto social` : `${s.identity.surname} compra ${item.name.toLowerCase()}`, item.id === 'instituto' ? 'positive' : 'neutral', fx)
   return true

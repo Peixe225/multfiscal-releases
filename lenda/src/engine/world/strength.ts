@@ -18,11 +18,16 @@
  *   só (GER/FRA/POR/NED/SCO), ~30–38% em ENG/ESP/ITA; Brasil e Argentina têm 8+ campeões.
  *   A 1ª temporada usa a força real inicial (continua a tabela de hoje); tudo isso vale da 2ª em diante.
  * Prestígio (0–5): volta devagar ao inicial (5%/ano), +0,08 por liga, +0,15 por continental, −0,2 se cair.
- * Seleção: n' = n + 0,15·(âncora − n) + N(0; 0,9) − custo dos títulos; âncora = força inicial + 25% da
- *   variação da média do top-5 de craques daquela nacionalidade (novas gerações fortalecem países).
- *   Custo do título (Copa/Euro/Copa América/Copa da Ásia −1,5; Copa Ouro/CAN −0,7): a geração
- *   campeã envelhece e volta à âncora a 15%/ano — um desgaste que soma as conquistas recentes e
- *   quebra sequências (antes, +0,8 por título realimentava dinastias: Noruega com 4 Euros em 5).
+ * Seleção: n' = n + 0,15·(âncora − n) + N(0; 0,9) − custo dos títulos − desgaste; âncora = base (a força
+ *   inicial, com a sobra do líder da confederação sobre a 2ª comprimida) + 25% da variação da média do
+ *   top-5 de craques daquela nacionalidade + ciclo de geração (nós a cada 8 anos).
+ *   Custo do título (Copa/Euro/Copa América/Copa da Ásia −1,5; Copa Ouro/CAN −0,7), mais −1,5·k(k+1)/2
+ *   se a seleção ganhou k das 2 edições anteriores da mesma competição (bi, tri). Desgaste: −0,6 por
+ *   ano por título grande das últimas 8 temporadas (bienais valem metade; a OFC não conta, e o líder
+ *   da Oceania não é comprimido — a Nova Zelândia segue dona da vaga). Antes, +0,8 por título
+ *   realimentava dinastias (Noruega com 4 Euros em 5; ARG-ARG-ARG-ARG na Copa).
+ *   Calibrado em 30 temporadas × 24 seeds: ninguém passa de 30% das Copas/Euros nem de 40% das Copas
+ *   Américas; ESP/FRA/ENG/ARG/BRA/POR/GER vencem; sequência máxima de 2 Copas/Euros.
  * Limites: clubes 40–92, seleções 40–95. O reforço do jogador NÃO entra aqui (vale só na temporada).
  */
 import type { ClubDynamic, GameData, Rival, SeasonWorldResult } from '../types'
@@ -214,6 +219,21 @@ export const EVOLVE_NAT = {
   titleCost: 1.5,
   /** Custo de um título bienal (Copa Ouro, Copa Africana). */
   minorCost: 0.7,
+  /**
+   * Desgaste de sequência: com k títulos da mesma competição nas `streakEditions` edições anteriores,
+   * o título de agora custa mais `streakCost`·k(k+1)/2 (bi em 3 edições: +1×; tri: +3×; bienais: 60%).
+   * Evita as eras ARG-ARG-ARG-ARG e as Euros em série de uma seleção de 85.
+   */
+  streakCost: 1.5,
+  streakEditions: 2,
+  /**
+   * Desgaste de dinastia (como nos clubes): cada título grande (Copa e continentais quadrienais; bienais
+   * valem metade) das últimas `fatigueYears` temporadas, acima de `fatigueFree`, tira `fatigue` por ano
+   * — a geração campeã é caçada, envelhece junta e o ciclo seguinte demora a vir ("maldição do campeão").
+   */
+  fatigueYears: 8,
+  fatigueFree: 0,
+  fatigue: 0.6,
   /** Ciclo de geração: desvio dos nós e temporadas entre nós. */
   cycleSd: 2,
   cycleLen: 8,
@@ -241,9 +261,20 @@ export function nationBase(data: GameData, code: string): number {
   const c = data.countries.find((x) => x.code === code)
   if (!c) return 60
   const second = ref.get(c.confed)
-  if (second === undefined) return c.strength
+  // Oceania: a Nova Zelândia (64) contra seleções de ~50 é a realidade, não um desequilíbrio a corrigir
+  if (second === undefined || c.confed === 'OFC') return c.strength
   const excess = c.strength - second - EVOLVE_NAT.freeGap
   return excess > 0 ? second + EVOLVE_NAT.freeGap + excess * EVOLVE_NAT.gapKeep : c.strength
+}
+
+/**
+ * Peso de um título de seleções no desgaste: 1 para a Copa e os continentais quadrienais, 0,5 para os
+ * bienais (Copa Ouro, CAN) e 0 na Oceania — a Nova Zelândia domina a OFC na vida real, sem rival que
+ * a "cace"; desgastá-la só entregaria a vaga da Copa a seleções de 50.
+ */
+function titleWeight(comp: GameData['competitions'][number] | undefined): number {
+  if (!comp || comp.confed === 'OFC') return 0
+  return comp.schedule && comp.schedule.every > 0 && comp.schedule.every < 4 ? 0.5 : 1
 }
 
 export function evolveNations(
@@ -254,6 +285,7 @@ export function evolveNations(
   result: SeasonWorldResult,
   initialTalent: Map<string, number>,
   rivals: readonly Rival[],
+  past: Readonly<Record<number, SeasonWorldResult>> = {},
 ): Record<string, number> {
   const rng = subRng(seed, 'season', season, 'nations-evolve')
   const talent = topTalent(rivals)
@@ -261,8 +293,25 @@ export function evolveNations(
   for (const t of Object.values(result.national)) {
     if (!t.winner) continue
     const comp = data.competitions.find((c) => c.id === t.competitionId)
-    const c = comp?.schedule && comp.schedule.every > 0 && comp.schedule.every < 4 ? EVOLVE_NAT.minorCost : EVOLVE_NAT.titleCost
+    const w = titleWeight(comp)
+    if (!w) continue
+    const every = comp?.schedule && comp.schedule.every > 0 ? comp.schedule.every : 4
+    let c = w < 1 ? EVOLVE_NAT.minorCost : EVOLVE_NAT.titleCost
+    // sequência: títulos da mesma competição nas edições anteriores
+    let prior = 0
+    for (let k = 1; k <= EVOLVE_NAT.streakEditions; k++) if (past[season - k * every]?.national?.[t.competitionId]?.winner === t.winner) prior++
+    c += ((prior * (prior + 1)) / 2) * EVOLVE_NAT.streakCost * (w < 1 ? 0.6 : 1)
     cost.set(t.winner, (cost.get(t.winner) ?? 0) + c)
+  }
+  // títulos recentes (esta temporada inclusa) para o desgaste de dinastia
+  const recent = new Map<string, number>()
+  for (let s = season; s > season - EVOLVE_NAT.fatigueYears; s--) {
+    const r = s === season ? result : past[s]
+    if (!r?.national) continue
+    for (const t of Object.values(r.national)) {
+      const w = t.winner ? titleWeight(data.competitions.find((c) => c.id === t.competitionId)) : 0
+      if (w) recent.set(t.winner, (recent.get(t.winner) ?? 0) + w)
+    }
   }
   const out: Record<string, number> = {}
   for (const c of data.countries) {
@@ -271,6 +320,9 @@ export function evolveNations(
     const anchor = nationBase(data, c.code) + clamp(dt * 0.25, -4, 4) + nationCycle(seed, c.code, season + 1)
     let n = cur + (anchor - cur) * EVOLVE_NAT.pull + rng.normal(0, EVOLVE_NAT.noise)
     n -= cost.get(c.code) ?? 0
+    // desgaste de dinastia: cada título recente pesa um pouco todo ano
+    const run = (recent.get(c.code) ?? 0) - EVOLVE_NAT.fatigueFree
+    if (run > 0) n -= EVOLVE_NAT.fatigue * run
     out[c.code] = Math.round(clamp(n, 40, 95) * 10) / 10
   }
   return out

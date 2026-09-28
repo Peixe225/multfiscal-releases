@@ -51,15 +51,24 @@ const hexToRgb = (h: string) => {
   const n = parseInt(m.length === 3 ? m.replace(/./g, (c) => c + c) : m, 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
-/** Cor que se confunde com a grama (verde) ou com a noite (muito escura) → ponto branco. */
+const lumOf = (h: string) => {
+  const [r, g, b] = hexToRgb(h)
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+/** Cor que se confunde com a grama (verde) ou com a noite (muito escura) → ponto branco; o anel sempre contrasta com o disco (§9.1). */
 function dotStyle(c: TeamInfo['colors']) {
   const [r, g, b] = hexToRgb(c.primary)
-  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+  const lum = lumOf(c.primary)
   const greenish = g > r * 1.15 && g > b * 1.1
-  if (greenish || lum < 0.13) return { fill: '#F4F6FF', ring: greenish ? c.primary : c.secondary, ink: greenish ? c.primary : '#0A0F3A' }
-  const [r2, g2, b2] = hexToRgb(c.secondary)
-  const lum2 = (0.2126 * r2 + 0.7152 * g2 + 0.0722 * b2) / 255
-  return { fill: c.primary, ring: Math.abs(lum2 - lum) > 0.2 ? c.secondary : lum > 0.6 ? '#0A0F3A' : '#F4F6FF', ink: lum > 0.55 ? '#0A0F3A' : '#FFFFFF' }
+  let fill = c.primary
+  let ring = c.secondary
+  if (greenish || lum < 0.13) {
+    fill = '#F4F6FF'
+    ring = greenish ? c.primary : lumOf(c.secondary) < 0.6 ? c.secondary : '#0A0F3A'
+  }
+  const lf = lumOf(fill)
+  if (Math.abs(lumOf(ring) - lf) < 0.28) ring = lf > 0.55 ? '#0A0F3A' : '#F4F6FF'
+  return { fill, ring, ink: lf > 0.55 ? '#0A0F3A' : '#FFFFFF' }
 }
 
 interface PitchProps {
@@ -73,20 +82,22 @@ interface PitchProps {
   moment: KeyMoment | null
   dim: boolean
   meLabel: string
-  /** Escala dos pontos (celular: pontos maiores para leitura). */
-  dotScale?: number
+  /** Você aparece no campo (status no minuto EXIBIDO, não no fim do replay). */
+  showMe: boolean
   className?: string
 }
 
-export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber, focus, focusSeq, moment, dim, meLabel, dotScale = 1, className }: PitchProps) {
+export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber, focus, focusSeq, moment, dim, meLabel, showMe, className }: PitchProps) {
   const rm = useReducedMotion()
-  const dots = useRef<(SVGGElement | null)[]>([])
-  const ball = useRef<SVGGElement | null>(null)
-  const trail = useRef<(SVGCircleElement | null)[]>([])
-  const me = useRef<SVGGElement | null>(null)
+  const wrap = useRef<HTMLDivElement | null>(null)
+  const dots = useRef<(HTMLSpanElement | null)[]>([])
+  const ball = useRef<HTMLSpanElement | null>(null)
+  const trail = useRef<(HTMLSpanElement | null)[]>([])
+  const me = useRef<HTMLSpanElement | null>(null)
+  const box = useRef({ w: 1050, h: 680, bugW: 0, bugH: 0 })
   const st = useRef({ bx: 50, by: 50, tx: 50, ty: 50, fast: false, nextDrift: 0, px: new Float32Array(44), inited: false, hist: [] as [number, number][] })
-  const props = useRef({ live, focus, moment, userPos, rm, dotScale })
-  props.current = { live, focus, moment, userPos, rm, dotScale }
+  const props = useRef({ live, focus, moment, userPos, rm, showMe })
+  props.current = { live, focus, moment, userPos, rm, showMe }
   const userSlot = slotOf(userPos)
   const hs = useMemo(() => dotStyle(home.colors), [home.colors])
   const as = useMemo(() => {
@@ -94,10 +105,28 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
     // mesma cor dos dois lados (preto × preto, branco × branco): visitante com a 2ª cor ou vermelho de TV
     if (a.fill.toLowerCase() === hs.fill.toLowerCase()) {
       const alt = away.colors.secondary.toLowerCase() !== hs.fill.toLowerCase() && away.colors.secondary.toLowerCase() !== '#ffffff' ? away.colors.secondary : '#E5243B'
-      return { fill: alt, ring: '#F4F6FF', ink: '#FFFFFF' }
+      return { fill: alt, ring: '#F4F6FF', ink: lumOf(alt) > 0.55 ? '#0A0F3A' : '#FFFFFF' }
     }
     return a
   }, [away.colors, hs.fill])
+
+  // tamanho do campo (px) e zona segura sob o bug de placar
+  useEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    const measure = () => {
+      const r = el.getBoundingClientRect()
+      const bug = el.parentElement?.querySelector('.im-field__bug') as HTMLElement | null
+      const b = bug?.getBoundingClientRect()
+      box.current = { w: r.width || 1050, h: r.height || 680, bugW: b ? b.right - r.left + 12 : 0, bugH: b ? b.bottom - r.top + 12 : 0 }
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    const bug = el.parentElement?.querySelector('.im-field__bug')
+    if (bug) ro.observe(bug)
+    return () => ro.disconnect()
+  }, [])
 
   // novo evento → bola vai até ele
   useEffect(() => {
@@ -125,13 +154,21 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
     let last = performance.now()
     let seed = 1
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+    /** % do campo → px, fora da zona do bug. */
+    const place = (el: HTMLElement | null | undefined, x: number, y: number) => {
+      if (!el) return
+      const B = box.current
+      let px = (x / 100) * B.w
+      let py = (y / 100) * B.h
+      if (B.bugW && px < B.bugW && py < B.bugH) py = B.bugH
+      el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0)`
+    }
     const frame = (t: number) => {
       raf = requestAnimationFrame(frame)
       const dt = Math.min(0.05, (t - last) / 1000)
       last = t
       const S = st.current
-      const { live: L, moment: M, rm: R, dotScale: K } = props.current
-      const sc = K !== 1 ? ` scale(${K})` : ''
+      const { live: L, moment: M, rm: R, showMe: SM } = props.current
       const running = L.phase === 'first_half' || L.phase === 'second_half' || L.phase === 'extra_time'
       // deriva: novo alvo a cada ~1 s pela posse
       if (!M && t > S.nextDrift) {
@@ -153,13 +190,10 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
       // rastro
       S.hist.unshift([S.bx, S.by])
       if (S.hist.length > 16) S.hist.length = 16
-      ball.current?.setAttribute('transform', `translate(${(S.bx * 10.5).toFixed(1)} ${(S.by * 6.8).toFixed(1)})${sc}`)
+      place(ball.current, S.bx, S.by)
       trail.current.forEach((c, i) => {
         const h = S.hist[(i + 1) * 4]
-        if (c && h) {
-          c.setAttribute('cx', (h[0] * 10.5).toFixed(1))
-          c.setAttribute('cy', (h[1] * 6.8).toFixed(1))
-        }
+        if (c && h) place(c, h[0], h[1])
       })
       // jogadores
       const homeAtk = S.bx >= 50
@@ -195,7 +229,7 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
           tgt[best] = [tgt[best][0] + (S.bx - tgt[best][0]) * pull, tgt[best][1] + (S.by - tgt[best][1]) * pull]
         }
         // lance decisivo: você perto da bola
-        if (M?.at && (team === 0) === (L.userSide === 'home') && L.userOnPitch) {
+        if (M?.at && (team === 0) === (L.userSide === 'home') && SM) {
           tgt[userSlot] = [M.at.x - 1.6 * (L.userSide === 'home' ? 1 : -1), M.at.y + 2]
         }
         for (let i = 0; i < 11; i++) {
@@ -206,12 +240,11 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
             S.px[j + 1] = y
           } else {
             const k = Math.min(1, dt * (M ? 4 : 2.2))
-            S.px[j] += (Math.max(1.5, Math.min(98.5, x)) - S.px[j]) * k
-            S.px[j + 1] += (Math.max(3, Math.min(97, y)) - S.px[j + 1]) * k
+            S.px[j] += (Math.max(1.8, Math.min(98.2, x)) - S.px[j]) * k
+            S.px[j + 1] += (Math.max(3.5, Math.min(96.5, y)) - S.px[j + 1]) * k
           }
-          const el = dots.current[team * 11 + i]
-          el?.setAttribute('transform', `translate(${(S.px[j] * 10.5).toFixed(1)} ${(S.px[j + 1] * 6.8).toFixed(1)})${sc}`)
-          if (i === userSlot && (team === 0) === (L.userSide === 'home') && me.current) me.current.setAttribute('transform', `translate(${(S.px[j] * 10.5).toFixed(1)} ${(S.px[j + 1] * 6.8).toFixed(1)})${sc}`)
+          place(dots.current[team * 11 + i], S.px[j], S.px[j + 1])
+          if (i === userSlot && (team === 0) === (L.userSide === 'home')) place(me.current, S.px[j], S.px[j + 1])
         }
       }
       S.inited = true
@@ -222,11 +255,11 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
   }, [userSlot])
 
   const userTeam = live.userSide === 'home' ? 0 : 1
-  const showMe = live.userOnPitch
   const spot = moment?.at
+  const meInk = (userTeam === 0 ? hs : as).fill.toLowerCase() === '#f4f6ff' ? '#0A0F3A' : (userTeam === 0 ? home : away).colors.primary
   return (
-    <div className={cx('im-pitch', dim && 'is-dim', className)}>
-      <svg viewBox="0 0 1050 680" className="im-pitch__svg" role="img" aria-label={`Campo: ${home.short} ataca para a direita, ${away.short} para a esquerda`}>
+    <div ref={wrap} className={cx('im-pitch', dim && 'is-dim', className)}>
+      <svg viewBox="0 0 1050 680" preserveAspectRatio="none" className="im-pitch__svg" role="img" aria-label={`Campo: ${home.short} ataca para a direita, ${away.short} para a esquerda`}>
         <defs>
           <linearGradient id="im-grass" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#0F6149" />
@@ -243,16 +276,16 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
             <rect key={x} x={x} width="75" height="680" />
           ))}
         </g>
-        <g fill="none" stroke="#DFFCF2" strokeOpacity=".62" strokeWidth="3">
-          <rect x="10" y="10" width="1030" height="660" />
-          <line x1="525" y1="10" x2="525" y2="670" />
-          <circle cx="525" cy="340" r="91.5" />
-          <rect x="10" y="138.5" width="165" height="403" />
-          <rect x="875" y="138.5" width="165" height="403" />
-          <rect x="10" y="248.5" width="55" height="183" />
-          <rect x="985" y="248.5" width="55" height="183" />
-          <path d="M175 266 A91.5 91.5 0 0 1 175 414" />
-          <path d="M875 266 A91.5 91.5 0 0 0 875 414" />
+        <g fill="none" stroke="#DFFCF2" strokeOpacity=".62" strokeWidth="3" vectorEffect="non-scaling-stroke">
+          <rect x="10" y="10" width="1030" height="660" vectorEffect="non-scaling-stroke" />
+          <line x1="525" y1="10" x2="525" y2="670" vectorEffect="non-scaling-stroke" />
+          <circle cx="525" cy="340" r="91.5" vectorEffect="non-scaling-stroke" />
+          <rect x="10" y="138.5" width="165" height="403" vectorEffect="non-scaling-stroke" />
+          <rect x="875" y="138.5" width="165" height="403" vectorEffect="non-scaling-stroke" />
+          <rect x="10" y="248.5" width="55" height="183" vectorEffect="non-scaling-stroke" />
+          <rect x="985" y="248.5" width="55" height="183" vectorEffect="non-scaling-stroke" />
+          <path d="M175 266 A91.5 91.5 0 0 1 175 414" vectorEffect="non-scaling-stroke" />
+          <path d="M875 266 A91.5 91.5 0 0 0 875 414" vectorEffect="non-scaling-stroke" />
         </g>
         <g fill="#DFFCF2" fillOpacity=".7">
           <circle cx="525" cy="340" r="4" />
@@ -264,46 +297,35 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
           <rect x="1040" y="303" width="16" height="74" />
         </g>
         <rect width="1050" height="680" fill="url(#im-vig)" />
-
-        <g fontFamily="var(--font-display)" fontWeight="800" fontSize="12" textAnchor="middle">
-          {[0, 1].map((team) => {
-            const ds = team === 0 ? hs : as
-            return SLOTS.map((sl, i) => {
-              const mine = team === userTeam && i === userSlot && showMe
-              return (
-                <g key={`${team}-${i}`} ref={(el) => void (dots.current[team * 11 + i] = el)} opacity={mine ? 0 : 1}>
-                  <circle r="11" fill={ds.fill} stroke={ds.ring} strokeWidth="2.5" />
-                  <text y="4" fill={ds.ink}>
-                    {team === userTeam && i === userSlot ? userNumber : sl.n}
-                  </text>
-                </g>
-              )
-            })
-          })}
-        </g>
-        {showMe && (
-          <g ref={me}>
-            <circle className="lx-pitch-me" r="22" fill="none" stroke="#3BE4FF" strokeWidth="2" />
-            <circle r="14" fill="#F4F6FF" stroke="#3BE4FF" strokeWidth="3" />
-            <text y="5" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="800" fontSize="14" fill={(userTeam === 0 ? hs : as).ring === '#F4F6FF' ? '#0A0F3A' : (userTeam === 0 ? home : away).colors.primary}>
-              {userNumber}
-            </text>
-            <g transform="translate(0 -36)">
-              <path d={`M${-meLabel.length * 4.2 - 8} -12 H${meLabel.length * 4.2 + 12} L${meLabel.length * 4.2 + 6} 8 H${-meLabel.length * 4.2 - 14} Z`} fill="#06103A" stroke="#3BE4FF" strokeOpacity=".6" />
-              <text y="3" textAnchor="middle" fill="#F4F6FF" fontFamily="var(--font-display)" fontWeight="800" fontStyle="italic" fontSize="14">
-                {meLabel}
-              </text>
-            </g>
-          </g>
-        )}
-        {[0, 1, 2].map((i) => (
-          <circle key={i} ref={(el) => void (trail.current[i] = el)} r="5" fill="#fff" opacity={0.42 - i * 0.12} cx="525" cy="340" />
-        ))}
-        <g ref={ball}>
-          <circle r="7" fill="#fff" stroke="#0A0F3A" strokeWidth="1.5" />
-          <circle r="2.4" cx="-1.5" cy="-1.5" fill="#0A0F3A" opacity=".55" />
-        </g>
       </svg>
+      {/* jogadores e bola em pixels de tela (legíveis em qualquer tamanho de campo) */}
+      <div className="im-pitch__layer" aria-hidden="true">
+        {[0, 1].map((team) => {
+          const ds = team === 0 ? hs : as
+          return SLOTS.map((sl, i) => {
+            const mine = team === userTeam && i === userSlot && showMe
+            return (
+              <span
+                key={`${team}-${i}`}
+                ref={(el) => void (dots.current[team * 11 + i] = el)}
+                className={cx('im-dot', i === 0 && 'is-gk', mine && 'is-hidden')}
+                style={{ ['--df' as string]: ds.fill, ['--dr' as string]: ds.ring, ['--di' as string]: ds.ink }}
+              >
+                <b>{sl.n}</b>
+              </span>
+            )
+          })
+        })}
+        {[0, 1, 2].map((i) => (
+          <span key={i} ref={(el) => void (trail.current[i] = el)} className="im-ball-trail" style={{ opacity: 0.42 - i * 0.12 }} />
+        ))}
+        <span ref={ball} className="im-ball" />
+        <span ref={me} className={cx('im-dot is-me', !showMe && 'is-hidden')} style={{ ['--di' as string]: meInk }}>
+          <i className="im-dot__pulse" />
+          <b>{userNumber}</b>
+          <span className="im-dot__tag">{meLabel}</span>
+        </span>
+      </div>
       {spot && <div className="lx-spotlight" style={{ ['--lx-x' as string]: `${spot.x}%`, ['--lx-y' as string]: `${spot.y}%` }} />}
     </div>
   )

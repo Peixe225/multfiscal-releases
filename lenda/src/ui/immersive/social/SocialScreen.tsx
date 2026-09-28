@@ -2,16 +2,45 @@
  * Rede social ("Arquibancada"): perfil com seguidores e humor da torcida, compositor com
  * respostas prontas (o jogo não tem texto livre), feed e "Em alta".
  */
-import { memo, useMemo, useState, type ReactNode } from 'react'
+import { memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { BadgeCheck, Eye, Heart, MessageCircle, Repeat2, Send, Share2, TrendingUp } from 'lucide-react'
 import type { ImmersiveState, SocialPost } from '@/engine/immersive/types'
 import { navigate } from '@/store/app'
 import { getClub } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
-import { Button, Crest, cx } from '@/ui/primitives'
-import { PanelHead } from '../bits'
+import { Button, Crest, clubVars, cx } from '@/ui/primitives'
+import { CompLogo, PanelHead, TeamMark } from '../bits'
 import { POST_TEMPLATES, type PostContext } from '../model/constants'
-import { compactNumber, recentForm } from '../model/view'
+import { compactNumber, recentForm, relWeek, teamInfo } from '../model/view'
+
+const slug = (x: string) =>
+  x
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+const hash = (str: string) => {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619)
+  return h >>> 0
+}
+/** Torcedores fictícios (o motor manda um "Torcedor" genérico). */
+const FANS = ['Carla Menezes', 'Zé da Geral', 'Duda Ferraz', 'Léo Arquibancada', 'Bia Tavares', 'Marcão do Setor Norte', 'Rafa Souza', 'Tia Nena', 'Gui Rocha', 'Paulinha Lima', 'Seu Jorge da Bandeira', 'Nando Faria', 'Júlia Prado', 'Beto Cardoso', 'Lari Campos', 'Dona Cida']
+
+/** Autor e @ de exibição: nome variado para torcedores e @ sem sigla crua de 3 letras ("@bot_…"). */
+export function displayAuthor(p: SocialPost, clubAbbr?: string, clubShort?: string): { name: string; handle: string } {
+  let handle = p.handle
+  if (clubAbbr && clubShort) {
+    const re = new RegExp(`^@${clubAbbr}(?=[_.]|$)`, 'i')
+    handle = handle.replace(re, `@${slug(clubShort)}`)
+  }
+  if (!p.byUser && !p.verified && /^torcedor(a)?( raiz)?$/i.test(p.author.trim())) {
+    const name = FANS[hash(p.id) % FANS.length]
+    const tail = /_(\w+)$/.exec(p.handle)?.[1] ?? String(hash(p.id) % 100)
+    return { name, handle: `@${slug(name.split(' ')[0])}_${tail}` }
+  }
+  return { name: p.author, handle }
+}
 
 /** Seguidores: o motor pode guardar na memória opaca; senão estimamos pela fama. */
 export function followersOf(s: ImmersiveState): number {
@@ -41,26 +70,58 @@ const initials = (name: string) =>
     .join('')
     .toUpperCase() || '?'
 
+/** Mídia gerada (nunca foto real): placar do jogo da semana nos posts do clube, da imprensa e seus. */
+function PostMedia({ p, s }: { p: SocialPost; s: ImmersiveState }) {
+  const game = s.calendar.find((c) => c.season === p.season && c.week === p.week && (c.kind === 'match' || c.kind === 'national_match') && c.result)
+  if (!game?.result) return null
+  const national = game.kind === 'national_match'
+  const us = teamInfo(national ? s.identity.nationality : s.clubId)
+  const them = teamInfo(game.opponentId)
+  const [H, A] = game.home === false ? [them, us] : [us, them]
+  return (
+    <div className="im-post__media" style={clubVars(us.colors) as CSSProperties} aria-label={`Placar: ${H.short} ${game.result.score[0]} a ${game.result.score[1]} ${A.short}`}>
+      <span className="im-post__mk">
+        <CompLogo id={game.competitionId} size={18} /> Fim de jogo{game.stage ? ` · ${game.stage}` : ''}
+      </span>
+      <span className="im-post__ms">
+        <TeamMark team={H} size={38} />
+        <b className="num">
+          {game.result.score[0]}
+          <i>–</i>
+          {game.result.score[1]}
+        </b>
+        <TeamMark team={A} size={38} />
+      </span>
+      <span className="im-post__mn">
+        {H.abbr} × {A.abbr}
+      </span>
+    </div>
+  )
+}
+
 export const Post = memo(function Post({ p, s, i }: { p: SocialPost; s: ImmersiveState; i: number }) {
   const [liked, setLiked] = useState(false)
   const club = getClub(s.clubId)
   const official = p.verified && club && (p.author === club.name || p.handle.toLowerCase().includes(club.shortName.toLowerCase().replace(/\s+/g, '')))
   const trending = p.likes > 10000
+  const who = displayAuthor(p, club?.abbr, club?.shortName)
+  const media = (official || p.byUser) && /gol|⚽|vit[oó]ria|placar|fim de jogo|×|x /i.test(p.text)
   return (
-    <article className={cx('lx-plate lx-plate--flat lx-post im-post lx-anim-rise', official && 'lx-post--official', p.byUser && 'is-me')} style={{ ['--i' as string]: Math.min(i, 8) }}>
+    <article className={cx('lx-plate lx-plate--flat lx-post im-post lx-anim-rise', official && 'lx-post--official', p.byUser && 'is-me')} style={{ ['--i' as string]: Math.min(i, 8), ...(official && club ? (clubVars(club) as CSSProperties) : {}) }}>
       {trending && <span className="im-post__ribbon">Em alta</span>}
       <span className={cx('lx-avatar im-post__av', official && 'lx-avatar--club', p.byUser && 'is-me')} data-tone={p.verified ? 'media' : 'fan'}>
-        {p.byUser ? s.squadNumber : official && club ? <Crest club={club} size={28} decorative /> : initials(p.author)}
+        {p.byUser ? s.squadNumber : official && club ? <Crest club={club} size={28} decorative /> : initials(who.name)}
       </span>
       <div className="min-w-0">
         <header className="im-post__h">
-          <span className="im-post__nm">{p.author}</span>
+          <span className="im-post__nm">{who.name}</span>
           {p.verified && <BadgeCheck size={15} className="im-post__ver" aria-label="Verificado" />}
           <span className="im-post__hd">
-            {p.handle} · sem {p.week}
+            {who.handle} · {relWeek(s, p.week, p.season)}
           </span>
         </header>
         {p.text && <p className="im-post__t">{rich(p.text)}</p>}
+        {media && <PostMedia p={p} s={s} />}
         <div className="im-post__acts">
           <button type="button" className="lx-post__action" aria-label="Respostas">
             <MessageCircle aria-hidden="true" />
@@ -102,8 +163,9 @@ export function Composer({ s, compact }: { s: ImmersiveState; compact?: boolean 
   const scored = !!lastMatch && lastMatch.stats.goals > 0
   const ctx = postContext(s, scored)
   const catalog = useImmersive((x) => x.catalog.postTemplates)
-  const templates: { id: string; label: string; text: string; hint: string; when?: string[] }[] = catalog ?? POST_TEMPLATES
-  const list = templates.filter((t) => !t.when || t.when.some((w) => (ctx as string[]).includes(w))).slice(0, compact ? 3 : 6)
+  // o catálogo do motor pode não trazer "quando" cada modelo vale: usa o da UI pelo id
+  const templates: { id: string; label: string; text: string; hint: string; when?: string[] }[] = (catalog ?? POST_TEMPLATES).map((t) => ({ ...t, when: t.when ?? POST_TEMPLATES.find((u) => u.id === t.id)?.when }))
+  const list = templates.filter((t) => !s.clubId ? t.when?.includes('any') ?? !/gol|rival/i.test(t.label) : !t.when || t.when.some((w) => (ctx as string[]).includes(w))).slice(0, compact ? 3 : 6)
   const postedThisWeek = s.social.some((p) => p.byUser && p.week === s.week && p.season === s.season)
   return (
     <div className={cx('lx-plate lx-plate--flat lx-c-sm im-compose', compact && 'is-compact')}>
@@ -125,7 +187,13 @@ export function Composer({ s, compact }: { s: ImmersiveState; compact?: boolean 
               }}
             >
               <span>{t.label}</span>
-              <small>{t.hint}</small>
+              <small className="im-hints">
+                {t.hint.split(/\s*·\s*/).map((h) => (
+                  <em key={h} className={cx(/[−-]|▼/.test(h) ? 'is-neg' : /\+|▲/.test(h) ? 'is-pos' : 'is-neu')}>
+                    {h}
+                  </em>
+                ))}
+              </small>
             </button>
           ))}
         </div>
@@ -143,7 +211,7 @@ function Profile({ s }: { s: ImmersiveState }) {
   const neg = Math.max(0, Math.round(((100 - fans) / 100) * segs * 0.55))
   return (
     <>
-      <section className="lx-plate lx-c-md im-prof">
+      <section className="lx-plate lx-c-md im-prof" style={club ? (clubVars(club) as CSSProperties) : undefined}>
         <span className="lx-avatar lx-avatar--club im-prof__av">{s.squadNumber}</span>
         <div className="min-w-0">
           <div className="lx-t-card">{s.identity.surname}</div>
@@ -166,10 +234,16 @@ function Profile({ s }: { s: ImmersiveState }) {
             <i key={i} data-t={i < neg ? 'neg' : i >= segs - pos ? 'pos' : 'neu'} />
           ))}
         </div>
-        <div className="flex justify-between mt-1.5">
-          <span className="lx-label is-neg">Vaia</span>
-          <span className="lx-label">Neutro</span>
-          <span className="lx-label is-pos">Idolatria</span>
+        <div className="im-mood__pct">
+          <span className="is-neg">
+            <b className="num">{Math.round((neg / segs) * 100)}%</b> criticam
+          </span>
+          <span>
+            <b className="num">{100 - Math.round((neg / segs) * 100) - Math.round((pos / segs) * 100)}%</b> neutros
+          </span>
+          <span className="is-pos">
+            <b className="num">{Math.round((pos / segs) * 100)}%</b> apoiam
+          </span>
         </div>
       </section>
     </>
@@ -178,12 +252,18 @@ function Profile({ s }: { s: ImmersiveState }) {
 
 function Trending({ s }: { s: ImmersiveState }) {
   const tags = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const p of s.social) for (const h of p.text.match(/#[\wÀ-ú]+/g) ?? []) m.set(h, (m.get(h) ?? 0) + p.likes + p.reposts * 3)
+    // mesma hashtag em caixas diferentes (#botafogo / #Botafogo) conta como uma só
+    const m = new Map<string, { tag: string; n: number }>()
+    const add = (tag: string, n: number) => {
+      const k = tag.toLowerCase()
+      const cur = m.get(k)
+      m.set(k, { tag: cur?.tag ?? tag, n: (cur?.n ?? 0) + n })
+    }
+    for (const p of s.social) for (const h of p.text.match(/#[\wÀ-ú]+/g) ?? []) add(h, p.likes + p.reposts * 3)
     const club = getClub(s.clubId)
-    if (club) m.set(`#${club.shortName.replace(/\s+/g, '')}`, (m.get(`#${club.shortName.replace(/\s+/g, '')}`) ?? 0) + 5000)
-    m.set(`#${s.identity.surname.charAt(0)}${s.identity.surname.slice(1).toLowerCase()}${s.squadNumber}`, 1200 + s.reputation * 900)
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+    if (club) add(`#${club.shortName.replace(/\s+/g, '')}`, 5000)
+    add(`#${s.identity.surname.charAt(0).toUpperCase()}${s.identity.surname.slice(1).toLowerCase()}${s.squadNumber}`, 1200 + s.reputation * 900)
+    return [...m.values()].sort((a, b) => b.n - a.n).slice(0, 5).map((x) => [x.tag, x.n] as const)
   }, [s.social, s.clubId, s.identity, s.squadNumber, s.reputation])
   return (
     <section className="lx-plate lx-plate--flat lx-c-sm im-trend">

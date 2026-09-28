@@ -7,7 +7,7 @@ import { useCareer } from '@/store/career'
 import { useClub, useCountry } from '@/store/data'
 import { Button, Crest, Eyebrow, Modal, POSITION_LABEL, cx, formatInt, toast } from '@/ui/primitives'
 import { CategoryGlyph, LegendAvatar, NotaRing, RunCrests, valueOf } from './parts'
-import { gapText, yearsLabel, type HallModel } from './model'
+import { gapText, runHeadline, yearsLabel, type HallModel } from './model'
 
 function Breakdown({ items, values }: { items: RunLegacy['breakdown']; values: RunLegacy | LegendLegacy }) {
   return (
@@ -65,7 +65,7 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
         }
         description={
           run
-            ? `${run.tier.label} · ${rank}º de ${hall.overall.length} no Hall das Lendas · ${POSITION_LABEL[run.stats.position]} · ${run.stats.seasons} temporadas${h ? ` · ${h.summary.headline}` : ''}`
+            ? `${run.tier.label} · ${rank}º de ${hall.overall.length} no Hall das Lendas · ${POSITION_LABEL[run.stats.position]} · ${run.stats.seasons} temporadas${h ? ` · ${runHeadline(h, run, rank)}` : ''}`
             : undefined
         }
         footer={
@@ -120,22 +120,44 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
                 })}
               </ul>
               <Eyebrow as="h3" className="mt-4 block">
-                Recordes quebrados · {run.records.length}
+                Recordes históricos · {run.historic.length}
               </Eyebrow>
-              {run.records.length ? (
+              {run.historic.length ? (
                 <ul className="hl-recs">
-                  {run.records.map((r) => (
-                    <li key={r.id} className={cx(r.scope === 'historia' ? 'is-hist' : 'is-pers')}>
-                      <span className="hl-recs__ic">{r.scope === 'historia' ? <Trophy size={14} aria-hidden /> : <Zap size={14} aria-hidden />}</span>
+                  {run.historic.map((r) => (
+                    <li key={r.id} className="is-hist">
+                      <span className="hl-recs__ic">
+                        <Trophy size={14} aria-hidden />
+                      </span>
                       <span>
-                        <small>{r.scope === 'historia' ? 'Recorde histórico' : 'Recorde das suas runs'}</small>
+                        <small>Recorde mundial</small>
                         {r.text}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="hl-md__empty">Nenhum recorde nesta run. Supere uma marca real (ou a melhor das suas runs) para entrar nesta lista.</p>
+                <p className="hl-md__empty">Nenhum recorde histórico nesta run. Supere uma marca mundial (Bolas de Ouro, gols, Libertadores…) para entrar nesta lista.</p>
+              )}
+              {run.personal.length > 0 && (
+                <>
+                  <Eyebrow as="h3" className="mt-4 block">
+                    Recordes das suas runs · {run.personal.length}
+                  </Eyebrow>
+                  <ul className="hl-recs">
+                    {run.personal.map((r) => (
+                      <li key={r.id} className="is-pers">
+                        <span className="hl-recs__ic">
+                          <Zap size={14} aria-hidden />
+                        </span>
+                        <span>
+                          <small>Só selo · não entra na nota</small>
+                          {r.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
               <Eyebrow as="h3" className="mt-4 block">
                 Comparações com lendas
@@ -249,10 +271,25 @@ export function LegendDetail({ entry, hall, onClose }: { entry: LegendLegacy | n
                 <LegendClubChip key={c.name} name={c.name} clubId={c.clubId} />
               ))}
             </ul>
+            {entry.worldRecords.length > 0 && (
+              <>
+                <Eyebrow as="h3" className="mt-4 block">
+                  Recordes mundiais que contam na nota · {entry.worldRecords.length}
+                </Eyebrow>
+                <ul className="hl-wrecs">
+                  {entry.worldRecords.map((r) => (
+                    <li key={r.metric} className={cx(r.current && 'is-cur')}>
+                      {r.label}
+                      <small>{r.current ? 'atual' : 'na época'}</small>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
             {l.records.length > 0 && (
               <>
                 <Eyebrow as="h3" className="mt-4 block">
-                  Recordes e marcas
+                  Marcas notáveis
                 </Eyebrow>
                 <ul className="hl-recs">
                   {l.records.map((r) => (
@@ -295,16 +332,16 @@ function LegendClubChip({ name, clubId }: { name: string; clubId?: string }) {
 }
 
 const HOW: { label: string; weight: number; rule: string }[] = [
+  { label: 'Bolas de Ouro', weight: LEGACY_WEIGHTS.ballonDor, rule: '1 ≈ 39%, 3 ≈ 78%, 5 ≈ 92%, 8 ≈ 98%; as retroativas da France Football (lendas pré-1995) valem meia' },
   { label: 'Copas do Mundo', weight: LEGACY_WEIGHTS.worldCups, rule: '1 Copa ≈ 51% do peso, 2 ≈ 76%, 3 ≈ 88%' },
-  { label: 'Bolas de Ouro', weight: LEGACY_WEIGHTS.ballonDor, rule: '1 ≈ 39%, 3 ≈ 78%, 5 ≈ 92%, 8 ≈ 98%' },
   { label: 'Champions + Libertadores', weight: LEGACY_WEIGHTS.continental, rule: 'somadas; o peso é dividido entre as duas' },
   { label: 'Gols', weight: LEGACY_WEIGHTS.goals, rule: '300 ≈ 55%, 500 ≈ 73%, 1.000 ≈ 93% (ajustado por posição)' },
   { label: 'Média de gols', weight: LEGACY_WEIGHTS.goalsPerGame, rule: 'de 0,25 a 0,90 gol por jogo, com 300+ jogos' },
-  { label: 'Recordes quebrados', weight: LEGACY_WEIGHTS.records, rule: 'históricos valem 1; das suas runs, 0,25' },
+  { label: 'Recordes mundiais', weight: LEGACY_WEIGHTS.records, rule: 'nas métricas do jogo: 1 ≈ 28%, 3 ≈ 63%. Recordes das suas runs são só selo' },
   { label: 'Títulos nacionais', weight: LEGACY_WEIGHTS.leagueTitles, rule: 'só primeira divisão; 5 ≈ 57%, 10 ≈ 81%' },
   { label: 'Assistências', weight: LEGACY_WEIGHTS.assists, rule: '160 ≈ 63%, 400 ≈ 92%' },
   { label: 'Chuteiras de Ouro', weight: LEGACY_WEIGHTS.goldenBoots, rule: '1 ≈ 43%, 3 ≈ 81%' },
-  { label: 'Clubes', weight: LEGACY_WEIGHTS.clubs, rule: 'rodar o mundo conta um pouco' },
+  { label: 'Clubes', weight: LEGACY_WEIGHTS.clubs, rule: '2 ≈ 50%, 4+ = 100%; um clube só (300+ jogos) também vale 100%' },
 ]
 
 export function HowModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -331,7 +368,10 @@ export function HowModal({ open, onClose }: { open: boolean; onClose: () => void
           </tbody>
         </table>
         <p>
-          <b>Posição conta:</b> gols e assistências de meio-campistas valem ×1,5 e de defensores ×3; goleiros pontuam pela longevidade (jogos). OVR não entra: as lendas não têm.
+          <b>Posição conta:</b> gols e assistências de meio-campistas valem ×1,5; de defensores, ×3 mais um bônus de longevidade (0,2 por jogo, sem passar de um artilheiro de verdade); goleiros pontuam pela longevidade (jogos). OVR não entra: as lendas não têm.
+        </p>
+        <p>
+          <b>A nota é só da run:</b> não muda com a ordem das runs nem quando uma run sai do Hall. Superar as suas runs anteriores rende selo, não pontos.
         </p>
         <p>
           <b>Níveis:</b> Promessa (0–24) · Profissional (25–44) · Ídolo (45–59) · Craque (60–74) · Lenda (75–89) · Imortal (90+).

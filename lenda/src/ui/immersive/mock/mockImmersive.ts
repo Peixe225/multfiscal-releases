@@ -87,6 +87,8 @@ interface Mem {
   lastResult?: { res: 'V' | 'E' | 'D'; goals: number; oppId: string; score: [number, number]; userSide: 'home' | 'away' }
   seasonTrophies: TrophyWin[]
   seed: string
+  /** Outros jogos da rodada da partida ao vivo (placares já decididos; o ticker "outros jogos" os revela no relógio). */
+  preview?: { itemId: string; round: number; games: [string, string, number, number][] }
 }
 
 interface Deltas {
@@ -605,17 +607,21 @@ function creditScorers(data: GameData, s: ImmersiveState, clubId: string, n: num
 function simulateRound(data: GameData, s: ImmersiveState, r: number, skipUser = false) {
   const m = mem(s)
   const rng = new Rng(`${s.seed}:round:${s.season}:${r}`)
+  const pre = m.preview?.round === r ? new Map(m.preview.games.map((g) => [`${g[0]}|${g[1]}`, g])) : null
   for (const f of m.rounds[r] ?? []) {
     if (skipUser && (f.home === s.clubId || f.away === s.clubId)) continue
     const h = m.table.find((x) => x.clubId === f.home)
     const a = m.table.find((x) => x.clubId === f.away)
     if (!h || !a) continue
-    const [gh, ga] = simGoals(rng, s.world.clubs[f.home]?.strength ?? 65, s.world.clubs[f.away]?.strength ?? 65)
+    const fixed = pre?.get(`${f.home}|${f.away}`)
+    const sim = simGoals(rng, s.world.clubs[f.home]?.strength ?? 65, s.world.clubs[f.away]?.strength ?? 65)
+    const [gh, ga] = fixed ? [fixed[2], fixed[3]] : sim
     addResult(h, a, gh, ga)
     creditScorers(data, s, f.home, gh, rng)
     creditScorers(data, s, f.away, ga, rng)
   }
   m.roundDone[r] = true
+  if (pre) m.preview = undefined
 }
 
 function liveTable(_data: GameData, state: ImmersiveState): StandingRow[] {
@@ -675,6 +681,18 @@ function createLive(data: GameData, s: ImmersiveState, it: CalendarItem): LiveMa
   const pos = clamp(Math.round(50 + (hs + 2 - as) * 0.7), 34, 66)
   live.team.possession = [pos, 100 - pos]
   m.plan = { bg: planBackground(data, s, live, rng, status), moments: planMoments(s, rng, status, onAt), onAt, startMinute: 0, momentsDone: 0 }
+  // rodada da liga: os outros jogos já ficam decididos (o ticker e a tabela ao vivo mostram no relógio)
+  if (!national && it.competitionId === m.leagueId) {
+    const r = it.week - 1
+    const prng = new Rng(`${s.seed}:preview:${s.season}:${r}`)
+    const games = (m.rounds[r] ?? [])
+      .filter((f) => f.home !== s.clubId && f.away !== s.clubId)
+      .map((f) => {
+        const [gh, ga] = simGoals(prng, s.world.clubs[f.home]?.strength ?? 65, s.world.clubs[f.away]?.strength ?? 65)
+        return [f.home, f.away, gh, ga] as [string, string, number, number]
+      })
+    m.preview = { itemId: it.id, round: r, games }
+  }
   return live
 }
 
@@ -725,11 +743,6 @@ function planBackground(data: GameData, s: ImmersiveState, live: LiveMatch, rng:
   const hSquad = squadOf(data, live.home.id, s.seed)
   const aSquad = squadOf(data, live.away.id, s.seed)
   const keeper = (side: 'home' | 'away') => keeperOf(side === 'home' ? aSquad : hSquad)?.short ?? 'o goleiro'
-  const scorer = (side: 'home' | 'away') => {
-    const att = attackersOf(side === 'home' ? hSquad : aSquad)
-    const any = side === 'home' ? hSquad : aSquad
-    return (att.length ? rng.weighted(att, (p) => p.ovr - 50) : rng.pick(any)).name
-  }
   const minute = () => rng.int(3, 90)
   const teamName = (side: 'home' | 'away') => (side === 'home' ? live.home.shortName : live.away.shortName)
   const add = (e: MatchEvent) => ev.push(e)
@@ -737,28 +750,48 @@ function planBackground(data: GameData, s: ImmersiveState, live: LiveMatch, rng:
     ['home', gh],
     ['away', ga],
   ] as const) {
+    const squad = side === 'home' ? hSquad : aSquad
+    // substituições primeiro (sem repetir quem sai/entra): ninguém age depois de sair nem antes de entrar
+    const offPool = squad.slice(0, 11).filter((p) => p.position !== 'GOL')
+    const onPool = squad.slice(11).filter((p) => p.position !== 'GOL')
+    const subs: { m: number; off: SquadPlayer; on: SquadPlayer }[] = []
+    const nSubs = Math.min(rng.int(2, 3), offPool.length, onPool.length)
+    for (let i = 0; i < nSubs; i++) {
+      const off = offPool.splice(rng.int(0, offPool.length - 1), 1)[0]
+      const on = onPool.splice(rng.int(0, onPool.length - 1), 1)[0]
+      if (off && on) subs.push({ m: rng.int(56, 84), off, on })
+    }
+    const alive = (m: number) => {
+      const out = new Set(subs.filter((x) => x.m <= m).map((x) => x.off.name))
+      const inn = subs.filter((x) => x.m < m).map((x) => x.on)
+      return [...squad.slice(0, 11).filter((p) => !out.has(p.name)), ...inn]
+    }
+    const scorer = (m: number) => {
+      const list = alive(m).filter((p) => p.position !== 'GOL')
+      const att = attackersOf(list)
+      return (att.length ? rng.weighted(att, (p) => p.ovr - 50) : rng.pick(list.length ? list : squad)).name
+    }
+    for (const x of subs) add({ minute: x.m, type: 'sub_on', side, player: x.on.name, assist: x.off.name, text: '', at: { x: 50, y: 99 } })
     for (let i = 0; i < n; i++) {
-      const pl = scorer(side)
-      const squad = side === 'home' ? hSquad : aSquad
-      const asst = rng.chance(0.7) ? rng.pick(squad.filter((p) => p.name !== pl && p.position !== 'GOL'))?.name : undefined
-      add({ minute: minute(), type: 'goal', side, player: pl, assist: asst, text: '', at: AT.goal(side, rng) })
+      const mm = minute()
+      const pl = scorer(mm)
+      const asst = rng.chance(0.7) ? rng.pick(alive(mm).filter((p) => p.name !== pl && p.position !== 'GOL'))?.name : undefined
+      add({ minute: mm, type: 'goal', side, player: pl, assist: asst, text: '', at: AT.goal(side, rng) })
     }
     const chances = rng.int(3, 6)
     for (let i = 0; i < chances; i++) {
-      const pl = scorer(side)
+      const mm = minute()
       const kind = rng.pick(['chance', 'chance', 'save', 'save', 'woodwork'] as const)
-      add({ minute: minute(), type: kind, side, player: pl, text: '', at: AT.box(side, rng) })
+      add({ minute: mm, type: kind, side, player: scorer(mm), text: '', at: AT.box(side, rng) })
     }
     const cards = rng.int(0, 3)
-    const outfield = (side === 'home' ? hSquad : aSquad).filter((p) => p.position !== 'GOL')
-    for (let i = 0; i < cards; i++) add({ minute: minute(), type: 'yellow', side, player: rng.pick(outfield)?.name, text: '', at: AT.mid(rng) })
-    if (rng.chance(0.06)) add({ minute: rng.int(40, 88), type: 'red', side, player: rng.pick(outfield)?.name, text: '', at: AT.mid(rng) })
-    const subs = rng.int(2, 3)
-    for (let i = 0; i < subs; i++) {
-      const squad = side === 'home' ? hSquad : aSquad
-      const off = rng.pick(squad.slice(0, 11))?.name
-      const on = rng.pick(squad.slice(11))?.name ?? rng.pick(squad)?.name
-      add({ minute: rng.int(56, 84), type: 'sub_on', side, player: on, assist: off, text: '', at: { x: 50, y: 99 } })
+    for (let i = 0; i < cards; i++) {
+      const mm = minute()
+      add({ minute: mm, type: 'yellow', side, player: rng.pick(alive(mm).filter((p) => p.position !== 'GOL'))?.name, text: '', at: AT.mid(rng) })
+    }
+    if (rng.chance(0.06)) {
+      const mm = rng.int(40, 88)
+      add({ minute: mm, type: 'red', side, player: rng.pick(alive(mm).filter((p) => p.position !== 'GOL'))?.name, text: '', at: AT.mid(rng) })
     }
   }
   if (rng.chance(0.18)) add({ minute: minute(), type: 'var', side: rng.chance(0.5) ? 'home' : 'away', text: '', at: { x: 50, y: 50 } })
@@ -1658,7 +1691,8 @@ function respondOffer(data: GameData, s: ImmersiveState, a: Extract<ImmersiveAct
       fx.push({ type: 'toast', tone: 'danger', title: `${clubName} encerrou a negociação`, description: 'A paciência da diretoria acabou.' })
     } else {
       const improved = Math.round((o.salary + (Math.min(salaryAsk, cap) - o.salary) * 0.45) / 1000) * 1000
-      o.salary = Math.max(o.salary, improved)
+      // "melhorou" sempre sobe pelo menos um degrau (nada de "proposta melhorada" com o mesmo valor)
+      o.salary = salaryAsk > o.salary ? Math.min(Math.max(improved, o.salary + 1000), Math.round(cap)) : Math.max(o.salary, improved)
       o.note = `Melhoramos para €${fmtK(o.salary)}/ano. É o que dá, por enquanto.`
       s.inbox.unshift(msg(s, clubName, 'Nova oferta', `Não chegamos no seu número, mas subimos para €${fmtK(o.salary)}/ano. Restam ${o.roundsLeft} rodada${o.roundsLeft > 1 ? 's' : ''}.`, { offerId: o.id }))
       fx.push({ type: 'toast', tone: 'info', title: `${clubName} melhorou a proposta`, description: `€${fmtK(o.salary)}/ano · restam ${o.roundsLeft} rodada${o.roundsLeft > 1 ? 's' : ''}.` })
@@ -2115,5 +2149,20 @@ function nextItem(state: ImmersiveState): CalendarItem | null {
   return state.calendar[state.cursor] ?? null
 }
 
-export const mockImmersive: ImmersiveEngine = { newCareer, dispatch, nextItem, ovrOf, liveTable }
+/** Chances da contraproposta com a MESMA conta do `respondOffer` acima (a UI mostra exatamente isto). */
+function acceptChance(_data: GameData, s: ImmersiveState, offerId: string, want: { salary?: number; years?: number; role?: ContractOffer['role'] }) {
+  const o = s.offers.find((x) => x.id === offerId)
+  if (!o) return null
+  const cap = o.salary * 1.45
+  const salaryAsk = want.salary ?? o.salary
+  const roleRank = { Promessa: 0, Reserva: 1, Rotação: 2, Titular: 3 } as const
+  const roleAsk = want.role ?? o.role
+  const over = Math.max(0, salaryAsk / o.salary - 1)
+  const p = clamp(0.92 - over * 1.4 - Math.max(0, roleRank[roleAsk] - roleRank[o.role]) * 0.22 - Math.abs((want.years ?? o.years) - o.years) * 0.05, 0.05, 0.95)
+  const accept = salaryAsk <= cap ? p : 0
+  const last = o.roundsLeft - 1 <= 0
+  return { accept, improve: last ? 0 : 1 - accept, walk: last ? 1 - accept : 0, ceiling: cap, roundsLeft: o.roundsLeft }
+}
+
+export const mockImmersive: ImmersiveEngine = { newCareer, dispatch, nextItem, ovrOf, liveTable, acceptChance }
 export default mockImmersive

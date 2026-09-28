@@ -436,7 +436,7 @@ export function simulateSeason(
   const nextClubs = evolveClubs(data, ix, seed, world.clubs, result, moves, world.seasons)
   const qualified = qualifyAll(ix, data, { rankings, cupWinners, holders, strength: (id) => nextClubs[id]?.strength ?? 60 })
   const initialTalent = topTalent(data.stars)
-  const nations = evolveNations(data, seed, S, world.nations, result, initialTalent, rivals)
+  const nations = evolveNations(data, seed, S, world.nations, result, initialTalent, rivals, world.seasons)
 
   const seasons = { ...world.seasons, [S]: result }
   const old = seasons[S - COMPACT_AFTER]

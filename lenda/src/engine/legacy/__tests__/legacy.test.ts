@@ -116,6 +116,33 @@ describe('Nota de Legado', () => {
   })
 })
 
+describe('equilíbrio entre posições', () => {
+  const by = () => Object.fromEntries(evaluateLegends().map((l) => [l.id, l]))
+  it('Maldini acima de Tostão; goleiro sem títulos abaixo de 30', () => {
+    const L = by()
+    expect(L.maldini.score).toBeGreaterThan(L.tostao.score)
+    expect(L.maldini.score).toBeGreaterThan(L.riquelme.score)
+    const gk = scoreValues({ values: { ...emptyValues(), clubs: 1 }, apps: 1100, positionGroup: 'goalkeeper', oneClub: true })
+    expect(gk.score).toBeLessThan(30)
+    // um defensor longevo e campeão fica acima de um goleiro longevo sem nada
+    const def = scoreValues({ values: { ...emptyValues(), clubs: 1, goals: 30, ucl: 5, leagueTitles: 7, goalsPerGame: 30 / 900 }, apps: 900, positionGroup: 'defensive', oneClub: true })
+    expect(def.score).toBeGreaterThan(gk.score + 15)
+    // um artilheiro de verdade ainda rende mais em Gols que qualquer defensor
+    const d = scoreValues({ values: { ...emptyValues(), goals: 120, goalsPerGame: 0.12 }, apps: 1000, positionGroup: 'defensive' })
+    const a = scoreValues({ values: { ...emptyValues(), goals: 500, goalsPerGame: 0.5 }, apps: 1000, positionGroup: 'attacking' })
+    const pts = (s: typeof d) => s.breakdown.find((b) => b.id === 'goals')!.points
+    expect(pts(a)).toBeGreaterThan(pts(d))
+  })
+
+  it('Recordes das lendas vêm das mesmas métricas que as runs quebram', () => {
+    const L = by()
+    expect(L.messi.values.records).toBeGreaterThanOrEqual(5)
+    // marcas em texto livre não contam (Batistuta: "maior artilheiro da Fiorentina")
+    expect(L.batistuta.values.records).toBe(0)
+    expect(L['cristiano-ronaldo'].worldRecords.map((r) => r.metric)).toEqual(expect.arrayContaining(['goals', 'nationalGoals']))
+  })
+})
+
 describe('números da run (SeasonRecord[])', () => {
   it('conta categorias e ignora taças menores e segunda divisão', () => {
     const seasons = [
@@ -180,8 +207,23 @@ describe('recordes', () => {
     expect(hall.runs[0].personal).toHaveLength(0)
     const p = hall.runs[1].personal
     expect(p.find((x) => x.metric === 'goals')!.text).toBe('240 gols: recorde das suas runs (antes: 200, run nº 1).')
-    expect(p.find((x) => x.metric === 'libertadores')!.text).toMatch(/primeira vez nas suas runs/)
-    expect(hall.runs[1].values.records).toBe(hall.runs[1].historic.length + p.length)
+    // "primeira vez" (a run anterior tinha 0) não é recorde
+    expect(p.find((x) => x.metric === 'libertadores')).toBeUndefined()
+    // recordes das suas runs são só selo: não entram na categoria Recordes nem na nota
+    expect(hall.runs[1].values.records).toBe(hall.runs[1].historic.length)
+    expect(hall.runs[1].score).toBe(evaluateRun(r2).score)
+    expect(compareRun(hall.runs[1], evaluateLegends(), { max: 20 }).some((c) => c.category === 'records')).toBe(false)
+  })
+
+  it('a nota não depende da ordem das runs nem de runs que saem do Hall', () => {
+    const gk = run(Array.from({ length: 20 }, (_, i) => rec(18 + i, { position: 'GOL', stats: { apps: 45, goals: 0, assists: 0, rating: 7 } })), { id: 'gk', identity: { ...ID, position: 'GOL' } })
+    const vol = run(Array.from({ length: 18 }, (_, i) => rec(18 + i, { position: 'VOL', stats: { apps: 40, goals: 2, assists: 3, rating: 7 } })), { id: 'vol', identity: { ...ID, position: 'VOL' } })
+    const ca = run(Array.from({ length: 18 }, (_, i) => rec(18 + i, { a: i % 6 === 0 ? [bdo()] : [], t: i % 3 === 0 ? [league(), primary('UEFA')] : [] })), { id: 'ca' })
+    const solo = Object.fromEntries([gk, vol, ca].map((r) => [r.id, evaluateRun(r).score]))
+    const a = evaluateHall([gk, vol, ca].map((r, i) => ({ ...r, runNo: i + 1 })))
+    const b = evaluateHall([ca, vol, gk].map((r, i) => ({ ...r, runNo: i + 1 })))
+    const c = evaluateHall([vol, ca].map((r, i) => ({ ...r, runNo: i + 2 })))
+    for (const h of [a, b, c]) for (const r of h.runs) expect(r.score).toBe(solo[r.id])
   })
 })
 
@@ -246,6 +288,14 @@ describe('conquistas em níveis (Hall das Lendas)', () => {
     expect(running).not.toContain('beat_pele')
     const done = detectAchievements(withSeasons(seasons, { retired: true, phase: 'finished' }))
     expect(done).toEqual(expect.arrayContaining(['gpg_05', 'gpg_07', 'gpg_09', 'legacy_60', 'legacy_80', 'legacy_95', 'beat_pele', 'legend_top10', 'beat_all']))
+    // a nota que as conquistas usam é a mesma do Hall (mesmo com runs anteriores no Hall)
+    const finished = withSeasons(seasons.slice(0, 12), { retired: true, phase: 'finished' })
+    const input = { id: finished.id, identity: finished.identity, seasons: finished.seasons, national: finished.national }
+    const prev = run(Array.from({ length: 12 }, (_, i) => rec(18 + i, { stats: { apps: 30, goals: 3, assists: 1, rating: 6 } })), { id: 'prev', runNo: 1 })
+    const inHall = evaluateHall([prev, { ...input, runNo: 2 }]).runs.find((r) => r.id === finished.id)!
+    expect(inHall.score).toBeGreaterThanOrEqual(80)
+    expect(inHall.score).toBe(evaluateRun(input).score)
+    expect(detectAchievements(finished)).toContain('legacy_80')
     // uma carreira modesta não ganha as de legado
     const modest = detectAchievements(withSeasons(Array.from({ length: 15 }, (_, i) => rec(18 + i, { stats: { apps: 30, goals: 4, assists: 2, rating: 6.5 } })), { retired: true }))
     expect(modest).not.toContain('legacy_60')

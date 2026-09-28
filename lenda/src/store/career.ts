@@ -8,7 +8,7 @@
  *   useCareer.getState().abandon()                              // discard current career
  *   useCareer.getState().loadFixture('mid' | 'end' | 'reveal' | 'new')   // dev / screenshots
  *
- * Persistence (IndexedDB via ./persist): current career after every start/choose, the Hall da Fama
+ * Persistence (IndexedDB via ./persist): current career after every start/choose, the Hall das Lendas
  * (finished careers) and unlocked achievements. `init()` restores everything on boot.
  */
 import { create } from 'zustand'
@@ -31,6 +31,12 @@ export interface HallEntry {
   engine: EngineKind
   /** Número sequencial da run no Hall das Lendas (1 = a primeira carreira encerrada). Nunca é reaproveitado. */
   runNo?: number
+  /**
+   * Nota de Legado congelada no dia da aposentadoria (src/engine/legacy). A nota é função só da
+   * própria run, então o Hall recalcula o mesmo número; este registro serve para ordenar o corte
+   * do Hall e como referência caso os pesos mudem.
+   */
+  legacy?: { score: number; raw: number; at: string }
 }
 
 /** Hall das Lendas: garante `runNo` em todas as entradas (as antigas ganham número pela data de término). */
@@ -88,7 +94,8 @@ interface CareerStore {
   saveNow(): Promise<boolean>
   summary(): CareerSummary | null
   summaryOf(state: CareerState | Omit<CareerState, 'world'>): CareerSummary | null
-  unlockAchievements(ids: string[]): string[]
+  /** `from` = the state the unlocks belong to (defaults to the current one; context uses its last season's age). */
+  unlockAchievements(ids: string[], from?: CareerState | null): string[]
   markAchievementsSeen(): void
   removeHallEntry(id: string): Promise<void>
   loadFixture(name: FixtureName): Promise<void>
@@ -141,6 +148,16 @@ export const useCareer = create<CareerStore>()((set, get) => {
       console.warn('[LENDA] summarize falhou', err)
       return
     }
+    let legacy: HallEntry['legacy']
+    try {
+      // import dinâmico: o motor de legado (e as 50 lendas) fica fora do bundle inicial
+      const { evaluateRun } = await import('@/engine/legacy')
+      const run = evaluateRun({ id: state.id, identity: state.identity, seasons: state.seasons, national: state.national }, { finished: true })
+      legacy = { score: run.score, raw: Math.round(run.raw * 100) / 100, at: new Date().toISOString() }
+    } catch (err) {
+      console.warn('[LENDA] nota de legado falhou', err)
+    }
+    if (get().finishedCareers.some((h) => h.id === state.id)) return
     const current = get().finishedCareers
     const entry: HallEntry = {
       runNo: Math.max(current.length, ...current.map((h) => h.runNo ?? 0)) + 1,
@@ -153,8 +170,11 @@ export const useCareer = create<CareerStore>()((set, get) => {
       retiredReason: state.retiredReason,
       career: stripWorld(state),
       engine: kind,
+      legacy,
     }
-    const list = [entry, ...get().finishedCareers].sort((a, b) => b.summary.legacyScore - a.summary.legacyScore).slice(0, HALL_CAP)
+    // corte do Hall: saem as de menor Nota de Legado (a nota de uma run não depende das outras)
+    const nota = (h: HallEntry) => h.legacy?.raw ?? h.summary.legacyScore
+    const list = [entry, ...get().finishedCareers].sort((a, b) => nota(b) - nota(a)).slice(0, HALL_CAP)
     set({ finishedCareers: list })
     if (!get().isFixture) await kv.set(KV_KEYS.hall, list)
   }
@@ -224,7 +244,8 @@ export const useCareer = create<CareerStore>()((set, get) => {
         // yield a frame so the UI can show the pressed/busy state before a heavy simulation
         await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)))
         const { state, reveal } = engine.choose(data, cur, optionId)
-        const unlocked = get().unlockAchievements(reveal.achievements ?? [])
+        // the unlocks belong to the season just played (the new state), not the one before it
+        const unlocked = get().unlockAchievements(reveal.achievements ?? [], state)
         set({ state, reveal, previous: cur, busy: false, lastUnlocked: unlocked })
         await persistCurrent()
         if (reveal.finished || state.phase === 'finished') await addToHall(state, engine, data, get().engineKind ?? 'mock')
@@ -279,15 +300,15 @@ export const useCareer = create<CareerStore>()((set, get) => {
       return value
     },
 
-    unlockAchievements(ids) {
+    unlockAchievements(ids, from) {
       if (!ids.length) return []
       const cur = get().achievements
-      const s = get().state
+      const s = from ?? get().state
       const fresh = ids.filter((id) => !cur[id])
       if (!fresh.length) return []
       const now = new Date().toISOString()
       const next = { ...cur }
-      for (const id of fresh) next[id] = { id, unlockedAt: now, careerId: s?.id ?? null, context: s ? `${s.identity.surname} · ${s.age} anos` : undefined }
+      for (const id of fresh) next[id] = { id, unlockedAt: now, careerId: s?.id ?? null, context: s ? `${s.identity.surname} · ${s.seasons.at(-1)?.age ?? s.age} anos` : undefined }
       const unseen = [...new Set([...get().unseenAchievements, ...fresh])]
       set({ achievements: next, unseenAchievements: unseen })
       if (!get().isFixture) void kv.set(KV_KEYS.achievements, { unlocked: next, unseen })

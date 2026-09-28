@@ -72,13 +72,13 @@ function DefaultCenter({ path }: { path: RoutePath }) {
   return null
 }
 
-/** Landing nav (Modo Clássico · Modo Imersivo NOVO · Ligas ao vivo · Hall da Fama). */
+/** Landing nav (Modo Clássico · Modo Imersivo NOVO · Ligas ao vivo · Hall das Lendas). */
 export function TopNav() {
   const links: [string, string, boolean?][] = [
     ['Modo Clássico', '#/identidade'],
     ['Modo Imersivo', '#/imersivo', true],
     ['Ligas ao vivo', '#/ligas'],
-    ['Hall da Fama', '#/hall'],
+    ['Hall das Lendas', '#/hall'],
   ]
   return (
     <nav aria-label="Principal" className="flex items-center gap-1 ml-5 max-lg:hidden">

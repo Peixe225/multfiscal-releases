@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { HISTORIC_RECORDS, REAL_LEGENDS } from '../../../data/catalog/legends'
 import { Rng, rng } from '../../rng'
 import { DEV_TABLES } from '../constants'
 import {
@@ -184,7 +185,9 @@ describe('textos pt-BR', () => {
     const { state } = playCareer('sum-legends', 'normal')
     const sum = engine.summarize(data, state)
     expect(typeof sum.headline).toBe('string')
-    for (const c of sum.comparisons) expect(c).toMatch(/Pelé|Romário|Zico|Messi|Cristiano|Neymar|Ronaldo|Maradona|Kaká|Rivaldo|Ronaldinho/)
+    // comparações vêm da base curada do Hall das Lendas (src/data/catalog/legends.ts)
+    const names = [...REAL_LEGENDS.map((l) => l.name), ...HISTORIC_RECORDS.map((r) => r.holder)]
+    for (const c of sum.comparisons) expect(names.some((n) => c.includes(n))).toBe(true)
     expect(sum.clubs.reduce((t, c) => t + c.seasons, 0)).toBe(state.seasons.length)
     expect(sum.totals.apps).toBe(state.seasons.reduce((t, r) => t + r.stats.apps, 0) + state.national.apps)
     expect(sum.trophies.reduce((t, g) => t + g.count, 0)).toBe(state.seasons.reduce((t, r) => t + r.trophies.length, 0))

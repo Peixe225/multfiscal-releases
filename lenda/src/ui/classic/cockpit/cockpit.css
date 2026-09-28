@@ -166,6 +166,13 @@
 .ck-nat__flag { display: grid; place-items: center; }
 .ck-nat__flag :is(img, span, svg) { box-shadow: 0 0 0 1px rgba(255, 255, 255, .2), 0 4px 10px -4px #000; }
 .ck-nat__mini { flex: none; }
+.ck-nat__short { display: none; }
+/* celular: a bandeira grande já diz o país — sem a mini bandeira, e "Seleção" no lugar do nome longo */
+@media (max-width: 44.99rem) {
+  .ck-nat__mini { display: none; }
+  .ck-nat__full { display: none; }
+  .ck-nat__short { display: inline; }
+}
 .ck-nat__cap { font-size: 10.5px; color: var(--text-3); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ck-nat.is-off .ck-nat__row { background: rgba(255, 255, 255, .02); }
 .ck-nat.is-off .ck-nat__row > * { opacity: .45; }

@@ -15,7 +15,10 @@ export type Pairing = [home: string, away: string]
 export function roundRobin(teams: readonly string[], rounds: number, rng?: Rng, balanced = false): Pairing[][] {
   const list: (string | null)[] = rng ? rng.shuffle(teams) : teams.slice()
   if (list.length < 2) return []
-  if (list.length % 2 === 1) list.push(null)
+  if (list.length % 2 === 1) {
+    if (balanced) list.unshift(null)
+    else list.push(null)
+  }
   const n = list.length
   const half = n / 2
   const base: Pairing[][] = []
@@ -26,8 +29,9 @@ export function roundRobin(teams: readonly string[], rounds: number, rng?: Rng, 
       const a = arr[i]
       const b = arr[n - 1 - i]
       if (a === null || b === null) continue
-      // balanced (Modo Imersivo): todos invertem nas rodadas ímpares → cada clube alterna o mando,
-      // com no máx. 2 quebras por turno (tabela de Berger); sem `balanced`, o padrão do Clássico
+      // balanced (Modo Imersivo): todos invertem nas rodadas ímpares e, com número ímpar de clubes, a
+      // folga fica na posição fixa → cada clube alterna o mando (sequência máx. de 2 jogos no mesmo
+      // mando, também entre turno e returno); sem `balanced`, o padrão do Clássico
       const flip = balanced || i === 0 ? r % 2 === 1 : (r + i) % 2 === 1
       day.push(flip ? [b, a] : [a, b])
     }
@@ -53,9 +57,12 @@ const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
 export function fillPairings(
   need: Map<string, number>,
   rng: Rng,
-  opts: { avoid?: Set<string>; homes?: Map<string, number>; allowRepeat?: boolean } = {},
+  opts: { avoid?: Set<string>; homes?: Map<string, number>; allowRepeat?: boolean; last?: Map<string, number> } = {},
 ): Pairing[] {
   const avoid = opts.avoid ?? new Set<string>()
+  // (Modo Imersivo) `last` = sequência atual de mando de cada clube (+k: k jogos seguidos em casa,
+  // −k: fora): prefere parceiro de mando oposto e dá o mando a quem vem de fora (alterna)
+  const last = opts.last
   const homes = opts.homes ?? new Map<string, number>()
   const left = new Map<string, number>()
   for (const [t, n] of need) if (n > 0) left.set(t, n)
@@ -72,6 +79,15 @@ export function fillPairings(
         break
       }
     }
+    if (last && partner) {
+      const lt = Math.sign(last.get(t) ?? 0)
+      for (let i = 1; i < teams.length; i++) {
+        if (!avoid.has(key(t, teams[i])) && lt !== 0 && Math.sign(last.get(teams[i]) ?? 0) === -lt) {
+          partner = teams[i]
+          break
+        }
+      }
+    }
     if (!partner) {
       if (opts.allowRepeat === false) {
         left.delete(t)
@@ -81,8 +97,18 @@ export function fillPairings(
     }
     const ht = homes.get(t) ?? 0
     const hp = homes.get(partner) ?? 0
-    const home = ht < hp ? t : hp < ht ? partner : rng.chance(0.5) ? t : partner
+    let home: string
+    if (last) {
+      // quem está há mais tempo fora (ou menos tempo em casa) recebe
+      const rt = last.get(t) ?? 0
+      const rp = last.get(partner) ?? 0
+      home = rt < rp ? t : rp < rt ? partner : ht <= hp ? t : partner
+    } else home = ht < hp ? t : hp < ht ? partner : rng.chance(0.5) ? t : partner
     const away = home === t ? partner : t
+    if (last) {
+      last.set(home, Math.max(0, last.get(home) ?? 0) + 1)
+      last.set(away, Math.min(0, last.get(away) ?? 0) - 1)
+    }
     homes.set(home, (homes.get(home) ?? 0) + 1)
     out.push([home, away])
     avoid.add(key(t, partner))
@@ -138,7 +164,15 @@ export function seasonSchedule(
   if (target !== undefined) {
     const need = new Map<string, number>()
     for (const t of teams) need.set(t, target - played.get(t)!)
-    for (const [h, a] of fillPairings(need, rng, { avoid, homes })) out.push([h, a])
+    let last: Map<string, number> | undefined
+    if (balanced) {
+      last = new Map()
+      for (const [h, a] of out) {
+        last.set(h, Math.max(0, last.get(h) ?? 0) + 1)
+        last.set(a, Math.min(0, last.get(a) ?? 0) - 1)
+      }
+    }
+    for (const [h, a] of fillPairings(need, rng, { avoid, homes, last })) out.push([h, a])
   }
   return out
 

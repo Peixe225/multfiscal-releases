@@ -237,6 +237,8 @@ export interface ImmersiveMemory {
   postsWeek?: number
   postsCount?: number
   focusPostWeek?: number
+  /** Posts "foco no treino" que já mexeram com o técnico na temporada (efeito decrescente). */
+  focusPostsSeason?: number
   /** Salário: semanas já pagas na temporada (máx. 52). */
   paidWeeks?: number
   /** Transferência acertada para a próxima temporada (calendário do clube novo já encerrado). */
@@ -247,6 +249,10 @@ export interface ImmersiveMemory {
   offerBase?: Record<string, number>
   /** Mini-evento → temporada em que apareceu (cooldown de 2 temporadas). */
   miniSeen?: Record<string, number>
+  /** Lados das últimas cobranças de pênalti do jogador (0 esq., 1 meio, 2 dir.) — o goleiro se adapta. */
+  penHist?: number[]
+  /** Amarelos por competição (suspensão ao acumular). */
+  yellowsBy?: Record<string, number>
 }
 
 export function mem(s: ImmersiveState): ImmersiveMemory {

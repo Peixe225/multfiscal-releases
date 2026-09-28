@@ -8,15 +8,15 @@
  *
  * A partida ao vivo e a coletiva tomam a tela enquanto estiverem em andamento (state.live / state.press).
  */
-import { lazy, Suspense, useEffect, useMemo, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ArrowRight, Tv2 } from 'lucide-react'
 import { navigate, useApp } from '@/store/app'
 import { useClub, useData } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
-import { Button, Skeleton, Stadium, clubVars } from '@/ui/primitives'
+import { Button, Stadium, clubVars } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
 import { EffectsHost } from './fx/EffectsHost'
-import { ImNav, ImTopActions, LiveTopCenter, type ImTab } from './shell/ImTopBar'
+import { ImNav, ImTopActions, LiveTopCenter, PressTopCenter, type ImTab } from './shell/ImTopBar'
 import { ImTicker } from './shell/ImTicker'
 import { currentItem } from './model/view'
 import './immersive.css'
@@ -36,14 +36,42 @@ const BRAND_COLORS = { primary: '#5c50ff', secondary: '#ffc45c', glow: '#5c50ff'
 
 const TABS: ImTab[] = ['central', 'agenda', 'social', 'mercado', 'carreira']
 
+/** Esqueleto no grid da Central (chanfros da Transmissão); acima de 1 s vira o "preparando a temporada". */
 function Loading() {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 1000)
+    return () => clearTimeout(t)
+  }, [])
   return (
-    <div className="im-wrap grid gap-3 content-start pt-4" aria-busy="true" aria-label="Carregando o Modo Imersivo">
-      <Skeleton h={120} r={4} />
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Skeleton h={260} r={4} className="sm:col-span-2" />
-        <Skeleton h={260} r={4} />
+    <div className="im-wrap im-loading" aria-busy="true" aria-label="Carregando o Modo Imersivo">
+      <div className="im-sk im-sk--head" />
+      <div className="im-hub__grid">
+        <div className="im-hub__now">
+          <div className="im-sk im-sk--now" />
+        </div>
+        <div className="im-hub__me">
+          <div className="im-sk im-sk--plate" />
+          <div className="im-sk im-sk--panel" />
+        </div>
+        <div className="im-hub__agenda">
+          <div className="im-sk im-sk--strip" />
+        </div>
       </div>
+      {slow && (
+        <div className="im-loading__lt" role="status">
+          <span className="lx-lt lx-lt--live">
+            <span className="lx-lt__a">
+              <Tv2 aria-hidden="true" />
+            </span>
+            <span className="lx-lt__b">
+              <span className="lx-lt__k">Transmissão</span>
+              <span className="lx-lt__v">Preparando a temporada…</span>
+            </span>
+          </span>
+          <span className="im-loading__bar" aria-hidden="true" />
+        </div>
+      )}
     </div>
   )
 }
@@ -91,19 +119,29 @@ export default function ImmersiveApp() {
 
   const live = !!state?.live
   const press = !!state?.press
+  // a coletiva segura a tela até o card de fechamento ser dispensado
+  const [pressHold, setPressHold] = useState(false)
+  useEffect(() => {
+    if (press) setPressHold(true)
+  }, [press])
+  useEffect(() => {
+    if (!state) setPressHold(false)
+  }, [state])
   const it = state ? currentItem(state) : null
   const tela = query.tela ?? ''
-  const view: string = live ? 'partida' : press ? 'coletiva' : state?.retired && tela !== 'temporada' && tela !== 'gala' ? 'carreira' : tela === 'temporada' || tela === 'gala' ? tela : (TABS as string[]).includes(tela) ? tela : 'central'
+  const inPress = press || (pressHold && !live)
+  const view: string = live ? 'partida' : inPress ? 'coletiva' : state?.retired && tela !== 'temporada' && tela !== 'gala' ? 'carreira' : tela === 'temporada' || tela === 'gala' ? tela : (TABS as string[]).includes(tela) ? tela : 'central'
   const tab: ImTab | null = (TABS as string[]).includes(view) ? (view as ImTab) : null
 
   useShellSlots(
     {
       sub: 'IMERSIVO',
-      center: state ? live ? <LiveTopCenter /> : <ImNav active={tab} /> : null,
+      // partida e coletiva tomam a tela: sem abas (nenhum destino que não abre)
+      center: state ? live ? <LiveTopCenter /> : inPress ? <PressTopCenter /> : <ImNav active={tab} /> : null,
       extraActions: state ? <ImTopActions /> : undefined,
       stage: { hidden: true },
     },
-    [!!state, live, tab],
+    [!!state, live, inPress, tab],
   )
 
   const waiting = status !== 'ready' || !dataReady || (!!query.fixture && fixture !== query.fixture)
@@ -120,7 +158,7 @@ export default function ImmersiveApp() {
           {view === 'partida' ? (
             <MatchScreen />
           ) : view === 'coletiva' ? (
-            <PressConference />
+            <PressConference onDone={() => setPressHold(false)} />
           ) : view === 'social' ? (
             <SocialScreen />
           ) : view === 'mercado' ? (
@@ -138,7 +176,7 @@ export default function ImmersiveApp() {
           )}
         </Suspense>
       )}
-      {state && !live && view !== 'gala' && <ImTicker />}
+      {state && !live && view !== 'gala' && view !== 'coletiva' && <ImTicker />}
       {state && <EffectsHost />}
       {state && it?.kind === 'awards' && view === 'central' && <SeasonNudge />}
     </div>

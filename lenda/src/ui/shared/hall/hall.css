@@ -257,6 +257,7 @@
 .hl-rcard__q svg { flex: none; margin-top: 3px; color: #d8b36a; }
 .hl-rcard__rec { color: #ffe39a; font-weight: 700; }
 .hl-rcard__rec svg { flex: none; margin-top: 2px; }
+.hl-rcard__rec--own { color: var(--text-3); font-weight: 600; font-size: 11.5px; margin-top: -6px; }
 .hl-rcard__foot { display: flex; justify-content: flex-end; gap: 6px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 
 /* detail modals */
@@ -330,3 +331,11 @@
 .hl-lrc__facts b { color: var(--text); font-family: var(--font-num); font-size: 15px; }
 .hl-lrc__go { justify-self: start; }
 }
+
+/* recordes mundiais estruturados de uma lenda (os que contam na nota) */
+.hl-wrecs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.hl-wrecs li { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--text-2); background: rgba(255, 255, 255, .04); border: 1px solid var(--border); }
+.hl-wrecs li.is-cur { color: #ffe39a; background: rgba(255, 200, 90, .08); border-color: rgba(255, 200, 90, .28); }
+.hl-wrecs small { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+/* duelo 0 × 0: barra vazia (nada a comparar) */
+.hl-duel.is-empty .hl-duel__bar i { opacity: 0; }

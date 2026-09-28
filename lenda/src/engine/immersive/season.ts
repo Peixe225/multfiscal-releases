@@ -243,6 +243,8 @@ export function transferNow(W: WorldEngine, data: GameData, s: ImmersiveState, c
     if (m.startWeek > 0) m.startWeek = conv(m.startWeek)
   }
   m.leagueGoals = 0
+  // eliminações e posições gravadas eram do clube antigo
+  m.eliminated = []
   m.calKind = newKind
   s.week = week
   s.leagueId = clubLeagueId(s.world, data, clubId) ?? null

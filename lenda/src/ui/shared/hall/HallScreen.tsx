@@ -9,7 +9,7 @@
  *
  * `#/hall?run=<id>` abre o detalhe de uma run (link do Resumo).
  */
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
 import { ArrowRight, ChevronDown, Crown, Info, Play, Quote, Sparkles, Swords, Zap } from 'lucide-react'
 import { CATEGORIES, CATEGORY_IDS, LEGACY_WEIGHTS, compareRun, nextTarget, type CategoryId, type LegendLegacy, type RankEntry, type RankRow, type RunLegacy } from '@/engine/legacy'
@@ -22,7 +22,7 @@ import { clubKit } from '@/ui/shared/identity/kit'
 import { PlayerCard } from '@/ui/shared/landing/PlayerCard'
 import { CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, entryName, valueOf } from './parts'
 import { HowModal, LegendDetail, RunDetail } from './RunDetail'
-import { gapText, useHallModel, yearsLabel, type HallModel } from './model'
+import { gapText, runHeadline, useHallModel, yearsLabel, type HallModel } from './model'
 import '@/ui/shared/achievements/unlockToasts'
 import './hall.css'
 
@@ -37,10 +37,19 @@ export default function HallScreen() {
   const [open, setOpen] = useState<RankEntry | null>(null)
   const [how, setHow] = useState(false)
 
+  // o detalhe aberto pelo link (?run=) segue a URL: sai da URL → fecha
+  const fromQuery = useRef(false)
   useEffect(() => {
-    if (!q) return
-    const r = hall.runById.get(q)
-    if (r) setOpen(r)
+    if (q) {
+      const r = hall.runById.get(q)
+      if (r) {
+        setOpen(r)
+        fromQuery.current = true
+      }
+    } else if (fromQuery.current) {
+      fromQuery.current = false
+      setOpen(null)
+    }
   }, [q, hall])
 
   const close = () => {
@@ -59,7 +68,7 @@ export default function HallScreen() {
           </h1>
           <p>
             {runs
-              ? `${runs} ${runs === 1 ? 'run sua' : 'runs suas'} contra ${hall.legends.length} lendas reais, na mesma escala: a Nota de Legado, de 0 a 100.`
+              ? `${runs === 1 ? 'Sua run' : `Suas ${runs} runs`} contra ${hall.legends.length} lendas reais, na mesma escala: a Nota de Legado, de 0 a 100.`
               : `${hall.legends.length} lendas reais já estão aqui. Termine uma carreira e descubra onde ela entra.`}
           </p>
         </div>
@@ -74,7 +83,7 @@ export default function HallScreen() {
       {runs > 0 && <Runs hall={hall} onOpen={setOpen} />}
       <p className="hl-foot">
         Números oficiais de clubes + seleção principal até {`dez/2025`} para quem ainda joga; "≈" marca valores estimados ou com fontes divergentes. Antes de 1995 a Bola de Ouro era só para europeus — por isso Pelé, Maradona e
-        Zico têm zero.
+        Zico têm zero oficial; as Bolas retroativas da France Football (Pelé 7, Maradona 2…) valem meia na nota.
       </p>
 
       <RunDetail entry={open?.kind === 'run' ? open : null} hall={hall} onClose={close} />
@@ -131,7 +140,7 @@ function HeroRun({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
           stats={[
             ['GOL', formatInt(run.stats.goals)],
             ['TÍT', formatInt(run.stats.titles)],
-            ['REC', formatInt(run.records.length)],
+            ['REC', formatInt(run.historic.length)],
           ]}
           width={176}
           decorative
@@ -142,7 +151,7 @@ function HeroRun({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
           <Crown size={12} aria-hidden /> Sua maior lenda · Run nº {run.runNo}
         </span>
         <h2 className="hl-hero__name">{id.surname}</h2>
-        {entry && <p className="hl-hero__hl">{entry.summary.headline}</p>}
+        {entry && <p className="hl-hero__hl">{runHeadline(entry, run, rank)}</p>}
         <div className="hl-hero__score">
           <NotaRing score={run.score} size={78} />
           <div>
@@ -244,7 +253,7 @@ function Duels({ run, legend }: { run: RunLegacy; legend: LegendLegacy }) {
         const pa = sum > 0 ? (a / sum) * 100 : 50
         const win = a > b ? 'run' : b > a ? 'legend' : 'tie'
         return (
-          <li key={id} className={cx('hl-duel', `is-${win}`)}>
+          <li key={id} className={cx('hl-duel', `is-${win}`, sum === 0 && 'is-empty')}>
             <span className="hl-duel__h">
               <CategoryGlyph id={id} size={22} />
               <span className="hl-lg">{CATEGORIES[id].label}</span>
@@ -528,7 +537,7 @@ const CAT_BLURB: Record<CategoryId, string> = {
   clubs: 'Clubes defendidos na carreira (empréstimos incluídos).',
   goals: 'Gols oficiais por clubes e pela seleção principal.',
   assists: 'Passes para gol. Para lendas antigas, estimativa.',
-  records: 'Runs: recordes históricos + das suas runs. Lendas: marcas que quebraram.',
+  records: 'Recordes mundiais nas métricas do jogo (Bolas de Ouro, gols, Libertadores…): os que a run quebrou e os que a lenda tem ou teve.',
   goalsPerGame: 'Gols por jogo oficial, com no mínimo 300 jogos.',
 }
 
@@ -646,7 +655,7 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
         <div className="min-w-0 flex-1">
           <span className="hl-runtag">Run nº {run.runNo}</span>
           <h3>{run.input.identity.surname}</h3>
-          <p>{entry?.summary.headline ?? run.tier.label}</p>
+          <p>{runHeadline(entry, run, rank)}</p>
         </div>
         <NotaRing score={run.score} size={58} />
       </div>
@@ -664,7 +673,7 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
           <small>Títulos</small>
         </span>
         <span>
-          <b className="num">{run.records.length}</b>
+          <b className="num">{run.historic.length}</b>
           <small>Recordes</small>
         </span>
       </div>
@@ -680,6 +689,11 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
       {run.historic.length > 0 && (
         <p className="hl-rcard__rec">
           <Zap size={12} aria-hidden /> {run.historic.length} {run.historic.length === 1 ? 'recorde histórico quebrado' : 'recordes históricos quebrados'}
+        </p>
+      )}
+      {run.personal.length > 0 && (
+        <p className="hl-rcard__rec hl-rcard__rec--own">
+          {run.personal.length} {run.personal.length === 1 ? 'recorde das suas runs' : 'recordes das suas runs'}
         </p>
       )}
       <div className="hl-rcard__foot">

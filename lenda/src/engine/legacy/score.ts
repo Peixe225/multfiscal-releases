@@ -21,9 +21,10 @@
  *      Clubes                             2    2→50%  3→75%  4+→100%; um clube só (300+ jogos) → 100%
  *
  *    * Produção ajustada por posição: atacante ×1, meio-campo ×1,5, defensor ×3 + longevidade
- *      (gols equivalentes = 3 × gols + 0,15 × jogos, no máximo 380 — abaixo de um artilheiro de
- *      verdade). Goleiro: gols equivalentes = 0,22 × jogos, assistências = 0,06 × jogos e média =
- *      0,25 × min(1, jogos/500) (longevidade no lugar de produção ofensiva).
+ *      (gols equivalentes = 3 × gols + 0,2 × jogos, no máximo 380 — abaixo de um artilheiro de
+ *      verdade; média = o maior entre a média ×3 e 0,25 × min(1, jogos/500)). Goleiro: gols
+ *      equivalentes = 0,2 × jogos, assistências = 0,05 × jogos e média = 0,25 × min(1, jogos/500)
+ *      (longevidade no lugar de produção ofensiva: um goleiro de 1.100 jogos sem títulos fica < 30).
  *    Bolas de Ouro retroativas = "Nouveau Palmarès" da France Football (só lendas; ver legends.ts).
  * 3. Soma bruta R ∈ [0, 100] → nota = 100 × (1 − e^(−R/40)) / (1 − e^(−100/40)), arredondada.
  *    A curva final abre a parte de baixo da escala (uma run boa não fica "presa" em 20).
@@ -48,7 +49,7 @@ const K = { ballonDor: 2, worldCups: 1.4, goldenBoots: 1.8, continental: 1.6, le
 const FINAL_K = 40
 const POS_FACTOR: Record<PositionGroup, number> = { attacking: 1, support: 1.5, defensive: 3, goalkeeper: 0 }
 /** Coeficientes de goleiro e defensor (ver cabeçalho). */
-export const POSITION_RULES = { gkGoalsPerApp: 0.22, gkAssistsPerApp: 0.06, gkRateFill: 0.25, defAppsBonus: 0.15, defGoalsCap: 380 } as const
+export const POSITION_RULES = { gkGoalsPerApp: 0.2, gkAssistsPerApp: 0.05, gkRateFill: 0.25, defAppsBonus: 0.2, defGoalsCap: 380, defRateFill: 0.25 } as const
 /** Crédito de cada Bola de Ouro retroativa (não oficial). */
 export const RETRO_BALLON_DOR_CREDIT = 0.5
 /** Jogos mínimos para "um clube só" valer nota cheia em Clubes. */
@@ -88,8 +89,10 @@ export function adjustedProduction(v: Pick<CategoryValues, 'goals' | 'assists' |
   const R = POSITION_RULES
   const f = POS_FACTOR[g]
   if (g === 'goalkeeper') return { goals: apps * R.gkGoalsPerApp, assists: apps * R.gkAssistsPerApp, rateFill: R.gkRateFill * clamp01(apps / 500) }
-  const goals = g === 'defensive' ? Math.min(R.defGoalsCap, v.goals * f + R.defAppsBonus * apps) : v.goals * f
-  return { goals, assists: v.assists * Math.min(f, 2), rateFill: clamp01((v.goalsPerGame * f - 0.25) / 0.65) * clamp01(apps / 300) }
+  const longevity = clamp01(apps / 500)
+  const rate = clamp01((v.goalsPerGame * f - 0.25) / 0.65) * clamp01(apps / 300)
+  if (g === 'defensive') return { goals: Math.min(R.defGoalsCap, v.goals * f + R.defAppsBonus * apps), assists: v.assists * 2, rateFill: Math.max(rate, R.defRateFill * longevity) }
+  return { goals: v.goals * f, assists: v.assists * Math.min(f, 2), rateFill: rate }
 }
 
 /** Preenchimento de Clubes: 2→50%, 3→75%, 4+→100%; um clube só com 300+ jogos também vale 100%. */
