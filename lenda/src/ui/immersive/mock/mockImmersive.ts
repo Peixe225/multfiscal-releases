@@ -1968,8 +1968,9 @@ function dispatch(data: GameData, state: ImmersiveState, action: ImmersiveAction
       if (s.live.phase !== 'full_time') {
         // simula o resto sem lances (atalho "encerrar")
         let guard = 0
-        while (s.live.phase !== 'full_time' && guard++ < 20) {
-          if (s.live.pendingMoment) resolveMoment(data, s, null, undefined, fx, true)
+        const phaseOf = () => (s.live?.phase ?? 'full_time') as LiveMatch['phase']
+        while (phaseOf() !== 'full_time' && guard++ < 20) {
+          if (s.live?.pendingMoment) resolveMoment(data, s, null, undefined, fx, true)
           else simulate(data, s, fx)
         }
       }
