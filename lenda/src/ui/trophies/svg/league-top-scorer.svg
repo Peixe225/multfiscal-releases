@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180" width="120" height="180" role="img" aria-labelledby="league-top-scorer-title" class="lx-trophy" data-trophy="league-top-scorer">
+  <title id="league-top-scorer-title">Artilheiro da Liga</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="league-top-scorer-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="league-top-scorer-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="league-top-scorer-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <radialGradient id="league-top-scorer-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="league-top-scorer-wood" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-wood-1,#1a0e06)"/><stop offset=".25" style="stop-color:var(--metal-wood-2,#4c2b14)"/><stop offset=".48" style="stop-color:var(--metal-wood-3,#7d4b23)"/><stop offset=".7" style="stop-color:var(--metal-wood-2,#4c2b14)"/><stop offset="1" style="stop-color:var(--metal-wood-1,#1a0e06)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M9.8,92.2 C9.8,81.4 15.2,76 24.2,76 L40.4,74.2 C44,74.2 45.8,76 47.6,79.6 L51.2,85 C60.2,90.4 72.8,94 83.6,96.7 C92.6,99.4 96.2,103 95.3,107.5 C94.4,111.1 89,112 81.8,112 L17,112 C11.6,112 8,108.4 8,103 Z" fill="url(#league-top-scorer-silver-h)"/>
+  <path d="M9.8,92.2 C9.8,81.4 15.2,76 24.2,76 L40.4,74.2 C44,74.2 45.8,76 47.6,79.6 L51.2,85 C60.2,90.4 72.8,94 83.6,96.7 C92.6,99.4 96.2,103 95.3,107.5 C94.4,111.1 89,112 81.8,112 L17,112 C11.6,112 8,108.4 8,103 Z" fill="url(#league-top-scorer-silver-v)" opacity=".45"/>
+  <path d="M8,104.8 C35,103 71,103 95.3,107.5 C94.4,111.1 89,112 81.8,112 L17,112 C11.6,112 8,108.4 8,104.8 Z" fill="url(#league-top-scorer-silver-d)"/>
+  <path d="M21.5,77.8 C27.8,75.1 36.8,74.2 44,75.55 C42.2,78.7 35,80.5 29.6,80.5 C25.1,80.5 22.4,79.6 21.5,77.8 Z" fill="#2b2f37"/>
+  <path d="M49.4,85 l3.24,-3.6 M54.8,87.34 l3.24,-3.6 M60.2,89.68 l3.24,-3.6 M65.6,92.02 l3.24,-3.6" fill="none" stroke="#59616e" stroke-width="1.35" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M27.8,101.2 L35,83.2 M33.2,101.2 L40.4,83.2 M38.6,101.2 L45.8,83.2" fill="none" stroke="#59616e" stroke-width="1.98" stroke-opacity=".55" stroke-linecap="butt"/>
+  <rect x="20.6" y="112" width="3.6" height="3.24" rx="0.54" fill="url(#league-top-scorer-silver-d)"/>
+  <rect x="31.4" y="112" width="3.6" height="3.24" rx="0.54" fill="url(#league-top-scorer-silver-d)"/>
+  <rect x="62" y="112" width="3.6" height="3.24" rx="0.54" fill="url(#league-top-scorer-silver-d)"/>
+  <rect x="74.6" y="112" width="3.6" height="3.24" rx="0.54" fill="url(#league-top-scorer-silver-d)"/>
+  <rect x="85.4" y="112" width="3.6" height="3.24" rx="0.54" fill="url(#league-top-scorer-silver-d)"/>
+  <circle cx="104" cy="101" r="12" fill="url(#league-top-scorer-silver-r)"/>
+  <path d="M104,96.68 L108.11,99.67 L106.54,104.49 L101.46,104.49 L99.89,99.67 Z M104,96.68 L104,91.64 M108.11,99.67 L112.9,98.11 M106.54,104.49 L109.5,108.57 M101.46,104.49 L98.5,108.57 M99.89,99.67 L95.1,98.11" fill="none" stroke="#2b2f37" stroke-opacity="0.38" stroke-width="0.55" stroke-linejoin="round"/>
+  <circle cx="104" cy="101" r="12" fill="none" stroke="#2b2f37" stroke-width="0.5" stroke-opacity=".45"/>
+  <ellipse cx="99.68" cy="95.96" rx="4.08" ry="2.16" fill="#fff" opacity="0.38" transform="rotate(-35 99.68 95.96)"/>
+  <path d="M10,117 L110,117 L110.4,123 Q60,124.2 9.6,123 Z" fill="url(#league-top-scorer-silver-v)"/>
+  <path d="M14,123 L106,123 L108,172 L12,172 Z" fill="url(#league-top-scorer-wood)"/>
+  <path d="M14,123.6 L106,123.6" fill="none" stroke="#b3773f" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <rect x="38" y="136" width="44" height="22" rx="1" fill="url(#league-top-scorer-silver-v)"/>
+  <rect x="38" y="136" width="44" height="22" rx="1" fill="none" stroke="#4a515c" stroke-width=".8"/>
+  <path d="M46,144 L74,144 M50,150 L70,150" fill="none" stroke="#4a515c" stroke-width="1.4" stroke-opacity=".55" stroke-dasharray="2 .8" stroke-linecap="butt"/>
+  <ellipse cx="60" cy="172" rx="48" ry="1.4" fill="#050506" opacity=".6"/>
+  </g>
+</svg>

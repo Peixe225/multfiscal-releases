@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 180" width="92" height="180" role="img" aria-labelledby="coppa-italia-title" class="lx-trophy" data-trophy="coppa-italia">
+  <title id="coppa-italia-title">Coppa Italia</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="coppa-italia-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="coppa-italia-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="coppa-italia-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <linearGradient id="coppa-italia-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <clipPath id="coppa-italia-tc0"><rect x="23.6" y="50" width="14.93" height="20"/></clipPath>
+  <clipPath id="coppa-italia-tc1"><rect x="38.53" y="50" width="14.93" height="20"/></clipPath>
+  <clipPath id="coppa-italia-tc2"><rect x="53.46" y="50" width="14.93" height="20"/></clipPath>
+  </defs>
+  <g>
+  <path d="M80,6 C77,10 74,14 73,22 C71,38 68,46 68,56 C68,66 62,76 54,80 L53,82 L39,82 L38,80 C30,76 24,66 24,56 C24,46 21,38 19,22 C18,14 15,10 12,6 Z" fill="url(#coppa-italia-gold-h)"/>
+  <path d="M18.5,20 Q46,25 73.5,20" fill="none" stroke="#5c3a05" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M28,28 L29.8,50" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".35" stroke-linecap="round"/>
+  <path d="M37,28 L37.9,50" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".35" stroke-linecap="round"/>
+  <path d="M46,28 L46.0,50" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".35" stroke-linecap="round"/>
+  <path d="M55,28 L54.1,50" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".35" stroke-linecap="round"/>
+  <path d="M64,28 L62.2,50" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".35" stroke-linecap="round"/>
+  <path d="M23.6,57 Q46,62 68.4,57 L68.4,61 Q46,66 23.6,61 Z" fill="#119a52" clip-path="url(#coppa-italia-tc0)"/>
+  <path d="M23.6,57 Q46,62 68.4,57 L68.4,61 Q46,66 23.6,61 Z" fill="#f4f5f0" clip-path="url(#coppa-italia-tc1)"/>
+  <path d="M23.6,57 Q46,62 68.4,57 L68.4,61 Q46,66 23.6,61 Z" fill="#d0202e" clip-path="url(#coppa-italia-tc2)"/>
+  <path d="M80,6 C77,10 74,14 73,22 C71,38 68,46 68,56 C68,66 62,76 54,80 L53,82 L39,82 L38,80 C30,76 24,66 24,56 C24,46 21,38 19,22 C18,14 15,10 12,6 Z" fill="url(#coppa-italia-sheen)" opacity="0.6"/>
+  <ellipse cx="46" cy="6" rx="34.4" ry="3.6" fill="url(#coppa-italia-gold-v)"/>
+  <ellipse cx="46" cy="5.82" rx="30.27" ry="2.38" fill="#3d2603"/>
+  <path d="M53,81 C58,82 59,88 56,92 C59,94 58,99 53,101 L50,103 L50,112 L42,112 L42,103 L39,101 C34,99 33,94 36,92 C33,88 34,82 39,81 Z" fill="url(#coppa-italia-gold-h)"/>
+  <path d="M36,88 L56,88 M35,95 L57,95" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M50,111 C53,116 59,120 62,126 L62,128 L30,128 L30,126 C33,120 39,116 42,111 Z" fill="url(#coppa-italia-gold-h)"/>
+  <path d="M27,128 L65,128 L65.4,132 Q46,133.2 26.6,132 Z" fill="url(#coppa-italia-gold-d)"/>
+  <path d="M26,132 L66,132 L67.5,164 Q46,166.4 24.5,164 Z" fill="url(#coppa-italia-gold-h)"/>
+  <path d="M31.439999999999998,134 L30.66,163" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" stroke-linecap="round"/>
+  <path d="M38.72,134 L38.33,163" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" stroke-linecap="round"/>
+  <path d="M46.0,134 L46.0,163" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" stroke-linecap="round"/>
+  <path d="M53.28,134 L53.67,163" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" stroke-linecap="round"/>
+  <path d="M60.56,134 L61.34,163" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" stroke-linecap="round"/>
+  <rect x="37" y="140" width="18" height="9" rx="0.6" fill="url(#coppa-italia-gold-d)"/>
+  <path d="M23.6,164 L68.4,164 L69,170 Q46,172 23,170 Z" fill="url(#coppa-italia-gold-d)"/>
+  <path d="M22.4,170 L69.6,170 L70,173 Q46,174.6 22,173 Z" fill="url(#coppa-italia-gold-h)"/>
+  </g>
+</svg>

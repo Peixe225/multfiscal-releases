@@ -87,7 +87,7 @@
 .ck-room__years { font-size: 11px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
 /* ── right panel ─────────────────────────────────────────────────────── */
-.ck-panel { display: flex; flex-direction: column; padding: 14px 14px 12px; border-radius: 22px; min-height: 0; overflow: hidden; }
+.ck-panel { display: flex; flex-direction: column; padding: 14px 14px 12px; border-radius: 22px; min-height: 0; overflow: hidden; scroll-margin-top: 72px; }
 .ck-panel__tabs { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 8px; min-width: 0; }
 .ck-tabs { min-width: 0; overflow-x: auto; flex: 0 1 auto; }
 .ck-aside { margin-left: auto; flex: none; font-size: 11.5px; color: var(--text-3); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }

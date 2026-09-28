@@ -124,7 +124,26 @@ export interface CalendarItem {
   /** Importância 0–1 (clássico, final, decisão de título) — pesa em pressão, moral, torcida. */
   importance?: number
   done: boolean
-  result?: { score: [number, number]; userGoals: number; userAssists: number; rating: number; played: boolean }
+  result?: {
+    score: [number, number]
+    userGoals: number
+    userAssists: number
+    rating: number
+    played: boolean
+    // ── aditivos (motor) ──
+    /** Pênaltis [mandante, visitante] (mata-mata). */
+    pens?: [number, number]
+    /** Decidido na prorrogação. */
+    aet?: boolean
+    minutes?: number
+  }
+  // ── aditivos (motor) ──
+  /** Mês (1–12) e ano aproximados da semana (ausentes no bloco de torneios de fim de temporada). */
+  month?: number
+  year?: number
+  /** Jogo de ida/volta: 1 ou 2 (de `legs`). */
+  leg?: number
+  legs?: number
 }
 
 // ───────────────────────────── partida ao vivo ─────────────────────────────
@@ -366,6 +385,11 @@ export interface ImmersiveState {
   achievements: string[]
   retired: boolean
   retiredReason?: string
+  // ── aditivos (motor) ──
+  /** Liga atual do clube (o mundo move clubes por acesso/rebaixamento). */
+  leagueId?: string | null
+  /** Seguidores nas redes (alcance dos posts). */
+  followers?: number
 }
 
 // ───────────────────────────── ações e efeitos ─────────────────────────────
@@ -387,6 +411,12 @@ export type ImmersiveAction =
   | { type: 'inbox_read'; messageId: string }
   | { type: 'buy'; itemId: string }
   | { type: 'retire' }
+  /**
+   * (aditivo) "Simular até…": resolve itens sozinho (treino com o último foco, partidas com a IA,
+   * coletivas puladas, eventos com a opção mais segura) até algo pedir o jogador ou o alvo chegar.
+   * `next_match` para ANTES de abrir a próxima partida; `decision` para em decisão/proposta.
+   */
+  | { type: 'auto'; until?: 'next_match' | 'next_week' | 'season_end' | 'decision' | 'retirement'; maxSteps?: number }
 
 export type ImmersiveEffect =
   | { type: 'toast'; tone: 'info' | 'success' | 'gold' | 'danger'; title: string; description?: string }
@@ -413,4 +443,9 @@ export interface ImmersiveEngine {
   ovrOf(attributes: Attributes, position: Position): number
   /** Tabela ao vivo da liga do jogador na rodada atual (reais + pré-simulados + os do jogador). */
   liveTable(data: GameData, state: ImmersiveState): import('../types').StandingRow[]
+  // ── aditivos (motor) ──
+  /** Ações aceitas agora pelo `dispatch` (as demais viram no-op com toast). */
+  validActions?(state: ImmersiveState): ImmersiveAction['type'][]
+  /** Resumo de carreira no formato do Clássico (tela final, Hall das Lendas). */
+  summarize?(data: GameData, state: ImmersiveState): import('../types').CareerSummary
 }

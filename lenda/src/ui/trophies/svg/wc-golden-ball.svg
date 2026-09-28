@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 180" width="72" height="180" role="img" aria-labelledby="wc-golden-ball-title" class="lx-trophy" data-trophy="wc-golden-ball">
+  <title id="wc-golden-ball-title">Bola de Ouro da Copa do Mundo</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="wc-golden-ball-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <radialGradient id="wc-golden-ball-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="wc-golden-ball-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <linearGradient id="wc-golden-ball-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M26,150 L26,104 C26,76 35.2,58 40.0,40" fill="none" stroke="#3d2603" stroke-width="5.6" stroke-linecap="butt"/>
+  <path d="M26,150 L26,104 C26,76 35.2,58 40.0,40" fill="none" stroke="url(#wc-golden-ball-gold-h)" stroke-width="4.4" stroke-linecap="butt"/>
+  <path d="M26,150 L26,104 C26,76 35.2,58 40.0,40" fill="none" stroke="#fff3c4" stroke-width="0.8" stroke-opacity=".6" transform="translate(-1 0)" stroke-linecap="round"/>
+  <path d="M34,150 L34,104 C34,76 40.0,58 44.0,40" fill="none" stroke="#3d2603" stroke-width="5.6" stroke-linecap="butt"/>
+  <path d="M34,150 L34,104 C34,76 40.0,58 44.0,40" fill="none" stroke="url(#wc-golden-ball-gold-h)" stroke-width="4.4" stroke-linecap="butt"/>
+  <path d="M34,150 L34,104 C34,76 40.0,58 44.0,40" fill="none" stroke="#fff3c4" stroke-width="0.8" stroke-opacity=".6" transform="translate(-1 0)" stroke-linecap="round"/>
+  <path d="M42,150 L42,104 C42,76 44.8,58 48.0,40" fill="none" stroke="#3d2603" stroke-width="5.6" stroke-linecap="butt"/>
+  <path d="M42,150 L42,104 C42,76 44.8,58 48.0,40" fill="none" stroke="url(#wc-golden-ball-gold-h)" stroke-width="4.4" stroke-linecap="butt"/>
+  <path d="M42,150 L42,104 C42,76 44.8,58 48.0,40" fill="none" stroke="#fff3c4" stroke-width="0.8" stroke-opacity=".6" transform="translate(-1 0)" stroke-linecap="round"/>
+  <circle cx="42" cy="24" r="18" fill="url(#wc-golden-ball-gold-r)"/>
+  <path d="M42,17.52 L48.16,22 L45.81,29.24 L38.19,29.24 L35.84,22 Z M42,17.52 L42,9.96 M48.16,22 L55.35,19.66 M45.81,29.24 L50.25,35.36 M38.19,29.24 L33.75,35.36 M35.84,22 L28.65,19.66" fill="none" stroke="#3d2603" stroke-opacity="0.38" stroke-width="0.81" stroke-linejoin="round"/>
+  <circle cx="42" cy="24" r="18" fill="none" stroke="#3d2603" stroke-width="0.54" stroke-opacity=".45"/>
+  <ellipse cx="35.52" cy="16.44" rx="6.12" ry="3.24" fill="#fff" opacity="0.38" transform="rotate(-35 35.52 16.44)"/>
+  <ellipse cx="34" cy="150" rx="19" ry="3" fill="url(#wc-golden-ball-gold-v)"/>
+  <path d="M14,151 L54,151 L55,176 L13,176 Z" fill="url(#wc-golden-ball-lacq)"/>
+  <path d="M14,151.5 L54,151.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="34" cy="176" rx="21" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="22" y="158" width="24" height="10" rx="0.6" fill="#e3e8ed" opacity=".7"/>
+  </g>
+</svg>

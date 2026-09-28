@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 180" width="110" height="180" role="img" aria-labelledby="puskas-title" class="lx-trophy" data-trophy="puskas">
+  <title id="puskas-title">Prêmio Puskás da FIFA</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="puskas-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="puskas-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <radialGradient id="puskas-glass" cx=".36" cy=".3" r=".78"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".22" stop-color="#e8eef5" stop-opacity=".75"/><stop offset=".6" stop-color="#9aa7b6" stop-opacity=".45"/><stop offset=".88" stop-color="#5a6574" stop-opacity=".7"/><stop offset="1" stop-color="#2c333d" stop-opacity=".9"/></radialGradient>
+  <linearGradient id="puskas-glassh" x1="0" x2="1"><stop offset="0" stop-color="#3a4452" stop-opacity=".9"/><stop offset=".2" stop-color="#b7c3d0" stop-opacity=".55"/><stop offset=".42" stop-color="#ffffff" stop-opacity=".85"/><stop offset=".6" stop-color="#8e9aa8" stop-opacity=".45"/><stop offset=".86" stop-color="#d9e2ea" stop-opacity=".6"/><stop offset="1" stop-color="#333b47" stop-opacity=".9"/></linearGradient>
+  <linearGradient id="puskas-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <linearGradient id="puskas-glassv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".75"/><stop offset=".35" stop-color="#b7c3d0" stop-opacity=".35"/><stop offset=".7" stop-color="#6d7a8a" stop-opacity=".45"/><stop offset="1" stop-color="#e8eef5" stop-opacity=".7"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M12,150 C58,148 90,118 96,34 L104,34 C100,126 64,160 12,160 Z" fill="url(#puskas-glassv)"/>
+  <path d="M12,150 C58,148 90,118 96,34" fill="none" stroke="url(#puskas-gold-h)" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M104,34 C100,126 64,160 12,160" fill="none" stroke="#e3e8ed" stroke-width="0.8" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M96,34 L104,34 L103,38 L95.6,38 Z" fill="url(#puskas-gold-v)"/>
+  <circle cx="58" cy="106" r="20" fill="url(#puskas-glass)"/>
+  <path d="M58,98.8 L64.85,103.78 L62.23,111.82 L53.77,111.82 L51.15,103.78 Z M58,98.8 L58,90.4 M64.85,103.78 L72.84,101.18 M62.23,111.82 L67.17,118.62 M53.77,111.82 L48.83,118.62 M51.15,103.78 L43.16,101.18" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="0.8" stroke-linejoin="round"/>
+  <circle cx="58" cy="106" r="20" fill="none" stroke="#dfe6ee" stroke-width="1" stroke-opacity=".7"/>
+  <ellipse cx="51" cy="98" rx="6" ry="3" fill="#fff" opacity=".7" transform="rotate(-35 51 98)"/>
+  <path d="M6,160 L104,160 L108,170 L2,170 Z" fill="url(#puskas-glassh)"/>
+  <path d="M2,170 L108,170 L108,174 L2,174 Z" fill="url(#puskas-gold-d)"/>
+  <path d="M6,160.5 L104,160.5" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  </g>
+</svg>

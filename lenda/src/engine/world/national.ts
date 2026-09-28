@@ -7,7 +7,7 @@
  */
 import type { Competition, Confed, Country, NationalTournamentResult, StandingRow } from '../types'
 import { rng as subRng, type Rng } from '../rng'
-import { CONFEDS, type SeasonCtx } from './context'
+import { CONFEDS, setTag, type SeasonCtx } from './context'
 import { drawGroups, forceInto, runGroups, runKnockout } from './knockout'
 import { compareRows } from './table'
 
@@ -102,6 +102,7 @@ export function simulateNationalTournament(ctx: SeasonCtx, comp: Competition): N
   const rng = subRng(ctx.seed, 'season', ctx.season, 'national', comp.id)
   const { teams, hosts } = pickParticipants(ctx, comp, year, rng)
   if (teams.length < 4) return null
+  setTag(ctx, comp.id, '')
   const G = teams.length / 4
   const hostSet = new Set(hosts)
   const groups = drawGroups(rng, teams, G, (c) => ctx.nat.get(c) ?? 50, hosts)

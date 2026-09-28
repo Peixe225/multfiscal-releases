@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 180" width="90" height="180" role="img" aria-labelledby="primeira-liga-title" class="lx-trophy" data-trophy="primeira-liga">
+  <title id="primeira-liga-title">Troféu da Liga Portugal</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="primeira-liga-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="primeira-liga-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="primeira-liga-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="primeira-liga-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="primeira-liga-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M7,22 L15,12 L23,30 C21,60 35,92 37,148 L53,148 C55,92 69,60 67,30 L75,12 L83,22 C83,62 67,92 65,148 L25,148 C23,92 7,62 7,22 Z" fill="url(#primeira-liga-gold-h)"/>
+  <path d="M23,30 C21,60 35,92 37,148 L53,148 C55,92 69,60 67,30 C59,40 31,40 23,30 Z" fill="url(#primeira-liga-silver-h)"/>
+  <path d="M33.0,70 C37.0,100 40,125 40.5,148" fill="none" stroke="#8f98a6" stroke-width="1.1" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M40.2,70 C41.8,100 43,125 43.2,148" fill="none" stroke="#fbfcfd" stroke-width="1.1" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M49.8,70 C48.2,100 47,125 46.8,148" fill="none" stroke="#fbfcfd" stroke-width="1.1" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M57.0,70 C53.0,100 50,125 49.5,148" fill="none" stroke="#8f98a6" stroke-width="1.1" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M23,30 C21,60 35,92 37,148 L53,148 C55,92 69,60 67,30 C59,40 31,40 23,30 Z" fill="url(#primeira-liga-sheen)" opacity="0.5"/>
+  <path d="M45,5 L67.52,17.5 L67.52,42.5 L45,55 L22.48,42.5 L22.48,17.5 Z" fill="url(#primeira-liga-gold-h)"/>
+  <path d="M45,10 L63.19,20 L63.19,40 L45,50 L26.81,40 L26.81,20 Z" fill="url(#primeira-liga-gold-r)"/>
+  <path d="M45,10 L63.19,20 L63.19,40 L45,50 L26.81,40 L26.81,20 Z" fill="none" stroke="#94640f" stroke-width=".8"/>
+  <rect x="15" y="148" width="60" height="22" rx="1" fill="url(#primeira-liga-gold-h)"/>
+  <rect x="15" y="148" width="60" height="2" fill="#fff3c4" opacity=".6"/>
+  <rect x="12" y="170" width="66" height="5" rx="1" fill="url(#primeira-liga-gold-d)"/>
+  </g>
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 180" width="112" height="180" role="img" aria-labelledby="asian-cup-title" class="lx-trophy" data-trophy="asian-cup">
+  <title id="asian-cup-title">Troféu da Copa da Ásia</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="asian-cup-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="asian-cup-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="asian-cup-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <radialGradient id="asian-cup-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="asian-cup-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="asian-cup-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M64,118 Q118.55,77.05 106,10 Q92.46,66.9 64,118 Z" fill="url(#asian-cup-silver-d)"/>
+  <path d="M64,118 Q118.55,77.05 106,10 Q92.46,66.9 64,118 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M65,114 Q100.12,70 105,13" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M61,118 Q107.18,69.8 96,4 Q83.28,62.47 61,118 Z" fill="url(#asian-cup-silver-h)"/>
+  <path d="M61,118 Q107.18,69.8 96,4 Q83.28,62.47 61,118 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M62,114 Q91.1,67 95,7" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M58,118 Q93.88,69.41 83,10 Q73.42,64.68 58,118 Z" fill="url(#asian-cup-silver-h)"/>
+  <path d="M58,118 Q93.88,69.41 83,10 Q73.42,64.68 58,118 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M59,114 Q80.58,70 82,13" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M48,118 Q-6.55,77.05 6,10 Q19.54,66.9 48,118 Z" fill="url(#asian-cup-silver-d)"/>
+  <path d="M48,118 Q-6.55,77.05 6,10 Q19.54,66.9 48,118 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M47,114 Q11.88,70 7,13" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M51,118 Q4.82,69.8 16,4 Q28.72,62.47 51,118 Z" fill="url(#asian-cup-silver-h)"/>
+  <path d="M51,118 Q4.82,69.8 16,4 Q28.72,62.47 51,118 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M50,114 Q20.9,67 17,7" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M54,118 Q18.12,69.41 29,10 Q38.58,64.68 54,118 Z" fill="url(#asian-cup-silver-h)"/>
+  <path d="M54,118 Q18.12,69.41 29,10 Q38.58,64.68 54,118 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M53,114 Q31.42,70 30,13" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M43,114 L42,34 L56,18 L70,34 L69,114 Z" fill="url(#asian-cup-silver-h)"/>
+  <path d="M46,110 L45,36 L56,23 L67,36 L66,110 Z" fill="url(#asian-cup-silver-v)" opacity=".5"/>
+  <path d="M43,114 L42,34 L56,18 L70,34 L69,114 Z" fill="none" stroke="#2b2f37" stroke-width=".8" stroke-opacity=".6"/>
+  <circle cx="56" cy="44" r="7" fill="url(#asian-cup-silver-r)"/>
+  <path d="M56,41.48 L58.4,43.22 L57.48,46.04 L54.52,46.04 L53.6,43.22 Z M56,41.48 L56,38.54 M58.4,43.22 L61.19,42.31 M57.48,46.04 L59.21,48.42 M54.52,46.04 L52.79,48.42 M53.6,43.22 L50.81,42.31" fill="none" stroke="#2b2f37" stroke-opacity="0.38" stroke-width="0.55" stroke-linejoin="round"/>
+  <circle cx="56" cy="44" r="7" fill="none" stroke="#2b2f37" stroke-width="0.5" stroke-opacity=".45"/>
+  <ellipse cx="53.48" cy="41.06" rx="2.38" ry="1.26" fill="#fff" opacity="0.38" transform="rotate(-35 53.48 41.06)"/>
+  <path d="M49,58 L63,58 M50,63 L62,63 M49,68 L63,68" fill="none" stroke="#4a515c" stroke-width="1.3" stroke-opacity=".55" stroke-dasharray="1.6 .8" stroke-linecap="butt"/>
+  <path d="M43,114 L42,34 L56,18 L70,34 L69,114 Z" fill="url(#asian-cup-sheen)" opacity="0.5"/>
+  <path d="M39,113 L73,113 L69,121 Q56,122.2 43,121 Z" fill="url(#asian-cup-silver-d)"/>
+  <path d="M67,121 C65,128 67,134 75,140 L78,144 L34,144 L37,140 C45,134 47,128 45,121 Z" fill="url(#asian-cup-silver-h)"/>
+  <path d="M32,144 L80,144 L80.4,148 Q56,149.2 31.6,148 Z" fill="url(#asian-cup-silver-v)"/>
+  <path d="M31.6,148 L80.4,148 L82,166 L30,166 Z" fill="url(#asian-cup-lacq)"/>
+  <path d="M37,152.5 L75,152.5" fill="none" stroke="#bec6d1" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="2.6 1 1.6 1" stroke-linecap="butt"/>
+  <path d="M37,157 L75,157" fill="none" stroke="#bec6d1" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="2.6 1 1.6 1" stroke-linecap="butt"/>
+  <path d="M37,161.5 L75,161.5" fill="none" stroke="#bec6d1" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="2.6 1 1.6 1" stroke-linecap="butt"/>
+  <path d="M29.6,166 L82.4,166 L83,172 Q56,173.6 29,172 Z" fill="url(#asian-cup-silver-h)"/>
+  </g>
+</svg>

@@ -159,3 +159,7 @@
 @media (prefers-reduced-motion: reduce) { .ld-fan { transition: none; transform: none; } }
 :root[data-motion="reduced"] .ld-fan { transition: none; transform: none; }
 }
+@layer components {
+.ld-footer__link { color: var(--text-2); text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .25); text-underline-offset: 3px; white-space: nowrap; }
+.ld-footer__link:hover { color: var(--text); text-decoration-color: #ffd36e; }
+}

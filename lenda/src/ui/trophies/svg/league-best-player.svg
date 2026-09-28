@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 180" width="92" height="180" role="img" aria-labelledby="league-best-player-title" class="lx-trophy" data-trophy="league-best-player">
+  <title id="league-best-player-title">Craque da Liga</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="league-best-player-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <radialGradient id="league-best-player-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="league-best-player-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <linearGradient id="league-best-player-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M50,76 C51,100 52,120 56,134 C60,138 66,140 68,142 L24,142 C26,140 32,138 36,134 C40,120 41,100 42,76 Z" fill="url(#league-best-player-gold-h)"/>
+  <path d="M46,6 L55.11,31.46 L82.14,32.26 L60.74,48.79 L68.34,74.74 L46,59.5 L23.66,74.74 L31.26,48.79 L9.86,32.26 L36.89,31.46 Z" fill="url(#league-best-player-gold-r)"/>
+  <path d="M46,44 L46,6 L55.11,31.46 Z" fill="#5c3a05" opacity=".28"/>
+  <path d="M46,44 L82.14,32.26 L60.74,48.79 Z" fill="#5c3a05" opacity=".28"/>
+  <path d="M46,44 L68.34,74.74 L46,59.5 Z" fill="#5c3a05" opacity=".28"/>
+  <path d="M46,44 L23.66,74.74 L31.26,48.79 Z" fill="#5c3a05" opacity=".28"/>
+  <path d="M46,44 L9.86,32.26 L36.89,31.46 Z" fill="#5c3a05" opacity=".28"/>
+  <path d="M46,6 L55.11,31.46 L82.14,32.26 L60.74,48.79 L68.34,74.74 L46,59.5 L23.66,74.74 L31.26,48.79 L9.86,32.26 L36.89,31.46 Z" fill="none" stroke="#5c3a05" stroke-width=".8" stroke-opacity=".6"/>
+  <path d="M46,25 L50.56,37.73 L64.07,38.13 L53.37,46.39 L57.17,59.37 L46,51.75 L34.83,59.37 L38.63,46.39 L27.93,38.13 L41.44,37.73 Z" fill="#fff3c4" opacity=".35"/>
+  <ellipse cx="36" cy="32" rx="8" ry="3.4" fill="#fff" opacity=".35" transform="rotate(-35 36 32)"/>
+  <path d="M23,142 L69,142 L69.4,146 Q46,147 22.6,146 Z" fill="url(#league-best-player-gold-v)"/>
+  <path d="M21,146 L71,146 L73,174 L19,174 Z" fill="url(#league-best-player-lacq)"/>
+  <path d="M21,146.5 L71,146.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="46" cy="174" rx="27" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="19.6" y="164" width="52.8" height="2.6" rx="0.4" fill="url(#league-best-player-gold-h)"/>
+  <path d="M19.6,164.3 L72.4,164.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  </g>
+</svg>

@@ -7,7 +7,7 @@
  */
 import type { CompetitionKind, KnockoutStage, MatchResult, StandingRow } from '../types'
 import type { Rng } from '../rng'
-import { forced, isNationalKind, play, recordKnown, strengthIn, userEntity, type SeasonCtx } from './context'
+import { forced, isNationalKind, play, recordKnown, setTag, strengthIn, userEntity, type SeasonCtx } from './context'
 import { remainingSchedule, roundRobin, swissPairings } from './schedule'
 import { addResult, newRow, sortTable } from './table'
 
@@ -85,6 +85,7 @@ export function playTie(ctx: SeasonCtx, rng: Rng, kind: CompetitionKind, t: TieS
   const nLegs = t.fixed?.length ? t.fixed.length : t.legs
   const po = { kind, extraTime: t.extraTime, hosts: t.hosts }
   let winner: string
+  if (ctx.keys) ctx.tie = { legs: nLegs, index: 0, a: t.a, b: t.b, extraTime: t.extraTime !== false, seedAdvancesOnDraw: t.seedAdvancesOnDraw, prior: legs }
   if (nLegs === 1) {
     const f = t.fixed?.[0]
     const home = f?.home ?? t.a
@@ -114,6 +115,7 @@ export function playTie(ctx: SeasonCtx, rng: Rng, kind: CompetitionKind, t: TieS
       const [home, away] = order[i]
       const f = t.fixed?.[i]
       const last = i === order.length - 1
+      if (ctx.tie) ctx.tie.index = i
       let m: MatchResult
       if (f?.score) {
         m = { home, away, score: [f.score[0], f.score[1]] }
@@ -123,11 +125,17 @@ export function playTie(ctx: SeasonCtx, rng: Rng, kind: CompetitionKind, t: TieS
       }
       legs.push(m)
     }
+    const lastLeg = legs[legs.length - 1]
+    if (ctx.fixedSet?.has(lastLeg)) replayTieRng(ctx, rng, kind, t, legs)
     const ga = goalsFor(legs, t.a)
     const gb = goalsFor(legs, t.b)
     if (ga !== gb) winner = ga > gb ? t.a : t.b
     else if (t.seedAdvancesOnDraw) winner = t.a
-    else {
+    else if (ctx.fixedSet?.has(lastLeg)) {
+      // (Modo Imersivo) jogo de volta com placar fixo: prorrogação já está no placar; pênaltis vêm do fixo
+      if (!lastLeg.pens) lastLeg.pens = lastLeg.home === t.a ? [5, 4] : [4, 5]
+      winner = lastLeg.pens[0] > lastLeg.pens[1] ? lastLeg.home : lastLeg.away
+    } else {
       // prorrogação (se houver) e pênaltis no último jogo
       const m = legs[legs.length - 1]
       const hs = strengthIn(ctx, m.home, kind)
@@ -150,10 +158,46 @@ export function playTie(ctx: SeasonCtx, rng: Rng, kind: CompetitionKind, t: TieS
       }
     }
   }
+  if (ctx.tie) ctx.tie = undefined
   const loser = winner === t.a ? t.b : t.a
   const out: TieResult = { winner, loser, legs }
   applyForce(ctx, kind, t, out)
+  if (ctx.collected) {
+    // agenda coletada com o placar final do confronto (prorrogação/pênaltis decididos aqui)
+    for (const l of legs) {
+      const f = ctx.collected.get(l)
+      if (!f) continue
+      f.score = [l.score[0], l.score[1]]
+      if (l.pens) f.pens = [l.pens[0], l.pens[1]]
+      if (l.aet) f.aet = true
+    }
+  }
   return out
+}
+
+/**
+ * (Modo Imersivo) Volta com placar fixo: consome o rng exatamente como o caminho sem resultado
+ * fixo consumiria (prorrogação + pênaltis sobre os placares simulados), para que os confrontos
+ * seguintes da competição não mudem. O resultado desse "ensaio" é descartado.
+ */
+function replayTieRng(ctx: SeasonCtx, rng: Rng, kind: CompetitionKind, t: TieSpec, legs: MatchResult[]) {
+  const sim = legs.map((l) => {
+    const sc = ctx.simScore?.get(l) ?? l.score
+    return { home: l.home, away: l.away, score: [sc[0], sc[1]] as [number, number] }
+  })
+  const ga = goalsFor(sim, t.a)
+  const gb = goalsFor(sim, t.b)
+  if (ga !== gb || t.seedAdvancesOnDraw) return
+  const m = sim[sim.length - 1]
+  const hs = strengthIn(ctx, m.home, kind)
+  const as = strengthIn(ctx, m.away, kind)
+  let eh = 0
+  let ea = 0
+  if (t.extraTime !== false) {
+    eh = rng.poisson(0.39 * Math.exp(0.038 * (hs - as + 3.5)))
+    ea = rng.poisson(0.39 * Math.exp(-0.038 * (hs - as + 3.5)))
+  }
+  if (eh === ea) shootout(rng, Math.max(-1, Math.min(1, (hs - as) / 20)))
 }
 
 function addExtra(ctx: SeasonCtx, m: MatchResult, eh: number, ea: number, kind: CompetitionKind) {
@@ -314,6 +358,7 @@ export function runKnockout(
       }
     }
     first = false
+    setTag(ctx, undefined, (cfg.prefix ?? '') + name)
     const legs = cfg.legs(size)
     const neutral = cfg.neutral?.(size) ?? false
     const stage: KnockoutStage = { name: (cfg.prefix ?? '') + name, ties: [] }
@@ -374,6 +419,7 @@ export function runGroups(
   o: GroupOpts,
 ): { name: string; table: StandingRow[] }[] {
   return groups.map((g) => {
+    setTag(ctx, undefined, g.name)
     const rows = new Map(g.teams.map((t) => [t, newRow(t, g.name)] as const))
     for (const day of roundRobin(g.teams, o.rounds, rng)) {
       for (const [h, a] of day) {
@@ -410,6 +456,7 @@ export function runSwiss(
   const pairs = fixtures?.length
     ? remainingSchedule([...rows.values()], fixtures, matches, rng, false)
     : swissPairings([...rows.keys()], matches, rng, already)
+  setTag(ctx, undefined, 'Fase de liga')
   for (const [h, a] of pairs) {
     const m = play(ctx, rng, h, a, { kind })
     addResult(rows.get(m.home)!, rows.get(m.away)!, m.score[0], m.score[1])

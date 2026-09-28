@@ -143,11 +143,14 @@ export function simulateSeason(
   const first = S === ix.firstSeason && Object.keys(world.seasons).length === 0
   const seed = world.seed
 
+  // (Modo Imersivo) pré-simulação só da agenda do jogador
+  const agendaOnly = !!(user.agendaOnly && user.collectUserFixtures)
+
   // 1. entressafra dos rivais
   const natWeight = nationalityWeights(data)
   const targetPop = Math.max(120, data.stars.length)
   const targetElite = Math.max(25, data.stars.filter((s) => s.ovr >= 85).length)
-  let rivals = first
+  let rivals = first || agendaOnly
     ? world.rivals
     : offseasonRivals({ data, ix, seed, season: S, clubs: world.clubs, targetPop, targetElite, natWeight }, world.rivals)
 
@@ -183,11 +186,41 @@ export function simulateSeason(
     force: decideForce(seed, S, user),
     leagueOf,
   }
+  // (Modo Imersivo) resultados fixos e coleta da agenda do jogador
+  if (user.immersiveRules) ctx.imm = true
+  if (user.fixedResults || user.collectUserFixtures) {
+    ctx.keys = new Map()
+    ctx.fixedSet = new WeakSet()
+    ctx.simScore = new WeakMap()
+    if (user.collectUserFixtures) {
+      ctx.collected = new WeakMap()
+      const lg = userClub ? leagueOf.get(userClub) : undefined
+      ctx.collect = { club: [], nation: [], seq: 0, league: lg ? { leagueId: lg, start: [], matches: [] } : undefined }
+    }
+  }
+
+  // agenda: só a liga do jogador (+ divisões ligadas), as copas dela e o estadual dele
+  const relevantLeagues = new Set<string>()
+  const relevantCups = new Set<string>()
+  let userRegion: string | undefined
+  if (agendaOnly && userClub) {
+    const lid = leagueOf.get(userClub)
+    const L = lid ? ix.league.get(lid) : undefined
+    if (L) {
+      relevantLeagues.add(L.id)
+      if (L.upperLeagueId) relevantLeagues.add(L.upperLeagueId)
+      if (L.lowerLeagueId) relevantLeagues.add(L.lowerLeagueId)
+      if (L.domesticCupId) relevantCups.add(L.domesticCupId)
+      if (L.secondaryCupId) relevantCups.add(L.secondaryCupId)
+    }
+    userRegion = ix.club.get(userClub)?.state
+  }
 
   // 3. ligas
   const runs = new Map<string, LeagueRun>()
   const leagues: Record<string, LeagueSeasonResult> = {}
   for (const l of data.leagues) {
+    if (agendaOnly && !relevantLeagues.has(l.id)) continue
     const members = leagueMembers(data, ix, ctx, l.id)
     if (members.length < 2) continue
     const run = simulateLeague(ctx, l, members)
@@ -218,6 +251,7 @@ export function simulateSeason(
   const cupIds: string[] = []
   for (const l of data.leagues) for (const id of [l.domesticCupId, l.secondaryCupId]) if (id && !cupIds.includes(id)) cupIds.push(id)
   for (const id of cupIds) {
+    if (agendaOnly && !relevantCups.has(id)) continue
     const comp = ix.comp.get(id)
     if (!comp) continue
     const participants = data.clubs
@@ -231,6 +265,7 @@ export function simulateSeason(
   }
   if (!first) {
     for (const comp of ix.regionalComps) {
+      if (agendaOnly && (!userRegion || comp.region !== userRegion)) continue
       const country = comp.country ?? 'BRA'
       const participants = data.clubs
         .filter((c) => c.state === comp.region && c.country === country && ix.league.has(leagueOf.get(c.id) ?? ''))
@@ -331,6 +366,15 @@ export function simulateSeason(
     national[comp.id] = r
     for (const code of Object.keys(r.reached)) inTournament.add(code)
   }
+  if (agendaOnly) {
+    const partial: SeasonWorldResult = { season: S, leagues, cups, national, awards: [] }
+    if (ctx.collect) {
+      partial.userFixtures = ctx.collect.club
+      partial.userNationalFixtures = ctx.collect.nation
+      if (ctx.collect.league) partial.userLeague = ctx.collect.league
+    }
+    return { world, result: partial }
+  }
   nationFriendlies(ctx, inTournament)
 
   // clubes sem liga simulada: liga local "fantasma" (30 jogos) para estatísticas realistas
@@ -372,6 +416,11 @@ export function simulateSeason(
     if (s) nationStats[c.code] = [s[0], s[1]]
   }
   const result: SeasonWorldResult = { season: S, leagues, cups, national, awards: [], clubStats, nationStats }
+  if (ctx.collect) {
+    result.userFixtures = ctx.collect.club
+    result.userNationalFixtures = ctx.collect.nation
+    if (ctx.collect.league) result.userLeague = ctx.collect.league
+  }
 
   // classificados para S+1
   const rankings = new Map<string, string[]>()

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 180" width="104" height="180" role="img" aria-labelledby="saudi-pro-league-title" class="lx-trophy" data-trophy="saudi-pro-league">
+  <title id="saudi-pro-league-title">Troféu da Saudi Pro League</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="saudi-pro-league-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="saudi-pro-league-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="saudi-pro-league-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="saudi-pro-league-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="saudi-pro-league-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M81,62 C98,58 100,80 83,94" fill="none" stroke="url(#saudi-pro-league-silver-h)" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M81,62 C98,58 100,80 83,94" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M23,62 C6,58 4,80 21,94" fill="none" stroke="url(#saudi-pro-league-silver-h)" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M23,62 C6,58 4,80 21,94" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M82,55 C89,72 87,97 74,109 C66,115 61,116 59,120 L45,120 C43,116 38,115 30,109 C17,97 15,72 22,55 Z" fill="url(#saudi-pro-league-silver-h)"/>
+  <path d="M20,64 C40,68 64,68 84,64" fill="none" stroke="url(#saudi-pro-league-gold-h)" stroke-width="4.4" stroke-linecap="butt"/>
+  <circle cx="32" cy="66" r="1.6" fill="#0f6a3a"/>
+  <circle cx="31.6" cy="65.6" r="0.5" fill="#8ff0c0" opacity=".8"/>
+  <circle cx="42" cy="66.3" r="1.6" fill="#0f6a3a"/>
+  <circle cx="41.6" cy="65.9" r="0.5" fill="#8ff0c0" opacity=".8"/>
+  <circle cx="52" cy="66.6" r="1.6" fill="#0f6a3a"/>
+  <circle cx="51.6" cy="66.2" r="0.5" fill="#8ff0c0" opacity=".8"/>
+  <circle cx="62" cy="66.3" r="1.6" fill="#0f6a3a"/>
+  <circle cx="61.6" cy="65.9" r="0.5" fill="#8ff0c0" opacity=".8"/>
+  <circle cx="72" cy="66" r="1.6" fill="#0f6a3a"/>
+  <circle cx="71.6" cy="65.6" r="0.5" fill="#8ff0c0" opacity=".8"/>
+  <path d="M28,86 C42,92 62,92 76,86" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".5" stroke-dasharray="2 1.4" stroke-linecap="round"/>
+  <path d="M82,55 C89,72 87,97 74,109 C66,115 61,116 59,120 L45,120 C43,116 38,115 30,109 C17,97 15,72 22,55 Z" fill="url(#saudi-pro-league-sheen)" opacity="0.55"/>
+  <path d="M55,36 C66,38 75,44 79,51 L81,54 L23,54 L25,51 C29,44 38,38 49,36 Z" fill="url(#saudi-pro-league-silver-h)"/>
+  <rect x="22" y="51" width="60" height="3.4" rx="0.4" fill="url(#saudi-pro-league-gold-h)"/>
+  <path d="M22,51.3 L82,51.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  <path d="M52.8,3 C54.4,14 56.6,24 55.6,30 C59,31 59,35 55.5,36.5 L48.5,36.5 C45,35 45,31 48.4,30 C47.4,24 49.6,14 51.2,3 Z" fill="url(#saudi-pro-league-silver-h)"/>
+  <circle cx="52" cy="30.6" r="3.6" fill="url(#saudi-pro-league-gold-r)"/>
+  <path d="M59,119 C62,121 62,127 58,129 L58,132 L46,132 L46,129 C42,127 42,121 45,119 Z" fill="url(#saudi-pro-league-gold-h)"/>
+  <path d="M58,132 C62,141 72,146 78,150 L78,154 L26,154 L26,150 C32,146 42,141 46,132 Z" fill="url(#saudi-pro-league-silver-h)"/>
+  <rect x="25" y="153" width="54" height="3" rx="0.4" fill="url(#saudi-pro-league-gold-h)"/>
+  <path d="M25,153.3 L79,153.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  <path d="M23,156 L81,156 L83,175 L21,175 Z" fill="url(#saudi-pro-league-lacq)"/>
+  <path d="M23,156.5 L81,156.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="52" cy="175" rx="31" ry="1.2" fill="#050506" opacity=".6"/>
+  <path d="M23,166 L81,166" fill="none" stroke="url(#saudi-pro-league-gold-h)" stroke-width="1.6" stroke-linecap="butt"/>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 180" width="96" height="180" role="img" aria-labelledby="liga-profesional-title" class="lx-trophy" data-trophy="liga-profesional">
+  <title id="liga-profesional-title">Troféu da Liga Profesional Argentina</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <radialGradient id="liga-profesional-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="liga-profesional-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="liga-profesional-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="liga-profesional-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  </defs>
+  <g>
+  <circle cx="48" cy="35" r="28" fill="url(#liga-profesional-silver-r)"/>
+  <path d="M48,24.92 L57.59,31.89 L53.92,43.15 L42.08,43.15 L38.41,31.89 Z M48,24.92 L48,13.16 M57.59,31.89 L68.77,28.25 M53.92,43.15 L60.84,52.67 M42.08,43.15 L35.16,52.67 M38.41,31.89 L27.23,28.25" fill="none" stroke="#2b2f37" stroke-opacity="0.38" stroke-width="1.26" stroke-linejoin="round"/>
+  <circle cx="48" cy="35" r="28" fill="none" stroke="#2b2f37" stroke-width="0.84" stroke-opacity=".45"/>
+  <ellipse cx="37.92" cy="23.24" rx="9.52" ry="5.04" fill="#fff" opacity="0.38" transform="rotate(-35 37.92 23.24)"/>
+  <path d="M50.2,122 C53,110 79.5,104 79.5,64 L80.5,18 L77.5,21 L76.5,64 C76.5,98 52,104 48.8,114 Z" fill="url(#liga-profesional-silver-h)"/>
+  <path d="M51,118 C53,108 78.5,102 78.5,64 L79,21" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M45.8,122 C43,110 16.5,104 16.5,64 L15.5,18 L18.5,21 L19.5,64 C19.5,98 44,104 47.2,114 Z" fill="url(#liga-profesional-silver-h)"/>
+  <path d="M45,118 C43,108 17.5,102 17.5,64 L17,21" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M51,110 L52,136 C57,138 63,140 65,142 L31,142 C33,140 39,138 44,136 L45,110 Z" fill="url(#liga-profesional-silver-h)"/>
+  <path d="M23,142 L73,142 L73.4,147 Q48,148.2 22.6,147 Z" fill="url(#liga-profesional-silver-v)"/>
+  <rect x="17" y="147" width="62" height="27" rx="1" fill="url(#liga-profesional-silver-d)"/>
+  <rect x="21" y="151" width="54" height="19" rx="0.8" fill="url(#liga-profesional-silver-h)"/>
+  <path d="M26,154 L36,154 L36,161 Q31,166 26,161 Z" fill="none" stroke="#4a515c" stroke-width="1.1"/>
+  <path d="M41,157 L68,157 M41,163 L62,163" fill="none" stroke="#4a515c" stroke-width="1.8" stroke-opacity=".55" stroke-dasharray="2.2 .9" stroke-linecap="butt"/>
+  </g>
+</svg>

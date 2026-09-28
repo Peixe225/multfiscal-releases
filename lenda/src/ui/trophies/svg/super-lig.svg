@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 180" width="104" height="180" role="img" aria-labelledby="super-lig-title" class="lx-trophy" data-trophy="super-lig">
+  <title id="super-lig-title">Troféu da Süper Lig</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="super-lig-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="super-lig-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="super-lig-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="super-lig-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="super-lig-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <radialGradient id="super-lig-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="super-lig-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M65,104 C86,104 97,92 97,62 L97,30 C97,24 94,22 89,24" fill="none" stroke="url(#super-lig-silver-d)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M65,104 C86,104 97,92 97,62 L97,30 C97,24 94,22 89,24" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".45" transform="translate(-1.2 0)" stroke-linecap="round"/>
+  <path d="M39,104 C18,104 7,92 7,62 L7,30 C7,24 10,22 15,24" fill="none" stroke="url(#super-lig-silver-d)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M39,104 C18,104 7,92 7,62 L7,30 C7,24 10,22 15,24" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".45" transform="translate(1.2 0)" stroke-linecap="round"/>
+  <path d="M87,24 C86,54 78,84 67,102 L61,110 L43,110 L37,102 C26,84 18,54 17,24 Z" fill="url(#super-lig-silver-h)"/>
+  <path d="M24,30 C25.4,56 32.4,80 41.36,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M32,30 C33,56 38,80 44.4,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M40,30 C40.6,56 43.6,80 47.44,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M48,30 C48.2,56 49.2,80 50.48,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M56,30 C55.8,56 54.8,80 53.52,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M64,30 C63.4,56 60.4,80 56.56,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M72,30 C71,56 66,80 59.6,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M80,30 C78.6,56 71.6,80 62.64,102" fill="none" stroke="#2b2f37" stroke-width="1.8" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M87,24 C86,54 78,84 67,102 L61,110 L43,110 L37,102 C26,84 18,54 17,24 Z" fill="url(#super-lig-sheen)" opacity="0.5"/>
+  <ellipse cx="52" cy="24" rx="35.2" ry="3.2" fill="url(#super-lig-silver-v)"/>
+  <ellipse cx="52" cy="23.84" rx="30.98" ry="2.11" fill="#353a43"/>
+  <rect x="48.4" y="22" width="7.2" height="12" fill="url(#super-lig-gold-h)"/>
+  <path d="M17,24 L87,24 L86.4,28 Q52,29 17.6,28 Z" fill="url(#super-lig-gold-h)"/>
+  <circle cx="52" cy="16" r="13.5" fill="url(#super-lig-gold-r)"/>
+  <path d="M52,11.14 L56.62,14.5 L54.86,19.93 L49.14,19.93 L47.38,14.5 Z M52,11.14 L52,5.47 M56.62,14.5 L62.01,12.75 M54.86,19.93 L58.19,24.52 M49.14,19.93 L45.81,24.52 M47.38,14.5 L41.99,12.75" fill="none" stroke="#3d2603" stroke-opacity="0.38" stroke-width="0.61" stroke-linejoin="round"/>
+  <circle cx="52" cy="16" r="13.5" fill="none" stroke="#3d2603" stroke-width="0.5" stroke-opacity=".45"/>
+  <ellipse cx="47.14" cy="10.33" rx="4.59" ry="2.43" fill="#fff" opacity="0.38" transform="rotate(-35 47.14 10.33)"/>
+  <path d="M61,110 L58,118 C61,120 61,124 58,126 L58,132 C64,134 72,137 75,140 L29,140 C32,137 40,134 46,132 L46,126 C43,124 43,120 46,118 L43,110 Z" fill="url(#super-lig-silver-h)"/>
+  <path d="M28,140 L76,140 L76.4,144 Q52,145 27.6,144 Z" fill="url(#super-lig-silver-v)"/>
+  <path d="M28,144 L76,144 L78,172 L26,172 Z" fill="url(#super-lig-lacq)"/>
+  <path d="M28,144.5 L76,144.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="52" cy="172" rx="26" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="41" y="151" width="22" height="11" rx="0.6" fill="url(#super-lig-silver-v)"/>
+  <path d="M45,156.5 L59,156.5" fill="none" stroke="#4a515c" stroke-width="1.2" stroke-opacity=".6" stroke-dasharray="1.6 .8" stroke-linecap="butt"/>
+  </g>
+</svg>

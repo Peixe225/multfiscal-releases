@@ -12,7 +12,7 @@ export type Pairing = [home: string, away: string]
  * Pontos corridos: `rounds` turnos (1–4). Retorna rodadas (cada uma com os jogos daquela rodada).
  * Mando equilibrado: turnos pares espelham os ímpares; em cada turno cada clube tem ±1 jogo em casa.
  */
-export function roundRobin(teams: readonly string[], rounds: number, rng?: Rng): Pairing[][] {
+export function roundRobin(teams: readonly string[], rounds: number, rng?: Rng, balanced = false): Pairing[][] {
   const list: (string | null)[] = rng ? rng.shuffle(teams) : teams.slice()
   if (list.length < 2) return []
   if (list.length % 2 === 1) list.push(null)
@@ -26,7 +26,9 @@ export function roundRobin(teams: readonly string[], rounds: number, rng?: Rng):
       const a = arr[i]
       const b = arr[n - 1 - i]
       if (a === null || b === null) continue
-      const flip = i === 0 ? r % 2 === 1 : (r + i) % 2 === 1
+      // balanced (Modo Imersivo): todos invertem nas rodadas ímpares → cada clube alterna o mando,
+      // com no máx. 2 quebras por turno (tabela de Berger); sem `balanced`, o padrão do Clássico
+      const flip = balanced || i === 0 ? r % 2 === 1 : (r + i) % 2 === 1
       day.push(flip ? [b, a] : [a, b])
     }
     base.push(day)
@@ -103,6 +105,7 @@ export function seasonSchedule(
   rng: Rng,
   target?: number,
   groups?: Map<string, string>,
+  balanced = false,
 ): Pairing[] {
   const groupLists = new Map<string, string[]>()
   if (groups && groups.size) {
@@ -120,7 +123,7 @@ export function seasonSchedule(
   const out: Pairing[] = []
   for (const t of teams) played.set(t, 0)
   for (const list of groupLists.values()) {
-    const days = roundRobin(list, rounds, rng)
+    const days = roundRobin(list, rounds, rng, balanced)
     for (const day of days) {
       if (target !== undefined && day.some(([h, a]) => played.get(h)! >= target || played.get(a)! >= target)) {
         // rodada que estouraria o alvo: aproveita só os jogos que cabem

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="taca-portugal-title" class="lx-trophy" data-trophy="taca-portugal">
+  <title id="taca-portugal-title">Taça de Portugal</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="taca-portugal-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <radialGradient id="taca-portugal-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="taca-portugal-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="taca-portugal-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="taca-portugal-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="taca-portugal-wood" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-wood-1,#1a0e06)"/><stop offset=".25" style="stop-color:var(--metal-wood-2,#4c2b14)"/><stop offset=".48" style="stop-color:var(--metal-wood-3,#7d4b23)"/><stop offset=".7" style="stop-color:var(--metal-wood-2,#4c2b14)"/><stop offset="1" style="stop-color:var(--metal-wood-1,#1a0e06)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M64,38 C74,40 84,40 88,32 C92,24 88,16 83,19 C79,22 83,28 86,24" fill="none" stroke="url(#taca-portugal-silver-h)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M88,31 C94,24 94,14 91,8" fill="none" stroke="url(#taca-portugal-silver-h)" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="91" cy="6.6" r="1.8" fill="url(#taca-portugal-silver-r)"/>
+  <path d="M91,0.6 L91,4.8 M89.4,2.2 L92.6,2.2" fill="none" stroke="#bec6d1" stroke-width="0.9" stroke-linecap="round"/>
+  <path d="M36,38 C26,40 16,40 12,32 C8,24 12,16 17,19 C21,22 17,28 14,24" fill="none" stroke="url(#taca-portugal-silver-h)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12,31 C6,24 6,14 9,8" fill="none" stroke="url(#taca-portugal-silver-h)" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="9" cy="6.6" r="1.8" fill="url(#taca-portugal-silver-r)"/>
+  <path d="M9,0.6 L9,4.8 M10.6,2.2 L7.4,2.2" fill="none" stroke="#bec6d1" stroke-width="0.9" stroke-linecap="round"/>
+  <path d="M78,14 L77,22 C76,30 70,36 62,38 C58,40 56,42 56,44 L44,44 C44,42 42,40 38,38 C30,36 24,30 23,22 L22,14 Z" fill="url(#taca-portugal-silver-h)"/>
+  <path d="M23,20 Q50,23 77,20 M25.5,29 Q50,32 74.5,29" fill="none" stroke="#555d6a" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M30,23.4 L30,27.6" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M38,23.4 L38,27.6" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M46,23.4 L46,27.6" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M54,23.4 L54,27.6" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M62,23.4 L62,27.6" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M70,23.4 L70,27.6" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M78,14 L77,22 C76,30 70,36 62,38 C58,40 56,42 56,44 L44,44 C44,42 42,40 38,38 C30,36 24,30 23,22 L22,14 Z" fill="url(#taca-portugal-sheen)" opacity="0.6"/>
+  <ellipse cx="50" cy="14" rx="28.4" ry="3" fill="url(#taca-portugal-silver-v)"/>
+  <ellipse cx="50" cy="13.85" rx="24.99" ry="1.98" fill="#353a43"/>
+  <ellipse cx="50" cy="46" rx="8" ry="3.4" fill="url(#taca-portugal-silver-r)"/>
+  <path d="M45.4,48 L54.6,48 L54.2,116 L45.8,116 Z" fill="url(#taca-portugal-silver-h)"/>
+  <path d="M48.4,50 L48.6,114 M51.6,50 L51.4,114" fill="none" stroke="#5a6270" stroke-width="0.8" stroke-opacity=".8" stroke-linecap="round"/>
+  <ellipse cx="50" cy="60" rx="5.6" ry="1.6" fill="url(#taca-portugal-silver-d)"/>
+  <ellipse cx="50" cy="82" rx="5.6" ry="1.6" fill="url(#taca-portugal-silver-d)"/>
+  <ellipse cx="50" cy="104" rx="5.6" ry="1.6" fill="url(#taca-portugal-silver-d)"/>
+  <path d="M54.2,115 C59,116 62,120 61,124 C60,126 62,128 63,129 L63,131 L37,131 L37,129 C38,128 40,126 39,124 C38,120 41,116 45.8,115 Z" fill="url(#taca-portugal-silver-h)"/>
+  <path d="M62,131 C64,136 68,138 70,140 L70,154 C74,158 80,164 81,170 L82,174 L18,174 L19,170 C20,164 26,158 30,154 L30,140 C32,138 36,136 38,131 Z" fill="url(#taca-portugal-wood)"/>
+  <path d="M30.4,140.5 Q50,143 69.6,140.5" fill="none" stroke="#b3773f" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <rect x="43" y="143" width="14" height="9" rx="1" fill="url(#taca-portugal-silver-h)"/>
+  <path d="M17.6,173.6 L82.4,173.6 L82.6,176.4 Q50,177.6 17.4,176.4 Z" fill="url(#taca-portugal-silver-d)"/>
+  </g>
+</svg>

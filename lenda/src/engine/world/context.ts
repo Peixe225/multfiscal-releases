@@ -11,8 +11,10 @@ import type {
   GameData,
   League,
   MatchResult,
+  UserFixture,
+  UserLeagueLog,
 } from '../types'
-import type { UserSeasonContext } from '../api'
+import type { FixedResult, UserSeasonContext } from '../api'
 import { clamp, type Rng } from '../rng'
 import { simulateMatch } from './match'
 
@@ -180,6 +182,57 @@ export interface SeasonCtx {
   force: { kind: CompetitionKind; win: boolean } | null
   /** Liga de cada clube nesta temporada. */
   leagueOf: Map<string, string>
+  // ── aditivos (Modo Imersivo): só existem com fixedResults/collectUserFixtures ──
+  /** Contador de chaves de partida (desambigua jogos repetidos). Presente ⇒ modo imersivo ativo. */
+  keys?: Map<string, number>
+  /** Competição/fase em disputa (chave e rótulo das partidas). */
+  tag?: { comp: string; stage: string; round?: number; t?: number }
+  /** Confronto em andamento (playTie): jogo `index` de `legs`. */
+  tie?: { legs: number; index: number; a: string; b: string; extraTime: boolean; seedAdvancesOnDraw?: boolean; prior: MatchResult[] }
+  /** Partidas cujo placar veio de `fixedResults` → placar simulado original (consumo do rng). */
+  fixedSet?: WeakSet<MatchResult>
+  simScore?: WeakMap<MatchResult, [number, number]>
+  /** Partida → agenda coletada (atualizada com prorrogação/pênaltis decididos no confronto). */
+  collected?: WeakMap<MatchResult, UserFixture>
+  /** Agenda coletada do jogador. */
+  collect?: { club: UserFixture[]; nation: UserFixture[]; league?: UserLeagueLog; seq: number }
+  /** Regras de calendário do Modo Imersivo (`UserSeasonContext.immersiveRules`). */
+  imm?: boolean
+}
+
+/** (Modo Imersivo) Marca a competição/fase das próximas partidas (no-op fora do modo imersivo). */
+export function setTag(ctx: SeasonCtx, comp: string | undefined, stage: string | undefined, round?: number): void {
+  if (!ctx.keys) return
+  const cur = ctx.tag ?? { comp: '?', stage: '?' }
+  ctx.tag = { comp: comp ?? cur.comp, stage: stage ?? cur.stage, t: cur.t }
+  if (round !== undefined) ctx.tag.round = round
+}
+
+/** Chave determinística da partida: competição | fase | mandante | visitante (#n quando repete). */
+export function fixtureKey(ctx: SeasonCtx, home: string, away: string): string {
+  const base = `${ctx.tag?.comp ?? '?'}|${ctx.tag?.stage ?? '?'}|${home}|${away}`
+  const keys = ctx.keys!
+  const n = keys.get(base) ?? 0
+  keys.set(base, n + 1)
+  return n ? `${base}#${n}` : base
+}
+
+function normFixed(f: FixedResult): { score: [number, number]; pens?: [number, number]; aet?: boolean } {
+  if (Array.isArray(f)) {
+    const out: { score: [number, number]; pens?: [number, number] } = { score: [f[0], f[1]] }
+    if (f.length >= 4) out.pens = [f[2] as number, f[3] as number]
+    return out
+  }
+  return f
+}
+
+function hashStr(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
 }
 
 const CONTINENTAL: CompetitionKind[] = ['continental_primary', 'continental_secondary', 'continental_tertiary']
@@ -254,17 +307,102 @@ export function play(ctx: SeasonCtx, rng: Rng, home: string, away: string, o: Pl
       neutral = false
     } else if (o.hosts.has(home) && !o.hosts.has(away)) neutral = false
   }
-  const m = simulateMatch(strengthIn(ctx, h, o.kind), strengthIn(ctx, a, o.kind), rng, {
+  const sh = strengthIn(ctx, h, o.kind)
+  const sa = strengthIn(ctx, a, o.kind)
+  const m = simulateMatch(sh, sa, rng, {
     neutral,
     knockout: o.knockout,
     extraTime: o.extraTime,
   })
+  let fixedHit = false
+  let key = ''
+  let simulated: [number, number] | undefined
+  if (ctx.keys) {
+    // modo imersivo: a simulação acima já consumiu o rng; o placar fixo só substitui o resultado
+    key = fixtureKey(ctx, h, a)
+    const raw = ctx.user.fixedResults?.[key]
+    if (raw) {
+      const f = normFixed(raw)
+      fixedHit = true
+      simulated = [m.score[0], m.score[1]]
+      m.score = [f.score[0], f.score[1]]
+      delete m.aet
+      delete m.pens
+      if (o.knockout) {
+        if (f.aet) m.aet = true
+        if (m.score[0] === m.score[1]) m.pens = f.pens ? [f.pens[0], f.pens[1]] : hashStr(key) % 2 ? [5, 4] : [4, 5]
+      } else if (ctx.tie && ctx.tie.legs > 1 && ctx.tie.index === ctx.tie.legs - 1) {
+        // jogo de volta: prorrogação/pênaltis do agregado vêm do resultado fixo
+        if (f.aet) m.aet = true
+        if (f.pens) m.pens = [f.pens[0], f.pens[1]]
+      }
+    }
+  }
   record(ctx, h, m.score[0], m.score[1], national)
   record(ctx, a, m.score[1], m.score[0], national)
   const r: MatchResult = { home: h, away: a, score: m.score }
   if (m.aet) r.aet = true
   if (m.pens) r.pens = m.pens
+  if (ctx.keys) {
+    if (fixedHit) {
+      ctx.fixedSet?.add(r)
+      if (simulated) ctx.simScore?.set(r, simulated)
+    }
+    if (ctx.collect) collectFixture(ctx, key, r, o, !!neutral, fixedHit, sh, sa)
+  }
   return r
+}
+
+function collectFixture(ctx: SeasonCtx, key: string, r: MatchResult, o: PlayOpts, neutral: boolean, fixed: boolean, sh: number, sa: number) {
+  const c = ctx.collect!
+  const national = isNationalKind(o.kind)
+  const tag = ctx.tag
+  if (!national && o.kind === 'league' && !ctx.tie && c.league && tag?.comp === c.league.leagueId) {
+    c.league.matches.push([r.home, r.away, r.score[0], r.score[1], tag.round ?? 0, tag.t ?? 0])
+  }
+  const ent = national ? ctx.userNation : ctx.userClub
+  if (!ent || (r.home !== ent && r.away !== ent)) return
+  const userHome = r.home === ent
+  const f: UserFixture = {
+    key,
+    competitionId: tag?.comp ?? '?',
+    kind: o.kind,
+    stage: tag?.stage ?? '',
+    home: r.home,
+    away: r.away,
+    opponent: userHome ? r.away : r.home,
+    userHome,
+    score: [r.score[0], r.score[1]],
+    strength: [Math.round(sh * 10) / 10, Math.round(sa * 10) / 10],
+    seq: c.seq++,
+  }
+  if (o.kind === 'league' && !ctx.tie && tag?.round) f.round = tag.round
+  if (neutral) f.neutral = true
+  if (o.knockout) f.knockout = true
+  const tie = ctx.tie
+  if (tie) {
+    f.leg = tie.index + 1
+    f.legs = tie.legs
+    f.extraTime = tie.extraTime
+    if (tie.seedAdvancesOnDraw) {
+      f.seedAdvancesOnDraw = true
+      f.userSeed = tie.a === ent
+    }
+    if (tie.index > 0) {
+      let u = 0
+      let op = 0
+      for (const l of tie.prior) {
+        if (l.home === ent) (u += l.score[0]), (op += l.score[1])
+        else if (l.away === ent) (u += l.score[1]), (op += l.score[0])
+      }
+      f.prior = [u, op]
+    }
+  } else if (o.knockout) f.extraTime = o.extraTime !== false
+  if (r.pens) f.pens = [r.pens[0], r.pens[1]]
+  if (r.aet) f.aet = true
+  if (fixed) f.fixed = true
+  ;(national ? c.nation : c.club).push(f)
+  ctx.collected?.set(r, f)
 }
 
 /** Registra um jogo cujo placar é conhecido (jogo real já disputado). */

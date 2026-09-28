@@ -5,7 +5,7 @@
  *   toast.gold('Conquista desbloqueada', 'Hat-trick de Bolas de Ouro', { icon: Medal })
  *   toast.error('Não foi possível salvar')
  *
- * - Desktop: pilha no rodapé, ao centro. Celular (< 720px): compactos, no topo, abaixo da safe-area
+ * - Desktop: pilha no canto inferior direito (fora da coluna da decisão). Celular (< 720px): compactos, no topo, abaixo da safe-area
  *   (não cobrem a tabela da carreira nem a barra de decisão).
  * - No máximo 2 visíveis; os demais esperam na fila e entram quando um sai.
  * - Duração padrão: curta para avisos sem ação (2,8 s; erro 4 s; dourado 3,8 s) e longa quando há
@@ -75,6 +75,9 @@ export const useToasts = create<ToastStore>()((set, get) => ({
     const tone = t.tone ?? 'default'
     const item: ToastItem = { ...t, id, tone, duration: t.duration ?? defaultDuration(tone, !!t.action) } as ToastItem
     const { items, queue } = get()
+    // the same plain-text notice twice in a row (double click, repeated failure): keep one
+    const same = [...items, ...queue].find((x) => typeof x.title === 'string' && x.title === t.title && x.tone === tone && x.description === t.description)
+    if (same) return same.id
     if (items.length < MAX_VISIBLE_TOASTS && !queue.length) {
       set({ items: [...items, item] })
       onShow(item)

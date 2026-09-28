@@ -57,7 +57,39 @@ export interface UserSeasonContext {
   forceTrophy?: { kind: CompetitionKind; chance: number }
   /** Suspenso: não conta para o elenco do clube. */
   suspended?: boolean
+  // ── aditivos (Modo Imersivo) ──
+  /**
+   * Resultados fixos por chave de partida (ver `UserFixture.key`). O jogo é simulado normalmente
+   * (mesmo consumo do rng, então o resto do mundo não muda) e o placar é trocado pelo fixo.
+   * Mata-mata: pênaltis/prorrogação vêm do resultado fixo.
+   */
+  fixedResults?: Record<string, FixedResult>
+  /** Coletar a agenda do clube/seleção do jogador em `SeasonWorldResult.userFixtures` etc. */
+  collectUserFixtures?: boolean
+  /**
+   * Com `collectUserFixtures`: pré-simulação rápida só para a agenda. Simula apenas a liga do jogador
+   * (e as divisões ligadas), as copas nacionais/estadual dele, continentais, Mundial/Intercontinental
+   * e torneios de seleções — cada competição tem seu próprio sub-stream de rng, então a agenda sai
+   * idêntica à da simulação completa. Pula entressafra, estatísticas e evolução: o `world` devolvido
+   * é o de entrada e o `result` só traz as competições simuladas (não consolidar).
+   */
+  agendaOnly?: boolean
+  /**
+   * (Modo Imersivo) Regras de calendário do modo imersivo: mando alternado nos pontos corridos
+   * (método do círculo balanceado), Clausura espelhando o Apertura e um sub-stream de rng por
+   * torneio (Apertura/Clausura independentes). Ausente = Clássico, byte a byte igual.
+   */
+  immersiveRules?: boolean
 }
+
+/**
+ * (aditivo, Modo Imersivo) Placar fixo de uma partida: `[mandante, visitante]`,
+ * `[mandante, visitante, pênaltisMandante, pênaltisVisitante]` ou objeto com prorrogação.
+ */
+export type FixedResult =
+  | [number, number]
+  | [number, number, number, number]
+  | { score: [number, number]; pens?: [number, number]; aet?: boolean }
 
 // ───────────────────────── motor do mundo ─────────────────────────
 
@@ -103,6 +135,8 @@ export interface UserAwardEntry {
   titles: string[]
   /** Seleção: fase alcançada em torneio desta temporada e gols nele. */
   nationalTournament?: { competitionId: string; reached: string; goals: number }
+  /** (aditivo, Modo Imersivo) Gols na liga de fato (senão: estimativa gols × fatia da liga). */
+  leagueGoals?: number
 }
 
 export interface ClubSeasonSummary {

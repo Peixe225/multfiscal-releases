@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight, Check, Minus, Plus, RotateCcw, Save, X, type Luc
 import type { Pace, PlayerIdentity } from '@/engine/types'
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
+import { selectHasImmersiveCareer, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
 import { Button, Flag, FootIcon, Glass, IconButton, Modal, OvrBadge, POSITION_LABEL, Segmented, Tooltip, cx, toast, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
@@ -67,8 +68,17 @@ export default function IdentityScreen() {
   const data = useData((s) => s.data)
   const index = useData((s) => s.index)
   const query = useApp((s) => s.route.query)
-  const busy = useCareer((s) => s.busy)
-  const hasActive = useCareer(selectHasActiveCareer)
+  // ?modo=imersivo → a identidade começa uma carreira do Modo Imersivo
+  const immersive = query.modo === 'imersivo'
+  const classicBusy = useCareer((s) => s.busy)
+  const immBusy = useImmersive((s) => s.busy)
+  const busy = immersive ? immBusy : classicBusy
+  const hasClassic = useCareer(selectHasActiveCareer)
+  const hasImmersive = useImmersive(selectHasImmersiveCareer)
+  const hasActive = immersive ? hasImmersive : hasClassic
+  useEffect(() => {
+    if (immersive) void useImmersive.getState().init()
+  }, [immersive])
   const draft = usePrefs((s) => s.draft)
   const savedAt = usePrefs((s) => s.savedAt)
   const patch = usePrefs((s) => s.patchDraft)
@@ -133,6 +143,11 @@ export default function IdentityScreen() {
     if (!identity) return
     try {
       sfx.play('whistle')
+      if (immersive) {
+        await useImmersive.getState().start(identity)
+        navigate('/imersivo')
+        return
+      }
       await useCareer.getState().start(identity, pace)
       navigate('/carreira')
     } catch (err) {
@@ -266,13 +281,15 @@ export default function IdentityScreen() {
           ]}
         />
       </div>
-      <div className="mt-4">
-        <span className="id-label">Ritmo da carreira</span>
-        <Segmented<Pace> full value={pace} onChange={setPace} aria-label="Ritmo da carreira" options={PACES.map((p) => ({ value: p, label: PACE_INFO[p].label }))} />
-        <p className="id-hint">
-          <b>{PACE_INFO[pace].lead}</b> · {PACE_INFO[pace].tail}
-        </p>
-      </div>
+      {!immersive && (
+        <div className="mt-4">
+          <span className="id-label">Ritmo da carreira</span>
+          <Segmented<Pace> full value={pace} onChange={setPace} aria-label="Ritmo da carreira" options={PACES.map((p) => ({ value: p, label: PACE_INFO[p].label }))} />
+          <p className="id-hint">
+            <b>{PACE_INFO[pace].lead}</b> · {PACE_INFO[pace].tail}
+          </p>
+        </div>
+      )}
     </section>
   )
 
@@ -323,7 +340,7 @@ export default function IdentityScreen() {
   const title = (
     <div className="id-title">
       <div>
-        <span className="lx-eyebrow">Modo Clássico · Ritmo {PACE_INFO[pace].label}</span>
+        <span className="lx-eyebrow">{immersive ? 'Modo Imersivo · partida a partida' : `Modo Clássico · Ritmo ${PACE_INFO[pace].label}`}</span>
         <h1>Defina sua identidade</h1>
         <p>O nome que vai estar nas costas da camisa pelos próximos 24 anos.</p>
       </div>
@@ -377,7 +394,7 @@ export default function IdentityScreen() {
           <div className="id-wiz__head">
             <div className="min-w-0 flex-1">
               <span className="lx-eyebrow">
-                Passo {step + 1} de 3 · Ritmo {PACE_INFO[pace].label}
+                Passo {step + 1} de 3 · {immersive ? 'Modo Imersivo' : `Ritmo ${PACE_INFO[pace].label}`}
               </span>
               <h1 className="font-display font-extrabold text-[22px] tracking-[-0.02em] leading-tight m-0 mt-0.5">{cur.title}</h1>
               <div className="id-wiz__progress" role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={step + 1} aria-label={`Passo ${step + 1} de 3`}>

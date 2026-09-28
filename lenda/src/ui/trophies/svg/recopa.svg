@@ -1,35 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="rec-title" class="lx-trophy" data-trophy="recopa">
-  <title id="rec-title">Recopa Sul-Americana</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="recopa-title" class="lx-trophy" data-trophy="recopa">
+  <title id="recopa-title">Recopa Sul-Americana</title>
   <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
   <defs>
-  <radialGradient id="rec-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
-  <linearGradient id="rec-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
-  <linearGradient id="rec-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
-  <linearGradient id="rec-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
-  <linearGradient id="rec-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
-  <linearGradient id="rec-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  <radialGradient id="recopa-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="recopa-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="recopa-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="recopa-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <linearGradient id="recopa-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <linearGradient id="recopa-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
   </defs>
   <g>
-  <circle cx="50" cy="25" r="22" fill="url(#rec-gold-r)"/>
+  <circle cx="50" cy="25" r="22" fill="url(#recopa-gold-r)"/>
   <path d="M48,15.08 L55.53,20.55 L52.66,29.41 L43.34,29.41 L40.47,20.55 Z M48,15.08 L48,5.84 M55.53,20.55 L64.32,17.7 M52.66,29.41 L58.09,36.88 M43.34,29.41 L37.91,36.88 M40.47,20.55 L31.68,17.7" fill="none" stroke="#5c3a05" stroke-opacity="0.55" stroke-width="0.9" stroke-linejoin="round"/>
   <ellipse cx="42" cy="14" rx="6" ry="3.4" fill="#fff" opacity=".45" transform="rotate(-30 42 14)"/>
-  <path d="M60,45 C60,50 56.5,52 55.5,54 L55.5,57 L44.5,57 L44.5,54 C43.5,52 40,50 40,45 Z" fill="url(#rec-gold-h)"/>
-  <rect x="43" y="56" width="14" height="72" fill="url(#rec-silver-h)"/>
-  <path d="M58,57 L68.5,62 L68.5,124 L58,128 Z" fill="url(#rec-gold-h)"/>
-  <path d="M68.5,62 L70,64 L70,123 L68.5,124 Z" fill="url(#rec-gold-d)"/>
-  <path d="M42,57 L31.5,62 L31.5,124 L42,128 Z" fill="url(#rec-gold-h)"/>
-  <path d="M31.5,62 L30,64 L30,123 L31.5,124 Z" fill="url(#rec-gold-d)"/>
-  <path d="M47.2,57 L52.8,57 L52.8,128 L47.2,128 Z" fill="url(#rec-gold-h)"/>
-  <path d="M31.5,62 L42,57 L58,57 L68.5,62 Z" fill="url(#rec-gold-v)" opacity=".8"/>
-  <rect x="33" y="126" width="34" height="5" rx="1" fill="url(#rec-gold-d)"/>
-  <path d="M18,131 L82,131 L82.6,151 Q50,151 17.4,151 Z" fill="url(#rec-lacq)"/>
-  <circle cx="50" cy="141" r="7" fill="url(#rec-gold-r)"/>
+  <path d="M60,45 C60,50 56.5,52 55.5,54 L55.5,57 L44.5,57 L44.5,54 C43.5,52 40,50 40,45 Z" fill="url(#recopa-gold-h)"/>
+  <rect x="43" y="56" width="14" height="72" fill="url(#recopa-silver-h)"/>
+  <path d="M58,57 L68.5,62 L68.5,124 L58,128 Z" fill="url(#recopa-gold-h)"/>
+  <path d="M68.5,62 L70,64 L70,123 L68.5,124 Z" fill="url(#recopa-gold-d)"/>
+  <path d="M42,57 L31.5,62 L31.5,124 L42,128 Z" fill="url(#recopa-gold-h)"/>
+  <path d="M31.5,62 L30,64 L30,123 L31.5,124 Z" fill="url(#recopa-gold-d)"/>
+  <path d="M47.2,57 L52.8,57 L52.8,128 L47.2,128 Z" fill="url(#recopa-gold-h)"/>
+  <path d="M31.5,62 L42,57 L58,57 L68.5,62 Z" fill="url(#recopa-gold-v)" opacity=".8"/>
+  <rect x="33" y="126" width="34" height="5" rx="1" fill="url(#recopa-gold-d)"/>
+  <path d="M18,131 L82,131 L82.6,151 Q50,151 17.4,151 Z" fill="url(#recopa-lacq)"/>
+  <circle cx="50" cy="141" r="7" fill="url(#recopa-gold-r)"/>
   <circle cx="50" cy="141" r="4.6" fill="#2a1a05" opacity=".55"/>
-  <path d="M50,137.2 L50.94,139.71 L53.61,139.83 L51.52,141.49 L52.23,144.07 L50,142.6 L47.77,144.07 L48.48,141.49 L46.39,139.83 L49.06,139.71 Z" fill="url(#rec-gold-h)"/>
-  <rect x="17.4" y="150.5" width="65.2" height="2.2" fill="url(#rec-gold-d)"/>
-  <path d="M10,152.5 L90,152.5 L91,172 Q50,172 9,172 Z" fill="url(#rec-lacq)"/>
-  <rect x="31" y="156.5" width="38" height="11.5" rx="1" fill="url(#rec-gold-h)"/>
+  <path d="M50,137.2 L50.94,139.71 L53.61,139.83 L51.52,141.49 L52.23,144.07 L50,142.6 L47.77,144.07 L48.48,141.49 L46.39,139.83 L49.06,139.71 Z" fill="url(#recopa-gold-h)"/>
+  <rect x="17.4" y="150.5" width="65.2" height="2.2" fill="url(#recopa-gold-d)"/>
+  <path d="M10,152.5 L90,152.5 L91,172 Q50,172 9,172 Z" fill="url(#recopa-lacq)"/>
+  <rect x="31" y="156.5" width="38" height="11.5" rx="1" fill="url(#recopa-gold-h)"/>
   <path d="M36,162.2 L64,162.2" fill="none" stroke="#3d2603" stroke-width="2.6" stroke-opacity=".8" stroke-dasharray="3.4 1.2" stroke-linecap="butt"/>
-  <rect x="7" y="171.5" width="86" height="3.4" fill="url(#rec-gold-d)"/>
+  <rect x="7" y="171.5" width="86" height="3.4" fill="url(#recopa-gold-d)"/>
   </g>
 </svg>

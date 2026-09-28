@@ -8,7 +8,7 @@ import { rng as subRng, type Rng } from '../rng'
 import type { SeasonCtx } from './context'
 import { nextPow2, runKnockout, stageDepth, stageName, type PresetTie } from './knockout'
 import { roundRobin } from './schedule'
-import { play, recordKnown } from './context'
+import { play, recordKnown, setTag } from './context'
 import { addResult, newRow, sortTable } from './table'
 
 /** Reached compacto nas copas nacionais: só quem chegou às oitavas (ou mais) e o clube do jogador. */
@@ -87,6 +87,7 @@ export function simulateDomesticCup(ctx: SeasonCtx, comp: Competition, participa
     entrants = all.slice(0, size)
   }
   if (entrants.length < 2) return null
+  setTag(ctx, comp.id, undefined)
   const coversAll = !!preset?.length && preset.length * 2 === entrants.length
   const ko = runKnockout(
     ctx,
@@ -118,6 +119,7 @@ export function simulateRegionalCup(ctx: SeasonCtx, comp: Competition, participa
   if (participants.length < 2) return null
   const rng: Rng = subRng(ctx.seed, 'season', ctx.season, 'regional', comp.id)
   const clubs = seedOrder(ctx, participants).slice(0, Math.max(2, comp.size || 16))
+  setTag(ctx, comp.id, 'Fase de grupos')
   let seeds = clubs
   if (clubs.length >= 4) {
     const rows = new Map(clubs.map((c) => [c, newRow(c)] as const))

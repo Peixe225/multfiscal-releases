@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 180" width="112" height="180" role="img" aria-labelledby="cup-generic-title" class="lx-trophy" data-trophy="cup-generic">
+  <title id="cup-generic-title">Taça de copa</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="cup-generic-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="cup-generic-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="cup-generic-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="cup-generic-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M86,26 C110,20 110,64 78,84" fill="none" stroke="url(#cup-generic-silver-h)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M86,26 C110,20 110,64 78,84" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M26,26 C2,20 2,64 34,84" fill="none" stroke="url(#cup-generic-silver-h)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M26,26 C2,20 2,64 34,84" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M90,20 C90,54 82,78 70,90 C65,95 62,98 61,104 L51,104 C50,98 47,95 42,90 C30,78 22,54 22,20 Z" fill="url(#cup-generic-silver-h)"/>
+  <path d="M23,32 C44,36 68,36 89,32" fill="none" stroke="#4a515c" stroke-width="1" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M90,20 C90,54 82,78 70,90 C65,95 62,98 61,104 L51,104 C50,98 47,95 42,90 C30,78 22,54 22,20 Z" fill="url(#cup-generic-sheen)" opacity="0.6"/>
+  <ellipse cx="56" cy="20" rx="34.4" ry="3.6" fill="url(#cup-generic-silver-v)"/>
+  <ellipse cx="56" cy="19.82" rx="30.27" ry="2.38" fill="#353a43"/>
+  <path d="M61,104 L60.6,116 C65,118 65,122 60.6,124 L60.6,128 C68,132 78,136 82,140 L82,143 L30,143 L30,140 C34,136 44,132 51.4,128 L51.4,124 C47,122 47,118 51.4,116 L51,104 Z" fill="url(#cup-generic-silver-h)"/>
+  <path d="M28,143 L84,143 L86,174 L26,174 Z" fill="url(#cup-generic-lacq)"/>
+  <path d="M28,143.5 L84,143.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="56" cy="174" rx="30" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="27.6" y="150" width="56.8" height="2.4" rx="0.4" fill="url(#cup-generic-silver-h)"/>
+  <path d="M27.6,150.3 L84.4,150.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  </g>
+</svg>

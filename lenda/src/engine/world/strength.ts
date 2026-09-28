@@ -18,8 +18,11 @@
  *   só (GER/FRA/POR/NED/SCO), ~30–38% em ENG/ESP/ITA; Brasil e Argentina têm 8+ campeões.
  *   A 1ª temporada usa a força real inicial (continua a tabela de hoje); tudo isso vale da 2ª em diante.
  * Prestígio (0–5): volta devagar ao inicial (5%/ano), +0,08 por liga, +0,15 por continental, −0,2 se cair.
- * Seleção: n' = n + 0,15·(âncora − n) + N(0; 0,9); âncora = força inicial + 25% da variação da média
- *   do top-5 de craques daquela nacionalidade (novas gerações fortalecem países); campeão mundial +0,8.
+ * Seleção: n' = n + 0,15·(âncora − n) + N(0; 0,9) − custo dos títulos; âncora = força inicial + 25% da
+ *   variação da média do top-5 de craques daquela nacionalidade (novas gerações fortalecem países).
+ *   Custo do título (Copa/Euro/Copa América/Copa da Ásia −1,5; Copa Ouro/CAN −0,7): a geração
+ *   campeã envelhece e volta à âncora a 15%/ano — um desgaste que soma as conquistas recentes e
+ *   quebra sequências (antes, +0,8 por título realimentava dinastias: Noruega com 4 Euros em 5).
  * Limites: clubes 40–92, seleções 40–95. O reforço do jogador NÃO entra aqui (vale só na temporada).
  */
 import type { ClubDynamic, GameData, Rival, SeasonWorldResult } from '../types'
@@ -78,17 +81,27 @@ export function baseStrength(ix: DataIndex, clubId: string): number {
   return excess > 0 ? ref + EVOLVE.freeGap + excess * EVOLVE.gapKeep : c.strength
 }
 
-/** Ciclo do clube na temporada (média 0): ruído suave por clube, sem estado. */
-export function clubCycle(seed: string, clubId: string, season: number, firstSeason: number): number {
-  if (EVOLVE.cycleSd <= 0) return 0
-  const phase = subRng(seed, 'cycle', clubId).next() * EVOLVE.cycleLen
-  const t = (season - firstSeason + phase) / EVOLVE.cycleLen
+/** Ciclo suave e sem estado (média 0): nós N(0; sd) limitados a ±2σ a cada `len` temporadas, fase aleatória por chave. */
+function smoothCycle(seed: string, key: string, season: number, ref: number, sd: number, len: number): number {
+  if (sd <= 0) return 0
+  const phase = subRng(seed, 'cycle', key).next() * len
+  const t = (season - ref + phase) / len
   const k = Math.floor(t)
   const f = (1 - Math.cos(Math.PI * (t - k))) / 2
-  const lim = 2 * EVOLVE.cycleSd
-  const a = clamp(subRng(seed, 'cycle', clubId, k).normal(0, EVOLVE.cycleSd), -lim, lim)
-  const b = clamp(subRng(seed, 'cycle', clubId, k + 1).normal(0, EVOLVE.cycleSd), -lim, lim)
+  const lim = 2 * sd
+  const a = clamp(subRng(seed, 'cycle', key, k).normal(0, sd), -lim, lim)
+  const b = clamp(subRng(seed, 'cycle', key, k + 1).normal(0, sd), -lim, lim)
   return a + (b - a) * f
+}
+
+/** Ciclo do clube na temporada (média 0): ruído suave por clube, sem estado. */
+export function clubCycle(seed: string, clubId: string, season: number, firstSeason: number): number {
+  return smoothCycle(seed, clubId, season, firstSeason, EVOLVE.cycleSd, EVOLVE.cycleLen)
+}
+
+/** Ciclo de geração da seleção (média 0): safras de craques que vêm e vão. */
+export function nationCycle(seed: string, code: string, season: number): number {
+  return smoothCycle(seed, `nat:${code}`, season, 2000, EVOLVE_NAT.cycleSd, EVOLVE_NAT.cycleLen)
 }
 
 export function clubAnchor(ix: DataIndex, clubId: string, dyn: ClubDynamic, season: number, seed?: string): number {
@@ -187,6 +200,52 @@ export function topTalent(rivals: readonly { nationality: string; ovr: number; r
   return out
 }
 
+/** Parâmetros da evolução das seleções (exportados para calibração). */
+export const EVOLVE_NAT = {
+  /** Fração do caminho até a âncora percorrida por ano. */
+  pull: 0.15,
+  /** Ruído anual. */
+  noise: 0.9,
+  /**
+   * Custo de um título (Copa do Mundo e continentais quadrienais): a geração campeã envelhece, o
+   * técnico sai, os rivais estudam o time. Recupera-se pela atração da âncora (15%/ano), então
+   * funciona como um desgaste que soma os títulos recentes — duas conquistas seguidas pesam o dobro.
+   */
+  titleCost: 1.5,
+  /** Custo de um título bienal (Copa Ouro, Copa Africana). */
+  minorCost: 0.7,
+  /** Ciclo de geração: desvio dos nós e temporadas entre nós. */
+  cycleSd: 2,
+  cycleLen: 8,
+  /** Vantagem do líder da confederação sobre a 2ª seleção mantida integralmente, e fração do excedente. */
+  freeGap: 1.5,
+  gapKeep: 0.35,
+}
+
+const confedSecond = new WeakMap<GameData, Map<string, number>>()
+
+/** Força-base de longo prazo da seleção: a real, com a sobra do líder da confederação sobre a 2ª comprimida. */
+export function nationBase(data: GameData, code: string): number {
+  let ref = confedSecond.get(data)
+  if (!ref) {
+    const by = new Map<string, number[]>()
+    for (const c of data.countries) {
+      const l = by.get(c.confed)
+      if (l) l.push(c.strength)
+      else by.set(c.confed, [c.strength])
+    }
+    ref = new Map()
+    for (const [cf, l] of by) if (l.length >= 2) ref.set(cf, l.sort((a, b) => b - a)[1])
+    confedSecond.set(data, ref)
+  }
+  const c = data.countries.find((x) => x.code === code)
+  if (!c) return 60
+  const second = ref.get(c.confed)
+  if (second === undefined) return c.strength
+  const excess = c.strength - second - EVOLVE_NAT.freeGap
+  return excess > 0 ? second + EVOLVE_NAT.freeGap + excess * EVOLVE_NAT.gapKeep : c.strength
+}
+
 export function evolveNations(
   data: GameData,
   seed: string,
@@ -198,15 +257,20 @@ export function evolveNations(
 ): Record<string, number> {
   const rng = subRng(seed, 'season', season, 'nations-evolve')
   const talent = topTalent(rivals)
-  const winners = new Set<string>()
-  for (const t of Object.values(result.national)) winners.add(t.winner)
+  const cost = new Map<string, number>()
+  for (const t of Object.values(result.national)) {
+    if (!t.winner) continue
+    const comp = data.competitions.find((c) => c.id === t.competitionId)
+    const c = comp?.schedule && comp.schedule.every > 0 && comp.schedule.every < 4 ? EVOLVE_NAT.minorCost : EVOLVE_NAT.titleCost
+    cost.set(t.winner, (cost.get(t.winner) ?? 0) + c)
+  }
   const out: Record<string, number> = {}
   for (const c of data.countries) {
     const cur = nations[c.code] ?? c.strength
     const dt = (talent.get(c.code) ?? 72) - (initialTalent.get(c.code) ?? 72)
-    const anchor = c.strength + clamp(dt * 0.25, -4, 4)
-    let n = cur + (anchor - cur) * 0.15 + rng.normal(0, 0.9)
-    if (winners.has(c.code)) n += 0.8
+    const anchor = nationBase(data, c.code) + clamp(dt * 0.25, -4, 4) + nationCycle(seed, c.code, season + 1)
+    let n = cur + (anchor - cur) * EVOLVE_NAT.pull + rng.normal(0, EVOLVE_NAT.noise)
+    n -= cost.get(c.code) ?? 0
     out[c.code] = Math.round(clamp(n, 40, 95) * 10) / 10
   }
   return out

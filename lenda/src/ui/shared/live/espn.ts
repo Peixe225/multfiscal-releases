@@ -111,18 +111,66 @@ function readCache(leagueId: string): LiveTable | null {
   }
 }
 
+export type LiveErrorKind = 'blocked' | 'offline' | 'timeout' | 'http' | 'network' | 'empty'
+
 interface LiveStore {
   tables: Record<string, LiveTable>
   status: Record<string, 'idle' | 'loading' | 'error'>
   errors: Record<string, string>
+  errorKinds: Record<string, LiveErrorKind>
+  /**
+   * O ambiente bloqueia conexões externas (CSP `connect-src`, ex.: dentro do claude.ai). Depois da
+   * 1ª tentativa bloqueada o botão fica desativado nesta sessão: nada de repetir o erro no console.
+   */
+  blocked: boolean
   hydrate(leagueId: string): void
   refresh(leagueId: string, espnSlug: string, clubs: Club[]): Promise<LiveTable | null>
+}
+
+const ESPN_HOST = 'site.api.espn.com'
+
+/** Violações de CSP para a ESPN (o navegador não diz no erro do fetch por que ele falhou). */
+let cspHit = false
+let cspWatching = false
+function watchCsp() {
+  if (cspWatching || typeof document === 'undefined') return
+  cspWatching = true
+  document.addEventListener('securitypolicyviolation', (e) => {
+    if (String(e.blockedURI || '').includes(ESPN_HOST) || /connect-src/.test(e.effectiveDirective || e.violatedDirective || '')) cspHit = true
+  })
+}
+
+/**
+ * Hospedagens que sabidamente bloqueiam conexões externas (artefatos do claude.ai rodam em
+ * *.claudeusercontent.com, com CSP `connect-src` fechado): nem tenta, para não sujar o console.
+ */
+function knownBlockedHost(): boolean {
+  try {
+    const re = /(^|\.)(claude\.ai|claudeusercontent\.com)$/
+    if (re.test(location.hostname)) return true
+    const anc = (location as Location & { ancestorOrigins?: DOMStringList }).ancestorOrigins
+    if (anc) for (let i = 0; i < anc.length; i++) if (re.test(new URL(anc[i]).hostname)) return true
+  } catch {
+    /* sem location (testes) */
+  }
+  return false
+}
+
+export const LIVE_ERROR_TEXT: Record<LiveErrorKind, string> = {
+  blocked: 'Este ambiente bloqueia conexões externas (como dentro do claude.ai), então a ESPN não pode ser consultada daqui.',
+  offline: 'Você está sem internet.',
+  timeout: 'A ESPN demorou demais para responder.',
+  http: 'A ESPN recusou o pedido agora.',
+  network: 'Não foi possível falar com a ESPN.',
+  empty: 'A ESPN respondeu sem a tabela desta liga.',
 }
 
 export const useLive = create<LiveStore>()((set, get) => ({
   tables: {},
   status: {},
   errors: {},
+  errorKinds: {},
+  blocked: typeof location !== 'undefined' && knownBlockedHost(),
   hydrate(leagueId) {
     if (get().tables[leagueId]) return
     const c = readCache(leagueId)
@@ -130,21 +178,43 @@ export const useLive = create<LiveStore>()((set, get) => ({
   },
   async refresh(leagueId, espnSlug, clubs) {
     if (get().status[leagueId] === 'loading') return null
+    const fail = (kind: LiveErrorKind) => {
+      set((s) => ({
+        status: { ...s.status, [leagueId]: 'error' },
+        errors: { ...s.errors, [leagueId]: LIVE_ERROR_TEXT[kind] },
+        errorKinds: { ...s.errorKinds, [leagueId]: kind },
+        blocked: s.blocked || kind === 'blocked',
+      }))
+      return null
+    }
+    // já sabemos que o ambiente bloqueia a ESPN, ou estamos offline: nem tenta (sem erro no console)
+    if (get().blocked) return fail('blocked')
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return fail('offline')
+    watchCsp()
+    cspHit = false
     set((s) => ({ status: { ...s.status, [leagueId]: 'loading' }, errors: { ...s.errors, [leagueId]: '' } }))
     const ctrl = new AbortController()
     const timer = window.setTimeout(() => ctrl.abort(), 12000)
     try {
       // a "simple" CORS request only: custom headers / cache modes that add headers trigger a preflight ESPN rejects (403)
-      const res = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${encodeURIComponent(espnSlug)}/standings?t=${Math.floor(Date.now() / 60000)}`, { signal: ctrl.signal, credentials: 'omit' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = await res.json()
+      let res: Response
+      try {
+        res = await fetch(`https://${ESPN_HOST}/apis/v2/sports/soccer/${encodeURIComponent(espnSlug)}/standings?t=${Math.floor(Date.now() / 60000)}`, { signal: ctrl.signal, credentials: 'omit' })
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return fail('timeout')
+        // o evento de CSP chega numa task separada: dá um instante para ele
+        await new Promise((r) => window.setTimeout(r, 60))
+        return fail(cspHit ? 'blocked' : navigator.onLine === false ? 'offline' : 'network')
+      }
+      if (!res.ok) return fail('http')
+      const json = await res.json().catch(() => null)
       const byEspn = new Map<string, Club>()
       for (const c of clubs) {
         const e = espnIdOf(c)
         if (e) byEspn.set(e, c)
       }
-      const table = parseEspnStandings(json, leagueId, byEspn)
-      if (!table.rows.length) throw new Error('Tabela vazia')
+      const table = json ? parseEspnStandings(json, leagueId, byEspn) : null
+      if (!table?.rows.length) return fail('empty')
       try {
         localStorage.setItem(CACHE + leagueId, JSON.stringify(table))
       } catch {
@@ -152,15 +222,16 @@ export const useLive = create<LiveStore>()((set, get) => ({
       }
       set((s) => ({ tables: { ...s.tables, [leagueId]: table }, status: { ...s.status, [leagueId]: 'idle' } }))
       return table
-    } catch (err) {
-      const msg = (err as Error)?.name === 'AbortError' ? 'A ESPN demorou para responder.' : 'Não foi possível falar com a ESPN.'
-      set((s) => ({ status: { ...s.status, [leagueId]: 'error' }, errors: { ...s.errors, [leagueId]: msg } }))
-      return null
     } finally {
       window.clearTimeout(timer)
     }
   },
 }))
+
+/** "27/09" (fuso de São Paulo). */
+export function shortDay(ts: number | string): string {
+  return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+}
 
 /** "agora mesmo" · "há 4 min" · "há 3 h" · "em 27 set". */
 export function relTime(ts: number, now = Date.now()): string {

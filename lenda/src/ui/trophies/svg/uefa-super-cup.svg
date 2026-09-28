@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 180" width="84" height="180" role="img" aria-labelledby="uefa-super-cup-title" class="lx-trophy" data-trophy="uefa-super-cup">
+  <title id="uefa-super-cup-title">Supercopa da UEFA</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="uefa-super-cup-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="uefa-super-cup-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="uefa-super-cup-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="uefa-super-cup-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <radialGradient id="uefa-super-cup-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  </defs>
+  <g>
+  <path d="M62,26 C75,44 75,72 64,96 C58,108 51,116 48,124 L47,118 C54,104 64,88 67,68 C69,50 67,38 62,26 Z" fill="url(#uefa-super-cup-silver-h)"/>
+  <path d="M22,26 C9,44 9,72 20,96 C26,108 33,116 36,124 L37,118 C30,104 20,88 17,68 C15,50 17,38 22,26 Z" fill="url(#uefa-super-cup-silver-h)"/>
+  <path d="M60.5,5 C67,18 69,44 65,66 C62,84 54,100 49.5,112 L47.5,124 L36.5,124 L34.5,112 C30,100 22,84 19,66 C15,44 17,18 23.5,5 Z" fill="url(#uefa-super-cup-silver-h)"/>
+  <path d="M36,12 C44,10 52,18 54,40 C55,60 50,82 45,100 C46,80 46,50 36,12 Z" fill="#1e2228" opacity=".55"/>
+  <path d="M60.5,5 C67,18 69,44 65,66 C62,84 54,100 49.5,112 L47.5,124 L36.5,124 L34.5,112 C30,100 22,84 19,66 C15,44 17,18 23.5,5 Z" fill="url(#uefa-super-cup-sheen)" opacity="0.6"/>
+  <path d="M65.5,40 C72,56 71,78 61,98 C56,108 51,116 48,122 C52,110 62,92 65,76 C67,62 67,50 65.5,40 Z" fill="url(#uefa-super-cup-silver-d)"/>
+  <path d="M66,44 C70,60 68,80 60,98" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M18.5,40 C12,56 13,78 23,98 C28,108 33,116 36,122 C32,110 22,92 19,76 C17,62 17,50 18.5,40 Z" fill="url(#uefa-super-cup-silver-d)"/>
+  <path d="M18,44 C14,60 16,80 24,98" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <ellipse cx="42" cy="5" rx="18.6" ry="2.6" fill="url(#uefa-super-cup-silver-v)"/>
+  <ellipse cx="42" cy="4.87" rx="16.37" ry="1.72" fill="#353a43"/>
+  <path d="M47.5,122 C49,132 53,142 62,150 C68,155 70,160 70,165 L70,168 L14,168 L14,165 C14,160 16,155 22,150 C31,142 35,132 36.5,122 Z" fill="url(#uefa-super-cup-silver-h)"/>
+  <path d="M46,128 C50,140 58,148 66,158" fill="none" stroke="#4e5663" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M38,128 C34,140 26,148 18,158" fill="none" stroke="#4e5663" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <circle cx="42" cy="138" r="5.4" fill="url(#uefa-super-cup-silver-r)"/>
+  <circle cx="42" cy="138" r="3.8" fill="none" stroke="#4e5663" stroke-width=".8"/>
+  <path d="M13.4,168 L70.6,168 L71,175 Q42,177.4 13,175 Z" fill="url(#uefa-super-cup-silver-d)"/>
+  <path d="M24,172.4 L60,172.4" fill="none" stroke="#aab2bf" stroke-width="1" stroke-opacity=".5" stroke-dasharray="1.8 .8" stroke-linecap="butt"/>
+  </g>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 180" width="104" height="180" role="img" aria-labelledby="league-generic-title" class="lx-trophy" data-trophy="league-generic">
+  <title id="league-generic-title">Troféu de campeão da liga</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="league-generic-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="league-generic-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <radialGradient id="league-generic-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="league-generic-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="league-generic-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="league-generic-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M79,48 C100,40 102,72 82,92" fill="none" stroke="url(#league-generic-silver-h)" stroke-width="4.4" stroke-linecap="round"/>
+  <path d="M79,48 C100,40 102,72 82,92" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M25,48 C4,40 2,72 22,92" fill="none" stroke="url(#league-generic-silver-h)" stroke-width="4.4" stroke-linecap="round"/>
+  <path d="M25,48 C4,40 2,72 22,92" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M81,44 C85,70 82,96 70,110 C64,116 60,118 59,122 L45,122 C44,118 40,116 34,110 C22,96 19,70 23,44 Z" fill="url(#league-generic-silver-h)"/>
+  <path d="M22,56 C40,60 64,60 82,56" fill="none" stroke="url(#league-generic-gold-h)" stroke-width="3" stroke-linecap="butt"/>
+  <path d="M52,71 L54.23,76.93 L60.56,77.22 L55.61,81.17 L57.29,87.28 L52,83.8 L46.71,87.28 L48.39,81.17 L43.44,77.22 L49.77,76.93 Z" fill="url(#league-generic-gold-r)"/>
+  <path d="M81,44 C85,70 82,96 70,110 C64,116 60,118 59,122 L45,122 C44,118 40,116 34,110 C22,96 19,70 23,44 Z" fill="url(#league-generic-sheen)" opacity="0.55"/>
+  <path d="M57,24 C68,26 77,34 80,42 L81.4,45 L22.6,45 L24,42 C27,34 36,26 47,24 Z" fill="url(#league-generic-silver-h)"/>
+  <ellipse cx="52" cy="44.6" rx="29.6" ry="2.2" fill="url(#league-generic-silver-v)"/>
+  <ellipse cx="52" cy="44.49" rx="26.05" ry="1.45" fill="#353a43"/>
+  <path d="M54,15 L56,22 L57,24 L47,24 L48,22 L50,15 Z" fill="url(#league-generic-silver-h)"/>
+  <path d="M52,2 L54,7.25 L59.61,7.53 L55.23,11.05 L56.7,16.47 L52,13.4 L47.3,16.47 L48.77,11.05 L44.39,7.53 L50,7.25 Z" fill="url(#league-generic-gold-r)"/>
+  <path d="M59,122 C62,124 62,130 58,132 L58,136 C64,140 74,144 78,148 L78,151 L26,151 L26,148 C30,144 40,140 46,136 L46,132 C42,130 42,124 45,122 Z" fill="url(#league-generic-silver-h)"/>
+  <path d="M24,151 L80,151 L82,175 L22,175 Z" fill="url(#league-generic-lacq)"/>
+  <path d="M24,151.5 L80,151.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="52" cy="175" rx="30" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="23.2" y="160" width="57.6" height="2.4" rx="0.4" fill="url(#league-generic-silver-h)"/>
+  <path d="M23.2,160.3 L80.8,160.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  </g>
+</svg>

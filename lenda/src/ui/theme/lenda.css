@@ -156,7 +156,8 @@
   .lx-tip--card { padding: 10px 12px; border-radius: var(--radius-md); min-width: 200px; font-weight: 500; }
 
   /* ---------------------------------------------------------------- toast */
-  .lx-toaster { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column-reverse; align-items: stretch; gap: 8px; width: min(420px, calc(100vw - 24px)); pointer-events: none; }
+  /* desktop: canto inferior direito — fora da coluna da decisão (esquerda) e da barra de ações */
+  .lx-toaster { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); z-index: 90; display: flex; flex-direction: column-reverse; align-items: stretch; gap: 8px; width: min(380px, calc(100vw - 24px)); pointer-events: none; }
   .lx-toast {
     pointer-events: auto; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; min-height: 56px;
     background: rgba(14, 15, 21, .92); border: 1px solid var(--border-strong); box-shadow: 0 24px 50px -18px #000, inset 0 1px 0 rgba(255, 255, 255, .06);
@@ -178,7 +179,7 @@
   /* celular: compactos, no topo (abaixo da safe-area), sem cobrir a tabela nem a barra de decisão */
   @media (max-width: 44.99rem) {
     .lx-toaster {
-      top: max(8px, env(safe-area-inset-top, 0px)); bottom: auto; flex-direction: column; gap: 6px;
+      top: max(8px, env(safe-area-inset-top, 0px)); bottom: auto; right: auto; left: 50%; transform: translateX(-50%); flex-direction: column; gap: 6px;
       width: min(420px, calc(100vw - 16px));
     }
     .lx-toast { gap: 9px; padding: 6px 6px 6px 8px; min-height: 44px; border-radius: 13px; box-shadow: 0 14px 30px -14px #000, inset 0 1px 0 rgba(255, 255, 255, .06); }

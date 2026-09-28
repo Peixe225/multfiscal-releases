@@ -21,6 +21,7 @@ const SUB: Partial<Record<RoutePath, string>> = {
   '/hall': 'HALL DA FAMA',
   '/imersivo': 'IMERSIVO',
   '/kit': 'DESIGN KIT',
+  '/creditos': 'CRÉDITOS',
 }
 
 const PACE_LABEL = { intensa: 'Ritmo Intenso', normal: 'Ritmo Normal', expressa: 'Ritmo Expresso' } as const

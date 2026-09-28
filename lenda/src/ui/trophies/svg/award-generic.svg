@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 180" width="96" height="180" role="img" aria-labelledby="award-generic-title" class="lx-trophy" data-trophy="award-generic">
+  <title id="award-generic-title">Prêmio individual</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="award-generic-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <linearGradient id="award-generic-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <radialGradient id="award-generic-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="award-generic-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="award-generic-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M56.23,90.99 L60.35,89.68 L64.28,87.85 L67.94,85.54 L71.27,82.78 L74.24,79.63 L76.77,76.12 L78.84,72.32 L80.41,68.28 L81.45,64.08 L81.95,59.78 L81.9,55.45 L81.31,51.16 L80.17,46.99 L78.51,42.99 L76.35,39.23 L73.74,35.78 L70.71,32.69 L67.31,30.01 L63.59,27.79 L59.63,26.05" fill="none" stroke="url(#award-generic-gold-d)" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="58.98" cy="85.49" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(40.23 58.98 85.49)"/>
+  <ellipse cx="62.24" cy="93.66" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(96.23 62.24 93.66)"/>
+  <ellipse cx="65.94" cy="81.55" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(24.7 65.94 81.55)"/>
+  <ellipse cx="71.27" cy="88.55" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(80.7 71.27 88.55)"/>
+  <ellipse cx="71.59" cy="75.88" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(9.17 71.59 75.88)"/>
+  <ellipse cx="78.6" cy="81.2" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(65.17 78.6 81.2)"/>
+  <ellipse cx="75.51" cy="68.91" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-6.36 75.51 68.91)"/>
+  <ellipse cx="83.69" cy="72.16" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(49.64 83.69 72.16)"/>
+  <ellipse cx="77.43" cy="61.15" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-21.89 77.43 61.15)"/>
+  <ellipse cx="86.18" cy="62.08" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(34.11 86.18 62.08)"/>
+  <ellipse cx="77.2" cy="53.15" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-37.43 77.2 53.15)"/>
+  <ellipse cx="85.88" cy="51.71" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(18.57 85.88 51.71)"/>
+  <ellipse cx="74.84" cy="45.51" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-52.96 74.84 45.51)"/>
+  <ellipse cx="82.81" cy="41.8" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(3.04 82.81 41.8)"/>
+  <ellipse cx="70.51" cy="38.78" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-68.49 70.51 38.78)"/>
+  <ellipse cx="77.2" cy="33.07" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-12.49 77.2 33.07)"/>
+  <ellipse cx="64.54" cy="33.45" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-84.02 64.54 33.45)"/>
+  <ellipse cx="69.46" cy="26.16" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(-28.02 69.46 26.16)"/>
+  <path d="M39.77,90.99 L35.65,89.68 L31.72,87.85 L28.06,85.54 L24.73,82.78 L21.76,79.63 L19.23,76.12 L17.16,72.32 L15.59,68.28 L14.55,64.08 L14.05,59.78 L14.1,55.45 L14.69,51.16 L15.83,46.99 L17.49,42.99 L19.65,39.23 L22.26,35.78 L25.29,32.69 L28.69,30.01 L32.41,27.79 L36.37,26.05" fill="none" stroke="url(#award-generic-gold-d)" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="37.02" cy="85.49" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(139.77 37.02 85.49)"/>
+  <ellipse cx="33.76" cy="93.66" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(83.77 33.76 93.66)"/>
+  <ellipse cx="30.06" cy="81.55" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(155.3 30.06 81.55)"/>
+  <ellipse cx="24.73" cy="88.55" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(99.3 24.73 88.55)"/>
+  <ellipse cx="24.41" cy="75.88" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(170.83 24.41 75.88)"/>
+  <ellipse cx="17.4" cy="81.2" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(114.83 17.4 81.2)"/>
+  <ellipse cx="20.49" cy="68.91" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(186.36 20.49 68.91)"/>
+  <ellipse cx="12.31" cy="72.16" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(130.36 12.31 72.16)"/>
+  <ellipse cx="18.57" cy="61.15" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(201.89 18.57 61.15)"/>
+  <ellipse cx="9.82" cy="62.08" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(145.89 9.82 62.08)"/>
+  <ellipse cx="18.8" cy="53.15" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(217.43 18.8 53.15)"/>
+  <ellipse cx="10.12" cy="51.71" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(161.43 10.12 51.71)"/>
+  <ellipse cx="21.16" cy="45.51" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(232.96 21.16 45.51)"/>
+  <ellipse cx="13.19" cy="41.8" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(176.96 13.19 41.8)"/>
+  <ellipse cx="25.49" cy="38.78" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(248.49 25.49 38.78)"/>
+  <ellipse cx="18.8" cy="33.07" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(192.49 18.8 33.07)"/>
+  <ellipse cx="31.46" cy="33.45" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(264.02 31.46 33.45)"/>
+  <ellipse cx="26.54" cy="26.16" rx="2.6" ry="6.4" fill="url(#award-generic-gold-v)" transform="rotate(208.02 26.54 26.16)"/>
+  <path d="M48,37 L53.05,51.04 L67.97,51.51 L56.18,60.66 L60.34,74.99 L48,66.6 L35.66,74.99 L39.82,60.66 L28.03,51.51 L42.95,51.04 Z" fill="url(#award-generic-gold-r)"/>
+  <path d="M48,37 L53.05,51.04 L67.97,51.51 L56.18,60.66 L60.34,74.99 L48,66.6 L35.66,74.99 L39.82,60.66 L28.03,51.51 L42.95,51.04 Z" fill="none" stroke="#5c3a05" stroke-width=".7" stroke-opacity=".6"/>
+  <path d="M48,48 L50.47,54.6 L57.51,54.91 L51.99,59.3 L53.88,66.09 L48,62.2 L42.12,66.09 L44.01,59.3 L38.49,54.91 L45.53,54.6 Z" fill="#fff3c4" opacity=".35"/>
+  <path d="M51.4,98 L53,132 C60,136 68,139 71,142 L25,142 C28,139 36,136 43,132 L44.6,98 Z" fill="url(#award-generic-gold-h)"/>
+  <path d="M24,142 L72,142 L72.4,146 Q48,147 23.6,146 Z" fill="url(#award-generic-gold-v)"/>
+  <path d="M22,146 L74,146 L76,174 L20,174 Z" fill="url(#award-generic-lacq)"/>
+  <path d="M22,146.5 L74,146.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="48" cy="174" rx="28" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="20.6" y="164" width="54.8" height="2.4" rx="0.4" fill="url(#award-generic-gold-h)"/>
+  <path d="M20.6,164.3 L75.4,164.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  </g>
+</svg>

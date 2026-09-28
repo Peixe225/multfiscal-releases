@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 180" width="96" height="180" role="img" aria-labelledby="knvb-beker-title" class="lx-trophy" data-trophy="knvb-beker">
+  <title id="knvb-beker-title">KNVB Beker (Copa da Holanda)</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="knvb-beker-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <radialGradient id="knvb-beker-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="knvb-beker-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="knvb-beker-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="knvb-beker-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M77,52 C88,52 89,66 81,76" fill="none" stroke="url(#knvb-beker-silver-h)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M19,52 C8,52 7,66 15,76" fill="none" stroke="url(#knvb-beker-silver-h)" stroke-width="3.2" stroke-linecap="round"/>
+  <ellipse cx="48" cy="12" rx="5" ry="8" fill="url(#knvb-beker-silver-r)"/>
+  <ellipse cx="48" cy="20.5" rx="5" ry="1.5" fill="url(#knvb-beker-silver-d)"/>
+  <path d="M51.5,21 C59,23 70,32 74,44 L76,47 L20,47 L22,44 C26,32 37,23 44.5,21 Z" fill="url(#knvb-beker-silver-h)"/>
+  <path d="M50,30 C56,40 64,38 70,36" fill="none" stroke="#4a515c" stroke-width="1" stroke-opacity=".6" stroke-linecap="round"/>
+  <circle cx="70" cy="36" r="1.6" fill="url(#knvb-beker-silver-r)"/>
+  <path d="M46,30 C40,40 32,38 26,36" fill="none" stroke="#4a515c" stroke-width="1" stroke-opacity=".6" stroke-linecap="round"/>
+  <circle cx="26" cy="36" r="1.6" fill="url(#knvb-beker-silver-r)"/>
+  <path d="M51.5,21 C59,23 70,32 74,44 L76,47 L20,47 L22,44 C26,32 37,23 44.5,21 Z" fill="url(#knvb-beker-sheen)" opacity="0.5"/>
+  <ellipse cx="48" cy="46.6" rx="28.4" ry="2.4" fill="url(#knvb-beker-silver-v)"/>
+  <ellipse cx="48" cy="46.48" rx="24.99" ry="1.58" fill="#353a43"/>
+  <rect x="18" y="48" width="60" height="12" rx="1" fill="url(#knvb-beker-silver-h)"/>
+  <rect x="24" y="50.4" width="16" height="7.2" rx="0.8" fill="url(#knvb-beker-silver-v)"/>
+  <rect x="24" y="50.4" width="16" height="7.2" rx="0.8" fill="none" stroke="#4a515c" stroke-width=".7"/>
+  <rect x="40" y="50.4" width="16" height="7.2" rx="0.8" fill="url(#knvb-beker-silver-v)"/>
+  <rect x="40" y="50.4" width="16" height="7.2" rx="0.8" fill="none" stroke="#4a515c" stroke-width=".7"/>
+  <rect x="56" y="50.4" width="16" height="7.2" rx="0.8" fill="url(#knvb-beker-silver-v)"/>
+  <rect x="56" y="50.4" width="16" height="7.2" rx="0.8" fill="none" stroke="#4a515c" stroke-width=".7"/>
+  <path d="M78,60 C86,76 83,104 67,118 C61,122 57,126 56,130 L40,130 C39,126 35,122 29,118 C13,104 10,76 18,60 Z" fill="url(#knvb-beker-silver-h)"/>
+  <ellipse cx="28" cy="76" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(-24.0 28 76)"/>
+  <ellipse cx="40" cy="80" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(-9.6 40 80)"/>
+  <ellipse cx="56" cy="80" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(9.6 56 80)"/>
+  <ellipse cx="68" cy="76" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(24.0 68 76)"/>
+  <ellipse cx="34" cy="94" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(-16.8 34 94)"/>
+  <ellipse cx="48" cy="97" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(0.0 48 97)"/>
+  <ellipse cx="62" cy="94" rx="3" ry="5.4" fill="#4a515c" opacity=".35" transform="rotate(16.8 62 94)"/>
+  <path d="M28,104 C32,110 38,116 41,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M36,104 C38.4,110 42,116 43.8,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M44,104 C44.8,110 46,116 46.6,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M52,104 C51.2,110 50,116 49.4,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M60,104 C57.6,110 54,116 52.2,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M68,104 C64,110 58,116 55,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M78,60 C86,76 83,104 67,118 C61,122 57,126 56,130 L40,130 C39,126 35,122 29,118 C13,104 10,76 18,60 Z" fill="url(#knvb-beker-sheen)" opacity="0.55"/>
+  <ellipse cx="48" cy="130" rx="8.6" ry="2" fill="url(#knvb-beker-silver-d)"/>
+  <rect x="43" y="131" width="10" height="5" fill="url(#knvb-beker-silver-h)"/>
+  <path d="M53,136 C58,146 69,152 73,158 L73,164 L23,164 L23,158 C27,152 38,146 43,136 Z" fill="url(#knvb-beker-silver-h)"/>
+  <path d="M22,164 L74,164 L74.4,170 Q48,171.6 21.6,170 Z" fill="url(#knvb-beker-silver-d)"/>
+  </g>
+</svg>

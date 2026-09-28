@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 180" width="76" height="180" role="img" aria-labelledby="nations-league-title" class="lx-trophy" data-trophy="nations-league">
+  <title id="nations-league-title">Troféu da Liga das Nações da UEFA</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="nations-league-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="nations-league-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="nations-league-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="nations-league-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <radialGradient id="nations-league-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="nations-league-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M59,84 C59,100 51,114 45.5,122 L45,125 L31,125 L30.5,122 C25,114 17,100 17,84 Z" fill="url(#nations-league-silver-h)"/>
+  <path d="M59,84 C59,100 51,114 45.5,122 L45,125 L31,125 L30.5,122 C25,114 17,100 17,84 Z" fill="url(#nations-league-sheen)" opacity="0.5"/>
+  <path d="M17,86 C31.7,89 48.5,81 59,76 L59,46 C48.5,51 31.7,59 17,56 Z" fill="url(#nations-league-silver-h)"/>
+  <path d="M17,86 C31.7,89 48.5,81 59,76 L59,80 C48.5,85 31.7,92 17,89 Z" fill="url(#nations-league-silver-d)"/>
+  <path d="M17.6,57 C31.7,60 48.5,52 58.4,47" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M33.8,87.2 C42.2,85.6 50.6,82 57.95,78" fill="none" stroke="#e0523a" stroke-width="1" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M17,86 C31.7,89 48.5,81 59,76 L59,46 C48.5,51 31.7,59 17,56 Z" fill="url(#nations-league-sheen)" opacity="0.45"/>
+  <path d="M20,60 C32.6,63 47,55 56,50 L56,22 C47,27 32.6,35 20,32 Z" fill="url(#nations-league-silver-h)"/>
+  <path d="M20,60 C32.6,63 47,55 56,50 L56,54 C47,59 32.6,66 20,63 Z" fill="url(#nations-league-silver-d)"/>
+  <path d="M20.6,33 C32.6,36 47,28 55.4,23" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M20,60 C32.6,63 47,55 56,50 L56,22 C47,27 32.6,35 20,32 Z" fill="url(#nations-league-sheen)" opacity="0.45"/>
+  <path d="M23.5,36 C33.65,39 45.25,31 52.5,26 L52.5,0 C45.25,5 33.65,13 23.5,10 Z" fill="url(#nations-league-silver-h)"/>
+  <path d="M23.5,36 C33.65,39 45.25,31 52.5,26 L52.5,30 C45.25,35 33.65,42 23.5,39 Z" fill="url(#nations-league-silver-d)"/>
+  <path d="M24.1,11 C33.65,14 45.25,6 51.9,1" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M23.5,36 C33.65,39 45.25,31 52.5,26 L52.5,0 C45.25,5 33.65,13 23.5,10 Z" fill="url(#nations-league-sheen)" opacity="0.45"/>
+  <path d="M23.5,10 C32,6 44,0 52.5,-1 L55,3 C52,4 53,8 52.5,12 L23.5,12 Z" fill="url(#nations-league-silver-v)"/>
+  <circle cx="35" cy="46" r="4.4" fill="url(#nations-league-silver-r)"/>
+  <circle cx="35" cy="46" r="3" fill="none" stroke="#4e5663" stroke-width=".7"/>
+  <ellipse cx="38" cy="125.5" rx="8.6" ry="1.8" fill="url(#nations-league-silver-d)"/>
+  <path d="M45,127 C46,144 52,156 59,164 L60,167 L16,167 L17,164 C24,156 30,144 31,127 Z" fill="url(#nations-league-silver-h)"/>
+  <path d="M31.7,129 C30.8,144 25.4,156 20,166 M33.8,129 C33.2,144 29.6,156 26,166 M35.9,129 C35.6,144 33.8,156 32,166 M38,129 C38,144 38,156 38,166 M40.1,129 C40.4,144 42.2,156 44,166 M42.2,129 C42.8,144 46.4,156 50,166 M44.3,129 C45.2,144 50.6,156 56,166" fill="none" stroke="#59616e" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M15.4,167 L60.6,167 L61,170 Q38,171.2 15,170 Z" fill="url(#nations-league-silver-d)"/>
+  <path d="M13,170 L63,170 L63,178 L13,178 Z" fill="url(#nations-league-lacq)"/>
+  <path d="M13,170.5 L63,170.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="38" cy="178" rx="25" ry="1.2" fill="#050506" opacity=".6"/>
+  </g>
+</svg>

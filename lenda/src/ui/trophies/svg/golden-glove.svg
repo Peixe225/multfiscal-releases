@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 180" width="90" height="180" role="img" aria-labelledby="golden-glove-title" class="lx-trophy" data-trophy="golden-glove">
+  <title id="golden-glove-title">Luva de Ouro</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="golden-glove-gold-dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".3" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".66" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="golden-glove-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="golden-glove-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="golden-glove-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <linearGradient id="golden-glove-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  <linearGradient id="golden-glove-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  </defs>
+  <g>
+  <rect x="18.5" y="62" width="15" height="46" rx="7.5" fill="url(#golden-glove-gold-dg)" transform="rotate(-44 26 100)"/>
+  <rect x="18.5" y="62" width="15" height="46" rx="7.5" fill="none" transform="rotate(-44 26 100)" stroke="#5c3a05" stroke-width=".7" stroke-opacity=".5"/>
+  <path d="M23.3,67 L23.3,98" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".5" transform="rotate(-44 26 100)" stroke-linecap="round"/>
+  <path d="M19.5,82.9 L32.5,82.9" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" transform="rotate(-44 26 100)" stroke-linecap="round"/>
+  <rect x="23.8" y="20" width="13.4" height="52" rx="6.7" fill="url(#golden-glove-gold-h)" transform="rotate(-8 30.5 64)"/>
+  <rect x="23.8" y="20" width="13.4" height="52" rx="6.7" fill="none" transform="rotate(-8 30.5 64)" stroke="#5c3a05" stroke-width=".7" stroke-opacity=".5"/>
+  <path d="M28.09,25 L28.09,62" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".5" transform="rotate(-8 30.5 64)" stroke-linecap="round"/>
+  <path d="M24.8,44.2 L36.2,44.2" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" transform="rotate(-8 30.5 64)" stroke-linecap="round"/>
+  <rect x="35.6" y="14" width="13.6" height="58" rx="6.8" fill="url(#golden-glove-gold-h)" transform="rotate(-2 42.4 64)"/>
+  <rect x="35.6" y="14" width="13.6" height="58" rx="6.8" fill="none" transform="rotate(-2 42.4 64)" stroke="#5c3a05" stroke-width=".7" stroke-opacity=".5"/>
+  <path d="M39.95,19 L39.95,62" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".5" transform="rotate(-2 42.4 64)" stroke-linecap="round"/>
+  <path d="M36.6,41.5 L48.2,41.5" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" transform="rotate(-2 42.4 64)" stroke-linecap="round"/>
+  <rect x="47.6" y="18" width="13.2" height="54" rx="6.6" fill="url(#golden-glove-gold-h)" transform="rotate(5 54.2 64)"/>
+  <rect x="47.6" y="18" width="13.2" height="54" rx="6.6" fill="none" transform="rotate(5 54.2 64)" stroke="#5c3a05" stroke-width=".7" stroke-opacity=".5"/>
+  <path d="M51.82,23 L51.82,62" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".5" transform="rotate(5 54.2 64)" stroke-linecap="round"/>
+  <path d="M48.6,43.3 L59.8,43.3" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" transform="rotate(5 54.2 64)" stroke-linecap="round"/>
+  <rect x="58.8" y="28" width="11.6" height="44" rx="5.8" fill="url(#golden-glove-gold-h)" transform="rotate(12 64.6 64)"/>
+  <rect x="58.8" y="28" width="11.6" height="44" rx="5.8" fill="none" transform="rotate(12 64.6 64)" stroke="#5c3a05" stroke-width=".7" stroke-opacity=".5"/>
+  <path d="M62.51,33 L62.51,62" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".5" transform="rotate(12 64.6 64)" stroke-linecap="round"/>
+  <path d="M59.8,47.8 L69.4,47.8" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".4" transform="rotate(12 64.6 64)" stroke-linecap="round"/>
+  <path d="M23,58 L70,58 C73,80 69,98 65,110 L28,110 C22,96 20,80 23,58 Z" fill="url(#golden-glove-gold-h)"/>
+  <path d="M29,88 C41,81 55,83 66,91 M36,62 L36,72 M48,62 L48,72 M59,62 L59,72" fill="none" stroke="#5c3a05" stroke-width="1" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M23,58 L70,58 C73,80 69,98 65,110 L28,110 C22,96 20,80 23,58 Z" fill="url(#golden-glove-sheen)" opacity="0.5"/>
+  <rect x="27" y="104" width="38" height="22" rx="2.4" fill="url(#golden-glove-gold-h)"/>
+  <path d="M27,111 L65,104 L65,112 L27,121 Z" fill="url(#golden-glove-gold-d)"/>
+  <path d="M27,111 L65,104 M27,121 L65,112" fill="none" stroke="#fff3c4" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M27,125.4 L65,125.4" fill="none" stroke="#3d2603" stroke-width="1" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M25,127 L67,127 L68,174 L24,174 Z" fill="url(#golden-glove-lacq)"/>
+  <path d="M25,127.5 L67,127.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="46" cy="174" rx="22" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="32" y="140" width="28" height="22" rx="0.8" fill="url(#golden-glove-gold-v)"/>
+  <rect x="32" y="140" width="28" height="22" rx="0.8" fill="none" stroke="#5c3a05" stroke-width=".7"/>
+  </g>
+</svg>

@@ -29,7 +29,21 @@ export interface HallEntry {
   /** The career without the (large) world state — enough to re-open the summary screen. */
   career: Omit<CareerState, 'world'>
   engine: EngineKind
+  /** Número sequencial da run no Hall das Lendas (1 = a primeira carreira encerrada). Nunca é reaproveitado. */
+  runNo?: number
 }
+
+/** Hall das Lendas: garante `runNo` em todas as entradas (as antigas ganham número pela data de término). */
+export function withRunNumbers(list: HallEntry[]): HallEntry[] {
+  if (list.every((h) => typeof h.runNo === 'number')) return list
+  let next = Math.max(0, ...list.map((h) => h.runNo ?? 0))
+  const missing = list.filter((h) => typeof h.runNo !== 'number').sort((a, b) => a.finishedAt.localeCompare(b.finishedAt))
+  const assigned = new Map(missing.map((h) => [h.id, ++next]))
+  return list.map((h) => (typeof h.runNo === 'number' ? h : { ...h, runNo: assigned.get(h.id) }))
+}
+
+/** Máximo de carreiras guardadas no Hall (as de menor legado saem primeiro). */
+const HALL_CAP = 100
 
 export interface AchievementUnlock {
   id: string
@@ -127,7 +141,9 @@ export const useCareer = create<CareerStore>()((set, get) => {
       console.warn('[LENDA] summarize falhou', err)
       return
     }
+    const current = get().finishedCareers
     const entry: HallEntry = {
+      runNo: Math.max(current.length, ...current.map((h) => h.runNo ?? 0)) + 1,
       id: state.id,
       finishedAt: new Date().toISOString(),
       identity: state.identity,
@@ -138,7 +154,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
       career: stripWorld(state),
       engine: kind,
     }
-    const list = [entry, ...get().finishedCareers].sort((a, b) => b.summary.legacyScore - a.summary.legacyScore).slice(0, 50)
+    const list = [entry, ...get().finishedCareers].sort((a, b) => b.summary.legacyScore - a.summary.legacyScore).slice(0, HALL_CAP)
     set({ finishedCareers: list })
     if (!get().isFixture) await kv.set(KV_KEYS.hall, list)
   }
@@ -172,7 +188,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
         ])
         set({
           state: current && current.version === 1 ? current : null,
-          finishedCareers: Array.isArray(hall) ? hall : [],
+          finishedCareers: Array.isArray(hall) ? withRunNumbers(hall) : [],
           achievements: ach?.unlocked ?? {},
           unseenAchievements: ach?.unseen ?? [],
         })
@@ -251,13 +267,13 @@ export const useCareer = create<CareerStore>()((set, get) => {
     summaryOf(state) {
       if (summaryCache.key === state) return summaryCache.value
       const { engine, data } = get()
+      // engine still loading (e.g. reload on #/resumo): don't cache the miss, or the summary never shows
+      if (!engine || !data) return null
       let value: CareerSummary | null = null
-      if (engine && data) {
-        try {
-          value = engine.summarize(data, state as CareerState)
-        } catch (err) {
-          console.warn('[LENDA] summarize falhou', err)
-        }
+      try {
+        value = engine.summarize(data, state as CareerState)
+      } catch (err) {
+        console.warn('[LENDA] summarize falhou', err)
       }
       summaryCache = { key: state, value }
       return value

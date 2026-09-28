@@ -8,8 +8,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-export type RoutePath = '/' | '/identidade' | '/carreira' | '/resumo' | '/ligas' | '/hall' | '/imersivo' | '/kit'
-export const ROUTES: readonly RoutePath[] = ['/', '/identidade', '/carreira', '/resumo', '/ligas', '/hall', '/imersivo', '/kit']
+export type RoutePath = '/' | '/identidade' | '/carreira' | '/resumo' | '/ligas' | '/hall' | '/imersivo' | '/kit' | '/creditos'
+export const ROUTES: readonly RoutePath[] = ['/', '/identidade', '/carreira', '/resumo', '/ligas', '/hall', '/imersivo', '/kit', '/creditos']
 
 export type DialogId = 'achievements' | 'settings' | 'menu' | null
 
@@ -63,7 +63,7 @@ interface AppStore {
   _setRoute(r: RouteState): void
 }
 
-const ORDER: Record<RoutePath, number> = { '/': 0, '/identidade': 1, '/carreira': 2, '/resumo': 3, '/ligas': 4, '/hall': 5, '/imersivo': 6, '/kit': 7 }
+const ORDER: Record<RoutePath, number> = { '/': 0, '/identidade': 1, '/carreira': 2, '/resumo': 3, '/ligas': 4, '/hall': 5, '/imersivo': 6, '/kit': 7, '/creditos': 8 }
 
 export function parseHash(hash: string = typeof location !== 'undefined' ? location.hash : ''): RouteState {
   const raw = hash.replace(/^#/, '') || '/'

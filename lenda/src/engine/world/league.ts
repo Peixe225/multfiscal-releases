@@ -4,7 +4,7 @@
  */
 import type { KnockoutStage, League, LeagueSeasonResult, StandingRow } from '../types'
 import { rng as subRng, type Rng } from '../rng'
-import { forced, play, type SeasonCtx } from './context'
+import { forced, play, setTag, type SeasonCtx } from './context'
 import { forceInto, playTie, runKnockout } from './knockout'
 import { remainingSchedule, seasonSchedule, type Pairing } from './schedule'
 import { randomName } from './names'
@@ -95,6 +95,7 @@ export function leaguePlayoffs(
     const pool = seeds.slice(K - excess)
     const winners: string[] = []
     const stage: KnockoutStage = { name: `${label}Play-in`, ties: [] }
+    setTag(ctx, league.id, stage.name)
     for (let i = 0; i < pool.length / 2; i++) {
       const a = pool[i]
       const b = pool[pool.length - 1 - i]
@@ -105,6 +106,7 @@ export function leaguePlayoffs(
     if (stage.ties.length) stages.push(stage)
     seeds = [...direct, ...winners]
   }
+  setTag(ctx, league.id, undefined)
   const ko = runKnockout(ctx, rng, seeds, {
     kind,
     legs: () => (twoLegs ? 2 : 1),
@@ -132,6 +134,7 @@ function playMatches(ctx: SeasonCtx, rng: Rng, rows: Map<string, StandingRow>, p
     const rh = rows.get(h)
     const ra = rows.get(a)
     if (!rh || !ra) continue
+    if (ctx.keys) setTag(ctx, undefined, undefined, Math.max(rh.played, ra.played) + 1)
     const m = play(ctx, rng, h, a, { kind: 'league' })
     addResult(rh, ra, m.score[0], m.score[1])
   }
@@ -212,7 +215,11 @@ export function simulateLeague(ctx: SeasonCtx, league: League, clubs: readonly s
   const champions: { name: string; clubId: string }[] = []
   const playoffs: KnockoutStage[] = []
 
+  // (Modo Imersivo) Apertura e Clausura em sub-streams próprios: os resultados fixos do Apertura
+  // (que mudam a liguilla) não redesenham o Clausura; o Clausura espelha o Apertura (mando invertido)
+  let t0Pairs: Pairing[] | null = null
   for (let t = 0; t < tournaments; t++) {
+    const trng = ctx.imm && tournaments === 2 && t > 0 ? subRng(ctx.seed, 'season', ctx.season, 'league', league.id, 'T', t) : rng
     if (canContinue && t < current) {
       // torneio já encerrado antes do snapshot: campeão real (se houver no histórico)
       const past = (ctx.data.history?.champions?.[league.id] ?? []).filter((c) => c.season === ctx.season)
@@ -222,22 +229,31 @@ export function simulateLeague(ctx: SeasonCtx, league: League, clubs: readonly s
     const rows = new Map<string, StandingRow>()
     for (const c of clubs) rows.set(c, newRow(c, groups?.get(c)))
     let pairs: Pairing[]
+    if (ctx.keys) {
+      setTag(ctx, league.id, tournaments === 2 ? names[t] : 'Liga')
+      ctx.tag!.t = t
+    }
     if (canContinue && t === current) {
       for (const r of realRows) {
         rows.set(r.clubId, { ...r, group: groups?.get(r.clubId) ?? r.group })
         seedRealStats(ctx, r)
       }
-      pairs = remainingSchedule([...rows.values()], ctx.data.fixtures?.[league.id], target, rng, snap?.fixturesComplete)
+      const log = ctx.collect?.league
+      if (log && log.leagueId === league.id) log.start = realRows.map((r) => ({ ...r }))
+      pairs = remainingSchedule([...rows.values()], ctx.data.fixtures?.[league.id], target, trng, snap?.fixturesComplete)
+    } else if (ctx.imm && t === 1 && t0Pairs) {
+      pairs = t0Pairs.map(([h, a]) => [a, h] as Pairing)
     } else {
-      pairs = seasonSchedule(clubs, rounds, rng, target, groups)
+      pairs = seasonSchedule(clubs, rounds, trng, target, groups, !!ctx.imm)
+      if (t === 0) t0Pairs = pairs
     }
-    playMatches(ctx, rng, rows, pairs)
+    playMatches(ctx, trng, rows, pairs)
     for (const r of rows.values()) if (!groups) delete r.group
     let sorted = sortTable([...rows.values()])
     if (league.format.playoffTeams < 2) sorted = enforceLeagueForce(ctx, sorted)
     tables.push(sorted)
     if (league.format.playoffTeams >= 2) {
-      const po = leaguePlayoffs(ctx, rng, league, sorted, tournaments === 2 ? `${names[t]} — ` : '')
+      const po = leaguePlayoffs(ctx, trng, league, sorted, tournaments === 2 ? `${names[t]} — ` : '')
       champions.push({ name: names[t], clubId: po.champion })
       playoffs.push(...po.stages)
     } else champions.push({ name: names[t], clubId: sorted[0]?.clubId ?? '' })
@@ -296,6 +312,7 @@ export function promotionExchange(
     const seeds = upperSeat && !down.includes(upperSeat) ? [upperSeat, ...pool] : pool
     if (seeds.length >= 2) {
       const rng = subRng(ctx.seed, 'season', ctx.season, 'promotion', lower.id)
+      setTag(ctx, lower.id, undefined)
       const ko = runKnockout(ctx, rng, seeds, {
         kind: 'league',
         // semifinais em ida e volta; final única em Wembley no caso inglês

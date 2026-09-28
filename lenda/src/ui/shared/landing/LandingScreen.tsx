@@ -7,8 +7,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowRight, Check, Clock3, Layers, Play, Trophy, Tv2 } from 'lucide-react'
 import type { Pace } from '@/engine/types'
-import { navigate, useApp } from '@/store/app'
+import { buildHash, navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
+import { peekSavedImmersive } from '@/store/immersive'
+import type { ImmersiveState } from '@/engine/immersive/types'
 import { useData } from '@/store/data'
 import { Button, Crest, LivePill, MedalIcon, Modal, OvrPill, Segmented, cx, useReducedMotion } from '@/ui/primitives'
 import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
@@ -34,7 +36,7 @@ export function LandingNav() {
       {links.map(([label, href, soon]) => (
         <a key={href} href={href}>
           {label}
-          {soon && <span className="ld-soon">Em breve</span>}
+          {soon && <span className="ld-soon">Novo</span>}
         </a>
       ))}
     </nav>
@@ -58,6 +60,12 @@ export default function LandingScreen() {
   const pace = usePrefs((s) => s.pace)
   const setPace = usePrefs((s) => s.setPace)
   const [confirmNew, setConfirmNew] = useState(false)
+  // modo de jogo escolhido nos cards (o Imersivo abre a identidade em ?modo=imersivo)
+  const [mode, setMode] = useState<'classico' | 'imersivo'>(query.modo === 'imersivo' ? 'imersivo' : 'classico')
+  const [imm, setImm] = useState<ImmersiveState | null>(null)
+  useEffect(() => {
+    void peekSavedImmersive().then(setImm).catch(() => {})
+  }, [])
 
   // screenshots / deep links: #/?conquistas=1 opens the achievements dialog
   useEffect(() => {
@@ -73,6 +81,10 @@ export default function LandingScreen() {
   const info = PACE_INFO[pace]
 
   const start = () => {
+    if (mode === 'imersivo') {
+      navigate('/identidade', { query: { modo: 'imersivo' } })
+      return
+    }
     if (active) {
       setConfirmNew(true)
       return
@@ -100,10 +112,12 @@ export default function LandingScreen() {
             </motion.p>
 
             <motion.div className="ld-modes" role="group" aria-label="Modo de jogo" {...rise(rm, 3)}>
-              <button type="button" className="lx-mode ld-mode is-on" aria-pressed="true" onClick={() => sfx.play('tap')}>
-                <span className="ld-mode__chk" aria-hidden="true">
-                  <Check size={12} strokeWidth={3.2} />
-                </span>
+              <button type="button" className={cx('lx-mode ld-mode', mode === 'classico' && 'is-on')} aria-pressed={mode === 'classico'} onClick={() => { sfx.play('tap'); setMode('classico') }}>
+                {mode === 'classico' && (
+                  <span className="ld-mode__chk" aria-hidden="true">
+                    <Check size={12} strokeWidth={3.2} />
+                  </span>
+                )}
                 <span className="flex items-center gap-2.5 pr-7">
                   <span className="ld-mode__ic" aria-hidden="true">
                     <Layers size={18} />
@@ -125,17 +139,20 @@ export default function LandingScreen() {
               </button>
               <button
                 type="button"
-                className="lx-mode ld-mode"
-                aria-pressed="false"
-                aria-describedby="ld-imm-soon"
+                className={cx('lx-mode ld-mode', mode === 'imersivo' && 'is-on')}
+                aria-pressed={mode === 'imersivo'}
                 onClick={() => {
                   sfx.play('tap')
-                  navigate('/imersivo')
+                  setMode('imersivo')
                 }}
               >
-                <span className="ld-mode__badge ld-soon" id="ld-imm-soon">
-                  Em breve
-                </span>
+                {mode === 'imersivo' ? (
+                  <span className="ld-mode__chk" aria-hidden="true">
+                    <Check size={12} strokeWidth={3.2} />
+                  </span>
+                ) : (
+                  <span className="ld-mode__badge ld-soon">Novo</span>
+                )}
                 <span className="flex items-center gap-2.5 pr-16">
                   <span className="ld-mode__ic" aria-hidden="true">
                     <Tv2 size={18} />
@@ -175,7 +192,20 @@ export default function LandingScreen() {
               <Button variant="primary" size="xl" iconRight={ArrowRight} className="ld-ctas__start" onClick={start} onMouseEnter={() => void import('@/ui/shared/identity/IdentityScreen')}>
                 Começar carreira
               </Button>
-              {state && !state.retired && active && (
+              {mode === 'imersivo' && imm && !imm.retired && (
+                <Button variant="ghost" size="xl" className="ld-ctas__continue" onClick={() => navigate('/imersivo')} aria-label={`Continuar carreira imersiva: ${imm.identity.surname}, ${imm.age} anos, OVR ${imm.ovr}`}>
+                  <span className="ld-continue">
+                    <Tv2 size={18} aria-hidden />
+                    <span className="min-w-0">
+                      <span className="ld-continue__t">Continuar</span>
+                      <span className="ld-continue__s">
+                        {imm.identity.surname} · {imm.age} anos · OVR {imm.ovr}
+                      </span>
+                    </span>
+                  </span>
+                </Button>
+              )}
+              {mode === 'classico' && state && !state.retired && active && (
                 <Button variant="ghost" size="xl" className="ld-ctas__continue" onClick={() => navigate('/carreira')} aria-label={`Continuar carreira: ${state.identity.surname}, ${state.age} anos, OVR ${state.ovr}`}>
                   <span className="ld-continue">
                     {club ? <Crest club={club} size={22} decorative /> : <Play size={18} aria-hidden />}
@@ -214,7 +244,12 @@ export default function LandingScreen() {
         <Features />
 
         <footer className="ld-footer">
-          <span>LENDA · projeto de fã, sem fins comerciais. Nomes, escudos e troféus pertencem aos seus respectivos detentores.</span>
+          <span>
+            LENDA · projeto de fã, sem fins comerciais. Nomes, escudos e troféus pertencem aos seus respectivos detentores e aparecem só para identificação ·{' '}
+            <a className="ld-footer__link" href={buildHash('/creditos')}>
+              Créditos e licenças
+            </a>
+          </span>
           <span>Dados de tabela: rodada atual de cada liga{data?.generatedAt ? ` · ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}</span>
         </footer>
       </div>

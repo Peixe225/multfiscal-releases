@@ -14,7 +14,7 @@ import { Button, Crest, CrestFallback, Eyebrow, Flag, Glass, LivePill, Modal, Sk
 import { useShellSlots } from '@/ui/shell/slots'
 import { clubColors } from '@/ui/theme/club'
 import '@/ui/shared/landing/landing.css'
-import { relTime, useLive, type LiveTeam } from './espn'
+import { LIVE_ERROR_TEXT, relTime, shortDay, useLive, type LiveTeam } from './espn'
 import { LeagueLogo } from './LeagueLogo'
 import { groupRows, liveLeagues, roundOf, shortDate, zoneLegend, zonesFor, type Zone } from './leagues'
 import '@/ui/shared/achievements/unlockToasts'
@@ -27,6 +27,8 @@ const REGIONS: { key: string; label: string; test: (l: League) => boolean }[] = 
   { key: 'na', label: 'Américas do Norte e Central', test: (l) => l.confed === 'CONCACAF' },
   { key: 'as', label: 'Ásia, Oceania e África', test: (l) => l.confed === 'AFC' || l.confed === 'OFC' || l.confed === 'CAF' },
 ]
+
+const canRefreshSource = (l: { espnSlug?: string | null }) => !!l.espnSlug
 
 function useNow(ms = 30000) {
   const [now, setNow] = useState(() => Date.now())
@@ -166,6 +168,7 @@ export default function LiveLeaguesScreen() {
   const table = useLive((s) => (league ? s.tables[league.id] : undefined))
   const status = useLive((s) => (league ? s.status[league.id] : undefined))
   const error = useLive((s) => (league ? s.errors[league.id] : undefined))
+  const blocked = useLive((s) => s.blocked)
   const myClub = myClubId ? index?.clubById.get(myClubId) : undefined
 
   useShellSlots({ sub: 'LIGAS AO VIVO', stage: { preset: myClub ? 'club' : 'brand', club: myClub } }, [myClub?.id])
@@ -207,7 +210,10 @@ export default function LiveLeaguesScreen() {
   const phase = snap?.phase && snap.phase !== String(snap.season) && snap.phase !== season ? snap.phase : null
   const live = !!table
   const updatedTs = table?.fetchedAt ?? new Date(data.generatedAt).getTime()
-  const canRefresh = !!league.espnSlug
+  const canRefresh = !!league.espnSlug && !blocked
+  /** A tabela que continua na tela quando a ESPN falha ("27/09"). */
+  const shownDay = shortDay(updatedTs)
+  const liveNote = status === 'error' && error ? error : blocked && canRefreshSource(league) ? LIVE_ERROR_TEXT.blocked : null
   const loading = status === 'loading'
 
   const refresh = async () => {
@@ -292,8 +298,8 @@ export default function LiveLeaguesScreen() {
                 <b>{loading ? 'Buscando na ESPN…' : live ? 'ESPN ao vivo' : 'Snapshot do jogo'}</b>
                 atualizado {relTime(updatedTs, now)}
               </span>
-              <Button variant="ghost" size="sm" icon={RefreshCw} onClick={refresh} disabled={!canRefresh || loading} className={cx(loading && 'lv-btn-spin')} title={canRefresh ? 'Buscar a tabela mais recente na ESPN' : 'Liga sem fonte ao vivo'}>
-                {loading ? 'Atualizando…' : 'Atualizar agora'}
+              <Button variant="ghost" size="sm" icon={RefreshCw} onClick={refresh} disabled={!canRefresh || loading} className={cx(loading && 'lv-btn-spin')} title={blocked ? 'Atualização ao vivo indisponível neste ambiente' : canRefresh ? 'Buscar a tabela mais recente na ESPN' : 'Liga sem fonte ao vivo'}>
+                {loading ? 'Atualizando…' : blocked ? 'Sem acesso à ESPN' : 'Atualizar agora'}
               </Button>
             </div>
           </div>
@@ -303,10 +309,12 @@ export default function LiveLeaguesScreen() {
               <AlertTriangle size={16} className="flex-none mt-0.5" aria-hidden />A ESPN ainda não publicou a temporada atual desta liga. No jogo, ela começa do zero.
             </p>
           )}
-          {status === 'error' && error && (
-            <p className="lv-note lv-note--err" role="alert">
+          {liveNote && (
+            <p className={cx('lv-note', status === 'error' && 'lv-note--err')} role={status === 'error' ? 'alert' : undefined}>
               <AlertTriangle size={16} className="flex-none mt-0.5" aria-hidden />
-              {error} Mostrando a última tabela disponível.
+              <span>
+                {liveNote} <b>Mostrando a tabela {live ? 'ao vivo' : 'real'} de {shownDay}.</b>
+              </span>
             </p>
           )}
 

@@ -1,20 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 180" width="80" height="180" role="img" aria-labelledby="eur-title" class="lx-trophy" data-trophy="euro">
-  <title id="eur-title">Troféu Henri Delaunay (Eurocopa)</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 180" width="80" height="180" role="img" aria-labelledby="euro-title" class="lx-trophy" data-trophy="euro">
+  <title id="euro-title">Troféu Henri Delaunay (Eurocopa)</title>
   <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
   <defs>
-  <linearGradient id="eur-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
-  <linearGradient id="eur-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <linearGradient id="eur-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
-  <linearGradient id="eur-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="euro-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="euro-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="euro-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="euro-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
   </defs>
   <g>
-  <path d="M56,7 C67,2 75,8 74,20 C73.5,29 69,35 65.5,40" fill="none" stroke="url(#eur-silver-h)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M56,7 C67,2 75,8 74,20 C73.5,29 69,35 65.5,40" fill="none" stroke="url(#euro-silver-h)" stroke-width="4" stroke-linecap="round"/>
   <path d="M56,7 C67,2 75,8 74,20 C73.5,29 69,35 65.5,40" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".45" stroke-linecap="round"/>
   <path d="M71,10 C73,14 73,22 70,29" fill="none" stroke="#2b2f37" stroke-width="1" stroke-opacity=".35" stroke-linecap="round"/>
-  <path d="M24,7 C13,2 5,8 6,20 C6.5,29 11,35 14.5,40" fill="none" stroke="url(#eur-silver-h)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M24,7 C13,2 5,8 6,20 C6.5,29 11,35 14.5,40" fill="none" stroke="url(#euro-silver-h)" stroke-width="4" stroke-linecap="round"/>
   <path d="M24,7 C13,2 5,8 6,20 C6.5,29 11,35 14.5,40" fill="none" stroke="#fff" stroke-width="0.8" stroke-opacity=".45" stroke-linecap="round"/>
   <path d="M9,10 C7,14 7,22 10,29" fill="none" stroke="#2b2f37" stroke-width="1" stroke-opacity=".35" stroke-linecap="round"/>
-  <path d="M57.5,5 C55.5,8 53.6,13 53.8,20 C54,27 65,32 71,44 C76,54 77.6,70 77,82 C76.4,100 71,118 61,132 C57,137 53,140 52.5,144 L27.5,144 C27,140 23,137 19,132 C9,118 3.6,100 3,82 C2.4,70 4,54 9,44 C15,32 26,27 26.2,20 C26.4,13 24.5,8 22.5,5 Z" fill="url(#eur-silver-h)"/>
+  <path d="M57.5,5 C55.5,8 53.6,13 53.8,20 C54,27 65,32 71,44 C76,54 77.6,70 77,82 C76.4,100 71,118 61,132 C57,137 53,140 52.5,144 L27.5,144 C27,140 23,137 19,132 C9,118 3.6,100 3,82 C2.4,70 4,54 9,44 C15,32 26,27 26.2,20 C26.4,13 24.5,8 22.5,5 Z" fill="url(#euro-silver-h)"/>
   <path d="M26,21 Q40,25 54,21" fill="none" stroke="#646c79" stroke-width="0.9" stroke-linecap="round"/>
   <path d="M10.5,41 Q40,48 69.5,41" fill="none" stroke="#646c79" stroke-width="0.9" stroke-linecap="round"/>
   <path d="M3.6000000000000014,90 Q40,98 76.4,90" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".45" stroke-linecap="round"/>
@@ -24,13 +24,13 @@
   <path d="M24,70.5 L56,70.5" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .8" stroke-linecap="butt"/>
   <path d="M25,75 L55,75" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .8" stroke-linecap="butt"/>
   <path d="M30,79.5 L50,79.5" fill="none" stroke="#555d6a" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .8" stroke-linecap="butt"/>
-  <path d="M57.5,5 C55.5,8 53.6,13 53.8,20 C54,27 65,32 71,44 C76,54 77.6,70 77,82 C76.4,100 71,118 61,132 C57,137 53,140 52.5,144 L27.5,144 C27,140 23,137 19,132 C9,118 3.6,100 3,82 C2.4,70 4,54 9,44 C15,32 26,27 26.2,20 C26.4,13 24.5,8 22.5,5 Z" fill="url(#eur-sheen)" opacity="0.6"/>
-  <ellipse cx="40" cy="5" rx="17.6" ry="2.8" fill="url(#eur-silver-v)"/>
+  <path d="M57.5,5 C55.5,8 53.6,13 53.8,20 C54,27 65,32 71,44 C76,54 77.6,70 77,82 C76.4,100 71,118 61,132 C57,137 53,140 52.5,144 L27.5,144 C27,140 23,137 19,132 C9,118 3.6,100 3,82 C2.4,70 4,54 9,44 C15,32 26,27 26.2,20 C26.4,13 24.5,8 22.5,5 Z" fill="url(#euro-sheen)" opacity="0.6"/>
+  <ellipse cx="40" cy="5" rx="17.6" ry="2.8" fill="url(#euro-silver-v)"/>
   <ellipse cx="40" cy="4.86" rx="15.49" ry="1.85" fill="#353a43"/>
-  <ellipse cx="40" cy="132" rx="21" ry="3.2" fill="url(#eur-silver-d)"/>
-  <path d="M52.5,143 C51.5,147 52,149 54,151 C58,154 63,160 65,168 L66.4,173 L13.6,173 L15,168 C17,160 22,154 26,151 C28,149 28.5,147 27.5,143 Z" fill="url(#eur-silver-h)"/>
-  <ellipse cx="40" cy="146" rx="13.6" ry="2.6" fill="url(#eur-silver-h)"/>
+  <ellipse cx="40" cy="132" rx="21" ry="3.2" fill="url(#euro-silver-d)"/>
+  <path d="M52.5,143 C51.5,147 52,149 54,151 C58,154 63,160 65,168 L66.4,173 L13.6,173 L15,168 C17,160 22,154 26,151 C28,149 28.5,147 27.5,143 Z" fill="url(#euro-silver-h)"/>
+  <ellipse cx="40" cy="146" rx="13.6" ry="2.6" fill="url(#euro-silver-h)"/>
   <path d="M21,158 Q40,162 59,158" fill="none" stroke="#646c79" stroke-width="0.8" stroke-linecap="round"/>
-  <path d="M13,173 L67,173 L67.2,176.5 Q40,178.5 12.8,176.5 Z" fill="url(#eur-silver-d)"/>
+  <path d="M13,173 L67,173 L67.2,176.5 Q40,178.5 12.8,176.5 Z" fill="url(#euro-silver-d)"/>
   </g>
 </svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 180" width="88" height="180" role="img" aria-labelledby="mls-cup-title" class="lx-trophy" data-trophy="mls-cup">
+  <title id="mls-cup-title">Troféu Philip F. Anschutz (MLS Cup)</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="mls-cup-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="mls-cup-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="mls-cup-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="mls-cup-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="mls-cup-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M38,46 C36,92 24,132 12,166 L66,166 C57,130 54,92 56,46 Z" fill="url(#mls-cup-silver-h)"/>
+  <path d="M41.24,50 C39.24,92 29.92,132 21.72,165" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M42.64,50 C40.64,92 31.32,132 23.12,165" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M44.48,50 C42.48,92 37.84,132 31.44,165" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M45.88,50 C43.88,92 39.24,132 32.84,165" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M47.72,50 C45.72,92 45.76,132 41.16,165" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M49.12,50 C47.12,92 47.16,132 42.56,165" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M50.96,50 C48.96,92 53.68,132 50.88,165" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M52.36,50 C50.36,92 55.08,132 52.28,165" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M38,46 C36,92 24,132 12,166 L66,166 C57,130 54,92 56,46 Z" fill="url(#mls-cup-sheen)" opacity="0.45"/>
+  <circle cx="47" cy="28" r="24" fill="url(#mls-cup-silver-r)"/>
+  <path d="M47,19.36 L55.22,25.33 L52.08,34.99 L41.92,34.99 L38.78,25.33 Z M47,19.36 L47,9.28 M55.22,25.33 L64.8,22.22 M52.08,34.99 L58,43.14 M41.92,34.99 L36,43.14 M38.78,25.33 L29.2,22.22" fill="none" stroke="#2b2f37" stroke-opacity="0.38" stroke-width="1.08" stroke-linejoin="round"/>
+  <circle cx="47" cy="28" r="24" fill="none" stroke="#2b2f37" stroke-width="0.72" stroke-opacity=".45"/>
+  <ellipse cx="38.36" cy="17.92" rx="8.16" ry="4.32" fill="#fff" opacity="0.38" transform="rotate(-35 38.36 17.92)"/>
+  <path d="M3,166 L75,166 L75.4,172 Q39,173.6 2.6,172 Z" fill="url(#mls-cup-silver-d)"/>
+  <ellipse cx="39" cy="166" rx="36" ry="1.8" fill="url(#mls-cup-silver-v)"/>
+  </g>
+</svg>

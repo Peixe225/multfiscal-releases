@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 180" width="72" height="180" role="img" aria-labelledby="kopa-title" class="lx-trophy" data-trophy="kopa">
+  <title id="kopa-title">Troféu Kopa</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <radialGradient id="kopa-gold-flat" cx=".4" cy=".35" r=".75"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".35" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></radialGradient>
+  <radialGradient id="kopa-silver-flat" cx=".4" cy=".35" r=".75"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".35" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></radialGradient>
+  <linearGradient id="kopa-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <linearGradient id="kopa-bronze-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-bronze-2,#5a2e14)"/><stop offset=".12" style="stop-color:var(--metal-bronze-5,#b36a38)"/><stop offset=".28" style="stop-color:var(--metal-bronze-3,#7a4220)"/><stop offset=".45" style="stop-color:var(--metal-bronze-8,#f0b884)"/><stop offset=".57" style="stop-color:var(--metal-bronze-6,#c47d49)"/><stop offset=".75" style="stop-color:var(--metal-bronze-4,#9a5a2e)"/><stop offset=".89" style="stop-color:var(--metal-bronze-6,#c47d49)"/><stop offset="1" style="stop-color:var(--metal-bronze-2,#5a2e14)"/></linearGradient>
+  <linearGradient id="kopa-bronze-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-bronze-1,#3d1f0d)"/><stop offset=".32" style="stop-color:var(--metal-bronze-3,#7a4220)"/><stop offset=".52" style="stop-color:var(--metal-bronze-5,#b36a38)"/><stop offset=".74" style="stop-color:var(--metal-bronze-3,#7a4220)"/><stop offset="1" style="stop-color:var(--metal-bronze-1,#3d1f0d)"/></linearGradient>
+  <linearGradient id="kopa-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  </defs>
+  <g>
+  <circle cx="36" cy="42" r="31" fill="#3d2603" opacity=".5"/>
+  <circle cx="36" cy="41" r="31" fill="url(#kopa-gold-flat)"/>
+  <circle cx="36" cy="41" r="31" fill="url(#kopa-silver-flat)" opacity=".45"/>
+  <path d="M36,29.84 L46.61,37.55 L42.56,50.03 L29.44,50.03 L25.39,37.55 Z M36,29.84 L36,16.82 M46.61,37.55 L59,33.53 M42.56,50.03 L50.21,60.56 M29.44,50.03 L21.79,60.56 M25.39,37.55 L13,33.53" fill="none" stroke="#94640f" stroke-opacity="0.5" stroke-width="0.9" stroke-linejoin="round"/>
+  <circle cx="36" cy="41" r="31" fill="none" stroke="#fff3c4" stroke-width=".8" stroke-opacity=".55"/>
+  <ellipse cx="25" cy="26" rx="11" ry="5" fill="#fff" opacity=".3" transform="rotate(-30 25 26)"/>
+  <path d="M14,172 L14,66 L23,66 L23,172 Z" fill="url(#kopa-gold-v)"/>
+  <path d="M14.4,67 L14.4,171" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M14,66 L23,66" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M23,172 L23,34 L32,22 L32,172 Z" fill="url(#kopa-bronze-h)"/>
+  <path d="M23.4,35 L23.4,171" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M23,34 L32,22" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M32,172 L32,58 L41,50 L41,172 Z" fill="url(#kopa-gold-v)"/>
+  <path d="M32.4,59 L32.4,171" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M32,58 L41,50" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M41,172 L41,28 L50,14 L50,172 Z" fill="url(#kopa-bronze-h)"/>
+  <path d="M41.4,29 L41.4,171" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M41,28 L50,14" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M50,172 L50,46 L58,54 L58,172 Z" fill="url(#kopa-bronze-d)"/>
+  <path d="M50.4,47 L50.4,171" fill="none" stroke="#fff" stroke-width="0.6" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M50,46 L58,54" fill="none" stroke="#fff3c4" stroke-width="0.9" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M21,98 L51,98 M19,104 L53,104 M24,110 L48,110" fill="none" stroke="#5a2e14" stroke-width="1.6" stroke-opacity=".45" stroke-dasharray="2.4 1" stroke-linecap="butt"/>
+  <circle cx="36" cy="150" r="2.4" fill="none" stroke="#5a2e14" stroke-width=".7" stroke-opacity=".6"/>
+  <rect x="13" y="172" width="46" height="5" rx="0.8" fill="url(#kopa-gold-d)"/>
+  </g>
+</svg>

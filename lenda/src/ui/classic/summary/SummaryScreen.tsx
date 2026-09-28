@@ -44,6 +44,7 @@ import { PlayerCard } from '@/ui/shared/landing/PlayerCard'
 import { clubKit } from '@/ui/shared/identity/kit'
 import { CompLogo, Prize } from '@/ui/classic/tabs/parts'
 import { BallonHistory } from '@/ui/classic/tabs/AwardsTab'
+import { LegacyRankCard } from '@/ui/shared/hall/LegacyRankCard'
 import { OvrChart } from './OvrChart'
 import { SharePanel, type ShareModel } from './ShareCard'
 import {
@@ -397,6 +398,8 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
         <AwardsCard summary={summary} />
         <LegendsCard summary={summary} />
       </div>
+
+      <LegacyRankCard career={career} />
 
       {(summary.ballonDorPodiums.length > 0 || hasTop10(career)) && (
         <div className="sm-bdo">

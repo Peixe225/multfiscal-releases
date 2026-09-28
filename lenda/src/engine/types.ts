@@ -390,6 +390,58 @@ export interface SeasonWorldResult {
   clubStats?: Record<string, [number, number, number, number]>
   /** (aditivo, motor do mundo) Por seleção: [jogos, gols pró] (eliminatórias, amistosos e torneio). */
   nationStats?: Record<string, [number, number]>
+  // ── aditivos (Modo Imersivo): só com UserSeasonContext.collectUserFixtures ──
+  /** Partidas oficiais do clube do jogador, na ordem da simulação. */
+  userFixtures?: UserFixture[]
+  /** Partidas da seleção do jogador em torneios (Copa, continental). */
+  userNationalFixtures?: UserFixture[]
+  /** Todos os jogos da fase regular da liga do jogador (tabela ao vivo rodada a rodada). */
+  userLeague?: UserLeagueLog
+}
+
+/** (aditivo, Modo Imersivo) Uma partida do clube/seleção do jogador, como o mundo a simulou. */
+export interface UserFixture {
+  /** Chave determinística: competição | fase | mandante | visitante (+ #n se repetir). */
+  key: string
+  competitionId: string
+  kind: CompetitionKind
+  /** Fase em pt-BR: "Liga", "Grupo A", "Fase de liga", "Oitavas de final", "Final"… */
+  stage: string
+  /** Liga (fase regular): rodada (conta os jogos já disputados na tabela real, na 1ª temporada). */
+  round?: number
+  home: string
+  away: string
+  opponent: string
+  userHome: boolean
+  neutral?: boolean
+  /** Jogo único de mata-mata (empate → prorrogação/pênaltis). */
+  knockout?: boolean
+  /** Confronto de ida e volta: jogo 1 ou 2 de `legs`. */
+  leg?: number
+  legs?: number
+  /** Placar agregado ANTES deste jogo, do ponto de vista do jogador [jogador, adversário]. */
+  prior?: [number, number]
+  /** O confronto tem prorrogação se empatar (jogo único ou agregado). */
+  extraTime?: boolean
+  /** Agregado empatado → avança o melhor colocado (Liguilla): `userSeed` = o jogador é o melhor. */
+  seedAdvancesOnDraw?: boolean
+  userSeed?: boolean
+  /** Placar simulado (ou o fixo, se `fixed`). */
+  score: [number, number]
+  pens?: [number, number]
+  aet?: boolean
+  fixed?: boolean
+  /** Forças efetivas usadas [mandante, visitante]. */
+  strength: [number, number]
+  seq: number
+}
+
+/** (aditivo, Modo Imersivo) Jogos da liga do jogador: [mandante, visitante, gm, gv, rodada, torneio]. */
+export interface UserLeagueLog {
+  leagueId: string
+  /** Tabela de partida (1ª temporada: a real de hoje; depois vazia). */
+  start: StandingRow[]
+  matches: [string, string, number, number, number, number][]
 }
 
 export interface Rival {

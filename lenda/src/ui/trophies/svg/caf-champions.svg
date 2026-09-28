@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 180" width="84" height="180" role="img" aria-labelledby="caf-champions-title" class="lx-trophy" data-trophy="caf-champions">
+  <title id="caf-champions-title">Troféu da Liga dos Campeões da CAF</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="caf-champions-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="caf-champions-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="caf-champions-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="caf-champions-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="caf-champions-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="caf-champions-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M42,33 C71,29 73,54 69,80 C65,108 57,128 52,140 L32,140 C27,128 19,108 15,80 C11,54 13,29 42,33 Z" fill="url(#caf-champions-silver-h)"/>
+  <path d="M42,40 C59,40 60,58 57,78 C54,96 47,110 42,117 C37,110 30,96 27,78 C24,58 25,40 42,40 Z" fill="url(#caf-champions-silver-d)"/>
+  <path d="M42,40 C59,40 60,58 57,78 C54,96 47,110 42,117 C37,110 30,96 27,78 C24,58 25,40 42,40 Z" fill="#0b0c10" opacity=".55"/>
+  <path d="M42,40 C59,40 60,58 57,78 C54,96 47,110 42,117 C37,110 30,96 27,78 C24,58 25,40 42,40 Z" fill="none" stroke="#fff" stroke-width=".8" stroke-opacity=".45"/>
+  <path d="M42,33 C71,29 73,54 69,80 C65,108 57,128 52,140 L32,140 C27,128 19,108 15,80 C11,54 13,29 42,33 Z" fill="url(#caf-champions-sheen)" opacity="0.5"/>
+  <circle cx="42" cy="22" r="16" fill="url(#caf-champions-gold-r)"/>
+  <path d="M42,16.24 L47.48,20.22 L45.39,26.66 L38.61,26.66 L36.52,20.22 Z M42,16.24 L42,9.52 M47.48,20.22 L53.87,18.14 M45.39,26.66 L49.34,32.1 M38.61,26.66 L34.66,32.1 M36.52,20.22 L30.13,18.14" fill="none" stroke="#3d2603" stroke-opacity="0.38" stroke-width="0.72" stroke-linejoin="round"/>
+  <circle cx="42" cy="22" r="16" fill="none" stroke="#3d2603" stroke-width="0.5" stroke-opacity=".45"/>
+  <ellipse cx="36.24" cy="15.28" rx="5.44" ry="2.88" fill="#fff" opacity="0.38" transform="rotate(-35 36.24 15.28)"/>
+  <path d="M31,139 L53,139 L55,145 Q42,146.2 29,145 Z" fill="url(#caf-champions-gold-h)"/>
+  <path d="M55,145 C61,150 63,158 60.5,165 L59.5,167 L24.5,167 L23.5,165 C21,158 23,150 29,145 Z" fill="url(#caf-champions-silver-h)"/>
+  <path d="M39.92,151.29 L42.65,150.98 L44.02,151.74 L45.08,153.72 L47.21,154.48 L46.3,156.15 L44.93,157.67 L44.48,159.95 L43.26,161.47 L42.35,161.02 L41.89,158.74 L40.98,156.91 L39,156.46 L37.79,155.09 L37.94,153.26 L38.85,152.05 Z" fill="url(#caf-champions-gold-v)"/>
+  <path d="M22,167 L62,167 L64,176 Q42,177.6 20,176 Z" fill="url(#caf-champions-gold-h)"/>
+  <ellipse cx="42" cy="167" rx="20" ry="1.6" fill="url(#caf-champions-gold-v)"/>
+  </g>
+</svg>

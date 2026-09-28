@@ -2,9 +2,10 @@
  * Right column: tab header (Carreira · Temporada · Prêmios · Mundo) + the career table.
  * The other three tabs live in src/ui/classic/tabs (tabs team) and are code-split.
  */
-import { Suspense, lazy, memo, useState } from 'react'
+import { Suspense, lazy, memo, useRef, useState } from 'react'
 import { ChartLine, Clock, Sparkles } from 'lucide-react'
-import { Skeleton, TabPanel, Tabs, formatSeason, type TabItem } from '@/ui/primitives'
+import { Skeleton, TabPanel, Tabs, formatSeason, useIsWide, useReducedMotion, type TabItem } from '@/ui/primitives'
+import { useReveal } from '@/ui/classic/reveal/store'
 import { getLeague } from '@/store/data'
 import { CareerTable } from './CareerTable'
 import { PACE_SEASONS, LAST_AGE } from './model'
@@ -18,6 +19,27 @@ type Tab = 'carreira' | 'temporada' | 'premios' | 'mundo'
 
 export const RightPanel = memo(function RightPanel({ data, compactFuture }: { data: CockpitData; compactFuture?: boolean }) {
   const [tab, setTab] = useState<Tab>('carreira')
+  const wide = useIsWide()
+  const rm = useReducedMotion()
+  const panel = useRef<HTMLElement>(null)
+  // phones/tablets: the decision sheet covers the lower half — fold it and bring the tab into view
+  // (and unfold it again when the player comes back to "Carreira", if we were the ones who folded it)
+  const folded = useRef(false)
+  const pickTab = (t: Tab) => {
+    setTab(t)
+    if (wide) return
+    const R = useReveal.getState()
+    if (t === 'carreira') {
+      if (folded.current && R.sheetCollapsed && R.phase === 'idle') R.set({ sheetCollapsed: false })
+      folded.current = false
+      return
+    }
+    if (R.phase === 'idle' && !R.sheetCollapsed) {
+      R.set({ sheetCollapsed: true })
+      folded.current = true
+    }
+    requestAnimationFrame(() => panel.current?.scrollIntoView({ block: 'start', behavior: rm ? 'auto' : 'smooth' }))
+  }
   const { state, gates } = data
   const shown = data.trophySeasons
   const last = data.visibleSeasons[data.visibleSeasons.length - 1]
@@ -49,9 +71,9 @@ export const RightPanel = memo(function RightPanel({ data, compactFuture }: { da
   ) : null
 
   return (
-    <section className="lx-glass lx-club-panel ck-panel" aria-label="Painel da carreira">
+    <section ref={panel} className="lx-glass lx-club-panel ck-panel" aria-label="Painel da carreira">
       <div className="ck-panel__tabs">
-        <Tabs aria-label="Painel da carreira" idPrefix="ck" value={tab} onChange={setTab} tabs={tabs} className="ck-tabs no-scrollbar" />
+        <Tabs aria-label="Painel da carreira" idPrefix="ck" value={tab} onChange={pickTab} tabs={tabs} className="ck-tabs no-scrollbar" />
         {aside}
       </div>
       <TabPanel idPrefix="ck" value="carreira" active={tab === 'carreira'} keepMounted>

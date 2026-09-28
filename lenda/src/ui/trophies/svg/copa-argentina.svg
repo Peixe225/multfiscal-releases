@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 180" width="96" height="180" role="img" aria-labelledby="copa-argentina-title" class="lx-trophy" data-trophy="copa-argentina">
+  <title id="copa-argentina-title">Troféu da Copa Argentina</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="copa-argentina-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="copa-argentina-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <radialGradient id="copa-argentina-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  </defs>
+  <g>
+  <path d="M32.36,152 L37.64,152 L16.4,36 L7.6,42 Z" fill="url(#copa-argentina-silver-d)"/>
+  <path d="M32.36,152 L37.64,152 L16.4,36 L7.6,42 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M35.6,150 L12.8,41" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M58.36,152 L63.64,152 L88.4,42 L79.6,36 Z" fill="url(#copa-argentina-silver-d)"/>
+  <path d="M58.36,152 L63.64,152 L88.4,42 L79.6,36 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M61.6,150 L84.8,41" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M36.36,152 L41.64,152 L27.4,20 L18.6,26 Z" fill="url(#copa-argentina-silver-h)"/>
+  <path d="M36.36,152 L41.64,152 L27.4,20 L18.6,26 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M39.6,150 L23.8,25" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M54.36,152 L59.64,152 L77.4,26 L68.6,20 Z" fill="url(#copa-argentina-silver-h)"/>
+  <path d="M54.36,152 L59.64,152 L77.4,26 L68.6,20 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M57.6,150 L73.8,25" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M40.36,152 L45.64,152 L39.4,44 L30.6,50 Z" fill="url(#copa-argentina-silver-h)"/>
+  <path d="M40.36,152 L45.64,152 L39.4,44 L30.6,50 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M43.6,150 L35.8,49" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M50.36,152 L55.64,152 L65.4,50 L56.6,44 Z" fill="url(#copa-argentina-silver-h)"/>
+  <path d="M50.36,152 L55.64,152 L65.4,50 L56.6,44 Z" fill="none" stroke="#2b2f37" stroke-width=".6" stroke-opacity=".6"/>
+  <path d="M53.6,150 L61.8,49" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".55" stroke-linecap="round"/>
+  <circle cx="48" cy="30" r="21" fill="url(#copa-argentina-silver-r)"/>
+  <path d="M48,22.44 L55.19,27.66 L52.44,36.12 L43.56,36.12 L40.81,27.66 Z M48,22.44 L48,13.62 M55.19,27.66 L63.58,24.94 M52.44,36.12 L57.63,43.25 M43.56,36.12 L38.37,43.25 M40.81,27.66 L32.42,24.94" fill="none" stroke="#2b2f37" stroke-opacity="0.38" stroke-width="0.94" stroke-linejoin="round"/>
+  <circle cx="48" cy="30" r="21" fill="none" stroke="#2b2f37" stroke-width="0.63" stroke-opacity=".45"/>
+  <ellipse cx="40.44" cy="21.18" rx="7.14" ry="3.78" fill="#fff" opacity="0.38" transform="rotate(-35 40.44 21.18)"/>
+  <path d="M43,152 L53,152 L54,56 L42,56 Z" fill="url(#copa-argentina-silver-h)"/>
+  <path d="M48,150 L48,58" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M22,150 L74,150 L79,176 L17,176 Z" fill="url(#copa-argentina-silver-h)"/>
+  <path d="M22,150.6 L74,150.6" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M45,158 C36,156 35,170 45,169" fill="none" stroke="#1c2a5c" stroke-width="2.4" stroke-opacity=".85" stroke-linecap="round"/>
+  <path d="M49,170 L54.5,157 L60,170" fill="none" stroke="#1c2a5c" stroke-width="2.4" stroke-opacity=".85" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+</svg>

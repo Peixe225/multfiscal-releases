@@ -252,7 +252,7 @@ function buildCandidates(env: AwardEnv, user: UserAwardEntry | null): Candidate[
       goals: user.goals,
       assists: user.assists,
       cleanSheets: user.cleanSheets ?? 0,
-      leagueGoals: Math.round(user.goals * env.leagueShare(user.clubId ?? undefined)),
+      leagueGoals: user.leagueGoals ?? Math.round(user.goals * env.leagueShare(user.clubId ?? undefined)),
       titles: user.titles.slice(),
       clubReached: derived.reached,
       nation: nt ? { competitionId: nt.competitionId, reached: nt.reached, goals: nt.goals } : undefined,
@@ -401,7 +401,7 @@ export function computeAwards(
     const lg = leagueOfClub.get(user.clubId) ?? user.leagueId ?? undefined
     const lr = lg ? leagues[lg] : undefined
     if (lr) {
-      const goals = Math.round(user.goals * leagueShare(user.clubId))
+      const goals = user.leagueGoals ?? Math.round(user.goals * leagueShare(user.clubId))
       const list = lr.topScorers.filter((s) => !s.isUser)
       if (goals > 0) list.push({ name: user.name, clubId: user.clubId, goals, isUser: true })
       list.sort((a, b) => b.goals - a.goals || (a.isUser ? -1 : b.isUser ? 1 : 0))

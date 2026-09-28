@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="afcon-title" class="lx-trophy" data-trophy="afcon">
+  <title id="afcon-title">Troféu da Copa Africana de Nações</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="afcon-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="afcon-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="afcon-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <radialGradient id="afcon-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="afcon-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M81,50 C80,66 70,86 62,100 L60,122 C60,130 65,137 70,141 L70,143 L30,143 L30,141 C35,137 40,130 40,122 L38,100 C30,86 20,66 19,50 Z" fill="url(#afcon-gold-h)"/>
+  <path d="M25,52 C27,70 37.5,88 40,100 L41,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M25,52 C27,70 37.5,88 40,100 L41,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M33,52 C34.36,70 41.5,88 43.2,100 L43.88,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M33,52 C34.36,70 41.5,88 43.2,100 L43.88,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M41.5,52 C42.18,70 45.75,88 46.6,100 L46.94,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M41.5,52 C42.18,70 45.75,88 46.6,100 L46.94,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M50,52 C50,70 50,88 50,100 L50,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M50,52 C50,70 50,88 50,100 L50,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M58.5,52 C57.82,70 54.25,88 53.4,100 L53.06,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M58.5,52 C57.82,70 54.25,88 53.4,100 L53.06,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M67,52 C65.64,70 58.5,88 56.8,100 L56.12,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M67,52 C65.64,70 58.5,88 56.8,100 L56.12,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M75,52 C73,70 62.5,88 60,100 L59,122" fill="none" stroke="#5c3a05" stroke-width="1.2" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M75,52 C73,70 62.5,88 60,100 L59,122" fill="none" stroke="#fff3c4" stroke-width="0.6" stroke-opacity=".55" transform="translate(1.3 0)" stroke-linecap="round"/>
+  <path d="M81,50 C80,66 70,86 62,100 L60,122 C60,130 65,137 70,141 L70,143 L30,143 L30,141 C35,137 40,130 40,122 L38,100 C30,86 20,66 19,50 Z" fill="url(#afcon-sheen)" opacity="0.5"/>
+  <rect x="37.5" y="102" width="25" height="10" rx="1.2" fill="url(#afcon-gold-v)"/>
+  <rect x="37.5" y="102" width="25" height="10" rx="1.2" fill="none" stroke="#5c3a05" stroke-width=".8"/>
+  <path d="M43,107 L57,107" fill="none" stroke="#5c3a05" stroke-width="3.2" stroke-opacity=".55" stroke-dasharray="3.4 1.4" stroke-linecap="butt"/>
+  <ellipse cx="50" cy="50" rx="31.4" ry="3.4" fill="url(#afcon-gold-v)"/>
+  <circle cx="50" cy="29" r="22" fill="url(#afcon-gold-r)"/>
+  <path d="M44.54,18.22 L51.38,17.46 L54.8,19.36 L57.46,24.3 L62.78,26.2 L60.5,30.38 L57.08,34.18 L55.94,39.88 L52.9,43.68 L50.62,42.54 L49.48,36.84 L47.2,32.28 L42.26,31.14 L39.22,27.72 L39.6,23.16 L41.88,20.12 Z" fill="#94640f" opacity=".55"/>
+  <path d="M44.54,18.22 L51.38,17.46 L54.8,19.36 L57.46,24.3 L62.78,26.2 L60.5,30.38 L57.08,34.18 L55.94,39.88 L52.9,43.68 L50.62,42.54 L49.48,36.84 L47.2,32.28 L42.26,31.14 L39.22,27.72 L39.6,23.16 L41.88,20.12 Z" fill="none" stroke="#fff3c4" stroke-width=".6" stroke-opacity=".5"/>
+  <path d="M29,24 Q50,20 52,8" fill="none" stroke="#5c3a05" stroke-width="0.6" stroke-opacity=".3" stroke-linecap="round"/>
+  <path d="M71,24 Q50,20 48,8" fill="none" stroke="#5c3a05" stroke-width="0.6" stroke-opacity=".3" stroke-linecap="round"/>
+  <ellipse cx="42" cy="20" rx="7" ry="4" fill="#fff" opacity=".35" transform="rotate(-35 42 20)"/>
+  <circle cx="22" cy="46" r="6" fill="url(#afcon-gold-r)"/>
+  <circle cx="22" cy="46" r="6" fill="none" stroke="#5c3a05" stroke-width=".6" stroke-opacity=".5"/>
+  <circle cx="78" cy="46" r="6" fill="url(#afcon-gold-r)"/>
+  <circle cx="78" cy="46" r="6" fill="none" stroke="#5c3a05" stroke-width=".6" stroke-opacity=".5"/>
+  <circle cx="34.5" cy="50" r="6.8" fill="url(#afcon-gold-r)"/>
+  <circle cx="34.5" cy="50" r="6.8" fill="none" stroke="#5c3a05" stroke-width=".6" stroke-opacity=".5"/>
+  <circle cx="65.5" cy="50" r="6.8" fill="url(#afcon-gold-r)"/>
+  <circle cx="65.5" cy="50" r="6.8" fill="none" stroke="#5c3a05" stroke-width=".6" stroke-opacity=".5"/>
+  <circle cx="50" cy="52" r="7.2" fill="url(#afcon-gold-r)"/>
+  <circle cx="50" cy="52" r="7.2" fill="none" stroke="#5c3a05" stroke-width=".6" stroke-opacity=".5"/>
+  <path d="M29,143 L71,143 L74,153 L26,153 Z" fill="url(#afcon-lacq)"/>
+  <path d="M29,143 L31.33,148.5 L33.67,143 L36,148.5 L38.33,143 L40.67,148.5 L43,143 L45.33,148.5 L47.67,143 L50,148.5 L52.33,143 L54.67,148.5 L57,143 L59.33,148.5 L61.67,143 L64,148.5 L66.33,143 L68.67,148.5 L71,143 Z" fill="url(#afcon-gold-h)"/>
+  <rect x="24.5" y="153" width="51" height="3.4" rx="0.4" fill="url(#afcon-gold-h)"/>
+  <path d="M24.5,153.3 L75.5,153.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  <path d="M23,156.4 L77,156.4 L78.5,170 L21.5,170 Z" fill="url(#afcon-lacq)"/>
+  <path d="M23,156.9 L77,156.9" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="50" cy="170" rx="28.5" ry="1.2" fill="#050506" opacity=".6"/>
+  <rect x="21" y="170" width="58" height="2.6" rx="0.4" fill="url(#afcon-gold-h)"/>
+  <path d="M21,170.3 L79,170.3" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity=".5" stroke-linecap="butt"/>
+  </g>
+</svg>

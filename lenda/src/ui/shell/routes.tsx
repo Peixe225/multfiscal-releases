@@ -24,8 +24,9 @@ export const SCREENS: Record<RoutePath, LazyExoticComponent<ComponentType>> = {
   '/resumo': screen(() => import('@/ui/classic/summary/SummaryScreen'), 'SummaryScreen'),
   '/ligas': screen(() => import('@/ui/shared/live/LiveLeaguesScreen'), 'LiveLeaguesScreen'),
   '/hall': screen(() => import('@/ui/shared/hall/HallScreen'), 'HallScreen'),
-  '/imersivo': screen(() => import('@/ui/immersive/ImmersiveComingSoon'), 'ImmersiveComingSoon'),
+  '/imersivo': screen(() => import('@/ui/immersive/ImmersiveApp'), 'ImmersiveApp'),
   '/kit': screen(() => import('./KitScreen'), 'KitScreen'),
+  '/creditos': screen(() => import('@/ui/shared/credits/CreditsScreen'), 'CreditsScreen'),
 }
 
 export const AchievementsDialog = lazy(async () => {
@@ -39,6 +40,7 @@ export const prefetchRoute = (path: RoutePath) => {
     '/identidade': () => import('@/ui/shared/identity/IdentityScreen'),
     '/carreira': () => import('@/ui/classic/cockpit/CareerScreen'),
     '/resumo': () => import('@/ui/classic/summary/SummaryScreen'),
+    '/imersivo': () => import('@/ui/immersive/ImmersiveApp'),
   }
   void loaders[path]?.().catch(() => {})
 }

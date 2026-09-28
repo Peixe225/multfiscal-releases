@@ -1,0 +1,1110 @@
+/**
+ * Partida ao vivo (minuto a minuto) no Modo Imersivo.
+ *
+ * MODELO (coerente com o mundo, src/engine/world/match.ts): λ de cada time vem de
+ * `expectedGoals(forçaMandante, forçaVisitante, neutro)` com as forças efetivas que o mundo usou na
+ * pré-simulação. O jogador soma `impacto` à força do time pelos minutos em campo. Os LANCES-CHAVE
+ * dele (3–7 para titular, menos saindo do banco) são descontados do λ de fundo pelo valor esperado
+ * de cada um — assim o total de gols do time continua ≈ λ do mundo, e a variação vem das escolhas.
+ *
+ * Cada minuto usa um sub-stream próprio (seed, item, fase, minuto): o resultado não depende de como
+ * a UI fatia o `match_sim`. A chance de cada opção = base + atributo + condição (energia ao vivo,
+ * fase, ritmo, moral) − força do adversário − pressão (importância × falta de experiência).
+ * Minijogos: pênalti (canto; o goleiro escolhe o lado por sorteio) e timing (0–1, ponto ideal 0,62).
+ *
+ * Nota 0–10: começa em 6,0 ao entrar; gol +1,0 (+0,2 em jogo grande), assistência +0,7, desarme
+ * +0,25, defesa +0,35, erros −0,1…−0,4, gol sofrido em campo (defensores −0,15, demais −0,05),
+ * gol do time em campo +0,08; fim: vitória +0,25, derrota −0,25, sem sofrer gol (GOL +0,6, defesa +0,35).
+ */
+import { clamp, type Rng } from '../rng'
+import type { GameData, Position } from '../types'
+import { expectedGoals, MATCH } from '../world/match'
+import type {
+  CalendarItem,
+  ImmersiveEffect,
+  ImmersiveState,
+  KeyMoment,
+  KeyMomentOption,
+  KeyMomentSituation,
+  LiveMatch,
+  MatchEvent,
+  MatchEventType,
+  TeamSide,
+  UserMatchStats,
+} from './types'
+import { mem, type Fx, type LiveMem, type MomentOptionSpec, type MomentSpec, type PlannedMoment } from './mem'
+import { MOMENT_DESC, RESULT_TEXT, T, say } from './narration'
+import { attr, isGK } from './player'
+import { namesFor, squadOf } from './squad'
+import { clubOf, countryOf, irng, nationStrength, r1 } from './util'
+
+type Side = 'home' | 'away'
+
+// ───────────────────────── calibragem ─────────────────────────
+
+/** Escala das opções de finalização (calibrada para ~0,4 gol/jogo de um centroavante titular médio). */
+export const GOAL_SCALE = 0.31
+
+const N_MOMENTS: Record<Position, [number, number]> = {
+  CA: [3, 5], PE: [3, 5], PD: [3, 5], MEI: [3, 5],
+  ME: [3, 5], MD: [3, 5], MC: [3, 5], VOL: [3, 5], LD: [3, 5], LE: [3, 5], ZAG: [3, 5], GOL: [3, 5],
+}
+
+const MIX: Record<Position, Partial<Record<KeyMomentSituation, number>>> = {
+  CA: { shot: 1.4, header: 1.2, one_on_one: 0.9, dribble: 1.5, pass: 2.4, tackle: 0.6, free_kick: 0.3, penalty: 0.25 },
+  PE: { dribble: 3, shot: 1.8, cross: 2, one_on_one: 0.6, through_ball: 1, pass: 1.2, free_kick: 0.3, penalty: 0.15 },
+  PD: { dribble: 3, shot: 1.8, cross: 2, one_on_one: 0.6, through_ball: 1, pass: 1.2, free_kick: 0.3, penalty: 0.15 },
+  MEI: { through_ball: 2.4, pass: 2, shot: 2.1, dribble: 1.4, free_kick: 0.8, one_on_one: 0.3, penalty: 0.15 },
+  ME: { cross: 2.4, dribble: 2, pass: 2, shot: 1, through_ball: 1, tackle: 0.8, interception: 0.5 },
+  MD: { cross: 2.4, dribble: 2, pass: 2, shot: 1, through_ball: 1, tackle: 0.8, interception: 0.5 },
+  MC: { pass: 3, through_ball: 1.8, shot: 1, tackle: 1.5, interception: 1.3, free_kick: 0.4 },
+  VOL: { tackle: 3, interception: 3, pass: 2, block: 1, shot: 0.4, header: 0.4 },
+  LD: { tackle: 2.5, interception: 2, cross: 2.2, block: 1, dribble: 0.8 },
+  LE: { tackle: 2.5, interception: 2, cross: 2.2, block: 1, dribble: 0.8 },
+  ZAG: { tackle: 2.5, interception: 2, block: 2.5, header: 1.2, pass: 0.5 },
+  GOL: { save: 5, penalty_save: 0.3 },
+}
+
+const DEFENSIVE = new Set<KeyMomentSituation>(['tackle', 'interception', 'block', 'save', 'penalty_save'])
+
+// ───────────────────────── helpers ─────────────────────────
+
+const opp = (s: Side): Side => (s === 'home' ? 'away' : 'home')
+const idx = (s: Side) => (s === 'home' ? 0 : 1)
+
+function effOvr(s: ImmersiveState): number {
+  const m = mem(s)
+  const t = m.tempOvr && m.tempOvr.untilSeason >= s.season ? m.tempOvr.delta : 0
+  return s.ovr + t
+}
+
+function teamSide(data: GameData, s: ImmersiveState, id: string, national: boolean, strength: number): TeamSide {
+  if (national) {
+    const c = countryOf(data, id)
+    return { id, name: c?.name ?? id, shortName: c?.name ?? id, strength: Math.round(strength), national: true }
+  }
+  const c = clubOf(data, id)
+  return { id, name: c?.name ?? id, shortName: c?.shortName || c?.name || id, strength: Math.round(strength), national: false }
+}
+
+function emptyStats(): UserMatchStats {
+  return { minutes: 0, goals: 0, assists: 0, shots: 0, shotsOnTarget: 0, keyPasses: 0, dribbles: 0, tackles: 0, rating: 6 }
+}
+
+function composure(s: ImmersiveState): number {
+  return clamp((s.age - 17) / 14, 0, 1) * 0.6 + clamp(s.reputation / 100, 0, 1) * 0.4
+}
+
+export function agendaFixture(s: ImmersiveState, item: CalendarItem): Fx | undefined {
+  if (!item.fixtureKey) return undefined
+  const m = mem(s)
+  return m.agenda.find((f) => f.key === item.fixtureKey) ?? m.natAgenda.find((f) => f.key === item.fixtureKey)
+}
+
+/** Placar agregado antes do jogo de volta, do ponto de vista do jogador. */
+function priorAggregate(s: ImmersiveState, f: Fx): [number, number] | undefined {
+  if (!(f.legs === 2 && f.leg === 2)) return undefined
+  const m = mem(s)
+  const list = f.kind === 'world_cup' || f.kind === 'national_continental' ? m.natAgenda : m.agenda
+  const first = list.find((x) => x.competitionId === f.competitionId && x.stage === f.stage && x.opponent === f.opponent && x.leg === 1)
+  if (first) {
+    const fixed = m.fixed[first.key]
+    const sc = fixed ? (Array.isArray(fixed) ? [fixed[0], fixed[1]] : fixed.score) : first.score
+    return first.userHome ? [sc[0], sc[1]] : [sc[1], sc[0]]
+  }
+  return f.prior
+}
+
+// ───────────────────────── criação ─────────────────────────
+
+export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem): LiveMatch {
+  const m = mem(s)
+  const national = item.kind === 'national_match'
+  const f = agendaFixture(s, item)
+  const userTeam = national ? s.identity.nationality : s.clubId!
+  const oppId = item.opponentId ?? f?.opponent ?? '?'
+  const userHome = item.home ?? f?.userHome ?? true
+  let sh: number
+  let sa: number
+  let neutral = false
+  if (f) {
+    ;[sh, sa] = f.strength
+    neutral = !!f.neutral
+  } else {
+    const us = nationStrength(s.world, data, userTeam)
+    const them = national ? nationStrength(s.world, data, oppId) : (s.world.clubs[oppId]?.strength ?? 65)
+    sh = userHome ? us : them
+    sa = userHome ? them : us
+  }
+  const userSide: Side = userHome ? 'home' : 'away'
+  const teamStr = userHome ? sh : sa
+  const oppStr = userHome ? sa : sh
+  const r = irng(s, 'live', item.id, 'setup')
+  const importance = item.importance ?? 0.4
+  const pos = s.identity.position
+  const gk = isGK(pos)
+  const ovr = effOvr(s)
+
+  // ── escalação ──
+  let status: LiveMatch['userStatus']
+  let sel = 0
+  const injured = !!s.condition.injury
+  const suspended = !national && (s.condition.suspendedMatches ?? 0) > 0
+  if (injured || suspended) status = 'out'
+  else if (national) {
+    sel = (ovr - teamStr) * 3 + (s.condition.form - 50) * 0.25 + (s.condition.fitness - 70) * 0.2 + r.normal(0, 5) + 6
+    status = sel >= 0 ? 'starter' : 'bench'
+  } else {
+    const c = s.condition
+    const rotation = importance < 0.5 && c.fitness < 72 ? -8 : 0
+    const youth = s.age <= 17 ? -5 : 0
+    sel =
+      (ovr - teamStr) * 3.2 +
+      (s.relationships.coach - 50) * 0.45 +
+      (c.form - 50) * 0.25 +
+      (c.fitness - 75) * 0.35 +
+      (c.sharpness - 50) * 0.08 +
+      rotation +
+      youth +
+      r.normal(0, 5)
+    status = sel >= 0 ? 'starter' : sel >= (gk ? -30 : -22) ? 'bench' : 'out'
+    // garoto da base: o técnico leva para o banco em jogos menores e dá minutos de vez em quando
+    if (status === 'out' && s.age <= 19 && r.chance(clamp(0.42 - importance * 0.35, 0.05, 0.4))) status = 'bench'
+  }
+  let onAt = 999
+  if (status === 'starter') onAt = 0
+  else if (status === 'bench') {
+    const youth = !national && s.age <= 19 && sel < -22
+    const p = gk ? 0.03 : youth ? clamp(0.5 - importance * 0.4, 0.1, 0.45) : clamp(0.55 + sel / 50, 0.15, 0.9)
+    if (r.chance(p)) onAt = youth ? r.int(66, 85) : r.int(56, 82)
+  }
+  const frac = onAt === 0 ? 0.95 : onAt < 999 ? (90 - onAt) / 90 : 0
+
+  // ── elencos e nomes ──
+  const oppNational = national
+  const usSquad = squadOf(data, s.world, userTeam, s.season, national)
+  const themSquad = squadOf(data, s.world, oppId, s.season, oppNational)
+  const me = s.identity.surname.toLowerCase()
+  const us = namesFor(usSquad.filter((p) => p.short.toLowerCase() !== me), pos)
+  const them = namesFor(themSquad.filter((p) => p.short.toLowerCase() !== me))
+
+  // ── λ e plano de lances ──
+  const impact = clamp((ovr - teamStr) * 0.12 + (s.condition.form - 50) * 0.01, -1, 2.5) * frac
+  const [lh, la] = expectedGoals(sh + (userSide === 'home' ? impact : 0), sa + (userSide === 'away' ? impact : 0), neutral)
+  const plan = planMoments(s, r, pos, onAt, importance)
+  const lm: LiveMem = {
+    itemId: item.id,
+    national,
+    lambda: [lh, la],
+    plan,
+    momentIdx: 0,
+    onAt,
+    startMinute: onAt === 0 ? 0 : onAt,
+    fitness: s.condition.fitness,
+    decider: false,
+    extraTime: false,
+    teammates: us.all.length ? us.all : ['o camisa 10'],
+    opponents: them.all.length ? them.all : ['o atacante'],
+    keeper: userSide === 'home' ? [us.keeper, them.keeper] : [them.keeper, us.keeper],
+    subsDone: [0, 0],
+    cards: { yellow: 0, red: false },
+    goalsFor: 0,
+    goalsAgainst: 0,
+    lastEventMinute: 0,
+  }
+  if (gk) lm.keeper[idx(userSide)] = s.identity.surname
+  // desconta do λ de fundo o valor esperado dos lances do jogador
+  const ctxOpp = oppStr
+  let eFor = 0
+  let eAgainst = 0
+  for (const pm of plan) {
+    const e = expectedOf(s, pm.situation, ctxOpp, importance)
+    eFor += e.for
+    eAgainst += e.against
+  }
+  const ui = idx(userSide)
+  const lam: [number, number] = [lh, la]
+  lam[ui] = Math.max(0.12, lam[ui] - eFor)
+  lam[1 - ui] = Math.max(0.12, lam[1 - ui] - eAgainst)
+  lm.lambda = lam
+
+  let knockout = false
+  if (f) {
+    const prior = priorAggregate(s, f)
+    lm.decider = !!f.knockout || (f.legs === 2 && f.leg === 2)
+    lm.extraTime = f.extraTime !== false && lm.decider
+    if (f.knockout && f.extraTime === undefined) lm.extraTime = true
+    lm.seedAdvancesOnDraw = f.seedAdvancesOnDraw
+    lm.userSeed = f.userSeed
+    lm.prior = prior
+    knockout = lm.decider
+  }
+  m.live = lm
+
+  const home = teamSide(data, s, userHome ? userTeam : oppId, national, sh)
+  const away = teamSide(data, s, userHome ? oppId : userTeam, national, sa)
+  const possession = clamp(Math.round(50 + (sh - sa) * 0.8 + (neutral ? 0 : 2)), 30, 70)
+  const live: LiveMatch = {
+    itemId: item.id,
+    fixtureKey: item.fixtureKey,
+    competitionId: item.competitionId ?? (national ? 'friendly' : (s.leagueId ?? '')),
+    stage: item.stage,
+    home,
+    away,
+    userSide,
+    userStatus: status,
+    userOnPitch: false,
+    phase: 'pre',
+    minute: 0,
+    score: [0, 0],
+    knockout,
+    events: [],
+    pendingMoment: null,
+    stats: emptyStats(),
+    team: { possession: [possession, 100 - possession], shots: [0, 0], onTarget: [0, 0] },
+    importance,
+  }
+  if (lm.prior) live.aggregate = userHome ? [lm.prior[0], lm.prior[1]] : [lm.prior[1], lm.prior[0]]
+  return live
+}
+
+function planMoments(s: ImmersiveState, r: Rng, pos: Position, onAt: number, importance: number): PlannedMoment[] {
+  if (onAt >= 999) return []
+  const [lo, hi] = N_MOMENTS[pos]
+  let n = r.int(lo, hi)
+  if (r.chance(importance * 0.3)) n++
+  if (onAt > 0) n = Math.max(1, Math.round((n * (90 - onAt)) / 90 + 0.3))
+  const from = onAt === 0 ? 4 : onAt + 2
+  const to = 88
+  const span = Math.max(1, to - from)
+  const mix = MIX[pos]
+  const sits = Object.keys(mix) as KeyMomentSituation[]
+  const out: PlannedMoment[] = []
+  for (let i = 0; i < n; i++) {
+    let minute = Math.round(from + ((i + 0.2 + r.next() * 0.6) / n) * span)
+    if (minute === 45 || minute === 46) minute = 44
+    out.push({ minute: clamp(minute, from, to), situation: r.weighted(sits, (x) => mix[x] ?? 0) })
+  }
+  out.sort((a, b) => a.minute - b.minute)
+  for (let i = 1; i < out.length; i++) if (out[i].minute <= out[i - 1].minute) out[i].minute = Math.min(89, out[i - 1].minute + 2)
+  return out
+}
+
+// ───────────────────────── opções e chances ─────────────────────────
+
+interface OptDef {
+  id: string
+  label: string
+  icon: string
+  base: number
+  attrs: string[]
+  on: MomentOptionSpec['onSuccess']
+  p2?: number
+  card?: number
+  risk?: string
+  rating: [number, number]
+  goal?: boolean
+}
+
+function optionDefs(sit: KeyMomentSituation, tm: string): OptDef[] {
+  const G = GOAL_SCALE
+  switch (sit) {
+    case 'shot':
+      return [
+        { id: 'shoot_placed', label: 'Chutar colocado', icon: 'target', base: 0.3 * G, attrs: ['shooting'], on: 'goal', rating: [1, -0.15], goal: true },
+        { id: 'shoot_power', label: 'Bater forte', icon: 'zap', base: 0.25 * G, attrs: ['shooting', 'physical'], on: 'goal', risk: 'Pode isolar', rating: [1.05, -0.2], goal: true },
+        { id: 'lay_off', label: `Tocar para ${tm}`, icon: 'send', base: 0.62, attrs: ['passing'], on: 'assist_chance', p2: 0.22, rating: [0.2, -0.1] },
+      ]
+    case 'one_on_one':
+      return [
+        { id: 'finish', label: 'Tirar do goleiro', icon: 'target', base: 0.62 * G, attrs: ['shooting'], on: 'goal', rating: [1, -0.3], goal: true },
+        { id: 'round_gk', label: 'Driblar o goleiro', icon: 'zap', base: 0.52 * G, attrs: ['dribbling'], on: 'goal', risk: 'Perde a bola', rating: [1.15, -0.35], goal: true },
+        { id: 'square', label: `Rolar para ${tm}`, icon: 'send', base: 0.66, attrs: ['passing'], on: 'assist_chance', p2: 0.45, rating: [0.3, -0.25] },
+      ]
+    case 'dribble':
+      return [
+        { id: 'take_on', label: 'Partir para cima', icon: 'zap', base: 0.5, attrs: ['dribbling', 'pace'], on: 'follow_shot', risk: 'Contra-ataque', rating: [0.15, -0.12] },
+        { id: 'one_two', label: `Tabelar com ${tm}`, icon: 'repeat', base: 0.54, attrs: ['passing', 'dribbling'], on: 'follow_shot', rating: [0.12, -0.08] },
+        { id: 'win_foul', label: 'Buscar a falta', icon: 'flag', base: 0.45, attrs: ['dribbling'], on: 'foul_won', rating: [0.1, -0.05] },
+      ]
+    case 'pass':
+      return [
+        { id: 'key_pass', label: `Passe para ${tm} na área`, icon: 'send', base: 0.48, attrs: ['passing'], on: 'assist_chance', p2: 0.17, rating: [0.2, -0.1] },
+        { id: 'keep', label: 'Passe seguro', icon: 'shield', base: 0.86, attrs: ['passing'], on: 'chance', rating: [0.05, -0.1] },
+        { id: 'long_shot', label: 'Arriscar de longe', icon: 'target', base: 0.08 * G, attrs: ['shooting'], on: 'goal', risk: 'Perde a posse', rating: [1.1, -0.1], goal: true },
+      ]
+    case 'through_ball':
+      return [
+        { id: 'through', label: `Enfiar para ${tm}`, icon: 'send', base: 0.45, attrs: ['passing'], on: 'assist_chance', p2: 0.21, rating: [0.25, -0.1] },
+        { id: 'switch', label: 'Inverter o jogo', icon: 'arrow-right-left', base: 0.72, attrs: ['passing'], on: 'chance', rating: [0.08, -0.08] },
+        { id: 'long_shot', label: 'Arriscar de longe', icon: 'target', base: 0.08 * G, attrs: ['shooting'], on: 'goal', risk: 'Perde a posse', rating: [1.1, -0.1], goal: true },
+      ]
+    case 'cross':
+      return [
+        { id: 'cross_high', label: 'Cruzar na área', icon: 'send', base: 0.42, attrs: ['passing'], on: 'assist_chance', p2: 0.18, rating: [0.18, -0.08] },
+        { id: 'low_cross', label: 'Cruzamento rasteiro', icon: 'arrow-down-right', base: 0.47, attrs: ['passing'], on: 'assist_chance', p2: 0.17, rating: [0.18, -0.08] },
+        { id: 'cut_back', label: 'Cortar e chutar', icon: 'target', base: 0.12 * G, attrs: ['shooting'], on: 'goal', rating: [1, -0.1], goal: true },
+      ]
+    case 'header':
+      return [
+        { id: 'header_goal', label: 'Cabecear para o gol', icon: 'target', base: 0.26 * G, attrs: ['physical'], on: 'goal', rating: [1, -0.1], goal: true },
+        { id: 'nod_down', label: `Escorar para ${tm}`, icon: 'send', base: 0.5, attrs: ['physical'], on: 'assist_chance', p2: 0.18, rating: [0.18, -0.08] },
+      ]
+    case 'free_kick':
+      return [
+        { id: 'fk_direct', label: 'Bater direto', icon: 'target', base: 0.11 * G, attrs: ['shooting'], on: 'goal', rating: [1.2, -0.05], goal: true },
+        { id: 'fk_cross', label: 'Levantar na área', icon: 'send', base: 0.46, attrs: ['passing'], on: 'assist_chance', p2: 0.18, rating: [0.15, -0.05] },
+      ]
+    case 'penalty':
+      return [
+        { id: 'pen_left', label: 'Canto esquerdo', icon: 'arrow-left', base: 0.77, attrs: ['shooting'], on: 'goal', rating: [0.9, -0.5], goal: true },
+        { id: 'pen_center', label: 'No meio', icon: 'arrow-up', base: 0.7, attrs: ['shooting'], on: 'goal', risk: 'Cavadinha arriscada', rating: [1, -0.6], goal: true },
+        { id: 'pen_right', label: 'Canto direito', icon: 'arrow-right', base: 0.77, attrs: ['shooting'], on: 'goal', rating: [0.9, -0.5], goal: true },
+      ]
+    case 'tackle':
+      return [
+        { id: 'tackle_stand', label: 'Dar o bote', icon: 'shield', base: 0.55, attrs: ['defending'], on: 'stop', p2: 0.3, card: 0.05, rating: [0.3, -0.25] },
+        { id: 'tackle_slide', label: 'Carrinho', icon: 'zap', base: 0.62, attrs: ['defending', 'physical'], on: 'stop', p2: 0.36, card: 0.2, risk: 'Cartão', rating: [0.35, -0.3] },
+        { id: 'jockey', label: 'Acompanhar e fechar', icon: 'move', base: 0.48, attrs: ['defending', 'pace'], on: 'stop', p2: 0.18, rating: [0.25, -0.2] },
+      ]
+    case 'interception':
+      return [
+        { id: 'anticipate', label: 'Antecipar', icon: 'zap', base: 0.52, attrs: ['defending', 'pace'], on: 'stop', p2: 0.38, rating: [0.32, -0.25] },
+        { id: 'cover', label: 'Recuar e cobrir', icon: 'shield', base: 0.62, attrs: ['defending'], on: 'stop', p2: 0.22, rating: [0.25, -0.2] },
+        { id: 'tactical_foul', label: 'Falta tática', icon: 'flag', base: 0.92, attrs: ['defending'], on: 'stop', p2: 0.1, card: 0.7, risk: 'Amarelo quase certo', rating: [0.05, -0.1] },
+      ]
+    case 'block':
+      return [
+        { id: 'body', label: 'Jogar o corpo na frente', icon: 'shield', base: 0.55, attrs: ['physical'], on: 'stop', p2: 0.48, rating: [0.35, -0.3] },
+        { id: 'angle', label: 'Fechar o ângulo', icon: 'move', base: 0.5, attrs: ['defending'], on: 'stop', p2: 0.38, rating: [0.25, -0.25] },
+      ]
+    case 'save':
+      return [
+        { id: 'parry', label: 'Espalmar', icon: 'hand', base: 0.62, attrs: ['reflexes', 'diving'], on: 'save', p2: 0.62, rating: [0.3, -0.35] },
+        { id: 'catch', label: 'Encaixar', icon: 'shield', base: 0.52, attrs: ['handling'], on: 'save', p2: 0.8, rating: [0.35, -0.4] },
+        { id: 'rush', label: 'Sair do gol', icon: 'zap', base: 0.47, attrs: ['positioning', 'diving'], on: 'save', p2: 0.85, risk: 'Gol vazio', rating: [0.45, -0.45] },
+      ]
+    case 'penalty_save':
+      return [
+        { id: 'dive_left', label: 'Pular à esquerda', icon: 'arrow-left', base: 0.26, attrs: ['diving'], on: 'save', p2: 1, rating: [1, -0.1] },
+        { id: 'stay', label: 'Ficar no meio', icon: 'arrow-up', base: 0.16, attrs: ['reflexes'], on: 'save', p2: 1, rating: [1, -0.1] },
+        { id: 'dive_right', label: 'Pular à direita', icon: 'arrow-right', base: 0.26, attrs: ['diving'], on: 'save', p2: 1, rating: [1, -0.1] },
+      ]
+  }
+}
+
+function attrAvg(s: ImmersiveState, keys: string[]): number {
+  const gk = isGK(s.identity.position)
+  let t = 0
+  for (const k of keys) {
+    // goleiro em lance de linha (ou vice-versa) usa um valor baixo
+    const has = k in (s.attributes as object)
+    t += has ? attr(s.attributes, k as never) : gk ? 35 : 40
+  }
+  return t / keys.length
+}
+
+function optionChance(s: ImmersiveState, d: OptDef, oppStr: number, importance: number, fitness: number, penalty = false): number {
+  const c = s.condition
+  const a = attrAvg(s, d.attrs)
+  const pressure = importance * 0.06 * (1 - composure(s))
+  if (d.goal && !penalty) {
+    // finalizações: efeitos relativos (uma chance baixa não some com um adversário forte)
+    const rel = (fitness - 70) * 0.004 + (c.form - 50) * 0.003 + (c.sharpness - 60) * 0.002 + (c.morale - 60) * 0.002
+    const mult = clamp(1 + (a - 70) * 0.02 + rel - (oppStr - 72) * 0.025 - pressure * 2.5, 0.35, 1.9)
+    return clamp(d.base * mult, 0.02, 0.9)
+  }
+  const cond = (fitness - 70) * 0.0015 + (c.form - 50) * 0.0012 + (c.sharpness - 60) * 0.0008 + (c.morale - 60) * 0.0008
+  const attrW = penalty ? 0.003 : 0.006
+  const oppEff = penalty ? 0.002 : 0.006
+  const v = d.base + (a - 70) * attrW + cond - (oppStr - 72) * oppEff - pressure
+  return clamp(v, 0.04, 0.95)
+}
+
+/** Valor esperado de um lance (gols a favor e contra) com a melhor opção — calibra o λ de fundo. */
+function expectedOf(s: ImmersiveState, sit: KeyMomentSituation, oppStr: number, importance: number): { for: number; against: number } {
+  const defs = optionDefs(sit, '')
+  const fit = s.condition.fitness - 10
+  let bestFor = 0
+  let bestAgainst = Infinity
+  for (const d of defs) {
+    const ch = optionChance(s, d, oppStr, importance, fit, sit === 'penalty')
+    if (d.on === 'goal') bestFor = Math.max(bestFor, ch)
+    else if (d.on === 'assist_chance') bestFor = Math.max(bestFor, ch * (d.p2 ?? 0.3))
+    else if (d.on === 'follow_shot') bestFor = Math.max(bestFor, ch * 0.12)
+    else if (d.on === 'foul_won') bestFor = Math.max(bestFor, ch * 0.12)
+    if (d.on === 'stop' || d.on === 'save') bestAgainst = Math.min(bestAgainst, (1 - ch) * (d.p2 ?? 0.4))
+  }
+  if (!DEFENSIVE.has(sit)) return { for: bestFor, against: 0 }
+  // lances defensivos representam um ataque do adversário que viraria gol às vezes
+  return { for: 0, against: bestAgainst === Infinity ? 0 : bestAgainst + (sit === 'save' ? 0.12 : 0.08) }
+}
+
+// ───────────────────────── eventos ─────────────────────────
+
+function at(side: Side, zone: 'goal' | 'box' | 'mid' | 'bench', r: Rng): { x: number; y: number } {
+  const right = side === 'home'
+  if (zone === 'goal') return { x: right ? r.int(88, 97) : r.int(3, 12), y: r.int(38, 62) }
+  if (zone === 'box') return { x: right ? r.int(76, 92) : r.int(8, 24), y: r.int(24, 76) }
+  if (zone === 'bench') return { x: 50, y: 99 }
+  return { x: r.int(30, 70), y: r.int(12, 88) }
+}
+
+function push(s: ImmersiveState, live: LiveMatch, e: MatchEvent, fx: ImmersiveEffect[]) {
+  live.events.push(e)
+  fx.push({ type: 'match_event', event: e })
+  const i = idx(e.side)
+  if (e.type === 'goal' || e.type === 'penalty_goal') {
+    live.score[i]++
+    live.team.shots[i]++
+    live.team.onTarget[i]++
+  } else if (e.type === 'own_goal') live.score[i]++
+  else if (e.type === 'chance' || e.type === 'woodwork') live.team.shots[i]++
+  else if (e.type === 'save') {
+    live.team.shots[i]++
+    live.team.onTarget[i]++
+  }
+  // nota: gols com o jogador em campo
+  if ((e.type === 'goal' || e.type === 'penalty_goal' || e.type === 'own_goal') && live.userOnPitch && live.phase !== 'penalties') {
+    const lm = mem(s).live!
+    const pos = s.identity.position
+    const def = pos === 'GOL' || pos === 'ZAG' || pos === 'LD' || pos === 'LE' || pos === 'VOL'
+    if (e.side === live.userSide) {
+      lm.goalsFor++
+      if (!e.byUser) live.stats.rating = r1(clamp(live.stats.rating + 0.08, 3, 10))
+    } else {
+      lm.goalsAgainst++
+      if (isGK(pos)) live.stats.conceded = (live.stats.conceded ?? 0) + 1
+      live.stats.rating = r1(clamp(live.stats.rating - (def ? 0.1 : 0.04), 3, 10))
+    }
+  }
+}
+
+function teamName(live: LiveMatch, side: Side): string {
+  return side === 'home' ? live.home.shortName : live.away.shortName
+}
+
+function pickName(lm: LiveMem, live: LiveMatch, side: Side, r: Rng): string {
+  const list = side === live.userSide ? lm.teammates : lm.opponents
+  return r.pick(list.slice(0, Math.max(1, Math.min(list.length, 8))))
+}
+
+// ───────────────────────── simulação ─────────────────────────
+
+export function kickoff(s: ImmersiveState, fx: ImmersiveEffect[]) {
+  const live = s.live!
+  const lm = mem(s).live!
+  live.phase = 'first_half'
+  live.minute = 0
+  if (lm.onAt === 0) live.userOnPitch = true
+  const r = irng(s, 'live', lm.itemId, 'kickoff')
+  push(s, live, { minute: 0, type: 'kickoff', side: 'home', text: say(r, T.kickoff, { h: live.home.shortName, aw: live.away.shortName, st: live.stage ? ` · ${live.stage}` : '' }), at: { x: 50, y: 50 } }, fx)
+}
+
+type Stop = 'moment' | 'half' | 'end' | 'continue'
+
+/** Anda até o próximo lance-chave, intervalo ou fim. */
+export function simulate(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[]): Stop {
+  const live = s.live!
+  const lm = mem(s).live!
+  if (live.phase === 'pre') {
+    kickoff(s, fx)
+    return 'continue'
+  }
+  if (live.pendingMoment) return 'moment'
+  if (live.phase === 'full_time') return 'end'
+  if (live.phase === 'half_time') {
+    live.phase = 'second_half'
+    live.minute = 45
+    const r = irng(s, 'live', lm.itemId, 'second')
+    push(s, live, { minute: 46, type: 'kickoff', side: 'away', text: say(r, T.secondHalf), at: { x: 50, y: 50 } }, fx)
+  }
+  if (live.phase === 'penalties') return shootoutStep(data, s, fx)
+  const end = live.phase === 'first_half' ? 45 : live.phase === 'second_half' ? 90 : 120
+  for (let t = live.minute + 1; t <= end; t++) {
+    live.minute = t
+    minute(data, s, t, fx)
+    const pm = lm.plan[lm.momentIdx]
+    if (live.userOnPitch && pm && pm.minute <= t) {
+      openMoment(data, s, pm, fx)
+      return 'moment'
+    }
+    // lances planejados enquanto ele não estava em campo são descartados
+    while (!live.userOnPitch && lm.plan[lm.momentIdx] && lm.plan[lm.momentIdx].minute <= t) lm.momentIdx++
+  }
+  return endOfPeriod(data, s, fx)
+}
+
+function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffect[]) {
+  const live = s.live!
+  const lm = mem(s).live!
+  const r = irng(s, 'live', lm.itemId, live.phase, t)
+  const us = live.userSide
+  // entrada do banco
+  if (!live.userOnPitch && lm.onAt === t && lm.offAt === undefined) {
+    live.userOnPitch = true
+    lm.startMinute = t
+    live.stats.rating = 6
+    const off = lm.teammates[Math.min(lm.teammates.length - 1, 6)] ?? 'um companheiro'
+    push(s, live, { minute: t, type: 'sub_on', side: us, byUser: true, player: s.identity.surname, assist: off, text: say(r, T.userSubOn, { p: s.identity.surname, a: off }), at: at(us, 'bench', r) }, fx)
+  }
+  // energia ao vivo e lesão
+  if (live.userOnPitch) {
+    const phys = isGK(s.identity.position) ? 70 : attr(s.attributes, 'physical')
+    lm.fitness = clamp(lm.fitness - (isGK(s.identity.position) ? 0.1 : 0.3 * (1.3 - phys / 150)), 0, 100)
+    const injP = 0.00012 * (lm.fitness < 40 ? 3 : 1) * (live.phase === 'extra_time' ? 1.5 : 1)
+    if (r.chance(injP)) {
+      lm.injured = true
+      push(s, live, { minute: t, type: 'injury', side: us, byUser: true, player: s.identity.surname, text: say(r, T.injury, { p: s.identity.surname }), at: at(us, 'mid', r) }, fx)
+      userOff(s, t, fx, 'injury')
+    } else if (live.userStatus === 'starter' && t >= 58 && t <= 88 && lm.fitness < 42 && !isGK(s.identity.position) && r.chance(0.12)) {
+      userOff(s, t, fx, 'coach')
+    }
+  }
+  // gols de fundo
+  const reds = [live.events.some((e) => e.type === 'red' && e.side === 'home'), live.events.some((e) => e.type === 'red' && e.side === 'away')]
+  const etMult = live.phase === 'extra_time' ? MATCH.extraTime * 3 : 1
+  for (const side of ['home', 'away'] as Side[]) {
+    const i = idx(side)
+    let lam = lm.lambda[i] * etMult
+    if (reds[i]) lam *= 0.75
+    if (reds[1 - i]) lam *= 1.2
+    if (r.chance(lam / 90)) {
+      const scorer = pickName(lm, live, side, r)
+      const list = side === us ? lm.teammates : lm.opponents
+      const others = list.filter((x) => x !== scorer)
+      const assist = others.length && r.chance(0.6) ? r.pick(others.slice(0, 8)) : undefined
+      const tpl = (side === us ? T.goalTeam : T.goalOpp).filter((x) => assist || !x.includes('{a}'))
+      const text = say(r, tpl, { t: teamName(live, side), p: scorer, a: assist, g: lm.keeper[1 - i] })
+      push(s, live, { minute: t, type: 'goal', side, player: scorer, assist, text, at: at(side, 'goal', r) }, fx)
+      if (r.chance(0.06)) push(s, live, { minute: t, type: 'var', side, text: say(r, T.var), at: { x: 50, y: 50 } }, fx)
+    }
+  }
+  // lances de enfeite (chances, defesas, trave, cartões, substituições)
+  const tot = lm.lambda[0] + lm.lambda[1] || 1
+  if (r.chance(0.07)) {
+    const side: Side = r.chance(lm.lambda[0] / tot) ? 'home' : 'away'
+    const p = pickName(lm, live, side, r)
+    const roll = r.next()
+    if (roll < 0.55) push(s, live, { minute: t, type: 'chance', side, player: p, text: say(r, T.chance, { p, t: teamName(live, side) }), at: at(side, 'box', r) }, fx)
+    else if (roll < 0.93) push(s, live, { minute: t, type: 'save', side, player: p, text: say(r, T.save, { p, g: lm.keeper[1 - idx(side)] }), at: at(side, 'box', r) }, fx)
+    else push(s, live, { minute: t, type: 'woodwork', side, player: p, text: say(r, T.woodwork, { p }), at: at(side, 'goal', r) }, fx)
+  }
+  if (r.chance(0.035)) {
+    const side: Side = r.chance(0.5) ? 'home' : 'away'
+    const p = pickName(lm, live, side, r)
+    push(s, live, { minute: t, type: 'yellow', side, player: p, text: say(r, T.yellow, { p, t: teamName(live, side) }), at: at(side, 'mid', r) }, fx)
+  }
+  if (r.chance(0.0012)) {
+    const side: Side = r.chance(0.5) ? 'home' : 'away'
+    const p = pickName(lm, live, side, r)
+    push(s, live, { minute: t, type: 'red', side, player: p, text: say(r, T.red, { p, t: teamName(live, side) }), at: at(side, 'mid', r) }, fx)
+  }
+  if (t >= 58 && t <= 88 && live.phase === 'second_half') {
+    for (const side of ['home', 'away'] as Side[]) {
+      const i = idx(side)
+      if (lm.subsDone[i] < 4 && r.chance(0.08)) {
+        lm.subsDone[i]++
+        const list = side === us ? lm.teammates : lm.opponents
+        const on = list[list.length - 1 - (lm.subsDone[i] % Math.max(1, list.length))] ?? 'reserva'
+        const off = list[(lm.subsDone[i] * 3) % Math.max(1, list.length)] ?? 'titular'
+        push(s, live, { minute: t, type: 'sub_on', side, player: on, assist: off, text: say(r, T.subOn, { p: on, a: off, t: teamName(live, side) }), at: at(side, 'bench', r) }, fx)
+      }
+    }
+  }
+  // posse de bola oscila
+  const drift = Math.round(r.normal(0, 0.6))
+  const ph = clamp(live.team.possession[0] + drift, 28, 72)
+  live.team.possession = [ph, 100 - ph]
+}
+
+function userOff(s: ImmersiveState, t: number, fx: ImmersiveEffect[], why: 'coach' | 'injury' | 'ask' | 'red') {
+  const live = s.live!
+  const lm = mem(s).live!
+  if (!live.userOnPitch) return
+  live.userOnPitch = false
+  lm.offAt = t
+  live.stats.minutes = Math.max(0, t - lm.startMinute)
+  if (why === 'red') return
+  const r = irng(s, 'live', lm.itemId, 'off', t)
+  const on = lm.teammates[lm.teammates.length - 1] ?? 'um reserva'
+  const text = say(r, why === 'ask' ? T.userAskOff : T.userSubOff, { p: s.identity.surname, a: on })
+  push(s, live, { minute: t, type: 'sub_off', side: live.userSide, byUser: true, player: s.identity.surname, assist: on, text, at: at(live.userSide, 'bench', r) }, fx)
+}
+
+export function requestSub(s: ImmersiveState, fx: ImmersiveEffect[]): boolean {
+  const live = s.live
+  if (!live || !live.userOnPitch || live.phase === 'full_time' || live.phase === 'penalties' || live.phase === 'pre') return false
+  userOff(s, live.minute, fx, 'ask')
+  const lm = mem(s).live!
+  lm.plan = lm.plan.slice(0, lm.momentIdx)
+  return true
+}
+
+function aggregateTied(live: LiveMatch, lm: LiveMem): 'tied' | 'user' | 'opp' {
+  const ui = idx(live.userSide)
+  let u = live.score[ui]
+  let o = live.score[1 - ui]
+  if (lm.prior) {
+    u += lm.prior[0]
+    o += lm.prior[1]
+  }
+  return u === o ? 'tied' : u > o ? 'user' : 'opp'
+}
+
+function endOfPeriod(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[]): Stop {
+  const live = s.live!
+  const lm = mem(s).live!
+  const r = irng(s, 'live', lm.itemId, 'end', live.phase)
+  const vars = { h: live.home.shortName, aw: live.away.shortName, s: `${live.score[0]}–${live.score[1]}` }
+  if (live.phase === 'first_half') {
+    live.phase = 'half_time'
+    push(s, live, { minute: 45, addedTime: r.int(1, 4), type: 'half_time', side: 'home', text: say(r, T.halfTime, vars), at: { x: 50, y: 50 } }, fx)
+    return 'half'
+  }
+  if (live.phase === 'second_half' && lm.decider && aggregateTied(live, lm) === 'tied' && !lm.seedAdvancesOnDraw) {
+    if (lm.extraTime) {
+      live.phase = 'extra_time'
+      live.minute = 90
+      push(s, live, { minute: 90, addedTime: r.int(2, 6), type: 'kickoff', side: 'home', text: say(r, T.extraTime), at: { x: 50, y: 50 } }, fx)
+      // um lance extra na prorrogação para quem está em campo
+      if (live.userOnPitch) {
+        const pos = s.identity.position
+        const mix = MIX[pos]
+        const sits = Object.keys(mix) as KeyMomentSituation[]
+        lm.plan.push({ minute: r.int(95, 117), situation: r.weighted(sits, (x) => mix[x] ?? 0) })
+      }
+      return 'continue'
+    }
+    return startShootout(s, fx)
+  }
+  if (live.phase === 'extra_time' && lm.decider && aggregateTied(live, lm) === 'tied' && !lm.seedAdvancesOnDraw) return startShootout(s, fx)
+  finishRegulation(s, fx)
+  return 'end'
+}
+
+function finishRegulation(s: ImmersiveState, fx: ImmersiveEffect[]) {
+  const live = s.live!
+  const lm = mem(s).live!
+  const r = irng(s, 'live', lm.itemId, 'ft')
+  live.phase = 'full_time'
+  if (live.userOnPitch) live.stats.minutes = Math.max(0, live.minute - lm.startMinute)
+  const [h, a] = live.score
+  const vars: Record<string, string> = { h: live.home.shortName, aw: live.away.shortName, s: `${h}–${a}` }
+  let text: string
+  if (live.pens) {
+    vars.w = live.pens[0] > live.pens[1] ? live.home.shortName : live.away.shortName
+    vars.pens = `${live.pens[0]}–${live.pens[1]}`
+    text = say(r, T.fullTimePens, vars)
+  } else if (h === a) text = say(r, T.fullTimeDraw, vars)
+  else {
+    vars.w = h > a ? live.home.shortName : live.away.shortName
+    text = say(r, T.fullTimeWin, vars)
+  }
+  push(s, live, { minute: live.minute, addedTime: r.int(2, 6), type: 'full_time', side: 'home', text, at: { x: 50, y: 50 } }, fx)
+}
+
+// ───────────────────────── pênaltis ─────────────────────────
+
+function startShootout(s: ImmersiveState, fx: ImmersiveEffect[]): Stop {
+  const live = s.live!
+  const lm = mem(s).live!
+  const r = irng(s, 'live', lm.itemId, 'pens-setup')
+  live.phase = 'penalties'
+  live.pens = [0, 0]
+  if (live.userOnPitch) live.stats.minutes = Math.max(0, live.minute - lm.startMinute)
+  const outfield = !isGK(s.identity.position)
+  lm.shootout = { h: 0, a: 0, k: 0 }
+  if (live.userOnPitch && outfield) lm.shootout.userKick = r.pick([0, 2, 4])
+  push(s, live, { minute: live.minute, type: 'full_time', side: 'home', text: 'Empate! A vaga será decidida nos pênaltis.', at: { x: 50, y: 50 } }, fx)
+  return 'continue'
+}
+
+/** Cobra pênaltis até um lance do jogador ou o fim. Ordem: mandante, visitante, … */
+function shootoutStep(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[]): Stop {
+  const live = s.live!
+  const lm = mem(s).live!
+  const so = lm.shootout!
+  for (let guard = 0; guard < 60; guard++) {
+    if (shootoutOver(so)) {
+      live.pens = [so.h, so.a]
+      finishRegulation(s, fx)
+      return 'end'
+    }
+    const side: Side = so.k % 2 === 0 ? 'home' : 'away'
+    const round = Math.floor(so.k / 2)
+    const r = irng(s, 'live', lm.itemId, 'pen', so.k)
+    const userKicks = side === live.userSide && so.userKick === round && !so.userDone && live.userOnPitch
+    const userSaves = side !== live.userSide && isGK(s.identity.position) && live.userOnPitch && round < 5
+    if (userKicks || userSaves) {
+      openMoment(data, s, { minute: live.minute, situation: userKicks ? 'penalty' : 'penalty_save' }, fx, true)
+      return 'moment'
+    }
+    const scored = r.chance(MATCH.penalty)
+    const p = pickName(lm, live, side, r)
+    recordKick(s, side, scored, p, fx, r)
+  }
+  live.pens = [so.h, so.a]
+  finishRegulation(s, fx)
+  return 'end'
+}
+
+function shootoutOver(so: NonNullable<LiveMem['shootout']>): boolean {
+  const kh = Math.ceil(so.k / 2)
+  const ka = Math.floor(so.k / 2)
+  if (so.k < 10) {
+    const leftH = 5 - kh
+    const leftA = 5 - ka
+    return so.h > so.a + leftA || so.a > so.h + leftH
+  }
+  return so.k % 2 === 0 && so.h !== so.a
+}
+
+function recordKick(s: ImmersiveState, side: Side, scored: boolean, player: string, fx: ImmersiveEffect[], r: Rng) {
+  const live = s.live!
+  const lm = mem(s).live!
+  const so = lm.shootout!
+  if (scored) {
+    if (side === 'home') so.h++
+    else so.a++
+  }
+  so.k++
+  live.pens = [so.h, so.a]
+  const g = lm.keeper[1 - idx(side)]
+  live.events.push({
+    minute: live.minute,
+    type: scored ? 'penalty_goal' : 'penalty_miss',
+    side,
+    player,
+    text: `${say(r, scored ? T.penaltyGoal : T.penaltyMiss, { p: player, g })} (${so.h}–${so.a})`,
+    at: at(side, 'goal', r),
+  })
+  fx.push({ type: 'match_event', event: live.events[live.events.length - 1] })
+}
+
+// ───────────────────────── lances-chave ─────────────────────────
+
+function openMoment(data: GameData, s: ImmersiveState, pm: PlannedMoment, fx: ImmersiveEffect[], shootout = false) {
+  const live = s.live!
+  const lm = mem(s).live!
+  const r = irng(s, 'live', lm.itemId, 'moment', lm.momentIdx, live.phase, shootout ? lm.shootout?.k ?? 0 : 0)
+  const us = live.userSide
+  const oppStr = us === 'home' ? live.away.strength : live.home.strength
+  const tm = r.pick(lm.teammates.slice(0, 8))
+  const op = r.pick(lm.opponents.slice(0, 8))
+  const defs = optionDefs(pm.situation, tm)
+  const pen = pm.situation === 'penalty' || pm.situation === 'penalty_save'
+  const specs: MomentOptionSpec[] = []
+  const options: KeyMomentOption[] = []
+  for (const d of defs) {
+    let ch = optionChance(s, d, oppStr, live.importance + (shootout ? 0.3 : 0), lm.fitness, pen)
+    if (pm.situation === 'penalty') ch = penaltyExpected(d.id, ch)
+    ch = Math.round(ch * 100) / 100
+    specs.push({ id: d.id, chance: ch, onSuccess: d.on, p2: d.p2, card: d.card, rating: d.rating, label: d.label })
+    const o: KeyMomentOption = { id: d.id, label: d.label, chance: ch, icon: d.icon }
+    if (d.risk) o.risk = d.risk
+    if (d.on === 'assist_chance') o.detail = `Passe · ${Math.round((d.p2 ?? 0.3) * 100)}% de virar gol`
+    else if (d.on === 'goal') o.detail = 'Finalização'
+    else if (d.on === 'stop' || d.on === 'save') o.detail = `Se falhar: ${Math.round((d.p2 ?? 0.4) * 100)}% de gol deles`
+    else if (d.on === 'follow_shot') o.detail = 'Abre espaço para finalizar'
+    options.push(o)
+  }
+  const minigame: KeyMoment['minigame'] =
+    pm.situation === 'penalty' ? 'penalty_kick' : pm.situation === 'penalty_save' ? 'penalty_save' : pm.situation === 'free_kick' || (pm.situation === 'shot' && r.chance(0.3)) ? 'timing' : undefined
+  const desc = MOMENT_DESC[pm.situation] ?? ['Lance importante!']
+  const score = live.score[idx(us)] === live.score[1 - idx(us)] ? 'Jogo empatado' : live.score[idx(us)] > live.score[1 - idx(us)] ? 'Vocês vencem' : 'Vocês perdem'
+  const oppName = us === 'home' ? live.away.shortName : live.home.shortName
+  const description = `${say(r, desc, { a: tm, d: op, g: lm.keeper[1 - idx(us)], o: oppName })} ${shootout ? `Disputa por pênaltis: ${live.pens?.[0] ?? 0}–${live.pens?.[1] ?? 0}.` : `${score}, ${live.minute}'.`}`
+  const id = `${lm.itemId}:k${lm.momentIdx}:${shootout ? `p${lm.shootout?.k ?? 0}` : live.minute}`
+  const km: KeyMoment = {
+    id,
+    minute: live.minute,
+    situation: pm.situation,
+    description,
+    options,
+    timeLimitMs: pen ? 9000 : live.importance >= 0.8 ? 7000 : 8000,
+    at: DEFENSIVE.has(pm.situation) ? at(opp(us), 'box', r) : at(us, 'box', r),
+  }
+  if (minigame) km.minigame = minigame
+  lm.pending = { id, situation: pm.situation, options: specs, teammate: tm, opponent: op, minigame }
+  live.pendingMoment = km
+  fx.push({ type: 'key_moment', moment: km })
+}
+
+const KEEPER_DIVE: [number, number, number] = [0.42, 0.16, 0.42] // esquerda, meio, direita
+
+function penaltyExpected(id: string, base: number): number {
+  // canto certo do goleiro: defende 70% (meio: 85%); canto errado: ~7% de erro
+  const side = id === 'pen_left' ? 0 : id === 'pen_center' ? 1 : 2
+  const pGuess = KEEPER_DIVE[side]
+  const saveIfGuess = side === 1 ? 0.85 : 0.7
+  const quality = clamp(base / 0.77, 0.85, 1.15)
+  return clamp((1 - pGuess) * 0.93 * quality + pGuess * (1 - saveIfGuess), 0.3, 0.95)
+}
+
+export type AiMode = 'safe' | 'smart'
+
+/** Escolha automática: "segura" (maior chance) ou "esperta" (maior valor esperado). */
+export function aiChoice(spec: MomentSpec, mode: AiMode, r?: Rng): string {
+  let best = spec.options[0]
+  let bestV = -Infinity
+  for (const o of spec.options) {
+    let v = o.chance
+    if (mode === 'smart') {
+      if (o.onSuccess === 'goal') v = o.chance * 1.0
+      else if (o.onSuccess === 'assist_chance') v = o.chance * (o.p2 ?? 0.3) * 0.7
+      else if (o.onSuccess === 'follow_shot') v = o.chance * 0.12
+      else if (o.onSuccess === 'foul_won') v = o.chance * 0.13
+      else if (o.onSuccess === 'chance') v = o.chance * 0.04
+      else v = o.chance - (o.card ?? 0) * 0.25 - (1 - o.chance) * (o.p2 ?? 0.4) * 0.5
+      if (r) v *= r.range(0.85, 1.15)
+    }
+    if (v > bestV) {
+      bestV = v
+      best = o
+    }
+  }
+  return best.id
+}
+
+/** Resolve o lance pendente. `optionId` null = tempo esgotado (IA segura). */
+export function resolveMoment(
+  data: GameData,
+  s: ImmersiveState,
+  optionId: string | null,
+  mini: { side?: 'left' | 'center' | 'right'; timing?: number } | undefined,
+  fx: ImmersiveEffect[],
+  mode: AiMode = 'safe',
+): boolean {
+  const live = s.live
+  const lm = mem(s).live
+  if (!live || !lm || !live.pendingMoment || !lm.pending) return false
+  const spec = lm.pending
+  let optId = optionId && spec.options.some((o) => o.id === optionId) ? optionId : aiChoice(spec, mode, irng(s, 'live', lm.itemId, 'ai', spec.id))
+  // minijogo de pênalti: o lado escolhido manda
+  if (mini?.side && (spec.situation === 'penalty' || spec.situation === 'penalty_save')) {
+    optId = spec.situation === 'penalty' ? `pen_${mini.side}` : mini.side === 'center' ? 'stay' : `dive_${mini.side}`
+  }
+  const o = spec.options.find((x) => x.id === optId) ?? spec.options[0]
+  const r = irng(s, 'live', lm.itemId, 'resolve', spec.id)
+  const u = r.next()
+  const us = live.userSide
+  const them = opp(us)
+  const me = s.identity.surname
+  const big = live.importance >= 0.8
+  const inShootout = live.phase === 'penalties'
+  let success: boolean
+  let goal = false
+  let text = ''
+  const add = (type: MatchEventType, side: Side, extra: Partial<MatchEvent> = {}) => {
+    const e: MatchEvent = { minute: live.minute, type, side, text: extra.text ?? text, at: extra.at ?? at(side, type === 'goal' ? 'goal' : 'box', r), ...extra }
+    push(s, live, e, fx)
+  }
+
+  if (spec.situation === 'penalty') {
+    const side = o.id === 'pen_left' ? 0 : o.id === 'pen_center' ? 1 : 2
+    const dive = r.weighted([0, 1, 2], (i) => KEEPER_DIVE[i])
+    const q = clamp(o.chance / penaltyExpected(o.id, 0.77), 0.8, 1.2)
+    success = dive === side ? r.chance(side === 1 ? 0.15 : 0.3) : r.chance(clamp(0.93 * q, 0.6, 0.99))
+  } else if (spec.situation === 'penalty_save') {
+    const side = o.id === 'dive_left' ? 0 : o.id === 'stay' ? 1 : 2
+    const shot = r.weighted([0, 1, 2], (i) => KEEPER_DIVE[i])
+    success = shot === side ? r.chance(clamp(0.55 + (attr(s.attributes, 'diving') - 70) * 0.01, 0.35, 0.8)) : r.chance(0.07)
+  } else {
+    let ch = o.chance
+    if (spec.minigame === 'timing' && mini?.timing !== undefined && o.onSuccess === 'goal') {
+      ch = clamp(ch * clamp(1.3 - Math.abs(mini.timing - 0.62) * 2.2, 0.5, 1.35), 0.02, 0.97)
+    }
+    success = u < ch
+  }
+
+  const rating = (d: number) => {
+    live.stats.rating = r1(clamp(live.stats.rating + d, 3, 10))
+  }
+
+  if (inShootout) {
+    const so = lm.shootout!
+    if (spec.situation === 'penalty') {
+      so.userDone = true
+      live.stats.shots++
+      if (success) live.stats.shotsOnTarget++
+      recordKick(s, us, success, me, fx, r)
+      text = success ? 'Converteu! Frieza total.' : 'Perdeu! O goleiro adivinhou.'
+      rating(success ? 0.3 : -0.5)
+    } else {
+      recordKick(s, them, !success, spec.opponent, fx, r)
+      if (success) {
+        live.stats.saves = (live.stats.saves ?? 0) + 1
+        rating(0.5)
+      }
+      text = success ? 'DEFENDEU! Pulou no canto certo!' : 'Gol deles.'
+    }
+    fx.push({ type: 'moment_result', success, text, goal: spec.situation === 'penalty' && success })
+    finishMoment(s)
+    return true
+  }
+
+  switch (o.onSuccess) {
+    case 'goal': {
+      live.stats.shots++
+      if (success) {
+        goal = true
+        live.stats.shotsOnTarget++
+        live.stats.goals++
+        text = spec.situation === 'penalty' ? say(r, T.penaltyGoal, { p: me, g: lm.keeper[idx(them)] }) : say(r, T.goalUser, { p: me, P: me.toUpperCase() })
+        add(spec.situation === 'penalty' ? 'penalty_goal' : 'goal', us, { byUser: true, player: me, text })
+        rating(o.rating[0] + (big ? 0.2 : 0))
+        text = r.pick(RESULT_TEXT.goal)
+      } else {
+        const roll = r.next()
+        if (spec.situation === 'penalty') {
+          text = say(r, T.penaltyMiss, { p: me, g: lm.keeper[idx(them)] })
+          add('penalty_miss', us, { byUser: true, player: me, text })
+        } else if (roll < 0.45) {
+          live.stats.shotsOnTarget++
+          text = say(r, T.save, { p: me, g: lm.keeper[idx(them)] })
+          add('save', us, { byUser: true, player: me, text })
+        } else if (roll < 0.9) {
+          text = say(r, T.chance, { p: me, t: teamName(live, us) })
+          add('chance', us, { byUser: true, player: me, text })
+        } else {
+          text = say(r, T.woodwork, { p: me })
+          add('woodwork', us, { byUser: true, player: me, text })
+        }
+        rating(o.rating[1])
+        text = spec.situation === 'penalty' ? 'Perdeu o pênalti!' : r.pick(RESULT_TEXT.miss)
+      }
+      break
+    }
+    case 'assist_chance': {
+      if (success) {
+        live.stats.keyPasses++
+        const mate = spec.teammate
+        if (r.chance(o.p2 ?? 0.3)) {
+          goal = true
+          live.stats.assists++
+          text = say(r, T.goalAssistUser, { p: mate, a: me, t: teamName(live, us) })
+          add('goal', us, { player: mate, assist: me, byUser: true, text })
+          rating(0.7 + (big ? 0.1 : 0))
+          text = r.pick(RESULT_TEXT.assist)
+        } else {
+          text = say(r, r.chance(0.5) ? T.save : T.chance, { p: mate, g: lm.keeper[idx(them)], t: teamName(live, us) })
+          add(r.chance(0.5) ? 'save' : 'chance', us, { player: mate, assist: me, text })
+          rating(o.rating[0])
+          text = r.pick(RESULT_TEXT.chance)
+        }
+      } else {
+        rating(o.rating[1])
+        text = r.pick(RESULT_TEXT.passFail)
+        add('key_moment', us, { byUser: true, player: me, text: `${me} tenta o passe, mas ${spec.opponent} intercepta.` })
+      }
+      break
+    }
+    case 'chance': {
+      rating(success ? o.rating[0] : o.rating[1])
+      text = success ? 'Posse mantida, o time avança.' : r.pick(RESULT_TEXT.passFail)
+      add('key_moment', us, { byUser: true, player: me, text: success ? `${me} gira o jogo com qualidade.` : `${me} erra o passe e o ${teamName(live, them)} recupera.` })
+      break
+    }
+    case 'follow_shot':
+    case 'foul_won': {
+      if (success) {
+        if (o.onSuccess === 'follow_shot') live.stats.dribbles++
+        rating(o.rating[0])
+        let next: KeyMomentSituation
+        if (o.onSuccess === 'foul_won') next = r.chance(0.22) ? 'penalty' : 'free_kick'
+        else next = r.chance(0.3) ? 'one_on_one' : 'shot'
+        lm.plan.splice(lm.momentIdx + 1, 0, { minute: Math.min(live.minute + 1, live.phase === 'first_half' ? 45 : live.phase === 'extra_time' ? 120 : 90), situation: next, chained: true })
+        text = o.onSuccess === 'foul_won' ? (next === 'penalty' ? 'Derrubado na área: PÊNALTI!' : 'Falta sofrida em boa posição!') : r.pick(RESULT_TEXT.dribbleOk)
+        add('key_moment', us, { byUser: true, player: me, text: o.onSuccess === 'foul_won' ? `${me} é derrubado por ${spec.opponent}. ${next === 'penalty' ? 'Pênalti!' : 'Falta perigosa.'}` : `${me} passa por ${spec.opponent} e ganha espaço.` })
+      } else {
+        rating(o.rating[1])
+        text = r.pick(RESULT_TEXT.dribbleFail)
+        add('key_moment', us, { byUser: true, player: me, text: `${spec.opponent} desarma ${me}.` })
+      }
+      break
+    }
+    case 'stop':
+    case 'save': {
+      if (success) {
+        if (o.onSuccess === 'save') {
+          live.stats.saves = (live.stats.saves ?? 0) + 1
+          text = r.pick(RESULT_TEXT.save)
+          add('save', them, { player: spec.opponent, text: say(r, T.save, { p: spec.opponent, g: me }), byUser: true })
+        } else {
+          live.stats.tackles++
+          text = r.pick(RESULT_TEXT.stop)
+          add('key_moment', us, { byUser: true, player: me, text: `${me} desarma ${spec.opponent}. ${text}` })
+        }
+        rating(o.rating[0])
+      } else {
+        rating(o.rating[1])
+        if (r.chance(o.p2 ?? 0.4)) {
+          text = say(r, T.goalOpp, { p: spec.opponent, t: teamName(live, them) })
+          add('goal', them, { player: spec.opponent, text })
+          text = o.onSuccess === 'save' ? r.pick(RESULT_TEXT.concede) : 'Passou… e foi gol deles.'
+        } else {
+          text = say(r, T.chance, { p: spec.opponent, t: teamName(live, them) })
+          add('chance', them, { player: spec.opponent, text })
+          text = o.onSuccess === 'save' ? 'Não segurou, mas a bola foi para fora.' : r.pick(RESULT_TEXT.stopFail)
+        }
+      }
+      // cartão
+      if ((o.card ?? 0) > 0 && r.chance(o.card!)) cardUser(s, fx, r)
+      break
+    }
+  }
+  fx.push({ type: 'moment_result', success, text, goal })
+  finishMoment(s)
+  return true
+}
+
+function cardUser(s: ImmersiveState, fx: ImmersiveEffect[], r: Rng) {
+  const live = s.live!
+  const lm = mem(s).live!
+  const me = s.identity.surname
+  if (lm.cards.yellow >= 1) {
+    lm.cards.red = true
+    live.stats.red = true
+    push(s, live, { minute: live.minute, type: 'red', side: live.userSide, byUser: true, player: me, text: `Segundo amarelo! ${me} é expulso.`, at: at(live.userSide, 'mid', r) }, fx)
+    live.stats.rating = r1(clamp(live.stats.rating - 1, 3, 10))
+    userOff(s, live.minute, fx, 'red')
+    lm.plan = lm.plan.slice(0, lm.momentIdx + 1)
+    return
+  }
+  lm.cards.yellow++
+  live.stats.yellow = true
+  live.stats.rating = r1(clamp(live.stats.rating - 0.3, 3, 10))
+  push(s, live, { minute: live.minute, type: 'yellow', side: live.userSide, byUser: true, player: me, text: say(r, T.yellow, { p: me, t: teamName(live, live.userSide) }), at: at(live.userSide, 'mid', r) }, fx)
+}
+
+function finishMoment(s: ImmersiveState) {
+  const live = s.live!
+  const lm = mem(s).live!
+  live.pendingMoment = null
+  lm.pending = undefined
+  if (live.phase !== 'penalties') lm.momentIdx++
+}
+
+/** Joga até o fim (atalho "encerrar"/IA), resolvendo lances com a IA. */
+export function runToEnd(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[], mode: AiMode = 'smart') {
+  for (let guard = 0; guard < 400 && s.live && s.live.phase !== 'full_time'; guard++) {
+    if (s.live.pendingMoment) resolveMoment(data, s, null, undefined, fx, mode)
+    else simulate(data, s, fx)
+  }
+}
+
+/** Ajustes finais da nota (resultado e jogo sem sofrer gol). */
+export function finalRating(s: ImmersiveState): void {
+  const live = s.live!
+  const lm = mem(s).live!
+  if (live.stats.minutes <= 0) return
+  const ui = idx(live.userSide)
+  const u = live.score[ui]
+  const o = live.score[1 - ui]
+  let d = (u > o ? 0.25 : u < o ? -0.25 : 0) + (live.stats.minutes >= 60 ? 0.25 : 0)
+  if (live.pens) d = live.pens[ui] > live.pens[1 - ui] ? 0.15 : -0.15
+  const pos = s.identity.position
+  if (lm.goalsAgainst === 0 && live.stats.minutes >= 60) d += pos === 'GOL' ? 0.45 : pos === 'ZAG' || pos === 'LD' || pos === 'LE' ? 0.35 : pos === 'VOL' ? 0.2 : 0
+  live.stats.rating = r1(clamp(live.stats.rating + d, 3, 10))
+}

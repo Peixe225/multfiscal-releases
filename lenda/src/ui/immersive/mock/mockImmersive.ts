@@ -1880,7 +1880,43 @@ function startNextSeason(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[
 
 // ───────────────────────────── dispatch ─────────────────────────────
 
+/** "Simular até…" (ação aditiva `auto`): resolve itens com as escolhas padrão até o alvo. */
+function autoRun(data: GameData, state: ImmersiveState, a: Extract<ImmersiveAction, { type: 'auto' }>): { state: ImmersiveState; effects: ImmersiveEffect[] } {
+  const until = a.until ?? 'next_match'
+  const keep = new Set<ImmersiveEffect['type']>(['trophy', 'award', 'season_end', 'transfer', 'ovr_change', 'achievement', 'retired'])
+  const effects: ImmersiveEffect[] = []
+  let s = state
+  let steps = 0
+  const w0 = state.week
+  const s0 = state.season
+  for (; steps < (a.maxSteps ?? 400); steps++) {
+    const it = nextItem(s)
+    if (!it || s.retired) break
+    if (until === 'next_match' && !s.live && (it.kind === 'match' || it.kind === 'national_match')) break
+    if (until === 'next_week' && (s.week > w0 || s.season > s0)) break
+    if (until === 'season_end' && it.kind === 'season_end') break
+    if (until === 'decision' && (s.pendingDecision || (it.kind === 'transfer_window' && s.offers.length))) break
+    const act: ImmersiveAction = s.live
+      ? { type: 'match_finish' }
+      : s.press?.length
+        ? { type: 'press_skip' }
+        : s.pendingDecision
+          ? { type: 'decision_choose', optionId: s.pendingDecision.options[0].id }
+          : it.kind === 'training'
+            ? { type: 'train', focus: isGk(s.identity.position) ? 'goalkeeping' : 'tactical', intensity: s.condition.fitness < 55 ? 'leve' : 'normal' }
+            : { type: 'advance' }
+    const r = dispatch(data, s, act)
+    for (const e of r.effects) if (keep.has(e.type)) effects.push(e)
+    if (r.state === s) break
+    s = r.state
+  }
+  const it = nextItem(s)
+  effects.push({ type: 'toast', tone: 'info', title: 'Simulação concluída', description: it ? `Próximo: ${it.title}` : undefined })
+  return { state: s, effects }
+}
+
 function dispatch(data: GameData, state: ImmersiveState, action: ImmersiveAction): { state: ImmersiveState; effects: ImmersiveEffect[] } {
+  if (action.type === 'auto') return autoRun(data, state, action)
   const s = clone(state)
   const fx: ImmersiveEffect[] = []
   const m = mem(s)

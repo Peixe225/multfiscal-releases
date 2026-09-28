@@ -8,6 +8,7 @@ import { getClub, getCompetition, getCountry, getLeague, getTrophy } from '@/sto
 import { Crest, Flag, cx, rowClubVars, useSvgId } from '@/ui/primitives'
 import { TrophyArt, hasTrophyArt, hasTrophyPhoto, PHOTO_MIN_SIZE } from '@/ui/trophies'
 import { TROPHY_PHOTO_ASPECT } from '@/ui/trophies/photo-manifest'
+import { useLogoTone } from '@/ui/art/logoTone'
 import type { SeasonEntry } from './model'
 import { isNation, teamName } from './model'
 
@@ -99,17 +100,21 @@ export const SeasonRail = memo(function SeasonRail({
 
 const logoFail = new Set<string>()
 
-/** Competition / league logo on a white tile (ESPN logos are drawn for light backgrounds). */
+/**
+ * Competition / league logo on a tile: white (ESPN logos are drawn for light backgrounds), dark for
+ * the (almost) white logos — Premier League, Champions League, Ligue 1… (see `@/ui/art/logoTone`).
+ */
 export const CompLogo = memo(function CompLogo({ id, size = 30, tile = true, className }: { id: string; size?: number; tile?: boolean; className?: string }) {
   const comp = getCompetition(id)
   const lg = getLeague(id)
   const logo = comp?.logo ?? lg?.logo ?? `leagues/${id}.webp`
   const url = `${import.meta.env.BASE_URL ?? '/'}${logo.replace(/^\//, '')}`
   const [failed, setFailed] = useState(() => logoFail.has(url))
+  const [light, onLoad] = useLogoTone(url, tile)
   const trophyId = comp?.trophyId ?? lg?.trophyId
   const pad = tile ? Math.max(2, Math.round(size * 0.14)) : 0
   return (
-    <span className={cx('tb-logo', tile && 'tb-logo--tile', failed && 'is-failed', className)} style={{ width: size, height: size, borderRadius: Math.round(size * 0.28), padding: pad }} aria-hidden="true">
+    <span className={cx('tb-logo', tile && 'tb-logo--tile', tile && light && !failed && 'tb-logo--dark', failed && 'is-failed', className)} style={{ width: size, height: size, borderRadius: Math.round(size * 0.28), padding: pad }} aria-hidden="true">
       {failed ? (
         trophyId ? (
           <TrophyArt id={trophyId} size={Math.round(size * 0.82)} variant="svg" />
@@ -125,6 +130,7 @@ export const CompLogo = memo(function CompLogo({ id, size = 30, tile = true, cla
           loading="lazy"
           decoding="async"
           draggable={false}
+          onLoad={onLoad}
           onError={() => {
             logoFail.add(url)
             setFailed(true)

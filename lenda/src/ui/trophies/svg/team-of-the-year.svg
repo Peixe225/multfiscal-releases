@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 180" width="104" height="180" role="img" aria-labelledby="team-of-the-year-title" class="lx-trophy" data-trophy="team-of-the-year">
+  <title id="team-of-the-year-title">Seleção do Ano</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="team-of-the-year-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="team-of-the-year-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  <radialGradient id="team-of-the-year-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="team-of-the-year-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M12,12 L92,12 L92,66 C92,104 68,124 52,134 C36,124 12,104 12,66 Z" fill="url(#team-of-the-year-silver-h)"/>
+  <path d="M19,19 L85,19 L85,66 C85,98 65,116 52,125 C39,116 19,98 19,66 Z" fill="url(#team-of-the-year-lacq)"/>
+  <path d="M19,72 L85,72" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="round"/>
+  <circle cx="52" cy="72" r="9" fill="none" stroke="#6a6d76" stroke-width=".8"/>
+  <circle cx="52" cy="106" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="30" cy="90" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="44" cy="93" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="60" cy="93" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="74" cy="90" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="35" cy="70" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="52" cy="74" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="69" cy="70" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="34" cy="38" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="52" cy="28" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <circle cx="70" cy="38" r="4.2" fill="url(#team-of-the-year-gold-r)"/>
+  <path d="M12,12 L92,12 L92,66 C92,104 68,124 52,134 C36,124 12,104 12,66 Z" fill="none" stroke="#fff" stroke-width=".8" stroke-opacity=".45"/>
+  <path d="M12,12 L92,12 L92,66 C92,104 68,124 52,134 C36,124 12,104 12,66 Z" fill="url(#team-of-the-year-sheen)" opacity="0.35"/>
+  <path d="M56,132 L57,144 C64,146 72,148 76,150 L28,150 C32,148 40,146 47,144 L48,132 Z" fill="url(#team-of-the-year-silver-h)"/>
+  <path d="M26,150 L78,150 L80,174 L24,174 Z" fill="url(#team-of-the-year-lacq)"/>
+  <path d="M26,150.5 L78,150.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="52" cy="174" rx="28" ry="1.2" fill="#050506" opacity=".6"/>
+  </g>
+</svg>

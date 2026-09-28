@@ -14,7 +14,7 @@
 import type { CupInProgress } from '../api'
 import type { Competition, CompetitionKind, Confed, CupResult, StandingRow } from '../types'
 import { rng as subRng, type Rng } from '../rng'
-import { CONFEDS, confedOfClub, play, type DataIndex, type SeasonCtx } from './context'
+import { CONFEDS, confedOfClub, play, setTag, type DataIndex, type SeasonCtx } from './context'
 import { inProgress, presetFrom, reachedFromCompleted } from './cups'
 import { drawGroups, forceInto, playTie, runGroups, runKnockout, runSwiss, stageName, type PresetTie } from './knockout'
 import { fillPairings } from './schedule'
@@ -324,6 +324,7 @@ function swissKnockout(
     for (const id of ids.slice(24)) reached[id] = 'Fase de liga'
     const winners: string[] = []
     const stage = { name: 'Play-offs', ties: [] as CupResult['knockout'][number]['ties'] }
+    setTag(ctx, undefined, 'Play-offs')
     for (let i = 0; i < 8; i++) {
       const a = ids[8 + i]
       const b = ids[23 - i]
@@ -360,6 +361,7 @@ function continueGroups(ctx: SeasonCtx, rng: Rng, kind: CompetitionKind, rows: S
   }
   const out: { name: string; table: StandingRow[] }[] = []
   for (const [name, list] of [...byGroup.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    setTag(ctx, undefined, name)
     const map = new Map(list.map((r) => [r.clubId, r] as const))
     const need = new Map(list.map((r) => [r.clubId, Math.max(0, perTeam - r.played)] as const))
     for (const [h, a] of fillPairings(need, rng)) {
@@ -391,6 +393,7 @@ export function simulateContinental(
   let groupsOut: CupResult['groups']
   const dropped: string[] = []
   const cip = inProgress(ctx, comp.id)
+  setTag(ctx, comp.id, '')
 
   if (cip) {
     const r = continueFromSnapshot(ctx, rng, comp, confed, base, cip, reached, stages)
@@ -409,6 +412,7 @@ export function simulateContinental(
   if (list.length > f.phaseSize) {
     if (list.length > 2 * f.phaseSize) list = list.slice(0, 2 * f.phaseSize)
     const excess = list.length - f.phaseSize
+    setTag(ctx, undefined, 'Fase preliminar')
     const direct = list.slice(0, list.length - 2 * excess)
     const pool = list.slice(list.length - 2 * excess)
     const winners: string[] = []
@@ -531,6 +535,7 @@ function continueFromSnapshot(
 
 export function singleFinal(ctx: SeasonCtx, comp: Competition, a: string, b: string, name = 'Final'): CupResult {
   const rng = subRng(ctx.seed, 'season', ctx.season, 'final', comp.id)
+  setTag(ctx, comp.id, name)
   const r = playTie(ctx, rng, comp.kind, { a, b, legs: 1, neutral: true, extraTime: true, isFinal: true })
   return {
     competitionId: comp.id,
@@ -554,6 +559,7 @@ export function intercontinental(ctx: SeasonCtx, comp: Competition, champs: Part
   const match = (a: string | undefined, b: string | undefined, name: string): string | undefined => {
     if (!a) return b
     if (!b) return a
+    setTag(ctx, comp.id, name)
     const r = playTie(ctx, rng, comp.kind, { a, b, legs: 1, neutral: true, extraTime: true, isFinal: name === 'Final' })
     reached[r.loser] = name
     stages.push({ name, ties: [{ a, b, legs: r.legs, winner: r.winner }] })
@@ -622,6 +628,7 @@ export function clubWorldCup(
   if (chosen.length < 8) return null
   const size = chosen.length >= 32 ? 32 : chosen.length >= 16 ? 16 : 8
   const teams = chosen.slice(0, size)
+  setTag(ctx, comp.id, '')
   const groups = drawGroups(rng, teams, size / 4, (id) => ctx.str.get(id) ?? 60)
   const tables = runGroups(ctx, rng, groups, { kind: comp.kind, rounds: 1, neutral: true })
   const reached: Record<string, string> = {}

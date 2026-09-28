@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="ligue-1-title" class="lx-trophy" data-trophy="ligue-1">
+  <title id="ligue-1-title">Troféu da Ligue 1</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="ligue-1-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <radialGradient id="ligue-1-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="ligue-1-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="ligue-1-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M45,138 L52,138 L33,60 L26,62 Z" fill="url(#ligue-1-gold-d)"/>
+  <path d="M45,138 L52,138 L33,60 L26,62 Z" fill="none" stroke="#3d2603" stroke-width=".5" stroke-opacity=".55"/>
+  <path d="M26,62 L33,60 L33,62.6 L26,64.6 Z" fill="#fff3c4" opacity=".75"/>
+  <path d="M56,138 L63,138 L83,62 L76,60 Z" fill="url(#ligue-1-gold-d)"/>
+  <path d="M56,138 L63,138 L83,62 L76,60 Z" fill="none" stroke="#3d2603" stroke-width=".5" stroke-opacity=".55"/>
+  <path d="M76,60 L83,62 L83,64.6 L76,62.6 Z" fill="#fff3c4" opacity=".75"/>
+  <circle cx="51" cy="36" r="28" fill="url(#ligue-1-gold-r)"/>
+  <circle cx="51" cy="36" r="28" fill="none" stroke="#5c3a05" stroke-width=".8" stroke-opacity=".45"/>
+  <ellipse cx="40" cy="22" rx="10" ry="6" fill="#fff" opacity=".4" transform="rotate(-35 40 22)"/>
+  <path d="M24,138 L31,138 L17,58 L10,56 Z" fill="url(#ligue-1-gold-h)"/>
+  <path d="M24,138 L31,138 L17,58 L10,56 Z" fill="none" stroke="#3d2603" stroke-width=".5" stroke-opacity=".55"/>
+  <path d="M10,56 L17,58 L17,60.6 L10,58.6 Z" fill="#fff3c4" opacity=".75"/>
+  <path d="M29,138 L36,138 L58,68 L51,72 Z" fill="url(#ligue-1-gold-h)"/>
+  <path d="M29,138 L36,138 L58,68 L51,72 Z" fill="none" stroke="#3d2603" stroke-width=".5" stroke-opacity=".55"/>
+  <path d="M51,72 L58,68 L58,70.6 L51,74.6 Z" fill="#fff3c4" opacity=".75"/>
+  <path d="M68,138 L75,138 L91,56 L84,58 Z" fill="url(#ligue-1-gold-h)"/>
+  <path d="M68,138 L75,138 L91,56 L84,58 Z" fill="none" stroke="#3d2603" stroke-width=".5" stroke-opacity=".55"/>
+  <path d="M84,58 L91,56 L91,58.6 L84,60.6 Z" fill="#fff3c4" opacity=".75"/>
+  <path d="M64,138 L71,138 L51,72 L44,68 Z" fill="url(#ligue-1-gold-h)"/>
+  <path d="M64,138 L71,138 L51,72 L44,68 Z" fill="none" stroke="#3d2603" stroke-width=".5" stroke-opacity=".55"/>
+  <path d="M44,68 L51,72 L51,74.6 L44,70.6 Z" fill="#fff3c4" opacity=".75"/>
+  <path d="M23,138 L77,138 L79,144 L21,144 Z" fill="url(#ligue-1-gold-h)"/>
+  <rect x="19" y="144" width="62" height="10" fill="url(#ligue-1-gold-h)"/>
+  <rect x="19" y="144" width="62" height="1.4" fill="#fff3c4" opacity=".7"/>
+  <path d="M15,154 L85,154 L87,158 L13,158 Z" fill="url(#ligue-1-gold-v)"/>
+  <rect x="13" y="158" width="74" height="14" fill="url(#ligue-1-gold-h)"/>
+  <rect x="34" y="161" width="32" height="8" rx="0.6" fill="url(#ligue-1-gold-d)"/>
+  <path d="M38,163.5 L62,163.5 M42,166.5 L58,166.5" fill="none" stroke="#3d2603" stroke-width="1.2" stroke-opacity=".7" stroke-dasharray="1.8 .7" stroke-linecap="butt"/>
+  <rect x="11" y="172" width="78" height="3.6" rx="0.6" fill="url(#ligue-1-gold-d)"/>
+  </g>
+</svg>

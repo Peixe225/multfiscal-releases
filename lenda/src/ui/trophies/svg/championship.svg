@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="championship-title" class="lx-trophy" data-trophy="championship">
+  <title id="championship-title">Troféu da EFL Championship</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="championship-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="championship-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="championship-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="championship-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <radialGradient id="championship-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="championship-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M65,58 C78,46 88,50 86,62 C84,72 77,76 76,86" fill="none" stroke="url(#championship-silver-h)" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M65,58 C78,46 88,50 86,62 C84,72 77,76 76,86" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <circle cx="83" cy="57" r="2.6" fill="none" stroke="url(#championship-silver-h)" stroke-width="1.6"/>
+  <path d="M35,58 C22,46 12,50 14,62 C16,72 23,76 24,86" fill="none" stroke="url(#championship-silver-h)" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M35,58 C22,46 12,50 14,62 C16,72 23,76 24,86" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <circle cx="17" cy="57" r="2.6" fill="none" stroke="url(#championship-silver-h)" stroke-width="1.6"/>
+  <path d="M67,50 C63.5,56 63,62 66,68 C77,80 80,98 76,116 C72,127 64,132 58,136 L56.5,142 L43.5,142 L42,136 C36,132 28,127 24,116 C20,98 23,80 34,68 C37,62 36.5,56 33,50 Z" fill="url(#championship-silver-h)"/>
+  <ellipse cx="50" cy="99" rx="11" ry="10" fill="url(#championship-silver-v)" opacity=".7"/>
+  <ellipse cx="50" cy="99" rx="11" ry="10" fill="none" stroke="#4a515c" stroke-width="1"/>
+  <path d="M42,98 L58,98 M44,102 L56,102" fill="none" stroke="#4a515c" stroke-width="1" stroke-opacity=".55" stroke-dasharray="1.4 .8" stroke-linecap="butt"/>
+  <path d="M65,74 C73,82 76,98 73,112" fill="none" stroke="#4a515c" stroke-width="0.8" stroke-opacity=".6" stroke-dasharray="2 1.2" stroke-linecap="round"/>
+  <path d="M35,74 C27,82 24,98 27,112" fill="none" stroke="#4a515c" stroke-width="0.8" stroke-opacity=".6" stroke-dasharray="2 1.2" stroke-linecap="round"/>
+  <path d="M29,76 C40,80 60,80 71,76" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M27,120 C40,125 60,125 73,120" fill="none" stroke="#4a515c" stroke-width="0.9" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M67,50 C63.5,56 63,62 66,68 C77,80 80,98 76,116 C72,127 64,132 58,136 L56.5,142 L43.5,142 L42,136 C36,132 28,127 24,116 C20,98 23,80 34,68 C37,62 36.5,56 33,50 Z" fill="url(#championship-sheen)" opacity="0.55"/>
+  <path d="M53,30 C56,34 56,38 54,40 C62,41 68,45 69,48 L70,51 L30,51 L31,48 C32,45 38,41 46,40 C44,38 44,34 47,30 Z" fill="url(#championship-silver-h)"/>
+  <ellipse cx="50" cy="35" rx="5.4" ry="1.6" fill="url(#championship-silver-d)"/>
+  <ellipse cx="50" cy="50.5" rx="20" ry="2" fill="url(#championship-silver-v)"/>
+  <ellipse cx="50" cy="50.4" rx="17.6" ry="1.32" fill="#353a43"/>
+  <path d="M46.6,30 L53.4,30 L52.4,16 L47.6,16 Z" fill="url(#championship-silver-h)"/>
+  <path d="M51.5,18 C57,14 60,8 59,3 C56,8 54,12 51,14 Z" fill="url(#championship-silver-v)"/>
+  <path d="M48.5,18 C43,14 40,8 41,3 C44,8 46,12 49,14 Z" fill="url(#championship-silver-v)"/>
+  <circle cx="50" cy="12.5" r="2.8" fill="url(#championship-silver-r)"/>
+  <path d="M51.6,15 L52.6,4" fill="none" stroke="url(#championship-silver-h)" stroke-width="1.4" stroke-linecap="round"/>
+  <ellipse cx="50" cy="142" rx="8" ry="2" fill="url(#championship-silver-d)"/>
+  <circle cx="50" cy="145" r="4.4" fill="url(#championship-silver-r)"/>
+  <path d="M55,148 C59,152 68,155 71,158 L71,161 L29,161 L29,158 C32,155 41,152 45,148 Z" fill="url(#championship-silver-h)"/>
+  <path d="M26,161 L74,161 L77,176 L23,176 Z" fill="url(#championship-lacq)"/>
+  <path d="M26,161.5 L74,161.5" fill="none" stroke="#6a6d76" stroke-width="0.8" stroke-linecap="butt"/>
+  <ellipse cx="50" cy="176" rx="27" ry="1.2" fill="#050506" opacity=".6"/>
+  </g>
+</svg>

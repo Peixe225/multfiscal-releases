@@ -1,52 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 180" width="96" height="180" role="img" aria-labelledby="sud-title" class="lx-trophy" data-trophy="sudamericana">
-  <title id="sud-title">Copa Sul-Americana</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 180" width="96" height="180" role="img" aria-labelledby="sudamericana-title" class="lx-trophy" data-trophy="sudamericana">
+  <title id="sudamericana-title">Copa Sul-Americana</title>
   <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
   <defs>
-  <linearGradient id="sud-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
-  <radialGradient id="sud-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
-  <radialGradient id="sud-glass" cx=".36" cy=".3" r=".78"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".22" stop-color="#e8eef5" stop-opacity=".75"/><stop offset=".6" stop-color="#9aa7b6" stop-opacity=".45"/><stop offset=".88" stop-color="#5a6574" stop-opacity=".7"/><stop offset="1" stop-color="#2c333d" stop-opacity=".9"/></radialGradient>
-  <linearGradient id="sud-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
-  <linearGradient id="sud-glassh" x1="0" x2="1"><stop offset="0" stop-color="#3a4452" stop-opacity=".9"/><stop offset=".2" stop-color="#b7c3d0" stop-opacity=".55"/><stop offset=".42" stop-color="#ffffff" stop-opacity=".85"/><stop offset=".6" stop-color="#8e9aa8" stop-opacity=".45"/><stop offset=".86" stop-color="#d9e2ea" stop-opacity=".6"/><stop offset="1" stop-color="#333b47" stop-opacity=".9"/></linearGradient>
-  <linearGradient id="sud-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
-  <radialGradient id="sud-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
-  <linearGradient id="sud-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
-  <linearGradient id="sud-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="sudamericana-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <radialGradient id="sudamericana-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <radialGradient id="sudamericana-glass" cx=".36" cy=".3" r=".78"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".22" stop-color="#e8eef5" stop-opacity=".75"/><stop offset=".6" stop-color="#9aa7b6" stop-opacity=".45"/><stop offset=".88" stop-color="#5a6574" stop-opacity=".7"/><stop offset="1" stop-color="#2c333d" stop-opacity=".9"/></radialGradient>
+  <linearGradient id="sudamericana-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="sudamericana-glassh" x1="0" x2="1"><stop offset="0" stop-color="#3a4452" stop-opacity=".9"/><stop offset=".2" stop-color="#b7c3d0" stop-opacity=".55"/><stop offset=".42" stop-color="#ffffff" stop-opacity=".85"/><stop offset=".6" stop-color="#8e9aa8" stop-opacity=".45"/><stop offset=".86" stop-color="#d9e2ea" stop-opacity=".6"/><stop offset="1" stop-color="#333b47" stop-opacity=".9"/></linearGradient>
+  <linearGradient id="sudamericana-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <radialGradient id="sudamericana-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="sudamericana-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  <linearGradient id="sudamericana-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
   </defs>
   <g>
-  <path d="M10,50 A38 7.5 0 0 1 86,50" fill="none" stroke="url(#sud-gold-d)" stroke-width="5" opacity=".75" stroke-linecap="round"/>
-  <circle cx="48" cy="36" r="33" fill="url(#sud-silver-r)"/>
-  <circle cx="48" cy="36" r="33" fill="url(#sud-glass)" opacity=".6"/>
+  <path d="M10,50 A38 7.5 0 0 1 86,50" fill="none" stroke="url(#sudamericana-gold-d)" stroke-width="5" opacity=".75" stroke-linecap="round"/>
+  <circle cx="48" cy="36" r="33" fill="url(#sudamericana-silver-r)"/>
+  <circle cx="48" cy="36" r="33" fill="url(#sudamericana-glass)" opacity=".6"/>
   <ellipse cx="36" cy="22" rx="10" ry="6" fill="#fff" opacity=".55" transform="rotate(-35 36 22)"/>
   <path d="M62,10 A27 27 0 0 1 77,32" fill="none" stroke="#fff" stroke-width="1.2" stroke-opacity=".5" stroke-linecap="round"/>
-  <path d="M83,53 C78,70 64,84 57,96 L51,96 C59,82 72,70 76,53 Z" fill="url(#sud-silver-h)"/>
-  <path d="M83,53 C78,70 64,84 57,96 L51,96 C59,82 72,70 76,53 Z" fill="url(#sud-glassh)" opacity=".5"/>
-  <path d="M13,53 C18,70 32,84 39,96 L45,96 C37,82 24,70 20,53 Z" fill="url(#sud-silver-h)"/>
-  <path d="M13,53 C18,70 32,84 39,96 L45,96 C37,82 24,70 20,53 Z" fill="url(#sud-glassh)" opacity=".5"/>
-  <path d="M10,50 A38 7.5 0 0 0 86,50" fill="none" stroke="url(#sud-gold-h)" stroke-width="6.4" stroke-linecap="butt"/>
+  <path d="M83,53 C78,70 64,84 57,96 L51,96 C59,82 72,70 76,53 Z" fill="url(#sudamericana-silver-h)"/>
+  <path d="M83,53 C78,70 64,84 57,96 L51,96 C59,82 72,70 76,53 Z" fill="url(#sudamericana-glassh)" opacity=".5"/>
+  <path d="M13,53 C18,70 32,84 39,96 L45,96 C37,82 24,70 20,53 Z" fill="url(#sudamericana-silver-h)"/>
+  <path d="M13,53 C18,70 32,84 39,96 L45,96 C37,82 24,70 20,53 Z" fill="url(#sudamericana-glassh)" opacity=".5"/>
+  <path d="M10,50 A38 7.5 0 0 0 86,50" fill="none" stroke="url(#sudamericana-gold-h)" stroke-width="6.4" stroke-linecap="butt"/>
   <path d="M20,55.2 A38 7.5 0 0 0 76,55.2" fill="none" stroke="#5c3a05" stroke-width="1.6" stroke-opacity=".55" stroke-dasharray="2.2 1" stroke-linecap="butt"/>
-  <path d="M39,95 L57,95 L56,124 L40,124 Z" fill="url(#sud-glassh)" opacity=".85"/>
-  <path d="M39,95 L57,95 L56,124 L40,124 Z" fill="url(#sud-silver-h)" opacity=".35"/>
-  <circle cx="48" cy="107" r="8.4" fill="url(#sud-gold-r)"/>
+  <path d="M39,95 L57,95 L56,124 L40,124 Z" fill="url(#sudamericana-glassh)" opacity=".85"/>
+  <path d="M39,95 L57,95 L56,124 L40,124 Z" fill="url(#sudamericana-silver-h)" opacity=".35"/>
+  <circle cx="48" cy="107" r="8.4" fill="url(#sudamericana-gold-r)"/>
   <circle cx="48" cy="107" r="5.6" fill="none" stroke="#5c3a05" stroke-width=".9" stroke-opacity=".7"/>
-  <path d="M56,123 C58,127 64,129 70,131 L70,133 L26,133 L26,131 C32,129 38,127 40,123 Z" fill="url(#sud-silver-h)"/>
-  <path d="M21,133 L75,133 L76,150 Q48,152 20,150 Z" fill="url(#sud-lacq)"/>
+  <path d="M56,123 C58,127 64,129 70,131 L70,133 L26,133 L26,131 C32,129 38,127 40,123 Z" fill="url(#sudamericana-silver-h)"/>
+  <path d="M21,133 L75,133 L76,150 Q48,152 20,150 Z" fill="url(#sudamericana-lacq)"/>
   <ellipse cx="48" cy="133" rx="27" ry="2.2" fill="#40434b"/>
-  <rect x="26" y="136.5" width="13.4" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="41" y="136.5" width="13.4" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="56" y="136.5" width="13.4" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="26" y="143.5" width="13.4" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="41" y="143.5" width="13.4" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="56" y="143.5" width="13.4" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <path d="M15,150 L81,150 L82,168 Q48,170.8 14,168 Z" fill="url(#sud-lacq)"/>
+  <rect x="26" y="136.5" width="13.4" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="41" y="136.5" width="13.4" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="56" y="136.5" width="13.4" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="26" y="143.5" width="13.4" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="41" y="143.5" width="13.4" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="56" y="143.5" width="13.4" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <path d="M15,150 L81,150 L82,168 Q48,170.8 14,168 Z" fill="url(#sudamericana-lacq)"/>
   <ellipse cx="48" cy="150" rx="33" ry="2.4" fill="#3a3d44"/>
-  <rect x="19" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="33" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="49" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="63" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="19" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="33" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="49" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <rect x="63" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sud-silver-h)"/>
-  <path d="M13.6,168 L82.4,168 L82.8,172 Q48,174 13.2,172 Z" fill="url(#sud-silver-d)"/>
+  <rect x="19" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="33" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="49" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="63" y="153.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="19" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="33" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="49" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <rect x="63" y="160.5" width="13" height="5.4" rx="0.6" fill="url(#sudamericana-silver-h)"/>
+  <path d="M13.6,168 L82.4,168 L82.8,172 Q48,174 13.2,172 Z" fill="url(#sudamericana-silver-d)"/>
   </g>
 </svg>

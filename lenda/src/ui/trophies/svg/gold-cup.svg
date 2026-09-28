@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 180" width="112" height="180" role="img" aria-labelledby="gold-cup-title" class="lx-trophy" data-trophy="gold-cup">
+  <title id="gold-cup-title">Copa Ouro da Concacaf</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="gold-cup-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="gold-cup-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  <linearGradient id="gold-cup-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="gold-cup-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M65,120 L70,112 L107,5 L99,12 L73,92 L67,104 Z" fill="url(#gold-cup-gold-h)"/>
+  <path d="M69,112 L105,7" fill="none" stroke="#fff3c4" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M73,92 L99,12 L96,20 L75,86 Z" fill="#5c3a05" opacity=".55"/>
+  <path d="M47,120 L42,112 L5,5 L13,12 L39,92 L45,104 Z" fill="url(#gold-cup-gold-h)"/>
+  <path d="M43,112 L7,7" fill="none" stroke="#fff3c4" stroke-width="0.7" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M39,92 L13,12 L16,20 L37,86 Z" fill="#5c3a05" opacity=".55"/>
+  <path d="M86,8 C85,40 73,82 65,112 L64,121 L48,121 L47,112 C39,82 27,40 26,8 Z" fill="url(#gold-cup-gold-h)"/>
+  <path d="M43,10 L69,10 L58.4,112 L53.6,112 Z" fill="url(#gold-cup-gold-v)" opacity=".55"/>
+  <path d="M43,10 L53.6,112 M69,10 L58.4,112" fill="none" stroke="#5c3a05" stroke-width="0.8" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M86,8 C85,40 73,82 65,112 L64,121 L48,121 L47,112 C39,82 27,40 26,8 Z" fill="url(#gold-cup-sheen)" opacity="0.5"/>
+  <ellipse cx="56" cy="8" rx="30.2" ry="3.2" fill="url(#gold-cup-gold-v)"/>
+  <ellipse cx="56" cy="7.84" rx="26.58" ry="2.11" fill="#3d2603"/>
+  <ellipse cx="56" cy="121.5" rx="10" ry="2.2" fill="url(#gold-cup-gold-d)"/>
+  <path d="M64.5,123 C67,131 78,137 81,146 L84,172 L28,172 L31,146 C34,137 45,131 47.5,123 Z" fill="url(#gold-cup-gold-h)"/>
+  <path d="M30.4,149 Q56,151.2 81.6,149" fill="none" stroke="#5c3a05" stroke-width="1" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M30.4,150.2 Q56,152.4 81.6,150.2" fill="none" stroke="#fff3c4" stroke-width="0.5" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M29.7,155 Q56,157.2 82.3,155" fill="none" stroke="#5c3a05" stroke-width="1" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M29.7,156.2 Q56,158.4 82.3,156.2" fill="none" stroke="#fff3c4" stroke-width="0.5" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M29,161 Q56,163.2 83,161" fill="none" stroke="#5c3a05" stroke-width="1" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M29,162.2 Q56,164.4 83,162.2" fill="none" stroke="#fff3c4" stroke-width="0.5" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M28.4,167 Q56,169.2 83.6,167" fill="none" stroke="#5c3a05" stroke-width="1" stroke-opacity=".55" stroke-linecap="round"/>
+  <path d="M28.4,168.2 Q56,170.4 83.6,168.2" fill="none" stroke="#fff3c4" stroke-width="0.5" stroke-opacity=".45" stroke-linecap="round"/>
+  <path d="M27,172 L85,172 L85.4,176 Q56,177.6 26.6,176 Z" fill="url(#gold-cup-gold-d)"/>
+  </g>
+</svg>

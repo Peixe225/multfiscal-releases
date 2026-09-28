@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-labelledby="eredivisie-title" class="lx-trophy" data-trophy="eredivisie">
+  <title id="eredivisie-title">Schaal van de Eredivisie</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <radialGradient id="eredivisie-silver-flat" cx=".4" cy=".35" r=".75"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".35" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></radialGradient>
+  <linearGradient id="eredivisie-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  </defs>
+  <g>
+  <circle cx="90" cy="91.6" r="87" fill="#22252b"/>
+  <circle cx="90" cy="90" r="86" fill="url(#eredivisie-silver-flat)"/>
+  <circle cx="90" cy="90" r="84.5" fill="none" stroke="#fff" stroke-width="1.2" stroke-opacity=".4"/>
+  <circle cx="90" cy="90" r="64" fill="none" stroke="#5a6270" stroke-width="1.2" stroke-opacity=".8"/>
+  <path d="M20.46,64.69 A74,74 0 0 1 159.54,64.69" fill="none" stroke="#6a7280" stroke-width="9" stroke-opacity=".6" stroke-dasharray="5 1.6 4.4 1.6 5 1.6 4.4 1.6 5 1.6 4.4 6"/>
+  <path d="M29.38,132.44 A74,74 0 0 0 150.62,132.44" fill="none" stroke="#6a7280" stroke-width="9" stroke-opacity=".6" stroke-dasharray="5 1.6 4.4 1.6 5 1.6 4.4 1.6"/>
+  <path d="M16.72,96.3 L17.72,98.92 L20.52,99.06 L18.34,100.82 L19.07,103.53 L16.72,102 L14.37,103.53 L15.1,100.82 L12.92,99.06 L15.72,98.92 Z" fill="#6a7280" opacity=".8"/>
+  <path d="M163.28,96.3 L164.28,98.92 L167.08,99.06 L164.9,100.82 L165.63,103.53 L163.28,102 L160.93,103.53 L161.66,100.82 L159.48,99.06 L162.28,98.92 Z" fill="#6a7280" opacity=".8"/>
+  <circle cx="90" cy="90" r="58" fill="url(#eredivisie-silver-d)"/>
+  <circle cx="90" cy="90" r="55" fill="url(#eredivisie-silver-flat)"/>
+  <circle cx="90" cy="90" r="55" fill="none" stroke="#fff" stroke-width="1" stroke-opacity=".5"/>
+  <ellipse cx="60" cy="56" rx="30" ry="12" fill="#fff" opacity=".18" transform="rotate(-38 60 56)"/>
+  </g>
+</svg>

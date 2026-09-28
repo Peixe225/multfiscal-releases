@@ -2,8 +2,11 @@
 
 O LENDA é um projeto **pessoal e não comercial**. Esta página lista cada imagem de terceiros
 usada, com fonte, autor e licença. As licenças CC BY e CC BY-SA exigem esse crédito. O conteúdo
-também precisa ser mostrado dentro do jogo, numa tela "Créditos": `src/ui/art/photos.ts`
-exporta `PHOTO_CREDITS`, e a tabela abaixo serve de base para os troféus.
+também aparece dentro do jogo, na tela **Créditos** (`#/creditos`, link no menu e no rodapé da
+página inicial), que lê as tabelas das seções 1 e 2 deste arquivo
+(`src/ui/shared/credits/parse.ts`) e o `PHOTO_CREDITS` de `src/ui/art/photos.ts`. Mantenha o
+formato das tabelas (uma linha por arquivo, começando com o nome entre crases); o teste
+`src/ui/shared/credits/parse.test.ts` confere que todo troféu e toda foto do jogo têm crédito.
 
 > **Aviso.** Os troféus, escudos, logos e nomes de competições são marcas e desenhos dos
 > respectivos donos (FIFA, UEFA, CONMEBOL, CBF, ligas e clubes). As licenças abaixo cobrem
