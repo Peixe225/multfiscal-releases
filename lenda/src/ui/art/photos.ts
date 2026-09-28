@@ -135,7 +135,13 @@ const OPTION_THEME: Readonly<Record<string, PhotoTheme>> = {
   'coach_conflict-adapt': 'training',
   'documentary-decline': 'family',
   'mysterious_substance-reject': 'training',
+  'honesty_test-accept': 'money',
   'honesty_test-reject': 'press',
+  'indecent_proposal-proceed': 'phone',
+  'indecent_proposal-reject': 'locker',
+  'contract_renewal-test_market': 'phone',
+  'super_agent-loyal': 'contract',
+  'giant_tattoo-reject': 'rest',
   // opções que levam a outro clube
   join: 'airport',
   join_club: 'airport',
@@ -164,7 +170,7 @@ function splitArt(artKey: string): [string, string] {
 export function themeFor(artKey: string): PhotoTheme | null {
   if (!artKey) return null
   const key = artKey.trim().toLowerCase()
-  const direct = OPTION_THEME[key] ?? EVENT_THEME[key]
+  const direct = OPTION_THEME[key] ?? EVENT_THEME[key] ?? (key in PHOTOS ? (key as PhotoTheme) : undefined)
   if (direct) return direct
   const [ev, opt] = splitArt(key)
   if (ev === 'injury') return 'injury' // injury-*, qualquer tipo de lesão
@@ -181,6 +187,39 @@ export interface PhotoForOptions {
   nationality?: string
   /** Sal extra para variar a foto entre carreiras mantendo o determinismo (ex.: seed). */
   salt?: string | number
+  /** Tema usado quando a chave não tem mapeamento (ex.: inferido do texto com `themeFromText`). */
+  fallbackTheme?: PhotoTheme | null
+}
+
+/** Texto em pt-BR → tema (para chaves desconhecidas: título/rótulo da opção, título da decisão…). */
+const TEXT_HINTS: readonly [RegExp, PhotoTheme][] = [
+  [/aposent|despedid|pendurar/i, 'crowd'],
+  [/pênalti|penalti|cobran[çc]a/i, 'crowd'],
+  [/cirurg|m[ée]dic|fisio|recupera|tratament/i, 'doctor'],
+  [/les[ãa]o|machuc|contus/i, 'injury'],
+  [/trein|academia|f[íi]sic|prepara|pr[ée]-temporada|t[ée]cnica/i, 'training'],
+  [/descans|rotina|folga|f[ée]rias|poupar/i, 'rest'],
+  [/imprensa|entrevista|declara|coletiva|pol[êe]mica/i, 'press'],
+  [/post|rede social|celular|internet|v[íi]deo viral/i, 'phone'],
+  [/tatua/i, 'tattoo'],
+  [/escola|estud|diploma|col[ée]gio/i, 'school'],
+  [/fam[íi]lia|filh|m[ãa]e|pai|esposa/i, 'family'],
+  [/document[áa]rio|s[ée]rie|tv|c[âa]mera|reality/i, 'tv'],
+  [/capit[ãa]o|bra[çc]adeira/i, 'captain'],
+  [/sele[çc][ãa]o|convoca|p[áa]tria|av[ôo]/i, 'national'],
+  [/imposto|dinheiro|milh|sal[áa]rio|oferta|€|pix|dívida/i, 'money'],
+  [/contrat|renova|agente|empres[áa]rio|assinar/i, 'contract'],
+  [/viag|aeroporto|exterior|voltar para|empr[ée]stimo/i, 'airport'],
+  [/vesti[áa]rio|elenco|t[ée]cnico|treinador|crise/i, 'locker'],
+  [/torcida|f[ãa]s|est[áa]dio|vaia/i, 'crowd'],
+  [/t[íi]tulo|ta[çc]a|campe[ãa]o|final/i, 'celebration'],
+]
+
+/** Tema a partir de texto; linhas são testadas em ordem (a 1ª que casar vence). */
+export function themeFromText(text: string | undefined): PhotoTheme | null {
+  if (!text) return null
+  for (const line of text.split('\n')) for (const [re, t] of TEXT_HINTS) if (re.test(line)) return t
+  return null
 }
 
 /**
@@ -188,7 +227,7 @@ export interface PhotoForOptions {
  * ou null quando nenhum tema combina (o <EventArt> desenha a ilustração de reserva).
  */
 export function photoFor(artKey: string, opts: PhotoForOptions = {}): string | null {
-  const theme = themeFor(artKey)
+  const theme = themeFor(artKey) ?? opts.fallbackTheme ?? null
   if (!theme) return null
   let pool: readonly string[] = PHOTOS[theme]
   if (theme === 'national' && opts.nationality && NATIONAL_EXTRA[opts.nationality]) {

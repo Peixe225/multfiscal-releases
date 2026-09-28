@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 180" width="172" height="180" role="img" aria-labelledby="cwc-title" class="lx-trophy" data-trophy="club-world-cup">
+  <title id="cwc-title">Taça do Mundial de Clubes da FIFA</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="cwc-gold-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-1,#3d2603)"/><stop offset=".32" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".52" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".74" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></linearGradient>
+  <linearGradient id="cwc-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <linearGradient id="cwc-gold-dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".3" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".66" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  <radialGradient id="cwc-gold-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".18" style="stop-color:var(--metal-gold-7,#ffe697)"/><stop offset=".48" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".8" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset="1" style="stop-color:var(--metal-gold-1,#3d2603)"/></radialGradient>
+  <linearGradient id="cwc-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  <linearGradient id="cwc-gold-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".5" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-3,#94640f)"/></linearGradient>
+  </defs>
+  <g>
+  <ellipse cx="86" cy="80" rx="62" ry="22" fill="none" stroke="url(#cwc-gold-d)" stroke-width="6" transform="rotate(-28 86 80)"/>
+  <ellipse cx="86" cy="80" rx="24" ry="62" fill="none" stroke="url(#cwc-gold-h)" stroke-width="5" transform="rotate(24 86 80)"/>
+  <ellipse cx="86" cy="80" rx="44" ry="44" fill="none" stroke="url(#cwc-gold-dg)" stroke-width="4" transform="rotate(10 86 80)" stroke-dasharray="190 30"/>
+  <circle cx="88" cy="82" r="7" fill="url(#cwc-gold-r)"/>
+  <circle cx="86" cy="80" r="72" fill="none" stroke="url(#cwc-gold-dg)" stroke-width="11"/>
+  <circle cx="86" cy="80" r="72" fill="none" stroke="#5c3a05" stroke-width="4.6" stroke-opacity=".45" stroke-dasharray="3 1.4 2 1.2 4 1.6"/>
+  <circle cx="86" cy="80" r="77.6" fill="none" stroke="#fff3c4" stroke-width=".8" stroke-opacity=".6"/>
+  <circle cx="86" cy="80" r="66.4" fill="none" stroke="#3d2603" stroke-width=".8" stroke-opacity=".6"/>
+  <path d="M40,176 C42,160 52,146 68,142 L104,142 C120,146 130,160 132,176 Z" fill="url(#cwc-lacq)"/>
+  <path d="M68,142 L104,142 C120,146 130,160 132,176" fill="none" stroke="url(#cwc-gold-h)" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M68,142 C52,146 42,160 40,176" fill="none" stroke="url(#cwc-gold-h)" stroke-width="1.6" stroke-linecap="round"/>
+  <rect x="39" y="175" width="94" height="2.4" fill="url(#cwc-gold-d)"/>
+  <path d="M69,164 L69,152 L75,152 M69,157 L74,157 M79,152 L79,164 M84,164 L84,152 L90,152 M84,157 L89,157 M94,164 L98.5,152 L103,164 M95.8,159.5 L101.2,159.5" fill="none" stroke="url(#cwc-gold-v)" stroke-width="2.4" stroke-linecap="butt" stroke-linejoin="miter"/>
+  </g>
+</svg>

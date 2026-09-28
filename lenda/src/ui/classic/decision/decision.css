@@ -75,7 +75,6 @@
 /* event card */
 .ck-opt__media { position: relative; flex: 1; min-height: 70px; margin: 8px 0 10px; border-radius: 12px; overflow: hidden; display: block; isolation: isolate;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
-.ck-opt__media > .ck-art { position: absolute; inset: 0; }
 .ck-opt__overlay { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; }
 .ck-opt--event.is-compact .ck-opt__media { min-height: 44px; margin: 6px 0 8px; }
 .ck-opt--event .ck-opt__fx { margin-top: 0; }
@@ -93,21 +92,11 @@
 .ck-fx-win { transform: scale(1.05); z-index: 1; position: relative; }
 .ck-fx-lose { transform: scale(.9); opacity: .25; filter: grayscale(1); }
 
-/* ── event art ───────────────────────────────────────────────────────── */
-.ck-art { position: relative; display: block; overflow: hidden; background: linear-gradient(160deg, var(--ea-a), var(--ea-b)); }
-.ck-art__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(.62) contrast(1.08) brightness(.66); transform: scale(1.02); transition: transform 1.2s var(--ease-out), filter var(--dur-3); }
-.ck-opt:hover .ck-art__img, .ck-opt.is-focus .ck-art__img { filter: saturate(.8) contrast(1.06) brightness(.78); }
-.ck-opt:hover .ck-art__img { transform: scale(1.07); }
-.ck-art__grade { position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, rgba(7, 8, 12, .1) 20%, rgba(7, 8, 12, .78) 100%), radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--ea-tint) 18%, transparent), transparent 70%), linear-gradient(0deg, color-mix(in srgb, var(--ea-a) 30%, transparent), transparent);
-  mix-blend-mode: normal; }
-.ck-art__pattern { position: absolute; inset: 0; opacity: .9; mask-image: radial-gradient(ellipse at 50% 60%, #000 30%, transparent 80%); }
-.ck-art__light { position: absolute; inset: 0; background: radial-gradient(70% 90% at 50% 110%, color-mix(in srgb, var(--ea-glow) 34%, transparent), transparent 70%), radial-gradient(60% 70% at 20% -10%, rgba(255, 255, 255, .1), transparent 70%); }
-.ck-art__icon { position: absolute; left: 50%; top: 50%; width: min(46%, 64px); height: auto; aspect-ratio: 1; transform: translate(-50%, -50%);
-  color: color-mix(in srgb, var(--ea-glow) 70%, #fff); filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--ea-glow) 55%, transparent)); }
-.ck-art__ghost { position: absolute; right: -8%; bottom: -24%; width: 70%; height: auto; aspect-ratio: 1; color: #fff; opacity: .05; transform: rotate(-12deg); }
-.ck-art--bg { position: absolute; inset: 0; }
-.ck-art--bg .ck-art__img { filter: grayscale(.6) brightness(.6); }
+/* ── event art (src/ui/art/EventArt: foto graduada para o palco Noite) ─ */
+.ck-opt__media > .lx-event-art { --ea-filter: saturate(.72) contrast(1.06) brightness(.8); --ea-zoom: 1.02; box-shadow: none !important; }
+.ck-opt:hover .ck-opt__media > .lx-event-art, .ck-opt.is-focus .ck-opt__media > .lx-event-art { --ea-filter: saturate(.88) contrast(1.05) brightness(.9); }
+.ck-opt:hover .ck-opt__media > .lx-event-art { --ea-zoom: 1.07; }
+.ck-end__art.lx-event-art { --ea-filter: grayscale(.6) brightness(.6); }
 
 /* ── end card ────────────────────────────────────────────────────────── */
 .ck-end { isolation: isolate; justify-content: center; }
@@ -197,4 +186,4 @@
   .ck-end__title { font-size: 25px; }
   .ck-end__stats dd { font-size: 24px; }
 }
-:root[data-motion="reduced"] :is(.ck-fx, .ck-art__img, .ck-pen__target) { transition-duration: 0ms !important; }
+:root[data-motion="reduced"] :is(.ck-fx, .lx-event-art img, .ck-pen__target) { transition-duration: 0ms !important; }

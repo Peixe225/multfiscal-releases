@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180" role="img" aria-labelledby="fac-title" class="lx-trophy" data-trophy="fa-cup">
+  <title id="fac-title">Copa da Inglaterra (FA Cup)</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="fac-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <radialGradient id="fac-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  <linearGradient id="fac-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="fac-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="fac-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="fac-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M77,52 C86,44 96,50 94,62 C92.5,72 83,80 73,96" fill="none" stroke="url(#fac-silver-h)" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M77,52 C86,44 96,50 94,62 C92.5,72 83,80 73,96" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".45" stroke-linecap="round"/>
+  <circle cx="92.2" cy="51.5" r="2" fill="url(#fac-silver-r)"/>
+  <path d="M23,52 C14,44 4,50 6,62 C7.5,72 17,80 27,96" fill="none" stroke="url(#fac-silver-h)" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M23,52 C14,44 4,50 6,62 C7.5,72 17,80 27,96" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".45" stroke-linecap="round"/>
+  <circle cx="7.8" cy="51.5" r="2" fill="url(#fac-silver-r)"/>
+  <path d="M78,49 C77.5,62 68.5,68 68.5,77 C68.5,83 77,88 76,101 C75,112 64,118 58,120 L56.5,126 L43.5,126 L42,120 C36,118 25,112 24,101 C23,88 31.5,83 31.5,77 C31.5,68 22.5,62 22,49 Z" fill="url(#fac-silver-h)"/>
+  <path d="M28.6,69 Q33,60 37.4,69 M37.1,69 Q41.5,60 45.9,69 M45.6,69 Q50,60 54.4,69 M54.1,69 Q58.5,60 62.9,69 M62.6,69 Q67,60 71.4,69" fill="none" stroke="#555d6b" stroke-width="0.9" stroke-opacity=".7" stroke-linecap="round"/>
+  <path d="M27,56 Q50,61 73,56" fill="none" stroke="#646c79" stroke-width="0.9" stroke-linecap="round"/>
+  <path d="M30,90 L34.4,108 M36.7,90 L39.63,108 M43.4,90 L44.85,108 M50,90 L50,108 M56.6,90 L55.15,108 M63.3,90 L60.37,108 M70,90 L65.6,108" fill="none" stroke="#59616e" stroke-width="0.8" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="M25,90 Q50,95 75,90" fill="none" stroke="#fff" stroke-width="0.7" stroke-opacity=".5" stroke-linecap="round"/>
+  <path d="M78,49 C77.5,62 68.5,68 68.5,77 C68.5,83 77,88 76,101 C75,112 64,118 58,120 L56.5,126 L43.5,126 L42,120 C36,118 25,112 24,101 C23,88 31.5,83 31.5,77 C31.5,68 22.5,62 22,49 Z" fill="url(#fac-sheen)" opacity="0.65"/>
+  <ellipse cx="50" cy="49" rx="28.4" ry="3.2" fill="url(#fac-silver-v)"/>
+  <ellipse cx="50" cy="48.84" rx="24.99" ry="2.11" fill="#353a43"/>
+  <path d="M53.4,28 C60,29 70,34 74,42 L76,46.5 L53,46.5 L47,46.5 L24,46.5 L26,42 C30,34 40,29 46.6,28 Z" fill="url(#fac-silver-h)"/>
+  <ellipse cx="50" cy="46.5" rx="26.4" ry="2.4" fill="url(#fac-silver-d)"/>
+  <path d="M32,37 Q50,41 68,37" fill="none" stroke="#646c79" stroke-width="0.8" stroke-linecap="round"/>
+  <path d="M51.3,3 C53.8,4 54.8,9 53,12.5 L51.7,14.5 C53.6,17 54,20 52.3,22 L52.3,25 L55,27 L55,29.5 L51.3,29.5 L48.7,29.5 L45,29.5 L45,27 L47.7,25 L47.7,22 C46,20 46.4,17 48.3,14.5 L47,12.5 C45.2,9 46.2,4 48.7,3 Z" fill="url(#fac-silver-h)"/>
+  <path d="M56.5,125 C65,126 67.5,137 60.5,142 L56.5,142 L43.5,142 L39.5,142 C32.5,137 35,126 43.5,125 Z" fill="url(#fac-silver-h)"/>
+  <path d="M35,142 L65,142 L65.5,147 Q50,148.6 34.5,147 Z" fill="url(#fac-lacq)"/>
+  <path d="M59.5,147 C65,150 74,158 76.5,166 L77,168 L23,168 L23.5,166 C26,158 35,150 40.5,147 Z" fill="url(#fac-silver-h)"/>
+  <ellipse cx="50" cy="147.4" rx="15.6" ry="2.2" fill="url(#fac-silver-h)"/>
+  <path d="M22,168 L78,168 L78.6,174 Q50,176.4 21.4,174 Z" fill="url(#fac-silver-d)"/>
+  <path d="M21,174 L79,174 L79.3,177 Q50,178.6 20.7,177 Z" fill="url(#fac-silver-h)"/>
+  </g>
+</svg>

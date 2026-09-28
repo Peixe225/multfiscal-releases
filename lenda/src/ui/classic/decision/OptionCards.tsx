@@ -14,7 +14,7 @@ import { useCareer } from '@/store/career'
 import { Crest, EffectChip, Flag, Kbd, clubColors, cx, formatPercent, prettyEffectLabel, useIsTouch, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { TrophyArt } from '@/ui/trophies'
 import { LeagueLogo } from '@/ui/classic/cockpit/bits'
-import { EventArt } from '@/ui/classic/reveal/EventArt'
+import { EventArt } from '@/ui/art/EventArt'
 import { useReveal } from '@/ui/classic/reveal/store'
 
 export type CardState = 'idle' | 'chosen' | 'dim' | 'locked'
@@ -230,7 +230,7 @@ export const EventOptionCard = memo(function EventOptionCard(p: OptionCardProps)
   const tint = club ? clubColors(club).glow : undefined
   const media = (
     <>
-      <EventArt art={art} hint={`${option.title ?? ''} ${option.label ?? ''}\n${decision.title}\n${decision.description}`} nationality={nat} salt={seed} tint={tint} />
+      <EventArt art={art} hint={`${option.title ?? ''} ${option.label ?? ''}\n${decision.title}\n${decision.description}`} nationality={nat} salt={seed} tint={tint} fill priority />
       {club && (
         <span className="ck-opt__overlay">
           <Crest club={club} size={compact ? 30 : 48} decorative shadow />

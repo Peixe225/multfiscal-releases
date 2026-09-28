@@ -7,6 +7,12 @@
  * Com foto: `object-fit: cover`, gradiente escuro por cima (o texto do card respira), vinheta e
  * grão sutil — no raio `--radius-lg` do tema Noite. Sem foto (ou se ela falhar): ilustração de
  * reserva com gradiente do tema + ícone lucide. `children` é desenhado por cima (título, chips…).
+ *
+ *   <EventArt art={option.art} hint={option.title} fill />   preenche o pai (card de decisão)
+ *
+ * Chave sem mapeamento: `hint` (texto pt-BR) ou `fallbackTheme` escolhem o tema da foto.
+ * Personalização por CSS (sem brigar com o estilo inline): `--ea-filter` (filtro da foto),
+ * `--ea-zoom` (escala da foto carregada) e `--ea-radius` (raio do quadro).
  */
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import {
@@ -31,7 +37,7 @@ import {
   PenTool,
   type LucideIcon,
 } from 'lucide-react'
-import { photoFor, themeFor, type PhotoTheme } from './photos'
+import { photoFor, themeFor, themeFromText, type PhotoTheme } from './photos'
 
 export interface EventArtProps {
   /** Chave de arte do card (`${eventKey}-${optionKey}`, "retirement", "injury-continue"…). */
@@ -52,6 +58,12 @@ export interface EventArtProps {
   salt?: string | number
   /** Carrega sem lazy (card acima da dobra). */
   priority?: boolean
+  /** Preenche o pai (position: absolute; inset: 0) em vez de usar `ratio`. */
+  fill?: boolean
+  /** Texto (título/rótulo) para inferir o tema quando a chave não tem mapeamento. */
+  hint?: string
+  /** Tema de reserva explícito (vence `hint`). */
+  fallbackTheme?: PhotoTheme | null
   children?: ReactNode
 }
 
@@ -97,13 +109,18 @@ export function EventArt({
   nationality,
   salt,
   priority,
+  fill,
+  hint,
+  fallbackTheme,
   children,
 }: EventArtProps) {
-  const src = photoFor(art, { nationality, salt })
+  const mapped = themeFor(art)
+  const fallback = mapped ? null : (fallbackTheme ?? themeFromText(hint))
+  const src = photoFor(art, { nationality, salt, fallbackTheme: fallback })
   const [failed, setFailed] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<string | null>(null)
   const showPhoto = !!src && failed !== src
-  const theme = themeFor(art)
+  const theme = mapped ?? fallback
   const [Icon, c1, c2] = FALLBACK[theme ?? 'default']
 
   return (
@@ -111,14 +128,14 @@ export function EventArt({
       className={['lx-event-art', className].filter(Boolean).join(' ')}
       data-art={art}
       style={{
-        position: 'relative',
+        position: fill ? 'absolute' : 'relative',
+        inset: fill ? 0 : undefined,
         overflow: 'hidden',
         isolation: 'isolate',
-        borderRadius: 'var(--radius-lg, 20px)',
-        aspectRatio: typeof ratio === 'number' ? String(ratio) : ratio,
-        background: showPhoto
-          ? 'var(--surface-2, #12141b)'
-          : `radial-gradient(120% 90% at 78% 18%, ${c1} 0%, transparent 62%), linear-gradient(160deg, ${c1} 0%, ${c2} 70%)`,
+        borderRadius: fill ? 'var(--ea-radius, inherit)' : 'var(--ea-radius, var(--radius-lg, 20px))',
+        aspectRatio: fill ? undefined : typeof ratio === 'number' ? String(ratio) : ratio,
+        // o gradiente do tema também fica por baixo da foto enquanto ela carrega (nada de quadro vazio)
+        background: `radial-gradient(120% 90% at 78% 18%, ${c1} 0%, transparent 62%), linear-gradient(160deg, ${c1} 0%, ${c2} 70%)`,
         boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)',
         ...style,
       }}
@@ -131,6 +148,10 @@ export function EventArt({
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
           draggable={false}
+          ref={(el) => {
+            // já em cache (decodificada antes do React ligar o onLoad): mostra sem esperar o evento
+            if (el && el.complete && el.naturalWidth > 0 && loaded !== src) setLoaded(src)
+          }}
           onLoad={() => setLoaded(src)}
           onError={() => setFailed(src)}
           style={{
@@ -140,10 +161,10 @@ export function EventArt({
             height: '100%',
             objectFit: 'cover',
             objectPosition: position,
-            filter: 'saturate(.9) contrast(1.05)',
+            filter: 'var(--ea-filter, saturate(.9) contrast(1.05))',
             opacity: loaded === src ? 1 : 0,
-            transform: loaded === src ? 'scale(1)' : 'scale(1.03)',
-            transition: 'opacity 420ms ease-out, transform 900ms cubic-bezier(.2,.7,.2,1)',
+            transform: loaded === src ? 'scale(var(--ea-zoom, 1))' : 'scale(1.03)',
+            transition: 'opacity 420ms ease-out, transform 900ms cubic-bezier(.2,.7,.2,1), filter 240ms ease-out',
             zIndex: -3,
           }}
         />

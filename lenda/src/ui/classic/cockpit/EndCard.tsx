@@ -8,7 +8,7 @@ import { ArrowRight, Crown, RotateCcw } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { Button, formatInt, useReducedMotion } from '@/ui/primitives'
-import { EventArt } from '@/ui/classic/reveal/EventArt'
+import { EventArt } from '@/ui/art/EventArt'
 import { careerTotals, isKeeper } from './model'
 import type { CockpitData } from './view'
 
@@ -45,7 +45,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
     >
-      <EventArt art="retirement" variant="bg" className="ck-end__art" />
+      <EventArt art="retirement" fill priority className="ck-end__art" style={{ borderRadius: 0, boxShadow: 'none' }} />
       <div className="ck-end__in">
         <span className="lx-eyebrow ck-kind">
           <Crown aria-hidden="true" className="ck-end__crown" />

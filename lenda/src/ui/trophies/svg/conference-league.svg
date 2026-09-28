@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 180" width="84" height="180" role="img" aria-labelledby="uecl-title" class="lx-trophy" data-trophy="conference-league">
+  <title id="uecl-title">Liga Conferência da UEFA</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="uecl-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="uecl-silver-v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".5" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-3,#5a6270)"/></linearGradient>
+  <linearGradient id="uecl-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <radialGradient id="uecl-silver-r" cx=".34" cy=".28" r=".8"><stop offset="0" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".18" style="stop-color:var(--metal-silver-7,#e3e8ed)"/><stop offset=".48" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".8" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></radialGradient>
+  </defs>
+  <g>
+  <path d="M10,8 C10,50 31,78 31,104 C31,128 13,150 13,170 L71,170 C71,150 53,128 53,104 C53,78 74,50 74,8 Z" fill="url(#uecl-silver-d)" opacity=".28"/>
+  <ellipse cx="42" cy="170" rx="29" ry="3.4" fill="#1d2026"/>
+  <path d="M72.07,9.16 C72.07,50 52.34,78 52.34,104 C52.34,128 69.25,150 69.25,168.97" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M66.51,10.19 C66.51,50 50.43,78 50.43,104 C50.43,128 64.22,150 64.22,168.07" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M58,10.94 C58,50 47.5,78 47.5,104 C47.5,128 56.5,150 56.5,167.4" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M47.56,11.35 C47.56,50 43.91,78 43.91,104 C43.91,128 47.04,150 47.04,167.05" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M36.44,11.35 C36.44,50 40.09,78 40.09,104 C40.09,128 36.96,150 36.96,167.05" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M26,10.94 C26,50 36.5,78 36.5,104 C36.5,128 27.5,150 27.5,167.4" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M17.49,10.19 C17.49,50 33.57,78 33.57,104 C33.57,128 19.78,150 19.78,168.07" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M11.93,9.16 C11.93,50 31.66,78 31.66,104 C31.66,128 14.75,150 14.75,168.97" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M10,8 C10,50 31,78 31,104 C31,128 13,150 13,170" fill="none" stroke="#6b7482" stroke-width="1.1" stroke-opacity=".8" stroke-linecap="round"/>
+  <path d="M10,8 A32 3.6 0 0 1 74,8" fill="none" stroke="url(#uecl-silver-v)" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M74,8 C74,50 53,78 53,104 C53,128 71,150 71,170" fill="none" stroke="#aeb6c2" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M74,8 C74,50 53,78 53,104 C53,128 71,150 71,170" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.25" stroke-linecap="round"/>
+  <path d="M72.07,6.84 C72.07,50 52.34,78 52.34,104 C52.34,128 69.25,150 69.25,171.03" fill="none" stroke="#aeb6c2" stroke-width="1.81" stroke-linecap="round"/>
+  <path d="M72.07,6.84 C72.07,50 52.34,78 52.34,104 C52.34,128 69.25,150 69.25,171.03" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.42" stroke-linecap="round"/>
+  <path d="M11.93,6.84 C11.93,50 31.66,78 31.66,104 C31.66,128 14.75,150 14.75,171.03" fill="none" stroke="#aeb6c2" stroke-width="1.81" stroke-linecap="round"/>
+  <path d="M11.93,6.84 C11.93,50 31.66,78 31.66,104 C31.66,128 14.75,150 14.75,171.03" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.42" stroke-linecap="round"/>
+  <path d="M17.49,5.81 C17.49,50 33.57,78 33.57,104 C33.57,128 19.78,150 19.78,171.93" fill="none" stroke="#aeb6c2" stroke-width="1.99" stroke-linecap="round"/>
+  <path d="M17.49,5.81 C17.49,50 33.57,78 33.57,104 C33.57,128 19.78,150 19.78,171.93" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.57" stroke-linecap="round"/>
+  <path d="M66.51,5.81 C66.51,50 50.43,78 50.43,104 C50.43,128 64.22,150 64.22,171.93" fill="none" stroke="#aeb6c2" stroke-width="1.99" stroke-linecap="round"/>
+  <path d="M66.51,5.81 C66.51,50 50.43,78 50.43,104 C50.43,128 64.22,150 64.22,171.93" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.57" stroke-linecap="round"/>
+  <path d="M58,5.06 C58,50 47.5,78 47.5,104 C47.5,128 56.5,150 56.5,172.6" fill="none" stroke="url(#uecl-silver-v)" stroke-width="2.12" stroke-linecap="round"/>
+  <path d="M58,5.06 C58,50 47.5,78 47.5,104 C47.5,128 56.5,150 56.5,172.6" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.68" stroke-linecap="round"/>
+  <path d="M26,5.06 C26,50 36.5,78 36.5,104 C36.5,128 27.5,150 27.5,172.6" fill="none" stroke="url(#uecl-silver-v)" stroke-width="2.12" stroke-linecap="round"/>
+  <path d="M26,5.06 C26,50 36.5,78 36.5,104 C36.5,128 27.5,150 27.5,172.6" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.68" stroke-linecap="round"/>
+  <path d="M36.44,4.65 C36.44,50 40.09,78 40.09,104 C40.09,128 36.96,150 36.96,172.95" fill="none" stroke="url(#uecl-silver-v)" stroke-width="2.19" stroke-linecap="round"/>
+  <path d="M36.44,4.65 C36.44,50 40.09,78 40.09,104 C40.09,128 36.96,150 36.96,172.95" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.74" stroke-linecap="round"/>
+  <path d="M47.56,4.65 C47.56,50 43.91,78 43.91,104 C43.91,128 47.04,150 47.04,172.95" fill="none" stroke="url(#uecl-silver-v)" stroke-width="2.19" stroke-linecap="round"/>
+  <path d="M47.56,4.65 C47.56,50 43.91,78 43.91,104 C43.91,128 47.04,150 47.04,172.95" fill="none" stroke="#fff" stroke-width="0.5" stroke-opacity="0.74" stroke-linecap="round"/>
+  <path d="M10,8 A32 3.6 0 0 0 74,8" fill="none" stroke="url(#uecl-silver-h)" stroke-width="2.8" stroke-linecap="round"/>
+  <circle cx="42" cy="27" r="5.4" fill="url(#uecl-silver-r)"/>
+  <circle cx="42" cy="27" r="3.8" fill="none" stroke="#4e5663" stroke-width=".8"/>
+  <circle cx="42" cy="27" r="1.4" fill="#5a6270"/>
+  <path d="M12.399999999999999,170 L71.6,170 L72.4,175 Q42,178 11.600000000000001,175 Z" fill="url(#uecl-silver-h)"/>
+  <ellipse cx="42" cy="170" rx="29.6" ry="3" fill="url(#uecl-silver-v)"/>
+  </g>
+</svg>

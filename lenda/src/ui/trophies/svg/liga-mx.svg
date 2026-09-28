@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 180" width="80" height="180" role="img" aria-labelledby="lmx-title" class="lx-trophy" data-trophy="liga-mx">
+  <title id="lmx-title">Troféu da Liga MX</title>
+  <!-- LENDA trophy art (generated, hand-tuned). Gradient stops read the metal-* CSS custom properties when inlined; hex fallbacks otherwise. -->
+  <defs>
+  <linearGradient id="lmx-silver-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-2,#474d59)"/><stop offset=".12" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".28" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".45" style="stop-color:var(--metal-silver-8,#fbfcfd)"/><stop offset=".57" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset=".75" style="stop-color:var(--metal-silver-4,#747c8a)"/><stop offset=".89" style="stop-color:var(--metal-silver-6,#bec6d1)"/><stop offset="1" style="stop-color:var(--metal-silver-2,#474d59)"/></linearGradient>
+  <linearGradient id="lmx-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset=".58" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="lmx-silver-d" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-silver-1,#2b2f37)"/><stop offset=".32" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset=".52" style="stop-color:var(--metal-silver-5,#8f98a6)"/><stop offset=".74" style="stop-color:var(--metal-silver-3,#5a6270)"/><stop offset="1" style="stop-color:var(--metal-silver-1,#2b2f37)"/></linearGradient>
+  <linearGradient id="lmx-lacq" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-lacquer-1,#050506)"/><stop offset=".4" style="stop-color:var(--metal-lacquer-2,#232529)"/><stop offset=".52" style="stop-color:var(--metal-lacquer-3,#40434b)"/><stop offset=".64" style="stop-color:var(--metal-lacquer-2,#1f2126)"/><stop offset="1" style="stop-color:var(--metal-lacquer-1,#040405)"/></linearGradient>
+  <linearGradient id="lmx-gold-h" x1="0" x2="1"><stop offset="0" style="stop-color:var(--metal-gold-2,#5c3a05)"/><stop offset=".12" style="stop-color:var(--metal-gold-5,#d4a236)"/><stop offset=".28" style="stop-color:var(--metal-gold-3,#94640f)"/><stop offset=".45" style="stop-color:var(--metal-gold-8,#fff3c4)"/><stop offset=".57" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset=".75" style="stop-color:var(--metal-gold-4,#a87414)"/><stop offset=".89" style="stop-color:var(--metal-gold-6,#f4cf63)"/><stop offset="1" style="stop-color:var(--metal-gold-2,#5c3a05)"/></linearGradient>
+  </defs>
+  <g>
+  <path d="M40,3 C57,3 67,14 67,32 C67,52 60,72 55.5,88 C53,96 51,102 51,108 L29,108 C29,102 27,96 24.5,88 C20,72 13,52 13,32 C13,14 23,3 40,3 Z" fill="url(#lmx-silver-h)"/>
+  <path d="M18,18 C25,9 35,6 42,8 C33,13 26,28 23,48 C19,40 16,28 18,18 Z" fill="#1c2027" opacity=".55"/>
+  <path d="M49,5 C60,11 65,22 65,34 C65,52 59,70 54,86 C57,68 58,50 56,34 C55,22 52,12 49,5 Z" fill="#262a31" opacity=".72"/>
+  <path d="M49.5,6 C56,22 58,50 53,88" fill="none" stroke="#fff" stroke-width="1" stroke-opacity=".75" stroke-linecap="round"/>
+  <path d="M26,34 L44,34" fill="none" stroke="#3a3f48" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .7" stroke-linecap="butt"/>
+  <path d="M23,38.5 L47,38.5" fill="none" stroke="#3a3f48" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .7" stroke-linecap="butt"/>
+  <path d="M25,43 L45,43" fill="none" stroke="#3a3f48" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .7" stroke-linecap="butt"/>
+  <path d="M28,50 L42,50" fill="none" stroke="#3a3f48" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .7" stroke-linecap="butt"/>
+  <path d="M27,54 L43,54" fill="none" stroke="#3a3f48" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="1.8 .7" stroke-linecap="butt"/>
+  <path d="M40,3 C57,3 67,14 67,32 C67,52 60,72 55.5,88 C53,96 51,102 51,108 L29,108 C29,102 27,96 24.5,88 C20,72 13,52 13,32 C13,14 23,3 40,3 Z" fill="url(#lmx-sheen)" opacity="0.5"/>
+  <path d="M51,107 L54,110 L54,113 L51,115 L51,121 L55.5,123 L55.5,127 L57,131 L57,135 L23,135 L23,131 L24.5,127 L24.5,123 L29,121 L29,115 L26,113 L26,110 L29,107 Z" fill="url(#lmx-silver-h)"/>
+  <ellipse cx="40" cy="113" rx="14" ry="1.8" fill="url(#lmx-silver-d)"/>
+  <ellipse cx="40" cy="127" rx="15.5" ry="1.8" fill="url(#lmx-silver-d)"/>
+  <path d="M12,135 L68,135 C73,138 76,146 76,156 L76,171 Q40,176 4,171 L4,156 C4,146 7,138 12,135 Z" fill="url(#lmx-lacq)"/>
+  <ellipse cx="40" cy="135.4" rx="28" ry="2.4" fill="#40434b"/>
+  <path d="M8.8,155.5 L15.2,155.5 L15.2,160 Q12,164.4 8.8,160 Z" fill="url(#lmx-gold-h)" opacity=".7"/>
+  <path d="M17.8,155.5 L24.2,155.5 L24.2,160 Q21,164.4 17.8,160 Z" fill="url(#lmx-gold-h)" opacity=".95"/>
+  <path d="M27.3,155.5 L33.7,155.5 L33.7,160 Q30.5,164.4 27.3,160 Z" fill="url(#lmx-gold-h)" opacity=".95"/>
+  <path d="M36.8,155.5 L43.2,155.5 L43.2,160 Q40,164.4 36.8,160 Z" fill="url(#lmx-gold-h)" opacity=".95"/>
+  <path d="M46.3,155.5 L52.7,155.5 L52.7,160 Q49.5,164.4 46.3,160 Z" fill="url(#lmx-gold-h)" opacity=".95"/>
+  <path d="M55.8,155.5 L62.2,155.5 L62.2,160 Q59,164.4 55.8,160 Z" fill="url(#lmx-gold-h)" opacity=".95"/>
+  <path d="M64.8,155.5 L71.2,155.5 L71.2,160 Q68,164.4 64.8,160 Z" fill="url(#lmx-gold-h)" opacity=".7"/>
+  <path d="M5,148 Q40,154 75,148" fill="none" stroke="#50535b" stroke-width="0.8" stroke-linecap="round"/>
+  </g>
+</svg>

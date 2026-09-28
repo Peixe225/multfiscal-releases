@@ -384,7 +384,7 @@ export function simulateSeason(
     const w = comp && cups[comp.id]?.winner
     if (comp && w) holders.set(comp.id, w)
   }
-  const nextClubs = evolveClubs(data, ix, seed, world.clubs, result, moves)
+  const nextClubs = evolveClubs(data, ix, seed, world.clubs, result, moves, world.seasons)
   const qualified = qualifyAll(ix, data, { rankings, cupWinners, holders, strength: (id) => nextClubs[id]?.strength ?? 60 })
   const initialTalent = topTalent(data.stars)
   const nations = evolveNations(data, seed, S, world.nations, result, initialTalent, rivals)
