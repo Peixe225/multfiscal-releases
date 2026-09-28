@@ -5,7 +5,7 @@
  *   <div style={clubVars(club)}> … </div>            // whole subtree tinted
  *   <div style={rowClubVars(club)} className="lx-club-row lx-club-row--filled">  // one row
  *
- * Never derive club colours inside [data-theme] custom properties (they would freeze at the root).
+ * Never derive club colours inside [data-lx-theme] custom properties (they would freeze at the root).
  */
 import type { CSSProperties } from 'react'
 

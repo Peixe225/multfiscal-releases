@@ -55,7 +55,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
           Sua carreira chegou ao fim
         </h2>
         <p className="ck-decision__sub">
-          {state.retiredReason ?? (last ? `Pendurou as chuteiras aos ${last.age} anos` : 'Carreira encerrada')}
+          {retiredText(state.retiredReason, last?.age)}
           {peak > 0 && (
             <>
               {' '}
@@ -84,3 +84,23 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
     </motion.section>
   )
 })
+
+/** O motor grava a razão como chave (retirement_age, no_offers…); aqui vira texto pt-BR. */
+function retiredText(reason: string | undefined, age: number | undefined): string {
+  const at = age != null ? ` aos ${age} anos` : ''
+  switch (reason) {
+    case 'retirement_age':
+      return `Aposentadoria${at}, depois de uma vida inteira dentro de campo`
+    case 'no_offers':
+      return `Sem propostas, encerrou a carreira${at}`
+    case 'voluntary':
+    case 'retired':
+      return `Pendurou as chuteiras${at}`
+    case undefined:
+    case '':
+      return age != null ? `Pendurou as chuteiras${at}` : 'Carreira encerrada'
+    default:
+      // razões já em texto (motor de exemplo) passam direto; chaves desconhecidas viram texto genérico
+      return /^[a-z_]+$/.test(reason) ? `Pendurou as chuteiras${at}` : reason
+  }
+}

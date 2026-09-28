@@ -1,5 +1,5 @@
 /**
- * PLACEHOLDER (foundation) — Modo Imersivo (fase 2). Rendered under <html data-theme="transmissao">.
+ * PLACEHOLDER (foundation) — Modo Imersivo (fase 2). Rendered under <html data-lx-theme="transmissao">.
  * Contract: default export, no props. Route "#/imersivo".
  */
 export default function ImmersiveComingSoon() {

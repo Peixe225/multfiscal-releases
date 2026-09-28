@@ -50,7 +50,7 @@ interface AppStore {
   /** Direction hint for page transitions (1 forward, -1 back). */
   navDir: 1 | -1
   dialog: DialogId
-  /** Active visual theme on <html data-theme> (the shell sets it per route). */
+  /** Active visual theme on <html data-lx-theme> (the shell sets it per route). */
   theme: 'noite' | 'transmissao'
   settings: Settings
   /** OS prefers-reduced-motion (live). */

@@ -50,7 +50,7 @@ export const Stage = memo(function Stage({ preset = 'club', club, colors, glowA,
 })
 
 /**
- * Transmissão (data-theme="transmissao") ambient stadium: beams, light towers, haze, grain.
+ * Transmissão (data-lx-theme="transmissao") ambient stadium: beams, light towers, haze, grain.
  *   <Stadium variant="calm" />   variants: 'calm' | 'club' | 'gala' | 'press' | undefined (full)
  */
 export const Stadium = memo(function Stadium({ variant, className, style }: { variant?: 'calm' | 'club' | 'gala' | 'press'; className?: string; style?: CSSProperties }) {

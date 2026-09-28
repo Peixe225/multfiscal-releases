@@ -67,11 +67,7 @@ function finish() {
     focusIdx: null,
     sheetCollapsed: false,
   })
-  // achievements unlocked by this step
-  unlocked.slice(0, 3).forEach((id, i) => {
-    const a = achievementById(id)
-    setTimeout(() => toast.gold('Conquista desbloqueada', a ? a.title : id, { duration: 5200 }), 250 + i * 450)
-  })
+  // achievement toasts come from src/ui/shared/achievements/unlockToasts (single source)
   if (rev?.finished) sfx.play('whistle')
 }
 
@@ -106,11 +102,17 @@ function reachTrophies() {
   continueAfterTrophies(0)
 }
 
+/** Aviso único (substitui o anterior) quando a celebração foi pulada. */
+let lastTrophyToast: string | null = null
 function announceTrophies() {
   const items = R().celebration ?? []
   if (!items.length) return
-  if (items[0].kind === 'relegation') toast.error('Rebaixamento', items[0].subtitle)
-  else toast.gold(items.length > 1 ? `${items.length} títulos` : 'Título!', items.map((i) => i.name).join(' · '))
+  if (lastTrophyToast) toast.dismiss(lastTrophyToast)
+  const names = [...new Set(items.map((i) => i.name))].join(' · ')
+  lastTrophyToast =
+    items[0].kind === 'relegation'
+      ? (toast.error('Rebaixamento', items[0].subtitle) as unknown as string)
+      : (toast.gold(items.length > 1 ? `${items.length} títulos` : 'Título!', names, { duration: 3200 }) as unknown as string)
 }
 
 export const director = {

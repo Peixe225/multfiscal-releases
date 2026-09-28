@@ -10,10 +10,8 @@ import { useCountry } from '@/store/data'
 import { cx } from './cx'
 
 // Bundled safety net for the most common football nations (lazy URLs — only fetched on error).
-const bundled = import.meta.glob(
-  '/node_modules/flag-icons/flags/4x3/{br,ar,uy,co,cl,py,pe,ec,bo,ve,mx,us,ca,pt,es,fr,de,it,nl,be,hr,gb-eng,gb-sct,gb-wls,dk,se,no,ch,at,pl,rs,tr,ma,sn,ng,gh,ci,cm,eg,jp,kr,sa,au,ie,ua,cz,gr,ru}.svg',
-  { query: '?url', import: 'default' },
-) as Record<string, () => Promise<string>>
+// public/flags/4x3 já traz todas as bandeiras do jogo (pipeline de dados); sem cópia embutida.
+const bundled: Record<string, () => Promise<string>> = {}
 
 const FIFA_TO_ISO2: Record<string, string> = {
   BRA: 'br', ARG: 'ar', URU: 'uy', COL: 'co', CHI: 'cl', PAR: 'py', PER: 'pe', ECU: 'ec', BOL: 'bo', VEN: 've',

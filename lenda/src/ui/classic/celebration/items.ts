@@ -72,6 +72,8 @@ function kickerFor(it: ShelfItem, rec: SeasonRecord | undefined, confed: Confed 
       return `${adj ? `CAMPEÃO ${adj}` : 'CAMPEÃO NACIONAL'} · ${y}`
     }
     case 'domestic_cup':
+      // estaduais (Campeonato Gaúcho, Paulistão…) são campeonatos, não copas
+      if (/^campeonato|paulist|carioc|mineir|ga[úu]ch|baian|pernambuc|cearens|paranaens|catarinens|goian/i.test(it.name)) return `CAMPEÃO ESTADUAL · ${y}`
       return /^copa|^ta[çc]a/i.test(it.name) ? `CAMPEÃO DA ${up(it.name)} · ${y}` : `CAMPEÃO DA COPA · ${y}`
     case 'award':
       if (/bola de ouro/i.test(it.name)) return `MELHOR JOGADOR DO MUNDO · ${y}`

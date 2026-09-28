@@ -94,7 +94,7 @@ export function AppShell() {
     }
   }, [fixture, status])
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
+    document.documentElement.setAttribute('data-lx-theme', theme)
     useApp.setState({ theme })
   }, [theme])
   useEffect(() => {

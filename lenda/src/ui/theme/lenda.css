@@ -3,7 +3,7 @@
    design CSS does not cover (dialog, sheet, toast, tooltip, skeleton, crest/flag
    fallbacks, OVR "elite"/"ícone" grades, animated tabs/segmented thumbs, splash).
    Built on the shared tokens so they work under both themes; Noite-only recipes are
-   scoped with :where([data-theme="noite"]). Keyframes are prefixed `lxl-`.
+   scoped with :where([data-lx-theme="noite"]). Keyframes are prefixed `lxl-`.
    ============================================================================= */
 
 @layer base {
@@ -38,7 +38,7 @@
   .lx-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); flex: none; border-radius: var(--radius-sm); }
   .lx-brand__word { font-family: var(--font-display); font-weight: 900; font-size: 19px; letter-spacing: .16em; line-height: 1; }
   .lx-brand__sub { font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--text-3); text-transform: uppercase; margin-left: 8px; white-space: nowrap; }
-  :where([data-theme="transmissao"]) .lx-brand__word { font-style: italic; font-weight: 800; letter-spacing: .08em; font-size: 22px; }
+  :where([data-lx-theme="transmissao"]) .lx-brand__word { font-style: italic; font-weight: 800; letter-spacing: .08em; font-size: 22px; }
 
   /* session pill (career top bar) */
   .lx-session { display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 14px 0 12px; border-radius: 11px; background: var(--surface); border: 1px solid var(--border); font-size: 12.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; min-width: 0; }
@@ -69,35 +69,35 @@
   .lx-ovr__holo { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0; mix-blend-mode: overlay;
     background: linear-gradient(115deg, transparent 18%, rgba(255, 150, 230, .55) 32%, rgba(150, 240, 255, .55) 46%, rgba(215, 255, 190, .5) 58%, rgba(210, 180, 255, .55) 70%, transparent 84%);
     background-size: 300% 100%; animation: lxl-holo 4.5s linear infinite; }
-  :where([data-theme="noite"]) .lx-ovr[data-grade="elite"] {
+  :where([data-lx-theme="noite"]) .lx-ovr[data-grade="elite"] {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .85), 0 0 0 1px rgba(214, 190, 255, .35), 0 0 48px -4px rgba(214, 190, 255, .75), 0 18px 40px -14px rgba(0, 0, 0, .9);
   }
-  :where([data-theme="noite"]) .lx-ovr[data-grade="icon"],
-  :where([data-theme="noite"]) .lx-ovr-pill[data-grade="icon"] {
+  :where([data-lx-theme="noite"]) .lx-ovr[data-grade="icon"],
+  :where([data-lx-theme="noite"]) .lx-ovr-pill[data-grade="icon"] {
     color: #fff;
     background: conic-gradient(from 210deg at 55% 38%, #1c0c36, #4a1a86 16%, #0b0714 36%, #5b1580 58%, #120824 78%, #1c0c36);
   }
-  :where([data-theme="noite"]) .lx-ovr[data-grade="icon"] {
+  :where([data-lx-theme="noite"]) .lx-ovr[data-grade="icon"] {
     box-shadow: inset 0 0 0 1px rgba(236, 180, 255, .75), 0 0 0 1px rgba(232, 121, 249, .45), 0 0 54px -4px rgba(236, 72, 153, .7), 0 18px 40px -14px rgba(0, 0, 0, .9);
   }
-  :where([data-theme="noite"]) .lx-ovr[data-grade="icon"]::before { border-color: rgba(232, 121, 249, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); }
-  :where([data-theme="noite"]) .lx-ovr[data-grade="icon"] .lx-ovr__n,
-  :where([data-theme="noite"]) .lx-ovr-pill[data-grade="icon"] .lx-ovr__n {
+  :where([data-lx-theme="noite"]) .lx-ovr[data-grade="icon"]::before { border-color: rgba(232, 121, 249, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); }
+  :where([data-lx-theme="noite"]) .lx-ovr[data-grade="icon"] .lx-ovr__n,
+  :where([data-lx-theme="noite"]) .lx-ovr-pill[data-grade="icon"] .lx-ovr__n {
     background: linear-gradient(180deg, #ffffff 20%, #f5d0fe 55%, #c4b5fd 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
     text-shadow: none; filter: drop-shadow(0 0 10px rgba(236, 72, 153, .55));
   }
-  :where([data-theme="noite"]) .lx-ovr[data-grade="icon"] .lx-ovr__l { color: #f5d0fe; opacity: .8; }
-  :where([data-theme="noite"]) .lx-ovr-pill[data-grade="icon"] { box-shadow: inset 0 0 0 1px rgba(232, 121, 249, .6), 0 0 12px -2px rgba(236, 72, 153, .7); }
-  :where([data-theme="noite"]) .lx-ovr-pill[data-grade="elite"] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7), 0 0 12px -3px rgba(214, 190, 255, .9); }
-  :where([data-theme="noite"]) .lx-ovr-pill[data-grade="lenda"] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), 0 0 10px -4px rgba(214, 190, 255, .8); }
+  :where([data-lx-theme="noite"]) .lx-ovr[data-grade="icon"] .lx-ovr__l { color: #f5d0fe; opacity: .8; }
+  :where([data-lx-theme="noite"]) .lx-ovr-pill[data-grade="icon"] { box-shadow: inset 0 0 0 1px rgba(232, 121, 249, .6), 0 0 12px -2px rgba(236, 72, 153, .7); }
+  :where([data-lx-theme="noite"]) .lx-ovr-pill[data-grade="elite"] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7), 0 0 12px -3px rgba(214, 190, 255, .9); }
+  :where([data-lx-theme="noite"]) .lx-ovr-pill[data-grade="lenda"] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), 0 0 10px -4px rgba(214, 190, 255, .8); }
   .lx-ovr-pill { position: relative; overflow: hidden; isolation: isolate; }
   .lx-ovr-pill--pending { opacity: .55; }
   /* big hero badge: allow count-up digits without layout jump */
   .lx-ovr__n { display: inline-block; min-width: 1.1ch; text-align: center; }
 
   /* ---------------------------------------------------------------- age badge current */
-  :where([data-theme="noite"]) .lx-age--current { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45), 0 0 14px -2px color-mix(in srgb, var(--row-club, var(--club)) 80%, transparent); }
+  :where([data-lx-theme="noite"]) .lx-age--current { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45), 0 0 14px -2px color-mix(in srgb, var(--row-club, var(--club)) 80%, transparent); }
 
   /* ---------------------------------------------------------------- tabs + segmented animated thumbs */
   .lx-tabs { position: relative; display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -105,22 +105,22 @@
   .lx-tabs > .lx-tab { position: relative; flex: none; }
   .lx-tabs__ind { position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: var(--radius-sm); }
   .lx-tabs__label { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px; }
-  :where([data-theme="noite"]) .lx-tabs--pill .lx-tabs__ind { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
-  :where([data-theme="noite"]) .lx-tabs--underline .lx-tabs__ind { inset: auto 10px -1px 10px; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px rgba(255, 255, 255, .5); }
-  :where([data-theme="noite"]) .lx-tabs .lx-tab[aria-selected="true"] { background: transparent; box-shadow: none; }
-  :where([data-theme="transmissao"]) .lx-tabs__ind { display: none; }
+  :where([data-lx-theme="noite"]) .lx-tabs--pill .lx-tabs__ind { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  :where([data-lx-theme="noite"]) .lx-tabs--underline .lx-tabs__ind { inset: auto 10px -1px 10px; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px rgba(255, 255, 255, .5); }
+  :where([data-lx-theme="noite"]) .lx-tabs .lx-tab[aria-selected="true"] { background: transparent; box-shadow: none; }
+  :where([data-lx-theme="transmissao"]) .lx-tabs__ind { display: none; }
 
   .lx-seg { position: relative; }
   .lx-seg__item { position: relative; }
   .lx-seg__thumb { position: absolute; inset: 0; z-index: 0; border-radius: 9px; pointer-events: none; }
   .lx-seg__label { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px; }
-  :where([data-theme="noite"]) .lx-seg__thumb { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong), 0 4px 12px -4px #000; }
-  :where([data-theme="noite"]) .lx-seg--solid .lx-seg__thumb { border-radius: 10px; background: var(--accent); box-shadow: 0 6px 16px -6px rgba(255, 255, 255, .4); }
-  :where([data-theme="noite"]) .lx-seg--animated .lx-seg__item:is([aria-pressed="true"], [aria-checked="true"], .is-on) { background: transparent; box-shadow: none; }
-  :where([data-theme="noite"]) .lx-seg--full { display: flex; width: 100%; }
-  :where([data-theme="noite"]) .lx-seg--full .lx-seg__item { flex: 1; }
-  :where([data-theme="noite"]) .lx-seg--solid .lx-seg__item { height: 36px; border-radius: 10px; }
-  :where([data-theme="transmissao"]) .lx-seg__thumb { display: none; }
+  :where([data-lx-theme="noite"]) .lx-seg__thumb { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong), 0 4px 12px -4px #000; }
+  :where([data-lx-theme="noite"]) .lx-seg--solid .lx-seg__thumb { border-radius: 10px; background: var(--accent); box-shadow: 0 6px 16px -6px rgba(255, 255, 255, .4); }
+  :where([data-lx-theme="noite"]) .lx-seg--animated .lx-seg__item:is([aria-pressed="true"], [aria-checked="true"], .is-on) { background: transparent; box-shadow: none; }
+  :where([data-lx-theme="noite"]) .lx-seg--full { display: flex; width: 100%; }
+  :where([data-lx-theme="noite"]) .lx-seg--full .lx-seg__item { flex: 1; }
+  :where([data-lx-theme="noite"]) .lx-seg--solid .lx-seg__item { height: 36px; border-radius: 10px; }
+  :where([data-lx-theme="transmissao"]) .lx-seg__thumb { display: none; }
 
   /* ---------------------------------------------------------------- dialog / sheet */
   .lx-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(4, 5, 8, .62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
@@ -144,7 +144,7 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .lx-sheet__handle { width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .22); margin: 8px auto 2px; flex: none; }
-  :where([data-theme="transmissao"]) :is(.lx-dialog, .lx-sheet) { background: var(--lx-plate-bg, var(--surface)); border-color: var(--border-strong); }
+  :where([data-lx-theme="transmissao"]) :is(.lx-dialog, .lx-sheet) { background: var(--lx-plate-bg, var(--surface)); border-color: var(--border-strong); }
 
   /* ---------------------------------------------------------------- tooltip */
   .lx-tip {

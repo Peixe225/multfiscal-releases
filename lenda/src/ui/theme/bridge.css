@@ -4,15 +4,15 @@
 
    Rules (see docs/design/DESIGN-SPEC-noite.md §1.4):
    - Colours use `@theme inline` so utilities reference the runtime token directly
-     (bg-surface → var(--surface); bg-surface/50 → color-mix). Works inside any [data-theme].
+     (bg-surface → var(--surface); bg-surface/50 → color-mix). Works inside any [data-lx-theme].
    - Radii / fonts / easings share their Tailwind key with the contract token (--radius-lg IS
-     the Tailwind key) → registered NON-inline; the [data-theme] blocks override at runtime.
+     the Tailwind key) → registered NON-inline; the [data-lx-theme] blocks override at runtime.
      Never write `@theme inline { --radius-lg: var(--radius-lg) }` (self-reference).
    - Shadows are plain @utility (Tailwind inlines --shadow-* at build time).
    ============================================================================= */
 
-@custom-variant noite (&:where([data-theme="noite"], [data-theme="noite"] *));
-@custom-variant transmissao (&:where([data-theme="transmissao"], [data-theme="transmissao"] *));
+@custom-variant noite (&:where([data-lx-theme="noite"], [data-lx-theme="noite"] *));
+@custom-variant transmissao (&:where([data-lx-theme="transmissao"], [data-lx-theme="transmissao"] *));
 /* In-game "reduzir animações" or the OS setting — use `motion-off:` for static fallbacks. */
 @custom-variant motion-off (&:where([data-motion="reduced"], [data-motion="reduced"] *));
 
@@ -74,7 +74,7 @@
   --breakpoint-lg: 69rem; /* 1104px */
   --breakpoint-xl: 80rem; /* 1280px */
 
-  /* pre-theme defaults (Noite); [data-theme] blocks override at runtime */
+  /* pre-theme defaults (Noite); [data-lx-theme] blocks override at runtime */
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
