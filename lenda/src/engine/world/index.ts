@@ -9,6 +9,7 @@
  *      andamento) → Intercontinental → Mundial de Clubes (anos de edição)
  *   5. torneios de seleções que terminam nesta temporada + jogos de seleções
  *   6. estatísticas dos rivais, artilharia por liga, classificados para S+1, evolução de forças
+ *   7. compacta a temporada S−4 (ver compact.ts)
  */
 import type { UserSeasonContext, WorldEngine } from '../api'
 import type {
@@ -24,6 +25,7 @@ import type {
 } from '../types'
 import { clamp, rng as subRng } from '../rng'
 import { computeAwards } from './awards'
+import { COMPACT_AFTER, compactSeason } from './compact'
 import {
   CONFEDS,
   FORM_SD,
@@ -416,13 +418,16 @@ export function simulateSeason(
   const initialTalent = topTalent(data.stars)
   const nations = evolveNations(data, seed, S, world.nations, result, initialTalent, rivals)
 
+  const seasons = { ...world.seasons, [S]: result }
+  const old = seasons[S - COMPACT_AFTER]
+  if (old) seasons[S - COMPACT_AFTER] = compactSeason(old)
   const next: WorldState = {
     seed,
     nextSeason: S + 1,
     clubs: nextClubs,
     nations,
     rivals,
-    seasons: { ...world.seasons, [S]: result },
+    seasons,
     qualified,
   }
   return { world: next, result }

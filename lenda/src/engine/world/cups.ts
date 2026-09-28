@@ -118,7 +118,6 @@ export function simulateRegionalCup(ctx: SeasonCtx, comp: Competition, participa
   if (participants.length < 2) return null
   const rng: Rng = subRng(ctx.seed, 'season', ctx.season, 'regional', comp.id)
   const clubs = seedOrder(ctx, participants).slice(0, Math.max(2, comp.size || 16))
-  let table: ReturnType<typeof sortTable> | undefined
   let seeds = clubs
   if (clubs.length >= 4) {
     const rows = new Map(clubs.map((c) => [c, newRow(c)] as const))
@@ -128,7 +127,7 @@ export function simulateRegionalCup(ctx: SeasonCtx, comp: Competition, participa
         addResult(rows.get(m.home)!, rows.get(m.away)!, m.score[0], m.score[1])
       }
     }
-    table = sortTable([...rows.values()])
+    const table = sortTable([...rows.values()])
     seeds = table.slice(0, clubs.length >= 6 ? 4 : 2).map((r) => r.clubId)
   }
   const ko = runKnockout(ctx, rng, seeds, {
@@ -149,6 +148,6 @@ export function simulateRegionalCup(ctx: SeasonCtx, comp: Competition, participa
     knockout: ko.stages,
     reached: compactReached(ctx, reached, 8),
   }
-  if (table) res.groups = [{ name: 'Fase de grupos', table }]
+  // a tabela do turno não é guardada (compacto): só quem chegou ao mata-mata e o clube do jogador
   return res
 }
