@@ -1043,25 +1043,40 @@
 @media (max-width: 63.99rem) { .im-review__grid > * { grid-column: span 12 !important; } }
 @media (max-width: 44.99rem) { .im-review__big > b { font-size: 80px; } .im-review__kpis { grid-template-columns: repeat(2, 1fr); } .im-review__cta > * { flex: 1; } }
 
-/* ---------- CAMPEÃO! ---------- */
-.im-cele { cursor: pointer; -webkit-backdrop-filter: blur(6px) brightness(.55) saturate(.8); backdrop-filter: blur(6px) brightness(.55) saturate(.8); }
+/* ---------- CAMPEÃO! (§5.11) ---------- */
+.im-cele { cursor: pointer; -webkit-backdrop-filter: blur(6px) brightness(.5) saturate(.8); backdrop-filter: blur(6px) brightness(.5) saturate(.8); }
 .im-cele__side { position: absolute; top: 0; bottom: 0; width: 30%; pointer-events: none; }
-.im-cele__side.is-l { left: 0; background: linear-gradient(90deg, color-mix(in oklab, var(--club) 35%, transparent), transparent); }
-.im-cele__side.is-r { right: 0; background: linear-gradient(270deg, color-mix(in oklab, var(--club) 35%, transparent), transparent); }
+.im-cele__side.is-l { left: 0; background: linear-gradient(90deg, color-mix(in oklab, var(--club) 36%, transparent), transparent); }
+.im-cele__side.is-r { right: 0; background: linear-gradient(270deg, color-mix(in oklab, var(--club-2) 30%, transparent), transparent); }
 .im-cele__stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 16px; max-width: 100vw; box-sizing: border-box; }
 .im-cele__top { display: flex; align-items: center; gap: 14px; animation: lx-rise .6s .1s var(--ease-out) backwards; }
 .im-cele__comp { font: 800 18px/1.1 var(--font-display); letter-spacing: .28em; text-transform: uppercase; color: var(--lx-gold-hi, #FFEDB0); text-align: left; }
 .im-cele__comp small { display: block; font-size: 12px; letter-spacing: .3em; color: rgb(255 236 176 / .6); }
-.im-cele__trophy { position: relative; margin-top: 8px; filter: drop-shadow(0 30px 40px rgb(0 0 0 / .7)) drop-shadow(0 0 40px rgb(255 220 120 / .55)); }
-.im-cele__word { margin-top: -10px; padding: 0 .08em; animation: lx-rise .7s .35s var(--ease-out) backwards; }
+.im-cele__trophy { position: relative; margin-top: 8px; display: grid; justify-items: center; filter: drop-shadow(0 30px 40px rgb(0 0 0 / .7)) drop-shadow(0 0 40px rgb(255 220 120 / .55)); }
+.im-cele__floor { width: 260px; height: 30px; margin-top: -14px; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 214 102 / .35), transparent); }
+.im-cele__word { margin-top: -18px; padding: 0 .08em; animation: lx-rise .7s .35s var(--ease-out) backwards; }
 .im-cele__sub { max-width: 100%; overflow-wrap: anywhere; font: 700 22px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; animation: lx-rise .6s .5s var(--ease-out) backwards; }
 .im-cele__sub b { color: var(--lx-gold); }
-.im-cele__score { margin-top: 20px; display: grid; justify-items: center; gap: 12px; animation: lx-wipe-in var(--dur-3) .65s var(--ease-out) backwards; }
+.im-cele__score { margin-top: 18px; display: grid; justify-items: center; gap: 12px; animation: lx-wipe-in var(--dur-3) .65s var(--ease-out) backwards; }
+.im-cele .lx-score__tm { min-width: 250px; max-width: 330px; }
+.im-cele .lx-score__tm > span { min-width: 0; }
+.im-cele__pts { display: flex !important; align-items: baseline; justify-content: center; gap: 6px; }
+.im-cele__pts small { font-size: 14px; letter-spacing: .1em; }
 .im-cele__goals { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; font: 400 14px/1 var(--font-ui); color: var(--text-2); }
 .im-cele__goals b { color: var(--text); }
 .im-cele__goals .is-me b { color: var(--lx-gold); }
+.im-cele__rewards { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; animation: lx-rise .6s .85s var(--ease-out) backwards; }
+.im-cele__rw { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 16px 0 12px; background: rgb(8 12 44 / .72); box-shadow: inset 0 0 0 1px rgb(247 201 72 / .3); clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); text-align: left; }
+.im-cele__rw > svg { width: 28px; height: 28px; color: var(--lx-gold); flex: none; }
+.im-cele__rw small { display: block; font: 700 10px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+.im-cele__rw b { display: block; margin-top: 3px; font: italic 800 18px/1 var(--font-num); color: var(--text); }
+.im-cele__also { position: absolute; right: 36px; bottom: 36px; z-index: 3; width: 260px; padding: 14px 16px; cursor: default; text-align: left; }
+.im-cele__also ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.im-cele__also li { display: flex; align-items: center; gap: 10px; }
+.im-cele__also b { font: italic 800 15px/1.1 var(--font-display); text-transform: uppercase; }
 .im-cele__tap { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); z-index: 3; }
-@media (max-width: 44.99rem) { .im-cele .lx-t-celebrate { font-size: 76px; } .im-cele__sub { font-size: 16px; } .im-cele .lx-score__tm { min-width: 0; font-size: 16px; padding: 0 10px; height: 46px; } .im-cele .lx-score__res { min-width: 70px; font-size: 26px; } }
+@media (max-width: 63.99rem) { .im-cele__also { display: none; } }
+@media (max-width: 44.99rem) { .im-cele .lx-t-celebrate { font-size: 76px; } .im-cele__sub { font-size: 16px; } .im-cele .lx-score__tm { min-width: 0; font-size: 16px; padding: 0 10px; height: 46px; } .im-cele .lx-score__res { min-width: 70px; font-size: 26px; } .im-cele__rw { height: 40px; } .im-cele__rw b { font-size: 15px; } }
 
 /* ---------- Bola de Ouro (gala, §5.12): palco 1.25fr + ranking 440px ---------- */
 .im-gala { position: relative; flex: 1; padding: 22px 24px 30px; overflow: hidden; min-height: calc(100dvh - 60px); }

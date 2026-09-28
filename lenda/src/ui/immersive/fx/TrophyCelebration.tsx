@@ -4,16 +4,18 @@
  */
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { Award, Coins, TrendingUp } from 'lucide-react'
 import type { ImmersiveState, LiveMatch } from '@/engine/immersive/types'
 import type { TrophyWin } from '@/engine/types'
-import { getCompetition, getLeague, getTrophy } from '@/store/data'
+import { getClub, getCompetition, getLeague, getTrophy } from '@/store/data'
 import { clubVars, useMediaQuery, useReducedMotion } from '@/ui/primitives'
-import { sfx } from '@/ui/shell/sfx'
 import { TrophyArt } from '@/ui/trophies'
-import { CompLogo } from '../bits'
-import { teamInfo } from '../model/view'
+import { CompLogo, TeamMark } from '../bits'
+import { imSfx } from '../hooks'
+import { fmtMoney, scoreColors, teamInfo } from '../model/view'
 
 const CONFETTI = ['#F7C948', '#FFEDB0', '#3BE4FF', '#FFFFFF', '#33F0A8']
+const PRIZE: Record<string, string> = { ballon_dor: 'Bola de Ouro', league_top_scorer: 'Artilheiro da liga', league_best_player: 'Craque da liga', golden_boot: 'Chuteira de Ouro', golden_glove: 'Luva de Ouro', the_best: 'The Best', kopa: 'Troféu Kopa', puskas: 'Prêmio Puskás', team_of_the_year: 'Seleção do ano', wc_golden_ball: 'Bola de Ouro da Copa', wc_golden_boot: 'Chuteira de Ouro da Copa' }
 
 export function Confetti({ n = 70, seed = 7 }: { n?: number; seed?: number }) {
   const bits = useMemo(() => {
@@ -49,10 +51,20 @@ export function TrophyCelebration({ trophy, state, lastMatch, onClose }: { troph
   const count = state.trophies.filter((x) => x.trophyId === trophy.trophyId).length
   const final = lastMatch && lastMatch.competitionId === trophy.competitionId ? lastMatch : null
   const vars = clubVars(team.colors) as CSSProperties
+  const rec = state.seasons.find((r) => r.season === trophy.season) ?? state.seasons[state.seasons.length - 1]
+  // placar da campanha na liga (pontos do campeão × vice) quando não há "final"
+  const table = !final && trophy.kind === 'league' ? (state.world.seasons?.[trophy.season]?.leagues?.[trophy.competitionId]?.table ?? []) : []
+  const champRow = table.find((r) => r.clubId === trophy.teamId) ?? table[0]
+  const runner = table.find((r) => r.clubId !== champRow?.clubId)
+  const runnerTeam = runner ? teamInfo(runner.clubId) : null
+  const others = rec ? rec.trophies.filter((x) => !(x.trophyId === trophy.trophyId && x.competitionId === trophy.competitionId)) : []
+  const prizes = rec ? rec.awards.filter((a) => a.place === 1) : []
+  const ballon = state.world.seasons?.[trophy.season]?.awards?.find((a) => a.award === 'ballon_dor')
+  const ballonPlace = ballon ? ballon.ranking.findIndex((r) => r.isUser) + 1 : 0
 
   useEffect(() => {
-    sfx.play('trophy')
-    ref.current?.focus()
+    imSfx.play('trophy')
+    ref.current?.focus({ preventScroll: true })
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
@@ -73,19 +85,20 @@ export function TrophyCelebration({ trophy, state, lastMatch, onClose }: { troph
       <div className="lx-cele__ring" />
       <div className="lx-cele__halo" />
       <div className="lx-cele__flash" />
-      {!rm && <Confetti />}
+      {!rm && <Confetti n={phone ? 60 : 110} seed={7} />}
       <div className="im-cele__stage">
         <div className="im-cele__top">
-          <CompLogo id={trophy.competitionId} size={44} />
+          <CompLogo id={trophy.competitionId} size={phone ? 40 : 56} />
           <div className="im-cele__comp">
             {name}
             <small>
-              {final?.stage ?? (trophy.kind === 'league' ? 'Campeão da liga' : 'Título')} · {trophy.season}
+              {final?.stage ?? (trophy.kind === 'league' ? 'Campeão da liga' : 'Título')} · temporada {trophy.season}
             </small>
           </div>
         </div>
         <div className="im-cele__trophy lx-trophy-in">
-          <TrophyArt id={trophy.trophyId} size={phone ? 170 : 260} trophy={t} />
+          <TrophyArt id={trophy.trophyId} size={phone ? 160 : 210} trophy={t} variant="svg" />
+          <span className="im-cele__floor" aria-hidden="true" />
         </div>
         <div id="im-cele-t" className="lx-t-celebrate lx-metal-gold lx-gold-glow im-cele__word">
           Campeão!
@@ -93,17 +106,19 @@ export function TrophyCelebration({ trophy, state, lastMatch, onClose }: { troph
         <div className="im-cele__sub">
           {team.name} levanta a taça · <b>{count}º título</b> de {state.identity.surname}
         </div>
-        {final && (
+        {final ? (
           <div className="im-cele__score">
             <div className="lx-score">
-              <div className="lx-score__tm is-home" style={clubVars(teamInfo(final.home.id, final.home).colors) as CSSProperties}>
-                {final.home.shortName}
+              <div className="lx-score__tm is-home" style={scoreColors(teamInfo(final.home.id, final.home).colors) as CSSProperties}>
+                <span className="truncate">{final.home.shortName}</span>
+                <TeamMark team={teamInfo(final.home.id, final.home)} size={36} />
               </div>
               <div className="lx-score__res num">
                 {final.score[0]} × {final.score[1]}
               </div>
-              <div className="lx-score__tm is-away" style={clubVars(teamInfo(final.away.id, final.away).colors) as CSSProperties}>
-                {final.away.shortName}
+              <div className="lx-score__tm is-away" style={scoreColors(teamInfo(final.away.id, final.away).colors) as CSSProperties}>
+                <TeamMark team={teamInfo(final.away.id, final.away)} size={36} />
+                <span className="truncate">{final.away.shortName}</span>
               </div>
             </div>
             {scorers.length > 0 && (
@@ -116,11 +131,92 @@ export function TrophyCelebration({ trophy, state, lastMatch, onClose }: { troph
               </div>
             )}
           </div>
+        ) : champRow ? (
+          <div className="im-cele__score">
+            <div className="lx-score">
+              <div className="lx-score__tm is-home" style={scoreColors(team.colors) as CSSProperties}>
+                <span className="truncate">{team.short}</span>
+                <TeamMark team={team} size={36} />
+              </div>
+              <div className="lx-score__res num im-cele__pts">
+                {champRow.points}
+                <small>pts</small>
+              </div>
+              {runnerTeam && runner && (
+                <div className="lx-score__tm is-away" style={scoreColors(runnerTeam.colors) as CSSProperties}>
+                  <TeamMark team={runnerTeam} size={36} />
+                  <span className="truncate">
+                    {runnerTeam.short} · {runner.points}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="im-cele__goals">
+              <span>
+                {champRow.won}V · {champRow.drawn}E · {champRow.lost}D
+              </span>
+              {runner && (
+                <span>
+                  <b>{champRow.points - runner.points}</b> pts à frente do vice
+                </span>
+              )}
+              {rec && (
+                <span className="is-me">
+                  <b>{state.identity.surname}</b> {rec.stats.goals} gols · {rec.stats.assists} assist.
+                </span>
+              )}
+            </div>
+          </div>
+        ) : null}
+        {rec && (
+          <div className="im-cele__rewards">
+            <span className="im-cele__rw">
+              <TrendingUp aria-hidden="true" />
+              <span>
+                <small>OVR</small>
+                <b className="num">
+                  {rec.ovrStart} → {rec.ovrEnd}
+                </b>
+              </span>
+            </span>
+            <span className="im-cele__rw">
+              <Coins aria-hidden="true" />
+              <span>
+                <small>Valor de mercado</small>
+                <b className="num">{fmtMoney(rec.marketValue)}</b>
+              </span>
+            </span>
+            <span className="im-cele__rw">
+              <Award aria-hidden="true" />
+              <span>
+                <small>Bola de Ouro · prévia</small>
+                <b>{ballonPlace ? `${ballonPlace}º na votação` : 'Fora do top 10'}</b>
+              </span>
+            </span>
+          </div>
         )}
       </div>
+      {(others.length > 0 || prizes.length > 0) && (
+        <aside className="lx-plate lx-plate--gold lx-c-md im-cele__also" onClick={(e) => e.stopPropagation()}>
+          <span className="lx-kicker lx-kicker--gold">Também nesta temporada</span>
+          <ul>
+            {others.slice(0, 3).map((o, i) => (
+              <li key={`${o.trophyId}-${i}`}>
+                <TrophyArt id={o.trophyId} size={30} variant="svg" />
+                <b>{getTrophy(o.trophyId)?.name ?? getCompetition(o.competitionId)?.name ?? o.competitionId}</b>
+              </li>
+            ))}
+            {prizes.slice(0, 2).map((p, i) => (
+              <li key={`p-${i}`}>
+                <TrophyArt id={p.award === 'ballon_dor' ? 'ballon-dor' : p.award === 'league_top_scorer' || p.award === 'golden_boot' ? 'golden-boot' : 'award-generic'} size={30} variant="svg" />
+                <b>{PRIZE[p.award] ?? p.award.replace(/_/g, ' ')}</b>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
       <div className="lx-tap-hint im-cele__tap">Toque para continuar</div>
     </div>,
     document.body,
   )
 }
-
