@@ -471,3 +471,28 @@ export function slugify(s: string): string {
       .replace(/^-+|-+$/g, '') || 'jogador'
   )
 }
+
+/** Edition label of a competition played in `season`: "2030" (Copa do Mundo), "2037/38" (Champions), "2037". */
+export function editionLabel(id: string, season: number): string {
+  const comp = getCompetition(id)
+  const lg = getLeague(id)
+  if (lg) return formatSeason(season, lg.calendar)
+  if (!comp) return String(season)
+  if (comp.kind === 'world_cup' || comp.kind === 'national_continental' || comp.kind === 'club_world_cup') {
+    return comp.id === 'fifa.intercontinental_cup' ? String(season) : String(season + 1)
+  }
+  if (comp.kind === 'domestic_cup') {
+    const top = comp.country ? leaguesByCountry(comp.country)[0] : undefined
+    return formatSeason(season, top?.calendar)
+  }
+  return formatSeason(season, comp.confed === 'UEFA' ? 'split' : 'calendar')
+}
+
+function leaguesByCountry(country: string): League[] {
+  const out: League[] = []
+  for (const id of ['1', '2']) {
+    const l = getLeague(`${country.toLowerCase()}.${id}`)
+    if (l) out.push(l)
+  }
+  return out
+}

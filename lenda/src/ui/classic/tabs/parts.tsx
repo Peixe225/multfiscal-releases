@@ -4,9 +4,10 @@
  */
 import { memo, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, CloudOff, Trophy as TrophyIcon } from 'lucide-react'
-import { getClub, getCompetition, getCountry, getLeague } from '@/store/data'
-import { Crest, Flag, cx, rowClubVars } from '@/ui/primitives'
-import { TrophyArt } from '@/ui/trophies'
+import { getClub, getCompetition, getCountry, getLeague, getTrophy } from '@/store/data'
+import { Crest, Flag, cx, rowClubVars, useSvgId } from '@/ui/primitives'
+import { TrophyArt, hasTrophyArt, hasTrophyPhoto, PHOTO_MIN_SIZE } from '@/ui/trophies'
+import { TROPHY_PHOTO_ASPECT } from '@/ui/trophies/photo-manifest'
 import type { SeasonEntry } from './model'
 import { isNation, teamName } from './model'
 
@@ -205,3 +206,64 @@ export function EmptyTab({ icon, title, children }: { icon?: ReactNode; title: s
 
 /** Tiny "VOCÊ"/"SEU CLUBE" badge. */
 export const You = ({ children = 'VOCÊ' }: { children?: ReactNode }) => <span className="lx-you tb-you">{children}</span>
+
+// ───────────────────────── prize art (trophy or medal) ─────────────────────────
+
+const GLYPH: Record<string, string> = {
+  'the-best': '★',
+  kopa: '21',
+  'golden-glove': 'GK',
+  puskas: '⚽',
+  'team-of-the-year': 'XI',
+  'league-best-player': '★',
+}
+
+/**
+ * Trophy art that fits a box: `h` is the max height, `maxW` the max width (wide art such as the
+ * golden boot shrinks). Individual awards without their own art get an engraved medal instead of
+ * the generic cup.
+ */
+export const Prize = memo(function Prize({ id, h, maxW, className, title }: { id: string; h: number; maxW?: number; className?: string; title?: string }) {
+  const t = getTrophy(id)
+  const art = t?.art ?? id
+  const has = hasTrophyArt(art) || hasTrophyPhoto(art)
+  if (!has && t?.family === 'award') return <Medal id={id} h={h} metal={t.metal === 'silver' ? 'silver' : 'gold'} accent={t.accent} className={className} title={title ?? t.name} />
+  const photo = hasTrophyPhoto(art) && (h >= PHOTO_MIN_SIZE || !hasTrophyArt(art))
+  const aspect = photo ? (TROPHY_PHOTO_ASPECT[art] ?? 0.62) : 0.56
+  const size = maxW ? Math.max(12, Math.min(h, Math.floor(maxW / aspect))) : h
+  return <TrophyArt id={has ? art : id} trophy={t} size={size} className={className} title={title} />
+})
+
+function Medal({ id, h, metal, accent = '#8a8f9c', className, title }: { id: string; h: number; metal: 'gold' | 'silver'; accent?: string; className?: string; title?: string }) {
+  const uid = useSvgId('md')
+  const g = metal === 'gold' ? ['#fff6d2', '#f4cf63', '#b98319', '#5c3a05'] : ['#ffffff', '#dfe4ea', '#8a93a1', '#3b414b']
+  const glyph = GLYPH[id] ?? '★'
+  return (
+    <svg viewBox="0 0 64 84" height={h} width={(h * 64) / 84} className={cx('tb-medal', className)} role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      <defs>
+        <radialGradient id={`${uid}-m`} cx=".36" cy=".3" r=".85">
+          <stop offset="0" stopColor={g[0]} />
+          <stop offset=".35" stopColor={g[1]} />
+          <stop offset=".75" stopColor={g[2]} />
+          <stop offset="1" stopColor={g[3]} />
+        </radialGradient>
+        <linearGradient id={`${uid}-r`} x1="0" x2="1">
+          <stop offset="0" stopColor={accent} />
+          <stop offset=".5" stopColor={accent} stopOpacity=".75" />
+          <stop offset="1" stopColor={accent} />
+        </linearGradient>
+      </defs>
+      <path d="M14 2 H28 L36 30 H22 Z" fill={`url(#${uid}-r)`} />
+      <path d="M50 2 H36 L28 30 H42 Z" fill={`url(#${uid}-r)`} opacity=".85" />
+      <path d="M14 2 H28 L36 30 H22 Z M50 2 H36 L28 30 H42 Z" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth=".8" />
+      <circle cx="32" cy="56" r="25" fill={`url(#${uid}-m)`} />
+      <circle cx="32" cy="56" r="25" fill="none" stroke="rgba(0,0,0,.35)" strokeWidth="1" />
+      <circle cx="32" cy="56" r="19.5" fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="1" />
+      <circle cx="32" cy="56" r="18.5" fill="none" stroke="rgba(0,0,0,.18)" strokeWidth="1" />
+      <text x="32" y="57" textAnchor="middle" dominantBaseline="central" fontFamily="'Barlow Condensed', 'Inter Tight Variable', sans-serif" fontWeight="800" fontSize={glyph.length > 1 ? 15 : 18} fill={metal === 'gold' ? '#5a3a06' : '#39404b'} opacity=".85">
+        {glyph}
+      </text>
+      <path d="M13 48 A21 21 0 0 1 30 33" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2" strokeLinecap="round" opacity=".5" />
+    </svg>
+  )
+}

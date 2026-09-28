@@ -26,7 +26,7 @@ import {
   useSelectedSeason,
   useTabState,
 } from './model'
-import { CompLogo, EmptyTab, SeasonRail, Section, You } from './parts'
+import { CompLogo, EmptyTab, Prize, SeasonRail, Section, You } from './parts'
 import './tabs.css'
 
 const OTHER_AWARDS: AwardId[] = ['the_best', 'golden_boot', 'wc_golden_ball', 'wc_golden_boot', 'kopa', 'golden_glove', 'puskas']
@@ -61,6 +61,7 @@ const AwardsBody = memo(function AwardsBody({ state, record, world }: { state: C
           Esta carreira não guardou a votação completa da temporada {formatSeason(record.season, getLeague(record.leagueId)?.calendar)}.
           {mine.length > 0 && ` Seus prêmios: ${mine.map((a) => `${AWARD_LABEL[a.award]} ${a.place === 1 ? '' : `(${a.place}º)`}`).join(', ')}.`}
         </EmptyTab>
+        <BallonHistory state={state} selectedYear={record.season + 1} />
       </div>
     )
   }
@@ -96,6 +97,8 @@ function BallonCard({ ballon, world, record }: { ballon: AwardResult; world: Sea
   const list = ballon.ranking.slice(0, 10)
   const top = list[0]
   const max = top?.score || 1
+  const floor = Math.min(...list.map((e) => e.score)) * 0.82
+  const ratio = (v: number) => 0.1 + 0.9 * ((v - floor) / Math.max(1e-6, max - floor))
   const youAt = list.findIndex((e) => e.isUser)
   const seasonLabel = formatSeason(record.season, getLeague(record.leagueId)?.calendar)
   return (
@@ -121,7 +124,7 @@ function BallonCard({ ballon, world, record }: { ballon: AwardResult; world: Sea
         {top && <Winner entry={top} world={world} record={record} points={awardPoints('ballon_dor', top.score)} />}
         <ol className="tb-nom" start={2}>
           {list.slice(1).map((e, i) => (
-            <Nominee key={e.name + i} entry={e} pos={i + 2} ratio={e.score / max} points={awardPoints('ballon_dor', e.score)} />
+            <Nominee key={e.name + i} entry={e} pos={i + 2} ratio={ratio(e.score)} points={awardPoints('ballon_dor', e.score)} />
           ))}
         </ol>
         {youAt < 0 && (
@@ -209,7 +212,7 @@ function Nominee({ entry, pos, ratio, points, unit = 'pts' }: { entry: AwardRank
 
 // ───────────────────────── history strip ─────────────────────────
 
-function BallonHistory({ state, selectedYear }: { state: CareerState; selectedYear: number }) {
+export function BallonHistory({ state, selectedYear }: { state: Pick<CareerState, 'seasons'> & { world?: CareerState['world'] }; selectedYear: number }) {
   const rows = useMemo(() => {
     const out: { year: number; place: number | null; winner?: AwardRankingEntry }[] = []
     for (const r of state.seasons) {
@@ -279,13 +282,15 @@ const AwardCard = memo(function AwardCard({ award }: { award: AwardResult }) {
   const w = list[0]
   const unit = awardUnit(award.award)
   const max = w?.score || 1
+  const floor = Math.min(...list.map((e) => e.score)) * 0.8
+  const pct = (v: number) => 12 + 88 * ((v - floor) / Math.max(1e-6, max - floor))
   const club = getClub(w?.clubId)
   const youWon = !!w?.isUser
   return (
     <article className={cx('tb-card tb-award', youWon && 'is-you')} style={{ '--at': AWARD_TONE[award.award] ?? '#ffd66e', ...(youWon ? rowClubVars(club) : {}) } as CSSProperties}>
       <header className="tb-award__h">
         <span className="tb-award__art lx-trophy-spot">
-          <TrophyArt id={awardTrophyId(award.award)} size={58} />
+          <Prize id={awardTrophyId(award.award)} h={58} maxW={64} />
         </span>
         <div className="tb-award__t">
           <h4>{AWARD_LABEL[award.award]}</h4>
@@ -320,9 +325,11 @@ const AwardCard = memo(function AwardCard({ award }: { award: AwardResult }) {
               <span className="tb-award__n">{shortPerson(e.name, 18)}</span>
               {e.isUser && <You />}
               {c && <Crest club={c} size={13} decorative />}
-              <span className="tb-award__bar" aria-hidden="true">
-                <i style={{ width: `${Math.max(6, (e.score / max) * 100)}%` }} />
-              </span>
+              {unit && (
+                <span className="tb-award__bar" aria-hidden="true">
+                  <i style={{ width: `${pct(e.score)}%` }} />
+                </span>
+              )}
               {unit && <span className="num tb-award__s">{formatInt(awardPoints(award.award, e.score))}</span>}
             </li>
           )
