@@ -58,9 +58,12 @@ export const LeagueLogo = memo(function LeagueLogo({ league, size = 30, classNam
           draggable={false}
           onError={() => setFailed(true)}
           onLoad={(e) => {
-            if (!tile || lightCache.has(url)) return
-            const v = isLightLogo(e.currentTarget)
-            lightCache.set(url, v)
+            if (!tile) return
+            let v = lightCache.get(url)
+            if (v === undefined) {
+              v = isLightLogo(e.currentTarget)
+              lightCache.set(url, v)
+            }
             if (v) setLight(true)
           }}
           className="w-full h-full object-contain"
