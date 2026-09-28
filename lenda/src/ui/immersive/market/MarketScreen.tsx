@@ -109,11 +109,13 @@ function OfferCard({ o, s, onNegotiate, i, best }: { o: ContractOffer; s: Immers
   return (
     <article className={cx('lx-plate lx-c-lg im-offer lx-anim-rise', best && 'is-best')} style={{ ...vars, ['--i' as string]: i }}>
       <div className="lx-club-glow" aria-hidden="true" />
-      {best && <span className="im-offer__ribbon">Melhor proposta</span>}
       <div className="im-offer__head">
         {c && <Crest club={c} size={58} decorative />}
         <div className="min-w-0">
-          <span className={cx('lx-chip lx-chip--sm', o.kind === 'renewal' ? 'lx-chip--accent' : 'lx-chip--gold')}>{KIND[o.kind]}</span>
+          <span className="im-offer__chips">
+            <span className={cx('lx-chip lx-chip--sm', o.kind === 'renewal' ? 'lx-chip--accent' : 'lx-chip--gold')}>{KIND[o.kind]}</span>
+            {best && <span className="lx-chip lx-chip--sm lx-chip--solid-gold">Melhor proposta</span>}
+          </span>
           <h3 className="im-offer__club">{c?.name ?? o.clubId}</h3>
           <span className="im-offer__lg">
             {lg && <CompLogo id={lg.id} size={16} />}

@@ -17,6 +17,7 @@ import { clubKit, nationKit } from '@/ui/shared/identity/kit'
 import { Confetti } from '../fx/TrophyCelebration'
 import { imSfx } from '../hooks'
 import { currentItem } from '../model/view'
+import { prizeArt } from '../model/constants'
 import { AWARD_LABEL, seasonAwards } from './SeasonReview'
 
 type Phase = 'intro' | 'r3' | 'r2' | 'suspense' | 'winner' | 'done'
@@ -24,6 +25,9 @@ const ORDER: Phase[] = ['intro', 'r3', 'r2', 'suspense', 'winner', 'done']
 const at = (p: Phase, q: Phase) => ORDER.indexOf(p) >= ORDER.indexOf(q)
 /** Posição revelada em cada fase. */
 const shownPlace = (place: number, phase: Phase) => (place === 3 && at(phase, 'r3')) || (place === 2 && at(phase, 'r2')) || (place === 1 && at(phase, 'winner')) || place > 3
+
+/** Número "de camisa" pela posição (nunca a colocação — não entrega a revelação). */
+const SHIRT: Partial<Record<string, number>> = { GOL: 1, LD: 2, ZAG: 4, LE: 6, VOL: 5, MC: 8, MEI: 10, ME: 11, MD: 7, PE: 11, PD: 7, CA: 9 }
 
 interface Line {
   apps?: number
@@ -45,7 +49,7 @@ function Nominee({ e, place, phase, i, line }: { e: AwardRankingEntry; place: nu
   return (
     <article className={cx('lx-plate lx-plate--gold lx-c-lg im-nom lx-anim-rise', win && 'is-win', lose && 'is-lose', e.isUser && 'is-me')} style={{ ['--i' as string]: i, ['--nc' as string]: c?.primary ?? '#F7C948' } as CSSProperties}>
       <div className="im-nom__art">
-        <Jersey name={last} number={e.isUser ? '★' : place} kit={kit} className="im-nom__jersey" />
+        <Jersey name={last} number={SHIRT[e.position] ?? 10} kit={kit} className="im-nom__jersey" />
         {club && <Crest club={club} size={phone ? 22 : 30} decorative className="im-nom__crest" />}
       </div>
       <b className="im-nom__name">{e.name}</b>
@@ -185,7 +189,7 @@ export default function Ceremony() {
           </header>
           <div className="im-gala__stage">
             <span className="im-gala__halo" aria-hidden="true" />
-            <TrophyArt id={main.award === 'ballon_dor' ? 'ballon-dor' : 'award-generic'} size={220} variant="svg" className={cx('im-gala__trophy', at(phase, 'winner') && 'is-lit')} />
+            <TrophyArt id={prizeArt(main.award)} size={220} variant="svg" className={cx('im-gala__trophy', at(phase, 'winner') && 'is-lit')} />
             <section className="im-gala__noms" aria-label="Indicados">
               {order.map((e, i) => (
                 <Nominee key={e.name} e={e} place={top3.indexOf(e) + 1} phase={phase} i={i} line={lineOf(e)} />
@@ -227,7 +231,7 @@ export default function Ceremony() {
                 const c = a.winner.clubId ? getClub(a.winner.clubId) : undefined
                 return (
                   <div key={`${a.award}-${a.leagueId ?? ''}`} className={cx('lx-plate lx-plate--flat lx-c-sm im-gala__other', a.winner.isUser && 'is-me')}>
-                    <TrophyArt id={a.award === 'league_top_scorer' || a.award === 'golden_boot' ? 'golden-boot' : 'award-generic'} size={34} variant="svg" />
+                    <TrophyArt id={prizeArt(a.award)} size={34} variant="svg" />
                     <span className="min-w-0">
                       <span className="lx-label">{AWARD_LABEL[a.award] ?? a.award}</span>
                       <b className="truncate">

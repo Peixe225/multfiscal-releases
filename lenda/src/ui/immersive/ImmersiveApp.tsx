@@ -104,6 +104,7 @@ export default function ImmersiveApp() {
   const status = useImmersive((s) => s.status)
   const state = useImmersive((s) => s.state)
   const fixture = useImmersive((s) => s.fixture)
+  const fixtureWarning = useImmersive((s) => s.fixtureWarning)
   const dataReady = useData((s) => s.status === 'ready')
   const query = useApp((s) => s.route.query)
   const club = useClub(state?.clubId ?? null)
@@ -178,6 +179,11 @@ export default function ImmersiveApp() {
       )}
       {state && !live && view !== 'gala' && view !== 'coletiva' && <ImTicker />}
       {state && <EffectsHost />}
+      {fixtureWarning && fixture && (
+        <div className="im-fxwarn" role="alert">
+          <b>Fixture</b> {fixtureWarning}
+        </div>
+      )}
       {state && it?.kind === 'awards' && view === 'central' && <SeasonNudge />}
     </div>
   )

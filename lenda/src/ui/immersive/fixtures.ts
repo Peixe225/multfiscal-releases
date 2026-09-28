@@ -12,7 +12,7 @@ import type { GameData, PlayerIdentity } from '@/engine/types'
 export const FIXTURES = ['central', 'treino', 'decisao', 'coletiva', 'mercado', 'negociacao', 'social', 'pre', 'banco', 'ao-vivo', 'lance', 'penalti', 'timing', 'intervalo', 'fim', 'temporada', 'campeao', 'gala', 'carreira'] as const
 export type FixtureName = (typeof FIXTURES)[number]
 
-const IDENTITY: PlayerIdentity = { surname: 'RIBEIRO', number: 9, foot: 'right', nationality: 'BRA', position: 'CA' }
+const IDENTITY: PlayerIdentity = { surname: 'Ribeiro', number: 9, foot: 'right', nationality: 'BRA', position: 'CA' }
 const SEED = 'lenda-imersivo-demo'
 
 interface Run {
@@ -21,7 +21,7 @@ interface Run {
   lastMatch?: LiveMatch
 }
 
-export function buildFixture(engine: ImmersiveEngine, data: GameData, name: string): { state: ImmersiveState; lastMatch?: LiveMatch | null; effects?: ImmersiveEffect[] } {
+export function buildFixture(engine: ImmersiveEngine, data: GameData, name: string): { state: ImmersiveState; lastMatch?: LiveMatch | null; effects?: ImmersiveEffect[]; warning?: string } {
   const run: Run = { s: engine.newCareer(data, IDENTITY, SEED), fx: [] }
   const d = (a: ImmersiveAction) => {
     const before = run.s
@@ -51,11 +51,28 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
     }
     return run.s
   }
+  /**
+   * Titular garantido para as telas de partida: técnico, fase, energia e atributos acima da força do
+   * elenco (só nos estados de exemplo — o jogo de verdade nunca faz isso).
+   */
+  const boostStarter = () => {
+    const s = run.s
+    if (!s.clubId) return
+    const team = (s.world?.clubs?.[s.clubId]?.strength as number | undefined) ?? data.clubs.find((c) => c.id === s.clubId)?.strength ?? 70
+    const target = Math.min(90, Math.round(team + 9))
+    const attrs = { ...(s.attributes as unknown as Record<string, number>) }
+    for (const k of Object.keys(attrs)) attrs[k] = Math.max(attrs[k], target)
+    s.attributes = attrs as unknown as ImmersiveState['attributes']
+    s.ovr = engine.ovrOf(s.attributes, s.identity.position)
+    s.relationships = { ...s.relationships, coach: 100 }
+    s.condition = { ...s.condition, fitness: 100, form: 85, sharpness: 90, injury: undefined, suspendedMatches: 0 }
+  }
   const toMatch = (opts: { starter?: boolean } = {}) => {
     // procura um jogo com o status pedido (titular/banco); senão aceita qualquer um em que você jogue
     let fallback: ImmersiveState | null = null
     for (let tries = 0; tries < 24; tries++) {
       until((_s, it) => it?.kind === 'match')
+      if (opts.starter) boostStarter()
       d({ type: 'advance' })
       const live = run.s.live
       if (!live) break
@@ -79,6 +96,27 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
     }
     return run.s.live
   }
+  /**
+   * Força o PRÓXIMO lance planejado pelo motor a ser da situação pedida (pênalti, falta → barra de
+   * precisão): o próprio motor monta o lance, com os ids e a memória dele (nada de lance "de mentira").
+   */
+  const forceNext = (situation: KeyMoment['situation'], minigame: KeyMoment['minigame']) => {
+    const l = run.s.live
+    if (!l) return false
+    const eng = run.s.engine as { live?: { plan?: { minute: number; situation: string }[] }; plan?: { moments?: { minute: number; situation: string; minigame?: string }[] } }
+    const plan = eng.live?.plan ?? eng.plan?.moments
+    if (!plan?.length) return false
+    const next = plan.find((p) => p.minute > l.minute) ?? plan[plan.length - 1]
+    next.situation = situation
+    if ('minigame' in next || eng.plan) (next as { minigame?: string }).minigame = minigame
+    return true
+  }
+  const toMoment = (situation: KeyMoment['situation'], minigame: KeyMoment['minigame']) => {
+    toMatch({ starter: true })
+    if (run.s.live?.phase === 'pre') d({ type: 'match_start' })
+    forceNext(situation, minigame)
+    simUntil((x) => !!x.pendingMoment, false)
+  }
   const craft = (patch: Partial<KeyMoment>) => {
     const l = simUntil((x) => !!x.pendingMoment && !x.pendingMoment.minigame)
     if (!l?.pendingMoment) return
@@ -86,6 +124,7 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
     run.s = { ...run.s, live: { ...l, pendingMoment: km } }
     run.fx = [{ type: 'key_moment', moment: km }]
   }
+  void craft
 
   switch (name as FixtureName) {
     case 'treino':
@@ -121,26 +160,11 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
       toMatch({ starter: true })
       simUntil((l) => !!l.pendingMoment && !l.pendingMoment.minigame, false)
       break
-    case 'penalti': {
-      toMatch({ starter: true })
-      const l = run.s.live
-      craft({
-        situation: 'penalty',
-        minigame: 'penalty_kick',
-        timeLimitMs: 12000,
-        description: `PÊNALTI! Você pega a bola e ajeita na marca. A torcida prende a respiração.`,
-        at: { x: l?.userSide === 'away' ? 11 : 89, y: 50 },
-        options: [
-          { id: 'left', label: 'Canto esquerdo', detail: 'FIN · colocado', chance: 0.68, icon: 'arrow-left' },
-          { id: 'center', label: 'Meio (cavadinha)', detail: 'Frieza · alto risco', chance: 0.58, icon: 'arrow-up', risk: 'Vira meme se errar' },
-          { id: 'right', label: 'Canto direito', detail: 'FIN · forte', chance: 0.68, icon: 'arrow-right' },
-        ],
-      })
+    case 'penalti':
+      toMoment(IDENTITY.position === 'GOL' ? 'penalty_save' : 'penalty', IDENTITY.position === 'GOL' ? 'penalty_save' : 'penalty_kick')
       break
-    }
     case 'timing':
-      toMatch({ starter: true })
-      craft({ minigame: 'timing' })
+      toMoment('free_kick', 'timing')
       break
     case 'intervalo':
       toMatch({ starter: true })
@@ -156,7 +180,7 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
       d({ type: 'advance' })
       break
     case 'campeao': {
-      // balanço com uma taça (a demo termina em 9º): injeta o título da liga para a celebração
+      // balanço com uma taça (a demo termina no meio da tabela): injeta o título da liga para a celebração
       until((_s, it) => it?.kind === 'season_end')
       d({ type: 'advance' })
       const s = structuredClone(run.s)
@@ -167,6 +191,16 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
         rec.trophies = [tw, ...rec.trophies]
         rec.leaguePosition = 1
         s.trophies = [tw, ...s.trophies]
+        // a tabela final concorda com o título (mesma fonte do selo de posição)
+        const table = s.world.seasons?.[rec.season]?.leagues?.[rec.leagueId]?.table
+        if (table?.length) {
+          const i = table.findIndex((r) => r.clubId === s.clubId)
+          if (i > 0) {
+            const [me] = table.splice(i, 1)
+            me.points = Math.max(me.points, table[0].points + 3)
+            table.unshift(me)
+          }
+        }
       }
       run.s = s
       break
@@ -183,5 +217,28 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
       until((_s, it) => it?.kind === 'match' && it.week >= 1)
       break
   }
-  return { state: run.s, lastMatch: run.lastMatch ?? null, effects: run.fx }
+  return { state: run.s, lastMatch: run.lastMatch ?? null, effects: run.fx, warning: check(name as FixtureName, run.s) }
+}
+
+/** O estado de exemplo chegou onde devia? Senão, avisa (em vez de mostrar outra tela em silêncio). */
+function check(name: FixtureName, s: ImmersiveState): string | undefined {
+  const l = s.live
+  const want: Partial<Record<FixtureName, [boolean, string]>> = {
+    pre: [l?.phase === 'pre', 'pré-jogo'],
+    banco: [l?.userStatus === 'bench', 'começar no banco'],
+    'ao-vivo': [!!l && l.phase !== 'full_time' && l.phase !== 'pre', 'partida em andamento'],
+    lance: [!!l?.pendingMoment && !l.pendingMoment.minigame, 'lance decisivo'],
+    penalti: [!!l?.pendingMoment && (l.pendingMoment.minigame === 'penalty_kick' || l.pendingMoment.minigame === 'penalty_save'), 'pênalti'],
+    timing: [l?.pendingMoment?.minigame === 'timing', 'barra de precisão'],
+    intervalo: [l?.phase === 'half_time', 'intervalo'],
+    fim: [l?.phase === 'full_time', 'fim de jogo'],
+    coletiva: [!!s.press?.length, 'coletiva'],
+    decisao: [!!s.pendingDecision, 'decisão'],
+    mercado: [s.offers.length > 0, 'propostas'],
+    negociacao: [s.offers.length > 0, 'propostas'],
+    temporada: [s.seasons.length > 0, 'temporada encerrada'],
+    gala: [s.seasons.length > 0, 'temporada encerrada'],
+  }
+  const w = want[name]
+  return w && !w[0] ? `Estado de exemplo "${name}" incompleto: o motor não chegou a ${w[1]}.` : undefined
 }

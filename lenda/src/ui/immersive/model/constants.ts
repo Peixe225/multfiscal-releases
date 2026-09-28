@@ -143,3 +143,10 @@ export const LIFESTYLE_ITEMS = [
   { id: 'carro', name: 'Carro esportivo', price: 140_000, morale: 4 },
   { id: 'casa-pais', name: 'Casa para os pais', price: 450_000, morale: 9 },
 ] as const
+
+/** Arte SVG de um prêmio individual (ids do motor com "_" → arquivos com "-"; genérica se faltar). */
+const PRIZE_SVGS = new Set(['ballon-dor', 'golden-boot', 'golden-glove', 'kopa', 'league-best-player', 'league-top-scorer', 'puskas', 'team-of-the-year', 'the-best', 'wc-golden-ball', 'wc-golden-boot'])
+export const prizeArt = (award: string) => {
+  const id = award.replace(/_/g, '-')
+  return PRIZE_SVGS.has(id) ? id : 'award-generic'
+}

@@ -12,6 +12,7 @@ import { clubVars, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { TrophyArt } from '@/ui/trophies'
 import { CompLogo, TeamMark } from '../bits'
 import { imSfx } from '../hooks'
+import { prizeArt } from '../model/constants'
 import { fmtMoney, scoreColors, teamInfo } from '../model/view'
 
 const CONFETTI = ['#F7C948', '#FFEDB0', '#3BE4FF', '#FFFFFF', '#33F0A8']
@@ -208,7 +209,7 @@ export function TrophyCelebration({ trophy, state, lastMatch, onClose }: { troph
             ))}
             {prizes.slice(0, 2).map((p, i) => (
               <li key={`p-${i}`}>
-                <TrophyArt id={p.award === 'ballon_dor' ? 'ballon-dor' : p.award === 'league_top_scorer' || p.award === 'golden_boot' ? 'golden-boot' : 'award-generic'} size={30} variant="svg" />
+                <TrophyArt id={prizeArt(p.award)} size={30} variant="svg" />
                 <b>{PRIZE[p.award] ?? p.award.replace(/_/g, ' ')}</b>
               </li>
             ))}

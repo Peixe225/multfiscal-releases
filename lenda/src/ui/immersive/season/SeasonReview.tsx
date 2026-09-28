@@ -13,6 +13,7 @@ import { TrophyArt } from '@/ui/trophies'
 import { CompLogo, ImOvr, Kpi, PanelHead } from '../bits'
 import { TrophyCelebration } from '../fx/TrophyCelebration'
 import { compInfo, currentItem, fmtMoney, fmtRating, zoneName, zoneOf } from '../model/view'
+import { prizeArt } from '../model/constants'
 
 const GLOBAL_AWARDS = new Set(['ballon_dor', 'the_best', 'golden_boot', 'golden_glove', 'kopa', 'puskas', 'team_of_the_year', 'wc_golden_ball', 'wc_golden_boot'])
 
@@ -106,6 +107,7 @@ export default function SeasonReview() {
       </header>
 
       <div className="im-review__grid">
+        <div className="im-review__col is-l">
         <section className="lx-plate lx-c-lg im-review__pos lx-anim-rise" style={{ ['--i' as string]: 1 }}>
           <div className="lx-club-glow" aria-hidden="true" />
           <span className="lx-label">Classificação final</span>
@@ -149,31 +151,6 @@ export default function SeasonReview() {
           )}
         </section>
 
-        <section className={cx('lx-plate lx-c-lg im-review__trophies lx-anim-rise', rec.trophies.length === 0 && 'is-empty')} style={{ ['--i' as string]: 2 }}>
-          <PanelHead kicker="Taças da temporada" icon={Trophy} gold />
-          {rec.trophies.length === 0 ? (
-            <div className="im-review__none">
-              <Trophy size={22} aria-hidden="true" />
-              <p className="lx-t-small m-0">
-                Nenhuma taça desta vez{pos > 1 && pos <= 4 ? ` — ficou a ${pos - 1} ${pos - 1 === 1 ? 'posição' : 'posições'} do título da liga` : ''}. A próxima temporada é uma nova chance.
-              </p>
-            </div>
-          ) : (
-            <div className="im-review__tr">
-              {rec.trophies.map((t, i) => (
-                <button key={`${t.trophyId}-${i}`} type="button" className="im-review__cup lx-focus-inset" onClick={() => setCele(t)} title="Comemorar de novo">
-                  <span className="lx-trophy-halo" aria-hidden="true" />
-                  <TrophyArt id={t.trophyId} size={120} trophy={getTrophy(t.trophyId)} variant="svg" className="lx-trophy-in" />
-                  <b>{getTrophy(t.trophyId)?.name ?? t.competitionId}</b>
-                  <span className="lx-chip lx-chip--sm lx-chip--gold">
-                    <PartyPopper size={11} aria-hidden="true" /> Campeão
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
         <section className="lx-plate lx-plate--flat lx-c-lg im-review__stats lx-anim-rise" style={{ ['--i' as string]: 3 }}>
           <PanelHead kicker="Seus números" icon={Sparkles} />
           <div className="im-review__kpis">
@@ -209,6 +186,33 @@ export default function SeasonReview() {
           </div>
         </section>
 
+        </div>
+        <div className="im-review__col is-r">
+        <section className={cx('lx-plate lx-c-lg im-review__trophies lx-anim-rise', rec.trophies.length === 0 && 'is-empty')} style={{ ['--i' as string]: 2 }}>
+          <PanelHead kicker="Taças da temporada" icon={Trophy} gold />
+          {rec.trophies.length === 0 ? (
+            <div className="im-review__none">
+              <Trophy size={22} aria-hidden="true" />
+              <p className="lx-t-small m-0">
+                Nenhuma taça desta vez{pos > 1 && pos <= 4 ? ` — ficou a ${pos - 1} ${pos - 1 === 1 ? 'posição' : 'posições'} do título da liga` : ''}. A próxima temporada é uma nova chance.
+              </p>
+            </div>
+          ) : (
+            <div className="im-review__tr">
+              {rec.trophies.map((t, i) => (
+                <button key={`${t.trophyId}-${i}`} type="button" className="im-review__cup lx-focus-inset" onClick={() => setCele(t)} title="Comemorar de novo">
+                  <span className="lx-trophy-halo" aria-hidden="true" />
+                  <TrophyArt id={t.trophyId} size={120} trophy={getTrophy(t.trophyId)} variant="svg" className="lx-trophy-in" />
+                  <b>{getTrophy(t.trophyId)?.name ?? t.competitionId}</b>
+                  <span className="lx-chip lx-chip--sm lx-chip--gold">
+                    <PartyPopper size={11} aria-hidden="true" /> Campeão
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="lx-plate lx-plate--flat lx-c-lg im-review__awards lx-anim-rise" style={{ ['--i' as string]: 4 }}>
           <PanelHead kicker="Prêmios individuais" icon={Medal} />
           <ul className="im-awards">
@@ -218,7 +222,7 @@ export default function SeasonReview() {
               const lg = a.leagueId ? compInfo(a.leagueId) : null
               return (
                 <li key={`${a.award}-${a.leagueId ?? ''}`} className={cx(place === 1 && 'is-win')}>
-                  <TrophyArt id={a.award === 'ballon_dor' ? 'ballon-dor' : a.award === 'league_top_scorer' || a.award === 'golden_boot' ? 'golden-boot' : 'award-generic'} size={34} variant="svg" />
+                  <TrophyArt id={prizeArt(a.award)} size={34} variant="svg" />
                   <span className="min-w-0">
                     <b>{AWARD_LABEL[a.award] ?? a.award}</b>
                     {lg && (
@@ -248,6 +252,7 @@ export default function SeasonReview() {
             </button>
           )}
         </section>
+        </div>
       </div>
 
       {cele && <TrophyCelebration trophy={cele} state={s} lastMatch={null} onClose={() => setCele(null)} />}

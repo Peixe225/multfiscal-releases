@@ -171,6 +171,8 @@ interface ImmersiveStore {
   saveFailed: boolean
   isFixture: boolean
   fixture: string | null
+  /** Estado de exemplo que não chegou onde devia (mostrado na tela, em vez de outra tela em silêncio). */
+  fixtureWarning: string | null
 
   init(): Promise<void>
   start(identity: PlayerIdentity, opts?: { seed?: string }): Promise<ImmersiveState>
@@ -327,6 +329,7 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
     saveFailed: false,
     isFixture: false,
     fixture: null,
+    fixtureWarning: null,
 
     async init() {
       if (get().status !== 'idle') return
@@ -353,7 +356,7 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
         const { engine, data } = await ensure(null)
         const seed = opts.seed ?? randomSeed()
         const state = engine.newCareer(data, identity, seed)
-        set({ state, previous: null, lastMatch: null, isFixture: false, fixture: null, busy: false, effects: [] })
+        set({ state, previous: null, lastMatch: null, isFixture: false, fixture: null, fixtureWarning: null, busy: false, effects: [] })
         await persist()
         return state
       } catch (err) {
@@ -408,8 +411,9 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
     async loadFixture(name) {
       const { engine, data } = await ensure()
       const mod = await import('@/ui/immersive/fixtures')
-      const { state, lastMatch, effects } = mod.buildFixture(engine, data, name)
-      set({ state, previous: null, lastMatch: lastMatch ?? null, isFixture: true, fixture: name, busy: false, effects: [] })
+      const { state, lastMatch, effects, warning } = mod.buildFixture(engine, data, name)
+      if (warning) console.warn('[LENDA]', warning)
+      set({ state, previous: null, lastMatch: lastMatch ?? null, isFixture: true, fixture: name, fixtureWarning: warning ?? null, busy: false, effects: [] })
       push(effects ?? [], 'fixture')
     },
 

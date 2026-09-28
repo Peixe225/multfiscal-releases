@@ -4,16 +4,19 @@
  * posição, OVR, J/G/A) com a temporada em andamento ao vivo. Links para o balanço e o Hall.
  */
 import { useMemo, useState, type CSSProperties } from 'react'
-import { ArrowRight, CornerDownRight, Flag as FlagIcon, Landmark, LogOut, Trophy } from 'lucide-react'
+import { ArrowRight, CornerDownRight, Flag as FlagIcon, Landmark, LogOut, Timer, Trophy } from 'lucide-react'
 import type { ImmersiveState } from '@/engine/immersive/types'
 import type { SeasonRecord, TrophyWin } from '@/engine/types'
 import { navigate } from '@/store/app'
 import { getClub, getCountry, getTrophy } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
-import { BallIcon, BootIcon, Button, Crest, Flag, Modal, ShirtIcon, clubVars, cx, formatMoney } from '@/ui/primitives'
+import { BallIcon, BootIcon, Button, Crest, Flag, Modal, ShirtIcon, clubVars, cx } from '@/ui/primitives'
 import { TrophyArt } from '@/ui/trophies'
-import { ImOvr, ImOvrS, Kpi, PanelHead } from '../bits'
-import { fmtRating } from '../model/view'
+import { CompLogo, ImDlgTitle, ImOvrS, PanelHead } from '../bits'
+import { PlayerPlate } from '../hub/panels'
+import { prizeArt } from '../model/constants'
+import { fmtRating, plural, zoneOf } from '../model/view'
+import { getLeague } from '@/store/data'
 
 const AWARD_NAME: Record<string, string> = {
   ballon_dor: 'Bola de Ouro',
@@ -29,24 +32,36 @@ const AWARD_NAME: Record<string, string> = {
   team_of_the_year: 'Seleção do ano',
 }
 
-function Shelf({ trophies }: { trophies: TrophyWin[] }) {
+const PRIZE_ART = prizeArt
+
+function Shelf({ trophies, awards }: { trophies: TrophyWin[]; awards: { award: string; place: number }[] }) {
   const groups = useMemo(() => {
-    const m = new Map<string, { id: string; n: number; name: string }>()
+    const m = new Map<string, { id: string; art: string; n: number; name: string; prize?: boolean }>()
     for (const t of trophies) {
-      const g = m.get(t.trophyId) ?? { id: t.trophyId, n: 0, name: getTrophy(t.trophyId)?.name ?? t.competitionId }
+      const g = m.get(t.trophyId) ?? { id: t.trophyId, art: t.trophyId, n: 0, name: getTrophy(t.trophyId)?.name ?? t.competitionId }
       g.n++
       m.set(t.trophyId, g)
     }
-    return [...m.values()].sort((a, b) => b.n - a.n)
-  }, [trophies])
+    for (const a of awards.filter((x) => x.place === 1)) {
+      const k = `p:${a.award}`
+      const g = m.get(k) ?? { id: k, art: PRIZE_ART(a.award), n: 0, name: AWARD_NAME[a.award] ?? a.award, prize: true }
+      g.n++
+      m.set(k, g)
+    }
+    return [...m.values()].sort((a, b) => Number(!!a.prize) - Number(!!b.prize) || b.n - a.n)
+  }, [trophies, awards])
   if (!groups.length) return <p className="lx-t-small m-0">A sala de troféus espera o primeiro título.</p>
   return (
     <div className="lx-shelf im-shelf">
-      {groups.slice(0, 6).map((g) => (
-        <div key={g.id} className="im-shelf__it" title={`${g.n}× ${g.name}`}>
-          <TrophyArt id={g.id} size={62} trophy={getTrophy(g.id)} />
+      {groups.slice(0, 7).map((g) => (
+        <div key={g.id} className={cx('im-shelf__it', g.prize && 'is-prize')} title={`${g.n}× ${g.name}`}>
+          <span className="lx-trophy-stack">
+            {Array.from({ length: Math.min(3, g.n) }).map((_, i) => (
+              <TrophyArt key={i} id={g.art} size={i === 0 ? 50 : 40} variant="svg" trophy={g.prize ? undefined : getTrophy(g.id)} />
+            ))}
+          </span>
           <span className="lx-label">
-            {g.n > 1 ? `${g.n}× ` : ''}
+            {g.n > 1 && <b className="lx-hi">{g.n}× </b>}
             {g.name}
           </span>
         </div>
@@ -57,6 +72,8 @@ function Shelf({ trophies }: { trophies: TrophyWin[] }) {
 
 function Row({ r, gk, current }: { r: SeasonRecord; gk: boolean; current?: boolean }) {
   const club = getClub(r.clubId)
+  const lg = getLeague(r.leagueId)
+  const z = r.leaguePosition ? (r.leaguePosition === 1 ? 'champ' : r.relegated ? 'reb' : zoneOf(lg, r.leaguePosition, 20)) : null
   const vars = club ? (clubVars(club) as CSSProperties) : undefined
   return (
     <div role="row" className={cx('im-crow lx-club-row', r.loan && 'lx-club-row--loan', current && 'is-current')} style={vars}>
@@ -84,7 +101,18 @@ function Row({ r, gk, current }: { r: SeasonRecord; gk: boolean; current?: boole
         {current && <span className="lx-chip lx-chip--sm lx-chip--live">Em andamento</span>}
       </span>
       <span role="cell" className="im-crow__pos">
-        {r.leaguePosition ? <span className="lx-rank" data-zone={r.leaguePosition === 1 ? 'champ' : r.relegated ? 'reb' : undefined}>{r.leaguePosition}º</span> : '—'}
+        {r.leaguePosition ? (
+          <span className="im-crow__rk">
+            <span className="lx-rank" data-zone={z === 'up' ? 'sul' : z ?? undefined}>
+              {r.leaguePosition}º
+            </span>
+            {z === 'champ' ? <span className="im-crow__tag is-gold">Campeão</span> : r.relegated || z === 'reb' ? <span className="im-crow__tag is-neg">▼ Rebaixado</span> : r.promoted ? <span className="im-crow__tag is-pos">▲ Acesso</span> : null}
+          </span>
+        ) : current ? (
+          <span className="lx-rank">…</span>
+        ) : (
+          '—'
+        )}
       </span>
       <span role="cell">
         <ImOvrS ovr={r.ovrEnd} />
@@ -131,19 +159,23 @@ function currentRecord(s: ImmersiveState): SeasonRecord | null {
 export default function CareerTab() {
   const s = useImmersive((x) => x.state)!
   const dispatch = useImmersive((x) => x.dispatch)
+  const engine = useImmersive((x) => x.engine)
   const [confirm, setConfirm] = useState(false)
   const gk = s.identity.position === 'GOL'
-  const club = getClub(s.clubId)
   const country = getCountry(s.identity.nationality)
   const cur = currentRecord(s)
   const all = cur ? [...s.seasons, cur] : s.seasons
   const tot = all.reduce((a, r) => ({ apps: a.apps + r.stats.apps, goals: a.goals + r.stats.goals, assists: a.assists + r.stats.assists }), { apps: 0, goals: 0, assists: 0 })
-  const vars = club ? (clubVars(club) as CSSProperties) : undefined
+  const prizes = s.awards.filter((a) => a.place === 1).length
+  // aposentadoria: o motor diz quando vale (motor real: a partir dos 34 anos)
+  const canRetire = engine?.validActions ? engine.validActions(s).includes('retire') : s.age >= 34
+  const futureN = Math.max(0, Math.min(8, 39 - s.age))
+  const last = all[all.length - 1]
   return (
     <main id="conteudo" tabIndex={-1} className="im-wrap im-career outline-none">
       <header className="im-hub__head lx-anim-rise">
         <div>
-          <span className="lx-kicker">Carreira · {s.seasons.length} {s.seasons.length === 1 ? 'temporada completa' : 'temporadas completas'}</span>
+          <span className="lx-kicker">Carreira · {plural(s.seasons.length, 'temporada completa', 'temporadas completas')}</span>
           <h1 className="lx-t-display im-hub__title">Trajetória</h1>
         </div>
         <div className="im-hub__actions">
@@ -153,14 +185,16 @@ export default function CareerTab() {
             </Button>
           )}
           <Button variant="ghost" size="md" icon={Landmark} href="#/hall">
-            Hall da Fama
+            Hall das Lendas
           </Button>
         </div>
       </header>
       {s.retired && (
         <div className="im-retired lx-anim-rise" role="status">
           <b>Carreira encerrada</b>
-          <span>{s.retiredReason ?? 'Você pendurou as chuteiras.'} Aos {s.age} anos, com OVR {s.ovr} e {s.trophies.length} {s.trophies.length === 1 ? 'título' : 'títulos'}.</span>
+          <span>
+            {s.retiredReason ?? 'Você pendurou as chuteiras.'} Aos {s.age} anos, com OVR {s.ovr} e {plural(s.trophies.length, 'título', 'títulos')}. A trajetória está no Hall das Lendas.
+          </span>
           <Button variant="primary" size="md" iconRight={ArrowRight} onClick={() => navigate('/identidade', { query: { modo: 'imersivo', nova: 1 } })}>
             Nova carreira imersiva
           </Button>
@@ -168,36 +202,39 @@ export default function CareerTab() {
       )}
       <div className="im-career__grid">
         <aside className="im-career__side">
-          <section className="im-career__plate lx-plate lx-c-lg" style={vars}>
-            <div className="lx-club-glow" aria-hidden="true" />
-            <div className="im-career__id">
-              <ImOvr ovr={s.ovr} w={116} />
-              <div className="min-w-0">
-                <span className="im-career__chips">
-                  {country && (
-                    <span className="lx-chip lx-chip--sm">
-                      <Flag code={country.code} iso2={country.iso2} h={11} w={15} decorative /> {country.code}
-                    </span>
-                  )}
-                  <span className="lx-chip lx-chip--sm lx-chip--pos-ok">{s.identity.position}</span>
-                  <span className="lx-chip lx-chip--sm">#{s.squadNumber}</span>
-                </span>
-                <b className="im-career__name">{s.identity.surname}</b>
-                <span className="lx-t-small">
-                  {club?.name ?? 'Sem clube'} · {s.age} anos · {formatMoney(s.marketValue)}
-                </span>
-              </div>
-            </div>
-            <div className="im-career__kpis">
-              <Kpi label="Jogos" value={tot.apps} icon={ShirtIcon} />
-              <Kpi label="Gols" value={tot.goals} icon={BallIcon} gold={tot.goals >= 50} />
-              <Kpi label="Assist." value={tot.assists} icon={BootIcon} />
-              <Kpi label="Títulos" value={s.trophies.length} icon={Trophy} gold={s.trophies.length > 0} />
-            </div>
-          </section>
-          <section className="lx-plate lx-plate--flat lx-c-md im-panel">
-            <PanelHead kicker="Sala de troféus" icon={Trophy} gold right={<span className="lx-t-small">{s.trophies.length} títulos · {s.awards.length} prêmios</span>} />
-            <Shelf trophies={s.trophies} />
+          <PlayerPlate s={s} />
+          <div className="lx-plate lx-plate--flat lx-c-md im-cstats">
+            <span>
+              <small>
+                <ShirtIcon size={14} aria-hidden /> Jogos
+              </small>
+              <b className="num">{tot.apps}</b>
+            </span>
+            <span>
+              <small>
+                <BallIcon size={14} aria-hidden /> {gk ? 'Sem sofrer' : 'Gols'}
+              </small>
+              <b className={cx('num', tot.goals >= 50 && 'lx-hi')}>
+                {gk ? all.reduce((a, r) => a + (r.stats.cleanSheets ?? 0), 0) : tot.goals}
+                {!gk && tot.apps > 0 && <em>{(tot.goals / tot.apps).toFixed(2).replace('.', ',')}/J</em>}
+              </b>
+            </span>
+            <span>
+              <small>
+                <BootIcon size={14} aria-hidden /> Assist.
+              </small>
+              <b className="num">{tot.assists}</b>
+            </span>
+            <span>
+              <small>
+                <Trophy size={14} aria-hidden="true" /> Títulos
+              </small>
+              <b className={cx('num', s.trophies.length > 0 && 'lx-metal-gold')}>{s.trophies.length}</b>
+            </span>
+          </div>
+          <section className="lx-plate lx-plate--flat lx-c-md im-panel im-trophyroom">
+            <PanelHead kicker="Sala de troféus" icon={Trophy} gold right={<span className="lx-t-small">{plural(s.trophies.length, 'título', 'títulos')} · {plural(prizes, 'prêmio', 'prêmios')}</span>} />
+            <Shelf trophies={s.trophies} awards={s.awards} />
           </section>
           <section className="lx-plate lx-plate--flat lx-c-md im-panel">
             <PanelHead kicker="Seleção" icon={FlagIcon} />
@@ -211,7 +248,7 @@ export default function CareerTab() {
           </section>
         </aside>
         <section className="lx-plate lx-plate--flat lx-c-lg im-panel im-ctable" aria-label="Trajetória">
-          <div role="table" aria-rowcount={all.length + 1}>
+          <div role="table" aria-rowcount={all.length + 1} className="im-ctable__t">
             <div role="row" className="im-crow is-head">
               <span role="columnheader">Idade</span>
               <span role="columnheader">Ano</span>
@@ -230,21 +267,38 @@ export default function CareerTab() {
             {all.map((r) => (
               <Row key={r.season} r={r} gk={gk} current={cur === r} />
             ))}
-            {Array.from({ length: Math.max(0, Math.min(6, 39 - s.age)) }).map((_, i) => (
-              <div role="row" key={`f${i}`} className="im-crow is-future">
-                <span role="cell" className="im-crow__fage num">
-                  {s.age + i + 1}
-                </span>
-                <span role="cell" className="num">
-                  {s.season + i + 1}
-                </span>
-                <span role="cell" className="im-crow__dash" />
+            {!s.retired &&
+              Array.from({ length: futureN }).map((_, i) => {
+                const year = (last?.season ?? s.season) + i + 1
+                const wc = year >= 2026 && (year - 2026) % 4 === 0
+                return (
+                  <div role="row" key={`f${i}`} className={cx('im-crow is-future', wc && 'is-wc')}>
+                    <span role="cell" className="im-crow__fage num">
+                      {(last?.age ?? s.age) + i + 1}
+                    </span>
+                    <span role="cell" className="num">
+                      {year}
+                    </span>
+                    {wc ? (
+                      <span role="cell" className="im-crow__wc">
+                        <TrophyArt id="world-cup" size={14} variant="svg" /> Copa do Mundo {year}
+                      </span>
+                    ) : (
+                      <span role="cell" className="im-crow__dash" />
+                    )}
+                  </div>
+                )
+              })}
+            {!s.retired && (
+              <div className="im-crow__left">
+                <Timer size={14} aria-hidden="true" /> {plural(Math.max(0, 39 - s.age), 'temporada pela frente', 'temporadas pela frente')} até os 39
               </div>
-            ))}
+            )}
           </div>
           {!s.retired && (
             <div className="im-ctable__foot">
-              <Button variant="ghost" size="sm" icon={LogOut} onClick={() => setConfirm(true)}>
+              <span className="lx-t-small">{canRetire ? 'Você pode encerrar a carreira quando quiser.' : 'Encerrar a carreira: disponível a partir dos 34 anos.'}</span>
+              <Button variant="ghost" size="sm" icon={LogOut} onClick={() => setConfirm(true)} disabled={!canRetire} title={canRetire ? undefined : 'Disponível a partir dos 34 anos'}>
                 Encerrar carreira
               </Button>
             </div>
@@ -255,8 +309,8 @@ export default function CareerTab() {
         open={confirm}
         onClose={() => setConfirm(false)}
         size="sm"
-        title="Pendurar as chuteiras?"
-        description={`${s.identity.surname} tem ${s.age} anos e OVR ${s.ovr}. A carreira termina aqui.`}
+        title={<ImDlgTitle kicker="Fim de carreira">Pendurar as chuteiras?</ImDlgTitle>}
+        description={`${s.identity.surname} tem ${s.age} anos e OVR ${s.ovr}. A carreira termina aqui e entra no Hall das Lendas.`}
         footer={
           <div className="flex gap-2 justify-end w-full">
             <Button variant="ghost" size="md" onClick={() => setConfirm(false)}>

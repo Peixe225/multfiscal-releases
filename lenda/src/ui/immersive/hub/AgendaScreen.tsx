@@ -51,6 +51,7 @@ export default function AgendaScreen() {
   const s = useImmersive((x) => x.state)!
   const rm = useReducedMotion()
   const cur = useRef<HTMLElement>(null)
+  const list = useRef<HTMLDivElement>(null)
   const weeks = useMemo(() => {
     const m = new Map<number, { it: CalendarItem; idx: number }[]>()
     s.calendar.forEach((it, idx) => {
@@ -59,8 +60,14 @@ export default function AgendaScreen() {
     })
     return [...m.entries()].sort((a, b) => a[0] - b[0])
   }, [s.calendar])
+  // a lista rola por dentro: a semana atual sobe para o topo da lista sem esconder a barra e o título
   useEffect(() => {
-    const t = setTimeout(() => cur.current?.scrollIntoView({ block: 'start', behavior: rm ? 'auto' : 'smooth' }), 60)
+    const t = setTimeout(() => {
+      const box = list.current
+      const el = cur.current
+      if (!box || !el) return
+      box.scrollTo({ top: Math.max(0, el.offsetTop - 44), behavior: rm ? 'auto' : 'smooth' })
+    }, 60)
     return () => clearTimeout(t)
   }, [rm])
   const played = s.calendar.filter((c) => (c.kind === 'match' || c.kind === 'national_match') && c.result).length
@@ -84,7 +91,7 @@ export default function AgendaScreen() {
           </span>
         </div>
       </header>
-      <div className="im-weeks">
+      <div className="im-weeks" ref={list}>
         <div className="im-week is-head" aria-hidden="true">
           <span>Semana</span>
           <span>Compromissos</span>
