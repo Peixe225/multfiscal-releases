@@ -7,7 +7,7 @@ import { CalendarDays, Home, Inbox, Mic, Pause, Play, Repeat2, Share2, Shirt } f
 import { navigate } from '@/store/app'
 import { useImmersive } from '@/store/immersive'
 import { IconButton, cx } from '@/ui/primitives'
-import { compInfo, currentItem, fmtMoney, teamInfo, weekLabel } from '../model/view'
+import { compInfo, currentItem, fmtMoney, itemTitle, teamInfo, weekLabel } from '../model/view'
 import { CompLogo, ImOvrS } from '../bits'
 import { usePlayback } from '../match/playback'
 
@@ -121,7 +121,7 @@ export const PressTopCenter = memo(function PressTopCenter() {
     <div className="im-livetop">
       <span className="lx-chip lx-chip--live lx-chip--sm">Ao vivo</span>
       <Mic size={16} aria-hidden="true" className="text-text-3" />
-      <span className="im-livetop__t">Sala de imprensa{it?.kind === 'press' ? ` · ${it.title}` : ''}</span>
+      <span className="im-livetop__t">Sala de imprensa{it?.kind === 'press' ? ` · ${itemTitle(it, true)}` : ''}</span>
     </div>
   )
 })

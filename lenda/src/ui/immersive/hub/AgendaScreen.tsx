@@ -66,7 +66,9 @@ export default function AgendaScreen() {
       const box = list.current
       const el = cur.current
       if (!box || !el) return
-      box.scrollTo({ top: Math.max(0, el.offsetTop - 44), behavior: rm ? 'auto' : 'smooth' })
+      // logo abaixo do cabeçalho fixo da lista (sem "fatia" da semana anterior aparecendo)
+      const head = (box.querySelector('.im-week.is-head') as HTMLElement | null)?.offsetHeight ?? 24
+      box.scrollTo({ top: Math.max(0, el.offsetTop - head - 6), behavior: rm ? 'auto' : 'smooth' })
     }, 60)
     return () => clearTimeout(t)
   }, [rm])

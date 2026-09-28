@@ -37,7 +37,7 @@ import { Crest, Flag, Modal, Button, POSITION_LABEL, YouBadge, clubVars, cx } fr
 import { AttrBar, CompLogo, FormChips, ImDlgTitle, ImOvr, Meter, PanelHead, TeamMark } from '../bits'
 import { ATTR_LABEL, KIND_LABEL } from '../model/constants'
 import { attrKeysFor, attrValue } from '../model/training'
-import { compInfo, fmtMoney, goalDiff, levelOf, recentForm, relWeek, resultLetter, selectionForecast, teamInfo, userLeagueId, zoneName, zoneOf, type ZoneKey } from '../model/view'
+import { compInfo, fmtMoney, goalDiff, itemTitle, levelOf, recentForm, relWeek, resultLetter, selectionForecast, teamInfo, userLeagueId, zoneName, zoneOf, type ZoneKey } from '../model/view'
 import type { NewsItem } from '@/engine/immersive/types'
 
 /** Mesma manchete em veículos diferentes na mesma semana: fica a primeira. */
@@ -519,7 +519,7 @@ export function DayCard({ it, s, state }: { it: CalendarItem; s: ImmersiveState;
             <span className="truncate">{it.stage ?? comp?.short}</span>
           </>
         ) : (
-          <span className="truncate">{it.title}</span>
+          <span className="truncate">{itemTitle(it, true)}</span>
         )}
       </span>
       {state === 'past' && (

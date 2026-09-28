@@ -70,6 +70,22 @@ const initials = (name: string) =>
     .join('')
     .toUpperCase() || '?'
 
+const MEDIA_RE = /gol|⚽|vit[oó]ria|derrota|empate|placar|fim de jogo|×|x /i
+
+/** Um card de placar por semana de jogo: no primeiro post (clube, imprensa, você ou torcedor) que fala do jogo. */
+function mediaPosts(s: ImmersiveState, list: SocialPost[]): Set<string> {
+  const out = new Set<string>()
+  const weeks = new Set<string>()
+  const played = new Set(s.calendar.filter((c) => (c.kind === 'match' || c.kind === 'national_match') && c.result).map((c) => `${c.season}:${c.week}`))
+  for (const p of list) {
+    const k = `${p.season}:${p.week}`
+    if (weeks.has(k) || !played.has(k) || !MEDIA_RE.test(p.text)) continue
+    weeks.add(k)
+    out.add(p.id)
+  }
+  return out
+}
+
 /** Mídia gerada (nunca foto real): placar do jogo da semana nos posts do clube, da imprensa e seus. */
 function PostMedia({ p, s }: { p: SocialPost; s: ImmersiveState }) {
   const game = s.calendar.find((c) => c.season === p.season && c.week === p.week && (c.kind === 'match' || c.kind === 'national_match') && c.result)
@@ -99,13 +115,13 @@ function PostMedia({ p, s }: { p: SocialPost; s: ImmersiveState }) {
   )
 }
 
-export const Post = memo(function Post({ p, s, i }: { p: SocialPost; s: ImmersiveState; i: number }) {
+export const Post = memo(function Post({ p, s, i, withMedia }: { p: SocialPost; s: ImmersiveState; i: number; withMedia?: boolean }) {
   const [liked, setLiked] = useState(false)
   const club = getClub(s.clubId)
   const official = p.verified && club && (p.author === club.name || p.handle.toLowerCase().includes(club.shortName.toLowerCase().replace(/\s+/g, '')))
   const trending = p.likes > 10000
   const who = displayAuthor(p, club?.abbr, club?.shortName)
-  const media = (official || p.byUser) && /gol|⚽|vit[oó]ria|placar|fim de jogo|×|x /i.test(p.text)
+  const media = withMedia ?? ((official || p.byUser) && MEDIA_RE.test(p.text))
   return (
     <article className={cx('lx-plate lx-plate--flat lx-post im-post lx-anim-rise', official && 'lx-post--official', p.byUser && 'is-me')} style={{ ['--i' as string]: Math.min(i, 8), ...(official && club ? (clubVars(club) as CSSProperties) : {}) }}>
       {trending && <span className="im-post__ribbon">Em alta</span>}
@@ -285,6 +301,8 @@ function Trending({ s }: { s: ImmersiveState }) {
 
 export default function SocialScreen() {
   const s = useImmersive((x) => x.state)!
+  const feed = useMemo(() => s.social.slice(0, 30), [s.social])
+  const withMedia = useMemo(() => mediaPosts(s, feed), [s, feed])
   return (
     <main id="conteudo" tabIndex={-1} className="im-wrap im-social outline-none">
       <header className="im-hub__head lx-anim-rise">
@@ -299,8 +317,8 @@ export default function SocialScreen() {
         </aside>
         <section className="im-social__feed" aria-label="Feed">
           <Composer s={s} />
-          {s.social.slice(0, 30).map((p, i) => (
-            <Post key={p.id} p={p} s={s} i={i} />
+          {feed.map((p, i) => (
+            <Post key={p.id} p={p} s={s} i={i} withMedia={withMedia.has(p.id)} />
           ))}
         </section>
         <aside className="im-social__r">

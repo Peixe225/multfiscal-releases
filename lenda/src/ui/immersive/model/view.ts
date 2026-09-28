@@ -193,7 +193,7 @@ export const levelOf = (v: number): 'good' | 'warn' | 'crit' | undefined => (v >
 /** "Semana 12 · Temporada 2026" */
 export const weekLabel = (s: Pick<ImmersiveState, 'week' | 'season'>) => (s.week === 0 ? `Pré-temporada ${s.season}` : `Semana ${s.week} · ${s.season}`)
 
-export type Forecast = { label: 'Titular provável' | 'Briga por vaga' | 'Banco provável' | 'Fora dos relacionados' | 'Fora (lesão)' | 'Suspenso' | 'Sem clube'; tone: 'pos' | 'warn' | 'neg' }
+export type Forecast = { label: 'Titular provável' | 'Briga por vaga' | 'Banco provável' | 'Banco ou tribuna' | 'Fora dos relacionados' | 'Fora (lesão)' | 'Suspenso' | 'Sem clube'; tone: 'pos' | 'warn' | 'neg' }
 
 /**
  * Previsão de escalação para o próximo jogo — a mesma conta do motor que vai decidir (motor real:
@@ -217,7 +217,9 @@ export function selectionForecast(s: ImmersiveState, engineKind?: string | null,
   const gk = s.identity.position === 'GOL'
   if (sel >= 5) return { label: 'Titular provável', tone: 'pos' }
   if (sel >= -5) return { label: 'Briga por vaga', tone: 'warn' }
-  if (sel >= (gk ? -30 : -22) || s.age <= 19) return { label: 'Banco provável', tone: 'warn' }
+  if (sel >= (gk ? -30 : -22)) return { label: 'Banco provável', tone: 'warn' }
+  // garoto da base abaixo do elenco: o técnico alterna banco (minutos da base) e tribuna
+  if (s.age <= 19) return { label: 'Banco ou tribuna', tone: 'warn' }
   return { label: 'Fora dos relacionados', tone: 'neg' }
 }
 
@@ -255,6 +257,20 @@ export function relWeek(s: Pick<ImmersiveState, 'week' | 'season'>, week: number
 export const titleCase = (x: string) => x.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_m, a: string, b: string) => a + b.toUpperCase())
 
 /** Sobrenome para frases (evita "o RIBEIRO" no meio do texto). */
+/**
+ * Título de um item da agenda na voz da transmissão. Coletiva: "Coletiva pré-jogo · Vasco" (o motor
+ * real escreve "Coletiva · antes de Brasileirão contra …"); `short` tira o prefixo repetido.
+ */
+export function itemTitle(it: Pick<CalendarItem, 'kind' | 'title' | 'opponentId'>, short = false): string {
+  if (it.kind === 'press') {
+    const opp = it.opponentId ? teamInfo(it.opponentId).short : null
+    if (opp) return short ? `Pré-jogo · ${opp}` : `Coletiva pré-jogo · ${opp}`
+    const t = it.title.replace(/^coletiva\s*[·:-]?\s*/i, '')
+    return short ? t.charAt(0).toUpperCase() + t.slice(1) : it.title
+  }
+  return it.title
+}
+
 export const surnameOf = (s: Pick<ImmersiveState, 'identity'>) => (s.identity.surname === s.identity.surname.toUpperCase() ? titleCase(s.identity.surname) : s.identity.surname)
 
 // ───────────────────────── lance decisivo ─────────────────────────

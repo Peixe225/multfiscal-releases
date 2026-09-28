@@ -10,7 +10,7 @@ import type { AwardRankingEntry, AwardResult } from '@/engine/types'
 import { navigate } from '@/store/app'
 import { getClub, getCountry } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
-import { Button, Crest, Flag, clubColors, cx, tierOf, useMediaQuery, useReducedMotion } from '@/ui/primitives'
+import { Button, Crest, Flag, clubColors, cx, tierOf, useMediaQuery, useReducedMotion, useSkipAnimations } from '@/ui/primitives'
 import { TrophyArt } from '@/ui/trophies'
 import { Jersey } from '@/ui/shared/identity/Jersey'
 import { clubKit, nationKit } from '@/ui/shared/identity/kit'
@@ -129,6 +129,8 @@ export default function Ceremony() {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const rm = useReducedMotion()
+  // "Pular animações" (menu) ou movimento reduzido: a revelação anda depressa
+  const skip = useSkipAnimations()
   const rec = s.seasons[s.seasons.length - 1]
   const all = rec ? seasonAwards(s.world, rec.season) : []
   const main = useMemo(() => all.find((a) => a.award === 'ballon_dor') ?? all.find((a) => a.award === 'league_best_player') ?? all[0], [all])
@@ -143,9 +145,9 @@ export default function Ceremony() {
     if (!n) return
     if (phase === 'winner') imSfx.play('trophy')
     else imSfx.play('reveal')
-    const t = setTimeout(() => setPhase(n[0]), rm ? 300 : n[1])
+    const t = setTimeout(() => setPhase(n[0]), skip ? 300 : n[1])
     return () => clearTimeout(t)
-  }, [phase, rm])
+  }, [phase, skip])
 
   const lineOf = (e: AwardRankingEntry): Line => {
     if (e.isUser && rec) return { apps: rec.stats.apps, goals: rec.stats.goals, assists: rec.stats.assists, ovr: rec.ovrEnd }

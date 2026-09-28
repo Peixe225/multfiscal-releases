@@ -12,7 +12,7 @@ import { ArrowRight, Brain, Megaphone, Mic, MicOff, Newspaper, Smile, Users } fr
 import type { NewsItem, PressQuestion } from '@/engine/immersive/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
-import { Button, Kbd, cx, useReducedMotion } from '@/ui/primitives'
+import { Button, Kbd, cx, useReducedMotion, useSkipAnimations } from '@/ui/primitives'
 import { LowerThird } from '../bits'
 import { OUTLET_SHORT, TONE_CSS, TONE_LABEL, type Tone } from '../model/constants'
 import { compInfo, currentItem, surnameOf, teamInfo } from '../model/view'
@@ -66,6 +66,7 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const rm = useReducedMotion()
+  const skip = useSkipAnimations()
   const press = s.press ?? []
   const total = useRef(Math.max(press.length, 1))
   // retrato no começo da coletiva (para o card de fechamento)
@@ -115,7 +116,7 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
       timers.current.push(window.setTimeout(() => setFlashes([]), 900))
     }
     const qid = q.id
-    timers.current.push(window.setTimeout(() => void dispatch({ type: 'press_answer', questionId: qid, answerId: a.id }), rm ? 350 : HOLD_MS))
+    timers.current.push(window.setTimeout(() => void dispatch({ type: 'press_answer', questionId: qid, answerId: a.id }), skip ? 350 : HOLD_MS))
   }
 
   useEffect(() => {

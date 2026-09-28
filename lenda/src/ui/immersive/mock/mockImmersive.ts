@@ -1367,7 +1367,16 @@ function finishMatch(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[]) {
       s,
       'Torcedor',
       `@${fans}_${['raiz', 'fiel', 'sempre', '1914', 'doente'][s.week % 5]}`,
-      won ? (st.goals ? `${cap(me)} é craque, não tem jeito. Que jogador!` : `Vitória importante! Seguimos.`) : lost ? (played && st.rating < 6 ? `${cap(me)} sumiu hoje. Precisa de mais.` : `Inaceitável perder esse jogo.`) : `Empate com gosto amargo…`,
+      ((k: number) =>
+        won
+          ? st.goals
+            ? [`${cap(me)} é craque, não tem jeito. Que jogador!`, `Que fase do ${cap(me)}! Já pode renovar 🔥`, `${cap(me)} decidiu de novo. Garoto diferenciado.`][k % 3]
+            : [`Vitória importante! Seguimos.`, `${sc} e três pontos na conta. É isso!`, `Não foi bonito, mas ganhamos do ${oppShort}. VAMO!`, `Time com alma hoje. Orgulho!`][k % 4]
+          : lost
+            ? played && st.rating < 6
+              ? [`${cap(me)} sumiu hoje. Precisa de mais.`, `Cadê o ${cap(me)}? Jogo grande pede mais.`][k % 2]
+              : [`Inaceitável perder esse jogo.`, `Perder pro ${oppShort} assim dói. Reação já!`, `Precisamos de reforços urgente.`][k % 3]
+            : [`Empate com gosto amargo…`, `Um ponto fora não é ruim. Segue o jogo.`, `${sc} com o ${oppShort}. Faltou capricho no fim.`][k % 3])(s.week + s.season),
       won ? 'positive' : lost ? 'negative' : 'neutral',
       { likes: Math.round(likesBase * 0.4), reposts: Math.round(likesBase * 0.05) },
     ),
@@ -1425,7 +1434,7 @@ function train(data: GameData, s: ImmersiveState, focus: TrainingFocus, intensit
     fx.push({ type: 'ovr_change', from: before, to: s.ovr })
     s.marketValue = marketValueOf(s.ovr, s.age, s.potential)
   }
-  fx.push({ type: 'toast', tone: ups.length ? 'success' : 'info', title: `Treino ${INTENSITY[intensity].label.toLowerCase()} · ${meta.label}`, description: ups.length ? ups.join(' · ') : rec ? `Energia ${s.condition.fitness}` : 'Sem evolução visível desta vez.' })
+  fx.push({ type: 'toast', tone: ups.length ? 'success' : 'info', title: `Treino ${intensity === 'intensa' ? 'intenso' : INTENSITY[intensity].label.toLowerCase()} · ${meta.label}`, description: ups.length ? ups.join(' · ') : rec ? `Energia ${s.condition.fitness}` : 'Sem evolução visível desta vez.' })
   complete(data, s, fx)
 }
 

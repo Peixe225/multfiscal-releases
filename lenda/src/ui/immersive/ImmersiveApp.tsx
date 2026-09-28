@@ -16,7 +16,8 @@ import { useImmersive } from '@/store/immersive'
 import { Button, Stadium, clubVars } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
 import { EffectsHost } from './fx/EffectsHost'
-import { ImNav, ImTopActions, LiveTopCenter, PressTopCenter, type ImTab } from './shell/ImTopBar'
+import { ImNav, LiveTopCenter, PressTopCenter, type ImTab } from './shell/ImTopBar'
+import { ImRightCluster } from './shell/ImMenu'
 import { ImTicker } from './shell/ImTicker'
 import { currentItem } from './model/view'
 import './immersive.css'
@@ -113,10 +114,11 @@ export default function ImmersiveApp() {
   useEffect(() => {
     void useImmersive.getState().init()
   }, [])
+  const fixtureKey = query.fixture ? (query.clube ? `${query.fixture}@${query.clube}` : query.fixture) : null
   useEffect(() => {
-    if (!query.fixture || !dataReady || status !== 'ready' || fixture === query.fixture) return
-    void useImmersive.getState().loadFixture(query.fixture)
-  }, [query.fixture, dataReady, status, fixture])
+    if (!query.fixture || !dataReady || status !== 'ready' || fixture === fixtureKey) return
+    void useImmersive.getState().loadFixture(query.fixture, { club: query.clube })
+  }, [query.fixture, query.clube, fixtureKey, dataReady, status, fixture])
 
   const live = !!state?.live
   const press = !!state?.press
@@ -139,13 +141,14 @@ export default function ImmersiveApp() {
       sub: 'IMERSIVO',
       // partida e coletiva tomam a tela: sem abas (nenhum destino que não abre)
       center: state ? live ? <LiveTopCenter /> : inPress ? <PressTopCenter /> : <ImNav active={tab} /> : null,
-      extraActions: state ? <ImTopActions /> : undefined,
+      // lado direito próprio: o menu do Imersivo mexe na carreira imersiva (não na clássica)
+      actions: <ImRightCluster />,
       stage: { hidden: true },
     },
     [!!state, live, inPress, tab],
   )
 
-  const waiting = status !== 'ready' || !dataReady || (!!query.fixture && fixture !== query.fixture)
+  const waiting = status !== 'ready' || !dataReady || (!!fixtureKey && fixture !== fixtureKey)
 
   return (
     <div className="im-root" style={vars} data-view={view}>

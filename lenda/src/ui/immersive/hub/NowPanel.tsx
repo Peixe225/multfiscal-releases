@@ -22,6 +22,7 @@ import {
   Sparkles,
   Star,
   Target,
+  Timer,
   Trophy,
   Zap,
 } from 'lucide-react'
@@ -31,11 +32,11 @@ import { navigate } from '@/store/app'
 import { getClub } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
 import { EventArt } from '@/ui/art/EventArt'
-import { Button, Crest, EffectChip, Kbd, cx, formatPercent, useIsDesktop, useReducedMotion } from '@/ui/primitives'
+import { Button, Crest, EffectChip, Kbd, cx, formatPercent, useIsDesktop, useReducedMotion, useSkipAnimations } from '@/ui/primitives'
 import { CompLogo, FormChips, ImSeg, PanelHead, TeamMark } from '../bits'
 import { ATTR_LABEL, FOCUS_ORDER, INTENSITY, TRAINING_FOCUS, type Intensity } from '../model/constants'
 import { trainingPreview } from '../model/training'
-import { compInfo, recentForm, selectionForecast, teamInfo, weeksUntil, winProbs } from '../model/view'
+import { compInfo, itemTitle, recentForm, selectionForecast, teamInfo, weeksUntil, winProbs } from '../model/view'
 import { clubForm } from '../model/round'
 import { useImHotkey } from '../hooks'
 
@@ -290,7 +291,7 @@ export const PressCard = memo(function PressCard({ it }: { it: CalendarItem }) {
         <EventArt art="press" hint="coletiva de imprensa" fill />
       </div>
       <div className="im-cardnow__body">
-        <PanelHead kicker={<span id="im-press-h">Sala de imprensa</span>} icon={Mic} title={it.title} />
+        <PanelHead kicker={<span id="im-press-h">Sala de imprensa</span>} icon={Mic} title={itemTitle(it)} />
         <p className="lx-t-body m-0">
           Microfones ligados, flashes prontos. {opp ? `Os jornalistas querem saber do duelo contra o ${opp.short}.` : 'Os jornalistas querem ouvir você.'} Cada resposta mexe com torcida, técnico e imprensa.
         </p>
@@ -309,9 +310,22 @@ export const PressCard = memo(function PressCard({ it }: { it: CalendarItem }) {
 
 // ───────────────────────── história ─────────────────────────
 
-function StoryOption({ o, i, chosen, onPick }: { o: DecisionOption; i: number; chosen: string | null; onPick: (id: string) => void }) {
+/**
+ * Minutos previstos num clube (mesma régua da escalação: OVR × força do elenco; garoto da base ganha
+ * minutos do banco). Consequência antes da escolha: clube grande = mais banco no começo.
+ */
+function minutesOutlook(s: ImmersiveState, clubId: string): { label: string; cls: string; pct: number } {
+  const str = (s.world?.clubs?.[clubId]?.strength as number | undefined) ?? getClub(clubId)?.strength ?? s.ovr
+  const gap = s.ovr - str
+  const youth = s.age <= 19 ? 0.14 : 0
+  const pct = Math.max(0.08, Math.min(0.92, 0.55 + gap * 0.03 + youth))
+  return pct >= 0.55 ? { label: 'Minutos: muitos', cls: 'lx-fx--up', pct } : pct >= 0.3 ? { label: 'Minutos: alguns', cls: 'lx-fx--info', pct } : { label: 'Minutos: poucos', cls: 'lx-fx--down', pct }
+}
+
+function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number; chosen: string | null; onPick: (id: string) => void; s: ImmersiveState }) {
   const rm = useReducedMotion()
   const club = o.clubId ? getClub(o.clubId) : undefined
+  const mins = club ? minutesOutlook(s, club.id) : null
   const state = chosen ? (chosen === o.id ? 'chosen' : 'dim') : 'idle'
   return (
     <motion.button
@@ -350,9 +364,18 @@ function StoryOption({ o, i, chosen, onPick }: { o: DecisionOption; i: number; c
         </span>
       )}
       <span className="im-story__fx">
-        {o.effects.slice(0, 3).map((e, k) => (
+        {o.effects.slice(0, mins ? 2 : 3).map((e, k) => (
           <EffectChip key={k} effect={e} />
         ))}
+        {mins && (
+          <span className={cx('lx-fx', mins.cls)} title="Estimativa de jogos em campo nesta temporada (OVR × força do elenco)">
+            <span className="lx-fx__ic">
+              <Timer size={14} aria-hidden="true" />
+            </span>
+            {mins.label}
+            <span className="lx-fx__p">{formatPercent(mins.pct)}</span>
+          </span>
+        )}
       </span>
     </motion.button>
   )
@@ -362,10 +385,11 @@ export const StoryDecision = memo(function StoryDecision({ s }: { s: ImmersiveSt
   const dispatch = useImmersive((x) => x.dispatch)
   const d = s.pendingDecision!
   const [chosen, setChosen] = useState<string | null>(null)
+  const skip = useSkipAnimations()
   const pick = (id: string) => {
     if (chosen) return
     setChosen(id)
-    setTimeout(() => void dispatch({ type: 'decision_choose', optionId: id }), 520)
+    setTimeout(() => void dispatch({ type: 'decision_choose', optionId: id }), skip ? 60 : 520)
   }
   useImHotkey(['1', '2', '3'], (e) => {
     const o = d.options[Number(e.key) - 1]
@@ -378,7 +402,7 @@ export const StoryDecision = memo(function StoryDecision({ s }: { s: ImmersiveSt
       <p className="lx-t-body im-story__desc">{d.description}</p>
       <div className={cx('im-story__opts', d.options.length >= 3 && 'is-3')}>
         {d.options.map((o, i) => (
-          <StoryOption key={o.id} o={o} i={i} chosen={chosen} onPick={pick} />
+          <StoryOption key={o.id} o={o} i={i} chosen={chosen} onPick={pick} s={s} />
         ))}
       </div>
     </section>

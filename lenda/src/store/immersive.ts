@@ -181,7 +181,7 @@ interface ImmersiveStore {
   saveNow(): Promise<boolean>
   /** Chances da contraproposta pelo motor (null = o motor não calcula; a UI usa a mesma conta). */
   counterOdds(offerId: string, counter: { salary?: number; years?: number; role?: 'Titular' | 'Rotação' | 'Reserva' | 'Promessa' }): CounterOdds | null
-  loadFixture(name: string): Promise<void>
+  loadFixture(name: string, opts?: { club?: string }): Promise<void>
   /** Troca o motor em tempo de execução (testes). */
   setEngine(engine: ImmersiveEngine, kind?: ImmersiveEngineKind): void
 }
@@ -408,12 +408,12 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
       }
     },
 
-    async loadFixture(name) {
+    async loadFixture(name, opts = {}) {
       const { engine, data } = await ensure()
       const mod = await import('@/ui/immersive/fixtures')
-      const { state, lastMatch, effects, warning } = mod.buildFixture(engine, data, name)
+      const { state, lastMatch, effects, warning } = mod.buildFixture(engine, data, name, opts)
       if (warning) console.warn('[LENDA]', warning)
-      set({ state, previous: null, lastMatch: lastMatch ?? null, isFixture: true, fixture: name, fixtureWarning: warning ?? null, busy: false, effects: [] })
+      set({ state, previous: null, lastMatch: lastMatch ?? null, isFixture: true, fixture: opts.club ? `${name}@${opts.club}` : name, fixtureWarning: warning ?? null, busy: false, effects: [] })
       push(effects ?? [], 'fixture')
     },
 

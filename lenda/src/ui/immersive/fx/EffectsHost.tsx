@@ -9,9 +9,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Medal, TrendingUp } from 'lucide-react'
 import type { ImmersiveEffect } from '@/engine/immersive/types'
-import type { TrophyWin } from '@/engine/types'
+import type { CareerState, TrophyWin } from '@/engine/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
+import { useCareer } from '@/store/career'
 import { toast, useToasts } from '@/ui/primitives'
 import { achievementById } from '@/ui/shell/achievementsRegistry'
 import { goTab } from '../shell/ImTopBar'
@@ -91,6 +92,8 @@ export function EffectsHost() {
       case 'achievement': {
         const a = achievementById(e.id)
         const name = a?.title ?? IMM_ACH[e.id] ?? e.id.replace(/[_-]/g, ' ').replace(/^./, (c) => c.toUpperCase())
+        // conquistas do catálogo ficam salvas (contador e diálogo de conquistas da barra valem para os dois modos)
+        if (a && !useImmersive.getState().isFixture) useCareer.getState().unlockAchievements([e.id], useImmersive.getState().state as unknown as CareerState)
         say(`a:${e.id}`, { title: 'Conquista desbloqueada', description: name, tone: 'gold', icon: Medal })
         break
       }

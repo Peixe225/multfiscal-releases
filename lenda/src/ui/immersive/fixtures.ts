@@ -3,13 +3,13 @@
  * Construídos rodando o MOTOR ATIVO (mock ou real) só com ações do contrato, a partir de uma
  * carreira determinística. Nunca são salvos.
  *
- *   central · treino · decisao · coletiva · mercado · negociacao · social · pre · banco · ao-vivo ·
+ *   base (carreira recém-criada: oferta da base no motor real) · central · treino · decisao · coletiva · mercado · negociacao · social · pre · banco · ao-vivo ·
  *   lance · penalti · timing · intervalo · fim · temporada · gala · carreira
  */
 import type { CalendarItem, ImmersiveAction, ImmersiveEffect, ImmersiveEngine, ImmersiveState, KeyMoment, LiveMatch } from '@/engine/immersive/types'
 import type { GameData, PlayerIdentity } from '@/engine/types'
 
-export const FIXTURES = ['central', 'treino', 'decisao', 'coletiva', 'mercado', 'negociacao', 'social', 'pre', 'banco', 'ao-vivo', 'lance', 'penalti', 'timing', 'intervalo', 'fim', 'temporada', 'campeao', 'gala', 'carreira'] as const
+export const FIXTURES = ['base', 'central', 'treino', 'decisao', 'coletiva', 'mercado', 'negociacao', 'social', 'pre', 'banco', 'ao-vivo', 'lance', 'penalti', 'timing', 'intervalo', 'fim', 'temporada', 'campeao', 'gala', 'carreira'] as const
 export type FixtureName = (typeof FIXTURES)[number]
 
 const IDENTITY: PlayerIdentity = { surname: 'Ribeiro', number: 9, foot: 'right', nationality: 'BRA', position: 'CA' }
@@ -21,7 +21,7 @@ interface Run {
   lastMatch?: LiveMatch
 }
 
-export function buildFixture(engine: ImmersiveEngine, data: GameData, name: string): { state: ImmersiveState; lastMatch?: LiveMatch | null; effects?: ImmersiveEffect[]; warning?: string } {
+export function buildFixture(engine: ImmersiveEngine, data: GameData, name: string, opts: { club?: string } = {}): { state: ImmersiveState; lastMatch?: LiveMatch | null; effects?: ImmersiveEffect[]; warning?: string } {
   const run: Run = { s: engine.newCareer(data, IDENTITY, SEED), fx: [] }
   const d = (a: ImmersiveAction) => {
     const before = run.s
@@ -127,6 +127,8 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
   void craft
 
   switch (name as FixtureName) {
+    case 'base':
+      break
     case 'treino':
       until((_s, it) => it?.kind === 'training' && it.week >= 1)
       break
@@ -216,6 +218,12 @@ export function buildFixture(engine: ImmersiveEngine, data: GameData, name: stri
     default:
       until((_s, it) => it?.kind === 'match' && it.week >= 1)
       break
+  }
+  // ?clube=<id|nome>: mesma tela com outro clube (checagem de contraste das placas: Corinthians, Real Madrid, Santos…)
+  if (opts.club) {
+    const q = opts.club.toLowerCase()
+    const c = data.clubs.find((x) => x.id.toLowerCase() === q) ?? data.clubs.find((x) => x.name.toLowerCase() === q || x.shortName.toLowerCase() === q)
+    if (c) run.s = { ...run.s, clubId: c.id, leagueId: c.leagueId }
   }
   return { state: run.s, lastMatch: run.lastMatch ?? null, effects: run.fx, warning: check(name as FixtureName, run.s) }
 }

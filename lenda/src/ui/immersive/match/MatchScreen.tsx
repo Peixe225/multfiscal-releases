@@ -9,6 +9,7 @@
  * final do motor — o banco só entra quando a substituição aparece na transmissão.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Activity,
@@ -47,6 +48,8 @@ import { Pitch } from './Pitch'
 import { ScoreBug } from './ScoreBug'
 import { usePlayback, usePlaybackDriver, useShownEvents, type Speed } from './playback'
 import { LiveTicker } from '../shell/ImTicker'
+import { Jersey } from '@/ui/shared/identity/Jersey'
+import { clubKit, nationKit } from '@/ui/shared/identity/kit'
 
 // ───────────────────────── helpers ─────────────────────────
 
@@ -498,49 +501,69 @@ function useLowerThirds(speed: Speed) {
 // ───────────────────────── menu "⋯" dos controles ─────────────────────────
 
 function MoreMenu({ items, label = 'Mais opções' }: { items: { label: string; icon: typeof Zap; onClick: () => void; disabled?: boolean; checked?: boolean; group?: string }[]; label?: string }) {
-  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ right: number; bottom: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const open = !!pos
+  // o menu sai num portal com posição fixa (a placa dos controles tem chanfro/clip-path e cortaria o menu)
+  const toggle = () => {
+    if (open) return setPos(null)
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ right: Math.max(8, window.innerWidth - r.right), bottom: Math.max(8, window.innerHeight - r.top + 8) })
+  }
   useEffect(() => {
     if (!open) return
     const off = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (!ref.current?.contains(t) && !menuRef.current?.contains(t)) setPos(null)
     }
     const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        setPos(null)
+        btnRef.current?.focus({ preventScroll: true })
+      }
     }
+    const close = () => setPos(null)
     window.addEventListener('pointerdown', off)
     window.addEventListener('keydown', esc)
+    window.addEventListener('resize', close)
+    const t = setTimeout(() => (menuRef.current?.querySelector('button:not([disabled])') as HTMLButtonElement | null)?.focus({ preventScroll: true }), 30)
     return () => {
+      clearTimeout(t)
       window.removeEventListener('pointerdown', off)
       window.removeEventListener('keydown', esc)
+      window.removeEventListener('resize', close)
     }
   }, [open])
   return (
     <div className="im-more" ref={ref}>
-      <button type="button" className="lx-icon-btn im-more__btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} onPointerUp={(e) => e.currentTarget.blur()}>
+      <button ref={btnRef} type="button" className="lx-icon-btn im-more__btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={toggle} onPointerUp={(e) => e.currentTarget.blur()}>
         <MoreHorizontal aria-hidden="true" />
       </button>
-      {open && (
-        <div className="im-more__menu" role="menu">
-          {items.map((it, i) => (
-            <button
-              key={i}
-              type="button"
-              role={it.checked != null ? 'menuitemradio' : 'menuitem'}
-              aria-checked={it.checked}
-              className={cx('im-more__it', it.checked && 'is-on', it.group && items[i - 1]?.group !== it.group && 'is-sep')}
-              disabled={it.disabled}
-              onClick={() => {
-                setOpen(false)
-                it.onClick()
-              }}
-            >
-              <it.icon size={16} aria-hidden="true" />
-              {it.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {pos &&
+        createPortal(
+          <div ref={menuRef} className="im-more__menu" role="menu" aria-label={label} style={{ position: 'fixed', right: pos.right, bottom: pos.bottom }}>
+            {items.map((it, i) => (
+              <button
+                key={i}
+                type="button"
+                role={it.checked != null ? 'menuitemradio' : 'menuitem'}
+                aria-checked={it.checked}
+                className={cx('im-more__it', it.checked && 'is-on', it.group && items[i - 1]?.group !== it.group && 'is-sep')}
+                disabled={it.disabled}
+                onClick={() => {
+                  setPos(null)
+                  it.onClick()
+                }}
+              >
+                <it.icon size={16} aria-hidden="true" />
+                {it.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
@@ -856,7 +879,7 @@ function LiveMatchView() {
   ]
 
   return (
-    <main ref={rootRef} id="conteudo" tabIndex={-1} className={cx('im-match outline-none', phone && 'is-phone', active && 'has-moment')} style={vars}>
+    <main ref={rootRef} id="conteudo" tabIndex={-1} className={cx('im-match outline-none', phone && 'is-phone', active && 'has-moment', (active?.minigame === 'penalty_kick' || active?.minigame === 'penalty_save') && 'has-pen')} style={vars}>
       {phone && <div className="im-match__bugbar">{bug}</div>}
       <div className="im-match__grid">
         <aside className="im-match__l max-lg:hidden">
@@ -916,9 +939,23 @@ function LiveMatchView() {
 
 function HalfTime({ live, home, away, events, me, stats, onNext, busy }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; events: MatchEvent[]; me: PitchPresence; stats: UserMatchStats; onNext: () => void; busy: boolean }) {
   const rm = useReducedMotion()
+  const phone = useMediaQuery('(max-width: 44.99rem)')
   const touch = useIsTouch()
   const ref = useRef<HTMLDivElement>(null)
   useFocusTrap(ref)
+  // Espaço (anunciado no botão) começa o 2º tempo mesmo com o foco no contêiner do intervalo
+  const go = useRef(onNext)
+  go.current = onNext
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.key !== ' ' || keyBlocked(e, ref.current)) return
+      if (e.target instanceof HTMLButtonElement && ref.current?.contains(e.target)) return
+      e.preventDefault()
+      go.current()
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [])
   return (
     <motion.div ref={ref} tabIndex={-1} className="im-ht outline-none" initial={rm ? { opacity: 0 } : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} role="dialog" aria-modal="true" aria-labelledby="im-ht-t">
       <div className="lx-plate lx-plate--glass lx-c-lg im-ht__card">
@@ -926,7 +963,7 @@ function HalfTime({ live, home, away, events, me, stats, onNext, busy }: { live:
         <span className="lx-kicker lx-kicker--gold" id="im-ht-t">
           Intervalo
         </span>
-        <ScorePlate live={live} home={home} away={away} score={scoreFrom(events)} />
+        <ScorePlate live={live} home={home} away={away} score={scoreFrom(events)} max={phone ? 7 : 11} />
         <StatsPanel live={live} events={events} home={home} away={away} />
         <div className="im-ht__you">
           {me.played ? (
@@ -946,13 +983,13 @@ function HalfTime({ live, home, away, events, me, stats, onNext, busy }: { live:
   )
 }
 
-function ScorePlate({ live, home, away, score }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; score?: [number, number] }) {
+function ScorePlate({ live, home, away, score, max = 11 }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; score?: [number, number]; max?: number }) {
   const sc = score ?? live.score
   return (
     <div className="lx-score im-scoreplate">
       <div className="lx-score__tm is-home" style={scoreColors(home.colors) as CSSProperties}>
         <span className="truncate" title={home.name}>
-          {fitName(home)}
+          {fitName(home, max)}
         </span>
         <TeamMark team={home} size={34} />
       </div>
@@ -962,7 +999,7 @@ function ScorePlate({ live, home, away, score }: { live: LiveMatch; home: TeamIn
       <div className="lx-score__tm is-away" style={scoreColors(away.colors) as CSSProperties}>
         <TeamMark team={away} size={34} />
         <span className="truncate" title={away.name}>
-          {fitName(away)}
+          {fitName(away, max)}
         </span>
       </div>
     </div>
@@ -1056,7 +1093,7 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
             </span>
             <div className="im-ft__motm-b">
               <span className="im-ft__motm-art" style={clubVars(motm.team.colors) as CSSProperties}>
-                <Shirt size={40} aria-hidden="true" />
+                <Jersey name={motm.name.split(' ').slice(-1)[0]} number={motm.you ? s.squadNumber : ''} kit={motm.team.national ? nationKit(motm.team.country ?? null) : clubKit(motm.team.club ?? null)} className="im-ft__motm-jersey" />
                 <TeamMark team={motm.team} size={26} className="im-ft__motm-crest" />
               </span>
               <div className="min-w-0">
