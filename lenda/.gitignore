@@ -5,3 +5,4 @@ dist
 
 # pipeline de dados (respostas brutas da ESPN/fut.gg)
 scripts/.cache/
+dist-artifact

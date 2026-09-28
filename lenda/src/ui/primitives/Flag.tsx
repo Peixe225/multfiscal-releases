@@ -21,6 +21,28 @@ const FIFA_TO_ISO2: Record<string, string> = {
   JPN: 'jp', KOR: 'kr', KSA: 'sa', AUS: 'au', IRL: 'ie', UKR: 'ua', CZE: 'cz', GRE: 'gr', RUS: 'ru',
 }
 
+/**
+ * Modo "pacote" (VITE_FLAG_PACK=1, usado no build publicado no claude.ai, que limita o número de
+ * arquivos): todas as bandeiras vêm de um único flags/pack.json { iso2: svg } carregado uma vez.
+ */
+const FLAG_PACK = import.meta.env.VITE_FLAG_PACK === '1'
+let packPromise: Promise<Record<string, string>> | null = null
+let packCache: Record<string, string> | null = null
+function loadPack(base: string): Promise<Record<string, string>> {
+  if (!packPromise) {
+    packPromise = fetch(`${base}flags/pack.json`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((m: Record<string, string>) => {
+        const out: Record<string, string> = {}
+        for (const [k, svg] of Object.entries(m)) out[k] = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+        packCache = out
+        return out
+      })
+      .catch(() => (packCache = {}))
+  }
+  return packPromise
+}
+
 export interface FlagProps {
   /** FIFA 3-letter code (BRA). */
   code?: string | null
@@ -46,12 +68,27 @@ export const Flag = memo(function Flag({ code, iso2, h = 13, w, radius, title, d
   const name = title ?? country?.name ?? code ?? key.toUpperCase()
   const [stage, setStage] = useState<0 | 1 | 2>(0) // 0 public · 1 bundled · 2 text
   const [src, setSrc] = useState<string | null>(null)
+  const base = import.meta.env.BASE_URL ?? './'
+  const [packed, setPacked] = useState<string | null>(() => (FLAG_PACK && packCache ? (packCache[key] ?? null) : null))
   useEffect(() => {
     setStage(0)
     setSrc(null)
-  }, [key])
-  const base = import.meta.env.BASE_URL ?? './'
-  const url = stage === 0 ? `${base}flags/4x3/${key}.svg` : src
+    if (!FLAG_PACK || !key) return
+    let alive = true
+    if (packCache) {
+      setPacked(packCache[key] ?? null)
+      if (!packCache[key]) setStage(2)
+    } else
+      loadPack(base).then((m) => {
+        if (!alive) return
+        setPacked(m[key] ?? null)
+        if (!m[key]) setStage(2)
+      })
+    return () => {
+      alive = false
+    }
+  }, [key, base])
+  const url = FLAG_PACK ? packed : stage === 0 ? `${base}flags/4x3/${key}.svg` : src
 
   const onError = () => {
     if (stage === 0) {
