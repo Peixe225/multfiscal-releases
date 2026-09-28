@@ -66,19 +66,20 @@ export const PlayerHeaderCard = memo(function PlayerHeaderCard({ data }: { data:
 
   return (
     <section className="lx-club-card ck-hero" style={vars} aria-label={`${state.identity.surname}, ${club?.name ?? 'sem clube'}, OVR ${state.ovr}`}>
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div
-          key={clubId ?? 'none'}
-          className="lx-club-card__wm ck-hero__wm"
-          initial={rm ? false : { opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          aria-hidden="true"
-        >
-          {club && <Crest club={club} size={200} decorative shadow={false} edge="off" />}
-        </motion.div>
-      </AnimatePresence>
+      <div className="lx-club-card__wm ck-hero__wm" aria-hidden="true">
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={clubId ?? 'none'}
+            className="ck-hero__wmin"
+            initial={rm ? false : { opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {club?.crest && <Crest club={club} size={200} decorative shadow={false} edge="off" />}
+          </motion.span>
+        </AnimatePresence>
+      </div>
 
       <div className="ck-hero__ovr">
         <OvrBadge

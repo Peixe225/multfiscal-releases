@@ -323,8 +323,8 @@ export function tournamentMarkers(season: number, competitions: Competition[], c
     if (c.kind === 'national_continental' && !confed) continue
     const { firstYear, every } = c.schedule
     if (year < firstYear || (year - firstYear) % every !== 0) continue
-    const short = c.kind === 'world_cup' ? 'Copa' : c.name.replace(/^Copa\s+/i, '').replace(/^Eurocopa$/i, 'Euro')
-    out.push({ label: `${short} ${year}`, title: `${c.name} ${year}`, kind: c.kind })
+    const name = c.kind === 'world_cup' ? 'Copa do Mundo' : c.name
+    out.push({ label: `${name} ${year}`, title: `${c.name} ${year}`, kind: c.kind })
   }
   return out.sort((a, b) => (a.kind === 'world_cup' ? -1 : 1) - (b.kind === 'world_cup' ? -1 : 1))
 }
@@ -376,7 +376,7 @@ export function buildRows({ seasons, newSeasons, pending, competitions = [], nat
       lead: inPending && age === pendingFrom,
       label: inPending && age === pendingFrom ? pendingLabel(pending?.decision?.kind) : undefined,
       predictedOvr: inPending && age === pendingFrom ? pending?.ovr : undefined,
-      markers: age > lastAge ? tournamentMarkers(season, competitions, confed) : [],
+      markers: age > lastAge && (!inPending || age !== pendingFrom) ? tournamentMarkers(season, competitions, confed) : [],
     })
   }
   return rows

@@ -1,0 +1,88 @@
+/* =============================================================================
+   Trophy celebration overlay (DESIGN-SPEC-noite §10.5 + Copero `_t` burst).
+   ============================================================================= */
+
+.ck-cel { position: fixed; inset: 0; z-index: 60; overflow: hidden; display: grid; place-items: center; cursor: pointer; color: var(--text); }
+.ck-cel__veil { z-index: 0; }
+.ck-cel__beam { z-index: 1; }
+.ck-cel__rays { z-index: 1; }
+.ck-cel > * { grid-area: 1 / 1; }
+.ck-cel__word { position: absolute; left: 50%; top: 128px; transform: translateX(-50%); z-index: 1; }
+.ck-cel__burst { position: absolute; left: 50%; top: 36%; width: 0; height: 0; z-index: 2; pointer-events: none; }
+.ck-cel__burst-glow { position: absolute; left: 0; top: 0; width: 224px; height: 224px; border-radius: 50%;
+  background: radial-gradient(circle, #facc157a, #fb923c2e 42%, #0000 72%); animation: ckc-glow 1.1s ease-out both; }
+.ck-cel__burst-glow.is-rel { width: 288px; height: 288px; background: radial-gradient(circle, #b91c1cb8, #991b1b61 36%, #450a0a24 58%, #0000 74%); }
+.ck-cel__burst i { position: absolute; top: -8px; left: -2px; width: 4px; height: 16px; border-radius: 99px; background: var(--c); box-shadow: 0 0 8px var(--c);
+  transform-origin: 2px 8px; animation: ckc-particle .9s cubic-bezier(.17, .67, .3, 1) var(--delay) both; }
+@keyframes ckc-glow { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); } 25% { opacity: .9; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); } }
+@keyframes ckc-particle { 0% { opacity: 0; transform: rotate(var(--a)) translateY(-16px) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--dist))) scale(.9); } }
+
+.ck-cel__col { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px 20px 24px; max-width: 980px; width: 100%; max-height: 100dvh; overflow: auto; scrollbar-width: none; cursor: default; }
+.ck-cel__pill { gap: 8px; }
+.ck-cel__pill svg { width: 14px; height: 14px; }
+.ck-cel__hero { position: relative; display: grid; place-items: end center; margin-top: 10px; }
+.ck-cel__hero::before { width: 420px !important; height: 420px !important; }
+.ck-cel__hero.is-rel::before { background: radial-gradient(circle, rgba(185, 28, 28, .45), transparent 65%) !important; }
+.ck-cel__art { display: block; line-height: 0; }
+.ck-cel__rel { display: grid; place-items: center; width: 150px; height: 150px; margin-bottom: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ef4444, #991b1b 70%); color: #fff;
+  box-shadow: 0 0 0 6px rgba(239, 68, 68, .18), 0 30px 60px -20px rgba(127, 29, 29, .9), inset 0 2px 0 rgba(255, 255, 255, .25); }
+.ck-cel__rel svg { width: 84px; height: 84px; stroke-width: 3; }
+.ck-cel__glint { position: absolute; left: 50%; top: 22%; width: 160px; height: 160px; margin-left: -20px; pointer-events: none; mix-blend-mode: screen;
+  background: conic-gradient(from 0deg, transparent 0 20%, rgba(255, 255, 255, .9) 25%, transparent 30% 45%, rgba(255, 255, 255, .9) 50%, transparent 55% 70%, rgba(255, 255, 255, .9) 75%, transparent 80% 95%, rgba(255, 255, 255, .9) 100%);
+  mask-image: radial-gradient(circle, #000 0 4%, transparent 36%); animation: ckc-glint 2.6s ease-in-out infinite 1s; opacity: 0; }
+@keyframes ckc-glint { 0%, 100% { opacity: 0; transform: scale(.6) rotate(0deg); } 45% { opacity: 1; transform: scale(1) rotate(45deg); } 60% { opacity: 0; } }
+.ck-cel__floor { width: 460px; max-width: 90vw; margin-top: -26px; }
+.ck-cel__floor.is-rel::after { background: radial-gradient(ellipse, rgba(239, 68, 68, .45), transparent 70%) !important; }
+.ck-cel__kicker { display: flex; align-items: center; gap: 14px; margin: 18px 0 0; font-size: 12px; font-weight: 800; letter-spacing: .3em; color: #9ff3cf; text-transform: uppercase; }
+.ck-cel__kicker span { width: 40px; height: 1px; background: linear-gradient(90deg, transparent, currentColor); }
+.ck-cel__kicker span:last-child { background: linear-gradient(90deg, currentColor, transparent); }
+.is-rel .ck-cel__kicker { color: #fca5a5; }
+.ck-cel__title { font: 900 64px/1 var(--font-display); letter-spacing: -.035em; margin: 10px 0 0; text-wrap: balance; }
+.ck-cel__title.is-rel { color: #fecaca; text-shadow: 0 6px 30px rgba(127, 29, 29, .8); }
+.ck-cel__sub { margin: 12px 0 0; font-size: 15px; color: var(--text-2); max-width: 620px; }
+.ck-cel__row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+.ck-cel__rowitem { display: grid; justify-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--text-2); max-width: 90px; }
+.ck-cel__facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
+.ck-cel__fact { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px 0 8px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+.ck-cel__fact-ic { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: rgba(255, 200, 87, .14); color: var(--warning); }
+.ck-cel__fact-ic svg { width: 14px; height: 14px; }
+.ck-cel__fact.is-pos .ck-cel__fact-ic { background: rgba(62, 230, 164, .14); color: var(--positive); }
+.ck-cel__fact.is-neg .ck-cel__fact-ic { background: rgba(255, 94, 120, .14); color: var(--negative); }
+.ck-cel__arrow { width: 14px; height: 14px; color: var(--text-3); }
+.ck-cel__actions { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
+.ck-cel__continue { position: relative; overflow: hidden; }
+.ck-cel__timer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: rgba(10, 11, 16, .35); transform-origin: 0 50%; animation: ckc-timer linear both; }
+@keyframes ckc-timer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.ck-cel__share-s { display: none; }
+@media (max-width: 575.98px) { .ck-cel__share-s { display: inline; } }
+.ck-cel__corner-r { position: absolute; top: 20px; right: 24px; z-index: 5; display: flex; gap: 8px; cursor: default; }
+.ck-cel__also { position: absolute; top: 20px; left: 24px; z-index: 5; display: grid; gap: 8px; cursor: default; }
+.ck-cel__also-item { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; border-radius: 14px; text-align: left; }
+.ck-cel__also-item b { display: block; font: 800 13.5px/1.2 var(--font-display); }
+.ck-cel__also-item .lx-eyebrow { display: block; font-size: 9.5px; }
+
+@media (max-width: 1103.98px) {
+  .ck-cel__title { font-size: 40px; }
+  .ck-cel__word { top: 90px; }
+  .ck-cel__hero::before { width: 300px !important; height: 300px !important; }
+}
+@media (max-width: 575.98px) {
+  .ck-cel__col { padding: 64px 16px 20px; }
+  .ck-cel__title { font-size: 34px; }
+  .ck-cel__kicker { font-size: 10.5px; letter-spacing: .2em; gap: 8px; }
+  .ck-cel__kicker span { width: 22px; }
+  .ck-cel__sub { font-size: 13.5px; }
+  .ck-cel__share-s { display: none; }
+@media (max-width: 575.98px) { .ck-cel__share-s { display: inline; } }
+.ck-cel__corner-r { top: 12px; right: 12px; }
+  .ck-cel__facts { gap: 8px; }
+  .ck-cel__fact { height: 36px; font-size: 12px; }
+  .ck-cel__actions { width: 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+  .ck-cel__actions > * { min-width: 0; padding-left: 12px !important; padding-right: 12px !important; }
+  .ck-cel__share-l { display: none; }
+  .ck-cel__rel { width: 110px; height: 110px; }
+  .ck-cel__rel svg { width: 60px; height: 60px; }
+}
+:root[data-motion="reduced"] :is(.ck-cel__burst, .ck-cel__glint) { display: none; }
+@media (prefers-reduced-motion: reduce) { :is(.ck-cel__burst, .ck-cel__glint) { display: none; } }
+.ck-cel.is-lowfx .ck-cel__glint { display: none; }

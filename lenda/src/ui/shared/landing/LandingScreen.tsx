@@ -230,7 +230,7 @@ export default function LandingScreen() {
             <Button variant="ghost" size="md" onClick={() => { setConfirmNew(false); navigate('/carreira') }}>
               Continuar a atual
             </Button>
-            <Button variant="primary" size="md" iconRight={ArrowRight} onClick={() => { setConfirmNew(false); navigate('/identidade', { query: { ritmo: pace } }) }}>
+            <Button variant="primary" size="md" iconRight={ArrowRight} onClick={() => { setConfirmNew(false); navigate('/identidade', { query: { ritmo: pace, nova: 1 } }) }}>
               Nova carreira
             </Button>
           </div>

@@ -19,12 +19,13 @@ type Tab = 'carreira' | 'temporada' | 'premios' | 'mundo'
 export const RightPanel = memo(function RightPanel({ data, compactFuture }: { data: CockpitData; compactFuture?: boolean }) {
   const [tab, setTab] = useState<Tab>('carreira')
   const { state, gates } = data
-  const last = state.seasons[state.seasons.length - 1]
+  const shown = data.trophySeasons
+  const last = data.visibleSeasons[data.visibleSeasons.length - 1]
   const lg = getLeague(last?.leagueId)
   const season = last ? formatSeason(last.season, lg?.calendar) : String(state.season)
-  const podium = [...state.seasons].reverse().find((r) => r.awards.some((a) => a.award === 'ballon_dor'))
+  const podium = [...shown].reverse().find((r) => r.awards.some((a) => a.award === 'ballon_dor'))
   const bola = podium?.awards.find((a) => a.award === 'ballon_dor')
-  const badge = bola && podium === last ? (bola.place === 1 ? 'BOLA DE OURO' : `BOLA ${bola.place}º`) : undefined
+  const badge = bola && podium === shown[shown.length - 1] ? (bola.place === 1 ? 'BOLA DE OURO' : `BOLA ${bola.place}º`) : undefined
   const tabs: TabItem<Tab>[] = [
     { value: 'carreira', label: 'Carreira', icon: ChartLine },
     { value: 'temporada', label: `Temporada ${season}`, disabled: !last },

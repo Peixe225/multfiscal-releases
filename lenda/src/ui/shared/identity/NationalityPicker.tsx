@@ -4,15 +4,12 @@ import { Check, Globe2, Search, X } from 'lucide-react'
 import type { Country } from '@/engine/types'
 import { Flag, Kbd, useHotkey, useIsTouch } from '@/ui/primitives'
 import { sfx } from '@/ui/shell/sfx'
-import { bestInk } from '@/ui/theme/club'
 import { countryLists, nationLine, POPULAR, searchCountries } from './countries'
 
 export interface NationalityPickerProps {
   countries: Country[]
   value: string | null
   onChange: (code: string) => void
-  /** Ink for the check circle (computed from the nation colours). */
-  checkInk?: string
   searchRef?: RefObject<HTMLInputElement | null>
   autoFocusSearch?: boolean
 }
@@ -182,5 +179,3 @@ export const NationalityPicker = memo(function NationalityPicker({ countries, va
     </>
   )
 })
-
-export const inkForCheck = (c: string) => bestInk(c)

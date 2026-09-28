@@ -1,0 +1,65 @@
+/* LENDA · Hall da Fama */
+@layer components {
+.hl-wrap { position: relative; z-index: 1; width: 100%; max-width: 1392px; margin: 0 auto; padding: 8px 16px 48px; }
+@media (min-width: 36rem) { .hl-wrap { padding: 12px 24px 56px; } }
+.hl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 18px; }
+.hl-head h1 { font-family: var(--font-display); font-weight: 800; font-size: 32px; letter-spacing: -.03em; line-height: 1.02; margin: 4px 0 0; }
+@media (min-width: 45rem) { .hl-head h1 { font-size: 42px; } }
+.hl-head p { margin: 6px 0 0; color: var(--text-2); font-size: 14px; max-width: 520px; line-height: 1.5; }
+
+/* featured (#1) */
+.hl-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; border-radius: 26px; margin-bottom: 16px; overflow: hidden; position: relative; isolation: isolate; }
+@media (min-width: 45rem) { .hl-top { grid-template-columns: 250px minmax(0, 1fr); gap: 28px; padding: 24px 28px; align-items: center; } }
+.hl-top::before { content: ''; position: absolute; inset: -40% -10% auto auto; width: 70%; aspect-ratio: 1; z-index: -1; background: radial-gradient(closest-side, color-mix(in srgb, var(--club) 30%, transparent), transparent); pointer-events: none; }
+.hl-top__card { display: grid; place-items: center; }
+.hl-rank { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 8px; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #ffe7a6; background: rgba(40, 28, 4, .55); border: 1px solid rgba(255, 210, 110, .35); }
+.hl-name { font: 900 30px/1 var(--font-display); letter-spacing: -.02em; margin: 10px 0 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+@media (min-width: 45rem) { .hl-name { font-size: 40px; } }
+.hl-name small { font: 700 22px/1 var(--font-num); color: var(--text-3); }
+.hl-headline { font-family: 'Cormorant Garamond Variable', 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 22px; line-height: 1.15; margin: 8px 0 0; }
+.hl-meta { font-size: 12.5px; color: var(--text-3); margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hl-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--nx-text-4, #555b6b); }
+
+.hl-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+@media (min-width: 36rem) { .hl-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.hl-kpi { padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+.hl-kpi b { display: block; font: 800 26px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.hl-kpi span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); margin-top: 5px; }
+
+.hl-shelf { display: flex; align-items: flex-end; gap: 14px; margin-top: 16px; flex-wrap: wrap; min-height: 0; }
+.hl-tro { position: relative; display: grid; justify-items: center; gap: 4px; }
+.hl-tro__n { position: absolute; right: -8px; top: -6px; min-width: 22px; height: 18px; padding: 0 5px; border-radius: 6px; display: grid; place-items: center; font: 800 12px/1 var(--font-num); color: #231600; background: linear-gradient(180deg, #ffe7a3, #e7b54a); box-shadow: 0 4px 10px -4px #000; }
+
+.hl-clubs { display: flex; align-items: center; }
+.hl-clubs > * + * { margin-left: -6px; }
+.hl-clubs__more { margin-left: 6px !important; font-size: 11.5px; font-weight: 700; color: var(--text-3); }
+
+.hl-legacy { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; }
+.hl-legacy__bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.hl-legacy__bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffe7a3, #e7b54a); transform-origin: 0 50%; box-shadow: 0 0 10px rgba(255, 200, 90, .5); }
+.hl-legacy b { font: 800 16px/1 var(--font-num); color: var(--text); letter-spacing: 0; }
+
+/* grid of cards */
+.hl-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 45rem) { .hl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 80rem) { .hl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hl-card { position: relative; padding: 16px; border-radius: 22px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; isolation: isolate; transition: transform var(--dur-3) var(--ease-out), border-color var(--dur-3) var(--ease-out); }
+.hl-card:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.hl-card::before { content: ''; position: absolute; right: -60px; top: -80px; width: 220px; height: 220px; border-radius: 50%; z-index: -1; background: radial-gradient(closest-side, color-mix(in srgb, var(--club) 28%, transparent), transparent); pointer-events: none; }
+.hl-card__top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hl-card__name { font: 800 19px/1.1 var(--font-display); letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hl-card__name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-card__hl { font-family: 'Cormorant Garamond Variable', 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 17px; line-height: 1.15; color: var(--text); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-card__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hl-st { padding: 8px 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); text-align: center; }
+.hl-st b { display: block; font: 800 20px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.hl-st span { display: block; font-size: 9.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); margin-top: 4px; }
+.hl-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-3); }
+
+/* empty */
+.hl-empty { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 48px 20px 40px; border-radius: 26px; }
+.hl-empty__art { position: relative; height: 170px; display: grid; place-items: end center; margin-bottom: 6px; }
+.hl-empty__art > :first-child { opacity: .28; filter: grayscale(.5) drop-shadow(0 20px 30px rgba(0, 0, 0, .7)); }
+.hl-empty h2 { font: 800 24px/1.1 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.hl-empty p { margin: 0; color: var(--text-2); font-size: 14px; max-width: 420px; line-height: 1.5; }
+}

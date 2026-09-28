@@ -11,7 +11,7 @@ import { TrophyArt } from '@/ui/trophies'
 import { groupLabel, trophyGroups, type TrophyGroup } from './model'
 import type { CockpitData } from './view'
 
-const ASPECT = 0.6 // typical trophy art width / height
+const ASPECT = 0.66 // typical trophy art width / height (ballon / boot are wider)
 
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T | null>(null)
@@ -40,6 +40,8 @@ function layout(all: TrophyGroup[], width: number, baseH: number, maxGroups: num
   let groups = all.slice(0, maxGroups)
   let h = baseH
   const gapFor = (F: number, D: number) => (F >= 16 || D >= 6 ? 2 : F >= 12 || D >= 5 ? 4 : F >= 8 || D >= 4 ? 6 : 8)
+  const badge = all.some((g) => g.items.length > 1) ? 16 : 0
+  width = width - badge
   const fits = (gs: TrophyGroup[], hh: number) => gs.length * hh * ASPECT + (gs.length - 1) * gapFor(gs.length, gs.length) * 2 <= width
   while (h > baseH * 0.7 && !fits(groups, h)) h -= 2
   while (groups.length > 1 && !fits(groups, h)) groups = groups.slice(0, -1)

@@ -30,7 +30,7 @@ import {
   Handshake,
   type LucideProps,
 } from 'lucide-react'
-import { photoFor, themeFor, type PhotoTheme } from '@/ui/art/photos'
+import { PHOTOS, photoFor, photoUrl, themeFor, type PhotoTheme } from '@/ui/art/photos'
 import { cx } from '@/ui/primitives'
 
 type Ico = ComponentType<LucideProps>
@@ -68,11 +68,48 @@ const LOOKS: Record<PhotoTheme | 'penalty' | 'retirement' | 'default', Look> = {
   default: { icon: Trophy, a: '#23262f', b: '#0a0b10', glow: '#c9ced9', pattern: 'dots' },
 }
 
-function lookFor(art: string | undefined): Look {
+/** pt-BR copy → photo theme, for engines whose options carry no art key (mock) or unknown keys. */
+const HINTS: [RegExp, PhotoTheme][] = [
+  [/aposent|despedid|pendurar/i, 'crowd'],
+  [/pênalti|penalti|cobran[çc]a/i, 'crowd'],
+  [/cirurg|m[ée]dic|fisio|recupera|tratament/i, 'doctor'],
+  [/les[ãa]o|machuc|contus/i, 'injury'],
+  [/trein|academia|f[íi]sic|prepara|pr[ée]-temporada|t[ée]cnica/i, 'training'],
+  [/descans|rotina|folga|f[ée]rias|poupar/i, 'rest'],
+  [/imprensa|entrevista|declara|coletiva|pol[êe]mica/i, 'press'],
+  [/post|rede social|celular|internet|v[íi]deo viral/i, 'phone'],
+  [/tatua/i, 'tattoo'],
+  [/escola|estud|diploma|col[ée]gio/i, 'school'],
+  [/fam[íi]lia|filh|m[ãa]e|pai|esposa/i, 'family'],
+  [/document[áa]rio|s[ée]rie|tv|c[âa]mera|reality/i, 'tv'],
+  [/capit[ãa]o|bra[çc]adeira/i, 'captain'],
+  [/sele[çc][ãa]o|convoca|p[áa]tria|av[ôo]/i, 'national'],
+  [/imposto|dinheiro|milh|sal[áa]rio|oferta|€|pix|dívida/i, 'money'],
+  [/contrat|renova|agente|empres[áa]rio|assinar/i, 'contract'],
+  [/viag|aeroporto|exterior|voltar para|empr[ée]stimo/i, 'airport'],
+  [/vesti[áa]rio|elenco|t[ée]cnico|treinador|crise/i, 'locker'],
+  [/torcida|f[ãa]s|est[áa]dio|vaia/i, 'crowd'],
+  [/t[íi]tulo|ta[çc]a|campe[ãa]o|final/i, 'celebration'],
+]
+
+/** Lines are tried in order (option copy first, then the decision title). */
+function hintTheme(hint: string | undefined): PhotoTheme | null {
+  if (!hint) return null
+  for (const line of hint.split('\n')) for (const [re, t] of HINTS) if (re.test(line)) return t
+  return null
+}
+
+function hash(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193)
+  return h >>> 0
+}
+
+function lookFor(art: string | undefined, hinted: PhotoTheme | null): Look {
   const key = (art ?? '').toLowerCase()
   if (/^(retirement|farewell)/.test(key)) return LOOKS.retirement
   if (/penalty/.test(key)) return LOOKS.penalty
-  const theme = key ? themeFor(key) : null
+  const theme = (key ? themeFor(key) : null) ?? hinted
   return (theme && LOOKS[theme]) || LOOKS.default
 }
 
@@ -85,6 +122,8 @@ const PATTERN: Record<Look['pattern'], string> = {
 
 export interface EventArtProps {
   art?: string
+  /** Copy used to pick a theme when the art key is unknown (option title, decision title…). */
+  hint?: string
   variant?: 'card' | 'bg'
   /** Skip the photo and draw the illustration. */
   illustration?: boolean
@@ -96,10 +135,15 @@ export interface EventArtProps {
   style?: CSSProperties
 }
 
-export const EventArt = memo(function EventArt({ art, variant = 'card', illustration, nationality, salt, tint, className, style }: EventArtProps) {
-  const photo = !illustration && art ? photoFor(art, { nationality, salt }) : null
+export const EventArt = memo(function EventArt({ art, hint, variant = 'card', illustration, nationality, salt, tint, className, style }: EventArtProps) {
+  const hinted = art && themeFor(art) ? null : hintTheme(hint)
+  let photo = !illustration && art ? photoFor(art, { nationality, salt }) : null
+  if (!photo && !illustration && hinted) {
+    const pool = PHOTOS[hinted]
+    if (pool?.length) photo = photoUrl(pool[hash(`${hint}|${salt ?? ''}`) % pool.length])
+  }
   const [failed, setFailed] = useState<string | null>(null)
-  const look = lookFor(art)
+  const look = lookFor(art, hinted)
   const Icon = look.icon
   const usePhoto = photo && failed !== photo
   const vars = { ['--ea-a' as string]: look.a, ['--ea-b' as string]: look.b, ['--ea-glow' as string]: look.glow, ['--ea-tint' as string]: tint ?? look.glow, ...style } as CSSProperties

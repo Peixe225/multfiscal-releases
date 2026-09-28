@@ -6,6 +6,7 @@ import { memo, type CSSProperties } from 'react'
 import { Crest, Flag, cx, tierOf, TIER_LABEL, type CrestClub } from '@/ui/primitives'
 import { Jersey } from '@/ui/shared/identity/Jersey'
 import type { KitColors } from '@/ui/shared/identity/kit'
+import './landing.css'
 
 const OUTER =
   'M18,10 H98 C104,10 108,14 112,18 L118,24 C122,28 128,28 132,24 L138,18 C142,14 146,10 152,10 H232 C238,10 242,14 242,20 V286 C242,296 236,302 228,306 L136,346 C129,349 121,349 114,346 L22,306 C14,302 8,296 8,286 V20 C8,14 12,10 18,10 Z'
@@ -51,7 +52,7 @@ export const PlayerCard = memo(function PlayerCard({ ovr, pos, nationality, club
         <span>{pos}</span>
         <i />
         {nationality && <Flag code={nationality} h={Math.round(W * 0.088)} w={Math.round(W * 0.12)} radius={3} decorative />}
-        {club && <Crest club={club} size={Math.round(W * 0.128)} decorative shadow className="mt-[3.2cqw]" />}
+        {club && <Crest club={club} size={Math.round(W * 0.128)} decorative shadow />}
       </div>
       <div className="lx-pcard__kit">
         <Jersey name={name} number={number} kit={kit} />

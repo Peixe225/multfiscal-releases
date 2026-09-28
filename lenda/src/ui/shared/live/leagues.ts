@@ -19,16 +19,17 @@ export interface StandingGroup {
   rows: StandingRow[]
 }
 
-export function groupRows(rows: StandingRow[]): StandingGroup[] {
+export function groupRows(rows: StandingRow[], rank?: Record<string, number>): StandingGroup[] {
+  const order = (rs: StandingRow[]) => (rank && rs.every((r) => rank[r.clubId]) ? [...rs].sort((a, b) => rank[a.clubId] - rank[b.clubId]) : sortRows(rs))
   const hasGroups = rows.some((r) => r.group)
-  if (!hasGroups) return [{ name: null, rows: sortRows(rows) }]
+  if (!hasGroups) return [{ name: null, rows: order(rows) }]
   const map = new Map<string, StandingRow[]>()
   for (const r of rows) {
     const g = r.group ?? 'Geral'
     if (!map.has(g)) map.set(g, [])
     map.get(g)!.push(r)
   }
-  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([name, rs]) => ({ name, rows: sortRows(rs) }))
+  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([name, rs]) => ({ name, rows: order(rs) }))
 }
 
 /** "Rodada 28": the most games played by any club (ESPN tables are in sync per round). */

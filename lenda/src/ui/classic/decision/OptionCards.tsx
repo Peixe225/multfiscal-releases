@@ -19,6 +19,9 @@ import { useReveal } from '@/ui/classic/reveal/store'
 
 export type CardState = 'idle' | 'chosen' | 'dim' | 'locked'
 
+/** Mock / placeholder verbs that add nothing above the option name. */
+const GENERIC_VERB = /^(fazer|escolher|op[çc][ãa]o)$/i
+
 export interface OptionCardProps {
   decision: Decision
   option: DecisionOption
@@ -90,7 +93,8 @@ function Effects({ option, chosen, compact, max }: { option: DecisionOption; cho
   const phase = useReveal((s) => s.phase)
   const spinIdx = useReveal((s) => s.spinIdx)
   const settled = useReveal((s) => s.settled)
-  const phone = !useMediaQuery('(min-width: 36rem)')
+  // phones and the narrow two-column range (1104–1279) drop the long tail of chip labels
+  const phone = useMediaQuery('(max-width: 35.99rem), (min-width: 69rem) and (max-width: 79.99rem)')
   const effects = option.effects.slice(0, max ?? option.effects.length)
   if (!effects.length) return null
   const live = chosen && phase !== 'idle' && phase !== 'choosing'
@@ -146,27 +150,27 @@ export const ClubOptionCard = memo(function ClubOptionCard(p: OptionCardProps) {
   const label = `${verb} ${name}. ${[league?.shortName, country?.name].filter(Boolean).join(', ')}. ${effectsAria(option)}. ${details.map((d) => `${d.label} ${d.value}`).join(', ')}`
   return (
     <OptionShell {...p} oc={c.glow} label={label} className={cx(p.className, 'ck-opt--club', compact && 'is-compact')}>
-      <OptTitle verb={verb} name={name} />
-      <span className="lx-option__crest ck-opt__crest">
-        <Crest club={club ?? { id: option.clubId ?? 'x', name }} size={compact ? 46 : 70} decorative shadow />
-      </span>
-      <span className="ck-opt__meta">
-        {league && (
-          <span className="ck-opt__lg">
-            <LeagueLogo league={league} size={14} />
-            <span className="ck-opt__lgname">{league.shortName}</span>
+      {compact ? (
+        <span className="ck-opt__hrow">
+          <span className="lx-option__crest ck-opt__thumb">
+            <Crest club={club ?? { id: option.clubId ?? 'x', name }} size={44} decorative shadow />
           </span>
-        )}
-        {league && country && <span className="ck-dot" aria-hidden="true" />}
-        {country && (
-          <span className="ck-opt__ct">
-            <Flag code={country.code} h={12} w={16} radius={2} decorative />
-            {country.code}
+          <span className="ck-opt__htext">
+            <OptTitle verb={verb} name={name} />
+            <ClubMeta league={league} country={country} />
           </span>
-        )}
-      </span>
+        </span>
+      ) : (
+        <>
+          <OptTitle verb={verb} name={name} />
+          <span className="lx-option__crest ck-opt__crest">
+            <Crest club={club ?? { id: option.clubId ?? 'x', name }} size={70} decorative shadow />
+          </span>
+          <ClubMeta league={league} country={country} center />
+        </>
+      )}
       <Effects option={option} chosen={state === 'chosen'} compact={compact} max={compact ? 2 : undefined} />
-      {details.length > 0 && (
+      {details.length > 0 && !compact && (
         <span className="ck-opt__foot">
           {details.map((d) => (
             <span key={d.label}>
@@ -178,6 +182,27 @@ export const ClubOptionCard = memo(function ClubOptionCard(p: OptionCardProps) {
     </OptionShell>
   )
 })
+
+function ClubMeta({ league, country, center }: { league?: ReturnType<typeof useLeague>; country?: ReturnType<typeof useCountry>; center?: boolean }) {
+  if (!league && !country) return null
+  return (
+    <span className={cx('ck-opt__meta', center && 'is-center')}>
+      {league && (
+        <span className="ck-opt__lg">
+          <LeagueLogo league={league} size={14} />
+          <span className="ck-opt__lgname">{league.shortName}</span>
+        </span>
+      )}
+      {league && country && <span className="ck-dot" aria-hidden="true" />}
+      {country && (
+        <span className="ck-opt__ct">
+          <Flag code={country.code} h={12} w={16} radius={2} decorative />
+          {country.code}
+        </span>
+      )}
+    </span>
+  )
+}
 
 /** Footer facts: salary + contract (the role is already an effect chip; the league is in the meta). */
 function pickDetails(details: DecisionOption['details']): { label: string; value: string }[] {
@@ -200,20 +225,34 @@ export const EventOptionCard = memo(function EventOptionCard(p: OptionCardProps)
   const retire = decision.kind === 'retirement' && /retire|aposent/i.test(`${option.id} ${option.art ?? ''} ${option.title ?? ''}`)
   const art = option.art ?? (retire ? 'retirement' : decision.eventKey ? `${decision.eventKey}` : decision.kind)
   const name = option.title || option.label || 'Opção'
-  const verb = option.title && option.label && option.label !== option.title ? option.label : undefined
+  const verb = option.title && option.label && option.label !== option.title && !GENERIC_VERB.test(option.label) ? option.label : undefined
   const label = `${verb ? `${verb} ` : ''}${name}. ${effectsAria(option)}`
   const tint = club ? clubColors(club).glow : undefined
+  const media = (
+    <>
+      <EventArt art={art} hint={`${option.title ?? ''} ${option.label ?? ''}\n${decision.title}\n${decision.description}`} nationality={nat} salt={seed} tint={tint} />
+      {club && (
+        <span className="ck-opt__overlay">
+          <Crest club={club} size={compact ? 30 : 48} decorative shadow />
+        </span>
+      )}
+    </>
+  )
   return (
     <OptionShell {...p} oc={tint ?? (retire ? '#ffae5c' : undefined)} label={label} className={cx(p.className, 'ck-opt--event', compact && 'is-compact', retire && 'is-retire')}>
-      <OptTitle verb={verb} name={name} center />
-      <span className="ck-opt__media">
-        <EventArt art={art} nationality={nat} salt={seed} tint={tint} />
-        {club && (
-          <span className="ck-opt__overlay">
-            <Crest club={club} size={compact ? 34 : 48} decorative shadow />
+      {compact ? (
+        <span className="ck-opt__hrow">
+          <span className="ck-opt__media ck-opt__thumb">{media}</span>
+          <span className="ck-opt__htext">
+            <OptTitle verb={verb} name={name} />
           </span>
-        )}
-      </span>
+        </span>
+      ) : (
+        <>
+          <OptTitle verb={verb} name={name} center />
+          <span className="ck-opt__media">{media}</span>
+        </>
+      )}
       <Effects option={option} chosen={state === 'chosen'} compact={compact} max={compact ? 2 : 3} />
     </OptionShell>
   )
@@ -231,7 +270,7 @@ export const TrophyOptionCard = memo(function TrophyOptionCard(p: OptionCardProp
     <OptionShell {...p} oc="#ffd66e" label={label} className={cx(p.className, 'ck-opt--trophy', compact && 'is-compact')}>
       <OptTitle name={name} center />
       <span className="ck-opt__trophy lx-trophy-spot lx-trophy-spot--gold" style={{ ['--spot' as string]: compact ? '110px' : '150px' }}>
-        {option.trophyId ? <TrophyArt id={trophy?.art ?? option.trophyId} size={compact ? 70 : 108} trophy={trophy ? { family: trophy.family, metal: trophy.metal, accent: trophy.accent } : undefined} className="lx-trophy lx-trophy--card" title={trophy?.name} /> : null}
+        {option.trophyId ? <TrophyArt id={trophy?.art ?? option.trophyId} size={compact ? 70 : 128} trophy={trophy ? { family: trophy.family, metal: trophy.metal, accent: trophy.accent } : undefined} className="lx-trophy lx-trophy--card" title={trophy?.name} /> : null}
       </span>
       {comp && <span className="ck-opt__comp">{comp}</span>}
       <Effects option={option} chosen={state === 'chosen'} compact={compact} max={2} />

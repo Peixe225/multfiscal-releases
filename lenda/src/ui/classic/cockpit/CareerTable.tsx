@@ -245,7 +245,15 @@ function PendingRow({ row }: { row: TableRow }) {
             <span className="ck-row__plabel">{row.label}</span>
           </>
         ) : (
-          <span className="ck-row__pdots" aria-hidden="true" />
+          <>
+            <span className="ck-row__pdots" aria-hidden="true" />
+            {row.markers.map((m) => (
+              <span key={m.label} className={cx('ck-marker', m.kind === 'world_cup' && 'ck-marker--wc')} title={m.title}>
+                <Trophy aria-hidden="true" />
+                {m.label}
+              </span>
+            ))}
+          </>
         )}
       </span>
       <span role="cell" className="ck-row__ovr">

@@ -12,7 +12,8 @@ import { ArrowDown, ArrowRight, Share, Sparkles, Star, TrendingUp, Trophy, Volum
 import { useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useClub } from '@/store/data'
-import { BallIcon, Button, IconButton, OvrPill, clubColors, cx, darken, lighten, toast, useIsWide, useReducedMotion } from '@/ui/primitives'
+import { BallIcon, Button, IconButton, OvrPill, clubColors, cx, toast, useIsWide, useReducedMotion } from '@/ui/primitives'
+import { darken, lighten } from '@/ui/theme/club'
 import { TrophyArt } from '@/ui/trophies'
 import { careerTotals, isKeeper } from '@/ui/classic/cockpit/model'
 import { director } from '@/ui/classic/reveal/director'
@@ -44,7 +45,16 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   const colors = clubColors(club ?? null)
   const state = useCareer((s) => s.state)
   const reveal = useCareer((s) => s.reveal)
-  const rest = items.slice(1)
+  // other items of this reveal, grouped ("2x LaLiga · 2036/37 · 2037/38")
+  const rest = Object.values(
+    items.slice(1).reduce<Record<string, { it: CelebrationItem; n: number; years: string[] }>>((acc, it) => {
+      const k = `${it.art}:${it.name}`
+      acc[k] ??= { it, n: 0, years: [] }
+      acc[k].n++
+      acc[k].years.push(it.year)
+      return acc
+    }, {}),
+  )
   const [paused, setPaused] = useState(false)
   const continueRef = useRef<HTMLButtonElement>(null)
 
@@ -105,7 +115,7 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
 
   const totals = state ? careerTotals(state.seasons) : null
   const newTitles = items.filter((i) => i.kind === 'trophy').length
-  const pill = rel ? null : hero.kind === 'award' && newTitles === 0 ? 'PRÊMIO INDIVIDUAL' : newTitles > 1 ? `+${newTitles} TÍTULOS · ${totals?.titles ?? newTitles} NA CARREIRA` : `${totals?.titles ?? 1}º TÍTULO DA CARREIRA`
+  const pill = rel ? null : hero.kind === 'award' ? 'PRÊMIO INDIVIDUAL' : newTitles > 1 ? `+${newTitles} TÍTULOS · ${totals?.titles ?? newTitles} NA CARREIRA` : `${totals?.titles ?? 1}º TÍTULO DA CARREIRA`
   const rec = hero.record
   const gk = isKeeper(state?.identity.position)
   const facts: { key: string; tone: 'gold' | 'pos' | 'neg'; icon: typeof Star; body: React.ReactNode }[] = []
@@ -146,7 +156,8 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
     ['--club-glow' as string]: colors.glow,
     ['--cel-a' as string]: rel ? '#b91c1c' : '#ffd66e',
   } as CSSProperties
-  const heroH = wide ? 320 : 210
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 900
+  const heroH = Math.round(Math.max(150, Math.min(wide ? 320 : 220, vh * (wide ? 0.34 : 0.27))))
   const d = (ms: number) => (rm ? 0 : ms / 1000)
 
   return (
@@ -177,19 +188,19 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
       </div>
       {wide && rest.length > 0 && (
         <motion.div className="ck-cel__also" initial={rm ? false : { opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: d(1000), duration: d(420), ease: EASE }}>
-          {rest.slice(0, 4).map((it) => (
+          {rest.slice(0, 4).map(({ it, n, years }) => (
             <span key={it.key} className="lx-glass-tag ck-cel__also-item">
               <TrophyArt id={it.art} size={30} trophy={it.trophy} className="lx-trophy" />
               <span>
-                <span className="lx-eyebrow">Também em {it.year}</span>
-                <b>{it.name}</b>
+                <span className="lx-eyebrow">Também em {years.join(' · ')}</span>
+                <b>{n > 1 ? `${n}x ${it.name}` : it.name}</b>
               </span>
             </span>
           ))}
         </motion.div>
       )}
 
-      <div className="ck-cel__col" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="ck-cel__col">
         {pill && (
           <motion.span className="lx-pill-gold ck-cel__pill" initial={rm ? false : { opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(200), duration: d(420), ease: EASE }}>
             <Trophy aria-hidden="true" /> {pill}
@@ -223,10 +234,10 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
         )}
         {(!wide && rest.length > 0) && (
           <motion.div className="ck-cel__row" initial={rm ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: d(860), duration: d(300) }}>
-            {rest.slice(0, 5).map((it) => (
-              <span key={it.key} className="ck-cel__rowitem" title={`${it.name} ${it.year}`}>
+            {rest.slice(0, 5).map(({ it, n, years }) => (
+              <span key={it.key} className="ck-cel__rowitem" title={`${it.name} ${years.join(', ')}`}>
                 <TrophyArt id={it.art} size={40} trophy={it.trophy} className="lx-trophy" />
-                <span>{it.name}</span>
+                <span>{n > 1 ? `${n}x ${it.name}` : it.name}</span>
               </span>
             ))}
           </motion.div>
@@ -243,14 +254,26 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
             ))}
           </div>
         )}
-        <motion.div className="ck-cel__actions" initial={rm ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(ENTRANCE), duration: d(300) }} onClick={(e) => e.stopPropagation()}>
+        <motion.div
+          className="ck-cel__actions"
+          initial={rm ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: d(ENTRANCE), duration: d(300) }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.pointerType === 'mouse' && !paused && setPaused(true)}
+          onPointerLeave={() => setPaused(false)}
+          onFocus={(e) => (e.target as HTMLElement) !== continueRef.current && setPaused(true)}
+        >
           <Button ref={continueRef} variant="primary" size="lg" iconRight={ArrowRight} onClick={onClose} className="ck-cel__continue">
             Continuar
             {!paused && !rm && <span className="ck-cel__timer" style={{ animationDuration: `${CELEBRATION_HOLD}ms`, animationDelay: `${ENTRANCE}ms` }} aria-hidden="true" />}
           </Button>
           {!rel && (
-            <Button variant="ghost" size="lg" icon={Share} onClick={share}>
-              Compartilhar momento
+            <Button variant="ghost" size="lg" icon={Share} onClick={share} aria-label="Compartilhar momento">
+              <span className="ck-cel__share-l">Compartilhar momento</span>
+              <span className="ck-cel__share-s" aria-hidden="true">
+                Compartilhar
+              </span>
             </Button>
           )}
         </motion.div>

@@ -171,7 +171,7 @@ export const PenaltyMinigame = memo(function PenaltyMinigame({ decision, locked 
             className="ck-pen__keeper"
             aria-hidden="true"
             initial={false}
-            animate={{ x: `${(keeperX / 16) * 100}%`, rotate: keeperRot, y: struck && shot?.keeper !== 'center' ? '16%' : struck ? '-12%' : '0%' }}
+            animate={{ x: `${(keeperX / 12.5) * 100}%`, rotate: keeperRot, y: struck && shot?.keeper !== 'center' ? '16%' : struck ? '-12%' : '0%' }}
             transition={{ duration: rm ? 0 : 0.42, ease: [0.2, 0.9, 0.3, 1], delay: rm ? 0 : 0.05 }}
           >
             <svg viewBox="0 0 60 90">

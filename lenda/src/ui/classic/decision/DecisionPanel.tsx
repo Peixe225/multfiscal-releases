@@ -4,7 +4,7 @@
  * (1 full · 2 side by side · 3 = 2 on top + 1 centred · 4 = 2×2). Penalty decisions render the
  * minigame. While a reveal plays the frozen decision stays on screen with the chosen card lit.
  */
-import { Fragment, memo, useMemo, type ReactNode } from 'react'
+import { Fragment, memo, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { SkipForward } from 'lucide-react'
 import type { Decision, DecisionOption } from '@/engine/types'
@@ -55,7 +55,9 @@ export const DecisionPanel = memo(function DecisionPanel({ footer }: { footer?: 
   // while revealing, the step counter belongs to the decision being resolved
   const prog = decisionProgress(state)
   const index = revealing ? Math.max(1, prog.index - 1) : prog.index
-  if (!state || !decision) return null
+  useRestoreFocus(revealing ? null : (decision?.id ?? null))
+  if (!state) return null
+  if (!decision) return revealing ? <SimulatingCard /> : null
   const penalty = isPenaltyDecision(decision)
 
   return (
@@ -74,12 +76,19 @@ export const DecisionPanel = memo(function DecisionPanel({ footer }: { footer?: 
               <span className={cx('lx-dot', !revealing && 'lx-dot--pulse')} style={revealing ? { ['--lx-dot' as string]: 'var(--text-3)' } : undefined} aria-hidden="true" />
               {DECISION_KIND_LABEL[decision.kind] ?? 'Decisão'}
             </span>
-            <span className="ck-step">
-              <StepDots index={index} total={prog.total} />
-              <span>
-                Decisão {index} de {prog.total}
+            {revealing ? (
+              <Button variant="ghost" size="sm" icon={SkipForward} onClick={() => director.skip()} aria-keyshortcuts="Space" className="ck-skip">
+                Pular
+                {!touch && <Kbd>Espaço</Kbd>}
+              </Button>
+            ) : (
+              <span className="ck-step">
+                <StepDots index={index} total={prog.total} />
+                <span>
+                  Decisão {index} de {prog.total}
+                </span>
               </span>
-            </span>
+            )}
           </div>
           <motion.h2 id="ck-dtitle" className="ck-decision__title" initial={rm ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}>
             {decision.title}
@@ -94,20 +103,53 @@ export const DecisionPanel = memo(function DecisionPanel({ footer }: { footer?: 
           ) : (
             <OptionGrid decision={decision} chosenId={revealing || busy ? chosenId : null} locked={busy || revealing} />
           )}
-          {revealing && (
-            <div className="ck-decision__skip">
-              <Button variant="ghost" size="sm" icon={SkipForward} onClick={() => director.skip()} aria-keyshortcuts="Space">
-                Pular
-                {!touch && <Kbd>Espaço</Kbd>}
-              </Button>
-            </div>
-          )}
           {footer}
         </motion.div>
       </AnimatePresence>
     </section>
   )
 })
+
+/** A new decision replaced the one that held focus: hand focus to its first option (keyboard flow). */
+function useRestoreFocus(id: string | null) {
+  const prev = useRef(id)
+  useEffect(() => {
+    if (!id) return
+    const was = prev.current
+    prev.current = id
+    if (!was || was === id) return
+    const t = setTimeout(() => {
+      const a = document.activeElement
+      if (a && a !== document.body) return
+      ;(document.getElementById('ck-opt-0') as HTMLElement | null)?.focus({ preventScroll: true })
+    }, 450)
+    return () => clearTimeout(t)
+  }, [id])
+}
+
+/** Reveal without a frozen decision (restored fixtures): keep the slot filled. */
+function SimulatingCard() {
+  const reveal = useCareer((s) => s.reveal)
+  const touch = useIsTouch()
+  const seasons = reveal?.seasons ?? []
+  const span = seasons.length ? (seasons.length > 1 ? `${seasons[0].season}–${seasons[seasons.length - 1].season}` : String(seasons[0].season)) : ''
+  return (
+    <section className="lx-glass lx-top-light ck-decision ck-simulating" aria-live="polite">
+      <div className="ck-decision__top">
+        <span className="lx-eyebrow ck-kind">
+          <span className="lx-dot lx-dot--blink" aria-hidden="true" />
+          Simulando
+        </span>
+        <Button variant="ghost" size="sm" icon={SkipForward} onClick={() => director.skip()} className="ck-skip">
+          Pular
+          {!touch && <Kbd>Espaço</Kbd>}
+        </Button>
+      </div>
+      <h2 className="ck-decision__title">{seasons.length > 1 ? `Temporadas ${span}` : `Temporada ${span}`}</h2>
+      <p className="ck-decision__sub">O mundo está jogando: ligas, copas e prêmios da temporada.</p>
+    </section>
+  )
+}
 
 const OptionGrid = memo(function OptionGrid({ decision, chosenId, locked }: { decision: Decision; chosenId: string | null; locked: boolean }) {
   const rm = useReducedMotion()
