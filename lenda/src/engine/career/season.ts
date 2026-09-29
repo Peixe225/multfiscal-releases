@@ -24,7 +24,10 @@ import {
   AVG_MINUTES,
   FALLBACK_MATCHES,
   GOAL_RATES,
+  NATIONAL_APP_SHARE,
+  NATIONAL_ROTATION,
   NATIONAL_SLOTS,
+  NATIONAL_STARTERS,
   type RateRole,
 } from './constants'
 import { mem } from './memory'
@@ -39,6 +42,7 @@ import {
   shiftRole,
 } from './player'
 import {
+  callUpOvr,
   clubConfed,
   clubLeagueId,
   clubPrestige,
@@ -178,7 +182,8 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
   // ── papel ──
   const ov = s.modifiers.roleOverride
   const ovActive = !!ov && (m.period.roleOverrideSeasons === undefined || seasonIdx < m.period.roleOverrideSeasons)
-  const role: SquadRole = ovActive ? normalizeRole(ov!, isGK) : shiftRole(roleFromDelta(delta, isGK), isGK, m.period.roleShift)
+  const tmpShift = m.period.tempShift && seasonIdx < m.period.tempShift.seasons ? m.period.tempShift.shift : 0
+  const role: SquadRole = ovActive ? normalizeRole(ov!, isGK) : shiftRole(roleFromDelta(delta, isGK), isGK, m.period.roleShift + tmpShift)
   const zeroApps = (m.period.zeroAppsSeasons ?? 0) > seasonIdx
 
   // ── seleção ──
@@ -191,10 +196,13 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
     const better = w0.rivals.filter(
       (rv) => !rv.retired && rv.nationality === nat && positionGroup(rv.position) === group && rv.ovr > effOvr,
     ).length
-    const eligible = effOvr >= country.callUpOvr && better < NATIONAL_SLOTS[group]
+    // entre os melhores da sua posição no país e acima do corte da seleção (callUpOvr); quem passa
+    // a temporada se recuperando de lesão grave (−4 OVR ou pior) fica fora das listas
+    const injuredOut = seasonIdx === 0 && (m.period.injury?.ovrDelta ?? 0) <= -4
+    const eligible = effOvr >= callUpOvr(country) && better < NATIONAL_SLOTS[group] && !injuredOut
     calledUp = eligible
     if (m.period.national && tourney) calledUp = m.period.national === 'force' ? true : false
-    if (eligible) natRole = better < (isGK ? 1 : 3) ? 'starter' : better < (isGK ? 2 : 5) ? 'rotation' : 'reserve'
+    if (eligible) natRole = better < NATIONAL_STARTERS[group] ? 'starter' : better < NATIONAL_ROTATION[group] ? 'rotation' : 'reserve'
   }
   const nStrength = nationStrength(data, w0, nat)
 
@@ -263,7 +271,7 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
   if (calledUp) {
     const ns = W.nationSeason(sim.result, nat)
     const rn = key('national')
-    const range = natRole === 'starter' ? [0.65, 0.95] : natRole === 'rotation' ? [0.35, 0.6] : [0.1, 0.3]
+    const range = NATIONAL_APP_SHARE[natRole]
     const nm = ns.matches > 0 ? ns.matches : 8
     const napps = Math.max(1, Math.round(nm * rn.range(range[0], range[1])))
     const nd = effOvr - nStrength

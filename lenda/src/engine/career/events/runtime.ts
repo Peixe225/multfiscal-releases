@@ -8,6 +8,7 @@ import { mem } from '../memory'
 import { transferOffers } from '../offers'
 import { predictRole } from '../player'
 import {
+  callUpOvr,
   clubLeague,
   clubLeagueId,
   clubPrestige,
@@ -93,7 +94,7 @@ export function buildEnv(data: GameData, state: CareerState): EventEnv {
     periodSeasons,
     paceSeasons,
     calledUpBefore: state.national.apps > 0 || state.national.firstCallUp !== undefined || state.national.trophies.length > 0,
-    callUpOvr: nat?.callUpOvr ?? 75,
+    callUpOvr: nat ? callUpOvr(nat) : 75,
     offers() {
       if (!offers) offers = transferOffers(data, state, rng(state.seed, 'offers-dry', m.step), { count: 2 })
       return offers

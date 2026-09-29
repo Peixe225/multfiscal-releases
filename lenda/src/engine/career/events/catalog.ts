@@ -11,7 +11,7 @@
  */
 import type { Rng } from '../../rng'
 import type { Club, DecisionOption, EffectChip, Position } from '../../types'
-import { INJURIES } from '../constants'
+import { INJURIES, type InjuryDef } from '../constants'
 import { clubCard, foreignClub, homeClub, moneyClub, rivalClubs } from '../offers'
 import { isPlayingRole, predictRole } from '../player'
 import { clubStrength, confedCompetition, indexData, POSITION_NAMES, withArticle } from '../util'
@@ -812,15 +812,29 @@ export const EVENT_BY_KEY: Record<string, EventDef> = Object.fromEntries(EVENTS.
 
 // ───────────────────────── lesão ─────────────────────────
 
+/** Lesão grave (cruzado, fratura, Aquiles…): OVR −4 ou pior. */
+export function isSevereInjury(inj: InjuryDef): boolean {
+  return inj.ovr <= -4
+}
+
+/**
+ * A lesão tira UMA temporada, não o período inteiro (no ritmo Expressa eram 3 anos de banco):
+ * a grave (7–10 meses parado) deixa o jogador como reserva nessa temporada; a moderada (coxa,
+ * menisco, panturrilha, tornozelo: semanas) custa um degrau no papel.
+ */
 export function buildInjury(r: Rng): BuiltEvent & { injuryId: string } {
   const inj = r.weighted(INJURIES, (i) => i.weight)
+  const severe = isSevereInjury(inj)
+  const injury = { id: inj.id, name: inj.name, ovrDelta: inj.ovr }
   return {
     injuryId: inj.id,
     title: inj.name,
-    description: 'A recuperação vai ser longa e você vai perder o ritmo de jogo durante este período.',
+    description: severe
+      ? 'A recuperação vai ser longa: você perde boa parte da temporada.'
+      : 'Algumas semanas fora: você perde espaço no time nesta temporada.',
     options: [
-      choice('injury', 'continue', 'Iniciar a recuperação', [neg(`${inj.ovr} OVR`.replace('-', '−')), neg('Reserva no período')], sure(
-        { ovr: inj.ovr, roleOverride: 'substitute', injury: { id: inj.id, name: inj.name, ovrDelta: inj.ovr } },
+      choice('injury', 'continue', 'Iniciar a recuperação', [neg(`${inj.ovr} OVR`.replace('-', '−')), neg(severe ? 'Reserva nesta temporada' : 'Menos jogos nesta temporada')], sure(
+        severe ? { ovr: inj.ovr, roleOverride: 'substitute', roleSeasons: 1, injury } : { ovr: inj.ovr, roleShift: -1, roleShiftSeasons: 1, injury },
         `${inj.name}: ${inj.ovr} OVR.`.replace('-', '−'),
         'negative',
       )),

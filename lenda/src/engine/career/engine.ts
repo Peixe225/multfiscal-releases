@@ -284,7 +284,10 @@ export function applyEffects(data: GameData, s: CareerState, fx: EffectSpec, log
     s.modifiers.roleOverride = fx.roleOverride
     m.period.roleOverrideSeasons = fx.roleSeasons
   }
-  if (fx.roleShift) m.period.roleShift += fx.roleShift
+  if (fx.roleShift) {
+    if (fx.roleShiftSeasons) m.period.tempShift = { shift: fx.roleShift, seasons: fx.roleShiftSeasons }
+    else m.period.roleShift += fx.roleShift
+  }
   if (fx.demoteRoleSeasons) {
     const club = clubOf(data, s.clubId)
     const isGK = s.identity.position === 'GOL'

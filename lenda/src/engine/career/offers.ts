@@ -193,7 +193,8 @@ export function loanClubs(data: GameData, state: CareerState, r: Rng, count: num
   const fit = (c: Club) => {
     if (ex.has(c.id) || !eligibleFor(c, nat)) return false
     const st = clubStrength(world, c)
-    return isPlayingRole(predictRole(state.ovr, st, state.identity.position)) && st >= state.ovr - 10
+    // onde ele joga de verdade: titular ou rotação alta, sem ir a um clube muito mais forte
+    return isPlayingRole(predictRole(state.ovr, st, state.identity.position)) && st >= state.ovr - 10 && st <= state.ovr + 4
   }
   const home = idx.simClubs.filter((c) => c.country === contractClub.country && fit(c))
   const abroad = idx.simClubs.filter((c) => c.country !== contractClub.country && clubConfed(data, c) === conf && fit(c))

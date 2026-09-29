@@ -164,12 +164,26 @@ export const ASSIST_RATES: Record<RateRole, number[]> = {
   goalkeeper: [0, 0, 0, 0, 0, 0, 0],
 }
 
-/** Vagas "reais" por posição na seleção (quantos rivais melhores ele aceita e ainda é convocado). */
+/**
+ * Vagas "reais" por posição na lista de 26 da seleção (quantos craques melhores da mesma nacionalidade
+ * e grupo ele aceita e ainda é convocado). O grupo defensivo inclui os volantes.
+ */
 export const NATIONAL_SLOTS: Record<PositionGroup, number> = {
   goalkeeper: 3,
-  defensive: 8,
+  defensive: 9,
   support: 7,
   attacking: 6,
+}
+
+/** Quantos melhores ele aceita e ainda é titular / rotação na seleção (o XI tem 1 + 4–5 + 3 + 3). */
+export const NATIONAL_STARTERS: Record<PositionGroup, number> = { goalkeeper: 1, defensive: 4, support: 3, attacking: 3 }
+export const NATIONAL_ROTATION: Record<PositionGroup, number> = { goalkeeper: 2, defensive: 6, support: 5, attacking: 4 }
+
+/** Fração dos jogos da seleção na temporada (datas FIFA + torneio), por papel. */
+export const NATIONAL_APP_SHARE: Record<'starter' | 'rotation' | 'reserve', [number, number]> = {
+  starter: [0.7, 0.95],
+  rotation: [0.4, 0.7],
+  reserve: [0.15, 0.4],
 }
 
 /** Jogos oficiais de referência quando o mundo não informa (liga + copas). */

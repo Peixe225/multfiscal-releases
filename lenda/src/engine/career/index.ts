@@ -33,6 +33,7 @@ export {
 } from './player'
 export { academyClubs, transferOffers, loanClubs, nonRenewalClubs, locationWeights } from './offers'
 export {
+  callUpOvr,
   formatMoney,
   roleLabel,
   roleShortLabel,

@@ -22,6 +22,8 @@ export interface EffectSpec {
   roleOverride?: SquadRole
   roleSeasons?: number
   roleShift?: number
+  /** Se presente, o `roleShift` deste efeito vale só nas primeiras N temporadas do período (lesão). */
+  roleShiftSeasons?: number
   /** Post polêmico: titular/rotação → rotação baixa, rotação baixa → reserva, reserva → 0 jogos. */
   demoteRoleSeasons?: number
   suspend?: boolean

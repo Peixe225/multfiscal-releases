@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { CareerState, Position } from '../../types'
 import { data, engine, identity } from '../__fixtures__/play'
 import { cloneState, applyEffects } from '../engine'
-import { EVENTS } from '../events/catalog'
+import { EVENTS, isSevereInjury } from '../events/catalog'
 import { isEventEligible, tryEventDecision } from '../events/runtime'
 import type { OptionSpec } from '../events/types'
 import { INJURIES } from '../constants'
 import { careerMemory, withPendingEvent } from '../index'
 import { mem } from '../memory'
+import { roleFromDelta, shiftRole } from '../player'
+import { clubStrength } from '../util'
 
 /** Estado logo após a oferta de base, ajustado para as condições do evento. */
 function stateWith(o: { age?: number; ovr?: number; club?: string; position?: Position; nat?: string; firstClub?: string; nationalApps?: number; seed?: string; pace?: 'intensa' | 'normal' | 'expressa' }): CareerState {
@@ -211,9 +213,11 @@ describe('lesões', () => {
     expect(inj / N).toBeLessThan(0.03)
   })
 
-  it('lesão: −OVR, reserva no período, linha marcada e contador (máx. 2)', () => {
-    for (let i = 0; i < 12; i++) {
+  it('lesão: −OVR, só a 1ª temporada afetada (grave: reserva; moderada: um degrau), contador (máx. 2)', () => {
+    const kinds = new Set<boolean>()
+    for (let i = 0; i < 24; i++) {
       const b = STATES.star()
+      b.pace = 'expressa'
       mem(b).step = 700 + i
       const s = withPendingEvent(data, b, 'injury')!
       const d = s.pendingDecision!
@@ -221,13 +225,22 @@ describe('lesões', () => {
       const inj = INJURIES.find((x) => x.id === d.variant)!
       expect(d.title).toBe(inj.name)
       const out = engine.choose(data, s, d.options[0].id)
-      const first = out.reveal.seasons[0]
+      const [first, ...rest] = out.reveal.seasons
       expect(first.ovrStart).toBe(Math.max(40, s.ovr + inj.ovr))
       expect(first.injury?.id).toBe(inj.id)
-      expect(out.reveal.seasons.every((r) => r.role === 'substitute')).toBe(true)
+      const club = data.clubs.find((c) => c.id === first.clubId)!
+      const natural = roleFromDelta(first.ovrStart - clubStrength(s.world, club), false)
+      kinds.add(isSevereInjury(inj))
+      if (isSevereInjury(inj)) expect(first.role).toBe('substitute')
+      else expect(first.role).toBe(shiftRole(natural, false, -1))
+      // as temporadas seguintes do período não carregam a lesão (no Expressa eram 3 anos de banco)
+      expect(rest.length).toBeGreaterThan(0)
+      for (const r of rest) expect(r.injury).toBeUndefined()
+      expect(rest.some((r) => r.role !== 'substitute')).toBe(true)
       expect(out.state.events.injuries).toBe(1)
       expect(out.state.log.some((l) => l.type === 'injury')).toBe(true)
     }
+    expect(kinds.size).toBe(2)
     const s = STATES.star()
     s.events.injuries = 2
     s.events.slots = [22]

@@ -1,4 +1,5 @@
 /** Nationality list rules (Copero `vt@13781`): 24 featured countries first (Brasil first), accent-insensitive search incl. FIFA code. */
+import { callUpOvr } from '@/engine/career/util'
 import type { Country, Position } from '@/engine/types'
 import { positionGroup } from '@/ui/primitives'
 
@@ -51,7 +52,7 @@ export function searchCountries(all: Country[], q: string): Country[] {
 }
 
 /** "a seleção brasileira" style phrase is hard to generate; keep it neutral. */
-export const nationLine = (c: Country) => `Convocação a partir de OVR ${c.callUpOvr} · ${c.confed}`
+export const nationLine = (c: Country) => `Convocação a partir de OVR ${callUpOvr(c)} · ${c.confed}`
 
 // ───────────────────────── positions ─────────────────────────
 

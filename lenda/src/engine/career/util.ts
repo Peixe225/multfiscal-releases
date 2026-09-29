@@ -177,6 +177,37 @@ export function clubConfed(data: GameData, club: Club): Confed {
   return idx.league.get(club.leagueId)?.confed ?? idx.country.get(club.country)?.confed ?? 'UEFA'
 }
 
+/**
+ * OVR mínimo para ser convocado, pela força da seleção (a mesma regra vale para todas; a posição na
+ * fila da sua posição é checada à parte). Interpolação linear entre os pontos: potências (Espanha,
+ * França, Argentina, Inglaterra, Brasil, Portugal, Alemanha: 80–82, o nível de quem fecha a lista
+ * delas no EA FC), médias (Colômbia, Uruguai, Suíça 76; EUA, México, Japão 74), fracas bem abaixo
+ * (70 → 65; 60 → 56) e as minúsculas quase sem corte (40 → 44).
+ */
+const CALL_UP_CURVE: [number, number][] = [
+  [40, 44],
+  [55, 51],
+  [65, 60],
+  [75, 70],
+  [80, 74],
+  [84, 77],
+  [87, 80],
+  [90, 81],
+  [95, 82],
+]
+
+export function callUpOvr(country: Pick<Country, 'strength'>): number {
+  const x = country.strength
+  const pts = CALL_UP_CURVE
+  if (x <= pts[0][0]) return pts[0][1]
+  for (let i = 1; i < pts.length; i++) {
+    const [x1, y1] = pts[i]
+    const [x0, y0] = pts[i - 1]
+    if (x <= x1) return Math.round(y0 + ((y1 - y0) * (x - x0)) / (x1 - x0))
+  }
+  return pts[pts.length - 1][1]
+}
+
 export function nationStrength(data: GameData, world: WorldState, code: string): number {
   return world.nations[code] ?? indexData(data).country.get(code)?.strength ?? 60
 }

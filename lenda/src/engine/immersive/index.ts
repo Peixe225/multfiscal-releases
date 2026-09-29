@@ -26,7 +26,7 @@ import { rng as subRng } from '../rng'
 import type { GameData, PlayerIdentity, StandingRow } from '../types'
 import { summarize } from '../career/summary'
 import { NATIONAL_SLOTS, INJURIES } from '../career/constants'
-import { positionGroup } from '../career/util'
+import { callUpOvr, positionGroup } from '../career/util'
 import { worldEngine } from '../world'
 import { isScheduled } from '../world/national'
 import { addResult, newRow, sortTable } from '../world/table'
@@ -183,7 +183,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     const eff = s.ovr + (m.tempOvr && m.tempOvr.untilSeason >= s.season ? m.tempOvr.delta : 0) + (s.condition.form - 50) / 12 - minutesPen
     const group = positionGroup(s.identity.position)
     const better = s.world.rivals.filter((r) => !r.retired && r.nationality === s.identity.nationality && positionGroup(r.position) === group && r.ovr > eff).length
-    return eff >= country.callUpOvr - 2 && better < NATIONAL_SLOTS[group] && !s.condition.injury
+    return eff >= callUpOvr(country) - 2 && better < NATIONAL_SLOTS[group] && !s.condition.injury
   }
 
   function callup(data: GameData, s: ImmersiveState, it: CalendarItem, fx: ImmersiveEffect[]) {
@@ -204,12 +204,12 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         addNews(s, `${s.identity.surname} está na lista da ${country.name} para a ${compName}`, 'positive', fx)
         toast(fx, 'gold', 'Convocado!', `${country.name} · ${compName}`)
         rebuildCalendar(data, s, it.week * 1000 + it.order)
-      } else if (s.ovr >= country.callUpOvr - 8) addInbox(s, `Seleção · ${country.name}`, 'Lista final divulgada', `Seu nome ficou fora da lista da ${compName}. A comissão técnica segue acompanhando.`)
+      } else if (s.ovr >= callUpOvr(country) - 8) addInbox(s, `Seleção · ${country.name}`, 'Lista final divulgada', `Seu nome ficou fora da lista da ${compName}. A comissão técnica segue acompanhando.`)
       return
     }
     m.natCalled = called
     if (!called) {
-      if (s.ovr >= country.callUpOvr - 6 && s.age >= 17) addInbox(s, `Seleção · ${country.name}`, 'Lista divulgada', 'Seu nome ficou fora desta vez. A comissão acompanha seus jogos — continue somando minutos.')
+      if (s.ovr >= callUpOvr(country) - 6 && s.age >= 17) addInbox(s, `Seleção · ${country.name}`, 'Lista divulgada', 'Seu nome ficou fora desta vez. A comissão acompanha seus jogos — continue somando minutos.')
       return
     }
     // eliminatórias (Copa no próximo ano ou no seguinte) ou amistosos

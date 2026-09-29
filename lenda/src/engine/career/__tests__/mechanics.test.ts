@@ -14,21 +14,46 @@ import {
   valueFromCurve,
 } from '../player'
 import { clubBoost, deltaBucket, qualityFactor } from '../season'
-import { clubArticle, withArticle } from '../util'
+import { callUpOvr, clubArticle, withArticle } from '../util'
 import { data, engine, identity, playCareer } from '../__fixtures__/play'
 
-describe('papel no elenco (limiares do Copero)', () => {
-  it('linha: titular ≥0, rotação ≥−4, rotação baixa ≥−8, reserva abaixo', () => {
-    expect(roleFromDelta(0, false)).toBe('starter')
-    expect(roleFromDelta(-4, false)).toBe('high_rotation')
-    expect(roleFromDelta(-5, false)).toBe('low_rotation')
-    expect(roleFromDelta(-8, false)).toBe('low_rotation')
-    expect(roleFromDelta(-9, false)).toBe('substitute')
+describe('corte de convocação (callUpOvr)', () => {
+  it('potências 80–82, médias ~74–76, fracas bem abaixo; cresce com a força da seleção', () => {
+    expect(callUpOvr({ strength: 94 })).toBe(82) // Espanha
+    expect(callUpOvr({ strength: 89 })).toBe(81) // Brasil (antes 84: um 83 do Barça ficava de fora)
+    expect(callUpOvr({ strength: 87 })).toBe(80) // Alemanha
+    expect(callUpOvr({ strength: 82 })).toBe(76) // Uruguai/Suíça
+    expect(callUpOvr({ strength: 80 })).toBe(74) // EUA/México/Japão
+    expect(callUpOvr({ strength: 70 })).toBe(65)
+    expect(callUpOvr({ strength: 40 })).toBe(44)
+    let prev = 0
+    for (let x = 35; x <= 99; x++) {
+      const v = callUpOvr({ strength: x })
+      expect(v).toBeGreaterThanOrEqual(prev)
+      expect(v).toBeLessThanOrEqual(82)
+      prev = v
+    }
   })
-  it('goleiro: titular ≥0, reserva ≥−6, terceiro goleiro abaixo', () => {
+})
+
+describe('papel no elenco (força do clube = média do melhor XI)', () => {
+  it('linha: titular ≥−2, rotação ≥−6, rotação baixa ≥−10, reserva abaixo', () => {
+    expect(roleFromDelta(0, false)).toBe('starter')
+    expect(roleFromDelta(-2, false)).toBe('starter')
+    expect(roleFromDelta(-2.1, false)).toBe('high_rotation')
+    // um 83 num Barcelona de 88: rotação (25–35 jogos), não banco
+    expect(roleFromDelta(-5, false)).toBe('high_rotation')
+    expect(roleFromDelta(-6, false)).toBe('high_rotation')
+    expect(roleFromDelta(-7, false)).toBe('low_rotation')
+    expect(roleFromDelta(-10, false)).toBe('low_rotation')
+    expect(roleFromDelta(-11, false)).toBe('substitute')
+  })
+  it('goleiro: titular ≥−2, reserva ≥−7, terceiro goleiro abaixo', () => {
     expect(roleFromDelta(0, true)).toBe('starter')
-    expect(roleFromDelta(-6, true)).toBe('substitute')
-    expect(roleFromDelta(-7, true)).toBe('third_keeper')
+    expect(roleFromDelta(-2, true)).toBe('starter')
+    expect(roleFromDelta(-3, true)).toBe('substitute')
+    expect(roleFromDelta(-7, true)).toBe('substitute')
+    expect(roleFromDelta(-8, true)).toBe('third_keeper')
   })
   it('deslocamento de papel respeita a escada e as pontas', () => {
     expect(shiftRole('starter', false, -1)).toBe('high_rotation')

@@ -27,6 +27,8 @@ export interface LoanInfo {
 /** Efeitos que valem para o período que vai ser simulado (zerados a cada decisão). */
 export interface PeriodEffects {
   roleShift: number
+  /** Degraus de papel perdidos só nas primeiras `seasons` temporadas do período (lesão moderada). */
+  tempShift?: { shift: number; seasons: number }
   roleOverride?: SquadRole
   /** Quantas temporadas o roleOverride dura (ausente = período inteiro). */
   roleOverrideSeasons?: number

@@ -9,6 +9,7 @@
  */
 import type { Rng } from '../rng'
 import type { GameData } from '../types'
+import { callUpOvr } from '../career/util'
 import type { CalendarItem, ImmersiveEffect, ImmersiveState, InboxMessage, NewsItem, PressQuestion, SocialPost } from './types'
 import { mem, type Deltas } from './mem'
 import { cap, clamp, clubOf, irng, nextId, slug, teamShort, trng, withArt } from './util'
@@ -278,7 +279,10 @@ export function buildPress(data: GameData, s: ImmersiveState, item: CalendarItem
     dry,
     bench,
     rumor: rumor ? teamShort(data, rumor.clubId) : null,
-    national: s.ovr >= (data.countries.find((c) => c.code === s.identity.nationality)?.callUpOvr ?? 80) - 4 && s.national.apps === 0,
+    national: (() => {
+      const c = data.countries.find((x) => x.code === s.identity.nationality)
+      return s.ovr >= (c ? callUpOvr(c) : 80) - 4 && s.national.apps === 0
+    })(),
     titleRace: leaguePos > 0 && leaguePos <= 3 && s.calendar.filter((it) => it.done && it.kind === 'match').length >= 10,
     club: club?.shortName ?? 'clube',
   }

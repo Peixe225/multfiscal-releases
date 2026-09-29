@@ -11,12 +11,18 @@ import type { DevCycle } from './memory'
 const LADDER: SquadRole[] = ['substitute', 'low_rotation', 'high_rotation', 'starter']
 const LADDER_GK: SquadRole[] = ['third_keeper', 'substitute', 'starter']
 
-/** Papel pelo delta OVR − força do clube (limiares do Copero). */
+/**
+ * Papel pelo delta OVR − força do clube. A força do clube é a média do seu melhor XI (Barcelona 87:
+ * titulares de 84 a 90, reservas de uso de 82–83, banco de 78–81), então quem está até 2 pontos
+ * abaixo dela é titular; de −3 a −6, rotação (25–35 jogos num grande); de −7 a −10, rotação baixa
+ * (15–20); abaixo disso, reserva. Goleiro: só um joga — titular até −2, reserva até −7.
+ * (O Copero usava 0/−4/−8, o que deixava um 83 do Barça com 5–10 jogos por temporada.)
+ */
 export function roleFromDelta(delta: number, isGK: boolean): SquadRole {
-  if (isGK) return delta >= 0 ? 'starter' : delta >= -6 ? 'substitute' : 'third_keeper'
-  if (delta >= 0) return 'starter'
-  if (delta >= -4) return 'high_rotation'
-  if (delta >= -8) return 'low_rotation'
+  if (isGK) return delta >= -2 ? 'starter' : delta >= -7 ? 'substitute' : 'third_keeper'
+  if (delta >= -2) return 'starter'
+  if (delta >= -6) return 'high_rotation'
+  if (delta >= -10) return 'low_rotation'
   return 'substitute'
 }
 
