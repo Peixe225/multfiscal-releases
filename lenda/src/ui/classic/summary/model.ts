@@ -326,8 +326,9 @@ export function careerSpan(seasons: SeasonRecord[]): { from: number; to: number;
   return { from: a, to: b, label: `${a} – ${b}` }
 }
 
+/** Clube da carreira: o mesmo critério do título ("Ídolo do…"/"Lenda do…") — mais temporadas, depois títulos e jogos. */
 export function mainClub(summary: CareerSummary): string | undefined {
-  return [...summary.clubs].sort((a, b) => b.apps + b.trophies * 20 - (a.apps + a.trophies * 20))[0]?.clubId
+  return [...summary.clubs].sort((a, b) => b.seasons - a.seasons || b.trophies - a.trophies || b.apps - a.apps)[0]?.clubId
 }
 
 export function clubName(id: string | undefined, short = false): string {
