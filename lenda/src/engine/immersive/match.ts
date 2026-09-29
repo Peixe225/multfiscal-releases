@@ -29,6 +29,7 @@ import type {
   LiveMatch,
   MatchEvent,
   MatchEventType,
+  MatchPosture,
   TeamSide,
   UserMatchStats,
 } from './types'
@@ -602,6 +603,48 @@ export function kickoff(s: ImmersiveState, fx: ImmersiveEffect[]) {
   push(s, live, { minute: 0, type: 'kickoff', side: 'home', text: say(r, T.kickoff, { h: live.home.shortName, aw: live.away.shortName, st: live.stage ? ` · ${live.stage}` : '' }), at: { x: 50, y: 50 } }, fx)
 }
 
+/**
+ * Postura em campo (pré-jogo ou durante a partida): "pedir a bola" cria até 2 lances decisivos a mais
+ * no tempo que resta; "poupar" corta um (sempre sobra ao menos um) — e o desgaste muda em `minute`.
+ * O saldo por partida fica entre −1 e +2, então alternar a postura não fabrica lances infinitos.
+ */
+export function setPosture(s: ImmersiveState, posture: MatchPosture): boolean {
+  const live = s.live
+  const lm = mem(s).live
+  if (!live || !lm || live.pendingMoment || live.phase === 'full_time' || live.phase === 'penalties') return false
+  if (posture !== 'ataque' && posture !== 'equilibrada' && posture !== 'poupar') return false
+  if ((lm.posture ?? 'equilibrada') === posture) return true
+  lm.posture = posture
+  live.posture = posture
+  if (lm.onAt >= 999) return true
+  const now = live.phase === 'pre' ? 0 : live.minute
+  const from = Math.max(now + 3, lm.onAt + 2, 4)
+  const net = lm.postureNet ?? 0
+  const rest = () => lm.plan.slice(lm.momentIdx).filter((pm) => pm.minute >= from)
+  if (posture === 'ataque' && net < 2 && from <= 86) {
+    const r = irng(s, 'live', lm.itemId, 'posture', now, net)
+    const mix = MIX[s.identity.position]
+    const sits = Object.keys(mix) as KeyMomentSituation[]
+    const add = Math.min(2 - net, now < 60 ? 2 : 1)
+    for (let i = 0; i < add; i++) {
+      let minute = r.int(from, 88)
+      if (minute === 45 || minute === 46) minute = 47
+      lm.plan.push({ minute, situation: r.weighted(sits, (x) => mix[x] ?? 0) })
+    }
+    lm.postureNet = net + add
+  } else if (posture === 'poupar' && net > -1 && rest().length > 1) {
+    const last = rest()[rest().length - 1]
+    lm.plan.splice(lm.plan.lastIndexOf(last), 1)
+    lm.postureNet = net - 1
+  }
+  // mantém o plano que falta em ordem e sem dois lances no mesmo minuto
+  const head = lm.plan.slice(0, lm.momentIdx)
+  const tail = lm.plan.slice(lm.momentIdx).sort((a, b) => a.minute - b.minute)
+  for (let i = 1; i < tail.length; i++) if (tail[i].minute <= tail[i - 1].minute) tail[i].minute = Math.min(89, tail[i - 1].minute + 2)
+  lm.plan = [...head, ...tail]
+  return true
+}
+
 type Stop = 'moment' | 'half' | 'end' | 'continue'
 
 /** Anda até o próximo lance-chave, intervalo ou fim. */
@@ -652,7 +695,8 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
   // energia ao vivo e lesão
   if (live.userOnPitch) {
     const phys = isGK(s.identity.position) ? 70 : attr(s.attributes, 'physical')
-    lm.fitness = clamp(lm.fitness - (isGK(s.identity.position) ? 0.1 : 0.3 * (1.3 - phys / 150)), 0, 100)
+    const drain = lm.posture === 'ataque' ? 1.3 : lm.posture === 'poupar' ? 0.7 : 1
+    lm.fitness = clamp(lm.fitness - (isGK(s.identity.position) ? 0.1 : 0.3 * (1.3 - phys / 150) * drain), 0, 100)
     // ≈ 2,5% de lesão por jogo completo (mais com a energia baixa e na prorrogação)
     const injP = 0.00028 * (lm.fitness < 40 ? 3 : lm.fitness < 60 ? 1.6 : 1) * (live.phase === 'extra_time' ? 1.5 : 1)
     if (r.chance(injP)) {

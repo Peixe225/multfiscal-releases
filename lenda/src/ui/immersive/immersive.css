@@ -808,6 +808,7 @@
 .im-recap__news li[data-tone="positive"] { box-shadow: inset 3px 0 0 var(--positive); }
 .im-recap__news li[data-tone="negative"] { box-shadow: inset 3px 0 0 var(--negative); }
 .im-recap__news li > svg { margin-top: 3px; color: var(--accent); }
+.im-recap__news li.im-recap__empty { display: block; color: var(--text-2); }
 .im-recap__news small { display: block; margin-bottom: 3px; font: 700 10.5px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
 .im-recap__deltas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
 @media (max-width: 69.99rem) { .im-press__answers { grid-template-columns: 1fr 1fr; } }
@@ -1224,3 +1225,49 @@
 .im-menu__s { display: block; margin-top: 2px; font: 500 12px/1.25 var(--font-ui); color: var(--text-3); }
 .im-menu__chev { flex: none; color: var(--text-3); }
 .im-menu__danger { padding: 12px; background: rgb(255 70 100 / .1); box-shadow: inset 3px 0 0 var(--negative); }
+
+/* ── pré-jogo: postura ─────────────────────────────────────────────────── */
+.im-pre__posture { display: grid; gap: 8px; margin-top: 16px; padding: 12px 14px; background: rgb(6 10 38 / .45); box-shadow: inset 0 0 0 1px var(--border); }
+.im-pre__posture-h { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.im-pre__posture .im-seg { max-width: 100%; }
+.im-pre__note { margin-top: 10px; text-align: right; color: var(--text-3); }
+@media (max-width: 44.99rem) { .im-pre__note { text-align: center; } }
+
+/* ── adiantando (banco / tribuna) ──────────────────────────────────────── */
+.im-ff { position: absolute; left: 50%; top: 50%; z-index: 9; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 12px 14px 12px 16px; color: var(--text); background: rgb(6 10 38 / .9); box-shadow: inset 0 0 0 1px rgb(59 228 255 / .45), 0 18px 40px rgb(0 0 0 / .5); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.im-ff > svg { flex: none; color: var(--accent); animation: im-ff-pulse 1.1s ease-in-out infinite; }
+.im-ff > span { display: grid; gap: 2px; min-width: 0; }
+.im-ff b { font: italic 800 16px/1.1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.im-ff small { font-size: 12.5px; color: var(--text-2); }
+.im-ff .lx-btn { flex: none; }
+@keyframes im-ff-pulse { 50% { transform: translateX(3px); opacity: .6; } }
+@media (max-width: 44.99rem) { .im-ff { flex-wrap: wrap; justify-content: center; text-align: center; } }
+
+/* ── autor do gol sob o placar ─────────────────────────────────────────── */
+.im-bug { position: relative; }
+.im-bug__scorer { position: absolute; top: 100%; left: 52px; display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 14px 0 12px; white-space: nowrap; font: italic 800 14px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--lx-gold-ink, #1D1300); background: linear-gradient(90deg, #FFE08A, #E9A61E); clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); animation: lx-drop-in var(--dur-2) var(--ease-out) backwards; }
+.im-bug__scorer.is-away { left: auto; right: 96px; }
+.im-bug__scorer b { font-weight: 900; opacity: .75; }
+
+/* ── controles: nunca sobrepor (quebram de linha se faltar espaço) ─────── */
+.im-ctrl { flex-wrap: wrap; row-gap: 8px; }
+.im-ctrl__grp { flex: none; }
+.im-seg > button { white-space: nowrap; }
+.im-field__help { position: absolute; right: 14px; top: 14px; z-index: 8; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; font: 800 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--text); background: rgb(6 10 38 / .82); box-shadow: inset 0 0 0 1px var(--border-strong); cursor: pointer; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+.im-field__help:hover, .im-field__help:focus-visible { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+@media (max-width: 44.99rem) { .im-field__help { top: 8px; right: 8px; height: 26px; padding: 0 9px; font-size: 10.5px; } }
+.im-mom__l { max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── como jogar ────────────────────────────────────────────────────────── */
+.im-howto { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgb(2 4 20 / .72); backdrop-filter: blur(4px); }
+.im-howto__card { position: relative; width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; display: grid; gap: 14px; padding: 22px 22px 20px; }
+.im-howto__t { margin: 0; font: italic 800 30px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; }
+.im-howto__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.im-howto__list li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; }
+.im-howto__ic { display: grid; place-items: center; width: 34px; height: 34px; color: var(--accent); background: rgb(59 228 255 / .1); box-shadow: inset 0 0 0 1px rgb(59 228 255 / .3); }
+.im-howto__list b { display: block; font: 800 16px/1.2 var(--font-display); letter-spacing: .03em; text-transform: uppercase; }
+.im-howto__list small { display: block; margin-top: 2px; font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+@media (max-width: 44.99rem) {
+  .im-pre__posture .im-seg { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .im-pre__posture .im-seg > button { justify-content: center; padding: 0 6px; font-size: 12.5px; letter-spacing: .04em; }
+}

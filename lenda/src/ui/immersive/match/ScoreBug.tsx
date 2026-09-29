@@ -35,11 +35,9 @@ export const ScoreBug = memo(function ScoreBug({ live, home, away, score, events
   const team = (t: TeamInfo, side: 'home' | 'away') => (
     <span className={cx('lx-bug__team', side === 'home' ? 'is-home' : 'is-away')} style={clubVars(t.colors) as CSSProperties}>
       {side === 'home' && <i className="lx-bug__bar" />}
-      {side === 'home' && goal?.side === 'home' && <span className="lx-bug__scorer">{goal.text}</span>}
       {side === 'away' && Array.from({ length: reds('away') }).map((_, i) => <i key={i} className="lx-bug__red" title="Expulso" />)}
       {t.abbr}
       {side === 'home' && Array.from({ length: reds('home') }).map((_, i) => <i key={i} className="lx-bug__red" title="Expulso" />)}
-      {side === 'away' && goal?.side === 'away' && <span className="lx-bug__scorer">{goal.text}</span>}
       {side === 'away' && <i className="lx-bug__bar" />}
     </span>
   )
@@ -61,6 +59,12 @@ export const ScoreBug = memo(function ScoreBug({ live, home, away, score, events
           <Clock phase={shownPhase === 'second_half' && !settled ? 'first_half' : shownPhase} />
         </span>
         {live.pens && <span className="lx-bug__extra num">Pên. {live.pens[0]}–{live.pens[1]}</span>}
+        {/* autor do gol numa aba sob o placar (dentro da célula do time, cortava a sigla) */}
+        {goal && (
+          <span className={cx('im-bug__scorer', goal.side === 'away' && 'is-away')} key={seq}>
+            <b>Gol</b> {goal.text}
+          </span>
+        )}
       </div>
       <p className="sr-only" aria-live="polite">
         {announce}

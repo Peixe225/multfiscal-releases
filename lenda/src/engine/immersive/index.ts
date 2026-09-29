@@ -34,7 +34,7 @@ import { kindIsNational, matchdayOf, weekDate } from './calendar'
 import type { Position } from '../types'
 import type { Attributes, CalendarItem, ImmersiveAction, ImmersiveEffect, ImmersiveEngine, ImmersiveState, TrainingFocus } from './types'
 import { academyDecision, resolveDecision, storyDecision } from './events'
-import { aiChoice, createLive, finalRating, kickoff, requestSub, resolveMoment, runToEnd, simulate } from './match'
+import { aiChoice, createLive, finalRating, kickoff, requestSub, resolveMoment, runToEnd, setPosture, simulate } from './match'
 import { mem, newMemory, type Fx } from './mem'
 import { addInbox, addNews, answerPress, applyDeltas, buildPress, buyItem, matchReactions, userPost, type MatchSummary } from './media'
 import { acceptChance, respondOffer, windowOffers, type CounterAsk, type CounterOdds } from './offers'
@@ -648,9 +648,12 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
           s.live.userStatus = 'out'
           toast(fx, 'danger', 'Você se recusou a ficar no banco', 'O técnico não gostou.')
         }
+        if (a.posture) setPosture(s, a.posture)
         kickoff(s, fx)
         return true
       }
+      case 'match_posture':
+        return setPosture(s, a.posture)
       case 'match_sim': {
         if (!s.live || s.live.pendingMoment) return false
         if (s.live.phase === 'full_time') return false
@@ -936,10 +939,11 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     if (state.live) {
       const l = state.live
       if (l.pendingMoment) return ['match_choose', 'match_timeout', 'match_finish', ...always]
-      if (l.phase === 'pre') return ['match_start', 'match_sim', 'advance', 'match_finish', ...always]
+      if (l.phase === 'pre') return ['match_start', 'match_posture', 'match_sim', 'advance', 'match_finish', ...always]
       if (l.phase === 'full_time') return ['match_finish', 'advance', ...always]
       const out: ImmersiveAction['type'][] = ['match_sim', 'advance', 'match_finish']
       if (l.userOnPitch && l.phase !== 'penalties') out.push('match_sub_request')
+      if (l.phase !== 'penalties') out.push('match_posture')
       return [...out, ...always]
     }
     if (state.press) return ['press_answer', 'press_skip', ...always, ...offers, ...retire]

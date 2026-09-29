@@ -294,7 +294,7 @@ function PressRecap({ gauge, mood, heads, before, onDone }: { gauge: number; moo
               </span>
             </li>
           ))}
-          {!news.length && <li className="lx-t-small">Sem manchetes fortes: a coletiva passou sem polêmica.</li>}
+          {!news.length && <li className="lx-t-small im-recap__empty">Sem manchetes fortes: a coletiva passou sem polêmica.</li>}
         </ul>
         <div className="im-recap__deltas">
           {deltas.map((d) => (

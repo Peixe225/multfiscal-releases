@@ -4,7 +4,7 @@
  */
 import type { FixedResult } from '../api'
 import type { AwardResult, Confed, CompetitionKind, Decision, UserFixture, UserLeagueLog } from '../types'
-import type { ImmersiveState, KeyMomentSituation } from './types'
+import type { ImmersiveState, KeyMomentSituation, MatchPosture } from './types'
 
 export const MEM_VERSION = 1
 
@@ -79,6 +79,9 @@ export interface LiveMem {
   motm?: boolean
   /** Fora por suspensão (desconta um jogo ao fim). */
   suspendedOut?: boolean
+  /** Postura atual e saldo de lances criados (+) ou cortados (−) por ela (limitado a −1…+2). */
+  posture?: MatchPosture
+  postureNet?: number
 }
 
 export interface MomentOptionSpec {

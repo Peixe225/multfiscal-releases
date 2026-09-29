@@ -31,6 +31,9 @@ interface PB {
   skipping: boolean
   /** Pausa pedida pelo usuário (botão ⏸ da barra / da transmissão). */
   userPaused: boolean
+  /** Adiantar (instantâneo sem mudar a velocidade salva): banco até você entrar, tribuna até o fim. */
+  ff: boolean
+  setFF(v: boolean): void
   setSpeed(s: Speed): void
   /** Pula o replay em andamento (Espaço). */
   skip(): void
@@ -51,6 +54,8 @@ export const usePlayback = create<PB>()((set) => ({
   burst: [],
   skipping: false,
   userPaused: false,
+  ff: false,
+  setFF: (ff) => set({ ff }),
   setSpeed: (speed) => {
     set({ speed })
     try {
@@ -115,7 +120,7 @@ export function usePlaybackDriver(live: LiveMatch | null, paused: boolean) {
         return
       }
       if (pausedRef.current || st.userPaused || document.hidden) return
-      const instant = st.speed === 0 || st.skipping
+      const instant = st.speed === 0 || st.ff || st.skipping
       if (instant) {
         if (st.shown < evs.length || st.clock !== target || !st.settled || st.skipping) {
           const burst = evs.slice(st.shown)

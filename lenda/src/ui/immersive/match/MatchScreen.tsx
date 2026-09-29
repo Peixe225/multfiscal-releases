@@ -17,6 +17,7 @@ import {
   ArrowRight,
   BatteryMedium,
   Crown,
+  CircleHelp,
   FastForward,
   Flag as FlagIcon,
   HeartPulse,
@@ -34,7 +35,7 @@ import {
   Tv,
   Zap,
 } from 'lucide-react'
-import type { KeyMoment, LiveMatch, MatchEvent, UserMatchStats } from '@/engine/immersive/types'
+import type { KeyMoment, LiveMatch, MatchEvent, MatchPosture, UserMatchStats } from '@/engine/immersive/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
 import { BallIcon, Button, Crest, Tabs, clubVars, cx, useIsTouch, useMediaQuery, useReducedMotion } from '@/ui/primitives'
@@ -145,18 +146,34 @@ function manOfMatch(live: LiveMatch, surname: string): { name: string; team: Tea
 
 // ───────────────────────── postura ─────────────────────────
 
-export type Posture = 'ataque' | 'equilibrada' | 'poupar'
+export type Posture = MatchPosture
 const POSTURE_HINT: Record<Posture, string> = {
-  ataque: 'Pede a bola: no tempo esgotado, a jogada padrão é a que pode virar gol',
-  equilibrada: 'Equilibrada: no tempo esgotado, a jogada mais provável',
-  poupar: 'Poupa energia: jogada mais segura e pede para sair quando cansar',
+  ataque: 'Pedir a bola: até 2 lances decisivos a mais para você, mas cansa mais',
+  equilibrada: 'Equilibrada: número normal de lances e de desgaste',
+  poupar: 'Poupar energia: um lance a menos e cansa bem menos (e pede para sair quando o gás acabar)',
 }
+const POSTURE_LABEL: Record<Posture, string> = { ataque: 'Pedir a bola', equilibrada: 'Equilibrada', poupar: 'Poupar' }
 const readPosture = (): Posture => {
   try {
     const v = localStorage.getItem('lenda:imm:postura')
     return v === 'ataque' || v === 'poupar' ? v : 'equilibrada'
   } catch {
     return 'equilibrada'
+  }
+}
+const savePosture = (p: Posture) => {
+  try {
+    localStorage.setItem('lenda:imm:postura', p)
+  } catch {
+    /* ignore */
+  }
+}
+const HOWTO_KEY = 'lenda:imm:comojogar:v1'
+const howtoSeen = () => {
+  try {
+    return localStorage.getItem(HOWTO_KEY) === '1'
+  } catch {
+    return true
   }
 }
 /** Opção padrão do lance pela postura. */
@@ -196,9 +213,13 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
           : (s.condition.suspendedMatches ?? 0) > 0
             ? 'Suspenso: você acompanha da tribuna.'
             : 'Não relacionado pelo técnico: você acompanha o jogo da tribuna. Treine e ganhe a confiança dele para entrar na lista.'
-  const start = (accept?: boolean) => {
+  const [posture, setPosture] = useState<Posture>(readPosture)
+  // banco: a transmissão adianta até você entrar · tribuna: "Ver o resultado" adianta até o apito final
+  const start = (accept?: boolean, mode: 'play' | 'watch' | 'result' = 'play') => {
     imSfx.play('whistle')
-    void dispatch({ type: 'match_start', accept })
+    savePosture(posture)
+    usePlayback.getState().setFF(mode === 'result' || (mode === 'play' && st === 'bench' && accept !== false))
+    void dispatch({ type: 'match_start', accept, posture: st === 'out' ? undefined : posture })
   }
   return (
     <main id="conteudo" tabIndex={-1} className="im-wrap im-pre outline-none">
@@ -247,16 +268,37 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
             <Meter label="Ritmo" value={s.condition.sharpness} icon={Activity} />
           </div>
         </div>
+        {st !== 'out' && (
+          <div className="im-pre__posture">
+            <div className="im-pre__posture-h">
+              <span className="lx-label">Como você vai jogar</span>
+              <ImSeg<Posture>
+                size="sm"
+                label="Postura em campo"
+                value={posture}
+                onChange={setPosture}
+                options={(['ataque', 'equilibrada', 'poupar'] as Posture[]).map((p) => ({ value: p, label: POSTURE_LABEL[p], hint: POSTURE_HINT[p] }))}
+              />
+            </div>
+            <p className="lx-t-small m-0">{POSTURE_HINT[posture]}. Dá para trocar durante o jogo.</p>
+          </div>
+        )}
         <div className="im-pre__cta">
           {st === 'bench' && (
-            <Button variant="ghost" size="lg" onClick={() => start(false)} disabled={busy} title="O técnico não vai gostar">
+            <Button variant="ghost" size="lg" onClick={() => start(false, 'result')} disabled={busy} title="O técnico não vai gostar">
               Recusar o banco
             </Button>
           )}
-          <Button variant="primary" size="xl" icon={Play} loading={busy} onClick={() => start(true)} autoFocus>
-            {st === 'out' ? 'Assistir da tribuna' : st === 'bench' ? 'Ir para o banco' : 'Entrar em campo'}
+          {st === 'out' && (
+            <Button variant="ghost" size="lg" icon={Tv} onClick={() => start(true, 'watch')} disabled={busy}>
+              Assistir da tribuna
+            </Button>
+          )}
+          <Button variant="primary" size="xl" icon={st === 'out' ? SkipForward : Play} loading={busy} onClick={() => start(true, st === 'out' ? 'result' : 'play')} autoFocus>
+            {st === 'out' ? 'Ver o resultado' : st === 'bench' ? 'Ir para o banco' : 'Entrar em campo'}
           </Button>
         </div>
+        {st === 'bench' && <p className="lx-t-small m-0 im-pre__note">No banco, a transmissão adianta sozinha até a hora de você entrar.</p>}
       </div>
     </main>
   )
@@ -602,15 +644,16 @@ function LiveMatchView() {
       /* ignore */
     }
   }
-  const [posture, setPostureState] = useState<Posture>(readPosture)
+  const [posture, setPostureState] = useState<Posture>(() => live.posture ?? readPosture())
   const setPosture = (p: Posture) => {
     setPostureState(p)
-    try {
-      localStorage.setItem('lenda:imm:postura', p)
-    } catch {
-      /* ignore */
-    }
+    savePosture(p)
+    // o motor replaneja os lances que faltam (mais lances pedindo a bola, menos poupando)
+    if (live.phase !== 'full_time' && live.phase !== 'penalties' && !live.pendingMoment) void dispatch({ type: 'match_posture', posture: p })
   }
+  const ff = usePlayback((x) => x.ff)
+  const setFF = usePlayback((x) => x.setFF)
+  const [howto, setHowto] = useState(false)
   const [active, setActive] = useState<KeyMoment | null>(null)
   const [mBusy, setMBusy] = useState(false)
   const [stinger, setStinger] = useState<{ id: number; mine: boolean; own: boolean } | null>(null)
@@ -627,7 +670,7 @@ function LiveMatchView() {
   const lt = useLowerThirds(speed)
   const paused = !!active || !!stinger
 
-  usePlaybackDriver(live, !!active)
+  usePlaybackDriver(live, !!active || howto)
   const events = useShownEvents(live)
   const allShown = events.length === live.events.length
   const target = live.phase === 'pre' ? 0 : live.minute
@@ -691,10 +734,43 @@ function LiveMatchView() {
 
   // auto: segue até o próximo lance (a não ser que a transmissão esteja pausada)
   useEffect(() => {
-    if (!auto || userPaused || !canSim || stinger) return
-    const t = setTimeout(() => void dispatch({ type: 'match_sim' }), speed === 0 ? 80 : speed === 4 ? 350 : 900)
+    if (howto) return
+    if (ff ? false : !auto || userPaused || !!stinger) return
+    if (!canSim) return
+    const t = setTimeout(() => void dispatch({ type: 'match_sim' }), ff || speed === 0 ? 80 : speed === 4 ? 350 : 900)
     return () => clearTimeout(t)
-  }, [auto, userPaused, canSim, stinger, speed, dispatch, live.minute, live.events.length])
+  }, [auto, userPaused, canSim, stinger, speed, dispatch, live.minute, live.events.length, ff, howto])
+
+  // adiantando: você entrou em campo → volta à velocidade escolhida (e avisa); intervalo → segue sozinho
+  useEffect(() => {
+    if (!ff) return
+    if (me.on) {
+      setFF(false)
+      lt.push({ k: `Sua vez · ${clock}'`, v: 'Você entra em campo — boa sorte!', tone: 'accent', icon: ArrowLeftRight })
+      return
+    }
+    if (live.phase === 'half_time' && done && !busy) void dispatch({ type: 'match_sim' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ff, me.on, live.phase, done, busy])
+  // fim de jogo: desliga o adiantamento (o pré-jogo de cada partida liga/desliga de novo)
+  useEffect(() => {
+    if (live.phase === 'full_time' && done) setFF(false)
+  }, [live.phase, done, setFF])
+
+  // "Como jogar": na 1ª partida em que você está em campo, antes de a bola rolar de verdade
+  // (nunca por cima de um lance decisivo: o cronômetro dele correria por trás)
+  useEffect(() => {
+    if (me.on && !active && !live.pendingMoment && !howtoSeen() && live.phase !== 'full_time') setHowto(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.on, active])
+  const closeHowto = () => {
+    setHowto(false)
+    try {
+      localStorage.setItem(HOWTO_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+  }
 
   // postura "poupar energia": pede para sair uma vez quando o gás acaba
   const subAsked = useRef(false)
@@ -802,7 +878,24 @@ function LiveMatchView() {
       )}
       {stinger?.own && !rm && <Confetti n={46} seed={stinger.id} />}
       {!phone && active && <KeyMomentPrompt key={active.id} live={live} moment={active} defaultId={postureDefault(active, posture)} keeperTeam={keeperTeam} onChoose={choose} onTimeout={timeout} onBusy={setMBusy} />}
-      {me.label === 'Tribuna' && !active && !ft && <span className="im-field__tag">Você assiste da tribuna</span>}
+      {me.label === 'Tribuna' && !active && !ft && !ff && <span className="im-field__tag">Você assiste da tribuna</span>}
+      {!active && !ft && !ht && (
+        <button type="button" className="im-field__help" onClick={() => setHowto(true)} onPointerUp={(e) => e.currentTarget.blur()}>
+          <CircleHelp size={15} aria-hidden="true" /> Como jogar
+        </button>
+      )}
+      {ff && !ft && (
+        <div className="im-ff" role="status">
+          <FastForward size={18} aria-hidden="true" />
+          <span>
+            <b>{live.userStatus === 'bench' ? 'Você está no banco' : 'Você não foi relacionado'}</b>
+            <small>{live.userStatus === 'bench' ? 'Adiantando o jogo até a hora de você entrar' : 'Adiantando até o apito final'}</small>
+          </span>
+          <Button variant="outline" size="sm" onClick={() => setFF(false)}>
+            Assistir normalmente
+          </Button>
+        </div>
+      )}
       {ht && <HalfTime live={live} home={home} away={away} events={events} me={me} stats={stats} onNext={next} busy={busy} />}
     </div>
   )
@@ -830,11 +923,7 @@ function LiveMatchView() {
             value={posture}
             onChange={setPosture}
             disabled={locked}
-            options={[
-              { value: 'ataque', label: 'Pedir a bola', hint: POSTURE_HINT.ataque },
-              { value: 'equilibrada', label: 'Equilibrada', hint: POSTURE_HINT.equilibrada },
-              { value: 'poupar', label: 'Poupar', hint: POSTURE_HINT.poupar },
-            ]}
+            options={(['ataque', 'equilibrada', 'poupar'] as Posture[]).map((p) => ({ value: p, label: POSTURE_LABEL[p], hint: POSTURE_HINT[p] }))}
           />
         </div>
       )}
@@ -930,8 +1019,58 @@ function LiveMatchView() {
       {phone && !active && controls}
       {!phone && <LiveTicker live={live} clock={clockF} done={done && live.phase === 'full_time'} />}
       {ft && <FullTime live={live} home={home} away={away} />}
+      {howto && <HowToPlay onClose={closeHowto} />}
       {paused && <span className="sr-only">Transmissão pausada</span>}
     </main>
+  )
+}
+
+// ───────────────────────── como jogar ─────────────────────────
+
+const HOWTO: { icon: typeof Zap; t: string; d: string }[] = [
+  { icon: Play, t: 'A partida corre sozinha', d: 'Você é o seu jogador em campo. O jogo anda no relógio e para quando a bola chega em você.' },
+  { icon: Zap, t: 'Lance decisivo: você escolhe', d: 'Aparecem 2 ou 3 jogadas com a chance de dar certo e o risco. Clique ou use as teclas 1, 2 e 3 antes de o tempo acabar; sem resposta, vale a opção Padrão.' },
+  { icon: BallIcon as unknown as typeof Zap, t: 'Pênalti e chute no tempo certo', d: 'No pênalti, escolha o canto. No chute no tempo certo, aperte Espaço (ou toque) quando o marcador passar pela faixa verde.' },
+  { icon: Activity, t: 'Postura', d: 'Pedir a bola: mais lances seus e mais cansaço. Poupar: menos lances e menos cansaço. Troque quando quiser.' },
+  { icon: SkipForward, t: 'Ritmo da transmissão', d: 'Velocidade 1×, 2×, 4× ou instantânea, pausa, e Próx. lance (Espaço) para pular direto ao próximo acontecimento.' },
+]
+
+function HowToPlay({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref)
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [onClose])
+  return (
+    <div ref={ref} tabIndex={-1} className="im-howto outline-none" role="dialog" aria-modal="true" aria-labelledby="im-howto-t">
+      <div className="lx-plate lx-plate--glass lx-c-lg im-howto__card">
+        <i className="lx-hl-top" aria-hidden="true" />
+        <span className="lx-kicker">Modo Imersivo</span>
+        <h2 id="im-howto-t" className="im-howto__t">
+          Como jogar a partida
+        </h2>
+        <ol className="im-howto__list">
+          {HOWTO.map((h) => (
+            <li key={h.t}>
+              <span className="im-howto__ic">
+                <h.icon size={18} aria-hidden="true" />
+              </span>
+              <span>
+                <b>{h.t}</b>
+                <small>{h.d}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <Button variant="primary" size="lg" icon={Play} onClick={onClose} block autoFocus>
+          Bola rolando
+        </Button>
+      </div>
+    </div>
   )
 }
 

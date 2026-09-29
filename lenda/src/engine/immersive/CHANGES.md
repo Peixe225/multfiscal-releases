@@ -142,3 +142,8 @@ Efeitos usados: `toast`, `attribute_up`, `ovr_change`, `match_event`, `key_momen
   estado inteiro a cada ação — sugestão: debounce e mundo em chave separada, ele só muda no fim da
   temporada); formatos dos estaduais nos dados do mundo; itens já jogados de uma troca entre
   calendários diferentes ficam na semana 0 do calendário novo (mês/ano originais preservados).
+
+## Postura em campo (aditivo)
+- `ImmersiveAction`: `match_start` aceita `posture?`; nova ação `match_posture { posture }` (pré-jogo e bola rolando, fora dos pênaltis e sem lance pendente).
+- `LiveMatch.posture?: MatchPosture` (`'ataque' | 'equilibrada' | 'poupar'`).
+- `setPosture` (match.ts): "pedir a bola" cria até 2 lances decisivos a mais no tempo que resta; "poupar" corta um (sempre sobra ao menos um); saldo por partida limitado a −1…+2. Desgaste por minuto ×1,3 (pedir a bola) / ×0,7 (poupar).

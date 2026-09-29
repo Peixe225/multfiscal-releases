@@ -274,7 +274,12 @@ export interface LiveMatch {
   importance: number
   /** (aditivo) Por que o técnico escalou/deixou no banco/fora (pt-BR), para o pré-jogo. */
   selectionReason?: string
+  /** (aditivo) Postura do jogador em campo: muda quantos lances decisivos ele tem e o desgaste. */
+  posture?: MatchPosture
 }
+
+/** Pedir a bola: +lances decisivos, cansa mais · Equilibrada · Poupar: −lances, cansa menos. */
+export type MatchPosture = 'ataque' | 'equilibrada' | 'poupar'
 
 // ───────────────────────────── mídia, social, caixa de entrada ─────────────────────────────
 
@@ -399,7 +404,8 @@ export interface ImmersiveState {
 export type ImmersiveAction =
   | { type: 'advance' } // vai para o próximo item do calendário (ou para o próximo passo dele)
   | { type: 'train'; focus: TrainingFocus; intensity: 'leve' | 'normal' | 'intensa' }
-  | { type: 'match_start'; accept?: boolean } // entra na partida (aceitar banco/titularidade)
+  | { type: 'match_start'; accept?: boolean; posture?: MatchPosture } // entra na partida (aceitar banco/titularidade)
+  | { type: 'match_posture'; posture: MatchPosture } // muda a postura durante o jogo (replaneja os lances que faltam)
   | { type: 'match_sim' } // simula até o próximo lance-chave, intervalo ou fim
   | { type: 'match_choose'; optionId: string; minigame?: { side?: 'left' | 'center' | 'right'; timing?: number } }
   | { type: 'match_timeout' } // tempo do lance acabou
