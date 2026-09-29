@@ -21,6 +21,27 @@ import { CELEBRATION_HOLD, useReveal } from '@/ui/classic/reveal/store'
 import type { CelebrationItem } from './items'
 
 const ENTRANCE = 900
+/** Troféus mostrados lado a lado; o resto vira uma fileira menor logo abaixo. */
+const MULTI_MAX = 4
+
+/** "Copa da Itália e Supercopa da UEFA com a Roma." */
+function multiSubtitle(items: CelebrationItem[]): string {
+  const names = items.map((i) => i.name)
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}` : names[0]
+  const teams = [...new Set(items.filter((i) => i.kind === 'trophy').map((i) => i.teamName).filter(Boolean))]
+  return teams.length === 1 ? `${list} — com ${teams[0]}.` : `${list}.`
+}
+
+/** Manchete de uma temporada com vários títulos: dobradinha, tríplice coroa, temporada histórica… */
+function celebrationHeadline(items: CelebrationItem[]): string {
+  const fam = new Set(items.map((i) => i.family))
+  const awards = items.filter((i) => i.kind === 'award').length
+  const titles = items.length - awards
+  if (awards && titles) return 'Temporada histórica'
+  if (titles >= 3 && fam.has('league') && fam.has('domestic_cup') && fam.has('continental_primary')) return 'Tríplice coroa'
+  if (titles === 2 && fam.has('league') && fam.has('domestic_cup')) return 'Dobradinha'
+  return titles >= 4 ? 'Temporada perfeita' : titles === 3 ? 'Três taças' : titles === 2 ? 'Duas taças' : `${items.length} prêmios`
+}
 const EASE = [0.16, 1, 0.3, 1] as const
 
 export function TrophyCelebrationHost() {
@@ -45,25 +66,22 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   const colors = clubColors(club ?? null)
   const state = useCareer((s) => s.state)
   const reveal = useCareer((s) => s.reveal)
-  // other items of this reveal, grouped ("2x LaLiga · 2036/37 · 2037/38")
-  const rest = Object.values(
-    items.slice(1).reduce<Record<string, { it: CelebrationItem; n: number; years: string[] }>>((acc, it) => {
-      const k = `${it.art}:${it.name}`
-      acc[k] ??= { it, n: 0, years: [] }
-      acc[k].n++
-      acc[k].years.push(it.year)
-      return acc
-    }, {}),
-  )
+  // todos os títulos do período aparecem juntos, lado a lado (dobradinha, tríplice coroa…) —
+  // nada de um herói e o resto escondido num canto
+  const multi = !rel && items.length > 1
+  const shown = multi ? items.slice(0, MULTI_MAX) : [hero]
+  const extra = multi ? items.slice(MULTI_MAX) : []
+  const multiTitle = multi ? celebrationHeadline(items) : null
+  const years = [...new Set(items.map((i) => i.year))]
   const [paused, setPaused] = useState(false)
   const continueRef = useRef<HTMLButtonElement>(null)
 
   // auto-dismiss after the entrance + hold (paused while the pointer is on the content)
   useEffect(() => {
     if (paused) return
-    const t = setTimeout(onClose, (rm ? 200 : ENTRANCE) + CELEBRATION_HOLD)
+    const t = setTimeout(onClose, (rm ? 200 : ENTRANCE) + CELEBRATION_HOLD + (shown.length - 1) * 900)
     return () => clearTimeout(t)
-  }, [paused, onClose, rm])
+  }, [paused, onClose, rm, shown.length])
 
   // focus → Continuar; Esc closes; the page behind is inert via aria-modal + the blur class
   useEffect(() => {
@@ -186,58 +204,74 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
         <IconButton label={sound ? 'Desativar som' : 'Ativar som'} icon={sound ? Volume2 : VolumeX} onClick={() => toggle('sound')} />
         <IconButton label="Fechar celebração" icon={X} onClick={onClose} />
       </div>
-      {wide && rest.length > 0 && (
-        <motion.div className="ck-cel__also" initial={rm ? false : { opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: d(1000), duration: d(420), ease: EASE }}>
-          {rest.slice(0, 4).map(({ it, n, years }) => (
-            <span key={it.key} className="lx-glass-tag ck-cel__also-item">
-              <TrophyArt id={it.art} size={30} trophy={it.trophy} className="lx-trophy" />
-              <span>
-                <span className="lx-eyebrow">Também em {years.join(' · ')}</span>
-                <b>{n > 1 ? `${n}x ${it.name}` : it.name}</b>
-              </span>
-            </span>
-          ))}
-        </motion.div>
-      )}
-
       <div className="ck-cel__col">
         {pill && (
           <motion.span className="lx-pill-gold ck-cel__pill" initial={rm ? false : { opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(200), duration: d(420), ease: EASE }}>
             <Trophy aria-hidden="true" /> {pill}
           </motion.span>
         )}
-        <div className={cx('ck-cel__hero lx-trophy-glow', rel && 'is-rel')} style={{ height: heroH }}>
-          <motion.span className="ck-cel__art" initial={rm ? false : { y: 60, scale: 0.86, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} transition={{ delay: d(200), duration: d(1100), ease: EASE }}>
-            {rel ? (
-              <span className="ck-cel__rel" aria-hidden="true">
-                <ArrowDown />
-              </span>
-            ) : (
-              <TrophyArt id={hero.art} size={heroH} trophy={hero.trophy} className="lx-trophy lx-trophy--hero" title={hero.name} />
-            )}
-          </motion.span>
-          {!rel && <span className="ck-cel__glint" aria-hidden="true" />}
-        </div>
+        {multi ? (
+          <div className="ck-cel__multi lx-trophy-glow" style={{ ['--n' as string]: shown.length } as CSSProperties}>
+            {shown.map((it, i) => {
+              const h = Math.round(heroH * (shown.length === 2 ? 0.86 : shown.length === 3 ? 0.74 : 0.62) * (i === 0 ? 1 : 0.92))
+              return (
+                <motion.figure
+                  key={it.key}
+                  className={cx('ck-cel__mitem', i === 0 && 'is-first')}
+                  initial={rm ? false : { y: 50, scale: 0.86, opacity: 0 }}
+                  animate={{ y: 0, scale: 1, opacity: 1 }}
+                  transition={{ delay: d(200 + i * 160), duration: d(1000), ease: EASE }}
+                >
+                  <span className="ck-cel__mart" style={{ height: h }}>
+                    <TrophyArt id={it.art} size={h} trophy={it.trophy} className="lx-trophy lx-trophy--hero" title={it.name} />
+                  </span>
+                  <figcaption>
+                    <b>{it.name}</b>
+                    <small>{it.kind === 'award' ? 'Prêmio individual' : it.teamName ?? ''}{years.length > 1 ? ` · ${it.year}` : ''}</small>
+                  </figcaption>
+                </motion.figure>
+              )
+            })}
+          </div>
+        ) : (
+          <div className={cx('ck-cel__hero lx-trophy-glow', rel && 'is-rel')} style={{ height: heroH }}>
+            <motion.span className="ck-cel__art" initial={rm ? false : { y: 60, scale: 0.86, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} transition={{ delay: d(200), duration: d(1100), ease: EASE }}>
+              {rel ? (
+                <span className="ck-cel__rel" aria-hidden="true">
+                  <ArrowDown />
+                </span>
+              ) : (
+                <TrophyArt id={hero.art} size={heroH} trophy={hero.trophy} className="lx-trophy lx-trophy--hero" title={hero.name} />
+              )}
+            </motion.span>
+            {!rel && <span className="ck-cel__glint" aria-hidden="true" />}
+          </div>
+        )}
         <span className={cx('lx-floor ck-cel__floor', rel && 'is-rel')} aria-hidden="true" />
         <motion.p className="ck-cel__kicker" initial={rm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(620), duration: d(420), ease: EASE }}>
           <span aria-hidden="true" />
-          {hero.kicker}
+          {multi ? `${items.length} TÍTULOS · ${years.join(' · ')}` : hero.kicker}
           <span aria-hidden="true" />
         </motion.p>
         <motion.h2 className={cx('ck-cel__title', rel ? 'is-rel' : 'lx-chrome-text')} initial={rm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(700), duration: d(420), ease: EASE }}>
-          {hero.name}
+          {multi ? multiTitle : hero.name}
         </motion.h2>
-        {hero.subtitle && (
+        {multi && (
+          <motion.p className="ck-cel__sub" initial={rm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(780), duration: d(420), ease: EASE }}>
+            {multiSubtitle(items)}
+          </motion.p>
+        )}
+        {!multi && hero.subtitle && (
           <motion.p className="ck-cel__sub" initial={rm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(780), duration: d(420), ease: EASE }}>
             {hero.subtitle}
           </motion.p>
         )}
-        {(!wide && rest.length > 0) && (
+        {extra.length > 0 && (
           <motion.div className="ck-cel__row" initial={rm ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: d(860), duration: d(300) }}>
-            {rest.slice(0, 5).map(({ it, n, years }) => (
-              <span key={it.key} className="ck-cel__rowitem" title={`${it.name} ${years.join(', ')}`}>
+            {extra.map((it) => (
+              <span key={it.key} className="ck-cel__rowitem" title={`${it.name} ${it.year}`}>
                 <TrophyArt id={it.art} size={40} trophy={it.trophy} className="lx-trophy" />
-                <span>{n > 1 ? `${n}x ${it.name}` : it.name}</span>
+                <span>{it.name}</span>
               </span>
             ))}
           </motion.div>

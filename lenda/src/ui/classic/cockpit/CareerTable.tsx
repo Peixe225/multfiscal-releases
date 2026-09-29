@@ -149,7 +149,7 @@ const FilledRow = memo(function FilledRow({ row, rec, gk, data, maskLabel }: { r
       </span>
       <span role="cell" className="ck-row__club">
         {rec.loan && <CornerDownRight className="ck-row__loan" aria-label="Por empréstimo" />}
-        <Crest club={club ?? { id: rec.clubId }} size={18} decorative />
+        <Crest club={club ?? { id: rec.clubId }} size={22} decorative />
         <span className="ck-row__nm">{club?.shortName ?? club?.name ?? '—'}</span>
         {(items.length > 0 || tags.length > 0) && (
           <span className="ck-row__honors">

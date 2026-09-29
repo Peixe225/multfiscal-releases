@@ -187,3 +187,40 @@
   .ck-end__stats dd { font-size: 24px; }
 }
 :root[data-motion="reduced"] :is(.ck-fx, .lx-event-art img, .ck-pen__target) { transition-duration: 0ms !important; }
+
+.ck-opt__mini { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 11px; font-weight: 600; color: var(--text-3); }
+.ck-opt__mini b { color: var(--text-2); font-weight: 700; }
+/* cabeçalho: os pontinhos das decisões encolhem antes de cortar "Decisão 24 de 24" */
+.ck-decision__top { min-width: 0; }
+.ck-step { min-width: 0; flex: 0 1 auto; }
+.ck-dots { min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.ck-dots i { flex: 0 1 12px; min-width: 3px; }
+.ck-step > :last-child { flex: none; }
+
+/* 3–4 opções no desktop: cada cartão se adapta à altura que tem — baixo = linha compacta (escudo ao
+   lado do nome); alto = escudo grande no centro, nome, liga, salário e efeitos (sem miolo vazio). */
+@media (min-width: 1104px) {
+  .ck-grid-opts:is(.is-n3, .is-n4) .ck-grid-opts__cell { container: ckopt / size; }
+  @container ckopt (min-height: 172px) {
+    .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) { justify-content: center; gap: 8px; }
+    .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) .ck-opt__hrow { flex-direction: column; align-items: center; text-align: center; gap: 10px; margin: 0; }
+    .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) .ck-opt__htext { justify-items: center; }
+    .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) .ck-opt__head { align-items: center; text-align: center; padding: 0 24px; }
+    .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) .ck-opt__meta, .ck-opt.is-compact .ck-opt__mini { justify-content: center; }
+    .ck-opt--club.is-compact .ck-opt__thumb.lx-option__crest { width: 64px; height: 64px; }
+    .ck-opt--club.is-compact .ck-opt__thumb.lx-option__crest::before { width: 150%; height: 150%; }
+    .ck-opt--club.is-compact .ck-opt__thumb .lx-crest-box { transform: scale(1.35); }
+    .ck-opt--event.is-compact .ck-opt__thumb.ck-opt__media { width: 100%; height: clamp(58px, 36cqh, 150px); }
+    .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) .ck-opt__fx { margin-top: 2px; width: 100%; }
+  }
+}
+@media (min-width: 1104px) {
+  @container ckopt (min-height: 232px) {
+    .ck-opt--club.is-compact .ck-opt__thumb.lx-option__crest { width: 84px; height: 84px; }
+    .ck-opt--club.is-compact .ck-opt__thumb .lx-crest-box { transform: scale(1.7); }
+  }
+  @container ckopt (min-height: 292px) {
+    .ck-opt--club.is-compact .ck-opt__thumb.lx-option__crest { width: 96px; height: 96px; }
+    .ck-opt--club.is-compact .ck-opt__thumb .lx-crest-box { transform: scale(2); }
+  }
+}

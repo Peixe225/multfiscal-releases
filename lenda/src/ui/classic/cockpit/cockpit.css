@@ -113,7 +113,7 @@
 .ck-row__age { display: grid; place-items: center; position: relative; z-index: 2; }
 .ck-row__age .lx-age { transition: background-color var(--dur-3), color var(--dur-3); }
 .ck-row__yr { font-size: 11px; color: var(--text-3); font-weight: 600; white-space: nowrap; }
-.ck-row__club { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ck-row__club { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .ck-row__loan { width: 14px; height: 14px; color: var(--nx-text-4, #454a58); flex: none; margin-left: 2px; margin-right: -2px; }
 .ck-row__nm { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: min(4.5em, 40%); flex: 0 1 auto; }
 .ck-row__honors { display: flex; align-items: center; gap: 4px; flex: none; margin-left: 2px; }

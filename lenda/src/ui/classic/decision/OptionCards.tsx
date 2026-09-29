@@ -158,6 +158,15 @@ export const ClubOptionCard = memo(function ClubOptionCard(p: OptionCardProps) {
           <span className="ck-opt__htext">
             <OptTitle verb={verb} name={name} />
             <ClubMeta league={league} country={country} />
+            {details.length > 0 && (
+              <span className="ck-opt__mini">
+                {details.map((d) => (
+                  <span key={d.label}>
+                    {d.label} <b>{d.value}</b>
+                  </span>
+                ))}
+              </span>
+            )}
           </span>
         </span>
       ) : (
