@@ -134,7 +134,7 @@ export const CLUB_META: Record<string, ClubMeta> = {
   '9812': { prestige: 2.5 },
   '95': { prestige: 2 },
   '3788': { name: 'Sporting Gijón', shortName: 'Sporting Gijón', prestige: 2 },
-  '92': { prestige: 2 },
+  '92': { prestige: 2, colors: ['#0B4EA2', '#FFFFFF'] }, // Real Oviedo: azul e branco (a ESPN traz vermelho/amarelo)
   '98': { prestige: 1.5 },
   '3747': { prestige: 1.5 },
   '3842': { prestige: 1.5 },
@@ -403,6 +403,18 @@ export const CLUB_META: Record<string, ClubMeta> = {
   '20983': { name: 'Real Sociedad B', shortName: 'R. Sociedad B' },
   '10144': { shortName: 'U. La Calera' },
   '3616': { name: 'Charleroi', shortName: 'Charleroi' },
+  // acentos que a ESPN não traz
+  '3070': { shortName: 'Greuther Fürth' },
+  '552': { name: 'Marítimo', shortName: 'Marítimo' },
+  '12698': { name: 'Famalicão', shortName: 'Famalicão' },
+  '6870': { name: 'Kasımpaşa', shortName: 'Kasımpaşa' },
+  '7914': { name: 'İstanbul Başakşehir' },
+  '789': { name: 'Göztepe', shortName: 'Göztepe' },
+  '9747': { name: 'Atlético Rafaela' },
+  '8110': { name: 'Deportes Concepción', shortName: 'Concepción' },
+  '222': { shortName: 'Querétaro' },
+  '17851': { name: 'FC Juárez', shortName: 'Juárez' },
+  '7369': { name: 'Atlético Balboa', shortName: 'Atl. Balboa' },
 }
 
 /**

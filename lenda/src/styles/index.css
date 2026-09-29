@@ -26,3 +26,5 @@
 [data-lx-theme] body { background: var(--bg); color: var(--text); }
 [data-lx-theme="noite"] body { font: inherit; }
 [data-lx-theme="transmissao"] body { font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+/* o esqueleto também traz img{max-width:100%} sem camada: devolve a decisão às camadas do jogo */
+[data-lx-theme] img { max-width: revert-layer; }

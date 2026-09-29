@@ -53,10 +53,15 @@ const cleanHead = head
 // (@layer components): abas, chips e cartões sem espaçamento nem fundo. A ordem vai no <head> já.
 const LAYERS = (css.match(/@layer\s+([a-z-]+)\s*[{;,]/g) ?? []).map((m) => m.replace(/@layer\s+|\s*[{;,]$/g, ''))
 const order = [...new Set(LAYERS)].join(',')
+// Pelo mesmo motivo, o CSS de cada tela (carregado sob demanda pelo Vite no <head>) é levado para o fim
+// do <body>, DEPOIS do CSS principal — na mesma camada, a ordem no documento decide, e no build normal a
+// folha da tela vem depois do tema. O Vite espera o evento load da folha; mover o elemento não o perde.
 const boot =
   '<script>try{var d=document,h=d.head||d.documentElement,s=d.createElement("style");s.textContent="@layer ' +
   order +
-  ';";h.insertBefore(s,h.firstChild);d.documentElement.setAttribute("data-lx-theme","noite");d.documentElement.lang="pt-BR"}catch(e){}</script>'
+  ';";h.insertBefore(s,h.firstChild);' +
+  'new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){if(n.tagName==="LINK"&&n.rel==="stylesheet"&&d.body)d.body.appendChild(n)})})}).observe(h,{childList:true});' +
+  'd.documentElement.setAttribute("data-lx-theme","noite");d.documentElement.lang="pt-BR"}catch(e){}</script>'
 writeFileSync(join(out, '_page.html'), `${title}\n${boot}\n${cleanHead}\n${body.trim()}\n`)
 
 // lotes

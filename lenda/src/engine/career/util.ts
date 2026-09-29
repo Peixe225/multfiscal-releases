@@ -254,7 +254,7 @@ export function tournamentInSeason(comp: Competition, season: number): boolean {
 
 const FEMININE_WORDS = [
   'juventus', 'roma', 'lazio', 'fiorentina', 'atalanta', 'udinese', 'sampdoria', 'salernitana', 'cremonese',
-  'real sociedad', 'chapecoense', 'ponte preta', 'portuguesa', 'juventude', 'ferroviária', 'tombense',
+  'real sociedad', 'chapecoense', 'ponte preta', 'portuguesa', 'ferroviária', 'tombense',
   'inter de milão', 'internazionale', 'inter milan', 'reggiana', 'spezia', 'ternana', 'sambenedettese',
   'lusitana', 'académica', 'naval', 'real sociedade', 'gimnástica', 'cultural leonesa', 'ponferradina',
 ]
