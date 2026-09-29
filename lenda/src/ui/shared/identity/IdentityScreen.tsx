@@ -16,6 +16,7 @@ import { Button, Flag, FootIcon, Glass, IconButton, Modal, OvrBadge, POSITION_LA
 import { useShellSlots } from '@/ui/shell/slots'
 import { sfx } from '@/ui/shell/sfx'
 import { bestInk, clubVars, nationColors } from '@/ui/theme/club'
+import { ImOvr } from '@/ui/immersive/bits'
 import '@/ui/shared/achievements/unlockToasts'
 import { Jersey } from './Jersey'
 import { BLANK_KIT, nationKit } from './kit'
@@ -178,7 +179,8 @@ export default function IdentityScreen() {
       <ColHead k="01" title="Identidade" done={surname.trim().length > 0 && numberOk} todo="Nome e número" />
       <div className="id-jersey">
         <div className="id-jersey__ovr">
-          <OvrBadge ovr={START_OVR} size="md" sheen={false} />
+          {/* no Imersivo (tema Transmissão) o selo de OVR é o do próprio modo — o da Noite não encaixa lá */}
+          {immersive ? <ImOvr ovr={START_OVR} w={58} /> : <OvrBadge ovr={START_OVR} size="md" sheen={false} />}
           <span className="id-jersey__cap">Inicial</span>
         </div>
         <motion.div
@@ -289,6 +291,16 @@ export default function IdentityScreen() {
           <p className="id-hint">
             <b>{PACE_INFO[pace].lead}</b> · {PACE_INFO[pace].tail}
           </p>
+        </div>
+      )}
+      {immersive && (
+        <div className="mt-4 id-how">
+          <span className="id-label">Como é o Modo Imersivo</span>
+          <ul>
+            <li>Você escolhe o clube da base e vive a temporada semana a semana.</li>
+            <li>Treina, dá entrevista, negocia contrato e posta nas redes.</li>
+            <li>Nos jogos em que entra, decide os lances: chute, passe, drible, pênalti.</li>
+          </ul>
         </div>
       )}
     </section>

@@ -121,3 +121,8 @@
 @layer components {
 .id-search input[type="search"]::-webkit-search-cancel-button, .id-search input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 }
+
+/* Modo Imersivo: o que esperar (no lugar do ritmo, que não existe nesse modo) */
+.id-how ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.id-how li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.id-how li::before { content: ''; position: absolute; left: 2px; top: .6em; width: 6px; height: 6px; background: var(--accent); transform: rotate(45deg); }
