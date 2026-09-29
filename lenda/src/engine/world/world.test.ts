@@ -309,4 +309,35 @@ describe('jogador do usuário', () => {
     const tier1 = data.leagues.filter((l) => l.tier === 1).map((l) => l.id)
     for (const id of tier1) expect(awards.some((a) => a.award === 'league_best_player' && a.leagueId === id)).toBe(true)
   })
+
+  it('prêmios exigem temporada cheia: o reserva do campeão não sobe ao pódio pelo OVR e pelas taças', () => {
+    const w0 = worldEngine.createWorld(data, 'bdo-part')
+    const r = worldEngine.simulateSeason(data, w0, { ...NO_USER, clubId: bestClub, clubStrengthBoost: 5 })
+    const club = worldEngine.clubSeason(r.result, data, bestClub)
+    const titles = [...club.titles.map((t) => t.competitionId), 'conmebol.libertadores']
+    const user = (apps: number, goals: number, assists: number) =>
+      worldEngine.computeAwards(data, r.world, r.result.season, {
+        name: 'Usuário',
+        nationality: 'BRA',
+        position: 'MEI',
+        clubId: bestClub,
+        leagueId: 'bra.1',
+        ovr: 90,
+        age: 26,
+        role: apps >= 35 ? 'starter' : 'low_rotation',
+        apps,
+        goals,
+        assists,
+        titles,
+      }).awards
+    const place = (awards: ReturnType<typeof user>, id: string) => awards.find((a) => a.award === id && (a.leagueId ?? 'bra.1') === 'bra.1')!.ranking.findIndex((e) => e.isUser)
+    const full = user(52, 18, 16)
+    const bench = user(18, 3, 2)
+    for (const id of ['ballon_dor', 'the_best', 'league_best_player']) {
+      expect(place(full, id)).toBeGreaterThanOrEqual(0)
+      expect(place(full, id)).toBeLessThan(3)
+      const p = place(bench, id)
+      expect(p === -1 || p >= 3).toBe(true)
+    }
+  })
 })

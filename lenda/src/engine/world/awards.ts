@@ -2,8 +2,11 @@
  * Prêmios individuais. O jogador do usuário concorre com a MESMA função de pontuação dos rivais.
  *
  * Bola de Ouro / The Best (ano = temporada + 1):
- *   nota = OVRt·(0,6 + 0,4·fL)·(0,6 + 0,4·part) + estatística·fL + títulos + ruído N(0; 5)
- *   OVRt = 3,2·(OVR − 70) · fL = 0,45 + 0,55·coeficiente da liga · part = min(1, jogos/35)
+ *   nota = OVRt·(0,6 + 0,4·fL)·(0,3 + 0,7·part) + estatística·fL + títulos·(0,25 + 0,75·part) + ruído N(0; 5)
+ *   OVRt = 3,2·(OVR − 70) · fL = 0,45 + 0,55·coeficiente da liga · part = min(1, jogos/40)
+ *   A participação pesa de verdade (antes: 0,6 + 0,4·min(1, jogos/35) e títulos cheios): quem jogou
+ *   20 partidas no time campeão não sobe ao pódio pelo OVR e pelas taças dos outros; a estrela com
+ *   40+ jogos não muda nada.
  *   estatística: ataque G + 0,55·A · meio 1,25·G + 0,85·A + 4 · defesa 1,6·G + A + 6 · goleiro 0,6·SG + 6
  *   títulos: Champions 32 (Libertadores 22, outras 10), Copa do Mundo 36, Euro/Copa América 20,
  *   liga 14·coef, copa 4, Liga Europa 10, Mundial de Clubes 14 … + bônus por final/semifinal.
@@ -142,12 +145,17 @@ function statsScore(c: Candidate): number {
   }
 }
 
+/** Participação na temporada (0–1): 40+ jogos = temporada cheia de um titular de clube grande. */
+export function participation(apps: number, full = 40): number {
+  return clamp(apps / full, 0, 1)
+}
+
 /** Nota da Bola de Ouro/The Best (mesma função para todos). */
 export function ballonScore(env: AwardEnv, c: Candidate, noise: number): number {
   const lf = 0.45 + 0.55 * coefOf(env, c.leagueId)
-  const part = clamp(c.apps / 35, 0.15, 1)
+  const part = participation(c.apps)
   const ovrT = Math.max(0, c.ovr - 70) * 3.2
-  return ovrT * (0.6 + 0.4 * lf) * (0.6 + 0.4 * part) + statsScore(c) * lf + titlesScore(env, c) + noise
+  return ovrT * (0.6 + 0.4 * lf) * (0.3 + 0.7 * part) + statsScore(c) * lf + titlesScore(env, c) * (0.25 + 0.75 * part) + noise
 }
 
 function noiseFor(env: AwardEnv, award: string, key: string, sd: number): number {
@@ -493,12 +501,17 @@ export function computeAwards(
       'league_best_player',
       ly,
       [...inLeague, ...syn],
-      (c) =>
-        Math.max(0, c.ovr - 70) * 3.2 * (0.6 + 0.4 * clamp(c.apps / 30, 0.15, 1)) +
-        statsScore(c) +
-        (c.titles.includes(l.id) ? 12 : 0) +
-        (l.domesticCupId && c.titles.includes(l.domesticCupId) ? 3 : 0) +
-        noiseFor(env, `lbp:${l.id}`, c.key, 4),
+      (c) => {
+        // craque da liga: quem foi titular a temporada toda (a mesma régua da Bola de Ouro)
+        const part = participation(c.apps, 35)
+        const titles = (c.titles.includes(l.id) ? 12 : 0) + (l.domesticCupId && c.titles.includes(l.domesticCupId) ? 3 : 0)
+        return (
+          Math.max(0, c.ovr - 70) * 3.2 * (0.3 + 0.7 * part) +
+          statsScore(c) +
+          titles * (0.25 + 0.75 * part) +
+          noiseFor(env, `lbp:${l.id}`, c.key, 4)
+        )
+      },
       3,
       l.id,
     )
