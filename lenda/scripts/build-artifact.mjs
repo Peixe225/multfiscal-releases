@@ -4,7 +4,8 @@
  *
  * O claude.ai aceita no máximo ~511 arquivos por versão e embrulha a página num esqueleto
  * próprio (sem <html>/<head>/<body> no arquivo publicado). Este script:
- *   1. roda `vite build` com VITE_FLAG_PACK=1 em dist-artifact/;
+ *   1. roda `vite build` com VITE_FLAG_PACK=1 e LENDA_ARTIFACT=1 em dist-artifact/ (fontes embutidas no
+ *      CSS: a CSP do Artifact bloqueia .woff2 próprios);
  *   2. junta as 211 bandeiras em um único flags/pack.json e apaga flags/4x3/;
  *   3. escreve dist-artifact/_page.html (só o conteúdo da página) e _batches.json
  *      (lotes de até 250 arquivos para publicar).
@@ -22,7 +23,7 @@ const out = join(root, 'dist-artifact')
 execSync('npx vite build --outDir dist-artifact --emptyOutDir', {
   cwd: root,
   stdio: 'inherit',
-  env: { ...process.env, VITE_FLAG_PACK: '1' },
+  env: { ...process.env, VITE_FLAG_PACK: '1', LENDA_ARTIFACT: '1' },
 })
 
 // 2. pacote de bandeiras
@@ -63,3 +64,7 @@ for (let i = 0; i < publish.length; i += 250) batches.push(publish.slice(i, i + 
 writeFileSync(join(out, '_batches.json'), JSON.stringify(batches))
 console.log(`artifact: ${publish.length} arquivos em ${batches.length} lote(s) · página ${join(out, '_page.html')}`)
 if (!existsSync(join(out, 'flags', 'pack.json'))) process.exit(1)
+if (publish.some((p) => p.endsWith('.woff2'))) {
+  console.error('fontes .woff2 soltas no build: a CSP do Artifact vai bloqueá-las')
+  process.exit(1)
+}

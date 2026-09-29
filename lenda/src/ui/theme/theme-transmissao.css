@@ -123,6 +123,32 @@
 @layer base {
   [data-lx-theme="transmissao"] {
     --lx-bg-3: #0A1036;
+    /* tokens da Noite usados pelos componentes compartilhados (identidade, chips de posição, OVR,
+       tags, conquistas…) — com as cores da Transmissão, para eles nunca ficarem sem estilo aqui */
+    --nx-bg-3: #0A1036;
+    --nx-border-3: rgb(134 156 255 / .34);
+    --nx-text-4: #4A548A;
+    --nx-positive-line: rgb(51 240 168 / .24);
+    --nx-negative-line: rgb(255 90 120 / .24);
+    --nx-warning-bg: rgb(255 159 67 / .10);
+    --nx-warning-line: rgb(255 159 67 / .26);
+    --nx-positive-soft: #B4F7DA;
+    --nx-negative-soft: #FFC3CD;
+    --nx-warning-soft: #FFD9B0;
+    --nx-gold-soft: #FFE39A;
+    --nx-gold: #F7C948;
+    --nx-pos-atk: #FF6B81;  --nx-pos-mid: #4CE0A0;  --nx-pos-def: #6CB2FF;  --nx-pos-gk: #FFC857;
+    --nx-zone-libertadores: #33F0A8;  --nx-zone-pre: #7FD9FF;  --nx-zone-sula: #7FA8FF;  --nx-zone-z4: #FF5A78;
+    --nx-lenda-mint: #D9FFC9;  --nx-lenda-rose: #FFC9E8;  --nx-lenda-lilac: #CFD4FF;
+    --nx-tier-bronze-line: #E39A5A; --nx-tier-silver-line: #D7DEEC; --nx-tier-gold-line: #FFD65C; --nx-tier-lenda-line: #8AF0FF;
+    --nx-font-serif: 'Cormorant Garamond Variable', 'Cormorant Garamond', Georgia, serif;
+    --nx-ease-io: cubic-bezier(.65, 0, .35, 1);
+    --nx-dur-4: 800ms;
+    --tier-bronze-ink: #2B1306;
+    --tier-silver-ink: #1B212C;
+    --tier-gold-ink: #2C1D00;
+    --tier-lenda-ink: #0B1040;
+    --nx-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
     --lx-line-3: rgb(160 180 255 / .40);            /* divisores inclinados */
     --lx-text-4: #505A94;                           /* SÓ decorativo (2.7:1) — zeros apagados, linhas futuras */
     --lx-accent-2: #00A8FF;                         /* base de gradientes de barra */
