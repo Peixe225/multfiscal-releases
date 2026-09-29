@@ -16,3 +16,13 @@
 /* class scanning: the app only (the design snippets in docs/ are reference HTML) */
 @source not "../../docs";
 @source not "../../scripts";
+
+/* ── esqueleto do claude.ai ────────────────────────────────────────────────
+   Publicado como Artifact, a página ganha um <head> com um reset SEM @layer
+   (body{font:14px -apple-system…}, :root{color-scheme:light}). CSS fora de camada
+   vence qualquer @layer, então o que o tema diz para <html>/<body> é repetido aqui,
+   fora de camada (e com mais especificidade que o reset). */
+:root[data-lx-theme] { color-scheme: dark; }
+[data-lx-theme] body { background: var(--bg); color: var(--text); }
+[data-lx-theme="noite"] body { font: inherit; }
+[data-lx-theme="transmissao"] body { font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }

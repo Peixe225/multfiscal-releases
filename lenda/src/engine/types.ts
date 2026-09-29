@@ -397,6 +397,8 @@ export interface SeasonWorldResult {
   userNationalFixtures?: UserFixture[]
   /** Todos os jogos da fase regular da liga do jogador (tabela ao vivo rodada a rodada). */
   userLeague?: UserLeagueLog
+  /** (aditivo, motor do mundo) Clube que o jogador reforçou nesta temporada e quanto (força somada). */
+  userBoost?: { clubId: string; boost: number }
 }
 
 /** (aditivo, Modo Imersivo) Uma partida do clube/seleção do jogador, como o mundo a simulou. */

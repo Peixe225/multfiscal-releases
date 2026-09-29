@@ -36,6 +36,8 @@ writeFileSync(join(out, 'flags', 'pack.json'), JSON.stringify(pack))
 
 // 3. página sem esqueleto
 const html = readFileSync(join(out, 'index.html'), 'utf8')
+const mainCss = (html.match(/href="\.\/(assets\/index-[^"]+\.css)"/) ?? [])[1]
+const css = mainCss ? readFileSync(join(out, mainCss), 'utf8') : ''
 const head = (html.match(/<head>([\s\S]*)<\/head>/) ?? [])[1] ?? ''
 const body = (html.match(/<body>([\s\S]*)<\/body>/) ?? [])[1] ?? ''
 const title = (head.match(/<title>[\s\S]*?<\/title>/) ?? [''])[0]
@@ -44,8 +46,16 @@ const cleanHead = head
   .replace(/\s*<meta charset="[^"]*"\s*\/?>/i, '')
   .replace(/\s*<meta name="viewport"[^>]*>/i, '')
   .trim()
+// O claude.ai põe esta página no <body>; o CSS das telas carregadas depois entra no <head>, ANTES do
+// CSS principal — e a primeira folha a citar uma camada define a ordem das camadas. Sem isto o
+// preflight do Tailwind (@layer base: padding 0, borda 0) passava a vencer os componentes
+// (@layer components): abas, chips e cartões sem espaçamento nem fundo. A ordem vai no <head> já.
+const LAYERS = (css.match(/@layer\s+([a-z-]+)\s*[{;,]/g) ?? []).map((m) => m.replace(/@layer\s+|\s*[{;,]$/g, ''))
+const order = [...new Set(LAYERS)].join(',')
 const boot =
-  '<script>try{document.documentElement.setAttribute("data-lx-theme","noite");document.documentElement.lang="pt-BR"}catch(e){}</script>'
+  '<script>try{var d=document,h=d.head||d.documentElement,s=d.createElement("style");s.textContent="@layer ' +
+  order +
+  ';";h.insertBefore(s,h.firstChild);d.documentElement.setAttribute("data-lx-theme","noite");d.documentElement.lang="pt-BR"}catch(e){}</script>'
 writeFileSync(join(out, '_page.html'), `${title}\n${boot}\n${cleanHead}\n${body.trim()}\n`)
 
 // lotes
@@ -64,6 +74,10 @@ for (let i = 0; i < publish.length; i += 250) batches.push(publish.slice(i, i + 
 writeFileSync(join(out, '_batches.json'), JSON.stringify(batches))
 console.log(`artifact: ${publish.length} arquivos em ${batches.length} lote(s) · página ${join(out, '_page.html')}`)
 if (!existsSync(join(out, 'flags', 'pack.json'))) process.exit(1)
+if (!/^properties,theme,base,components,utilities$|^theme,base,components,utilities$/.test(order)) {
+  console.error('ordem de camadas inesperada no CSS principal:', order)
+  process.exit(1)
+}
 if (publish.some((p) => p.endsWith('.woff2'))) {
   console.error('fontes .woff2 soltas no build: a CSP do Artifact vai bloqueá-las')
   process.exit(1)

@@ -107,9 +107,10 @@ const logoFail = new Set<string>()
 export const CompLogo = memo(function CompLogo({ id, size = 30, tile = true, className }: { id: string; size?: number; tile?: boolean; className?: string }) {
   const comp = getCompetition(id)
   const lg = getLeague(id)
-  const logo = comp?.logo ?? lg?.logo ?? `leagues/${id}.webp`
-  const url = `${import.meta.env.BASE_URL ?? '/'}${logo.replace(/^\//, '')}`
-  const [failed, setFailed] = useState(() => logoFail.has(url))
+  // os dados já listam todo logo que existe: sem logo, direto para o troféu (nada de adivinhar um arquivo e tomar 404)
+  const logo = comp?.logo ?? lg?.logo
+  const url = logo ? `${import.meta.env.BASE_URL ?? '/'}${logo.replace(/^\//, '')}` : ''
+  const [failed, setFailed] = useState(() => !logo || logoFail.has(url))
   const [light, onLoad] = useLogoTone(url, tile)
   const trophyId = comp?.trophyId ?? lg?.trophyId
   const pad = tile ? Math.max(2, Math.round(size * 0.14)) : 0

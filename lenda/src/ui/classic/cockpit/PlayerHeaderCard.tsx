@@ -27,7 +27,8 @@ export const PlayerHeaderCard = memo(function PlayerHeaderCard({ data }: { data:
   const before = previous ?? state
   const clubId = gates.identity ? state.clubId : before.clubId
   const club = useClub(clubId)
-  const league = useLeague(club ? (lastLeagueOf(state.seasons, club.id) ?? club.leagueId) : null)
+  // a liga em que o clube está AGORA (depois de rebaixamento/acesso), não a da temporada que acabou
+  const league = useLeague(club ? (state.world?.clubs?.[club.id]?.leagueId ?? lastLeagueOf(state.seasons, club.id) ?? club.leagueId) : null)
   const country = useCountry(state.identity.nationality)
 
   // ── OVR ──

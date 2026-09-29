@@ -416,6 +416,8 @@ export function simulateSeason(
     if (s) nationStats[c.code] = [s[0], s[1]]
   }
   const result: SeasonWorldResult = { season: S, leagues, cups, national, awards: [], clubStats, nationStats }
+  // quem o jogador carregou nesta temporada: os títulos dele não contam no desgaste de dinastia do clube
+  if (userClub && !user.suspended && (user.clubStrengthBoost || 0) > 0) result.userBoost = { clubId: userClub, boost: user.clubStrengthBoost }
   if (ctx.collect) {
     result.userFixtures = ctx.collect.club
     result.userNationalFixtures = ctx.collect.nation

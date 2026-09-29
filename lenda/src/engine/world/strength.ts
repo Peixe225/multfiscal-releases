@@ -205,6 +205,9 @@ export function evolveClubs(
     if (!r) continue
     for (const l of Object.values(r.leagues)) {
       if (ix.league.get(l.leagueId)?.tier !== 1 || l.champions?.length) continue
+      // título com o jogador em campo reforçando o clube é mérito dele, não desgasta a estrutura do clube
+      // (antes: o jogador levava o Barça a 4 títulos em 5 anos e o clube afundava nas temporadas seguintes)
+      if (r.userBoost && r.userBoost.clubId === l.champion) continue
       recent.set(l.champion, (recent.get(l.champion) ?? 0) + 1)
     }
   }
