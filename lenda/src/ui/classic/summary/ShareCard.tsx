@@ -319,9 +319,12 @@ export function ShareActions({
         <Button variant="ghost" size={size} icon={Expand} loading={busy === 'view'} onClick={viewNow}>
           Ver imagem
         </Button>
-        <Button variant="ghost" size={size} icon={Download} loading={busy === 'save'} onClick={save}>
-          Baixar
-        </Button>
+        {/* dentro do claude.ai (iframe) o download é bloqueado: "Ver imagem" (salvar com o botão direito) cobre isso */}
+        {!embedded && (
+          <Button variant="ghost" size={size} icon={Download} loading={busy === 'save'} onClick={save}>
+            Baixar
+          </Button>
+        )}
         <Button variant="ghost" size={size} icon={Copy} loading={busy === 'copy'} onClick={copy} className="sm-share__copy">
           Copiar imagem
         </Button>

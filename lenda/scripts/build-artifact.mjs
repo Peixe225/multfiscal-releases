@@ -10,7 +10,7 @@
  *   3. escreve dist-artifact/_page.html (só o conteúdo da página) e _batches.json
  *      (lotes de até 250 arquivos para publicar).
  *
- * Uso: node scripts/build-artifact.mjs
+ * Uso: node scripts/build-artifact.mjs   (ARTIFACT_OUT=dist-qa para outra pasta)
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -18,12 +18,13 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const out = join(root, 'dist-artifact')
+const outName = process.env.ARTIFACT_OUT || 'dist-artifact'
+const out = join(root, outName)
 
-execSync('npx vite build --outDir dist-artifact --emptyOutDir', {
+execSync(`npx vite build --outDir ${outName} --emptyOutDir`, {
   cwd: root,
   stdio: 'inherit',
-  env: { ...process.env, VITE_FLAG_PACK: '1', LENDA_ARTIFACT: '1' },
+  env: { ...process.env, VITE_FLAG_PACK: '1', VITE_ARTIFACT: '1', LENDA_ARTIFACT: '1' },
 })
 
 // 2. pacote de bandeiras

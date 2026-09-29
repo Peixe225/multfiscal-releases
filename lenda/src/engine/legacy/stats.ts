@@ -180,7 +180,9 @@ export function runStats(input: RunInput): RunStats {
   }
 
   const clubTotals = [...clubs.values()]
-  const main = clubTotals.slice().sort((a, b) => b.seasons - a.seasons || b.apps - a.apps)[0]
+  // clube da carreira: o mesmo critério do resumo e do título ("Ídolo do…") — temporadas, títulos, jogos
+  const clubTrophies = new Map((sum?.clubs ?? []).map((c) => [c.clubId, c.trophies]))
+  const main = clubTotals.slice().sort((a, b) => b.seasons - a.seasons || (clubTrophies.get(b.clubId) ?? 0) - (clubTrophies.get(a.clubId) ?? 0) || b.apps - a.apps)[0]
   const bestClub = clubTotals.slice().sort((a, b) => b.goals - a.goals)[0]
   let position = input.identity.position
   let best = -1

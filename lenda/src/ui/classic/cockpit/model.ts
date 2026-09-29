@@ -275,10 +275,11 @@ export interface Totals {
 
 export function careerTotals(seasons: SeasonRecord[]): Totals {
   const t: Totals = { apps: 0, goals: 0, assists: 0, cleanSheets: 0, conceded: 0, titles: 0 }
+  // clube + seleção: os mesmos totais do resumo da carreira e do card
   for (const r of seasons) {
-    t.apps += r.stats.apps
-    t.goals += r.stats.goals
-    t.assists += r.stats.assists
+    t.apps += r.stats.apps + (r.national?.apps ?? 0)
+    t.goals += r.stats.goals + (r.national?.goals ?? 0)
+    t.assists += r.stats.assists + (r.national?.assists ?? 0)
     t.cleanSheets += r.stats.cleanSheets ?? 0
     t.conceded += r.stats.conceded ?? 0
     t.titles += r.trophies.length

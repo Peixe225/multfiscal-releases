@@ -20,6 +20,9 @@ import { groupRows, liveLeagues, roundOf, shortDate, zoneLegend, zonesFor, type 
 import '@/ui/shared/achievements/unlockToasts'
 import './live.css'
 
+/** Build publicado no claude.ai: a CSP bloqueia a ESPN, então não oferecemos um botão que nunca funciona. */
+const ARTIFACT = import.meta.env.VITE_ARTIFACT === '1'
+
 const REGIONS: { key: string; label: string; test: (l: League) => boolean }[] = [
   { key: 'bra', label: 'Brasil', test: (l) => l.country === 'BRA' },
   { key: 'sa', label: 'América do Sul', test: (l) => l.confed === 'CONMEBOL' && l.country !== 'BRA' },
@@ -240,7 +243,10 @@ export default function LiveLeaguesScreen() {
           <Eyebrow>Temporada 2026 · tabelas reais</Eyebrow>
           <h1>Ligas ao vivo</h1>
           <p>
-            A classificação de hoje de {leagues.length} ligas — o ponto de partida da sua carreira. Atualize direto da ESPN para ver a rodada mais recente.
+            A classificação de hoje de {leagues.length} ligas — o ponto de partida da sua carreira.
+            {ARTIFACT
+              ? ` Aqui no claude.ai o jogo não consulta a internet: as tabelas são as reais de ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })}.`
+              : ' Atualize direto da ESPN para ver a rodada mais recente.'}
           </p>
         </div>
         <LivePill blink>{live ? `Ao vivo · ESPN ${relTime(updatedTs, now)}` : `Tabelas reais de ${shortDate(data.generatedAt)}`}</LivePill>
@@ -298,9 +304,11 @@ export default function LiveLeaguesScreen() {
                 <b>{loading ? 'Buscando na ESPN…' : live ? 'ESPN ao vivo' : 'Snapshot do jogo'}</b>
                 atualizado {relTime(updatedTs, now)}
               </span>
+              {!ARTIFACT && (
               <Button variant="ghost" size="sm" icon={RefreshCw} onClick={refresh} disabled={!canRefresh || loading} className={cx(loading && 'lv-btn-spin')} title={blocked ? 'Atualização ao vivo indisponível neste ambiente' : canRefresh ? 'Buscar a tabela mais recente na ESPN' : 'Liga sem fonte ao vivo'}>
                 {loading ? 'Atualizando…' : blocked ? 'Sem acesso à ESPN' : 'Atualizar agora'}
               </Button>
+              )}
             </div>
           </div>
 
