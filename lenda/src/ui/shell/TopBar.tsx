@@ -18,7 +18,7 @@ const SUB: Partial<Record<RoutePath, string>> = {
   '/carreira': 'CLÁSSICO',
   '/resumo': 'RESUMO',
   '/ligas': 'LIGAS AO VIVO',
-  '/hall': 'HALL DA FAMA',
+  '/hall': 'HALL DAS LENDAS',
   '/imersivo': 'IMERSIVO',
   '/kit': 'DESIGN KIT',
   '/creditos': 'CRÉDITOS',
