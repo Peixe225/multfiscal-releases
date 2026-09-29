@@ -4,14 +4,14 @@
  */
 import { memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { BadgeCheck, Eye, Heart, MessageCircle, Repeat2, Send, Share2, TrendingUp } from 'lucide-react'
-import type { ImmersiveState, SocialPost } from '@/engine/immersive/types'
+import type { CalendarItem, ImmersiveState, SocialPost } from '@/engine/immersive/types'
 import { navigate } from '@/store/app'
 import { getClub } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
 import { Button, Crest, clubVars, cx } from '@/ui/primitives'
 import { CompLogo, PanelHead, TeamMark } from '../bits'
 import { POST_TEMPLATES, type PostContext } from '../model/constants'
-import { compactNumber, recentForm, relWeek, teamInfo } from '../model/view'
+import { compactNumber, recentForm, relWeek, resultLetter, stageSuffix, teamInfo } from '../model/view'
 
 const slug = (x: string) =>
   x
@@ -72,23 +72,43 @@ const initials = (name: string) =>
 
 const MEDIA_RE = /gol|⚽|vit[oó]ria|derrota|empate|placar|fim de jogo|×|x /i
 
-/** Um card de placar por semana de jogo: no primeiro post (clube, imprensa, você ou torcedor) que fala do jogo. */
+const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/**
+ * Jogo de que o post fala. A semana pode ter 2–3 jogos: vale o adversário citado no texto; senão o
+ * resultado citado (vitória/derrota/empate); senão o último jogo da semana.
+ */
+function postGame(s: ImmersiveState, p: SocialPost): CalendarItem | null {
+  const games = s.calendar.filter((c) => c.season === p.season && c.week === p.week && (c.kind === 'match' || c.kind === 'national_match') && c.result)
+  if (games.length <= 1) return games[0] ?? null
+  const txt = norm(p.text)
+  const named = games.filter((g) => {
+    const t = teamInfo(g.opponentId)
+    return [t.short, t.name, t.abbr.length >= 3 ? t.abbr : ''].some((n) => n && new RegExp(`\\b${norm(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(txt))
+  })
+  if (named.length) return named[named.length - 1]
+  const want = /vit[oó]ria|venc/i.test(p.text) ? 'V' : /derrota|perd/i.test(p.text) ? 'D' : /empate/i.test(p.text) ? 'E' : null
+  const byRes = want ? games.filter((g) => resultLetter(g) === want) : []
+  return (byRes.length ? byRes : games)[(byRes.length ? byRes : games).length - 1]
+}
+
+/** Um card de placar por jogo: no primeiro post (clube, imprensa, você ou torcedor) que fala dele. */
 function mediaPosts(s: ImmersiveState, list: SocialPost[]): Set<string> {
   const out = new Set<string>()
-  const weeks = new Set<string>()
-  const played = new Set(s.calendar.filter((c) => (c.kind === 'match' || c.kind === 'national_match') && c.result).map((c) => `${c.season}:${c.week}`))
+  const seen = new Set<string>()
   for (const p of list) {
-    const k = `${p.season}:${p.week}`
-    if (weeks.has(k) || !played.has(k) || !MEDIA_RE.test(p.text)) continue
-    weeks.add(k)
+    if (!MEDIA_RE.test(p.text)) continue
+    const g = postGame(s, p)
+    if (!g || seen.has(g.id)) continue
+    seen.add(g.id)
     out.add(p.id)
   }
   return out
 }
 
-/** Mídia gerada (nunca foto real): placar do jogo da semana nos posts do clube, da imprensa e seus. */
+/** Mídia gerada (nunca foto real): placar do jogo de que o post fala (clube, imprensa e você). */
 function PostMedia({ p, s }: { p: SocialPost; s: ImmersiveState }) {
-  const game = s.calendar.find((c) => c.season === p.season && c.week === p.week && (c.kind === 'match' || c.kind === 'national_match') && c.result)
+  const game = postGame(s, p)
   if (!game?.result) return null
   const national = game.kind === 'national_match'
   const us = teamInfo(national ? s.identity.nationality : s.clubId)
@@ -97,7 +117,7 @@ function PostMedia({ p, s }: { p: SocialPost; s: ImmersiveState }) {
   return (
     <div className="im-post__media" style={clubVars(us.colors) as CSSProperties} aria-label={`Placar: ${H.short} ${game.result.score[0]} a ${game.result.score[1]} ${A.short}`}>
       <span className="im-post__mk">
-        <CompLogo id={game.competitionId} size={18} /> Fim de jogo{game.stage ? ` · ${game.stage}` : ''}
+        <CompLogo id={game.competitionId} size={18} /> Fim de jogo{stageSuffix(game.competitionId, game.stage)}
       </span>
       <span className="im-post__ms">
         <TeamMark team={H} size={38} />

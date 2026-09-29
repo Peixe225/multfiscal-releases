@@ -22,12 +22,15 @@ import { joinClub } from './offers'
 import { applyGrowth, attributesFor, convertAttributes, isGK, ovrOf, shiftOvr } from './player'
 import { retireNow } from './season'
 import { shadowCareer } from './shadow'
-import { clamp, clubOf, countryOf, irng, trng } from './util'
+import { artigo, clamp, clubOf, countryOf, formatMoney, irng, trng } from './util'
 
 /** Eventos do Clássico que não fazem sentido quando se joga partida a partida (título forçado). */
 const EXCLUDED = new Set(['decisive_penalty', 'injury_at_peak'])
 
 // ───────────────────────── oferta de base ─────────────────────────
+
+/** Contrato da base no imersivo (o card mostra exatamente o que é assinado). */
+const ACADEMY_CONTRACT = { salary: 24_000, years: 3 } as const
 
 export function academyDecision(data: GameData, s: ImmersiveState): Decision {
   const shadow = shadowCareer(s)
@@ -35,6 +38,10 @@ export function academyDecision(data: GameData, s: ImmersiveState): Decision {
   const specs: Record<string, OptionSpec> = {}
   const options: DecisionOption[] = clubs.map((c) => {
     const opt = clubCard(data, shadow, c, `academy-${c.id}`, 'Assinar com')
+    // o card do Clássico estima salário/duração; aqui vale o contrato de base que o imersivo assina
+    opt.details = opt.details?.map((d) =>
+      d.label === 'Contrato' ? { ...d, value: `${ACADEMY_CONTRACT.years} anos` } : d.label === 'Salário/ano' ? { ...d, value: formatMoney(ACADEMY_CONTRACT.salary) } : d,
+    )
     specs[opt.id] = { type: 'join', optionKey: 'join', clubId: c.id, outcomes: [{ p: 1, kind: 'neutral', fx: {}, summary: `Assinou com ${c.name}.` }] }
     return opt
   })
@@ -328,13 +335,34 @@ export function storyDecision(data: GameData, s: ImmersiveState): Decision | nul
       if (built && built.options.length) {
         m.lastClassicEventSeason = s.season
         m.story = { source: 'classic', eventKey: def.key }
-        return assembleDecision(shadow, 'event', built, { eventKey: def.key, variant })
+        return alignClubCards(assembleDecision(shadow, 'event', built, { eventKey: def.key, variant }), s)
       }
       pool = pool.filter((e) => e !== def)
     }
   }
   if (r.chance(0.2)) return null
   return miniDecision(s, r)
+}
+
+/** Salário que o imersivo assina ao trocar de clube por um evento (ver `resolveDecision`). */
+const eventSalary = (s: ImmersiveState) => Math.max(s.finance.salary, 24_000)
+const EVENT_YEARS = 3
+
+/**
+ * Cards de clube dos eventos do Clássico ("Assinar com Ponte Preta · 5 anos · €20K"): o imersivo assina
+ * 3 anos pelo salário atual (mín. €24K) e o empréstimo mantém o salário — o card mostra isso.
+ */
+function alignClubCards(d: Decision, s: ImmersiveState): Decision {
+  const specs = (d.context?.specs ?? {}) as Record<string, OptionSpec>
+  for (const o of d.options) {
+    const spec = specs[o.id]
+    if (!o.clubId || !spec || (spec.type !== 'join' && spec.type !== 'permanent' && spec.type !== 'loan')) continue
+    const loan = spec.type === 'loan'
+    o.details = o.details?.map((x) =>
+      x.label === 'Contrato' && !loan ? { ...x, value: `${EVENT_YEARS} anos` } : x.label === 'Salário/ano' ? { ...x, value: formatMoney(loan ? s.finance.salary : eventSalary(s)) } : x,
+    )
+  }
+  return d
 }
 
 // ───────────────────────── resolução ─────────────────────────
@@ -352,9 +380,9 @@ export function resolveDecision(W: WorldEngine, data: GameData, s: ImmersiveStat
     const spec = (d.context?.specs as Record<string, OptionSpec> | undefined)?.[optionId]
     if (!spec?.clubId) return false
     const club = clubOf(data, spec.clubId)
-    joinClub(W, data, s, { clubId: spec.clubId, kind: 'free_agent', salary: 24_000, years: 3, role: 'Promessa' }, fx)
+    joinClub(W, data, s, { clubId: spec.clubId, kind: 'free_agent', salary: ACADEMY_CONTRACT.salary, years: ACADEMY_CONTRACT.years, role: 'Promessa' }, fx)
     addInbox(s, 'Seu empresário', 'Vamos construir sua carreira', 'Primeiro passo: ganhar a confiança do técnico nos treinos. Quando surgirem propostas, eu te aviso por aqui — nada de assinar sem falar comigo.')
-    fx.push({ type: 'toast', tone: 'gold', title: `Bem-vindo ao ${club?.shortName ?? 'clube'}!`, description: 'Sua carreira começa agora.' })
+    fx.push({ type: 'toast', tone: 'gold', title: `Bem-vindo ${artigo(club) === 'a' ? 'à' : 'ao'} ${club?.shortName ?? 'clube'}!`, description: 'Sua carreira começa agora.' })
     return true
   }
   if (story?.source === 'mini' && story.mini?.[optionId]) {
@@ -388,8 +416,7 @@ export function resolveDecision(W: WorldEngine, data: GameData, s: ImmersiveStat
   }
   if ((spec.type === 'join' || spec.type === 'permanent' || spec.type === 'loan') && spec.clubId && spec.clubId !== s.clubId) {
     const club = clubOf(data, spec.clubId)
-    const salary = Math.max(s.finance.salary, 24_000)
-    joinClub(W, data, s, { clubId: spec.clubId, kind: spec.type === 'loan' ? 'loan' : 'transfer', salary, years: 3, role: 'Titular' }, fx)
+    joinClub(W, data, s, { clubId: spec.clubId, kind: spec.type === 'loan' ? 'loan' : 'transfer', salary: eventSalary(s), years: EVENT_YEARS, role: 'Titular' }, fx)
     void club
   }
   applyClassicEffects(data, s, outcome.fx, fx)

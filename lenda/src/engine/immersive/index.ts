@@ -11,7 +11,7 @@
  * no momento viram no-op com um toast. Ver `validActions(state)` e src/engine/immersive/CHANGES.md.
  *
  * CONDIÇÃO (0–100):
- *   energia  −0,13/min em campo (× físico), treino (leve −3 · normal −7 · intensa −13), +22/semana,
+ *   energia  −0,13/min em campo (× físico), treino (leve −4 · normal −8 · intensa −13), +22/semana,
  *            descanso +16, recuperação +24. Um jogo por semana com treino normal se sustenta; dois
  *            jogos + treino intenso desgastam. Baixa energia derruba as chances e aumenta lesão.
  *   fase     média móvel das últimas notas (6,6 → 50; +22 por ponto).
@@ -32,7 +32,7 @@ import { isScheduled } from '../world/national'
 import { addResult, newRow, sortTable } from '../world/table'
 import { kindIsNational, matchdayOf, weekDate } from './calendar'
 import type { Position } from '../types'
-import type { Attributes, CalendarItem, ImmersiveAction, ImmersiveEffect, ImmersiveEngine, ImmersiveState, TrainingFocus } from './types'
+import type { AttributeKey, Attributes, CalendarItem, ImmersiveAction, ImmersiveEffect, ImmersiveEngine, ImmersiveState, TrainingFocus, TrainingPreviewInfo } from './types'
 import { academyDecision, resolveDecision, storyDecision } from './events'
 import { aiChoice, createLive, finalRating, kickoff, requestSub, resolveMoment, runToEnd, setPosture, simulate } from './match'
 import { mem, newMemory, type Fx } from './mem'
@@ -40,6 +40,8 @@ import { addInbox, addNews, answerPress, applyDeltas, buildPress, buyItem, match
 import { acceptChance, respondOffer, windowOffers, type CounterAsk, type CounterOdds } from './offers'
 import {
   applyGrowth,
+  attr,
+  ATTR_NAME,
   FOCUS_SHARES,
   growthRate,
   INTENSITY,
@@ -51,10 +53,11 @@ import {
   rollProfile,
   scoutPotential,
   WEEKS_PER_SEASON,
+  WEIGHTS,
 } from './player'
 import { endSeason, rebuildCalendar, resim, retireNow, startNextSeason } from './season'
 import { shadowCareer } from './shadow'
-import { clamp, cloneState, countryOf, ix, leagueById, nationStrength, r1, teamShort, trng } from './util'
+import { clamp, cloneState, clubOf, countryOf, deCountry, do_, ix, leagueById, nationStrength, r1, teamShort, trng } from './util'
 
 export { POST_TEMPLATES, LIFESTYLE_ITEMS, OUTLETS } from './media'
 export { acceptChance, counterOdds, type CounterAsk, type CounterOdds } from './offers'
@@ -81,6 +84,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
   validActions(state: ImmersiveState): ImmersiveAction['type'][]
   summarize(data: GameData, state: ImmersiveState): ReturnType<typeof summarize>
   acceptChance(data: GameData, state: ImmersiveState, offerId: string, counter: CounterAsk): CounterOdds | null
+  trainingPreview(data: GameData, state: ImmersiveState, focus: TrainingFocus, intensity: 'leve' | 'normal' | 'intensa'): TrainingPreviewInfo
 } {
   const W = world
 
@@ -119,7 +123,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
       const expired = s.offers.filter((o) => o.expiresWeek < s.week)
       if (expired.length) {
         s.offers = s.offers.filter((o) => o.expiresWeek >= s.week)
-        for (const o of expired) addInbox(s, 'Seu empresário', `Proposta do ${teamShort(data, o.clubId)} expirou`, 'Eles seguiram atrás de outro nome. Outras virão.')
+        for (const o of expired) addInbox(s, 'Seu empresário', `Proposta ${do_(clubOf(data, o.clubId))} ${teamShort(data, o.clubId)} expirou`, 'Eles seguiram atrás de outro nome. Outras virão.')
       }
     }
   }
@@ -195,13 +199,13 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     const compName = tournament ? (data.competitions.find((c) => c.id === it.competitionId)?.name ?? 'torneio') : ''
     if (called && s.national.firstCallUp === undefined) {
       s.national.firstCallUp = s.season
-      s.log.push({ season: s.season, age: s.age, type: 'call_up', text: `Primeira convocação: seleção de ${country.name}.` })
+      s.log.push({ season: s.season, age: s.age, type: 'call_up', text: `Primeira convocação: seleção ${deCountry(country.name)}.` })
     }
     if (tournament) {
       m.natTournament = { competitionId: it.competitionId ?? '', called }
       if (called) {
-        addInbox(s, `Seleção · ${country.name}`, `Convocado para a ${compName}!`, `Você está na lista final da ${country.name} para a ${compName}. Apresentação logo após o fim da temporada.`)
-        addNews(s, `${s.identity.surname} está na lista da ${country.name} para a ${compName}`, 'positive', fx)
+        addInbox(s, `Seleção · ${country.name}`, `Convocado para a ${compName}!`, `Você está na lista final da seleção ${deCountry(country.name)} para a ${compName}. Apresentação logo após o fim da temporada.`)
+        addNews(s, `${s.identity.surname} está na lista da seleção ${deCountry(country.name)} para a ${compName}`, 'positive', fx)
         toast(fx, 'gold', 'Convocado!', `${country.name} · ${compName}`)
         rebuildCalendar(data, s, it.week * 1000 + it.order)
       } else if (s.ovr >= callUpOvr(country) - 8) addInbox(s, `Seleção · ${country.name}`, 'Lista final divulgada', `Seu nome ficou fora da lista da ${compName}. A comissão técnica segue acompanhando.`)
@@ -243,8 +247,8 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     s.calendar.splice(s.cursor + 1, 0, ...items)
     s.calendar.sort((a, b) => a.week - b.week || a.order - b.order || (a.id < b.id ? -1 : 1))
     s.cursor = s.calendar.findIndex((x) => x.id === it.id)
-    addInbox(s, `Seleção · ${country.name}`, 'Você foi convocado!', `A comissão técnica da ${country.name} convocou você para ${qualifiers ? 'as Eliminatórias' : 'os amistosos'}: ${opps.map((o) => o.name).join(' e ')}.`)
-    addNews(s, `${s.identity.surname} é convocado para a ${country.name}`, 'positive', fx)
+    addInbox(s, `Seleção · ${country.name}`, 'Você foi convocado!', `A comissão técnica da seleção ${deCountry(country.name)} convocou você para ${qualifiers ? 'as Eliminatórias' : 'os amistosos'}: ${opps.map((o) => o.name).join(' e ')}.`)
+    addNews(s, `${s.identity.surname} é convocado para a seleção ${deCountry(country.name)}`, 'positive', fx)
     toast(fx, 'gold', 'Convocado!', `${country.name} · ${opps.map((o) => o.name).join(' e ')}`)
   }
 
@@ -256,10 +260,46 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
    * intensa não sofre com a condição. Descanso/recuperação: energia, mas custam ritmo e (com energia
    * sobrando) confiança do técnico.
    */
+  /** Pontos de OVR que a semana de treino rende (mesma conta no treino e na prévia). */
+  function trainPoints(s: ImmersiveState, intensity: 'leve' | 'normal' | 'intensa'): number {
+    const m = mem(s)
+    const C = s.condition
+    const I = INTENSITY[intensity] ?? INTENSITY.normal
+    const condF = clamp(0.85 + (C.fitness - 60) / 250 + (C.morale - 60) / 400, 0.7, 1.1)
+    const weeks = Math.max(30, m.seasonTrainingWeeks ?? WEEKS_PER_SEASON)
+    const unit = ((growthRate(s.age, m.profile, isGK(s.identity.position)) * 0.7) / weeks) * potentialFactor(s.ovr, m.truePotential)
+    return unit * (Math.min(1, I.gain) * condF + Math.max(0, I.gain - 1))
+  }
+
+  /** Prévia do treino: roda a mesma conta em cópias (atributos e XP), sem tocar no estado. */
+  function trainingPreviewFor(s: ImmersiveState, focusIn: TrainingFocus, intensity: 'leve' | 'normal' | 'intensa'): TrainingPreviewInfo {
+    const m = mem(s)
+    const C = s.condition
+    const pos = s.identity.position
+    const gk = isGK(pos)
+    const focus: TrainingFocus = C.injury && focusIn !== 'rest' ? 'recovery' : TRAINING_FOCI.includes(focusIn) ? focusIn : 'tactical'
+    const I = INTENSITY[intensity] ?? INTENSITY.normal
+    const fit = (d: number) => {
+      const after = clamp(Math.round((C.fitness + d) * 10) / 10, 0, 100)
+      return { fitnessAfter: Math.round(after), fitnessDelta: Math.round(after - C.fitness) }
+    }
+    if (focus === 'rest') return { focus, gains: [], ...fit(16), injuryRisk: 0 }
+    if (focus === 'recovery') return { focus, gains: [], ...fit(24), injuryRisk: 0 }
+    const a = { ...s.attributes } as Attributes
+    const xp = { ...m.xp }
+    applyGrowth(a, pos, focus, trainPoints(s, intensity), xp)
+    const own = gk ? FOCUS_SHARES[focus].gk : FOCUS_SHARES[focus].outfield
+    const shares: Partial<Record<AttributeKey, number>> = focus === 'tactical' || !Object.keys(own).length ? WEIGHTS[pos] : own
+    const keys = (Object.entries(shares) as [AttributeKey, number][]).filter(([k, v]) => v > 0 && k in s.attributes).sort((x, y) => y[1] - x[1]).map(([k]) => k)
+    const gains = keys.map((key) => ({ key, value: attr(s.attributes, key), to: attr(a, key), progressBefore: clamp(m.xp[key] ?? 0, 0, 1), progress: clamp(xp[key] ?? 0, 0, 1) }))
+    // o risco usa a energia depois do treino (como no `train`)
+    const injuryRisk = I.injury * (C.fitness + I.fitness < 45 ? 2.5 : 1) * (s.age >= 30 ? 1.3 : 1)
+    return { focus, gains, ...fit(I.fitness), injuryRisk }
+  }
+
   function train(data: GameData, s: ImmersiveState, focusIn: TrainingFocus, intensity: 'leve' | 'normal' | 'intensa', fx: ImmersiveEffect[], byUser = false) {
     const m = mem(s)
     const C = s.condition
-    const gk = isGK(s.identity.position)
     let focus = focusIn
     if (C.injury && focus !== 'rest') focus = 'recovery'
     const I = INTENSITY[intensity] ?? INTENSITY.normal
@@ -278,10 +318,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
       if (C.injury && r.chance(0.5)) C.injury.weeksLeft = Math.max(0, C.injury.weeksLeft - 1)
       desc = C.injury ? 'Fisioterapia intensiva: recuperação acelerada.' : 'Recuperação: gelo, sono e energia lá em cima.'
     } else {
-      const condF = clamp(0.85 + (C.fitness - 60) / 250 + (C.morale - 60) / 400, 0.7, 1.1)
-      const weeks = Math.max(30, m.seasonTrainingWeeks ?? WEEKS_PER_SEASON)
-      const unit = ((growthRate(s.age, m.profile, gk) * 0.7) / weeks) * potentialFactor(s.ovr, m.truePotential)
-      const pts = unit * (Math.min(1, I.gain) * condF + Math.max(0, I.gain - 1))
+      const pts = trainPoints(s, intensity)
       const ups = applyGrowth(s.attributes, s.identity.position, focus, pts, m.xp)
       for (const u of ups) fx.push({ type: 'attribute_up', key: u.key, from: u.from, to: u.to })
       // quem está fora do time e treina forte mostra serviço
@@ -298,7 +335,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         toast(fx, 'danger', 'Lesão no treino', `${C.injury.name}: ${weeks} ${weeks === 1 ? 'semana' : 'semanas'} fora.`)
         addNews(s, `${s.identity.surname} se machuca no treino e vira dúvida`, 'negative', fx)
       }
-      desc = ups.length ? ups.map((u) => `+${u.to - u.from} ${u.key}`).join(' · ') : 'Semana de evolução silenciosa.'
+      desc = ups.length ? ups.map((u) => `+${u.to - u.from} ${ATTR_NAME[u.key] ?? u.key}`).join(' · ') : 'Semana de evolução silenciosa.'
     }
     m.trainingWeeks++
     if (byUser) {
@@ -1002,6 +1039,11 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     },
     summarize(data: GameData, state: ImmersiveState) {
       return summarize(data, shadowCareer(state))
+    },
+    /** Prévia exata do treino (não muda o estado). */
+    trainingPreview(data: GameData, state: ImmersiveState, focus: TrainingFocus, intensity: 'leve' | 'normal' | 'intensa') {
+      void data
+      return trainingPreviewFor(state, focus, intensity)
     },
   }
   return engine

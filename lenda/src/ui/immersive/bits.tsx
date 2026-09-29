@@ -2,7 +2,7 @@
  * Peças pequenas do Modo Imersivo (grafismo "Transmissão").
  */
 import { memo, type ComponentType, type CSSProperties, type ReactNode } from 'react'
-import type { LucideProps } from 'lucide-react'
+import { Globe2, type LucideProps } from 'lucide-react'
 
 type LucideIcon = ComponentType<LucideProps>
 import { Crest, Flag, cx, tierOf, useCountUp } from '@/ui/primitives'
@@ -21,6 +21,8 @@ export function CompLogo({ id, size = 22, className }: { id?: string | null; siz
   const c = compInfo(id)
   if (c.logo) return <img src={c.logo} alt="" width={size} height={size} className={cx('im-complogo', className)} style={{ width: size, height: size }} loading="lazy" decoding="async" />
   if (c.trophyId) return <TrophyArt id={c.trophyId} size={size} variant="svg" className={className} />
+  // amistoso de seleções: sem escudo de competição → globo (nada de caixa vazia)
+  if (id === 'friendly') return <Globe2 size={Math.round(size * 0.8)} className={cx('im-complogo is-icon', className)} aria-hidden="true" />
   return <span className={cx('im-complogo is-empty', className)} style={{ width: size, height: size }} aria-hidden="true" />
 }
 

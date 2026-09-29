@@ -35,6 +35,8 @@ export const ImTicker = memo(function ImTicker() {
   const league = compInfo(userLeagueId(s))
   const lg = getLeague(userLeagueId(s))
   const round = table.length ? Math.max(...table.map((r) => r.played)) : 0
+  // antes da 1ª rodada a tabela é só zeros: fica de fora do letreiro
+  const ranked = round > 0 ? table : []
   const news = s.news.slice(0, 4)
   const row = (dup: boolean) => (
     <>
@@ -45,9 +47,9 @@ export const ImTicker = memo(function ImTicker() {
           {round ? ` · ${round}ª rodada` : ''}
         </span>
       )}
-      {table.slice(0, 10).map((r, i) => {
+      {ranked.slice(0, 10).map((r, i) => {
         const c = getClub(r.clubId)
-        const z = zoneOf(lg, i + 1, table.length)
+        const z = zoneOf(lg, i + 1, ranked.length)
         return (
           <span key={`${dup}-${r.clubId}`} className={cx('lx-ticker__it', r.clubId === s.clubId && 'is-me')}>
             <span className={cx('lx-ticker__pos', z && `is-${z}`)}>{i + 1}</span>
@@ -57,11 +59,11 @@ export const ImTicker = memo(function ImTicker() {
           </span>
         )
       })}
-      {table.length > 10 &&
-        table.slice(-4).map((r, k) => {
-          const i = table.length - 4 + k
+      {ranked.length > 10 &&
+        ranked.slice(-4).map((r, k) => {
+          const i = ranked.length - 4 + k
           const c = getClub(r.clubId)
-          const z = zoneOf(lg, i + 1, table.length)
+          const z = zoneOf(lg, i + 1, ranked.length)
           return (
             <span key={`${dup}-z-${r.clubId}`} className={cx('lx-ticker__it', r.clubId === s.clubId && 'is-me')}>
               <span className={cx('lx-ticker__pos', z && `is-${z}`)}>{i + 1}</span>
@@ -71,6 +73,12 @@ export const ImTicker = memo(function ImTicker() {
             </span>
           )
         })}
+      {!ranked.length && !news.length && (
+        <span className="lx-ticker__it">
+          <i className="lx-ticker__sep" aria-hidden="true" />
+          <span>{s.clubId ? `Temporada ${s.season}: a tabela entra no ar após a 1ª rodada` : 'Escolha a sua base: a temporada começa já'}</span>
+        </span>
+      )}
       {news.length > 0 && <span className="lx-ticker__sec">Manchetes</span>}
       {news.map((n) => (
         <span key={`${dup}-${n.id}`} className="lx-ticker__it">
@@ -106,7 +114,8 @@ export const ImTicker = memo(function ImTicker() {
 export const LiveTicker = memo(function LiveTicker({ live, clock, done }: { live: LiveMatch; clock: number; done: boolean }) {
   const s = useImmersive((x) => x.state)!
   const rm = useReducedMotion()
-  const table = useTable()
+  const all = useTable()
+  const table = all.some((r) => r.played > 0) ? all : []
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const games = useMemo(() => roundGames(s, live), [live.itemId, s.engine])
   const lg = getLeague(userLeagueId(s))

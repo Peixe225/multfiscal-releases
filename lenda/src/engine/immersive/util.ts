@@ -97,8 +97,27 @@ export function artigo(club: Pick<Club, 'name' | 'shortName'> | undefined): 'o' 
   if (!club) return 'o'
   const n = `${club.name} ${club.shortName}`.toLowerCase()
   if (/inter miami|internacional|america|américa/.test(n)) return 'o'
-  if (/juventus|roma\b|lazio|fiorentina|atalanta|udinese|sampdoria|real sociedad|chapecoense|ponte preta|portuguesa|juventude|ferroviária|internazionale|inter de milão/.test(n)) return 'a'
+  if (/juventus|roma\b|lazio|fiorentina|atalanta|udinese|sampdoria|real sociedad|chapecoense|ponte preta|portuguesa|ferroviária|internazionale|inter de milão/.test(n)) return 'a'
   return 'o'
+}
+
+/** Artigo de um time/país na frase ('' = sem artigo: "de Portugal"). */
+export type Art = 'o' | 'a' | 'os' | 'as' | ''
+const NAT_FEM = /^(argentina|espanha|frança|alemanha|itália|inglaterra|holanda|bélgica|croácia|colômbia|venezuela|bolívia|suíça|suécia|noruega|dinamarca|polônia|rússia|turquia|grécia|áustria|escócia|irlanda|irlanda do norte|nigéria|costa rica|arábia saudita|austrália|coreia do sul|coreia do norte|tunísia|argélia|sérvia|ucrânia|república tcheca|hungria|romênia|eslováquia|eslovênia|finlândia|islândia|jamaica|costa do marfim|albânia|bósnia|macedônia do norte|geórgia|nova zelândia|china|índia|jordânia|síria|guiné|guatemala|república dominicana|bulgária|letônia|lituânia|estônia|bielorrússia|armênia|nicarágua|tailândia|indonésia|malásia|zâmbia|tanzânia|mauritânia|líbia|república centro-africana|rd do congo)$/
+const NAT_NONE = /^(portugal|israel|cuba|angola|honduras|moçambique|cabo verde|andorra|mônaco|malta|chipre|luxemburgo|singapura|hong kong|macau|madagascar|trinidad e tobago|san marino|timor-leste|são tomé e príncipe|omã|kosovo)$/
+const NAT_PL_M = /^(estados unidos|emirados árabes unidos|países baixos|camarões)$/
+const NAT_PL_F = /^(ilhas .*|bahamas|maldivas|seicheles|comores|filipinas)$/
+
+/** Artigo do nome de um país ("o Brasil", "a Argentina", "Portugal", "os Estados Unidos"). */
+export function countryArt(name: string): Art {
+  const n = name.toLowerCase()
+  return NAT_PL_M.test(n) ? 'os' : NAT_PL_F.test(n) ? 'as' : NAT_NONE.test(n) ? '' : NAT_FEM.test(n) ? 'a' : 'o'
+}
+
+/** "do Brasil", "da Argentina", "de Portugal", "dos Estados Unidos". */
+export function deCountry(name: string): string {
+  const a = countryArt(name)
+  return `${a === '' ? 'de' : a === 'o' ? 'do' : a === 'a' ? 'da' : a === 'os' ? 'dos' : 'das'} ${name}`
 }
 
 export const no = (c: Club | undefined) => (artigo(c) === 'a' ? 'na' : 'no')
@@ -151,5 +170,8 @@ export function withArt(data: GameData, id: string | undefined, fallback = 'o ad
   if (!id) return fallback
   const c = clubOf(data, id)
   if (c) return `${artigo(c)} ${c.shortName || c.name}`
-  return countryOf(data, id)?.name ?? id
+  const n = countryOf(data, id)?.name
+  if (!n) return id
+  const a = countryArt(n)
+  return a ? `${a} ${n}` : n
 }

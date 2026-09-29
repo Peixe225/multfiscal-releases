@@ -63,6 +63,14 @@ export interface LiveMem {
   prior?: [number, number]
   teammates: string[]
   opponents: string[]
+  /**
+   * Quem está em campo e quem sobra no banco de cada lado [mandante, visitante] (narração das
+   * trocas: ninguém sai duas vezes nem entra quem já está jogando). Sem o jogador do usuário.
+   */
+  xi?: [string[], string[]]
+  bench?: [string[], string[]]
+  /** Quem entrou do banco em cada lado (não é substituído de novo). */
+  fromBench?: [string[], string[]]
   keeper: [string, string]
   /** Nomes que já saíram (substituídos/expulsos) — narrativa. */
   subsDone: [number, number]
@@ -187,7 +195,8 @@ export interface ImmersiveMemory {
   natConfeds: Record<string, Confed>
   seasonsAtClub: number
   firstClubId: string | null
-  loan?: { parentClubId: string; untilSeason: number }
+  /** Empréstimo em curso; `parentSalary` = salário do contrato com o clube dono (volta ao fim). */
+  loan?: { parentClubId: string; untilSeason: number; parentSalary?: number }
   tempOvr?: { delta: number; untilSeason: number }
   valueMult: number
   /** Priorizar liga × continental (evento): aplicado na próxima temporada. */

@@ -17,7 +17,7 @@ import { addInbox, addNews, applyDeltas } from './media'
 import { contractYears, estimateSalary, roundMoney } from './player'
 import { shadowCareer } from './shadow'
 import { canJoinNow, startSeason, transferNow } from './season'
-import { clamp, clubLeagueId, clubOf, clubPrestige, clubStrength, formatMoney, irng, leagueById, nextId } from './util'
+import { artigo, clamp, clubLeagueId, clubOf, clubPrestige, clubStrength, do_, formatMoney, irng, leagueById, nextId } from './util'
 
 function roleFor(s: ImmersiveState, clubId: string, data: GameData): ContractOffer['role'] {
   const role = predictRole(s.ovr, clubStrength(s.world, data, clubId), s.identity.position)
@@ -146,7 +146,7 @@ export function renewalOffer(data: GameData, s: ImmersiveState): ContractOffer |
     if (!wants) {
       if (m.noRenewal !== s.season) {
         m.noRenewal = s.season
-        addInbox(s, 'Diretoria', 'Sem renovação', `A diretoria do ${club.shortName} comunicou que não pretende renovar seu contrato, que termina ao fim da temporada.`)
+        addInbox(s, 'Diretoria', 'Sem renovação', `A diretoria ${do_(club)} ${club.shortName} comunicou que não pretende renovar seu contrato, que termina ao fim da temporada.`)
       }
       return null
     }
@@ -186,8 +186,8 @@ export function respondOffer(
     if (o.releaseClause) s.finance.releaseClause = o.releaseClause
     if (o.signingBonus) s.finance.balance += o.signingBonus
     applyDeltas(s, { coach: 3, fans: 3, morale: 4 })
-    s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Renovou com o ${club?.shortName ?? name} até ${s.finance.contractUntil}.` })
-    addNews(s, `${s.identity.surname} renova com o ${club?.shortName ?? name} até ${s.finance.contractUntil}`, 'positive', fx)
+    s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Renovou com ${artigo(club)} ${club?.shortName ?? name} até ${s.finance.contractUntil}.` })
+    addNews(s, `${s.identity.surname} renova com ${artigo(club)} ${club?.shortName ?? name} até ${s.finance.contractUntil}`, 'positive', fx)
     fx.push({ type: 'toast', tone: 'success', title: 'Contrato renovado', description: `Até ${s.finance.contractUntil} · ${formatMoney(o.salary)}/ano` })
     return true
   }
@@ -303,10 +303,13 @@ export function signContract(data: GameData, s: ImmersiveState, o: JoinSpec, fx:
   const club = clubOf(data, o.clubId)
   const old = s.clubId
   const name = club?.name ?? o.clubId
+  const ao = artigo(club) === 'a' ? 'à' : 'ao'
   const loan = o.kind === 'loan'
   if (loan) {
-    m.loan = { parentClubId: old ?? o.clubId, untilSeason: s.week <= 2 ? s.season : s.season + (m.calKind === 'split' ? 0 : 1) }
+    m.loan = { parentClubId: old ?? o.clubId, untilSeason: s.week <= 2 ? s.season : s.season + (m.calKind === 'split' ? 0 : 1), parentSalary: s.finance.salary }
     s.parentClubId = old ?? undefined
+    // o clube que pega emprestado paga o salário da proposta (o que foi negociado) durante o empréstimo
+    if (o.salary > 0) s.finance.salary = o.salary
   } else {
     m.loan = undefined
     s.parentClubId = undefined
@@ -331,11 +334,11 @@ export function signContract(data: GameData, s: ImmersiveState, o: JoinSpec, fx:
     season: s.season,
     age: s.age,
     type: how,
-    text: loan ? `Empréstimo: ${name}.` : old ? `Novo clube: ${name}${o.fee ? ` (${formatMoney(o.fee)})` : ''}.` : s.seasons.length ? `Assinou com o ${name}.` : `Começou na base: ${name}.`,
+    text: loan ? `Empréstimo: ${name}.` : old ? `Novo clube: ${name}${o.fee ? ` (${formatMoney(o.fee)})` : ''}.` : s.seasons.length ? `Assinou com ${artigo(club)} ${name}.` : `Começou na base: ${name}.`,
     data: { clubId: o.clubId, parentClubId: loan ? old : undefined },
   })
-  addNews(s, loan ? `${s.identity.surname} é emprestado ao ${club?.shortName ?? name}` : old ? `${club?.shortName ?? name} anuncia ${s.identity.surname}${o.fee ? ` por ${formatMoney(o.fee)}` : ''}` : `${club?.shortName ?? name} aposta em ${s.identity.surname}, ${s.age} anos`, 'positive', fx, { clubId: o.clubId })
-  addInbox(s, 'Diretoria', `Bem-vindo ao ${club?.shortName ?? name}`, `Contrato ${loan ? 'de empréstimo até o fim da temporada' : `até ${s.finance.contractUntil}`}, salário de ${formatMoney(s.finance.salary)}/ano. Honre a camisa.`)
+  addNews(s, loan ? `${s.identity.surname} é emprestado ${ao} ${club?.shortName ?? name}` : old ? `${club?.shortName ?? name} anuncia ${s.identity.surname}${o.fee ? ` por ${formatMoney(o.fee)}` : ''}` : `${club?.shortName ?? name} aposta em ${s.identity.surname}, ${s.age} anos`, 'positive', fx, { clubId: o.clubId })
+  addInbox(s, 'Diretoria', `Bem-vindo ${ao} ${club?.shortName ?? name}`, `Contrato ${loan ? 'de empréstimo até o fim da temporada' : `até ${s.finance.contractUntil}`}, salário de ${formatMoney(s.finance.salary)}/ano. Honre a camisa.`)
   fx.push({ type: 'transfer', clubId: o.clubId, fee: o.fee })
   s.offers = []
   s.clubId = o.clubId
@@ -354,17 +357,20 @@ export function joinClub(W: WorldEngine, data: GameData, s: ImmersiveState, o: J
     const club = clubOf(data, o.clubId)
     m.deferredJoin = { clubId: o.clubId, kind: o.kind === 'renewal' ? 'transfer' : o.kind, salary: o.salary, years: o.years, fee: o.fee, role: o.role, releaseClause: o.releaseClause, signingBonus: o.signingBonus }
     s.offers = []
-    s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Acertou com o ${club?.shortName ?? o.clubId}: apresentação na próxima pré-temporada.`, data: { clubId: o.clubId } })
-    addNews(s, `${s.identity.surname} acerta com o ${club?.shortName ?? o.clubId} e se apresenta na próxima temporada`, 'positive', fx, { clubId: o.clubId })
-    addInbox(s, 'Seu empresário', `Acerto fechado com o ${club?.shortName ?? o.clubId}`, 'A temporada de lá já terminou: você termina esta temporada onde está e se apresenta na pré-temporada.')
+    s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Acertou com ${artigo(club)} ${club?.shortName ?? o.clubId}: apresentação na próxima pré-temporada.`, data: { clubId: o.clubId } })
+    addNews(s, `${s.identity.surname} acerta com ${artigo(club)} ${club?.shortName ?? o.clubId} e se apresenta na próxima temporada`, 'positive', fx, { clubId: o.clubId })
+    addInbox(s, 'Seu empresário', `Acerto fechado com ${artigo(club)} ${club?.shortName ?? o.clubId}`, 'A temporada de lá já terminou: você termina esta temporada onde está e se apresenta na pré-temporada.')
     fx.push({ type: 'toast', tone: 'gold', title: 'Acerto fechado', description: `${club?.shortName ?? o.clubId} · a partir da próxima temporada` })
     return
   }
   const wasWindow = s.calendar[s.cursor]?.kind === 'transfer_window'
+  const seen = new Set([...s.inbox.map((x) => x.id), ...s.news.map((x) => x.id)])
   signContract(data, s, o, fx)
   if (fresh) {
     // sem clube (base / livre): monta a temporada inteira agora
     startSeason(W, data, s)
+    // boas-vindas e manchete da assinatura saem na semana em que a temporada começa (não na 0)
+    for (const x of [...s.inbox, ...s.news]) if (!seen.has(x.id)) x.week = s.week
     if (wasWindow || old === null) {
       const w = s.calendar.findIndex((it) => it.kind === 'transfer_window' && it.week === s.week)
       if (w >= 0 && w === s.cursor) {

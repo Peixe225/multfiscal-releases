@@ -133,7 +133,10 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
   const opp = it?.opponentId ? teamInfo(it.opponentId) : null
   const comp = it?.competitionId ? compInfo(it.competitionId) : null
   const ltKicker = `Coletiva · ${opp ? 'pré-jogo' : 'entrevista'}${comp ? ` · ${comp.short}` : ''}`
-  const ltValue = opp && club ? `${club.shortName} × ${opp.short}` : club ? `${surnameOf(s)} · ${club.shortName}` : 'Sala de imprensa'
+  // mandante primeiro, como no placar (a coletiva não traz o mando: vem do jogo que ela antecede)
+  const game = it?.fixtureKey ? s.calendar.find((x) => x.fixtureKey === it.fixtureKey && (x.kind === 'match' || x.kind === 'national_match')) : undefined
+  const usName = game?.kind === 'national_match' || opp?.national ? teamInfo(s.identity.nationality).short : club?.shortName
+  const ltValue = opp && usName ? (game?.home === false ? `${opp.short} × ${usName}` : `${usName} × ${opp.short}`) : club ? `${surnameOf(s)} · ${club.shortName}` : 'Sala de imprensa'
   const initials = q ? OUTLET_SHORT[q.outlet] ?? q.outlet.slice(0, 3).toUpperCase() : ''
   const mood = gauge >= 0.66 ? 'Ídolo' : gauge <= 0.34 ? 'Crise' : 'Neutro'
   return (

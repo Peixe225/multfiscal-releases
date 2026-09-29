@@ -10,7 +10,7 @@ import { useImmersive } from '@/store/immersive'
 import { cx, useReducedMotion } from '@/ui/primitives'
 import { DayCard } from './panels'
 import { TeamMark } from '../bits'
-import { compInfo, resultLetter, teamInfo } from '../model/view'
+import { compInfo, resultLetter, teamInfo, weekName } from '../model/view'
 
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 
@@ -106,13 +106,17 @@ export default function AgendaScreen() {
           const month = first.month ? `${MONTHS[first.month - 1]} ${first.year ?? ''}`.trim() : ''
           const showMonth = !!month && month !== lastMonth
           if (month) lastMonth = month
+          // bloco de fim de temporada (semanas > 52, sem mês): um cabeçalho próprio
+          const endBlock = !month && w > 52 && lastMonth !== 'fim'
+          if (endBlock) lastMonth = 'fim'
           const window = list.some((x) => x.it.kind === 'transfer_window')
           return (
-            <section key={w} ref={now ? cur : undefined} className={cx('im-week', now && 'is-now', past && 'is-past', window && 'has-window')} aria-label={w === 0 ? 'Pré-temporada' : `Semana ${w}`}>
+            <section key={w} ref={now ? cur : undefined} className={cx('im-week', now && 'is-now', past && 'is-past', window && 'has-window')} aria-label={weekName(w)}>
               {showMonth && <span className="im-week__month">{month}</span>}
+              {endBlock && <span className="im-week__month">Fim de temporada</span>}
               <span className="im-week__n">
-                <small>{w === 0 ? 'Pré' : 'Sem'}</small>
-                <b className="num">{w === 0 ? '—' : w}</b>
+                <small>{w === 0 ? 'Pré' : w > 52 ? 'Fim' : 'Sem'}</small>
+                <b className="num">{w === 0 || w > 52 ? '—' : w}</b>
                 {window && <Repeat2 size={13} aria-label="Janela de transferências" className="im-week__win" />}
               </span>
               <div className="im-week__items">

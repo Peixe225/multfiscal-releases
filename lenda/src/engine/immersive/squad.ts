@@ -70,10 +70,18 @@ export function squadOf(data: GameData, world: WorldState, teamId: string, seaso
     if (i >= 0) need.splice(i, 1)
     else need.pop()
   }
+  const taken = new Set(out.map((p) => p.short.toLowerCase()))
   for (const pos of need) {
     const code = r.chance(national ? 1 : 0.8) ? nat : r.pick(['BRA', 'ARG', 'COL', 'URU', 'FRA', 'ESP', 'POR', 'NGA', 'SEN'])
-    const n = randomName(code, r)
-    out.push({ name: n.name, short: narrationName(n.name, n.shortName, code), pos, ovr: Math.round(base + r.normal(-2, 3)) })
+    // dois "Moreira" no mesmo elenco confundem a narração: sorteia de novo (algumas tentativas)
+    let n = randomName(code, r)
+    let short = narrationName(n.name, n.shortName, code)
+    for (let k = 0; k < 6 && taken.has(short.toLowerCase()); k++) {
+      n = randomName(code, r)
+      short = narrationName(n.name, n.shortName, code)
+    }
+    taken.add(short.toLowerCase())
+    out.push({ name: n.name, short, pos, ovr: Math.round(base + r.normal(-2, 3)) })
   }
   return out
 }

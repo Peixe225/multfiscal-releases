@@ -98,7 +98,9 @@ export function deltaLabels(d: Deltas): string[] {
     const v = d[k]
     if (!v) continue
     const sign = v > 0 ? '+' : '−'
-    out.push(k === 'followers' ? `${label} ${sign}` : `${label} ${sign}${Math.abs(Math.round(v))}`)
+    const n = Math.abs(Math.round(v))
+    // efeito pequeno (|v| < 0,5) sai só com o sinal, nunca "−0"
+    out.push(k === 'followers' || !n ? `${label} ${sign}` : `${label} ${sign}${n}`)
   }
   return out
 }
@@ -291,7 +293,7 @@ export function buildPress(data: GameData, s: ImmersiveState, item: CalendarItem
   const picks: QDef[] = []
   for (const q of r.shuffle(specific)) if (picks.length < 2) picks.push(q)
   for (const q of r.shuffle(pool)) if (picks.length < 3 && !picks.includes(q)) picks.push(q)
-  const pelo = oo.startsWith('o ') ? `pelo ${oo.slice(2)}` : oo.startsWith('a ') ? `pela ${oo.slice(2)}` : `por ${oo}`
+  const pelo = oo.startsWith('o ') ? `pelo ${oo.slice(2)}` : oo.startsWith('a ') ? `pela ${oo.slice(2)}` : oo.startsWith('os ') ? `pelos ${oo.slice(3)}` : oo.startsWith('as ') ? `pelas ${oo.slice(3)}` : `por ${oo}`
   const vars = (t: string) =>
     t.replace(/\{OO\}/g, OO).replace(/\{oo\}/g, oo).replace(/\{pelo\}/g, pelo).replace(/\{o\}/g, opp).replace(/\{g\}/g, String(ctx.goals)).replace(/\{n\}/g, String(dry)).replace(/\{r\}/g, ctx.rumor ?? '').replace(/\{club\}/g, ctx.club)
   const deltas: Record<string, Record<string, Deltas>> = {}

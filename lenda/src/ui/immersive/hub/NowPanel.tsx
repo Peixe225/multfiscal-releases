@@ -29,14 +29,14 @@ import {
 import type { CalendarItem, ImmersiveState, TrainingFocus } from '@/engine/immersive/types'
 import type { DecisionOption } from '@/engine/types'
 import { navigate } from '@/store/app'
-import { getClub } from '@/store/data'
+import { getClub, getCountry } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
 import { EventArt } from '@/ui/art/EventArt'
 import { Button, Crest, EffectChip, Kbd, cx, formatPercent, useIsDesktop, useReducedMotion, useSkipAnimations } from '@/ui/primitives'
 import { CompLogo, FormChips, ImSeg, PanelHead, TeamMark } from '../bits'
 import { ATTR_LABEL, FOCUS_ORDER, INTENSITY, TRAINING_FOCUS, type Intensity } from '../model/constants'
 import { trainingPreview } from '../model/training'
-import { compInfo, itemTitle, recentForm, selectionForecast, teamInfo, weeksUntil, winProbs } from '../model/view'
+import { artTeam, compInfo, importanceLabel, itemTitle, recentForm, selectionForecast, stageSuffix, teamInfo, weeksUntil, winProbs } from '../model/view'
 import { clubForm } from '../model/round'
 import { useImHotkey } from '../hooks'
 
@@ -68,15 +68,27 @@ export const TrainingPicker = memo(function TrainingPicker({ s, it }: { s: Immer
   const remembered = lastTraining(s)
   const [focus, setFocus] = useState<TrainingFocus>(() => (remembered.focus && list.includes(remembered.focus) ? remembered.focus : s.condition.fitness < 45 ? 'recovery' : gk ? 'goalkeeping' : 'finishing'))
   const [intensity, setIntensity] = useState<Intensity>(() => remembered.intensity ?? (s.condition.fitness < 55 ? 'leve' : 'normal'))
-  const pv = useMemo(() => trainingPreview(s, focus, intensity), [s, focus, intensity])
   const load = focus !== 'rest' && focus !== 'recovery'
+  const engine = useImmersive((x) => x.engine)
+  const data = useImmersive((x) => x.data)
+  const sendIntensity: Intensity = load ? intensity : intensity === 'intensa' ? 'normal' : intensity
+  // motor real: prévia exata (o ganho é determinístico: progresso até o próximo ponto); mock: estimativa
+  const exact = useMemo(() => {
+    if (!engine?.trainingPreview || !data) return null
+    try {
+      return engine.trainingPreview(data, s, focus, sendIntensity)
+    } catch {
+      return null
+    }
+  }, [engine, data, s, focus, sendIntensity])
+  const pv = useMemo(() => trainingPreview(s, focus, intensity), [s, focus, intensity])
   const go = () => {
     try {
       localStorage.setItem(TRAIN_KEY, JSON.stringify({ focus, intensity }))
     } catch {
       /* ignore */
     }
-    void dispatch({ type: 'train', focus, intensity: load ? intensity : intensity === 'intensa' ? 'normal' : intensity })
+    void dispatch({ type: 'train', focus, intensity: sendIntensity })
   }
   return (
     <section className="lx-plate lx-c-lg im-now im-train" aria-labelledby="im-train-h">
@@ -119,31 +131,53 @@ export const TrainingPicker = memo(function TrainingPicker({ s, it }: { s: Immer
           <p className="lx-t-small m-0 mt-2">{TRAINING_FOCUS[focus].desc}</p>
         </div>
         <div className="im-train__pv" aria-live="polite">
-          <span className="lx-label">Prévia</span>
+          <span className="lx-label">{exact ? 'Prévia · % até o próximo ponto' : 'Prévia'}</span>
           <div className="im-train__chips">
-            {pv.gains.map((g) => (
-              <span key={g.key} className="lx-fx lx-fx--up lx-fx--sm">
-                <span className="lx-fx__ic">
-                  <Zap size={14} aria-hidden="true" />
+            {exact
+              ? exact.gains.slice(0, Math.max(2, Math.min(3, (gk ? TRAINING_FOCUS[focus].gkAttrs : TRAINING_FOCUS[focus].attrs).length), focus === 'tactical' ? 3 : 0)).map((g) => {
+                  const up = g.to > g.value
+                  return (
+                    <span
+                      key={g.key}
+                      className={cx('lx-fx lx-fx--sm', up ? 'lx-fx--gold' : 'lx-fx--up')}
+                      title={up ? `${ATTR_LABEL[g.key].label} sobe para ${g.to} nesta semana` : `${ATTR_LABEL[g.key].label}: progresso até ${Math.min(99, g.value + 1)} vai de ${Math.round(g.progressBefore * 100)}% para ${Math.round(g.progress * 100)}%`}
+                    >
+                      <span className="lx-fx__ic">
+                        <Zap size={14} aria-hidden="true" />
+                      </span>
+                      {ATTR_LABEL[g.key].short} {g.value}→{up ? g.to : Math.min(99, g.value + 1)}
+                      <span className="lx-fx__p">{up ? 'sobe!' : `${Math.round(g.progress * 100)}%`}</span>
+                    </span>
+                  )
+                })
+              : pv.gains.map((g) => (
+                  <span key={g.key} className="lx-fx lx-fx--up lx-fx--sm">
+                    <span className="lx-fx__ic">
+                      <Zap size={14} aria-hidden="true" />
+                    </span>
+                    {ATTR_LABEL[g.key].short} {g.value}→{Math.min(99, g.value + 1)}
+                    <span className="lx-fx__p">{formatPercent(g.chance)}</span>
+                  </span>
+                ))}
+            {(() => {
+              const f = exact ?? pv
+              return (
+                <span className={cx('lx-fx lx-fx--sm', f.fitnessDelta >= 0 ? 'lx-fx--up' : 'lx-fx--down')} title={exact ? 'Energia logo após o treino (a semana devolve +22)' : undefined}>
+                  <span className="lx-fx__ic">
+                    <BatteryMedium size={14} aria-hidden="true" />
+                  </span>
+                  Energia {f.fitnessAfter}
+                  <span className="lx-fx__p">{f.fitnessDelta >= 0 ? `+${f.fitnessDelta}` : `−${Math.abs(f.fitnessDelta)}`}</span>
                 </span>
-                {ATTR_LABEL[g.key].short} {g.value}→{Math.min(99, g.value + 1)}
-                <span className="lx-fx__p">{formatPercent(g.chance)}</span>
-              </span>
-            ))}
-            <span className={cx('lx-fx lx-fx--sm', pv.fitnessDelta >= 0 ? 'lx-fx--up' : 'lx-fx--down')}>
-              <span className="lx-fx__ic">
-                <BatteryMedium size={14} aria-hidden="true" />
-              </span>
-              Energia {pv.fitnessAfter}
-              <span className="lx-fx__p">{pv.fitnessDelta >= 0 ? `+${pv.fitnessDelta}` : pv.fitnessDelta}</span>
-            </span>
-            {pv.injuryRisk > 0 && (
+              )
+            })()}
+            {(exact ?? pv).injuryRisk > 0 && (
               <span className="lx-fx lx-fx--sm lx-fx--down">
                 <span className="lx-fx__ic">
                   <ShieldAlert size={14} aria-hidden="true" />
                 </span>
                 Lesão
-                <span className="lx-fx__p">{formatPercent(pv.injuryRisk)}</span>
+                <span className="lx-fx__p">{(exact ?? pv).injuryRisk < 0.01 ? '<1%' : formatPercent((exact ?? pv).injuryRisk)}</span>
               </span>
             )}
             {pv.extra && (
@@ -166,9 +200,10 @@ export const TrainingPicker = memo(function TrainingPicker({ s, it }: { s: Immer
 
 // ───────────────────────── partida ─────────────────────────
 
-function ImportancePips({ v }: { v: number }) {
+function ImportancePips({ it }: { it: CalendarItem }) {
+  const v = it.importance ?? 0.4
   const n = Math.max(1, Math.round(v * 5))
-  const label = v >= 0.95 ? 'Final' : v >= 0.8 ? 'Decisão' : v >= 0.6 ? 'Clássico' : v >= 0.45 ? 'Importante' : 'Rodada normal'
+  const label = importanceLabel(it)
   return (
     <span className="im-imp" title={`Importância ${Math.round(v * 100)}%`}>
       <span className="im-imp__pips" aria-hidden="true">
@@ -181,7 +216,7 @@ function ImportancePips({ v }: { v: number }) {
   )
 }
 
-export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s: ImmersiveState; it: CalendarItem; table: { clubId: string; points: number }[]; primary: boolean }) {
+export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s: ImmersiveState; it: CalendarItem; table: { clubId: string; points: number; won?: number; drawn?: number; lost?: number }[]; primary: boolean }) {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const kind = useImmersive((x) => x.engineKind)
@@ -204,12 +239,21 @@ export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s:
   const weeks = weeksUntil(s, it)
   const fc = national ? { label: 'Convocado', tone: 'pos' as const } : selectionForecast(s, kind, it.importance ?? 0.4)
   const play = () => void dispatch({ type: 'advance' })
+  // jogo de volta: o placar da ida, na ordem mandante–visitante DESTE jogo
+  const firstLeg = useMemo(() => {
+    if (it.leg !== 2) return null
+    const ida = s.calendar.find((x) => x.kind === it.kind && x.competitionId === it.competitionId && x.opponentId === it.opponentId && x.leg === 1 && x.result)
+    if (!ida?.result) return null
+    const [u, o] = ida.home === false ? [ida.result.score[1], ida.result.score[0]] : ida.result.score
+    return home ? [u, o] : [o, u]
+  }, [s.calendar, it, home])
   // dia de jogo: o foco vai para "Jogar partida" (Enter/Espaço jogam) — sem atalho global de Enter
   useEffect(() => {
     if (primary) playRef.current?.focus({ preventScroll: true })
   }, [primary, it.id])
   const side = (t: typeof us, isHome: boolean) => {
     const form = t.id === usId ? recentForm(s) : t.national ? [] : clubForm(s, t.id)
+    const row = t.national ? undefined : (table.find((r) => r.clubId === t.id) as (typeof table)[number] & { played?: number } | undefined)
     return (
       <div className={cx('im-vs__team', isHome ? 'is-home' : 'is-away')} style={{ ['--tc' as string]: t.colors.primary } as CSSProperties}>
         <TeamMark team={t} size={desk && primary ? 76 : desk ? 56 : 52} className="im-vs__crest" />
@@ -217,7 +261,22 @@ export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s:
         <span className="im-vs__pos">
           {t.id === usId ? <span className="lx-you">Você</span> : null} {pos(t.id)}
         </span>
-        {form.length ? <FormChips form={form} /> : <span className="im-form is-empty" aria-label="Sem jogos recentes">{[0, 1, 2, 3, 4].map((k) => <span key={k} className="lx-form">–</span>)}</span>}
+        {form.length ? (
+          <FormChips form={form} />
+        ) : row && row.won != null && row.played ? (
+          // antes de jogos acompanhados no imersivo: a campanha na liga (a tabela real já tem jogos)
+          <span className="im-vs__camp lx-t-small num" title="Campanha na liga">
+            {row.won}V · {row.drawn}E · {row.lost}D
+          </span>
+        ) : (
+          <span className="im-form is-empty" aria-label="Sem jogos recentes">
+            {[0, 1, 2, 3, 4].map((k) => (
+              <span key={k} className="lx-form">
+                –
+              </span>
+            ))}
+          </span>
+        )}
       </div>
     )
   }
@@ -229,7 +288,7 @@ export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s:
         <span className="lx-kicker" id={`im-hero-h-${primary ? 'p' : 'n'}`}>
           {primary ? <span className="lx-live-dot" /> : null}
           {primary ? 'Dia de jogo' : 'Próximo jogo'} · {comp.short}
-          {it.stage ? ` · ${it.stage}` : ''}
+          {stageSuffix(it.competitionId, it.stage)}
         </span>
         <CompLogo id={it.competitionId} size={30} />
       </div>
@@ -242,7 +301,8 @@ export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s:
       </div>
       <div className="im-hero__chips">
         <span className="lx-chip lx-chip--sm">{home ? 'Em casa' : 'Fora de casa'}</span>
-        <ImportancePips v={it.importance ?? 0.4} />
+        {firstLeg && <span className="lx-chip lx-chip--sm" title="Placar do jogo de ida">Ida: {firstLeg[0]}–{firstLeg[1]}</span>}
+        <ImportancePips it={it} />
         <span className={cx('lx-chip lx-chip--sm', fc.tone === 'pos' ? 'lx-chip--pos-ok' : fc.tone === 'neg' ? 'lx-chip--neg' : 'lx-chip--gold')} title="Previsão da escalação (confiança do técnico, fase, energia e força do elenco)">
           {fc.label}
         </span>
@@ -293,7 +353,7 @@ export const PressCard = memo(function PressCard({ it }: { it: CalendarItem }) {
       <div className="im-cardnow__body">
         <PanelHead kicker={<span id="im-press-h">Sala de imprensa</span>} icon={Mic} title={itemTitle(it)} />
         <p className="lx-t-body m-0">
-          Microfones ligados, flashes prontos. {opp ? `Os jornalistas querem saber do duelo contra o ${opp.short}.` : 'Os jornalistas querem ouvir você.'} Cada resposta mexe com torcida, técnico e imprensa.
+          Microfones ligados, flashes prontos. {opp ? `Os jornalistas querem saber do duelo contra ${artTeam(opp)}.` : 'Os jornalistas querem ouvir você.'} Cada resposta mexe com torcida, técnico e imprensa.
         </p>
         <div className="flex flex-wrap gap-2 mt-5">
           <Button variant="primary" size="lg" icon={Mic} loading={busy} onClick={() => void dispatch({ type: 'advance' })}>
@@ -318,7 +378,10 @@ function minutesOutlook(s: ImmersiveState, clubId: string): { label: string; cls
   const str = (s.world?.clubs?.[clubId]?.strength as number | undefined) ?? getClub(clubId)?.strength ?? s.ovr
   const gap = s.ovr - str
   const youth = s.age <= 19 ? 0.14 : 0
-  const pct = Math.max(0.08, Math.min(0.92, 0.55 + gap * 0.03 + youth))
+  // plano de minutos da base no motor (≤ 17: meta de ~42% dos jogos saindo do banco; 18–19: 30%):
+  // mesmo no clube grande o garoto entra em ~1/3 dos jogos — não "8%"
+  const floor = s.age <= 17 ? 0.3 : s.age <= 19 ? 0.22 : 0.08
+  const pct = Math.max(floor, Math.min(0.92, 0.55 + gap * 0.03 + youth))
   return pct >= 0.55 ? { label: 'Minutos: muitos', cls: 'lx-fx--up', pct } : pct >= 0.3 ? { label: 'Minutos: alguns', cls: 'lx-fx--info', pct } : { label: 'Minutos: poucos', cls: 'lx-fx--down', pct }
 }
 
@@ -327,6 +390,9 @@ function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number
   const club = o.clubId ? getClub(o.clubId) : undefined
   const mins = club ? minutesOutlook(s, club.id) : null
   const state = chosen ? (chosen === o.id ? 'chosen' : 'dim') : 'idle'
+  // "Reserva previsto" repete o "Papel previsto" dos detalhes: fica só um
+  const role = o.details?.find((d) => d.label === 'Papel previsto')?.value
+  const effects = o.effects.filter((e) => !(role && e.label === `${role} previsto`))
   return (
     <motion.button
       type="button"
@@ -350,7 +416,8 @@ function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number
         <Kbd className="im-story__kbd">{i + 1}</Kbd>
       </span>
       <span className="im-story__txt">
-        <span className="lx-option__meta">{o.label}</span>
+        {/* eventos sem título trazem só o rótulo: nada de "Pedir desculpas / Pedir desculpas" */}
+        {o.title && o.title !== o.label && <span className="lx-option__meta">{o.label}</span>}
         <span className="lx-option__title">{o.title ?? o.label}</span>
       </span>
       {!!o.details?.length && (
@@ -364,7 +431,7 @@ function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number
         </span>
       )}
       <span className="im-story__fx">
-        {o.effects.slice(0, mins ? 2 : 3).map((e, k) => (
+        {effects.slice(0, mins ? 2 : 3).map((e, k) => (
           <EffectChip key={k} effect={e} />
         ))}
         {mins && (
@@ -488,7 +555,8 @@ export const GenericCard = memo(function GenericCard({ s, it }: { s: ImmersiveSt
   const callup = it.kind === 'national_callup'
   const end = it.kind === 'season_end'
   const awards = it.kind === 'awards'
-  const msg = callup ? s.inbox.find((m) => /sele/i.test(m.from) && m.week === s.week) : null
+  const msg = callup ? s.inbox.find((m) => /sele/i.test(m.from) && m.week === s.week && m.season === s.season) : null
+  const country = getCountry(s.identity.nationality)
   const called = !!msg && /convocad/i.test(msg.subject)
   const Ico = callup ? Plane : end ? Star : awards ? Trophy : Sparkles
   return (
@@ -498,10 +566,12 @@ export const GenericCard = memo(function GenericCard({ s, it }: { s: ImmersiveSt
         <EventArt art={callup ? 'national' : end ? 'celebration' : 'crowd'} hint={it.title} nationality={s.identity.nationality} fill />
       </div>
       <div className="im-cardnow__body">
-        <PanelHead kicker={<span id="im-gen-h">{callup ? 'Seleção' : end ? 'Fim de temporada' : awards ? 'Premiação' : 'Agenda'}</span>} icon={Ico} title={callup ? (called ? 'Você foi convocado!' : msg ? 'Lista divulgada' : it.title) : it.title} gold={called || awards} />
+        <PanelHead kicker={<span id="im-gen-h">{callup ? `Seleção · ${it.title.replace(/^Convocação\s*·\s*/i, '')}` : end ? 'Fim de temporada' : awards ? 'Premiação' : 'Agenda'}</span>} icon={Ico} title={callup ? (called ? 'Você foi convocado!' : 'Lista divulgada') : it.title} gold={called || awards} />
         <p className="lx-t-body m-0">
           {callup
-            ? msg?.body ?? 'A comissão técnica divulga a lista desta data FIFA.'
+            ? msg?.body ??
+              // sem mensagem da seleção nesta semana: a lista saiu (na chegada ao item) sem você, longe do corte
+              `A ${country?.name ?? 'seleção'} divulgou a lista ${it.id.startsWith('ct:') ? `final para a ${it.title.replace(/^Convocação\s*·\s*/i, '')}` : 'desta data FIFA'} e seu nome não está nela. ${s.age < 17 ? 'A seleção principal só chama a partir dos 17 anos.' : 'Minutos no clube e OVR em alta colocam você no radar da comissão técnica.'}`
             : end
               ? 'Última semana. Hora do balanço: tabela final, evolução, prêmios e a conversa sobre o futuro.'
               : awards

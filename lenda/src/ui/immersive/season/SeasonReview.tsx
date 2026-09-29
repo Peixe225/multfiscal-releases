@@ -79,6 +79,8 @@ export default function SeasonReview() {
   const rows = (() => {
     const idx = new Set<number>([0, 1, 2])
     if (mine >= 0) for (let k = Math.max(0, mine - 2); k <= Math.min(table.length - 1, mine + 2); k++) idx.add(k)
+    // buraco de uma linha só (ex.: 4º entre o G3 e a sua faixa) vira a própria linha — "…" para esconder um time só confunde
+    for (const i of [...idx]) if (!idx.has(i + 1) && idx.has(i + 2)) idx.add(i + 1)
     return [...idx].filter((i) => i < table.length).sort((a, b) => a - b)
   })()
   return (

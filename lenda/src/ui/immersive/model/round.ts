@@ -8,6 +8,7 @@
 import type { ImmersiveState, LiveMatch } from '@/engine/immersive/types'
 import type { StandingRow } from '@/engine/types'
 import { addResult, newRow, sortTable } from '@/engine/world/table'
+import { userLeagueId } from './view'
 
 export interface RoundGame {
   home: string
@@ -64,10 +65,14 @@ export interface LiveRow {
   delta: number
 }
 
+/** A partida ao vivo é da liga do jogador (a da tabela)? */
+export const isLeagueGame = (s: ImmersiveState, live: LiveMatch) => !live.home.national && !!live.competitionId && live.competitionId === userLeagueId(s)
+
 /** Tabela ao vivo: base (antes da rodada) + placares correntes da rodada + o seu jogo. */
 export function liveStandings(base: StandingRow[], s: ImmersiveState, live: LiveMatch, games: RoundGame[], clock: number, userScore: [number, number], done: boolean): LiveRow[] {
   if (!base.length) return []
-  const inLeague = !live.home.national && base.some((r) => r.clubId === live.home.id) && base.some((r) => r.clubId === live.away.id)
+  // só jogo da liga mexe na tabela (copa entre dois clubes da mesma liga não soma ponto)
+  const inLeague = isLeagueGame(s, live) && base.some((r) => r.clubId === live.home.id) && base.some((r) => r.clubId === live.away.id)
   const rows = new Map(base.map((r) => [r.clubId, { ...r }]))
   const get = (id: string) => rows.get(id) ?? (rows.set(id, newRow(id)), rows.get(id)!)
   if (inLeague && live.phase !== 'pre') addResult(get(live.home.id), get(live.away.id), userScore[0], userScore[1])

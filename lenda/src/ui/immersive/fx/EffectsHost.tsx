@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Medal, TrendingUp } from 'lucide-react'
 import type { ImmersiveEffect } from '@/engine/immersive/types'
+import { artigo } from '@/engine/immersive/util'
 import type { CareerState, TrophyWin } from '@/engine/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
@@ -86,7 +87,7 @@ export function EffectsHost() {
         break
       case 'transfer': {
         const c = getClub(e.clubId)
-        say('welcome', { title: `Bem-vindo ao ${c?.name ?? 'novo clube'}!`, description: e.fee ? 'Transferência concluída. Apresentação na próxima semana.' : 'Contrato assinado.', tone: 'gold', icon: ArrowUpRight })
+        say('welcome', { title: `Bem-vindo ${artigo(c) === 'a' ? 'à' : 'ao'} ${c?.name ?? 'novo clube'}!`, description: e.fee ? 'Transferência concluída. Apresentação na próxima semana.' : 'Contrato assinado.', tone: 'gold', icon: ArrowUpRight })
         break
       }
       case 'achievement': {

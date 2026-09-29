@@ -70,7 +70,7 @@ function Shelf({ trophies, awards }: { trophies: TrophyWin[]; awards: { award: s
   )
 }
 
-function Row({ r, gk, current }: { r: SeasonRecord; gk: boolean; current?: boolean }) {
+function Row({ r, gk, current, livePos }: { r: SeasonRecord; gk: boolean; current?: boolean; livePos?: number }) {
   const club = getClub(r.clubId)
   const lg = getLeague(r.leagueId)
   const z = r.leaguePosition ? (r.leaguePosition === 1 ? 'champ' : r.relegated ? 'reb' : zoneOf(lg, r.leaguePosition, 20)) : null
@@ -109,7 +109,10 @@ function Row({ r, gk, current }: { r: SeasonRecord; gk: boolean; current?: boole
             {z === 'champ' ? <span className="im-crow__tag is-gold">Campeão</span> : r.relegated || z === 'reb' ? <span className="im-crow__tag is-neg">▼ Rebaixado</span> : r.promoted ? <span className="im-crow__tag is-pos">▲ Acesso</span> : null}
           </span>
         ) : current ? (
-          <span className="lx-rank">…</span>
+          // temporada em andamento: posição atual na tabela da liga
+          <span className="lx-rank" title={livePos ? 'Posição atual na liga' : 'Tabela disponível após a primeira rodada'}>
+            {livePos ? `${livePos}º` : '—'}
+          </span>
         ) : (
           '—'
         )}
@@ -142,7 +145,7 @@ function currentRecord(s: ImmersiveState): SeasonRecord | null {
     season: s.season,
     age: s.age,
     clubId: s.clubId,
-    leagueId: getClub(s.clubId)?.leagueId ?? '',
+    leagueId: s.leagueId ?? getClub(s.clubId)?.leagueId ?? '',
     tier: 1,
     loan: !!s.parentClubId,
     period: 0,
@@ -164,6 +167,16 @@ export default function CareerTab() {
   const gk = s.identity.position === 'GOL'
   const country = getCountry(s.identity.nationality)
   const cur = currentRecord(s)
+  const data = useImmersive((x) => x.data)
+  const livePos = useMemo(() => {
+    if (!engine || !data || !s.clubId) return undefined
+    try {
+      const i = engine.liveTable(data, s).findIndex((row) => row.clubId === s.clubId)
+      return i >= 0 ? i + 1 : undefined
+    } catch {
+      return undefined
+    }
+  }, [engine, data, s])
   const all = cur ? [...s.seasons, cur] : s.seasons
   const tot = all.reduce((a, r) => ({ apps: a.apps + r.stats.apps, goals: a.goals + r.stats.goals, assists: a.assists + r.stats.assists }), { apps: 0, goals: 0, assists: 0 })
   const prizes = s.awards.filter((a) => a.place === 1).length
@@ -253,10 +266,14 @@ export default function CareerTab() {
               <span role="columnheader">Idade</span>
               <span role="columnheader">Ano</span>
               <span role="columnheader">Clube</span>
-              <span role="columnheader">Liga</span>
+              <span role="columnheader" title="Posição final na liga (em andamento: posição atual)">
+                Pos.
+              </span>
               <span role="columnheader">OVR</span>
               <span role="columnheader">J</span>
-              <span role="columnheader">{gk ? 'SG' : 'G'}</span>
+              <span role="columnheader" title={gk ? 'Jogos sem sofrer gol' : 'Gols'}>
+                {gk ? 'JSG' : 'G'}
+              </span>
               <span role="columnheader" className="max-sm:hidden">
                 A
               </span>
@@ -265,7 +282,7 @@ export default function CareerTab() {
               </span>
             </div>
             {all.map((r) => (
-              <Row key={r.season} r={r} gk={gk} current={cur === r} />
+              <Row key={r.season} r={r} gk={gk} current={cur === r} livePos={cur === r ? livePos : undefined} />
             ))}
             {!s.retired &&
               Array.from({ length: futureN }).map((_, i) => {

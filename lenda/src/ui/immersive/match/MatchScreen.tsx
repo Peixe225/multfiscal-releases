@@ -35,13 +35,13 @@ import {
   Tv,
   Zap,
 } from 'lucide-react'
-import type { KeyMoment, LiveMatch, MatchEvent, MatchPosture, UserMatchStats } from '@/engine/immersive/types'
+import type { CalendarItem, KeyMoment, LiveMatch, MatchEvent, MatchPosture, UserMatchStats } from '@/engine/immersive/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
 import { BallIcon, Button, Crest, Tabs, clubVars, cx, useIsTouch, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { CompLogo, ImOvr, ImSeg, Kpi, LowerThird, Meter, PanelHead, RatingBadge, SplitStat, TeamMark } from '../bits'
-import { compInfo, fmtRating, isGoal, oppTeam, optionSide, presenceAt, ratingTone, scoreColors, scoreFrom, surnameOf, teamInfo, userTeam, visibleColor, type PitchPresence, type TeamInfo } from '../model/view'
-import { liveStandings, roundGames } from '../model/round'
+import { compInfo, deTeam, fmtRating, importanceLabel, isGoal, matchGoals, oppTeam, optionSide, presenceAt, ratingTone, scoreColors, scoreFrom, shootoutSet, stageSuffix, surnameOf, teamInfo, userTeam, visibleColor, type PitchPresence, type TeamInfo } from '../model/view'
+import { isLeagueGame, liveStandings, roundGames } from '../model/round'
 import { imSfx, keyBlocked, useFocusTrap } from '../hooks'
 import { Confetti } from '../fx/TrophyCelebration'
 import { KeyMomentPrompt, type MomentChoice } from './KeyMoment'
@@ -73,7 +73,8 @@ const EV_LABEL: Partial<Record<MatchEvent['type'], string>> = {
   penalty_goal: 'Gol de pênalti',
   penalty_miss: 'Pênalti perdido',
   chance: 'Chance',
-  save: 'Defesa',
+  // o evento 'save' traz o time e o nome de quem FINALIZOU (a defesa é do goleiro do outro lado)
+  save: 'Chute defendido',
   woodwork: 'Na trave',
   yellow: 'Cartão amarelo',
   red: 'Expulsão',
@@ -112,8 +113,14 @@ function shotsFrom(events: MatchEvent[]): { shots: [number, number]; on: [number
   return { shots, on }
 }
 
-/** Nome curto que cabe na faixa do placar (senão a sigla). */
-const fitName = (t: TeamInfo, max = 11) => (t.short.length <= max ? t.short : t.abbr)
+
+/** Nome na camisa: o sobrenome, ou o nome inteiro se curto ("Vini Jr.", não "Jr."). */
+function jerseyName(name: string): string {
+  const t = name.trim().split(/\s+/)
+  const last = t[t.length - 1] ?? name
+  if (t.length > 1 && (name.length <= 10 || /^(jr\.?|júnior|junior|filho|neto|sobrinho|ii|iii)$/i.test(last))) return name.length <= 12 ? name : t[t.length - 2]
+  return last
+}
 
 /** Jogo grande: final, decisão, mata-mata decisivo — ouro e confete só aqui. */
 const isBigGame = (l: LiveMatch) => l.importance >= 0.8 || (l.knockout && /final/i.test(l.stage ?? ''))
@@ -127,21 +134,40 @@ function manOfMatch(live: LiveMatch, surname: string): { name: string; team: Tea
   const lost = live.pens ? (live.userSide === 'home' ? live.pens[0] < live.pens[1] : live.pens[1] < live.pens[0]) : usG < thG
   if (live.stats.minutes > 0 && live.stats.rating >= 7.8 && !lost) return { name: surname, team: teamInfo(us.id, us), you: true, note: `Nota ${fmtRating(live.stats.rating)}`, goals: live.stats.goals }
   const winnerSide: 'home' | 'away' = live.score[0] >= live.score[1] ? 'home' : 'away'
-  const tally = new Map<string, number>()
-  for (const e of live.events) {
-    if (e.side !== winnerSide || e.byUser) continue
-    if (isGoal(e) && e.player) tally.set(e.player, (tally.get(e.player) ?? 0) + 3)
-    if (isGoal(e) && e.assist) tally.set(e.assist, (tally.get(e.assist) ?? 0) + 1)
-    if (e.type === 'save' && e.player) tally.set(e.player, (tally.get(e.player) ?? 0) + 1)
+  // gols e assistências contados à parte (gol contra não credita ninguém; 'save' é de quem chutou)
+  const tally = new Map<string, { g: number; a: number }>()
+  const bump = (name: string, k: 'g' | 'a') => {
+    const t = tally.get(name) ?? { g: 0, a: 0 }
+    t[k]++
+    tally.set(name, t)
   }
-  const best = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]
+  for (const e of matchGoals(live.events)) {
+    if (e.side !== winnerSide || e.byUser || (e.type !== 'goal' && e.type !== 'penalty_goal')) continue
+    if (e.player) bump(e.player, 'g')
+    if (e.assist) bump(e.assist, 'a')
+  }
+  const best = [...tally.entries()].sort((x, y) => y[1].g * 3 + y[1].a - (x[1].g * 3 + x[1].a))[0]
   const side = winnerSide === 'home' ? live.home : live.away
   if (best) {
-    const g = Math.floor(best[1] / 3)
-    const a = best[1] % 3
+    const { g, a } = best[1]
     return { name: best[0], team: teamInfo(side.id, side), you: false, note: [g ? `${g} gol${g === 1 ? '' : 's'}` : '', a ? `${a} assist.` : ''].filter(Boolean).join(' · ') || 'Destaque', goals: g }
   }
-  return { name: side.id === us.id ? surname : 'Goleiro do ' + them.shortName, team: teamInfo(side.id, side), you: side.id === us.id, note: 'Destaque', goals: 0 }
+  // sem gol dos companheiros: você, se jogou bem (e não perdeu); senão quem mais finalizou no time que
+  // mais atacou — nunca você sem ter entrado em campo
+  if (live.stats.minutes > 0 && live.stats.rating >= 6.8 && !lost) return { name: surname, team: teamInfo(us.id, us), you: true, note: `Nota ${fmtRating(live.stats.rating)}`, goals: live.stats.goals }
+  const shots = new Map<string, { n: number; side: 'home' | 'away' }>()
+  for (const e of live.events) {
+    if (e.byUser || !e.player || (e.type !== 'chance' && e.type !== 'save' && e.type !== 'woodwork')) continue
+    const k = `${e.side}|${e.player}`
+    shots.set(k, { n: (shots.get(k)?.n ?? 0) + 1, side: e.side })
+  }
+  const top = [...shots.entries()].sort((x, y) => y[1].n - x[1].n)[0]
+  if (top) {
+    const t = top[1].side === 'home' ? live.home : live.away
+    return { name: top[0].split('|')[1], team: teamInfo(t.id, t), you: false, note: `${top[1].n} ${top[1].n === 1 ? 'finalização' : 'finalizações'}`, goals: 0 }
+  }
+  const team = teamInfo(side.id, side)
+  return { name: `Goleiro ${deTeam(team)}`, team, you: false, note: 'Destaque', goals: 0 }
 }
 
 // ───────────────────────── postura ─────────────────────────
@@ -189,6 +215,17 @@ function postureDefault(m: KeyMoment, p: Posture): string | undefined {
 
 // ───────────────────────── pré-jogo ─────────────────────────
 
+/** Formato do jogo para o chip do pré-jogo (o `knockout` do motor só marca o jogo que decide). */
+function matchFormat(live: LiveMatch, it?: CalendarItem): string | null {
+  const stage = live.stage ?? it?.stage ?? ''
+  if (live.competitionId === 'friendly') return 'Amistoso'
+  if (it?.legs === 2 || /·\s*(ida|volta)\b/i.test(stage)) return (it?.leg ?? (/volta/i.test(stage) ? 2 : 1)) === 2 ? 'Mata-mata · jogo de volta' : 'Mata-mata · jogo de ida'
+  if (live.knockout) return 'Mata-mata · jogo único'
+  if (/grupo/i.test(stage)) return 'Fase de grupos'
+  if (/rodada/i.test(stage)) return 'Pontos corridos'
+  return null
+}
+
 const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
   const s = useImmersive((x) => x.state)!
   const dispatch = useImmersive((x) => x.dispatch)
@@ -203,6 +240,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
     usePlayback.getState().prime(live.itemId)
   }, [live.itemId])
   const statusText = st === 'starter' ? 'Titular' : st === 'bench' ? 'Banco de reservas' : 'Fora da partida'
+  const format = matchFormat(live, s.calendar.find((x) => x.id === live.itemId))
   const statusSub =
     st === 'starter'
       ? `Camisa ${s.squadNumber} · ${s.identity.position} · o técnico confia em você.`
@@ -229,7 +267,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
         <div className="im-pre__top">
           <span className="lx-kicker">
             <span className="lx-live-dot" /> Pré-jogo · {comp.name}
-            {live.stage ? ` · ${live.stage}` : ''}
+            {stageSuffix(live.competitionId, live.stage)}
           </span>
           <CompLogo id={live.competitionId} size={34} />
         </div>
@@ -251,8 +289,9 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
           <span className="lx-chip lx-chip--sm">
             <Megaphone size={12} aria-hidden="true" /> {home.national ? 'Estádio nacional' : `Mando: ${home.short}`}
           </span>
-          <span className="lx-chip lx-chip--sm">{live.knockout ? 'Mata-mata' : 'Pontos corridos'}</span>
-          {live.importance >= 0.8 && <span className="lx-chip lx-chip--sm lx-chip--gold">Jogo decisivo</span>}
+          {format && <span className="lx-chip lx-chip--sm">{format}</span>}
+          {live.aggregate && <span className="lx-chip lx-chip--sm">Ida: {live.aggregate[0]} × {live.aggregate[1]}</span>}
+          {live.importance >= 0.8 && <span className="lx-chip lx-chip--sm lx-chip--gold">{importanceLabel({ importance: live.importance, stage: live.stage, competitionId: live.competitionId })}</span>}
         </div>
         <div className={cx('im-pre__status', `is-${st}`)}>
           <span className="im-pre__badge">
@@ -314,7 +353,7 @@ function evDetail(e: MatchEvent, t: TeamInfo, home: TeamInfo, away: TeamInfo, sc
   if (e.type === 'sub_on') return `${t.abbr} · entra ${e.player ?? '—'}${e.assist ? `, sai ${e.assist}` : ''}`
   if (e.type === 'sub_off') return `${t.abbr} · sai ${e.player ?? '—'}${e.assist ? `, entra ${e.assist}` : ''}`
   if (e.type === 'penalty_miss') return `${t.abbr} · ${e.player ?? 'cobrança'} desperdiça`
-  if (e.type === 'save') return `${t.abbr} · finalização defendida`
+  if (e.type === 'save') return `${t.abbr} · parou no goleiro`
   if (e.type === 'woodwork') return `${t.abbr} · ${e.player ?? 'chute'} carimba a trave`
   return t.short
 }
@@ -322,31 +361,38 @@ function evDetail(e: MatchEvent, t: TeamInfo, home: TeamInfo, away: TeamInfo, sc
 const EventsList = memo(function EventsList({ events, home, away }: { events: MatchEvent[]; home: TeamInfo; away: TeamInfo }) {
   const rows = useMemo(() => {
     const sc: [number, number] = [0, 0]
-    const out: { e: MatchEvent; i: number; sc: [number, number] }[] = []
+    const so = shootoutSet(events)
+    const out: { e: MatchEvent; i: number; sc: [number, number]; so: boolean }[] = []
     events.forEach((e, i) => {
+      if (so.has(e)) {
+        out.push({ e, i, sc: [sc[0], sc[1]], so: true })
+        return
+      }
       if (e.type === 'goal' || e.type === 'penalty_goal') sc[e.side === 'home' ? 0 : 1]++
       else if (e.type === 'own_goal') sc[e.side === 'home' ? 1 : 0]++
-      if (KEY_TYPES.has(e.type)) out.push({ e, i, sc: [sc[0], sc[1]] })
+      if (KEY_TYPES.has(e.type)) out.push({ e, i, sc: [sc[0], sc[1]], so: false })
     })
     return out.reverse()
   }, [events])
   return (
     <ol className="im-evs" aria-live="polite" aria-label="Lances">
       {rows.length === 0 && <li className="lx-t-small im-evs__empty">Nenhum lance importante ainda.</li>}
-      {rows.map(({ e, i, sc }, k) => {
+      {rows.map(({ e, i, sc, so }, k) => {
         const t = e.side === 'home' ? home : away
+        // disputa de pênaltis: "Pênaltis · Fulano" com o placar da disputa (o texto do motor termina em "(3–2)")
+        const pens = so ? /\((\d+)[–-](\d+)\)\s*$/.exec(e.text) : null
         return (
-          <li key={`ev-${i}`} className={cx('im-ev', k === 0 && 'is-new', isGoal(e) && 'is-goal', e.byUser && 'is-me')} style={{ ['--tc' as string]: t.colors.primary } as CSSProperties}>
-            <span className="im-ev__min num">{e.minute}&apos;</span>
+          <li key={`ev-${i}`} className={cx('im-ev', k === 0 && 'is-new', !so && isGoal(e) && 'is-goal', e.byUser && 'is-me')} style={{ ['--tc' as string]: t.colors.primary } as CSSProperties}>
+            <span className="im-ev__min num">{so ? 'PÊN' : `${e.minute}'`}</span>
             <span className="im-ev__ic">
               <EvIcon e={e} />
             </span>
             <span className="im-ev__txt">
               <b>
-                {EV_LABEL[e.type]}
+                {so ? (e.type === 'penalty_goal' ? 'Pênaltis · converte' : 'Pênaltis · perde') : EV_LABEL[e.type]}
                 {e.player && e.type !== 'sub_on' && e.type !== 'sub_off' ? ` · ${e.player}` : ''}
               </b>
-              <small>{evDetail(e, t, home, away, sc)}</small>
+              <small>{so ? `${t.abbr}${pens ? ` · disputa ${home.abbr} ${pens[1]}–${pens[2]} ${away.abbr}` : ''}` : evDetail(e, t, home, away, sc)}</small>
             </span>
           </li>
         )
@@ -451,7 +497,7 @@ const Momentum = memo(function Momentum({ live, events, clock, home, away }: { l
     }
     return raw.map((v, i) => (0.25 * (raw[i - 1] ?? v) + 0.5 * v + 0.25 * (raw[i + 1] ?? v)))
   }, [events, clock, live.team.possession, live.itemId, span])
-  const goals = events.filter(isGoal)
+  const goals = matchGoals(events)
   const step = 900 / span
   return (
     <div className="lx-plate lx-plate--flat lx-c-sm im-mom" aria-label="Momentum da partida">
@@ -493,9 +539,14 @@ const LiveTable = memo(function LiveTable({ live, clock, score, done }: { live: 
   const games = useMemo(() => roundGames(s, live), [s, live])
   const rows = useMemo(() => liveStandings(base, s, live, games, clock, score, done), [base, s, live, games, clock, score, done])
   const me = rows.findIndex((r) => r.row.clubId === s.clubId)
+  const league = isLeagueGame(s, live)
   if (me < 0) return <p className="lx-t-small m-0">Jogo fora da liga: a tabela não muda nesta partida.</p>
+  // liga ainda sem rodadas (estadual/copa antes do campeonato): uma tabela de zeros não diz nada
+  if (!league && !base.some((r) => r.played > 0)) return <p className="lx-t-small m-0">{compInfo(live.competitionId).short}: a tabela da liga entra no ar na 1ª rodada do campeonato.</p>
   const from = Math.max(0, Math.min(rows.length - 5, me - 2))
   return (
+    <>
+    {!league && <p className="lx-t-small m-0 mb-2">{compInfo(live.competitionId).short}: a tabela da liga não muda neste jogo.</p>}
     <ol className="im-ltable">
       {rows.slice(from, from + 5).map((r) => {
         const c = getClub(r.row.clubId)
@@ -513,6 +564,7 @@ const LiveTable = memo(function LiveTable({ live, clock, score, done }: { live: 
         )
       })}
     </ol>
+    </>
   )
 })
 
@@ -542,7 +594,7 @@ function useLowerThirds(speed: Speed) {
 
 // ───────────────────────── menu "⋯" dos controles ─────────────────────────
 
-function MoreMenu({ items, label = 'Mais opções' }: { items: { label: string; icon: typeof Zap; onClick: () => void; disabled?: boolean; checked?: boolean; group?: string }[]; label?: string }) {
+function MoreMenu({ items, label = 'Mais opções', disabled }: { items: { label: string; icon: typeof Zap; onClick: () => void; disabled?: boolean; checked?: boolean; group?: string }[]; label?: string; disabled?: boolean }) {
   const [pos, setPos] = useState<{ right: number; bottom: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -580,7 +632,7 @@ function MoreMenu({ items, label = 'Mais opções' }: { items: { label: string; 
   }, [open])
   return (
     <div className="im-more" ref={ref}>
-      <button ref={btnRef} type="button" className="lx-icon-btn im-more__btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={toggle} onPointerUp={(e) => e.currentTarget.blur()}>
+      <button ref={btnRef} type="button" className="lx-icon-btn im-more__btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={toggle} onPointerUp={(e) => e.currentTarget.blur()} disabled={disabled}>
         <MoreHorizontal aria-hidden="true" />
       </button>
       {pos &&
@@ -757,12 +809,13 @@ function LiveMatchView() {
     if (live.phase === 'full_time' && done) setFF(false)
   }, [live.phase, done, setFF])
 
-  // "Como jogar": na 1ª partida em que você está em campo, antes de a bola rolar de verdade
-  // (nunca por cima de um lance decisivo: o cronômetro dele correria por trás)
+  // "Como jogar": na 1ª partida em que você está em campo, assim que você entra — também se um lance
+  // decisivo já estiver na tela (entrando do banco no adiantamento): o guia é um diálogo modal e o
+  // cronômetro do lance fica parado enquanto ele estiver aberto (useCountdown › appModalOpen)
   useEffect(() => {
-    if (me.on && !active && !live.pendingMoment && !howtoSeen() && live.phase !== 'full_time') setHowto(true)
+    if (me.on && !howtoSeen() && live.phase !== 'full_time') setHowto(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me.on, active])
+  }, [me.on])
   const closeHowto = () => {
     setHowto(false)
     try {
@@ -772,15 +825,35 @@ function LiveMatchView() {
     }
   }
 
+  // "Pedir para sair": o motor só aceita sem lance pendente — e ele pode já ter um lance à frente do
+  // replay (ainda não mostrado). Nesse caso o pedido fica guardado e sai logo depois do lance.
+  const [offAsked, setOffAsked] = useState(false)
+  const askOff = useCallback(async () => {
+    const l = useImmersive.getState().state?.live
+    if (!l?.userOnPitch) return
+    lt.push({ k: 'Pedido ao técnico', v: 'Você pede para sair — a troca sai na próxima parada', tone: 'accent', icon: LogOut })
+    if (l.pendingMoment) return setOffAsked(true)
+    const fx = await dispatch({ type: 'match_sub_request' })
+    if (fx.some((e) => e.type === 'toast' && e.tone === 'danger')) setOffAsked(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch])
+  useEffect(() => {
+    if (!offAsked || busy) return
+    if (!live.userOnPitch || live.phase === 'full_time' || live.phase === 'penalties') return setOffAsked(false)
+    if (live.pendingMoment || active) return
+    setOffAsked(false)
+    void dispatch({ type: 'match_sub_request' })
+  }, [offAsked, busy, live.userOnPitch, live.phase, live.pendingMoment, active, dispatch])
+
   // postura "poupar energia": pede para sair uma vez quando o gás acaba
   const subAsked = useRef(false)
   useEffect(() => {
     if (posture !== 'poupar' || subAsked.current || !done || !live.userOnPitch || locked || busy) return
     if (s.condition.fitness < 45 && running) {
       subAsked.current = true
-      void dispatch({ type: 'match_sub_request' })
+      void askOff()
     }
-  }, [posture, done, live.userOnPitch, locked, busy, s.condition.fitness, running, dispatch])
+  }, [posture, done, live.userOnPitch, locked, busy, s.condition.fitness, running, askOff])
 
   const next = useCallback(() => {
     if (locked) return
@@ -905,16 +978,20 @@ function LiveMatchView() {
       {auto && !userPaused ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
     </button>
   )
+  // postura só vale para quem está em campo (ou no banco, esperando entrar): da tribuna ou depois de sair, some
+  const canPosture = live.userStatus !== 'out' && !(me.played && !me.on) && live.phase !== 'full_time'
   const moreItems = [
-    ...(phone
+    ...(phone && canPosture
       ? (['ataque', 'equilibrada', 'poupar'] as Posture[]).map((p) => ({ label: p === 'ataque' ? 'Postura: pedir a bola' : p === 'poupar' ? 'Postura: poupar energia' : 'Postura: equilibrada', icon: Activity, checked: posture === p, group: 'p', onClick: () => setPosture(p) }))
       : []),
     { label: 'Simular até o fim', icon: SkipForward, group: 'a', onClick: () => void simToEnd(), disabled: busy || live.phase === 'full_time' || locked },
-    ...(me.on && live.phase !== 'full_time' && live.phase !== 'penalties' ? [{ label: 'Pedir para sair', icon: LogOut, group: 'a', onClick: () => void dispatch({ type: 'match_sub_request' }), disabled: busy || locked }] : []),
+    ...(me.on && live.userOnPitch && live.phase !== 'full_time' && live.phase !== 'penalties'
+      ? [{ label: offAsked ? 'Saída pedida ao técnico' : 'Pedir para sair', icon: LogOut, group: 'a', onClick: () => void askOff(), disabled: busy || locked || offAsked }]
+      : []),
   ]
   const controls = (
     <div className={cx('lx-plate lx-plate--flat lx-c-sm im-ctrl', phone && 'is-dock', locked && 'is-locked', ht && 'is-ht')} aria-disabled={locked || undefined}>
-      {!phone && (
+      {!phone && canPosture && (
         <div className="im-ctrl__grp" title={POSTURE_HINT[posture]}>
           <span className="lx-label">Postura</span>
           <ImSeg<Posture>
@@ -951,7 +1028,7 @@ function LiveMatchView() {
       )}
       {togglePlay}
       <span className="flex-1" />
-      <MoreMenu items={moreItems} />
+      <MoreMenu items={moreItems} disabled={locked} />
       {!ht && (
         <Button variant="outline" size="sm" iconRight={ArrowRight} onClick={next} onPointerUp={(e) => e.currentTarget.blur()} disabled={locked || live.phase === 'full_time' || (done && !canSim && live.phase !== 'half_time')} kbd={touch ? undefined : 'Espaço'} className="im-ctrl__next">
           {!done ? 'Pular' : 'Próx. lance'}
@@ -1011,7 +1088,7 @@ function LiveMatchView() {
             <Narration events={events} />
           </section>
           <section className="lx-plate lx-plate--flat lx-c-md im-panel im-ltable-panel">
-            <PanelHead kicker="Tabela ao vivo" icon={Table2} />
+            <PanelHead kicker={isLeagueGame(s, live) ? 'Tabela ao vivo' : 'Classificação da liga'} icon={Table2} />
             <LiveTable live={live} clock={clockF} score={score} done={done && live.phase === 'full_time'} />
           </section>
         </aside>
@@ -1124,11 +1201,14 @@ function HalfTime({ live, home, away, events, me, stats, onNext, busy }: { live:
 
 function ScorePlate({ live, home, away, score, max = 11 }: { live: LiveMatch; home: TeamInfo; away: TeamInfo; score?: [number, number]; max?: number }) {
   const sc = score ?? live.score
+  // se um dos nomes não cabe, os dois viram sigla (nada de "ATLÉTICO-MG 0 × 1 RBB")
+  const both = home.short.length <= max && away.short.length <= max
+  const nm = (t: TeamInfo) => (both ? t.short : t.abbr)
   return (
     <div className="lx-score im-scoreplate">
       <div className="lx-score__tm is-home" style={scoreColors(home.colors) as CSSProperties}>
         <span className="truncate" title={home.name}>
-          {fitName(home, max)}
+          {nm(home)}
         </span>
         <TeamMark team={home} size={34} />
       </div>
@@ -1138,7 +1218,7 @@ function ScorePlate({ live, home, away, score, max = 11 }: { live: LiveMatch; ho
       <div className="lx-score__tm is-away" style={scoreColors(away.colors) as CSSProperties}>
         <TeamMark team={away} size={34} />
         <span className="truncate" title={away.name}>
-          {fitName(away, max)}
+          {nm(away)}
         </span>
       </div>
     </div>
@@ -1162,7 +1242,7 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
   const won = live.pens ? (live.userSide === 'home' ? live.pens[0] > live.pens[1] : live.pens[1] > live.pens[0]) : us > them
   const lost = live.pens ? !won : us < them
   const glory = won && isBigGame(live)
-  const goals = live.events.filter(isGoal)
+  const goals = matchGoals(live.events)
   const gk = s.identity.position === 'GOL'
   const back = () => void dispatch({ type: 'match_finish' })
   useEffect(() => {
@@ -1174,7 +1254,7 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
       <motion.div className="im-ft__inner" initial={rm ? { opacity: 0 } : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
         <span className="lx-kicker lx-kicker--gold">
           Fim de jogo · {compInfo(live.competitionId).name}
-          {live.stage ? ` · ${live.stage}` : ''}
+          {stageSuffix(live.competitionId, live.stage)}
         </span>
         <h1 id="im-ft-t" className={cx('im-ft__res', glory ? 'is-glory' : won ? 'is-win' : lost ? 'is-loss' : 'is-draw')}>
           {won ? 'Vitória!' : lost ? 'Derrota' : 'Empate'}
@@ -1186,11 +1266,19 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
           </p>
         )}
         {goals.length > 0 && (
+          // autores dos gols embaixo do time que marcou (gol contra conta para o outro lado)
           <div className="im-ft__goals">
-            {goals.map((e, i) => (
-              <span key={i} className={cx(e.byUser && 'is-me', e.side === 'away' && 'is-away')}>
-                <BallIcon size={12} aria-hidden /> <b>{e.player ?? '—'}</b> {e.minute}&apos;
-              </span>
+            {(['home', 'away'] as const).map((sd) => (
+              <div key={sd} className={cx('im-ft__gcol', sd === 'away' && 'is-away')} aria-label={`Gols ${sd === 'home' ? home.short : away.short}`}>
+                {goals
+                  .filter((e) => (e.type === 'own_goal' ? (e.side === 'home' ? 'away' : 'home') : e.side) === sd)
+                  .map((e, i) => (
+                    <span key={i} className={cx(e.byUser && 'is-me')}>
+                      <BallIcon size={12} aria-hidden /> <b>{e.player ?? '—'}</b> {e.minute}&apos;
+                      {e.type === 'own_goal' ? ' (contra)' : e.type === 'penalty_goal' ? ' (pên.)' : ''}
+                    </span>
+                  ))}
+              </div>
             ))}
           </div>
         )}
@@ -1232,7 +1320,7 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
             </span>
             <div className="im-ft__motm-b">
               <span className="im-ft__motm-art" style={clubVars(motm.team.colors) as CSSProperties}>
-                <Jersey name={motm.name.split(' ').slice(-1)[0]} number={motm.you ? s.squadNumber : ''} kit={motm.team.national ? nationKit(motm.team.country ?? null) : clubKit(motm.team.club ?? null)} className="im-ft__motm-jersey" />
+                <Jersey name={jerseyName(motm.name)} number={motm.you ? s.squadNumber : ''} kit={motm.team.national ? nationKit(motm.team.country ?? null) : clubKit(motm.team.club ?? null)} className="im-ft__motm-jersey" />
                 <TeamMark team={motm.team} size={26} className="im-ft__motm-crest" />
               </span>
               <div className="min-w-0">

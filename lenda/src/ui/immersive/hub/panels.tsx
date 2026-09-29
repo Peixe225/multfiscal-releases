@@ -37,7 +37,7 @@ import { Crest, Flag, Modal, Button, POSITION_LABEL, YouBadge, clubVars, cx } fr
 import { AttrBar, CompLogo, FormChips, ImDlgTitle, ImOvr, Meter, PanelHead, TeamMark } from '../bits'
 import { ATTR_LABEL, KIND_LABEL } from '../model/constants'
 import { attrKeysFor, attrValue } from '../model/training'
-import { compInfo, fmtMoney, goalDiff, itemTitle, levelOf, recentForm, relWeek, resultLetter, selectionForecast, teamInfo, userLeagueId, zoneName, zoneOf, type ZoneKey } from '../model/view'
+import { compInfo, fmtMoney, goalDiff, importanceLabel, itemTitle, levelOf, weekName, recentForm, relWeek, resultLetter, selectionForecast, teamArt, teamInfo, userLeagueId, zoneName, zoneOf, type ZoneKey } from '../model/view'
 import type { NewsItem } from '@/engine/immersive/types'
 
 /** Mesma manchete em veículos diferentes na mesma semana: fica a primeira. */
@@ -98,7 +98,8 @@ export const PlayerPlate = memo(function PlayerPlate({ s, compact }: { s: Immers
           </div>
           <div className="im-pp__name">
             {club && <Crest club={club} size={34} decorative />}
-            <b>{club?.shortName ?? 'Sem clube'}</b>
+            {/* nome longo ("Athletico-PR", "Borussia M'gladbach") encolhe em vez de virar reticências */}
+            <b className={cx((club?.shortName.length ?? 0) > 13 ? 'is-xlong' : (club?.shortName.length ?? 0) > 10 && 'is-long')}>{club?.shortName ?? 'Sem clube'}</b>
           </div>
           <div className="im-pp__meta">
             {league && <CompLogo id={league.id} size={16} />}
@@ -168,7 +169,8 @@ export const RelationsPanel = memo(function RelationsPanel({ s, compact }: { s: 
   return (
     <div className={cx('im-rel', compact && 'is-compact')}>
       {REL.map((r) => {
-        const v = s.relationships[r.key]
+        // o motor guarda uma casa decimal (40,9): na tela, inteiro
+        const v = Math.round(s.relationships[r.key])
         return (
           <div key={r.key} className="im-rel__it" title={`${r.label}: ${v}/100`}>
             <r.icon size={15} aria-hidden="true" />
@@ -253,19 +255,29 @@ export const ContractStrip = memo(function ContractStrip({ s, balance }: { s: Im
   const f = s.finance
   if (!s.clubId) return null
   const left = f.contractUntil - s.season
+  // emprestado: o contrato que corre é o do empréstimo (o do clube dono volta ao fim dele)
+  const loanUntil = s.parentClubId ? ((s.engine as { loan?: { untilSeason?: number } } | undefined)?.loan?.untilSeason ?? s.season) : null
+  const parent = s.parentClubId ? getClub(s.parentClubId) : undefined
   return (
     <div className={cx('im-contract', balance && 'has-balance')}>
       <span>
         <small>Salário</small>
         <b className="num">{fmtMoney(f.salary)}/ano</b>
       </span>
-      <span>
-        <small>Contrato</small>
-        <b className={cx('num', left <= 0 && 'text-negative')}>
-          até {f.contractUntil}
-          {left <= 0 ? ' · último ano' : ''}
-        </b>
-      </span>
+      {loanUntil != null ? (
+        <span title={parent ? `Emprestado ${teamArt({ club: parent, name: parent.name }) === 'a' ? 'pela' : 'pelo'} ${parent.shortName}; contrato com ele até ${f.contractUntil}` : undefined}>
+          <small>Empréstimo</small>
+          <b className="num">até {loanUntil}</b>
+        </span>
+      ) : (
+        <span>
+          <small>Contrato</small>
+          <b className={cx('num', left <= 0 && 'text-negative')}>
+            até {f.contractUntil}
+            {left <= 0 ? ' · último ano' : ''}
+          </b>
+        </span>
+      )}
       <span>
         <small>Multa</small>
         <b className="num">{f.releaseClause ? fmtMoney(f.releaseClause) : '—'}</b>
@@ -295,6 +307,9 @@ export const MiniTable = memo(function MiniTable({ s, rows, full }: { s: Immersi
     const idx = new Set<number>([0, 1, 2])
     for (let k = Math.max(0, me - 2); k <= Math.min(n - 1, me + 2); k++) idx.add(k)
     idx.add(n - 1)
+    // lacuna de uma linha só (ex.: 3º → 5º): mostra a linha em vez do tracejado
+    const list = [...idx].sort((a, b) => a - b)
+    for (let k = 1; k < list.length; k++) if (list[k] - list[k - 1] === 2) idx.add(list[k] - 1)
     return [...idx].sort((a, b) => a - b).map((i) => ({ r: rows[i], i }))
   }, [rows, me, n, full])
   const round = rows.length ? Math.max(...rows.map((r) => r.played)) : 0
@@ -318,7 +333,7 @@ export const MiniTable = memo(function MiniTable({ s, rows, full }: { s: Immersi
           </span>
         }
       />
-      {rows.length === 0 ? (
+      {rows.length === 0 || !round ? (
         <p className="lx-t-small m-0">Tabela disponível após a primeira rodada.</p>
       ) : (
         <>
@@ -507,7 +522,7 @@ export function DayCard({ it, s, state }: { it: CalendarItem; s: ImmersiveState;
   const comp = isMatch ? compInfo(it.competitionId) : null
   return (
     <div className={cx('lx-day im-day', state === 'past' && 'is-past', state === 'today' && 'is-today', isMatch && 'is-match', it.kind === 'transfer_window' && 'lx-window-band')} style={vars} aria-current={state === 'today' ? 'step' : undefined}>
-      <span className="lx-day__dow">{it.week === 0 ? 'Pré' : `Sem ${it.week}`}{state === 'today' ? ' · agora' : ''}</span>
+      <span className="lx-day__dow">{weekName(it.week, true)}{state === 'today' ? ' · agora' : ''}</span>
       <span className="im-day__act">
         {isMatch && opp ? <TeamMark team={opp} size={24} /> : <Ico size={18} aria-hidden="true" />}
         <span className="im-day__t">{isMatch && opp ? `${it.home === false ? '@ ' : 'vs '}${opp.abbr}` : KIND_LABEL[it.kind]}</span>
@@ -534,7 +549,7 @@ export function DayCard({ it, s, state }: { it: CalendarItem; s: ImmersiveState;
           {it.result && <b className="num">{it.home === false ? `${it.result.score[1]}–${it.result.score[0]}` : `${it.result.score[0]}–${it.result.score[1]}`}</b>}
         </span>
       )}
-      {state !== 'past' && isMatch && (it.importance ?? 0) >= 0.8 && <span className="lx-chip lx-chip--sm lx-chip--gold im-day__big">Decisão</span>}
+      {state === 'next' && isMatch && (it.importance ?? 0) >= 0.8 && <span className="lx-chip lx-chip--sm lx-chip--gold im-day__big">{importanceLabel(it)}</span>}
       {state === 'today' && isMatch && <span className="lx-chip lx-chip--sm lx-chip--live im-day__big">Jogo</span>}
     </div>
   )

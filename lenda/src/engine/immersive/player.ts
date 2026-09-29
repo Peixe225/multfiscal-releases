@@ -169,6 +169,21 @@ export function potentialFactor(ovr: number, potential: number): number {
   return clamp((potential - ovr) / 5, 0, 1)
 }
 
+/** Nome do atributo para textos do motor (toasts); o mesmo da UI (ATTR_LABEL). */
+export const ATTR_NAME: Record<AttributeKey, string> = {
+  pace: 'Velocidade',
+  shooting: 'Finalização',
+  passing: 'Passe',
+  dribbling: 'Drible',
+  defending: 'Defesa',
+  physical: 'Físico',
+  diving: 'Elasticidade',
+  handling: 'Firmeza',
+  reflexes: 'Reflexo',
+  positioning: 'Posicionamento',
+  kicking: 'Reposição',
+}
+
 /** Parcelas por foco de treino (atributos de linha / goleiro). */
 export const FOCUS_SHARES: Record<TrainingFocus, { outfield: Partial<Record<AttributeKey, number>>; gk: Partial<Record<AttributeKey, number>> }> = {
   finishing: { outfield: { shooting: 0.75, dribbling: 0.25 }, gk: { kicking: 0.4, reflexes: 0.6 } },
@@ -318,7 +333,9 @@ export function ageValueFactor(age: number): number {
 export function roundMoney(v: number): number {
   if (v >= 10_000_000) return Math.round(v / 1_000_000) * 1_000_000
   if (v >= 1_000_000) return Math.round(v / 100_000) * 100_000
-  return Math.max(10_000, Math.round(v / 10_000) * 10_000)
+  if (v >= 100_000) return Math.round(v / 10_000) * 10_000
+  // salários pequenos (base, divisões de baixo): €1K de passo — com €10K, pedir €25K sobre €20K virava €30K
+  return Math.max(10_000, Math.round(v / 1_000) * 1_000)
 }
 
 /**

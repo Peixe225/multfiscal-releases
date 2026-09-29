@@ -563,7 +563,7 @@ export function buildCalendar(data: GameData, s: ImmersiveState, minPos = -1): C
   if (!club) {
     for (const w of freeAgentWeeks(kind, s.week)) push({ id: `w:${season}:${w}`, week: w, order: 0, kind: 'transfer_window', title: 'Mercado · procurando clube' })
     push({ id: `end:${season}`, week: END_WEEK, order: 0, kind: 'season_end', title: `Fim da temporada ${seasonLabel(data, s)}` })
-    push({ id: `aw:${season}`, week: END_WEEK, order: 10, kind: 'awards', title: `Premiação ${season + 1}` })
+    push({ id: `aw:${season}`, week: END_WEEK, order: 10, kind: 'awards', title: `Premiação da temporada ${seasonLabel(data, s)}` })
     return items
   }
   const nat = m.natTournament?.called ? m.natAgenda : []
@@ -675,7 +675,7 @@ export function buildCalendar(data: GameData, s: ImmersiveState, minPos = -1): C
     push({ id: `s:${season}:${w}`, week: w, order: 20, kind: 'story', title: 'Bastidores' })
   }
   push({ id: `end:${season}`, week: END_WEEK, order: 0, kind: 'season_end', title: `Fim da temporada ${seasonLabel(data, s)}` })
-  push({ id: `aw:${season}`, week: END_WEEK, order: 10, kind: 'awards', title: `Premiação ${season + 1}` })
+  push({ id: `aw:${season}`, week: END_WEEK, order: 10, kind: 'awards', title: `Premiação da temporada ${seasonLabel(data, s)}` })
   items.sort((a, b) => a.week - b.week || a.order - b.order || (a.id < b.id ? -1 : 1))
   return items
 }

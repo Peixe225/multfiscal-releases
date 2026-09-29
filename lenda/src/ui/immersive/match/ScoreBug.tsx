@@ -6,7 +6,7 @@ import { memo, useEffect, useState, type CSSProperties } from 'react'
 import type { LiveMatch, MatchEvent } from '@/engine/immersive/types'
 import { clubVars, cx } from '@/ui/primitives'
 import { CompLogo } from '../bits'
-import { clockText, isGoal, type TeamInfo } from '../model/view'
+import { clockText, deTeam, isGoal, type TeamInfo } from '../model/view'
 import { usePlayback } from './playback'
 
 function Clock({ phase }: { phase: LiveMatch['phase'] }) {
@@ -22,7 +22,7 @@ export const ScoreBug = memo(function ScoreBug({ live, home, away, score, events
     const side = last.type === 'own_goal' ? (last.side === 'home' ? 'away' : 'home') : last.side
     setGoal({ side, text: `${last.player ?? ''} ${last.minute}'`.trim() })
     const team = side === 'home' ? home : away
-    setAnnounce(`Gol do ${team.short}${last.player ? `, ${last.player}` : ''}. ${home.short} ${score[0]}, ${away.short} ${score[1]}.`)
+    setAnnounce(`Gol ${deTeam(team)}${last.player ? `, ${last.player}` : ''}. ${home.short} ${score[0]}, ${away.short} ${score[1]}.`)
     const t = setTimeout(() => setGoal(null), 4000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,7 +58,16 @@ export const ScoreBug = memo(function ScoreBug({ live, home, away, score, events
           <i className="lx-dot-accent" />
           <Clock phase={shownPhase === 'second_half' && !settled ? 'first_half' : shownPhase} />
         </span>
-        {live.pens && <span className="lx-bug__extra num">Pên. {live.pens[0]}–{live.pens[1]}</span>}
+        {live.pens ? (
+          <span className="lx-bug__extra num">Pên. {live.pens[0]}–{live.pens[1]}</span>
+        ) : (
+          // jogo de volta: agregado (ida + placar exibido), na mesma ordem mandante–visitante
+          live.aggregate && (
+            <span className="lx-bug__extra num" title="Placar agregado (ida + volta)">
+              Agr. {live.aggregate[0] + score[0]}–{live.aggregate[1] + score[1]}
+            </span>
+          )
+        )}
         {/* autor do gol numa aba sob o placar (dentro da célula do time, cortava a sigla) */}
         {goal && (
           <span className={cx('im-bug__scorer', goal.side === 'away' && 'is-away')} key={seq}>

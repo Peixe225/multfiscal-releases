@@ -7,7 +7,7 @@ import { CalendarDays, Home, Inbox, Mic, Pause, Play, Repeat2, Share2, Shirt } f
 import { navigate } from '@/store/app'
 import { useImmersive } from '@/store/immersive'
 import { IconButton, cx } from '@/ui/primitives'
-import { compInfo, currentItem, fmtMoney, itemTitle, teamInfo, weekLabel } from '../model/view'
+import { compInfo, currentItem, fmtMoney, itemTitle, stageSuffix, teamInfo, weekLabel } from '../model/view'
 import { CompLogo, ImOvrS } from '../bits'
 import { usePlayback } from '../match/playback'
 
@@ -104,7 +104,7 @@ export const LiveTopCenter = memo(function LiveTopCenter() {
       <CompLogo id={live.competitionId} size={20} />
       <span className="im-livetop__t">
         {c.name}
-        {live.stage ? ` · ${live.stage}` : ''}
+        {stageSuffix(live.competitionId, live.stage)}
         <span className="max-lg:hidden"> · {home.national ? 'Estádio nacional' : `Mando: ${home.short}`}</span>
       </span>
       {ph === 'live' && live.phase !== 'pre' && (

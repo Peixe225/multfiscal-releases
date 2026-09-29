@@ -3,6 +3,7 @@
  */
 import type { CalendarItem, ImmersiveState, LiveMatch, MatchEvent, TeamSide } from '@/engine/immersive/types'
 import type { Club, Country, League, Position, StandingRow } from '@/engine/types'
+import { artigo, countryArt, type Art } from '@/engine/immersive/util'
 import { getClub, getCompetition, getCountry, getLeague, useData } from '@/store/data'
 import type { ClubColors } from '@/ui/primitives'
 import { clubColors, formatMoney, nationColors } from '@/ui/primitives'
@@ -40,6 +41,27 @@ export function teamInfo(id: string | null | undefined, side?: TeamSide): TeamIn
   return { id: id ?? '?', name, short: side?.shortName ?? name, abbr: (side?.shortName ?? name).slice(0, 3).toUpperCase(), colors: FALLBACK_COLORS, national: !!side?.national }
 }
 
+/** Artigo do time na frase: clube ("a Ponte Preta") ou seleção ("a Argentina", "Portugal" sem artigo). */
+export function teamArt(t: Pick<TeamInfo, 'club' | 'country' | 'name'> | undefined): Art {
+  if (!t) return 'o'
+  if (t.club) return artigo(t.club)
+  return t.country ? countryArt(t.country.name) : 'o'
+}
+
+/** "do Flamengo", "da Ponte Preta", "de Portugal", "dos Estados Unidos". */
+export function deTeam(t: TeamInfo | undefined, short = true): string {
+  const a = teamArt(t)
+  const n = (short ? t?.short : t?.name) ?? ''
+  return `${a === '' ? 'de' : `d${a}`} ${n}`
+}
+
+/** "o Flamengo", "a Juventus", "Portugal". */
+export function artTeam(t: TeamInfo | undefined, short = true): string {
+  const a = teamArt(t)
+  const n = (short ? t?.short : t?.name) ?? ''
+  return a ? `${a} ${n}` : n
+}
+
 export interface CompInfo {
   id: string
   name: string
@@ -52,11 +74,29 @@ export interface CompInfo {
 export function compInfo(id: string | null | undefined): CompInfo {
   if (!id) return { id: '', name: 'Partida', short: 'Partida' }
   if (id === 'friendly') return { id, name: 'Amistoso internacional', short: 'Amistoso' }
+  // eliminatórias da Copa (id do motor, sem competição nos dados): taça da Copa como logo
+  if (id === 'qualifiers') {
+    const wc = useData.getState().data?.competitions?.find((c) => c.kind === 'world_cup')
+    return { id, name: 'Eliminatórias da Copa', short: 'Eliminatórias', trophyId: wc?.trophyId }
+  }
   const league = getLeague(id)
   if (league) return { id, name: league.name, short: league.shortName, logo: league.logo ? publicUrl(league.logo) : undefined, trophyId: league.trophyId, league }
   const comp = getCompetition(id)
   if (comp) return { id, name: comp.name, short: comp.name.replace(/^(CONMEBOL|UEFA|CONCACAF|CAF|AFC)\s+/i, ''), logo: comp.logo ? publicUrl(comp.logo) : undefined, trophyId: comp.trophyId }
   return { id, name: id, short: id }
+}
+
+/**
+ * " · fase" para juntar ao nome da competição — vazio quando a fase repete o nome ("Amistoso
+ * internacional · Amistoso internacional", "Eliminatórias · Eliminatórias da Copa").
+ */
+export function stageSuffix(compId: string | null | undefined, stage: string | null | undefined): string {
+  if (!stage) return ''
+  const c = compInfo(compId)
+  const norm = (x: string) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const st = norm(stage)
+  if ([c.name, c.short].some((n) => n && (norm(n) === st || st.startsWith(norm(n)) || norm(n).startsWith(st)))) return ''
+  return ` · ${stage}`
 }
 
 // ───────────────────────── partida ─────────────────────────
@@ -65,17 +105,39 @@ export const userTeam = (l: LiveMatch) => (l.userSide === 'home' ? l.home : l.aw
 export const oppTeam = (l: LiveMatch) => (l.userSide === 'home' ? l.away : l.home)
 export const sideIdx = (side: 'home' | 'away') => (side === 'home' ? 0 : 1)
 
+/**
+ * Cobranças da disputa de pênaltis (não contam no placar do jogo): marcadas pelo motor (`shootout`);
+ * em saves antigos, os pênaltis depois do apito de "a vaga vai para os pênaltis".
+ */
+export function shootoutSet(events: MatchEvent[]): Set<MatchEvent> {
+  const out = new Set<MatchEvent>()
+  let after = false
+  for (const e of events) {
+    if (e.type === 'full_time') after = true
+    if (e.shootout || (after && (e.type === 'penalty_goal' || e.type === 'penalty_miss'))) out.add(e)
+  }
+  return out
+}
+
 /** Placar reconstruído dos eventos já exibidos (evita "spoiler" durante o replay). */
 export function scoreFrom(events: MatchEvent[]): [number, number] {
   const s: [number, number] = [0, 0]
+  const so = shootoutSet(events)
   for (const e of events) {
+    if (so.has(e)) continue
     if (e.type === 'goal' || e.type === 'penalty_goal') s[sideIdx(e.side)]++
     else if (e.type === 'own_goal') s[sideIdx(e.side === 'home' ? 'away' : 'home')]++
   }
   return s
 }
 
-export const isGoal = (e: MatchEvent) => e.type === 'goal' || e.type === 'penalty_goal' || e.type === 'own_goal'
+export const isGoal = (e: MatchEvent) => (e.type === 'goal' || e.type === 'penalty_goal' || e.type === 'own_goal') && !e.shootout
+
+/** Gols do jogo (sem as cobranças da disputa de pênaltis). */
+export function matchGoals(events: MatchEvent[]): MatchEvent[] {
+  const so = shootoutSet(events)
+  return events.filter((e) => isGoal(e) && !so.has(e))
+}
 
 /** "67:12" a partir de um minuto fracionário. */
 export function clockText(minute: number, phase?: LiveMatch['phase']): string {
@@ -111,6 +173,19 @@ export function resultLetter(it: CalendarItem): 'V' | 'E' | 'D' | null {
   if (!r) return null
   const [a, b] = it.home === false ? [r.score[1], r.score[0]] : r.score
   return a > b ? 'V' : a < b ? 'D' : 'E'
+}
+
+/**
+ * Rótulo da importância do jogo. Na liga o motor só passa de 0,8 no clássico (rival grande do
+ * mesmo estado/país); nas copas a importância vem da fase (final, semifinal…).
+ */
+export function importanceLabel(it: Pick<CalendarItem, 'importance' | 'stage' | 'competitionId'>): string {
+  const v = it.importance ?? 0.4
+  const stage = it.stage ?? ''
+  if (it.competitionId === 'friendly') return 'Amistoso'
+  if (/rodada/i.test(stage)) return v >= 0.8 ? 'Clássico' : v >= 0.5 ? 'Jogo grande' : v >= 0.45 ? 'Reta final' : 'Rodada normal'
+  if (/(^|[·—-]\s*)final\b/i.test(stage) && !/semi|quartas|oitavas/i.test(stage)) return 'Final'
+  return v >= 0.95 ? 'Final' : v >= 0.8 ? 'Decisão' : v >= 0.6 ? 'Jogo grande' : v >= 0.45 ? 'Importante' : 'Jogo de copa'
 }
 
 /** Últimos 5 resultados do jogador (partidas concluídas do calendário). */
@@ -189,6 +264,16 @@ export const goalDiff = (r: StandingRow) => r.gf - r.ga
 // ───────────────────────── condição ─────────────────────────
 
 export const levelOf = (v: number): 'good' | 'warn' | 'crit' | undefined => (v >= 70 ? 'good' : v < 40 ? 'crit' : v < 55 ? 'warn' : undefined)
+
+/**
+ * Rótulo da semana do calendário. O motor conta semanas além de 52 no bloco de fim de temporada
+ * (o fim da temporada fica na "semana 62"): para o jogador, isso é "Fim de temporada".
+ */
+export function weekName(w: number, short = false): string {
+  if (w === 0) return short ? 'Pré' : 'Pré-temporada'
+  if (w > 52) return short ? 'Fim' : 'Fim de temporada'
+  return short ? `Sem ${w}` : `Semana ${w}`
+}
 
 /** "Semana 12 · Temporada 2026" */
 export const weekLabel = (s: Pick<ImmersiveState, 'week' | 'season'>) => (s.week === 0 ? `Pré-temporada ${s.season}` : `Semana ${s.week} · ${s.season}`)

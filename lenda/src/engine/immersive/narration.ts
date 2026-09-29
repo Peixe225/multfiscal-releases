@@ -32,7 +32,7 @@ export const T = {
     'GOOOL do {t}! {p} aparece na área e manda para as redes.',
     'É GOL! {p} finaliza cruzado, sem chances para {g}.',
     'GOL do {t}! {a} cruza na medida e {p} cabeceia firme.',
-    'Bola na rede! {p} aproveita o rebote e amplia a vibração da torcida.',
+    'Bola na rede! {p} aproveita o rebote e faz a torcida explodir.',
     'GOOOL! Chute de fora da área de {p}, no ângulo!',
     'GOL do {t}! Tabela rápida e {p} só empurra.',
     'É do {t}! {p} bate colocado no canto.',
@@ -150,8 +150,14 @@ export const MOMENT_DESC: Record<string, readonly string[]> = {
 export const RESULT_TEXT = {
   goal: ['GOOOL! Você decide!', 'Na rede! Que finalização!', 'É GOL! Estádio em festa!'],
   miss: ['Para fora! Não foi dessa vez.', 'O goleiro defendeu.', 'Por cima do gol.'],
+  // o texto do resultado segue o lance narrado (defesa, para fora, na trave)
+  missSaved: ['O goleiro defendeu.', 'Parou no goleiro.', 'Defesa do goleiro. Não foi dessa vez.'],
+  missWide: ['Para fora! Não foi dessa vez.', 'Por cima do gol.', 'Tirou tinta da trave, mas foi para fora.'],
+  missPost: ['Na trave! Por muito pouco.', 'Carimbou a trave!'],
   assist: ['Passe perfeito — e é GOL do companheiro!', 'Assistência! O companheiro só empurrou.'],
   chance: ['Passe certo, mas a finalização não entrou.', 'Boa jogada criada, o goleiro salvou.'],
+  chanceSaved: ['Boa jogada criada, o goleiro salvou.', 'Passe certo, mas o goleiro defendeu.'],
+  chanceWide: ['Passe certo, mas a finalização saiu para fora.', 'Boa jogada criada, a bola não entrou.'],
   passFail: ['Passe interceptado.', 'A bola não chegou.'],
   dribbleOk: ['Passou! Você deixa o marcador para trás.', 'Drible desconcertante!'],
   dribbleFail: ['Desarmado.', 'O marcador levou a melhor.'],

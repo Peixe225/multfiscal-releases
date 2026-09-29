@@ -32,7 +32,7 @@ import {
   scoutPotential,
 } from './player'
 import { shadowCareer } from './shadow'
-import { clamp, clubLeagueId, clubOf, clubPrestige, compOf, countryOf, irng, ix, leagueById, r1 } from './util'
+import { artigo, clamp, clubLeagueId, clubOf, clubPrestige, compOf, countryOf, do_, irng, ix, leagueById, no, r1 } from './util'
 
 const PODIUM_AWARDS = new Set<AwardId>(['ballon_dor', 'the_best', 'golden_boot', 'golden_glove', 'kopa'])
 
@@ -412,7 +412,7 @@ export function endSeason(W: WorldEngine, data: GameData, s: ImmersiveState, fx:
   if (clubId && !m.loan && role === 'starter' && s.age >= 26 && m.seasonsAtClub >= 5 && m.captainAt !== clubId) {
     m.captainAt = clubId
     s.captain = true
-    addNews(s, `${s.identity.surname} é o novo capitão do ${club?.shortName ?? 'clube'}`, 'positive', fx)
+    addNews(s, `${s.identity.surname} é o novo capitão ${do_(club)} ${club?.shortName ?? 'clube'}`, 'positive', fx)
   }
 
   // ── linha da tabela ──
@@ -469,8 +469,8 @@ export function endSeason(W: WorldEngine, data: GameData, s: ImmersiveState, fx:
     s.finance.balance += s.finance.bonuses?.perTitle ?? 0
   }
   for (const a of awards) s.log.push({ season, age: s.age, type: 'award', text: `${a.place === 1 ? 'Venceu' : `${a.place}º lugar`}: ${AWARD_LABEL[a.award]} ${a.year}.`, data: { award: a.award, place: a.place } })
-  if (record.promoted) s.log.push({ season, age: s.age, type: 'promotion', text: `Acesso com o ${cname}!` })
-  if (record.relegated) s.log.push({ season, age: s.age, type: 'relegation', text: `Rebaixamento com o ${cname}.` })
+  if (record.promoted) s.log.push({ season, age: s.age, type: 'promotion', text: `Acesso com ${artigo(club)} ${cname}!` })
+  if (record.relegated) s.log.push({ season, age: s.age, type: 'relegation', text: `Rebaixamento com ${artigo(club)} ${cname}.` })
   fx.push({ type: 'season_end', record })
   m.pendingAwards = awardResults
     .filter((a) => a.award === 'ballon_dor' || a.winner.isUser || a.ranking.some((e) => e.isUser))
@@ -518,17 +518,18 @@ export function startNextSeason(W: WorldEngine, data: GameData, s: ImmersiveStat
   if (m.loan && m.loan.untilSeason <= season) {
     const parent = m.loan.parentClubId
     const loanClub = s.clubId
+    if (m.loan.parentSalary) s.finance.salary = m.loan.parentSalary
     m.loan = undefined
     s.clubId = parent
     s.parentClubId = undefined
     m.seasonsAtClub = 0
     s.log.push({ season: s.season, age: s.age, type: 'loan_ended', text: `Fim do empréstimo. De volta: ${teamLabel(data, parent)}.`, data: { parentClubId: parent, loanClubId: loanClub } })
-    addInbox(s, 'Diretoria', 'De volta para casa', `O empréstimo acabou. Você se reapresenta no ${teamLabel(data, parent)} para a pré-temporada.`)
+    addInbox(s, 'Diretoria', 'De volta para casa', `O empréstimo acabou. Você se reapresenta ${no(clubOf(data, parent))} ${teamLabel(data, parent)} para a pré-temporada.`)
   } else if (s.clubId && s.finance.contractUntil <= season) {
     // contrato acabou sem renovação
     const old = s.clubId
-    s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Contrato com o ${teamLabel(data, old)} encerrado. Livre no mercado.` })
-    addInbox(s, 'Seu empresário', 'Você está livre no mercado', `O contrato com o ${teamLabel(data, old)} acabou. Vou buscar propostas — fique de olho na caixa de entrada.`)
+    s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Contrato com ${artigo(clubOf(data, old))} ${teamLabel(data, old)} encerrado. Livre no mercado.` })
+    addInbox(s, 'Seu empresário', 'Você está livre no mercado', `O contrato com ${artigo(clubOf(data, old))} ${teamLabel(data, old)} acabou. Vou buscar propostas — fique de olho na caixa de entrada.`)
     s.clubId = null
     s.captain = false
     m.captainAt = null

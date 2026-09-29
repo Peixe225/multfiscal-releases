@@ -41,6 +41,13 @@ function counterOddsUI(s: ImmersiveState, o: ContractOffer, ask: { salary: numbe
   return { accept, improve, walk: Math.max(0, 1 - accept - improve), ceiling, roundsLeft: o.roundsLeft }
 }
 
+/** Passo "redondo" (1, 2 ou 5 × 10ⁿ) mais próximo de `v`, no mínimo €1K. */
+function niceStep(v: number): number {
+  const e = Math.pow(10, Math.floor(Math.log10(Math.max(1000, v))))
+  const f = Math.max(1000, v) / e
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e
+}
+
 /** Rodadas iniciais de cada proposta (para os pips: o motor dá 2, ou 3 com superempresário). */
 const firstRounds = new Map<string, number>()
 const roundsOf = (o: ContractOffer) => {
@@ -193,6 +200,11 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   const [role, setRole] = useState<ContractOffer['role']>(o?.role ?? 'Rotação')
   const [reply, setReply] = useState<string | null>(null)
   const total = useRef(3)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const ended = !!offerId && !live
+  useEffect(() => {
+    if (ended) closeRef.current?.focus({ preventScroll: true })
+  }, [ended])
   // abre com os termos do clube (a contraproposta parte da oferta, nunca abaixo dela)
   useEffect(() => {
     if (!o) return
@@ -211,13 +223,17 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   if (!o) return null
   const c = getClub(o.clubId)
   const odds = counterOddsUI(s, o, { salary, years, role })
-  const step = o.salary >= 10_000_000 ? 1_000_000 : o.salary >= 1_000_000 ? 100_000 : 10_000
+  // passo de ~5% do salário oferecido (1/2/5 × 10ⁿ, nunca mais fino que o arredondamento do motor):
+  // o teto do clube é 1,2–1,5× a oferta
+  const step = Math.max(niceStep(o.salary / 20), o.salary >= 10_000_000 ? 1_000_000 : o.salary >= 1_000_000 ? 100_000 : o.salary >= 100_000 ? 10_000 : 1_000)
   const min = o.salary
   const max = Math.max(min + step * 4, Math.ceil((Math.max(odds.ceiling, o.salary) * 1.25) / step) * step)
   const cap = odds.ceiling
-  const p = odds.accept
+  // pedir exatamente os termos do clube = aceitar a proposta (a conta da contraproposta não vale aqui)
+  const same = salary === o.salary && years === o.years && role === o.role
+  const p = same ? 1 : odds.accept
   const tone = p >= 0.65 ? 'pos' : p >= 0.35 ? 'warn' : 'neg'
-  const overTerms = (salary > cap ? 1 : 0) + (ROLE_RANK[role] > ROLE_RANK[o.role] ? 1 : 0) + (years !== o.years ? 1 : 0)
+  const overTerms = (salary > o.salary ? 1 : 0) + (ROLE_RANK[role] > ROLE_RANK[o.role] ? 1 : 0) + (years !== o.years ? 1 : 0)
   const patience = Math.round((o.roundsLeft / Math.max(1, total.current)) * 10)
   const closed = !live
   const loan = o.kind === 'loan'
@@ -231,20 +247,22 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   }
   const advice =
     reply ??
-    (salary > cap
+    (same
+      ? `São os termos do clube: é só aceitar. Para pedir mais, mexa no salário${loan ? ' (no empréstimo, duração e papel são do clube)' : ', na duração ou no papel'}.`
+      : salary > cap
       ? `Acima do teto deles (${fmtMoney(cap)}): assim eles não aceitam. Baixa o salário.`
       : p >= 0.65
         ? 'Dá para pedir isso tranquilo. Eles querem fechar.'
         : p >= 0.35
           ? `Arriscado, mas possível. Se não aceitarem, ${odds.walk > 0.3 ? 'podem levantar da mesa' : 'devem melhorar a oferta'}.`
-          : 'Assim eles levantam da mesa. Eu baixaria o salário ou o papel.')
+          : `Assim eles levantam da mesa. Eu baixaria o salário${loan ? '' : ' ou o papel'}.`)
   return (
     <Modal
       open={!!offerId}
       onClose={onClose}
       size="xl"
       media={c ? <Crest club={c} size={52} decorative /> : undefined}
-      title={<ImDlgTitle kicker={`Negociação · ${o.kind === 'renewal' ? 'Renovação' : o.fee ? `Transferência · ${fmtMoney(o.fee)}` : KIND[o.kind]}`}>{`${c?.shortName ?? 'Clube'} × ${s.identity.surname}`}</ImDlgTitle>}
+      title={<ImDlgTitle kicker={`Negociação · ${o.kind === 'renewal' ? 'Renovação' : o.fee ? `Transferência · ${fmtMoney(o.fee)}` : KIND[o.kind]}`}>{`${c ? (c.name.length <= 14 ? c.name : c.shortName) : 'Clube'} × ${s.identity.surname}`}</ImDlgTitle>}
       className="im-neg-modal im-dlg"
     >
       <div className="im-neg" style={c ? (clubVars(c) as CSSProperties) : undefined}>
@@ -316,13 +334,13 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
             <span className="lx-meter" data-level={tone === 'pos' ? 'good' : tone === 'warn' ? 'warn' : 'crit'} style={{ ['--lx-v' as string]: p }} />
             <div className="im-neg__odds">
               <span>
-                Melhoram <b className="num">{formatPercent(odds.improve)}</b>
+                Melhoram <b className="num">{same ? '—' : formatPercent(odds.improve)}</b>
               </span>
-              <span className={cx(odds.walk >= 0.3 && 'is-neg')}>
-                Desistem <b className="num">{formatPercent(odds.walk)}</b>
+              <span className={cx(!same && odds.walk >= 0.3 && 'is-neg')}>
+                Desistem <b className="num">{same ? '—' : formatPercent(odds.walk)}</b>
               </span>
             </div>
-            <span className="lx-t-small">{overTerms ? `Você pede mais em ${overTerms} ${overTerms === 1 ? 'termo' : 'termos'}` : 'Os termos do clube'}{salary > cap ? ' · acima do teto' : ''}</span>
+            <span className="lx-t-small">{overTerms ? `Você muda ${overTerms} ${overTerms === 1 ? 'termo' : 'termos'} da proposta` : 'Os termos do clube'}{salary > cap ? ' · acima do teto' : ''}</span>
             <div className="im-agent">
               <span className="im-agent__av">AG</span>
               <p>{advice}</p>
@@ -330,16 +348,28 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
           </aside>
         </div>
         <div className="im-neg__actions">
-          <Button variant="danger" size="md" icon={CircleSlash} onClick={() => { void dispatch({ type: 'offer_respond', offerId: o.id, response: 'reject' }); onClose() }} disabled={busy || closed}>
-            Recusar
-          </Button>
-          <span className="flex-1" />
-          <Button variant="ghost" size="md" icon={Repeat2} onClick={() => void send()} loading={busy} disabled={closed || o.roundsLeft <= 0 || (salary === o.salary && years === o.years && role === o.role)}>
-            Enviar contraproposta
-          </Button>
-          <Button variant="primary" size="md" icon={Check} onClick={() => { void dispatch({ type: 'offer_respond', offerId: o.id, response: 'accept' }); onClose() }} disabled={busy || closed}>
-            Aceitar proposta
-          </Button>
+          {closed ? (
+            // o clube saiu da mesa: sobra só fechar (o foco vai para cá; os controles ficam desativados)
+            <>
+              <span className="flex-1" />
+              <Button ref={closeRef} variant="primary" size="md" icon={X} onClick={onClose}>
+                Fechar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="danger" size="md" icon={CircleSlash} onClick={() => { void dispatch({ type: 'offer_respond', offerId: o.id, response: 'reject' }); onClose() }} disabled={busy}>
+                Recusar
+              </Button>
+              <span className="flex-1" />
+              <Button variant="ghost" size="md" icon={Repeat2} onClick={() => void send()} loading={busy} disabled={o.roundsLeft <= 0 || same}>
+                Enviar contraproposta
+              </Button>
+              <Button variant="primary" size="md" icon={Check} onClick={() => { void dispatch({ type: 'offer_respond', offerId: o.id, response: 'accept' }); onClose() }} disabled={busy}>
+                Aceitar proposta
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </Modal>

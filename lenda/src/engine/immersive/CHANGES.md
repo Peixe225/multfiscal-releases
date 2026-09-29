@@ -147,3 +147,35 @@ Efeitos usados: `toast`, `attribute_up`, `ovr_change`, `match_event`, `key_momen
 - `ImmersiveAction`: `match_start` aceita `posture?`; nova ação `match_posture { posture }` (pré-jogo e bola rolando, fora dos pênaltis e sem lance pendente).
 - `LiveMatch.posture?: MatchPosture` (`'ataque' | 'equilibrada' | 'poupar'`).
 - `setPosture` (match.ts): "pedir a bola" cria até 2 lances decisivos a mais no tempo que resta; "poupar" corta um (sempre sobra ao menos um); saldo por partida limitado a −1…+2. Desgaste por minuto ×1,3 (pedir a bola) / ×0,7 (poupar).
+
+## QA do Modo Imersivo (temporada completa pela UI) — aditivo
+- `ImmersiveEngine.trainingPreview?(data, state, focus, intensity)` → `TrainingPreviewInfo` (`focus` efetivo,
+  `gains[]` com `value`/`to`/`progressBefore`/`progress` 0–1, `fitnessAfter`, `fitnessDelta`, `injuryRisk`). Mesma conta
+  do `train` (extraída em `trainPoints`), rodada em cópias de atributos/XP: o ganho é determinístico, então a UI mostra
+  o progresso até o próximo ponto em vez de uma "chance" inventada (a prévia antiga dizia 63–92% e nada subia).
+- `MatchEvent.shootout?: true` nas cobranças da disputa de pênaltis (`recordKick`): não são gols do jogo — a UI
+  contava os pênaltis da disputa no placar ao vivo, na lista de autores e no craque do jogo.
+- Correções de comportamento (sem mudar o contrato):
+  - Oferta da base: o card mostra o contrato que é assinado (3 anos, €24K — antes "5 anos, €20K").
+  - Boas-vindas da diretoria e manchete da assinatura saem na semana em que a temporada começa (antes "há 38 sem.").
+  - "O técnico prometeu a sua estreia hoje" agora entra sempre (era 92%).
+  - Trocas: escalação em campo/banco por lado (`LiveMem.xi`/`bench`) — ninguém sai duas vezes, quem acabou de
+    entrar não sai, o jogador entra na vaga de um titular e sai para um reserva de verdade; nomes únicos no
+    elenco e sem repetir nomes do seu time no adversário quando dá. `xi`/`bench`/`fromBench` (opcionais) nascem
+    no `createLive`; save antigo no meio da partida monta a escalação na hora (`lineup()`).
+  - Texto do resultado do lance segue o lance narrado (defesa × para fora × trave; passe que vira defesa × chute
+    para fora com um sorteio só).
+  - Dicas da coletiva nunca mostram "−0" (efeito pequeno sai só com o sinal).
+  - `roundMoney`: passo de €1K abaixo de €100K (contraproposta de €25K sobre €20K virava €30K, acima do teto).
+  - Item de premiação: "Premiação da temporada 2026" (era "Premiação 2027").
+  - Narração com o artigo certo do time (`fixArticles` em match.ts, sobre `artigo()`/`countryArt()` de util.ts):
+    "GOL da Ponte Preta", "na Juventus", "da Argentina", "de Portugal", "dos Estados Unidos"; `withArt` dá o
+    artigo também a seleções; "Juventude" volta a ser masculino. Convocação: "da seleção do Brasil" (era
+    "da Brasil"). Textos de contrato/carreira também ("Bem-vindo à Ponte Preta", "renova com a Juventus",
+    "Proposta da Chapecoense expirou", "capitão da Roma").
+  - Toast do treino com o nome do atributo ("+1 Finalização"; era "+1 shooting") — `ATTR_NAME` em player.ts.
+  - Pênalti: a narração segue o canto (goleiro no canto certo = defesa; canto errado = por cima/na trave) e bate
+    com o texto do resultado; pênalti contra que sai para fora não conta defesa do goleiro.
+  - Empréstimo: o salário da proposta (negociável) vale durante o empréstimo; o do clube dono volta ao fim
+    (`mem.loan.parentSalary`).
+  - Frase "amplia a vibração da torcida" (gol que não ampliava nada) trocada.

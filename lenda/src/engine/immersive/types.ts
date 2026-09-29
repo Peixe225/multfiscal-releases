@@ -187,6 +187,8 @@ export interface MatchEvent {
   player?: string
   assist?: string
   byUser?: boolean
+  /** (aditivo) Cobrança da disputa de pênaltis — não é gol do jogo (o placar da disputa vai em `LiveMatch.pens`). */
+  shootout?: boolean
   /** Posição aproximada no campo (0–100 x, 0–100 y) para a animação 2D. */
   at?: { x: number; y: number }
 }
@@ -475,4 +477,22 @@ export interface ImmersiveEngine {
     offerId: string,
     counter: { salary?: number; years?: number; role?: ContractOffer['role'] },
   ): { accept: number; improve: number; walk: number; ceiling: number; roundsLeft: number } | null
+  /**
+   * Prévia exata do treino da semana (mesma conta do `train`, sem mudar nada): o ganho é
+   * determinístico — cada atributo acumula progresso e sobe +1 ao completar 100%.
+   */
+  trainingPreview?(data: GameData, state: ImmersiveState, focus: TrainingFocus, intensity: 'leve' | 'normal' | 'intensa'): TrainingPreviewInfo
+}
+
+/** Resultado de `ImmersiveEngine.trainingPreview`. */
+export interface TrainingPreviewInfo {
+  /** Foco que vale de fato (lesionado: recuperação). */
+  focus: TrainingFocus
+  /** Atributos treinados (maior parcela primeiro): valor agora, valor depois e progresso 0–1 até o próximo ponto. */
+  gains: { key: AttributeKey; value: number; to: number; progressBefore: number; progress: number }[]
+  /** Energia logo após o treino (a recuperação da semana vem depois, +22). */
+  fitnessAfter: number
+  fitnessDelta: number
+  /** Chance de lesão no treino (0–1). */
+  injuryRisk: number
 }

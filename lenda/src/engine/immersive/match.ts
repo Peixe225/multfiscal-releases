@@ -37,7 +37,7 @@ import { mem, type Fx, type LiveMem, type MomentOptionSpec, type MomentSpec, typ
 import { MOMENT_DESC, RESULT_TEXT, T, say } from './narration'
 import { attr, isGK } from './player'
 import { namesFor, squadOf } from './squad'
-import { clubOf, countryOf, irng, nationStrength, r1 } from './util'
+import { artigo, clubOf, countryArt, countryOf, irng, nationStrength, r1, type Art } from './util'
 
 type Side = 'home' | 'away'
 
@@ -253,7 +253,7 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
     const p = gk
       ? 0.03
       : debut
-        ? 0.92
+        ? 1 // estreia prometida: entra (o motivo no pré-jogo diz "prometeu a sua estreia hoje")
         : youthPlan
           ? clamp(0.7 - importance * 0.4 + Math.max(0, youthTarget * m.clubMatches - s.seasonStats.apps) * 0.12, 0.3, 0.92)
           : rotationPlan
@@ -287,7 +287,7 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
     decider: false,
     extraTime: false,
     teammates: us.all.length ? us.all : ['o camisa 10'],
-    opponents: them.all.length ? them.all : ['o atacante'],
+    opponents: them.all.length ? distinctFrom(them.all, us.all) : ['o atacante'],
     keeper: userSide === 'home' ? [us.keeper, them.keeper] : [them.keeper, us.keeper],
     subsDone: [0, 0],
     cards: { yellow: 0, red: false },
@@ -296,6 +296,19 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
     lastEventMinute: 0,
   }
   if (gk) lm.keeper[idx(userSide)] = s.identity.surname
+  // escalação da narração: 10 de linha + goleiro; titular de linha, o jogador ocupa uma das vagas
+  {
+    const ui = idx(userSide)
+    const n = onAt === 0 && !gk ? 9 : 10
+    const xi: [string[], string[]] = [[], []]
+    const bench: [string[], string[]] = [[], []]
+    xi[ui] = lm.teammates.slice(0, n)
+    bench[ui] = lm.teammates.slice(n)
+    xi[1 - ui] = lm.opponents.slice(0, 10)
+    bench[1 - ui] = lm.opponents.slice(10)
+    lm.xi = xi
+    lm.bench = bench
+  }
   // desconta do λ de fundo o valor esperado dos lances do jogador
   const ctxOpp = oppStr
   let eFor = 0
@@ -351,6 +364,13 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
   }
   if (lm.prior) live.aggregate = userHome ? [lm.prior[0], lm.prior[1]] : [lm.prior[1], lm.prior[0]]
   return live
+}
+
+/** Tira do adversário os nomes que também estão no seu time ("Rafael" marca pelos dois lados), se sobrar elenco. */
+function distinctFrom(list: string[], other: string[]): string[] {
+  const mine = new Set(other.map((x) => x.toLowerCase()))
+  const out = list.filter((x) => !mine.has(x.toLowerCase()))
+  return out.length >= 12 ? out : list
 }
 
 function planMoments(s: ImmersiveState, r: Rng, pos: Position, onAt: number, importance: number): PlannedMoment[] {
@@ -553,6 +573,7 @@ function at(side: Side, zone: 'goal' | 'box' | 'mid' | 'bench', r: Rng): { x: nu
 }
 
 function push(s: ImmersiveState, live: LiveMatch, e: MatchEvent, fx: ImmersiveEffect[]) {
+  e.text = fixArticles(e.text, live)
   live.events.push(e)
   fx.push({ type: 'match_event', event: e })
   const i = idx(e.side)
@@ -586,8 +607,76 @@ function teamName(live: LiveMatch, side: Side): string {
   return side === 'home' ? live.home.shortName : live.away.shortName
 }
 
+// ───────────────────────── artigos na narração ─────────────────────────
+
+function teamArt(t: TeamSide): Art {
+  return t.national ? countryArt(t.name) : artigo(t)
+}
+
+const CONTRACT: Record<string, Record<Exclude<Art, 'o'>, string>> = {
+  do: { a: 'da', os: 'dos', as: 'das', '': 'de' },
+  no: { a: 'na', os: 'nos', as: 'nas', '': 'em' },
+  pelo: { a: 'pela', os: 'pelos', as: 'pelas', '': 'por' },
+  ao: { a: 'à', os: 'aos', as: 'às', '': 'a' },
+  o: { a: 'a', os: 'os', as: 'as', '': '' },
+}
+
+/**
+ * Os modelos da narração falam "do {t}", "no {t}", "O {t}": acerta o artigo pelo time ("GOL da Ponte
+ * Preta", "na Juventus", "da Argentina", "de Portugal", "dos Estados Unidos").
+ */
+function fixArticles(text: string, live: LiveMatch): string {
+  let out = text
+  for (const t of [live.home, live.away]) {
+    const art = teamArt(t)
+    if (art === 'o') continue
+    for (const name of new Set([t.shortName, t.name])) {
+      if (!name) continue
+      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      out = out.replace(new RegExp(`(^|[^\\p{L}])(do|no|pelo|ao|o|Do|No|Pelo|Ao|O) (${esc})(?![\\p{L}])`, 'gu'), (_m, pre: string, w: string, nm: string) => {
+        let rep = CONTRACT[w.toLowerCase()][art]
+        if (rep && w[0] !== w[0].toLowerCase()) rep = rep.charAt(0).toUpperCase() + rep.slice(1)
+        return `${pre}${rep ? `${rep} ` : ''}${nm}`
+      })
+    }
+  }
+  return out
+}
+
+/** Titulares em campo agora e reservas ainda não usados de um lado (monta na 1ª consulta). */
+function lineup(lm: LiveMem, live: LiveMatch, side: Side): { xi: string[]; bench: string[] } {
+  if (!lm.xi || !lm.bench) {
+    // save antigo (sem escalação montada no createLive): 10 de linha de cada lado
+    const split = (list: string[]): [string[], string[]] => [list.slice(0, 10), list.slice(10)]
+    const [hx, hb] = split(live.userSide === 'home' ? lm.teammates : lm.opponents)
+    const [ax, ab] = split(live.userSide === 'home' ? lm.opponents : lm.teammates)
+    lm.xi = [hx, ax]
+    lm.bench = [hb, ab]
+  }
+  const i = idx(side)
+  return { xi: lm.xi[i], bench: lm.bench[i] }
+}
+
+/** Anota quem entrou do banco (não sai de novo). */
+function cameOn(lm: LiveMem, side: Side, names: string[]) {
+  const fb: [string[], string[]] = lm.fromBench ?? [[], []]
+  fb[idx(side)].push(...names)
+  lm.fromBench = fb
+}
+
+/** Posições do `xi` de quem começou jogando (quem já entrou do banco não sai de novo). */
+function starterSlots(lm: LiveMem, live: LiveMatch, side: Side, xi: string[], from = 0): number[] {
+  void live
+  const fresh = new Set(lm.fromBench?.[idx(side)] ?? [])
+  const out: number[] = []
+  for (let j = from; j < xi.length; j++) if (!fresh.has(xi[j])) out.push(j)
+  return out
+}
+
 function pickName(lm: LiveMem, live: LiveMatch, side: Side, r: Rng): string {
-  const list = side === live.userSide ? lm.teammates : lm.opponents
+  // os primeiros da lista são os craques (marcam mais); quem entra ocupa a vaga de quem saiu
+  const { xi } = lineup(lm, live, side)
+  const list = xi.length ? xi : side === live.userSide ? lm.teammates : lm.opponents
   return r.pick(list.slice(0, Math.max(1, Math.min(list.length, 8))))
 }
 
@@ -689,7 +778,11 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
     live.userOnPitch = true
     lm.startMinute = t
     live.stats.rating = 6
-    const off = lm.teammates[Math.min(lm.teammates.length - 1, 6)] ?? 'um companheiro'
+    // sai um titular (nunca um craque do topo da lista) e o jogador ocupa a vaga dele
+    const { xi } = lineup(lm, live, us)
+    const slots = starterSlots(lm, live, us, xi)
+    const j = slots.length ? slots.reduce((a, b) => (Math.abs(b - 6) < Math.abs(a - 6) ? b : a)) : -1
+    const off = (j >= 0 ? xi.splice(j, 1)[0] : undefined) ?? 'um companheiro'
     push(s, live, { minute: t, type: 'sub_on', side: us, byUser: true, player: s.identity.surname, assist: off, text: say(r, T.userSubOn, { p: s.identity.surname, a: off }), at: at(us, 'bench', r) }, fx)
   }
   // energia ao vivo e lesão
@@ -717,7 +810,7 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
     if (reds[1 - i]) lam *= 1.2
     if (r.chance(lam / 90)) {
       const scorer = pickName(lm, live, side, r)
-      const list = side === us ? lm.teammates : lm.opponents
+      const list = lineup(lm, live, side).xi
       const others = list.filter((x) => x !== scorer)
       const assist = others.length && r.chance(0.6) ? r.pick(others.slice(0, 8)) : undefined
       const tpl = (side === us ? T.goalTeam : T.goalOpp).filter((x) => assist || !x.includes('{a}'))
@@ -750,20 +843,26 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
     // até 5 trocas por time em no máx. 3 paradas (duplas às vezes)
     for (const side of ['home', 'away'] as Side[]) {
       const i = idx(side)
-      if (lm.subsDone[i] < 5 && r.chance(0.05)) {
-        const list = side === us ? lm.teammates : lm.opponents
-        const n = Math.max(1, list.length)
-        const pickOn = (k: number) => list[list.length - 1 - (k % n)] ?? 'reserva'
-        const pickOff = (k: number) => list[(k * 3) % n] ?? 'titular'
-        const double = lm.subsDone[i] <= 3 && r.chance(0.4)
-        const k = lm.subsDone[i] + 1
-        lm.subsDone[i] += double ? 2 : 1
-        const on = pickOn(k)
-        const off = pickOff(k)
+      const { xi, bench } = lineup(lm, live, side)
+      const slots = starterSlots(lm, live, side, xi, 2)
+      if (lm.subsDone[i] < 5 && bench.length && slots.length && r.chance(0.05)) {
+        const double = lm.subsDone[i] <= 3 && bench.length >= 2 && slots.length >= 2 && r.chance(0.4)
+        const n = double ? 2 : 1
+        lm.subsDone[i] += n
+        // sai um titular (o craque do topo fica mais; quem já entrou não sai), entra o próximo do banco na vaga
+        const ins: string[] = []
+        const outs: string[] = []
+        for (let k = 0; k < n; k++) {
+          const j = slots.splice(r.int(0, slots.length - 1), 1)[0]
+          outs.push(xi[j])
+          ins.push(bench.shift()!)
+          xi[j] = ins[k]
+        }
+        cameOn(lm, side, ins)
         const text = double
-          ? say(r, T.subDouble, { p: on, p2: pickOn(k + 1), a: off, a2: pickOff(k + 1), t: teamName(live, side) })
-          : say(r, T.subOn, { p: on, a: off, t: teamName(live, side) })
-        push(s, live, { minute: t, type: 'sub_on', side, player: on, assist: off, text, at: at(side, 'bench', r) }, fx)
+          ? say(r, T.subDouble, { p: ins[0], p2: ins[1], a: outs[0], a2: outs[1], t: teamName(live, side) })
+          : say(r, T.subOn, { p: ins[0], a: outs[0], t: teamName(live, side) })
+        push(s, live, { minute: t, type: 'sub_on', side, player: ins[0], assist: outs[0], text, at: at(side, 'bench', r) }, fx)
       }
     }
   }
@@ -782,7 +881,13 @@ function userOff(s: ImmersiveState, t: number, fx: ImmersiveEffect[], why: 'coac
   live.stats.minutes = Math.max(0, t - lm.startMinute)
   if (why === 'red') return
   const r = irng(s, 'live', lm.itemId, 'off', t)
-  const on = lm.teammates[lm.teammates.length - 1] ?? 'um reserva'
+  // entra um reserva de verdade (do banco) na vaga do jogador
+  const { xi, bench } = lineup(lm, live, live.userSide)
+  const on = bench.shift() ?? 'um reserva'
+  if (on !== 'um reserva') {
+    xi.push(on)
+    cameOn(lm, live.userSide, [on])
+  }
   const text = say(r, why === 'ask' ? T.userAskOff : T.userSubOff, { p: s.identity.surname, a: on })
   push(s, live, { minute: t, type: 'sub_off', side: live.userSide, byUser: true, player: s.identity.surname, assist: on, text, at: at(live.userSide, 'bench', r) }, fx)
 }
@@ -915,7 +1020,18 @@ function shootoutOver(so: NonNullable<LiveMem['shootout']>): boolean {
   return so.k % 2 === 0 && so.h !== so.a
 }
 
-function recordKick(s: ImmersiveState, side: Side, scored: boolean, player: string, fx: ImmersiveEffect[], r: Rng) {
+/**
+ * Narração de uma cobrança coerente com o canto: goleiro no canto certo = defesa; canto errado e
+ * perdido = por cima ou na trave (nunca "o goleiro defende" com ele caído do outro lado).
+ */
+function penaltyTpl(scored: boolean, pen: { shot: PenSide; keeper: PenSide } | undefined, r: Rng): { tpl: readonly string[]; miss?: 'save' | 'over' | 'post' } {
+  if (scored) return { tpl: T.penaltyGoal }
+  if (!pen) return { tpl: T.penaltyMiss }
+  const miss = pen.shot === pen.keeper ? 'save' : r.chance(0.5) ? 'over' : 'post'
+  return { tpl: [T.penaltyMiss[miss === 'save' ? 0 : miss === 'over' ? 1 : 2]], miss }
+}
+
+function recordKick(s: ImmersiveState, side: Side, scored: boolean, player: string, fx: ImmersiveEffect[], r: Rng, tpl?: readonly string[]) {
   const live = s.live!
   const lm = mem(s).live!
   const so = lm.shootout!
@@ -930,8 +1046,9 @@ function recordKick(s: ImmersiveState, side: Side, scored: boolean, player: stri
     minute: live.minute,
     type: scored ? 'penalty_goal' : 'penalty_miss',
     side,
+    shootout: true,
     player,
-    text: `${say(r, scored ? T.penaltyGoal : T.penaltyMiss, { p: player, g })} (${so.h}–${so.a})`,
+    text: fixArticles(`${say(r, tpl ?? (scored ? T.penaltyGoal : T.penaltyMiss), { p: player, g })} (${so.h}–${so.a})`, live),
     at: at(side, 'goal', r),
   })
   fx.push({ type: 'match_event', event: live.events[live.events.length - 1] })
@@ -945,8 +1062,8 @@ function openMoment(data: GameData, s: ImmersiveState, pm: PlannedMoment, fx: Im
   const r = irng(s, 'live', lm.itemId, 'moment', lm.momentIdx, live.phase, shootout ? lm.shootout?.k ?? 0 : 0)
   const us = live.userSide
   const oppStr = us === 'home' ? live.away.strength : live.home.strength
-  const tm = r.pick(lm.teammates.slice(0, 8))
-  const op = r.pick(lm.opponents.slice(0, 8))
+  const tm = pickName(lm, live, us, r)
+  const op = pickName(lm, live, us === 'home' ? 'away' : 'home', r)
   const defs = optionDefs(pm.situation, tm)
   const pen = pm.situation === 'penalty' || pm.situation === 'penalty_save'
   const specs: MomentOptionSpec[] = []
@@ -969,7 +1086,7 @@ function openMoment(data: GameData, s: ImmersiveState, pm: PlannedMoment, fx: Im
   const desc = MOMENT_DESC[pm.situation] ?? ['Lance importante!']
   const score = live.score[idx(us)] === live.score[1 - idx(us)] ? 'Jogo empatado' : live.score[idx(us)] > live.score[1 - idx(us)] ? 'Vocês vencem' : 'Vocês perdem'
   const oppName = us === 'home' ? live.away.shortName : live.home.shortName
-  const description = `${say(r, desc, { a: tm, d: op, g: lm.keeper[1 - idx(us)], o: oppName })} ${shootout ? `Disputa por pênaltis: ${live.pens?.[0] ?? 0}–${live.pens?.[1] ?? 0}.` : `${score}, ${live.minute}'.`}`
+  const description = `${fixArticles(say(r, desc, { a: tm, d: op, g: lm.keeper[1 - idx(us)], o: oppName }), live)} ${shootout ? `Disputa por pênaltis: ${live.pens?.[0] ?? 0}–${live.pens?.[1] ?? 0}.` : `${score}, ${live.minute}'.`}`
   const id = `${lm.itemId}:k${lm.momentIdx}:${shootout ? `p${lm.shootout?.k ?? 0}` : live.minute}`
   const km: KeyMoment = {
     id,
@@ -1132,15 +1249,17 @@ export function resolveMoment(
     }
     success = u < ch
   }
+  // narração da cobrança escolhida junto com o texto do resultado (mesmo desfecho nos dois)
+  const kick = isPen ? penaltyTpl(spec.situation === 'penalty' ? success : !success, penInfo, r) : undefined
   /** Texto do pênalti com os cantos (batedor e goleiro). */
   const penText = (): string => {
     if (!penInfo) return ''
     const { shot, keeper } = penInfo
     if (spec.situation === 'penalty') {
       if (success) return shot === keeper ? `Bateu no ${SIDE_NAME[shot]}; o goleiro foi junto, mas não alcançou. GOL!` : `Bateu no ${SIDE_NAME[shot]}, goleiro no ${SIDE_NAME[keeper]}. GOL!`
-      return shot === keeper ? `O goleiro adivinhou o ${SIDE_NAME[shot]} e defendeu!` : `Bateu no ${SIDE_NAME[shot]}… e mandou para fora!`
+      return shot === keeper ? `O goleiro adivinhou o ${SIDE_NAME[shot]} e defendeu!` : kick?.miss === 'post' ? `Bateu no ${SIDE_NAME[shot]}… e acertou a trave!` : `Bateu no ${SIDE_NAME[shot]}… e mandou por cima!`
     }
-    if (success) return keeper === shot ? `Você foi no ${SIDE_NAME[keeper]} e DEFENDEU!` : 'A cobrança saiu torta: para fora!'
+    if (success) return keeper === shot ? `Você foi no ${SIDE_NAME[keeper]} e DEFENDEU!` : kick?.miss === 'post' ? 'Na trave! A cobrança não entrou.' : 'A cobrança saiu torta: por cima do gol!'
     return keeper === shot ? `Você adivinhou o ${SIDE_NAME[shot]}, mas a bola entrou.` : `Ele bateu no ${SIDE_NAME[shot]}; você foi no ${SIDE_NAME[keeper]}. Gol deles.`
   }
   const result = (extra: { success: boolean; text: string; goal?: boolean }) => {
@@ -1159,11 +1278,11 @@ export function resolveMoment(
       so.userDone = true
       live.stats.shots++
       if (success) live.stats.shotsOnTarget++
-      recordKick(s, us, success, me, fx, r)
+      recordKick(s, us, success, me, fx, r, kick?.tpl)
       text = penText()
       rating(success ? 0.3 : -0.5)
     } else {
-      recordKick(s, them, !success, spec.opponent, fx, r)
+      recordKick(s, them, !success, spec.opponent, fx, r, kick?.tpl)
       if (success) {
         live.stats.saves = (live.stats.saves ?? 0) + 1
         rating(0.5)
@@ -1189,7 +1308,7 @@ export function resolveMoment(
       } else {
         const roll = r.next()
         if (spec.situation === 'penalty') {
-          text = say(r, T.penaltyMiss, { p: me, g: lm.keeper[idx(them)] })
+          text = say(r, kick?.tpl ?? T.penaltyMiss, { p: me, g: lm.keeper[idx(them)] })
           add('penalty_miss', us, { byUser: true, player: me, text })
         } else if (roll < 0.45) {
           live.stats.shotsOnTarget++
@@ -1203,7 +1322,7 @@ export function resolveMoment(
           add('woodwork', us, { byUser: true, player: me, text })
         }
         rating(o.rating[1])
-        text = spec.situation === 'penalty' ? penText() : r.pick(RESULT_TEXT.miss)
+        text = spec.situation === 'penalty' ? penText() : r.pick(roll < 0.45 ? RESULT_TEXT.missSaved : roll < 0.9 ? RESULT_TEXT.missWide : RESULT_TEXT.missPost)
       }
       break
     }
@@ -1219,10 +1338,12 @@ export function resolveMoment(
           rating(0.7 + (big ? 0.1 : 0))
           text = r.pick(RESULT_TEXT.assist)
         } else {
-          text = say(r, r.chance(0.5) ? T.save : T.chance, { p: mate, g: lm.keeper[idx(them)], t: teamName(live, us) })
-          add(r.chance(0.5) ? 'save' : 'chance', us, { player: mate, assist: me, text })
+          // um sorteio só: a narração e o tipo do lance (defesa × para fora) têm de bater
+          const saved = r.chance(0.5)
+          text = say(r, saved ? T.save : T.chance, { p: mate, g: lm.keeper[idx(them)], t: teamName(live, us) })
+          add(saved ? 'save' : 'chance', us, { player: mate, assist: me, text })
           rating(o.rating[0])
-          text = r.pick(RESULT_TEXT.chance)
+          text = r.pick(saved ? RESULT_TEXT.chanceSaved : RESULT_TEXT.chanceWide)
         }
       } else {
         rating(o.rating[1])
@@ -1259,9 +1380,12 @@ export function resolveMoment(
     case 'save': {
       if (success) {
         if (o.onSuccess === 'save') {
-          live.stats.saves = (live.stats.saves ?? 0) + 1
+          // pênalti contra que saiu para fora (você no canto errado): não é defesa sua
+          const wide = spec.situation === 'penalty_save' && !!kick?.miss && kick.miss !== 'save'
+          if (!wide) live.stats.saves = (live.stats.saves ?? 0) + 1
           text = spec.situation === 'penalty_save' ? penText() : r.pick(RESULT_TEXT.save)
-          add('save', them, { player: spec.opponent, text: say(r, T.save, { p: spec.opponent, g: me }), byUser: true })
+          if (wide) add('penalty_miss', them, { player: spec.opponent, text: say(r, kick!.tpl, { p: spec.opponent, g: me }) })
+          else add('save', them, { player: spec.opponent, text: say(r, T.save, { p: spec.opponent, g: me }), byUser: true })
         } else {
           live.stats.tackles++
           text = r.pick(RESULT_TEXT.stop)

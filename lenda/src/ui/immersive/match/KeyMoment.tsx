@@ -210,7 +210,9 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
                     <button key={o.id} ref={i === 0 ? firstRef : undefined} type="button" className="lx-option im-opt" aria-pressed={chosen === o.id} aria-keyshortcuts={String(i + 1)} onClick={() => pick(o)}>
                       <span className="im-opt__top">
                         <span className="lx-option__key">{i + 1}</span>
-                        <span className="lx-option__meta truncate">{o.detail ?? title}</span>
+                        <span className="lx-option__meta im-opt__meta" title={o.detail ?? title}>
+                          {o.detail ?? title}
+                        </span>
                         {o.id === defaultId && <span className="im-opt__def">Padrão</span>}
                       </span>
                       <span className="lx-option__title">
