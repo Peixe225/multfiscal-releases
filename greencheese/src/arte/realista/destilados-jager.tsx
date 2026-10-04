@@ -25,10 +25,12 @@ const LARANJA = '#ec7a1e'
 
 /** Cabeça de cervo vista de frente (lado direito; o esquerdo é espelho). Origem no meio da testa. */
 const CABECA =
-  'M0 -14C9 -14 12 -6 10 4C8.5 12 5 20 0 24C-5 20 -8.5 12 -10 4C-12 -6 -9 -14 0 -14Z' +
+  'M0 -13C6 -13 9.6 -10 9.6 -5C9.6 2 7 10 5 17C4 22 2.6 25 0 25C-2.6 25 -4 22 -5 17C-7 10 -9.6 2 -9.6 -5C-9.6 -10 -6 -13 0 -13Z' +
   'M8.6 -9.4C15 -15 22 -15.6 26 -12.6C22 -6.6 15.4 -4.2 9.4 -4.4Z' +
   'M-8.6 -9.4C-15 -15 -22 -15.6 -26 -12.6C-22 -6.6 -15.4 -4.2 -9.4 -4.4Z' +
-  'M-8.4 15C-14 25 -14.6 33 -11.4 41L11.4 41C14.6 33 14 25 8.4 15Z'
+  ''
+/** Pescoço, atrás da cabeça. */
+const PESCOCO = 'M-8.6 4C-12 16 -15 29 -16.4 41L16.4 41C15 29 12 16 8.6 4Z'
 const GALHADA = 'M4.6 -13.4C8.6 -23 13 -30 22 -40.5M7.6 -21C12.4 -23.4 18 -23.8 25 -21.6M10.8 -27C15 -30 19.6 -32 27.4 -31.4M15 -32.2C15.4 -37.6 14.6 -42.4 12.4 -46.6M6 -16.4C9.6 -17.6 13.6 -17.2 17.4 -14.6M18.6 -37C22 -38 25.6 -41 27.6 -45'
 
 export function Jagermeister({ id }: PropsArte) {
@@ -50,23 +52,23 @@ export function Jagermeister({ id }: PropsArte) {
         <LG
           id={u('verde')}
           p={[
-            [0, '#010402'],
-            [0.05, '#06190d'],
-            [0.11, '#12351f'],
-            [0.2, '#1d4a2d'],
-            [0.32, '#1a4229'],
-            [0.5, '#11301d'],
-            [0.7, '#0c2516'],
-            [0.88, '#071a0e'],
-            [0.94, '#1a4329'],
-            [1, '#010402'],
+            [0, '#000301'],
+            [0.05, '#03160a'],
+            [0.11, '#0b3418'],
+            [0.2, '#145028'],
+            [0.3, '#134a25'],
+            [0.5, '#0b3018'],
+            [0.7, '#072210'],
+            [0.88, '#04170a'],
+            [0.94, '#124526'],
+            [1, '#000301'],
           ]}
         />
-        <LG id={u('licor')} p={[[0, '#2a0e04', 0.65], [0.15, '#5a220a', 0.5], [0.3, '#7e3612', 0.42], [0.5, '#4a1c07', 0.5], [0.85, '#250c03', 0.6], [1, '#150601', 0.7]]} />
+        <LG id={u('licor')} p={[[0, '#1a0802', 0.55], [0.15, '#3a1606', 0.32], [0.3, '#5a260c', 0.26], [0.5, '#2a1004', 0.36], [0.85, '#150601', 0.5], [1, '#0a0300', 0.6]]} />
         <LG id={u('licorV')} us x1={0} y1={NIVEL} x2={0} y2={FUNDO} p={[[0, '#000', 0.5], [0.18, '#000', 0.25], [0.5, '#000', 0], [1, '#000', 0.2]]} />
-        <RG id={u('brasa')} cx={174} cy={548} r={92} sy={0.75} p={[[0, '#d8702e', 0.55], [0.5, '#9a4418', 0.2], [1, '#5a2008', 0]]} />
-        <RG id={u('brasaOmbro')} cx={168} cy={268} r={74} sy={0.42} p={[[0, '#c0642a', 0.38], [1, '#c0642a', 0]]} />
-        <LG id={u('base')} x2={0} y2={1} p={[[0, '#d8a070', 0.6], [0.14, '#10301c', 0.85], [0.55, '#1f5233', 0.6], [0.9, '#d8f5e2', 0.35], [1, '#000', 0]]} />
+        <RG id={u('brasa')} cx={174} cy={548} r={92} sy={0.75} p={[[0, '#c8682a', 0.45], [0.5, '#8a3c14', 0.16], [1, '#5a2008', 0]]} />
+        <RG id={u('brasaOmbro')} cx={168} cy={268} r={74} sy={0.42} p={[[0, '#b0602a', 0.26], [1, '#b0602a', 0]]} />
+        <LG id={u('base')} x2={0} y2={1} p={[[0, '#d89a6a', 0.5], [0.14, '#08200f', 0.9], [0.55, '#123a20', 0.7], [0.9, '#bfe8cc', 0.28], [1, '#000', 0]]} />
         <LG id={u('baseH')} p={[[0, '#000', 0.8], [0.12, '#000', 0.2], [0.3, '#fff', 0.1], [0.6, '#000', 0], [0.88, '#000', 0.35], [1, '#000', 0.8]]} />
         <LG id={u('hl')} p={[[0, '#fff', 0], [0.5, '#fff', 1], [1, '#fff', 0]]} />
         <LG id={u('fadeV')} us x1={0} y1={196} x2={0} y2={588} p={[[0, '#fff', 0.6], [0.12, '#fff', 1], [0.85, '#fff', 1], [1, '#fff', 0.1]]} />
@@ -78,6 +80,11 @@ export function Jagermeister({ id }: PropsArte) {
         <LG id={u('laranja')} x1={0} y1={0} x2={1} y2={1} p={[[0, '#f8a24a'], [0.45, LARANJA], [1, '#c45810']]} />
         <LG id={u('laranjaCil')} p={cilindroMaterial({ borda: '#5a2400', base: '#d8691a', claro: '#f59a46', brilho: '#ffd2a0', sombra: '#8a3a08', aro: '#c85e14' })} />
         <RG id={u('aura')} cx={176} cy={366} r={48} p={[[0, '#fff3c6'], [0.42, '#ffc95e'], [0.85, '#f39434'], [1, '#e9801f']]} />
+        <LG id={u('gargV')} us x1={0} y1={214} x2={0} y2={242} p={[[0, '#fff'], [1, '#fff', 0]]} />
+        <mask id={u('mGarg')} maskUnits="userSpaceOnUse" x={0} y={0} width={360} height={640}>
+          <rect x={0} y={140} width={360} height={110} fill={url('gargV')} />
+        </mask>
+        <RG id={u('ombroLuz')} cx={130} cy={246} r={24} sx={1.1} sy={0.32} p={[[0, '#fff', 0.38], [1, '#fff', 0]]} />
         <LG id={u('preto')} p={cilindroMaterial({ borda: '#000', base: '#0e0e0e', claro: '#2e2e2e', brilho: '#686868', sombra: '#040404', aro: '#262626' })} />
         <LG id={u('rotH')} x1={0} y1={0} x2={1} y2={1} p={[[0, '#fff', 0.14], [0.25, '#fff', 0.03], [0.6, '#000', 0], [1, '#000', 0.25]]} />
       </defs>
@@ -85,12 +92,12 @@ export function Jagermeister({ id }: PropsArte) {
       {/* ---------- vidro verde e licor ---------- */}
       <path d={garrafa} fill={url('verde')} />
       <g clipPath={url('vidro')}>
-        <rect x={CX - 26} y={146} width={52} height={64} fill={url('verde')} />
+        <rect x={CX - 26} y={146} width={52} height={100} fill={url('verde')} mask={`url(#${u('mGarg')})`} />
       </g>
       <g clipPath={url('dentro')}>
         <rect x={CX - 26} y={146} width={52} height={NIVEL - 146} fill="#000" fillOpacity={0.5} />
         <rect x={CX - MEIA} y={NIVEL} width={MEIA * 2} height={FUNDO - NIVEL} fill={url('licor')} />
-        <rect x={CX - 24} y={NIVEL} width={48} height={40} fill={url('licor')} />
+        <rect x={CX - 24} y={NIVEL} width={48} height={45} fill={url('licor')} mask={`url(#${u('mGarg')})`} />
         <rect x={CX - MEIA} y={NIVEL} width={MEIA * 2} height={FUNDO - NIVEL} fill={url('licorV')} />
         <rect x={CX - MEIA} y={NIVEL} width={MEIA * 2} height={FUNDO - NIVEL} fill={url('brasa')} />
         <rect x={CX - MEIA} y={230} width={MEIA * 2} height={70} fill={url('brasaOmbro')} />
@@ -111,9 +118,9 @@ export function Jagermeister({ id }: PropsArte) {
         <rect x={CX + MEIA - 3.2} y={272} width={2} height={296} fill="#d9f5e2" fillOpacity={0.3} />
         <rect x={CX - CHANFRO - 0.7} y={270} width={1.4} height={296} fill="#fff" fillOpacity={0.38} />
         <rect x={CX + CHANFRO - 0.5} y={270} width={1} height={296} fill="#fff" fillOpacity={0.16} />
-        <path d={`M${CX - 24} 222 C${CX - 32} 234 ${CX - 56} 242 ${CX - 72} 250 C${CX - 80} 254 ${CX - 83} 260 ${CX - 84} 270`} fill="none" stroke="#fff" strokeOpacity={0.18} strokeWidth={9} strokeLinecap="round" />
-        <path d={`M${CX - 23} 224 C${CX - 32} 235 ${CX - 56} 243 ${CX - 72} 250.6 C${CX - 80} 254.6 ${CX - 83} 261 ${CX - 83.6} 270`} fill="none" stroke="#fff" strokeOpacity={0.7} strokeWidth={1.8} strokeLinecap="round" />
-        <path d={`M${CX + 25} 226 C${CX + 34} 236 ${CX + 58} 244 ${CX + 74} 252 C${CX + 81} 256 ${CX + 84} 262 ${CX + 84.4} 272`} fill="none" stroke="#d9f5e2" strokeOpacity={0.4} strokeWidth={1.3} strokeLinecap="round" />
+        <ellipse cx={130} cy={246} rx={26} ry={7.6} fill={url('ombroLuz')} transform="rotate(22 130 246)" />
+        <path d={`M${CX - 17} 230 C${CX - 28} 239 ${CX - 54} 246 ${CX - 70} 254 C${CX - 77} 258 ${CX - 80} 263 ${CX - 80.6} 272`} fill="none" stroke="#fff" strokeOpacity={0.5} strokeWidth={1.4} strokeLinecap="round" />
+        <path d={`M${CX + 19} 232 C${CX + 30} 240 ${CX + 56} 248 ${CX + 72} 256 C${CX + 79} 260 ${CX + 81.5} 265 ${CX + 82} 274`} fill="none" stroke="#d9f5e2" strokeOpacity={0.3} strokeWidth={1.1} strokeLinecap="round" />
       </g>
 
       {/* ---------- rótulo laranja ---------- */}
@@ -132,12 +139,15 @@ export function Jagermeister({ id }: PropsArte) {
           <path d={GALHADA} />
           <path d={GALHADA} transform="scale(-1 1)" />
         </g>
-        <path d={CABECA} fill="#141210" />
-        <ellipse cx={4.6} cy={-1.6} rx={1.5} ry={1.1} fill="#f6b04e" />
-        <ellipse cx={-4.6} cy={-1.6} rx={1.5} ry={1.1} fill="#f6b04e" />
-        <path d="M-3 18.6Q0 21.4 3 18.6" fill="none" stroke="#f6b04e" strokeOpacity={0.55} strokeWidth={0.9} />
+        <path d={PESCOCO} fill="#141210" />
+        <path d={CABECA} fill="#141210" stroke="#f6a542" strokeWidth={1.3} paintOrder="stroke" />
+        {/* contorno do focinho sobre o pescoço, olhos e pelagem */}
+        <ellipse cx={4.8} cy={-1.4} rx={1.15} ry={0.85} fill="#e08a2e" />
+        <ellipse cx={-4.8} cy={-1.4} rx={1.15} ry={0.85} fill="#e08a2e" />
+        <path d="M-1.6 22.6Q0 23.8 1.6 22.6" fill="none" stroke="#e08a2e" strokeOpacity={0.8} strokeWidth={0.8} />
+        <path d="M-9 30L-10.4 37M-4 31L-4.6 39M4 31L4.6 39M9 30L10.4 37" fill="none" stroke="#f39434" strokeOpacity={0.35} strokeWidth={0.7} strokeLinecap="round" />
       </g>
-      <text x={CX} y={460} fontFamily={FONTE.serifaPesada} fontWeight={700} fontSize={31} textAnchor="middle" textLength={134} lengthAdjust="spacingAndGlyphs" fill="#141210">
+      <text x={CX} y={460} fontFamily={FONTE.serifaPesada} fontWeight={700} fontSize={29} textAnchor="middle" textLength={122} lengthAdjust="spacingAndGlyphs" fill="#141210">
         Jägermeister
       </text>
       <path d={`M128 470.5 H232`} stroke="#141210" strokeWidth={1.2} />

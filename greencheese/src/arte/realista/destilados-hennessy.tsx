@@ -24,13 +24,13 @@ const FILETE1 = `M113 347.6Q${CX} 330.4 247 347.6L244 523.4Q${CX} 529.8 116 523.
 const FILETE2 = `M117 351.6Q${CX} 334.8 243 351.6L240.4 519.6Q${CX} 525.6 119.6 519.6Z`
 
 /** Braço armado com machado (o símbolo da casa), simplificado, numa caixa de ~28×30. */
-const BRACO =
-  'M19 30L25.5 30L20.6 15.6L14.6 17.2Z' + // braço
-  'M14.6 17.2L20.6 15.6L14.4 5.6L9.6 8.2Z' + // antebraço
-  'M8.4 7.6a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0 -7.2 0Z' + // punho
-  'M11.6 -4.6L13.3 -4.4L9.2 18.6L7.5 18.4Z' + // cabo
-  'M12.4 -3.4C6.6 -7 1.2 -4.4 0 1.6C3.6 -0.6 7.4 -0.4 11.4 1.2Z' + // lâmina
-  'M18.4 30L26.6 30L26.6 32L18.4 32Z' // punho da manga
+const BRACO_TRACO = 'M4 23.6L13.6 24.4L18.4 9.6' // braço dobrado (traço grosso)
+const BRACO_CHEIO =
+  'M15.3 7.6a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0Z' + // punho
+  'M-1 16.6L5 18.4L5 29L-1 30.8Z' + // manga da armadura
+  'M22.8 20.2L24.2 19.8L15.1 -6.2L13.7 -5.8Z' + // cabo do machado
+  'M15 -4.8C9.4 -10.4 2.6 -8.6 0.8 -2.2C5.4 -4.4 10.4 -3.6 13.4 0.6Z' + // lâmina
+  'M16.2 -3.4L20.6 -5.8L17 -1.2Z' // esporão
 
 export function Hennessy({ id }: PropsArte) {
   const u = (s: string) => `${id}-${s}`
@@ -79,6 +79,11 @@ export function Hennessy({ id }: PropsArte) {
         <LG id={u('ouroH')} p={[[0, '#5a3d10'], [0.16, '#d9b062'], [0.27, '#fff3c8'], [0.4, '#c9963e'], [0.7, '#7a5418'], [0.9, '#d6aa55'], [1, '#4a320c']]} />
         <LG id={u('ouroV')} x2={0} y2={1} p={[[0, '#fff3c4'], [0.35, '#e9bf62'], [0.6, '#a8772a'], [0.82, '#efcd7c'], [1, '#8a6120']]} />
         <LG id={u('rotH')} p={[[0, '#000', 0.65], [0.07, '#000', 0.12], [0.2, '#fff', 0.05], [0.27, '#fff', 0.11], [0.35, '#fff', 0.02], [0.78, '#000', 0.15], [1, '#000', 0.65]]} />
+        <LG id={u('gargV')} us x1={0} y1={232} x2={0} y2={262} p={[[0, '#fff'], [1, '#fff', 0]]} />
+        <mask id={u('mGarg')} maskUnits="userSpaceOnUse" x={0} y={0} width={360} height={640}>
+          <rect x={0} y={200} width={360} height={80} fill={url('gargV')} />
+        </mask>
+        <RG id={u('ombroLuz')} cx={128} cy={276} r={24} sx={1.1} sy={0.34} p={[[0, '#fff', 0.42], [1, '#fff', 0]]} />
         <LG id={u('preto')} p={cilindroMaterial({ borda: '#000', base: '#120c09', claro: '#3a2f29', brilho: '#7a6c62', sombra: '#050302', aro: '#2c231e' })} />
       </defs>
 
@@ -86,7 +91,7 @@ export function Hennessy({ id }: PropsArte) {
       <path d={garrafa} fill={url('vazio')} />
       <g clipPath={url('dentro')}>
         <rect x={CX - 90} y={NIVEL} width={180} height={FUNDO - NIVEL} fill={url('conhaque')} />
-        <rect x={CX - 26} y={NIVEL} width={52} height={40} fill={url('conhaque')} />
+        <rect x={CX - 26} y={NIVEL} width={52} height={60} fill={url('conhaque')} mask={`url(#${u('mGarg')})`} />
         <rect x={CX - 90} y={NIVEL} width={180} height={FUNDO - NIVEL} fill={url('conhaqueV')} />
         <rect x={CX - 90} y={NIVEL} width={180} height={FUNDO - NIVEL} fill={url('brasa')} />
         <rect x={CX - 90} y={250} width={180} height={90} fill={url('brasaOmbro')} />
@@ -97,9 +102,9 @@ export function Hennessy({ id }: PropsArte) {
         <path d={`M0 ${FUNDO}Q${CX} ${FUNDO + 9} 360 ${FUNDO}V600H0Z`} fill={url('base')} />
         <path d={`M${CX - 66} ${FUNDO + 1.6}Q${CX} ${FUNDO + 10} ${CX + 66} ${FUNDO + 1.6}`} fill="none" stroke="#fff0dc" strokeOpacity={0.5} strokeWidth={1.1} />
         {/* ombro redondo */}
-        <path d={`M${CX - 26} 238 C${CX - 36} 256 ${CX - 62} 268 ${CX - 82} 294`} fill="none" stroke="#fff" strokeOpacity={0.18} strokeWidth={9} strokeLinecap="round" />
-        <path d={`M${CX - 25} 240 C${CX - 36} 257 ${CX - 62} 268 ${CX - 81} 292`} fill="none" stroke="#fff" strokeOpacity={0.7} strokeWidth={1.8} strokeLinecap="round" />
-        <path d={`M${CX + 28} 242 C${CX + 40} 258 ${CX + 64} 270 ${CX + 82} 296`} fill="none" stroke="#ffd2a0" strokeOpacity={0.4} strokeWidth={1.3} strokeLinecap="round" />
+        <ellipse cx={128} cy={276} rx={26} ry={8} fill={url('ombroLuz')} transform="rotate(30 128 276)" />
+        <path d={`M${CX - 18} 248 C${CX - 30} 261 ${CX - 56} 270 ${CX - 76} 292`} fill="none" stroke="#fff" strokeOpacity={0.5} strokeWidth={1.4} strokeLinecap="round" />
+        <path d={`M${CX + 22} 250 C${CX + 36} 263 ${CX + 60} 273 ${CX + 79} 298`} fill="none" stroke="#ffd2a0" strokeOpacity={0.3} strokeWidth={1.1} strokeLinecap="round" />
       </g>
 
       {/* ---------- rótulo preto e dourado ---------- */}
@@ -108,7 +113,10 @@ export function Hennessy({ id }: PropsArte) {
       <path d={ROTULO} fill={url('papelV')} />
       <path d={FILETE1} fill="none" stroke={url('ouroH')} strokeWidth={1.4} />
       <path d={FILETE2} fill="none" stroke={url('ouroH')} strokeWidth={0.6} />
-      <path d={BRACO} fill={url('ouroV')} transform={`translate(${CX - 13} 352) scale(0.92)`} />
+      <g transform={`translate(${CX - 12.5} 355) scale(0.9)`}>
+        <path d={BRACO_TRACO} fill="none" stroke={url('ouroV')} strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" />
+        <path d={BRACO_CHEIO} fill={url('ouroV')} />
+      </g>
       <text x={CX} y={416} fontFamily={FONTE.serifa} fontStyle="italic" fontWeight={700} fontSize={38} textAnchor="middle" textLength={124} lengthAdjust="spacingAndGlyphs" fill={url('ouroV')}>
         Hennessy
       </text>

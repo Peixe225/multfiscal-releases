@@ -3,7 +3,7 @@
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 
-const base = 'http://localhost:5173/'
+const base = process.argv[3] ?? 'http://localhost:5173/'
 const out = new URL(`../revisao/${process.argv[2] ?? 'celulares'}/`, import.meta.url).pathname
 mkdirSync(out, { recursive: true })
 const aparelhos = [

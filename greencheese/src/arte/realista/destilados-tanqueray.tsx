@@ -39,17 +39,17 @@ export function Tanqueray({ id }: PropsArte) {
   const garrafa = contorno(CX, PERFIL)
   const dentro = contorno(CX, PERFIL, 4)
   const verde: [number, string][] = [
-    [0, '#010703'],
-    [0.05, '#04200f'],
-    [0.14, '#0f4a2a'],
-    [0.22, '#21774a'],
-    [0.27, '#3a9a66'],
-    [0.33, '#1d6a40'],
-    [0.48, '#0c3f24'],
-    [0.7, '#062a16'],
-    [0.86, '#0a3a21'],
-    [0.94, '#1f6a42'],
-    [1, '#010703'],
+    [0, '#000302'],
+    [0.05, '#02140a'],
+    [0.13, '#08331c'],
+    [0.21, '#12542f'],
+    [0.27, '#1f6e43'],
+    [0.33, '#104a2a'],
+    [0.48, '#072c17'],
+    [0.7, '#031a0c'],
+    [0.86, '#062914'],
+    [0.94, '#165536'],
+    [1, '#000302'],
   ]
   const anel = (y: number, dx: number, e = 4.5) => `M${CX - dx} ${y}Q${CX} ${y - e} ${CX + dx} ${y}`
 
@@ -64,8 +64,8 @@ export function Tanqueray({ id }: PropsArte) {
         </clipPath>
         <LG id={u('verde')} p={verde} />
         <LG id={u('verdeV')} us x1={0} y1={150} x2={0} y2={582} p={[[0, '#000', 0.55], [0.22, '#000', 0.2], [0.45, '#000', 0], [0.86, '#000', 0.08], [1, '#000', 0.6]]} />
-        <LG id={u('gin')} p={[[0, '#000', 0], [0.18, '#6fdc9c', 0.1], [0.28, '#a6f0c4', 0.2], [0.4, '#3aa36a', 0.08], [1, '#000', 0]]} />
-        <RG id={u('brilhoFundo')} cx={172} cy={478} r={120} sy={1.25} p={[[0, '#63e6a0', 0.42], [0.5, '#2a9f61', 0.15], [1, '#0b3a20', 0]]} />
+        <LG id={u('gin')} p={[[0, '#000', 0], [0.18, '#6fdc9c', 0.06], [0.28, '#a6f0c4', 0.12], [0.4, '#3aa36a', 0.05], [1, '#000', 0]]} />
+        <RG id={u('brilhoFundo')} cx={172} cy={478} r={120} sy={1.25} p={[[0, '#4fd58c', 0.32], [0.5, '#1f8a50', 0.12], [1, '#0b3a20', 0]]} />
         <LG id={u('base')} x2={0} y2={1} p={[[0, '#8ff5bd', 0.6], [0.14, '#0d4a29', 0.7], [0.6, '#1c7448', 0.45], [0.92, '#d2ffe6', 0.4], [1, '#000', 0]]} />
         <LG id={u('hl')} p={[[0, '#fff', 0], [0.5, '#fff', 1], [1, '#fff', 0]]} />
         <LG id={u('fadeV')} us x1={0} y1={150} x2={0} y2={585} p={[[0, '#fff', 0.6], [0.1, '#fff', 1], [0.82, '#fff', 1], [1, '#fff', 0.05]]} />
@@ -83,6 +83,10 @@ export function Tanqueray({ id }: PropsArte) {
         <RG id={u('sombraLacre')} cx={183} cy={350} r={40} p={[[0.78, '#000', 0.55], [1, '#000', 0]]} />
         <LG id={u('ouro')} x2={0} y2={1} p={[[0, '#fff6d8'], [0.4, '#f1cf86'], [0.62, '#c08a38'], [1, '#f6dd9c']]} />
         <RG id={u('cupula')} cx={146} cy={236} r={18} sx={1.4} p={[[0, '#fff', 0.5], [1, '#fff', 0]]} />
+        <LG id={u('gargV')} us x1={0} y1={192} x2={0} y2={222} p={[[0, '#fff'], [1, '#fff', 0]]} />
+        <mask id={u('mGarg')} maskUnits="userSpaceOnUse" x={0} y={0} width={360} height={640}>
+          <rect x={0} y={140} width={360} height={90} fill={url('gargV')} />
+        </mask>
         <clipPath id={u('abacaxi')}>
           <ellipse cx={CX} cy={237} rx={6.2} ry={7.6} />
         </clipPath>
@@ -92,7 +96,7 @@ export function Tanqueray({ id }: PropsArte) {
       <path d={garrafa} fill={url('verde')} />
       <g clipPath={url('vidro')}>
         {/* gargalo tem a própria curvatura */}
-        <rect x={CX - 27} y={146} width={54} height={51} fill={url('verde')} />
+        <rect x={CX - 27} y={146} width={54} height={80} fill={url('verde')} mask={`url(#${u('mGarg')})`} />
         <rect x={CX - 90} y={146} width={180} height={440} fill={url('verdeV')} />
       </g>
       <g clipPath={url('dentro')}>
@@ -152,12 +156,12 @@ export function Tanqueray({ id }: PropsArte) {
       <path d={`M156 334 A27 27 0 0 1 184 318.4`} fill="none" stroke="#fff" strokeOpacity={0.5} strokeWidth={2.4} strokeLinecap="round" />
       <path d={`M206 352 A27 27 0 0 1 186 371.6`} fill="none" stroke="#2a0005" strokeOpacity={0.5} strokeWidth={2} strokeLinecap="round" />
 
-      <TextoCurvo texto="TANQUERAY" cx={CX} y={428} raio={88} tam={25} esp={1.6} curva={4} fill={BRANCO} fontFamily={FONTE.serifa} fontWeight={700} />
-      <TextoCurvo texto="LONDON DRY GIN" cx={CX} y={451} raio={88} tam={10.5} esp={2.6} curva={4} fill={BRANCO} fontFamily={FONTE.serifa} fontWeight={700} />
+      <TextoCurvo texto="TANQUERAY" cx={CX} y={428} raio={108} tam={24} esp={1.6} curva={2} fill={BRANCO} fontFamily={FONTE.serifa} fontWeight={700} />
+      <TextoCurvo texto="LONDON DRY GIN" cx={CX} y={451} raio={104} tam={10.5} esp={2.6} curva={2} fill={BRANCO} fontFamily={FONTE.serifa} fontWeight={700} />
       <path d={`M${CX - 26} 462.5 H${CX - 6} M${CX + 6} 462.5 H${CX + 26}`} stroke={BRANCO} strokeWidth={0.8} />
       <path d={`M${CX} 459.8 L${CX + 2.7} 462.5 L${CX} 465.2 L${CX - 2.7} 462.5Z`} fill={BRANCO} />
-      <TextoCurvo texto="DISTILLED & BOTTLED IN GREAT BRITAIN" cx={CX} y={520} raio={88} tam={5.6} esp={0.7} curva={5} fill={BRANCO} fillOpacity={0.85} fontFamily={FONTE.sans} fontWeight={700} />
-      <TextoCurvo texto="47.3% VOL · 750 ML" cx={CX} y={533} raio={88} tam={7.5} esp={1.4} curva={5} fill={BRANCO} fillOpacity={0.9} fontFamily={FONTE.sans} fontWeight={700} />
+      <TextoCurvo texto="DISTILLED & BOTTLED IN GREAT BRITAIN" cx={CX} y={520} raio={104} tam={5.6} esp={0.7} curva={5} fill={BRANCO} fillOpacity={0.85} fontFamily={FONTE.sans} fontWeight={700} />
+      <TextoCurvo texto="47.3% VOL · 750 ML" cx={CX} y={533} raio={104} tam={7.5} esp={1.4} curva={5} fill={BRANCO} fillOpacity={0.9} fontFamily={FONTE.sans} fontWeight={700} />
 
       {/* ---------- reflexos ---------- */}
       <g clipPath={url('vidro')} mask={`url(#${u('mVidro')})`}>

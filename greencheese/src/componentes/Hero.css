@@ -160,3 +160,13 @@
     }
   }
 }
+
+@media (max-width: 360px) {
+  .hero-frase .adesivo-texto {
+    font-size: 14px;
+  }
+  .adesivo-link {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+}

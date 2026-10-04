@@ -57,14 +57,19 @@
 }
 .perfil-botoes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): o texto do botão nunca alarga a página em celular estreito */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 14px;
 }
 .perfil-botao {
   min-height: 44px;
+  padding: 0 8px;
   border-radius: 10px;
   font-size: 14px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15;
 }
 
 /* desktop: coluna esquerda do hero, no molde do perfil do instagram.com */

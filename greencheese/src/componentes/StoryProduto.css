@@ -82,7 +82,7 @@
 
 /* quiz (combo) */
 .ad-quiz {
-  width: min(260px, 100%);
+  width: min(300px, 100%);
   background: var(--branco);
   color: var(--preto);
   border-radius: 12px;
@@ -122,8 +122,12 @@
   border: 1px solid #c7c7c7;
   font: 800 12px/1 var(--ui);
 }
+.ad-quiz-linha > span:not(.ad-quiz-letra):not(.ad-quiz-cada) {
+  white-space: nowrap;
+}
 .ad-quiz-cada {
   margin-left: auto;
+  white-space: nowrap;
   font: 500 11px/1 var(--ui);
   opacity: 0.7;
 }
@@ -306,4 +310,53 @@
   border: 2px solid var(--preto);
   box-sizing: content-box;
   line-height: 1;
+}
+
+/* tela bem baixa (navegador do Instagram em celular pequeno): combo vira 3 pílulas lado a lado */
+@media (max-height: 620px) {
+  .ad-quiz {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    width: min(320px, 100%);
+    transform: rotate(1deg);
+  }
+  .ad-quiz-topo,
+  .ad-quiz-letra,
+  .ad-quiz-cada {
+    display: none;
+  }
+  .ad-quiz-linha {
+    margin: 0;
+    min-height: 44px;
+    padding: 0 4px;
+    justify-content: center;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+  .ad-pilha {
+    gap: 6px;
+  }
+  .ad-empurrao {
+    display: none;
+  }
+  .story-produto .sq-tela .sq-arte {
+    margin-top: 36px;
+    min-height: 80px;
+  }
+  .sq-tela .sq-detalhe {
+    display: none;
+  }
+}
+
+/* celular estreito: o preço já aparece no texto e no combo; o botão fica só com a ação */
+@media (max-width: 360px) {
+  .ad-por-preco {
+    display: none;
+  }
+  .ad-qtd .icone-botao {
+    width: 34px;
+  }
 }

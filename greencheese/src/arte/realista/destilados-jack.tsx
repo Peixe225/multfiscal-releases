@@ -66,13 +66,14 @@ export function JackDaniels({ id }: PropsArte) {
           ]}
         />
         <LG id={u('whiskyV')} x2={0} y2={1} p={[[0, '#000', 0.6], [0.14, '#000', 0.25], [0.4, '#000', 0], [0.82, '#ffb35c', 0.1], [1, '#000', 0.3]]} />
+        <RG id={u('brasaOmbro')} cx={170} cy={222} r={70} sy={0.5} p={[[0, '#ffb04a', 0.35], [1, '#ffb04a', 0]]} />
         <RG id={u('brasa')} cx={176} cy={455} r={150} sy={1.25} p={[[0, '#ffd27a', 0.6], [0.4, '#f7a040', 0.25], [1, '#f29a3a', 0]]} />
         <LG id={u('base')} x2={0} y2={1} p={[[0, '#ffcf8a', 0.9], [0.1, '#8a4512', 0.9], [0.45, '#b4651f', 0.75], [0.8, '#4a2208', 0.85], [0.94, '#fff0d8', 0.45], [1, '#000', 0]]} />
         <LG id={u('baseH')} p={[[0, '#000', 0.8], [0.12, '#000', 0.2], [0.3, '#fff', 0.12], [0.6, '#000', 0], [0.88, '#000', 0.35], [1, '#000', 0.8]]} />
         {/* faixas de reflexo */}
         <LG id={u('hl')} p={[[0, '#fff', 0], [0.5, '#fff', 1], [1, '#fff', 0]]} />
         <LG id={u('hlD')} p={[[0, '#fff', 0], [0.35, '#fff', 1], [1, '#fff', 0]]} />
-        <LG id={u('fadeV')} x2={0} y2={1} us x1={0} y1={150} y2={590} p={[[0, '#fff', 0.5], [0.12, '#fff', 1], [0.85, '#fff', 1], [1, '#fff', 0.1]]} />
+        <LG id={u('fadeV')} us x1={0} y1={150} x2={0} y2={590} p={[[0, '#fff', 0.5], [0.12, '#fff', 1], [0.85, '#fff', 1], [1, '#fff', 0.1]]} />
         <mask id={u('mVidro')} maskUnits="userSpaceOnUse" x={0} y={0} width={360} height={640}>
           <rect x={0} y={140} width={360} height={450} fill={url('fadeV')} />
           <path d={rotulo()} fill="#000" />
@@ -91,6 +92,7 @@ export function JackDaniels({ id }: PropsArte) {
         <rect x={CX - MEIA} y={NIVEL} width={MEIA * 2} height={FUNDO - NIVEL} fill={url('whisky')} />
         <rect x={CX - MEIA} y={NIVEL} width={MEIA * 2} height={FUNDO - NIVEL} fill={url('whiskyV')} />
         <rect x={CX - MEIA} y={NIVEL} width={MEIA * 2} height={FUNDO - NIVEL} fill={url('brasa')} />
+        <rect x={CX - MEIA} y={180} width={MEIA * 2} height={90} fill={url('brasaOmbro')} />
         {/* parede de vidro vista por dentro (linha escura) */}
         <path d={dentro} fill="none" stroke="#1a0a02" strokeOpacity={0.75} strokeWidth={3} />
         {/* ombro: o líquido escurece onde o vidro se inclina */}
@@ -118,6 +120,12 @@ export function JackDaniels({ id }: PropsArte) {
         <path d={`M${CX - 40} 165 C${CX - 58} 168 ${CX - 72} 172 ${CX - 79.5} 181`} fill="none" stroke="#fff" strokeOpacity={0.8} strokeWidth={2} strokeLinecap="round" />
         <path d={`M${CX - 28} 167 C${CX - 52} 170 ${CX - 68} 176 ${CX - 76} 188`} fill="none" stroke="#fff" strokeOpacity={0.2} strokeWidth={8} strokeLinecap="round" />
         <path d={`M${CX + 44} 167 C${CX + 62} 170.5 ${CX + 74} 174 ${CX + 80.5} 184`} fill="none" stroke="#ffd9a8" strokeOpacity={0.5} strokeWidth={1.4} strokeLinecap="round" />
+      </g>
+
+      {/* letreiro em relevo no vidro do ombro */}
+      <g fontFamily={FONTE.serifa} fontWeight={700} fontSize={9.5} textAnchor="middle">
+        <text x={CX + 0.7} y={232.8} fill="#2a1104" fillOpacity={0.45} textLength={92} lengthAdjust="spacing">JACK DANIEL’S</text>
+        <text x={CX} y={232} fill="#ffe2b8" fillOpacity={0.3} textLength={92} lengthAdjust="spacing">JACK DANIEL’S</text>
       </g>
 
       {/* ---------- rótulo ---------- */}
