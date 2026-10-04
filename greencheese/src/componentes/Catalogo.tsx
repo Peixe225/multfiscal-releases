@@ -3,6 +3,7 @@ import { gsap } from 'gsap'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { semAcento } from '../dados/ufs'
+import { alvoDeSaida } from '../lib/ambiente'
 import { copiarTexto } from '../lib/copiar'
 import { linkDM, linkWhatsApp, montarAviso } from '../lib/mensagem'
 import { movimentoReduzido } from '../lib/movimento'
@@ -26,6 +27,27 @@ function carregarFlip() {
   })
 }
 
+// Busca que entende o jeito que o cliente escreve: plural simples, sem acento, e apelidos por categoria.
+const APELIDOS: Record<string, string> = {
+  bebidas: 'bebida refri refrigerante soda lata importada importado drink',
+  destilados: 'destilado whisky whiskey uisque gin conhaque cognac licor bebida garrafa jack',
+  sedas: 'seda papel papelote slim king size bobina',
+  piteiras: 'piteira filtro tips ponta vidro',
+  acessorios: 'acessorio dichavador triturador grinder isqueiro bandeja cuia bowl tabacaria',
+}
+
+function textoDeBusca(p: Produto): string {
+  return semAcento(`${p.nome} ${p.tamanho ?? ''} ${p.detalhe ?? ''} ${APELIDOS[p.categoria] ?? p.categoria}`)
+}
+
+/** Termos da busca, sem acento e com plural simples (sedas → seda, piteiras → piteira). */
+function normalizarBusca(s: string): string[] {
+  return semAcento(s)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => (t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t))
+}
+
 /** Link "Avisar quando chegar": WhatsApp com a mensagem pronta; sem número, copia e abre a DM do estado. */
 export function LinkAvisar({ produto, canal, cidade, className, compacto = false }: { produto: Produto; canal: Canal; cidade: string | null; className?: string; compacto?: boolean }) {
   const avisar = useUI((s) => s.avisar)
@@ -35,7 +57,7 @@ export function LinkAvisar({ produto, canal, cidade, className, compacto = false
     <a
       className={`lembrete toque ${compacto ? 'lembrete-p' : ''} ${className ?? ''}`}
       href={href}
-      target="_blank"
+      target={alvoDeSaida()}
       rel="noopener noreferrer"
       onClick={(e) => {
         e.stopPropagation()
@@ -167,11 +189,11 @@ export function Catalogo({ abrirInfo }: { abrirInfo: () => void }) {
   }, [])
 
   const lista = useMemo(() => {
-    const q = semAcento(busca)
+    const q = normalizarBusca(busca)
     const r = produtos.filter((p) => {
       if (categoria !== 'tudo' && p.categoria !== categoria) return false
       if (soDisp && !disponivelEm(p, uf)) return false
-      if (q && !semAcento(`${p.nome} ${p.detalhe ?? ''} ${p.categoria}`).includes(q)) return false
+      if (q && !q.every((t) => textoDeBusca(p).includes(t))) return false
       return true
     })
     // disponíveis primeiro (ordem estável)
@@ -241,7 +263,7 @@ export function Catalogo({ abrirInfo }: { abrirInfo: () => void }) {
           {lista.map((p, i) => {
             const disp = uf ? (canal ? disponivelEm(p, uf) : false) : null
             return (
-              <li key={p.id} className="card" data-flip-id={p.id}>
+              <li key={p.id} className={`card ${disp === false && canal ? 'card-off' : ''}`} data-flip-id={p.id}>
                 <button
                   type="button"
                   className="card-abrir"

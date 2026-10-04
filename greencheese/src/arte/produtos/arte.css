@@ -1,14 +1,30 @@
-/* Arte do produto: canvas em baixa resolução ampliado em pixel nítido. O pai manda no tamanho. */
+/* Arte do produto: canvas em baixa resolução ampliado em pixel nítido. O pai manda no tamanho da
+   caixa; dentro dela, um quadro 9:16 centrado (escala inteira de pixel de tela, pelo
+   ResizeObserver) onde a arte e o chiado têm a mesma geometria. */
 
-/* :where() = especificidade zero; qualquer regra do pai (ex.: .sq-arte > *) ganha. */
+/* :where() = especificidade zero; qualquer regra do pai (ex.: .sq-arte > *) ganha.
+   aspect-ratio só pesa quando o pai não dá altura (mantém a proporção, como o canvas fazia). */
 :where(.arte-produto) {
   position: relative;
   display: block;
   width: 100%;
   height: 100%;
+  aspect-ratio: 9 / 16;
 }
 
-.arte-produto > canvas {
+/* Centrado por margem (sem transform: nada de meio pixel reamostrando o canvas).
+   width/height em px vêm do ResizeObserver; 100% é só a reserva. */
+.arte-quadro {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.arte-quadro canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -18,77 +34,50 @@
   image-rendering: pixelated;
 }
 
-/* ---------- indisponível: chiado por cima, só na silhueta do produto ---------- */
+/* ---------- indisponível: chiado só na silhueta, 3 quadros alternados por opacity ---------- */
 
 .arte-chiado {
   position: absolute;
   inset: 0;
-  overflow: hidden;
   pointer-events: none;
-  opacity: 0.34;
-  -webkit-mask-image: var(--arte-mascara);
-  mask-image: var(--arte-mascara);
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
 }
-/* Sem máscara ainda (arte não desenhada), nada de chiado no quadro inteiro. */
+/* Sem quadros ainda (arte não desenhada), nada de chiado. */
 .arte-chiado:not([data-pronto]) {
   visibility: hidden;
 }
 
-/* A textura (gerada uma vez em canvas) é maior que o quadro e pula de lugar em degraus:
-   só transform, sem repintar. */
-.arte-chiado::before {
-  content: '';
-  position: absolute;
-  inset: -50%;
-  background-image: var(--arte-ruido);
-  background-size: var(--arte-ruido-tam, 32%) auto;
-  background-repeat: repeat;
-  image-rendering: pixelated;
-  animation: arte-chiado 0.72s steps(1, end) infinite;
-  will-change: transform;
+/* Um quadro aceso por vez, em degraus (voz pixel): só opacity, sem repintar. */
+.arte-chiado > canvas {
+  opacity: 0;
+  animation: arte-chiado 0.36s steps(1, end) infinite;
 }
-.arte-chiado[data-pausado]::before {
+.arte-chiado > canvas:nth-child(2) {
+  animation-delay: -0.24s;
+}
+.arte-chiado > canvas:nth-child(3) {
+  animation-delay: -0.12s;
+}
+.arte-chiado[data-pausado] > canvas {
   animation-play-state: paused;
 }
 
 @keyframes arte-chiado {
   0% {
-    transform: translate3d(0, 0, 0);
+    opacity: 1;
   }
-  12.5% {
-    transform: translate3d(-9.4%, 5.1%, 0);
-  }
-  25% {
-    transform: translate3d(6.3%, -12.2%, 0);
-  }
-  37.5% {
-    transform: translate3d(-15.6%, -3.4%, 0);
-  }
-  50% {
-    transform: translate3d(11.8%, 9.7%, 0);
-  }
-  62.5% {
-    transform: translate3d(-3.1%, 14.4%, 0);
-  }
-  75% {
-    transform: translate3d(16.2%, -7.9%, 0);
-  }
-  87.5% {
-    transform: translate3d(-12.5%, -14.1%, 0);
+  33.333% {
+    opacity: 0;
   }
   100% {
-    transform: translate3d(0, 0, 0);
+    opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arte-chiado::before {
+  .arte-chiado > canvas {
     animation: none;
+  }
+  .arte-chiado > canvas:first-child {
+    opacity: 1;
   }
 }

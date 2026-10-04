@@ -1,6 +1,7 @@
 /* Estrutura da página: celular primeiro; desktop com a barra lateral do instagram.com. */
 
 .principal {
+  min-height: 100vh;
   min-height: 100dvh;
 }
 

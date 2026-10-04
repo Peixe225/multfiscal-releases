@@ -1,9 +1,12 @@
 // Desenho dos produtos em código, enquanto não há foto oficial.
 // Cada TipoArte tem um desenho próprio, feito numa grade de 90×160 unidades (9:16) e escalado
-// para w×h. Fundo transparente. Sombreado cilíndrico: luz da esquerda, reflexo vertical claro,
-// sombra à direita e contorno escuro sutil. O dither (dither.ts) transforma os degradês em
-// padrão de pixel; por isso aqui pode (e deve) ter degradê.
-// Letras de rótulo são só blocos de pixel: nunca escrever a marca.
+// para w×h. Fundo transparente. Sombreado de face: luz fraca da esquerda, sombra à direita e
+// contorno escuro sutil. A luz forte é a de aro, posta depois na cor do halo (dither.ts): o
+// produto contra a luz, como na madrugada. O dither transforma os degradês em padrão de pixel;
+// por isso aqui pode (e deve) ter degradê.
+// Letreiro: só texto de verdade e legível, em fonte bitmap presa à grade da arte. A marca entra
+// onde a marca é a embalagem (RAW, OCB, Smoking, Clipper) e o rótulo só diz o que diz de fato
+// ("Nº7", "V.S"). Nada de letra falsa: o resto é filete, faixa e selo geométrico.
 
 import type { Arte, TipoArte } from '../../lib/tipos'
 
@@ -18,6 +21,13 @@ interface Paleta {
   tampa: RGB
 }
 
+/** O que o desenho sabe do produto além das cores. */
+interface Extra {
+  nome: string
+  /** Marca escrita na embalagem (só onde a marca é a embalagem); null = sem letreiro. */
+  marca: string | null
+}
+
 /** Grade de desenho: 90×160 unidades. */
 const U = 90
 const V = 160
@@ -26,7 +36,9 @@ const CX = U / 2
 const BRANCO: RGB = [255, 255, 255]
 const PRETO: RGB = [0, 0, 0]
 const METAL: RGB = [186, 190, 196]
-const TINTA: RGB = [20, 20, 20]
+const TINTA: RGB = PRETO
+/** Força do reflexo branco à esquerda (baixo: a luz que manda é a de aro, na cor do halo). */
+const REFLEXO = 0.3
 
 /* ---------------------------------------------------------------- cores */
 
@@ -44,6 +56,12 @@ const escuro = (c: RGB, t: number) => mix(c, PRETO, t)
 const luma = (c: RGB) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255
 const preto = (a: number) => `rgba(0,0,0,${a})`
 const branco = (a: number) => `rgba(255,255,255,${a})`
+
+/** Rampa de um tom: as mesmas 4 cores entram na paleta do dither, então o que for pintado com
+ *  elas (letreiro, relevo) sai liso, sem pontilhado. */
+function rampa(c: RGB) {
+  return { luz: claro(c, 0.4), base: c, meia: escuro(c, 0.35), funda: escuro(c, 0.7) }
+}
 
 function paleta(arte: Arte): Paleta {
   const corpo = rgb(arte.corpo, [128, 128, 128])
@@ -104,13 +122,11 @@ interface Sombra {
   brilho?: number
   /** Posição do reflexo (0..1 da largura). */
   pos?: number
-  /** Luz rebatida na borda direita. */
-  aro?: number
 }
 
 /** Sombreado cilíndrico por cima do que já foi pintado, preso à silhueta. */
 function sombrear(ctx: Ctx, forma: Path2D, x0: number, x1: number, y0: number, y1: number, s: Sombra = {}) {
-  const { forca = 1, brilho = 1, pos = 0.24, aro = 1 } = s
+  const { forca = 1, brilho = 1, pos = 0.24 } = s
   ctx.save()
   ctx.clip(forma)
   const g = ctx.createLinearGradient(x0, 0, x1, 0)
@@ -126,11 +142,9 @@ function sombrear(ctx: Ctx, forma: Path2D, x0: number, x1: number, y0: number, y
   const l = ctx.createLinearGradient(x0, 0, x1, 0)
   l.addColorStop(0, branco(0))
   l.addColorStop(pos - 0.09, branco(0))
-  l.addColorStop(pos, branco(Math.min(1, 0.62 * brilho)))
-  l.addColorStop(pos + 0.045, branco(0.18 * brilho))
+  l.addColorStop(pos, branco(Math.min(1, REFLEXO * brilho)))
+  l.addColorStop(pos + 0.045, branco(0.08 * brilho))
   l.addColorStop(pos + 0.14, branco(0))
-  l.addColorStop(0.9, branco(0))
-  l.addColorStop(0.955, branco(0.14 * aro))
   l.addColorStop(1, branco(0))
   ctx.fillStyle = l
   ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
@@ -157,8 +171,9 @@ function sombraPlana(ctx: Ctx, forma: Path2D, x0: number, x1: number, y0: number
   ctx.restore()
 }
 
-/** Reflexo vertical claro, com as pontas sumindo. */
-function reflexo(ctx: Ctx, x: number, y: number, w: number, h: number, a = 0.6) {
+/** Reflexo vertical claro, com as pontas sumindo (fraco: a luz forte é a de aro). */
+function reflexo(ctx: Ctx, x: number, y: number, w: number, h: number, forca = 0.6) {
+  const a = forca * (REFLEXO / 0.62)
   const g = ctx.createLinearGradient(0, y, 0, y + h)
   g.addColorStop(0, branco(0))
   g.addColorStop(0.15, branco(a))
@@ -168,91 +183,129 @@ function reflexo(ctx: Ctx, x: number, y: number, w: number, h: number, a = 0.6) 
   ctx.fillRect(x, y, w, h)
 }
 
-/* ---------------------------------------------------------------- letras (blocos) */
+/* ---------------------------------------------------------------- letreiro (texto de verdade) */
 
-/** Pseudoaleatório determinístico a partir de uma semente (letras sempre iguais). */
-function sorteio(semente: number) {
-  let s = semente * 9301 + 49297
-  return () => {
-    s = (s * 9301 + 49297) % 233280
-    return s / 233280
-  }
+// Fonte bitmap 5×7 e, para tamanho miúdo, 3×5. Só os glifos que os letreiros usam: letra que não
+// está aqui não é escrita (melhor nada que uma palavra errada).
+const FONTE7: Record<string, readonly string[]> = {
+  A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+  C: ['.####', '#....', '#....', '#....', '#....', '#....', '.####'],
+  E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+  G: ['.####', '#....', '#....', '#..##', '#...#', '#...#', '.####'],
+  I: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '#####'],
+  K: ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
+  L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+  M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
+  N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
+  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  P: ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+  R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+  S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
+  T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+  V: ['#...#', '#...#', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
+  W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
+  '7': ['#####', '....#', '...#.', '..#..', '.#...', '.#...', '.#...'],
+  º: ['.#.', '#.#', '.#.', '...', '###', '...', '...'],
+  '.': ['.', '.', '.', '.', '.', '.', '#'],
+  ' ': ['...', '...', '...', '...', '...', '...', '...'],
+}
+const FONTE5: Record<string, readonly string[]> = {
+  A: ['.#.', '#.#', '###', '#.#', '#.#'],
+  B: ['##.', '#.#', '##.', '#.#', '##.'],
+  C: ['.##', '#..', '#..', '#..', '.##'],
+  E: ['###', '#..', '##.', '#..', '###'],
+  G: ['.##', '#..', '#.#', '#.#', '.##'],
+  I: ['###', '.#.', '.#.', '.#.', '###'],
+  K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+  L: ['#..', '#..', '#..', '#..', '###'],
+  M: ['#...#', '##.##', '#.#.#', '#...#', '#...#'],
+  N: ['#..#', '##.#', '#.##', '#..#', '#..#'],
+  O: ['###', '#.#', '#.#', '#.#', '###'],
+  P: ['##.', '#.#', '##.', '#..', '#..'],
+  R: ['##.', '#.#', '##.', '#.#', '#.#'],
+  S: ['.##', '#..', '.#.', '..#', '##.'],
+  T: ['###', '.#.', '.#.', '.#.', '.#.'],
+  V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+  W: ['#...#', '#...#', '#.#.#', '##.##', '#...#'],
+  '7': ['###', '..#', '.#.', '.#.', '.#.'],
+  º: ['##', '##', '..', '..', '..'],
+  '.': ['.', '.', '.', '.', '#'],
+  ' ': ['..', '..', '..', '..', '..'],
 }
 
-interface OpcoesEscrita {
-  /** Inclinação (skew) para letra cursiva. */
-  inclina?: number
-  /** Cor de fundo para "furar" as letras (parece letra, não barra). */
-  fundo?: RGB
-  semente?: number
-  /** Letras por palavra (default: 1 palavra). */
-  palavras?: number[]
+interface OpcoesLetreiro {
+  /** Em pé, lendo de baixo para cima (livreto em pé, corpo do isqueiro). */
+  vertical?: boolean
+  /** Sombra de 1 px de arte embaixo à direita (letra em relevo). */
+  sombra?: RGB
 }
 
 /**
- * Uma "palavra" em blocos de pixel, centrada em cx, ocupando a largura dada.
- * Letras com larguras variadas, algumas furadas. Não escreve nada de verdade.
+ * Escreve texto de verdade em fonte bitmap, preso à grade da arte: cada pixel da fonte vira k×k
+ * pixels de arte, com k inteiro (o maior que cabe na caixa maxW×maxH, dada em unidades do
+ * desenho e centrada em cx, cy). Tenta 5×7 e cai para 3×5; se nem assim couber, não escreve e
+ * devolve false. Pinta sem antisserrilhado, numa cor lisa da paleta: o dither não mexe nela.
+ * O contexto não pode estar girado (o letreiro fica sempre na grade).
  */
-function escrita(ctx: Ctx, cx: number, y: number, largura: number, altura: number, cor: RGB, o: OpcoesEscrita = {}) {
-  const { inclina = 0, fundo, semente = 1 } = o
-  const palavras = o.palavras ?? [Math.max(2, Math.round(largura / (altura * 0.8)))]
-  const r = sorteio(semente)
-  const gap = Math.max(0.5, altura * 0.22)
-  const espaco = gap * 2.2
-  // larguras relativas das letras, palavra por palavra
-  const grupos = palavras.map((n) => Array.from({ length: n }, () => ({ w: 0.7 + r() * 0.6, forma: Math.floor(r() * 6) })))
-  const nLetras = palavras.reduce((t, n) => t + n, 0)
-  const soma = grupos.flat().reduce((t, l) => t + l.w, 0)
-  const k = Math.max(0.2, (largura - gap * (nLetras - palavras.length) - espaco * (palavras.length - 1)) / soma)
-  let x = cx - largura / 2
-  ctx.save()
-  if (inclina) {
-    ctx.translate(cx, y + altura)
-    ctx.transform(1, 0, -inclina, 1, 0, 0)
-    ctx.translate(-cx, -(y + altura))
+function letreiro(ctx: Ctx, texto: string, cx: number, cy: number, maxW: number, maxH: number, cor: RGB, o: OpcoesLetreiro = {}): boolean {
+  const m = ctx.getTransform()
+  const sx = Math.hypot(m.a, m.b)
+  const sy = Math.hypot(m.c, m.d)
+  const X = m.a * cx + m.c * cy + m.e
+  const Y = m.b * cx + m.d * cy + m.f
+  const extra = o.sombra ? 1 : 0
+  for (const fonte of [FONTE7, FONTE5]) {
+    const glifos = [...texto.toUpperCase()].map((ch) => fonte[ch])
+    if (glifos.some((g) => !g)) return false
+    const lista = glifos as readonly (readonly string[])[]
+    const alt = lista[0].length
+    const comp = lista.reduce((t, g) => t + g[0].length, 0) + lista.length - 1
+    const bw = o.vertical ? alt : comp
+    const bh = o.vertical ? comp : alt
+    const k = Math.floor(Math.min((maxW * sx - extra) / bw, (maxH * sy - extra) / bh))
+    if (k < 1) continue
+    const x0 = Math.round(X - (bw * k) / 2)
+    const y0 = Math.round(Y - (bh * k) / 2)
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    const pintarTexto = (dx: number, dy: number, c: RGB) => {
+      ctx.fillStyle = css(c)
+      let u = 0
+      for (const g of lista) {
+        for (let v = 0; v < alt; v++) {
+          const linha = g[v]
+          for (let gx = 0; gx < linha.length; gx++) {
+            if (linha[gx] !== '#') continue
+            const t = u + gx
+            const px = o.vertical ? x0 + v * k : x0 + t * k
+            const py = o.vertical ? y0 + (comp - 1 - t) * k : y0 + v * k
+            ctx.fillRect(px + dx, py + dy, k, k)
+          }
+        }
+        u += g[0].length + 1
+      }
+    }
+    if (o.sombra) pintarTexto(1, 1, o.sombra)
+    pintarTexto(0, 0, cor)
+    ctx.restore()
+    return true
   }
-  grupos.forEach((letras, gi) => {
-    letras.forEach((l, li) => {
-      const lw = l.w * k
-      // cursiva: a primeira letra de cada palavra é maiúscula (mais alta)
-      const lh = inclina !== 0 && li === 0 ? altura * 1.35 : altura
-      const ly = y + altura - lh
-      ctx.fillStyle = css(cor)
-      ctx.fillRect(x, ly, lw, lh)
-      if (fundo && lw > 1.5 && altura > 2.8) furar(ctx, x, ly, lw, lh, l.forma, fundo)
-      x += lw + (li < letras.length - 1 ? gap : 0)
-    })
-    if (gi < grupos.length - 1) x += espaco
-  })
-  ctx.restore()
+  return false
 }
 
-/**
- * Recorte que faz o bloco parecer letra (sem ser letra nenhuma):
- * 0 cheio, 1 furo, 2 abertura à direita, 3 dois furos, 4 abertura em cima, 5 abertura embaixo.
- */
-function furar(ctx: Ctx, x: number, y: number, w: number, h: number, forma: number, fundo: RGB) {
-  ctx.fillStyle = css(fundo)
-  const fx = x + w * 0.34
-  const fw = w * 0.32
-  switch (forma) {
-    case 1:
-      ctx.fillRect(fx, y + h * 0.28, fw, h * 0.44)
-      break
-    case 2:
-      ctx.fillRect(fx, y + h * 0.3, w * 0.66, h * 0.4)
-      break
-    case 3:
-      ctx.fillRect(fx, y + h * 0.18, fw, h * 0.22)
-      ctx.fillRect(fx, y + h * 0.6, fw, h * 0.22)
-      break
-    case 4:
-      ctx.fillRect(fx, y, fw, h * 0.62)
-      break
-    case 5:
-      ctx.fillRect(fx, y + h * 0.38, fw, h * 0.62)
-      break
-  }
+/** Marca escrita na embalagem: só onde a marca É a embalagem (o livreto, o isqueiro). */
+const MARCAS: readonly [RegExp, string][] = [
+  [/\bRAW\b/i, 'RAW'],
+  [/\bOCB\b/i, 'OCB'],
+  [/\bSmoking\b/i, 'SMOKING'],
+  [/\bClipper\b/i, 'CLIPPER'],
+]
+
+export function marcaDoNome(nome: string | undefined): string | null {
+  if (!nome) return null
+  for (const [re, marca] of MARCAS) if (re.test(nome)) return marca
+  return null
 }
 
 /** Linha fina centrada (texto miúdo do rótulo). */
@@ -284,8 +337,8 @@ function tampaRosca(ctx: Ctx, x: number, y: number, w: number, h: number, cor: R
 type EstampaLata = 'onda' | 'diagonal' | 'selo'
 
 /**
- * A estampa da lata sai das cores, pela legibilidade: corpo escuro → selo central;
- * letra clara → fita em onda com letra cursiva; letra escura → faixa diagonal com a letra dentro.
+ * A estampa da lata sai das cores: corpo escuro → selo central; detalhe claro → fita em onda;
+ * detalhe escuro → faixa diagonal. Sem letreiro: a lata se reconhece pela cor e pela estampa.
  */
 function estampaDaLata(p: Paleta): EstampaLata {
   if (luma(p.corpo) < 0.12) return 'selo'
@@ -373,32 +426,22 @@ function lata(ctx: Ctx, p: Paleta, alta: boolean) {
 }
 
 function estampaOnda(ctx: Ctx, p: Paleta, r: number, ym: number) {
-  // fita em onda (faixa), atravessando a lata
-  const y = ym + 9
+  // A fita em onda sozinha identifica a lata: fita larga clara (detalhe) atravessando, com um fio
+  // da cor da faixa correndo por cima. Nada de letreiro.
+  const y = ym + 5
   const f = new Path2D()
-  f.moveTo(CX - r - 2, y + 7)
-  f.bezierCurveTo(CX - 10, y - 9, CX + 3, y + 11, CX + r + 2, y - 7)
-  f.lineTo(CX + r + 2, y - 2)
-  f.bezierCurveTo(CX + 5, y + 15, CX - 9, y - 2, CX - r - 2, y + 12)
+  f.moveTo(CX - r - 2, y + 8)
+  f.bezierCurveTo(CX - 10, y - 10, CX + 3, y + 12, CX + r + 2, y - 8)
+  f.lineTo(CX + r + 2, y - 1.5)
+  f.bezierCurveTo(CX + 5, y + 18, CX - 9, y - 2.5, CX - r - 2, y + 14.5)
   f.closePath()
-  pintar(ctx, f, p.faixa)
-  // fio fino acompanhando a fita
-  ctx.strokeStyle = css(p.detalhe, 0.9)
-  ctx.lineWidth = 0.8
+  pintar(ctx, f, p.detalhe)
+  ctx.strokeStyle = css(p.faixa)
+  ctx.lineWidth = 1.7
   ctx.beginPath()
-  ctx.moveTo(CX - r - 2, y + 15)
-  ctx.bezierCurveTo(CX - 9, y + 1, CX + 5, y + 18, CX + r + 2, y + 1.5)
+  ctx.moveTo(CX - r - 2, y + 2.5)
+  ctx.bezierCurveTo(CX - 10, y - 15.5, CX + 3, y + 6.5, CX + r + 2, y - 13.5)
   ctx.stroke()
-  // letra cursiva (detalhe) acima da fita, com a cauda por baixo
-  escrita(ctx, CX - 1, ym - 15, 30, 6, p.detalhe, { inclina: 0.32, fundo: p.corpo, semente: 3, palavras: [4, 4] })
-  ctx.strokeStyle = css(p.detalhe)
-  ctx.lineWidth = 1.2
-  ctx.beginPath()
-  ctx.moveTo(CX - 14, ym - 6.5)
-  ctx.quadraticCurveTo(CX, ym - 3.5, CX + 13, ym - 8)
-  ctx.stroke()
-  // sabor, miudinho, abaixo da fita
-  escrita(ctx, CX, ym + 26, 16, 2.6, p.faixa, { semente: 8 })
 }
 
 function estampaDiagonal(ctx: Ctx, p: Paleta, r: number, ym: number) {
@@ -409,7 +452,10 @@ function estampaDiagonal(ctx: Ctx, p: Paleta, r: number, ym: number) {
   ctx.fillRect(-r - 12, -8, (r + 12) * 2, 16)
   ctx.fillRect(-r - 12, -12.5, (r + 12) * 2, 2)
   ctx.fillRect(-r - 12, 10.5, (r + 12) * 2, 1.2)
-  escrita(ctx, 0, -3.6, 28, 7, p.detalhe, { fundo: p.faixa, semente: 5, palavras: [2, 6] })
+  // dois fios da cor do detalhe dentro da faixa (no lugar do letreiro)
+  ctx.fillStyle = css(p.detalhe)
+  ctx.fillRect(-r - 12, -3.4, (r + 12) * 2, 1.5)
+  ctx.fillRect(-r - 12, 1.6, (r + 12) * 2, 1.5)
   ctx.restore()
   // estrelinha/selo pequeno em cima
   pintar(ctx, elipse(CX + 6, ym - 22, 3.2, 3.2), p.faixa, 0.95)
@@ -421,8 +467,8 @@ function estampaSelo(ctx: Ctx, p: Paleta, r: number, ym: number, yC0: number, yC
   ctx.fillStyle = css(p.faixa)
   ctx.fillRect(CX - r - 2, yC0 + 3.5, (r + 2) * 2, 1.6)
   ctx.fillRect(CX - r - 2, yC1 - 5, (r + 2) * 2, 1.6)
-  // letras no topo
-  escrita(ctx, CX, yC0 + 8, 22, 5, p.detalhe, { fundo: p.corpo, semente: 2 })
+  // terceiro fio, fino, logo abaixo do de cima
+  ctx.fillRect(CX - r - 2, yC0 + 7.5, (r + 2) * 2, 0.9)
   // mancha (faixa) irregular atrás do rosto
   const pts: number[] = []
   const n = 16
@@ -478,9 +524,11 @@ function estampaAlta(ctx: Ctx, p: Paleta, r: number, yC0: number, yC1: number) {
   ctx.strokeStyle = css(galho, 0.7)
   ctx.lineWidth = 0.7
   ctx.stroke(ret(CX - 10.8, ym - 13.3, 21.6, 26.6, 7.5))
-  escrita(ctx, CX, ym - 7, 17, 5.5, galho, { inclina: 0.3, fundo: p.detalhe, semente: 11, palavras: [6] })
-  escrita(ctx, CX, ym + 2, 13, 3, p.faixa, { semente: 4, palavras: [3, 3] })
-  filete(ctx, CX, ym + 8, 10, 0.9, galho, 0.8)
+  // no painel, uma flor só e dois fios (sem letreiro)
+  pintar(ctx, elipse(CX, ym - 4.5, 3.8, 3.8), p.faixa)
+  pintar(ctx, elipse(CX - 0.6, ym - 5.1, 1.4, 1.4), claro(p.faixa, 0.6))
+  filete(ctx, CX, ym + 3, 14, 1.1, galho, 0.85)
+  filete(ctx, CX, ym + 6.6, 9, 1.1, p.faixa)
 }
 
 /* ================================================================ GARRAFAS */
@@ -564,36 +612,30 @@ function garrafaQuadrada(ctx: Ctx, p: Paleta) {
   ctx.lineWidth = 0.75
   ctx.stroke(moldura)
   const d = p.detalhe
-  // assinatura cursiva
-  escrita(ctx, CX, ly + 6.5, 19, 4.4, d, { inclina: 0.35, fundo: p.rotulo, semente: 21, palavras: [4, 5] })
-  filete(ctx, CX, ly + 13.6, 16, 0.7, d)
-  // "Old" + "Nº 7"
-  escrita(ctx, CX, ly + 16, 8, 2.4, d, { semente: 6 })
-  ctx.fillStyle = css(d)
-  // N
-  ctx.fillRect(CX - 10.4, ly + 23, 1.7, 9)
-  ctx.fillRect(CX - 6.4, ly + 23, 1.7, 9)
-  ctx.fill(poligono([CX - 10.4, ly + 23, CX - 8.7, ly + 23, CX - 4.7, ly + 32, CX - 6.4, ly + 32]))
-  // º
-  ctx.fillRect(CX - 3.6, ly + 23, 2.4, 2.4)
-  ctx.fillRect(CX - 3.6, ly + 26.4, 2.4, 0.8)
-  // 7 grande
-  ctx.fillRect(CX + 0.4, ly + 21, 9.6, 3)
-  ctx.fill(poligono([CX + 10, ly + 21, CX + 10, ly + 24, CX + 5.6, ly + 37, CX + 2.4, ly + 37, CX + 7, ly + 24]))
-  // miúdos de baixo
-  escrita(ctx, CX, ly + 40.5, 11, 2.2, d, { semente: 9 })
+  // topo: fio em arco acompanhando a moldura e um fio reto (no lugar da assinatura)
+  ctx.strokeStyle = css(d)
+  ctx.lineWidth = 0.9
+  ctx.beginPath()
+  ctx.moveTo(lx + 6, ly + 9)
+  ctx.quadraticCurveTo(CX, ly + 4.6, lx + lw - 6, ly + 9)
+  ctx.stroke()
+  filete(ctx, CX, ly + 13.6, 16, 0.8, d)
+  // miúdos de baixo: só fios
+  filete(ctx, CX, ly + 41, 12, 0.8, d, 0.9)
   filete(ctx, CX, ly + 45, 21, 1, d, 0.95)
   filete(ctx, CX, ly + 48, 17, 1, d, 0.85)
   filete(ctx, CX, ly + 51, 11, 1, d, 0.75)
   // rótulo também pega a luz (papel fosco)
   sombraPlana(ctx, rot, lx, lx + lw, ly, ly + lh, 0.55)
+  // "Nº7": o que o rótulo diz de fato, em letreiro (depois da luz: cor lisa)
+  if (!letreiro(ctx, 'Nº7', CX, ly + 27, 24, 17, d)) filete(ctx, CX, ly + 26, 12, 3, d)
 
   // gargalo: cinta preta com dois filetes brancos
   const cinta = ret(CX - xn - 0.4, 31, (xn + 0.4) * 2, 14.5, 0.6)
   pintar(ctx, cinta, p.rotulo)
   filete(ctx, CX, 33, 10, 0.7, d)
   filete(ctx, CX, 43, 10, 0.7, d)
-  escrita(ctx, CX, 36.6, 7, 3, d, { semente: 13 })
+  filete(ctx, CX, 37.8, 6, 0.9, d, 0.8)
   sombrear(ctx, ret(CX - xn - 0.5, yN, (xn + 0.5) * 2, yO - yN + 2), CX - xn - 0.5, CX + xn + 0.5, yN, yO + 2, { brilho: 1.1 })
 
   tampaRosca(ctx, CX - 7.6, 13, 15.2, 14.6, p.tampa)
@@ -658,9 +700,10 @@ function garrafaGin(ctx: Ctx, p: Paleta) {
   ctx.strokeStyle = css(p.detalhe, 0.9)
   ctx.lineWidth = 0.6
   ctx.stroke(ret(rx + 1.4, ry + 1.4, 31.2, 28.2, 1.2))
-  escrita(ctx, CX, ry + 5.5, 25, 4.6, TINTA, { fundo: p.rotulo, semente: 17 })
-  filete(ctx, CX, ry + 12.6, 22, 0.8, p.detalhe)
-  escrita(ctx, CX, ry + 15.4, 18, 2.4, TINTA, { semente: 23, palavras: [3, 3, 3] })
+  // losango vermelho no alto e fios (sem letreiro)
+  pintar(ctx, poligono([CX, ry + 4, CX + 3.2, ry + 7.2, CX, ry + 10.4, CX - 3.2, ry + 7.2]), p.detalhe)
+  filete(ctx, CX, ry + 13.4, 22, 0.8, p.detalhe)
+  filete(ctx, CX, ry + 17, 18, 1, TINTA, 0.8)
   filete(ctx, CX, ry + 21, 14, 0.9, TINTA, 0.7)
   filete(ctx, CX, ry + 24.4, 10, 0.9, TINTA, 0.6)
 
@@ -735,24 +778,22 @@ function garrafaConhaque(ctx: Ctx, p: Paleta) {
   ctx.fillStyle = css(t)
   ctx.fillRect(CX - 1, ly + 1.6, 2, 4.4)
   ctx.fillRect(CX - 3, ly + 2, 6, 1.4)
-  // assinatura cursiva
-  escrita(ctx, CX, ly + 9, 22, 5, t, { inclina: 0.3, fundo: p.rotulo, semente: 31, palavras: [8] })
+  // fio em arco no lugar da assinatura
+  ctx.strokeStyle = css(t)
+  ctx.lineWidth = 0.9
+  ctx.beginPath()
+  ctx.moveTo(CX - 10, ly + 13)
+  ctx.quadraticCurveTo(CX, ly + 8.6, CX + 10, ly + 13)
+  ctx.stroke()
   filete(ctx, CX, ly + 17, 18, 0.7, t, 0.8)
-  // "V.S" em pixel
-  ctx.fillStyle = css(t)
-  ctx.fill(poligono([CX - 10, ly + 21, CX - 7.6, ly + 21, CX - 5.4, ly + 30, CX - 3.2, ly + 21, CX - 0.8, ly + 21, CX - 4.2, ly + 33, CX - 6.6, ly + 33]))
-  ctx.fillRect(CX + 0.6, ly + 31, 1.8, 2)
-  ctx.fillRect(CX + 3.6, ly + 21, 6.4, 2.2)
-  ctx.fillRect(CX + 3.6, ly + 21, 2.2, 6.4)
-  ctx.fillRect(CX + 3.6, ly + 25.9, 6.4, 2.2)
-  ctx.fillRect(CX + 7.8, ly + 25.9, 2.2, 7.1)
-  ctx.fillRect(CX + 3.6, ly + 30.8, 6.4, 2.2)
-  escrita(ctx, CX, ly + 37, 20, 2.2, t, { semente: 33, palavras: [4, 5] })
+  filete(ctx, CX, ly + 38, 18, 0.9, t, 0.8)
   filete(ctx, CX, ly + 42, 14, 0.9, t, 0.7)
   filete(ctx, CX, ly + 45, 9, 0.9, t, 0.6)
 
   sombrear(ctx, g, CX - 21.5, CX + 21.5, yN, yF, { brilho: 1.2 })
   reflexo(ctx, CX - 17.5, yC - 2, 1.4, 62, 0.55)
+  // "V.S": o que o rótulo diz de fato (Very Special), em letreiro (depois da luz: cor lisa)
+  if (!letreiro(ctx, 'V.S', CX, ly + 27, 24, 14, t)) filete(ctx, CX, ly + 26, 12, 3, t)
 
   // colarinho do gargalo
   const col = ret(CX - xn - 0.4, 33, (xn + 0.4) * 2, 9.5, 0.6)
@@ -813,7 +854,8 @@ function garrafaLicor(ctx: Ctx, p: Paleta) {
   ctx.lineWidth = 0.7
   ctx.stroke(poligono([lx + c + 0.6, ly + 1.4, lx + lw - c - 0.6, ly + 1.4, lx + lw - 1.4, ly + c + 0.6, lx + lw - 1.4, ly + lh - c - 0.6, lx + lw - c - 0.6, ly + lh - 1.4, lx + c + 0.6, ly + lh - 1.4, lx + 1.4, ly + lh - c - 0.6, lx + 1.4, ly + c + 0.6]))
   const tinta = escuro(vidro, 0.55)
-  escrita(ctx, CX, ly + 5.5, 24, 4.6, tinta, { fundo: p.rotulo, semente: 41, palavras: [11] })
+  filete(ctx, CX, ly + 6, 24, 1.2, tinta, 0.9)
+  filete(ctx, CX, ly + 9.4, 16, 0.9, tinta, 0.75)
   // selo creme com o cervo
   const sy = ly + 26
   pintar(ctx, elipse(CX, sy, 10.5, 10.5), escuro(vidro, 0.2))
@@ -842,7 +884,7 @@ function garrafaLicor(ctx: Ctx, p: Paleta) {
   ctx.fillStyle = css(claro(p.rotulo, 0.35))
   ctx.fillRect(CX - 0.6, sy - 7.4, 1.2, 5)
   ctx.fillRect(CX - 2, sy - 6, 4, 1.2)
-  escrita(ctx, CX, ly + 41, 22, 3.6, tinta, { fundo: p.rotulo, semente: 43, palavras: [5, 4] })
+  filete(ctx, CX, ly + 42, 22, 1.2, tinta, 0.9)
   filete(ctx, CX, ly + 48, 20, 0.9, tinta, 0.85)
   filete(ctx, CX, ly + 51.4, 15, 0.9, tinta, 0.7)
   filete(ctx, CX, ly + 54.8, 10, 0.9, tinta, 0.6)
@@ -863,72 +905,72 @@ function garrafaLicor(ctx: Ctx, p: Paleta) {
 
 /* ================================================================ TABACARIA */
 
-/** Livreto de seda: em pé e inclinado, com a aba dobrada e a folha escapando por cima. */
-function seda(ctx: Ctx, p: Paleta) {
-  ctx.save()
-  ctx.translate(CX + 1, 82)
-  ctx.rotate(-0.26)
-  const w = 31
-  const h = 80
-  const x = -w / 2
-  const y = -h / 2
+/**
+ * Livreto de seda em pé, de frente e sem giro (o letreiro fica na grade). A marca corre na capa
+ * de baixo para cima, como no livreto deitado da vida real posto em pé. Capa escura (OCB, Smoking)
+ * fica mais funda e leva letra clara; capa kraft (RAW) leva letra escura: as duas não se confundem
+ * nem no cinza. Slim é mais estreito e mais alto.
+ */
+function seda(ctx: Ctx, p: Paleta, e: Extra) {
+  const slim = /slim/i.test(e.nome)
+  const w = slim ? 27 : 33
+  const h = slim ? 88 : 82
+  const x = CX - w / 2
+  const y = 84 - h / 2
+  const escura = luma(p.corpo) < 0.4
+  // marrom escuro desce para chocolate (o preto da OCB já está no fundo)
+  const capaCor = escura && luma(p.corpo) > 0.12 ? rampa(p.corpo).meia : p.corpo
+  const letra = escura ? p.detalhe : luma(p.faixa) < 0.4 ? p.faixa : TINTA
+  const papel = p.detalhe
 
-  // folha escapando (papel claro, translúcido)
-  const papel = luma(p.detalhe) > 0.85 ? claro(p.detalhe, 0) : p.detalhe
-  ctx.save()
-  ctx.rotate(0.07)
-  const folha = ret(x + 2.2, y - 9, w - 4.4, 14, 0.4)
-  pintar(ctx, folha, papel, 0.95)
-  ctx.fillStyle = css(escuro(papel, 0.12), 0.9)
-  ctx.fillRect(x + 2.2, y - 9, w - 4.4, 1.6) // tira de cola
-  ctx.restore()
+  // folha escapando por cima, com a tira de cola
+  const folha = ret(x + 2.5, y - 8, w - 5, 12, 0.4)
+  pintar(ctx, folha, papel)
+  ctx.fillStyle = css(escuro(papel, 0.14))
+  ctx.fillRect(x + 2.5, y - 8, w - 5, 1.4)
+  contorno(ctx, folha, 0.35, 0.8)
 
-  // capa
-  const capa = ret(x, y, w, h, 1.6)
-  pintar(ctx, capa, p.corpo)
+  const capa = ret(x, y, w, h, 1.4)
+  pintar(ctx, capa, capaCor)
   ctx.save()
   ctx.clip(capa)
   // aba dobrada em cima, com o recorte em V no meio
-  const yAba = y + 16
-  const aba = poligono([x, y, x + w, y, x + w, yAba, 3.2, yAba, 0, yAba + 3.4, -3.2, yAba, x, yAba])
-  pintar(ctx, aba, claro(p.corpo, luma(p.corpo) < 0.1 ? 0.1 : 0.08))
+  const yAba = y + 15
+  pintar(ctx, poligono([x, y, x + w, y, x + w, yAba, CX + 3.2, yAba, CX, yAba + 3.4, CX - 3.2, yAba, x, yAba]), claro(capaCor, 0.07))
   ctx.strokeStyle = preto(0.55)
   ctx.lineWidth = 1
   ctx.beginPath()
   ctx.moveTo(x, yAba + 0.6)
-  ctx.lineTo(-3.2, yAba + 0.6)
-  ctx.lineTo(0, yAba + 4)
-  ctx.lineTo(3.2, yAba + 0.6)
+  ctx.lineTo(CX - 3.2, yAba + 0.6)
+  ctx.lineTo(CX, yAba + 4)
+  ctx.lineTo(CX + 3.2, yAba + 0.6)
   ctx.lineTo(x + w, yAba + 0.6)
   ctx.stroke()
-  // faixa e letras
+  // fios da faixa: no alto da aba e perto do pé
   ctx.fillStyle = css(p.faixa)
-  ctx.fillRect(x, y + 5.5, w, 2.4)
-  ctx.fillRect(x, y + h - 13, w, 1.6)
-  // letras gordas empilhadas (texto corre no comprimento do livreto)
-  const d = p.detalhe
-  ctx.save()
-  ctx.translate(0, y + 44)
-  ctx.rotate(-Math.PI / 2)
-  escrita(ctx, 0, -8, 34, 11, d, { fundo: p.corpo, semente: luma(p.corpo) < 0.2 ? 29 : 67, palavras: [3] })
-  escrita(ctx, -3, 6, 26, 2.6, p.faixa, { semente: 57, palavras: [7] })
-  ctx.restore()
-  escrita(ctx, 0, y + h - 9, 18, 2.6, p.faixa, { semente: 53, palavras: [7] })
+  ctx.fillRect(x, y + 5, w, 1.6)
+  ctx.fillRect(x, y + h - 9, w, 1.2)
   // bordas das folhas embaixo
-  ctx.fillStyle = css(papel, 0.65)
+  ctx.fillStyle = css(papel, 0.6)
   ctx.fillRect(x + 1, y + h - 2.2, w - 2, 0.9)
   ctx.restore()
-  sombraPlana(ctx, capa, x, x + w, y, y + h, luma(p.corpo) < 0.1 ? 1.6 : 1)
+  sombraPlana(ctx, capa, x, x + w, y, y + h, escura ? 1.1 : 0.8)
   // lombada esquerda pega luz, direita na sombra
   ctx.save()
   ctx.clip(capa)
-  ctx.fillStyle = branco(0.22)
-  ctx.fillRect(x, y, 1.6, h)
-  ctx.fillStyle = preto(0.45)
-  ctx.fillRect(x + w - 2.2, y, 2.2, h)
+  ctx.fillStyle = branco(0.16)
+  ctx.fillRect(x, y, 1.4, h)
+  ctx.fillStyle = preto(0.42)
+  ctx.fillRect(x + w - 2, y, 2, h)
   ctx.restore()
   contorno(ctx, capa)
-  ctx.restore()
+
+  // a marca, de baixo para cima, no meio da capa (depois da luz: cor lisa)
+  const yL0 = yAba + 6
+  const yL1 = y + h - 12
+  const escrito = !!e.marca && letreiro(ctx, e.marca, CX, (yL0 + yL1) / 2, w - 9, yL1 - yL0, letra, { vertical: true })
+  // marca desconhecida: uma faixa vertical lisa (grafismo, não letra)
+  if (!escrito) filete(ctx, CX, yL0, 5, yL1 - yL0, letra)
 }
 
 /** Tubo de vidro (piteira): quase invisível no meio, paredes claras, reflexo comprido e boca oca. */
@@ -1008,65 +1050,19 @@ function piteiraVidro(ctx: Ctx, p: Paleta) {
   ctx.restore()
 }
 
-/** Bloco de piteiras de papel, com uma piteira enrolada na frente. */
-function piteiraPapel(ctx: Ctx, p: Paleta) {
-  const papel = p.detalhe
+/** Piteira de papel já enrolada, deitada (cilindro), com o "M" do picote na boca. */
+function piteiraEnrolada(ctx: Ctx, cx: number, cy: number, ang: number, L: number, r: number, papel: RGB, sombra = false) {
   ctx.save()
-  ctx.translate(CX - 2, 78)
-  ctx.rotate(0.12)
-  const w = 42
-  const h = 58
-  const x = -w / 2
-  const y = -h / 2
-  // tiras picotadas escapando por cima (zigue-zague)
-  const dentes: number[] = [x + 3, y + 4]
-  for (let i = 0, dx = x + 3; dx < x + w - 3; i++, dx += 3) dentes.push(dx + 1.5, y - (i % 2 === 0 ? 7 : 4.5))
-  dentes.push(x + w - 3, y + 4)
-  const tiras = poligono(dentes)
-  pintar(ctx, tiras, papel)
-  ctx.strokeStyle = css(escuro(papel, 0.35), 0.8)
-  ctx.lineWidth = 0.6
-  ctx.beginPath()
-  for (let dx = x + 6; dx < x + w - 4; dx += 6) {
-    ctx.moveTo(dx, y - 4)
-    ctx.lineTo(dx, y + 2)
-  }
-  ctx.stroke()
-  contorno(ctx, tiras, 0.4, 0.8)
-
-  const capa = ret(x, y, w, h, 1.4)
-  pintar(ctx, capa, p.corpo)
-  ctx.save()
-  ctx.clip(capa)
-  // dobra de cima
-  ctx.fillStyle = css(escuro(p.corpo, 0.12))
-  ctx.fillRect(x, y, w, 9)
-  ctx.fillStyle = preto(0.4)
-  ctx.fillRect(x, y + 9, w, 1)
-  // letras gordas (faixa) e linha picotada
-  escrita(ctx, 0, y + 17, 30, 11, p.faixa, { fundo: p.corpo, semente: 19, palavras: [3] })
-  ctx.fillStyle = css(p.faixa, 0.9)
-  for (let dx = x + 4; dx < x + w - 4; dx += 3.2) ctx.fillRect(dx, y + 33, 1.8, 1)
-  escrita(ctx, 0, y + 37, 24, 2.6, p.faixa, { semente: 63, palavras: [4, 3] })
-  filete(ctx, 0, y + 43, 18, 0.9, p.faixa, 0.8)
-  ctx.restore()
-  sombraPlana(ctx, capa, x, x + w, y, y + h)
-  contorno(ctx, capa)
-  ctx.restore()
-
-  // piteira enrolada (cilindro deitado), com o "M" do picote na boca
-  ctx.save()
-  ctx.translate(CX + 12, 116)
-  ctx.rotate(-0.42)
-  const L = 17
-  const r = 5
+  ctx.translate(cx, cy)
+  ctx.rotate(ang)
   const tubo = ret(-L, -r, L * 2, r * 2, 0)
+  if (sombra) pintar(ctx, ret(-L + 0.8, -r + 1.8, L * 2, r * 2, r * 0.6), preto(0.4))
   pintar(ctx, tubo, papel)
   ctx.save()
   ctx.clip(tubo)
   const gt = ctx.createLinearGradient(0, -r, 0, r)
-  gt.addColorStop(0, branco(0.2))
-  gt.addColorStop(0.3, branco(0.5))
+  gt.addColorStop(0, branco(0.1))
+  gt.addColorStop(0.3, branco(0.28))
   gt.addColorStop(0.45, branco(0))
   gt.addColorStop(1, preto(0.45))
   ctx.fillStyle = gt
@@ -1076,11 +1072,11 @@ function piteiraPapel(ctx: Ctx, p: Paleta) {
   ctx.strokeStyle = css(escuro(papel, 0.55))
   ctx.lineWidth = 0.8
   ctx.beginPath()
-  ctx.moveTo(L - 1, -3)
-  ctx.lineTo(L + 1, -1.2)
-  ctx.lineTo(L - 1, 0.4)
-  ctx.lineTo(L + 1, 2)
-  ctx.lineTo(L - 0.6, 3.4)
+  ctx.moveTo(L - 1, -r * 0.6)
+  ctx.lineTo(L + 1, -r * 0.24)
+  ctx.lineTo(L - 1, r * 0.08)
+  ctx.lineTo(L + 1, r * 0.4)
+  ctx.lineTo(L - 0.6, r * 0.68)
   ctx.stroke()
   const sil = new Path2D()
   sil.addPath(tubo)
@@ -1089,67 +1085,124 @@ function piteiraPapel(ctx: Ctx, p: Paleta) {
   ctx.restore()
 }
 
-/** Cuia de silicone: tigela vista um pouco de cima, boca elíptica, letras em relevo. */
-function cuia(ctx: Ctx, p: Paleta) {
-  const y0 = 64 // centro da boca
-  const rx = 30
-  const ry = 10.5
-  const yB = 108
-  const base = p.corpo
+/**
+ * Piteira de papel: livreto largo e baixo, como o de verdade, com a tira picotada à mostra por cima
+ * (cada pedaço é uma piteira) e uma piteira já enrolada deitada na frente. A marca em letreiro.
+ */
+function piteiraPapel(ctx: Ctx, p: Paleta, e: Extra) {
+  const papel = p.detalhe
+  const w = 60
+  const h = 34
+  const x = CX - w / 2
+  const y = 72 - h / 2
+  const escura = luma(p.corpo) < 0.4
+  const letra = escura ? papel : luma(p.faixa) < 0.4 ? p.faixa : TINTA
 
-  // pezinho
-  const pe = elipse(CX, yB, 14, 3.8)
-  pintar(ctx, pe, escuro(base, 0.35))
+  // tira picotada saindo por cima, com a borda rasgada em zigue-zague
+  const yT = y - 12
+  const pts: number[] = [x + 2.5, y + 2]
+  for (let i = 0, dx = x + 2.5; dx <= x + w - 2.5 + 0.01; i++, dx += 2.75) pts.push(dx, yT + (i % 2 === 0 ? 0 : 2.4))
+  pts.push(x + w - 2.5, y + 2)
+  const tira = poligono(pts)
+  pintar(ctx, tira, papel)
+  ctx.save()
+  ctx.clip(tira)
+  const gs = ctx.createLinearGradient(0, yT, 0, y + 2)
+  gs.addColorStop(0, preto(0))
+  gs.addColorStop(1, preto(0.32))
+  ctx.fillStyle = gs
+  ctx.fillRect(x, yT, w, y + 2 - yT)
+  // picote: uma linha tracejada a cada piteira
+  ctx.fillStyle = css(rampa(papel).meia)
+  for (let dx = x + 8; dx < x + w - 4; dx += 5.5) for (let dy = yT + 3; dy < y + 1; dy += 2.2) ctx.fillRect(dx, dy, 0.9, 1.1)
+  ctx.restore()
+  contorno(ctx, tira, 0.4, 0.8)
+
+  const capa = ret(x, y, w, h, 1.6)
+  pintar(ctx, capa, p.corpo)
+  ctx.save()
+  ctx.clip(capa)
+  // aba de cima (dobra) e a linha da dobra
+  ctx.fillStyle = css(escuro(p.corpo, 0.12))
+  ctx.fillRect(x, y, w, 6.5)
+  ctx.fillStyle = preto(0.4)
+  ctx.fillRect(x, y + 6.5, w, 0.9)
+  ctx.restore()
+  sombraPlana(ctx, capa, x, x + w, y, y + h, 0.8)
+  contorno(ctx, capa)
+
+  // a marca grande e o "TIPS" miúdo, como no livreto (depois da luz: cor lisa)
+  const escrito = !!e.marca && letreiro(ctx, e.marca, CX, y + 19.5, w - 16, 14, letra)
+  if (escrito) letreiro(ctx, 'TIPS', CX, y + h - 5, w - 26, 5.5, letra)
+  else {
+    filete(ctx, CX, y + 15, w - 22, 3, letra)
+    filete(ctx, CX, y + 22, w - 32, 1, letra, 0.8)
+  }
+
+  piteiraEnrolada(ctx, CX + 7, 106, -0.3, 16, 5, papel)
+}
+
+/** Cuia de silicone: tigela rasa de borda grossa, vista um pouco de cima, com a marca em relevo. */
+function cuia(ctx: Ctx, p: Paleta, e: Extra) {
+  const y0 = 70 // centro da boca
+  const rx = 32
+  const ry = 11.5
+  const yB = 100
+  const base = p.corpo
+  const r = rampa(base)
+
+  // pé
+  pintar(ctx, elipse(CX, yB, 17, 4), r.funda)
 
   const corpo = new Path2D()
   corpo.moveTo(CX - rx, y0)
-  corpo.bezierCurveTo(CX - rx, y0 + 26, CX - 17, yB - 1, CX - 12, yB)
-  corpo.lineTo(CX + 12, yB)
-  corpo.bezierCurveTo(CX + 17, yB - 1, CX + rx, y0 + 26, CX + rx, y0)
+  corpo.bezierCurveTo(CX - rx, y0 + 17, CX - 23, yB - 1, CX - 17, yB)
+  corpo.lineTo(CX + 17, yB)
+  corpo.bezierCurveTo(CX + 23, yB - 1, CX + rx, y0 + 17, CX + rx, y0)
   corpo.ellipse(CX, y0, rx, ry, 0, 0, Math.PI, true)
   corpo.closePath()
   pintar(ctx, corpo, base)
   ctx.save()
   ctx.clip(corpo)
   const gv = ctx.createLinearGradient(0, y0, 0, yB)
-  gv.addColorStop(0, branco(0.05))
-  gv.addColorStop(1, preto(0.35))
+  gv.addColorStop(0, branco(0.04))
+  gv.addColorStop(1, preto(0.32))
   ctx.fillStyle = gv
   ctx.fillRect(CX - rx, y0, rx * 2, yB - y0)
-  // letras em relevo (faixa) com luz embaixo
-  ctx.save()
-  ctx.translate(0.5, 0.6)
-  escrita(ctx, CX, y0 + 18, 26, 9, claro(base, 0.25), { fundo: base, semente: 57, palavras: [3] })
   ctx.restore()
-  escrita(ctx, CX, y0 + 18, 26, 9, p.faixa, { fundo: base, semente: 57, palavras: [3] })
-  ctx.restore()
-  sombrear(ctx, corpo, CX - rx, CX + rx, y0 - ry, yB + 2, { brilho: 0.8, pos: 0.22 })
+  sombrear(ctx, corpo, CX - rx, CX + rx, y0 - ry, yB + 2, { brilho: 0.7, pos: 0.22 })
 
-  // boca: miolo escuro, parede de trás iluminada, lábio grosso
-  const boca = elipse(CX, y0, rx - 2.6, ry - 2.2)
+  // borda grossa: o anel da boca, mais claro, com luz na aresta de cima
+  const anel = elipse(CX, y0, rx, ry)
+  const ga = ctx.createLinearGradient(CX - rx, 0, CX + rx, 0)
+  ga.addColorStop(0, css(claro(base, 0.2)))
+  ga.addColorStop(0.6, css(base))
+  ga.addColorStop(1, css(r.meia))
+  pintar(ctx, anel, ga)
+  ctx.strokeStyle = css(r.luz)
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.ellipse(CX, y0, rx - 0.8, ry - 0.6, 0, Math.PI * 0.92, Math.PI * 1.62)
+  ctx.stroke()
+  // miolo: parede de trás iluminada, fundo escuro
+  const borda = 5.2
+  const boca = elipse(CX, y0 + 0.6, rx - borda, ry - borda * 0.6)
   const gb = ctx.createLinearGradient(0, y0 - ry, 0, y0 + ry)
-  gb.addColorStop(0, css(claro(base, 0.08)))
-  gb.addColorStop(0.45, css(escuro(base, 0.35)))
-  gb.addColorStop(1, css(escuro(base, 0.62)))
+  gb.addColorStop(0, css(r.funda))
+  gb.addColorStop(0.5, css(r.meia))
+  gb.addColorStop(1, css(claro(base, 0.06)))
   pintar(ctx, boca, gb)
   ctx.save()
   ctx.clip(boca)
-  pintar(ctx, elipse(CX + 3, y0 + 4.5, rx - 10, ry - 5), escuro(base, 0.72))
+  pintar(ctx, elipse(CX + 1.5, y0 + 1.6, rx - 13, ry - 7), r.funda)
   ctx.restore()
-  const labio = ctx.createLinearGradient(CX - rx, 0, CX + rx, 0)
-  labio.addColorStop(0, css(claro(base, 0.5)))
-  labio.addColorStop(0.35, css(claro(base, 0.3)))
-  labio.addColorStop(1, css(escuro(base, 0.25)))
-  ctx.strokeStyle = labio
-  ctx.lineWidth = 2.4
-  ctx.stroke(elipse(CX, y0, rx - 1.3, ry - 1.1))
-  ctx.strokeStyle = css(p.detalhe, 0.55)
-  ctx.lineWidth = 0.8
-  ctx.beginPath()
-  ctx.ellipse(CX, y0, rx - 1.3, ry - 1.1, 0, Math.PI * 0.85, Math.PI * 1.45)
-  ctx.stroke()
-
+  ctx.strokeStyle = preto(0.4)
+  ctx.lineWidth = 0.9
+  ctx.stroke(boca)
   contorno(ctx, corpo)
+
+  // marca em relevo na frente: letra clara com sombra de 1 px (cores da rampa: saem lisas)
+  if (e.marca) letreiro(ctx, e.marca, CX, y0 + ry + 8.5, 36, 12, r.luz, { sombra: r.funda })
 }
 
 /** Dichavador: cilindro metálico em 4 partes, tampa com borda serrilhada (frisos em relevo). */
@@ -1258,7 +1311,7 @@ function dichavador(ctx: Ctx, p: Paleta) {
 }
 
 /** Isqueiro formato Clipper: corpo arredondado colorido e cabeça de metal com a pedra. */
-function isqueiro(ctx: Ctx, p: Paleta) {
+function isqueiro(ctx: Ctx, p: Paleta, e: Extra) {
   const x0 = CX - 14
   const w = 28
   const yC = 59
@@ -1269,12 +1322,7 @@ function isqueiro(ctx: Ctx, p: Paleta) {
   pintar(ctx, corpo, p.corpo)
   ctx.save()
   ctx.clip(corpo)
-  // logo vertical (detalhe) e faixa fina
-  ctx.save()
-  ctx.translate(CX + 1, yC + 40)
-  ctx.rotate(-Math.PI / 2)
-  escrita(ctx, 0, -3.6, 34, 7.2, p.detalhe, { fundo: p.corpo, semente: 81, palavras: [7] })
-  ctx.restore()
+  // faixa fina
   ctx.fillStyle = css(p.faixa, 0.85)
   ctx.fillRect(x0, yF - 12, w, 1.4)
   // nível de gás (corpo translúcido embaixo)
@@ -1283,6 +1331,11 @@ function isqueiro(ctx: Ctx, p: Paleta) {
   ctx.restore()
   sombrear(ctx, corpo, x0, x0 + w, yC, yF, { brilho: 1.2 })
   contorno(ctx, corpo)
+  // a marca de pé no corpo, de baixo para cima (depois da luz: cor lisa)
+  const yL0 = yC + 6
+  const yL1 = yF - 15
+  const escrito = !!e.marca && letreiro(ctx, e.marca, CX + 0.5, (yL0 + yL1) / 2, w - 9, yL1 - yL0, p.detalhe, { vertical: true })
+  if (!escrito) filete(ctx, CX, yL0 + 4, 3, yL1 - yL0 - 8, p.detalhe, 0.9)
 
   // colarinho de metal
   const col = ret(x0 - 0.6, yC - 4, w + 1.2, 5.2, 1)
@@ -1346,153 +1399,119 @@ function poliRedondo(pts: Pt[], r: number): Path2D {
   return p
 }
 
-/** Bandeja de enrolar em perspectiva: borda levantada, estampa, um livreto e piteiras em cima. */
-function bandeja(ctx: Ctx, p: Paleta) {
-  // cantos de fora; o lado de longe (em cima) é mais estreito
-  const tl: Pt = [25, 33]
-  const tr: Pt = [65, 33]
-  const br: Pt = [79, 125]
-  const bl: Pt = [11, 125]
-  const q = (u: number, v: number): Pt => {
-    // v com leve compressão no fundo (perspectiva)
-    const vv = v * (1.18 - 0.18 * v)
-    const xa = tl[0] + (tr[0] - tl[0]) * u
-    const xb = bl[0] + (br[0] - bl[0]) * u
-    return [xa + (xb - xa) * vv, tl[1] + (bl[1] - tl[1]) * vv]
-  }
-  // retângulo girado no espaço da bandeja (proporção real ~ 1 × 1,45), projetado
-  // (ou, ov) desloca o retângulo no eixo dele mesmo (aba do livreto, letras)
-  const peca = (uc: number, vc: number, lu: number, lv: number, ang: number, ou = 0, ov = 0): Pt[] => {
-    const AS = 1.45
-    const c = Math.cos(ang)
-    const s = Math.sin(ang)
-    return [
-      [ou - lu, ov - lv],
-      [ou + lu, ov - lv],
-      [ou + lu, ov + lv],
-      [ou - lu, ov + lv],
-    ].map(([a, b]) => {
-      const x = a * c - b * s
-      const y = a * s + b * c
-      return q(uc + x, vc + y / AS)
-    })
-  }
-  const plano = (pts: Pt[]) => poligono(pts.flat())
+/** Livreto deitado em cima da bandeja (vista de cima), com sombra e a marca em letreiro. */
+function livretoDeitado(ctx: Ctx, cx: number, cy: number, w: number, h: number, p: Paleta, e: Extra) {
+  const x = cx - w / 2
+  const y = cy - h / 2
+  pintar(ctx, ret(x + 1.6, y + 2.2, w, h, 1), preto(0.42))
+  // folhas aparecendo na borda de baixo
+  pintar(ctx, ret(x + 0.8, y + h - 0.6, w - 1.6, 1.6, 0.4), p.detalhe)
+  const capa = ret(x, y, w, h, 1)
+  pintar(ctx, capa, p.faixa)
+  // aba: o último quarto, um tom acima, com a linha da dobra
+  const xa = x + w * 0.74
+  ctx.save()
+  ctx.clip(capa)
+  ctx.fillStyle = css(claro(p.faixa, 0.1))
+  ctx.fillRect(xa, y, x + w - xa, h)
+  ctx.fillStyle = preto(0.45)
+  ctx.fillRect(xa, y, 0.9, h)
+  ctx.restore()
+  sombraPlana(ctx, capa, x, x + w, y, y + h, 0.7)
+  contorno(ctx, capa, 0.5, 0.8)
+  const meio = (x + 2 + xa - 1) / 2
+  const escrito = !!e.marca && letreiro(ctx, e.marca, meio, cy, xa - x - 4, h - 4, p.detalhe)
+  if (!escrito) filete(ctx, meio, cy - 1, (xa - x) * 0.6, 2, p.detalhe)
+}
 
-  // espessura (lateral da frente)
-  const lateral = poliRedondo([[bl[0], bl[1] - 3], [br[0], br[1] - 3], [br[0] - 1.4, br[1] + 4.5], [bl[0] + 1.4, bl[1] + 4.5]], 2)
-  pintar(ctx, lateral, escuro(p.corpo, 0.48))
-  ctx.fillStyle = css(claro(p.corpo, 0.25), 0.7)
-  ctx.fillRect(bl[0] + 2, bl[1] + 1.2, br[0] - bl[0] - 4, 0.8)
+/**
+ * Bandeja de enrolar vista quase de cima (o lado de longe só 6% mais estreito), girada uns 8°:
+ * retângulo de cantos redondos com borda elevada (luz na aresta de cima, sombra embaixo e a
+ * espessura aparecendo), estampa central simples. Por cima, um livreto e uma piteira deitados.
+ */
+function bandeja(ctx: Ctx, p: Paleta, e: Extra) {
+  const W = 56
+  const H = 84
+  const longe = 0.94
+  const borda = 4.4
+  const r = rampa(p.corpo)
+  const forma = (m: number, raio: number) => {
+    const a = W / 2 - m
+    const b = H / 2 - m
+    return poliRedondo(
+      [
+        [-a * longe, -b],
+        [a * longe, -b],
+        [a, b],
+        [-a, b],
+      ],
+      raio,
+    )
+  }
 
-  const fora = poliRedondo([tl, tr, br, bl], 3.2)
-  pintar(ctx, fora, claro(p.corpo, 0.15))
-  // paredes internas da borda (luz da esquerda; a parede do fundo encara quem olha)
-  const iu0 = 0.07
-  const iu1 = 0.93
-  const iv0 = 0.055
-  const iv1 = 0.95
+  ctx.save()
+  ctx.translate(CX, 80)
+  ctx.rotate(-0.14)
+  const fora = forma(0, 6.5)
+  // espessura: a mesma forma um pouco abaixo, no tom mais fundo (levanta a bandeja do preto)
+  ctx.save()
+  ctx.translate(0, 2.8)
+  pintar(ctx, fora, r.funda)
+  ctx.restore()
+  // topo da borda
+  pintar(ctx, fora, claro(p.corpo, 0.1))
+  // aresta: luz em cima, sombra embaixo (1 a 2 px de arte)
   ctx.save()
   ctx.clip(fora)
-  pintar(ctx, plano([tl, tr, q(iu1, iv0), q(iu0, iv0)]), claro(p.corpo, 0.42))
-  pintar(ctx, plano([tl, q(iu0, iv0), q(iu0, iv1), bl]), claro(p.corpo, 0.25))
-  pintar(ctx, plano([tr, br, q(iu1, iv1), q(iu1, iv0)]), escuro(p.corpo, 0.38))
-  pintar(ctx, plano([bl, q(iu0, iv1), q(iu1, iv1), br]), escuro(p.corpo, 0.12))
+  const ga = ctx.createLinearGradient(0, -H / 2, 0, H / 2)
+  ga.addColorStop(0, css(r.luz))
+  ga.addColorStop(0.3, css(r.luz, 0))
+  ga.addColorStop(0.7, css(r.meia, 0))
+  ga.addColorStop(1, css(r.meia))
+  ctx.strokeStyle = ga
+  ctx.lineWidth = 3
+  ctx.stroke(fora)
   ctx.restore()
 
-  // fundo da bandeja
-  const fundo = poliRedondo([q(iu0, iv0), q(iu1, iv0), q(iu1, iv1), q(iu0, iv1)], 2)
+  // fundo rebaixado: a borda faz sombra em cima e à esquerda, a parede de baixo pega luz
+  const fundo = forma(borda, 3.5)
   pintar(ctx, fundo, p.corpo)
   ctx.save()
   ctx.clip(fundo)
-  // estampa: moldura fina, letras gordas em cima, linhas miúdas
-  ctx.strokeStyle = css(p.faixa, 0.8)
-  ctx.lineWidth = 0.8
-  ctx.stroke(plano([q(0.14, 0.1), q(0.86, 0.1), q(0.86, 0.92), q(0.14, 0.92)]))
-  ctx.fillStyle = css(p.faixa)
-  const letras: [number, number, number][] = [
-    [0.24, 0.37, 1],
-    [0.43, 0.57, 4],
-    [0.63, 0.76, 2],
-  ]
-  for (const [u0, u1, forma] of letras) {
-    ctx.fillStyle = css(p.faixa)
-    ctx.fill(plano([q(u0, 0.16), q(u1, 0.16), q(u1, 0.29), q(u0, 0.29)]))
-    ctx.fillStyle = css(p.corpo)
-    const um = (u0 + u1) / 2
-    if (forma === 1) ctx.fill(plano([q(um - 0.025, 0.2), q(um + 0.025, 0.2), q(um + 0.025, 0.25), q(um - 0.025, 0.25)]))
-    if (forma === 4) ctx.fill(plano([q(um - 0.025, 0.16), q(um + 0.025, 0.16), q(um + 0.025, 0.24), q(um - 0.025, 0.24)]))
-    if (forma === 2) ctx.fill(plano([q(um - 0.02, 0.2), q(u1, 0.2), q(u1, 0.25), q(um - 0.02, 0.25)]))
-  }
-  ctx.fillStyle = css(p.faixa, 0.85)
-  for (let k = 0; k < 2; k++) {
-    const v = 0.33 + k * 0.04
-    const meia = 0.2 - k * 0.07
-    ctx.fill(plano([q(0.5 - meia, v), q(0.5 + meia, v), q(0.5 + meia, v + 0.012), q(0.5 - meia, v + 0.012)]))
-  }
-  // sombra das peças em cima da bandeja
-  ctx.fillStyle = preto(0.32)
-  ctx.fill(plano(peca(0.47, 0.66, 0.15, 0.32, 0.55)))
-  ctx.restore()
-
-  // livreto de seda deitado na bandeja, com a folha escapando por baixo da aba
-  pintar(ctx, plano(peca(0.44, 0.63, 0.13, 0.05, 0.55, 0, -0.34)), p.detalhe, 0.95)
-  const livro = peca(0.44, 0.63, 0.15, 0.32, 0.55)
-  const capa = plano(livro)
-  pintar(ctx, capa, p.faixa)
-  ctx.save()
-  ctx.clip(capa)
-  // aba dobrada numa ponta e letras gordas no meio
-  ctx.fillStyle = css(claro(p.faixa, 0.14))
-  ctx.fill(plano(peca(0.44, 0.63, 0.15, 0.075, 0.55, 0, -0.245)))
-  ctx.fillStyle = preto(0.4)
-  ctx.fill(plano(peca(0.44, 0.63, 0.15, 0.008, 0.55, 0, -0.165)))
-  ctx.fillStyle = css(p.detalhe)
-  for (const ov of [-0.08, 0.02, 0.12]) ctx.fill(plano(peca(0.44, 0.63, 0.06, 0.035, 0.55, 0, ov)))
-  ctx.restore()
-  contorno(ctx, capa, 0.45, 0.7)
-  // duas piteiras enroladas
-  for (const [uc, vc] of [
-    [0.73, 0.78],
-    [0.66, 0.85],
-  ]) {
-    const t = plano(peca(uc, vc, 0.09, 0.025, -0.25))
-    pintar(ctx, t, p.detalhe)
-    ctx.save()
-    ctx.clip(t)
-    ctx.fillStyle = preto(0.3)
-    ctx.fill(plano(peca(uc + 0.005, vc + 0.012, 0.09, 0.012, -0.25)))
-    ctx.restore()
-    contorno(ctx, t, 0.4, 0.6)
-  }
-
-  // brilho metálico em diagonal sobre tudo que está dentro
-  ctx.save()
-  ctx.clip(fora)
-  const gd = ctx.createLinearGradient(18, 36, 72, 124)
-  gd.addColorStop(0.14, branco(0))
-  gd.addColorStop(0.24, branco(0.26))
-  gd.addColorStop(0.31, branco(0))
-  gd.addColorStop(0.65, preto(0))
-  gd.addColorStop(1, preto(0.32))
+  ctx.fillStyle = preto(0.34)
+  ctx.fillRect(-W, -H / 2 + borda, W * 2, 2.2)
+  ctx.fillStyle = preto(0.18)
+  ctx.fillRect(-W / 2, -H, borda + 1.6, H * 2)
+  ctx.fillStyle = css(r.luz, 0.55)
+  ctx.fillRect(-W, H / 2 - borda - 1.3, W * 2, 1.3)
+  // estampa central simples: moldura fina e um selo redondo
+  ctx.strokeStyle = css(p.faixa, 0.85)
+  ctx.lineWidth = 0.9
+  ctx.stroke(forma(borda + 4.5, 2))
+  ctx.lineWidth = 2.2
+  ctx.stroke(elipse(0, 12, 9.5, 9.5))
+  pintar(ctx, elipse(0, 12, 3, 3), p.faixa)
+  // brilho largo e fraco na diagonal (metal pintado)
+  const gd = ctx.createLinearGradient(-W / 2, -H / 2, W / 2, H / 2)
+  gd.addColorStop(0.18, branco(0))
+  gd.addColorStop(0.26, branco(0.12))
+  gd.addColorStop(0.34, branco(0))
+  gd.addColorStop(0.7, preto(0))
+  gd.addColorStop(1, preto(0.22))
   ctx.fillStyle = gd
-  ctx.fillRect(0, 0, U, V)
+  ctx.fillRect(-W, -H, W * 2, H * 2)
   ctx.restore()
-  // aresta clara da borda (lado da luz)
-  ctx.strokeStyle = css(p.detalhe, 0.8)
-  ctx.lineWidth = 0.8
-  ctx.beginPath()
-  ctx.moveTo(bl[0] + 1, bl[1] - 3)
-  ctx.lineTo(tl[0] + 0.8, tl[1] + 2.5)
-  ctx.quadraticCurveTo(tl[0] + 1, tl[1] + 0.6, tl[0] + 3, tl[1] + 0.6)
-  ctx.lineTo(tr[0] - 3, tr[1] + 0.6)
-  ctx.stroke()
   contorno(ctx, fora)
+  ctx.restore()
+
+  // por cima: livreto deitado reto (letreiro na grade) e uma piteira enrolada
+  livretoDeitado(ctx, CX - 2, 62, 40, 17, p, e)
+  piteiraEnrolada(ctx, CX + 9, 104, -0.55, 12, 3.6, p.detalhe, true)
 }
 
 /* ================================================================ API */
 
-const DESENHOS: Record<TipoArte, (ctx: Ctx, p: Paleta) => void> = {
+const DESENHOS: Record<TipoArte, (ctx: Ctx, p: Paleta, e: Extra) => void> = {
   lata: (ctx, p) => lata(ctx, p, false),
   'lata-alta': (ctx, p) => lata(ctx, p, true),
   'garrafa-quadrada': garrafaQuadrada,
@@ -1514,17 +1533,23 @@ const ESCALA: Partial<Record<TipoArte, number>> = {
   'lata-alta': 1.03,
   seda: 1.06,
   'piteira-vidro': 1.04,
-  'piteira-papel': 1.12,
-  cuia: 1.1,
+  'piteira-papel': 1.06,
+  cuia: 1.12,
   dichavador: 1.16,
   isqueiro: 1.05,
+}
+
+export interface ExtrasDesenho {
+  /** Nome do produto: dele sai a marca escrita na embalagem (RAW, OCB, Smoking, Clipper) e o
+   *  formato (seda slim). Sem nome, o desenho sai sem letreiro. */
+  nome?: string
 }
 
 /**
  * Desenha o produto centralizado em w×h (pensado para 9:16 em baixa resolução, ex.: 90×160),
  * fundo transparente. Tipo desconhecido cai na lata (melhor uma lata que um buraco).
  */
-export function desenharArte(ctx: CanvasRenderingContext2D, arte: Arte, w: number, h: number): void {
+export function desenharArte(ctx: CanvasRenderingContext2D, arte: Arte, w: number, h: number, extras: ExtrasDesenho = {}): void {
   ctx.save()
   ctx.scale(w / U, h / V)
   ctx.lineJoin = 'round'
@@ -1537,6 +1562,27 @@ export function desenharArte(ctx: CanvasRenderingContext2D, arte: Arte, w: numbe
     ctx.scale(k, k)
     ctx.translate(-CX, -V / 2)
   }
-  desenho(ctx, paleta(arte))
+  const nome = extras.nome ?? ''
+  desenho(ctx, paleta(arte), { nome, marca: marcaDoNome(nome) })
   ctx.restore()
+}
+
+/** Tipos com metal à mostra (tampa de lata, cabeça de isqueiro). */
+const COM_METAL: ReadonlySet<TipoArte> = new Set<TipoArte>(['lata', 'lata-alta', 'isqueiro'])
+
+/**
+ * As cores do desenho, para a paleta curta do dither: a rampa do corpo, cada cor da arte com o seu
+ * tom escuro e o metal. Letreiro e relevo são pintados com estas cores exatas e saem lisos.
+ */
+export function paletaDoDesenho(arte: Arte): [number, number, number][] {
+  const p = paleta(arte)
+  const r = rampa(p.corpo)
+  const cores: RGB[] = [r.luz, r.base, r.meia, r.funda]
+  for (const hex of [arte.faixa, arte.rotulo, arte.detalhe, arte.tampa]) {
+    if (!hex) continue
+    const c = rgb(hex, BRANCO)
+    cores.push(c, escuro(c, 0.45))
+  }
+  if (COM_METAL.has(arte.tipo)) cores.push(claro(METAL, 0.45), METAL, escuro(METAL, 0.45))
+  return cores.map((c) => [Math.round(c[0]), Math.round(c[1]), Math.round(c[2])])
 }

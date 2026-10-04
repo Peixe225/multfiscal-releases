@@ -3,6 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import 'lenis/dist/lenis.css'
 import { canalDa } from './dados/canais'
+import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
 import { registrarLenis } from './lib/rolagem'
@@ -75,6 +76,9 @@ export function App() {
   }, [])
 
   useEffect(() => setAberturaUI(abertura || saida), [abertura, saida, setAberturaUI])
+
+  // teclado virtual: as folhas sobem junto (ver --teclado)
+  useEffect(() => vigiarTeclado(), [])
 
   // rolagem suave só com mouse (no celular, a nativa; nunca briga com o arrastar do story)
   useEffect(() => {

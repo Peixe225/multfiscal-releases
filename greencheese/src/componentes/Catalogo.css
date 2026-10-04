@@ -174,7 +174,7 @@
   transform: translateX(-50%) rotate(-2deg);
   z-index: 3;
 }
-.card:has(.card-avisar) .sq-texto {
+.card-off .sq-texto {
   padding-bottom: calc(9% + 48px);
 }
 .card-demo {

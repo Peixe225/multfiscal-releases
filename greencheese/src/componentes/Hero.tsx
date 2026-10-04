@@ -16,7 +16,7 @@ import { Avatar, Icone, tempoDoCatalogo } from './comum'
 import { EnqueteLocal, useTextoLocal } from './Local'
 import { Perfil } from './Perfil'
 import { StoryQuadro } from './StoryQuadro'
-import { ArteProduto } from '../arte/ArteProduto'
+import { ProdutoVisual } from '../arte/ProdutoVisual'
 import './Hero.css'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -191,7 +191,7 @@ export function Hero() {
 
       {proximo && (
         <div className="hero-espera" ref={espera} aria-hidden="true">
-          <ArteProduto produto={proximo} largura={54} revelar={false} />
+          <ProdutoVisual produto={proximo} largura={54} revelar={false} />
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { dentroDeIframe } from './ambiente'
 
 // Botão "voltar" do Android (e o gesto do navegador do Instagram) fecha a camada aberta por cima,
 // em vez de sair do site. Cada camada aberta empilha uma entrada no histórico.
@@ -6,6 +7,8 @@ import { useEffect, useRef } from 'react'
 interface Camada {
   id: string
   fechar: () => void
+  /** A entrada entrou mesmo no histórico (pushState pode falhar em iframe/sandbox). */
+  empilhada?: boolean
 }
 
 const pilha: Camada[] = []
@@ -39,8 +42,11 @@ function empilhar(c: Camada) {
     }
   }
   pilha.push(c)
+  // dentro de iframe o histórico é dividido com a página de fora: não mexe (o voltar sairia do app que hospeda)
+  if (dentroDeIframe()) return
   try {
     history.pushState({ ...(history.state ?? {}), gc: c.id }, '')
+    c.empilhada = true
   } catch {
     /* ignora */
   }
@@ -54,7 +60,8 @@ function desempilhar(id: string) {
       pendentes.delete(id)
       const i = pilha.findIndex((c) => c.id === id)
       if (i < 0) return
-      pilha.splice(i, 1)
+      const [c] = pilha.splice(i, 1)
+      if (!c.empilhada) return
       ignorarPop++
       history.back()
     }, 0),

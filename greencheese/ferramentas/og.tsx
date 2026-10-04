@@ -6,7 +6,7 @@ import '@fontsource/pixelify-sans/500.css'
 import '../src/estilos/base.css'
 import '../src/componentes/Local.css'
 import { Logo } from '../src/arte/Logo'
-import { ArteProduto } from '../src/arte/ArteProduto'
+import { ProdutoVisual } from '../src/arte/ProdutoVisual'
 import { AdesivoLocal } from '../src/componentes/Local'
 import dados from '../src/dados/catalogo.json'
 import type { Produto } from '../src/lib/tipos'
@@ -39,7 +39,7 @@ function Og() {
           ))}
         </div>
         <div style={{ position: 'absolute', inset: '30px 20px 150px' }}>
-          <ArteProduto produto={p('jack-daniels-old-no7-1l')} largura={120} revelar={false} prioridade />
+          <ProdutoVisual produto={p('jack-daniels-old-no7-1l')} largura={120} revelar={false} prioridade />
         </div>
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 30, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p className="px" style={{ fontSize: 24 }}>JACK DANIEL'S OLD NO. 7</p>
@@ -48,16 +48,18 @@ function Og() {
         </div>
       </div>
       <div style={{ position: 'absolute', right: 330, top: 300, width: 120, height: 213, opacity: 0.35 }}>
-        <ArteProduto produto={p('gin-tanqueray-london-dry')} largura={72} revelar={false} prioridade />
+        <ProdutoVisual produto={p('gin-tanqueray-london-dry')} largura={72} revelar={false} prioridade />
       </div>
     </div>
   )
 }
 
 function Icone() {
+  // ícone da tela inicial: o logo com folga (área segura dos ícones "maskable" do Android)
+  const t = window.innerWidth
   return (
-    <div style={{ width: 180, height: 180, background: '#000', display: 'grid', placeItems: 'center' }}>
-      <Logo tamanho={168} />
+    <div style={{ width: t, height: t, background: '#000', display: 'grid', placeItems: 'center' }}>
+      <Logo tamanho={Math.round(t * 0.82)} desenho="completo" />
     </div>
   )
 }

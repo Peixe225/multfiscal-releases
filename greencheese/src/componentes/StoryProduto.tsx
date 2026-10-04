@@ -55,6 +55,7 @@ function QuizCombo({ produto, qtd, mudar }: { produto: Produto; qtd: number; mud
           <span>
             {l.qtd} por {brl(l.total)}
           </span>
+          {l.qtd > 1 && <span className="ad-quiz-cada">{brl(Math.round((l.total / l.qtd) * 100) / 100)} cada</span>}
         </button>
       ))}
     </div>
@@ -294,15 +295,25 @@ function voarAteSacola(id: string, alvo: HTMLElement | null) {
     pulsar(alvo)
     return
   }
-  const origem = document.querySelector<HTMLCanvasElement>(`.story-produto [data-arte="${id}"] canvas`)
-  if (!origem) return
-  const r = origem.getBoundingClientRect()
+  const caixa = document.querySelector<HTMLElement>(`.story-produto [data-arte="${id}"]`)
+  const real = caixa?.querySelector<HTMLElement>('.pv-real')
+  const tela = caixa?.querySelector<HTMLCanvasElement>('canvas')
+  const origem = real ?? tela
+  if (!caixa || !origem) return
+  const r = caixa.getBoundingClientRect()
   const a = alvo.getBoundingClientRect()
-  const c = document.createElement('canvas')
-  c.width = origem.width
-  c.height = origem.height
-  c.getContext('2d')?.drawImage(origem, 0, 0)
-  c.className = 'voo-miniatura'
+  let c: HTMLElement
+  if (real) {
+    c = real.cloneNode(true) as HTMLElement
+  } else {
+    const cv = document.createElement('canvas')
+    cv.width = tela!.width
+    cv.height = tela!.height
+    cv.getContext('2d')?.drawImage(tela!, 0, 0)
+    c = cv
+  }
+  c.removeAttribute('class')
+  c.classList.add('voo-miniatura')
   Object.assign(c.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` })
   document.body.appendChild(c)
   const escala = Math.min(1, 26 / r.width)

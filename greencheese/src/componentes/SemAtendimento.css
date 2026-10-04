@@ -1,4 +1,5 @@
 .sem {
+  min-height: 92vh;
   min-height: 92svh;
   display: flex;
   flex-direction: column;

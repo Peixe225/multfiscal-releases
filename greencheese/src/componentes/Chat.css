@@ -1,10 +1,12 @@
 /* ---------- DM: Pedido guiado ---------- */
 
 .folha-chat {
-  height: calc(100dvh - var(--seg-topo) - 24px);
+  height: calc(100vh - var(--seg-topo) - 24px - var(--teclado, 0px));
+  height: calc(100dvh - var(--seg-topo) - 24px - var(--teclado, 0px));
 }
 @media (min-width: 900px) {
   .folha-chat {
+    height: min(820px, calc(100vh - 48px));
     height: min(820px, calc(100dvh - 48px));
   }
 }

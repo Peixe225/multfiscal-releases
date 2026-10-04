@@ -122,6 +122,11 @@
   border: 1px solid #c7c7c7;
   font: 800 12px/1 var(--ui);
 }
+.ad-quiz-cada {
+  margin-left: auto;
+  font: 500 11px/1 var(--ui);
+  opacity: 0.7;
+}
 .ad-quiz-linha.sel {
   background: var(--preto);
   border-color: var(--preto);

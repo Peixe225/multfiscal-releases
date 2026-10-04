@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { ArteProduto } from '../arte/ArteProduto'
+import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { precoOuConsultar } from '../lib/formato'
 import type { Produto } from '../lib/tipos'
 import { inclinacao } from './comum'
@@ -59,10 +59,11 @@ export function StoryQuadro({
         </div>
       )}
       <div className={`sq-arte ${artePropsExtra?.flutuar && !indisponivel ? 'sq-flutua' : ''}`} data-arte={produto.id}>
-        <ArteProduto produto={produto} largura={larguraArte} indisponivel={indisponivel} revelar={revelar} prioridade={prioridade} />
+        <ProdutoVisual produto={produto} largura={larguraArte} indisponivel={indisponivel} revelar={revelar} prioridade={prioridade} />
       </div>
       <div className="sq-texto">
         <p className="sq-nome px">{produto.nome}</p>
+        {produto.detalhe && escala !== 'card' && <p className="sq-detalhe">{produto.detalhe}</p>}
         {!semPreco && <p className="sq-preco px">{precoOuConsultar(produto.preco)}</p>}
         {disponivel === true && <p className="sq-disp px">DISPONÍVEL ✅</p>}
         {indisponivel && <p className="sq-disp sq-indisp px">INDISPONÍVEL</p>}

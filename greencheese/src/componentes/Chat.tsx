@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { canais, canalDa, type Canal, type FormaPagamento } from '../dados/canais'
-import { ArteProduto } from '../arte/ArteProduto'
+import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { buscarCep, type Endereco } from '../lib/cep'
+import { alvoDeSaida } from '../lib/ambiente'
+import { config } from '../dados/config'
+import { situacao } from '../lib/horario'
 import { copiarTexto } from '../lib/copiar'
 import { brl, formatarCep, soDigitos } from '../lib/formato'
 import {
@@ -188,11 +191,19 @@ export function ChatFolha() {
             resposta: lugar,
           }
         }
+        const sit = situacao(canal)
         return {
           perguntas: [
             modo === 'encomenda'
               ? `A encomenda vai pro atendimento de ${lugar}. Pode ser?`
               : `Teu pedido vai pro atendimento de ${lugar}. É daí?`,
+            ...(!sit.aberto && (config.modoPrevia || !canal.horario.demo)
+              ? [
+                  <span key="h">
+                    {sit.texto}. Pode montar o pedido: a resposta vem quando abrir. <Demo ativo={canal.horario.demo} />
+                  </span>,
+                ]
+              : []),
           ],
           chips: [
             {
@@ -463,7 +474,7 @@ export function ChatFolha() {
             <div className="dm-citado-pilha">
               {produtosCitados.slice(0, 3).map((p, i) => (
                 <div key={p.id} className="dm-citado-quadro" style={{ transform: `translateX(${-i * 14}px) rotate(${i * 3}deg)`, zIndex: 3 - i }}>
-                  <ArteProduto produto={p} largura={54} revelar={false} prioridade />
+                  <ProdutoVisual produto={p} largura={54} revelar={false} prioridade />
                 </div>
               ))}
             </div>
@@ -547,7 +558,10 @@ export function ChatFolha() {
             naoConsegui={() => marcarEnviado(null)}
             editar={(p) => voltarPara(p)}
             mandei={() => {
-              if (modo === 'pedido') limparSacola()
+              if (modo === 'pedido') {
+                useSacola.getState().guardarUltimo()
+                limparSacola()
+              }
               recomecar()
               fechar()
             }}
@@ -619,6 +633,10 @@ function EntradaDM({ campo, desativado }: { campo: Campo; desativado?: boolean }
           maxLength={campo.max}
           enterKeyHint="send"
           disabled={desativado}
+          onFocus={() => {
+            // o teclado do celular sobe a folha: mantém a última mensagem à vista
+            setTimeout(() => document.querySelector('.dm-fim')?.scrollIntoView({ block: 'end' }), 320)
+          }}
         />
         {v.trim() && (
           <button type="submit" className="dm-enviar" disabled={desativado}>
@@ -654,8 +672,8 @@ function Resumo({
   const avisar = useUI((s) => s.avisar)
   const [naoAbriu, setNaoAbriu] = useState(false)
   const semNumero = !canal.whatsapp
-  // no celular, o link troca de app sem nova aba (o navegador do Instagram é imprevisível com _blank)
-  const alvo = window.matchMedia('(pointer: fine)').matches ? '_blank' : undefined
+  // no celular o link troca de app sem nova aba; no computador ou dentro de iframe, nova aba
+  const alvo = alvoDeSaida()
   const tocou = (t: 'whats' | 'dm') => {
     aoEnviar(t)
     setNaoAbriu(false)

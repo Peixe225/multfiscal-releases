@@ -51,27 +51,107 @@ function hash01(x: number, y: number, semente: number): number {
 
 /* ---------------------------------------------------------------- ditherizar */
 
+/** Cor em RGB 0..255. */
+export type Cor = readonly [number, number, number]
+
 export interface OpcoesDither {
-  /** Níveis por canal (2..16). Padrão 6: 216 cores, cara de paleta web de 1998. */
+  /** Níveis por canal (2..16) no modo sem paleta. Padrão 6. */
   niveis?: number
-  /** Indisponível: dessaturado, mais escuro e com menos níveis. */
+  /** Indisponível: dessaturado, mais escuro e com menos níveis (só luminância). */
   cinza?: boolean
-  /** Contraste em torno do cinza médio (1 = igual). */
+  /** Contraste em torno do cinza médio (1 = igual). Não vale com paleta (a cor exata tem de ficar exata). */
   contraste?: number
-  /** Grão (0..0,2): ruído de luminância somado antes do limiar. */
+  /** Grão (0..0,2): ruído somado antes do limiar. */
   grao?: number
   /** 8 (padrão, mais tons) ou 4 (padrão mais grosso). */
   matriz?: 4 | 8
-  /** Linhas de varredura de VHS: escurece 1 linha a cada 2 (0..0,3). */
+  /** Linhas de varredura de VHS: escurece 1 linha a cada 2 (0..0,3). Só sem paleta. */
   varredura?: number
   /** Semente do grão (troque por produto para o grão não se repetir igual). */
   semente?: number
+  /**
+   * Paleta curta. Com ela, cada pixel vira uma das duas cores mais próximas, escolhida pelo limiar
+   * Bayer: pixel art em 12 a 16 cores, não foto em 216. Pixel quase sem saturação só escolhe entre
+   * as cores neutras da paleta (nada de lilás ou verde na tampa prateada). Ignorada no cinza.
+   */
+  paleta?: readonly Cor[]
+}
+
+interface PaletaPronta {
+  n: number
+  r: Float32Array
+  g: Float32Array
+  b: Float32Array
+  neutro: Uint8Array
+  neutros: number
+}
+
+/** Quase sem saturação (HSV < 0,12) ou quase sem croma: vai pelo dither só em luminância. */
+function quaseNeutro(r: number, g: number, b: number, escala: number): boolean {
+  const mx = Math.max(r, g, b)
+  const croma = mx - Math.min(r, g, b)
+  return croma < 0.12 * mx || croma < 10 * escala
+}
+
+function prepararPaleta(cores: readonly Cor[]): PaletaPronta {
+  const n = cores.length
+  const p: PaletaPronta = { n, r: new Float32Array(n), g: new Float32Array(n), b: new Float32Array(n), neutro: new Uint8Array(n), neutros: 0 }
+  cores.forEach((c, k) => {
+    p.r[k] = c[0]
+    p.g[k] = c[1]
+    p.b[k] = c[2]
+    if (quaseNeutro(c[0], c[1], c[2], 1)) {
+      p.neutro[k] = 1
+      p.neutros++
+    }
+  })
+  return p
 }
 
 /**
- * Quantiza cada canal em N níveis com limiar Bayer: degradê vira padrão de pixel.
- * A transparência também é pontilhada (0 ou 255), com a matriz deslocada 1 px para não
- * correlacionar com a cor — assim o halo vira pontinhos, não uma névoa.
+ * Bayer entre as duas cores mais próximas: acha a mais perto (c1) e a segunda (c2), projeta o
+ * pixel no segmento c1→c2 e compara a fração com o limiar. Cor exata da paleta não pontilha.
+ * Distância "redmean" (perto do olho e barata).
+ */
+function escolher(p: PaletaPronta, r: number, g: number, b: number, limiar: number, ruido: number): number {
+  const soNeutro = p.neutros >= 2 && quaseNeutro(r, g, b, 1)
+  let i1 = -1
+  let i2 = -1
+  let d1 = Infinity
+  let d2 = Infinity
+  for (let k = 0; k < p.n; k++) {
+    if (soNeutro && !p.neutro[k]) continue
+    const dr = r - p.r[k]
+    const dg = g - p.g[k]
+    const db = b - p.b[k]
+    const rm = (r + p.r[k]) * 0.5
+    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db
+    if (d < d1) {
+      d2 = d1
+      i2 = i1
+      d1 = d
+      i1 = k
+    } else if (d < d2) {
+      d2 = d
+      i2 = k
+    }
+  }
+  if (i2 < 0) return i1
+  const ar = p.r[i2] - p.r[i1]
+  const ag = p.g[i2] - p.g[i1]
+  const ab = p.b[i2] - p.b[i1]
+  const len = ar * ar + ag * ag + ab * ab
+  if (len === 0) return i1
+  const f = ((r - p.r[i1]) * ar + (g - p.g[i1]) * ag + (b - p.b[i1]) * ab) / len
+  if (f <= 0.02) return i1
+  return f + ruido > limiar ? i2 : i1
+}
+
+/**
+ * Pontilha a imagem com limiar Bayer: com paleta, entre as duas cores mais próximas; sem paleta,
+ * cada canal em N níveis (pixel quase neutro vai só em luminância). A transparência também é
+ * pontilhada (0 ou 255), com a matriz deslocada 1 px para não correlacionar com a cor; na borda
+ * de fora do halo o limiar do alfa leva grão, e os pontos soltos não formam treliça de painel de LED.
  * Devolve um ImageData novo; não mexe no original.
  */
 export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
@@ -82,6 +162,7 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
   const lim = matriz === 4 ? BAYER4 : BAYER8
   const lado = matriz === 4 ? 4 : 8
   const masc = lado - 1
+  const pal = !cinza && opts.paleta && opts.paleta.length >= 2 ? prepararPaleta(opts.paleta) : null
 
   const { width: w, height: h, data: e } = img
   const saida = new ImageData(w, h)
@@ -95,9 +176,21 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
       const a = e[i + 3]
       if (a === 0) continue
       // Alfa pontilhado com a matriz deslocada 1 px (vizinho de Bayer ≈ limiar + 0,5).
-      if (a / 255 <= lim[linhaLim + ((x + 1) & masc)]) continue
+      let ta = lim[linhaLim + ((x + 1) & masc)]
+      if (a < 96) ta = ta * 0.5 + hash01(x + 17, y + 5, semente ^ 0x2c1b) * 0.5
+      if (a / 255 <= ta) continue
 
       const t = lim[linhaLim + (x & masc)]
+      if (pal) {
+        const ruido = grao > 0 ? (hash01(x, y, semente) - 0.5) * grao * 2 : 0
+        const k = escolher(pal, e[i], e[i + 1], e[i + 2], t, ruido)
+        s[i] = pal.r[k]
+        s[i + 1] = pal.g[k]
+        s[i + 2] = pal.b[k]
+        s[i + 3] = 255
+        continue
+      }
+
       let r = e[i] / 255
       let g = e[i + 1] / 255
       let b = e[i + 2] / 255
@@ -108,6 +201,12 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
       }
       if (cinza) {
         const l = (0.299 * r + 0.587 * g + 0.114 * b) * 0.6 + 0.04
+        r = l
+        g = l
+        b = l
+      } else if (quaseNeutro(r, g, b, 1 / 255)) {
+        // neutro fica neutro: sem pontinho lilás, ciano ou verde no prateado
+        const l = 0.299 * r + 0.587 * g + 0.114 * b
         r = l
         g = l
         b = l
@@ -135,6 +234,86 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
 function quantizar(v: number, t: number, passos: number): number {
   const q = Math.floor(v * passos + t)
   return q <= 0 ? 0 : q >= passos ? 255 : Math.round((q / passos) * 255)
+}
+
+/* ---------------------------------------------------------------- paleta */
+
+/** Cinzas da interface (#000, #262626, #636363, #A8A8A8), um prata e o branco: neutros de toda paleta. */
+export const NEUTROS: readonly Cor[] = [
+  [0, 0, 0],
+  [38, 38, 38],
+  [99, 99, 99],
+  [168, 168, 168],
+  [214, 214, 214],
+  [255, 255, 255],
+]
+
+/** Junta grupos de cores numa paleta só, sem as quase iguais (a primeira que entra fica). */
+export function montarPaleta(...grupos: readonly (readonly Cor[])[]): Cor[] {
+  const saida: Cor[] = []
+  for (const grupo of grupos) {
+    for (const c of grupo) {
+      const r: Cor = [Math.round(c[0]), Math.round(c[1]), Math.round(c[2])]
+      if (saida.some((o) => Math.abs(o[0] - r[0]) + Math.abs(o[1] - r[1]) + Math.abs(o[2] - r[2]) < 14)) continue
+      saida.push(r)
+    }
+  }
+  return saida
+}
+
+/** Paleta curta tirada da foto (corte pela mediana): n cores médias dos pixels opacos. */
+export function paletaDaImagem(img: ImageData, n = 10): Cor[] {
+  const d = img.data
+  const pixels: number[] = []
+  for (let i = 0; i < d.length; i += 8) if (d[i + 3] >= 200) pixels.push(i)
+  if (!pixels.length) return []
+  const caixas: number[][] = [pixels]
+  while (caixas.length < n) {
+    let melhor = -1
+    let maior = -1
+    let canal = 0
+    caixas.forEach((cx, bi) => {
+      if (cx.length < 2) return
+      for (let c = 0; c < 3; c++) {
+        let mn = 255
+        let mx = 0
+        for (const i of cx) {
+          const v = d[i + c]
+          if (v < mn) mn = v
+          if (v > mx) mx = v
+        }
+        if (mx - mn > maior) {
+          maior = mx - mn
+          melhor = bi
+          canal = c
+        }
+      }
+    })
+    if (melhor < 0 || maior < 8) break
+    const cx = caixas[melhor].sort((a, b) => d[a + canal] - d[b + canal])
+    const meio = cx.length >> 1
+    caixas.splice(melhor, 1, cx.slice(0, meio), cx.slice(meio))
+  }
+  return caixas.map((cx) => {
+    let r = 0
+    let g = 0
+    let b = 0
+    for (const i of cx) {
+      r += d[i]
+      g += d[i + 1]
+      b += d[i + 2]
+    }
+    return [r / cx.length, g / cx.length, b / cx.length] as const
+  })
+}
+
+/** Silhueta do produto (1 = pixel do produto): alfa ≥ 50%, lida ANTES do brilho. */
+export function silhuetaDe(img: ImageData): Uint8Array {
+  const d = img.data
+  const n = d.length >> 2
+  const s = new Uint8Array(n)
+  for (let k = 0; k < n; k++) s[k] = d[k * 4 + 3] >= 128 ? 1 : 0
+  return s
 }
 
 /* ---------------------------------------------------------------- cor */
@@ -178,6 +357,35 @@ export function travarMatiz(c: RGB): RGB {
   const l = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
   const resto = 0.12 // um fio da cor original, para o cinza não ficar morto
   return [l + (c[0] - l) * resto, l + (c[1] - l) * resto, l + (c[2] - l) * resto]
+}
+
+/** Pico do halo: cor escura ainda brilha, cor clara não estoura. O cinza de reserva brilha bem menos. */
+const PICO = 210
+const PICO_CINZA = 130
+
+function normalizar(c: RGB, pico: number): RGB {
+  const max = Math.max(c[0], c[1], c[2], 1)
+  const k = Math.min(2.4, pico / max)
+  return [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k)]
+}
+
+/**
+ * A cor do halo, já normalizada. É a cor do produto; se a trava de matiz agir (verde, roxo), entra
+ * a primeira cor secundária do produto que tenha cor de verdade (o rosa das flores do Arizona, o
+ * vermelho do selo do Tanqueray). Sem nenhuma, um cinza contido: pico baixo e força menor, para
+ * não virar o halo estourado nem repetir o cinza do INDISPONÍVEL.
+ */
+export function corDoBrilho(cor: string, alternativas: readonly (string | undefined)[] = []): { rgb: RGB; forca: number } {
+  const original = hexParaRgb(cor)
+  const travada = travarMatiz(original)
+  if (travada === original) return { rgb: normalizar(original, PICO), forca: 1 }
+  for (const alt of alternativas) {
+    if (!alt) continue
+    const c = hexParaRgb(alt)
+    const [, sat] = matizSat(c)
+    if (sat >= 0.3 && Math.max(c[0], c[1], c[2]) >= 70 && travarMatiz(c) === c) return { rgb: normalizar(c, PICO), forca: 0.9 }
+  }
+  return { rgb: normalizar(travada, PICO_CINZA), forca: 0.6 }
 }
 
 /**
@@ -237,14 +445,9 @@ export interface OpcoesBrilho {
  */
 export function desenharBrilho(ctx: CanvasRenderingContext2D, cor: string, w: number, h: number, opts: number | OpcoesBrilho = {}): void {
   const { forca: f0 = 1, silhueta } = typeof opts === 'number' ? { forca: opts } : opts
-  const original = hexParaRgb(cor)
-  const c = travarMatiz(original)
-  // Halo travado em cinza brilha menos (cinza claro em volta vira moldura branca).
-  const forca = c === original ? f0 : f0 * 0.7
-  // Normaliza o pico: cor escura ainda brilha, cor clara não estoura.
-  const max = Math.max(c[0], c[1], c[2], 1)
-  const k = Math.min(2.4, 210 / max)
-  const [r, g, b] = c.map((v) => Math.round(v * k))
+  const halo = corDoBrilho(cor)
+  const forca = f0 * halo.forca
+  const [r, g, b] = halo.rgb
   const a = (v: number) => `rgba(${r},${g},${b},${Math.min(1, Math.max(0, v * forca))})`
 
   // 1) ar em volta: radial largo, fraco
@@ -324,17 +527,13 @@ function borrar(g: Float32Array, gw: number, gh: number, n: number): Float32Arra
  * Halo radial largo + brilho que abraça a silhueta. Tudo é calculado numa grade pequena
  * (1 célula = f px) e ampliado bilinear. Escreve no próprio ImageData (cada pixel só lê a si
  * mesmo depois da grade pronta) e devolve ele: produto por cima do brilho.
+ * `alternativas`: cores secundárias do produto, para quando a trava de matiz agir (corDoBrilho).
  */
-export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData {
+export function aplicarBrilho(img: ImageData, cor: string, forca = 1, alternativas: readonly (string | undefined)[] = []): ImageData {
   const { width: w, height: h, data: d } = img
-  const original = hexParaRgb(cor)
-  const c = travarMatiz(original)
-  const fz = c === original ? forca : forca * 0.7
-  const max = Math.max(c[0], c[1], c[2], 1)
-  const k = Math.min(2.4, 210 / max)
-  const hr = c[0] * k
-  const hg = c[1] * k
-  const hb = c[2] * k
+  const tom = corDoBrilho(cor, alternativas)
+  const fz = forca * tom.forca
+  const [hr, hg, hb] = tom.rgb
 
   // 1) cobertura do produto por célula, com folga em volta
   const f = Math.max(2, Math.round(w / 18))
@@ -402,6 +601,33 @@ export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData
     }
   }
   return img
+}
+
+/**
+ * Luz de aro: o produto contra a luz, como na madrugada. A primeira fileira de pixels da silhueta,
+ * nos lados e em cima, puxa para a cor do halo clareada (embaixo não: a luz vem de trás e de cima).
+ * Escreve no próprio ImageData. Usar antes do brilho, com a silhueta lida antes dele.
+ */
+export function aplicarAro(img: ImageData, silhueta: Uint8Array, cor: Cor, forca = 0.55): void {
+  const { width: w, height: h, data: d } = img
+  const lr = cor[0] + (255 - cor[0]) * 0.3
+  const lg = cor[1] + (255 - cor[1]) * 0.3
+  const lb = cor[2] + (255 - cor[2]) * 0.3
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const k = y * w + x
+      if (!silhueta[k]) continue
+      const lado = x === 0 || !silhueta[k - 1] || x === w - 1 || !silhueta[k + 1]
+      const cima = y === 0 || !silhueta[k - w]
+      if (!lado && !cima) continue
+      const f = lado ? forca : forca * 0.7
+      const i = k * 4
+      d[i] += (lr - d[i]) * f
+      d[i + 1] += (lg - d[i + 1]) * f
+      d[i + 2] += (lb - d[i + 2]) * f
+      d[i + 3] = 255
+    }
+  }
 }
 
 /* ---------------------------------------------------------------- revelação */

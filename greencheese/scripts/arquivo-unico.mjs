@@ -37,7 +37,7 @@ html = html
   .replace('</head>', () => `<style>${cssFontes}</style></head>`)
   .replace('</body>', () => `<script type="module">${js.join('\n').replace(/<\/script/g, '<\\/script')}</script></body>`)
 const fav = readFileSync(join(raiz, 'public', 'favicon.svg')).toString('base64')
-html = html.replace(/href="\.\/favicon\.svg"/, () => `href="data:image/svg+xml;base64,${fav}"`).replace(/<link rel="apple-touch-icon"[^>]*>/, '')
+html = html.replace(/href="\.\/favicon\.svg"/, () => `href="data:image/svg+xml;base64,${fav}"`).replace(/<link rel="apple-touch-icon"[^>]*>/, '').replace(/<link rel="manifest"[^>]*>/, '')
 mkdirSync(join(raiz, 'entrega'), { recursive: true })
 writeFileSync(join(raiz, 'entrega', 'greencheese-previa.html'), html)
 console.log(`entrega/greencheese-previa.html — ${(html.length / 1024).toFixed(0)} KB`)

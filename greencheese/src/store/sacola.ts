@@ -12,6 +12,10 @@ export const chaveItem = (id: string, variacao: string | null) => `${id}::${vari
 
 interface SacolaState {
   itens: ItemSacola[]
+  /** Último pedido enviado (para "Repetir último pedido"). */
+  ultimo: ItemSacola[]
+  guardarUltimo: () => void
+  repetirUltimo: () => void
   adicionar: (id: string, variacao: string | null, qtd: number) => void
   alterar: (id: string, variacao: string | null, qtd: number) => void
   remover: (id: string, variacao: string | null) => void
@@ -22,6 +26,9 @@ export const useSacola = create<SacolaState>()(
   persist(
     (set) => ({
       itens: [],
+      ultimo: [],
+      guardarUltimo: () => set((s) => ({ ultimo: s.itens.map((i) => ({ ...i })) })),
+      repetirUltimo: () => set((s) => ({ itens: s.ultimo.map((i) => ({ ...i })) })),
       adicionar: (id, variacao, qtd) =>
         set((s) => {
           const k = chaveItem(id, variacao)

@@ -8,6 +8,8 @@ const b = await chromium.launch()
 for (const [modo, w, h, arq] of [
   ['og', 1200, 630, 'og.png'],
   ['icone', 180, 180, 'apple-touch-icon.png'],
+  ['icone', 192, 192, 'icone-192.png'],
+  ['icone', 512, 512, 'icone-512.png'],
 ]) {
   const p = await b.newPage({ viewport: { width: w, height: h } })
   await p.goto(`${base}ferramentas/og.html?modo=${modo}`)

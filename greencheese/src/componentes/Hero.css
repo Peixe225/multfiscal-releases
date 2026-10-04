@@ -6,6 +6,7 @@
 }
 
 .hero-story {
+  height: clamp(500px, 84vh, 780px);
   height: clamp(500px, 84svh, 780px);
 }
 .hero-quadro {
@@ -123,6 +124,7 @@
     align-items: center;
     gap: clamp(32px, 6vw, 96px);
     padding: 48px clamp(24px, 4vw, 64px) 40px;
+    min-height: min(100vh, 900px);
     min-height: min(100dvh, 900px);
   }
   .hero-desktop-perfil {
@@ -130,7 +132,7 @@
     justify-self: end;
   }
   .hero-story {
-    --hh: min(calc(100dvh - 120px), 760px);
+    --hh: min(calc(100vh - 120px), 760px);
     height: var(--hh);
     width: calc(var(--hh) * 9 / 16);
     justify-self: start;
@@ -148,5 +150,13 @@
   }
   .hero-demo {
     top: 64px;
+  }
+}
+
+@supports (height: 100dvh) {
+  @media (min-width: 900px) {
+    .hero-story {
+      --hh: min(calc(100dvh - 120px), 760px);
+    }
   }
 }

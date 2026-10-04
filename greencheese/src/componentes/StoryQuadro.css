@@ -66,6 +66,11 @@
 .sq-preco {
   line-height: 1;
 }
+.sq-detalhe {
+  margin-top: -2px;
+  font: 500 13px/1.2 var(--ui);
+  color: var(--legenda);
+}
 .sq-disp {
   line-height: 1;
   white-space: nowrap;

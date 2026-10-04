@@ -1,5 +1,5 @@
 import { canalDa } from '../dados/canais'
-import { ArteProduto } from '../arte/ArteProduto'
+import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
 import { brl, plural } from '../lib/formato'
@@ -33,7 +33,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
             <li key={`${l.item.id}-${l.item.variacao}`} className="ls-linha">
               {!compacta && (
                 <div className="ls-mini">
-                  <ArteProduto produto={l.produto} largura={45} revelar={false} brilho={false} />
+                  <ProdutoVisual produto={l.produto} largura={45} revelar={false} brilho={false} />
                 </div>
               )}
               <div className="ls-txt">
@@ -103,6 +103,8 @@ export function SacolaFolha() {
   const setSacola = useUI((s) => s.setSacola)
   const abrirStory = useUI((s) => s.abrirStory)
   const itens = useSacola((s) => s.itens)
+  const ultimo = useSacola((s) => s.ultimo)
+  const repetirUltimo = useSacola((s) => s.repetirUltimo)
   const adicionar = useSacola((s) => s.adicionar)
   const { pedido } = useLinhasSacola()
   const abrirChat = useChat((s) => s.abrir)
@@ -152,6 +154,11 @@ export function SacolaFolha() {
           <p className="adesivo-texto-bloco">
             <span className="adesivo-texto">Nada aqui ainda. Vem no certo!</span>
           </p>
+          {ultimo.length > 0 && (
+            <button type="button" className="botao botao-contorno" onClick={repetirUltimo}>
+              Repetir último pedido ({plural(contarItens(ultimo), 'item', 'itens')})
+            </button>
+          )}
           {disponiveis.length > 0 && (
             <div className="sacola-vazia-stories">
               {disponiveis.slice(0, 3).map((p, i) => (
@@ -168,7 +175,7 @@ export function SacolaFolha() {
                   }}
                   aria-label={`Ver ${p.nome}`}
                 >
-                  <ArteProduto produto={p} largura={54} revelar={false} />
+                  <ProdutoVisual produto={p} largura={54} revelar={false} />
                 </button>
               ))}
             </div>
@@ -180,7 +187,7 @@ export function SacolaFolha() {
           {sugestao && base && (
             <div className="sacola-sugestao">
               <div className="ls-mini">
-                <ArteProduto produto={sugestao} largura={45} revelar={false} brilho={false} />
+                <ProdutoVisual produto={sugestao} largura={45} revelar={false} brilho={false} />
               </div>
               <p>
                 <span className="legenda">Combina com {base.produto.nome}:</span>

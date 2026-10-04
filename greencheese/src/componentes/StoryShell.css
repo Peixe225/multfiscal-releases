@@ -1,6 +1,6 @@
 .story {
   --rodape-h: 96px;
-  --qh: min(calc(100dvh - var(--seg-topo) - var(--seg-baixo) - var(--rodape-h)), calc(100vw * 16 / 9));
+  --qh: min(calc(100vh - var(--seg-topo) - var(--seg-baixo) - var(--rodape-h)), calc(100vw * 16 / 9));
   --qw: calc(var(--qh) * 9 / 16);
   position: fixed;
   inset: 0;
@@ -154,7 +154,7 @@
 @media (min-width: 900px) {
   .story {
     --rodape-h: 104px;
-    --qh: min(calc(100dvh - 140px), 820px);
+    --qh: min(calc(100vh - 140px), 820px);
     place-items: center;
   }
   .story-seta {
@@ -195,5 +195,17 @@
   }
   .story-vizinho-dir {
     left: calc(100% + 96px);
+  }
+}
+
+/* com dvh, a altura acompanha a barra do navegador do celular */
+@supports (height: 100dvh) {
+  .story {
+    --qh: min(calc(100dvh - var(--seg-topo) - var(--seg-baixo) - var(--rodape-h)), calc(100vw * 16 / 9));
+  }
+  @media (min-width: 900px) {
+    .story {
+      --qh: min(calc(100dvh - 140px), 820px);
+    }
   }
 }
