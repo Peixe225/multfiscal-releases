@@ -81,7 +81,7 @@ function rascunho(w: number, h: number): CanvasRenderingContext2D {
   return ctx
 }
 
-/** Foto em "contain", com respiro, centrada um pouco acima do meio (como no story). */
+/** Foto em "contain", com respiro, centrada (como o produto recortado no story). */
 function desenharFoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) {
   const iw = img.naturalWidth || img.width
   const ih = img.naturalHeight || img.height
@@ -112,7 +112,7 @@ export function gerarImagemArte(produto: Produto, largura: number, opts: OpcoesA
         foto = null // sem foto: cai no desenho
       }
     }
-    // A composição é síncrona (os rascunhos são compartilhados) e entra na fila por quadro.
+    // A composição é síncrona (o rascunho é compartilhado) e entra na fila por quadro.
     return agendar(() => compor(produto, w, h, indisponivel, brilho, foto))
   })
 }
@@ -120,18 +120,25 @@ export function gerarImagemArte(produto: Produto, largura: number, opts: OpcoesA
 function compor(produto: Produto, w: number, h: number, indisponivel: boolean, brilho: boolean, foto: HTMLImageElement | null): ImageData {
   const camada = rascunho(w, h)
   let cor = produto.cor
-  let px: ImageData
+  let px: ImageData | null = null
   if (foto) {
-    desenharFoto(camada, foto, w, h)
-    px = camada.getImageData(0, 0, w, h)
-    recortarFundoPreto(px)
-    cor = corDominante(px)
-  } else {
+    try {
+      desenharFoto(camada, foto, w, h)
+      px = camada.getImageData(0, 0, w, h)
+      recortarFundoPreto(px)
+      cor = corDominante(px)
+    } catch {
+      // foto de outro domínio sem CORS "suja" o canvas: volta para o desenho
+      px = null
+      camada.clearRect(0, 0, w, h)
+    }
+  }
+  if (!px) {
     desenharArte(camada, produto.arte, w, h)
     px = camada.getImageData(0, 0, w, h)
   }
   // Brilho em JS direto nos pixels (sem segundo canvas): é o trecho que pesa no Android.
-  const composta = brilho ? aplicarBrilho(px, indisponivel ? '#9a9a9a' : cor, indisponivel ? 0.35 : 1) : px
+  const composta = brilho ? aplicarBrilho(px, indisponivel ? '#9a9a9a' : cor, indisponivel ? 0.22 : 1) : px
   return ditherizar(composta, {
     niveis: 6,
     cinza: indisponivel,

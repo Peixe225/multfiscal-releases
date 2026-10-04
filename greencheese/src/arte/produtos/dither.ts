@@ -322,7 +322,8 @@ function borrar(g: Float32Array, gw: number, gh: number, n: number): Float32Arra
  * O mesmo brilho de desenharBrilho, só que em JS direto no ImageData do produto (é o que a arte
  * usa: sem segundo canvas, sem shadowBlur, sem segunda leitura — bem mais leve no Android).
  * Halo radial largo + brilho que abraça a silhueta. Tudo é calculado numa grade pequena
- * (1 célula = f px) e ampliado bilinear. Devolve um ImageData novo, produto por cima do brilho.
+ * (1 célula = f px) e ampliado bilinear. Escreve no próprio ImageData (cada pixel só lê a si
+ * mesmo depois da grade pronta) e devolve ele: produto por cima do brilho.
  */
 export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData {
   const { width: w, height: h, data: d } = img
@@ -360,8 +361,8 @@ export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData
       const dx = (((gx - folga + 0.5) * f) - w * 0.5) / (w * 0.52)
       const t = Math.sqrt(dx * dx + dy * dy)
       const radial = t < 1 ? paradas(t, HALO) : 0
-      const sj = Math.min(1, justo[i] * 2.4) * 0.62
-      const sl = Math.min(1, largo[i] * 2.6) * 0.42
+      const sj = Math.min(1, justo[i] * 1.5) * 0.46
+      const sl = Math.min(1, largo[i] * 2.2) * 0.36
       halo[i] = Math.min(1, (1 - (1 - radial) * (1 - sj) * (1 - sl)) * fz)
     }
   }
@@ -373,8 +374,7 @@ export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData
     ix[x] = Math.min(gw - 2, Math.floor(p))
     fx[x] = p - ix[x]
   }
-  const saida = new ImageData(w, h)
-  const s = saida.data
+  const s = d
   for (let y = 0; y < h; y++) {
     const py = (y + 0.5) / f - 0.5 + folga
     const iy = Math.min(gh - 2, Math.floor(py))
@@ -384,13 +384,7 @@ export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4
       const a8 = d[i + 3]
-      if (a8 === 255) {
-        s[i] = d[i]
-        s[i + 1] = d[i + 1]
-        s[i + 2] = d[i + 2]
-        s[i + 3] = 255
-        continue
-      }
+      if (a8 === 255) continue
       const j = ix[x]
       const u = fx[x]
       const cima = halo[l0 + j] + (halo[l0 + j + 1] - halo[l0 + j]) * u
@@ -407,7 +401,7 @@ export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData
       s[i + 3] = oa * 255
     }
   }
-  return saida
+  return img
 }
 
 /* ---------------------------------------------------------------- revelação */
