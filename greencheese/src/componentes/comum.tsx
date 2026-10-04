@@ -26,7 +26,7 @@ export function Avatar({ tamanho = 32, anel = true, className }: { tamanho?: num
       }}
       aria-hidden="true"
     >
-      <Logo tamanho="100%" />
+      <Logo tamanho={Math.max(8, tamanho - 2 * (anel ? folga + traco : 0))} />
     </span>
   )
 }

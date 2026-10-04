@@ -20,6 +20,8 @@ export interface PropsProdutoVisual {
   className?: string
   style?: CSSProperties
   prioridade?: boolean
+  /** null = decorativo (o nome já aparece em texto ao lado). */
+  rotulo?: string | null
 }
 
 /* ---------------------------------------------------------------- Bayer 8×8 */
@@ -258,8 +260,9 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
       ref={raiz}
       className={`pv ${indisponivel ? 'pv-off' : ''} ${brilho ? 'pv-com-halo' : ''} ${className ?? ''}`}
       style={style}
-      role="img"
-      aria-label={produto.nome}
+      role={props.rotulo === null ? undefined : 'img'}
+      aria-label={props.rotulo === null ? undefined : (props.rotulo ?? produto.nome) + (indisponivel ? ', indisponível' : '')}
+      aria-hidden={props.rotulo === null ? true : undefined}
       data-real="sim"
     >
       {produto.foto ? (

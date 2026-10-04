@@ -109,11 +109,11 @@ function prepararPaleta(cores: readonly Cor[]): PaletaPronta {
 }
 
 /**
- * Bayer entre as duas cores mais próximas: acha a mais perto (c1) e a segunda (c2), projeta o
- * pixel no segmento c1→c2 e compara a fração com o limiar. Cor exata da paleta não pontilha.
- * Distância "redmean" (perto do olho e barata).
+ * As duas cores mais próximas do pixel: a mais perto (c1), a segunda (c2) e a fração do pixel no
+ * segmento c1→c2 (0 = c1 exata), empacotadas num número (c1 + c2·256 + fração·65536, fração em
+ * 1/4095). Distância "redmean" (perto do olho e barata).
  */
-function escolher(p: PaletaPronta, r: number, g: number, b: number, limiar: number, ruido: number): number {
+function vizinhasNaPaleta(p: PaletaPronta, r: number, g: number, b: number): number {
   const soNeutro = p.neutros >= 2 && quaseNeutro(r, g, b, 1)
   let i1 = -1
   let i2 = -1
@@ -136,15 +136,13 @@ function escolher(p: PaletaPronta, r: number, g: number, b: number, limiar: numb
       i2 = k
     }
   }
-  if (i2 < 0) return i1
+  if (i2 < 0) return i1 + i1 * 256
   const ar = p.r[i2] - p.r[i1]
   const ag = p.g[i2] - p.g[i1]
   const ab = p.b[i2] - p.b[i1]
   const len = ar * ar + ag * ag + ab * ab
-  if (len === 0) return i1
-  const f = ((r - p.r[i1]) * ar + (g - p.g[i1]) * ag + (b - p.b[i1]) * ab) / len
-  if (f <= 0.02) return i1
-  return f + ruido > limiar ? i2 : i1
+  const f = len === 0 ? 0 : Math.min(1, Math.max(0, ((r - p.r[i1]) * ar + (g - p.g[i1]) * ag + (b - p.b[i1]) * ab) / len))
+  return i1 + i2 * 256 + Math.round(f * 4095) * 65536
 }
 
 /**
@@ -163,6 +161,10 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
   const lado = matriz === 4 ? 4 : 8
   const masc = lado - 1
   const pal = !cinza && opts.paleta && opts.paleta.length >= 2 ? prepararPaleta(opts.paleta) : null
+  // O desenho repete muito as mesmas cores: o par mais próximo fica guardado por cor.
+  const pares = new Map<number, number>()
+  let corAnterior = -1
+  let parAnterior = 0
 
   const { width: w, height: h, data: e } = img
   const saida = new ImageData(w, h)
@@ -182,8 +184,20 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
 
       const t = lim[linhaLim + (x & masc)]
       if (pal) {
-        const ruido = grao > 0 ? (hash01(x, y, semente) - 0.5) * grao * 2 : 0
-        const k = escolher(pal, e[i], e[i + 1], e[i + 2], t, ruido)
+        const cor = (e[i] << 16) | (e[i + 1] << 8) | e[i + 2]
+        let par = cor === corAnterior ? parAnterior : pares.get(cor)
+        if (par === undefined) {
+          par = vizinhasNaPaleta(pal, e[i], e[i + 1], e[i + 2])
+          pares.set(cor, par)
+        }
+        corAnterior = cor
+        parAnterior = par
+        const i1 = par & 255
+        const i2 = (par >> 8) & 255
+        const f = Math.floor(par / 65536) / 4095
+        // cor exata da paleta (letreiro, relevo) não pontilha nem leva grão
+        const ruido = grao > 0 && f > 0.02 ? (hash01(x, y, semente) - 0.5) * grao * 2 : 0
+        const k = f > 0.02 && f + ruido > t ? i2 : i1
         s[i] = pal.r[k]
         s[i + 1] = pal.g[k]
         s[i + 2] = pal.b[k]

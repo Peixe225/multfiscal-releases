@@ -48,7 +48,6 @@
   aspect-ratio: 1;
 }
 .abertura-pixels {
-  image-rendering: pixelated;
   width: min(64vw, 280px);
   height: min(64vw, 280px);
 }

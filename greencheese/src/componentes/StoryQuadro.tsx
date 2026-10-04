@@ -59,7 +59,7 @@ export function StoryQuadro({
         </div>
       )}
       <div className={`sq-arte ${artePropsExtra?.flutuar && !indisponivel ? 'sq-flutua' : ''}`} data-arte={produto.id}>
-        <ProdutoVisual produto={produto} largura={larguraArte} indisponivel={indisponivel} revelar={revelar} prioridade={prioridade} />
+        <ProdutoVisual produto={produto} largura={larguraArte} indisponivel={indisponivel} revelar={revelar} prioridade={prioridade} rotulo={null} />
       </div>
       <div className="sq-texto">
         <p className="sq-nome px">{produto.nome}</p>

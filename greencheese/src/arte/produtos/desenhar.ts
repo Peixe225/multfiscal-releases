@@ -627,8 +627,9 @@ function garrafaQuadrada(ctx: Ctx, p: Paleta) {
   filete(ctx, CX, ly + 51, 11, 1, d, 0.75)
   // rótulo também pega a luz (papel fosco)
   sombraPlana(ctx, rot, lx, lx + lw, ly, ly + lh, 0.55)
-  // "Nº7": o que o rótulo diz de fato, em letreiro (depois da luz: cor lisa)
-  if (!letreiro(ctx, 'Nº7', CX, ly + 27, 24, 17, d)) filete(ctx, CX, ly + 26, 12, 3, d)
+  // "Nº 7": o que o rótulo diz de fato, em letreiro (depois da luz: cor lisa): Nº miúdo, 7 grande
+  if (letreiro(ctx, '7', CX + 4.5, ly + 28, 13, 18, d)) letreiro(ctx, 'Nº', CX - 6, ly + 24.5, 9.5, 8, d)
+  else filete(ctx, CX, ly + 26, 12, 3, d)
 
   // gargalo: cinta preta com dois filetes brancos
   const cinta = ret(CX - xn - 0.4, 31, (xn + 0.4) * 2, 14.5, 0.6)
@@ -966,8 +967,8 @@ function seda(ctx: Ctx, p: Paleta, e: Extra) {
   contorno(ctx, capa)
 
   // a marca, de baixo para cima, no meio da capa (depois da luz: cor lisa)
-  const yL0 = yAba + 6
-  const yL1 = y + h - 12
+  const yL0 = yAba + 4.5
+  const yL1 = y + h - 10.5
   const escrito = !!e.marca && letreiro(ctx, e.marca, CX, (yL0 + yL1) / 2, w - 9, yL1 - yL0, letra, { vertical: true })
   // marca desconhecida: uma faixa vertical lisa (grafismo, não letra)
   if (!escrito) filete(ctx, CX, yL0, 5, yL1 - yL0, letra)
@@ -1484,13 +1485,12 @@ function bandeja(ctx: Ctx, p: Paleta, e: Extra) {
   ctx.fillRect(-W / 2, -H, borda + 1.6, H * 2)
   ctx.fillStyle = css(r.luz, 0.55)
   ctx.fillRect(-W, H / 2 - borda - 1.3, W * 2, 1.3)
-  // estampa central simples: moldura fina e um selo redondo
+  // estampa central simples: moldura fina e um anel (selo geométrico, sem letra)
   ctx.strokeStyle = css(p.faixa, 0.85)
   ctx.lineWidth = 0.9
   ctx.stroke(forma(borda + 4.5, 2))
-  ctx.lineWidth = 2.2
+  ctx.lineWidth = 1.8
   ctx.stroke(elipse(0, 12, 9.5, 9.5))
-  pintar(ctx, elipse(0, 12, 3, 3), p.faixa)
   // brilho largo e fraco na diagonal (metal pintado)
   const gd = ctx.createLinearGradient(-W / 2, -H / 2, W / 2, H / 2)
   gd.addColorStop(0.18, branco(0))

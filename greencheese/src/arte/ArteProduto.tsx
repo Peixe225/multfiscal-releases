@@ -227,13 +227,13 @@ function gerarChiado(silhueta: Uint8Array, w: number, h: number, semente: number
     const img = new ImageData(w, h)
     const d = img.data
     for (let k = 0; k < w * h; k++) {
-      if (!silhueta[k] || aleatorio() > 0.16) continue
+      if (!silhueta[k] || aleatorio() > 0.085) continue
       const v = 150 + ((aleatorio() * 105) | 0)
       const i = k * 4
       d[i] = v
       d[i + 1] = v
       d[i + 2] = v
-      d[i + 3] = 80 + ((aleatorio() * 100) | 0)
+      d[i + 3] = 70 + ((aleatorio() * 80) | 0)
     }
     // riscos horizontais (linha de VHS), só onde há produto
     for (let r = 0; r < 1 + (q % 2); r++) {
@@ -247,7 +247,7 @@ function gerarChiado(silhueta: Uint8Array, w: number, h: number, semente: number
         d[i] = 228
         d[i + 1] = 228
         d[i + 2] = 228
-        d[i + 3] = 160
+        d[i + 3] = 140
       }
     }
     quadros.push(img)
@@ -272,9 +272,13 @@ function medir(el: Element, aoMedir: AoMedir): () => void {
             for (const e of entradas) {
               const fn = medidores.get(e.target)
               if (!fn) continue
+              const lw = e.contentRect.width * dpr
+              const lh = e.contentRect.height * dpr
+              // O tamanho em pixels de tela é o exato (já arredondado pelo navegador), mas há
+              // ambientes (DPR emulado) em que ele vem em px de CSS: só vale se bater com a conta.
               const tela = e.devicePixelContentBoxSize?.[0]
-              if (tela) fn(tela.inlineSize, tela.blockSize)
-              else fn(e.contentRect.width * dpr, e.contentRect.height * dpr)
+              if (tela && Math.abs(tela.inlineSize - lw) <= 2 && Math.abs(tela.blockSize - lh) <= 2) fn(tela.inlineSize, tela.blockSize)
+              else fn(lw, lh)
             }
           })
   }

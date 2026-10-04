@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { config } from '../dados/config'
-import { Logo } from '../arte/Logo'
+import { Logo, LogoPixel } from '../arte/Logo'
 import { gravar, ler } from '../lib/armazenamento'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
@@ -22,81 +22,6 @@ function lembrarIdade() {
 
 type Fase = 'logo' | 'idade' | 'local'
 
-/** Monta o logo bloco a bloco: rasteriza o SVG numa grade e acende os pixels em varredura (canvas, roda uma vez). */
-function useLogoEmPixels(svgHost: React.RefObject<HTMLDivElement | null>, tela: React.RefObject<HTMLCanvasElement | null>, ativo: boolean, aoTerminar: () => void) {
-  useEffect(() => {
-    if (!ativo) return
-    const host = svgHost.current
-    const cv = tela.current
-    const svg = host?.querySelector('svg')
-    if (!svg || !cv) {
-      aoTerminar()
-      return
-    }
-    let cancelado = false
-    let raf = 0
-    const N = 96
-    try {
-      const clone = svg.cloneNode(true) as SVGSVGElement
-      clone.setAttribute('width', String(N * 4))
-      clone.setAttribute('height', String(N * 4))
-      clone.style.color = '#fff'
-      const xml = new XMLSerializer().serializeToString(clone)
-      const img = new Image()
-      img.onload = () => {
-        if (cancelado) return
-        const off = document.createElement('canvas')
-        off.width = N
-        off.height = N
-        const o = off.getContext('2d', { willReadFrequently: true })
-        if (!o) return aoTerminar()
-        o.drawImage(img, 0, 0, N, N)
-        let dados: ImageData
-        try {
-          dados = o.getImageData(0, 0, N, N)
-        } catch {
-          return aoTerminar()
-        }
-        // células claras = traço branco do logo; o resto do círculo preto fica preto
-        const celulas: [number, number, number][] = []
-        for (let y = 0; y < N; y++)
-          for (let x = 0; x < N; x++) {
-            const k = (y * N + x) * 4
-            const lum = (dados.data[k] + dados.data[k + 1] + dados.data[k + 2]) / 3
-            if (dados.data[k + 3] > 100 && lum > 110) celulas.push([x, y, x * 0.7 + y + ((x * 7 + y * 13) % 9)])
-          }
-        celulas.sort((a, b) => a[2] - b[2])
-        const ctx = cv.getContext('2d')
-        if (!ctx) return aoTerminar()
-        cv.width = N
-        cv.height = N
-        ctx.clearRect(0, 0, N, N)
-        ctx.fillStyle = '#fff'
-        const dur = 760
-        const t0 = performance.now()
-        let feitas = 0
-        const passo = (agora: number) => {
-          if (cancelado) return
-          const alvo = Math.min(celulas.length, Math.floor(((agora - t0) / dur) * celulas.length))
-          for (; feitas < alvo; feitas++) ctx.fillRect(celulas[feitas][0], celulas[feitas][1], 1, 1)
-          if (feitas < celulas.length) raf = requestAnimationFrame(passo)
-          else aoTerminar()
-        }
-        raf = requestAnimationFrame(passo)
-      }
-      img.onerror = () => aoTerminar()
-      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`
-    } catch {
-      aoTerminar()
-    }
-    return () => {
-      cancelado = true
-      cancelAnimationFrame(raf)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativo])
-}
-
 /**
  * Abertura (uma vez por visita, pulável): é um story de 3 quadros.
  * 1) o logo se monta em pixels e a tesoura dá um corte; 2) a tesoura recorta o adesivo de enquete "Tem 18 anos ou mais?";
@@ -111,7 +36,7 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
   const reduz = movimentoReduzido()
   const raiz = useRef<HTMLDivElement>(null)
   const host = useRef<HTMLDivElement>(null)
-  const tela = useRef<HTMLCanvasElement>(null)
+  const pixels = useRef<HTMLDivElement>(null)
   const adesivo = useRef<HTMLDivElement>(null)
   const { texto, procurando } = useTextoLocal()
   const detectando = useLocal((s) => s.detectando)
@@ -142,10 +67,19 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
     tl.to(el.querySelectorAll('.abertura-some'), { opacity: 0, duration: 0.2, ease: 'steps(2)' }, 0)
   }, [aoTerminar, reduz])
 
-  // quadro 1: logo em pixels → logo vetorial → tesoura corta
-  useLogoEmPixels(host, tela, fase === 'logo' && !reduz, () => setLogoPronto(true))
-  useEffect(() => {
-    if (fase === 'logo' && reduz) setLogoPronto(true)
+  // quadro 1: o logo se monta bloco a bloco (cada passo acende por opacity) → vira o vetor → a tesoura corta
+  useLayoutEffect(() => {
+    if (fase !== 'logo') return
+    const passos = pixels.current?.querySelectorAll('[data-ordem]')
+    if (reduz || !passos?.length) {
+      setLogoPronto(true)
+      return
+    }
+    const tl = gsap.timeline({ onComplete: () => setLogoPronto(true) })
+    tl.fromTo(passos, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.032, ease: 'none' })
+    return () => {
+      tl.kill()
+    }
   }, [fase, reduz])
 
   useLayoutEffect(() => {
@@ -159,7 +93,7 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
     const a = h.querySelector('.logo-lamina-a')
     const b = h.querySelector('.logo-lamina-b')
     const tl = gsap.timeline({ onComplete: () => setFase(fases[1]) })
-    tl.to(tela.current, { opacity: 0, duration: 0.2, ease: 'steps(2)' }, 0)
+    tl.to(pixels.current, { opacity: 0, duration: 0.2, ease: 'steps(2)' }, 0)
     tl.fromTo(h, { opacity: 0 }, { opacity: 1, duration: 0.2, ease: 'steps(2)' }, 0)
     if (a && b) {
       // o corte: as lâminas fecham e abrem, duas vezes
@@ -262,7 +196,9 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
 
       {fase === 'logo' && (
         <div className="abertura-logo abertura-some">
-          <canvas ref={tela} className="abertura-pixels" aria-hidden="true" />
+          <div ref={pixels} className="abertura-pixels" aria-hidden="true">
+            <LogoPixel tamanho="100%" />
+          </div>
           <div ref={host} className="abertura-vetor" style={{ opacity: reduz ? 1 : 0 }}>
             <Logo tamanho="100%" titulo="Green Cheese Imports" />
           </div>
