@@ -1,0 +1,4 @@
+{
+  "_como": "Uma linha por produto: { \"arquivo\": \"nome-do-print.png\", \"id\": \"id-do-catalogo\" }. Opcional: x, y, w, h (caixa em pixels do print). Depois: npm run recortar",
+  "recortes": []
+}

@@ -1,0 +1,35 @@
+.info-quadro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 80px 10% 40px;
+  text-align: center;
+}
+.info-titulo {
+  font-size: 32px;
+  text-wrap: balance;
+}
+.info-grande {
+  font-size: 24px;
+  line-height: 1.15;
+}
+.info-txt {
+  font: 400 15px/1.4 var(--ui);
+}
+.info-emblema {
+  image-rendering: pixelated;
+}
+.info-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.info-lista li {
+  font-size: 24px;
+}
+.info-quadro .botao {
+  min-width: 240px;
+}

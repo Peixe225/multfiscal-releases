@@ -1,0 +1,199 @@
+.story {
+  --rodape-h: 96px;
+  --qh: min(calc(100dvh - var(--seg-topo) - var(--seg-baixo) - var(--rodape-h)), calc(100vw * 16 / 9));
+  --qw: calc(var(--qh) * 9 / 16);
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: start center;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.story-fundo {
+  z-index: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+}
+@media (max-width: 899px) {
+  .story-fundo {
+    background: var(--preto);
+  }
+}
+
+.story-coluna {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--seg-topo);
+  padding-bottom: var(--seg-baixo);
+}
+
+.story-quadro {
+  position: relative;
+  width: var(--qw);
+  height: var(--qh);
+  background: var(--preto);
+  overflow: hidden;
+  outline: none;
+  will-change: transform;
+}
+@media (max-width: 599px) {
+  /* no celular o story ocupa a tela (como no app), sem faixas pretas dos lados */
+  .story {
+    --qw: 100vw;
+  }
+}
+@media (min-width: 600px) {
+  .story-quadro {
+    border-radius: 10px;
+  }
+}
+@media (max-height: 640px) {
+  .story {
+    --rodape-h: 64px;
+  }
+  .story-legenda {
+    display: none;
+  }
+}
+
+.story-barras {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 3px;
+}
+.story-barra {
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  border-radius: 1px;
+}
+.story-barra i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
+.story-cab {
+  position: absolute;
+  z-index: 5;
+  top: 16px;
+  left: 10px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+}
+.story-cab-nome {
+  font: 600 14px/1.1 var(--ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.story-cab-tempo {
+  font: 400 14px/1 var(--ui);
+  color: var(--legenda);
+  flex: none;
+}
+.story-cab-espaco {
+  flex: 1;
+}
+.story-cab .icone-botao {
+  width: 38px;
+  margin-left: -4px;
+}
+
+/* segurando: some o cabeçalho, como no app */
+.story.segurando .story-cab,
+.story.segurando .story-barras,
+.story.segurando .story-rodape {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.story-palco {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+.story-palco > .sq {
+  height: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+}
+
+.story-rodape {
+  width: max(var(--qw), min(100vw, 440px));
+  max-width: 100vw;
+  height: var(--rodape-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+/* setas e vizinhos: só no desktop */
+.story-seta,
+.story-vizinho {
+  display: none;
+}
+@media (min-width: 900px) {
+  .story {
+    --rodape-h: 104px;
+    --qh: min(calc(100dvh - 140px), 820px);
+    place-items: center;
+  }
+  .story-seta {
+    position: absolute;
+    top: calc(var(--qh) / 2 - 20px);
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--branco);
+    color: var(--preto);
+  }
+  .story-seta:disabled {
+    opacity: 0.25;
+  }
+  .story-seta-esq {
+    left: -64px;
+  }
+  .story-seta-dir {
+    right: -64px;
+  }
+  .story-vizinho {
+    position: absolute;
+    top: calc(var(--qh) / 2 - var(--qh) * 0.21);
+    display: block;
+    width: calc(var(--qw) * 0.42);
+    opacity: 0.45;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: opacity 0.2s;
+  }
+  .story-vizinho:hover {
+    opacity: 0.8;
+  }
+  .story-vizinho-esq {
+    right: calc(100% + 96px);
+  }
+  .story-vizinho-dir {
+    left: calc(100% + 96px);
+  }
+}

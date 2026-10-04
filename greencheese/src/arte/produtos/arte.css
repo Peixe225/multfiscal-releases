@@ -1,0 +1,94 @@
+/* Arte do produto: canvas em baixa resolução ampliado em pixel nítido. O pai manda no tamanho. */
+
+/* :where() = especificidade zero; qualquer regra do pai (ex.: .sq-arte > *) ganha. */
+:where(.arte-produto) {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.arte-produto > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* ---------- indisponível: chiado por cima, só na silhueta do produto ---------- */
+
+.arte-chiado {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.5;
+  -webkit-mask-image: var(--arte-mascara);
+  mask-image: var(--arte-mascara);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+/* Sem máscara ainda (arte não desenhada), nada de chiado no quadro inteiro. */
+.arte-chiado:not([data-pronto]) {
+  visibility: hidden;
+}
+
+/* A textura (gerada uma vez em canvas) é maior que o quadro e pula de lugar em degraus:
+   só transform, sem repintar. */
+.arte-chiado::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background-image: var(--arte-ruido);
+  background-size: var(--arte-ruido-tam, 32%) auto;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  animation: arte-chiado 0.72s steps(1, end) infinite;
+  will-change: transform;
+}
+.arte-chiado[data-pausado]::before {
+  animation-play-state: paused;
+}
+
+@keyframes arte-chiado {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  12.5% {
+    transform: translate3d(-9.4%, 5.1%, 0);
+  }
+  25% {
+    transform: translate3d(6.3%, -12.2%, 0);
+  }
+  37.5% {
+    transform: translate3d(-15.6%, -3.4%, 0);
+  }
+  50% {
+    transform: translate3d(11.8%, 9.7%, 0);
+  }
+  62.5% {
+    transform: translate3d(-3.1%, 14.4%, 0);
+  }
+  75% {
+    transform: translate3d(16.2%, -7.9%, 0);
+  }
+  87.5% {
+    transform: translate3d(-12.5%, -14.1%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arte-chiado::before {
+    animation: none;
+  }
+}

@@ -1,0 +1,751 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { canais, canalDa, type Canal, type FormaPagamento } from '../dados/canais'
+import { ArteProduto } from '../arte/ArteProduto'
+import { buscarCep, type Endereco } from '../lib/cep'
+import { copiarTexto } from '../lib/copiar'
+import { brl, formatarCep, soDigitos } from '../lib/formato'
+import {
+  NOME_PAGAMENTO,
+  linkDM,
+  linkPerfil,
+  linkWhatsApp,
+  montarEncomenda,
+  montarPedido,
+} from '../lib/mensagem'
+import { rolarPara } from '../lib/rolagem'
+import { produtoPorId } from '../store/catalogo'
+import { useChat, type Passo, type Respostas } from '../store/chat'
+import { useLinhasSacola } from '../store/derivados'
+import { nomeCidade, useLocal } from '../store/local'
+import { useSacola } from '../store/sacola'
+import { useUI } from '../store/ui'
+import { Avatar, Demo, Icone } from './comum'
+import { Folha } from './Folha'
+import { ListaSacola } from './Sacola'
+import './Chat.css'
+
+interface Chip {
+  rotulo: string
+  acao: () => void
+}
+
+interface Campo {
+  placeholder: string
+  modo?: 'text' | 'numeric' | 'tel' | 'decimal'
+  autoComplete?: string
+  max?: number
+  inicial?: string
+  mascara?: (v: string) => string
+  validar?: (v: string) => string | null
+  enviar: (v: string) => void
+}
+
+interface Def {
+  perguntas: ReactNode[]
+  chips?: Chip[]
+  campo?: Campo
+  /** Texto da bolha enviada quando o passo já foi respondido. */
+  resposta?: string | null
+}
+
+type AvisoCep = { tipo: 'outra-uf'; end: Endereco } | { tipo: 'nao-achei' } | { tipo: 'fora-do-ar' } | null
+
+function horaAgora(): string {
+  const d = new Date()
+  return `Hoje ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+export function ChatFolha() {
+  const chat = useChat()
+  const { aberto, modo, passo, feitos, respostas, respondendo, fechar, responder, voltarPara, abrir } = chat
+  const local = useLocal()
+  const { pedido, fora } = useLinhasSacola()
+  const limparSacola = useSacola((s) => s.limpar)
+  const setSeletor = useUI((s) => s.setSeletor)
+  const setSacola = useUI((s) => s.setSacola)
+  const fim = useRef<HTMLDivElement>(null)
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [avisoCep, setAvisoCep] = useState<AvisoCep>(null)
+  const [tipoEnvio, setTipoEnvio] = useState<'whats' | 'dm' | null>(null)
+  const enviadoEm = useChat((s) => s.enviadoEm)
+  const marcarEnviado = useChat((s) => s.marcarEnviado)
+  const recomecar = useChat((s) => s.recomecar)
+
+  // Canal: no pedido é o estado do site; na encomenda de quem está fora da área, é o escolhido no chat.
+  const canalSite = canalDa(local.uf)
+  const canal: Canal | undefined = modo === 'encomenda' && !canalSite ? canalDa(respostas.canalEnc) : canalSite
+  const cidade = canal === canalSite ? nomeCidade(canal, local.cidade, local.cidadeInformada) : null
+  const lugar = canal ? `${cidade ?? canal.nome} (${canal.uf.toUpperCase()})` : ''
+
+  const resp = (dados: Partial<Respostas>, p: Passo, proximo: Passo) => {
+    setAvisoCep(null)
+    responder(p, dados, proximo)
+  }
+
+  const precisaCidade = (c: Canal | undefined) => !!c && c.cidades.length === 0 && !local.cidadeInformada
+  const depoisDoLocal = (c: Canal | undefined): Passo => {
+    if (modo === 'encomenda') return 'enc-produto'
+    return precisaCidade(c) ? 'cidade' : 'sacola'
+  }
+
+  const mensagem = useMemo(() => {
+    if (!canal) return ''
+    if (modo === 'encomenda') {
+      return montarEncomenda({
+        canal,
+        cidade,
+        produto: respostas.encProduto,
+        quantidade: respostas.encQtd,
+        referencia: respostas.encRef,
+        nome: respostas.nome,
+      })
+    }
+    const endereco = respostas.rua
+      ? `${respostas.rua}${respostas.numero ? `, ${respostas.numero}` : ''}${respostas.bairro ? `, ${respostas.bairro}` : ''}${canal.cidades.length === 0 && respostas.cidadeCep ? `, ${respostas.cidadeCep}` : ''}`
+      : respostas.enderecoLivre
+    return montarPedido({
+      canal,
+      cidade,
+      linhas: pedido,
+      nome: respostas.nome,
+      endereco,
+      pagamento: respostas.pagamento,
+      troco: respostas.troco,
+      obs: respostas.obs,
+    })
+  }, [canal, cidade, modo, respostas, pedido])
+
+  // sobe para a última mensagem a cada passo
+  useEffect(() => {
+    if (!aberto) return
+    requestAnimationFrame(() => fim.current?.scrollIntoView({ block: 'end' }))
+  }, [aberto, passo, feitos.length, buscandoCep, avisoCep, enviadoEm])
+
+  async function enviarCep(v: string) {
+    if (!canal) return
+    setBuscandoCep(true)
+    setAvisoCep(null)
+    try {
+      const end = await buscarCep(v)
+      if (!end) {
+        setAvisoCep({ tipo: 'nao-achei' })
+        return
+      }
+      if (end.uf !== canal.uf) {
+        setAvisoCep({ tipo: 'outra-uf', end })
+        return
+      }
+      aplicarCep(end)
+    } catch {
+      setAvisoCep({ tipo: 'fora-do-ar' })
+    } finally {
+      setBuscandoCep(false)
+    }
+  }
+
+  function aplicarCep(end: Endereco) {
+    if (canal && canal.cidades.length === 0) local.informarCidade(end.cidade)
+    resp(
+      { cep: end.cep, rua: end.rua, bairro: end.bairro, cidadeCep: end.cidade, ufCep: end.uf, enderecoLivre: '' },
+      'endereco',
+      end.rua ? 'numero' : 'rua',
+    )
+  }
+
+  function def(p: Passo): Def {
+    const nome = respostas.nome.trim()
+    switch (p) {
+      case 'local': {
+        if (!canal) {
+          return {
+            perguntas: [modo === 'encomenda' ? 'A Green Cheese ainda não chegou no teu estado. Pra qual atendimento vai a encomenda?' : 'De qual estado você pede?'],
+            chips: [
+              ...canais.map((c) => ({
+                rotulo: `${c.uf.toUpperCase()} · ${c.cidades[0]?.nome ?? c.nome}`,
+                acao: () => {
+                  if (modo === 'encomenda' && local.uf && !canalSite) resp({ canalEnc: c.uf }, 'local', 'enc-produto')
+                  else {
+                    local.escolher(c.uf, null, 'manual')
+                    resp({}, 'local', modo === 'encomenda' ? 'enc-produto' : c.cidades.length === 0 ? 'cidade' : 'sacola')
+                  }
+                },
+              })),
+              ...(modo === 'pedido' ? [{ rotulo: 'Outro estado', acao: () => setSeletor(true) }] : []),
+            ],
+            resposta: canal ? lugar : null,
+          }
+        }
+        if (canal === canalSite && canal.cidades.length > 1 && !local.cidade) {
+          return {
+            perguntas: [`Teu pedido vai pra Green Cheese ${canal.uf.toUpperCase()}. Qual cidade?`],
+            chips: canal.cidades.map((c) => ({
+              rotulo: c.nome,
+              acao: () => {
+                local.escolherCidade(c.slug)
+                resp({}, 'local', depoisDoLocal(canal))
+              },
+            })),
+            resposta: lugar,
+          }
+        }
+        return {
+          perguntas: [
+            modo === 'encomenda'
+              ? `A encomenda vai pro atendimento de ${lugar}. Pode ser?`
+              : `Teu pedido vai pro atendimento de ${lugar}. É daí?`,
+          ],
+          chips: [
+            {
+              rotulo: modo === 'encomenda' ? 'Pode' : 'É daí',
+              acao: () => {
+                if (canal === canalSite && !local.confirmado) local.confirmar()
+                resp({}, 'local', depoisDoLocal(canal))
+              },
+            },
+            {
+              rotulo: canal === canalSite ? 'Trocar cidade' : 'Trocar atendimento',
+              acao: () => (canal === canalSite ? setSeletor(true) : resp({ canalEnc: '' }, 'local', 'local')),
+            },
+          ],
+          resposta: `${modo === 'encomenda' ? 'Pode' : 'É daí'} — ${lugar}`,
+        }
+      }
+      case 'cidade':
+        return {
+          perguntas: [`A Green Cheese ${canal?.uf.toUpperCase() ?? ''} ainda tá fechando a lista de cidades. Qual a tua cidade?`],
+          campo: {
+            placeholder: 'Tua cidade…',
+            autoComplete: 'address-level2',
+            max: 60,
+            inicial: local.cidadeInformada ?? '',
+            validar: (v) => (v.trim().length < 2 ? 'Escreve o nome da cidade.' : null),
+            enviar: (v) => {
+              local.informarCidade(v.trim())
+              resp({}, 'cidade', 'sacola')
+            },
+          },
+          resposta: local.cidadeInformada,
+        }
+      case 'sacola': {
+        if (pedido.length === 0) {
+          return {
+            perguntas: [
+              fora.length
+                ? `Os itens da tua sacola não tão disponíveis em ${cidade ?? canal?.nome ?? 'teu estado'}.`
+                : 'Tua sacola tá vazia.',
+            ],
+            chips: [
+              {
+                rotulo: 'Ver o catálogo',
+                acao: () => {
+                  fechar()
+                  setTimeout(() => rolarPara('#catalogo', -70), 320)
+                },
+              },
+              { rotulo: 'Fazer encomenda', acao: () => abrir('encomenda') },
+            ],
+          }
+        }
+        return {
+          perguntas: [
+            'Confere a sacola:',
+            <div className="dm-cartao" key="sacola">
+              <ListaSacola compacta />
+            </div>,
+          ],
+          chips: [
+            { rotulo: 'Tá certo', acao: () => resp({}, 'sacola', 'nome') },
+            { rotulo: 'Mexer na sacola', acao: () => setSacola(true) },
+          ],
+          resposta: 'Tá certo',
+        }
+      }
+      case 'nome':
+      case 'enc-nome':
+        return {
+          perguntas: ['Teu nome?'],
+          chips: nome ? [{ rotulo: nome, acao: () => resp({ nome }, p, p === 'nome' ? 'endereco' : 'enc-resumo') }] : undefined,
+          campo: {
+            placeholder: 'Teu nome…',
+            autoComplete: 'name',
+            max: 60,
+            validar: (v) => (v.trim().length < 2 ? 'Escreve teu nome.' : null),
+            enviar: (v) => resp({ nome: v.trim() }, p, p === 'nome' ? 'endereco' : 'enc-resumo'),
+          },
+          resposta: nome,
+        }
+      case 'endereco': {
+        const temAnterior = respostas.rua && respostas.numero && respostas.ufCep === canal?.uf
+        const chips: Chip[] = []
+        if (temAnterior) {
+          chips.push({ rotulo: `${respostas.rua}, ${respostas.numero}`, acao: () => resp({}, 'endereco', 'pagamento') })
+        } else if (respostas.cep && respostas.ufCep === canal?.uf) {
+          chips.push({ rotulo: `CEP ${formatarCep(respostas.cep)}`, acao: () => resp({}, 'endereco', respostas.rua ? 'numero' : 'rua') })
+        } else if (respostas.enderecoLivre && !respostas.cep) {
+          chips.push({ rotulo: respostas.enderecoLivre, acao: () => resp({}, 'endereco', 'pagamento') })
+        }
+        chips.push({ rotulo: 'Sem CEP', acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') })
+        return {
+          perguntas: ['Onde entrega? Manda o CEP que o endereço se completa.'],
+          chips,
+          campo: {
+            placeholder: 'CEP (só números)',
+            modo: 'numeric',
+            autoComplete: 'postal-code',
+            max: 9,
+            mascara: formatarCep,
+            validar: (v) => (soDigitos(v).length !== 8 ? 'O CEP tem 8 números.' : null),
+            enviar: (v) => void enviarCep(v),
+          },
+          resposta: respostas.cep ? formatarCep(respostas.cep) : 'Sem CEP',
+        }
+      }
+      case 'numero':
+        return {
+          perguntas: [`${respostas.rua}${respostas.bairro ? `, ${respostas.bairro}` : ''} — ${respostas.cidadeCep}/${respostas.ufCep.toUpperCase()}. Número e complemento?`],
+          campo: {
+            placeholder: 'Ex.: 120, apto 201',
+            autoComplete: 'address-line2',
+            max: 60,
+            inicial: respostas.numero,
+            validar: (v) => (!v.trim() ? 'Manda o número (ou "s/n").' : null),
+            enviar: (v) => resp({ numero: v.trim() }, 'numero', 'pagamento'),
+          },
+          resposta: respostas.numero,
+        }
+      case 'rua':
+        return {
+          perguntas: [respostas.cep && !respostas.rua ? `Esse CEP é de ${respostas.cidadeCep} inteira. Manda rua, número e bairro.` : 'Manda o endereço: rua, número e bairro.'],
+          campo: {
+            placeholder: 'Rua, número, bairro',
+            autoComplete: 'street-address',
+            max: 140,
+            inicial: respostas.enderecoLivre,
+            validar: (v) => (v.trim().length < 6 ? 'Falta coisa: rua, número e bairro.' : null),
+            enviar: (v) => resp({ enderecoLivre: v.trim(), rua: '', numero: '' }, 'rua', 'pagamento'),
+          },
+          resposta: respostas.enderecoLivre,
+        }
+      case 'pagamento': {
+        const opcoes = canal?.pagamento.opcoes ?? (['pix', 'dinheiro', 'cartao'] as FormaPagamento[])
+        return {
+          perguntas: [
+            <span key="p">
+              Como vai pagar? <Demo ativo={!!canal?.pagamento.demo} />
+            </span>,
+          ],
+          chips: opcoes.map((o) => ({
+            rotulo: NOME_PAGAMENTO[o],
+            acao: () => resp({ pagamento: o, troco: o === 'dinheiro' ? respostas.troco : null }, 'pagamento', o === 'dinheiro' ? 'troco' : 'obs'),
+          })),
+          resposta: respostas.pagamento ? NOME_PAGAMENTO[respostas.pagamento] : null,
+        }
+      }
+      case 'troco':
+        return {
+          perguntas: ['Troco pra quanto?'],
+          chips: [{ rotulo: 'Sem troco', acao: () => resp({ troco: null }, 'troco', 'obs') }],
+          campo: {
+            placeholder: 'Ex.: 100',
+            modo: 'decimal',
+            max: 10,
+            validar: (v) => {
+              const n = Number(v.replace(/[^\d,.]/g, '').replace(',', '.'))
+              return !Number.isFinite(n) || n <= 0 ? 'Só o valor, tipo 100 ou 50,00.' : null
+            },
+            enviar: (v) => resp({ troco: Number(v.replace(/[^\d,.]/g, '').replace(',', '.')) }, 'troco', 'obs'),
+          },
+          resposta: respostas.troco ? `Troco pra ${brl(respostas.troco)}` : 'Sem troco',
+        }
+      case 'obs':
+        return {
+          perguntas: ['Alguma observação? Ponto de referência, portão, horário…'],
+          chips: [{ rotulo: 'Sem observação', acao: () => resp({ obs: '' }, 'obs', 'resumo') }],
+          campo: {
+            placeholder: 'Observação…',
+            max: 200,
+            inicial: respostas.obs,
+            enviar: (v) => resp({ obs: v.trim() }, 'obs', 'resumo'),
+          },
+          resposta: respostas.obs || 'Sem observação',
+        }
+      case 'enc-produto':
+        return {
+          perguntas: ['Não achou? A Green Cheese importa. Qual produto você quer?'],
+          campo: {
+            placeholder: 'Ex.: Fanta de uva japonesa',
+            max: 120,
+            inicial: respostas.encProduto,
+            validar: (v) => (v.trim().length < 2 ? 'Escreve o produto.' : null),
+            enviar: (v) => resp({ encProduto: v.trim() }, 'enc-produto', 'enc-qtd'),
+          },
+          resposta: respostas.encProduto,
+        }
+      case 'enc-qtd':
+        return {
+          perguntas: ['Quantas unidades?'],
+          chips: ['1', '2', '3', '6', '12'].map((q) => ({ rotulo: q, acao: () => resp({ encQtd: q }, 'enc-qtd', 'enc-ref') })),
+          campo: {
+            placeholder: 'Outra quantidade…',
+            max: 30,
+            validar: (v) => (!v.trim() ? 'Quantas?' : null),
+            enviar: (v) => resp({ encQtd: v.trim() }, 'enc-qtd', 'enc-ref'),
+          },
+          resposta: respostas.encQtd,
+        }
+      case 'enc-ref':
+        return {
+          perguntas: ['Tem link ou descrição? Marca, sabor, tamanho… pode colar o link.'],
+          chips: [{ rotulo: 'Pular', acao: () => resp({ encRef: '' }, 'enc-ref', 'enc-nome') }],
+          campo: {
+            placeholder: 'Link ou descrição…',
+            max: 300,
+            inicial: respostas.encRef,
+            enviar: (v) => resp({ encRef: v.trim() }, 'enc-ref', 'enc-nome'),
+          },
+          resposta: respostas.encRef || 'Sem link',
+        }
+      case 'resumo':
+      case 'enc-resumo':
+      default:
+        return { perguntas: [] }
+    }
+  }
+
+  const atual = def(passo)
+  const ehResumo = passo === 'resumo' || passo === 'enc-resumo'
+  const produtosCitados = respondendo.map((id) => produtoPorId(id)).filter((p) => !!p)
+
+  const cabecalho = (
+    <div className="dm-cab">
+      <Avatar tamanho={28} anel={false} />
+      <span className="dm-cab-txt">
+        <strong>Pedido guiado</strong>
+        <span className="legenda">{canal ? `@${canal.instagram} · ` : ''}respostas automáticas</span>
+      </span>
+    </div>
+  )
+
+  const ultimaPergunta = atual.perguntas.length ? atual.perguntas : []
+
+  return (
+    <Folha
+      id="chat"
+      aberta={aberto}
+      aoFechar={fechar}
+      rotulo="Pedido guiado"
+      cabecalho={cabecalho}
+      className="folha-chat"
+      rodape={
+        !ehResumo && atual.campo ? (
+          <EntradaDM key={passo} campo={atual.campo} desativado={buscandoCep} />
+        ) : !ehResumo ? (
+          <p className="dm-dica legenda">Toca numa opção ali em cima</p>
+        ) : undefined
+      }
+    >
+      <div className="dm" aria-live="polite" aria-relevant="additions">
+        <div className="dm-perfil">
+          <Avatar tamanho={88} />
+          <strong>{canal?.nomePerfil ?? 'Green Cheese Imports'}</strong>
+          <span className="legenda">{canal ? `${canal.instagram} · Instagram` : 'RJ · MG · SP · ES · SC'}</span>
+          {canal && (
+            <a className="botao botao-cinza dm-ver-perfil" href={linkPerfil(canal.instagram)} target="_blank" rel="noopener noreferrer">
+              Ver perfil
+            </a>
+          )}
+        </div>
+        <p className="dm-hora legenda">{horaAgora()}</p>
+
+        {produtosCitados.length > 0 && modo === 'pedido' && (
+          <div className="dm-citado">
+            <span className="legenda dm-citado-rot">Você respondeu ao story</span>
+            <div className="dm-citado-pilha">
+              {produtosCitados.slice(0, 3).map((p, i) => (
+                <div key={p.id} className="dm-citado-quadro" style={{ transform: `translateX(${-i * 14}px) rotate(${i * 3}deg)`, zIndex: 3 - i }}>
+                  <ArteProduto produto={p} largura={54} revelar={false} prioridade />
+                </div>
+              ))}
+            </div>
+            <p className="dm-bolha dm-eu">Quero esse{produtosCitados.length > 1 ? 's' : ''}</p>
+          </div>
+        )}
+
+        {feitos.map((p) => {
+          const d = def(p)
+          return (
+            <div key={p} className="dm-troca">
+              {d.perguntas.map((q, i) => (
+                <BolhaLoja key={i}>{q}</BolhaLoja>
+              ))}
+              {d.resposta && (
+                <button type="button" className="dm-bolha dm-eu dm-editavel" onClick={() => voltarPara(p)} aria-label={`${d.resposta}. Tocar para mudar`}>
+                  {d.resposta}
+                </button>
+              )}
+            </div>
+          )
+        })}
+
+        {!ehResumo && (
+          <div className="dm-troca dm-atual">
+            {ultimaPergunta.map((q, i) => (
+              <BolhaLoja key={i}>{q}</BolhaLoja>
+            ))}
+            {buscandoCep && <BolhaLoja>Procurando o CEP…</BolhaLoja>}
+            {avisoCep?.tipo === 'nao-achei' && <BolhaLoja>Não achei esse CEP. Confere os números ou segue sem CEP.</BolhaLoja>}
+            {avisoCep?.tipo === 'fora-do-ar' && <BolhaLoja>O serviço de CEP não respondeu agora. Dá pra digitar o endereço.</BolhaLoja>}
+            {avisoCep?.tipo === 'outra-uf' && (
+              <BolhaLoja>
+                Esse CEP é de {avisoCep.end.cidade}/{avisoCep.end.uf.toUpperCase()}. O atendimento escolhido é o de {canal?.uf.toUpperCase()}.
+              </BolhaLoja>
+            )}
+            <Chips
+              chips={
+                avisoCep?.tipo === 'outra-uf'
+                  ? [
+                      ...(canalDa(avisoCep.end.uf)
+                        ? [
+                            {
+                              rotulo: `Trocar pra Green Cheese ${avisoCep.end.uf.toUpperCase()}`,
+                              acao: () => {
+                                const end = avisoCep.end
+                                local.escolher(end.uf, null, 'manual')
+                                if (canalDa(end.uf)?.cidades.length === 0) local.informarCidade(end.cidade)
+                                setAvisoCep(null)
+                                // o CEP fica guardado para reaproveitar no passo do endereço
+                                useChat.setState((st) => ({
+                                  respostas: { ...st.respostas, cep: end.cep, rua: end.rua, bairro: end.bairro, cidadeCep: end.cidade, ufCep: end.uf, numero: '' },
+                                }))
+                                voltarPara('local')
+                              },
+                            },
+                          ]
+                        : []),
+                      { rotulo: 'É esse mesmo', acao: () => aplicarCep(avisoCep.end) },
+                      { rotulo: 'Outro CEP', acao: () => setAvisoCep(null) },
+                    ]
+                  : avisoCep?.tipo === 'nao-achei' || avisoCep?.tipo === 'fora-do-ar'
+                    ? [{ rotulo: 'Digitar endereço', acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') }]
+                    : (atual.chips ?? [])
+              }
+            />
+          </div>
+        )}
+
+        {ehResumo && canal && (
+          <Resumo
+            canal={canal}
+            mensagem={mensagem}
+            encomenda={modo === 'encomenda'}
+            enviadoEm={enviadoEm}
+            tipoEnvio={tipoEnvio}
+            aoEnviar={(t) => {
+              setTipoEnvio(t)
+              marcarEnviado(Date.now())
+            }}
+            naoConsegui={() => marcarEnviado(null)}
+            editar={(p) => voltarPara(p)}
+            mandei={() => {
+              if (modo === 'pedido') limparSacola()
+              recomecar()
+              fechar()
+            }}
+          />
+        )}
+        <div ref={fim} className="dm-fim" />
+      </div>
+    </Folha>
+  )
+}
+
+function BolhaLoja({ children }: { children: ReactNode }) {
+  return <div className="dm-bolha dm-loja">{children}</div>
+}
+
+function Chips({ chips }: { chips: Chip[] }) {
+  if (!chips.length) return null
+  return (
+    <div className="dm-chips" role="group" aria-label="Respostas rápidas">
+      {chips.map((c) => (
+        <button key={c.rotulo} type="button" className="dm-chip toque" onClick={c.acao}>
+          {c.rotulo}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Campo no molde do Direct: pílula cinza, "Enviar" aparece quando há texto. */
+function EntradaDM({ campo, desativado }: { campo: Campo; desativado?: boolean }) {
+  const [v, setV] = useState(campo.inicial ?? '')
+  const [erro, setErro] = useState<string | null>(null)
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    // no celular, não abrir o teclado sozinho por cima das opções; no desktop, foca
+    if (window.matchMedia('(pointer: fine)').matches) ref.current?.focus({ preventScroll: true })
+  }, [])
+  const enviar = () => {
+    const e = campo.validar?.(v) ?? null
+    setErro(e)
+    if (e) return
+    campo.enviar(v)
+  }
+  return (
+    <form
+      className="dm-entrada"
+      onSubmit={(e) => {
+        e.preventDefault()
+        enviar()
+      }}
+    >
+      {erro && (
+        <p className="dm-erro" role="alert">
+          {erro}
+        </p>
+      )}
+      <div className="dm-entrada-pilula">
+        <input
+          ref={ref}
+          value={v}
+          onChange={(e) => {
+            setErro(null)
+            setV(campo.mascara ? campo.mascara(e.target.value) : e.target.value)
+          }}
+          placeholder={campo.placeholder}
+          aria-label={campo.placeholder}
+          inputMode={campo.modo === 'tel' ? 'tel' : campo.modo === 'numeric' ? 'numeric' : campo.modo === 'decimal' ? 'decimal' : 'text'}
+          autoComplete={campo.autoComplete ?? 'off'}
+          maxLength={campo.max}
+          enterKeyHint="send"
+          disabled={desativado}
+        />
+        {v.trim() && (
+          <button type="submit" className="dm-enviar" disabled={desativado}>
+            Enviar
+          </button>
+        )}
+      </div>
+    </form>
+  )
+}
+
+function Resumo({
+  canal,
+  mensagem,
+  encomenda,
+  enviadoEm,
+  tipoEnvio,
+  aoEnviar,
+  naoConsegui,
+  editar,
+  mandei,
+}: {
+  canal: Canal
+  mensagem: string
+  encomenda: boolean
+  enviadoEm: number | null
+  tipoEnvio: 'whats' | 'dm' | null
+  aoEnviar: (v: 'whats' | 'dm') => void
+  naoConsegui: () => void
+  editar: (p: Passo) => void
+  mandei: () => void
+}) {
+  const avisar = useUI((s) => s.avisar)
+  const [naoAbriu, setNaoAbriu] = useState(false)
+  const semNumero = !canal.whatsapp
+  // no celular, o link troca de app sem nova aba (o navegador do Instagram é imprevisível com _blank)
+  const alvo = window.matchMedia('(pointer: fine)').matches ? '_blank' : undefined
+  const tocou = (t: 'whats' | 'dm') => {
+    aoEnviar(t)
+    setNaoAbriu(false)
+    if (!alvo) {
+      window.setTimeout(() => {
+        if (document.visibilityState === 'visible') setNaoAbriu(true)
+      }, 1600)
+    }
+  }
+  return (
+    <div className="dm-troca dm-atual">
+      <BolhaLoja>{encomenda ? 'Encomenda montada. Confere:' : 'Pedido montado. Confere:'}</BolhaLoja>
+      <pre className="dm-mensagem" aria-label="Mensagem que vai pro WhatsApp">
+        {mensagem}
+      </pre>
+      <BolhaLoja>Agora é só enviar. Vem no certo!</BolhaLoja>
+      {semNumero && (
+        <BolhaLoja>
+          O WhatsApp da Green Cheese {canal.uf.toUpperCase()} ainda não tá no site: o WhatsApp vai pedir pra escolher o contato. Ou manda pela DM. <Demo ativo={semNumero} />
+        </BolhaLoja>
+      )}
+      <div className="dm-acoes">
+        <a className="botao botao-cheio botao-largo" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={() => tocou('whats')}>
+          <Icone nome="whatsapp" tamanho={20} />
+          Enviar no WhatsApp
+        </a>
+        <a
+          className="botao botao-contorno botao-largo"
+          href={linkDM(canal)}
+          target={alvo}
+          rel="noopener noreferrer"
+          onClick={() => {
+            // cópia síncrona, dentro do toque, antes de sair para o Instagram
+            const ok = copiarTexto(mensagem)
+            avisar(ok ? 'Pedido copiado. Cola na DM.' : 'Não deu pra copiar: segura no texto do pedido e copia.')
+            tocou('dm')
+          }}
+        >
+          <Icone nome="copiar" tamanho={20} />
+          Copiar {encomenda ? 'encomenda' : 'pedido'} e abrir a DM do Instagram
+        </a>
+      </div>
+      {naoAbriu && (
+        <>
+          <BolhaLoja>Não abriu? Toca de novo no botão, ou copia o texto e manda pela DM.</BolhaLoja>
+          <Chips
+            chips={[
+              {
+                rotulo: 'Copiar texto',
+                acao: () => avisar(copiarTexto(mensagem) ? 'Copiado.' : 'Segura no texto do pedido e copia.'),
+              },
+            ]}
+          />
+        </>
+      )}
+      {enviadoEm && (
+        <>
+          <BolhaLoja>
+            {tipoEnvio === 'dm'
+              ? 'Pedido copiado. Na DM, cola e envia.'
+              : tipoEnvio === 'whats'
+                ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.'
+                : 'Já mandou o pedido?'}
+          </BolhaLoja>
+          <BolhaLoja>Chegou? Marca @{canal.instagram} no story.</BolhaLoja>
+          <Chips
+            chips={[
+              { rotulo: 'Mandei', acao: mandei },
+              { rotulo: 'Não consegui', acao: naoConsegui },
+            ]}
+          />
+        </>
+      )}
+      {!enviadoEm && (
+        <Chips
+          chips={
+            encomenda
+              ? [
+                  { rotulo: 'Mudar produto', acao: () => editar('enc-produto') },
+                  { rotulo: 'Mudar quantidade', acao: () => editar('enc-qtd') },
+                  { rotulo: 'Mudar nome', acao: () => editar('enc-nome') },
+                ]
+              : [
+                  { rotulo: 'Mudar endereço', acao: () => editar('endereco') },
+                  { rotulo: 'Mudar pagamento', acao: () => editar('pagamento') },
+                  { rotulo: 'Mudar obs.', acao: () => editar('obs') },
+                ]
+          }
+        />
+      )}
+    </div>
+  )
+}

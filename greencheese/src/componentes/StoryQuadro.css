@@ -1,0 +1,181 @@
+/* O quadro 9:16 do story. Sem borda, sem fundo próprio além do preto: some no preto da página. */
+
+.sq {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  background: var(--preto);
+  overflow: hidden;
+  color: var(--branco);
+}
+
+.sq-adesivo {
+  position: absolute;
+  z-index: 2;
+  left: 7%;
+  pointer-events: none;
+}
+
+.sq-arte {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+.sq-arte > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.sq-arte canvas {
+  object-fit: contain;
+}
+
+/* flutuar: voz pixel (degraus), posição presa em 2 px */
+.sq-flutua > * {
+  animation: sq-flutuar 2.4s steps(4, jump-none) infinite alternate;
+}
+@keyframes sq-flutuar {
+  from {
+    transform: translateY(2px) rotate(-1.5deg);
+  }
+  to {
+    transform: translateY(-8px) rotate(1.5deg);
+  }
+}
+
+.sq-texto {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35em;
+  padding: 0 8%;
+}
+.sq-nome {
+  text-transform: uppercase;
+  text-wrap: balance;
+  line-height: 1.05;
+}
+.sq-preco {
+  line-height: 1;
+}
+.sq-disp {
+  line-height: 1;
+  white-space: nowrap;
+}
+.sq-indisp {
+  color: var(--legenda);
+}
+.sq-off .sq-nome,
+.sq-off .sq-preco {
+  color: var(--legenda);
+}
+
+/* ---------- card (grade) ---------- */
+.sq-card .sq-adesivo {
+  top: 5%;
+  left: 6%;
+}
+.sq-card .sq-arte {
+  margin-top: 6%;
+}
+.sq-card .sq-texto {
+  padding: 4% 6% 9%;
+  gap: 6px;
+}
+.sq-card .sq-nome {
+  font-size: 16px;
+  font-weight: 400;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sq-card .sq-preco {
+  font-size: 20px;
+}
+.sq-card .sq-disp {
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* ---------- hero ---------- */
+.sq-hero .sq-adesivo {
+  display: none; /* no celular o adesivo fixo do topo faz esse papel */
+}
+.sq-hero .sq-arte {
+  margin-top: 6%;
+}
+.sq-hero .sq-texto {
+  padding: 2% 8% 6%;
+  gap: 8px;
+}
+.sq-hero .sq-nome {
+  font-size: 24px;
+}
+.sq-hero .sq-preco {
+  font-size: 32px;
+}
+.sq-hero .sq-disp {
+  font-size: 20px;
+}
+@media (min-width: 900px) {
+  .sq-hero .sq-adesivo {
+    display: block;
+    top: 0;
+  }
+}
+
+/* ---------- tela (story aberto) ---------- */
+.sq-tela .sq-adesivo {
+  top: 11%;
+}
+.sq-tela .sq-arte {
+  margin-top: 13%;
+  min-height: 110px;
+}
+.sq-tela .sq-texto {
+  padding: 2% 7% 0;
+  gap: 7px;
+}
+.sq-tela .sq-nome {
+  font-size: 24px;
+}
+.sq-tela .sq-preco {
+  font-size: 32px;
+}
+.sq-tela .sq-disp {
+  font-size: 20px;
+}
+.sq-adesivos {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 6% 18px;
+}
+
+@media (max-height: 700px) {
+  .sq-tela .sq-nome {
+    font-size: 20px;
+  }
+  .sq-tela .sq-preco {
+    font-size: 24px;
+  }
+  .sq-tela .sq-disp {
+    font-size: 16px;
+  }
+  .sq-adesivos {
+    gap: 8px;
+    padding-top: 8px;
+  }
+}

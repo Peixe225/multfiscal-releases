@@ -1,0 +1,229 @@
+/* ---------- DM: Pedido guiado ---------- */
+
+.folha-chat {
+  height: calc(100dvh - var(--seg-topo) - 24px);
+}
+@media (min-width: 900px) {
+  .folha-chat {
+    height: min(820px, calc(100dvh - 48px));
+  }
+}
+
+.dm-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dm-cab-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dm-cab-txt strong {
+  font: 700 15px/1.2 var(--ui);
+}
+.dm-cab-txt .legenda {
+  font: 400 12px/1.3 var(--ui);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 16px;
+}
+
+.dm-perfil {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 0 8px;
+  text-align: center;
+}
+.dm-perfil strong {
+  margin-top: 8px;
+  font: 700 17px/1.2 var(--ui);
+}
+.dm-perfil .legenda {
+  font-size: 13px;
+}
+.dm-ver-perfil {
+  margin-top: 10px;
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.dm-hora {
+  text-align: center;
+  font-size: 12px;
+  padding: 10px 0 6px;
+}
+
+.dm-troca {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.dm-bolha {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: 20px;
+  font: 400 15px/1.35 var(--ui);
+  overflow-wrap: anywhere;
+}
+.dm-loja {
+  align-self: flex-start;
+  background: var(--bolha);
+  color: var(--branco);
+}
+.dm-loja + .dm-loja {
+  border-top-left-radius: 6px;
+}
+.dm-eu {
+  align-self: flex-end;
+  background: var(--branco);
+  color: var(--preto);
+  text-align: left;
+}
+.dm-editavel {
+  cursor: pointer;
+}
+.dm-editavel:active {
+  opacity: 0.7;
+}
+
+/* cartão (sacola) dentro da bolha */
+.dm-cartao {
+  margin: 2px -5px;
+  min-width: min(280px, 70vw);
+}
+
+/* story respondido */
+.dm-citado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+}
+.dm-citado-rot {
+  font-size: 12px;
+}
+.dm-citado-pilha {
+  display: flex;
+  flex-direction: row-reverse;
+  padding-right: 4px;
+}
+.dm-citado-quadro {
+  width: 84px;
+  aspect-ratio: 9 / 16;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--preto);
+  outline: 1px solid var(--bolha);
+}
+
+/* respostas rápidas: pílulas contornadas, empilhadas à direita */
+.dm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dm-chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--legenda);
+  border-radius: 22px;
+  font: 600 14px/1.1 var(--ui);
+  color: var(--branco);
+  max-width: 100%;
+  text-align: center;
+}
+
+/* mensagem exata que vai pro WhatsApp */
+.dm-mensagem {
+  align-self: stretch;
+  margin: 4px 0;
+  padding: 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 16px;
+  font: 500 14px/1.45 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.dm-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dm-acoes .botao {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-block: 10px;
+}
+
+.dm-fim {
+  height: 1px;
+}
+
+/* campo no molde do Direct */
+.dm-entrada {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dm-entrada-pilula {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 6px 0 16px;
+  background: var(--bolha);
+  border-radius: 23px;
+}
+.dm-entrada-pilula input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  background: none;
+  outline: none;
+  font-size: 16px; /* 16px: o iOS não dá zoom */
+}
+.dm-entrada-pilula input::placeholder {
+  color: var(--legenda);
+}
+.dm-entrada-pilula:focus-within {
+  box-shadow: 0 0 0 1px var(--legenda);
+}
+.dm-enviar {
+  min-height: 44px;
+  padding: 0 12px;
+  font: 700 15px/1 var(--ui);
+  color: var(--branco);
+}
+.dm-erro {
+  font-size: 13px;
+  color: var(--branco);
+  padding-left: 16px;
+}
+.dm-dica {
+  text-align: center;
+  font-size: 13px;
+  min-height: 22px;
+}

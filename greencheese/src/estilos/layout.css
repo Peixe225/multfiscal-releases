@@ -1,0 +1,64 @@
+/* Estrutura da página: celular primeiro; desktop com a barra lateral do instagram.com. */
+
+.principal {
+  min-height: 100dvh;
+}
+
+.so-celular {
+  display: block;
+}
+
+/* barra de resposta fixa (celular) */
+.barra-fixa {
+  position: fixed;
+  z-index: 35;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 10px calc(8px + var(--seg-baixo));
+  background: var(--preto);
+  border-top: 1px solid var(--bolha);
+}
+
+/* avatar com anel */
+.avatar {
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  background: var(--preto);
+}
+.avatar > svg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* cabeçalho do story (linha de perfil) */
+.cab-story {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cab-story-nome {
+  font: 600 14px/1.1 var(--ui);
+}
+.cab-story-tempo {
+  font: 400 14px/1 var(--ui);
+  color: var(--legenda);
+}
+
+@media (min-width: 900px) {
+  :root {
+    --lateral: 232px;
+    --gutter: 24px;
+  }
+  .app {
+    padding-left: var(--lateral);
+  }
+  .so-celular {
+    display: none;
+  }
+  .barra-fixa {
+    display: none;
+  }
+}

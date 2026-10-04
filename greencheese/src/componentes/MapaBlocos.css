@@ -1,0 +1,79 @@
+.mapa {
+  --bloco: 36px;
+  display: grid;
+  grid-template-columns: repeat(7, var(--bloco));
+  grid-template-rows: repeat(8, var(--bloco));
+  gap: 3px;
+  width: max-content;
+}
+
+.mapa-uf {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--bloco);
+  height: var(--bloco);
+  color: var(--chiado);
+  /* apagado: dither 25% (um pixel cinza a cada quatro) */
+  background-color: var(--preto);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='1' height='1' fill='%23262626'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+  box-shadow: inset 0 0 0 1px var(--bolha);
+}
+
+button.mapa-uf {
+  cursor: pointer;
+}
+
+.mapa-sigla {
+  position: relative;
+  z-index: 1;
+  font-size: calc(var(--bloco) * 0.36);
+  font-weight: 400;
+}
+
+.mapa-uf.aceso {
+  color: var(--preto);
+  box-shadow: none;
+}
+
+.mapa-uf.aceso .mapa-sigla {
+  font-weight: 400;
+}
+
+.mapa-luz {
+  position: absolute;
+  inset: 0;
+  background: var(--branco);
+}
+
+.mapa-uf.atual {
+  outline: 2px solid var(--branco);
+  outline-offset: 2px;
+}
+
+/* pin do adesivo de localização em cima do estado atual */
+.mapa-pin {
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  right: -9px;
+  width: 16px;
+  height: 16px;
+  background: var(--branco);
+  border: 2px solid var(--preto);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+
+.mapa-uf:not(.aceso).chiando {
+  animation: mapa-chiado 0.36s steps(3) 2;
+}
+
+@keyframes mapa-chiado {
+  0% { opacity: 1; }
+  33% { opacity: 0.2; }
+  66% { opacity: 0.7; }
+  100% { opacity: 1; }
+}

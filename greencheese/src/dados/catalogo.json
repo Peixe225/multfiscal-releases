@@ -1,0 +1,502 @@
+{
+  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: desenho em pixel art usado enquanto não há foto oficial. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null.",
+  "categorias": [
+    {
+      "id": "bebidas",
+      "nome": "Bebidas importadas",
+      "curto": "Importadas",
+      "icone": "lata"
+    },
+    {
+      "id": "destilados",
+      "nome": "Destilados",
+      "curto": "Destilados",
+      "icone": "garrafa"
+    },
+    {
+      "id": "sedas",
+      "nome": "Sedas",
+      "curto": "Sedas",
+      "icone": "seda"
+    },
+    {
+      "id": "piteiras",
+      "nome": "Piteiras",
+      "curto": "Piteiras",
+      "icone": "piteira"
+    },
+    {
+      "id": "acessorios",
+      "nome": "Acessórios",
+      "curto": "Acessórios",
+      "icone": "cuia"
+    }
+  ],
+  "produtos": [
+    {
+      "id": "fanta-ghost-face-punch",
+      "nome": "Fanta Ghost Face Punch",
+      "tamanho": "350 ml",
+      "detalhe": "Lata 350 ml · importada",
+      "categoria": "bebidas",
+      "preco": null,
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": false,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [
+        "mg"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#d8325f",
+      "arte": {
+        "tipo": "lata",
+        "corpo": "#141414",
+        "faixa": "#d8325f",
+        "detalhe": "#f2f2f2"
+      },
+      "obs": "Visto disponível no story de MG. Preço PENDENTE."
+    },
+    {
+      "id": "coca-cola-vanilla",
+      "nome": "Coca-Cola Vanilla",
+      "tamanho": "lata",
+      "detalhe": "Lata · importada",
+      "categoria": "bebidas",
+      "preco": null,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": false,
+      "foto": null,
+      "cor": "#d21f35",
+      "arte": {
+        "tipo": "lata",
+        "corpo": "#c8102e",
+        "faixa": "#f1e3c0",
+        "detalhe": "#ffffff"
+      },
+      "obs": "Visto nos stories. Preço e estados PENDENTES."
+    },
+    {
+      "id": "arizona-green-tea",
+      "nome": "Arizona Green Tea",
+      "tamanho": "680 ml",
+      "detalhe": "Lata 680 ml · importada",
+      "categoria": "bebidas",
+      "preco": 19.9,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": false
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#6fc3a0",
+      "arte": {
+        "tipo": "lata-alta",
+        "corpo": "#7ccaa8",
+        "faixa": "#e892ad",
+        "detalhe": "#fdf6e4"
+      }
+    },
+    {
+      "id": "dr-pepper",
+      "nome": "Dr Pepper",
+      "tamanho": "355 ml",
+      "detalhe": "Lata 355 ml · importada",
+      "categoria": "bebidas",
+      "preco": 12.9,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": false
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#9b1c2e",
+      "arte": {
+        "tipo": "lata",
+        "corpo": "#6d0f1d",
+        "faixa": "#e9e1d6",
+        "detalhe": "#b8202f"
+      }
+    },
+    {
+      "id": "jack-daniels-old-no7-1l",
+      "nome": "Jack Daniel's Old No. 7",
+      "tamanho": "1 L",
+      "detalhe": "Garrafa 1 L",
+      "categoria": "destilados",
+      "preco": 149.9,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "disponivelConfirmado": [
+        "mg"
+      ],
+      "combinaCom": [
+        "coca-cola-vanilla"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#c8832f",
+      "arte": {
+        "tipo": "garrafa-quadrada",
+        "corpo": "#7a4314",
+        "rotulo": "#0d0d0d",
+        "detalhe": "#f2f2f2",
+        "tampa": "#0d0d0d"
+      },
+      "obs": "R$ 149,90 visto no story de MG."
+    },
+    {
+      "id": "gin-tanqueray-london-dry",
+      "nome": "Gin Tanqueray London Dry",
+      "tamanho": "750 ml",
+      "detalhe": "Garrafa 750 ml",
+      "categoria": "destilados",
+      "preco": 99.99,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "disponivelConfirmado": [
+        "rj",
+        "mg"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#3f8a5a",
+      "arte": {
+        "tipo": "garrafa-gin",
+        "corpo": "#1f5c37",
+        "rotulo": "#e9e4d8",
+        "detalhe": "#b3202a",
+        "tampa": "#b3202a"
+      },
+      "obs": "R$ 99,99 visto nos stories do RJ e de MG."
+    },
+    {
+      "id": "hennessy-very-special",
+      "nome": "Hennessy Very Special",
+      "detalhe": "Conhaque · garrafa",
+      "categoria": "destilados",
+      "preco": null,
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": false,
+        "es": true,
+        "sc": false
+      },
+      "disponivelConfirmado": [
+        "rj"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#b8662a",
+      "arte": {
+        "tipo": "garrafa-conhaque",
+        "corpo": "#5a2c0e",
+        "rotulo": "#e8dcc0",
+        "detalhe": "#111111",
+        "tampa": "#151515"
+      },
+      "obs": "Visto no story do RJ. Preço PENDENTE."
+    },
+    {
+      "id": "jagermeister-700ml",
+      "nome": "Jägermeister",
+      "tamanho": "700 ml",
+      "detalhe": "Garrafa 700 ml",
+      "categoria": "destilados",
+      "preco": 139.9,
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#d9731f",
+      "arte": {
+        "tipo": "garrafa-licor",
+        "corpo": "#1b3a24",
+        "rotulo": "#e5781f",
+        "detalhe": "#f4ead2",
+        "tampa": "#e5781f"
+      }
+    },
+    {
+      "id": "seda-ocb-premium-slim",
+      "nome": "Seda OCB Premium Slim",
+      "detalhe": "Livreto slim",
+      "categoria": "sedas",
+      "preco": 9.99,
+      "combos": [
+        {
+          "qtd": 2,
+          "total": 14.99
+        },
+        {
+          "qtd": 3,
+          "total": 19.99
+        }
+      ],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [
+        "rj"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#8f9bb3",
+      "arte": {
+        "tipo": "seda",
+        "corpo": "#101010",
+        "faixa": "#d9d9d9",
+        "detalhe": "#ffffff"
+      },
+      "obs": "R$ 9,99 · 2 por R$ 14,99 · 3 por R$ 19,99 visto no story do RJ."
+    },
+    {
+      "id": "seda-raw-classic-king-size",
+      "nome": "Seda RAW Classic King Size",
+      "detalhe": "Livreto king size slim",
+      "categoria": "sedas",
+      "preco": 12.99,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#c08a55",
+      "arte": {
+        "tipo": "seda",
+        "corpo": "#b9895a",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      }
+    },
+    {
+      "id": "seda-smoking-brown",
+      "nome": "Seda Smoking Brown",
+      "detalhe": "Livreto king size",
+      "categoria": "sedas",
+      "preco": 7.99,
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#8a5a36",
+      "arte": {
+        "tipo": "seda",
+        "corpo": "#5c3a22",
+        "faixa": "#d8b48a",
+        "detalhe": "#f5e6cf"
+      }
+    },
+    {
+      "id": "piteira-de-vidro-raw",
+      "nome": "Piteira de vidro RAW",
+      "detalhe": "Vidro · escolha o formato",
+      "categoria": "piteiras",
+      "preco": 29.99,
+      "variacoes": [
+        {
+          "id": "flat",
+          "nome": "Flat · 6 mm × 3,5 cm"
+        },
+        {
+          "id": "slim",
+          "nome": "Slim · 7 mm × 5 cm"
+        }
+      ],
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [
+        "rj"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#9fd6e3",
+      "arte": {
+        "tipo": "piteira-vidro",
+        "corpo": "#bfe6ee",
+        "detalhe": "#ffffff"
+      },
+      "obs": "R$ 29,99 (flat 6 mm × 3,5 cm e slim 7 mm × 5 cm) visto no story do RJ."
+    },
+    {
+      "id": "piteira-de-papel-raw",
+      "nome": "Piteira de papel RAW",
+      "detalhe": "Bloco de piteiras",
+      "categoria": "piteiras",
+      "preco": 6.99,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#c9a27a",
+      "arte": {
+        "tipo": "piteira-papel",
+        "corpo": "#c9a27a",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      }
+    },
+    {
+      "id": "cuia-de-silicone-raw",
+      "nome": "Cuia de silicone RAW",
+      "detalhe": "Silicone · não quebra",
+      "categoria": "acessorios",
+      "preco": null,
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [
+        "rj"
+      ],
+      "demo": false,
+      "foto": null,
+      "cor": "#c3874f",
+      "arte": {
+        "tipo": "cuia",
+        "corpo": "#a8703f",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      },
+      "obs": "Visto disponível no story do RJ. Preço PENDENTE."
+    },
+    {
+      "id": "dichavador-metal-4-partes",
+      "nome": "Dichavador de metal 4 partes",
+      "tamanho": "55 mm",
+      "detalhe": "55 mm · com peneira",
+      "categoria": "acessorios",
+      "preco": 59.9,
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#8aa3b8",
+      "arte": {
+        "tipo": "dichavador",
+        "corpo": "#7d8894",
+        "faixa": "#3d4650",
+        "detalhe": "#e6edf2"
+      }
+    },
+    {
+      "id": "isqueiro-clipper",
+      "nome": "Isqueiro Clipper",
+      "detalhe": "Recarregável",
+      "categoria": "acessorios",
+      "preco": 14.99,
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": false,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#e2552f",
+      "arte": {
+        "tipo": "isqueiro",
+        "corpo": "#e2552f",
+        "faixa": "#1a1a1a",
+        "detalhe": "#f2f2f2"
+      }
+    },
+    {
+      "id": "bandeja-raw-pequena",
+      "nome": "Bandeja RAW pequena",
+      "detalhe": "Metal · 18 × 12 cm",
+      "categoria": "acessorios",
+      "preco": 49.9,
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "disponivelConfirmado": [],
+      "demo": true,
+      "foto": null,
+      "cor": "#c49a6c",
+      "arte": {
+        "tipo": "bandeja",
+        "corpo": "#c49a6c",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      }
+    }
+  ]
+}

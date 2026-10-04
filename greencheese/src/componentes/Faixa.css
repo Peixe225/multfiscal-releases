@@ -1,0 +1,42 @@
+.faixa {
+  overflow: hidden;
+  border-top: 1px solid var(--bolha);
+  border-bottom: 1px solid var(--bolha);
+  padding: 6px 0;
+}
+.faixa-trilho {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: max-content;
+  will-change: transform;
+}
+.faixa-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 20px;
+  white-space: nowrap;
+  color: var(--legenda);
+}
+.faixa-item.atual {
+  color: var(--branco);
+}
+.faixa-moto {
+  flex: none;
+  color: var(--branco);
+}
+.faixa-confirmar {
+  font-size: 10px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .faixa-trilho {
+    flex-wrap: wrap;
+    width: auto;
+    padding: 0 var(--gutter);
+  }
+  .faixa-trilho > :nth-child(n + 13) {
+    display: none;
+  }
+}

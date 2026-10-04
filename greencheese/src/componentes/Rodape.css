@@ -1,0 +1,118 @@
+.reposts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px var(--gutter) 24px;
+}
+.repost {
+  position: relative;
+  width: min(260px, 72vw);
+  aspect-ratio: 9 / 16;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+  overflow: hidden;
+}
+.repost-cab {
+  position: absolute;
+  top: 12px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13px/1 var(--ui);
+}
+.repost-dentro {
+  position: relative;
+  width: 78%;
+  aspect-ratio: 9 / 13;
+  display: grid;
+  place-items: center;
+  background: #0b0b0b;
+  border-radius: 8px;
+  outline: 1px solid var(--bolha);
+  transform: rotate(-2deg);
+}
+.repost-arte {
+  image-rendering: pixelated;
+}
+.repost-mencao {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  font-size: 11px;
+  min-height: 26px;
+  white-space: nowrap;
+}
+.repost-legenda {
+  font-size: 16px;
+  text-align: center;
+  padding: 0 10px;
+}
+.reposts-txt {
+  font-size: 14px;
+  color: var(--legenda);
+  text-align: center;
+}
+.reposts-txt strong {
+  color: var(--branco);
+  font-weight: 600;
+}
+
+.rodape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px var(--gutter) calc(var(--barra-baixo) + var(--seg-baixo) + 28px);
+  text-align: center;
+  font-size: 12px;
+  color: var(--legenda);
+  border-top: 1px solid var(--bolha);
+}
+.rodape-perfis {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 0;
+  max-width: 720px;
+}
+.rodape-perfis a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 6px;
+  color: var(--legenda);
+}
+.rodape-perfis a:not(:last-child)::after {
+  content: '·';
+  margin-left: 12px;
+}
+.rodape-aviso {
+  font-size: 13px;
+  color: var(--branco);
+}
+.rodape-txt {
+  max-width: 560px;
+  line-height: 1.5;
+}
+.rodape-credito a {
+  color: var(--branco);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rodape-assinatura {
+  margin-top: 8px;
+}
+@media (min-width: 900px) {
+  .rodape {
+    padding-bottom: 40px;
+  }
+}
