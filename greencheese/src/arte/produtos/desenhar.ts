@@ -910,7 +910,8 @@ function seda(ctx: Ctx, p: Paleta) {
   ctx.save()
   ctx.translate(0, y + 44)
   ctx.rotate(-Math.PI / 2)
-  escrita(ctx, 0, -6, 34, 12, d, { fundo: p.corpo, semente: 51, palavras: [3] })
+  escrita(ctx, 0, -8, 34, 11, d, { fundo: p.corpo, semente: luma(p.corpo) < 0.2 ? 29 : 67, palavras: [3] })
+  escrita(ctx, -3, 6, 26, 2.6, p.faixa, { semente: 57, palavras: [7] })
   ctx.restore()
   escrita(ctx, 0, y + h - 9, 18, 2.6, p.faixa, { semente: 53, palavras: [7] })
   // bordas das folhas embaixo
@@ -930,43 +931,55 @@ function seda(ctx: Ctx, p: Paleta) {
   ctx.restore()
 }
 
-/** Tubo de vidro (piteira): corpo transparente, paredes claras, reflexo comprido. */
+/** Tubo de vidro (piteira): quase invisível no meio, paredes claras, reflexo comprido e boca oca. */
 function tuboVidro(ctx: Ctx, x0: number, x1: number, r: number, cor: RGB, bocaChata = false) {
   const corpo = ret(x0, -r, x1 - x0, r * 2, 0)
-  pintar(ctx, corpo, cor, 0.24)
-  // paredes (vidro grosso aparece mais claro nas bordas)
-  ctx.strokeStyle = css(cor, 0.95)
-  ctx.lineWidth = 1.3
-  ctx.beginPath()
-  ctx.moveTo(x0, -r + 0.7)
-  ctx.lineTo(x1, -r + 0.7)
-  ctx.moveTo(x0, r - 0.7)
-  ctx.lineTo(x1, r - 0.7)
-  ctx.stroke()
-  // reflexo comprido e um segundo, fraco
-  ctx.strokeStyle = branco(0.95)
+  const g = ctx.createLinearGradient(0, -r, 0, r)
+  g.addColorStop(0, css(cor, 0.55))
+  g.addColorStop(0.16, css(cor, 0.1))
+  g.addColorStop(0.3, css(claro(cor, 0.6), 0.5))
+  g.addColorStop(0.42, css(cor, 0.08))
+  g.addColorStop(0.78, css(cor, 0.14))
+  g.addColorStop(1, css(cor, 0.6))
+  pintar(ctx, corpo, g)
+  // paredes: vidro grosso aparece claro nas bordas
   ctx.lineWidth = 1.1
+  ctx.strokeStyle = css(claro(cor, 0.35))
   ctx.beginPath()
-  ctx.moveTo(x0 + 3, -r * 0.42)
-  ctx.lineTo(x1 - 4, -r * 0.42)
+  ctx.moveTo(x0, -r + 0.55)
+  ctx.lineTo(x1, -r + 0.55)
   ctx.stroke()
-  ctx.strokeStyle = branco(0.35)
+  ctx.strokeStyle = css(cor, 0.9)
+  ctx.beginPath()
+  ctx.moveTo(x0, r - 0.55)
+  ctx.lineTo(x1, r - 0.55)
+  ctx.stroke()
+  // reflexo principal, com um respiro no meio
+  const meio = x0 + (x1 - x0) * 0.58
+  ctx.strokeStyle = branco(1)
+  ctx.lineWidth = 1.15
+  ctx.beginPath()
+  ctx.moveTo(x0 + 3, -r * 0.48)
+  ctx.lineTo(meio - 2, -r * 0.48)
+  ctx.moveTo(meio + 2.5, -r * 0.48)
+  ctx.lineTo(x1 - 3.5, -r * 0.48)
+  ctx.stroke()
+  ctx.strokeStyle = branco(0.4)
   ctx.lineWidth = 0.8
   ctx.beginPath()
-  ctx.moveTo(x0 + 6, r * 0.45)
-  ctx.lineTo(x1 - 8, r * 0.45)
+  ctx.moveTo(x0 + 7, r * 0.42)
+  ctx.lineTo(x1 - 9, r * 0.42)
   ctx.stroke()
-  // bocas
-  const ry0 = r
-  const ry1 = bocaChata ? r * 0.55 : r
-  const rx1 = bocaChata ? r * 0.22 : r * 0.36
-  pintar(ctx, elipse(x0, 0, r * 0.36, ry0), cor, 0.18)
-  ctx.strokeStyle = css(cor, 0.85)
-  ctx.lineWidth = 1.2
-  ctx.stroke(elipse(x0, 0, r * 0.36, ry0))
-  pintar(ctx, elipse(x1, 0, rx1, ry1), cor, 0.3)
-  ctx.strokeStyle = css(claro(cor, 0.5))
-  ctx.lineWidth = 1.3
+  // boca de trás: anel fino
+  ctx.strokeStyle = css(cor, 0.8)
+  ctx.lineWidth = 0.9
+  ctx.stroke(elipse(x0, 0, r * 0.34, r))
+  // boca da frente: anel grosso e claro, miolo escuro (é oco)
+  const ry1 = bocaChata ? r * 0.6 : r
+  const rx1 = bocaChata ? r * 0.24 : r * 0.38
+  pintar(ctx, elipse(x1, 0, rx1, ry1), [10, 14, 16])
+  ctx.strokeStyle = css(claro(cor, 0.55))
+  ctx.lineWidth = 1.5
   ctx.stroke(elipse(x1, 0, rx1, ry1))
   // contorno sutil (só fora)
   ctx.strokeStyle = preto(0.5)
@@ -985,12 +998,12 @@ function piteiraVidro(ctx: Ctx, p: Paleta) {
   ctx.translate(CX, 80)
   ctx.rotate(-1.05)
   ctx.save()
-  ctx.translate(-4, -9.5)
-  tuboVidro(ctx, -50, 50, 5.6, p.corpo)
+  ctx.translate(-4, -10.5)
+  tuboVidro(ctx, -50, 50, 6.4, p.corpo)
   ctx.restore()
   ctx.save()
-  ctx.translate(-10, 10)
-  tuboVidro(ctx, -32, 34, 7, claro(p.corpo, 0.1), true)
+  ctx.translate(-10, 11)
+  tuboVidro(ctx, -32, 34, 7.8, claro(p.corpo, 0.1), true)
   ctx.restore()
   ctx.restore()
 }
@@ -1031,7 +1044,7 @@ function piteiraPapel(ctx: Ctx, p: Paleta) {
   ctx.fillStyle = preto(0.4)
   ctx.fillRect(x, y + 9, w, 1)
   // letras gordas (faixa) e linha picotada
-  escrita(ctx, 0, y + 17, 30, 11, p.faixa, { fundo: p.corpo, semente: 61, palavras: [3] })
+  escrita(ctx, 0, y + 17, 30, 11, p.faixa, { fundo: p.corpo, semente: 19, palavras: [3] })
   ctx.fillStyle = css(p.faixa, 0.9)
   for (let dx = x + 4; dx < x + w - 4; dx += 3.2) ctx.fillRect(dx, y + 33, 1.8, 1)
   escrita(ctx, 0, y + 37, 24, 2.6, p.faixa, { semente: 63, palavras: [4, 3] })
@@ -1106,9 +1119,9 @@ function cuia(ctx: Ctx, p: Paleta) {
   // letras em relevo (faixa) com luz embaixo
   ctx.save()
   ctx.translate(0.5, 0.6)
-  escrita(ctx, CX, y0 + 18, 26, 9, claro(base, 0.25), { fundo: base, semente: 71, palavras: [3] })
+  escrita(ctx, CX, y0 + 18, 26, 9, claro(base, 0.25), { fundo: base, semente: 57, palavras: [3] })
   ctx.restore()
-  escrita(ctx, CX, y0 + 18, 26, 9, p.faixa, { fundo: base, semente: 71, palavras: [3] })
+  escrita(ctx, CX, y0 + 18, 26, 9, p.faixa, { fundo: base, semente: 57, palavras: [3] })
   ctx.restore()
   sombrear(ctx, corpo, CX - rx, CX + rx, y0 - ry, yB + 2, { brilho: 0.8, pos: 0.22 })
 
@@ -1139,11 +1152,12 @@ function cuia(ctx: Ctx, p: Paleta) {
   contorno(ctx, corpo)
 }
 
-/** Dichavador: cilindro metálico em 4 partes, tampa com borda serrilhada. */
+/** Dichavador: cilindro metálico em 4 partes, tampa com borda serrilhada (frisos em relevo). */
 function dichavador(ctx: Ctx, p: Paleta) {
   const R = 26
   const ry = 9
   const yT = 60
+  const yS = yT + 12.5 // fim da tampa serrilhada
   const yF = 104
   const met = p.corpo
 
@@ -1156,7 +1170,7 @@ function dichavador(ctx: Ctx, p: Paleta) {
   pintar(ctx, lado, met)
   ctx.save()
   ctx.clip(lado)
-  // metal escovado: faixas de brilho mais duras que no vidro
+  // metal: faixas de brilho mais duras que no vidro
   const gm = ctx.createLinearGradient(CX - R, 0, CX + R, 0)
   gm.addColorStop(0, css(escuro(met, 0.2)))
   gm.addColorStop(0.12, css(claro(met, 0.35)))
@@ -1169,52 +1183,74 @@ function dichavador(ctx: Ctx, p: Paleta) {
   gm.addColorStop(1, css(escuro(met, 0.4)))
   ctx.fillStyle = gm
   ctx.fillRect(CX - R, yT, R * 2, yF - yT + ry + 1)
-  // serrilhado da tampa: frisos verticais em projeção cilíndrica
-  for (let a = -84; a <= 84; a += 7) {
-    const x = CX + R * Math.sin((a * Math.PI) / 180)
-    const largura = 0.75 * Math.cos((a * Math.PI) / 180) + 0.2
-    ctx.fillStyle = css(p.faixa, 0.85)
-    ctx.fillRect(x, yT + 1, largura, 11.5)
-    if (a < 20) {
-      ctx.fillStyle = branco(0.35)
-      ctx.fillRect(x - largura, yT + 1, largura * 0.7, 11.5)
-    }
+  // serrilhado: sulco escuro + flanco claro, em projeção cilíndrica (acompanha a curva)
+  const passo = 7.5
+  for (let a = -90 + passo / 2; a < 90; a += passo) {
+    const t0 = ((a - passo * 0.22) * Math.PI) / 180
+    const t1 = ((a + passo * 0.22) * Math.PI) / 180
+    const xa = CX + R * Math.sin(t0)
+    const xb = CX + R * Math.sin(t1)
+    const dy = ry * Math.cos((a * Math.PI) / 180)
+    ctx.fillStyle = css(p.faixa, 0.95)
+    ctx.fillRect(xa, yT + dy - 0.5, xb - xa, yS - yT + 0.5)
+    const luz = a < -15 ? 0.7 : a < 35 ? 0.35 : 0.08
+    ctx.fillStyle = branco(luz)
+    ctx.fillRect(xb, yT + dy - 0.5, Math.max(0.35, (xb - xa) * 0.55), yS - yT + 0.5)
   }
-  // sulcos entre as partes
-  for (const y of [yT + 13, yT + 25, yT + 36]) {
-    ctx.strokeStyle = css(p.faixa)
-    ctx.lineWidth = 1.3
+  // sulcos entre as partes (o da tampa mais fundo)
+  for (const [y, lw] of [
+    [yS, 1.6],
+    [yS + 11.5, 1.2],
+    [yS + 22.5, 1.2],
+  ] as const) {
+    ctx.strokeStyle = css(escuro(p.faixa, 0.3))
+    ctx.lineWidth = lw
     ctx.beginPath()
     ctx.ellipse(CX, y, R, ry, 0, Math.PI * 0.02, Math.PI * 0.98)
     ctx.stroke()
-    ctx.strokeStyle = css(p.detalhe, 0.55)
+    ctx.strokeStyle = css(p.detalhe, 0.6)
     ctx.lineWidth = 0.7
     ctx.beginPath()
-    ctx.ellipse(CX, y + 1.3, R, ry, 0, Math.PI * 0.35, Math.PI * 0.98)
+    ctx.ellipse(CX, y + lw, R, ry, 0, Math.PI * 0.3, Math.PI * 0.98)
     ctx.stroke()
   }
   ctx.restore()
+  // dentinhos saltando na silhueta (lados da tampa)
+  ctx.fillStyle = css(escuro(met, 0.15))
+  for (let y = yT + 0.6; y < yS + 1; y += 2.3) {
+    ctx.fillRect(CX - R - 0.9, y, 0.9, 1.2)
+    ctx.fillRect(CX + R, y, 0.9, 1.2)
+  }
 
   // tampa (face de cima)
   const topo = elipse(CX, yT, R, ry)
   const gt = ctx.createLinearGradient(CX - R, yT - ry, CX + R, yT + ry)
-  gt.addColorStop(0, css(claro(met, 0.6)))
+  gt.addColorStop(0, css(claro(met, 0.62)))
   gt.addColorStop(0.45, css(claro(met, 0.15)))
   gt.addColorStop(1, css(escuro(met, 0.35)))
   pintar(ctx, topo, gt)
-  // anel usinado e um disco central
+  // aro serrilhado em volta da face (pontinhos alternados)
+  for (let a = 0; a < 360; a += 9) {
+    const t = (a * Math.PI) / 180
+    const x = CX + (R - 1) * Math.cos(t)
+    const y = yT + (ry - 0.6) * Math.sin(t)
+    ctx.fillStyle = (a / 9) % 2 === 0 ? css(escuro(met, 0.35)) : css(claro(met, 0.5))
+    ctx.fillRect(x - 0.5, y - 0.4, 1, 0.8)
+  }
+  // anel usinado e disco central
   ctx.strokeStyle = css(p.faixa, 0.6)
   ctx.lineWidth = 0.8
-  ctx.stroke(elipse(CX, yT + 0.3, R - 7, ry - 2.4))
-  ctx.strokeStyle = branco(0.4)
+  ctx.stroke(elipse(CX, yT + 0.3, R - 8, ry - 2.8))
+  ctx.strokeStyle = branco(0.45)
   ctx.lineWidth = 0.6
-  ctx.stroke(elipse(CX, yT + 1.1, R - 7, ry - 2.4))
-  pintar(ctx, elipse(CX, yT + 0.4, 6, 2.1), escuro(met, 0.18))
-  // brilho da aresta da tampa (lado da luz)
+  ctx.stroke(elipse(CX, yT + 1.1, R - 8, ry - 2.8))
+  pintar(ctx, elipse(CX, yT + 0.4, 6, 2.1), escuro(met, 0.2))
+  pintar(ctx, elipse(CX - 1.6, yT - 0.2, 2.6, 0.8), claro(met, 0.5), 0.8)
+  // brilho da aresta (lado da luz)
   ctx.strokeStyle = css(p.detalhe, 0.9)
   ctx.lineWidth = 0.9
   ctx.beginPath()
-  ctx.ellipse(CX, yT, R - 0.5, ry - 0.4, 0, Math.PI * 0.95, Math.PI * 1.55)
+  ctx.ellipse(CX, yT, R - 0.4, ry - 0.3, 0, Math.PI * 0.95, Math.PI * 1.5)
   ctx.stroke()
 
   contorno(ctx, lado)
@@ -1292,97 +1328,164 @@ function isqueiro(ctx: Ctx, p: Paleta) {
   contorno(ctx, cab, 0.55, 0.9)
 }
 
-/** Bandeja de enrolar em perspectiva (em pé no quadro): borda levantada, estampa no fundo. */
+type Pt = [number, number]
+
+/** Polígono com cantos arredondados (arcTo entre os pontos). */
+function poliRedondo(pts: Pt[], r: number): Path2D {
+  const p = new Path2D()
+  const n = pts.length
+  const meio = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  const ini = meio(pts[n - 1], pts[0])
+  p.moveTo(ini[0], ini[1])
+  for (let i = 0; i < n; i++) {
+    const a = pts[i]
+    const b = pts[(i + 1) % n]
+    p.arcTo(a[0], a[1], b[0], b[1], r)
+  }
+  p.closePath()
+  return p
+}
+
+/** Bandeja de enrolar em perspectiva: borda levantada, estampa, um livreto e piteiras em cima. */
 function bandeja(ctx: Ctx, p: Paleta) {
-  // cantos de fora: longe (em cima) mais estreito
-  const tl: [number, number] = [26, 30]
-  const tr: [number, number] = [64, 30]
-  const br: [number, number] = [77, 126]
-  const bl: [number, number] = [13, 126]
-  const q = (u: number, v: number): [number, number] => {
+  // cantos de fora; o lado de longe (em cima) é mais estreito
+  const tl: Pt = [25, 33]
+  const tr: Pt = [65, 33]
+  const br: Pt = [79, 125]
+  const bl: Pt = [11, 125]
+  const q = (u: number, v: number): Pt => {
+    // v com leve compressão no fundo (perspectiva)
+    const vv = v * (1.18 - 0.18 * v)
     const xa = tl[0] + (tr[0] - tl[0]) * u
     const xb = bl[0] + (br[0] - bl[0]) * u
-    const ya = tl[1] + (tr[1] - tl[1]) * u
-    const yb = bl[1] + (br[1] - bl[1]) * u
-    return [xa + (xb - xa) * v, ya + (yb - ya) * v]
+    return [xa + (xb - xa) * vv, tl[1] + (bl[1] - tl[1]) * vv]
   }
-  const quad = (u0: number, v0: number, u1: number, v1: number) => poligono([...q(u0, v0), ...q(u1, v0), ...q(u1, v1), ...q(u0, v1)])
+  // retângulo girado no espaço da bandeja (proporção real ~ 1 × 1,45), projetado
+  // (ou, ov) desloca o retângulo no eixo dele mesmo (aba do livreto, letras)
+  const peca = (uc: number, vc: number, lu: number, lv: number, ang: number, ou = 0, ov = 0): Pt[] => {
+    const AS = 1.45
+    const c = Math.cos(ang)
+    const s = Math.sin(ang)
+    return [
+      [ou - lu, ov - lv],
+      [ou + lu, ov - lv],
+      [ou + lu, ov + lv],
+      [ou - lu, ov + lv],
+    ].map(([a, b]) => {
+      const x = a * c - b * s
+      const y = a * s + b * c
+      return q(uc + x, vc + y / AS)
+    })
+  }
+  const plano = (pts: Pt[]) => poligono(pts.flat())
 
   // espessura (lateral da frente)
-  const lateral = poligono([bl[0], bl[1], br[0], br[1], br[0] - 1.2, br[1] + 5, bl[0] + 1.2, bl[1] + 5])
-  pintar(ctx, lateral, escuro(p.corpo, 0.5))
-  ctx.fillStyle = css(claro(p.corpo, 0.3), 0.8)
-  ctx.fillRect(bl[0] + 1, bl[1] + 0.4, br[0] - bl[0] - 2, 0.8)
+  const lateral = poliRedondo([[bl[0], bl[1] - 3], [br[0], br[1] - 3], [br[0] - 1.4, br[1] + 4.5], [bl[0] + 1.4, bl[1] + 4.5]], 2)
+  pintar(ctx, lateral, escuro(p.corpo, 0.48))
+  ctx.fillStyle = css(claro(p.corpo, 0.25), 0.7)
+  ctx.fillRect(bl[0] + 2, bl[1] + 1.2, br[0] - bl[0] - 4, 0.8)
 
-  const fora = poligono([...tl, ...tr, ...br, ...bl])
-  pintar(ctx, fora, claro(p.corpo, 0.12))
-  // paredes internas da borda
-  const iu0 = 0.065
-  const iu1 = 0.935
-  const iv0 = 0.05
-  const iv1 = 0.955
-  pintar(ctx, poligono([...tl, ...tr, ...q(iu1, iv0), ...q(iu0, iv0)]), claro(p.corpo, 0.38))
-  pintar(ctx, poligono([...tl, ...q(iu0, iv0), ...q(iu0, iv1), ...bl]), claro(p.corpo, 0.22))
-  pintar(ctx, poligono([...tr, ...br, ...q(iu1, iv1), ...q(iu1, iv0)]), escuro(p.corpo, 0.35))
-  pintar(ctx, poligono([...bl, ...q(iu0, iv1), ...q(iu1, iv1), ...br]), escuro(p.corpo, 0.15))
+  const fora = poliRedondo([tl, tr, br, bl], 3.2)
+  pintar(ctx, fora, claro(p.corpo, 0.15))
+  // paredes internas da borda (luz da esquerda; a parede do fundo encara quem olha)
+  const iu0 = 0.07
+  const iu1 = 0.93
+  const iv0 = 0.055
+  const iv1 = 0.95
+  ctx.save()
+  ctx.clip(fora)
+  pintar(ctx, plano([tl, tr, q(iu1, iv0), q(iu0, iv0)]), claro(p.corpo, 0.42))
+  pintar(ctx, plano([tl, q(iu0, iv0), q(iu0, iv1), bl]), claro(p.corpo, 0.25))
+  pintar(ctx, plano([tr, br, q(iu1, iv1), q(iu1, iv0)]), escuro(p.corpo, 0.38))
+  pintar(ctx, plano([bl, q(iu0, iv1), q(iu1, iv1), br]), escuro(p.corpo, 0.12))
+  ctx.restore()
 
   // fundo da bandeja
-  const fundo = quad(iu0, iv0, iu1, iv1)
+  const fundo = poliRedondo([q(iu0, iv0), q(iu1, iv0), q(iu1, iv1), q(iu0, iv1)], 2)
   pintar(ctx, fundo, p.corpo)
   ctx.save()
   ctx.clip(fundo)
-  // estampa: moldura fina, letras gordas e linhas miúdas (em perspectiva)
-  ctx.strokeStyle = css(p.faixa, 0.85)
+  // estampa: moldura fina, letras gordas em cima, linhas miúdas
+  ctx.strokeStyle = css(p.faixa, 0.8)
   ctx.lineWidth = 0.8
-  ctx.stroke(quad(0.13, 0.09, 0.87, 0.91))
+  ctx.stroke(plano([q(0.14, 0.1), q(0.86, 0.1), q(0.86, 0.92), q(0.14, 0.92)]))
   ctx.fillStyle = css(p.faixa)
-  const letras = [
-    [0.22, 0.34],
-    [0.4, 0.58],
-    [0.62, 0.78],
+  const letras: [number, number, number][] = [
+    [0.24, 0.37, 1],
+    [0.43, 0.57, 4],
+    [0.63, 0.76, 2],
   ]
-  letras.forEach(([u0, u1], i) => {
-    ctx.fill(quad(u0, 0.3, u1, 0.47))
-    ctx.save()
+  for (const [u0, u1, forma] of letras) {
+    ctx.fillStyle = css(p.faixa)
+    ctx.fill(plano([q(u0, 0.16), q(u1, 0.16), q(u1, 0.29), q(u0, 0.29)]))
     ctx.fillStyle = css(p.corpo)
     const um = (u0 + u1) / 2
-    if (i !== 1) ctx.fill(quad(um - 0.03, 0.35, um + 0.03, 0.42))
-    else ctx.fill(quad(um - 0.03, 0.4, um + 0.03, 0.47))
-    ctx.restore()
-  })
-  for (let k = 0; k < 3; k++) {
-    const v = 0.56 + k * 0.05
-    const meia = 0.26 - k * 0.06
-    ctx.fill(quad(0.5 - meia, v, 0.5 + meia, v + 0.014))
+    if (forma === 1) ctx.fill(plano([q(um - 0.025, 0.2), q(um + 0.025, 0.2), q(um + 0.025, 0.25), q(um - 0.025, 0.25)]))
+    if (forma === 4) ctx.fill(plano([q(um - 0.025, 0.16), q(um + 0.025, 0.16), q(um + 0.025, 0.24), q(um - 0.025, 0.24)]))
+    if (forma === 2) ctx.fill(plano([q(um - 0.02, 0.2), q(u1, 0.2), q(u1, 0.25), q(um - 0.02, 0.25)]))
   }
-  // cones pequenos (motivo de estampa)
-  for (const [u, v] of [
-    [0.25, 0.78],
-    [0.5, 0.8],
-    [0.75, 0.78],
-  ]) {
-    ctx.fill(poligono([...q(u - 0.05, v), ...q(u + 0.05, v), ...q(u + 0.015, v + 0.08), ...q(u - 0.015, v + 0.08)]))
+  ctx.fillStyle = css(p.faixa, 0.85)
+  for (let k = 0; k < 2; k++) {
+    const v = 0.33 + k * 0.04
+    const meia = 0.2 - k * 0.07
+    ctx.fill(plano([q(0.5 - meia, v), q(0.5 + meia, v), q(0.5 + meia, v + 0.012), q(0.5 - meia, v + 0.012)]))
   }
+  // sombra das peças em cima da bandeja
+  ctx.fillStyle = preto(0.32)
+  ctx.fill(plano(peca(0.47, 0.66, 0.15, 0.32, 0.55)))
   ctx.restore()
-  // brilho metálico em diagonal sobre o fundo
+
+  // livreto de seda deitado na bandeja, com a folha escapando por baixo da aba
+  pintar(ctx, plano(peca(0.44, 0.63, 0.13, 0.05, 0.55, 0, -0.34)), p.detalhe, 0.95)
+  const livro = peca(0.44, 0.63, 0.15, 0.32, 0.55)
+  const capa = plano(livro)
+  pintar(ctx, capa, p.faixa)
   ctx.save()
-  ctx.clip(fundo)
-  const gd = ctx.createLinearGradient(20, 40, 70, 120)
-  gd.addColorStop(0.18, branco(0))
-  gd.addColorStop(0.28, branco(0.28))
-  gd.addColorStop(0.36, branco(0))
-  gd.addColorStop(0.7, preto(0))
-  gd.addColorStop(1, preto(0.3))
+  ctx.clip(capa)
+  // aba dobrada numa ponta e letras gordas no meio
+  ctx.fillStyle = css(claro(p.faixa, 0.14))
+  ctx.fill(plano(peca(0.44, 0.63, 0.15, 0.075, 0.55, 0, -0.245)))
+  ctx.fillStyle = preto(0.4)
+  ctx.fill(plano(peca(0.44, 0.63, 0.15, 0.008, 0.55, 0, -0.165)))
+  ctx.fillStyle = css(p.detalhe)
+  for (const ov of [-0.08, 0.02, 0.12]) ctx.fill(plano(peca(0.44, 0.63, 0.06, 0.035, 0.55, 0, ov)))
+  ctx.restore()
+  contorno(ctx, capa, 0.45, 0.7)
+  // duas piteiras enroladas
+  for (const [uc, vc] of [
+    [0.73, 0.78],
+    [0.66, 0.85],
+  ]) {
+    const t = plano(peca(uc, vc, 0.09, 0.025, -0.25))
+    pintar(ctx, t, p.detalhe)
+    ctx.save()
+    ctx.clip(t)
+    ctx.fillStyle = preto(0.3)
+    ctx.fill(plano(peca(uc + 0.005, vc + 0.012, 0.09, 0.012, -0.25)))
+    ctx.restore()
+    contorno(ctx, t, 0.4, 0.6)
+  }
+
+  // brilho metálico em diagonal sobre tudo que está dentro
+  ctx.save()
+  ctx.clip(fora)
+  const gd = ctx.createLinearGradient(18, 36, 72, 124)
+  gd.addColorStop(0.14, branco(0))
+  gd.addColorStop(0.24, branco(0.26))
+  gd.addColorStop(0.31, branco(0))
+  gd.addColorStop(0.65, preto(0))
+  gd.addColorStop(1, preto(0.32))
   ctx.fillStyle = gd
   ctx.fillRect(0, 0, U, V)
   ctx.restore()
   // aresta clara da borda (lado da luz)
-  ctx.strokeStyle = css(p.detalhe, 0.75)
+  ctx.strokeStyle = css(p.detalhe, 0.8)
   ctx.lineWidth = 0.8
   ctx.beginPath()
-  ctx.moveTo(bl[0] + 0.6, bl[1] - 0.6)
-  ctx.lineTo(tl[0] + 0.5, tl[1] + 0.5)
-  ctx.lineTo(tr[0] - 0.5, tr[1] + 0.5)
+  ctx.moveTo(bl[0] + 1, bl[1] - 3)
+  ctx.lineTo(tl[0] + 0.8, tl[1] + 2.5)
+  ctx.quadraticCurveTo(tl[0] + 1, tl[1] + 0.6, tl[0] + 3, tl[1] + 0.6)
+  ctx.lineTo(tr[0] - 3, tr[1] + 0.6)
   ctx.stroke()
   contorno(ctx, fora)
 }

@@ -62,3 +62,22 @@
     display: none;
   }
 }
+
+/* confirmação de troca de estado */
+.troca {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px var(--gutter) 20px;
+  font-size: 15px;
+}
+.troca ul {
+  padding-left: 18px;
+  list-style: square;
+}
+.troca-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}

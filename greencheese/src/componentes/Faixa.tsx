@@ -5,6 +5,7 @@ import { canais, perfisAConfirmar } from '../dados/canais'
 import { linkPerfil } from '../lib/mensagem'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
+import { trocarEstado } from '../lib/troca'
 import { Icone } from './comum'
 import './Faixa.css'
 
@@ -17,7 +18,7 @@ gsap.registerPlugin(ScrollTrigger)
 export function Faixa() {
   const ref = useRef<HTMLDivElement>(null)
   const trilho = useRef<HTMLDivElement>(null)
-  const { uf, escolher } = useLocal()
+  const uf = useLocal((s) => s.uf)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -45,7 +46,7 @@ export function Faixa() {
           <button
             type="button"
             className={`faixa-item px toque ${c.uf === uf ? 'atual' : ''}`}
-            onClick={() => escolher(c.uf, null, 'manual')}
+            onClick={() => trocarEstado(c.uf)}
             tabIndex={copia ? -1 : 0}
             aria-hidden={copia ? true : undefined}
             aria-label={copia ? undefined : `Trocar para ${c.nome} (@${c.instagram})`}

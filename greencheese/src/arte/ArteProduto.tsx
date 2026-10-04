@@ -5,8 +5,8 @@ import { useLayoutEffect, useRef, type CSSProperties } from 'react'
 import type { Produto } from '../lib/tipos'
 import { movimentoReduzido } from '../lib/movimento'
 import { desenharArte } from './produtos/desenhar'
-import { corDominante, desenharBrilho, ditherizar, recortarFundoPreto, revelar as revelarArte } from './produtos/dither'
-import { carregarFoto, imagemEmCache, jaRevelada, lembrar, marcarRevelada, mascaraEmCache } from './produtos/cache'
+import { aplicarBrilho, corDominante, ditherizar, recortarFundoPreto, revelar as revelarArte } from './produtos/dither'
+import { agendar, carregarFoto, imagemEmCache, jaRevelada, lembrar, marcarRevelada, mascaraEmCache } from './produtos/cache'
 import './produtos/arte.css'
 
 export interface PropsArteProduto {
@@ -58,22 +58,26 @@ function urlDaFoto(foto: string): string {
 
 /* ---------------------------------------------------------------- canvas de rascunho */
 
-// Dois canvas reaproveitados: camada do produto e composição final. Só são usados em trechos
-// síncronos (depois do await da foto), então dá para compartilhar entre todas as artes.
-const rascunhos: (CanvasRenderingContext2D | null)[] = [null, null]
+// Um canvas reaproveitado para todas as artes. Só é usado em trecho síncrono (depois do
+// await da foto), então dá para compartilhar.
+let rascunhoCtx: CanvasRenderingContext2D | null = null
 
-function rascunho(i: 0 | 1, w: number, h: number): CanvasRenderingContext2D {
-  let ctx = rascunhos[i]
-  if (!ctx) {
-    const c = document.createElement('canvas')
-    ctx = c.getContext('2d', { willReadFrequently: true })
-    if (!ctx) throw new Error('canvas 2d indisponível')
-    rascunhos[i] = ctx
+function rascunho(w: number, h: number): CanvasRenderingContext2D {
+  if (!rascunhoCtx) {
+    rascunhoCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
+    if (!rascunhoCtx) throw new Error('canvas 2d indisponível')
   }
-  // Trocar o tamanho limpa o canvas e zera o estado.
-  ctx.canvas.width = w
-  ctx.canvas.height = h
-  if (ctx.canvas.width === w && ctx.canvas.height === h) ctx.clearRect(0, 0, w, h)
+  const ctx = rascunhoCtx
+  // Mesmo tamanho: só limpa e zera o estado (redimensionar realoca).
+  if (ctx.canvas.width !== w || ctx.canvas.height !== h) {
+    ctx.canvas.width = w
+    ctx.canvas.height = h
+  } else {
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.clearRect(0, 0, w, h)
+  }
   return ctx
 }
 
@@ -108,28 +112,32 @@ export function gerarImagemArte(produto: Produto, largura: number, opts: OpcoesA
         foto = null // sem foto: cai no desenho
       }
     }
-    // Daqui para baixo é síncrono (os rascunhos são compartilhados).
-    const camada = rascunho(0, w, h)
-    let cor = produto.cor
-    if (foto) {
-      desenharFoto(camada, foto, w, h)
-      const px = camada.getImageData(0, 0, w, h)
-      recortarFundoPreto(px)
-      camada.putImageData(px, 0, 0)
-      cor = corDominante(px)
-    } else {
-      desenharArte(camada, produto.arte, w, h)
-    }
-    const final = rascunho(1, w, h)
-    if (brilho) desenharBrilho(final, indisponivel ? '#9a9a9a' : cor, w, h, indisponivel ? 0.4 : 1)
-    final.drawImage(camada.canvas, 0, 0)
-    return ditherizar(final.getImageData(0, 0, w, h), {
-      niveis: 6,
-      cinza: indisponivel,
-      contraste: 1.06,
-      grao: 0.05,
-      semente: sementeDe(produto.id),
-    })
+    // A composição é síncrona (os rascunhos são compartilhados) e entra na fila por quadro.
+    return agendar(() => compor(produto, w, h, indisponivel, brilho, foto))
+  })
+}
+
+function compor(produto: Produto, w: number, h: number, indisponivel: boolean, brilho: boolean, foto: HTMLImageElement | null): ImageData {
+  const camada = rascunho(w, h)
+  let cor = produto.cor
+  let px: ImageData
+  if (foto) {
+    desenharFoto(camada, foto, w, h)
+    px = camada.getImageData(0, 0, w, h)
+    recortarFundoPreto(px)
+    cor = corDominante(px)
+  } else {
+    desenharArte(camada, produto.arte, w, h)
+    px = camada.getImageData(0, 0, w, h)
+  }
+  // Brilho em JS direto nos pixels (sem segundo canvas): é o trecho que pesa no Android.
+  const composta = brilho ? aplicarBrilho(px, indisponivel ? '#9a9a9a' : cor, indisponivel ? 0.35 : 1) : px
+  return ditherizar(composta, {
+    niveis: 6,
+    cinza: indisponivel,
+    contraste: 1.06,
+    grao: indisponivel ? 0.03 : 0.04,
+    semente: sementeDe(produto.id),
   })
 }
 
@@ -149,7 +157,7 @@ function texturaRuido(): string {
   const img = ctx.createImageData(n, n)
   const d = img.data
   for (let k = 0; k < n * n; k++) {
-    if (Math.random() > 0.14) continue
+    if (Math.random() > 0.1) continue
     const v = 150 + Math.floor(Math.random() * 105)
     d[k * 4] = v
     d[k * 4 + 1] = v
@@ -227,7 +235,7 @@ export function ArteProduto({
     const prepararChiado = (img: ImageData) => {
       const el = chiadoRef.current
       if (!indisponivel || !el) return
-      el.style.setProperty('--arte-mascara', `url(${mascaraEmCache(chave, () => mascaraDe(img))})`)
+      el.style.setProperty('--arte-mascara', `url("${mascaraEmCache(chave, () => mascaraDe(img))}")`)
       el.setAttribute('data-pronto', '')
     }
 
@@ -313,7 +321,7 @@ export function ArteProduto({
           className="arte-chiado"
           data-pausado=""
           aria-hidden="true"
-          style={{ '--arte-ruido': `url(${texturaRuido()})`, '--arte-ruido-tam': `${(48 / (2 * w)) * 100}%` } as CSSProperties}
+          style={{ '--arte-ruido': `url("${texturaRuido()}")`, '--arte-ruido-tam': `${(48 / (2 * w)) * 100}%` } as CSSProperties}
         />
       )}
     </div>

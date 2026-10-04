@@ -67,6 +67,15 @@ export function TopoLocal() {
   const setSeletor = useUI((s) => s.setSeletor)
   const ref = useRef<HTMLDivElement>(null)
   const faixa = useRef<HTMLDivElement>(null)
+  const textoAntes = useRef(texto)
+
+  // trocou de cidade: o adesivo cola de novo (pop curto, voz pixel)
+  useLayoutEffect(() => {
+    if (textoAntes.current === texto) return
+    textoAntes.current = texto
+    const a = ref.current?.querySelector('.adesivo-local')
+    if (a && !movimentoReduzido()) gsap.fromTo(a, { scale: 0.7, rotate: -10 }, { scale: 1, rotate: 0, duration: 0.36, ease: 'back.out(2.4)' })
+  }, [texto])
 
   useLayoutEffect(() => {
     const el = ref.current

@@ -51,7 +51,9 @@ export function Hero() {
   const canal = canalDa(uf)
   const todos = useCatalogo((s) => s.produtos)
   const disponiveis = useDisponiveis()
-  const lista = (canal ? disponiveis : todos).slice(0, MAX_BARRAS)
+  // produto real com preço primeiro; exemplo por último
+  const peso = (p: (typeof todos)[number]) => (p.demo ? 2 : 0) + (p.preco == null ? 1 : 0)
+  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, MAX_BARRAS)
   const { texto: lugar } = useTextoLocal()
   const abrirStory = useUI((s) => s.abrirStory)
   const setHeroProduto = useUI((s) => s.setHeroProduto)
@@ -70,8 +72,21 @@ export function Hero() {
   const atual = lista[idx]
   const proximo = n > 1 ? lista[(idx + 1) % n] : undefined
 
-  // trocar de estado recomeça o story
+  // trocar de estado recomeça o story e gira o "cubo" do Instagram (passar de um perfil para outro)
+  const ufAnterior = useRef(uf)
+  const quadroRef = useRef<HTMLDivElement>(null)
   useEffect(() => setI(0), [uf])
+  useLayoutEffect(() => {
+    const antes = ufAnterior.current
+    ufAnterior.current = uf
+    const q = quadroRef.current
+    if (!q || !antes || !uf || antes === uf || reduz) return
+    gsap.fromTo(
+      q,
+      { rotateY: 75, transformPerspective: 1100, transformOrigin: '0% 50%', opacity: 0.4 },
+      { rotateY: 0, opacity: 1, duration: 0.5, ease: 'power3.out', clearProps: 'transform,opacity' },
+    )
+  }, [uf, reduz])
 
   useEffect(() => {
     setHeroProduto(visivel && atual ? atual.id : null)
@@ -155,7 +170,7 @@ export function Hero() {
   if (!atual) return null
 
   const quadro = (
-    <div className={`hero-quadro ${segurando ? 'segurando' : ''}`} onPointerDown={aoDescer} onPointerUp={aoSoltar} onPointerCancel={() => (g.current = null)} onContextMenu={(e) => e.preventDefault()}>
+    <div ref={quadroRef} className={`hero-quadro ${segurando ? 'segurando' : ''}`} onPointerDown={aoDescer} onPointerUp={aoSoltar} onPointerCancel={() => (g.current = null)} onContextMenu={(e) => e.preventDefault()}>
       <div className="story-barras hero-barras" aria-hidden="true">
         {lista.map((p, k) => (
           <span key={p.id} className="story-barra">

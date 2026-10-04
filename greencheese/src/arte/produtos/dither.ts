@@ -77,7 +77,7 @@ export interface OpcoesDither {
 export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
   const { cinza = false, contraste = 1, grao = 0, matriz = 8, varredura = 0, semente = 7 } = opts
   const niveisBase = Math.min(16, Math.max(2, Math.round(opts.niveis ?? 6)))
-  const niveis = cinza ? Math.max(3, niveisBase - 2) : niveisBase
+  const niveis = cinza ? Math.max(3, niveisBase - 1) : niveisBase
   const passos = niveis - 1
   const lim = matriz === 4 ? BAYER4 : BAYER8
   const lado = matriz === 4 ? 4 : 8
@@ -107,7 +107,7 @@ export function ditherizar(img: ImageData, opts: OpcoesDither = {}): ImageData {
         b = (b - 0.5) * contraste + 0.5
       }
       if (cinza) {
-        const l = (0.299 * r + 0.587 * g + 0.114 * b) * 0.58 + 0.03
+        const l = (0.299 * r + 0.587 * g + 0.114 * b) * 0.6 + 0.04
         r = l
         g = l
         b = l
@@ -222,32 +222,192 @@ export function corDominante(img: ImageData): string {
 
 /* ---------------------------------------------------------------- brilho */
 
+export interface OpcoesBrilho {
+  /** 1 = normal; o indisponível usa um halo cinza bem mais fraco. */
+  forca?: number
+  /** Silhueta do produto (canvas com fundo transparente): o brilho abraça o recorte. */
+  silhueta?: CanvasImageSource
+}
+
 /**
- * Halo radial suave da cor do produto, atrás dele. Depois do dither vira um halo pontilhado;
- * fora do halo o fundo continua transparente (nada de tingir o card inteiro).
- * forca: 1 = normal; o indisponível usa um halo cinza bem mais fraco.
+ * Halo suave da cor do produto, atrás dele: um halo radial largo e fraco e, com a silhueta,
+ * um brilho que abraça o recorte (sombra desfocada colorida, como luz saindo da borda).
+ * Depois do dither vira pontilhado; fora dele o fundo continua transparente.
+ * O 5º argumento aceita um número (força) por compatibilidade.
  */
-export function desenharBrilho(ctx: CanvasRenderingContext2D, cor: string, w: number, h: number, forca = 1): void {
-  const c = travarMatiz(hexParaRgb(cor))
+export function desenharBrilho(ctx: CanvasRenderingContext2D, cor: string, w: number, h: number, opts: number | OpcoesBrilho = {}): void {
+  const { forca: f0 = 1, silhueta } = typeof opts === 'number' ? { forca: opts } : opts
+  const original = hexParaRgb(cor)
+  const c = travarMatiz(original)
+  // Halo travado em cinza brilha menos (cinza claro em volta vira moldura branca).
+  const forca = c === original ? f0 : f0 * 0.7
   // Normaliza o pico: cor escura ainda brilha, cor clara não estoura.
   const max = Math.max(c[0], c[1], c[2], 1)
-  const k = Math.min(2.2, 205 / max)
+  const k = Math.min(2.4, 210 / max)
   const [r, g, b] = c.map((v) => Math.round(v * k))
-  const rx = w * 0.54
+  const a = (v: number) => `rgba(${r},${g},${b},${Math.min(1, Math.max(0, v * forca))})`
+
+  // 1) ar em volta: radial largo, fraco
+  const rx = w * 0.52
   const ry = h * 0.4
   ctx.save()
   ctx.translate(w / 2, h * 0.5)
   ctx.scale(1, ry / rx)
   const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
-  const a = (v: number) => `rgba(${r},${g},${b},${Math.min(1, v * forca)})`
-  grad.addColorStop(0, a(0.62))
-  grad.addColorStop(0.3, a(0.46))
-  grad.addColorStop(0.55, a(0.22))
-  grad.addColorStop(0.78, a(0.07))
+  const base = silhueta ? 0.55 : 1
+  grad.addColorStop(0, a(0.5 * base))
+  grad.addColorStop(0.35, a(0.34 * base))
+  grad.addColorStop(0.62, a(0.14 * base))
+  grad.addColorStop(0.85, a(0.04 * base))
   grad.addColorStop(1, a(0))
   ctx.fillStyle = grad
   ctx.fillRect(-rx, -rx, rx * 2, rx * 2)
   ctx.restore()
+
+  // 2) brilho colado no recorte: só a sombra é desenhada (a imagem fica fora do canvas)
+  if (silhueta) {
+    const longe = w * 4
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.shadowOffsetX = longe
+    ctx.shadowColor = a(0.7)
+    ctx.shadowBlur = Math.max(4, w * 0.16)
+    ctx.drawImage(silhueta, -longe, 0, w, h)
+    ctx.restore()
+  }
+}
+
+/** Interpolação linear por paradas [posição, valor] (posições crescentes). */
+function paradas(t: number, p: readonly (readonly [number, number])[]): number {
+  if (t <= p[0][0]) return p[0][1]
+  for (let i = 1; i < p.length; i++) {
+    if (t <= p[i][0]) {
+      const [t0, v0] = p[i - 1]
+      const [t1, v1] = p[i]
+      return v0 + ((t - t0) / (t1 - t0)) * (v1 - v0)
+    }
+  }
+  return p[p.length - 1][1]
+}
+
+const HALO: readonly (readonly [number, number])[] = [
+  [0, 0.28],
+  [0.35, 0.19],
+  [0.62, 0.08],
+  [0.85, 0.022],
+  [1, 0],
+]
+
+/** Borra a grade no lugar (caixa 3×3, separável), n vezes. */
+function borrar(g: Float32Array, gw: number, gh: number, n: number): Float32Array {
+  const tmp = new Float32Array(g.length)
+  for (let k = 0; k < n; k++) {
+    for (let y = 0; y < gh; y++) {
+      for (let x = 0; x < gw; x++) {
+        const i = y * gw + x
+        tmp[i] = (g[i] + (x > 0 ? g[i - 1] : 0) + (x < gw - 1 ? g[i + 1] : 0)) / 3
+      }
+    }
+    for (let y = 0; y < gh; y++) {
+      for (let x = 0; x < gw; x++) {
+        const i = y * gw + x
+        g[i] = (tmp[i] + (y > 0 ? tmp[i - gw] : 0) + (y < gh - 1 ? tmp[i + gw] : 0)) / 3
+      }
+    }
+  }
+  return g
+}
+
+/**
+ * O mesmo brilho de desenharBrilho, só que em JS direto no ImageData do produto (é o que a arte
+ * usa: sem segundo canvas, sem shadowBlur, sem segunda leitura — bem mais leve no Android).
+ * Halo radial largo + brilho que abraça a silhueta. Tudo é calculado numa grade pequena
+ * (1 célula = f px) e ampliado bilinear. Devolve um ImageData novo, produto por cima do brilho.
+ */
+export function aplicarBrilho(img: ImageData, cor: string, forca = 1): ImageData {
+  const { width: w, height: h, data: d } = img
+  const original = hexParaRgb(cor)
+  const c = travarMatiz(original)
+  const fz = c === original ? forca : forca * 0.7
+  const max = Math.max(c[0], c[1], c[2], 1)
+  const k = Math.min(2.4, 210 / max)
+  const hr = c[0] * k
+  const hg = c[1] * k
+  const hb = c[2] * k
+
+  // 1) cobertura do produto por célula, com folga em volta
+  const f = Math.max(2, Math.round(w / 18))
+  const folga = 3
+  const gw = Math.ceil(w / f) + folga * 2
+  const gh = Math.ceil(h / f) + folga * 2
+  const g = new Float32Array(gw * gh)
+  const area = 1 / (f * f * 255)
+  for (let y = 0; y < h; y++) {
+    const linha = (((y / f) | 0) + folga) * gw + folga
+    for (let x = 0; x < w; x++) {
+      const a = d[(y * w + x) * 4 + 3]
+      if (a) g[linha + ((x / f) | 0)] += a * area
+    }
+  }
+  // 2) brilho justo e largo (borrões) + radial, combinados na grade
+  const justo = borrar(Float32Array.from(g), gw, gh, 1)
+  const largo = borrar(Float32Array.from(justo), gw, gh, 3)
+  const halo = new Float32Array(gw * gh)
+  for (let gy = 0; gy < gh; gy++) {
+    const dy = (((gy - folga + 0.5) * f) - h * 0.5) / (h * 0.4)
+    for (let gx = 0; gx < gw; gx++) {
+      const i = gy * gw + gx
+      const dx = (((gx - folga + 0.5) * f) - w * 0.5) / (w * 0.52)
+      const t = Math.sqrt(dx * dx + dy * dy)
+      const radial = t < 1 ? paradas(t, HALO) : 0
+      const sj = Math.min(1, justo[i] * 2.4) * 0.62
+      const sl = Math.min(1, largo[i] * 2.6) * 0.42
+      halo[i] = Math.min(1, (1 - (1 - radial) * (1 - sj) * (1 - sl)) * fz)
+    }
+  }
+  // 3) por pixel: amostra bilinear (índices pré-calculados) e produto por cima
+  const ix = new Int32Array(w)
+  const fx = new Float32Array(w)
+  for (let x = 0; x < w; x++) {
+    const p = (x + 0.5) / f - 0.5 + folga
+    ix[x] = Math.min(gw - 2, Math.floor(p))
+    fx[x] = p - ix[x]
+  }
+  const saida = new ImageData(w, h)
+  const s = saida.data
+  for (let y = 0; y < h; y++) {
+    const py = (y + 0.5) / f - 0.5 + folga
+    const iy = Math.min(gh - 2, Math.floor(py))
+    const fy = py - iy
+    const l0 = iy * gw
+    const l1 = l0 + gw
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4
+      const a8 = d[i + 3]
+      if (a8 === 255) {
+        s[i] = d[i]
+        s[i + 1] = d[i + 1]
+        s[i + 2] = d[i + 2]
+        s[i + 3] = 255
+        continue
+      }
+      const j = ix[x]
+      const u = fx[x]
+      const cima = halo[l0 + j] + (halo[l0 + j + 1] - halo[l0 + j]) * u
+      const baixo = halo[l1 + j] + (halo[l1 + j + 1] - halo[l1 + j]) * u
+      const ha = cima + (baixo - cima) * fy
+      if (ha <= 0.002 && a8 === 0) continue
+      const pa = a8 / 255
+      const oa = pa + ha * (1 - pa)
+      const kh = (ha * (1 - pa)) / oa
+      const kp = pa / oa
+      s[i] = d[i] * kp + hr * kh
+      s[i + 1] = d[i + 1] * kp + hg * kh
+      s[i + 2] = d[i + 2] * kp + hb * kh
+      s[i + 3] = oa * 255
+    }
+  }
+  return saida
 }
 
 /* ---------------------------------------------------------------- revelação */
@@ -285,10 +445,18 @@ export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: Opcoe
   const quadro = new ImageData(w, h)
   const q = quadro.data
   // Ordem de aparição: limiar Bayer + um pouco por linha (dá textura de varredura).
+  // Vinheta: o chiado do fundo é mais denso no meio e some nas bordas (sem retângulo de estática).
   const ordem = new Float32Array(w * h)
+  const vinheta = new Float32Array(w * h)
   for (let y = 0; y < h; y++) {
     const linha = hash01(0, y, 31)
-    for (let x = 0; x < w; x++) ordem[y * w + x] = BAYER8[(y & 7) * 8 + (x & 7)] * 0.78 + linha * 0.22
+    const dy = (y - h * 0.5) / (h * 0.46)
+    for (let x = 0; x < w; x++) {
+      const k = y * w + x
+      ordem[k] = BAYER8[(y & 7) * 8 + (x & 7)] * 0.78 + linha * 0.22
+      const dx = (x - w * 0.5) / (w * 0.5)
+      vinheta[k] = Math.max(0, 1 - (dx * dx + dy * dy))
+    }
   }
 
   // xorshift barato para o chiado (muda a cada quadro).
@@ -320,7 +488,7 @@ export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: Opcoe
     // Começa devagar e acelera no fim: o produto "trava" no sinal.
     const p = t * t * (1.6 - 0.6 * t)
     const resto = 1 - t
-    const densFundo = 0.05 * resto
+    const densFundo = 0.09 * resto
     const densProduto = 0.4 * resto
     // Tremido de VHS: 1 faixa de linhas deslocada, só na primeira metade.
     let fy0 = -1
@@ -343,7 +511,7 @@ export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: Opcoe
           q[i + 1] = f[j + 1]
           q[i + 2] = f[j + 2]
           q[i + 3] = f[j + 3]
-        } else if (aleatorio() < (f[i + 3] > 0 ? densProduto : densFundo)) {
+        } else if (aleatorio() < (f[i + 3] > 0 ? densProduto : densFundo * vinheta[k])) {
           const v = 70 + ((aleatorio() * 150) | 0)
           q[i] = v
           q[i + 1] = v

@@ -13,7 +13,7 @@
   place-items: center;
   width: var(--bloco);
   height: var(--bloco);
-  color: var(--chiado);
+  color: #8e8e8e; /* 5,9:1 no preto: sigla do estado sem atendimento ainda é texto */
   /* apagado: dither 25% (um pixel cinza a cada quatro) */
   background-color: var(--preto);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='1' height='1' fill='%23262626'/%3E%3C/svg%3E");
@@ -29,7 +29,7 @@ button.mapa-uf {
 .mapa-sigla {
   position: relative;
   z-index: 1;
-  font-size: calc(var(--bloco) * 0.36);
+  font-size: max(12px, calc(var(--bloco) * 0.4));
   font-weight: 400;
 }
 

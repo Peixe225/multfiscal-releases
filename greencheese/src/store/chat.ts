@@ -84,7 +84,8 @@ interface ChatState {
   recomecar: () => void
 }
 
-const inicio = (modo: ModoChat): Passo => (modo === 'pedido' ? 'local' : 'enc-produto')
+// os dois roteiros começam confirmando o atendimento (estado/cidade)
+const inicio = (_modo: ModoChat): Passo => 'local'
 
 export const useChat = create<ChatState>()(
   persist(

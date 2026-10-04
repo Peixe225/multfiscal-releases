@@ -32,11 +32,12 @@ const InfoStory = lazy(() => import('./componentes/InfoStory').then((m) => ({ de
 const ChatFolha = lazy(() => import('./componentes/Chat').then((m) => ({ default: m.ChatFolha })))
 const SacolaFolha = lazy(() => import('./componentes/Sacola').then((m) => ({ default: m.SacolaFolha })))
 const SeletorFolha = lazy(() => import('./componentes/Seletor').then((m) => ({ default: m.SeletorFolha })))
+const ConfirmarTroca = lazy(() => import('./componentes/ConfirmarTroca').then((m) => ({ default: m.ConfirmarTroca })))
 const PainelPrevia = lazy(() => import('./componentes/Lateral').then((m) => ({ default: m.PainelPrevia })))
 
 /** Monta as camadas no primeiro respiro do navegador, ou na hora se alguém já pediu uma delas. */
 function useCamadasProntas(): boolean {
-  const pedida = useUI((s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia)
+  const pedida = useUI((s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.trocaPendente)
   const chat = useChat((s) => s.aberto)
   const [pronto, setPronto] = useState(false)
   useEffect(() => {
@@ -169,6 +170,7 @@ export function App() {
           <SacolaFolha />
           <SeletorFolha />
           <PainelPrevia />
+          <ConfirmarTroca />
         </Suspense>
       )}
       <Aviso />

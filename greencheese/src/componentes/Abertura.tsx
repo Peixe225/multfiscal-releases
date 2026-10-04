@@ -35,7 +35,7 @@ function useLogoEmPixels(svgHost: React.RefObject<HTMLDivElement | null>, tela: 
     }
     let cancelado = false
     let raf = 0
-    const N = 64
+    const N = 96
     try {
       const clone = svg.cloneNode(true) as SVGSVGElement
       clone.setAttribute('width', String(N * 4))

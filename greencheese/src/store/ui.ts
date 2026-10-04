@@ -23,7 +23,10 @@ interface UIState {
   /** Produto que o story do hero está mostrando (a barra "Enviar mensagem…" responde a ele). */
   heroProduto: string | null
   aberturaAtiva: boolean
+  /** Troca de estado esperando confirmação (itens da sacola que não têm no novo estado). */
+  trocaPendente: { uf: string; cidade: string | null; fora: string[] } | null
   aviso: Aviso | null
+  setTroca: (t: UIState['trocaPendente']) => void
   setInfo: (v: boolean) => void
   setPainel: (v: boolean) => void
   setHeroProduto: (id: string | null) => void
@@ -46,7 +49,9 @@ export const useUI = create<UIState>((set) => ({
   painelPrevia: false,
   heroProduto: null,
   aberturaAtiva: false,
+  trocaPendente: null,
   aviso: null,
+  setTroca: (t) => set({ trocaPendente: t }),
   setInfo: (v) => set({ infoAberto: v }),
   setPainel: (v) => set({ painelPrevia: v }),
   setHeroProduto: (id) => set({ heroProduto: id }),

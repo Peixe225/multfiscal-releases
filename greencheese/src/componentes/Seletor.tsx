@@ -3,6 +3,7 @@ import { canais, canalDa } from '../dados/canais'
 import { ufPorSigla, ufs } from '../dados/ufs'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
+import { trocarEstado } from '../lib/troca'
 import { Avatar } from './comum'
 import { Folha } from './Folha'
 import { MapaBlocos } from './MapaBlocos'
@@ -26,7 +27,8 @@ export function SeletorFolha() {
       requestAnimationFrame(() => listaRef.current?.querySelector<HTMLElement>(`[data-uf="${s}"] .seletor-cidades button`)?.focus())
       return
     }
-    escolher(s, null, 'manual')
+    // com itens que não têm no novo estado, a confirmação abre por cima
+    trocarEstado(s)
     fechar()
   }
 

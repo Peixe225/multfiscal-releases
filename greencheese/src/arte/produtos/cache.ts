@@ -72,10 +72,54 @@ export function marcarRevelada(chave: string): void {
   reveladas.add(chave)
 }
 
+/* ---------------------------------------------------------------- fila por quadro */
+
+// Várias artes entrando juntas (grade rolando) não podem travar um quadro: cada quadro gasta
+// no máximo ~6 ms gerando arte; o resto fica para o próximo. A primeira tarefa sempre roda.
+const ORCAMENTO_MS = 6
+const fila: (() => void)[] = []
+let agendado = false
+
+/** Tempo gasto gerando arte (para o laboratório medir sem contar a espera dos quadros). */
+export const medicao = { ms: 0, artes: 0 }
+
+function rodarFila() {
+  agendado = false
+  const t0 = performance.now()
+  while (fila.length && performance.now() - t0 < ORCAMENTO_MS) {
+    const tarefa = fila.shift()
+    tarefa?.()
+  }
+  medicao.ms += performance.now() - t0
+  if (fila.length) {
+    agendado = true
+    requestAnimationFrame(rodarFila)
+  }
+}
+
+export function agendar<T>(tarefa: () => T): Promise<T> {
+  return new Promise<T>((ok, falha) => {
+    fila.push(() => {
+      try {
+        ok(tarefa())
+        medicao.artes++
+      } catch (e) {
+        falha(e)
+      }
+    })
+    if (!agendado) {
+      agendado = true
+      requestAnimationFrame(rodarFila)
+    }
+  })
+}
+
 /** Zera tudo (laboratório e medição de tempo). */
 export function limparCacheArte(): void {
   prontas.clear()
   emAndamento.clear()
   mascaras.clear()
   reveladas.clear()
+  medicao.ms = 0
+  medicao.artes = 0
 }

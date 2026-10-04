@@ -9,13 +9,14 @@ import { linkPerfil } from '../lib/mensagem'
 import { rolarPara } from '../lib/rolagem'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
+import { trocarEstado } from '../lib/troca'
 import { Demo } from './comum'
 import { MapaBlocos } from './MapaBlocos'
 import './PorEstado.css'
 
 /** "Green Cheese por estado": o story deles com a lista dos perfis, mais o mapa em blocos. */
 export function PorEstado() {
-  const { uf, escolher } = useLocal()
+  const uf = useLocal((s) => s.uf)
   const abrirChat = useChat((s) => s.abrir)
   const [fora, setFora] = useState<string | null>(null)
   // o estado atual vem primeiro
@@ -24,7 +25,7 @@ export function PorEstado() {
   const tocarMapa = (s: string) => {
     if (canalDa(s)) {
       setFora(null)
-      escolher(s, null, 'manual')
+      trocarEstado(s)
     } else {
       setFora(s)
       const el = document.querySelector(`.estados .mapa-uf[aria-label^="${ufPorSigla(s)?.nome}"]`)
@@ -63,8 +64,7 @@ export function PorEstado() {
                   type="button"
                   className="estado-uf px toque"
                   onClick={() => {
-                    escolher(c.uf, null, 'manual')
-                    rolarPara('#raiz', 0)
+                    if (trocarEstado(c.uf)) rolarPara('#raiz', 0)
                   }}
                   aria-label={`Trocar o site para ${c.nome}`}
                   aria-pressed={eh}
@@ -94,8 +94,7 @@ export function PorEstado() {
                       type="button"
                       className="botao botao-cheio"
                       onClick={() => {
-                        if (!eh) escolher(c.uf, null, 'manual')
-                        abrirChat('pedido')
+                        if (eh || trocarEstado(c.uf)) abrirChat('pedido')
                       }}
                     >
                       {eh ? 'Pedir aqui' : `Pedir em ${c.uf.toUpperCase()}`}
