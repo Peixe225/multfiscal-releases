@@ -172,6 +172,8 @@
   position: absolute;
   left: 50%;
   bottom: 6%;
+  /* posicionado pelo meio: sem isto o navegador encolhe o adesivo até quebrar em 3 linhas */
+  width: max-content;
   transform: translateX(-50%) rotate(-2deg);
   z-index: 3;
 }
