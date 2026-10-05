@@ -27,6 +27,9 @@ gsap.registerEase?.('app', (p: number) => {
 })
 const APP = 'app'
 
+/** Desde quando um toque pula a revelação (s): o beck já saiu da câmara e está deitando no cartão. */
+export const PULAR_DESDE = 1.4
+
 export interface ElementosRevelacao {
   palco: HTMLElement
   anel: Element

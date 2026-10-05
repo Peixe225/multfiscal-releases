@@ -98,3 +98,15 @@
   width: 100%;
   max-width: 340px;
 }
+/* o código não quebra no hífen ("SORTE-" numa linha e "3WR4" na outra) */
+.cs-codigo {
+  white-space: nowrap;
+}
+.cs-exemplo {
+  margin-left: 2px;
+  font-weight: 400;
+}
+/* no chip branco, o carimbo fica escuro (o cinza de legenda some no branco) */
+.cs-chip .cs-exemplo {
+  color: #3d3d3d;
+}

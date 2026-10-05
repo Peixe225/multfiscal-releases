@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react'
+import { canalDa } from '../dados/canais'
 import { premiosValidos } from '../lib/cupom'
+import { useLocal } from '../store/local'
 import { useEntradaSorte } from './sorte/estado'
 
 // Registro dos interativos "underground" (o "Teste minha sorte" é o primeiro).
@@ -38,10 +40,20 @@ export interface Interativo {
   status: 'ativo' | 'em-breve'
   /** O que pede conta: guardar o prêmio, jogar, ou nada. */
   exigeContaPara: 'guardar' | 'jogar' | null
-  /** Aparece no site? (sem prêmio válido, some de todas as entradas e o ?jogo= é ignorado) */
+  /**
+   * Aparece no site? Sem prêmio válido, ou com um estado escolhido que a loja não atende (o cupom não serviria em
+   * lugar nenhum), some de todas as entradas e o ?jogo= é ignorado. Quem chama precisa re-renderizar quando o
+   * estado muda (as entradas leem useLocal).
+   */
   ativo: () => boolean
   useEntrada?: () => EntradaInterativo
   carregar?: () => Promise<{ default: ComponentType<PropsJogo> }>
+}
+
+/** Estado escolhido e sem atendimento (ex.: BA): nada de jogo nem de conta pra um cupom que não dá pra usar. */
+function estadoSemAtendimento(): boolean {
+  const uf = useLocal.getState().uf
+  return !!uf && !canalDa(uf)
 }
 
 export const interativos: Interativo[] = [
@@ -53,7 +65,7 @@ export const interativos: Interativo[] = [
     param: 'sorte',
     status: 'ativo',
     exigeContaPara: 'guardar',
-    ativo: () => premiosValidos().length > 0,
+    ativo: () => !estadoSemAtendimento() && premiosValidos().length > 0,
     useEntrada: useEntradaSorte,
     carregar: () => import('./sorte/JogoSorte'),
   },

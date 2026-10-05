@@ -1,17 +1,19 @@
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { config } from '../dados/config'
 import { T } from '../interativos/sorte/textos'
-import { armazenamentoOk, conta as adaptador, useConta } from '../lib/conta'
+import { armazenamentoOk, useConta, type ContaAberta } from '../lib/conta'
+import { conta as adaptador } from '../lib/conta-adaptador'
 import { copiarTexto } from '../lib/copiar'
-import { celularNoCampo, formatarCelular, normalizarCelular, validarCelular } from '../lib/telefone'
+import { celularNoCampo, editarCelular, mascararCelular, normalizarCelular, validarCelular } from '../lib/telefone'
 import { linkCompartilhar } from '../lib/url'
-import type { Conta } from '../store/conta'
 import { useChat } from '../store/chat'
 import { useUI } from '../store/ui'
 import './FormConta.css'
 
 // Criar conta, entrar e editar: o mínimo de campos (nome + WhatsApp). Promoções desligadas por padrão (opt-in
 // separado e datado). Na prévia, tudo fica só neste aparelho e a tela diz isso com todas as letras.
+// Entrar é em dois passos (número → código do WhatsApp). O adaptador local não manda código: a tela pula o 2º passo.
+// Na versão oficial o adaptador do servidor manda, e o campo do código aparece sem mexer aqui.
 
 export type ModoForm = 'criar' | 'entrar' | 'editar'
 
@@ -19,7 +21,7 @@ interface Props {
   modo: ModoForm
   /** Tem prêmio esperando (muda o texto e o botão). */
   comPremio?: boolean
-  aoSucesso: (c: Conta, modo: ModoForm) => void
+  aoSucesso: (r: ContaAberta, modo: ModoForm) => void
   aoTrocarModo?: (m: 'criar' | 'entrar') => void
   aoCancelar?: () => void
   /** id do h2 (o jogo foca nele ao trocar de tela). */
@@ -38,9 +40,24 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
   const [promo, setPromo] = useState(() => (modo === 'editar' ? !!atual?.aceitaPromo : false))
   const [tentou, setTentou] = useState(false)
   const [enviando, setEnviando] = useState(false)
-  const [erroGeral, setErroGeral] = useState<'whatsapp-existe' | 'nao-encontrada' | 'falhou' | null>(null)
+  const [erroGeral, setErroGeral] = useState<'whatsapp-existe' | 'nao-encontrada' | 'codigo-errado' | 'muitas-tentativas' | 'falhou' | null>(null)
+  // entrar, 2º passo: o código chegou no WhatsApp (só com o adaptador do servidor)
+  const [codigoEnviado, setCodigoEnviado] = useState(false)
+  const [codigo, setCodigo] = useState('')
   const zapRef = useRef<HTMLInputElement>(null)
   const nomeRef = useRef<HTMLInputElement>(null)
+  const codigoRef = useRef<HTMLInputElement>(null)
+  // onde o cursor do WhatsApp fica depois de remascarar (o React põe no fim quando troca o valor)
+  const cursorZap = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const el = zapRef.current
+    const c = cursorZap.current
+    cursorZap.current = null
+    if (el && c != null && document.activeElement === el) el.setSelectionRange(c, c)
+  }, [zap])
+  useLayoutEffect(() => {
+    if (codigoEnviado) codigoRef.current?.focus()
+  }, [codigoEnviado])
 
   const digitos = normalizarCelular(zap)
   const erroNome = modo !== 'entrar' && limparNome(nome).length < 2 ? T.erroNome : null
@@ -66,12 +83,26 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
     )
   }
 
-  // máscara progressiva; colar com +55, espaço ou traço normaliza. Apagar um caractere da máscara apaga o dígito.
-  const mudarZap = (bruto: string) => {
+  // máscara progressiva com o cursor no lugar (ver editarCelular): corrigir um dígito no meio corrige ele mesmo
+  const mudarZap = (e: ChangeEvent<HTMLInputElement>) => {
     setErroGeral(null)
-    let d = normalizarCelular(bruto)
-    if (d === digitos && bruto.length < zap.length) d = d.slice(0, -1)
-    setZap(formatarCelular(d))
+    const el = e.target
+    const tipo = (e.nativeEvent as InputEvent).inputType ?? ''
+    const r = editarCelular(zap, el.value, el.selectionStart ?? el.value.length, tipo)
+    if (r.valor === zap) {
+      // nada mudou (12º dígito): o React devolve o valor ao campo depois deste evento; o cursor volta em seguida
+      queueMicrotask(() => el.setSelectionRange(r.cursor, r.cursor))
+      return
+    }
+    cursorZap.current = r.cursor
+    setZap(r.valor)
+  }
+
+  // "Próximo" do teclado no nome: vai pro WhatsApp sem enviar (e sem acusar erro num campo que nem foi tocado)
+  const proximoNoNome = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+    e.preventDefault()
+    zapRef.current?.focus()
   }
 
   const enviar = async (e: FormEvent) => {
@@ -94,14 +125,28 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
         else if (r.erro === 'whatsapp-existe') setErroGeral('whatsapp-existe')
         else setErroGeral('falhou')
       } else if (modo === 'entrar') {
-        const r = await adaptador.entrar(digitos)
+        if (!codigoEnviado) {
+          const p = await adaptador.pedirCodigo(digitos)
+          if (!p.ok) {
+            setErroGeral(p.erro)
+            return
+          }
+          if (p.valor.enviado) {
+            setCodigoEnviado(true)
+            return
+          }
+        } else if (!codigo.trim()) {
+          codigoRef.current?.focus()
+          return
+        }
+        const r = await adaptador.confirmarCodigo(digitos, codigoEnviado ? codigo.trim() : null)
         if (r.ok) aoSucesso(r.valor, modo)
-        else setErroGeral('nao-encontrada')
+        else setErroGeral(r.erro)
       } else {
         const r = await adaptador.atualizar({ nome: limparNome(nome), whatsapp: digitos, aceitaPromo: promo })
         if (r.ok) {
           avisar(T.salvo)
-          aoSucesso(r.valor, modo)
+          aoSucesso({ conta: r.valor, cupomGuardado: null }, modo)
         } else if (r.erro === 'whatsapp-existe') setErroGeral('whatsapp-existe')
         else setErroGeral('falhou')
       }
@@ -117,7 +162,7 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
   return (
     <form className={`form-conta form-${modo}`} onSubmit={enviar} noValidate>
       {modo === 'editar' ? (
-        <h3 id={idTitulo} className="form-titulo form-titulo-p">
+        <h3 id={idTitulo} className="form-titulo form-titulo-p" tabIndex={-1}>
           {titulo}
         </h3>
       ) : (
@@ -141,6 +186,7 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
             aria-invalid={mostraNome}
             aria-describedby={mostraNome ? `${uid}-enome` : undefined}
             enterKeyHint="next"
+            onKeyDown={proximoNoNome}
           />
           {mostraNome && (
             <p id={`${uid}-enome`} className="form-erro">
@@ -160,7 +206,8 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
             ref={zapRef}
             id={`${uid}-zap`}
             value={zap}
-            onChange={(e) => mudarZap(e.target.value)}
+            onChange={mudarZap}
+            readOnly={codigoEnviado}
             placeholder={T.zapPlaceholder}
             inputMode="tel"
             type="tel"
@@ -177,6 +224,41 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
           </p>
         )}
       </div>
+
+      {modo === 'entrar' && codigoEnviado && (
+        <div className="form-campo">
+          <label htmlFor={`${uid}-cod`}>{T.codigoZap}</label>
+          <p id={`${uid}-lcod`} className="legenda">
+            {T.codigoEnviado(mascararCelular(`55${digitos}`))}
+          </p>
+          <input
+            ref={codigoRef}
+            id={`${uid}-cod`}
+            value={codigo}
+            onChange={(e) => {
+              setErroGeral(null)
+              setCodigo(e.target.value.replace(/[^0-9a-z]/gi, '').slice(0, 8))
+            }}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            aria-describedby={`${uid}-lcod`}
+            aria-invalid={erroGeral === 'codigo-errado'}
+            enterKeyHint="go"
+          />
+          <button
+            type="button"
+            className="botao-texto toque form-trocar"
+            onClick={() => {
+              setCodigoEnviado(false)
+              setCodigo('')
+              setErroGeral(null)
+              zapRef.current?.focus()
+            }}
+          >
+            {T.trocarNumero}
+          </button>
+        </div>
+      )}
 
       {modo !== 'entrar' && (
         <div className="form-check">
@@ -215,6 +297,16 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
             </button>
           )}
         </div>
+      )}
+      {erroGeral === 'codigo-errado' && (
+        <p className="form-alerta" role="alert">
+          {T.codigoErrado}
+        </p>
+      )}
+      {erroGeral === 'muitas-tentativas' && (
+        <p className="form-alerta" role="alert">
+          {T.muitasTentativas}
+        </p>
       )}
       {erroGeral === 'falhou' && (
         <p className="form-alerta" role="alert">

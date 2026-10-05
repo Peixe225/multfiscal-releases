@@ -1,25 +1,22 @@
-// Toda a copy do "Teste minha sorte" num lugar só (pt-BR informal, "tu/teu").
+// A copy do "Teste minha sorte" (pt-BR informal, "tu/teu"): a das entradas do site está em textos-entrada.ts (pedaço
+// principal) e entra aqui por inteiro; o resto baixa com o jogo, o formulário e a Minha conta.
 // Nunca: "sorteio", "grátis", "frete", prazo, chance em %, valor de desconto calculado, nem as palavras de
 // PALAVRAS_PROIBIDAS (src/dados/sorte.ts). Em dev, a lista é conferida aqui embaixo.
 import { PALAVRAS_PROIBIDAS } from '../../dados/sorte'
+import { TE } from './textos-entrada'
 
 export const T = {
-  titulo: 'Teste minha sorte',
-  tituloPx: 'TESTE MINHA SORTE',
-  curto: 'Sorte',
-  curtoPremio: 'Prêmio',
+  ...TE,
   legendaCasca: (instagram: string | null) => `interativo · ${instagram ? `@${instagram}` : 'Green Cheese'}`,
   carregando: 'carregando…',
 
   // convite
-  pergunta: 'Tá com sorte hoje?',
   sub: 'Gira a tampa do dichavador. Dentro tem um beck bolado, e no beck, teu cupom.',
   adesivoGira: 'Gira a tampa',
   legendaCelular: 'Gira a tampa',
   legendaDesktop: 'Arrasta em círculo, usa a roda do mouse ou segura Espaço',
   botaoGirar: 'Girar',
   ariaGirar: 'Girar a tampa um quarto de volta',
-  todoGiroGanha: 'Todo giro ganha.',
   limites: 'Sem conta: 1 giro. Com conta: 1 giro por dia.',
   verRegras: 'O que pode sair? · Regras',
   previaPremios: 'Prêmios de exemplo: a loja ainda vai definir as promoções de verdade.',
@@ -54,11 +51,9 @@ export const T = {
   copiar: 'Copiar',
   copiado: 'Código copiado.',
   naoCopiou: 'Não deu pra copiar. Segura no código e copia.',
-  exemplo: 'exemplo',
 
   // prêmio sem conta
   esperando: 'TEU PRÊMIO TÁ ESPERANDO',
-  guardar: 'Guardar meu prêmio',
   soNomeZap: 'Só nome e WhatsApp.',
   reservado: (ate: string) => `Sem conta, ele fica guardado neste aparelho até ${ate}. Depois some.`,
   agoraNao: 'Agora não',
@@ -66,7 +61,6 @@ export const T = {
 
   // prêmio com conta
   usarAgora: 'Usar agora',
-  verCupons: 'Ver meus cupons',
   verCuponsN: (n: number) => `Ver meus cupons (${n})`,
   naConta: 'Tá na tua conta. Amanhã tem outro giro.',
 
@@ -75,6 +69,7 @@ export const T = {
   guardado: 'GUARDADO',
   fechou: (nome: string) => (nome ? `Fechou, ${nome}. Teu cupom tá guardado.` : 'Fechou. Teu cupom tá guardado.'),
   valeAte: (ate: string) => `Vale até ${ate}.`,
+  vivoGuardado: (codigo: string, ate: string) => `Código ${codigo}. Vale até ${ate}.`,
   voltaAmanha: 'Volta amanhã pra girar de novo. Vem no certo!',
   contaCriada: (nome: string) => (nome ? `Conta criada, ${nome}.` : 'Conta criada.'),
   giroLiberado: 'Teu giro de hoje tá liberado.',
@@ -86,24 +81,22 @@ export const T = {
   ariaProximo: 'Próximo giro amanhã, depois da meia-noite',
   hojeJaFoi: 'Hoje já foi. Amanhã tem mais.',
   hojeSaiu: 'Hoje saiu:',
-  usarNoPedido: 'Usar no pedido',
   avisoLiberou: 'Teu giro de hoje tá liberado',
 
   // bloqueado
   premioVenceu: (dia: string) => `O prêmio de ${dia} venceu.`,
-  giroJaFoi: 'Teu giro já foi.',
-  criaAmanha: 'Cria tua conta pra girar de novo amanhã.',
-  criaAgora: 'Cria tua conta e gira de novo agora.',
   vantagens: 'Com conta: 1 giro por dia, cupons guardados e teu nome já no pedido.',
-  criarConta: 'Criar conta',
   jaTenhoConta: 'Já tenho conta',
 
   // regras
   regras: 'Regras',
-  regrasLista: [
+  /** `dias`: a validade, quando todos os prêmios têm a mesma (src/dados/sorte.ts); null = cada cupom diz a dele. */
+  regrasLista: (dias: number | null) => [
     'Todo giro ganha.',
     'Sem conta: 1 giro. Com conta: 1 giro por dia (vira à meia-noite, horário de Brasília).',
-    'O cupom vale 7 dias depois de guardado, 1 vez, em 1 pedido.',
+    dias != null
+      ? `O cupom vale ${dias} ${dias === 1 ? 'dia' : 'dias'} depois de guardado, 1 vez, em 1 pedido.`
+      : 'O cupom vale até a data escrita nele, 1 vez, em 1 pedido.',
     '1 cupom por pedido. Não soma com outro cupom.',
     'Só nos produtos do cupom, se tiver no teu estado.',
     'O desconto não entra no subtotal do site: a loja confirma no WhatsApp.',
@@ -132,6 +125,11 @@ export const T = {
   guardando: 'Guardando…',
   zapExiste: 'Esse WhatsApp já tem conta neste aparelho.',
   entrar: 'Entrar',
+  codigoZap: 'Código que chegou no teu WhatsApp',
+  codigoEnviado: (mascarado: string) => `Mandamos um código pro WhatsApp ${mascarado}.`,
+  codigoErrado: 'Esse código não confere. Olha de novo no WhatsApp.',
+  muitasTentativas: 'Muitas tentativas. Espera uns minutos e tenta de novo.',
+  trocarNumero: 'Trocar número',
   naoEncontrada: 'Esse WhatsApp não tem conta neste aparelho. Na prévia, a conta só existe no aparelho onde foi criada.',
   criarAqui: 'Criar conta aqui',
   salvar: 'Salvar',
@@ -163,7 +161,6 @@ export const T = {
   venceu: 'VENCEU',
   encerrado: 'Exemplo da prévia, encerrado',
   vazio: 'Nenhum cupom ainda. Gira o dichavador e o prêmio fica guardado aqui.',
-  girar: 'Girar',
   proximos: 'Próximos interativos',
   emBreve: 'em breve',
   vemMais: 'Vem mais coisa aí.',
@@ -177,7 +174,6 @@ export const T = {
   apagar: 'Apagar',
   apagada: 'Conta apagada deste aparelho.',
   saiu: 'Tu saiu da conta.',
-  cupomAplicado: (codigo: string) => `Cupom ${codigo} no pedido.`,
 } as const
 
 // Em dev, a copy passa pela mesma lista dos prêmios (sem acento, sem caixa, no começo de palavra).

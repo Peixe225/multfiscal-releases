@@ -6,7 +6,8 @@ import { Icone } from '../../componentes/comum'
 import { config } from '../../dados/config'
 import type { ValorPremio } from '../../dados/sorte'
 import { copiarTexto } from '../../lib/copiar'
-import { destaqueDo, formatarValidade } from '../../lib/cupom'
+import { formatarValidade } from '../../lib/cupom'
+import { destaqueDo } from '../../lib/cupom-uso'
 import { produtoPorId } from '../../store/catalogo'
 import type { Cupom } from '../../store/conta'
 import { useUI } from '../../store/ui'
@@ -24,7 +25,8 @@ export interface DadosCartao {
   aplicaA: { produtos?: string[]; categorias?: string[] }
   papel: Papel
   demo: boolean
-  validadeDias: number
+  /** Dias de validade depois de guardar (prêmio ainda sem conta). Guardado, vale a data do cupom. */
+  validadeDias?: number
   valor: ValorPremio
 }
 
@@ -109,7 +111,9 @@ export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado }
               </button>
             </div>
           )}
-          <p className="cartao-validade">{cupom ? T.validadeGuardado(formatarValidade(cupom.validoAte)) : T.validadeSemConta(dados.validadeDias)}</p>
+          {(cupom || dados.validadeDias != null) && (
+            <p className="cartao-validade">{cupom ? T.validadeGuardado(formatarValidade(cupom.validoAte)) : T.validadeSemConta(dados.validadeDias!)}</p>
+          )}
           <p className="cartao-confirma">{T.lojaConfirma}</p>
           {dados.comoUsar && <p className="cartao-sub">{dados.comoUsar}</p>}
           <div className="cartao-codigo" data-codigo>

@@ -63,3 +63,44 @@ export function mascararCelular(guardado: string): string {
 export function celularNoCampo(guardado: string): string {
   return formatarCelular(guardado.replace(/\D/g, '').replace(/^55(?=\d{11}$)/, ''))
 }
+
+/** Posição no texto mascarado logo depois do n-ésimo dígito (n = 0: antes do 1º dígito). */
+function posicaoDoDigito(v: string, n: number): number {
+  if (n <= 0) {
+    const i = v.search(/\d/)
+    return i < 0 ? v.length : i
+  }
+  let vistos = 0
+  for (let i = 0; i < v.length; i++) if (/\d/.test(v[i]) && ++vistos === n) return i + 1
+  return v.length
+}
+
+/**
+ * Uma edição no campo do WhatsApp, com o cursor no lugar certo. Recebe o valor de antes (já mascarado), o texto do
+ * campo depois da edição, onde o cursor ficou e o inputType do evento; devolve o novo valor mascarado e o cursor.
+ * - O cursor fica depois do mesmo número de dígitos à esquerda (corrigir um dígito no meio não joga pro fim).
+ * - Apagar um caractere da máscara ("(", ")", espaço, "-") apaga o dígito do lado dele (Backspace: o da esquerda;
+ *   Delete: o da direita), nunca o último.
+ * - Com os 11 dígitos completos, digitar mais um não empurra o último pra fora (não troca o número sem avisar).
+ * - Colar (ou o preenchimento automático) com +55, 0 ou espaços normaliza e põe o cursor no fim.
+ */
+export function editarCelular(antes: string, bruto: string, cursor: number, tipo: string): { valor: string; cursor: number } {
+  const digAntes = antes.replace(/\D/g, '')
+  let dig = bruto.replace(/\D/g, '')
+  let esq = bruto.slice(0, cursor).replace(/\D/g, '').length
+  if ((tipo === 'insertText' || tipo === 'insertCompositionText') && digAntes.length >= 11 && dig.length > 11) {
+    return { valor: antes, cursor: Math.max(0, cursor - (bruto.length - antes.length)) }
+  }
+  if (dig === digAntes && bruto.length < antes.length) {
+    if (tipo === 'deleteContentForward') dig = dig.slice(0, esq) + dig.slice(esq + 1)
+    else if (esq > 0) {
+      dig = dig.slice(0, esq - 1) + dig.slice(esq)
+      esq--
+    }
+  }
+  const d = normalizarCelular(dig)
+  // tirou +55 ou 0 da frente, ou cortou o excesso: o cursor vai pro fim
+  esq = d === dig.slice(0, 11) ? Math.min(esq, d.length) : d.length
+  const valor = formatarCelular(d)
+  return { valor, cursor: posicaoDoDigito(valor, esq) }
+}

@@ -5,10 +5,11 @@ import { Icone } from '../../componentes/comum'
 import { FormConta, type ModoForm } from '../../componentes/FormConta'
 import { config } from '../../dados/config'
 import type { Premio } from '../../dados/sorte'
-import { calcularGiro, conta as adaptador, primeiroNome } from '../../lib/conta'
+import { primeiroNome, type ContaAberta } from '../../lib/conta'
+import { conta as adaptador } from '../../lib/conta-adaptador'
 import { formatarAte, formatarDiaSemana, formatarEspera, formatarValidade, papelDo, premioPorId } from '../../lib/cupom'
 import { movimentoReduzido, ponteiroFino } from '../../lib/movimento'
-import { useContaStore, type Cupom } from '../../store/conta'
+import type { Cupom } from '../../store/conta'
 import { useLocal } from '../../store/local'
 import { useUI } from '../../store/ui'
 import { FOCO_JOGO, useCasca } from '../CascaInterativo'
@@ -17,11 +18,11 @@ import { CartaoPremio, FaixaPremio, type DadosCartao } from './CartaoPremio'
 import { ID_SORTE, useEstadoSorte, usarNoPedido, type ResumoSorte } from './estado'
 import { Palco, type RefsPalco } from './Palco'
 import { Regras } from './Regras'
-import { estalo, montarRevelacao, pintarFinal, type ElementosRevelacao } from './revelar'
+import { estalo, montarRevelacao, pintarFinal, PULAR_DESDE, type ElementosRevelacao } from './revelar'
 import { modoLeve, vibrar } from './tato'
 import { T } from './textos'
 import { useGestoGiro } from './useGiro'
-import './sorte.css'
+import './estilo'
 
 // "Teste minha sorte": gira a tampa do dichavador, ele abre, sai um beck bolado e o beck desenrola no cupom.
 // Máquina de fases (o React guarda fase e quartos; ângulo, velocidade e trava ficam nos refs do gesto):
@@ -47,24 +48,24 @@ function faseBase(r: Base): Fase {
 
 function dadosDe(premio: Premio | undefined, cupom: Cupom | null): DadosCartao | null {
   if (cupom) {
+    // guardado: vale a data do cupom (validoAte), não os dias do prêmio
     const r = cupom.retrato
     const p = premio ?? premioPorId(cupom.premioId)
-    return { titulo: r.titulo, regra: r.regra, descricao: p?.descricao, comoUsar: r.comoUsar, aplicaA: r.aplicaA, papel: r.papel, demo: cupom.demo, validadeDias: p?.validadeDias ?? 7, valor: r }
+    return { titulo: r.titulo, regra: r.regra, descricao: p?.descricao, comoUsar: r.comoUsar, aplicaA: r.aplicaA, papel: r.papel, demo: cupom.demo, valor: r }
   }
   if (!premio) return null
   return { titulo: premio.titulo, regra: premio.regra, descricao: premio.descricao, comoUsar: premio.comoUsar, aplicaA: premio.aplicaA, papel: papelDo(premio), demo: premio.demo, validadeDias: premio.validadeDias, valor: premio }
 }
 
-/** O cupom mais novo do Sorte na conta aberta, ganho depois de `desde`. */
-function cupomNovo(desde: number): Cupom | null {
-  const s = useContaStore.getState()
-  const cupons = s.atual ? (s.contas[s.atual]?.cupons ?? []) : []
-  return cupons.filter((c) => c.interativo === ID_SORTE && c.ganhoEm >= desde).sort((a, b) => b.ganhoEm - a.ganhoEm)[0] ?? null
-}
+/** Alvo de foco da tela que acabou de entrar (ex.: "Fechou, Ian. Teu cupom tá guardado."); sem ele, o h2. */
+const FOCO_FASE = '[data-foco-fase]'
 
 export default function JogoSorte({ tela }: PropsJogo) {
   const casca = useCasca()
   const r = useEstadoSorte()
+  // o resumo mais novo, para quem decide a fase depois de um await (o closure pode ser de um render velho)
+  const rAgora = useRef(r)
+  rAgora.current = r
   const uf = useLocal((s) => s.uf)
   const avisar = useUI((s) => s.avisar)
   const setConta = useUI((s) => s.setConta)
@@ -80,7 +81,6 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const [rodada, setRodada] = useState(0)
   const [semPremio, setSemPremio] = useState<{ nome: string } | null>(null)
   const [convidando, setConvidando] = useState(true)
-  const desdeCadastro = useRef(0)
   const tlRev = useRef<gsap.core.Timeline | null>(null)
   const tlEstalo = useRef<gsap.core.Timeline | null>(null)
   const abrindo = useRef(false)
@@ -104,12 +104,14 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const rolo = useRef<HTMLDivElement>(null)
   const legBeck = useRef<HTMLDivElement>(null)
   const botoes = useRef<HTMLDivElement>(null)
+  const notas = useRef<HTMLDivElement>(null)
   const segAbrir = useRef<HTMLElement>(null)
   const segPremio = useRef<HTMLElement>(null)
   const idTitulo = `sorte-titulo-${rodada}`
 
+  // foco depois de trocar de tela (o botão tocado some com a tela velha; sem isto o foco cairia no <body>)
   const focar = useCallback((sel: string) => {
-    requestAnimationFrame(() => raiz.current?.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true }))
+    requestAnimationFrame(() => (raiz.current?.querySelector<HTMLElement>(sel) ?? raiz.current?.querySelector<HTMLElement>(FOCO_JOGO))?.focus({ preventScroll: true }))
   }, [])
 
   // ao abrir: foco no h2 da fase (a casca já tentou; o jogo pode ter chegado depois)
@@ -134,6 +136,16 @@ export default function JogoSorte({ tela }: PropsJogo) {
     if (fase === 'premio' && ganho?.origem === 'pendente' && !r.conta && !r.pendenteValido) {
       setGanho(null)
       setFase(faseBase(r))
+      return
+    }
+    // saiu ou apagou a conta (Minha conta, outra aba) com um cupom guardado na tela: o "Usar agora" não vale mais
+    if (!r.conta && (fase === 'guardado' || (fase === 'premio' && ganho?.cupom))) {
+      setGanho(null)
+      setSemPremio(null)
+      setQuartos(0)
+      setRodada((n) => n + 1)
+      setFase(faseBase(r))
+      focar(FOCO_JOGO)
       return
     }
     if (fase === 'convite' || fase === 'bloqueado' || fase === 'espera') {
@@ -162,13 +174,16 @@ export default function JogoSorte({ tela }: PropsJogo) {
   }, [naSubtela, voltarDoCadastro, definirSubtela])
   useEffect(() => () => definirSubtela(null), [definirSubtela])
 
+  // o foco vai pro título do formulário ("Cria tua conta"): o leitor de tela anuncia a tela nova
   const irParaCadastro = (modo: 'cadastro' | 'entrar', de: Fase) => {
-    desdeCadastro.current = Date.now()
     setVoltaDe(de)
+    const ir = () => {
+      setFase(modo)
+      focar(FOCO_JOGO)
+    }
     const el = cartaoPos.current
-    if (el && !reduzido && de === 'premio') {
-      gsap.to(el, { y: -16, opacity: 0, duration: 0.2, ease: 'app', onComplete: () => setFase(modo) })
-    } else setFase(modo)
+    if (el && !reduzido && de === 'premio') gsap.to(el, { y: -16, opacity: 0, duration: 0.2, ease: 'app', onComplete: ir })
+    else ir()
   }
 
   /* ───────────── gesto ───────────── */
@@ -182,12 +197,13 @@ export default function JogoSorte({ tela }: PropsJogo) {
     const res = await adaptador.girar(ID_SORTE, { uf })
     const premio = res.ok ? premioPorId(res.valor.premioId) : undefined
     if (!res.ok || !premio) {
+      const giro = await adaptador.giroDisponivel(ID_SORTE)
       abrindo.current = false
       avisar(T.erroGiro)
       gesto.zerar()
       setQuartos(0)
       setRodada((n) => n + 1)
-      setFase(faseBase(estadoAgora()))
+      setFase(faseBase({ ...rAgora.current, giro }))
       return
     }
     setGanho({ premio, cupom: res.valor.cupom, origem: 'giro' })
@@ -229,9 +245,26 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const soltarDisco = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === ' ' || e.key === 'Enter') gesto.continuo(false)
   }
+  // Espaço/Enter segurado com o foco no título (onde a camada abre) também gira, como a legenda do desktop promete;
+  // o disco e o botão Girar tratam as teclas deles
+  const jogandoAgora = fase === 'convite' || fase === 'girando'
+  const noTitulo = (e: KeyboardEvent<HTMLDivElement>) => e.target instanceof HTMLElement && (e.target === e.currentTarget || e.target.classList.contains('sorte-h2'))
+  const teclaRaiz = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!jogandoAgora || !noTitulo(e) || (e.key !== ' ' && e.key !== 'Enter')) return
+    e.preventDefault()
+    if (!e.repeat) gesto.continuo(true)
+  }
+  const soltarRaiz = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!noTitulo(e) || (e.key !== ' ' && e.key !== 'Enter')) return
+    e.preventDefault()
+    gesto.continuo(false)
+  }
 
-  // botão "Girar": toque = +¼ (180 ms); segurar > 350 ms = contínuo; leitor de tela (só click) = +¼
+  // botão "Girar": toque = +¼ (180 ms); segurar > 350 ms = contínuo; leitor de tela e comando de voz (só click) = +¼.
+  // O click que vem logo depois de um toque de verdade é engolido (o toque já girou); o teclado não gera click
+  // (preventDefault no Espaço e no Enter), então não marca nada.
   const segurar = useRef<{ timer: number; longo: boolean; ativo: boolean }>({ timer: 0, longo: false, ativo: false })
+  const pulaCliqueAte = useRef(0)
   const apertar = () => {
     const s = segurar.current
     if (s.ativo) return
@@ -249,14 +282,18 @@ export default function JogoSorte({ tela }: PropsJogo) {
     clearTimeout(s.timer)
     if (s.longo) gesto.continuo(false)
     else gesto.girarQuarto(1)
-    pulaClique.current = true
   }
-  const pulaClique = useRef(false)
   const botaoGirar = {
     onPointerDown: (e: PointerEventReact<HTMLButtonElement>) => {
-      if (e.isPrimary) apertar()
+      if (!e.isPrimary) return
+      pulaCliqueAte.current = 0
+      apertar()
     },
-    onPointerUp: soltar,
+    onPointerUp: () => {
+      if (!segurar.current.ativo) return
+      soltar()
+      pulaCliqueAte.current = performance.now() + 600
+    },
     onPointerCancel: soltar,
     onPointerLeave: () => segurar.current.ativo && soltar(),
     onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -272,8 +309,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
       }
     },
     onClick: () => {
-      if (pulaClique.current) {
-        pulaClique.current = false
+      if (performance.now() < pulaCliqueAte.current) {
+        pulaCliqueAte.current = 0
         return
       }
       gesto.girarQuarto(1)
@@ -299,13 +336,13 @@ export default function JogoSorte({ tela }: PropsJogo) {
       beck: p.beck.current,
       legBeck: legBeck.current,
       sumir: [...(raiz.current?.querySelectorAll('[data-some]') ?? [])],
-      subir: [...(raiz.current?.querySelectorAll<HTMLElement>('.sorte-cena, .sorte-acoes') ?? [])],
+      subir: [...(raiz.current?.querySelectorAll<HTMLElement>('.sorte-cena, .sorte-barra, .sorte-acoes') ?? [])],
       alturaIntro: alturaDe(raiz.current?.querySelector<HTMLElement>('.sorte-intro')),
       cartaoPos: cartaoPos.current,
       cartao: cartao.current,
       rolo: rolo.current,
       // os filhos entram (y 12→0); o contêiner sobe junto com a cena (transforms separados)
-      botoes: botoes.current ? [...botoes.current.children] : [],
+      botoes: [...(botoes.current?.children ?? []), ...(notas.current?.children ?? [])],
       segAbrir: segAbrir.current,
       segPremio: segPremio.current,
     }
@@ -319,6 +356,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
       setFase('premio')
       return
     }
+    // onde o dedo girava (antes de qualquer transform da revelação): ver "pular" abaixo
+    const area = refs.palco.current?.getBoundingClientRect() ?? null
     const tl = montarRevelacao(el, {
       reduzido,
       leve: modoLeve(),
@@ -332,21 +371,40 @@ export default function JogoSorte({ tela }: PropsJogo) {
       },
     })
     tlRev.current = tl
-    // tocar em qualquer lugar até 2,7 s pula pro fim (e o clique desse toque não aperta botão nenhum)
+    // Pular pro fim: só um toque de verdade (sem arrasto) fora de onde o dichavador estava, e só depois que o beck já
+    // saiu (PULAR_DESDE). Quem gira com o polegar em vários toques dá mais um por reflexo quando abre: esse toque cai
+    // no lugar da tampa (ou vem cedo demais) e não pode engolir o beck desenrolando. A área é medida agora, antes da
+    // cena subir (a tampa invisível e o cartão passam por cima de outras partes da tela). O clique desse toque não
+    // aperta botão nenhum.
     const corpo = casca.corpo
-    const pular = () => {
-      if (tl.time() >= 2.7) return
+    const naArea = (x: number, y: number) => !!area && x >= area.left && x <= area.right && y >= area.top && y <= area.bottom
+    let inicio: { x: number; y: number; id: number } | null = null
+    const desce = (e: PointerEvent) => {
+      inicio = e.isPrimary && !naArea(e.clientX, e.clientY) ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null
+    }
+    const sobe = (e: PointerEvent) => {
+      const i = inicio
+      inicio = null
+      if (!i || e.pointerId !== i.id || Math.hypot(e.clientX - i.x, e.clientY - i.y) > 10) return
+      if (tl.time() < PULAR_DESDE || tl.time() >= 2.7) return
       tl.progress(1)
-      const engole = (e: Event) => {
-        e.stopPropagation()
-        e.preventDefault()
+      const engole = (ev: Event) => {
+        ev.stopPropagation()
+        ev.preventDefault()
       }
       corpo?.addEventListener('click', engole, { capture: true, once: true })
       window.setTimeout(() => corpo?.removeEventListener('click', engole, { capture: true }), 600)
     }
-    corpo?.addEventListener('pointerdown', pular)
+    const cancela = () => {
+      inicio = null
+    }
+    corpo?.addEventListener('pointerdown', desce)
+    corpo?.addEventListener('pointerup', sobe)
+    corpo?.addEventListener('pointercancel', cancela)
     return () => {
-      corpo?.removeEventListener('pointerdown', pular)
+      corpo?.removeEventListener('pointerdown', desce)
+      corpo?.removeEventListener('pointerup', sobe)
+      corpo?.removeEventListener('pointercancel', cancela)
       tl.kill()
       tlEstalo.current?.kill()
     }
@@ -361,6 +419,22 @@ export default function JogoSorte({ tela }: PropsJogo) {
     if (el) pintarFinal(el)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fase, rodada, ganho])
+
+  // celular baixo: na revelação a barra dos botões ficou abaixo da dobra; no prêmio ela gruda no pé da tela e entra
+  // subindo (app). Em tela alta ela já apareceu no lugar dela (aos 2,7 s) e não se mexe.
+  useLayoutEffect(() => {
+    if (fase !== 'premio' && fase !== 'guardado') return
+    const b = raiz.current?.querySelector<HTMLElement>('.sorte-barra')
+    const c = casca.corpo
+    if (!b || !c || reduzido) return
+    if (b.getBoundingClientRect().bottom < c.getBoundingClientRect().bottom - 2) return
+    const tw = gsap.fromTo(b, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.26, ease: 'app', clearProps: 'transform,opacity' })
+    return () => {
+      tw.kill()
+      gsap.set(b, { clearProps: 'transform,opacity' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase])
 
   // guardado com cupom: o mosaico dissolve em 4 degraus e mostra o código; o carimbo GUARDADO bate
   const [mosaico, setMosaico] = useState(true)
@@ -393,29 +467,33 @@ export default function JogoSorte({ tela }: PropsJogo) {
   }, [naSubtela, reduzido, fase])
 
   /* ───────────── depois de criar conta / entrar ───────────── */
-  const depoisDaConta = (c: { nome: string }, modo: ModoForm) => {
-    const novo = cupomNovo(desdeCadastro.current)
-    if (novo) {
-      const premio = premioPorId(novo.premioId) ?? ganho?.premio
-      if (premio) setGanho({ premio, cupom: novo, origem: 'conta' })
+  // Só conta o cupom que o adaptador acabou de guardar (o prêmio reservado). Um cupom velho da conta (até usado)
+  // nunca aparece como recém-guardado.
+  const depoisDaConta = async ({ conta: c, cupomGuardado }: ContaAberta, modo: ModoForm) => {
+    if (cupomGuardado) {
+      const premio = premioPorId(cupomGuardado.premioId) ?? ganho?.premio
+      if (premio) setGanho({ premio, cupom: cupomGuardado, origem: 'conta' })
       setSemPremio(null)
       setRodada((n) => n + 1)
       setFase('guardado')
-      focar(FOCO_JOGO)
+      setVivo(T.vivoGuardado(cupomGuardado.codigo, formatarValidade(cupomGuardado.validoAte)))
+      focar(FOCO_FASE)
       return
     }
     if (ganho && !ganho.cupom && modo !== 'editar') avisar(T.premioVencidoAoGuardar)
     setGanho(null)
     if (modo === 'entrar') {
+      const giro = await adaptador.giroDisponivel(ID_SORTE)
       avisar(T.entrou(primeiroNome(c.nome)))
       setRodada((n) => n + 1)
-      setFase(faseBase(estadoAgora()))
+      setFase(faseBase({ conta: c, pendenteValido: false, giro }))
+      focar(FOCO_JOGO)
     } else {
       setSemPremio({ nome: primeiroNome(c.nome) })
       setRodada((n) => n + 1)
       setFase('guardado')
+      focar(FOCO_FASE)
     }
-    focar(FOCO_JOGO)
   }
 
   const usarAgora = (codigo: string) => {
@@ -424,7 +502,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   }
 
   const agoraNao = () => {
-    const exp = useContaStore.getState().pendente?.expiraEm
+    const exp = r.pendente?.expiraEm
     casca.fechar()
     if (exp) avisar(T.avisoAgoraNao(formatarAte(exp, Date.now())))
   }
@@ -453,7 +531,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const comConta = !!r.conta
 
   return (
-    <div ref={raiz} className={`sorte sorte-${fase}`}>
+    <div ref={raiz} className={`sorte sorte-${fase}`} onKeyDown={teclaRaiz} onKeyUp={soltarRaiz}>
       <Estrelas parar={reduzido} />
       {casca.cromo &&
         createPortal(
@@ -526,31 +604,39 @@ export default function JogoSorte({ tela }: PropsJogo) {
         </div>
       )}
 
+      {/* prêmio: a barra dos botões gruda no pé da tela (celular baixo, navegador do Instagram) e as notas vêm depois */}
       {(fase === 'revelando' || fase === 'premio') && ganho && (
-        <div ref={botoes} className="sorte-acoes" inert={fase === 'revelando'}>
-          {comConta && ganho.cupom ? (
-            <>
-              <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
-                {T.usarAgora}
-              </button>
-              <button type="button" className="botao botao-contorno botao-largo" onClick={() => setConta(true)}>
-                {T.verCupons}
-              </button>
-              <p className="legenda sorte-nota">{T.naConta}</p>
-            </>
-          ) : (
-            <>
-              <button type="button" className="botao botao-cheio botao-largo" onClick={() => irParaCadastro('cadastro', 'premio')}>
-                {T.guardar}
-              </button>
-              <p className="legenda sorte-nota">{T.soNomeZap}</p>
-              <p className="legenda sorte-nota">{T.reservado(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora))}</p>
-              <button type="button" className="botao-texto toque" onClick={agoraNao}>
-                {T.agoraNao}
-              </button>
-            </>
-          )}
-        </div>
+        <>
+          <div ref={botoes} className="sorte-barra" inert={fase === 'revelando'}>
+            {comConta && ganho.cupom ? (
+              <>
+                <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
+                  {T.usarAgora}
+                </button>
+                <button type="button" className="botao botao-contorno botao-largo" onClick={() => setConta(true)}>
+                  {T.verCupons}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="botao botao-cheio botao-largo" onClick={() => irParaCadastro('cadastro', 'premio')}>
+                  {T.guardar}
+                </button>
+                <div className="sorte-barra-linha">
+                  <p className="legenda">{T.soNomeZap}</p>
+                  <button type="button" className="botao-texto toque" onClick={agoraNao}>
+                    {T.agoraNao}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <div ref={notas} className="sorte-acoes sorte-notas" inert={fase === 'revelando'}>
+            <p className="legenda sorte-nota">
+              {comConta && ganho.cupom ? T.naConta : T.reservado(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora))}
+            </p>
+          </div>
+        </>
       )}
 
       {(jogando || fase === 'revelando') && (
@@ -578,23 +664,33 @@ export default function JogoSorte({ tela }: PropsJogo) {
       )}
 
       {fase === 'guardado' && ganho?.cupom && (
-        <div className="sorte-acoes">
-          <p className="sorte-fechou">{T.fechou(primeiroNome(r.conta?.nome))}</p>
-          <p className="legenda">{T.valeAte(formatarValidade(ganho.cupom.validoAte))}</p>
-          <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
-            {T.usarAgora}
-          </button>
-          <button type="button" className="botao botao-contorno botao-largo" onClick={() => setConta(true)}>
-            {T.verCupons}
-          </button>
-          <p className="legenda sorte-nota">{T.voltaAmanha}</p>
-        </div>
+        <>
+          <div className="sorte-acoes">
+            <p className="sorte-fechou" tabIndex={-1} data-foco-fase>
+              {T.fechou(primeiroNome(r.conta?.nome))}
+            </p>
+            <p className="legenda">{T.valeAte(formatarValidade(ganho.cupom.validoAte))}</p>
+          </div>
+          <div className="sorte-barra">
+            <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
+              {T.usarAgora}
+            </button>
+            <button type="button" className="botao botao-contorno botao-largo" onClick={() => setConta(true)}>
+              {T.verCupons}
+            </button>
+          </div>
+          <div className="sorte-acoes sorte-notas">
+            <p className="legenda sorte-nota">{T.voltaAmanha}</p>
+          </div>
+        </>
       )}
 
       {fase === 'guardado' && semPremio && (
         <div className="sorte-bloco">
           <Icone nome="conta" tamanho={48} className="sorte-bloco-icone" />
-          <p className="sorte-fechou">{T.contaCriada(semPremio.nome)}</p>
+          <p className="sorte-fechou" tabIndex={-1} data-foco-fase>
+            {T.contaCriada(semPremio.nome)}
+          </p>
           {r.giro.disponivel ? (
             <>
               <p>{T.giroLiberado}</p>
@@ -663,16 +759,6 @@ function alturaDe(el: HTMLElement | null | undefined): number {
   if (!el) return 0
   const cs = getComputedStyle(el)
   return el.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom)
-}
-
-/** Leitura síncrona do estado (fora do render) para decidir a fase depois de uma ação. */
-function estadoAgora(): Base {
-  const s = useContaStore.getState()
-  const agora = Date.now()
-  const conta = s.atual ? (s.contas[s.atual]?.conta ?? null) : null
-  const p = s.pendente
-  const pendenteValido = !!p && p.interativo === ID_SORTE && agora < p.expiraEm && !!premioPorId(p.premioId)
-  return { conta, pendenteValido, giro: calcularGiro(s, ID_SORTE, agora) }
 }
 
 /** Com conta e já girou hoje: contagem no molde do adesivo do IG, o cupom do dia e os cupons guardados. */

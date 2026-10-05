@@ -1,5 +1,6 @@
 // Estado do "Teste minha sorte" visto de fora do jogo (destaque, lateral, adesivo do feed, sacola).
-// Hook leve: fica no pedaço principal; o jogo em si (JogoSorte) só baixa quando a camada abre.
+// Hook leve: fica no pedaço principal e só lê o cache da conta (hooks de src/lib/conta.ts) e a copy das entradas.
+// O jogo, o adaptador da conta, o sorteio e o resto da copy só baixam quando a camada abre.
 import { useMemo } from 'react'
 import { config } from '../../dados/config'
 import { canalDa } from '../../dados/canais'
@@ -12,7 +13,7 @@ import { useLocal } from '../../store/local'
 import { useSacola } from '../../store/sacola'
 import { useUI } from '../../store/ui'
 import type { EntradaInterativo } from '../registro'
-import { T } from './textos'
+import { TE as T } from './textos-entrada'
 
 export const ID_SORTE = 'sorte'
 
@@ -71,10 +72,12 @@ export function useEstadoSorte(): ResumoSorte {
   }, [conta, giro, pendente, valido, vencido, todos, agora])
 }
 
-/** Aplica o cupom e abre a sacola (o adesivo e a conta usam). Com uma camada fechando, espera o histórico. */
+/**
+ * Aplica o cupom e abre a sacola (o jogo, o adesivo e a conta usam). Com uma camada fechando, espera o histórico.
+ * Sem aviso: a linha do cupom no alto da sacola já diz "Cupom SORTE-AB12 — …" (o aviso cobria essa linha).
+ */
 export function usarNoPedido(codigo: string) {
   useSacola.getState().aplicarCupom(codigo)
-  useUI.getState().avisar(T.cupomAplicado(codigo))
   depoisDoHistorico(() => useUI.getState().setSacola(true))
 }
 

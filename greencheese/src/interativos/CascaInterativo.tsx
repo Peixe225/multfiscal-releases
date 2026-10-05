@@ -8,7 +8,7 @@ import { prenderTab } from '../lib/foco'
 import { useCamadaNoHistorico } from '../lib/historico'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { liberarRolagem, travarRolagem } from '../lib/rolagem'
-import { atualizarParametros, manterNaURL } from '../lib/url'
+import { atualizarParametros } from '../lib/url'
 import { useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import type { Interativo } from './registro'
@@ -78,17 +78,20 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
     marcarVisto(interativo.id)
   }, [aberto, interativo.id])
 
-  // ?jogo=<param> enquanto aberta; a volta do histórico regrava o que vale agora (lido da store, não do render)
+  // ?jogo=<param> enquanto aberta (a volta do histórico é acertada no módulo da camada, ver Interativo.tsx)
   useEffect(() => {
     atualizarParametros({ jogo: aberto ? interativo.param : null })
   }, [aberto, interativo.param])
-  useEffect(() => manterNaURL(() => ({ jogo: useUI.getState().interativo?.id === interativo.id ? interativo.param : null })), [interativo.id, interativo.param])
 
-  // rolagem da página travada atrás
+  // rolagem da página travada atrás; as animações em loop da página (chiado, cursor, mercador) param por trás
   useEffect(() => {
     if (!aberto) return
     travarRolagem()
-    return () => liberarRolagem()
+    document.documentElement.classList.add('com-casca')
+    return () => {
+      liberarRolagem()
+      document.documentElement.classList.remove('com-casca')
+    }
   }, [aberto])
 
   // entrada e saída (voz app, só transform/opacity; movimento reduzido = corte)

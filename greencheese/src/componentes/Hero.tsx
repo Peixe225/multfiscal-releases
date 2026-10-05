@@ -47,7 +47,7 @@ interface Posicao {
 /** Alguma camada por cima do hero (story, folhas, página do produto, troca, abertura, chat)? Lido na hora (teclado). */
 function camadaPorCima(): boolean {
   const s = useUI.getState()
-  if (s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || s.pagina || s.trocaPendente || s.aberturaAtiva) return true
+  if (s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || s.pagina || s.trocaPendente || s.aberturaAtiva || s.interativo || s.contaAberta) return true
   if (useChat.getState().aberto) return true
   return !!document.querySelector('.folha, [aria-modal="true"]')
 }
@@ -159,7 +159,17 @@ export function Hero() {
   const { texto: lugar } = useTextoLocal()
   const setHeroProduto = useUI((s) => s.setHeroProduto)
   const camadaAberta = useUI(
-    (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva,
+    (s) =>
+      !!s.story ||
+      s.sacolaAberta ||
+      s.seletorAberto ||
+      s.infoAberto ||
+      s.painelPrevia ||
+      !!s.pagina ||
+      !!s.trocaPendente ||
+      s.aberturaAtiva ||
+      !!s.interativo ||
+      s.contaAberta,
   )
   const aberturaAtiva = useUI((s) => s.aberturaAtiva)
   const chatAberto = useChat((s) => s.aberto)

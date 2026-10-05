@@ -127,3 +127,10 @@
     display: inline-grid;
   }
 }
+
+/* com o jogo aberto, os loops decorativos da página por trás param (o hero para pelo useUI) */
+.com-casca .app *,
+.com-casca .app *::before,
+.com-casca .app *::after {
+  animation-play-state: paused !important;
+}

@@ -1,5 +1,5 @@
 import { canalDa } from '../dados/canais'
-import { useConferirCupom } from '../lib/conta'
+import { useConferirCupom } from '../lib/cupom-pedido'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'

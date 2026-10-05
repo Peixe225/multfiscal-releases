@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { TONS_PAPEL } from '../arte/realista/beck'
 import { config } from '../dados/config'
-import { interativosEmBreve } from '../interativos/registro'
+import { interativoPorId, interativosEmBreve } from '../interativos/registro'
 import { Regras } from '../interativos/sorte/Regras'
-import { ID_SORTE, useEstadoSorte } from '../interativos/sorte/estado'
+import { ID_SORTE, useEstadoSorte, usarNoPedido } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
-import { conta as adaptador, primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/conta'
+import { primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/conta'
+import { conta as adaptador } from '../lib/conta-adaptador'
 import { copiarTexto } from '../lib/copiar'
-import { alvosDo, formatarDiaMes, formatarEspera, formatarFalta, formatarValidade, valePra } from '../lib/cupom'
+import { formatarDiaMes, formatarEspera, formatarFalta, formatarValidade } from '../lib/cupom'
+import { alvosDo, valePra } from '../lib/cupom-uso'
 import { depoisDoHistorico } from '../lib/historico'
 import { mascararCelular } from '../lib/telefone'
+import { useLocal } from '../store/local'
 import { useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
@@ -43,8 +46,24 @@ function Conteudo({ fechar }: { fechar: () => void }) {
   const avisar = useUI((s) => s.avisar)
   const [editando, setEditando] = useState(false)
   const [apagando, setApagando] = useState(false)
+  // o botão tocado some com a troca de tela: o foco vai pro que entrou (sem isto cairia no <body>)
+  const raiz = useRef<HTMLDivElement>(null)
+  const focarAlvo = useRef<string | null>(null)
+  const trocar = (f: () => void, alvo: string) => {
+    focarAlvo.current = alvo
+    f()
+  }
+  useEffect(() => {
+    const alvo = focarAlvo.current
+    if (!alvo) return
+    focarAlvo.current = null
+    raiz.current?.querySelector<HTMLElement>(alvo)?.focus({ preventScroll: false })
+  }, [editando, apagando])
   const ativos = cupons.filter((c) => c.status === 'ativo')
   const emBreve = interativosEmBreve()
+  // estado sem atendimento (ou sem prêmio): o jogo não abre, então nada de "Girar" aqui
+  useLocal((s) => s.uf)
+  const jogoAtivo = interativoPorId(ID_SORTE)?.ativo() ?? false
 
   const girar = () => {
     fechar()
@@ -52,7 +71,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
   }
 
   return (
-    <div className="conta">
+    <div ref={raiz} className="conta">
       <section className="conta-oi">
         <p className="conta-nome" data-foco-inicial tabIndex={-1}>
           {T.oi(primeiroNome(conta.nome))}
@@ -62,22 +81,24 @@ function Conteudo({ fechar }: { fechar: () => void }) {
 
       {config.modoPrevia && <p className="conta-aviso">{T.avisoPreviaConta}</p>}
 
-      <section className="conta-secao" aria-labelledby="conta-giro">
-        <h3 id="conta-giro" className="conta-titulo">
-          {T.giroDeHoje}
-        </h3>
-        {r.giro.disponivel ? (
-          <div className="conta-giro">
-            <p>{T.liberadoHoje}</p>
-            <button type="button" className="botao botao-cheio" onClick={girar}>
-              <Icone nome="dichavador" tamanho={16} />
-              {T.girarDichavador}
-            </button>
-          </div>
-        ) : (
-          <p className="conta-giro-txt">{T.usadoHoje(r.giro.motivo === 'ja-girou-hoje' ? formatarEspera(r.giro.proximoEm - r.agora) : 'amanhã')}</p>
-        )}
-      </section>
+      {jogoAtivo && (
+        <section className="conta-secao" aria-labelledby="conta-giro">
+          <h3 id="conta-giro" className="conta-titulo">
+            {T.giroDeHoje}
+          </h3>
+          {r.giro.disponivel ? (
+            <div className="conta-giro">
+              <p>{T.liberadoHoje}</p>
+              <button type="button" className="botao botao-cheio" onClick={girar}>
+                <Icone nome="dichavador" tamanho={16} />
+                {T.girarDichavador}
+              </button>
+            </div>
+          ) : (
+            <p className="conta-giro-txt">{T.usadoHoje(r.giro.motivo === 'ja-girou-hoje' ? formatarEspera(r.giro.proximoEm - r.agora) : 'amanhã')}</p>
+          )}
+        </section>
+      )}
 
       <section className="conta-secao" aria-labelledby="conta-cupons">
         <h3 id="conta-cupons" className="conta-titulo">
@@ -86,7 +107,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
         {cupons.length === 0 ? (
           <div className="conta-vazio">
             <p>{T.vazio}</p>
-            {r.giro.disponivel && (
+            {jogoAtivo && r.giro.disponivel && (
               <button type="button" className="botao botao-contorno" onClick={girar}>
                 {T.girar}
               </button>
@@ -125,7 +146,12 @@ function Conteudo({ fechar }: { fechar: () => void }) {
 
       <section className="conta-secao" aria-labelledby="conta-dados">
         {editando ? (
-          <FormConta modo="editar" idTitulo="conta-dados" aoSucesso={() => setEditando(false)} aoCancelar={() => setEditando(false)} />
+          <FormConta
+            modo="editar"
+            idTitulo="conta-dados"
+            aoSucesso={() => trocar(() => setEditando(false), '[data-conta-editar]')}
+            aoCancelar={() => trocar(() => setEditando(false), '[data-conta-editar]')}
+          />
         ) : (
           <>
             <h3 id="conta-dados" className="conta-titulo">
@@ -145,7 +171,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
                 <dd>{T.promoLigadas(conta.aceitaPromo)}</dd>
               </div>
             </dl>
-            <button type="button" className="botao botao-contorno" onClick={() => setEditando(true)}>
+            <button type="button" className="botao botao-contorno" data-conta-editar onClick={() => trocar(() => setEditando(true), '#conta-dados')}>
               {T.editar}
             </button>
           </>
@@ -166,12 +192,14 @@ function Conteudo({ fechar }: { fechar: () => void }) {
         </button>
         <p className="legenda">{T.sairLegenda}</p>
         {!apagando ? (
-          <button type="button" className="botao-texto toque" onClick={() => setApagando(true)}>
+          <button type="button" className="botao-texto toque" data-conta-apagar onClick={() => trocar(() => setApagando(true), '[data-conta-pergunta]')}>
             {T.apagarConta}
           </button>
         ) : (
           <div className="conta-apagar" role="group" aria-label={T.apagarConta}>
-            <p>{T.apagarPergunta}</p>
+            <p tabIndex={-1} data-conta-pergunta>
+              {T.apagarPergunta}
+            </p>
             <div className="conta-apagar-botoes">
               <button
                 type="button"
@@ -184,7 +212,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
               >
                 {T.apagar}
               </button>
-              <button type="button" className="botao botao-contorno" onClick={() => setApagando(false)}>
+              <button type="button" className="botao botao-contorno" onClick={() => trocar(() => setApagando(false), '[data-conta-apagar]')}>
                 {T.cancelar}
               </button>
             </div>
@@ -202,7 +230,6 @@ function Conteudo({ fechar }: { fechar: () => void }) {
 /** Cupom no formato de ingresso de papel (a cor do papel do prêmio). */
 function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () => void; agora: number; avisar: (t: string) => void }) {
   const aplicado = useSacola((s) => s.cupom === c.codigo)
-  const aplicar = useSacola((s) => s.aplicarCupom)
   const tirar = useSacola((s) => s.tirarCupom)
   const tons = TONS_PAPEL[c.retrato.papel]
   const alvo = alvosDo(c.retrato)[0]
@@ -254,10 +281,8 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
               type="button"
               className="botao botao-cheio ingresso-botao"
               onClick={() => {
-                aplicar(c.codigo)
-                avisar(T.cupomAplicado(c.codigo))
                 fechar()
-                depoisDoHistorico(() => useUI.getState().setSacola(true))
+                usarNoPedido(c.codigo)
               }}
             >
               {T.usarNoPedido}
@@ -266,8 +291,9 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
         {c.status === 'usado' && <span className="ingresso-carimbo px">{T.usado(formatarDiaMes(c.usadoEm ?? agora))}</span>}
         {c.status === 'vencido' && <span className="ingresso-carimbo px">{T.venceu}</span>}
         {c.status === 'encerrado' && <span className="legenda">{T.encerrado}</span>}
+        {/* na linha da ação, à direita: solto no canto ele cobria o fim do título em 320 px */}
+        {exemplo && <span className="ingresso-exemplo carimbo">{T.exemplo}</span>}
       </div>
-      {exemplo && <span className="ingresso-exemplo carimbo">{T.exemplo}</span>}
     </article>
   )
 }

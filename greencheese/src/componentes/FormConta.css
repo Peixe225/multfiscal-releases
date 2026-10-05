@@ -12,6 +12,13 @@
 .form-titulo-p {
   font: 700 15px/1.2 var(--ui);
 }
+/* o título recebe o foco ao trocar de tela (tabIndex -1): sem anel, como os outros títulos */
+.form-titulo:focus {
+  outline: none;
+}
+.form-trocar {
+  align-self: flex-start;
+}
 .form-sub {
   margin-top: -6px;
   font: 400 15px/1.4 var(--ui);

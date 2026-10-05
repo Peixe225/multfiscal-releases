@@ -1,9 +1,11 @@
 import { canalDa } from '../dados/canais'
+import { config } from '../dados/config'
 import { interativoPorId } from '../interativos/registro'
 import { ID_SORTE, useEstadoSorte } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
-import { useCupomNoPedido } from '../lib/conta'
-import { formatarAte, nomeCategoria, type Situacao } from '../lib/cupom'
+import { formatarAte } from '../lib/cupom'
+import { useCupomNoPedido } from '../lib/cupom-pedido'
+import { nomeCategoria, type Situacao } from '../lib/cupom-uso'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { disponivelEm } from '../store/catalogo'
@@ -26,12 +28,18 @@ function abrirJogo(tela?: TelaInterativo) {
 
 export function CupomSacola({ compacta = false }: { compacta?: boolean }) {
   const { cupom, situacao } = useCupomNoPedido()
-  if (cupom && situacao) return <CupomAplicado codigo={cupom.codigo} titulo={cupom.retrato.titulo} situacao={situacao} compacta={compacta} />
+  if (cupom && situacao)
+    return <CupomAplicado codigo={cupom.codigo} titulo={cupom.retrato.titulo} exemplo={cupom.demo && config.modoPrevia} situacao={situacao} compacta={compacta} />
   if (compacta) return null
   return <ConviteCupom />
 }
 
-function CupomAplicado({ codigo, titulo, situacao, compacta }: { codigo: string; titulo: string; situacao: Situacao; compacta: boolean }) {
+/** Carimbo "exemplo" do cupom de demonstração (prévia), como no cartão, no adesivo e na Minha conta. */
+function Exemplo() {
+  return <span className="carimbo cs-exemplo">{T.exemplo}</span>
+}
+
+function CupomAplicado({ codigo, titulo, exemplo, situacao, compacta }: { codigo: string; titulo: string; exemplo: boolean; situacao: Situacao; compacta: boolean }) {
   const tirar = useSacola((s) => s.tirarCupom)
   const adicionar = useSacola((s) => s.adicionar)
   const { todas } = useLinhasSacola()
@@ -42,7 +50,13 @@ function CupomAplicado({ codigo, titulo, situacao, compacta }: { codigo: string;
     <p className="cs-linha">
       <Icone nome="dichavador" tamanho={16} />
       <span>
-        Cupom <span className="px px-16">{codigo}</span> — {titulo}
+        Cupom <span className="px px-16 cs-codigo">{codigo}</span> — {titulo}
+        {exemplo && (
+          <>
+            {' '}
+            <Exemplo />
+          </>
+        )}
       </span>
     </p>
   )
@@ -104,7 +118,10 @@ function CupomAplicado({ codigo, titulo, situacao, compacta }: { codigo: string;
       break
     }
     case 'indisponivel-aqui':
-      texto = `${situacao.produto?.nome ?? 'O produto do cupom'} não tem em ${lugar} agora. O cupom fica guardado.`
+      // estado sem atendimento: não é falta de estoque, a loja não chega lá (sem "agora", que promete que vai ter)
+      texto = canal
+        ? `${situacao.produto?.nome ?? 'O produto do cupom'} não tem em ${lugar} agora. O cupom fica guardado.`
+        : 'A Green Cheese ainda não chegou no teu estado. O cupom fica guardado.'
       break
     case 'fora-do-catalogo':
       texto = 'Esse produto saiu do catálogo. Fala com a loja.'
@@ -132,8 +149,10 @@ function ConviteCupom() {
   const aplicar = useSacola((s) => s.aplicarCupom)
   const setConta = useUI((s) => s.setConta)
   const avisar = useUI((s) => s.avisar)
+  const uf = useLocal((s) => s.uf)
   const ativo = interativoPorId(ID_SORTE)?.ativo() ?? false
-  if (r.conta && r.ativos.length) {
+  // cupom só serve onde a loja atende (fora da área o caminho é a encomenda, que não leva cupom)
+  if (r.conta && r.ativos.length && canalDa(uf)) {
     return (
       <div className="cupom-sacola cs-usar">
         <p className="cs-rot">Usar cupom</p>
@@ -148,7 +167,13 @@ function ConviteCupom() {
                 avisar(T.cupomAplicado(c.codigo))
               }}
             >
-              <span className="px px-16">{c.codigo}</span> · {c.retrato.titulo}
+              <span className="px px-16 cs-codigo">{c.codigo}</span> · {c.retrato.titulo}
+              {c.demo && config.modoPrevia && (
+                <>
+                  {' '}
+                  <Exemplo />
+                </>
+              )}
             </button>
           ))}
           <button type="button" className="cs-ver toque" onClick={() => setConta(true)}>

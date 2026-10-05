@@ -1,4 +1,6 @@
 import { lazy, Suspense, useState, type ComponentType, type LazyExoticComponent } from 'react'
+import { manterNaURL } from '../lib/url'
+import { useLocal } from '../store/local'
 import { useUI, type InterativoAberto } from '../store/ui'
 import { CarregandoJogo, CascaInterativo } from './CascaInterativo'
 import { interativoPorId, interativosAtivos, type Interativo as DefInterativo, type PropsJogo } from './registro'
@@ -26,6 +28,19 @@ function jogoDe(i: DefInterativo): LazyExoticComponent<ComponentType<PropsJogo>>
   return j
 }
 
+// ?jogo= na URL depois de cada volta do histórico. Fica aqui no módulo, não na casca: a casca pode já ter desmontado
+// quando a volta chega (movimento reduzido fecha na hora) e a entrada onde a volta cai pode ser a do link de entrada,
+// que ainda tem ?jogo=sorte (recarregar reabriria o jogo). Só mexe depois que algum interativo abriu nesta página.
+let jaAbriu = !!useUI.getState().interativo
+useUI.subscribe((s) => {
+  if (s.interativo) jaAbriu = true
+})
+manterNaURL(() => {
+  const aberto = interativoPorId(useUI.getState().interativo?.id)
+  if (aberto) return { jogo: aberto.param }
+  return jaAbriu ? { jogo: null } : {}
+})
+
 // pré-carga no respiro do navegador
 {
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
@@ -37,6 +52,8 @@ function jogoDe(i: DefInterativo): LazyExoticComponent<ComponentType<PropsJogo>>
 export function Interativo() {
   const pedido = useUI((s) => s.interativo)
   const fechar = useUI((s) => s.fecharInterativo)
+  // trocou pra um estado sem atendimento com o jogo aberto: i.ativo() vira false e a camada fecha
+  useLocal((s) => s.uf)
   // o que está na tela (fica montado durante a saída) e quantas vezes abriu (cada abertura começa do zero)
   const [vista, setVista] = useState<{ aberto: InterativoAberto; vez: number; saindo: boolean } | null>(pedido ? { aberto: pedido, vez: 1, saindo: false } : null)
   if (!pedido && vista && !vista.saindo) setVista({ ...vista, saindo: true })

@@ -3,9 +3,10 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import type { Premio, ValorPremio } from '../dados/sorte'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 
-// Conta do cliente e cupons dos interativos, NA PRÉVIA: tudo fica só neste aparelho (localStorage 'gc-conta').
-// Só o adaptador (src/lib/conta.ts) escreve aqui; a interface lê pelos hooks de lá. Na versão oficial, o adaptador
-// do servidor troca esta store por chamadas à API sem mexer na interface.
+// Cache da conta do cliente e dos cupons dos interativos neste aparelho (localStorage 'gc-conta').
+// Só o adaptador (src/lib/conta-adaptador.ts) escreve aqui; as telas leem pelos hooks de src/lib/conta.ts.
+// Na prévia este cache é a própria fonte (nada vai pra servidor). Na versão oficial, o adaptador do servidor grava
+// aqui o que a API devolve a cada chamada (conta, cupons, dias de giro, prêmio reservado) e as telas não mudam.
 
 export interface Conta {
   /** crypto.randomUUID (com reserva). */

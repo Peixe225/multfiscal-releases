@@ -15,8 +15,10 @@ import {
   montarEncomenda,
   montarPedido,
 } from '../lib/mensagem'
-import { conta as adaptador, useConferirCupom, useConta, useCupomNoPedido, useCupons, useAgora } from '../lib/conta'
-import { linhaCupom, nomeCategoria, nomeCurto, situacaoNoPedido, type Situacao } from '../lib/cupom'
+import { useConta, useCupons, useAgora } from '../lib/conta'
+import { conta as adaptador } from '../lib/conta-adaptador'
+import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
+import { linhaCupom, nomeCategoria, nomeCurto, situacaoNoPedido, type Situacao } from '../lib/cupom-uso'
 import { rolarPara } from '../lib/rolagem'
 import { produtoPorId } from '../store/catalogo'
 import { useChat, type Passo, type Respostas } from '../store/chat'
@@ -586,8 +588,12 @@ export function ChatFolha() {
             }}
             naoConsegui={() => marcarEnviado(null)}
             editar={(p) => voltarPara(p)}
-            cupom={modo === 'pedido' && cupom && situacaoCupom ? { codigo: cupom.codigo, titulo: cupom.retrato.titulo, situacao: situacaoCupom } : null}
-            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: sugerido.retrato.titulo } : null}
+            cupom={
+              modo === 'pedido' && cupom && situacaoCupom
+                ? { codigo: cupom.codigo, titulo: cupom.retrato.titulo, situacao: situacaoCupom, exemplo: cupom.demo && config.modoPrevia }
+                : null
+            }
+            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: sugerido.retrato.titulo, exemplo: sugerido.demo && config.modoPrevia } : null}
             lugar={cidade ?? canal.nome}
             aplicarCupom={(c) => useSacola.getState().aplicarCupom(c)}
             tirarCupom={() => useSacola.getState().tirarCupom()}
@@ -717,9 +723,9 @@ function Resumo({
   editar: (p: Passo) => void
   mandei: () => void
   /** Cupom aplicado e a situação dele nesse pedido (só no pedido; encomenda nunca leva cupom). */
-  cupom: { codigo: string; titulo: string; situacao: Situacao } | null
+  cupom: { codigo: string; titulo: string; situacao: Situacao; exemplo: boolean } | null
   /** Cupom guardado que vale nesse pedido, quando nenhum está aplicado. */
-  sugerido: { codigo: string; titulo: string } | null
+  sugerido: { codigo: string; titulo: string; exemplo: boolean } | null
   lugar: string
   aplicarCupom: (codigo: string) => void
   tirarCupom: () => void
@@ -751,6 +757,7 @@ function Resumo({
       {cupom && cupomOk && (
         <BolhaLoja>
           Cupom <span className="px px-16">{cupom.codigo}</span> no pedido: desconto confirmado pela loja no WhatsApp.
+          {cupom.exemplo && <> <span className="carimbo">exemplo</span></>}
         </BolhaLoja>
       )}
       {cupom && !cupomOk && !enviadoEm && (
@@ -770,6 +777,7 @@ function Resumo({
         <>
           <BolhaLoja>
             Tu tem o cupom <span className="px px-16">{sugerido.codigo}</span> ({sugerido.titulo}). Usa nesse pedido?
+            {sugerido.exemplo && <> <span className="carimbo">exemplo</span></>}
           </BolhaLoja>
           <Chips
             chips={[
@@ -859,11 +867,13 @@ function Resumo({
   )
 }
 
-/** Por que o cupom aplicado não vale: "faltam 2 OCB" · "não tem em Teófilo Otoni" · "precisa de seda". */
+/** Por que o cupom aplicado não vale: "falta 1 OCB" · "faltam 2 OCB" · "não tem em Teófilo Otoni" · "precisa de seda". */
 function motivoCurto(s: Situacao, lugar: string): string {
   switch (s.tipo) {
-    case 'qtd-insuficiente':
-      return `faltam ${s.precisa - s.tem} ${s.produto ? nomeCurto(s.produto) : nomeCategoria(s.categoria)}`
+    case 'qtd-insuficiente': {
+      const n = s.precisa - s.tem
+      return `${n === 1 ? 'falta' : 'faltam'} ${n} ${s.produto ? nomeCurto(s.produto) : nomeCategoria(s.categoria)}`
+    }
     case 'falta-produto':
       return s.produto ? `precisa de ${s.precisa > 1 ? `${s.precisa} ` : ''}${nomeCurto(s.produto)}` : `precisa de ${nomeCategoria(s.categoria)}`
     case 'indisponivel-aqui':

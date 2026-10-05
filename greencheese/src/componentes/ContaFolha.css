@@ -157,9 +157,7 @@
   transform: rotate(-4deg);
 }
 .ingresso-exemplo {
-  position: absolute;
-  top: 62px;
-  right: 12px;
+  margin-left: auto;
   color: #3d3d3d;
   transform: rotate(-6deg);
 }
