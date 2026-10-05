@@ -34,6 +34,12 @@ export const config = {
 
   /** Segundos que cada produto fica no story antes de passar sozinho. */
   storySegundos: 6,
+
+  /**
+   * Mostra o mercador dando uns tragos no repost. A Lei 9.294/96 (art. 3º) veda propaganda de produtos fumígenos;
+   * para a versão oficial, a recomendação é false.
+   */
+  mercadorTraga: true,
 }
 
 export type Config = typeof config

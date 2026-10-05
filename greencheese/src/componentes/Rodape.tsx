@@ -1,9 +1,9 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
 import { canais, canalDa, perfisAConfirmar } from '../dados/canais'
 import { config } from '../dados/config'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
-import { palpebras } from '../arte/pixel/mercador'
+import { apresentacao, palpebras } from '../arte/pixel/mercador'
 import { linkPerfil } from '../lib/mensagem'
 import { useLocal } from '../store/local'
 import { Avatar } from './comum'
@@ -22,11 +22,46 @@ function assinarTela(avisar: () => void) {
 const lerTela = () => typeof window !== 'undefined' && !!window.matchMedia?.(TELA_LARGA).matches
 const lerTelaServidor = () => true
 
+// A apresentação do mercador (abre o outro lado do casaco e dá uns tragos). Sem config.mercadorTraga, as camadas do
+// trago nem entram: o ciclo fica só com o casaco abrindo e fechando (o Rodape.css troca para o ciclo curto).
+const quadros = apresentacao.filter((q) => config.mercadorTraga || !q.trago)
+
+// Aba escondida (outro app, outra aba): a animação para.
+function assinarAba(avisar: () => void) {
+  if (typeof document === 'undefined') return () => {}
+  document.addEventListener('visibilitychange', avisar)
+  return () => document.removeEventListener('visibilitychange', avisar)
+}
+const lerAba = () => typeof document === 'undefined' || document.visibilityState !== 'hidden'
+const lerAbaServidor = () => false
+
+/** true enquanto o elemento aparece na tela. Sem IntersectionObserver (navegador antigo), fica sempre true. */
+function useNaTela(ref: RefObject<Element | null>) {
+  const [naTela, setNaTela] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setNaTela(true)
+      return
+    }
+    const io = new IntersectionObserver(([e]) => setNaTela(e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [ref])
+  return naTela
+}
+
 /** Repost no molde do IG: o story da loja com o story do cliente dentro. Sem depoimento inventado: só a ilustração da marca. */
 export function Reposts() {
   const uf = useLocal((s) => s.uf)
   const canal = canalDa(uf) ?? canais[0]
   const tamanho = useSyncExternalStore(assinarTela, lerTela, lerTelaServidor) ? 176 : 132
+  const figura = useRef<HTMLDivElement>(null)
+  // Fora da tela ou com a aba escondida, as animações ficam pausadas (animation-play-state): nenhum trabalho.
+  const naTela = useNaTela(figura)
+  const abaVisivel = useSyncExternalStore(assinarAba, lerAba, lerAbaServidor)
+  const anda = naTela && abaVisivel
   return (
     <section className="reposts" aria-label="Clientes marcando a loja">
       <div className="repost">
@@ -35,10 +70,17 @@ export function Reposts() {
           <span>{canal.instagram}</span>
         </div>
         <div className="repost-dentro">
-          {/* decorativo: a legenda embaixo já diz o que importa. As pálpebras, na mesma grade, piscam por cima dos olhos. */}
-          <div className="repost-figura">
+          {/* decorativo: a legenda embaixo já diz o que importa. Pálpebras e quadros da apresentação são camadas na
+              mesma grade, empilhadas por cima do mercador; o CSS diz quando cada uma aparece. */}
+          <div
+            ref={figura}
+            className={`repost-figura${config.mercadorTraga ? ' com-trago' : ''}${anda ? '' : ' parado'}`}
+          >
             <PixelArte grade={ilustracoes.mercador} tamanho={tamanho} className="repost-arte" />
             <PixelArte grade={palpebras} tamanho={tamanho} className="repost-piscar" />
+            {quadros.map((q) => (
+              <PixelArte key={q.nome} grade={q.grade} tamanho={tamanho} className={`repost-quadro q-${q.nome}`} />
+            ))}
           </div>
           <span className="adesivo-mencao repost-mencao">@{canal.instagram}</span>
         </div>
