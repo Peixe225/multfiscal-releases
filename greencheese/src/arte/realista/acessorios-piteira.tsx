@@ -46,7 +46,8 @@ export function Piteira({ id }: PropsArte) {
     </linearGradient>
   )
   return (
-    <g>
+    // 0,9× em volta do centro: as duas pontas encostavam nas bordas do quadro 9:16
+    <g transform="translate(180 352) scale(0.9) translate(-180 -352)">
       <defs>
         {/* parede de vidro vista de lado: borda acesa, miolo quase invisível, borda do furo de novo clara */}
         <linearGradient id={u('paredeS')} gradientUnits="userSpaceOnUse" x1="0" y1={-S.r} x2="0" y2={S.r}>
