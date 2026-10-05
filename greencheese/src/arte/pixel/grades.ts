@@ -2,10 +2,12 @@
 // '.' transparente, 'x' = currentColor (ícone segue a cor do texto), outras letras vêm da paleta.
 //
 // Tamanhos que saem nítidos (múltiplos da grade; o PixelArte ajusta o resto ao pixel da tela):
-//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 → 48, 72, 96 px · cliente 32×44 → 128 px de largura.
+//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 → 48, 72, 96 px · cliente 32×44 → 128 px de largura
+//   · mercador 44×64 → 132 ou 176 px de largura.
 // A moto tem uma capa 32×32 (`grande`) que o PixelArte usa sozinho a partir de 64 px.
 
 import type { Emblema } from '../../dados/canais'
+import { mercador } from './mercador'
 
 export interface Grade {
   w: number
@@ -794,7 +796,8 @@ const cliente = nova(
   },
 )
 
-export const ilustracoes: Record<'cliente', Grade> = { cliente }
+// O mercador (repost) mora em arquivo próprio: grade 44×64, grande demais para ficar no meio dos ícones.
+export const ilustracoes: Record<'cliente' | 'mercador', Grade> = { cliente, mercador }
 
 // Em dev, confere tudo já no carregamento (não espera a arte aparecer na tela).
 if (import.meta.env?.DEV) {

@@ -28,18 +28,49 @@
   font: 600 13px/1 var(--ui);
 }
 .repost-dentro {
+  --fundo-dentro: #0b0b0b;
   position: relative;
   width: 78%;
   aspect-ratio: 9 / 13;
   display: grid;
-  place-items: center;
-  background: #0b0b0b;
+  place-items: end center;
+  background: var(--fundo-dentro);
   border-radius: 8px;
   outline: 1px solid var(--bolha);
   transform: rotate(-2deg);
 }
+/* O mercador fica de pé no fundo do quadro; o adesivo de menção cobre só a sola das botas, como num repost de verdade. */
+.repost-figura {
+  position: relative;
+  margin-bottom: 28px;
+}
 .repost-arte {
   image-rendering: pixelated;
+}
+/* Voz pixel: as pálpebras (na cor do fundo) aparecem por um instante, em degrau, e o olhar some e volta. */
+.repost-piscar {
+  position: absolute;
+  inset: 0;
+  color: var(--fundo-dentro);
+  opacity: 0;
+  animation: mercador-piscar 5.6s steps(1, end) infinite;
+}
+@keyframes mercador-piscar {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  93% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .repost-piscar {
+    animation: none;
+  }
 }
 .repost-mencao {
   position: absolute;
