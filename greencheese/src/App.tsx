@@ -3,6 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import 'lenis/dist/lenis.css'
 import { canalDa } from './dados/canais'
+import { liberarArtesRealistas } from './arte/realista/carregar'
 import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
@@ -171,6 +172,17 @@ export function App() {
   }, [])
 
   useEffect(() => setAberturaUI(abertura || saida), [abertura, saida, setAberturaUI])
+
+  // ilustrações realistas: sem abertura, baixa já; com abertura, a própria abertura libera no quadro parado.
+  // Reserva: 8 s depois de montar libera de qualquer jeito (abertura presa no logo, aba em segundo plano…).
+  useEffect(() => {
+    if (!abertura) {
+      liberarArtesRealistas()
+      return
+    }
+    const t = setTimeout(liberarArtesRealistas, 8000)
+    return () => clearTimeout(t)
+  }, [abertura])
 
   // teclado virtual: as folhas sobem junto (ver --teclado)
   useEffect(() => vigiarTeclado(), [])

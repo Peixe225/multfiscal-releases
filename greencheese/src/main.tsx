@@ -6,6 +6,7 @@ import './estilos/base.css'
 import { App } from './App'
 import { carregarArtesRealistas } from './arte/realista/carregar'
 
+// já fica na fila; o download em si espera liberarArtesRealistas() (ver carregar.ts)
 carregarArtesRealistas().catch(() => {})
 
 createRoot(document.getElementById('raiz')!).render(

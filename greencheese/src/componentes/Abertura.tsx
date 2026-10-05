@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { gsap } from 'gsap'
 import { config } from '../dados/config'
 import { Logo, LogoPixel } from '../arte/Logo'
+import { liberarArtesRealistas } from '../arte/realista/carregar'
 import { gravar, ler } from '../lib/armazenamento'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
@@ -44,6 +45,11 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
   const saindo = useRef(false)
 
   const indice = fases.indexOf(fase)
+
+  // saiu do logo: o quadro agora é parado (+18 ou local), hora boa pra baixar as ilustrações dos produtos
+  useEffect(() => {
+    if (fase !== 'logo') liberarArtesRealistas()
+  }, [fase])
 
   const terminar = useCallback(() => {
     if (saindo.current) return
