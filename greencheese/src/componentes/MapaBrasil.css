@@ -19,6 +19,10 @@
 .mbr-svg {
   overflow: visible;
 }
+/* o foco volta para o mapa quando o balão fecha com o foco dentro dele */
+.mbr-svg:focus-visible {
+  outline-offset: 4px;
+}
 
 /* pontinhos do estado sem atendimento (LED apagado): miolo, divisa entre estados, litoral e realce */
 .mbr-ponto-escuro {
@@ -51,7 +55,7 @@
   fill: var(--branco);
 }
 .mbr-zoom-linha {
-  fill: var(--chiado);
+  fill: #8e8e8e; /* a linha passa também por cima da terra (pontinhos #262626/#3a3a3a): precisa ser mais clara que eles */
 }
 .mbr-preto {
   fill: var(--preto);
@@ -66,9 +70,10 @@
   z-index: 2;
   display: grid;
   place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 4px;
+  /* alvo de 44 × 44 exatos, mesmo com o adesivo (um pouco mais largo, transborda): não engole a sigla do RS */
+  width: 44px;
+  height: 44px;
+  padding: 0;
   color: var(--preto);
   transform: translate(-50%, -50%);
 }
@@ -78,18 +83,40 @@
   box-shadow: 0 0 0 2px var(--branco);
 }
 .mbr-sigla {
+  --halo: var(--legenda);
   font-size: 16px;
   font-weight: 400; /* em 16 px só o 400 deixa o C de SC aberto */
+  /* halo da cor do estado: ES e RJ são faixas finas e a sigla passa da divisa ou do litoral (preto no preto) */
+  text-shadow:
+    2px 0 0 var(--halo),
+    -2px 0 0 var(--halo),
+    0 2px 0 var(--halo),
+    0 -2px 0 var(--halo),
+    2px 2px 0 var(--halo),
+    -2px 2px 0 var(--halo),
+    2px -2px 0 var(--halo),
+    -2px -2px 0 var(--halo);
 }
+.mbr-uf.realce .mbr-sigla {
+  --halo: var(--branco);
+}
+/* o estado do cliente: a sigla vira o adesivo de localização do site em miniatura (branco, pino, torto), com
+   contorno preto para não sumir no branco do estado. Do tamanho da sigla: não esconde RJ nem ES */
 .mbr-uf.atual .mbr-sigla {
-  font-weight: 500;
-}
-/* o adesivo de localização no estado do cliente: contorno preto para não sumir no branco do estado */
-.mbr-pino-lupa {
-  display: block;
-}
-.mbr-pino-lupa .adesivo-local {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px 2px 3px;
+  background: var(--branco);
+  border-radius: 4px;
   box-shadow: 0 0 0 2px var(--preto);
+  font-weight: 500;
+  line-height: 1;
+  text-shadow: none;
+  transform: rotate(-4deg);
+}
+.mbr-sigla-pin {
+  flex: none;
 }
 
 /* sigla dos vizinhos sem atendimento dentro da lupa */
@@ -123,7 +150,6 @@
   border-radius: 6px;
   font: 600 13px/1.2 var(--ui);
   white-space: nowrap;
-  transform: translate(-50%, calc(-100% - 10px));
   pointer-events: none;
 }
 .mbr-dica .legenda {
@@ -157,11 +183,20 @@
   background: var(--branco);
   transform: rotate(45deg);
 }
+/* aberto em cima do ponto: bico embaixo */
+.mbr-balao.cima::before {
+  top: auto;
+  bottom: -6px;
+}
+/* o contorno branco do foco sumiria no balão branco */
+.mbr-balao :focus-visible {
+  outline-color: var(--preto);
+}
 
 /* ── acender: os atendidos acendem um a um em degraus (voz pixel) e o pino cai ── */
 .mbr-apagado .mbr-luz,
 .mbr-apagado .mbr-pino,
-.mbr-apagado .mbr-pino-lupa {
+.mbr-apagado .mbr-uf.atual .mbr-sigla {
   opacity: 0;
 }
 .mbr-acendendo .mbr-luz {
@@ -172,18 +207,21 @@
   animation-delay: calc(var(--i, 0) * 180ms + 120ms);
 }
 .mbr-pino > *,
-.mbr-pino-lupa {
+.mbr-uf.atual .mbr-sigla {
   animation-name: mbr-cair;
   animation-duration: 0.32s;
   animation-timing-function: steps(4);
   animation-fill-mode: both;
 }
+.mbr-uf.atual .mbr-sigla {
+  animation-name: mbr-cair-torto;
+}
 .mbr-apagado .mbr-pino > *,
-.mbr-apagado .mbr-pino-lupa {
+.mbr-apagado .mbr-uf.atual .mbr-sigla {
   animation-name: none;
 }
 .mbr-acendendo .mbr-pino > *,
-.mbr-acendendo .mbr-pino-lupa {
+.mbr-acendendo .mbr-uf.atual .mbr-sigla {
   animation-delay: calc(var(--n, 5) * 180ms + 200ms);
 }
 @keyframes mbr-acender {
@@ -204,6 +242,19 @@
   }
   to {
     transform: none;
+  }
+}
+/* o mesmo, para o adesivo torto (a animação não pode apagar a inclinação) */
+@keyframes mbr-cair-torto {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) rotate(-4deg);
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    transform: rotate(-4deg);
   }
 }
 
@@ -232,7 +283,7 @@
 @media (prefers-reduced-motion: reduce) {
   .mbr-luz,
   .mbr-pino > *,
-  .mbr-pino-lupa,
+  .mbr-uf.atual .mbr-sigla,
   .mbr-apagado-realce.chiando {
     animation-name: none !important;
   }
