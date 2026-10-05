@@ -5,7 +5,7 @@ import { PixelArte } from '../arte/PixelArte'
 import type { Grade } from '../arte/pixel/grades'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
-import { emUf, semAcento } from '../dados/ufs'
+import { emUf, semAcento, ufPorSigla } from '../dados/ufs'
 import { copiarTexto } from '../lib/copiar'
 import { brl, plural, precoOuConsultar } from '../lib/formato'
 import { depoisDoHistorico, useCamadaNoHistorico } from '../lib/historico'
@@ -54,22 +54,35 @@ const CHEVRON: Grade = {
 
 /** Elemento que tinha o foco quando cada nível abriu (índice = nível): o foco volta pra ele quando o nível fecha. */
 const retornos: (HTMLElement | null)[] = []
-/** A página já abriu alguma vez nesta visita (só então o ?produto= velho da URL é limpo na volta do histórico). */
+/** A página já abriu nesta visita (só então o ?produto= velho da URL é limpo na volta do histórico). Marcado no render. */
 let jaAbriu = false
+
+function guardarRetornos(de: number, ate: number) {
+  const ativo = document.activeElement
+  const foco = ativo instanceof HTMLElement && ativo !== document.body ? ativo : null
+  for (let i = de; i < ate; i++) retornos[i] = foco
+}
+
+// a página pode ter aberto antes deste pedaço carregar (link direto, toque logo na entrada): quem tem o foco agora abriu
+guardarRetornos(0, useUI.getState().pagina?.pilha.length ?? 0)
 
 // Assinatura direta da store: roda dentro do set(), antes de qualquer render mexer no foco.
 useUI.subscribe((s, a) => {
   const n = s.pagina?.pilha.length ?? 0
   const m = a.pagina?.pilha.length ?? 0
-  if (n > m) {
-    const ativo = document.activeElement
-    const foco = ativo instanceof HTMLElement && ativo !== document.body ? ativo : null
-    for (let i = m; i < n; i++) retornos[i] = foco
-    jaAbriu = true
-  }
+  if (n > m) guardarRetornos(m, n)
   // um story novo abriu com a página na frente (ex.: pela sacola vazia): a página sai, senão o story ficaria atrás dela
   if (s.pagina && a.pagina && s.story && s.story.lista !== a.story?.lista) useUI.getState().fecharPagina()
 })
+
+/** Pilha da página guardada na entrada do histórico: recarregar ("Atualizar" do Instagram) volta com todos os níveis. */
+function guardarPilha(pilha: string[]) {
+  try {
+    history.replaceState({ ...(history.state ?? {}), gcPagina: pilha }, '')
+  } catch {
+    /* ignora */
+  }
+}
 
 const FOCAVEIS = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
 
@@ -128,25 +141,33 @@ export function ProdutoPagina() {
     }
   }, [aberta])
 
-  // ?produto=<topo> na URL enquanto aberta (replaceState); some ao fechar
-  const idTopo = pagina ? pagina.pilha[pagina.pilha.length - 1] : null
+  // ?produto=<topo> na URL enquanto aberta (replaceState); some ao fechar. A pilha inteira vai no estado da entrada.
+  if (pagina) jaAbriu = true
+  const chavePilha = pagina ? pagina.pilha.join(' ') : ''
   const estavaAberta = useRef(false)
   useEffect(() => {
-    if (idTopo) {
+    const p = useUI.getState().pagina
+    if (p) {
       estavaAberta.current = true
-      atualizarParametros({ produto: idTopo })
+      guardarPilha(p.pilha)
+      atualizarParametros({ produto: p.pilha[p.pilha.length - 1] })
     } else if (estavaAberta.current) {
       estavaAberta.current = false
       atualizarParametros({ produto: null })
     }
-  }, [idTopo])
-  // fechou pelo botão: o history.back() cai na entrada anterior, que pode ter o ?produto= do link de entrada
+  }, [chavePilha])
+  // a volta do histórico cai numa entrada cuja URL pode não bater com a pilha: a do link de entrada (ou de antes de
+  // recarregar) com um ?produto= velho, ou a de um nível que reabriu ao recarregar e nunca foi o topo
   useEffect(() => {
-    const limpar = () => {
-      if (jaAbriu && !useUI.getState().pagina && lerParametros().produto) atualizarParametros({ produto: null })
+    const acertar = () => {
+      const p = useUI.getState().pagina
+      if (p) {
+        guardarPilha(p.pilha)
+        atualizarParametros({ produto: p.pilha[p.pilha.length - 1] })
+      } else if (jaAbriu && lerParametros().produto) atualizarParametros({ produto: null })
     }
-    window.addEventListener('popstate', limpar)
-    return () => window.removeEventListener('popstate', limpar)
+    window.addEventListener('popstate', acertar)
+    return () => window.removeEventListener('popstate', acertar)
   }, [])
 
   // teclado: Esc volta um nível; setas e espaço não chegam no story/hero que está por baixo
@@ -212,7 +233,24 @@ export function ProdutoPagina() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveTopo])
 
-  // Tab fica preso na página do topo
+  // foco que escapa (o story de baixo focando o quadro dele, um clique fora) volta pro título do nível do topo
+  const topoRef = useRef(topo)
+  topoRef.current = topo
+  useEffect(() => {
+    if (!aberta || v.fechando) return
+    const guarda = (e: FocusEvent) => {
+      const r = raiz.current
+      const alvo = e.target
+      if (!r || !(alvo instanceof Element) || r.contains(alvo)) return
+      if (alvo.closest('.folha') || document.querySelector('.folha')) return // sacola, chat ou seletor por cima
+      r.querySelector<HTMLElement>(`[data-nivel="${topoRef.current}"] .pp-nome`)?.focus({ preventScroll: true })
+    }
+    document.addEventListener('focusin', guarda)
+    return () => document.removeEventListener('focusin', guarda)
+  }, [aberta, v.fechando])
+
+  // Tab fica preso na página do topo. A ordem é a do DOM, decidida aqui mesmo quando o foco está fora da lista
+  // (na própria janela depois de um clique, no título): o navegador sozinho sairia da página no Shift+Tab.
   const prender = (e: KeyboardEventReact<HTMLDivElement>) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') e.stopPropagation()
     if (e.key !== 'Tab') return
@@ -220,16 +258,17 @@ export function ProdutoPagina() {
     if (!janela) return
     const lista = [...janela.querySelectorAll<HTMLElement>(FOCAVEIS)].filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
     if (!lista.length) return
-    const primeiro = lista[0]
-    const ultimo = lista[lista.length - 1]
     const ativo = document.activeElement
-    if (e.shiftKey && (ativo === primeiro || !janela.contains(ativo))) {
-      e.preventDefault()
-      ultimo.focus()
-    } else if (!e.shiftKey && (ativo === ultimo || !janela.contains(ativo))) {
-      e.preventDefault()
-      primeiro.focus()
+    const i = lista.indexOf(ativo as HTMLElement)
+    let alvo: HTMLElement | undefined
+    if (i >= 0) alvo = lista[e.shiftKey ? i - 1 : i + 1]
+    else if (ativo && janela.contains(ativo)) {
+      const lado = e.shiftKey ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING
+      const doLado = lista.filter((el) => ativo.compareDocumentPosition(el) & lado)
+      alvo = e.shiftKey ? doLado[doLado.length - 1] : doLado[0]
     }
+    e.preventDefault()
+    ;(alvo ?? (e.shiftKey ? lista[lista.length - 1] : lista[0])).focus()
   }
 
   return (
@@ -310,16 +349,27 @@ function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: Pro
   }, [])
 
   // saída de um nível ("Voltar"): sai pela direita e desmonta
+  const saiu = useRef(false)
   useLayoutEffect(() => {
     const el = janela.current
-    if (!saindo || !el) return
+    if (!el) return
+    if (!saindo) {
+      // o mesmo produto reabriu no meio da saída (Esc e Enter rápido no mesmo card): volta pro lugar em vez de congelar no meio
+      if (saiu.current) {
+        saiu.current = false
+        if (movimentoReduzido()) gsap.set(el, { clearProps: 'transform,opacity' })
+        else gsap.to(el, { opacity: 1, x: 0, xPercent: 0, duration: 0.2, ease: 'power3.out', overwrite: 'auto', clearProps: 'transform,opacity' })
+      }
+      return
+    }
+    saiu.current = true
     if (movimentoReduzido()) {
       aoSair()
       return
     }
     const tw = ehDesktop()
-      ? gsap.to(el, { opacity: 0, x: 40, duration: 0.2, ease: 'power3.in', onComplete: aoSair })
-      : gsap.to(el, { xPercent: 100, duration: 0.22, ease: 'power3.in', onComplete: aoSair })
+      ? gsap.to(el, { opacity: 0, x: 40, duration: 0.2, ease: 'power3.in', overwrite: 'auto', onComplete: aoSair })
+      : gsap.to(el, { xPercent: 100, duration: 0.22, ease: 'power3.in', overwrite: 'auto', onComplete: aoSair })
     return () => {
       tw.kill()
     }
@@ -344,13 +394,15 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = canalDa(uf)
   const produtos = useCatalogo((s) => s.produtos)
+  const categorias = useCatalogo((s) => s.categorias)
   const itens = useSacola((s) => s.itens)
   const adicionar = useSacola((s) => s.adicionar)
   const abrirChat = useChat((s) => s.abrir)
-  const { voltarPagina, fecharPagina, abrirPagina, abrirStory, setSacola, avisar } = useUI.getState()
+  const { voltarPagina, fecharPagina, abrirStory, setSacola, avisar } = useUI.getState()
   const [variacao, setVariacao] = useState<string | null>(produto.variacoes?.[0]?.id ?? null)
   const [qtd, setQtd] = useState(1)
   const [carimbo, setCarimbo] = useState(0)
+  const [anuncio, setAnuncio] = useState('')
   const visual = useRef<HTMLDivElement>(null)
   const sacolaRef = useRef<HTMLButtonElement>(null)
   const barra = useRef<HTMLDivElement>(null)
@@ -364,25 +416,29 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   const nDeste = itens.filter((i) => i.id === produto.id).reduce((n, i) => n + i.qtd, 0)
   const temCombo = !!produto.combos && produto.preco != null
 
-  // "Combina com": o que a loja indicou primeiro; depois o que tem da mesma categoria. Até 4.
-  const sugestoes = useMemo(() => {
+  // "Combina com" é só o que a loja indicou (combinaCom); o resto da mesma categoria vai em "Mais em…", sem dizer
+  // que combina (whiskey não "combina com" gin). Até 4 no total, o indicado primeiro.
+  const { combina, mais } = useMemo(() => {
     const vistos = new Set([produto.id])
-    const r: Produto[] = []
+    const combina: Produto[] = []
+    const mais: Produto[] = []
     for (const cid of produto.combinaCom ?? []) {
       const p = produtos.find((x) => x.id === cid)
-      if (p && !vistos.has(p.id)) {
+      if (p && !vistos.has(p.id) && combina.length < 4) {
         vistos.add(p.id)
-        r.push(p)
+        combina.push(p)
       }
     }
     for (const p of produtos) {
+      if (combina.length + mais.length >= 4) break
       if (p.categoria !== produto.categoria || vistos.has(p.id)) continue
       if (uf && !(canal && disponivelEm(p, uf))) continue
       vistos.add(p.id)
-      r.push(p)
+      mais.push(p)
     }
-    return r.slice(0, 4)
+    return { combina, mais }
   }, [produto, produtos, uf, canal])
+  const categoria = categorias.find((c) => c.id === produto.categoria)
 
   // altura da barra de compra: o aviso (toast) fica logo acima dela
   useEffect(() => {
@@ -396,6 +452,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   const porNaSacola = () => {
     adicionar(produto.id, variacao, qtd)
     setCarimbo((c) => c + 1)
+    // leitor de tela: a região viva já está montada, então até o primeiro "Adicionar" é anunciado
+    setAnuncio(`Foi pra sacola. Na sacola: ${plural(nDeste + qtd, 'unidade', 'unidades')} deste item.`)
     // a miniatura só voa se a arte está à vista; rolou pra baixo, o contador pula sozinho
     const r = visual.current?.getBoundingClientRect()
     const topoBarra = janelaTopo(visual.current)
@@ -511,34 +569,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
           )
         )}
 
-        {sugestoes.length > 0 && (
-          <section className="pp-combina" aria-labelledby={`pp-combina-${nivel}`}>
-            <h3 id={`pp-combina-${nivel}`} className="pp-subtitulo">
-              Combina com
-            </h3>
-            <ul className="pp-sugestoes">
-              {sugestoes.map((p) => {
-                const off = uf ? !(canal && disponivelEm(p, uf)) : false
-                return (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      className={`pp-sug toque ${off ? 'pp-sug-off' : ''}`}
-                      onClick={() => abrirPagina(p.id)}
-                      aria-label={`${p.nome}, ${p.preco == null ? 'preço a consultar' : brl(p.preco)}${off ? ', indisponível' : ''}. Ver produto`}
-                    >
-                      <span className="pp-sug-arte">
-                        <ProdutoVisual produto={p} largura={60} indisponivel={off} rotulo={null} />
-                      </span>
-                      <span className="pp-sug-nome px">{p.nome}</span>
-                      <span className="pp-sug-preco px">{precoOuConsultar(p.preco)}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        )}
+        <Sugestoes id={`pp-combina-${nivel}`} titulo="Combina com" lista={combina} />
+        <Sugestoes id={`pp-mais-${nivel}`} titulo={`Mais em ${(categoria?.nome ?? 'produtos').toLowerCase()}`} lista={mais} />
 
         {origem !== 'story' && (
           <button type="button" className="pp-link toque" onClick={verNosStories}>
@@ -549,8 +581,11 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
       </div>
 
       <div ref={barra} className="pp-barra">
+        <p className="sr-only" role="status">
+          {anuncio}
+        </p>
         {nDeste > 0 && (
-          <div className="pp-na-sacola" role="status">
+          <div className="pp-na-sacola">
             <span className="pp-na-sacola-txt">
               <Icone nome="check" tamanho={16} />
               <span>
@@ -582,6 +617,44 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   )
 }
 
+/** Fileira de cards pequenos (arte, nome, preço) que empilham a página do produto tocado. */
+function Sugestoes({ id, titulo, lista }: { id: string; titulo: string; lista: Produto[] }) {
+  const uf = useLocal((s) => s.uf)
+  const abrirPagina = useUI((s) => s.abrirPagina)
+  const canal = canalDa(uf)
+  if (!lista.length) return null
+  return (
+    <section className="pp-combina" aria-labelledby={id}>
+      <h3 id={id} className="pp-subtitulo">
+        {titulo}
+      </h3>
+      <ul className="pp-sugestoes">
+        {lista.map((p) => {
+          const off = uf ? !(canal && disponivelEm(p, uf)) : false
+          const demo = !!p.demo && config.modoPrevia
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                className={`pp-sug toque ${off ? 'pp-sug-off' : ''}`}
+                onClick={() => abrirPagina(p.id)}
+                aria-label={`${p.nome}, ${p.preco == null ? 'preço a consultar' : brl(p.preco)}${demo ? ' (exemplo)' : ''}${off ? ', indisponível' : ''}. Ver produto`}
+              >
+                <span className="pp-sug-arte">
+                  <ProdutoVisual produto={p} largura={60} indisponivel={off} rotulo={null} />
+                  {demo && <span className="pp-sug-demo carimbo">exemplo</span>}
+                </span>
+                <span className="pp-sug-nome px">{p.nome}</span>
+                <span className="pp-sug-preco px">{precoOuConsultar(p.preco)}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 /** Base da barra do topo da página (a miniatura não voa se a arte já rolou pra trás dela). */
 function janelaTopo(el: HTMLElement | null): number {
   const topo = el?.closest('.pp-janela')?.querySelector('.pp-topo')
@@ -605,13 +678,16 @@ function Disponibilidade({ produto }: { produto: Produto }) {
     )
   }
   const disp = canal ? disponivelEm(produto, uf) : false
-  const onde = ondeFica(canal, uf, nomeCidade(canal, cidade, cidadeInformada))
+  const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
+  const onde = ondeFica(canal, uf, cidadeNome)
+  const estado = canal?.nome ?? ufPorSigla(uf)?.nome ?? uf.toUpperCase()
+  const agora = cidadeNome && semAcento(cidadeNome) !== semAcento(estado) ? `${estado}, ${cidadeNome}` : estado
   return (
     <div className={`pp-disp ${disp ? '' : 'pp-indisp'}`}>
       <p>
         <span className="px pp-disp-selo">{disp ? 'DISPONÍVEL ✅' : 'INDISPONÍVEL'}</span> <span className="pp-disp-onde">{onde}</span>
       </p>
-      <button type="button" className="pp-trocar toque" onClick={() => setSeletor(true)} aria-label={`Trocar estado (agora: ${onde.replace(/^(em|no|na) /, '')})`}>
+      <button type="button" className="pp-trocar toque" onClick={() => setSeletor(true)} aria-label={`Trocar estado (agora: ${agora})`}>
         Trocar
       </button>
     </div>

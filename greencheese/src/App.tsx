@@ -126,10 +126,18 @@ export function App() {
         )
       }
     }
-    // página do produto por cima (link aberto numa aba nova cai aqui depois do +18; "Voltar" fecha na home)
-    if (p.produto) {
-      if (produtoPorId(p.produto)) useUI.getState().abrirPagina(p.produto, 'link')
-      else atualizarParametros({ produto: null })
+    // página do produto por cima (link aberto numa aba nova cai aqui depois do +18; "Voltar" fecha na home).
+    // Recarregou com níveis empilhados? A entrada do histórico guardou a pilha inteira (ver ProdutoPagina).
+    if (p.produto && !useUI.getState().pagina) {
+      if (produtoPorId(p.produto)) {
+        const guardada: unknown = history.state?.gcPagina
+        const pilha =
+          Array.isArray(guardada) && guardada.length <= 12 && guardada[guardada.length - 1] === p.produto && guardada.every((id) => typeof id === 'string' && produtoPorId(id))
+            ? (guardada as string[])
+            : [p.produto]
+        const origem = useUI.getState().story ? 'story' : 'link'
+        pilha.forEach((id) => useUI.getState().abrirPagina(id, origem))
+      } else atualizarParametros({ produto: null })
     }
     if (p.chat === 'pedido' || p.chat === 'encomenda') useChat.getState().abrir(p.chat)
     requestAnimationFrame(() => ScrollTrigger.refresh())

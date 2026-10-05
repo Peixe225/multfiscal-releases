@@ -38,7 +38,7 @@
       "nome": "Fanta Ghost Face Punch",
       "tamanho": "350 ml",
       "detalhe": "Lata 350 ml · importada",
-      "descricao": "Refrigerante Fanta Ghost Face Punch, importado, em lata de 350 ml. É abrir e servir bem gelado.",
+      "descricao": "Refrigerante Fanta Ghost Face Punch, importado, em lata de 350 ml. É só abrir e servir bem gelado.",
       "categoria": "bebidas",
       "preco": null,
       "disponivel": {
@@ -179,7 +179,7 @@
       "nome": "Gin Tanqueray London Dry",
       "tamanho": "750 ml",
       "detalhe": "Garrafa 750 ml",
-      "descricao": "Gin no estilo London Dry, com o zimbro na frente. Garrafa de 750 ml, base de drinque como o gim-tônica.",
+      "descricao": "Gin no estilo London Dry, com o zimbro na frente. Garrafa de 750 ml, base de drinque como o gin tônica.",
       "categoria": "destilados",
       "preco": 99.99,
       "disponivel": {
@@ -390,7 +390,7 @@
       "id": "piteira-de-papel-raw",
       "nome": "Piteira de papel RAW",
       "detalhe": "Bloco de piteiras",
-      "descricao": "Bloco de piteiras de papel RAW: é destacar uma, enrolar no formato e usar.",
+      "descricao": "Bloco de piteiras de papel RAW: é só destacar uma, enrolar e usar.",
       "categoria": "piteiras",
       "preco": 6.99,
       "disponivel": {
@@ -444,7 +444,7 @@
       "nome": "Dichavador de metal 4 partes",
       "tamanho": "55 mm",
       "detalhe": "55 mm · com peneira",
-      "descricao": "Dichavador de metal em 4 partes, com 55 mm e peneira. Desmonta pra limpar.",
+      "descricao": "Dichavador de metal de 55 mm, em 4 partes e com peneira. Desmonta pra limpar.",
       "categoria": "acessorios",
       "preco": 59.9,
       "disponivel": {
@@ -494,7 +494,7 @@
       "id": "bandeja-raw-pequena",
       "nome": "Bandeja RAW pequena",
       "detalhe": "Metal · 18 × 12 cm",
-      "descricao": "Bandeja de metal RAW, no tamanho pequeno: 18 × 12 cm. Deixa teus acessórios organizados num lugar só.",
+      "descricao": "Bandeja de metal RAW, de 18 × 12 cm. Deixa teus acessórios organizados num lugar só.",
       "categoria": "acessorios",
       "preco": 49.9,
       "disponivel": {

@@ -26,16 +26,42 @@ function liberarEsperando() {
   fila.forEach((fn) => fn())
 }
 
+/** Reserva do pulo de entrada velha (ver pularVelha). */
+let timerPulo = 0
+
+/**
+ * Entrada de camada que nenhuma camada aberta reclama: sobrou de antes de recarregar a página (a camada reabriu numa
+ * entrada nova, ou nem reabriu). Sem camada aberta, o voltar passa direto por ela, senão seria um voltar morto.
+ */
+function pularVelha(): boolean {
+  if (pilha.length || pendentes.size || timerPendentes || dentroDeIframe()) return false
+  if (typeof history.state?.gc !== 'string') return false
+  ignorarPop++
+  history.back()
+  // reserva: no começo do histórico o back não faz nada nem avisa; o próximo voltar de verdade não pode ser engolido
+  clearTimeout(timerPulo)
+  timerPulo = window.setTimeout(() => {
+    timerPulo = 0
+    if (!ignorarPop) return
+    ignorarPop = 0
+    if (!timerPendentes) liberarEsperando()
+  }, 800)
+  return true
+}
+
 function ouvir() {
   if (ouvindo) return
   ouvindo = true
   window.addEventListener('popstate', () => {
     if (ignorarPop > 0) {
       ignorarPop--
-      if (ignorarPop === 0 && !timerPendentes) liberarEsperando()
+      clearTimeout(timerPulo)
+      timerPulo = 0
+      if (ignorarPop === 0 && !timerPendentes && !pularVelha()) liberarEsperando()
       return
     }
     pilha.pop()?.fechar()
+    pularVelha()
   })
 }
 
@@ -108,6 +134,9 @@ export function depoisDoHistorico(fn: () => void) {
     }, 700)
   }, 30)
 }
+
+// ouve desde já: depois de recarregar numa entrada de camada, o voltar pula as entradas velhas mesmo sem camada aberta
+ouvir()
 
 /** Liga a camada ao histórico enquanto `aberto` for true. */
 export function useCamadaNoHistorico(aberto: boolean, id: string, fechar: () => void) {
