@@ -70,12 +70,13 @@
   display: none;
 }
 
-/* bordas que passam (esquerda volta, direita avança): por cima do produto, por baixo de enquete e adesivos */
+/* bordas que passam (esquerda volta, direita avança): por cima da arte, por baixo de enquete e adesivos.
+   Vão só até o topo do nome (--hero-texto, medido no Hero.tsx): nome, preço e DISPONÍVEL abrem o produto na largura toda */
 .hero-zona {
   position: absolute;
   z-index: 2;
   top: 0;
-  bottom: 0;
+  height: var(--hero-texto, 100%);
   width: 28%;
 }
 .hero-zona-esq {
@@ -120,14 +121,12 @@
   letter-spacing: 0.08em;
 }
 
-/* o produto é link (arte + nome/preço): a faixa do meio, entre as bordas que passam */
+/* o produto é link (arte + nome/preço): o .hero-meio inteiro — na altura da arte as bordas ficam por cima dele
+   e sobra a faixa do meio; do nome para baixo é ele na largura toda */
 .hero-produto {
   position: absolute;
   z-index: 2;
-  top: 0;
-  bottom: 0;
-  left: 28%;
-  right: 28%;
+  inset: 0;
   cursor: pointer;
   -webkit-touch-callout: default; /* segurar abre o menu do link (abrir em aba nova) */
 }
@@ -135,7 +134,8 @@
   outline-offset: -2px;
 }
 
-/* dica de primeira vez: no alto da arte, nunca sobre o preço ou os adesivos */
+/* dica de primeira vez: no alto da arte, nunca sobre o nome, o preço ou os adesivos — o Hero.tsx só a mostra
+   quando a arte tem altura para ela (com a enquete num celular baixo, espera a enquete sair) */
 .hero-dica {
   position: absolute;
   z-index: 3;
@@ -184,12 +184,15 @@
   }
 }
 
-/* setas: no celular, nas bordas do quadro — visíveis só durante a dica (e no foco do teclado), fazem o mesmo que as bordas */
+/* setas: no celular, nas bordas do quadro, no meio da arte — visíveis só durante a dica (e no foco do teclado).
+   O toque passa direto para a borda de baixo (que faz o mesmo e ainda segura e arrasta); teclado e leitor de tela
+   continuam ativando o botão (a ativação do VoiceOver/TalkBack vai no elemento, não no ponto) */
 .hero-seta {
   position: absolute;
   z-index: 6;
-  top: 50%;
+  top: var(--hero-arte-meio, 50%);
   margin-top: -22px;
+  pointer-events: none;
   display: grid;
   place-items: center;
   width: 44px;
@@ -340,11 +343,11 @@
     top: 16px;
     right: 0;
   }
-  /* 40 px de largura (como os do story aberto): no notebook o quadro tem ~340 px e o @ inteiro precisa caber */
+  /* 32 px de largura (o ícone tem 16; mouse): no notebook o quadro tem ~300–340 px e o @ inteiro precisa caber */
   .hero-pausa,
   .hero-quadro.com-selo .hero-pausa {
     position: static;
-    width: 40px;
+    width: 32px;
     margin: 0 0 0 auto;
     clip-path: none;
     background: none;
@@ -358,8 +361,10 @@
 
   /* setas fora do quadro, no meio da altura, como no instagram.com */
   .hero-seta {
+    top: 50%;
     opacity: 1;
     color: var(--preto);
+    pointer-events: auto;
   }
   .hero-seta-esq {
     left: auto;
@@ -402,7 +407,7 @@
 }
 
 /* desktop estreito (janela pequena, tablet deitado): perfil, story e setas não cabem lado a lado ao lado da lateral —
-   o story vem primeiro, centrado com as setas, e o perfil logo abaixo */
+   o story vem primeiro, centrado com as setas, e o perfil logo abaixo (o Hero.tsx troca a ordem no DOM: o Tab segue) */
 @media (min-width: 900px) and (max-width: 1199px) {
   .hero {
     grid-template-columns: minmax(0, 1fr);
@@ -411,11 +416,17 @@
     padding: 40px 76px;
   }
   .hero-desktop-perfil {
-    order: 1;
     justify-self: center;
   }
   .hero-story {
     justify-self: center;
+  }
+}
+
+/* desktop baixo (notebook 1366×768 e menores): o quadro fica com menos de ~340 px e o "13 h" sai para o @ caber inteiro */
+@media (min-width: 900px) and (max-height: 719px) {
+  .hero-cab .story-cab-tempo {
+    display: none;
   }
 }
 

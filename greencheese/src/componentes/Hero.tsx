@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { iconesExtras } from '../arte/pixel/extras'
@@ -29,6 +29,10 @@ const BORDA = 0.28
 /** Arrasto lateral mínimo (px) para passar. */
 const ARRASTO = 40
 const CHAVE_DICA = 'gc-dica-hero'
+/** Altura mínima da arte (px) para a dica (~60 px) aparecer cobrindo no máximo metade dela e nunca o nome. */
+const ESPACO_DICA = 128
+/** Por quanto tempo depois de soltar o dedo o clique no produto ainda vale para o produto que estava sob ele. */
+const VALE_TOQUE = 1000
 
 type Origem = 'auto' | 'toque' | 'arrasto'
 interface Posicao {
@@ -76,6 +80,45 @@ const CURSOR_DIR = cursorChevron('chevron-dir')
 /** Link da página do produto (abre em aba nova com Ctrl/⌘/botão do meio ou segurando o dedo). */
 const linkProduto = (id: string) => `?produto=${encodeURIComponent(id)}`
 
+/** Topo de um elemento dentro de outro pela cadeia de offsetParent (sem transform: o palco anima escala e x). */
+function topoEm(el: HTMLElement, dentro: HTMLElement): number {
+  let y = 0
+  let e: HTMLElement | null = el
+  while (e && e !== dentro) {
+    y += e.offsetTop
+    e = e.offsetParent as HTMLElement | null
+  }
+  return y
+}
+
+/** Tela larga (>= 1200 px): perfil à esquerda do story. Abaixo disso o story vem primeiro — no DOM também (ordem do Tab). */
+const LARGO = '(min-width: 1200px)'
+function assinarLargo(aviso: () => void) {
+  try {
+    const m = window.matchMedia(LARGO)
+    m.addEventListener('change', aviso)
+    return () => m.removeEventListener('change', aviso)
+  } catch {
+    return () => {}
+  }
+}
+function ehLargo() {
+  try {
+    return window.matchMedia(LARGO).matches
+  } catch {
+    return false
+  }
+}
+
+/** Foco visível de teclado (o clique do mouse num botão foca sem :focus-visible). */
+function focoDeTeclado(el: EventTarget | null): boolean {
+  try {
+    return el instanceof Element && el.matches(':focus-visible')
+  } catch {
+    return false
+  }
+}
+
 /** Aviso quando o IP aponta um estado sem atendimento: não troca o site sozinho. */
 function AvisoFora() {
   const palpiteFora = useLocal((s) => s.palpiteFora)
@@ -118,13 +161,21 @@ export function Hero() {
   )
   const aberturaAtiva = useUI((s) => s.aberturaAtiva)
   const chatAberto = useChat((s) => s.aberto)
+  const largo = useSyncExternalStore(assinarLargo, ehLargo)
   const [pos, setPos] = useState<Posicao>({ i: 0, origem: 'auto', dir: 1 })
   const [visivel, setVisivel] = useState(true)
   const [segurando, setSegurando] = useState(false)
+  // dedo (ou botão do mouse) pressionado no story: a barra para já, para o story não trocar debaixo dele
+  const [tocando, setTocando] = useState(false)
   const [pausaManual, setPausaManual] = useState(false)
+  // foco de teclado dentro do story para a rotação (padrão de carrossel); "Continuar" libera até o foco sair
+  const [foco, setFoco] = useState<'fora' | 'dentro' | 'liberado'>('fora')
   // dica de primeira vez (celular): some no primeiro gesto ou depois de duas trocas sozinhas; lembrada na sessão
   const [dica, setDica] = useState<'mostra' | 'saindo' | 'fora'>(() => (lerSessao(CHAVE_DICA) ? 'fora' : 'mostra'))
+  // a dica só entra quando a arte tem altura para ela (com a enquete aberta num celular baixo, não tem)
+  const [dicaCabe, setDicaCabe] = useState(false)
   const raiz = useRef<HTMLElement>(null)
+  const historia = useRef<HTMLDivElement>(null)
   const palco = useRef<HTMLDivElement>(null)
   const espera = useRef<HTMLDivElement>(null)
   const barras = useRef<HTMLDivElement>(null)
@@ -135,15 +186,18 @@ export function Hero() {
   const idx = n ? pos.i % n : 0
   const atual = lista[idx]
   const proximo = n > 1 ? lista[(idx + 1) % n] : undefined
+  const pausado = pausaManual || foco === 'dentro'
 
   const dicaViva = useRef(dica === 'mostra')
+  const dicaNaTela = useRef(false)
   const trocasComDica = useRef(0)
+  const timerDica = useRef(0)
   const dispensarDica = useCallback(() => {
     if (!dicaViva.current) return
     dicaViva.current = false
     gravarSessao(CHAVE_DICA, '1')
     setDica('saindo')
-    window.setTimeout(() => setDica('fora'), 400)
+    timerDica.current = window.setTimeout(() => setDica('fora'), 400)
   }, [])
 
   /** Passa (1) ou volta (-1), em loop nos dois sentidos. */
@@ -151,13 +205,20 @@ export function Hero() {
     (dir: 1 | -1, origem: Origem) => {
       if (n < 2) return
       setPos((p) => ({ i: (((p.i + dir) % n) + n) % n, origem, dir }))
-      if (origem === 'auto') {
-        trocasComDica.current++
-        if (trocasComDica.current >= 2) dispensarDica()
-      } else dispensarDica()
+      // só contam as trocas sozinhas com a dica à vista (escondida esperando espaço, ela não foi vista)
+      if (origem !== 'auto') dispensarDica()
+      else if (dicaNaTela.current && ++trocasComDica.current >= 2) dispensarDica()
     },
     [n, dispensarDica],
   )
+
+  const alternarPausa = useCallback(() => {
+    if (pausado) {
+      setPausaManual(false)
+      setFoco((f) => (f === 'dentro' ? 'liberado' : f))
+    } else setPausaManual(true)
+    dispensarDica()
+  }, [pausado, dispensarDica])
 
   // trocar de estado recomeça o story e gira o "cubo" do Instagram (passar de um perfil para outro)
   const ufAnterior = useRef(uf)
@@ -194,8 +255,30 @@ export function Hero() {
     return () => io.disconnect()
   }, [])
 
+  // geometria do produto atual: as bordas que passam vão só até o topo do nome (nome e preço abrem o produto na
+  // largura toda), as setas do celular ficam no meio da arte e a dica só entra se a arte tiver altura para ela
+  useLayoutEffect(() => {
+    const q = quadroRef.current
+    const h = historia.current
+    const t = q?.querySelector<HTMLElement>('.hero-palco .sq-texto')
+    const a = q?.querySelector<HTMLElement>('.hero-palco .sq-arte')
+    const meio = q?.querySelector<HTMLElement>('.hero-meio')
+    if (!q || !h || !t || !a || !meio) return
+    const medir = () => {
+      q.style.setProperty('--hero-texto', `${topoEm(t, q)}px`)
+      h.style.setProperty('--hero-arte-meio', `${Math.round(topoEm(a, q) + a.offsetHeight / 2)}px`)
+      setDicaCabe(a.offsetHeight >= ESPACO_DICA)
+    }
+    medir()
+    // a enquete some, o nome quebra em duas linhas, a fonte em pixel chega: tudo muda a altura de um dos dois
+    const ro = new ResizeObserver(medir)
+    ro.observe(meio)
+    ro.observe(t)
+    return () => ro.disconnect()
+  }, [atual?.id, uf])
+
   const barra = useProgresso({
-    ativo: !reduz && visivel && !segurando && !pausaManual && !camadaAberta && !chatAberto && n > 1,
+    ativo: !reduz && visivel && !segurando && !tocando && !pausado && !camadaAberta && !chatAberto && n > 1,
     duracaoMs: 5000,
     chave: `${uf}-${idx}`,
     aoTerminar: () => irPara(1, 'auto'),
@@ -255,29 +338,66 @@ export function Hero() {
         if (alvo?.closest('[role="radiogroup"], [role="radio"], [role="tablist"], [role="listbox"], [role="slider"], [role="menu"], [role="grid"]')) return
       }
       e.preventDefault()
-      if (pausa) {
-        setPausaManual((v) => !v)
-        dispensarDica()
-      } else if (dir) irPara(dir, 'toque')
+      if (pausa) alternarPausa()
+      else if (dir) irPara(dir, 'toque')
     }
     window.addEventListener('keydown', t)
     return () => window.removeEventListener('keydown', t)
-  }, [irPara, dispensarDica])
+  }, [irPara, alternarPausa])
 
   // gestos: toque na borda esquerda volta, no resto (fora do produto) avança; arrastar de lado passa; segurar pausa.
   // O produto é link: tocar nele abre a página (o clique do <a>), segurar nele abre o menu do link do navegador.
   const g = useRef<{ x: number; y: number; id: number; produto: boolean; arrastando: boolean; segurou: boolean; timer: number } | null>(null)
   /** Até quando ignorar o clique no produto (o clique que vem depois de arrastar ou segurar). */
   const semClique = useRef(0)
-  const voltarPalco = () => {
-    if (palco.current && !reduz) gsap.to(palco.current, { x: 0, duration: 0.25, ease: 'power3.out' })
-  }
+  /** Produto que estava sob o dedo quando ele pousou: é ele que abre, mesmo que a barra vire entre soltar e o clique. */
+  const alvoDoToque = useRef<{ id: string; ate: number } | null>(null)
+  const voltarPalco = useCallback(() => {
+    if (palco.current && !movimentoReduzido()) gsap.to(palco.current, { x: 0, duration: 0.25, ease: 'power3.out' })
+  }, [])
+  /** Fim de gesto sem navegar (soltou fora do quadro, rolou a página, janela perdeu o foco): destrava tudo. */
+  const encerrarGesto = useCallback(() => {
+    const s = g.current
+    g.current = null
+    if (alvoDoToque.current) alvoDoToque.current.ate = Math.min(alvoDoToque.current.ate, performance.now() + VALE_TOQUE)
+    setTocando(false)
+    if (!s) return
+    clearTimeout(s.timer)
+    if (s.segurou) setSegurando(false)
+    if (s.arrastando) voltarPalco()
+  }, [voltarPalco])
+
+  // o quadro só ouve o que acontece em cima dele: soltar o botão do mouse fora (depois de segurar e sair na vertical)
+  // chega pela window. Os timers do gesto e da dica morrem junto com o hero.
+  useEffect(() => {
+    const solto = (e: PointerEvent) => {
+      if (g.current && e.pointerId === g.current.id) encerrarGesto()
+    }
+    const semFoco = () => {
+      if (g.current) encerrarGesto()
+    }
+    window.addEventListener('pointerup', solto)
+    window.addEventListener('pointercancel', solto)
+    window.addEventListener('blur', semFoco)
+    return () => {
+      window.removeEventListener('pointerup', solto)
+      window.removeEventListener('pointercancel', solto)
+      window.removeEventListener('blur', semFoco)
+      if (g.current) clearTimeout(g.current.timer)
+      clearTimeout(timerDica.current)
+    }
+  }, [encerrarGesto])
+
   const aoDescer = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
     const alvo = e.target as HTMLElement
-    const produto = !!alvo.closest('.hero-produto')
-    // botões, links, enquete e o adesivo VER PRODUTO não navegam
+    // o produto e o VER PRODUTO são links do produto: tocar abre, arrastar passa, nunca contam como toque de borda
+    const produto = !!alvo.closest('.hero-produto, .hero-ver')
+    // outros botões e links e a enquete não navegam
     if (!produto && alvo.closest('button, a, input, .enquete')) return
+    // gesto anterior que ficou sem fim: destrava antes de começar outro
+    if (g.current) encerrarGesto()
+    alvoDoToque.current = produto && atual ? { id: atual.id, ate: Infinity } : null
     const timer = produto
       ? 0
       : window.setTimeout(() => {
@@ -288,6 +408,7 @@ export function Hero() {
           dispensarDica()
         }, 220)
     g.current = { x: e.clientX, y: e.clientY, id: e.pointerId, produto, arrastando: false, segurou: false, timer }
+    setTocando(true)
   }
   const aoMover = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = g.current
@@ -321,6 +442,8 @@ export function Hero() {
     if (!s || e.pointerId !== s.id) return
     g.current = null
     clearTimeout(s.timer)
+    setTocando(false)
+    if (alvoDoToque.current) alvoDoToque.current.ate = performance.now() + VALE_TOQUE
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
     if (s.arrastando) {
@@ -338,30 +461,40 @@ export function Hero() {
     const r = e.currentTarget.getBoundingClientRect()
     irPara(e.clientX - r.left < r.width * BORDA ? -1 : 1, 'toque')
   }
-  const aoCancelar = (e: React.PointerEvent<HTMLDivElement>) => {
-    const s = g.current
-    if (!s || e.pointerId !== s.id) return
-    g.current = null
-    clearTimeout(s.timer)
-    if (s.segurou) setSegurando(false)
-    if (s.arrastando) voltarPalco()
-  }
 
   const abrirProduto = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Ctrl/⌘/Shift/Alt + clique: aba ou janela nova, do jeito do navegador
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
     e.preventDefault()
-    if (!atual || performance.now() < semClique.current) return
+    const t = alvoDoToque.current
+    alvoDoToque.current = null
+    if (performance.now() < semClique.current) return
+    const id = t && performance.now() < t.ate ? t.id : atual?.id
+    if (!id) return
     dispensarDica()
-    useUI.getState().abrirPagina(atual.id, 'hero')
+    useUI.getState().abrirPagina(id, 'hero')
+  }
+
+  // foco: entrar com o teclado para a rotação; o clique do mouse nas setas (sem :focus-visible) não
+  const aoFocar = (e: React.FocusEvent<HTMLDivElement>) => {
+    const teclado = focoDeTeclado(e.target)
+    setFoco((f) => (f === 'liberado' ? f : teclado ? 'dentro' : 'fora'))
+  }
+  const aoDesfocar = (e: React.FocusEvent<HTMLDivElement>) => {
+    const vai = e.relatedTarget as Node | null
+    if (vai && e.currentTarget.contains(vai)) return
+    setFoco('fora')
   }
 
   const sextou = canal && ehDiaDeEntregaGratis(canal) ? canal.entregaGratis?.texto : null
 
-  if (!atual) return null
-
   const navega = n > 1
-  const comDica = navega && dica !== 'fora' && !aberturaAtiva
+  const comDica = navega && dica !== 'fora' && !aberturaAtiva && dicaCabe
+  useEffect(() => {
+    dicaNaTela.current = comDica && dica === 'mostra'
+  }, [comDica, dica])
+
+  if (!atual) return null
 
   const quadro = (
     <div
@@ -370,10 +503,14 @@ export function Hero() {
       onPointerDown={aoDescer}
       onPointerMove={aoMover}
       onPointerUp={aoSoltar}
-      onPointerCancel={aoCancelar}
+      onPointerCancel={(e) => {
+        if (g.current && e.pointerId === g.current.id) encerrarGesto()
+      }}
       onContextMenu={(e) => {
-        // segurar o produto (link) mostra o menu do navegador (abrir em aba nova); no resto, segurar é pausar
-        if (!(e.target as HTMLElement).closest('a')) e.preventDefault()
+        // segurar o produto (link) mostra o menu do navegador (abrir em aba nova) e o story volta a correr atrás dele;
+        // no resto, segurar é pausar
+        if ((e.target as HTMLElement).closest('a')) encerrarGesto()
+        else e.preventDefault()
       }}
     >
       <div ref={barras} className="story-barras hero-barras" aria-hidden="true">
@@ -391,14 +528,11 @@ export function Hero() {
           <button
             type="button"
             className="icone-botao toque hero-pausa"
-            onClick={() => {
-              setPausaManual((v) => !v)
-              dispensarDica()
-            }}
-            aria-label={pausaManual ? 'Continuar stories' : 'Pausar stories'}
+            onClick={alternarPausa}
+            aria-label={pausado ? 'Continuar stories' : 'Pausar stories'}
             aria-keyshortcuts="K"
           >
-            <Icone nome={pausaManual ? 'play' : 'pausa'} tamanho={16} />
+            <Icone nome={pausado ? 'play' : 'pausa'} tamanho={16} />
           </button>
         )}
       </div>
@@ -456,7 +590,7 @@ export function Hero() {
         <p className="adesivo-texto-bloco hero-frase">
           <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
         </p>
-        <a className="adesivo-link toque" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
+        <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
           <Icone nome="link" tamanho={16} />
           VER PRODUTO
         </a>
@@ -469,28 +603,40 @@ export function Hero() {
     </div>
   )
 
+  const perfil = (
+    <div key="perfil" className="hero-desktop-perfil">
+      <Perfil variante="desktop" />
+    </div>
+  )
+  const story = (
+    <div
+      key="story"
+      ref={historia}
+      className={`hero-story${segurando ? ' segurando' : ''}${comDica && dica === 'mostra' ? ' com-dica' : ''}`}
+      onFocus={aoFocar}
+      onBlur={aoDesfocar}
+    >
+      {navega && (
+        <button type="button" className="hero-seta hero-seta-esq" onClick={() => irPara(-1, 'toque')} aria-label="Story anterior" aria-keyshortcuts="ArrowLeft">
+          <span className="hero-seta-disco">
+            <Icone nome="chevron-esq" tamanho={16} />
+          </span>
+        </button>
+      )}
+      {quadro}
+      {navega && (
+        <button type="button" className="hero-seta hero-seta-dir" onClick={() => irPara(1, 'toque')} aria-label="Próximo story" aria-keyshortcuts="ArrowRight">
+          <span className="hero-seta-disco">
+            <Icone nome="chevron-dir" tamanho={16} />
+          </span>
+        </button>
+      )}
+    </div>
+  )
+
   return (
     <section ref={raiz} className="hero" aria-label="Stories da Green Cheese">
-      <div className="hero-desktop-perfil">
-        <Perfil variante="desktop" />
-      </div>
-      <div className={`hero-story${segurando ? ' segurando' : ''}${comDica && dica === 'mostra' ? ' com-dica' : ''}`}>
-        {navega && (
-          <button type="button" className="hero-seta hero-seta-esq" onClick={() => irPara(-1, 'toque')} aria-label="Story anterior" aria-keyshortcuts="ArrowLeft">
-            <span className="hero-seta-disco">
-              <Icone nome="chevron-esq" tamanho={16} />
-            </span>
-          </button>
-        )}
-        {quadro}
-        {navega && (
-          <button type="button" className="hero-seta hero-seta-dir" onClick={() => irPara(1, 'toque')} aria-label="Próximo story" aria-keyshortcuts="ArrowRight">
-            <span className="hero-seta-disco">
-              <Icone nome="chevron-dir" tamanho={16} />
-            </span>
-          </button>
-        )}
-      </div>
+      {largo ? [perfil, story] : [story, perfil]}
     </section>
   )
 }
