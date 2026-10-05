@@ -1,0 +1,465 @@
+/* Página do produto. Celular: tela cheia (a própria janela rola, topo e barra de compra presos). Desktop: diálogo em 2 colunas. */
+
+.pp {
+  position: fixed;
+  inset: 0;
+  bottom: var(--teclado, 0px);
+  z-index: 55; /* acima das barras fixas do site (35–41) e do story (50); folhas (60+) e aviso (95) por cima */
+}
+.pp-cortina {
+  display: none;
+}
+
+.pp-janela {
+  position: absolute;
+  inset: 0;
+  isolation: isolate; /* topo e barra presos de um nível não atravessam o nível de cima */
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--preto);
+  outline: none;
+}
+.pp-janela > * {
+  flex-shrink: 0;
+}
+/* níveis fundos da pilha: montados (guardam escolha e rolagem), sem pintar */
+.pp-escondida {
+  visibility: hidden;
+}
+
+/* ---------- topo: voltar, loja, compartilhar, sacola ---------- */
+.pp-topo {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: calc(52px + var(--seg-topo));
+  padding: var(--seg-topo) 8px 0 4px; /* folga à direita: a sacola pula (escala 1,25) sem estourar a borda */
+  background: var(--preto);
+  border-bottom: 1px solid var(--bolha);
+}
+.pp-voltar {
+  margin-right: 2px;
+}
+.pp-loja {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 14px/1.1 var(--ui);
+}
+.pp-loja-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pp-sacola {
+  position: relative;
+}
+.pp-contador {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 3px 4px 0;
+  border-radius: 9px;
+  background: var(--branco);
+  color: var(--preto);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+  border: 2px solid var(--preto);
+  box-sizing: content-box;
+}
+.pp-fechar {
+  display: none;
+}
+
+/* ---------- arte grande, com o halo da cor do produto ---------- */
+.pp-visual {
+  position: relative;
+  isolation: isolate; /* o carimbo NA SACOLA não passa por cima do topo preso */
+  /* tela baixa (navegador do Instagram) encolhe a arte pra o nome e o preço aparecerem; celular grande fica igual */
+  height: clamp(210px, calc(62vh - 140px), 430px);
+  margin-top: 4px;
+}
+.pp-arte {
+  position: absolute;
+  inset: 4% 10%;
+}
+.pp-arte-flutua > * {
+  animation: pp-flutuar 2.4s steps(4, jump-none) infinite alternate;
+}
+@keyframes pp-flutuar {
+  from {
+    transform: translateY(2px) rotate(-1.5deg);
+  }
+  to {
+    transform: translateY(-8px) rotate(1.5deg);
+  }
+}
+.pp-demo {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: var(--gutter);
+}
+
+/* ---------- informações ---------- */
+.pp-info {
+  --pp-pad: var(--gutter);
+  display: flex;
+  flex-direction: column;
+  padding: 6px var(--pp-pad) 24px;
+}
+.pp-nome {
+  font-size: 24px;
+  line-height: 1.08;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+/* o título só recebe foco pelo código (leitor de tela começa por ele); não é controle, não ganha anel */
+.pp-nome:focus {
+  outline: none;
+}
+.pp-detalhe {
+  margin-top: 6px;
+  font: 500 14px/1.3 var(--ui);
+  color: var(--legenda);
+}
+.pp-preco {
+  margin-top: 14px;
+  font-size: 32px;
+}
+.pp-combos {
+  margin-top: 8px;
+  font-size: 16px;
+  color: var(--legenda);
+}
+.pp-off {
+  color: var(--legenda);
+}
+
+/* disponibilidade no estado de quem vê */
+.pp-disp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  margin-top: 16px;
+  padding: 4px 0;
+  border-top: 1px solid var(--bolha);
+  border-bottom: 1px solid var(--bolha);
+}
+.pp-disp > p {
+  min-width: 0;
+  /* "em Teófilo Otoni" desce inteiro pra linha de baixo em vez de quebrar no meio */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+  row-gap: 2px;
+  font: 400 14px/1.3 var(--ui);
+}
+.pp-disp-selo {
+  font-size: 20px;
+  white-space: nowrap;
+}
+.pp-disp-onde {
+  color: var(--legenda);
+}
+.pp-indisp .pp-disp-selo {
+  color: var(--legenda);
+}
+.pp-trocar {
+  flex: none;
+  min-height: 44px;
+  padding: 0 2px 0 12px;
+  font: 600 14px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pp-disp-sem {
+  flex-wrap: wrap;
+  padding: 10px 0;
+}
+.pp-disp-sem > p {
+  color: var(--legenda);
+}
+
+.pp-desc {
+  margin-top: 16px;
+  font: 400 15px/1.5 var(--ui);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+
+/* variação e combo: os mesmos adesivos do story, retos e na largura da coluna */
+.pp-opcoes {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 20px;
+}
+.pp-opcoes .ad-enquete,
+.pp-opcoes .ad-quiz {
+  width: 100%;
+  max-width: 420px;
+  transform: none;
+}
+.pp-opcoes .ad-empurrao {
+  text-align: left;
+}
+
+.pp-pedir {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 20px;
+}
+.pp-pedir > .legenda {
+  font-size: 13px;
+}
+.pp-avisar {
+  align-items: flex-start;
+}
+
+/* combina com */
+.pp-combina {
+  margin-top: 28px;
+}
+.pp-subtitulo {
+  margin-bottom: 12px;
+  font: 700 16px/1.2 var(--ui);
+}
+/* celular: fileira que corre pro lado (sangra até a borda); desktop: grade */
+.pp-sugestoes {
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(-1 * var(--pp-pad));
+  padding: 0 var(--pp-pad) 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--pp-pad);
+  scrollbar-width: none;
+}
+.pp-sugestoes::-webkit-scrollbar {
+  display: none;
+}
+.pp-sugestoes > li {
+  flex: 0 0 148px;
+  scroll-snap-align: start;
+}
+.pp-sug {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 6px 8px 12px;
+  border: 1px solid var(--bolha);
+  border-radius: 4px;
+  text-align: center;
+}
+.pp-sug-arte {
+  position: relative;
+  width: 100%;
+  height: 104px;
+}
+.pp-sug-nome {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.pp-sug-preco {
+  margin-top: auto;
+  font-size: 16px;
+  font-weight: 400;
+}
+.pp-sug-off .pp-sug-nome,
+.pp-sug-off .pp-sug-preco {
+  color: var(--legenda);
+}
+
+.pp-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 16px;
+  font: 600 14px/1 var(--ui);
+}
+
+/* ---------- barra de compra presa embaixo ---------- */
+.pp-barra {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: auto;
+  padding: 10px var(--gutter) calc(10px + var(--seg-baixo));
+  background: var(--preto);
+  border-top: 1px solid var(--bolha);
+}
+/* com o teclado aberto, a área segura de baixo fica atrás dele */
+.com-teclado .pp-barra {
+  padding-bottom: 10px;
+}
+.pp-na-sacola {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -6px 0 4px;
+}
+.pp-na-sacola-txt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 14px/1.2 var(--ui);
+}
+.pp-ver-sacola {
+  min-height: 44px;
+  padding: 0 2px 0 12px;
+  font: 700 14px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pp-acoes {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.ad-qtd.pp-qtd {
+  flex: none;
+  background: none;
+  color: var(--branco);
+  border: 1px solid var(--chiado);
+  border-radius: 999px;
+}
+.pp-qtd .icone-botao {
+  width: 44px;
+  height: 50px;
+  border-radius: 999px;
+}
+.pp-qtd .px {
+  min-width: 18px;
+}
+.pp-por {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.1;
+}
+.pp-por-preco {
+  line-height: 1;
+}
+/* celular bem estreito (320): "Adicionar à sacola" cabe numa linha */
+@media (max-width: 340px) {
+  .pp-por {
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+}
+
+/* o aviso (toast) aparece logo acima da barra de compra */
+@media (max-width: 899px) {
+  .pp-aberta .aviso-area {
+    bottom: calc(var(--pp-barra, 72px) + 12px);
+  }
+}
+
+/* ---------- desktop: diálogo no meio da área de conteúdo, arte à esquerda, informações à direita ---------- */
+@media (min-width: 900px) {
+  .pp {
+    --pp-w: min(880px, calc(100% - var(--lateral) - 48px));
+    --pp-h: min(720px, calc(100% - 64px));
+  }
+  .pp-cortina {
+    display: block;
+    z-index: 0;
+  }
+  .pp-janela {
+    z-index: 1;
+    inset: auto;
+    top: calc((100% - var(--pp-h)) / 2);
+    left: calc(var(--lateral) + (100% - var(--lateral) - var(--pp-w)) / 2);
+    width: var(--pp-w);
+    height: var(--pp-h);
+    display: grid;
+    grid-template-columns: 45% minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'topo topo'
+      'visual info'
+      'visual barra';
+    overflow: hidden;
+    outline: 1px solid var(--bolha);
+  }
+  .pp-topo {
+    grid-area: topo;
+    position: static;
+    min-height: 56px;
+    padding: 0 8px;
+  }
+  .pp-fechar {
+    display: inline-grid;
+  }
+  .pp-visual {
+    grid-area: visual;
+    height: auto;
+    margin: 0;
+    border-right: 1px solid var(--bolha);
+  }
+  .pp-arte {
+    inset: 6% 8%;
+  }
+  .pp-info {
+    --pp-pad: 28px;
+    grid-area: info;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 24px var(--pp-pad) 28px;
+  }
+  .pp-sugestoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .pp-nome {
+    font-size: 32px;
+  }
+  .pp-barra {
+    grid-area: barra;
+    position: static;
+    margin: 0;
+    padding: 14px 28px 16px;
+  }
+}

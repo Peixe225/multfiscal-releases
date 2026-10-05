@@ -20,222 +20,22 @@
   z-index: 4;
 }
 
-/* ---------- adesivos interativos ---------- */
-.ad-pilha {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
+/* Adesivos interativos (enquete, quiz, sacola, carimbo, voo): AdesivosProduto.css. Aqui só os apertos do quadro do story. */
 
-/* enquete (variação) */
-.ad-enquete {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: min(300px, 100%);
-  background: var(--branco);
-  border-radius: 12px;
-  padding: 5px;
-  gap: 5px;
-  transform: rotate(-2deg);
-}
-.ad-enquete-op {
-  position: relative;
-  min-height: 50px;
-  border-radius: 8px;
-  border: 1px solid #dbdbdb;
-  color: var(--preto);
-  overflow: hidden;
-}
-.ad-enquete-cheio {
-  position: absolute;
-  inset: 0;
-  background: var(--preto);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 0.28s steps(6);
-}
-.ad-enquete-op.sel .ad-enquete-cheio {
-  transform: scaleX(1);
-}
-.ad-enquete-op.sel {
-  color: var(--branco);
-  border-color: var(--preto);
-}
-.ad-enquete-txt {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 4px;
-  transition: color 0.2s steps(2);
-}
-.ad-enquete-txt strong {
-  font: 800 15px/1.1 var(--ui);
-}
-.ad-enquete-txt small {
-  font: 500 11px/1.1 var(--ui);
-}
-
-/* quiz (combo) */
-.ad-quiz {
-  width: min(300px, 100%);
-  background: var(--branco);
-  color: var(--preto);
-  border-radius: 12px;
-  padding: 0 8px 8px;
-  transform: rotate(2deg);
-  overflow: hidden;
-}
-.ad-quiz-topo {
-  margin: 0 -8px 6px;
-  padding: 7px 10px;
-  background: var(--preto);
-  color: var(--branco);
-  font: 800 14px/1 var(--ui);
-  text-align: center;
-  border-bottom: 2px solid var(--branco);
-}
-.ad-quiz-linha {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 40px;
-  margin-top: 5px;
-  padding: 0 10px 0 6px;
-  border: 1px solid #dbdbdb;
-  border-radius: 20px;
-  font: 700 14px/1 var(--ui);
-  color: var(--preto);
-  text-align: left;
-}
-.ad-quiz-letra {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid #c7c7c7;
-  font: 800 12px/1 var(--ui);
-}
-.ad-quiz-linha > span:not(.ad-quiz-letra):not(.ad-quiz-cada) {
-  white-space: nowrap;
-}
-.ad-quiz-cada {
-  margin-left: auto;
-  white-space: nowrap;
-  font: 500 11px/1 var(--ui);
-  opacity: 0.7;
-}
-.ad-quiz-linha.sel {
-  background: var(--preto);
-  border-color: var(--preto);
-  color: var(--branco);
-}
-.ad-quiz-linha.sel .ad-quiz-letra {
-  background: var(--branco);
-  color: var(--preto);
-  border-color: var(--branco);
-}
-
-/* adesivo de link: quantidade + pôr na sacola */
-.ad-sacola {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  width: min(340px, 100%);
-}
-.ad-qtd {
-  display: flex;
-  align-items: center;
-  background: var(--branco);
-  color: var(--preto);
-  border-radius: 12px;
-}
-.ad-qtd .icone-botao {
-  width: 36px;
-}
-.ad-qtd .icone-botao:disabled {
-  opacity: 0.3;
-}
-.ad-qtd .px {
-  min-width: 20px;
-  text-align: center;
-}
-.ad-por {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 48px;
-  padding: 0 12px;
-  background: var(--branco);
-  color: var(--preto);
-  border-radius: 12px;
-  font: 800 15px/1 var(--ui);
-  white-space: nowrap;
-  transform: rotate(-1deg);
-}
-.ad-por-preco {
-  font-family: var(--pixel);
-  font-weight: 500;
-  font-size: 16px;
-  padding-left: 7px;
-  border-left: 1px solid #dbdbdb;
-}
+/* tela baixa: o quadro do story tem altura fixa, os adesivos encolhem */
 @media (max-height: 700px) {
-  .ad-quiz-topo {
+  .story-produto .ad-quiz-topo {
     padding: 4px 10px;
     font-size: 12px;
     margin-bottom: 2px;
   }
-  .ad-quiz-linha {
+  .story-produto .ad-quiz-linha {
     min-height: 34px;
     margin-top: 4px;
   }
-  .ad-enquete-op {
+  .story-produto .ad-enquete-op {
     min-height: 44px;
   }
-}
-.ad-empurrao {
-  font-size: 16px;
-  color: var(--legenda);
-  text-align: center;
-}
-
-/* carimbo NA SACOLA */
-.carimbo-sacola {
-  position: absolute;
-  z-index: 6;
-  top: 34%;
-  left: 50%;
-  padding: 8px 12px 6px;
-  border: 3px solid var(--branco);
-  font-size: 32px;
-  color: var(--branco);
-  background: var(--preto);
-  pointer-events: none;
-  animation: carimbar 0.9s steps(1) forwards;
-}
-@keyframes carimbar {
-  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-6deg) scale(1.4); }
-  10% { opacity: 1; transform: translate(-50%, -50%) rotate(-6deg) scale(1); }
-  78% { opacity: 1; transform: translate(-50%, -50%) rotate(-6deg) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-6deg) scale(1); }
-}
-
-.voo-miniatura {
-  position: fixed;
-  z-index: 90;
-  image-rendering: pixelated;
-  pointer-events: none;
-  border-radius: 6px;
-  outline: 2px solid var(--branco);
 }
 
 /* menu ⋯ */
@@ -314,7 +114,7 @@
 
 /* tela bem baixa (navegador do Instagram em celular pequeno): combo vira 3 pílulas lado a lado */
 @media (max-height: 620px) {
-  .ad-quiz {
+  .story-produto .ad-quiz {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
@@ -322,12 +122,12 @@
     width: min(320px, 100%);
     transform: rotate(1deg);
   }
-  .ad-quiz-topo,
-  .ad-quiz-letra,
-  .ad-quiz-cada {
+  .story-produto .ad-quiz-topo,
+  .story-produto .ad-quiz-letra,
+  .story-produto .ad-quiz-cada {
     display: none;
   }
-  .ad-quiz-linha {
+  .story-produto .ad-quiz-linha {
     margin: 0;
     min-height: 44px;
     padding: 0 4px;
@@ -336,10 +136,10 @@
     font-size: 12px;
     line-height: 1.1;
   }
-  .ad-pilha {
+  .story-produto .ad-pilha {
     gap: 6px;
   }
-  .ad-empurrao {
+  .story-produto .ad-empurrao {
     display: none;
   }
   .story-produto .sq-tela .sq-arte {
@@ -353,10 +153,10 @@
 
 /* celular estreito: o preço já aparece no texto e no combo; o botão fica só com a ação */
 @media (max-width: 360px) {
-  .ad-por-preco {
+  .story-produto .ad-por-preco {
     display: none;
   }
-  .ad-qtd .icone-botao {
+  .story-produto .ad-qtd .icone-botao {
     width: 34px;
   }
 }

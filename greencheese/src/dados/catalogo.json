@@ -38,6 +38,7 @@
       "nome": "Fanta Ghost Face Punch",
       "tamanho": "350 ml",
       "detalhe": "Lata 350 ml · importada",
+      "descricao": "Refrigerante Fanta Ghost Face Punch, importado, em lata de 350 ml. É abrir e servir bem gelado.",
       "categoria": "bebidas",
       "preco": null,
       "disponivel": {
@@ -66,6 +67,7 @@
       "nome": "Coca-Cola Vanilla",
       "tamanho": "lata",
       "detalhe": "Lata · importada",
+      "descricao": "A Coca-Cola com sabor de baunilha, importada, em lata. Serve bem gelada.",
       "categoria": "bebidas",
       "preco": null,
       "disponivel": {
@@ -92,6 +94,7 @@
       "nome": "Arizona Green Tea",
       "tamanho": "680 ml",
       "detalhe": "Lata 680 ml · importada",
+      "descricao": "Chá verde gelado da AriZona, pronto pra beber. Vem na lata alta de 680 ml, importada.",
       "categoria": "bebidas",
       "preco": 19.9,
       "disponivel": {
@@ -117,6 +120,7 @@
       "nome": "Dr Pepper",
       "tamanho": "355 ml",
       "detalhe": "Lata 355 ml · importada",
+      "descricao": "O refrigerante americano Dr Pepper, em lata de 355 ml importada. Serve bem gelado.",
       "categoria": "bebidas",
       "preco": 12.9,
       "disponivel": {
@@ -142,6 +146,7 @@
       "nome": "Jack Daniel's Old No. 7",
       "tamanho": "1 L",
       "detalhe": "Garrafa 1 L",
+      "descricao": "Tennessee whiskey filtrado gota a gota em carvão de bordo antes de envelhecer no barril. Garrafa de 1 L.",
       "categoria": "destilados",
       "preco": 149.9,
       "disponivel": {
@@ -174,6 +179,7 @@
       "nome": "Gin Tanqueray London Dry",
       "tamanho": "750 ml",
       "detalhe": "Garrafa 750 ml",
+      "descricao": "Gin no estilo London Dry, com o zimbro na frente. Garrafa de 750 ml, base de drinque como o gim-tônica.",
       "categoria": "destilados",
       "preco": 99.99,
       "disponivel": {
@@ -203,6 +209,7 @@
       "id": "hennessy-very-special",
       "nome": "Hennessy Very Special",
       "detalhe": "Conhaque · garrafa",
+      "descricao": "Conhaque Hennessy, feito na região de Cognac, na França. V.S quer dizer Very Special: envelhece no mínimo 2 anos em barril de carvalho.",
       "categoria": "destilados",
       "preco": null,
       "disponivel": {
@@ -232,6 +239,7 @@
       "nome": "Jägermeister",
       "tamanho": "700 ml",
       "detalhe": "Garrafa 700 ml",
+      "descricao": "Licor de ervas alemão, de uma receita com 56 botânicos. Garrafa de 700 ml, pra servir bem gelado.",
       "categoria": "destilados",
       "preco": 139.9,
       "disponivel": {
@@ -257,6 +265,7 @@
       "id": "seda-ocb-premium-slim",
       "nome": "Seda OCB Premium Slim",
       "detalhe": "Livreto slim",
+      "descricao": "Livreto de seda OCB, da linha Premium, no formato slim. A OCB é uma marca francesa de papel de seda.",
       "categoria": "sedas",
       "preco": 9.99,
       "combos": [
@@ -294,6 +303,7 @@
       "id": "seda-raw-classic-king-size",
       "nome": "Seda RAW Classic King Size",
       "detalhe": "Livreto king size slim",
+      "descricao": "Livreto de seda RAW Classic, no tamanho king size slim, com o papel sem branqueamento da marca.",
       "categoria": "sedas",
       "preco": 12.99,
       "disponivel": {
@@ -318,6 +328,7 @@
       "id": "seda-smoking-brown",
       "nome": "Seda Smoking Brown",
       "detalhe": "Livreto king size",
+      "descricao": "Livreto de seda Smoking Brown, no tamanho king size, com o papel marrom da linha Brown.",
       "categoria": "sedas",
       "preco": 7.99,
       "disponivel": {
@@ -342,6 +353,7 @@
       "id": "piteira-de-vidro-raw",
       "nome": "Piteira de vidro RAW",
       "detalhe": "Vidro · escolha o formato",
+      "descricao": "Piteira de vidro RAW, reutilizável: dá pra lavar e usar de novo. Dois formatos: flat (6 mm × 3,5 cm) ou slim (7 mm × 5 cm).",
       "categoria": "piteiras",
       "preco": 29.99,
       "variacoes": [
@@ -378,6 +390,7 @@
       "id": "piteira-de-papel-raw",
       "nome": "Piteira de papel RAW",
       "detalhe": "Bloco de piteiras",
+      "descricao": "Bloco de piteiras de papel RAW: é destacar uma, enrolar no formato e usar.",
       "categoria": "piteiras",
       "preco": 6.99,
       "disponivel": {
@@ -402,6 +415,7 @@
       "id": "cuia-de-silicone-raw",
       "nome": "Cuia de silicone RAW",
       "detalhe": "Silicone · não quebra",
+      "descricao": "Cuia de silicone da RAW. Por ser de silicone, é flexível e não quebra se cair no chão.",
       "categoria": "acessorios",
       "preco": null,
       "disponivel": {
@@ -430,6 +444,7 @@
       "nome": "Dichavador de metal 4 partes",
       "tamanho": "55 mm",
       "detalhe": "55 mm · com peneira",
+      "descricao": "Dichavador de metal em 4 partes, com 55 mm e peneira. Desmonta pra limpar.",
       "categoria": "acessorios",
       "preco": 59.9,
       "disponivel": {
@@ -454,6 +469,7 @@
       "id": "isqueiro-clipper",
       "nome": "Isqueiro Clipper",
       "detalhe": "Recarregável",
+      "descricao": "Isqueiro Clipper recarregável: quando o gás acaba, dá pra recarregar em vez de jogar fora.",
       "categoria": "acessorios",
       "preco": 14.99,
       "disponivel": {
@@ -478,6 +494,7 @@
       "id": "bandeja-raw-pequena",
       "nome": "Bandeja RAW pequena",
       "detalhe": "Metal · 18 × 12 cm",
+      "descricao": "Bandeja de metal RAW, no tamanho pequeno: 18 × 12 cm. Deixa teus acessórios organizados num lugar só.",
       "categoria": "acessorios",
       "preco": 49.9,
       "disponivel": {

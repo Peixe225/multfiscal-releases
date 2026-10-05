@@ -7,8 +7,8 @@ import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
 import { registrarLenis } from './lib/rolagem'
-import { lerParametros } from './lib/url'
-import { carregarPlanilha, useCatalogo } from './store/catalogo'
+import { atualizarParametros, lerParametros } from './lib/url'
+import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal, useLocal } from './store/local'
 import { useUI } from './store/ui'
@@ -29,6 +29,7 @@ gsap.registerPlugin(ScrollTrigger)
 
 // Camadas que só aparecem com toque: carregam depois da primeira tela (durante a abertura).
 const StoryProduto = lazy(() => import('./componentes/StoryProduto').then((m) => ({ default: m.StoryProduto })))
+const ProdutoPagina = lazy(() => import('./componentes/ProdutoPagina').then((m) => ({ default: m.ProdutoPagina })))
 const InfoStory = lazy(() => import('./componentes/InfoStory').then((m) => ({ default: m.InfoStory })))
 const ChatFolha = lazy(() => import('./componentes/Chat').then((m) => ({ default: m.ChatFolha })))
 const SacolaFolha = lazy(() => import('./componentes/Sacola').then((m) => ({ default: m.SacolaFolha })))
@@ -38,7 +39,7 @@ const PainelPrevia = lazy(() => import('./componentes/Lateral').then((m) => ({ d
 
 /** Monta as camadas no primeiro respiro do navegador, ou na hora se alguém já pediu uma delas. */
 function useCamadasProntas(): boolean {
-  const pedida = useUI((s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.trocaPendente)
+  const pedida = useUI((s) => !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.trocaPendente)
   const chat = useChat((s) => s.aberto)
   const [pronto, setPronto] = useState(false)
   useEffect(() => {
@@ -106,7 +107,7 @@ export function App() {
     }
   }, [])
 
-  // depois da abertura: link direto de produto (?p=) e de chat (?chat=pedido|encomenda); volta do WhatsApp
+  // depois da abertura: link direto do story (?p=), da página do produto (?produto=) e do chat (?chat=pedido|encomenda); volta do WhatsApp
   useEffect(() => {
     if (abertura || saida) return
     const p = lerParametros()
@@ -124,6 +125,11 @@ export function App() {
           daCat.findIndex((x) => x.id === p.p),
         )
       }
+    }
+    // página do produto por cima (link aberto numa aba nova cai aqui depois do +18; "Voltar" fecha na home)
+    if (p.produto) {
+      if (produtoPorId(p.produto)) useUI.getState().abrirPagina(p.produto, 'link')
+      else atualizarParametros({ produto: null })
     }
     if (p.chat === 'pedido' || p.chat === 'encomenda') useChat.getState().abrir(p.chat)
     requestAnimationFrame(() => ScrollTrigger.refresh())
@@ -169,6 +175,7 @@ export function App() {
       {camadas && (
         <Suspense fallback={null}>
           <StoryProduto />
+          <ProdutoPagina />
           <InfoStory />
           <ChatFolha />
           <SacolaFolha />
