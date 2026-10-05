@@ -70,8 +70,11 @@ O que está na prévia: o dichavador que gira, abre e entrega um beck bolado com
 7. **OCB 4 por 3 junto com o combo "3 por R$ 19,99"**: confirmar com a loja como os dois convivem (o site não recalcula; a mensagem leva o cupom e a loja confirma).
 8. **Álcool e tabaco fora dos prêmios** (Lei 9.294/1996, Anvisa RDC 840/2023): a validação de `src/lib/cupom.ts` recusa prêmio em bebidas e destilados.
 9. **Furos conhecidos da prévia** (aceitos; na versão oficial, validado no servidor): mexer no relógio do aparelho, usar aba anônima ou outro navegador burla o limite de giros; apagar a conta não devolve o giro do dia; o navegador do Instagram, o Safari e o Chrome guardam contas separadas.
-10. **Rodapé**: falta a frase "Quem cria conta no Teste minha sorte: na prévia, nome e WhatsApp ficam só neste aparelho." no fim do parágrafo de privacidade de `src/componentes/Rodape.tsx` (o rodapé está sendo mexido em outra branch; entra quando as duas se juntarem). A mesma informação já aparece no cadastro, na conta e nas regras.
-11. **Modo da conta**: a especificação pedia `conta: { modo }` em `src/dados/config.ts`; como o config está sendo mexido em outra branch, o modo ficou em `src/dados/conta.ts` (`configConta.modo`). Dá pra mover pro config quando as branches se juntarem.
+10. **Modo da conta**: fica em `src/dados/conta.ts` (`configConta.modo`: `'local'` na prévia, `'servidor'` quando o adaptador PHP + MySQL existir).
+
+## Repost: tragos do mercador
+
+- `mercadorTraga` em `src/dados/config.ts` liga os tragos do mercador (ligado na prévia, a pedido). A Lei 9.294/1996, art. 3º, veda propaganda de produtos fumígenos: **para a versão oficial, a recomendação é `false`** (o mercador continua abrindo o manto com os acessórios).
 
 ## Publicação
 

@@ -11,7 +11,7 @@ import type { Produto } from './tipos'
 
 /* ───────────────────────── código e sorteio ───────────────────────── */
 
-const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' // sem I, L, O, 0 e 1 (não se confundem no WhatsApp)
+const ALFABETO = 'ABCDEFGHJKMNPQRTUVWXY346789' // sem I, L, O, 0, 1 (WhatsApp) nem S, 5, Z, 2 (na Pixelify o 5 vira S e o 2 vira Z)
 
 function aleatorios(n: number): Uint32Array {
   const a = new Uint32Array(n)
