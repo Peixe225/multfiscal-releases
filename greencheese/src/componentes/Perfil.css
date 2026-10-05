@@ -72,6 +72,25 @@
   line-height: 1.15;
 }
 
+/* celular estreito (320): os três números cabem dentro do gutter, cada rótulo numa linha só, e os botões não quebram */
+@media (max-width: 359px) {
+  .perfil-topo {
+    gap: 12px;
+  }
+  .perfil-numeros {
+    gap: 2px;
+  }
+  .perfil-numeros dd {
+    font-size: 12px;
+  }
+  .perfil-aqui {
+    display: none;
+  }
+  .perfil-botao {
+    font-size: 13px;
+  }
+}
+
 /* desktop: coluna esquerda do hero, no molde do perfil do instagram.com */
 .perfil-desktop {
   padding: 0;

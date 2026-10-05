@@ -60,7 +60,7 @@ function horaAgora(): string {
 
 export function ChatFolha() {
   const chat = useChat()
-  const { aberto, modo, passo, feitos, respostas, respondendo, fechar, responder, voltarPara, abrir } = chat
+  const { aberto, modo, passo, feitos, respostas, respondendo, respondendoDe, fechar, responder, voltarPara, abrir } = chat
   const local = useLocal()
   const { pedido, fora } = useLinhasSacola()
   const limparSacola = useSacola((s) => s.limpar)
@@ -118,10 +118,21 @@ export function ChatFolha() {
     })
   }, [canal, cidade, modo, respostas, pedido])
 
-  // sobe para a última mensagem a cada passo
+  // sobe para a última mensagem a cada passo (rola o corpo da folha, não a página: a pergunta e as opções ficam à vista
+  // mesmo num celular baixo)
   useEffect(() => {
     if (!aberto) return
-    requestAnimationFrame(() => fim.current?.scrollIntoView({ block: 'end' }))
+    const rolar = () => {
+      const corpo = fim.current?.closest<HTMLElement>('.folha-corpo')
+      if (corpo) corpo.scrollTop = corpo.scrollHeight
+    }
+    const raf = requestAnimationFrame(rolar)
+    // ao abrir, a folha monta o conteúdo um quadro depois e ainda está subindo: rola de novo quando ela assenta
+    const t = window.setTimeout(rolar, 480)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(t)
+    }
   }, [aberto, passo, feitos.length, buscandoCep, avisoCep, enviadoEm])
 
   async function enviarCep(v: string) {
@@ -214,7 +225,8 @@ export function ChatFolha() {
               },
             },
             {
-              rotulo: canal === canalSite ? 'Trocar cidade' : 'Trocar atendimento',
+              // o seletor abre na lista de estados: "cidade" só quando o canal tem mais de uma
+              rotulo: canal === canalSite ? (canal.cidades.length > 1 ? 'Trocar cidade' : 'Trocar estado') : 'Trocar atendimento',
               acao: () => (canal === canalSite ? setSeletor(true) : resp({ canalEnc: '' }, 'local', 'local')),
             },
           ],
@@ -432,7 +444,8 @@ export function ChatFolha() {
       <Avatar tamanho={28} anel={false} />
       <span className="dm-cab-txt">
         <strong>Pedido guiado</strong>
-        <span className="legenda">{canal ? `@${canal.instagram} · ` : ''}respostas automáticas</span>
+        {/* o aviso de que as respostas são automáticas vem primeiro: no celular estreito, quem perde as reticências é o @ */}
+        <span className="legenda">respostas automáticas{canal ? ` · @${canal.instagram}` : ''}</span>
       </span>
     </div>
   )
@@ -470,7 +483,7 @@ export function ChatFolha() {
 
         {produtosCitados.length > 0 && modo === 'pedido' && (
           <div className="dm-citado">
-            <span className="legenda dm-citado-rot">Você respondeu ao story</span>
+            <span className="legenda dm-citado-rot">{respondendoDe === 'pagina' ? 'Você pediu pela página do produto' : 'Você respondeu ao story'}</span>
             <div className="dm-citado-pilha">
               {produtosCitados.slice(0, 3).map((p, i) => (
                 <div key={p.id} className="dm-citado-quadro" style={{ transform: `translateX(${-i * 14}px) rotate(${i * 3}deg)`, zIndex: 3 - i }}>

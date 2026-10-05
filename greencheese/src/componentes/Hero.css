@@ -30,8 +30,8 @@
   position: absolute;
   z-index: 5;
   top: calc(var(--seg-topo) + 16px);
-  left: 10px;
-  right: 10px;
+  left: max(10px, var(--seg-esq));
+  right: max(10px, var(--seg-dir));
   display: flex;
   align-items: center;
   gap: 8px;
@@ -51,9 +51,15 @@
 .hero-pausa:focus-visible {
   clip-path: none;
 }
-/* prévia: o selo PRÉVIA fica fixo no canto de cima do celular */
-.hero-quadro.com-selo .hero-pausa {
-  right: 48px;
+/* prévia: o selo PRÉVIA fica fixo no canto de cima do celular — a linha do @ termina antes dele (o "20 h" não fica
+   atrás do selo); no celular estreito o tempo sai para o @ caber */
+.hero-quadro.com-selo .hero-cab {
+  right: calc(60px + var(--seg-dir));
+}
+@media (max-width: 359px) {
+  .hero-quadro.com-selo .hero-cab .story-cab-tempo {
+    display: none;
+  }
 }
 .hero-enquetes {
   position: relative;
@@ -68,6 +74,45 @@
 }
 .hero-enquetes:empty {
   display: none;
+}
+/* celular baixo (navegador do Instagram 360×560, iPhone SE): a enquete da primeira visita fica compacta — pergunta
+   à esquerda, Sim/Trocar à direita (a cidade já está no adesivo de local do topo) — e a arte não vira um pontinho */
+@media (max-width: 899px) and (max-height: 700px) {
+  .hero-enquetes .enquete {
+    width: 100%;
+    padding: 8px 8px 8px 12px;
+    transform: rotate(-2deg);
+  }
+  .hero-enquetes .enquete-pergunta {
+    margin-bottom: 8px;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+  .hero-enquetes .enquete-sub {
+    display: none;
+  }
+  .hero-enquetes .enquete-opcao {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  /* "Você está em Minas Gerais?" cabe ao lado do Sim/Trocar */
+  .hero-enquetes .enquete-confirmar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-enquetes .enquete-confirmar .enquete-pergunta {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    text-align: left;
+  }
+  .hero-enquetes .enquete-confirmar .enquete-opcoes {
+    flex: none;
+  }
+  .hero-enquetes .enquete-confirmar .enquete-opcao {
+    padding: 0 12px;
+  }
 }
 
 /* bordas que passam (esquerda volta, direita avança): por cima da arte, por baixo de enquete e adesivos.
@@ -86,14 +131,16 @@
   right: 0;
 }
 
+/* tamanho e altura vêm da arte do produto atual (medidos no Hero.tsx): atrás dela, menor que ela, nunca no nome */
 .hero-espera {
   position: absolute;
   z-index: 0;
   right: 4%;
-  top: 42%;
-  width: 22%;
+  top: var(--hero-espera-y, 42%);
+  width: var(--hero-espera-w, 22%);
   aspect-ratio: 9 / 16;
   opacity: 0.3;
+  visibility: var(--hero-espera-vis, visible);
   pointer-events: none;
 }
 
@@ -203,10 +250,10 @@
   transition: opacity 0.3s var(--ease-app);
 }
 .hero-seta-esq {
-  left: 0;
+  left: var(--seg-esq);
 }
 .hero-seta-dir {
-  right: 0;
+  right: var(--seg-dir);
 }
 .hero-seta-disco {
   display: grid;
@@ -291,6 +338,10 @@
   right: 12px;
   top: calc(var(--seg-topo) + 64px);
 }
+/* fora da tela (rolou pra baixo): o produto para de flutuar e o resto do hero não gasta CPU */
+.hero-story.fora * {
+  animation-play-state: paused !important;
+}
 /* segurando: some o que está por cima do produto, como no app */
 .hero-story.segurando .hero-cab,
 .hero-story.segurando .hero-barras,
@@ -339,7 +390,8 @@
   .hero-barras {
     top: 8px;
   }
-  .hero-cab {
+  .hero-cab,
+  .hero-quadro.com-selo .hero-cab {
     top: 16px;
     right: 0;
   }
@@ -461,6 +513,35 @@
   .adesivo-link {
     padding: 0 10px;
     font-size: 12px;
+  }
+}
+
+/* celular deitado: o story do hero cabe na tela acima da barra de baixo, com a arte à esquerda e nome, preço e
+   DISPONÍVEL à direita (empilhados, a arte virava um pontinho e o VER PRODUTO ficava fora da tela) */
+@media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
+  .hero-story {
+    height: max(300px, calc(100vh - var(--barra-baixo) - var(--seg-baixo)));
+    height: max(300px, calc(100svh - var(--barra-baixo) - var(--seg-baixo)));
+  }
+  .hero-palco > .sq-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  .hero-palco > .sq-hero .sq-arte {
+    align-self: stretch;
+    margin-top: 0;
+  }
+  .hero-palco > .sq-hero .sq-texto {
+    padding: 0 var(--gutter) 0 0;
+  }
+  .hero-adesivos {
+    min-height: 56px;
+    padding-bottom: 8px;
+  }
+  /* a dica de primeira vez cobriria o nome ao lado da arte; as bordas continuam passando */
+  .hero-dica {
+    display: none;
   }
 }
 

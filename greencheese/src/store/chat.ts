@@ -73,10 +73,12 @@ interface ChatState {
   respostas: Respostas
   /** Produtos do story respondido ("Você respondeu ao story"). */
   respondendo: string[]
+  /** De onde veio o pedido do produto citado: o story ou a página do produto. */
+  respondendoDe: 'story' | 'pagina'
   /** Quando a pessoa tocou em "Enviar no WhatsApp"/DM (para perguntar "Já mandou?" na volta). */
   enviadoEm: number | null
   marcarEnviado: (v: number | null) => void
-  abrir: (modo: ModoChat, opts?: { produtoEncomenda?: string; respondendo?: string[] }) => void
+  abrir: (modo: ModoChat, opts?: { produtoEncomenda?: string; respondendo?: string[]; de?: 'story' | 'pagina' }) => void
   fechar: () => void
   responder: (passo: Passo, dados: Partial<Respostas>, proximo: Passo) => void
   avancar: (proximo: Passo) => void
@@ -96,6 +98,7 @@ export const useChat = create<ChatState>()(
       passo: 'local',
       respostas: respostasVazias,
       respondendo: [],
+      respondendoDe: 'story',
       enviadoEm: null,
       marcarEnviado: (v) => set({ enviadoEm: v }),
       abrir: (modo, opts) => {
@@ -105,7 +108,7 @@ export const useChat = create<ChatState>()(
           set({ modo, feitos: [], passo: inicio(modo), enviadoEm: null })
         }
         if (opts?.produtoEncomenda != null) set((st) => ({ respostas: { ...st.respostas, encProduto: opts.produtoEncomenda! } }))
-        set({ aberto: true, respondendo: opts?.respondendo ?? [] })
+        set({ aberto: true, respondendo: opts?.respondendo ?? [], respondendoDe: opts?.de ?? 'story' })
       },
       fechar: () => set({ aberto: false }),
       responder: (passo, dados, proximo) =>
@@ -125,7 +128,7 @@ export const useChat = create<ChatState>()(
     {
       name: 'gc-chat',
       storage: createJSONStorage(() => armazenamentoSeguro),
-      partialize: (s) => ({ modo: s.modo, feitos: s.feitos, passo: s.passo, respostas: s.respostas, respondendo: s.respondendo, enviadoEm: s.enviadoEm }),
+      partialize: (s) => ({ modo: s.modo, feitos: s.feitos, passo: s.passo, respostas: s.respostas, respondendo: s.respondendo, respondendoDe: s.respondendoDe, enviadoEm: s.enviadoEm }),
       // respostas novas (campos acrescentados depois) não quebram quem já tinha dados salvos
       merge: (salvo, atual) => {
         const s = (salvo ?? {}) as Partial<ChatState>

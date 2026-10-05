@@ -115,7 +115,7 @@ export function EnqueteLocal({ className }: { className?: string }) {
   const canal = canalDa(uf)
   const c = nomeCidade(canal, cidade, null)
   return (
-    <div className={`enquete ${className ?? ''}`} role="group" aria-label="Confirmar seu estado">
+    <div className={`enquete enquete-confirmar ${className ?? ''}`} role="group" aria-label="Confirmar seu estado">
       <p className="enquete-pergunta">
         Você está {emUf(uf)}?{c && <span className="enquete-sub">Atendimento de {c}</span>}
       </p>

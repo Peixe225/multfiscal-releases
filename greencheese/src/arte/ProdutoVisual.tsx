@@ -257,6 +257,15 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
     if (!artes) carregarArtesRealistas().catch(() => {})
   }, [artes])
 
+  // o chiado do indisponível só anda na tela: fora dela (o resto da grade, a sacola fechada) para e não gasta CPU
+  useEffect(() => {
+    const el = raiz.current
+    if (!el || !indisponivel || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([e]) => el.toggleAttribute('data-fora', !e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [indisponivel, temReal])
+
   if (!temReal) return <ArteProduto {...props} />
 
   const g = `${uid}-g`

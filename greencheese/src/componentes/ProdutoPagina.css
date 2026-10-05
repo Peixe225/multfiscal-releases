@@ -64,17 +64,18 @@
 .pp-sacola {
   position: relative;
 }
+/* selo pequeno no canto de cima da sacola (como o do Instagram): o desenho continua à vista */
 .pp-contador {
   position: absolute;
-  top: 4px;
-  right: 2px;
-  min-width: 18px;
-  height: 18px;
-  padding: 3px 4px 0;
-  border-radius: 9px;
+  top: 6px;
+  right: 4px;
+  min-width: 8px;
+  height: 11px;
+  padding: 1px 2px 0;
+  border-radius: 8px;
   background: var(--branco);
   color: var(--preto);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   text-align: center;
   border: 2px solid var(--preto);
@@ -82,6 +83,15 @@
 }
 .pp-fechar {
   display: none;
+}
+/* celular estreito: o @ da loja inteiro, sem reticências (sai o avatar, fica o nome que identifica o perfil) */
+@media (max-width: 379px) {
+  .pp-loja .avatar {
+    display: none;
+  }
+  .pp-loja {
+    font-size: 13px;
+  }
 }
 
 /* ---------- arte grande, com o halo da cor do produto ---------- */

@@ -209,3 +209,24 @@
     }
   }
 }
+
+/* celular deitado (ou janela baixa): o quadro 9:16 ficaria com ~180 px de largura e cortaria o X, o @ e o "Pôr na
+   sacola" — vira um quadro largo, com a arte de um lado e nome, preço e adesivos do outro (StoryProduto.css) */
+@media (max-height: 480px) and (orientation: landscape) {
+  .story {
+    --rodape-h: 64px;
+    --qh: calc(100vh - var(--seg-topo) - var(--seg-baixo) - var(--rodape-h));
+    --qw: min(calc(100vw - 24px), 560px);
+    place-items: start center;
+  }
+  .story-vizinho {
+    display: none;
+  }
+}
+@supports (height: 100dvh) {
+  @media (max-height: 480px) and (orientation: landscape) {
+    .story {
+      --qh: calc(100dvh - var(--seg-topo) - var(--seg-baixo) - var(--rodape-h));
+    }
+  }
+}

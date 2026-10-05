@@ -31,6 +31,8 @@ const ARRASTO = 40
 const CHAVE_DICA = 'gc-dica-hero'
 /** Altura mínima da arte (px) para a dica (~60 px) aparecer cobrindo no máximo metade dela e nunca o nome. */
 const ESPACO_DICA = 128
+/** Abaixo dessa altura da arte (px) o próximo produto, esmaecido atrás, não aparece. */
+const ESPACO_ESPERA = 120
 /** Por quanto tempo depois de soltar o dedo o clique no produto ainda vale para o produto que estava sob ele. */
 const VALE_TOQUE = 1000
 
@@ -265,9 +267,17 @@ export function Hero() {
     const meio = q?.querySelector<HTMLElement>('.hero-meio')
     if (!q || !h || !t || !a || !meio) return
     const medir = () => {
+      const arteH = a.offsetHeight
+      const meioArte = topoEm(a, q) + arteH / 2
       q.style.setProperty('--hero-texto', `${topoEm(t, q)}px`)
-      h.style.setProperty('--hero-arte-meio', `${Math.round(topoEm(a, q) + a.offsetHeight / 2)}px`)
-      setDicaCabe(a.offsetHeight >= ESPACO_DICA)
+      h.style.setProperty('--hero-arte-meio', `${Math.round(meioArte)}px`)
+      // o próximo, esmaecido atrás, acompanha a arte: no máximo 60% da altura dela (nunca maior que o produto atual,
+      // nunca por cima do nome) e some quando a arte fica pequena (enquete aberta num celular baixo)
+      const esperaH = Math.min(arteH * 0.6, (q.clientWidth * 0.22 * 16) / 9)
+      h.style.setProperty('--hero-espera-w', `${Math.round((esperaH * 9) / 16)}px`)
+      h.style.setProperty('--hero-espera-y', `${Math.round(meioArte - esperaH * 0.35)}px`)
+      h.style.setProperty('--hero-espera-vis', arteH < ESPACO_ESPERA ? 'hidden' : 'visible')
+      setDicaCabe(arteH >= ESPACO_DICA)
     }
     medir()
     // a enquete some, o nome quebra em duas linhas, a fonte em pixel chega: tudo muda a altura de um dos dois
@@ -612,7 +622,7 @@ export function Hero() {
     <div
       key="story"
       ref={historia}
-      className={`hero-story${segurando ? ' segurando' : ''}${comDica && dica === 'mostra' ? ' com-dica' : ''}`}
+      className={`hero-story${segurando ? ' segurando' : ''}${comDica && dica === 'mostra' ? ' com-dica' : ''}${visivel ? '' : ' fora'}`}
       onFocus={aoFocar}
       onBlur={aoDesfocar}
     >

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import 'lenis/dist/lenis.css'
@@ -28,14 +28,108 @@ import './estilos/layout.css'
 gsap.registerPlugin(ScrollTrigger)
 
 // Camadas que só aparecem com toque: carregam depois da primeira tela (durante a abertura).
-const StoryProduto = lazy(() => import('./componentes/StoryProduto').then((m) => ({ default: m.StoryProduto })))
-const ProdutoPagina = lazy(() => import('./componentes/ProdutoPagina').then((m) => ({ default: m.ProdutoPagina })))
-const InfoStory = lazy(() => import('./componentes/InfoStory').then((m) => ({ default: m.InfoStory })))
-const ChatFolha = lazy(() => import('./componentes/Chat').then((m) => ({ default: m.ChatFolha })))
-const SacolaFolha = lazy(() => import('./componentes/Sacola').then((m) => ({ default: m.SacolaFolha })))
-const SeletorFolha = lazy(() => import('./componentes/Seletor').then((m) => ({ default: m.SeletorFolha })))
-const ConfirmarTroca = lazy(() => import('./componentes/ConfirmarTroca').then((m) => ({ default: m.ConfirmarTroca })))
-const PainelPrevia = lazy(() => import('./componentes/Lateral').then((m) => ({ default: m.PainelPrevia })))
+// Cada uma tem o próprio Suspense (uma camada lenta não segura a página do produto) e a própria guarda de erro: um
+// pedaço que não baixa (soluço da rede no 4G) só deixa aquela camada fechada, com aviso, em vez de derrubar o site.
+
+/**
+ * Baixa a camada tentando de novo antes de desistir (a rede do celular oscila). O navegador guarda a falha de um
+ * import() e não busca o mesmo endereço outra vez: a nova tentativa vai no endereço do pedaço (que vem na mensagem do
+ * erro, no Chrome e no Firefox) com um ?tentativa= no fim.
+ */
+function tentar<M>(carregar: () => Promise<M>, vezes = 3, n = 1): Promise<M> {
+  return carregar().catch((erro: unknown) => {
+    if (n >= vezes) return Promise.reject(erro)
+    const url = String((erro as Error)?.message ?? '').match(/https?:\/\/\S+?\.js/)?.[0]
+    const deNovo = url ? () => import(/* @vite-ignore */ `${url}?tentativa=${Date.now()}`) as Promise<M> : carregar
+    return new Promise<M>((ok, falha) => setTimeout(() => tentar(deNovo, vezes, n + 1).then(ok, falha), 700 * n))
+  })
+}
+
+/** lazy() que pode ser refeito: o React guarda a falha do import e nunca mais tentaria. */
+function camadaPreguicosa<M>(carregar: () => Promise<M>, pegar: (m: M) => ComponentType) {
+  const criar = () => lazy(() => tentar(carregar).then((m) => ({ default: pegar(m) })))
+  let atual = criar()
+  return {
+    Componente: () => {
+      const C = atual
+      return <C />
+    },
+    refazer: () => {
+      atual = criar()
+    },
+  }
+}
+
+const StoryProduto = camadaPreguicosa(() => import('./componentes/StoryProduto'), (m) => m.StoryProduto)
+const ProdutoPagina = camadaPreguicosa(() => import('./componentes/ProdutoPagina'), (m) => m.ProdutoPagina)
+const InfoStory = camadaPreguicosa(() => import('./componentes/InfoStory'), (m) => m.InfoStory)
+const ChatFolha = camadaPreguicosa(() => import('./componentes/Chat'), (m) => m.ChatFolha)
+const SacolaFolha = camadaPreguicosa(() => import('./componentes/Sacola'), (m) => m.SacolaFolha)
+const SeletorFolha = camadaPreguicosa(() => import('./componentes/Seletor'), (m) => m.SeletorFolha)
+const ConfirmarTroca = camadaPreguicosa(() => import('./componentes/ConfirmarTroca'), (m) => m.ConfirmarTroca)
+const PainelPrevia = camadaPreguicosa(() => import('./componentes/Lateral'), (m) => m.PainelPrevia)
+
+interface PropsCamada {
+  camada: { Componente: ComponentType; refazer: () => void }
+  /** A pessoa pediu a camada agora (tocou): se falhou antes, tenta de novo. */
+  pedida: boolean
+  /** Fecha a camada no estado (ela não vai aparecer). */
+  fechar: () => void
+}
+
+class Camada extends Component<PropsCamada, { erro: boolean }> {
+  state = { erro: false }
+  static getDerivedStateFromError() {
+    return { erro: true }
+  }
+  componentDidCatch() {
+    // falhou com a camada pedida: fecha (nada fica travado esperando) e avisa; baixando de reserva, fica calado
+    if (this.props.pedida) {
+      this.props.fechar()
+      useUI.getState().avisar('Sem conexão pra abrir agora. Tenta de novo.')
+    }
+  }
+  componentDidUpdate(antes: PropsCamada) {
+    if (this.state.erro && this.props.pedida && !antes.pedida) {
+      this.props.camada.refazer()
+      this.setState({ erro: false })
+    }
+  }
+  render(): ReactNode {
+    if (this.state.erro) return null
+    const { Componente } = this.props.camada
+    return (
+      <Suspense fallback={null}>
+        <Componente />
+      </Suspense>
+    )
+  }
+}
+
+/** As camadas, cada uma com a guarda dela (só os "aberta?" chegam aqui: o resto da store não re-renderiza as camadas). */
+function Camadas() {
+  const story = useUI((s) => !!s.story)
+  const pagina = useUI((s) => !!s.pagina)
+  const info = useUI((s) => s.infoAberto)
+  const sacola = useUI((s) => s.sacolaAberta)
+  const seletor = useUI((s) => s.seletorAberto)
+  const painel = useUI((s) => s.painelPrevia)
+  const troca = useUI((s) => !!s.trocaPendente)
+  const chat = useChat((s) => s.aberto)
+  const ui = useUI.getState
+  return (
+    <>
+      <Camada camada={StoryProduto} pedida={story} fechar={() => ui().fecharStory()} />
+      <Camada camada={ProdutoPagina} pedida={pagina} fechar={() => ui().fecharPagina()} />
+      <Camada camada={InfoStory} pedida={info} fechar={() => ui().setInfo(false)} />
+      <Camada camada={ChatFolha} pedida={chat} fechar={() => useChat.getState().fechar()} />
+      <Camada camada={SacolaFolha} pedida={sacola} fechar={() => ui().setSacola(false)} />
+      <Camada camada={SeletorFolha} pedida={seletor} fechar={() => ui().setSeletor(false)} />
+      <Camada camada={PainelPrevia} pedida={painel} fechar={() => ui().setPainel(false)} />
+      <Camada camada={ConfirmarTroca} pedida={troca} fechar={() => ui().setTroca(null)} />
+    </>
+  )
+}
 
 /** Monta as camadas no primeiro respiro do navegador, ou na hora se alguém já pediu uma delas. */
 function useCamadasProntas(): boolean {
@@ -112,6 +206,8 @@ export function App() {
     if (abertura || saida) return
     const p = lerParametros()
     if (voltandoDoWhatsApp()) {
+      // só o pedido reabre: o ?produto=/?p= que ficou na URL não pode reabrir a página ou o story depois (recarregar)
+      atualizarParametros({ produto: null, p: null })
       useChat.getState().abrir(useChat.getState().modo)
       return
     }
@@ -180,18 +276,7 @@ export function App() {
         </main>
         <BarraMensagem />
       </div>
-      {camadas && (
-        <Suspense fallback={null}>
-          <StoryProduto />
-          <ProdutoPagina />
-          <InfoStory />
-          <ChatFolha />
-          <SacolaFolha />
-          <SeletorFolha />
-          <PainelPrevia />
-          <ConfirmarTroca />
-        </Suspense>
-      )}
+      {camadas && <Camadas />}
       <Aviso />
     </>
   )

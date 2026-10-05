@@ -16,7 +16,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 8px 10px calc(8px + var(--seg-baixo));
+  padding: 8px max(10px, var(--seg-dir)) calc(8px + var(--seg-baixo)) max(10px, var(--seg-esq));
   background: var(--preto);
   border-top: 1px solid var(--bolha);
 }

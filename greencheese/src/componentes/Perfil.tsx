@@ -38,7 +38,7 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
             <div>
               <dt className="sr-only">Disponíveis aqui</dt>
               <dd>
-                <strong>{disp}</strong> disponíveis aqui
+                <strong>{disp}</strong> disponíveis<span className="perfil-aqui"> aqui</span>
               </dd>
             </div>
           ) : (

@@ -15,6 +15,26 @@ import { MapaBlocos } from './MapaBlocos'
 import './PorEstado.css'
 
 /** "Green Cheese por estado": o story deles com a lista dos perfis, mais o mapa em blocos. */
+/** "@greencheese_importsmg" que pode quebrar depois do "_" (no celular estreito vira duas linhas, sem cortar letra). */
+function Arroba({ perfil }: { perfil: string }) {
+  const partes = perfil.split('_')
+  return (
+    <span className="estado-mencao-txt">
+      @
+      {partes.map((t, i) => (
+        <span key={i}>
+          {t}
+          {i < partes.length - 1 && (
+            <>
+              _<wbr />
+            </>
+          )}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function PorEstado() {
   const uf = useLocal((s) => s.uf)
   const abrirChat = useChat((s) => s.abrir)
@@ -79,7 +99,7 @@ export function PorEstado() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    @{c.instagram}
+                    <Arroba perfil={c.instagram} />
                   </a>
                   <p className="estado-cidade">
                     {c.cidades.length ? c.cidades.map((x) => x.nome).join(' · ') : <span className="legenda">cidade a confirmar</span>}
@@ -115,7 +135,7 @@ export function PorEstado() {
               </span>
               <div className="estado-corpo">
                 <a className="adesivo-mencao estado-mencao" href={linkPerfil(p.instagram)} target="_blank" rel="noopener noreferrer">
-                  @{p.instagram}
+                  <Arroba perfil={p.instagram} />
                 </a>
                 <p className="estado-cidade">
                   <span className="carimbo">{p.nota}</span> <span className="legenda">{p.obs}</span>

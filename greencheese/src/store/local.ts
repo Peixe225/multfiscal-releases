@@ -5,7 +5,7 @@ import { config } from '../dados/config'
 import { ufPorSigla, slug } from '../dados/ufs'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 import { palpitePorIp } from '../lib/geo'
-import { atualizarParametros, lerParametros } from '../lib/url'
+import { atualizarParametros, lerParametros, manterNaURL } from '../lib/url'
 
 export type Origem = 'link' | 'salvo' | 'ip' | 'manual'
 
@@ -76,6 +76,13 @@ export const useLocal = create<LocalState>()(
     },
   ),
 )
+
+// a URL com ?uf= (link da bio, escolha confirmada) acompanha o estado do site mesmo depois de uma folha fechar:
+// recarregar (ou o Android restaurar a aba na volta do WhatsApp) não volta pro estado de antes da troca
+manterNaURL(() => {
+  const s = useLocal.getState()
+  return s.confirmado && s.uf && lerParametros().uf ? { uf: s.uf, cidade: s.cidade } : {}
+})
 
 /**
  * Ordem de decisão do estado: 1) ?uf= na URL (link da bio) 2) escolha salva 3) palpite por IP (pede confirmação) 4) seletor manual.

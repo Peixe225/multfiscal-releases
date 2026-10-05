@@ -92,20 +92,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* 320: "Encomendar este item…" inteiro */
+@media (max-width: 359px) {
+  .barra-pilula {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+}
 .barra-sacola {
   position: relative;
 }
+/* selo pequeno no canto de cima da sacola (como o do Instagram): o desenho continua à vista */
 .barra-contador {
   position: absolute;
-  top: 4px;
-  right: 2px;
-  min-width: 18px;
-  height: 18px;
-  padding: 3px 4px 0;
-  border-radius: 9px;
+  top: 6px;
+  right: 4px;
+  min-width: 8px;
+  height: 11px;
+  padding: 1px 2px 0;
+  border-radius: 8px;
   background: var(--branco);
   color: var(--preto);
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
   border: 2px solid var(--preto);
   box-sizing: content-box;
@@ -158,5 +166,32 @@
   }
   .story-produto .ad-qtd .icone-botao {
     width: 34px;
+  }
+}
+
+/* celular deitado: quadro largo (StoryShell.css) — arte à esquerda; nome, preço e adesivos de compra à direita,
+   inteiros dentro do quadro */
+@media (max-height: 480px) and (orientation: landscape) {
+  .story-produto .sq-tela {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    column-gap: 8px;
+    padding-top: 60px;
+  }
+  .story-produto .sq-tela .sq-arte {
+    grid-row: 1 / 3;
+    margin: 40px 0 8px;
+    min-height: 0;
+  }
+  .story-produto .sq-tela .sq-texto {
+    align-self: end;
+    padding: 0 12px 0 0;
+  }
+  .story-produto .sq-tela .sq-adesivos {
+    padding: 8px 12px 10px 0;
+  }
+  .story-produto .sq-tela .sq-adesivo {
+    top: 60px;
   }
 }

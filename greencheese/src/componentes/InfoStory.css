@@ -33,3 +33,14 @@
 .info-quadro .botao {
   min-width: 240px;
 }
+
+/* celular deitado: o quadro fica largo e baixo (StoryShell.css), o conteúdo aperta na altura */
+@media (max-height: 480px) and (orientation: landscape) {
+  .info-quadro {
+    gap: 8px;
+    padding: 64px 8% 12px;
+  }
+  .info-titulo {
+    font-size: 24px;
+  }
+}

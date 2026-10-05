@@ -4,7 +4,7 @@ import { config } from '../dados/config'
 import { copiarTexto } from '../lib/copiar'
 import { linkPerfil } from '../lib/mensagem'
 import type { Produto } from '../lib/tipos'
-import { atualizarParametros, linkCompartilhar } from '../lib/url'
+import { atualizarParametros, linkCompartilhar, manterNaURL } from '../lib/url'
 import { disponivelEm, produtoPorId } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
@@ -146,6 +146,17 @@ export function StoryProduto() {
     atualizarParametros({ p: id })
     return () => atualizarParametros({ p: null })
   }, [id])
+  // trocou de produto com uma folha por cima (sacola vazia → outra miniatura): a volta da folha cai na entrada do
+  // story, que ainda tem o ?p= de antes
+  useEffect(
+    () =>
+      manterNaURL(() => {
+        const s = useUI.getState().story
+        const atual = s?.lista[s.indice]
+        return atual ? { p: atual } : {}
+      }),
+    [],
+  )
 
   if (!story || !produto) return null
   const disponivel = uf ? (canal ? disponivelEm(produto, uf) : false) : null
@@ -166,7 +177,10 @@ export function StoryProduto() {
       return
     }
     // responde ao story: o item entra na sacola (se ainda não estiver) e abre o chat citando o story
-    if (!itens.some((i) => i.id === produto.id && i.variacao === variacao)) adicionar(produto.id, variacao, qtd)
+    // já na sacola: o pedido leva pelo menos a quantidade escolhida no adesivo (nunca menos do que já tinha)
+    const naSacola = itens.find((i) => i.id === produto.id && i.variacao === variacao)
+    if (!naSacola) adicionar(produto.id, variacao, qtd)
+    else if (qtd > naSacola.qtd) useSacola.getState().alterar(produto.id, variacao, qtd)
     abrirChat('pedido', { respondendo: [produto.id] })
   }
 

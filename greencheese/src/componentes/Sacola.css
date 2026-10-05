@@ -77,10 +77,10 @@
   text-decoration: line-through;
 }
 .ls-tirar {
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 14px;
   border: 1px solid var(--bolha);
-  border-radius: 18px;
+  border-radius: 22px;
   text-decoration: none;
   color: var(--branco);
   font-size: 13px;
@@ -127,7 +127,6 @@
   min-width: 0;
 }
 .sacola-sugestao .botao {
-  min-height: 40px;
   padding: 0 14px;
 }
 

@@ -82,7 +82,7 @@
   position: fixed;
   z-index: 41;
   top: calc(var(--seg-topo) + 22px);
-  right: 10px;
+  right: max(10px, var(--seg-dir));
   min-height: 28px;
   min-width: 44px;
   background: var(--preto);

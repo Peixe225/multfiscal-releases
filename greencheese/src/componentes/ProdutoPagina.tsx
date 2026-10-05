@@ -8,6 +8,7 @@ import { config } from '../dados/config'
 import { emUf, semAcento, ufPorSigla } from '../dados/ufs'
 import { copiarTexto } from '../lib/copiar'
 import { brl, plural, precoOuConsultar } from '../lib/formato'
+import { prenderTab } from '../lib/foco'
 import { depoisDoHistorico, useCamadaNoHistorico } from '../lib/historico'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { calcularLinha, precoUnitario } from '../lib/preco'
@@ -22,6 +23,7 @@ import { useUI, type OrigemPagina, type PaginaAberta } from '../store/ui'
 import { EnqueteVariacao, Empurrao, QuizCombo, SeletorQtd, pulsar, voarAteSacola } from './AdesivosProduto'
 import { LinkAvisar } from './Catalogo'
 import { Avatar, Icone } from './comum'
+import { folhaDoTopo } from './Folha'
 import './ProdutoPagina.css'
 
 // Página do produto: a "aba" que abre ao tocar no produto, no molde da página de produto do Instagram Shopping.
@@ -83,8 +85,6 @@ function guardarPilha(pilha: string[]) {
     /* ignora */
   }
 }
-
-const FOCAVEIS = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
 
 /** "em Teófilo Otoni", "no Rio de Janeiro" (a cidade com o nome do estado leva o artigo do estado), "na Bahia". */
 function ondeFica(canal: Canal | undefined, uf: string, cidade: string | null): string {
@@ -197,8 +197,11 @@ export function ProdutoPagina() {
     const fim = () => {
       setV((x) => (x.fechando ? { ...x, lista: [], saindo: null, fechando: false } : x))
       const volta = retornos[0]
-      if (volta?.isConnected) volta.focus({ preventScroll: true })
-      else if (v.origem === 'story') document.querySelector<HTMLElement>('.story-quadro')?.focus({ preventScroll: true })
+      // um story abriu enquanto a página saía ("Ver nos stories", sacola vazia → miniatura): o foco fica nele, não
+      // no hero por trás
+      const story = document.querySelector<HTMLElement>('.story-quadro')
+      if (volta?.isConnected && (!story || story.closest('.story')?.contains(volta))) volta.focus({ preventScroll: true })
+      else story?.focus({ preventScroll: true })
     }
     if (movimentoReduzido()) {
       fim()
@@ -254,21 +257,14 @@ export function ProdutoPagina() {
   const prender = (e: KeyboardEventReact<HTMLDivElement>) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') e.stopPropagation()
     if (e.key !== 'Tab') return
-    const janela = raiz.current?.querySelector<HTMLElement>(`[data-nivel="${topo}"]`)
-    if (!janela) return
-    const lista = [...janela.querySelectorAll<HTMLElement>(FOCAVEIS)].filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
-    if (!lista.length) return
-    const ativo = document.activeElement
-    const i = lista.indexOf(ativo as HTMLElement)
-    let alvo: HTMLElement | undefined
-    if (i >= 0) alvo = lista[e.shiftKey ? i - 1 : i + 1]
-    else if (ativo && janela.contains(ativo)) {
-      const lado = e.shiftKey ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING
-      const doLado = lista.filter((el) => ativo.compareDocumentPosition(el) & lado)
-      alvo = e.shiftKey ? doLado[doLado.length - 1] : doLado[0]
+    // sacola, chat ou seletor por cima: o foco que ficou aqui atrás vai pra folha (ela prende o Tab dela)
+    const folha = folhaDoTopo()
+    if (folha) {
+      e.preventDefault()
+      folha.focus()
+      return
     }
-    e.preventDefault()
-    ;(alvo ?? (e.shiftKey ? lista[lista.length - 1] : lista[0])).focus()
+    prenderTab(e, raiz.current?.querySelector<HTMLElement>(`[data-nivel="${topo}"]`))
   }
 
   return (
@@ -277,7 +273,7 @@ export function ProdutoPagina() {
       {aberta && (
         <div
           ref={raiz}
-          className="pp"
+          className={`pp${v.fechando ? ' pp-saindo' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby={topo >= 0 ? `pp-nome-${topo}` : undefined}
@@ -397,6 +393,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   const categorias = useCatalogo((s) => s.categorias)
   const itens = useSacola((s) => s.itens)
   const adicionar = useSacola((s) => s.adicionar)
+  const alterar = useSacola((s) => s.alterar)
   const abrirChat = useChat((s) => s.abrir)
   const { voltarPagina, fecharPagina, abrirStory, setSacola, avisar } = useUI.getState()
   const [variacao, setVariacao] = useState<string | null>(produto.variacoes?.[0]?.id ?? null)
@@ -413,7 +410,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   const unitario = precoUnitario(produto, variacao)
   const linha = calcularLinha(produto, qtd, variacao)
   const nSacola = contarItens(itens)
-  const nDeste = itens.filter((i) => i.id === produto.id).reduce((n, i) => n + i.qtd, 0)
+  // só a variação escolhida (a Slim na sacola não conta como "Na sacola" com a Flat selecionada)
+  const nDeste = itens.filter((i) => i.id === produto.id && i.variacao === variacao).reduce((n, i) => n + i.qtd, 0)
   const temCombo = !!produto.combos && produto.preco != null
 
   // "Combina com" é só o que a loja indicou (combinaCom); o resto da mesma categoria vai em "Mais em…", sem dizer
@@ -467,8 +465,11 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
       abrirChat('encomenda', { produtoEncomenda: `${produto.nome}${produto.tamanho ? ` ${produto.tamanho}` : ''}` })
       return
     }
-    if (!itens.some((i) => i.id === produto.id && i.variacao === variacao)) adicionar(produto.id, variacao, qtd)
-    abrirChat('pedido', { respondendo: [produto.id] })
+    // já na sacola: o pedido leva pelo menos a quantidade escolhida aqui (nunca menos do que a sacola já tinha)
+    const naSacola = itens.find((i) => i.id === produto.id && i.variacao === variacao)
+    if (!naSacola) adicionar(produto.id, variacao, qtd)
+    else if (qtd > naSacola.qtd) alterar(produto.id, variacao, qtd)
+    abrirChat('pedido', { respondendo: [produto.id], de: 'pagina' })
   }
 
   const compartilhar = async () => {

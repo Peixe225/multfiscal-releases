@@ -47,6 +47,13 @@ export function emUf(sigla: string | null | undefined): string {
   return `${u.art === 'a' ? 'na' : u.art === 'o' ? 'no' : 'em'} ${u.nome}`
 }
 
+/** "pra Bahia", "pro Rio de Janeiro", "pra Minas Gerais" (o "pra/pro" falado). */
+export function praUf(sigla: string | null | undefined): string {
+  const u = ufPorSigla(sigla)
+  if (!u) return ''
+  return `${u.art === 'o' ? 'pro' : 'pra'} ${u.nome}`
+}
+
 /** "da Bahia", "do Rio de Janeiro", "de Minas Gerais". */
 export function deUf(sigla: string | null | undefined): string {
   const u = ufPorSigla(sigla)

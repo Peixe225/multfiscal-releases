@@ -58,15 +58,17 @@
   gap: 6px;
   padding-right: 48px;
 }
+/* o @ inteiro, sem cortar no meio da letra: quebra depois do "_" quando não cabe (celular estreito) */
 .estado-mencao {
   min-height: 44px;
   max-width: 100%;
   transform-origin: left center;
   font-size: 12px;
-  white-space: nowrap;
   word-break: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.estado-mencao-txt {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .estado-cidade {
   margin-top: 4px;

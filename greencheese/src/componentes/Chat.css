@@ -55,7 +55,7 @@
 }
 .dm-ver-perfil {
   margin-top: 10px;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 14px;
   font-size: 13px;
   border-radius: 8px;
@@ -95,7 +95,9 @@
   color: var(--preto);
   text-align: left;
 }
+/* resposta já dada: tocar volta pra ela (alvo de 44 px, como os chips) */
 .dm-editavel {
+  min-height: 44px;
   cursor: pointer;
 }
 .dm-editavel:active {

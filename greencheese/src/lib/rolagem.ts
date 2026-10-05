@@ -13,9 +13,12 @@ export function obterLenis(): Lenis | null {
   return lenis
 }
 
+// quem rola de verdade é o <html> (o overflow-x dele passa a rolagem pra janela): travar só o body não segura o
+// arrasto do dedo por trás das folhas, nem a roda do mouse sem o Lenis (movimento reduzido)
 export function travarRolagem() {
   travas++
   if (travas === 1) {
+    document.documentElement.classList.add('travado')
     document.body.classList.add('travado')
     lenis?.stop()
   }
@@ -24,6 +27,7 @@ export function travarRolagem() {
 export function liberarRolagem() {
   travas = Math.max(0, travas - 1)
   if (travas === 0) {
+    document.documentElement.classList.remove('travado')
     document.body.classList.remove('travado')
     lenis?.start()
   }

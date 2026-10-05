@@ -1,5 +1,5 @@
 import { canalDa } from '../dados/canais'
-import { emUf } from '../dados/ufs'
+import { emUf, praUf, semAcento, ufPorSigla } from '../dados/ufs'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { Folha } from './Folha'
@@ -10,9 +10,16 @@ export function ConfirmarTroca() {
   const setTroca = useUI((s) => s.setTroca)
   const { uf, cidade, cidadeInformada, escolher } = useLocal()
   const atual = nomeCidade(canalDa(uf), cidade, cidadeInformada) ?? canalDa(uf)?.nome ?? ''
-  const destino = troca ? (canalDa(troca.uf)?.cidades[0]?.nome ?? emUf(troca.uf).replace(/^(no|na|em) /, '')) : ''
+  // "Trocar pra Teófilo Otoni?", "Trocar pro Rio de Janeiro?" (a cidade com o nome do estado leva o artigo dele)
+  const cidadeDestino = troca ? canalDa(troca.uf)?.cidades[0]?.nome : undefined
+  const paraOnde = !troca
+    ? ''
+    : cidadeDestino && semAcento(cidadeDestino) !== semAcento(ufPorSigla(troca.uf)?.nome ?? '')
+      ? `pra ${cidadeDestino}`
+      : praUf(troca.uf)
+  const um = troca?.fora.length === 1
   return (
-    <Folha id="troca" aberta={!!troca} aoFechar={() => setTroca(null)} rotulo="Trocar de estado" cabecalho={<span>Trocar pra {destino}?</span>}>
+    <Folha id="troca" aberta={!!troca} aoFechar={() => setTroca(null)} rotulo="Trocar de estado" cabecalho={<span>Trocar {paraOnde}?</span>}>
       {troca && (
         <div className="troca">
           <p>
@@ -23,7 +30,7 @@ export function ConfirmarTroca() {
               <li key={n}>{n}</li>
             ))}
           </ul>
-          <p className="legenda">Eles continuam na sacola, mas ficam fora do pedido.</p>
+          <p className="legenda">{um ? 'Ele continua na sacola, mas fica fora do pedido.' : 'Eles continuam na sacola, mas ficam fora do pedido.'}</p>
           <div className="troca-botoes">
             <button
               type="button"

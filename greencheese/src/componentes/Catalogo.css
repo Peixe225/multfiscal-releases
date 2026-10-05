@@ -118,9 +118,13 @@
 .chip-disp:disabled {
   opacity: 0.4;
 }
-@media (max-width: 380px) {
+/* celular: a busca ganha a linha inteira (espremida ao lado do chip, o placeholder e o texto digitado sumiam) */
+@media (max-width: 420px) {
   .filtros {
     flex-wrap: wrap;
+  }
+  .busca {
+    flex-basis: 100%;
   }
   .chip-disp {
     flex: 1;

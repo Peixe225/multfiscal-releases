@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { gsap } from 'gsap'
+import { prenderTab } from '../lib/foco'
 import { useCamadaNoHistorico } from '../lib/historico'
 import { movimentoReduzido } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
@@ -43,6 +44,14 @@ export function StoryShell(p: Props) {
   const [oculto, setOculto] = useState(false)
   const [saindo, setSaindo] = useState(false)
   const reduz = movimentoReduzido()
+  /** Quando o story abriu: o 2º toque de um toque duplo no card (o "curtir" do Instagram) não passa o produto. */
+  const abertoEm = useRef(performance.now())
+  /** Quem tinha o foco ao abrir (o card, o destaque): o foco volta pra ele ao fechar. */
+  const voltaFoco = useRef<HTMLElement | null>(null)
+  const indiceRef = useRef(indice)
+  indiceRef.current = indice
+  const alvoVoltaRef = useRef(p.alvoVolta)
+  alvoVoltaRef.current = p.alvoVolta
 
   useCamadaNoHistorico(true, p.id, () => sair())
 
@@ -71,12 +80,29 @@ export function StoryShell(p: Props) {
     return () => liberarRolagem()
   }, [])
 
+  // ao fechar, o foco volta pro card do produto que estava no story (ou pra quem abriu), não pro começo da página;
+  // com outra camada por cima (página do produto, folha), ela cuida do foco
+  useEffect(
+    () => () => {
+      if (document.querySelector('.folha:not(.folha-saindo), .pp:not(.pp-saindo)')) return
+      const card = alvoVoltaRef.current?.(indiceRef.current)
+      const alvo = [card, voltaFoco.current].find((el) => el?.isConnected && !el.closest('.story'))
+      alvo?.focus({ preventScroll: true })
+    },
+    [],
+  )
+
   // entrada: o card cresce até virar o story (voz app)
   useLayoutEffect(() => {
     const q = quadro.current
     const f = fundo.current
     if (!q || !f) return
-    if (reduz) return
+    abertoEm.current = performance.now()
+    voltaFoco.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
+    if (reduz) {
+      q.focus({ preventScroll: true })
+      return
+    }
     gsap.fromTo(f, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'none' })
     const o = p.origem
     if (o && o.width > 0) {
@@ -145,6 +171,8 @@ export function StoryShell(p: Props) {
   const aoDescer = (e: React.PointerEvent<HTMLDivElement>) => {
     // adesivos e botões não navegam (um toque que erra o "−" não pode passar o produto)
     if ((e.target as HTMLElement).closest('button, a, input, .sq-adesivos')) return
+    // logo depois de abrir (enquanto a entrada anima), o toque é o 2º de um toque duplo no card: não passa nem volta
+    if (performance.now() - abertoEm.current < 550) return
     e.currentTarget.setPointerCapture(e.pointerId)
     const timer = window.setTimeout(() => {
       if (g.current) {
@@ -196,7 +224,15 @@ export function StoryShell(p: Props) {
   }
 
   return (
-    <div ref={raiz} className={`story ${segurando ? 'segurando' : ''}`} role="dialog" aria-modal="true" aria-label={p.rotulo}>
+    <div
+      ref={raiz}
+      className={`story ${segurando ? 'segurando' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={p.rotulo}
+      // Tab dá a volta dentro do story (não vai parar no site por trás)
+      onKeyDown={(e) => prenderTab(e, raiz.current)}
+    >
       <div ref={fundo} className="story-fundo cortina" onClick={sair} aria-hidden="true" />
       <div className="story-coluna">
         {p.vizinho && indice > 0 && (

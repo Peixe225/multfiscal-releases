@@ -14,7 +14,10 @@
   --seg-baixo: env(safe-area-inset-bottom, 0px);
   --barra-baixo: 64px; /* barra de mensagem do story, fixa no rodapé */
   --lateral: 0px; /* barra lateral (desktop) */
-  --gutter: 16px;
+  /* no iPhone deitado (viewport-fit=cover), o gutter cresce até sair da faixa do notch e dos cantos */
+  --seg-esq: env(safe-area-inset-left, 0px);
+  --seg-dir: env(safe-area-inset-right, 0px);
+  --gutter: max(16px, var(--seg-esq), var(--seg-dir));
 
   /* Duas vozes de movimento: app (liso, funcional) e pixel (em degraus, decorativo). */
   --ease-app: cubic-bezier(0.22, 1, 0.36, 1);
@@ -47,8 +50,13 @@ body {
   min-height: 100dvh;
 }
 
+html.travado,
 body.travado {
   overflow: hidden;
+}
+/* a barra de rolagem do desktop não some ao travar (sem pulo de largura atrás da folha) */
+html {
+  scrollbar-gutter: stable;
 }
 
 img,
@@ -281,6 +289,9 @@ ol {
   background-size: 4px 4px;
   background-color: rgba(0, 0, 0, 0.5);
   image-rendering: pixelated;
+  /* arrastar na área escurecida não rola a página de trás (o iOS antigo ignora o overflow do html) */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .folha {

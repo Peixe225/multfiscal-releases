@@ -3,6 +3,7 @@ import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
 import { brl, plural } from '../lib/formato'
+import { depoisDoHistorico } from '../lib/historico'
 import { nomeNaMensagem, textoSubtotal, totais } from '../lib/mensagem'
 import { calcularLinha } from '../lib/preco'
 import { disponivelEm, produtoPorId } from '../store/catalogo'
@@ -167,11 +168,12 @@ export function SacolaFolha() {
                   type="button"
                   className="sacola-vazia-story toque"
                   onClick={() => {
+                    // a sacola (e a página do produto, se estava por baixo) sai do histórico primeiro; o story entra
+                    // depois, senão a volta levaria a entrada e o ?p= dele (igual ao "Ver nos stories" da página)
                     setSacola(false)
-                    abrirStory(
-                      disponiveis.map((x) => x.id),
-                      i,
-                    )
+                    if (useUI.getState().pagina) useUI.getState().fecharPagina()
+                    const lista = disponiveis.map((x) => x.id)
+                    depoisDoHistorico(() => abrirStory(lista, i))
                   }}
                   aria-label={`Ver ${p.nome}`}
                 >

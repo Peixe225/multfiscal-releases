@@ -31,6 +31,24 @@ export function atualizarParametros(mudancas: Partial<Parametros>): void {
   }
 }
 
+// A troca feita numa camada (seletor, story por cima da sacola…) escreve na entrada do histórico da camada; quando
+// ela fecha, a volta cai na entrada de baixo, que ainda tem a URL velha (?uf=mg com o site em RJ: recarregar voltaria).
+// Quem escreve na URL diz aqui o que ela deve ter agora, e isso é regravado na entrada onde a volta caiu.
+const fontes = new Set<() => Partial<Parametros>>()
+let ouvindoVolta = false
+
+/** Mantém na URL o que `fonte` devolve depois de cada volta do histórico. Devolve quem desliga. */
+export function manterNaURL(fonte: () => Partial<Parametros>): () => void {
+  fontes.add(fonte)
+  if (!ouvindoVolta) {
+    ouvindoVolta = true
+    window.addEventListener('popstate', () => fontes.forEach((f) => atualizarParametros(f())))
+  }
+  return () => {
+    fontes.delete(fonte)
+  }
+}
+
 /** Link absoluto para compartilhar (produto ou estado), preservando a pasta onde o site está. */
 export function linkCompartilhar(params: Record<string, string>): string {
   const u = new URL(location.href)
