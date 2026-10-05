@@ -48,6 +48,8 @@ export interface Produto {
   /** Vai junto do nome na mensagem do pedido (ex.: "1 L", "lata"). */
   tamanho?: string
   detalhe?: string
+  /** Descrição curta da página do produto (1 ou 2 frases, sem promessa de prazo, frete ou desconto). */
+  descricao?: string
   categoria: string
   /** null = "Consultar" (preço desconhecido; nunca inventar). */
   preco: number | null
