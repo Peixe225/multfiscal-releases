@@ -6,6 +6,7 @@
 }
 
 .hero-story {
+  position: relative;
   height: clamp(500px, 84vh, 780px);
   height: clamp(500px, 84svh, 780px);
 }
@@ -16,6 +17,7 @@
   height: 100%;
   padding-top: calc(var(--seg-topo) + 96px);
   overflow: hidden;
+  /* a página rola na vertical por cima do story; o arrasto lateral fica com o story */
   touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
@@ -35,6 +37,24 @@
   gap: 8px;
   min-height: 40px;
 }
+/* pausar: no celular segurar já pausa e o @ precisa da linha toda — o botão fica escondido (mas inteiro, 44 px)
+   para teclado e leitor de tela, e aparece no foco; no desktop fica à vista, como no instagram.com */
+.hero-pausa {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  margin-top: -22px;
+  background: var(--preto);
+  border-radius: 50%;
+  clip-path: inset(50%);
+}
+.hero-pausa:focus-visible {
+  clip-path: none;
+}
+/* prévia: o selo PRÉVIA fica fixo no canto de cima do celular */
+.hero-quadro.com-selo .hero-pausa {
+  right: 48px;
+}
 .hero-enquetes {
   position: relative;
   z-index: 4;
@@ -50,6 +70,21 @@
   display: none;
 }
 
+/* bordas que passam (esquerda volta, direita avança): por cima do produto, por baixo de enquete e adesivos */
+.hero-zona {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+}
+.hero-zona-esq {
+  left: 0;
+}
+.hero-zona-dir {
+  right: 0;
+}
+
 .hero-espera {
   position: absolute;
   z-index: 0;
@@ -61,9 +96,16 @@
   pointer-events: none;
 }
 
-.hero-palco {
+.hero-meio {
   position: relative;
   z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hero-palco {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   will-change: transform;
@@ -76,6 +118,139 @@
 .hero-sem-uf {
   font: 600 13px/1 var(--ui);
   letter-spacing: 0.08em;
+}
+
+/* o produto é link (arte + nome/preço): a faixa do meio, entre as bordas que passam */
+.hero-produto {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: 28%;
+  right: 28%;
+  cursor: pointer;
+  -webkit-touch-callout: default; /* segurar abre o menu do link (abrir em aba nova) */
+}
+.hero-produto:focus-visible {
+  outline-offset: -2px;
+}
+
+/* dica de primeira vez: no alto da arte, nunca sobre o preço ou os adesivos */
+.hero-dica {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 9px;
+  /* transparência do jeito pixel (a mesma da cortina): o produto aparece atrás, o texto fica legível */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='2' height='1'/%3E%3Crect y='1' width='1' height='1'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  background-color: rgba(0, 0, 0, 0.55);
+  image-rendering: pixelated;
+  color: var(--branco);
+  white-space: nowrap;
+  pointer-events: none;
+  /* voz pixel: aparece e some em degraus */
+  animation: hero-dica-entra 0.45s steps(3, jump-end) 0.4s both;
+}
+.hero-dica.saindo {
+  animation: hero-dica-sai 0.3s steps(3, jump-end) both;
+}
+.hero-dica-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.1;
+}
+@keyframes hero-dica-entra {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes hero-dica-sai {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* setas: no celular, nas bordas do quadro — visíveis só durante a dica (e no foco do teclado), fazem o mesmo que as bordas */
+.hero-seta {
+  position: absolute;
+  z-index: 6;
+  top: 50%;
+  margin-top: -22px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--branco);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-app);
+}
+.hero-seta-esq {
+  left: 0;
+}
+.hero-seta-dir {
+  right: 0;
+}
+.hero-seta-disco {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+}
+.hero-story.com-dica .hero-seta,
+.hero-seta:focus-visible {
+  opacity: 1;
+}
+/* cutucada em degraus para o lado de cada seta (voz pixel) */
+.hero-story.com-dica .hero-seta-esq svg {
+  animation: hero-cutuca-esq 1.2s steps(1, jump-end) 0.4s infinite;
+}
+.hero-story.com-dica .hero-seta-dir svg {
+  animation: hero-cutuca-dir 1.2s steps(1, jump-end) 0.4s infinite;
+}
+@keyframes hero-cutuca-esq {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(-4px);
+  }
+}
+@keyframes hero-cutuca-dir {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  70%,
+  90% {
+    transform: translateX(2px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
 }
 
 .hero-adesivos {
@@ -105,6 +280,7 @@
   white-space: nowrap;
   flex: none;
   transform: rotate(2deg);
+  transition: transform 0.2s var(--ease-app);
 }
 .hero-demo {
   position: absolute;
@@ -112,26 +288,39 @@
   right: 12px;
   top: calc(var(--seg-topo) + 64px);
 }
-.hero-quadro.segurando .hero-cab,
-.hero-quadro.segurando .hero-barras,
-.hero-quadro.segurando .hero-adesivos {
+/* segurando: some o que está por cima do produto, como no app */
+.hero-story.segurando .hero-cab,
+.hero-story.segurando .hero-barras,
+.hero-story.segurando .hero-adesivos,
+.hero-story.segurando .hero-dica,
+.hero-story.segurando .hero-seta {
   opacity: 0;
+}
+
+/* mouse: passar por cima do produto endireita o adesivo VER PRODUTO (diz o que o clique faz) */
+@media (hover: hover) and (pointer: fine) {
+  .hero-quadro:has(.hero-produto:hover) .adesivo-link,
+  .adesivo-link:hover {
+    transform: rotate(0deg) scale(1.04);
+  }
 }
 
 /* ---------- desktop: perfil do estado | story ---------- */
 @media (min-width: 900px) {
   .hero {
     display: grid;
-    grid-template-columns: minmax(300px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: clamp(32px, 6vw, 96px);
-    padding: 48px clamp(24px, 4vw, 64px) 40px;
+    /* folga para as setas de fora do quadro (44 px + 12 px de cada lado) */
+    gap: clamp(76px, 7vw, 112px);
+    padding: 48px clamp(76px, 6vw, 112px) 40px clamp(24px, 3vw, 64px);
     min-height: min(100vh, 900px);
     min-height: min(100dvh, 900px);
   }
   .hero-desktop-perfil {
     display: block;
     justify-self: end;
+    min-width: 0;
   }
   .hero-story {
     --hh: min(calc(100vh - 120px), 760px);
@@ -149,9 +338,84 @@
   }
   .hero-cab {
     top: 16px;
+    right: 0;
+  }
+  /* 40 px de largura (como os do story aberto): no notebook o quadro tem ~340 px e o @ inteiro precisa caber */
+  .hero-pausa,
+  .hero-quadro.com-selo .hero-pausa {
+    position: static;
+    width: 40px;
+    margin: 0 0 0 auto;
+    clip-path: none;
+    background: none;
   }
   .hero-demo {
     top: 64px;
+  }
+  .hero-dica {
+    display: none;
+  }
+
+  /* setas fora do quadro, no meio da altura, como no instagram.com */
+  .hero-seta {
+    opacity: 1;
+    color: var(--preto);
+  }
+  .hero-seta-esq {
+    left: auto;
+    right: calc(100% + 12px);
+  }
+  .hero-seta-dir {
+    right: auto;
+    left: calc(100% + 12px);
+  }
+  .hero-seta-disco {
+    width: 32px;
+    height: 32px;
+    background: var(--branco);
+    opacity: 0.8;
+    transition:
+      opacity 0.2s var(--ease-app),
+      transform 0.2s var(--ease-app);
+  }
+  .hero-seta:hover .hero-seta-disco {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  .hero-seta:active .hero-seta-disco {
+    transform: scale(0.94);
+  }
+  .hero-seta:focus-visible {
+    outline: none;
+  }
+  .hero-seta:focus-visible .hero-seta-disco {
+    opacity: 1;
+    outline: 2px solid var(--branco);
+    outline-offset: 3px;
+  }
+  .hero-story.com-dica .hero-seta svg {
+    animation: none;
+  }
+  .hero-story.segurando .hero-seta {
+    opacity: 1;
+  }
+}
+
+/* desktop estreito (janela pequena, tablet deitado): perfil, story e setas não cabem lado a lado ao lado da lateral —
+   o story vem primeiro, centrado com as setas, e o perfil logo abaixo */
+@media (min-width: 900px) and (max-width: 1199px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 48px;
+    padding: 40px 76px;
+  }
+  .hero-desktop-perfil {
+    order: 1;
+    justify-self: center;
+  }
+  .hero-story {
+    justify-self: center;
   }
 }
 
@@ -186,5 +450,17 @@
   .adesivo-link {
     padding: 0 10px;
     font-size: 12px;
+  }
+}
+
+/* movimento reduzido: dica parada, setas sem cutucada (o resto já corta seco) */
+@media (prefers-reduced-motion: reduce) {
+  .hero-dica,
+  .hero-story.com-dica .hero-seta svg {
+    animation: none;
+  }
+  .hero-dica.saindo {
+    animation: none;
+    opacity: 0;
   }
 }

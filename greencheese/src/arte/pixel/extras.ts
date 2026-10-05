@@ -1,4 +1,4 @@
-// Ícones extras 16×16 (mesmo formato de grades.ts): controles do story, link e o olho riscado do aviso +18.
+// Ícones extras 16×16 (mesmo formato de grades.ts): controles do story, chevrons, link e o olho riscado do aviso +18.
 import type { Grade } from './grades'
 
 function g(linhas: string[]): Grade {
@@ -56,6 +56,43 @@ export const iconesExtras: Record<string, Grade> = {
     '................',
     '................',
     '................',
+    '................',
+    '................',
+    '................',
+  ]),
+  // Chevrons do story (passar/voltar): só a cabeça das setas de grades.ts, mesmo traço de 2 px em degraus de 3 px.
+  'chevron-esq': g([
+    '................',
+    '................',
+    '................',
+    '........xx......',
+    '.......xxx......',
+    '......xxx.......',
+    '.....xxx........',
+    '....xxx.........',
+    '....xxx.........',
+    '.....xxx........',
+    '......xxx.......',
+    '.......xxx......',
+    '........xx......',
+    '................',
+    '................',
+    '................',
+  ]),
+  'chevron-dir': g([
+    '................',
+    '................',
+    '................',
+    '......xx........',
+    '......xxx.......',
+    '.......xxx......',
+    '........xxx.....',
+    '.........xxx....',
+    '.........xxx....',
+    '........xxx.....',
+    '.......xxx......',
+    '......xxx.......',
+    '......xx........',
     '................',
     '................',
     '................',

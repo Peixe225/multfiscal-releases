@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 /**
  * Barrinha de progresso do story conduzida por JS (requestAnimationFrame + transform: scaleX), para poder pausar
@@ -11,8 +11,8 @@ export function useProgresso(opts: { ativo: boolean; duracaoMs: number; chave: s
   const fim = useRef(opts.aoTerminar)
   fim.current = opts.aoTerminar
 
-  // nova chave: zera
-  useEffect(() => {
+  // nova chave: zera antes da pintura (sem um quadro com a barra velha); quem acerta as outras barras depois roda por último
+  useLayoutEffect(() => {
     decorrido.current = 0
     if (barra.current) barra.current.style.transform = 'scaleX(0)'
   }, [opts.chave])
