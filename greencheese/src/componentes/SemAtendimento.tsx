@@ -4,7 +4,7 @@ import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
-import { MapaBlocos } from './MapaBlocos'
+import { MapaBrasil } from './MapaBrasil'
 import './SemAtendimento.css'
 
 /** Estado sem atendimento: o vazio no molde do Instagram ("Nenhuma publicação ainda"), sem prometer entrega. */
@@ -23,7 +23,7 @@ export function SemAtendimento() {
       <p className="sem-txt legenda">
         Por enquanto a entrega é no RJ, MG, SP, ES e SC. {emUf(uf).replace(/^./, (c) => c.toUpperCase())}, dá pra encomendar com um desses perfis.
       </p>
-      <MapaBlocos atual={uf} bloco={32} aoTocar={(s) => escolher(s, null, 'manual')} acender />
+      <MapaBrasil atual={uf} aoTocar={(s) => escolher(s, null, 'manual')} acender celulaMax={3} className="sem-mapa" />
       <ul className="sem-perfis">
         {canais.map((c) => (
           <li key={c.uf}>

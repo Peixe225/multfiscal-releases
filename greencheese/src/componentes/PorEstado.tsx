@@ -1,26 +1,27 @@
 import { useState } from 'react'
-import { canais, canalDa, perfisAConfirmar } from '../dados/canais'
+import { canalDa, perfisAConfirmar, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, ufPorSigla } from '../dados/ufs'
-import { PixelArte } from '../arte/PixelArte'
-import { emblemas } from '../arte/pixel/grades'
 import { situacao } from '../lib/horario'
 import { linkPerfil } from '../lib/mensagem'
-import { rolarPara } from '../lib/rolagem'
-import { useChat } from '../store/chat'
-import { useLocal } from '../store/local'
 import { trocarEstado } from '../lib/troca'
-import { Demo } from './comum'
-import { MapaBlocos } from './MapaBlocos'
+import { useChat } from '../store/chat'
+import { nomeCidade, useLocal } from '../store/local'
+import { Avatar, Demo, Icone } from './comum'
+import { MapaBrasil, ordemAtendidos } from './MapaBrasil'
 import './PorEstado.css'
 
-/** "Green Cheese por estado": o story deles com a lista dos perfis, mais o mapa em blocos. */
-/** "@greencheese_importsmg" que pode quebrar depois do "_" (no celular estreito vira duas linhas, sem cortar letra). */
+// "Segue o perfil do teu estado": o mapa do Brasil com a lupa no Sudeste + SC e, ao lado, a lista dos perfis
+// no molde do "trocar de conta" do Instagram (um perfil por estado; o do cliente marcado). A lista segue a ordem
+// do mapa, de cima para baixo: MG, ES, RJ, SP, SC.
+
+const canaisNoMapa = ordemAtendidos.map((s) => canalDa(s)).filter((c): c is Canal => !!c)
+
+/** "greencheese_importsmg" que pode quebrar depois do "_" (no celular estreito vira duas linhas, sem cortar letra). */
 function Arroba({ perfil }: { perfil: string }) {
   const partes = perfil.split('_')
   return (
-    <span className="estado-mencao-txt">
-      @
+    <>
       {partes.map((t, i) => (
         <span key={i}>
           {t}
@@ -31,29 +32,28 @@ function Arroba({ perfil }: { perfil: string }) {
           )}
         </span>
       ))}
-    </span>
+    </>
   )
 }
 
+const cidadesDe = (c: Canal) => (c.cidades.length ? c.cidades.map((x) => x.nome).join(' · ') : null)
+
 export function PorEstado() {
-  const uf = useLocal((s) => s.uf)
+  const { uf, cidade, cidadeInformada } = useLocal()
   const abrirChat = useChat((s) => s.abrir)
   const [fora, setFora] = useState<string | null>(null)
-  // o estado atual vem primeiro
-  const ordem = [...canais].sort((a, b) => (a.uf === uf ? -1 : b.uf === uf ? 1 : 0))
+  const [realce, setRealce] = useState<string | null>(null)
+  const canalAtual = canalDa(uf)
 
-  const tocarMapa = (s: string) => {
-    if (canalDa(s)) {
-      setFora(null)
-      trocarEstado(s)
-    } else {
-      setFora(s)
-      const el = document.querySelector(`.estados .mapa-uf[aria-label^="${ufPorSigla(s)?.nome}"]`)
-      el?.classList.remove('chiando')
-      void (el as HTMLElement | null)?.offsetWidth
-      el?.classList.add('chiando')
-    }
+  const escolher = (s: string) => {
+    setFora(null)
+    trocarEstado(s)
   }
+  const tocarMapa = (s: string) => {
+    if (canalDa(s)) escolher(s)
+    else setFora(s)
+  }
+  const realcar = (s: string | null) => () => setRealce(s)
 
   return (
     <section id="estados" className="estados" aria-labelledby="estados-titulo">
@@ -62,89 +62,162 @@ export function PorEstado() {
       </h2>
       <div className="estados-grade">
         <div className="estados-mapa">
-          <MapaBlocos atual={uf} bloco={40} aoTocar={tocarMapa} acender />
-          {fora && (
-            <div className="estados-fora" role="status">
-              <p>
-                A Green Cheese ainda não chegou <strong>{emUf(fora)}</strong>.
-              </p>
-              <button type="button" className="botao botao-contorno" onClick={() => abrirChat('encomenda')}>
-                Encomendar mesmo assim
-              </button>
-            </div>
-          )}
+          <MapaBrasil
+            modo="secao"
+            atual={uf}
+            aoTocar={tocarMapa}
+            acender
+            realce={realce}
+            textoPino={canalAtual ? (nomeCidade(canalAtual, cidade, cidadeInformada) ?? canalAtual.nome) : null}
+            balao={
+              fora
+                ? {
+                    uf: fora,
+                    conteudo: (
+                      <>
+                        <p role="status">
+                          A Green Cheese ainda não chegou <strong>{emUf(fora)}</strong> — dá pra encomendar.
+                        </p>
+                        <span className="estados-balao-botoes">
+                          <button type="button" className="botao botao-cheio estados-balao-botao" onClick={() => abrirChat('encomenda')}>
+                            Encomendar
+                          </button>
+                          <button type="button" className="icone-botao estados-balao-fechar" onClick={() => setFora(null)} aria-label="Fechar aviso">
+                            <Icone nome="fechar" tamanho={16} />
+                          </button>
+                        </span>
+                      </>
+                    ),
+                  }
+                : null
+            }
+          />
+          <p className="estados-legenda legenda">
+            <span className="estados-chave estados-chave-aceso" aria-hidden="true" /> tem Green Cheese
+            <span className="estados-chave estados-chave-apagado" aria-hidden="true" /> ainda não chegou
+            <span className="estados-fonte">Fonte: IBGE</span>
+          </p>
         </div>
-        <ul className="estados-lista">
-          {ordem.map((c, k) => {
-            const eh = c.uf === uf
-            const sit = situacao(c)
-            return (
-              <li key={c.uf} className={`estado ${eh ? 'atual' : ''}`}>
-                <button
-                  type="button"
-                  className="estado-uf px toque"
-                  onClick={() => {
-                    if (trocarEstado(c.uf)) rolarPara('#raiz', 0)
-                  }}
-                  aria-label={`Trocar o site para ${c.nome}`}
-                  aria-pressed={eh}
-                >
-                  {c.uf.toUpperCase()}
-                </button>
-                <div className="estado-corpo">
-                  <a
-                    className="adesivo-mencao estado-mencao"
-                    style={{ transform: `rotate(${k % 2 ? 2 : -3}deg)` }}
-                    href={linkPerfil(c.instagram)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Arroba perfil={c.instagram} />
-                  </a>
-                  <p className="estado-cidade">
-                    {c.cidades.length ? c.cidades.map((x) => x.nome).join(' · ') : <span className="legenda">cidade a confirmar</span>}
-                    {eh && <span className="estado-aqui"> · teu atendimento</span>}
-                  </p>
-                  <p className="estado-horario legenda">
-                    {config.modoPrevia || !c.horario.demo ? sit.texto : 'Horário a confirmar'} <Demo ativo={c.horario.demo} />
-                  </p>
-                  {c.entregaGratis && <p className="estado-sextou">{c.entregaGratis.texto}</p>}
-                  <div className="estado-botoes">
+
+        {/* o "trocar de conta" do Instagram: um perfil por estado */}
+        <div className="pe-contas degrau-topo">
+          <span className="pe-contas-alca" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <ul className="pe-contas-lista">
+            {canaisNoMapa.map((c) => {
+              const eh = c.uf === uf
+              const cid = cidadesDe(c)
+              const sub = (
+                <>
+                  {c.nomePerfil && <span>{c.nomePerfil} · </span>}
+                  {cid ?? <span className="pe-contas-confirmar">cidade a confirmar</span>}
+                </>
+              )
+              const avatar = (
+                <span className="pe-conta-avatar">
+                  <Avatar tamanho={52} className={eh ? undefined : 'pe-avatar-visto'} />
+                  <span className="pe-conta-uf px">{c.uf.toUpperCase()}</span>
+                </span>
+              )
+              if (!eh) {
+                return (
+                  <li key={c.uf} className="pe-conta" onMouseEnter={realcar(c.uf)} onMouseLeave={realcar(null)}>
                     <button
                       type="button"
-                      className="botao botao-cheio"
-                      onClick={() => {
-                        if (eh || trocarEstado(c.uf)) abrirChat('pedido')
-                      }}
+                      className="pe-conta-linha toque"
+                      onClick={() => escolher(c.uf)}
+                      onFocus={realcar(c.uf)}
+                      onBlur={realcar(null)}
+                      aria-label={`Trocar para ${c.nome}: @${c.instagram}, ${cid ?? 'cidade a confirmar'}`}
                     >
-                      {eh ? 'Pedir aqui' : `Pedir em ${c.uf.toUpperCase()}`}
+                      {avatar}
+                      <span className="pe-conta-txt">
+                        <span className="pe-conta-arroba">
+                          <Arroba perfil={c.instagram} />
+                        </span>
+                        <span className="pe-conta-sub legenda">{sub}</span>
+                      </span>
+                      <span className="pe-conta-radio" aria-hidden="true" />
                     </button>
-                    <a className="botao botao-contorno" href={linkPerfil(c.instagram)} target="_blank" rel="noopener noreferrer">
-                      Abrir Instagram
-                    </a>
+                  </li>
+                )
+              }
+              const sit = situacao(c)
+              return (
+                <li key={c.uf} className="pe-conta atual" aria-current="true" onMouseEnter={realcar(c.uf)} onMouseLeave={realcar(null)}>
+                  <div className="pe-conta-linha">
+                    {avatar}
+                    <span className="pe-conta-txt">
+                      <span className="pe-conta-arroba">
+                        <Arroba perfil={c.instagram} />
+                      </span>
+                      <span className="pe-conta-sub legenda">
+                        {sub}
+                        <span className="pe-conta-aqui"> · teu atendimento</span>
+                      </span>
+                    </span>
+                    <span className="pe-conta-radio marcado" aria-hidden="true">
+                      <Icone nome="check" tamanho={16} />
+                    </span>
                   </div>
-                </div>
-                <PixelArte grade={emblemas[c.emblema]} tamanho={44} className="estado-emblema" titulo={`Emblema de ${c.nome}`} />
-              </li>
-            )
-          })}
-          {perfisAConfirmar.map((p) => (
-            <li key={p.instagram} className="estado estado-confirmar">
-              <span className="estado-uf px" aria-hidden="true">
-                ?
-              </span>
-              <div className="estado-corpo">
-                <a className="adesivo-mencao estado-mencao" href={linkPerfil(p.instagram)} target="_blank" rel="noopener noreferrer">
-                  <Arroba perfil={p.instagram} />
+                  <div className="pe-conta-mais">
+                    <p className="pe-conta-horario legenda">
+                      {config.modoPrevia || !c.horario.demo ? sit.texto : 'Horário a confirmar'} <Demo ativo={c.horario.demo} />
+                    </p>
+                    {c.entregaGratis && <p className="pe-conta-sextou">{c.entregaGratis.texto}</p>}
+                    <div className="pe-conta-botoes">
+                      <button type="button" className="botao botao-cheio" onClick={() => abrirChat('pedido')}>
+                        Pedir aqui
+                      </button>
+                      <a className="botao botao-contorno" href={linkPerfil(c.instagram)} target="_blank" rel="noopener noreferrer">
+                        Abrir Instagram
+                      </a>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+            {perfisAConfirmar.map((p) => (
+              <li key={p.instagram} className="pe-conta pe-conta-a-confirmar">
+                <a className="pe-conta-linha toque" href={linkPerfil(p.instagram)} target="_blank" rel="noopener noreferrer" aria-label={`@${p.instagram}: perfil a confirmar, ${p.obs}. Abre o Instagram`}>
+                  <span className="pe-conta-avatar pe-conta-avatar-vazio px" aria-hidden="true">
+                    ?
+                  </span>
+                  <span className="pe-conta-txt">
+                    <span className="pe-conta-arroba">
+                      <Arroba perfil={p.instagram} />
+                    </span>
+                    <span className="pe-conta-sub legenda">
+                      <span className="carimbo">{p.nota}</span> {p.obs}
+                    </span>
+                  </span>
+                  <span className="pe-conta-seta" aria-hidden="true">
+                    <Icone nome="instagram" tamanho={16} />
+                  </span>
                 </a>
-                <p className="estado-cidade">
-                  <span className="carimbo">{p.nota}</span> <span className="legenda">{p.obs}</span>
-                </p>
-              </div>
+              </li>
+            ))}
+            {/* no lugar do "Adicionar conta": quem está fora dos 5 estados encomenda */}
+            <li className="pe-conta">
+              <button type="button" className="pe-conta-linha toque" onClick={() => abrirChat('encomenda')}>
+                <span className="pe-conta-avatar pe-conta-avatar-mais" aria-hidden="true">
+                  <Icone nome="mais" tamanho={24} />
+                </span>
+                <span className="pe-conta-txt">
+                  <span className="pe-conta-arroba">Teu estado não tá aqui?</span>
+                  <span className="pe-conta-sub legenda">Dá pra encomendar com um desses perfis</span>
+                </span>
+              </button>
             </li>
-          ))}
-        </ul>
+          </ul>
+        </div>
       </div>
+      <p className="sr-only" role="status">
+        {canalAtual ? `Teu atendimento: Green Cheese ${ufPorSigla(uf)?.nome ?? ''}, @${canalAtual.instagram}` : ''}
+      </p>
     </section>
   )
 }

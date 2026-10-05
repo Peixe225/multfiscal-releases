@@ -6,10 +6,10 @@ import { useUI } from '../store/ui'
 import { trocarEstado } from '../lib/troca'
 import { Avatar } from './comum'
 import { Folha } from './Folha'
-import { MapaBlocos } from './MapaBlocos'
+import { MapaBrasil } from './MapaBrasil'
 import './Local.css'
 
-/** Folha de escolha: molde da página de local do Instagram + mapa em blocos + os 27 estados. */
+/** Folha de escolha: molde da página de local do Instagram + mapa do Brasil (ajuda a achar) + os 27 estados. */
 export function SeletorFolha() {
   const aberto = useUI((s) => s.seletorAberto)
   const setSeletor = useUI((s) => s.setSeletor)
@@ -57,7 +57,7 @@ export function SeletorFolha() {
     >
       <div className="seletor" ref={listaRef}>
         <div className="seletor-mapa">
-          <MapaBlocos atual={uf} bloco={30} aoTocar={escolherUf} />
+          <MapaBrasil atual={uf} aoTocar={escolherUf} celulaMax={2} />
         </div>
 
         <h3 className="seletor-titulo">Onde tem Green Cheese</h3>
