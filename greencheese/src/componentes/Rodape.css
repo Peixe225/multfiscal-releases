@@ -91,7 +91,11 @@
   /* o 'x' das camadas apaga: pinta na cor do fundo do quadro */
   color: var(--fundo-dentro);
   visibility: hidden;
-  animation: 12.5s steps(1, end) infinite;
+  /* propriedades separadas, nunca o atalho "animation" sem nome: o minificador do build reescreve
+     "animation: 12.5s steps(1, end) infinite" como "animation: none" (duração 0) e só o piscar sobrava no ar */
+  animation-duration: 12.5s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
 }
 .q-pega {
   animation-name: mercador-pega;
