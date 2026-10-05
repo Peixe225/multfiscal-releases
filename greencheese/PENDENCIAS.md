@@ -42,10 +42,19 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 
 - **Derivados do tabaco** (Backwoods, charutos, cigarros, fumo): não entram. A Anvisa veda oferta e venda pela internet (RDC 840/2023, art. 6º). Sedas, piteiras, cuias e acessórios entram normalmente.
 - **Depoimentos de clientes**: a seção de repost usa só a ilustração da marca. Reposts reais entram com print e permissão do cliente.
-- Figura encapuzada dos prints (personagem de jogo) e o perfil pessoal citado na bio: não usados.
+- Perfil pessoal citado na bio: não usado.
+
+## Repost: o mercador
+
+- A seção de repost usa o **mercador do Resident Evil 4** em pixel art (pedido do cliente), com produtos da loja no casaco no lugar das armas. É personagem da **Capcom**: serve para a prévia; para a versão oficial, a loja precisa decidir se assume o uso como mascote ou troca por uma figura própria.
+
+## Página do produto
+
+- **Descrições** (`descricao` no `catalogo.json`): escritas só com fatos públicos e certos de cada produto, em tom neutro. **Confirmar com a loja** antes da versão oficial, principalmente as dos 9 produtos de exemplo.
+- "Combina com" usa o campo `combinaCom` e, depois, outros da mesma categoria disponíveis no estado.
 
 ## Publicação
 
-- Hospedagem: não há acesso à Hostinger a partir daqui. O pacote `entrega/greencheese-dist.zip` e o passo a passo estão no LEIA-ME.md (sugestão: `https://oprojeto.online/greencheese/`).
+- **No ar em `https://oprojeto.online/greencheese/`** (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.
 - Se o endereço final for outro, trocar `urlPublica` em `src/dados/config.ts` e gerar o build de novo.
-- Testar dentro do navegador do Instagram, no Android e no iPhone, com o domínio real (https).
+- Testar no navegador do Instagram, no Android e no iPhone de verdade (os testes daqui simulam toque e tamanho de tela, não o aparelho).

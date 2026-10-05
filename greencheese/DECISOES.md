@@ -11,3 +11,5 @@
 9. **Honestidade da prévia**: valores demo e produtos de exemplo marcados; somem com `modoPrevia: false`. Contagens do perfil saem do catálogo (nada de seguidores).
 10. **Stack**: Vite + React + TS, GSAP (ScrollTrigger, Flip carregado depois), Lenis só com mouse, Zustand com persistência segura. Camadas (story, chat, sacola) em chunks separados. Saída estática com `base: './'`.
 11. **Projeto na pasta `greencheese/`** deste repositório (que já tinha outro conteúdo), na branch `claude/keen-ride-4epxve`; `dist/` e o zip de entrega versionados para baixar e subir na Hostinger.
+12. **Navegação e página do produto**: o story do topo passa e volta como o Instagram (bordas, arrastar, setas no desktop) e o produto é um link de verdade (`?produto=`) que abre a página do produto no molde do Instagram Shopping — tela cheia no celular, diálogo no desktop —, com uma entrada no histórico por nível para o voltar do Android.
+13. **Publicação**: só a pasta `public_html/greencheese/` do oprojeto.online, por script (TUS da Hostinger), com `.htaccess` próprio (CSP que libera IP/CEP, HTML sem cache).

@@ -35,18 +35,30 @@ Para conferir o build antes de subir: `npm run preview` e abra o endereço mostr
 
 ## Subir na Hostinger (oprojeto.online)
 
-O pacote pronto está em `entrega/greencheese-dist.zip` (é a pasta `dist/` zipada).
+**No ar:** `https://oprojeto.online/greencheese/` (pasta `public_html/greencheese/`). Só essa pasta é do site; o resto do domínio não é tocado.
 
-1. Entre no **hPanel** da Hostinger → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos**.
-2. Abra `public_html/` e crie a pasta **`greencheese`** (o endereço vai ficar `https://oprojeto.online/greencheese/`).
-   - Quer na raiz do domínio ou num subdomínio (`greencheese.oprojeto.online`)? Pode: é só subir os arquivos na pasta do subdomínio. Depois troque `urlPublica` em `src/dados/config.ts` e gere o build de novo (esse endereço é usado na imagem de compartilhamento e nos links da bio).
-3. Dentro de `greencheese/`, use **Enviar** → escolha `greencheese-dist.zip` → clique com o botão direito no zip → **Extrair**. Confira que o `index.html` ficou direto dentro de `greencheese/` (e não numa subpasta `dist/`).
-4. Apague o zip do servidor.
-5. Abra `https://oprojeto.online/greencheese/` no celular.
+### Publicar uma atualização (automático)
 
-Atualizou alguma coisa? `npm run build`, zipe o conteúdo de `dist/` de novo e repita os passos 3 e 4 (substituindo os arquivos).
+```bash
+npm run build
+HOSTINGER_UPLOAD_URL=… HOSTINGER_AUTH=… HOSTINGER_AUTH_REST=… node scripts/publicar.mjs
+```
 
-> O SSL (https) da Hostinger precisa estar ativo no domínio: a detecção de estado, o CEP e o "copiar pedido" dependem de https.
+A url e as duas chaves saem da API da Hostinger ("Generate upload URL" do site `oprojeto.online`, usuário da hospedagem) e valem por cerca de 6 horas — não vão para o repositório. O script sobe o `.htaccess` primeiro, os arquivos de `assets/` depois e o `index.html` por último (nunca fica um index apontando para arquivo que ainda não subiu). `SO=".htaccess,index.html"` sobe só os arquivos listados.
+
+O `.htaccess` da pasta (vem de `public/.htaccess`) troca a política de segurança (CSP) da raiz do domínio por uma própria: a da raiz só deixa o site falar com o próprio domínio e bloquearia a detecção de estado (ipwho.is, geojs) e o CEP (BrasilAPI, ViaCEP). Também deixa o HTML sem cache (quem abre no celular vê a versão nova na hora) e os arquivos de `assets/` em cache de 1 ano (têm o hash no nome).
+
+### Publicar à mão (hPanel)
+
+O pacote pronto está em `entrega/greencheese-dist.zip` (é a pasta `dist/` zipada, com o `.htaccess`).
+
+1. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (crie se não existir).
+2. **Enviar** → `greencheese-dist.zip` → botão direito → **Extrair**. O `index.html` e o `.htaccess` têm de ficar direto em `greencheese/`.
+3. Apague o zip do servidor e abra o endereço no celular.
+
+Quer na raiz ou num subdomínio? Troque `urlPublica` em `src/dados/config.ts` e gere o build de novo (o endereço vai na imagem de compartilhamento e nos links da bio).
+
+> O SSL (https) precisa estar ativo: a detecção de estado, o CEP e o "copiar pedido" dependem de https.
 
 ### Link para a bio de cada perfil
 
@@ -105,6 +117,7 @@ Cada produto:
 - **Combo** (ex.: 2 por R$ 14,99): `"combos": [{ "qtd": 2, "total": 14.99 }, { "qtd": 3, "total": 19.99 }]` — a sacola aplica o melhor preço sozinha.
 - **Variações** (ex.: piteira flat/slim): `"variacoes": [{ "id": "flat", "nome": "Flat · 6 mm × 3,5 cm" }]`.
 - **Disponível/indisponível**: `true`/`false` por estado. Indisponível continua aparecendo, em cinza, com "Avisar quando chegar".
+- **Descrição** (página do produto): `"descricao"`, 1 ou 2 frases curtas, só fato certo do produto (sem promessa de preço, frete ou prazo). Sem ela, a página só omite o bloco.
 - **Produto novo**: copie um bloco parecido, troque o `id` (sem espaço e sem acento) e os dados. Enquanto não tiver ilustração nem foto, ele aparece em pixel art feita a partir de `arte` (tipo e cores) e `cor` (halo).
 - **`demo: true`** = produto de exemplo. Ele só aparece na prévia; com `modoPrevia: false` some do site.
 
@@ -138,6 +151,8 @@ Crie uma planilha com as colunas `id, preco, rj, mg, sp, es, sc` (disponível = 
 - Abertura em formato de story com a pergunta +18 (lembrada por 30 dias) e o adesivo de localização.
 - Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "Você está em …?"), escolha manual com os 27 estados.
 - Catálogo por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅".
+- Story do topo (hero): passa sozinho; toque nas bordas ou arrastar de lado passa e volta; no computador, setas ao lado do story e ← →. Na primeira visita, uma dica mostra onde tocar.
+- Página do produto ("aba"): tocar no produto do story ou em "VER PRODUTO" abre a página com descrição curta, preço, disponibilidade no estado, formato e combos, quantidade, "Adicionar à sacola", "Pedir este item" e "Combina com". Voltar pelo botão do topo, pelo voltar do Android ou Esc. Cada produto tem link próprio (`?produto=<id>`), que abre direto depois do +18 (segurar o dedo ou Ctrl+clique abre em aba nova). No story do produto, "Mais opções" → "Ver detalhes do produto".
 - Story do produto com barrinhas, toque nas laterais, segurar para pausar, arrastar para baixo para fechar, setas e Esc no teclado.
 - Sacola com combo automático, pedido guiado em formato de DM (CEP preenche o endereço), mensagem pronta para o WhatsApp do estado ou para a DM.
 - Encomenda ("Não achou? A Green Cheese importa."), "Avisar quando chegar", todos os Instagrams, mapa em blocos.
