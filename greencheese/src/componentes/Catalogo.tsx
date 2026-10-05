@@ -105,7 +105,8 @@ function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; 
   const canal = canalDa(uf)
   const itens = [{ id: 'tudo', nome: 'Tudo', curto: 'Tudo', icone: 'tudo' }, ...categorias]
   return (
-    <div className="destaques" role="tablist" aria-label="Categorias">
+    // filtros, não abas (não há painel por aba): grupo de botões de alternar
+    <div className="destaques" role="group" aria-label="Categorias">
       {canal && (
         <button type="button" className="destaque toque" onClick={abrirInfo} aria-label={`${canal.destaque}: atendimento, horário e entrega`}>
           <span className="destaque-bola">
@@ -125,8 +126,7 @@ function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; 
           <button
             key={c.id}
             type="button"
-            role="tab"
-            aria-selected={sel}
+            aria-pressed={sel}
             className={`destaque toque ${sel ? 'sel' : ''}`}
             onClick={() => setCategoria(c.id)}
             aria-label={`${c.nome}: ${uf ? `${acesos} de ${daCat.length} disponíveis` : `${daCat.length} produtos`}`}

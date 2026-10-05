@@ -3,11 +3,11 @@
 // Indisponível: o mesmo produto em cinza, com dither recortado na silhueta e chiado andando por dentro.
 // Sem ilustração nem foto, cai na arte em pixel (ArteProduto).
 
-import { useId, useLayoutEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, type CSSProperties } from 'react'
 import type { Produto } from '../lib/tipos'
 import { movimentoReduzido } from '../lib/movimento'
 import { ArteProduto, gerarImagemArte } from './ArteProduto'
-import { artesRealistas } from './realista'
+import { carregarArtesRealistas, useArtesRealistas } from './realista/carregar'
 import './ProdutoVisual.css'
 
 export interface PropsProdutoVisual {
@@ -180,7 +180,8 @@ function sintonizar(canvas: HTMLCanvasElement, pixel: ImageData, aoMostrarReal: 
 
 export function ProdutoVisual(props: PropsProdutoVisual) {
   const { produto, largura = 90, indisponivel = false, revelar = true, brilho = true, className, style, prioridade = false } = props
-  const Arte = artesRealistas[produto.id]
+  const artes = useArtesRealistas()
+  const Arte = artes?.[produto.id]
   const temReal = !!Arte || !!produto.foto
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const raiz = useRef<HTMLDivElement>(null)
@@ -251,6 +252,10 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
     if (!el || !brilho) return
     el.style.setProperty('--pv-halo', `url(${haloDataUrl(produto.cor, indisponivel)})`)
   }, [produto.cor, indisponivel, brilho])
+
+  useEffect(() => {
+    if (!artes) carregarArtesRealistas().catch(() => {})
+  }, [artes])
 
   if (!temReal) return <ArteProduto {...props} />
 

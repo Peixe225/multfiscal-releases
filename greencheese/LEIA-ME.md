@@ -105,15 +105,19 @@ Cada produto:
 - **Combo** (ex.: 2 por R$ 14,99): `"combos": [{ "qtd": 2, "total": 14.99 }, { "qtd": 3, "total": 19.99 }]` — a sacola aplica o melhor preço sozinha.
 - **Variações** (ex.: piteira flat/slim): `"variacoes": [{ "id": "flat", "nome": "Flat · 6 mm × 3,5 cm" }]`.
 - **Disponível/indisponível**: `true`/`false` por estado. Indisponível continua aparecendo, em cinza, com "Avisar quando chegar".
-- **Produto novo**: copie um bloco parecido, troque o `id` (sem espaço e sem acento) e os dados. A arte em pixel vem de `arte` (tipo e cores) até ter foto.
+- **Produto novo**: copie um bloco parecido, troque o `id` (sem espaço e sem acento) e os dados. Enquanto não tiver ilustração nem foto, ele aparece em pixel art feita a partir de `arte` (tipo e cores) e `cor` (halo).
 - **`demo: true`** = produto de exemplo. Ele só aparece na prévia; com `modoPrevia: false` some do site.
 
-### Foto dos produtos
+### Imagem dos produtos
+
+Hoje os 17 produtos são **ilustrações realistas em código** (SVG), uma por produto, em `src/arte/realista/` (latas, destilados, papel, acessórios). O registro fica em `src/arte/realista/index.ts`: o `id` do produto aponta para o desenho. Ao entrar na tela, o produto "sintoniza": chiado → pixel art → produto real. Indisponível aparece em cinza com chiado por dentro.
+
+Para usar **foto** no lugar da ilustração:
 
 1. Ponha os prints/fotos em `referencias/` e liste em `scripts/recortes.json` qual arquivo é de qual produto.
-2. `npm run recortar` → as fotos saem em `public/produtos/*.webp` e o catálogo passa a usar.
+2. `npm run recortar` → as fotos saem em `public/produtos/*.webp` (fundo recortado) e o catálogo passa a usar (`"foto"` no produto).
 
-A foto passa pelo mesmo tratamento em dither do resto do site.
+A foto ganha prioridade sobre a ilustração e recebe o mesmo halo, a mesma revelação e o mesmo cinza de indisponível.
 
 ### Disponibilidade pelo celular (opcional) — planilha do Google
 
