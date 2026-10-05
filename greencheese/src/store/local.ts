@@ -17,7 +17,7 @@ interface LocalState {
   /** Cidade informada pela pessoa (CEP ou texto) quando o canal ainda não tem cidade cadastrada. */
   cidadeInformada: string | null
   origem: Origem | null
-  /** Palpite de IP só vale depois do "É daí". Link e escolha manual já nascem confirmados. */
+  /** Palpite de IP só vale depois do "Sim" na enquete. Link e escolha manual já nascem confirmados. */
   confirmado: boolean
   detectando: boolean
   /** Palpite de IP numa UF sem atendimento: não troca o site, só avisa. */

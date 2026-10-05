@@ -93,7 +93,7 @@ for (const [nome, w, h] of aparelhos) {
   // chat: abre e o campo aparece
   await p.locator('.barra-fixa .barra-pilula').click()
   await p.waitForTimeout(700)
-  await p.getByRole('button', { name: 'É daí', exact: true }).last().click()
+  await p.getByRole('button', { name: 'Isso', exact: true }).last().click()
   await p.waitForTimeout(300)
   await p.screenshot({ path: `${out}${nome}-3-chat.png` })
   const chips = await p.locator('.dm-atual .dm-chip').evaluateAll((els) => els.map((e) => { const b = e.getBoundingClientRect(); return b.bottom <= window.innerHeight && b.right <= window.innerWidth }))

@@ -136,7 +136,7 @@ Crie uma planilha com as colunas `id, preco, rj, mg, sp, es, sc` (disponível = 
 ## O que o site faz
 
 - Abertura em formato de story com a pergunta +18 (lembrada por 30 dias) e o adesivo de localização.
-- Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "É daí?"), escolha manual com os 27 estados.
+- Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "Você está em …?"), escolha manual com os 27 estados.
 - Catálogo por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅".
 - Story do produto com barrinhas, toque nas laterais, segurar para pausar, arrastar para baixo para fechar, setas e Esc no teclado.
 - Sacola com combo automático, pedido guiado em formato de DM (CEP preenche o endereço), mensagem pronta para o WhatsApp do estado ou para a DM.

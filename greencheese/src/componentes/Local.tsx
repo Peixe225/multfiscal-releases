@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canalDa } from '../dados/canais'
-import { deUf, ufPorSigla } from '../dados/ufs'
+import { emUf, ufPorSigla } from '../dados/ufs'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
@@ -107,7 +107,7 @@ export function TopoLocal() {
   )
 }
 
-/** Enquete do story para o palpite de IP: "Parece que é de Minas Gerais — Teófilo Otoni" [É daí] | [Trocar]. */
+/** Enquete do story para o palpite de IP: "Você está em Minas Gerais?" [Sim] | [Trocar] (cidade atendida embaixo). */
 export function EnqueteLocal({ className }: { className?: string }) {
   const { uf, cidade, confirmado, origem, confirmar } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
@@ -117,12 +117,11 @@ export function EnqueteLocal({ className }: { className?: string }) {
   return (
     <div className={`enquete ${className ?? ''}`} role="group" aria-label="Confirmar seu estado">
       <p className="enquete-pergunta">
-        Parece que é {deUf(uf)}
-        {c ? ` — ${c}` : ''}
+        Você está {emUf(uf)}?{c && <span className="enquete-sub">Atendimento de {c}</span>}
       </p>
       <div className="enquete-opcoes">
         <button type="button" className="enquete-opcao toque" onClick={confirmar}>
-          É daí
+          Sim
         </button>
         <button type="button" className="enquete-opcao toque" onClick={() => setSeletor(true)}>
           Trocar

@@ -196,7 +196,7 @@ export function ChatFolha() {
           perguntas: [
             modo === 'encomenda'
               ? `A encomenda vai pro atendimento de ${lugar}. Pode ser?`
-              : `Teu pedido vai pro atendimento de ${lugar}. É daí?`,
+              : `Teu pedido vai pro atendimento de ${lugar}, certo?`,
             ...(!sit.aberto && (config.modoPrevia || !canal.horario.demo)
               ? [
                   <span key="h">
@@ -207,7 +207,7 @@ export function ChatFolha() {
           ],
           chips: [
             {
-              rotulo: modo === 'encomenda' ? 'Pode' : 'É daí',
+              rotulo: modo === 'encomenda' ? 'Pode' : 'Isso',
               acao: () => {
                 if (canal === canalSite && !local.confirmado) local.confirmar()
                 resp({}, 'local', depoisDoLocal(canal))
@@ -218,7 +218,7 @@ export function ChatFolha() {
               acao: () => (canal === canalSite ? setSeletor(true) : resp({ canalEnc: '' }, 'local', 'local')),
             },
           ],
-          resposta: `${modo === 'encomenda' ? 'Pode' : 'É daí'} — ${lugar}`,
+          resposta: `${modo === 'encomenda' ? 'Pode' : 'Isso'} — ${lugar}`,
         }
       }
       case 'cidade':

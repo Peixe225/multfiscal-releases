@@ -101,6 +101,12 @@ button.adesivo-local-g {
   margin-bottom: 10px;
   text-wrap: balance;
 }
+.enquete-sub {
+  display: block;
+  margin-top: 3px;
+  font: 500 13px/1.2 var(--ui);
+  color: #555;
+}
 .enquete-opcoes {
   display: grid;
   grid-template-columns: 1fr 1fr;
