@@ -53,6 +53,22 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 - **Descrições** (`descricao` no `catalogo.json`): escritas só com fatos públicos e certos de cada produto, em tom neutro. **Confirmar com a loja** antes da versão oficial, principalmente as dos 9 produtos de exemplo.
 - "Combina com" usa o campo `combinaCom` e, depois, outros da mesma categoria disponíveis no estado.
 
+## Teste minha sorte (interativo + conta do cliente)
+
+O que está na prévia: o dichavador que gira, abre e entrega um beck bolado com cupom dentro; conta só com nome e WhatsApp; cupons em "Minha conta"; 1 giro por dia com conta; cupom aplicado na sacola e no pedido. **Na prévia, tudo fica só no aparelho** (sem servidor) e a tela diz isso.
+
+1. **Promoções de verdade**: os 5 prêmios de `src/dados/sorte.ts` são de **exemplo** (`demo: true`, carimbo "exemplo"; somem com `modoPrevia: false` e, sem prêmio válido, o interativo some do site). Promoções, pesos, validade e estoque são decisão da loja.
+2. **Lei 5.768/1971 e Decreto 70.951/1972**: promoção comercial com elemento de sorte pode exigir **autorização prévia do Ministério da Fazenda** (hoje pela Secretaria de Prêmios e Apostas). Confirmar com contador ou advogado antes da versão oficial. O caminho mais seguro é ficar só com descontos condicionados à compra; o tipo `brinde` só entra depois de confirmado.
+3. **CDC, arts. 30 e 31**: oferta precisa obriga a loja. Por isso o "exemplo" na prévia (também na linha do WhatsApp: "· exemplo ·") e a regra completa na versão oficial. "A loja confirma" quer dizer conferir código e estoque, não recusar cupom válido.
+4. **LGPD**: falta definir o controlador (CNPJ), finalidade, base legal, prazo de retenção, canal de exclusão e publicar a política de privacidade (a prévia fica **sem link de propósito**). O opt-in de promoções é separado, desligado por padrão e gravado com data e hora (`aceitaPromoEm`); "Apagar minha conta deste aparelho" apaga conta e cupons.
+5. **Versão oficial validada no servidor** (PHP + MySQL na mesma hospedagem da Hostinger): `POST` conta; entrar com código pelo WhatsApp (hoje entra só com o número, no mesmo aparelho); girar (o **servidor sorteia** e gera o código único); guardar cupom; limite por WhatsApp + aparelho; relógio de America/Sao_Paulo; baixa de "usado" dada pela **loja** num painel simples (não pelo "Mandei"). As telas já falam com uma interface (`AdaptadorConta` em `src/lib/conta.ts`): o adaptador do servidor entra no lugar do local sem mexer nelas. Modo em `src/dados/conta.ts`.
+6. **Nome e imagem**: "beck bolado" fica em `regrasSorte.nomeDoPremio`; a lista de palavras e imagens proibidas (`PALAVRAS_PROIBIDAS`) vale para tudo. A **imagem de compartilhamento e o link da bio ficam sem "beck"** (regras da Meta). O beck é só um tubo de papel enrolado: sem folha, broto, fumaça, ponta acesa ou cinza.
+7. **OCB 4 por 3 junto com o combo "3 por R$ 19,99"**: confirmar com a loja como os dois convivem (o site não recalcula; a mensagem leva o cupom e a loja confirma).
+8. **Álcool e tabaco fora dos prêmios** (Lei 9.294/1996, Anvisa RDC 840/2023): a validação de `src/lib/cupom.ts` recusa prêmio em bebidas e destilados.
+9. **Furos conhecidos da prévia** (aceitos; na versão oficial, validado no servidor): mexer no relógio do aparelho, usar aba anônima ou outro navegador burla o limite de giros; apagar a conta não devolve o giro do dia; o navegador do Instagram, o Safari e o Chrome guardam contas separadas.
+10. **Rodapé**: falta a frase "Quem cria conta no Teste minha sorte: na prévia, nome e WhatsApp ficam só neste aparelho." no fim do parágrafo de privacidade de `src/componentes/Rodape.tsx` (o rodapé está sendo mexido em outra branch; entra quando as duas se juntarem). A mesma informação já aparece no cadastro, na conta e nas regras.
+11. **Modo da conta**: a especificação pedia `conta: { modo }` em `src/dados/config.ts`; como o config está sendo mexido em outra branch, o modo ficou em `src/dados/conta.ts` (`configConta.modo`). Dá pra mover pro config quando as branches se juntarem.
+
 ## Publicação
 
 - **No ar em `https://oprojeto.online/greencheese/`** (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.

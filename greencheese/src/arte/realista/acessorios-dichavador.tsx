@@ -4,28 +4,30 @@ import type { PropsArte } from './comum'
 import { FONTE } from './comum'
 import { r1 } from './acessorios-base'
 
-const CX = 180
-const R = 146
-const K = 0.37 // achatamento das elipses (ry / rx)
-const Y0 = 168 // centro da face de cima da tampa
+// A geometria é exportada para o dichavador do "Teste minha sorte" (src/arte/realista/dichavador-jogo.tsx), que abre
+// este mesmo corpo em 3/4 depois de girar a tampa.
+export const CX = 180
+export const R = 146
+export const K = 0.37 // achatamento das elipses (ry / rx)
+export const Y0 = 168 // centro da face de cima da tampa
 
 /** Faixa lateral de um cilindro entre yt e yb (raios r1 em cima e r2 embaixo, para chanfros). */
-function faixa(yt: number, yb: number, ra: number, rb = ra) {
+export function faixa(yt: number, yb: number, ra: number, rb = ra) {
   return (
     `M${r1(CX - ra)} ${r1(yt)}A${r1(ra)} ${r1(ra * K)} 0 0 0 ${r1(CX + ra)} ${r1(yt)}` +
     `L${r1(CX + rb)} ${r1(yb)}A${r1(rb)} ${r1(rb * K)} 0 0 1 ${r1(CX - rb)} ${r1(yb)}Z`
   )
 }
 /** Meia elipse da frente (linha de junção). */
-const arco = (y: number, r: number) => `M${r1(CX - r)} ${r1(y)}A${r1(r)} ${r1(r * K)} 0 0 0 ${r1(CX + r)} ${r1(y)}`
+export const arco = (y: number, r: number) => `M${r1(CX - r)} ${r1(y)}A${r1(r)} ${r1(r * K)} 0 0 0 ${r1(CX + r)} ${r1(y)}`
 
 // Seções (y da borda de cima e de baixo, na linha central lateral) e raios
 const TAMPA = { yt: Y0 + 8, yb: Y0 + 84, r: R }
-const CAMARA = { yt: Y0 + 86, yb: Y0 + 156, r: R - 3 }
-const PENEIRA = { yt: Y0 + 158, yb: Y0 + 226, r: R - 3 }
-const COLETOR = { yt: Y0 + 228, yb: Y0 + 290, r: R - 1 }
-const ANEL = { yt: Y0 + 232, yb: Y0 + 246 }
-const FUNDO = { yt: Y0 + 290, yb: Y0 + 298 }
+export const CAMARA = { yt: Y0 + 86, yb: Y0 + 156, r: R - 3 }
+export const PENEIRA = { yt: Y0 + 158, yb: Y0 + 226, r: R - 3 }
+export const COLETOR = { yt: Y0 + 228, yb: Y0 + 290, r: R - 1 }
+export const ANEL = { yt: Y0 + 232, yb: Y0 + 246 }
+export const FUNDO = { yt: Y0 + 290, yb: Y0 + 298 }
 const RT = R - 11 // raio da face de cima (dentro do chanfro)
 
 // Recartilhado: cristas verticais distribuídas pela meia-volta da frente (adensam nas bordas, como num cilindro)
@@ -58,7 +60,7 @@ function riscos(secs: { yt: number; yb: number; r: number }[], semente: number) 
   }
   return { claro, escuro }
 }
-const RISCOS = riscos([CAMARA, PENEIRA, { yt: COLETOR.yt + 20, yb: COLETOR.yb, r: COLETOR.r }], 7)
+export const RISCOS = riscos([CAMARA, PENEIRA, { yt: COLETOR.yt + 20, yb: COLETOR.yb, r: COLETOR.r }], 7)
 
 // Anéis concêntricos de usinagem na face de cima
 const ANEIS = (() => {
@@ -73,42 +75,48 @@ const ANEIS = (() => {
 })()
 
 /** Cunha do brilho anisotrópico (gravata) da face torneada, em coordenadas do disco (antes do achatamento). */
-function cunha(ang: number, abre: number, r: number) {
+export function cunha(ang: number, abre: number, r: number) {
   const a1 = ((ang - abre) * Math.PI) / 180
   const a2 = ((ang + abre) * Math.PI) / 180
   return `M0 0L${r1(r * Math.cos(a1))} ${r1(r * Math.sin(a1))}A${r} ${r} 0 0 1 ${r1(r * Math.cos(a2))} ${r1(r * Math.sin(a2))}Z`
 }
 
+/** Paradas do alumínio escovado (lateral do cilindro). */
+export const METAL = [
+  { o: 0, c: '#232a31' },
+  { o: 0.05, c: '#4d5762' },
+  { o: 0.14, c: '#9aa6b2' },
+  { o: 0.215, c: '#dfe6ec' },
+  { o: 0.25, c: '#f6f9fb' },
+  { o: 0.29, c: '#c3ccd5' },
+  { o: 0.42, c: '#8b97a3' },
+  { o: 0.58, c: '#6a7581' },
+  { o: 0.74, c: '#38414a' },
+  { o: 0.86, c: '#4f5964' },
+  { o: 0.945, c: '#93a1ae' },
+  { o: 0.975, c: '#c8d3dc' },
+  { o: 1, c: '#2a3138' },
+]
+
+/** Paradas do anel anodizado do coletor. */
+export const OURO = [
+  { o: 0, c: '#2e1d06' },
+  { o: 0.06, c: '#6b4a14' },
+  { o: 0.16, c: '#c08f35' },
+  { o: 0.23, c: '#f6dc96' },
+  { o: 0.26, c: '#fff4cf' },
+  { o: 0.3, c: '#e2b85e' },
+  { o: 0.46, c: '#b07f2a' },
+  { o: 0.74, c: '#4a3209' },
+  { o: 0.9, c: '#7a561a' },
+  { o: 0.97, c: '#d8b064' },
+  { o: 1, c: '#2e1d06' },
+]
+
 export function Dichavador({ id }: PropsArte) {
   const u = (s: string) => `${id}-${s}`
-  const metal = [
-    { o: 0, c: '#232a31' },
-    { o: 0.05, c: '#4d5762' },
-    { o: 0.14, c: '#9aa6b2' },
-    { o: 0.215, c: '#dfe6ec' },
-    { o: 0.25, c: '#f6f9fb' },
-    { o: 0.29, c: '#c3ccd5' },
-    { o: 0.42, c: '#8b97a3' },
-    { o: 0.58, c: '#6a7581' },
-    { o: 0.74, c: '#38414a' },
-    { o: 0.86, c: '#4f5964' },
-    { o: 0.945, c: '#93a1ae' },
-    { o: 0.975, c: '#c8d3dc' },
-    { o: 1, c: '#2a3138' },
-  ]
-  const ouro = [
-    { o: 0, c: '#2e1d06' },
-    { o: 0.06, c: '#6b4a14' },
-    { o: 0.16, c: '#c08f35' },
-    { o: 0.23, c: '#f6dc96' },
-    { o: 0.26, c: '#fff4cf' },
-    { o: 0.3, c: '#e2b85e' },
-    { o: 0.46, c: '#b07f2a' },
-    { o: 0.74, c: '#4a3209' },
-    { o: 0.9, c: '#7a561a' },
-    { o: 0.97, c: '#d8b064' },
-    { o: 1, c: '#2e1d06' },
-  ]
+  const metal = METAL
+  const ouro = OURO
   const grad = (nome: string, paradas: { o: number; c: string }[]) => (
     <linearGradient id={u(nome)} gradientUnits="userSpaceOnUse" x1={CX - R} y1={0} x2={CX + R} y2={0}>
       {paradas.map((p, i) => (

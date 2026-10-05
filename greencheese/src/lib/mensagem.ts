@@ -20,6 +20,11 @@ export interface DadosPedido {
   /** Só para dinheiro: valor para o troco (null = sem troco). */
   troco?: number | null
   obs?: string
+  /**
+   * Cupom de um interativo (ex.: Teste minha sorte), só quando ele vale nesse pedido. Vira UMA linha logo depois do
+   * "Subtotal:"; o subtotal nunca é recalculado (a loja confirma o desconto). exemplo = prêmio de exemplo da prévia.
+   */
+  cupom?: { codigo: string; regra: string; origem: string; exemplo: boolean }
 }
 
 export const NOME_PAGAMENTO: Record<FormaPagamento, string> = {
@@ -80,6 +85,8 @@ export function montarPedido(d: DadosPedido): string {
     out.push(`${l.qtd}x ${nomeNaMensagem(l)} — ${c.total == null ? 'preço a consultar' : brl(c.total)}`)
   }
   out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
+  // sem cupom, a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
+  if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
   out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (taxa a confirmar)`)
   out.push(`Pagamento: ${textoPagamento(d.pagamento, d.troco)}`)
   out.push(`Nome: ${d.nome.trim()}`)

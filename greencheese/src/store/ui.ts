@@ -23,6 +23,15 @@ interface Aviso {
   texto: string
 }
 
+/** Tela pedida ao abrir um interativo (ex.: "Guardar meu prêmio" no adesivo abre direto no cadastro). */
+export type TelaInterativo = 'cadastro' | 'entrar'
+
+/** Interativo aberto (a "aba" do jogo, no molde da página do produto). */
+export interface InterativoAberto {
+  id: string
+  tela?: TelaInterativo
+}
+
 interface UIState {
   story: StoryAberto | null
   sacolaAberta: boolean
@@ -37,6 +46,13 @@ interface UIState {
   /** Troca de estado esperando confirmação (itens da sacola que não têm no novo estado). */
   trocaPendente: { uf: string; cidade: string | null; fora: string[] } | null
   aviso: Aviso | null
+  /** Interativo aberto ("Teste minha sorte" e os próximos). */
+  interativo: InterativoAberto | null
+  /** Folha "Minha conta". */
+  contaAberta: boolean
+  abrirInterativo: (id: string, tela?: TelaInterativo) => void
+  fecharInterativo: () => void
+  setConta: (v: boolean) => void
   setTroca: (t: UIState['trocaPendente']) => void
   setInfo: (v: boolean) => void
   setPainel: (v: boolean) => void
@@ -68,6 +84,11 @@ export const useUI = create<UIState>((set) => ({
   pagina: null,
   trocaPendente: null,
   aviso: null,
+  interativo: null,
+  contaAberta: false,
+  abrirInterativo: (id, tela) => set({ interativo: { id, tela } }),
+  fecharInterativo: () => set({ interativo: null }),
+  setConta: (v) => set({ contaAberta: v }),
   setTroca: (t) => set({ trocaPendente: t }),
   setInfo: (v) => set({ infoAberto: v }),
   setPainel: (v) => set({ painelPrevia: v }),

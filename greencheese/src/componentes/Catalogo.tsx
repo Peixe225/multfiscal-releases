@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
+import { interativosAtivos, type Interativo } from '../interativos/registro'
 import { semAcento } from '../dados/ufs'
 import { alvoDeSaida } from '../lib/ambiente'
 import { copiarTexto } from '../lib/copiar'
@@ -98,7 +99,31 @@ function Anel({ total, acesos, tamanho = 66 }: { total: number; acesos: number; 
   )
 }
 
-/** Bolinhas de destaque: o destaque real do estado (moto) + as categorias. */
+/** Bolha de um interativo (não é filtro): anel aceso como story não visto, selo "novo" até a 1ª abertura. */
+function DestaqueInterativo({ i }: { i: Interativo }) {
+  const e = i.useEntrada!()
+  const abrir = useUI((s) => s.abrirInterativo)
+  return (
+    <button type="button" className="destaque destaque-interativo toque" onClick={() => abrir(i.id)} aria-label={e.aria}>
+      <span className="destaque-bola">
+        <span className={`anel-interativo${e.aceso ? ' aceso' : ''}`}>
+          <Anel total={1} acesos={e.aceso ? 1 : 0} />
+        </span>
+        <span className="destaque-capa">
+          <Icone nome={i.icone} tamanho={32} />
+        </span>
+        {e.novo && (
+          <span className="destaque-novo carimbo" aria-hidden="true">
+            novo
+          </span>
+        )}
+      </span>
+      <span className="destaque-rot">{e.rotulo}</span>
+    </button>
+  )
+}
+
+/** Bolinhas de destaque: o destaque real do estado (moto), os interativos e as categorias. */
 function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
   const { produtos, categorias } = useCatalogo()
   const uf = useLocal((s) => s.uf)
@@ -118,6 +143,9 @@ function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; 
           <span className="destaque-rot">{canal.destaque}</span>
         </button>
       )}
+      {interativosAtivos().map((i) => (
+        <DestaqueInterativo key={i.id} i={i} />
+      ))}
       {itens.map((c) => {
         const daCat = produtos.filter((p) => c.id === 'tudo' || p.categoria === c.id)
         const acesos = daCat.filter((p) => disponivelEm(p, uf)).length

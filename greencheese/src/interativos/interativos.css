@@ -1,0 +1,129 @@
+/* Casca da aba dos interativos. Celular: tela cheia (topo preso, o corpo rola). Desktop: diálogo sobre a cortina. */
+
+.casca {
+  position: fixed;
+  inset: 0;
+  bottom: var(--teclado, 0px);
+  z-index: 55; /* igual à página do produto (que vem depois no DOM e pinta por cima); folhas (60+) por cima */
+}
+.casca-cortina {
+  display: none;
+}
+.casca-janela {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--preto);
+  outline: none;
+  overflow: hidden;
+}
+
+/* cromo de story: os segmentos ficam acima do topo, como no app */
+.casca-cromo {
+  flex: none;
+  padding: calc(var(--seg-topo) + 6px) 8px 0;
+}
+.casca-cromo:empty {
+  display: none;
+}
+
+.casca-topo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 8px 0 4px;
+  border-bottom: 1px solid var(--bolha);
+  background: var(--preto);
+}
+.casca-cromo:empty + .casca-topo {
+  min-height: calc(52px + var(--seg-topo));
+  padding-top: var(--seg-topo);
+}
+.casca-loja {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 2px;
+}
+.casca-loja-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.casca-loja-txt strong {
+  font: 600 14px/1.15 var(--ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.casca-loja-txt .legenda {
+  font: 400 12px/1.3 var(--ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.casca-fechar {
+  display: none;
+}
+
+.casca-corpo {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.casca-carregando {
+  padding: 48px var(--gutter);
+  text-align: center;
+  color: var(--legenda);
+}
+
+@media (max-width: 359px) {
+  .casca-loja .avatar {
+    display: none;
+  }
+}
+
+/* ---------- desktop: diálogo no meio da área de conteúdo ---------- */
+@media (min-width: 900px) {
+  .casca {
+    --casca-w: min(480px, calc(100% - var(--lateral) - 48px));
+    --casca-h: min(760px, calc(100% - 64px));
+  }
+  .casca-cortina {
+    display: block;
+    z-index: 0;
+  }
+  .casca-janela {
+    z-index: 1;
+    inset: auto;
+    top: calc((100% - var(--casca-h)) / 2);
+    left: calc(var(--lateral) + (100% - var(--lateral) - var(--casca-w)) / 2);
+    width: var(--casca-w);
+    height: var(--casca-h);
+    outline: 1px solid var(--bolha);
+  }
+  .casca-cromo {
+    padding-top: 8px;
+  }
+  .casca-cromo:empty + .casca-topo {
+    min-height: 56px;
+    padding-top: 0;
+  }
+  .casca-voltar {
+    display: none;
+  }
+  .casca-loja {
+    margin-left: 10px;
+  }
+  .casca-fechar {
+    display: inline-grid;
+  }
+}

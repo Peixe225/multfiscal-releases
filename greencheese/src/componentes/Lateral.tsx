@@ -1,6 +1,9 @@
+import { Fragment } from 'react'
 import { config } from '../dados/config'
 import { canais, perfisAConfirmar } from '../dados/canais'
 import { Logo } from '../arte/Logo'
+import { interativosAtivos, type Interativo } from '../interativos/registro'
+import { useConta, useCupons } from '../lib/conta'
 import { copiarTexto } from '../lib/copiar'
 import { rolarPara } from '../lib/rolagem'
 import { useCatalogo } from '../store/catalogo'
@@ -47,11 +50,22 @@ export function Lateral() {
       </div>
       <nav className="lateral-nav">
         {itens.map((i) => (
-          <button key={i.rotulo} type="button" className="lateral-item toque" onClick={i.acao}>
-            <Icone nome={i.icone} tamanho={24} />
-            <span>{i.rotulo}</span>
-            {i.extra}
-          </button>
+          <Fragment key={i.rotulo}>
+            <button type="button" className="lateral-item toque" onClick={i.acao}>
+              <Icone nome={i.icone} tamanho={24} />
+              <span>{i.rotulo}</span>
+              {i.extra}
+            </button>
+            {/* depois da Sacola: os interativos e, com conta, a Minha conta */}
+            {i.icone === 'sacola' && (
+              <>
+                {interativosAtivos().map((x) => (
+                  <ItemInterativo key={x.id} i={x} />
+                ))}
+                <ItemConta />
+              </>
+            )}
+          </Fragment>
         ))}
       </nav>
       {config.modoPrevia && (
@@ -61,6 +75,45 @@ export function Lateral() {
         </button>
       )}
     </aside>
+  )
+}
+
+/** Item de um interativo na lateral, com o ponto branco de pixel quando tem coisa liberada. */
+function ItemInterativo({ i }: { i: Interativo }) {
+  const e = i.useEntrada!()
+  const abrir = useUI((s) => s.abrirInterativo)
+  return (
+    <button type="button" className="lateral-item lateral-item-ponto toque" onClick={() => abrir(i.id)}>
+      <Icone nome={i.icone} tamanho={24} />
+      <span>
+        {i.titulo}
+        {e.ponto && <span className="sr-only"> · liberado</span>}
+      </span>
+      {e.ponto && <span className="lateral-ponto" aria-hidden="true" />}
+    </button>
+  )
+}
+
+/** "Minha conta" (só com conta), com o contador de cupons ativos. */
+function ItemConta() {
+  const conta = useConta()
+  const cupons = useCupons()
+  const setConta = useUI((s) => s.setConta)
+  if (!conta) return null
+  const n = cupons.filter((c) => c.status === 'ativo').length
+  return (
+    <button type="button" className="lateral-item toque" onClick={() => setConta(true)}>
+      <Icone nome="conta" tamanho={24} />
+      <span>
+        Minha conta
+        {n > 0 && <span className="sr-only">: {n === 1 ? '1 cupom ativo' : `${n} cupons ativos`}</span>}
+      </span>
+      {n > 0 && (
+        <span className="lateral-contador px" aria-hidden="true">
+          {n}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -114,6 +167,12 @@ export function PainelPrevia() {
           <li>
             <strong>Disponibilidade por estado</strong> — confirmada só onde o produto apareceu nos stories.
           </li>
+          {interativosAtivos().length > 0 && (
+            <li>
+              <strong>Teste minha sorte</strong> — prêmios de exemplo (src/dados/sorte.ts). A conta, os cupons e o limite de giros ficam só neste aparelho; na versão
+              oficial, o prêmio, o código e o limite são validados no servidor.
+            </li>
+          )}
           {perfisAConfirmar.map((p) => (
             <li key={p.instagram}>
               <strong>@{p.instagram}</strong> — {p.obs}: confirmar se é perfil oficial.

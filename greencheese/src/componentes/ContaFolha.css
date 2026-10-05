@@ -1,0 +1,236 @@
+/* Minha conta: cupons como ingressos de papel (a cor do papel do prêmio), o resto no preto do site. */
+
+.conta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px var(--gutter) 28px;
+}
+.conta-oi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.conta-nome {
+  font: 700 20px/1.2 var(--ui);
+}
+.conta-nome:focus {
+  outline: none;
+}
+.conta-oi .legenda {
+  font-size: 13px;
+}
+.conta-aviso {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bolha);
+  border-radius: 8px;
+  font: 400 13px/1.45 var(--ui);
+}
+.conta-secao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 0 4px;
+  border-bottom: 1px solid var(--bolha);
+}
+.conta-secao:last-child {
+  border-bottom: 0;
+}
+.conta-titulo {
+  font: 700 15px/1.2 var(--ui);
+}
+.conta-giro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+}
+.conta-giro-txt,
+.conta-vazio {
+  font: 400 15px/1.4 var(--ui);
+}
+.conta-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+.conta-cupons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  padding: 4px 0 12px;
+}
+
+/* ingresso de papel */
+.ingresso {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  background: var(--papel);
+  color: #000;
+  border-radius: 4px;
+  /* picote nas laterais (meia-lua), como ingresso */
+  -webkit-mask: radial-gradient(circle 7px at 0 54px, transparent 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 7px at 100% 54px, transparent 98%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 7px at 0 54px, transparent 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 7px at 100% 54px, transparent 98%, #000) right / 51% 100% no-repeat;
+}
+.ingresso-vencido,
+.ingresso-usado,
+.ingresso-encerrado {
+  color: var(--branco);
+}
+.ingresso-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.35);
+}
+.ingresso-vencido .ingresso-topo,
+.ingresso-usado .ingresso-topo,
+.ingresso-encerrado .ingresso-topo {
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+.ingresso-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font: 600 13px/1 var(--ui);
+}
+.ingresso-titulo {
+  margin-top: 6px;
+  font: 700 16px/1.25 var(--ui);
+}
+.ingresso-regra {
+  font: 400 14px/1.35 var(--ui);
+}
+.ingresso-val {
+  font: 400 13px/1.4 var(--ui);
+}
+.ingresso-como {
+  font: 400 12px/1.4 var(--ui);
+  opacity: 0.85;
+}
+.ingresso-link {
+  min-height: 44px;
+  padding: 0 2px;
+  font: 700 13px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  vertical-align: middle;
+}
+.ingresso-acao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ingresso .botao-cheio {
+  background: #000;
+  color: var(--branco);
+}
+.ingresso .botao-contorno {
+  border-color: rgba(0, 0, 0, 0.6);
+  color: #000;
+}
+.ingresso-na-sacola {
+  font: 700 14px/1 var(--ui);
+}
+.ingresso-carimbo {
+  padding: 5px 7px 3px;
+  border: 2px solid currentColor;
+  font-size: 16px;
+  font-weight: 400;
+  transform: rotate(-4deg);
+}
+.ingresso-exemplo {
+  position: absolute;
+  top: 62px;
+  right: 12px;
+  color: #3d3d3d;
+  transform: rotate(-6deg);
+}
+.ingresso-vencido .ingresso-exemplo,
+.ingresso-usado .ingresso-exemplo,
+.ingresso-encerrado .ingresso-exemplo {
+  color: var(--legenda);
+}
+
+.conta-proximos {
+  display: flex;
+  gap: 16px;
+}
+.conta-travado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 72px;
+}
+.conta-travado-bola {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #111;
+  box-shadow: 0 0 0 2px #3a3a3a;
+  color: var(--legenda);
+}
+.conta-travado-rot {
+  font: 400 12px/1 var(--ui);
+  color: var(--legenda);
+}
+.conta-dados {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font: 400 15px/1.4 var(--ui);
+}
+.conta-dados dd {
+  margin: 0;
+}
+.conta-sair {
+  align-items: stretch;
+}
+.conta-sair .legenda {
+  font-size: 13px;
+}
+.conta-sair .botao-texto {
+  align-self: flex-start;
+  padding-left: 0;
+}
+.conta-apagar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--chiado);
+  border-radius: 8px;
+  font: 400 14px/1.4 var(--ui);
+}
+.conta-apagar-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.conta .regras {
+  align-items: flex-start;
+}
+.conta .regras-botao {
+  padding-left: 0;
+}

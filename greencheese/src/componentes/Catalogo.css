@@ -276,3 +276,19 @@
   line-height: 1.2;
   padding-block: 8px;
 }
+
+/* bolha de interativo (Teste minha sorte): não é filtro; anel aceso = tem coisa nova, apagado = visto */
+.destaque-novo {
+  position: absolute;
+  z-index: 1;
+  right: -6px;
+  top: -4px;
+  background: var(--preto);
+  color: var(--branco);
+  transform: rotate(6deg);
+  pointer-events: none;
+}
+.anel-interativo {
+  position: absolute;
+  inset: 0;
+}

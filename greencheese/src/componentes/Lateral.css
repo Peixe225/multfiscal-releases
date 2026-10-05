@@ -178,3 +178,18 @@
     left: var(--lateral);
   }
 }
+
+/* ponto branco de pixel: o interativo tem coisa liberada (na borda, sem apertar o rótulo) */
+.lateral-item-ponto {
+  padding-right: 18px;
+  white-space: nowrap;
+}
+.lateral-ponto {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  background: var(--branco);
+}

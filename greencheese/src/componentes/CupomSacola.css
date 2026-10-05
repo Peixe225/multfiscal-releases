@@ -1,0 +1,100 @@
+/* Linha do cupom e convite discreto na sacola. O subtotal nunca muda: o desconto é confirmado pela loja. */
+
+.cupom-sacola {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px var(--gutter) 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--chiado);
+  border-radius: 4px;
+  font: 400 14px/1.35 var(--ui);
+  text-align: left;
+}
+.cupom-sacola.compacta {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-color: #3a3a3a;
+}
+.cs-txt {
+  flex: 1;
+  min-width: 0;
+}
+.cs-linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 600;
+}
+.cs-linha > svg {
+  margin-top: 2px;
+}
+.cs-nota {
+  margin-top: 2px;
+  font-size: 13px;
+}
+.cs-aviso .cs-nota {
+  color: var(--branco);
+  font-weight: 400;
+}
+.cs-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+.cs-botao,
+.cs-ver {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--bolha);
+  border-radius: 22px;
+  font: 600 13px/1 var(--ui);
+  white-space: nowrap;
+}
+.cs-usar {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.cs-rot {
+  font: 600 13px/1 var(--ui);
+}
+.cs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cs-chip {
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 22px;
+  font: 600 13px/1.1 var(--ui);
+  text-align: left;
+}
+.cs-ver {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cs-convite {
+  width: calc(100% - 2 * var(--gutter));
+  min-height: 52px;
+  color: var(--branco);
+}
+.cs-convite > span:nth-child(2) {
+  flex: 1;
+}
+.cs-seta {
+  font: 400 20px/1 var(--ui);
+  color: var(--legenda);
+}
+/* sacola vazia: o convite fica centrado, abaixo do adesivo */
+.sacola-vazia .cupom-sacola {
+  margin: 0;
+  width: 100%;
+  max-width: 340px;
+}

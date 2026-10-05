@@ -13,7 +13,9 @@ import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal, useLocal } from './store/local'
 import { useUI } from './store/ui'
+import { interativoPorParam } from './interativos/registro'
 import { Abertura, Saida, idadeLembrada } from './componentes/Abertura'
+import { AdesivoInterativo } from './componentes/AdesivoInterativo'
 import { BarraMensagem } from './componentes/BarraMensagem'
 import { Catalogo } from './componentes/Catalogo'
 import { Faixa } from './componentes/Faixa'
@@ -62,10 +64,14 @@ function camadaPreguicosa<M>(carregar: () => Promise<M>, pegar: (m: M) => Compon
 }
 
 const StoryProduto = camadaPreguicosa(() => import('./componentes/StoryProduto'), (m) => m.StoryProduto)
+// interativos ("Teste minha sorte"): antes da página do produto, que abre por cima do jogo ("Ver produto")
+const InterativoCamada = camadaPreguicosa(() => import('./interativos/Interativo'), (m) => m.Interativo)
 const ProdutoPagina = camadaPreguicosa(() => import('./componentes/ProdutoPagina'), (m) => m.ProdutoPagina)
 const InfoStory = camadaPreguicosa(() => import('./componentes/InfoStory'), (m) => m.InfoStory)
 const ChatFolha = camadaPreguicosa(() => import('./componentes/Chat'), (m) => m.ChatFolha)
 const SacolaFolha = camadaPreguicosa(() => import('./componentes/Sacola'), (m) => m.SacolaFolha)
+// Minha conta: por cima da sacola ("ver todos")
+const ContaFolha = camadaPreguicosa(() => import('./componentes/ContaFolha'), (m) => m.ContaFolha)
 const SeletorFolha = camadaPreguicosa(() => import('./componentes/Seletor'), (m) => m.SeletorFolha)
 const ConfirmarTroca = camadaPreguicosa(() => import('./componentes/ConfirmarTroca'), (m) => m.ConfirmarTroca)
 const PainelPrevia = camadaPreguicosa(() => import('./componentes/Lateral'), (m) => m.PainelPrevia)
@@ -116,15 +122,19 @@ function Camadas() {
   const seletor = useUI((s) => s.seletorAberto)
   const painel = useUI((s) => s.painelPrevia)
   const troca = useUI((s) => !!s.trocaPendente)
+  const interativo = useUI((s) => !!s.interativo)
+  const conta = useUI((s) => s.contaAberta)
   const chat = useChat((s) => s.aberto)
   const ui = useUI.getState
   return (
     <>
       <Camada camada={StoryProduto} pedida={story} fechar={() => ui().fecharStory()} />
+      <Camada camada={InterativoCamada} pedida={interativo} fechar={() => ui().fecharInterativo()} />
       <Camada camada={ProdutoPagina} pedida={pagina} fechar={() => ui().fecharPagina()} />
       <Camada camada={InfoStory} pedida={info} fechar={() => ui().setInfo(false)} />
       <Camada camada={ChatFolha} pedida={chat} fechar={() => useChat.getState().fechar()} />
       <Camada camada={SacolaFolha} pedida={sacola} fechar={() => ui().setSacola(false)} />
+      <Camada camada={ContaFolha} pedida={conta} fechar={() => ui().setConta(false)} />
       <Camada camada={SeletorFolha} pedida={seletor} fechar={() => ui().setSeletor(false)} />
       <Camada camada={PainelPrevia} pedida={painel} fechar={() => ui().setPainel(false)} />
       <Camada camada={ConfirmarTroca} pedida={troca} fechar={() => ui().setTroca(null)} />
@@ -134,7 +144,9 @@ function Camadas() {
 
 /** Monta as camadas no primeiro respiro do navegador, ou na hora se alguém já pediu uma delas. */
 function useCamadasProntas(): boolean {
-  const pedida = useUI((s) => !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.trocaPendente)
+  const pedida = useUI(
+    (s) => !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.trocaPendente || !!s.interativo || s.contaAberta,
+  )
   const chat = useChat((s) => s.aberto)
   const [pronto, setPronto] = useState(false)
   useEffect(() => {
@@ -213,13 +225,14 @@ export function App() {
     }
   }, [])
 
-  // depois da abertura: link direto do story (?p=), da página do produto (?produto=) e do chat (?chat=pedido|encomenda); volta do WhatsApp
+  // depois da abertura: link direto do story (?p=), da página do produto (?produto=), do interativo (?jogo=) e do chat
+  // (?chat=pedido|encomenda); volta do WhatsApp
   useEffect(() => {
     if (abertura || saida) return
     const p = lerParametros()
     if (voltandoDoWhatsApp()) {
-      // só o pedido reabre: o ?produto=/?p= que ficou na URL não pode reabrir a página ou o story depois (recarregar)
-      atualizarParametros({ produto: null, p: null })
+      // só o pedido reabre: o ?produto=/?p=/?jogo= que ficou na URL não pode reabrir nada depois (recarregar)
+      atualizarParametros({ produto: null, p: null, jogo: null })
       useChat.getState().abrir(useChat.getState().modo)
       return
     }
@@ -246,6 +259,12 @@ export function App() {
         const origem = useUI.getState().story ? 'story' : 'link'
         pilha.forEach((id) => useUI.getState().abrirPagina(id, origem))
       } else atualizarParametros({ produto: null })
+    }
+    // interativo (?jogo=sorte): abre depois do +18; sem prêmio ativo (ou jogo desconhecido), o parâmetro sai da URL
+    if (p.jogo) {
+      const i = interativoPorParam(p.jogo)
+      if (i?.ativo()) useUI.getState().abrirInterativo(i.id)
+      else atualizarParametros({ jogo: null })
     }
     if (p.chat === 'pedido' || p.chat === 'encomenda') useChat.getState().abrir(p.chat)
     requestAnimationFrame(() => ScrollTrigger.refresh())
@@ -280,6 +299,7 @@ export function App() {
                 <Perfil />
               </div>
               <Catalogo abrirInfo={() => setInfo(true)} />
+              <AdesivoInterativo />
               <Reposts />
             </>
           )}

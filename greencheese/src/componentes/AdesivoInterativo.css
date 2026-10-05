@@ -1,0 +1,88 @@
+/* Card de story do interativo no feed (moldura igual à do repost). */
+
+.adesivos-interativos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px var(--gutter) 0;
+}
+.ai-story {
+  position: relative;
+  width: min(300px, 100%);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+  overflow: hidden;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='150' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='10' y='18' width='2' height='2' opacity='.45'/%3E%3Crect x='84' y='40' width='2' height='2' opacity='.3'/%3E%3Crect x='40' y='96' width='2' height='2' opacity='.4'/%3E%3Crect x='104' y='128' width='2' height='2' opacity='.3'/%3E%3C/svg%3E")
+      0 0 / 120px 150px,
+    var(--preto);
+}
+.ai-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 0;
+  min-width: 0;
+}
+.ai-cab-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 13px/1 var(--ui);
+}
+.ai-cab-rot {
+  flex: none;
+  font: 400 13px/1 var(--ui);
+}
+.ai-dentro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px 18px 24px;
+  text-align: center;
+}
+.ai-icone {
+  color: var(--branco);
+}
+.ai-titulo {
+  text-transform: uppercase;
+}
+.ai-pergunta {
+  max-width: 100%;
+}
+.ai-pergunta .adesivo-texto {
+  font-size: 16px;
+}
+.ai-texto {
+  max-width: 30ch;
+  font: 400 14px/1.4 var(--ui);
+  color: var(--legenda);
+  text-wrap: pretty;
+}
+.ai-cta {
+  margin-top: 4px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15;
+}
+.ai-legenda {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+}
+@media (min-width: 900px) {
+  .adesivos-interativos {
+    padding-top: 48px;
+  }
+}

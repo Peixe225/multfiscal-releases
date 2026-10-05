@@ -1,4 +1,5 @@
 import { canalDa } from '../dados/canais'
+import { useConferirCupom } from '../lib/conta'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
@@ -13,6 +14,7 @@ import { nomeCidade, useLocal } from '../store/local'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
+import { CupomSacola } from './CupomSacola'
 import { Folha } from './Folha'
 import './Sacola.css'
 
@@ -94,6 +96,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
         </div>
       )}
       {pedido.length > 0 && t.economia > 0 && <p className="ls-economia legenda">Combo aplicado: {brl(t.economia)} a menos.</p>}
+      <CupomSacola compacta={compacta} />
       {pedido.length > 0 && <p className="ls-taxa legenda">Entrega: taxa a confirmar no atendimento.</p>}
     </div>
   )
@@ -113,6 +116,8 @@ export function SacolaFolha() {
   const uf = useLocal((s) => s.uf)
   const disponiveis = useDisponiveis()
   const n = contarItens(itens)
+  // o cupom aplicado ainda vale? (vencido, usado ou fora da conta sai com aviso)
+  useConferirCupom(aberta)
 
   // sugestão de combinação (dado da loja: Jack Daniel's + Coca-Cola Vanilla num post deles)
   const sugestoes = pedido
@@ -155,6 +160,7 @@ export function SacolaFolha() {
           <p className="adesivo-texto-bloco">
             <span className="adesivo-texto">Nada aqui ainda. Vem no certo!</span>
           </p>
+          <CupomSacola />
           {ultimo.length > 0 && (
             <button type="button" className="botao botao-contorno" onClick={repetirUltimo}>
               Repetir último pedido ({plural(contarItens(ultimo), 'item', 'itens')})

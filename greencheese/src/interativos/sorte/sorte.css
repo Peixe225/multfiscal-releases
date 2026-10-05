@@ -1,0 +1,790 @@
+/* Teste minha sorte. Fundo preto com estrelas de pixel; cor só no produto e no papel do beck. Só transform/opacity. */
+
+.sorte {
+  --d: min(78vw, 44vh, 340px);
+  --d: min(78vw, 44dvh, 340px);
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px var(--gutter) calc(32px + var(--seg-baixo));
+  text-align: center;
+}
+.sorte > :not(.sorte-estrelas) {
+  position: relative;
+  z-index: 1;
+}
+
+/* estrelas de pixel (2 px), esparsas; 3 piscam em steps(2) a cada 2,4 s */
+.sorte-estrelas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='220' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='14' y='22' width='2' height='2' opacity='.32'/%3E%3Crect x='96' y='8' width='2' height='2' opacity='.22'/%3E%3Crect x='150' y='64' width='2' height='2' opacity='.28'/%3E%3Crect x='58' y='118' width='2' height='2' opacity='.2'/%3E%3Crect x='128' y='160' width='2' height='2' opacity='.32'/%3E%3Crect x='24' y='196' width='2' height='2' opacity='.22'/%3E%3C/svg%3E");
+  background-size: 180px 220px;
+}
+.sorte-estrelas i {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--branco);
+  animation: sorte-pisca 2.4s steps(2, jump-none) infinite;
+}
+.sorte-estrelas i:nth-child(2) {
+  animation-delay: 0.8s;
+}
+.sorte-estrelas i:nth-child(3) {
+  animation-delay: 1.6s;
+}
+.sorte-estrelas.paradas i {
+  animation: none;
+}
+@keyframes sorte-pisca {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* cromo de story: 3 segmentos (Girar, Abrir, Prêmio) que nunca passam sozinhos */
+.sorte-cromo {
+  display: flex;
+  gap: 3px;
+}
+.sorte-seg {
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  border-radius: 1px;
+}
+.sorte-seg > i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
+.sorte-h2 {
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+.sorte-h2:focus,
+.cartao-titulo:focus,
+.form-titulo:focus {
+  outline: none;
+}
+
+.sorte-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  max-width: 36ch;
+}
+.sorte-pergunta {
+  transform-origin: center;
+}
+.sorte-sub {
+  font: 400 15px/1.4 var(--ui);
+  color: var(--legenda);
+  text-wrap: pretty;
+}
+/* tela baixa (navegador do Instagram): o adesivo sai, o disco ganha espaço */
+@media (max-height: 639px) {
+  .sorte-pergunta {
+    display: none;
+  }
+  .sorte-intro {
+    margin-top: 6px;
+  }
+}
+
+.sorte-esperando {
+  margin-top: 10px;
+}
+
+/* ---------- cena: palco e cartão na mesma célula (o cartão cola por cima do dichavador recuado) ---------- */
+.sorte-cena {
+  display: grid;
+  grid-template-areas: 'a';
+  justify-items: center;
+  width: 100%;
+  margin-top: 14px;
+}
+.sorte-cena > * {
+  grid-area: a;
+  align-self: start;
+}
+
+.sorte-palco-caixa {
+  width: calc(var(--d) + 32px);
+  height: calc(var(--d) + 32px);
+}
+.sorte-palco {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* o gesto só no palco do jogo: touch-action none só aqui (o resto da tela rola) */
+.sorte-palco-ativo {
+  touch-action: none;
+  cursor: grab;
+}
+.sorte-palco-ativo:active {
+  cursor: grabbing;
+}
+
+.sorte-anel {
+  position: absolute;
+  z-index: 2;
+  inset: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  overflow: visible;
+}
+.sorte-anel circle {
+  stroke: #3a3a3a;
+}
+.sorte-anel circle.aceso {
+  stroke: var(--branco);
+}
+
+.sorte-corpo,
+.sorte-labio,
+.sorte-beck {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+}
+.sorte-corpo {
+  z-index: 3;
+}
+.sorte-beck {
+  z-index: 4;
+  visibility: hidden;
+}
+.sorte-labio {
+  z-index: 5;
+}
+.sorte-tampa {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+.sorte-lado {
+  position: absolute;
+  opacity: 0;
+}
+.sorte-disco {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: var(--d);
+  height: var(--d);
+  contain: strict;
+  border-radius: 50%;
+  pointer-events: auto;
+}
+.sorte-disco:focus-visible {
+  outline: 2px solid var(--branco);
+  outline-offset: 6px;
+}
+.sorte-camada {
+  position: absolute;
+  inset: 0;
+}
+.sorte-camada > svg {
+  width: 100%;
+  height: 100%;
+}
+.sorte-corpo > svg,
+.sorte-labio > svg,
+.sorte-lado > svg,
+.sorte-beck > svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* indicador às 12h: inverte 1 quadro a cada trava */
+.sorte-indicador {
+  position: absolute;
+  z-index: 7;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--branco);
+  line-height: 0;
+  pointer-events: none;
+}
+.sorte-indicador.inv {
+  background: var(--branco);
+  color: var(--preto);
+}
+.sorte-palco-travado .sorte-indicador {
+  top: -8px;
+  color: var(--legenda);
+  background: var(--preto);
+  padding: 0 4px;
+}
+.sorte-palco-travado .sorte-disco,
+.sorte-palco-parado .sorte-disco {
+  opacity: 0.85;
+}
+
+/* convite: dedo-guia dando a volta no disco e o adesivo "Gira a tampa" */
+.sorte-dedo {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  color: var(--branco);
+  opacity: 0;
+  pointer-events: none;
+}
+.convidando .sorte-dedo {
+  animation: sorte-dedo 4s steps(1, end) 2.5s infinite;
+}
+@keyframes sorte-dedo {
+  0% {
+    opacity: 1;
+    transform: rotate(0deg) translateY(calc(var(--d) * -0.43)) rotate(0deg);
+  }
+  3.75% {
+    opacity: 1;
+    transform: rotate(45deg) translateY(calc(var(--d) * -0.43)) rotate(-45deg);
+  }
+  7.5% {
+    opacity: 1;
+    transform: rotate(90deg) translateY(calc(var(--d) * -0.43)) rotate(-90deg);
+  }
+  11.25% {
+    opacity: 1;
+    transform: rotate(135deg) translateY(calc(var(--d) * -0.43)) rotate(-135deg);
+  }
+  15% {
+    opacity: 1;
+    transform: rotate(180deg) translateY(calc(var(--d) * -0.43)) rotate(-180deg);
+  }
+  18.75% {
+    opacity: 1;
+    transform: rotate(225deg) translateY(calc(var(--d) * -0.43)) rotate(-225deg);
+  }
+  22.5% {
+    opacity: 1;
+    transform: rotate(270deg) translateY(calc(var(--d) * -0.43)) rotate(-270deg);
+  }
+  26.25% {
+    opacity: 1;
+    transform: rotate(315deg) translateY(calc(var(--d) * -0.43)) rotate(-315deg);
+  }
+  30%,
+  100% {
+    opacity: 0;
+    transform: rotate(360deg) translateY(calc(var(--d) * -0.43)) rotate(-360deg);
+  }
+}
+.convidando .sorte-tampa {
+  animation: sorte-balanco 4s steps(1, end) infinite;
+}
+@keyframes sorte-balanco {
+  0%,
+  84% {
+    transform: rotate(0deg);
+  }
+  86% {
+    transform: rotate(-6deg);
+  }
+  88% {
+    transform: rotate(6deg);
+  }
+  90% {
+    transform: rotate(-6deg);
+  }
+  92% {
+    transform: rotate(6deg);
+  }
+  94%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+.sorte-adesivo-gira {
+  position: absolute;
+  z-index: 8;
+  top: -6px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 8px;
+  font: 700 14px/1 var(--ui);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: rotate(4deg);
+  animation: sorte-cai 0.24s steps(4, end) 0.4s both;
+}
+@keyframes sorte-cai {
+  from {
+    opacity: 0;
+    transform: translateY(-24px) rotate(4deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(4deg);
+  }
+}
+
+/* legendas do beck ("Saiu bolado." / "Só papel e sorte.") */
+.sorte-leg-beck {
+  z-index: 9;
+  margin-top: calc(28px + 44px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  visibility: hidden;
+  pointer-events: none;
+}
+.sorte-leg-beck .px-16 {
+  padding: 3px 6px 2px;
+  background: var(--preto);
+}
+.sorte-leg-beck .legenda {
+  font-size: 13px;
+  padding: 0 6px;
+  background: var(--preto);
+}
+
+/* ---------- controles do giro ---------- */
+.sorte-controles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 6px;
+}
+.sorte-legenda {
+  min-height: 20px;
+  font: 600 14px/1.3 var(--ui);
+}
+.sorte-girar {
+  min-width: 168px;
+  min-height: 48px;
+}
+.sorte-rodape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.sorte-previa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 36ch;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* ---------- prêmio, guardado, espera, bloqueado ---------- */
+.sorte-acoes,
+.sorte-bloco {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(340px, 100%);
+  margin-top: 24px;
+}
+.sorte-bloco {
+  align-items: center;
+  margin-top: 18px;
+}
+.sorte-bloco .botao-largo {
+  margin-top: 6px;
+}
+.sorte-bloco-icone {
+  color: var(--legenda);
+}
+.sorte-nota {
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+.sorte-fechou {
+  font: 700 17px/1.3 var(--ui);
+  text-wrap: balance;
+}
+.sorte-bloco > p:not(.sorte-fechou):not(.legenda) {
+  font: 400 15px/1.4 var(--ui);
+}
+.sorte-contagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px 14px;
+  background: var(--bolha);
+  border-radius: 12px;
+  transform: rotate(-2deg);
+}
+.sorte-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--chiado);
+}
+.sorte-mini-titulo {
+  font: 600 15px/1.3 var(--ui);
+}
+.sorte-cadastro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(400px, 100%);
+  margin-top: 6px;
+}
+.sorte-form {
+  width: 100%;
+  text-align: left;
+}
+
+/* ---------- cartão do prêmio (o papel do beck desenrolado) ---------- */
+.cartao-pos {
+  position: relative;
+  z-index: 8;
+  width: min(86vw, 340px);
+  margin-top: 28px;
+  transform: rotate(-2deg);
+}
+.cartao-premio {
+  position: relative;
+  overflow: hidden;
+  background: var(--papel);
+  color: #000;
+  text-align: left;
+  border-radius: 3px;
+}
+/* borda de baixo levemente enrolada (sombreado por gradiente, sem filtro) */
+.cartao-premio::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+.cartao-fibras {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cartao-cola {
+  position: relative;
+  height: 22px;
+  padding: 3px 10px 0;
+  background: rgba(0, 0, 0, 0.09);
+  color: rgba(0, 0, 0, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: center;
+  line-height: 1;
+}
+@media (max-width: 379px) {
+  .cartao-cola-marca {
+    display: none;
+  }
+}
+.cartao-corpo {
+  position: relative;
+  padding: 14px 16px 16px;
+}
+.cartao-exemplo {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  color: #3d3d3d;
+  transform: rotate(-6deg);
+}
+.cartao-guardado {
+  position: absolute;
+  top: 46px;
+  right: 14px;
+  padding: 5px 7px 3px;
+  border: 2px solid #000;
+  font-size: 20px;
+  color: #000;
+  transform: rotate(-6deg);
+}
+.cartao-deu {
+  color: #000;
+}
+.cartao-destaque {
+  margin-top: 6px;
+  font-size: 48px;
+  font-weight: 500;
+  line-height: 0.95;
+}
+.cartao-titulo {
+  margin-top: 8px;
+  font: 600 17px/1.25 var(--ui);
+}
+.cartao-regra {
+  margin-top: 4px;
+  font: 400 15px/1.35 var(--ui);
+}
+.cartao-sub {
+  margin-top: 6px;
+  font: 400 13px/1.4 var(--ui);
+  color: #3d3d3d;
+}
+.cartao-produto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 8px 0;
+  border-top: 1px dashed rgba(0, 0, 0, 0.3);
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.3);
+}
+.cartao-mini {
+  flex: none;
+  width: 45px;
+  aspect-ratio: 9 / 16;
+  background: var(--preto);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.cartao-produto-nome {
+  flex: 1;
+  min-width: 0;
+  font: 600 14px/1.25 var(--ui);
+}
+.cartao-ver {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px 0 8px;
+  font: 700 14px/1 var(--ui);
+  color: #000;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cartao-validade {
+  margin-top: 10px;
+  font: 400 13px/1.4 var(--ui);
+}
+.cartao-confirma {
+  margin-top: 2px;
+  font: 600 13px/1.4 var(--ui);
+}
+.cartao-codigo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.3);
+}
+.cartao-codigo-rot {
+  width: 100%;
+  font: 700 12px/1 var(--ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cartao-codigo-valor {
+  display: inline-flex;
+  align-items: center;
+  color: #000;
+}
+/* mosaico de censura em pixel sobre o código (CSS, 2 tons, sem imagem) */
+.cartao-mosaico {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(4, 15px);
+  gap: 2px;
+  height: 22px;
+  margin-left: 2px;
+}
+.cartao-mosaico > i {
+  position: relative;
+  background: repeating-conic-gradient(#1c1c1c 0% 25%, #6e6e6e 0% 50%) 0 0 / 6px 6px;
+}
+.cartao-mosaico-por-baixo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+}
+.cartao-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #000;
+  border-radius: 999px;
+  font: 600 14px/1 var(--ui);
+  color: #000;
+}
+.cartao-rolo {
+  position: absolute;
+  z-index: 2;
+  left: -2px;
+  right: -2px;
+  top: -9px;
+  height: 18px;
+  border-radius: 9px;
+  background: linear-gradient(to bottom, var(--papel-escuro), var(--papel-claro) 35%, var(--papel) 62%, var(--papel-escuro));
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.faixa-premio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 20px;
+  padding: 9px 14px;
+  border-radius: 2px;
+  color: #000;
+  font: 600 14px/1.2 var(--ui);
+  transform: rotate(-2deg);
+}
+
+/* ---------- regras e "o que pode sair" ---------- */
+.regras {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.regras-botao {
+  min-height: 44px;
+  padding: 0 8px;
+  font: 600 13px/1 var(--ui);
+  color: var(--branco);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.regras-corpo {
+  width: min(340px, 100%);
+  margin-top: 6px;
+  padding: 14px;
+  border: 1px solid var(--bolha);
+  border-radius: 8px;
+  text-align: left;
+}
+.regras-titulo {
+  margin-bottom: 8px;
+  font: 700 14px/1.2 var(--ui);
+  color: var(--branco);
+}
+.regras-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-left: 18px;
+  list-style: square;
+  font: 400 13px/1.45 var(--ui);
+  color: var(--legenda);
+}
+.regras-quiz {
+  margin-top: 16px;
+  padding: 0 8px 8px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 12px;
+  overflow: hidden;
+  transform: rotate(1deg);
+}
+.regras-quiz-topo {
+  margin: 0 -8px 6px;
+  padding: 8px 10px;
+  background: var(--preto);
+  color: var(--branco);
+  font: 800 14px/1 var(--ui);
+  text-align: center;
+  border-bottom: 2px solid var(--branco);
+}
+.regras-quiz-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  margin-top: 5px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid #dbdbdb;
+  border-radius: 20px;
+  font: 700 14px/1.2 var(--ui);
+}
+.regras-quiz-letra {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #c7c7c7;
+  border-radius: 50%;
+  font: 800 12px/1 var(--ui);
+}
+.regras-nota {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* ---------- celular deitado: disco à esquerda, o resto numa coluna à direita ---------- */
+@media (max-height: 500px) and (orientation: landscape) and (max-width: 899px) {
+  .sorte {
+    --d: min(46vh, 340px);
+    --d: min(46dvh, 340px);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 24px;
+    align-items: start;
+    justify-items: center;
+  }
+  .sorte-cena {
+    grid-column: 1;
+    grid-row: 1 / span 8;
+    margin-top: 4px;
+  }
+  .sorte > :not(.sorte-estrelas):not(.sorte-cena) {
+    grid-column: 2;
+  }
+  .sorte-intro .sorte-pergunta {
+    display: none;
+  }
+}

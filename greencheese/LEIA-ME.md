@@ -132,6 +132,36 @@ Para usar **foto** no lugar da ilustração:
 
 A foto ganha prioridade sobre a ilustração e recebe o mesmo halo, a mesma revelação e o mesmo cinza de indisponível.
 
+### Teste minha sorte: como trocar os prêmios — `src/dados/sorte.ts`
+
+Cada prêmio é um bloco na lista `premios`:
+
+```ts
+{
+  id: 'ocb-4-por-3',                       // único, sem espaço
+  tipo: 'leve-x-pague-y',                  // 'desconto-percentual' | 'leve-x-pague-y' | 'brinde'
+  valor: { leve: 4, pague: 3 },            // percentual: 15 · brinde: { produto: 'piteira-de-papel-raw', qtd: 1 }
+  titulo: '4 por 3 na OCB',                // curto (cabe num chip)
+  descricao: 'Compra 3, leva 4.',          // 1 frase no cartão
+  regra: 'Leva 4 Seda OCB Premium Slim e paga 3', // frase completa: é ela que vai na linha do WhatsApp
+  aplicaA: { produtos: ['seda-ocb-premium-slim'] }, // ids do catalogo.json (ou { categorias: ['sedas'] })
+  comoUsar: 'Põe 4 na sacola e usa o cupom.',       // opcional
+  peso: 30,                                // chance relativa (não precisa somar 100; nunca aparece na tela)
+  validadeDias: 7,                         // conta a partir de quando a pessoa guarda (1 a 30)
+  papel: 'branco',                         // cor do beck e do cartão: 'branco' (OCB) ou 'natural' (RAW, padrão)
+  demo: true,                              // exemplo: só aparece na prévia
+}
+```
+
+- **Todo giro ganha**: o peso decide qual sai, e só entre os prêmios que valem no estado de quem gira (produto disponível lá).
+- **A validação recusa** (em dev o site para com o erro na tela; no ar, o prêmio é descartado com aviso no console): id repetido; produto ou categoria que não existe no `catalogo.json`; prêmio ou brinde em **bebidas ou destilados**; peso ≤ 0; validade fora de 1–30; percentual fora de 1–50; leve ≤ pague; e qualquer palavra da lista `PALAVRAS_PROIBIDAS` (folha, erva, fumaça, grátis, frete, prazo, sorteio, cigarro, tabaco…) no título, descrição, regra ou "como usar".
+- Promoção de verdade: `demo: false`. Com `modoPrevia: false`, os de exemplo saem; sem nenhum prêmio válido, o "Teste minha sorte" some do site inteiro (destaque, lateral, adesivo, sacola) e o link `?jogo=sorte` é ignorado.
+- Limites (`regrasSorte`): 1 giro sem conta (para sempre, no aparelho), 1 giro por dia com conta (vira à meia-noite de Brasília), prêmio sem conta reservado por 24 h. Na prévia, tudo fica só no aparelho; na versão oficial, o servidor valida (ver PENDENCIAS.md).
+- Toda a copy do jogo fica em `src/interativos/sorte/textos.ts`.
+- Link direto: `https://oprojeto.online/greencheese/?uf=mg&jogo=sorte` abre o jogo depois do +18.
+- O próximo interativo entra com uma linha em `src/interativos/registro.ts`, o jogo em `src/interativos/<id>/` e a tabela de prêmios dele em `src/dados/`.
+- Conferir a mensagem do pedido (sem cupom, igual ao formato de sempre; com cupom, +1 linha): `node scripts/conferir-mensagem.mjs`.
+
 ### Disponibilidade pelo celular (opcional) — planilha do Google
 
 Crie uma planilha com as colunas `id, preco, rj, mg, sp, es, sc` (disponível = `sim`/`não`), publique em **Arquivo → Compartilhar → Publicar na Web → CSV** e cole o link em `planilhaCsvUrl` no `src/dados/config.ts`. O site lê a planilha toda vez que abre; se ela falhar, usa o `catalogo.json`.
@@ -157,5 +187,6 @@ Crie uma planilha com as colunas `id, preco, rj, mg, sp, es, sc` (disponível = 
 - Sacola com combo automático, pedido guiado em formato de DM (CEP preenche o endereço), mensagem pronta para o WhatsApp do estado ou para a DM.
 - Encomenda ("Não achou? A Green Cheese importa."), "Avisar quando chegar", todos os Instagrams, mapa em blocos.
 - Sacola e respostas ficam salvas no aparelho; o botão voltar do Android fecha a camada aberta.
+- **Teste minha sorte** (destaque "Sorte", item na lateral, adesivo no feed, convite discreto na sacola): gira a tampa do dichavador com o dedo (ou o botão "Girar", as setas, Espaço/Enter segurado, a roda do mouse); ele abre, sai um beck bolado e o beck desenrola no cupom. O 1º giro é sem conta; pra guardar e usar o cupom, cria conta com nome e WhatsApp. Com conta: 1 giro por dia, cupons em "Minha conta" e o nome já no pedido. O cupom aplicado vira uma linha na mensagem do WhatsApp; a loja confirma o desconto (o subtotal do site não muda).
 
 Derivados do tabaco não entram no site (Anvisa, RDC 840/2023, art. 6º).

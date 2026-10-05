@@ -15,6 +15,8 @@ import {
   montarEncomenda,
   montarPedido,
 } from '../lib/mensagem'
+import { conta as adaptador, useConferirCupom, useConta, useCupomNoPedido, useCupons, useAgora } from '../lib/conta'
+import { linhaCupom, nomeCategoria, nomeCurto, situacaoNoPedido, type Situacao } from '../lib/cupom'
 import { rolarPara } from '../lib/rolagem'
 import { produtoPorId } from '../store/catalogo'
 import { useChat, type Passo, type Respostas } from '../store/chat'
@@ -62,7 +64,7 @@ export function ChatFolha() {
   const chat = useChat()
   const { aberto, modo, passo, feitos, respostas, respondendo, respondendoDe, fechar, responder, voltarPara, abrir } = chat
   const local = useLocal()
-  const { pedido, fora } = useLinhasSacola()
+  const { pedido, fora, todas } = useLinhasSacola()
   const limparSacola = useSacola((s) => s.limpar)
   const setSeletor = useUI((s) => s.setSeletor)
   const setSacola = useUI((s) => s.setSacola)
@@ -73,6 +75,17 @@ export function ChatFolha() {
   const enviadoEm = useChat((s) => s.enviadoEm)
   const marcarEnviado = useChat((s) => s.marcarEnviado)
   const recomecar = useChat((s) => s.recomecar)
+  const conta = useConta()
+  const avisar = useUI((s) => s.avisar)
+  const { cupom, situacao: situacaoCupom } = useCupomNoPedido()
+  const cupons = useCupons()
+  const agora = useAgora()
+  // o cupom só entra na mensagem quando vale nesse pedido (encomenda nunca leva cupom)
+  const cupomOk = modo === 'pedido' && cupom && situacaoCupom?.tipo === 'ok' ? cupom : null
+  // sem cupom aplicado: um cupom guardado que vale nesse pedido, pra perguntar se usa
+  const sugerido =
+    modo === 'pedido' && !cupom ? (cupons.find((c) => c.status === 'ativo' && situacaoNoPedido(c, todas, local.uf, agora).tipo === 'ok') ?? null) : null
+  useConferirCupom(aberto && passo === 'resumo')
 
   // Canal: no pedido é o estado do site; na encomenda de quem está fora da área, é o escolhido no chat.
   const canalSite = canalDa(local.uf)
@@ -115,8 +128,9 @@ export function ChatFolha() {
       pagamento: respostas.pagamento,
       troco: respostas.troco,
       obs: respostas.obs,
+      cupom: cupomOk ? linhaCupom(cupomOk, 'Teste minha sorte', cupomOk.demo && config.modoPrevia) : undefined,
     })
-  }, [canal, cidade, modo, respostas, pedido])
+  }, [canal, cidade, modo, respostas, pedido, cupomOk])
 
   // sobe para a última mensagem a cada passo (rola o corpo da folha, não a página: a pergunta e as opções ficam à vista
   // mesmo num celular baixo)
@@ -168,6 +182,8 @@ export function ChatFolha() {
 
   function def(p: Passo): Def {
     const nome = respostas.nome.trim()
+    // com conta, o nome da conta já vem sugerido (o passo não é pulado)
+    const sugestaoNome = nome || conta?.nome.trim() || ''
     switch (p) {
       case 'local': {
         if (!canal) {
@@ -287,7 +303,7 @@ export function ChatFolha() {
       case 'enc-nome':
         return {
           perguntas: ['Teu nome?'],
-          chips: nome ? [{ rotulo: nome, acao: () => resp({ nome }, p, p === 'nome' ? 'endereco' : 'enc-resumo') }] : undefined,
+          chips: sugestaoNome ? [{ rotulo: sugestaoNome, acao: () => resp({ nome: sugestaoNome }, p, p === 'nome' ? 'endereco' : 'enc-resumo') }] : undefined,
           campo: {
             placeholder: 'Teu nome…',
             autoComplete: 'name',
@@ -570,8 +586,21 @@ export function ChatFolha() {
             }}
             naoConsegui={() => marcarEnviado(null)}
             editar={(p) => voltarPara(p)}
-            mandei={() => {
+            cupom={modo === 'pedido' && cupom && situacaoCupom ? { codigo: cupom.codigo, titulo: cupom.retrato.titulo, situacao: situacaoCupom } : null}
+            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: sugerido.retrato.titulo } : null}
+            lugar={cidade ?? canal.nome}
+            aplicarCupom={(c) => useSacola.getState().aplicarCupom(c)}
+            tirarCupom={() => useSacola.getState().tirarCupom()}
+            mexerSacola={() => setSacola(true)}
+            mandei={async () => {
               if (modo === 'pedido') {
+                // a mensagem levou o cupom: marca como usado (na versão oficial, quem dá baixa é a loja)
+                if (cupomOk) {
+                  const codigo = cupomOk.codigo
+                  await adaptador.usarCupom(codigo)
+                  useSacola.getState().tirarCupom()
+                  avisar(`Cupom ${codigo} marcado como usado.`)
+                }
                 useSacola.getState().guardarUltimo()
                 limparSacola()
               }
@@ -671,6 +700,12 @@ function Resumo({
   naoConsegui,
   editar,
   mandei,
+  cupom,
+  sugerido,
+  lugar,
+  aplicarCupom,
+  tirarCupom,
+  mexerSacola,
 }: {
   canal: Canal
   mensagem: string
@@ -681,9 +716,20 @@ function Resumo({
   naoConsegui: () => void
   editar: (p: Passo) => void
   mandei: () => void
+  /** Cupom aplicado e a situação dele nesse pedido (só no pedido; encomenda nunca leva cupom). */
+  cupom: { codigo: string; titulo: string; situacao: Situacao } | null
+  /** Cupom guardado que vale nesse pedido, quando nenhum está aplicado. */
+  sugerido: { codigo: string; titulo: string } | null
+  lugar: string
+  aplicarCupom: (codigo: string) => void
+  tirarCupom: () => void
+  mexerSacola: () => void
 }) {
   const avisar = useUI((s) => s.avisar)
   const [naoAbriu, setNaoAbriu] = useState(false)
+  // "Sem cupom" esconde a pergunta até sair do resumo
+  const [semCupom, setSemCupom] = useState(false)
+  const cupomOk = cupom?.situacao.tipo === 'ok'
   const semNumero = !canal.whatsapp
   // no celular o link troca de app sem nova aba; no computador ou dentro de iframe, nova aba
   const alvo = alvoDeSaida()
@@ -702,6 +748,37 @@ function Resumo({
       <pre className="dm-mensagem" aria-label="Mensagem que vai pro WhatsApp">
         {mensagem}
       </pre>
+      {cupom && cupomOk && (
+        <BolhaLoja>
+          Cupom <span className="px px-16">{cupom.codigo}</span> no pedido: desconto confirmado pela loja no WhatsApp.
+        </BolhaLoja>
+      )}
+      {cupom && !cupomOk && !enviadoEm && (
+        <>
+          <BolhaLoja>
+            O cupom <span className="px px-16">{cupom.codigo}</span> não vale pra esse pedido ({motivoCurto(cupom.situacao, lugar)}). Vai sem cupom?
+          </BolhaLoja>
+          <Chips
+            chips={[
+              { rotulo: 'Tirar cupom', acao: tirarCupom },
+              { rotulo: 'Mexer na sacola', acao: mexerSacola },
+            ]}
+          />
+        </>
+      )}
+      {!cupom && sugerido && !semCupom && !enviadoEm && (
+        <>
+          <BolhaLoja>
+            Tu tem o cupom <span className="px px-16">{sugerido.codigo}</span> ({sugerido.titulo}). Usa nesse pedido?
+          </BolhaLoja>
+          <Chips
+            chips={[
+              { rotulo: 'Usar cupom', acao: () => aplicarCupom(sugerido.codigo) },
+              { rotulo: 'Sem cupom', acao: () => setSemCupom(true) },
+            ]}
+          />
+        </>
+      )}
       <BolhaLoja>Agora é só enviar. Vem no certo!</BolhaLoja>
       {semNumero && (
         <BolhaLoja>
@@ -773,10 +850,29 @@ function Resumo({
                   { rotulo: 'Mudar endereço', acao: () => editar('endereco') },
                   { rotulo: 'Mudar pagamento', acao: () => editar('pagamento') },
                   { rotulo: 'Mudar obs.', acao: () => editar('obs') },
+                  ...(cupom && cupomOk ? [{ rotulo: 'Tirar cupom', acao: tirarCupom }] : []),
                 ]
           }
         />
       )}
     </div>
   )
+}
+
+/** Por que o cupom aplicado não vale: "faltam 2 OCB" · "não tem em Teófilo Otoni" · "precisa de seda". */
+function motivoCurto(s: Situacao, lugar: string): string {
+  switch (s.tipo) {
+    case 'qtd-insuficiente':
+      return `faltam ${s.precisa - s.tem} ${s.produto ? nomeCurto(s.produto) : nomeCategoria(s.categoria)}`
+    case 'falta-produto':
+      return s.produto ? `precisa de ${s.precisa > 1 ? `${s.precisa} ` : ''}${nomeCurto(s.produto)}` : `precisa de ${nomeCategoria(s.categoria)}`
+    case 'indisponivel-aqui':
+      return `não tem em ${lugar}`
+    case 'fora-do-catalogo':
+      return 'saiu do catálogo'
+    case 'vencido':
+      return 'venceu'
+    default:
+      return 'não vale mais'
+  }
 }
