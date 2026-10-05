@@ -39,10 +39,13 @@
   outline: 1px solid var(--bolha);
   transform: rotate(-2deg);
 }
-/* O mercador fica de pé no fundo do quadro; o adesivo de menção cobre só a sola das botas, como num repost de verdade. */
+/* O mercador fica de pé no fundo do quadro; o adesivo de menção cobre só a sola das botas, como num repost de verdade.
+   Desgira os 2° do quadro: pixel art com crispEdges girada abre furos de 1 px entre os <rect> e desfaz o
+   encaixe no pixel da tela. Reta, cada pixel da grade sai com o mesmo tamanho em DPR 1, 2, 2,625 e 3. */
 .repost-figura {
   position: relative;
   margin-bottom: 28px;
+  transform: rotate(2deg);
 }
 .repost-arte {
   image-rendering: pixelated;
