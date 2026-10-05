@@ -110,7 +110,7 @@ export const palpebras: Grade = {
 // Camadas por cima do mercador, na mesma grade 44×64: o PixelArte encaixa todas no mesmo pixel de tela da base.
 // Em cada camada, '.' deixa ver o de baixo, 'x' apaga (pinta na cor do fundo do quadro, via currentColor) e o resto
 // pinta com a paleta. A ordem do array é a ordem de empilhar; quando cada uma aparece fica no Rodape.css
-// (voz pixel: opacidade em degrau, steps(1), um tique = 125 ms).
+// (voz pixel: troca de quadro em degrau, steps(1), um tique = 125 ms).
 //
 // O forro da esquerda mostra só acessório de tabacaria que a loja vende, nada de derivado do tabaco (Anvisa,
 // RDC 840/2023): livretos de seda OCB (capa preta), RAW (parda) e Smoking (marrom), dichavador de metal com a tampa
@@ -158,9 +158,16 @@ const pega = camada(5, 18, [
   '.meeeeeeeeeememddd',
   '.meeeeeeeeeememddd',
   '.meeeeeeeeeememddd',
-  '.meeedeeeeeememddd',
+  '.meeeeeeeeeememddd',
   '.meeeeeeeeeeemmddd',
   '.meeeeeeeedeeemddd',
+])
+
+/** O cigarro apagado de pé no punho do "pega": ele tira do forro ao fechar o casaco e, no fim, guarda de volta. */
+const rolo = camada(20, 15, [
+  'c',
+  'w',
+  'w',
 ])
 
 /** Meio aberto: a mão a meio caminho, só a coluna de dentro do forro à vista. */
@@ -285,7 +292,7 @@ const baixo = camada(5, 16, [
   '.meeeeeeeee',
   '.meeeeeeeee',
   '.meeeeeeeee',
-  '.meeedeeeee',
+  '.meeeeeeeee',
   '.meeeeeeeee',
   '.meeeeeeeed',
 ])
@@ -314,9 +321,19 @@ const boca = camada(5, 14, [
   '.meeeeeeeeeemeeee',
   '.meeeeeeeeeemeeee',
   '.meeeeeeeeeemeeee',
-  '.meeedeeeeeemeeee',
+  '.meeeeeeeeeemeeee',
   '.meeeeeeeeeeemeee',
   '.meeeeeeeedeeeeee',
+])
+
+/** Antes do primeiro trago o cigarro está apagado: a ponta de papel torcido no lugar da brasa (por cima de "baixo"). */
+const apagadoBaixo = camada(13, 16, [
+  'c',
+])
+
+/** O mesmo, na boca: a brasa só acende quando ele puxa (por cima de "boca"). */
+const apagadoBoca = camada(15, 15, [
+  'c',
 ])
 
 /** Puxando: a brasa acende (por cima de "boca"). */
@@ -378,15 +395,33 @@ const fumaca5 = camada(31, 1, [
   '.e..',
 ])
 
-export type NomeQuadro = 'pega' | 'meio' | 'aberto' | 'baixo' | 'boca' | 'brasa1' | 'brasa2' | 'fumaca1' | 'fumaca2' | 'fumaca3' | 'fumaca4' | 'fumaca5'
+export type NomeQuadro =
+  | 'pega'
+  | 'rolo'
+  | 'meio'
+  | 'aberto'
+  | 'baixo'
+  | 'apagadoBaixo'
+  | 'boca'
+  | 'apagadoBoca'
+  | 'brasa1'
+  | 'brasa2'
+  | 'fumaca1'
+  | 'fumaca2'
+  | 'fumaca3'
+  | 'fumaca4'
+  | 'fumaca5'
 
-/** Camadas na ordem de empilhar. As de `trago` só entram com config.mercadorTraga. */
+/** Camadas na ordem de empilhar (cada retoque vem depois da camada que ele retoca). As de `trago` só entram com config.mercadorTraga. */
 export const apresentacao: readonly { nome: NomeQuadro; grade: Grade; trago?: true }[] = [
   { nome: 'pega', grade: pega },
+  { nome: 'rolo', grade: rolo, trago: true },
   { nome: 'meio', grade: meio },
   { nome: 'aberto', grade: aberto },
   { nome: 'baixo', grade: baixo, trago: true },
+  { nome: 'apagadoBaixo', grade: apagadoBaixo, trago: true },
   { nome: 'boca', grade: boca, trago: true },
+  { nome: 'apagadoBoca', grade: apagadoBoca, trago: true },
   { nome: 'brasa1', grade: brasa1, trago: true },
   { nome: 'brasa2', grade: brasa2, trago: true },
   { nome: 'fumaca1', grade: fumaca1, trago: true },

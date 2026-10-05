@@ -5,7 +5,9 @@ import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
 import { apresentacao, palpebras } from '../arte/pixel/mercador'
 import { linkPerfil } from '../lib/mensagem'
+import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
+import { useUI } from '../store/ui'
 import { Avatar } from './comum'
 import './Rodape.css'
 
@@ -58,10 +60,15 @@ export function Reposts() {
   const canal = canalDa(uf) ?? canais[0]
   const tamanho = useSyncExternalStore(assinarTela, lerTela, lerTelaServidor) ? 176 : 132
   const figura = useRef<HTMLDivElement>(null)
-  // Fora da tela ou com a aba escondida, as animações ficam pausadas (animation-play-state): nenhum trabalho.
+  // Fora da tela, coberto por uma camada ou com a aba escondida, as animações ficam pausadas (animation-play-state):
+  // nenhum trabalho. O IntersectionObserver não vê o que cobre o repost, então vale o mesmo critério do Hero.
   const naTela = useNaTela(figura)
   const abaVisivel = useSyncExternalStore(assinarAba, lerAba, lerAbaServidor)
-  const anda = naTela && abaVisivel
+  const camadaAberta = useUI(
+    (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva,
+  )
+  const chatAberto = useChat((s) => s.aberto)
+  const anda = naTela && abaVisivel && !camadaAberta && !chatAberto
   return (
     <section className="reposts" aria-label="Clientes marcando a loja">
       <div className="repost">

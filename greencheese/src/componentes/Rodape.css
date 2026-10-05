@@ -50,32 +50,39 @@
 .repost-arte {
   image-rendering: pixelated;
 }
-/* Voz pixel: as pálpebras (na cor do fundo) aparecem por um instante, em degrau, e o olhar some e volta. */
+/* Voz pixel, em troca seca de quadro: pálpebras e camadas da apresentação aparecem e somem por visibility em degrau
+   (steps(1)), não por opacity. Animação de opacity promove a camada para o compositor, que a reamostra uns 0,3–0,6 px de
+   tela fora do lugar sob o par rotate(-2deg)/rotate(2deg) e borra as bordas dos <rect> (o mercador parado, pintado junto
+   com a página, continua nítido). visibility não interpola nem cria camada: cada troca custa um repaint de 176×256 px,
+   uns 2 por segundo e só com o repost na tela. É a exceção consciente à regra de animar só transform/opacity. */
+/* As pálpebras (na cor do fundo) aparecem por um instante e o olhar some e volta. */
 .repost-piscar {
   position: absolute;
   inset: 0;
   color: var(--fundo-dentro);
-  opacity: 0;
+  visibility: hidden;
   animation: mercador-piscar 5.6s steps(1, end) infinite;
 }
 @keyframes mercador-piscar {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   93% {
-    opacity: 1;
+    visibility: visible;
   }
   95% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
-/* Apresentação (camadas do mercador.ts): cada camada fica invisível e aparece no seu tique, em degrau (steps(1)),
-   como troca de quadro de sprite. Um tique = 125 ms.
+/* Apresentação (camadas do mercador.ts): cada camada fica escondida e aparece no seu tique, como troca de quadro de
+   sprite. Um tique = 125 ms.
    Com trago: ciclo de 100 tiques (12,5 s), então 1 tique = 1%.
-     0–20 parado (só pisca) · 20 pega a beirada · 21 meio aberto · 22–42 aberto, tabacaria à mostra · 42 meio · 43 pega
-     44–47 parado · 47–49 cigarro na mão · 49–55 na boca (a brasa acende em 51 e vai ao máximo em 53)
-     55–63 mão baixa, a fumaça sobe (5 quadros de 2 tiques) · 63–69 na boca de novo · 69–79 mão baixa, fumaça · 79–100 parado
+     0–20 parado (só pisca) · 20 pega a beirada · 21 meio aberto · 22–42 aberto, tabacaria à mostra · 42 meio
+     43 pega com o cigarro (tirou do forro ao fechar) · 44–49 cigarro apagado no peito
+     49–55 na boca: apagado, a brasa acende em 51 e vai ao máximo em 53 · 55–63 mão baixa, a fumaça sobe (5 quadros
+     de 2 tiques) · 63–69 na boca de novo · 69–79 mão baixa, fumaça · 79–81 a mão desce à beirada e guarda o cigarro
+     81 pega, a mão vazia · 82–100 parado
    Sem trago (config.mercadorTraga = false): ciclo de 50 tiques (6,25 s), 1 tique = 2%, só o casaco abrindo e fechando.
    O piscar segue no ritmo dele (5,6 s), por baixo das camadas. */
 .repost-quadro {
@@ -83,11 +90,14 @@
   inset: 0;
   /* o 'x' das camadas apaga: pinta na cor do fundo do quadro */
   color: var(--fundo-dentro);
-  opacity: 0;
+  visibility: hidden;
   animation: 12.5s steps(1, end) infinite;
 }
 .q-pega {
   animation-name: mercador-pega;
+}
+.q-rolo {
+  animation-name: mercador-rolo;
 }
 .q-meio {
   animation-name: mercador-meio;
@@ -98,8 +108,14 @@
 .q-baixo {
   animation-name: mercador-baixo;
 }
+.q-apagadoBaixo {
+  animation-name: mercador-apagado-baixo;
+}
 .q-boca {
   animation-name: mercador-boca;
+}
+.q-apagadoBoca {
+  animation-name: mercador-apagado-boca;
 }
 .q-brasa1 {
   animation-name: mercador-brasa1;
@@ -134,273 +150,322 @@
 .repost-figura:not(.com-trago) .q-aberto {
   animation-name: mercador-aberto-curto;
 }
-/* Fora da tela ou com a aba escondida: tudo para onde está e volta dali (IntersectionObserver no Rodape.tsx). */
+/* Fora da tela, coberto por uma camada (chat, story, sacola, página do produto) ou com a aba escondida: tudo para
+   onde está e volta dali (Rodape.tsx). */
 .repost-figura.parado > * {
   animation-play-state: paused;
 }
 @keyframes mercador-pega {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   20% {
-    opacity: 1;
+    visibility: visible;
   }
   21% {
-    opacity: 0;
+    visibility: hidden;
   }
   43% {
-    opacity: 1;
+    visibility: visible;
   }
   44% {
-    opacity: 0;
+    visibility: hidden;
+  }
+  79% {
+    visibility: visible;
+  }
+  82% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-rolo {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  43% {
+    visibility: visible;
+  }
+  44% {
+    visibility: hidden;
+  }
+  79% {
+    visibility: visible;
+  }
+  81% {
+    visibility: hidden;
   }
 }
 @keyframes mercador-meio {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   21% {
-    opacity: 1;
+    visibility: visible;
   }
   22% {
-    opacity: 0;
+    visibility: hidden;
   }
   42% {
-    opacity: 1;
+    visibility: visible;
   }
   43% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-aberto {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   22% {
-    opacity: 1;
+    visibility: visible;
   }
   42% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-baixo {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
-  47% {
-    opacity: 1;
+  44% {
+    visibility: visible;
   }
   49% {
-    opacity: 0;
+    visibility: hidden;
   }
   55% {
-    opacity: 1;
+    visibility: visible;
   }
   63% {
-    opacity: 0;
+    visibility: hidden;
   }
   69% {
-    opacity: 1;
+    visibility: visible;
   }
   79% {
-    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes mercador-apagado-baixo {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  44% {
+    visibility: visible;
+  }
+  49% {
+    visibility: hidden;
   }
 }
 @keyframes mercador-boca {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   49% {
-    opacity: 1;
+    visibility: visible;
   }
   55% {
-    opacity: 0;
+    visibility: hidden;
   }
   63% {
-    opacity: 1;
+    visibility: visible;
   }
   69% {
-    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes mercador-apagado-boca {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  49% {
+    visibility: visible;
+  }
+  51% {
+    visibility: hidden;
   }
 }
 @keyframes mercador-brasa1 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   51% {
-    opacity: 1;
+    visibility: visible;
   }
   53% {
-    opacity: 0;
+    visibility: hidden;
   }
   65% {
-    opacity: 1;
+    visibility: visible;
   }
   67% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-brasa2 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   53% {
-    opacity: 1;
+    visibility: visible;
   }
   55% {
-    opacity: 0;
+    visibility: hidden;
   }
   67% {
-    opacity: 1;
+    visibility: visible;
   }
   69% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-fumaca1 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   55% {
-    opacity: 1;
+    visibility: visible;
   }
   57% {
-    opacity: 0;
+    visibility: hidden;
   }
   69% {
-    opacity: 1;
+    visibility: visible;
   }
   71% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-fumaca2 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   57% {
-    opacity: 1;
+    visibility: visible;
   }
   59% {
-    opacity: 0;
+    visibility: hidden;
   }
   71% {
-    opacity: 1;
+    visibility: visible;
   }
   73% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-fumaca3 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   59% {
-    opacity: 1;
+    visibility: visible;
   }
   61% {
-    opacity: 0;
+    visibility: hidden;
   }
   73% {
-    opacity: 1;
+    visibility: visible;
   }
   75% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-fumaca4 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   61% {
-    opacity: 1;
+    visibility: visible;
   }
   63% {
-    opacity: 0;
+    visibility: hidden;
   }
   75% {
-    opacity: 1;
+    visibility: visible;
   }
   77% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-fumaca5 {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   63% {
-    opacity: 1;
+    visibility: visible;
   }
   65% {
-    opacity: 0;
+    visibility: hidden;
   }
   77% {
-    opacity: 1;
+    visibility: visible;
   }
   79% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 /* ciclo curto, sem trago: os mesmos tiques valendo 2% cada */
 @keyframes mercador-pega-curto {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   40% {
-    opacity: 1;
+    visibility: visible;
   }
   42% {
-    opacity: 0;
+    visibility: hidden;
   }
   86% {
-    opacity: 1;
+    visibility: visible;
   }
   88% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-meio-curto {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   42% {
-    opacity: 1;
+    visibility: visible;
   }
   44% {
-    opacity: 0;
+    visibility: hidden;
   }
   84% {
-    opacity: 1;
+    visibility: visible;
   }
   86% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 @keyframes mercador-aberto-curto {
   0%,
   100% {
-    opacity: 0;
+    visibility: hidden;
   }
   44% {
-    opacity: 1;
+    visibility: visible;
   }
   84% {
-    opacity: 0;
+    visibility: hidden;
   }
 }
 /* Movimento reduzido: o mercador parado, sem piscar e sem apresentação. */
