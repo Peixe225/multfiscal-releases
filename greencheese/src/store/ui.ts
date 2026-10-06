@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { homeDaEntrada, type Home } from '../lib/home'
+import { abaDaURL, type Aba } from '../lib/url'
 
 export interface StoryAberto {
   /** Ids da sequência (a categoria filtrada no momento do toque). */
@@ -50,6 +52,12 @@ interface UIState {
   interativo: InterativoAberto | null
   /** Folha "Minha conta". */
   contaAberta: boolean
+  /** Vista do site (Início, Catálogo, Por estado). Só o src/lib/abas.ts troca (URL e histórico vão junto). */
+  aba: Aba
+  setAba: (a: Aba) => void
+  /** Versão da home em teste (src/lib/home.ts). */
+  home: Home
+  setHome: (h: Home) => void
   abrirInterativo: (id: string, tela?: TelaInterativo) => void
   fecharInterativo: () => void
   setConta: (v: boolean) => void
@@ -86,6 +94,10 @@ export const useUI = create<UIState>((set) => ({
   aviso: null,
   interativo: null,
   contaAberta: false,
+  aba: abaDaURL(),
+  setAba: (a) => set({ aba: a }),
+  home: homeDaEntrada(),
+  setHome: (h) => set({ home: h }),
   abrirInterativo: (id, tela) => set({ interativo: { id, tela } }),
   fecharInterativo: () => set({ interativo: null }),
   setConta: (v) => set({ contaAberta: v }),

@@ -33,7 +33,17 @@ export function liberarRolagem() {
   }
 }
 
+// Âncora que virou aba: o catálogo e os estados não estão mais embaixo do Início. Quem ainda rola até lá (a ficha
+// "Ver o catálogo" do chat, o Por estado) cai aqui; o src/lib/abas.ts registra o desvio e abre a aba certa.
+let desvio: ((alvo: string) => boolean) | null = null
+
+/** Registra quem decide se uma âncora (ex.: '#catalogo') vira troca de aba. Devolver true para a rolagem ali. */
+export function desviarAncoras(fn: ((alvo: string) => boolean) | null) {
+  desvio = fn
+}
+
 export function rolarPara(alvo: string | HTMLElement, deslocamento = 0) {
+  if (typeof alvo === 'string' && desvio?.(alvo)) return
   const el = typeof alvo === 'string' ? document.querySelector<HTMLElement>(alvo) : alvo
   if (!el) return
   if (lenis) lenis.scrollTo(el, { offset: deslocamento })

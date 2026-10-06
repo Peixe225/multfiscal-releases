@@ -9,14 +9,18 @@ import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
 import { movimentoReduzido } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
+import type { Produto } from '../lib/tipos'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useDisponiveis } from '../store/derivados'
 import { useLocal } from '../store/local'
 import { useUI } from '../store/ui'
+import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
 import { LinhaLocal, useTextoLocal } from './Local'
+import { PASSO_MS } from './Mercador'
 import { Perfil } from './Perfil'
+import { StoryMercador, useConviteSorte } from './StoryMercador'
 import { StoryQuadro } from './StoryQuadro'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import './Hero.css'
@@ -93,24 +97,36 @@ function topoEm(el: HTMLElement, dentro: HTMLElement): number {
   return y
 }
 
-/** Tela larga (>= 1200 px): perfil à esquerda do story. Abaixo disso o story vem primeiro — no DOM também (ordem do Tab). */
-const LARGO = '(min-width: 1200px)'
-function assinarLargo(aviso: () => void) {
-  try {
-    const m = window.matchMedia(LARGO)
-    m.addEventListener('change', aviso)
-    return () => m.removeEventListener('change', aviso)
-  } catch {
-    return () => {}
+function consulta(q: string) {
+  return {
+    assinar: (aviso: () => void) => {
+      try {
+        const m = window.matchMedia(q)
+        m.addEventListener('change', aviso)
+        return () => m.removeEventListener('change', aviso)
+      } catch {
+        return () => {}
+      }
+    },
+    ler: () => {
+      try {
+        return window.matchMedia(q).matches
+      } catch {
+        return false
+      }
+    },
   }
 }
-function ehLargo() {
-  try {
-    return window.matchMedia(LARGO).matches
-  } catch {
-    return false
-  }
-}
+/**
+ * Tela larga (>= 1200 px): perfil à esquerda do story (e, na Home 2, o card do mercador à esquerda do perfil).
+ * Abaixo disso o story vem primeiro — no DOM também (ordem do Tab).
+ */
+const LARGO = consulta('(min-width: 1200px)')
+/** Celular: o mercador da Home 2 entra como passo do story (no computador ele tem o card dele). */
+const CELULAR = consulta('(max-width: 899px)')
+
+/** Um passo do story do hero: um produto, ou (Home 2, celular) o convite do Teste minha sorte com o mercador. */
+type Passo = { tipo: 'produto'; produto: Produto } | { tipo: 'mercador' }
 
 /** Foco visível de teclado (o clique do mouse num botão foca sem :focus-visible). */
 function focoDeTeclado(el: EventTarget | null): boolean {
@@ -155,7 +171,14 @@ export function Hero() {
   const disponiveis = useDisponiveis()
   // produto real com preço primeiro; exemplo por último
   const peso = (p: (typeof todos)[number]) => (p.demo ? 2 : 0) + (p.preco == null ? 1 : 0)
-  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, MAX_BARRAS)
+  const home = useUI((s) => s.home)
+  const celular = useSyncExternalStore(CELULAR.assinar, CELULAR.ler)
+  // Home 2 no celular: o mercador é o 2º passo (aparece aos 5 s), dentro do mesmo limite de barras
+  const comMercador = home === 2 && celular
+  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, comMercador ? MAX_BARRAS - 1 : MAX_BARRAS)
+  const passos: Passo[] = lista.map((produto) => ({ tipo: 'produto', produto }))
+  if (comMercador && passos.length) passos.splice(1, 0, { tipo: 'mercador' })
+  const convite = useConviteSorte()
   const { texto: lugar } = useTextoLocal()
   const setHeroProduto = useUI((s) => s.setHeroProduto)
   const camadaAberta = useUI(
@@ -173,7 +196,7 @@ export function Hero() {
   )
   const aberturaAtiva = useUI((s) => s.aberturaAtiva)
   const chatAberto = useChat((s) => s.aberto)
-  const largo = useSyncExternalStore(assinarLargo, ehLargo)
+  const largo = useSyncExternalStore(LARGO.assinar, LARGO.ler)
   const [pos, setPos] = useState<Posicao>({ i: 0, origem: 'auto', dir: 1 })
   const [visivel, setVisivel] = useState(true)
   const [segurando, setSegurando] = useState(false)
@@ -194,10 +217,16 @@ export function Hero() {
   const quaseTodo = useRef(false)
   const reduz = movimentoReduzido()
 
-  const n = lista.length
+  const n = passos.length
   const idx = n ? pos.i % n : 0
-  const atual = lista[idx]
-  const proximo = n > 1 ? lista[(idx + 1) % n] : undefined
+  const passo = passos[idx]
+  /** Produto do passo atual (null no passo do mercador). */
+  const atual = passo?.tipo === 'produto' ? passo.produto : null
+  const noMercador = passo?.tipo === 'mercador'
+  const chavePasso = atual ? atual.id : 'mercador'
+  // o próximo, esmaecido atrás, é sempre um produto: no passo do mercador e antes dele não aparece nada
+  const seguinte = n > 1 ? passos[(idx + 1) % n] : undefined
+  const proximo = !noMercador && seguinte?.tipo === 'produto' ? seguinte.produto : undefined
   const pausado = pausaManual || foco === 'dentro'
 
   const dicaViva = useRef(dica === 'mostra')
@@ -272,9 +301,23 @@ export function Hero() {
   useLayoutEffect(() => {
     const q = quadroRef.current
     const h = historia.current
+    const meio = q?.querySelector<HTMLElement>('.hero-meio')
+    // passo do mercador: as bordas passam na altura toda (o meio abre o jogo) e as setas ficam na altura dele
+    const figura = q?.querySelector<HTMLElement>('.hero-palco .sm-palco')
+    if (q && h && meio && figura) {
+      const medirMercador = () => {
+        q.style.setProperty('--hero-texto', `${q.clientHeight}px`)
+        h.style.setProperty('--hero-arte-meio', `${Math.round(topoEm(figura, q) + figura.offsetHeight / 2)}px`)
+        h.style.setProperty('--hero-espera-vis', 'hidden')
+        setDicaCabe(false)
+      }
+      medirMercador()
+      const ro = new ResizeObserver(medirMercador)
+      ro.observe(figura)
+      return () => ro.disconnect()
+    }
     const t = q?.querySelector<HTMLElement>('.hero-palco .sq-texto')
     const a = q?.querySelector<HTMLElement>('.hero-palco .sq-arte')
-    const meio = q?.querySelector<HTMLElement>('.hero-meio')
     if (!q || !h || !t || !a || !meio) return
     const medir = () => {
       const arteH = a.offsetHeight
@@ -295,18 +338,19 @@ export function Hero() {
     ro.observe(meio)
     ro.observe(t)
     return () => ro.disconnect()
-  }, [atual?.id, uf])
+  }, [chavePasso, uf])
 
   const barra = useProgresso({
     ativo: !reduz && visivel && !segurando && !tocando && !pausado && !camadaAberta && !chatAberto && n > 1,
-    duracaoMs: 5000,
+    // o passo do mercador dura a apresentação dele (do tique 18 até fechar o casaco)
+    duracaoMs: noMercador ? PASSO_MS : 5000,
     chave: `${uf}-${idx}`,
     aoTerminar: () => irPara(1, 'auto'),
   })
 
   // barras: as de trás cheias, a atual do zero (cheia sem movimento), as da frente vazias — também ao voltar e no loop
   // (depois do useProgresso: roda por último e vale)
-  const ids = lista.map((p) => p.id).join()
+  const ids = passos.map((p) => (p.tipo === 'produto' ? p.produto.id : 'mercador')).join()
   useLayoutEffect(() => {
     barras.current?.querySelectorAll<HTMLElement>('.story-barra > i').forEach((el, k) => {
       el.style.transform = `scaleX(${k < idx || (reduz && k === idx) ? 1 : 0})`
@@ -411,6 +455,8 @@ export function Hero() {
   const aoDescer = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
     const alvo = e.target as HTMLElement
+    // a linha de resposta (Enviar mensagem…, compartilhar) não passa nem pausa o story
+    if (alvo.closest('.hero-resposta')) return
     // o produto e o VER PRODUTO são links do produto: tocar abre, arrastar passa, nunca contam como toque de borda
     const produto = !!alvo.closest('.hero-produto, .hero-ver')
     // outros botões e links e a enquete não navegam
@@ -482,6 +528,13 @@ export function Hero() {
     irPara(e.clientX - r.left < r.width * BORDA ? -1 : 1, 'toque')
   }
 
+  /** Passo do mercador: o meio do story e o adesivo-link abrem o convite (jogo, cadastro, cupom, conta ou a loja). */
+  const abrirConvite = () => {
+    if (performance.now() < semClique.current) return
+    dispensarDica()
+    convite.acao()
+  }
+
   const abrirProduto = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Ctrl/⌘/Shift/Alt + clique: aba ou janela nova, do jeito do navegador
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
@@ -509,12 +562,12 @@ export function Hero() {
   const sextou = canal && ehDiaDeEntregaGratis(canal) ? canal.entregaGratis?.texto : null
 
   const navega = n > 1
-  const comDica = navega && dica !== 'fora' && !aberturaAtiva && dicaCabe
+  const comDica = navega && dica !== 'fora' && !aberturaAtiva && dicaCabe && !noMercador
   useEffect(() => {
     dicaNaTela.current = comDica && dica === 'mostra'
   }, [comDica, dica])
 
-  if (!atual) return null
+  if (!passo) return null
 
   const quadro = (
     <div
@@ -533,9 +586,10 @@ export function Hero() {
         else e.preventDefault()
       }}
     >
+      {/* uma barra por passo (com o mercador, ele tem a dele): toda posição do story tem a barra que conta o tempo */}
       <div ref={barras} className="story-barras hero-barras" aria-hidden="true">
-        {lista.map((p, k) => (
-          <span key={p.id} className="story-barra">
+        {passos.map((p, k) => (
+          <span key={p.tipo === 'produto' ? p.produto.id : 'mercador'} className="story-barra">
             <i ref={k === idx ? (el) => { barra.current = el } : undefined} />
           </span>
         ))}
@@ -546,7 +600,11 @@ export function Hero() {
         <div className="hero-cab-texto">
           <div className="hero-cab-linha">
             <span className="story-cab-nome">{canal?.instagram ?? 'Green Cheese Imports'}</span>
-            {tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>}
+            {noMercador ? (
+              <span className="story-cab-tempo">interativo</span>
+            ) : (
+              tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>
+            )}
           </div>
           <LinhaLocal className="hero-cab-local" />
         </div>
@@ -584,23 +642,31 @@ export function Hero() {
       )}
 
       <div className="hero-meio">
-        <div className="hero-palco" ref={palco} key={`${uf}-${atual.id}`}>
-          <StoryQuadro
-            produto={atual}
-            escala="hero"
-            disponivel={uf ? (canal ? disponivelEm(atual, uf) : false) : null}
-            lugar={lugar}
-            prioridade
-            artePropsExtra={{ flutuar: true }}
-            legenda={
-              !uf ? (
-                <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
-              ) : undefined
-            }
-          />
+        <div className="hero-palco" ref={palco} key={`${uf}-${chavePasso}`}>
+          {atual ? (
+            <StoryQuadro
+              produto={atual}
+              escala="hero"
+              disponivel={uf ? (canal ? disponivelEm(atual, uf) : false) : null}
+              lugar={lugar}
+              prioridade
+              artePropsExtra={{ flutuar: true }}
+              legenda={
+                !uf ? (
+                  <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
+                ) : undefined
+              }
+            />
+          ) : (
+            <StoryMercador variante="passo" parado={segurando || pausado} />
+          )}
         </div>
         {/* fora do palco (que remonta a cada produto): o foco do teclado não se perde ao passar */}
-        <a className="hero-produto" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false} aria-label={`Ver ${atual.nome}`} />
+        {atual ? (
+          <a className="hero-produto" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false} aria-label={`Ver ${atual.nome}`} />
+        ) : (
+          <button type="button" className="hero-produto" onClick={abrirConvite} aria-label={convite.ativo ? `Teste minha sorte: ${convite.cta}` : 'Ver loja'} />
+        )}
         {comDica && (
           <div className={`hero-dica degrau${dica === 'saindo' ? ' saindo' : ''}`} aria-hidden="true">
             <p className="hero-dica-linha px px-16">
@@ -613,19 +679,36 @@ export function Hero() {
         )}
       </div>
 
-      <div className="hero-adesivos">
-        <p className="adesivo-texto-bloco hero-frase">
-          <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
-        </p>
-        <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
-          <Icone nome="link" tamanho={16} />
-          VER PRODUTO
-        </a>
-      </div>
-      {atual.demo && config.modoPrevia && <span className="hero-demo carimbo">exemplo</span>}
+      {atual ? (
+        <div className="hero-adesivos">
+          <p className="adesivo-texto-bloco hero-frase">
+            <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
+          </p>
+          <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
+            <Icone nome="link" tamanho={16} />
+            VER PRODUTO
+          </a>
+        </div>
+      ) : (
+        <div className="hero-adesivos">
+          {convite.legenda && (
+            <p className="adesivo-texto-bloco hero-frase hero-frase-mercador">
+              <span className="adesivo-texto">{convite.legenda}</span>
+            </p>
+          )}
+          {/* no lugar do VER PRODUTO: o CTA do convite (muda com o estado do jogo) */}
+          <button type="button" className="adesivo-link toque hero-ver hero-ver-mercador" onClick={abrirConvite}>
+            <Icone nome={convite.ativo ? 'dichavador' : 'link'} tamanho={16} />
+            {convite.cta.toUpperCase()}
+          </button>
+        </div>
+      )}
+      {atual?.demo && config.modoPrevia && <span className="hero-demo carimbo">exemplo</span>}
+      {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando */}
+      <RespostaStory produtoId={atual?.id ?? null} mercador={noMercador} />
       {/* só a troca feita pela pessoa é anunciada; a automática fica muda (sem falatório a cada 5 s) */}
       <span className="sr-only" aria-live="polite">
-        {pos.origem !== 'auto' ? `${atual.nome}, story ${idx + 1} de ${n}` : ''}
+        {pos.origem !== 'auto' ? `${atual ? atual.nome : 'Teste minha sorte'}, story ${idx + 1} de ${n}` : ''}
       </span>
     </div>
   )
@@ -661,9 +744,20 @@ export function Hero() {
     </div>
   )
 
+  // Home 2 no computador: o card do mercador ("story" menor ao lado do perfil, como os vizinhos do visualizador do
+  // instagram.com). A ordem no DOM segue o que se vê (o Tab vai na mesma ordem): >= 1200 card | perfil | story;
+  // abaixo, story, perfil e o card deitado.
+  const h2 = home === 2 && !celular
+  const vitrine = h2 ? (
+    <div key="vitrine" className="hero-vitrine">
+      <StoryMercador variante={largo ? 'coluna' : 'deitada'} />
+    </div>
+  ) : null
+  const ordem = !h2 ? (largo ? [perfil, story] : [story, perfil]) : largo ? [vitrine, perfil, story] : [story, perfil, vitrine]
+
   return (
-    <section ref={raiz} className="hero" aria-label="Stories da Green Cheese">
-      {largo ? [perfil, story] : [story, perfil]}
+    <section ref={raiz} className={`hero${h2 ? ' hero-h2' : ''}`} aria-label="Stories da Green Cheese">
+      {ordem}
     </section>
   )
 }

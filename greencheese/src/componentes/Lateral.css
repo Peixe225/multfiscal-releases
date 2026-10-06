@@ -13,6 +13,28 @@
     padding: 24px 14px 20px;
     border-right: 1px solid var(--bolha);
     background: var(--preto);
+    /* janela baixa (notebook com a enquete de local na tela, celular grande deitado): a lateral rola sozinha, sem
+       levar a página junto. Por estado e a troca de home da prévia nunca ficam fora de alcance */
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bolha) transparent;
+  }
+}
+/* bem baixa (celular deitado, 412–430 px): itens de 44 px e menos respiro, para caber o máximo sem rolar */
+@media (min-width: 900px) and (max-height: 600px) {
+  .lateral {
+    gap: 12px;
+    padding-top: 14px;
+    padding-bottom: 12px;
+  }
+  .lateral-local {
+    gap: 10px;
+    padding-top: 0;
+  }
+  .lateral-item {
+    min-height: 44px;
   }
 }
 .lateral-marca {
@@ -57,6 +79,18 @@
 .lateral-item:hover {
   background: #121212;
 }
+/* aba atual, como no instagram.com: rótulo em negrito e ícone cheio (sem fundo) */
+.lateral-item.ativo {
+  font-weight: 700;
+}
+.lateral-icone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
 .lateral-contador {
   margin-left: auto;
   min-width: 22px;
@@ -76,6 +110,13 @@
   padding: 10px;
   font-size: 12px;
   text-align: left;
+}
+.lateral-previa-selos {
+  display: flex;
+  gap: 6px;
+}
+.carimbo-home {
+  color: var(--branco);
 }
 
 .selo-previa {
@@ -179,17 +220,54 @@
   }
 }
 
-/* ponto branco de pixel: o interativo tem coisa liberada (na borda, sem apertar o rótulo) */
-.lateral-item-ponto {
-  padding-right: 18px;
-  white-space: nowrap;
-}
+/* ponto branco de pixel no canto de cima do ícone (o ponto de notificação do instagram.com): o interativo tem
+   coisa liberada */
 .lateral-ponto {
   position: absolute;
-  right: 6px;
-  top: 50%;
+  top: -3px;
+  right: -4px;
   width: 6px;
   height: 6px;
-  margin-top: -3px;
   background: var(--branco);
+  box-shadow: 0 0 0 2px var(--preto);
+}
+
+/* painel da prévia: versão da home */
+.previa-home {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 20px;
+  padding: 0 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--bolha);
+}
+.previa-home .previa-titulo {
+  margin: 4px 0 8px;
+  padding: 0;
+}
+.previa-opcao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+  cursor: pointer;
+}
+.previa-opcao.escolhida {
+  outline-color: var(--branco);
+}
+.previa-opcao input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--branco);
+}
+.previa-copiar {
+  align-self: flex-start;
+  margin-top: 8px;
+  min-height: 44px;
+  font-size: 14px;
 }

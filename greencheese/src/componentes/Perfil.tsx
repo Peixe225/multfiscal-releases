@@ -1,6 +1,7 @@
 import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
 import { ehDiaDeEntregaGratis, situacao } from '../lib/horario'
+import { irParaAba } from '../lib/abas'
 import { linkPerfil } from '../lib/mensagem'
 import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
@@ -57,7 +58,9 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
           </div>
         </dl>
       </div>
-      <h1 className="sr-only">{titulo}</h1>
+      <h1 className="sr-only" tabIndex={-1}>
+        {titulo}
+      </h1>
       <p className="perfil-nome">{canal ? (canal.nomePerfil ?? canal.instagram) : 'Green Cheese Imports'}</p>
       <p className="perfil-arroba legenda">{canal ? `@${canal.instagram}` : 'RJ · MG · SP · ES · SC'}</p>
       {canal && <p className="perfil-categoria legenda">Delivery · {canal.cidades.length ? canal.cidades.map((c) => c.nome).join(' · ') : canal.nome}</p>}
@@ -86,6 +89,10 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
           </button>
         )}
       </div>
+      {/* a home termina no story: o próprio perfil leva à loja (o "Ver loja" do Instagram Shopping) */}
+      <button type="button" className="botao botao-cinza perfil-botao perfil-loja toque" onClick={() => irParaAba('catalogo')}>
+        Ver loja
+      </button>
     </section>
   )
 }

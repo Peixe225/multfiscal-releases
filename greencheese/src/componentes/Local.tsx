@@ -69,7 +69,30 @@ export function TopoLocal() {
   const setSeletor = useUI((s) => s.setSeletor)
   const ref = useRef<HTMLDivElement>(null)
   const textoAntes = useRef(texto)
-  const [visivel, setVisivel] = useState(false)
+
+  // Fora do Início (abas Catálogo e Por estado) não há story com a linha de local: o adesivo fica sempre à vista,
+  // como cabeçalho, já no render (por classe, sem gsap.set, que forçava o layout da vista nova na troca de aba).
+  // No Início, aparece quando o topo da tela passa do fim do story (ou da tela "ainda não chegou aí").
+  const ancorado = useUI((s) => s.aba !== 'inicio')
+  const [passouDoStory, setPassouDoStory] = useState(false)
+  useLayoutEffect(() => {
+    if (ehDesktop() || ancorado) return
+    const medir = () => {
+      const topo = document.querySelector('.hero, .sem-atendimento')
+      const fim = topo ? topo.getBoundingClientRect().bottom : 0
+      setPassouDoStory(fim < 72)
+    }
+    // volta de outra aba: mede já (a rolagem volta à altura guardada do Início)
+    medir()
+    const st = ScrollTrigger.create({ trigger: document.documentElement, start: 0, end: 'max', onUpdate: medir })
+    const conferir = () => st.refresh()
+    window.addEventListener('resize', conferir)
+    return () => {
+      window.removeEventListener('resize', conferir)
+      st.kill()
+    }
+  }, [ancorado])
+  const visivel = ancorado || passouDoStory
 
   // trocou de cidade: o adesivo cola de novo (pop curto, voz pixel)
   useLayoutEffect(() => {
@@ -78,27 +101,6 @@ export function TopoLocal() {
     const a = ref.current?.querySelector('.adesivo-local')
     if (a && visivel && !movimentoReduzido()) gsap.fromTo(a, { scale: 0.7, rotate: -10 }, { scale: 1, rotate: 0, duration: 0.36, ease: 'back.out(2.4)' })
   }, [texto, visivel])
-
-  // aparece quando o topo da tela passa do fim do story (ou da tela "ainda não chegou aí")
-  useLayoutEffect(() => {
-    if (ehDesktop()) return
-    const st = ScrollTrigger.create({
-      trigger: document.documentElement,
-      start: 0,
-      end: 'max',
-      onUpdate: () => {
-        const topo = document.querySelector('.hero, .sem-atendimento')
-        const fim = topo ? topo.getBoundingClientRect().bottom : 0
-        setVisivel(fim < 72)
-      },
-    })
-    const conferir = () => st.refresh()
-    window.addEventListener('resize', conferir)
-    return () => {
-      window.removeEventListener('resize', conferir)
-      st.kill()
-    }
-  }, [])
 
   return (
     <>

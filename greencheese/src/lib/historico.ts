@@ -24,6 +24,33 @@ function liberarEsperando() {
   const fila = esperando
   esperando = []
   fila.forEach((fn) => fn())
+  conferirSemCamada()
+}
+
+/** Quem espera a pilha de camadas esvaziar (ver quandoSemCamadas). */
+let semCamada: (() => void)[] = []
+
+/** Nenhuma camada aberta e nenhuma volta do histórico em andamento: roda quem esperava. */
+function conferirSemCamada() {
+  if (!semCamada.length || pilha.length || pendentes.size || timerPendentes || ignorarPop) return
+  const fila = semCamada
+  semCamada = []
+  fila.forEach((fn) => fn())
+}
+
+/** Alguma camada (story, folha, página do produto, jogo) está aberta por cima da página? */
+export function haCamadaAberta(): boolean {
+  return pilha.length > 0
+}
+
+/**
+ * Roda `fn` quando a última camada aberta fechar e a volta dela terminar no histórico (na hora, se não houver
+ * nenhuma). Para o que precisa de uma entrada nova no histórico sem ficar por cima da entrada de uma camada que
+ * continua aberta (ex.: a troca de aba depois de trocar de estado com o chat aberto).
+ */
+export function quandoSemCamadas(fn: () => void) {
+  semCamada.push(fn)
+  conferirSemCamada()
 }
 
 /** Reserva do pulo de entrada velha (ver pularVelha). */
@@ -61,7 +88,7 @@ function ouvir() {
       return
     }
     pilha.pop()?.fechar()
-    pularVelha()
+    if (!pularVelha()) conferirSemCamada()
   })
 }
 

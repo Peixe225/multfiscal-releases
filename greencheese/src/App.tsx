@@ -2,33 +2,29 @@ import { Component, lazy, Suspense, useCallback, useEffect, useState, type Compo
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import 'lenis/dist/lenis.css'
-import { canalDa } from './dados/canais'
 import { liberarArtesRealistas } from './arte/realista/carregar'
 import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
+import { iniciarAbas } from './lib/abas'
 import { registrarLenis } from './lib/rolagem'
 import { atualizarParametros, lerParametros } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
-import { iniciarLocal, useLocal } from './store/local'
+import { iniciarLocal } from './store/local'
 import { useUI } from './store/ui'
 import { interativoPorParam } from './interativos/registro'
 import { Abertura, Saida, idadeLembrada } from './componentes/Abertura'
-import { AdesivoInterativo } from './componentes/AdesivoInterativo'
-import { BarraMensagem } from './componentes/BarraMensagem'
-import { Catalogo } from './componentes/Catalogo'
-import { Faixa } from './componentes/Faixa'
-import { Hero } from './componentes/Hero'
+import { Vistas } from './componentes/Abas'
+import { BalaoMercador, BarraAbas } from './componentes/BarraAbas'
 import { Aviso, Lateral, SeloPrevia } from './componentes/Lateral'
 import { TopoLocal } from './componentes/Local'
-import { Perfil } from './componentes/Perfil'
-import { PorEstado } from './componentes/PorEstado'
-import { Reposts, Rodape } from './componentes/Rodape'
-import { SemAtendimento } from './componentes/SemAtendimento'
 import './estilos/layout.css'
 
 gsap.registerPlugin(ScrollTrigger)
+
+// abas antes do primeiro render: a vista da URL (?aba=) já monta por trás da abertura
+iniciarAbas()
 
 // Camadas que só aparecem com toque: carregam depois da primeira tela (durante a abertura).
 // Cada uma tem o próprio Suspense (uma camada lenta não segura a página do produto) e a própria guarda de erro: um
@@ -172,10 +168,11 @@ export function App() {
     return true
   })
   const [saida, setSaida] = useState(false)
-  const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf)
+  const home = useUI((s) => s.home)
   const setAberturaUI = useUI((s) => s.setAbertura)
   const setInfo = useUI((s) => s.setInfo)
+  // estável: o catálogo é memo e não re-renderiza quando o App re-renderiza
+  const abrirInfo = useCallback(() => setInfo(true), [setInfo])
   const camadas = useCamadasProntas()
 
   useEffect(() => {
@@ -247,7 +244,7 @@ export function App() {
         )
       }
     }
-    // página do produto por cima (link aberto numa aba nova cai aqui depois do +18; "Voltar" fecha na home).
+    // página do produto por cima (link aberto numa aba nova cai aqui depois do +18; "Voltar" fecha na aba da URL).
     // Recarregou com níveis empilhados? A entrada do histórico guardou a pilha inteira (ver ProdutoPagina).
     if (p.produto && !useUI.getState().pagina) {
       if (produtoPorId(p.produto)) {
@@ -286,27 +283,15 @@ export function App() {
           }}
         />
       )}
-      <div className="app" inert={abertura || saida}>
+      <div className="app" data-home={home} inert={abertura || saida}>
         <Lateral />
         <TopoLocal />
         <SeloPrevia />
         <main className="principal" id="principal">
-          {uf && !canal ? <SemAtendimento /> : <Hero />}
-          <Faixa />
-          {(!uf || canal) && (
-            <>
-              <div className="so-celular">
-                <Perfil />
-              </div>
-              <Catalogo abrirInfo={() => setInfo(true)} />
-              <AdesivoInterativo />
-              <Reposts />
-            </>
-          )}
-          <PorEstado />
-          <Rodape />
+          <Vistas abrirInfo={abrirInfo} />
         </main>
-        <BarraMensagem />
+        <BarraAbas />
+        {home === 2 && <BalaoMercador />}
       </div>
       {camadas && <Camadas />}
       <Aviso />

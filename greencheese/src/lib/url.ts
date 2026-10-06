@@ -1,4 +1,5 @@
-// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte): funciona em qualquer pasta da Hostinger, sem regra de servidor.
+// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=catalogo&home=2):
+// funciona em qualquer pasta da Hostinger, sem regra de servidor.
 
 export interface Parametros {
   uf: string | null
@@ -10,12 +11,34 @@ export interface Parametros {
   chat: string | null
   /** Interativo aberto (?jogo=sorte). */
   jogo: string | null
+  /** Aba do site (?aba=catalogo | estados; sem parâmetro = Início). Quem escreve é o src/lib/abas.ts. */
+  aba: string | null
+  /** Versão da home em teste (?home=2). Quem escreve é o src/lib/home.ts. */
+  home: string | null
 }
 
 export function lerParametros(): Parametros {
   const q = new URLSearchParams(location.search)
   const lim = (v: string | null) => (v ? v.trim().toLowerCase().slice(0, 60) : null)
-  return { uf: lim(q.get('uf')), cidade: lim(q.get('cidade')), p: lim(q.get('p')), produto: lim(q.get('produto')), chat: lim(q.get('chat')), jogo: lim(q.get('jogo')) }
+  return {
+    uf: lim(q.get('uf')),
+    cidade: lim(q.get('cidade')),
+    p: lim(q.get('p')),
+    produto: lim(q.get('produto')),
+    chat: lim(q.get('chat')),
+    jogo: lim(q.get('jogo')),
+    aba: lim(q.get('aba')),
+    home: lim(q.get('home')),
+  }
+}
+
+/** As vistas do site: o Início (story + perfil), o Catálogo e Por estado. Camadas (story, sacola, jogo…) não são abas. */
+export type Aba = 'inicio' | 'catalogo' | 'estados'
+
+/** Aba pedida na URL. Sem parâmetro, ou com valor desconhecido, é o Início. */
+export function abaDaURL(): Aba {
+  const v = lerParametros().aba
+  return v === 'catalogo' || v === 'estados' ? v : 'inicio'
 }
 
 /** Atualiza a query sem recarregar e sem criar entrada no histórico. null remove a chave. */

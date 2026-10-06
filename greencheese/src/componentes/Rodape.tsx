@@ -1,14 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
+import { useRef, useSyncExternalStore } from 'react'
 import { canais, canalDa, perfisAConfirmar } from '../dados/canais'
 import { config } from '../dados/config'
-import { PixelArte } from '../arte/PixelArte'
-import { ilustracoes } from '../arte/pixel/grades'
-import { apresentacao, palpebras } from '../arte/pixel/mercador'
 import { linkPerfil } from '../lib/mensagem'
-import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
-import { useUI } from '../store/ui'
 import { Avatar } from './comum'
+import { MercadorAnimado, useMercadorAnda } from './Mercador'
 import './Rodape.css'
 
 // O quadro de dentro tem 78% de min(260px, 72vw): a partir de 360 px de tela ele passa de 200 px e o mercador
@@ -24,51 +20,18 @@ function assinarTela(avisar: () => void) {
 const lerTela = () => typeof window !== 'undefined' && !!window.matchMedia?.(TELA_LARGA).matches
 const lerTelaServidor = () => true
 
-// A apresentação do mercador (abre o outro lado do casaco e dá uns tragos). Sem config.mercadorTraga, as camadas do
-// trago nem entram: o ciclo fica só com o casaco abrindo e fechando (o Rodape.css troca para o ciclo curto).
-const quadros = apresentacao.filter((q) => config.mercadorTraga || !q.trago)
-
-// Aba escondida (outro app, outra aba): a animação para.
-function assinarAba(avisar: () => void) {
-  if (typeof document === 'undefined') return () => {}
-  document.addEventListener('visibilitychange', avisar)
-  return () => document.removeEventListener('visibilitychange', avisar)
-}
-const lerAba = () => typeof document === 'undefined' || document.visibilityState !== 'hidden'
-const lerAbaServidor = () => false
-
-/** true enquanto o elemento aparece na tela. Sem IntersectionObserver (navegador antigo), fica sempre true. */
-function useNaTela(ref: RefObject<Element | null>) {
-  const [naTela, setNaTela] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (typeof IntersectionObserver === 'undefined') {
-      setNaTela(true)
-      return
-    }
-    const io = new IntersectionObserver(([e]) => setNaTela(e.isIntersecting))
-    io.observe(el)
-    return () => io.disconnect()
-  }, [ref])
-  return naTela
-}
-
-/** Repost no molde do IG: o story da loja com o story do cliente dentro. Sem depoimento inventado: só a ilustração da marca. */
-export function Reposts() {
+/**
+ * Repost no molde do IG: o story da loja com o story do cliente dentro. Sem depoimento inventado: só a ilustração da
+ * marca. `texto` = a linha "Chegou teu pedido? Marca…" embaixo (a aba Catálogo põe a linha fora da coluna).
+ */
+export function Reposts({ texto = true }: { texto?: boolean }) {
   const uf = useLocal((s) => s.uf)
   const canal = canalDa(uf) ?? canais[0]
   const tamanho = useSyncExternalStore(assinarTela, lerTela, lerTelaServidor) ? 176 : 132
   const figura = useRef<HTMLDivElement>(null)
   // Fora da tela, coberto por uma camada ou com a aba escondida, as animações ficam pausadas (animation-play-state):
-  // nenhum trabalho. O IntersectionObserver não vê o que cobre o repost, então vale o mesmo critério do Hero.
-  const naTela = useNaTela(figura)
-  const abaVisivel = useSyncExternalStore(assinarAba, lerAba, lerAbaServidor)
-  const camadaAberta = useUI(
-    (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva,
-  )
-  const chatAberto = useChat((s) => s.aberto)
-  const anda = naTela && abaVisivel && !camadaAberta && !chatAberto
+  // nenhum trabalho. Ao voltar a andar, pula a parte parada (ver useMercadorAnda).
+  const anda = useMercadorAnda(figura)
   return (
     <section className="reposts" aria-label="Clientes marcando a loja">
       <div className="repost">
@@ -79,24 +42,24 @@ export function Reposts() {
         <div className="repost-dentro">
           {/* decorativo: a legenda embaixo já diz o que importa. Pálpebras e quadros da apresentação são camadas na
               mesma grade, empilhadas por cima do mercador; o CSS diz quando cada uma aparece. */}
-          <div
-            ref={figura}
-            className={`repost-figura${config.mercadorTraga ? ' com-trago' : ''}${anda ? '' : ' parado'}`}
-          >
-            <PixelArte grade={ilustracoes.mercador} tamanho={tamanho} className="repost-arte" />
-            <PixelArte grade={palpebras} tamanho={tamanho} className="repost-piscar" />
-            {quadros.map((q) => (
-              <PixelArte key={q.nome} grade={q.grade} tamanho={tamanho} className={`repost-quadro q-${q.nome}`} />
-            ))}
-          </div>
+          <MercadorAnimado refFigura={figura} tamanho={tamanho} anda={anda} />
           <span className="adesivo-mencao repost-mencao">@{canal.instagram}</span>
         </div>
         <p className="repost-legenda px">Quem já usou sabe da qualidade</p>
       </div>
-      <p className="reposts-txt">
-        Chegou teu pedido? Marca <strong>@{canal.instagram}</strong> no story.
-      </p>
+      {texto && <TextoReposts />}
     </section>
+  )
+}
+
+/** "Chegou teu pedido? Marca @… no story." */
+export function TextoReposts() {
+  const uf = useLocal((s) => s.uf)
+  const canal = canalDa(uf) ?? canais[0]
+  return (
+    <p className="reposts-txt">
+      Chegou teu pedido? Marca <strong>@{canal.instagram}</strong> no story.
+    </p>
   )
 }
 

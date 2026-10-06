@@ -1,19 +1,87 @@
-import { Fragment } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { config } from '../dados/config'
 import { canais, perfisAConfirmar } from '../dados/canais'
 import { Logo } from '../arte/Logo'
+import { PixelArte } from '../arte/PixelArte'
+import { iconesAbas } from '../arte/pixel/abas'
+import { icones } from '../arte/pixel/grades'
+import { preenchida } from '../arte/pixel/preencher'
 import { interativosAtivos, type Interativo } from '../interativos/registro'
+import { cliqueDeAba, hrefAba, irParaAba, rolarAoTopo, type Aba } from '../lib/abas'
 import { useConta, useCupons } from '../lib/conta'
 import { copiarTexto } from '../lib/copiar'
-import { rolarPara } from '../lib/rolagem'
+import { HOME_PADRAO, homeNaURL, lembrarHome, type Home } from '../lib/home'
+import { atualizarParametros, linkCompartilhar } from '../lib/url'
 import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
+import { useLocal } from '../store/local'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
-import { Icone } from './comum'
+import { Avatar, Icone } from './comum'
 import { Folha } from './Folha'
 import { AdesivoLocal, EnqueteLocal, useTextoLocal } from './Local'
 import './Lateral.css'
+
+/**
+ * No Catálogo, qual dos dois itens da lateral é o ativo: "Buscar" (tocado por último, ou a pessoa foi para o campo de
+ * busca) ou "Catálogo" (tocado por último). Só o texto na busca não decide: tocar em Catálogo depois de buscar deixa
+ * Catálogo ativo. Sair do Catálogo zera (voltar para ele sem tocar em nada mostra Catálogo).
+ */
+function useBuscarAtivo(aba: Aba): [boolean, (v: boolean) => void] {
+  const [buscar, setBuscar] = useState(false)
+  useEffect(() => {
+    const foco = (e: FocusEvent) => {
+      const alvo = e.target
+      if (alvo instanceof Element && alvo.matches('.vista[data-vista="catalogo"] .busca input')) setBuscar(true)
+    }
+    document.addEventListener('focusin', foco)
+    return () => document.removeEventListener('focusin', foco)
+  }, [])
+  useEffect(() => {
+    if (aba !== 'catalogo') setBuscar(false)
+  }, [aba])
+  return [buscar, setBuscar]
+}
+
+/**
+ * A lateral passa da altura da janela (notebook baixo com a enquete, celular grande deitado)? Aí ela rola sozinha
+ * (Lateral.css) e ganha data-lenis-prevent: a roda do mouse em cima dela rola a lateral, não a página (o Lenis
+ * engoliria o evento). Cabendo, a roda em cima dela continua rolando a página, como antes.
+ */
+function useLateralRola(ref: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const medir = () => {
+      const rola = el.scrollHeight > el.clientHeight + 1
+      el.toggleAttribute('data-lenis-prevent', rola)
+    }
+    medir()
+    // a própria lateral (janela) e cada bloco dela (a enquete entra e sai, o contador da sacola, a prévia)
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    for (const filho of el.children) ro.observe(filho)
+    return () => ro.disconnect()
+  }, [ref])
+}
+
+/** Item de aba na lateral: link de verdade (Ctrl/⌘/botão do meio abre em aba nova), ativo como no instagram.com. */
+function ItemAba({ aba, rotulo, ativo, icone, aoTocar }: { aba: Aba; rotulo: string; ativo: boolean; icone: ReactNode; aoTocar: () => void }) {
+  return (
+    <a
+      className={`lateral-item toque${ativo ? ' ativo' : ''}`}
+      href={hrefAba(aba)}
+      data-aba={aba}
+      aria-current={ativo ? 'page' : undefined}
+      onClick={(e) => {
+        if (cliqueDeAba(e)) aoTocar()
+      }}
+    >
+      <span className="lateral-icone">{icone}</span>
+      <span>{rotulo}</span>
+    </a>
+  )
+}
 
 /** Desktop: barra lateral no molde do instagram.com, com o adesivo de localização sempre à vista. */
 export function Lateral() {
@@ -21,57 +89,108 @@ export function Lateral() {
   const setSeletor = useUI((s) => s.setSeletor)
   const setSacola = useUI((s) => s.setSacola)
   const setPainel = useUI((s) => s.setPainel)
+  const aba = useUI((s) => s.aba)
+  const home = useUI((s) => s.home)
   const abrirChat = useChat((s) => s.abrir)
   const n = useSacola((s) => contarItens(s.itens))
-  const itens: { icone: string; rotulo: string; acao: () => void; extra?: React.ReactNode }[] = [
-    { icone: 'estrela', rotulo: 'Início', acao: () => rolarPara('#raiz', 0) },
-    {
-      icone: 'lupa',
-      rotulo: 'Buscar',
-      acao: () => {
-        rolarPara('#catalogo', -20)
-        setTimeout(() => document.querySelector<HTMLInputElement>('.busca input')?.focus({ preventScroll: true }), 500)
-      },
-    },
-    { icone: 'garrafa', rotulo: 'Catálogo', acao: () => rolarPara('#catalogo', -20) },
-    { icone: 'balao', rotulo: 'Pedido guiado', acao: () => abrirChat('pedido') },
-    { icone: 'sacola', rotulo: 'Sacola', acao: () => setSacola(true), extra: n > 0 ? <span className="lateral-contador px">{n}</span> : null },
-    { icone: 'moto', rotulo: 'Por estado', acao: () => rolarPara('#estados', -20) },
-  ]
+  // os links das abas levam uf e cidade junto
+  useLocal((s) => s.cidade)
+  const [buscando, setBuscando] = useBuscarAtivo(aba)
+  const buscarAtivo = aba === 'catalogo' && buscando
+  const catalogoAtivo = aba === 'catalogo' && !buscando
+  const raiz = useRef<HTMLElement>(null)
+  useLateralRola(raiz)
   return (
-    <aside className="lateral" aria-label="Navegação">
-      <button type="button" className="lateral-marca" onClick={() => rolarPara('#raiz', 0)} aria-label="Green Cheese Imports — início">
+    <aside ref={raiz} className="lateral" aria-label="Navegação">
+      <a
+        className="lateral-marca"
+        href={hrefAba('inicio')}
+        onClick={(e) => {
+          if (cliqueDeAba(e)) irParaAba('inicio')
+        }}
+        aria-label="Green Cheese Imports — início"
+      >
         <Logo tamanho={44} />
         <span className="px px-20">GREEN CHEESE</span>
-      </button>
+      </a>
       <div className="lateral-local">
         <AdesivoLocal texto={texto} procurando={procurando} inclinacao={-3} aoTocar={() => setSeletor(true)} />
         <EnqueteLocal className="lateral-enquete" />
       </div>
-      <nav className="lateral-nav">
-        {itens.map((i) => (
-          <Fragment key={i.rotulo}>
-            <button type="button" className="lateral-item toque" onClick={i.acao}>
-              <Icone nome={i.icone} tamanho={24} />
-              <span>{i.rotulo}</span>
-              {i.extra}
-            </button>
-            {/* depois da Sacola: os interativos e, com conta, a Minha conta */}
-            {i.icone === 'sacola' && (
-              <>
-                {interativosAtivos().map((x) => (
-                  <ItemInterativo key={x.id} i={x} />
-                ))}
-                <ItemConta />
-              </>
-            )}
-          </Fragment>
+      <nav className="lateral-nav" aria-label="Abas">
+        <ItemAba
+          aba="inicio"
+          rotulo="Início"
+          ativo={aba === 'inicio'}
+          icone={<PixelArte grade={aba === 'inicio' ? iconesAbas['casa-cheia'] : iconesAbas.casa} tamanho={24} />}
+          aoTocar={() => irParaAba('inicio')}
+        />
+        <a
+          className={`lateral-item toque${buscarAtivo ? ' ativo' : ''}`}
+          href={hrefAba('catalogo')}
+          data-aba="buscar"
+          aria-current={buscarAtivo ? 'page' : undefined}
+          onClick={(e) => {
+            if (!cliqueDeAba(e)) return
+            setBuscando(true)
+            irParaAba('catalogo', { foco: 'busca' })
+          }}
+        >
+          <span className="lateral-icone">
+            <PixelArte grade={buscarAtivo ? iconesAbas['lupa-grossa'] : icones.lupa} tamanho={24} />
+          </span>
+          <span>Buscar</span>
+        </a>
+        <ItemAba
+          aba="catalogo"
+          rotulo="Catálogo"
+          ativo={catalogoAtivo}
+          icone={<PixelArte grade={catalogoAtivo ? preenchida(icones.garrafa) : icones.garrafa} tamanho={24} />}
+          aoTocar={() => {
+            setBuscando(false)
+            irParaAba('catalogo')
+          }}
+        />
+        <button type="button" className="lateral-item toque" onClick={() => abrirChat('pedido')} aria-haspopup="dialog">
+          <span className="lateral-icone">
+            <Icone nome="balao" tamanho={24} />
+          </span>
+          <span>Pedido guiado</span>
+        </button>
+        <button type="button" className="lateral-item toque" onClick={() => setSacola(true)} aria-haspopup="dialog">
+          <span className="lateral-icone">
+            <Icone nome="sacola" tamanho={24} />
+          </span>
+          <span>
+            Sacola
+            {n > 0 && <span className="sr-only">: {n === 1 ? '1 item' : `${n} itens`}</span>}
+          </span>
+          {n > 0 && (
+            <span className="lateral-contador px" aria-hidden="true">
+              {n}
+            </span>
+          )}
+        </button>
+        {/* depois da Sacola: os interativos e, com conta, a Minha conta */}
+        {interativosAtivos().map((x) => (
+          <ItemInterativo key={x.id} i={x} />
         ))}
+        <ItemConta />
+        <ItemAba
+          aba="estados"
+          rotulo="Por estado"
+          ativo={aba === 'estados'}
+          icone={<Avatar tamanho={24} anel={aba === 'estados'} />}
+          aoTocar={() => irParaAba('estados')}
+        />
       </nav>
       {config.modoPrevia && (
         <button type="button" className="lateral-previa toque" onClick={() => setPainel(true)}>
-          <span className="carimbo">prévia</span>
-          <span className="legenda">o que falta pra ficar oficial</span>
+          <span className="lateral-previa-selos">
+            <span className="carimbo">prévia</span>
+            {home === 2 && <span className="carimbo carimbo-home">home 2</span>}
+          </span>
+          <span className="legenda">{home === 2 ? 'vendo a Home 2 · trocar de home' : 'o que falta pra ficar oficial'}</span>
         </button>
       )}
     </aside>
@@ -83,13 +202,16 @@ function ItemInterativo({ i }: { i: Interativo }) {
   const e = i.useEntrada!()
   const abrir = useUI((s) => s.abrirInterativo)
   return (
-    <button type="button" className="lateral-item lateral-item-ponto toque" onClick={() => abrir(i.id)}>
-      <Icone nome={i.icone} tamanho={24} />
+    <button type="button" className="lateral-item toque" onClick={() => abrir(i.id)} aria-haspopup="dialog">
+      <span className="lateral-icone">
+        <Icone nome={i.icone} tamanho={24} />
+        {/* ponto de notificação no canto do ícone, como no instagram.com */}
+        {e.ponto && <span className="lateral-ponto" aria-hidden="true" />}
+      </span>
       <span>
         {i.titulo}
         {e.ponto && <span className="sr-only"> · liberado</span>}
       </span>
-      {e.ponto && <span className="lateral-ponto" aria-hidden="true" />}
     </button>
   )
 }
@@ -102,8 +224,10 @@ function ItemConta() {
   if (!conta) return null
   const n = cupons.filter((c) => c.status === 'ativo').length
   return (
-    <button type="button" className="lateral-item toque" onClick={() => setConta(true)}>
-      <Icone nome="conta" tamanho={24} />
+    <button type="button" className="lateral-item toque" onClick={() => setConta(true)} aria-haspopup="dialog">
+      <span className="lateral-icone">
+        <Icone nome="conta" tamanho={24} />
+      </span>
       <span>
         Minha conta
         {n > 0 && <span className="sr-only">: {n === 1 ? '1 cupom ativo' : `${n} cupons ativos`}</span>}
@@ -117,14 +241,56 @@ function ItemConta() {
   )
 }
 
-/** Selo "prévia" discreto (celular). */
+/** Selo "prévia" discreto (celular). Na Home 2, "home 2" (o painel troca de home). */
 export function SeloPrevia() {
   const setPainel = useUI((s) => s.setPainel)
+  const home = useUI((s) => s.home)
   if (!config.modoPrevia) return null
   return (
-    <button type="button" className="selo-previa carimbo toque" onClick={() => setPainel(true)} aria-label="Prévia: ver o que falta pra ficar oficial">
-      prévia
+    <button
+      type="button"
+      className="selo-previa carimbo toque"
+      onClick={() => setPainel(true)}
+      aria-label={home === 2 ? 'Prévia da Home 2: ver o que falta e trocar de home' : 'Prévia: ver o que falta pra ficar oficial'}
+    >
+      {home === 2 ? 'home 2' : 'prévia'}
     </button>
+  )
+}
+
+/** Troca de versão da home (prévia): Home 1 (atual) ou Home 2 (sorte e mercador no topo). */
+function VersaoHome() {
+  const home = useUI((s) => s.home)
+  const avisar = useUI((s) => s.avisar)
+  const uf = useLocal((s) => s.uf)
+  const escolher = (h: Home) => {
+    if (h === useUI.getState().home) return
+    lembrarHome(h)
+    useUI.getState().setHome(h)
+    atualizarParametros({ home: homeNaURL(h) })
+    useUI.getState().setPainel(false)
+    if (useUI.getState().aba === 'inicio') rolarAoTopo()
+    else irParaAba('inicio')
+    avisar(h === 2 ? 'Vendo a Home 2.' : 'Vendo a Home 1.')
+  }
+  const link = linkCompartilhar({ ...(uf ? { uf } : {}), home: '2' })
+  return (
+    <fieldset className="previa-home">
+      <legend className="previa-titulo">Versão da home</legend>
+      {([1, 2] as const).map((h) => (
+        <label key={h} className={`previa-opcao toque${home === h ? ' escolhida' : ''}`}>
+          <input type="radio" name="versao-home" value={h} checked={home === h} onChange={() => escolher(h)} />
+          <span>
+            {h === 1 ? 'Home 1 (atual)' : 'Home 2 (sorte e mercador no topo)'}
+            {h === HOME_PADRAO && <span className="legenda"> · padrão</span>}
+          </span>
+        </label>
+      ))}
+      <button type="button" className="botao botao-contorno previa-copiar" onClick={() => avisar(copiarTexto(link) ? 'Link da Home 2 copiado.' : 'Não deu pra copiar.')}>
+        <Icone nome="copiar" tamanho={16} />
+        Copiar link da Home 2
+      </button>
+    </fieldset>
   )
 }
 
@@ -144,6 +310,7 @@ export function PainelPrevia() {
   return (
     <Folha id="previa" aberta={aberto} aoFechar={() => setPainel(false)} rotulo="Prévia: pendências" cabecalho={<span>Prévia · I&H Soluções Digitais</span>}>
       <div className="previa">
+        <VersaoHome />
         <p className="previa-intro">Tudo funciona até a mensagem pronta no WhatsApp. Pra ficar oficial, falta o dono passar:</p>
         <ul className="previa-lista">
           <li>

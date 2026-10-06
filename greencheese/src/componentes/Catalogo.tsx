@@ -251,10 +251,8 @@ export function Catalogo({ abrirInfo }: { abrirInfo: () => void }) {
   const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
 
   return (
+    // o título (h1 "Catálogo", id catalogo-titulo) fica no cabeçalho da aba (Abas.tsx)
     <section id="catalogo" className="catalogo" aria-labelledby="catalogo-titulo">
-      <h2 id="catalogo-titulo" className="sr-only">
-        Catálogo
-      </h2>
       <Destaques categoria={categoria} setCategoria={(c) => comFlip(() => setCategoria(c))} abrirInfo={abrirInfo} />
 
       <div className="filtros">

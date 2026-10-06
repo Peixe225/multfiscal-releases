@@ -1,0 +1,371 @@
+/* "Story do mercador" (Home 2): card ao lado do perfil (coluna), deitado embaixo dele (deitada) e passo do story do
+   celular (passo). O mercador usa as classes e o ciclo do Rodape.css. */
+
+.sm {
+  /* as pálpebras e as camadas que apagam pintam na cor do fundo */
+  --fundo-dentro: var(--preto);
+  position: relative;
+  background: var(--preto);
+  color: var(--branco);
+}
+/* fora do repost: sem o desgiro de 2° e sem o espaço do adesivo de menção */
+.sm .repost-figura {
+  transform: none;
+  margin-bottom: 0;
+}
+
+/* ---------- moldura de card (coluna e deitada) ---------- */
+.sm-coluna,
+.sm-deitada {
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+  cursor: pointer;
+  transition: outline-color 0.2s var(--ease-app);
+}
+.sm-coluna:hover,
+.sm-deitada:hover {
+  outline-color: var(--chiado);
+}
+/* o anel do foco vai no card inteiro (o CTA é a única parada do Tab) */
+.sm-coluna:has(.sm-cta:focus-visible),
+.sm-deitada:has(.sm-cta:focus-visible) {
+  outline: 2px solid var(--branco);
+  outline-offset: 3px;
+}
+.sm-cta:focus-visible {
+  outline: none;
+}
+
+/* ---------- coluna: story menor, de pé ---------- */
+.sm-coluna {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: clamp(380px, calc(var(--hh, 680px) * 0.8), 620px);
+  overflow: hidden;
+}
+/* um segmento só de barra de progresso, no ritmo da apresentação (pula junto para o tique 18: ver Mercador.tsx) */
+.sm-barra {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+.sm-barra i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+  transform-origin: left center;
+  transform: scaleX(0);
+  /* propriedades separadas, nunca o atalho "animation" (o minificador do build o reescreveria como "none") */
+  animation-name: vitrine-barra;
+  animation-duration: 12.5s;
+  animation-timing-function: steps(100, end);
+  animation-iteration-count: infinite;
+}
+.sm:not(.com-trago) .sm-barra i {
+  animation-duration: 6.25s;
+  animation-timing-function: steps(50, end);
+}
+.sm-barra i.parado {
+  animation-play-state: paused;
+}
+@keyframes vitrine-barra {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.sm-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px 10px 0;
+}
+.sm-cab-nome {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+  font: 600 13px/1 var(--ui);
+}
+/* corta no meio: o começo ganha as reticências e o sufixo da UF (mg, rj…) fica sempre inteiro */
+.sm-cab-ini {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sm-cab-fim {
+  flex: none;
+}
+.sm-cab-rot {
+  flex: none;
+  font: 400 13px/1 var(--ui);
+}
+/* anel apagado quando já foi visto (o Avatar pinta o anel em linha: o !important vence o estilo inline) */
+.sm-cab .avatar.visto {
+  box-shadow: inset 0 0 0 1.5px var(--chiado) !important;
+}
+/* selo "novo" no canto do disco, como na bolha do destaque */
+.sm-novo {
+  position: absolute;
+  top: -6px;
+  left: calc(100% - 8px);
+  background: var(--preto);
+  color: var(--branco);
+  transform: rotate(6deg);
+}
+
+.sm-corpo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  /* o rabinho do adesivo (18 px) mais um respiro até o capuz */
+  gap: 22px;
+  padding: 36px 12px 12px;
+}
+
+/* ---------- adesivo de pergunta (no molde da caixa de encomenda) ---------- */
+.sm-adesivo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 252px);
+  padding: 30px 14px 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 12px;
+  text-align: center;
+  transform: rotate(-3deg);
+}
+.sm-disco {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  border-radius: 50%;
+  background: var(--preto);
+  color: var(--branco);
+  box-shadow: 0 0 0 2px var(--branco);
+}
+.sm-titulo {
+  font-size: 16px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+.sm-pergunta {
+  font: 600 15px/1.25 var(--ui);
+  text-wrap: balance;
+}
+.sm-texto {
+  font: 400 13px/1.35 var(--ui);
+  color: #555;
+  text-wrap: pretty;
+}
+.sm-cta {
+  margin-top: 6px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 18px;
+  border-radius: 22px;
+  background: var(--preto);
+  color: var(--branco);
+  font: 700 14px/1.15 var(--ui);
+  transform: rotate(2deg);
+  transition: transform 0.2s var(--ease-app);
+}
+.sm-legenda {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+  font: 400 12px/1.2 var(--ui);
+  color: #555;
+}
+.sm-legenda .carimbo {
+  color: #555;
+}
+/* rabinho em 3 degraus de pixel (6 px cada), saindo de baixo do adesivo e apontando para o rosto do mercador
+   (as colunas do rosto ficam à direita do meio da grade) */
+.sm-rabo {
+  position: absolute;
+  top: calc(100% - 1px);
+  left: calc(50% - 2px);
+  width: 18px;
+  height: 18px;
+  background: var(--branco);
+  clip-path: polygon(0 0, 18px 0, 18px 18px, 12px 18px, 12px 12px, 6px 12px, 6px 6px, 0 6px);
+}
+.sm-palco {
+  display: flex;
+  justify-content: center;
+  flex: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sm-coluna:hover .sm-cta,
+  .sm-deitada:hover .sm-cta {
+    transform: rotate(0deg) scale(1.04);
+  }
+}
+
+/* legenda e carimbo "exemplo" só com espaço (>= 1440); o texto do convite e o "interativo" do cabeçalho só na tela
+   gigante: abaixo dela o mercador grande (4×) e o @ valem mais */
+@media (max-width: 1439px) {
+  .sm-coluna .sm-legenda {
+    display: none;
+  }
+}
+@media (max-width: 1799px) {
+  .sm-coluna .sm-texto,
+  .sm-coluna .sm-cab-rot {
+    display: none;
+  }
+  .sm-coluna .sm-cta {
+    padding: 0 14px;
+    font-size: 13px;
+  }
+}
+/* 1200–1279: o story fica estreito (preso na largura que sobra) e baixo; o card um pouco mais alto que os 80% dele
+   ainda cabe ao lado e deixa o mercador em 3× */
+@media (min-width: 1200px) and (max-width: 1279px) {
+  .sm-coluna {
+    height: clamp(380px, calc(var(--hh, 680px) * 0.9), 620px);
+  }
+}
+/* tela gigante: o mercador 5× pede um card mais alto (ainda menor que o story aberto) */
+@media (min-width: 1800px) {
+  .sm-coluna {
+    height: clamp(380px, calc(var(--hh, 680px) * 0.9), 690px);
+  }
+}
+@media (max-width: 1439px) and (min-width: 1200px) {
+  .sm-coluna .sm-titulo {
+    font-size: 14px;
+  }
+  .sm-coluna .sm-adesivo {
+    padding: 28px 10px 12px;
+  }
+  .sm-coluna .sm-pergunta {
+    font-size: 14px;
+  }
+  .sm-coluna .sm-cta {
+    padding: 0 12px;
+    font-size: 13px;
+  }
+}
+
+/* card compacto (StoryMercador.tsx liga quando só assim o mercador fica em 3×, em janela baixa): sem o título (o disco
+   do dichavador e o "Testar minha sorte" já dizem o que é), CTA numa linha e menos respiro */
+.sm-compacto .sm-titulo {
+  display: none;
+}
+.sm-compacto .sm-corpo {
+  gap: 18px;
+  padding-top: 30px;
+}
+.sm-compacto .sm-adesivo {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.sm-compacto .sm-cta {
+  padding: 0 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ---------- deitada: o mesmo card, deitado (mercador à esquerda, adesivo à direita) ---------- */
+.sm-deitada {
+  width: 100%;
+}
+.sm-deitada .sm-corpo {
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 24px;
+  padding: 28px 16px 12px 12px;
+}
+.sm-deitada .sm-adesivo {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+/* rabinho saindo da borda esquerda do adesivo, apontando para o rosto (alto, à esquerda) */
+.sm-deitada .sm-rabo {
+  top: 14px;
+  left: auto;
+  right: calc(100% - 1px);
+}
+
+/* ---------- passo do story do celular (sem moldura) ---------- */
+.sm-passo {
+  height: 100%;
+}
+.sm-passo .sm-corpo {
+  height: 100%;
+  padding: 34px var(--gutter) 8px;
+  gap: 22px;
+}
+.sm-passo .sm-adesivo {
+  width: min(100%, 284px);
+}
+.sm-passo .sm-pergunta {
+  font-size: 16px;
+}
+/* celular deitado: o quadro tem ~150 px de altura e empilhado o adesivo saía pelo topo do story (por cima das
+   barrinhas e do @). Deitado como a vitrine 'deitada': o mercador à esquerda (de pé no chão do quadro), o adesivo à
+   direita, os dois à direita do adesivo de local fixo no canto de cima (padding-left), com o rabinho para o rosto */
+@media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
+  .sm-passo .sm-corpo {
+    flex-direction: row-reverse;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 30px var(--gutter) 4px max(200px, 30%);
+  }
+  .sm-passo .sm-palco {
+    align-self: flex-end;
+  }
+  .sm-passo .sm-adesivo {
+    flex: 0 1 284px;
+    min-width: 0;
+    width: auto;
+    padding: 26px 12px 12px;
+  }
+  .sm-passo .sm-titulo {
+    font-size: 14px;
+  }
+  .sm-passo .sm-pergunta {
+    font-size: 15px;
+  }
+  .sm-passo .sm-rabo {
+    top: 14px;
+    left: auto;
+    right: calc(100% - 1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sm-barra i {
+    animation-name: none;
+    transform: scaleX(1);
+  }
+}
