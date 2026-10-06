@@ -105,6 +105,11 @@
 .abertura-adesivo .adesivo-local {
   transform-origin: 0 0;
 }
+/* a pergunta do palpite de IP, colada embaixo do adesivo (é aqui que ela mora, não na home) */
+.abertura-enquete {
+  margin-top: 22px;
+  width: min(320px, 100%);
+}
 
 @media (min-width: 900px) {
   .abertura-idade,

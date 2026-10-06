@@ -15,7 +15,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding-top: calc(var(--seg-topo) + 96px);
+  /* cabeçalho de duas linhas (@ e local) e nada mais por cima: o produto ganha a altura que era do adesivo e da enquete */
+  padding-top: calc(var(--seg-topo) + 70px);
   overflow: hidden;
   /* a página rola na vertical por cima do story; o arrasto lateral fica com o story */
   touch-action: pan-y;
@@ -60,6 +61,18 @@
   .hero-quadro.com-selo .hero-cab .story-cab-tempo {
     display: none;
   }
+}
+.hero-cab-texto {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hero-cab-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 .hero-enquetes {
   position: relative;
@@ -554,5 +567,17 @@
   .hero-dica.saindo {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* local: no celular, a linha do cabeçalho; no desktop, o adesivo da lateral e o de dentro do story já fazem esse papel */
+@media (max-width: 899px) {
+  .hero-enquetes {
+    display: none;
+  }
+}
+@media (min-width: 900px) {
+  .hero-cab-local {
+    display: none;
   }
 }

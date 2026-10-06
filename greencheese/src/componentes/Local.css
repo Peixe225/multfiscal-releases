@@ -56,17 +56,26 @@ button.adesivo-local-g {
   }
 }
 
-/* ---------- Topo fixo (celular) ---------- */
+/* ---------- Topo fixo (celular): só depois do story, pequeno e reto ---------- */
 
 .topo-local {
   position: fixed;
   z-index: 40;
   left: var(--gutter);
-  top: calc(var(--seg-topo) + 62px);
+  top: calc(var(--seg-topo) + 8px);
   max-width: calc(100vw - 2 * var(--gutter) - 56px);
   transform-origin: left center;
-  transform: rotate(-4deg);
-  will-change: transform;
+  transform: translateY(-12px) scale(0.88);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s var(--ease-app),
+    transform 0.24s var(--ease-app);
+}
+.topo-local.visivel {
+  opacity: 1;
+  transform: translateY(0) scale(0.88);
+  pointer-events: auto;
 }
 .topo-faixa {
   position: fixed;
@@ -77,12 +86,101 @@ button.adesivo-local-g {
   border-bottom: 1px solid var(--bolha);
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.2s var(--ease-app);
+}
+.topo-faixa.visivel {
+  opacity: 1;
 }
 @media (min-width: 900px) {
   .topo-local,
-  .topo-faixa {
+  .topo-faixa,
+  .aviso-local {
     display: none;
   }
+}
+
+/* ---------- Linha de local do cabeçalho do story (celular) ---------- */
+
+/* como o local embaixo do @ num post do Instagram: pequeno, branco, com a seta de trocar */
+/* alvo de 44 px de verdade sem crescer a linha: o botão tem 44 de altura e as margens negativas devolvem o espaço */
+.linha-local {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 44px;
+  margin: -12px 0 -12px -1px;
+  color: var(--branco);
+  font: 500 13px/1.2 var(--ui);
+  text-align: left;
+}
+.linha-local-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linha-local.vazia .linha-local-txt {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.linha-local-pin {
+  flex: none;
+}
+.linha-local-seta {
+  flex: none;
+  opacity: 0.7;
+  transform: rotate(90deg);
+}
+.linha-local .adesivo-local-cursor {
+  background: var(--branco);
+}
+
+/* ---------- Aviso de uma linha (celular): palpite de IP fora do story ---------- */
+
+.aviso-local {
+  position: fixed;
+  z-index: 45;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(var(--barra-baixo) + var(--seg-baixo) + 8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 4px 4px 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 14px;
+  animation: aviso-local-entra 0.26s var(--ease-app) both;
+}
+@keyframes aviso-local-entra {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.aviso-local-txt {
+  flex: 1;
+  min-width: 0;
+  font: 700 14px/1.2 var(--ui);
+}
+.aviso-local-opcoes {
+  flex: none;
+  display: flex;
+  border: 1px solid #dbdbdb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.aviso-local-op {
+  min-height: 44px;
+  padding: 0 12px;
+  font: 700 14px/1 var(--ui);
+  color: var(--preto);
+}
+.aviso-local-op + .aviso-local-op {
+  border-left: 1px solid #dbdbdb;
 }
 
 /* ---------- Enquete do story ---------- */

@@ -1,9 +1,10 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canalDa } from '../dados/canais'
-import { emUf, ufPorSigla } from '../dados/ufs'
+import { deUf, emUf, ufPorSigla } from '../dados/ufs'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
+import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
@@ -59,56 +60,125 @@ export function AdesivoLocal({
 }
 
 /**
- * Adesivo fixo no topo (celular): começa colado dentro do story do hero, torto; ao rolar ele "descola"
- * e gruda no topo, sempre visível. Tocar abre o seletor.
+ * Local no celular, enxuto: no story do topo, o local é a linha "📍 Teófilo Otoni" do cabeçalho (LinhaLocal, como o
+ * Instagram mostra o local num post). Este adesivo fixo só aparece pequeno e reto depois que a pessoa rola para além
+ * do story (catálogo, estados…), para o local continuar a um toque. Junto vem o aviso de uma linha do palpite de IP.
  */
 export function TopoLocal() {
   const { texto, procurando } = useTextoLocal()
   const setSeletor = useUI((s) => s.setSeletor)
   const ref = useRef<HTMLDivElement>(null)
-  const faixa = useRef<HTMLDivElement>(null)
   const textoAntes = useRef(texto)
+  const [visivel, setVisivel] = useState(false)
 
   // trocou de cidade: o adesivo cola de novo (pop curto, voz pixel)
   useLayoutEffect(() => {
     if (textoAntes.current === texto) return
     textoAntes.current = texto
     const a = ref.current?.querySelector('.adesivo-local')
-    if (a && !movimentoReduzido()) gsap.fromTo(a, { scale: 0.7, rotate: -10 }, { scale: 1, rotate: 0, duration: 0.36, ease: 'back.out(2.4)' })
-  }, [texto])
+    if (a && visivel && !movimentoReduzido()) gsap.fromTo(a, { scale: 0.7, rotate: -10 }, { scale: 1, rotate: 0, duration: 0.36, ease: 'back.out(2.4)' })
+  }, [texto, visivel])
 
+  // aparece quando o topo da tela passa do fim do story (ou da tela "ainda não chegou aí")
   useLayoutEffect(() => {
-    const el = ref.current
-    const f = faixa.current
-    if (!el || !f || ehDesktop()) return
-    const reduz = movimentoReduzido()
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: document.documentElement,
-          start: 0,
-          end: () => Math.max(200, window.innerHeight * 0.5),
-          scrub: reduz ? false : 0.4,
-        },
-      })
-      tl.fromTo(el, { y: 0, rotate: -4, scale: 1 }, { y: -50, rotate: 0, scale: 0.88, ease: 'none' }, 0)
-      tl.fromTo(f, { opacity: 0 }, { opacity: 1, ease: 'none' }, 0.6)
+    if (ehDesktop()) return
+    const st = ScrollTrigger.create({
+      trigger: document.documentElement,
+      start: 0,
+      end: 'max',
+      onUpdate: () => {
+        const topo = document.querySelector('.hero, .sem-atendimento')
+        const fim = topo ? topo.getBoundingClientRect().bottom : 0
+        setVisivel(fim < 72)
+      },
     })
-    return () => ctx.revert()
+    const conferir = () => st.refresh()
+    window.addEventListener('resize', conferir)
+    return () => {
+      window.removeEventListener('resize', conferir)
+      st.kill()
+    }
   }, [])
 
   return (
     <>
-      <div ref={faixa} className="topo-faixa" aria-hidden="true" />
-      <div ref={ref} className="topo-local">
+      <div className={`topo-faixa ${visivel ? 'visivel' : ''}`} aria-hidden="true" />
+      <div ref={ref} className={`topo-local ${visivel ? 'visivel' : ''}`} aria-hidden={!visivel} inert={!visivel}>
         <AdesivoLocal texto={texto} procurando={procurando} inclinacao={0} aoTocar={() => setSeletor(true)} />
       </div>
+      <AvisoLocal />
     </>
   )
 }
 
+/** A linha de local do cabeçalho do story (celular): pino, cidade e seta. Tocar abre o seletor. */
+export function LinhaLocal({ className }: { className?: string }) {
+  const { texto, procurando, vazio } = useTextoLocal()
+  const setSeletor = useUI((s) => s.setSeletor)
+  const nome = vazio ? 'De onde você é?' : texto
+  return (
+    <button
+      type="button"
+      className={`linha-local toque ${vazio ? 'vazia' : ''} ${className ?? ''}`}
+      onClick={() => setSeletor(true)}
+      aria-label={vazio ? 'Escolher teu estado' : `Local: ${texto}. Trocar cidade`}
+    >
+      <Icone nome="pin" tamanho={12} className="linha-local-pin" />
+      <span className="linha-local-txt">{nome}</span>
+      {procurando && <span className="adesivo-local-cursor" aria-hidden="true" />}
+      <Icone nome="chevron-dir" tamanho={12} className="linha-local-seta" />
+    </button>
+  )
+}
+
+/**
+ * Aviso de uma linha (celular), logo acima da barra de baixo: confirma o palpite de IP quando a abertura não perguntou
+ * (palpite chegou depois, ou a pessoa pulou) e avisa quando o IP aponta um estado sem atendimento. Nunca dentro do story.
+ */
+function AvisoLocal() {
+  const { uf, confirmado, origem, palpiteFora, confirmar } = useLocal()
+  const setSeletor = useUI((s) => s.setSeletor)
+  const abrirChat = useChat((s) => s.abrir)
+  const chatAberto = useChat((s) => s.aberto)
+  const camadaAberta = useUI(
+    (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva || !!s.interativo || s.contaAberta,
+  )
+  if (ehDesktop() || camadaAberta || chatAberto) return null
+  if (uf && !confirmado && origem === 'ip') {
+    return (
+      <div className="aviso-local" role="group" aria-label="Confirmar teu estado">
+        <p className="aviso-local-txt">Você está {emUf(uf)}?</p>
+        <div className="aviso-local-opcoes">
+          <button type="button" className="aviso-local-op toque" onClick={confirmar}>
+            Sim
+          </button>
+          <button type="button" className="aviso-local-op toque" onClick={() => setSeletor(true)}>
+            Trocar
+          </button>
+        </div>
+      </div>
+    )
+  }
+  if (!uf && palpiteFora) {
+    return (
+      <div className="aviso-local" role="group" aria-label="Teu estado">
+        <p className="aviso-local-txt">Parece que é {deUf(palpiteFora)}: ainda não chegou aí.</p>
+        <div className="aviso-local-opcoes">
+          <button type="button" className="aviso-local-op toque" onClick={() => setSeletor(true)}>
+            Estados
+          </button>
+          <button type="button" className="aviso-local-op toque" onClick={() => abrirChat('encomenda')}>
+            Encomendar
+          </button>
+        </div>
+      </div>
+    )
+  }
+  return null
+}
+
 /** Enquete do story para o palpite de IP: "Você está em Minas Gerais?" [Sim] | [Trocar] (cidade atendida embaixo). */
-export function EnqueteLocal({ className }: { className?: string }) {
+export function EnqueteLocal({ className, aoSim, aoTrocar }: { className?: string; aoSim?: () => void; aoTrocar?: () => void }) {
   const { uf, cidade, confirmado, origem, confirmar } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
   if (!uf || confirmado || origem !== 'ip') return null
@@ -120,10 +190,17 @@ export function EnqueteLocal({ className }: { className?: string }) {
         Você está {emUf(uf)}?{c && <span className="enquete-sub">Atendimento de {c}</span>}
       </p>
       <div className="enquete-opcoes">
-        <button type="button" className="enquete-opcao toque" onClick={confirmar}>
+        <button
+          type="button"
+          className="enquete-opcao toque"
+          onClick={() => {
+            confirmar()
+            aoSim?.()
+          }}
+        >
           Sim
         </button>
-        <button type="button" className="enquete-opcao toque" onClick={() => setSeletor(true)}>
+        <button type="button" className="enquete-opcao toque" onClick={() => (aoTrocar ? aoTrocar() : setSeletor(true))}>
           Trocar
         </button>
       </div>

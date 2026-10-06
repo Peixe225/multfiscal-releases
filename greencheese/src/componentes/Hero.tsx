@@ -15,7 +15,7 @@ import { useDisponiveis } from '../store/derivados'
 import { useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
-import { EnqueteLocal, useTextoLocal } from './Local'
+import { LinhaLocal, useTextoLocal } from './Local'
 import { Perfil } from './Perfil'
 import { StoryQuadro } from './StoryQuadro'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
@@ -542,8 +542,14 @@ export function Hero() {
       </div>
       <div className="hero-cab">
         <Avatar tamanho={32} />
-        <span className="story-cab-nome">{canal?.instagram ?? 'Green Cheese Imports'}</span>
-        {tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>}
+        {/* @ e tempo em cima; no celular, o local embaixo (como num post do Instagram) — sem adesivo por cima do produto */}
+        <div className="hero-cab-texto">
+          <div className="hero-cab-linha">
+            <span className="story-cab-nome">{canal?.instagram ?? 'Green Cheese Imports'}</span>
+            {tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>}
+          </div>
+          <LinhaLocal className="hero-cab-local" />
+        </div>
         {navega && !reduz && (
           <button
             type="button"
@@ -565,8 +571,9 @@ export function Hero() {
         </>
       )}
 
+      {/* a confirmação do palpite de IP não entra no story: no celular ela vai para a abertura (ou para o aviso de uma
+          linha embaixo); no desktop, para a barra lateral. Aqui só o aviso de estado sem atendimento, no desktop. */}
       <div className="hero-enquetes">
-        <EnqueteLocal className="hero-enquete" />
         <AvisoFora />
       </div>
 

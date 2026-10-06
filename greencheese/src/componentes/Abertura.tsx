@@ -6,8 +6,9 @@ import { liberarArtesRealistas } from '../arte/realista/carregar'
 import { gravar, ler } from '../lib/armazenamento'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
+import { useUI } from '../store/ui'
 import { Icone } from './comum'
-import { AdesivoLocal, useTextoLocal } from './Local'
+import { AdesivoLocal, EnqueteLocal, useTextoLocal } from './Local'
 import './Abertura.css'
 
 const CHAVE_IDADE = 'gc-idade'
@@ -41,6 +42,9 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
   const adesivo = useRef<HTMLDivElement>(null)
   const { texto, procurando } = useTextoLocal()
   const detectando = useLocal((s) => s.detectando)
+  // palpite de IP de um estado atendido ainda sem confirmação: a pergunta mora aqui, no quadro do local — não na home
+  const pergunta = useLocal((s) => !!s.uf && !s.confirmado && s.origem === 'ip')
+  const trocarNoFim = useRef(false)
   const barras = useRef<(HTMLElement | null)[]>([])
   const saindo = useRef(false)
 
@@ -54,20 +58,41 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
   const terminar = useCallback(() => {
     if (saindo.current) return
     saindo.current = true
-    const el = raiz.current
-    const a = adesivo.current?.querySelector('.adesivo-local')
-    const destino = document.querySelector('.topo-local .adesivo-local, .lateral .adesivo-local') as HTMLElement | null
-    if (!el || reduz) {
+    let feito = false
+    const fim = () => {
+      if (feito) return
+      feito = true
       aoTerminar()
+      if (trocarNoFim.current) useUI.getState().setSeletor(true)
+    }
+    const el = raiz.current
+    const a = adesivo.current?.querySelector<HTMLElement>('.adesivo-local')
+    if (!el || reduz) {
+      fim()
       return
     }
-    const tl = gsap.timeline({ onComplete: aoTerminar })
+    // reserva: se a linha do tempo não chegar ao fim (aba em segundo plano, navegador que segura quadros), a abertura
+    // sai do mesmo jeito — nunca fica um adesivo parado no meio da tela por cima do site
+    const reserva = window.setTimeout(fim, 1500)
+    const tl = gsap.timeline({
+      onComplete: () => {
+        clearTimeout(reserva)
+        fim()
+      },
+    })
+    // destino do voo: o primeiro local VISÍVEL (no celular, a linha do cabeçalho do story; no desktop, o adesivo da
+    // lateral). O querySelector com lista pegava o da lateral, escondido no celular, e o adesivo não voava.
+    const destino = [...document.querySelectorAll<HTMLElement>('.hero-cab-local, .lateral .adesivo-local')].find((d) => d.getBoundingClientRect().width > 0)
     if (a && destino) {
       const r = a.getBoundingClientRect()
       const d = destino.getBoundingClientRect()
-      if (d.width > 0) {
-        tl.to(a, { x: d.left - r.left, y: d.top - r.top, scale: d.width / r.width, rotate: 0, duration: 0.5, ease: 'power3.inOut', transformOrigin: '0 0' }, 0)
-      }
+      const linha = destino.classList.contains('linha-local')
+      const escala = linha ? d.height / r.height : d.width / r.width
+      tl.to(a, { x: d.left - r.left, y: d.top - r.top, scale: escala, rotate: 0, duration: 0.5, ease: 'power3.inOut', transformOrigin: '0 0' }, 0)
+      // na linha do cabeçalho o adesivo "entra" no texto: some no fim do voo
+      if (linha) tl.to(a, { opacity: 0, duration: 0.14, ease: 'steps(2)' }, 0.4)
+    } else if (a) {
+      tl.to(a, { opacity: 0, duration: 0.2, ease: 'steps(2)' }, 0)
     }
     tl.to(el.querySelector('.abertura-fundo'), { opacity: 0, duration: 0.4, ease: 'none' }, 0.1)
     tl.to(el.querySelectorAll('.abertura-some'), { opacity: 0, duration: 0.2, ease: 'steps(2)' }, 0)
@@ -139,12 +164,13 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
   }, [fase, reduz])
 
   useEffect(() => {
-    if (fase !== 'local') return
-    // espera o palpite de IP (até o limite dele) para o adesivo cair com o estado; nunca segura mais que ~1,6 s
+    if (fase !== 'local' || pergunta) return
+    // espera o palpite de IP (até o limite dele) para o adesivo cair com o estado; nunca segura mais que ~1,6 s.
+    // Com a pergunta na tela, espera a resposta (ou um toque fora dela, que segue sem confirmar)
     const espera = detectando ? 1600 : 900
     const t = setTimeout(terminar, espera)
     return () => clearTimeout(t)
-  }, [fase, detectando, terminar])
+  }, [fase, detectando, pergunta, terminar])
 
   // barrinhas: a do quadro atual enche (a do +18 só enche quando a pessoa responde)
   useEffect(() => {
@@ -184,7 +210,7 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
 
   return (
     <div ref={raiz} className="abertura" role="dialog" aria-modal="true" aria-label="Green Cheese Imports" onClick={(e) => {
-      if ((e.target as HTMLElement).closest('button, a')) return
+      if ((e.target as HTMLElement).closest('button, a, .enquete')) return
       if (fase === 'logo' && logoPronto) setFase(fases[1])
       else if (fase === 'local') terminar()
     }}>
@@ -248,7 +274,18 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
           <div ref={adesivo} className="abertura-adesivo">
             <AdesivoLocal texto={texto} procurando={procurando} tamanho="g" inclinacao={-4} />
           </div>
-          <p className="abertura-nota abertura-some legenda">{procurando ? 'Achando o atendimento mais perto…' : 'Vem no certo!'}</p>
+          {pergunta ? (
+            <EnqueteLocal
+              className="abertura-enquete abertura-some"
+              aoSim={terminar}
+              aoTrocar={() => {
+                trocarNoFim.current = true
+                terminar()
+              }}
+            />
+          ) : (
+            <p className="abertura-nota abertura-some legenda">{procurando ? 'Achando o atendimento mais perto…' : 'Vem no certo!'}</p>
+          )}
         </div>
       )}
     </div>
