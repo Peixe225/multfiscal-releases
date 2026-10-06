@@ -105,8 +105,9 @@
 .abertura-adesivo .adesivo-local {
   transform-origin: 0 0;
 }
-/* a pergunta do palpite de IP, colada embaixo do adesivo (é aqui que ela mora, não na home) */
-.abertura-enquete {
+/* a pergunta do palpite de IP, colada embaixo do adesivo (é aqui que ela mora, não na home). Só no quadro do local:
+   a enquete do +18 usa a mesma classe e, com a margem, saía pela base da tela com o celular deitado */
+.abertura-local .abertura-enquete {
   margin-top: 22px;
   width: min(320px, 100%);
 }

@@ -6,7 +6,6 @@ import { liberarArtesRealistas } from '../arte/realista/carregar'
 import { gravar, ler } from '../lib/armazenamento'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
-import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import { AdesivoLocal, EnqueteLocal, useTextoLocal } from './Local'
 import './Abertura.css'
@@ -29,7 +28,7 @@ type Fase = 'logo' | 'idade' | 'local'
  * 1) o logo se monta em pixels e a tesoura dá um corte; 2) a tesoura recorta o adesivo de enquete "Tem 18 anos ou mais?";
  * 3) o adesivo de localização cola com o estado detectado e voa até o topo.
  */
-export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSair: () => void }) {
+export function Abertura({ aoTerminar, aoSair }: { aoTerminar: (trocarEstado: boolean) => void; aoSair: () => void }) {
   const jaTem18 = useRef(idadeLembrada()).current
   const fases: Fase[] = jaTem18 ? ['logo', 'local'] : ['logo', 'idade', 'local']
   const [fase, setFase] = useState<Fase>('logo')
@@ -62,8 +61,9 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
     const fim = () => {
       if (feito) return
       feito = true
-      aoTerminar()
-      if (trocarNoFim.current) useUI.getState().setSeletor(true)
+      // "Trocar": o App abre o seletor depois das camadas que o link pede (story, página, jogo), para ele ficar por
+      // cima delas também no histórico (o 1º voltar fecha o seletor, não a camada escondida embaixo dele)
+      aoTerminar(trocarNoFim.current)
     }
     const el = raiz.current
     const a = adesivo.current?.querySelector<HTMLElement>('.adesivo-local')
@@ -80,11 +80,19 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: () => void; aoSai
         fim()
       },
     })
-    // destino do voo: o primeiro local VISÍVEL (no celular, a linha do cabeçalho do story; no desktop, o adesivo da
-    // lateral). O querySelector com lista pegava o da lateral, escondido no celular, e o adesivo não voava.
-    const destino = [...document.querySelectorAll<HTMLElement>('.hero-cab-local, .lateral .adesivo-local')].find((d) => d.getBoundingClientRect().width > 0)
+    // destino do voo: o primeiro local que aparece (no celular, a linha do cabeçalho do story, ou o adesivo do topo
+    // quando o link abre direto no Catálogo/Por estado; no desktop, o adesivo da lateral). A vista escondida guarda
+    // tamanho (content-visibility), então largura > 0 não basta: fica de fora quem está numa vista [hidden].
+    const destino = [...document.querySelectorAll<HTMLElement>('.hero-cab-local, .topo-local.visivel .adesivo-local, .lateral .adesivo-local')].find(
+      (d) => d.getBoundingClientRect().width > 0 && !d.closest('.vista[hidden]'),
+    )
     if (a && destino) {
+      // mede sem a inclinação: torto, o topo da caixa é o canto de cima à direita e o voo pousava ~14 px abaixo do
+      // destino (o ponto que voa é o canto de cima à esquerda, transform-origin 0 0)
+      const inclinacao = Number(gsap.getProperty(a, 'rotation')) || 0
+      gsap.set(a, { rotation: 0 })
       const r = a.getBoundingClientRect()
+      gsap.set(a, { rotation: inclinacao })
       const d = destino.getBoundingClientRect()
       const linha = destino.classList.contains('linha-local')
       const escala = linha ? d.height / r.height : d.width / r.width

@@ -398,11 +398,35 @@ const browser = await chromium.launch()
   }
 }
 
-// ---------- atalho da Home 2 (sem script: meta refresh) ----------
+// ---------- atalho da Home 2 (home2/, Home2/, HOME2/): leva para ?home=2 sem perder o resto do link ----------
 {
-  const r = await fetch(new URL('home2/index.html', base)).catch(() => null)
-  const html = r?.ok ? await r.text() : ''
-  conferir(/http-equiv="refresh"[^>]*url=\.\.\/\?home=2/.test(html) && !/<script/i.test(html), 'home2/index.html: meta refresh para ../?home=2, sem script')
+  for (const pasta of ['home2', 'Home2', 'HOME2']) {
+    const r = await fetch(new URL(`${pasta}/index.html`, base)).catch(() => null)
+    const html = r?.ok ? await r.text() : ''
+    // script só de arquivo (a CSP bloqueia script em linha) e o meta refresh para quem está sem JavaScript
+    const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    conferir(
+      scripts.length === 1 && /src="[^"]*ir\.js"/.test(scripts[0][1]) && !scripts[0][2].trim() && /<noscript><meta http-equiv="refresh"[^>]*url=\.\.\/\?home=2/.test(html),
+      `${pasta}/index.html: script de arquivo + meta refresh de reserva para ../?home=2`,
+    )
+  }
+  const ctx = await contexto(browser, { width: 390, height: 844 })
+  const page = await ctx.newPage()
+  vigiar(page, 'atalho-h2')
+  for (const [entrada, espera] of [
+    ['home2/?uf=rj&aba=catalogo', { uf: 'rj', aba: 'catalogo' }],
+    ['Home2/', {}],
+    ['?Home2&uf=rj', { uf: 'rj' }],
+    ['?HOME=2', {}],
+  ]) {
+    await page.goto(new URL(entrada, base).href)
+    await page.locator('.app').waitFor({ state: 'attached', timeout: 15000 })
+    await page.waitForTimeout(300)
+    const r = await page.evaluate(() => ({ home: document.querySelector('.app')?.dataset.home, q: Object.fromEntries(new URLSearchParams(location.search)) }))
+    const ok = r.home === '2' && r.q.home === '2' && Object.entries(espera).every(([k, v]) => r.q[k] === v) && !Object.keys(r.q).some((k) => /^home./i.test(k) || (k !== 'home' && /^home$/i.test(k)))
+    conferir(ok, `atalho ${entrada}: Home 2 com ?home=2${Object.keys(espera).length ? ' e ' + Object.keys(espera).join('/') + ' mantidos' : ''} (${JSON.stringify(r)})`)
+  }
+  await ctx.close()
 }
 
 // ---------- navegador do Instagram apertado (360×560) ----------

@@ -105,7 +105,7 @@ A Home 2 é a mesma coisa com o **Teste minha sorte e o mercador no Início**:
 
 Como ver:
 
-- `https://oprojeto.online/greencheese/home2/` (atalho para compartilhar), `?home=2` em qualquer link ou o atalho digitado `?home2` (vira `?home=2` sozinho). A escolha fica lembrada enquanto a aba do navegador estiver aberta (as abas e o recarregar seguem nela). `?home=1` volta para a Home 1.
+- `https://oprojeto.online/greencheese/home2/` (atalho para compartilhar; também `Home2/` e `HOME2/`, e o resto do link vai junto: `home2/?uf=rj` abre a Home 2 no RJ), `?home=2` em qualquer link ou o atalho digitado `?home2` (com maiúscula ou não; vira `?home=2` sozinho). A escolha fica lembrada enquanto a aba do navegador estiver aberta (as abas e o recarregar seguem nela). `?home=1` volta para a Home 1.
 - No painel da prévia: **Versão da home** → Home 1 / Home 2, e o botão "Copiar link da Home 2".
 
 **Aprovar a Home 2:** em `src/lib/home.ts`, trocar `HOME_PADRAO = 1` para `HOME_PADRAO = 2`, gerar o build e subir.
@@ -219,7 +219,7 @@ Crie uma planilha com as colunas `id, preco, rj, mg, sp, es, sc` (disponível = 
 ## O que o site faz
 
 - Abertura em formato de story com a pergunta +18 (lembrada por 30 dias) e o adesivo de localização.
-- Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "Você está em …?"), escolha manual com os 27 estados.
+- Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "Você está em …?"), escolha manual com os 27 estados. A pergunta do palpite aparece na abertura; se a pessoa pular, no celular ela fica no pé do story do Início, no lugar do "Enviar mensagem…" (que volta depois da resposta), e nas outras abas logo acima da barra.
 - Três abas (Início, Catálogo, Por estado), com barra de abas no celular e barra lateral no computador; o voltar do Android passa pelas abas (ver "Abas e Home 2").
 - Catálogo por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅".
 - Story do topo (hero): passa sozinho; toque nas bordas ou arrastar de lado passa e volta; no computador, setas ao lado do story e ← →. Na primeira visita, uma dica mostra onde tocar.

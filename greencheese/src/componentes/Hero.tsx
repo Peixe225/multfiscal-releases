@@ -7,7 +7,7 @@ import { config } from '../dados/config'
 import { deUf } from '../dados/ufs'
 import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
-import { movimentoReduzido } from '../lib/movimento'
+import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
 import type { Produto } from '../lib/tipos'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
@@ -17,7 +17,7 @@ import { useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
-import { LinhaLocal, useTextoLocal } from './Local'
+import { AvisoLocal, LinhaLocal, useAvisoLocal, useTextoLocal } from './Local'
 import { PASSO_MS } from './Mercador'
 import { Perfil } from './Perfil'
 import { StoryMercador, useConviteSorte } from './StoryMercador'
@@ -179,6 +179,8 @@ export function Hero() {
   const passos: Passo[] = lista.map((produto) => ({ tipo: 'produto', produto }))
   if (comMercador && passos.length) passos.splice(1, 0, { tipo: 'mercador' })
   const convite = useConviteSorte()
+  // palpite de IP pendente (celular): o aviso ocupa o lugar da linha de resposta até a pessoa responder
+  const avisoLocal = useAvisoLocal()
   const { texto: lugar } = useTextoLocal()
   const setHeroProduto = useUI((s) => s.setHeroProduto)
   const camadaAberta = useUI(
@@ -704,8 +706,15 @@ export function Hero() {
         </div>
       )}
       {atual?.demo && config.modoPrevia && <span className="hero-demo carimbo">exemplo</span>}
-      {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando */}
-      <RespostaStory produtoId={atual?.id ?? null} mercador={noMercador} />
+      {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando. Com o
+          palpite de IP pendente, o aviso de local fica no lugar dela (por cima, cobria a pílula no celular baixo) */}
+      {avisoLocal && !ehDesktop() ? (
+        <div className="hero-resposta hero-aviso-local">
+          <AvisoLocal variante="story" />
+        </div>
+      ) : (
+        <RespostaStory produtoId={atual?.id ?? null} mercador={noMercador} />
+      )}
       {/* só a troca feita pela pessoa é anunciada; a automática fica muda (sem falatório a cada 5 s) */}
       <span className="sr-only" aria-live="polite">
         {pos.origem !== 'auto' ? `${atual ? atual.nome : 'Teste minha sorte'}, story ${idx + 1} de ${n}` : ''}

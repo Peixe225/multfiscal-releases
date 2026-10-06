@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>Green Cheese Imports · Home 2</title>
-    <!-- Atalho para a Home 2 em teste (oprojeto.online/greencheese/home2/). Sem script: a CSP do site bloqueia script
-         em linha. O ?home=2 fica lembrado na sessão e nas abas (src/lib/home.ts). -->
-    <meta http-equiv="refresh" content="0; url=../?home=2" />
+    <!-- Atalho para a Home 2 em teste (oprojeto.online/greencheese/home2/). O script (arquivo à parte: a CSP do site bloqueia script em linha) leva para ../?home=2
+         mantendo o resto do link (?uf=rj…); sem JavaScript, o meta refresh. A escolha fica lembrada na sessão e nas
+         abas (src/lib/home.ts). -->
+    <script src="ir.js"></script>
+    <noscript><meta http-equiv="refresh" content="0; url=../?home=2" /></noscript>
   </head>
   <body style="margin: 0; min-height: 100vh; display: grid; place-items: center; background: #000; color: #fff; font: 16px system-ui, sans-serif">
     <a href="../?home=2" style="color: #fff; padding: 12px 16px">Abrir a Home 2</a>

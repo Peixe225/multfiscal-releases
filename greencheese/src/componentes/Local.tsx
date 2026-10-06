@@ -133,22 +133,34 @@ export function LinhaLocal({ className }: { className?: string }) {
   )
 }
 
+/** Qual aviso de local está pendente: confirmar o palpite de IP de um estado atendido, ou o IP de um estado sem entrega. */
+export function useAvisoLocal(): 'confirmar' | 'fora' | null {
+  return useLocal((s) => (s.uf && !s.confirmado && s.origem === 'ip' ? 'confirmar' : !s.uf && s.palpiteFora ? 'fora' : null))
+}
+
 /**
- * Aviso de uma linha (celular), logo acima da barra de baixo: confirma o palpite de IP quando a abertura não perguntou
- * (palpite chegou depois, ou a pessoa pulou) e avisa quando o IP aponta um estado sem atendimento. Nunca dentro do story.
+ * Aviso de uma linha (celular): confirma o palpite de IP quando a abertura não perguntou (palpite chegou depois, ou
+ * a pessoa pulou) e avisa quando o IP aponta um estado sem atendimento. No Início ele mora no pé do story, no lugar
+ * da linha "Enviar mensagem…" (variante 'story', o Hero troca uma pela outra até a resposta); nas outras abas, fixo
+ * logo acima da barra de abas. Nunca por cima do produto nem da linha de resposta.
  */
-function AvisoLocal() {
-  const { uf, confirmado, origem, palpiteFora, confirmar } = useLocal()
+export function AvisoLocal({ variante = 'fixo' }: { variante?: 'fixo' | 'story' }) {
+  const aviso = useAvisoLocal()
+  const { uf, palpiteFora, confirmar } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
   const abrirChat = useChat((s) => s.abrir)
   const chatAberto = useChat((s) => s.aberto)
+  const noInicio = useUI((s) => s.aba === 'inicio')
   const camadaAberta = useUI(
     (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva || !!s.interativo || s.contaAberta,
   )
-  if (ehDesktop() || camadaAberta || chatAberto) return null
-  if (uf && !confirmado && origem === 'ip') {
+  if (!aviso || ehDesktop()) return null
+  // o fixo fica fora do Início (lá o story já mostra) e some com qualquer camada por cima
+  if (variante === 'fixo' && (noInicio || camadaAberta || chatAberto)) return null
+  const cls = `aviso-local aviso-local-${variante}${aviso === 'fora' ? ' aviso-local-fora' : ''}`
+  if (aviso === 'confirmar' && uf) {
     return (
-      <div className="aviso-local" role="group" aria-label="Confirmar teu estado">
+      <div className={cls} role="group" aria-label="Confirmar teu estado">
         <p className="aviso-local-txt">Você está {emUf(uf)}?</p>
         <div className="aviso-local-opcoes">
           <button type="button" className="aviso-local-op toque" onClick={confirmar}>
@@ -161,9 +173,9 @@ function AvisoLocal() {
       </div>
     )
   }
-  if (!uf && palpiteFora) {
+  if (aviso === 'fora' && palpiteFora) {
     return (
-      <div className="aviso-local" role="group" aria-label="Teu estado">
+      <div className={cls} role="group" aria-label="Teu estado">
         <p className="aviso-local-txt">Parece que é {deUf(palpiteFora)}: ainda não chegou aí.</p>
         <div className="aviso-local-opcoes">
           <button type="button" className="aviso-local-op toque" onClick={() => setSeletor(true)}>

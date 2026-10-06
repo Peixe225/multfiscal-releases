@@ -20,6 +20,10 @@ DirectoryIndex index.html
   <FilesMatch "\.(js|css|woff2?)$">
     Header always set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
+  # o script do atalho home2/ (ir.js) não tem hash no nome: revalida sempre, como o HTML
+  <FilesMatch "^ir\.js$">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
 </IfModule>
 
 <IfModule mod_expires.c>

@@ -53,6 +53,37 @@ export function quandoSemCamadas(fn: () => void) {
   conferirSemCamada()
 }
 
+/** Quem espera a pilha chegar a um tamanho (ver quandoEmpilharem). */
+let aoEmpilhar: { alvo: number; fn: () => void }[] = []
+
+function conferirEmpilhadas() {
+  if (!aoEmpilhar.length) return
+  const prontos = aoEmpilhar.filter((x) => pilha.length >= x.alvo)
+  if (!prontos.length) return
+  aoEmpilhar = aoEmpilhar.filter((x) => pilha.length < x.alvo)
+  prontos.forEach((x) => x.fn())
+}
+
+/**
+ * Roda `fn` depois que mais `quantas` camadas entrarem no histórico (na hora, se nenhuma for esperada), com reserva
+ * de `limite` ms. As camadas são pedaços carregados à parte e cada uma entra no histórico quando monta, em qualquer
+ * ordem: quem precisa ficar por cima de camadas que acabaram de ser pedidas espera elas entrarem (ex.: o seletor
+ * pedido no "Trocar" da abertura, por cima do story aberto por um link).
+ */
+export function quandoEmpilharem(quantas: number, fn: () => void, limite = 2500) {
+  const item = { alvo: pilha.length + quantas, fn }
+  if (pilha.length >= item.alvo) {
+    fn()
+    return
+  }
+  aoEmpilhar.push(item)
+  window.setTimeout(() => {
+    if (!aoEmpilhar.includes(item)) return
+    aoEmpilhar = aoEmpilhar.filter((x) => x !== item)
+    fn()
+  }, limite)
+}
+
 /** Reserva do pulo de entrada velha (ver pularVelha). */
 let timerPulo = 0
 
@@ -105,13 +136,15 @@ function empilhar(c: Camada) {
   }
   pilha.push(c)
   // dentro de iframe o histórico é dividido com a página de fora: não mexe (o voltar sairia do app que hospeda)
-  if (dentroDeIframe()) return
-  try {
-    history.pushState({ ...(history.state ?? {}), gc: c.id }, '')
-    c.empilhada = true
-  } catch {
-    /* ignora */
+  if (!dentroDeIframe()) {
+    try {
+      history.pushState({ ...(history.state ?? {}), gc: c.id }, '')
+      c.empilhada = true
+    } catch {
+      /* ignora */
+    }
   }
+  conferirEmpilhadas()
 }
 
 function desempilhar(id: string) {

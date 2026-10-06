@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import 'lenis/dist/lenis.css'
@@ -7,6 +7,7 @@ import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
 import { iniciarAbas } from './lib/abas'
+import { quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
 import { atualizarParametros, lerParametros } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
@@ -168,6 +169,8 @@ export function App() {
     return true
   })
   const [saida, setSaida] = useState(false)
+  // "Trocar" na pergunta do palpite, dentro da abertura: o seletor abre quando ela sai (ver o efeito pós-abertura)
+  const trocarDepois = useRef(false)
   const home = useUI((s) => s.home)
   const setAberturaUI = useUI((s) => s.setAbertura)
   const setInfo = useUI((s) => s.setInfo)
@@ -264,10 +267,19 @@ export function App() {
       else atualizarParametros({ jogo: null })
     }
     if (p.chat === 'pedido' || p.chat === 'encomenda') useChat.getState().abrir(p.chat)
+    // "Trocar" na abertura: o seletor fica por cima de tudo o que o link abriu, também no histórico. As camadas
+    // entram no histórico quando o pedaço delas carrega, então ele espera elas entrarem
+    if (trocarDepois.current) {
+      trocarDepois.current = false
+      const ui = useUI.getState()
+      const pedidas = (ui.story ? 1 : 0) + (ui.pagina?.pilha.length ?? 0) + (ui.interativo ? 1 : 0) + (useChat.getState().aberto ? 1 : 0)
+      quandoEmpilharem(pedidas, () => useUI.getState().setSeletor(true))
+    }
     requestAnimationFrame(() => ScrollTrigger.refresh())
   }, [abertura, saida])
 
-  const fimAbertura = useCallback(() => {
+  const fimAbertura = useCallback((trocarEstado: boolean) => {
+    trocarDepois.current = trocarEstado
     gravarSessao('gc-abertura', '1')
     setAbertura(false)
   }, [])

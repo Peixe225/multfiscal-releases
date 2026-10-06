@@ -11,6 +11,7 @@ import { useLocal } from '../store/local'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
+import { useAvisoLocal } from './Local'
 import { passoDoMercadorVisto, RostoMercador, useCamadaAberta, useRostoParado } from './Mercador'
 import { useConviteSorte } from './StoryMercador'
 import './BarraAbas.css'
@@ -151,7 +152,8 @@ const FICA_MS = 6000
 export function BalaoMercador() {
   const aba = useUI((s) => s.aba)
   const camada = useCamadaAberta()
-  const enquete = useLocal((s) => !!s.uf && !s.confirmado && s.origem === 'ip')
+  // qualquer aviso de local pendente (confirmar o palpite ou estado sem entrega): o balão espera, sem gastar a vez
+  const enquete = useAvisoLocal() !== null
   const c = useConviteSorte()
   const [fase, setFase] = useState<'espera' | 'mostra' | 'saindo' | 'fim'>(() => (lerSessao(CHAVE_BALAO) ? 'fim' : 'espera'))
   const elegivel = fase === 'espera' && aba === 'inicio' && !camada && !enquete && c.ativo && c.novo

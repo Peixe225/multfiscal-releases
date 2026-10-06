@@ -620,8 +620,8 @@
 /* celular deitado: o story do hero cabe inteiro entre o topo e a barra de abas (568×320 deixa 268 px), com a arte à
    esquerda e nome, preço e DISPONÍVEL à direita (empilhados, a arte virava um pontinho). Uma linha só no pé:
    VER PRODUTO e o "Enviar mensagem…" lado a lado (duas linhas comiam 120 px e cortavam o DISPONÍVEL).
-   O adesivo de local fixo fica no canto de cima, à esquerda (até ~106 px): só a coluna da esquerda desce até ele;
-   a do texto começa logo abaixo do @ */
+   O local é a linha embaixo do @ (o adesivo fixo do topo só aparece depois do story): a arte começa logo abaixo do
+   cabeçalho, com uma folga para o desenho, que sangra uns 12 px acima da caixa, não encostar na linha de local */
 @media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
   .hero-story {
     height: calc(100vh - var(--barra-baixo) - var(--seg-baixo));
@@ -671,7 +671,7 @@
   }
   .hero-palco > .sq-hero .sq-arte {
     align-self: stretch;
-    margin-top: 46px;
+    margin-top: 10px;
   }
   .hero-palco > .sq-hero .sq-texto {
     padding: 0 var(--gutter) 0 0;

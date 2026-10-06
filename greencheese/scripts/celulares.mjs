@@ -25,7 +25,8 @@ const problemas = []
 
 async function contexto(w, h, opts = {}) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'pt-BR' })
-  await ctx.route(/ipwho|geojs/, (r) => r.fulfill({ json: { success: true, country_code: 'BR', region: 'Minas Gerais', region_code: 'MG' } }))
+  const ip = opts.ip ?? { region: 'Minas Gerais', region_code: 'MG' }
+  await ctx.route(/ipwho|geojs/, (r) => r.fulfill({ json: { success: true, country_code: 'BR', ...ip } }))
   if (opts.semDica) await ctx.addInitScript(() => sessionStorage.setItem('gc-dica-hero', '1'))
   return ctx
 }
@@ -312,7 +313,8 @@ for (const [nome, w, h] of deitados) {
           disp: r('.hero-palco .sq-disp'),
           preco: r('.hero-palco .sq-preco'),
           cab: r('.hero-cab'),
-          local: r('.topo-local .adesivo-local'),
+          // o local à vista no Início é a linha do cabeçalho (o adesivo do topo só aparece depois do story)
+          local: r('.hero-cab-local .linha-local-txt'),
           adesivo: r('.hero-palco .sm-adesivo'),
           disco: r('.hero-palco .sm-disco'),
           figura: r('.hero-palco .sm-palco .repost-figura'),
@@ -326,7 +328,7 @@ for (const [nome, w, h] of deitados) {
     if (m.disp && m.story && m.disp.b > m.story.b) problemas.push(`${tag}: DISPONÍVEL fora do story`)
     await p.screenshot({ path: `${out}${tag}-1-hero.png` })
     if (home === 2) {
-      // passo do mercador: dentro do quadro, abaixo do @, sem passar por baixo do adesivo de local
+      // passo do mercador: dentro do quadro, abaixo do @, sem passar por cima da linha de local
       const q = await p.locator('.hero-quadro').boundingBox()
       await p.touchscreen.tap(q.x + q.width * 0.92, q.y + q.height * 0.25)
       await p.waitForTimeout(1600)
@@ -334,7 +336,7 @@ for (const [nome, w, h] of deitados) {
       if (!n.adesivo) problemas.push(`${tag}: passo do mercador não apareceu`)
       else {
         if (n.disco.t < n.cab.b - 1 || n.adesivo.t < n.cab.b - 1) problemas.push(`${tag}: adesivo do mercador sobe por cima do @ (${Math.round(n.disco.t)} < ${Math.round(n.cab.b)})`)
-        if (cruza(n.figura, n.local) || cruza(n.adesivo, n.local)) problemas.push(`${tag}: mercador por baixo do adesivo de local`)
+        if (cruza(n.figura, n.local) || cruza(n.adesivo, n.local)) problemas.push(`${tag}: mercador por cima da linha de local`)
         if (n.figura && n.figura.b > n.story.b) problemas.push(`${tag}: mercador fora do quadro`)
       }
       await p.screenshot({ path: `${out}${tag}-2-mercador.png` })
@@ -401,6 +403,109 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
   if (await p.evaluate(() => document.documentElement.classList.contains('com-teclado'))) problemas.push('teclado: fechou o teclado e a barra não voltou')
   await ctx.close()
   console.log('✓ teclado')
+}
+
+// ---------- palpite de IP pendente (a pessoa pulou a pergunta da abertura) ----------
+// No Início o aviso fica no pé do story, no lugar da linha "Enviar mensagem…" (nada por cima do produto, do VER
+// PRODUTO nem da linha de resposta); nas outras abas, fixo acima da barra. Estado sem entrega (BA): opções embaixo.
+{
+  const BA = { region: 'Bahia', region_code: 'BA' }
+  const casos = [
+    ['safari-390x664', 390, 664, 1, null],
+    ['se-320x568', 320, 568, 2, null],
+    ['iphone8-375x667', 375, 667, 2, BA],
+    ['iphone13-390x844', 390, 844, 1, BA],
+    ['deitado-844x390', 844, 390, 1, null],
+    ['deitado-844x390', 844, 390, 2, null],
+  ]
+  for (const [nome, w, h, home, ip] of casos) {
+    const tag = `${nome}-h${home}-${ip ? 'BA' : 'MG'} palpite`
+    const ctx = await contexto(w, h, { semDica: true, ip: ip ?? undefined })
+    // +18 já lembrado (deitado o "Tenho" pode ficar abaixo da dobra; não é o que esta rodada confere)
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5))
+      } catch {
+        /* ignora */
+      }
+    })
+    const p = await ctx.newPage()
+    p.on('pageerror', (e) => problemas.push(`${tag}: pageerror ${e.message}`))
+    await p.goto(`${base}${home === 2 ? '?home=2' : ''}`)
+    if (!ip) {
+      // a pergunta aparece na abertura; tocar fora dela segue sem responder
+      await p.locator('.abertura .enquete-confirmar').waitFor({ timeout: 9000 }).catch(() => problemas.push(`${tag}: a abertura não perguntou`))
+      await p.touchscreen.tap(w - 30, h - 30)
+    }
+    await p.locator('.abertura').waitFor({ state: 'detached', timeout: 9000 })
+    await p.waitForTimeout(900)
+    const medir = () =>
+      p.evaluate(() => {
+        const r = (s) => {
+          const e = document.querySelector(s)
+          if (!e) return null
+          const b = e.getBoundingClientRect()
+          const st = getComputedStyle(e)
+          return b.width && st.display !== 'none' && st.visibility !== 'hidden' ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null
+        }
+        const livre = (e) => {
+          const b = e.getBoundingClientRect()
+          const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)
+          return !!t && (t === e || e.contains(t))
+        }
+        const ver = document.querySelector('.vista-inicio .hero-ver')
+        const pilula = document.querySelector('.vista-inicio .hero-resposta .barra-pilula')
+        return {
+          noStory: r('.vista-inicio .hero .aviso-local-story'),
+          fixo: r('.aviso-local-fixo'),
+          pilula: r('.vista-inicio .hero-resposta .barra-pilula'),
+          pilulaLivre: pilula ? livre(pilula) : null,
+          ver: r('.vista-inicio .hero-ver'),
+          verLivre: ver ? livre(ver) : null,
+          disp: r('.vista-inicio .hero-palco .sq-disp'),
+          barra: r('.barra-abas'),
+          opcoes: [...document.querySelectorAll('.vista-inicio .aviso-local-story .aviso-local-op')].map(livre),
+        }
+      })
+    const m = await medir()
+    await p.screenshot({ path: `${out}${tag.replace(' ', '-')}-1.png` })
+    if (!m.noStory) problemas.push(`${tag}: o aviso não ficou no pé do story`)
+    else {
+      if (m.fixo) problemas.push(`${tag}: aviso duplicado (o fixo também na tela)`)
+      if (m.pilula) problemas.push(`${tag}: a linha de resposta continua junto com o aviso`)
+      if (cruza(m.noStory, m.ver) || cruza(m.noStory, m.disp)) problemas.push(`${tag}: aviso por cima do VER PRODUTO/DISPONÍVEL`)
+      if (m.barra && m.noStory.b > m.barra.t + 1) problemas.push(`${tag}: aviso atrás da barra de abas`)
+      if (m.opcoes.length !== 2 || m.opcoes.includes(false)) problemas.push(`${tag}: opção do aviso coberta (${JSON.stringify(m.opcoes)})`)
+      if (m.verLivre === false) problemas.push(`${tag}: VER PRODUTO coberto`)
+    }
+    if (ip) {
+      // estado sem entrega: "Estados" abre o seletor
+      await p.locator('.aviso-local-story').getByRole('button', { name: 'Estados', exact: true }).tap()
+      await p.waitForTimeout(800)
+      if (!(await p.locator('[role="dialog"]').count())) problemas.push(`${tag}: "Estados" não abriu o seletor`)
+    } else {
+      // outra aba: o aviso vai para cima da barra; volta para o story no Início
+      await irAba(p, 'catalogo')
+      const c = await medir()
+      if (!c.fixo) problemas.push(`${tag}: no Catálogo, o aviso fixo não apareceu`)
+      else if (c.barra && c.fixo.b > c.barra.t + 1) problemas.push(`${tag}: no Catálogo, o aviso fica atrás da barra`)
+      await p.screenshot({ path: `${out}${tag.replace(' ', '-')}-2-catalogo.png` })
+      await irAba(p, 'inicio')
+      await p.evaluate(() => window.scrollTo(0, 0))
+      await p.waitForTimeout(500)
+      const v = await medir()
+      if (!v.noStory || v.fixo) problemas.push(`${tag}: de volta ao Início, o aviso não voltou para o story`)
+      // "Sim": o aviso sai e a linha de resposta volta, livre
+      await p.locator('.aviso-local-story').getByRole('button', { name: 'Sim', exact: true }).tap()
+      await p.waitForTimeout(600)
+      const d = await medir()
+      if (d.noStory || d.fixo) problemas.push(`${tag}: depois do Sim, o aviso continua`)
+      if (!d.pilula || d.pilulaLivre === false) problemas.push(`${tag}: depois do Sim, a linha de resposta não voltou livre`)
+      await p.screenshot({ path: `${out}${tag.replace(' ', '-')}-3-sim.png` })
+    }
+    await ctx.close()
+    console.log('✓', tag)
+  }
 }
 
 await b.close()
