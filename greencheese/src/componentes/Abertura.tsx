@@ -95,8 +95,12 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: (trocarEstado: bo
       gsap.set(a, { rotation: inclinacao })
       const d = destino.getBoundingClientRect()
       const linha = destino.classList.contains('linha-local')
-      const escala = linha ? d.height / r.height : d.width / r.width
-      tl.to(a, { x: d.left - r.left, y: d.top - r.top, scale: escala, rotate: 0, duration: 0.5, ease: 'power3.inOut', transformOrigin: '0 0' }, 0)
+      // na linha do cabeçalho, mira o texto (a caixa de toque tem 44 px e o adesivo cobria o @ acima): uns 24 px de
+      // altura, centrado na linha, a partir do pino
+      const txt = linha ? destino.querySelector('.linha-local-txt')?.getBoundingClientRect() : null
+      const escala = linha ? Math.min(24, d.height) / r.height : d.width / r.width
+      const y = txt ? txt.top + txt.height / 2 - (r.height * escala) / 2 - r.top : d.top - r.top
+      tl.to(a, { x: d.left - r.left, y, scale: escala, rotate: 0, duration: 0.5, ease: 'power3.inOut', transformOrigin: '0 0' }, 0)
       // na linha do cabeçalho o adesivo "entra" no texto: some no fim do voo
       if (linha) tl.to(a, { opacity: 0, duration: 0.14, ease: 'steps(2)' }, 0.4)
     } else if (a) {

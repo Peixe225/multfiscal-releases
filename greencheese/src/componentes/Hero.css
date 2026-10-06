@@ -697,6 +697,10 @@
   .hero-dica {
     display: none;
   }
+  /* o próximo esmaecido, atrás da coluna do texto, encostava na legenda dos estados (sem estado escolhido) */
+  .hero-espera {
+    display: none;
+  }
 }
 
 /* movimento reduzido: dica parada, setas sem cutucada (o resto já corta seco) */

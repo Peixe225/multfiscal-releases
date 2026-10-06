@@ -105,7 +105,7 @@ A Home 2 é a mesma coisa com o **Teste minha sorte e o mercador no Início**:
 
 Como ver:
 
-- `https://oprojeto.online/greencheese/home2/` (atalho para compartilhar; também `Home2/` e `HOME2/`, e o resto do link vai junto: `home2/?uf=rj` abre a Home 2 no RJ), `?home=2` em qualquer link ou o atalho digitado `?home2` (com maiúscula ou não; vira `?home=2` sozinho). A escolha fica lembrada enquanto a aba do navegador estiver aberta (as abas e o recarregar seguem nela). `?home=1` volta para a Home 1.
+- `https://oprojeto.online/greencheese/home2/` (atalho para compartilhar; também `Home2/` e `HOME2/`, que o `scripts/publicar.mjs` sobe junto — no repositório só existe `public/home2/`, porque pastas que só mudam a caixa colidem no Windows e no macOS; o resto do link vai junto: `home2/?uf=rj` abre a Home 2 no RJ), `?home=2` em qualquer link ou o atalho digitado `?home2` (com maiúscula ou não; vira `?home=2` sozinho). A escolha fica lembrada enquanto a aba do navegador estiver aberta (as abas e o recarregar seguem nela). `?home=1` volta para a Home 1.
 - No painel da prévia: **Versão da home** → Home 1 / Home 2, e o botão "Copiar link da Home 2".
 
 **Aprovar a Home 2:** em `src/lib/home.ts`, trocar `HOME_PADRAO = 1` para `HOME_PADRAO = 2`, gerar o build e subir.

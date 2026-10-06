@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canalDa } from '../dados/canais'
-import { deUf, emUf, ufPorSigla } from '../dados/ufs'
+import { emUf, ufPorSigla } from '../dados/ufs'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
@@ -176,7 +176,7 @@ export function AvisoLocal({ variante = 'fixo' }: { variante?: 'fixo' | 'story' 
   if (aviso === 'fora' && palpiteFora) {
     return (
       <div className={cls} role="group" aria-label="Teu estado">
-        <p className="aviso-local-txt">Parece que é {deUf(palpiteFora)}: ainda não chegou aí.</p>
+        <p className="aviso-local-txt">Ainda não chegou {emUf(palpiteFora)}.</p>
         <div className="aviso-local-opcoes">
           <button type="button" className="aviso-local-op toque" onClick={() => setSeletor(true)}>
             Estados

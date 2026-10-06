@@ -192,10 +192,16 @@ export function BalaoMercador() {
     const fora = (e: PointerEvent) => {
       if (!(e.target as Element | null)?.closest('.balao-mercador')) sair()
     }
+    // o passo do mercador voltou ao story (ex.: trocou de estado e o story recomeçou): a mesma pergunta não fica
+    // duas vezes na tela, o balão sai
+    const passo = window.setInterval(() => {
+      if (document.querySelector('.vista-inicio .hero-palco .sm-passo')) sair()
+    }, 250)
     window.addEventListener('scroll', rolou, { passive: true })
     document.addEventListener('pointerdown', fora, true)
     return () => {
       window.clearTimeout(t)
+      window.clearInterval(passo)
       window.removeEventListener('scroll', rolou)
       document.removeEventListener('pointerdown', fora, true)
     }

@@ -234,6 +234,11 @@ export function App() {
       // só o pedido reabre: o ?produto=/?p=/?jogo= que ficou na URL não pode reabrir nada depois (recarregar)
       atualizarParametros({ produto: null, p: null, jogo: null })
       useChat.getState().abrir(useChat.getState().modo)
+      // "Trocar" na abertura (o +18 tinha vencido): o seletor abre por cima do pedido
+      if (trocarDepois.current) {
+        trocarDepois.current = false
+        quandoEmpilharem(1, () => useUI.getState().setSeletor(true))
+      }
       return
     }
     if (p.p) {

@@ -231,6 +231,22 @@ export function Hero() {
   const proximo = !noMercador && seguinte?.tipo === 'produto' ? seguinte.produto : undefined
   const pausado = pausaManual || foco === 'dentro'
 
+  // aviso de local respondido pelo teclado (Enter no Sim, dentro do story): o botão some e o foco cairia no body sem
+  // o story saber, que ficaria pausado de vez. O foco passa para a linha de resposta, que volta no mesmo lugar
+  const focoRef = useRef(foco)
+  focoRef.current = foco
+  const avisoAntes = useRef(avisoLocal)
+  useEffect(() => {
+    const antes = avisoAntes.current
+    avisoAntes.current = avisoLocal
+    if (!antes || avisoLocal || focoRef.current !== 'dentro') return
+    const ativo = document.activeElement
+    if (ativo && ativo !== document.body) return
+    const pilula = historia.current?.querySelector<HTMLElement>('.hero-resposta .barra-pilula')
+    if (pilula) pilula.focus({ preventScroll: true })
+    else setFoco('fora')
+  }, [avisoLocal])
+
   const dicaViva = useRef(dica === 'mostra')
   const dicaNaTela = useRef(false)
   const trocasComDica = useRef(0)

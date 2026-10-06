@@ -398,9 +398,9 @@ const browser = await chromium.launch()
   }
 }
 
-// ---------- atalho da Home 2 (home2/, Home2/, HOME2/): leva para ?home=2 sem perder o resto do link ----------
+// ---------- atalho da Home 2 (home2/; Home2/ e HOME2/ sobem pelo publicar.mjs): ?home=2 sem perder o resto do link ----------
 {
-  for (const pasta of ['home2', 'Home2', 'HOME2']) {
+  for (const pasta of ['home2']) {
     const r = await fetch(new URL(`${pasta}/index.html`, base)).catch(() => null)
     const html = r?.ok ? await r.text() : ''
     // script só de arquivo (a CSP bloqueia script em linha) e o meta refresh para quem está sem JavaScript
@@ -415,7 +415,6 @@ const browser = await chromium.launch()
   vigiar(page, 'atalho-h2')
   for (const [entrada, espera] of [
     ['home2/?uf=rj&aba=catalogo', { uf: 'rj', aba: 'catalogo' }],
-    ['Home2/', {}],
     ['?Home2&uf=rj', { uf: 'rj' }],
     ['?HOME=2', {}],
   ]) {

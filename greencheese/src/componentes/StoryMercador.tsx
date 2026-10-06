@@ -110,6 +110,7 @@ function useEscalaMedida(
   caixa: RefObject<HTMLDivElement | null>,
   adesivo: RefObject<HTMLDivElement | null>,
   teto: number,
+  piso: number,
   ligado: boolean,
   compactavel: boolean,
 ): { tamanho: number; compacto: boolean } {
@@ -131,7 +132,7 @@ function useEscalaMedida(
       const largura = c.clientWidth - px(st.paddingLeft) - px(st.paddingRight) - (lado ? a.offsetWidth + px(st.columnGap) : 0)
       const escala = (livre: number) => {
         let n = teto
-        while (n > 2 && (64 * n > livre || 44 * n > largura)) n--
+        while (n > piso && (64 * n > livre || 44 * n > largura)) n--
         return n
       }
       const e = estado.current
@@ -192,7 +193,9 @@ export function StoryMercador({ variante, parado = false }: Props) {
   const anda = useMercadorAnda(raiz, { parado })
   const teto = useTetoColuna()
   const passo = variante === 'passo'
-  const medido = useEscalaMedida(caixa, adesivo, passo ? 4 : teto, variante !== 'deitada', variante === 'coluna')
+  // piso 2× nos cards; no passo do story (celular baixo ou deitado, com o aviso de local no pé) pode ir a 1×,
+  // senão o mercador subia por cima do cabeçalho
+  const medido = useEscalaMedida(caixa, adesivo, passo ? 4 : teto, passo ? 1 : 2, variante !== 'deitada', variante === 'coluna')
   // deitada: a altura do card vem do mercador 3× (não há o que medir)
   const tamanho = variante === 'deitada' ? 132 : medido.tamanho
 

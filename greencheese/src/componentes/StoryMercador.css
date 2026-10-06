@@ -363,6 +363,14 @@
   }
 }
 
+/* deitado e bem baixo (568×320, 653×280), com o aviso de local no pé do story: o adesivo perde o título (o CTA ao
+   lado já diz "Testar minha sorte") para caber entre o @ e o pé sem encostar em nenhum dos dois */
+@media (max-width: 899px) and (max-height: 340px) and (orientation: landscape) {
+  .sm-passo .sm-titulo {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sm-barra i {
     animation-name: none;

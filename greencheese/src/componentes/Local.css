@@ -165,6 +165,8 @@ button.adesivo-local-g {
   flex: 1;
   min-width: 0;
   font: 700 14px/1.2 var(--ui);
+  /* em duas linhas, quebra equilibrada ("Você está em / Minas Gerais?", sem "aí." sozinho embaixo) */
+  text-wrap: balance;
 }
 .aviso-local-opcoes {
   flex: none;
@@ -193,18 +195,44 @@ button.adesivo-local-g {
   flex: 1;
   min-width: 0;
 }
-/* estado sem entrega: o texto é mais longo; as opções descem para a linha de baixo em vez de espremer o texto em
-   4 a 8 linhas */
-.aviso-local-fora {
-  flex-wrap: wrap;
-  row-gap: 4px;
-  padding-top: 8px;
+/* estado sem entrega com pouca largura (celular de 320 px; deitado, no passo do mercador, com o CTA largo ao lado):
+   as opções descem para baixo da frase em vez de espremê-la em 5 linhas. No story, quem mede é o pé do story
+   (container); o fixo das outras abas tem a largura da tela */
+.hero-aviso-local {
+  container-type: inline-size;
 }
-.aviso-local-fora .aviso-local-txt {
-  flex: 1 1 180px;
+@container (max-width: 320px) {
+  .aviso-local-fora {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    padding-top: 7px;
+  }
+  .aviso-local-fora .aviso-local-txt {
+    flex-basis: 100%;
+  }
+  .aviso-local-fora .aviso-local-opcoes {
+    margin-left: auto;
+  }
 }
-.aviso-local-fora .aviso-local-opcoes {
-  margin-left: auto;
+@media (max-width: 359px) {
+  .aviso-local-fixo.aviso-local-fora {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    padding-top: 7px;
+  }
+  .aviso-local-fixo.aviso-local-fora .aviso-local-txt {
+    flex-basis: 100%;
+  }
+  .aviso-local-fixo.aviso-local-fora .aviso-local-opcoes {
+    margin-left: auto;
+  }
+}
+/* com o aviso fixo à vista (fora do Início), o fim da página reserva o espaço dele: o último link do rodapé não
+   fica escondido atrás */
+@media (max-width: 899px) {
+  .app:has(.aviso-local-fixo) .rodape {
+    padding-bottom: calc(var(--barra-baixo) + var(--seg-baixo) + 28px + 64px);
+  }
 }
 /* celular deitado, fora do Início: o fixo fica compacto no canto da direita (a largura toda tomava a tela baixa) */
 @media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
