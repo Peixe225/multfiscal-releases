@@ -109,27 +109,39 @@
   border-radius: 999px;
   font: 600 13px/1 var(--ui);
 }
+/* o prêmio dito de um jeito só, como no cartão: destaque em pixel e o produto; as condições ficam no "Ver condições" */
 .ingresso-titulo {
-  margin-top: 6px;
-  font: 700 16px/1.25 var(--ui);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
 }
-.ingresso-regra {
-  font: 400 14px/1.35 var(--ui);
+.ingresso-destaque {
+  /* o 2 e o 5 redesenhados (digitos.css, que baixa com o CSS do jogo) */
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 28px;
+  line-height: 1;
+}
+.ingresso-alvo {
+  font: 600 15px/1.25 var(--ui);
 }
 .ingresso-val {
   font: 400 13px/1.4 var(--ui);
 }
-.ingresso-como {
-  font: 400 12px/1.4 var(--ui);
-  opacity: 0.85;
+.ingresso-cond {
+  margin: 0 -4px;
 }
 .ingresso-link {
+  flex: none;
   min-height: 44px;
-  padding: 0 2px;
-  font: 700 13px/1 var(--ui);
+  padding: 0 4px;
+  font: 600 13px/1 var(--ui);
   text-decoration: underline;
   text-underline-offset: 3px;
-  vertical-align: middle;
+}
+/* no papel claro o anel de foco branco some: preto (no cinza do vencido/usado continua branco) */
+.ingresso-ativo :focus-visible {
+  outline-color: #000;
 }
 .ingresso-acao {
   display: flex;

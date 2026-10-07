@@ -180,18 +180,20 @@ Cada prêmio é um bloco na lista `premios`:
   tipo: 'leve-x-pague-y',                  // 'desconto-percentual' | 'leve-x-pague-y' | 'brinde'
   valor: { leve: 4, pague: 3 },            // percentual: 15 · brinde: { produto: 'piteira-de-papel-raw', qtd: 1 }
   titulo: '4 por 3 na OCB',                // curto (cabe num chip)
-  descricao: 'Compra 3, leva 4.',          // 1 frase no cartão
-  regra: 'Leva 4 Seda OCB Premium Slim e paga 3', // frase completa: é ela que vai na linha do WhatsApp
+  descricao: 'Uma OCB a mais, por conta da sorte.', // 1 linha curta de apoio no cartão (sem repetir o prêmio)
+  regra: 'Leva 4 Seda OCB Premium Slim e paga 3', // frase completa: vai na linha do WhatsApp e no "Ver condições"
   aplicaA: { produtos: ['seda-ocb-premium-slim'] }, // ids do catalogo.json (ou { categorias: ['sedas'] })
-  comoUsar: 'Põe 4 na sacola e usa o cupom.',       // opcional
+  comoUsar: 'Põe 4 na sacola e usa o cupom.',       // opcional: vai no "Ver condições"
   peso: 30,                                // chance relativa (não precisa somar 100; nunca aparece na tela)
   validadeDias: 7,                         // conta a partir de quando a pessoa guarda (1 a 30)
   papel: 'branco',                         // cor do beck e do cartão: 'branco' (OCB) ou 'natural' (RAW, padrão)
-  demo: true,                              // exemplo: só aparece na prévia
+  demo: true,                              // exemplo: fica enquanto dadosDeExemplo (src/dados/config.ts)
 }
 ```
 
 - **Todo giro ganha**: o peso decide qual sai, e só entre os prêmios que valem no estado de quem gira (produto disponível lá).
+- **O cartão do prêmio monta o destaque sozinho** a partir do `tipo`, do `valor` e do produto: a ilustração (ou foto) do produto grande, com raios de pixel atrás, e embaixo "15% OFF" + o nome do produto, "LEVA 4 PAGA 3" + o produto, ou "BRINDE" + o produto do brinde. Depois vêm a `descricao` (1 linha), o código (coberto até a pessoa guardar) e o texto clicável **Ver condições**, que abre a `regra`, o `comoUsar`, a validade e as regras de sempre (1 cupom por pedido, só com o produto no estado, a loja confirma no WhatsApp). O ingresso da Minha conta segue o mesmo molde. Na revelação tem uma comemoração curta em pixel (confete saindo de trás do cartão, brilhos no destaque; com movimento reduzido, corte seco).
+- O 2 e o 5 do destaque vêm de uma fonte mínima (`src/interativos/sorte/digitos.css`, gerada por `node scripts/gerar-digitos.mjs`): na Pixelify o 5 parece S e o 2 parece Z, e "15% OFF" lia "1S% OFF".
 - **A validação recusa** (em dev o site para com o erro na tela; no ar, o prêmio é descartado com aviso no console): id repetido; produto ou categoria que não existe no `catalogo.json`; prêmio ou brinde em **bebidas ou destilados**; peso ≤ 0; validade fora de 1–30; percentual fora de 1–50; leve ≤ pague; e qualquer palavra da lista `PALAVRAS_PROIBIDAS` (folha, erva, fumaça, grátis, frete, prazo, sorteio, cigarro, tabaco…) no título, descrição, regra ou "como usar".
 - Promoção de verdade: `demo: false`. Com `dadosDeExemplo: false`, os de exemplo saem; sem nenhum prêmio válido, o "Teste minha sorte" some do site inteiro (destaque, lateral, adesivo, sacola) e o link `?jogo=sorte` é ignorado. Também some em estado que a loja não atende (o cupom não serviria lá).
 - A validade que aparece nas Regras sai de `validadeDias` ("vale 7 dias" quando todos os prêmios têm a mesma; senão, "até a data escrita no cupom").

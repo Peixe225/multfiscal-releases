@@ -111,11 +111,30 @@ export function situacaoNoPedido(c: Cupom, linhas: LinhaSacola[], uf: string | n
 
 /* ───────────────────────── textos do cartão ───────────────────────── */
 
-/** Destaque grande do cartão: "4 POR 3", "15%", "BRINDE". */
+/** Destaque grande do cartão: "LEVA 4 PAGA 3", "15% OFF", "BRINDE". */
 export function destaqueDo(p: ValorPremio): string {
-  if (p.tipo === 'leve-x-pague-y') return `${p.valor.leve} POR ${p.valor.pague}`
-  if (p.tipo === 'desconto-percentual') return `${p.valor}%`
+  if (p.tipo === 'leve-x-pague-y') return `LEVA ${p.valor.leve} PAGA ${p.valor.pague}`
+  if (p.tipo === 'desconto-percentual') return `${p.valor}% OFF`
   return 'BRINDE'
+}
+
+/**
+ * O prêmio dito de um jeito só (o herói do cartão e do ingresso): o destaque em pixel e, embaixo, em que produto.
+ * Brinde: o produto que vem de brinde. Desconto: o produto do cupom (ou "em qualquer seda", quando é por categoria).
+ * O resto (pedido com seda, validade, 1 por pedido) é condição e fica no "Ver condições".
+ */
+export function fraseDoPremio(r: Pick<RetratoPremio, 'titulo' | 'aplicaA'> & ValorPremio): { destaque: string; alvo: string; produto: Produto | null } {
+  const produtos = useCatalogo.getState().produtos
+  const destaque = destaqueDo(r)
+  if (r.tipo === 'brinde') {
+    const b = produtos.find((p) => p.id === r.valor.produto) ?? null
+    const qtd = r.valor.qtd > 1 ? `${r.valor.qtd} × ` : ''
+    return { destaque, alvo: b ? `${qtd}${b.nome}` : r.titulo, produto: b }
+  }
+  const alvos = (r.aplicaA.produtos ?? []).map((id) => produtos.find((p) => p.id === id)).filter((p): p is Produto => !!p)
+  if (alvos.length) return { destaque, alvo: alvos.map((p) => p.nome).join(' ou '), produto: alvos[0] }
+  const cats = (r.aplicaA.categorias ?? []).map(nomeCategoria).filter(Boolean)
+  return { destaque, alvo: cats.length ? `em qualquer ${cats.join(' ou ')}` : r.titulo, produto: null }
 }
 
 /** O que vai em DadosPedido.cupom (a linha do WhatsApp). */
@@ -134,17 +153,10 @@ export function nomeCategoria(id: string | undefined): string {
   return c ? singular(c.nome) : (id ?? '')
 }
 
-/** Produtos a que o cupom se aplica, para "Vale pra:" (ou null quando é por categoria). */
+/** Produtos a que o cupom se aplica, para o "Ver produto" do ingresso (vazio quando é por categoria). */
 export function alvosDo(r: RetratoPremio): Produto[] {
   const produtos = useCatalogo.getState().produtos
   return (r.aplicaA.produtos ?? []).map((id) => produtos.find((p) => p.id === id)).filter((p): p is Produto => !!p)
-}
-
-/** "Seda OCB Premium Slim" ou "pedido com seda". */
-export function valePra(r: RetratoPremio): string {
-  const alvos = alvosDo(r)
-  if (alvos.length) return alvos.map((p) => p.nome).join(', ')
-  return `pedido com ${(r.aplicaA.categorias ?? []).map(nomeCategoria).join(' ou ')}`
 }
 
 /** Nome curto do produto para frases apertadas: "OCB" de "Seda OCB Premium Slim". */

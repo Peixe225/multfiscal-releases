@@ -6,6 +6,7 @@ const PADROES = {
   quarto: 14,
   estalo: [18, 40, 28],
   mosaico: 8,
+  premio: [10, 60, 10, 60, 24],
 } as const
 
 export type Pulso = keyof typeof PADROES
