@@ -5,7 +5,8 @@ import { PixelArte } from '../arte/PixelArte'
 import { emblemas } from '../arte/pixel/grades'
 import { brl } from '../lib/formato'
 import { ehDiaDeEntregaGratis, resumoHorario, situacao } from '../lib/horario'
-import { NOME_PAGAMENTO, linkPerfil } from '../lib/mensagem'
+import { alvoDeSaida } from '../lib/ambiente'
+import { NOME_PAGAMENTO, linkDM } from '../lib/mensagem'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
@@ -17,7 +18,10 @@ function Quadro({ children }: { children: ReactNode }) {
   return <div className="info-quadro">{children}</div>
 }
 
-/** O destaque "DELIVERY RJ" / "TEÓFILO OTONI": story de atendimento do estado (cidades, horário, entrega, pagamento). */
+/**
+ * O destaque "DELIVERY RJ" / "TEÓFILO OTONI": story de atendimento do estado (cidades, horário, entrega, pagamento,
+ * como pedir e onde tirar dúvida). O pedido fecha no WhatsApp da loja; dúvida vai pra DM do Instagram do estado.
+ */
 export function InfoStory() {
   const aberto = useUI((s) => s.infoAberto)
   const setInfo = useUI((s) => s.setInfo)
@@ -76,7 +80,9 @@ export function InfoStory() {
       <Demo ativo={canal.pagamento.demo} />
     </Quadro>,
     <Quadro key="d">
-      <p className="info-titulo px">Quem tiver interesse é só mandar dm</p>
+      <Icone nome="whatsapp" tamanho={64} />
+      <p className="info-titulo px">PEDIDO</p>
+      <p className="info-txt">Monta aqui no site e fecha no WhatsApp da loja.</p>
       <button
         type="button"
         className="botao botao-cheio"
@@ -85,10 +91,17 @@ export function InfoStory() {
           abrirChat('pedido')
         }}
       >
-        Pedir pelo chat
+        Fazer pedido
       </button>
-      <a className="botao botao-contorno" href={linkPerfil(canal.instagram)} target="_blank" rel="noopener noreferrer">
-        Abrir @{canal.instagram}
+    </Quadro>,
+    <Quadro key="i">
+      <Icone nome="instagram" tamanho={64} />
+      <p className="info-titulo px">DÚVIDAS</p>
+      <p className="info-txt">
+        O que o site não responder, a <strong className="info-arroba">@{canal.instagram}</strong> responde na DM.
+      </p>
+      <a className="botao botao-contorno" href={linkDM(canal)} target={alvoDeSaida()} rel="noopener noreferrer">
+        Chamar na DM
       </a>
     </Quadro>,
   ]

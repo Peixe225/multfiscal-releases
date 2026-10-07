@@ -1,8 +1,9 @@
 // Canais de atendimento por estado. É aqui que se troca WhatsApp, cidades, horário, taxa e pagamento.
 //
 // REGRAS
-// - whatsapp: só número real, com DDI 55 + DDD + número, sem espaço (ex.: '5533999998888'). null = PENDENTE.
-//   Nunca invente número: com null o site manda a pessoa escolher o contato no WhatsApp ou abre a DM do Instagram.
+// - whatsapp: número próprio do estado, com DDI 55 + DDD + número, sem espaço (ex.: '5533999998888').
+//   null = o pedido fecha no WhatsApp da loja (config.whatsappPedidos), o mesmo para todos. Nunca invente número.
+// - instagram: é pra lá que vão as dúvidas que o site não tira (DM do estado) e o "Avisar quando chegar".
 // - demo: true = valor de demonstração (PENDENTE). Com config.carimboDeExemplo ele aparece com a marca "demo";
 //   sem o carimbo, horário demo não aparece e taxa demo vira "a confirmar".
 
@@ -28,7 +29,9 @@ export interface Canal {
   nomePerfil: string | null
   /** Cidades atendidas. Vazio = cidade PENDENTE (o pedido pergunta a cidade). */
   cidades: Cidade[]
+  /** Perfil do estado: dúvidas (DM) e "Avisar quando chegar". */
   instagram: string
+  /** WhatsApp próprio do estado. null = o da loja (config.whatsappPedidos). */
   whatsapp: string | null
   /** Domingo = 0 ... sábado = 6. */
   horario: { semana: [Turno, Turno, Turno, Turno, Turno, Turno, Turno]; demo: boolean }
@@ -63,7 +66,7 @@ export const canais: Canal[] = [
     destaque: 'DELIVERY RJ',
     cidades: [{ slug: 'rio-de-janeiro', nome: 'Rio de Janeiro' }],
     instagram: 'greencheese_importsrj',
-    whatsapp: null, // PENDENTE
+    whatsapp: null, // usa config.whatsappPedidos
     horario: horarioDemo,
     taxaEntrega: { valor: 10, demo: true },
     entregaGratis: null,
@@ -77,7 +80,7 @@ export const canais: Canal[] = [
     destaque: 'TEÓFILO OTONI',
     cidades: [{ slug: 'teofilo-otoni', nome: 'Teófilo Otoni' }],
     instagram: 'greencheese_importsmg',
-    whatsapp: null, // PENDENTE
+    whatsapp: null, // usa config.whatsappPedidos
     horario: horarioDemo,
     taxaEntrega: { valor: 8, demo: true },
     // Dado real dos stories de MG.
@@ -92,7 +95,7 @@ export const canais: Canal[] = [
     destaque: 'DELIVERY SP',
     cidades: [], // PENDENTE
     instagram: 'greencheese_importssp',
-    whatsapp: null, // PENDENTE
+    whatsapp: null, // usa config.whatsappPedidos
     horario: horarioDemo,
     taxaEntrega: { valor: 12, demo: true },
     entregaGratis: null,
@@ -106,7 +109,7 @@ export const canais: Canal[] = [
     destaque: 'DELIVERY ES',
     cidades: [], // PENDENTE
     instagram: 'greencheese_importses',
-    whatsapp: null, // PENDENTE
+    whatsapp: null, // usa config.whatsappPedidos
     horario: horarioDemo,
     taxaEntrega: { valor: 10, demo: true },
     entregaGratis: null,
@@ -120,7 +123,7 @@ export const canais: Canal[] = [
     destaque: 'DELIVERY SC',
     cidades: [], // PENDENTE
     instagram: 'greencheese_importssc',
-    whatsapp: null, // PENDENTE
+    whatsapp: null, // usa config.whatsappPedidos
     horario: horarioDemo,
     taxaEntrega: { valor: 12, demo: true },
     entregaGratis: null,

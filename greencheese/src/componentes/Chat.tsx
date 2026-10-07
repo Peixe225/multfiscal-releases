@@ -14,7 +14,10 @@ import {
   linkWhatsApp,
   montarEncomenda,
   montarPedido,
+  whatsappDoCanal,
 } from '../lib/mensagem'
+import { movimentoReduzido } from '../lib/movimento'
+import { celularNoCampo } from '../lib/telefone'
 import { useConta, useCupons, useAgora } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
@@ -73,7 +76,8 @@ export function ChatFolha() {
   const fim = useRef<HTMLDivElement>(null)
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [avisoCep, setAvisoCep] = useState<AvisoCep>(null)
-  const [tipoEnvio, setTipoEnvio] = useState<'whats' | 'dm' | null>(null)
+  // tocou em "Fechar no WhatsApp" agora (se a página recarregou na volta do WhatsApp, o resumo só pergunta "Já mandou?")
+  const [enviouAqui, setEnviouAqui] = useState(false)
   const enviadoEm = useChat((s) => s.enviadoEm)
   const marcarEnviado = useChat((s) => s.marcarEnviado)
   const recomecar = useChat((s) => s.recomecar)
@@ -496,6 +500,13 @@ export function ChatFolha() {
               Ver perfil
             </a>
           )}
+          {/* o chat é só pedido: dúvida de outro tipo vai pra DM do estado (sem estado, a primeira pergunta já é ele) */}
+          {canal && (
+            <a className="dm-duvida" href={linkDM(canal)} target={alvoDeSaida()} rel="noopener noreferrer">
+              <Icone nome="instagram" tamanho={16} className="dm-duvida-icone" />
+              Outra dúvida? Chama a <span className="dm-duvida-arroba">@{canal.instagram}</span> no Instagram
+            </a>
+          )}
         </div>
         <p className="dm-hora legenda">{horaAgora()}</p>
 
@@ -580,10 +591,11 @@ export function ChatFolha() {
             canal={canal}
             mensagem={mensagem}
             encomenda={modo === 'encomenda'}
+            pagamento={respostas.pagamento}
             enviadoEm={enviadoEm}
-            tipoEnvio={tipoEnvio}
-            aoEnviar={(t) => {
-              setTipoEnvio(t)
+            enviouAqui={enviouAqui}
+            aoEnviar={() => {
+              setEnviouAqui(true)
               marcarEnviado(Date.now())
             }}
             naoConsegui={() => marcarEnviado(null)}
@@ -700,8 +712,9 @@ function Resumo({
   canal,
   mensagem,
   encomenda,
+  pagamento,
   enviadoEm,
-  tipoEnvio,
+  enviouAqui,
   aoEnviar,
   naoConsegui,
   editar,
@@ -716,9 +729,11 @@ function Resumo({
   canal: Canal
   mensagem: string
   encomenda: boolean
+  /** Forma de pagamento escolhida no pedido (a resposta do "Pix em breve" muda quando não é Pix). */
+  pagamento: FormaPagamento | null
   enviadoEm: number | null
-  tipoEnvio: 'whats' | 'dm' | null
-  aoEnviar: (v: 'whats' | 'dm') => void
+  enviouAqui: boolean
+  aoEnviar: () => void
   naoConsegui: () => void
   editar: (p: Passo) => void
   mandei: () => void
@@ -735,12 +750,16 @@ function Resumo({
   const [naoAbriu, setNaoAbriu] = useState(false)
   // "Sem cupom" esconde a pergunta até sair do resumo
   const [semCupom, setSemCupom] = useState(false)
+  // "Pagar com Pix aqui no site" ainda não existe: cada toque mostra a resposta da loja e devolve o foco ao WhatsApp
+  const [toquesPix, setToquesPix] = useState(0)
+  const zap = useRef<HTMLAnchorElement>(null)
+  const respostaPix = useRef<HTMLDivElement>(null)
   const cupomOk = cupom?.situacao.tipo === 'ok'
-  const semNumero = !canal.whatsapp
+  const numero = celularNoCampo(whatsappDoCanal(canal))
   // no celular o link troca de app sem nova aba; no computador ou dentro de iframe, nova aba
   const alvo = alvoDeSaida()
-  const tocou = (t: 'whats' | 'dm') => {
-    aoEnviar(t)
+  const tocou = () => {
+    aoEnviar()
     setNaoAbriu(false)
     if (!alvo) {
       window.setTimeout(() => {
@@ -748,6 +767,21 @@ function Resumo({
       }, 1600)
     }
   }
+
+  // depois do toque no Pix: a bolha da loja entra à vista e o WhatsApp ganha o foco e o realce (sem sair do site)
+  useEffect(() => {
+    if (!toquesPix) return
+    respostaPix.current?.scrollIntoView({ block: 'nearest', behavior: movimentoReduzido() ? 'auto' : 'smooth' })
+    const a = zap.current
+    if (!a) return
+    a.focus({ preventScroll: true })
+    a.classList.remove('dm-realce')
+    void a.offsetWidth // recomeça o realce a cada toque
+    a.classList.add('dm-realce')
+    const t = window.setTimeout(() => a.classList.remove('dm-realce'), 1800)
+    return () => clearTimeout(t)
+  }, [toquesPix])
+
   return (
     <div className="dm-troca dm-atual">
       <BolhaLoja>{encomenda ? 'Encomenda montada. Confere:' : 'Pedido montado. Confere:'}</BolhaLoja>
@@ -787,36 +821,35 @@ function Resumo({
           />
         </>
       )}
-      <BolhaLoja>Agora é só enviar. Vem no certo!</BolhaLoja>
-      {semNumero && (
-        <BolhaLoja>
-          O WhatsApp da Green Cheese {canal.uf.toUpperCase()} ainda não tá no site: o WhatsApp vai pedir pra escolher o contato. Ou manda pela DM. <Demo ativo={semNumero} />
-        </BolhaLoja>
-      )}
+      <BolhaLoja>Agora é só fechar no WhatsApp da loja. Vem no certo!</BolhaLoja>
       <div className="dm-acoes">
-        <a className="botao botao-cheio botao-largo" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={() => tocou('whats')}>
+        <a ref={zap} className="botao botao-cheio botao-largo dm-zap" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={tocou}>
           <Icone nome="whatsapp" tamanho={20} />
-          Enviar no WhatsApp
+          {encomenda ? 'Fechar encomenda no WhatsApp' : 'Fechar pedido no WhatsApp'}
         </a>
-        <a
-          className="botao botao-contorno botao-largo"
-          href={linkDM(canal)}
-          target={alvo}
-          rel="noopener noreferrer"
-          onClick={() => {
-            // cópia síncrona, dentro do toque, antes de sair para o Instagram
-            const ok = copiarTexto(mensagem)
-            avisar(ok ? 'Pedido copiado. Cola na DM.' : 'Não deu pra copiar: segura no texto do pedido e copia.')
-            tocou('dm')
-          }}
-        >
-          <Icone nome="copiar" tamanho={20} />
-          Copiar {encomenda ? 'encomenda' : 'pedido'} e abrir a DM do Instagram
-        </a>
+        {/* encomenda ainda não tem preço: o Pix não se aplica */}
+        {!encomenda && (
+          <button type="button" className="botao botao-contorno botao-largo dm-pix toque" onClick={() => setToquesPix((n) => n + 1)}>
+            <Icone nome="pix" tamanho={20} />
+            Pagar com Pix aqui no site
+            <span className="carimbo dm-embreve">Em breve</span>
+          </button>
+        )}
       </div>
+      {toquesPix > 0 && (
+        <div ref={respostaPix} className="dm-resposta-pix">
+          <BolhaLoja>
+            {pagamento === 'pix'
+              ? 'O Pix direto no site chega em breve. Por enquanto, fecha no WhatsApp: a loja te passa a chave Pix lá.'
+              : 'O Pix direto no site chega em breve. Por enquanto, o Pix é pelo WhatsApp: muda o pagamento pra Pix e fecha lá.'}
+          </BolhaLoja>
+        </div>
+      )}
       {naoAbriu && (
         <>
-          <BolhaLoja>Não abriu? Toca de novo no botão, ou copia o texto e manda pela DM.</BolhaLoja>
+          <BolhaLoja>
+            Não abriu? Toca de novo no botão, ou copia o texto e manda pro WhatsApp da loja: <span className="dm-numero">{numero}</span>.
+          </BolhaLoja>
           <Chips
             chips={[
               {
@@ -829,13 +862,8 @@ function Resumo({
       )}
       {enviadoEm && (
         <>
-          <BolhaLoja>
-            {tipoEnvio === 'dm'
-              ? 'Pedido copiado. Na DM, cola e envia.'
-              : tipoEnvio === 'whats'
-                ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.'
-                : 'Já mandou o pedido?'}
-          </BolhaLoja>
+          {/* com o "Não abriu?" na tela, não dá pra dizer que a mensagem já tá no WhatsApp */}
+          <BolhaLoja>{enviouAqui && !naoAbriu ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.' : 'Já mandou o pedido?'}</BolhaLoja>
           <BolhaLoja>Chegou? Marca @{canal.instagram} no story.</BolhaLoja>
           <Chips
             chips={[

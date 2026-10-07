@@ -6,13 +6,14 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 
 | Item | RJ | MG | SP | ES | SC |
 |---|---|---|---|---|---|
-| WhatsApp | PENDENTE (`null`) | PENDENTE | PENDENTE | PENDENTE | PENDENTE |
+| WhatsApp | (33) 99113-9036 (o da loja) | o da loja | o da loja | o da loja | o da loja |
 | Cidades atendidas | Rio de Janeiro | Teófilo Otoni | PENDENTE | PENDENTE | PENDENTE |
 | Horário | demo | demo | demo | demo | demo |
 | Taxa de entrega | demo (R$ 10) | demo (R$ 8) | demo (R$ 12) | demo (R$ 10) | demo (R$ 12) |
 | Formas de pagamento | demo (Pix, dinheiro, cartão na entrega) | demo | demo | demo | demo |
 
-- **WhatsApp**: os prints não mostram número (hoje a venda é por DM). Sem número, o botão abre o WhatsApp para a pessoa escolher o contato, com "Copiar pedido e abrir a DM do Instagram" ao lado. Nenhum número foi inventado.
+- **WhatsApp**: o dono passou "33 9113-9036" para todos os estados; entrou como (33) 99113-9036 (`config.whatsappPedidos`), porque celular tem 9 dígitos desde 2016. **Confirmar com o dono que é esse o número** (com o 9). Ele só aparece no fim do pedido guiado.
+- **Pix direto no site**: "Em breve" (o botão responde no chat e devolve pro WhatsApp). Para ligar de verdade precisa de um provedor de Pix com QR dinâmico e confirmação do pagamento (servidor) — entra junto com o backend.
 - **Cidades de SP, ES e SC**: enquanto não vierem, o pedido pergunta a cidade do cliente (ou pega pelo CEP) e põe na mensagem.
 - **Valores demo** aparecem com a marca "demo" só na prévia; a mensagem do pedido sempre diz "taxa a confirmar".
 - **"Sextou com entrega grátis!" (MG)**: dado real dos stories. Confirmar se vale **toda** sexta — o site mostra a frase só às sextas, só em MG.

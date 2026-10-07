@@ -1,6 +1,6 @@
-// Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp (RJ e MG), com a navegação
-// em abas (Início | Catálogo | Por estado), as sequências de voltar, os links diretos, a Home 2, a matriz de desktop
-// e o axe em cada aba.
+// Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp da loja (RJ e MG, pedido e
+// encomenda), o Pix "em breve", as dúvidas na DM do estado, a navegação em abas (Início | Catálogo | Por estado), as
+// sequências de voltar, os links diretos, a Home 2, a matriz de desktop e o axe em cada aba.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -32,6 +32,10 @@ const AXE = acharAxe()
 
 const erros = []
 const relatorio = []
+
+// O pedido e a encomenda fecham no WhatsApp da loja (config.whatsappPedidos), o mesmo em todos os estados
+const ZAP = 'https://wa.me/5533991139036?text='
+const dmDo = (uf) => `https://ig.me/m/greencheese_imports${uf}`
 
 // As mensagens do WhatsApp não podem mudar (só a linha "Entrega:", que traz o endereço do CEP simulado)
 const REFERENCIA = {
@@ -158,10 +162,51 @@ async function fluxoPedido(page, uf, cep, nomeArq) {
   await digitar(page, 'Portão azul')
   await page.waitForTimeout(500)
   await foto(page, `${nomeArq}-chat-resumo`)
-  const href = await page.getByRole('link', { name: /Enviar no WhatsApp/ }).getAttribute('href')
+  const href = await page.getByRole('link', { name: 'Fechar pedido no WhatsApp' }).getAttribute('href')
+  conferir(href?.startsWith(ZAP), `${uf}: "Fechar pedido no WhatsApp" abre o WhatsApp da loja (${href?.slice(0, 48)}…)`)
   const texto = decodeURIComponent(href.split('text=')[1] ?? '')
   conferirMensagem(uf, texto)
+  // a DM saiu do fechamento: nenhum outro link de saída nas ações do resumo
+  conferir((await page.locator('.dm-acoes a').count()) === 1, `${uf}: no resumo, o WhatsApp é o único link (sem "Copiar pedido e abrir a DM")`)
+  // dúvida fora do pedido: o começo da conversa aponta pra DM do estado
+  const duvida = await page.locator('.dm-duvida').getAttribute('href')
+  conferir(duvida === dmDo(uf), `${uf}: "Outra dúvida?" do chat abre a DM do estado (${duvida})`)
+  // Pix no site: em breve. Tocar não sai do site, a loja responde e o foco volta pro WhatsApp
+  const antes = page.url()
+  const abas = page.context().pages().length
+  await page.getByRole('button', { name: /Pagar com Pix aqui no site/ }).click()
+  await page.waitForTimeout(600)
+  const pix = await page.evaluate(() => ({
+    bolha: [...document.querySelectorAll('.dm-resposta-pix .dm-loja')].map((e) => e.textContent).join(' '),
+    foco: document.activeElement?.textContent?.trim() ?? '',
+    realce: !!document.querySelector('.dm-zap.dm-realce'),
+  }))
+  conferir(/Pix direto no site chega em breve/.test(pix.bolha), `${uf}: Pix em breve responde no chat ("${pix.bolha.slice(0, 60)}…")`)
+  conferir(pix.foco === 'Fechar pedido no WhatsApp' && pix.realce, `${uf}: depois do Pix, foco e realce no WhatsApp (${pix.foco})`)
+  conferir(page.url() === antes && page.context().pages().length === abas, `${uf}: o Pix em breve não sai do site`)
+  await foto(page, `${nomeArq}-chat-pix-em-breve`)
   return { uf, href, texto }
+}
+
+/** Encomenda até o resumo: fecha no mesmo WhatsApp, sem Pix (ainda não tem preço). */
+async function fluxoEncomenda(page, uf, nomeArq) {
+  await clicar(page, 'Pode')
+  await digitar(page, 'Fanta de uva japonesa')
+  await clicar(page, '2')
+  await clicar(page, 'Pular')
+  await digitar(page, 'Ian Teste')
+  await page.waitForTimeout(500)
+  await foto(page, `${nomeArq}-encomenda-resumo`)
+  const href = await page.getByRole('link', { name: 'Fechar encomenda no WhatsApp' }).getAttribute('href')
+  const texto = decodeURIComponent(href?.split('text=')[1] ?? '')
+  conferir(href?.startsWith(ZAP) && texto.startsWith(`ENCOMENDA GREEN CHEESE — ${uf.toUpperCase()}`), `${uf}: "Fechar encomenda no WhatsApp" abre o WhatsApp da loja com a encomenda`)
+  conferir(!(await page.getByRole('button', { name: /Pix/ }).count()), `${uf}: encomenda sem o Pix em breve`)
+}
+
+/** Nenhum wa.me fora do último passo do pedido: o WhatsApp só aparece no fechamento. */
+async function semZapForaDoFechamento(page, nome) {
+  const n = await page.evaluate(() => document.querySelectorAll('a[href*="wa.me"]').length)
+  conferir(n === 0, `${nome}: nenhum link do WhatsApp fora do fechamento do pedido (${n})`)
 }
 
 /** axe em cada aba (0 violações). */
@@ -227,6 +272,23 @@ const browser = await chromium.launch()
   await page.keyboard.press('Escape')
   await page.waitForTimeout(700)
   conferir((await abaAberta(page)) === 'catalogo', 'cel: fechar o story continua no Catálogo')
+  // "Avisar quando chegar" vai pra DM do Instagram do estado (não pro WhatsApp da loja)
+  const avisar = await page.locator('.vista:not([hidden]) .card-avisar').first().getAttribute('href')
+  conferir(avisar === dmDo('mg'), `cel: "Avisar quando chegar" abre a DM do estado (${avisar})`)
+  await semZapForaDoFechamento(page, 'cel catálogo')
+  // destaque do estado: o último quadro é o das dúvidas, com a DM do estado
+  await page.locator('.vista:not([hidden]) .destaque', { hasText: /TEÓFILO OTONI/ }).first().click()
+  await page.waitForTimeout(900)
+  for (let k = 0; k < 5; k++) {
+    await page.keyboard.press('ArrowRight')
+    await page.waitForTimeout(250)
+  }
+  await page.waitForTimeout(400)
+  await foto(page, 'cel-10b-destaque-duvidas')
+  const dmInfo = await page.locator('.story a', { hasText: 'Chamar na DM' }).getAttribute('href').catch(() => null)
+  conferir(dmInfo === dmDo('mg'), `cel: quadro "Dúvidas" do destaque do estado abre a DM (${dmInfo})`)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(700)
   const mg = await fluxoPedido(page, 'mg', '39800001', 'cel-11-mg')
   relatorio.push({ mg })
   await page.keyboard.press('Escape')
@@ -234,6 +296,9 @@ const browser = await chromium.launch()
   await irAba(page, 'estados')
   await page.waitForTimeout(1300)
   await foto(page, 'cel-12-por-estado')
+  await semZapForaDoFechamento(page, 'cel por estado')
+  await irAba(page, 'inicio')
+  await semZapForaDoFechamento(page, 'cel início')
   await axeNasAbas(page, 'cel h1')
   await ctx.close()
 }
@@ -249,6 +314,19 @@ const browser = await chromium.launch()
   // OCB e Jack no RJ
   const rj = await fluxoPedido(page, 'rj', '22041001', 'cel-14-rj')
   relatorio.push({ rj })
+  await ctx.close()
+}
+
+// ---------- encomenda (MG): fecha no mesmo WhatsApp, sem Pix ----------
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 })
+  const page = await ctx.newPage()
+  vigiar(page, 'encomenda')
+  await page.goto(`${base}?uf=mg&chat=encomenda`)
+  await passarAbertura(page)
+  await page.locator('[aria-modal="true"][aria-label="Pedido guiado"]').waitFor({ timeout: 8000 })
+  await page.waitForTimeout(700)
+  await fluxoEncomenda(page, 'mg', 'cel-14b-mg')
   await ctx.close()
 }
 

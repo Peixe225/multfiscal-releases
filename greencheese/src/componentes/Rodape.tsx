@@ -67,6 +67,8 @@ export function TextoReposts() {
 export function Rodape() {
   return (
     <footer className="rodape">
+      {/* como fala com a loja: o pedido fecha no WhatsApp (só no fim do pedido guiado); dúvida, no Instagram do estado */}
+      <p className="rodape-txt rodape-como">Monta o pedido aqui e fecha no WhatsApp da loja. Outra dúvida? Chama o Instagram do teu estado:</p>
       <nav aria-label="Instagrams da Green Cheese" className="rodape-perfis">
         {canais.map((c) => (
           <a key={c.uf} href={linkPerfil(c.instagram)} target="_blank" rel="noopener noreferrer">

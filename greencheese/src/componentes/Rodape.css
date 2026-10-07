@@ -553,6 +553,10 @@
   max-width: 560px;
   line-height: 1.5;
 }
+/* como falar com a loja, logo antes dos @: sem palavra sozinha na 2ª linha */
+.rodape-como {
+  text-wrap: balance;
+}
 .rodape-credito a {
   display: inline-block;
   padding: 12px 2px;
