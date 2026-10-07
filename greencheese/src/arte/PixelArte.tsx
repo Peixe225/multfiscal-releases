@@ -5,7 +5,8 @@
 // Pixel inteiro na tela: a caixa fica do tamanho pedido (o layout não mexe), mas o desenho dentro dela
 // é ajustado para que cada pixel da grade ocupe um número inteiro de pixels do aparelho (DPR 1, 2, 2,625, 3…),
 // centrado. Assim 24 px num Android de DPR 2,625 não sai com pixels desiguais. Se o ajuste passar da caixa,
-// o desenho transborda um pouco (overflow visível) em vez de encolher pela metade.
+// o desenho transborda um pouco (overflow visível) em vez de encolher pela metade. Com ancora="base" a sobra (ou a folga)
+// vai toda para cima: o pé do desenho fica sempre no fundo da caixa, e o que vem embaixo não muda com o DPR.
 //
 // Tamanhos recomendados (múltiplos da grade): ícones 16/32/48, emblemas 48/72/96, mercador 132/176.
 
@@ -93,15 +94,19 @@ function assinarDpr(avisar: () => void) {
 const lerDpr = () => (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
 const lerDprServidor = () => 1
 
+type Ancora = 'centro' | 'base'
+
 /** viewBox que põe a grade com pixel inteiro de tela dentro de uma caixa de `largura` px CSS. */
-function viewBoxAjustado(grade: Grade, largura: number, dpr: number): string {
+function viewBoxAjustado(grade: Grade, largura: number, dpr: number, ancora: Ancora): string {
   const tela = largura * dpr
   // px de tela por pixel da grade: o inteiro mais perto (empate arredonda para baixo), no mínimo 1
   const passo = Math.max(1, Math.ceil(tela / grade.w - 0.5))
   const vw = tela / passo
   const vh = (vw * grade.h) / grade.w
+  // centrado na largura; na altura, centrado ou com a última linha da grade no fundo da caixa
+  const y = ancora === 'base' ? grade.h - vh : (grade.h - vh) / 2
   const n = (v: number) => Math.round(v * 1e4) / 1e4
-  return `${n((grade.w - vw) / 2)} ${n((grade.h - vh) / 2)} ${n(vw)} ${n(vh)}`
+  return `${n((grade.w - vw) / 2)} ${n(y)} ${n(vw)} ${n(vh)}`
 }
 
 // Em dev, avisa uma vez por grade/tamanho quando o tamanho não é múltiplo da grade.
@@ -127,13 +132,18 @@ export interface PixelArteProps {
   tamanho?: number | string
   /** Alternativa ao tamanho: quantos px CSS por pixel da grade (inteiro ≥ 1). Largura = grade.w × escala. */
   escala?: number
+  /**
+   * Onde o desenho ajustado ao pixel da tela se apoia na caixa. "centro" (padrão): sobra igual em cima e embaixo.
+   * "base": a última linha fica no fundo da caixa e a sobra vai para cima (personagem de pé sobre o que vem embaixo).
+   */
+  ancora?: Ancora
   className?: string
   /** Texto para leitor de tela. Sem ele a arte é decorativa (aria-hidden). */
   titulo?: string
   style?: CSSProperties
 }
 
-export function PixelArte({ grade: pedida, tamanho, escala, className, titulo, style }: PixelArteProps) {
+export function PixelArte({ grade: pedida, tamanho, escala, ancora = 'centro', className, titulo, style }: PixelArteProps) {
   const idTitulo = useId()
   const dpr = useSyncExternalStore(assinarDpr, lerDpr, lerDprServidor)
 
@@ -144,7 +154,7 @@ export function PixelArte({ grade: pedida, tamanho, escala, className, titulo, s
   const grade = numero && pedida.grande && largura >= pedida.grande.w * 2 ? pedida.grande : pedida
   // Com número a altura sai da proporção; com valor CSS o aspect-ratio resolve.
   const altura = numero ? (largura * grade.h) / grade.w : undefined
-  const viewBox = numero ? viewBoxAjustado(grade, largura, dpr) : `0 0 ${grade.w} ${grade.h}`
+  const viewBox = numero ? viewBoxAjustado(grade, largura, dpr, ancora) : `0 0 ${grade.w} ${grade.h}`
   const rects = retangulos(grade)
 
   useEffect(() => {

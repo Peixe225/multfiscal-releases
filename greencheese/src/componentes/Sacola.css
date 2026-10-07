@@ -139,10 +139,13 @@
   text-align: center;
 }
 /* O mercador erguendo a garrafa (mercador-garrafa.ts), com as pálpebras por cima. flex: o <svg> não ganha a folga
-   de linha de texto embaixo, e o vão até o adesivo continua só o gap da coluna. */
+   de linha de texto embaixo. Com ancora="base" a sombra dele fica sempre no fundo da caixa, em qualquer DPR (em 1,25 o
+   ajuste ao pixel da tela o deixa maior que a caixa, e a sobra vai para cima, no padding); os 3 px embaixo devolvem
+   o vão da sombra até o adesivo que o bonequinho tinha (13,75 px). */
 .sacola-vazia-figura {
   position: relative;
   display: flex;
+  margin-bottom: 3px;
 }
 .sacola-vazia-arte {
   image-rendering: pixelated;

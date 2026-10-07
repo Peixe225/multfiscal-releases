@@ -158,8 +158,8 @@ export function SacolaFolha() {
       {itens.length === 0 ? (
         <div className="sacola-vazia">
           <div className="sacola-vazia-figura">
-            <PixelArte grade={ilustracoes.mercadorGarrafa} tamanho={132} className="sacola-vazia-arte" />
-            <PixelArte grade={palpebrasGarrafa} tamanho={132} className="sacola-vazia-piscar" />
+            <PixelArte grade={ilustracoes.mercadorGarrafa} tamanho={132} ancora="base" className="sacola-vazia-arte" />
+            <PixelArte grade={palpebrasGarrafa} tamanho={132} ancora="base" className="sacola-vazia-piscar" />
           </div>
           <p className="adesivo-texto-bloco">
             <span className="adesivo-texto">Nada aqui ainda. Vem no certo!</span>
