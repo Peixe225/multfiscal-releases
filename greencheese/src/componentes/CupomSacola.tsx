@@ -5,7 +5,7 @@ import { ID_SORTE, useEstadoSorte } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
 import { formatarAte } from '../lib/cupom'
 import { useCupomNoPedido } from '../lib/cupom-pedido'
-import { nomeCategoria, type Situacao } from '../lib/cupom-uso'
+import { nomeCategoria, nomeDoPremio, type Situacao } from '../lib/cupom-uso'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { disponivelEm } from '../store/catalogo'
@@ -29,7 +29,7 @@ function abrirJogo(tela?: TelaInterativo) {
 export function CupomSacola({ compacta = false }: { compacta?: boolean }) {
   const { cupom, situacao } = useCupomNoPedido()
   if (cupom && situacao)
-    return <CupomAplicado codigo={cupom.codigo} titulo={cupom.retrato.titulo} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} />
+    return <CupomAplicado codigo={cupom.codigo} titulo={nomeDoPremio(cupom.retrato)} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} />
   if (compacta) return null
   return <ConviteCupom />
 }
@@ -167,7 +167,7 @@ function ConviteCupom() {
                 avisar(T.cupomAplicado(c.codigo))
               }}
             >
-              <span className="px px-16 cs-codigo">{c.codigo}</span> · {c.retrato.titulo}
+              <span className="px px-16 cs-codigo">{c.codigo}</span> · {nomeDoPremio(c.retrato)}
               {c.demo && config.carimboDeExemplo && (
                 <>
                   {' '}

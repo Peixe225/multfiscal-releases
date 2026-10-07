@@ -452,9 +452,6 @@
 .sorte-barra-linha .botao-texto {
   flex: none;
 }
-.sorte-notas {
-  margin-top: 6px;
-}
 .sorte-acoes + .sorte-barra {
   margin-top: 14px;
 }
@@ -527,7 +524,9 @@
   text-align: left;
 }
 
-/* ---------- cartão do prêmio (o papel do beck desenrolado) ---------- */
+/* ---------- cartão do prêmio (o papel do beck desenrolado) ----------
+   O prêmio é o herói: produto grande com raios de pixel atrás, destaque em pixel, em que produto, 1 linha de apoio
+   e o código. As condições ficam fechadas no "Ver condições" (.cond, também no ingresso da Minha conta). */
 .cartao-pos {
   position: relative;
   z-index: 8;
@@ -537,10 +536,11 @@
 }
 .cartao-premio {
   position: relative;
+  z-index: 1;
   overflow: hidden;
   background: var(--papel);
   color: #000;
-  text-align: left;
+  text-align: center;
   border-radius: 3px;
 }
 /* borda de baixo levemente enrolada (sombreado por gradiente, sem filtro) */
@@ -554,6 +554,10 @@
   background: linear-gradient(to top, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0));
   pointer-events: none;
 }
+/* no papel claro o anel de foco branco some: preto */
+.cartao-premio :focus-visible {
+  outline-color: #000;
+}
 .cartao-fibras {
   position: absolute;
   inset: 0;
@@ -564,20 +568,15 @@
   height: 22px;
   padding: 3px 10px 0;
   background: rgba(0, 0, 0, 0.09);
-  color: rgba(0, 0, 0, 0.72);
+  color: rgba(0, 0, 0, 0.6);
   white-space: nowrap;
   overflow: hidden;
-  text-align: center;
   line-height: 1;
-}
-@media (max-width: 379px) {
-  .cartao-cola-marca {
-    display: none;
-  }
 }
 .cartao-corpo {
   position: relative;
-  padding: 14px 16px 16px;
+  container-type: inline-size;
+  padding: 14px 16px 4px;
 }
 .cartao-exemplo {
   position: absolute;
@@ -586,96 +585,165 @@
   color: #3d3d3d;
   transform: rotate(-6deg);
 }
+/* carimbo GUARDADO: bate no lugar do "DEU SORTE!" (a linha guarda a altura de sempre; fora da foto do produto) */
 .cartao-guardado {
-  position: absolute;
-  top: 46px;
-  right: 14px;
-  padding: 5px 7px 3px;
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  margin: -7px 0;
+  padding: 4px 8px 2px;
   border: 2px solid #000;
-  font-size: 20px;
+  background: var(--papel);
+  font-size: 18px;
+  line-height: 1.1;
   color: #000;
   transform: rotate(-6deg);
 }
 .cartao-deu {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #000;
 }
-.cartao-destaque {
-  margin-top: 6px;
-  font-size: 48px;
-  font-weight: 500;
-  line-height: 0.95;
-}
-.cartao-titulo {
-  margin-top: 8px;
-  font: 600 17px/1.25 var(--ui);
-}
-.cartao-regra {
-  margin-top: 4px;
-  font: 400 15px/1.35 var(--ui);
-}
-.cartao-sub {
-  margin-top: 6px;
-  font: 400 13px/1.4 var(--ui);
-  color: #3d3d3d;
-}
-.cartao-produto {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 8px 0;
-  border-top: 1px dashed rgba(0, 0, 0, 0.3);
-  border-bottom: 1px dashed rgba(0, 0, 0, 0.3);
-}
-.cartao-mini {
+.cartao-deu-brilho {
   flex: none;
-  width: 45px;
+  width: 7px;
+  height: 7px;
+  margin-top: -2px;
+}
+
+/* o produto: miniatura de story colada no papel (+3°), com raios de pixel impressos atrás */
+.cartao-vitrine {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 172px;
+  margin-top: 6px;
+}
+.cartao-raios {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 256px;
+  height: 184px;
+  margin: -92px 0 0 -128px;
+  color: rgba(0, 0, 0, 0.085);
+  pointer-events: none;
+}
+.cartao-foto {
+  position: relative;
+  width: 88px;
   aspect-ratio: 9 / 16;
   background: var(--preto);
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
+  transform: rotate(3deg);
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.16);
 }
-.cartao-produto-nome {
-  flex: 1;
-  min-width: 0;
-  font: 600 14px/1.25 var(--ui);
-}
-.cartao-ver {
-  flex: none;
-  min-height: 44px;
-  padding: 0 4px 0 8px;
-  font: 700 14px/1 var(--ui);
-  color: #000;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.cartao-validade {
+
+.cartao-titulo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   margin-top: 10px;
-  font: 400 13px/1.4 var(--ui);
 }
-.cartao-confirma {
-  margin-top: 2px;
-  font: 600 13px/1.4 var(--ui);
+.cartao-valor {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  font-family: 'GC Digitos', var(--pixel);
+  /* 40 px onde não tem unidade de contêiner (Safari < 16); senão acompanha a largura do cartão até 48 px */
+  font-size: 40px;
+  font-size: min(48px, 15.5cqi);
+  line-height: 0.95;
+  text-wrap: balance;
+}
+.cartao-alvo {
+  max-width: 100%;
+  font: 600 17px/1.25 var(--ui);
+  text-wrap: balance;
+}
+.cartao-apoio {
+  margin-top: 6px;
+  font: 400 14px/1.35 var(--ui);
+  color: #3d3d3d;
+  text-wrap: balance;
+}
+/* brilhos de 4 pontas em volta do destaque: só na comemoração (revelar.ts) */
+.cartao-brilho {
+  position: absolute;
+  width: 21px;
+  height: 21px;
+  color: #000;
+  visibility: hidden;
+  pointer-events: none;
+}
+.cartao-brilho-1 {
+  left: -26px;
+  top: -14px;
+}
+.cartao-brilho-2 {
+  right: -20px;
+  top: -18px;
+  width: 14px;
+  height: 14px;
+}
+.cartao-brilho-3 {
+  right: -26px;
+  bottom: -2px;
+  width: 14px;
+  height: 14px;
+}
+
+/* confete de pixel: nasce atrás do cartão e sai pelas bordas (nunca por cima do texto) */
+.cartao-festa {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.cartao-festa > i {
+  position: absolute;
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* pé: código + "Ver condições" / "Ver produto" */
+.cartao-pe {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.3);
+  text-align: left;
 }
 .cartao-codigo {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(0, 0, 0, 0.3);
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+.cartao-codigo-caixa {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
 }
 .cartao-codigo-rot {
-  width: 100%;
-  font: 700 12px/1 var(--ui);
-  letter-spacing: 0.04em;
+  font: 700 11px/1 var(--ui);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.62);
 }
 .cartao-codigo-valor {
   display: inline-flex;
   align-items: center;
   color: #000;
+}
+.cartao-cadeado {
+  flex: none;
+  margin-left: 8px;
+  color: rgba(0, 0, 0, 0.55);
 }
 /* mosaico de censura em pixel sobre o código (CSS, 2 tons, sem imagem) */
 .cartao-mosaico {
@@ -697,6 +765,7 @@
   align-items: center;
 }
 .cartao-copiar {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -706,6 +775,27 @@
   border-radius: 999px;
   font: 600 14px/1 var(--ui);
   color: #000;
+}
+/* cartão estreito (320 px): o código liberado e o "Copiar" cabem lado a lado sem encostar */
+@container (max-width: 260px) {
+  .cartao-codigo {
+    gap: 8px;
+  }
+  .cartao-copiar {
+    padding: 0 10px;
+  }
+}
+.cartao-cond {
+  margin: 0 -4px;
+}
+.cartao-ver {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px;
+  font: 600 13px/1 var(--ui);
+  color: #000;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .cartao-rolo {
   position: absolute;
@@ -720,6 +810,71 @@
   pointer-events: none;
 }
 
+/* ---------- "Ver condições" (cartão e ingresso): texto clicável que abre a lista; cor herdada do papel ---------- */
+/* em 320 px com fonte larga, "Ver produto" desce pra linha de baixo (à direita) em vez de quebrar o botão */
+.cond-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 8px;
+}
+.cond-linha > :last-child:not(:first-child) {
+  margin-left: auto;
+}
+.cond-botao {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 0 4px;
+  font: 600 13px/1 var(--ui);
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cond-seta {
+  transform: rotate(90deg);
+}
+.cond-botao[aria-expanded='true'] .cond-seta {
+  transform: rotate(-90deg);
+}
+.cond-painel {
+  padding: 0 4px 12px;
+}
+.cond-painel:not([hidden]) {
+  animation-name: cond-entra;
+  animation-duration: 0.18s;
+  animation-timing-function: var(--ease-app);
+}
+@keyframes cond-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.cond-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 16px;
+  list-style: square;
+  font: 400 13px/1.4 var(--ui);
+  text-align: left;
+  text-wrap: pretty;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cond-painel:not([hidden]) {
+    animation-name: none;
+  }
+}
+
 .faixa-premio {
   display: inline-flex;
   align-items: center;
@@ -732,13 +887,40 @@
   transform: rotate(-2deg);
 }
 
-/* tela baixa: o cartão perde as frases de apoio (a regra e "A loja confirma" ficam; o "como usar" está na Minha conta) */
+/* tela baixa (navegador do Instagram, celular pequeno): o produto encolhe pra o destaque caber acima da barra */
 @media (max-height: 700px) {
-  .sorte .cartao-sub {
-    display: none;
+  .sorte .cartao-vitrine {
+    height: 124px;
+    margin-top: 4px;
   }
-  .sorte .cartao-corpo {
-    padding-bottom: 12px;
+  .sorte .cartao-foto {
+    width: 62px;
+    border-radius: 8px;
+  }
+  /* 3 px por pixel da grade (o transform fica livre pra comemoração) */
+  .sorte .cartao-raios {
+    width: 192px;
+    height: 138px;
+    margin: -69px 0 0 -96px;
+  }
+  .sorte .cartao-titulo {
+    margin-top: 8px;
+  }
+}
+/* celular bem baixo (320×568, navegador do Instagram num 360×640): mais um degrau, pro código liberado caber acima
+   da barra sem tirar o topo do cartão da tela */
+@media (max-height: 600px) {
+  .sorte .cartao-vitrine {
+    height: 104px;
+  }
+  .sorte .cartao-foto {
+    width: 52px;
+    border-radius: 7px;
+  }
+  .sorte .cartao-raios {
+    width: 128px;
+    height: 92px;
+    margin: -46px 0 0 -64px;
   }
 }
 
@@ -859,5 +1041,47 @@
   }
   .sorte-intro .sorte-pergunta {
     display: none;
+  }
+  /* a barra dos botões fica na coluna da direita, ao lado do cartão: gruda no topo dela e acompanha enquanto o
+     cartão rola (abrir o "Ver condições" nunca tira "Guardar meu prêmio" da tela). Ocupa as linhas até o fim da
+     grade, senão o sticky não tem onde andar; por isso nada vem depois dela nessa coluna. */
+  .sorte.sorte-premio > .sorte-barra,
+  .sorte.sorte-guardado > .sorte-barra {
+    grid-row: span 8;
+    align-self: start;
+    top: 0;
+    bottom: auto;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .sorte.sorte-premio > .sorte-barra::before,
+  .sorte.sorte-guardado > .sorte-barra::before {
+    display: none;
+  }
+  /* cartão mais baixo: com conta, o código liberado cabe na tela junto com o produto */
+  .sorte .cartao-corpo {
+    padding-top: 10px;
+  }
+  .sorte .cartao-vitrine {
+    height: 80px;
+    margin-top: 2px;
+  }
+  .sorte .cartao-foto {
+    width: 42px;
+    border-radius: 6px;
+  }
+  .sorte .cartao-raios {
+    width: 128px;
+    height: 92px;
+    margin: -46px 0 0 -64px;
+  }
+  .sorte .cartao-titulo {
+    margin-top: 6px;
+  }
+  .sorte .cartao-valor {
+    font-size: 38px;
+  }
+  .sorte .cartao-pe {
+    margin-top: 10px;
   }
 }

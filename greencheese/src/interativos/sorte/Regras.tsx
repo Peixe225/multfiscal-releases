@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { premiosElegiveis } from '../../lib/cupom-uso'
+import { nomeDoPremio, premiosElegiveis } from '../../lib/cupom-uso'
 import { useLocal } from '../../store/local'
 import { T } from './textos'
 import './estilo'
@@ -33,7 +33,7 @@ export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; c
                 <span className="regras-quiz-letra" aria-hidden="true">
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span>{p.titulo}</span>
+                <span>{nomeDoPremio(p)}</span>
               </li>
             ))}
           </ol>

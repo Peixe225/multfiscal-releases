@@ -48,8 +48,8 @@ function hexRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-/** Trava de matiz: verde e roxo viram cinza (verde só no ✅; nada de roxo). */
-function corDoHalo(hex: string, cinza: boolean): [number, number, number] {
+/** Trava de matiz: verde e roxo viram cinza (verde só no ✅; nada de roxo). Também pinta o confete do prêmio. */
+export function corDoHalo(hex: string, cinza: boolean): [number, number, number] {
   if (cinza) return [150, 150, 150]
   const [r, g, b] = hexRgb(hex)
   const max = Math.max(r, g, b)

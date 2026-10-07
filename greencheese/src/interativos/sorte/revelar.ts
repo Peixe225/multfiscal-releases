@@ -1,6 +1,7 @@
 import { gsap } from 'gsap'
 import { K } from '../../arte/realista/acessorios-dichavador'
 import { BECK_ESCONDIDO } from './Palco'
+import { vibrar } from './tato'
 
 // Storyboard da revelação (t = 0 é o 8º quarto). Uma timeline GSAP só; quem monta mata ao desmontar.
 // Duas vozes: "app" (var(--ease-app), consequência do dedo) e "pixel" (steps(), enfeite e comemoração).
@@ -96,18 +97,103 @@ function partes(beck: HTMLElement) {
   return { ponta: q('ponta'), tubo: q('tubo'), piteira: q('piteira') }
 }
 
-function textoDoCartao(cartao: HTMLElement) {
+function textoDoCartao(cartao: HTMLElement, pos: HTMLElement) {
   return {
     linhas: [...cartao.querySelectorAll('[data-linha]')],
     carimbo: cartao.querySelector('[data-carimbo]'),
     letras: [...cartao.querySelectorAll('[data-letras] > span')],
     mosaico: cartao.querySelector('[data-mosaico]'),
+    // comemoração: o produto e os raios entram juntos, o destaque bate, confete atrás do cartão e brilhos no destaque
+    foto: cartao.querySelector<HTMLElement>('[data-foto]'),
+    raios: cartao.querySelector('[data-raios]'),
+    valor: cartao.querySelector('[data-valor]'),
+    festa: [...pos.querySelectorAll<HTMLElement>('[data-festa] > i')],
+    brilhos: [...cartao.querySelectorAll('[data-brilho]')],
+  }
+}
+
+/**
+ * Brilhos nos cantos do texto de verdade, sempre inteiros dentro do papel (o cartão corta o que passa da borda).
+ * Ao lado da linha quando tem espaço; quando o destaque ocupa a largura toda ("LEVA 4 PAGA 3" em 320 px), em cima
+ * das pontas da linha, sobre os raios (nunca na foto, que fica no meio, nem embaixo, onde vem o nome do produto).
+ * Medido uma vez, antes da comemoração (left/top fixos; o movimento é só scale e opacity). A inclinação de -2° do
+ * cartão desvia 1 ou 2 px, que a folga de 4 px absorve.
+ */
+function posicionarBrilhos(valor: Element, brilhos: Element[]) {
+  const texto = valor.firstChild
+  if (!texto || texto.nodeType !== Node.TEXT_NODE) return
+  const faixa = document.createRange()
+  faixa.selectNodeContents(texto)
+  const linhas = [...faixa.getClientRects()]
+  if (!linhas.length) return
+  const c = valor.getBoundingClientRect()
+  const corpo = (valor.closest('.cartao-corpo') ?? valor).getBoundingClientRect()
+  const minX = corpo.left + 4
+  const maxX = corpo.right - 4
+  const prim = linhas[0]
+  const ult = linhas[linhas.length - 1]
+  const tam = brilhos.map((b) => (b as HTMLElement).getBoundingClientRect().width || 14)
+  // [x, y] na tela: ao lado se couber; senão, em cima da ponta da linha
+  const lugar = (i: number, lado: [number, number], cima: [number, number]): [number, number] => (lado[0] >= minX && lado[0] + tam[i] <= maxX ? lado : cima)
+  const pos: [number, number][] = [
+    lugar(0, [prim.left - tam[0] - 3, prim.top - 10], [prim.left + 2, prim.top - tam[0] - 2]),
+    lugar(1, [prim.right + 4, prim.top - 14], [prim.right - tam[1] - 2, prim.top - tam[1] - 6]),
+    // ao lado da última linha, na meia altura (mais baixo encostaria no nome do produto); sem espaço, em cima, a 1/4 da ponta
+    lugar(2, [ult.right + 8, ult.top + ult.height * 0.3], [prim.left + prim.width * 0.76, prim.top - tam[2] - 2]),
+  ]
+  brilhos.forEach((b, i) => {
+    const p = pos[i]
+    if (!p) return
+    const x = Math.min(Math.max(p[0], minX), maxX - tam[i])
+    Object.assign((b as HTMLElement).style, { left: `${Math.round(x - c.left)}px`, top: `${Math.round(p[1] - c.top)}px`, right: 'auto', bottom: 'auto' })
+  })
+}
+
+/**
+ * Rumo de cada pedaço de confete em px, a partir da fração gravada no pedaço (CartaoPremio) e do espaço livre medido
+ * agora: em cima, o vão até o título (a cena ainda vai subir `subida` px); dos lados, a margem até a borda da área que
+ * rola ou até a coluna vizinha. Pedaço de cima sem vão nem aparece; o do lado sem margem fica atrás do cartão.
+ */
+function rumoDoConfete(festa: HTMLElement[], pos: HTMLElement, subida: number) {
+  const c = pos.getBoundingClientRect()
+  const area = (pos.closest('.casca-corpo') ?? document.documentElement).getBoundingClientRect()
+  // teto: o título, quando está em cima do cartão (deitado ele fica na outra coluna), ou o topo da área que rola
+  const titulo = pos.closest('.sorte')?.querySelector('.sorte-h2')?.getBoundingClientRect()
+  const teto = titulo && titulo.left < c.right && titulo.right > c.left ? Math.max(titulo.bottom, area.top) : area.top
+
+  let esq = c.left - area.left - 4
+  let dir = area.right - c.right - 4
+  // deitado, a coluna dos botões fica ao lado do cartão: o confete para no vão entre as colunas
+  for (const v of pos.closest('.sorte')?.querySelectorAll('.sorte-barra, .sorte-acoes, .sorte-h2, .sorte-intro') ?? []) {
+    const r = v.getBoundingClientRect()
+    if (r.left >= c.right - 1) dir = Math.min(dir, r.left - c.right - 4)
+    if (r.right <= c.left + 1) esq = Math.min(esq, c.left - r.right - 4)
+  }
+  for (const p of festa) {
+    const t = p.offsetWidth
+    const fx = +(p.dataset.dx ?? 0)
+    const fy = +(p.dataset.dy ?? 0)
+    // topo do pedaço onde ele vai estar quando a comemoração começar (a cena já subiu)
+    const topo = c.top - subida + p.offsetTop
+    if (p.dataset.lado === 'cima') {
+      // sobe até 4 px do teto, usando o vão todo
+      const sobe = Math.max(0, topo - teto - 4)
+      p.dataset.x = String(Math.round(fx * Math.min(28, sobe)))
+      p.dataset.y = String(Math.round(fy * sobe))
+      // sem vão (cartão encostado no topo da área, como no celular deitado): esse pedaço nem aparece
+      p.dataset.fora = sobe < t + 8 ? '1' : ''
+    } else {
+      const livre = Math.max(0, Math.min(48, (fx < 0 ? esq : dir) - t / 2))
+      p.dataset.x = String(Math.round(fx * livre))
+      // sobe no máximo até o teto
+      p.dataset.y = String(Math.round(Math.max(fy * 18, teto + 2 - topo)))
+    }
   }
 }
 
 /** Estado final pintado de uma vez: dichavador aberto e recuado, cartão completo, botões à vista. */
 export function pintarFinal(el: ElementosRevelacao) {
-  const { linhas, carimbo, letras, mosaico } = textoDoCartao(el.cartao)
+  const { linhas, carimbo, letras, mosaico, foto, raios, valor, festa, brilhos } = textoDoCartao(el.cartao, el.cartaoPos)
   fixar([el.anel, el.indicador, ...el.sumir], { opacity: 0 })
   fixar(el.tampa, { autoAlpha: 0 })
   fixar([el.corpo, el.labio], { opacity: 0.25, scale: 0.9, y: 0, transformOrigin: origemNoPalco(el.palco) })
@@ -118,6 +204,10 @@ export function pintarFinal(el: ElementosRevelacao) {
   fixar([...linhas, ...letras], { autoAlpha: 1 })
   if (carimbo) fixar(carimbo, { autoAlpha: 1, scale: 1, rotation: -6 })
   if (mosaico) fixar(mosaico, { autoAlpha: 1 })
+  // o produto fica no lugar dele (a inclinação de +3° é do CSS); confete e brilhos só existem na comemoração
+  fixar([foto, raios, valor], { clearProps: 'transform' })
+  fixar([foto, raios], { autoAlpha: 1 })
+  fixar([...festa, ...brilhos], { autoAlpha: 0, x: 0, y: 0 })
   fixar(el.botoes, { opacity: 1, y: 0 })
   fixar([el.segAbrir, el.segPremio].filter(Boolean), { scaleX: 1 })
   // o texto de cima já saiu do layout: a cena e os botões voltam pro lugar deles
@@ -134,10 +224,13 @@ interface Opcoes {
 /** Monta a timeline da revelação (a partir do fim do estalo). */
 export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Timeline {
   const { ponta, tubo, piteira } = partes(el.beck)
-  const { linhas, carimbo, letras, mosaico } = textoDoCartao(el.cartao)
+  const { linhas, carimbo, letras, mosaico, foto, raios, valor, festa, brilhos } = textoDoCartao(el.cartao, el.cartaoPos)
   const segs = [el.segAbrir, el.segPremio].filter(Boolean) as Element[]
 
   // medidas no começo (a coluna já rolou pro topo): beck em pé, sem transform, e a borda de cima do cartão
+  if (valor && !o.reduzido) posicionarBrilhos(valor, brilhos)
+  const cena = el.cartaoPos.closest<HTMLElement>('.sorte-cena')
+  if (festa.length && !o.reduzido) rumoDoConfete(festa, el.cartaoPos, cena && el.subir.includes(cena) ? el.alturaIntro : 0)
   gsap.set(el.beck, { clearProps: 'transform' })
   const b = el.beck.getBoundingClientRect()
   const c = el.cartaoPos.getBoundingClientRect()
@@ -148,7 +241,9 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
   // 40 px de tela em unidades do SVG do beck (60 de largura), já com a escala 1,4 do beck deitado
   const unidade = (b.width / 60) * 1.4
 
-  const tl = gsap.timeline({ onComplete: o.aoFim })
+  // o fim (fase "prêmio", botões vivos) é chamado no fim dos botões (2,96 s), não no fim da timeline: nada da
+  // comemoração segura o "Guardar meu prêmio" inerte depois que ele já apareceu inteiro
+  const tl = gsap.timeline()
 
   // estado inicial do que entra depois
   fixar(el.beck, { autoAlpha: 0, yPercent: BECK_ESCONDIDO })
@@ -157,6 +252,7 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
   fixar([...linhas, ...letras], { autoAlpha: 0 })
   if (carimbo) fixar(carimbo, { autoAlpha: 0 })
   if (mosaico) fixar(mosaico, { autoAlpha: 0 })
+  fixar([foto, raios, ...festa, ...brilhos], { autoAlpha: 0 })
   if (el.legBeck) fixar(el.legBeck, { autoAlpha: 0 })
   fixar(el.botoes, { opacity: 0, y: 12 })
   fixar(segs, { scaleX: 0, transformOrigin: '0% 50%' })
@@ -172,6 +268,7 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
     if (el.segAbrir) tl.set(el.segAbrir, { scaleX: 1 }, 0)
     tl.call(() => pintarFinal(el), [], 0.4)
     tl.call(o.aoFoco, [], 0.4)
+    tl.call(o.aoFim, [], 0.4)
     return tl
   }
 
@@ -219,9 +316,32 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
   if (letras.length) tl.to(letras, { autoAlpha: 1, duration: 0.001, stagger: 0.05 }, 2.4)
   if (mosaico) tl.to(mosaico, { autoAlpha: 1, duration: 0.12, ease: 'steps(2)' }, 2.5)
 
-  // 2,70–2,96 · BOTÕES (app); o foco vai pro título do cartão
+  // 2,30–2,96 · COMEMORAÇÃO (pixel, uma vez): os raios abrem e o produto pula no papel, o destaque bate como carimbo,
+  // o confete sai de trás da metade de cima do cartão (nunca por cima de texto nem dos botões) e cai de volta atrás
+  // dele, e 3 brilhos piscam em volta do destaque. Tudo acaba até 2,96 s, quando a fase vira "prêmio".
+  tl.call(() => vibrar('premio'), [], 2.3)
+  if (raios) tl.fromTo(raios, { autoAlpha: 0, scale: 0.5, rotation: -11.25 }, { autoAlpha: 1, scale: 1, rotation: 0, duration: 0.24, ease: 'steps(3)', immediateRender: false }, 2.3)
+  if (foto) {
+    tl.fromTo(foto, { autoAlpha: 0, scale: 0.5 }, { autoAlpha: 1, scale: 1.12, duration: 0.12, ease: 'steps(2)', immediateRender: false }, 2.32)
+    tl.to(foto, { scale: 1, duration: 0.08, ease: 'steps(1)' }, 2.44)
+  }
+  if (valor) tl.fromTo(valor, { scale: 1.35 }, { scale: 1, duration: 0.12, ease: 'steps(2)', immediateRender: false }, 2.36)
+  if (festa.length) {
+    tl.set(festa, { autoAlpha: (_: number, p: HTMLElement) => (p.dataset.fora ? 0 : 1), x: 0, y: 0 }, 2.36)
+    // estoura pra fora (4 degraus) e cai de volta, sumindo (3 degraus); o pintarFinal da fase "prêmio" põe no lugar
+    tl.to(festa, { x: (_: number, p: HTMLElement) => +(p.dataset.x ?? 0), y: (_: number, p: HTMLElement) => +(p.dataset.y ?? 0), duration: 0.24, ease: 'steps(4)', stagger: { each: 0.004, from: 'random' } }, 2.36)
+    tl.to(festa, { y: '+=20', autoAlpha: 0, duration: 0.21, ease: 'steps(3)', stagger: { each: 0.004, from: 'random' } }, 2.68)
+  }
+  brilhos.forEach((b, i) => {
+    const t = 2.42 + i * 0.12
+    tl.fromTo(b, { autoAlpha: 1, scale: 0 }, { scale: 1, duration: 0.1, ease: 'steps(2)', repeat: 1, yoyo: true, immediateRender: false }, t)
+    tl.set(b, { autoAlpha: 0 }, t + 0.2)
+  })
+
+  // 2,70–2,96 · BOTÕES (app); o foco vai pro título do cartão; no fim deles, a fase vira "prêmio" (inert sai)
   tl.to(el.botoes, { opacity: 1, y: 0, duration: 0.26, ease: APP }, 2.7)
   tl.call(o.aoFoco, [], 2.7)
+  tl.call(o.aoFim, [], 2.96)
 
   // segmentos do story: "Abrir" enche até 1340 ms; "Prêmio", de 1340 a 2700 ms (nunca passam sozinhos)
   if (el.segAbrir) tl.to(el.segAbrir, { scaleX: 1, duration: 1.22, ease: 'none' }, 0.12)

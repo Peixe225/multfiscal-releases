@@ -38,13 +38,18 @@ export const T = {
   soPapel: 'Só papel e sorte.',
   vivoSaiu: (titulo: string, regra: string, exemplo: boolean) => `Saiu: ${titulo}. ${regra}.${exemplo ? ' Prêmio de exemplo.' : ''}`,
 
-  // cartão
-  faixaCartao: 'TESTE MINHA SORTE · GREEN CHEESE',
-  deuSorte: 'DEU SORTE',
+  // cartão: o prêmio é o herói (destaque + produto + 1 linha de apoio); as condições ficam no "Ver condições"
+  faixaCartao: 'GREEN CHEESE',
+  deuSorte: 'DEU SORTE!',
   verProduto: 'Ver produto',
-  validadeSemConta: (dias: number) => `Vale ${dias}\u00a0dias depois de guardar · 1\u00a0pedido · 1\u00a0cupom\u00a0por\u00a0pedido`,
-  validadeGuardado: (ate: string) => `Vale até ${ate.replace(' ', '\u00a0')} · 1\u00a0pedido`,
-  lojaConfirma: 'A loja confirma no WhatsApp.',
+  // o rótulo não muda ao abrir (o estado fica no aria-expanded e na seta): a linha não pula em 320 px
+  verCondicoes: 'Ver condições',
+  condValidadeSemConta: (dias: number) => `Vale ${dias} ${dias === 1 ? 'dia' : 'dias'} depois de guardado.`,
+  condValidadeGuardado: (ate: string) => `Vale até ${ate}.`,
+  condReserva: (ate: string) => `Sem conta, o prêmio fica guardado neste aparelho até ${ate}. Depois some.`,
+  condUmPorPedido: 'Vale em 1 pedido. Não soma com outro cupom.',
+  condEstado: 'Só com o produto disponível no teu estado.',
+  condLoja: 'A loja confirma no WhatsApp: o subtotal do site não muda.',
   codigo: 'Código',
   codigoMascarado: 'Código liberado quando tu guarda o prêmio',
   copiar: 'Copiar',
@@ -54,7 +59,6 @@ export const T = {
   // prêmio sem conta
   esperando: 'TEU PRÊMIO TÁ ESPERANDO',
   soNomeZap: 'Só nome e WhatsApp.',
-  reservado: (ate: string) => `Sem conta, ele fica guardado neste aparelho até ${ate}. Depois some.`,
   agoraNao: 'Agora não',
   avisoAgoraNao: (ate: string) => `Teu prêmio fica guardado aqui até ${ate}.`,
 
@@ -67,9 +71,9 @@ export const T = {
   faixaPremio: (titulo: string) => `Teu prêmio: ${titulo}`,
   guardado: 'GUARDADO',
   fechou: (nome: string) => (nome ? `Fechou, ${nome}. Teu cupom tá guardado.` : 'Fechou. Teu cupom tá guardado.'),
-  valeAte: (ate: string) => `Vale até ${ate}.`,
+  // embaixo do "Fechou" (acima dos botões): nada depois da barra, que no celular deitado gruda no topo da coluna
+  guardadoNota: (ate: string) => `Vale até ${ate}. Amanhã tem outro giro.`,
   vivoGuardado: (codigo: string, ate: string) => `Código ${codigo}. Vale até ${ate}.`,
-  voltaAmanha: 'Volta amanhã pra girar de novo. Vem no certo!',
   contaCriada: (nome: string) => (nome ? `Conta criada, ${nome}.` : 'Conta criada.'),
   giroLiberado: 'Teu giro de hoje tá liberado.',
   proximoAmanha: 'Teu próximo giro libera amanhã.',
@@ -152,7 +156,6 @@ export const T = {
   usadoHoje: (espera: string) => `Hoje já foi. Próximo giro ${espera}.`,
   teusCupons: (n: number) => `Teus cupons (${n})`,
   valeAteFalta: (ate: string, falta: string) => `Vale até ${ate} · ${falta}`,
-  valePra: (alvo: string) => `Vale pra: ${alvo}`,
   naSacola: 'Na sacola ✓',
   tirar: 'Tirar',
   usado: (dia: string) => `USADO ${dia}`,

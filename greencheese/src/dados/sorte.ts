@@ -15,9 +15,13 @@ export type TipoPremio = 'desconto-percentual' | 'leve-x-pague-y' | 'brinde'
 
 interface PremioBase {
   id: string
-  /** Curto, cabe num chip: "4 por 3 na OCB". */
+  /** Nome interno ("4 por 3 na OCB"). Na tela o prêmio aparece sempre como destaque + produto (nomeDoPremio). */
   titulo: string
-  /** 1 frase de apoio no cartão. */
+  /**
+   * 1 linha curta de apoio no cartão, sem repetir o prêmio (o destaque "15% OFF" + o produto o cartão monta sozinho
+   * a partir do tipo, do valor e do produto). Até uns 28 caracteres (1 linha em 320 px). Sem condição nem promessa
+   * de tempo ("hoje"): isso vai na `regra` e no `comoUsar`.
+   */
   descricao: string
   /** Frase completa; é ela que vai na linha do WhatsApp. */
   regra: string
@@ -27,6 +31,7 @@ interface PremioBase {
   peso: number
   /** Dias de validade, contados a partir de quando a pessoa guarda o prêmio (1 a 30). */
   validadeDias: number
+  /** Opcional: como usar, numa frase (aparece no "Ver condições" do cartão e na Minha conta). */
   comoUsar?: string
   /** Cor do beck e do cartão: branco (OCB) ou natural (RAW). Padrão: natural. */
   papel?: 'branco' | 'natural'
@@ -92,10 +97,10 @@ export const premios: Premio[] = [
     tipo: 'leve-x-pague-y',
     valor: { leve: 4, pague: 3 },
     titulo: '4 por 3 na OCB',
-    descricao: 'Compra 3, leva 4.',
+    descricao: 'Uma OCB por conta da sorte.',
     regra: 'Leva 4 Seda OCB Premium Slim e paga 3',
     aplicaA: { produtos: ['seda-ocb-premium-slim'] },
-    comoUsar: 'Põe 4 na sacola e usa o cupom. A loja tira 1 na conversa e confirma como fica junto com o combo da OCB.',
+    comoUsar: 'Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.',
     peso: 30,
     validadeDias: 7,
     papel: 'branco',
@@ -106,10 +111,10 @@ export const premios: Premio[] = [
     tipo: 'desconto-percentual',
     valor: 15,
     titulo: '15% na piteira de vidro',
-    descricao: 'A piteira de vidro RAW com 15% a menos.',
+    descricao: 'A de vidro sai mais em conta.',
     regra: '15% de desconto na Piteira de vidro RAW',
     aplicaA: { produtos: ['piteira-de-vidro-raw'] },
-    comoUsar: 'Põe a piteira na sacola e usa o cupom. A loja confirma o desconto na conversa.',
+    comoUsar: 'Põe a piteira na sacola e usa o cupom.',
     peso: 20,
     validadeDias: 7,
     demo: true,
@@ -119,10 +124,10 @@ export const premios: Premio[] = [
     tipo: 'brinde',
     valor: { produto: 'piteira-de-papel-raw', qtd: 1 },
     titulo: 'Piteira de papel de brinde',
-    descricao: 'Uma piteira de papel RAW junto com tua seda.',
+    descricao: 'Vem junto com tua seda.',
     regra: '1 Piteira de papel RAW de brinde no pedido com seda',
     aplicaA: { categorias: ['sedas'] },
-    comoUsar: 'Vale em pedido com qualquer seda. A loja confirma a piteira na conversa.',
+    comoUsar: 'Põe qualquer seda na sacola e usa o cupom.',
     peso: 25,
     validadeDias: 7,
     demo: true,
@@ -132,7 +137,7 @@ export const premios: Premio[] = [
     tipo: 'desconto-percentual',
     valor: 10,
     titulo: '10% no dichavador',
-    descricao: 'Gostou de girar? Leva o de verdade.',
+    descricao: 'Agora gira o de verdade.',
     regra: '10% de desconto no Dichavador de metal 4 partes',
     aplicaA: { produtos: ['dichavador-metal-4-partes'] },
     peso: 15,
@@ -144,7 +149,7 @@ export const premios: Premio[] = [
     tipo: 'desconto-percentual',
     valor: 10,
     titulo: '10% na bandeja RAW',
-    descricao: 'A bandeja pequena com 10% a menos.',
+    descricao: 'Tudo no lugar pra enrolar.',
     regra: '10% de desconto na Bandeja RAW pequena',
     aplicaA: { produtos: ['bandeja-raw-pequena'] },
     peso: 10,

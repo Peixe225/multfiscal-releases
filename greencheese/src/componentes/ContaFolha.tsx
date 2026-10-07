@@ -9,7 +9,8 @@ import { primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/c
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { copiarTexto } from '../lib/copiar'
 import { formatarDiaMes, formatarEspera, formatarFalta, formatarValidade } from '../lib/cupom'
-import { alvosDo, valePra } from '../lib/cupom-uso'
+import { fraseDoPremio, nomeDoPremio } from '../lib/cupom-uso'
+import { Condicoes, listaCondicoes } from '../interativos/sorte/Condicoes'
 import { depoisDoHistorico } from '../lib/historico'
 import { mascararCelular } from '../lib/telefone'
 import { useLocal } from '../store/local'
@@ -227,16 +228,18 @@ function Conteudo({ fechar }: { fechar: () => void }) {
   )
 }
 
-/** Cupom no formato de ingresso de papel (a cor do papel do prêmio). */
+/** Cupom no formato de ingresso de papel (a cor do papel do prêmio): o prêmio em destaque, as condições fechadas. */
 function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () => void; agora: number; avisar: (t: string) => void }) {
   const aplicado = useSacola((s) => s.cupom === c.codigo)
   const tirar = useSacola((s) => s.tirarCupom)
   const tons = TONS_PAPEL[c.retrato.papel]
-  const alvo = alvosDo(c.retrato)[0]
+  // o produto do herói: no brinde, o que vem de brinde (o mesmo "Ver produto" do cartão)
+  const { destaque, alvo: nome, produto: alvo } = fraseDoPremio(c.retrato)
   const exemplo = c.demo && config.carimboDeExemplo
   const ativo = c.status === 'ativo'
+  const condicoes = listaCondicoes({ regra: c.retrato.regra, comoUsar: c.retrato.comoUsar, validade: null })
   return (
-    <article className={`ingresso ingresso-${c.status}`} style={{ ['--papel' as string]: ativo ? tons.base : '#3a3a3a', ['--papel-escuro' as string]: tons.escuro }} aria-label={`Cupom ${c.codigo}: ${c.retrato.titulo}`}>
+    <article className={`ingresso ingresso-${c.status}`} style={{ ['--papel' as string]: ativo ? tons.base : '#3a3a3a', ['--papel-escuro' as string]: tons.escuro }} aria-label={`Cupom ${c.codigo}: ${nomeDoPremio(c.retrato)}`}>
       <div className="ingresso-topo">
         <span className="ingresso-codigo px px-20">{c.codigo}</span>
         <button type="button" className="ingresso-copiar toque" onClick={() => avisar(copiarTexto(c.codigo) ? T.copiado : T.naoCopiou)} aria-label={`${T.copiar} o código ${c.codigo}`}>
@@ -244,14 +247,17 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
           {T.copiar}
         </button>
       </div>
-      <p className="ingresso-titulo">{c.retrato.titulo}</p>
-      <p className="ingresso-regra">{c.retrato.regra}</p>
+      <p className="ingresso-titulo">
+        <span className="ingresso-destaque px">{destaque}</span>
+        <span className="sr-only">: </span>
+        <span className="ingresso-alvo">{nome}</span>
+      </p>
       {ativo && <p className="ingresso-val">{T.valeAteFalta(formatarValidade(c.validoAte), formatarFalta(c.validoAte, agora))}</p>}
-      <p className="ingresso-val">
-        {T.valePra(valePra(c.retrato))}
-        {alvo && (
-          <>
-            {' '}
+      <Condicoes
+        className="ingresso-cond"
+        itens={condicoes}
+        lado={
+          alvo && (
             <button
               type="button"
               className="ingresso-link toque"
@@ -263,10 +269,9 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
             >
               {T.verProduto}
             </button>
-          </>
-        )}
-      </p>
-      {c.retrato.comoUsar && <p className="ingresso-como">{c.retrato.comoUsar}</p>}
+          )
+        }
+      />
       <div className="ingresso-acao">
         {c.status === 'ativo' &&
           (aplicado ? (

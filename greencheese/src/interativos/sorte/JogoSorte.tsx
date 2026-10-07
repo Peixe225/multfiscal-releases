@@ -7,7 +7,7 @@ import { config } from '../../dados/config'
 import type { Premio } from '../../dados/sorte'
 import { primeiroNome, type ContaAberta } from '../../lib/conta'
 import { conta as adaptador } from '../../lib/conta-adaptador'
-import { formatarAte, formatarDiaSemana, formatarEspera, formatarValidade, papelDo, premioPorId } from '../../lib/cupom'
+import { formatarAte, formatarDiaSemana, formatarEspera, formatarValidade, nomeDoPremio, papelDo, premioPorId } from '../../lib/cupom'
 import { movimentoReduzido, ponteiroFino } from '../../lib/movimento'
 import type { Cupom } from '../../store/conta'
 import { useLocal } from '../../store/local'
@@ -336,7 +336,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
       beck: p.beck.current,
       legBeck: legBeck.current,
       sumir: [...(raiz.current?.querySelectorAll('[data-some]') ?? [])],
-      subir: [...(raiz.current?.querySelectorAll<HTMLElement>('.sorte-cena, .sorte-barra, .sorte-acoes') ?? [])],
+      subir: subirNaRevelacao(raiz.current),
       alturaIntro: alturaDe(raiz.current?.querySelector<HTMLElement>('.sorte-intro')),
       cartaoPos: cartaoPos.current,
       cartao: cartao.current,
@@ -366,7 +366,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
         abrindo.current = false
         // leitor de tela: o resultado, numa frase (a região viva fala só na metade, no "Abriu!" e aqui)
         const d = ganho ? dadosDe(ganho.premio, ganho.cupom) : null
-        if (d) setVivo(T.vivoSaiu(d.titulo, d.regra, d.demo && config.carimboDeExemplo))
+        if (d) setVivo(T.vivoSaiu(nomeDoPremio({ titulo: d.titulo, aplicaA: d.aplicaA, ...d.valor }), d.regra, d.demo && config.carimboDeExemplo))
         setFase('premio')
       },
     })
@@ -435,6 +435,30 @@ export default function JogoSorte({ tela }: PropsJogo) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fase])
+
+  // código liberado (com conta, ou guardado agora) nunca fica atrás da barra grudada no pé: rola só o que falta pra
+  // linha do código aparecer acima dela, sem tirar o topo do cartão da tela. Deitado (barra ao lado), o pé da coluna.
+  useEffect(() => {
+    if ((fase !== 'premio' && fase !== 'guardado') || !ganho?.cupom) return
+    const c = casca.corpo
+    const pos = cartaoPos.current
+    const cod = cartao.current?.querySelector<HTMLElement>('[data-codigo]')
+    if (!c || !pos || !cod) return
+    const id = requestAnimationFrame(() => {
+      const area = c.getBoundingClientRect()
+      const k = cod.getBoundingClientRect()
+      const b = raiz.current?.querySelector<HTMLElement>('.sorte-barra')
+      const br = b?.getBoundingClientRect()
+      // a barra pode estar entrando (y +16): a altura dela basta, e o degradê de cima também cobre (20 px)
+      const cobre = !!b && !!br && getComputedStyle(b).position === 'sticky' && br.left < k.right && br.right > k.left && br.bottom >= area.bottom - 20
+      const limite = (cobre && b ? area.bottom - b.offsetHeight - 20 : area.bottom) - 8
+      const falta = k.bottom - limite
+      const folga = pos.getBoundingClientRect().top - area.top - 8
+      if (falta > 0 && folga > 0) c.scrollBy({ top: Math.min(falta, folga), behavior: reduzido ? 'auto' : 'smooth' })
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase, ganho])
 
   // guardado com cupom: o mosaico dissolve em 4 degraus e mostra o código; o carimbo GUARDADO bate
   const [mosaico, setMosaico] = useState(true)
@@ -599,14 +623,21 @@ export default function JogoSorte({ tela }: PropsJogo) {
               refs={{ pos: cartaoPos, cartao, rolo }}
               mosaico={fase === 'guardado' && mosaico}
               guardado={fase === 'guardado'}
+              reserva={ganho && !ganho.cupom ? T.condReserva(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora)) : null}
             />
           )}
         </div>
       )}
 
-      {/* prêmio: a barra dos botões gruda no pé da tela (celular baixo, navegador do Instagram) e as notas vêm depois */}
+      {/* prêmio: a barra dos botões gruda no pé da tela (celular baixo, navegador do Instagram) e nada vem depois dela
+          (deitado, ela gruda no topo da coluna da direita); a reserva sem conta fica no "Ver condições" */}
       {(fase === 'revelando' || fase === 'premio') && ganho && (
         <>
+          {comConta && ganho.cupom && (
+            <div ref={notas} className="sorte-acoes" inert={fase === 'revelando'}>
+              <p className="legenda sorte-nota">{T.naConta}</p>
+            </div>
+          )}
           <div ref={botoes} className="sorte-barra" inert={fase === 'revelando'}>
             {comConta && ganho.cupom ? (
               <>
@@ -630,11 +661,6 @@ export default function JogoSorte({ tela }: PropsJogo) {
                 </div>
               </>
             )}
-          </div>
-          <div ref={notas} className="sorte-acoes sorte-notas" inert={fase === 'revelando'}>
-            <p className="legenda sorte-nota">
-              {comConta && ganho.cupom ? T.naConta : T.reservado(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora))}
-            </p>
           </div>
         </>
       )}
@@ -663,7 +689,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
             <p className="sorte-fechou" tabIndex={-1} data-foco-fase>
               {T.fechou(primeiroNome(r.conta?.nome))}
             </p>
-            <p className="legenda">{T.valeAte(formatarValidade(ganho.cupom.validoAte))}</p>
+            <p className="legenda">{T.guardadoNota(formatarValidade(ganho.cupom.validoAte))}</p>
           </div>
           <div className="sorte-barra">
             <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
@@ -672,9 +698,6 @@ export default function JogoSorte({ tela }: PropsJogo) {
             <button type="button" className="botao botao-contorno botao-largo" onClick={() => setConta(true)}>
               {T.verCupons}
             </button>
-          </div>
-          <div className="sorte-acoes sorte-notas">
-            <p className="legenda sorte-nota">{T.voltaAmanha}</p>
           </div>
         </>
       )}
@@ -725,7 +748,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
 
       {naSubtela && (
         <div className="sorte-cadastro">
-          {ganho && dados && !ganho.cupom && <FaixaPremio titulo={dados.titulo} papel={dados.papel} />}
+          {ganho && dados && !ganho.cupom && <FaixaPremio nome={nomeDoPremio({ titulo: dados.titulo, aplicaA: dados.aplicaA, ...dados.valor })} papel={dados.papel} />}
           <div className="sorte-form">
             <FormConta
               key={fase}
@@ -746,6 +769,20 @@ export default function JogoSorte({ tela }: PropsJogo) {
       </p>
     </div>
   )
+}
+
+/**
+ * O que sobe junto quando o texto de cima sai do fluxo no fim da revelação: a cena só quando está embaixo dele (em
+ * pé); no celular deitado ela fica na outra coluna e não sai do lugar (subir e voltar no fim dava um salto de ~50 px).
+ */
+function subirNaRevelacao(raiz: HTMLElement | null): HTMLElement[] {
+  if (!raiz) return []
+  const intro = raiz.querySelector<HTMLElement>('.sorte-intro')?.getBoundingClientRect()
+  return [...raiz.querySelectorAll<HTMLElement>('.sorte-cena, .sorte-barra, .sorte-acoes')].filter((el) => {
+    if (!el.classList.contains('sorte-cena') || !intro) return true
+    const c = el.getBoundingClientRect()
+    return c.left < intro.right && c.right > intro.left
+  })
 }
 
 /** Altura que o elemento ocupa no fluxo (com as margens). */
@@ -769,7 +806,7 @@ function Espera({ r, usar, verCupons }: { r: ResumoSorte; usar: (c: string) => v
       {hoje && (
         <div className="sorte-mini">
           <p className="legenda">{T.hojeSaiu}</p>
-          <p className="sorte-mini-titulo">{hoje.retrato.titulo}</p>
+          <p className="sorte-mini-titulo">{nomeDoPremio(hoje.retrato)}</p>
           <p className="px px-20">{hoje.codigo}</p>
           {hoje.status === 'ativo' && (
             <button type="button" className="botao botao-contorno" onClick={() => usar(hoje.codigo)}>
