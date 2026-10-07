@@ -128,9 +128,9 @@ Todo pedido e toda encomenda fecham no mesmo WhatsApp da loja, `whatsappPedidos`
 whatsappPedidos: '5533991139036',
 ```
 
-O WhatsApp só aparece no **último passo do pedido guiado**, com o pedido completo: "Fechar pedido no WhatsApp" (ou "Fechar encomenda no WhatsApp") abre a conversa com a mensagem pronta e a loja fecha no x1. Embaixo fica "Pagar com Pix aqui no site" com o carimbo **EM BREVE**: tocar não sai do site, a loja responde que o Pix chega em breve e o foco volta para o botão do WhatsApp. Se o WhatsApp não abrir, o chat mostra o número e o "Copiar texto".
+O WhatsApp só aparece no **último passo do pedido guiado**, com o pedido completo: "Fechar pedido no WhatsApp" (ou "Fechar encomenda no WhatsApp") abre a conversa com a mensagem pronta e a loja fecha no x1. Embaixo fica "Pagar com Pix aqui no site" com o carimbo **EM BREVE**: tocar não sai do site, a loja responde que o Pix chega em breve e o foco volta para o botão do WhatsApp. Se o pagamento escolhido não for Pix, a loja oferece "Trocar pra Pix" (muda o pagamento ali mesmo, sem refazer os passos) e só depois devolve o foco ao WhatsApp, pra ninguém mandar o pedido no cartão achando que vai pagar no Pix. Se o WhatsApp não abrir, o chat mostra o número e o "Copiar texto".
 
-Dúvida que o site não tira vai para a **DM do Instagram do estado** (`instagram` em `canais.ts`): link no começo do pedido guiado ("Outra dúvida? Chama a @… no Instagram"), quadro "Dúvidas" do destaque do estado e o rodapé. "Avisar quando chegar" também vai pra DM do estado (copia a mensagem e abre a DM).
+Dúvida que o site não tira vai para a **DM do Instagram do estado** (`instagram` em `canais.ts`): link no começo do pedido guiado ("Outra dúvida? Chama a @… no Instagram"), quadro "Dúvidas" do destaque do estado e o rodapé ("Outra dúvida? Chama a @… na DM", com o estado escolhido ou palpitado). "Avisar quando chegar" também vai pra DM do estado (copia a mensagem e abre a DM).
 
 Um estado com WhatsApp próprio: em `src/dados/canais.ts`, troque o `whatsapp: null` dele pelo número (`whatsapp: '5521999998888'`); `null` = usa o da loja.
 

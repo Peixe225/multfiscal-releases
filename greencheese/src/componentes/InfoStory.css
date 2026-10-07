@@ -18,6 +18,8 @@
 }
 .info-txt {
   font: 400 15px/1.4 var(--ui);
+  /* sem palavra sozinha na última linha ("DM.", "loja.") */
+  text-wrap: balance;
 }
 .info-emblema {
   image-rendering: pixelated;

@@ -202,7 +202,8 @@
 .dm-acoes {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  /* o carimbo "EM BREVE" sobe sobre o vão: 26 px deixam uns 10 px até o WhatsApp (o anel do realce não passa por baixo) */
+  gap: 26px;
   margin-top: 8px;
 }
 .dm-acoes .botao {
@@ -223,11 +224,23 @@
   padding-inline: 16px;
   font-size: 16px;
 }
+/* o ícone corre junto do texto: se a linha quebrar, não fica sozinho na borda */
+.dm-zap-icone {
+  display: inline-block;
+  margin: -3px 8px 0 0;
+  vertical-align: middle;
+}
 /* 320 px: "Fechar pedido no WhatsApp" numa linha só */
 @media (max-width: 359px) {
   .dm-zap {
     padding-inline: 12px;
     font-size: 15px;
+  }
+}
+/* até 383 px "Fechar encomenda no WhatsApp" quebra: lê "Fechar no WhatsApp" (o resumo já diz "Encomenda montada") */
+@media (max-width: 383px) {
+  .dm-zap-meio {
+    display: none;
   }
 }
 .dm-zap::before {
@@ -277,7 +290,7 @@
 .dm-embreve {
   position: absolute;
   z-index: 1;
-  top: -16px;
+  top: -14px;
   right: 12px;
   padding: 4px 7px 2px;
   border-width: 2px;
@@ -293,7 +306,10 @@
   flex-direction: column;
   gap: 4px;
   margin-top: 8px;
-  scroll-margin-bottom: 12px;
+}
+/* respostas longas: sem o "lá." sozinho na última linha */
+.dm-resposta-pix .dm-loja {
+  text-wrap: pretty;
 }
 .dm-numero {
   white-space: nowrap;

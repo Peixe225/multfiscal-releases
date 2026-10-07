@@ -19,7 +19,7 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 - **"Sextou com entrega grátis!" (MG)**: dado real dos stories. Confirmar se vale **toda** sexta — o site mostra a frase só às sextas, só em MG.
 - **Nome do perfil**: "GREEN CHEESE LTDA" aparece só em RJ e MG (visto nos prints). SP, ES e SC mostram só o @.
 - **Destaque "DELIVERY SP/ES/SC"**: nome de demonstração (só RJ e MG têm destaque visto nos prints).
-- **@greencheese_importsvv**: aparece em marcações de clientes do Rio. Listado com a marca "confirmar". Pode ser Vila Velha (ES) ou outro perfil — confirmar se é oficial e de qual cidade.
+- **@greencheese_importsvv**: aparece em marcações de clientes do Rio. Listado com a marca "confirmar" na faixa dos @ e no "Por estado"; fora do rodapé até confirmar. Pode ser Vila Velha (ES) ou outro perfil — confirmar se é oficial e de qual cidade.
 
 ## Catálogo (`src/dados/catalogo.json`)
 

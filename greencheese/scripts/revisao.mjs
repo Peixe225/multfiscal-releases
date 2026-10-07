@@ -185,7 +185,41 @@ async function fluxoPedido(page, uf, cep, nomeArq) {
   conferir(pix.foco === 'Fechar pedido no WhatsApp' && pix.realce, `${uf}: depois do Pix, foco e realce no WhatsApp (${pix.foco})`)
   conferir(page.url() === antes && page.context().pages().length === abas, `${uf}: o Pix em breve não sai do site`)
   await foto(page, `${nomeArq}-chat-pix-em-breve`)
+  if (uf === 'mg') await pixComOutroPagamento(page, uf, nomeArq)
   return { uf, href, texto }
+}
+
+/** Pix em breve com pagamento no cartão: a loja oferece "Trocar pra Pix"; o WhatsApp só ganha o foco depois da troca. */
+async function pixComOutroPagamento(page, uf, nomeArq) {
+  const pagamentoNoZap = () =>
+    page.locator('.dm-zap').evaluate((a) => decodeURIComponent(a.getAttribute('href').split('text=')[1] ?? '').match(/^Pagamento: .*$/m)?.[0] ?? '')
+  await clicar(page, 'Mudar pagamento')
+  await clicar(page, 'Cartão na entrega')
+  await digitar(page, 'Portão azul')
+  await page.waitForTimeout(500)
+  conferir((await pagamentoNoZap()) === 'Pagamento: Cartão na entrega', `${uf}: no cartão, o WhatsApp leva "Pagamento: Cartão na entrega"`)
+  await page.getByRole('button', { name: /Pagar com Pix aqui no site/ }).click()
+  await page.waitForTimeout(700)
+  const antes = await page.evaluate(() => ({
+    bolha: [...document.querySelectorAll('.dm-resposta-pix .dm-loja')].map((e) => e.textContent).join(' '),
+    foco: document.activeElement?.textContent?.trim() ?? '',
+    realce: !!document.querySelector('.dm-zap.dm-realce'),
+  }))
+  conferir(/Troca o pagamento aqui/.test(antes.bolha), `${uf}: Pix em breve no cartão oferece a troca ("${antes.bolha.slice(0, 70)}…")`)
+  conferir(antes.foco === 'Trocar pra Pix' && !antes.realce, `${uf}: no cartão, o foco vai pro "Trocar pra Pix", sem realçar o WhatsApp (${antes.foco})`)
+  await foto(page, `${nomeArq}-chat-pix-cartao`)
+  await clicar(page, 'Trocar pra Pix')
+  await page.waitForTimeout(700)
+  const depois = await page.evaluate(() => ({
+    foco: document.activeElement?.textContent?.trim() ?? '',
+    realce: !!document.querySelector('.dm-zap.dm-realce'),
+    resumo: document.querySelector('.dm-mensagem')?.textContent ?? '',
+  }))
+  conferir((await pagamentoNoZap()) === 'Pagamento: Pix' && /Pagamento: Pix/.test(depois.resumo), `${uf}: "Trocar pra Pix" muda o pagamento no resumo e no WhatsApp`)
+  conferir(depois.foco === 'Fechar pedido no WhatsApp' && depois.realce, `${uf}: depois da troca, foco e realce no WhatsApp (${depois.foco})`)
+  const href = await page.locator('.dm-zap').getAttribute('href')
+  conferirMensagem(uf, decodeURIComponent(href.split('text=')[1] ?? ''))
+  await foto(page, `${nomeArq}-chat-pix-trocou`)
 }
 
 /** Encomenda até o resumo: fecha no mesmo WhatsApp, sem Pix (ainda não tem preço). */
@@ -201,6 +235,18 @@ async function fluxoEncomenda(page, uf, nomeArq) {
   const texto = decodeURIComponent(href?.split('text=')[1] ?? '')
   conferir(href?.startsWith(ZAP) && texto.startsWith(`ENCOMENDA GREEN CHEESE — ${uf.toUpperCase()}`), `${uf}: "Fechar encomenda no WhatsApp" abre o WhatsApp da loja com a encomenda`)
   conferir(!(await page.getByRole('button', { name: /Pix/ }).count()), `${uf}: encomenda sem o Pix em breve`)
+  // celular estreito: "Fechar no WhatsApp" numa linha só, com o ícone colado no texto
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.waitForTimeout(400)
+  const zap = page.getByRole('link', { name: 'Fechar no WhatsApp', exact: true })
+  // uma linha = 52 px de altura (duas passam de 56)
+  const m = await zap
+    .evaluate((a) => ({ h: Math.round(a.getBoundingClientRect().height), sw: document.documentElement.scrollWidth }))
+    .catch(() => null)
+  conferir(m && m.h <= 54 && m.sw <= 320, `${uf}: em 320 px, "Fechar no WhatsApp" numa linha (${JSON.stringify(m)})`)
+  await zap.scrollIntoViewIfNeeded().catch(() => {})
+  await foto(page, `${nomeArq}-encomenda-320`)
+  await page.setViewportSize({ width: 390, height: 844 })
 }
 
 /** Nenhum wa.me fora do último passo do pedido: o WhatsApp só aparece no fechamento. */
@@ -299,6 +345,11 @@ const browser = await chromium.launch()
   await semZapForaDoFechamento(page, 'cel por estado')
   await irAba(page, 'inicio')
   await semZapForaDoFechamento(page, 'cel início')
+  // rodapé: a dúvida vai pra DM do estado; perfil a confirmar fora da lista pública
+  const rodapeDm = await page.locator('.rodape .rodape-dm').getAttribute('href').catch(() => null)
+  conferir(rodapeDm === dmDo('mg'), `cel: rodapé "Outra dúvida? Chama a @… na DM" abre a DM do estado (${rodapeDm})`)
+  const perfis = await page.locator('.rodape .rodape-perfis a').allTextContents()
+  conferir(perfis.length === 5 && perfis.every((t) => /^@greencheese_imports(rj|mg|sp|es|sc)$/.test(t.trim())), `cel: rodapé lista só os 5 perfis dos estados (${perfis.join(', ')})`)
   await axeNasAbas(page, 'cel h1')
   await ctx.close()
 }

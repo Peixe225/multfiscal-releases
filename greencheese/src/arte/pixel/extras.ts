@@ -152,7 +152,6 @@ export const iconesExtras: Record<string, Grade> = {
     '................',
     '................',
   ]),
-  // Tampa do dichavador vista de cima: recartilhado (dentes pra fora), a gravação no meio e o entalhe em cima (sem dente).
   // Losango com outro dentro: o "Pagar com Pix" do fim do pedido (genérico, não é o logo do Pix).
   pix: g([
     '................',
@@ -172,6 +171,7 @@ export const iconesExtras: Record<string, Grade> = {
     '.......xx.......',
     '................',
   ]),
+  // Tampa do dichavador vista de cima: recartilhado (dentes pra fora), a gravação no meio e o entalhe em cima (sem dente).
   dichavador: g([
     '......x..x......',
     '...x.xx..xx.x...',

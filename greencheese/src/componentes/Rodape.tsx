@@ -1,7 +1,8 @@
 import { useRef, useSyncExternalStore } from 'react'
-import { canais, canalDa, perfisAConfirmar } from '../dados/canais'
+import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
-import { linkPerfil } from '../lib/mensagem'
+import { alvoDeSaida } from '../lib/ambiente'
+import { linkDM, linkPerfil } from '../lib/mensagem'
 import { useLocal } from '../store/local'
 import { Avatar } from './comum'
 import { MercadorAnimado, useMercadorAnda } from './Mercador'
@@ -63,21 +64,32 @@ export function TextoReposts() {
   )
 }
 
-/** Rodapé no molde do instagram.com: todos os perfis, avisos, privacidade e o crédito da prévia. */
+/** Rodapé no molde do instagram.com: os perfis dos estados, avisos, privacidade e o crédito. */
 export function Rodape() {
+  // estado escolhido ou palpitado: a dúvida vai direto pra DM dele
+  const canal = canalDa(useLocal((s) => s.uf))
   return (
     <footer className="rodape">
-      {/* como fala com a loja: o pedido fecha no WhatsApp (só no fim do pedido guiado); dúvida, no Instagram do estado */}
-      <p className="rodape-txt rodape-como">Monta o pedido aqui e fecha no WhatsApp da loja. Outra dúvida? Chama o Instagram do teu estado:</p>
+      {/* como fala com a loja: o pedido fecha no WhatsApp (só no fim do pedido guiado); dúvida, na DM do estado */}
+      <p className="rodape-txt rodape-como">
+        <span>Monta o pedido aqui e fecha no WhatsApp da loja.</span>{' '}
+        {canal ? (
+          <span>
+            Outra dúvida? Chama a{' '}
+            <a className="rodape-dm" href={linkDM(canal)} target={alvoDeSaida()} rel="noopener noreferrer">
+              @{canal.instagram}
+            </a>{' '}
+            na&nbsp;DM.
+          </span>
+        ) : (
+          <span>Outra dúvida? Chama o Instagram do teu estado:</span>
+        )}
+      </p>
+      {/* só os perfis dos estados (o que ainda falta confirmar não entra na lista pública) */}
       <nav aria-label="Instagrams da Green Cheese" className="rodape-perfis">
         {canais.map((c) => (
           <a key={c.uf} href={linkPerfil(c.instagram)} target="_blank" rel="noopener noreferrer">
             @{c.instagram}
-          </a>
-        ))}
-        {perfisAConfirmar.map((p) => (
-          <a key={p.instagram} href={linkPerfil(p.instagram)} target="_blank" rel="noopener noreferrer">
-            @{p.instagram} <span className="carimbo">{p.nota}</span>
           </a>
         ))}
       </nav>

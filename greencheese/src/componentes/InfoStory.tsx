@@ -98,7 +98,7 @@ export function InfoStory() {
       <Icone nome="instagram" tamanho={64} />
       <p className="info-titulo px">DÚVIDAS</p>
       <p className="info-txt">
-        O que o site não responder, a <strong className="info-arroba">@{canal.instagram}</strong> responde na DM.
+        O que o site não responder, a <strong className="info-arroba">@{canal.instagram}</strong> responde na&nbsp;DM.
       </p>
       <a className="botao botao-contorno" href={linkDM(canal)} target={alvoDeSaida()} rel="noopener noreferrer">
         Chamar na DM
