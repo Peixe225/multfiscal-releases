@@ -2,12 +2,13 @@
 // '.' transparente, 'x' = currentColor (ícone segue a cor do texto), outras letras vêm da paleta.
 //
 // Tamanhos que saem nítidos (múltiplos da grade; o PixelArte ajusta o resto ao pixel da tela):
-//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 → 48, 72, 96 px · cliente 32×44 → 128 px de largura
-//   · mercador 44×64 → 132 ou 176 px de largura.
+//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 → 48, 72, 96 px
+//   · mercador 44×64 (repost e sacola vazia) → 132 ou 176 px de largura.
 // A moto tem uma capa 32×32 (`grande`) que o PixelArte usa sozinho a partir de 64 px.
 
 import type { Emblema } from '../../dados/canais'
 import { mercador } from './mercador'
+import { mercadorGarrafa } from './mercador-garrafa'
 
 export interface Grade {
   w: number
@@ -733,71 +734,9 @@ export const emblemas: Record<Emblema, Grade> = {
 
 /* ───────────────────────── ilustração ───────────────────────── */
 
-// Cliente de rua erguendo a garrafa quadrada (âmbar é a única cor). Bucket hat com a cabeça inclinada,
-// camiseta larga com sombra em xadrez, corrente, mão no bolso, perna solta (contrapposto), tênis branco.
-const cliente = nova(
-  32,
-  44,
-  [
-    '..........................mm....',
-    '.............ccmmm........aA....',
-    '............ccmmmmm.......aA....',
-    '...........cmmmmmmmd....aaaaaA..',
-    '.........ccccccmmmmmm...addddA..',
-    '..........cmmmmmmmmmmd..awwwwA..',
-    '...........dmdmmdmd.....addddA..',
-    '...........dccccccd.....adccdA..',
-    '............ccccccm.....addddA..',
-    '............cccmmcm.....aaaaaA..',
-    '.............ccccm......accccA..',
-    '..............mmm........mccc...',
-    '..........wwwcccccwww......cc...',
-    '.......wwwwwwmwwwmwwwwww...cc...',
-    '.....wwwwmwwwcwwwcwwwmwww..cc...',
-    '.....wwcwmwwwwmwmwwwwmwwww.cc...',
-    '.....wwwcmwwwwwcwwwwwmwwwwwcc...',
-    '.....wwcwmwwwwwcwwwwwmwwwwwcc...',
-    '.....wwwcmwwwwwmwwwwwmcwcwccc...',
-    '.....wwcwmwwwwwwwwwwwc..cccc....',
-    '.....mccc.mwwwwwwwwwcw..........',
-    '......cc..mwwwwwwwwwwc..........',
-    '......cc..mwwwwwwwwwcw..........',
-    '.......cc.mwwwwwwwwwwc..........',
-    '.......cc.mwwwwwwwwwcw..........',
-    '........ccmcwcwcwcwcwc..........',
-    '........ccmwcwcwcwcwcw..........',
-    '.........cddddddcccccc..........',
-    '..........mmmmmmdddddd..........',
-    '..........mmmmeeemmmm...........',
-    '..........mmmmedemmmm...........',
-    '..........memme.ememm...........',
-    '..........mmeme..ememm..........',
-    '..........mmeme..ememm..........',
-    '..........mmmme..emmmm..........',
-    '..........mmmme..emmmm..........',
-    '..........meeme...emeem.........',
-    '..........mmmme...emmmm.........',
-    '..........eeeee...eeeee.........',
-    '.........cwwwww...wwwwwc........',
-    '........wwwwccw...wccwwww.......',
-    '........ccccccc...ccccccc.......',
-    '......d.d.d.d.d.d.d.d.d.d.......',
-    '.........d.d.d.d.d.d.d..........',
-  ],
-  {
-    w: '#ffffff',
-    c: '#a8a8a8', // --legenda: pele, sombra da camiseta, corrente
-    m: '#636363', // --chiado: chapéu e calça (4:1 no preto, a perna não some no OLED)
-    // O único cinza fora dos tokens: dobra da calça. Entre o --bolha e o --chiado, para a dobra não cortar a perna.
-    e: '#3a3a3a',
-    d: '#262626', // --bolha: sombra da aba, olhos, cós, rótulo da garrafa
-    a: '#c8832f', // uísque
-    A: '#8a5520', // uísque na sombra
-  },
-)
-
-// O mercador (repost) mora em arquivo próprio: grade 44×64, grande demais para ficar no meio dos ícones.
-export const ilustracoes: Record<'cliente' | 'mercador', Grade> = { cliente, mercador }
+// O mercador mora em arquivos próprios (grade 44×64, grande demais para ficar no meio dos ícones): o do repost, que
+// abre o casaco, e o da sacola vazia, de casaco fechado erguendo a garrafa (ele tomou o lugar do bonequinho de boné).
+export const ilustracoes: Record<'mercador' | 'mercadorGarrafa', Grade> = { mercador, mercadorGarrafa }
 
 // Em dev, confere tudo já no carregamento (não espera a arte aparecer na tela).
 if (import.meta.env?.DEV) {

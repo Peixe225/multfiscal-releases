@@ -7,7 +7,7 @@
 // centrado. Assim 24 px num Android de DPR 2,625 não sai com pixels desiguais. Se o ajuste passar da caixa,
 // o desenho transborda um pouco (overflow visível) em vez de encolher pela metade.
 //
-// Tamanhos recomendados (múltiplos da grade): ícones 16/32/48, emblemas 48/72/96, cliente 128.
+// Tamanhos recomendados (múltiplos da grade): ícones 16/32/48, emblemas 48/72/96, mercador 132/176.
 
 import { useEffect, useId, useSyncExternalStore, type CSSProperties } from 'react'
 import { TRANSPARENTE, COR_TEXTO, validarGrade, type Grade } from './pixel/grades'

@@ -3,6 +3,7 @@ import { useConferirCupom } from '../lib/cupom-pedido'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
+import { palpebrasGarrafa } from '../arte/pixel/mercador-garrafa'
 import { brl, plural } from '../lib/formato'
 import { depoisDoHistorico } from '../lib/historico'
 import { nomeNaMensagem, textoSubtotal, totais } from '../lib/mensagem'
@@ -156,7 +157,10 @@ export function SacolaFolha() {
     >
       {itens.length === 0 ? (
         <div className="sacola-vazia">
-          <PixelArte grade={ilustracoes.cliente} tamanho={132} className="sacola-vazia-arte" />
+          <div className="sacola-vazia-figura">
+            <PixelArte grade={ilustracoes.mercadorGarrafa} tamanho={132} className="sacola-vazia-arte" />
+            <PixelArte grade={palpebrasGarrafa} tamanho={132} className="sacola-vazia-piscar" />
+          </div>
           <p className="adesivo-texto-bloco">
             <span className="adesivo-texto">Nada aqui ainda. Vem no certo!</span>
           </p>
