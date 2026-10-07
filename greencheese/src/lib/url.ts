@@ -1,4 +1,4 @@
-// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=catalogo&home=2):
+// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=catalogo):
 // funciona em qualquer pasta da Hostinger, sem regra de servidor.
 
 export interface Parametros {
@@ -13,8 +13,6 @@ export interface Parametros {
   jogo: string | null
   /** Aba do site (?aba=catalogo | estados; sem parâmetro = Início). Quem escreve é o src/lib/abas.ts. */
   aba: string | null
-  /** Versão da home em teste (?home=2). Quem escreve é o src/lib/home.ts. */
-  home: string | null
 }
 
 export function lerParametros(): Parametros {
@@ -28,7 +26,6 @@ export function lerParametros(): Parametros {
     chat: lim(q.get('chat')),
     jogo: lim(q.get('jogo')),
     aba: lim(q.get('aba')),
-    home: lim(q.get('home')),
   }
 }
 
@@ -39,6 +36,23 @@ export type Aba = 'inicio' | 'catalogo' | 'estados'
 export function abaDaURL(): Aba {
   const v = lerParametros().aba
   return v === 'catalogo' || v === 'estados' ? v : 'inicio'
+}
+
+/**
+ * Links velhos da Home 2, que ficou em teste e saiu (?home=2, ?home2, ?Home2, ?HOME=1…): a chave sai da URL e nada
+ * muda, a home é uma só. Roda antes do primeiro render (src/lib/abas.ts).
+ */
+export function limparHomeVelha(): void {
+  try {
+    const q = new URLSearchParams(location.search)
+    const velhas = [...q.keys()].filter((k) => /^home(-?[12])?$/i.test(k))
+    if (!velhas.length) return
+    velhas.forEach((k) => q.delete(k))
+    const s = q.toString()
+    history.replaceState(history.state, '', `${location.pathname}${s ? `?${s}` : ''}${location.hash}`)
+  } catch {
+    /* ignora */
+  }
 }
 
 /** Atualiza a query sem recarregar e sem criar entrada no histórico. null remove a chave. */

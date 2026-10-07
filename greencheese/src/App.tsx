@@ -17,7 +17,7 @@ import { useUI } from './store/ui'
 import { interativoPorParam } from './interativos/registro'
 import { Abertura, Saida, idadeLembrada } from './componentes/Abertura'
 import { Vistas } from './componentes/Abas'
-import { BalaoMercador, BarraAbas } from './componentes/BarraAbas'
+import { BarraAbas } from './componentes/BarraAbas'
 import { Aviso, Lateral } from './componentes/Lateral'
 import { TopoLocal } from './componentes/Local'
 import './estilos/layout.css'
@@ -168,7 +168,6 @@ export function App() {
   const [saida, setSaida] = useState(false)
   // "Trocar" na pergunta do palpite, dentro da abertura: o seletor abre quando ela sai (ver o efeito pós-abertura)
   const trocarDepois = useRef(false)
-  const home = useUI((s) => s.home)
   const setAberturaUI = useUI((s) => s.setAbertura)
   const setInfo = useUI((s) => s.setInfo)
   // estável: o catálogo é memo e não re-renderiza quando o App re-renderiza
@@ -297,14 +296,13 @@ export function App() {
           }}
         />
       )}
-      <div className="app" data-home={home} inert={abertura || saida}>
+      <div className="app" inert={abertura || saida}>
         <Lateral />
         <TopoLocal />
         <main className="principal" id="principal">
           <Vistas abrirInfo={abrirInfo} />
         </main>
         <BarraAbas />
-        {home === 2 && <BalaoMercador />}
       </div>
       {camadas && <Camadas />}
       <Aviso />

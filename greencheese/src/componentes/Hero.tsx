@@ -9,7 +9,6 @@ import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
-import type { Produto } from '../lib/tipos'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useDisponiveis } from '../store/derivados'
@@ -18,9 +17,8 @@ import { useUI } from '../store/ui'
 import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
 import { AvisoLocal, LinhaLocal, useAvisoLocal, useTextoLocal } from './Local'
-import { PASSO_MS } from './Mercador'
+import { MercadorLoja } from './MercadorLoja'
 import { Perfil } from './Perfil'
-import { StoryMercador, useConviteSorte } from './StoryMercador'
 import { StoryQuadro } from './StoryQuadro'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import './Hero.css'
@@ -118,15 +116,59 @@ function consulta(q: string) {
   }
 }
 /**
- * Tela larga (>= 1200 px): perfil à esquerda do story (e, na Home 2, o card do mercador à esquerda do perfil).
- * Abaixo disso o story vem primeiro — no DOM também (ordem do Tab).
+ * Tela larga (>= 1200 px): o mercador e o perfil à esquerda do story. Abaixo disso o story vem primeiro, com o mercador
+ * e o perfil embaixo — no DOM também (ordem do Tab).
  */
 const LARGO = consulta('(min-width: 1200px)')
-/** Celular: o mercador da Home 2 entra como passo do story (no computador ele tem o card dele). */
+/** Celular: perfil embaixo do story (Abas.tsx) e nada de mercador; o mercador é do computador. */
 const CELULAR = consulta('(max-width: 899px)')
 
-/** Um passo do story do hero: um produto, ou (Home 2, celular) o convite do Teste minha sorte com o mercador. */
-type Passo = { tipo: 'produto'; produto: Produto } | { tipo: 'mercador' }
+/** Perfil mais estreito que isto fica compacto (Hero.css); o mercador só entra se ainda sobrar ele ao lado. */
+const PERFIL_MIN = 285
+const PERFIL_COMPACTO = 380
+const PERFIL_MAX = 420
+/** Vão entre o mercador e o perfil, em pixels da grade (o margin-right do .mercador-loja, em MercadorLoja.css). */
+const VAO_MERCADOR = 5
+
+/** A maior escala inteira do mercador (44 de largura + o vão) que deixa o perfil com PERFIL_MIN ao lado; 0: não cabe. */
+function escalaQueCabe(largura: number): number {
+  const teto = window.innerWidth >= 1800 ? 5 : window.innerWidth >= 1440 ? 4 : 3
+  for (let k = teto; k >= 3; k--) if ((44 + VAO_MERCADOR) * k + PERFIL_MIN <= largura) return k
+  return 0
+}
+
+/**
+ * Mercador e perfil no computador. A escala é inteira (5× em tela gigante, 4× de 1440 px, 3× abaixo) e sai da sobra da
+ * coluna do perfil: o story nunca encolhe por causa dele. Lado a lado (>= 1200 px) quando ele cabe na coluna ao lado
+ * do story; não cabendo (1200–1270 px com janela alta), em vez de sumir, o hero empilha como de 900 a 1199: story em
+ * cima, mercador e perfil embaixo. A régua (Hero.css) mede a coluna que o perfil teria lado a lado em qualquer arranjo,
+ * então a escolha não oscila; a escala do empilhado sai da própria coluna depois da troca. Tudo antes da pintura.
+ */
+function useLojaDesktop(loja: HTMLDivElement | null, regua: HTMLSpanElement | null, ligado: boolean, largo: boolean) {
+  const [medida, setMedida] = useState({ escala: 0, compacto: false, empilha: false })
+  useLayoutEffect(() => {
+    if (!ligado || !loja || !regua) return
+    const medir = () => {
+      const lado = regua.clientWidth
+      const coluna = loja.clientWidth
+      if (!coluna) return
+      const kLado = largo ? escalaQueCabe(lado) : 0
+      const empilha = !largo || !kLado
+      // lado a lado, a coluna medida é a da régua; empilhado, a linha inteira embaixo do story
+      const escala = empilha ? escalaQueCabe(coluna) : kLado
+      const perfil = Math.min(PERFIL_MAX, (empilha ? coluna : lado) - (44 + VAO_MERCADOR) * escala)
+      const compacto = perfil < PERFIL_COMPACTO
+      setMedida((m) => (m.escala === escala && m.compacto === compacto && m.empilha === empilha ? m : { escala, compacto, empilha }))
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(loja)
+    ro.observe(regua)
+    return () => ro.disconnect()
+    // medida.empilha: depois de empilhar, a coluna muda de largura e a escala sai dela (ainda antes da pintura)
+  }, [loja, regua, ligado, largo, medida.empilha])
+  return medida
+}
 
 /** Foco visível de teclado (o clique do mouse num botão foca sem :focus-visible). */
 function focoDeTeclado(el: EventTarget | null): boolean {
@@ -171,14 +213,8 @@ export function Hero() {
   const disponiveis = useDisponiveis()
   // produto real com preço primeiro; exemplo por último
   const peso = (p: (typeof todos)[number]) => (p.demo ? 2 : 0) + (p.preco == null ? 1 : 0)
-  const home = useUI((s) => s.home)
   const celular = useSyncExternalStore(CELULAR.assinar, CELULAR.ler)
-  // Home 2 no celular: o mercador é o 2º passo (aparece aos 5 s), dentro do mesmo limite de barras
-  const comMercador = home === 2 && celular
-  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, comMercador ? MAX_BARRAS - 1 : MAX_BARRAS)
-  const passos: Passo[] = lista.map((produto) => ({ tipo: 'produto', produto }))
-  if (comMercador && passos.length) passos.splice(1, 0, { tipo: 'mercador' })
-  const convite = useConviteSorte()
+  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, MAX_BARRAS)
   // palpite de IP pendente (celular): o aviso ocupa o lugar da linha de resposta até a pessoa responder
   const avisoLocal = useAvisoLocal()
   const { texto: lugar } = useTextoLocal()
@@ -215,19 +251,18 @@ export function Hero() {
   const palco = useRef<HTMLDivElement>(null)
   const espera = useRef<HTMLDivElement>(null)
   const barras = useRef<HTMLDivElement>(null)
+  // a coluna do perfil e a régua do lado a lado (computador), medidas para o mercador: em estado, porque saem e voltam
+  // com o story
+  const [loja, setLoja] = useState<HTMLDivElement | null>(null)
+  const [regua, setRegua] = useState<HTMLSpanElement | null>(null)
   const quaseTodo = useRef(false)
   const reduz = movimentoReduzido()
 
-  const n = passos.length
+  const n = lista.length
   const idx = n ? pos.i % n : 0
-  const passo = passos[idx]
-  /** Produto do passo atual (null no passo do mercador). */
-  const atual = passo?.tipo === 'produto' ? passo.produto : null
-  const noMercador = passo?.tipo === 'mercador'
-  const chavePasso = atual ? atual.id : 'mercador'
-  // o próximo, esmaecido atrás, é sempre um produto: no passo do mercador e antes dele não aparece nada
-  const seguinte = n > 1 ? passos[(idx + 1) % n] : undefined
-  const proximo = !noMercador && seguinte?.tipo === 'produto' ? seguinte.produto : undefined
+  const atual = n ? lista[idx] : undefined
+  // o próximo, esmaecido atrás
+  const proximo = n > 1 ? lista[(idx + 1) % n] : undefined
   const pausado = pausaManual || foco === 'dentro'
 
   // aviso de local respondido pelo teclado (Enter no Sim, dentro do story): o botão some e o foco cairia no body sem
@@ -294,9 +329,10 @@ export function Hero() {
     )
   }, [uf, reduz])
 
+  const idAtual = atual?.id ?? null
   useEffect(() => {
-    setHeroProduto(visivel && atual ? atual.id : null)
-  }, [visivel, atual, setHeroProduto])
+    setHeroProduto(visivel ? idAtual : null)
+  }, [visivel, idAtual, setHeroProduto])
 
   // pausa fora da tela; "quase todo na tela" libera as setas do teclado sem foco no hero
   useEffect(() => {
@@ -319,20 +355,6 @@ export function Hero() {
     const q = quadroRef.current
     const h = historia.current
     const meio = q?.querySelector<HTMLElement>('.hero-meio')
-    // passo do mercador: as bordas passam na altura toda (o meio abre o jogo) e as setas ficam na altura dele
-    const figura = q?.querySelector<HTMLElement>('.hero-palco .sm-palco')
-    if (q && h && meio && figura) {
-      const medirMercador = () => {
-        q.style.setProperty('--hero-texto', `${q.clientHeight}px`)
-        h.style.setProperty('--hero-arte-meio', `${Math.round(topoEm(figura, q) + figura.offsetHeight / 2)}px`)
-        h.style.setProperty('--hero-espera-vis', 'hidden')
-        setDicaCabe(false)
-      }
-      medirMercador()
-      const ro = new ResizeObserver(medirMercador)
-      ro.observe(figura)
-      return () => ro.disconnect()
-    }
     const t = q?.querySelector<HTMLElement>('.hero-palco .sq-texto')
     const a = q?.querySelector<HTMLElement>('.hero-palco .sq-arte')
     if (!q || !h || !t || !a || !meio) return
@@ -355,19 +377,18 @@ export function Hero() {
     ro.observe(meio)
     ro.observe(t)
     return () => ro.disconnect()
-  }, [chavePasso, uf])
+  }, [idAtual, uf])
 
   const barra = useProgresso({
     ativo: !reduz && visivel && !segurando && !tocando && !pausado && !camadaAberta && !chatAberto && n > 1,
-    // o passo do mercador dura a apresentação dele (do tique 18 até fechar o casaco)
-    duracaoMs: noMercador ? PASSO_MS : 5000,
+    duracaoMs: 5000,
     chave: `${uf}-${idx}`,
     aoTerminar: () => irPara(1, 'auto'),
   })
 
   // barras: as de trás cheias, a atual do zero (cheia sem movimento), as da frente vazias — também ao voltar e no loop
   // (depois do useProgresso: roda por último e vale)
-  const ids = passos.map((p) => (p.tipo === 'produto' ? p.produto.id : 'mercador')).join()
+  const ids = lista.map((p) => p.id).join()
   useLayoutEffect(() => {
     barras.current?.querySelectorAll<HTMLElement>('.story-barra > i').forEach((el, k) => {
       el.style.transform = `scaleX(${k < idx || (reduz && k === idx) ? 1 : 0})`
@@ -545,13 +566,6 @@ export function Hero() {
     irPara(e.clientX - r.left < r.width * BORDA ? -1 : 1, 'toque')
   }
 
-  /** Passo do mercador: o meio do story e o adesivo-link abrem o convite (jogo, cadastro, cupom, conta ou a loja). */
-  const abrirConvite = () => {
-    if (performance.now() < semClique.current) return
-    dispensarDica()
-    convite.acao()
-  }
-
   const abrirProduto = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Ctrl/⌘/Shift/Alt + clique: aba ou janela nova, do jeito do navegador
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
@@ -579,12 +593,15 @@ export function Hero() {
   const sextou = canal && ehDiaDeEntregaGratis(canal) ? canal.entregaGratis?.texto : null
 
   const navega = n > 1
-  const comDica = navega && dica !== 'fora' && !aberturaAtiva && dicaCabe && !noMercador
+  const comDica = navega && dica !== 'fora' && !aberturaAtiva && dicaCabe
   useEffect(() => {
     dicaNaTela.current = comDica && dica === 'mostra'
   }, [comDica, dica])
 
-  if (!passo) return null
+  // o mercador ao lado do perfil (computador): a escala sai da sobra da coluna dele; sem lugar lado a lado, empilha
+  const lojaDesktop = useLojaDesktop(loja, regua, !celular, largo)
+
+  if (!atual) return null
 
   const quadro = (
     <div
@@ -603,10 +620,10 @@ export function Hero() {
         else e.preventDefault()
       }}
     >
-      {/* uma barra por passo (com o mercador, ele tem a dele): toda posição do story tem a barra que conta o tempo */}
+      {/* uma barra por produto: toda posição do story tem a barra que conta o tempo */}
       <div ref={barras} className="story-barras hero-barras" aria-hidden="true">
-        {passos.map((p, k) => (
-          <span key={p.tipo === 'produto' ? p.produto.id : 'mercador'} className="story-barra">
+        {lista.map((p, k) => (
+          <span key={p.id} className="story-barra">
             <i ref={k === idx ? (el) => { barra.current = el } : undefined} />
           </span>
         ))}
@@ -617,11 +634,7 @@ export function Hero() {
         <div className="hero-cab-texto">
           <div className="hero-cab-linha">
             <span className="story-cab-nome">{canal?.instagram ?? 'Green Cheese Imports'}</span>
-            {noMercador ? (
-              <span className="story-cab-tempo">interativo</span>
-            ) : (
-              tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>
-            )}
+            {tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>}
           </div>
           <LinhaLocal className="hero-cab-local" />
         </div>
@@ -659,31 +672,23 @@ export function Hero() {
       )}
 
       <div className="hero-meio">
-        <div className="hero-palco" ref={palco} key={`${uf}-${chavePasso}`}>
-          {atual ? (
-            <StoryQuadro
-              produto={atual}
-              escala="hero"
-              disponivel={uf ? (canal ? disponivelEm(atual, uf) : false) : null}
-              lugar={lugar}
-              prioridade
-              artePropsExtra={{ flutuar: true }}
-              legenda={
-                !uf ? (
-                  <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
-                ) : undefined
-              }
-            />
-          ) : (
-            <StoryMercador variante="passo" parado={segurando || pausado} />
-          )}
+        <div className="hero-palco" ref={palco} key={`${uf}-${atual.id}`}>
+          <StoryQuadro
+            produto={atual}
+            escala="hero"
+            disponivel={uf ? (canal ? disponivelEm(atual, uf) : false) : null}
+            lugar={lugar}
+            prioridade
+            artePropsExtra={{ flutuar: true }}
+            legenda={
+              !uf ? (
+                <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
+              ) : undefined
+            }
+          />
         </div>
         {/* fora do palco (que remonta a cada produto): o foco do teclado não se perde ao passar */}
-        {atual ? (
-          <a className="hero-produto" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false} aria-label={`Ver ${atual.nome}`} />
-        ) : (
-          <button type="button" className="hero-produto" onClick={abrirConvite} aria-label={convite.ativo ? `Teste minha sorte: ${convite.cta}` : 'Ver loja'} />
-        )}
+        <a className="hero-produto" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false} aria-label={`Ver ${atual.nome}`} />
         {comDica && (
           <div className={`hero-dica degrau${dica === 'saindo' ? ' saindo' : ''}`} aria-hidden="true">
             <p className="hero-dica-linha px px-16">
@@ -696,31 +701,16 @@ export function Hero() {
         )}
       </div>
 
-      {atual ? (
-        <div className="hero-adesivos">
-          <p className="adesivo-texto-bloco hero-frase">
-            <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
-          </p>
-          <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
-            <Icone nome="link" tamanho={16} />
-            VER PRODUTO
-          </a>
-        </div>
-      ) : (
-        <div className="hero-adesivos">
-          {convite.legenda && (
-            <p className="adesivo-texto-bloco hero-frase hero-frase-mercador">
-              <span className="adesivo-texto">{convite.legenda}</span>
-            </p>
-          )}
-          {/* no lugar do VER PRODUTO: o CTA do convite (muda com o estado do jogo) */}
-          <button type="button" className="adesivo-link toque hero-ver hero-ver-mercador" onClick={abrirConvite}>
-            <Icone nome={convite.ativo ? 'dichavador' : 'link'} tamanho={16} />
-            {convite.cta.toUpperCase()}
-          </button>
-        </div>
-      )}
-      {atual?.demo && config.carimboDeExemplo && <span className="hero-demo carimbo">exemplo</span>}
+      <div className="hero-adesivos">
+        <p className="adesivo-texto-bloco hero-frase">
+          <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
+        </p>
+        <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
+          <Icone nome="link" tamanho={16} />
+          VER PRODUTO
+        </a>
+      </div>
+      {atual.demo && config.carimboDeExemplo && <span className="hero-demo carimbo">exemplo</span>}
       {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando. Com o
           palpite de IP pendente, o aviso de local fica no lugar dela (por cima, cobria a pílula no celular baixo) */}
       {avisoLocal && !ehDesktop() ? (
@@ -728,18 +718,22 @@ export function Hero() {
           <AvisoLocal variante="story" />
         </div>
       ) : (
-        <RespostaStory produtoId={atual?.id ?? null} mercador={noMercador} />
+        <RespostaStory produtoId={atual.id} />
       )}
       {/* só a troca feita pela pessoa é anunciada; a automática fica muda (sem falatório a cada 5 s) */}
       <span className="sr-only" aria-live="polite">
-        {pos.origem !== 'auto' ? `${atual ? atual.nome : 'Teste minha sorte'}, story ${idx + 1} de ${n}` : ''}
+        {pos.origem !== 'auto' ? `${atual.nome}, story ${idx + 1} de ${n}` : ''}
       </span>
     </div>
   )
 
+  // computador: o mercador de pé ao lado do perfil (decorativo, sem parada no Tab), os pés na linha do "Ver loja"
   const perfil = (
-    <div key="perfil" className="hero-desktop-perfil">
-      <Perfil variante="desktop" />
+    <div key="loja" ref={setLoja} className={`hero-loja${lojaDesktop.compacto ? ' perfil-compacto' : ''}`}>
+      {!celular && lojaDesktop.escala > 0 && <MercadorLoja escala={lojaDesktop.escala} />}
+      <div className="hero-desktop-perfil">
+        <Perfil variante="desktop" />
+      </div>
     </div>
   )
   const story = (
@@ -768,20 +762,15 @@ export function Hero() {
     </div>
   )
 
-  // Home 2 no computador: o card do mercador ("story" menor ao lado do perfil, como os vizinhos do visualizador do
-  // instagram.com). A ordem no DOM segue o que se vê (o Tab vai na mesma ordem): >= 1200 card | perfil | story;
-  // abaixo, story, perfil e o card deitado.
-  const h2 = home === 2 && !celular
-  const vitrine = h2 ? (
-    <div key="vitrine" className="hero-vitrine">
-      <StoryMercador variante={largo ? 'coluna' : 'deitada'} />
-    </div>
-  ) : null
-  const ordem = !h2 ? (largo ? [perfil, story] : [story, perfil]) : largo ? [vitrine, perfil, story] : [story, perfil, vitrine]
+  // de 900 a 1199 sempre empilhado; de 1200 em diante, só quando o mercador não cabe ao lado do perfil
+  const empilhado = !celular && (!largo || lojaDesktop.empilha)
+  const ordem = largo && !empilhado ? [perfil, story] : [story, perfil]
 
   return (
-    <section ref={raiz} className={`hero${h2 ? ' hero-h2' : ''}`} aria-label="Stories da Green Cheese">
+    <section ref={raiz} className={`hero${empilhado ? ' hero-empilhado' : ''}`} aria-label="Stories da Green Cheese">
       {ordem}
+      {/* a coluna que o perfil teria ao lado do story (Hero.css), medida para decidir se o mercador cabe ali */}
+      {!celular && <span key="regua" ref={setRegua} className="hero-regua" aria-hidden="true" />}
     </section>
   )
 }

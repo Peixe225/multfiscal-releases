@@ -9,7 +9,7 @@ import { Icone } from './comum'
 
 /**
  * Responder ao story do hero: põe o produto que está passando na sacola e abre o chat respondendo a ele.
- * Sem produto (passo do mercador, produto indisponível), abre o pedido guiado geral.
+ * Sem produto (produto indisponível, story vazio), abre o pedido guiado geral.
  */
 export function useResponderStory(): () => void {
   const heroProduto = useUI((s) => s.heroProduto)
@@ -30,19 +30,19 @@ export function useResponderStory(): () => void {
  * "Enviar mensagem…" e o aviãozinho de compartilhar. Só no Início; as outras abas pedem pela sacola, pela página do
  * produto, pelo perfil e pela encomenda.
  */
-export function RespostaStory({ produtoId, mercador = false }: { produtoId: string | null; mercador?: boolean }) {
+export function RespostaStory({ produtoId }: { produtoId: string | null }) {
   const responder = useResponderStory()
   const avisar = useUI((s) => s.avisar)
   const produto = produtoPorId(produtoId)
   const compartilhar = () => {
-    const link = mercador ? linkCompartilhar({ jogo: 'sorte' }) : produto ? linkCompartilhar({ p: produto.id }) : linkCompartilhar({})
-    const titulo = mercador ? 'Teste minha sorte · Green Cheese' : produto ? `${produto.nome} · Green Cheese` : 'Green Cheese Imports'
+    const link = produto ? linkCompartilhar({ p: produto.id }) : linkCompartilhar({})
+    const titulo = produto ? `${produto.nome} · Green Cheese` : 'Green Cheese Imports'
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> }
     if (typeof nav.share === 'function') {
       nav.share({ title: titulo, url: link }).catch(() => undefined)
       return
     }
-    avisar(copiarTexto(link) ? (mercador ? 'Link do Teste minha sorte copiado.' : 'Link do produto copiado.') : 'Não deu pra copiar.')
+    avisar(copiarTexto(link) ? 'Link do produto copiado.' : 'Não deu pra copiar.')
   }
   return (
     <div className="hero-resposta">
@@ -53,7 +53,7 @@ export function RespostaStory({ produtoId, mercador = false }: { produtoId: stri
         type="button"
         className="icone-botao toque hero-compartilhar"
         onClick={compartilhar}
-        aria-label={mercador ? 'Compartilhar o Teste minha sorte' : produto ? `Compartilhar ${produto.nome}` : 'Compartilhar a Green Cheese'}
+        aria-label={produto ? `Compartilhar ${produto.nome}` : 'Compartilhar a Green Cheese'}
       >
         <Icone nome="enviar" tamanho={24} />
       </button>

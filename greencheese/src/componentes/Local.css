@@ -195,7 +195,7 @@ button.adesivo-local-g {
   flex: 1;
   min-width: 0;
 }
-/* estado sem entrega com pouca largura (celular de 320 px; deitado, no passo do mercador, com o CTA largo ao lado):
+/* estado sem entrega com pouca largura (celular de 320 px; deitado, com o VER PRODUTO largo ao lado):
    as opções descem para baixo da frase em vez de espremê-la em 5 linhas. No story, quem mede é o pé do story
    (container); o fixo das outras abas tem a largura da tela */
 .hero-aviso-local {

@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, startTransition, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canais, canalDa } from '../dados/canais'
@@ -26,16 +26,22 @@ import './Abas.css'
 gsap.registerPlugin(ScrollTrigger)
 
 // As três vistas do site, sempre no mesmo app (a barra de baixo do celular e a lateral do computador trocam):
-//   Início: o story + perfil (e a faixa dos @). A home termina aí, com o rodapé.
+//   Início: o story, a faixa dos @, o perfil (no computador, ao lado do story, com o mercador) e a loja — destaques
+//     (as abas primeiro, os filtros à direita) e a grade. Acaba na grade, com o rodapé.
 //   Catálogo: destaques, busca, grade, encomenda e, no fim, o interativo e os reposts.
 //   Por estado: os perfis de cada estado.
-// Escondidas com hidden + inert (fora do Tab e do leitor de tela). O Início fica sempre montado; o Catálogo monta
-// no primeiro respiro depois da abertura (ou na primeira visita) e não desmonta mais (busca, filtro e o story aberto
-// continuam onde estavam); Por estado monta na primeira visita.
-// Trocar de aba precisa ser instantâneo num Android médio: o catálogo tem ~7 mil elementos (a pixel art é <rect>).
+// Escondidas com hidden (fora do Tab, da busca da página e do leitor de tela: ver Abas.css). O Início fica sempre
+// montado; a grade dele e o Catálogo montam no tempo ocioso depois da abertura, um de cada vez (ou o Catálogo na
+// primeira visita) e não desmontam mais (busca, filtro e o story aberto continuam onde estavam); Por estado monta na
+// primeira visita.
+// Trocar de aba precisa ser instantâneo num Android médio: cada grade tem ~7 mil elementos (a pixel art é <rect>).
 //   - a vista escondida usa content-visibility: hidden (Abas.css), não display:none: o navegador guarda o estilo e o
-//     layout dela e mostrar de novo não recalcula nada. O hero e o mercador continuam pausando sozinhos (o
-//     IntersectionObserver vê a vista escondida como fora da tela, igual ao display:none).
+//     layout dela e mostrar de novo não recalcula nada. Sem inert: ele muda o estilo calculado de cada filho, e
+//     trocá-lo a cada aba recalculava a vista inteira (o content-visibility já tira a vista do Tab e do leitor). O
+//     hero e o mercador continuam pausando sozinhos (o IntersectionObserver vê a vista escondida como fora da tela,
+//     igual ao display:none).
+//   - as grades montam numa transição (o React fatia o trabalho e o toque passa na frente) e cada card fora da tela
+//     fica com content-visibility: auto (Catalogo.css): só os da tela calculam layout e pintam.
 //   - o Catálogo, montado no respiro, ganha um quadro "aquecendo" (fora do fluxo, recortado em altura zero): o estilo e
 //     o layout dele saem no tempo ocioso, e a 1ª visita também não trava.
 //   - o conteúdo de cada vista é memo: trocar de aba não re-renderiza o catálogo nem o hero.
@@ -49,8 +55,8 @@ const TITULOS: Record<Aba, string | null> = {
 
 /**
  * Para onde vai o foco ao abrir a vista: o h1 visível (o título do Catálogo, o do perfil), a não ser que algo focável
- * venha antes dele — no Início, o story do celular e o card do mercador da Home 2 ficam antes do perfil. Aí vai a
- * própria vista (região "Início"), e o Tab seguinte segue a ordem da tela em vez de pular o que vem antes do título.
+ * venha antes dele — no Início do celular, o story fica antes do perfil. Aí vai a própria vista (região "Início"), e o
+ * Tab seguinte segue a ordem da tela em vez de pular o que vem antes do título.
  */
 function alvoDoFoco(vista: HTMLElement): HTMLElement {
   const h1 = [...vista.querySelectorAll<HTMLElement>('h1')].find((h) => h.getClientRects().length > 0)
@@ -66,18 +72,25 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
   const aberturaAtiva = useUI((s) => s.aberturaAtiva)
   const [catalogo, setCatalogo] = useState(aba === 'catalogo')
   const [estados, setEstados] = useState(aba === 'estados')
+  // a grade do Início (os destaques já vêm na hora)
+  const [loja, setLoja] = useState(false)
   // o Catálogo montado no respiro passa um quadro "aquecendo" (ver o comentário do topo)
   const [aquecendo, setAquecendo] = useState(false)
   if (aba === 'catalogo' && !catalogo) setCatalogo(true)
   if (aba === 'estados' && !estados) setEstados(true)
 
-  // o Catálogo monta no primeiro respiro depois da abertura: a troca de aba fica instantânea
+  // depois da abertura, no tempo ocioso: primeiro a grade do Início, no respiro seguinte o Catálogo (a troca de aba
+  // fica instantânea). Em transição: montar 7 mil elementos não segura o toque de quem já está usando o site
   useEffect(() => {
-    if (aberturaAtiva || catalogo) return
-    const montar = () => {
-      setCatalogo(true)
-      setAquecendo(true)
-    }
+    if (aberturaAtiva || (loja && catalogo)) return
+    const montar = () =>
+      startTransition(() => {
+        if (!loja) setLoja(true)
+        else {
+          setCatalogo(true)
+          setAquecendo(true)
+        }
+      })
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     if (w.requestIdleCallback) {
       const id = w.requestIdleCallback(montar, { timeout: 2500 })
@@ -85,7 +98,7 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
     }
     const t = setTimeout(montar, 1200)
     return () => clearTimeout(t)
-  }, [aberturaAtiva, catalogo])
+  }, [aberturaAtiva, loja, catalogo])
 
   // aquecendo: um quadro para o navegador calcular estilo e layout do catálogo (o 1º requestAnimationFrame roda antes
   // desse quadro, o 2º depois dele); aí ele volta a ser só escondido, com o layout guardado
@@ -130,8 +143,18 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
 
   return (
     <>
-      <div className="vista vista-inicio" data-vista="inicio" role="region" aria-label="Início" hidden={aba !== 'inicio'} inert={aba !== 'inicio'} tabIndex={-1}>
-        <ConteudoInicio />
+      {/* região "Início" só à vista: escondida, o content-visibility tira o conteúdo do leitor de tela, mas o papel de
+          região ficava (um ponto de referência "Início" vazio no rotor das outras abas). Atributo só no contêiner: não
+          mexe no estilo calculado dos filhos */}
+      <div
+        className="vista vista-inicio"
+        data-vista="inicio"
+        role={aba === 'inicio' ? 'region' : undefined}
+        aria-label={aba === 'inicio' ? 'Início' : undefined}
+        hidden={aba !== 'inicio'}
+        tabIndex={-1}
+      >
+        <ConteudoInicio abrirInfo={abrirInfo} comGrade={loja} />
       </div>
       {catalogo && (
         <div
@@ -139,16 +162,13 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
           data-vista="catalogo"
           data-aquecendo={aquecendo && aba !== 'catalogo' ? '' : undefined}
           hidden={aba !== 'catalogo'}
-          // sem inert enquanto aquece (2 quadros, recortado em altura zero): o estilo calculado já sai como o da vista
-          // aberta; trocar o inert depois recalcularia os 7 mil filhos na 1ª visita
-          inert={aba !== 'catalogo' && !aquecendo}
           tabIndex={-1}
         >
           <AbaCatalogo abrirInfo={abrirInfo} />
         </div>
       )}
       {estados && (
-        <div className="vista" data-vista="estados" hidden={aba !== 'estados'} inert={aba !== 'estados'} tabIndex={-1}>
+        <div className="vista" data-vista="estados" hidden={aba !== 'estados'} tabIndex={-1}>
           <AbaEstados />
         </div>
       )}
@@ -157,8 +177,11 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
   )
 }
 
-/** Início: o hero (ou o aviso de estado sem entrega), a faixa dos @ e, no celular, o perfil embaixo. */
-const ConteudoInicio = memo(function ConteudoInicio() {
+/**
+ * Início: o hero (ou o aviso de estado sem entrega), a faixa dos @, no celular o perfil embaixo e a loja (destaques e
+ * grade, sem busca). Acaba na grade: o interativo e os reposts são do fim da aba Catálogo.
+ */
+const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { abrirInfo: () => void; comGrade: boolean }) {
   const uf = useLocal((s) => s.uf)
   const comEntrega = !uf || !!canalDa(uf)
   return (
@@ -166,9 +189,14 @@ const ConteudoInicio = memo(function ConteudoInicio() {
       {comEntrega ? <Hero /> : <SemAtendimento />}
       <Faixa />
       {comEntrega && (
-        <div className="so-celular">
-          <Perfil />
-        </div>
+        <>
+          <div className="so-celular">
+            <Perfil />
+          </div>
+          <div className="loja-inicio">
+            <Catalogo abrirInfo={abrirInfo} onde="inicio" comGrade={comGrade} />
+          </div>
+        </>
       )}
     </>
   )

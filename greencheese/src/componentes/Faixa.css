@@ -27,16 +27,14 @@
   flex: none;
   color: var(--branco);
 }
-.faixa-confirmar {
-  font-size: 10px;
-}
 @media (prefers-reduced-motion: reduce) {
   .faixa-trilho {
     flex-wrap: wrap;
     width: auto;
     padding: 0 var(--gutter);
   }
-  .faixa-trilho > :nth-child(n + 13) {
+  /* parada: só a primeira volta (as outras só existem para o trilho dar a volta sem emenda) */
+  .faixa-copia {
     display: none;
   }
 }

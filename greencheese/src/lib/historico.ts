@@ -43,6 +43,11 @@ export function haCamadaAberta(): boolean {
   return pilha.length > 0
 }
 
+/** Nenhuma camada aberta nem fechando, nenhuma volta em andamento: dá para mexer no histórico já (troca de aba). */
+export function historicoParado(): boolean {
+  return !pilha.length && !pendentes.size && !timerPendentes && !ignorarPop
+}
+
 /**
  * Roda `fn` quando a última camada aberta fechar e a volta dela terminar no histórico (na hora, se não houver
  * nenhuma). Para o que precisa de uma entrada nova no histórico sem ficar por cima da entrada de uma camada que
