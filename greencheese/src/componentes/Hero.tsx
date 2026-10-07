@@ -51,7 +51,7 @@ interface Posicao {
 /** Alguma camada por cima do hero (story, folhas, página do produto, troca, abertura, chat)? Lido na hora (teclado). */
 function camadaPorCima(): boolean {
   const s = useUI.getState()
-  if (s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || s.pagina || s.trocaPendente || s.aberturaAtiva || s.interativo || s.contaAberta) return true
+  if (s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.pagina || s.trocaPendente || s.aberturaAtiva || s.interativo || s.contaAberta) return true
   if (useChat.getState().aberto) return true
   return !!document.querySelector('.folha, [aria-modal="true"]')
 }
@@ -189,7 +189,6 @@ export function Hero() {
       s.sacolaAberta ||
       s.seletorAberto ||
       s.infoAberto ||
-      s.painelPrevia ||
       !!s.pagina ||
       !!s.trocaPendente ||
       s.aberturaAtiva ||
@@ -590,7 +589,7 @@ export function Hero() {
   const quadro = (
     <div
       ref={quadroRef}
-      className={`hero-quadro${config.modoPrevia ? ' com-selo' : ''}`}
+      className="hero-quadro"
       onPointerDown={aoDescer}
       onPointerMove={aoMover}
       onPointerUp={aoSoltar}
@@ -721,7 +720,7 @@ export function Hero() {
           </button>
         </div>
       )}
-      {atual?.demo && config.modoPrevia && <span className="hero-demo carimbo">exemplo</span>}
+      {atual?.demo && config.carimboDeExemplo && <span className="hero-demo carimbo">exemplo</span>}
       {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando. Com o
           palpite de IP pendente, o aviso de local fica no lugar dela (por cima, cobria a pílula no celular baixo) */}
       {avisoLocal && !ehDesktop() ? (

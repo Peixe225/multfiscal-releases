@@ -40,7 +40,6 @@ interface UIState {
   seletorAberto: boolean
   /** Story de atendimento do estado (destaque "DELIVERY RJ"). */
   infoAberto: boolean
-  painelPrevia: boolean
   /** Produto que o story do hero está mostrando (a barra "Enviar mensagem…" responde a ele). */
   heroProduto: string | null
   aberturaAtiva: boolean
@@ -63,7 +62,6 @@ interface UIState {
   setConta: (v: boolean) => void
   setTroca: (t: UIState['trocaPendente']) => void
   setInfo: (v: boolean) => void
-  setPainel: (v: boolean) => void
   setHeroProduto: (id: string | null) => void
   setAbertura: (v: boolean) => void
   /** Abre a página do produto; com uma página já aberta, empilha o novo produto por cima. */
@@ -86,7 +84,6 @@ export const useUI = create<UIState>((set) => ({
   sacolaAberta: false,
   seletorAberto: false,
   infoAberto: false,
-  painelPrevia: false,
   heroProduto: null,
   aberturaAtiva: false,
   pagina: null,
@@ -103,7 +100,6 @@ export const useUI = create<UIState>((set) => ({
   setConta: (v) => set({ contaAberta: v }),
   setTroca: (t) => set({ trocaPendente: t }),
   setInfo: (v) => set({ infoAberto: v }),
-  setPainel: (v) => set({ painelPrevia: v }),
   setHeroProduto: (id) => set({ heroProduto: id }),
   setAbertura: (v) => set({ aberturaAtiva: v }),
   abrirPagina: (id, origem = 'link') =>

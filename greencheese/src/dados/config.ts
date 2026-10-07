@@ -1,15 +1,22 @@
 // Configuração geral do site. Tudo que o dono pode querer mudar sem mexer em código fica em src/dados/.
 
 export const config = {
-  /** Prévia de venda: liga noindex, o selo "prévia" e o crédito da I&H no rodapé. Trocar para false quando o site for oficial. */
-  modoPrevia: true,
+  /**
+   * Dados de exemplo (produtos, prêmios, horário e taxa marcados demo: true) continuam no site até o dono cadastrar
+   * os reais. false = somem (produtos e prêmios demo saem; horário e taxa demo viram "a confirmar").
+   */
+  dadosDeExemplo: true,
+  /** Carimbo "exemplo"/"demo" nesses dados. false = sem carimbo (horário demo não aparece; taxa demo = "a confirmar"). */
+  carimboDeExemplo: false,
+  /** Deixa buscadores indexarem o site. false = noindex (enquanto o catálogo tem dados de exemplo). */
+  indexar: false,
 
   marca: 'Green Cheese Imports',
   /** Endereço público do site (usado na imagem de compartilhamento e nos links da bio). */
   urlPublica: 'https://oprojeto.online/greencheese/',
 
-  /** Crédito exibido no rodapé enquanto modoPrevia = true. */
-  credito: { texto: 'Prévia criada pela I&H Soluções Digitais', instagram: 'ihsdigital' },
+  /** Assinatura de quem fez o site, no rodapé. null = sem assinatura. */
+  credito: { texto: 'Desenvolvido por I&H Soluções Digitais', instagram: 'ihsdigital' } as { texto: string; instagram: string } | null,
 
   /** Idade mínima e por quanto tempo o "Tenho 18" fica lembrado no aparelho. */
   idadeMinima: 18,

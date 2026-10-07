@@ -33,7 +33,7 @@ export function Avatar({ tamanho = 32, anel = true, className }: { tamanho?: num
 
 /** Marca "demo" ao lado de um valor de demonstração — só aparece na prévia. */
 export function Demo({ ativo }: { ativo: boolean }) {
-  if (!ativo || !config.modoPrevia) return null
+  if (!ativo || !config.carimboDeExemplo) return null
   return (
     <span className="carimbo" title="Valor de demonstração: trocar pelo dado real em src/dados">
       demo

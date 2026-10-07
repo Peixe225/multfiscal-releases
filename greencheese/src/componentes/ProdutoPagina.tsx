@@ -530,7 +530,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
             NA SACOLA
           </span>
         )}
-        {produto.demo && config.modoPrevia && <span className="pp-demo carimbo">exemplo</span>}
+        {produto.demo && config.carimboDeExemplo && <span className="pp-demo carimbo">exemplo</span>}
       </div>
 
       <div className="pp-info">
@@ -632,7 +632,7 @@ function Sugestoes({ id, titulo, lista }: { id: string; titulo: string; lista: P
       <ul className="pp-sugestoes">
         {lista.map((p) => {
           const off = uf ? !(canal && disponivelEm(p, uf)) : false
-          const demo = !!p.demo && config.modoPrevia
+          const demo = !!p.demo && config.carimboDeExemplo
           return (
             <li key={p.id}>
               <button

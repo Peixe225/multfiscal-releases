@@ -29,7 +29,7 @@ export function InfoStory() {
 
   const sit = situacao(canal)
   const sextou = canal.entregaGratis
-  const demoVisivel = config.modoPrevia
+  const demoVisivel = config.carimboDeExemplo
   const quadros: ReactNode[] = [
     <Quadro key="c">
       <Icone nome="moto" tamanho={96} />

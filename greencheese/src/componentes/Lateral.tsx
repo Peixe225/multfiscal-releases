@@ -1,24 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { config } from '../dados/config'
-import { canais, perfisAConfirmar } from '../dados/canais'
 import { Logo } from '../arte/Logo'
 import { PixelArte } from '../arte/PixelArte'
 import { iconesAbas } from '../arte/pixel/abas'
 import { icones } from '../arte/pixel/grades'
 import { preenchida } from '../arte/pixel/preencher'
 import { interativosAtivos, type Interativo } from '../interativos/registro'
-import { cliqueDeAba, hrefAba, irParaAba, rolarAoTopo, type Aba } from '../lib/abas'
+import { cliqueDeAba, hrefAba, irParaAba, type Aba } from '../lib/abas'
 import { useConta, useCupons } from '../lib/conta'
-import { copiarTexto } from '../lib/copiar'
-import { HOME_PADRAO, homeNaURL, lembrarHome, type Home } from '../lib/home'
-import { atualizarParametros, linkCompartilhar } from '../lib/url'
-import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
-import { Folha } from './Folha'
 import { AdesivoLocal, EnqueteLocal, useTextoLocal } from './Local'
 import './Lateral.css'
 
@@ -88,9 +81,7 @@ export function Lateral() {
   const { texto, procurando } = useTextoLocal()
   const setSeletor = useUI((s) => s.setSeletor)
   const setSacola = useUI((s) => s.setSacola)
-  const setPainel = useUI((s) => s.setPainel)
   const aba = useUI((s) => s.aba)
-  const home = useUI((s) => s.home)
   const abrirChat = useChat((s) => s.abrir)
   const n = useSacola((s) => contarItens(s.itens))
   // os links das abas levam uf e cidade junto
@@ -184,15 +175,6 @@ export function Lateral() {
           aoTocar={() => irParaAba('estados')}
         />
       </nav>
-      {config.modoPrevia && (
-        <button type="button" className="lateral-previa toque" onClick={() => setPainel(true)}>
-          <span className="lateral-previa-selos">
-            <span className="carimbo">prévia</span>
-            {home === 2 && <span className="carimbo carimbo-home">home 2</span>}
-          </span>
-          <span className="legenda">{home === 2 ? 'vendo a Home 2 · trocar de home' : 'o que falta pra ficar oficial'}</span>
-        </button>
-      )}
     </aside>
   )
 }
@@ -238,136 +220,6 @@ function ItemConta() {
         </span>
       )}
     </button>
-  )
-}
-
-/** Selo "prévia" discreto (celular). Na Home 2, "home 2" (o painel troca de home). */
-export function SeloPrevia() {
-  const setPainel = useUI((s) => s.setPainel)
-  const home = useUI((s) => s.home)
-  if (!config.modoPrevia) return null
-  return (
-    <button
-      type="button"
-      className="selo-previa carimbo toque"
-      onClick={() => setPainel(true)}
-      aria-label={home === 2 ? 'Prévia da Home 2: ver o que falta e trocar de home' : 'Prévia: ver o que falta pra ficar oficial'}
-    >
-      {home === 2 ? 'home 2' : 'prévia'}
-    </button>
-  )
-}
-
-/** Troca de versão da home (prévia): Home 1 (atual) ou Home 2 (sorte e mercador no topo). */
-function VersaoHome() {
-  const home = useUI((s) => s.home)
-  const avisar = useUI((s) => s.avisar)
-  const uf = useLocal((s) => s.uf)
-  const escolher = (h: Home) => {
-    if (h === useUI.getState().home) return
-    lembrarHome(h)
-    useUI.getState().setHome(h)
-    atualizarParametros({ home: homeNaURL(h) })
-    useUI.getState().setPainel(false)
-    if (useUI.getState().aba === 'inicio') rolarAoTopo()
-    else irParaAba('inicio')
-    avisar(h === 2 ? 'Vendo a Home 2.' : 'Vendo a Home 1.')
-  }
-  const link = linkCompartilhar({ ...(uf ? { uf } : {}), home: '2' })
-  return (
-    <fieldset className="previa-home">
-      <legend className="previa-titulo">Versão da home</legend>
-      {([1, 2] as const).map((h) => (
-        <label key={h} className={`previa-opcao toque${home === h ? ' escolhida' : ''}`}>
-          <input type="radio" name="versao-home" value={h} checked={home === h} onChange={() => escolher(h)} />
-          <span>
-            {h === 1 ? 'Home 1 (atual)' : 'Home 2 (sorte e mercador no topo)'}
-            {h === HOME_PADRAO && <span className="legenda"> · padrão</span>}
-          </span>
-        </label>
-      ))}
-      <button type="button" className="botao botao-contorno previa-copiar" onClick={() => avisar(copiarTexto(link) ? 'Link da Home 2 copiado.' : 'Não deu pra copiar.')}>
-        <Icone nome="copiar" tamanho={16} />
-        Copiar link da Home 2
-      </button>
-    </fieldset>
-  )
-}
-
-/** Painel da prévia: o que ainda é PENDENTE ou demo, lido direto dos dados, e os links de bio por estado. */
-export function PainelPrevia() {
-  const aberto = useUI((s) => s.painelPrevia)
-  const setPainel = useUI((s) => s.setPainel)
-  const avisar = useUI((s) => s.avisar)
-  const produtos = useCatalogo((s) => s.produtos)
-  if (!config.modoPrevia) return null
-  const semZap = canais.filter((c) => !c.whatsapp).map((c) => c.uf.toUpperCase())
-  const semCidade = canais.filter((c) => c.cidades.length === 0).map((c) => c.uf.toUpperCase())
-  const consultar = produtos.filter((p) => !p.demo && p.preco == null).map((p) => p.nome)
-  const exemplos = produtos.filter((p) => p.demo).length
-  const semFoto = produtos.filter((p) => !p.demo && !p.foto).length
-  const base = config.urlPublica.replace(/\/?$/, '/')
-  return (
-    <Folha id="previa" aberta={aberto} aoFechar={() => setPainel(false)} rotulo="Prévia: pendências" cabecalho={<span>Prévia · I&H Soluções Digitais</span>}>
-      <div className="previa">
-        <VersaoHome />
-        <p className="previa-intro">Tudo funciona até a mensagem pronta no WhatsApp. Pra ficar oficial, falta o dono passar:</p>
-        <ul className="previa-lista">
-          <li>
-            <strong>WhatsApp de cada estado</strong> — {semZap.join(', ') || 'ok'}. Sem número, o pedido abre o WhatsApp pra escolher o contato ou vai pela DM.
-          </li>
-          <li>
-            <strong>Cidades atendidas</strong> — {semCidade.join(', ') || 'ok'} (hoje o pedido pergunta a cidade).
-          </li>
-          <li>
-            <strong>Horário, taxa de entrega e pagamento</strong> — estão como <span className="carimbo">demo</span> nos 5 estados.
-          </li>
-          <li>
-            <strong>Preço</strong> de {consultar.length} produtos reais (aparecem como "Consultar"): {consultar.join(', ')}.
-          </li>
-          <li>
-            <strong>Fotos oficiais</strong> — {semFoto} produtos reais estão em pixel art feita em código.
-          </li>
-          <li>
-            <strong>{exemplos} produtos de exemplo</strong> (marcados "exemplo") completam a vitrine e somem quando a prévia for desligada.
-          </li>
-          <li>
-            <strong>Disponibilidade por estado</strong> — confirmada só onde o produto apareceu nos stories.
-          </li>
-          {interativosAtivos().length > 0 && (
-            <li>
-              <strong>Teste minha sorte</strong> — prêmios de exemplo (src/dados/sorte.ts). A conta, os cupons e o limite de giros ficam só neste aparelho; na versão
-              oficial, o prêmio, o código e o limite são validados no servidor.
-            </li>
-          )}
-          {perfisAConfirmar.map((p) => (
-            <li key={p.instagram}>
-              <strong>@{p.instagram}</strong> — {p.obs}: confirmar se é perfil oficial.
-            </li>
-          ))}
-        </ul>
-        <h3 className="previa-titulo">Link pra bio de cada perfil</h3>
-        <ul className="previa-links">
-          {canais.map((c) => {
-            const url = `${base}?uf=${c.uf}${c.cidades.length === 1 ? `&cidade=${c.cidades[0].slug}` : ''}`
-            return (
-              <li key={c.uf}>
-                <span className="px px-16">{c.uf.toUpperCase()}</span>
-                <code>{url.replace(/^https?:\/\//, '')}</code>
-                <button
-                  type="button"
-                  className="botao botao-contorno"
-                  onClick={() => avisar(copiarTexto(url) ? `Link do ${c.uf.toUpperCase()} copiado.` : 'Não deu pra copiar.')}
-                >
-                  <Icone nome="copiar" tamanho={16} />
-                  Copiar
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
-    </Folha>
   )
 }
 

@@ -18,7 +18,7 @@ import { interativoPorParam } from './interativos/registro'
 import { Abertura, Saida, idadeLembrada } from './componentes/Abertura'
 import { Vistas } from './componentes/Abas'
 import { BalaoMercador, BarraAbas } from './componentes/BarraAbas'
-import { Aviso, Lateral, SeloPrevia } from './componentes/Lateral'
+import { Aviso, Lateral } from './componentes/Lateral'
 import { TopoLocal } from './componentes/Local'
 import './estilos/layout.css'
 
@@ -71,7 +71,6 @@ const SacolaFolha = camadaPreguicosa(() => import('./componentes/Sacola'), (m) =
 const ContaFolha = camadaPreguicosa(() => import('./componentes/ContaFolha'), (m) => m.ContaFolha)
 const SeletorFolha = camadaPreguicosa(() => import('./componentes/Seletor'), (m) => m.SeletorFolha)
 const ConfirmarTroca = camadaPreguicosa(() => import('./componentes/ConfirmarTroca'), (m) => m.ConfirmarTroca)
-const PainelPrevia = camadaPreguicosa(() => import('./componentes/Lateral'), (m) => m.PainelPrevia)
 
 interface PropsCamada {
   camada: { Componente: ComponentType; refazer: () => void }
@@ -117,7 +116,6 @@ function Camadas() {
   const info = useUI((s) => s.infoAberto)
   const sacola = useUI((s) => s.sacolaAberta)
   const seletor = useUI((s) => s.seletorAberto)
-  const painel = useUI((s) => s.painelPrevia)
   const troca = useUI((s) => !!s.trocaPendente)
   const interativo = useUI((s) => !!s.interativo)
   const conta = useUI((s) => s.contaAberta)
@@ -133,7 +131,6 @@ function Camadas() {
       <Camada camada={SacolaFolha} pedida={sacola} fechar={() => ui().setSacola(false)} />
       <Camada camada={ContaFolha} pedida={conta} fechar={() => ui().setConta(false)} />
       <Camada camada={SeletorFolha} pedida={seletor} fechar={() => ui().setSeletor(false)} />
-      <Camada camada={PainelPrevia} pedida={painel} fechar={() => ui().setPainel(false)} />
       <Camada camada={ConfirmarTroca} pedida={troca} fechar={() => ui().setTroca(null)} />
     </>
   )
@@ -142,7 +139,7 @@ function Camadas() {
 /** Monta as camadas no primeiro respiro do navegador, ou na hora se alguém já pediu uma delas. */
 function useCamadasProntas(): boolean {
   const pedida = useUI(
-    (s) => !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.trocaPendente || !!s.interativo || s.contaAberta,
+    (s) => !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || !!s.trocaPendente || !!s.interativo || s.contaAberta,
   )
   const chat = useChat((s) => s.aberto)
   const [pronto, setPronto] = useState(false)
@@ -303,7 +300,6 @@ export function App() {
       <div className="app" data-home={home} inert={abertura || saida}>
         <Lateral />
         <TopoLocal />
-        <SeloPrevia />
         <main className="principal" id="principal">
           <Vistas abrirInfo={abrirInfo} />
         </main>

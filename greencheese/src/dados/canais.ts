@@ -3,8 +3,8 @@
 // REGRAS
 // - whatsapp: só número real, com DDI 55 + DDD + número, sem espaço (ex.: '5533999998888'). null = PENDENTE.
 //   Nunca invente número: com null o site manda a pessoa escolher o contato no WhatsApp ou abre a DM do Instagram.
-// - demo: true = valor de demonstração (PENDENTE). Na prévia ele aparece com a marca "demo";
-//   com config.modoPrevia = false, horário e taxa demo viram "a confirmar".
+// - demo: true = valor de demonstração (PENDENTE). Com config.carimboDeExemplo ele aparece com a marca "demo";
+//   sem o carimbo, horário demo não aparece e taxa demo vira "a confirmar".
 
 export type UfAtendida = 'rj' | 'mg' | 'sp' | 'es' | 'sc'
 export type FormaPagamento = 'pix' | 'dinheiro' | 'cartao'

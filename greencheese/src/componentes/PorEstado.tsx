@@ -154,9 +154,11 @@ export function PorEstado() {
                     </button>
                     {eh && (
                       <div className="pe-conta-mais">
-                        <p className="pe-conta-horario legenda">
-                          {config.modoPrevia || !c.horario.demo ? sit.texto : 'Horário a confirmar'} <Demo ativo={c.horario.demo} />
-                        </p>
+                        {(config.carimboDeExemplo || !c.horario.demo) && (
+                          <p className="pe-conta-horario legenda">
+                            {sit.texto} <Demo ativo={c.horario.demo} />
+                          </p>
+                        )}
                         {c.entregaGratis && <p className="pe-conta-sextou">{c.entregaGratis.texto}</p>}
                         <div className="pe-conta-botoes">
                           <button type="button" className="botao botao-cheio" onClick={() => abrirChat('pedido')}>

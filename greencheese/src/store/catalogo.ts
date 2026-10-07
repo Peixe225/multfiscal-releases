@@ -10,8 +10,8 @@ interface CatalogoState {
   fonte: 'json' | 'planilha'
 }
 
-// Produto de exemplo (demo: true) só aparece na prévia. Com modoPrevia = false, some do site.
-const daLoja = (dados.produtos as Produto[]).filter((p) => config.modoPrevia || !p.demo)
+// Produto de exemplo (demo: true) fica enquanto config.dadosDeExemplo; com false, some do site.
+const daLoja = (dados.produtos as Produto[]).filter((p) => config.dadosDeExemplo || !p.demo)
 
 export const useCatalogo = create<CatalogoState>(() => ({
   produtos: daLoja,

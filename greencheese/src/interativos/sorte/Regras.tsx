@@ -1,5 +1,4 @@
 import { useId, useState } from 'react'
-import { config } from '../../dados/config'
 import { premiosElegiveis } from '../../lib/cupom-uso'
 import { useLocal } from '../../store/local'
 import { T } from './textos'
@@ -40,7 +39,7 @@ export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; c
           </ol>
         </div>
         <p className="legenda regras-nota">{T.mudaPorEstado}</p>
-        {config.modoPrevia && <p className="legenda regras-nota">{T.regrasPrevia}</p>}
+        <p className="legenda regras-nota">{T.regrasLocal}</p>
       </div>
     </div>
   )

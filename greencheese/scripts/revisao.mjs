@@ -507,7 +507,7 @@ const browser = await chromium.launch()
   await ctx.close()
 }
 
-// ---------- notebook baixo com a enquete de local: a lateral rola até Por estado e a prévia ----------
+// ---------- notebook baixo com a enquete de local: a lateral rola até Por estado ----------
 for (const [w, h] of [[1280, 650], [1366, 657]]) {
   const ctx = await contexto(browser, { width: w, height: h })
   const page = await ctx.newPage()
@@ -529,7 +529,7 @@ for (const [w, h] of [[1280, 650], [1366, 657]]) {
     const b = (s) => document.querySelector(s)?.getBoundingClientRect().bottom ?? 0
     return { estados: b('.lateral [data-aba="estados"]'), previa: b('.lateral-previa'), h: innerHeight }
   })
-  conferir(fim.estados <= fim.h + 1 && fim.previa <= fim.h + 1, `lateral ${w}x${h}: rolando a lateral, Por estado e a troca de home aparecem`)
+  conferir(fim.estados <= fim.h + 1 && fim.previa <= fim.h + 1, `lateral ${w}x${h}: rolando a lateral, Por estado aparece`)
   await foto(page, `desk-lateral-baixa-${w}x${h}`)
   await ctx.close()
 }

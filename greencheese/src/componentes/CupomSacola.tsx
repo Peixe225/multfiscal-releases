@@ -29,7 +29,7 @@ function abrirJogo(tela?: TelaInterativo) {
 export function CupomSacola({ compacta = false }: { compacta?: boolean }) {
   const { cupom, situacao } = useCupomNoPedido()
   if (cupom && situacao)
-    return <CupomAplicado codigo={cupom.codigo} titulo={cupom.retrato.titulo} exemplo={cupom.demo && config.modoPrevia} situacao={situacao} compacta={compacta} />
+    return <CupomAplicado codigo={cupom.codigo} titulo={cupom.retrato.titulo} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} />
   if (compacta) return null
   return <ConviteCupom />
 }
@@ -168,7 +168,7 @@ function ConviteCupom() {
               }}
             >
               <span className="px px-16 cs-codigo">{c.codigo}</span> · {c.retrato.titulo}
-              {c.demo && config.modoPrevia && (
+              {c.demo && config.carimboDeExemplo && (
                 <>
                   {' '}
                   <Exemplo />

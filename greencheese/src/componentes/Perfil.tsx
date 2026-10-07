@@ -68,10 +68,11 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
         <p>Importados, destilados, sedas, piteiras e acessórios.</p>
         <p>Quem tiver interesse é só mandar dm</p>
         {sextou && <p className="perfil-sextou">{sextou.texto}</p>}
-        {sit && (
+        {/* horário de exemplo sem carimbo não aparece: ninguém lê "fechado" num horário que a loja não passou */}
+        {sit && (config.carimboDeExemplo || !canal?.horario.demo) && (
           <p className="perfil-horario">
             <span className={`perfil-luz ${sit.aberto ? 'on' : ''}`} aria-hidden="true" />
-            {config.modoPrevia || !canal?.horario.demo ? sit.texto : 'Horário a confirmar'} <Demo ativo={!!canal?.horario.demo} />
+            {sit.texto} <Demo ativo={!!canal?.horario.demo} />
           </p>
         )}
       </div>

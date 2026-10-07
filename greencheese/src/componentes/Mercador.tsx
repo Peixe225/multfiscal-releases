@@ -60,7 +60,6 @@ export function useCamadaAberta(): boolean {
       s.sacolaAberta ||
       s.seletorAberto ||
       s.infoAberto ||
-      s.painelPrevia ||
       !!s.pagina ||
       !!s.trocaPendente ||
       s.aberturaAtiva ||

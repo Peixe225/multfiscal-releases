@@ -152,7 +152,7 @@ export function AvisoLocal({ variante = 'fixo' }: { variante?: 'fixo' | 'story' 
   const chatAberto = useChat((s) => s.aberto)
   const noInicio = useUI((s) => s.aba === 'inicio')
   const camadaAberta = useUI(
-    (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.painelPrevia || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva || !!s.interativo || s.contaAberta,
+    (s) => !!s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || !!s.pagina || !!s.trocaPendente || s.aberturaAtiva || !!s.interativo || s.contaAberta,
   )
   if (!aviso || ehDesktop()) return null
   // o fixo fica fora do Início (lá o story já mostra) e some com qualquer camada por cima

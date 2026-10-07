@@ -306,7 +306,7 @@ export function Catalogo({ abrirInfo }: { abrirInfo: () => void }) {
                   <StoryQuadro produto={p} escala="card" disponivel={disp} />
                 </button>
                 {disp === false && canal && <LinkAvisar produto={p} canal={canal} cidade={cidadeNome} compacto className="card-avisar" />}
-                {p.demo && config.modoPrevia && <span className="card-demo carimbo">exemplo</span>}
+                {p.demo && config.carimboDeExemplo && <span className="card-demo carimbo">exemplo</span>}
               </li>
             )
           })}

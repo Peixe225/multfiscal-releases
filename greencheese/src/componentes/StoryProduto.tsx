@@ -228,7 +228,7 @@ export function StoryProduto() {
               NA SACOLA
             </span>
           )}
-          {produto.demo && config.modoPrevia && <span className="story-demo carimbo">exemplo</span>}
+          {produto.demo && config.carimboDeExemplo && <span className="story-demo carimbo">exemplo</span>}
         </div>
       }
       rodape={<RodapeStory produto={produto} disponivel={disponivel} aoPedir={pedir} sacolaRef={sacolaRef} />}

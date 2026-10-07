@@ -7,7 +7,7 @@ function htmlDaConfig(): Plugin {
   return {
     name: 'html-da-config',
     transformIndexHtml(html) {
-      const robots = config.modoPrevia ? '<meta name="robots" content="noindex, nofollow" />' : ''
+      const robots = !config.indexar ? '<meta name="robots" content="noindex, nofollow" />' : ''
       return html.replace('<!--robots-->', robots).replaceAll('%URL_PUBLICA%', config.urlPublica)
     },
   }

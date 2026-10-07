@@ -157,7 +157,7 @@ Cada produto:
 - **Disponível/indisponível**: `true`/`false` por estado. Indisponível continua aparecendo, em cinza, com "Avisar quando chegar".
 - **Descrição** (página do produto): `"descricao"`, 1 ou 2 frases curtas, só fato certo do produto (sem promessa de preço, frete ou prazo). Sem ela, a página só omite o bloco.
 - **Produto novo**: copie um bloco parecido, troque o `id` (sem espaço e sem acento) e os dados. Enquanto não tiver ilustração nem foto, ele aparece em pixel art feita a partir de `arte` (tipo e cores) e `cor` (halo).
-- **`demo: true`** = produto de exemplo. Ele só aparece na prévia; com `modoPrevia: false` some do site.
+- **`demo: true`** = produto de exemplo. Fica no site enquanto `dadosDeExemplo: true` (em `src/dados/config.ts`); com `false`, some.
 
 ### Imagem dos produtos
 
@@ -193,7 +193,7 @@ Cada prêmio é um bloco na lista `premios`:
 
 - **Todo giro ganha**: o peso decide qual sai, e só entre os prêmios que valem no estado de quem gira (produto disponível lá).
 - **A validação recusa** (em dev o site para com o erro na tela; no ar, o prêmio é descartado com aviso no console): id repetido; produto ou categoria que não existe no `catalogo.json`; prêmio ou brinde em **bebidas ou destilados**; peso ≤ 0; validade fora de 1–30; percentual fora de 1–50; leve ≤ pague; e qualquer palavra da lista `PALAVRAS_PROIBIDAS` (folha, erva, fumaça, grátis, frete, prazo, sorteio, cigarro, tabaco…) no título, descrição, regra ou "como usar".
-- Promoção de verdade: `demo: false`. Com `modoPrevia: false`, os de exemplo saem; sem nenhum prêmio válido, o "Teste minha sorte" some do site inteiro (destaque, lateral, adesivo, sacola) e o link `?jogo=sorte` é ignorado. Também some em estado que a loja não atende (o cupom não serviria lá).
+- Promoção de verdade: `demo: false`. Com `dadosDeExemplo: false`, os de exemplo saem; sem nenhum prêmio válido, o "Teste minha sorte" some do site inteiro (destaque, lateral, adesivo, sacola) e o link `?jogo=sorte` é ignorado. Também some em estado que a loja não atende (o cupom não serviria lá).
 - A validade que aparece nas Regras sai de `validadeDias` ("vale 7 dias" quando todos os prêmios têm a mesma; senão, "até a data escrita no cupom").
 - Limites (`regrasSorte`): 1 giro sem conta (para sempre, no aparelho), 1 giro por dia com conta (vira à meia-noite de Brasília), prêmio sem conta reservado por 24 h. Na prévia, tudo fica só no aparelho; na versão oficial, o servidor valida (ver PENDENCIAS.md).
 - A copy do jogo fica em `src/interativos/sorte/textos.ts`; a das entradas do site (destaque, lateral, adesivo, sacola), em `src/interativos/sorte/textos-entrada.ts`.
@@ -207,7 +207,7 @@ Crie uma planilha com as colunas `id, preco, rj, mg, sp, es, sc` (disponível = 
 
 ### Tirar do modo prévia — `src/dados/config.ts`
 
-`modoPrevia: false` tira o selo "prévia", o crédito da I&H no rodapé, as marcas "demo"/"exemplo", os produtos de exemplo e o `noindex` (o Google passa a poder indexar).
+Em `src/dados/config.ts`: `dadosDeExemplo` (produtos, prêmios, horário e taxa de exemplo continuam no site; `false` tira), `carimboDeExemplo` (mostra o carimbo "exemplo"/"demo"; hoje desligado, então horário de exemplo não aparece e taxa de exemplo vira "a confirmar") e `indexar` (hoje `false`: `noindex` até o catálogo ter só dados reais). A assinatura do rodapé fica em `credito` (`null` tira).
 
 ### Outras peças
 

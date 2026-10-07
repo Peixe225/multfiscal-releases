@@ -366,7 +366,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
         abrindo.current = false
         // leitor de tela: o resultado, numa frase (a região viva fala só na metade, no "Abriu!" e aqui)
         const d = ganho ? dadosDe(ganho.premio, ganho.cupom) : null
-        if (d) setVivo(T.vivoSaiu(d.titulo, d.regra, d.demo && config.modoPrevia))
+        if (d) setVivo(T.vivoSaiu(d.titulo, d.regra, d.demo && config.carimboDeExemplo))
         setFase('premio')
       },
     })
@@ -653,13 +653,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
             <p>{T.limites}</p>
             <Regras />
           </div>
-          {config.modoPrevia && (
-            <div className="sorte-previa">
-              <span className="carimbo">{T.exemplo}</span>
-              <p className="legenda">{T.previaPremios}</p>
-              <p className="legenda">{T.previaConta}</p>
-            </div>
-          )}
+          <p className="legenda sorte-nota">{T.contaLocal}</p>
         </div>
       )}
 
@@ -725,7 +719,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
           <button type="button" className="botao-texto toque" onClick={() => irParaCadastro('entrar', 'bloqueado')}>
             {T.jaTenhoConta}
           </button>
-          {config.modoPrevia && <p className="legenda sorte-nota">{T.previaConta}</p>}
+          <p className="legenda sorte-nota">{T.contaLocal}</p>
         </div>
       )}
 

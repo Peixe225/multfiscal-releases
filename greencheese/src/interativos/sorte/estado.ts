@@ -147,7 +147,7 @@ export function useEntradaSorte(): EntradaInterativo {
       rotulo: estado === 'B' ? T.curtoPremio : T.curto,
       aria: ARIA[estado],
       instagram,
-      exemplo: config.modoPrevia,
+      exemplo: config.carimboDeExemplo,
       adesivo,
     }
   }, [r, visto, instagram])

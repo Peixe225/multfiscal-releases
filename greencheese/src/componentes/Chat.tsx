@@ -130,7 +130,7 @@ export function ChatFolha() {
       pagamento: respostas.pagamento,
       troco: respostas.troco,
       obs: respostas.obs,
-      cupom: cupomOk ? linhaCupom(cupomOk, 'Teste minha sorte', cupomOk.demo && config.modoPrevia) : undefined,
+      cupom: cupomOk ? linhaCupom(cupomOk, 'Teste minha sorte', cupomOk.demo && config.carimboDeExemplo) : undefined,
     })
   }, [canal, cidade, modo, respostas, pedido, cupomOk])
 
@@ -226,7 +226,7 @@ export function ChatFolha() {
             modo === 'encomenda'
               ? `A encomenda vai pro atendimento de ${lugar}. Pode ser?`
               : `Teu pedido vai pro atendimento de ${lugar}, certo?`,
-            ...(!sit.aberto && (config.modoPrevia || !canal.horario.demo)
+            ...(!sit.aberto && (config.carimboDeExemplo || !canal.horario.demo)
               ? [
                   <span key="h">
                     {sit.texto}. Pode montar o pedido: a resposta vem quando abrir. <Demo ativo={canal.horario.demo} />
@@ -590,10 +590,10 @@ export function ChatFolha() {
             editar={(p) => voltarPara(p)}
             cupom={
               modo === 'pedido' && cupom && situacaoCupom
-                ? { codigo: cupom.codigo, titulo: cupom.retrato.titulo, situacao: situacaoCupom, exemplo: cupom.demo && config.modoPrevia }
+                ? { codigo: cupom.codigo, titulo: cupom.retrato.titulo, situacao: situacaoCupom, exemplo: cupom.demo && config.carimboDeExemplo }
                 : null
             }
-            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: sugerido.retrato.titulo, exemplo: sugerido.demo && config.modoPrevia } : null}
+            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: sugerido.retrato.titulo, exemplo: sugerido.demo && config.carimboDeExemplo } : null}
             lugar={cidade ?? canal.nome}
             aplicarCupom={(c) => useSacola.getState().aplicarCupom(c)}
             tirarCupom={() => useSacola.getState().tirarCupom()}

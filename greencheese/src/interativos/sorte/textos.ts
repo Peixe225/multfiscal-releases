@@ -19,8 +19,7 @@ export const T = {
   ariaGirar: 'Girar a tampa um quarto de volta',
   limites: 'Sem conta: 1 giro. Com conta: 1 giro por dia.',
   verRegras: 'O que pode sair? · Regras',
-  previaPremios: 'Prêmios de exemplo: a loja ainda vai definir as promoções de verdade.',
-  previaConta: 'Na prévia, a conta fica só neste aparelho.',
+  contaLocal: 'Por enquanto, a conta fica só neste aparelho.',
 
   // girando
   porQuartos: (q: number) =>
@@ -103,8 +102,7 @@ export const T = {
   ],
   oQuePodeSair: 'O que pode sair',
   mudaPorEstado: 'Muda conforme o estado.',
-  regrasPrevia:
-    'Prévia: promoções de exemplo. A conta e o limite de giros ficam só neste aparelho; na versão oficial, o prêmio, o código e o limite são validados no servidor.',
+  regrasLocal: 'Por enquanto, a conta e o limite de giros ficam só neste aparelho.',
 
   // conta (formulário)
   criaTuaConta: 'Cria tua conta',
@@ -117,10 +115,10 @@ export const T = {
   zapPlaceholder: '(21) 99999-9999',
   promo: 'Quero receber promoções da Green Cheese no WhatsApp',
   promoLegenda: 'Opcional. Dá pra desligar quando quiser em Minha conta.',
-  promoPrevia: ' (na prévia, nada é enviado)',
+  promoLocal: ' (por enquanto, nada é enviado)',
   mais18: 'Ao criar a conta, tu confirma que tem 18 anos ou mais.',
   privacidade:
-    'Teu nome e WhatsApp servem só pra guardar teus cupons e adiantar teu pedido. Na prévia, a conta fica só neste aparelho: nada vai pra servidor da loja.',
+    'Teu nome e WhatsApp servem só pra guardar teus cupons e adiantar teu pedido. Por enquanto, a conta fica só neste aparelho: nada vai pra servidor da loja.',
   criarEGuardar: 'Criar conta e guardar prêmio',
   guardando: 'Guardando…',
   zapExiste: 'Esse WhatsApp já tem conta neste aparelho.',
@@ -146,8 +144,8 @@ export const T = {
   minhaConta: 'Minha conta',
   oi: (nome: string) => `Oi, ${nome}`,
   zapLegenda: (mascarado: string) => `WhatsApp ${mascarado}`,
-  avisoPreviaConta:
-    'Na prévia, a conta fica só neste aparelho. Abriu pelo Instagram? Ela fica no navegador do Instagram. Limpar os dados do navegador apaga tudo.',
+  avisoContaLocal:
+    'Por enquanto, a conta fica só neste aparelho. Abriu pelo Instagram? Ela fica no navegador do Instagram. Limpar os dados do navegador apaga tudo.',
   giroDeHoje: 'Giro de hoje',
   liberadoHoje: 'Teu giro de hoje tá liberado',
   girarDichavador: 'Girar o dichavador',

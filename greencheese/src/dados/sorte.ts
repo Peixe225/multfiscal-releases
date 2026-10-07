@@ -6,7 +6,7 @@
 //   (Lei 9.294/1996, Anvisa RDC 840/2023): a validação em src/lib/cupom.ts recusa.
 // - Nada de frete, prazo ou desconto calculado: o site nunca recalcula o subtotal; a loja confirma no WhatsApp.
 // - Todo giro ganha. `peso` decide qual sai (peso relativo; não precisa somar 100). As chances nunca aparecem na tela.
-// - demo: true = promoção de EXEMPLO. Na prévia aparece com o carimbo "exemplo"; com config.modoPrevia = false, some.
+// - demo: true = promoção de EXEMPLO. Fica enquanto config.dadosDeExemplo (com o carimbo "exemplo" só se config.carimboDeExemplo); com dadosDeExemplo = false, some.
 //   Sem nenhum prêmio válido, o interativo some do site inteiro.
 // - ids de produto e de categoria vêm de src/dados/catalogo.json.
 // - `regra` é a frase completa que vai na linha do cupom no WhatsApp. Escreve como a loja fala.

@@ -60,16 +60,6 @@
 .hero-pausa:focus-visible {
   clip-path: none;
 }
-/* prévia: o selo PRÉVIA fica fixo no canto de cima do celular — a linha do @ termina antes dele (o "20 h" não fica
-   atrás do selo); no celular estreito o tempo sai para o @ caber */
-.hero-quadro.com-selo .hero-cab {
-  right: calc(60px + var(--seg-dir));
-}
-@media (max-width: 359px) {
-  .hero-quadro.com-selo .hero-cab .story-cab-tempo {
-    display: none;
-  }
-}
 .hero-cab-texto {
   min-width: 0;
   display: flex;
@@ -434,14 +424,12 @@
   .hero-barras {
     top: 8px;
   }
-  .hero-cab,
-  .hero-quadro.com-selo .hero-cab {
+  .hero-cab {
     top: 16px;
     right: 0;
   }
   /* 32 px de largura (o ícone tem 16; mouse): no notebook o quadro tem ~300–340 px e o @ inteiro precisa caber */
-  .hero-pausa,
-  .hero-quadro.com-selo .hero-pausa {
+  .hero-pausa {
     position: static;
     width: 32px;
     margin: 0 0 0 auto;

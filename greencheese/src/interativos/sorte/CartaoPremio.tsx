@@ -58,7 +58,7 @@ export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado }
   const fib = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const tons = TONS_PAPEL[dados.papel]
   const produto = produtoDoCartao(dados)
-  const exemplo = dados.demo && config.modoPrevia
+  const exemplo = dados.demo && config.carimboDeExemplo
   const abrirPagina = useUI((s) => s.abrirPagina)
   const avisar = useUI((s) => s.avisar)
   const codigo = cupom?.codigo ?? null

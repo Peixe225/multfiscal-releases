@@ -1,5 +1,4 @@
 import { useId, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
-import { config } from '../dados/config'
 import { T } from '../interativos/sorte/textos'
 import { armazenamentoOk, useConta, type ContaAberta } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
@@ -266,7 +265,7 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
           <label htmlFor={`${uid}-promo`}>{T.promo}</label>
           <p id={`${uid}-lpromo`} className="legenda">
             {T.promoLegenda}
-            {config.modoPrevia && T.promoPrevia}
+            {T.promoLocal}
           </p>
         </div>
       )}

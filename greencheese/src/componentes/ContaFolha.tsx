@@ -79,7 +79,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
         <p className="legenda">{T.zapLegenda(mascararCelular(conta.whatsapp))}</p>
       </section>
 
-      {config.modoPrevia && <p className="conta-aviso">{T.avisoPreviaConta}</p>}
+      <p className="conta-aviso">{T.avisoContaLocal}</p>
 
       {jogoAtivo && (
         <section className="conta-secao" aria-labelledby="conta-giro">
@@ -233,7 +233,7 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
   const tirar = useSacola((s) => s.tirarCupom)
   const tons = TONS_PAPEL[c.retrato.papel]
   const alvo = alvosDo(c.retrato)[0]
-  const exemplo = c.demo && config.modoPrevia
+  const exemplo = c.demo && config.carimboDeExemplo
   const ativo = c.status === 'ativo'
   return (
     <article className={`ingresso ingresso-${c.status}`} style={{ ['--papel' as string]: ativo ? tons.base : '#3a3a3a', ['--papel-escuro' as string]: tons.escuro }} aria-label={`Cupom ${c.codigo}: ${c.retrato.titulo}`}>

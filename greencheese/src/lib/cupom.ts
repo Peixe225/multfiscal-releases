@@ -93,7 +93,7 @@ function referidosExistem(p: Premio, produtos: Produto[], categorias: { id: stri
 /** Prêmios que valem agora: validados, sem os de exemplo fora da prévia, e com todos os produtos no catálogo. */
 export function premiosValidos(): Premio[] {
   const { produtos, categorias } = useCatalogo.getState()
-  return VALIDADOS.filter((p) => (config.modoPrevia || !p.demo) && referidosExistem(p, produtos, categorias))
+  return VALIDADOS.filter((p) => (config.dadosDeExemplo || !p.demo) && referidosExistem(p, produtos, categorias))
 }
 
 export function premioPorId(id: string | null | undefined): Premio | undefined {
@@ -140,7 +140,7 @@ export type StatusCupom = 'ativo' | 'usado' | 'vencido' | 'encerrado'
 
 export function statusDo(c: Cupom, agora: number): StatusCupom {
   if (c.usadoEm) return 'usado'
-  if (c.demo && !config.modoPrevia) return 'encerrado'
+  if (c.demo && !config.dadosDeExemplo) return 'encerrado'
   if (agora > c.validoAte) return 'vencido'
   return 'ativo'
 }
