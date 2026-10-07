@@ -138,8 +138,49 @@
   padding: 28px var(--gutter) 32px;
   text-align: center;
 }
+/* O mercador erguendo a garrafa (mercador-garrafa.ts), com as pálpebras por cima. flex: o <svg> não ganha a folga
+   de linha de texto embaixo. Com ancora="base" a sombra dele fica sempre no fundo da caixa, em qualquer DPR (em 1,25 o
+   ajuste ao pixel da tela o deixa maior que a caixa, e a sobra vai para cima, no padding); os 3 px embaixo devolvem
+   o vão da sombra até o adesivo que o bonequinho tinha (9,9 px até a caixa do adesivo; antes, 9,6). A grade 44×64 dá
+   192 px de altura (o bonequinho dava 181,5): com os 3 px, a folha vazia fica 13,5 px mais alta (ver PENDENCIAS.md). */
+.sacola-vazia-figura {
+  position: relative;
+  display: flex;
+  margin-bottom: 3px;
+}
 .sacola-vazia-arte {
   image-rendering: pixelated;
+}
+/* Pisca no ritmo do repost: as pálpebras (na cor da folha) aparecem por um instante. Troca seca de quadro por
+   visibility em degrau, a mesma exceção das camadas do mercador no Rodape.css (sem camada de compositor, sem borrar o
+   pixel). Propriedades separadas, nunca o atalho "animation" (o minificador reescreveria sem o nome). */
+.sacola-vazia-piscar {
+  position: absolute;
+  inset: 0;
+  color: var(--preto);
+  visibility: hidden;
+  animation-name: sacola-piscar;
+  animation-duration: 5.6s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+@keyframes sacola-piscar {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  93% {
+    visibility: visible;
+  }
+  95% {
+    visibility: hidden;
+  }
+}
+/* Movimento reduzido: olhos sempre acesos, sem piscar. */
+@media (prefers-reduced-motion: reduce) {
+  .sacola-vazia-piscar {
+    display: none;
+  }
 }
 .sacola-vazia-stories {
   display: flex;

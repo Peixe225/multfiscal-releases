@@ -47,6 +47,8 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 ## Repost: o mercador
 
 - A seção de repost usa o **mercador do Resident Evil 4** em pixel art (pedido do cliente), com produtos da loja no casaco no lugar das armas. É personagem da **Capcom**: serve para a prévia; para a versão oficial, a loja precisa decidir se assume o uso como mascote ou troca por uma figura própria.
+- Ele também aparece na **sacola vazia**, de casaco fechado erguendo a garrafa (`src/arte/pixel/mercador-garrafa.ts`, no lugar do bonequinho de boné, a pedido do cliente). Se o mercador for trocado, as duas grades vão juntas.
+- Com ele, a **sacola vazia ficou 13,5 px mais alta**: a grade do mercador dá 192 px de altura nos mesmos 132 de largura (o bonequinho dava 181,5) e 3 px embaixo mantêm a sombra à mesma distância do adesivo. Onde a folha cabe na tela, só o topo dela sobe; os pés do mercador, o adesivo, o cupom e os stories ficam no mesmo lugar. Em tela baixa, onde a folha já rolava, ela rola 13,5 px a mais (320×568: 67 → 81 px; celular deitado: 219 → 232 px). Para voltar à altura de antes, dá para tirar o respiro de cima (`.sacola-vazia`, `padding-top` 28 → 14,5 px), mas aí o mercador sobe e quase encosta no título da folha (em tela de 125%, a garrafa fica a 1,7 px da linha embaixo do título).
 
 ## Página do produto
 
