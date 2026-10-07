@@ -7,7 +7,7 @@ import { semAcento } from '../dados/ufs'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba, type FocoAba } from '../lib/abas'
 import { alvoDeSaida } from '../lib/ambiente'
 import { copiarTexto } from '../lib/copiar'
-import { linkDM, linkWhatsApp, montarAviso } from '../lib/mensagem'
+import { linkDM, montarAviso } from '../lib/mensagem'
 import { movimentoReduzido } from '../lib/movimento'
 import type { Produto } from '../lib/tipos'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
@@ -50,23 +50,24 @@ function normalizarBusca(s: string): string[] {
     .map((t) => (t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t))
 }
 
-/** Link "Avisar quando chegar": WhatsApp com a mensagem pronta; sem número, copia e abre a DM do estado. */
+/**
+ * Link "Avisar quando chegar": copia a mensagem pronta e abre a DM do Instagram do estado. O WhatsApp da loja fica só
+ * pro fechamento do pedido.
+ */
 export function LinkAvisar({ produto, canal, cidade, className, compacto = false }: { produto: Produto; canal: Canal; cidade: string | null; className?: string; compacto?: boolean }) {
   const avisar = useUI((s) => s.avisar)
   const msg = montarAviso(canal, cidade, produto)
-  const href = canal.whatsapp ? linkWhatsApp(canal, msg) : linkDM(canal)
   return (
     <a
       className={`lembrete toque ${compacto ? 'lembrete-p' : ''} ${className ?? ''}`}
-      href={href}
+      href={linkDM(canal)}
       target={alvoDeSaida()}
       rel="noopener noreferrer"
       onClick={(e) => {
         e.stopPropagation()
-        if (!canal.whatsapp) {
-          const ok = copiarTexto(msg)
-          avisar(ok ? `Mensagem copiada. Cola na DM da @${canal.instagram}.` : `Abre a DM da @${canal.instagram} e pede o aviso.`)
-        }
+        // cópia síncrona, dentro do toque, antes de sair para o Instagram
+        const ok = copiarTexto(msg)
+        avisar(ok ? `Mensagem copiada. Cola na DM da @${canal.instagram}.` : `Abre a DM da @${canal.instagram} e pede o aviso.`)
       }}
     >
       <Icone nome="sino" tamanho={compacto ? 14 : 18} />

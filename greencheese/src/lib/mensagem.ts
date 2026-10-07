@@ -1,4 +1,5 @@
 import type { Canal, FormaPagamento } from '../dados/canais'
+import { config } from '../dados/config'
 import { brl } from './formato'
 import { calcularLinha } from './preco'
 import type { Produto } from './tipos'
@@ -120,12 +121,17 @@ export function montarAviso(canal: Canal, cidade: string | null | undefined, pro
   ].join('\n')
 }
 
-/** wa.me com número quando o canal tem WhatsApp; sem número, abre o WhatsApp para a pessoa escolher o contato. */
-export function linkWhatsApp(canal: Canal, texto: string): string {
-  const t = encodeURIComponent(texto)
-  return canal.whatsapp ? `https://wa.me/${canal.whatsapp.replace(/\D/g, '')}?text=${t}` : `https://wa.me/?text=${t}`
+/** WhatsApp que fecha o pedido do canal (só dígitos): o do estado, se tiver; senão o da loja. */
+export function whatsappDoCanal(canal: Canal): string {
+  return (canal.whatsapp ?? config.whatsappPedidos).replace(/\D/g, '')
 }
 
+/** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) usa. */
+export function linkWhatsApp(canal: Canal, texto: string): string {
+  return `https://wa.me/${whatsappDoCanal(canal)}?text=${encodeURIComponent(texto)}`
+}
+
+/** DM do Instagram do estado: dúvidas que o site não tira e "Avisar quando chegar". */
 export function linkDM(canal: Canal): string {
   return `https://ig.me/m/${canal.instagram}`
 }

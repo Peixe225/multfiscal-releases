@@ -515,13 +515,15 @@
   font-size: 12px;
   color: var(--legenda);
   border-top: 1px solid var(--bolha);
+  container: rodape / inline-size;
 }
 .rodape-perfis {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 2px 0;
-  max-width: 720px;
+  /* só espaço entre os @, como no instagram.com: se a linha quebrar (1024 px), nenhum "·" sobra no fim dela */
+  gap: 2px 12px;
+  max-width: 960px;
 }
 .rodape-perfis a {
   display: inline-flex;
@@ -531,18 +533,17 @@
   padding: 0 6px;
   color: var(--legenda);
 }
-.rodape-perfis a:not(:last-child)::after {
-  content: '·';
-  margin-left: 12px;
+/* os 5 @ só cabem numa linha com uns 860 px: abaixo disso, 3 + 2 em vez de 4 + 1 */
+@container rodape (max-width: 899px) {
+  .rodape-perfis {
+    max-width: 560px;
+  }
 }
-/* celular: um @ por linha, centrado, sem o "·" sobrando no fim de cada linha */
+/* celular: um @ por linha, centrado */
 @media (max-width: 899px) {
   .rodape-perfis {
     flex-direction: column;
     align-items: center;
-  }
-  .rodape-perfis a:not(:last-child)::after {
-    content: none;
   }
 }
 .rodape-aviso {
@@ -552,6 +553,24 @@
 .rodape-txt {
   max-width: 560px;
   line-height: 1.5;
+}
+/* como falar com a loja, logo antes dos @: sem palavra sozinha na 2ª linha */
+.rodape-como {
+  text-wrap: balance;
+}
+/* uma frase por linha: "Outra dúvida?" não fica partida no fim da primeira */
+.rodape-como > span {
+  display: block;
+}
+/* a DM do estado no meio da frase: alvo de 44 px pelo padding, sem abrir a linha (a margem negativa devolve o espaço) */
+.rodape-dm {
+  display: inline-block;
+  padding: 13px 0;
+  margin: -13px 0;
+  color: var(--branco);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .rodape-credito a {
   display: inline-block;

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { canalDa, perfisAConfirmar, type Canal } from '../dados/canais'
+import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, ufPorSigla } from '../dados/ufs'
 import { situacao } from '../lib/horario'
@@ -173,27 +173,6 @@ export function PorEstado() {
                   </li>
                 )
               })}
-              {perfisAConfirmar.map((p) => (
-                <li key={p.instagram} className="pe-conta pe-conta-a-confirmar">
-                  <a className="pe-conta-linha toque" href={linkPerfil(p.instagram)} target="_blank" rel="noopener noreferrer">
-                    <span className="pe-conta-avatar pe-conta-avatar-vazio px" aria-hidden="true">
-                      ?
-                    </span>
-                    <span className="pe-conta-txt">
-                      <span className="pe-conta-arroba">
-                        <Arroba perfil={p.instagram} />
-                      </span>
-                      <span className="pe-conta-sub legenda">
-                        <span className="carimbo">{p.nota}</span> {p.obs}
-                        <span className="sr-only"> (abre o Instagram)</span>
-                      </span>
-                    </span>
-                    <span className="pe-conta-seta" aria-hidden="true">
-                      <Icone nome="instagram" tamanho={16} />
-                    </span>
-                  </a>
-                </li>
-              ))}
               {/* no lugar do "Adicionar conta": quem está fora dos 5 estados encomenda */}
               <li className="pe-conta">
                 <button type="button" className="pe-conta-linha toque" onClick={() => abrirChat('encomenda')}>

@@ -61,6 +61,36 @@
   border-radius: 8px;
 }
 
+/* "Outra dúvida? Chama a @… no Instagram": linha discreta embaixo do perfil, no tom do aviso de empresa do Direct.
+   Texto corrido e centrado (o ícone vai junto da primeira palavra quando quebra a linha). */
+.dm-duvida {
+  display: block;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 12px 8px;
+  max-width: 34ch;
+  font: 400 13px/1.45 var(--ui);
+  color: var(--legenda);
+  text-align: center;
+  text-wrap: balance;
+}
+.dm-duvida-icone {
+  display: inline-block;
+  margin: -3px 5px 0 0;
+  vertical-align: middle;
+}
+.dm-duvida-arroba {
+  font-weight: 600;
+  color: var(--branco);
+  overflow-wrap: anywhere;
+}
+@media (hover: hover) {
+  .dm-duvida:hover .dm-duvida-arroba {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
 .dm-hora {
   text-align: center;
   font-size: 12px;
@@ -172,7 +202,8 @@
 .dm-acoes {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  /* o carimbo "EM BREVE" sobe sobre o vão: 26 px deixam uns 10 px até o WhatsApp (o anel do realce não passa por baixo) */
+  gap: 26px;
   margin-top: 8px;
 }
 .dm-acoes .botao {
@@ -180,6 +211,109 @@
   text-align: center;
   line-height: 1.2;
   padding-block: 10px;
+}
+.dm-acoes .botao svg {
+  flex: none;
+}
+
+/* Fechar no WhatsApp: o botão principal. Depois do "Pix em breve" o foco volta pra ele com um anel que pulsa duas
+   vezes (voz "app", lisa; sem movimento, o anel só aparece e some). ::before porque o ::after é do .toque. */
+.dm-zap {
+  position: relative;
+  min-height: 52px;
+  padding-inline: 16px;
+  font-size: 16px;
+}
+/* o ícone corre junto do texto: se a linha quebrar, não fica sozinho na borda */
+.dm-zap-icone {
+  display: inline-block;
+  margin: -3px 8px 0 0;
+  vertical-align: middle;
+}
+/* 320 px: "Fechar pedido no WhatsApp" numa linha só */
+@media (max-width: 359px) {
+  .dm-zap {
+    padding-inline: 12px;
+    font-size: 15px;
+  }
+}
+/* até 383 px "Fechar encomenda no WhatsApp" quebra: lê "Fechar no WhatsApp" (o resumo já diz "Encomenda montada") */
+@media (max-width: 383px) {
+  .dm-zap-meio {
+    display: none;
+  }
+}
+.dm-zap::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--branco);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+.dm-zap.dm-realce::before {
+  animation-name: dm-realce;
+  animation-duration: 0.7s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: 2;
+}
+@keyframes dm-realce {
+  0% {
+    opacity: 0;
+    transform: scale(0.97, 0.9);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1, 1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dm-zap.dm-realce::before {
+    animation-name: none;
+    opacity: 1;
+  }
+}
+
+/* Pagar com Pix aqui no site: ainda não existe. Contorno apagado + carimbo "EM BREVE" colado no canto, como o "novo"
+   dos destaques; tocar não sai do site (a loja responde e devolve pro WhatsApp). */
+.dm-pix {
+  position: relative;
+  border-color: var(--chiado);
+  color: var(--legenda);
+  font-weight: 500;
+}
+/* Pixelify no 16 (a grade dela): menor que isso o B vira G e "EM BREVE" lê "EM GREVE" */
+.dm-embreve {
+  position: absolute;
+  z-index: 1;
+  top: -14px;
+  right: 12px;
+  padding: 4px 7px 2px;
+  border-width: 2px;
+  font-size: 16px;
+  word-spacing: 2px;
+  background: var(--preto);
+  color: var(--branco);
+  transform: rotate(3deg);
+  pointer-events: none;
+}
+.dm-resposta-pix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+/* respostas longas: sem o "lá." sozinho na última linha */
+.dm-resposta-pix .dm-loja {
+  text-wrap: pretty;
+}
+.dm-numero {
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .dm-fim {

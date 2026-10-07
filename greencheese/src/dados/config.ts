@@ -15,6 +15,14 @@ export const config = {
   /** Endereço público do site (usado na imagem de compartilhamento e nos links da bio). */
   urlPublica: 'https://oprojeto.online/greencheese/',
 
+  /**
+   * WhatsApp que fecha os pedidos e as encomendas (55 + DDD + número, só dígitos). Passado pelo dono da loja como
+   * "33 9113-9036"; celular tem 9 dígitos desde 2016, então é (33) 99113-9036. O mesmo para todos os estados: um
+   * estado só usa outro se tiver `whatsapp` próprio em canais.ts. Só aparece no último passo do pedido guiado;
+   * dúvida fora do pedido vai pro Instagram do estado.
+   */
+  whatsappPedidos: '5533991139036',
+
   /** Assinatura de quem fez o site, no rodapé. null = sem assinatura. */
   credito: { texto: 'Desenvolvido por I&H Soluções Digitais', instagram: 'ihsdigital' } as { texto: string; instagram: string } | null,
 

@@ -75,7 +75,7 @@ interface ChatState {
   respondendo: string[]
   /** De onde veio o pedido do produto citado: o story ou a página do produto. */
   respondendoDe: 'story' | 'pagina'
-  /** Quando a pessoa tocou em "Enviar no WhatsApp"/DM (para perguntar "Já mandou?" na volta). */
+  /** Quando a pessoa tocou em "Fechar pedido no WhatsApp" (para perguntar "Já mandou?" na volta). */
   enviadoEm: number | null
   marcarEnviado: (v: number | null) => void
   abrir: (modo: ModoChat, opts?: { produtoEncomenda?: string; respondendo?: string[]; de?: 'story' | 'pagina' }) => void

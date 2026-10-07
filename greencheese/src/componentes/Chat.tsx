@@ -14,7 +14,10 @@ import {
   linkWhatsApp,
   montarEncomenda,
   montarPedido,
+  whatsappDoCanal,
 } from '../lib/mensagem'
+import { movimentoReduzido } from '../lib/movimento'
+import { celularNoCampo } from '../lib/telefone'
 import { useConta, useCupons, useAgora } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
@@ -73,7 +76,8 @@ export function ChatFolha() {
   const fim = useRef<HTMLDivElement>(null)
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [avisoCep, setAvisoCep] = useState<AvisoCep>(null)
-  const [tipoEnvio, setTipoEnvio] = useState<'whats' | 'dm' | null>(null)
+  // tocou em "Fechar no WhatsApp" agora (se a página recarregou na volta do WhatsApp, o resumo só pergunta "Já mandou?")
+  const [enviouAqui, setEnviouAqui] = useState(false)
   const enviadoEm = useChat((s) => s.enviadoEm)
   const marcarEnviado = useChat((s) => s.marcarEnviado)
   const recomecar = useChat((s) => s.recomecar)
@@ -496,6 +500,13 @@ export function ChatFolha() {
               Ver perfil
             </a>
           )}
+          {/* o chat é só pedido: dúvida de outro tipo vai pra DM do estado (sem estado, a primeira pergunta já é ele) */}
+          {canal && (
+            <a className="dm-duvida" href={linkDM(canal)} target={alvoDeSaida()} rel="noopener noreferrer">
+              <Icone nome="instagram" tamanho={16} className="dm-duvida-icone" />
+              Outra dúvida? Chama a <span className="dm-duvida-arroba">@{canal.instagram}</span> no Instagram
+            </a>
+          )}
         </div>
         <p className="dm-hora legenda">{horaAgora()}</p>
 
@@ -513,7 +524,8 @@ export function ChatFolha() {
           </div>
         )}
 
-        {feitos.map((p) => {
+        {/* o troco só aparece no dinheiro (o "Trocar pra Pix" do resumo muda o pagamento sem mexer nos passos feitos) */}
+        {feitos.filter((p) => p !== 'troco' || respostas.pagamento === 'dinheiro').map((p) => {
           const d = def(p)
           return (
             <div key={p} className="dm-troca">
@@ -580,13 +592,16 @@ export function ChatFolha() {
             canal={canal}
             mensagem={mensagem}
             encomenda={modo === 'encomenda'}
+            pagamento={respostas.pagamento}
             enviadoEm={enviadoEm}
-            tipoEnvio={tipoEnvio}
-            aoEnviar={(t) => {
-              setTipoEnvio(t)
+            enviouAqui={enviouAqui}
+            aoEnviar={() => {
+              setEnviouAqui(true)
               marcarEnviado(Date.now())
             }}
             naoConsegui={() => marcarEnviado(null)}
+            // "Trocar pra Pix" da resposta do Pix em breve: muda o pagamento sem refazer os passos
+            trocarPraPix={() => useChat.setState((st) => ({ respostas: { ...st.respostas, pagamento: 'pix', troco: null } }))}
             editar={(p) => voltarPara(p)}
             cupom={
               modo === 'pedido' && cupom && situacaoCupom
@@ -700,10 +715,12 @@ function Resumo({
   canal,
   mensagem,
   encomenda,
+  pagamento,
   enviadoEm,
-  tipoEnvio,
+  enviouAqui,
   aoEnviar,
   naoConsegui,
+  trocarPraPix,
   editar,
   mandei,
   cupom,
@@ -716,10 +733,14 @@ function Resumo({
   canal: Canal
   mensagem: string
   encomenda: boolean
+  /** Forma de pagamento escolhida no pedido (a resposta do "Pix em breve" muda quando não é Pix). */
+  pagamento: FormaPagamento | null
   enviadoEm: number | null
-  tipoEnvio: 'whats' | 'dm' | null
-  aoEnviar: (v: 'whats' | 'dm') => void
+  enviouAqui: boolean
+  aoEnviar: () => void
   naoConsegui: () => void
+  /** Muda o pagamento pra Pix ali mesmo, sem sair do resumo. */
+  trocarPraPix: () => void
   editar: (p: Passo) => void
   mandei: () => void
   /** Cupom aplicado e a situação dele nesse pedido (só no pedido; encomenda nunca leva cupom). */
@@ -735,12 +756,19 @@ function Resumo({
   const [naoAbriu, setNaoAbriu] = useState(false)
   // "Sem cupom" esconde a pergunta até sair do resumo
   const [semCupom, setSemCupom] = useState(false)
+  // "Pagar com Pix aqui no site" ainda não existe: cada toque (n) mostra a resposta da loja. Com Pix escolhido, o foco
+  // volta pro WhatsApp. Com outro pagamento (era), a loja oferece "Trocar pra Pix" e o WhatsApp só ganha o foco depois
+  // da troca: ninguém manda o pedido no cartão achando que vai pagar no Pix.
+  const [pix, setPix] = useState<{ n: number; era: FormaPagamento | null; trocou: boolean } | null>(null)
+  const zap = useRef<HTMLAnchorElement>(null)
+  const respostaPix = useRef<HTMLDivElement>(null)
+  const aceitaPix = canal.pagamento.opcoes.includes('pix')
   const cupomOk = cupom?.situacao.tipo === 'ok'
-  const semNumero = !canal.whatsapp
+  const numero = celularNoCampo(whatsappDoCanal(canal))
   // no celular o link troca de app sem nova aba; no computador ou dentro de iframe, nova aba
   const alvo = alvoDeSaida()
-  const tocou = (t: 'whats' | 'dm') => {
-    aoEnviar(t)
+  const tocou = () => {
+    aoEnviar()
     setNaoAbriu(false)
     if (!alvo) {
       window.setTimeout(() => {
@@ -748,6 +776,27 @@ function Resumo({
       }, 1600)
     }
   }
+
+  // depois do toque no Pix (sem sair do site): oferecendo a troca, a resposta entra à vista e o foco vai pro "Trocar pra
+  // Pix"; com Pix, o WhatsApp e a resposta entram à vista e o WhatsApp ganha o foco e o realce
+  useEffect(() => {
+    const caixa = respostaPix.current
+    const a = zap.current
+    if (!pix || !caixa || !a) return
+    if (pix.era !== 'pix' && !pix.trocou) {
+      mostrarNaFolha(caixa, caixa)
+      caixa.querySelector<HTMLButtonElement>('.dm-chip')?.focus({ preventScroll: true })
+      return
+    }
+    mostrarNaFolha(a, caixa)
+    a.focus({ preventScroll: true })
+    a.classList.remove('dm-realce')
+    void a.offsetWidth // recomeça o realce a cada toque
+    a.classList.add('dm-realce')
+    const t = window.setTimeout(() => a.classList.remove('dm-realce'), 1800)
+    return () => clearTimeout(t)
+  }, [pix])
+
   return (
     <div className="dm-troca dm-atual">
       <BolhaLoja>{encomenda ? 'Encomenda montada. Confere:' : 'Pedido montado. Confere:'}</BolhaLoja>
@@ -787,36 +836,63 @@ function Resumo({
           />
         </>
       )}
-      <BolhaLoja>Agora é só enviar. Vem no certo!</BolhaLoja>
-      {semNumero && (
-        <BolhaLoja>
-          O WhatsApp da Green Cheese {canal.uf.toUpperCase()} ainda não tá no site: o WhatsApp vai pedir pra escolher o contato. Ou manda pela DM. <Demo ativo={semNumero} />
-        </BolhaLoja>
-      )}
+      <BolhaLoja>Agora é só fechar no WhatsApp da loja. Vem no certo!</BolhaLoja>
       <div className="dm-acoes">
-        <a className="botao botao-cheio botao-largo" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={() => tocou('whats')}>
-          <Icone nome="whatsapp" tamanho={20} />
-          Enviar no WhatsApp
+        {/* ícone dentro do texto: se a linha quebrar (fonte grande no aparelho), ele vai junto da primeira palavra.
+            Celular estreito: a encomenda lê "Fechar no WhatsApp" (o "encomenda" sai do nome acessível também) */}
+        <a ref={zap} className="botao botao-cheio botao-largo dm-zap" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={tocou}>
+          <span>
+            <Icone nome="whatsapp" tamanho={20} className="dm-zap-icone" />
+            Fechar {encomenda ? <span className="dm-zap-meio">encomenda </span> : 'pedido '}no WhatsApp
+          </span>
         </a>
-        <a
-          className="botao botao-contorno botao-largo"
-          href={linkDM(canal)}
-          target={alvo}
-          rel="noopener noreferrer"
-          onClick={() => {
-            // cópia síncrona, dentro do toque, antes de sair para o Instagram
-            const ok = copiarTexto(mensagem)
-            avisar(ok ? 'Pedido copiado. Cola na DM.' : 'Não deu pra copiar: segura no texto do pedido e copia.')
-            tocou('dm')
-          }}
-        >
-          <Icone nome="copiar" tamanho={20} />
-          Copiar {encomenda ? 'encomenda' : 'pedido'} e abrir a DM do Instagram
-        </a>
+        {/* encomenda ainda não tem preço: o Pix não se aplica */}
+        {!encomenda && aceitaPix && (
+          <button
+            type="button"
+            className="botao botao-contorno botao-largo dm-pix toque"
+            onClick={() => setPix((p) => ({ n: (p?.n ?? 0) + 1, era: pagamento, trocou: false }))}
+          >
+            <Icone nome="pix" tamanho={20} />
+            Pagar com Pix aqui no site
+            <span className="carimbo dm-embreve">Em breve</span>
+          </button>
+        )}
       </div>
+      {pix && (
+        <div key={pix.n} ref={respostaPix} className="dm-resposta-pix">
+          {pix.era === 'pix' ? (
+            <BolhaLoja>O Pix direto no site chega em breve. Por enquanto, fecha no WhatsApp: a loja te passa a chave Pix lá.</BolhaLoja>
+          ) : (
+            <>
+              <BolhaLoja>O Pix direto no site chega em breve. Quer pagar com Pix? Troca o pagamento aqui e fecha no WhatsApp: a loja te passa a chave lá.</BolhaLoja>
+              {pix.trocou ? (
+                <>
+                  <p className="dm-bolha dm-eu">Trocar pra Pix</p>
+                  <BolhaLoja>Pronto, pagamento no Pix. Agora fecha no WhatsApp: a chave vem lá.</BolhaLoja>
+                </>
+              ) : (
+                <Chips
+                  chips={[
+                    {
+                      rotulo: 'Trocar pra Pix',
+                      acao: () => {
+                        trocarPraPix()
+                        setPix((p) => p && { ...p, trocou: true })
+                      },
+                    },
+                  ]}
+                />
+              )}
+            </>
+          )}
+        </div>
+      )}
       {naoAbriu && (
         <>
-          <BolhaLoja>Não abriu? Toca de novo no botão, ou copia o texto e manda pela DM.</BolhaLoja>
+          <BolhaLoja>
+            Não abriu? Toca de novo no botão, ou copia o texto e manda pro WhatsApp da loja: <span className="dm-numero">{numero}</span>.
+          </BolhaLoja>
           <Chips
             chips={[
               {
@@ -829,13 +905,8 @@ function Resumo({
       )}
       {enviadoEm && (
         <>
-          <BolhaLoja>
-            {tipoEnvio === 'dm'
-              ? 'Pedido copiado. Na DM, cola e envia.'
-              : tipoEnvio === 'whats'
-                ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.'
-                : 'Já mandou o pedido?'}
-          </BolhaLoja>
+          {/* com o "Não abriu?" na tela, não dá pra dizer que a mensagem já tá no WhatsApp */}
+          <BolhaLoja>{enviouAqui && !naoAbriu ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.' : 'Já mandou o pedido?'}</BolhaLoja>
           <BolhaLoja>Chegou? Marca @{canal.instagram} no story.</BolhaLoja>
           <Chips
             chips={[
@@ -865,6 +936,20 @@ function Resumo({
       )}
     </div>
   )
+}
+
+/** Rola o corpo da folha o mínimo pra mostrar do topo de `de` ao fim de `ate`; se não couber, `de` fica no topo. */
+function mostrarNaFolha(de: HTMLElement, ate: HTMLElement) {
+  const corpo = de.closest<HTMLElement>('.folha-corpo')
+  if (!corpo) return
+  const base = corpo.getBoundingClientRect().top - corpo.scrollTop
+  const folga = 16
+  const topo = de.getBoundingClientRect().top - base - folga
+  const fim = ate.getBoundingClientRect().bottom - base + folga
+  const agora = corpo.scrollTop
+  const h = corpo.clientHeight
+  const alvo = fim - topo > h || topo < agora ? topo : fim > agora + h ? fim - h : agora
+  if (Math.abs(alvo - agora) > 1) corpo.scrollTo({ top: alvo, behavior: movimentoReduzido() ? 'auto' : 'smooth' })
 }
 
 /** Por que o cupom aplicado não vale: "falta 1 OCB" · "faltam 2 OCB" · "não tem em Teófilo Otoni" · "precisa de seda". */

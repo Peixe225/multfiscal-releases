@@ -18,6 +18,8 @@
 }
 .info-txt {
   font: 400 15px/1.4 var(--ui);
+  /* sem palavra sozinha na última linha ("DM.", "loja.") */
+  text-wrap: balance;
 }
 .info-emblema {
   image-rendering: pixelated;
@@ -32,6 +34,11 @@
 }
 .info-quadro .botao {
   min-width: 240px;
+}
+/* o @ do estado inteiro numa linha, no branco forte (é ele que a pessoa procura no Instagram) */
+.info-arroba {
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 /* celular deitado: o quadro fica largo e baixo (StoryShell.css), o conteúdo aperta na altura */

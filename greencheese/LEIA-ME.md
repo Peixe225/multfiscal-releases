@@ -1,6 +1,6 @@
 # Green Cheese Imports — site (prévia)
 
-Site único da Green Cheese para todos os estados: catálogo no formato dos stories da marca + pedido guiado que termina com a mensagem pronta no WhatsApp (ou na DM do Instagram) do atendimento certo. Estático, sem servidor, sem banco.
+Site único da Green Cheese para todos os estados: catálogo no formato dos stories da marca + pedido guiado que termina com a mensagem pronta no WhatsApp da loja, (33) 99113-9036 (o Pix direto no site aparece como "Em breve"). Dúvida fora do pedido vai pro Instagram do estado. Estático, sem servidor, sem banco.
 
 Prévia criada pela I&H Soluções Digitais.
 
@@ -116,17 +116,23 @@ O site é um app só, com três abas no molde do Instagram. O **Início** é o p
 
 Tudo que o dono muda fica em `src/dados/`. Depois de mexer, rode `npm run build` e suba de novo.
 
-### Número de WhatsApp de cada estado — `src/dados/canais.ts`
+### WhatsApp dos pedidos — `src/dados/config.ts`
 
-Em cada estado, troque `whatsapp: null` pelo número com 55 + DDD + número, só dígitos:
+Todo pedido e toda encomenda fecham no mesmo WhatsApp da loja, `whatsappPedidos` (55 + DDD + número, só dígitos). Hoje: `'5533991139036'` = (33) 99113-9036 (o dono passou "33 9113-9036"; celular tem 9 dígitos, então entra o 9 na frente).
 
 ```ts
-whatsapp: '5533999998888',
+whatsappPedidos: '5533991139036',
 ```
 
-Com número, o botão "Enviar no WhatsApp" abre a conversa direto com a loja. Sem número (`null`), o WhatsApp abre para a pessoa escolher o contato, e ao lado tem "Copiar pedido e abrir a DM do Instagram".
+O WhatsApp só aparece no **último passo do pedido guiado**, com o pedido completo: "Fechar pedido no WhatsApp" (ou "Fechar encomenda no WhatsApp") abre a conversa com a mensagem pronta e a loja fecha no x1. Embaixo fica "Pagar com Pix aqui no site" com o carimbo **EM BREVE**: tocar não sai do site, a loja responde que o Pix chega em breve e o foco volta para o botão do WhatsApp. Se o pagamento escolhido não for Pix, a loja oferece "Trocar pra Pix" (muda o pagamento ali mesmo, sem refazer os passos) e só depois devolve o foco ao WhatsApp, pra ninguém mandar o pedido no cartão achando que vai pagar no Pix. Se o WhatsApp não abrir, o chat mostra o número e o "Copiar texto".
 
-No mesmo arquivo: cidades atendidas (`cidades`), horário (`horario`), taxa de entrega (`taxaEntrega`), formas de pagamento (`pagamento`) e o "Sextou com entrega grátis!" de MG (`entregaGratis`). Em `perfisAConfirmar` ficam os perfis vistos em marcações de clientes que ainda não foram confirmados (hoje o @greencheese_importsvv): eles não aparecem na faixa dos @ do Início; quando um for confirmado, vira um estado em `canais`. Quando trocar um valor de demonstração pelo real, mude também `demo: true` para `demo: false`.
+Dúvida que o site não tira vai para a **DM do Instagram do estado** (`instagram` em `canais.ts`): link no começo do pedido guiado ("Outra dúvida? Chama a @… no Instagram"), quadro "Dúvidas" do destaque do estado e o rodapé ("Outra dúvida? Chama a @… na DM", com o estado escolhido ou palpitado). "Avisar quando chegar" também vai pra DM do estado (copia a mensagem e abre a DM).
+
+Um estado com WhatsApp próprio: em `src/dados/canais.ts`, troque o `whatsapp: null` dele pelo número (`whatsapp: '5521999998888'`); `null` = usa o da loja.
+
+### Cidades, horário, taxa e pagamento — `src/dados/canais.ts`
+
+No arquivo de canais: cidades atendidas (`cidades`), horário (`horario`), taxa de entrega (`taxaEntrega`), formas de pagamento (`pagamento`) e o "Sextou com entrega grátis!" de MG (`entregaGratis`). Em `perfisAConfirmar` ficam os perfis vistos em marcações de clientes que ainda não foram confirmados (hoje o @greencheese_importsvv): eles não aparecem em nenhuma tela pública (faixa, rodapé, Por estado); quando um for confirmado, vira um estado em `canais`. Quando trocar um valor de demonstração pelo real, mude também `demo: true` para `demo: false`.
 
 Estado com mais de uma cidade: liste todas em `cidades` — o site pergunta a cidade.
 
@@ -225,8 +231,9 @@ Em `src/dados/config.ts`: `dadosDeExemplo` (produtos, prêmios, horário e taxa 
 - Story do topo (hero): passa sozinho; toque nas bordas ou arrastar de lado passa e volta; no computador, setas ao lado do story e ← →. Na primeira visita, uma dica mostra onde tocar.
 - Página do produto ("aba"): tocar no produto do story ou em "VER PRODUTO" abre a página com descrição curta, preço, disponibilidade no estado, formato e combos, quantidade, "Adicionar à sacola", "Pedir este item" e "Combina com". Voltar pelo botão do topo, pelo voltar do Android ou Esc. Cada produto tem link próprio (`?produto=<id>`), que abre direto depois do +18 (segurar o dedo ou Ctrl+clique abre em aba nova). No story do produto, "Mais opções" → "Ver detalhes do produto".
 - Story do produto com barrinhas, toque nas laterais, segurar para pausar, arrastar para baixo para fechar, setas e Esc no teclado.
-- Sacola com combo automático, pedido guiado em formato de DM (CEP preenche o endereço), mensagem pronta para o WhatsApp do estado ou para a DM.
-- Encomenda ("Não achou? A Green Cheese importa."), "Avisar quando chegar", todos os Instagrams.
+- Sacola com combo automático, pedido guiado em formato de DM (CEP preenche o endereço) e, no fim, "Fechar pedido no WhatsApp" com a mensagem pronta pro WhatsApp da loja. "Pagar com Pix aqui no site" fica marcado EM BREVE (a loja responde no chat e devolve pro WhatsApp).
+- Encomenda ("Não achou? A Green Cheese importa.", fecha no mesmo WhatsApp), "Avisar quando chegar" (DM do Instagram do estado), todos os Instagrams.
+- Dúvidas: o pedido guiado, o destaque do estado e o rodapé mandam pra DM/Instagram do estado; o WhatsApp fica só pro fechamento.
 - "Segue o perfil do teu estado": mapa do Brasil em pixel (atendidos acesos, os outros em pontinhos apagados) com uma lupa no Sudeste + SC, onde cada estado atendido é um botão (a sigla do estado do cliente vira o adesivo de localização em miniatura: pino + "MG"); tocar num estado sem atendimento mostra "ainda não chegou" com Encomendar (fecha no X, no Esc ou tocando fora). Ao lado, a lista dos perfis no molde do "trocar de conta" do Instagram (na ordem do mapa, de cima pra baixo): tocar troca o site de estado. Mapa e lista ficam lado a lado quando a própria seção tem 910 px ou mais (container query; a coluna do mapa precisa caber o Brasil com a lupa); mais estreito, a lista vai embaixo. O tamanho das células e o lugar da lupa saem de `planejar()` em `MapaBrasil.tsx` (sempre em escala inteira, sem passar da largura da coluna nem da altura da tela).
 - Sacola e respostas ficam salvas no aparelho; o botão voltar do Android fecha a camada aberta.
 - **Teste minha sorte** (aba do meio da barra no celular, destaque "Sorte" no Início e no Catálogo, item na lateral, card no fim do Catálogo, convite discreto na sacola): gira a tampa do dichavador com o dedo (ou o botão "Girar", as setas, Espaço/Enter segurado, a roda do mouse); ele abre, sai um beck bolado e o beck desenrola no cupom. O 1º giro é sem conta; pra guardar e usar o cupom, cria conta com nome e WhatsApp. Com conta: 1 giro por dia, cupons em "Minha conta" e o nome já no pedido. O cupom aplicado vira uma linha na mensagem do WhatsApp; a loja confirma o desconto (o subtotal do site não muda).
