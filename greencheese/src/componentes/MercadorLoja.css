@@ -1,0 +1,25 @@
+/* O mercador de pé ao lado do perfil (Início, computador). --k = px por pixel da grade, inteiro (Hero.tsx). */
+
+.mercador-loja {
+  /* as pálpebras e as camadas que apagam pintam na cor da página */
+  --fundo-dentro: var(--preto);
+  position: relative;
+  flex: none;
+  /* o vão até o perfil cresce com ele: 24 px em 3×, 32 em 4×, 40 em 5× */
+  margin-right: calc(var(--k) * 8);
+}
+.mercador-loja svg {
+  display: block;
+}
+/* fora do repost: sem o desgiro de 2° e sem o espaço do adesivo de menção */
+.mercador-loja .repost-figura {
+  transform: none;
+  margin-bottom: 0;
+}
+/* atrás das botas: começa na linha 61 da grade (a sola) e fecha na última */
+.mercador-loja-sombra {
+  position: absolute;
+  left: 0;
+  top: calc(var(--k) * 61);
+  color: var(--bolha);
+}

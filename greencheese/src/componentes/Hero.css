@@ -1,7 +1,7 @@
 .hero {
   position: relative;
 }
-.hero-desktop-perfil {
+.hero-loja {
   display: none;
 }
 
@@ -325,11 +325,6 @@
   padding: 0 var(--gutter) 8px;
   min-height: 64px;
 }
-/* passo do mercador: o CTA fica à direita mesmo sem a legenda à esquerda */
-.hero-ver-mercador {
-  margin-left: auto;
-}
-
 /* linha de resposta do story (celular), como no visualizador de stories do Instagram */
 .hero-resposta {
   position: relative;
@@ -393,7 +388,7 @@
   }
 }
 
-/* ---------- desktop: perfil do estado | story ---------- */
+/* ---------- desktop: [mercador | perfil do estado] | story ---------- */
 @media (min-width: 900px) {
   .hero {
     display: grid;
@@ -405,10 +400,19 @@
     min-height: min(100vh, 900px);
     min-height: min(100dvh, 900px);
   }
-  .hero-desktop-perfil {
-    display: block;
-    justify-self: end;
+  /* a coluna do perfil inteira (o Hero.tsx mede a largura dela para o mercador): perfil encostado no story, o mercador
+     à esquerda dele, com os pés na linha do fim do perfil (o "Ver loja"), como quem está ao lado da loja */
+  .hero-loja {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    justify-self: stretch;
     min-width: 0;
+  }
+  .hero-desktop-perfil {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 420px;
   }
   .hero-story {
     --hh: min(calc(100vh - 120px), 760px);
@@ -508,29 +512,38 @@
     gap: 48px;
     padding: 40px 76px;
   }
-  .hero-desktop-perfil {
-    justify-self: center;
+  .hero-loja {
+    justify-content: center;
   }
   .hero-story {
     justify-self: center;
   }
 }
 
-/* Home 1 logo acima de 1200: a coluna do perfil começa com ~330 px e o perfil (números numa linha, dois botões) pedia
-   374: alinhado à direita, ele passava por baixo da lateral fixa e o texto saía cortado. Números mais juntos, sem o
-   "aqui", botões mais estreitos, e nunca mais largo que a coluna */
-@media (min-width: 1200px) and (max-width: 1279px) {
-  .hero:not(.hero-h2) .hero-desktop-perfil {
-    max-width: 100%;
+/* 1200–1365 (notebook): o vão até o story fica no mínimo das setas e a margem esquerda encosta na lateral, para o
+   mercador caber ao lado do perfil (em 1280×800 faltavam 10 px); o story não muda de tamanho */
+@media (min-width: 1200px) and (max-width: 1365px) {
+  .hero {
+    column-gap: 76px;
+    padding-left: 24px;
   }
-  .hero:not(.hero-h2) .perfil-desktop .perfil-numeros {
+}
+
+/* perfil compacto (o Hero.tsx liga quando sobram menos de 380 px para ele: logo acima de 1200, ou ao lado do mercador).
+   O perfil inteiro (números numa linha, dois botões) pede ~374: números mais juntos, sem o "aqui", bio e botões
+   menores, e nunca mais largo que a coluna (passava por baixo da lateral fixa e o texto saía cortado) */
+@media (min-width: 900px) {
+  .perfil-compacto .perfil-desktop .perfil-numeros {
     gap: 18px;
   }
-  .hero:not(.hero-h2) .perfil-aqui {
+  .perfil-compacto .perfil-aqui {
     display: none;
   }
-  .hero:not(.hero-h2) .perfil-desktop .perfil-botao {
-    padding: 0 8px;
+  .perfil-compacto .perfil-desktop .perfil-bio {
+    font-size: 14px;
+  }
+  .perfil-compacto .perfil-desktop .perfil-botao {
+    padding: 0 6px;
     font-size: 13px;
   }
 }
@@ -566,9 +579,8 @@
   }
 }
 
-/* story estreito no computador (~300 px: notebook com a barra do navegador, Home 2 entre 1200 e 1439, onde o story
-   fica com a largura que sobra): pela largura do próprio story, não da janela, os dois adesivos do pé cabem lado a
-   lado ("Vem no certo!" quebrava em duas ou três linhas) */
+/* story estreito no computador (~300 px: notebook com a barra do navegador): pela largura do próprio story, não da
+   janela, os dois adesivos do pé cabem lado a lado ("Vem no certo!" quebrava em duas ou três linhas) */
 @media (min-width: 900px) {
   .hero-story {
     container-type: inline-size;
@@ -594,10 +606,6 @@
 @media (max-width: 360px) {
   .hero-frase .adesivo-texto {
     font-size: 14px;
-  }
-  /* passo do mercador: só o CTA (a legenda não cabe ao lado) */
-  .hero-frase-mercador {
-    display: none;
   }
   .adesivo-link {
     padding: 0 10px;
@@ -712,127 +720,5 @@
 @media (min-width: 900px) {
   .hero-cab-local {
     display: none;
-  }
-}
-
-/* ---------- Home 2 no computador: [card do mercador][perfil][story] ---------- */
-/* Só com home=2 (Hero.tsx põe .hero-h2). A Home 1 continua com as regras de cima, intactas.
-   A partir de 1200 é sempre a mesma grade de três colunas: o story fica com a largura que sobra (cqw, embaixo) e
-   com a altura da janela, então a composição cabe em qualquer altura. (Uma faixa 1200–1279 com o card deitado
-   embaixo do perfil passava da altura da janela em telas baixas e espremia as colunas nas altas.) */
-@media (min-width: 900px) and (max-width: 1199px) {
-  .hero-h2 .hero-vitrine {
-    justify-self: center;
-    width: min(393px, 100%);
-  }
-}
-@media (min-width: 1200px) {
-  .hero.hero-h2 {
-    --v: 176px;
-    --p: 300px;
-    --g1: 24px;
-    --g2: 64px;
-    --pe: 24px;
-    --pd: 64px;
-    container-type: inline-size;
-    grid-template-columns: var(--v) var(--g1) var(--p) var(--g2) auto;
-    grid-template-areas: 'vitrine . perfil . story';
-    justify-content: center;
-    align-items: center;
-    gap: 0;
-    padding: 48px var(--pd) 40px var(--pe);
-  }
-  .hero-h2 .hero-vitrine {
-    grid-area: vitrine;
-    min-width: 0;
-  }
-  .hero-h2 .hero-desktop-perfil {
-    grid-area: perfil;
-    justify-self: stretch;
-  }
-  .hero-h2 .hero-desktop-perfil .perfil-desktop {
-    max-width: none;
-  }
-  .hero-h2 .hero-story {
-    grid-area: story;
-  }
-  /* perfil compacto (abaixo de 1800 a coluna tem 300–330 px) */
-  .hero-h2 .perfil-aqui {
-    display: none;
-  }
-  .hero-h2 .perfil-desktop .perfil-numeros {
-    gap: 18px;
-  }
-  .hero-h2 .perfil-desktop .perfil-bio {
-    font-size: 14px;
-  }
-}
-@media (min-width: 1280px) {
-  .hero.hero-h2 {
-    --g1: 32px;
-    --g2: 72px;
-  }
-}
-/* janela baixa (notebook com a barra do navegador): o story fica preso na altura e sobra largura; o card do mercador
-   fica com ela (pergunta e CTA numa linha cada, mercador em 3× em vez de virar miniatura). Só onde a sobra existe de
-   verdade: o story continua com a largura que a altura dá (em 1280×720 o card largo já tiraria 12 px dele) */
-@media (min-width: 1280px) and (max-width: 1365px) and (max-height: 690px), (min-width: 1366px) and (max-width: 1439px) and (max-height: 760px) {
-  .hero.hero-h2 {
-    --v: 216px;
-  }
-}
-/* coluna do perfil de 300 px: "Enviar mensagem" e "Ver no Instagram" numa linha só */
-@media (min-width: 1200px) and (max-width: 1439px) {
-  .hero-h2 .perfil-desktop .perfil-botao {
-    padding: 0 6px;
-    font-size: 13px;
-  }
-}
-@media (min-width: 1440px) {
-  .hero.hero-h2 {
-    --v: 216px;
-    --p: 330px;
-    --g1: 40px;
-    --g2: 80px;
-    --pe: 28px;
-    --pd: 64px;
-  }
-}
-@media (min-width: 1800px) {
-  .hero.hero-h2 {
-    --v: 288px;
-    --p: 393px;
-    --g1: 64px;
-    --g2: 112px;
-    --pe: 48px;
-    --pd: 112px;
-  }
-  .hero-h2 .perfil-aqui {
-    display: inline;
-  }
-  .hero-h2 .perfil-desktop .perfil-numeros {
-    gap: 28px;
-  }
-  .hero-h2 .perfil-desktop .perfil-bio {
-    font-size: 15px;
-  }
-}
-/* teto do story na Home 2: além da altura da tela, a largura que sobra depois do card e do perfil (16:9).
-   O 100cqw já é a caixa de conteúdo do .hero-h2 (sem o padding). Navegador sem unidade de container fica com o
-   teto antigo (só a altura). */
-@supports (width: 1cqw) {
-  @media (min-width: 1200px) {
-    .hero-h2 .hero-story,
-    .hero-h2 .hero-vitrine {
-      --hh: min(calc(100vh - 120px), 760px, calc((100cqw - var(--g1) - var(--g2) - var(--v) - var(--p)) * 16 / 9));
-    }
-  }
-  @supports (height: 100dvh) {
-    @media (min-width: 1200px) {
-      .hero-h2 .hero-story,
-      .hero-h2 .hero-vitrine {
-        --hh: min(calc(100dvh - 120px), 760px, calc((100cqw - var(--g1) - var(--g2) - var(--v) - var(--p)) * 16 / 9));
-      }
-    }
   }
 }

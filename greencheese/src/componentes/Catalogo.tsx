@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { gsap } from 'gsap'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { interativosAtivos, type Interativo } from '../interativos/registro'
 import { semAcento } from '../dados/ufs'
+import { cliqueDeAba, hrefAba, irParaAba, type Aba, type FocoAba } from '../lib/abas'
 import { alvoDeSaida } from '../lib/ambiente'
 import { copiarTexto } from '../lib/copiar'
 import { linkDM, linkWhatsApp, montarAviso } from '../lib/mensagem'
@@ -123,29 +124,28 @@ function DestaqueInterativo({ i }: { i: Interativo }) {
   )
 }
 
-/** Bolinhas de destaque: o destaque real do estado (moto), os interativos e as categorias. */
-function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
+/** O destaque real do estado (moto): abre o story de atendimento (horário, entrega, cidades). */
+function DestaqueEstado({ canal, abrirInfo }: { canal: Canal; abrirInfo: () => void }) {
+  return (
+    <button type="button" className="destaque toque" onClick={abrirInfo} aria-label={`${canal.destaque}: atendimento, horário e entrega`}>
+      <span className="destaque-bola">
+        <Anel total={1} acesos={1} />
+        <span className="destaque-capa">
+          <Icone nome="moto" tamanho={32} />
+        </span>
+      </span>
+      <span className="destaque-rot">{canal.destaque}</span>
+    </button>
+  )
+}
+
+/** As categorias (Tudo, Importadas, Destilados…): filtros da grade, com o anel contando os disponíveis no estado. */
+function FiltrosCategoria({ categoria, setCategoria }: { categoria: string; setCategoria: (c: string) => void }) {
   const { produtos, categorias } = useCatalogo()
   const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf)
   const itens = [{ id: 'tudo', nome: 'Tudo', curto: 'Tudo', icone: 'tudo' }, ...categorias]
   return (
-    // filtros, não abas (não há painel por aba): grupo de botões de alternar
-    <div className="destaques" role="group" aria-label="Categorias">
-      {canal && (
-        <button type="button" className="destaque toque" onClick={abrirInfo} aria-label={`${canal.destaque}: atendimento, horário e entrega`}>
-          <span className="destaque-bola">
-            <Anel total={1} acesos={1} />
-            <span className="destaque-capa">
-              <Icone nome="moto" tamanho={32} />
-            </span>
-          </span>
-          <span className="destaque-rot">{canal.destaque}</span>
-        </button>
-      )}
-      {interativosAtivos().map((i) => (
-        <DestaqueInterativo key={i.id} i={i} />
-      ))}
+    <>
       {itens.map((c) => {
         const daCat = produtos.filter((p) => c.id === 'tudo' || p.categoria === c.id)
         const acesos = daCat.filter((p) => disponivelEm(p, uf)).length
@@ -170,6 +170,82 @@ function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; 
           </button>
         )
       })}
+    </>
+  )
+}
+
+/** Bolinhas de destaque da aba Catálogo: o destaque real do estado (moto), os interativos e as categorias. */
+function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
+  const uf = useLocal((s) => s.uf)
+  const canal = canalDa(uf)
+  return (
+    // filtros, não abas (não há painel por aba): grupo de botões de alternar
+    <div className="destaques" role="group" aria-label="Categorias">
+      {canal && <DestaqueEstado canal={canal} abrirInfo={abrirInfo} />}
+      {interativosAtivos().map((i) => (
+        <DestaqueInterativo key={i.id} i={i} />
+      ))}
+      <FiltrosCategoria categoria={categoria} setCategoria={setCategoria} />
+    </div>
+  )
+}
+
+/**
+ * Destaque que leva a outra aba (Buscar, Por estado): link de verdade, como as abas da barra (Ctrl/⌘/botão do meio
+ * abre numa aba nova). Anel apagado, como o destaque já visto do Instagram: é caminho, não novidade.
+ */
+function DestaqueAba({ aba, foco, rotulo, nome, children }: { aba: Aba; foco?: FocoAba; rotulo: string; nome: string; children: ReactNode }) {
+  return (
+    <a
+      className="destaque toque"
+      href={hrefAba(aba)}
+      data-destaque={aba}
+      aria-label={nome}
+      onClick={(e) => {
+        if (cliqueDeAba(e)) irParaAba(aba, foco ? { foco } : {})
+      }}
+    >
+      <span className="destaque-bola">
+        <Anel total={1} acesos={0} />
+        <span className="destaque-capa">{children}</span>
+      </span>
+      <span className="destaque-rot">{rotulo}</span>
+    </a>
+  )
+}
+
+/**
+ * Destaques do Início, numa linha só: primeiro os que são caminho (o destaque do estado, Buscar, os interativos, Por
+ * estado), um fio, e à direita os filtros, que filtram a grade do próprio Início.
+ */
+function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
+  const uf = useLocal((s) => s.uf)
+  // o href das abas leva uf e cidade junto
+  useLocal((s) => s.cidade)
+  const canal = canalDa(uf)
+  return (
+    <div className="destaques destaques-inicio">
+      <nav className="destaques-grupo" aria-label="Atalhos da loja">
+        {canal && <DestaqueEstado canal={canal} abrirInfo={abrirInfo} />}
+        <DestaqueAba aba="catalogo" foco="busca" rotulo="Buscar" nome="Buscar no catálogo">
+          <Icone nome="lupa" tamanho={32} />
+        </DestaqueAba>
+        {interativosAtivos().map((i) => (
+          <DestaqueInterativo key={i.id} i={i} />
+        ))}
+        <DestaqueAba aba="estados" rotulo="Por estado" nome="Por estado: os perfis de cada estado">
+          <Icone nome="pin" tamanho={32} />
+          {uf && (
+            <span className="destaque-uf px" aria-hidden="true">
+              {uf.toUpperCase()}
+            </span>
+          )}
+        </DestaqueAba>
+      </nav>
+      <span className="destaques-fio" aria-hidden="true" />
+      <div className="destaques-grupo" role="group" aria-label="Categorias">
+        <FiltrosCategoria categoria={categoria} setCategoria={setCategoria} />
+      </div>
     </div>
   )
 }
@@ -200,7 +276,19 @@ export function CaixaEncomenda({ termo, className }: { termo?: string; className
   )
 }
 
-export function Catalogo({ abrirInfo }: { abrirInfo: () => void }) {
+interface PropsCatalogo {
+  abrirInfo: () => void
+  /**
+   * 'aba': a aba Catálogo (destaques, busca, Só DISPONÍVEL; ids catalogo/catalogo-titulo, que o chat e a rolagem usam).
+   * 'inicio': a loja no fim do Início (destaques com as abas primeiro, sem busca; ids próprios).
+   */
+  onde?: 'aba' | 'inicio'
+  /** false: só os destaques, a grade ainda não montou (o Início monta ela no primeiro respiro, ver Abas.tsx). */
+  comGrade?: boolean
+}
+
+export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCatalogo) {
+  const inicio = onde === 'inicio'
   const { produtos } = useCatalogo()
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = canalDa(uf)
@@ -231,56 +319,81 @@ export function Catalogo({ abrirInfo }: { abrirInfo: () => void }) {
   // reorganiza a grade com Flip ao trocar filtro/categoria (voz app)
   const comFlip = (f: () => void) => {
     carregarFlip()
-    if (FlipMod && grade.current && !movimentoReduzido()) flip.current = FlipMod.getState(grade.current.querySelectorAll('.card'))
+    if (FlipMod && grade.current && !movimentoReduzido()) flip.current = FlipMod.getState(grade.current.querySelectorAll('.card'), { simple: true })
     f()
   }
   useLayoutEffect(() => {
     if (!flip.current || !FlipMod) return
     const st = flip.current
     flip.current = null
+    // só posição, medida pela caixa (simple): sem rotação nem escala na grade, e as células têm o mesmo tamanho. Sem
+    // absolute/nested e sem a matriz de cada card, que mediam e remediam o estilo e o layout da página card a card (1,3
+    // s por toque num Android médio). Os que saem já saíram do DOM com o React; os que entram (targets: a grade de
+    // agora) aparecem em degrau, e quem não andou fica de fora (prune)
     FlipMod.from(st, {
+      targets: grade.current?.querySelectorAll('.card'),
       duration: 0.42,
       ease: 'power3.inOut',
-      absolute: true,
-      nested: true,
+      simple: true,
+      prune: true,
       onEnter: (els) => gsap.fromTo(els, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'steps(3)' }),
-      onLeave: (els) => gsap.to(els, { opacity: 0, duration: 0.2, ease: 'steps(3)' }),
     })
   }, [lista])
 
   const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
 
-  return (
-    // o título (h1 "Catálogo", id catalogo-titulo) fica no cabeçalho da aba (Abas.tsx)
-    <section id="catalogo" className="catalogo" aria-labelledby="catalogo-titulo">
-      <Destaques categoria={categoria} setCategoria={(c) => comFlip(() => setCategoria(c))} abrirInfo={abrirInfo} />
+  const trocarCategoria = (c: string) => comFlip(() => setCategoria(c))
 
-      <div className="filtros">
-        <label className="busca">
-          <Icone nome="lupa" tamanho={18} />
-          <input
-            type="search"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="gin, seda, piteira…"
-            aria-label="Buscar produto"
-            enterKeyHint="search"
-          />
-        </label>
-        <button
-          type="button"
-          className={`chip-disp px toque ${soDisp ? 'ativo' : ''}`}
-          aria-pressed={soDisp}
-          onClick={() => comFlip(() => setSoDisp((v) => !v))}
-          disabled={!canal}
-        >
-          Só DISPONÍVEL ✅
-        </button>
-      </div>
+  return (
+    // aba: o título (h1 "Catálogo", id catalogo-titulo) fica no cabeçalho da aba (Abas.tsx). Início: título só para
+    // leitor de tela (a loja vem logo depois do perfil, como os destaques e a grade de um perfil do Instagram)
+    <section
+      id={inicio ? 'inicio-loja' : 'catalogo'}
+      className={`catalogo${inicio ? ' catalogo-inicio' : ''}`}
+      aria-labelledby={inicio ? 'inicio-loja-titulo' : 'catalogo-titulo'}
+    >
+      {inicio && (
+        <h2 id="inicio-loja-titulo" className="sr-only" tabIndex={-1}>
+          Loja
+        </h2>
+      )}
+      {inicio ? (
+        <DestaquesInicio categoria={categoria} setCategoria={trocarCategoria} abrirInfo={abrirInfo} />
+      ) : (
+        <Destaques categoria={categoria} setCategoria={trocarCategoria} abrirInfo={abrirInfo} />
+      )}
+
+      {!inicio && (
+        <div className="filtros">
+          <label className="busca">
+            <Icone nome="lupa" tamanho={18} />
+            <input
+              type="search"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="gin, seda, piteira…"
+              aria-label="Buscar produto"
+              enterKeyHint="search"
+            />
+          </label>
+          <button
+            type="button"
+            className={`chip-disp px toque ${soDisp ? 'ativo' : ''}`}
+            aria-pressed={soDisp}
+            onClick={() => comFlip(() => setSoDisp((v) => !v))}
+            disabled={!canal}
+          >
+            Só DISPONÍVEL ✅
+          </button>
+        </div>
+      )}
 
       {!uf && <p className="catalogo-aviso legenda">Escolhe teu estado no adesivo lá em cima pra ver o que tem disponível.</p>}
 
-      {lista.length === 0 ? (
+      {!comGrade ? (
+        // a grade entra no primeiro respiro: o lugar dela fica guardado (o rodapé não sobe e desce)
+        <div className="grade-espera" />
+      ) : lista.length === 0 ? (
         <div className="catalogo-vazio">
           <CaixaEncomenda termo={busca.trim() || undefined} key={busca} />
         </div>

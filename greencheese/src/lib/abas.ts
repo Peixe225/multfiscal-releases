@@ -1,11 +1,10 @@
 import { useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { dentroDeIframe } from './ambiente'
-import { depoisDoHistorico, haCamadaAberta, quandoSemCamadas } from './historico'
-import { homeNaURL } from './home'
+import { depoisDoHistorico, haCamadaAberta, historicoParado, quandoSemCamadas } from './historico'
 import { movimentoReduzido } from './movimento'
 import { desviarAncoras, obterLenis, rolarPara } from './rolagem'
-import { abaDaURL, atualizarParametros, lerParametros, manterNaURL, type Aba } from './url'
+import { abaDaURL, atualizarParametros, lerParametros, limparHomeVelha, type Aba } from './url'
 
 // Abas do site (Início, Catálogo, Por estado): vistas do mesmo app, no molde das abas do Instagram.
 //
@@ -40,15 +39,12 @@ let pendente: Aba | null = null
 const ABAS: readonly Aba[] = ['inicio', 'catalogo', 'estados']
 const ehAba = (v: unknown): v is Aba => typeof v === 'string' && (ABAS as readonly string[]).includes(v)
 
-/** URL de uma aba: mantém uf, cidade e home; tira o que é de camada (story, página do produto, jogo, chat). */
+/** URL de uma aba: mantém uf e cidade; tira o que é de camada (story, página do produto, jogo, chat). */
 function urlCom(a: Aba): string {
   const u = new URL(location.href)
   for (const k of ['p', 'produto', 'jogo', 'chat']) u.searchParams.delete(k)
   if (a === 'inicio') u.searchParams.delete('aba')
   else u.searchParams.set('aba', a)
-  const h = homeNaURL(useUI.getState().home)
-  if (h) u.searchParams.set('home', h)
-  else u.searchParams.delete('home')
   return u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + u.hash
 }
 
@@ -70,6 +66,20 @@ export function focarBusca(rolar = true) {
     rolarPara(filtros, -topo)
   }
   campo?.focus({ preventScroll: true })
+}
+
+/**
+ * "Ver loja" do perfil: desce até os destaques do Início (suave; corte seco com movimento reduzido) e leva o foco para
+ * o título da loja (o Tab seguinte cai nos destaques). Fora do Início, abre o Catálogo.
+ */
+export function verLoja() {
+  const loja = document.querySelector<HTMLElement>('.vista[data-vista="inicio"] .catalogo-inicio')
+  if (!loja || useUI.getState().aba !== 'inicio') return irParaAba('catalogo')
+  // no celular, o adesivo de local fica ancorado no topo depois do story (~60 px): os destaques param logo abaixo dele
+  // e o "Ver loja" some atrás dele
+  const topo = window.matchMedia('(min-width: 900px)').matches ? 24 : 64
+  rolarPara(loja, -topo)
+  loja.querySelector<HTMLElement>('#inicio-loja-titulo')?.focus({ preventScroll: true })
 }
 
 /**
@@ -110,7 +120,9 @@ export function irParaAba(nova: Aba, op: { foco?: FocoAba } = {}) {
     ultima = { origem: 'nav', foco: op.foco ?? 'titulo', y: 0 }
     useUI.getState().setAba(nova)
   }
-  depoisDoHistorico(trocar)
+  // toque na barra sem camada nenhuma: troca no mesmo quadro (a espera do histórico custava um quadro e meio)
+  if (historicoParado()) trocar()
+  else depoisDoHistorico(trocar)
 }
 
 /** Link de uma aba (href das abas da barra e da lateral: Ctrl+clique ou botão do meio abre em aba nova). */
@@ -120,8 +132,6 @@ export function hrefAba(a: Aba): string {
   if (p.uf) q.set('uf', p.uf)
   if (p.cidade) q.set('cidade', p.cidade)
   if (a !== 'inicio') q.set('aba', a)
-  const h = homeNaURL(useUI.getState().home)
-  if (h) q.set('home', h)
   const s = q.toString()
   return s ? `?${s}` : location.pathname
 }
@@ -142,13 +152,11 @@ let iniciado = false
 export function iniciarAbas() {
   if (iniciado) return
   iniciado = true
+  limparHomeVelha()
   const a = abaDaURL()
   const pedida = lerParametros().aba
   // ?aba=inicio ou valor desconhecido (os dois caem no Início): sai da URL, o Início não tem parâmetro
   if (pedida && a === 'inicio') atualizarParametros({ aba: null })
-  // Home 2 (ou 1 forçada com a 2 aprovada) fica na URL: recarregar e compartilhar o link seguem nela
-  atualizarParametros({ home: homeNaURL(useUI.getState().home) })
-  manterNaURL(() => ({ home: homeNaURL(useUI.getState().home) }))
   try {
     history.replaceState({ ...(history.state ?? {}), gcAba: a }, '')
   } catch {

@@ -1,8 +1,9 @@
 // Matriz de celulares: rolagem lateral e alvos de toque em cada aba, barra de abas, voltar entre abas, story cabendo
-// na tela com gestos de toque reais, chat pela linha de resposta do story e a rodada da Home 2 (balão e mercador).
-// Também: celular deitado (story do hero inteiro acima da barra, nada encavalado, passo do mercador dentro do quadro),
-// celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e o teclado do Android
-// (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai).
+// na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story → faixa → perfil →
+// destaques com as abas primeiro, o fio e os filtros → grade → rodapé, sem mercador, sem Teste minha sorte e sem
+// repost no fim; o filtro filtra a grade do próprio Início). Também: celular deitado (story do hero inteiro acima da
+// barra, nada encavalado), celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e
+// o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai).
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
@@ -92,6 +93,15 @@ async function varrer(p, nome, aba) {
   ruins.filter((x) => !/destaque|faixa-item/.test(x)).forEach((x) => problemas.push(`${nome} (${aba}): ${x}`))
 }
 
+/** Foto da página inteira: o card fora da tela pula a pintura (content-visibility: auto); na foto, todos pintam. */
+async function fotoInteira(p, caminho) {
+  await p.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+  const estilo = await p.addStyleTag({ content: '.grade > .card { content-visibility: visible !important }' })
+  await p.waitForTimeout(300)
+  await p.screenshot({ path: caminho, fullPage: true })
+  await estilo.evaluate((e) => e.remove())
+}
+
 /** Barra de abas: fixa no pé, 4 ou 5 células de 44×44 ou mais, dentro da tela, Início marcado. */
 async function conferirBarra(p, nome) {
   const r = await p.evaluate(() => {
@@ -116,23 +126,99 @@ async function conferirBarra(p, nome) {
 
 const abaAberta = (p) => p.evaluate(() => document.querySelector('.vista:not([hidden])')?.dataset.vista)
 
+/**
+ * O Início, de cima a baixo: story, faixa, perfil (com "Ver loja"), destaques, grade (a caixa de encomenda por último)
+ * e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado), o fio e o grupo dos filtros.
+ * Nada do fim da aba Catálogo (Teste minha sorte, repost do mercador) e nenhum mercador. Ids próprios (o #catalogo é
+ * da aba Catálogo, que o chat e a rolagem usam).
+ */
+async function conferirInicio(p, nome) {
+  const r = await p.evaluate(() => {
+    const v = document.querySelector('.vista[data-vista="inicio"]')
+    const topo = (s) => {
+      const e = v?.querySelector(s)
+      return e && e.getClientRects().length ? e.getBoundingClientRect().top + scrollY : null
+    }
+    const rodape = document.querySelector('.rodape')
+    const grade = v?.querySelector('.catalogo-inicio .grade')
+    const ultimo = grade?.lastElementChild
+    const nav = v?.querySelector('.destaques-inicio nav.destaques-grupo')
+    const fio = v?.querySelector('.destaques-inicio .destaques-fio')
+    const filtros = v?.querySelector('.destaques-inicio [role="group"][aria-label="Categorias"]')
+    const ordemDestaques = nav && fio && filtros ? !!(nav.compareDocumentPosition(fio) & 4) && !!(fio.compareDocumentPosition(filtros) & 4) : false
+    const fioB = fio?.getBoundingClientRect()
+    return {
+      ordem: ['.hero', '.faixa', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
+      gradeFim: grade ? grade.getBoundingClientRect().bottom + scrollY : null,
+      rodape: rodape ? rodape.getBoundingClientRect().top + scrollY : null,
+      ultimoCaixa: !!ultimo?.classList.contains('card-caixa'),
+      ordemDestaques,
+      abas: nav ? [...nav.children].map((e) => e.getAttribute('data-destaque') ?? (e.classList.contains('destaque-interativo') ? 'interativo' : 'estado')) : [],
+      filtros: filtros ? filtros.querySelectorAll('[aria-pressed]').length : 0,
+      fio: fioB ? { w: fioB.width, h: fioB.height } : null,
+      fimCatalogo: !!v?.querySelector('.aba-fim, .reposts, .adesivos-interativos, #secao-interativo, #secao-marcados'),
+      mercador: !!v?.querySelector('.mercador-loja, .repost-figura'),
+      idsRepetidos: !!v?.querySelector('#catalogo, #catalogo-titulo'),
+      busca: !!v?.querySelector('.busca, .chip-disp'),
+    }
+  })
+  const o = r.ordem
+  if (o.some((y) => y == null)) problemas.push(`${nome}: falta peça no Início (${JSON.stringify(o)})`)
+  else if (o.some((y, i) => i && y < o[i - 1])) problemas.push(`${nome}: ordem do Início errada (${o.map(Math.round).join(' < ')})`)
+  if (r.gradeFim != null && r.rodape != null && (r.rodape < r.gradeFim - 1 || r.rodape - r.gradeFim > 120)) problemas.push(`${nome}: o rodapé não vem logo depois da grade (${Math.round(r.gradeFim)} → ${Math.round(r.rodape)})`)
+  if (!r.ultimoCaixa) problemas.push(`${nome}: a caixa de encomenda não é a última célula da grade do Início`)
+  if (!r.ordemDestaques) problemas.push(`${nome}: destaques do Início fora da ordem abas → fio → filtros`)
+  if (JSON.stringify(r.abas) !== JSON.stringify(['estado', 'catalogo', 'interativo', 'estados'])) problemas.push(`${nome}: abas dos destaques ${JSON.stringify(r.abas)}`)
+  if (r.filtros < 6) problemas.push(`${nome}: só ${r.filtros} filtros nos destaques do Início`)
+  if (!r.fio || r.fio.w > 1.5 || r.fio.h < 20) problemas.push(`${nome}: fio entre abas e filtros ${JSON.stringify(r.fio)}`)
+  if (r.fimCatalogo) problemas.push(`${nome}: o Início ainda tem o fim da aba Catálogo (Teste minha sorte/repost)`)
+  if (r.mercador) problemas.push(`${nome}: mercador no Início do celular`)
+  if (r.idsRepetidos) problemas.push(`${nome}: #catalogo/#catalogo-titulo repetidos no Início`)
+  if (r.busca) problemas.push(`${nome}: busca ou "Só DISPONÍVEL" no Início`)
+}
+
 for (const [nome, w, h] of aparelhos) {
   const ctx = await contexto(w, h)
   const p = await ctx.newPage()
   await abrir(p, nome, `${base}?uf=mg`)
   await p.screenshot({ path: `${out}${nome}-1-home.png` })
-  await p.screenshot({ path: `${out}${nome}-1b-home-inteira.png`, fullPage: true })
+  await fotoInteira(p, `${out}${nome}-1b-home-inteira.png`)
   await conferirBarra(p, nome)
-  // a home termina no story + faixa + perfil + rodapé (catálogo e estados ficam nas abas)
-  const naHome = await p.evaluate(() => {
-    const v = document.querySelector('.vista[data-vista="inicio"]')
-    return { catalogo: !!v?.querySelector('#catalogo'), estados: !!v?.querySelector('#estados') }
-  })
-  if (naHome.catalogo || naHome.estados) problemas.push(`${nome}: catálogo/estados ainda dentro do Início`)
+  // a grade do Início entra no primeiro respiro: espera ela
+  await p.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+  await conferirInicio(p, nome)
+  // perfil e destaques ("Ver loja" desce até eles)
+  await p.locator('.vista-inicio .so-celular .perfil-loja').tap()
+  await p.waitForTimeout(1200)
+  const loja = await p.evaluate(() => ({ topo: document.querySelector('.vista-inicio .destaques-inicio').getBoundingClientRect().top, aba: document.querySelector('.vista:not([hidden])')?.dataset.vista }))
+  if (loja.aba !== 'inicio' || loja.topo < 40 || loja.topo > 160) problemas.push(`${nome}: "Ver loja" não parou nos destaques (${JSON.stringify(loja)})`)
+  await p.screenshot({ path: `${out}${nome}-1c-destaques.png` })
+  // filtro do Início: Sedas filtra a grade dele (a da aba Catálogo fica como está)
+  const sedas = p.locator('.vista-inicio .destaque[aria-pressed]', { hasText: 'Sedas' })
+  await sedas.scrollIntoViewIfNeeded()
+  await sedas.tap()
+  await p.waitForTimeout(900)
+  const f = await p.evaluate(() => ({
+    nomes: [...document.querySelectorAll('.vista-inicio .catalogo-inicio .grade > .card:not(.card-caixa) .sq-nome')].map((e) => e.textContent),
+    catalogo: document.querySelectorAll('.vista[data-vista="catalogo"] .grade > .card:not(.card-caixa)').length,
+    pressionado: document.querySelector('.vista-inicio .destaque[aria-pressed="true"]')?.textContent,
+  }))
+  if (!f.nomes.length || f.nomes.some((n) => !/seda/i.test(n)) || !/Sedas/.test(f.pressionado ?? '')) problemas.push(`${nome}: filtro Sedas do Início não filtrou a grade (${JSON.stringify(f)})`)
+  if (f.catalogo && f.catalogo <= f.nomes.length) problemas.push(`${nome}: o filtro do Início mexeu na grade da aba Catálogo`)
+  await p.screenshot({ path: `${out}${nome}-1d-filtro-sedas.png` })
+  await p.locator('.vista-inicio .destaque[aria-pressed]', { hasText: 'Tudo' }).tap()
+  await p.waitForTimeout(600)
+  await p.evaluate(() => scrollTo(0, 0))
   await varrer(p, nome, 'inicio')
   await irAba(p, 'catalogo')
   await p.screenshot({ path: `${out}${nome}-2-catalogo.png` })
   await varrer(p, nome, 'catalogo')
+  // a aba Catálogo continua com o fim dela (Teste minha sorte e o repost do mercador)
+  const fim = await p.evaluate(() => {
+    const v = document.querySelector('.vista[data-vista="catalogo"]')
+    return { reposts: !!v?.querySelector('.reposts .repost-figura'), interativo: !!v?.querySelector('#secao-interativo'), busca: !!v?.querySelector('.busca input') }
+  })
+  if (!fim.reposts || !fim.interativo || !fim.busca) problemas.push(`${nome}: a aba Catálogo perdeu busca/Teste minha sorte/repost (${JSON.stringify(fim)})`)
   await irAba(p, 'estados')
   await p.screenshot({ path: `${out}${nome}-3-estados.png` })
   await varrer(p, nome, 'estados')
@@ -197,69 +283,15 @@ for (const [nome, w, h] of aparelhos) {
   console.log('✓', nome)
 }
 
-// ---------- Home 2: rosto na barra, passo do mercador no story, balão ----------
-for (const [nome, w, h] of aparelhos.filter(([n]) => /320|390|430|360x560/.test(n))) {
-  const ctx = await contexto(w, h, { semDica: true })
-  const p = await ctx.newPage()
-  await abrir(p, `${nome} h2`, `${base}?uf=mg&home=2`)
-  await p.screenshot({ path: `${out}${nome}-h2-1-home.png` })
-  await p.screenshot({ path: `${out}${nome}-h2-1b-home-inteira.png`, fullPage: true })
-  if (!(await p.locator('.barra-abas .aba-mercador').count())) problemas.push(`${nome} h2: sem o rosto do mercador na barra`)
-  const larg = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth])
-  if (larg[0] > larg[1]) problemas.push(`${nome} h2: rolagem lateral (${larg[0]} > ${larg[1]})`)
-  // passo 2: toque na borda direita
-  const quadro = await p.locator('.hero-quadro').boundingBox()
-  await p.touchscreen.tap(quadro.x + quadro.width * 0.92, quadro.y + quadro.height * 0.3)
-  const t0 = Date.now()
-  let aberto = null
-  for (let k = 0; k < 40; k++) {
-    const v = await p.evaluate(() => {
-      const e = document.querySelector('.hero-palco .sm-passo .q-aberto')
-      return e ? getComputedStyle(e).visibility : 'sem'
-    })
-    if (v === 'visible') {
-      aberto = Date.now() - t0
-      break
-    }
-    await p.waitForTimeout(50)
-  }
-  if (aberto == null || aberto > 1500) problemas.push(`${nome} h2: o casaco não abriu em 1,5 s no passo do mercador (${aberto})`)
-  await p.screenshot({ path: `${out}${nome}-h2-3-mercador-0s.png` })
-  await p.waitForTimeout(3000)
-  await p.screenshot({ path: `${out}${nome}-h2-3-mercador-3s.png` })
-  await p.waitForTimeout(3000)
-  await p.screenshot({ path: `${out}${nome}-h2-3-mercador-6s.png` })
-  // balão: entra logo depois que o passo do mercador sai do story (só em celular alto)
-  if (h > 700) {
-    const balao = p.locator('.balao-mercador')
-    await balao.waitFor({ state: 'visible', timeout: 9000 }).catch(() => {})
-    if (!(await balao.count())) problemas.push(`${nome} h2: o balão não apareceu`)
-    else {
-      await p.waitForTimeout(300)
-      await p.screenshot({ path: `${out}${nome}-h2-2-balao.png` })
-      const r = await p.evaluate(() => {
-        const a = document.querySelector('.balao-mercador-txt').getBoundingClientRect()
-        const r = document.querySelector('.hero-resposta').getBoundingClientRect()
-        return { balao: a.top, resposta: r.bottom }
-      })
-      if (r.balao < r.resposta) problemas.push(`${nome} h2: o balão cobre a linha de resposta (${Math.round(r.balao)} < ${Math.round(r.resposta)})`)
-    }
-  } else {
-    await p.waitForTimeout(5000)
-    if (await p.locator('.balao-mercador').count()) problemas.push(`${nome} h2: balão em celular baixo`)
-  }
-  await ctx.close()
-  console.log('✓', nome, 'home 2', aberto != null ? `(casaco em ${aberto} ms)` : '')
-}
-// ---------- Home 2: uma barrinha por passo; o último passo também anda sozinho ----------
+// ---------- story do Início: uma barrinha por produto; o último também anda sozinho ----------
 {
   const ctx = await contexto(390, 844, { semDica: true })
   const p = await ctx.newPage()
-  await abrir(p, 'barras h2', `${base}?uf=mg&home=2`)
+  await abrir(p, 'barras', `${base}?uf=mg`)
   const info = () =>
     p.evaluate(() => ({
       barras: document.querySelectorAll('.hero-barras .story-barra').length,
-      nome: document.querySelector('.hero-palco .sq-nome')?.textContent ?? (document.querySelector('.hero-palco .sm-passo') ? 'MERCADOR' : '?'),
+      nome: document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?',
     }))
   const quadro = await p.locator('.hero-quadro').boundingBox()
   const vistos = new Set()
@@ -273,15 +305,15 @@ for (const [nome, w, h] of aparelhos.filter(([n]) => /320|390|430|360x560/.test(
     if (vistos.has(i.nome)) break
     ultimo = i
   }
-  if (ultimo.barras !== vistos.size) problemas.push(`barras h2: ${ultimo.barras} barrinhas para ${vistos.size} passos`)
+  if (ultimo.barras !== vistos.size) problemas.push(`barras: ${ultimo.barras} barrinhas para ${vistos.size} produtos`)
   // volta ao último passo e espera ele andar sozinho
   await p.touchscreen.tap(quadro.x + quadro.width * 0.08, quadro.y + quadro.height * 0.3)
   await p.waitForTimeout(500)
   const noUltimo = await info()
   await p.waitForTimeout(7000)
-  if ((await info()).nome === noUltimo.nome) problemas.push(`barras h2: o último passo (${noUltimo.nome}) travou`)
+  if ((await info()).nome === noUltimo.nome) problemas.push(`barras: o último produto (${noUltimo.nome}) travou`)
   await ctx.close()
-  console.log('✓ barras da Home 2', `(${vistos.size} passos)`)
+  console.log('✓ barras do story', `(${vistos.size} produtos)`)
 }
 
 // ---------- celular deitado: o story do hero inteiro acima da barra de abas ----------
@@ -294,55 +326,32 @@ const deitados = [
 ]
 const cruza = (a, b) => a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1
 for (const [nome, w, h] of deitados) {
-  for (const home of [1, 2]) {
-    const ctx = await contexto(w, h, { semDica: true })
-    const p = await ctx.newPage()
-    await abrirLembrado(ctx, p, `${nome} h${home}`, `${base}?uf=mg${home === 2 ? '&home=2' : ''}`)
-    const medir = () =>
-      p.evaluate(() => {
-        const r = (s) => {
-          const e = document.querySelector(s)
-          const b = e?.getBoundingClientRect()
-          return b && b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null
-        }
-        return {
-          story: r('.hero-story'),
-          barra: r('.barra-abas'),
-          resposta: r('.hero-resposta .barra-pilula'),
-          ver: r('.hero-ver'),
-          disp: r('.hero-palco .sq-disp'),
-          preco: r('.hero-palco .sq-preco'),
-          cab: r('.hero-cab'),
-          // o local à vista no Início é a linha do cabeçalho (o adesivo do topo só aparece depois do story)
-          local: r('.hero-cab-local .linha-local-txt'),
-          adesivo: r('.hero-palco .sm-adesivo'),
-          disco: r('.hero-palco .sm-disco'),
-          figura: r('.hero-palco .sm-palco .repost-figura'),
-        }
-      })
-    const m = await medir()
-    const tag = `${nome}-h${home}`
-    if (m.story && m.barra && m.story.b > m.barra.t + 1) problemas.push(`${tag}: story passa da barra de abas (${Math.round(m.story.b)} > ${Math.round(m.barra.t)})`)
-    if (m.resposta && m.barra && m.resposta.b > m.barra.t + 1) problemas.push(`${tag}: "Enviar mensagem…" atrás da barra de abas`)
-    if (cruza(m.disp, m.ver) || cruza(m.preco, m.ver)) problemas.push(`${tag}: VER PRODUTO por cima do preço/DISPONÍVEL`)
-    if (m.disp && m.story && m.disp.b > m.story.b) problemas.push(`${tag}: DISPONÍVEL fora do story`)
-    await p.screenshot({ path: `${out}${tag}-1-hero.png` })
-    if (home === 2) {
-      // passo do mercador: dentro do quadro, abaixo do @, sem passar por cima da linha de local
-      const q = await p.locator('.hero-quadro').boundingBox()
-      await p.touchscreen.tap(q.x + q.width * 0.92, q.y + q.height * 0.25)
-      await p.waitForTimeout(1600)
-      const n = await medir()
-      if (!n.adesivo) problemas.push(`${tag}: passo do mercador não apareceu`)
-      else {
-        if (n.disco.t < n.cab.b - 1 || n.adesivo.t < n.cab.b - 1) problemas.push(`${tag}: adesivo do mercador sobe por cima do @ (${Math.round(n.disco.t)} < ${Math.round(n.cab.b)})`)
-        if (cruza(n.figura, n.local) || cruza(n.adesivo, n.local)) problemas.push(`${tag}: mercador por cima da linha de local`)
-        if (n.figura && n.figura.b > n.story.b) problemas.push(`${tag}: mercador fora do quadro`)
+  const ctx = await contexto(w, h, { semDica: true })
+  const p = await ctx.newPage()
+  await abrirLembrado(ctx, p, nome, `${base}?uf=mg`)
+  const medir = () =>
+    p.evaluate(() => {
+      const r = (s) => {
+        const e = document.querySelector(s)
+        const b = e?.getBoundingClientRect()
+        return b && b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null
       }
-      await p.screenshot({ path: `${out}${tag}-2-mercador.png` })
-    }
-    await ctx.close()
-  }
+      return {
+        story: r('.hero-story'),
+        barra: r('.barra-abas'),
+        resposta: r('.hero-resposta .barra-pilula'),
+        ver: r('.hero-ver'),
+        disp: r('.hero-palco .sq-disp'),
+        preco: r('.hero-palco .sq-preco'),
+      }
+    })
+  const m = await medir()
+  if (m.story && m.barra && m.story.b > m.barra.t + 1) problemas.push(`${nome}: story passa da barra de abas (${Math.round(m.story.b)} > ${Math.round(m.barra.t)})`)
+  if (m.resposta && m.barra && m.resposta.b > m.barra.t + 1) problemas.push(`${nome}: "Enviar mensagem…" atrás da barra de abas`)
+  if (cruza(m.disp, m.ver) || cruza(m.preco, m.ver)) problemas.push(`${nome}: VER PRODUTO por cima do preço/DISPONÍVEL`)
+  if (m.disp && m.story && m.disp.b > m.story.b) problemas.push(`${nome}: DISPONÍVEL fora do story`)
+  await p.screenshot({ path: `${out}${nome}-1-hero.png` })
+  await ctx.close()
   console.log('✓', nome)
 }
 
@@ -411,15 +420,14 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
 {
   const BA = { region: 'Bahia', region_code: 'BA' }
   const casos = [
-    ['safari-390x664', 390, 664, 1, null],
-    ['se-320x568', 320, 568, 2, null],
-    ['iphone8-375x667', 375, 667, 2, BA],
-    ['iphone13-390x844', 390, 844, 1, BA],
-    ['deitado-844x390', 844, 390, 1, null],
-    ['deitado-844x390', 844, 390, 2, null],
+    ['safari-390x664', 390, 664, null],
+    ['se-320x568', 320, 568, null],
+    ['iphone8-375x667', 375, 667, BA],
+    ['iphone13-390x844', 390, 844, BA],
+    ['deitado-844x390', 844, 390, null],
   ]
-  for (const [nome, w, h, home, ip] of casos) {
-    const tag = `${nome}-h${home}-${ip ? 'BA' : 'MG'} palpite`
+  for (const [nome, w, h, ip] of casos) {
+    const tag = `${nome}-${ip ? 'BA' : 'MG'} palpite`
     const ctx = await contexto(w, h, { semDica: true, ip: ip ?? undefined })
     // +18 já lembrado (deitado o "Tenho" pode ficar abaixo da dobra; não é o que esta rodada confere)
     await ctx.addInitScript(() => {
@@ -431,7 +439,7 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
     })
     const p = await ctx.newPage()
     p.on('pageerror', (e) => problemas.push(`${tag}: pageerror ${e.message}`))
-    await p.goto(`${base}${home === 2 ? '?home=2' : ''}`)
+    await p.goto(base)
     if (!ip) {
       // a pergunta aparece na abertura; tocar fora dela segue sem responder
       await p.locator('.abertura .enquete-confirmar').waitFor({ timeout: 9000 }).catch(() => problemas.push(`${tag}: a abertura não perguntou`))

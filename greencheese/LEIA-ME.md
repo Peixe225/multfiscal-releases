@@ -78,41 +78,36 @@ Na prévia, o selo **prévia** (canto de cima no celular, barra lateral no compu
 
 ---
 
-## Abas e Home 2
+## Abas e Início
 
-O site é um app só, com três abas no molde do Instagram. O **Início** termina no story + perfil + rodapé; o resto fica nas outras abas:
+O site é um app só, com três abas no molde do Instagram. O **Início** é o perfil da loja de cima a baixo e acaba na grade do catálogo:
 
 | Aba | Endereço | O que tem |
 |---|---|---|
-| Início | `…/greencheese/?uf=mg` | story dos produtos (com "Enviar mensagem…" no pé, no celular), faixa dos perfis, perfil com "Ver loja" |
+| Início | `…/greencheese/?uf=mg` | story dos produtos (com "Enviar mensagem…" no pé, no celular), faixa dos perfis, perfil com "Ver loja", destaques e a grade do catálogo (a caixa "Não achou? A Green Cheese importa." é a última célula), rodapé |
 | Catálogo | `…/greencheese/?uf=mg&aba=catalogo` | destaques, busca, Só DISPONÍVEL, grade, encomenda e, no fim, o interativo (Teste minha sorte) e os reposts com o mercador |
 | Por estado | `…/greencheese/?uf=mg&aba=estados` | os perfis de cada estado |
 
-- **Celular:** barra fixa embaixo com Início, Catálogo (lupa), Teste minha sorte (no meio), Sacola (com o número de itens) e Por estado (o avatar da loja com o selo da UF). Tocar de novo na aba aberta sobe ao topo; a lupa tocada de novo no Catálogo vai até a busca. Num estado sem entrega a barra fica com 4 abas (sem o Teste minha sorte). Com o teclado aberto (busca, chat) a barra sai, como no Instagram — também no Android, onde a janela inteira encolhe com o teclado.
+**O Início:**
+
+- **Celular:** story → faixa dos @ → perfil ("Enviar mensagem", "Ver no Instagram", "Ver loja") → destaques → grade → rodapé. Sem busca e sem "Só DISPONÍVEL" (a busca é a lupa da barra) e sem o Teste minha sorte e o repost do fim da aba Catálogo. Nenhum mercador no Início do celular.
+- **Destaques do Início** (uma linha só, rola de lado): primeiro os que levam a outro lugar — o destaque do estado (moto, abre o story de atendimento), **Buscar** (abre o Catálogo com o cursor na busca), **Sorte** (abre o Teste minha sorte, com o anel aceso e o selo "novo") e **Por estado** (o pino com o selo da UF) —, um fio fino e, à direita, os filtros (Tudo, Importadas, Destilados, Sedas, Piteiras, Acessórios), que filtram a grade do próprio Início. Na aba Catálogo os destaques continuam como eram.
+- **"Ver loja"** do perfil desce até os destaques (suave; corte seco com movimento reduzido) e leva o foco junto.
+- **Computador:** a linha de cima é [mercador | perfil | story], depois a faixa, os mesmos destaques e a mesma grade (na moldura da aba Catálogo) e o rodapé. O mercador fica de pé ao lado do perfil, com os pés na linha do "Ver loja" e uma sombra de chão em pixel: sem moldura, sem texto e sem link (decorativo). Abre o casaco (e dá uns tragos, com `mercadorTraga`) só na tela, com a aba do navegador à vista e sem camada por cima; o mouse em cima abre o casaco na hora. A escala é inteira (3× até 1439 px de largura, 4× de 1440, 5× de 1800) e sai da sobra da coluna do perfil: o story nunca encolhe por causa dele — onde não cabe nem o 3× (ex.: 1200×900), o mercador não aparece. O código: `src/componentes/MercadorLoja.tsx` e `useLojaDesktop` em `Hero.tsx`.
+
+**Abas:**
+
+- **Celular:** barra fixa embaixo com Início, Catálogo (lupa), Teste minha sorte (o dichavador, no meio), Sacola (com o número de itens) e Por estado (o avatar da loja com o selo da UF). Tocar de novo na aba aberta sobe ao topo; a lupa tocada de novo no Catálogo vai até a busca. Num estado sem entrega a barra fica com 4 abas (sem o Teste minha sorte). Com o teclado aberto (busca, chat) a barra sai, como no Instagram — também no Android, onde a janela inteira encolhe com o teclado.
 - **Celular deitado:** o story do Início cabe inteiro acima da barra (arte à esquerda; nome, preço e DISPONÍVEL à direita; VER PRODUTO e "Enviar mensagem…" numa linha só no pé). Celular grande deitado (900 px ou mais) pega o layout de computador; a lateral rola quando não cabe.
 - **Computador:** a barra lateral troca as abas (Início, Buscar, Catálogo, Por estado), com a aba atual em negrito e o ícone cheio ("Buscar" fica ativo com a busca em uso; tocar em "Catálogo" volta o destaque para ele). Ctrl+clique ou o botão do meio abre a aba numa aba nova do navegador. Em janela baixa (notebook com a barra do navegador, enquete de local aberta) a lateral rola sozinha, sem levar a página.
 - **Voltar:** cada troca de aba entra no histórico. O voltar do Android (e do navegador) fecha primeiro a camada aberta (story, página do produto, sacola, chat, jogo) e depois volta para a aba de antes, com a rolagem de antes. Um link direto (`?aba=catalogo`) não inventa um Início embaixo: voltar sai do site. Trocar de estado na aba Por estado leva ao Início, como trocar de conta no Instagram; se a troca foi feita com o chat aberto (ex.: "Trocar estado" dentro do pedido), o chat continua e o Início entra quando ele fechar.
-- **Rapidez:** as abas escondidas usam `content-visibility: hidden` (o navegador guarda o layout e mostrar de novo é instantâneo) e o Catálogo é montado e calculado no tempo ocioso depois da abertura; trocar de aba não re-renderiza o catálogo nem o hero.
+- **Rapidez:** as abas escondidas usam `content-visibility: hidden` (o navegador guarda o layout e mostrar de novo não recalcula nada; sem `inert`, que recalcularia a vista inteira a cada troca) e cada card fora da tela usa `content-visibility: auto`. A grade do Início e o Catálogo montam no tempo ocioso depois da abertura, um de cada vez, numa transição do React (o toque passa na frente); trocar de aba não re-renderiza o catálogo nem o hero, e sem camada aberta a troca sai no mesmo quadro do toque. O filtro anima a grade só com transform (Flip no modo simples).
 - Os links de sempre continuam valendo por cima de qualquer aba: `?p=`, `?produto=`, `?jogo=sorte`, `?chat=pedido`. Ex.: `?uf=mg&aba=catalogo&produto=jack-daniels-old-no7-1l` abre a página do produto e o voltar cai no Catálogo.
-- O código das abas está em `src/lib/abas.ts` (URL e histórico) e `src/componentes/Abas.tsx` (as vistas).
+- O código das abas está em `src/lib/abas.ts` (URL, histórico e o "Ver loja") e `src/componentes/Abas.tsx` (as vistas); a loja do Início é o mesmo `Catalogo.tsx` com `onde="inicio"` (ids próprios: `inicio-loja`; o `#catalogo` é da aba Catálogo, que o chat e a rolagem usam).
 
-### Home 2 (em teste)
+**Links velhos da Home 2** (a versão em teste com o Teste minha sorte e o mercador no Início, que saiu): `https://oprojeto.online/greencheese/home2/` (e `Home2/`, `HOME2/`, que o `scripts/publicar.mjs` sobe junto) leva para a home de sempre mantendo o resto do link (`home2/?uf=rj` abre no RJ); `?home=2`, `?home2`, `?Home2`, `?home=1` num link já enviado saem da URL sozinhos e nada muda.
 
-A Home 2 é a mesma coisa com o **Teste minha sorte e o mercador no Início**:
-
-- **Computador:** a partir de 1200 px de largura, um card de story menor à esquerda do perfil (como os stories vizinhos do instagram.com), com o adesivo "Tá com sorte hoje?" e o mercador abrindo o casaco; o story fica com a largura que sobra e com a altura da janela, então tudo cabe em notebook baixo. Em janela baixa o card fica compacto (sem o título, CTA numa linha) para o mercador não virar miniatura. Abaixo de 1200 px o card deita embaixo do perfil.
-- **Celular:** o rosto do mercador piscando no meio da barra (no lugar do dichavador), o mercador como 2º story do Início (aparece aos 5 s, com a barrinha dele; deitado, mercador e adesivo ficam lado a lado) e, uma vez por sessão, o balão "Tá com sorte hoje?" saindo da barra logo depois que esse story passa (só em celular alto, sem cobrir nada).
-
-Como ver:
-
-- `https://oprojeto.online/greencheese/home2/` (atalho para compartilhar; também `Home2/` e `HOME2/`, que o `scripts/publicar.mjs` sobe junto — no repositório só existe `public/home2/`, porque pastas que só mudam a caixa colidem no Windows e no macOS; o resto do link vai junto: `home2/?uf=rj` abre a Home 2 no RJ), `?home=2` em qualquer link ou o atalho digitado `?home2` (com maiúscula ou não; vira `?home=2` sozinho). A escolha fica lembrada enquanto a aba do navegador estiver aberta (as abas e o recarregar seguem nela). `?home=1` volta para a Home 1.
-- No painel da prévia: **Versão da home** → Home 1 / Home 2, e o botão "Copiar link da Home 2".
-
-**Aprovar a Home 2:** em `src/lib/home.ts`, trocar `HOME_PADRAO = 1` para `HOME_PADRAO = 2`, gerar o build e subir.
-
-**Recusar a Home 2** (tirar do código): apagar `src/componentes/StoryMercador.tsx`/`.css`; em `Hero.tsx`, tirar o passo do mercador (`comMercador`) e o card (`vitrine`, `.hero-h2`); em `BarraAbas.tsx`, tirar `BalaoMercador` e o `RostoMercador` da aba do meio; em `Hero.css`, apagar o bloco "Home 2 no computador"; em `App.tsx`, o `BalaoMercador`; e, se quiser, `src/lib/home.ts`, `public/home2/` e a seção "Versão da home" do painel da prévia (`Lateral.tsx`). O mercador do repost no Catálogo não depende da Home 2.
-
-> Num estado sem entrega (ex.: `?uf=ba`) o Início vira a tela "A Green Cheese ainda não chegou aí" e a Home 2 fica igual à Home 1.
+> Num estado sem entrega (ex.: `?uf=ba`) o Início vira a tela "A Green Cheese ainda não chegou aí", sem destaques nem grade.
 
 ---
 
@@ -220,8 +215,8 @@ Em `src/dados/config.ts`: `dadosDeExemplo` (produtos, prêmios, horário e taxa 
 
 - Abertura em formato de story com a pergunta +18 (lembrada por 30 dias) e o adesivo de localização.
 - Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "Você está em …?"), escolha manual com os 27 estados. A pergunta do palpite aparece na abertura; se a pessoa pular, no celular ela fica no pé do story do Início, no lugar do "Enviar mensagem…" (que volta depois da resposta), e nas outras abas logo acima da barra.
-- Três abas (Início, Catálogo, Por estado), com barra de abas no celular e barra lateral no computador; o voltar do Android passa pelas abas (ver "Abas e Home 2").
-- Catálogo por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅".
+- Três abas (Início, Catálogo, Por estado), com barra de abas no celular e barra lateral no computador; o voltar do Android passa pelas abas (ver "Abas e Início").
+- Catálogo por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅" (no Início, a mesma grade logo depois do perfil, com os destaques que levam às abas primeiro e as categorias à direita).
 - Story do topo (hero): passa sozinho; toque nas bordas ou arrastar de lado passa e volta; no computador, setas ao lado do story e ← →. Na primeira visita, uma dica mostra onde tocar.
 - Página do produto ("aba"): tocar no produto do story ou em "VER PRODUTO" abre a página com descrição curta, preço, disponibilidade no estado, formato e combos, quantidade, "Adicionar à sacola", "Pedir este item" e "Combina com". Voltar pelo botão do topo, pelo voltar do Android ou Esc. Cada produto tem link próprio (`?produto=<id>`), que abre direto depois do +18 (segurar o dedo ou Ctrl+clique abre em aba nova). No story do produto, "Mais opções" → "Ver detalhes do produto".
 - Story do produto com barrinhas, toque nas laterais, segurar para pausar, arrastar para baixo para fechar, setas e Esc no teclado.
@@ -229,6 +224,6 @@ Em `src/dados/config.ts`: `dadosDeExemplo` (produtos, prêmios, horário e taxa 
 - Encomenda ("Não achou? A Green Cheese importa."), "Avisar quando chegar", todos os Instagrams.
 - "Segue o perfil do teu estado": mapa do Brasil em pixel (atendidos acesos, os outros em pontinhos apagados) com uma lupa no Sudeste + SC, onde cada estado atendido é um botão (a sigla do estado do cliente vira o adesivo de localização em miniatura: pino + "MG"); tocar num estado sem atendimento mostra "ainda não chegou" com Encomendar (fecha no X, no Esc ou tocando fora). Ao lado, a lista dos perfis no molde do "trocar de conta" do Instagram (na ordem do mapa, de cima pra baixo): tocar troca o site de estado. Mapa e lista ficam lado a lado quando a própria seção tem 910 px ou mais (container query; a coluna do mapa precisa caber o Brasil com a lupa); mais estreito, a lista vai embaixo. O tamanho das células e o lugar da lupa saem de `planejar()` em `MapaBrasil.tsx` (sempre em escala inteira, sem passar da largura da coluna nem da altura da tela).
 - Sacola e respostas ficam salvas no aparelho; o botão voltar do Android fecha a camada aberta.
-- **Teste minha sorte** (aba do meio da barra no celular, destaque "Sorte", item na lateral, card no fim do Catálogo, convite discreto na sacola; na Home 2, também no Início): gira a tampa do dichavador com o dedo (ou o botão "Girar", as setas, Espaço/Enter segurado, a roda do mouse); ele abre, sai um beck bolado e o beck desenrola no cupom. O 1º giro é sem conta; pra guardar e usar o cupom, cria conta com nome e WhatsApp. Com conta: 1 giro por dia, cupons em "Minha conta" e o nome já no pedido. O cupom aplicado vira uma linha na mensagem do WhatsApp; a loja confirma o desconto (o subtotal do site não muda).
+- **Teste minha sorte** (aba do meio da barra no celular, destaque "Sorte" no Início e no Catálogo, item na lateral, card no fim do Catálogo, convite discreto na sacola): gira a tampa do dichavador com o dedo (ou o botão "Girar", as setas, Espaço/Enter segurado, a roda do mouse); ele abre, sai um beck bolado e o beck desenrola no cupom. O 1º giro é sem conta; pra guardar e usar o cupom, cria conta com nome e WhatsApp. Com conta: 1 giro por dia, cupons em "Minha conta" e o nome já no pedido. O cupom aplicado vira uma linha na mensagem do WhatsApp; a loja confirma o desconto (o subtotal do site não muda).
 
 Derivados do tabaco não entram no site (Anvisa, RDC 840/2023, art. 6º).

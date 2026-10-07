@@ -149,7 +149,26 @@
 }
 /* a grade fica com 4 colunas dentro da moldura (5 colunas de 200 px viravam figurinha) */
 @media (min-width: 1360px) {
-  .aba-catalogo .grade {
+  .aba-catalogo .grade,
+  .loja-inicio .grade {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- loja do Início (destaques e grade, depois do perfil) ---------- */
+/* o rodapé vem logo depois da grade (sem o respiro grande do fim da aba Catálogo) */
+.loja-inicio .catalogo {
+  padding-bottom: 24px;
+}
+/* computador: a mesma moldura e a mesma grade da aba Catálogo */
+@media (min-width: 900px) {
+  .loja-inicio {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px 0 40px;
+  }
+  .loja-inicio .grade {
+    padding: 0 var(--gutter);
+    gap: 6px;
   }
 }

@@ -1,7 +1,7 @@
 import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
 import { ehDiaDeEntregaGratis, situacao } from '../lib/horario'
-import { irParaAba } from '../lib/abas'
+import { verLoja } from '../lib/abas'
 import { linkPerfil } from '../lib/mensagem'
 import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
@@ -90,8 +90,8 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
           </button>
         )}
       </div>
-      {/* a home termina no story: o próprio perfil leva à loja (o "Ver loja" do Instagram Shopping) */}
-      <button type="button" className="botao botao-cinza perfil-botao perfil-loja toque" onClick={() => irParaAba('catalogo')}>
+      {/* o "Ver loja" do Instagram Shopping: desce até os destaques e a grade, logo abaixo */}
+      <button type="button" className="botao botao-cinza perfil-botao perfil-loja toque" onClick={verLoja}>
         Ver loja
       </button>
     </section>

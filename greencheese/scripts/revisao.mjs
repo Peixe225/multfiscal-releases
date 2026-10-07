@@ -1,6 +1,7 @@
 // Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp (RJ e MG), com a navegação
-// em abas (Início | Catálogo | Por estado), as sequências de voltar, os links diretos, a Home 2, a matriz de desktop
-// e o axe em cada aba.
+// em abas (Início | Catálogo | Por estado), as sequências de voltar, os links diretos, o Início (destaques e grade,
+// sem o fim da aba Catálogo), o mercador ao lado do perfil na matriz de desktop, o atalho antigo home2/ e o axe em
+// cada aba.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -77,8 +78,41 @@ function vigiar(page, nome) {
 
 async function foto(page, nome, cheia = false) {
   await page.waitForTimeout(250)
+  // página inteira: o card fora da tela pula a pintura (content-visibility: auto); na foto, todos pintam
+  const estilo = cheia ? await page.addStyleTag({ content: '.grade > .card { content-visibility: visible !important }' }) : null
+  if (estilo) await page.waitForTimeout(300)
   await page.screenshot({ path: `${dir}${nome}.png`, fullPage: cheia })
+  if (estilo) await estilo.evaluate((e) => e.remove())
   relatorio.push(nome)
+}
+
+/**
+ * O Início acaba na grade (a caixa de encomenda por último) e no rodapé: destaques com as abas primeiro, o fio e os
+ * filtros; sem busca, sem o Teste minha sorte e o repost do fim da aba Catálogo, sem os ids dela.
+ */
+async function conferirInicio(page, nome) {
+  await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+  const r = await page.evaluate(() => {
+    const v = document.querySelector('.vista[data-vista="inicio"]')
+    const grade = v?.querySelector('.catalogo-inicio .grade')
+    const rodape = document.querySelector('.rodape')
+    const nav = v?.querySelector('.destaques-inicio nav')
+    const fio = v?.querySelector('.destaques-inicio .destaques-fio')
+    const filtros = v?.querySelector('.destaques-inicio [role="group"]')
+    return {
+      grade: !!grade,
+      caixaNoFim: !!grade?.lastElementChild?.classList.contains('card-caixa'),
+      rodapeLogo: grade && rodape ? rodape.getBoundingClientRect().top - grade.getBoundingClientRect().bottom : null,
+      destaques: !!(nav && fio && filtros && nav.compareDocumentPosition(fio) & 4 && fio.compareDocumentPosition(filtros) & 4),
+      fimCatalogo: !!v?.querySelector('.aba-fim, .reposts, .adesivos-interativos'),
+      ids: !!v?.querySelector('#catalogo, #catalogo-titulo'),
+      busca: !!v?.querySelector('.busca, .chip-disp'),
+    }
+  })
+  conferir(r.grade && r.caixaNoFim, `${nome}: Início com a grade e a caixa de encomenda por último`)
+  conferir(r.rodapeLogo != null && r.rodapeLogo >= -1 && r.rodapeLogo <= 120, `${nome}: o rodapé vem logo depois da grade (${r.rodapeLogo == null ? '?' : Math.round(r.rodapeLogo)} px)`)
+  conferir(r.destaques, `${nome}: destaques do Início com as abas, o fio e os filtros, nessa ordem`)
+  conferir(!r.fimCatalogo && !r.ids && !r.busca, `${nome}: Início sem Teste minha sorte/repost do fim, sem os ids e a busca da aba Catálogo`)
 }
 
 async function passarAbertura(page) {
@@ -208,8 +242,12 @@ const browser = await chromium.launch()
   await page.evaluate(() => document.querySelector('.vista:not([hidden]) .so-celular .perfil')?.scrollIntoView({ block: 'center' }))
   await page.waitForTimeout(600)
   await foto(page, 'cel-06-perfil')
+  await conferirInicio(page, 'cel')
+  conferir(!(await page.locator('.vista[data-vista="inicio"] .mercador-loja, .vista[data-vista="inicio"] .repost-figura').count()), 'cel: nenhum mercador no Início do celular')
+  await page.locator('.vista-inicio .so-celular .perfil-loja').click()
+  await page.waitForTimeout(1200)
+  await foto(page, 'cel-06b-destaques')
   await foto(page, 'cel-16-home-inteira', true)
-  conferir(!(await page.locator('.vista[data-vista="inicio"] #catalogo, .vista[data-vista="inicio"] #estados').count()), 'cel: o Início termina no story + perfil + rodapé')
   await page.evaluate(() => window.scrollTo(0, 0))
   await irAba(page, 'catalogo')
   await foto(page, 'cel-07-catalogo')
@@ -234,7 +272,7 @@ const browser = await chromium.launch()
   await irAba(page, 'estados')
   await page.waitForTimeout(1300)
   await foto(page, 'cel-12-por-estado')
-  await axeNasAbas(page, 'cel h1')
+  await axeNasAbas(page, 'cel')
   await ctx.close()
 }
 
@@ -264,27 +302,6 @@ const browser = await chromium.launch()
   await irAba(page, 'catalogo')
   await foto(page, 'cel-15b-sem-atendimento-catalogo')
   conferir((await page.locator('.sem-entrega').count()) === 1, 'ba: Catálogo mostra "Esse estado ainda não tem entrega."')
-  await ctx.close()
-}
-
-// ---------- Home 2 no celular: passo do mercador, rosto na barra, balão ----------
-{
-  const ctx = await contexto(browser, { width: 390, height: 844 }, { semDica: true })
-  const page = await ctx.newPage()
-  vigiar(page, 'cel-h2')
-  await page.goto(`${base}?uf=mg&home=2`)
-  await passarAbertura(page)
-  await foto(page, 'cel-17-home2')
-  conferir((await page.locator('.barra-abas .aba-mercador').count()) === 1, 'h2: rosto do mercador na barra')
-  const q = await page.locator('.hero-quadro').boundingBox()
-  await page.touchscreen.tap(q.x + q.width * 0.92, q.y + q.height * 0.3)
-  await page.waitForTimeout(1000)
-  conferir((await page.locator('.hero-palco .sm-passo').count()) === 1, 'h2: o 2º passo do story é o mercador')
-  conferir(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-palco .q-aberto')).visibility === 'visible'), 'h2: o casaco abre logo que o passo entra')
-  await foto(page, 'cel-17b-home2-mercador')
-  await page.locator('.balao-mercador').waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
-  conferir((await page.locator('.balao-mercador').count()) === 1, 'h2: balão do mercador depois do passo')
-  await foto(page, 'cel-17c-home2-balao')
   await ctx.close()
 }
 
@@ -398,7 +415,8 @@ const browser = await chromium.launch()
   }
 }
 
-// ---------- atalho da Home 2 (home2/; Home2/ e HOME2/ sobem pelo publicar.mjs): ?home=2 sem perder o resto do link ----------
+// ---------- links velhos da Home 2: home2/ (Home2/ e HOME2/ sobem pelo publicar.mjs), ?home=2, ?Home2 ----------
+// abrem a home de sempre, com o resto do link e sem as chaves home*
 {
   for (const pasta of ['home2']) {
     const r = await fetch(new URL(`${pasta}/index.html`, base)).catch(() => null)
@@ -406,8 +424,8 @@ const browser = await chromium.launch()
     // script só de arquivo (a CSP bloqueia script em linha) e o meta refresh para quem está sem JavaScript
     const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
     conferir(
-      scripts.length === 1 && /src="[^"]*ir\.js"/.test(scripts[0][1]) && !scripts[0][2].trim() && /<noscript><meta http-equiv="refresh"[^>]*url=\.\.\/\?home=2/.test(html),
-      `${pasta}/index.html: script de arquivo + meta refresh de reserva para ../?home=2`,
+      scripts.length === 1 && /src="[^"]*ir\.js"/.test(scripts[0][1]) && !scripts[0][2].trim() && /<noscript><meta http-equiv="refresh"[^>]*url=\.\.\/"/.test(html),
+      `${pasta}/index.html: script de arquivo + meta refresh de reserva para ../`,
     )
   }
   const ctx = await contexto(browser, { width: 390, height: 844 })
@@ -415,15 +433,25 @@ const browser = await chromium.launch()
   vigiar(page, 'atalho-h2')
   for (const [entrada, espera] of [
     ['home2/?uf=rj&aba=catalogo', { uf: 'rj', aba: 'catalogo' }],
+    ['home2/', {}],
     ['?Home2&uf=rj', { uf: 'rj' }],
     ['?HOME=2', {}],
+    ['?home=1&uf=mg', { uf: 'mg' }],
   ]) {
     await page.goto(new URL(entrada, base).href)
     await page.locator('.app').waitFor({ state: 'attached', timeout: 15000 })
     await page.waitForTimeout(300)
-    const r = await page.evaluate(() => ({ home: document.querySelector('.app')?.dataset.home, q: Object.fromEntries(new URLSearchParams(location.search)) }))
-    const ok = r.home === '2' && r.q.home === '2' && Object.entries(espera).every(([k, v]) => r.q[k] === v) && !Object.keys(r.q).some((k) => /^home./i.test(k) || (k !== 'home' && /^home$/i.test(k)))
-    conferir(ok, `atalho ${entrada}: Home 2 com ?home=2${Object.keys(espera).length ? ' e ' + Object.keys(espera).join('/') + ' mantidos' : ''} (${JSON.stringify(r)})`)
+    const r = await page.evaluate(() => ({
+      home: document.querySelector('.app')?.getAttribute('data-home'),
+      pasta: location.pathname,
+      q: Object.fromEntries(new URLSearchParams(location.search)),
+    }))
+    const ok =
+      r.home == null &&
+      !/home2/i.test(r.pasta) &&
+      Object.entries(espera).every(([k, v]) => r.q[k] === v) &&
+      !Object.keys(r.q).some((k) => /^home/i.test(k))
+    conferir(ok, `link velho ${entrada}: home de sempre${Object.keys(espera).length ? ', ' + Object.keys(espera).join('/') + ' mantidos' : ''}, sem home* na URL (${JSON.stringify(r)})`)
   }
   await ctx.close()
 }
@@ -474,19 +502,19 @@ const browser = await chromium.launch()
   await irAba(page, 'estados')
   await page.waitForTimeout(1300)
   await foto(page, 'desk-07-por-estado')
-  await axeNasAbas(page, 'desk h1')
+  await axeNasAbas(page, 'desk')
   await page.goto(`${base}?uf=ba`)
   await page.waitForTimeout(1500)
   await foto(page, 'desk-08-sem-atendimento')
   await ctx.close()
 }
 
-// ---------- lateral: Buscar e Catálogo ativos; foco ao voltar ao Início na Home 2 ----------
+// ---------- lateral: Buscar e Catálogo ativos; foco ao voltar ao Início ----------
 {
   const ctx = await contexto(browser, { width: 1440, height: 900 })
   const page = await ctx.newPage()
   vigiar(page, 'lateral-ativo')
-  await page.goto(`${base}?uf=mg&home=2`)
+  await page.goto(`${base}?uf=mg`)
   await passarAbertura(page)
   const ativo = () => page.evaluate(() => [...document.querySelectorAll('.lateral [aria-current="page"]')].map((e) => e.textContent.trim()))
   await page.locator('.lateral [data-aba="buscar"]').click()
@@ -497,13 +525,23 @@ const browser = await chromium.launch()
   await page.locator('.lateral [data-aba="catalogo"]').click()
   await page.waitForTimeout(700)
   conferir(JSON.stringify(await ativo()) === '["Catálogo"]', 'lateral: tocar em Catálogo depois de buscar deixa Catálogo ativo')
-  // Início pelo teclado: o Tab seguinte vai para o card do mercador (o que vem antes do perfil), não pula ele
+  // Início pelo teclado: o foco vai para o título do perfil e o Tab seguinte cai nos botões dele (o mercador ao lado é
+  // decorativo, sem parada)
   await page.locator('.lateral [data-aba="inicio"]').focus()
   await page.keyboard.press('Enter')
   await page.waitForTimeout(900)
   await page.keyboard.press('Tab')
-  const foco = await page.evaluate(() => document.activeElement?.className ?? '')
-  conferir(/sm-cta/.test(foco), `Home 2: Início pelo teclado, o Tab vai para o card do mercador (${foco})`)
+  const foco = await page.evaluate(() => {
+    const a = document.activeElement
+    return { perfil: !!a?.closest('.hero-loja .perfil'), mercador: !!a?.closest('.mercador-loja'), txt: (a?.textContent ?? '').trim().slice(0, 30) }
+  })
+  conferir(foco.perfil && !foco.mercador, `Início pelo teclado: o Tab cai no perfil, não no mercador (${foco.txt})`)
+  // Ver loja (computador): desce até os destaques do Início e o foco vai junto
+  await page.locator('.hero-loja .perfil-loja').click()
+  await page.waitForTimeout(1500)
+  const loja = await page.evaluate(() => ({ topo: Math.round(document.querySelector('.vista-inicio .destaques-inicio').getBoundingClientRect().top), foco: document.activeElement?.id }))
+  conferir(loja.topo >= 0 && loja.topo <= 80 && loja.foco === 'inicio-loja-titulo', `Ver loja (computador): destaques no alto (${loja.topo} px) e foco na loja (${loja.foco})`)
+  await foto(page, 'desk-09-ver-loja')
   await ctx.close()
 }
 
@@ -512,7 +550,7 @@ for (const [w, h] of [[1280, 650], [1366, 657]]) {
   const ctx = await contexto(browser, { width: w, height: h })
   const page = await ctx.newPage()
   vigiar(page, `lateral-baixa-${w}`)
-  await page.goto(`${base}?home=2`)
+  await page.goto(base)
   await passarAbertura(page)
   const l = await page.evaluate(() => {
     const e = document.querySelector('.lateral')
@@ -534,101 +572,133 @@ for (const [w, h] of [[1280, 650], [1366, 657]]) {
   await ctx.close()
 }
 
-// ---------- axe na Home 2 (celular e desktop) ----------
-for (const vp of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+// ---------- axe no celular estreito e no computador largo (mercador em 5× ao lado do perfil) ----------
+for (const vp of [{ width: 320, height: 568 }, { width: 1920, height: 1080 }]) {
   const ctx = await contexto(browser, vp)
   const page = await ctx.newPage()
-  vigiar(page, `axe-h2-${vp.width}`)
-  await page.goto(`${base}?uf=mg&home=2`)
+  vigiar(page, `axe-${vp.width}`)
+  await page.goto(`${base}?uf=mg`)
   await passarAbertura(page)
-  await axeNasAbas(page, `${vp.width < 900 ? 'cel' : 'desk'} h2`)
+  await axeNasAbas(page, `${vp.width < 900 ? 'cel' : 'desk'} ${vp.width}`)
   await ctx.close()
 }
 
-// ---------- matriz de desktop: Home 1 e Home 2 (+ Catálogo e Por estado) ----------
+// ---------- matriz de desktop: Início com o mercador ao lado do perfil (+ Catálogo e Por estado) ----------
 // altura cheia da tela e a área útil de verdade (menos a barra do navegador): 1366×657, 1280×650, 1536×730, 1440×790
 const TAMANHOS = [
+  [900, 800],
+  [1024, 768],
+  [1100, 800],
+  [1200, 900],
+  [1200, 650],
+  [1240, 800],
+  [1240, 700],
   [1280, 720],
   [1280, 800],
-  [1366, 768],
-  [1440, 900],
-  [1536, 864],
-  [1920, 1080],
-  [1240, 800],
-  [1100, 800],
-  [1366, 657],
   [1280, 650],
-  [1536, 730],
+  [1366, 768],
+  [1366, 657],
+  [1440, 900],
   [1440, 790],
-  [1240, 700],
-  [1200, 900],
+  [1440, 720],
+  [1536, 864],
+  [1536, 730],
+  [1920, 1080],
+  [1920, 720],
 ]
-for (const home of [1, 2]) {
-  for (const [w, h] of TAMANHOS) {
-    const nome = `desk-h${home}-${w}x${h}`
-    const ctx = await contexto(browser, { width: w, height: h })
-    const page = await ctx.newPage()
-    vigiar(page, nome)
-    await page.goto(`${base}?uf=mg${home === 2 ? '&home=2' : ''}`)
-    await page.getByRole('button', { name: 'Tenho', exact: true }).click()
-    await page.locator('.abertura').waitFor({ state: 'detached', timeout: 8000 })
-    // Home 2 >= 1200: o mercador do card abre o casaco em até 1,5 s depois da abertura
-    if (home === 2 && w >= 1200) {
-      const t0 = Date.now()
-      let aberto = null
-      for (let k = 0; k < 40 && aberto == null; k++) {
-        const v = await page.evaluate(() => {
-          const e = document.querySelector('.hero-vitrine .q-aberto')
-          return e ? getComputedStyle(e).visibility : null
-        })
-        if (v === 'visible') aberto = Date.now() - t0
-        else await page.waitForTimeout(50)
-      }
-      conferir(aberto != null && aberto <= 1500, `${nome}: casaco do mercador abre em até 1,5 s (${aberto} ms)`)
+for (const [w, h] of TAMANHOS) {
+  const nome = `desk-${w}x${h}`
+  const ctx = await contexto(browser, { width: w, height: h })
+  const page = await ctx.newPage()
+  vigiar(page, nome)
+  await page.goto(`${base}?uf=mg`)
+  await page.getByRole('button', { name: 'Tenho', exact: true }).click()
+  await page.locator('.abertura').waitFor({ state: 'detached', timeout: 8000 })
+  // o mercador abre o casaco em até 1,5 s depois de aparecer (abaixo de 1200 ele fica embaixo do story: rola até ele)
+  let aberto = null
+  if (await page.locator('.hero-loja .mercador-loja').count()) {
+    const fora = await page.evaluate(() => document.querySelector('.hero-loja .mercador-loja').getBoundingClientRect().bottom > innerHeight)
+    if (fora) await page.evaluate(() => document.querySelector('.hero-loja .mercador-loja').scrollIntoView({ block: 'center' }))
+    const t0 = Date.now()
+    for (let k = 0; k < 40 && aberto == null; k++) {
+      const v = await page.evaluate(() => getComputedStyle(document.querySelector('.hero-loja .q-aberto')).visibility)
+      if (v === 'visible') aberto = Date.now() - t0
+      else await page.waitForTimeout(50)
     }
-    await page.waitForTimeout(500)
-    const c = await page.evaluate(() => {
-      const r = (s) => {
-        const e = document.querySelector(s)
-        const b = e?.getBoundingClientRect()
-        return b && b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width } : null
-      }
-      const textos = [...document.querySelectorAll('.hero-desktop-perfil *')].filter((e) => !e.children.length && e.getClientRects().length && e.textContent.trim())
-      return {
-        vitrine: r('.hero-vitrine .sm'),
-        perfil: r('.hero-desktop-perfil .perfil'),
-        story: r('.hero-quadro'),
-        setaE: r('.hero-seta-esq'),
-        setaD: r('.hero-seta-dir'),
-        cta: r('.hero-vitrine .sm-cta'),
-        figura: r('.hero-vitrine .repost-figura'),
-        lateral: r('.lateral'),
-        textoPerfil: textos.length ? Math.min(...textos.map((e) => e.getBoundingClientRect().left)) : null,
-        alto: innerHeight,
-        larg: document.documentElement.scrollWidth > innerWidth,
-      }
-    })
-    const cruza = (a, b) => a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1
-    const nomes = ['vitrine', 'perfil', 'story', 'setaE', 'setaD']
-    for (let i = 0; i < nomes.length; i++) for (let j = i + 1; j < nomes.length; j++) if (cruza(c[nomes[i]], c[nomes[j]])) erros.push(`[${nome}] ${nomes[i]} por cima de ${nomes[j]}`)
-    // o story fica com 330 px ou mais, a não ser que a altura da janela (16:9) ou, na Home 2 entre 1200 e 1279, a
-    // largura que sobra ao lado do card e do perfil não deixem (aí o mínimo é 300)
-    const minimo = Math.min(home === 2 && w < 1280 ? 300 : 330, Math.floor(((h - 120) * 9) / 16) - 2)
-    conferir(!!c.story && c.story.w >= minimo, `${nome}: story com ${c.story ? Math.round(c.story.w) : 0} px (>= ${minimo})`)
-    conferir(!c.larg, `${nome}: sem rolagem lateral`)
-    if (c.lateral && c.textoPerfil != null) conferir(c.textoPerfil >= c.lateral.r - 1, `${nome}: texto do perfil fora da lateral (${Math.round(c.textoPerfil)} >= ${Math.round(c.lateral.r)})`)
-    if (home === 2) conferir(!!c.vitrine, `${nome}: card do mercador no Início`)
-    if (home === 2 && w >= 1200) {
-      conferir(!!c.cta && c.cta.b <= c.alto, `${nome}: "Testar minha sorte" do card dentro da janela`)
-      conferir(!!c.figura && c.figura.w >= 130, `${nome}: mercador do card em 3× ou mais (${c.figura ? Math.round(c.figura.w) : 0} px)`)
-    }
-    await foto(page, nome, true)
-    await irAba(page, 'catalogo')
-    await foto(page, `${nome}-catalogo`, true)
-    await irAba(page, 'estados')
-    await foto(page, `${nome}-estados`, true)
-    await ctx.close()
+    if (fora) await page.evaluate(() => window.scrollTo(0, 0))
   }
+  await page.waitForTimeout(500)
+  const c = await page.evaluate(() => {
+    const r = (s) => {
+      const e = document.querySelector(s)
+      const b = e?.getBoundingClientRect()
+      return b && b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height } : null
+    }
+    const textos = [...document.querySelectorAll('.hero-desktop-perfil *')].filter((e) => !e.children.length && e.getClientRects().length && e.textContent.trim())
+    const merc = document.querySelector('.hero-loja .mercador-loja')
+    return {
+      mercador: r('.hero-loja .mercador-loja .repost-figura'),
+      perfil: r('.hero-desktop-perfil .perfil'),
+      story: r('.hero-quadro'),
+      setaE: r('.hero-seta-esq'),
+      setaD: r('.hero-seta-dir'),
+      lateral: r('.lateral'),
+      textoPerfil: textos.length ? Math.min(...textos.map((e) => e.getBoundingClientRect().left)) : null,
+      // o mercador natural: só ele, sem texto, sem link, decorativo
+      mercadorTexto: merc ? merc.textContent.trim() : '',
+      mercadorFocavel: merc ? !!merc.querySelector('a, button, [tabindex]') : false,
+      mercadorOculto: merc ? merc.getAttribute('aria-hidden') === 'true' : true,
+      sorteNoHero: /Teste minha sorte|Tá com sorte|Todo giro ganha/i.test(document.querySelector('.vista-inicio .hero')?.textContent ?? ''),
+      alto: innerHeight,
+      larg: document.documentElement.scrollWidth > innerWidth,
+    }
+  })
+  const cruza = (a, b) => a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1
+  const nomes = ['mercador', 'perfil', 'story', 'setaE', 'setaD', 'lateral']
+  for (let i = 0; i < nomes.length; i++) for (let j = i + 1; j < nomes.length; j++) if (cruza(c[nomes[i]], c[nomes[j]])) erros.push(`[${nome}] ${nomes[i]} por cima de ${nomes[j]}`)
+  // o story nunca encolhe por causa do mercador: 330 px ou mais, a não ser que a altura da janela (16:9) não deixe
+  const minimo = Math.min(330, Math.floor(((h - 120) * 9) / 16) - 2)
+  conferir(!!c.story && c.story.w >= minimo, `${nome}: story com ${c.story ? Math.round(c.story.w) : 0} px (>= ${minimo})`)
+  conferir(!c.larg, `${nome}: sem rolagem lateral`)
+  if (c.lateral && c.textoPerfil != null) conferir(c.textoPerfil >= c.lateral.r - 1, `${nome}: texto do perfil fora da lateral (${Math.round(c.textoPerfil)} >= ${Math.round(c.lateral.r)})`)
+  conferir(!c.sorteNoHero, `${nome}: nada do Teste minha sorte no topo do Início`)
+  if (c.mercador) {
+    const k = c.mercador.w / 44
+    conferir(Number.isInteger(Math.round(k * 100) / 100) && k >= 3 && k <= 5, `${nome}: mercador em escala inteira de 3× a 5× (${Math.round(c.mercador.w)} px)`)
+    conferir(!c.mercadorTexto && !c.mercadorFocavel && c.mercadorOculto, `${nome}: mercador sem texto, sem link e decorativo`)
+    conferir(!!c.perfil && Math.abs(c.mercador.b - c.perfil.b) <= 2, `${nome}: pés do mercador na linha do fim do perfil (${Math.round(c.mercador.b)} / ${c.perfil ? Math.round(c.perfil.b) : '?'})`)
+    conferir(aberto != null && aberto <= 1500, `${nome}: casaco do mercador abre em até 1,5 s (${aberto} ms)`)
+  } else relatorio.push(`${nome}: sem lugar para o mercador ao lado do perfil (o story não encolhe por ele)`)
+  if (w >= 1280) conferir(!!c.mercador, `${nome}: mercador ao lado do perfil`)
+  await conferirInicio(page, nome)
+  await foto(page, nome, true)
+  await irAba(page, 'catalogo')
+  await foto(page, `${nome}-catalogo`, true)
+  await irAba(page, 'estados')
+  await foto(page, `${nome}-estados`, true)
+  await ctx.close()
+}
+
+// ---------- mercador: o mouse em cima abre o casaco na hora; movimento reduzido, parado ----------
+for (const reduzir of [false, true]) {
+  const ctx = await contexto(browser, { width: 1440, height: 900 }, { reduzir })
+  const page = await ctx.newPage()
+  vigiar(page, `mercador-mouse${reduzir ? '-reduzido' : ''}`)
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  const fig = page.locator('.hero-loja .mercador-loja')
+  await fig.waitFor({ timeout: 5000 })
+  // espera a parte parada (nenhuma camada da apresentação à vista) e passa o mouse
+  const visivel = (s) => page.evaluate((s) => [...document.querySelectorAll(`.hero-loja ${s}`)].some((e) => getComputedStyle(e).visibility === 'visible' && getComputedStyle(e).display !== 'none'), s)
+  for (let k = 0; k < 150 && (await visivel('.repost-quadro')); k++) await page.waitForTimeout(100)
+  await page.mouse.move(5, 5)
+  await fig.hover()
+  await page.waitForTimeout(300)
+  const abriu = await visivel('.q-aberto, .q-meio')
+  if (reduzir) conferir(!abriu, 'mercador com movimento reduzido: fica parado (o mouse não anima)')
+  else conferir(abriu, 'mercador: o mouse em cima abre o casaco na hora')
+  await foto(page, `desk-10-mercador-mouse${reduzir ? '-reduzido' : ''}`)
+  await ctx.close()
 }
 
 await browser.close()
