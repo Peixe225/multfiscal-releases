@@ -1,7 +1,8 @@
 // Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp (RJ e MG), com a navegação
 // em abas (Início | Catálogo | Por estado), as sequências de voltar, os links diretos, o Início (destaques e grade,
-// sem o fim da aba Catálogo), o mercador ao lado do perfil na matriz de desktop, o atalho antigo home2/ e o axe em
-// cada aba.
+// sem o fim da aba Catálogo), o mercador ao lado do perfil na matriz de desktop (ou o hero empilhado quando ele não
+// cabe ali, nunca sumindo), as setas da linha de destaques no computador, o atalho antigo home2/, o axe em cada aba e
+// os pontos de referência do leitor de tela (nenhuma região "Início" vazia nas outras abas).
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -214,6 +215,14 @@ async function axeNasAbas(page, nome) {
   }
 }
 
+/** Pontos de referência e regiões que o leitor de tela anuncia (árvore de acessibilidade do Chromium). */
+async function pontosDeReferencia(page) {
+  const cdp = await page.context().newCDPSession(page)
+  const { nodes } = await cdp.send('Accessibility.getFullAXTree')
+  await cdp.detach()
+  return nodes.filter((n) => !n.ignored && /^(region|navigation|main|contentinfo|complementary|banner)$/.test(n.role?.value ?? '')).map((n) => `${n.role.value}:${n.name?.value ?? ''}`)
+}
+
 const browser = await chromium.launch()
 
 // ---------- celular 390×844 ----------
@@ -249,7 +258,11 @@ const browser = await chromium.launch()
   await foto(page, 'cel-06b-destaques')
   await foto(page, 'cel-16-home-inteira', true)
   await page.evaluate(() => window.scrollTo(0, 0))
+  conferir((await pontosDeReferencia(page)).includes('region:Início'), 'cel: a vista do Início é a região "Início"')
+  conferir(!/confirmar|importsvv/i.test((await page.locator('.vista-inicio .faixa').textContent()) ?? ''), 'cel: a faixa dos @ só com os perfis confirmados')
   await irAba(page, 'catalogo')
+  const refs = await pontosDeReferencia(page)
+  conferir(!refs.includes('region:Início') && refs.includes('region:Catálogo'), `cel: na aba Catálogo, nenhuma região "Início" vazia para o leitor de tela (${refs.join(', ')})`)
   await foto(page, 'cel-07-catalogo')
   await page.evaluate(() => window.scrollBy(0, 900))
   await page.waitForTimeout(800)
@@ -584,7 +597,9 @@ for (const vp of [{ width: 320, height: 568 }, { width: 1920, height: 1080 }]) {
 }
 
 // ---------- matriz de desktop: Início com o mercador ao lado do perfil (+ Catálogo e Por estado) ----------
-// altura cheia da tela e a área útil de verdade (menos a barra do navegador): 1366×657, 1280×650, 1536×730, 1440×790
+// altura cheia da tela e a área útil de verdade (menos a barra do navegador): 1366×657, 1280×650, 1536×730, 1440×790.
+// De 1200 em diante, o mercador ao lado do perfil; onde ele não cabe ali (janela alta de 1200 a ~1270), o hero empilha
+// como de 900 a 1199 (story em cima, mercador e perfil embaixo) — o mercador nunca some no computador
 const TAMANHOS = [
   [900, 800],
   [1024, 768],
@@ -596,6 +611,8 @@ const TAMANHOS = [
   [1280, 720],
   [1280, 800],
   [1280, 650],
+  [1280, 1024],
+  [1300, 1000],
   [1366, 768],
   [1366, 657],
   [1440, 900],
@@ -649,6 +666,13 @@ for (const [w, h] of TAMANHOS) {
       mercadorFocavel: merc ? !!merc.querySelector('a, button, [tabindex]') : false,
       mercadorOculto: merc ? merc.getAttribute('aria-hidden') === 'true' : true,
       sorteNoHero: /Teste minha sorte|Tá com sorte|Todo giro ganha/i.test(document.querySelector('.vista-inicio .hero')?.textContent ?? ''),
+      empilhado: !!document.querySelector('.vista-inicio .hero.hero-empilhado'),
+      regua: document.querySelector('.vista-inicio .hero-regua')?.clientWidth ?? null,
+      storyAntes: (() => {
+        const st = document.querySelector('.vista-inicio .hero-story')
+        const lj = document.querySelector('.vista-inicio .hero-loja')
+        return !!(st && lj && st.compareDocumentPosition(lj) & 4)
+      })(),
       alto: innerHeight,
       larg: document.documentElement.scrollWidth > innerWidth,
     }
@@ -668,14 +692,60 @@ for (const [w, h] of TAMANHOS) {
     conferir(!c.mercadorTexto && !c.mercadorFocavel && c.mercadorOculto, `${nome}: mercador sem texto, sem link e decorativo`)
     conferir(!!c.perfil && Math.abs(c.mercador.b - c.perfil.b) <= 2, `${nome}: pés do mercador na linha do fim do perfil (${Math.round(c.mercador.b)} / ${c.perfil ? Math.round(c.perfil.b) : '?'})`)
     conferir(aberto != null && aberto <= 1500, `${nome}: casaco do mercador abre em até 1,5 s (${aberto} ms)`)
-  } else relatorio.push(`${nome}: sem lugar para o mercador ao lado do perfil (o story não encolhe por ele)`)
-  if (w >= 1280) conferir(!!c.mercador, `${nome}: mercador ao lado do perfil`)
+  }
+  conferir(!!c.mercador, `${nome}: mercador no Início do computador (${c.empilhado ? 'embaixo do story, ao lado do perfil' : 'ao lado do perfil e do story'})`)
+  // arranjo coerente por largura: de 900 a 1199 sempre empilhado; de 1200 em diante, empilhado só onde o mercador 3×
+  // (44 + 5 de vão, × 3) e o perfil de 285 px não cabem na coluna ao lado do story
+  if (w < 1200) conferir(c.empilhado && c.storyAntes, `${nome}: story em cima, mercador e perfil embaixo`)
+  else conferir(c.empilhado === (c.regua != null && c.regua < 49 * 3 + 285) && c.storyAntes === c.empilhado, `${nome}: ${c.empilhado ? 'empilhado (não cabe ao lado: ' : 'lado a lado (coluna de '}${c.regua} px${c.empilhado ? ')' : ')'}`)
   await conferirInicio(page, nome)
   await foto(page, nome, true)
   await irAba(page, 'catalogo')
   await foto(page, `${nome}-catalogo`, true)
   await irAba(page, 'estados')
   await foto(page, `${nome}-estados`, true)
+  await ctx.close()
+}
+
+// ---------- destaques do Início no computador: setas nas pontas quando a linha não cabe; Shift + roda anda de lado ----
+for (const [w, h] of [[1024, 768], [1440, 900]]) {
+  const ctx = await contexto(browser, { width: w, height: h })
+  const page = await ctx.newPage()
+  vigiar(page, `setas-${w}`)
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+  const topo = await page.evaluate(() => document.querySelector('.vista-inicio .destaques-moldura').getBoundingClientRect().top + scrollY)
+  await page.mouse.move(w / 2, 300)
+  await page.mouse.wheel(0, topo - 200)
+  await page.waitForTimeout(1500)
+  const linha = () =>
+    page.evaluate(() => {
+      const d = document.querySelector('.vista-inicio .destaques-inicio')
+      const m = d.parentElement
+      return { sl: Math.round(d.scrollLeft), sobra: d.scrollWidth - d.clientWidth, esq: !!m.querySelector('.destaques-seta-esq'), dir: !!m.querySelector('.destaques-seta-dir') }
+    })
+  const a = await linha()
+  if (a.sobra > 0) {
+    conferir(a.dir && !a.esq, `setas ${w}: a linha não cabe (${a.sobra} px) e só a seta da direita aparece`)
+    await foto(page, `desk-11-destaques-setas-${w}`)
+    await page.locator('.destaques-seta-dir').click()
+    await page.waitForTimeout(900)
+    const b = await linha()
+    conferir(b.sl >= b.sobra - 1 && b.esq && !b.dir, `setas ${w}: a seta leva ao fim da linha (${b.sl}/${b.sobra}) e troca de lado`)
+    await page.locator('.destaques-seta-esq').click()
+    await page.waitForTimeout(900)
+    const box = await page.locator('.vista-inicio .destaques-inicio').boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + 40)
+    const y0 = await page.evaluate(() => scrollY)
+    await page.keyboard.down('Shift')
+    await page.mouse.wheel(0, 200)
+    await page.keyboard.up('Shift')
+    await page.waitForTimeout(700)
+    const c = await linha()
+    const y1 = await page.evaluate(() => scrollY)
+    conferir(c.sl > 0 && Math.abs(y1 - y0) < 2, `setas ${w}: Shift + roda anda a linha de lado (${c.sl} px) sem descer a página`)
+  } else conferir(!a.esq && !a.dir, `setas ${w}: a linha cabe inteira e fica sem setas`)
   await ctx.close()
 }
 

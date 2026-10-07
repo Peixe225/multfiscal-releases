@@ -7,7 +7,7 @@ import './MercadorLoja.css'
 // O mercador de pé ao lado do perfil, no Início do computador: só ele, sem moldura, sem texto e sem link, como quem
 // toma conta da loja. Abre o casaco (e, com config.mercadorTraga, dá uns tragos) só na tela, com a aba à vista e sem
 // camada por cima; o mouse em cima abre o casaco na hora. Decorativo: o Hero.tsx escolhe a escala (3×, 4× ou 5×) pela
-// sobra ao lado do perfil e tira ele quando não cabe.
+// sobra ao lado do perfil e, quando ele não cabe ao lado do story, empilha o hero em vez de tirar ele.
 
 /**
  * Sombra de chão em pixel, na largura da grade do mercador (44): três linhas atrás das botas (sola nas linhas 61 e 62

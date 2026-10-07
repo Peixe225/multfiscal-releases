@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { gsap } from 'gsap'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
@@ -215,37 +215,118 @@ function DestaqueAba({ aba, foco, rotulo, nome, children }: { aba: Aba; foco?: F
 }
 
 /**
+ * Setas nas pontas da linha de destaques do Início (computador com mouse), como a bandeja de destaques do instagram.com:
+ * de 900 a ~1170 px a linha não cabe, a barra de rolagem fica escondida e a roda comum desce a página. Só aparecem do
+ * lado que ainda tem destaque escondido. Shift + roda também anda de lado (o Lenis engolia o gesto).
+ */
+function useSetasLinha(linha: RefObject<HTMLDivElement | null>) {
+  const [setas, setSetas] = useState({ antes: false, depois: false })
+  useEffect(() => {
+    const el = linha.current
+    if (!el) return
+    let mouse: MediaQueryList | null = null
+    try {
+      // só no layout de computador: celular com caneta (hover e ponteiro fino) arrasta a linha com o dedo
+      mouse = window.matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)')
+    } catch {
+      mouse = null
+    }
+    let raf = 0
+    const medir = () => {
+      raf = 0
+      const fino = !!mouse?.matches
+      const max = el.scrollWidth - el.clientWidth
+      const antes = fino && el.scrollLeft > 1
+      const depois = fino && el.scrollLeft < max - 1
+      setSetas((s) => (s.antes === antes && s.depois === depois ? s : { antes, depois }))
+    }
+    const pedir = () => {
+      if (!raf) raf = requestAnimationFrame(medir)
+    }
+    // Shift + roda: deixa o navegador rolar a linha de lado, sem o Lenis (que trataria como rolagem da página)
+    const roda = (e: WheelEvent) => {
+      if (e.shiftKey && el.scrollWidth > el.clientWidth) (e as WheelEvent & { lenisStopPropagation?: boolean }).lenisStopPropagation = true
+    }
+    medir()
+    el.addEventListener('scroll', pedir, { passive: true })
+    el.addEventListener('wheel', roda, { passive: true })
+    // a linha e os dois grupos (o destaque do estado e o interativo entram depois e alargam o grupo)
+    const ro = new ResizeObserver(pedir)
+    ro.observe(el)
+    for (const filho of el.children) ro.observe(filho)
+    mouse?.addEventListener?.('change', pedir)
+    return () => {
+      cancelAnimationFrame(raf)
+      el.removeEventListener('scroll', pedir)
+      el.removeEventListener('wheel', roda)
+      ro.disconnect()
+      mouse?.removeEventListener?.('change', pedir)
+    }
+  }, [linha])
+  return setas
+}
+
+/** Uma das setas da linha: só para o mouse (o teclado chega em cada destaque pelo Tab, e a linha acompanha o foco). */
+function SetaLinha({ lado, linha }: { lado: 'esq' | 'dir'; linha: RefObject<HTMLDivElement | null> }) {
+  return (
+    <button
+      type="button"
+      className={`destaques-seta destaques-seta-${lado}`}
+      tabIndex={-1}
+      aria-hidden="true"
+      onClick={() => {
+        const el = linha.current
+        if (!el) return
+        // uma página da linha de cada vez, deixando um destaque da página de antes à vista
+        el.scrollBy({ left: (lado === 'dir' ? 1 : -1) * Math.max(120, el.clientWidth - 160), behavior: movimentoReduzido() ? 'auto' : 'smooth' })
+      }}
+    >
+      <span className="destaques-seta-disco">
+        <Icone nome={lado === 'dir' ? 'chevron-dir' : 'chevron-esq'} tamanho={16} />
+      </span>
+    </button>
+  )
+}
+
+/**
  * Destaques do Início, numa linha só: primeiro os que são caminho (o destaque do estado, Buscar, os interativos, Por
- * estado), um fio, e à direita os filtros, que filtram a grade do próprio Início.
+ * estado), um fio, e à direita os filtros, que filtram a grade do próprio Início. No celular a linha é mais compacta
+ * (Catalogo.css) para o primeiro filtro aparecer inteiro, com o seguinte espiando na borda.
  */
 function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
   const uf = useLocal((s) => s.uf)
   // o href das abas leva uf e cidade junto
   useLocal((s) => s.cidade)
   const canal = canalDa(uf)
+  const linha = useRef<HTMLDivElement>(null)
+  const setas = useSetasLinha(linha)
   return (
-    <div className="destaques destaques-inicio">
-      <nav className="destaques-grupo" aria-label="Atalhos da loja">
-        {canal && <DestaqueEstado canal={canal} abrirInfo={abrirInfo} />}
-        <DestaqueAba aba="catalogo" foco="busca" rotulo="Buscar" nome="Buscar no catálogo">
-          <Icone nome="lupa" tamanho={32} />
-        </DestaqueAba>
-        {interativosAtivos().map((i) => (
-          <DestaqueInterativo key={i.id} i={i} />
-        ))}
-        <DestaqueAba aba="estados" rotulo="Por estado" nome="Por estado: os perfis de cada estado">
-          <Icone nome="pin" tamanho={32} />
-          {uf && (
-            <span className="destaque-uf px" aria-hidden="true">
-              {uf.toUpperCase()}
-            </span>
-          )}
-        </DestaqueAba>
-      </nav>
-      <span className="destaques-fio" aria-hidden="true" />
-      <div className="destaques-grupo" role="group" aria-label="Categorias">
-        <FiltrosCategoria categoria={categoria} setCategoria={setCategoria} />
+    <div className="destaques-moldura">
+      <div ref={linha} className="destaques destaques-inicio">
+        <nav className="destaques-grupo" aria-label="Atalhos da loja">
+          {canal && <DestaqueEstado canal={canal} abrirInfo={abrirInfo} />}
+          <DestaqueAba aba="catalogo" foco="busca" rotulo="Buscar" nome="Buscar no catálogo">
+            <Icone nome="lupa" tamanho={32} />
+          </DestaqueAba>
+          {interativosAtivos().map((i) => (
+            <DestaqueInterativo key={i.id} i={i} />
+          ))}
+          <DestaqueAba aba="estados" rotulo="Por estado" nome="Por estado: os perfis de cada estado">
+            <Icone nome="pin" tamanho={32} />
+            {uf && (
+              <span className="destaque-uf px" aria-hidden="true">
+                {uf.toUpperCase()}
+              </span>
+            )}
+          </DestaqueAba>
+        </nav>
+        <span className="destaques-fio" aria-hidden="true" />
+        <div className="destaques-grupo" role="group" aria-label="Categorias">
+          <FiltrosCategoria categoria={categoria} setCategoria={setCategoria} />
+        </div>
       </div>
+      {setas.antes && <SetaLinha lado="esq" linha={linha} />}
+      {setas.depois && <SetaLinha lado="dir" linha={linha} />}
     </div>
   )
 }

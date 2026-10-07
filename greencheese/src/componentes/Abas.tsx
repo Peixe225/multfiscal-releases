@@ -143,7 +143,17 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
 
   return (
     <>
-      <div className="vista vista-inicio" data-vista="inicio" role="region" aria-label="Início" hidden={aba !== 'inicio'} tabIndex={-1}>
+      {/* região "Início" só à vista: escondida, o content-visibility tira o conteúdo do leitor de tela, mas o papel de
+          região ficava (um ponto de referência "Início" vazio no rotor das outras abas). Atributo só no contêiner: não
+          mexe no estilo calculado dos filhos */}
+      <div
+        className="vista vista-inicio"
+        data-vista="inicio"
+        role={aba === 'inicio' ? 'region' : undefined}
+        aria-label={aba === 'inicio' ? 'Início' : undefined}
+        hidden={aba !== 'inicio'}
+        tabIndex={-1}
+      >
         <ConteudoInicio abrirInfo={abrirInfo} comGrade={loja} />
       </div>
       {catalogo && (

@@ -124,34 +124,49 @@ const LARGO = consulta('(min-width: 1200px)')
 const CELULAR = consulta('(max-width: 899px)')
 
 /** Perfil mais estreito que isto fica compacto (Hero.css); o mercador só entra se ainda sobrar ele ao lado. */
-const PERFIL_MIN = 300
+const PERFIL_MIN = 285
 const PERFIL_COMPACTO = 380
 const PERFIL_MAX = 420
+/** Vão entre o mercador e o perfil, em pixels da grade (o margin-right do .mercador-loja, em MercadorLoja.css). */
+const VAO_MERCADOR = 5
+
+/** A maior escala inteira do mercador (44 de largura + o vão) que deixa o perfil com PERFIL_MIN ao lado; 0: não cabe. */
+function escalaQueCabe(largura: number): number {
+  const teto = window.innerWidth >= 1800 ? 5 : window.innerWidth >= 1440 ? 4 : 3
+  for (let k = teto; k >= 3; k--) if ((44 + VAO_MERCADOR) * k + PERFIL_MIN <= largura) return k
+  return 0
+}
 
 /**
- * Escala do mercador ao lado do perfil (computador): a maior inteira da grade 44×64 — 5× em tela gigante, 4× de 1440
- * px, 3× abaixo — que ainda deixa o perfil com 300 px ou mais na coluna dele (o vão até o perfil é 8 pixels da grade).
- * Não cabendo nem o 3×, 0: o mercador sai e o story nunca encolhe por causa dele. Medido antes da pintura (sem pulo).
+ * Mercador e perfil no computador. A escala é inteira (5× em tela gigante, 4× de 1440 px, 3× abaixo) e sai da sobra da
+ * coluna do perfil: o story nunca encolhe por causa dele. Lado a lado (>= 1200 px) quando ele cabe na coluna ao lado
+ * do story; não cabendo (1200–1270 px com janela alta), em vez de sumir, o hero empilha como de 900 a 1199: story em
+ * cima, mercador e perfil embaixo. A régua (Hero.css) mede a coluna que o perfil teria lado a lado em qualquer arranjo,
+ * então a escolha não oscila; a escala do empilhado sai da própria coluna depois da troca. Tudo antes da pintura.
  */
-function useLojaDesktop(el: HTMLDivElement | null, ligado: boolean): { escala: number; compacto: boolean } {
-  const [medida, setMedida] = useState({ escala: 0, compacto: false })
+function useLojaDesktop(loja: HTMLDivElement | null, regua: HTMLSpanElement | null, ligado: boolean, largo: boolean) {
+  const [medida, setMedida] = useState({ escala: 0, compacto: false, empilha: false })
   useLayoutEffect(() => {
-    if (!ligado || !el) return
+    if (!ligado || !loja || !regua) return
     const medir = () => {
-      const largura = el.clientWidth
-      if (!largura) return
-      const teto = window.innerWidth >= 1800 ? 5 : window.innerWidth >= 1440 ? 4 : 3
-      let escala = 0
-      for (let k = teto; k >= 3 && !escala; k--) if (52 * k + PERFIL_MIN <= largura) escala = k
-      const perfil = Math.min(PERFIL_MAX, largura - 52 * escala)
+      const lado = regua.clientWidth
+      const coluna = loja.clientWidth
+      if (!coluna) return
+      const kLado = largo ? escalaQueCabe(lado) : 0
+      const empilha = !largo || !kLado
+      // lado a lado, a coluna medida é a da régua; empilhado, a linha inteira embaixo do story
+      const escala = empilha ? escalaQueCabe(coluna) : kLado
+      const perfil = Math.min(PERFIL_MAX, (empilha ? coluna : lado) - (44 + VAO_MERCADOR) * escala)
       const compacto = perfil < PERFIL_COMPACTO
-      setMedida((m) => (m.escala === escala && m.compacto === compacto ? m : { escala, compacto }))
+      setMedida((m) => (m.escala === escala && m.compacto === compacto && m.empilha === empilha ? m : { escala, compacto, empilha }))
     }
     medir()
     const ro = new ResizeObserver(medir)
-    ro.observe(el)
+    ro.observe(loja)
+    ro.observe(regua)
     return () => ro.disconnect()
-  }, [el, ligado])
+    // medida.empilha: depois de empilhar, a coluna muda de largura e a escala sai dela (ainda antes da pintura)
+  }, [loja, regua, ligado, largo, medida.empilha])
   return medida
 }
 
@@ -236,8 +251,10 @@ export function Hero() {
   const palco = useRef<HTMLDivElement>(null)
   const espera = useRef<HTMLDivElement>(null)
   const barras = useRef<HTMLDivElement>(null)
-  // a coluna do perfil (computador), medida para o mercador: em estado, porque ela sai e volta com o story
+  // a coluna do perfil e a régua do lado a lado (computador), medidas para o mercador: em estado, porque saem e voltam
+  // com o story
   const [loja, setLoja] = useState<HTMLDivElement | null>(null)
+  const [regua, setRegua] = useState<HTMLSpanElement | null>(null)
   const quaseTodo = useRef(false)
   const reduz = movimentoReduzido()
 
@@ -581,8 +598,8 @@ export function Hero() {
     dicaNaTela.current = comDica && dica === 'mostra'
   }, [comDica, dica])
 
-  // o mercador ao lado do perfil (computador): a escala sai da sobra da coluna dele
-  const lojaDesktop = useLojaDesktop(loja, !celular)
+  // o mercador ao lado do perfil (computador): a escala sai da sobra da coluna dele; sem lugar lado a lado, empilha
+  const lojaDesktop = useLojaDesktop(loja, regua, !celular, largo)
 
   if (!atual) return null
 
@@ -745,11 +762,15 @@ export function Hero() {
     </div>
   )
 
-  const ordem = largo ? [perfil, story] : [story, perfil]
+  // de 900 a 1199 sempre empilhado; de 1200 em diante, só quando o mercador não cabe ao lado do perfil
+  const empilhado = !celular && (!largo || lojaDesktop.empilha)
+  const ordem = largo && !empilhado ? [perfil, story] : [story, perfil]
 
   return (
-    <section ref={raiz} className="hero" aria-label="Stories da Green Cheese">
+    <section ref={raiz} className={`hero${empilhado ? ' hero-empilhado' : ''}`} aria-label="Stories da Green Cheese">
       {ordem}
+      {/* a coluna que o perfil teria ao lado do story (Hero.css), medida para decidir se o mercador cabe ali */}
+      {!celular && <span key="regua" ref={setRegua} className="hero-regua" aria-hidden="true" />}
     </section>
   )
 }

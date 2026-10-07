@@ -391,12 +391,17 @@
 /* ---------- desktop: [mercador | perfil do estado] | story ---------- */
 @media (min-width: 900px) {
   .hero {
+    /* altura do story (a largura sai dela, 9:16) e o arranjo lado a lado, em variáveis: a régua usa as mesmas */
+    --hh: min(calc(100vh - 120px), 760px);
+    --lado-esq: clamp(24px, 3vw, 64px);
+    /* folga para as setas de fora do quadro (44 px + 12 px de cada lado) */
+    --lado-dir: clamp(76px, 6vw, 112px);
+    --lado-vao: clamp(76px, 7vw, 112px);
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    /* folga para as setas de fora do quadro (44 px + 12 px de cada lado) */
-    gap: clamp(76px, 7vw, 112px);
-    padding: 48px clamp(76px, 6vw, 112px) 40px clamp(24px, 3vw, 64px);
+    gap: var(--lado-vao);
+    padding: 48px var(--lado-dir) 40px var(--lado-esq);
     min-height: min(100vh, 900px);
     min-height: min(100dvh, 900px);
   }
@@ -415,10 +420,20 @@
     max-width: 420px;
   }
   .hero-story {
-    --hh: min(calc(100vh - 120px), 760px);
     height: var(--hh);
     width: calc(var(--hh) * 9 / 16);
     justify-self: start;
+  }
+  /* régua invisível: a largura que a coluna do perfil tem (ou teria) lado a lado com o story, em qualquer arranjo. O
+     Hero.tsx decide por ela se o mercador cabe ali ou se o hero empilha */
+  .hero-regua {
+    position: absolute;
+    top: 0;
+    left: var(--lado-esq);
+    right: calc(var(--lado-dir) + var(--lado-vao) + var(--hh) * 9 / 16);
+    height: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
   .hero-quadro {
     padding-top: 92px;
@@ -503,35 +518,37 @@
   }
 }
 
-/* desktop estreito (janela pequena, tablet deitado): perfil, story e setas não cabem lado a lado ao lado da lateral —
-   o story vem primeiro, centrado com as setas, e o perfil logo abaixo (o Hero.tsx troca a ordem no DOM: o Tab segue) */
-@media (min-width: 900px) and (max-width: 1199px) {
-  .hero {
+/* empilhado (o Hero.tsx liga de 900 a 1199, e de 1200 em diante quando o mercador não cabe ao lado do perfil — janela
+   alta de 1200 a ~1270): o story vem primeiro, centrado com as setas, e o mercador e o perfil logo abaixo (o Hero.tsx
+   troca a ordem no DOM: o Tab segue) */
+@media (min-width: 900px) {
+  .hero.hero-empilhado {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     gap: 48px;
     padding: 40px 76px;
   }
-  .hero-loja {
+  .hero-empilhado .hero-loja {
     justify-content: center;
   }
-  .hero-story {
+  .hero-empilhado .hero-story {
     justify-self: center;
   }
 }
 
-/* 1200–1365 (notebook): o vão até o story fica no mínimo das setas e a margem esquerda encosta na lateral, para o
-   mercador caber ao lado do perfil (em 1280×800 faltavam 10 px); o story não muda de tamanho */
+/* 1200–1365 (notebook): o vão até o story perto do mínimo das setas (56) e a margem esquerda encostada na lateral, para
+   o mercador caber ao lado do perfil (1240×800, 1280×1024); o story não muda de tamanho */
 @media (min-width: 1200px) and (max-width: 1365px) {
   .hero {
-    column-gap: 76px;
-    padding-left: 24px;
+    --lado-vao: 68px;
+    --lado-esq: 24px;
   }
 }
 
 /* perfil compacto (o Hero.tsx liga quando sobram menos de 380 px para ele: logo acima de 1200, ou ao lado do mercador).
    O perfil inteiro (números numa linha, dois botões) pede ~374: números mais juntos, sem o "aqui", bio e botões
-   menores, e nunca mais largo que a coluna (passava por baixo da lateral fixa e o texto saía cortado) */
+   menores, e nunca mais largo que a coluna (passava por baixo da lateral fixa e o texto saía cortado). No mínimo do
+   Hero.tsx (285 px) "Enviar mensagem" ainda cabe numa linha */
 @media (min-width: 900px) {
   .perfil-compacto .perfil-desktop .perfil-numeros {
     gap: 18px;
@@ -542,8 +559,11 @@
   .perfil-compacto .perfil-desktop .perfil-bio {
     font-size: 14px;
   }
+  .perfil-compacto .perfil-desktop .perfil-botoes {
+    gap: 6px;
+  }
   .perfil-compacto .perfil-desktop .perfil-botao {
-    padding: 0 6px;
+    padding: 0 4px;
     font-size: 13px;
   }
 }
@@ -573,7 +593,7 @@
 
 @supports (height: 100dvh) {
   @media (min-width: 900px) {
-    .hero-story {
+    .hero {
       --hh: min(calc(100dvh - 120px), 760px);
     }
   }

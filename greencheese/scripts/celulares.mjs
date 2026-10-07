@@ -1,7 +1,8 @@
 // Matriz de celulares: rolagem lateral e alvos de toque em cada aba, barra de abas, voltar entre abas, story cabendo
 // na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story → faixa → perfil →
 // destaques com as abas primeiro, o fio e os filtros → grade → rodapé, sem mercador, sem Teste minha sorte e sem
-// repost no fim; o filtro filtra a grade do próprio Início). Também: celular deitado (story do hero inteiro acima da
+// repost no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do
+// próprio Início; a faixa só com os perfis confirmados). Também: celular deitado (story do hero inteiro acima da
 // barra, nada encavalado), celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e
 // o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai).
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
@@ -147,7 +148,16 @@ async function conferirInicio(p, nome) {
     const filtros = v?.querySelector('.destaques-inicio [role="group"][aria-label="Categorias"]')
     const ordemDestaques = nav && fio && filtros ? !!(nav.compareDocumentPosition(fio) & 4) && !!(fio.compareDocumentPosition(filtros) & 4) : false
     const fioB = fio?.getBoundingClientRect()
+    // a linha na primeira tela (sem arrastar): quanto aparece do 1º e do 2º filtro
+    const visivel = (e) => {
+      const b = e?.getBoundingClientRect()
+      return b ? { px: Math.max(0, Math.min(b.right, innerWidth) - Math.max(b.left, 0)), w: b.width } : null
+    }
+    const [f1, f2] = filtros ? [...filtros.querySelectorAll('[aria-pressed]')] : []
     return {
+      linha: { tudo: visivel(f1), seguinte: visivel(f2), larg: innerWidth },
+      faixaAConfirmar: /confirmar|importsvv/i.test(v?.querySelector('.faixa')?.textContent ?? ''),
+      setas: v?.querySelectorAll('.destaques-seta').length ?? 0,
       ordem: ['.hero', '.faixa', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
       gradeFim: grade ? grade.getBoundingClientRect().bottom + scrollY : null,
       rodape: rodape ? rodape.getBoundingClientRect().top + scrollY : null,
@@ -175,6 +185,17 @@ async function conferirInicio(p, nome) {
   if (r.mercador) problemas.push(`${nome}: mercador no Início do celular`)
   if (r.idsRepetidos) problemas.push(`${nome}: #catalogo/#catalogo-titulo repetidos no Início`)
   if (r.busca) problemas.push(`${nome}: busca ou "Só DISPONÍVEL" no Início`)
+  // os filtros aparecem na primeira tela da linha: de 360 px em diante o "Tudo" inteiro e o seguinte espiando na borda
+  // (o sinal de que a linha rola); em 320, ao menos um pedaço do "Tudo"
+  const { tudo, seguinte, larg } = r.linha
+  if (!tudo || !seguinte) problemas.push(`${nome}: filtros dos destaques sem medida`)
+  else if (larg >= 360) {
+    if (tudo.px < tudo.w - 0.5) problemas.push(`${nome}: o "Tudo" não aparece inteiro na linha de destaques (${Math.round(tudo.px)} de ${Math.round(tudo.w)} px)`)
+    if (seguinte.px < 8 || seguinte.px > seguinte.w - 4) problemas.push(`${nome}: o filtro seguinte não espia na borda (${Math.round(seguinte.px)} de ${Math.round(seguinte.w)} px)`)
+  } else if (tudo.px < 24) problemas.push(`${nome}: o "Tudo" mal aparece na linha de destaques (${Math.round(tudo.px)} px)`)
+  if (r.faixaAConfirmar) problemas.push(`${nome}: perfil a confirmar na faixa dos @`)
+  // as setas da linha são do computador com mouse; no celular a linha anda com o dedo
+  if (r.setas) problemas.push(`${nome}: setas da linha de destaques no celular`)
 }
 
 for (const [nome, w, h] of aparelhos) {

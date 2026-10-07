@@ -5,8 +5,8 @@
   --fundo-dentro: var(--preto);
   position: relative;
   flex: none;
-  /* o vão até o perfil cresce com ele: 24 px em 3×, 32 em 4×, 40 em 5× */
-  margin-right: calc(var(--k) * 8);
+  /* o vão até o perfil cresce com ele: 15 px em 3×, 20 em 4×, 25 em 5× (VAO_MERCADOR no Hero.tsx) */
+  margin-right: calc(var(--k) * 5);
 }
 .mercador-loja svg {
   display: block;

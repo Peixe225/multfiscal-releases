@@ -294,19 +294,130 @@
 }
 
 /* ---------- destaques do Início: as abas primeiro, um fio, os filtros à direita (mesma linha que rola) ---------- */
+/* tamanhos em variáveis (a aba Catálogo fica nos de sempre): col = largura do destaque (alvo de toque), bola = anel,
+   capa = disco de dentro, vao = espaço entre destaques, fio = espaço de cada lado do fio */
+.destaques-moldura {
+  --d-col: 72px;
+  --d-bola: 66px;
+  --d-capa: 56px;
+  --d-vao: 14px;
+  --d-fio: 14px;
+  --d-rot: 12px;
+  /* traço do anel em 2 px na tela (o SVG é desenhado em 66 e encolhe junto com a bola) */
+  --d-traco: 2;
+  --d-avatar: 1;
+  position: relative;
+}
+/* celular: 4 caminhos + o fio + "Tudo" inteiro + o filtro seguinte espiando na borda (o sinal de que a linha rola).
+   Em 360 o "Importadas" mostra 15 px; em 375, 30; em 390, 45; em 412, 29 (degrau de cima) */
+@media (max-width: 479px) {
+  .destaques-moldura {
+    --d-col: 62px;
+    --d-bola: 60px;
+    --d-capa: 52px;
+    --d-vao: 10px;
+    --d-fio: 8px;
+    --d-traco: 2.2;
+    --d-avatar: 0.93;
+  }
+}
+@media (max-width: 400px) {
+  .destaques-moldura {
+    --d-col: 56px;
+    --d-bola: 56px;
+    --d-capa: 48px;
+    --d-vao: 9px;
+    --d-fio: 6px;
+    --d-rot: 11px;
+    --d-traco: 2.36;
+    --d-avatar: 0.86;
+  }
+}
+.destaques-inicio,
+.destaques-grupo {
+  gap: var(--d-vao);
+}
 .destaques-grupo {
   flex: none;
   display: flex;
-  gap: 14px;
 }
-/* fio de 1 px no meio da altura das bolinhas (66 px): separa caminho de filtro sem ocupar alvo de toque */
+.destaques-inicio .destaque {
+  width: var(--d-col);
+}
+.destaques-inicio .destaque-bola {
+  width: var(--d-bola);
+  height: var(--d-bola);
+}
+.destaques-inicio .anel {
+  width: 100%;
+  height: 100%;
+}
+.destaques-inicio .anel circle {
+  stroke-width: var(--d-traco);
+}
+.destaques-inicio .destaque-capa {
+  width: var(--d-capa);
+  height: var(--d-capa);
+}
+.destaques-inicio .destaque-capa > .avatar {
+  transform: scale(var(--d-avatar));
+}
+/* o rótulo pode passar um pouco para o vão (centrado): "Importadas" e "Acessórios" cabem inteiros na coluna estreita */
+.destaques-inicio .destaque-rot {
+  max-width: calc(var(--d-col) + var(--d-vao) - 2px);
+  font-size: var(--d-rot);
+}
+/* fio de 1 px no meio da altura das bolinhas: separa caminho de filtro sem ocupar alvo de toque */
 .destaques-fio {
   flex: none;
   align-self: flex-start;
   width: 1px;
-  height: 40px;
-  margin-top: 13px;
+  height: calc(var(--d-bola) * 0.6);
+  margin: calc(var(--d-bola) * 0.2) calc(var(--d-fio) - var(--d-vao)) 0;
   background: var(--bolha);
+}
+/* setas das pontas (computador com mouse, só quando a linha não cabe): no meio da altura das bolinhas */
+.destaques-seta {
+  position: absolute;
+  z-index: 2;
+  top: calc(12px + var(--d-bola) / 2 - 22px);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--preto);
+}
+.destaques-seta-esq {
+  left: 4px;
+}
+.destaques-seta-dir {
+  right: 4px;
+}
+.destaques-seta-disco {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--branco);
+  opacity: 0.85;
+  /* um anel da cor da página separa o disco das bolinhas que passam por baixo */
+  box-shadow: 0 0 0 4px var(--preto);
+  transition:
+    opacity 0.2s var(--ease-app),
+    transform 0.2s var(--ease-app);
+}
+.destaques-seta:hover .destaques-seta-disco {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.destaques-seta:active .destaques-seta-disco {
+  transform: scale(0.94);
+}
+@media (prefers-reduced-motion: reduce) {
+  .destaques-seta-disco {
+    transition-duration: 0s;
+  }
 }
 /* Por estado: o pino com o selo da UF, o adesivo de localização em miniatura */
 .destaque-uf {
