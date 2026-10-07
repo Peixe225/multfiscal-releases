@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { config } from '../../dados/config'
 import { canalDa } from '../../dados/canais'
 import type { Premio } from '../../dados/sorte'
-import { formatarAte, formatarEspera, formatarFalta, premioPorId, diasEntre } from '../../lib/cupom'
+import { formatarAte, formatarEspera, formatarFalta, nomeDoPremio, premioPorId, diasEntre } from '../../lib/cupom'
 import { depoisDoHistorico } from '../../lib/historico'
 import { primeiroNome, useAgora, useConta, useCupons, useGiro, usePendente, useVisto, type CupomComStatus, type GiroInfo } from '../../lib/conta'
 import type { Conta, Pendente } from '../../store/conta'
@@ -124,7 +124,7 @@ export function useEntradaSorte(): EntradaInterativo {
         break
       case 'E1': {
         const c = r.vencendo!
-        adesivo = { titulo: T.tituloPx, pergunta: `Teu cupom ${c.codigo} ${formatarFalta(c.validoAte, agora)}`, texto: c.retrato.titulo, cta: T.usarNoPedido, acao: () => usarNoPedido(c.codigo) }
+        adesivo = { titulo: T.tituloPx, pergunta: `Teu cupom ${c.codigo} ${formatarFalta(c.validoAte, agora)}`, texto: nomeDoPremio(c.retrato), cta: T.usarNoPedido, acao: () => usarNoPedido(c.codigo) }
         break
       }
       case 'E': {

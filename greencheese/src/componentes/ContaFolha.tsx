@@ -9,7 +9,7 @@ import { primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/c
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { copiarTexto } from '../lib/copiar'
 import { formatarDiaMes, formatarEspera, formatarFalta, formatarValidade } from '../lib/cupom'
-import { alvosDo, fraseDoPremio } from '../lib/cupom-uso'
+import { fraseDoPremio, nomeDoPremio } from '../lib/cupom-uso'
 import { Condicoes, listaCondicoes } from '../interativos/sorte/Condicoes'
 import { depoisDoHistorico } from '../lib/historico'
 import { mascararCelular } from '../lib/telefone'
@@ -233,13 +233,13 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
   const aplicado = useSacola((s) => s.cupom === c.codigo)
   const tirar = useSacola((s) => s.tirarCupom)
   const tons = TONS_PAPEL[c.retrato.papel]
-  const alvo = alvosDo(c.retrato)[0]
-  const { destaque, alvo: nome } = fraseDoPremio(c.retrato)
+  // o produto do herói: no brinde, o que vem de brinde (o mesmo "Ver produto" do cartão)
+  const { destaque, alvo: nome, produto: alvo } = fraseDoPremio(c.retrato)
   const exemplo = c.demo && config.carimboDeExemplo
   const ativo = c.status === 'ativo'
   const condicoes = listaCondicoes({ regra: c.retrato.regra, comoUsar: c.retrato.comoUsar, validade: null })
   return (
-    <article className={`ingresso ingresso-${c.status}`} style={{ ['--papel' as string]: ativo ? tons.base : '#3a3a3a', ['--papel-escuro' as string]: tons.escuro }} aria-label={`Cupom ${c.codigo}: ${c.retrato.titulo}`}>
+    <article className={`ingresso ingresso-${c.status}`} style={{ ['--papel' as string]: ativo ? tons.base : '#3a3a3a', ['--papel-escuro' as string]: tons.escuro }} aria-label={`Cupom ${c.codigo}: ${nomeDoPremio(c.retrato)}`}>
       <div className="ingresso-topo">
         <span className="ingresso-codigo px px-20">{c.codigo}</span>
         <button type="button" className="ingresso-copiar toque" onClick={() => avisar(copiarTexto(c.codigo) ? T.copiado : T.naoCopiou)} aria-label={`${T.copiar} o código ${c.codigo}`}>

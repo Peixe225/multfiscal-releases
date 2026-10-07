@@ -1,12 +1,12 @@
 // Núcleo dos cupons dos interativos: validação dos prêmios, relógio de Brasília, status e os formatadores de data.
-// É o que as entradas do site (destaque, lateral, adesivo) precisam, então fica no pedaço principal. Sorteio, código,
-// situação no pedido e os textos do cartão ficam em cupom-uso.ts (baixam com o jogo, a sacola e a conta).
+// É o que as entradas do site (destaque, lateral, adesivo) precisam, então fica no pedaço principal, junto com o nome
+// do prêmio. Sorteio, código e situação no pedido ficam em cupom-uso.ts (baixam com o jogo, a sacola e a conta).
 // Na prévia tudo roda no aparelho; na versão oficial, sorteio, código e limite são validados no servidor.
 import dados from '../dados/catalogo.json'
 import { config } from '../dados/config'
-import { PALAVRAS_PROIBIDAS, premios, regrasSorte, type Premio } from '../dados/sorte'
+import { PALAVRAS_PROIBIDAS, premios, regrasSorte, type Premio, type ValorPremio } from '../dados/sorte'
 import { useCatalogo } from '../store/catalogo'
-import type { Cupom } from '../store/conta'
+import type { Cupom, RetratoPremio } from '../store/conta'
 import type { Produto } from './tipos'
 
 /* ───────────────────────── validação dos prêmios (ao carregar o módulo) ───────────────────────── */
@@ -196,3 +196,48 @@ export function papelDo(p: { papel?: 'branco' | 'natural' }): 'branco' | 'natura
   return p.papel ?? 'natural'
 }
 
+
+/* ───────────────────────── nome do prêmio ───────────────────────── */
+
+/** Destaque grande do cartão: "LEVA 4 PAGA 3", "15% OFF", "BRINDE". */
+export function destaqueDo(p: ValorPremio): string {
+  if (p.tipo === 'leve-x-pague-y') return `LEVA ${p.valor.leve} PAGA ${p.valor.pague}`
+  if (p.tipo === 'desconto-percentual') return `${p.valor}% OFF`
+  return 'BRINDE'
+}
+
+/** "seda" a partir de "Sedas" (plural simples). */
+function singular(nome: string): string {
+  const n = nome.toLowerCase()
+  return n.endsWith('s') ? n.slice(0, -1) : n
+}
+
+export function nomeCategoria(id: string | undefined): string {
+  const c = useCatalogo.getState().categorias.find((x) => x.id === id)
+  return c ? singular(c.nome) : (id ?? '')
+}
+
+/**
+ * O prêmio dito de um jeito só (o herói do cartão e do ingresso): o destaque em pixel e, embaixo, em que produto.
+ * Brinde: o produto que vem de brinde. Desconto: o produto do cupom (ou "em qualquer seda", quando é por categoria).
+ * O resto (pedido com seda, validade, 1 por pedido) é condição e fica no "Ver condições".
+ */
+export function fraseDoPremio(r: Pick<RetratoPremio, 'titulo' | 'aplicaA'> & ValorPremio): { destaque: string; alvo: string; produto: Produto | null } {
+  const produtos = useCatalogo.getState().produtos
+  const destaque = destaqueDo(r)
+  if (r.tipo === 'brinde') {
+    const b = produtos.find((p) => p.id === r.valor.produto) ?? null
+    const qtd = r.valor.qtd > 1 ? `${r.valor.qtd} × ` : ''
+    return { destaque, alvo: b ? `${qtd}${b.nome}` : r.titulo, produto: b }
+  }
+  const alvos = (r.aplicaA.produtos ?? []).map((id) => produtos.find((p) => p.id === id)).filter((p): p is Produto => !!p)
+  if (alvos.length) return { destaque, alvo: alvos.map((p) => p.nome).join(' ou '), produto: alvos[0] }
+  const cats = (r.aplicaA.categorias ?? []).map(nomeCategoria).filter(Boolean)
+  return { destaque, alvo: cats.length ? `em qualquer ${cats.join(' ou ')}` : r.titulo, produto: null }
+}
+
+/** O mesmo par numa linha de texto (cadastro, sacola, chat, adesivo): "LEVA 4 PAGA 3 · Seda OCB Premium Slim". */
+export function nomeDoPremio(r: Pick<RetratoPremio, 'titulo' | 'aplicaA'> & ValorPremio): string {
+  const { destaque, alvo } = fraseDoPremio(r)
+  return alvo.startsWith('em ') ? `${destaque} ${alvo}` : `${destaque} · ${alvo}`
+}

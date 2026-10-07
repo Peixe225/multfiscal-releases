@@ -1,12 +1,15 @@
 // Uso dos cupons (o que baixa junto com o jogo, a sacola e a conta, fora do pedaço principal): código e sorteio por
-// peso, prêmios que valem no estado, o retrato do prêmio, a situação do cupom no pedido e os textos do cartão.
+// peso, prêmios que valem no estado, o retrato do prêmio e a situação do cupom no pedido.
 // Na prévia tudo roda no aparelho; na versão oficial, sorteio, código e limite são validados no servidor.
 import { canalDa } from '../dados/canais'
-import type { Premio, ValorPremio } from '../dados/sorte'
+import type { Premio } from '../dados/sorte'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
 import type { Cupom, RetratoPremio } from '../store/conta'
 import type { LinhaSacola } from '../store/derivados'
 import { papelDo, premiosValidos, statusDo } from './cupom'
+
+// o nome do prêmio mora em cupom.ts (o adesivo do site, no pedaço principal, também usa)
+export { destaqueDo, fraseDoPremio, nomeCategoria, nomeDoPremio } from './cupom'
 import type { Produto } from './tipos'
 
 /* ───────────────────────── código e sorteio ───────────────────────── */
@@ -109,54 +112,9 @@ export function situacaoNoPedido(c: Cupom, linhas: LinhaSacola[], uf: string | n
   return { tipo: 'ok' }
 }
 
-/* ───────────────────────── textos do cartão ───────────────────────── */
-
-/** Destaque grande do cartão: "LEVA 4 PAGA 3", "15% OFF", "BRINDE". */
-export function destaqueDo(p: ValorPremio): string {
-  if (p.tipo === 'leve-x-pague-y') return `LEVA ${p.valor.leve} PAGA ${p.valor.pague}`
-  if (p.tipo === 'desconto-percentual') return `${p.valor}% OFF`
-  return 'BRINDE'
-}
-
-/**
- * O prêmio dito de um jeito só (o herói do cartão e do ingresso): o destaque em pixel e, embaixo, em que produto.
- * Brinde: o produto que vem de brinde. Desconto: o produto do cupom (ou "em qualquer seda", quando é por categoria).
- * O resto (pedido com seda, validade, 1 por pedido) é condição e fica no "Ver condições".
- */
-export function fraseDoPremio(r: Pick<RetratoPremio, 'titulo' | 'aplicaA'> & ValorPremio): { destaque: string; alvo: string; produto: Produto | null } {
-  const produtos = useCatalogo.getState().produtos
-  const destaque = destaqueDo(r)
-  if (r.tipo === 'brinde') {
-    const b = produtos.find((p) => p.id === r.valor.produto) ?? null
-    const qtd = r.valor.qtd > 1 ? `${r.valor.qtd} × ` : ''
-    return { destaque, alvo: b ? `${qtd}${b.nome}` : r.titulo, produto: b }
-  }
-  const alvos = (r.aplicaA.produtos ?? []).map((id) => produtos.find((p) => p.id === id)).filter((p): p is Produto => !!p)
-  if (alvos.length) return { destaque, alvo: alvos.map((p) => p.nome).join(' ou '), produto: alvos[0] }
-  const cats = (r.aplicaA.categorias ?? []).map(nomeCategoria).filter(Boolean)
-  return { destaque, alvo: cats.length ? `em qualquer ${cats.join(' ou ')}` : r.titulo, produto: null }
-}
-
 /** O que vai em DadosPedido.cupom (a linha do WhatsApp). */
 export function linhaCupom(c: Cupom, origem: string, exemplo: boolean): { codigo: string; regra: string; origem: string; exemplo: boolean } {
   return { codigo: c.codigo, regra: c.retrato.regra, origem, exemplo }
-}
-
-/** "seda" a partir de "Sedas" (plural simples). */
-function singular(nome: string): string {
-  const n = nome.toLowerCase()
-  return n.endsWith('s') ? n.slice(0, -1) : n
-}
-
-export function nomeCategoria(id: string | undefined): string {
-  const c = useCatalogo.getState().categorias.find((x) => x.id === id)
-  return c ? singular(c.nome) : (id ?? '')
-}
-
-/** Produtos a que o cupom se aplica, para o "Ver produto" do ingresso (vazio quando é por categoria). */
-export function alvosDo(r: RetratoPremio): Produto[] {
-  const produtos = useCatalogo.getState().produtos
-  return (r.aplicaA.produtos ?? []).map((id) => produtos.find((p) => p.id === id)).filter((p): p is Produto => !!p)
 }
 
 /** Nome curto do produto para frases apertadas: "OCB" de "Seda OCB Premium Slim". */

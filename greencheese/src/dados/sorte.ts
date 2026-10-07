@@ -15,11 +15,12 @@ export type TipoPremio = 'desconto-percentual' | 'leve-x-pague-y' | 'brinde'
 
 interface PremioBase {
   id: string
-  /** Curto, cabe num chip: "4 por 3 na OCB". */
+  /** Nome interno ("4 por 3 na OCB"). Na tela o prêmio aparece sempre como destaque + produto (nomeDoPremio). */
   titulo: string
   /**
    * 1 linha curta de apoio no cartão, sem repetir o prêmio (o destaque "15% OFF" + o produto o cartão monta sozinho
-   * a partir do tipo, do valor e do produto). Condição não entra aqui: vai na `regra` e no `comoUsar`.
+   * a partir do tipo, do valor e do produto). Até uns 28 caracteres (1 linha em 320 px). Sem condição nem promessa
+   * de tempo ("hoje"): isso vai na `regra` e no `comoUsar`.
    */
   descricao: string
   /** Frase completa; é ela que vai na linha do WhatsApp. */
@@ -96,10 +97,10 @@ export const premios: Premio[] = [
     tipo: 'leve-x-pague-y',
     valor: { leve: 4, pague: 3 },
     titulo: '4 por 3 na OCB',
-    descricao: 'Uma OCB a mais, por conta da sorte.',
+    descricao: 'Uma OCB por conta da sorte.',
     regra: 'Leva 4 Seda OCB Premium Slim e paga 3',
     aplicaA: { produtos: ['seda-ocb-premium-slim'] },
-    comoUsar: 'Põe 4 na sacola e usa o cupom. A loja tira 1 na conversa e confirma como fica junto com o combo da OCB.',
+    comoUsar: 'Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.',
     peso: 30,
     validadeDias: 7,
     papel: 'branco',
@@ -110,7 +111,7 @@ export const premios: Premio[] = [
     tipo: 'desconto-percentual',
     valor: 15,
     titulo: '15% na piteira de vidro',
-    descricao: 'Hoje a de vidro sai mais em conta.',
+    descricao: 'A de vidro sai mais em conta.',
     regra: '15% de desconto na Piteira de vidro RAW',
     aplicaA: { produtos: ['piteira-de-vidro-raw'] },
     comoUsar: 'Põe a piteira na sacola e usa o cupom.',
@@ -136,7 +137,7 @@ export const premios: Premio[] = [
     tipo: 'desconto-percentual',
     valor: 10,
     titulo: '10% no dichavador',
-    descricao: 'Gostou de girar? Leva o de verdade.',
+    descricao: 'Agora gira o de verdade.',
     regra: '10% de desconto no Dichavador de metal 4 partes',
     aplicaA: { produtos: ['dichavador-metal-4-partes'] },
     peso: 15,
@@ -148,7 +149,7 @@ export const premios: Premio[] = [
     tipo: 'desconto-percentual',
     valor: 10,
     titulo: '10% na bandeja RAW',
-    descricao: 'Tudo no lugar na hora de enrolar.',
+    descricao: 'Tudo no lugar pra enrolar.',
     regra: '10% de desconto na Bandeja RAW pequena',
     aplicaA: { produtos: ['bandeja-raw-pequena'] },
     peso: 10,

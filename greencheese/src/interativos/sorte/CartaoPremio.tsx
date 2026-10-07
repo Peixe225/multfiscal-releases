@@ -19,6 +19,7 @@ import { T } from './textos'
 // pixel ("15% OFF", "LEVA 4 PAGA 3", "BRINDE"), em que produto, no máximo 1 linha de apoio e o código. Tudo que é
 // condição (validade, 1 por pedido, a loja confirma) fica no "Ver condições".
 // Sem conta, o código fica sob um mosaico de pixel e nem existe ainda (só nasce quando o prêmio é guardado).
+// Guardado, o carimbo GUARDADO bate no lugar do "DEU SORTE!" (fora da foto do produto).
 // Comemoração (revelar.ts): confete de pixel saindo de trás do cartão [data-festa] e brilhos no destaque [data-brilho].
 
 export interface DadosCartao {
@@ -50,6 +51,8 @@ interface Props {
   mosaico?: boolean
   /** Carimbo "GUARDADO" à vista. */
   guardado?: boolean
+  /** Sem conta: até quando o prêmio fica reservado neste aparelho (vai no "Ver condições"). */
+  reserva?: string | null
 }
 
 /* ───────────── raios de pixel atrás do produto (impressos no papel) ───────────── */
@@ -105,25 +108,23 @@ interface Pedaco {
   cor: 0 | 1 | 2
 }
 
-/** 32 pedaços nas bordas do cartão (escondidos atrás dele), cada um com o rumo pra fora. */
+/**
+ * 18 pedaços escondidos atrás da metade de cima do cartão: 8 na borda de cima, 5 em cada lado. O rumo (dx, dy) é uma
+ * fração (0–1) do espaço livre, que revelar.ts mede na hora: o vão até o título em cima e, dos lados, a margem até a
+ * borda da tela (ou até a coluna dos botões, deitado). Assim o confete fica inteiro na tela, nunca passa por cima de
+ * texto e cai de volta atrás do cartão, longe dos botões.
+ */
 const FESTA: Pedaco[] = (() => {
   let s = 11
   const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647
   const entre = (a: number, b: number) => a + (b - a) * rnd()
   const lista: Pedaco[] = []
-  for (let i = 0; i < 32; i++) {
-    const lado = i < 9 ? 'esq' : i < 18 ? 'dir' : i < 25 ? 'cima' : 'baixo'
+  for (let i = 0; i < 18; i++) {
+    const lado = i < 8 ? 'cima' : i < 13 ? 'esq' : 'dir'
     const t = rnd() < 0.5 ? 6 : 8
     const cor = (i % 3) as 0 | 1 | 2
-    if (lado === 'esq' || lado === 'dir') {
-      const s1 = lado === 'esq' ? -1 : 1
-      lista.push({ x: lado === 'esq' ? 3 : 97, y: entre(6, 94), dx: s1 * entre(22, 64), dy: entre(-44, 36), t, cor })
-    } else if (lado === 'cima') {
-      // pra cima só até o vão de 28 px entre o título e o cartão (o confete nunca passa por cima de texto)
-      lista.push({ x: entre(8, 92), y: 2, dx: entre(-64, 64), dy: -entre(10, 22), t, cor })
-    } else {
-      lista.push({ x: entre(8, 92), y: 98, dx: entre(-56, 56), dy: entre(22, 60), t, cor })
-    }
+    if (lado === 'cima') lista.push({ x: 6 + (88 * (i + entre(0.15, 0.85))) / 8, y: 2, dx: entre(-1, 1), dy: -entre(0.45, 1), t, cor })
+    else lista.push({ x: lado === 'esq' ? 3 : 97, y: entre(6, 46), dx: (lado === 'esq' ? -1 : 1) * entre(0.5, 1), dy: -entre(0, 1), t, cor })
   }
   return lista
 })()
@@ -135,8 +136,9 @@ function Festa({ cor }: { cor: string }) {
       {FESTA.map((p, i) => (
         <i
           key={i}
-          data-dx={p.dx.toFixed(0)}
-          data-dy={p.dy.toFixed(0)}
+          data-dx={p.dx.toFixed(2)}
+          data-dy={p.dy.toFixed(2)}
+          data-lado={p.y < 5 ? 'cima' : 'lado'}
           style={{ left: `${p.x.toFixed(1)}%`, top: `${p.y.toFixed(1)}%`, width: p.t, height: p.t, margin: -p.t / 2, background: cores[p.cor] }}
         />
       ))}
@@ -155,7 +157,7 @@ function Brilho({ className, fixo = false }: { className: string; fixo?: boolean
 
 /* ───────────── cartão ───────────── */
 
-export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado }: Props) {
+export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado, reserva }: Props) {
   const fib = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const tons = TONS_PAPEL[dados.papel]
   const { destaque, alvo, produto } = fraseDoPremio({ titulo: dados.titulo, aplicaA: dados.aplicaA, ...dados.valor })
@@ -186,15 +188,18 @@ export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado }
               {T.exemplo}
             </span>
           )}
-          {guardado && (
-            <span className="cartao-guardado px" data-guardado aria-hidden="true">
-              {T.guardado}
-            </span>
-          )}
           <p className="cartao-deu px px-16" data-linha>
-            <Brilho className="cartao-deu-brilho" fixo />
-            {T.deuSorte}
-            <Brilho className="cartao-deu-brilho" fixo />
+            {guardado ? (
+              <span className="cartao-guardado px" data-guardado aria-hidden="true">
+                {T.guardado}
+              </span>
+            ) : (
+              <>
+                <Brilho className="cartao-deu-brilho" fixo />
+                {T.deuSorte}
+                <Brilho className="cartao-deu-brilho" fixo />
+              </>
+            )}
           </p>
           {produto && (
             <div className="cartao-vitrine">
@@ -259,7 +264,7 @@ export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado }
             </div>
             <Condicoes
               className="cartao-cond"
-              itens={listaCondicoes({ regra: dados.regra, comoUsar: dados.comoUsar, validade })}
+              itens={listaCondicoes({ regra: dados.regra, comoUsar: dados.comoUsar, validade, reserva: cupom ? null : reserva })}
               lado={
                 produto && (
                   <button type="button" className="cartao-ver toque" onClick={() => abrirPagina(produto.id, 'link')}>
@@ -276,13 +281,13 @@ export function CartaoPremio({ dados, cupom, idTitulo, refs, mosaico, guardado }
   )
 }
 
-/** Faixa compacta de papel no lugar do cartão, durante o cadastro. */
-export function FaixaPremio({ titulo, papel }: { titulo: string; papel: Papel }) {
+/** Faixa compacta de papel no lugar do cartão, durante o cadastro: o prêmio com o mesmo nome do cartão. */
+export function FaixaPremio({ nome, papel }: { nome: string; papel: Papel }) {
   const tons = TONS_PAPEL[papel]
   return (
     <p className="faixa-premio" style={{ background: tons.base }}>
       <Icone nome="dichavador" tamanho={16} />
-      <span>{T.faixaPremio(titulo)}</span>
+      <span>{T.faixaPremio(nome)}</span>
     </p>
   )
 }

@@ -18,7 +18,7 @@ import {
 import { useConta, useCupons, useAgora } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
-import { linhaCupom, nomeCategoria, nomeCurto, situacaoNoPedido, type Situacao } from '../lib/cupom-uso'
+import { linhaCupom, nomeCategoria, nomeCurto, nomeDoPremio, situacaoNoPedido, type Situacao } from '../lib/cupom-uso'
 import { rolarPara } from '../lib/rolagem'
 import { produtoPorId } from '../store/catalogo'
 import { useChat, type Passo, type Respostas } from '../store/chat'
@@ -590,10 +590,10 @@ export function ChatFolha() {
             editar={(p) => voltarPara(p)}
             cupom={
               modo === 'pedido' && cupom && situacaoCupom
-                ? { codigo: cupom.codigo, titulo: cupom.retrato.titulo, situacao: situacaoCupom, exemplo: cupom.demo && config.carimboDeExemplo }
+                ? { codigo: cupom.codigo, titulo: nomeDoPremio(cupom.retrato), situacao: situacaoCupom, exemplo: cupom.demo && config.carimboDeExemplo }
                 : null
             }
-            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: sugerido.retrato.titulo, exemplo: sugerido.demo && config.carimboDeExemplo } : null}
+            sugerido={sugerido ? { codigo: sugerido.codigo, titulo: nomeDoPremio(sugerido.retrato), exemplo: sugerido.demo && config.carimboDeExemplo } : null}
             lugar={cidade ?? canal.nome}
             aplicarCupom={(c) => useSacola.getState().aplicarCupom(c)}
             tirarCupom={() => useSacola.getState().tirarCupom()}
