@@ -480,6 +480,22 @@
 .sorte-mini-usar {
   margin-top: 2px;
 }
+.sorte-mini-adesivos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+/* usado/vencido: o mesmo carimbo dos cupons da Minha conta */
+.sorte-mini-carimbo {
+  padding: 5px 7px 3px;
+  border: 2px solid var(--legenda);
+  color: var(--legenda);
+  font-size: 16px;
+  font-weight: 400;
+  white-space: nowrap;
+  transform: rotate(-4deg);
+}
 .sorte-cadastro {
   display: flex;
   flex-direction: column;
@@ -763,9 +779,11 @@
 .sp-adesivos {
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
+  max-width: 100%;
   margin-top: 12px;
 }
 .sp-pe {
@@ -980,9 +998,14 @@
   white-space: normal;
   text-wrap: balance;
 }
-/* a contagem não encolhe: quem quebra linha é o "Guarda pra liberar o código" */
+/* a contagem não encolhe: quem quebra linha é o "Guarda pra liberar o código" (base 0: os dois só vão um embaixo do
+   outro quando nem o trancado em 3 linhas cabe ao lado da contagem; o código liberado não quebra) */
 .sp-adesivos > .ad-contagem {
   flex: none;
+}
+.sp-adesivos > .ad-codigo-caixa {
+  flex: 1 1 0;
+  max-width: max-content;
 }
 .ad-cadeado {
   display: grid;
@@ -1042,26 +1065,25 @@
   margin-left: 4px;
   font: 700 12px/1 var(--ui);
 }
-/* story estreito: os dois adesivos encolhem um degrau pra caberem lado a lado */
-@container (max-width: 300px) {
+/* story estreito (até 360 px: celular em pé, computador): os dois adesivos encolhem um degrau pra caberem lado a lado
+   até com o código mais largo (SORTE-WMWM) no story de 272 px; o trancado quebra em mais linhas sozinho (flex) */
+@container (max-width: 360px) {
   .sp-adesivos {
-    gap: 8px;
+    gap: 6px;
   }
   .ad-codigo {
-    gap: 6px;
-    padding: 0 10px;
+    gap: 5px;
+    padding: 0 9px 0 8px;
   }
   .ad-codigo-txt.px {
-    font-size: 18px;
-  }
-  .ad-codigo-trancado .ad-codigo-txt {
-    max-width: 7em;
+    font-size: 16px;
   }
   .ad-contagem {
     gap: 5px;
     padding: 7px 9px 8px;
   }
   .ad-contagem-titulo {
+    max-width: 10ch;
     font-size: 11px;
   }
   .ad-contagem-tile.px {
@@ -1069,6 +1091,20 @@
     height: 24px;
     font-size: 19px;
   }
+}
+/* story deitado: a contagem sempre no degrau menor (ao lado do código ou embaixo do produto) */
+.sorte-story[data-modo='lado'] .ad-contagem {
+  gap: 5px;
+  padding: 7px 9px 8px;
+}
+.sorte-story[data-modo='lado'] .ad-contagem-titulo {
+  max-width: 10ch;
+  font-size: 11px;
+}
+.sorte-story[data-modo='lado'] .ad-contagem-tile.px {
+  width: 19px;
+  height: 24px;
+  font-size: 19px;
 }
 
 /* ---------- "Ver condições" (story e Minha conta): texto clicável que abre a lista ---------- */
@@ -1146,7 +1182,21 @@
   padding: 14px 14px 12px;
   background: var(--preto);
   border: 1px solid var(--bolha);
-  border-radius: 12px;
+  /* o pé encosta na linha do "Ver condições": cantos retos embaixo e uma faixa preta logo abaixo (a ponta do adesivo
+     torto não aparece pela curva nem entre a lista e a linha) */
+  border-radius: 12px 12px 2px 2px;
+  box-shadow: 0 6px 0 var(--preto);
+}
+/* rola e tem mais embaixo: um degradê no pé (senão a lista parece cortada no meio da linha) */
+.cond-sobre .cond-painel[data-mais]::after {
+  content: '';
+  position: sticky;
+  bottom: -12px;
+  display: block;
+  height: 32px;
+  margin: -32px -14px -12px;
+  background: linear-gradient(rgba(0, 0, 0, 0), var(--preto) 85%);
+  pointer-events: none;
 }
 .cond-sobre .cond-painel:not([hidden]) {
   animation-name: cond-sobe;
@@ -1298,45 +1348,109 @@
   .sorte-intro .sorte-pergunta {
     display: none;
   }
-  /* o story do prêmio deitado (9:16 não cabe na altura): produto à esquerda, destaque e adesivos à direita, e as
-     ações numa coluna ao lado (abrir o "Ver condições" nunca tira "Guardar meu prêmio" da tela) */
+  /* com o story na tela a coluna volta a ser uma pilha (o story deitado e as ações lado a lado, ver 'lado' abaixo) */
   .sorte.sorte-com-story:not(.sorte-revelando) {
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  .sorte-story[data-modo='lado'] {
-    flex-direction: row;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 24px;
-    width: auto;
-    max-width: none;
-  }
-  .sorte-story[data-modo='lado'] .sorte-pe {
-    align-self: center;
-    width: min(260px, calc(100vw - var(--sw) - 2 * var(--gutter) - 24px));
-    padding: 8px 0;
-  }
-  .sorte-story[data-modo='lado'] .sp-corpo {
-    justify-content: center;
-    padding: 0 12px 6px calc(40% + 8px);
-  }
+}
+
+/* ---------- story deitado ('lado'): tela baixa e larga (celular deitado, diálogo baixo do computador) ----------
+   O 9:16 não cabe na altura: o story deita (produto à esquerda, destaque e adesivos à direita, como o story do Início
+   deitado) e as ações ficam numa coluna ao lado (abrir o "Ver condições" nunca tira "Guardar meu prêmio" da tela).
+   A largura do conjunto é a medida (story + vão + coluna): na revelação e depois, no fluxo, ele fica no mesmo lugar.
+   A altura medida é o mínimo: se o conteúdo pedir mais (celular deitado pequeno), o story cresce e a coluna rola. */
+.sorte-story[data-modo='lado'] {
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
+  width: calc(var(--sw) + 16px + var(--col, 200px));
+}
+.sorte.sorte-revelando > .sorte-story[data-modo='lado'] {
+  /* no celular deitado a coluna é uma grade (cena à esquerda): o story fica por cima dela inteira, não da 2ª coluna */
+  grid-column: auto;
+  grid-row: auto;
+}
+.sorte-story[data-modo='lado'] .story-premio {
+  container-type: inline-size;
+  height: auto;
+  min-height: var(--sh);
+}
+.sorte-story[data-modo='lado'] .sorte-pe {
+  flex: none;
+  align-self: center;
+  width: var(--col, 200px);
+  padding: 8px 0;
+}
+.sorte-story[data-modo='lado'] .sorte-pe > * {
+  width: 100%;
+}
+.sorte-story[data-modo='lado'] .sorte-pe-botoes > .botao {
+  padding: 0 12px;
+}
+.sorte-story[data-modo='lado'] .sp-corpo {
+  justify-content: center;
+  padding: 4px 12px 8px calc(40% + 8px);
+}
+.sorte-story[data-modo='lado'] .sp-vitrine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 6px;
+  width: 40%;
+  min-height: 0;
+}
+.sorte-story[data-modo='lado'] .sp-produto {
+  top: 2%;
+  bottom: 2%;
+}
+/* o que o story baixo faz (@container max-height não vale aqui: o quadro deitado cresce com o conteúdo) */
+.sorte-story[data-modo='lado'] .sp-apoio {
+  display: none;
+}
+.sorte-story[data-modo='lado'] .sp-titulo {
+  margin-top: 0;
+}
+.sorte-story[data-modo='lado'] .sp-valor {
+  font-size: min(40px, 7.4cqi);
+}
+.sorte-story[data-modo='lado'] .sp-adesivos {
+  margin-top: 10px;
+}
+/* story deitado estreito (celular deitado até ~812, diálogo baixo): os dois adesivos não cabem lado a lado na coluna
+   do texto. A contagem vai pra baixo do produto (a vitrine encolhe pra ela) e o código fica sozinho, inteiro, ao lado. */
+@container (max-width: 530px) {
   .sorte-story[data-modo='lado'] .sp-vitrine {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 6px;
-    width: 40%;
+    bottom: 94px;
+    width: 38%;
   }
-  .sorte-story[data-modo='lado'] .sp-titulo {
-    margin-top: 0;
-  }
-  .sorte-story[data-modo='lado'] .sp-valor {
-    font-size: min(40px, 7.4cqi);
+  /* o "DEU SORTE!" menor e o produto um pouco abaixo dele: o adesivo cobre só a ponta do produto pequeno */
+  .sorte-story[data-modo='lado'] .sp-deu {
+    font-size: clamp(14px, 4.2cqi, 18px);
   }
   .sorte-story[data-modo='lado'] .sp-produto {
-    top: 2%;
-    bottom: 2%;
+    top: 16%;
+    bottom: 0;
+    max-width: 80%;
+  }
+  /* a coluna do texto um pouco mais larga: "Ver condições" e "Ver produto" cabem numa linha a partir de ~385 px */
+  .sorte-story[data-modo='lado'] .sp-corpo {
+    padding-right: 8px;
+    padding-left: calc(38% + 4px);
+  }
+  .sorte-story[data-modo='lado'] .cond-linha {
+    column-gap: 4px;
+  }
+  .sorte-story[data-modo='lado'] .cond-botao,
+  .sorte-story[data-modo='lado'] .sp-ver {
+    padding: 0 2px;
+  }
+  .sorte-story[data-modo='lado'] .sp-adesivos > .ad-contagem {
+    position: absolute;
+    left: 19%;
+    bottom: 10px;
+    translate: -50% 0;
   }
 }

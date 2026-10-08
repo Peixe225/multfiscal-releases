@@ -82,24 +82,32 @@
 }
 .cs-usar {
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
 }
 .cs-rot {
   font: 600 13px/1 var(--ui);
 }
+/* os cupons pra usar: um por linha, no molde da linha do cupom aplicado (adesivo do código + destaque em pixel) */
 .cs-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
 }
 .cs-chip {
-  min-height: 44px;
-  padding: 0 14px;
-  background: var(--branco);
-  color: var(--preto);
-  border-radius: 10px;
-  font: 600 13px/1.1 var(--ui);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--bolha);
+  border-radius: 12px;
+  color: var(--branco);
+  font: 600 14px/1.3 var(--ui);
   text-align: left;
+}
+.cs-chips > .cs-ver {
+  align-self: flex-start;
 }
 .cs-ver {
   text-decoration: underline;
@@ -130,8 +138,4 @@
 .cs-exemplo {
   margin-left: 2px;
   font-weight: 400;
-}
-/* no chip branco, o carimbo fica escuro (o cinza de legenda some no branco) */
-.cs-chip .cs-exemplo {
-  color: #3d3d3d;
 }

@@ -8,7 +8,7 @@ import { config } from '../../dados/config'
 import type { Premio } from '../../dados/sorte'
 import { primeiroNome, type ContaAberta } from '../../lib/conta'
 import { conta as adaptador } from '../../lib/conta-adaptador'
-import { formatarAte, formatarDiaSemana, formatarEspera, formatarValidade, fraseDoPremio, nomeDoPremio, premioPorId } from '../../lib/cupom'
+import { formatarAte, formatarDiaMes, formatarDiaSemana, formatarEspera, formatarValidade, fraseDoPremio, nomeDoPremio, premioPorId } from '../../lib/cupom'
 import { ehDesktop, movimentoReduzido, ponteiroFino } from '../../lib/movimento'
 import type { Cupom } from '../../store/conta'
 import { useLocal } from '../../store/local'
@@ -68,8 +68,8 @@ const FOCO_FASE = '[data-foco-fase]'
 
 /**
  * 'fora': as ações ficam embaixo do story (celular alto, computador); 'sobre': por cima do pé dele, num degradê (celular
- * baixo, como o Instagram num celular 16:9); 'lado': celular deitado, o story deitado à esquerda e as ações numa coluna
- * à direita.
+ * baixo, como o Instagram num celular 16:9); 'lado': tela deitada (celular deitado, diálogo baixo no computador), o
+ * story deitado à esquerda e as ações numa coluna à direita.
  */
 type ModoStory = 'fora' | 'sobre' | 'lado'
 interface MedidaStory {
@@ -77,11 +77,33 @@ interface MedidaStory {
   h: number
   modo: ModoStory
   pe: number
+  /** Largura da coluna das ações ('lado'). */
+  col: number
 }
 
 const TOPO_STORY = 8
+/**
+ * Mais estreito que isto o story em pé não cabe (adesivos lado a lado, destaque, "Ver condições" e "Ver produto" numa
+ * linha, as ações numa linha em 'sobre'): em vez de afinar, ele fica mais baixo que 9:16 e o produto encolhe.
+ */
+const STORY_MIN = 272
+/**
+ * Altura livre abaixo da qual o story em pé fica com o produto pequeno demais (o resto do story ocupa ~330 px). Abaixo
+ * disto ele deita, se a coluna das ações couber ao lado: celular deitado e o diálogo do computador com a janela baixa
+ * (até 640 px de altura ele alarga pra isso, interativos.css); o diálogo estreito de sempre nunca deita.
+ */
+const STORY_MIN_H = 520
+/** Story deitado: largura mínima, a coluna das ações (cabe "Guardar meu prêmio" inteiro) e o vão entre os dois. */
+const LADO_MIN = 320
+const COL_MIN = 200
+const COL_MAX = 260
+const VAO_LADO = 16
+/**
+ * No computador o story é medido com as ações mais altas que ele pode ter (guardado: a frase e dois botões), pra não
+ * trocar de tamanho nem de modo ao guardar.
+ */
+const PE_COMPUTADOR = 168
 
-/** O maior 9:16 que cabe na área do jogo, com as ações embaixo quando isso custa no máximo 12% da largura. */
 /**
  * Altura das ações empilhadas (como ficam em 'fora'), medida no que está na tela em qualquer modo: em 'sobre' elas ficam
  * numa linha só, e decidir o modo pela altura da linha faria o modo ir e voltar.
@@ -95,30 +117,42 @@ function alturaPeEmPe(pe: HTMLElement | null): number {
   return 12 + (nota ? nota.offsetHeight + 8 : 0) + filhos.reduce((a, b) => a + b, 0) + 8 * Math.max(0, filhos.length - 1) + 8 + seg
 }
 
-function medirStory(corpo: HTMLElement, peEmPe: number, peAgora: number): MedidaStory {
-  const peH = peEmPe
+/**
+ * O tamanho do story na área do jogo (`gutter`: o respiro lateral da coluna). Decide pela geometria, não pelo aparelho:
+ * o celular deitado e o diálogo baixo do computador (inclusive celular grande deitado, que cai no layout de computador)
+ * deitam do mesmo jeito.
+ */
+function medirStory(corpo: HTMLElement, gutter: number, peEmPe: number, peAgora: number): MedidaStory {
   const W = corpo.clientWidth
   const H = corpo.clientHeight
-  // deitado: o 9:16 não cabe na altura; o story deita também (produto à esquerda, texto e adesivos à direita, como o
-  // story do Início deitado) e as ações ficam numa coluna ao lado
-  if (window.matchMedia('(max-height: 500px) and (orientation: landscape) and (max-width: 899px)').matches) {
-    const w = Math.round(Math.min(560, W - 32 - 24 - Math.min(260, W * 0.3)))
-    return { w, h: Math.round(H - TOPO_STORY * 2), modo: 'lado', pe: peH }
+  const hLivre = Math.round(H - TOPO_STORY * 2)
+  const largura = W - 2 * gutter
+  // deitado: nem o story em pé mais baixo cabe na altura. O story deita também (produto à esquerda, texto e adesivos à
+  // direita, como o story do Início deitado) e as ações ficam numa coluna ao lado. A altura é o mínimo dele: se o
+  // conteúdo pedir mais (celular deitado pequeno), ele cresce e a coluna rola (nunca corta nem encavala).
+  if (hLivre < STORY_MIN_H && largura >= LADO_MIN + VAO_LADO + COL_MIN) {
+    const col = Math.round(Math.min(COL_MAX, Math.max(COL_MIN, W * 0.3)))
+    const w = Math.round(Math.min(560, largura - VAO_LADO - col))
+    return { w, h: hLivre, modo: 'lado', pe: peEmPe, col }
   }
-  const maxW = Math.max(200, Math.min(W - 16, ehDesktop() ? 360 : 440))
-  const hFora = Math.min((maxW * 16) / 9, H - TOPO_STORY - peH - 4)
-  if ((hFora * 9) / 16 >= maxW * 0.88) {
-    const w = Math.floor((hFora * 9) / 16)
-    return { w, h: Math.round((w * 16) / 9), modo: 'fora', pe: peH }
-  }
-  const hSobre = Math.min((maxW * 16) / 9, H - TOPO_STORY - 8)
-  const w = Math.max(200, Math.floor((hSobre * 9) / 16))
+  const desk = ehDesktop()
+  const maxW = Math.max(200, Math.min(W - 16, desk ? 360 : 440))
+  const minW = Math.min(STORY_MIN, maxW)
+  const peFora = desk ? Math.max(peEmPe, PE_COMPUTADOR) : peEmPe
+  const wFora = Math.floor((Math.min((maxW * 16) / 9, H - TOPO_STORY - peFora - 4) * 9) / 16)
+  // as ações embaixo quando isso custa no máximo 12% da largura; no computador, sempre que o story fica com o mínimo
+  // (o diálogo cresce até 760 px: nada de ações por cima do story com espaço sobrando, nem trocar de modo ao guardar)
+  if (wFora >= (desk ? minW : maxW * 0.88)) return { w: wFora, h: Math.round((wFora * 16) / 9), modo: 'fora', pe: peEmPe, col: 0 }
   // por cima do pé do story vale a altura que as ações têm agora (numa linha só)
-  return { w, h: Math.round((w * 16) / 9), modo: 'sobre', pe: peAgora }
+  const w9 = Math.floor((Math.min((maxW * 16) / 9, hLivre) * 9) / 16)
+  if (w9 >= minW) return { w: w9, h: Math.round((w9 * 16) / 9), modo: 'sobre', pe: peAgora, col: 0 }
+  // tela baixa e estreita (navegador do Instagram num celular pequeno, janela baixa): o story não afina, fica mais baixo
+  // que 9:16 (o produto encolhe primeiro)
+  return { w: minW, h: Math.max(hLivre, 380), modo: 'sobre', pe: peAgora, col: 0 }
 }
 
 function iguais(a: MedidaStory | null, b: MedidaStory): boolean {
-  return !!a && a.w === b.w && a.h === b.h && a.modo === b.modo && a.pe === b.pe
+  return !!a && a.w === b.w && a.h === b.h && a.modo === b.modo && a.pe === b.pe && a.col === b.col
 }
 
 export default function JogoSorte({ tela }: PropsJogo) {
@@ -189,13 +223,16 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const corpoCasca = casca.corpo
   const ajustarStory = useCallback(() => {
     if (!corpoCasca) return null
-    const m = medirStory(corpoCasca, alturaPeEmPe(pe.current), pe.current?.offsetHeight ?? 88)
+    // o respiro lateral da coluna (--gutter: 16 px no celular, 24 no computador, mais a área segura deitado)
+    const gutter = raiz.current ? parseFloat(getComputedStyle(raiz.current).paddingLeft) || 16 : 16
+    const m = medirStory(corpoCasca, gutter, alturaPeEmPe(pe.current), pe.current?.offsetHeight ?? 88)
     // escreve já no elemento (a revelação mede o quadro logo em seguida, antes do React re-renderizar)
     const s = story.current
     if (s) {
       s.style.setProperty('--sw', `${m.w}px`)
       s.style.setProperty('--sh', `${m.h}px`)
       s.style.setProperty('--pe-h', `${m.pe}px`)
+      s.style.setProperty('--col', `${m.col}px`)
       s.dataset.modo = m.modo
     }
     setMedida((a) => (iguais(a, m) ? a : m))
@@ -441,6 +478,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
       segAbrir: segAbrir.current,
       segPremio: segPremio.current,
       cromo: cromo.current,
+      titulo: raiz.current?.querySelector<HTMLElement>('.sorte-h2'),
     }
   }
 
@@ -536,6 +574,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
       corpo?.removeEventListener('pointercancel', cancela)
       tl.kill()
       tlEstalo.current?.kill()
+      // o título sumiu no corte; fora da revelação ele volta (só pro leitor de tela com o story, à vista no resto)
+      if (el.titulo) gsap.set(el.titulo, { clearProps: 'opacity,visibility' })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fase])
@@ -680,7 +720,9 @@ export default function JogoSorte({ tela }: PropsJogo) {
   // guardou agora: até o estalo, o story mostra o adesivo ainda trancado
   const cupomNaTela = destrava === 'trancado' ? null : (ganho?.cupom ?? null)
   const reservaTexto = ganho && !ganho.cupom ? T.condReserva(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora)) : null
-  const estiloStory = medida ? ({ '--sw': `${medida.w}px`, '--sh': `${medida.h}px`, '--pe-h': `${medida.pe}px` } as CSSProperties) : undefined
+  // com o story pronto na tela, o alvo de foco da fase é o destaque dele (o h2 fica só pro leitor de tela)
+  const focoNoStory = comStory && !!dados && fase !== 'revelando'
+  const estiloStory = medida ? ({ '--sw': `${medida.w}px`, '--sh': `${medida.h}px`, '--pe-h': `${medida.pe}px`, '--col': `${medida.col}px` } as CSSProperties) : undefined
 
   return (
     <div ref={raiz} className={`sorte sorte-${fase}${comStory ? ' sorte-com-story' : ''}`} onKeyDown={teclaRaiz} onKeyUp={soltarRaiz}>
@@ -705,7 +747,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
         )}
 
       {!naSubtela && (
-        <h2 className={`sorte-h2 px px-24${comStory && fase !== 'revelando' ? ' sr-only' : ''}`} tabIndex={-1} data-foco-jogo>
+        <h2 className={`sorte-h2 px px-24${comStory && fase !== 'revelando' ? ' sr-only' : ''}`} tabIndex={-1} data-foco-jogo={focoNoStory ? undefined : ''}>
           {T.tituloPx}
         </h2>
       )}
@@ -770,6 +812,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
             reserva={reservaTexto}
             aoGuardar={fase === 'premio' && !ganho.cupom ? () => irParaCadastro('cadastro', 'premio') : undefined}
             inerte={fase === 'revelando'}
+            focoJogo={focoNoStory}
             refs={{ quadro, cobertura }}
           />
           <div ref={pe} className="sorte-pe" inert={fase === 'revelando'}>
@@ -923,7 +966,13 @@ function Espera({ r, usar, verCupons }: { r: ResumoSorte; usar: (c: string) => v
               <span className="sr-only">: </span>
               <span>{premioHoje.alvo}</span>
             </p>
-            <AdesivoCodigo codigo={hoje.codigo} apagado={hoje.status !== 'ativo'} />
+            <div className="sorte-mini-adesivos">
+              <AdesivoCodigo codigo={hoje.codigo} apagado={hoje.status !== 'ativo'} />
+              {/* usado ou vencido: o carimbo, como nos cupons da Minha conta (o cinza sozinho não diz nada) */}
+              {hoje.status === 'usado' && <span className="sorte-mini-carimbo px">{T.usado(formatarDiaMes(hoje.usadoEm ?? r.agora))}</span>}
+              {hoje.status === 'vencido' && <span className="sorte-mini-carimbo px">{T.venceu}</span>}
+              {hoje.status === 'encerrado' && <span className="legenda">{T.encerrado}</span>}
+            </div>
             {hoje.status === 'ativo' && (
               <button type="button" className="botao botao-contorno sorte-mini-usar" onClick={() => usar(hoje.codigo)}>
                 {T.usarNoPedido}

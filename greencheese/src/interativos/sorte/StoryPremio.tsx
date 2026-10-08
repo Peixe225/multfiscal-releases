@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import { useState, type Ref } from 'react'
 import { corDoHalo, ProdutoVisual } from '../../arte/ProdutoVisual'
 import { Avatar, tempoRelativo } from '../../componentes/comum'
 import { config } from '../../dados/config'
@@ -7,6 +7,7 @@ import { formatarValidade } from '../../lib/cupom'
 import { fraseDoPremio } from '../../lib/cupom-uso'
 import type { Cupom } from '../../store/conta'
 import { useUI } from '../../store/ui'
+import { useCasca } from '../CascaInterativo'
 import { AdesivoCodigo, AdesivoContagem, BolhaPremio, Brilho, SeloAmigos, VERDE_AMIGOS } from './Adesivos'
 import { Condicoes, listaCondicoes } from './Condicoes'
 import { T } from './textos'
@@ -56,6 +57,8 @@ interface Props {
   aoGuardar?: () => void
   /** Revelação: nada no story responde ao toque. */
   inerte?: boolean
+  /** O destaque é o alvo de foco da tela (reabrir o prêmio, voltar do cadastro), como no fim da revelação. */
+  focoJogo?: boolean
   refs?: RefsStory
 }
 
@@ -96,9 +99,12 @@ function Festa({ cor }: { cor: string }) {
 
 /* ───────────── story ───────────── */
 
-export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora, postadoEm, reserva, aoGuardar, inerte, refs }: Props) {
+export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora, postadoEm, reserva, aoGuardar, inerte, focoJogo, refs }: Props) {
   const { destaque, alvo, produto } = fraseDoPremio({ titulo: dados.titulo, aplicaA: dados.aplicaA, ...dados.valor })
   const abrirPagina = useUI((s) => s.abrirPagina)
+  const { prenderEsc } = useCasca()
+  // "Ver condições" aberto: a lista cobre o destaque e os adesivos, que saem do Tab e do leitor de tela até ela fechar
+  const [condAberta, setCondAberta] = useState(false)
   const exemplo = dados.demo && config.carimboDeExemplo
   const codigo = cupom?.codigo ?? null
   const [r, g, b] = produto ? corDoHalo(produto.cor, false) : [255, 255, 255]
@@ -121,8 +127,8 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
         {exemplo && <span className="carimbo sp-exemplo">{T.exemplo}</span>}
       </div>
 
-      <div className="sp-corpo">
-        <div className="sp-vitrine">
+      <div className="sp-corpo" data-cond-aberta={condAberta ? '' : undefined}>
+        <div className="sp-vitrine" inert={condAberta}>
           <Festa cor={`rgb(${r} ${g} ${b})`} />
           <div className="sp-produto" data-produto>
             {produto && sintonia !== 'antes' && <ProdutoVisual key={sintonia} produto={produto} largura={108} revelar={sintonia === 'agora' ? 'sempre' : false} prioridade rotulo={null} />}
@@ -133,7 +139,7 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
           </p>
         </div>
 
-        <h3 id={idTitulo} className="sp-titulo" tabIndex={-1}>
+        <h3 id={idTitulo} className="sp-titulo" tabIndex={-1} inert={condAberta} data-foco-jogo={focoJogo ? '' : undefined}>
           <span className="sr-only">{T.deuSorte} </span>
           <span className="sp-valor px" data-valor>
             {destaque}
@@ -147,12 +153,12 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
           </span>
         </h3>
         {dados.descricao && (
-          <p className="sp-apoio" data-apoio>
+          <p className="sp-apoio" data-apoio inert={condAberta}>
             {dados.descricao}
           </p>
         )}
 
-        <div className="sp-adesivos">
+        <div className="sp-adesivos" inert={condAberta}>
           <AdesivoCodigo codigo={codigo} aoTrancado={aoGuardar} />
           <AdesivoContagem validoAte={cupom?.validoAte ?? null} dias={dados.validadeDias} agora={agora} />
         </div>
@@ -161,6 +167,8 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
           <Condicoes
             sobre
             className="sp-cond"
+            aoAlternar={setCondAberta}
+            prenderEsc={prenderEsc}
             itens={listaCondicoes({ regra: dados.regra, comoUsar: dados.comoUsar, validade, reserva: cupom ? null : reserva })}
             lado={
               produto && (

@@ -69,6 +69,11 @@ export interface ElementosRevelacao {
   segAbrir: Element | null
   segPremio: Element | null
   cromo: HTMLElement | null
+  /**
+   * O título do jogo ("TESTE MINHA SORTE"): some no corte, quando o story aparece por cima (em pé o quadro já cobre
+   * ele; com o story deitado, a coluna das ações é transparente e ele aparecia por trás dela).
+   */
+  titulo?: HTMLElement | null
 }
 
 /** Estalo (0–150 ms): a tampa passa 8° do alinhamento e volta (o entalhe para alinhado com o indicador); o anel pisca 2×. */
@@ -244,6 +249,7 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
     tl.set(el.disco, { yPercent: -18, scaleY: K }, 0)
     tl.set([el.corpo, el.labio, el.lado], { opacity: 1, y: 0 }, 0)
     if (el.segAbrir) tl.set(el.segAbrir, { scaleX: 1 }, 0)
+    if (el.titulo) tl.set(el.titulo, { autoAlpha: 0 }, 0.4)
     tl.call(() => pintarFinal(el), [], 0.4)
     tl.call(o.aoFim, [], 0.4)
     return tl
@@ -307,6 +313,7 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
   tl.set(el.quadro, { autoAlpha: 1 }, CORTE)
   tl.set([el.corpo, el.labio, el.lado, el.disco], { autoAlpha: 0 }, CORTE)
   if (el.cromo) tl.set(el.cromo, { autoAlpha: 0 }, CORTE)
+  if (el.titulo) tl.set(el.titulo, { autoAlpha: 0 }, CORTE)
   tl.call(o.aoSintonizar, [], CORTE)
   tl.call(() => sintonizarQuadro(el.cobertura), [], CORTE + 0.06)
   // o preto da câmara fica em volta até o story sintonizar; depois volta o céu de estrelas (corte seco)

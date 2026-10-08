@@ -5,7 +5,7 @@ import { ID_SORTE, useEstadoSorte } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
 import { formatarAte } from '../lib/cupom'
 import { useCupomNoPedido } from '../lib/cupom-pedido'
-import { fraseDoPremio, nomeCategoria, nomeDoPremio, type Situacao } from '../lib/cupom-uso'
+import { fraseDoPremio, nomeCategoria, type Situacao } from '../lib/cupom-uso'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { disponivelEm } from '../store/catalogo'
@@ -162,25 +162,33 @@ function ConviteCupom() {
       <div className="cupom-sacola cs-usar">
         <p className="cs-rot">Usar cupom</p>
         <div className="cs-chips">
-          {r.ativos.slice(0, 3).map((c) => (
-            <button
-              key={c.codigo}
-              type="button"
-              className="cs-chip toque"
-              onClick={() => {
-                aplicar(c.codigo)
-                avisar(T.cupomAplicado(c.codigo))
-              }}
-            >
-              <span className="px px-16 cs-codigo">{c.codigo}</span> · {nomeDoPremio(c.retrato)}
-              {c.demo && config.carimboDeExemplo && (
-                <>
-                  {' '}
-                  <Exemplo />
-                </>
-              )}
-            </button>
-          ))}
+          {r.ativos.slice(0, 3).map((c) => {
+            const { destaque, alvo } = fraseDoPremio(c.retrato)
+            return (
+              <button
+                key={c.codigo}
+                type="button"
+                className="cs-chip toque"
+                onClick={() => {
+                  aplicar(c.codigo)
+                  avisar(T.cupomAplicado(c.codigo))
+                }}
+              >
+                {/* como a linha do cupom aplicado: o código no adesivo e o destaque em pixel */}
+                <span className="cs-adesivo px">{c.codigo}</span>
+                <span className="sr-only">: </span>
+                <span className="cs-premio">
+                  <span className="cs-destaque px">{destaque}</span> {alvo}
+                  {c.demo && config.carimboDeExemplo && (
+                    <>
+                      {' '}
+                      <Exemplo />
+                    </>
+                  )}
+                </span>
+              </button>
+            )
+          })}
           <button type="button" className="cs-ver toque" onClick={() => setConta(true)}>
             ver todos
           </button>

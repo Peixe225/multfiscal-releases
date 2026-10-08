@@ -127,6 +127,14 @@
     display: inline-grid;
   }
 }
+/* janela baixa (notebook com as barras do navegador, celular grande deitado, que pega o layout de computador): o
+   diálogo alarga e ganha altura, pro story do prêmio deitar com as ações ao lado em vez de ficar minúsculo */
+@media (min-width: 900px) and (max-height: 640px) {
+  .casca {
+    --casca-w: min(720px, calc(100% - var(--lateral) - 48px));
+    --casca-h: calc(100% - 32px);
+  }
+}
 
 /* com o jogo aberto, os loops decorativos da página por trás param (o hero para pelo useUI) */
 .com-casca .app *,
