@@ -18,6 +18,7 @@ import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
 import { AvisoLocal, LinhaLocal, useAvisoLocal, useTextoLocal } from './Local'
 import { RuaInicio } from './RuaInicio'
+import { alturaDaFaixa } from './rua/palco'
 import { Perfil } from './Perfil'
 import { StoryQuadro } from './StoryQuadro'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
@@ -128,35 +129,92 @@ const PERFIL_COMPACTO = 380
 const PERFIL_MAX = 420
 
 /**
- * Escala da rua no computador, sempre inteira: 2× numa coluna estreita, 3× no notebook, 4× em tela grande e alta (a
- * cena tem 92 de altura: a 4× ela pede uns 370 px embaixo do perfil).
+ * A maior escala da rua que a largura da coluna aceita, sempre inteira: 2× numa coluna estreita, 3× no notebook, 4×
+ * em tela grande. Ao lado do story, a altura ainda corta (useLojaDesktop).
  */
 function escalaDaRua(coluna: number): number {
-  if (coluna >= 640 && window.innerWidth >= 1440 && window.innerHeight >= 1000) return 4
+  if (coluna >= 640 && window.innerWidth >= 1440) return 4
   if (coluna >= 450) return 3
   return 2
 }
 
+/** Vão entre o perfil e a rua: 32 com folga, 16 no aperto. */
+const VAO_RUA = 32
+const VAO_RUA_MIN = 16
+
+interface LojaDesktop {
+  /** Escala da rua (0: sem rua). */
+  k: number
+  compacto: boolean
+  /** Perfil baixo: o avatar ao lado dos números (janela baixa, para a rua caber embaixo). */
+  baixo: boolean
+  vao: number
+}
+
 /**
  * Perfil e rua no computador: a coluna do perfil (ao lado do story de 1200 px em diante, embaixo dele de 900 a 1199)
- * decide a escala da rua e se o perfil fica compacto. O story nunca encolhe por causa deles. Antes da pintura.
+ * decide a escala da rua e se o perfil fica compacto. O story nunca encolhe por causa deles e, lado a lado, o hero
+ * também não cresce: perfil + vão + rua cabem na altura que o hero já tem sem a rua (a da janela até 900, ou a do
+ * story), então o story inteiro, a calçada da rua e os destaques ficam onde ficavam. Escolhe a maior escala que cabe,
+ * primeiro com o perfil inteiro e depois com o perfil baixo (avatar ao lado dos números, ~100 px a menos); nada
+ * cabendo, fica só o perfil, como antes da rua. As duas alturas do perfil são medidas na hora (troca a classe, lê e
+ * desfaz, sem pintar): a escolha sai só da janela e do conteúdo, então não oscila. Antes da pintura.
  */
-function useLojaDesktop(loja: HTMLDivElement | null, ligado: boolean) {
-  const [medida, setMedida] = useState({ k: 0, compacto: false })
+function useLojaDesktop(loja: HTMLDivElement | null, ligado: boolean, largo: boolean): LojaDesktop {
+  const [medida, setMedida] = useState<LojaDesktop>({ k: 0, compacto: false, baixo: false, vao: VAO_RUA })
   useLayoutEffect(() => {
     if (!ligado || !loja) return
     const medir = () => {
       const coluna = loja.clientWidth
-      if (!coluna) return
-      const k = escalaDaRua(coluna)
+      const perfil = loja.querySelector<HTMLElement>('.hero-desktop-perfil')
+      const hero = loja.parentElement
+      if (!coluna || !perfil || !hero) return
       const compacto = Math.min(PERFIL_MAX, coluna) < PERFIL_COMPACTO
-      setMedida((m) => (m.k === k && m.compacto === compacto ? m : { k, compacto }))
+      const kMax = escalaDaRua(coluna)
+      let nova: LojaDesktop = { k: kMax, compacto, baixo: false, vao: VAO_RUA }
+      if (largo) {
+        // a altura útil do hero sem a rua: o min-height (janela até 900) menos o respiro, ou o story, se for maior
+        const cs = getComputedStyle(hero)
+        const story = hero.querySelector<HTMLElement>('.hero-story')?.offsetHeight ?? 0
+        const util = Math.max(story, (parseFloat(cs.minHeight) || window.innerHeight) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom))
+        // as duas alturas do perfil, com o compacto já decidido (desfaz antes de pintar)
+        const antes = loja.className
+        loja.classList.toggle('perfil-compacto', compacto)
+        loja.classList.remove('perfil-baixo')
+        const inteiro = perfil.offsetHeight
+        loja.classList.add('perfil-baixo')
+        const baixo = perfil.offsetHeight
+        loja.className = antes
+        const dpr = window.devicePixelRatio || 1
+        nova = { k: 0, compacto, baixo: false, vao: VAO_RUA }
+        procura: for (let k = kMax; k >= 2; k--) {
+          for (const [ehBaixo, p] of [
+            [false, inteiro],
+            [true, baixo],
+          ] as const) {
+            const sobra = util - p - alturaDaFaixa(k, dpr)
+            if (sobra >= VAO_RUA_MIN) {
+              nova = { k, compacto, baixo: ehBaixo, vao: Math.min(VAO_RUA, Math.floor(sobra)) }
+              break procura
+            }
+          }
+        }
+      }
+      setMedida((m) => (m.k === nova.k && m.compacto === nova.compacto && m.baixo === nova.baixo && m.vao === nova.vao ? m : nova))
     }
     medir()
     const ro = new ResizeObserver(medir)
     ro.observe(loja)
-    return () => ro.disconnect()
-  }, [loja, ligado])
+    // o perfil muda de altura sozinho (a fonte chega, o nome quebra): a escolha é a mesma nas duas alturas, não oscila
+    const perfil = loja.querySelector('.hero-desktop-perfil')
+    if (perfil) ro.observe(perfil)
+    // a altura da janela muda o que cabe mesmo quando a coluna não muda de largura (e o zoom muda o DPR)
+    window.addEventListener('resize', medir)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', medir)
+    }
+  }, [loja, ligado, largo])
   return medida
 }
 
@@ -586,8 +644,8 @@ export function Hero() {
     dicaNaTela.current = comDica && dica === 'mostra'
   }, [comDica, dica])
 
-  // a rua embaixo do perfil (computador): a escala sai da largura da coluna dele
-  const lojaDesktop = useLojaDesktop(loja, !celular)
+  // a rua embaixo do perfil (computador): a escala sai da largura da coluna dele e, ao lado do story, da altura
+  const lojaDesktop = useLojaDesktop(loja, !celular, largo)
 
   if (!atual) return null
 
@@ -717,7 +775,12 @@ export function Hero() {
 
   // computador: o perfil e, embaixo, a rua viva (o mercador mora nela)
   const perfil = (
-    <div key="loja" ref={setLoja} className={`hero-loja${lojaDesktop.compacto ? ' perfil-compacto' : ''}`}>
+    <div
+      key="loja"
+      ref={setLoja}
+      className={`hero-loja${lojaDesktop.compacto ? ' perfil-compacto' : ''}${lojaDesktop.baixo ? ' perfil-baixo' : ''}`}
+      style={{ ['--vao-rua' as string]: `${lojaDesktop.vao}px` }}
+    >
       <div className="hero-desktop-perfil">
         <Perfil variante="desktop" />
       </div>

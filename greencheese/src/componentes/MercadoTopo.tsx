@@ -21,8 +21,9 @@ const SOMBRA: Grade = {
 
 const FALAS = ['Chega mais.', 'Vem no certo!', 'Quem já usou sabe da qualidade'] as const
 
-// tela baixa (celular deitado): o mercador a 2×, para a vitrine começar na primeira tela
-const BAIXA = '(max-height: 500px)'
+// celular pequeno (320–360 de largura ou até 700 de altura) e deitado: o mercador a 2×, para a primeira fileira de
+// produtos começar na primeira tela
+const BAIXA = '(max-height: 500px), (max-width: 360px), (max-width: 899px) and (max-height: 700px)'
 function assinarBaixa(avisar: () => void) {
   try {
     const q = window.matchMedia(BAIXA)
@@ -50,11 +51,22 @@ export function MercadoTopo({ legenda }: { legenda: string }) {
     setFala((f) => (f + 1) % FALAS.length)
   }
   return (
-    <header className="aba-cab mercado-topo">
+    <header className={`aba-cab mercado-topo${k === 2 ? ' compacto' : ''}`} style={{ ['--k' as string]: `${k}px` }}>
+      {/* o título vem antes do mercador no DOM (o CSS põe o mercador à esquerda e o balão em cima): abrir a aba leva o
+          foco ao h1, como antes, e o leitor de tela entra ouvindo "Mercado" */}
+      <div className="mercado-topo-texto">
+        <h1 id="catalogo-titulo" className="aba-titulo px" tabIndex={-1}>
+          Mercado
+        </h1>
+        <p className="aba-legenda legenda">{legenda}</p>
+        {/* o balão dele: muda quando tocam (o leitor de tela ouve a fala nova) */}
+        <p className="mercado-fala" aria-live="polite">
+          <span className="mercado-fala-corpo px">{FALAS[fala]}</span>
+        </p>
+      </div>
       <button
         type="button"
         className="mercado-dono"
-        style={{ ['--k' as string]: `${k}px` }}
         aria-label="Mercador: abrir o casaco"
         onClick={tocar}
         onPointerEnter={(e) => {
@@ -64,16 +76,6 @@ export function MercadoTopo({ legenda }: { legenda: string }) {
         <PixelArte grade={SOMBRA} escala={k} className="mercado-dono-sombra" />
         <MercadorAnimado refFigura={figura} tamanho={44 * k} anda={anda} />
       </button>
-      <div className="mercado-topo-texto">
-        {/* o balão dele: muda quando tocam (o leitor de tela ouve a fala nova) */}
-        <p className="mercado-fala" aria-live="polite">
-          <span className="mercado-fala-corpo px">{FALAS[fala]}</span>
-        </p>
-        <h1 id="catalogo-titulo" className="aba-titulo px" tabIndex={-1}>
-          Mercado
-        </h1>
-        <p className="aba-legenda legenda">{legenda}</p>
-      </div>
     </header>
   )
 }

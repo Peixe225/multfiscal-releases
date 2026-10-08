@@ -5,7 +5,7 @@ import { useCamadaAberta } from '../Mercador'
 import { Motor, type Balao } from './motor'
 import { carregarPacote, type Pacote } from './pacote'
 import { ALTURA, ALTURA_LUZ, ALTURA_POSTE, LARGURA_MAX, escalaDoAparelho } from './palco'
-import { montarCena, montarRetrato, type Cena } from './roteiro'
+import { montarCena, montarRetrato, type Cena, type Chamado } from './roteiro'
 import './Rua.css'
 
 // A rua viva do Início: o mercador anda, bebe a Fanta e vende para o skatista, o motoboy, o MC e o turista. Um canvas
@@ -67,6 +67,86 @@ interface Montada {
 
 /** Quanto tempo o botão do Mercado fica à vista depois do chamado (sem foco nem mouse em cima). */
 const CTA_MS = 7000
+
+/** Um jeito de quebrar o balão: a largura máxima (null: a do CSS) e o tamanho que ele fica. */
+interface Variante {
+  mw: number | null
+  w: number
+  h: number
+  linhas: number
+}
+interface Medida {
+  vs: Variante[]
+  atual: number
+}
+/** As quebras de cada balão (uma, duas e três linhas), medidas uma vez quando ele aparece. */
+const medidas = new WeakMap<HTMLElement, Medida>()
+
+/** Mede o balão com a largura máxima `mw`: tamanho da caixa e largura da linha mais larga (sem o giro da entrada). */
+function lerBalao(el: HTMLElement, mw: number | null) {
+  el.style.maxWidth = mw == null ? '' : `${mw}px`
+  const corpo = el.firstElementChild as HTMLElement
+  const esc = corpo.offsetWidth ? corpo.getBoundingClientRect().width / corpo.offsetWidth || 1 : 1
+  const r = document.createRange()
+  r.selectNodeContents(corpo)
+  const linhas = new Map<number, number>()
+  for (const q of r.getClientRects()) {
+    const t = Math.round(q.top / esc)
+    linhas.set(t, (linhas.get(t) ?? 0) + q.width / esc)
+  }
+  return { w: el.offsetWidth, h: el.offsetHeight, linhas: Math.max(1, linhas.size), texto: linhas.size ? Math.max(...linhas.values()) : 0 }
+}
+
+/**
+ * Uma linha (a do CSS) e, se a fala quebra, duas e três, cada uma na menor largura que cabe e justa no texto (a caixa
+ * encolhe até a linha mais larga): é o que deixa o balão caber de lado quando a cabeça de outro está perto de quem
+ * fala. Uns 15 layouts, uma vez por balão.
+ */
+function medirBalao(el: HTMLElement): Variante[] {
+  const v0 = lerBalao(el, null)
+  const vs: Variante[] = [{ mw: null, w: v0.w, h: v0.h, linhas: v0.linhas }]
+  const folga = v0.w - v0.texto
+  let teto = v0.w
+  for (let alvo = v0.linhas + 1; alvo <= 3; alvo++) {
+    // a menor largura com até `alvo` linhas (busca binária: menos largura, mais linhas)
+    let lo = 24
+    let hi = teto
+    while (hi - lo > 2) {
+      const meio = (lo + hi) >> 1
+      if (lerBalao(el, meio).linhas <= alvo) hi = meio
+      else lo = meio
+    }
+    const a = lerBalao(el, hi)
+    if (a.linhas !== alvo) continue
+    // justa na linha mais larga
+    const mw = Math.min(hi, Math.ceil(a.texto + folga + 1))
+    const b = lerBalao(el, mw)
+    vs.push(b.linhas === alvo ? { mw, w: b.w, h: b.h, linhas: alvo } : { mw: hi, w: a.w, h: a.h, linhas: alvo })
+    teto = hi
+  }
+  el.style.maxWidth = ''
+  return vs
+}
+
+interface Caixa {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  /** Quanto custa cobrir: cabeça de outro pesa muito; o letreiro e o botão de pausar, menos. */
+  peso: number
+}
+const cobre = (x0: number, y0: number, x1: number, y1: number, c: Caixa) => Math.max(0, Math.min(x1, c.x1) - Math.max(x0, c.x0)) * Math.max(0, Math.min(y1, c.y1) - Math.max(y0, c.y0))
+/** Custo de quebrar a fala (px² cobertos que valem uma linha a mais). */
+const CUSTO_LINHA = [0, 150, 1000]
+
+/** O que o leitor de tela ouve quando chamam o mercador: o que de fato acontece na cena. */
+function avisoDoChamado(c: Chamado, rodando: boolean): string {
+  if (c === 'foto') return 'O mercador ofereceu o Mercado.'
+  if (!rodando) return 'O mercador ofereceu o Mercado. A rua está parada: ele abre o casaco quando ela voltar a andar.'
+  if (c === 'depois') return 'O mercador ofereceu o Mercado. Ele abre o casaco assim que terminar o atendimento.'
+  return 'O mercador ofereceu o Mercado e abre o casaco.'
+}
 
 export default function Rua({ k, bordas = false, className }: PropsRua) {
   const raiz = useRef<HTMLDivElement>(null)
@@ -161,34 +241,63 @@ export default function Rua({ k, bordas = false, className }: PropsRua) {
     const dpr = window.devicePixelRatio || 1
     const snap = (v: number) => Math.round(v * dpr) / dpr
     const W = caixa.clientWidth
+    const CAUDA = 7
     camadaBaloes.current?.querySelectorAll<HTMLElement>('[data-ator]').forEach((el) => {
       const a = motor.ator(el.dataset.ator!)
       if (!a) return
       const c = motor.cabeca(a)
       const cx = ox + c.x * px
       const cy = c.y * px
-      const w = el.offsetWidth
-      const h = el.offsetHeight
-      const CAUDA = 7
-      // em cima da cabeça, um pouco para a frente (para onde ele olha), sem sair da faixa
-      let left = cx - w / 2 + (c.lado === 'dir' ? w * 0.18 : -w * 0.18)
-      left = Math.max(4, Math.min(W - w - 4, left))
-      const top = Math.max(2, cy - CAUDA - h - 1)
-      // sem tapar a cabeça de outro (a moto passando na frente do mercador): desvia para o lado que tiver lugar
+      let med = medidas.get(el)
+      // a fonte em pixel chegou depois da medida: mede de novo
+      if (med && Math.abs(el.offsetWidth - med.vs[med.atual].w) > 1) med = undefined
+      if (!med) {
+        med = { vs: medirBalao(el), atual: 0 }
+        medidas.set(el, med)
+      }
+      // o que o balão não deve cobrir: a cabeça de outro (o rosto e o capuz), o letreiro GC e o botão de pausar
+      const obst: Caixa[] = []
       for (const o of motor.atores) {
-        if (o === a || !o.visivel || o.efeito || !motor.temCabeca(o)) continue
-        const oc = motor.cabeca(o)
-        const ox0 = ox + (oc.x - 9) * px
-        const ox1 = ox + (oc.x + 9) * px
-        const oy0 = oc.y * px
-        if (left < ox1 && left + w > ox0 && top < oy0 + 14 * px && top + h > oy0) {
-          const paraEsq = ox0 - w - 4
-          const paraDir = ox1 + 4
-          left = Math.abs(paraEsq - left) < Math.abs(paraDir - left) && paraEsq >= 4 ? paraEsq : paraDir + w <= W - 4 ? paraDir : Math.max(4, paraEsq)
+        if (o === a || !o.visivel || o.efeito) continue
+        if (motor.temCabeca(o)) {
+          const oc = motor.cabeca(o)
+          const topo = Math.min(oc.y, motor.caixa(o)[1])
+          obst.push({ x0: ox + (oc.x - 10) * px, y0: topo * px, x1: ox + (oc.x + 10) * px, y1: (topo + 14) * px, peso: 10 })
+        } else if (o.id === 'letreiro') {
+          const [x0, y0, x1, y1] = motor.caixa(o)
+          obst.push({ x0: ox + x0 * px, y0: y0 * px, x1: ox + x1 * px, y1: y1 * px, peso: 1 })
         }
       }
-      el.style.transform = `translate(${snap(left)}px, ${snap(top)}px)`
-      el.style.setProperty('--cauda', `${Math.round(Math.max(12, Math.min(w - 12, cx - left)))}px`)
+      if (caixa.querySelector('.rua-pausa')) obst.push({ x0: W - 38, y0: 6, x1: W - 6, y1: 38, peso: 2 })
+      // em cima da cabeça, um pouco para a frente (para onde ele olha), com a ponta da cauda em cima dele, dentro da
+      // faixa; se cobrir alguma coisa, vai para o lado ou quebra em duas (três) linhas: ganha o que cobre menos
+      let melhor = { custo: Infinity, iv: 0, left: 0, top: 0 }
+      med.vs.forEach((v, iv) => {
+        const topoIdeal = cy - CAUDA - v.h - 1
+        const top = Math.max(2, topoIdeal)
+        const pref = cx - v.w / 2 + (c.lado === 'dir' ? v.w * 0.18 : -v.w * 0.18)
+        // a cauda (12 px da ponta da caixa, no mínimo) fica em cima de quem fala
+        const lo = Math.max(4, cx - v.w + 12)
+        const hi = Math.min(W - v.w - 4, cx - 12)
+        const prender = (x: number) => (lo <= hi ? Math.max(lo, Math.min(hi, x)) : Math.max(4, Math.min(W - v.w - 4, pref)))
+        const lugares = [pref, lo, hi]
+        for (const o of obst) lugares.push(o.x0 - v.w - 4, o.x1 + 4)
+        for (const l of lugares) {
+          const left = prender(l)
+          let custo = CUSTO_LINHA[v.linhas - med.vs[0].linhas] ?? 2000
+          custo += Math.abs(left - pref) * 0.5 + (topoIdeal < 2 ? (2 - topoIdeal) * 20 : 0) + (iv !== med.atual ? 60 : 0)
+          // o corpo do balão (a cauda é a sobra transparente de baixo)
+          for (const o of obst) custo += o.peso * cobre(left, top, left + v.w, top + v.h - CAUDA, o)
+          if (custo < melhor.custo) melhor = { custo, iv, left, top }
+        }
+      })
+      const v = med.vs[melhor.iv]
+      if (melhor.iv !== med.atual) {
+        med.atual = melhor.iv
+        el.style.maxWidth = v.mw == null ? '' : `${v.mw}px`
+      }
+      el.style.transform = `translate(${snap(melhor.left)}px, ${snap(melhor.top)}px)`
+      el.style.setProperty('--cauda', `${Math.round(Math.max(12, Math.min(v.w - 12, cx - melhor.left)))}px`)
     })
     const merc = motor.ator('mercador')
     const b = botaoMerc.current
@@ -282,11 +391,11 @@ export default function Rua({ k, bordas = false, className }: PropsRua) {
     const mo = montada.current
     if (!mo) return
     // no computador a rua é larga: cabe a fala longa em duas linhas
-    mo.cena.chamar(k >= 3)
+    const c = mo.cena.chamar(k >= 3)
     mo.motor.marcar()
     if (!mo.motor.rodando) mo.motor.desenhar()
     setCtaVisivel(true)
-    setAviso('O mercador abriu o casaco e ofereceu o Mercado.')
+    setAviso(avisoDoChamado(c, mo.motor.rodando))
     esconderCta()
   }
 

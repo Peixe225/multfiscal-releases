@@ -1,5 +1,5 @@
-/* Topo da aba Mercado: o mercador (3×, 132 × 192; 2× em tela baixa: --k) à esquerda e, ao lado, o balão dele, o título
-   e a contagem.
+/* Topo da aba Mercado: o mercador (3×, 132 × 192; 2× em celular pequeno ou deitado: --k) à esquerda e, ao lado, o balão
+   dele, o título e a contagem. No DOM o título vem primeiro (o foco da aba cai nele): a ordem da tela sai do `order`.
    .aba-cab.mercado-topo: ganha do .aba-cab de Abas.css, que vem depois no CSS. */
 
 .aba-cab.mercado-topo {
@@ -14,6 +14,7 @@
   /* as pálpebras e as camadas que apagam pintam na cor da página */
   --fundo-dentro: var(--preto);
   position: relative;
+  order: -1;
   flex: none;
   width: calc(var(--k, 3px) * 44);
   padding: 0;
@@ -57,6 +58,7 @@
 
 /* o balão de fala: o adesivo de texto do story, canto em degrau e a cauda em escada apontando para ele (à esquerda) */
 .mercado-fala {
+  order: -1;
   margin: 0 0 8px -6px;
   max-width: 100%;
 }
@@ -74,6 +76,19 @@
     6px calc(100% - 9px), 4px calc(100% - 9px), 4px calc(100% - 11px), 2px calc(100% - 11px), 2px calc(100% - 13px), 0 calc(100% - 13px),
     0 calc(100% - 15px), 6px calc(100% - 15px)
   );
+}
+
+/* celular pequeno ou deitado (mercador a 2×, .compacto): menos respiro em volta dele e do texto, para a primeira
+   fileira de produtos já aparecer na primeira tela */
+.aba-cab.mercado-topo.compacto {
+  padding-top: 0;
+  padding-bottom: 8px;
+}
+.mercado-topo.compacto .mercado-topo-texto {
+  padding-bottom: 12px;
+}
+.mercado-topo.compacto .mercado-fala {
+  margin-bottom: 4px;
 }
 
 @media (min-width: 900px) {

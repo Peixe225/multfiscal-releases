@@ -185,8 +185,13 @@ function* acenar(m: Motor, merc: Ator): Roteiro {
   m.tocar(merc, 'parado')
 }
 
-function* olhar(m: Motor, merc: Ator): Roteiro {
-  yield* anima(m, merc, 'olhar')
+/** Quadros do olhar com o rosto de frente (mercador.ts: o 0, o de volta ao meio e o do fim). */
+const OLHAR_FRENTE = new Set([0, 4, 8])
+
+/** Olha em volta; com `ate`, para no primeiro quadro de frente depois que `ate()` vale (sem pulo de cabeça). */
+function* olhar(m: Motor, merc: Ator, ate?: () => boolean): Roteiro {
+  m.tocar(merc, 'olhar')
+  yield () => merc.acabou || (!!ate?.() && OLHAR_FRENTE.has(merc.i))
   m.tocar(merc, 'parado')
 }
 
@@ -195,8 +200,8 @@ function* beber(m: Motor, merc: Ator): Roteiro {
   m.tocar(merc, 'parado')
 }
 
-function* respirar(m: Motor, merc: Ator, ms: number): Roteiro {
-  yield* anima(m, merc, 'parado', { ms, ate: () => m.chamado })
+function* respirar(m: Motor, merc: Ator, ms: number, ate?: () => boolean): Roteiro {
+  yield* anima(m, merc, 'parado', { ms, ate: () => m.chamado || !!ate?.() })
 }
 
 /** Anda até um lugar de passeio (sempre de volta à faixa do meio). */
@@ -248,8 +253,13 @@ function* interludio(m: Motor, merc: Ator, gato: Ator, ponto: number, lado: Lado
   if (m.sexta && m.rand() < 0.5) m.falar(merc, FALAS.sextou, 1600)
 }
 
-/** O mercador espera o cliente chegar, vivendo (respira, olha, às vezes bebe); o chamado vem antes. */
-function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber: boolean): Roteiro {
+/**
+ * O mercador espera o cliente chegar, vivendo (respira, olha, às vezes bebe); o chamado vem antes. Chegou, ele para de
+ * respirar na hora e de olhar no próximo quadro de frente: o cliente não fica parado esperando a vez de falar. A lata
+ * (2,4 s, sem como parar no meio) só sai com o cliente ainda fora da tela (`longe`), e o cliente só entra depois que
+ * ele guardou a lata (`bebendo`, na entrada de cada ato).
+ */
+function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber: boolean, longe: () => boolean): Roteiro {
   m.mercadorLivre = true
   let bebeu = !podeBeber
   while (!chegou()) {
@@ -258,11 +268,11 @@ function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber:
       continue
     }
     const r = m.rand()
-    if (!bebeu && r < 0.35) {
+    if (!bebeu && r < 0.35 && longe()) {
       bebeu = true
       yield* beber(m, merc)
-    } else if (r < 0.6) yield* olhar(m, merc)
-    else yield* respirar(m, merc, 2360)
+    } else if (r < 0.6) yield* olhar(m, merc, chegou)
+    else yield* respirar(m, merc, 2360, chegou)
   }
   if (m.chamado) yield* atenderChamado(m, merc)
   m.mercadorLivre = false
@@ -271,6 +281,9 @@ function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber:
 }
 
 /* ───────────── os clientes ───────────── */
+
+/** O mercador está com a lata na mão (o cliente espera ele guardar para entrar). */
+const bebendo = (merc: Ator) => merc.anim === 'beber' && !merc.acabou
 
 /** Onde o cliente entra: fora da tela, do lado para onde o mercador olha. */
 function entrada(m: Motor, lado: Lado, folga: number): number {
@@ -295,6 +308,7 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
       // chega rápido: só depois que o mercador parou no ponto (e um respiro)
       yield () => m.fase === 'ponto' && v.livre()
       yield 300 + Math.round(m.rand() * 1200)
+      yield () => !bebendo(merc)
       sk.visivel = true
       yield* anda(m, sk, xc + (lado === 'dir' ? FREIO : -FREIO), 'rodar', { reage: true })
       sk.alvo = xc
@@ -305,7 +319,7 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
     })(),
   )
   yield* v.vida
-  yield* esperarCliente(m, merc, () => chegou, !bebe)
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !sk.visivel)
   m.falar(sk, sortear(FALAS.skatista.pedir, m.rand), 1900)
   yield* espera(m, sk, 1500)
   m.falar(merc, sortear(FALAS.mercador.oferecer, m.rand), 1500)
@@ -324,7 +338,8 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
   m.falar(sk, sortear(FALAS.skatista.valeu, m.rand), 1300)
   yield () => merc.acabou
   m.tocar(merc, 'parado')
-  // sai: volta por onde veio ou segue em frente, passando na frente do mercador; ollie no caminho
+  // sai: volta por onde veio ou segue em frente; seguindo, desce para a beira da calçada enquanto sobe e rema (passa
+  // na frente do mercador, mais perto de quem olha, como a moto) e só dá o ollie depois de passar por ele
   return emParalelo(
     m,
     (function* (): Roteiro {
@@ -333,8 +348,21 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
       const segue = m.rand() < 0.5
       if (!segue) sk.lado = lado
       sk.prof = CHAO.meio + 0.6
+      if (segue) sk.alvoY = CHAO.beira
       yield* anima(m, sk, 'subir')
       yield* anima(m, sk, 'remar', { vezes: 2 })
+      if (segue) {
+        const passou = () => {
+          const [mx0, , mx1] = m.caixa(merc)
+          const [sx0, , sx1] = m.caixa(sk)
+          return sk.lado === 'dir' ? sx0 > mx1 + 2 : sx1 < mx0 - 2
+        }
+        m.tocar(sk, 'rodar')
+        while (!passou() && !fora(m, sk)) {
+          yield () => passou() || fora(m, sk) || sk.querReagir
+          if (sk.querReagir && !passou()) sk.querReagir = false
+        }
+      }
       yield* anima(m, sk, 'ollie')
       m.tocar(sk, 'rodar')
       while (!fora(m, sk)) {
@@ -408,7 +436,7 @@ function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
   m.lancar(
     (function* (): Roteiro {
       // vem no beat enquanto o mercador volta para o ponto
-      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre()
+      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !bebendo(merc)
       mc.visivel = true
       yield* anda(m, mc, xc, 'chegar', { reage: true })
       m.tocar(mc, 'parado')
@@ -416,7 +444,7 @@ function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
     })(),
   )
   yield* v.vida
-  yield* esperarCliente(m, merc, () => chegou, !bebe)
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !mc.visivel)
   m.falar(mc, sortear(FALAS.mc.chegar, m.rand), 1600)
   yield* espera(m, mc, 1200)
   m.falar(merc, sortear(FALAS.mercador.mc, m.rand), 1200)
@@ -457,7 +485,7 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
   m.lancar(
     (function* (): Roteiro {
       // anda de pato, devagar: entra enquanto o mercador ainda volta para o ponto
-      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre()
+      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !bebendo(merc)
       tu.visivel = true
       // lendo o mapa, quase esbarra: abaixa o mapa, se assusta, guarda o mapa
       yield* anda(m, tu, xc, 'chegar', { reage: true })
@@ -467,7 +495,7 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
     })(),
   )
   yield* v.vida
-  yield* esperarCliente(m, merc, () => chegou, !bebe)
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !tu.visivel)
   m.falar(tu, sortear(FALAS.turista.pedir, m.rand), 1900)
   yield* espera(m, tu, 1500)
   m.falar(merc, sortear(FALAS.mercador.turista, m.rand), 1400)
@@ -520,6 +548,15 @@ const LENTE = { foto: [31, 21], reagir: [31, 18] } as const
 const TRASEIRA_MOTO = [3, 47] as const
 const FONE_MC = [10, 14] as const
 
+/** Um efeito em (x, y), subindo `sobe` px, passaria por cima do letreiro (a marca da loja na cena)? */
+function sobreLetreiro(m: Motor, efeito: string, x: number, y: number, sobe: number): boolean {
+  const l = m.ator('letreiro')
+  if (!l) return false
+  const [lx0, ly0, lx1, ly1] = m.caixa(l)
+  const f = m.folha(efeito)
+  return x < lx1 && x + f.w > lx0 && y - sobe < ly1 && y + f.h > ly0
+}
+
 function efeitos(m: Motor, a: Ator, ev: string) {
   const [cx, cy] = m.canto(a)
   const xDo = (x: number) => cx + (a.lado === 'dir' ? x : a.folha.w - 1 - x)
@@ -532,7 +569,10 @@ function efeitos(m: Motor, a: Ator, ev: string) {
     m.efeito('velocidade', a.lado === 'dir' ? tx - 16 : tx + 1, cy + TRASEIRA_MOTO[1] - 3, a.lado)
   } else if (a.id === 'mc' && ev === 'nota') {
     const nota = m.rand() < 0.5 ? 'colcheia' : 'semicolcheia'
-    m.efeito(nota, xDo(FONE_MC[0]) - 2, cy + FONE_MC[1] - 6, 'dir', 110, 900)
+    const x = xDo(FONE_MC[0]) - 2
+    const y = cy + FONE_MC[1] - 6
+    // perto da porta a nota não sai: subindo (1 px a cada 110 ms por 900 ms) ela passaria por cima do GC em neon
+    if (!sobreLetreiro(m, nota, x, y, Math.ceil(900 / 110))) m.efeito(nota, x, y, 'dir', 110, 900)
   } else if (a.id === 'mercador' && ev === 'carinho') {
     const gato = m.ator('gato')
     if (gato)
@@ -603,10 +643,16 @@ function* vidaDoGato(m: Motor, gato: Ator): Roteiro {
 
 /* ───────────── montagem ───────────── */
 
+/**
+ * O que o chamado fez: `agora` (ele está livre: abre o casaco assim que termina o gesto), `depois` (está atendendo:
+ * abre no fim do atendimento) ou `foto` (movimento reduzido: só o balão; ele já está de casaco aberto na foto).
+ */
+export type Chamado = 'agora' | 'depois' | 'foto'
+
 export interface Cena {
   merc: Ator
   /** Toque ou teclado no mercador: o balão sai na hora; o casaco abre quando ele puder. */
-  chamar(longo: boolean): void
+  chamar(longo: boolean): Chamado
   /** Toque na cena (px da grade): quem foi tocado reage. Devolve o id, ou null. */
   tocar(x: number, y: number, folga: number): string | null
 }
@@ -626,7 +672,11 @@ export function montarCena(m: Motor): Cena {
     chamar(longo) {
       const lista = longo ? [...FALAS.mercador.chamado, ...FALAS.mercador.chamadoLongo] : FALAS.mercador.chamado
       m.falar(merc, sortear(lista, m.rand), 3200)
-      if (m.mercadorLivre) m.chamado = true
+      // guardado sempre: livre, ele atende no próximo respiro; atendendo, no começo da vida depois do cliente
+      // (interludio e motoboy passam por batida/atenderChamado antes de qualquer outra coisa)
+      const livre = m.mercadorLivre
+      m.chamado = true
+      return livre ? 'agora' : 'depois'
     },
     tocar(x, y, folga) {
       const a = m.quemEsta(x, y, folga)
@@ -664,6 +714,7 @@ export function montarRetrato(m: Motor): Cena {
     chamar(longo) {
       const lista = longo ? [...FALAS.mercador.chamado, ...FALAS.mercador.chamadoLongo] : FALAS.mercador.chamado
       m.falar(merc, sortear(lista, m.rand), 60_000)
+      return 'foto'
     },
     tocar(x, y, folga) {
       const a = m.quemEsta(x, y, folga)

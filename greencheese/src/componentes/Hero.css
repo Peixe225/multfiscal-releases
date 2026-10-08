@@ -405,14 +405,14 @@
     min-height: min(100vh, 900px);
     min-height: min(100dvh, 900px);
   }
-  /* a coluna do perfil inteira (o Hero.tsx mede a largura dela para a rua): o perfil encostado no story e, embaixo, a
-     rua viva de ponta a ponta da coluna (o mercador mora nela) */
+  /* a coluna do perfil inteira (o Hero.tsx mede a largura e a altura dela para a rua): o perfil encostado no story e,
+     embaixo, a rua viva de ponta a ponta da coluna (o mercador mora nela). O vão encolhe para 16 no aperto */
   .hero-loja {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     justify-content: center;
-    gap: 32px;
+    gap: var(--vao-rua, 32px);
     justify-self: stretch;
     align-self: stretch;
     min-width: 0;
@@ -561,6 +561,44 @@
   .perfil-compacto .perfil-desktop .perfil-botao {
     padding: 0 4px;
     font-size: 13px;
+  }
+}
+
+/* perfil baixo (o Hero.tsx liga quando a janela é baixa demais para o perfil inteiro e a rua embaixo dele, ao lado do
+   story: notebook de 1366×768 com a barra do navegador). O avatar vai para o lado dos números, como no perfil do
+   celular (~100 px a menos); o resto do perfil fica igual */
+@media (min-width: 900px) {
+  .perfil-baixo .perfil-desktop .perfil-topo {
+    flex-direction: row;
+    align-items: center;
+    gap: 22px;
+  }
+  .perfil-baixo .perfil-desktop .perfil-topo > .avatar {
+    width: 96px !important;
+    height: 96px !important;
+  }
+  .perfil-baixo .perfil-desktop .perfil-numeros {
+    flex: 1;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: center;
+  }
+  .perfil-baixo .perfil-desktop .perfil-numeros dd {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .perfil-baixo .perfil-desktop .perfil-numeros strong {
+    font-size: 18px;
+  }
+  .perfil-baixo .perfil-aqui {
+    display: none;
+  }
+  .perfil-baixo .perfil-desktop .perfil-nome {
+    margin-top: 14px;
+  }
+  .perfil-baixo .perfil-desktop .perfil-botoes {
+    margin-top: 16px;
   }
 }
 

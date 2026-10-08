@@ -695,6 +695,17 @@ const browser = await chromium.launch()
     return { perfil: !!a?.closest('.hero-loja .perfil'), rua: !!a?.closest('.rua'), txt: (a?.textContent ?? '').trim().slice(0, 30) }
   })
   conferir(foco.perfil && !foco.rua, `Início pelo teclado: o Tab cai no perfil antes da rua (${foco.txt})`)
+  // Mercado pelo teclado: o foco cai no título "Mercado" (o mercador do topo vem depois dele no DOM) e o Tab seguinte, no
+  // mercador
+  await page.locator('.lateral [data-aba="catalogo"]').focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(900)
+  const focoMercado = await page.evaluate(() => ({ id: document.activeElement?.id, txt: (document.activeElement?.textContent ?? '').trim().slice(0, 30) }))
+  await page.keyboard.press('Tab')
+  const depoisMercado = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
+  conferir(focoMercado.id === 'catalogo-titulo' && focoMercado.txt === 'Mercado' && depoisMercado === 'Mercador: abrir o casaco', `Mercado pelo teclado: o foco no título e o Tab seguinte no mercador (${JSON.stringify(focoMercado)} → ${depoisMercado})`)
+  await page.locator('.lateral [data-aba="inicio"]').click()
+  await page.waitForTimeout(900)
   // Ver loja (computador): desce até os destaques do Início e o foco vai junto
   await page.locator('.hero-loja .perfil-loja').click()
   await page.waitForTimeout(1500)
@@ -801,6 +812,7 @@ for (const [w, h] of TAMANHOS) {
       ruaPx: tela ? tela.getBoundingClientRect().height / tela.height : null,
       perfil: r('.hero-desktop-perfil .perfil'),
       story: r('.hero-quadro'),
+      hero: r('.vista-inicio .hero'),
       setaE: r('.hero-seta-esq'),
       setaD: r('.hero-seta-dir'),
       lateral: r('.lateral'),
@@ -832,7 +844,15 @@ for (const [w, h] of TAMANHOS) {
   }
   // arranjo por largura: de 900 a 1199 empilhado (story em cima); de 1200 em diante, perfil e rua ao lado do story
   if (w < 1200) conferir(c.empilhado && c.storyAntes, `${nome}: story em cima, perfil e rua embaixo`)
-  else conferir(!c.empilhado && !c.storyAntes, `${nome}: perfil e rua ao lado do story`)
+  else {
+    conferir(!c.empilhado && !c.storyAntes, `${nome}: perfil e rua ao lado do story`)
+    // lado a lado, a rua não empurra nada: o story inteiro (até o VER PRODUTO) e a rua inteira (a calçada, o pé do
+    // mercador e a moto no asfalto) na primeira tela, e o hero com a altura de antes da rua (janela até 900), então os
+    // destaques e o catálogo ficam onde ficavam
+    conferir(!foraDaTela && !!c.rua && c.rua.b <= c.alto + 1, `${nome}: a rua inteira na primeira tela (${c.rua ? Math.round(c.rua.b) : '?'} <= ${c.alto})`)
+    conferir(!!c.story && c.story.b <= c.alto + 1, `${nome}: o story inteiro na primeira tela (${c.story ? Math.round(c.story.b) : '?'} <= ${c.alto})`)
+    conferir(!!c.hero && c.hero.h <= Math.min(c.alto, 900) + 1, `${nome}: o hero não cresce com a rua (${c.hero ? Math.round(c.hero.h) : '?'} <= ${Math.min(c.alto, 900)})`)
+  }
   await conferirInicio(page, nome)
   await foto(page, nome, true)
   await irAba(page, 'catalogo')
@@ -1000,6 +1020,11 @@ for (const [w, h, reduzir] of [[390, 844, false], [1280, 800, false], [390, 844,
   const cta = page.locator('.vista:not([hidden]) .rua-cta')
   const bal = await page.locator('.vista:not([hidden]) .rua-balao').allTextContents()
   conferir((await cta.count()) === 1 && bal.some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${bal.join(' | ')})`)
+  // o leitor de tela ouve o que de fato acontece: livre, ele abre o casaco; atendendo, abre no fim do atendimento; na
+  // foto (movimento reduzido), só oferece
+  const aviso = (await page.locator('.vista:not([hidden]) .rua [aria-live]').textContent())?.trim()
+  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.)$/.test(aviso ?? '')
+  conferir(avisoCerto, `${nome}: o aviso do chamado diz o que acontece na cena (${aviso})`)
   const cb = await cta.boundingBox()
   conferir(!!cb && cb.height >= 44, `${nome}: "Ver o Mercado" com alvo de 44 px (${cb ? Math.round(cb.height) : '?'})`)
   await foto(page, `${nome}-chamado`)
