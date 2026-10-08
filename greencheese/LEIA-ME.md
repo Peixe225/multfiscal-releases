@@ -1,8 +1,8 @@
-# Green Cheese Imports — site (prévia)
+# Green Cheese Imports — site, servidor e painel do dono
 
-Site único da Green Cheese para todos os estados: catálogo no formato dos stories da marca + pedido guiado que termina com a mensagem pronta no WhatsApp da loja, (33) 99113-9036 (o Pix direto no site aparece como "Em breve"). Dúvida fora do pedido vai pro Instagram do estado. Estático, sem servidor, sem banco.
+Site único da Green Cheese para todos os estados: catálogo no formato dos stories da marca + pedido guiado que termina com a mensagem pronta no WhatsApp da loja, (33) 99113-9036 (o Pix direto no site aparece como "Em breve"). Dúvida fora do pedido vai pro Instagram do estado. O site é estático; o rateio e o painel do dono (`/painel/`) usam o servidor da loja (PHP + SQLite na mesma hospedagem, em `api/`). Sem o servidor, o site abre igual e o rateio cai no WhatsApp.
 
-Prévia criada pela I&H Soluções Digitais.
+Feito pela I&H Soluções Digitais.
 
 ---
 
@@ -50,15 +50,90 @@ O `.htaccess` da pasta (vem de `public/.htaccess`) troca a política de seguran�
 
 ### Publicar à mão (hPanel)
 
-O pacote pronto está em `entrega/greencheese-dist.zip` (é a pasta `dist/` zipada, com o `.htaccess`).
+Sem as chaves da API da Hostinger, dá pra publicar pelo gerenciador de arquivos. O pacote sai do build, com as mesmas regras do `publicar.mjs`:
 
-1. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (crie se não existir).
-2. **Enviar** → `greencheese-dist.zip` → botão direito → **Extrair**. O `index.html` e o `.htaccess` têm de ficar direto em `greencheese/`.
-3. Apague o zip do servidor e abra o endereço no celular.
+```bash
+npm run build
+npm run empacotar      # → entrega/greencheese-dist.zip (outro lugar: npm run empacotar -- caminho/do/pacote.zip)
+```
+
+O `empacotar` recusa o código de instalação de desenvolvimento (gere o de verdade antes: "Primeiro acesso: o código de instalação", lá embaixo) e deixa de fora banco, log e fotos enviadas: o Vite copia `public/` inteiro pro build, e um `loja.sqlite` ou uma foto esquecidos ali, extraídos no ar, sobrescreveriam os de verdade. **Não zipe a pasta `dist/` à mão**, nem use um zip velho: o `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site).
+
+1. Painel → Servidor → **Baixar cópia do banco** (sempre, antes de publicar).
+2. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (crie se não existir).
+3. **Enviar** → `greencheese-dist.zip` → botão direito → **Extrair** ali mesmo, por cima do que já tem (substituir). O `index.html` e o `.htaccess` têm de ficar direto em `greencheese/`.
+4. **Nunca apague** `greencheese/`, `greencheese/api/privado/` nem `greencheese/uploads/` antes de extrair: o banco, o log e as fotos dos rateios moram lá, e o zip não traz nenhum deles (de propósito).
+5. Apague o zip do servidor e abra o endereço no celular. Os atalhos `Home2/` e `HOME2/` só o `publicar.mjs` sobe (pastas que só mudam a caixa colidem no Windows e no macOS); no zip vai só `home2/`.
 
 Quer na raiz ou num subdomínio? Troque `urlPublica` em `src/dados/config.ts` e gere o build de novo (o endereço vai na imagem de compartilhamento e nos links da bio).
 
 > O SSL (https) precisa estar ativo: a detecção de estado, o CEP e o "copiar pedido" dependem de https.
+
+---
+
+## Servidor (API)
+
+O rateio (e o painel do dono) usam um servidor pequeno em **PHP + SQLite** que mora junto do site, na mesma hospedagem: `public/api/` → `dist/api/` → `oprojeto.online/greencheese/api/`. Sem MySQL e sem serviço de fora. Rotas, campos e erros: **API.md** (é o contrato entre site, painel e servidor).
+
+### Como fica no ar
+
+Dentro de `public_html/greencheese/`:
+
+| Pasta | O que tem | Pela web |
+|---|---|---|
+| `api/index.php` | a única porta da API (a rota vai em `?r=`, ex.: `api/index.php?r=rateios`) | aberto |
+| `api/nucleo/`, `api/instalacao.php` | os módulos e o hash do código de instalação | fechado (403) |
+| `api/privado/` | o banco `loja.sqlite` (com o diário `loja.sqlite-wal` e `-shm`) e o `erros.log` (passou de 1 MB, vira `erros.log.1`) | fechado (403) |
+| `uploads/` | as imagens que o dono envia pelo painel (WebP, nome aleatório) | só imagem; nenhum `.php` roda ali |
+
+- O banco nasce sozinho no primeiro acesso e se atualiza sozinho (migrações pelo `PRAGMA user_version`).
+- Precisa de **PHP 8.1 ou mais novo** (hPanel → Avançado → Configuração do PHP; 8.3 é o melhor) com `pdo_sqlite`, que a Hostinger já tem. Com GD + WebP, as fotos do painel são ajustadas (lado maior até 1600 px, viram WebP); sem isso, sobem do jeito que vieram.
+- Cada pasta interna tem o próprio `.htaccess` (com as duas sintaxes: `Require` e `Order/Deny`) e cada módulo PHP começa com uma guarda: mesmo se o `.htaccess` falhar, abrir um módulo direto não faz nada.
+- **Sem `RewriteEngine` nas nossas pastas**, de propósito: ligar a reescrita aqui anularia as regras da raiz do domínio (HTTPS etc.). Por isso a rota é um parâmetro.
+- Erro nunca aparece com detalhe pro cliente: o detalhe vai pro `api/privado/erros.log`.
+
+### Primeiro acesso: o código de instalação
+
+1. `php scripts/codigo-instalacao.php` → mostra o código **uma vez** (4 grupos de 5, sem letra que confunde, ex.: `k7m2p-x9q4r-h3d8w-5tnby`) e grava só o hash em `public/api/instalacao.php`.
+2. `npm run build` e publicar. O `publicar.mjs` (e o `empacotar.mjs`) **recusa** enquanto o `instalacao.php` for o de desenvolvimento, e o servidor no ar também não aceita o código de desenvolvimento. Os dois conferem o próprio hash, não só a marca `// DEV` do arquivo: apagar o comentário não adianta.
+3. Passar o código pro dono por um canal seguro (não em grupo). No painel, ele cria o login e a senha (10 caracteres ou mais) com esse código. Dali em diante o código não vale mais.
+4. **Esqueceu a senha?** Gere outro código (passos 1 e 2): no painel, "Esqueci a senha" pede o código novo e a senha nova. Cada código vale uma vez; todas as sessões abertas caem.
+
+### Backup dos dados
+
+- **Pelo painel** (o jeito certo): "Baixar cópia do banco" (`admin-backup`) baixa um arquivo `.sqlite` com tudo, coerente. Sugestão: toda semana e antes de qualquer mudança grande. O arquivo tem nome e WhatsApp dos clientes: guardar em lugar seguro.
+- **Pelo gerenciador de arquivos** da Hostinger: `public_html/greencheese/api/privado/` → baixar o `loja.sqlite` **junto com** o `loja.sqlite-wal`, se ele existir (as últimas mudanças ficam no `-wal` até o SQLite juntar; só o `loja.sqlite` pode sair desatualizado).
+- **Restaurar** (numa hora sem movimento): primeiro apagar `loja.sqlite-wal` e `loja.sqlite-shm` de `api/privado/` (um diário velho por cima do banco novo estraga o banco), depois subir a cópia como `api/privado/loja.sqlite`.
+- Publicar o site **nunca mexe nos dados**: o `publicar.mjs` não sobe nada de `api/privado/` além do `.htaccess` e do `index.html` vazio, nem nada de `uploads/` além do `.htaccess` (e nenhum `.sqlite`/`.log` de pasta nenhuma).
+
+### Publicar com o servidor
+
+Mesmo comando de sempre (`npm run build` + `node scripts/publicar.mjs`). A ordem agora: os `.htaccess` de todas as pastas primeiro (nada fica aberto nem por um instante), depois a API (módulos antes do `index.php`), `assets/`, o resto, `painel/` e os `index.html` por último. Ensaio sem rede: `PUBLICAR_SECO=1 node scripts/publicar.mjs` lista na ordem o que subiria e o que fica de fora (`PUBLICAR_DIST=<pasta>` ensaia outro build).
+
+**Depois da primeira publicação com a API**: painel → Diagnóstico. Ele pede pela web o banco, o log, um módulo, o `instalacao.php`, o `.htaccess` e um `.php` de teste dentro de `uploads/`: tudo tem que dar fechado, e a lista de avisos vazia. Se algo aparecer aberto, o `.htaccess` daquela pasta não está valendo: não use o painel até resolver.
+
+**IP do cliente**: o site está atrás da CDN da Hostinger. O mesmo Diagnóstico diz que IP conta nos limites de tentativa ("O servidor vê o IP de quem acessa" ou "…da CDN") e quais cabeçalhos de encaminhamento chegaram. Se ele vir o IP da CDN, os limites viram de todo mundo junto: o passo a passo pra pôr a faixa da CDN em `GC_PROXIES` (`public/api/nucleo/base.php`) está no PENDENCIAS.md, “IP do cliente”. O servidor só lê o `X-Forwarded-For` quando o pedido vem de uma faixa dessa lista (vazia, vale só o `REMOTE_ADDR`), e lê da direita pra esquerda: o que o aparelho inventa à esquerda nunca conta.
+
+### Desenvolvimento
+
+```bash
+npm run api    # PHP em http://127.0.0.1:8090 (GC_API_PORTA troca), dados em greencheese/.dados-dev/
+npm run dev    # em outro terminal: o Vite repassa /api e /uploads pro PHP (o preview também)
+```
+
+- Código de instalação de desenvolvimento: `dev-instalar-greencheese` (só vale com `GC_DADOS`, que o `npm run api` liga).
+- Zerar tudo: apagar a pasta `.dados-dev/` (fica fora do Git e do build).
+- Com o PHP desligado o site abre igual: o Vite responde 503 `sem-servidor` e o site segue sem servidor (o rateio fecha pelo WhatsApp).
+- Variáveis: `GC_API_PORTA` (porta), `GC_DADOS` e `GC_UPLOADS` (pastas), `PHP` (outro binário do PHP), `GC_PROXIES` (faixas de proxy de confiança, separadas por vírgula: somam às de `GC_PROXIES` em `base.php`).
+
+### Testes do servidor
+
+- `npm run testar-api`: sobe um `php -S` com dados temporários e confere o contrato inteiro (cerca de 750 pontos: instalar, entrar com limite e cookie, CSRF e Origin, rateios e a lista do tabaco, cada erro do rateio-entrar, o token do aparelho (a mesma entrada de novo devolve a mesma vaga, até 10 envios juntos), **30 entradas ao mesmo tempo num rateio de 10 vagas → exatamente 10**, vencimento da reserva com relógio de teste, confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem, cópia do banco, apagar dados, o IP atrás de CDN com e sem `GC_PROXIES`, o código de dev recusado com e sem a marca, o zip do `empacotar` e o que tem que ficar fechado). Termina com `api ok`. `PHP=/caminho/do/php npm run testar-api` testa outra versão: passou no PHP 8.1 e no 8.3, com e sem GD/WebP.
+- `npm run testar-htaccess -- <pasta-do-build>`: sobe um Apache local com `mod_php` (`apt install apache2 libapache2-mod-php`), sem `GC_DADOS` (como no ar), e confere os dois ramos dos `.htaccess` (`Require` e `Order/Deny`): site, API, tudo que é fechado, `.php`/`.phtml`/`.svg`/`.html` plantados em `uploads/` (nenhum roda), envio de imagem e o Diagnóstico pela web. Termina com `htaccess ok`.
+
+### Onde fica cada coisa no código
+
+`public/api/index.php` (a lista de rotas) e, em `public/api/nucleo/`: `base.php` (respostas, erros, Origin, relógio), `banco.php` (SQLite, migrações, transação — o único arquivo que muda pra ir pro MySQL), `validar.php` (WhatsApp, estado, dinheiro, datas, slug e a lista do tabaco), `limite.php` (tentativas), `sessao.php` (cookie, CSRF, código de instalação), `rateio.php` (as regras de vaga; `gc_confirmar_participacao` é a única porta pro contador subir), `publico.php` (rotas do site), `painel.php` (rotas do dono), `upload.php`, `diagnostico.php` e `exemplos.php` (os 2 rateios de exemplo). Mudança no banco: uma migração nova no fim de `gc_migracoes()`.
 
 ### Link para a bio de cada perfil
 
@@ -75,6 +150,56 @@ Cada perfil põe na bio o link do próprio estado (é a forma mais confiável de
 Link direto de um produto (para o adesivo de link do story): `https://oprojeto.online/greencheese/?uf=mg&p=jack-daniels-old-no7-1l` — o id de cada produto está no `catalogo.json`. No site, o botão de compartilhar do story já copia esse link.
 
 Na prévia, o selo **prévia** (canto de cima no celular, barra lateral no computador) abre um painel com esses links e com tudo que ainda falta.
+
+---
+
+## Painel do dono
+
+O painel é onde o dono cria os rateios, confirma os pagamentos e avisa a galera no WhatsApp: **`https://oprojeto.online/greencheese/painel/`**. Não tem link no site (nem aparece no Google: `noindex` no HTML e `X-Robots-Tag` no `.htaccess` da pasta). Feito pro celular (barra embaixo no molde do Instagram: Resumo, Rateios, **Criar** no meio, Atividade e Conta) e com lateral no computador.
+
+### Entrar
+
+- **Primeiro acesso**: o painel abre na tela "Primeiro acesso". Põe o código de instalação (ver "Primeiro acesso: o código de instalação" acima), teu nome, um login (letras minúsculas, números, ponto, traço) e a senha (10 caracteres ou mais) duas vezes → "Criar acesso". O painel já nasce com os 2 rateios de exemplo (Arizona e dichavador), que dá pra apagar.
+- **Depois**: login e senha. A sessão dura 30 dias e renova sozinha a cada uso. "Sair do painel" (em Conta) sai só daquele aparelho; trocar a senha tira todos os outros.
+- **Esqueceu a senha**: "Esqueci a senha" pede um código de instalação **novo** (gerado de novo pelo `php scripts/codigo-instalacao.php` e publicado) e a senha nova.
+- **No celular, como app**: no Chrome, menu ⋮ → "Adicionar à tela inicial"; no iPhone, Safari → Compartilhar → "Adicionar à Tela de Início". O painel tem manifesto próprio (`painel/manifest.webmanifest`, ícone da loja, "Painel GC").
+- Se a sessão cair no meio do trabalho (senha trocada em outro aparelho, 30 dias sem usar), o login abre **por cima** da tela: o que estava digitado fica, e o que estava sendo salvo termina sozinho depois de entrar.
+
+### Criar um rateio
+
+Barra de baixo → **+** (ou "Criar rateio"):
+
+1. **Produto**: busca no catálogo (Arizona, dichavador…): o nome vem preenchido, o site usa a arte do produto e o preço da loja entra como "quando chegar". Se não tá no catálogo, "nome livre".
+2. **Foto** (opcional): "Enviar foto" abre a câmera ou a galeria do celular. A foto grande é reduzida no próprio celular antes de subir (sobe rápido no 4G) e o servidor ajusta de novo (WebP, 1600 px). Com foto, ela aparece no lugar da arte.
+3. **Preço** no rateio e **quando chegar** (opcional): o painel mostra a economia ("Economia de R$ 5,00 por vaga") e o site também.
+4. **Vagas** (1 vaga = 1 unidade) e **por pessoa** (o máximo que um WhatsApp pega).
+5. **Onde vale**: RJ, MG, SP, ES, SC (quem é de outro estado vê o rateio apagado no site).
+6. **Prazos**: previsão de chegada (padrão: de 6 a 10 dias depois de fechar), prazo pra entrar (opcional: sem prazo, fecha quando lotar) e quanto tempo a reserva segura a vaga (padrão 24 h).
+7. **Descrição** (opcional) e a **prévia do cartão** como o cliente vê no site (no computador, fixa do lado).
+8. **Salvar rascunho** (só o dono vê) ou **Publicar no site**. Depois de publicar, o rateio mostra o link pra compartilhar (`…/greencheese/?rateio=<id>`): "Copiar link", "Compartilhar" (celular) e "Ver no site".
+
+Derivado do tabaco e cigarro eletrônico não entra (Anvisa): o nome ou a descrição com um termo da lista (Backwoods, charuto, vape, pod…) mostra o aviso na hora e não publica; o servidor recusa de novo. O que está sendo digitado fica guardado no aparelho até salvar ("Continuando de onde tu parou").
+
+### No dia a dia
+
+- **Resumo**: primeiro o que pede ação (reservas esperando pagamento, a que vence antes primeiro, com "Confirmar pagamento" e "Cobrar" no WhatsApp; rateio que lotou, chegou ou teve o prazo vencido), depois o dinheiro (pago e a receber), os rateios abertos com a barra e as últimas entradas. Atualiza sozinho a cada 30 s e quando o painel volta pra frente.
+- **Confirmar pagamento** (quando o Pix cair na conta): no rateio, "Confirmar pagamento" na pessoa → confirma → o contador sobe ("8/10") e aparece **"Avisar no WhatsApp"** com a mensagem pronta pra ela ("Pagamento confirmado ✅, código RAT-…"). Quando as vagas pagas lotam, o rateio **fecha sozinho** e o painel avisa.
+- **Mensagens prontas**: cada pessoa tem o botão do WhatsApp com a mensagem do momento (cobrar a reserva com o prazo, confirmado, venceu, fechou, pedido feito com a previsão em datas, a caminho, chegou, cancelado). Abre o WhatsApp da loja com o texto escrito; é só mandar.
+- **Passos do rateio**: a linha do status (no celular, de cima pra baixo, como rastreio de entrega) mostra o próximo passo como botão, sempre com confirmação: Fechar agora → Pedido feito → A caminho → Chegou → Encerrar (e "Reabrir" depois de fechar). Passo fora de hora fica cinza em vez de branco: "Fechar agora" com vaga sobrando e no prazo, "Encerrar" com gente sem receber (o placar mostra "Entregue 2/6"). Ao avançar, abre o **"Avisar todos"**: um link do WhatsApp por pessoa, cada um com a mensagem e o nome dela; quem já foi avisado fica marcado (neste aparelho). Dá pra voltar nele depois pelo botão "Avisar todos no WhatsApp".
+- **Participantes**: busca (nome, WhatsApp ou código), filtro por status e, em "⋯", editar, cancelar, desfazer o pagamento, reservar de novo, marcar entregue e apagar os dados (pedido de exclusão da LGPD; a vaga continua nas contas). **Incluir** põe quem entrou pela DM: nome, WhatsApp, estado, vagas e se já pagou. **CSV** baixa a planilha (abre direto no Excel; com a sessão vencida, o login abre por cima e a planilha baixa depois de entrar). Vaga de quem teve os dados apagados não volta (nem paga, nem reservada).
+- **Atividade**: tudo que aconteceu (entradas pelo site, pagamentos, reservas vencidas, passos), do mais novo pro mais velho.
+- **Servidor** (lateral no computador; no celular, em Conta → "Mais do painel"): o diagnóstico em português (o que tem que ficar fechado pela web, PHP, fotos, HTTPS, o IP que conta nos limites de tentativa) e **"Baixar cópia do banco"**.
+
+### Desenvolvimento e testes
+
+- `npm run api` e `npm run dev` (ver "Desenvolvimento" acima) → `http://localhost:5173/painel/` (código de instalação de desenvolvimento: `dev-instalar-greencheese`).
+- `npm run testar-painel -- <pasta-do-build>`: sobe a API com dados temporários e o `vite preview` do build e roda o fluxo inteiro no Chromium (instalar → criar com foto → publicar → o site enxerga → clientes entram pela API → confirmar → lota e fecha sozinho → avisar todos → pedido feito → a caminho → chegou → entregue → CSV → incluir → trocar senha → sair), mais a robustez (rascunho, tabaco, sem rede, sessão que cai no meio, toque duplo, voltar do Android, teclado, deitado e 320 px) e o HTML do painel. Quando o build do site já tem a aba Rateio, abre também `/?rateio=<id>` no site e confere que o rateio criado no painel aparece lá. Termina com `painel ok`. `GC_PRINTS=<pasta>` guarda prints; `GC_AXE=<axe.min.js>` roda o axe em cada tela; `GC_TESTE_PORTA` (PHP) e `GC_TESTE_PORTA_SITE` (preview) fixam as portas.
+- O `npm run testar-htaccess` também abre `/greencheese/painel/` no Apache e confere `noindex`, HTML sem cache e que todo arquivo do painel carrega por caminho relativo.
+
+### Onde fica cada coisa no código
+
+- `painel/index.html` (a página) e `public/painel/` (manifesto e `.htaccess`). O `npm run build` gera o site e, logo depois, o painel num build à parte na mesma pasta (plugin `painelAParte` do `vite.config.ts`): num build só, o Vite repartiria o React entre as duas páginas e o site ganharia pedaços e pedidos novos. Assim o site sai **byte a byte igual** ao de antes do painel e o painel leva o dele (`assets/painel-*.js`, com o CSS dentro, em `src/painel/estilo.ts`). No `npm run dev`, o `/painel/` abre direto. Variável nova no `define` do site (ex.: `__ARQUIVO_UNICO__`) entra na constante `definir`, que vale pros dois.
+- `src/painel/`: `api.ts` (conversa com o servidor: csrf, sessão que cai, rede), `rotas.ts` (telas por `#/…`, histórico), `secoes.ts` (**a lista de seções**: seção nova entra aqui, com a tela dela em `Painel.tsx`), `mensagens.ts` (os textos do WhatsApp), `proibidos.ts` (a lista do tabaco, igual à do servidor), `painel.css` e `telas/`.
 
 ---
 

@@ -1,0 +1,9 @@
+# Painel do dono: fora dos buscadores e sem cache do HTML (versão nova vale na hora). A CSP e o resto vêm da pasta
+# de cima (greencheese/.htaccess), que já cobre esta.
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow"
+  Header always set Referrer-Policy "same-origin"
+  <FilesMatch "\.(html|webmanifest)$">
+    Header always set Cache-Control "no-store, max-age=0"
+  </FilesMatch>
+</IfModule>

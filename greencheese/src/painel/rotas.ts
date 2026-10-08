@@ -1,0 +1,129 @@
+// Telas do painel por hash (#/rateios, #/rateio/<id>…): funciona em qualquer pasta, sem regra de servidor.
+// Cada tela entra no histórico (o voltar do Android volta de tela); as folhas também (o voltar fecha a folha).
+import { useSyncExternalStore } from 'react'
+
+export type Rota =
+  | { tela: 'resumo' }
+  | { tela: 'rateios' }
+  | { tela: 'novo'; produto: string | null }
+  | { tela: 'rateio'; id: string }
+  | { tela: 'editar'; id: string }
+  | { tela: 'atividade' }
+  | { tela: 'conta' }
+  | { tela: 'servidor' }
+
+function ler(): Rota {
+  const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''))
+  const [caminho, busca = ''] = h.split('?')
+  const partes = caminho.split('/').filter(Boolean)
+  const q = new URLSearchParams(busca)
+  const id = partes[1] && /^[a-z0-9-]{1,80}$/.test(partes[1]) ? partes[1] : null
+  switch (partes[0]) {
+    case 'rateios':
+      return { tela: 'rateios' }
+    case 'novo':
+      return { tela: 'novo', produto: q.get('produto') }
+    case 'rateio':
+      if (id) return partes[2] === 'editar' ? { tela: 'editar', id } : { tela: 'rateio', id }
+      return { tela: 'rateios' }
+    case 'atividade':
+      return { tela: 'atividade' }
+    case 'conta':
+      return { tela: 'conta' }
+    case 'servidor':
+      return { tela: 'servidor' }
+    default:
+      return { tela: 'resumo' }
+  }
+}
+
+let atual = ler()
+let chave = location.hash
+const ouvintes = new Set<() => void>()
+function avisar() {
+  if (location.hash === chave) return
+  chave = location.hash
+  atual = ler()
+  ouvintes.forEach((f) => f())
+}
+window.addEventListener('popstate', avisar)
+window.addEventListener('hashchange', avisar)
+
+function assinar(f: () => void) {
+  ouvintes.add(f)
+  return () => ouvintes.delete(f)
+}
+
+export function useRota(): Rota {
+  return useSyncExternalStore(assinar, () => atual)
+}
+
+/** Rolagem de cada tela, pra voltar no mesmo ponto (quem restaura é a tela, logo depois de desenhar). */
+const rolagens = new Map<string, number>()
+history.scrollRestoration = 'manual'
+window.addEventListener('scroll', () => rolagens.set(location.hash, window.scrollY), { passive: true })
+export function rolagemGuardada(): number {
+  return rolagens.get(location.hash) ?? 0
+}
+
+/**
+ * Volta do histórico que uma folha fechada pediu e ainda não aconteceu (o history.back é assíncrono). Navegar antes
+ * dela terminar gravaria a tela nova em cima da entrada da folha, e o voltar dela levaria pra tela de antes.
+ */
+let voltando: Promise<void> | null = null
+
+export function tirarFolhaDoHistorico(): void {
+  voltando = new Promise<void>((ok) => {
+    const f = () => {
+      window.removeEventListener('popstate', f)
+      voltando = null
+      ok()
+    }
+    window.addEventListener('popstate', f)
+  })
+  history.back()
+}
+
+export function depoisDaVolta(): Promise<void> | null {
+  return voltando
+}
+
+/** Vai pra outra tela (entra no histórico; trocar = substitui a entrada atual). */
+export function ir(caminho: string, trocar = false): void {
+  if (voltando) {
+    void voltando.then(() => ir(caminho, trocar))
+    return
+  }
+  const url = caminho.startsWith('#') ? caminho : `#${caminho}`
+  if (url === location.hash || (url === '#/' && !location.hash)) return
+  rolagens.set(location.hash, window.scrollY)
+  rolagens.delete(url)
+  const n = (history.state as { pn?: number } | null)?.pn ?? 0
+  if (trocar) history.replaceState({ pn: n }, '', url)
+  else history.pushState({ pn: n + 1 }, '', url)
+  avisar()
+}
+
+/** Voltar de verdade quando a tela anterior é do painel; senão, vai pra tela de cima. */
+export function voltar(padrao: string): void {
+  if (voltando) {
+    void voltando.then(() => voltar(padrao))
+    return
+  }
+  const n = (history.state as { pn?: number; folha?: string } | null)?.pn ?? 0
+  if (n > 0) {
+    rolagens.set(location.hash, window.scrollY)
+    history.back()
+  } else ir(padrao, true)
+}
+
+export const caminho = {
+  resumo: '#/',
+  rateios: '#/rateios',
+  novo: '#/novo',
+  rateio: (id: string) => `#/rateio/${id}`,
+  editar: (id: string) => `#/rateio/${id}/editar`,
+  atividade: '#/atividade',
+  conta: '#/conta',
+  servidor: '#/servidor',
+}

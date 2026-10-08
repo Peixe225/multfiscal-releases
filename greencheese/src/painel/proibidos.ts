@@ -1,0 +1,32 @@
+// Derivados do tabaco e cigarro eletrônico não entram no site (Anvisa, RDC 840/2023 e RDC 855/2024). A mesma
+// lista e a mesma conferência do servidor (gc_termo_proibido em api/nucleo/validar.php): o painel avisa enquanto o
+// dono digita; quem recusa de verdade é o servidor.
+const TERMOS = [
+  'backwoods', 'charuto', 'cigarrilha', 'cigarro', 'cigarrete', 'tabaco', 'fumo', 'palheiro', 'swisher',
+  'dutch master', 'black & mild', 'black and mild', 'al capone', 'djarum', 'essencia de narguile', 'vape',
+  'cigarro eletronico', 'pod descartavel', 'juul', 'ignite', 'elfbar', 'elf bar',
+]
+const PALAVRA_INTEIRA = ['rape']
+
+function normalizar(texto: string): string {
+  let s = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  s = s.replace(/ß/g, 'ss').replace(/æ/g, 'ae').replace(/œ/g, 'oe').replace(/ø/g, 'o').replace(/ª/g, 'a').replace(/º/g, 'o')
+  s = s.replace(/&/g, ' & ').replace(/[^a-z0-9&]+/g, ' ')
+  return ` ${s.replace(/\s+/g, ' ').trim()} `
+}
+
+/** Primeiro termo proibido no texto, ou null. */
+export function termoProibido(texto: string): string | null {
+  if (!texto.trim()) return null
+  const s = normalizar(texto)
+  const colado = s.replace(/ /g, '')
+  for (const t of TERMOS) {
+    if (s.includes(t)) return t
+    if (t.includes(' ') && colado.includes(t.replace(/ /g, ''))) return t
+  }
+  for (const t of PALAVRA_INTEIRA) if (s.includes(` ${t} `)) return t
+  return null
+}
+
+/** O aviso, sem sermão: o que não entra e o que fazer. */
+export const AVISO_PROIBIDO = 'Tabaco e vape não entram no site (regra da Anvisa pra venda online). Troca o nome ou escolhe outro produto.'
