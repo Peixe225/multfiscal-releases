@@ -11,7 +11,7 @@ export const T = {
   carregando: 'carregando…',
 
   // convite
-  sub: 'Gira a tampa do dichavador. Dentro tem um beck bolado, e no beck, teu cupom.',
+  sub: 'Gira a tampa do dichavador. Lá dentro tem um story dos Melhores amigos, só pra você.',
   adesivoGira: 'Gira a tampa',
   legendaCelular: 'Gira a tampa',
   legendaDesktop: 'Arrasta em círculo, usa a roda do mouse ou segura Espaço',
@@ -34,12 +34,11 @@ export const T = {
   segmentos: ['Girar', 'Abrir', 'Prêmio'] as const,
 
   // revelação
-  saiuBolado: 'Saiu bolado.',
-  soPapel: 'Só papel e sorte.',
   vivoSaiu: (titulo: string, regra: string, exemplo: boolean) => `Saiu: ${titulo}. ${regra}.${exemplo ? ' Prêmio de exemplo.' : ''}`,
 
-  // cartão: o prêmio é o herói (destaque + produto + 1 linha de apoio); as condições ficam no "Ver condições"
-  faixaCartao: 'GREEN CHEESE',
+  // story do prêmio: o prêmio é o herói (destaque + produto + 1 linha de apoio); as condições ficam no "Ver condições"
+  melhoresAmigos: 'Melhores amigos',
+  agora: 'agora',
   deuSorte: 'DEU SORTE!',
   verProduto: 'Ver produto',
   // o rótulo não muda ao abrir (o estado fica no aria-expanded e na seta): a linha não pula em 320 px
@@ -50,14 +49,22 @@ export const T = {
   condUmPorPedido: 'Vale em 1 pedido. Não soma com outro cupom.',
   condEstado: 'Só com o produto disponível no teu estado.',
   condLoja: 'A loja confirma no WhatsApp: o subtotal do site não muda.',
-  codigo: 'Código',
-  codigoMascarado: 'Código liberado quando tu guarda o prêmio',
-  copiar: 'Copiar',
+  // adesivo do código (como o de link) e adesivo de contagem
+  codigoTrancado: 'Guarda pra liberar o código',
+  ariaCopiar: (codigo: string) => `Copiar o código ${codigo}`,
+  copiadoAdesivo: 'COPIADO',
   copiado: 'Código copiado.',
   naoCopiou: 'Não deu pra copiar. Segura no código e copia.',
+  valeAte: (ate: string) => `Vale até ${ate}`,
+  valeDepois: 'Vale depois de guardar',
+  dias: 'dias',
+  dia: 'dia',
+  venceHoje: 'vence hoje',
+  contagemGuardado: (ate: string, falta: string) => `Vale até ${ate}, ${falta}.`,
+  contagemAntes: (dias: number) => `Vale ${dias} ${dias === 1 ? 'dia' : 'dias'} depois de guardar.`,
 
   // prêmio sem conta
-  esperando: 'TEU PRÊMIO TÁ ESPERANDO',
+  esperando: (ate: string) => `Teu prêmio espera até ${ate}.`,
   soNomeZap: 'Só nome e WhatsApp.',
   agoraNao: 'Agora não',
   avisoAgoraNao: (ate: string) => `Teu prêmio fica guardado aqui até ${ate}.`,
@@ -65,14 +72,11 @@ export const T = {
   // prêmio com conta
   usarAgora: 'Usar agora',
   verCuponsN: (n: number) => `Ver meus cupons (${n})`,
-  naConta: 'Tá na tua conta. Amanhã tem outro giro.',
+  naConta: 'Tá na tua conta. Amanhã tem mais.',
 
   // guardado
   faixaPremio: (titulo: string) => `Teu prêmio: ${titulo}`,
-  guardado: 'GUARDADO',
-  fechou: (nome: string) => (nome ? `Fechou, ${nome}. Teu cupom tá guardado.` : 'Fechou. Teu cupom tá guardado.'),
-  // embaixo do "Fechou" (acima dos botões): nada depois da barra, que no celular deitado gruda no topo da coluna
-  guardadoNota: (ate: string) => `Vale até ${ate}. Amanhã tem outro giro.`,
+  fechou: (nome: string) => (nome ? `Fechou, ${nome}. Tá guardado.` : 'Fechou. Tá guardado.'),
   vivoGuardado: (codigo: string, ate: string) => `Código ${codigo}. Vale até ${ate}.`,
   contaCriada: (nome: string) => (nome ? `Conta criada, ${nome}.` : 'Conta criada.'),
   giroLiberado: 'Teu giro de hoje tá liberado.',
@@ -80,7 +84,7 @@ export const T = {
   entrou: (nome: string) => (nome ? `Oi de novo, ${nome}.` : 'Oi de novo.'),
 
   // espera
-  proximoGiro: 'PRÓXIMO GIRO',
+  proximoGiro: 'Próximo giro',
   ariaProximo: 'Próximo giro amanhã, depois da meia-noite',
   hojeJaFoi: 'Hoje já foi. Amanhã tem mais.',
   hojeSaiu: 'Hoje saiu:',
@@ -155,7 +159,6 @@ export const T = {
   girarDichavador: 'Girar o dichavador',
   usadoHoje: (espera: string) => `Hoje já foi. Próximo giro ${espera}.`,
   teusCupons: (n: number) => `Teus cupons (${n})`,
-  valeAteFalta: (ate: string, falta: string) => `Vale até ${ate} · ${falta}`,
   naSacola: 'Na sacola ✓',
   tirar: 'Tirar',
   usado: (dia: string) => `USADO ${dia}`,

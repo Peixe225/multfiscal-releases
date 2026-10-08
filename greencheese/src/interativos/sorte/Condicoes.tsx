@@ -5,9 +5,9 @@ import { T } from './textos'
 import './estilo'
 
 // "Ver condições": tudo que é regra do prêmio (validade, reserva sem conta, 1 por pedido, a loja confirma…) fica
-// fechado num texto clicável, no cartão do prêmio e no ingresso da Minha conta. Disclosure (aria-expanded): o foco
-// fica no botão e o rótulo não muda (só a seta vira). Ao abrir, a lista entra na tela sem ir pra baixo da barra dos
-// botões do prêmio quando ela gruda no pé por cima do cartão (celular em pé); deitado, a barra fica ao lado.
+// fechado num texto clicável, no story do prêmio e nos cupons da Minha conta. Disclosure (aria-expanded): o foco
+// fica no botão e o rótulo não muda (só a seta vira). No story (`sobre`), a lista abre por cima dele, acima da linha,
+// sem empurrar nada; na Minha conta abre no lugar e a folha rola só o que falta pra ela aparecer.
 
 /** As condições de um cupom, na ordem: o que vale, como usar, até quando (e a reserva sem conta) e as de sempre. */
 export function listaCondicoes({ regra, comoUsar, validade, reserva }: { regra: string; comoUsar?: string; validade: string | null; reserva?: string | null }): string[] {
@@ -37,9 +37,11 @@ interface Props {
   /** Fica na mesma linha do botão, à direita (ex.: "Ver produto"). */
   lado?: ReactNode
   className?: string
+  /** Abre por cima (dentro do story do prêmio), sem mexer no layout nem na rolagem. */
+  sobre?: boolean
 }
 
-export function Condicoes({ itens, lado, className }: Props) {
+export function Condicoes({ itens, lado, className, sobre = false }: Props) {
   const [aberto, setAberto] = useState(false)
   const id = useId()
   const botao = useRef<HTMLButtonElement>(null)
@@ -49,7 +51,7 @@ export function Condicoes({ itens, lado, className }: Props) {
   useEffect(() => {
     const el = painel.current
     const b = botao.current
-    if (!aberto || !el || !b) return
+    if (!aberto || !el || !b || sobre) return
     const sc = rolagemDe(el)
     if (!sc) return
     const barra = el.closest('.sorte')?.querySelector<HTMLElement>('.sorte-barra')
@@ -57,10 +59,10 @@ export function Condicoes({ itens, lado, className }: Props) {
     const limite = (topoDaBarra(barra, el.getBoundingClientRect(), s) ?? s.bottom) - 12
     const falta = Math.min(el.getBoundingClientRect().bottom - limite, b.getBoundingClientRect().top - s.top - 4)
     if (falta > 0) sc.scrollBy({ top: falta, behavior: movimentoReduzido() ? 'auto' : 'smooth' })
-  }, [aberto])
+  }, [aberto, sobre])
 
   return (
-    <div className={`cond ${className ?? ''}`}>
+    <div className={`cond${sobre ? ' cond-sobre' : ''} ${className ?? ''}`}>
       <div className="cond-linha">
         <button ref={botao} type="button" className="cond-botao toque" aria-expanded={aberto} aria-controls={id} onClick={() => setAberto((v) => !v)}>
           {T.verCondicoes}

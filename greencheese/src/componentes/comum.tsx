@@ -11,8 +11,8 @@ export function Icone({ nome, tamanho = 24, titulo, className, style }: { nome: 
   return <PixelArte grade={g} tamanho={tamanho} titulo={titulo} className={className} style={style} />
 }
 
-/** Avatar do perfil: o logo no círculo preto, com o anel do Instagram (branco, folga preta). */
-export function Avatar({ tamanho = 32, anel = true, className }: { tamanho?: number; anel?: boolean; className?: string }) {
+/** Avatar do perfil: o logo no círculo preto, com o anel do Instagram (branco, folga preta; `cor` troca o do anel). */
+export function Avatar({ tamanho = 32, anel = true, cor = 'var(--branco)', className }: { tamanho?: number; anel?: boolean; cor?: string; className?: string }) {
   const folga = tamanho >= 64 ? 4 : 2
   const traco = tamanho >= 64 ? 2 : 1.5
   return (
@@ -22,7 +22,7 @@ export function Avatar({ tamanho = 32, anel = true, className }: { tamanho?: num
         width: tamanho,
         height: tamanho,
         padding: anel ? folga + traco : 0,
-        boxShadow: anel ? `inset 0 0 0 ${traco}px var(--branco)` : undefined,
+        boxShadow: anel ? `inset 0 0 0 ${traco}px ${cor}` : undefined,
       }}
       aria-hidden="true"
     >

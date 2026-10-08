@@ -192,11 +192,6 @@ export function formatarFalta(validoAte: number, agora: number): string {
   return `faltam ${d} dias`
 }
 
-export function papelDo(p: { papel?: 'branco' | 'natural' }): 'branco' | 'natural' {
-  return p.papel ?? 'natural'
-}
-
-
 /* ───────────────────────── nome do prêmio ───────────────────────── */
 
 /** Destaque grande do cartão: "LEVA 4 PAGA 3", "15% OFF", "BRINDE". */
@@ -218,7 +213,7 @@ export function nomeCategoria(id: string | undefined): string {
 }
 
 /**
- * O prêmio dito de um jeito só (o herói do cartão e do ingresso): o destaque em pixel e, embaixo, em que produto.
+ * O prêmio dito de um jeito só (o herói do story do prêmio e dos cupons da Minha conta): o destaque em pixel e, embaixo, em que produto.
  * Brinde: o produto que vem de brinde. Desconto: o produto do cupom (ou "em qualquer seda", quando é por categoria).
  * O resto (pedido com seda, validade, 1 por pedido) é condição e fica no "Ver condições".
  */

@@ -23,7 +23,7 @@ export interface Conta {
 }
 
 /** O texto do prêmio congelado no dia em que a pessoa ganhou: é ele que vale, mesmo que src/dados/sorte.ts mude. */
-export type RetratoPremio = Pick<Premio, 'titulo' | 'regra' | 'aplicaA' | 'comoUsar'> & { papel: 'branco' | 'natural' } & ValorPremio
+export type RetratoPremio = Pick<Premio, 'titulo' | 'regra' | 'aplicaA' | 'comoUsar'> & ValorPremio
 
 export interface Cupom {
   codigo: string

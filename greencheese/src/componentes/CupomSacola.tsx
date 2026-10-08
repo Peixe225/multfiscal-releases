@@ -5,10 +5,11 @@ import { ID_SORTE, useEstadoSorte } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
 import { formatarAte } from '../lib/cupom'
 import { useCupomNoPedido } from '../lib/cupom-pedido'
-import { nomeCategoria, nomeDoPremio, type Situacao } from '../lib/cupom-uso'
+import { fraseDoPremio, nomeCategoria, nomeDoPremio, type Situacao } from '../lib/cupom-uso'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { disponivelEm } from '../store/catalogo'
+import type { RetratoPremio } from '../store/conta'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useSacola } from '../store/sacola'
@@ -18,6 +19,7 @@ import './CupomSacola.css'
 
 // Cupom na sacola: a linha do cupom aplicado (com a situação dele neste pedido) ou, sem cupom, um convite discreto
 // pro "Teste minha sorte". O subtotal nunca muda nem aparece riscado: o desconto é confirmado pela loja no WhatsApp.
+// Na linguagem do story do prêmio: o código como o adesivo dele (branco, em pixel) e o destaque em pixel.
 
 const DESCONTO_LOJA = 'desconto confirmado pela loja'
 
@@ -29,7 +31,7 @@ function abrirJogo(tela?: TelaInterativo) {
 export function CupomSacola({ compacta = false }: { compacta?: boolean }) {
   const { cupom, situacao } = useCupomNoPedido()
   if (cupom && situacao)
-    return <CupomAplicado codigo={cupom.codigo} titulo={nomeDoPremio(cupom.retrato)} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} />
+    return <CupomAplicado codigo={cupom.codigo} retrato={cupom.retrato} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} />
   if (compacta) return null
   return <ConviteCupom />
 }
@@ -39,18 +41,21 @@ function Exemplo() {
   return <span className="carimbo cs-exemplo">{T.exemplo}</span>
 }
 
-function CupomAplicado({ codigo, titulo, exemplo, situacao, compacta }: { codigo: string; titulo: string; exemplo: boolean; situacao: Situacao; compacta: boolean }) {
+function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codigo: string; retrato: RetratoPremio; exemplo: boolean; situacao: Situacao; compacta: boolean }) {
   const tirar = useSacola((s) => s.tirarCupom)
   const adicionar = useSacola((s) => s.adicionar)
   const { todas } = useLinhasSacola()
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = canalDa(uf)
   const lugar = nomeCidade(canal, cidade, cidadeInformada) ?? canal?.nome ?? 'teu estado'
+  const { destaque, alvo } = fraseDoPremio(retrato)
   const linha = (
     <p className="cs-linha">
-      <Icone nome="dichavador" tamanho={16} />
-      <span>
-        Cupom <span className="px px-16 cs-codigo">{codigo}</span> — {titulo}
+      <span className="sr-only">Cupom </span>
+      <span className="cs-adesivo px">{codigo}</span>
+      <span className="sr-only">: </span>
+      <span className="cs-premio">
+        <span className="cs-destaque px">{destaque}</span> {alvo}
         {exemplo && (
           <>
             {' '}

@@ -6,7 +6,7 @@ import type { Premio } from '../dados/sorte'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
 import type { Cupom, RetratoPremio } from '../store/conta'
 import type { LinhaSacola } from '../store/derivados'
-import { papelDo, premiosValidos, statusDo } from './cupom'
+import { premiosValidos, statusDo } from './cupom'
 
 // o nome do prêmio mora em cupom.ts (o adesivo do site, no pedaço principal, também usa)
 export { destaqueDo, fraseDoPremio, nomeCategoria, nomeDoPremio } from './cupom'
@@ -69,7 +69,7 @@ export function premiosElegiveis(uf: string | null | undefined): Premio[] {
 
 /** Retrato do prêmio no dia em que foi ganho. */
 export function retratoDe(p: Premio): RetratoPremio {
-  const base = { titulo: p.titulo, regra: p.regra, aplicaA: p.aplicaA, comoUsar: p.comoUsar, papel: papelDo(p) }
+  const base = { titulo: p.titulo, regra: p.regra, aplicaA: p.aplicaA, comoUsar: p.comoUsar }
   return { ...base, tipo: p.tipo, valor: p.valor } as RetratoPremio
 }
 

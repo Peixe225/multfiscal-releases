@@ -104,13 +104,13 @@ export function useEntradaSorte(): EntradaInterativo {
     let adesivo: EntradaInterativo['adesivo']
     switch (estado) {
       case 'A':
-        adesivo = { pergunta: T.pergunta, titulo: T.tituloPx, texto: 'Gira o dichavador. Sai um beck bolado com cupom dentro.', cta: 'Testar minha sorte', legenda: T.todoGiroGanha, acao: () => abrir() }
+        adesivo = { pergunta: T.pergunta, titulo: T.tituloPx, texto: 'Gira o dichavador. Lá dentro tem um prêmio só pra você.', cta: 'Testar minha sorte', legenda: T.todoGiroGanha, acao: () => abrir() }
         break
       case 'B':
         adesivo = {
           titulo: T.tituloPx,
           pergunta: `Teu prêmio tá guardado aqui até ${formatarAte(r.pendente?.expiraEm ?? agora, agora)}`,
-          texto: r.premioPendente?.titulo,
+          texto: r.premioPendente ? nomeDoPremio(r.premioPendente) : undefined,
           cta: T.guardar,
           acao: () => abrir('cadastro'),
         }

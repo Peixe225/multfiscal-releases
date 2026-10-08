@@ -1,4 +1,5 @@
-/* Teste minha sorte. Fundo preto com estrelas de pixel; cor só no produto e no papel do beck. Só transform/opacity. */
+/* Teste minha sorte. Fundo preto com estrelas de pixel; cor só no produto (e o verde dos Melhores amigos no story do
+   prêmio: o anel e o selo). Só transform/opacity. */
 
 .sorte {
   --d: min(78vw, 44vh, 340px);
@@ -75,7 +76,6 @@
   text-transform: uppercase;
 }
 .sorte-h2:focus,
-.cartao-titulo:focus,
 .form-titulo:focus {
   outline: none;
 }
@@ -162,8 +162,7 @@
 }
 
 .sorte-corpo,
-.sorte-labio,
-.sorte-beck {
+.sorte-labio {
   position: absolute;
   pointer-events: none;
   opacity: 0;
@@ -171,12 +170,18 @@
 .sorte-corpo {
   z-index: 3;
 }
-.sorte-beck {
-  z-index: 4;
-  visibility: hidden;
-}
 .sorte-labio {
   z-index: 5;
+}
+/* o preto do buraco da câmara: no mergulho cresce até virar o quadro do story (revelar.ts) */
+.sorte-boca {
+  position: absolute;
+  z-index: 9;
+  border-radius: 50%;
+  background: var(--preto);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
 }
 .sorte-tampa {
   position: absolute;
@@ -212,8 +217,7 @@
 }
 .sorte-corpo > svg,
 .sorte-labio > svg,
-.sorte-lado > svg,
-.sorte-beck > svg {
+.sorte-lado > svg {
   width: 100%;
   height: 100%;
   overflow: visible;
@@ -354,27 +358,6 @@
   }
 }
 
-/* legendas do beck ("Saiu bolado." / "Só papel e sorte.") */
-.sorte-leg-beck {
-  z-index: 9;
-  margin-top: calc(28px + 44px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  visibility: hidden;
-  pointer-events: none;
-}
-.sorte-leg-beck .px-16 {
-  padding: 3px 6px 2px;
-  background: var(--preto);
-}
-.sorte-leg-beck .legenda {
-  font-size: 13px;
-  padding: 0 6px;
-  background: var(--preto);
-}
-
 /* ---------- controles do giro ---------- */
 .sorte-controles {
   display: flex;
@@ -402,42 +385,6 @@
   line-height: 1.45;
 }
 /* ---------- prêmio, guardado, espera, bloqueado ---------- */
-/* barra dos botões do prêmio: no fluxo, logo depois do cartão; no celular baixo (e no navegador do Instagram) gruda
-   no pé da tela por cima do cartão, pra "Guardar meu prêmio" aparecer sem rolar. Só gruda depois da revelação
-   (na revelação ela sobe junto com a cena por transform, e sticky + transform pulariam). */
-.sorte-barra {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  align-self: stretch;
-  margin: 24px calc(-1 * var(--gutter)) 0;
-  padding: 0 var(--gutter);
-}
-.sorte-barra > * {
-  width: min(340px, 100%);
-}
-.sorte.sorte-premio > .sorte-barra,
-.sorte.sorte-guardado > .sorte-barra {
-  position: sticky;
-  z-index: 3;
-  bottom: 0;
-  padding-top: 12px;
-  padding-bottom: calc(10px + var(--seg-baixo));
-  background: var(--preto);
-}
-/* degradê de cima: o cartão "entra" por baixo da barra em vez de ser cortado seco */
-.sorte.sorte-premio > .sorte-barra::before,
-.sorte.sorte-guardado > .sorte-barra::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: 20px;
-  background: linear-gradient(to top, var(--preto), rgba(0, 0, 0, 0));
-  pointer-events: none;
-}
 .sorte-barra-linha {
   display: flex;
   align-items: center;
@@ -452,21 +399,13 @@
 .sorte-barra-linha .botao-texto {
   flex: none;
 }
-.sorte-acoes + .sorte-barra {
-  margin-top: 14px;
-}
 
-.sorte-acoes,
 .sorte-bloco {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: 10px;
   width: min(340px, 100%);
-  margin-top: 24px;
-}
-.sorte-bloco {
-  align-items: center;
   margin-top: 18px;
 }
 .sorte-bloco .botao-largo {
@@ -490,27 +429,56 @@
 .sorte-bloco > p:not(.sorte-fechou):not(.legenda) {
   font: 400 15px/1.4 var(--ui);
 }
+/* próximo giro: o mesmo adesivo de contagem do story do prêmio (cartão branco, título curto e o tempo em pixel) */
 .sorte-contagem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px 22px 14px;
-  background: var(--bolha);
+  gap: 6px;
+  padding: 10px 18px 12px;
+  background: var(--branco);
+  color: var(--preto);
   border-radius: 12px;
   transform: rotate(-2deg);
 }
+.sorte-contagem-titulo {
+  font: 700 12px/1.15 var(--ui);
+}
+.sorte-contagem-tempo.px {
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 24px;
+}
+/* "Hoje saiu": o cupom do dia no molde dos cupons da Minha conta (bolinha de story, destaque, adesivo do código) */
 .sorte-mini {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 12px;
   width: 100%;
-  padding: 12px;
-  border: 1px dashed var(--chiado);
+  padding: 14px;
+  border: 1px solid var(--bolha);
+  border-radius: 12px;
+  text-align: left;
+}
+.sorte-mini-txt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
 }
 .sorte-mini-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font: 600 15px/1.3 var(--ui);
+}
+.sorte-mini-valor {
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 24px;
+  line-height: 1;
+}
+.sorte-mini-usar {
+  margin-top: 2px;
 }
 .sorte-cadastro {
   display: flex;
@@ -524,293 +492,582 @@
   text-align: left;
 }
 
-/* ---------- cartão do prêmio (o papel do beck desenrolado) ----------
-   O prêmio é o herói: produto grande com raios de pixel atrás, destaque em pixel, em que produto, 1 linha de apoio
-   e o código. As condições ficam fechadas no "Ver condições" (.cond, também no ingresso da Minha conta). */
-.cartao-pos {
-  position: relative;
-  z-index: 8;
-  width: min(86vw, 340px);
-  margin-top: 28px;
-  transform: rotate(-2deg);
+/* ---------- o story do prêmio (StoryPremio) ----------
+   O quadro 9:16 tem o tamanho medido no JogoSorte (--sw × --sh) e as ações ficam no pé (.sorte-pe): embaixo dele
+   ('fora'), por cima do pé dele num degradê ('sobre', celular baixo) ou numa coluna ao lado ('lado', deitado).
+   Na revelação o conjunto fica por cima da cena, já no lugar final: o mergulho na câmara mira nele. */
+.sorte.sorte-com-story:not(.sorte-revelando) {
+  padding-top: 8px;
+  padding-bottom: 0;
 }
-.cartao-premio {
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-  background: var(--papel);
-  color: #000;
-  text-align: center;
-  border-radius: 3px;
-}
-/* borda de baixo levemente enrolada (sombreado por gradiente, sem filtro) */
-.cartao-premio::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 16px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0));
-  pointer-events: none;
-}
-/* no papel claro o anel de foco branco some: preto */
-.cartao-premio :focus-visible {
-  outline-color: #000;
-}
-.cartao-fibras {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.cartao-cola {
-  position: relative;
-  height: 22px;
-  padding: 3px 10px 0;
-  background: rgba(0, 0, 0, 0.09);
-  color: rgba(0, 0, 0, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  line-height: 1;
-}
-.cartao-corpo {
-  position: relative;
-  container-type: inline-size;
-  padding: 14px 16px 4px;
-}
-.cartao-exemplo {
-  position: absolute;
-  top: 12px;
-  right: 14px;
-  color: #3d3d3d;
-  transform: rotate(-6deg);
-}
-/* carimbo GUARDADO: bate no lugar do "DEU SORTE!" (a linha guarda a altura de sempre; fora da foto do produto) */
-.cartao-guardado {
-  position: relative;
-  z-index: 2;
-  display: inline-block;
-  margin: -7px 0;
-  padding: 4px 8px 2px;
-  border: 2px solid #000;
-  background: var(--papel);
-  font-size: 18px;
-  line-height: 1.1;
-  color: #000;
-  transform: rotate(-6deg);
-}
-.cartao-deu {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #000;
-}
-.cartao-deu-brilho {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  margin-top: -2px;
-}
-
-/* o produto: miniatura de story colada no papel (+3°), com raios de pixel impressos atrás */
-.cartao-vitrine {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 172px;
-  margin-top: 6px;
-}
-.cartao-raios {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 256px;
-  height: 184px;
-  margin: -92px 0 0 -128px;
-  color: rgba(0, 0, 0, 0.085);
-  pointer-events: none;
-}
-.cartao-foto {
-  position: relative;
-  width: 88px;
-  aspect-ratio: 9 / 16;
-  background: var(--preto);
-  border-radius: 10px;
-  overflow: hidden;
-  transform: rotate(3deg);
-  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.16);
-}
-
-.cartao-titulo {
+.sorte-story {
+  --sw: min(372px, calc(100vw - 16px));
+  --sh: calc(var(--sw) * 16 / 9);
+  --pe-h: 112px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-}
-.cartao-valor {
-  position: relative;
-  display: inline-block;
+  width: var(--sw);
   max-width: 100%;
-  font-family: 'GC Digitos', var(--pixel);
-  /* 40 px onde não tem unidade de contêiner (Safari < 16); senão acompanha a largura do cartão até 48 px */
-  font-size: 40px;
-  font-size: min(48px, 15.5cqi);
-  line-height: 0.95;
-  text-wrap: balance;
 }
-.cartao-alvo {
-  max-width: 100%;
-  font: 600 17px/1.25 var(--ui);
-  text-wrap: balance;
-}
-.cartao-apoio {
-  margin-top: 6px;
-  font: 400 14px/1.35 var(--ui);
-  color: #3d3d3d;
-  text-wrap: balance;
-}
-/* brilhos de 4 pontas em volta do destaque: só na comemoração (revelar.ts) */
-.cartao-brilho {
+.sorte.sorte-revelando > .sorte-story {
   position: absolute;
-  width: 21px;
-  height: 21px;
-  color: #000;
-  visibility: hidden;
-  pointer-events: none;
+  z-index: 2;
+  top: 8px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
 }
-.cartao-brilho-1 {
-  left: -26px;
-  top: -14px;
+.story-premio {
+  position: relative;
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: var(--sw);
+  height: var(--sh);
+  overflow: hidden;
+  background: var(--preto);
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+  outline-offset: -1px;
+  text-align: left;
 }
-.cartao-brilho-2 {
-  right: -20px;
-  top: -18px;
-  width: 14px;
-  height: 14px;
+.story-premio:focus-visible,
+.story-premio :focus-visible {
+  outline-offset: 2px;
 }
-.cartao-brilho-3 {
-  right: -26px;
-  bottom: -2px;
-  width: 14px;
-  height: 14px;
+/* a barrinha de 1 segmento: enche uma vez (5 s) quando o story aparece e fica cheia; movimento reduzido: já cheia */
+.sp-progresso {
+  flex: none;
+  height: 2px;
+  margin: 8px 8px 0;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.sp-progresso > i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.story-premio[data-toca] .sp-progresso > i {
+  animation-name: sp-enche;
+  animation-duration: 5s;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes sp-enche {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-progresso > i {
+    transform: scaleX(1);
+  }
 }
 
-/* confete de pixel: nasce atrás do cartão e sai pelas bordas (nunca por cima do texto) */
-.cartao-festa {
+/* cabeçalho no molde do Instagram: avatar com o anel verde, perfil, tempo e o selo dos Melhores amigos */
+.sp-cab {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 0;
+}
+.sp-cab-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.sp-cab-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.sp-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 600 13.5px/1.15 var(--ui);
+}
+.sp-tempo {
+  flex: none;
+  font: 400 13px/1 var(--ui);
+  color: var(--legenda);
+}
+.sp-exemplo {
+  margin-left: auto;
+}
+.selo-amigos {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 12px/1 var(--ui);
+  color: var(--branco);
+  white-space: nowrap;
+}
+
+/* corpo: a vitrine (produto, "DEU SORTE!", contagem) fica com o que sobra da altura; o texto e os adesivos embaixo */
+.sp-corpo {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 14px 4px;
+  text-align: center;
+}
+.sorte-story[data-modo='sobre'] .sp-corpo {
+  padding-bottom: calc(var(--pe-h) - 6px);
+}
+.sp-vitrine {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 84px;
+}
+.sp-produto {
+  position: absolute;
+  z-index: 2;
+  top: 6%;
+  bottom: 0;
+  left: 50%;
+  translate: -50% 0;
+  aspect-ratio: 9 / 16;
+  max-width: 64%;
+}
+.sp-produto > .pv,
+.sp-produto > .arte-produto {
   position: absolute;
   inset: 0;
-  z-index: 0;
+}
+/* o produto flutua de leve (voz pixel: degraus de 2 px), como no story do topo */
+.sp-produto > * {
+  animation-name: sp-flutua;
+  animation-duration: 2.4s;
+  animation-timing-function: steps(4, jump-none);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes sp-flutua {
+  from {
+    transform: translateY(2px);
+  }
+  to {
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-produto > * {
+    animation-name: none;
+  }
+}
+.sp-produto > .bolha-premio {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+/* "DEU SORTE!": adesivo de texto em pixel, colado torto em cima do canto do produto */
+.sp-deu {
+  position: absolute;
+  z-index: 3;
+  top: 4%;
+  left: 2%;
+  rotate: -6deg;
+  padding: 6px 8px 4px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 4px;
+  font-size: clamp(16px, 6.2cqi, 22px);
+  font-weight: 400;
+  white-space: nowrap;
+}
+/* confete: nasce atrás do produto (no meio da vitrine) e estoura pros lados e pra cima */
+.sp-festa {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 48%;
+  width: 0;
+  height: 0;
   pointer-events: none;
 }
-.cartao-festa > i {
+.sp-festa > i {
   position: absolute;
+  left: 0;
+  top: 0;
   visibility: hidden;
   opacity: 0;
 }
 
-/* pé: código + "Ver condições" / "Ver produto" */
-.cartao-pe {
-  margin-top: 14px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(0, 0, 0, 0.3);
-  text-align: left;
-}
-.cartao-codigo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 44px;
-}
-.cartao-codigo-caixa {
+.sp-titulo {
+  flex: none;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 5px;
-  min-width: 0;
+  max-width: 100%;
+  margin-top: 8px;
 }
-.cartao-codigo-rot {
-  font: 700 11px/1 var(--ui);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(0, 0, 0, 0.62);
+.sp-titulo:focus {
+  outline: none;
 }
-.cartao-codigo-valor {
-  display: inline-flex;
-  align-items: center;
-  color: #000;
+.sp-valor {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 40px;
+  font-size: min(48px, 13.6cqi);
+  line-height: 0.95;
+  text-wrap: balance;
 }
-.cartao-cadeado {
+.sp-alvo {
+  max-width: 100%;
+  font: 600 16px/1.25 var(--ui);
+  font-size: clamp(15px, 4.6cqi, 17px);
+  text-wrap: balance;
+}
+.sp-apoio {
   flex: none;
-  margin-left: 8px;
-  color: rgba(0, 0, 0, 0.55);
+  margin-top: 3px;
+  font: 400 13.5px/1.35 var(--ui);
+  color: var(--legenda);
+  text-wrap: balance;
 }
-/* mosaico de censura em pixel sobre o código (CSS, 2 tons, sem imagem) */
-.cartao-mosaico {
-  position: relative;
-  display: inline-grid;
-  grid-template-columns: repeat(4, 15px);
-  gap: 2px;
-  height: 22px;
-  margin-left: 2px;
-}
-.cartao-mosaico > i {
-  position: relative;
-  background: repeating-conic-gradient(#1c1c1c 0% 25%, #6e6e6e 0% 50%) 0 0 / 6px 6px;
-}
-.cartao-mosaico-por-baixo {
+/* brilhos de 4 pontas em volta do destaque: só na comemoração (revelar.ts mede onde ficam) */
+.sp-brilho {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--branco);
+  visibility: hidden;
+  pointer-events: none;
 }
-.cartao-copiar {
+.sp-brilho-1 {
+  width: 21px;
+  height: 21px;
+}
+.sp-adesivos {
   flex: none;
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid #000;
-  border-radius: 999px;
-  font: 600 14px/1 var(--ui);
-  color: #000;
+  gap: 12px;
+  margin-top: 12px;
 }
-/* cartão estreito (320 px): o código liberado e o "Copiar" cabem lado a lado sem encostar */
-@container (max-width: 260px) {
-  .cartao-codigo {
-    gap: 8px;
-  }
-  .cartao-copiar {
-    padding: 0 10px;
-  }
+.sp-pe {
+  flex: none;
+  align-self: stretch;
+  margin-top: 2px;
 }
-.cartao-cond {
-  margin: 0 -4px;
-}
-.cartao-ver {
+.sp-ver {
   flex: none;
   min-height: 44px;
   padding: 0 4px;
   font: 600 13px/1 var(--ui);
-  color: #000;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.cartao-rolo {
+/* o chiado que cobre o story na revelação e sintoniza (4 px de tela por pixel, como os produtos) */
+.sp-cobertura {
   position: absolute;
-  z-index: 2;
-  left: -2px;
-  right: -2px;
-  top: -9px;
-  height: 18px;
-  border-radius: 9px;
-  background: linear-gradient(to bottom, var(--papel-escuro), var(--papel-claro) 35%, var(--papel) 62%, var(--papel-escuro));
-  visibility: hidden;
+  z-index: 10;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
   pointer-events: none;
 }
 
-/* ---------- "Ver condições" (cartão e ingresso): texto clicável que abre a lista; cor herdada do papel ---------- */
+/* story baixo (320×568, diálogo baixo): sem a linha de apoio, o destaque um pouco menor, o produto fica com a sobra */
+@container (max-height: 540px) {
+  .sp-apoio {
+    display: none;
+  }
+  .sp-valor {
+    font-size: min(40px, 12.5cqi);
+  }
+  .sp-titulo {
+    margin-top: 4px;
+  }
+  .sp-adesivos {
+    margin-top: 8px;
+  }
+}
+
+/* as ações no pé do story */
+.sorte-pe {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 0 calc(8px + var(--seg-baixo));
+}
+.sorte-pe > * {
+  width: min(340px, 100%);
+}
+.sorte-pe-botoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sorte-pe-nota {
+  font: 400 13px/1.35 var(--ui);
+  text-align: center;
+  text-wrap: balance;
+}
+.sorte-pe-nota.sorte-fechou {
+  font: 700 15px/1.3 var(--ui);
+  color: var(--branco);
+}
+/* 'sobre' (celular baixo): as ações numa linha só, como a barra do story, pra sobrar altura pro produto ("Só nome e
+   WhatsApp" fica no cadastro, que diz o mesmo) */
+.sorte-story[data-modo='sobre'] .sorte-pe-botoes {
+  flex-direction: row;
+  align-items: center;
+}
+.sorte-story[data-modo='sobre'] .sorte-pe-botoes > .botao {
+  flex: 1 0 auto;
+  width: auto;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.sorte-story[data-modo='sobre'] .sorte-pe-botoes .sorte-barra-linha {
+  flex: 0 1 auto;
+}
+.sorte-story[data-modo='sobre'] .sorte-pe-botoes .botao-texto {
+  padding: 0 4px;
+}
+/* 320 px: a linha das ações cabe inteira no story (276 px) */
+@media (max-width: 340px) {
+  .sorte-story[data-modo='sobre'] .sorte-pe-botoes > .botao {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+}
+.sorte-story[data-modo='sobre'] .sorte-pe-botoes .sorte-barra-linha .legenda {
+  display: none;
+}
+/* 'sobre': as ações sobem por cima do pé do story, num degradê que deixa o story "entrar" por baixo */
+.sorte-story[data-modo='sobre'] .sorte-pe {
+  width: var(--sw);
+  margin-top: calc(-1 * var(--pe-h));
+  padding: 26px 8px calc(12px + var(--seg-baixo));
+  background: linear-gradient(to top, var(--preto) 72%, rgba(0, 0, 0, 0));
+  border-radius: 0 0 10px 10px;
+}
+
+/* bolinha de story com o anel verde dos Melhores amigos (cupons da Minha conta, cadastro, "Hoje saiu") */
+.bolha-premio {
+  flex: none;
+  display: inline-grid;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--preto);
+  box-shadow: inset 0 0 0 2px #1cd14f;
+}
+.bolha-premio.vista {
+  box-shadow: inset 0 0 0 1px var(--chiado);
+}
+.bolha-premio-dentro {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--preto);
+  color: var(--legenda);
+  margin: 2px;
+}
+.bolha-premio-dentro > .pv,
+.bolha-premio-dentro > .arte-produto {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 118%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  translate: -50% -50%;
+}
+
+/* adesivo do código, no molde do adesivo de link do story */
+.ad-codigo-caixa {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ad-codigo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 10px;
+  rotate: -2deg;
+  white-space: nowrap;
+}
+.ad-codigo-icone {
+  flex: none;
+}
+/* o código e o "COPIADO" no mesmo lugar: o adesivo não muda de largura ao copiar */
+.ad-codigo-txt.px {
+  display: grid;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  padding-top: 2px;
+}
+.ad-codigo-txt.px > span {
+  grid-area: 1 / 1;
+  text-align: center;
+}
+.ad-codigo-txt.px > span:last-child,
+.ad-codigo[data-copiado] .ad-codigo-txt > span:first-child {
+  visibility: hidden;
+}
+.ad-codigo[data-copiado] .ad-codigo-txt > span:last-child {
+  visibility: visible;
+}
+.ad-codigo[data-copiado] {
+  animation-name: ad-pulo;
+  animation-duration: 0.16s;
+  animation-timing-function: steps(2, end);
+}
+@keyframes ad-pulo {
+  from {
+    transform: scale(1.12);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.ad-codigo.apagado {
+  background: var(--bolha);
+  color: var(--legenda);
+}
+/* trancado: o cadeado e o convite pra guardar, no cinza escuro (o código ainda não existe) */
+.ad-codigo-trancado {
+  background: var(--bolha);
+  color: var(--branco);
+  rotate: -2deg;
+}
+/* "Guarda pra liberar o código" em 2 linhas: cabe ao lado da contagem até em 320 px */
+.ad-codigo-trancado {
+  padding: 6px 14px 6px 12px;
+  text-align: left;
+}
+.ad-codigo-trancado .ad-codigo-txt {
+  max-width: 9.6em;
+  font: 600 13px/1.2 var(--ui);
+  white-space: normal;
+  text-wrap: balance;
+}
+.ad-cadeado {
+  display: grid;
+  flex: none;
+}
+.ad-cadeado > * {
+  grid-area: 1 / 1;
+}
+.ad-cadeado-aberto,
+.abrindo .ad-cadeado-fechado {
+  visibility: hidden;
+}
+.abrindo .ad-cadeado-aberto {
+  visibility: visible;
+}
+.ad-codigo[aria-disabled='true'] {
+  pointer-events: none;
+}
+
+/* adesivo de contagem regressiva, no molde do adesivo de contagem do story */
+.ad-contagem {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 11px 10px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 12px;
+  rotate: 4deg;
+}
+.ad-contagem-titulo {
+  max-width: 12ch;
+  font: 700 12px/1.15 var(--ui);
+  text-align: center;
+  text-wrap: balance;
+}
+.ad-contagem-num {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.ad-contagem-tile.px {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 28px;
+  padding-top: 2px;
+  background: var(--preto);
+  color: var(--branco);
+  border-radius: 5px;
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 22px;
+  font-weight: 500;
+}
+.ad-contagem-rot {
+  margin-left: 4px;
+  font: 700 12px/1 var(--ui);
+}
+/* story estreito: os dois adesivos encolhem um degrau pra caberem lado a lado */
+@container (max-width: 300px) {
+  .sp-adesivos {
+    gap: 8px;
+  }
+  .ad-codigo {
+    gap: 6px;
+    padding: 0 10px;
+  }
+  .ad-codigo-txt.px {
+    font-size: 18px;
+  }
+  .ad-codigo-trancado .ad-codigo-txt {
+    max-width: 7em;
+  }
+  .ad-contagem {
+    gap: 5px;
+    padding: 7px 9px 8px;
+  }
+  .ad-contagem-titulo {
+    font-size: 11px;
+  }
+  .ad-contagem-tile.px {
+    width: 19px;
+    height: 24px;
+    font-size: 19px;
+  }
+}
+
+/* ---------- "Ver condições" (story e Minha conta): texto clicável que abre a lista ---------- */
 /* em 320 px com fonte larga, "Ver produto" desce pra linha de baixo (à direita) em vez de quebrar o botão */
 .cond-linha {
   display: flex;
@@ -869,59 +1126,54 @@
   text-align: left;
   text-wrap: pretty;
 }
+/* no story: a lista abre por cima dele, acima da linha (nada é empurrado; as ações continuam no lugar) */
+.cond-sobre {
+  position: relative;
+}
+.cond-sobre .cond-painel {
+  position: absolute;
+  z-index: 6;
+  left: -6px;
+  right: -6px;
+  bottom: 100%;
+  max-height: calc(var(--sh, 600px) * 0.6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 14px 12px;
+  background: var(--preto);
+  border: 1px solid var(--bolha);
+  border-radius: 12px;
+}
+.cond-sobre .cond-painel:not([hidden]) {
+  animation-name: cond-sobe;
+}
+@keyframes cond-sobe {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .cond-painel:not([hidden]) {
     animation-name: none;
   }
 }
 
+/* cadastro: o prêmio numa linha, com a bolinha de story dos Melhores amigos */
 .faixa-premio {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0 20px;
-  padding: 9px 14px;
-  border-radius: 2px;
-  color: #000;
-  font: 600 14px/1.2 var(--ui);
-  transform: rotate(-2deg);
-}
-
-/* tela baixa (navegador do Instagram, celular pequeno): o produto encolhe pra o destaque caber acima da barra */
-@media (max-height: 700px) {
-  .sorte .cartao-vitrine {
-    height: 124px;
-    margin-top: 4px;
-  }
-  .sorte .cartao-foto {
-    width: 62px;
-    border-radius: 8px;
-  }
-  /* 3 px por pixel da grade (o transform fica livre pra comemoração) */
-  .sorte .cartao-raios {
-    width: 192px;
-    height: 138px;
-    margin: -69px 0 0 -96px;
-  }
-  .sorte .cartao-titulo {
-    margin-top: 8px;
-  }
-}
-/* celular bem baixo (320×568, navegador do Instagram num 360×640): mais um degrau, pro código liberado caber acima
-   da barra sem tirar o topo do cartão da tela */
-@media (max-height: 600px) {
-  .sorte .cartao-vitrine {
-    height: 104px;
-  }
-  .sorte .cartao-foto {
-    width: 52px;
-    border-radius: 7px;
-  }
-  .sorte .cartao-raios {
-    width: 128px;
-    height: 92px;
-    margin: -46px 0 0 -64px;
-  }
+  gap: 10px;
+  margin: 8px 0 18px;
+  padding: 6px 14px 6px 6px;
+  border: 1px solid var(--bolha);
+  border-radius: 28px;
+  font: 600 14px/1.25 var(--ui);
+  text-align: left;
 }
 
 /* ---------- regras e "o que pode sair" ---------- */
@@ -1042,46 +1294,45 @@
   .sorte-intro .sorte-pergunta {
     display: none;
   }
-  /* a barra dos botões fica na coluna da direita, ao lado do cartão: gruda no topo dela e acompanha enquanto o
-     cartão rola (abrir o "Ver condições" nunca tira "Guardar meu prêmio" da tela). Ocupa as linhas até o fim da
-     grade, senão o sticky não tem onde andar; por isso nada vem depois dela nessa coluna. */
-  .sorte.sorte-premio > .sorte-barra,
-  .sorte.sorte-guardado > .sorte-barra {
-    grid-row: span 8;
-    align-self: start;
+  /* o story do prêmio deitado (9:16 não cabe na altura): produto à esquerda, destaque e adesivos à direita, e as
+     ações numa coluna ao lado (abrir o "Ver condições" nunca tira "Guardar meu prêmio" da tela) */
+  .sorte.sorte-com-story:not(.sorte-revelando) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .sorte-story[data-modo='lado'] {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 24px;
+    width: auto;
+    max-width: none;
+  }
+  .sorte-story[data-modo='lado'] .sorte-pe {
+    align-self: center;
+    width: min(260px, calc(100vw - var(--sw) - 2 * var(--gutter) - 24px));
+    padding: 8px 0;
+  }
+  .sorte-story[data-modo='lado'] .sp-corpo {
+    justify-content: center;
+    padding: 0 12px 6px calc(40% + 8px);
+  }
+  .sorte-story[data-modo='lado'] .sp-vitrine {
+    position: absolute;
+    left: 0;
     top: 0;
-    bottom: auto;
-    padding-top: 8px;
-    padding-bottom: 8px;
+    bottom: 6px;
+    width: 40%;
   }
-  .sorte.sorte-premio > .sorte-barra::before,
-  .sorte.sorte-guardado > .sorte-barra::before {
-    display: none;
+  .sorte-story[data-modo='lado'] .sp-titulo {
+    margin-top: 0;
   }
-  /* cartão mais baixo: com conta, o código liberado cabe na tela junto com o produto */
-  .sorte .cartao-corpo {
-    padding-top: 10px;
+  .sorte-story[data-modo='lado'] .sp-valor {
+    font-size: min(40px, 7.4cqi);
   }
-  .sorte .cartao-vitrine {
-    height: 80px;
-    margin-top: 2px;
-  }
-  .sorte .cartao-foto {
-    width: 42px;
-    border-radius: 6px;
-  }
-  .sorte .cartao-raios {
-    width: 128px;
-    height: 92px;
-    margin: -46px 0 0 -64px;
-  }
-  .sorte .cartao-titulo {
-    margin-top: 6px;
-  }
-  .sorte .cartao-valor {
-    font-size: 38px;
-  }
-  .sorte .cartao-pe {
-    margin-top: 10px;
+  .sorte-story[data-modo='lado'] .sp-produto {
+    top: 2%;
+    bottom: 2%;
   }
 }

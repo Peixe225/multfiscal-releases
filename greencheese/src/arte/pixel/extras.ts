@@ -208,6 +208,25 @@ export const iconesExtras: Record<string, Grade> = {
     '................',
     '................',
   ]),
+  // O mesmo cadeado aberto: a alça sobe e solta do lado direito (o adesivo do código destrava com ele).
+  'cadeado-aberto': g([
+    '.....xxxxxx.....',
+    '....xxxxxxxx....',
+    '....xx....xx....',
+    '....xx....xx....',
+    '....xx..........',
+    '....xx..........',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '..xxxxx..xxxxx..',
+    '..xxxxx..xxxxx..',
+    '..xxxxx..xxxxx..',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '................',
+    '................',
+    '................',
+  ]),
   // Busto (perfil), no traço de contorno dos outros ícones.
   conta: g([
     '................',
