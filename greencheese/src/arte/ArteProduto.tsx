@@ -43,8 +43,8 @@ export interface PropsArteProduto {
   largura?: number
   /** Dither cinza + chiado por cima. */
   indisponivel?: boolean
-  /** Nasce do chiado na 1ª vez que aparece. Padrão true. */
-  revelar?: boolean
+  /** Nasce do chiado na 1ª vez que aparece. Padrão true. 'sempre' = toda vez que monta. */
+  revelar?: boolean | 'sempre'
   /** Halo pontilhado da cor do produto (e luz de aro). Padrão true. */
   brilho?: boolean
   className?: string
@@ -366,7 +366,7 @@ export function ArteProduto({
     let naTela = prioridade
     let cancelar: (() => void) | undefined
     let imagem: ImageData | null = imagemEmCache(chave) ?? null
-    const animar = revelar && !jaRevelada(revelacao) && !movimentoReduzido()
+    const animar = !!revelar && (revelar === 'sempre' || !jaRevelada(revelacao)) && !movimentoReduzido()
     const observadores: IntersectionObserver[] = []
 
     const prepararChiado = (img: ImageData) => {

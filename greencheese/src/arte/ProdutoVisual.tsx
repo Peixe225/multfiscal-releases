@@ -15,7 +15,8 @@ export interface PropsProdutoVisual {
   /** Largura da camada em pixel (halo e revelação). A ilustração em si é vetorial. */
   largura?: number
   indisponivel?: boolean
-  revelar?: boolean
+  /** Sintoniza na 1ª vez que entra na tela. 'sempre' = sintoniza toda vez que monta (o story do prêmio). */
+  revelar?: boolean | 'sempre'
   brilho?: boolean
   className?: string
   style?: CSSProperties
@@ -173,7 +174,11 @@ function sintonizar(canvas: HTMLCanvasElement, pixel: ImageData, aoMostrarReal: 
     }
   }
   raf = requestAnimationFrame(passo)
-  return () => cancelAnimationFrame(raf)
+  // parou no meio (pulou, desmontou): nada do quadro velho fica por cima do produto
+  return () => {
+    cancelAnimationFrame(raf)
+    ctx.clearRect(0, 0, w, h)
+  }
 }
 
 /* ---------------------------------------------------------------- componente */
@@ -194,7 +199,7 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
     const el = raiz.current
     const cv = camada.current
     if (!el || !cv) return
-    const animar = revelar && !revelados.has(chave) && !movimentoReduzido()
+    const animar = !!revelar && (revelar === 'sempre' || !revelados.has(chave)) && !movimentoReduzido()
     el.dataset.real = animar ? 'nao' : 'sim'
     if (!animar) return
     let cancelar: (() => void) | undefined

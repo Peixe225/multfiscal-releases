@@ -70,7 +70,7 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 
 ## Teste minha sorte (interativo + conta do cliente)
 
-O que está na prévia: o dichavador que gira, abre e entrega um beck bolado com cupom dentro; conta só com nome e WhatsApp; cupons em "Minha conta"; 1 giro por dia com conta; cupom aplicado na sacola e no pedido. **Na prévia, tudo fica só no aparelho** (sem servidor) e a tela diz isso.
+O que está na prévia: o dichavador que gira, abre e mostra o prêmio num story dos Melhores amigos (com o código trancado até guardar); conta só com nome e WhatsApp; cupons em "Minha conta"; 1 giro por dia com conta; cupom aplicado na sacola e no pedido. **Na prévia, tudo fica só no aparelho** (sem servidor) e a tela diz isso.
 
 1. **Promoções de verdade**: os 5 prêmios de `src/dados/sorte.ts` são de **exemplo** (`demo: true`, carimbo "exemplo"; somem com `modoPrevia: false` e, sem prêmio válido, o interativo some do site). Promoções, pesos, validade e estoque são decisão da loja.
 2. **Lei 5.768/1971 e Decreto 70.951/1972**: promoção comercial com elemento de sorte pode exigir **autorização prévia do Ministério da Fazenda** (hoje pela Secretaria de Prêmios e Apostas). Confirmar com contador ou advogado antes da versão oficial. O caminho mais seguro é ficar só com descontos condicionados à compra; o tipo `brinde` só entra depois de confirmado.
@@ -81,7 +81,7 @@ O que está na prévia: o dichavador que gira, abre e entrega um beck bolado com
    - **Leitura pelo cache**: as telas leem pelos hooks de `src/lib/conta.ts`, que leem o store `gc-conta`. Esse store é o cache da conta no aparelho; o adaptador do servidor grava nele o que a API devolve a cada chamada (conta, cupons, dias de giro e prêmio reservado). A regra de "1 giro por dia" roda sobre esse cache só pra desenhar a tela; quem recusa o giro é o servidor.
    - `criar`, `confirmarCodigo` e `salvarCupom` devolvem o cupom que acabou de ser guardado (`cupomGuardado`); a tela de "guardado" só mostra esse.
    Modo em `src/dados/conta.ts`.
-6. **Nome e imagem**: "beck bolado" fica em `regrasSorte.nomeDoPremio`; a lista de palavras e imagens proibidas (`PALAVRAS_PROIBIDAS`) vale para tudo. A **imagem de compartilhamento e o link da bio ficam sem "beck"** (regras da Meta). O beck é só um tubo de papel enrolado: sem folha, broto, fumaça, ponta acesa ou cinza.
+6. **Nome e imagem**: o prêmio não tem mais beck nem papel enrolado (é um story dos Melhores amigos); a lista de palavras e imagens proibidas (`PALAVRAS_PROIBIDAS`) continua valendo para tudo: nada de folha, broto, fumaça, ponta acesa ou cinza. O anel e o selo verdes imitam o recurso Melhores amigos do Instagram (desenhados no estilo do site, sem copiar a imagem deles); se a Meta reclamar, trocar `VERDE_AMIGOS` e o texto do selo resolve.
 7. **OCB 4 por 3 junto com o combo "3 por R$ 19,99"**: confirmar com a loja como os dois convivem (o site não recalcula; a mensagem leva o cupom e a loja confirma).
 8. **Álcool e tabaco fora dos prêmios** (Lei 9.294/1996, Anvisa RDC 840/2023): a validação de `src/lib/cupom.ts` recusa prêmio em bebidas e destilados.
 9. **Furos conhecidos da prévia** (aceitos; na versão oficial, validado no servidor): mexer no relógio do aparelho, usar aba anônima ou outro navegador burla o limite de giros; apagar a conta não devolve o giro do dia; o navegador do Instagram, o Safari e o Chrome guardam contas separadas.

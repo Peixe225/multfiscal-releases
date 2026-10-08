@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { TONS_PAPEL } from '../arte/realista/beck'
 import { config } from '../dados/config'
 import { interativoPorId, interativosEmBreve } from '../interativos/registro'
 import { Regras } from '../interativos/sorte/Regras'
@@ -7,9 +6,9 @@ import { ID_SORTE, useEstadoSorte, usarNoPedido } from '../interativos/sorte/est
 import { T } from '../interativos/sorte/textos'
 import { primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
-import { copiarTexto } from '../lib/copiar'
-import { formatarDiaMes, formatarEspera, formatarFalta, formatarValidade } from '../lib/cupom'
+import { formatarDiaMes, formatarEspera } from '../lib/cupom'
 import { fraseDoPremio, nomeDoPremio } from '../lib/cupom-uso'
+import { AdesivoCodigo, AdesivoContagem, BolhaPremio } from '../interativos/sorte/Adesivos'
 import { Condicoes, listaCondicoes } from '../interativos/sorte/Condicoes'
 import { depoisDoHistorico } from '../lib/historico'
 import { mascararCelular } from '../lib/telefone'
@@ -118,7 +117,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
           <ul className="conta-cupons">
             {cupons.map((c) => (
               <li key={c.codigo}>
-                <Ingresso c={c} fechar={fechar} agora={r.agora} avisar={avisar} />
+                <Ingresso c={c} fechar={fechar} agora={r.agora} />
               </li>
             ))}
           </ul>
@@ -228,31 +227,36 @@ function Conteudo({ fechar }: { fechar: () => void }) {
   )
 }
 
-/** Cupom no formato de ingresso de papel (a cor do papel do prêmio): o prêmio em destaque, as condições fechadas. */
-function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () => void; agora: number; avisar: (t: string) => void }) {
+/**
+ * Cupom no molde do story do prêmio (cartão escuro): a bolinha de story dos Melhores amigos com o produto (anel cinza
+ * quando já foi usado ou venceu, como story visto), o destaque em pixel, o adesivo do código (tocar copia) e o da
+ * contagem da validade; as condições fechadas no "Ver condições".
+ */
+function Ingresso({ c, fechar, agora }: { c: CupomComStatus; fechar: () => void; agora: number }) {
   const aplicado = useSacola((s) => s.cupom === c.codigo)
   const tirar = useSacola((s) => s.tirarCupom)
-  const tons = TONS_PAPEL[c.retrato.papel]
-  // o produto do herói: no brinde, o que vem de brinde (o mesmo "Ver produto" do cartão)
+  // o produto do herói: no brinde, o que vem de brinde (o mesmo "Ver produto" do story)
   const { destaque, alvo: nome, produto: alvo } = fraseDoPremio(c.retrato)
   const exemplo = c.demo && config.carimboDeExemplo
   const ativo = c.status === 'ativo'
   const condicoes = listaCondicoes({ regra: c.retrato.regra, comoUsar: c.retrato.comoUsar, validade: null })
   return (
-    <article className={`ingresso ingresso-${c.status}`} style={{ ['--papel' as string]: ativo ? tons.base : '#3a3a3a', ['--papel-escuro' as string]: tons.escuro }} aria-label={`Cupom ${c.codigo}: ${nomeDoPremio(c.retrato)}`}>
+    <article className={`ingresso ingresso-${c.status}`} aria-label={`Cupom ${c.codigo}: ${nomeDoPremio(c.retrato)}`}>
       <div className="ingresso-topo">
-        <span className="ingresso-codigo px px-20">{c.codigo}</span>
-        <button type="button" className="ingresso-copiar toque" onClick={() => avisar(copiarTexto(c.codigo) ? T.copiado : T.naoCopiou)} aria-label={`${T.copiar} o código ${c.codigo}`}>
-          <Icone nome="copiar" tamanho={16} />
-          {T.copiar}
-        </button>
+        <BolhaPremio produto={alvo} tamanho={56} vista={!ativo} />
+        <p className="ingresso-titulo">
+          <span className="ingresso-destaque px">{destaque}</span>
+          <span className="sr-only">: </span>
+          <span className="ingresso-alvo">{nome}</span>
+        </p>
+        {exemplo && <span className="ingresso-exemplo carimbo">{T.exemplo}</span>}
       </div>
-      <p className="ingresso-titulo">
-        <span className="ingresso-destaque px">{destaque}</span>
-        <span className="sr-only">: </span>
-        <span className="ingresso-alvo">{nome}</span>
-      </p>
-      {ativo && <p className="ingresso-val">{T.valeAteFalta(formatarValidade(c.validoAte), formatarFalta(c.validoAte, agora))}</p>}
+      <div className="ingresso-adesivos">
+        <AdesivoCodigo codigo={c.codigo} apagado={!ativo} />
+        {ativo && <AdesivoContagem validoAte={c.validoAte} agora={agora} />}
+        {c.status === 'usado' && <span className="ingresso-carimbo px">{T.usado(formatarDiaMes(c.usadoEm ?? agora))}</span>}
+        {c.status === 'vencido' && <span className="ingresso-carimbo px">{T.venceu}</span>}
+      </div>
       <Condicoes
         className="ingresso-cond"
         itens={condicoes}
@@ -272,33 +276,31 @@ function Ingresso({ c, fechar, agora, avisar }: { c: CupomComStatus; fechar: () 
           )
         }
       />
-      <div className="ingresso-acao">
-        {c.status === 'ativo' &&
-          (aplicado ? (
-            <>
-              <span className="ingresso-na-sacola">{T.naSacola}</span>
-              <button type="button" className="botao botao-contorno ingresso-botao" onClick={tirar}>
-                {T.tirar}
+      {(ativo || c.status === 'encerrado') && (
+        <div className="ingresso-acao">
+          {ativo &&
+            (aplicado ? (
+              <>
+                <span className="ingresso-na-sacola">{T.naSacola}</span>
+                <button type="button" className="botao botao-contorno ingresso-botao" onClick={tirar}>
+                  {T.tirar}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="botao botao-cheio ingresso-botao"
+                onClick={() => {
+                  fechar()
+                  usarNoPedido(c.codigo)
+                }}
+              >
+                {T.usarNoPedido}
               </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="botao botao-cheio ingresso-botao"
-              onClick={() => {
-                fechar()
-                usarNoPedido(c.codigo)
-              }}
-            >
-              {T.usarNoPedido}
-            </button>
-          ))}
-        {c.status === 'usado' && <span className="ingresso-carimbo px">{T.usado(formatarDiaMes(c.usadoEm ?? agora))}</span>}
-        {c.status === 'vencido' && <span className="ingresso-carimbo px">{T.venceu}</span>}
-        {c.status === 'encerrado' && <span className="legenda">{T.encerrado}</span>}
-        {/* na linha da ação, à direita: solto no canto ele cobria o fim do título em 320 px */}
-        {exemplo && <span className="ingresso-exemplo carimbo">{T.exemplo}</span>}
-      </div>
+            ))}
+          {c.status === 'encerrado' && <span className="legenda">{T.encerrado}</span>}
+        </div>
+      )}
     </article>
   )
 }

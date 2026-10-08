@@ -1,4 +1,4 @@
-// Prêmios do "Teste minha sorte" (o dichavador que entrega um beck bolado com cupom dentro).
+// Prêmios do "Teste minha sorte" (gira o dichavador e, lá dentro, um story dos Melhores amigos com o cupom).
 // É aqui que a loja troca as promoções. Ver "Como trocar os prêmios" no LEIA-ME.md.
 //
 // REGRAS
@@ -18,8 +18,8 @@ interface PremioBase {
   /** Nome interno ("4 por 3 na OCB"). Na tela o prêmio aparece sempre como destaque + produto (nomeDoPremio). */
   titulo: string
   /**
-   * 1 linha curta de apoio no cartão, sem repetir o prêmio (o destaque "15% OFF" + o produto o cartão monta sozinho
-   * a partir do tipo, do valor e do produto). Até uns 28 caracteres (1 linha em 320 px). Sem condição nem promessa
+   * 1 linha curta de apoio no story do prêmio, sem repetir o prêmio (o destaque "15% OFF" + o produto o story monta
+   * sozinho a partir do tipo, do valor e do produto). Até uns 28 caracteres (1 linha em 320 px). Sem condição nem promessa
    * de tempo ("hoje"): isso vai na `regra` e no `comoUsar`.
    */
   descricao: string
@@ -31,10 +31,8 @@ interface PremioBase {
   peso: number
   /** Dias de validade, contados a partir de quando a pessoa guarda o prêmio (1 a 30). */
   validadeDias: number
-  /** Opcional: como usar, numa frase (aparece no "Ver condições" do cartão e na Minha conta). */
+  /** Opcional: como usar, numa frase (aparece no "Ver condições" do story e na Minha conta). */
   comoUsar?: string
-  /** Cor do beck e do cartão: branco (OCB) ou natural (RAW). Padrão: natural. */
-  papel?: 'branco' | 'natural'
   demo: boolean
 }
 
@@ -47,8 +45,6 @@ export type ValorPremio =
 export type Premio = PremioBase & ValorPremio
 
 export const regrasSorte = {
-  /** O nome do prêmio fica só aqui (e fora da imagem de compartilhamento e do link da bio: regras da Meta). */
-  nomeDoPremio: 'beck bolado',
   /** Começo do código do cupom (SORTE-AB12). */
   prefixo: 'SORTE',
   /** Quartos de volta para abrir o dichavador (8 = 2 voltas). */
@@ -62,7 +58,7 @@ export const regrasSorte = {
 
 /**
  * Palavras que não entram em nenhuma copy nem em nenhum prêmio (checadas sem acento e sem caixa na validação).
- * O "beck" é um tubo de papel enrolado: sem folha, broto, fumaça, ponta acesa ou cinza. Paleta rasta também fica fora.
+ * Nada de folha, broto, fumaça, ponta acesa ou cinza no jogo nem no prêmio. Paleta rasta também fica fora.
  * "grátis", "frete", "prazo", "entrega" e "sorteio" ficam fora porque prometem o que o site não garante.
  */
 export const PALAVRAS_PROIBIDAS = [
@@ -103,7 +99,6 @@ export const premios: Premio[] = [
     comoUsar: 'Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.',
     peso: 30,
     validadeDias: 7,
-    papel: 'branco',
     demo: true,
   },
   {

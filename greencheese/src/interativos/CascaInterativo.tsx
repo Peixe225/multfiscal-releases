@@ -27,9 +27,14 @@ interface ContextoCasca {
   fechar: () => void
   /** O corpo que rola (para "rola a coluna pro topo"). */
   corpo: HTMLElement | null
+  /**
+   * Algo abriu por cima dentro do jogo (a lista do "Ver condições" sobre o story): enquanto registrado, o Esc chama
+   * `fechar` dele em vez de fechar o jogo. Devolve o "desregistrar".
+   */
+  prenderEsc: (fechar: () => void) => () => void
 }
 
-const Contexto = createContext<ContextoCasca>({ cromo: null, definirSubtela: () => {}, fechar: () => {}, corpo: null })
+const Contexto = createContext<ContextoCasca>({ cromo: null, definirSubtela: () => {}, fechar: () => {}, corpo: null, prenderEsc: () => () => {} })
 
 export function useCasca(): ContextoCasca {
   return useContext(Contexto)
@@ -65,6 +70,16 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
   subRef.current = subtela
 
   const definirSubtela = useCallback((voltar: (() => void) | null) => setSubtela(voltar ? { voltar } : null), [])
+  // o que abriu por cima dentro do jogo (o Esc fecha o de cima primeiro)
+  const porCima = useRef<(() => void)[]>([])
+  const prenderEsc = useCallback((fechar: () => void) => {
+    porCima.current.push(fechar)
+    return () => {
+      porCima.current = porCima.current.filter((f) => f !== fechar)
+    }
+  }, [])
+  // a seta do topo: na subtela (cadastro) volta pra tela de onde veio, como o voltar do sistema e o Esc
+  const voltar = () => (subRef.current ? subRef.current.voltar() : aoFechar())
 
   // histórico: a camada e, por cima, a subtela (cadastro/entrar) — o voltar desce um nível de cada vez
   useCamadaNoHistorico(aberto, `interativo-${interativo.id}`, aoFechar)
@@ -141,7 +156,9 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
       if (document.querySelector('.folha') || document.querySelector('.pp:not(.pp-saindo)')) return
       e.preventDefault()
       e.stopPropagation()
-      if (subRef.current) subRef.current.voltar()
+      const deCima = porCima.current[porCima.current.length - 1]
+      if (deCima) deCima()
+      else if (subRef.current) subRef.current.voltar()
       else fecharRef.current()
     }
     window.addEventListener('keydown', tecla, true)
@@ -175,7 +192,7 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
   }
 
   // valor estável: o jogo registra a subtela num efeito que depende dele (objeto novo a cada render = laço)
-  const contexto = useMemo(() => ({ cromo, definirSubtela, fechar: aoFechar, corpo }), [cromo, definirSubtela, aoFechar, corpo])
+  const contexto = useMemo(() => ({ cromo, definirSubtela, fechar: aoFechar, corpo, prenderEsc }), [cromo, definirSubtela, aoFechar, corpo, prenderEsc])
 
   return (
     <div ref={raiz} className={`casca${aberto ? '' : ' casca-saindo'}`} role="dialog" aria-modal="true" aria-label={interativo.titulo} onKeyDown={prender} data-lenis-prevent>
@@ -183,7 +200,7 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
       <div ref={janela} className="casca-janela" tabIndex={-1}>
         <div ref={setCromo} className="casca-cromo" />
         <header className="casca-topo">
-          <button type="button" className="icone-botao toque casca-voltar" onClick={aoFechar} aria-label="Voltar">
+          <button type="button" className="icone-botao toque casca-voltar" onClick={voltar} aria-label="Voltar">
             <Icone nome="chevron-esq" tamanho={32} />
           </button>
           <p className="casca-loja">

@@ -5,9 +5,9 @@
 //    rotor, nunca um atributo do SVG; a luz fica parada enquanto a gravação passa por baixo. A assimetria (logo, texto
 //    que cobre só parte do anel, entalhe) é obrigatória: um disco simétrico girando parece parado.
 // 2) CORPO ABERTO EM 3/4, nas coordenadas de acessorios-dichavador (a vitrine), cortado no quadro do jogo:
-//    LadoTampa (a lateral recartilhada da tampa, que sai junto com ela) · CorpoAberto (a boca da câmara, vazia, atrás do
-//    beck) · LabioCamara (a frente da borda e as laterais, POR CIMA do beck: é ela que faz o beck sair de dentro sem
-//    máscara animada). A largura do corpo (2R) é igual ao diâmetro do disco, e o centro da tampa deitada cai no Y0.
+//    LadoTampa (a lateral recartilhada da tampa, que sai junto com ela) · CorpoAberto (a boca da câmara, vazia: o preto
+//    de dentro dela vira o story do prêmio) · LabioCamara (a frente da borda e as laterais, por cima da boca). A largura
+//    do corpo (2R) é igual ao diâmetro do disco, e o centro da tampa deitada cai no Y0.
 // Só gradientes e formas (sem filtro, sem mix-blend), caminhos calculados uma vez no módulo.
 import { LOGO_CUIA, LOGO_LAMINAS, LOGO_TEXTO } from '../logo-paths'
 import { ANEL, CAMARA, COLETOR, CX, FUNDO, K, METAL, OURO, PENEIRA, R, RISCOS, Y0, arco, cunha, faixa } from './acessorios-dichavador'
@@ -177,8 +177,17 @@ const CORPO_H = FUNDO.yb + (COLETOR.r - 9) * K + 6 - CORPO_Y
 export const VIEWBOX_CORPO = `${r1(CORPO_X)} ${r1(CORPO_Y)} ${r1(CORPO_W)} ${r1(CORPO_H)}`
 /** Altura do quadro do corpo em relação à largura do disco. */
 export const PROPORCAO_CORPO = CORPO_H / CORPO_W
-/** Centro da boca da câmara (fração da largura do disco, a partir do canto de cima à esquerda do quadro). */
-export const BOCA = { x: 0.5, y: (CAMARA.yt - CORPO_Y) / CORPO_W, ry: (CAMARA.r * K) / CORPO_W }
+/**
+ * Centro da boca da câmara (fração da largura do disco, a partir do canto de cima à esquerda do quadro), o raio de
+ * baixo da borda (ry) e os raios do buraco escuro de dentro (rxBuraco, ryBuraco): é dele que o story do prêmio nasce.
+ */
+export const BOCA = {
+  x: 0.5,
+  y: (CAMARA.yt - CORPO_Y) / CORPO_W,
+  ry: (CAMARA.r * K) / CORPO_W,
+  rxBuraco: (CAMARA.r - 10) / CORPO_W,
+  ryBuraco: ((CAMARA.r - 10) * K) / CORPO_W,
+}
 
 const TOPO_TAMPA = { yt: Y0, yb: Y0 + 84 }
 
@@ -265,7 +274,7 @@ const LOSANGOS = (() => {
 const RB = CAMARA.r // raio de fora da borda da câmara
 const RBI = CAMARA.r - 10 // raio do buraco
 
-/** Boca da câmara (borda inteira, buraco escuro e os dentes): fica ATRÁS do beck. */
+/** Boca da câmara (borda inteira, buraco escuro e os dentes): atrás do lábio. */
 export function CorpoAberto({ id }: { id: string }) {
   const u = (s: string) => `${id}-${s}`
   const y = CAMARA.yt
@@ -301,7 +310,7 @@ export function CorpoAberto({ id }: { id: string }) {
   )
 }
 
-/** Frente da borda da câmara e as laterais do corpo: fica POR CIMA do beck. */
+/** Frente da borda da câmara e as laterais do corpo: fica por cima da boca. */
 export function LabioCamara({ id }: { id: string }) {
   const u = (s: string) => `${id}-${s}`
   const y = CAMARA.yt

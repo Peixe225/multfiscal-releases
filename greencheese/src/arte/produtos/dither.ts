@@ -650,6 +650,15 @@ export interface OpcoesRevelar {
   /** ms. Padrão 600. */
   duracao?: number
   aoTerminar?: () => void
+  /**
+   * Cor do que ainda não apareceu, por baixo do chiado (padrão: transparente). Com ela, a revelação cobre o que está
+   * atrás do canvas e vai descobrindo em ordem Bayer (o story do prêmio sintoniza assim, com `final` transparente).
+   */
+  cobrir?: Cor
+  /** Densidade do chiado do fundo no começo (padrão 0,09). */
+  densidade?: number
+  /** Chiado mais denso no meio e sumindo nas bordas (padrão). false = a tela toda, como TV fora do ar. */
+  vinheta?: boolean
 }
 
 /**
@@ -659,7 +668,7 @@ export interface OpcoesRevelar {
  * Com prefers-reduced-motion, desenha a imagem final direto.
  */
 export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: OpcoesRevelar = {}): () => void {
-  const { duracao = 600, aoTerminar } = opts
+  const { duracao = 600, aoTerminar, cobrir, densidade = 0.09, vinheta: comVinheta = true } = opts
   const ctx = canvas.getContext('2d')
   const w = final.width
   const h = final.height
@@ -689,7 +698,7 @@ export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: Opcoe
       const k = y * w + x
       ordem[k] = BAYER8[(y & 7) * 8 + (x & 7)] * 0.78 + linha * 0.22
       const dx = (x - w * 0.5) / (w * 0.5)
-      vinheta[k] = Math.max(0, 1 - (dx * dx + dy * dy))
+      vinheta[k] = comVinheta ? Math.max(0, 1 - (dx * dx + dy * dy)) : 1
     }
   }
 
@@ -722,7 +731,7 @@ export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: Opcoe
     // Começa devagar e acelera no fim: o produto "trava" no sinal.
     const p = t * t * (1.6 - 0.6 * t)
     const resto = 1 - t
-    const densFundo = 0.09 * resto
+    const densFundo = densidade * resto
     const densProduto = 0.4 * resto
     // Tremido de VHS: 1 faixa de linhas deslocada, só na primeira metade.
     let fy0 = -1
@@ -750,6 +759,11 @@ export function revelar(canvas: HTMLCanvasElement, final: ImageData, opts: Opcoe
           q[i] = v
           q[i + 1] = v
           q[i + 2] = v
+          q[i + 3] = 255
+        } else if (cobrir) {
+          q[i] = cobrir[0]
+          q[i + 1] = cobrir[1]
+          q[i + 2] = cobrir[2]
           q[i + 3] = 255
         } else {
           q[i + 3] = 0
