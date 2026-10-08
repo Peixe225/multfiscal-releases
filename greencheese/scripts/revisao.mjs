@@ -1,8 +1,10 @@
 // Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp da loja (RJ e MG, pedido e
-// encomenda), o Pix "em breve", as dúvidas na DM do estado, a navegação em abas (Início | Catálogo | Por estado), as
-// sequências de voltar, os links diretos, o Início (destaques e grade, sem o fim da aba Catálogo), o mercador ao lado
-// do perfil na matriz de desktop (ou o hero empilhado quando ele não cabe ali, nunca sumindo), as setas da linha de
-// destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência do leitor de tela.
+// encomenda), o Pix "em breve", as dúvidas na DM do estado, a navegação em abas (Início | Mercado | Rateio | Por
+// estado), as sequências de voltar, os links diretos (?aba=mercado e o velho ?aba=catalogo), o Início (destaques e grade,
+// sem o fim da aba Mercado), a rua viva (no celular entre a faixa e o perfil; no computador embaixo do perfil, em escala
+// inteira, na matriz de desktop): aparece, para fora da tela (o rAF para), pausa no botão, fica parada com movimento
+// reduzido, o mercador chamado oferece o Mercado; o Mercado com o mercador no topo; as falas da rua sem palavra proibida;
+// as setas da linha de destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência.
 // Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona, o formulário valida, a confirmação leva pro
 // WhatsApp com a mensagem certa, sem servidor vira "Entrar pelo WhatsApp", a resposta perdida pede pra tentar de novo
 // (o mesmo token) e o servidor fora do ar mostra "Sem conexão" sem exemplos. A API do rateio é simulada como no
@@ -11,7 +13,7 @@
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -420,7 +422,15 @@ const browser = await chromium.launch()
   await page.waitForTimeout(600)
   await foto(page, 'cel-06-perfil')
   await conferirInicio(page, 'cel')
-  conferir(!(await page.locator('.vista[data-vista="inicio"] .mercador-loja, .vista[data-vista="inicio"] .repost-figura').count()), 'cel: nenhum mercador no Início do celular')
+  {
+    // a rua viva entre a faixa e o perfil (o mercador mora nela); mercador de repost, só no topo do Mercado
+    const r = await page.evaluate(() => {
+      const v = document.querySelector('.vista[data-vista="inicio"]')
+      const topo = (s) => v?.querySelector(s)?.getBoundingClientRect().top ?? null
+      return { faixa: topo('.faixa'), rua: topo('.rua-vaga'), perfil: topo('.so-celular .perfil'), repost: v?.querySelectorAll('.repost-figura').length ?? 0 }
+    })
+    conferir(r.rua != null && r.faixa < r.rua && r.rua < r.perfil && !r.repost, `cel: a rua viva entre a faixa e o perfil, sem mercador de repost no Início (${JSON.stringify(r)})`)
+  }
   await page.locator('.vista-inicio .so-celular .perfil-loja').click()
   await page.waitForTimeout(1200)
   await foto(page, 'cel-06b-destaques')
@@ -430,7 +440,7 @@ const browser = await chromium.launch()
   conferir(!/confirmar|importsvv/i.test((await page.locator('.vista-inicio .faixa').textContent()) ?? ''), 'cel: a faixa dos @ só com os perfis confirmados')
   await irAba(page, 'catalogo')
   const refs = await pontosDeReferencia(page)
-  conferir(!refs.includes('region:Início') && refs.includes('region:Catálogo'), `cel: na aba Catálogo, nenhuma região "Início" vazia para o leitor de tela (${refs.join(', ')})`)
+  conferir(!refs.includes('region:Início') && refs.includes('region:Mercado'), `cel: na aba Mercado, nenhuma região "Início" vazia para o leitor de tela (${refs.join(', ')})`)
   await foto(page, 'cel-07-catalogo')
   await page.evaluate(() => window.scrollBy(0, 900))
   await page.waitForTimeout(800)
@@ -603,9 +613,17 @@ const browser = await chromium.launch()
   }
   {
     const { ctx, page } = await nova(`${base}?uf=mg&aba=catalogo`, 'link-catalogo')
-    conferir((await abaAberta(page)) === 'catalogo', 'link: ?aba=catalogo abre o Catálogo')
+    conferir((await abaAberta(page)) === 'catalogo', 'link: ?aba=catalogo (link velho) abre o Mercado')
     await voltar(page)
     conferir(page.url() === 'about:blank', 'link: ?aba=catalogo, voltar sai do site')
+    await ctx.close()
+  }
+  {
+    const { ctx, page } = await nova(`${base}?uf=mg&aba=mercado`, 'link-mercado')
+    conferir((await abaAberta(page)) === 'catalogo' && (await page.locator('.vista:not([hidden]) h1').first().textContent())?.trim() === 'Mercado', 'link: ?aba=mercado abre o Mercado')
+    await irAba(page, 'inicio')
+    await irAba(page, 'catalogo')
+    conferir(new URL(page.url()).searchParams.get('aba') === 'mercado', `link: a aba Mercado escreve ?aba=mercado (${page.url()})`)
     await ctx.close()
   }
   {
@@ -743,18 +761,28 @@ const browser = await chromium.launch()
   conferir(JSON.stringify(await ativo()) === '["Buscar"]', 'lateral: Buscar ativo com a busca em uso')
   await page.locator('.lateral [data-aba="catalogo"]').click()
   await page.waitForTimeout(700)
-  conferir(JSON.stringify(await ativo()) === '["Catálogo"]', 'lateral: tocar em Catálogo depois de buscar deixa Catálogo ativo')
-  // Início pelo teclado: o foco vai para o título do perfil e o Tab seguinte cai nos botões dele (o mercador ao lado é
-  // decorativo, sem parada)
+  conferir(JSON.stringify(await ativo()) === '["Mercado"]', 'lateral: tocar em Mercado depois de buscar deixa Mercado ativo')
+  // Início pelo teclado: o foco vai para o título do perfil e o Tab seguinte cai nos botões dele (a rua vem depois)
   await page.locator('.lateral [data-aba="inicio"]').focus()
   await page.keyboard.press('Enter')
   await page.waitForTimeout(900)
   await page.keyboard.press('Tab')
   const foco = await page.evaluate(() => {
     const a = document.activeElement
-    return { perfil: !!a?.closest('.hero-loja .perfil'), mercador: !!a?.closest('.mercador-loja'), txt: (a?.textContent ?? '').trim().slice(0, 30) }
+    return { perfil: !!a?.closest('.hero-loja .perfil'), rua: !!a?.closest('.rua'), txt: (a?.textContent ?? '').trim().slice(0, 30) }
   })
-  conferir(foco.perfil && !foco.mercador, `Início pelo teclado: o Tab cai no perfil, não no mercador (${foco.txt})`)
+  conferir(foco.perfil && !foco.rua, `Início pelo teclado: o Tab cai no perfil antes da rua (${foco.txt})`)
+  // Mercado pelo teclado: o foco cai no título "Mercado" (o mercador do topo vem depois dele no DOM) e o Tab seguinte, no
+  // mercador
+  await page.locator('.lateral [data-aba="catalogo"]').focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(900)
+  const focoMercado = await page.evaluate(() => ({ id: document.activeElement?.id, txt: (document.activeElement?.textContent ?? '').trim().slice(0, 30) }))
+  await page.keyboard.press('Tab')
+  const depoisMercado = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
+  conferir(focoMercado.id === 'catalogo-titulo' && focoMercado.txt === 'Mercado' && depoisMercado === 'Mercador: abrir o casaco', `Mercado pelo teclado: o foco no título e o Tab seguinte no mercador (${JSON.stringify(focoMercado)} → ${depoisMercado})`)
+  await page.locator('.lateral [data-aba="inicio"]').click()
+  await page.waitForTimeout(900)
   // Ver loja (computador): desce até os destaques do Início e o foco vai junto
   await page.locator('.hero-loja .perfil-loja').click()
   await page.waitForTimeout(1500)
@@ -802,10 +830,10 @@ for (const vp of [{ width: 320, height: 568 }, { width: 1920, height: 1080 }]) {
   await ctx.close()
 }
 
-// ---------- matriz de desktop: Início com o mercador ao lado do perfil (+ Catálogo e Por estado) ----------
+// ---------- matriz de desktop: Início com a rua viva embaixo do perfil (+ Mercado e Por estado) ----------
 // altura cheia da tela e a área útil de verdade (menos a barra do navegador): 1366×657, 1280×650, 1536×730, 1440×790.
-// De 1200 em diante, o mercador ao lado do perfil; onde ele não cabe ali (janela alta de 1200 a ~1270), o hero empilha
-// como de 900 a 1199 (story em cima, mercador e perfil embaixo) — o mercador nunca some no computador
+// De 1200 em diante, [perfil e rua | story]; de 900 a 1199 o hero empilha (story em cima, perfil e rua embaixo). A rua
+// sempre à vista no computador, em escala inteira, sem cobrir o perfil, o story, as setas nem a lateral
 const TAMANHOS = [
   [900, 800],
   [1024, 768],
@@ -837,19 +865,16 @@ for (const [w, h] of TAMANHOS) {
   await page.goto(`${base}?uf=mg`)
   await page.getByRole('button', { name: 'Tenho', exact: true }).click()
   await page.locator('.abertura').waitFor({ state: 'detached', timeout: 8000 })
-  // o mercador abre o casaco em até 1,5 s depois de aparecer (abaixo de 1200 ele fica embaixo do story: rola até ele)
-  let aberto = null
-  if (await page.locator('.hero-loja .mercador-loja').count()) {
-    const fora = await page.evaluate(() => document.querySelector('.hero-loja .mercador-loja').getBoundingClientRect().bottom > innerHeight)
-    if (fora) await page.evaluate(() => document.querySelector('.hero-loja .mercador-loja').scrollIntoView({ block: 'center' }))
-    const t0 = Date.now()
-    for (let k = 0; k < 40 && aberto == null; k++) {
-      const v = await page.evaluate(() => getComputedStyle(document.querySelector('.hero-loja .q-aberto')).visibility)
-      if (v === 'visible') aberto = Date.now() - t0
-      else await page.waitForTimeout(50)
-    }
-    if (fora) await page.evaluate(() => window.scrollTo(0, 0))
-  }
+  // a rua monta no respiro depois da abertura (abaixo de 1200 ela fica embaixo do story: rola até ela)
+  await page.locator('.hero-loja .rua[data-rua]').waitFor({ timeout: 10000 }).catch(() => {})
+  const foraDaTela = await page.evaluate(() => {
+    const e = document.querySelector('.hero-loja .rua-vaga')
+    return !!e && e.getBoundingClientRect().bottom > innerHeight
+  })
+  if (foraDaTela) await page.evaluate(() => document.querySelector('.hero-loja .rua-vaga').scrollIntoView({ block: 'center' }))
+  for (let k = 0; k < 60 && (await page.locator('.hero-loja .rua').getAttribute('data-rua').catch(() => null)) !== 'rodando'; k++) await page.waitForTimeout(100)
+  const ruaEstado = await page.locator('.hero-loja .rua').getAttribute('data-rua').catch(() => null)
+  if (foraDaTela) await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForTimeout(500)
   const c = await page.evaluate(() => {
     const r = (s) => {
@@ -858,22 +883,19 @@ for (const [w, h] of TAMANHOS) {
       return b && b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height } : null
     }
     const textos = [...document.querySelectorAll('.hero-desktop-perfil *')].filter((e) => !e.children.length && e.getClientRects().length && e.textContent.trim())
-    const merc = document.querySelector('.hero-loja .mercador-loja')
+    const tela = document.querySelector('.hero-loja .rua-tela')
     return {
-      mercador: r('.hero-loja .mercador-loja .repost-figura'),
+      rua: r('.hero-loja .rua-vaga'),
+      ruaPx: tela ? tela.getBoundingClientRect().height / tela.height : null,
       perfil: r('.hero-desktop-perfil .perfil'),
       story: r('.hero-quadro'),
+      hero: r('.vista-inicio .hero'),
       setaE: r('.hero-seta-esq'),
       setaD: r('.hero-seta-dir'),
       lateral: r('.lateral'),
       textoPerfil: textos.length ? Math.min(...textos.map((e) => e.getBoundingClientRect().left)) : null,
-      // o mercador natural: só ele, sem texto, sem link, decorativo
-      mercadorTexto: merc ? merc.textContent.trim() : '',
-      mercadorFocavel: merc ? !!merc.querySelector('a, button, [tabindex]') : false,
-      mercadorOculto: merc ? merc.getAttribute('aria-hidden') === 'true' : true,
       sorteNoHero: /Teste minha sorte|Tá com sorte|Todo giro ganha/i.test(document.querySelector('.vista-inicio .hero')?.textContent ?? ''),
       empilhado: !!document.querySelector('.vista-inicio .hero.hero-empilhado'),
-      regua: document.querySelector('.vista-inicio .hero-regua')?.clientWidth ?? null,
       storyAntes: (() => {
         const st = document.querySelector('.vista-inicio .hero-story')
         const lj = document.querySelector('.vista-inicio .hero-loja')
@@ -884,26 +906,30 @@ for (const [w, h] of TAMANHOS) {
     }
   })
   const cruza = (a, b) => a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1
-  const nomes = ['mercador', 'perfil', 'story', 'setaE', 'setaD', 'lateral']
+  const nomes = ['rua', 'perfil', 'story', 'setaE', 'setaD', 'lateral']
   for (let i = 0; i < nomes.length; i++) for (let j = i + 1; j < nomes.length; j++) if (cruza(c[nomes[i]], c[nomes[j]])) erros.push(`[${nome}] ${nomes[i]} por cima de ${nomes[j]}`)
-  // o story nunca encolhe por causa do mercador: 330 px ou mais, a não ser que a altura da janela (16:9) não deixe
+  // o story nunca encolhe por causa da rua: 330 px ou mais, a não ser que a altura da janela (16:9) não deixe
   const minimo = Math.min(330, Math.floor(((h - 120) * 9) / 16) - 2)
   conferir(!!c.story && c.story.w >= minimo, `${nome}: story com ${c.story ? Math.round(c.story.w) : 0} px (>= ${minimo})`)
   conferir(!c.larg, `${nome}: sem rolagem lateral`)
   if (c.lateral && c.textoPerfil != null) conferir(c.textoPerfil >= c.lateral.r - 1, `${nome}: texto do perfil fora da lateral (${Math.round(c.textoPerfil)} >= ${Math.round(c.lateral.r)})`)
   conferir(!c.sorteNoHero, `${nome}: nada do Teste minha sorte no topo do Início`)
-  if (c.mercador) {
-    const k = c.mercador.w / 44
-    conferir(Number.isInteger(Math.round(k * 100) / 100) && k >= 3 && k <= 5, `${nome}: mercador em escala inteira de 3× a 5× (${Math.round(c.mercador.w)} px)`)
-    conferir(!c.mercadorTexto && !c.mercadorFocavel && c.mercadorOculto, `${nome}: mercador sem texto, sem link e decorativo`)
-    conferir(!!c.perfil && Math.abs(c.mercador.b - c.perfil.b) <= 2, `${nome}: pés do mercador na linha do fim do perfil (${Math.round(c.mercador.b)} / ${c.perfil ? Math.round(c.perfil.b) : '?'})`)
-    conferir(aberto != null && aberto <= 1500, `${nome}: casaco do mercador abre em até 1,5 s (${aberto} ms)`)
+  conferir(!!c.rua && ruaEstado === 'rodando', `${nome}: a rua viva no Início do computador, andando à vista (${ruaEstado})`)
+  if (c.rua) {
+    conferir(c.ruaPx != null && Math.abs(c.ruaPx - Math.round(c.ruaPx)) < 0.01 && c.ruaPx >= 2 && c.ruaPx <= 5, `${nome}: rua em escala inteira de 2× a 5× (${c.ruaPx})`)
+    conferir(!!c.perfil && c.rua.t >= c.perfil.b - 1, `${nome}: a rua embaixo do perfil (${Math.round(c.rua.t)} / ${c.perfil ? Math.round(c.perfil.b) : '?'})`)
   }
-  conferir(!!c.mercador, `${nome}: mercador no Início do computador (${c.empilhado ? 'embaixo do story, ao lado do perfil' : 'ao lado do perfil e do story'})`)
-  // arranjo coerente por largura: de 900 a 1199 sempre empilhado; de 1200 em diante, empilhado só onde o mercador 3×
-  // (44 + 5 de vão, × 3) e o perfil de 285 px não cabem na coluna ao lado do story
-  if (w < 1200) conferir(c.empilhado && c.storyAntes, `${nome}: story em cima, mercador e perfil embaixo`)
-  else conferir(c.empilhado === (c.regua != null && c.regua < 49 * 3 + 285) && c.storyAntes === c.empilhado, `${nome}: ${c.empilhado ? 'empilhado (não cabe ao lado: ' : 'lado a lado (coluna de '}${c.regua} px${c.empilhado ? ')' : ')'}`)
+  // arranjo por largura: de 900 a 1199 empilhado (story em cima); de 1200 em diante, perfil e rua ao lado do story
+  if (w < 1200) conferir(c.empilhado && c.storyAntes, `${nome}: story em cima, perfil e rua embaixo`)
+  else {
+    conferir(!c.empilhado && !c.storyAntes, `${nome}: perfil e rua ao lado do story`)
+    // lado a lado, a rua não empurra nada: o story inteiro (até o VER PRODUTO) e a rua inteira (a calçada, o pé do
+    // mercador e a moto no asfalto) na primeira tela, e o hero com a altura de antes da rua (janela até 900), então os
+    // destaques e o catálogo ficam onde ficavam
+    conferir(!foraDaTela && !!c.rua && c.rua.b <= c.alto + 1, `${nome}: a rua inteira na primeira tela (${c.rua ? Math.round(c.rua.b) : '?'} <= ${c.alto})`)
+    conferir(!!c.story && c.story.b <= c.alto + 1, `${nome}: o story inteiro na primeira tela (${c.story ? Math.round(c.story.b) : '?'} <= ${c.alto})`)
+    conferir(!!c.hero && c.hero.h <= Math.min(c.alto, 900) + 1, `${nome}: o hero não cresce com a rua (${c.hero ? Math.round(c.hero.h) : '?'} <= ${Math.min(c.alto, 900)})`)
+  }
   await conferirInicio(page, nome)
   await foto(page, nome, true)
   await irAba(page, 'catalogo')
@@ -955,25 +981,39 @@ for (const [w, h] of [[1024, 768], [1440, 900]]) {
   await ctx.close()
 }
 
-// ---------- mercador: o mouse em cima abre o casaco na hora; movimento reduzido, parado ----------
+// ---------- Mercado: o mercador no topo (o dono da banca), o mouse abre o casaco na hora; movimento reduzido, parado ----
 for (const reduzir of [false, true]) {
   const ctx = await contexto(browser, { width: 1440, height: 900 }, { reduzir })
   const page = await ctx.newPage()
-  vigiar(page, `mercador-mouse${reduzir ? '-reduzido' : ''}`)
-  await page.goto(`${base}?uf=mg`)
+  vigiar(page, `mercado-topo${reduzir ? '-reduzido' : ''}`)
+  await page.goto(`${base}?uf=mg&aba=mercado`)
   await passarAbertura(page)
-  const fig = page.locator('.hero-loja .mercador-loja')
+  const fig = page.locator('.vista:not([hidden]) .mercado-topo .mercado-dono')
   await fig.waitFor({ timeout: 5000 })
+  const m = await page.evaluate(() => {
+    const v = document.querySelector('.vista[data-vista="catalogo"]')
+    const topo = v?.querySelector('.mercado-topo')
+    const busca = v?.querySelector('.busca')
+    return {
+      antesDaBusca: !!topo && !!busca && topo.getBoundingClientRect().bottom <= busca.getBoundingClientRect().top + 1,
+      mercadores: v?.querySelectorAll('.repost-figura').length ?? 0,
+      fala: v?.querySelector('.mercado-fala')?.textContent?.trim(),
+      titulo: v?.querySelector('h1')?.textContent?.trim(),
+    }
+  })
+  conferir(m.antesDaBusca && m.mercadores === 1 && m.fala === 'Chega mais.' && m.titulo === 'Mercado', `Mercado: o mercador no topo, uma vez só, recebendo ("Chega mais.") (${JSON.stringify(m)})`)
   // espera a parte parada (nenhuma camada da apresentação à vista) e passa o mouse
-  const visivel = (s) => page.evaluate((s) => [...document.querySelectorAll(`.hero-loja ${s}`)].some((e) => getComputedStyle(e).visibility === 'visible' && getComputedStyle(e).display !== 'none'), s)
+  const visivel = (s) => page.evaluate((s) => [...document.querySelectorAll(`.mercado-dono ${s}`)].some((e) => getComputedStyle(e).visibility === 'visible' && getComputedStyle(e).display !== 'none'), s)
   for (let k = 0; k < 150 && (await visivel('.repost-quadro')); k++) await page.waitForTimeout(100)
   await page.mouse.move(5, 5)
   await fig.hover()
   await page.waitForTimeout(300)
   const abriu = await visivel('.q-aberto, .q-meio')
-  if (reduzir) conferir(!abriu, 'mercador com movimento reduzido: fica parado (o mouse não anima)')
-  else conferir(abriu, 'mercador: o mouse em cima abre o casaco na hora')
-  await foto(page, `desk-10-mercador-mouse${reduzir ? '-reduzido' : ''}`)
+  if (reduzir) conferir(!abriu, 'Mercado com movimento reduzido: o mercador fica parado (o mouse não anima)')
+  else conferir(abriu, 'Mercado: o mouse em cima do mercador abre o casaco na hora')
+  await fig.click()
+  conferir((await page.locator('.mercado-fala').textContent())?.trim() !== 'Chega mais.', 'Mercado: tocar no mercador muda a fala')
+  await foto(page, `desk-10-mercado-topo${reduzir ? '-reduzido' : ''}`)
   await ctx.close()
 }
 
@@ -1114,6 +1154,113 @@ for (const reduzir of [false, true]) {
   conferir(r.aviso === 'Sem conexão com a loja agora' && r.cartoes === 0, `rateio: servidor fora do ar mostra "Sem conexão", sem exemplos (${JSON.stringify(r)})`)
   await foto(page, 'rateio-08-fora-do-ar')
   await ctx.close()
+}
+
+// ---------- a rua viva: aparece, para fora da tela (o rAF para), pausa, movimento reduzido parado, chamar o mercador ----
+for (const [w, h, reduzir] of [[390, 844, false], [1280, 800, false], [390, 844, true]]) {
+  const nome = `rua-${w}${reduzir ? '-reduzido' : ''}`
+  const ctx = await contexto(browser, { width: w, height: h }, { reduzir })
+  // conta só as voltas do requestAnimationFrame do relógio da rua (o laço com o acumulador, motor.ts); o resto da
+  // página (story, GSAP) tem os rAF dele
+  await ctx.addInitScript(() => {
+    const raf = window.requestAnimationFrame.bind(window)
+    window.__voltas = 0
+    window.requestAnimationFrame = (cb) => {
+      if (!String(cb).includes('acum')) return raf(cb)
+      return raf((t) => {
+        window.__voltas++
+        cb(t)
+      })
+    }
+  })
+  const page = await ctx.newPage()
+  vigiar(page, nome)
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  const rua = page.locator('.vista:not([hidden]) .rua')
+  await rua.waitFor({ state: 'attached', timeout: 10000 })
+  await page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga').scrollIntoView({ block: 'center' }))
+  for (let k = 0; k < 60 && !['rodando', 'foto'].includes(await rua.getAttribute('data-rua')); k++) await page.waitForTimeout(100)
+  const estado = await rua.getAttribute('data-rua')
+  conferir(estado === (reduzir ? 'foto' : 'rodando'), `${nome}: a rua ${reduzir ? 'vira uma foto (movimento reduzido)' : 'anda à vista'} (${estado})`)
+  conferir((await page.locator('.vista:not([hidden]) .rua-tela[aria-hidden="true"]').count()) === 1 && (await rua.getAttribute('aria-label')) === 'A rua da loja', `${nome}: canvas decorativo e grupo com rótulo curto`)
+  // desenho de verdade no canvas (não ficou preto)
+  const cores = await page.evaluate(() => {
+    const c = document.querySelector('.vista:not([hidden]) .rua-tela')
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+    const s = new Set()
+    for (let i = 0; i < d.length; i += 4 * 7) s.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+    return s.size
+  })
+  conferir(cores > 6, `${nome}: a rua desenhada no canvas (${cores} cores)`)
+  const quadro = () => page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-tela').toDataURL())
+  if (reduzir) {
+    const a = await quadro()
+    await page.waitForTimeout(2500)
+    conferir(a === (await quadro()), `${nome}: com movimento reduzido nada anda (o mesmo quadro)`)
+    conferir(!(await page.locator('.rua-pausa').count()), `${nome}: sem botão de pausar (nada se mexe)`)
+  } else {
+    // botão de pausar: alvo de 44 px, pausa e continua
+    const pausa = page.locator('.vista:not([hidden]) .rua-pausa')
+    const bb = await pausa.boundingBox()
+    conferir(!!bb && bb.width >= 44 && bb.height >= 44, `${nome}: botão de pausar com alvo de 44 px (${bb ? `${bb.width}×${bb.height}` : '?'})`)
+    await pausa.click()
+    await page.waitForTimeout(200)
+    const v0 = await page.evaluate(() => window.__voltas)
+    await page.waitForTimeout(1000)
+    const v1 = await page.evaluate(() => window.__voltas)
+    conferir((await rua.getAttribute('data-rua')) === 'parada' && (await pausa.getAttribute('aria-label')) === 'Continuar a rua', `${nome}: pausar para a rua`)
+    await pausa.click()
+    await page.waitForTimeout(200)
+    conferir((await rua.getAttribute('data-rua')) === 'rodando', `${nome}: continuar volta a andar`)
+    // fora da tela o relógio para: o rAF quase não volta (só o que sobra do resto da página)
+    const n0 = await page.evaluate(() => window.__voltas)
+    await page.waitForTimeout(1000)
+    const n1 = await page.evaluate(() => window.__voltas)
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await page.waitForTimeout(600)
+    const f0 = await page.evaluate(() => window.__voltas)
+    await page.waitForTimeout(1500)
+    const f1 = await page.evaluate(() => window.__voltas)
+    conferir((await rua.getAttribute('data-rua')) === 'parada', `${nome}: fora da tela a rua para`)
+    relatorio.push(`${nome}: rAF por segundo — à vista ${n1 - n0}, pausada ${v1 - v0}, fora da tela ${Math.round((f1 - f0) / 1.5)}`)
+    conferir(n1 - n0 >= 30 && f1 - f0 <= 3 && v1 - v0 <= 3, `${nome}: o rAF da rua para fora da tela e pausada (${n1 - n0} → ${f1 - f0} / ${v1 - v0})`)
+    await page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga').scrollIntoView({ block: 'center' }))
+    await page.waitForTimeout(400)
+  }
+  // chamar o mercador pelo teclado: o botão focável abre o balão e o adesivo "Ver o Mercado", que leva à aba Mercado
+  const botao = page.locator('.vista:not([hidden]) .rua-mercador')
+  await botao.focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(400)
+  const cta = page.locator('.vista:not([hidden]) .rua-cta')
+  const bal = await page.locator('.vista:not([hidden]) .rua-balao').allTextContents()
+  conferir((await cta.count()) === 1 && bal.some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${bal.join(' | ')})`)
+  // o leitor de tela ouve o que de fato acontece: livre, ele abre o casaco; atendendo, abre no fim do atendimento; na
+  // foto (movimento reduzido), só oferece
+  const aviso = (await page.locator('.vista:not([hidden]) .rua [aria-live]').textContent())?.trim()
+  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.)$/.test(aviso ?? '')
+  conferir(avisoCerto, `${nome}: o aviso do chamado diz o que acontece na cena (${aviso})`)
+  const cb = await cta.boundingBox()
+  conferir(!!cb && cb.height >= 44, `${nome}: "Ver o Mercado" com alvo de 44 px (${cb ? Math.round(cb.height) : '?'})`)
+  await foto(page, `${nome}-chamado`)
+  await page.keyboard.press('Tab')
+  conferir(await cta.evaluate((e) => e === document.activeElement), `${nome}: o Tab seguinte cai no "Ver o Mercado"`)
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(800)
+  conferir((await abaAberta(page)) === 'catalogo', `${nome}: "Ver o Mercado" abre a aba Mercado`)
+  await ctx.close()
+}
+
+// ---------- as falas da rua: nenhuma palavra da lista PALAVRAS_PROIBIDAS (src/dados/sorte.ts) ----------
+{
+  const raiz = new URL('../src/', import.meta.url)
+  const sorte = readFileSync(new URL('dados/sorte.ts', raiz), 'utf8')
+  const lista = [...(sorte.match(/PALAVRAS_PROIBIDAS = \[([\s\S]*?)\]/)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const falas = readFileSync(new URL('componentes/rua/falas.ts', raiz), 'utf8')
+  const textos = [...falas.replace(/^\s*\/\/.*$/gm, '').matchAll(/'([^']+)'/g)].map((m) => m[1].toLowerCase())
+  const achou = lista.filter((p) => textos.some((t) => new RegExp(`(^|[^a-zà-ú])${p}([^a-zà-ú]|$)`).test(t)))
+  conferir(lista.length > 10 && textos.length > 20 && !achou.length, `rua: as falas sem palavra proibida (${achou.join(', ') || `${textos.length} falas`})`)
 }
 
 await browser.close()

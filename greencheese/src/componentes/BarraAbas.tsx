@@ -48,7 +48,7 @@ export function BarraAbas() {
         className={`aba-celula toque${aba === 'catalogo' ? ' ativa' : ''}`}
         href={hrefAba('catalogo')}
         data-aba="catalogo"
-        aria-label="Catálogo"
+        aria-label="Mercado"
         aria-current={aba === 'catalogo' ? 'page' : undefined}
         onClick={(e) => tocar(e, 'catalogo')}
       >

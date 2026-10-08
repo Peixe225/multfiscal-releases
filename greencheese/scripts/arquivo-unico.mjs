@@ -30,7 +30,8 @@ const cssFontes = css.replace(/url\(\.?\/?(?:assets\/)?([^)]+?\.(woff2?|png|svg)
   const tipo = f.endsWith('.woff2') ? 'font/woff2' : f.endsWith('.png') ? 'image/png' : 'image/svg+xml'
   return `url(data:${tipo};base64,${readFileSync(join(assets, f)).toString('base64')})`
 })
-const js = arquivos.filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(assets, f), 'utf8'))
+// o worker da rua não entra na página (sem arquivo à parte, a rua monta o elenco na própria página, no tempo ocioso)
+const js = arquivos.filter((f) => f.endsWith('.js') && !/\.worker-/.test(f)).map((f) => readFileSync(join(assets, f), 'utf8'))
 html = html
   .replace(/<link rel="stylesheet"[^>]*>/g, '')
   .replace(/<link rel="modulepreload"[^>]*>/g, '')

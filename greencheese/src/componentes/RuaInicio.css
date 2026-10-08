@@ -1,0 +1,6 @@
+/* A vaga da rua (altura em px inline, a mesma conta da rua: ALTURA × px inteiros do aparelho). */
+.rua-vaga {
+  position: relative;
+  background: var(--preto);
+  overflow: hidden;
+}

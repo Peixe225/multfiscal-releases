@@ -281,7 +281,7 @@ export function ChatFolha() {
             ],
             chips: [
               {
-                rotulo: 'Ver o catálogo',
+                rotulo: 'Ver o Mercado',
                 acao: () => {
                   fechar()
                   setTimeout(() => rolarPara('#catalogo', -70), 320)

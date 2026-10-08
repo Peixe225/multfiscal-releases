@@ -346,7 +346,7 @@ function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: st
       <div ref={linha} className="destaques destaques-inicio">
         <nav className="destaques-grupo" aria-label="Atalhos da loja">
           {canal && <DestaqueEstado canal={canal} abrirInfo={abrirInfo} />}
-          <DestaqueAba aba="catalogo" foco="busca" rotulo="Buscar" nome="Buscar no catálogo">
+          <DestaqueAba aba="catalogo" foco="busca" rotulo="Buscar" nome="Buscar no Mercado">
             <Icone nome="lupa" tamanho={32} />
           </DestaqueAba>
           <DestaqueRateio />

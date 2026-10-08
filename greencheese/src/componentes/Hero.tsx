@@ -17,7 +17,8 @@ import { useUI } from '../store/ui'
 import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
 import { AvisoLocal, LinhaLocal, useAvisoLocal, useTextoLocal } from './Local'
-import { MercadorLoja } from './MercadorLoja'
+import { RuaInicio } from './RuaInicio'
+import { alturaDaFaixa } from './rua/palco'
 import { Perfil } from './Perfil'
 import { StoryQuadro } from './StoryQuadro'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
@@ -116,57 +117,104 @@ function consulta(q: string) {
   }
 }
 /**
- * Tela larga (>= 1200 px): o mercador e o perfil à esquerda do story. Abaixo disso o story vem primeiro, com o mercador
- * e o perfil embaixo — no DOM também (ordem do Tab).
+ * Tela larga (>= 1200 px): o perfil, com a rua embaixo, à esquerda do story. Abaixo disso o story vem primeiro, com o
+ * perfil e a rua embaixo — no DOM também (ordem do Tab).
  */
 const LARGO = consulta('(min-width: 1200px)')
-/** Celular: perfil embaixo do story (Abas.tsx) e nada de mercador; o mercador é do computador. */
+/** Celular: perfil embaixo do story (Abas.tsx) e a rua entre a faixa e o perfil; aqui só o computador. */
 const CELULAR = consulta('(max-width: 899px)')
 
-/** Perfil mais estreito que isto fica compacto (Hero.css); o mercador só entra se ainda sobrar ele ao lado. */
-const PERFIL_MIN = 285
+/** Perfil mais estreito que isto fica compacto (Hero.css). */
 const PERFIL_COMPACTO = 380
 const PERFIL_MAX = 420
-/** Vão entre o mercador e o perfil, em pixels da grade (o margin-right do .mercador-loja, em MercadorLoja.css). */
-const VAO_MERCADOR = 5
 
-/** A maior escala inteira do mercador (44 de largura + o vão) que deixa o perfil com PERFIL_MIN ao lado; 0: não cabe. */
-function escalaQueCabe(largura: number): number {
-  const teto = window.innerWidth >= 1800 ? 5 : window.innerWidth >= 1440 ? 4 : 3
-  for (let k = teto; k >= 3; k--) if ((44 + VAO_MERCADOR) * k + PERFIL_MIN <= largura) return k
-  return 0
+/**
+ * A maior escala da rua que a largura da coluna aceita, sempre inteira: 2× numa coluna estreita, 3× no notebook, 4×
+ * em tela grande. Ao lado do story, a altura ainda corta (useLojaDesktop).
+ */
+function escalaDaRua(coluna: number): number {
+  if (coluna >= 640 && window.innerWidth >= 1440) return 4
+  if (coluna >= 450) return 3
+  return 2
+}
+
+/** Vão entre o perfil e a rua: 32 com folga, 16 no aperto. */
+const VAO_RUA = 32
+const VAO_RUA_MIN = 16
+
+interface LojaDesktop {
+  /** Escala da rua (0: sem rua). */
+  k: number
+  compacto: boolean
+  /** Perfil baixo: o avatar ao lado dos números (janela baixa, para a rua caber embaixo). */
+  baixo: boolean
+  vao: number
 }
 
 /**
- * Mercador e perfil no computador. A escala é inteira (5× em tela gigante, 4× de 1440 px, 3× abaixo) e sai da sobra da
- * coluna do perfil: o story nunca encolhe por causa dele. Lado a lado (>= 1200 px) quando ele cabe na coluna ao lado
- * do story; não cabendo (1200–1270 px com janela alta), em vez de sumir, o hero empilha como de 900 a 1199: story em
- * cima, mercador e perfil embaixo. A régua (Hero.css) mede a coluna que o perfil teria lado a lado em qualquer arranjo,
- * então a escolha não oscila; a escala do empilhado sai da própria coluna depois da troca. Tudo antes da pintura.
+ * Perfil e rua no computador: a coluna do perfil (ao lado do story de 1200 px em diante, embaixo dele de 900 a 1199)
+ * decide a escala da rua e se o perfil fica compacto. O story nunca encolhe por causa deles e, lado a lado, o hero
+ * também não cresce: perfil + vão + rua cabem na altura que o hero já tem sem a rua (a da janela até 900, ou a do
+ * story), então o story inteiro, a calçada da rua e os destaques ficam onde ficavam. Escolhe a maior escala que cabe,
+ * primeiro com o perfil inteiro e depois com o perfil baixo (avatar ao lado dos números, ~100 px a menos); nada
+ * cabendo, fica só o perfil, como antes da rua. As duas alturas do perfil são medidas na hora (troca a classe, lê e
+ * desfaz, sem pintar): a escolha sai só da janela e do conteúdo, então não oscila. Antes da pintura.
  */
-function useLojaDesktop(loja: HTMLDivElement | null, regua: HTMLSpanElement | null, ligado: boolean, largo: boolean) {
-  const [medida, setMedida] = useState({ escala: 0, compacto: false, empilha: false })
+function useLojaDesktop(loja: HTMLDivElement | null, ligado: boolean, largo: boolean): LojaDesktop {
+  const [medida, setMedida] = useState<LojaDesktop>({ k: 0, compacto: false, baixo: false, vao: VAO_RUA })
   useLayoutEffect(() => {
-    if (!ligado || !loja || !regua) return
+    if (!ligado || !loja) return
     const medir = () => {
-      const lado = regua.clientWidth
       const coluna = loja.clientWidth
-      if (!coluna) return
-      const kLado = largo ? escalaQueCabe(lado) : 0
-      const empilha = !largo || !kLado
-      // lado a lado, a coluna medida é a da régua; empilhado, a linha inteira embaixo do story
-      const escala = empilha ? escalaQueCabe(coluna) : kLado
-      const perfil = Math.min(PERFIL_MAX, (empilha ? coluna : lado) - (44 + VAO_MERCADOR) * escala)
-      const compacto = perfil < PERFIL_COMPACTO
-      setMedida((m) => (m.escala === escala && m.compacto === compacto && m.empilha === empilha ? m : { escala, compacto, empilha }))
+      const perfil = loja.querySelector<HTMLElement>('.hero-desktop-perfil')
+      const hero = loja.parentElement
+      if (!coluna || !perfil || !hero) return
+      const compacto = Math.min(PERFIL_MAX, coluna) < PERFIL_COMPACTO
+      const kMax = escalaDaRua(coluna)
+      let nova: LojaDesktop = { k: kMax, compacto, baixo: false, vao: VAO_RUA }
+      if (largo) {
+        // a altura útil do hero sem a rua: o min-height (janela até 900) menos o respiro, ou o story, se for maior
+        const cs = getComputedStyle(hero)
+        const story = hero.querySelector<HTMLElement>('.hero-story')?.offsetHeight ?? 0
+        const util = Math.max(story, (parseFloat(cs.minHeight) || window.innerHeight) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom))
+        // as duas alturas do perfil, com o compacto já decidido (desfaz antes de pintar)
+        const antes = loja.className
+        loja.classList.toggle('perfil-compacto', compacto)
+        loja.classList.remove('perfil-baixo')
+        const inteiro = perfil.offsetHeight
+        loja.classList.add('perfil-baixo')
+        const baixo = perfil.offsetHeight
+        loja.className = antes
+        const dpr = window.devicePixelRatio || 1
+        nova = { k: 0, compacto, baixo: false, vao: VAO_RUA }
+        procura: for (let k = kMax; k >= 2; k--) {
+          for (const [ehBaixo, p] of [
+            [false, inteiro],
+            [true, baixo],
+          ] as const) {
+            const sobra = util - p - alturaDaFaixa(k, dpr)
+            if (sobra >= VAO_RUA_MIN) {
+              nova = { k, compacto, baixo: ehBaixo, vao: Math.min(VAO_RUA, Math.floor(sobra)) }
+              break procura
+            }
+          }
+        }
+      }
+      setMedida((m) => (m.k === nova.k && m.compacto === nova.compacto && m.baixo === nova.baixo && m.vao === nova.vao ? m : nova))
     }
     medir()
     const ro = new ResizeObserver(medir)
     ro.observe(loja)
-    ro.observe(regua)
-    return () => ro.disconnect()
-    // medida.empilha: depois de empilhar, a coluna muda de largura e a escala sai dela (ainda antes da pintura)
-  }, [loja, regua, ligado, largo, medida.empilha])
+    // o perfil muda de altura sozinho (a fonte chega, o nome quebra): a escolha é a mesma nas duas alturas, não oscila
+    const perfil = loja.querySelector('.hero-desktop-perfil')
+    if (perfil) ro.observe(perfil)
+    // a altura da janela muda o que cabe mesmo quando a coluna não muda de largura (e o zoom muda o DPR)
+    window.addEventListener('resize', medir)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', medir)
+    }
+  }, [loja, ligado, largo])
   return medida
 }
 
@@ -251,10 +299,8 @@ export function Hero() {
   const palco = useRef<HTMLDivElement>(null)
   const espera = useRef<HTMLDivElement>(null)
   const barras = useRef<HTMLDivElement>(null)
-  // a coluna do perfil e a régua do lado a lado (computador), medidas para o mercador: em estado, porque saem e voltam
-  // com o story
+  // a coluna do perfil (computador), medida para a rua: em estado, porque sai e volta com o story
   const [loja, setLoja] = useState<HTMLDivElement | null>(null)
-  const [regua, setRegua] = useState<HTMLSpanElement | null>(null)
   const quaseTodo = useRef(false)
   const reduz = movimentoReduzido()
 
@@ -598,8 +644,8 @@ export function Hero() {
     dicaNaTela.current = comDica && dica === 'mostra'
   }, [comDica, dica])
 
-  // o mercador ao lado do perfil (computador): a escala sai da sobra da coluna dele; sem lugar lado a lado, empilha
-  const lojaDesktop = useLojaDesktop(loja, regua, !celular, largo)
+  // a rua embaixo do perfil (computador): a escala sai da largura da coluna dele e, ao lado do story, da altura
+  const lojaDesktop = useLojaDesktop(loja, !celular, largo)
 
   if (!atual) return null
 
@@ -727,13 +773,18 @@ export function Hero() {
     </div>
   )
 
-  // computador: o mercador de pé ao lado do perfil (decorativo, sem parada no Tab), os pés na linha do "Ver loja"
+  // computador: o perfil e, embaixo, a rua viva (o mercador mora nela)
   const perfil = (
-    <div key="loja" ref={setLoja} className={`hero-loja${lojaDesktop.compacto ? ' perfil-compacto' : ''}`}>
-      {!celular && lojaDesktop.escala > 0 && <MercadorLoja escala={lojaDesktop.escala} />}
+    <div
+      key="loja"
+      ref={setLoja}
+      className={`hero-loja${lojaDesktop.compacto ? ' perfil-compacto' : ''}${lojaDesktop.baixo ? ' perfil-baixo' : ''}`}
+      style={{ ['--vao-rua' as string]: `${lojaDesktop.vao}px` }}
+    >
       <div className="hero-desktop-perfil">
         <Perfil variante="desktop" />
       </div>
+      {!celular && lojaDesktop.k > 0 && <RuaInicio k={lojaDesktop.k} bordas className="rua-hero" />}
     </div>
   )
   const story = (
@@ -762,15 +813,13 @@ export function Hero() {
     </div>
   )
 
-  // de 900 a 1199 sempre empilhado; de 1200 em diante, só quando o mercador não cabe ao lado do perfil
-  const empilhado = !celular && (!largo || lojaDesktop.empilha)
-  const ordem = largo && !empilhado ? [perfil, story] : [story, perfil]
+  // de 900 a 1199 empilhado (story em cima); de 1200 em diante, o perfil e a rua ao lado do story
+  const empilhado = !celular && !largo
+  const ordem = largo ? [perfil, story] : [story, perfil]
 
   return (
     <section ref={raiz} className={`hero${empilhado ? ' hero-empilhado' : ''}`} aria-label="Stories da Green Cheese">
       {ordem}
-      {/* a coluna que o perfil teria ao lado do story (Hero.css), medida para decidir se o mercador cabe ali */}
-      {!celular && <span key="regua" ref={setRegua} className="hero-regua" aria-hidden="true" />}
     </section>
   )
 }

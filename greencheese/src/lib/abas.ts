@@ -4,13 +4,14 @@ import { dentroDeIframe } from './ambiente'
 import { depoisDoHistorico, haCamadaAberta, historicoParado, quandoSemCamadas } from './historico'
 import { movimentoReduzido } from './movimento'
 import { desviarAncoras, obterLenis, rolarPara } from './rolagem'
-import { abaDaURL, atualizarParametros, lerParametros, limparHomeVelha, type Aba } from './url'
+import { abaDaURL, abaNaURL, atualizarParametros, lerParametros, limparHomeVelha, type Aba } from './url'
 
-// Abas do site (Início, Catálogo, Rateio, Por estado): vistas do mesmo app, no molde das abas do Instagram.
+// Abas do site (Início, Mercado, Rateio, Por estado): vistas do mesmo app, no molde das abas do Instagram.
 //
-// URL: ?aba=catalogo | ?aba=rateio | ?aba=estados; sem parâmetro é o Início. Cada troca empilha uma entrada NOVA no
-// histórico, {gcAba}, sem espalhar o estado de quem sai: o voltar do Android (e do navegador) volta para a aba de antes,
-// com a rolagem de antes (gcY). As camadas (story, sacola, jogo, chat…) empilham {...estado, gc} por cima da entrada da aba
+// URL: ?aba=mercado (o Catálogo; ?aba=catalogo também abre) | ?aba=rateio | ?aba=estados; sem parâmetro é o Início. Cada
+// troca empilha uma entrada NOVA no histórico, {gcAba}, sem espalhar o estado de quem sai: o voltar do Android (e do
+// navegador) volta para a aba de antes, com a rolagem de antes (gcY). As camadas (story, sacola, jogo, chat…) empilham
+// {...estado, gc} por cima da entrada da aba
 // (src/lib/historico.ts), então fechar uma camada cai numa entrada com o MESMO gcAba e nunca troca de aba.
 
 export type { Aba }
@@ -44,7 +45,7 @@ function urlCom(a: Aba): string {
   const u = new URL(location.href)
   for (const k of ['p', 'produto', 'jogo', 'chat', 'rateio']) u.searchParams.delete(k)
   if (a === 'inicio') u.searchParams.delete('aba')
-  else u.searchParams.set('aba', a)
+  else u.searchParams.set('aba', abaNaURL(a))
   return u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + u.hash
 }
 
@@ -131,7 +132,7 @@ export function hrefAba(a: Aba): string {
   const p = lerParametros()
   if (p.uf) q.set('uf', p.uf)
   if (p.cidade) q.set('cidade', p.cidade)
-  if (a !== 'inicio') q.set('aba', a)
+  if (a !== 'inicio') q.set('aba', abaNaURL(a))
   const s = q.toString()
   return s ? `?${s}` : location.pathname
 }

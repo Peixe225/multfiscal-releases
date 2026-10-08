@@ -1,7 +1,7 @@
 // Matriz de celulares: rolagem lateral e alvos de toque em cada aba, barra de abas, voltar entre abas, story cabendo
-// na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story → faixa → perfil →
-// destaques com as abas primeiro, o fio e os filtros → grade → rodapé, sem mercador, sem Teste minha sorte e sem
-// repost no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do
+// na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story → faixa → rua viva →
+// perfil → destaques com as abas primeiro, o fio e os filtros → grade → rodapé, o mercador só na rua, sem Teste minha
+// sorte e sem repost no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do
 // próprio Início; a faixa só com os perfis confirmados). Também: celular deitado (story do hero inteiro acima da
 // barra, nada encavalado), celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e
 // o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai). A API do rateio
@@ -134,11 +134,11 @@ async function conferirBarra(p, nome) {
 const abaAberta = (p) => p.evaluate(() => document.querySelector('.vista:not([hidden])')?.dataset.vista)
 
 /**
- * O Início, de cima a baixo: story, faixa, perfil (com "Ver loja"), destaques, grade (a caixa de encomenda por último)
- * e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado; o Rateio fica na barra de baixo e
- * só entra nos destaques de 560 px em diante), o fio e o grupo dos filtros.
- * Nada do fim da aba Catálogo (Teste minha sorte, repost do mercador) e nenhum mercador. Ids próprios (o #catalogo é
- * da aba Catálogo, que o chat e a rolagem usam).
+ * O Início, de cima a baixo: story, faixa, rua viva (o mercador mora nela), perfil (com "Ver loja"), destaques, grade
+ * (a caixa de encomenda por último) e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado;
+ * o Rateio fica na barra de baixo e só entra nos destaques de 560 px em diante), o fio e o grupo dos filtros. Nada do
+ * fim da aba Mercado (Teste minha sorte) e nenhum mercador de repost (o do topo do Mercado). Ids próprios (o #catalogo
+ * é da aba Mercado, que o chat e a rolagem usam).
  */
 async function conferirInicio(p, nome) {
   const r = await p.evaluate(() => {
@@ -165,7 +165,7 @@ async function conferirInicio(p, nome) {
       linha: { tudo: visivel(f1), seguinte: visivel(f2), larg: innerWidth },
       faixaAConfirmar: /confirmar|importsvv/i.test(v?.querySelector('.faixa')?.textContent ?? ''),
       setas: v?.querySelectorAll('.destaques-seta').length ?? 0,
-      ordem: ['.hero', '.faixa', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
+      ordem: ['.hero', '.faixa', '.rua-vaga', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
       gradeFim: grade ? grade.getBoundingClientRect().bottom + scrollY : null,
       rodape: rodape ? rodape.getBoundingClientRect().top + scrollY : null,
       ultimoCaixa: !!ultimo?.classList.contains('card-caixa'),
@@ -175,7 +175,15 @@ async function conferirInicio(p, nome) {
       filtros: filtros ? filtros.querySelectorAll('[aria-pressed]').length : 0,
       fio: fioB ? { w: fioB.width, h: fioB.height } : null,
       fimCatalogo: !!v?.querySelector('.aba-fim, .reposts, .adesivos-interativos, #secao-interativo, #secao-marcados'),
-      mercador: !!v?.querySelector('.mercador-loja, .repost-figura'),
+      mercador: !!v?.querySelector('.repost-figura'),
+      // a rua colada no perfil (sem nada entre os dois) e com a altura reservada desde o começo
+      ruaColada: (() => {
+        const rua = v?.querySelector('.rua-vaga')
+        const perfil = v?.querySelector('.so-celular .perfil')
+        if (!rua || !perfil) return null
+        return Math.round(perfil.getBoundingClientRect().top - rua.getBoundingClientRect().bottom)
+      })(),
+      ruaAltura: v?.querySelector('.rua-vaga')?.getBoundingClientRect().height ?? 0,
       idsRepetidos: !!v?.querySelector('#catalogo, #catalogo-titulo'),
       busca: !!v?.querySelector('.busca, .chip-disp'),
     }
@@ -190,7 +198,9 @@ async function conferirInicio(p, nome) {
   if (r.filtros < 6) problemas.push(`${nome}: só ${r.filtros} filtros nos destaques do Início`)
   if (!r.fio || r.fio.w > 1.5 || r.fio.h < 20) problemas.push(`${nome}: fio entre abas e filtros ${JSON.stringify(r.fio)}`)
   if (r.fimCatalogo) problemas.push(`${nome}: o Início ainda tem o fim da aba Catálogo (Teste minha sorte/repost)`)
-  if (r.mercador) problemas.push(`${nome}: mercador no Início do celular`)
+  if (r.mercador) problemas.push(`${nome}: mercador de repost no Início do celular (ele mora na rua)`)
+  if (r.ruaColada == null || r.ruaColada > 40) problemas.push(`${nome}: a rua não vem logo antes do perfil (${r.ruaColada})`)
+  if (r.ruaAltura < 150 || r.ruaAltura > 190) problemas.push(`${nome}: a faixa da rua com ${r.ruaAltura} px (150–190)`)
   if (r.idsRepetidos) problemas.push(`${nome}: #catalogo/#catalogo-titulo repetidos no Início`)
   if (r.busca) problemas.push(`${nome}: busca ou "Só DISPONÍVEL" no Início`)
   // os filtros aparecem na primeira tela da linha: de 360 px em diante o "Tudo" inteiro e o seguinte espiando na borda
@@ -242,12 +252,20 @@ for (const [nome, w, h] of aparelhos) {
   await irAba(p, 'catalogo')
   await p.screenshot({ path: `${out}${nome}-2-catalogo.png` })
   await varrer(p, nome, 'catalogo')
-  // a aba Catálogo continua com o fim dela (Teste minha sorte e o repost do mercador)
+  // a aba Mercado: o mercador no topo (uma vez só: sem o repost do fim), a busca e o Teste minha sorte no fim
   const fim = await p.evaluate(() => {
     const v = document.querySelector('.vista[data-vista="catalogo"]')
-    return { reposts: !!v?.querySelector('.reposts .repost-figura'), interativo: !!v?.querySelector('#secao-interativo'), busca: !!v?.querySelector('.busca input') }
+    const topo = v?.querySelector('.mercado-topo .repost-figura')
+    const busca = v?.querySelector('.busca input')
+    return {
+      topo: !!topo && !!busca && topo.getBoundingClientRect().top < busca.getBoundingClientRect().top,
+      mercadores: v?.querySelectorAll('.repost-figura').length ?? 0,
+      interativo: !!v?.querySelector('#secao-interativo'),
+      busca: !!busca,
+      titulo: v?.querySelector('h1')?.textContent?.trim(),
+    }
   })
-  if (!fim.reposts || !fim.interativo || !fim.busca) problemas.push(`${nome}: a aba Catálogo perdeu busca/Teste minha sorte/repost (${JSON.stringify(fim)})`)
+  if (!fim.topo || fim.mercadores !== 1 || !fim.interativo || !fim.busca || fim.titulo !== 'Mercado') problemas.push(`${nome}: a aba Mercado sem o mercador no topo (uma vez), a busca ou o Teste minha sorte (${JSON.stringify(fim)})`)
   await irAba(p, 'estados')
   await p.screenshot({ path: `${out}${nome}-3-estados.png` })
   await varrer(p, nome, 'estados')

@@ -1,0 +1,725 @@
+// A coreografia da rua. Um diretor sorteia o próximo cliente (nunca o mesmo duas vezes seguidas) e, entre um e outro,
+// o mercador vive: anda até um ponto, para, olha em volta, bebe a Fanta e guarda, faz carinho no gato, espera. Cada
+// cliente: entra, chega perto, fala, o mercador responde (abre o casaco), entrega, recebe, o cliente faz a coisa dele
+// e sai — e o mercador já volta a viver enquanto ele vai embora. Um cliente por vez; ciclo de ~20 a 35 s.
+//
+// Tudo em geradores (motor.ts): `yield 300` espera 300 ms do relógio da cena, `yield () => cond` espera a condição.
+// Pausar a cena para o relógio, então os roteiros param junto, no meio do que estiverem fazendo.
+
+import type { Lado } from './pacote'
+import { FALAS, sortear } from './falas'
+import { CHAO } from './palco'
+import type { Ator, Espera, Motor, Roteiro } from './motor'
+
+type Cliente = 'skatista' | 'motoboy' | 'mc' | 'turista'
+const CLIENTES: readonly Cliente[] = ['skatista', 'motoboy', 'mc', 'turista']
+
+/** A vez de um cliente: onde o mercador atende, para que lado olha, a vida dele antes e se o anterior já foi. */
+interface Vez {
+  lado: Lado
+  ponto: number
+  /** Bebeu no interlúdio (não bebe de novo esperando). */
+  bebe: boolean
+  /** O interlúdio (o mercador vivendo): o cliente já pode vir entrando enquanto ele termina. */
+  vida: Roteiro
+  /** O cliente de antes já saiu da tela. */
+  livre: () => boolean
+}
+type Ato = Generator<Espera, () => boolean, void>
+
+const oposto = (l: Lado): Lado => (l === 'dir' ? 'esq' : 'dir')
+
+/* ───────────── pedacinhos ───────────── */
+
+/** Toca a animação e espera: sem laço, até o fim; com laço, `ms` (ou `vezes` voltas), ou até `ate()`. */
+function* anima(m: Motor, a: Ator, anim: string, op: { lado?: Lado; ms?: number; vezes?: number; ate?: () => boolean } = {}): Roteiro {
+  m.tocar(a, anim, op.lado)
+  const meta = a.folha.anims[anim]
+  if (!meta.laco) {
+    yield () => a.acabou
+    return
+  }
+  const fim = m.t + (op.ms ?? meta.duracao * (op.vezes ?? 1))
+  yield () => m.t >= fim || !!op.ate?.()
+}
+
+/** Fora da tela (com folga): quem sai some. */
+function fora(m: Motor, a: Ator): boolean {
+  const [x0, , x1] = m.caixa(a)
+  return x1 < -2 || x0 > m.w + 2
+}
+
+/** Reação ao toque (o roteiro chama quando o personagem está livre): a reação dele e volta ao que fazia. */
+function* reage(m: Motor, a: Ator, depois: string): Roteiro {
+  a.querReagir = false
+  const anim = a.folha.anims.reagir ? 'reagir' : 'carinho'
+  if (!a.folha.anims[anim]) return
+  yield* anima(m, a, anim)
+  m.tocar(a, depois)
+}
+
+/** Espera `ms` parado (no `parado` dele), atendendo toque. */
+function* espera(m: Motor, a: Ator, ms: number, parado = 'parado'): Roteiro {
+  const fim = m.t + ms
+  if (a.anim !== parado) m.tocar(a, parado)
+  while (m.t < fim) {
+    yield () => m.t >= fim || a.querReagir
+    if (a.querReagir) {
+      yield* reage(m, a, parado)
+    }
+  }
+}
+
+/**
+ * Anda até `alvo` com a animação de passo (laço com passo), sem passar dele; com `y`, troca de faixa no caminho.
+ * `reage`: toque no meio do caminho para, reage e segue. `chamavel`: o mercador atende o chamado no caminho.
+ */
+function* anda(m: Motor, a: Ator, alvo: number, anim: string, op: { y?: number; reage?: boolean; chamavel?: Motor } = {}): Roteiro {
+  const lado: Lado = alvo === a.x ? a.lado : alvo > a.x ? 'dir' : 'esq'
+  const chegou = () => a.x === alvo && (op.y == null || a.y === op.y)
+  if (chegou()) return
+  const ir = () => {
+    a.alvo = alvo
+    a.alvoY = op.y ?? null
+    m.tocar(a, anim, lado)
+  }
+  ir()
+  while (!chegou()) {
+    yield () => chegou() || (!!op.reage && a.querReagir) || (!!op.chamavel && m.chamado)
+    if (chegou()) break
+    a.alvo = null
+    a.alvoY = null
+    if (op.reage && a.querReagir) yield* reage(m, a, anim)
+    else if (op.chamavel && m.chamado) yield* atenderChamado(m, a)
+    ir()
+  }
+  a.alvo = null
+  a.alvoY = null
+}
+
+/** O mercador abre o casaco para quem chamou (o balão e o botão do Mercado já saíram na hora do toque). */
+function* atenderChamado(m: Motor, merc: Ator): Roteiro {
+  m.chamado = false
+  yield* anima(m, merc, 'abrir')
+  yield* anima(m, merc, 'mostrar', { ms: 2600 })
+  yield* anima(m, merc, 'fechar')
+  m.tocar(merc, 'parado')
+}
+
+/** Uma batida do mercador sozinho, atendendo o chamado antes. */
+function* batida(m: Motor, merc: Ator, b: () => Roteiro): Roteiro {
+  if (m.chamado) yield* atenderChamado(m, merc)
+  yield* b()
+}
+
+/**
+ * Distância entre as âncoras para as mãos baterem: o mercador no quadro `evM` de `animM`, o cliente (virado para ele)
+ * no `evC` de `animC`. Olhando para a direita, o cliente fica em merc.x + d.
+ */
+function distancia(m: Motor, animM: string, evM: string, cli: string, animC: string, evC: string): number {
+  const fm = m.folha('mercador')
+  const fc = m.folha(cli)
+  const qm = fm.anims[animM].q.find((q) => q.evento === evM)?.mao
+  const qc = fc.anims[animC].q.find((q) => q.evento === evC)?.mao
+  if (!qm || !qc) return 44
+  return qm[0] - fm.ancora.x + (qc[0] - fc.ancora.x) + 1
+}
+
+/** O mercador entrega `item`: tira do casaco, estende, o cliente pega (o item muda de mão no "pega") e guarda. */
+function* passar(m: Motor, merc: Ator, cli: Ator, item: string, op: { pegaNaBase?: [number, number] } = {}): Roteiro {
+  m.tocar(merc, 'passar')
+  yield () => merc.eventos.has('oferece')
+  merc.item = item
+  m.marcar()
+  m.tocar(cli, 'pegar')
+  yield () => cli.eventos.has('pega')
+  merc.item = null
+  cli.item = item
+  // a sacola, o motoboy pega por baixo (a mão dele fica mais baixa, sentado na moto); depois, pela alça
+  cli.itemPega = op.pegaNaBase ?? null
+  m.marcar()
+  const i0 = cli.i
+  yield () => cli.i !== i0 || cli.acabou
+  cli.itemPega = null
+  // guardou (o quadro do "guarda" não tem mão: o item some sozinho)
+  yield () => cli.acabou && merc.acabou
+  cli.item = null
+  m.tocar(merc, 'parado')
+}
+
+/** O cliente paga: tira a nota, estende; o mercador estende a palma e recebe (a nota muda de mão no "recebe"). */
+function* pagar(m: Motor, merc: Ator, cli: Ator): Roteiro {
+  m.tocar(merc, 'receber')
+  // o "paga" dele (710 ms depois do começo) cai no "recebe" do mercador (1000 ms)
+  yield 290
+  m.tocar(cli, 'pagar')
+  cli.item = 'nota'
+  yield () => merc.eventos.has('recebe')
+  cli.item = null
+  merc.item = 'nota'
+  m.marcar()
+  yield () => !m.quadro(merc).mao
+  merc.item = null
+  yield () => merc.acabou && cli.acabou
+}
+
+/** Toque de mão em 3 tempos com o MC; a nota passa no aperto (paga no toque). */
+function* toque(m: Motor, merc: Ator, mc: Ator): Roteiro {
+  m.tocar(merc, 'toque')
+  m.tocar(mc, 'toque')
+  mc.item = 'nota'
+  yield () => mc.eventos.has('toque2')
+  mc.item = null
+  merc.item = 'nota'
+  m.marcar()
+  yield () => merc.eventos.has('toque3')
+  yield () => !m.quadro(merc).mao
+  merc.item = null
+  yield () => merc.acabou && mc.acabou
+}
+
+/* ───────────── a vida do mercador ───────────── */
+
+function* acenar(m: Motor, merc: Ator): Roteiro {
+  yield* anima(m, merc, 'acenar')
+  m.tocar(merc, 'parado')
+}
+
+/** Quadros do olhar com o rosto de frente (mercador.ts: o 0, o de volta ao meio e o do fim). */
+const OLHAR_FRENTE = new Set([0, 4, 8])
+
+/** Olha em volta; com `ate`, para no primeiro quadro de frente depois que `ate()` vale (sem pulo de cabeça). */
+function* olhar(m: Motor, merc: Ator, ate?: () => boolean): Roteiro {
+  m.tocar(merc, 'olhar')
+  yield () => merc.acabou || (!!ate?.() && OLHAR_FRENTE.has(merc.i))
+  m.tocar(merc, 'parado')
+}
+
+function* beber(m: Motor, merc: Ator): Roteiro {
+  yield* anima(m, merc, 'beber')
+  m.tocar(merc, 'parado')
+}
+
+function* respirar(m: Motor, merc: Ator, ms: number, ate?: () => boolean): Roteiro {
+  yield* anima(m, merc, 'parado', { ms, ate: () => m.chamado || !!ate?.() })
+}
+
+/** Anda até um lugar de passeio (sempre de volta à faixa do meio). */
+function* passear(m: Motor, merc: Ator, alvo: number): Roteiro {
+  yield* anda(m, merc, alvo, 'andar', { y: CHAO.meio, chamavel: m })
+  m.tocar(merc, 'parado')
+}
+
+/** Vai até os engradados e faz carinho no gato (o gato empina a cabeça no "carinho"). */
+function* carinho(m: Motor, merc: Ator, gato: Ator): Roteiro {
+  const L = m.lugar
+  const lado: Lado = L.engradado > merc.x ? 'dir' : 'esq'
+  const alvo = L.engradado + (lado === 'dir' ? -26 : 26)
+  yield* anda(m, merc, alvo, 'andar', { y: CHAO.meio, chamavel: m })
+  merc.lado = lado
+  gato.querReagir = false
+  yield* anima(m, merc, 'carinho')
+  m.tocar(merc, 'parado')
+}
+
+/**
+ * Entre um cliente e outro: anda até um ponto, para, olha em volta, bebe a lata (sempre que não bebeu na última
+ * vez), espera. Termina no ponto de atender, virado para o lado de onde o cliente vem.
+ */
+function* interludio(m: Motor, merc: Ator, gato: Ator, ponto: number, lado: Lado, op: { curto: boolean; bebe: boolean; carinho: boolean; acenou: boolean }): Roteiro {
+  const L = m.lugar
+  m.fase = 'vida'
+  if (!op.curto) {
+    // primeiro olha o cliente ir embora (ou acena, se ainda não acenou): ninguém atravessa ninguém
+    m.mercadorLivre = true
+    yield* batida(m, merc, () => (!op.acenou && m.rand() < 0.4 ? acenar(m, merc) : olhar(m, merc)))
+    // primeiro anda (passeio ou carinho no gato), depois para e olha, depois bebe
+    const longe = L.passeio.filter((x) => Math.abs(x - merc.x) > 18)
+    if (op.carinho) yield* batida(m, merc, () => carinho(m, merc, gato))
+    else if (longe.length) yield* batida(m, merc, () => passear(m, merc, longe[Math.floor(m.rand() * longe.length)]))
+    if (m.rand() < 0.6) yield* batida(m, merc, () => olhar(m, merc))
+    if (op.bebe) yield* batida(m, merc, () => beber(m, merc))
+    else yield* batida(m, merc, () => respirar(m, merc, 1600))
+  }
+  m.mercadorLivre = true
+  // a caminho do ponto: o cliente que anda devagar já pode vir entrando
+  m.fase = 'rumo'
+  yield* batida(m, merc, () => passear(m, merc, ponto))
+  if (m.chamado) yield* atenderChamado(m, merc)
+  m.mercadorLivre = false
+  m.fase = 'ponto'
+  merc.lado = lado
+  m.tocar(merc, 'parado')
+  if (m.sexta && m.rand() < 0.5) m.falar(merc, FALAS.sextou, 1600)
+}
+
+/**
+ * O mercador espera o cliente chegar, vivendo (respira, olha, às vezes bebe); o chamado vem antes. Chegou, ele para de
+ * respirar na hora e de olhar no próximo quadro de frente: o cliente não fica parado esperando a vez de falar. A lata
+ * (2,4 s, sem como parar no meio) só sai com o cliente ainda fora da tela (`longe`), e o cliente só entra depois que
+ * ele guardou a lata (`bebendo`, na entrada de cada ato).
+ */
+function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber: boolean, longe: () => boolean): Roteiro {
+  m.mercadorLivre = true
+  let bebeu = !podeBeber
+  while (!chegou()) {
+    if (m.chamado) {
+      yield* atenderChamado(m, merc)
+      continue
+    }
+    const r = m.rand()
+    if (!bebeu && r < 0.35 && longe()) {
+      bebeu = true
+      yield* beber(m, merc)
+    } else if (r < 0.6) yield* olhar(m, merc, chegou)
+    else yield* respirar(m, merc, 2360, chegou)
+  }
+  if (m.chamado) yield* atenderChamado(m, merc)
+  m.mercadorLivre = false
+  m.fase = 'ato'
+  m.tocar(merc, 'parado')
+}
+
+/* ───────────── os clientes ───────────── */
+
+/** O mercador está com a lata na mão (o cliente espera ele guardar para entrar). */
+const bebendo = (merc: Ator) => merc.anim === 'beber' && !merc.acabou
+
+/** Onde o cliente entra: fora da tela, do lado para onde o mercador olha. */
+function entrada(m: Motor, lado: Lado, folga: number): number {
+  return lado === 'dir' ? m.w + folga : -folga
+}
+
+/** Roda um roteiro em paralelo e devolve quando ele acabou. */
+function emParalelo(m: Motor, gen: Roteiro): () => boolean {
+  const h = m.lancar(gen)
+  return () => !h.vivo()
+}
+
+function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
+  const { lado, bebe } = v
+  const d = distancia(m, 'passar', 'oferece', 'skatista', 'pegar', 'pega')
+  const xc = v.ponto + (lado === 'dir' ? d : -d)
+  const sk = m.criar('skatista', { x: entrada(m, lado, 30), y: CHAO.meio, lado: oposto(lado), sombra: true, anim: 'parado', prof: CHAO.meio + 0.2, visivel: false })
+  const FREIO = 13
+  let chegou = false
+  m.lancar(
+    (function* (): Roteiro {
+      // chega rápido: só depois que o mercador parou no ponto (e um respiro)
+      yield () => m.fase === 'ponto' && v.livre()
+      yield 300 + Math.round(m.rand() * 1200)
+      yield () => !bebendo(merc)
+      sk.visivel = true
+      yield* anda(m, sk, xc + (lado === 'dir' ? FREIO : -FREIO), 'rodar', { reage: true })
+      sk.alvo = xc
+      yield* anima(m, sk, 'frear')
+      sk.alvo = null
+      m.tocar(sk, 'parado')
+      chegou = true
+    })(),
+  )
+  yield* v.vida
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !sk.visivel)
+  m.falar(sk, sortear(FALAS.skatista.pedir, m.rand), 1900)
+  yield* espera(m, sk, 1500)
+  m.falar(merc, sortear(FALAS.mercador.oferecer, m.rand), 1500)
+  yield* anima(m, merc, 'abrir')
+  m.tocar(merc, 'mostrar')
+  yield* anima(m, sk, 'apontar')
+  m.tocar(sk, 'parado')
+  yield* anima(m, merc, 'fechar')
+  yield* passar(m, merc, sk, 'seda')
+  yield* espera(m, sk, 250)
+  yield* pagar(m, merc, sk)
+  m.tocar(sk, 'parado')
+  m.falar(merc, sortear(FALAS.mercador.agradecer, m.rand), 1500)
+  m.tocar(merc, 'aprovar')
+  yield* espera(m, sk, 600)
+  m.falar(sk, sortear(FALAS.skatista.valeu, m.rand), 1300)
+  yield () => merc.acabou
+  m.tocar(merc, 'parado')
+  // sai: volta por onde veio ou segue em frente; seguindo, desce para a beira da calçada enquanto sobe e rema (passa
+  // na frente do mercador, mais perto de quem olha, como a moto) e só dá o ollie depois de passar por ele
+  return emParalelo(
+    m,
+    (function* (): Roteiro {
+      yield* espera(m, sk, 500)
+      m.calar(sk)
+      const segue = m.rand() < 0.5
+      if (!segue) sk.lado = lado
+      sk.prof = CHAO.meio + 0.6
+      if (segue) sk.alvoY = CHAO.beira
+      yield* anima(m, sk, 'subir')
+      yield* anima(m, sk, 'remar', { vezes: 2 })
+      if (segue) {
+        const passou = () => {
+          const [mx0, , mx1] = m.caixa(merc)
+          const [sx0, , sx1] = m.caixa(sk)
+          return sk.lado === 'dir' ? sx0 > mx1 + 2 : sx1 < mx0 - 2
+        }
+        m.tocar(sk, 'rodar')
+        while (!passou() && !fora(m, sk)) {
+          yield () => passou() || fora(m, sk) || sk.querReagir
+          if (sk.querReagir && !passou()) sk.querReagir = false
+        }
+      }
+      yield* anima(m, sk, 'ollie')
+      m.tocar(sk, 'rodar')
+      while (!fora(m, sk)) {
+        yield () => fora(m, sk) || sk.querReagir
+        if (sk.querReagir) {
+          yield* reage(m, sk, 'rodar')
+        }
+      }
+      m.remover(sk)
+    })(),
+  )
+}
+
+function* atoMotoboy(m: Motor, merc: Ator, v: Vez): Ato {
+  const { lado } = v
+  yield* v.vida
+  // o mercador vai até o meio-fio esperar a moto (quem estava antes já foi)
+  m.mercadorLivre = true
+  yield* batida(m, merc, () => respirar(m, merc, 600))
+  while (!v.livre()) yield* batida(m, merc, () => respirar(m, merc, 800))
+  yield* anda(m, merc, merc.x + (lado === 'dir' ? 4 : -4), 'andar', { y: CHAO.beira, chamavel: m })
+  m.mercadorLivre = false
+  m.fase = 'ato'
+  merc.lado = lado
+  m.tocar(merc, 'parado')
+  const d = distancia(m, 'passar', 'oferece', 'motoboy', 'pegar', 'pega')
+  const xc = merc.x + (lado === 'dir' ? d : -d)
+  const mb = m.criar('motoboy', { x: entrada(m, lado, 40), y: CHAO.moto, lado: oposto(lado), sombra: true, anim: 'parado' })
+  const FREIO = 13
+  yield* anda(m, mb, xc + (lado === 'dir' ? FREIO : -FREIO), 'chegar')
+  mb.alvo = xc
+  yield* anima(m, mb, 'encostar')
+  mb.alvo = null
+  yield* espera(m, mb, 350)
+  yield* anima(m, mb, 'abrirViseira')
+  m.falar(mb, sortear(FALAS.motoboy.pedir, m.rand), 1700)
+  yield 1300
+  m.falar(merc, sortear(FALAS.mercador.entregar, m.rand), 1300)
+  yield 300
+  // a sacola pela alça (pega 4,1); o motoboy, sentado, pega por baixo (4,10)
+  yield* passar(m, merc, mb, 'sacola', { pegaNaBase: [4, 10] })
+  yield* anima(m, mb, 'fecharViseira')
+  m.falar(merc, sortear(FALAS.mercador.motoboy, m.rand), 1500)
+  m.tocar(merc, 'acenar')
+  yield* anima(m, mb, 'reagir')
+  mb.querReagir = false
+  m.falar(mb, sortear(FALAS.motoboy.valeu, m.rand), 1200)
+  yield 800
+  const saiu = emParalelo(
+    m,
+    (function* (): Roteiro {
+      // segue em frente, passando na frente do mercador (a moto está mais perto de quem olha); o balão fica
+      m.calar(mb)
+      yield* anima(m, mb, 'sair')
+      m.tocar(mb, 'chegar')
+      yield () => fora(m, mb)
+      m.remover(mb)
+    })(),
+  )
+  yield () => merc.acabou
+  m.tocar(merc, 'parado')
+  return saiu
+}
+
+function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
+  const { lado, bebe } = v
+  const d = distancia(m, 'toque', 'toque1', 'mc', 'toque', 'toque1')
+  const xc = v.ponto + (lado === 'dir' ? d : -d)
+  const mc = m.criar('mc', { x: entrada(m, lado, 24), y: CHAO.meio, lado: oposto(lado), sombra: true, anim: 'parado', prof: CHAO.meio + 0.2, visivel: false })
+  let chegou = false
+  m.lancar(
+    (function* (): Roteiro {
+      // vem no beat enquanto o mercador volta para o ponto
+      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !bebendo(merc)
+      mc.visivel = true
+      yield* anda(m, mc, xc, 'chegar', { reage: true })
+      m.tocar(mc, 'parado')
+      chegou = true
+    })(),
+  )
+  yield* v.vida
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !mc.visivel)
+  m.falar(mc, sortear(FALAS.mc.chegar, m.rand), 1600)
+  yield* espera(m, mc, 1200)
+  m.falar(merc, sortear(FALAS.mercador.mc, m.rand), 1200)
+  yield* espera(m, mc, 600)
+  yield* toque(m, merc, mc)
+  m.tocar(merc, 'parado')
+  m.falar(mc, sortear(FALAS.mc.pedir, m.rand), 1600)
+  yield* espera(m, mc, 1300)
+  m.falar(merc, sortear(FALAS.mercador.entregar, m.rand), 1200)
+  // pega a Arizona e fica com ela erguida (o último quadro do pegar segura a lata na altura do rosto)
+  yield* passar(m, merc, mc, 'lataArizona')
+  m.falar(mc, sortear(FALAS.mc.valeu, m.rand), 1400)
+  yield* anima(m, merc, 'rir')
+  m.tocar(merc, 'parado')
+  return emParalelo(
+    m,
+    (function* (): Roteiro {
+      // volta por onde veio, dançando (não atravessa o mercador)
+      yield 300
+      m.calar(mc)
+      mc.lado = lado
+      m.tocar(mc, 'sair')
+      while (!fora(m, mc)) {
+        yield () => fora(m, mc) || mc.querReagir
+        if (mc.querReagir) yield* reage(m, mc, 'sair')
+      }
+      m.remover(mc)
+    })(),
+  )
+}
+
+function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
+  const { lado, bebe } = v
+  const d = distancia(m, 'passar', 'oferece', 'turista', 'pegar', 'pega')
+  const xc = v.ponto + (lado === 'dir' ? d : -d)
+  const tu = m.criar('turista', { x: entrada(m, lado, 24), y: CHAO.meio, lado: oposto(lado), sombra: true, anim: 'parado', prof: CHAO.meio + 0.2, visivel: false })
+  let chegou = false
+  m.lancar(
+    (function* (): Roteiro {
+      // anda de pato, devagar: entra enquanto o mercador ainda volta para o ponto
+      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !bebendo(merc)
+      tu.visivel = true
+      // lendo o mapa, quase esbarra: abaixa o mapa, se assusta, guarda o mapa
+      yield* anda(m, tu, xc, 'chegar', { reage: true })
+      yield* anima(m, tu, 'espantar')
+      m.tocar(tu, 'parado')
+      chegou = true
+    })(),
+  )
+  yield* v.vida
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !tu.visivel)
+  m.falar(tu, sortear(FALAS.turista.pedir, m.rand), 1900)
+  yield* espera(m, tu, 1500)
+  m.falar(merc, sortear(FALAS.mercador.turista, m.rand), 1400)
+  yield* anima(m, merc, 'abrir')
+  m.tocar(merc, 'mostrar')
+  yield* espera(m, tu, 300)
+  // a foto do mercador de casaco aberto (o flash estoura na lente)
+  yield* anima(m, tu, 'foto')
+  m.tocar(tu, 'parado')
+  yield* anima(m, merc, 'fechar')
+  m.tocar(merc, 'parado')
+  m.falar(tu, sortear(FALAS.turista.piteira, m.rand), 1600)
+  yield* espera(m, tu, 1200)
+  yield* passar(m, merc, tu, 'piteira')
+  yield* espera(m, tu, 200)
+  yield* pagar(m, merc, tu)
+  m.tocar(tu, 'parado')
+  m.falar(tu, sortear(FALAS.turista.valeu, m.rand), 1400)
+  yield* espera(m, tu, 700)
+  m.falar(merc, sortear(FALAS.mercador.agradecer, m.rand), 1400)
+  yield* anima(m, merc, 'aprovar')
+  m.tocar(merc, 'parado')
+  return emParalelo(
+    m,
+    (function* (): Roteiro {
+      // sai feliz por onde veio (não atravessa o mercador)
+      m.calar(tu)
+      tu.lado = lado
+      m.tocar(tu, 'sair')
+      while (!fora(m, tu)) {
+        yield () => fora(m, tu) || tu.querReagir
+        if (tu.querReagir) yield* reage(m, tu, 'sair')
+      }
+      m.remover(tu)
+    })(),
+  )
+}
+
+const ATOS: Record<Cliente, (m: Motor, merc: Ator, v: Vez) => Ato> = {
+  skatista: atoSkatista,
+  motoboy: atoMotoboy,
+  mc: atoMC,
+  turista: atoTurista,
+}
+
+/* ───────────── efeitos dos eventos ───────────── */
+
+/** Pontos de onde saem os efeitos, no quadro olhando para a direita. */
+const LENTE = { foto: [31, 21], reagir: [31, 18] } as const
+const TRASEIRA_MOTO = [3, 47] as const
+const FONE_MC = [10, 14] as const
+
+/** Um efeito em (x, y), subindo `sobe` px, passaria por cima do letreiro (a marca da loja na cena)? */
+function sobreLetreiro(m: Motor, efeito: string, x: number, y: number, sobe: number): boolean {
+  const l = m.ator('letreiro')
+  if (!l) return false
+  const [lx0, ly0, lx1, ly1] = m.caixa(l)
+  const f = m.folha(efeito)
+  return x < lx1 && x + f.w > lx0 && y - sobe < ly1 && y + f.h > ly0
+}
+
+function efeitos(m: Motor, a: Ator, ev: string) {
+  const [cx, cy] = m.canto(a)
+  const xDo = (x: number) => cx + (a.lado === 'dir' ? x : a.folha.w - 1 - x)
+  if (a.id === 'turista' && ev === 'flash') {
+    const [lx, ly] = a.anim === 'foto' ? LENTE.foto : LENTE.reagir
+    m.efeito('flash', xDo(lx) - 5, cy + ly - 5)
+  } else if (a.id === 'motoboy' && ev === 'arranca') {
+    // as linhas ficam no chão onde a moto arrancou e somem; a ponta encosta na traseira
+    const tx = xDo(TRASEIRA_MOTO[0])
+    m.efeito('velocidade', a.lado === 'dir' ? tx - 16 : tx + 1, cy + TRASEIRA_MOTO[1] - 3, a.lado)
+  } else if (a.id === 'mc' && ev === 'nota') {
+    const nota = m.rand() < 0.5 ? 'colcheia' : 'semicolcheia'
+    const x = xDo(FONE_MC[0]) - 2
+    const y = cy + FONE_MC[1] - 6
+    // perto da porta a nota não sai: subindo (1 px a cada 110 ms por 900 ms) ela passaria por cima do GC em neon
+    if (!sobreLetreiro(m, nota, x, y, Math.ceil(900 / 110))) m.efeito(nota, x, y, 'dir', 110, 900)
+  } else if (a.id === 'mercador' && ev === 'carinho') {
+    const gato = m.ator('gato')
+    if (gato)
+      m.lancar(
+        (function* (): Roteiro {
+          yield* anima(m, gato, 'carinho')
+          m.tocar(gato, 'parado')
+        })(),
+      )
+  }
+}
+
+/* ───────────── o diretor ───────────── */
+
+function embaralhar<T>(lista: readonly T[], rand: () => number): T[] {
+  const l = [...lista]
+  for (let i = l.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[l[i], l[j]] = [l[j], l[i]]
+  }
+  return l
+}
+
+function* diretor(m: Motor, merc: Ator, gato: Ator): Roteiro {
+  const L = m.lugar
+  let fila: Cliente[] = []
+  let ultimo: Cliente | null = null
+  let bebeu = false
+  let carinhou = false
+  let primeira = true
+  let saiu: () => boolean = () => true
+  while (true) {
+    // saco embaralhado: os quatro passam antes de alguém voltar, e nunca o mesmo duas vezes seguidas
+    if (!fila.length) fila = embaralhar(CLIENTES, m.rand)
+    // na primeira, um que chega rápido (o turista andando de pato leva uns segundos para entrar)
+    if (primeira && fila[0] === 'turista') fila.push(fila.shift()!)
+    if (fila[0] === ultimo) fila.push(fila.shift()!)
+    const cliente = fila.shift()!
+    const anterior = ultimo
+    ultimo = cliente
+    const lado: Lado = primeira ? 'dir' : m.rand() < 0.5 ? 'dir' : 'esq'
+    const ponto = lado === 'dir' ? L.pontoEsq : L.pontoDir
+    // bebe a Fanta uma vez sim, outra não (e às vezes esperando o cliente, quando não bebeu antes)
+    const bebe: boolean = !primeira && !bebeu
+    // carinho no gato no máximo uma vez sim, outra não
+    const carinho: boolean = !primeira && !carinhou && m.rand() < 0.6
+    // o motoboy sai com o aceno do mercador: não acena de novo
+    const vida = interludio(m, merc, gato, ponto, lado, { curto: primeira, bebe, carinho, acenou: anterior === 'motoboy' })
+    bebeu = bebe
+    carinhou = carinho
+    primeira = false
+    // o próximo só entra quando o de antes saiu da tela: um cliente por vez
+    const antes = saiu
+    saiu = yield* ATOS[cliente](m, merc, { lado, ponto, bebe, vida, livre: antes })
+  }
+}
+
+/** O gato nos engradados: parado, e no toque empina a cabeça (o mesmo carinho). */
+function* vidaDoGato(m: Motor, gato: Ator): Roteiro {
+  while (true) {
+    yield () => gato.querReagir
+    gato.querReagir = false
+    if (gato.anim === 'carinho' && !gato.acabou) continue
+    yield* anima(m, gato, 'carinho')
+    m.tocar(gato, 'parado')
+  }
+}
+
+/* ───────────── montagem ───────────── */
+
+/**
+ * O que o chamado fez: `agora` (ele está livre: abre o casaco assim que termina o gesto), `depois` (está atendendo:
+ * abre no fim do atendimento) ou `foto` (movimento reduzido: só o balão; ele já está de casaco aberto na foto).
+ */
+export type Chamado = 'agora' | 'depois' | 'foto'
+
+export interface Cena {
+  merc: Ator
+  /** Toque ou teclado no mercador: o balão sai na hora; o casaco abre quando ele puder. */
+  chamar(longo: boolean): Chamado
+  /** Toque na cena (px da grade): quem foi tocado reage. Devolve o id, ou null. */
+  tocar(x: number, y: number, folga: number): string | null
+}
+
+/** A rua viva: cenário, mercador, gato e o diretor. */
+export function montarCena(m: Motor): Cena {
+  const L = m.lugar
+  m.montarCenario()
+  const ladoGato: Lado = L.engradado > L.porta ? 'esq' : 'dir'
+  const gato = m.criar('gato', { x: L.engradado + (ladoGato === 'esq' ? 1 : -1), y: CHAO.fundo - 20, prof: CHAO.fundo + 0.1, lado: ladoGato, anim: 'parado' })
+  const merc = m.criar('mercador', { x: L.pontoEsq, y: CHAO.meio, sombra: true, anim: 'parado', prof: CHAO.meio + 0.1 })
+  m.aoEvento = (a, ev) => efeitos(m, a, ev)
+  m.lancar(diretor(m, merc, gato))
+  m.lancar(vidaDoGato(m, gato))
+  return {
+    merc,
+    chamar(longo) {
+      const lista = longo ? [...FALAS.mercador.chamado, ...FALAS.mercador.chamadoLongo] : FALAS.mercador.chamado
+      m.falar(merc, sortear(lista, m.rand), 3200)
+      // guardado sempre: livre, ele atende no próximo respiro; atendendo, no começo da vida depois do cliente
+      // (interludio e motoboy passam por batida/atenderChamado antes de qualquer outra coisa)
+      const livre = m.mercadorLivre
+      m.chamado = true
+      return livre ? 'agora' : 'depois'
+    },
+    tocar(x, y, folga) {
+      const a = m.quemEsta(x, y, folga)
+      if (!a) return null
+      if (a.id === 'mercador') {
+        this.chamar(false)
+        return a.id
+      }
+      a.querReagir = true
+      return a.id
+    },
+  }
+}
+
+/**
+ * Movimento reduzido: a rua vira uma foto — o mercador de casaco aberto atendendo o skatista, que aponta "esse aí",
+ * o gato nos engradados e o letreiro aceso. Ninguém anda.
+ */
+export function montarRetrato(m: Motor): Cena {
+  const L = m.lugar
+  // o quadro 0 de cada um: letreiro aceso, luz firme
+  m.montarCenario()
+  const ladoGato: Lado = L.engradado > L.porta ? 'esq' : 'dir'
+  m.criar('gato', { x: L.engradado + (ladoGato === 'esq' ? 1 : -1), y: CHAO.fundo - 20, prof: CHAO.fundo + 0.1, lado: ladoGato, anim: 'parado' })
+  const merc = m.criar('mercador', { x: L.pontoEsq, y: CHAO.meio, sombra: true, prof: CHAO.meio + 0.1 })
+  m.pose(merc, 'mostrar', 0, 'dir')
+  const d = distancia(m, 'passar', 'oferece', 'skatista', 'pegar', 'pega')
+  const sk = m.criar('skatista', { x: L.pontoEsq + d, y: CHAO.meio, sombra: true, lado: 'esq', prof: CHAO.meio + 0.2 })
+  const ap = sk.folha.anims.apontar.q.findIndex((q) => q.evento === 'aponta')
+  m.pose(sk, 'apontar', Math.max(0, ap), 'esq')
+  // a foto já vem com o "Chega mais." dele (o relógio não anda: o balão fica)
+  m.falar(merc, FALAS.mercador.chamado[0], 60_000)
+  return {
+    merc,
+    chamar(longo) {
+      const lista = longo ? [...FALAS.mercador.chamado, ...FALAS.mercador.chamadoLongo] : FALAS.mercador.chamado
+      m.falar(merc, sortear(lista, m.rand), 60_000)
+      return 'foto'
+    },
+    tocar(x, y, folga) {
+      const a = m.quemEsta(x, y, folga)
+      if (a?.id === 'mercador') this.chamar(false)
+      return a?.id ?? null
+    },
+  }
+}
