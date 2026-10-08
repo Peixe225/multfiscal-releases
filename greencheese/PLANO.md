@@ -53,11 +53,27 @@ por um revisor independente e no ar.
 - [ ] Webhook do Pix preparado: quando o Pix existir, o contador sobe sozinho.
 - [ ] Sem servidor (zip, desenvolvimento): o rateio continua funcionando pelo WhatsApp.
 
-## F10 · Painel do dono — continuação
-- [ ] Produtos, preços, fotos e disponibilidade por estado (o site lê do servidor, com o `catalogo.json` de reserva).
-- [ ] Prêmios e regras do Teste minha sorte; cupons conferidos no painel.
-- [ ] Ajustes da loja (WhatsApp, Instagrams, horários, taxas, pagamentos) e pedidos recebidos.
-- [ ] Pix direto no site (depende do provedor escolhido pela loja).
+## F10 · Painel: a loja inteira no controle do dono
+- [ ] Produtos: foto (thumbnail), nome, descrição, preço, combos, variações, disponível/indisponível por estado e "restam X unidades".
+- [ ] Stories do Início: quais produtos passam e em que ordem.
+- [ ] Estados: WhatsApp por estado (ou um só pra todos), Instagram, cidades, horários de entrega, taxa, entrega grátis, formas de pagamento.
+- [ ] Pedido guiado: os textos de cada passo editáveis; prêmios e regras do Teste minha sorte; textos da loja.
+- [ ] O site lê tudo do servidor, com o que está embutido de reserva (nunca fica em branco).
+
+## F11 · Início vivo e Mercado
+- [ ] Início: o mercador anda pela rua, bebe (refrigerante importado: álcool e tabaco fora da animação) e vende para 4 personagens bem diferentes, cada um com uma interação própria com ele — celular e computador.
+- [ ] Aba Catálogo vira "Mercado", com o mercador e a animação que ele já tem.
+
+## F12 · Pedido completo no WhatsApp da Green Cheese
+- [ ] Ao fechar, o pedido fica salvo no servidor e chega completo e formatado num grupo privado do WhatsApp (número de envio da loja → grupo com o celular que recebe e notifica), por um gateway (Evolution API ou Z-API), configurado no painel.
+- [ ] Painel: pedidos recebidos com status.
+
+## F13 · Contas: cliente e equipe
+- [ ] Equipe: dono, gerente por estado e atendente (papéis e estados permitidos), cada um com seu login.
+- [ ] Cliente: entrar com WhatsApp + código enviado pelo WhatsApp da loja (pelo gateway); conta com endereços, pedidos, cupons, giros e vagas de rateio validados no servidor.
+
+## F14 · Pix direto no site
+- [ ] QR dinâmico e confirmação automática (pedido e rateio), quando a loja escolher o provedor.
 
 ## Publicação
 - [ ] Publicar F7–F10 no ar (pede o ok do Ian) e criar o acesso do dono com o código de instalação.
