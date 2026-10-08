@@ -79,6 +79,19 @@ O que está na prévia: o dichavador que gira, abre e entrega um beck bolado com
 
 - `mercadorTraga` em `src/dados/config.ts` liga os tragos do mercador (ligado na prévia, a pedido). A Lei 9.294/1996, art. 3º, veda propaganda de produtos fumígenos: **para a versão oficial, a recomendação é `false`** (o mercador continua abrindo o manto com os acessórios).
 
+## Servidor
+
+O servidor (PHP + SQLite, `api/`) está pronto e testado (ver LEIA-ME.md, "Servidor (API)"). Falta da loja:
+
+- **LGPD dos dados do rateio**: o servidor guarda nome, WhatsApp, estado e cidade de quem entra num rateio (e as anotações do dono). Falta definir: o **controlador** (razão social e CNPJ da loja), a finalidade e a base legal (fechar e entregar o pedido do rateio), **por quanto tempo** os dados ficam depois do rateio encerrado (sugestão: 6 meses e depois apagar), o **canal de exclusão** (o painel já apaga os dados de uma pessoa sem mexer nas contas do rateio: `admin-participante-apagar`) e publicar a política de privacidade (com link no formulário do rateio). O IP de quem tenta entrar não é guardado puro (só um hash com sal, para o limite de tentativas, e some em 1 dia).
+- **Rateio que não lota e devolução**: a loja não definiu. O site não promete nada: diz que a loja chama no WhatsApp pra combinar. Confirmar com o dono: prazo máximo pra lotar, o que acontece com quem já pagou (devolve o Pix? vira crédito?) e se dá pra sair depois de pagar.
+- **Rotina de backup**: quem baixa a cópia do banco (painel → "Baixar cópia do banco"), de quanto em quanto tempo (sugestão: toda segunda) e onde guarda (fora do celular, ex.: Drive da loja; o arquivo tem dados de clientes). O backup da Hostinger existe, mas restaurar a hospedagem inteira desfaz o resto do site junto.
+- **Pix direto no site**: escolher o provedor (ex.: Mercado Pago, Efí, Asaas, PagSeguro ou o banco da loja) e gerar as credenciais (geralmente com conta PJ). A rota do webhook (`pix-webhook`, hoje responde "não configurado") e a confirmação automática (a mesma função do painel) já estão prontas; falta ligar o provedor.
+- **Código de instalação**: gerar o de verdade antes de publicar o servidor (`php scripts/codigo-instalacao.php`) e entregar ao dono por canal seguro.
+- **Conferir no ar** depois da 1ª publicação com a API: painel → Diagnóstico (banco, log e módulos fechados pela web, nenhum `.php` rodando em `uploads/`, PHP 8.1+, GD com WebP, pasta gravável). Os `.htaccess` passaram num Apache local (os dois ramos, `Require` e `Order/Deny`); a Hostinger usa LiteSpeed, que lê o mesmo `.htaccess`, mas só o Diagnóstico no ar prova.
+- **Versão do PHP** no hPanel: 8.1 ou mais nova (8.3 recomendada).
+- **IP do cliente**: o limite de tentativas usa o IP que chega no PHP (12 entradas em rateio por hora por IP; IPv6 conta por /64, que é um aparelho ou uma casa). Se um dia a Hostinger puser CDN na frente do site, conferir que o IP continua sendo o de cada cliente (senão todo mundo divide o mesmo limite). Operadora de celular que põe muita gente atrás de um IPv4 só (CGNAT) pode fazer clientes diferentes dividirem o limite num rateio muito disputado: se aparecer "Muita tentativa seguida" pra quem não errou, subir o 12 em `publico.php`.
+
 ## Publicação
 
 - **No ar em `https://oprojeto.online/greencheese/`** (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.

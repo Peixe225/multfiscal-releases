@@ -60,6 +60,70 @@ Quer na raiz ou num subdomínio? Troque `urlPublica` em `src/dados/config.ts` e 
 
 > O SSL (https) precisa estar ativo: a detecção de estado, o CEP e o "copiar pedido" dependem de https.
 
+---
+
+## Servidor (API)
+
+O rateio (e o painel do dono) usam um servidor pequeno em **PHP + SQLite** que mora junto do site, na mesma hospedagem: `public/api/` → `dist/api/` → `oprojeto.online/greencheese/api/`. Sem MySQL e sem serviço de fora. Rotas, campos e erros: **API.md** (é o contrato entre site, painel e servidor).
+
+### Como fica no ar
+
+Dentro de `public_html/greencheese/`:
+
+| Pasta | O que tem | Pela web |
+|---|---|---|
+| `api/index.php` | a única porta da API (a rota vai em `?r=`, ex.: `api/index.php?r=rateios`) | aberto |
+| `api/nucleo/`, `api/instalacao.php` | os módulos e o hash do código de instalação | fechado (403) |
+| `api/privado/` | o banco `loja.sqlite` (com o diário `loja.sqlite-wal` e `-shm`) e o `erros.log` (passou de 1 MB, vira `erros.log.1`) | fechado (403) |
+| `uploads/` | as imagens que o dono envia pelo painel (WebP, nome aleatório) | só imagem; nenhum `.php` roda ali |
+
+- O banco nasce sozinho no primeiro acesso e se atualiza sozinho (migrações pelo `PRAGMA user_version`).
+- Precisa de **PHP 8.1 ou mais novo** (hPanel → Avançado → Configuração do PHP; 8.3 é o melhor) com `pdo_sqlite`, que a Hostinger já tem. Com GD + WebP, as fotos do painel são ajustadas (lado maior até 1600 px, viram WebP); sem isso, sobem do jeito que vieram.
+- Cada pasta interna tem o próprio `.htaccess` (com as duas sintaxes: `Require` e `Order/Deny`) e cada módulo PHP começa com uma guarda: mesmo se o `.htaccess` falhar, abrir um módulo direto não faz nada.
+- **Sem `RewriteEngine` nas nossas pastas**, de propósito: ligar a reescrita aqui anularia as regras da raiz do domínio (HTTPS etc.). Por isso a rota é um parâmetro.
+- Erro nunca aparece com detalhe pro cliente: o detalhe vai pro `api/privado/erros.log`.
+
+### Primeiro acesso: o código de instalação
+
+1. `php scripts/codigo-instalacao.php` → mostra o código **uma vez** (4 grupos de 5, sem letra que confunde, ex.: `k7m2p-x9q4r-h3d8w-5tnby`) e grava só o hash em `public/api/instalacao.php`.
+2. `npm run build` e publicar. O `publicar.mjs` **recusa** enquanto o `instalacao.php` for o de desenvolvimento (marcado `// DEV`), e o servidor no ar também não aceita o código de desenvolvimento.
+3. Passar o código pro dono por um canal seguro (não em grupo). No painel, ele cria o login e a senha (10 caracteres ou mais) com esse código. Dali em diante o código não vale mais.
+4. **Esqueceu a senha?** Gere outro código (passos 1 e 2): no painel, "Esqueci a senha" pede o código novo e a senha nova. Cada código vale uma vez; todas as sessões abertas caem.
+
+### Backup dos dados
+
+- **Pelo painel** (o jeito certo): "Baixar cópia do banco" (`admin-backup`) baixa um arquivo `.sqlite` com tudo, coerente. Sugestão: toda semana e antes de qualquer mudança grande. O arquivo tem nome e WhatsApp dos clientes: guardar em lugar seguro.
+- **Pelo gerenciador de arquivos** da Hostinger: `public_html/greencheese/api/privado/` → baixar o `loja.sqlite` **junto com** o `loja.sqlite-wal`, se ele existir (as últimas mudanças ficam no `-wal` até o SQLite juntar; só o `loja.sqlite` pode sair desatualizado).
+- **Restaurar** (numa hora sem movimento): primeiro apagar `loja.sqlite-wal` e `loja.sqlite-shm` de `api/privado/` (um diário velho por cima do banco novo estraga o banco), depois subir a cópia como `api/privado/loja.sqlite`.
+- Publicar o site **nunca mexe nos dados**: o `publicar.mjs` não sobe nada de `api/privado/` além do `.htaccess` e do `index.html` vazio, nem nada de `uploads/` além do `.htaccess` (e nenhum `.sqlite`/`.log` de pasta nenhuma).
+
+### Publicar com o servidor
+
+Mesmo comando de sempre (`npm run build` + `node scripts/publicar.mjs`). A ordem agora: os `.htaccess` de todas as pastas primeiro (nada fica aberto nem por um instante), depois a API (módulos antes do `index.php`), `assets/`, o resto, `painel/` e os `index.html` por último. Ensaio sem rede: `PUBLICAR_SECO=1 node scripts/publicar.mjs` lista na ordem o que subiria e o que fica de fora (`PUBLICAR_DIST=<pasta>` ensaia outro build).
+
+**Depois da primeira publicação com a API**: painel → Diagnóstico. Ele pede pela web o banco, o log, um módulo, o `instalacao.php`, o `.htaccess` e um `.php` de teste dentro de `uploads/`: tudo tem que dar fechado, e a lista de avisos vazia. Se algo aparecer aberto, o `.htaccess` daquela pasta não está valendo: não use o painel até resolver.
+
+### Desenvolvimento
+
+```bash
+npm run api    # PHP em http://127.0.0.1:8090 (GC_API_PORTA troca), dados em greencheese/.dados-dev/
+npm run dev    # em outro terminal: o Vite repassa /api e /uploads pro PHP (o preview também)
+```
+
+- Código de instalação de desenvolvimento: `dev-instalar-greencheese` (só vale com `GC_DADOS`, que o `npm run api` liga).
+- Zerar tudo: apagar a pasta `.dados-dev/` (fica fora do Git e do build).
+- Com o PHP desligado o site abre igual: o Vite responde 503 `sem-servidor` e o site segue sem servidor (o rateio fecha pelo WhatsApp).
+- Variáveis: `GC_API_PORTA` (porta), `GC_DADOS` e `GC_UPLOADS` (pastas), `PHP` (outro binário do PHP).
+
+### Testes do servidor
+
+- `npm run testar-api`: sobe um `php -S` com dados temporários e confere o contrato inteiro (cerca de 690 pontos: instalar, entrar com limite e cookie, CSRF e Origin, rateios e a lista do tabaco, cada erro do rateio-entrar, **30 entradas ao mesmo tempo num rateio de 10 vagas → exatamente 10**, vencimento da reserva com relógio de teste, confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem, cópia do banco, apagar dados e o que tem que ficar fechado). Termina com `api ok`. `PHP=/caminho/do/php npm run testar-api` testa outra versão: passou no PHP 8.1 e no 8.3, com e sem GD/WebP.
+- `npm run testar-htaccess -- <pasta-do-build>`: sobe um Apache local com `mod_php` (`apt install apache2 libapache2-mod-php`), sem `GC_DADOS` (como no ar), e confere os dois ramos dos `.htaccess` (`Require` e `Order/Deny`): site, API, tudo que é fechado, `.php`/`.phtml`/`.svg`/`.html` plantados em `uploads/` (nenhum roda), envio de imagem e o Diagnóstico pela web. Termina com `htaccess ok`.
+
+### Onde fica cada coisa no código
+
+`public/api/index.php` (a lista de rotas) e, em `public/api/nucleo/`: `base.php` (respostas, erros, Origin, relógio), `banco.php` (SQLite, migrações, transação — o único arquivo que muda pra ir pro MySQL), `validar.php` (WhatsApp, estado, dinheiro, datas, slug e a lista do tabaco), `limite.php` (tentativas), `sessao.php` (cookie, CSRF, código de instalação), `rateio.php` (as regras de vaga; `gc_confirmar_participacao` é a única porta pro contador subir), `publico.php` (rotas do site), `painel.php` (rotas do dono), `upload.php`, `diagnostico.php` e `exemplos.php` (os 2 rateios de exemplo). Mudança no banco: uma migração nova no fim de `gc_migracoes()`.
+
 ### Link para a bio de cada perfil
 
 Cada perfil põe na bio o link do próprio estado (é a forma mais confiável de mandar o cliente pro atendimento certo):
