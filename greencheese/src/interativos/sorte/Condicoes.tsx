@@ -15,15 +15,7 @@ export function listaCondicoes({ regra, comoUsar, validade, reserva }: { regra: 
   return [ponto(regra), ...(comoUsar ? [ponto(comoUsar)] : []), ...(validade ? [validade] : []), ...(reserva ? [reserva] : []), T.condUmPorPedido, T.condEstado, T.condLoja]
 }
 
-/** Topo da barra dos botões quando ela gruda no pé da área que rola, por cima da lista (na horizontal); senão null. */
-function topoDaBarra(barra: HTMLElement | null | undefined, lista: DOMRect, area: DOMRect): number | null {
-  if (!barra || getComputedStyle(barra).position !== 'sticky') return null
-  const b = barra.getBoundingClientRect()
-  const cobre = b.left < lista.right && b.right > lista.left
-  return cobre && b.bottom >= area.bottom - 4 ? b.top : null
-}
-
-/** Primeiro ancestral que rola na vertical (a coluna do jogo, a folha da Minha conta). */
+/** Primeiro ancestral que rola na vertical (a folha da Minha conta). */
 function rolagemDe(el: HTMLElement): HTMLElement | null {
   for (let p = el.parentElement; p; p = p.parentElement) {
     const oy = getComputedStyle(p).overflowY
@@ -47,16 +39,15 @@ export function Condicoes({ itens, lado, className, sobre = false }: Props) {
   const botao = useRef<HTMLButtonElement>(null)
   const painel = useRef<HTMLDivElement>(null)
 
-  // abriu: rola só o que falta pra lista aparecer acima da barra grudada (ou do pé da coluna), sem tirar o botão da tela
+  // abriu no lugar: rola só o que falta pra lista aparecer acima do pé da folha, sem tirar o botão da tela
   useEffect(() => {
     const el = painel.current
     const b = botao.current
     if (!aberto || !el || !b || sobre) return
     const sc = rolagemDe(el)
     if (!sc) return
-    const barra = el.closest('.sorte')?.querySelector<HTMLElement>('.sorte-barra')
     const s = sc.getBoundingClientRect()
-    const limite = (topoDaBarra(barra, el.getBoundingClientRect(), s) ?? s.bottom) - 12
+    const limite = s.bottom - 12
     const falta = Math.min(el.getBoundingClientRect().bottom - limite, b.getBoundingClientRect().top - s.top - 4)
     if (falta > 0) sc.scrollBy({ top: falta, behavior: movimentoReduzido() ? 'auto' : 'smooth' })
   }, [aberto, sobre])
