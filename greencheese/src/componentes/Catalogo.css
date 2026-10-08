@@ -308,8 +308,10 @@
   --d-avatar: 1;
   position: relative;
 }
-/* celular: 4 caminhos + o fio + "Tudo" inteiro + o filtro seguinte espiando na borda (o sinal de que a linha rola).
-   Em 360 o "Importadas" mostra 15 px; em 375, 30; em 390, 45; em 412, 29 (degrau de cima) */
+/* Celular: as abas primeiro (estado, Buscar, Rateio, Sorte, Por estado), o fio e os filtros, numa linha que rola. O que
+   não cabe fica pra direita, e o primeiro destaque que não cabe espia na borda: o sinal de que a linha continua (o
+   celulares.mjs confere). Na primeira tela, quanto espia: 320: o "Por estado", 44 de 56 px · 344: o "Tudo", 25 px ·
+   360: 15 · 375: 30 · 390: 45 · 393: 48 · 400: 17 · 412: 29 · 430: 47 · 440: 57 · 450: 41 · 540: 35 */
 @media (max-width: 479px) {
   .destaques-moldura {
     --d-col: 62px;
@@ -321,15 +323,7 @@
     --d-avatar: 0.93;
   }
 }
-/* o Rateio só entra nos caminhos do Início onde cabe sem empurrar os filtros (de 560 px em diante: 5 caminhos + fio +
-   "Tudo" inteiro + o seguinte espiando). No celular ele mora na barra de baixo, com o número de abertos, e os destaques
-   ficam nos 4 caminhos aprovados, com os filtros à vista (correção 67f72ee) */
-@media (max-width: 559px) {
-  .destaques-inicio [data-destaque='rateio'] {
-    display: none;
-  }
-}
-@media (max-width: 400px) {
+@media (max-width: 396px) {
   .destaques-moldura {
     --d-col: 56px;
     --d-bola: 56px;
@@ -339,6 +333,39 @@
     --d-rot: 11px;
     --d-traco: 2.36;
     --d-avatar: 0.86;
+  }
+}
+/* tablet estreito (de 528 a 559): o "Tudo" inteiro e o "Importadas" espiando (as bolinhas do computador, mais juntas) */
+@media (min-width: 528px) and (max-width: 559px) {
+  .destaques-moldura {
+    --d-col: 68px;
+    --d-vao: 12px;
+    --d-fio: 10px;
+  }
+}
+/* de 441 a 470 o "Tudo" já coube inteiro e o "Importadas" ainda não aparece: bolinhas um pouco maiores */
+@media (min-width: 441px) and (max-width: 470px) {
+  .destaques-moldura {
+    --d-col: 66px;
+    --d-bola: 64px;
+    --d-capa: 54px;
+    --d-vao: 11px;
+    --d-fio: 9px;
+    --d-traco: 2.06;
+    --d-avatar: 0.96;
+  }
+}
+/* de 329 a 352 (ex.: a tela de fora do Galaxy Fold, 344) o "Por estado" coube inteiro e o "Tudo" ainda não aparece:
+   bolinhas um pouco menores, pro "Tudo" espiar */
+@media (min-width: 329px) and (max-width: 352px) {
+  .destaques-moldura {
+    --d-col: 52px;
+    --d-bola: 52px;
+    --d-capa: 45px;
+    --d-vao: 8px;
+    --d-fio: 5px;
+    --d-traco: 2.54;
+    --d-avatar: 0.8;
   }
 }
 .destaques-inicio,
@@ -374,6 +401,11 @@
 .destaques-inicio .destaque-rot {
   max-width: calc(var(--d-col) + var(--d-vao) - 2px);
   font-size: var(--d-rot);
+}
+/* "Por estado" é a última aba: à direita tem o fio e o "Tudo" (curto), à esquerda a Sorte (curta); pode usar um vão
+   inteiro de cada lado sem encostar em ninguém (com fonte larga, não vira "Por esta…" nas colunas estreitas) */
+.destaques-inicio [data-destaque='estados'] .destaque-rot {
+  max-width: calc(var(--d-col) + 2 * var(--d-vao));
 }
 /* fio de 1 px no meio da altura das bolinhas: separa caminho de filtro sem ocupar alvo de toque */
 .destaques-fio {

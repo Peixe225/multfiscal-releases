@@ -100,7 +100,7 @@ export function Rodape() {
         Derivados do tabaco não são vendidos pelo site (Anvisa, RDC 840/2023). Sedas, piteiras e acessórios, sim.
       </p>
       <p className="rodape-txt">
-        Privacidade: o palpite de estado vem da localização aproximada pelo IP, sem GPS, e serve só pra indicar o atendimento. A sacola, as respostas do pedido e a conta do Teste minha sorte ficam só neste aparelho. Quem entra num rateio manda nome, WhatsApp, estado, cidade e quantidade pro servidor da loja, só pra organizar o rateio.
+        Privacidade: o palpite de estado vem da localização aproximada pelo IP, sem GPS, e serve só pra indicar o atendimento. A sacola, as respostas do pedido e a conta do Teste minha sorte ficam só neste aparelho. Quem entra num rateio manda nome, WhatsApp, estado, cidade e quantidade pro servidor da loja, só pra organizar o rateio, e uma cópia das tuas vagas fica neste aparelho pra tu acompanhar.
       </p>
       {config.credito && (
         <p className="rodape-credito">

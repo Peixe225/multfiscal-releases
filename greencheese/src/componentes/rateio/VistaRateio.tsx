@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, type MouseEvent } from 'react'
 import { PixelArte } from '../../arte/PixelArte'
 import { iconesAbas } from '../../arte/pixel/abas'
 import { mercadorGarrafa } from '../../arte/pixel/mercador-garrafa'
@@ -6,22 +6,26 @@ import { canais, canalDa } from '../../dados/canais'
 import { alvoDeSaida } from '../../lib/ambiente'
 import { cliqueDeAba, hrefAba } from '../../lib/abas'
 import { brl } from '../../lib/formato'
-import { linkPerfil, linkWhatsApp, montarRateio } from '../../lib/mensagem'
+import { useConta } from '../../lib/conta'
+import { linkPerfil, linkWhatsApp, linkWhatsAppLoja, montarRateio, montarRateioSemConexao } from '../../lib/mensagem'
 import type { Rateio } from '../../lib/rateio-api'
-import { useLocal } from '../../store/local'
-import { atualizarMinhasVagas } from '../../lib/minhas-vagas'
-import { abertoParaEntrar, agoraRateio, carregarRateios, marcarRateiosVistos, useRateio, valeNoEstado, type VagaGuardada } from '../../store/rateio'
+import { nomeCidade, useLocal } from '../../store/local'
+import { atualizarMinhasVagas, temVagaAndando } from '../../lib/minhas-vagas'
+import { abertoParaEntrar, agoraRateio, carregarRateios, marcarRateiosVistos, useRateio, valeNoEstado, zapDoDono, type VagaGuardada } from '../../store/rateio'
 import { useUI } from '../../store/ui'
 import { Icone } from '../comum'
 import { ArteRateio, CartaoRateio } from './CartaoRateio'
-import { NOME_VAGA, ateQuando, faixaDias, statusVisto, vagaAtiva, vagasTexto } from './util'
+import { NOME_VAGA, ateQuando, faixaDias, statusVisto, vagaAtiva, vagaDoAparelho, vagasTexto } from './util'
 import './estilo'
 
 // O corpo da aba Rateio (o título e o "?" moram no pedaço principal, em Abas.tsx): Minhas vagas (só com vaga neste
-// aparelho), Abertos, Em andamento e Chegaram. A lista e as vagas se atualizam ao abrir a aba e a cada minuto com a
-// aba à vista e a página em primeiro plano (o contador sobe sozinho quando a loja confirma um pagamento).
+// aparelho), Abertos, Em andamento e Chegaram. Com a aba à vista e a página em primeiro plano, a lista se atualiza a
+// cada minuto (o contador sobe sozinho quando a loja confirma um pagamento) e as vagas a cada 3 min, só se alguma ainda
+// pode mudar (o servidor limita o minhas-vagas por IP; ver lib/minhas-vagas.ts).
 
 const MINUTO = 60_000
+/** As vagas a cada quantos minutos da lista. */
+const VAGAS_A_CADA = 3
 
 /** Link da página de um rateio (Ctrl/⌘/botão do meio abre numa aba nova; o toque simples abre a camada). */
 export function hrefRateio(id: string): string {
@@ -39,21 +43,29 @@ function useAtualizarNaAba(ativa: boolean) {
   useEffect(() => {
     if (!ativa) return
     let t = 0
+    let tique = 0
     const rodar = () => {
       if (document.visibilityState !== 'visible') return
       void carregarRateios(true)
-      void atualizarMinhasVagas()
+      tique++
+      if (tique % VAGAS_A_CADA === 0 && temVagaAndando()) void atualizarMinhasVagas()
+    }
+    // voltou pro primeiro plano: a lista e, se alguma vaga ainda anda, as vagas (no máximo 1 vez por minuto)
+    const aoVoltar = () => {
+      void carregarRateios(true)
+      if (temVagaAndando()) void atualizarMinhasVagas()
     }
     const ligar = () => {
       clearInterval(t)
       if (document.visibilityState === 'visible') t = window.setInterval(rodar, MINUTO)
     }
-    // ao abrir: a lista só se tiver mais de 1 min (a barra já buscou no tempo ocioso); as vagas, sempre
+    // ao abrir: a lista só se tiver mais de 1 min (a barra já buscou no tempo ocioso); as vagas, se alguma ainda anda
+    // (no máximo 1 vez por minuto, mesmo abrindo e fechando a aba)
     void carregarRateios()
-    void atualizarMinhasVagas()
+    if (temVagaAndando()) void atualizarMinhasVagas()
     ligar()
     const voltou = () => {
-      if (document.visibilityState === 'visible') rodar()
+      if (document.visibilityState === 'visible') aoVoltar()
       ligar()
     }
     document.addEventListener('visibilitychange', voltou)
@@ -70,6 +82,8 @@ export function VistaRateio() {
   const rateios = useRateio((s) => s.rateios)
   const fonte = useRateio((s) => s.fonte)
   const vagas = useRateio((s) => s.vagas)
+  const conta = useConta()
+  const dono = zapDoDono(vagas, conta?.whatsapp)
   useAtualizarNaAba(ativa)
 
   const grupos = useMemo(() => {
@@ -113,7 +127,7 @@ export function VistaRateio() {
               <ul className="rv-grade">
                 {grupos.abertos.map((r, i) => (
                   <li key={r.id}>
-                    <CartaoRateio rateio={r} uf={uf} hrefEntrar={hrefRateio(r.id)} aoEntrar={(e) => abrirPagina(e, r.id)} codigo={codigoAtivo(vagas, r.id)} prioridade={i === 0} />
+                    <CartaoRateio rateio={r} uf={uf} hrefEntrar={hrefRateio(r.id)} aoEntrar={(e) => abrirPagina(e, r.id)} codigo={codigoAtivo(vagas, r.id, dono)} prioridade={i === 0} />
                   </li>
                 ))}
               </ul>
@@ -164,22 +178,23 @@ export function VistaRateio() {
   )
 }
 
-/** Código da vaga ativa deste aparelho num rateio (reservada no prazo ou confirmada). */
-function codigoAtivo(vagas: VagaGuardada[], id: string): string | null {
-  const agora = agoraRateio()
-  return vagas.find((v) => v.rateio === id && vagaAtiva(v, agora))?.codigo ?? null
+/** Código da vaga ativa deste aparelho num rateio (reservada no prazo ou confirmada; a do dono antes da de um amigo). */
+function codigoAtivo(vagas: VagaGuardada[], id: string, dono: string | null): string | null {
+  return vagaDoAparelho(vagas, id, agoraRateio(), dono)?.codigo ?? null
 }
 
 /**
- * O servidor da loja existe e não respondeu (lento, fora do ar): diz isso e deixa tentar de novo. Nunca os rateios de
- * exemplo no lugar dos de verdade, nem formulário pra rateio que não dá pra conferir.
+ * O servidor da loja existe e não respondeu (lento, fora do ar, ~4 s sem resposta): diz isso, deixa tentar de novo e
+ * abre o caminho pelo WhatsApp (a loja passa os rateios abertos). Nunca os rateios de exemplo no lugar dos de verdade,
+ * nem formulário pra rateio que não dá pra conferir.
  */
 function SemConexao() {
-  const [tentando, setTentando] = useState(false)
+  const buscando = useRateio((s) => s.buscandoLista)
+  const { uf, cidade, cidadeInformada } = useLocal()
+  const canal = canalDa(uf)
+  const texto = montarRateioSemConexao(canal, nomeCidade(canal, cidade, cidadeInformada))
   const tentar = () => {
-    if (tentando) return
-    setTentando(true)
-    void carregarRateios(true).finally(() => setTentando(false))
+    if (!buscando) void carregarRateios(true)
   }
   return (
     <section className="rv-vazio rv-vazio-curto rv-sem-conexao" aria-labelledby="rv-sem-t">
@@ -187,11 +202,18 @@ function SemConexao() {
         Sem conexão com a loja agora
       </h2>
       <p className="legenda" role="status">
-        {tentando ? 'Tentando de novo…' : 'Os rateios aparecem aqui assim que a conexão voltar.'}
+        {buscando ? 'Tentando falar com a loja…' : 'Os rateios aparecem aqui assim que a conexão voltar.'}
       </p>
-      <button type="button" className="botao botao-contorno toque" onClick={tentar} aria-disabled={tentando || undefined}>
-        Tentar de novo
-      </button>
+      <p className="legenda">Quer entrar num rateio agora? Chama a loja no WhatsApp, que ela te passa os abertos.</p>
+      <div className="rv-sem-acoes">
+        <a className="botao botao-cheio toque rv-sem-zap" href={linkWhatsAppLoja(canal, texto)} target={alvoDeSaida()} rel="noopener noreferrer">
+          <Icone nome="whatsapp" tamanho={16} />
+          Entrar pelo WhatsApp
+        </a>
+        <button type="button" className="botao botao-contorno toque" onClick={tentar} aria-disabled={buscando || undefined}>
+          Tentar de novo
+        </button>
+      </div>
     </section>
   )
 }
@@ -288,6 +310,8 @@ function LinhaVaga({ vaga: v, rateio, agora }: { vaga: VagaGuardada; rateio: Rat
         <p className="mv-titulo">{v.titulo}</p>
         <p className="mv-dados">
           <span className="px mv-codigo">{v.codigo}</span> · {vagasTexto(v.quantidade)} · {brl(v.total)}
+          {/* a vaga feita pelo "Entrar com outro WhatsApp": de quem é */}
+          {v.paraOutro && ` · de ${v.nome}`}
         </p>
         <p className={`mv-status mv-${status}`}>
           <i className="mv-ponto" aria-hidden="true" />

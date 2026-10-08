@@ -100,6 +100,8 @@
   color: var(--preto);
   font-size: 12px;
   text-align: center;
+  /* o 2 e o 5 da Pixelify liam "a"/Z e S: digitos.css, carregado com o CSS principal */
+  font-family: 'GC Digitos', var(--pixel);
 }
 .aviso-area {
   position: fixed;

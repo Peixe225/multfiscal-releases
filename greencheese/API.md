@@ -1,8 +1,9 @@
 # API da Green Cheese (servidor da loja)
 
 O servidor é PHP + SQLite na mesma hospedagem do site (Hostinger), em `public/api/` → `dist/api/` → `oprojeto.online/greencheese/api/`.
-Este arquivo é o contrato entre o site, o painel do dono e o servidor. A parte pública (abaixo) é fixa; a parte do painel
-fica descrita no fim, por quem escreve o servidor.
+Este arquivo é o contrato entre o site, o painel do dono e o servidor. A parte pública (abaixo) é fixa: o que entra nela
+depois é só acréscimo compatível, marcado assim (campo opcional que o outro lado pode ignorar sem quebrar nada, como o
+`token` do `rateio-entrar`); a parte do painel fica descrita no fim, por quem escreve o servidor.
 
 ## Regras gerais
 
@@ -85,15 +86,22 @@ interface Rateio {
 Corpo: `{ rateio: string, nome: string, whatsapp: string, uf: string, cidade?: string, quantidade: number, site?: string, token?: string }`
 (`site` é armadilha para robô: tem que vir vazio ou ausente; cheio → `invalido`, sem gravar nada).
 
-`token` (opcional, 32 hex) nasce no aparelho e vai igual em cada nova tentativa da mesma pessoa no mesmo rateio (o site
-já manda). Serve pra resposta que se perde DEPOIS de o servidor gravar (3G, hospedagem lenta): o servidor guarda o hash
-dele no lugar de gerar um token novo (`participacao.token` volta igual ao que veio); um POST repetido com o mesmo
-`token` no mesmo `rateio` devolve a MESMA participação (200, sem `ja-participa`); e `minhas-vagas` com esse token já
-acha a vaga. Token mal formado ou já usado noutro rateio: o servidor ignora e gera o dele. Sem `token`, nada muda.
-Enquanto o servidor não fizer isso, o site continua certo (ignora o campo): a nova tentativa recebe `ja-participa` com o
-código, e a tela manda falar com a loja com esse código, sem inventar quantidade.
+**`token` — acréscimo compatível (opcional).** 32 hex (`[0-9a-f]{32}`) gerados no aparelho, o mesmo em cada nova
+tentativa da mesma entrada (o site já manda). É o que impede vaga órfã quando a resposta se perde DEPOIS de o servidor
+gravar (3G, hospedagem lenta):
+- na primeira vez, o servidor guarda o hash desse token no lugar de gerar um (`participacao.token` volta igual ao que
+  veio), e o `minhas-vagas` com ele já acha a vaga;
+- o mesmo `token` no mesmo `rateio` (com o mesmo `whatsapp`) de novo devolve a MESMA participação, sem criar outra:
+  200 `{ ok, participacao, rateio }`, sem `ja-participa`, mesmo que o rateio tenha lotado ou o prazo passado nesse
+  meio-tempo;
+- token mal formado, de outro rateio, de outro WhatsApp ou de uma vaga que já venceu ou foi cancelada: ignorado (o
+  servidor gera o dele, como sem `token`).
 
-Sucesso 201: `{ ok, participacao: Participacao, rateio: Rateio }` (o rateio já com o contador novo).
+Sem `token`, nada muda. Compatível dos dois lados: servidor que não conhece o campo ignora e gera o dele (aí a nova
+tentativa recebe `ja-participa` com o código, e o site manda falar com a loja com esse código, sem inventar quantidade).
+
+Sucesso 201 (200 na repetição com o mesmo `token`): `{ ok, participacao: Participacao, rateio: Rateio }` (o rateio já
+com o contador novo).
 
 Erros: `invalido` 400 (com `campo`: `nome` | `whatsapp` | `uf` | `quantidade` | `rateio`), `nao-encontrado` 404,
 `fora-do-estado` 409, `rateio-fechado` 409 (não aceita entrada: fechado, fora do prazo ou não aberto), `sem-vagas` 409

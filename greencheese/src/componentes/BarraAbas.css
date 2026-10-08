@@ -71,6 +71,8 @@ html.com-teclado .barra-abas {
   line-height: 18px;
   text-align: center;
   box-shadow: 0 0 0 2px var(--preto);
+  /* o 2 e o 5 da Pixelify liam Z e S ("55" virava "SS"): digitos.css, carregado com o CSS principal */
+  font-family: 'GC Digitos', var(--pixel);
 }
 /* ponto branco de pixel: o Teste minha sorte tem coisa liberada */
 .aba-ponto {

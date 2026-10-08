@@ -14,10 +14,10 @@ import { entrarNoRateio, novoToken } from '../../lib/rateio-vagas'
 import { celularNoCampo, editarCelular, normalizarCelular, validarCelular } from '../../lib/telefone'
 import { useChat } from '../../store/chat'
 import { useLocal } from '../../store/local'
-import { agoraRateio, carregarRateios, guardarPendente, guardarVaga, pendenteDe, tirarPendente, trocarRateio, useRateio, type EntradaPendente, type VagaGuardada } from '../../store/rateio'
+import { agoraRateio, carregarRateios, guardarPendente, guardarVaga, pendenteDe, tirarPendente, trocarRateio, useRateio, zapDoDono, type EntradaPendente, type VagaGuardada } from '../../store/rateio'
 import { useUI } from '../../store/ui'
 import { Icone } from '../comum'
-import { NOME_VAGA, ateQuando, contaVagas, guardadaTexto, listaUfs, statusVisto, total, vagaAtiva, vagasTexto } from './util'
+import { NOME_VAGA, ateQuando, contaVagas, guardadaTexto, listaUfs, statusVisto, total, vagaDoAparelho, vagasTexto } from './util'
 
 // Entrar no rateio, na página dele. Com o servidor: nome + WhatsApp (+ estado, cidade quando precisa, quantidade) →
 // POST rateio-entrar → a vaga fica reservada na hora, com código, e a tela de "Tá no rateio!" leva pro WhatsApp da
@@ -27,7 +27,8 @@ import { NOME_VAGA, ateQuando, contaVagas, guardadaTexto, listaUfs, statusVisto,
 // gerado aqui e guardado antes de enviar (EntradaPendente); a nova tentativa usa o mesmo token, e um ja-participa
 // pergunta ao minhas-vagas por ele antes de dizer que o WhatsApp já está no rateio. Sem resposta, nada de mandar pro
 // WhatsApp sem código de cara: primeiro "tenta de novo" (o servidor nunca dá duas vagas pro mesmo WhatsApp).
-// Já tem vaga ativa neste aparelho nesse rateio: mostra a vaga (e deixa entrar com outro WhatsApp, pra um amigo).
+// Já tem vaga ativa neste aparelho nesse rateio: mostra a vaga (e, enquanto sobra vaga, deixa entrar com outro
+// WhatsApp, pra um amigo; a vaga do amigo fica marcada e não preenche o formulário nem vira "Tua vaga").
 
 const limparNome = (v: string) => v.replace(/\s+/g, ' ').trim()
 
@@ -201,8 +202,8 @@ function Confirmacao({ vaga, rateio }: { vaga: VagaGuardada; rateio: Rateio }) {
   )
 }
 
-/** A vaga que este aparelho já tem nesse rateio. */
-function TuaVaga({ vaga, rateio, outra }: { vaga: VagaGuardada; rateio: Rateio; outra: () => void }) {
+/** A vaga que este aparelho já tem nesse rateio. `outra` só quando ainda dá pra entrar (sobra vaga, no prazo). */
+function TuaVaga({ vaga, rateio, outra }: { vaga: VagaGuardada; rateio: Rateio; outra: (() => void) | null }) {
   const agora = agoraRateio()
   const status = statusVisto(vaga, agora)
   const canal = canalDa(vaga.uf)
@@ -241,9 +242,11 @@ function TuaVaga({ vaga, rateio, outra }: { vaga: VagaGuardada; rateio: Rateio; 
         <button type="button" className="botao-texto toque" onClick={verMinhasVagas}>
           Ver minhas vagas
         </button>
-        <button type="button" className="botao-texto toque" onClick={outra}>
-          Entrar com outro WhatsApp
-        </button>
+        {outra && (
+          <button type="button" className="botao-texto toque" onClick={outra}>
+            Entrar com outro WhatsApp
+          </button>
+        )}
       </div>
     </section>
   )
@@ -253,17 +256,19 @@ interface Props {
   rateio: Rateio
   /** 'servidor': reserva com código; 'sem-servidor': entra pelo WhatsApp. */
   modo: 'servidor' | 'sem-servidor'
+  /** Aceita entrada agora (aberto, no prazo, sobrando vaga, no estado): só aí tem "Entrar com outro WhatsApp". */
+  podeEntrar: boolean
 }
 
-export function EntrarRateio({ rateio, modo }: Props) {
+export function EntrarRateio({ rateio, modo, podeEntrar }: Props) {
   const vagas = useRateio((s) => s.vagas)
-  const agora = agoraRateio()
-  const minha = vagas.find((v) => v.rateio === rateio.id && vagaAtiva(v, agora))
+  const conta = useConta()
+  const minha = vagaDoAparelho(vagas, rateio.id, agoraRateio(), zapDoDono(vagas, conta?.whatsapp))
   const [outra, setOutra] = useState(false)
   const [feita, setFeita] = useState<VagaGuardada | null>(null)
   if (feita) return <Confirmacao vaga={feita} rateio={rateio} />
-  if (minha && !outra) return <TuaVaga vaga={minha} rateio={rateio} outra={() => setOutra(true)} />
-  return <Formulario rateio={rateio} modo={modo} aoEntrar={setFeita} focarAoAbrir={outra} />
+  if (minha && !outra) return <TuaVaga vaga={minha} rateio={rateio} outra={podeEntrar ? () => setOutra(true) : null} />
+  return <Formulario rateio={rateio} modo={modo} aoEntrar={setFeita} paraOutro={outra} />
 }
 
 /** O que o formulário sabe além do erro: quantas tentativas ficaram sem resposta e se o ja-participa é da vaga perdida. */
@@ -310,22 +315,25 @@ function textoDoErro(e: FalhaRateio, r: Rateio, uf: string | null, ctx: Contexto
   }
 }
 
-/** Erros que dizem que a lista do aparelho está velha (contador, estados, prazo): busca de novo. */
-const RECARREGA = ['sem-vagas', 'rateio-fechado', 'nao-encontrado', 'limite-por-pessoa', 'fora-do-estado', 'invalido']
+/** Erros que dizem que a lista do aparelho está velha (contador, estados, prazo, uma vaga que entrou): busca de novo. */
+const RECARREGA = ['sem-vagas', 'rateio-fechado', 'nao-encontrado', 'limite-por-pessoa', 'fora-do-estado', 'invalido', 'ja-participa']
 
-function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Rateio; modo: Props['modo']; aoEntrar: (v: VagaGuardada) => void; focarAoAbrir: boolean }) {
+function Formulario({ rateio: r, modo, aoEntrar, paraOutro }: { rateio: Rateio; modo: Props['modo']; aoEntrar: (v: VagaGuardada) => void; paraOutro: boolean }) {
   const uid = useId()
   const conta = useConta()
-  const ultima = useRateio((s) => s.vagas[0])
+  // o dono do aparelho: a vaga mais nova que não foi feita pra um amigo (a do amigo nunca preenche o formulário)
+  const dono = useRateio((s) => s.vagas.find((v) => !v.paraOutro))
+  const zapDono = useRateio((s) => zapDoDono(s.vagas, conta?.whatsapp))
+  const focarAoAbrir = paraOutro
   const nomeChat = useChat((s) => s.respostas.nome)
   const ufSite = useLocal((s) => s.uf)
   const cidadeSite = useLocal((s) => s.cidade)
   const informadaSite = useLocal((s) => s.cidadeInformada)
   const ufsComLoja = r.ufs.filter((u) => canalDa(u))
   const [uf, setUf] = useState<string | null>(() => (ufSite && ufsComLoja.includes(ufSite) ? ufSite : ufsComLoja.length === 1 ? ufsComLoja[0] : null))
-  // "Entrar com outro WhatsApp" (pra um amigo): começa em branco; senão, vem da conta ou da última vaga
-  const [nome, setNome] = useState(() => (focarAoAbrir ? '' : (conta?.nome ?? ultima?.nome ?? limparNome(nomeChat ?? ''))))
-  const [zap, setZap] = useState(() => (focarAoAbrir ? '' : conta ? celularNoCampo(conta.whatsapp) : ultima ? celularNoCampo(ultima.whatsapp) : ''))
+  // "Entrar com outro WhatsApp" (pra um amigo): começa em branco; senão, vem da conta ou da última vaga do dono
+  const [nome, setNome] = useState(() => (focarAoAbrir ? '' : (conta?.nome ?? dono?.nome ?? limparNome(nomeChat ?? ''))))
+  const [zap, setZap] = useState(() => (focarAoAbrir ? '' : conta ? celularNoCampo(conta.whatsapp) : dono ? celularNoCampo(dono.whatsapp) : ''))
   const [cidade, setCidade] = useState(() => (ufSite === uf ? (informadaSite ?? '') : ''))
   const [cidadeLista, setCidadeLista] = useState<string | null>(() => (ufSite === uf ? cidadeSite : null))
   const [qtd, setQtd] = useState(1)
@@ -339,8 +347,9 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
   // tentativas seguidas sem resposta (tempo esgotado, rede caída); a 2ª oferece o WhatsApp
   const [semResposta, setSemResposta] = useState(0)
   const [perdida, setPerdida] = useState(false)
-  // o servidor disse quantas sobraram (sem-vagas) ou qual o limite: o seletor de quantidade obedece
-  const [tetoServidor, setTetoServidor] = useState<number | null>(null)
+  // o servidor disse quantas sobraram (sem-vagas, pode ser 0) ou qual o limite: o seletor de quantidade obedece, até a
+  // lista do aparelho mudar (aí vale a dela: uma reserva vencida devolve vaga)
+  const [tetoServidor, setTetoServidor] = useState<{ n: number; disponiveis: number; limite: number } | null>(null)
   const semServidor = modo === 'sem-servidor'
   const [foiPeloZap, setFoiPeloZap] = useState(false)
   const refs = {
@@ -376,7 +385,11 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
   const cidades = canal?.cidades ?? []
   const precisaCidadeTexto = !!canal && cidades.length === 0
   const precisaCidadeLista = cidades.length > 1
-  const teto = Math.max(1, Math.min(r.limitePorPessoa, r.disponiveis || 1, tetoServidor ?? Infinity))
+  // sem nenhuma vaga sobrando (a lista ou o servidor disse 0): "Vagas tomadas" e o envio trava, nunca "Só sobrou 1 vaga"
+  const tetoSrv = tetoServidor && tetoServidor.disponiveis === r.disponiveis && tetoServidor.limite === r.limitePorPessoa ? tetoServidor.n : Infinity
+  const tetoBruto = Math.min(r.limitePorPessoa, r.disponiveis, tetoSrv)
+  const lotado = !semServidor && tetoBruto <= 0
+  const teto = Math.max(1, tetoBruto)
   const q = Math.min(qtd, teto)
   const digitos = normalizarCelular(zap)
   const nomeLimpo = limparNome(nome)
@@ -420,6 +433,15 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     setZap(res.valor)
   }
 
+  /** Troca o estado: a cidade digitada ou escolhida era do estado de antes (volta a do site, se for o dele). */
+  const escolherUf = (u: string) => {
+    if (erro) setErro(null)
+    if (u === uf) return
+    setUf(u)
+    setCidade(u === ufSite ? (informadaSite ?? '') : '')
+    setCidadeLista(u === ufSite ? cidadeSite : null)
+  }
+
   const proximo = (prox: CampoErro) => (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
     e.preventDefault()
@@ -461,6 +483,7 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
       precoRateio: r.precoRateio,
       criadoEm: antes?.criadoEm ?? Date.now(),
       semResposta: antes?.semResposta,
+      ...(paraOutro && whatsapp !== zapDono ? { paraOutro: true } : {}),
     }
     guardarPendente(pend)
     enviandoRef.current = true
@@ -485,7 +508,7 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     if (resp.ok || achada) {
       setSemResposta(0)
       if (resp.ok && resp.rateio) trocarRateio(resp.rateio)
-      const vaga: VagaGuardada = resp.ok ? { ...resp.participacao, nome: nomeLimpo, whatsapp, uf, cidade: cidadeNome, precoRateio: r.precoRateio } : achada!
+      const vaga: VagaGuardada = resp.ok ? { ...resp.participacao, nome: nomeLimpo, whatsapp, uf, cidade: cidadeNome, precoRateio: r.precoRateio, ...(pend.paraOutro ? { paraOutro: true } : {}) } : achada!
       guardarVaga(vaga)
       aoEntrar(vaga)
       if (!resp.ok) void carregarRateios(true)
@@ -501,18 +524,22 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     }
     setSemResposta(0)
     if (resp.erro === 'ja-participa') {
-      // o token deste aparelho não achou nada: a vaga foi gravada com o token do servidor (ou é de outro aparelho)
+      // o token deste aparelho não achou nada: um servidor que guarda o token devolveria a vaga desta entrada (200), então
+      // ela é de outro jeito (outro aparelho, a loja pelo painel, ou um servidor que ignora o token). A tela mostra o
+      // código e manda falar com a loja; nada de guardar vaga com quantidade que o site não sabe
       setPerdida(!!antes?.semResposta)
       tirarPendente(pend.token)
     }
-    // o contador, os estados ou o prazo do cartão podem estar velhos: busca a lista de novo (invalido só sem campo daqui)
+    // o contador, os estados ou o prazo do cartão podem estar velhos (ou uma vaga entrou): busca a lista de novo
+    // (invalido só sem campo daqui)
     if (RECARREGA.includes(resp.erro) && !(resp.erro === 'invalido' && resp.campo && resp.campo in refs)) void carregarRateios(true)
+    // o teto que o servidor disse vale pra lista de agora (quando ela mudar, vale a dela)
     if (resp.erro === 'sem-vagas' && resp.disponiveis != null) {
-      setTetoServidor(Math.max(1, resp.disponiveis))
+      setTetoServidor({ n: Math.max(0, resp.disponiveis), disponiveis: r.disponiveis, limite: r.limitePorPessoa })
       if (resp.disponiveis > 0) setQtd(resp.disponiveis)
     }
     if (resp.erro === 'limite-por-pessoa' && resp.limite) {
-      setTetoServidor(resp.limite)
+      setTetoServidor({ n: resp.limite, disponiveis: r.disponiveis, limite: r.limitePorPessoa })
       setQtd(resp.limite)
     }
     if (resp.erro === 'invalido' && resp.campo && resp.campo in refs) {
@@ -536,7 +563,8 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
 
   const incerto = erro?.erro === 'sem-servidor' || erro?.erro === 'fora-do-ar'
   const erroGeral = erro && !erroServidorCampo ? textoDoErro(erro, r, uf, { semResposta, perdida }) : null
-  const travado = erro?.erro === 'rateio-fechado' || erro?.erro === 'nao-encontrado' || (erro?.erro === 'sem-vagas' && erro.disponiveis === 0)
+  // sem-vagas com 0 já trava pelo `lotado` (que solta sozinho se a lista mostrar vaga de novo)
+  const travado = lotado || erro?.erro === 'rateio-fechado' || erro?.erro === 'nao-encontrado'
   const idTotal = `${uid}-total`
   // ja-participa: a mensagem leva só o código (quantas vagas e quanto, quem sabe é a loja; o formulário pode estar
   // com outra quantidade)
@@ -617,22 +645,15 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
               aria-checked={uf === u}
               className={`rp-chip px toque${uf === u ? ' sel' : ''}`}
               aria-label={canalDa(u)?.nome ?? u.toUpperCase()}
-              onClick={() => {
-                if (erro) setErro(null)
-                if (u !== uf) {
-                  setUf(u)
-                  setCidade(u === ufSite ? (informadaSite ?? '') : '')
-                  setCidadeLista(u === ufSite ? cidadeSite : null)
-                }
-              }}
+              onClick={() => escolherUf(u)}
               onKeyDown={(e) => {
-                // setas andam entre as opções, como num grupo de rádio
+                // setas andam entre as opções, como num grupo de rádio (e trocam a cidade junto, como o clique)
                 const i = ufsComLoja.indexOf(u)
                 const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
                 if (!d) return
                 e.preventDefault()
                 const prox = ufsComLoja[(i + d + ufsComLoja.length) % ufsComLoja.length]
-                setUf(prox)
+                escolherUf(prox)
                 ;(e.currentTarget.parentElement?.children[ufsComLoja.indexOf(prox)] as HTMLElement | undefined)?.focus()
               }}
               tabIndex={uf === u || (!uf && u === ufsComLoja[0]) ? 0 : -1}
@@ -690,7 +711,11 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
         <span className="rp-rotulo" id={`${uid}-lqtd`}>
           Quantas vagas
         </span>
-        {teto > 1 ? (
+        {lotado ? (
+          <p className="rp-uma legenda" role="status">
+            Vagas tomadas: não sobrou nenhuma agora. Se alguém não pagar no prazo, a vaga volta pro rateio.
+          </p>
+        ) : teto > 1 ? (
           <div className="rp-qtd-linha">
             <div ref={refs.quantidade} className="ad-qtd rp-qtd" role="group" aria-labelledby={`${uid}-lqtd`} aria-describedby={idTotal}>
               <button type="button" className="icone-botao toque" onClick={() => setQtd(Math.max(1, q - 1))} aria-label="Menos uma vaga" disabled={q <= 1}>
@@ -708,10 +733,12 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
         ) : (
           <p className="rp-uma legenda">{r.limitePorPessoa === 1 ? '1 vaga por pessoa nesse rateio.' : 'Só sobrou 1 vaga.'}</p>
         )}
-        <p id={idTotal} className="rp-total" aria-live="polite">
-          <span className="rp-total-conta">{contaVagas(q, r.precoRateio)} =</span> <strong className="rp-total-valor px px-20">{brl(total(q, r.precoRateio))}</strong>
-          {mostra('quantidade') && <span className="form-erro"> {mostra('quantidade')}</span>}
-        </p>
+        {!lotado && (
+          <p id={idTotal} className="rp-total" aria-live="polite">
+            <span className="rp-total-conta">{contaVagas(q, r.precoRateio)} =</span> <strong className="rp-total-valor px px-20">{brl(total(q, r.precoRateio))}</strong>
+            {mostra('quantidade') && <span className="form-erro"> {mostra('quantidade')}</span>}
+          </p>
+        )}
       </div>
 
       {/* armadilha pra robô: fora da tela, fora do Tab e do leitor de tela; gente nunca preenche */}
@@ -762,8 +789,8 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
       ) : (
         <div className="rp-envio">
           {/* durante o envio o botão segue focável (aria-disabled): desabilitar jogava o foco pro <body> */}
-          <button type="submit" className="botao botao-cheio botao-largo rp-reservar" disabled={travado} aria-disabled={enviando || undefined} aria-describedby={idTotal}>
-            {enviando ? 'Reservando…' : incerto ? 'Tentar de novo' : q > 1 ? `Reservar minhas ${q} vagas` : 'Reservar minha vaga'}
+          <button type="submit" className="botao botao-cheio botao-largo rp-reservar" disabled={travado} aria-disabled={enviando || undefined} aria-describedby={lotado ? undefined : idTotal}>
+            {lotado ? 'Vagas tomadas' : enviando ? 'Reservando…' : incerto ? 'Tentar de novo' : q > 1 ? `Reservar minhas ${q} vagas` : 'Reservar minha vaga'}
           </button>
           {enviando && lento ? (
             <p className="rp-honesto legenda" role="status">

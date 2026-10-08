@@ -3,22 +3,25 @@ import { gsap } from 'gsap'
 import { PixelArte } from '../../arte/PixelArte'
 import type { Grade } from '../../arte/pixel/grades'
 import { canalDa } from '../../dados/canais'
+import { alvoDeSaida } from '../../lib/ambiente'
+import { useConta } from '../../lib/conta'
 import { copiarTexto } from '../../lib/copiar'
 import { focarVista, prenderTab } from '../../lib/foco'
 import { useCamadaNoHistorico } from '../../lib/historico'
+import { linkWhatsAppLoja, montarRateioSemConexao } from '../../lib/mensagem'
 import { ehDesktop, movimentoReduzido } from '../../lib/movimento'
 import type { Rateio } from '../../lib/rateio-api'
 import { buscarRateio } from '../../lib/rateio-vagas'
 import { liberarRolagem, travarRolagem } from '../../lib/rolagem'
 import { atualizarParametros, lerParametros, linkCompartilhar } from '../../lib/url'
-import { useLocal } from '../../store/local'
-import { agoraRateio, carregarRateios, useRateio } from '../../store/rateio'
+import { nomeCidade, useLocal } from '../../store/local'
+import { agoraRateio, carregarRateios, useRateio, zapDoDono } from '../../store/rateio'
 import { useUI } from '../../store/ui'
 import { Avatar, Icone } from '../comum'
 import { folhaDoTopo } from '../Folha'
 import { CartaoRateio } from './CartaoRateio'
 import { EntrarRateio } from './EntrarRateio'
-import { listaUfs, prazoAcabou, textoPrazo, textoPrevisao, vagaAtiva } from './util'
+import { listaUfs, prazoAcabou, textoPrazo, textoPrevisao, vagaDoAparelho } from './util'
 import './estilo'
 
 // Página de um rateio (?rateio=<id>), no molde da página do produto: tela cheia que entra pela direita no celular,
@@ -202,11 +205,15 @@ function Janela({ id, saindo, aoSair }: { id: string; saindo: boolean; aoSair: (
   )
 }
 
-/** O rateio da página: o da lista; fora dela (ex.: encerrado há mais de 15 dias), pergunta ao servidor. */
-function useRateioDaPagina(id: string): { rateio: Rateio | null; estado: 'buscando' | 'pronto' | 'sumiu' | 'sem-conexao' } {
+/**
+ * O rateio da página: o da lista; fora dela (ex.: encerrado há mais de 15 dias, ou criado depois da lista), pergunta ao
+ * servidor. Só "nao-encontrado" é rateio que saiu do ar; tempo esgotado, rede caída, 5xx ou muitas-tentativas não dizem
+ * nada sobre ele ("Não deu pra abrir esse rateio agora", com Tentar de novo). `tentar` busca de novo.
+ */
+function useRateioDaPagina(id: string): { rateio: Rateio | null; estado: 'buscando' | 'pronto' | 'sumiu' | 'sem-conexao'; tentar: () => void } {
   const daLista = useRateio((s) => s.rateios.find((r) => r.id === id) ?? null)
   const fonte = useRateio((s) => s.fonte)
-  const [avulso, setAvulso] = useState<Rateio | null | 'sumiu'>(null)
+  const [avulso, setAvulso] = useState<Rateio | null | 'sumiu' | 'falhou'>(null)
   useEffect(() => {
     void carregarRateios()
   }, [])
@@ -214,30 +221,36 @@ function useRateioDaPagina(id: string): { rateio: Rateio | null; estado: 'buscan
     if (daLista || fonte !== 'servidor' || avulso) return
     let vivo = true
     void buscarRateio(id).then((r) => {
-      if (vivo) setAvulso(r.ok ? r.rateio : 'sumiu')
+      if (vivo) setAvulso(r.ok ? r.rateio : r.erro === 'nao-encontrado' ? 'sumiu' : 'falhou')
     })
     return () => {
       vivo = false
     }
   }, [daLista, fonte, id, avulso])
-  if (daLista) return { rateio: daLista, estado: 'pronto' }
-  if (avulso && avulso !== 'sumiu') return { rateio: avulso, estado: 'pronto' }
-  if (avulso === 'sumiu') return { rateio: null, estado: 'sumiu' }
+  const tentar = () => {
+    if (avulso === 'falhou') setAvulso(null)
+    void carregarRateios(true)
+  }
+  if (daLista) return { rateio: daLista, estado: 'pronto', tentar }
+  if (avulso && typeof avulso === 'object') return { rateio: avulso, estado: 'pronto', tentar }
+  if (avulso === 'sumiu') return { rateio: null, estado: 'sumiu', tentar }
   // servidor que não respondeu, ou sem servidor e fora dos exemplos: não dá pra saber se ele existe
-  if (fonte === 'sem-servidor' || fonte === 'fora-do-ar') return { rateio: null, estado: 'sem-conexao' }
-  return { rateio: null, estado: 'buscando' }
+  if (avulso === 'falhou' || fonte === 'sem-servidor' || fonte === 'fora-do-ar') return { rateio: null, estado: 'sem-conexao', tentar }
+  return { rateio: null, estado: 'buscando', tentar }
 }
 
 function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingElement | null> }) {
-  const { rateio, estado } = useRateioDaPagina(id)
-  const uf = useLocal((s) => s.uf)
+  const { rateio, estado, tentar } = useRateioDaPagina(id)
+  const { uf, cidade, cidadeInformada } = useLocal()
   const fonte = useRateio((s) => s.fonte)
   const vagas = useRateio((s) => s.vagas)
+  const conta = useConta()
   const canal = canalDa(uf)
   const { fecharRateio, avisar, abrirComoFunciona } = useUI.getState()
   const form = useRef<HTMLDivElement>(null)
   const agora = agoraRateio()
-  const codigo = vagas.find((v) => v.rateio === id && vagaAtiva(v, agora))?.codigo ?? null
+  // a vaga do dono do aparelho (a de um amigo, pelo "Entrar com outro WhatsApp", não conta aqui)
+  const codigo = vagaDoAparelho(vagas, id, agora, zapDoDono(vagas, conta?.whatsapp))?.codigo ?? null
 
   const compartilhar = async () => {
     const url = linkCompartilhar({ aba: 'rateio', rateio: id })
@@ -305,9 +318,18 @@ function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingEle
             </p>
           ) : estado === 'sem-conexao' ? (
             <>
-              <p>Não deu pra abrir esse rateio agora. Tenta de novo daqui a pouco.</p>
+              <p>Não deu pra abrir esse rateio agora. Tenta de novo daqui a pouco, ou entra pelo WhatsApp: a loja confere o rateio por lá.</p>
               <div className="rp-vazio-acoes">
-                <button type="button" className="botao botao-cheio toque" onClick={() => void carregarRateios(true)}>
+                <a
+                  className="botao botao-cheio toque"
+                  href={linkWhatsAppLoja(canal, montarRateioSemConexao(canal, nomeCidade(canal, cidade, cidadeInformada), linkCompartilhar({ aba: 'rateio', rateio: id })))}
+                  target={alvoDeSaida()}
+                  rel="noopener noreferrer"
+                >
+                  <Icone nome="whatsapp" tamanho={16} />
+                  Entrar pelo WhatsApp
+                </a>
+                <button type="button" className="botao botao-contorno toque" onClick={tentar}>
                   Tentar de novo
                 </button>
                 <button type="button" className="botao botao-contorno toque" onClick={fecharRateio}>
@@ -355,7 +377,7 @@ function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingEle
             </div>
             <div ref={form} className="rp-entrar-area">
               {aberto && !foraDoEstado && (entra || codigo) ? (
-                <EntrarRateio rateio={rateio} modo={fonte === 'sem-servidor' ? 'sem-servidor' : 'servidor'} />
+                <EntrarRateio rateio={rateio} modo={fonte === 'sem-servidor' ? 'sem-servidor' : 'servidor'} podeEntrar={entra} />
               ) : foraDoEstado && aberto ? (
                 <div className="rp-fora" tabIndex={-1}>
                   <p>
