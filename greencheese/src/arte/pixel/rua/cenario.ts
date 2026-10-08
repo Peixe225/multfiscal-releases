@@ -186,6 +186,36 @@ function letreiro(aceso: boolean): Peca {
   return { w, h, linhas: linhas.map((l) => l.join('')), fixa: true }
 }
 
+/**
+ * Janela do andar de cima da loja (story em pé), 24 × 30: moldura, duas folhas com a travessa, o peitoril com a sombra
+ * embaixo. Acesa (a cortina de um lado e a luz de dentro em pontilhado, mais forte no meio) ou apagada (vidro preto com
+ * um reflexo ralo). Âncora no pé, no meio.
+ */
+function janela(acesa: boolean): Peca {
+  const w = 24
+  const h = 30
+  const meio = w / 2
+  return gerar(w, h, (x, y) => {
+    // peitoril (3 linhas), 1 px para fora de cada lado, com a sombra pontilhada embaixo
+    if (y === h - 3) return 'm'
+    if (y === h - 2) return 'e'
+    if (y === h - 1) return x > 1 && x < w - 2 && x % 2 === 0 ? 'd' : '.'
+    if (x === 0 || x === w - 1) return '.'
+    // moldura, travessa e o pinázio do meio
+    if (x === 1 || x === w - 2 || y === 0 || y === h - 4) return 'e'
+    if (y === 1) return 'd'
+    if (x === meio || x === meio - 1 || y === 9) return 'e'
+    if (!acesa) return y < 9 && (x + y) % 7 === 0 ? 'd' : 'k'
+    // cortina na folha da esquerda, com as dobras
+    if (x < 6) return x % 2 === 0 ? 'm' : 'e'
+    // a luz de dentro: mais forte no meio, em pontilhado
+    const d = Math.hypot((x - (w - 1) / 2) / (w / 2), (y - h * 0.55) / (h / 2))
+    const t = BAYER[y % 4][x % 4] / 16
+    if (t < 1.1 - d * 1.4) return 'w'
+    return t < 1.4 - d ? 'c' : 'm'
+  })
+}
+
 /** Dois engradados de plástico vazios, empilhados contra o muro (o gato sobe e senta em cima). 18 × 20, âncora no pé. */
 const engradado = (() => {
   const um = [
@@ -221,16 +251,19 @@ function objeto(id: string, nome: string, pecas: Peca[], ancora: { x: number; y:
   })
 }
 
-/** Poste de `altura` linhas (âncora no pé). A cena do Início pede o dela, para a lâmpada caber na faixa. */
-export function criarPoste(altura = 96): Personagem {
+/**
+ * Poste de `altura` linhas (âncora no pé). Cada cena pede o dela: o da faixa do Início cabe nas 92 linhas; o do story
+ * em pé é alto (`id` diferente, os dois no mesmo pacote).
+ */
+export function criarPoste(altura = 96, id = 'poste'): Personagem {
   const pc = pecaPoste(altura)
-  return objeto('poste', 'Poste', [pc], { x: 5, y: pc.h }, [1000], 'Poste com a luminária acesa (âncora no pé).', false)
+  return objeto(id, 'Poste', [pc], { x: 5, y: pc.h }, [1000], 'Poste com a luminária acesa (âncora no pé).', false)
 }
 
 /** Luz do poste com `altura` linhas, da lâmpada até a poça no chão (âncora no alto). */
-export function criarLuz(altura = 96): Personagem {
+export function criarLuz(altura = 96, id = 'luz'): Personagem {
   return objeto(
-    'luz',
+    id,
     'Luz do poste',
     [luzDoPoste(1, altura), luzDoPoste(1, altura), luzDoPoste(0.8, altura), luzDoPoste(1, altura)],
     { x: 32, y: 0 },
@@ -244,6 +277,15 @@ export const objetos: Record<string, Personagem> = {
   luz: criarLuz(),
   engradado: objeto('engradado', 'Engradados', [engradado], { x: 9, y: engradado.h }, [1000], 'Dois engradados empilhados contra o muro; o gato senta em cima para ganhar carinho (âncora no pé).', false),
   porta: objeto('porta', 'Porta da loja', [porta], { x: 15, y: porta.h }, [1000], 'Porta de enrolar a 3/4, com a luz de dentro na fresta (âncora no pé, no meio).', false),
+  janela: objeto(
+    'janela',
+    'Janela',
+    [janela(true), janela(false)],
+    { x: 12, y: 30 },
+    [1000, 1000],
+    'Janela do andar de cima (story em pé): acesa no quadro 0, apagada no 1 (âncora no pé, no meio).',
+    false,
+  ),
   letreiro: objeto(
     'letreiro',
     'Letreiro GC',

@@ -19,6 +19,9 @@ import { Avatar, Icone, tempoDoCatalogo } from './comum'
 import { AvisoLocal, LinhaLocal, useAvisoLocal, useTextoLocal } from './Local'
 import { RuaInicio } from './RuaInicio'
 import { alturaDaFaixa } from './rua/palco'
+import type { AlcaRua } from './rua/Rua'
+import { StoryRua } from './rua/StoryRua'
+import { lerParametros } from '../lib/url'
 import { Perfil } from './Perfil'
 import { StoryQuadro } from './StoryQuadro'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
@@ -38,6 +41,13 @@ const ESPACO_DICA = 128
 const ESPACO_ESPERA = 120
 /** Por quanto tempo depois de soltar o dedo o clique no produto ainda vale para o produto que estava sob ele. */
 const VALE_TOQUE = 1000
+/**
+ * Duração do story da rua (o primeiro do celular): ~12 s, o bastante para um atendimento inteiro — o cliente já vem
+ * entrando, pede, o mercador abre o casaco e entrega, recebe e o cliente sai (o mais lento dos três que abrem o story
+ * leva ~11,8 s no celular de 320 px; roteiro.ts, modo story). Os produtos seguem com 5 s cada.
+ */
+const DURACAO_RUA = 12000
+const DURACAO_PRODUTO = 5000
 
 type Origem = 'auto' | 'toque' | 'arrasto'
 interface Posicao {
@@ -50,7 +60,7 @@ interface Posicao {
 /** Alguma camada por cima do hero (story, folhas, página do produto, troca, abertura, chat)? Lido na hora (teclado). */
 function camadaPorCima(): boolean {
   const s = useUI.getState()
-  if (s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.pagina || s.trocaPendente || s.aberturaAtiva || s.interativo || s.contaAberta) return true
+  if (s.story || s.sacolaAberta || s.seletorAberto || s.infoAberto || s.pagina || s.trocaPendente || s.aberturaAtiva || s.interativo || s.contaAberta || s.rateio || s.comoFunciona) return true
   if (useChat.getState().aberto) return true
   return !!document.querySelector('.folha, [aria-modal="true"]')
 }
@@ -121,8 +131,10 @@ function consulta(q: string) {
  * perfil e a rua embaixo — no DOM também (ordem do Tab).
  */
 const LARGO = consulta('(min-width: 1200px)')
-/** Celular: perfil embaixo do story (Abas.tsx) e a rua entre a faixa e o perfil; aqui só o computador. */
+/** Celular: perfil embaixo do story (Abas.tsx) e a rua como o primeiro story (StoryRua); a rua embaixo do perfil é do computador. */
 const CELULAR = consulta('(max-width: 899px)')
+/** Celular deitado (o mesmo corte do Hero.css): a rua do story é a faixa larga. */
+const DEITADO = consulta('(max-width: 899px) and (max-height: 480px) and (orientation: landscape)')
 
 /** Perfil mais estreito que isto fica compacto (Hero.css). */
 const PERFIL_COMPACTO = 380
@@ -277,7 +289,9 @@ export function Hero() {
       !!s.trocaPendente ||
       s.aberturaAtiva ||
       !!s.interativo ||
-      s.contaAberta,
+      s.contaAberta ||
+      !!s.rateio ||
+      !!s.comoFunciona,
   )
   const aberturaAtiva = useUI((s) => s.aberturaAtiva)
   const chatAberto = useChat((s) => s.aberto)
@@ -305,10 +319,26 @@ export function Hero() {
   const reduz = movimentoReduzido()
 
   const n = lista.length
-  const idx = n ? pos.i % n : 0
-  const atual = n ? lista[idx] : undefined
-  // o próximo, esmaecido atrás
-  const proximo = n > 1 ? lista[(idx + 1) % n] : undefined
+  // ── a rua da loja como primeiro story do celular (StoryRua): depois dela os produtos; no fim, volta para ela ──
+  const comRua = celular
+  const off = comRua ? 1 : 0
+  const total = n + off
+  const idx = total ? pos.i % total : 0
+  const ehRua = comRua && idx === 0
+  const atual = ehRua || !n ? undefined : lista[idx - off]
+  // o próximo, esmaecido atrás (na rua, e no último produto antes dela, nenhum)
+  const proximo = !ehRua && n > 1 && (!comRua || idx < n) ? lista[(idx - off + 1) % n] : undefined
+  const deitado = useSyncExternalStore(DEITADO.assinar, DEITADO.ler)
+  const cenaRua = useRef<HTMLDivElement>(null)
+  const alcaRua = useRef<AlcaRua | null>(null)
+  // o adesivo do Mercado aberto segura o story; sem a rua pronta (pedaço chegando), o tempo dela não corre
+  const [ruaSegura, setRuaSegura] = useState(false)
+  const [ruaPronta, setRuaPronta] = useState(false)
+  const ehRuaRef = useRef(ehRua)
+  ehRuaRef.current = ehRua
+  // link direto de um produto do story (?p=): no celular o story começa no produto, não na rua
+  const pLink = useRef<string | null>(comRua ? lerParametros().p : null)
+  // ──
   const pausado = pausaManual || foco === 'dentro'
 
   // aviso de local respondido pelo teclado (Enter no Sim, dentro do story): o botão some e o foco cairia no body sem
@@ -342,13 +372,13 @@ export function Hero() {
   /** Passa (1) ou volta (-1), em loop nos dois sentidos. */
   const irPara = useCallback(
     (dir: 1 | -1, origem: Origem) => {
-      if (n < 2) return
-      setPos((p) => ({ i: (((p.i + dir) % n) + n) % n, origem, dir }))
+      if (total < 2) return
+      setPos((p) => ({ i: (((p.i + dir) % total) + total) % total, origem, dir }))
       // só contam as trocas sozinhas com a dica à vista (escondida esperando espaço, ela não foi vista)
       if (origem !== 'auto') dispensarDica()
       else if (dicaNaTela.current && ++trocasComDica.current >= 2) dispensarDica()
     },
-    [n, dispensarDica],
+    [total, dispensarDica],
   )
 
   const alternarPausa = useCallback(() => {
@@ -362,7 +392,22 @@ export function Hero() {
   // trocar de estado recomeça o story e gira o "cubo" do Instagram (passar de um perfil para outro)
   const ufAnterior = useRef(uf)
   const quadroRef = useRef<HTMLDivElement>(null)
-  useEffect(() => setPos({ i: 0, origem: 'auto', dir: 1 }), [uf])
+  useEffect(() => {
+    // o link direto de um produto (?p=) começa nele (ou no primeiro produto, se ele não está no story); vale até o
+    // estado chegar (o ?uf= e o palpite chegam depois da primeira pintura)
+    const p = pLink.current
+    if (uf) pLink.current = null
+    const k = p ? lista.findIndex((x) => x.id === p) : -1
+    setPos({ i: p && off ? Math.max(0, k) + off : 0, origem: 'auto', dir: 1 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uf])
+  // o celular grande que deita vira computador (e volta): a rua entra ou sai da conta sem trocar de produto
+  const comRuaAntes = useRef(comRua)
+  useLayoutEffect(() => {
+    if (comRuaAntes.current === comRua) return
+    comRuaAntes.current = comRua
+    setPos((p) => ({ ...p, i: Math.max(0, p.i + (comRua ? 1 : -1)) }))
+  }, [comRua])
   useLayoutEffect(() => {
     const antes = ufAnterior.current
     ufAnterior.current = uf
@@ -400,6 +445,13 @@ export function Hero() {
   useLayoutEffect(() => {
     const q = quadroRef.current
     const h = historia.current
+    // na rua: as bordas que passam vão até o pé, as setas ficam no meio do quadro e a dica cabe no céu
+    if (ehRua && q && h) {
+      q.style.removeProperty('--hero-texto')
+      h.style.removeProperty('--hero-arte-meio')
+      setDicaCabe(true)
+      return
+    }
     const meio = q?.querySelector<HTMLElement>('.hero-meio')
     const t = q?.querySelector<HTMLElement>('.hero-palco .sq-texto')
     const a = q?.querySelector<HTMLElement>('.hero-palco .sq-arte')
@@ -423,28 +475,36 @@ export function Hero() {
     ro.observe(meio)
     ro.observe(t)
     return () => ro.disconnect()
-  }, [idAtual, uf])
+  }, [idAtual, uf, ehRua])
 
+  // a rua: o tempo dela é o dela (~12 s), só corre com ela pronta e para enquanto o adesivo do Mercado está aberto
+  const ruaEspera = ehRua && (ruaSegura || !ruaPronta)
   const barra = useProgresso({
-    ativo: !reduz && visivel && !segurando && !tocando && !pausado && !camadaAberta && !chatAberto && n > 1,
-    duracaoMs: 5000,
+    ativo: !reduz && visivel && !segurando && !tocando && !pausado && !camadaAberta && !chatAberto && total > 1 && !ruaEspera,
+    duracaoMs: ehRua ? DURACAO_RUA : DURACAO_PRODUTO,
     chave: `${uf}-${idx}`,
     aoTerminar: () => irPara(1, 'auto'),
   })
 
   // barras: as de trás cheias, a atual do zero (cheia sem movimento), as da frente vazias — também ao voltar e no loop
   // (depois do useProgresso: roda por último e vale)
-  const ids = lista.map((p) => p.id).join()
+  const ids = (comRua ? 'rua,' : '') + lista.map((p) => p.id).join()
   useLayoutEffect(() => {
     barras.current?.querySelectorAll<HTMLElement>('.story-barra > i').forEach((el, k) => {
       el.style.transform = `scaleX(${k < idx || (reduz && k === idx) ? 1 : 0})`
     })
   }, [idx, ids, uf, reduz])
 
-  // troca de produto (voz app): sozinha, o que esperava atrás vem pro centro; na mão, desliza do lado de onde veio
+  // troca de produto (voz app): sozinha, o que esperava atrás vem pro centro; na mão, desliza do lado de onde veio. A
+  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás
   useLayoutEffect(() => {
-    const p = palco.current
+    const p = ehRua ? cenaRua.current : palco.current
     if (!p || reduz) return
+    if (ehRua) {
+      if (pos.origem === 'auto') gsap.fromTo(p, { opacity: 0, x: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out', clearProps: 'opacity,transform' })
+      else gsap.fromTo(p, { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out', clearProps: 'opacity,transform' })
+      return
+    }
     if (pos.origem === 'auto') {
       gsap.fromTo(p, { scale: 0.42, opacity: 0.3, x: 40, y: -30 }, { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out' })
     } else {
@@ -500,8 +560,11 @@ export function Hero() {
   const semClique = useRef(0)
   /** Produto que estava sob o dedo quando ele pousou: é ele que abre, mesmo que a barra vire entre soltar e o clique. */
   const alvoDoToque = useRef<{ id: string; ate: number } | null>(null)
+  /** O que acompanha o dedo no arrasto: o produto ou, na rua, a cena inteira. */
+  const cenaAtual = () => (ehRuaRef.current ? cenaRua.current : palco.current)
   const voltarPalco = useCallback(() => {
-    if (palco.current && !movimentoReduzido()) gsap.to(palco.current, { x: 0, duration: 0.25, ease: 'power3.out' })
+    const p = ehRuaRef.current ? cenaRua.current : palco.current
+    if (p && !movimentoReduzido()) gsap.to(p, { x: 0, duration: 0.25, ease: 'power3.out' })
   }, [])
   /** Fim de gesto sem navegar (soltou fora do quadro, rolou a página, janela perdeu o foco): destrava tudo. */
   const encerrarGesto = useCallback(() => {
@@ -582,10 +645,12 @@ export function Hero() {
       } catch {
         /* sem captura: segue sem */
       }
-      if (palco.current) gsap.killTweensOf(palco.current)
+      const c = cenaAtual()
+      if (c) gsap.killTweensOf(c)
     }
-    // o produto acompanha o dedo com resistência (metade do arrasto)
-    if (palco.current && !reduz) gsap.set(palco.current, { x: dx * 0.5 })
+    // o produto (na rua, a cena) acompanha o dedo com resistência (metade do arrasto)
+    const c = cenaAtual()
+    if (c && !reduz) gsap.set(c, { x: dx * 0.5 })
   }
   const aoSoltar = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = g.current
@@ -608,6 +673,8 @@ export function Hero() {
       return
     }
     if (s.produto || Math.hypot(dx, dy) > 12) return
+    // na rua, tocar num cliente faz ele reagir (o mercador tem o botão dele, por cima): o story não passa
+    if (ehRua && alcaRua.current?.tocar(e.clientX, e.clientY)) return
     const r = e.currentTarget.getBoundingClientRect()
     irPara(e.clientX - r.left < r.width * BORDA ? -1 : 1, 'toque')
   }
@@ -638,7 +705,7 @@ export function Hero() {
 
   const sextou = canal && ehDiaDeEntregaGratis(canal) ? canal.entregaGratis?.texto : null
 
-  const navega = n > 1
+  const navega = total > 1
   const comDica = navega && dica !== 'fora' && !aberturaAtiva && dicaCabe
   useEffect(() => {
     dicaNaTela.current = comDica && dica === 'mostra'
@@ -647,7 +714,11 @@ export function Hero() {
   // a rua embaixo do perfil (computador): a escala sai da largura da coluna dele e, ao lado do story, da altura
   const lojaDesktop = useLojaDesktop(loja, !celular, largo)
 
-  if (!atual) return null
+  // a rua do story só anda à vista e tocando: segmento dela, sem dedo segurando, sem pausa, sem camada por cima
+  const ruaAtiva = ehRua && visivel && !segurando && !tocando && !pausaManual && !camadaAberta && !chatAberto
+
+  // sem produto no estado, a rua é o story inteiro (no computador, sem produto, o story some como antes)
+  if (!atual && !ehRua) return null
 
   const quadro = (
     <div
@@ -666,10 +737,10 @@ export function Hero() {
         else e.preventDefault()
       }}
     >
-      {/* uma barra por produto: toda posição do story tem a barra que conta o tempo */}
+      {/* uma barra por story (a rua, no celular, e cada produto): toda posição tem a barra que conta o tempo */}
       <div ref={barras} className="story-barras hero-barras" aria-hidden="true">
-        {lista.map((p, k) => (
-          <span key={p.id} className="story-barra">
+        {[...(comRua ? ['rua'] : []), ...lista.map((p) => p.id)].map((id, k) => (
+          <span key={id} className="story-barra">
             <i ref={k === idx ? (el) => { barra.current = el } : undefined} />
           </span>
         ))}
@@ -680,11 +751,11 @@ export function Hero() {
         <div className="hero-cab-texto">
           <div className="hero-cab-linha">
             <span className="story-cab-nome">{canal?.instagram ?? 'Green Cheese Imports'}</span>
-            {tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>}
+            {ehRua ? <span className="story-cab-tempo">agora</span> : tempoDoCatalogo() && <span className="story-cab-tempo">{tempoDoCatalogo()}</span>}
           </div>
           <LinhaLocal className="hero-cab-local" />
         </div>
-        {navega && !reduz && (
+        {(navega || ehRua) && !reduz && (
           <button
             type="button"
             className="icone-botao toque hero-pausa"
@@ -718,23 +789,27 @@ export function Hero() {
       )}
 
       <div className="hero-meio">
-        <div className="hero-palco" ref={palco} key={`${uf}-${atual.id}`}>
-          <StoryQuadro
-            produto={atual}
-            escala="hero"
-            disponivel={uf ? (canal ? disponivelEm(atual, uf) : false) : null}
-            lugar={lugar}
-            prioridade
-            artePropsExtra={{ flutuar: true }}
-            legenda={
-              !uf ? (
-                <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
-              ) : undefined
-            }
-          />
-        </div>
-        {/* fora do palco (que remonta a cada produto): o foco do teclado não se perde ao passar */}
-        <a className="hero-produto" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false} aria-label={`Ver ${atual.nome}`} />
+        {atual && (
+          <>
+            <div className="hero-palco" ref={palco} key={`${uf}-${atual.id}`}>
+              <StoryQuadro
+                produto={atual}
+                escala="hero"
+                disponivel={uf ? (canal ? disponivelEm(atual, uf) : false) : null}
+                lugar={lugar}
+                prioridade
+                artePropsExtra={{ flutuar: true }}
+                legenda={
+                  !uf ? (
+                    <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
+                  ) : undefined
+                }
+              />
+            </div>
+            {/* fora do palco (que remonta a cada produto): o foco do teclado não se perde ao passar */}
+            <a className="hero-produto" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false} aria-label={`Ver ${atual.nome}`} />
+          </>
+        )}
         {comDica && (
           <div className={`hero-dica degrau${dica === 'saindo' ? ' saindo' : ''}`} aria-hidden="true">
             <p className="hero-dica-linha px px-16">
@@ -742,33 +817,49 @@ export function Hero() {
               toca nos lados pra passar
               <Icone nome="chevron-dir" tamanho={16} />
             </p>
-            <p className="hero-dica-linha px px-16">toca no produto pra ver</p>
+            <p className="hero-dica-linha px px-16">{ehRua ? 'toca no mercador' : 'toca no produto pra ver'}</p>
           </div>
         )}
       </div>
 
-      <div className="hero-adesivos">
-        <p className="adesivo-texto-bloco hero-frase">
-          <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
-        </p>
-        <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
-          <Icone nome="link" tamanho={16} />
-          VER PRODUTO
-        </a>
-      </div>
-      {atual.demo && config.carimboDeExemplo && <span className="hero-demo carimbo">exemplo</span>}
-      {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando. Com o
-          palpite de IP pendente, o aviso de local fica no lugar dela (por cima, cobria a pílula no celular baixo) */}
+      {atual && (
+        <div className="hero-adesivos">
+          <p className="adesivo-texto-bloco hero-frase">
+            <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
+          </p>
+          <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
+            <Icone nome="link" tamanho={16} />
+            VER PRODUTO
+          </a>
+        </div>
+      )}
+      {/* a rua da loja: montada no celular o tempo todo (nos produtos, escondida e parada: a cena continua na volta) */}
+      {comRua && (
+        <StoryRua
+          aqui={ehRua}
+          ativa={ruaAtiva}
+          deitado={deitado}
+          legenda="Chega mais."
+          aoSegurar={setRuaSegura}
+          aoPronta={setRuaPronta}
+          alca={alcaRua}
+          refCena={cenaRua}
+        />
+      )}
+      {atual?.demo && config.carimboDeExemplo && <span className="hero-demo carimbo">exemplo</span>}
+      {/* a linha de resposta do story (celular): "Enviar mensagem…" responde ao produto que está passando (na rua, abre
+          o pedido guiado). Com o palpite de IP pendente, o aviso de local fica no lugar dela (por cima, cobria a pílula
+          no celular baixo) */}
       {avisoLocal && !ehDesktop() ? (
         <div className="hero-resposta hero-aviso-local">
           <AvisoLocal variante="story" />
         </div>
       ) : (
-        <RespostaStory produtoId={atual.id} />
+        <RespostaStory produtoId={atual?.id ?? null} />
       )}
       {/* só a troca feita pela pessoa é anunciada; a automática fica muda (sem falatório a cada 5 s) */}
       <span className="sr-only" aria-live="polite">
-        {pos.origem !== 'auto' ? `${atual.nome}, story ${idx + 1} de ${n}` : ''}
+        {pos.origem !== 'auto' ? `${atual ? atual.nome : 'A rua da loja'}, story ${idx + 1} de ${total}` : ''}
       </span>
     </div>
   )
@@ -791,7 +882,7 @@ export function Hero() {
     <div
       key="story"
       ref={historia}
-      className={`hero-story${segurando ? ' segurando' : ''}${comDica && dica === 'mostra' ? ' com-dica' : ''}${visivel ? '' : ' fora'}`}
+      className={`hero-story${segurando ? ' segurando' : ''}${comDica && dica === 'mostra' ? ' com-dica' : ''}${visivel ? '' : ' fora'}${ehRua ? ' na-rua' : ''}`}
       onFocus={aoFocar}
       onBlur={aoDesfocar}
     >

@@ -1,0 +1,97 @@
+/* A rua da loja no primeiro story do celular: a cena atrás de tudo no quadro (o cabeçalho, as barrinhas e a linha de
+   resposta ficam por cima), o pôster na hora e a rua viva por cima dele. Sem z-index na cena: o botão do mercador e os
+   balões entram na pilha do quadro, por cima das bordas que passam o story. Movimento só no canvas e em
+   transform/opacity no DOM. */
+
+.rua-story {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--preto);
+}
+.rua-story[hidden] {
+  display: none;
+}
+
+/* o pôster e o canvas: o mundo inteiro, 1 px por pixel da arte, ampliado em px inteiros do aparelho e recortado pelo
+   quadro (o transform leva o canto de cima ao lugar certo, já no pixel do aparelho) */
+.rua-story-poster {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* a rua viva por cima do pôster: transparente até o primeiro quadro pintado (aí o canvas aparece de uma vez, sem
+   transição: é o mesmo quadro do pôster) */
+.rua.rua-em-story {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: visible;
+  background: none;
+}
+.rua-em-story .rua-tela {
+  top: 0;
+  bottom: auto;
+}
+.rua.rua-em-story.pronta .rua-tela {
+  transition: none;
+}
+.rua-em-story .rua-baloes {
+  z-index: 3;
+}
+.rua-em-story .rua-mercador {
+  z-index: 4;
+}
+
+/* o pé do story da rua, no lugar dos adesivos do produto: o "Chega mais." em pixel e, quando chamam o mercador, o
+   "Ver o Mercado" (o mesmo adesivo de link do VER PRODUTO) */
+.rua-adesivos[hidden] {
+  display: none;
+}
+.rua-frase {
+  transform: rotate(-3deg);
+}
+.rua-frase-texto {
+  display: inline-block;
+  padding: 4px 10px 5px;
+  background: var(--branco);
+  color: var(--preto);
+  font: 400 18px/1.1 var(--pixel);
+  letter-spacing: 0.01em;
+  /* canto em degrau, como o balão das falas */
+  clip-path: polygon(0 4px, 2px 4px, 2px 2px, 4px 2px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px), calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px));
+}
+.rua-ver {
+  text-transform: uppercase;
+  animation: rua-ver-entra 0.16s steps(2, jump-none) both;
+}
+@keyframes rua-ver-entra {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rua-ver {
+    animation: none;
+  }
+}
+
+/* celular deitado: a faixa no meio da altura livre; o pé fica na linha de baixo, ao lado da resposta */
+@media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
+  .rua-adesivos {
+    grid-area: adesivos;
+  }
+  .rua-frase {
+    display: none;
+  }
+}

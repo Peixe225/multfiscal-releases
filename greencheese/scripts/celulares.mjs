@@ -1,11 +1,16 @@
 // Matriz de celulares: rolagem lateral e alvos de toque em cada aba, barra de abas, voltar entre abas, story cabendo
-// na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story → faixa → rua viva →
-// perfil → destaques com as abas primeiro, o fio e os filtros → grade → rodapé, o mercador só na rua, sem Teste minha
-// sorte e sem repost no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do
-// próprio Início; a faixa só com os perfis confirmados). Também: celular deitado (story do hero inteiro acima da
-// barra, nada encavalado), celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e
-// o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai). A API do rateio
-// responde como "sem servidor" (o zip, o preview sem PHP): os rateios de exemplo, sem erro no console.
+// na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story, com a rua viva como o
+// primeiro story → faixa → perfil → destaques com as abas primeiro, o fio e os filtros → grade → rodapé; a faixa da rua
+// entre a faixa dos @ e o perfil não existe mais no celular; o mercador só na rua, sem Teste minha sorte e sem repost
+// no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do próprio
+// Início; a faixa só com os perfis confirmados). O story da rua: na primeira tela, a cena inteira no quadro (pés acima
+// dos adesivos, balões longe do cabeçalho), ~12 s antes de passar sozinho, uma barrinha a mais que os produtos, a
+// volta para ela no fim e o link ?p= começando no produto. Também: celular deitado (story do hero inteiro acima da
+// barra, nada encavalado; a rua na faixa larga, entre o cabeçalho e a linha de baixo; o produto depois dela), o aviso
+// do palpite de IP na rua e no produto, celular grande deitado com o layout de computador (lateral rola, Por
+// estado alcançável) e o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas
+// sai). A API do rateio responde como "sem servidor" (o zip, o preview sem PHP): os rateios de exemplo, sem erro no
+// console.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
@@ -134,11 +139,12 @@ async function conferirBarra(p, nome) {
 const abaAberta = (p) => p.evaluate(() => document.querySelector('.vista:not([hidden])')?.dataset.vista)
 
 /**
- * O Início, de cima a baixo: story, faixa, rua viva (o mercador mora nela), perfil (com "Ver loja"), destaques, grade
- * (a caixa de encomenda por último) e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado;
- * o Rateio fica na barra de baixo e só entra nos destaques de 560 px em diante), o fio e o grupo dos filtros. Nada do
- * fim da aba Mercado (Teste minha sorte) e nenhum mercador de repost (o do topo do Mercado). Ids próprios (o #catalogo
- * é da aba Mercado, que o chat e a rolagem usam).
+ * O Início, de cima a baixo: story (a rua viva é o primeiro story; o mercador mora nela), faixa, perfil (com "Ver
+ * loja", logo depois da faixa: a faixa da rua saiu do celular), destaques, grade (a caixa de encomenda por último) e o
+ * rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado; o Rateio fica na barra de baixo e só
+ * entra nos destaques de 560 px em diante), o fio e o grupo dos filtros. Nada do fim da aba Mercado (Teste minha sorte)
+ * e nenhum mercador de repost (o do topo do Mercado). Ids próprios (o #catalogo é da aba Mercado, que o chat e a
+ * rolagem usam).
  */
 async function conferirInicio(p, nome) {
   const r = await p.evaluate(() => {
@@ -165,7 +171,7 @@ async function conferirInicio(p, nome) {
       linha: { tudo: visivel(f1), seguinte: visivel(f2), larg: innerWidth },
       faixaAConfirmar: /confirmar|importsvv/i.test(v?.querySelector('.faixa')?.textContent ?? ''),
       setas: v?.querySelectorAll('.destaques-seta').length ?? 0,
-      ordem: ['.hero', '.faixa', '.rua-vaga', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
+      ordem: ['.hero', '.faixa', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
       gradeFim: grade ? grade.getBoundingClientRect().bottom + scrollY : null,
       rodape: rodape ? rodape.getBoundingClientRect().top + scrollY : null,
       ultimoCaixa: !!ultimo?.classList.contains('card-caixa'),
@@ -176,14 +182,15 @@ async function conferirInicio(p, nome) {
       fio: fioB ? { w: fioB.width, h: fioB.height } : null,
       fimCatalogo: !!v?.querySelector('.aba-fim, .reposts, .adesivos-interativos, #secao-interativo, #secao-marcados'),
       mercador: !!v?.querySelector('.repost-figura'),
-      // a rua colada no perfil (sem nada entre os dois) e com a altura reservada desde o começo
-      ruaColada: (() => {
-        const rua = v?.querySelector('.rua-vaga')
+      // a rua mora no primeiro story; a faixa dela entre a faixa dos @ e o perfil saiu do celular (o perfil vem colado)
+      ruaNoStory: !!v?.querySelector('.hero .rua-story'),
+      faixaDaRua: v?.querySelectorAll('.rua-vaga').length ?? 0,
+      perfilColado: (() => {
+        const faixa = v?.querySelector('.faixa')
         const perfil = v?.querySelector('.so-celular .perfil')
-        if (!rua || !perfil) return null
-        return Math.round(perfil.getBoundingClientRect().top - rua.getBoundingClientRect().bottom)
+        if (!faixa || !perfil) return null
+        return Math.round(perfil.getBoundingClientRect().top - faixa.getBoundingClientRect().bottom)
       })(),
-      ruaAltura: v?.querySelector('.rua-vaga')?.getBoundingClientRect().height ?? 0,
       idsRepetidos: !!v?.querySelector('#catalogo, #catalogo-titulo'),
       busca: !!v?.querySelector('.busca, .chip-disp'),
     }
@@ -199,8 +206,9 @@ async function conferirInicio(p, nome) {
   if (!r.fio || r.fio.w > 1.5 || r.fio.h < 20) problemas.push(`${nome}: fio entre abas e filtros ${JSON.stringify(r.fio)}`)
   if (r.fimCatalogo) problemas.push(`${nome}: o Início ainda tem o fim da aba Catálogo (Teste minha sorte/repost)`)
   if (r.mercador) problemas.push(`${nome}: mercador de repost no Início do celular (ele mora na rua)`)
-  if (r.ruaColada == null || r.ruaColada > 40) problemas.push(`${nome}: a rua não vem logo antes do perfil (${r.ruaColada})`)
-  if (r.ruaAltura < 150 || r.ruaAltura > 190) problemas.push(`${nome}: a faixa da rua com ${r.ruaAltura} px (150–190)`)
+  if (!r.ruaNoStory) problemas.push(`${nome}: a rua não está no story do Início`)
+  if (r.faixaDaRua) problemas.push(`${nome}: a faixa da rua continua no Início do celular`)
+  if (r.perfilColado == null || r.perfilColado > 40) problemas.push(`${nome}: o perfil não vem logo depois da faixa dos @ (${r.perfilColado})`)
   if (r.idsRepetidos) problemas.push(`${nome}: #catalogo/#catalogo-titulo repetidos no Início`)
   if (r.busca) problemas.push(`${nome}: busca ou "Só DISPONÍVEL" no Início`)
   // os filtros aparecem na primeira tela da linha: de 360 px em diante o "Tudo" inteiro e o seguinte espiando na borda
@@ -216,10 +224,47 @@ async function conferirInicio(p, nome) {
   if (r.setas) problemas.push(`${nome}: setas da linha de destaques no celular`)
 }
 
+/**
+ * O story da rua na primeira tela: é o primeiro segmento, a rua anda, o mercador inteiro entre o cabeçalho e o pé do
+ * story (os pés acima dos adesivos e da linha "Enviar mensagem…"), balão nenhum por cima do cabeçalho nem dos adesivos,
+ * e o story acima da barra de abas.
+ */
+async function conferirRuaNoStory(p, nome) {
+  await p.locator('.vista-inicio .rua-story[data-rua="rodando"]').waitFor({ timeout: 10000 }).catch(() => {})
+  const r = await p.evaluate(() => {
+    const caixa = (e) => {
+      const b = e?.getBoundingClientRect()
+      return b && b.width ? { t: b.top, b: b.bottom, l: b.left, r: b.right } : null
+    }
+    const v = document.querySelector('.vista-inicio')
+    const cena = v?.querySelector('.rua-story')
+    return {
+      estado: cena?.getAttribute('data-rua'),
+      aqui: !!cena && !cena.hidden,
+      cab: caixa(v?.querySelector('.hero-cab')),
+      pe: caixa(v?.querySelector('.rua-adesivos')),
+      merc: caixa(v?.querySelector('.rua-em-story .rua-mercador')),
+      baloes: [...(v?.querySelectorAll('.rua-em-story .rua-balao') ?? [])].map(caixa),
+      quadro: caixa(v?.querySelector('.hero-quadro')),
+      barra: caixa(document.querySelector('.barra-abas')),
+    }
+  })
+  if (!r.aqui) problemas.push(`${nome}: o story não abre na rua`)
+  if (r.estado !== 'rodando') problemas.push(`${nome}: a rua do story não andou (${r.estado})`)
+  if (!r.merc || !r.cab || !r.pe) problemas.push(`${nome}: rua sem mercador, cabeçalho ou pé medidos`)
+  else {
+    if (r.merc.t < r.cab.b) problemas.push(`${nome}: o mercador encosta no cabeçalho (${Math.round(r.merc.t)} < ${Math.round(r.cab.b)})`)
+    if (r.merc.b > r.pe.t + 1) problemas.push(`${nome}: os pés do mercador passam do pé do story (${Math.round(r.merc.b)} > ${Math.round(r.pe.t)})`)
+  }
+  for (const b of r.baloes) if (b && r.cab && r.pe && (b.t < r.cab.b - 1 || b.b > r.pe.t + 1)) problemas.push(`${nome}: balão por cima do cabeçalho ou dos adesivos (${Math.round(b.t)}..${Math.round(b.b)})`)
+  if (r.quadro && r.barra && r.quadro.b > r.barra.t + 1) problemas.push(`${nome}: o story passa da barra de abas`)
+}
+
 for (const [nome, w, h] of aparelhos) {
   const ctx = await contexto(w, h)
   const p = await ctx.newPage()
   await abrir(p, nome, `${base}?uf=mg`)
+  await conferirRuaNoStory(p, nome)
   await p.screenshot({ path: `${out}${nome}-1-home.png` })
   await fotoInteira(p, `${out}${nome}-1b-home-inteira.png`)
   await conferirBarra(p, nome)
@@ -349,37 +394,80 @@ for (const [nome, w, h] of aparelhos) {
   console.log('✓', nome)
 }
 
-// ---------- story do Início: uma barrinha por produto; o último também anda sozinho ----------
+// ---------- story do Início: a rua primeiro, uma barrinha por story (a rua e cada produto); o último volta para a rua;
+// a rua dura ~12 s (o bastante para um atendimento inteiro) e os produtos 5 s ----------
 {
   const ctx = await contexto(390, 844, { semDica: true })
   const p = await ctx.newPage()
   await abrir(p, 'barras', `${base}?uf=mg`)
+  await p.locator('.vista-inicio .rua-story[data-rua="rodando"]').waitFor({ timeout: 10000 }).catch(() => {})
   const info = () =>
     p.evaluate(() => ({
       barras: document.querySelectorAll('.hero-barras .story-barra').length,
-      nome: document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?',
+      nome: document.querySelector('.vista-inicio .rua-story:not([hidden])') ? 'rua' : (document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?'),
     }))
   const quadro = await p.locator('.hero-quadro').boundingBox()
-  const vistos = new Set()
-  let ultimo = await info()
-  // passa até dar a volta (o mesmo nome de novo) e guarda quantos passos tem
-  for (let k = 0; k < 12; k++) {
-    vistos.add(ultimo.nome)
+  const vistos = []
+  let atual = await info()
+  if (atual.nome !== 'rua') problemas.push(`barras: o story não começa na rua (${atual.nome})`)
+  // passa até dar a volta (a rua de novo) e guarda quantos passos tem
+  for (let k = 0; k < 14; k++) {
+    vistos.push(atual.nome)
     await p.touchscreen.tap(quadro.x + quadro.width * 0.92, quadro.y + quadro.height * 0.3)
     await p.waitForTimeout(450)
-    const i = await info()
-    if (vistos.has(i.nome)) break
-    ultimo = i
+    atual = await info()
+    if (atual.nome === 'rua') break
   }
-  if (ultimo.barras !== vistos.size) problemas.push(`barras: ${ultimo.barras} barrinhas para ${vistos.size} produtos`)
-  // volta ao último passo e espera ele andar sozinho
+  if (atual.nome !== 'rua') problemas.push('barras: passar todos os produtos não voltou para a rua')
+  if (atual.barras !== vistos.length || vistos.filter((n) => n === 'rua').length !== 1) problemas.push(`barras: ${atual.barras} barrinhas para ${vistos.length} stories (${vistos.join(', ')})`)
+  // volta ao último produto e espera ele andar sozinho para a rua (5 s)
   await p.touchscreen.tap(quadro.x + quadro.width * 0.08, quadro.y + quadro.height * 0.3)
   await p.waitForTimeout(500)
   const noUltimo = await info()
-  await p.waitForTimeout(7000)
-  if ((await info()).nome === noUltimo.nome) problemas.push(`barras: o último produto (${noUltimo.nome}) travou`)
+  let t0 = 0
+  for (let k = 0; k < 40 && !t0; k++) {
+    await p.waitForTimeout(200)
+    if ((await info()).nome === 'rua') t0 = Date.now()
+  }
+  if (noUltimo.nome === 'rua' || !t0) problemas.push(`barras: o último produto (${noUltimo.nome}) não andou sozinho para a rua`)
+  // na rua, ~12 s antes de passar sozinha (com 6 s, ainda nela)
+  await p.waitForTimeout(6000)
+  if ((await info()).nome !== 'rua') problemas.push('barras: a rua passou antes de ~12 s')
+  let passou = 0
+  for (let k = 0; k < 40 && !passou; k++) {
+    await p.waitForTimeout(250)
+    if ((await info()).nome !== 'rua') passou = Date.now() - t0
+  }
+  if (!passou || passou < 11000 || passou > 13500) problemas.push(`barras: a rua durou ${passou} ms (esperado ~12 s)`)
   await ctx.close()
-  console.log('✓ barras do story', `(${vistos.size} produtos)`)
+  console.log('✓ barras do story', `(${vistos.length} stories: a rua e ${vistos.length - 1} produtos; a rua em ${passou} ms)`)
+}
+
+// ---------- link direto de um produto (?p=): o story do produto abre por cima e o do Início começa nele, não na rua ----
+{
+  const ctx = await contexto(390, 844, { semDica: true })
+  const p = await ctx.newPage()
+  await abrirLembrado(ctx, p, 'link-p', `${base}?uf=mg`)
+  const quadro = await p.locator('.hero-quadro').boundingBox()
+  // o terceiro story (o segundo produto): um que não é o primeiro de nenhuma conta
+  for (let k = 0; k < 2; k++) {
+    await p.touchscreen.tap(quadro.x + quadro.width * 0.92, quadro.y + quadro.height * 0.3)
+    await p.waitForTimeout(450)
+  }
+  const alvo = await p.evaluate(() => ({ nome: document.querySelector('.hero-palco .sq-nome')?.textContent, href: document.querySelector('.hero-produto')?.getAttribute('href') }))
+  const id = new URLSearchParams(alvo.href ?? '').get('produto')
+  await ctx.close()
+  const ctx2 = await contexto(390, 844, { semDica: true })
+  const p2 = await ctx2.newPage()
+  await abrirLembrado(ctx2, p2, 'link-p', `${base}?uf=mg&p=${encodeURIComponent(id ?? '')}`)
+  const r = await p2.evaluate(() => ({
+    camada: !!document.querySelector('.story'),
+    rua: !!document.querySelector('.vista-inicio .rua-story:not([hidden])'),
+    nome: document.querySelector('.hero-palco .sq-nome')?.textContent,
+  }))
+  if (!id || !r.camada || r.rua || r.nome !== alvo.nome) problemas.push(`link-p: ?p= não começou no produto (${JSON.stringify({ id, alvo: alvo.nome, ...r })})`)
+  await ctx2.close()
+  console.log('✓ link direto ?p=', `(${alvo.nome})`)
 }
 
 // ---------- celular deitado: o story do hero inteiro acima da barra de abas ----------
@@ -404,19 +492,53 @@ for (const [nome, w, h] of deitados) {
       }
       return {
         story: r('.hero-story'),
+        quadro: r('.hero-quadro'),
         barra: r('.barra-abas'),
         resposta: r('.hero-resposta .barra-pilula'),
         ver: r('.hero-ver'),
         disp: r('.hero-palco .sq-disp'),
         preco: r('.hero-palco .sq-preco'),
+        // a rua (o primeiro story): a faixa larga entre o cabeçalho e a linha de baixo
+        rua: r('.vista-inicio .rua-story:not([hidden])'),
+        estado: document.querySelector('.vista-inicio .rua-story')?.getAttribute('data-rua'),
+        cab: r('.hero-cab'),
+        pe: r('.rua-adesivos'),
+        merc: r('.rua-em-story .rua-mercador'),
+        tela: r('.rua-em-story .rua-tela'),
+        baloes: [...document.querySelectorAll('.rua-em-story .rua-balao')].map((e) => {
+          const b = e.getBoundingClientRect()
+          return { t: b.top, b: b.bottom }
+        }),
       }
     })
+  const conferirPe = (m, onde) => {
+    if (m.story && m.barra && m.story.b > m.barra.t + 1) problemas.push(`${nome}: story passa da barra de abas ${onde} (${Math.round(m.story.b)} > ${Math.round(m.barra.t)})`)
+    if (m.resposta && m.barra && m.resposta.b > m.barra.t + 1) problemas.push(`${nome}: "Enviar mensagem…" atrás da barra de abas ${onde}`)
+  }
+  await p.locator('.vista-inicio .rua-story[data-rua="rodando"]').waitFor({ timeout: 10000 }).catch(() => {})
+  const a = await medir()
+  if (!a.rua || a.estado !== 'rodando') problemas.push(`${nome}: o story deitado não abre na rua andando (${a.estado})`)
+  else if (!a.merc || !a.cab || !a.pe) problemas.push(`${nome}: rua deitada sem mercador, cabeçalho ou pé medidos`)
+  else {
+    if (a.merc.t < a.cab.b) problemas.push(`${nome}: o mercador debaixo do cabeçalho (${Math.round(a.merc.t)} < ${Math.round(a.cab.b)})`)
+    if (a.merc.b > a.pe.t + 1) problemas.push(`${nome}: os pés do mercador passam do pé do story (${Math.round(a.merc.b)} > ${Math.round(a.pe.t)})`)
+    // a ponta do poste (a linha 1 da faixa de 92) abaixo do cabeçalho
+    if (a.tela && a.tela.t + (a.tela.b - a.tela.t) / 92 < a.cab.b - 1) problemas.push(`${nome}: o poste da rua entra no cabeçalho (${Math.round(a.tela.t)} / ${Math.round(a.cab.b)})`)
+    for (const b of a.baloes) if (b.t < a.cab.b - 1 || b.b > a.pe.t + 1) problemas.push(`${nome}: balão por cima do cabeçalho ou dos adesivos (${Math.round(b.t)}..${Math.round(b.b)})`)
+  }
+  conferirPe(a, 'na rua')
+  await p.screenshot({ path: `${out}${nome}-1-hero.png` })
+  // o primeiro produto: VER PRODUTO longe do preço e do DISPONÍVEL, tudo dentro do story
+  if (a.quadro) {
+    await p.touchscreen.tap(a.quadro.l + (a.quadro.r - a.quadro.l) * 0.92, a.quadro.t + (a.quadro.b - a.quadro.t) * 0.3)
+    await p.waitForTimeout(800)
+  }
   const m = await medir()
-  if (m.story && m.barra && m.story.b > m.barra.t + 1) problemas.push(`${nome}: story passa da barra de abas (${Math.round(m.story.b)} > ${Math.round(m.barra.t)})`)
-  if (m.resposta && m.barra && m.resposta.b > m.barra.t + 1) problemas.push(`${nome}: "Enviar mensagem…" atrás da barra de abas`)
+  if (m.rua || !m.ver) problemas.push(`${nome}: tocar à direita na rua não passou para o produto`)
+  conferirPe(m, 'no produto')
   if (cruza(m.disp, m.ver) || cruza(m.preco, m.ver)) problemas.push(`${nome}: VER PRODUTO por cima do preço/DISPONÍVEL`)
   if (m.disp && m.story && m.disp.b > m.story.b) problemas.push(`${nome}: DISPONÍVEL fora do story`)
-  await p.screenshot({ path: `${out}${nome}-1-hero.png` })
+  await p.screenshot({ path: `${out}${nome}-1b-hero-produto.png` })
   await ctx.close()
   console.log('✓', nome)
 }
@@ -530,6 +652,10 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
         const ver = document.querySelector('.vista-inicio .hero-ver')
         const pilula = document.querySelector('.vista-inicio .hero-resposta .barra-pilula')
         return {
+          quadro: r('.vista-inicio .hero-quadro'),
+          rua: r('.vista-inicio .rua-story:not([hidden])'),
+          ruaPe: r('.vista-inicio .rua-adesivos .rua-frase'),
+          merc: r('.vista-inicio .rua-em-story .rua-mercador'),
           noStory: r('.vista-inicio .hero .aviso-local-story'),
           fixo: r('.aviso-local-fixo'),
           pilula: r('.vista-inicio .hero-resposta .barra-pilula'),
@@ -541,8 +667,25 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
           opcoes: [...document.querySelectorAll('.vista-inicio .aviso-local-story .aviso-local-op')].map(livre),
         }
       })
-    const m = await medir()
+    await p.locator('.vista-inicio .rua-story[data-rua="rodando"]').waitFor({ timeout: 10000 }).catch(() => {})
+    const m0 = await medir()
     await p.screenshot({ path: `${out}${tag.replace(' ', '-')}-1.png` })
+    // na rua (o primeiro story): o aviso no pé, sem cobrir o adesivo dela nem o mercador
+    if (!m0.rua) problemas.push(`${tag}: o story não abriu na rua`)
+    else if (!m0.noStory) problemas.push(`${tag}: na rua, o aviso não ficou no pé do story`)
+    else {
+      if (cruza(m0.noStory, m0.ruaPe)) problemas.push(`${tag}: aviso por cima do adesivo da rua`)
+      if (m0.merc && m0.merc.b > m0.noStory.t + 1) problemas.push(`${tag}: aviso por cima do mercador (${Math.round(m0.merc.b)} > ${Math.round(m0.noStory.t)})`)
+      if (m0.opcoes.length !== 2 || m0.opcoes.includes(false)) problemas.push(`${tag}: na rua, opção do aviso coberta (${JSON.stringify(m0.opcoes)})`)
+    }
+    // o primeiro produto: o aviso não cobre o VER PRODUTO nem o DISPONÍVEL
+    if (m0.quadro) {
+      await p.touchscreen.tap(m0.quadro.l + (m0.quadro.r - m0.quadro.l) * 0.92, m0.quadro.t + (m0.quadro.b - m0.quadro.t) * 0.3)
+      await p.waitForTimeout(800)
+    }
+    const m = await medir()
+    if (m.rua || !m.ver) problemas.push(`${tag}: tocar à direita na rua não passou para o produto`)
+    await p.screenshot({ path: `${out}${tag.replace(' ', '-')}-1b-produto.png` })
     if (!m.noStory) problemas.push(`${tag}: o aviso não ficou no pé do story`)
     else {
       if (m.fixo) problemas.push(`${tag}: aviso duplicado (o fixo também na tela)`)
