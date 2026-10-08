@@ -61,6 +61,55 @@ export function Campo({
   )
 }
 
+/**
+ * Número com − e + (alvo de 44 px), digitável; a unidade fica colada no número. O campo tem a largura do número e
+ * fica no meio da caixa (um input de largura cheia ali empurrava o + pra fora). O name sai do id ('r-vagas' → 'vagas').
+ * No limite, − e + ficam aria-disabled (não disabled): o foco continua no botão, dentro da folha, e Esc e Tab seguem
+ * valendo (um botão desligado com o foco joga o foco pro body).
+ */
+export function Numero({
+  aria,
+  valor,
+  aoMudar,
+  min,
+  max,
+  rotuloMenos,
+  rotuloMais,
+  sufixo,
+}: {
+  aria: PropsAria
+  valor: string
+  aoMudar: (v: string) => void
+  min: number
+  max: number
+  rotuloMenos: string
+  rotuloMais: string
+  sufixo?: string
+}) {
+  const n = /^\d{1,4}$/.test(valor.trim()) ? Number(valor.trim()) : null
+  const noMin = n != null && n <= min
+  const noMax = n != null && n >= max
+  const passo = (d: number) => aoMudar(String(Math.min(max, Math.max(min, (n ?? min) + d))))
+  return (
+    <div className="pn-numero">
+      <button type="button" className="pn-numero-b" onClick={() => !noMin && passo(-1)} aria-label={rotuloMenos} aria-disabled={noMin || undefined}>
+        <Ic nome="menos" tamanho={16} />
+      </button>
+      <span className="pn-numero-meio" onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
+        <input {...aria} name={aria.id.replace(/^[a-z]-/, '')} className="pn-input pn-numero-i" style={{ width: `calc(${Math.max(1, valor.length)}ch + 6px)` }} inputMode="numeric" pattern="[0-9]*" autoComplete="off" value={valor} onChange={(e) => aoMudar(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        {sufixo && (
+          <span className="pn-numero-suf" aria-hidden="true">
+            {sufixo}
+          </span>
+        )}
+      </span>
+      <button type="button" className="pn-numero-b" onClick={() => !noMax && passo(1)} aria-label={rotuloMais} aria-disabled={noMax || undefined}>
+        <Ic nome="mais" tamanho={16} />
+      </button>
+    </div>
+  )
+}
+
 /** Aviso na tela. tipo 'erro' anuncia na hora (role=alert); 'ok' e 'info' entram como status. */
 export function Aviso({ tipo = 'info', children, acao, className }: { tipo?: 'erro' | 'ok' | 'info'; children: ReactNode; acao?: ReactNode; className?: string }) {
   return (

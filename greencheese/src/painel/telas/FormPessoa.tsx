@@ -7,7 +7,7 @@ import { ufs as todasUfs } from '../../dados/ufs'
 import { Folha } from '../Folha'
 import { brl } from '../formato'
 import type { Participante, RateioAdmin } from '../tipos'
-import { Aviso, Botao, Campo, Ic } from '../ui'
+import { Aviso, Botao, Campo, Numero } from '../ui'
 import { celularNoCampo, conferirCelular, digitosCelular, mascaraCelular } from '../whats'
 
 type Erros = Partial<Record<string, string>>
@@ -142,17 +142,7 @@ function Form({ rateio, pessoa, aoFechar, aoSalvar }: { rateio: RateioAdmin; pes
           </Campo>
         </div>
         <Campo id="p-quantidade" rotulo="Vagas" erro={erros.quantidade} dica={`No máximo ${max} por pessoa · ${brl(v.quantidade * (pessoa?.precoUnit ?? rateio.precoRateio))}`}>
-          {(a) => (
-            <div className="pn-numero">
-              <button type="button" className="pn-numero-b" aria-label="Uma vaga a menos" disabled={v.quantidade <= 1} onClick={() => mudar('quantidade', Math.max(1, v.quantidade - 1))}>
-                <Ic nome="menos" tamanho={16} />
-              </button>
-              <input {...a} name="quantidade" className="pn-input pn-numero-i" inputMode="numeric" value={String(v.quantidade)} onChange={(e) => mudar('quantidade', Math.min(max, Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1)))} />
-              <button type="button" className="pn-numero-b" aria-label="Uma vaga a mais" disabled={v.quantidade >= max} onClick={() => mudar('quantidade', Math.min(max, v.quantidade + 1))}>
-                <Ic nome="mais" tamanho={16} />
-              </button>
-            </div>
-          )}
+          {(a) => <Numero aria={a} valor={String(v.quantidade)} aoMudar={(s) => mudar('quantidade', Math.min(max, Math.max(1, Number(s) || 1)))} min={1} max={max} rotuloMenos="Uma vaga a menos" rotuloMais="Uma vaga a mais" />}
         </Campo>
         <Campo id="p-observacao" rotulo="Observação" erro={erros.observacao} lado={<span className="pn-opcional">opcional</span>}>
           {(a) => <textarea {...a} name="observacao" className="pn-input pn-texto" rows={2} maxLength={500} placeholder="Ex.: pagou no Pix às 14h" value={v.observacao} onChange={(e) => mudar('observacao', e.target.value)} />}

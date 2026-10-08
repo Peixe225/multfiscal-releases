@@ -304,7 +304,7 @@ function gc_ler_rateio(array $c, ?array $atual): array
 
     $preco = $tem('precoRateio') ? gc_centavos($c['precoRateio']) : ($atual === null ? null : (int) $atual['preco_rateio']);
     if ($preco === null) {
-        throw gc_invalido('precoRateio', 'Preço do rateio tem que ser maior que zero.');
+        throw gc_invalido('precoRateio', 'Preço do rateio de R$ 0,01 a R$ 100.000,00.');
     }
     $col['preco_rateio'] = $preco;
 
@@ -313,7 +313,10 @@ function gc_ler_rateio(array $c, ?array $atual): array
         $depois = null;
     } else {
         $depois = $tem('precoDepois') ? gc_centavos($depois) : (int) $depois;
-        if ($depois === null || $depois <= $preco) {
+        if ($depois === null) {
+            throw gc_invalido('precoDepois', 'Preço depois que chega de R$ 0,01 a R$ 100.000,00 (ou vazio).');
+        }
+        if ($depois <= $preco) {
             throw gc_invalido('precoDepois', 'Preço depois que chega tem que ser maior que o do rateio (ou vazio).');
         }
     }
@@ -546,6 +549,9 @@ function gc_rota_admin_participante_salvar(): array
         gc_vencer_reservas($rid);
         if ($atual !== null) {
             $atual = (array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$atual['id']]);
+            if (gc_dados_apagados($atual)) {
+                throw gc_erro_dados_apagados();
+            }
         }
         $tem = static fn (string $k): bool => array_key_exists($k, $c);
 
@@ -649,6 +655,13 @@ function gc_rota_admin_participante_status(): array
         ];
         if (!is_string($para) || !in_array($para, ['reservado', 'confirmado', 'cancelado', 'entregue'], true)) {
             throw gc_invalido('status', 'Status inválido.');
+        }
+        if ($para === $de) {
+            // já está assim (outro aparelho, ou o toque de novo depois do "demorou"): nada muda, nada vai pra auditoria
+            return ['participante' => gc_participante_admin($p), 'rateio' => gc_rateio_admin_por_id($rid), 'jaEstava' => true];
+        }
+        if (in_array($para, ['confirmado', 'reservado'], true) && gc_dados_apagados($p)) {
+            throw gc_erro_dados_apagados();
         }
         if (!in_array($para, $mapa[$de] ?? [], true)) {
             throw new ErroApi('transicao-invalida', 'De ' . GC_ROTULO_STATUS[$de] . ' não dá pra ir pra ' . GC_ROTULO_STATUS[$para] . '.', 409, ['de' => $de, 'para' => $para, 'permitidos' => $mapa[$de] ?? []]);
@@ -797,7 +810,9 @@ function gc_rota_admin_participantes_csv(): array
     foreach ($linhas as $l) {
         $csv .= implode(';', array_map('gc_csv_celula', $l)) . "\r\n";
     }
-    $arquivo = 'rateio-' . $id . '-' . gmdate('Y-m-d', gc_agora()) . '.csv';
+    // a data no horário de Brasília, como a da cópia do banco (em UTC, depois das 21h saía o dia seguinte)
+    $dia = (new DateTimeImmutable('@' . gc_agora()))->setTimezone(new DateTimeZone('America/Sao_Paulo'))->format('Y-m-d');
+    $arquivo = 'rateio-' . $id . '-' . $dia . '.csv';
     http_response_code(200);
     gc_cabecalhos('text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $arquivo . '"');

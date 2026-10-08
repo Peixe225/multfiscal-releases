@@ -5,6 +5,8 @@
 //   da tela, que continua montada com o que estava digitado) e é refeito sozinho. É seguro refazer: o servidor
 //   confere a sessão antes de qualquer escrita.
 // - Banco ocupado (503) tenta de novo uma vez em 2 s; erro de rede e demora viram mensagem clara.
+// - Os arquivos (CSV, cópia do banco) também vêm por aqui: um <a download> direto pra API falhava calado com a sessão
+//   vencida (o navegador cancelava o "index.json" e a tela não dizia nada).
 import type {
   Diagnostico,
   Envio,
@@ -114,6 +116,16 @@ interface Opcoes {
   /** Rotas antes da sessão (instalar, entrar, recuperar): sem X-CSRF e sem esperar login. */
   aberta?: boolean
   tentativa?: number
+  /** Resposta que é arquivo (não JSON): devolve { blob, nome } em vez do JSON. */
+  arquivo?: boolean
+  /** Prazo em ms (padrão 25 s). */
+  prazo?: number
+}
+
+/** Arquivo baixado da API: o conteúdo e o nome que o servidor deu (Content-Disposition). */
+export interface Arquivo {
+  blob: Blob
+  nome: string | null
 }
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -147,12 +159,18 @@ async function pedir<T>(metodo: 'GET' | 'POST', rota: string, op: Opcoes = {}): 
   const relogio = setTimeout(() => {
     demorou = true
     ctrl.abort()
-  }, PRAZO_MS)
+  }, op.prazo ?? PRAZO_MS)
   const largar = () => ctrl.abort()
   op.sinal?.addEventListener('abort', largar)
   let res: Response
   try {
     res = await fetch(urlApi(rota, op.params), { method: metodo, headers: cab, body: corpo, credentials: 'same-origin', cache: 'no-store', signal: ctrl.signal })
+    // arquivo: lê o corpo ainda dentro do prazo (cair no meio do download também vira mensagem)
+    if (op.arquivo && res.ok && !/json/i.test(res.headers.get('Content-Type') ?? '')) {
+      const blob = await res.blob()
+      const nome = /filename="([^"\\/]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? null
+      return { blob, nome } satisfies Arquivo as T
+    }
   } catch (e) {
     if (op.sinal?.aborted) throw e
     throw demorou
@@ -234,8 +252,9 @@ export const participantes = (rateioId: string, sinal?: AbortSignal) =>
 export const salvarParticipante = (c: ParticipanteCorpo) =>
   pedir<Ok<{ participante: Participante; rateio: RateioAdmin; token?: string }>>('POST', 'admin-participante-salvar', { corpo: c })
 
+/** jaEstava: a vaga já tinha esse status (outro aparelho, ou um toque de novo depois do "demorou"); nada mudou. */
 export const statusParticipante = (id: number, status: Exclude<StatusVaga, 'expirado'>) =>
-  pedir<Ok<{ participante: Participante; rateio: RateioAdmin }>>('POST', 'admin-participante-status', { corpo: { id, status } })
+  pedir<Ok<{ participante: Participante; rateio: RateioAdmin; jaEstava?: boolean }>>('POST', 'admin-participante-status', { corpo: { id, status } })
 
 export const apagarParticipante = (id: number) =>
   pedir<Ok<{ participante: Participante; rateio: RateioAdmin }>>('POST', 'admin-participante-apagar', { corpo: { id } })
@@ -244,9 +263,32 @@ export const diagnostico = () => pedir<Ok<Diagnostico>>('GET', 'admin-diagnostic
 
 export const eventos = (sinal?: AbortSignal) => pedir<Ok<{ eventos: Evento[] }>>('GET', 'admin-eventos', { sinal })
 
-/** Downloads diretos (o cookie Strict vai junto: é o mesmo site). */
-export const urlCsv = (rateioId: string) => urlApi('admin-participantes-csv', { rateio: rateioId })
-export const urlBackup = () => urlApi('admin-backup')
+/** Entrega o arquivo baixado pro navegador salvar (o mesmo "baixar" de um link com download). */
+function salvar({ blob, nome }: Arquivo, reserva: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nome ?? reserva
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  // o navegador já pegou o arquivo; o endereço temporário sai depois
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+/**
+ * Baixa a planilha do rateio / a cópia do banco. Passa pelo mesmo caminho dos outros pedidos: sessão caída abre o
+ * login por cima e o download recomeça sozinho; erro vira mensagem (ErroApi) pra tela mostrar.
+ */
+export async function baixarCsv(rateioId: string): Promise<void> {
+  const a = await pedir<Arquivo>('GET', 'admin-participantes-csv', { params: { rateio: rateioId }, arquivo: true, prazo: 60_000 })
+  salvar(a, `rateio-${rateioId}.csv`)
+}
+export async function baixarBackup(): Promise<void> {
+  const a = await pedir<Arquivo>('GET', 'admin-backup', { arquivo: true, prazo: 120_000 })
+  salvar(a, 'greencheese-loja.sqlite')
+}
 
 /**
  * Envio da foto (multipart, campo `imagem`), com o andamento. XHR em vez de fetch só por causa do progresso.

@@ -108,7 +108,8 @@ html.pn-compondo .pn-app {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  padding: 6px 0;
+  /* respiro por fora: com padding, o overflow cortava no padding e o topo da 3ª linha aparecia embaixo do "…" */
+  margin: 6px 0;
 }
 
 /* barra de baixo do celular (no molde da do Instagram e da do site) */
@@ -698,7 +699,8 @@ html.pn-compondo .pn-barra {
   place-items: center;
   color: var(--branco);
 }
-.pn-numero-b:disabled {
+.pn-numero-b:disabled,
+.pn-numero-b[aria-disabled='true'] {
   color: var(--chiado);
   cursor: default;
 }

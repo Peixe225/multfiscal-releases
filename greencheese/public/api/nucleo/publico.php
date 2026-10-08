@@ -55,11 +55,74 @@ function gc_rota_rateio(): array
     return ['rateio' => gc_rateio_publico((array) gc_rateio_linha((string) $id), gc_contagem((string) $id))];
 }
 
-/** POST rateio-entrar: reserva a vaga na hora (código RAT-XXXX); o pagamento fecha no WhatsApp da loja. */
+/** Token do aparelho (32 hex), ou null: ausente ou mal formado (aí o servidor gera um). */
+function gc_token_do_aparelho(mixed $v): ?string
+{
+    $t = is_string($v) ? strtolower(trim($v)) : '';
+    return preg_match('/^[0-9a-f]{32}$/', $t) === 1 ? $t : null;
+}
+
+/** A participação ainda é a desta entrada? Mesmo WhatsApp e a vaga viva (reservada no prazo, paga ou entregue). */
+function gc_mesma_entrada(array $p, string $whatsapp): bool
+{
+    return (string) $p['whatsapp'] === $whatsapp && in_array(gc_status_participacao($p), ['reservado', 'confirmado', 'entregue'], true);
+}
+
+/** Resposta da entrada repetida: a participação de antes, como está agora (200, nada novo gravado). */
+function gc_resposta_repetida(array $p, array $r, string $token): array
+{
+    return [
+        'participacao' => gc_participacao_publica($p, $r, $token),
+        'rateio' => gc_rateio_publico($r, gc_contagem((string) $r['id'])),
+    ];
+}
+
+/**
+ * A mesma entrada de novo (token + rateio + WhatsApp de uma vaga viva)? Só leitura, antes do limite de tentativas:
+ * repetir o que já foi gravado não é tentar de novo. Qualquer coisa fora do lugar (armadilha cheia, campo que não
+ * confere, rateio cancelado): null, e o pedido segue o caminho de sempre.
+ * @param array<string, mixed> $c
+ * @return array<string, mixed>|null
+ */
+function gc_entrada_repetida(array $c): ?array
+{
+    $token = gc_token_do_aparelho($c['token'] ?? null);
+    $id = $c['rateio'] ?? null;
+    if ($token === null || !gc_id_valido($id) || (array_key_exists('site', $c) && $c['site'] !== null && $c['site'] !== '')) {
+        return null;
+    }
+    $whatsapp = gc_whatsapp($c['whatsapp'] ?? null);
+    $p = $whatsapp === null ? null : gc_um('SELECT * FROM participacoes WHERE token_hash = ?', [hash('sha256', $token)]);
+    if ($p === null || (string) $p['rateio_id'] !== (string) $id || !gc_mesma_entrada($p, (string) $whatsapp)) {
+        return null;
+    }
+    $r = gc_rateio_linha((string) $id);
+    if ($r === null || $r['status'] === 'rascunho' || $r['status'] === 'cancelado') {
+        return null;
+    }
+    return gc_resposta_repetida($p, $r, $token);
+}
+
+/**
+ * POST rateio-entrar: reserva a vaga na hora (código RAT-XXXX); o pagamento fecha no WhatsApp da loja.
+ * token (opcional, 32 hex) nasce no aparelho e vai igual em cada nova tentativa da mesma entrada (API.md): o servidor
+ * guarda o hash dele no lugar de gerar um. A mesma entrada de novo (a resposta se perdeu no 3G DEPOIS de gravar)
+ * devolve a MESMA participação com 200, sem criar outra nem gastar vaga ou tentativa do limite, mesmo que o rateio
+ * tenha lotado ou o prazo passado nesse meio-tempo. Token já usado em outro rateio: invalido. Token mal formado, de
+ * outro WhatsApp ou de uma vaga que venceu ou foi cancelada: o servidor gera o dele (como sem token).
+ */
 function gc_rota_rateio_entrar(): array
 {
     gc_conferir_origem();
-    gc_limite('rateio-entrar', gc_chave_limite('ip', gc_ip()), 12, 3600);
+    try {
+        $repetida = gc_entrada_repetida(gc_corpo('rateio'));
+    } catch (ErroApi) {
+        $repetida = null; // corpo quebrado: o erro sai logo abaixo, já contado no limite (as erradas contam)
+    }
+    if ($repetida !== null) {
+        return $repetida;
+    }
+    $tentativa = gc_limite('rateio-entrar', gc_chave_limite('ip', gc_ip()), 12, 3600);
     $c = gc_corpo('rateio');
 
     // armadilha de robô: gente de verdade não vê nem preenche o campo "site"
@@ -86,12 +149,28 @@ function gc_rota_rateio_entrar(): array
     if ($quantidade === null) {
         throw gc_invalido('quantidade', 'Quantidade tem que ser de 1 pra cima.');
     }
+    $token = gc_token_do_aparelho($c['token'] ?? null);
 
-    return gc_transacao(static function () use ($id, $nome, $whatsapp, $uf, $cidade, $quantidade): array {
+    return gc_transacao(static function () use ($id, $nome, $whatsapp, $uf, $cidade, $quantidade, $token, $tentativa): array {
         gc_vencer_reservas((string) $id);
         $r = gc_rateio_linha((string) $id);
         if ($r === null || $r['status'] === 'rascunho' || $r['status'] === 'cancelado') {
             throw new ErroApi('nao-encontrado', 'Esse rateio não existe mais.', 404);
+        }
+        if ($token !== null) {
+            // dois envios iguais ao mesmo tempo passam juntos pela conferência de cima; aqui é um de cada vez
+            $ja = gc_um('SELECT * FROM participacoes WHERE token_hash = ?', [hash('sha256', $token)]);
+            if ($ja !== null && (string) $ja['rateio_id'] !== (string) $id) {
+                throw gc_invalido('token', 'Essa entrada não veio certa. Recarrega a página e tenta de novo.');
+            }
+            if ($ja !== null && gc_mesma_entrada($ja, $whatsapp)) {
+                gc_limite_apagar($tentativa); // repetir não gasta tentativa
+                return gc_resposta_repetida($ja, $r, $token);
+            }
+            if ($ja !== null) {
+                // a vaga desse token venceu ou foi cancelada (ou o WhatsApp é outro): entrada nova, com token do servidor
+                $token = null;
+            }
         }
         $noPrazo = $r['fecha_em'] === null || (int) $r['fecha_em'] > gc_agora();
         if ($r['status'] !== 'aberto' || !$noPrazo) {
@@ -103,7 +182,7 @@ function gc_rota_rateio_entrar(): array
         }
         [$p, $token] = gc_participacao_criar($r, [
             'nome' => $nome, 'whatsapp' => $whatsapp, 'uf' => $uf, 'cidade' => $cidade, 'quantidade' => $quantidade,
-        ], 'site');
+        ], 'site', $token);
         $r = (array) gc_rateio_linha((string) $id);
         return [
             '_status' => 201,

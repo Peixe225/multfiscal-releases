@@ -55,10 +55,13 @@ function LinhaReserva({ p, rateio, aoConfirmar }: { p: ParticipanteComTitulo; ra
         {resta && <p className={`pn-reserva-prazo${urgente ? ' pn-urgente' : ''}`}>{urgente && <Ic nome="relogio" tamanho={16} />}vence em {resta}</p>}
       </div>
       <div className="pn-reserva-acoes">
-        <button type="button" className="pn-botao pn-botao-cheio pn-botao-p" onClick={aoConfirmar}>
-          <span className="pn-botao-txt">Confirmar pagamento</span>
-          <span className="sr-only"> de {p.nome}</span>
-        </button>
+        {/* dados apagados (LGPD): a vaga não volta */}
+        {p.whatsapp && (
+          <button type="button" className="pn-botao pn-botao-cheio pn-botao-p" onClick={aoConfirmar}>
+            <span className="pn-botao-txt">Confirmar pagamento</span>
+            <span className="sr-only"> de {p.nome}</span>
+          </button>
+        )}
         {aviso && p.whatsapp && <BotaoWhats p={p} texto={aviso.texto} rotulo="Cobrar" variante="cinza" pequeno />}
       </div>
     </li>

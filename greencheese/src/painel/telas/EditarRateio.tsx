@@ -15,7 +15,7 @@ import { AVISO_PROIBIDO, termoProibido } from '../proibidos'
 import { PreviaCartao } from '../rateio-ui'
 import { caminho, ir } from '../rotas'
 import type { RateioAdmin, RateioCorpo } from '../tipos'
-import { Aviso, Botao, Campo, Carregando, Ic, Pontinhos, TituloTela } from '../ui'
+import { Aviso, Botao, Campo, Carregando, Ic, Numero, Pontinhos, TituloTela } from '../ui'
 import { avisarNaProxima } from './flash'
 import { useTitulo } from './comum'
 
@@ -98,10 +98,13 @@ function validar(f: Form, r: RateioAdmin | null): Erros {
   if (f.descricao.length > 400) e.descricao = 'Descrição até 400 letras.'
   else if (termoProibido(f.descricao)) e.descricao = AVISO_PROIBIDO
   const preco = lerReais(f.precoRateio)
+  // o servidor aceita de R$ 0,01 a R$ 100.000,00
   if (preco == null || preco <= 0) e.precoRateio = 'Põe o preço da vaga (ex.: 14,90).'
+  else if (preco > 100000) e.precoRateio = 'Até R$ 100.000,00 a vaga.'
   if (f.precoDepois.trim()) {
     const d = lerReais(f.precoDepois)
     if (d == null) e.precoDepois = 'Preço inválido (ex.: 19,90), ou deixa vazio.'
+    else if (d > 100000) e.precoDepois = 'Até R$ 100.000,00 (ou deixa vazio).'
     else if (preco != null && d <= preco) e.precoDepois = 'Tem que ser mais que o preço no rateio (senão não compensa entrar).'
   }
   const v = inteiro(f.vagas)
@@ -147,30 +150,6 @@ function corpo(f: Form, id: string | null, status?: 'rascunho' | 'aberto'): Rate
     reservaHoras: inteiro(f.reservaHoras) ?? 24,
     ...(status && !id ? { status } : {}),
   }
-}
-
-/** Número com − e + (alvo de 44 px), digitável; a unidade fica colada no número. */
-function Numero({ id, valor, aoMudar, min, max, aria, rotuloMenos, rotuloMais, sufixo }: { id: string; valor: string; aoMudar: (v: string) => void; min: number; max: number; aria: { 'aria-invalid'?: true; 'aria-describedby'?: string }; rotuloMenos: string; rotuloMais: string; sufixo?: string }) {
-  const n = inteiro(valor)
-  const passo = (d: number) => aoMudar(String(Math.min(max, Math.max(min, (n ?? min) + d))))
-  return (
-    <div className="pn-numero">
-      <button type="button" className="pn-numero-b" onClick={() => passo(-1)} aria-label={rotuloMenos} disabled={n != null && n <= min}>
-        <Ic nome="menos" tamanho={16} />
-      </button>
-      <span className="pn-numero-meio" onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
-        <input {...aria} id={id} name={id.replace(/^r-/, '')} className="pn-input pn-numero-i" style={{ width: `calc(${Math.max(1, valor.length)}ch + 6px)` }} inputMode="numeric" pattern="[0-9]*" autoComplete="off" value={valor} onChange={(e) => aoMudar(e.target.value.replace(/\D/g, '').slice(0, 4))} />
-        {sufixo && (
-          <span className="pn-numero-suf" aria-hidden="true">
-            {sufixo}
-          </span>
-        )}
-      </span>
-      <button type="button" className="pn-numero-b" onClick={() => passo(1)} aria-label={rotuloMais} disabled={n != null && n >= max}>
-        <Ic nome="mais" tamanho={16} />
-      </button>
-    </div>
-  )
 }
 
 function Reais({ aria, valor, aoMudar, name, placeholder }: { aria: { id: string; 'aria-invalid'?: true; 'aria-describedby'?: string }; valor: string; aoMudar: (v: string) => void; name: string; placeholder?: string }) {
@@ -614,10 +593,10 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
           <Secao titulo="Vagas" id="s-vagas">
             <div className="pn-dupla">
               <Campo id="r-vagas" rotulo="Total de vagas" erro={erros.vagas}>
-                {(a) => <Numero id="r-vagas" aria={a} valor={f.vagas} aoMudar={(v) => mudar('vagas', v)} min={Math.max(1, ocupadas)} max={1000} rotuloMenos="Menos uma vaga" rotuloMais="Mais uma vaga" />}
+                {(a) => <Numero aria={a} valor={f.vagas} aoMudar={(v) => mudar('vagas', v)} min={Math.max(1, ocupadas)} max={1000} rotuloMenos="Menos uma vaga" rotuloMais="Mais uma vaga" />}
               </Campo>
               <Campo id="r-limite" rotulo="Por pessoa" erro={erros.limite}>
-                {(a) => <Numero id="r-limite" aria={a} valor={f.limite} aoMudar={(v) => mudar('limite', v)} min={1} max={Math.max(1, inteiro(f.vagas) ?? 1)} rotuloMenos="Diminuir o limite por pessoa" rotuloMais="Aumentar o limite por pessoa" />}
+                {(a) => <Numero aria={a} valor={f.limite} aoMudar={(v) => mudar('limite', v)} min={1} max={Math.max(1, inteiro(f.vagas) ?? 1)} rotuloMenos="Diminuir o limite por pessoa" rotuloMais="Aumentar o limite por pessoa" />}
               </Campo>
             </div>
             <p className="pn-dica-bloco">
@@ -659,10 +638,10 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
             <h3 className="pn-h3 pn-h3-colado">Previsão de chegada</h3>
             <div className="pn-dupla">
               <Campo id="r-previsaoMin" rotulo="No mínimo" erro={erros.previsaoMin}>
-                {(a) => <Numero id="r-previsaoMin" aria={a} valor={f.previsaoMin} aoMudar={(v) => mudar('previsaoMin', v)} min={1} max={90} sufixo="dias" rotuloMenos="Um dia a menos (mínimo)" rotuloMais="Um dia a mais (mínimo)" />}
+                {(a) => <Numero aria={a} valor={f.previsaoMin} aoMudar={(v) => mudar('previsaoMin', v)} min={1} max={90} sufixo="dias" rotuloMenos="Um dia a menos (mínimo)" rotuloMais="Um dia a mais (mínimo)" />}
               </Campo>
               <Campo id="r-previsaoMax" rotulo="No máximo" erro={erros.previsaoMax}>
-                {(a) => <Numero id="r-previsaoMax" aria={a} valor={f.previsaoMax} aoMudar={(v) => mudar('previsaoMax', v)} min={1} max={120} sufixo="dias" rotuloMenos="Um dia a menos (máximo)" rotuloMais="Um dia a mais (máximo)" />}
+                {(a) => <Numero aria={a} valor={f.previsaoMax} aoMudar={(v) => mudar('previsaoMax', v)} min={1} max={120} sufixo="dias" rotuloMenos="Um dia a menos (máximo)" rotuloMais="Um dia a mais (máximo)" />}
               </Campo>
             </div>
             <p className="pn-dica-bloco">Dias contados de quando fecha. No site: “Chega de {f.previsaoMin || '…'} a {f.previsaoMax || '…'} dias depois que fechar.”</p>
@@ -681,7 +660,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
             )}
 
             <Campo id="r-reservaHoras" rotulo="A reserva segura a vaga por" erro={erros.reservaHoras} dica="Quem entra pelo site tem esse tempo pra pagar. Depois, a vaga volta pra lista.">
-              {(a) => <Numero id="r-reservaHoras" aria={a} valor={f.reservaHoras} aoMudar={(v) => mudar('reservaHoras', v)} min={1} max={168} sufixo="horas" rotuloMenos="Uma hora a menos" rotuloMais="Uma hora a mais" />}
+              {(a) => <Numero aria={a} valor={f.reservaHoras} aoMudar={(v) => mudar('reservaHoras', v)} min={1} max={168} sufixo="horas" rotuloMenos="Uma hora a menos" rotuloMais="Uma hora a mais" />}
             </Campo>
           </Secao>
 

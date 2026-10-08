@@ -65,7 +65,8 @@ export function pedirConfirmarPagamento(p: Participante, r: Pick<RateioAdmin, 'c
       aoMudar(res)
       const fechou = res.rateio.status === 'fechado' && res.rateio.fechadoEm && antes !== null && antes < res.rateio.vagas && res.rateio.confirmadas >= res.rateio.vagas
       return {
-        titulo: 'Pagamento confirmado ✅',
+        // outro aparelho (ou o toque antes do "demorou") já tinha confirmado: o contador não mudou
+        titulo: res.jaEstava ? 'Já estava confirmado' : 'Pagamento confirmado ✅',
         conteudo: (
           <div className="pn-resultado">
             <p className="pn-resultado-num px">

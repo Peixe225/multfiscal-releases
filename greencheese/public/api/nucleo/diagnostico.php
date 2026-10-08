@@ -107,6 +107,12 @@ function gc_rota_admin_diagnostico(): array
     if (!gc_https() && !gc_desenvolvimento()) {
         $avisos[] = 'O painel tá abrindo sem HTTPS.';
     }
+    $rede = gc_rede_diagnostico();
+    if (!$rede['certo']) {
+        $avisos[] = "O servidor vê o IP da CDN ({$rede['remoto']}) e não o de quem acessa: os limites de tentativa (entrar no rateio, senha do painel) ficam valendo pra todo mundo junto. Avisa quem cuida do site (PENDÊNCIAS, “IP do cliente”).";
+    } elseif (!$rede['proxyNaFrente'] && $rede['site24h']['pedidos'] >= 20 && $rede['site24h']['ips'] === 1) {
+        $avisos[] = "Os {$rede['site24h']['pedidos']} pedidos do site nas últimas 24 h vieram todos do mesmo IP: se não foi uma pessoa só testando, o servidor tá vendo o IP da CDN e os limites de tentativa ficam valendo pra todo mundo junto.";
+    }
 
     $maximo = gc_envio_maximo();
     return [
@@ -145,9 +151,80 @@ function gc_rota_admin_diagnostico(): array
             'envioMaximoTexto' => gc_mb($maximo),
         ],
         'https' => gc_https(),
+        'rede' => $rede,
         'instalacao' => ['codigoDev' => gc_instalacao_dev()],
         'web' => $web,
         'avisos' => $avisos,
+    ];
+}
+
+/** IP pra mostrar sem ele inteiro: '177.38.12.x' · '2804:14c:5b2a:…'. */
+function gc_ip_mascarado(string $ip): string
+{
+    $bin = @inet_pton(trim($ip));
+    if (!is_string($bin)) {
+        return trim($ip) === '' ? '' : '?';
+    }
+    if (strlen($bin) === 16 && str_starts_with($bin, str_repeat("\0", 10) . "\xff\xff")) {
+        $bin = substr($bin, 12);
+    }
+    if (strlen($bin) === 4) {
+        $p = explode('.', (string) inet_ntop($bin));
+        return "{$p[0]}.{$p[1]}.{$p[2]}.x";
+    }
+    $grupos = array_map(static fn (string $g): string => ltrim($g, '0') ?: '0', str_split(bin2hex($bin), 4));
+    return implode(':', array_slice($grupos, 0, 3)) . ':…';
+}
+
+/**
+ * Que IP o servidor usa nos limites de tentativa e se tem CDN ou proxy na frente. O pedido do Diagnóstico vem do
+ * aparelho do dono: chegou cabeçalho de encaminhamento sem o REMOTE_ADDR dentro, o REMOTE_ADDR é de quem repassou (a
+ * CDN). Sem segredo na resposta: IP de gente sai mascarado; o da CDN sai inteiro (é ele que vai pro GC_PROXIES).
+ * Também: de quantos IPs diferentes (pelo hash do limite, nada em claro) vieram os pedidos do site nas últimas 24 h.
+ * @return array{remoto: string, proxyNaFrente: bool, confiavel: bool, usado: string, certo: bool, cabecalhos: list<array{nome: string, ips: list<string>}>, site24h: array{pedidos: int, ips: int}}
+ */
+function gc_rede_diagnostico(): array
+{
+    $remoto = gc_ip_limpo((string) ($_SERVER['REMOTE_ADDR'] ?? '')) ?? '';
+    $nomes = [
+        'X-Forwarded-For' => 'HTTP_X_FORWARDED_FOR', 'X-Real-IP' => 'HTTP_X_REAL_IP', 'Forwarded' => 'HTTP_FORWARDED',
+        'CF-Connecting-IP' => 'HTTP_CF_CONNECTING_IP', 'True-Client-IP' => 'HTTP_TRUE_CLIENT_IP', 'X-Client-IP' => 'HTTP_X_CLIENT_IP',
+    ];
+    $cabecalhos = [];
+    $todos = [];
+    foreach ($nomes as $nome => $chave) {
+        $v = $_SERVER[$chave] ?? null;
+        if (!is_string($v) || trim($v) === '') {
+            continue;
+        }
+        // Forwarded (RFC 7239): os "for=" de cada salto; os outros: lista separada por vírgula
+        $itens = $nome === 'Forwarded' ? (preg_match_all('/for=("[^"]*"|[^;,\s]+)/i', $v, $m) > 0 ? $m[1] : []) : explode(',', $v);
+        $ips = [];
+        foreach (array_slice($itens, 0, 8) as $item) {
+            $ip = gc_ip_limpo($item);
+            if ($ip !== null) {
+                $ips[] = $ip;
+                $todos[] = $ip;
+            }
+        }
+        $cabecalhos[] = ['nome' => $nome, 'ips' => array_map('gc_ip_mascarado', $ips)];
+    }
+    $confiavel = $remoto !== '' && gc_proxy_confiavel($remoto);
+    $proxy = $confiavel || ($todos !== [] && $remoto !== '' && !in_array($remoto, $todos, true));
+    $usado = gc_ip_cliente();
+    $l = gc_um(
+        "SELECT COUNT(*) AS n, COUNT(DISTINCT chave) AS ips FROM tentativas WHERE tipo IN ('rateio-entrar', 'minhas-vagas') AND em > ?",
+        [gc_agora() - 86400],
+    );
+    return [
+        'remoto' => $proxy ? $remoto : gc_ip_mascarado($remoto),
+        'proxyNaFrente' => $proxy,
+        'confiavel' => $confiavel,
+        'usado' => gc_ip_mascarado($usado),
+        // os limites contam por pessoa: sem proxy na frente, ou com a CDN de confiança repassando o IP de quem acessa
+        'certo' => !$proxy || ($confiavel && $usado !== $remoto),
+        'cabecalhos' => $cabecalhos,
+        'site24h' => ['pedidos' => (int) ($l['n'] ?? 0), 'ips' => (int) ($l['ips'] ?? 0)],
     ];
 }
 

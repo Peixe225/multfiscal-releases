@@ -50,11 +50,20 @@ O `.htaccess` da pasta (vem de `public/.htaccess`) troca a política de seguran�
 
 ### Publicar à mão (hPanel)
 
-O pacote pronto está em `entrega/greencheese-dist.zip` (é a pasta `dist/` zipada, com o `.htaccess`).
+Sem as chaves da API da Hostinger, dá pra publicar pelo gerenciador de arquivos. O pacote sai do build, com as mesmas regras do `publicar.mjs`:
 
-1. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (crie se não existir).
-2. **Enviar** → `greencheese-dist.zip` → botão direito → **Extrair**. O `index.html` e o `.htaccess` têm de ficar direto em `greencheese/`.
-3. Apague o zip do servidor e abra o endereço no celular.
+```bash
+npm run build
+npm run empacotar      # → entrega/greencheese-dist.zip (outro lugar: npm run empacotar -- caminho/do/pacote.zip)
+```
+
+O `empacotar` recusa o código de instalação de desenvolvimento (gere o de verdade antes: "Primeiro acesso: o código de instalação", lá embaixo) e deixa de fora banco, log e fotos enviadas: o Vite copia `public/` inteiro pro build, e um `loja.sqlite` ou uma foto esquecidos ali, extraídos no ar, sobrescreveriam os de verdade. **Não zipe a pasta `dist/` à mão**, nem use um zip velho: o `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site).
+
+1. Painel → Servidor → **Baixar cópia do banco** (sempre, antes de publicar).
+2. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (crie se não existir).
+3. **Enviar** → `greencheese-dist.zip` → botão direito → **Extrair** ali mesmo, por cima do que já tem (substituir). O `index.html` e o `.htaccess` têm de ficar direto em `greencheese/`.
+4. **Nunca apague** `greencheese/`, `greencheese/api/privado/` nem `greencheese/uploads/` antes de extrair: o banco, o log e as fotos dos rateios moram lá, e o zip não traz nenhum deles (de propósito).
+5. Apague o zip do servidor e abra o endereço no celular. Os atalhos `Home2/` e `HOME2/` só o `publicar.mjs` sobe (pastas que só mudam a caixa colidem no Windows e no macOS); no zip vai só `home2/`.
 
 Quer na raiz ou num subdomínio? Troque `urlPublica` em `src/dados/config.ts` e gere o build de novo (o endereço vai na imagem de compartilhamento e nos links da bio).
 
@@ -86,7 +95,7 @@ Dentro de `public_html/greencheese/`:
 ### Primeiro acesso: o código de instalação
 
 1. `php scripts/codigo-instalacao.php` → mostra o código **uma vez** (4 grupos de 5, sem letra que confunde, ex.: `k7m2p-x9q4r-h3d8w-5tnby`) e grava só o hash em `public/api/instalacao.php`.
-2. `npm run build` e publicar. O `publicar.mjs` **recusa** enquanto o `instalacao.php` for o de desenvolvimento (marcado `// DEV`), e o servidor no ar também não aceita o código de desenvolvimento.
+2. `npm run build` e publicar. O `publicar.mjs` (e o `empacotar.mjs`) **recusa** enquanto o `instalacao.php` for o de desenvolvimento, e o servidor no ar também não aceita o código de desenvolvimento. Os dois conferem o próprio hash, não só a marca `// DEV` do arquivo: apagar o comentário não adianta.
 3. Passar o código pro dono por um canal seguro (não em grupo). No painel, ele cria o login e a senha (10 caracteres ou mais) com esse código. Dali em diante o código não vale mais.
 4. **Esqueceu a senha?** Gere outro código (passos 1 e 2): no painel, "Esqueci a senha" pede o código novo e a senha nova. Cada código vale uma vez; todas as sessões abertas caem.
 
@@ -103,6 +112,8 @@ Mesmo comando de sempre (`npm run build` + `node scripts/publicar.mjs`). A ordem
 
 **Depois da primeira publicação com a API**: painel → Diagnóstico. Ele pede pela web o banco, o log, um módulo, o `instalacao.php`, o `.htaccess` e um `.php` de teste dentro de `uploads/`: tudo tem que dar fechado, e a lista de avisos vazia. Se algo aparecer aberto, o `.htaccess` daquela pasta não está valendo: não use o painel até resolver.
 
+**IP do cliente**: o site está atrás da CDN da Hostinger. O mesmo Diagnóstico diz que IP conta nos limites de tentativa ("O servidor vê o IP de quem acessa" ou "…da CDN") e quais cabeçalhos de encaminhamento chegaram. Se ele vir o IP da CDN, os limites viram de todo mundo junto: o passo a passo pra pôr a faixa da CDN em `GC_PROXIES` (`public/api/nucleo/base.php`) está no PENDENCIAS.md, “IP do cliente”. O servidor só lê o `X-Forwarded-For` quando o pedido vem de uma faixa dessa lista (vazia, vale só o `REMOTE_ADDR`), e lê da direita pra esquerda: o que o aparelho inventa à esquerda nunca conta.
+
 ### Desenvolvimento
 
 ```bash
@@ -113,11 +124,11 @@ npm run dev    # em outro terminal: o Vite repassa /api e /uploads pro PHP (o pr
 - Código de instalação de desenvolvimento: `dev-instalar-greencheese` (só vale com `GC_DADOS`, que o `npm run api` liga).
 - Zerar tudo: apagar a pasta `.dados-dev/` (fica fora do Git e do build).
 - Com o PHP desligado o site abre igual: o Vite responde 503 `sem-servidor` e o site segue sem servidor (o rateio fecha pelo WhatsApp).
-- Variáveis: `GC_API_PORTA` (porta), `GC_DADOS` e `GC_UPLOADS` (pastas), `PHP` (outro binário do PHP).
+- Variáveis: `GC_API_PORTA` (porta), `GC_DADOS` e `GC_UPLOADS` (pastas), `PHP` (outro binário do PHP), `GC_PROXIES` (faixas de proxy de confiança, separadas por vírgula: somam às de `GC_PROXIES` em `base.php`).
 
 ### Testes do servidor
 
-- `npm run testar-api`: sobe um `php -S` com dados temporários e confere o contrato inteiro (cerca de 690 pontos: instalar, entrar com limite e cookie, CSRF e Origin, rateios e a lista do tabaco, cada erro do rateio-entrar, **30 entradas ao mesmo tempo num rateio de 10 vagas → exatamente 10**, vencimento da reserva com relógio de teste, confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem, cópia do banco, apagar dados e o que tem que ficar fechado). Termina com `api ok`. `PHP=/caminho/do/php npm run testar-api` testa outra versão: passou no PHP 8.1 e no 8.3, com e sem GD/WebP.
+- `npm run testar-api`: sobe um `php -S` com dados temporários e confere o contrato inteiro (cerca de 750 pontos: instalar, entrar com limite e cookie, CSRF e Origin, rateios e a lista do tabaco, cada erro do rateio-entrar, o token do aparelho (a mesma entrada de novo devolve a mesma vaga, até 10 envios juntos), **30 entradas ao mesmo tempo num rateio de 10 vagas → exatamente 10**, vencimento da reserva com relógio de teste, confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem, cópia do banco, apagar dados, o IP atrás de CDN com e sem `GC_PROXIES`, o código de dev recusado com e sem a marca, o zip do `empacotar` e o que tem que ficar fechado). Termina com `api ok`. `PHP=/caminho/do/php npm run testar-api` testa outra versão: passou no PHP 8.1 e no 8.3, com e sem GD/WebP.
 - `npm run testar-htaccess -- <pasta-do-build>`: sobe um Apache local com `mod_php` (`apt install apache2 libapache2-mod-php`), sem `GC_DADOS` (como no ar), e confere os dois ramos dos `.htaccess` (`Require` e `Order/Deny`): site, API, tudo que é fechado, `.php`/`.phtml`/`.svg`/`.html` plantados em `uploads/` (nenhum roda), envio de imagem e o Diagnóstico pela web. Termina com `htaccess ok`.
 
 ### Onde fica cada coisa no código
@@ -175,9 +186,9 @@ Derivado do tabaco e cigarro eletrônico não entra (Anvisa): o nome ou a descri
 - **Confirmar pagamento** (quando o Pix cair na conta): no rateio, "Confirmar pagamento" na pessoa → confirma → o contador sobe ("8/10") e aparece **"Avisar no WhatsApp"** com a mensagem pronta pra ela ("Pagamento confirmado ✅, código RAT-…"). Quando as vagas pagas lotam, o rateio **fecha sozinho** e o painel avisa.
 - **Mensagens prontas**: cada pessoa tem o botão do WhatsApp com a mensagem do momento (cobrar a reserva com o prazo, confirmado, venceu, fechou, pedido feito com a previsão em datas, a caminho, chegou, cancelado). Abre o WhatsApp da loja com o texto escrito; é só mandar.
 - **Passos do rateio**: a linha do status (no celular, de cima pra baixo, como rastreio de entrega) mostra o próximo passo como botão, sempre com confirmação: Fechar agora → Pedido feito → A caminho → Chegou → Encerrar (e "Reabrir" depois de fechar). Passo fora de hora fica cinza em vez de branco: "Fechar agora" com vaga sobrando e no prazo, "Encerrar" com gente sem receber (o placar mostra "Entregue 2/6"). Ao avançar, abre o **"Avisar todos"**: um link do WhatsApp por pessoa, cada um com a mensagem e o nome dela; quem já foi avisado fica marcado (neste aparelho). Dá pra voltar nele depois pelo botão "Avisar todos no WhatsApp".
-- **Participantes**: busca (nome, WhatsApp ou código), filtro por status e, em "⋯", editar, cancelar, desfazer o pagamento, reservar de novo, marcar entregue e apagar os dados (pedido de exclusão da LGPD; a vaga continua nas contas). **Incluir** põe quem entrou pela DM: nome, WhatsApp, estado, vagas e se já pagou. **CSV** baixa a planilha (abre direto no Excel).
+- **Participantes**: busca (nome, WhatsApp ou código), filtro por status e, em "⋯", editar, cancelar, desfazer o pagamento, reservar de novo, marcar entregue e apagar os dados (pedido de exclusão da LGPD; a vaga continua nas contas). **Incluir** põe quem entrou pela DM: nome, WhatsApp, estado, vagas e se já pagou. **CSV** baixa a planilha (abre direto no Excel; com a sessão vencida, o login abre por cima e a planilha baixa depois de entrar). Vaga de quem teve os dados apagados não volta (nem paga, nem reservada).
 - **Atividade**: tudo que aconteceu (entradas pelo site, pagamentos, reservas vencidas, passos), do mais novo pro mais velho.
-- **Servidor** (lateral no computador; no celular, em Conta → "Mais do painel"): o diagnóstico em português (o que tem que ficar fechado pela web, PHP, fotos, HTTPS) e **"Baixar cópia do banco"**.
+- **Servidor** (lateral no computador; no celular, em Conta → "Mais do painel"): o diagnóstico em português (o que tem que ficar fechado pela web, PHP, fotos, HTTPS, o IP que conta nos limites de tentativa) e **"Baixar cópia do banco"**.
 
 ### Desenvolvimento e testes
 

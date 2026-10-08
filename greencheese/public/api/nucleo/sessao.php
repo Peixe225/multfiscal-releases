@@ -161,6 +161,10 @@ function gc_arquivo_instalacao(): string
     return is_string($teste) && $teste !== '' ? $teste : dirname(__DIR__) . '/instalacao.php';
 }
 
+/** O código de desenvolvimento ("dev-instalar-greencheese") do jeito que o servidor compara. É público: está no
+ * repositório e no LEIA-ME. */
+const GC_CODIGO_DEV = 'devinstalargreencheese';
+
 /**
  * Hash do código de instalação (só o hash fica no instalacao.php). Lido como texto, sem executar: com o OPcache, um
  * instalacao.php recém-publicado podia continuar valendo o de antes por alguns segundos.
@@ -171,11 +175,21 @@ function gc_hash_instalacao(): string
     return preg_match('/^return \'(\$2[aby]\$\d{2}\$[.\/A-Za-z0-9]{53})\';/m', $txt, $m) === 1 ? $m[1] : '';
 }
 
-/** O instalacao.php ainda é o de desenvolvimento (marcador // DEV)? */
+/**
+ * O instalacao.php ainda é o de desenvolvimento? Pelo marcador "// DEV" OU pelo próprio hash: apagar o comentário e
+ * deixar o hash de desenvolvimento não pode fazer o código público valer no ar. (Um password_verify a mais, só na
+ * instalação, na recuperação e no Diagnóstico.)
+ */
 function gc_instalacao_dev(): bool
 {
+    static $visto = [];
     $txt = (string) @file_get_contents(gc_arquivo_instalacao());
-    return preg_match('#^// DEV#m', $txt) === 1;
+    $chave = hash('sha256', $txt);
+    if (!isset($visto[$chave])) {
+        $hash = preg_match('/^return \'(\$2[aby]\$\d{2}\$[.\/A-Za-z0-9]{53})\';/m', $txt, $m) === 1 ? $m[1] : '';
+        $visto[$chave] = preg_match('#^// DEV#m', $txt) === 1 || ($hash !== '' && password_verify(GC_CODIGO_DEV, $hash));
+    }
+    return $visto[$chave];
 }
 
 /** Código como a pessoa digitou → só letras e números minúsculos ("K7M2P-X9Q4R…" = "k7m2px9q4r…"). */

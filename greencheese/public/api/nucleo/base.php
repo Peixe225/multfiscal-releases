@@ -171,20 +171,113 @@ function gc_host(): string
 }
 
 /**
- * Endereço de quem pediu, para o limite de tentativas. IPv6 conta pelo /64 (cada casa ganha um /64 inteiro).
- * Em teste, X-GC-IP finge outro aparelho.
+ * Proxies de confiança (a borda da CDN da hospedagem), em CIDR: só de um REMOTE_ADDR dessas faixas o X-Forwarded-For
+ * vale. Vazia, conta só o REMOTE_ADDR: o X-Forwarded-For quem escreve é o próprio aparelho, e confiar nele sem saber
+ * de onde veio deixaria qualquer um trocar de IP e furar o limite de tentativas. A faixa da CDN se confere no ar, no
+ * Diagnóstico do painel (PENDENCIAS.md, "IP do cliente"). A variável de ambiente GC_PROXIES (separada por vírgula)
+ * soma a esta lista (os testes usam).
+ */
+const GC_PROXIES = [];
+
+/** @return list<string> */
+function gc_proxies(): array
+{
+    static $lista = null;
+    if ($lista === null) {
+        $env = getenv('GC_PROXIES');
+        $todas = array_map('trim', [...GC_PROXIES, ...(is_string($env) ? explode(',', $env) : [])]);
+        $lista = array_values(array_filter($todas, static fn (string $f): bool => $f !== ''));
+    }
+    return $lista;
+}
+
+/** IP sem enfeite ('[2001:db8::1]:443' → '2001:db8::1', '1.2.3.4:80' → '1.2.3.4', '::ffff:1.2.3.4' → '1.2.3.4'), ou null. */
+function gc_ip_limpo(string $v): ?string
+{
+    $v = trim($v, " \t\"");
+    if (preg_match('/^\[([0-9a-fA-F:.]+)\](?::\d+)?$/', $v, $m) === 1 || preg_match('/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/', $v, $m) === 1) {
+        $v = $m[1];
+    }
+    $bin = @inet_pton($v);
+    if (!is_string($bin)) {
+        return null;
+    }
+    if (strlen($bin) === 16 && str_starts_with($bin, str_repeat("\0", 10) . "\xff\xff")) {
+        $bin = substr($bin, 12);
+    }
+    return (string) inet_ntop($bin);
+}
+
+/** O IP está na faixa ('203.0.113.0/24', '2001:db8::/32' ou um IP só)? */
+function gc_ip_na_faixa(string $ip, string $faixa): bool
+{
+    $partes = explode('/', trim($faixa), 2);
+    $a = @inet_pton($ip);
+    $b = @inet_pton($partes[0]);
+    if (!is_string($a) || !is_string($b) || strlen($a) !== strlen($b)) {
+        return false;
+    }
+    $total = strlen($a) * 8;
+    $bits = !isset($partes[1]) ? $total : (ctype_digit($partes[1]) ? (int) $partes[1] : -1);
+    if ($bits < 0 || $bits > $total) {
+        return false;
+    }
+    $cheios = intdiv($bits, 8);
+    if (substr($a, 0, $cheios) !== substr($b, 0, $cheios)) {
+        return false;
+    }
+    $resto = $bits % 8;
+    $mascara = (0xff << (8 - $resto)) & 0xff;
+    return $resto === 0 || (ord($a[$cheios]) & $mascara) === (ord($b[$cheios]) & $mascara);
+}
+
+function gc_proxy_confiavel(string $ip): bool
+{
+    foreach (gc_proxies() as $faixa) {
+        if (gc_ip_na_faixa($ip, $faixa)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * IP de quem pediu. Sem proxy de confiança, é o REMOTE_ADDR e pronto. Com o REMOTE_ADDR de um proxy de confiança (a
+ * CDN), o X-Forwarded-For lido da direita pra esquerda: cada proxy põe no fim quem falou com ele, então o primeiro
+ * que não é proxy é o aparelho. O que vem à esquerda dele quem escreveu foi o próprio aparelho: nunca conta.
+ */
+function gc_ip_cliente(): string
+{
+    $remoto = gc_ip_limpo((string) ($_SERVER['REMOTE_ADDR'] ?? '')) ?? '';
+    if ($remoto === '' || !gc_proxy_confiavel($remoto)) {
+        return $remoto;
+    }
+    $ip = $remoto;
+    foreach (array_reverse(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))) as $item) {
+        $limpo = gc_ip_limpo($item);
+        if ($limpo === null) {
+            break; // lixo no caminho: daí pra trás não dá pra confiar (fica o último proxy)
+        }
+        $ip = $limpo;
+        if (!gc_proxy_confiavel($limpo)) {
+            break;
+        }
+    }
+    return $ip;
+}
+
+/**
+ * Endereço de quem pediu, para o limite de tentativas (gc_ip_cliente). IPv6 conta pelo /64 (cada casa ganha um /64
+ * inteiro). Em teste, X-GC-IP finge outro aparelho.
  */
 function gc_ip(): string
 {
-    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
     if (gc_teste() && isset($_SERVER['HTTP_X_GC_IP'])) {
         return substr((string) $_SERVER['HTTP_X_GC_IP'], 0, 64);
     }
+    $ip = gc_ip_cliente();
     $bin = @inet_pton($ip);
     if (is_string($bin) && strlen($bin) === 16) {
-        if (str_starts_with($bin, str_repeat("\0", 10) . "\xff\xff")) {
-            return (string) inet_ntop(substr($bin, 12));
-        }
         return bin2hex(substr($bin, 0, 8)) . '::/64';
     }
     return $ip;

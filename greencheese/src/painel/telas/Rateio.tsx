@@ -42,7 +42,8 @@ function textoDoMomento(r: RateioAdmin, agora: number): string {
     case 'aberto':
       if (r.fechaEm && Date.parse(r.fechaEm) <= agora) return 'O prazo pra entrar acabou. Fecha agora ou edita a data pra seguir aberto.'
       if (r.disponiveis === 0 && r.confirmadas < r.vagas) return `Vagas tomadas. Falta o pagamento de ${vagas(r.reservadas)} reservada${r.reservadas === 1 ? '' : 's'}.`
-      return `Aberto no site. Fecha sozinho quando as ${r.vagas} vagas forem pagas${r.fechaEm ? ` ou ${quando(r.fechaEm, agora)}` : ''}.`
+      // o prazo só para as entradas pelo site: o rateio segue aberto até lotar ou até o dono fechar
+      return `Aberto no site. Fecha sozinho quando as ${r.vagas} vagas forem pagas.${r.fechaEm ? ` Dá pra entrar até ${quando(r.fechaEm, agora)}; depois, tu fecha ou muda o prazo.` : ''}`
     case 'fechado':
       return `Fechou ${r.fechadoEm ? `dia ${diaMes(r.fechadoEm)}` : ''}. Faz o pedido e marca aqui: a galera vê no site.`
     case 'pedido':
@@ -269,7 +270,8 @@ export function Rateio({ id }: { id: string }) {
                 <dt>A receber</dt>
                 <dd className="px">{brl(r.totais.aReceber)}</dd>
                 <dd className="pn-dinheiro-sub">
-                  {r.totais.pessoasReservadas ? `${r.totais.pessoasReservadas} reserva${r.totais.pessoasReservadas === 1 ? '' : 's'}` : r.confirmadas ? 'tudo pago' : 'nenhuma reserva'}
+                  {/* "tudo pago" só com todas as vagas pagas (5/12 pagas e nenhuma reserva não é tudo pago) */}
+                  {r.totais.pessoasReservadas ? `${r.totais.pessoasReservadas} reserva${r.totais.pessoasReservadas === 1 ? '' : 's'}` : r.confirmadas >= r.vagas ? 'tudo pago' : 'nenhuma reserva esperando'}
                 </dd>
               </div>
             )}

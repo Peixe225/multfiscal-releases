@@ -229,6 +229,20 @@ function gc_rateio_admin(array $r, array $c): array
     ];
 }
 
+/**
+ * Os dados da pessoa foram apagados (LGPD, admin-participante-apagar)? O WhatsApp vazio só existe aí: o site e o painel
+ * sempre gravam um. Vaga com os dados apagados não volta (nem confirmar, nem reservar de novo, nem editar).
+ */
+function gc_dados_apagados(array $p): bool
+{
+    return (string) $p['whatsapp'] === '';
+}
+
+function gc_erro_dados_apagados(): ErroApi
+{
+    return new ErroApi('dados-apagados', 'Os dados dessa pessoa foram apagados: essa vaga não volta.', 409);
+}
+
 /** Status de verdade agora (reservado vencido é expirado, mesmo antes do UPDATE). */
 function gc_status_participacao(array $p): string
 {
@@ -338,11 +352,12 @@ function gc_fechar_se_lotou(string $id): bool
 /**
  * Cria a participação (site ou painel) depois de conferir WhatsApp repetido, limite por pessoa e vaga.
  * Roda dentro da transação de quem chamou. O rateio já foi conferido (status, estado).
+ * $token: o token que o aparelho gerou (32 hex, ainda sem dono: quem chama conferiu); sem ele, o servidor gera um.
  * @param array<string, mixed> $r
  * @param array{nome: string, whatsapp: string, uf: string, cidade: string, quantidade: int, observacao?: string} $d
  * @return array{0: array<string, mixed>, 1: string} a linha nova e o token
  */
-function gc_participacao_criar(array $r, array $d, string $origem): array
+function gc_participacao_criar(array $r, array $d, string $origem, ?string $token = null): array
 {
     $rid = (string) $r['id'];
     $ja = gc_whatsapp_ativo($rid, $d['whatsapp']);
@@ -358,7 +373,7 @@ function gc_participacao_criar(array $r, array $d, string $origem): array
         $msg = $disp === 0 ? 'As vagas acabaram.' : ($disp === 1 ? 'Só sobrou 1 vaga.' : "Só sobraram $disp vagas.");
         throw new ErroApi('sem-vagas', $msg, 409, ['disponiveis' => $disp]);
     }
-    [$token, $hash] = gc_novo_token();
+    [$token, $hash] = $token === null ? gc_novo_token() : [$token, hash('sha256', $token)];
     $agora = gc_agora();
     $id = gc_inserir(
         "INSERT INTO participacoes (rateio_id, codigo, token_hash, nome, whatsapp, uf, cidade, quantidade, preco_unit, status, origem, observacao, criado_em, atualizado_em, expira_em)
@@ -401,6 +416,9 @@ function gc_confirmar_participacao(int $id, string $origem, string $por, ?int $u
         }
         if ($de === 'entregue') {
             throw new ErroApi('transicao-invalida', 'Essa vaga já foi entregue.', 409, ['de' => $de, 'para' => 'confirmado']);
+        }
+        if (gc_dados_apagados($p)) {
+            throw gc_erro_dados_apagados();
         }
         if ($r['status'] === 'cancelado') {
             throw new ErroApi('rateio-cancelado', 'Esse rateio foi cancelado.', 409);

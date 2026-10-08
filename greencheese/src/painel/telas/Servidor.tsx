@@ -2,6 +2,7 @@
 // conferência), a conferência pela web do que tem que ficar fechado e a cópia do banco pra baixar.
 import { useEffect, useRef, useState } from 'react'
 import * as api from '../api'
+import { useAcao } from '../dados'
 import { bytes } from '../formato'
 import { Topo } from '../Moldura'
 import type { Diagnostico } from '../tipos'
@@ -43,6 +44,7 @@ export function Servidor() {
   const [d, setD] = useState<Diagnostico | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [conferindo, setConferindo] = useState(false)
+  const copia = useAcao()
   // trava síncrona: o estado só muda no próximo desenho, e um toque duplo passaria pelos dois
   const trava = useRef(false)
   const conferir = async () => {
@@ -122,6 +124,19 @@ export function Servidor() {
                 <Item ok={d.extensoes.fileinfo} nome="Conferência do tipo de arquivo" />
                 <Item ok={d.https} nome={d.https ? 'HTTPS ligado' : 'Sem HTTPS'} sub={d.https ? undefined : d.instalacao.codigoDev ? 'Normal no computador de quem faz o site.' : 'Liga o SSL no hPanel: sem ele, a senha do painel viaja aberta.'} />
                 <Item ok={!d.instalacao.codigoDev} nome={d.instalacao.codigoDev ? 'Código de instalação de desenvolvimento' : 'Código de instalação de verdade'} sub={d.instalacao.codigoDev ? 'Normal no computador de quem faz o site; no ar, gera o de verdade.' : undefined} />
+                {d.rede && (
+                  // os limites de tentativa contam por IP: atrás de uma CDN que não repassa o IP, viram de todo mundo junto
+                  <Item
+                    ok={d.rede.certo}
+                    nome={d.rede.certo ? 'O servidor vê o IP de quem acessa' : 'O servidor vê o IP da CDN'}
+                    sub={
+                      (d.rede.certo
+                        ? `Conta ${d.rede.usado || '?'} nos limites de tentativa${d.rede.proxyNaFrente ? `, que a CDN (${d.rede.remoto}) repassa` : ''}: tem que ser o IP da tua internet.`
+                        : `Vê ${d.rede.remoto} em todo pedido: os limites de tentativa ficam valendo pra todo mundo junto.`) +
+                      (d.rede.cabecalhos.length ? ` Cabeçalhos: ${d.rede.cabecalhos.map((c) => `${c.nome} ${c.ips.join(', ') || '?'}`).join(' · ')}.` : '')
+                    }
+                  />
+                )}
                 <Item ok nome={`Foto de até ${d.limites.envioMaximoTexto}`} sub={`upload_max_filesize ${d.limites.upload_max_filesize} · post_max_size ${d.limites.post_max_size}`} />
               </ul>
             </section>
@@ -131,10 +146,11 @@ export function Servidor() {
                 Cópia do banco
               </h2>
               <p className="pn-dica-bloco">Baixa tudo num arquivo só (rateios, participantes, histórico). Faz toda semana e guarda fora do celular, num lugar seguro: tem nome e WhatsApp dos clientes.</p>
-              <a className="pn-botao pn-botao-cinza" href={api.urlBackup()} download>
-                <Ic nome="baixar" tamanho={16} />
-                <span className="pn-botao-txt">Baixar cópia do banco</span>
-              </a>
+              {copia.erro && <Aviso tipo="erro">{copia.erro.message}</Aviso>}
+              {/* pelo api.ts (não um link direto): sessão vencida abre o login e o download recomeça; erro aparece */}
+              <Botao variante="cinza" icone="baixar" ocupado={copia.ocupado === 'copia'} onClick={() => void copia.rodar('copia', api.baixarBackup)}>
+                Baixar cópia do banco
+              </Botao>
             </section>
           </>
         )}

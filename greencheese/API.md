@@ -1,8 +1,9 @@
 # API da Green Cheese (servidor da loja)
 
 O servidor é PHP + SQLite na mesma hospedagem do site (Hostinger), em `public/api/` → `dist/api/` → `oprojeto.online/greencheese/api/`.
-Este arquivo é o contrato entre o site, o painel do dono e o servidor. A parte pública (abaixo) é fixa; a parte do painel
-fica descrita no fim, por quem escreve o servidor.
+Este arquivo é o contrato entre o site, o painel do dono e o servidor. A parte pública (abaixo) é fixa: o que entra nela
+depois é só acréscimo compatível, marcado assim (campo opcional que o outro lado pode ignorar sem quebrar nada, como o
+`token` do `rateio-entrar`); a parte do painel fica descrita no fim, por quem escreve o servidor.
 
 ## Regras gerais
 
@@ -23,6 +24,9 @@ fica descrita no fim, por quem escreve o servidor.
   `ocupado` 503 (banco travado por muita escrita junta: tenta de novo em 2 s), `erro-interno` 500 (o detalhe vai pro
   log no servidor, nunca na resposta). No desenvolvimento, com o PHP desligado, o Vite responde 503 `sem-servidor`.
 - A `mensagem` de todo erro já vem pronta pra mostrar na tela (frase curta, no tom do site).
+- Os limites por IP (`muitas-tentativas`) contam o IP de quem pediu: o `REMOTE_ADDR` e, só quando ele é da CDN de
+  confiança (lista `GC_PROXIES` do servidor), o último IP que ela pôs no `X-Forwarded-For`. O resto desse cabeçalho o
+  aparelho pode inventar e nunca conta (PENDENCIAS.md, “IP do cliente”).
 
 ## Rateio
 
@@ -89,12 +93,30 @@ interface Rateio {
 
 ### POST `r=rateio-entrar`
 
-Corpo: `{ rateio: string, nome: string, whatsapp: string, uf: string, cidade?: string, quantidade: number, site?: string }`
+Corpo: `{ rateio: string, nome: string, whatsapp: string, uf: string, cidade?: string, quantidade: number, site?: string, token?: string }`
 (`site` é armadilha para robô: tem que vir vazio ou ausente; cheio → `invalido`, sem gravar nada).
 
-Sucesso 201: `{ ok, participacao: Participacao, rateio: Rateio }` (o rateio já com o contador novo).
+**`token` — acréscimo compatível (opcional).** 32 hex (`[0-9a-f]{32}`) gerados no aparelho, o mesmo em cada nova
+tentativa da mesma entrada (o site já manda). É o que impede vaga órfã quando a resposta se perde DEPOIS de o servidor
+gravar (3G, hospedagem lenta):
+- na primeira vez, o servidor guarda só o hash desse token no lugar de gerar um (`participacao.token` volta igual ao
+  que veio), e o `minhas-vagas` com ele já acha a vaga;
+- o mesmo `token` no mesmo `rateio`, com o mesmo `whatsapp` e a vaga viva (reservada no prazo, paga ou entregue),
+  devolve a MESMA participação, sem criar outra: 200 `{ ok, participacao, rateio }`, sem `ja-participa`, mesmo que o
+  rateio tenha lotado ou o prazo passado nesse meio-tempo. Não ocupa vaga nem gasta tentativa do limite por IP (passa
+  até depois das 12 da hora); dois envios iguais ao mesmo tempo também viram uma participação só;
+- `token` já usado em **outro** rateio: `invalido` 400 com `campo: 'token'`, sem gravar nada (o site gera um token por
+  entrada, então isso só acontece com aparelho adulterado);
+- `token` mal formado, de outro WhatsApp ou de uma vaga que venceu ou foi cancelada: ignorado (o servidor gera o dele,
+  como sem `token`, e é esse que volta em `participacao.token`).
 
-Erros: `invalido` 400 (com `campo`: `nome` | `whatsapp` | `uf` | `quantidade` | `rateio`), `nao-encontrado` 404,
+Sem `token`, nada muda. Compatível dos dois lados: servidor que não conhece o campo ignora e gera o dele (aí a nova
+tentativa recebe `ja-participa` com o código, e o site manda falar com a loja com esse código, sem inventar quantidade).
+
+Sucesso 201 (200 na repetição com o mesmo `token`): `{ ok, participacao: Participacao, rateio: Rateio }` (o rateio já
+com o contador novo).
+
+Erros: `invalido` 400 (com `campo`: `nome` | `whatsapp` | `uf` | `quantidade` | `rateio` | `token`), `nao-encontrado` 404,
 `fora-do-estado` 409, `rateio-fechado` 409 (não aceita entrada: fechado, fora do prazo ou não aberto), `sem-vagas` 409
 (com `disponiveis`), `limite-por-pessoa` 409 (com `limite`), `ja-participa` 409 (com `codigo`), `muitas-tentativas` 429,
 `erro-interno` 500.
@@ -103,8 +125,9 @@ Nome: 2 a 60 caracteres depois de limpar espaços. Quantidade: inteiro de 1 a `l
 
 Detalhes do servidor: `fora-do-estado` traz `ufs` (onde vale) e `rateio-fechado` traz `status`; `cidade` passa de 60
 caracteres e é cortada; o preço da vaga fica guardado na entrada (`total` não muda se o dono mexer no preço depois);
-a ordem das conferências é rateio (existe, aberto, no prazo) → estado → `ja-participa` → `limite-por-pessoa` →
-`sem-vagas`. Limite: 12 tentativas por hora por IP (contam as erradas também).
+a ordem das conferências é rateio (existe) → a mesma entrada de novo (`token`) → rateio (aberto, no prazo) → estado →
+`ja-participa` → `limite-por-pessoa` → `sem-vagas`. Limite: 12 tentativas por hora por IP (contam as erradas também;
+a repetição com o mesmo `token` não conta).
 
 ### GET `r=minhas-vagas&t=<token>[,<token>…]`
 
@@ -149,9 +172,10 @@ erros seguem as regras gerais.
 - **Código de instalação**: só o hash fica em `api/instalacao.php` (gerado por `php scripts/codigo-instalacao.php`,
   que mostra o código uma vez). O servidor compara só letras e números minúsculos (`K7M2P-X9Q4R…` = `k7m2px9q4r…`).
   Cada código vale **uma vez**: instala o painel ou, depois, troca a senha de quem esqueceu (`admin-recuperar`).
-  Limite: 10 tentativas de código por hora por IP. O código de desenvolvimento (`dev-instalar-greencheese`, marcado
-  `// DEV`) só vale com `GC_DADOS` (desenvolvimento); no ar → 403 `codigo-de-desenvolvimento`, e o `publicar.mjs` nem
-  sobe com ele.
+  Limite: 10 tentativas de código por hora por IP. O código de desenvolvimento (`dev-instalar-greencheese`) só vale com
+  `GC_DADOS` (desenvolvimento); no ar → 403 `codigo-de-desenvolvimento`. O servidor o reconhece pelo próprio hash (a
+  marca `// DEV` do `instalacao.php` é só lembrete: apagar o comentário não adianta), e o `publicar.mjs` e o
+  `empacotar.mjs` nem sobem nem empacotam com ele.
 - **Senha**: de 10 a 72 caracteres (`password_hash`). Login: 3 a 32, letras minúsculas, números, `.`, `_`, `-`.
 
 ### Rotas
@@ -172,10 +196,10 @@ erros seguem as regras gerais.
 | POST `admin-rateio-apagar` | `{ id }` | `{}` |
 | GET `admin-participantes` | `&rateio=` | `{ rateio: RateioAdmin, participantes: Participante[] }` (na ordem em que entraram) |
 | POST `admin-participante-salvar` | `ParticipanteCorpo` (sem `id` inclui, com `id` edita) | 201 `{ participante, token, rateio }` ou 200 `{ participante, rateio }` |
-| POST `admin-participante-status` | `{ id, status }` | `{ participante, rateio }` |
+| POST `admin-participante-status` | `{ id, status }` | `{ participante, rateio, jaEstava? }` (`jaEstava: true`: já tinha esse status, nada mudou) |
 | POST `admin-participante-apagar` | `{ id }` | `{ participante, rateio }` (dados pessoais apagados) |
-| GET `admin-participantes-csv` | `&rateio=` | arquivo `rateio-<id>-<data>.csv` (`;`, BOM UTF-8: abre direto no Excel) |
-| GET `admin-backup` | — | arquivo `greencheese-loja-<data>.sqlite` (cópia inteira e coerente do banco) |
+| GET `admin-participantes-csv` | `&rateio=` | arquivo `rateio-<id>-<data>.csv` (`;`, BOM UTF-8: abre direto no Excel; data no horário de Brasília) |
+| GET `admin-backup` | — | arquivo `greencheese-loja-<data>-<hora>.sqlite` (cópia inteira e coerente do banco; horário de Brasília) |
 | POST `admin-upload` | multipart, campo `imagem` | 201 `{ imagem: 'uploads/<nome>', largura, altura, bytes, tipo }` |
 | GET `admin-diagnostico` | — | `Diagnostico` |
 | GET `admin-eventos` | — | `{ eventos: Evento[] }` (os últimos 100, do mais novo) |
@@ -196,7 +220,8 @@ Erros de cada uma (além dos gerais e do `sem-sessao`/`csrf`):
 - `admin-rateio-apagar`: `use-cancelar` 409 (com `participacoes`): só apaga rascunho, exemplo ou rateio sem ninguém.
 - `admin-participante-salvar` e `-status`: `nao-encontrado` 404, `invalido` 400 (com `campo`), `ja-participa` 409
   (`codigo`), `limite-por-pessoa` 409 (`limite`), `sem-vagas` 409 (`disponiveis`), `rateio-fechado` 409 (incluir em
-  rascunho, encerrado ou cancelado), `rateio-cancelado` 409, `transicao-invalida` 409 (`de`, `para`, `permitidos`).
+  rascunho, encerrado ou cancelado), `rateio-cancelado` 409, `transicao-invalida` 409 (`de`, `para`, `permitidos`),
+  `dados-apagados` 409 (a vaga de quem teve os dados apagados não volta: nem editar, nem confirmar, nem reservar).
 - `admin-participante-apagar`: `participacao-ativa` 409 (reservada ou paga num rateio em curso: cancela antes).
 - `admin-upload`: `grande-demais` 413 (`limite` em bytes: 8 MB ou o limite do PHP, o menor), `tipo-invalido` 415 (só
   JPG, PNG e WebP de verdade, conferidos pelo conteúdo), `imagem-grande` 413 (mais de 40 megapixels), `invalido` 400
@@ -235,8 +260,8 @@ interface RateioCorpo {
   descricao?: string             // até 400 (quebra de linha vale)
   produtoId?: string | null      // id do catalogo.json ([a-z0-9-]); a tela usa a arte do produto
   imagem?: string | null         // o 'uploads/<nome>' que o admin-upload devolveu
-  precoRateio: number            // > 0, até 2 casas ("14,90" também vale)
-  precoDepois?: number | null    // > precoRateio, ou null (sem comparação)
+  precoRateio: number            // de 0,01 a 100.000, até 2 casas ("14,90" também vale)
+  precoDepois?: number | null    // > precoRateio (até 100.000), ou null (sem comparação)
   vagas: number                  // 1 a 1000; na edição, nunca menos que as ocupadas
   limitePorPessoa?: number       // 1 até as vagas (padrão 1)
   ufs: string[]                  // pelo menos 1 ('mg', 'rj'…)
@@ -307,6 +332,16 @@ interface Diagnostico {
   uploads: { existe: boolean; gravavel: boolean; arquivos: number; bytes: number }
   limites: { upload_max_filesize: string; post_max_size: string; memory_limit: string; max_execution_time: string; envioMaximo: number; envioMaximoTexto: string }
   https: boolean
+  // o IP que conta nos limites de tentativa e se tem CDN na frente (sem segredo: IP de gente sai mascarado, '177.38.12.x')
+  rede: {
+    remoto: string               // o REMOTE_ADDR: inteiro quando é de CDN/proxy, mascarado quando é de gente
+    proxyNaFrente: boolean       // chegou X-Forwarded-For (ou parecido) sem o REMOTE_ADDR dentro, ou ele está no GC_PROXIES
+    confiavel: boolean           // o REMOTE_ADDR está no GC_PROXIES (aí vale o X-Forwarded-For)
+    usado: string                // o IP que conta nos limites (mascarado)
+    certo: boolean               // os limites contam por pessoa (false = de todo mundo junto: vem aviso)
+    cabecalhos: { nome: string; ips: string[] }[] // X-Forwarded-For, X-Real-IP, Forwarded… que chegaram (IPs mascarados)
+    site24h: { pedidos: number; ips: number }     // pedidos do site (entrar, minhas vagas) e IPs diferentes em 24 h
+  }
   instalacao: { codigoDev: boolean }
   // pede pela web, do próprio servidor: o banco, o log, um módulo, o instalacao.php, o .htaccess e um .php de mentira
   // em uploads/. ok = true (fechado, como deve), false (ABERTO), null (não deu pra saber)
@@ -344,8 +379,13 @@ reabre (o dono reabre se quiser).
 Confirmar passa sempre por uma função só do servidor (`gc_confirmar_participacao`), a mesma que o webhook do Pix vai
 chamar: confere a vaga, grava quem confirmou, audita e fecha o rateio se lotou.
 
+Pedir o status que a vaga já tem (outro aparelho, ou o toque de novo depois do "demorou") não é erro: 200 com
+`jaEstava: true`, e nada muda (nem a auditoria). Dois "confirmar" juntos: os dois 200, o contador sobe uma vez.
+
 **Apagar dados (LGPD)**: `admin-participante-apagar` troca o nome por "Dados apagados", limpa WhatsApp, cidade e
 observação e invalida o token do aparelho; quantidade, valor, status e datas ficam (as contas do rateio não mudam).
+Essa vaga não volta: confirmar, reservar de novo, desfazer a entrega e editar dão 409 `dados-apagados` (o contador
+nunca sobe por alguém sem nome nem WhatsApp); cancelar continua valendo.
 
 **Cópia do banco**: `admin-backup` baixa o banco inteiro num arquivo só, já com o que estava no diário do SQLite
 (copiar o `loja.sqlite` à mão pode sair sem as últimas mudanças). Tem nome, WhatsApp e tudo: guardar em lugar seguro.

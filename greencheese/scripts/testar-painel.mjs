@@ -3,8 +3,9 @@
 // Fluxo: instalar → entrar → criar rateio com foto do celular → publicar → clientes entram pela API (como o site faz)
 // → reservas no painel → confirmar (o contador sobe) → lota → fecha sozinho → avisar todos → pedido feito → a caminho
 // → chegou → entregue → CSV → incluir quem veio pela DM → trocar senha → sair → entrar com a nova. E a robustez:
-// rascunho guardado, tabaco recusado, erro de rede, sessão que cai no meio (o salvar termina sozinho depois de
-// entrar), toque duplo, voltar do Android fecha a folha, teclado, celular deitado, 320 px sem rolagem lateral.
+// rascunho guardado, tabaco recusado, erro de rede, sessão que cai no meio (o salvar e o CSV terminam sozinhos depois
+// de entrar), toque duplo, voltar do Android fecha a folha, teclado, celular deitado, 320 px sem rolagem lateral (nas
+// telas e nas folhas de incluir e editar, com o + das vagas dentro da caixa).
 // Também confere o HTML do painel (noindex, título, manifesto, caminhos relativos, sem o CSS do site) e que o site
 // não carrega nada do painel.
 // Uso: node scripts/testar-painel.mjs <pasta-do-build>   (termina com "painel ok")
@@ -128,6 +129,14 @@ async function axe(p, nome) {
   ok(v.length === 0, `axe ${nome}: ${v.join(', ') || '0 violações'}`)
 }
 const lateral = (p) => p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 0.5)
+// folha aberta: o corpo não rola pro lado e o + das vagas (quando tem) fica dentro dele
+const semLadoNaFolha = (p) =>
+  p.evaluate(() => {
+    const c = document.querySelector('.pn-folha-corpo')
+    if (!c) return false
+    const mais = document.querySelector('.pn-folha-corpo button[aria-label="Uma vaga a mais"]')
+    return c.scrollWidth <= c.clientWidth + 0.5 && (!mais || mais.getBoundingClientRect().right <= c.getBoundingClientRect().right + 0.5)
+  })
 
 try {
   const ctx = await novoContexto(390, 844)
@@ -249,9 +258,17 @@ try {
   ok(true, 'marcou a entrega da Ana')
   await print(p, 'rateio-chegou', true)
 
-  const [dl] = await Promise.all([p.waitForEvent('download'), p.getByRole('link', { name: /CSV/ }).tap()])
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: /CSV/ }).tap()])
   const csv = readFileSync(await dl.path(), 'utf8')
   ok(csv.startsWith('﻿') && csv.split('\r\n').filter(Boolean).length === 4 && csv.includes('Ana Souza;'), `CSV pro Excel (${dl.suggestedFilename()})`)
+  // sessão vencida: o CSV abre o login por cima e baixa depois de entrar (antes, o toque não fazia nada)
+  sql('DELETE FROM sessoes')
+  await p.getByRole('button', { name: /CSV/ }).tap()
+  const caiu = p.getByRole('dialog', { name: 'Tua sessão acabou' })
+  await caiu.waitFor()
+  await caiu.getByLabel('Senha', { exact: true }).fill('senha-forte-123')
+  const [dl2] = await Promise.all([p.waitForEvent('download'), caiu.getByRole('button', { name: 'Entrar e continuar' }).tap()])
+  ok((await dl2.failure()) === null && /^rateio-isqueiro-clipper-\d{4}-\d{2}-\d{2}\.csv$/.test(dl2.suggestedFilename()), `CSV com a sessão vencida: entrou por cima e baixou (${dl2.suggestedFilename()})`)
 
   // incluir quem entrou pela DM
   await p.goto(`${BASE}/painel/#/rateio/arizona-green-tea`)
@@ -260,6 +277,12 @@ try {
   await fp.getByLabel('Nome').fill('Eduardo Rocha')
   await fp.getByLabel('WhatsApp').fill('5527999990000')
   await fp.getByLabel('Estado').selectOption('es')
+  ok(await semLadoNaFolha(p), 'incluir: a folha não rola pro lado e o + fica dentro da caixa')
+  // chegou no limite (o − voltou pro 1): o botão fica aria-disabled e o foco não sai dele nem da folha (Esc e Tab
+  // continuam valendo; com disabled, o foco caía no body)
+  await fp.getByRole('button', { name: 'Uma vaga a mais' }).tap()
+  await fp.getByRole('button', { name: 'Uma vaga a menos' }).tap()
+  ok(await p.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Uma vaga a menos' && document.activeElement.getAttribute('aria-disabled') === 'true' && !!document.activeElement.closest('[role="dialog"]')), 'no limite, o − fica aria-disabled com o foco nele (dentro da folha)')
   await fp.getByRole('button', { name: 'Uma vaga a mais' }).tap()
   await fp.getByText('Já pagou', { exact: true }).tap()
   await axe(p, 'incluir participante')
@@ -313,6 +336,9 @@ try {
   await p.goBack()
   await p.getByRole('dialog').waitFor({ state: 'detached' })
   ok(p.url() === url, 'voltar do Android fecha a folha e fica na tela')
+  // 1 de 10 paga e ninguém reservado: não é "tudo pago"
+  const receber = await p.locator('dl').filter({ hasText: 'A receber' }).innerText()
+  ok(/nenhuma reserva esperando/.test(receber) && !/tudo pago/.test(receber), `"A receber" com vaga livre: nenhuma reserva esperando (${receber.replace(/\s+/g, ' ')})`)
   await p.getByRole('button', { name: /Mais ações de Fernanda/ }).tap()
   await p.getByRole('dialog', { name: 'Fernanda Melo' }).waitFor()
   await p.keyboard.press('Escape')
@@ -375,6 +401,18 @@ try {
       }
     }
     ok(todas, `${w}×${h}: nenhuma tela com rolagem lateral`)
+    // as folhas com o número de vagas (incluir e editar) também não rolam pro lado
+    await q.goto(`${BASE}/painel/#/rateio/arizona-green-tea`)
+    await q.getByRole('button', { name: 'Incluir', exact: true }).tap()
+    await q.getByRole('dialog', { name: 'Incluir no rateio' }).waitFor()
+    await q.waitForTimeout(400)
+    const incluir = await semLadoNaFolha(q)
+    await q.getByRole('dialog', { name: 'Incluir no rateio' }).getByRole('button', { name: 'Fechar', exact: true }).tap()
+    await q.getByRole('button', { name: /Mais ações de Eduardo/ }).tap()
+    await q.getByRole('dialog', { name: 'Eduardo Rocha' }).getByRole('button', { name: 'Editar dados' }).tap()
+    await q.getByRole('dialog', { name: /^Editar RAT-/ }).waitFor()
+    await q.waitForTimeout(400)
+    ok(incluir && (await semLadoNaFolha(q)), `${w}×${h}: as folhas de incluir e editar não rolam pro lado (o + fica dentro)`)
     await c.close()
   }
 } catch (e) {

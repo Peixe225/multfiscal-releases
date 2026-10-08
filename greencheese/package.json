@@ -12,6 +12,7 @@
     "og": "node scripts/gerar-og.mjs",
     "revisao": "node scripts/revisao.mjs",
     "arquivo-unico": "node scripts/arquivo-unico.mjs",
+    "empacotar": "node scripts/empacotar.mjs",
     "api": "node scripts/api.mjs",
     "testar-api": "node scripts/testar-api.mjs",
     "testar-htaccess": "node scripts/testar-htaccess.mjs",

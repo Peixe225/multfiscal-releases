@@ -3,12 +3,13 @@
 // Uso: HOSTINGER_UPLOAD_URL=… HOSTINGER_AUTH=… HOSTINGER_AUTH_REST=… node scripts/publicar.mjs [pasta-destino]
 // (url e chaves saem de "Generate upload URL" da API da Hostinger; valem por pouco tempo e não vão para o repositório)
 // Ensaio sem rede: PUBLICAR_SECO=1 node scripts/publicar.mjs → lista o que subiria, na ordem, e o que fica de fora.
-// PUBLICAR_DIST=<pasta> troca a pasta do build (padrão: dist/).
+// PUBLICAR_DIST=<pasta> troca a pasta do build (padrão: dist/). Pra publicar à mão (hPanel): scripts/empacotar.mjs.
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, relative, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { foraDaPublicacao, instalacaoDeDev, listar, ordenar, relativo } from './publicacao.mjs'
 
 const seco = process.env.PUBLICAR_SECO === '1'
 const { HOSTINGER_UPLOAD_URL: url, HOSTINGER_AUTH: auth, HOSTINGER_AUTH_REST: authRest } = process.env
@@ -19,51 +20,21 @@ if (!seco && (!url || !auth || !authRest)) {
 const destino = (process.argv[2] ?? 'greencheese').replace(/^\/+|\/+$/g, '')
 const dist = process.env.PUBLICAR_DIST ? resolve(process.env.PUBLICAR_DIST) : fileURLToPath(new URL('../dist/', import.meta.url))
 
-function listar(dir) {
-  return readdirSync(dir).flatMap((n) => {
-    const c = join(dir, n)
-    return statSync(c).isDirectory() ? listar(c) : [c]
-  })
-}
-
-const rel = (f) => relative(dist, f).split('\\').join('/')
-
-// Código de instalação: com o hash de desenvolvimento ("// DEV"), qualquer um que leu o repositório instalaria o
-// painel no ar. Gere o de verdade antes: php scripts/codigo-instalacao.php && npm run build.
-const instalacao = join(dist, 'api', 'instalacao.php')
-if (existsSync(instalacao) && /^\/\/ DEV/m.test(readFileSync(instalacao, 'utf8'))) {
-  console.error('recusado: dist/api/instalacao.php ainda tem o hash de desenvolvimento.')
+// Código de instalação: com o de desenvolvimento, qualquer um que leu o repositório instalaria o painel no ar. Confere
+// a marca "// DEV" e o próprio hash (publicacao.mjs). Gere o de verdade antes: php scripts/codigo-instalacao.php &&
+// npm run build.
+const dev = instalacaoDeDev(dist)
+if (dev) {
+  console.error(`recusado: o api/instalacao.php do build ${dev}.`)
   console.error('rode "php scripts/codigo-instalacao.php", depois "npm run build", e publique de novo.')
   process.exit(1)
 }
 
-// O que nunca sobe: dados do servidor (banco, log) e envios do painel. De api/privado/ só o .htaccess e o index.html
-// vazio; de uploads/, só o .htaccess. Banco, diário do SQLite e log também não sobem de nenhuma outra pasta.
-function foraDaPublicacao(r) {
-  if (r.startsWith('api/privado/')) return !['api/privado/.htaccess', 'api/privado/index.html'].includes(r)
-  if (r.startsWith('uploads/')) return r !== 'uploads/.htaccess'
-  return /\.(sqlite|sqlite-wal|sqlite-shm|sqlite-journal|db|log)(\.\d+)?$/i.test(r) || /(^|\/)\.envio-/.test(r)
-}
-
-// Ordem: .htaccess de todas as pastas primeiro (nada fica aberto nem um instante), depois a API (módulos antes do
-// index.php), os assets, o resto, o painel e, por último, os index.html (nunca fica um index apontando para
-// arquivo que ainda não subiu; o do site é o último de todos).
-function peso(r) {
-  if (r.endsWith('.htaccess')) return 0
-  if (r.startsWith('api/')) return r === 'api/index.php' ? 2 : 1
-  if (r.startsWith('assets/')) return 3
-  if (r.startsWith('painel/')) return r.endsWith('index.html') ? 6 : 5
-  if (r === 'index.html') return 8
-  if (r.endsWith('index.html')) return 7
-  return 4
-}
-
 // SO=".htaccess,index.html" → sobe só esses (caminhos relativos a dist/)
 const so = process.env.SO?.split(',').map((s) => s.trim()).filter(Boolean)
-const tudo = listar(dist).map(rel)
+const tudo = listar(dist).map((f) => relativo(dist, f))
 const fora = tudo.filter(foraDaPublicacao)
-const todos = tudo.filter((r) => !foraDaPublicacao(r) && (!so || so.includes(r)))
-todos.sort((a, b) => peso(a) - peso(b) || (a < b ? -1 : a > b ? 1 : 0))
+const todos = ordenar(tudo.filter((r) => !foraDaPublicacao(r) && (!so || so.includes(r))))
 
 function curl(args) {
   return execFileSync('curl', ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--retry', '3', ...args], { encoding: 'utf8' }).trim()

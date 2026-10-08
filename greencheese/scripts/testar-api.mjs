@@ -1,8 +1,10 @@
 // Testes da API (PHP + SQLite), sem dependência nova: php -l em todos os .php, o código de instalação, o ensaio do
-// publicar.mjs e, num php -S com pasta de dados temporária, o contrato do API.md e o painel inteiro: instalar, entrar
-// (limite, cookie), CSRF e Origin, rateios (criar, editar, status, apagar, tabaco/vape), entrar no rateio (cada erro),
-// CONCORRÊNCIA (30 entradas juntas em 10 vagas → exatamente 10), vencimento da reserva (relógio de teste),
-// confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem e o que tem que ficar fechado.
+// publicar.mjs e o zip do empacotar.mjs (os dois recusam o código de dev, com ou sem a marca) e, num php -S com pasta
+// de dados temporária, o contrato do API.md e o painel inteiro: instalar, entrar (limite, cookie), CSRF e Origin,
+// rateios (criar, editar, status, apagar, tabaco/vape), entrar no rateio (cada erro), o token do aparelho (a mesma
+// entrada de novo devolve a mesma vaga), CONCORRÊNCIA (30 entradas juntas em 10 vagas → exatamente 10), vencimento da
+// reserva (relógio de teste), confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem, o IP do
+// cliente atrás de CDN (GC_PROXIES) e o que tem que ficar fechado.
 // Uso: node scripts/testar-api.mjs   (termina com "api ok")
 // GC_TESTE_PORTA escolhe a porta (padrão: uma livre); PHP=/caminho/do/php troca o binário; GC_TESTE_MANTER=1 guarda a
 // pasta temporária (banco, log, envios) pra olhar depois.
@@ -12,7 +14,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { crc32, deflateSync } from 'node:zlib'
+import { crc32, deflateSync, inflateRawSync } from 'node:zlib'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const PHP = process.env.PHP ?? 'php'
@@ -116,6 +118,32 @@ function png(w, h, cor = [0, 170, 90, 255]) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pedaco('IHDR', ihdr), pedaco('IDAT', deflateSync(cru)), pedaco('IEND', Buffer.alloc(0))])
 }
 
+// Lê um zip (o do empacotar.mjs) sem dependência: nome → conteúdo, conferindo tamanho e CRC de cada um
+function lerZip(arq) {
+  const b = readFileSync(arq)
+  const fim = b.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))
+  const total = b.readUInt16LE(fim + 10)
+  let p = b.readUInt32LE(fim + 16)
+  const out = {}
+  for (let i = 0; i < total; i++) {
+    if (b.readUInt32LE(p) !== 0x02014b50) throw new Error('zip: diretório central quebrado')
+    const metodo = b.readUInt16LE(p + 10)
+    const crc = b.readUInt32LE(p + 16)
+    const tam = b.readUInt32LE(p + 20)
+    const cru = b.readUInt32LE(p + 24)
+    const n = b.readUInt16LE(p + 28)
+    const local = b.readUInt32LE(p + 42)
+    const nome = b.subarray(p + 46, p + 46 + n).toString('utf8')
+    const ini = local + 30 + b.readUInt16LE(local + 26) + b.readUInt16LE(local + 28)
+    const corpo = b.subarray(ini, ini + tam)
+    const conteudo = metodo === 8 ? inflateRawSync(corpo) : Buffer.from(corpo)
+    if (conteudo.length !== cru || crc32(conteudo) >>> 0 !== crc) throw new Error(`zip: ${nome} corrompido`)
+    out[nome] = conteudo
+    p += 46 + n + b.readUInt16LE(p + 30) + b.readUInt16LE(p + 32)
+  }
+  return out
+}
+
 // GD com WebP? (sem WebP o servidor recodifica no formato original; sem GD, guarda o original conferido)
 const temGd = execFileSync(PHP, ['-r', 'echo extension_loaded("gd") ? 1 : 0;'], { encoding: 'utf8' }) === '1'
 const temWebp = temGd && execFileSync(PHP, ['-r', 'echo function_exists("imagewebp") && (imagetypes() & IMG_WEBP) ? 1 : 0;'], { encoding: 'utf8' }) === '1'
@@ -182,15 +210,27 @@ parte('publicar (ensaio)')
     mkdirSync(join(falso, r, '..'), { recursive: true })
     writeFileSync(join(falso, r), c)
   }
-  const rodar = () => {
+  const script = (nome, args = [], env = {}) => {
     try {
-      return { codigo: 0, saida: execFileSync('node', [join(raiz, 'scripts', 'publicar.mjs')], { env: { ...process.env, PUBLICAR_SECO: '1', PUBLICAR_DIST: falso }, encoding: 'utf8', stdio: 'pipe' }) }
+      return { codigo: 0, saida: execFileSync('node', [join(raiz, 'scripts', nome), ...args], { env: { ...process.env, ...env }, encoding: 'utf8', stdio: 'pipe' }) }
     } catch (e) {
       return { codigo: e.status, saida: `${e.stdout}${e.stderr}` }
     }
   }
+  const rodar = () => script('publicar.mjs', [], { PUBLICAR_SECO: '1', PUBLICAR_DIST: falso })
   const recusa = rodar()
   ok(recusa.codigo === 1 && /hash de desenvolvimento/.test(recusa.saida) && !/subiria/.test(recusa.saida), 'recusa publicar com o hash de dev')
+  // apagar o comentário "// DEV" não adianta: o hash é conferido (e um hash novo do mesmo código de dev também)
+  const semMarca = readFileSync(join(api, 'instalacao.php'), 'utf8').split('\n').filter((l) => !l.startsWith('//')).join('\n')
+  const hashNovoDev = execFileSync(PHP, ['-r', 'echo password_hash("devinstalargreencheese", PASSWORD_DEFAULT, ["cost" => 11]);'], { encoding: 'utf8' })
+  const outroHashDev = `<?php\ndefined('GC_API') || exit;\n\nreturn '${hashNovoDev}';\n`
+  for (const [txt, caso] of [[semMarca, 'sem a marca // DEV'], [outroHashDev, 'hash novo do código de dev']]) {
+    writeFileSync(join(falso, 'api/instalacao.php'), txt)
+    const r = rodar()
+    ok(r.codigo === 1 && /desenvolvimento/.test(r.saida) && !/subiria/.test(r.saida), `recusa publicar com o código de dev (${caso})`)
+    const z = script('empacotar.mjs', [join(tmp, 'dev.zip')], { EMPACOTAR_DIST: falso })
+    ok(z.codigo === 1 && /desenvolvimento/.test(z.saida) && !existsSync(join(tmp, 'dev.zip')), `empacotar também recusa (${caso})`)
+  }
   writeFileSync(join(falso, 'api/instalacao.php'), txtGerado)
   const ensaio = rodar()
   igual(ensaio.codigo, 0, 'ensaio com o hash de verdade passa')
@@ -204,6 +244,19 @@ parte('publicar (ensaio)')
   igual(ordem.at(-3), 'index.html', 'index.html do site por último (antes só dos atalhos Home2/HOME2)')
   ok(ordem.includes('Home2/index.html') && ordem.includes('HOME2/index.html'), 'atalhos Home2/HOME2 continuam')
   ok(ordem.includes('api/privado/.htaccess') && ordem.includes('api/privado/index.html') && ordem.includes('uploads/.htaccess'), 'sobe as proteções das pastas de dados')
+
+  parte('empacotar (publicar à mão)')
+  const zip = join(tmp, 'pacote.zip')
+  const emp = script('empacotar.mjs', [zip], { EMPACOTAR_DIST: falso })
+  igual(emp.codigo, 0, 'empacota com o código de verdade')
+  const noZip = lerZip(zip)
+  const arquivosZip = Object.keys(noZip).filter((n) => !n.endsWith('/'))
+  igual([...arquivosZip].sort(), ordem.filter((r) => !/^(Home2|HOME2)\//.test(r)).sort(), 'o zip leva o mesmo que o publicar.mjs (menos os atalhos Home2/HOME2)')
+  ok(!Object.keys(noZip).some((n) => /loja\.sqlite|erros\.log|abc12345\.webp|copia\.sqlite/.test(n)), 'banco, log e envios ficam fora do zip')
+  igual([...new Set(arquivosZip.flatMap((r) => r.split('/').slice(0, -1).map((_, i, a) => `${a.slice(0, i + 1).join('/')}/`)))].sort(), Object.keys(noZip).filter((n) => n.endsWith('/')).sort(), 'cada pasta tem a entrada dela')
+  ok(arquivosZip.slice(0, 5).every((r) => r.endsWith('.htaccess')), '.htaccess primeiro no zip também')
+  igual(noZip['api/instalacao.php'].toString('utf8'), txtGerado, 'conteúdo confere (inflate e CRC)')
+  ok(/fica fora: api\/privado\/loja\.sqlite/.test(emp.saida) && emp.saida.includes(` ${arquivosZip.length} arquivos · 5 de fora`), `a saída diz o que ficou de fora (${emp.saida.trim().split('\n').at(-1)})`)
 }
 
 // ─── servidor de teste ──────────────────────────────────────────────────────────────────────────────────────────
@@ -341,6 +394,17 @@ try {
       const j = await r.json()
       igual([r.status, j.erro], [403, 'codigo-de-desenvolvimento'], 'no ar, o código de dev é recusado')
       ok(existsSync(join(copia, 'api', 'privado', 'loja.sqlite')), 'no ar, o banco nasce em api/privado/loja.sqlite')
+      // sem a marca "// DEV" (ou com um hash novo do mesmo código), o servidor ainda reconhece o código de dev
+      const original = readFileSync(join(copia, 'api', 'instalacao.php'), 'utf8')
+      const hashDev = execFileSync(PHP, ['-r', 'echo password_hash("devinstalargreencheese", PASSWORD_DEFAULT, ["cost" => 11]);'], { encoding: 'utf8' })
+      for (const [txt, caso] of [[original.split('\n').filter((l) => !l.startsWith('//')).join('\n'), 'sem a marca // DEV'], [`<?php\ndefined('GC_API') || exit;\n\nreturn '${hashDev}';\n`, 'hash novo do código de dev']]) {
+        writeFileSync(join(copia, 'api', 'instalacao.php'), txt)
+        const s = await fetch(`${b2}/api/index.php?r=admin-instalar`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Origin: b2 },
+          body: JSON.stringify({ codigo: 'dev-instalar-greencheese', login: 'atacante', nome: 'Atacante', senha: 'senha-forte-123' }),
+        })
+        igual([s.status, (await s.json()).erro], [403, 'codigo-de-desenvolvimento'], `no ar, o código de dev é recusado (${caso})`)
+      }
       const t = await fetch(`${b2}/api/index.php?r=teste-erro`)
       igual(t.status, 404, 'sem GC_TESTE, a rota de teste não existe')
       const a = await fetch(`${b2}/api/index.php?r=rateios`, { headers: { 'X-GC-Agora': '2000000000' } })
@@ -418,6 +482,12 @@ try {
     erro(await dono.post('admin-rateio-salvar', { ...base10, precoDepois: 19.9 }), 400, 'invalido', 'preço depois igual ao do rateio')
     erro(await dono.post('admin-rateio-salvar', { ...base10, precoRateio: 0 }), 400, 'invalido', 'preço zero')
     erro(await dono.post('admin-rateio-salvar', { ...base10, precoRateio: 14.999 }), 400, 'invalido', 'preço com 3 casas')
+    // acima do teto (R$ 100.000), a mensagem diz o teto (antes dizia "maior que zero")
+    for (const campo of ['precoRateio', 'precoDepois']) {
+      const caro = await dono.post('admin-rateio-salvar', { ...base10, [campo]: 150000 })
+      erro(caro, 400, 'invalido', `${campo} acima de R$ 100.000`)
+      ok(caro.json.campo === campo && /R\$ 0,01 a R\$ 100\.000,00/.test(caro.json.mensagem), `${campo}: a mensagem diz de quanto a quanto ("${caro.json.mensagem}")`)
+    }
     erro(await dono.post('admin-rateio-salvar', { ...base10, vagas: 0 }), 400, 'invalido', 'zero vagas')
     erro(await dono.post('admin-rateio-salvar', { ...base10, limitePorPessoa: 11 }), 400, 'invalido', 'limite maior que as vagas')
     erro(await dono.post('admin-rateio-salvar', { ...base10, ufs: [] }), 400, 'invalido', 'sem estado')
@@ -503,6 +573,63 @@ try {
     erro(await dono.post('admin-rateio-status', { id: 'com-prazo', status: 'aberto' }, { agora: AGORA + 3 * 3600 }), 409, 'prazo-vencido', 'reabrir com o prazo vencido')
   }
 
+  parte('token do aparelho (rateio-entrar)')
+  {
+    const novo = async (titulo, vagas = 4) => (await dono.post('admin-rateio-salvar', { titulo, precoRateio: 10, vagas, limitePorPessoa: 1, ufs: ['mg'], status: 'aberto' })).json.rateio.id
+    const pessoas = async (id) => (await dono.get('admin-participantes', { query: `&rateio=${id}` })).json.participantes
+    const id = await novo('Token do aparelho')
+    const T = 'a1b2'.repeat(8)
+    const cli = site()
+    const corpo = { rateio: id, nome: 'Ana Token', whatsapp: whats(), uf: 'mg', quantidade: 1, token: T }
+    const a = await cli.post('rateio-entrar', corpo)
+    igual([a.status, a.json.participacao?.token], [201, T], '1ª vez: 201 e o token do aparelho volta igual')
+    const b = await site().post('rateio-entrar', { ...corpo, token: T.toUpperCase() })
+    igual([b.status, b.json.participacao?.codigo, b.json.participacao?.token, b.json.rateio?.reservadas], [200, a.json.participacao.codigo, T, 1], 'a mesma entrada de novo (até em maiúscula, de outro IP): 200 com a MESMA participação, sem vaga a mais')
+    igual(chaves(b.json.participacao), CHAVES_PARTICIPACAO, 'repetida: Participacao com as chaves do contrato')
+    igual(chaves(b.json.rateio), CHAVES_RATEIO, 'repetida: Rateio com as chaves do contrato')
+    igual((await pessoas(id)).length, 1, 'repetida: nada novo gravado')
+    igual((await cli.get('minhas-vagas', { query: `&t=${T}` })).json.participacoes.map((p) => p.codigo), [a.json.participacao.codigo], 'minhas-vagas acha a vaga pelo token do aparelho')
+    // toque duplo ou 3G que reenvia: 10 envios iguais ao mesmo tempo viram uma participação só
+    const U = 'c3d4'.repeat(8)
+    const bia = { ...corpo, nome: 'Bia Junto', whatsapp: '(33) 98888-7777', token: U }
+    const juntos = await Promise.all(Array.from({ length: 10 }, () => site().post('rateio-entrar', bia)))
+    igual([juntos.filter((r) => r.status === 201).length, juntos.filter((r) => r.status === 200).length], [1, 9], '10 envios iguais juntos: 1 cria (201) e 9 devolvem a mesma (200)')
+    igual(new Set(juntos.map((r) => r.json.participacao?.codigo)).size, 1, 'os 10 com o mesmo código')
+    igual((await pessoas(id)).length, 2, 'e uma linha só no banco')
+    // token já usado em outro rateio: invalido, nada gravado
+    const outro = await novo('Token outro rateio')
+    const x = await site().post('rateio-entrar', { ...corpo, rateio: outro, whatsapp: whats() })
+    erro(x, 400, 'invalido', 'token já usado em outro rateio')
+    igual(x.json.campo, 'token', 'campo token')
+    igual((await pessoas(outro)).length, 0, 'nada gravado no outro rateio')
+    // token mal formado: entra com o token do servidor
+    const m = await site().post('rateio-entrar', { ...corpo, rateio: outro, whatsapp: whats(), token: 'nao-e-token' })
+    ok(m.status === 201 && /^[0-9a-f]{32}$/.test(m.json.participacao?.token ?? ''), 'token mal formado: entra com o token do servidor')
+    // mesmo token, outro WhatsApp: não é a mesma entrada (entrada nova, token do servidor)
+    const w2 = await site().post('rateio-entrar', { ...corpo, whatsapp: whats() })
+    ok(w2.status === 201 && w2.json.participacao.token !== T && w2.json.participacao.codigo !== a.json.participacao.codigo, 'mesmo token com outro WhatsApp: entrada nova, com token do servidor')
+    // a vaga do token foi cancelada: o mesmo envio é entrada nova
+    const pa = (await pessoas(id)).find((p) => p.codigo === a.json.participacao.codigo)
+    await dono.post('admin-participante-status', { id: pa.id, status: 'cancelado' })
+    const nova = await site().post('rateio-entrar', corpo)
+    ok(nova.status === 201 && nova.json.participacao.codigo !== a.json.participacao.codigo && nova.json.participacao.token !== T, 'vaga do token cancelada: entra de novo, com código e token novos')
+    // lotou e fechou no meio do caminho: a repetição ainda devolve a vaga (paga)
+    await entrar(id)
+    for (const p of (await pessoas(id)).filter((q) => q.status === 'reservado')) await dono.post('admin-participante-status', { id: p.id, status: 'confirmado' })
+    const depois = await site().post('rateio-entrar', bia)
+    igual([depois.status, depois.json.participacao?.status, depois.json.rateio?.status, depois.json.rateio?.confirmadas], [200, 'confirmado', 'fechado', 4], 'repetida depois de lotar e fechar: 200 com a vaga paga')
+    // repetir não é tentar de novo: passa até depois do limite de 12 por hora, e não gasta tentativa
+    const lim = await novo('Token limite', 5)
+    const cl = new Cliente('192.0.2.150')
+    for (let i = 0; i < 11; i++) await cl.post('rateio-entrar', { rateio: lim, nome: 'x' })
+    const caio = { rateio: lim, nome: 'Caio Limite', whatsapp: whats(), uf: 'mg', quantidade: 1, token: 'e5f6'.repeat(8) }
+    igual((await cl.post('rateio-entrar', caio)).status, 201, '12ª tentativa da hora: entra')
+    const reps = []
+    for (let i = 0; i < 3; i++) reps.push((await cl.post('rateio-entrar', caio)).status)
+    igual(reps, [200, 200, 200], 'a mesma entrada depois das 12: 200 (sem 429)')
+    erro(await cl.post('rateio-entrar', { rateio: lim, nome: 'x' }), 429, 'muitas-tentativas', 'tentativa nova depois das 12: 429')
+  }
+
   parte('concorrência')
   {
     const c = await dono.post('admin-rateio-salvar', { titulo: 'Concorrência', precoRateio: 30, vagas: 10, limitePorPessoa: 1, ufs: ['mg'], status: 'aberto' })
@@ -583,10 +710,12 @@ try {
     const pub = (await site().get('rateio', { query: `&id=${lota}` })).json.rateio
     igual([pub.confirmadas, pub.vagas, pub.reservadas, pub.previsaoMin, pub.previsaoMax, pub.precoDepois], [1, 3, 2, 7, 12, null], 'o site vê 1/3 e +2 reservadas')
     const antes = (await dono.get('admin-eventos')).json.eventos.length
+    // confirmar de novo (outro aparelho, ou o toque depois do "demorou"): não é erro, só "já estava"
     const de_novo = await dono.post('admin-participante-status', { id: parts[0].id, status: 'confirmado' })
-    erro(de_novo, 409, 'transicao-invalida', 'confirmar de novo pelo painel: já está confirmado')
+    igual([de_novo.status, de_novo.json.jaEstava, de_novo.json.participante?.status, de_novo.json.rateio?.confirmadas], [200, true, 'confirmado', 1], 'confirmar de novo pelo painel: 200, já estava, contador igual')
     igual((await dono.get('admin-eventos')).json.eventos.length, antes, 'nada novo na auditoria')
-    await dono.post('admin-participante-status', { id: parts[1].id, status: 'confirmado' })
+    const juntas = await Promise.all([1, 2].map(() => dono.post('admin-participante-status', { id: parts[1].id, status: 'confirmado' })))
+    igual([juntas.map((x) => x.status), juntas.filter((x) => x.json.jaEstava).length, juntas.map((x) => x.json.rateio?.confirmadas).sort()], [[200, 200], 1, [2, 2]], 'confirmar 2x ao mesmo tempo: as duas 200, uma "já estava", o contador sobe uma vez')
     const r3 = await dono.post('admin-participante-status', { id: parts[2].id, status: 'confirmado' })
     igual([r3.json.rateio.confirmadas, r3.json.rateio.status, r3.json.rateio.aceitaEntradas], [3, 'fechado', false], '3/3: fechou sozinho')
     erro(await entrar(lota), 409, 'rateio-fechado', 'entrar depois de fechar')
@@ -677,6 +806,13 @@ try {
     const ap = await dono.post('admin-participante-apagar', { id: pid.id })
     igual([ap.status, ap.json.participante.nome, ap.json.participante.whatsapp, ap.json.participante.cidade, ap.json.participante.codigo, ap.json.participante.status], [200, 'Dados apagados', '', '', pid.codigo, 'cancelado'], 'dados apagados, vaga na conta')
     igual((await site().get('minhas-vagas', { query: `&t=${sai.json.participacao.token}` })).json.participacoes, [], 'o token do aparelho para de valer')
+    // vaga com os dados apagados não volta: nem paga, nem reservada, nem editada (contador não sobe sem nome)
+    const contAntes = (await dono.get('admin-rateio', { query: `&id=${id}` })).json.rateio.confirmadas
+    erro(await dono.post('admin-participante-status', { id: pid.id, status: 'confirmado' }), 409, 'dados-apagados', 'dados apagados: não volta pra paga')
+    erro(await dono.post('admin-participante-status', { id: pid.id, status: 'reservado' }), 409, 'dados-apagados', 'dados apagados: nem pra reservada')
+    erro(await dono.post('admin-participante-salvar', { id: pid.id, nome: 'Voltou', whatsapp: whats() }), 409, 'dados-apagados', 'dados apagados: não edita')
+    igual((await dono.get('admin-rateio', { query: `&id=${id}` })).json.rateio.confirmadas, contAntes, 'o contador não mexeu')
+    igual((await dono.post('admin-participante-status', { id: pid.id, status: 'cancelado' })).json.jaEstava, true, 'cancelar de novo: já estava')
   }
 
   parte('cópia do banco')
@@ -708,6 +844,16 @@ try {
     ok(r.texto.includes('"linha 1\nlinha; 2"'), 'observação com quebra e ; entre aspas')
     ok(/;44,90;89,80;confirmado;painel;/.test(r.texto), 'valores com vírgula, status e origem')
     ok(/\(\d{2}\) 9\d{4}-\d{4}/.test(r.texto), 'WhatsApp formatado')
+    // o dia do nome no horário de Brasília: às 23h30 de lá, em UTC já é o dia seguinte (a última 23h30 que passou)
+    const hoje = new Date()
+    let t2330 = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate(), 2, 30) / 1000
+    if (t2330 > AGORA) t2330 -= 86400
+    const diaSp = new Date((t2330 - 3 * 3600) * 1000).toISOString().slice(0, 10)
+    const tarde = await dono.get('admin-participantes-csv', { query: '&rateio=dichavador-metal-4-partes', agora: t2330 })
+    ok((tarde.headers.get('content-disposition') ?? '').endsWith(`-${diaSp}.csv"`), `23h30 em Brasília: o CSV leva o dia de lá (${diaSp}; veio ${tarde.headers.get('content-disposition')})`)
+    const copiaTarde = await fetch(`${base}/api/index.php?r=admin-backup`, { headers: { Cookie: `gc_painel=${dono.cookie}`, 'X-GC-IP': dono.ip, 'X-GC-Agora': String(t2330) } })
+    ok((copiaTarde.headers.get('content-disposition') ?? '').includes(`greencheese-loja-${diaSp}-2330.sqlite`), 'e a cópia do banco também (mesmo dia)')
+    await copiaTarde.arrayBuffer()
     erro(await new Cliente().get('admin-participantes-csv', { query: '&rateio=dichavador-metal-4-partes' }), 401, 'sem-sessao', 'CSV sem sessão')
   }
 
@@ -784,6 +930,51 @@ try {
     erro(await curioso.get('minhas-vagas'), 429, 'muitas-tentativas', 'minhas-vagas: 121ª na hora')
   }
 
+  parte('IP do cliente atrás da CDN')
+  {
+    // dois servidores sem o modo de teste (o X-GC-IP não vale): um sem proxy de confiança, outro com GC_PROXIES
+    const pU = process.env.GC_TESTE_PORTA ? porta + 2 : await portaLivre()
+    const pT = process.env.GC_TESTE_PORTA ? porta + 3 : await portaLivre()
+    const filhos = []
+    for (const [p, env] of [[pU, {}], [pT, { GC_PROXIES: '10.0.0.0/8, 127.0.0.1' }]]) {
+      const d = join(tmp, `cdn-${p}`)
+      filhos.push(await subirPhp(p, { GC_TESTE: '', GC_DADOS: d, GC_UPLOADS: join(d, 'up'), ...env }, ['-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')]))
+    }
+    try {
+      const tentar = (p, xff) =>
+        fetch(`http://127.0.0.1:${p}/api/index.php?r=rateio-entrar`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: `http://127.0.0.1:${p}`, ...(xff ? { 'X-Forwarded-For': xff } : {}) }, body: '{}' }).then((r) => r.status)
+      const u = []
+      for (let i = 1; i <= 12; i++) u.push(await tentar(pU, `198.18.1.${i}`))
+      ok(u.every((s) => s === 400), '12 tentativas, cada uma com um X-Forwarded-For diferente')
+      igual(await tentar(pU, '198.18.1.99'), 429, 'sem proxy de confiança o X-Forwarded-For não troca o IP: a 13ª é 429')
+      for (let i = 0; i < 12; i++) await tentar(pT, '198.18.0.1')
+      igual(await tentar(pT, '198.18.0.1'), 429, 'CDN de confiança: a 13ª do mesmo cliente é 429')
+      igual(await tentar(pT, '198.18.0.2'), 400, 'outro cliente atrás da mesma CDN tem o limite dele')
+      igual(await tentar(pT, '9.9.9.9, 198.18.0.1'), 429, 'IP inventado à esquerda não conta (vale o que a CDN pôs no fim)')
+      igual(await tentar(pT, '198.18.0.3, 10.1.2.3'), 400, 'proxy de confiança no meio do caminho é pulado')
+      igual(await tentar(pT, '198.18.0.1, lixo'), 400, 'lixo no fim: conta o IP da própria CDN (outro limite, nada inventado)')
+      const diag = async (p, xff) => {
+        const b = `http://127.0.0.1:${p}`
+        const r = await fetch(`${b}/api/index.php?r=admin-instalar`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Origin: b, 'X-Forwarded-For': xff },
+          body: JSON.stringify({ codigo: 'dev-instalar-greencheese', login: 'dono', nome: 'Dono', senha: 'senha-forte-123' }),
+        })
+        const ck = /gc_painel=([0-9a-f]{64})/.exec(r.headers.getSetCookie().join(';'))?.[1]
+        return (await fetch(`${b}/api/index.php?r=admin-diagnostico`, { headers: { Cookie: `gc_painel=${ck}`, 'X-Forwarded-For': xff } })).json()
+      }
+      const dU = await diag(pU, '203.0.113.7')
+      igual([dU.rede?.proxyNaFrente, dU.rede?.confiavel, dU.rede?.certo, dU.rede?.remoto, dU.rede?.usado], [true, false, false, '127.0.0.1', '127.0.0.x'], 'diagnóstico sem proxy de confiança: vê o IP de quem repassou (inteiro) e diz que não tá certo')
+      igual(dU.rede?.cabecalhos, [{ nome: 'X-Forwarded-For', ips: ['203.0.113.x'] }], 'mostra os cabeçalhos que chegaram, com o IP de gente mascarado')
+      ok(dU.avisos.some((a) => a.includes('IP da CDN (127.0.0.1)')), 'e avisa (PENDÊNCIAS, “IP do cliente”)')
+      const dT = await diag(pT, '203.0.113.7')
+      igual([dT.rede?.proxyNaFrente, dT.rede?.confiavel, dT.rede?.certo, dT.rede?.usado], [true, true, true, '203.0.113.x'], 'CDN de confiança: conta o IP de quem acessa')
+      ok(!dT.avisos.some((a) => /CDN/.test(a)), 'sem aviso de CDN')
+      ok(!JSON.stringify(dU).includes('203.0.113.7') && !JSON.stringify(dT).includes('203.0.113.7'), 'o IP de quem acessa nunca sai inteiro')
+    } finally {
+      filhos.forEach(derrubar)
+    }
+  }
+
   parte('sessões')
   {
     // o relógio de teste empurrou a sessão do dono pro futuro: entra de novo pra ela voltar a ser a mais velha
@@ -854,6 +1045,8 @@ try {
     igual(d.status, 200, 'diagnóstico')
     igual([d.json.php.ok, d.json.extensoes.pdo_sqlite, d.json.dados.gravavel, d.json.dados.diario, d.json.instalacao.codigoDev], [true, true, true, 'wal', false], 'PHP, SQLite em WAL, pasta gravável')
     igual(d.json.limites.envioMaximo, 8 * 1048576, 'envio máximo')
+    igual([d.json.rede?.proxyNaFrente, d.json.rede?.certo, d.json.rede?.cabecalhos], [false, true, []], 'sem CDN na frente: vê o IP de quem acessa')
+    ok(!d.json.avisos.some((a) => /CDN|mesmo IP/.test(a)), 'sem aviso de CDN')
     igual(d.json.web.testado, true, `testou pela web (${d.json.web.motivo})`)
     ok(d.json.web.itens.length >= 7 && d.json.web.itens.every((i) => i.ok === true), `tudo fechado pela web: ${JSON.stringify(d.json.web.itens)}`)
     ok(d.json.web.itens.some((i) => i.nome === 'php em uploads/'), 'testou um .php em uploads/')

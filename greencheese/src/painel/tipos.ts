@@ -137,6 +137,20 @@ export interface Diagnostico {
   uploads: { existe: boolean; gravavel: boolean; arquivos: number; bytes: number }
   limites: { upload_max_filesize: string; post_max_size: string; memory_limit: string; max_execution_time: string; envioMaximo: number; envioMaximoTexto: string }
   https: boolean
+  /**
+   * IP que conta nos limites de tentativa e se tem CDN na frente. remoto: o REMOTE_ADDR (inteiro quando é da CDN,
+   * mascarado quando é de gente); usado: o IP dos limites (mascarado); certo: os limites contam por pessoa;
+   * cabecalhos: os de encaminhamento que chegaram (IPs mascarados); site24h: pedidos do site e IPs diferentes em 24 h.
+   */
+  rede: {
+    remoto: string
+    proxyNaFrente: boolean
+    confiavel: boolean
+    usado: string
+    certo: boolean
+    cabecalhos: { nome: string; ips: string[] }[]
+    site24h: { pedidos: number; ips: number }
+  }
   instalacao: { codigoDev: boolean }
   web: { testado: boolean; motivo: string; base: string; itens: { nome: string; status: number; ok: boolean | null }[] }
   avisos: string[]

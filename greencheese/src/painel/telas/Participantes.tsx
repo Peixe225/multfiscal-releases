@@ -76,11 +76,10 @@ export function Participantes({ rateio, lista, aoMudar, pedir, aoIncluir, aoEdit
         </h2>
         <div className="pn-h2-acoes">
           {lista.length > 0 && (
-            <a className="pn-botao pn-botao-texto pn-botao-p" href={api.urlCsv(rateio.id)} download>
-              <Ic nome="baixar" tamanho={16} />
-              <span className="pn-botao-txt">CSV</span>
-              <span className="sr-only"> (planilha com todo mundo)</span>
-            </a>
+            // pelo api.ts (não um link direto): sessão vencida abre o login e o download recomeça; erro aparece
+            <Botao variante="texto" className="pn-botao-p" icone="baixar" ocupado={acao.ocupado === 'csv'} onClick={() => void acao.rodar('csv', () => api.baixarCsv(rateio.id))}>
+              CSV<span className="sr-only"> (planilha com todo mundo)</span>
+            </Botao>
           )}
           {podeIncluir && (
             <button type="button" className="pn-botao pn-botao-cinza pn-botao-p" onClick={aoIncluir}>
@@ -160,7 +159,7 @@ export function Participantes({ rateio, lista, aoMudar, pedir, aoIncluir, aoEdit
                   </p>
                   {p.observacao && <p className="pn-pessoa-obs">{p.observacao}</p>}
                   <div className="pn-pessoa-acoes">
-                    {(p.status === 'reservado' || p.status === 'expirado') && rateio.status !== 'cancelado' && (
+                    {(p.status === 'reservado' || p.status === 'expirado') && rateio.status !== 'cancelado' && !!p.whatsapp && (
                       <button type="button" className={`pn-botao ${p.status === 'reservado' ? 'pn-botao-cheio' : 'pn-botao-contorno'} pn-botao-p`} onClick={() => pedir(pedirConfirmarPagamento(p, rateio, aoMudar))}>
                         <span className="pn-botao-txt">Confirmar pagamento</span>
                         <span className="sr-only"> de {p.nome}</span>
@@ -191,13 +190,15 @@ export function Participantes({ rateio, lista, aoMudar, pedir, aoIncluir, aoEdit
           }
           const itens: { nome: string; icone: string; feito: () => void; perigo?: boolean }[] = []
           const vivo = rateio.status !== 'cancelado'
-          // dados apagados (LGPD) não voltam
-          if (p.whatsapp) itens.push({ nome: 'Editar dados', icone: 'editar', feito: fechar(() => aoEditar(p)) })
-          if (vivo && p.status === 'cancelado') itens.push({ nome: 'Confirmar pagamento', icone: 'check', feito: fechar(() => pedir(pedirConfirmarPagamento(p, rateio, aoMudar))) })
+          // dados apagados (LGPD) não voltam: nem os dados, nem a vaga (confirmar ou reservar de novo; o servidor
+          // também recusa). Sobra marcar a entrega e cancelar.
+          const comDados = !!p.whatsapp
+          if (comDados) itens.push({ nome: 'Editar dados', icone: 'editar', feito: fechar(() => aoEditar(p)) })
+          if (vivo && comDados && p.status === 'cancelado') itens.push({ nome: 'Confirmar pagamento', icone: 'check', feito: fechar(() => pedir(pedirConfirmarPagamento(p, rateio, aoMudar))) })
           if (vivo && p.status === 'confirmado' && !entregaVale) itens.push({ nome: 'Marcar como entregue', icone: 'check', feito: fechar(() => entregar(p, 'entregue')) })
-          if (vivo && p.status === 'entregue') itens.push({ nome: 'Desfazer a entrega', icone: 'giro', feito: fechar(() => entregar(p, 'confirmado')) })
-          if (vivo && (p.status === 'expirado' || p.status === 'cancelado')) itens.push({ nome: 'Reservar de novo', icone: 'relogio', feito: fechar(() => pedir(pedirReservarDeNovo(p, rateio, aoMudar))) })
-          if (vivo && p.status === 'confirmado') itens.push({ nome: 'Desfazer o pagamento', icone: 'giro', feito: fechar(() => pedir(pedirDesfazerConfirmacao(p, rateio, aoMudar))), perigo: true })
+          if (vivo && comDados && p.status === 'entregue') itens.push({ nome: 'Desfazer a entrega', icone: 'giro', feito: fechar(() => entregar(p, 'confirmado')) })
+          if (vivo && comDados && (p.status === 'expirado' || p.status === 'cancelado')) itens.push({ nome: 'Reservar de novo', icone: 'relogio', feito: fechar(() => pedir(pedirReservarDeNovo(p, rateio, aoMudar))) })
+          if (vivo && comDados && p.status === 'confirmado') itens.push({ nome: 'Desfazer o pagamento', icone: 'giro', feito: fechar(() => pedir(pedirDesfazerConfirmacao(p, rateio, aoMudar))), perigo: true })
           if (vivo && (p.status === 'reservado' || p.status === 'confirmado' || p.status === 'expirado'))
             itens.push({ nome: p.status === 'confirmado' ? 'Cancelar a vaga' : 'Cancelar a reserva', icone: 'fechar', feito: fechar(() => pedir(pedirCancelar(p, aoMudar))), perigo: true })
           const ativa = (p.status === 'reservado' || p.status === 'confirmado') && !['encerrado', 'cancelado'].includes(rateio.status)
