@@ -18,7 +18,7 @@ export default defineConfig({
   base: './',
   plugins: [react(), htmlDaConfig()],
   // Hora do build: vira o "há 2 h" do cabeçalho do story quando config.catalogoAtualizadoEm está vazio.
-  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()), __ARQUIVO_UNICO__: 'false' },
   build: {
     target: 'es2020',
     assetsInlineLimit: 2048,

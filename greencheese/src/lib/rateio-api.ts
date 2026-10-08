@@ -1,9 +1,13 @@
 // Rateio: o contrato público do servidor da loja (greencheese/API.md é a fonte da verdade) e quem fala com ele.
 // Aqui fica só o que o pedaço principal usa (a lista, pro selo da barra e o destaque do Início); entrar, minhas vagas e
 // o rateio avulso baixam com as telas (src/lib/rateio-vagas.ts).
-// Tudo com tempo-limite de 4 s e sem nunca travar a tela. Servidor fora do ar, 404, HTML no lugar de JSON (o zip
-// sem a pasta api/, o desenvolvimento sem PHP) viram 'sem-servidor': a tela segue com os rateios de exemplo e o
-// formulário vira "Entrar pelo WhatsApp". O que vem da rede é conferido campo a campo antes de chegar na tela.
+// Nada trava a tela: leitura com 8 s de limite, entrada (POST) com 20 s (hospedagem compartilhada no 3G). Duas falhas
+// diferentes:
+// - 'sem-servidor': aqui não tem API (o arquivo único, o zip sem a pasta api/, 404 ou HTML no lugar de JSON, o repasse
+//   do Vite com o PHP desligado). A tela segue com os rateios de exemplo e o formulário vira "Entrar pelo WhatsApp".
+// - 'fora-do-ar': a API devia responder e não respondeu (tempo esgotado, rede caída, 5xx). Nada de exemplo inventado; e
+//   num POST não dá pra saber se a vaga foi gravada (ver EntrarRateio: tenta de novo com o mesmo token).
+// O que vem da rede é conferido campo a campo antes de chegar na tela.
 
 export type StatusRateio = 'aberto' | 'fechado' | 'pedido' | 'caminho' | 'chegou' | 'encerrado'
 export type StatusVaga = 'reservado' | 'confirmado' | 'expirado' | 'cancelado' | 'entregue'
@@ -65,6 +69,7 @@ export type ErroRateio =
   | 'muitas-tentativas'
   | 'erro-interno'
   | 'sem-servidor'
+  | 'fora-do-ar'
 
 export interface FalhaRateio {
   ok: false
@@ -78,12 +83,17 @@ export interface FalhaRateio {
   limite?: number
   /** ja-participa */
   codigo?: string
+  /** fora-do-estado: onde o rateio vale agora (o servidor manda; a lista do aparelho pode estar velha). */
+  ufs?: string[]
 }
 
 export type RespostaRateio<T> = ({ ok: true } & T) | FalhaRateio
 
 const API = './api/index.php'
-const LIMITE_MS = 4000
+/** Leitura (lista, rateio, minhas vagas): a tela espera no máximo isso. */
+const LIMITE_LEITURA_MS = 8000
+/** Entrar no rateio: o servidor pode gravar e demorar a responder; cortar cedo perde a resposta (e o token). */
+export const LIMITE_ENTRADA_MS = 20000
 const ERROS: readonly ErroRateio[] = ['invalido', 'nao-encontrado', 'fora-do-estado', 'rateio-fechado', 'sem-vagas', 'limite-por-pessoa', 'ja-participa', 'muitas-tentativas', 'erro-interno']
 export const STATUS_RATEIO: readonly StatusRateio[] = ['aberto', 'fechado', 'pedido', 'caminho', 'chegou', 'encerrado']
 
@@ -151,15 +161,27 @@ export function falha(erro: ErroRateio, extra: Partial<FalhaRateio> = {}): Falha
   return { ok: false, erro, mensagem: null, ...extra }
 }
 
-/**
- * Uma chamada à API. Resposta que não é JSON da API (sem rede, tempo esgotado, 404 da hospedagem, index.html do
- * servidor de desenvolvimento) = 'sem-servidor'. Erro da API = o código dela (desconhecido vira 'erro-interno').
- */
-export async function chamar(rota: string, corpo?: unknown): Promise<RespostaRateio<{ dados: Bruto }>> {
-  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
-  const t = setTimeout(() => ctrl?.abort(), LIMITE_MS)
+/** Aqui não tem servidor nenhum: o arquivo único da prévia (build com __ARQUIVO_UNICO__) ou a página aberta do disco. */
+function semServidorAqui(): boolean {
   try {
-    const r = await fetch(`${API}?r=${rota}`, {
+    return __ARQUIVO_UNICO__ || location.protocol === 'file:'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Uma chamada à API. Resposta que diz "não tem API aqui" (404 ou HTML da hospedagem, index.html do servidor de
+ * desenvolvimento, o repasse do Vite com o PHP desligado) = 'sem-servidor'. Sem resposta (tempo esgotado, rede caída)
+ * ou erro da hospedagem (5xx sem JSON) = 'fora-do-ar'. Erro da API = o código dela (desconhecido vira 'erro-interno').
+ */
+export async function chamar(rota: string, corpo?: unknown, limite = corpo === undefined ? LIMITE_LEITURA_MS : LIMITE_ENTRADA_MS): Promise<RespostaRateio<{ dados: Bruto }>> {
+  if (semServidorAqui()) return falha('sem-servidor')
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const t = setTimeout(() => ctrl?.abort(), limite)
+  let r: Response
+  try {
+    r = await fetch(`${API}?r=${rota}`, {
       method: corpo === undefined ? 'GET' : 'POST',
       headers: corpo === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
@@ -167,15 +189,28 @@ export async function chamar(rota: string, corpo?: unknown): Promise<RespostaRat
       cache: 'no-store',
       credentials: 'same-origin',
     })
+  } catch {
+    clearTimeout(t)
+    return falha('fora-do-ar')
+  }
+  // sem JSON da API: 404 ou página comum (2xx) = não tem API aqui; o resto (5xx, corpo cortado) = fora do ar
+  const naoEApi = () => {
+    if (ctrl?.signal.aborted) return falha('fora-do-ar')
+    const tipo = r.headers.get('content-type') ?? ''
+    return falha(!tipo.includes('json') && (r.status === 404 || r.ok) ? 'sem-servidor' : 'fora-do-ar')
+  }
+  try {
     let dados: unknown
     try {
       dados = await r.json()
     } catch {
-      return falha('sem-servidor')
+      return naoEApi()
     }
-    if (!dados || typeof dados !== 'object' || typeof (dados as Bruto).ok !== 'boolean') return falha('sem-servidor')
+    if (!dados || typeof dados !== 'object' || typeof (dados as Bruto).ok !== 'boolean') return naoEApi()
     const d = dados as Bruto
     if (d.ok === true && r.ok) return { ok: true, dados: d }
+    // o repasse do Vite (npm run dev) responde assim quando o PHP está desligado
+    if (d.erro === 'sem-servidor') return falha('sem-servidor')
     const erro = ERROS.find((e) => e === d.erro) ?? 'erro-interno'
     return falha(erro, {
       mensagem: texto(d.mensagem, 200),
@@ -183,9 +218,8 @@ export async function chamar(rota: string, corpo?: unknown): Promise<RespostaRat
       disponiveis: inteiro(d.disponiveis) ?? undefined,
       limite: inteiro(d.limite, 1) ?? undefined,
       codigo: texto(d.codigo, 20) ?? undefined,
+      ufs: Array.isArray(d.ufs) ? d.ufs.filter((u): u is string => typeof u === 'string' && /^[a-z]{2}$/i.test(u)).map((u) => u.toLowerCase()) : undefined,
     })
-  } catch {
-    return falha('sem-servidor')
   } finally {
     clearTimeout(t)
   }

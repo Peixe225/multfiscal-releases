@@ -59,9 +59,30 @@ export function textoPrevisao(r: Rateio): string {
   return `Chega ${faixaDias(r)} depois que ${r.status === 'aberto' ? 'fechar' : 'fechou'}.`
 }
 
-/** "Fecha dia 12/10 ou quando lotar." · "Fecha quando lotar." */
-export function textoPrazo(r: Rateio): string {
+/**
+ * Aberto, mas o prazo pra entrar já passou (fechaEm vencido, ou o servidor diz que não aceita entrada e ainda sobra
+ * vaga). O servidor não fecha sozinho pelo prazo: quem decide é a loja. Não é "vagas tomadas".
+ */
+export function prazoAcabou(r: Rateio, agora: number): boolean {
+  if (r.status !== 'aberto') return false
+  if (r.fechaEm && Date.parse(r.fechaEm) <= agora) return true
+  return !r.aceitaEntradas && r.disponiveis > 0
+}
+
+/** Aberto, dentro do prazo, mas todas as vagas pagas ou reservadas (uma reserva que vence devolve a vaga). */
+export function vagasTomadas(r: Rateio, agora: number): boolean {
+  return r.status === 'aberto' && !r.aceitaEntradas && r.disponiveis === 0 && !prazoAcabou(r, agora)
+}
+
+/** "Fecha dia 12/10 ou quando lotar." · "Fecha quando lotar." · prazo vencido: "O prazo pra entrar acabou dia 07/10." */
+export function textoPrazo(r: Rateio, agora: number): string {
+  if (prazoAcabou(r, agora)) return r.fechaEm ? `O prazo pra entrar acabou dia ${formatarDiaMes(Date.parse(r.fechaEm))}.` : 'O prazo pra entrar acabou.'
   return r.fechaEm ? `Fecha dia ${formatarDiaMes(Date.parse(r.fechaEm))} ou quando lotar.` : 'Fecha quando lotar.'
+}
+
+/** "Tua vaga fica guardada" · "Tuas vagas ficam guardadas" */
+export function guardadaTexto(qtd: number): string {
+  return qtd > 1 ? 'Tuas vagas ficam guardadas' : 'Tua vaga fica guardada'
 }
 
 /** Previsão em datas depois de fechar: "entre 14/10 e 18/10". */

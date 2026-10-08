@@ -8,8 +8,9 @@ import { brl } from '../../lib/formato'
 import type { Rateio } from '../../lib/rateio-api'
 import type { Produto } from '../../lib/tipos'
 import { produtoPorId } from '../../store/catalogo'
+import { agoraRateio } from '../../store/rateio'
 import { Avatar, Icone } from '../comum'
-import { ETAPA, SELO, economia, janelaChegada, listaUfs, textoPrazo, textoPrevisao, vagasTexto } from './util'
+import { ETAPA, SELO, economia, janelaChegada, listaUfs, prazoAcabou, textoPrazo, textoPrevisao, vagasTexto } from './util'
 
 // O cartão do rateio: um post do perfil da loja. Em cima, o cabeçalho do post (avatar, @ e os estados onde vale, no
 // lugar da localização). A mídia é um story: as barrinhas do topo são a linha do tempo do rateio (a 1ª enche com as
@@ -63,14 +64,28 @@ function Barras({ rateio }: { rateio: Rateio }) {
 }
 
 /**
+ * Quantos dos n degraus acendem pra `k` de `total` vagas. Com um bloco por vaga (n = total), a conta é exata. Com mais
+ * de 30 vagas, arredonda pra baixo, mas nunca mente nos extremos: 1 vaga já acende 1 degrau e, enquanto falta vaga, o
+ * último fica apagado (99/100 não parece lotado).
+ */
+export function degraus(k: number, total: number, n: number): number {
+  if (k <= 0) return 0
+  if (k >= total) return n
+  if (n >= total) return k
+  return Math.min(n - 1, Math.max(1, Math.floor((k / total) * n)))
+}
+
+/**
  * Adesivo de controle deslizante: "8/10 vagas", um bloco por vaga (cheio = paga, xadrez = reservada, vazio = livre) e
  * "+2 reservadas" ao lado. Com mais de 30 vagas, a barra vira 30 degraus.
  */
 export function Contador({ rateio }: { rateio: Rateio }) {
   const { vagas, confirmadas, reservadas } = rateio
   const n = Math.min(vagas, 30)
-  const pagos = Math.round((confirmadas / vagas) * n)
-  const guardados = Math.min(n - pagos, Math.round(((confirmadas + reservadas) / vagas) * n) - pagos)
+  const pagos = degraus(confirmadas, vagas, n)
+  // as reservadas acendem pelo menos 1 degrau, sem passar do que sobra
+  const ocupados = Math.max(degraus(confirmadas + reservadas, vagas, n), reservadas > 0 ? Math.min(n, pagos + 1) : pagos)
+  const guardados = Math.max(0, ocupados - pagos)
   const lotou = confirmadas >= vagas
   return (
     <div className="rt-contador" style={{ '--n': n } as CSSProperties}>
@@ -199,6 +214,10 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
   const produto = r.produtoId ? produtoPorId(r.produtoId) : undefined
   const janela = janelaChegada(r)
   const exemplo = r.demo && config.carimboDeExemplo
+  const agora = agoraRateio()
+  // aberto com o prazo vencido: nada de "ABERTO" piscando nem "Fecha dia X" no futuro
+  const prazo = prazoAcabou(r, agora)
+  const podeEntrar = aberto && !foraDoEstado && r.aceitaEntradas && !prazo
   return (
     <article className={`rt rt-${variante}${apagado ? ' rt-off' : ''}${aberto ? '' : ' rt-andamento'}`} aria-labelledby={idTitulo} data-rateio={r.id}>
       {variante === 'feed' && (
@@ -212,7 +231,7 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
       )}
       <div className="rt-midia" style={{ '--brilho': produto?.cor ?? '#a8a8a8' } as CSSProperties}>
         <Barras rateio={r} />
-        <span className={`rt-selo px rt-selo-${r.status}`}>{SELO[r.status]}</span>
+        <span className={`rt-selo px rt-selo-${prazo ? 'prazo' : r.status}`}>{prazo ? 'TEMPO ACABOU' : SELO[r.status]}</span>
         {exemplo && <span className="rt-exemplo carimbo">exemplo</span>}
         <div className={`rt-arte${apagado ? '' : ' rt-flutua'}`}>
           <ArteRateio rateio={r} largura={variante === 'pagina' ? 120 : 96} apagado={apagado} prioridade={prioridade} />
@@ -234,8 +253,8 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
         </div>
         <div className="rt-adesivos">
           <Contador rateio={r} />
-          {aberto && !foraDoEstado && r.aceitaEntradas && (hrefEntrar || aoEntrar) && <Entrada rateio={r} href={hrefEntrar} aoTocar={aoEntrar} codigo={codigo} />}
-          {aberto && !foraDoEstado && !r.aceitaEntradas && !codigo && <p className="rt-aviso-adesivo">{r.disponiveis === 0 ? 'Vagas tomadas: esperando os pagamentos' : 'Entradas fechadas'}</p>}
+          {podeEntrar && (hrefEntrar || aoEntrar) && <Entrada rateio={r} href={hrefEntrar} aoTocar={aoEntrar} codigo={codigo} />}
+          {aberto && !foraDoEstado && !podeEntrar && !codigo && <p className="rt-aviso-adesivo">{prazo ? 'O prazo pra entrar acabou' : 'Vagas tomadas: esperando os pagamentos'}</p>}
           {apagado && <p className="rt-aviso-adesivo">Só pra {listaUfs(r.ufs)}</p>}
         </div>
       </div>
@@ -243,7 +262,7 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
         <div className="rt-legenda">
           {aberto ? (
             <p>
-              <strong>{textoPrevisao(r)}</strong> {textoPrazo(r)}
+              <strong>{textoPrevisao(r)}</strong> {textoPrazo(r, agora)}
               {foraDoEstado ? '' : ` Vale pra ${listaUfs(r.ufs)}.`}
             </p>
           ) : (

@@ -1,5 +1,6 @@
 // A parte do contrato do rateio que só as telas usam (baixa com elas): o rateio avulso, entrar e minhas vagas.
-// Mesmas regras de src/lib/rateio-api.ts: 4 s de limite, nada trava a tela, o que vem da rede é conferido.
+// Mesmas regras de src/lib/rateio-api.ts: leitura em 8 s, entrada em 20 s, nada trava a tela, o que vem da rede é
+// conferido.
 import { chamar, data, falha, inteiro, lerRateio, numero, STATUS_RATEIO, texto, type Bruto, type Participacao, type Rateio, type RespostaRateio, type StatusVaga } from './rateio-api'
 
 const STATUS_VAGA: readonly StatusVaga[] = ['reservado', 'confirmado', 'expirado', 'cancelado', 'entregue']
@@ -48,6 +49,19 @@ export interface PedidoEntrada {
   quantidade: number
   /** Armadilha para robô: vai do jeito que veio do campo escondido (gente deixa vazio). */
   site?: string
+  /**
+   * Token gerado no aparelho (32 hex), o mesmo em cada nova tentativa da mesma entrada. Servidor que segue o API.md
+   * guarda o hash dele e, se o POST chegar de novo (a resposta se perdeu no 3G), devolve a mesma participação; e o
+   * `minhas-vagas` com ele já acha a vaga. Servidor que ainda não aceita ignora o campo e gera o dele.
+   */
+  token?: string
+}
+
+/** Token novo do aparelho: 32 hex (128 bits), do gerador do navegador. */
+export function novoToken(): string {
+  const b = new Uint8Array(16)
+  crypto.getRandomValues(b)
+  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
 }
 
 /** POST r=rateio-entrar */

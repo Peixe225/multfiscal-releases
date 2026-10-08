@@ -1,13 +1,16 @@
 /* Rateio: o cartão (um post do perfil, com a mídia em forma de story), a aba, a página e o "Como funciona".
    Os adesivos são os do story do Instagram: controle deslizante (o contador) e "Adicione o seu" (a entrada).
    Baixa junto com os pedaços do rateio (estilo.ts), fora do CSS único do site; o cabeçalho da aba fica no Abas.css.
-   Número e código em pixel usam o 2 e o 5 redesenhados (na Pixelify o 5 vira S e o 2 vira Z: "55 MM" lia "SS MM"). */
+   Números em pixel usam o 2 e o 5 redesenhados (na Pixelify o 5 vira S e o 2 vira Z: "55 MM" lia "SS MM"); o código
+   RAT-XXXX tem fonte própria (GC Codigo, grade 5×7), porque é lido, anotado e ditado pra loja. */
 
 .rt,
 .rv,
 .rp,
 .mv {
-  --pixel-num: 'GC Digitos', var(--pixel);
+  --pixel-num: 'GC Digitos', 'GC Letras', var(--pixel);
+  /* o código RAT-XXXX: a pessoa anota e dita, então nada de 2 que parece Z (codigo.css) */
+  --pixel-codigo: 'GC Codigo', ui-monospace, 'SF Mono', Menlo, 'Roboto Mono', monospace;
 }
 
 /* ───────────────────────── cartão ───────────────────────── */
@@ -612,7 +615,7 @@
   color: var(--legenda);
 }
 .mv-codigo {
-  font-family: var(--pixel-num);
+  font-family: var(--pixel-codigo);
   color: var(--branco);
   font-size: 16px;
   font-weight: 400;
@@ -995,7 +998,7 @@
   color: var(--legenda);
 }
 .rp-codigo-valor {
-  font-family: var(--pixel-num);
+  font-family: var(--pixel-codigo);
   font-size: 32px;
   font-weight: 400;
   letter-spacing: 1px;
@@ -1054,7 +1057,7 @@
   color: var(--legenda);
 }
 .rp-tua-codigo {
-  font-family: var(--pixel-num);
+  font-family: var(--pixel-codigo);
   color: var(--branco);
   font-size: 20px;
 }
@@ -1118,7 +1121,7 @@
 /* ───────────────────────── Como funciona ───────────────────────── */
 
 .folha-como {
-  --pixel-num: 'GC Digitos', var(--pixel);
+  --pixel-num: 'GC Digitos', 'GC Letras', var(--pixel);
 }
 .como-lista {
   display: flex;

@@ -220,7 +220,8 @@ function DestaqueAba({ aba, foco, rotulo, nome, children }: { aba: Aba; foco?: F
 
 /**
  * Rateio: caminho pra aba (link de verdade, como os outros), com o anel aceso enquanto tem rateio aberto pro estado e o
- * selo "novo" até a pessoa ver os abertos na aba.
+ * selo "novo" até a pessoa ver os abertos na aba. Só de 560 px em diante (Catalogo.css): no celular o Rateio está na
+ * barra de baixo, com o número de abertos, e os filtros do Início continuam à vista.
  */
 function DestaqueRateio() {
   const uf = useLocal((s) => s.uf)
@@ -329,9 +330,9 @@ function SetaLinha({ lado, linha }: { lado: 'esq' | 'dir'; linha: RefObject<HTML
 }
 
 /**
- * Destaques do Início, numa linha só: primeiro os que são caminho (o destaque do estado, Buscar, Rateio, os interativos,
- * Por estado), um fio, e à direita os filtros, que filtram a grade do próprio Início. No celular a linha é mais compacta
- * (Catalogo.css) para os caminhos aparecerem inteiros, com o "Tudo" espiando na borda (o sinal de que a linha rola).
+ * Destaques do Início, numa linha só: primeiro os que são caminho (o destaque do estado, Buscar, Rateio — só em tela
+ * larga —, os interativos, Por estado), um fio, e à direita os filtros, que filtram a grade do próprio Início. No celular
+ * a linha é mais compacta (Catalogo.css) para o primeiro filtro aparecer inteiro, com o seguinte espiando na borda.
  */
 function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
   const uf = useLocal((s) => s.uf)

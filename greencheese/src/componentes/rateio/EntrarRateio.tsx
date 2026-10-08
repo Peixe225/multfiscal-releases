@@ -9,19 +9,24 @@ import { depoisDoHistorico } from '../../lib/historico'
 import { linkWhatsApp, montarRateio, whatsappDoCanal } from '../../lib/mensagem'
 import { movimentoReduzido } from '../../lib/movimento'
 import type { FalhaRateio, Rateio } from '../../lib/rateio-api'
-import { entrarNoRateio } from '../../lib/rateio-vagas'
+import { recuperarPendente } from '../../lib/minhas-vagas'
+import { entrarNoRateio, novoToken } from '../../lib/rateio-vagas'
 import { celularNoCampo, editarCelular, normalizarCelular, validarCelular } from '../../lib/telefone'
 import { useChat } from '../../store/chat'
 import { useLocal } from '../../store/local'
-import { agoraRateio, carregarRateios, guardarVaga, trocarRateio, useRateio, type VagaGuardada } from '../../store/rateio'
+import { agoraRateio, carregarRateios, guardarPendente, guardarVaga, pendenteDe, tirarPendente, trocarRateio, useRateio, type EntradaPendente, type VagaGuardada } from '../../store/rateio'
 import { useUI } from '../../store/ui'
 import { Icone } from '../comum'
-import { NOME_VAGA, ateQuando, contaVagas, listaUfs, statusVisto, total, vagaAtiva, vagasTexto } from './util'
+import { NOME_VAGA, ateQuando, contaVagas, guardadaTexto, listaUfs, statusVisto, total, vagaAtiva, vagasTexto } from './util'
 
 // Entrar no rateio, na página dele. Com o servidor: nome + WhatsApp (+ estado, cidade quando precisa, quantidade) →
 // POST rateio-entrar → a vaga fica reservada na hora, com código, e a tela de "Tá no rateio!" leva pro WhatsApp da
-// loja com a mensagem pronta (o Pix aqui no site fica "Em breve", como no pedido). Sem servidor (zip, servidor fora
-// do ar): o mesmo formulário vira "Entrar pelo WhatsApp", sem código, e a loja confirma a vaga por lá.
+// loja com a mensagem pronta (o Pix aqui no site fica "Em breve", como no pedido). Sem servidor aqui (o arquivo único,
+// o zip sem api/): o mesmo formulário vira "Entrar pelo WhatsApp", sem código, e a loja confirma a vaga por lá.
+// A resposta do POST pode se perder (3G, hospedagem lenta) DEPOIS de o servidor gravar a vaga: o token vai junto,
+// gerado aqui e guardado antes de enviar (EntradaPendente); a nova tentativa usa o mesmo token, e um ja-participa
+// pergunta ao minhas-vagas por ele antes de dizer que o WhatsApp já está no rateio. Sem resposta, nada de mandar pro
+// WhatsApp sem código de cara: primeiro "tenta de novo" (o servidor nunca dá duas vagas pro mesmo WhatsApp).
 // Já tem vaga ativa neste aparelho nesse rateio: mostra a vaga (e deixa entrar com outro WhatsApp, pra um amigo).
 
 const limparNome = (v: string) => v.replace(/\s+/g, ' ').trim()
@@ -46,7 +51,22 @@ export function verMinhasVagas() {
 }
 
 /** Botão do WhatsApp da loja: link montado antes do toque, sem target no celular; "Não abriu?" com cópia e número. */
-function BotaoZap({ canal, texto, rotulo, aoTocar, refBotao }: { canal: Canal; texto: string; rotulo: string; aoTocar?: (e: MouseEvent<HTMLAnchorElement>) => void; refBotao?: Ref<HTMLAnchorElement> }) {
+function BotaoZap({
+  canal,
+  texto,
+  rotulo,
+  aoTocar,
+  refBotao,
+  contorno = false,
+}: {
+  canal: Canal
+  texto: string
+  rotulo: string
+  aoTocar?: (e: MouseEvent<HTMLAnchorElement>) => void
+  refBotao?: Ref<HTMLAnchorElement>
+  /** Segunda opção (o principal é outro botão): contorno no lugar do verde cheio. */
+  contorno?: boolean
+}) {
   const avisar = useUI((s) => s.avisar)
   const [naoAbriu, setNaoAbriu] = useState(false)
   const alvo = alvoDeSaida()
@@ -54,7 +74,7 @@ function BotaoZap({ canal, texto, rotulo, aoTocar, refBotao }: { canal: Canal; t
     <>
       <a
         ref={refBotao}
-        className="botao botao-cheio botao-largo dm-zap rp-zap"
+        className={`botao ${contorno ? 'botao-contorno' : 'botao-cheio'} botao-largo dm-zap rp-zap`}
         href={linkWhatsApp(canal, texto)}
         target={alvo}
         rel="noopener noreferrer"
@@ -138,7 +158,7 @@ function Confirmacao({ vaga, rateio }: { vaga: VagaGuardada; rateio: Rateio }) {
   return (
     <div className="rp-feito">
       <p className="sr-only" role="status" aria-live="polite">
-        Tá no rateio! Código {vaga.codigo}. {ate ? `Tua vaga fica guardada até ${ate}.` : ''}
+        Tá no rateio! Código {vaga.codigo}. {ate ? `${guardadaTexto(vaga.quantidade)} até ${ate}.` : ''}
       </p>
       <div className="rp-feito-topo">
         <span className="rp-festa" aria-hidden="true">
@@ -159,7 +179,15 @@ function Confirmacao({ vaga, rateio }: { vaga: VagaGuardada; rateio: Rateio }) {
         </button>
       </div>
       <p className="rp-feito-txt">
-        {vagasTexto(vaga.quantidade)} · {brl(vaga.total)}. {ate ? <>Tua vaga fica guardada até <strong>{ate}</strong>.</> : 'Tua vaga fica guardada enquanto a loja confirma.'} Fecha o pagamento com a loja no WhatsApp pra confirmar.
+        {vagasTexto(vaga.quantidade)} · {brl(vaga.total)}.{' '}
+        {ate ? (
+          <>
+            {guardadaTexto(vaga.quantidade)} até <strong>{ate}</strong>.
+          </>
+        ) : (
+          `${guardadaTexto(vaga.quantidade)} enquanto a loja confirma.`
+        )}{' '}
+        Fecha o pagamento com a loja no WhatsApp pra confirmar.
       </p>
       <Mensagem texto={texto} />
       <div className="rp-acoes">
@@ -194,8 +222,13 @@ function TuaVaga({ vaga, rateio, outra }: { vaga: VagaGuardada; rateio: Rateio; 
         <i className="mv-ponto" aria-hidden="true" />
         <strong>{NOME_VAGA[status]}</strong>
         {status === 'confirmado' && ' ✅'}
-        {status === 'expirado' && ' — a vaga voltou'}
-        {status === 'reservado' && vaga.expiraEm && <span className="mv-linha"> · guardada até {ateQuando(vaga.expiraEm, agora)}</span>}
+        {status === 'expirado' && (vaga.quantidade > 1 ? ' — as vagas voltaram' : ' — a vaga voltou')}
+        {status === 'reservado' && vaga.expiraEm && (
+          <span className="mv-linha">
+            {' '}
+            · {vaga.quantidade > 1 ? 'guardadas' : 'guardada'} até {ateQuando(vaga.expiraEm, agora)}
+          </span>
+        )}
       </p>
       {status === 'reservado' && canal && texto && (
         <div className="rp-acoes">
@@ -233,13 +266,28 @@ export function EntrarRateio({ rateio, modo }: Props) {
   return <Formulario rateio={rateio} modo={modo} aoEntrar={setFeita} focarAoAbrir={outra} />
 }
 
+/** O que o formulário sabe além do erro: quantas tentativas ficaram sem resposta e se o ja-participa é da vaga perdida. */
+interface ContextoErro {
+  semResposta: number
+  /** ja-participa logo depois de uma tentativa sem resposta: a vaga é quase certo desta pessoa. */
+  perdida: boolean
+}
+
 /** Mensagem curta e humana para cada erro do servidor (o campo, quando é de um campo). */
-function textoDoErro(e: FalhaRateio, r: Rateio, uf: string | null): string {
+function textoDoErro(e: FalhaRateio, r: Rateio, uf: string | null, ctx: ContextoErro): string {
   switch (e.erro) {
+    case 'invalido':
+      // só chega aqui sem campo do formulário (o rateio, a armadilha, um campo novo): a frase do servidor, ou a nossa
+      return e.mensagem ?? 'Não deu pra reservar: confere os dados e tenta de novo.'
     case 'nao-encontrado':
       return 'Esse rateio saiu do ar.'
-    case 'fora-do-estado':
-      return `Esse rateio não vale pra ${uf?.toUpperCase() ?? 'esse estado'}. Vale pra ${listaUfs(r.ufs)}.`
+    case 'fora-do-estado': {
+      const UF = uf?.toUpperCase()
+      // a lista do aparelho pode estar velha (ainda dizendo que vale pra esse estado): vale o que o servidor mandou
+      if (e.ufs?.length) return `Esse rateio não vale pra ${UF ?? 'esse estado'}. Vale pra ${listaUfs(e.ufs)}.`
+      if (uf && r.ufs.includes(uf)) return `Esse rateio não vale mais pra ${UF}.`
+      return `Esse rateio não vale pra ${UF ?? 'esse estado'}. Vale pra ${listaUfs(r.ufs)}.`
+    }
     case 'rateio-fechado':
       return 'Esse rateio não aceita mais entrada: fechou ou o prazo acabou.'
     case 'sem-vagas':
@@ -247,15 +295,23 @@ function textoDoErro(e: FalhaRateio, r: Rateio, uf: string | null): string {
     case 'limite-por-pessoa':
       return `Cada WhatsApp pega até ${vagasTexto(e.limite ?? r.limitePorPessoa)} nesse rateio.`
     case 'ja-participa':
-      return `Esse WhatsApp já está nesse rateio${e.codigo ? ` (código ${e.codigo})` : ''}.`
+      return ctx.perdida
+        ? `Tua vaga ficou guardada${e.codigo ? ` (código ${e.codigo})` : ''}, mas a resposta da loja se perdeu no caminho. Fala com a loja pra confirmar e pagar.`
+        : `Esse WhatsApp já está nesse rateio${e.codigo ? ` (código ${e.codigo})` : ''}.`
     case 'muitas-tentativas':
       return 'Muita tentativa seguida. Espera uns minutos e tenta de novo.'
     case 'sem-servidor':
-      return 'Não deu pra reservar agora. Entra pelo WhatsApp que a loja confirma tua vaga por lá.'
+    case 'fora-do-ar':
+      return ctx.semResposta >= 2
+        ? 'Ainda sem resposta da loja. Tenta de novo daqui a pouco ou entra pelo WhatsApp: se a vaga já tiver ficado guardada, a loja acha ela pelo teu número.'
+        : 'A conexão caiu antes da resposta da loja, e a vaga pode ter ficado guardada. Tenta de novo que a gente confere: o mesmo WhatsApp nunca pega vaga duas vezes.'
     default:
-      return 'Deu ruim do lado da loja. Tenta de novo em instantes ou entra pelo WhatsApp.'
+      return 'Deu ruim do lado da loja. Tenta de novo em instantes.'
   }
 }
+
+/** Erros que dizem que a lista do aparelho está velha (contador, estados, prazo): busca de novo. */
+const RECARREGA = ['sem-vagas', 'rateio-fechado', 'nao-encontrado', 'limite-por-pessoa', 'fora-do-estado', 'invalido']
 
 function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Rateio; modo: Props['modo']; aoEntrar: (v: VagaGuardada) => void; focarAoAbrir: boolean }) {
   const uid = useId()
@@ -276,10 +332,16 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
   const [armadilha, setArmadilha] = useState('')
   const [tentou, setTentou] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // o POST passou de 5 s: avisa que a conexão está lenta (o limite é 20 s)
+  const [lento, setLento] = useState(false)
+  const enviandoRef = useRef(false)
   const [erro, setErro] = useState<FalhaRateio | null>(null)
+  // tentativas seguidas sem resposta (tempo esgotado, rede caída); a 2ª oferece o WhatsApp
+  const [semResposta, setSemResposta] = useState(0)
+  const [perdida, setPerdida] = useState(false)
   // o servidor disse quantas sobraram (sem-vagas) ou qual o limite: o seletor de quantidade obedece
   const [tetoServidor, setTetoServidor] = useState<number | null>(null)
-  const [semServidor, setSemServidor] = useState(modo === 'sem-servidor')
+  const semServidor = modo === 'sem-servidor'
   const [foiPeloZap, setFoiPeloZap] = useState(false)
   const refs = {
     nome: useRef<HTMLInputElement>(null),
@@ -302,8 +364,13 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focarAoAbrir])
   useEffect(() => {
-    if (modo === 'sem-servidor') setSemServidor(true)
-  }, [modo])
+    if (!enviando) return
+    const t = window.setTimeout(() => setLento(true), 5000)
+    return () => {
+      clearTimeout(t)
+      setLento(false)
+    }
+  }, [enviando])
 
   const canal = canalDa(uf)
   const cidades = canal?.cidades ?? []
@@ -322,8 +389,8 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
   if (!uf) erros.uf = 'Escolhe teu estado.'
   if (precisaCidadeTexto && (!cidadeNome || cidadeNome.length < 2)) erros.cidade = 'Qual tua cidade?'
   if (precisaCidadeLista && !cidadeNome) erros.cidade = 'Escolhe tua cidade.'
-  // erro de campo que veio do servidor (invalido + campo)
-  const erroServidorCampo = erro?.erro === 'invalido' && erro.campo && ['nome', 'whatsapp', 'uf', 'quantidade'].includes(erro.campo) ? (erro.campo as CampoErro) : null
+  // erro de campo que veio do servidor (invalido + um campo deste formulário); invalido sem campo daqui vira alerta
+  const erroServidorCampo = erro?.erro === 'invalido' && erro.campo && erro.campo in refs ? (erro.campo as CampoErro) : null
   const mostra = (c: CampoErro) => (tentou && erros[c]) || (erroServidorCampo === c ? (erro?.mensagem ?? 'Confere esse campo.') : null)
   const primeiroErro = (['nome', 'whatsapp', 'uf', 'cidade'] as CampoErro[]).find((c) => erros[c])
 
@@ -331,11 +398,13 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     ? montarRateio({ canal, cidade: cidadeNome, titulo: r.titulo, quantidade: q, precoRateio: r.precoRateio, nome: nomeLimpo || '…', whatsapp: digitos })
     : ''
 
-  const focar = (c: CampoErro) => {
+  /** Põe o foco no campo; false se o campo não está na tela (ex.: quantidade com 1 vaga só). */
+  const focar = (c: CampoErro): boolean => {
     const el = refs[c].current
-    if (!el) return
+    if (!el) return false
     if (el instanceof HTMLInputElement) el.focus()
-    else el.querySelector<HTMLElement>('[aria-checked="true"], button')?.focus()
+    else (el.querySelector<HTMLElement>('[aria-checked="true"]') ?? el.querySelector<HTMLElement>('button:not(:disabled)'))?.focus()
+    return el.contains(document.activeElement)
   }
 
   const mudarZap = (e: ChangeEvent<HTMLInputElement>) => {
@@ -357,47 +426,87 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     focar(prox)
   }
 
-  const mostrarAlerta = () =>
-    requestAnimationFrame(() => {
-      alerta.current?.scrollIntoView({ block: 'nearest', behavior: movimentoReduzido() ? 'auto' : 'smooth' })
-      alerta.current?.querySelector<HTMLElement>('a, button')?.focus({ preventScroll: true })
-    })
+  // o alerta aparece e leva o foco: pro 1º botão dele ou, sem botão, pra ele mesmo (nunca solto no <body>). Pelo
+  // efeito, depois do commit que pôs o alerta na tela (um requestAnimationFrame às vezes chegava antes dele)
+  const [alertaPedido, setAlertaPedido] = useState(0)
+  const mostrarAlerta = () => setAlertaPedido((n) => n + 1)
+  useEffect(() => {
+    const a = alerta.current
+    if (!alertaPedido || !a) return
+    a.scrollIntoView({ block: 'nearest', behavior: movimentoReduzido() ? 'auto' : 'smooth' })
+    ;(a.querySelector<HTMLElement>('a, button') ?? a).focus({ preventScroll: true })
+  }, [alertaPedido])
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
+    if (enviandoRef.current) return
     setTentou(true)
     if (primeiroErro) {
       focar(primeiroErro)
       return
     }
-    if (enviando || !uf || !canal) return
+    if (!uf || !canal) return
+    const whatsapp = `55${digitos}`
+    // a mesma pessoa no mesmo rateio, de novo (a resposta anterior se perdeu?): o mesmo token
+    const antes = pendenteDe(r.id, whatsapp)
+    const pend: EntradaPendente = {
+      token: antes?.token ?? novoToken(),
+      rateio: r.id,
+      titulo: r.titulo,
+      nome: nomeLimpo,
+      whatsapp,
+      uf,
+      cidade: cidadeNome,
+      quantidade: q,
+      precoRateio: r.precoRateio,
+      criadoEm: antes?.criadoEm ?? Date.now(),
+      semResposta: antes?.semResposta,
+    }
+    guardarPendente(pend)
+    enviandoRef.current = true
     setEnviando(true)
     setErro(null)
+    setPerdida(false)
     const resp = await entrarNoRateio({
       rateio: r.id,
       nome: nomeLimpo,
-      whatsapp: `55${digitos}`,
+      whatsapp,
       uf,
       ...(cidadeNome && cidades.length !== 1 ? { cidade: cidadeNome } : cidades.length === 1 ? { cidade: cidades[0].nome } : {}),
       quantidade: q,
       site: armadilha,
+      token: pend.token,
     })
+    // ja-participa com uma entrada deste aparelho no caminho: a vaga pode ser ela (o servidor que guarda o token do
+    // aparelho devolve no minhas-vagas). Achou: é a confirmação de sempre
+    const achada = !resp.ok && resp.erro === 'ja-participa' ? await recuperarPendente(pend) : null
+    enviandoRef.current = false
     setEnviando(false)
-    if (resp.ok) {
-      if (resp.rateio) trocarRateio(resp.rateio)
-      const vaga: VagaGuardada = { ...resp.participacao, nome: nomeLimpo, whatsapp: `55${digitos}`, uf, cidade: cidadeNome, precoRateio: r.precoRateio }
+    if (resp.ok || achada) {
+      setSemResposta(0)
+      if (resp.ok && resp.rateio) trocarRateio(resp.rateio)
+      const vaga: VagaGuardada = resp.ok ? { ...resp.participacao, nome: nomeLimpo, whatsapp, uf, cidade: cidadeNome, precoRateio: r.precoRateio } : achada!
       guardarVaga(vaga)
       aoEntrar(vaga)
+      if (!resp.ok) void carregarRateios(true)
       return
     }
     setErro(resp)
-    // o contador do cartão pode estar velho: busca a lista de novo
-    if (['sem-vagas', 'rateio-fechado', 'nao-encontrado', 'limite-por-pessoa'].includes(resp.erro)) void carregarRateios(true)
-    if (resp.erro === 'sem-servidor') {
-      setSemServidor(true)
+    if (resp.erro === 'sem-servidor' || resp.erro === 'fora-do-ar') {
+      // sem resposta: não dá pra saber se gravou. O token fica (a próxima tentativa e as "Minhas vagas" perguntam)
+      guardarPendente({ ...pend, semResposta: true })
+      setSemResposta((n) => n + 1)
       mostrarAlerta()
       return
     }
+    setSemResposta(0)
+    if (resp.erro === 'ja-participa') {
+      // o token deste aparelho não achou nada: a vaga foi gravada com o token do servidor (ou é de outro aparelho)
+      setPerdida(!!antes?.semResposta)
+      tirarPendente(pend.token)
+    }
+    // o contador, os estados ou o prazo do cartão podem estar velhos: busca a lista de novo (invalido só sem campo daqui)
+    if (RECARREGA.includes(resp.erro) && !(resp.erro === 'invalido' && resp.campo && resp.campo in refs)) void carregarRateios(true)
     if (resp.erro === 'sem-vagas' && resp.disponiveis != null) {
       setTetoServidor(Math.max(1, resp.disponiveis))
       if (resp.disponiveis > 0) setQtd(resp.disponiveis)
@@ -407,13 +516,10 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
       setQtd(resp.limite)
     }
     if (resp.erro === 'invalido' && resp.campo && resp.campo in refs) {
-      focar(resp.campo as CampoErro)
+      if (!focar(resp.campo as CampoErro)) mostrarAlerta()
       return
     }
-    if (resp.erro === 'fora-do-estado') {
-      focar('uf')
-      return
-    }
+    if (resp.erro === 'fora-do-estado' && focar('uf')) return
     mostrarAlerta()
   }
 
@@ -428,9 +534,16 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
     setFoiPeloZap(true)
   }
 
-  const erroGeral = erro && erro.erro !== 'invalido' ? textoDoErro(erro, r, uf) : null
+  const incerto = erro?.erro === 'sem-servidor' || erro?.erro === 'fora-do-ar'
+  const erroGeral = erro && !erroServidorCampo ? textoDoErro(erro, r, uf, { semResposta, perdida }) : null
   const travado = erro?.erro === 'rateio-fechado' || erro?.erro === 'nao-encontrado' || (erro?.erro === 'sem-vagas' && erro.disponiveis === 0)
   const idTotal = `${uid}-total`
+  // ja-participa: a mensagem leva só o código (quantas vagas e quanto, quem sabe é a loja; o formulário pode estar
+  // com outra quantidade)
+  const textoJa =
+    canal && erro?.erro === 'ja-participa' && erro.codigo
+      ? montarRateio({ canal, cidade: cidadeNome, titulo: r.titulo, quantidade: null, precoRateio: r.precoRateio, codigo: erro.codigo, nome: nomeLimpo, whatsapp: digitos })
+      : null
 
   return (
     <form className="rp-form" onSubmit={enviar} noValidate aria-labelledby={`${uid}-t`}>
@@ -610,7 +723,7 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
       <p className="rp-privacidade legenda">Teu nome e WhatsApp servem só pra loja confirmar tua vaga.</p>
 
       {erroGeral && (
-        <div ref={alerta} className="form-alerta rp-alerta" role="alert">
+        <div ref={alerta} className="form-alerta rp-alerta" role="alert" tabIndex={-1}>
           <p>{erroGeral}</p>
           {erro?.erro === 'ja-participa' && (
             <div className="rp-alerta-acoes">
@@ -619,13 +732,8 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
                   Ver minhas vagas
                 </button>
               )}
-              {canal && erro.codigo && (
-                <a
-                  className="botao botao-contorno toque"
-                  href={linkWhatsApp(canal, montarRateio({ canal, cidade: cidadeNome, titulo: r.titulo, quantidade: q, precoRateio: r.precoRateio, codigo: erro.codigo, nome: nomeLimpo, whatsapp: digitos }))}
-                  target={alvoDeSaida()}
-                  rel="noopener noreferrer"
-                >
+              {canal && textoJa && (
+                <a className="botao botao-contorno toque" href={linkWhatsApp(canal, textoJa)} target={alvoDeSaida()} rel="noopener noreferrer">
                   <Icone nome="whatsapp" tamanho={16} />
                   Falar com a loja
                 </a>
@@ -650,18 +758,22 @@ function Formulario({ rateio: r, modo, aoEntrar, focarAoAbrir }: { rateio: Ratei
             </button>
           )}
           <p className="rp-honesto legenda">{foiPeloZap ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é tu; a loja confirma tua vaga por lá.' : 'A loja confirma tua vaga pelo WhatsApp.'}</p>
-          {modo === 'servidor' && (
-            <button type="submit" className="botao-texto toque" disabled={enviando}>
-              Tentar reservar de novo
-            </button>
-          )}
         </div>
       ) : (
         <div className="rp-envio">
-          <button type="submit" className="botao botao-cheio botao-largo rp-reservar" disabled={enviando || travado} aria-describedby={idTotal}>
-            {enviando ? 'Reservando…' : q > 1 ? `Reservar minhas ${q} vagas` : 'Reservar minha vaga'}
+          {/* durante o envio o botão segue focável (aria-disabled): desabilitar jogava o foco pro <body> */}
+          <button type="submit" className="botao botao-cheio botao-largo rp-reservar" disabled={travado} aria-disabled={enviando || undefined} aria-describedby={idTotal}>
+            {enviando ? 'Reservando…' : incerto ? 'Tentar de novo' : q > 1 ? `Reservar minhas ${q} vagas` : 'Reservar minha vaga'}
           </button>
-          <p className="rp-honesto legenda">Depois tu fecha o pagamento com a loja no WhatsApp.</p>
+          {enviando && lento ? (
+            <p className="rp-honesto legenda" role="status">
+              Tá demorando: a conexão tá lenta. Segura aí.
+            </p>
+          ) : (
+            <p className="rp-honesto legenda">Depois tu fecha o pagamento com a loja no WhatsApp.</p>
+          )}
+          {/* duas tentativas sem resposta: o WhatsApp vira a segunda opção (a loja acha a vaga pelo número, se gravou) */}
+          {incerto && semResposta >= 2 && canal && !enviando && <BotaoZap canal={canal} texto={texto} rotulo="Entrar pelo WhatsApp" aoTocar={tocarZap} contorno />}
         </div>
       )}
     </form>

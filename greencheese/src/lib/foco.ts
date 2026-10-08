@@ -26,3 +26,26 @@ export function prenderTab(e: KeyboardEventReact | KeyboardEvent, caixa: HTMLEle
   ;(alvo ?? (e.shiftKey ? lista[lista.length - 1] : lista[0])).focus()
   return true
 }
+
+/**
+ * Para onde vai o foco ao abrir a vista: o h1 visível (o título do Catálogo, o do perfil), a não ser que algo focável
+ * venha antes dele — no Início do celular, o story fica antes do perfil. Aí vai a própria vista (região "Início"), e o
+ * Tab seguinte segue a ordem da tela em vez de pular o que vem antes do título.
+ */
+export function alvoDoFoco(vista: HTMLElement): HTMLElement {
+  const h1 = [...vista.querySelectorAll<HTMLElement>('h1')].find((h) => h.getClientRects().length > 0)
+  if (!h1) return vista
+  const antes = [...vista.querySelectorAll<HTMLElement>(FOCAVEIS)].some(
+    (el) => el.tabIndex >= 0 && el.compareDocumentPosition(h1) & Node.DOCUMENT_POSITION_FOLLOWING && el.getClientRects().length > 0,
+  )
+  return antes ? vista : h1
+}
+
+/**
+ * Foco no título da aba à vista. Pra quem fecha uma camada que ninguém abriu com o foco (o link direto de um rateio):
+ * sem isso o foco caía no <body> e o teclado e o leitor de tela recomeçavam do topo da página.
+ */
+export function focarVista(aba: string) {
+  const vista = document.querySelector<HTMLElement>(`.vista[data-vista="${aba}"]`)
+  if (vista) alvoDoFoco(vista).focus({ preventScroll: true })
+}

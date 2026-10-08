@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type MouseEvent } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { PixelArte } from '../../arte/PixelArte'
 import { iconesAbas } from '../../arte/pixel/abas'
 import { mercadorGarrafa } from '../../arte/pixel/mercador-garrafa'
@@ -97,6 +97,8 @@ export function VistaRateio() {
         <p className="rv-buscando legenda" role="status">
           Buscando os rateios…
         </p>
+      ) : fonte === 'fora-do-ar' && nada ? (
+        <SemConexao />
       ) : nada ? (
         <Vazio />
       ) : (
@@ -104,7 +106,8 @@ export function VistaRateio() {
           {grupos.abertos.length > 0 && (
             <section className="rv-secao" aria-labelledby="rv-abertos">
               <h2 id="rv-abertos" className="rv-titulo">
-                Abertos <span className="rv-conta">{grupos.abertos.filter((r) => valeNoEstado(r, uf)).length || ''}</span>
+                {/* o número é de quantos dá pra entrar agora (o mesmo do selo da barra), não de quantos estão abertos */}
+                Abertos <span className="rv-conta">{grupos.abertos.filter((r) => abertoParaEntrar(r, uf)).length || ''}</span>
               </h2>
               {!grupos.abertos.some((r) => valeNoEstado(r, uf)) && <p className="rv-nota legenda">Nenhum aberto pro teu estado agora.</p>}
               <ul className="rv-grade">
@@ -165,6 +168,32 @@ export function VistaRateio() {
 function codigoAtivo(vagas: VagaGuardada[], id: string): string | null {
   const agora = agoraRateio()
   return vagas.find((v) => v.rateio === id && vagaAtiva(v, agora))?.codigo ?? null
+}
+
+/**
+ * O servidor da loja existe e não respondeu (lento, fora do ar): diz isso e deixa tentar de novo. Nunca os rateios de
+ * exemplo no lugar dos de verdade, nem formulário pra rateio que não dá pra conferir.
+ */
+function SemConexao() {
+  const [tentando, setTentando] = useState(false)
+  const tentar = () => {
+    if (tentando) return
+    setTentando(true)
+    void carregarRateios(true).finally(() => setTentando(false))
+  }
+  return (
+    <section className="rv-vazio rv-vazio-curto rv-sem-conexao" aria-labelledby="rv-sem-t">
+      <h2 id="rv-sem-t" className="rv-vazio-titulo">
+        Sem conexão com a loja agora
+      </h2>
+      <p className="legenda" role="status">
+        {tentando ? 'Tentando de novo…' : 'Os rateios aparecem aqui assim que a conexão voltar.'}
+      </p>
+      <button type="button" className="botao botao-contorno toque" onClick={tentar} aria-disabled={tentando || undefined}>
+        Tentar de novo
+      </button>
+    </section>
+  )
 }
 
 /** Nenhum rateio aberto: honesto, com o mercador e o Instagram do estado. */
@@ -233,15 +262,18 @@ function LinhaVaga({ vaga: v, rateio, agora }: { vaga: VagaGuardada; rateio: Rat
   const status = statusVisto(v, agora)
   const canal = canalDa(v.uf)
   const reservada = status === 'reservado'
+  const varias = v.quantidade > 1
   const linha =
     status === 'reservado'
       ? v.expiraEm
-        ? `guardada até ${ateQuando(v.expiraEm, agora)}`
+        ? `${varias ? 'guardadas' : 'guardada'} até ${ateQuando(v.expiraEm, agora)}`
         : 'esperando a loja'
       : status === 'confirmado'
         ? null
         : status === 'expirado'
-          ? 'a vaga voltou'
+          ? varias
+            ? 'as vagas voltaram'
+            : 'a vaga voltou'
           : null
   const mais = status === 'confirmado' || status === 'entregue' ? andamento(v, rateio) : v.rateioStatus === 'cancelado' ? andamento(v, rateio) : null
   const msg = canal

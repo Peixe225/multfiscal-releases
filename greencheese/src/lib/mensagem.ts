@@ -119,7 +119,11 @@ export interface DadosRateio {
   cidade?: string | null
   /** Título do rateio como a loja escreveu ("Arizona Green Tea 680 ml"). */
   titulo: string
-  quantidade: number
+  /**
+   * Vagas desta mensagem. null = a vaga já existe e o site não sabe quantas são (o servidor disse ja-participa, com o
+   * código): a linha do produto sai sem conta e a mensagem pede pra loja conferir. Nunca uma conta que pode estar errada.
+   */
+  quantidade: number | null
   precoRateio: number
   /** Total que o servidor devolveu (soma em centavos); sem ele, quantidade × preço. */
   total?: number
@@ -130,15 +134,21 @@ export interface DadosRateio {
   whatsapp: string
 }
 
-/** Mensagem do rateio, no padrão do pedido: a vaga reservada (com código) ou o pedido pra entrar (sem servidor). */
+/**
+ * Mensagem do rateio, no padrão do pedido: a vaga reservada (com código), o pedido pra entrar (sem servidor) ou, sem
+ * quantidade, a vaga que já existe com aquele código (a loja confere quantas vagas e quanto).
+ */
 export function montarRateio(d: DadosRateio): string {
-  const total = d.total ?? Math.round(d.quantidade * d.precoRateio * 100) / 100
   const out = [cabecalho('RATEIO', d.canal, d.cidade)]
-  out.push(`${d.titulo.trim()} — ${d.quantidade} ${d.quantidade === 1 ? 'vaga' : 'vagas'} × ${brl(d.precoRateio)} = ${brl(total)}`)
+  if (d.quantidade == null) out.push(d.titulo.trim())
+  else {
+    const total = d.total ?? Math.round(d.quantidade * d.precoRateio * 100) / 100
+    out.push(`${d.titulo.trim()} — ${d.quantidade} ${d.quantidade === 1 ? 'vaga' : 'vagas'} × ${brl(d.precoRateio)} = ${brl(total)}`)
+  }
   if (d.codigo) out.push(`Código: ${d.codigo}`)
   out.push(`Nome: ${d.nome.trim()}`)
   out.push(`WhatsApp: ${formatarCelular(d.whatsapp.replace(/\D/g, '').replace(/^55(?=\d{11}$)/, ''))}`)
-  out.push(d.codigo ? 'Quero confirmar minha vaga e pagar.' : 'Quero entrar no rateio.')
+  out.push(!d.codigo ? 'Quero entrar no rateio.' : d.quantidade == null ? 'Já tenho vaga nesse rateio. Quero conferir e pagar.' : 'Quero confirmar minha vaga e pagar.')
   return out.join('\n')
 }
 

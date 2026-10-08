@@ -9,8 +9,12 @@ import { buscarRateios, lerRateio, type Participacao, type Rateio } from '../lib
 // mensagem do WhatsApp poder ser montada de novo). Fica no pedaço principal porque a barra, a lateral e o destaque do
 // Início mostram quantos rateios estão abertos; as telas do rateio baixam à parte.
 
-/** De onde vieram os rateios: ainda nada, buscando, do servidor da loja ou dos exemplos (servidor fora do ar). */
-export type FonteRateios = 'nada' | 'carregando' | 'servidor' | 'sem-servidor'
+/**
+ * De onde vieram os rateios: ainda nada, buscando, do servidor da loja, dos exemplos (aqui não tem servidor: o arquivo
+ * único, o zip sem api/) ou de lugar nenhum (o servidor existe e não respondeu: "Sem conexão com a loja agora", nunca
+ * os exemplos no lugar dos rateios de verdade).
+ */
+export type FonteRateios = 'nada' | 'carregando' | 'servidor' | 'sem-servidor' | 'fora-do-ar'
 
 /** Participação deste aparelho: o que o servidor devolveu + o que a pessoa preencheu (a mensagem do WhatsApp). */
 export interface VagaGuardada extends Participacao {
@@ -20,6 +24,28 @@ export interface VagaGuardada extends Participacao {
   uf: string
   cidade: string | null
   precoRateio: number
+}
+
+/**
+ * Entrada que saiu deste aparelho e ainda não teve resposta (o POST demorou, a rede caiu): o token que foi junto e o
+ * que a pessoa preencheu. Nova tentativa da mesma pessoa no mesmo rateio vai com o MESMO token; e "Minhas vagas"
+ * pergunta por ele, então a vaga aparece aqui se o servidor gravou (ver API.md, `token` no rateio-entrar).
+ */
+export interface EntradaPendente {
+  token: string
+  rateio: string
+  titulo: string
+  nome: string
+  /** '55' + DDD + 9 dígitos */
+  whatsapp: string
+  uf: string
+  cidade: string | null
+  quantidade: number
+  precoRateio: number
+  /** ms (relógio do aparelho) */
+  criadoEm: number
+  /** Uma tentativa já ficou sem resposta (tempo esgotado, rede caída): um ja-participa depois provavelmente é dela. */
+  semResposta?: boolean
 }
 
 interface EstadoRateio {
@@ -32,25 +58,39 @@ interface EstadoRateio {
   vagas: VagaGuardada[]
   /** Rateios abertos que este aparelho já viu na aba (o selo "novo" do destaque some). */
   vistos: string[]
+  /** Entradas sem resposta (ver EntradaPendente). */
+  pendentes: EntradaPendente[]
+  /** Este aparelho já recebeu resposta do servidor da loja: daí em diante, 404/HTML é servidor fora do ar, não "sem servidor". */
+  servidorVisto: boolean
 }
 
 const MAX_VAGAS = 20
 const VALIDADE_LISTA = 60_000
+/** Pendente vale até a maior reserva possível (168 h) e mais um dia; no máximo 5. */
+const VIDA_PENDENTE = 8 * 86_400_000
+const MAX_PENDENTES = 5
+
+const pendenteValida = (p: unknown): p is EntradaPendente => {
+  const x = p as EntradaPendente | null
+  return !!x && typeof x.token === 'string' && /^[0-9a-f]{32}$/.test(x.token) && typeof x.rateio === 'string' && typeof x.whatsapp === 'string' && typeof x.criadoEm === 'number' && Date.now() - x.criadoEm < VIDA_PENDENTE
+}
 
 export const useRateio = create<EstadoRateio>()(
   persist(
-    (): EstadoRateio => ({ rateios: [], fonte: 'nada', carregadoEm: 0, desvio: 0, vagas: [], vistos: [] }),
+    (): EstadoRateio => ({ rateios: [], fonte: 'nada', carregadoEm: 0, desvio: 0, vagas: [], vistos: [], pendentes: [], servidorVisto: false }),
     {
       name: 'gc-rateio',
       storage: createJSONStorage(() => armazenamentoSeguro),
       // só o que é do aparelho; a lista volta do servidor a cada visita
-      partialize: (s) => ({ vagas: s.vagas, vistos: s.vistos }) as unknown as EstadoRateio,
+      partialize: (s) => ({ vagas: s.vagas, vistos: s.vistos, pendentes: s.pendentes, servidorVisto: s.servidorVisto }) as unknown as EstadoRateio,
       merge: (guardado, atual) => {
         const g = (guardado ?? {}) as Partial<EstadoRateio>
         return {
           ...atual,
           vagas: Array.isArray(g.vagas) ? g.vagas.filter((v) => v && typeof v.codigo === 'string' && typeof v.rateio === 'string') : [],
           vistos: Array.isArray(g.vistos) ? g.vistos.filter((v) => typeof v === 'string').slice(-50) : [],
+          pendentes: Array.isArray(g.pendentes) ? g.pendentes.filter(pendenteValida).slice(0, MAX_PENDENTES) : [],
+          servidorVisto: g.servidorVisto === true || atual.servidorVisto,
         }
       },
     },
@@ -74,9 +114,16 @@ export function agoraRateio(): number {
 
 let buscando: Promise<void> | null = null
 
+/** Respondeu a API da loja (qualquer resposta em JSON dela, até erro): lembra que este site tem servidor. */
+export function marcarServidorVisto() {
+  if (!useRateio.getState().servidorVisto) useRateio.setState({ servidorVisto: true })
+}
+
 /**
- * Busca a lista (no máximo uma vez por minuto, a não ser que `forcar`). Sem servidor: os exemplos de
- * src/dados/rateios-exemplo.json (se dadosDeExemplo), sem erro na tela.
+ * Busca a lista (no máximo uma vez por minuto, a não ser que `forcar`). Sem servidor aqui (o arquivo único, o zip sem
+ * api/): os exemplos de src/dados/rateios-exemplo.json (se dadosDeExemplo), sem erro na tela. Servidor que não
+ * respondeu (lento, fora do ar): fica com a lista que já tinha nesta visita; sem nenhuma, 'fora-do-ar' (a aba diz "Sem
+ * conexão com a loja agora" e tenta de novo). Um aparelho que já falou com o servidor nunca cai nos exemplos.
  */
 export function carregarRateios(forcar = false): Promise<void> {
   if (buscando) return buscando
@@ -87,12 +134,20 @@ export function carregarRateios(forcar = false): Promise<void> {
     const r = await buscarRateios()
     if (r.ok) {
       const desvio = r.agora ? Date.parse(r.agora) - Date.now() : 0
-      useRateio.setState({ rateios: r.rateios.filter(valeNaTela), fonte: 'servidor', carregadoEm: Date.now(), desvio: Math.abs(desvio) > 90_000 ? desvio : 0 })
+      useRateio.setState({ rateios: r.rateios.filter(valeNaTela), fonte: 'servidor', carregadoEm: Date.now(), desvio: Math.abs(desvio) > 90_000 ? desvio : 0, servidorVisto: true })
       return
     }
-    // servidor fora do ar: já tinha lista do servidor nesta visita? fica com ela (o próximo minuto tenta de novo)
-    if (useRateio.getState().fonte === 'servidor') {
+    const agora = useRateio.getState()
+    // erro da própria API (ex.: muitas-tentativas): o servidor existe
+    if (r.erro !== 'sem-servidor' && r.erro !== 'fora-do-ar') marcarServidorVisto()
+    // já tinha lista do servidor nesta visita? fica com ela (o próximo minuto tenta de novo)
+    if (agora.fonte === 'servidor') {
       useRateio.setState({ carregadoEm: Date.now() })
+      return
+    }
+    const semServidorAqui = r.erro === 'sem-servidor' && !agora.servidorVisto && !agora.vagas.some((v) => v.token)
+    if (!semServidorAqui) {
+      useRateio.setState({ rateios: [], fonte: 'fora-do-ar', carregadoEm: Date.now() })
       return
     }
     let exemplos: Rateio[] = []
@@ -120,16 +175,34 @@ export function trocarRateio(r: Rateio) {
 const ATIVAS = new Set(['reservado', 'confirmado'])
 
 /** No máximo 20 (o limite da API): as ativas primeiro, depois as mais novas. */
-function aparar(vagas: VagaGuardada[]): VagaGuardada[] {
+export function apararVagas(vagas: VagaGuardada[]): VagaGuardada[] {
   if (vagas.length <= MAX_VAGAS) return vagas
   const ordem = [...vagas].sort((a, b) => Number(ATIVAS.has(b.status)) - Number(ATIVAS.has(a.status)) || Date.parse(b.criadoEm) - Date.parse(a.criadoEm))
   const ficam = new Set(ordem.slice(0, MAX_VAGAS))
   return vagas.filter((v) => ficam.has(v))
 }
 
-/** Guarda a participação que acabou de nascer neste aparelho (a mais nova primeiro). */
+/** Guarda a participação que acabou de nascer neste aparelho (a mais nova primeiro); a entrada pendente dela sai. */
 export function guardarVaga(v: VagaGuardada) {
-  useRateio.setState((s) => ({ vagas: aparar([v, ...s.vagas.filter((x) => x.codigo !== v.codigo)]) }))
+  useRateio.setState((s) => ({
+    vagas: apararVagas([v, ...s.vagas.filter((x) => x.codigo !== v.codigo)]),
+    pendentes: s.pendentes.filter((p) => !(p.rateio === v.rateio && p.whatsapp === v.whatsapp)),
+    servidorVisto: true,
+  }))
+}
+
+/** A entrada sem resposta desta pessoa (WhatsApp '55…') nesse rateio, se tiver. */
+export function pendenteDe(rateio: string, whatsapp: string): EntradaPendente | null {
+  return useRateio.getState().pendentes.find((p) => p.rateio === rateio && p.whatsapp === whatsapp && pendenteValida(p)) ?? null
+}
+
+/** Guarda (ou atualiza) a entrada que vai sair agora, ANTES do POST: se a resposta se perder, o token fica. */
+export function guardarPendente(p: EntradaPendente) {
+  useRateio.setState((s) => ({ pendentes: [p, ...s.pendentes.filter((x) => x.token !== p.token && !(x.rateio === p.rateio && x.whatsapp === p.whatsapp))].filter(pendenteValida).slice(0, MAX_PENDENTES) }))
+}
+
+export function tirarPendente(token: string) {
+  useRateio.setState((s) => ({ pendentes: s.pendentes.filter((p) => p.token !== token) }))
 }
 
 /** Marca os rateios abertos como vistos (o selo "novo" do destaque some). */
@@ -146,9 +219,12 @@ export function valeNoEstado(r: Rateio, uf: string | null): boolean {
   return !uf || r.ufs.includes(uf)
 }
 
-/** Aberto, aceitando entrada e valendo no estado: o que conta no selo da barra e acende o destaque. */
+/**
+ * Aberto, aceitando entrada (e o prazo não venceu desde que a lista chegou) e valendo no estado: o que conta no selo
+ * da barra, no "Abertos" da aba e acende o destaque.
+ */
 export function abertoParaEntrar(r: Rateio, uf: string | null): boolean {
-  return r.status === 'aberto' && r.aceitaEntradas && valeNoEstado(r, uf)
+  return r.status === 'aberto' && r.aceitaEntradas && !(r.fechaEm && Date.parse(r.fechaEm) <= agoraRateio()) && valeNoEstado(r, uf)
 }
 
 /** Quantos rateios dá pra entrar agora, no estado de quem vê. */

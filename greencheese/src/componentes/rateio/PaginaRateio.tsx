@@ -4,7 +4,7 @@ import { PixelArte } from '../../arte/PixelArte'
 import type { Grade } from '../../arte/pixel/grades'
 import { canalDa } from '../../dados/canais'
 import { copiarTexto } from '../../lib/copiar'
-import { prenderTab } from '../../lib/foco'
+import { focarVista, prenderTab } from '../../lib/foco'
 import { useCamadaNoHistorico } from '../../lib/historico'
 import { ehDesktop, movimentoReduzido } from '../../lib/movimento'
 import type { Rateio } from '../../lib/rateio-api'
@@ -18,7 +18,7 @@ import { Avatar, Icone } from '../comum'
 import { folhaDoTopo } from '../Folha'
 import { CartaoRateio } from './CartaoRateio'
 import { EntrarRateio } from './EntrarRateio'
-import { listaUfs, textoPrazo, textoPrevisao, vagaAtiva } from './util'
+import { listaUfs, prazoAcabou, textoPrazo, textoPrevisao, vagaAtiva } from './util'
 import './estilo'
 
 // Página de um rateio (?rateio=<id>), no molde da página do produto: tela cheia que entra pela direita no celular,
@@ -133,7 +133,9 @@ function Janela({ id, saindo, aoSair }: { id: string; saindo: boolean; aoSair: (
     const cortina = raiz.current?.querySelector<HTMLElement>('.pp-cortina')
     const fim = () => {
       aoSair()
+      // aberta por link direto, ninguém abriu com o foco: vai pro título da aba que ficou à vista
       if (volta?.isConnected) volta.focus({ preventScroll: true })
+      else focarVista(useUI.getState().aba)
     }
     if (!el || movimentoReduzido()) {
       fim()
@@ -221,8 +223,8 @@ function useRateioDaPagina(id: string): { rateio: Rateio | null; estado: 'buscan
   if (daLista) return { rateio: daLista, estado: 'pronto' }
   if (avulso && avulso !== 'sumiu') return { rateio: avulso, estado: 'pronto' }
   if (avulso === 'sumiu') return { rateio: null, estado: 'sumiu' }
-  // sem servidor e fora dos exemplos: não dá pra saber se ele existe (a loja pode estar fora do ar)
-  if (fonte === 'sem-servidor') return { rateio: null, estado: 'sem-conexao' }
+  // servidor que não respondeu, ou sem servidor e fora dos exemplos: não dá pra saber se ele existe
+  if (fonte === 'sem-servidor' || fonte === 'fora-do-ar') return { rateio: null, estado: 'sem-conexao' }
   return { rateio: null, estado: 'buscando' }
 }
 
@@ -261,6 +263,19 @@ function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingEle
 
   const aberto = rateio?.status === 'aberto'
   const foraDoEstado = !!rateio && !!uf && !rateio.ufs.includes(uf)
+  // aberto com o prazo vencido e vaga sobrando: não é "vagas tomadas" (o servidor não fecha sozinho pelo prazo)
+  const prazo = !!rateio && prazoAcabou(rateio, agora)
+  const entra = !!rateio && aberto && !prazo && rateio.aceitaEntradas
+  // o formulário some com o foco dentro quando a lista recarrega (fechou, o prazo acabou, saiu do estado): o foco vai
+  // pro aviso que entrou no lugar, não pro <body>
+  const area = !rateio ? 'nada' : aberto && !foraDoEstado && (entra || codigo) ? 'form' : 'aviso'
+  const areaAntes = useRef(area)
+  useEffect(() => {
+    const antes = areaAntes.current
+    areaAntes.current = area
+    const ativo = document.activeElement
+    if (antes === 'form' && area === 'aviso' && (!ativo || ativo === document.body)) form.current?.querySelector<HTMLElement>('.rp-fora')?.focus({ preventScroll: true })
+  }, [area])
   return (
     <>
       <header className="pp-topo">
@@ -319,8 +334,13 @@ function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingEle
             <div className="rp-resumo">
               <ul className="rp-resumo-lista">
                 <li>{textoPrevisao(rateio)}</li>
-                {aberto && <li>{textoPrazo(rateio)} O pedido sai depois que fecham as vagas.</li>}
-                {aberto && <li>Tua vaga fica guardada por {rateio.reservaHoras} h enquanto tu fecha o pagamento.</li>}
+                {aberto && (
+                  <li>
+                    {textoPrazo(rateio, agora)}
+                    {prazo ? '' : ' O pedido sai depois que fecham as vagas.'}
+                  </li>
+                )}
+                {entra && !foraDoEstado && <li>Tua vaga fica guardada por {rateio.reservaHoras} h enquanto tu fecha o pagamento.</li>}
                 <li>Vale pra {listaUfs(rateio.ufs)}.</li>
               </ul>
               <button
@@ -334,10 +354,10 @@ function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingEle
               </button>
             </div>
             <div ref={form} className="rp-entrar-area">
-              {aberto && !foraDoEstado && (rateio.aceitaEntradas || codigo) ? (
-                <EntrarRateio rateio={rateio} modo={fonte === 'servidor' ? 'servidor' : 'sem-servidor'} />
+              {aberto && !foraDoEstado && (entra || codigo) ? (
+                <EntrarRateio rateio={rateio} modo={fonte === 'sem-servidor' ? 'sem-servidor' : 'servidor'} />
               ) : foraDoEstado && aberto ? (
-                <div className="rp-fora">
+                <div className="rp-fora" tabIndex={-1}>
                   <p>
                     Esse rateio é só pra {listaUfs(rateio.ufs)}. Teu estado agora é {uf?.toUpperCase()}.
                   </p>
@@ -346,10 +366,12 @@ function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingEle
                     Trocar estado
                   </button>
                 </div>
+              ) : aberto && prazo ? (
+                <p className="rp-fora" tabIndex={-1}>{textoPrazo(rateio, agora)} Fica de olho nos próximos.</p>
               ) : aberto ? (
-                <p className="rp-fora">As vagas foram todas pegas. Se alguém não pagar no prazo, a vaga volta pro rateio.</p>
+                <p className="rp-fora" tabIndex={-1}>As vagas foram todas pegas. Se alguém não pagar no prazo, a vaga volta pro rateio.</p>
               ) : (
-                <p className="rp-fora">Esse rateio já fechou. {codigo ? 'Tua vaga tá em "Minhas vagas".' : 'Fica de olho nos próximos.'}</p>
+                <p className="rp-fora" tabIndex={-1}>Esse rateio já fechou. {codigo ? 'Tua vaga tá em "Minhas vagas".' : 'Fica de olho nos próximos.'}</p>
               )}
             </div>
           </div>

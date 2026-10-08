@@ -4,7 +4,8 @@
 // do perfil na matriz de desktop (ou o hero empilhado quando ele não cabe ali, nunca sumindo), as setas da linha de
 // destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência do leitor de tela.
 // Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona, o formulário valida, a confirmação leva pro
-// WhatsApp com a mensagem certa, e sem servidor vira "Entrar pelo WhatsApp". A API do rateio é simulada como no
+// WhatsApp com a mensagem certa, sem servidor vira "Entrar pelo WhatsApp", a resposta perdida pede pra tentar de novo
+// (o mesmo token) e o servidor fora do ar mostra "Sem conexão" sem exemplos. A API do rateio é simulada como no
 // contrato do API.md; nas outras rodadas ela responde como "sem servidor" (HTML no lugar de JSON, sem erro no console).
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // IP e CEP são simulados para o resultado ser repetível.
@@ -145,6 +146,14 @@ async function apiRateio(ctx) {
 function vigiar(page, nome) {
   page.on('console', (m) => {
     if (m.type() === 'error') erros.push(`[${nome}] console: ${m.text()}`)
+  })
+  page.on('pageerror', (e) => erros.push(`[${nome}] pageerror: ${e.message}`))
+}
+
+/** Como o vigiar, mas sem o "Failed to load resource" das falhas de rede que o próprio teste provoca. */
+function vigiarSemRede(page, nome) {
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) erros.push(`[${nome}] console: ${m.text()}`)
   })
   page.on('pageerror', (e) => erros.push(`[${nome}] pageerror: ${e.message}`))
 }
@@ -1055,6 +1064,55 @@ for (const reduzir of [false, true]) {
     `rateio sem servidor: exemplo com 0/24 e "Entrar pelo WhatsApp" sem código (${msg.split('\n').join(' | ')})`,
   )
   await foto(page, 'rateio-06-sem-servidor')
+  await ctx.close()
+}
+{
+  // a resposta do POST se perde depois de o servidor gravar: nada de WhatsApp sem código de cara, "Tentar de novo" com o
+  // mesmo token; na nova tentativa a vaga sai
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  let perder = true
+  const tokens = []
+  await ctx.route('**/api/index.php?r=rateio-entrar', async (route) => {
+    tokens.push(JSON.parse(route.request().postData() ?? '{}').token)
+    if (!perder) return route.fallback()
+    await route.abort('connectionreset')
+  })
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'rateio-resposta-perdida')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Teste')
+  await page.getByLabel('Teu WhatsApp').fill('33991234567')
+  await page.locator('.rp-reservar').click()
+  await page.waitForTimeout(1200)
+  const r1 = await page.evaluate(() => ({
+    alerta: document.querySelector('.rp-alerta')?.textContent ?? '',
+    botao: document.querySelector('.rp-reservar')?.textContent,
+    zap: !!document.querySelector('.rp-envio .rp-zap'),
+    foco: !!document.activeElement?.closest('.rp-alerta'),
+  }))
+  conferir(/pode ter ficado guardada/.test(r1.alerta) && r1.botao === 'Tentar de novo' && !r1.zap && r1.foco, `rateio: resposta perdida pede pra tentar de novo, sem WhatsApp sem código (${JSON.stringify(r1)})`)
+  await foto(page, 'rateio-07-resposta-perdida')
+  perder = false
+  await page.locator('.rp-reservar').click()
+  await page.waitForTimeout(1200)
+  const titulo = await page.evaluate(() => document.querySelector('.rp-feito-titulo')?.textContent)
+  conferir(titulo === 'Tá no rateio!' && tokens.length === 2 && /^[0-9a-f]{32}$/.test(tokens[0] ?? '') && tokens[0] === tokens[1], `rateio: a nova tentativa vai com o mesmo token e reserva (${titulo}, ${tokens.map((t) => t?.slice(0, 6)).join(' = ')})`)
+  await ctx.close()
+}
+{
+  // servidor que existe e não responde (5xx da hospedagem): "Sem conexão", nunca os exemplos no lugar dos de verdade
+  const ctx = await contexto(browser, { width: 390, height: 844 })
+  await ctx.route('**/api/index.php**', (r) => r.fulfill({ status: 502, contentType: 'text/html', body: 'Bad gateway' }))
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'rateio-fora-do-ar')
+  await page.goto(`${base}?uf=mg&aba=rateio`)
+  await passarAbertura(page)
+  await page.locator('.rv-sem-conexao, .vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 8000 }).catch(() => {})
+  const r = await page.evaluate(() => ({ aviso: document.querySelector('.rv-sem-conexao h2')?.textContent, cartoes: document.querySelectorAll('.vista[data-vista="rateio"] .rt').length }))
+  conferir(r.aviso === 'Sem conexão com a loja agora' && r.cartoes === 0, `rateio: servidor fora do ar mostra "Sem conexão", sem exemplos (${JSON.stringify(r)})`)
+  await foto(page, 'rateio-08-fora-do-ar')
   await ctx.close()
 }
 

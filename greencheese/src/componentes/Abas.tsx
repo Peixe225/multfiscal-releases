@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canais, canalDa } from '../dados/canais'
 import { interativosAtivos } from '../interativos/registro'
 import { focarBusca, irParaAba, ultimaTroca, type Aba } from '../lib/abas'
-import { FOCAVEIS } from '../lib/foco'
+import { alvoDoFoco } from '../lib/foco'
 import { movimentoReduzido } from '../lib/movimento'
 import { obterLenis } from '../lib/rolagem'
 import { useCatalogo } from '../store/catalogo'
@@ -63,20 +63,6 @@ function baixarRateio(n = 1): Promise<typeof import('./rateio/VistaRateio')> {
 }
 const criarCorpoRateio = () => lazy(() => baixarRateio().then((m) => ({ default: m.VistaRateio })))
 let CorpoRateio = criarCorpoRateio()
-
-/**
- * Para onde vai o foco ao abrir a vista: o h1 visível (o título do Catálogo, o do perfil), a não ser que algo focável
- * venha antes dele — no Início do celular, o story fica antes do perfil. Aí vai a própria vista (região "Início"), e o
- * Tab seguinte segue a ordem da tela em vez de pular o que vem antes do título.
- */
-function alvoDoFoco(vista: HTMLElement): HTMLElement {
-  const h1 = [...vista.querySelectorAll<HTMLElement>('h1')].find((h) => h.getClientRects().length > 0)
-  if (!h1) return vista
-  const antes = [...vista.querySelectorAll<HTMLElement>(FOCAVEIS)].some(
-    (el) => el.tabIndex >= 0 && el.compareDocumentPosition(h1) & Node.DOCUMENT_POSITION_FOLLOWING && el.getClientRects().length > 0,
-  )
-  return antes ? vista : h1
-}
 
 export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
   const aba = useUI((s) => s.aba)
