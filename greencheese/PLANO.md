@@ -35,7 +35,29 @@ por um revisor independente e no ar.
 - [x] Revisão independente por frente, contraprova, correções.
 - [x] Suítes completas, conferência no ar, prints para o cliente.
 
-## F6 · Depois do front: painel do dono (backend)
-- [ ] Login do dono; produtos, preços, fotos e estoque por estado.
-- [ ] Prêmios e regras do Teste minha sorte; contas de cliente e cupons validados no servidor.
-- [ ] Pedidos recebidos e Pix direto no site.
+## F7 · Prêmio novo: story dos Melhores amigos
+- [ ] Sai o beck que desenrola: a tampa sai, a câmera mergulha na câmara do dichavador e o preto de dentro vira um story só pra pessoa.
+- [ ] Story com anel e selo verde dos Melhores amigos, produto flutuando, destaque grande, adesivo do código (trancado até guardar) e adesivo de contagem da validade.
+- [ ] Cupons da Minha conta e da sacola na mesma linguagem; textos sem "beck".
+
+## F8 · Servidor (PHP + SQLite) e painel do dono — base
+- [ ] API em `public/api/` com banco SQLite protegido, sessão do dono, CSRF, limite de tentativas, envio de imagem e diagnóstico (contrato em `API.md`).
+- [ ] Primeiro acesso com código de instalação; entrar, sair, trocar senha.
+- [ ] Painel em `/painel/` (celular primeiro), fora do site público e sem indexar.
+- [ ] Ambiente de desenvolvimento (`npm run api`) e publicação que nunca sobe banco nem envios.
+
+## F9 · Rateio
+- [ ] Site: aba Rateio (barra, lateral, destaque do Início), cartões com contador "8/10", preço no rateio × quando chegar, previsão de 6 a 10 dias, "?" com o como funciona.
+- [ ] Entrar com nome e WhatsApp → vaga reservada com código → fechar no WhatsApp da loja; Pix no site "Em breve"; "Minhas vagas" com o status.
+- [ ] Painel: criar rateio, participantes, confirmar pagamento (o contador sobe), mensagens prontas no WhatsApp, avançar status (fechado, pedido feito, a caminho, chegou).
+- [ ] Webhook do Pix preparado: quando o Pix existir, o contador sobe sozinho.
+- [ ] Sem servidor (zip, desenvolvimento): o rateio continua funcionando pelo WhatsApp.
+
+## F10 · Painel do dono — continuação
+- [ ] Produtos, preços, fotos e disponibilidade por estado (o site lê do servidor, com o `catalogo.json` de reserva).
+- [ ] Prêmios e regras do Teste minha sorte; cupons conferidos no painel.
+- [ ] Ajustes da loja (WhatsApp, Instagrams, horários, taxas, pagamentos) e pedidos recebidos.
+- [ ] Pix direto no site (depende do provedor escolhido pela loja).
+
+## Publicação
+- [ ] Publicar F7–F10 no ar (pede o ok do Ian) e criar o acesso do dono com o código de instalação.
