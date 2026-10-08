@@ -70,7 +70,8 @@ export function Condicoes({ itens, lado, className, sobre = false }: Props) {
         </button>
         {lado}
       </div>
-      <div ref={painel} id={id} className="cond-painel" hidden={!aberto}>
+      {/* por cima do story a lista pode rolar dentro dela: dá pra focar e rolar pelo teclado */}
+      <div ref={painel} id={id} className="cond-painel" hidden={!aberto} {...(sobre ? { tabIndex: 0, role: 'region', 'aria-label': T.condicoes } : {})}>
         <ul className="cond-lista">
           {itens.map((t, i) => (
             <li key={i}>{t}</li>

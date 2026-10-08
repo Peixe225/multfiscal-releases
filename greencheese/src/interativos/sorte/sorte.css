@@ -971,7 +971,7 @@
 }
 /* "Guarda pra liberar o código" em 2 linhas: cabe ao lado da contagem até em 320 px */
 .ad-codigo-trancado {
-  padding: 6px 14px 6px 12px;
+  padding: 6px 12px 6px 10px;
   text-align: left;
 }
 .ad-codigo-trancado .ad-codigo-txt {
@@ -979,6 +979,10 @@
   font: 600 13px/1.2 var(--ui);
   white-space: normal;
   text-wrap: balance;
+}
+/* a contagem não encolhe: quem quebra linha é o "Guarda pra liberar o código" */
+.sp-adesivos > .ad-contagem {
+  flex: none;
 }
 .ad-cadeado {
   display: grid;

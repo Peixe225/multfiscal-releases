@@ -15,6 +15,7 @@ import { useLocal } from '../../store/local'
 import { useUI } from '../../store/ui'
 import { FOCO_JOGO, useCasca } from '../CascaInterativo'
 import type { PropsJogo } from '../registro'
+import { gerarImagemArte } from '../../arte/ArteProduto'
 import { AdesivoCodigo, BolhaPremio } from './Adesivos'
 import { ID_SORTE, useEstadoSorte, usarNoPedido, type ResumoSorte } from './estado'
 import { Palco, type RefsPalco } from './Palco'
@@ -299,6 +300,9 @@ export default function JogoSorte({ tela }: PropsJogo) {
       return
     }
     setGanho({ premio, cupom: res.valor.cupom, origem: 'giro' })
+    // a versão em pixel do produto já fica pronta enquanto a câmera deita (no corte ela só aparece)
+    const prod = fraseDoPremio(premio).produto
+    if (prod) void gerarImagemArte(prod, 108, { brilho: false }).catch(() => undefined)
     setSintonia('antes')
     setFase('revelando')
     // eslint-disable-next-line react-hooks/exhaustive-deps

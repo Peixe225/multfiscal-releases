@@ -43,6 +43,7 @@ export const T = {
   verProduto: 'Ver produto',
   // o rótulo não muda ao abrir (o estado fica no aria-expanded e na seta): a linha não pula em 320 px
   verCondicoes: 'Ver condições',
+  condicoes: 'Condições do prêmio',
   condValidadeSemConta: (dias: number) => `Vale ${dias} ${dias === 1 ? 'dia' : 'dias'} depois de guardado.`,
   condValidadeGuardado: (ate: string) => `Vale até ${ate}.`,
   condReserva: (ate: string) => `Sem conta, o prêmio fica guardado neste aparelho até ${ate}. Depois some.`,

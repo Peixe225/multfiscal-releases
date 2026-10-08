@@ -298,7 +298,8 @@ export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Ti
     bocaX(Math.max(cam, cam + (escala.x - cam) * abre))
     bocaY(Math.max(cam, cam + (escala.y - cam) * abre))
   }
-  tl.set([el.corpo, el.labio], { transformOrigin: origemBoca }, 0.86)
+  // o corpo vira textura enquanto cresce (sem redesenhar o SVG a cada quadro; o preto engole a borda no fim)
+  tl.set([el.corpo, el.labio], { transformOrigin: origemBoca, willChange: 'transform' }, 0.86)
   tl.to(el.boca, { autoAlpha: 1, duration: 0.12, ease: 'none' }, 0.86)
   tl.fromTo(mergulho, { p: 0 }, { p: 1, duration: CORTE - 0.86, ease: 'none', onUpdate: aplicar, immediateRender: false }, 0.86)
 
