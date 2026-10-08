@@ -142,6 +142,56 @@ Na prévia, o selo **prévia** (canto de cima no celular, barra lateral no compu
 
 ---
 
+## Painel do dono
+
+O painel é onde o dono cria os rateios, confirma os pagamentos e avisa a galera no WhatsApp: **`https://oprojeto.online/greencheese/painel/`**. Não tem link no site (nem aparece no Google: `noindex` no HTML e `X-Robots-Tag` no `.htaccess` da pasta). Feito pro celular (barra embaixo no molde do Instagram: Resumo, Rateios, **Criar** no meio, Atividade e Conta) e com lateral no computador.
+
+### Entrar
+
+- **Primeiro acesso**: o painel abre na tela "Primeiro acesso". Põe o código de instalação (ver "Primeiro acesso: o código de instalação" acima), teu nome, um login (letras minúsculas, números, ponto, traço) e a senha (10 caracteres ou mais) duas vezes → "Criar acesso". O painel já nasce com os 2 rateios de exemplo (Arizona e dichavador), que dá pra apagar.
+- **Depois**: login e senha. A sessão dura 30 dias e renova sozinha a cada uso. "Sair do painel" (em Conta) sai só daquele aparelho; trocar a senha tira todos os outros.
+- **Esqueceu a senha**: "Esqueci a senha" pede um código de instalação **novo** (gerado de novo pelo `php scripts/codigo-instalacao.php` e publicado) e a senha nova.
+- **No celular, como app**: no Chrome, menu ⋮ → "Adicionar à tela inicial"; no iPhone, Safari → Compartilhar → "Adicionar à Tela de Início". O painel tem manifesto próprio (`painel/manifest.webmanifest`, ícone da loja, "Painel GC").
+- Se a sessão cair no meio do trabalho (senha trocada em outro aparelho, 30 dias sem usar), o login abre **por cima** da tela: o que estava digitado fica, e o que estava sendo salvo termina sozinho depois de entrar.
+
+### Criar um rateio
+
+Barra de baixo → **+** (ou "Criar rateio"):
+
+1. **Produto**: busca no catálogo (Arizona, dichavador…): o nome vem preenchido, o site usa a arte do produto e o preço da loja entra como "quando chegar". Se não tá no catálogo, "nome livre".
+2. **Foto** (opcional): "Enviar foto" abre a câmera ou a galeria do celular. A foto grande é reduzida no próprio celular antes de subir (sobe rápido no 4G) e o servidor ajusta de novo (WebP, 1600 px). Com foto, ela aparece no lugar da arte.
+3. **Preço** no rateio e **quando chegar** (opcional): o painel mostra a economia ("Economia de R$ 5,00 por vaga") e o site também.
+4. **Vagas** (1 vaga = 1 unidade) e **por pessoa** (o máximo que um WhatsApp pega).
+5. **Onde vale**: RJ, MG, SP, ES, SC (quem é de outro estado vê o rateio apagado no site).
+6. **Prazos**: previsão de chegada (padrão: de 6 a 10 dias depois de fechar), prazo pra entrar (opcional: sem prazo, fecha quando lotar) e quanto tempo a reserva segura a vaga (padrão 24 h).
+7. **Descrição** (opcional) e a **prévia do cartão** como o cliente vê no site (no computador, fixa do lado).
+8. **Salvar rascunho** (só o dono vê) ou **Publicar no site**. Depois de publicar, o rateio mostra o link pra compartilhar (`…/greencheese/?rateio=<id>`): "Copiar link", "Compartilhar" (celular) e "Ver no site".
+
+Derivado do tabaco e cigarro eletrônico não entra (Anvisa): o nome ou a descrição com um termo da lista (Backwoods, charuto, vape, pod…) mostra o aviso na hora e não publica; o servidor recusa de novo. O que está sendo digitado fica guardado no aparelho até salvar ("Continuando de onde tu parou").
+
+### No dia a dia
+
+- **Resumo**: primeiro o que pede ação (reservas esperando pagamento, a que vence antes primeiro, com "Confirmar pagamento" e "Cobrar" no WhatsApp; rateio que lotou, chegou ou teve o prazo vencido), depois o dinheiro (pago e a receber), os rateios abertos com a barra e as últimas entradas. Atualiza sozinho a cada 30 s e quando o painel volta pra frente.
+- **Confirmar pagamento** (quando o Pix cair na conta): no rateio, "Confirmar pagamento" na pessoa → confirma → o contador sobe ("8/10") e aparece **"Avisar no WhatsApp"** com a mensagem pronta pra ela ("Pagamento confirmado ✅, código RAT-…"). Quando as vagas pagas lotam, o rateio **fecha sozinho** e o painel avisa.
+- **Mensagens prontas**: cada pessoa tem o botão do WhatsApp com a mensagem do momento (cobrar a reserva com o prazo, confirmado, venceu, fechou, pedido feito com a previsão em datas, a caminho, chegou, cancelado). Abre o WhatsApp da loja com o texto escrito; é só mandar.
+- **Passos do rateio**: a linha do status (no celular, de cima pra baixo, como rastreio de entrega) mostra o próximo passo como botão, sempre com confirmação: Fechar agora → Pedido feito → A caminho → Chegou → Encerrar (e "Reabrir" depois de fechar). Passo fora de hora fica cinza em vez de branco: "Fechar agora" com vaga sobrando e no prazo, "Encerrar" com gente sem receber (o placar mostra "Entregue 2/6"). Ao avançar, abre o **"Avisar todos"**: um link do WhatsApp por pessoa, cada um com a mensagem e o nome dela; quem já foi avisado fica marcado (neste aparelho). Dá pra voltar nele depois pelo botão "Avisar todos no WhatsApp".
+- **Participantes**: busca (nome, WhatsApp ou código), filtro por status e, em "⋯", editar, cancelar, desfazer o pagamento, reservar de novo, marcar entregue e apagar os dados (pedido de exclusão da LGPD; a vaga continua nas contas). **Incluir** põe quem entrou pela DM: nome, WhatsApp, estado, vagas e se já pagou. **CSV** baixa a planilha (abre direto no Excel).
+- **Atividade**: tudo que aconteceu (entradas pelo site, pagamentos, reservas vencidas, passos), do mais novo pro mais velho.
+- **Servidor** (lateral no computador; no celular, em Conta → "Mais do painel"): o diagnóstico em português (o que tem que ficar fechado pela web, PHP, fotos, HTTPS) e **"Baixar cópia do banco"**.
+
+### Desenvolvimento e testes
+
+- `npm run api` e `npm run dev` (ver "Desenvolvimento" acima) → `http://localhost:5173/painel/` (código de instalação de desenvolvimento: `dev-instalar-greencheese`).
+- `npm run testar-painel -- <pasta-do-build>`: sobe a API com dados temporários e o `vite preview` do build e roda o fluxo inteiro no Chromium (instalar → criar com foto → publicar → o site enxerga → clientes entram pela API → confirmar → lota e fecha sozinho → avisar todos → pedido feito → a caminho → chegou → entregue → CSV → incluir → trocar senha → sair), mais a robustez (rascunho, tabaco, sem rede, sessão que cai no meio, toque duplo, voltar do Android, teclado, deitado e 320 px) e o HTML do painel. Quando o build do site já tem a aba Rateio, abre também `/?rateio=<id>` no site e confere que o rateio criado no painel aparece lá. Termina com `painel ok`. `GC_PRINTS=<pasta>` guarda prints; `GC_AXE=<axe.min.js>` roda o axe em cada tela; `GC_TESTE_PORTA` (PHP) e `GC_TESTE_PORTA_SITE` (preview) fixam as portas.
+- O `npm run testar-htaccess` também abre `/greencheese/painel/` no Apache e confere `noindex`, HTML sem cache e que todo arquivo do painel carrega por caminho relativo.
+
+### Onde fica cada coisa no código
+
+- `painel/index.html` (a página) e `public/painel/` (manifesto e `.htaccess`). O `npm run build` gera o site e, logo depois, o painel num build à parte na mesma pasta (plugin `painelAParte` do `vite.config.ts`): num build só, o Vite repartiria o React entre as duas páginas e o site ganharia pedaços e pedidos novos. Assim o site sai **byte a byte igual** ao de antes do painel e o painel leva o dele (`assets/painel-*.js`, com o CSS dentro, em `src/painel/estilo.ts`). No `npm run dev`, o `/painel/` abre direto. Variável nova no `define` do site (ex.: `__ARQUIVO_UNICO__`) entra na constante `definir`, que vale pros dois.
+- `src/painel/`: `api.ts` (conversa com o servidor: csrf, sessão que cai, rede), `rotas.ts` (telas por `#/…`, histórico), `secoes.ts` (**a lista de seções**: seção nova entra aqui, com a tela dela em `Painel.tsx`), `mensagens.ts` (os textos do WhatsApp), `proibidos.ts` (a lista do tabaco, igual à do servidor), `painel.css` e `telas/`.
+
+---
+
 ## Abas e Início
 
 O site é um app só, com três abas no molde do Instagram. O **Início** é o perfil da loja de cima a baixo e acaba na grade do catálogo:

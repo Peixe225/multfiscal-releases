@@ -322,7 +322,7 @@ interface Evento {
   acao: string                   // 'rateio-criado', 'participacao-confirmada', 'participacao-expirada'…
   alvo: string                   // 'rateio:<id>', 'participacao:<codigo>', 'usuario:<login>'
   detalhe: object
-  texto: string                  // frase pronta: 'Pagamento de RAT-K8EA confirmado', 'Rateio "Arizona…": aberto → fechado'
+  texto: string                  // frase pronta: 'Pagamento de RAT-K8EA confirmado', 'Fechou o rateio "Arizona…"', 'Entregou RAT-K8EA em "Arizona…"'
 }
 ```
 

@@ -92,6 +92,17 @@ O servidor (PHP + SQLite, `api/`) está pronto e testado (ver LEIA-ME.md, "Servi
 - **Versão do PHP** no hPanel: 8.1 ou mais nova (8.3 recomendada).
 - **IP do cliente**: o limite de tentativas usa o IP que chega no PHP (12 entradas em rateio por hora por IP; IPv6 conta por /64, que é um aparelho ou uma casa). Se um dia a Hostinger puser CDN na frente do site, conferir que o IP continua sendo o de cada cliente (senão todo mundo divide o mesmo limite). Operadora de celular que põe muita gente atrás de um IPv4 só (CGNAT) pode fazer clientes diferentes dividirem o limite num rateio muito disputado: se aparecer "Muita tentativa seguida" pra quem não errou, subir o 12 em `publico.php`.
 
+## Painel do dono
+
+O painel (`/painel/`, ver LEIA-ME.md, "Painel do dono") está pronto e testado contra o servidor de verdade. Falta da loja:
+
+- **Mensagens prontas do WhatsApp** (`src/painel/mensagens.ts`): confirmar o tom com o dono. A de cobrar a reserva diz "Me chama aqui que te passo o Pix" porque a chave Pix não está no painel; se a loja quiser, a chave entra na mensagem.
+- **Rateio que não lota, devolução e sair depois de pagar**: o painel não promete nada (a mensagem do cancelamento diz que a loja chama pra combinar). Ver "Servidor".
+- **Celular de verdade**: abrir o painel no celular do dono, entrar e "Adicionar à tela de início" (Android/Chrome e iPhone/Safari). Os testes daqui simulam toque e tamanho de tela, não o aparelho.
+- **"Avisados"** (quem já recebeu o aviso de cada passo) fica guardado no aparelho: em outro celular a marcação recomeça (as mensagens continuam todas lá).
+- **Próximas seções** (produtos, prêmios, ajustes, pedidos): entram na lista de `src/painel/secoes.ts` quando existirem; por enquanto o painel mostra só o que funciona.
+- **Ao juntar com a frente do rateio no site**: a variável `__ARQUIVO_UNICO__` que ela põe no `define` do `vite.config.ts` entra na constante `definir` (vale pro site e pro painel). Conferido numa cópia de integração: o rateio criado no painel aparece em `/?rateio=<id>` com a foto enviada, e o `testar-painel` passa a abrir o site sozinho quando o build tem a aba Rateio.
+
 ## Publicação
 
 - **No ar em `https://oprojeto.online/greencheese/`** (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.

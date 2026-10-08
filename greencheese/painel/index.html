@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="same-origin" />
+    <title>Painel · Green Cheese</title>
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Painel GC" />
+    <style>
+      /* Antes do JS: preto, sem flash branco. */
+      html,body{background:#000;color:#fff;margin:0}
+      .pn-casca{position:fixed;inset:0;display:grid;place-items:center;font:15px system-ui,sans-serif;color:#a8a8a8}
+    </style>
+  </head>
+  <body>
+    <div id="painel"><div class="pn-casca" role="status">Abrindo o painel…</div></div>
+    <noscript><p style="font:16px system-ui;padding:24px">O painel precisa de JavaScript ligado.</p></noscript>
+    <script type="module" src="/src/painel/main.tsx"></script>
+  </body>
+</html>

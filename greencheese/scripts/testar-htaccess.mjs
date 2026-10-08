@@ -168,6 +168,21 @@ php_admin_value post_max_size 20M
     okm(home.status === 200 && (await home.clone().text()).includes('<div id="raiz"'), 'o site abre')
     okm(/default-src 'self'/.test(home.headers.get('content-security-policy') ?? ''), 'o .htaccess do site vale (CSP)')
 
+    // painel do dono em /greencheese/painel/: abre, fora dos buscadores, sem cache, com a CSP do site e os arquivos
+    // achados por caminho relativo (como na Hostinger, numa subpasta)
+    const painel = await fetch(`${base}/painel/`)
+    const htmlPainel = await painel.text()
+    okm(painel.status === 200 && htmlPainel.includes('<div id="painel"'), `o painel abre em /greencheese/painel/ (${painel.status})`)
+    okm(/noindex/.test(painel.headers.get('x-robots-tag') ?? ''), `painel com X-Robots-Tag noindex (${painel.headers.get('x-robots-tag')})`)
+    okm(/no-store/.test(painel.headers.get('cache-control') ?? ''), `HTML do painel sem cache (${painel.headers.get('cache-control')})`)
+    okm(/default-src 'self'/.test(painel.headers.get('content-security-policy') ?? ''), 'a CSP do site vale no painel')
+    const refsPainel = [...htmlPainel.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1])
+    for (const r of refsPainel) {
+      const u = new URL(r, `${base}/painel/`)
+      const res = await fetch(u)
+      okm(res.status === 200, `painel: ${r} → ${res.status}`)
+    }
+
     const api = await fetch(`${base}/api/index.php?r=rateios`)
     okm(api.status === 200 && (await api.json()).ok === true, 'a API responde pelo Apache')
     const cab = ['x-content-type-options', 'cache-control', 'referrer-policy', 'content-security-policy', 'content-type'].map((k) => api.headers.get(k))

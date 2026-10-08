@@ -14,7 +14,8 @@
     "arquivo-unico": "node scripts/arquivo-unico.mjs",
     "api": "node scripts/api.mjs",
     "testar-api": "node scripts/testar-api.mjs",
-    "testar-htaccess": "node scripts/testar-htaccess.mjs"
+    "testar-htaccess": "node scripts/testar-htaccess.mjs",
+    "testar-painel": "node scripts/testar-painel.mjs"
   },
   "dependencies": {
     "@fontsource/jersey-15": "^5.3.0",

@@ -53,14 +53,58 @@ function htmlDaConfig(): Plugin {
   }
 }
 
+// Painel do dono (painel/index.html): build à parte, logo depois do site e na mesma pasta de saída. Num build só, o
+// Vite repartiria o React entre as duas páginas e o site ganharia pedaços e pedidos novos; assim o site sai igual,
+// byte a byte, e o painel leva o dele (o CSS do painel vai inline, em src/painel/estilo.ts). No dev, o Vite já serve
+// /painel/ sozinho.
+const definir = { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) }
+const alvo = 'es2020'
+function painelAParte(): Plugin {
+  let raiz = ''
+  let saida = ''
+  let pular = false
+  return {
+    name: 'painel-a-parte',
+    apply: 'build',
+    configResolved(c) {
+      raiz = c.root
+      saida = c.build.outDir
+      // o arquivo único da prévia (scripts/arquivo-unico.mjs: tudo num pedaço só) não leva o painel
+      const saidas = c.build.rolldownOptions?.output
+      pular = [saidas].flat().some((o) => !!o && typeof o === 'object' && 'inlineDynamicImports' in o && !!o.inlineDynamicImports)
+    },
+    async closeBundle() {
+      if (pular) return
+      const { build } = await import('vite')
+      // configFile false: o build do painel não lê este arquivo de novo (nem roda este plugin outra vez)
+      await build({
+        configFile: false,
+        root: raiz,
+        base: './',
+        publicDir: false,
+        logLevel: 'warn',
+        plugins: [react()],
+        define: definir,
+        build: {
+          outDir: saida,
+          emptyOutDir: false,
+          target: alvo,
+          assetsInlineLimit: 2048,
+          rolldownOptions: { input: { painel: `${raiz}/painel/index.html` } },
+        },
+      })
+    },
+  }
+}
+
 export default defineConfig({
   // Caminhos relativos: o dist/ sobe em qualquer pasta ou subdomínio da Hostinger.
   base: './',
-  plugins: [react(), htmlDaConfig()],
+  plugins: [react(), htmlDaConfig(), painelAParte()],
   // Hora do build: vira o "há 2 h" do cabeçalho do story quando config.catalogoAtualizadoEm está vazio.
-  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
+  define: definir,
   build: {
-    target: 'es2020',
+    target: alvo,
     assetsInlineLimit: 2048,
     cssCodeSplit: false,
   },
