@@ -1,57 +1,9 @@
-import { useRef, useSyncExternalStore } from 'react'
 import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
 import { alvoDeSaida } from '../lib/ambiente'
 import { linkDM, linkPerfil } from '../lib/mensagem'
 import { useLocal } from '../store/local'
-import { Avatar } from './comum'
-import { MercadorAnimado, useMercadorAnda } from './Mercador'
 import './Rodape.css'
-
-// O quadro de dentro tem 78% de min(260px, 72vw): a partir de 360 px de tela ele passa de 200 px e o mercador
-// entra com 4 px por pixel da grade (176 px, folga de uns 13 px de cada lado); abaixo disso, 3 px (132 px).
-// Sempre múltiplo da grade de 44.
-const TELA_LARGA = '(min-width: 360px)'
-function assinarTela(avisar: () => void) {
-  if (typeof window === 'undefined' || !window.matchMedia) return () => {}
-  const consulta = window.matchMedia(TELA_LARGA)
-  consulta.addEventListener('change', avisar)
-  return () => consulta.removeEventListener('change', avisar)
-}
-const lerTela = () => typeof window !== 'undefined' && !!window.matchMedia?.(TELA_LARGA).matches
-const lerTelaServidor = () => true
-
-/**
- * Repost no molde do IG: o story da loja com o story do cliente dentro. Sem depoimento inventado: só a ilustração da
- * marca. `texto` = a linha "Chegou teu pedido? Marca…" embaixo (a aba Catálogo põe a linha fora da coluna).
- */
-export function Reposts({ texto = true }: { texto?: boolean }) {
-  const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf) ?? canais[0]
-  const tamanho = useSyncExternalStore(assinarTela, lerTela, lerTelaServidor) ? 176 : 132
-  const figura = useRef<HTMLDivElement>(null)
-  // Fora da tela, coberto por uma camada ou com a aba escondida, as animações ficam pausadas (animation-play-state):
-  // nenhum trabalho. Ao voltar a andar, pula a parte parada (ver useMercadorAnda).
-  const anda = useMercadorAnda(figura)
-  return (
-    <section className="reposts" aria-label="Clientes marcando a loja">
-      <div className="repost">
-        <div className="repost-cab">
-          <Avatar tamanho={28} />
-          <span>{canal.instagram}</span>
-        </div>
-        <div className="repost-dentro">
-          {/* decorativo: a legenda embaixo já diz o que importa. Pálpebras e quadros da apresentação são camadas na
-              mesma grade, empilhadas por cima do mercador; o CSS diz quando cada uma aparece. */}
-          <MercadorAnimado refFigura={figura} tamanho={tamanho} anda={anda} />
-          <span className="adesivo-mencao repost-mencao">@{canal.instagram}</span>
-        </div>
-        <p className="repost-legenda px">Quem já usou sabe da qualidade</p>
-      </div>
-      {texto && <TextoReposts />}
-    </section>
-  )
-}
 
 /** "Chegou teu pedido? Marca @… no story." */
 export function TextoReposts() {
