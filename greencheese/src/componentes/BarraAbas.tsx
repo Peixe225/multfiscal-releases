@@ -2,18 +2,21 @@ import { useEffect, useRef, type MouseEvent } from 'react'
 import { gsap } from 'gsap'
 import { PixelArte } from '../arte/PixelArte'
 import { iconesAbas } from '../arte/pixel/abas'
+import { canalDa } from '../dados/canais'
 import { interativosAtivos, type Interativo } from '../interativos/registro'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba } from '../lib/abas'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
+import { useQuantosAbertos } from '../store/rateio'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
 import './BarraAbas.css'
 
-// Barra de abas do celular, no molde da barra de baixo do Instagram: Início, Busca (Catálogo), a ação do meio
-// (Teste minha sorte), a Sacola e o "perfil" (Por estado, com o avatar da loja e o selo da UF). Uma barra fixa só:
-// o "Enviar mensagem…" mora no pé do story do Início. Sem rótulo visível; cada célula tem nome para leitor de tela.
+// Barra de abas do celular, no molde da barra de baixo do Instagram: Início, Busca (Catálogo), Rateio (a caixa, com o
+// número de rateios abertos), Teste minha sorte, a Sacola e o "perfil" (Por estado, com o avatar da loja e o selo da
+// UF). Uma barra fixa só: o "Enviar mensagem…" mora no pé do story do Início. Sem rótulo visível; cada célula tem
+// nome para leitor de tela. Num estado sem entrega, saem o Rateio e a Sorte (não dá pra entrar nem usar o cupom lá).
 
 /** Toque numa aba da barra: a lupa tocada de novo no Catálogo vai até a busca e foca (como o Instagram). */
 function tocar(e: MouseEvent<HTMLAnchorElement>, a: Aba) {
@@ -51,6 +54,7 @@ export function BarraAbas() {
       >
         {aba === 'catalogo' ? <PixelArte grade={iconesAbas['lupa-grossa']} tamanho={32} /> : <Icone nome="lupa" tamanho={32} />}
       </a>
+      {(!uf || canalDa(uf)) && <CelulaRateio ativa={aba === 'rateio'} uf={uf} />}
       {sorte && <CelulaSorte i={sorte} />}
       <CelulaSacola />
       <a
@@ -71,6 +75,30 @@ export function BarraAbas() {
         </span>
       </a>
     </nav>
+  )
+}
+
+/** Rateio: a caixa de importação (cheia na aba atual) e o selo com quantos rateios dá pra entrar agora. */
+function CelulaRateio({ ativa, uf }: { ativa: boolean; uf: string | null }) {
+  const n = useQuantosAbertos(uf)
+  return (
+    <a
+      className={`aba-celula toque${ativa ? ' ativa' : ''}`}
+      href={hrefAba('rateio')}
+      data-aba="rateio"
+      aria-label={n ? `Rateio: ${n} ${n === 1 ? 'aberto' : 'abertos'}` : 'Rateio'}
+      aria-current={ativa ? 'page' : undefined}
+      onClick={(e) => tocar(e, 'rateio')}
+    >
+      <span className="aba-icone">
+        <PixelArte grade={ativa ? iconesAbas['caixa-cheia'] : iconesAbas.caixa} tamanho={32} />
+        {n > 0 && (
+          <span className="aba-contador px" aria-hidden="true">
+            {n}
+          </span>
+        )}
+      </span>
+    </a>
   )
 }
 

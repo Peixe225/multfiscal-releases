@@ -1,4 +1,4 @@
-// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=catalogo):
+// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=catalogo&rateio=id):
 // funciona em qualquer pasta da Hostinger, sem regra de servidor.
 
 export interface Parametros {
@@ -11,8 +11,10 @@ export interface Parametros {
   chat: string | null
   /** Interativo aberto (?jogo=sorte). */
   jogo: string | null
-  /** Aba do site (?aba=catalogo | estados; sem parâmetro = Início). Quem escreve é o src/lib/abas.ts. */
+  /** Aba do site (?aba=catalogo | rateio | estados; sem parâmetro = Início). Quem escreve é o src/lib/abas.ts. */
   aba: string | null
+  /** Página de um rateio aberta (?rateio=<id>), o link que vai no adesivo dos stories. */
+  rateio: string | null
 }
 
 export function lerParametros(): Parametros {
@@ -26,16 +28,17 @@ export function lerParametros(): Parametros {
     chat: lim(q.get('chat')),
     jogo: lim(q.get('jogo')),
     aba: lim(q.get('aba')),
+    rateio: lim(q.get('rateio')),
   }
 }
 
-/** As vistas do site: o Início (story + perfil), o Catálogo e Por estado. Camadas (story, sacola, jogo…) não são abas. */
-export type Aba = 'inicio' | 'catalogo' | 'estados'
+/** As vistas do site: o Início (story + perfil), o Catálogo, o Rateio e Por estado. Camadas (story, sacola, jogo…) não são abas. */
+export type Aba = 'inicio' | 'catalogo' | 'rateio' | 'estados'
 
 /** Aba pedida na URL. Sem parâmetro, ou com valor desconhecido, é o Início. */
 export function abaDaURL(): Aba {
   const v = lerParametros().aba
-  return v === 'catalogo' || v === 'estados' ? v : 'inicio'
+  return v === 'catalogo' || v === 'rateio' || v === 'estados' ? v : 'inicio'
 }
 
 /**

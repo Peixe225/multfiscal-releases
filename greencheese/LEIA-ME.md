@@ -112,6 +112,60 @@ O site é um app só, com três abas no molde do Instagram. O **Início** é o p
 
 ---
 
+## Rateio (site)
+
+Rateio é a compra junto: a loja abre X vagas de um produto importado, cada pessoa entra com nome e WhatsApp, paga a vaga e, quando as vagas fecham, a loja faz o pedido. Sai mais barato do que comprar depois que chega. O servidor e o painel (criar rateio, confirmar pagamento, avançar o status) estão no `API.md`; aqui é o lado do cliente.
+
+**Onde aparece**
+
+- Aba **Rateio** (`…/greencheese/?uf=mg&aba=rateio`), a 4ª aba do site:
+  - **celular**: a barra de baixo passa a ter 6 células — Início, Catálogo, **Rateio** (a caixa de importação com a fita e o corte tracejado; cheia na aba atual), Teste minha sorte, Sacola, Por estado. O selo branco na caixa é quantos rateios dá pra entrar agora no estado. Num estado sem entrega (ex.: `?uf=ba`) o Rateio sai da barra, como a Sorte.
+  - **computador**: item "Rateio" na lateral, logo depois de Catálogo, com o mesmo número.
+  - **Início**: destaque "Rateio" logo depois de Buscar (anel aceso enquanto tem rateio aberto pro estado; selo "novo" até a pessoa ver os abertos na aba). Com o Rateio, a primeira tela da linha mostra os 5 caminhos inteiros, o fio e o "Tudo" espiando na borda (o sinal de que a linha rola).
+- **Link de um rateio** (para o adesivo de link dos stories): `https://oprojeto.online/greencheese/?uf=mg&rateio=arizona-green-tea` — abre a página do rateio depois do +18, por cima da aba Rateio (fechar mostra os outros rateios; voltar de novo sai do site, como todo link direto). O botão de compartilhar da página copia esse link. O id de cada rateio aparece no painel.
+
+**A aba**: título com o "?" (abre a folha **Como funciona**: entra com nome e WhatsApp; a vaga fica guardada por `reservaHoras` enquanto fecha o pagamento no WhatsApp; o contador mostra as vagas pagas; o pedido do rateio é feito depois que fecham as vagas; chega de `previsaoMin` a `previsaoMax` dias depois que fechar; por que sai mais barato; e se não lotar, a loja chama no WhatsApp pra combinar). Embaixo, as seções **Minhas vagas** (só com vaga neste aparelho), **Abertos** (os do estado primeiro; os de outro estado por último, apagados, com "Só pra MG, SP…"), **Em andamento** (fechou, pedido feito, a caminho, chegou, com a linha do tempo e a previsão em datas) e **Chegaram** (entregues nos últimos 15 dias). Sem nenhum: "Nenhum rateio aberto agora", com o mercador e "Fica de olho no @…" do estado.
+
+**O cartão** é um post do perfil: avatar, @ do estado e "Rateio · vale pra RJ, MG…" no lugar da localização. A mídia é um story:
+- as barrinhas do topo são a linha do tempo (lotar → pedido feito → a caminho → chegou; a 1ª enche com as vagas pagas);
+- o selo do status em pixel (ABERTO com o ponto piscando, FECHOU, PEDIDO FEITO, A CAMINHO, CHEGOU, ENTREGUE);
+- o produto flutuando no preto: a arte do produto do `produtoId` (ilustração ou foto, com o halo); a imagem enviada pelo painel tem prioridade, com o mesmo tratamento; sem nenhum dos dois, a caixa de importação em pixel;
+- o preço do rateio grande ("R$ 14,90 no rateio"), "R$ 19,90 quando chegar" e o adesivo "economiza R$ 5,00" (só quando o rateio tem `precoDepois`);
+- o **contador** no adesivo de controle deslizante: "8/10 vagas", um bloco por vaga (preto = paga, xadrez = reservada esperando o pagamento, cinza = livre; acima de 30 vagas, 30 degraus) e "+2 reservadas" ao lado. Conta só as pagas: sobe quando a loja confirma o pagamento no painel (e, quando o Pix no site existir, sozinho pelo webhook);
+- a entrada no adesivo "Adicione o seu": "Entrar no rateio · sobram 7 vagas" (já dentro: "Tu tá nesse rateio · Código RAT-K8EA").
+Na legenda, a previsão ("Chega de 6 a 10 dias depois que fechar."), o prazo ("Fecha dia 12/10 ou quando lotar.") e os estados.
+
+**A página do rateio** (camada `?rateio=<id>`, no molde da página do produto: tela cheia no celular, diálogo no computador, 2 colunas a partir de 600 px; voltar do Android, Esc e o botão do topo fecham): o cartão grande, a descrição, o como funciona resumido (+ "Como funciona o rateio") e **Entrar no rateio**: nome, WhatsApp (mesma máscara e validação da conta), estado (os do rateio, o atual marcado), cidade quando o estado ainda não tem cidade cadastrada, quantidade (1 até `limitePorPessoa`, sem passar das vagas que sobram) e o total ao vivo. Nome e WhatsApp vêm preenchidos da conta do Teste minha sorte (ou da última vaga). Tem um campo "site" escondido de gente e de leitor de tela (armadilha pra robô) e a linha "Teu nome e WhatsApp servem só pra loja confirmar tua vaga."
+
+"Reservar minha vaga" → `POST rateio-entrar` → **Tá no rateio!**: comemoração curta em pixel, o código RAT-XXXX (com "Copiar"), "tua vaga fica guardada até 18h de amanhã", a mensagem, **Fechar pagamento no WhatsApp** (o WhatsApp da loja, `config.whatsappPedidos`; link montado antes do toque, sem nova aba no celular) e **Pagar com Pix aqui no site** com o carimbo EM BREVE (explica que o Pix no site chega em breve e aí a vaga confirma sozinha; o foco volta pro WhatsApp). Cada erro do servidor vira uma frase curta com caminho: sem vagas (mostra quantas sobraram e ajusta a quantidade), limite por pessoa, esse WhatsApp já está no rateio (com o código, "Ver minhas vagas" e "Falar com a loja"), fora do estado, rateio fechado, muitas tentativas, erro do servidor.
+
+**Mensagem do WhatsApp** (no padrão do pedido; `montarRateio` em `src/lib/mensagem.ts`, conferida por `node scripts/conferir-mensagem.mjs`):
+
+```
+RATEIO GREEN CHEESE — MG / Teófilo Otoni
+Arizona Green Tea 680 ml — 2 vagas × R$ 14,90 = R$ 29,80
+Código: RAT-K8EA
+Nome: Ian Teste
+WhatsApp: (33) 99123-4567
+Quero confirmar minha vaga e pagar.
+```
+
+Sem servidor sai sem a linha do código e termina em "Quero entrar no rateio."
+
+**Minhas vagas**: o token de cada vaga fica neste aparelho (`gc-rateio` no localStorage, até 20) e a aba pergunta o status ao servidor (`GET minhas-vagas`) ao abrir e a cada minuto, com a aba à vista e a página em primeiro plano (a lista dos rateios também: o contador sobe sozinho). Cada vaga mostra o código, as vagas, o total e o status: "Esperando pagamento · guardada até 18h de amanhã" (com "Pagar no WhatsApp"), "Confirmada ✅", "Venceu — a vaga voltou" (com "Entrar de novo" se ainda tem vaga), "Cancelada", "Entregue", e o andamento do rateio (fechou, pedido feito, a caminho, chegou, cancelado).
+
+**Sem servidor** (o zip sem a pasta `api/`, `npm run dev` sem PHP, servidor fora do ar): em até 4 s a aba mostra os rateios de exemplo de `src/dados/rateios-exemplo.json` (só com `dadosDeExemplo`), com o contador em 0, e o formulário vira **Entrar pelo WhatsApp** (sem código; "A loja confirma tua vaga pelo WhatsApp."). Nenhum erro vermelho na tela, nada trava.
+
+**Rateios de exemplo**: `src/dados/rateios-exemplo.json`, no mesmo formato da API (Arizona Green Tea 680 ml e Dichavador de metal 4 partes 55 mm, `demo: true`, contadores em 0). Somem com `dadosDeExemplo: false` (os do servidor marcados `demo` também). Os rateios de verdade são criados no painel do dono.
+
+**Rapidez**: na primeira tela só entra o que a barra, a lateral e o destaque precisam (a lista de rateios, buscada no tempo ocioso depois da abertura). A aba, o cartão, a página, o formulário e o CSS do rateio baixam à parte, no tempo ocioso ou na primeira visita (o CSS entra como `<style>`, como o do Teste minha sorte).
+
+**Código**: `src/lib/rateio-api.ts` (o contrato e a lista), `src/lib/rateio-vagas.ts` (entrar, rateio avulso, minhas vagas), `src/lib/minhas-vagas.ts`, `src/store/rateio.ts` (lista em memória e as vagas do aparelho), `src/componentes/rateio/` (`VistaRateio`, `CartaoRateio`, `PaginaRateio`, `EntrarRateio`, `ComoFunciona`, `util.ts`, `Rateio.css` + `estilo.ts`). Ícones: `caixa` e `caixa-cheia` em `src/arte/pixel/abas.ts`, `interrogacao` em `src/arte/pixel/extras.ts`.
+
+**Testes**: `scripts/revisao.mjs` tem a rodada do rateio (aba, cartão com o contador, "?", formulário, confirmação com a mensagem certa, Pix em breve, Minhas vagas, sem servidor) com a API simulada no formato do `API.md`; `scripts/celulares.mjs` abre a aba e a página em cada celular (rolagem lateral, alvos de 44 px, voltar). Nas outras rodadas a API responde como "sem servidor".
+
+---
+
 ## Onde trocar cada coisa
 
 Tudo que o dono muda fica em `src/dados/`. Depois de mexer, rode `npm run build` e suba de novo.

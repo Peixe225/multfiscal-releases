@@ -79,6 +79,20 @@ O que está na prévia: o dichavador que gira, abre e entrega um beck bolado com
 
 - `mercadorTraga` em `src/dados/config.ts` liga os tragos do mercador (ligado na prévia, a pedido). A Lei 9.294/1996, art. 3º, veda propaganda de produtos fumígenos: **para a versão oficial, a recomendação é `false`** (o mercador continua abrindo o manto com os acessórios).
 
+## Rateio
+
+O site já tem a aba, a página, a reserva com código, o fechamento no WhatsApp da loja e as "Minhas vagas" (ver LEIA-ME, "Rateio (site)"). Falta a loja decidir:
+
+1. **Se não lotar**: hoje o site só diz "a loja te chama no WhatsApp pra combinar" (no "Como funciona"). Definir a regra (prazo máximo pra lotar? a loja completa as vagas? devolve o valor? em quanto tempo?) antes de escrever qualquer promessa na tela.
+2. **Devolução e desistência**: quem pagou e desiste, ou o produto chega com defeito — nada disso aparece no site. Definir com a loja (e conferir com o CDC: compra pela internet tem direito de arrependimento de 7 dias, art. 49).
+3. **Prazo da reserva e previsão**: o padrão é 24 h de reserva (`reservaHoras`) e 6 a 10 dias depois de fechar (`previsaoMin`/`previsaoMax`), por rateio. Confirmar com o dono se é a média real de entrega.
+4. **LGPD**: quem entra num rateio manda nome, WhatsApp, estado, cidade (quando precisa) e quantidade pro servidor da loja — o rodapé já diz isso, e o formulário diz "Teu nome e WhatsApp servem só pra loja confirmar tua vaga". Falta definir o controlador (CNPJ), o prazo de retenção (ex.: apagar os dados X dias depois do rateio encerrado), o canal pra pedir exclusão e publicar a política de privacidade.
+5. **Pix direto no site**: "Em breve". Precisa de um provedor de Pix com QR dinâmico e webhook (escolha e credenciais da loja). O servidor já tem a rota `pix-webhook` (responde 501 até lá) e a confirmação passa pela mesma função do painel: quando o Pix existir, o contador sobe sozinho e o botão do site deixa de ser "Em breve".
+6. **Rateios de exemplo**: Arizona Green Tea (R$ 14,90 no rateio, R$ 19,90 quando chegar, 24 vagas) e Dichavador de metal 4 partes (R$ 44,90 / R$ 59,90, 10 vagas) são **exemplo** (`demo: true`, preços e vagas inventados para a prévia; o "quando chegar" é o preço de exemplo do catálogo). Somem com `dadosDeExemplo: false`; os de verdade nascem no painel.
+7. **Vaga em outro aparelho**: "Minhas vagas" vive no aparelho onde a pessoa entrou (o token fica no localStorage). Quem troca de celular ou limpa o navegador continua com a vaga no servidor e com o código na mensagem do WhatsApp, mas não vê o status no site. Se fizer falta: recuperar as vagas pelo WhatsApp com código (como a conta do Teste minha sorte).
+8. **Conta da mensagem**: no exemplo da conversa veio "2 vagas × R$ 14,90 = R$ 29,90"; o site soma certo (R$ 29,80) e, quando o servidor devolve o total (somado em centavos), usa o dele.
+9. **Contrato (API.md), para quem escreve o servidor**: o site aceita `token` vazio em `minhas-vagas` (o servidor guarda só o hash; se não devolver o token que recebeu, o site casa pelo `codigo`) e espera `agora` em `GET rateios` (o "guardada até" usa a hora do servidor quando o relógio do aparelho está errado).
+
 ## Publicação
 
 - **No ar em `https://oprojeto.online/greencheese/`** (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.

@@ -33,6 +33,13 @@ export interface InterativoAberto {
   tela?: TelaInterativo
 }
 
+/** O que a folha "Como funciona o rateio" diz de cada rateio (aberta da página de um rateio, usa os números dele). */
+export interface ComoFuncionaRateio {
+  reservaHoras: number
+  previsaoMin: number
+  previsaoMax: number
+}
+
 interface UIState {
   story: StoryAberto | null
   sacolaAberta: boolean
@@ -50,9 +57,17 @@ interface UIState {
   interativo: InterativoAberto | null
   /** Folha "Minha conta". */
   contaAberta: boolean
-  /** Vista do site (Início, Catálogo, Por estado). Só o src/lib/abas.ts troca (URL e histórico vão junto). */
+  /** Vista do site (Início, Catálogo, Rateio, Por estado). Só o src/lib/abas.ts troca (URL e histórico vão junto). */
   aba: Aba
   setAba: (a: Aba) => void
+  /** Página de um rateio aberta (?rateio=<id>). */
+  rateio: string | null
+  abrirRateio: (id: string) => void
+  fecharRateio: () => void
+  /** Folha "Como funciona o rateio" (o "?"). */
+  comoFunciona: ComoFuncionaRateio | null
+  abrirComoFunciona: (c: ComoFuncionaRateio) => void
+  fecharComoFunciona: () => void
   abrirInterativo: (id: string, tela?: TelaInterativo) => void
   fecharInterativo: () => void
   setConta: (v: boolean) => void
@@ -89,6 +104,12 @@ export const useUI = create<UIState>((set) => ({
   contaAberta: false,
   aba: abaDaURL(),
   setAba: (a) => set({ aba: a }),
+  rateio: null,
+  abrirRateio: (id) => set({ rateio: id }),
+  fecharRateio: () => set({ rateio: null }),
+  comoFunciona: null,
+  abrirComoFunciona: (c) => set({ comoFunciona: c }),
+  fecharComoFunciona: () => set({ comoFunciona: null }),
   abrirInterativo: (id, tela) => set({ interativo: { id, tela } }),
   fecharInterativo: () => set({ interativo: null }),
   setConta: (v) => set({ contaAberta: v }),

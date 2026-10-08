@@ -2,6 +2,7 @@ import type { Canal, FormaPagamento } from '../dados/canais'
 import { config } from '../dados/config'
 import { brl } from './formato'
 import { calcularLinha } from './preco'
+import { formatarCelular } from './telefone'
 import type { Produto } from './tipos'
 
 export interface LinhaPedido {
@@ -113,6 +114,34 @@ export function montarEncomenda(d: DadosEncomenda): string {
   return out.join('\n')
 }
 
+export interface DadosRateio {
+  canal: Canal
+  cidade?: string | null
+  /** Título do rateio como a loja escreveu ("Arizona Green Tea 680 ml"). */
+  titulo: string
+  quantidade: number
+  precoRateio: number
+  /** Total que o servidor devolveu (soma em centavos); sem ele, quantidade × preço. */
+  total?: number
+  /** RAT-XXXX da vaga reservada. Sem código (servidor fora do ar), a mensagem pede pra entrar. */
+  codigo?: string | null
+  nome: string
+  /** Só dígitos, com ou sem o 55. */
+  whatsapp: string
+}
+
+/** Mensagem do rateio, no padrão do pedido: a vaga reservada (com código) ou o pedido pra entrar (sem servidor). */
+export function montarRateio(d: DadosRateio): string {
+  const total = d.total ?? Math.round(d.quantidade * d.precoRateio * 100) / 100
+  const out = [cabecalho('RATEIO', d.canal, d.cidade)]
+  out.push(`${d.titulo.trim()} — ${d.quantidade} ${d.quantidade === 1 ? 'vaga' : 'vagas'} × ${brl(d.precoRateio)} = ${brl(total)}`)
+  if (d.codigo) out.push(`Código: ${d.codigo}`)
+  out.push(`Nome: ${d.nome.trim()}`)
+  out.push(`WhatsApp: ${formatarCelular(d.whatsapp.replace(/\D/g, '').replace(/^55(?=\d{11}$)/, ''))}`)
+  out.push(d.codigo ? 'Quero confirmar minha vaga e pagar.' : 'Quero entrar no rateio.')
+  return out.join('\n')
+}
+
 export function montarAviso(canal: Canal, cidade: string | null | undefined, produto: Produto): string {
   return [
     cabecalho('AVISA QUANDO CHEGAR', canal, cidade),
@@ -126,7 +155,7 @@ export function whatsappDoCanal(canal: Canal): string {
   return (canal.whatsapp ?? config.whatsappPedidos).replace(/\D/g, '')
 }
 
-/** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) usa. */
+/** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) e o rateio usam. */
 export function linkWhatsApp(canal: Canal, texto: string): string {
   return `https://wa.me/${whatsappDoCanal(canal)}?text=${encodeURIComponent(texto)}`
 }

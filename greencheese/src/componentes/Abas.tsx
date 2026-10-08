@@ -1,4 +1,4 @@
-import { memo, startTransition, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Component, lazy, memo, startTransition, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canais, canalDa } from '../dados/canais'
@@ -9,6 +9,7 @@ import { movimentoReduzido } from '../lib/movimento'
 import { obterLenis } from '../lib/rolagem'
 import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
+import { useRateio } from '../store/rateio'
 import { useDisponiveis } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
@@ -25,10 +26,12 @@ import './Abas.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
-// As três vistas do site, sempre no mesmo app (a barra de baixo do celular e a lateral do computador trocam):
+// As vistas do site, sempre no mesmo app (a barra de baixo do celular e a lateral do computador trocam):
 //   Início: o story, a faixa dos @, o perfil (no computador, ao lado do story, com o mercador) e a loja — destaques
 //     (as abas primeiro, os filtros à direita) e a grade. Acaba na grade, com o rodapé.
 //   Catálogo: destaques, busca, grade, encomenda e, no fim, o interativo e os reposts.
+//   Rateio: o título com o "?" (aqui, no pedaço principal: o foco tem onde cair na hora) e o corpo, que baixa à parte
+//     (no tempo ocioso ou na primeira visita).
 //   Por estado: os perfis de cada estado.
 // Escondidas com hidden (fora do Tab, da busca da página e do leitor de tela: ver Abas.css). O Início fica sempre
 // montado; a grade dele e o Catálogo montam no tempo ocioso depois da abertura, um de cada vez (ou o Catálogo na
@@ -50,8 +53,16 @@ const TITULO_ORIGINAL = typeof document !== 'undefined' ? document.title : ''
 const TITULOS: Record<Aba, string | null> = {
   inicio: null,
   catalogo: 'Catálogo · Green Cheese Imports',
+  rateio: 'Rateio · Green Cheese Imports',
   estados: 'Por estado · Green Cheese Imports',
 }
+
+/** O corpo da aba Rateio, num pedaço à parte. Tenta de novo antes de desistir (a rede do celular oscila). */
+function baixarRateio(n = 1): Promise<typeof import('./rateio/VistaRateio')> {
+  return import('./rateio/VistaRateio').catch((e: unknown) => (n >= 3 ? Promise.reject(e) : new Promise((ok) => setTimeout(ok, 700 * n)).then(() => baixarRateio(n + 1))))
+}
+const criarCorpoRateio = () => lazy(() => baixarRateio().then((m) => ({ default: m.VistaRateio })))
+let CorpoRateio = criarCorpoRateio()
 
 /**
  * Para onde vai o foco ao abrir a vista: o h1 visível (o título do Catálogo, o do perfil), a não ser que algo focável
@@ -72,15 +83,26 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
   const aberturaAtiva = useUI((s) => s.aberturaAtiva)
   const [catalogo, setCatalogo] = useState(aba === 'catalogo')
   const [estados, setEstados] = useState(aba === 'estados')
+  const [rateio, setRateio] = useState(aba === 'rateio')
   // a grade do Início (os destaques já vêm na hora)
   const [loja, setLoja] = useState(false)
   // o Catálogo montado no respiro passa um quadro "aquecendo" (ver o comentário do topo)
   const [aquecendo, setAquecendo] = useState(false)
   if (aba === 'catalogo' && !catalogo) setCatalogo(true)
   if (aba === 'estados' && !estados) setEstados(true)
+  if (aba === 'rateio' && !rateio) setRateio(true)
 
   // depois da abertura, no tempo ocioso: primeiro a grade do Início, no respiro seguinte o Catálogo (a troca de aba
   // fica instantânea). Em transição: montar 7 mil elementos não segura o toque de quem já está usando o site
+  // o corpo do Rateio baixa no tempo ocioso depois do Catálogo (a 1ª visita à aba já abre pronta)
+  useEffect(() => {
+    if (aberturaAtiva || !loja || !catalogo) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    const baixar = () => void baixarRateio().catch(() => {})
+    if (w.requestIdleCallback) w.requestIdleCallback(baixar, { timeout: 4000 })
+    else setTimeout(baixar, 2000)
+  }, [aberturaAtiva, loja, catalogo])
+
   useEffect(() => {
     if (aberturaAtiva || (loja && catalogo)) return
     const montar = () =>
@@ -165,6 +187,11 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
           tabIndex={-1}
         >
           <AbaCatalogo abrirInfo={abrirInfo} />
+        </div>
+      )}
+      {rateio && (
+        <div className="vista" data-vista="rateio" hidden={aba !== 'rateio'} tabIndex={-1}>
+          <AbaRateio />
         </div>
       )}
       {estados && (
@@ -279,6 +306,69 @@ function CatalogoSemEntrega() {
     </div>
   )
 }
+
+/** O pedaço do Rateio não baixou (sem rede): fica um aviso com "Tentar de novo", nunca o site quebrado. */
+class CorpoDoRateio extends Component<object, { erro: boolean }> {
+  state = { erro: false }
+  static getDerivedStateFromError() {
+    return { erro: true }
+  }
+  render(): ReactNode {
+    if (!this.state.erro) {
+      // lido a cada render: o "Tentar de novo" troca por um pedaço novo (o React guarda a falha do anterior)
+      const Corpo = CorpoRateio
+      return (
+        <Suspense fallback={<p className="rv-buscando legenda">Abrindo os rateios…</p>}>
+          <Corpo />
+        </Suspense>
+      )
+    }
+    return (
+      <div className="rv-falhou">
+        <p className="legenda">Sem conexão pra abrir os rateios agora.</p>
+        <button
+          type="button"
+          className="botao botao-contorno toque"
+          onClick={() => {
+            CorpoRateio = criarCorpoRateio()
+            this.setState({ erro: false })
+          }}
+        >
+          Tentar de novo
+        </button>
+      </div>
+    )
+  }
+}
+
+/** Os números do "Como funciona" aberto pela aba: os dos rateios abertos, se forem iguais; senão os de sempre. */
+function comoFuncionaDaAba() {
+  const abertos = useRateio.getState().rateios.filter((r) => r.status === 'aberto')
+  const um = abertos[0]
+  const iguais = !!um && abertos.every((r) => r.reservaHoras === um.reservaHoras && r.previsaoMin === um.previsaoMin && r.previsaoMax === um.previsaoMax)
+  return iguais ? { reservaHoras: um.reservaHoras, previsaoMin: um.previsaoMin, previsaoMax: um.previsaoMax } : { reservaHoras: 24, previsaoMin: 6, previsaoMax: 10 }
+}
+
+/** Aba Rateio: o título com o "?", a frase de abertura e o corpo (pedaço à parte). */
+const AbaRateio = memo(function AbaRateio() {
+  const abrirComo = useUI((s) => s.abrirComoFunciona)
+  return (
+    <div className="aba-pagina aba-rateio">
+      <header className="aba-cab">
+        <div className="rv-cab-linha">
+          <h1 id="rateio-titulo" className="aba-titulo px" tabIndex={-1}>
+            Rateio
+          </h1>
+          <button type="button" className="icone-botao toque rv-ajuda" aria-label="Como funciona o rateio" aria-haspopup="dialog" onClick={() => abrirComo(comoFuncionaDaAba())}>
+            <Icone nome="interrogacao" tamanho={32} />
+          </button>
+        </div>
+        <p className="aba-legenda rv-intro">Junta com a galera, divide a caixa e paga menos que depois que chega.</p>
+      </header>
+      <CorpoDoRateio />
+    </div>
+  )
+})
 
 /** Aba Por estado: a mesma moldura, com o PorEstado como vier. */
 const AbaEstados = memo(function AbaEstados() {

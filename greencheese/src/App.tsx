@@ -13,6 +13,7 @@ import { atualizarParametros, lerParametros } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal } from './store/local'
+import { carregarRateios } from './store/rateio'
 import { useUI } from './store/ui'
 import { interativoPorParam } from './interativos/registro'
 import { Abertura, Saida, idadeLembrada } from './componentes/Abertura'
@@ -71,6 +72,9 @@ const SacolaFolha = camadaPreguicosa(() => import('./componentes/Sacola'), (m) =
 const ContaFolha = camadaPreguicosa(() => import('./componentes/ContaFolha'), (m) => m.ContaFolha)
 const SeletorFolha = camadaPreguicosa(() => import('./componentes/Seletor'), (m) => m.SeletorFolha)
 const ConfirmarTroca = camadaPreguicosa(() => import('./componentes/ConfirmarTroca'), (m) => m.ConfirmarTroca)
+// rateio: a página (?rateio=) e a folha "Como funciona" (por cima da página e da aba)
+const RateioPagina = camadaPreguicosa(() => import('./componentes/rateio/PaginaRateio'), (m) => m.PaginaRateio)
+const ComoFunciona = camadaPreguicosa(() => import('./componentes/rateio/ComoFunciona'), (m) => m.ComoFuncionaFolha)
 
 interface PropsCamada {
   camada: { Componente: ComponentType; refazer: () => void }
@@ -119,6 +123,8 @@ function Camadas() {
   const troca = useUI((s) => !!s.trocaPendente)
   const interativo = useUI((s) => !!s.interativo)
   const conta = useUI((s) => s.contaAberta)
+  const rateio = useUI((s) => !!s.rateio)
+  const como = useUI((s) => !!s.comoFunciona)
   const chat = useChat((s) => s.aberto)
   const ui = useUI.getState
   return (
@@ -126,12 +132,14 @@ function Camadas() {
       <Camada camada={StoryProduto} pedida={story} fechar={() => ui().fecharStory()} />
       <Camada camada={InterativoCamada} pedida={interativo} fechar={() => ui().fecharInterativo()} />
       <Camada camada={ProdutoPagina} pedida={pagina} fechar={() => ui().fecharPagina()} />
+      <Camada camada={RateioPagina} pedida={rateio} fechar={() => ui().fecharRateio()} />
       <Camada camada={InfoStory} pedida={info} fechar={() => ui().setInfo(false)} />
       <Camada camada={ChatFolha} pedida={chat} fechar={() => useChat.getState().fechar()} />
       <Camada camada={SacolaFolha} pedida={sacola} fechar={() => ui().setSacola(false)} />
       <Camada camada={ContaFolha} pedida={conta} fechar={() => ui().setConta(false)} />
       <Camada camada={SeletorFolha} pedida={seletor} fechar={() => ui().setSeletor(false)} />
       <Camada camada={ConfirmarTroca} pedida={troca} fechar={() => ui().setTroca(null)} />
+      <Camada camada={ComoFunciona} pedida={como} fechar={() => ui().fecharComoFunciona()} />
     </>
   )
 }
@@ -139,7 +147,8 @@ function Camadas() {
 /** Monta as camadas no primeiro respiro do navegador, ou na hora se alguém já pediu uma delas. */
 function useCamadasProntas(): boolean {
   const pedida = useUI(
-    (s) => !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || !!s.trocaPendente || !!s.interativo || s.contaAberta,
+    (s) =>
+      !!s.story || !!s.pagina || s.sacolaAberta || s.seletorAberto || s.infoAberto || !!s.trocaPendente || !!s.interativo || s.contaAberta || !!s.rateio || !!s.comoFunciona,
   )
   const chat = useChat((s) => s.aberto)
   const [pronto, setPronto] = useState(false)
@@ -192,6 +201,14 @@ export function App() {
     return () => clearTimeout(t)
   }, [abertura])
 
+  // rateios: a lista chega no tempo ocioso depois da abertura (o selo da barra e o destaque do Início contam com ela)
+  useEffect(() => {
+    if (abertura || saida) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(() => void carregarRateios(), { timeout: 3000 })
+    else setTimeout(() => void carregarRateios(), 1500)
+  }, [abertura, saida])
+
   // teclado virtual: as folhas sobem junto (ver --teclado)
   useEffect(() => vigiarTeclado(), [])
 
@@ -221,14 +238,14 @@ export function App() {
     }
   }, [])
 
-  // depois da abertura: link direto do story (?p=), da página do produto (?produto=), do interativo (?jogo=) e do chat
-  // (?chat=pedido|encomenda); volta do WhatsApp
+  // depois da abertura: link direto do story (?p=), da página do produto (?produto=), do interativo (?jogo=), do chat
+  // (?chat=pedido|encomenda) e do rateio (?rateio=); volta do WhatsApp
   useEffect(() => {
     if (abertura || saida) return
     const p = lerParametros()
     if (voltandoDoWhatsApp()) {
       // só o pedido reabre: o ?produto=/?p=/?jogo= que ficou na URL não pode reabrir nada depois (recarregar)
-      atualizarParametros({ produto: null, p: null, jogo: null })
+      atualizarParametros({ produto: null, p: null, jogo: null, rateio: null })
       useChat.getState().abrir(useChat.getState().modo)
       // "Trocar" na abertura (o +18 tinha vencido): o seletor abre por cima do pedido
       if (trocarDepois.current) {
@@ -268,12 +285,15 @@ export function App() {
       else atualizarParametros({ jogo: null })
     }
     if (p.chat === 'pedido' || p.chat === 'encomenda') useChat.getState().abrir(p.chat)
+    // página de um rateio (?rateio=, o adesivo de link dos stories): quem confere se ele existe é a própria página
+    if (p.rateio && /^[a-z0-9-]+$/.test(p.rateio) && !useUI.getState().rateio) useUI.getState().abrirRateio(p.rateio)
+    else if (p.rateio && !useUI.getState().rateio) atualizarParametros({ rateio: null })
     // "Trocar" na abertura: o seletor fica por cima de tudo o que o link abriu, também no histórico. As camadas
     // entram no histórico quando o pedaço delas carrega, então ele espera elas entrarem
     if (trocarDepois.current) {
       trocarDepois.current = false
       const ui = useUI.getState()
-      const pedidas = (ui.story ? 1 : 0) + (ui.pagina?.pilha.length ?? 0) + (ui.interativo ? 1 : 0) + (useChat.getState().aberto ? 1 : 0)
+      const pedidas = (ui.story ? 1 : 0) + (ui.pagina?.pilha.length ?? 0) + (ui.interativo ? 1 : 0) + (useChat.getState().aberto ? 1 : 0) + (ui.rateio ? 1 : 0)
       quandoEmpilharem(pedidas, () => useUI.getState().setSeletor(true))
     }
     requestAnimationFrame(() => ScrollTrigger.refresh())

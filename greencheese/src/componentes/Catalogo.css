@@ -308,8 +308,8 @@
   --d-avatar: 1;
   position: relative;
 }
-/* celular: 4 caminhos + o fio + "Tudo" inteiro + o filtro seguinte espiando na borda (o sinal de que a linha rola).
-   Em 360 o "Importadas" mostra 15 px; em 375, 30; em 390, 45; em 412, 29 (degrau de cima) */
+/* celular: os 5 caminhos (estado, Buscar, Rateio, Sorte, Por estado) inteiros + o fio + o "Tudo" espiando na borda (o
+   sinal de que a linha rola). Em 360 o "Tudo" mostra 15 px; em 375, 30; em 390, 45; em 412, 29 (degrau de cima) */
 @media (max-width: 479px) {
   .destaques-moldura {
     --d-col: 62px;

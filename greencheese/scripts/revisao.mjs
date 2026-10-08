@@ -3,6 +3,9 @@
 // sequências de voltar, os links diretos, o Início (destaques e grade, sem o fim da aba Catálogo), o mercador ao lado
 // do perfil na matriz de desktop (ou o hero empilhado quando ele não cabe ali, nunca sumindo), as setas da linha de
 // destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência do leitor de tela.
+// Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona, o formulário valida, a confirmação leva pro
+// WhatsApp com a mensagem certa, e sem servidor vira "Entrar pelo WhatsApp". A API do rateio é simulada como no
+// contrato do API.md; nas outras rodadas ela responde como "sem servidor" (HTML no lugar de JSON, sem erro no console).
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -70,8 +73,73 @@ async function contexto(browser, viewport, opts = {}) {
     return r.fulfill({ status: 404, json: { message: 'not found' } })
   })
   await ctx.route(/viacep\.com\.br/, (r) => r.fulfill({ json: { erro: true } }))
+  if (opts.rateio) await apiRateio(ctx)
+  else await ctx.route('**/api/index.php**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' }))
   if (opts.semDica) await ctx.addInitScript(() => sessionStorage.setItem('gc-dica-hero', '1'))
   return ctx
+}
+
+/** API do rateio simulada (o contrato do API.md): lista, rateio avulso, entrar (vaga reservada) e minhas vagas. */
+async function apiRateio(ctx) {
+  const agora = new Date().toISOString()
+  const base = {
+    descricao: '',
+    imagem: null,
+    status: 'aberto',
+    aceitaEntradas: true,
+    previsaoMin: 6,
+    previsaoMax: 10,
+    fechaEm: null,
+    fechadoEm: null,
+    pedidoEm: null,
+    chegouEm: null,
+    reservaHoras: 24,
+    demo: true,
+    atualizadoEm: agora,
+  }
+  const rateios = [
+    { ...base, id: 'arizona-green-tea', titulo: 'Arizona Green Tea 680 ml', produtoId: 'arizona-green-tea', precoRateio: 14.9, precoDepois: 19.9, vagas: 24, confirmadas: 14, reservadas: 3, disponiveis: 7, limitePorPessoa: 6, ufs: ['rj', 'mg', 'sp', 'es'] },
+    { ...base, id: 'dichavador-metal-4-partes', titulo: 'Dichavador de metal 4 partes 55 mm', produtoId: 'dichavador-metal-4-partes', precoRateio: 44.9, precoDepois: 59.9, vagas: 10, confirmadas: 8, reservadas: 1, disponiveis: 1, limitePorPessoa: 2, ufs: ['mg', 'sp', 'es', 'sc'] },
+  ]
+  const vagas = []
+  const naoAchei = { status: 404, json: { ok: false, erro: 'nao-encontrado', mensagem: 'Não achei.' } }
+  await ctx.route('**/api/index.php**', async (route) => {
+    const u = new URL(route.request().url())
+    const r = u.searchParams.get('r')
+    if (r === 'rateios') return route.fulfill({ json: { ok: true, agora, rateios } })
+    if (r === 'rateio') {
+      const x = rateios.find((y) => y.id === u.searchParams.get('id'))
+      return x ? route.fulfill({ json: { ok: true, rateio: x } }) : route.fulfill(naoAchei)
+    }
+    if (r === 'minhas-vagas') {
+      const tokens = (u.searchParams.get('t') ?? '').split(',')
+      return route.fulfill({ json: { ok: true, participacoes: vagas.filter((v) => tokens.includes(v.token)) } })
+    }
+    if (r === 'rateio-entrar') {
+      const c = JSON.parse(route.request().postData() ?? '{}')
+      const x = rateios.find((y) => y.id === c.rateio)
+      if (!x) return route.fulfill(naoAchei)
+      if (c.site) return route.fulfill({ status: 400, json: { ok: false, erro: 'invalido', campo: 'nome', mensagem: 'Confere.' } })
+      const v = {
+        codigo: 'RAT-K8EA',
+        token: '0123456789abcdef0123456789abcdef',
+        rateio: x.id,
+        titulo: x.titulo,
+        quantidade: c.quantidade,
+        total: Math.round(c.quantidade * x.precoRateio * 100) / 100,
+        status: 'reservado',
+        expiraEm: new Date(Date.now() + 864e5).toISOString(),
+        criadoEm: agora,
+        confirmadoEm: null,
+        rateioStatus: 'aberto',
+      }
+      vagas.push(v)
+      x.reservadas += c.quantidade
+      x.disponiveis -= c.quantidade
+      return route.fulfill({ status: 201, json: { ok: true, participacao: v, rateio: x } })
+    }
+    return route.fulfill(naoAchei)
+  })
 }
 
 function vigiar(page, nome) {
@@ -137,7 +205,7 @@ async function passarAbertura(page) {
 /** Troca de aba pela barra do celular ou pela lateral do desktop e espera a vista aparecer. */
 async function irAba(page, aba) {
   await page.locator(`[data-aba="${aba}"]:visible`).first().click()
-  const alvo = aba === 'catalogo' ? '#catalogo, #catalogo-titulo' : aba === 'estados' ? '#estados' : '.hero, .sem'
+  const alvo = aba === 'catalogo' ? '#catalogo, #catalogo-titulo' : aba === 'estados' ? '#estados' : aba === 'rateio' ? '#rateio-titulo' : '.hero, .sem'
   await page.locator(`.vista:not([hidden]) :is(${alvo})`).first().waitFor({ state: 'visible', timeout: 6000 })
   await page.waitForTimeout(300)
 }
@@ -294,7 +362,7 @@ async function semZapForaDoFechamento(page, nome) {
 async function axeNasAbas(page, nome) {
   if (!AXE || !existsSync(AXE)) return relatorio.push("axe: axe-core não encontrado (AXE=caminho), pulei")
   await page.addScriptTag({ path: AXE })
-  for (const aba of ['inicio', 'catalogo', 'estados']) {
+  for (const aba of ['inicio', 'catalogo', 'rateio', 'estados']) {
     if ((await abaAberta(page)) !== aba) await irAba(page, aba)
     await page.waitForTimeout(400)
     const v = await page.evaluate(async () => {
@@ -897,6 +965,96 @@ for (const reduzir of [false, true]) {
   if (reduzir) conferir(!abriu, 'mercador com movimento reduzido: fica parado (o mouse não anima)')
   else conferir(abriu, 'mercador: o mouse em cima abre o casaco na hora')
   await foto(page, `desk-10-mercador-mouse${reduzir ? '-reduzido' : ''}`)
+  await ctx.close()
+}
+
+// ---------- rateio: aba, cartão, "?", formulário, confirmação, WhatsApp; sem servidor ----------
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio')
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  await irAba(page, 'rateio')
+  await page.locator('.vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 8000 }).catch(() => {})
+  const aba = await page.evaluate(() => ({
+    foco: document.activeElement?.id,
+    url: location.search,
+    cartoes: document.querySelectorAll('.vista[data-vista="rateio"] .rt').length,
+    contador: document.querySelector('[data-rateio="arizona-green-tea"] .rt-contador-num')?.textContent,
+    reservadas: document.querySelector('[data-rateio="arizona-green-tea"] .rt-contador-res')?.textContent,
+    pagos: document.querySelectorAll('[data-rateio="arizona-green-tea"] .rt-blocos .rt-pago').length,
+    selo: document.querySelector('.barra-abas [data-aba="rateio"]')?.getAttribute('aria-label'),
+  }))
+  conferir(aba.foco === 'rateio-titulo' && aba.url.includes('aba=rateio'), `rateio: a aba abre pela barra e o foco vai pro título (${aba.foco})`)
+  conferir(aba.cartoes === 2 && aba.contador === '14/24' && aba.reservadas === '+3 reservadas' && aba.pagos === 14, `rateio: cartão com o contador "14/24" e "+3 reservadas" (${JSON.stringify(aba)})`)
+  conferir(aba.selo === 'Rateio: 2 abertos', `rateio: selo da barra com os abertos (${aba.selo})`)
+  await foto(page, 'rateio-01-aba')
+  await page.getByRole('button', { name: 'Como funciona o rateio' }).first().click()
+  await page.waitForTimeout(700)
+  const como = (await page.locator('.folha[aria-label="Como funciona o rateio"]').textContent().catch(() => '')) ?? ''
+  conferir(/pedido do rateio é feito depois que fecham as vagas/.test(como) && /de 6 a 10 dias/.test(como), 'rateio: o "?" abre o como funciona (pedido depois que fecham as vagas, de 6 a 10 dias)')
+  await foto(page, 'rateio-02-como-funciona')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(600)
+  await page.locator('[data-rateio="arizona-green-tea"] .rt-entrar').click()
+  await page.waitForTimeout(900)
+  conferir(page.url().includes('rateio=arizona-green-tea') && (await page.evaluate(() => document.activeElement?.id)) === 'rp-titulo', 'rateio: a página abre com link próprio e o foco no título')
+  await page.locator('.rp-reservar').click()
+  await page.waitForTimeout(300)
+  const erros1 = await page.locator('.rp-form .form-erro').count()
+  conferir(erros1 >= 2 && (await page.evaluate(() => document.activeElement?.getAttribute('autocomplete'))) === 'name', `rateio: o formulário valida (${erros1} erros, foco no nome)`)
+  await page.getByLabel('Teu nome').fill('Ian Teste')
+  await page.getByLabel('Teu WhatsApp').fill('33991234567')
+  await page.getByRole('button', { name: 'Mais uma vaga' }).click()
+  await foto(page, 'rateio-03-formulario')
+  await page.locator('.rp-reservar').click()
+  await page.waitForTimeout(1200)
+  const cf = await page.evaluate(() => ({
+    titulo: document.activeElement?.textContent,
+    vivo: document.querySelector('.rp-feito [role="status"]')?.textContent ?? '',
+    href: document.querySelector('.rp-feito .rp-zap')?.getAttribute('href') ?? '',
+  }))
+  const msg = decodeURIComponent(cf.href.split('text=')[1] ?? '')
+  const esperada = ['RATEIO GREEN CHEESE — MG / Teófilo Otoni', 'Arizona Green Tea 680 ml — 2 vagas × R$ 14,90 = R$ 29,80', 'Código: RAT-K8EA', 'Nome: Ian Teste', 'WhatsApp: (33) 99123-4567', 'Quero confirmar minha vaga e pagar.'].join('\n')
+  conferir(cf.titulo === 'Tá no rateio!' && /Código RAT-K8EA/.test(cf.vivo), 'rateio: confirmação "Tá no rateio!" com o código, anunciada pro leitor de tela')
+  conferir(cf.href.startsWith(ZAP) && msg === esperada, `rateio: "Fechar pagamento no WhatsApp" com a mensagem pronta (${msg.split('\n').join(' | ')})`)
+  await foto(page, 'rateio-04-confirmacao')
+  await page.getByRole('button', { name: /Pagar com Pix aqui no site/ }).click()
+  await page.waitForTimeout(600)
+  conferir(
+    await page.evaluate(() => !!document.activeElement?.classList.contains('rp-zap') && /chega em breve/.test(document.querySelector('.rp-pix-resposta')?.textContent ?? '')),
+    'rateio: Pix em breve explica e devolve o foco pro WhatsApp',
+  )
+  await voltar(page)
+  const mv = (await page.locator('#minhas-vagas').textContent().catch(() => '')) ?? ''
+  conferir(!(await page.locator('.rp').count()) && /RAT-K8EA/.test(mv) && /Esperando pagamento/.test(mv), 'rateio: voltar fecha a página e "Minhas vagas" mostra a reserva')
+  await foto(page, 'rateio-05-minhas-vagas')
+  await axeNasAbas(page, 'rateio')
+  await ctx.close()
+}
+{
+  // sem servidor (o contexto padrão responde HTML): exemplos com o contador em 0 e "Entrar pelo WhatsApp", sem código
+  const ctx = await contexto(browser, { width: 390, height: 844 })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio-sem-servidor')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Teste')
+  await page.getByLabel('Teu WhatsApp').fill('33991234567')
+  const r = await page.evaluate(() => ({
+    contador: document.querySelector('.rp .rt-contador-num')?.textContent,
+    reservar: !!document.querySelector('.rp-reservar'),
+    href: document.querySelector('.rp-form .rp-zap')?.getAttribute('href') ?? '',
+    alerta: !!document.querySelector('.rp [role="alert"]'),
+  }))
+  const msg = decodeURIComponent(r.href.split('text=')[1] ?? '')
+  conferir(
+    r.contador === '0/24' && !r.reservar && !r.alerta && r.href.startsWith(ZAP) && msg.endsWith('\nQuero entrar no rateio.') && !msg.includes('Código:'),
+    `rateio sem servidor: exemplo com 0/24 e "Entrar pelo WhatsApp" sem código (${msg.split('\n').join(' | ')})`,
+  )
+  await foto(page, 'rateio-06-sem-servidor')
   await ctx.close()
 }
 
