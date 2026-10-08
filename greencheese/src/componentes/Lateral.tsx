@@ -4,11 +4,13 @@ import { PixelArte } from '../arte/PixelArte'
 import { iconesAbas } from '../arte/pixel/abas'
 import { icones } from '../arte/pixel/grades'
 import { preenchida } from '../arte/pixel/preencher'
+import { canalDa } from '../dados/canais'
 import { interativosAtivos, type Interativo } from '../interativos/registro'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba } from '../lib/abas'
 import { useConta, useCupons } from '../lib/conta'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
+import { useQuantosAbertos } from '../store/rateio'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
@@ -59,7 +61,7 @@ function useLateralRola(ref: RefObject<HTMLElement | null>) {
 }
 
 /** Item de aba na lateral: link de verdade (Ctrl/⌘/botão do meio abre em aba nova), ativo como no instagram.com. */
-function ItemAba({ aba, rotulo, ativo, icone, aoTocar }: { aba: Aba; rotulo: string; ativo: boolean; icone: ReactNode; aoTocar: () => void }) {
+function ItemAba({ aba, rotulo, ativo, icone, aoTocar, contador }: { aba: Aba; rotulo: string; ativo: boolean; icone: ReactNode; aoTocar: () => void; contador?: { n: number; leitor: string } }) {
   return (
     <a
       className={`lateral-item toque${ativo ? ' ativo' : ''}`}
@@ -71,8 +73,33 @@ function ItemAba({ aba, rotulo, ativo, icone, aoTocar }: { aba: Aba; rotulo: str
       }}
     >
       <span className="lateral-icone">{icone}</span>
-      <span>{rotulo}</span>
+      <span>
+        {rotulo}
+        {contador && contador.n > 0 && <span className="sr-only">: {contador.leitor}</span>}
+      </span>
+      {contador && contador.n > 0 && (
+        <span className="lateral-contador px" aria-hidden="true">
+          {contador.n}
+        </span>
+      )}
     </a>
+  )
+}
+
+/** Rateio: a caixa de importação e quantos rateios dá pra entrar agora (some num estado sem entrega). */
+function ItemRateio({ ativo }: { ativo: boolean }) {
+  const uf = useLocal((s) => s.uf)
+  const n = useQuantosAbertos(uf)
+  if (uf && !canalDa(uf)) return null
+  return (
+    <ItemAba
+      aba="rateio"
+      rotulo="Rateio"
+      ativo={ativo}
+      icone={<PixelArte grade={ativo ? iconesAbas['caixa-cheia'] : iconesAbas.caixa} tamanho={24} />}
+      aoTocar={() => irParaAba('rateio')}
+      contador={{ n, leitor: n === 1 ? '1 aberto' : `${n} abertos` }}
+    />
   )
 }
 
@@ -142,6 +169,7 @@ export function Lateral() {
             irParaAba('catalogo')
           }}
         />
+        <ItemRateio ativo={aba === 'rateio'} />
         <button type="button" className="lateral-item toque" onClick={() => abrirChat('pedido')} aria-haspopup="dialog">
           <span className="lateral-icone">
             <Icone nome="balao" tamanho={24} />

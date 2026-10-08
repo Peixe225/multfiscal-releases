@@ -9,6 +9,8 @@ const tmp = join(raiz, 'node_modules', '.arquivo-unico')
 await build({
   root: raiz,
   logLevel: 'warn',
+  // o arquivo único nunca tem o servidor da loja: o rateio vai direto pros exemplos, sem esperar a rede
+  define: { __ARQUIVO_UNICO__: 'true' },
   build: {
     outDir: tmp,
     emptyOutDir: true,

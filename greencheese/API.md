@@ -82,8 +82,16 @@ interface Rateio {
 
 ### POST `r=rateio-entrar`
 
-Corpo: `{ rateio: string, nome: string, whatsapp: string, uf: string, cidade?: string, quantidade: number, site?: string }`
+Corpo: `{ rateio: string, nome: string, whatsapp: string, uf: string, cidade?: string, quantidade: number, site?: string, token?: string }`
 (`site` é armadilha para robô: tem que vir vazio ou ausente; cheio → `invalido`, sem gravar nada).
+
+`token` (opcional, 32 hex) nasce no aparelho e vai igual em cada nova tentativa da mesma pessoa no mesmo rateio (o site
+já manda). Serve pra resposta que se perde DEPOIS de o servidor gravar (3G, hospedagem lenta): o servidor guarda o hash
+dele no lugar de gerar um token novo (`participacao.token` volta igual ao que veio); um POST repetido com o mesmo
+`token` no mesmo `rateio` devolve a MESMA participação (200, sem `ja-participa`); e `minhas-vagas` com esse token já
+acha a vaga. Token mal formado ou já usado noutro rateio: o servidor ignora e gera o dele. Sem `token`, nada muda.
+Enquanto o servidor não fizer isso, o site continua certo (ignora o campo): a nova tentativa recebe `ja-participa` com o
+código, e a tela manda falar com a loja com esse código, sem inventar quantidade.
 
 Sucesso 201: `{ ok, participacao: Participacao, rateio: Rateio }` (o rateio já com o contador novo).
 

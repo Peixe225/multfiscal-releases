@@ -4,7 +4,8 @@
 // repost no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do
 // próprio Início; a faixa só com os perfis confirmados). Também: celular deitado (story do hero inteiro acima da
 // barra, nada encavalado), celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e
-// o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai).
+// o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai). A API do rateio
+// responde como "sem servidor" (o zip, o preview sem PHP): os rateios de exemplo, sem erro no console.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
@@ -29,6 +30,8 @@ async function contexto(w, h, opts = {}) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'pt-BR' })
   const ip = opts.ip ?? { region: 'Minas Gerais', region_code: 'MG' }
   await ctx.route(/ipwho|geojs/, (r) => r.fulfill({ json: { success: true, country_code: 'BR', ...ip } }))
+  // sem servidor da loja (HTML no lugar de JSON, como o preview sem PHP): o rateio mostra os exemplos
+  await ctx.route('**/api/index.php**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' }))
   if (opts.semDica) await ctx.addInitScript(() => sessionStorage.setItem('gc-dica-hero', '1'))
   return ctx
 }
@@ -62,7 +65,7 @@ async function abrirLembrado(ctx, p, nome, url) {
 /** Troca de aba pela barra (ou pela lateral) e espera a vista aparecer. */
 async function irAba(p, aba) {
   await p.locator(`[data-aba="${aba}"]:visible`).first().click()
-  const alvo = aba === 'catalogo' ? '#catalogo' : aba === 'estados' ? '#estados' : '.hero'
+  const alvo = aba === 'catalogo' ? '#catalogo' : aba === 'estados' ? '#estados' : aba === 'rateio' ? '#rateio-titulo' : '.hero'
   await p.locator(`.vista:not([hidden]) ${alvo}`).first().waitFor({ state: 'visible', timeout: 5000 })
   await p.waitForTimeout(300)
 }
@@ -103,7 +106,7 @@ async function fotoInteira(p, caminho) {
   await estilo.evaluate((e) => e.remove())
 }
 
-/** Barra de abas: fixa no pé, 4 ou 5 células de 44×44 ou mais, dentro da tela, Início marcado. */
+/** Barra de abas: fixa no pé, de 4 a 6 células de 44×44 ou mais, dentro da tela, Início marcado. */
 async function conferirBarra(p, nome) {
   const r = await p.evaluate(() => {
     const barra = document.querySelector('.barra-abas')
@@ -117,7 +120,10 @@ async function conferirBarra(p, nome) {
   })
   if (!r) return problemas.push(`${nome}: sem .barra-abas`)
   if (Math.abs(r.fundo - r.alto) > 2) problemas.push(`${nome}: barra de abas fora do pé (${Math.round(r.fundo)} ≠ ${r.alto})`)
-  if (r.itens.length < 4 || r.itens.length > 5) problemas.push(`${nome}: barra com ${r.itens.length} itens`)
+  if (r.itens.length < 4 || r.itens.length > 6) problemas.push(`${nome}: barra com ${r.itens.length} itens`)
+  // com entrega: Início, Catálogo, Rateio, Teste minha sorte, Sacola, Por estado (nessa ordem)
+  const ordem = r.itens.map((i) => i.aba).join(',')
+  if (ordem !== 'inicio,catalogo,rateio,sorte,sacola,estados') problemas.push(`${nome}: ordem da barra ${ordem}`)
   for (const i of r.itens) {
     if (i.w < 44 || i.h < 44) problemas.push(`${nome}: aba ${i.aba} pequena (${Math.round(i.w)}×${Math.round(i.h)})`)
     if (i.l < -1 || i.r > r.larg + 1) problemas.push(`${nome}: aba ${i.aba} fora da tela`)
@@ -129,7 +135,8 @@ const abaAberta = (p) => p.evaluate(() => document.querySelector('.vista:not([hi
 
 /**
  * O Início, de cima a baixo: story, faixa, perfil (com "Ver loja"), destaques, grade (a caixa de encomenda por último)
- * e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado), o fio e o grupo dos filtros.
+ * e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado; o Rateio fica na barra de baixo e
+ * só entra nos destaques de 560 px em diante), o fio e o grupo dos filtros.
  * Nada do fim da aba Catálogo (Teste minha sorte, repost do mercador) e nenhum mercador. Ids próprios (o #catalogo é
  * da aba Catálogo, que o chat e a rolagem usam).
  */
@@ -163,7 +170,8 @@ async function conferirInicio(p, nome) {
       rodape: rodape ? rodape.getBoundingClientRect().top + scrollY : null,
       ultimoCaixa: !!ultimo?.classList.contains('card-caixa'),
       ordemDestaques,
-      abas: nav ? [...nav.children].map((e) => e.getAttribute('data-destaque') ?? (e.classList.contains('destaque-interativo') ? 'interativo' : 'estado')) : [],
+      // só os caminhos à vista (o do Rateio existe, escondido, abaixo de 560 px)
+      abas: nav ? [...nav.children].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute('data-destaque') ?? (e.classList.contains('destaque-interativo') ? 'interativo' : 'estado')) : [],
       filtros: filtros ? filtros.querySelectorAll('[aria-pressed]').length : 0,
       fio: fioB ? { w: fioB.width, h: fioB.height } : null,
       fimCatalogo: !!v?.querySelector('.aba-fim, .reposts, .adesivos-interativos, #secao-interativo, #secao-marcados'),
@@ -290,6 +298,25 @@ for (const [nome, w, h] of aparelhos) {
   await p.waitForTimeout(900)
   if (await p.locator('.story').count()) problemas.push(`${nome}: arrastar para baixo não fechou o story`)
   if ((await abaAberta(p)) !== 'catalogo') problemas.push(`${nome}: fechar o story saiu do Catálogo`)
+
+  // rateio: a aba (os 2 rateios de exemplo, sem servidor), sem rolagem lateral e com alvos de 44 px; a página abre pelo
+  // adesivo "Entrar no rateio" e o voltar do Android fecha ela
+  await irAba(p, 'rateio')
+  await p.locator('.vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 6000 }).catch(() => {})
+  await p.screenshot({ path: `${out}${nome}-3b-rateio.png` })
+  await varrer(p, nome, 'rateio')
+  if ((await p.locator('.vista[data-vista="rateio"] .rt').count()) !== 2) problemas.push(`${nome}: aba Rateio sem os 2 rateios de exemplo`)
+  await p.locator('.vista[data-vista="rateio"] .rt-entrar').first().tap()
+  await p.waitForTimeout(900)
+  const pg = await p.evaluate(() => {
+    const j = document.querySelector('.rp .pp-janela')?.getBoundingClientRect()
+    return { aberta: !!j, cobre: !!j && j.width >= innerWidth - 1 && j.height >= innerHeight - 1, larg: document.documentElement.scrollWidth > innerWidth }
+  })
+  if (!pg.aberta || !pg.cobre || pg.larg) problemas.push(`${nome}: página do rateio (${JSON.stringify(pg)})`)
+  await p.screenshot({ path: `${out}${nome}-3c-rateio-pagina.png` })
+  await p.goBack()
+  await p.waitForTimeout(800)
+  if ((await p.locator('.rp').count()) || (await abaAberta(p)) !== 'rateio') problemas.push(`${nome}: voltar não fechou a página do rateio`)
 
   // chat: pela linha de resposta do story do Início
   await irAba(p, 'inicio')

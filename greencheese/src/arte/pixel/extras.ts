@@ -265,4 +265,23 @@ export const iconesExtras: Record<string, Grade> = {
     '......xxxx......',
     '................',
   ]),
+  // Interrogação num círculo: o "Como funciona" do Rateio.
+  interrogacao: g([
+    '................',
+    '.....xxxxxx.....',
+    '...xx......xx...',
+    '..x...xxxx...x..',
+    '.x...xx..xx...x.',
+    '.x.......xx...x.',
+    'x.......xx.....x',
+    'x......xx......x',
+    'x......xx......x',
+    'x..............x',
+    '.x.....xx.....x.',
+    '.x.....xx.....x.',
+    '..x..........x..',
+    '...xx......xx...',
+    '.....xxxxxx.....',
+    '................',
+  ]),
 }

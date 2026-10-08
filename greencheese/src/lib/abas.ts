@@ -6,11 +6,11 @@ import { movimentoReduzido } from './movimento'
 import { desviarAncoras, obterLenis, rolarPara } from './rolagem'
 import { abaDaURL, atualizarParametros, lerParametros, limparHomeVelha, type Aba } from './url'
 
-// Abas do site (Início, Catálogo, Por estado): vistas do mesmo app, no molde das abas do Instagram.
+// Abas do site (Início, Catálogo, Rateio, Por estado): vistas do mesmo app, no molde das abas do Instagram.
 //
-// URL: ?aba=catalogo | ?aba=estados; sem parâmetro é o Início. Cada troca empilha uma entrada NOVA no histórico,
-// {gcAba}, sem espalhar o estado de quem sai: o voltar do Android (e do navegador) volta para a aba de antes, com a
-// rolagem de antes (gcY). As camadas (story, sacola, jogo, chat…) empilham {...estado, gc} por cima da entrada da aba
+// URL: ?aba=catalogo | ?aba=rateio | ?aba=estados; sem parâmetro é o Início. Cada troca empilha uma entrada NOVA no
+// histórico, {gcAba}, sem espalhar o estado de quem sai: o voltar do Android (e do navegador) volta para a aba de antes,
+// com a rolagem de antes (gcY). As camadas (story, sacola, jogo, chat…) empilham {...estado, gc} por cima da entrada da aba
 // (src/lib/historico.ts), então fechar uma camada cai numa entrada com o MESMO gcAba e nunca troca de aba.
 
 export type { Aba }
@@ -36,13 +36,13 @@ export function ultimaTroca(): Troca {
 /** Aba pedida esperando o histórico (camada fechando): o mesmo pedido de novo é ignorado (toques repetidos). */
 let pendente: Aba | null = null
 
-const ABAS: readonly Aba[] = ['inicio', 'catalogo', 'estados']
+const ABAS: readonly Aba[] = ['inicio', 'catalogo', 'rateio', 'estados']
 const ehAba = (v: unknown): v is Aba => typeof v === 'string' && (ABAS as readonly string[]).includes(v)
 
-/** URL de uma aba: mantém uf e cidade; tira o que é de camada (story, página do produto, jogo, chat). */
+/** URL de uma aba: mantém uf e cidade; tira o que é de camada (story, página do produto, jogo, chat, rateio). */
 function urlCom(a: Aba): string {
   const u = new URL(location.href)
-  for (const k of ['p', 'produto', 'jogo', 'chat']) u.searchParams.delete(k)
+  for (const k of ['p', 'produto', 'jogo', 'chat', 'rateio']) u.searchParams.delete(k)
   if (a === 'inicio') u.searchParams.delete('aba')
   else u.searchParams.set('aba', a)
   return u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + u.hash
@@ -153,6 +153,9 @@ export function iniciarAbas() {
   if (iniciado) return
   iniciado = true
   limparHomeVelha()
+  // link de um rateio (?rateio=, o adesivo de link dos stories) sem aba: a página abre por cima da aba Rateio, e fechar
+  // mostra os outros rateios (troca no lugar, sem entrada nova: voltar ainda sai do site)
+  if (lerParametros().rateio && !lerParametros().aba) atualizarParametros({ aba: 'rateio' })
   const a = abaDaURL()
   const pedida = lerParametros().aba
   // ?aba=inicio ou valor desconhecido (os dois caem no Início): sai da URL, o Início não tem parâmetro

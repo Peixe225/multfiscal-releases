@@ -321,6 +321,14 @@
     --d-avatar: 0.93;
   }
 }
+/* o Rateio só entra nos caminhos do Início onde cabe sem empurrar os filtros (de 560 px em diante: 5 caminhos + fio +
+   "Tudo" inteiro + o seguinte espiando). No celular ele mora na barra de baixo, com o número de abertos, e os destaques
+   ficam nos 4 caminhos aprovados, com os filtros à vista (correção 67f72ee) */
+@media (max-width: 559px) {
+  .destaques-inicio [data-destaque='rateio'] {
+    display: none;
+  }
+}
 @media (max-width: 400px) {
   .destaques-moldura {
     --d-col: 56px;

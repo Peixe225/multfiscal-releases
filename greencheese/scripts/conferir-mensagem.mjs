@@ -2,6 +2,8 @@
 // - Sem cupom, a mensagem tem que ficar byte a byte igual à referência (scripts/mensagem-referencia.txt), gerada
 //   ANTES do cupom existir: o formato que a loja já conhece não muda.
 // - Com cupom, entra UMA linha só, logo depois de "Subtotal:".
+// - Rateio: a mensagem da vaga reservada (com o código), a de quem entra pelo WhatsApp sem servidor (sem código) e a
+//   de quem já tem vaga (ja-participa: só o código, sem conta de vagas que o site não sabe).
 // Uso: node scripts/conferir-mensagem.mjs            → confere
 //      node scripts/conferir-mensagem.mjs --gravar   → (re)grava a referência (só quando o formato mudar de propósito)
 import { rolldown } from 'rolldown'
@@ -94,8 +96,31 @@ if (oficial !== 'Cupom: SORTE-AB12 — Leva 4 Seda OCB Premium Slim e paga 3 (Te
 // o subtotal nunca é recalculado com o cupom
 if (a[iSub] !== b[iSub]) problemas.push('o subtotal mudou com o cupom')
 
+// rateio, no padrão do pedido: a vaga reservada (com o código) e, sem servidor, o pedido pra entrar (sem código)
+const mg = { ...canal, uf: 'mg', nome: 'Minas Gerais', cidades: [{ slug: 'teofilo-otoni', nome: 'Teófilo Otoni' }], instagram: 'greencheese_importsmg' }
+const vaga = { canal: mg, cidade: 'Teófilo Otoni', titulo: 'Arizona Green Tea 680 ml', quantidade: 2, precoRateio: 14.9, codigo: 'RAT-K8EA', nome: 'Ian Teste', whatsapp: '5533991234567' }
+const rateioCom = m.montarRateio(vaga)
+const rateioComEsperada = [
+  'RATEIO GREEN CHEESE — MG / Teófilo Otoni',
+  'Arizona Green Tea 680 ml — 2 vagas × R$ 14,90 = R$ 29,80',
+  'Código: RAT-K8EA',
+  'Nome: Ian Teste',
+  'WhatsApp: (33) 99123-4567',
+  'Quero confirmar minha vaga e pagar.',
+].join('\n')
+if (rateioCom !== rateioComEsperada) problemas.push(`rateio com código veio:\n${rateioCom}`)
+const rateioSem = m.montarRateio({ ...vaga, quantidade: 1, codigo: null, whatsapp: '(33) 99123-4567' })
+const rateioSemEsperada = ['RATEIO GREEN CHEESE — MG / Teófilo Otoni', 'Arizona Green Tea 680 ml — 1 vaga × R$ 14,90 = R$ 14,90', 'Nome: Ian Teste', 'WhatsApp: (33) 99123-4567', 'Quero entrar no rateio.'].join('\n')
+if (rateioSem !== rateioSemEsperada) problemas.push(`rateio sem servidor veio:\n${rateioSem}`)
+// ja-participa: o servidor só devolve o código; a mensagem não inventa quantidade nem total
+const rateioJa = m.montarRateio({ ...vaga, quantidade: null, codigo: 'RAT-MURN' })
+const rateioJaEsperada = ['RATEIO GREEN CHEESE — MG / Teófilo Otoni', 'Arizona Green Tea 680 ml', 'Código: RAT-MURN', 'Nome: Ian Teste', 'WhatsApp: (33) 99123-4567', 'Já tenho vaga nesse rateio. Quero conferir e pagar.'].join('\n')
+if (rateioJa !== rateioJaEsperada) problemas.push(`rateio "já tenho vaga" veio:\n${rateioJa}`)
+// o total que o servidor devolve (somado em centavos) vale mais que a conta do site
+if (!m.montarRateio({ ...vaga, quantidade: 3, total: 44.7 }).includes('3 vagas × R$ 14,90 = R$ 44,70')) problemas.push('rateio: o total do servidor não entrou na mensagem')
+
 if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
-console.log(`mensagem ok: sem cupom igual à referência; com cupom, +1 linha depois do Subtotal:\n${com}`)
+console.log(`mensagem ok: sem cupom igual à referência; com cupom, +1 linha depois do Subtotal:\n${com}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}`)

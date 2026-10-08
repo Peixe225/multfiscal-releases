@@ -172,3 +172,32 @@
     gap: 6px;
   }
 }
+
+/* ---------- aba Rateio: o cabeçalho (o corpo e o resto do rateio baixam à parte, rateio/Rateio.css) ---------- */
+.rv-cab-linha {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* o "?" do título (44 px de alvo) */
+.rv-ajuda {
+  margin: -10px 0 -10px -6px;
+}
+.rv-intro {
+  max-width: 46ch;
+  font: 400 15px/1.4 var(--ui);
+  color: var(--legenda);
+}
+.rv-buscando {
+  min-height: 60vh;
+  padding: 8px var(--gutter);
+  font-size: 14px;
+}
+.rv-falhou {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 40vh;
+  padding: 18px var(--gutter);
+}

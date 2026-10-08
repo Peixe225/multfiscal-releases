@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { gsap } from 'gsap'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
+import { PixelArte } from '../arte/PixelArte'
+import { iconesAbas } from '../arte/pixel/abas'
 import { interativosAtivos, type Interativo } from '../interativos/registro'
 import { semAcento } from '../dados/ufs'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba, type FocoAba } from '../lib/abas'
@@ -13,6 +15,7 @@ import type { Produto } from '../lib/tipos'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
+import { useQuantosAbertos, useRateioNovo } from '../store/rateio'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
 import { StoryQuadro } from './StoryQuadro'
@@ -216,6 +219,43 @@ function DestaqueAba({ aba, foco, rotulo, nome, children }: { aba: Aba; foco?: F
 }
 
 /**
+ * Rateio: caminho pra aba (link de verdade, como os outros), com o anel aceso enquanto tem rateio aberto pro estado e o
+ * selo "novo" até a pessoa ver os abertos na aba. Só de 560 px em diante (Catalogo.css): no celular o Rateio está na
+ * barra de baixo, com o número de abertos, e os filtros do Início continuam à vista.
+ */
+function DestaqueRateio() {
+  const uf = useLocal((s) => s.uf)
+  const n = useQuantosAbertos(uf)
+  const novo = useRateioNovo(uf)
+  return (
+    <a
+      className="destaque destaque-interativo toque"
+      href={hrefAba('rateio')}
+      data-destaque="rateio"
+      aria-label={n ? `Rateio: ${n} ${n === 1 ? 'aberto' : 'abertos'}${novo ? ', novo' : ''}` : 'Rateio: compra junto, paga menos'}
+      onClick={(e) => {
+        if (cliqueDeAba(e)) irParaAba('rateio')
+      }}
+    >
+      <span className="destaque-bola">
+        <span className={`anel-interativo${n ? ' aceso' : ''}`}>
+          <Anel total={1} acesos={n ? 1 : 0} />
+        </span>
+        <span className="destaque-capa">
+          <PixelArte grade={iconesAbas.caixa} tamanho={32} />
+        </span>
+        {novo && (
+          <span className="destaque-novo carimbo" aria-hidden="true">
+            novo
+          </span>
+        )}
+      </span>
+      <span className="destaque-rot">Rateio</span>
+    </a>
+  )
+}
+
+/**
  * Setas nas pontas da linha de destaques do Início (computador com mouse), como a bandeja de destaques do instagram.com:
  * de 900 a ~1170 px a linha não cabe, a barra de rolagem fica escondida e a roda comum desce a página. Só aparecem do
  * lado que ainda tem destaque escondido. Shift + roda também anda de lado (o Lenis engolia o gesto).
@@ -290,9 +330,9 @@ function SetaLinha({ lado, linha }: { lado: 'esq' | 'dir'; linha: RefObject<HTML
 }
 
 /**
- * Destaques do Início, numa linha só: primeiro os que são caminho (o destaque do estado, Buscar, os interativos, Por
- * estado), um fio, e à direita os filtros, que filtram a grade do próprio Início. No celular a linha é mais compacta
- * (Catalogo.css) para o primeiro filtro aparecer inteiro, com o seguinte espiando na borda.
+ * Destaques do Início, numa linha só: primeiro os que são caminho (o destaque do estado, Buscar, Rateio — só em tela
+ * larga —, os interativos, Por estado), um fio, e à direita os filtros, que filtram a grade do próprio Início. No celular
+ * a linha é mais compacta (Catalogo.css) para o primeiro filtro aparecer inteiro, com o seguinte espiando na borda.
  */
 function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
   const uf = useLocal((s) => s.uf)
@@ -309,6 +349,7 @@ function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: st
           <DestaqueAba aba="catalogo" foco="busca" rotulo="Buscar" nome="Buscar no catálogo">
             <Icone nome="lupa" tamanho={32} />
           </DestaqueAba>
+          <DestaqueRateio />
           {interativosAtivos().map((i) => (
             <DestaqueInterativo key={i.id} i={i} />
           ))}

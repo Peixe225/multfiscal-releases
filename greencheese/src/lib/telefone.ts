@@ -82,7 +82,8 @@ function posicaoDoDigito(v: string, n: number): number {
  * - Apagar um caractere da máscara ("(", ")", espaço, "-") apaga o dígito do lado dele (Backspace: o da esquerda;
  *   Delete: o da direita), nunca o último.
  * - Com os 11 dígitos completos, digitar mais um não empurra o último pra fora (não troca o número sem avisar).
- * - Colar (ou o preenchimento automático) com +55, 0 ou espaços normaliza e põe o cursor no fim.
+ * - Colar (ou o preenchimento automático) com +55, 0 ou espaços normaliza e põe o cursor no fim; colar o mesmo número
+ *   sem máscara por cima dele mesmo não apaga nada.
  */
 export function editarCelular(antes: string, bruto: string, cursor: number, tipo: string): { valor: string; cursor: number } {
   const digAntes = antes.replace(/\D/g, '')
@@ -91,7 +92,11 @@ export function editarCelular(antes: string, bruto: string, cursor: number, tipo
   if ((tipo === 'insertText' || tipo === 'insertCompositionText') && digAntes.length >= 11 && dig.length > 11) {
     return { valor: antes, cursor: Math.max(0, cursor - (bruto.length - antes.length)) }
   }
-  if (dig === digAntes && bruto.length < antes.length) {
+  // mesmos dígitos com o texto mais curto: só é "apagou um caractere da máscara" quando a edição foi de apagar. Colar
+  // (ou o preenchimento automático) o MESMO número sem a máscara por cima de tudo também encurta o texto, e aí os
+  // dígitos valem como vieram (antes o último dígito sumia: "(33) 99123-456")
+  const apagou = tipo.startsWith('delete') || (tipo === '' && antes.length - bruto.length === 1)
+  if (dig === digAntes && bruto.length < antes.length && apagou) {
     if (tipo === 'deleteContentForward') dig = dig.slice(0, esq) + dig.slice(esq + 1)
     else if (esq > 0) {
       dig = dig.slice(0, esq - 1) + dig.slice(esq)

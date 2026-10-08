@@ -2,6 +2,7 @@ import type { Canal, FormaPagamento } from '../dados/canais'
 import { config } from '../dados/config'
 import { brl } from './formato'
 import { calcularLinha } from './preco'
+import { formatarCelular } from './telefone'
 import type { Produto } from './tipos'
 
 export interface LinhaPedido {
@@ -113,6 +114,44 @@ export function montarEncomenda(d: DadosEncomenda): string {
   return out.join('\n')
 }
 
+export interface DadosRateio {
+  canal: Canal
+  cidade?: string | null
+  /** Título do rateio como a loja escreveu ("Arizona Green Tea 680 ml"). */
+  titulo: string
+  /**
+   * Vagas desta mensagem. null = a vaga já existe e o site não sabe quantas são (o servidor disse ja-participa, com o
+   * código): a linha do produto sai sem conta e a mensagem pede pra loja conferir. Nunca uma conta que pode estar errada.
+   */
+  quantidade: number | null
+  precoRateio: number
+  /** Total que o servidor devolveu (soma em centavos); sem ele, quantidade × preço. */
+  total?: number
+  /** RAT-XXXX da vaga reservada. Sem código (servidor fora do ar), a mensagem pede pra entrar. */
+  codigo?: string | null
+  nome: string
+  /** Só dígitos, com ou sem o 55. */
+  whatsapp: string
+}
+
+/**
+ * Mensagem do rateio, no padrão do pedido: a vaga reservada (com código), o pedido pra entrar (sem servidor) ou, sem
+ * quantidade, a vaga que já existe com aquele código (a loja confere quantas vagas e quanto).
+ */
+export function montarRateio(d: DadosRateio): string {
+  const out = [cabecalho('RATEIO', d.canal, d.cidade)]
+  if (d.quantidade == null) out.push(d.titulo.trim())
+  else {
+    const total = d.total ?? Math.round(d.quantidade * d.precoRateio * 100) / 100
+    out.push(`${d.titulo.trim()} — ${d.quantidade} ${d.quantidade === 1 ? 'vaga' : 'vagas'} × ${brl(d.precoRateio)} = ${brl(total)}`)
+  }
+  if (d.codigo) out.push(`Código: ${d.codigo}`)
+  out.push(`Nome: ${d.nome.trim()}`)
+  out.push(`WhatsApp: ${formatarCelular(d.whatsapp.replace(/\D/g, '').replace(/^55(?=\d{11}$)/, ''))}`)
+  out.push(!d.codigo ? 'Quero entrar no rateio.' : d.quantidade == null ? 'Já tenho vaga nesse rateio. Quero conferir e pagar.' : 'Quero confirmar minha vaga e pagar.')
+  return out.join('\n')
+}
+
 export function montarAviso(canal: Canal, cidade: string | null | undefined, produto: Produto): string {
   return [
     cabecalho('AVISA QUANDO CHEGAR', canal, cidade),
@@ -126,7 +165,7 @@ export function whatsappDoCanal(canal: Canal): string {
   return (canal.whatsapp ?? config.whatsappPedidos).replace(/\D/g, '')
 }
 
-/** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) usa. */
+/** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) e o rateio usam. */
 export function linkWhatsApp(canal: Canal, texto: string): string {
   return `https://wa.me/${whatsappDoCanal(canal)}?text=${encodeURIComponent(texto)}`
 }
