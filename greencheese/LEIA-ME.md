@@ -110,6 +110,18 @@ O site é um app só, com três abas no molde do Instagram. O **Início** é o p
 
 > Num estado sem entrega (ex.: `?uf=ba`) o Início vira a tela "A Green Cheese ainda não chegou aí", sem destaques nem grade.
 
+## Início vivo e Mercado
+
+**Elenco da rua em pixel art** (pronto; a cena do Início e a aba Mercado entram na próxima etapa). Tudo em `src/arte/pixel/rua/`, na mesma escala de pixel do mercador do repost e com a mesma luz (poste e néon fraco vindo de cima: a borda de cima da silhueta acende, como o aro cinza do casaco dele):
+
+- **Mercador** (`mercador.ts`): os movimentos novos saem das grades que ele já tem (corpo da sacola vazia de casaco fechado, corpo do repost para abrir o casaco). `parado` (respira), `olhar`, `andar` (6 quadros, a lanterna e a barra do casaco chegam atrasadas), `beber` (tira a Fanta Ghost Face Punch do casaco, gole de cabeça inclinada, guarda), `passar`, `receber`, `acenar`, `rir`, `aprovar`, `abrir` / `mostrar` / `fechar` (o forro da direita com Fanta, Arizona, seda, Coca-Cola Vanilla e piteira de vidro; o da esquerda com as camadas do repost, só acessórios), `toque` (com o MC) e `carinho` (no gato).
+- **Clientes**: `skatista.ts` (rodar, frear arrastando o pé, parado com o pé no skate, apontar, pegar, pagar, reagir com pop shove-it, subir, remar, ollie), `motoboy.ts` (chegar, encostar, parado com o motor tremendo, abrir e fechar a viseira, pegar e guardar na bag GC, sair acelerando, reagir piscando o farol e fazendo joia), `mc.ts` (chegar no beat, parado no beat, toque em 3 tempos, pegar a lata de Arizona, sair dançando, reagir em pose de b-boy), `turista.ts` (chegar lendo o mapa, espantar, foto com flash, pegar a piteira, pagar, sair feliz, reagir com selfie) e `gato.ts` (opcional: andar, pular, parado, carinho).
+- **Itens e efeitos** (`itens.ts`): latas (Fanta Ghost Face Punch, Arizona Green Tea, Coca-Cola Vanilla), livreto de seda, piteira de vidro, sacola GC, nota, moeda girando, flash, linhas de velocidade, notas musicais. **Cenário** (`cenario.ts`): ladrilhos de muro, calçada, meio-fio e asfalto; poste com a luz em pontilhado, porta de enrolar com o letreiro GC em neon, engradados e a sombra de chão de cada um.
+- **Formato** (`modelo.ts`): cada personagem tem `w × h`, `ancora` (meio dos pés, na linha do chão), `cores` (paleta por índice, 0 = transparente) e `animacoes`; cada animação tem os quadros `dir` (olhando para a direita) e `esq` (já espelhados, com o GC legível), e cada quadro traz `px` (índice da cor por pixel), `ms`, `passo` (quanto anda até o próximo quadro, para o pé não escorregar), `mao` (onde o item segurado é desenhado) e `evento` (`oferece`, `pega`, `paga`, `recebe`, `toque1`–`toque3`, `flash`, `arranca`, `nota`, `carinho`…). `desenhar.ts` faz a prancha de cada um e desenha com `drawImage` sem suavizar. Para uma troca, o cliente fica com a mão dele (no quadro do evento) no x da mão do mercador.
+- **Escala**: 3 px por pixel no celular (o mercador fica com 132 × 192, como no repost), 2 quando precisa caber mais gente, 3 a 5 no computador — sempre inteira e no pixel do aparelho.
+- Na cena, nada de álcool ou tabaco: o mercador bebe refrigerante importado da loja e o forro só mostra refrigerante e acessório.
+- **Laboratório** (`lab/`, fora do git): `npx vite --port 4660` e abrir `/lab/rua.html` (cada animação tocando em tamanho de tela, pranchas quadro a quadro, a rua em 360 px, o ensaio das trocas de mão); prints com `node lab/rua.shots.mjs <pasta> 4660`; pranchas sem navegador com `node --experimental-strip-types --import ./lab/rua/registrar.mjs lab/rua/pranchas.mjs <pasta>`.
+
 ---
 
 ## Onde trocar cada coisa

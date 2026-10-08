@@ -51,6 +51,15 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 - Ele também aparece na **sacola vazia**, de casaco fechado erguendo a garrafa (`src/arte/pixel/mercador-garrafa.ts`, no lugar do bonequinho de boné, a pedido do cliente). Se o mercador for trocado, as duas grades vão juntas.
 - Com ele, a **sacola vazia ficou 13,5 px mais alta**: a grade do mercador dá 192 px de altura nos mesmos 132 de largura (o bonequinho dava 181,5) e 3 px embaixo mantêm a sombra à mesma distância do adesivo. Onde a folha cabe na tela, só o topo dela sobe; os pés do mercador, o adesivo, o cupom e os stories ficam no mesmo lugar. Em tela baixa, onde a folha já rolava, ela rola 13,5 px a mais (320×568: 67 → 81 px; celular deitado: 219 → 232 px). Para voltar à altura de antes, dá para tirar o respiro de cima (`.sacola-vazia`, `padding-top` 28 → 14,5 px), mas aí o mercador sobe e quase encosta no título da folha (em tela de 125%, a garrafa fica a 1,7 px da linha embaixo do título).
 
+## Mercador e elenco
+
+- O **mercador é personagem da Capcom** (Resident Evil 4). Com o Início vivo ele aparece mais (anda, bebe, vende na cena do Início, além do repost e da sacola vazia): a decisão de assumir o uso ou trocar por uma figura própria vale para os três lugares, e as grades vão juntas (`src/arte/pixel/mercador.ts`, `mercador-garrafa.ts` e `src/arte/pixel/rua/mercador.ts`).
+- O **elenco novo é original**, desenhado para a Green Cheese: skatista, motoboy, MC, turista e o gato. Pode ser usado sem pedir licença a ninguém.
+- **Na cena, sem álcool e sem tabaco** (Lei 9.294/1996 e as regras da Meta): o mercador bebe a Fanta Ghost Face Punch, o forro do casaco mostra só refrigerante e acessório (o uísque, o gin e o isqueiro do repost não entram), e nada aparece aceso. O skatista leva um livreto de seda e o turista uma piteira de vidro, acessórios que a loja vende; se a loja preferir, o item da mão troca por uma lata numa linha (os itens são desenhados à parte).
+- A **camisa do turista é de bolinhas** coloridas, não a estampa havaiana de sempre: os desenhos dela caem na lista de imagens que o site não usa.
+- A lata da Fanta Ghost Face Punch traz a máscara do Ghostface da embalagem do produto (marca de terceiros): aparece só como a lata que a loja vende.
+- O **gato** é opcional: entra se a cena ficar boa com ele, sem poluir.
+
 ## Página do produto
 
 - **Descrições** (`descricao` no `catalogo.json`): escritas só com fatos públicos e certos de cada produto, em tom neutro. **Confirmar com a loja** antes da versão oficial, principalmente as dos 9 produtos de exemplo.
