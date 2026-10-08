@@ -126,6 +126,8 @@ interface PropsEntrada {
 
 /** Adesivo "Adicione o seu": a entrada no rateio. Já dentro, vira "Tu tá nesse rateio" com o código. */
 function Entrada({ rateio, href, aoTocar, codigo }: PropsEntrada) {
+  // a API conta vagas, não pessoas (o dono pode baixar o limite por pessoa depois que alguém pegou mais de uma): o
+  // adesivo fala das vagas que sobram, nunca de "N participando"
   const sobra = rateio.disponiveis
   const sub = codigo ? `Código ${codigo}` : sobra === rateio.vagas ? `${sobra} ${sobra === 1 ? 'vaga livre' : 'vagas livres'}` : `${sobra === 1 ? 'sobra' : 'sobram'} ${vagasTexto(sobra)}`
   // com vários cartões, cada entrada diz de qual rateio é (o texto à vista vem junto, no começo)
@@ -253,7 +255,8 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
         </div>
         <div className="rt-adesivos">
           <Contador rateio={r} />
-          {podeEntrar && (hrefEntrar || aoEntrar) && <Entrada rateio={r} href={hrefEntrar} aoTocar={aoEntrar} codigo={codigo} />}
+          {/* já dentro, o "Tu tá nesse rateio" fica mesmo quando não dá mais pra entrar (vagas tomadas, prazo) */}
+          {(podeEntrar || (aberto && !foraDoEstado && !!codigo)) && (hrefEntrar || aoEntrar) && <Entrada rateio={r} href={hrefEntrar} aoTocar={aoEntrar} codigo={codigo} />}
           {aberto && !foraDoEstado && !podeEntrar && !codigo && <p className="rt-aviso-adesivo">{prazo ? 'O prazo pra entrar acabou' : 'Vagas tomadas: esperando os pagamentos'}</p>}
           {apagado && <p className="rt-aviso-adesivo">Só pra {listaUfs(r.ufs)}</p>}
         </div>
@@ -269,7 +272,7 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
             <>
               <LinhaDoTempo rateio={r} />
               <p>
-                {r.status === 'chegou' || r.status === 'encerrado' ? 'Chegou. A loja chama cada um pra entregar.' : `${textoPrevisao(r)}${janela ? ` Previsão: ${janela}.` : ''}`}
+                {r.status === 'encerrado' ? 'Entregue a todos.' : r.status === 'chegou' ? 'Chegou. A loja chama cada um pra entregar.' : `${textoPrevisao(r)}${janela ? ` Previsão: ${janela}.` : ''}`}
               </p>
             </>
           )}

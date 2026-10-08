@@ -16,6 +16,12 @@ interface Props {
   rodape?: ReactNode
   children: ReactNode
   className?: string
+  /**
+   * Corpo só de texto, que pode passar da altura da tela (ex.: "Como funciona"): o corpo vira uma região com nome,
+   * focável e com o foco ao abrir, pra setas, PageDown e Espaço rolarem (sem nada focável dentro, o teclado não chegava
+   * no fim do texto).
+   */
+  rotuloCorpo?: string
 }
 
 /** Para onde o foco volta quando cada folha aberta fechar (a folha aberta de dentro de outra herda a reserva dela). */
@@ -28,7 +34,7 @@ export function folhaDoTopo(): HTMLElement | null {
 }
 
 /** Folha que sobe de baixo: preto puro, canto em degrau, fio cinza. Arrastar a alça para baixo fecha. */
-export function Folha({ id, aberta, aoFechar, rotulo, cabecalho, rodape, children, className }: Props) {
+export function Folha({ id, aberta, aoFechar, rotulo, cabecalho, rodape, children, className, rotuloCorpo }: Props) {
   const [montada, setMontada] = useState(aberta)
   const folha = useRef<HTMLDivElement>(null)
   const cortina = useRef<HTMLDivElement>(null)
@@ -174,7 +180,13 @@ export function Folha({ id, aberta, aoFechar, rotulo, cabecalho, rodape, childre
             <Icone nome="fechar" tamanho={20} />
           </button>
         </div>
-        <div className="folha-corpo">{children}</div>
+        {rotuloCorpo ? (
+          <div className="folha-corpo" role="region" aria-label={rotuloCorpo} tabIndex={0} data-foco-inicial>
+            {children}
+          </div>
+        ) : (
+          <div className="folha-corpo">{children}</div>
+        )}
         {rodape && <div className="folha-rodape">{rodape}</div>}
       </div>
     </>

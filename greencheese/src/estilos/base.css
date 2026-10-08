@@ -379,6 +379,10 @@ ol {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+/* corpo focável (só texto, rola pelo teclado): o anel por dentro, a folha corta o que passa da borda */
+.folha-corpo:focus-visible {
+  outline-offset: -2px;
+}
 .folha-rodape {
   border-top: 1px solid var(--bolha);
   padding: 12px var(--gutter);

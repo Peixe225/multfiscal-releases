@@ -1,14 +1,32 @@
 // Minhas vagas: o status de cada vaga guardada neste aparelho, perguntado ao servidor (baixa com a aba Rateio). Vão
 // junto os tokens das entradas sem resposta (o POST que demorou): se o servidor gravou, a vaga aparece.
+// O servidor limita essa rota por IP (120 por hora na F8, e vários aparelhos dividem o IP no Wi-Fi e no 4G): no máximo
+// 1 pedido por minuto por aparelho (a aba repete a cada 3 min, só com vaga andando) e, com muitas-tentativas, espera o
+// tempo que o servidor mandar antes de perguntar de novo.
 import type { Participacao } from './rateio-api'
 import { buscarMinhasVagas } from './rateio-vagas'
 import { apararVagas, marcarServidorVisto, useRateio, type EntradaPendente, type VagaGuardada } from '../store/rateio'
 
 let buscandoVagas: Promise<void> | null = null
+/** Último pedido (relógio do aparelho) e, depois de um muitas-tentativas, até quando não perguntar. */
+let ultimoPedido = 0
+let esperarAte = 0
+const INTERVALO_MINIMO = 60_000
+/** Sem dizer quanto esperar, o muitas-tentativas segura 10 min. */
+const ESPERA_PADRAO = 600
 
 /** A participação que o servidor devolveu + o que a pessoa preencheu na entrada pendente. */
 function vagaDaPendente(p: Participacao, e: EntradaPendente): VagaGuardada {
-  return { ...p, titulo: p.titulo || e.titulo, token: e.token, nome: e.nome, whatsapp: e.whatsapp, uf: e.uf, cidade: e.cidade, precoRateio: e.precoRateio }
+  return { ...p, titulo: p.titulo || e.titulo, token: e.token, nome: e.nome, whatsapp: e.whatsapp, uf: e.uf, cidade: e.cidade, precoRateio: e.precoRateio, ...(e.paraOutro ? { paraOutro: true } : {}) }
+}
+
+/**
+ * Vale perguntar ao servidor: tem entrada pendente ou vaga que ainda pode mudar (reservada esperando pagamento, ou paga
+ * com o rateio ainda andando). Vencida, cancelada, entregue ou com o rateio encerrado não muda mais.
+ */
+export function temVagaAndando(): boolean {
+  const s = useRateio.getState()
+  return s.pendentes.length > 0 || s.vagas.some((v) => !!v.token && (v.status === 'reservado' || (v.status === 'confirmado' && v.rateioStatus !== 'encerrado' && v.rateioStatus !== 'cancelado')))
 }
 
 /** Junta o que veio do servidor nas vagas guardadas e transforma as pendentes achadas em vagas. */
@@ -30,16 +48,28 @@ function juntar(participacoes: Participacao[]) {
   })
 }
 
-/** GET minhas-vagas: atualiza o status de cada vaga guardada (sem servidor, fica o que já estava). */
+/** Guarda até quando não perguntar de novo (o servidor disse muitas-tentativas). */
+function recuar(segundos: number | undefined) {
+  esperarAte = Date.now() + (segundos ?? ESPERA_PADRAO) * 1000
+}
+
+/**
+ * GET minhas-vagas: atualiza o status de cada vaga guardada (sem servidor, fica o que já estava). No máximo 1 por minuto
+ * e nunca enquanto o servidor pede pra esperar.
+ */
 export function atualizarMinhasVagas(): Promise<void> {
   if (buscandoVagas) return buscandoVagas
+  const agora = Date.now()
+  if (agora < esperarAte || agora - ultimoPedido < INTERVALO_MINIMO) return Promise.resolve()
   const s = useRateio.getState()
   // até 20 por pedido (o limite da API): as pendentes primeiro (são poucas e só servem se forem perguntadas)
   const tokens = [...s.pendentes.map((p) => p.token), ...s.vagas.map((v) => v.token)].filter(Boolean)
   if (!tokens.length) return Promise.resolve()
+  ultimoPedido = agora
   buscandoVagas = (async () => {
     const r = await buscarMinhasVagas(tokens)
     if (!r.ok) {
+      if (r.erro === 'muitas-tentativas') recuar(r.esperaSegundos)
       if (r.erro !== 'sem-servidor' && r.erro !== 'fora-do-ar') marcarServidorVisto()
       return
     }
@@ -55,8 +85,12 @@ export function atualizarMinhasVagas(): Promise<void> {
  * disse ja-participa). Achou: guarda a vaga e devolve; senão, null.
  */
 export async function recuperarPendente(e: EntradaPendente): Promise<VagaGuardada | null> {
+  if (Date.now() < esperarAte) return null
   const r = await buscarMinhasVagas([e.token])
-  if (!r.ok) return null
+  if (!r.ok) {
+    if (r.erro === 'muitas-tentativas') recuar(r.esperaSegundos)
+    return null
+  }
   const p = r.participacoes.find((x) => x.token === e.token)
   if (!p) return null
   juntar([p])

@@ -118,6 +118,15 @@ export function vagaAtiva(v: VagaGuardada, agora: number): boolean {
   return v.status === 'reservado' && (!v.expiraEm || Date.parse(v.expiraEm) > agora)
 }
 
+/**
+ * "Tua vaga" num rateio: a vaga ativa deste aparelho que é do dono (a do WhatsApp dele primeiro). A feita pelo "Entrar
+ * com outro WhatsApp" é de outra pessoa: aparece em Minhas vagas, mas nunca como "Tua vaga" nem no cartão.
+ */
+export function vagaDoAparelho(vagas: VagaGuardada[], rateio: string, agora: number, zapDono: string | null): VagaGuardada | undefined {
+  const ativas = vagas.filter((v) => v.rateio === rateio && !v.paraOutro && vagaAtiva(v, agora))
+  return (zapDono ? ativas.find((v) => v.whatsapp === zapDono) : undefined) ?? ativas[0]
+}
+
 /** O status que a pessoa vê: a reserva vencida aparece vencida mesmo antes do servidor marcar. */
 export function statusVisto(v: VagaGuardada, agora: number): StatusVaga {
   if (v.status === 'reservado' && v.expiraEm && Date.parse(v.expiraEm) <= agora) return 'expirado'

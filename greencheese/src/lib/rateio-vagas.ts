@@ -36,7 +36,8 @@ export async function buscarRateio(id: string): Promise<RespostaRateio<{ rateio:
   const r = await chamar(`rateio&id=${encodeURIComponent(id)}`)
   if (!r.ok) return r
   const rateio = lerRateio(r.dados.rateio)
-  return rateio ? { ok: true, rateio } : falha('sem-servidor')
+  // respondeu em JSON, mas torto: o servidor existe (nunca "sem servidor")
+  return rateio ? { ok: true, rateio } : falha('erro-interno')
 }
 
 export interface PedidoEntrada {
@@ -79,6 +80,6 @@ export async function buscarMinhasVagas(tokens: string[]): Promise<RespostaRatei
   if (!lista.length) return { ok: true, participacoes: [] }
   const r = await chamar(`minhas-vagas&t=${lista.join(',')}`)
   if (!r.ok) return r
-  if (!Array.isArray(r.dados.participacoes)) return falha('sem-servidor')
+  if (!Array.isArray(r.dados.participacoes)) return falha('erro-interno')
   return { ok: true, participacoes: r.dados.participacoes.map((x) => lerParticipacao(x, false)).filter((x): x is Participacao => !!x) }
 }

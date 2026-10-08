@@ -1,8 +1,9 @@
 // Matriz de celulares: rolagem lateral e alvos de toque em cada aba, barra de abas, voltar entre abas, story cabendo
 // na tela com gestos de toque reais, chat pela linha de resposta do story e o Início (story → faixa → rua viva →
 // perfil → destaques com as abas primeiro, o fio e os filtros → grade → rodapé, o mercador só na rua, sem Teste minha
-// sorte e sem repost no fim; o "Tudo" inteiro e o filtro seguinte espiando na primeira tela da linha; o filtro filtra a grade do
-// próprio Início; a faixa só com os perfis confirmados). Também: celular deitado (story do hero inteiro acima da
+// sorte e sem repost no fim; as abas primeiro, inteiras (as 5, com o Rateio, de 360 px em diante), e o primeiro destaque
+// que não cabe espiando na borda da primeira tela, o sinal de que a linha continua (o "Tudo" não precisa caber inteiro);
+// o filtro filtra a grade do próprio Início; a faixa só com os perfis confirmados). Também: celular deitado (story do hero inteiro acima da
 // barra, nada encavalado), celular grande deitado com o layout de computador (lateral rola, Por estado alcançável) e
 // o teclado do Android (interactive-widget=resizes-content: a janela encolhe e a barra de abas sai). A API do rateio
 // responde como "sem servidor" (o zip, o preview sem PHP): os rateios de exemplo, sem erro no console.
@@ -135,10 +136,9 @@ const abaAberta = (p) => p.evaluate(() => document.querySelector('.vista:not([hi
 
 /**
  * O Início, de cima a baixo: story, faixa, rua viva (o mercador mora nela), perfil (com "Ver loja"), destaques, grade
- * (a caixa de encomenda por último) e o rodapé. Destaques: o grupo das abas (estado, Buscar, interativos, Por estado;
- * o Rateio fica na barra de baixo e só entra nos destaques de 560 px em diante), o fio e o grupo dos filtros. Nada do
- * fim da aba Mercado (Teste minha sorte) e nenhum mercador de repost (o do topo do Mercado). Ids próprios (o #catalogo
- * é da aba Mercado, que o chat e a rolagem usam).
+ * (a caixa de encomenda por último) e o rodapé. Destaques: o grupo das abas (estado, Buscar, Rateio, interativos, Por
+ * estado), o fio e o grupo dos filtros. Nada do fim da aba Mercado (Teste minha sorte) e nenhum mercador de repost (o do
+ * topo do Mercado). Ids próprios (o #catalogo é da aba Mercado, que o chat e a rolagem usam).
  */
 async function conferirInicio(p, nome) {
   const r = await p.evaluate(() => {
@@ -155,14 +155,18 @@ async function conferirInicio(p, nome) {
     const filtros = v?.querySelector('.destaques-inicio [role="group"][aria-label="Categorias"]')
     const ordemDestaques = nav && fio && filtros ? !!(nav.compareDocumentPosition(fio) & 4) && !!(fio.compareDocumentPosition(filtros) & 4) : false
     const fioB = fio?.getBoundingClientRect()
-    // a linha na primeira tela (sem arrastar): quanto aparece do 1º e do 2º filtro
+    // a linha na primeira tela (sem arrastar): quanto aparece de cada destaque, na ordem (abas, depois filtros), dentro
+    // da caixa da própria linha
+    const linhaEl = v?.querySelector('.destaques-inicio')
+    const lb = linhaEl?.getBoundingClientRect()
     const visivel = (e) => {
-      const b = e?.getBoundingClientRect()
-      return b ? { px: Math.max(0, Math.min(b.right, innerWidth) - Math.max(b.left, 0)), w: b.width } : null
+      const b = e.getBoundingClientRect()
+      return { nome: (e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 16), px: Math.max(0, Math.min(b.right, lb.right) - Math.max(b.left, lb.left)), w: b.width }
     }
-    const [f1, f2] = filtros ? [...filtros.querySelectorAll('[aria-pressed]')] : []
+    const caminhosEl = nav ? [...nav.children].filter((e) => e.getClientRects().length > 0) : []
+    const filtrosEl = filtros ? [...filtros.querySelectorAll('[aria-pressed]')] : []
     return {
-      linha: { tudo: visivel(f1), seguinte: visivel(f2), larg: innerWidth },
+      linha: lb ? { itens: [...caminhosEl, ...filtrosEl].map(visivel), larg: innerWidth, rola: linhaEl.scrollWidth > linhaEl.clientWidth + 1, sl: linhaEl.scrollLeft } : null,
       faixaAConfirmar: /confirmar|importsvv/i.test(v?.querySelector('.faixa')?.textContent ?? ''),
       setas: v?.querySelectorAll('.destaques-seta').length ?? 0,
       ordem: ['.hero', '.faixa', '.rua-vaga', '.so-celular .perfil', '.destaques-inicio', '.catalogo-inicio .grade'].map(topo),
@@ -170,7 +174,7 @@ async function conferirInicio(p, nome) {
       rodape: rodape ? rodape.getBoundingClientRect().top + scrollY : null,
       ultimoCaixa: !!ultimo?.classList.contains('card-caixa'),
       ordemDestaques,
-      // só os caminhos à vista (o do Rateio existe, escondido, abaixo de 560 px)
+      // só os caminhos à vista
       abas: nav ? [...nav.children].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute('data-destaque') ?? (e.classList.contains('destaque-interativo') ? 'interativo' : 'estado')) : [],
       filtros: filtros ? filtros.querySelectorAll('[aria-pressed]').length : 0,
       fio: fioB ? { w: fioB.width, h: fioB.height } : null,
@@ -194,7 +198,8 @@ async function conferirInicio(p, nome) {
   if (r.gradeFim != null && r.rodape != null && (r.rodape < r.gradeFim - 1 || r.rodape - r.gradeFim > 120)) problemas.push(`${nome}: o rodapé não vem logo depois da grade (${Math.round(r.gradeFim)} → ${Math.round(r.rodape)})`)
   if (!r.ultimoCaixa) problemas.push(`${nome}: a caixa de encomenda não é a última célula da grade do Início`)
   if (!r.ordemDestaques) problemas.push(`${nome}: destaques do Início fora da ordem abas → fio → filtros`)
-  if (JSON.stringify(r.abas) !== JSON.stringify(['estado', 'catalogo', 'interativo', 'estados'])) problemas.push(`${nome}: abas dos destaques ${JSON.stringify(r.abas)}`)
+  // o Rateio logo depois de Buscar, também no celular (pedido do Rateio: "ajuste os tamanhos")
+  if (JSON.stringify(r.abas) !== JSON.stringify(['estado', 'catalogo', 'rateio', 'interativo', 'estados'])) problemas.push(`${nome}: abas dos destaques ${JSON.stringify(r.abas)}`)
   if (r.filtros < 6) problemas.push(`${nome}: só ${r.filtros} filtros nos destaques do Início`)
   if (!r.fio || r.fio.w > 1.5 || r.fio.h < 20) problemas.push(`${nome}: fio entre abas e filtros ${JSON.stringify(r.fio)}`)
   if (r.fimCatalogo) problemas.push(`${nome}: o Início ainda tem o fim da aba Catálogo (Teste minha sorte/repost)`)
@@ -203,14 +208,21 @@ async function conferirInicio(p, nome) {
   if (r.ruaAltura < 150 || r.ruaAltura > 190) problemas.push(`${nome}: a faixa da rua com ${r.ruaAltura} px (150–190)`)
   if (r.idsRepetidos) problemas.push(`${nome}: #catalogo/#catalogo-titulo repetidos no Início`)
   if (r.busca) problemas.push(`${nome}: busca ou "Só DISPONÍVEL" no Início`)
-  // os filtros aparecem na primeira tela da linha: de 360 px em diante o "Tudo" inteiro e o seguinte espiando na borda
-  // (o sinal de que a linha rola); em 320, ao menos um pedaço do "Tudo"
-  const { tudo, seguinte, larg } = r.linha
-  if (!tudo || !seguinte) problemas.push(`${nome}: filtros dos destaques sem medida`)
-  else if (larg >= 360) {
-    if (tudo.px < tudo.w - 0.5) problemas.push(`${nome}: o "Tudo" não aparece inteiro na linha de destaques (${Math.round(tudo.px)} de ${Math.round(tudo.w)} px)`)
-    if (seguinte.px < 8 || seguinte.px > seguinte.w - 4) problemas.push(`${nome}: o filtro seguinte não espia na borda (${Math.round(seguinte.px)} de ${Math.round(seguinte.w)} px)`)
-  } else if (tudo.px < 24) problemas.push(`${nome}: o "Tudo" mal aparece na linha de destaques (${Math.round(tudo.px)} px)`)
+  // a linha de destaques na primeira tela (pedido do Ian: as abas primeiro, os filtros à direita): as abas inteiras (as 5
+  // de 360 px em diante; em 320, as 4 primeiras) e o primeiro destaque que não cabe espiando na borda, de 8 px até quase
+  // inteiro, o sinal de que a linha continua. O "Tudo" não precisa caber inteiro
+  if (!r.linha) problemas.push(`${nome}: linha de destaques sem medida`)
+  else {
+    const { itens, larg, rola, sl } = r.linha
+    const inteiro = (c) => c.px >= c.w - 0.5
+    const abasInteiras = larg >= 360 ? 5 : 4
+    if (sl > 0) problemas.push(`${nome}: a linha de destaques não começa do início (${sl} px)`)
+    if (itens.length < abasInteiras || itens.slice(0, abasInteiras).some((c) => !inteiro(c))) problemas.push(`${nome}: aba dos destaques cortada na primeira tela (${itens.slice(0, 5).map((c) => Math.round(c.px)).join('/')})`)
+    const corte = itens.find((c) => !inteiro(c))
+    if (!corte) {
+      if (rola) problemas.push(`${nome}: a linha de destaques rola, mas nada fica cortado na borda`)
+    } else if (corte.px < 8 || corte.px > corte.w - 4) problemas.push(`${nome}: nada espia na borda da linha de destaques (o "${corte.nome}" mostra ${Math.round(corte.px)} de ${Math.round(corte.w)} px)`)
+  }
   if (r.faixaAConfirmar) problemas.push(`${nome}: perfil a confirmar na faixa dos @`)
   // as setas da linha são do computador com mouse; no celular a linha anda com o dedo
   if (r.setas) problemas.push(`${nome}: setas da linha de destaques no celular`)

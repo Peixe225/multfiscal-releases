@@ -2,8 +2,9 @@
 // - Sem cupom, a mensagem tem que ficar byte a byte igual à referência (scripts/mensagem-referencia.txt), gerada
 //   ANTES do cupom existir: o formato que a loja já conhece não muda.
 // - Com cupom, entra UMA linha só, logo depois de "Subtotal:".
-// - Rateio: a mensagem da vaga reservada (com o código), a de quem entra pelo WhatsApp sem servidor (sem código) e a
-//   de quem já tem vaga (ja-participa: só o código, sem conta de vagas que o site não sabe).
+// - Rateio: a mensagem da vaga reservada (com o código), a de quem entra pelo WhatsApp sem servidor (sem código), a
+//   de quem já tem vaga (ja-participa: só o código, sem conta de vagas que o site não sabe) e a da loja fora do ar
+//   (a aba sem os rateios, ou a página de um, com o link).
 // Uso: node scripts/conferir-mensagem.mjs            → confere
 //      node scripts/conferir-mensagem.mjs --gravar   → (re)grava a referência (só quando o formato mudar de propósito)
 import { rolldown } from 'rolldown'
@@ -119,8 +120,16 @@ if (rateioJa !== rateioJaEsperada) problemas.push(`rateio "já tenho vaga" veio:
 // o total que o servidor devolve (somado em centavos) vale mais que a conta do site
 if (!m.montarRateio({ ...vaga, quantidade: 3, total: 44.7 }).includes('3 vagas × R$ 14,90 = R$ 44,70')) problemas.push('rateio: o total do servidor não entrou na mensagem')
 
+// loja fora do ar: a aba sem os rateios (com e sem estado escolhido) e a página de um rateio (com o link)
+const foraAba = m.montarRateioSemConexao(mg, 'Teófilo Otoni')
+if (foraAba !== 'RATEIO GREEN CHEESE — MG / Teófilo Otoni\nQuero entrar num rateio. Quais estão abertos?') problemas.push(`rateio fora do ar (aba) veio:\n${foraAba}`)
+if (m.montarRateioSemConexao(null) !== 'RATEIO GREEN CHEESE\nQuero entrar num rateio. Quais estão abertos?') problemas.push('rateio fora do ar sem estado: cabeçalho errado')
+const foraPagina = m.montarRateioSemConexao(mg, 'Teófilo Otoni', 'https://oprojeto.online/greencheese/?aba=rateio&rateio=arizona-green-tea')
+if (foraPagina !== 'RATEIO GREEN CHEESE — MG / Teófilo Otoni\nQuero entrar nesse rateio: https://oprojeto.online/greencheese/?aba=rateio&rateio=arizona-green-tea') problemas.push(`rateio fora do ar (página) veio:\n${foraPagina}`)
+if (!m.linkWhatsAppLoja(null, 'x').startsWith('https://wa.me/5533991139036?text=')) problemas.push('rateio fora do ar sem estado: não foi pro WhatsApp da loja')
+
 if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
-console.log(`mensagem ok: sem cupom igual à referência; com cupom, +1 linha depois do Subtotal:\n${com}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}`)
+console.log(`mensagem ok: sem cupom igual à referência; com cupom, +1 linha depois do Subtotal:\n${com}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

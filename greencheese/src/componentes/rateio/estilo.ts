@@ -2,8 +2,8 @@
 // (vite.config: cssCodeSplit false): quem nunca abre o rateio não paga por ele na primeira carga. Entra como <style>
 // no <head>, como o do Teste minha sorte (a CSP do .htaccess já permite style inline).
 import css from './Rateio.css?inline'
-// o 2 e o 5 redesenhados (na Pixelify o 5 vira S e o 2 vira Z): título, preço e contador do rateio
-import digitos from '../../interativos/sorte/digitos.css?inline'
+// o 2 e o 5 redesenhados (na Pixelify o 5 vira S e o 2 vira Z) já vêm no CSS principal (main.tsx: os contadores da
+// barra e da lateral usam): título, preço e contador do rateio usam a mesma 'GC Digitos'
 // o código RAT-XXXX numa grade 5×7 própria (2/Z, B/8, G/6 e 5/S bem diferentes): gerado por scripts/gerar-codigo.mjs
 import codigo from './codigo.css?inline'
 
@@ -16,5 +16,5 @@ if (typeof document !== 'undefined') {
     document.head.appendChild(el)
   }
   // em dev, a edição do Rateio.css reexecuta este módulo e troca o conteúdo
-  el.textContent = digitos + codigo + css
+  el.textContent = codigo + css
 }

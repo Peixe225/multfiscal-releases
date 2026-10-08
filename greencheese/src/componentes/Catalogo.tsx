@@ -220,8 +220,8 @@ function DestaqueAba({ aba, foco, rotulo, nome, children }: { aba: Aba; foco?: F
 
 /**
  * Rateio: caminho pra aba (link de verdade, como os outros), com o anel aceso enquanto tem rateio aberto pro estado e o
- * selo "novo" até a pessoa ver os abertos na aba. Só de 560 px em diante (Catalogo.css): no celular o Rateio está na
- * barra de baixo, com o número de abertos, e os filtros do Início continuam à vista.
+ * selo "novo" até a pessoa ver os abertos na aba. Em toda largura, logo depois de "Buscar": as abas primeiro, os filtros à
+ * direita (no celular o primeiro que não cabe espia na borda).
  */
 function DestaqueRateio() {
   const uf = useLocal((s) => s.uf)

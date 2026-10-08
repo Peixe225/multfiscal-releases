@@ -1,8 +1,9 @@
 // Rateio: o contrato público do servidor da loja (greencheese/API.md é a fonte da verdade) e quem fala com ele.
 // Aqui fica só o que o pedaço principal usa (a lista, pro selo da barra e o destaque do Início); entrar, minhas vagas e
 // o rateio avulso baixam com as telas (src/lib/rateio-vagas.ts).
-// Nada trava a tela: leitura com 8 s de limite, entrada (POST) com 20 s (hospedagem compartilhada no 3G). Duas falhas
-// diferentes:
+// Nada trava a tela: a aba espera a lista por ~4 s e, sem resposta, mostra "Sem conexão" com o caminho pelo WhatsApp
+// (store/rateio.ts); a leitura em si vai até 8 s (se chegar depois dos 4 s, a lista entra no lugar do aviso), e a entrada
+// (POST) até 20 s (hospedagem compartilhada no 3G). Duas falhas diferentes:
 // - 'sem-servidor': aqui não tem API (o arquivo único, o zip sem a pasta api/, 404 ou HTML no lugar de JSON, o repasse
 //   do Vite com o PHP desligado). A tela segue com os rateios de exemplo e o formulário vira "Entrar pelo WhatsApp".
 // - 'fora-do-ar': a API devia responder e não respondeu (tempo esgotado, rede caída, 5xx). Nada de exemplo inventado; e
@@ -85,13 +86,17 @@ export interface FalhaRateio {
   codigo?: string
   /** fora-do-estado: onde o rateio vale agora (o servidor manda; a lista do aparelho pode estar velha). */
   ufs?: string[]
+  /** muitas-tentativas: quanto esperar antes de pedir de novo. */
+  esperaSegundos?: number
 }
 
 export type RespostaRateio<T> = ({ ok: true } & T) | FalhaRateio
 
 const API = './api/index.php'
-/** Leitura (lista, rateio, minhas vagas): a tela espera no máximo isso. */
+/** Leitura (lista, rateio, minhas vagas): a rede espera no máximo isso (a aba não espera tanto: ver ESPERA_LISTA_MS). */
 const LIMITE_LEITURA_MS = 8000
+/** A aba espera a lista no máximo isso antes de mostrar "Sem conexão" e o WhatsApp; a busca segue até o limite de leitura. */
+export const ESPERA_LISTA_MS = 4000
 /** Entrar no rateio: o servidor pode gravar e demorar a responder; cortar cedo perde a resposta (e o token). */
 export const LIMITE_ENTRADA_MS = 20000
 const ERROS: readonly ErroRateio[] = ['invalido', 'nao-encontrado', 'fora-do-estado', 'rateio-fechado', 'sem-vagas', 'limite-por-pessoa', 'ja-participa', 'muitas-tentativas', 'erro-interno']
@@ -219,6 +224,7 @@ export async function chamar(rota: string, corpo?: unknown, limite = corpo === u
       limite: inteiro(d.limite, 1) ?? undefined,
       codigo: texto(d.codigo, 20) ?? undefined,
       ufs: Array.isArray(d.ufs) ? d.ufs.filter((u): u is string => typeof u === 'string' && /^[a-z]{2}$/i.test(u)).map((u) => u.toLowerCase()) : undefined,
+      esperaSegundos: inteiro(d.esperaSegundos, 1) ?? undefined,
     })
   } finally {
     clearTimeout(t)
@@ -229,7 +235,9 @@ export async function chamar(rota: string, corpo?: unknown, limite = corpo === u
 export async function buscarRateios(): Promise<RespostaRateio<{ rateios: Rateio[]; agora: string | null }>> {
   const r = await chamar('rateios')
   if (!r.ok) return r
-  if (!Array.isArray(r.dados.rateios)) return falha('sem-servidor')
+  // JSON da API com ok, mas sem a lista: o servidor existe e respondeu torto. Nunca "sem servidor" (isso traria os
+  // rateios de exemplo no lugar dos de verdade)
+  if (!Array.isArray(r.dados.rateios)) return falha('erro-interno')
   return { ok: true, rateios: r.dados.rateios.map(lerRateio).filter((x): x is Rateio => !!x), agora: data(r.dados.agora) }
 }
 

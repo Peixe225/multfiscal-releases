@@ -27,7 +27,7 @@ export function ComoFuncionaFolha() {
     { titulo: 'Por que sai mais barato?', texto: 'A loja compra junto, de uma vez, e repassa o preço. Depois que chega, o mesmo produto sai mais caro.' },
   ]
   return (
-    <Folha id="como-funciona" aberta={!!c} aoFechar={fechar} rotulo="Como funciona o rateio" cabecalho="Como funciona o rateio" className="folha-como">
+    <Folha id="como-funciona" aberta={!!c} aoFechar={fechar} rotulo="Como funciona o rateio" cabecalho="Como funciona o rateio" className="folha-como" rotuloCorpo="Passos do rateio">
       <ol className="como-lista">
         {passos.map((p, i) => (
           <li key={p.titulo} className="como-passo">

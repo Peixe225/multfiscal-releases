@@ -541,6 +541,16 @@
   align-items: flex-start;
   text-align: left;
 }
+/* sem conexão: o WhatsApp (caminho que funciona agora) e o "Tentar de novo" lado a lado; empilham em tela estreita */
+.rv-sem-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+.rv-sem-acoes .botao {
+  flex: 1 1 auto;
+}
 
 /* chegaram: linhas */
 .rv-chegaram,
@@ -1031,6 +1041,15 @@
   flex-direction: column;
   gap: 18px;
   margin-top: 4px;
+}
+/* o botão do WhatsApp quebra a linha em vez de cortar o texto: a fonte do aparelho pode ser mais larga que a métrica do
+   Arial (SF no iPhone SE, fontes de fabricante); o ícone corre junto da 1ª palavra (.dm-zap-icone) */
+.rp-zap {
+  white-space: normal;
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.2;
+  padding-block: 10px;
 }
 .rp-pix-resposta {
   max-width: 100%;

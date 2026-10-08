@@ -5,10 +5,15 @@
 // inteira, na matriz de desktop): aparece, para fora da tela (o rAF para), pausa no botão, fica parada com movimento
 // reduzido, o mercador chamado oferece o Mercado; o Mercado com o mercador no topo; as falas da rua sem palavra proibida;
 // as setas da linha de destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência.
-// Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona, o formulário valida, a confirmação leva pro
-// WhatsApp com a mensagem certa, sem servidor vira "Entrar pelo WhatsApp", a resposta perdida pede pra tentar de novo
-// (o mesmo token) e o servidor fora do ar mostra "Sem conexão" sem exemplos. A API do rateio é simulada como no
-// contrato do API.md; nas outras rodadas ela responde como "sem servidor" (HTML no lugar de JSON, sem erro no console).
+// Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona (que rola pelo teclado em 320×568), o
+// formulário valida, a confirmação leva pro WhatsApp com a mensagem certa (o botão cabe em 320), sem servidor vira
+// "Entrar pelo WhatsApp", a resposta perdida pede pra tentar de novo com o mesmo token (servidor que guarda o token
+// devolve a mesma vaga; o que ignora dá ja-participa com o código, sem vaga inventada), servidor fora do ar, lento
+// (~4 s) ou com JSON torto mostra "Sem conexão" com "Entrar pelo WhatsApp" e nunca os exemplos, rateio fora da lista com
+// o GET falhando não "sai do ar", a vaga do "Entrar com outro WhatsApp" não preenche o formulário nem vira "Tua vaga",
+// sem vaga sobrando não tem formulário pra amigo e o sem-vagas com 0 trava o envio, as setas do estado limpam a cidade e
+// o selo da lateral usa o 2 redesenhado. A API do rateio é simulada como no contrato do API.md; nas outras rodadas ela
+// responde como "sem servidor" (HTML no lugar de JSON, sem erro no console).
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -1150,10 +1155,322 @@ for (const reduzir of [false, true]) {
   await page.goto(`${base}?uf=mg&aba=rateio`)
   await passarAbertura(page)
   await page.locator('.rv-sem-conexao, .vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 8000 }).catch(() => {})
-  const r = await page.evaluate(() => ({ aviso: document.querySelector('.rv-sem-conexao h2')?.textContent, cartoes: document.querySelectorAll('.vista[data-vista="rateio"] .rt').length }))
-  conferir(r.aviso === 'Sem conexão com a loja agora' && r.cartoes === 0, `rateio: servidor fora do ar mostra "Sem conexão", sem exemplos (${JSON.stringify(r)})`)
+  const r = await page.evaluate(() => ({
+    aviso: document.querySelector('.rv-sem-conexao h2')?.textContent,
+    cartoes: document.querySelectorAll('.vista[data-vista="rateio"] .rt').length,
+    zap: decodeURIComponent(document.querySelector('.rv-sem-conexao a.rv-sem-zap')?.getAttribute('href')?.split('text=')[1] ?? ''),
+    href: document.querySelector('.rv-sem-conexao a.rv-sem-zap')?.getAttribute('href') ?? '',
+  }))
+  conferir(r.aviso === 'Sem conexão com a loja agora' && r.cartoes === 0, `rateio: servidor fora do ar mostra "Sem conexão", sem exemplos (${JSON.stringify({ aviso: r.aviso, cartoes: r.cartoes })})`)
+  conferir(r.href.startsWith(ZAP) && r.zap === 'RATEIO GREEN CHEESE — MG / Teófilo Otoni\nQuero entrar num rateio. Quais estão abertos?', `rateio: fora do ar, "Entrar pelo WhatsApp" pro WhatsApp da loja (${r.zap.split('\n').join(' | ')})`)
   await foto(page, 'rateio-08-fora-do-ar')
   await ctx.close()
+}
+{
+  // servidor lento (a lista leva 7 s): o aviso com o WhatsApp aparece por volta dos 4 s e a lista entra no lugar dele
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  await ctx.route('**/api/index.php?r=rateios', async (route) => {
+    await new Promise((ok) => setTimeout(ok, 7000))
+    return route.fallback()
+  })
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'rateio-lento')
+  await page.goto(`${base}?uf=mg&aba=rateio`)
+  const t0 = Date.now()
+  await passarAbertura(page)
+  const aviso = await page.locator('.rv-sem-conexao a.rv-sem-zap').waitFor({ timeout: 6500 }).then(() => Date.now() - t0).catch(() => null)
+  await foto(page, 'rateio-09-lento')
+  await page.locator('.vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 12000 }).catch(() => {})
+  const depois = await page.evaluate(() => ({ cartoes: document.querySelectorAll('.vista[data-vista="rateio"] .rt').length, aviso: !!document.querySelector('.rv-sem-conexao') }))
+  conferir(aviso != null && depois.cartoes === 2 && !depois.aviso, `rateio: lista lenta mostra o aviso com o WhatsApp (${aviso} ms) e depois os rateios no lugar (${JSON.stringify(depois)})`)
+  await ctx.close()
+}
+{
+  // a resposta se perde DEPOIS de o servidor gravar. Servidor que segue o token do aparelho (acréscimo compatível do
+  // API.md): a nova tentativa, com o mesmo token, devolve a MESMA participação (200) e sai o "Tá no rateio!" com o mesmo
+  // código; o servidor fica com uma participação só e a vaga aparece em Minhas vagas
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  const gravadas = []
+  await ctx.route('**/api/index.php?r=rateio-entrar', async (route) => {
+    const c = JSON.parse(route.request().postData() ?? '{}')
+    const mesma = gravadas.find((v) => v.token === c.token && v.rateio === c.rateio)
+    if (mesma) return route.fulfill({ status: 200, json: { ok: true, participacao: mesma, rateio: null } })
+    gravadas.push({ codigo: 'RAT-T0KN', token: c.token, rateio: c.rateio, titulo: 'Arizona Green Tea 680 ml', quantidade: c.quantidade, total: Math.round(c.quantidade * 1490) / 100, status: 'reservado', expiraEm: new Date(Date.now() + 864e5).toISOString(), criadoEm: new Date().toISOString(), confirmadoEm: null, rateioStatus: 'aberto' })
+    // gravou e a resposta não chegou
+    return route.abort('connectionreset')
+  })
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'rateio-perdida-token')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Teste')
+  await page.getByLabel('Teu WhatsApp').fill('33991234567')
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-alerta').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-feito').waitFor({ timeout: 8000 }).catch(() => {})
+  const cf = await page.evaluate(() => ({ titulo: document.querySelector('.rp-feito-titulo')?.textContent, codigo: document.querySelector('.rp-codigo-valor')?.textContent }))
+  await foto(page, 'rateio-10-perdida-token')
+  await voltar(page)
+  const mv = (await page.locator('#minhas-vagas').textContent().catch(() => '')) ?? ''
+  conferir(cf.titulo === 'Tá no rateio!' && cf.codigo === 'RAT-T0KN' && gravadas.length === 1 && /RAT-T0KN/.test(mv) && /Esperando pagamento/.test(mv), `rateio: resposta perdida + servidor que guarda o token → a mesma vaga na 2ª tentativa, uma participação só, em Minhas vagas (${JSON.stringify({ ...cf, gravadas: gravadas.length })})`)
+  await ctx.close()
+}
+{
+  // o mesmo, com um servidor que ignora o token (gera o dele): a nova tentativa recebe ja-participa com o código. A tela
+  // mostra o código e "Falar com a loja" (só o código, sem conta de vagas), não guarda vaga com quantidade inventada, e
+  // a lista recarrega (o contador conta a vaga)
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  let vez = 0
+  let listas = 0
+  await ctx.route('**/api/index.php?r=rateios', (route) => {
+    listas++
+    return route.fallback()
+  })
+  await ctx.route('**/api/index.php?r=rateio-entrar', async (route) => {
+    vez++
+    if (vez === 1) return route.abort('connectionreset')
+    return route.fulfill({ status: 409, json: { ok: false, erro: 'ja-participa', mensagem: 'Esse WhatsApp já está nesse rateio.', codigo: 'RAT-MURN' } })
+  })
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'rateio-perdida-sem-token')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Teste')
+  await page.getByLabel('Teu WhatsApp').fill('33991234567')
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-alerta').waitFor({ timeout: 8000 }).catch(() => {})
+  const antes = listas
+  await page.locator('.rp-reservar').click()
+  await page.waitForTimeout(1500)
+  const r = await page.evaluate(() => ({
+    alerta: document.querySelector('.rp-alerta p')?.textContent ?? '',
+    msg: decodeURIComponent(document.querySelector('.rp-alerta a[href*="wa.me"]')?.getAttribute('href')?.split('text=')[1] ?? ''),
+    feito: !!document.querySelector('.rp-feito'),
+    guardada: (JSON.parse(localStorage.getItem('gc-rateio') || '{}').state?.vagas ?? []).some((v) => v.codigo === 'RAT-MURN'),
+  }))
+  const esperada = ['RATEIO GREEN CHEESE — MG / Teófilo Otoni', 'Arizona Green Tea 680 ml', 'Código: RAT-MURN', 'Nome: Ian Teste', 'WhatsApp: (33) 99123-4567', 'Já tenho vaga nesse rateio. Quero conferir e pagar.'].join('\n')
+  conferir(
+    /Tua vaga ficou guardada \(código RAT-MURN\)/.test(r.alerta) && r.msg === esperada && !r.feito && !r.guardada && listas > antes,
+    `rateio: resposta perdida + servidor que ignora o token → o código com "Falar com a loja" (só o código), nada inventado, lista recarregada (${JSON.stringify({ ...r, msg: r.msg.split('\n').join(' | '), listas: listas - antes })})`,
+  )
+  await foto(page, 'rateio-11-perdida-sem-token')
+  await ctx.close()
+}
+{
+  // "Entrar com outro WhatsApp" (pra um amigo): a vaga dele não preenche o formulário do próximo rateio nem vira "Tua vaga"
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  let n = 0
+  await ctx.route('**/api/index.php?r=rateio-entrar', async (route) => {
+    const c = JSON.parse(route.request().postData() ?? '{}')
+    n++
+    const v = { codigo: n === 1 ? 'RAT-D0N0' : 'RAT-AM1G', token: (n === 1 ? 'a' : 'b').repeat(32), rateio: c.rateio, titulo: 'Arizona Green Tea 680 ml', quantidade: c.quantidade, total: 14.9 * c.quantidade, status: 'reservado', expiraEm: new Date(Date.now() + 864e5).toISOString(), criadoEm: new Date().toISOString(), confirmadoEm: null, rateioStatus: 'aberto' }
+    return route.fulfill({ status: 201, json: { ok: true, participacao: v, rateio: null } })
+  })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio-amigo')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Dono')
+  await page.getByLabel('Teu WhatsApp').fill('33991110000')
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-feito').waitFor({ timeout: 8000 }).catch(() => {})
+  await voltar(page)
+  await page.locator('[data-rateio="arizona-green-tea"] .rt-entrar').click()
+  await page.getByRole('button', { name: 'Entrar com outro WhatsApp' }).click()
+  await page.getByLabel('Teu nome').fill('Amigo Fulano')
+  await page.getByLabel('Teu WhatsApp').fill('33992220000')
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-feito').waitFor({ timeout: 8000 }).catch(() => {})
+  await voltar(page)
+  await page.locator('[data-rateio="dichavador-metal-4-partes"] .rt-entrar').click()
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  const pre = await page.evaluate(() => ({ nome: document.querySelector('.rp-form input[autocomplete="name"]')?.value, zap: document.querySelector('.rp-form input[type="tel"]')?.value }))
+  await voltar(page)
+  await page.locator('[data-rateio="arizona-green-tea"] .rt-entrar').click()
+  await page.locator('.rp-tua').waitFor({ timeout: 8000 }).catch(() => {})
+  const tua = (await page.locator('.rp-tua-linha').textContent().catch(() => '')) ?? ''
+  conferir(pre.nome === 'Ian Dono' && pre.zap === '(33) 99111-0000' && /RAT-D0N0/.test(tua), `rateio: a vaga do amigo não preenche o próximo formulário nem vira "Tua vaga" (${JSON.stringify(pre)} | ${tua})`)
+  await ctx.close()
+}
+
+{
+  // sem vaga sobrando (o dichavador tinha 1 e eu peguei): o cartão segue com "Tu tá nesse rateio" e a página não oferece
+  // "Entrar com outro WhatsApp"; e o sem-vagas com 0 trava o envio com "Vagas tomadas" (nunca "Só sobrou 1 vaga")
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'rateio-lotado')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=dichavador-metal-4-partes`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Dono')
+  await page.getByLabel('Teu WhatsApp').fill('33991110000')
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-feito').waitFor({ timeout: 8000 }).catch(() => {})
+  await voltar(page)
+  const cartao = (await page.locator('[data-rateio="dichavador-metal-4-partes"] .rt-adesivos').textContent().catch(() => '')) ?? ''
+  await page.locator('[data-rateio="dichavador-metal-4-partes"] .rt-entrar').click().catch(() => {})
+  await page.locator('.rp-tua').waitFor({ timeout: 8000 }).catch(() => {})
+  const outro = await page.getByRole('button', { name: 'Entrar com outro WhatsApp' }).count()
+  conferir(/Tu tá nesse rateio/.test(cartao) && /RAT-K8EA/.test(cartao) && outro === 0, `rateio: sem vaga sobrando, o cartão segue com "Tu tá nesse rateio" e a página fica sem "Entrar com outro WhatsApp" (${cartao.replace(/\s+/g, ' ').slice(0, 90)} | outro=${outro})`)
+  await voltar(page)
+  // sem-vagas com 0 no Arizona (o servidor sabe antes da lista)
+  await ctx.route('**/api/index.php?r=rateio-entrar', (route) => route.fulfill({ status: 409, json: { ok: false, erro: 'sem-vagas', mensagem: 'As vagas acabaram.', disponiveis: 0 } }))
+  await page.locator('[data-rateio="arizona-green-tea"] .rt-entrar').click()
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-alerta').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.waitForTimeout(800)
+  const lot = await page.evaluate(() => ({
+    qtd: document.querySelector('.rp-form .rp-uma')?.textContent ?? '',
+    botao: document.querySelector('.rp-reservar')?.textContent,
+    travado: !!document.querySelector('.rp-reservar')?.disabled,
+    alerta: document.querySelector('.rp-alerta p')?.textContent ?? '',
+  }))
+  conferir(/Vagas tomadas/.test(lot.qtd) && !/Só sobrou/.test(lot.qtd) && lot.botao === 'Vagas tomadas' && lot.travado && /Lotou/.test(lot.alerta), `rateio: sem-vagas com 0 → "Vagas tomadas" e o envio travado, sem "Só sobrou 1 vaga" (${JSON.stringify(lot)})`)
+  await foto(page, 'rateio-12-vagas-tomadas')
+  await ctx.close()
+}
+{
+  // "Como funciona" numa tela baixa (320×568): abre com o foco no corpo, que rola pelo teclado (End leva ao fim, onde fica
+  // o "E se não lotar?"), e o axe não acha região rolável sem foco
+  const ctx = await contexto(browser, { width: 320, height: 568 }, { rateio: true })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio-como-320')
+  await page.goto(`${base}?uf=mg&aba=rateio`)
+  await passarAbertura(page)
+  await page.locator('.vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByRole('button', { name: 'Como funciona o rateio' }).first().click()
+  await page.waitForTimeout(900)
+  const antes = await page.evaluate(() => {
+    const c = document.querySelector('.folha-como .folha-corpo')
+    return { foco: document.activeElement === c, rola: !!c && c.scrollHeight > c.clientHeight + 4 }
+  })
+  await page.keyboard.press('End')
+  await page.waitForTimeout(500)
+  const fim = await page.evaluate(() => {
+    const c = document.querySelector('.folha-como .folha-corpo')
+    return c ? Math.round(c.scrollTop + c.clientHeight - c.scrollHeight) : null
+  })
+  let axe = 'sem axe-core'
+  if (AXE && existsSync(AXE)) {
+    await page.addScriptTag({ path: AXE })
+    axe = (await page.evaluate(async () => (await window.axe.run(document.querySelector('.folha-como'), { resultTypes: ['violations'] })).violations.map((x) => x.id))).join(',') || '0'
+  }
+  conferir(antes.foco && antes.rola && fim != null && fim >= -2 && (axe === '0' || axe === 'sem axe-core'), `rateio: "Como funciona" em 320×568 rola pelo teclado (End chega ao fim) e o axe dá ${axe} (${JSON.stringify({ ...antes, fim })})`)
+  await foto(page, 'rateio-13-como-320')
+  await ctx.close()
+}
+{
+  // estado pelas setas (grupo de rádio): a cidade digitada pro estado de antes não vai junto (ES "Vila Velha" → SP vazio)
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true, ipUf: 'ES', ipRegiao: 'Espírito Santo' })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio-setas-uf')
+  await page.goto(`${base}?uf=es&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Tua cidade').fill('Vila Velha')
+  await page.locator('.rp-chip[aria-checked="true"]').focus()
+  await page.keyboard.press('ArrowLeft')
+  await page.waitForTimeout(250)
+  const r = await page.evaluate(() => ({
+    uf: document.querySelector('.rp-chip[aria-checked="true"]')?.textContent,
+    foco: document.activeElement?.textContent,
+    cidade: document.querySelector('.rp-form input[autocomplete="address-level2"]')?.value ?? null,
+  }))
+  conferir(r.uf === 'SP' && r.foco === 'SP' && r.cidade === '', `rateio: trocar o estado pelas setas limpa a cidade do estado de antes (${JSON.stringify(r)})`)
+  await ctx.close()
+}
+{
+  // rateio fora da lista (criado depois dela): o GET rateio que falha (502) não é "saiu do ar" (abre com o WhatsApp e o
+  // link do rateio); só nao-encontrado é
+  const textoDe = async (id, rota) => {
+    const ctx = await contexto(browser, { width: 390, height: 844 }, { rateio: true })
+    if (rota) await ctx.route(rota, (route) => route.fulfill({ status: 502, contentType: 'text/html', body: 'Bad gateway' }))
+    const page = await ctx.newPage()
+    vigiarSemRede(page, `rateio-avulso-${id}`)
+    await page.goto(`${base}?uf=mg&aba=rateio&rateio=${id}`)
+    await passarAbertura(page)
+    await page.locator('.rp-vazio p:not([role="status"])').first().waitFor({ timeout: 12000 }).catch(() => {})
+    await page.waitForTimeout(400)
+    const r = {
+      txt: ((await page.locator('.rp-vazio').textContent().catch(() => '')) ?? '').replace(/\s+/g, ' '),
+      zap: decodeURIComponent((await page.locator('.rp-vazio a[href*="wa.me"]').getAttribute('href').catch(() => '')) ?? ''),
+    }
+    if (rota) await foto(page, 'rateio-14-avulso-falhou')
+    await ctx.close()
+    return r
+  }
+  const falhou = await textoDe('rateio-novo', /api\/index\.php\?r=rateio&id=rateio-novo/)
+  const saiu = await textoDe('rateio-que-saiu', null)
+  conferir(/Não deu pra abrir esse rateio agora/.test(falhou.txt) && /rateio=rateio-novo/.test(falhou.zap) && /não tá mais no ar/.test(saiu.txt), `rateio: GET rateio com 502 → "Não deu pra abrir esse rateio agora" com o WhatsApp; nao-encontrado → "não tá mais no ar" (${falhou.txt.slice(0, 70)} | ${saiu.txt.slice(0, 50)})`)
+}
+{
+  // 320 px: "Fechar pagamento no WhatsApp" quebra a linha em vez de cortar (a fonte do aparelho pode ser mais larga que a
+  // métrica do Arial), e a confirmação não rola de lado
+  const ctx = await contexto(browser, { width: 320, height: 568 }, { rateio: true })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio-320')
+  await page.goto(`${base}?uf=mg&aba=rateio&rateio=arizona-green-tea`)
+  await passarAbertura(page)
+  await page.locator('.rp .rp-form').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.getByLabel('Teu nome').fill('Ian Teste')
+  await page.getByLabel('Teu WhatsApp').fill('33991234567')
+  await page.locator('.rp-reservar').click()
+  await page.locator('.rp-feito').waitFor({ timeout: 8000 }).catch(() => {})
+  await page.locator('.rp-feito .rp-zap').scrollIntoViewIfNeeded().catch(() => {})
+  const r = await page.evaluate(() => {
+    const a = document.querySelector('.rp-feito .rp-zap')
+    const t = a?.querySelector('span')
+    // o texto (span) dentro da largura útil do botão; o scrollWidth do botão conta o anel do realce (::before, 5 px pra fora)
+    if (!a) return null
+    const st = getComputedStyle(a)
+    const util = a.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight)
+    const texto = t?.getBoundingClientRect().width ?? 0
+    return { texto: Math.round(texto), util: Math.round(util), cabe: texto <= util + 0.5, alto: Math.round(a.getBoundingClientRect().height), lado: document.documentElement.scrollWidth > innerWidth }
+  })
+  conferir(!!r && r.cabe && r.alto >= 44 && !r.lado, `rateio 320: "Fechar pagamento no WhatsApp" cabe (quebra a linha se precisar) e nada rola de lado (${JSON.stringify(r)})`)
+  await foto(page, 'rateio-15-confirmacao-320')
+  await ctx.close()
+}
+{
+  // computador: o selo com os abertos na lateral usa o 2 e o 5 redesenhados; e o rodapé diz que uma cópia das vagas fica
+  // no aparelho
+  const ctx = await contexto(browser, { width: 1280, height: 800 }, { rateio: true })
+  const page = await ctx.newPage()
+  vigiar(page, 'rateio-lateral')
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  await page.locator('.lateral-contador').first().waitFor({ timeout: 8000 }).catch(() => {})
+  const r = await page.evaluate(() => ({
+    selo: document.querySelector('.lateral-contador')?.textContent,
+    fonte: getComputedStyle(document.querySelector('.lateral-contador') ?? document.body).fontFamily,
+    rodape: /uma cópia das tuas vagas fica neste aparelho/.test(document.querySelector('.rodape')?.textContent ?? ''),
+  }))
+  conferir(r.selo === '2' && /GC Digitos/.test(r.fonte) && r.rodape, `rateio: selo da lateral com o 2 redesenhado e o rodapé com a cópia das vagas no aparelho (${JSON.stringify(r)})`)
+  await ctx.close()
+}
+{
+  // servidor que responde em JSON, mesmo torto (ok sem a lista) ou com erro (500 em JSON): nunca os exemplos no lugar dos
+  // de verdade ("Sem conexão" com o WhatsApp)
+  for (const [caso, resposta] of [
+    ['json-torto', { status: 200, json: { ok: true, agora: new Date().toISOString() } }],
+    ['json-500', { status: 500, json: { ok: false, erro: 'erro-interno', mensagem: 'Deu ruim.' } }],
+  ]) {
+    const ctx = await contexto(browser, { width: 390, height: 844 })
+    await ctx.route('**/api/index.php**', (route) => route.fulfill(resposta))
+    const page = await ctx.newPage()
+    vigiarSemRede(page, `rateio-${caso}`)
+    await page.goto(`${base}?uf=mg&aba=rateio`)
+    await passarAbertura(page)
+    await page.locator('.rv-sem-conexao, .vista[data-vista="rateio"] .rt').first().waitFor({ timeout: 8000 }).catch(() => {})
+    const r = await page.evaluate(() => ({ aviso: !!document.querySelector('.rv-sem-conexao a.rv-sem-zap'), cartoes: document.querySelectorAll('.vista[data-vista="rateio"] .rt').length }))
+    conferir(r.aviso && r.cartoes === 0, `rateio: servidor com ${caso} → "Sem conexão" com o WhatsApp, nunca os exemplos (${JSON.stringify(r)})`)
+    await ctx.close()
+  }
 }
 
 // ---------- a rua viva: aparece, para fora da tela (o rAF para), pausa, movimento reduzido parado, chamar o mercador ----

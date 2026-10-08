@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { config } from '../dados/config'
 import { armazenamentoSeguro } from '../lib/armazenamento'
-import { buscarRateios, lerRateio, type Participacao, type Rateio } from '../lib/rateio-api'
+import { buscarRateios, ESPERA_LISTA_MS, lerRateio, type Participacao, type Rateio } from '../lib/rateio-api'
 
 // Rateios: a lista pública (memória, vem do servidor ou dos exemplos) e as vagas DESTE aparelho (localStorage
 // 'gc-rateio': o token de cada participação, que é o que deixa ver "Minhas vagas", e o que a pessoa preencheu para a
@@ -11,8 +11,8 @@ import { buscarRateios, lerRateio, type Participacao, type Rateio } from '../lib
 
 /**
  * De onde vieram os rateios: ainda nada, buscando, do servidor da loja, dos exemplos (aqui não tem servidor: o arquivo
- * único, o zip sem api/) ou de lugar nenhum (o servidor existe e não respondeu: "Sem conexão com a loja agora", nunca
- * os exemplos no lugar dos rateios de verdade).
+ * único, o zip sem api/) ou de lugar nenhum (o servidor existe e não respondeu em ~4 s: "Sem conexão com a loja agora"
+ * com o caminho pelo WhatsApp, nunca os exemplos no lugar dos rateios de verdade).
  */
 export type FonteRateios = 'nada' | 'carregando' | 'servidor' | 'sem-servidor' | 'fora-do-ar'
 
@@ -24,6 +24,11 @@ export interface VagaGuardada extends Participacao {
   uf: string
   cidade: string | null
   precoRateio: number
+  /**
+   * Vaga feita pelo "Entrar com outro WhatsApp" (pra um amigo): não preenche o formulário dos próximos rateios nem
+   * aparece como "Tua vaga" quando o dono do aparelho também tem a dele.
+   */
+  paraOutro?: boolean
 }
 
 /**
@@ -46,11 +51,15 @@ export interface EntradaPendente {
   criadoEm: number
   /** Uma tentativa já ficou sem resposta (tempo esgotado, rede caída): um ja-participa depois provavelmente é dela. */
   semResposta?: boolean
+  /** Feita pelo "Entrar com outro WhatsApp" (ver VagaGuardada). */
+  paraOutro?: boolean
 }
 
 interface EstadoRateio {
   rateios: Rateio[]
   fonte: FonteRateios
+  /** Tem uma busca da lista no caminho (o "Sem conexão" diz "Tentando falar com a loja…" enquanto isso). */
+  buscandoLista: boolean
   /** Quando a lista chegou (relógio do aparelho). */
   carregadoEm: number
   /** Hora do servidor menos a do aparelho, em ms (a reserva vence pela hora do servidor). */
@@ -77,7 +86,7 @@ const pendenteValida = (p: unknown): p is EntradaPendente => {
 
 export const useRateio = create<EstadoRateio>()(
   persist(
-    (): EstadoRateio => ({ rateios: [], fonte: 'nada', carregadoEm: 0, desvio: 0, vagas: [], vistos: [], pendentes: [], servidorVisto: false }),
+    (): EstadoRateio => ({ rateios: [], fonte: 'nada', buscandoLista: false, carregadoEm: 0, desvio: 0, vagas: [], vistos: [], pendentes: [], servidorVisto: false }),
     {
       name: 'gc-rateio',
       storage: createJSONStorage(() => armazenamentoSeguro),
@@ -123,13 +132,19 @@ export function marcarServidorVisto() {
  * Busca a lista (no máximo uma vez por minuto, a não ser que `forcar`). Sem servidor aqui (o arquivo único, o zip sem
  * api/): os exemplos de src/dados/rateios-exemplo.json (se dadosDeExemplo), sem erro na tela. Servidor que não
  * respondeu (lento, fora do ar): fica com a lista que já tinha nesta visita; sem nenhuma, 'fora-do-ar' (a aba diz "Sem
- * conexão com a loja agora" e tenta de novo). Um aparelho que já falou com o servidor nunca cai nos exemplos.
+ * conexão com a loja agora", com "Entrar pelo WhatsApp", e tenta de novo). A aba não espera mais que ~4 s pra isso
+ * (ESPERA_LISTA_MS): a busca continua até o limite de leitura e, se a lista chegar, entra no lugar do aviso. Um
+ * aparelho que já falou com o servidor nunca cai nos exemplos.
  */
 export function carregarRateios(forcar = false): Promise<void> {
   if (buscando) return buscando
   const s = useRateio.getState()
   if (!forcar && s.fonte !== 'nada' && s.fonte !== 'carregando' && Date.now() - s.carregadoEm < VALIDADE_LISTA) return Promise.resolve()
-  if (s.fonte === 'nada') useRateio.setState({ fonte: 'carregando' })
+  useRateio.setState(s.fonte === 'nada' ? { fonte: 'carregando', buscandoLista: true } : { buscandoLista: true })
+  // sem lista nenhuma e sem resposta em ~4 s: a aba já mostra o aviso com o WhatsApp (a busca segue)
+  const espera = setTimeout(() => {
+    if (useRateio.getState().fonte === 'carregando') useRateio.setState({ fonte: 'fora-do-ar' })
+  }, ESPERA_LISTA_MS)
   buscando = (async () => {
     const r = await buscarRateios()
     if (r.ok) {
@@ -161,7 +176,9 @@ export function carregarRateios(forcar = false): Promise<void> {
     }
     useRateio.setState({ rateios: exemplos.filter(valeNaTela), fonte: 'sem-servidor', carregadoEm: Date.now(), desvio: 0 })
   })().finally(() => {
+    clearTimeout(espera)
     buscando = null
+    useRateio.setState({ buscandoLista: false })
   })
   return buscando
 }
@@ -180,6 +197,14 @@ export function apararVagas(vagas: VagaGuardada[]): VagaGuardada[] {
   const ordem = [...vagas].sort((a, b) => Number(ATIVAS.has(b.status)) - Number(ATIVAS.has(a.status)) || Date.parse(b.criadoEm) - Date.parse(a.criadoEm))
   const ficam = new Set(ordem.slice(0, MAX_VAGAS))
   return vagas.filter((v) => ficam.has(v))
+}
+
+/** WhatsApp ('55…') do dono do aparelho: o da conta do Teste minha sorte, senão o da vaga mais nova que não foi pra um amigo. */
+export function zapDoDono(vagas: VagaGuardada[], contaWhatsapp?: string | null): string | null {
+  // a conta guarda '55' + DDD + 9 dígitos (lib/telefone); aceita também sem o 55, sem puxar a lib pra 1ª tela
+  const d = contaWhatsapp?.replace(/\D/g, '') ?? ''
+  const conta = d.length === 13 && d.startsWith('55') ? d : d.length === 11 ? `55${d}` : null
+  return conta ?? vagas.find((v) => !v.paraOutro)?.whatsapp ?? null
 }
 
 /** Guarda a participação que acabou de nascer neste aparelho (a mais nova primeiro); a entrada pendente dela sai. */

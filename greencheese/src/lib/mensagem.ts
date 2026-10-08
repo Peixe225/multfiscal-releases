@@ -152,6 +152,16 @@ export function montarRateio(d: DadosRateio): string {
   return out.join('\n')
 }
 
+/**
+ * Rateio com a loja fora do ar (o site não conseguiu mostrar os rateios, ou a página de um): o pedido pra entrar vai
+ * pelo WhatsApp e a loja passa os rateios abertos. Com o link da página, a loja sabe qual era. Sem estado escolhido, o
+ * cabeçalho sai sem a UF (a loja pergunta).
+ */
+export function montarRateioSemConexao(canal: Canal | null | undefined, cidade?: string | null, link?: string | null): string {
+  const topo = canal ? cabecalho('RATEIO', canal, cidade) : 'RATEIO GREEN CHEESE'
+  return [topo, link ? `Quero entrar nesse rateio: ${link}` : 'Quero entrar num rateio. Quais estão abertos?'].join('\n')
+}
+
 export function montarAviso(canal: Canal, cidade: string | null | undefined, produto: Produto): string {
   return [
     cabecalho('AVISA QUANDO CHEGAR', canal, cidade),
@@ -168,6 +178,11 @@ export function whatsappDoCanal(canal: Canal): string {
 /** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) e o rateio usam. */
 export function linkWhatsApp(canal: Canal, texto: string): string {
   return `https://wa.me/${whatsappDoCanal(canal)}?text=${encodeURIComponent(texto)}`
+}
+
+/** wa.me da loja quando ainda não tem estado escolhido (o rateio sem conexão): o WhatsApp de pedidos de todos. */
+export function linkWhatsAppLoja(canal: Canal | null | undefined, texto: string): string {
+  return canal ? linkWhatsApp(canal, texto) : `https://wa.me/${config.whatsappPedidos.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`
 }
 
 /** DM do Instagram do estado: dúvidas que o site não tira e "Avisar quando chegar". */
