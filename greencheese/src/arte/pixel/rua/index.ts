@@ -18,7 +18,7 @@ export type { Animacao, Lado, Personagem, Quadro } from './modelo'
 export type { Ladrilho } from './cenario'
 export { ancoraDo, paletaDe, quadroEmLinhas, quadroNoTempo } from './modelo'
 export { desenharQuadro, imagemDoQuadro, prancha, telaDaPeca } from './desenhar'
-export { paletaCenario } from './cenario'
+export { criarLuz, criarPoste, paletaCenario } from './cenario'
 export { itens }
 
 /** O mercador e os clientes, por id. */

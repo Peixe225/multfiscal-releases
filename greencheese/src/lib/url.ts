@@ -1,4 +1,4 @@
-// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=catalogo):
+// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=mercado):
 // funciona em qualquer pasta da Hostinger, sem regra de servidor.
 
 export interface Parametros {
@@ -11,7 +11,7 @@ export interface Parametros {
   chat: string | null
   /** Interativo aberto (?jogo=sorte). */
   jogo: string | null
-  /** Aba do site (?aba=catalogo | estados; sem parâmetro = Início). Quem escreve é o src/lib/abas.ts. */
+  /** Aba do site (?aba=mercado (ou catalogo) | estados; sem parâmetro = Início). Quem escreve é o src/lib/abas.ts. */
   aba: string | null
 }
 
@@ -32,9 +32,17 @@ export function lerParametros(): Parametros {
 /** As vistas do site: o Início (story + perfil), o Catálogo e Por estado. Camadas (story, sacola, jogo…) não são abas. */
 export type Aba = 'inicio' | 'catalogo' | 'estados'
 
+/** A aba Catálogo virou Mercado: ?aba=mercado abre ela (o id de dentro continua 'catalogo'; ?aba=catalogo vale). */
+const APELIDOS: Record<string, string> = { mercado: 'catalogo' }
+/** Como a aba aparece na URL (o Catálogo sai como ?aba=mercado). */
+export function abaNaURL(a: Aba): string {
+  return a === 'catalogo' ? 'mercado' : a
+}
+
 /** Aba pedida na URL. Sem parâmetro, ou com valor desconhecido, é o Início. */
 export function abaDaURL(): Aba {
-  const v = lerParametros().aba
+  const p = lerParametros().aba
+  const v = p ? (APELIDOS[p] ?? p) : p
   return v === 'catalogo' || v === 'estados' ? v : 'inicio'
 }
 

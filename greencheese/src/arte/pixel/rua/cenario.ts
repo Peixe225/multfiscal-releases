@@ -90,8 +90,11 @@ export const ladrilhos: Record<string, Ladrilho> = {
 
 /* ───────────── poste e a luz dele ───────────── */
 
-/** Poste de rua (96 de altura): cano fino com aro de luz, braço curvo e a luminária acesa em cima. Âncora no pé. */
-const poste: Peca = (() => {
+/**
+ * Poste de rua (96 de altura; a cena do Início pede outra altura para a lâmpada caber na faixa): cano fino com aro de
+ * luz, braço curvo e a luminária acesa em cima. Âncora no pé.
+ */
+function pecaPoste(altura = 96): Peca {
   const topo = [
     '......eeeeeeeeeeee...',
     '.....emmmmmmmmmmmme..',
@@ -101,18 +104,17 @@ const poste: Peca = (() => {
   ]
   const cano = '...mde...............'
   const pe = ['..mmdee..............', '..mddee..............', '.mmddeee.............', '.eeeeeee.............']
-  const linhas = [...topo, ...Array.from({ length: 96 - topo.length - pe.length }, () => cano), ...pe]
+  const linhas = [...topo, ...Array.from({ length: altura - topo.length - pe.length }, () => cano), ...pe]
   return { w: 21, h: linhas.length, linhas }
-})()
+}
 
 /**
  * A luz que cai da luminária: um cone em pontilhado Bayer, denso perto da lâmpada e ralo no chão, e a poça de luz
  * na calçada. Só cinza escuro (d) e médio (e): por cima do muro preto lê como luz, sem estourar. 2 quadros: o
  * segundo um pouco mais fraco (a lâmpada de vapor tremendo de vez em quando).
  */
-function luzDoPoste(forca: number): Peca {
+function luzDoPoste(forca: number, h = 96): Peca {
   const w = 64
-  const h = 96
   return gerar(w, h, (x, y) => {
     const cx = w / 2
     const abre = 3 + (y / h) * 28 // o cone abre para baixo
@@ -219,16 +221,27 @@ function objeto(id: string, nome: string, pecas: Peca[], ancora: { x: number; y:
   })
 }
 
-export const objetos: Record<string, Personagem> = {
-  poste: objeto('poste', 'Poste', [poste], { x: 5, y: poste.h }, [1000], 'Poste com a luminária acesa (âncora no pé).', false),
-  luz: objeto(
+/** Poste de `altura` linhas (âncora no pé). A cena do Início pede o dela, para a lâmpada caber na faixa. */
+export function criarPoste(altura = 96): Personagem {
+  const pc = pecaPoste(altura)
+  return objeto('poste', 'Poste', [pc], { x: 5, y: pc.h }, [1000], 'Poste com a luminária acesa (âncora no pé).', false)
+}
+
+/** Luz do poste com `altura` linhas, da lâmpada até a poça no chão (âncora no alto). */
+export function criarLuz(altura = 96): Personagem {
+  return objeto(
     'luz',
     'Luz do poste',
-    [luzDoPoste(1), luzDoPoste(1), luzDoPoste(0.8), luzDoPoste(1)],
+    [luzDoPoste(1, altura), luzDoPoste(1, altura), luzDoPoste(0.8, altura), luzDoPoste(1, altura)],
     { x: 32, y: 0 },
     [2600, 90, 70, 1800],
     'Cone de luz em pontilhado; a âncora fica no alto (debaixo da lâmpada). Treme de leve de vez em quando.',
-  ),
+  )
+}
+
+export const objetos: Record<string, Personagem> = {
+  poste: criarPoste(),
+  luz: criarLuz(),
   engradado: objeto('engradado', 'Engradados', [engradado], { x: 9, y: engradado.h }, [1000], 'Dois engradados empilhados contra o muro; o gato senta em cima para ganhar carinho (âncora no pé).', false),
   porta: objeto('porta', 'Porta da loja', [porta], { x: 15, y: porta.h }, [1000], 'Porta de enrolar a 3/4, com a luz de dentro na fresta (âncora no pé, no meio).', false),
   letreiro: objeto(

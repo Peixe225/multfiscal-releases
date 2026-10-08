@@ -134,7 +134,7 @@ export function Lateral() {
         </a>
         <ItemAba
           aba="catalogo"
-          rotulo="Catálogo"
+          rotulo="Mercado"
           ativo={catalogoAtivo}
           icone={<PixelArte grade={catalogoAtivo ? preenchida(icones.garrafa) : icones.garrafa} tamanho={24} />}
           aoTocar={() => {

@@ -1,0 +1,87 @@
+/* Topo da aba Mercado: o mercador (3×, 132 × 192; 2× em tela baixa: --k) à esquerda e, ao lado, o balão dele, o título
+   e a contagem.
+   .aba-cab.mercado-topo: ganha do .aba-cab de Abas.css, que vem depois no CSS. */
+
+.aba-cab.mercado-topo {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+  padding-top: 4px;
+  padding-bottom: 14px;
+}
+
+.mercado-dono {
+  /* as pálpebras e as camadas que apagam pintam na cor da página */
+  --fundo-dentro: var(--preto);
+  position: relative;
+  flex: none;
+  width: calc(var(--k, 3px) * 44);
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mercado-dono:focus-visible {
+  outline: 2px solid var(--branco);
+  outline-offset: 4px;
+}
+.mercado-dono svg {
+  display: block;
+}
+/* fora do repost: sem o desgiro de 2° e sem o espaço do adesivo de menção */
+.mercado-dono .repost-figura {
+  transform: none;
+  margin-bottom: 0;
+}
+/* atrás das botas: começa na linha 61 da grade (a sola) */
+.mercado-dono-sombra {
+  position: absolute;
+  left: 0;
+  top: calc(var(--k, 3px) * 61);
+  color: var(--bolha);
+}
+
+.mercado-topo-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  /* a linha de baixo (contagem) na altura da cintura dele, o balão perto da cabeça */
+  padding-bottom: calc(var(--k, 3px) * 15);
+}
+.mercado-topo .aba-titulo {
+  font-size: 24px;
+}
+
+/* o balão de fala: o adesivo de texto do story, canto em degrau e a cauda em escada apontando para ele (à esquerda) */
+.mercado-fala {
+  margin: 0 0 8px -6px;
+  max-width: 100%;
+}
+.mercado-fala-corpo {
+  display: block;
+  padding: 5px 9px 6px 15px;
+  background: var(--branco);
+  color: var(--preto);
+  font: 400 16px/1.15 var(--pixel);
+  clip-path: polygon(
+    6px 6px, 9px 6px, 9px 3px, 12px 3px, 12px 0,
+    calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px,
+    100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%,
+    12px 100%, 12px calc(100% - 3px), 9px calc(100% - 3px), 9px calc(100% - 6px), 6px calc(100% - 6px),
+    6px calc(100% - 9px), 4px calc(100% - 9px), 4px calc(100% - 11px), 2px calc(100% - 11px), 2px calc(100% - 13px), 0 calc(100% - 13px),
+    0 calc(100% - 15px), 6px calc(100% - 15px)
+  );
+}
+
+@media (min-width: 900px) {
+  .aba-cab.mercado-topo {
+    gap: 20px;
+    padding-bottom: 20px;
+  }
+  .mercado-topo .aba-titulo {
+    font-size: 28px;
+  }
+}

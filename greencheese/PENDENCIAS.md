@@ -53,12 +53,15 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 
 ## Mercador e elenco
 
-- O **mercador é personagem da Capcom** (Resident Evil 4). Com o Início vivo ele aparece mais (anda, bebe, vende na cena do Início, além do repost e da sacola vazia): a decisão de assumir o uso ou trocar por uma figura própria vale para os três lugares, e as grades vão juntas (`src/arte/pixel/mercador.ts`, `mercador-garrafa.ts` e `src/arte/pixel/rua/mercador.ts`).
-- O **elenco novo é original**, desenhado para a Green Cheese: skatista, motoboy, MC, turista e o gato. Pode ser usado sem pedir licença a ninguém.
-- **Na cena, sem álcool e sem tabaco** (Lei 9.294/1996 e as regras da Meta): o mercador bebe a Fanta Ghost Face Punch, o forro do casaco mostra só refrigerante e acessório (o uísque, o gin e o isqueiro do repost não entram), e nada aparece aceso. O skatista leva um livreto de seda e o turista uma piteira de vidro, acessórios que a loja vende; se a loja preferir, o item da mão troca por uma lata numa linha (os itens são desenhados à parte).
+- O **mercador é personagem da Capcom** (Resident Evil 4). Agora ele aparece em quatro lugares: vivendo na **rua do Início** (anda, bebe, vende), no **topo da aba Mercado** (a animação do repost, que saiu do fim da aba), na **sacola vazia** e, no código, nas grades da rua. A decisão de assumir o uso ou trocar por uma figura própria vale para todos, e as grades vão juntas (`src/arte/pixel/mercador.ts`, `mercador-garrafa.ts` e `src/arte/pixel/rua/mercador.ts`). As falas dele são da loja, nenhuma frase do jogo.
+- O **elenco novo é original**, desenhado para a Green Cheese: skatista, motoboy, MC, turista e o gato, além do cenário (muro, poste, porta com o letreiro GC). Pode ser usado sem pedir licença a ninguém.
+- **Na rua, sem álcool e sem tabaco** (Lei 9.294/1996 e as regras da Meta): o mercador bebe a Fanta Ghost Face Punch, o forro do casaco mostra só refrigerante e acessório (o uísque, o gin e o isqueiro do repost não entram), nada aparece aceso, e as falas passam pela lista `PALAVRAS_PROIBIDAS` (o `scripts/revisao.mjs` confere). O skatista leva um livreto de seda e o turista uma piteira de vidro, acessórios que a loja vende; se a loja preferir, o item da mão troca por uma lata numa linha do `roteiro.ts`.
+- **No topo do Mercado** o mercador é o do repost, com a animação de sempre: o forro mostra os produtos do catálogo (inclusive os destilados) e os tragos seguem `config.mercadorTraga` (ver "Repost: tragos do mercador": para a versão oficial, a recomendação é `false`).
 - A **camisa do turista é de bolinhas** coloridas, não a estampa havaiana de sempre: os desenhos dela caem na lista de imagens que o site não usa.
 - A lata da Fanta Ghost Face Punch traz a máscara do Ghostface da embalagem do produto (marca de terceiros): aparece só como a lata que a loja vende.
-- O **gato** é opcional: entra se a cena ficar boa com ele, sem poluir.
+- O **gato** entrou: fica nos engradados debaixo da luz do poste, ganha carinho do mercador de vez em quando e empina a cabeça quando tocam nele.
+- **Falas e ritmo** ficam em `src/componentes/rua/falas.ts` e `roteiro.ts`; quando o painel do dono existir (F10), as falas podem ir para lá (sempre passando pela mesma lista de palavras).
+- O texto "saiu do catálogo" (cupom de um produto que não existe mais, no chat e na sacola) continua com "catálogo": fala da lista de produtos, não da aba. A sacola (`CupomSacola.tsx`) é da frente do Teste minha sorte.
 
 ## Página do produto
 

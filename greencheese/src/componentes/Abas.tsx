@@ -19,16 +19,19 @@ import { Faixa } from './Faixa'
 import { Hero } from './Hero'
 import { Perfil } from './Perfil'
 import { PorEstado } from './PorEstado'
-import { Reposts, Rodape, TextoReposts } from './Rodape'
+import { MercadoTopo } from './MercadoTopo'
+import { Rodape, TextoReposts } from './Rodape'
+import { RuaCelular } from './RuaInicio'
 import { SemAtendimento } from './SemAtendimento'
 import './Abas.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
 // As três vistas do site, sempre no mesmo app (a barra de baixo do celular e a lateral do computador trocam):
-//   Início: o story, a faixa dos @, o perfil (no computador, ao lado do story, com o mercador) e a loja — destaques
+//   Início: o story, a faixa dos @, a rua viva e o perfil (no computador, os dois ao lado do story) e a loja — destaques
 //     (as abas primeiro, os filtros à direita) e a grade. Acaba na grade, com o rodapé.
-//   Catálogo: destaques, busca, grade, encomenda e, no fim, o interativo e os reposts.
+//   Mercado (id 'catalogo', ?aba=mercado ou catalogo): o mercador no topo recebendo, destaques, busca, grade,
+//     encomenda e, no fim, o interativo.
 //   Por estado: os perfis de cada estado.
 // Escondidas com hidden (fora do Tab, da busca da página e do leitor de tela: ver Abas.css). O Início fica sempre
 // montado; a grade dele e o Catálogo montam no tempo ocioso depois da abertura, um de cada vez (ou o Catálogo na
@@ -49,7 +52,7 @@ gsap.registerPlugin(ScrollTrigger)
 const TITULO_ORIGINAL = typeof document !== 'undefined' ? document.title : ''
 const TITULOS: Record<Aba, string | null> = {
   inicio: null,
-  catalogo: 'Catálogo · Green Cheese Imports',
+  catalogo: 'Mercado · Green Cheese Imports',
   estados: 'Por estado · Green Cheese Imports',
 }
 
@@ -190,6 +193,8 @@ const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { a
       <Faixa />
       {comEntrega && (
         <>
+          {/* celular: a rua viva entre a faixa e o perfil (o perfil segue colado nos destaques) */}
+          <RuaCelular />
           <div className="so-celular">
             <Perfil />
           </div>
@@ -204,7 +209,7 @@ const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { a
 
 const RodapeFixo = memo(Rodape)
 
-/** Título de seção no fim do catálogo (INTERATIVO, MARCADOS): fio em cima, rótulo pequeno em caixa-alta. */
+/** Título de seção no fim do Mercado (INTERATIVO): fio em cima, rótulo pequeno em caixa-alta. */
 function TituloSecao({ id, icone, children }: { id: string; icone: string; children: string }) {
   return (
     <h2 id={id} className="aba-secao-titulo">
@@ -214,7 +219,10 @@ function TituloSecao({ id, icone, children }: { id: string; icone: string; child
   )
 }
 
-/** Aba Catálogo: título com a contagem, o catálogo e, no fim, o interativo e os reposts. */
+/**
+ * Aba Mercado: o mercador no topo (o dono da banca recebendo), a contagem, o catálogo e, no fim, o interativo. O repost
+ * com o mercador saiu do fim: ele já está no topo, e a aba não repete ele.
+ */
 const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => void }) {
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = canalDa(uf)
@@ -226,42 +234,31 @@ const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => 
   const interativo = interativosAtivos().length > 0
   return (
     <div className="aba-pagina aba-catalogo">
-      <header className="aba-cab">
-        <h1 id="catalogo-titulo" className="aba-titulo px" tabIndex={-1}>
-          Catálogo
-        </h1>
-        <p className="aba-legenda legenda">{legenda}</p>
-      </header>
+      <MercadoTopo legenda={legenda} />
       <Catalogo abrirInfo={abrirInfo} />
-      <div className={`aba-fim${interativo ? '' : ' aba-fim-um'}`}>
-        {interativo && (
+      {interativo && (
+        <div className="aba-fim aba-fim-um">
           <section className="aba-secao" aria-labelledby="secao-interativo">
             <TituloSecao id="secao-interativo" icone="dichavador">
               Interativo
             </TituloSecao>
             <AdesivoInterativo />
           </section>
-        )}
-        <section className="aba-secao" aria-labelledby="secao-marcados">
-          <TituloSecao id="secao-marcados" icone="instagram">
-            Marcados
-          </TituloSecao>
-          <Reposts texto={false} />
-        </section>
-      </div>
+        </div>
+      )}
       <TextoReposts />
     </div>
   )
 })
 
-/** Catálogo num estado sem entrega: sem vitrine, com o caminho para os estados atendidos e para a encomenda. */
+/** Mercado num estado sem entrega: sem vitrine, com o caminho para os estados atendidos e para a encomenda. */
 function CatalogoSemEntrega() {
   const abrir = useChat((s) => s.abrir)
   return (
     <div className="aba-pagina aba-catalogo">
       <header className="aba-cab">
         <h1 id="catalogo-titulo" className="aba-titulo px" tabIndex={-1}>
-          Catálogo
+          Mercado
         </h1>
       </header>
       <div className="sem-entrega">

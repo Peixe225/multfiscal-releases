@@ -8,8 +8,8 @@ import { useChat } from '../store/chat'
 import { useUI } from '../store/ui'
 import './Rodape.css'
 
-// O mercador animado (apresentação do Rodape.css) em qualquer lugar: o repost do Catálogo e, no computador, de pé ao
-// lado do perfil no Início (MercadorLoja). As mesmas classes (.repost-figura, .repost-quadro .q-*), o mesmo ciclo.
+// O mercador animado (apresentação do Rodape.css) em qualquer lugar: o topo da aba Mercado (MercadoTopo) e o repost.
+// As mesmas classes (.repost-figura, .repost-quadro .q-*), o mesmo ciclo. No Início ele mora na rua viva (rua/).
 
 /** Camadas da apresentação. Sem config.mercadorTraga, as do trago nem entram (o Rodape.css troca para o ciclo curto). */
 export const quadros = apresentacao.filter((q) => config.mercadorTraga || !q.trago)

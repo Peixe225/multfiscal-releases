@@ -388,10 +388,10 @@
   }
 }
 
-/* ---------- desktop: [mercador | perfil do estado] | story ---------- */
+/* ---------- desktop: [perfil do estado / rua viva] | story ---------- */
 @media (min-width: 900px) {
   .hero {
-    /* altura do story (a largura sai dela, 9:16) e o arranjo lado a lado, em variáveis: a régua usa as mesmas */
+    /* altura do story (a largura sai dela, 9:16) e o arranjo lado a lado, em variáveis */
     --hh: min(calc(100vh - 120px), 760px);
     --lado-esq: clamp(24px, 3vw, 64px);
     /* folga para as setas de fora do quadro (44 px + 12 px de cada lado) */
@@ -405,13 +405,16 @@
     min-height: min(100vh, 900px);
     min-height: min(100dvh, 900px);
   }
-  /* a coluna do perfil inteira (o Hero.tsx mede a largura dela para o mercador): perfil encostado no story, o mercador
-     à esquerda dele, com os pés na linha do fim do perfil (o "Ver loja"), como quem está ao lado da loja */
+  /* a coluna do perfil inteira (o Hero.tsx mede a largura dela para a rua): o perfil encostado no story e, embaixo, a
+     rua viva de ponta a ponta da coluna (o mercador mora nela) */
   .hero-loja {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
     align-items: flex-end;
+    justify-content: center;
+    gap: 32px;
     justify-self: stretch;
+    align-self: stretch;
     min-width: 0;
   }
   .hero-desktop-perfil {
@@ -419,21 +422,14 @@
     min-width: 0;
     max-width: 420px;
   }
+  .rua-hero {
+    align-self: stretch;
+    flex: none;
+  }
   .hero-story {
     height: var(--hh);
     width: calc(var(--hh) * 9 / 16);
     justify-self: start;
-  }
-  /* régua invisível: a largura que a coluna do perfil tem (ou teria) lado a lado com o story, em qualquer arranjo. O
-     Hero.tsx decide por ela se o mercador cabe ali ou se o hero empilha */
-  .hero-regua {
-    position: absolute;
-    top: 0;
-    left: var(--lado-esq);
-    right: calc(var(--lado-dir) + var(--lado-vao) + var(--hh) * 9 / 16);
-    height: 0;
-    visibility: hidden;
-    pointer-events: none;
   }
   .hero-quadro {
     padding-top: 92px;
@@ -518,9 +514,8 @@
   }
 }
 
-/* empilhado (o Hero.tsx liga de 900 a 1199, e de 1200 em diante quando o mercador não cabe ao lado do perfil — janela
-   alta de 1200 a ~1270): o story vem primeiro, centrado com as setas, e o mercador e o perfil logo abaixo (o Hero.tsx
-   troca a ordem no DOM: o Tab segue) */
+/* empilhado (o Hero.tsx liga de 900 a 1199): o story vem primeiro, centrado com as setas, e o perfil e a rua logo abaixo
+   (o Hero.tsx troca a ordem no DOM: o Tab segue) */
 @media (min-width: 900px) {
   .hero.hero-empilhado {
     grid-template-columns: minmax(0, 1fr);
@@ -529,7 +524,8 @@
     padding: 40px 76px;
   }
   .hero-empilhado .hero-loja {
-    justify-content: center;
+    align-items: center;
+    width: 100%;
   }
   .hero-empilhado .hero-story {
     justify-self: center;
@@ -537,7 +533,7 @@
 }
 
 /* 1200–1365 (notebook): o vão até o story perto do mínimo das setas (56) e a margem esquerda encostada na lateral, para
-   o mercador caber ao lado do perfil (1240×800, 1280×1024); o story não muda de tamanho */
+   a coluna do perfil e da rua ficar larga (a rua sobe para 3×); o story não muda de tamanho */
 @media (min-width: 1200px) and (max-width: 1365px) {
   .hero {
     --lado-vao: 68px;
@@ -545,7 +541,7 @@
   }
 }
 
-/* perfil compacto (o Hero.tsx liga quando sobram menos de 380 px para ele: logo acima de 1200, ou ao lado do mercador).
+/* perfil compacto (o Hero.tsx liga quando a coluna dele tem menos de 380 px: logo acima de 1200).
    O perfil inteiro (números numa linha, dois botões) pede ~374: números mais juntos, sem o "aqui", bio e botões
    menores, e nunca mais largo que a coluna (passava por baixo da lateral fixa e o texto saía cortado). No mínimo do
    Hero.tsx (285 px) "Enviar mensagem" ainda cabe numa linha */
