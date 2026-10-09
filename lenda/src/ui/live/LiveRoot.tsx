@@ -2,14 +2,15 @@
  * Montado pelo AppShell enquanto o modo live está ligado (ou na página #/live): mantém a conexão,
  * roda o autopiloto (só na janela que tem a trava) e mostra a faixa da live sobre o jogo.
  *
- * Janela da live (aberta por "Abrir janela da live"): fica PRONTA, sem começar, e avisa as outras abas;
- * o painel manda o começo ('start' com o modo escolhido) pelo BroadcastChannel.
+ * Janela da live (aberta por "Abrir janela da live", ou a fonte de navegador do OBS em /obs): fica PRONTA,
+ * sem começar, e avisa as outras abas; o painel manda o começo ('start' com o modo escolhido) pelo
+ * BroadcastChannel — e pela ponte, que leva tudo isso (e a configuração) até o OBS.
  */
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/store/app'
-import { useCareer } from '@/store/career'
+import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow, requestStart, requestStop, startAutopilot, stopAutopilot } from '@/live/autopilot'
-import { acquireLiveLock, beatCaptureReady, clearCaptureReady, isCaptureWindow, lockHolder, onLiveCommand, onLiveSim, onLiveStart, releaseLiveLock, type LiveSummary } from '@/live/channel'
+import { acquireLiveLock, beatCaptureReady, clearCaptureReady, isCaptureWindow, lockHolder, onLiveCommand, onLiveSim, onLiveStart, releaseLiveLock, startRelay, type LiveSummary } from '@/live/channel'
 import { useLiveConfig, useLiveSession } from '@/live/config'
 import { connectLive, disconnectLive } from '@/live/connection'
 import { useLive } from '@/live/store'
@@ -48,6 +49,9 @@ export default function LiveRoot() {
   const hud = useHudVisible()
   const [leader, setLeader] = useState(false)
 
+  // revezamento pela ponte (painel ↔ OBS): comandos, batimentos e configuração, qualquer que seja a fonte
+  useEffect(() => startRelay(), [])
+
   // conexão: liga ao abrir #/live ou o modo live; troca de fonte reconecta
   useEffect(() => {
     connectLive()
@@ -62,12 +66,14 @@ export default function LiveRoot() {
     prevOn.current = on
   }, [on])
 
-  // janela da live esperando o começo: avisa o painel e atende o 'start'
+  // janela da live esperando o começo: avisa o painel (com a carreira salva nesta janela — no OBS ela não é
+  // a do painel) e atende o 'start'
   useEffect(() => {
     if (on || !isCaptureWindow()) return
     const beat = () => {
+      const c = useCareer.getState()
       if (lockHolder()) clearCaptureReady()
-      else beatCaptureReady()
+      else beatCaptureReady(selectHasActiveCareer(c) ? c.state?.identity.surname : undefined)
     }
     beat()
     const t = setInterval(beat, 2000)

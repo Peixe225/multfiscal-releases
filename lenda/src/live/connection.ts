@@ -8,6 +8,7 @@
  *   connectLive()      // usa a configuração salva
  *   disconnectLive()
  */
+import { isCaptureWindow } from './channel'
 import { LIVE_SANDBOXED, useLiveConfig } from './config'
 import { createStreakTracker, parseMessage, resolveGift } from './protocol'
 import { startSimulator, stopSimulator } from './simulator'
@@ -61,12 +62,17 @@ function open() {
     return
   }
   ws = sock
+  // a janela da live (e a do OBS) não troca a live que a ponte já está seguindo: quem escolhe o @ é o painel
+  // (ou o --usuario da ponte). O OBS guarda a configuração da live anterior e, ao abrir, pediria o @ antigo
+  // antes de a ponte mandar o novo. Ela só pede o @ dela com a ponte parada (a ponte reiniciou sem o painel).
+  let joinIfIdle = false
   sock.onopen = () => {
     if (ws !== sock) return
     retry = 0
     if (cfg.source === 'ponte') {
       send({ type: 'hello' })
-      if (cfg.username.trim()) bridgeJoin(cfg.username)
+      if (isCaptureWindow()) joinIfIdle = true
+      else if (cfg.username.trim()) bridgeJoin(cfg.username)
       else useLive.getState().setStatus({ state: 'idle', message: 'Ponte ligada. Digite o @ do perfil e clique em Conectar.' })
     } else {
       useLive.getState().setStatus({ state: 'connected', message: 'Recebendo eventos do TikFinity' })
@@ -79,8 +85,15 @@ function open() {
       if (p.type === 'gift-raw') {
         const ev = resolveGift(p, tracker)
         if (ev) live.ingest(ev)
-      } else if (p.type === 'status') live.setStatus(p.status)
-      else if (p.type === 'gifts') live.setCatalog(p.list)
+      } else if (p.type === 'status') {
+        live.setStatus(p.status)
+        if (joinIfIdle) {
+          // a ponte manda o estado dela assim que a página conecta
+          joinIfIdle = false
+          const user = useLiveConfig.getState().config.username
+          if (p.status.state === 'idle' && !p.status.user && user.trim()) bridgeJoin(user)
+        }
+      } else if (p.type === 'gifts') live.setCatalog(p.list)
       else if (p.type === 'hello') continue
       else live.ingest(p)
     }

@@ -20,6 +20,10 @@
  * Uma conexão com o TikTok por vez: várias janelas pedindo a mesma live (painel + janela da live, F5…)
  * reaproveitam a conexão que já existe; trocar de @ fecha a anterior de verdade antes de abrir a nova.
  *
+ * Live no OBS: fonte de navegador em http://localhost:5178/obs (1080×1920). O OBS é outro navegador e não
+ * enxerga o painel do Chrome/Edge; a ponte faz o revezamento entre os dois (live/revezamento.mjs): comandos,
+ * começo, testes, quem está rodando a live e a configuração (guardada em lenda/.cache/live-config.json).
+ *
  * Nada de login: a leitura usa só o @ público da live. A assinatura da conexão passa pelo serviço gratuito
  * do Euler Stream (padrão do conector); a chave opcional só aumenta os limites.
  */
@@ -28,6 +32,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createRelayHub, isRelayRequest, obsPage } from './revezamento.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
@@ -239,7 +244,11 @@ const TYPES = {
  *   - "#/live?fonte=ponte" (o endereço que --abrir e live:demo abrem) → fonte "TikTok (ponte do LENDA)" no
  *     lugar do simulador; quem escolheu o TikFinity continua nele. Em --demo é sempre a ponte. O "fonte=" sai
  *     do endereço depois de lido: recarregar a página não desfaz uma troca feita no painel;
- *   - ponte noutra porta (--porta 5179) → o endereço da ponte salvo ainda no padrão (5178) passa a ser o desta porta.
+ *   - ponte noutra porta (--porta 5179) → o endereço da ponte salvo ainda no padrão (5178) passa a ser o desta porta;
+ *   - "&usuario=perfil" (o --abrir põe o --usuario da ponte) → o @ do painel passa a ser esse, para o painel não
+ *     trocar a live que a ponte já está seguindo pelo @ de antes. Também sai do endereço depois de lido.
+ * A fonte e o @ pedidos pelo endereço contam como mudança feita agora (editedAt): o painel manda a configuração
+ * dele para o OBS pelo revezamento, em vez de voltar para a que a ponte guardou da live anterior.
  */
 function bootScript() {
   const P = JSON.stringify({ demo: DEMO })
@@ -247,18 +256,24 @@ function bootScript() {
 var P=${P},K='lenda:live:v1',want={};
 var h=location.hash,qi=h.indexOf('?'),hq=null;
 try{hq=new URLSearchParams(qi>=0?h.slice(qi+1):'')}catch(e){}
-var f=P.demo?'ponte':((hq&&hq.get('fonte'))||new URLSearchParams(location.search).get('fonte'));
-if(hq&&hq.has('fonte')){hq.delete('fonte');var rest=hq.toString();try{history.replaceState(history.state,'',location.pathname+location.search+h.slice(0,qi)+(rest?'?'+rest:''))}catch(e){}}
+var asked=(hq&&hq.get('fonte'))||new URLSearchParams(location.search).get('fonte');
+var f=P.demo?'ponte':asked;
+var wu=String((hq&&hq.get('usuario'))||'').replace(/^@+/,'').replace(/\\s+/g,'').toLowerCase();
+if(!/^[a-z0-9._]{1,40}$/.test(wu))wu='';
+if(hq&&(hq.has('fonte')||hq.has('usuario'))){hq.delete('fonte');hq.delete('usuario');var rest=hq.toString();try{history.replaceState(history.state,'',location.pathname+location.search+h.slice(0,qi)+(rest?'?'+rest:''))}catch(e){}}
 var raw=localStorage.getItem(K),s=raw?JSON.parse(raw):null;
 var c=(s&&s.state&&s.state.config)||{};
 if(f==='ponte'||f==='tikfinity'||f==='simulador'){if(P.demo||f!=='ponte'||c.source!=='tikfinity')want.source=f}
 var ws='ws://'+location.host+'/ws',cur=c.bridgeUrl||'ws://localhost:5178/ws';
 if(/^ws:\\/\\/localhost:5178\\/ws$/.test(cur)&&cur!==ws)want.bridgeUrl=ws;
+if(wu)want.username=wu;
 var changed=false;for(var k in want)if(c[k]!==want[k])changed=true;
-if(!changed)return;
+var stamp=(!!asked&&(want.source||c.source)===asked)||!!wu;
+if(!changed&&!stamp)return;
 if(!s||typeof s!=='object')s={state:{},version:1};
 if(!s.state||typeof s.state!=='object')s.state={};
 s.state.config=Object.assign({},c,want);
+if(stamp)s.state.editedAt=Date.now();
 localStorage.setItem(K,JSON.stringify(s));
 }catch(e){}})()</script>`
 }
@@ -278,6 +293,11 @@ function serveStatic(req, res) {
   } catch {
     res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' })
     return res.end('endereço inválido')
+  }
+  // fonte de navegador do OBS: o jogo em 540×960 ampliado nítido para o tamanho da fonte (live/revezamento.mjs)
+  if (p === '/obs' || p === '/obs/') {
+    res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache' })
+    return res.end(req.method === 'HEAD' ? undefined : obsPage())
   }
   if (p === '/') p = '/index.html'
   const file = path.resolve(DIST, '.' + p)
@@ -335,6 +355,9 @@ function broadcast(msg) {
   const s = JSON.stringify(msg, safe)
   for (const c of clients) sendTo(c, s)
 }
+
+/** Revezamento painel ↔ OBS (sockets ?papel=revezamento): fora de `clients`, não recebe os eventos da live. */
+const relay = createRelayHub({ file: path.join(ROOT, '.cache', 'live-config.json'), log, send: sendTo })
 
 let status = { state: 'idle', message: 'Esperando o @ do perfil' }
 let catalog = []
@@ -695,13 +718,30 @@ const server = http.createServer((req, res) => {
     }
   }
 })
-// clientes só mandam JSON pequeno (connect/disconnect/hello): nada de mensagens enormes
+// clientes só mandam JSON pequeno (connect/disconnect/hello, revezamento): nada de mensagens enormes
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024, verifyClient: ({ origin }) => allowOrigin(origin) })
 // (antes de abrir a porta o erro já é tratado em server.on('error'))
 wss.on('error', (err) => {
   if (listening) log('WebSocket:', err?.message ?? err)
 })
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  if (isRelayRequest(req)) {
+    ws.on('error', () => {
+      relay.remove(ws)
+      ws.terminate()
+    })
+    ws.on('close', () => relay.remove(ws))
+    ws.on('message', (raw, isBinary) => {
+      if (isBinary) return
+      try {
+        relay.message(ws, JSON.parse(String(raw)))
+      } catch {
+        /* mensagem quebrada: ignora */
+      }
+    })
+    relay.add(ws)
+    return
+  }
   clients.add(ws)
   ws.on('error', () => {
     clients.delete(ws)
@@ -757,6 +797,7 @@ server.listen(PORT, HOST, () => {
       row(`  LENDA · Live interativa${DEMO ? ' (demonstração)' : ''}`),
       row(`  Jogo:       ${NO_SITE ? '(use o npm run dev)' : url}`),
       row(`  WebSocket:  ${WS_URL}`),
+      ...(NO_SITE ? [] : [row(`  OBS:        ${SITE_URL}/obs  (1080×1920)`)]),
       `  └${'─'.repeat(58)}┘`,
       '  Deixe esta janela aberta durante a live. Ctrl+C encerra.',
       '',
@@ -764,7 +805,8 @@ server.listen(PORT, HOST, () => {
   )
   if (DEMO) startDemo()
   else if (AUTO_USER) void join(AUTO_USER, SIGN_KEY)
-  if (OPEN && !NO_SITE) openWindow(url)
+  // o painel aberto pela ponte já vem com o @ do --usuario (o "usuario=" sai do endereço depois de lido)
+  if (OPEN && !NO_SITE) openWindow(AUTO_USER && validUser(AUTO_USER) && !DEMO ? `${url}&usuario=${encodeURIComponent(AUTO_USER)}` : url)
 })
 
 /**

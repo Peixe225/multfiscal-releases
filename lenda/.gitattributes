@@ -1,0 +1,3 @@
+# Arquivos do Windows: guardados e entregues byte a byte com CRLF (o cmd quebra labels/goto com LF)
+*.bat -text
+live/obs/LENDA/basic.ini -text

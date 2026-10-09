@@ -4,6 +4,10 @@
  *   const cfg = useLiveConfig((s) => s.config)
  *   useLiveConfig.getState().set({ voteSeconds: 30 })
  *   useLiveSession.getState().start()      // o jogo passa a ser controlado pelo chat
+ *
+ * O painel e a live dentro do OBS (outro navegador) ficam com a mesma configuração pela ponte (channel.ts):
+ * cada mudança feita na tela (set/setBinding/reset) avisa onConfigEdited e marca `editedAt`; o que chega
+ * da ponte entra por mergeSyncedConfig. Chave do Euler Stream e endereço da ponte ficam em cada janela.
  */
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
@@ -88,6 +92,8 @@ export const DEFAULT_LIVE_CONFIG: LiveConfig = {
 
 interface ConfigStore {
   config: LiveConfig
+  /** Quando a configuração mudou pela última vez nesta janela (ou a hora da que veio da ponte). 0 = nunca. */
+  editedAt: number
   set(patch: Partial<LiveConfig>): void
   setBinding(index: number, gift: string): void
   reset(): void
@@ -107,12 +113,32 @@ export function dedupeBindings(bindings: readonly string[]): string[] {
   return bindings.map((b, i) => (b && bindings.slice(0, i).some((x) => sameBinding(x, b)) ? '' : b))
 }
 
+// ── mudanças feitas nesta janela (vão para as outras pela ponte) ──
+
+const editListeners = new Set<() => void>()
+
+/** Alguém mudou a configuração nesta janela (não conta o que chegou de outra janela ou da ponte). */
+export function onConfigEdited(fn: () => void): () => void {
+  editListeners.add(fn)
+  return () => {
+    editListeners.delete(fn)
+  }
+}
+
+const edited = () => {
+  for (const f of [...editListeners]) f()
+}
+
 export const useLiveConfig = create<ConfigStore>()(
   persist(
     (set) => ({
       config: DEFAULT_LIVE_CONFIG,
-      set: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
-      setBinding: (index, gift) =>
+      editedAt: 0,
+      set: (patch) => {
+        set((s) => ({ config: { ...s.config, ...patch }, editedAt: Date.now() }))
+        edited()
+      },
+      setBinding: (index, gift) => {
         set((s) => {
           const giftBindings = [...s.config.giftBindings]
           while (giftBindings.length < 4) giftBindings.push('')
@@ -120,9 +146,14 @@ export const useLiveConfig = create<ConfigStore>()(
           const j = bindingConflict(giftBindings, index, gift)
           if (j >= 0) giftBindings[j] = giftBindings[index] ?? ''
           giftBindings[index] = gift
-          return { config: { ...s.config, giftBindings: dedupeBindings(giftBindings) } }
-        }),
-      reset: () => set({ config: DEFAULT_LIVE_CONFIG }),
+          return { config: { ...s.config, giftBindings: dedupeBindings(giftBindings) }, editedAt: Date.now() }
+        })
+        edited()
+      },
+      reset: () => {
+        set({ config: DEFAULT_LIVE_CONFIG, editedAt: Date.now() })
+        edited()
+      },
     }),
     {
       name: CONFIG_KEY,
@@ -131,13 +162,53 @@ export const useLiveConfig = create<ConfigStore>()(
       // erro faria o persist chamar setItem em undefined e a página ficar em branco
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
-        const config: LiveConfig = { ...DEFAULT_LIVE_CONFIG, ...((persisted as { config?: Partial<LiveConfig> })?.config ?? {}) }
+        const p = persisted as { config?: Partial<LiveConfig>; editedAt?: unknown } | undefined
+        const config: LiveConfig = { ...DEFAULT_LIVE_CONFIG, ...(p?.config ?? {}) }
+        const editedAt = typeof p?.editedAt === 'number' && Number.isFinite(p.editedAt) ? p.editedAt : 0
         // configuração salva com o mesmo presente em duas opções (versões antigas): fica só na primeira
-        return { ...current, config: { ...config, giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
+        return { ...current, editedAt, config: { ...config, giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
       },
     },
   ),
 )
+
+// ── a mesma configuração no painel e no OBS (pela ponte) ──
+
+/** Ficam em cada janela: a chave do Euler Stream (segredo) e o endereço da ponte (é por onde a janela fala). */
+export const LOCAL_ONLY_KEYS = ['signKey', 'bridgeUrl'] as const satisfies readonly (keyof LiveConfig)[]
+type LocalOnly = (typeof LOCAL_ONLY_KEYS)[number]
+const SYNCED_KEYS = (Object.keys(DEFAULT_LIVE_CONFIG) as (keyof LiveConfig)[]).filter((k) => !(LOCAL_ONLY_KEYS as readonly string[]).includes(k))
+
+/** O que vai para a ponte (e para as outras janelas). */
+export function syncedConfig(c: LiveConfig): Omit<LiveConfig, LocalOnly> {
+  const out: Record<string, unknown> = {}
+  for (const k of SYNCED_KEYS) out[k] = Array.isArray(c[k]) ? [...(c[k] as unknown[])] : c[k]
+  return out as Omit<LiveConfig, LocalOnly>
+}
+
+/**
+ * Configuração que chegou de outra janela pela ponte → a desta janela. Só entram campos conhecidos e do
+ * mesmo tipo do padrão (o resto fica como está); chave e endereço da ponte não mudam.
+ */
+export function mergeSyncedConfig(local: LiveConfig, incoming: unknown): LiveConfig {
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return local
+  const src = incoming as Record<string, unknown>
+  const out = { ...local } as Record<string, unknown>
+  for (const k of SYNCED_KEYS) {
+    const want = DEFAULT_LIVE_CONFIG[k]
+    const v = src[k]
+    if (Array.isArray(want)) {
+      if (Array.isArray(v) && v.every((x) => typeof x === 'string')) out[k] = [...v]
+    } else if (typeof v === typeof want && (typeof v !== 'number' || Number.isFinite(v))) out[k] = v
+  }
+  const config = out as unknown as LiveConfig
+  return { ...config, giftBindings: dedupeBindings(config.giftBindings) }
+}
+
+/** As duas janelas estão com a mesma configuração (fora o que é de cada uma)? */
+export function sameSyncedConfig(a: LiveConfig, b: LiveConfig): boolean {
+  return SYNCED_KEYS.every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]))
+}
 
 // outra aba/janela mudou a configuração (painel de controle ↔ janela da live): relê do localStorage.
 // O evento "storage" só dispara nas OUTRAS janelas da mesma origem, então não há eco.

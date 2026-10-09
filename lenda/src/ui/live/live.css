@@ -201,6 +201,10 @@
 .lv-stage__empty, .lv-stage__hint { margin: 0; font-size: 15px; color: var(--text-3); line-height: 1.45; }
 .lv-stage__hint { color: var(--warning); }
 
+/* janela da live esperando: os controles do streamer só aparecem com o mouse em cima (o público vê só o aviso) */
+.lv-ready__ctrl { opacity: 0; transition: opacity 200ms var(--ease-out); }
+.lv-ready:hover .lv-ready__ctrl, .lv-ready__ctrl:focus-within { opacity: 1; }
+
 /* disputa e criação da lenda */
 .lv-create__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .lv-create .lv-stage__k, .lv-bid .lv-stage__k { color: var(--warning); }

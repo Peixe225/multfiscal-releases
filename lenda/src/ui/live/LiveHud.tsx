@@ -292,7 +292,8 @@ function HudMenu({ leader }: { leader: boolean }) {
   const active = useCareer(selectHasActiveCareer)
   const surname = useCareer((s) => s.state?.identity.surname)
   const now = useNow(open && !leader, 1000)
-  const sum = leader ? null : (lockHolder(now)?.summary ?? null)
+  const holder = leader ? null : lockHolder(now)
+  const sum = holder?.summary ?? null
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -325,7 +326,7 @@ function HudMenu({ leader }: { leader: boolean }) {
       </button>
       {open && (
         <div className="lv-menu__pop" role="menu">
-          {!leader && <p className="lv-menu__note">A live roda em outra janela: estes comandos vão para ela.</p>}
+          {!leader && <p className="lv-menu__note">{holder?.where === 'obs' ? 'A live roda no OBS: estes comandos vão para lá.' : 'A live roda em outra janela: estes comandos vão para ela.'}</p>}
           <button type="button" role="menuitem" onClick={act(togglePause)}>
             {paused ? <Play size={15} /> : <Pause size={15} />} {paused ? 'Retomar votações' : 'Pausar votações'}
           </button>
@@ -377,7 +378,9 @@ export function LiveHud({ leader }: { leader: boolean }) {
   const showResult = !round && !!result && now - result.at < 4500
   // só a janela que roda a live é capturada: é nela que a faixa respeita a área segura do TikTok
   useSafeArea(leader)
-  if (!leader)
+  if (!leader) {
+    // a live roda noutra janela deste navegador ou no OBS (pela ponte)
+    const obs = lockHolder()?.where === 'obs'
     return (
       <header ref={ref} className="lv-hud is-follower" role="region" aria-label="Live interativa">
         <div className="lv-hud__row">
@@ -386,13 +389,14 @@ export function LiveHud({ leader }: { leader: boolean }) {
             <span className="lv-head__k">
               <span className="lv-head__kt">Painel</span>
             </span>
-            <span className="lv-head__t">A live está rodando em outra janela</span>
+            <span className="lv-head__t">{obs ? 'A live está rodando no OBS' : 'A live está rodando em outra janela'}</span>
           </div>
           <HudMenu leader={false} />
         </div>
-        <p className="lv-hud__how">Esta aba não vai ao ar: use o menu para comandar a janela da live, ou feche-a.</p>
+        <p className="lv-hud__how">Esta aba não vai ao ar: use o menu para comandar {obs ? 'a live do OBS' : 'a janela da live'}, ou feche-a.</p>
       </header>
     )
+  }
   const decision = round?.kind === 'decision' ? round : null
   const penalty = isPenaltyRound(decision)
   return (

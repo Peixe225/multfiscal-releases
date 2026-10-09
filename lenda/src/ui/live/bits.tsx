@@ -2,7 +2,7 @@
  * Peças da live: ícone de presente, relógio, cores das opções, linha "como votar".
  */
 import { useEffect, useState } from 'react'
-import { isCaptureWindow } from '@/live/channel'
+import { isCaptureWindow, type LiveBeat } from '@/live/channel'
 import { LIVE_SANDBOXED, useLiveConfig, type CreatorMode } from '@/live/config'
 import { giftEmoji, giftLabel, sameGift } from '@/live/gifts'
 import { useLive } from '@/live/store'
@@ -76,6 +76,13 @@ export function howToVote(n: number): string {
 
 /** Moedas na tela ("1 moeda", "1,1 mil"): ficam em live/gifts (o autopiloto também usa). */
 export { coinsLabel, fmtCoins } from '@/live/gifts'
+
+/** Onde a outra janela da live está, para os textos do painel: "no OBS" / "para o OBS", "na janela da live"… */
+export function whereLabel(b: Pick<LiveBeat, 'where'> | null | undefined): { at: string; to: string } {
+  if (b?.where === 'obs') return { at: 'no OBS', to: 'para o OBS' }
+  if (b?.where === 'aba') return { at: 'em outra janela', to: 'para a outra janela' }
+  return { at: 'na janela da live', to: 'para a janela da live' }
+}
 
 /** Rótulo de "nova lenda" conforme quem cria a lenda. */
 export const NEW_LEGEND_LABEL: Record<CreatorMode, string> = { disputa: 'Nova lenda (disputa)', apoiador: 'Nova lenda (maior apoiador)', votacao: 'Nova lenda (chat vota)' }

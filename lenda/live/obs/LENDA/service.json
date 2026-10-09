@@ -1,0 +1,9 @@
+{
+  "type": "rtmp_custom",
+  "settings": {
+    "server": "COLE AQUI o URL do servidor do TikTok (o LIVE-OBS.bat faz isso por você)",
+    "key": "",
+    "use_auth": false,
+    "bwtest": false
+  }
+}

@@ -9,7 +9,7 @@ import { ArrowRight, Check, CircleAlert, Copy, Gift, MessageSquare, MonitorPlay,
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow, requestStart } from '@/live/autopilot'
-import { CAPTURE_WINDOW_NAME, captureReady, isCaptureWindow, lockHolder, markCaptureWindow, sendLiveCommand, sendLiveStart, type LiveSummary, type StartMode } from '@/live/channel'
+import { CAPTURE_WINDOW_NAME, captureReady, isCaptureWindow, isObsView, lockHolder, markCaptureWindow, sendLiveCommand, sendLiveStart, type LiveSummary, type StartMode } from '@/live/channel'
 import { LIVE_SANDBOXED, bindingConflict, useLiveConfig, useLiveSession, type CreatorMode, type LiveConfig, type NameMode } from '@/live/config'
 import { bridgeJoin, bridgeLeave, cleanTikTokUser } from '@/live/connection'
 import { giftCatalog, giftEmoji, giftLabel } from '@/live/gifts'
@@ -20,7 +20,7 @@ import { Button, Segmented, Switch, cx, toast } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
 import { FeedText, Legend } from './LiveHud'
 import { LiveStage } from './LiveStage'
-import { GiftIcon, NEW_LEGEND_LABEL, OPTION_COLORS, confirmNewLegend, useNow } from './bits'
+import { GiftIcon, NEW_LEGEND_LABEL, OPTION_COLORS, confirmNewLegend, useNow, whereLabel } from './bits'
 import './live.css'
 
 function Section({ n, title, icon: Icon, children, aside }: { n: number; title: string; icon: typeof Plug; children: ReactNode; aside?: ReactNode }) {
@@ -532,8 +532,11 @@ function TestSection() {
   const round = useLive((s) => s.round)
   const feed = useLive((s) => s.feed)
   const now = useNow(true, 1000)
-  // a live roda em outra janela: os testes vão para ela (pelo canal entre janelas) — o resultado aparece lá
-  const remote = lockHolder(now)?.summary ?? null
+  // a live roda em outra janela (ou no OBS): os testes vão para ela (pelo canal entre janelas ou pela
+  // ponte) — o resultado aparece lá
+  const holder = lockHolder(now)
+  const remote = holder?.summary ?? null
+  const there = whereLabel(holder)
   const [sent, setSent] = useState<{ id: number; text: string }[]>([])
   const log: SentLog = (label, target) => {
     if (target === 'remote') setSent((l) => [{ id: Date.now() + Math.random(), text: label }, ...l].slice(0, 6))
@@ -543,13 +546,13 @@ function TestSection() {
     <Section n={4} title="Testar votos" icon={Gift}>
       <p className="lv-note">
         {remote
-          ? 'A live está rodando na janela da live: estes botões mandam o teste para lá (veja o resultado nela). Não vão para o TikTok.'
+          ? `A live está rodando ${there.at}: estes botões mandam o teste para lá (veja o resultado lá). Não vão para o TikTok.`
           : 'Botões de teste (não vão para o TikTok). Funcionam durante uma votação — inicie o modo live e use aqui ou no simulador.'}
         {real && ' Numa live de verdade, o teste conta voto, mas não vira apoiador nem lance.'}
       </p>
       {remote ? (
         <p className="lv-tests__k">
-          {remote.round ? `Votação aberta na janela da live: ${remote.round} (${remote.secondsLeft ?? 0} s)` : remote.creation ? (remote.creation.phase === 'bidding' ? 'Disputa aberta na janela da live' : 'Criação da lenda na janela da live') : 'Nenhuma votação aberta na janela da live agora.'}
+          {remote.round ? `Votação aberta ${there.at}: ${remote.round} (${remote.secondsLeft ?? 0} s)` : remote.creation ? (remote.creation.phase === 'bidding' ? `Disputa aberta ${there.at}` : `Criação da lenda ${there.at}`) : `Nenhuma votação aberta ${there.at} agora.`}
         </p>
       ) : (
         round && <Legend round={round} />
@@ -575,10 +578,10 @@ function TestSection() {
       </div>
       {remote ? (
         sent.length > 0 && (
-          <ul className="lv-log" aria-label="Testes enviados para a janela da live">
+          <ul className="lv-log" aria-label={`Testes enviados ${there.to}`}>
             {sent.map((f) => (
               <li key={f.id}>
-                Enviado para a janela da live: <b>{f.text}</b>
+                Enviado {there.to}: <b>{f.text}</b>
               </li>
             ))}
           </ul>
@@ -600,7 +603,9 @@ function TestSection() {
 
 function StreamSection() {
   const safeArea = useLiveConfig((s) => s.config.safeArea)
+  const bridgeUrl = useLiveConfig((s) => s.config.bridgeUrl)
   const set = useLiveConfig((s) => s.set)
+  const obsUrl = `${bridgeUrl.replace(/^ws(s?):\/\//, 'http$1://').replace(/\/ws\/?$/, '')}/obs`
   return (
     <Section n={5} title="Transmitir no TikTok" icon={MonitorPlay}>
       <ol className="lv-steps">
@@ -615,6 +620,14 @@ function StreamSection() {
         </li>
         <li>Use esta aba como painel de controle: pausar, encerrar a votação ou a disputa, nova lenda e parar. Os comandos e os botões de teste vão para a janela da live.</li>
       </ol>
+      {!LIVE_SANDBOXED && (
+        <p className="lv-note">
+          <MonitorPlay size={16} aria-hidden="true" />
+          <span>
+            Transmite pelo <b>OBS</b>? O <code>live/INSTALAR-OBS.bat</code> põe no OBS a cena pronta, e o <code>live/LIVE-OBS.bat</code> abre tudo em cada live. À mão: no lugar da janela da live, adicione uma fonte <b>Navegador</b> com o endereço <code>{obsUrl}</code> e tamanho <b>1080×1920</b> (ou 720×1280). Com a ponte aberta, este painel comanda a live do OBS do mesmo jeito: começar, pausar, testes e as configurações daqui valem lá.
+          </span>
+        </p>
+      )}
       <Switch
         checked={safeArea}
         onChange={(v) => set({ safeArea: v })}
@@ -639,8 +652,8 @@ function ControlBar() {
   const other = useMemo(() => lockHolder(now), [now])
   // janela da live aberta e esperando: os botões de começar mandam o começo para ela
   const ready = useMemo(() => (on || other ? null : captureReady(now)), [now, on, other])
-  const [sentAt, setSentAt] = useState(0)
-  const starting = !other && !on && now - sentAt < 6000
+  const [sent, setSent] = useState<{ at: number; where: ReturnType<typeof whereLabel> }>({ at: 0, where: whereLabel(null) })
+  const starting = !other && !on && now - sent.at < 6000
   // a live rodava em outra janela e parou (ou esta aba voltou ao foco): relê carreira e Hall antes de
   // oferecer "Continuar" — a memória desta aba pode estar velha
   const otherOn = !!other
@@ -662,20 +675,25 @@ function ControlBar() {
     if (!w) toast.error('O navegador bloqueou a janela', 'Libere pop-ups para este endereço e tente de novo.')
     else w.focus()
   }
+  // live pronta no OBS: o OBS é outro navegador, com as carreiras dele — "Continuar" e a confirmação da nova
+  // lenda seguem a carreira salva lá (vem no batimento), não a deste painel
+  const careerName = ready?.where === 'obs' ? ready.career : active ? state?.identity.surname : undefined
   const begin = (mode: StartMode) => {
-    if (mode === 'new' && active && !confirmNewLegend(state?.identity.surname)) return
+    if (mode === 'new' && careerName && !confirmNewLegend(careerName)) return
     if (ready) {
       sendLiveStart(mode, ready.id)
-      setSentAt(Date.now())
+      setSent({ at: Date.now(), where: whereLabel(ready) })
       return
     }
     requestStart(mode)
   }
   const sum = other?.summary
+  const otherAt = whereLabel(other).at
+  const readyAt = whereLabel(ready).at
   const closeLabel = sum?.creation ? (sum.creation.phase === 'bidding' ? 'Encerrar disputa' : 'Encerrar criação') : 'Encerrar votação'
   const otherText = sum
     ? [
-        'Rodando na janela da live',
+        `Rodando ${otherAt}`,
         sum.paused && 'pausado',
         sum.creation
           ? sum.creation.phase === 'bidding'
@@ -685,17 +703,31 @@ function ControlBar() {
       ]
         .filter(Boolean)
         .join(' · ')
-    : 'Rodando na janela da live'
+    : `Rodando ${otherAt}`
   return (
     <div className="lv-ctrl lx-glass lx-top-light">
       <div className="lv-ctrl__txt">
         <span className="lv-ctrl__k">
           <Radio size={14} aria-hidden="true" /> Modo live
         </span>
-        <b>{other ? otherText : starting ? 'Começando na janela da live…' : on ? (paused ? 'Ligado · votações pausadas' : 'Ligado · o chat está no controle') : ready ? 'Janela da live aberta · esperando você começar' : 'Desligado'}</b>
+        <b>
+          {other
+            ? otherText
+            : starting
+              ? `Começando ${sent.where.at}…`
+              : on
+                ? paused
+                  ? 'Ligado · votações pausadas'
+                  : 'Ligado · o chat está no controle'
+                : ready
+                  ? ready.where === 'obs'
+                    ? 'Live pronta no OBS · esperando você começar'
+                    : 'Janela da live aberta · esperando você começar'
+                  : 'Desligado'}
+        </b>
         <span>
           {ready && !starting
-            ? 'Com a live no ar, clique em Iniciar modo live (ou Continuar): o jogo começa na janela da live.'
+            ? `Com a live no ar, clique em Iniciar modo live (ou Continuar): o jogo começa ${readyAt}.`
             : 'O chat decide cada escolha do Modo Clássico. Você pode pausar a qualquer momento.'}
         </span>
       </div>
@@ -747,16 +779,16 @@ function ControlBar() {
           <>
             {!LIVE_SANDBOXED && (
               <Button variant="ghost" icon={MonitorPlay} onClick={openWindow}>
-                {ready ? 'Mostrar janela da live' : 'Abrir janela da live (9:16)'}
+                {ready && ready.where !== 'obs' ? 'Mostrar janela da live' : 'Abrir janela da live (9:16)'}
               </Button>
             )}
-            {active && state && (
+            {careerName && (
               <Button variant="ghost" icon={Play} disabled={starting} onClick={() => begin('continue')}>
-                Continuar {state.identity.surname}
+                Continuar {careerName}
               </Button>
             )}
-            <Button variant="primary" icon={active ? Sparkles : Play} disabled={starting} onClick={() => begin('new')}>
-              {active ? NEW_LEGEND_LABEL[creator] : 'Iniciar modo live'}
+            <Button variant="primary" icon={careerName ? Sparkles : Play} disabled={starting} onClick={() => begin('new')}>
+              {careerName ? NEW_LEGEND_LABEL[creator] : 'Iniciar modo live'}
             </Button>
           </>
         )}
@@ -766,8 +798,8 @@ function ControlBar() {
 }
 
 /**
- * Janela da live antes de começar (é o que a captura do LIVE Studio mostra): "a live vai começar" para o
- * público e, pequeno, como começar. O painel (a aba de configurações) manda o começo; dá para começar aqui.
+ * Janela da live antes de começar (é o que a captura do LIVE Studio / o OBS mostra): "a live vai começar" para
+ * o público. O painel (a aba de configurações) manda o começo; os botões daqui só aparecem com o mouse em cima.
  */
 function CaptureReady() {
   const creator = useLiveConfig((s) => s.config.creator)
@@ -775,12 +807,13 @@ function CaptureReady() {
   const state = useCareer((s) => s.state)
   const now = useNow(true, 1000)
   const other = lockHolder(now)
+  const obs = isObsView()
   return (
     <main id="conteudo" className="lv-stage lv-ready" tabIndex={-1}>
       <div className="lv-stage__card lx-glass lx-top-light">
         <div className="lv-stage__idle">
           <Radio size={32} aria-hidden="true" />
-          <h1 className="lv-stage__t">{other ? 'A live está rodando em outra janela' : 'A live já vai começar!'}</h1>
+          <h1 className="lv-stage__t">{other ? `A live está rodando ${other.where === 'obs' ? 'no OBS' : 'em outra janela'}` : 'A live já vai começar!'}</h1>
           {!other && (
             <p className="lv-stage__how">
               {creator === 'disputa'
@@ -791,9 +824,18 @@ function CaptureReady() {
             </p>
           )}
           {!other && (
-            <>
+            // controles do streamer: escondidos para o público, aparecem ao passar o mouse (ou com o teclado)
+            <div className="lv-ready__ctrl">
               <p className="lv-stage__empty">
-                Janela pronta para a <b>Captura de janela</b> do LIVE Studio. Para começar, clique em <b>Iniciar modo live</b> na aba de configurações — ou aqui:
+                {obs ? (
+                  <>
+                    Pronta no OBS. Para começar, clique em <b>Iniciar modo live</b> no painel da live (a janela de configurações) — ou aqui, pelo <b>Interagir</b> do OBS:
+                  </>
+                ) : (
+                  <>
+                    Janela pronta para a <b>Captura de janela</b> do LIVE Studio. Para começar, clique em <b>Iniciar modo live</b> na aba de configurações — ou aqui:
+                  </>
+                )}
               </p>
               <div className="lv-actions" style={{ justifyContent: 'center', marginTop: 10 }}>
                 {active && state && (
@@ -811,7 +853,7 @@ function CaptureReady() {
                   {active ? NEW_LEGEND_LABEL[creator] : 'Iniciar modo live'}
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

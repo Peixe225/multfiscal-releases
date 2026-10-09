@@ -1,0 +1,172 @@
+{
+  "name": "LENDA Live",
+  "current_scene": "LENDA Live",
+  "current_program_scene": "LENDA Live",
+  "scene_order": [
+    { "name": "LENDA Live" },
+    { "name": "Intervalo" }
+  ],
+  "transition_duration": 300,
+  "resolution": { "x": 1080, "y": 1920 },
+  "AuxAudioDevice1": {
+    "id": "wasapi_input_capture",
+    "versioned_id": "wasapi_input_capture",
+    "name": "Mic/Aux",
+    "settings": { "device_id": "default" },
+    "volume": 1.0,
+    "muted": false,
+    "enabled": true
+  },
+  "sources": [
+    {
+      "id": "browser_source",
+      "versioned_id": "browser_source",
+      "name": "Jogo LENDA",
+      "settings": {
+        "is_local_file": false,
+        "url": "http://localhost:5178/obs",
+        "width": 1080,
+        "height": 1920,
+        "fps_custom": false,
+        "fps": 30,
+        "reroute_audio": true,
+        "shutdown": false,
+        "restart_when_active": false,
+        "webpage_control_level": 1
+      },
+      "volume": 1.0,
+      "muted": false,
+      "monitoring_type": 2,
+      "enabled": true
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "Fundo do intervalo",
+      "settings": { "color": 4278978567, "width": 1080, "height": 1920 },
+      "enabled": true
+    },
+    {
+      "id": "text_gdiplus",
+      "versioned_id": "text_gdiplus_v3",
+      "name": "Texto do intervalo",
+      "settings": {
+        "text": "INTERVALO\nJá voltamos!",
+        "font": { "face": "Arial", "style": "Bold", "size": 110, "flags": 1 },
+        "align": "center",
+        "valign": "center",
+        "color": 16777215,
+        "opacity": 100
+      },
+      "enabled": true
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "LENDA Live",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 1,
+        "items": [
+          {
+            "name": "Jogo LENDA",
+            "id": 1,
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "pos": { "x": 0.0, "y": 0.0 },
+            "scale": { "x": 1.0, "y": 1.0 },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": false,
+            "bounds": { "x": 1080.0, "y": 1920.0 },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal"
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "Intervalo",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "Jogo LENDA",
+            "id": 3,
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "pos": { "x": 0.0, "y": 0.0 },
+            "scale": { "x": 1.0, "y": 1.0 },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": false,
+            "bounds": { "x": 1080.0, "y": 1920.0 },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal"
+          },
+          {
+            "name": "Fundo do intervalo",
+            "id": 1,
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "pos": { "x": 0.0, "y": 0.0 },
+            "scale": { "x": 1.0, "y": 1.0 },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds_crop": false,
+            "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal"
+          },
+          {
+            "name": "Texto do intervalo",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "rot": 0.0,
+            "pos": { "x": 540.0, "y": 960.0 },
+            "scale": { "x": 1.0, "y": 1.0 },
+            "align": 0,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds_crop": false,
+            "bounds": { "x": 0.0, "y": 0.0 },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal"
+          }
+        ]
+      },
+      "enabled": true
+    }
+  ]
+}
