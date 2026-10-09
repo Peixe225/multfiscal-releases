@@ -305,8 +305,8 @@ function gc_ler_codigo_digitado(mixed $v): string
 
 /**
  * POST cliente-entrar { whatsapp, codigo, nome?, aceitaPromo?, aparelho?, migrar? }: código certo → entra (ou cria a
- * conta: com o nome, ou o nome da conta do aparelho em migrar). Sem conta e sem nome: 409 precisa-nome (o código
- * continua valendo). Entrar traz junto o que o aparelho tinha (migrar: nome, cupons que ainda valem, prêmio reservado,
+ * conta: com o nome, ou o nome da conta do aparelho em migrar). Sem conta e sem nome: 200 com precisaNome (sem
+ * sessão; o código continua valendo e a pessoa manda de novo com o nome: é um passo do caminho, não um erro). Entrar traz junto o que o aparelho tinha (migrar: nome, cupons que ainda valem, prêmio reservado,
  * dias de giro) e guarda o prêmio que o servidor reservou pro aparelho (cupomGuardado).
  */
 function gc_rota_cliente_entrar(): array
@@ -340,7 +340,7 @@ function gc_rota_cliente_entrar(): array
         if ($cli === null) {
             $nomeNovo = $nome ?? $nomeAparelho;
             if ($nomeNovo === null) {
-                return ['erro' => new ErroApi('precisa-nome', 'Primeira vez por aqui: põe teu nome pra criar a conta.', 409, ['campo' => 'nome'])];
+                return ['precisaNome' => true];
             }
             // promoções: o que a pessoa marcou agora; vinda do aparelho, o que ela tinha marcado lá (com a data de lá)
             $promo = $nome !== null ? $aceita : (($migrar['aceitaPromo'] ?? false) === true);
@@ -374,6 +374,9 @@ function gc_rota_cliente_entrar(): array
     });
     if (isset($r['erro'])) {
         throw $r['erro'];
+    }
+    if (isset($r['precisaNome'])) {
+        return ['precisaNome' => true, 'campo' => 'nome', 'mensagem' => 'Primeira vez por aqui: põe teu nome pra criar a conta.'];
     }
     return $r['ok'] + ['_status' => $r['ok']['criada'] ? 201 : 200];
 }

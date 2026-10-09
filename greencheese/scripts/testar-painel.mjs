@@ -9,7 +9,8 @@
 // Também confere o HTML do painel (noindex, título, manifesto, caminhos relativos, sem o CSS do site) e que o site
 // não carrega nada do painel.
 // Uso: node scripts/testar-painel.mjs <pasta-do-build>   (termina com "painel ok")
-// GC_TESTE_PORTA = porta do PHP (a do preview é a seguinte, ou GC_TESTE_PORTA_SITE); GC_PRINTS=<pasta> guarda os prints; GC_AXE=<axe.min.js>
+// GC_TESTE_PORTA = porta do PHP (a do preview é a seguinte, ou GC_TESTE_PORTA_SITE); as contas sobem outro PHP e outro
+// preview (GC_TESTE_PORTA_CONTAS e GC_TESTE_PORTA_CONTAS_SITE, ou portas livres); GC_PRINTS=<pasta> guarda os prints; GC_AXE=<axe.min.js>
 // roda o axe em cada tela; PHP=/caminho troca o binário.
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
@@ -418,6 +419,10 @@ try {
   // pedidos, avisos no WhatsApp e textos do pedido guiado (scripts/testar-painel-pedidos.mjs), com a senha nova do dono
   const { fluxoPedidos } = await import('./testar-painel-pedidos.mjs')
   await fluxoPedidos({ browser, novoContexto, BASE, ok, print, axe, lateral, erros, login: 'dono', senha: 'outra-senha-boa-456', nome: 'Dono da Green', prints: PRINTS })
+  // equipe (papéis e estados), clientes e a conta do site no servidor (scripts/testar-painel-contas.mjs, num PHP próprio
+  // com o Z-API falso que recebe o código de entrada)
+  const { fluxoContas } = await import('./testar-painel-contas.mjs')
+  await fluxoContas({ browser, build, ok, axe, erros, prints: PRINTS })
 } catch (e) {
   ok(false, `exceção: ${e.stack}`)
   for (const c of browser.contexts()) for (const pg of c.pages()) if (PRINTS) await pg.screenshot({ path: join(PRINTS, `falha-${Date.now()}.png`) }).catch(() => {})

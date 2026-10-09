@@ -161,6 +161,7 @@ O painel é onde o dono cria os rateios, confirma os pagamentos e avisa a galera
 
 - **Primeiro acesso**: o painel abre na tela "Primeiro acesso". Põe o código de instalação (ver "Primeiro acesso: o código de instalação" acima), teu nome, um login (letras minúsculas, números, ponto, traço) e a senha (10 caracteres ou mais) duas vezes → "Criar acesso". O painel já nasce com os 2 rateios de exemplo (Arizona e dichavador), que dá pra apagar.
 - **Depois**: login e senha. A sessão dura 30 dias e renova sozinha a cada uso. "Sair do painel" (em Conta) sai só daquele aparelho; trocar a senha tira todos os outros.
+- **Equipe**: cada pessoa entra com o login dela (gerente e atendente, só dos estados deles); quem cria é o dono, em Equipe. Ver "Contas: equipe e clientes".
 - **Esqueceu a senha**: "Esqueci a senha" pede um código de instalação **novo** (gerado de novo pelo `php scripts/codigo-instalacao.php` e publicado) e a senha nova.
 - **No celular, como app**: no Chrome, menu ⋮ → "Adicionar à tela inicial"; no iPhone, Safari → Compartilhar → "Adicionar à Tela de Início". O painel tem manifesto próprio (`painel/manifest.webmanifest`, ícone da loja, "Painel GC").
 - Se a sessão cair no meio do trabalho (senha trocada em outro aparelho, 30 dias sem usar), o login abre **por cima** da tela: o que estava digitado fica, e o que estava sendo salvo termina sozinho depois de entrar.
@@ -214,7 +215,7 @@ O pedido continua fechando no WhatsApp da loja, do jeito que o cliente já conhe
 - A cópia fica guardada no aparelho até o servidor confirmar: se a internet cair no toque, ela vai de novo quando a pessoa volta pro site (o mesmo código nunca vira dois pedidos).
 - Mudou o pedido depois de mandar (voltou do WhatsApp, tocou em "Não consegui" e trocou o endereço, por exemplo): nasce um código novo, que **entra no lugar** do de antes até 2 h depois (o de antes sai da lista se ainda estava "novo"). Depois disso é outro pedido.
 - Sem servidor (o zip da prévia, o `npm run dev` com o PHP desligado), nada disso aparece pro cliente: o pedido fecha no WhatsApp igual.
-- O WhatsApp do cliente só vai junto quando o aparelho sabe (a conta do Teste minha sorte). Nos outros, o dono guarda o número no pedido, tirando da conversa (até as contas de cliente chegarem).
+- O WhatsApp do cliente vai junto quando ele está com a conta aberta (ver "Contas: equipe e clientes": o pedido fica na conta dele e o endereço é guardado). Nos outros, o dono guarda o número no pedido, tirando da conversa.
 
 ### Painel → Pedidos
 
@@ -277,6 +278,49 @@ Pra quem mexe no código: o texto de sempre de cada fala, o tipo e os marcadores
 - Servidor (`public/api/nucleo/`): `pedido-migracoes.php` (as tabelas, faixa 200–299), `pedido.php` (o `POST pedido` e as rotas do painel), `avisos.php` (os motores, a fila, as mensagens do grupo e as portas `gc_whatsapp_enviar`, `gc_whatsapp_mandar` e `gc_aviso_enfileirar`), `textos.php` (as falas) e `textos-pedido.json` (gerado); em `base.php`, `gc_depois()` (o trabalho que roda depois da resposta).
 - Site: `src/lib/codigo-pedido.ts` (o código e o token), `src/store/chat.ts` (o código do pedido montado), `src/lib/pedido-envio.ts` (a cópia e a fila no aparelho), `src/lib/pedido-itens.ts`, `src/lib/pedido-pendente.ts` (a nova tentativa na volta pro site), `src/lib/falas.ts` e `src/dados/textos-pedido.ts` (as falas), `src/componentes/Chat.tsx`.
 - Painel: `src/painel/pedidos/` (as telas Pedidos, Pedido, Avisos e Textos, o bloco do Resumo, as mensagens prontas de cada passo em `mensagens.ts`, o CSS em `pedidos.css`).
+
+---
+
+## Contas: equipe e clientes
+
+Duas contas diferentes, cada uma com o cookie dela: a **equipe** entra no painel (login e senha, papel e estados) e o **cliente** entra no site (WhatsApp e um código que o WhatsApp da loja manda). Contrato: API.md, "Equipe: papéis e permissões", "Contas dos clientes (site)" e "Teste minha sorte no servidor".
+
+### Equipe (painel → Equipe, só o dono)
+
+- **Papéis**: **Dono** (tudo, todos os estados), **Gerente** (pedidos, rateios, participantes e, quando a frente da loja chegar no painel, produtos e estoque; só os estados dele) e **Atendente** (pedidos e participantes dos rateios, só os estados dele; não cria nem muda rateio, não apaga dados). Equipe, Clientes, Avisos no WhatsApp, Textos do pedido, Servidor e os ajustes da loja são só do dono.
+- **Criar um acesso**: Equipe → **Novo acesso** → nome (o login vem sugerido: "ana.souza"), papel e os estados → **Criar acesso**. Aparece a **senha provisória** uma vez só (3 grupos de 4 letras e números, sem os que confundem): "Copiar login e senha" e mandar pra pessoa por mensagem direta. No primeiro acesso o painel pede a senha nova antes de qualquer coisa (o servidor também recusa o resto até trocar).
+- **No dia a dia**: tocar na pessoa mostra o último acesso, quantos aparelhos estão logados, o papel e os estados (**Mudar**), **Gerar senha provisória** (esqueceu a senha: os aparelhos dela saem na hora) e **Desativar acesso** (sai na hora de todos os aparelhos e não entra mais; o que ela fez continua na Atividade; dá pra reativar). Embaixo, **O que fez** (as últimas ações dela) e o link pra Atividade só dela. Sempre sobra um dono; ninguém muda o próprio papel.
+- **O que cada um vê**: o painel mostra só as seções e os botões que o papel pode (a barra do celular muda: a do gerente tem Resumo, Rateios, Criar, Pedidos e Conta; a do atendente, Resumo, Rateios, Atividade, Pedidos e Conta). Link guardado pra uma tela que o papel não abre mostra "Sem acesso". Mesmo assim quem decide é o servidor: cada rota do painel pede uma permissão (o mapa em `public/api/nucleo/equipe.php`), e pedido, rateio ou vaga de outro estado é recusado. A Atividade de gerente e atendente mostra só o que a própria pessoa fez.
+
+### Clientes (site → Minha conta; painel → Clientes)
+
+- **Quando liga**: com os Avisos no WhatsApp ligados num serviço que manda mensagem pra número (Z-API ou Evolution): o mesmo número que avisa o grupo manda o código pros clientes. O dono desliga em Clientes ("Clientes entram com o código pelo WhatsApp"). Desligado, ou sem servidor (o zip da prévia), o site segue com a conta só no aparelho, como antes: quem decide é o `GET recursos`, perguntado logo depois da primeira tela.
+- **Entrar ou criar**: Minha conta (ou "Entrar com teu WhatsApp" em Por estado, ou "Guardar meu prêmio" no Teste minha sorte) → o WhatsApp → **Receber o código** → os 6 números que chegaram ("*482913* é teu código pra entrar na Green Cheese. Vale por 10 minutos. Não passa ele pra ninguém: a loja nunca pede esse código.") → número sem conta pede o nome (e as promoções, opcional, com a data gravada). O código vale 10 min e 5 tentativas; "Mandar outro código" depois de 1 min. A tela é a mesma com ou sem conta (ninguém descobre se um número tem conta). A conta fica aberta 90 dias no aparelho.
+- **Minha conta**: o giro de hoje e os cupons; **Meus pedidos** (o código, o que pediu e o andamento que a loja dá no painel: Recebido → Confirmado → Saiu pra entrega → Entregue); **Minhas vagas de rateio** (do mesmo WhatsApp, com "Ver rateio"); **Meus endereços** (até 5; o do último pedido entra sozinho; o pedido guiado oferece os do estado na hora do endereço); teus dados (nome, promoções, trocar o número com um código pro número novo); **Baixar meus dados** (um arquivo com tudo que a loja guarda); **Sair**; **Apagar minha conta** (LGPD: some a conta, os cupons e os endereços; os pedidos ficam com a loja, sem a conta).
+- **A conta que já estava no aparelho**: quando a loja liga as contas, a conta do aparelho espera a pessoa confirmar o número ("Tua conta deste aparelho (Ian, 1 cupom) vai junto"). No primeiro login vão junto o nome, as promoções, os cupons que ainda valem (com o mesmo código) e o prêmio reservado.
+- **Teste minha sorte**: com a conta no servidor, quem sorteia é o servidor (os prêmios do painel quando a frente da loja ligar `gc_premios_ativos`; até lá os de `src/dados/sorte.ts`, copiados por `node scripts/gerar-premios-sorte.mjs`). Sem conta: 1 giro por aparelho, e o prêmio fica reservado 24 h pra quem criar a conta ali. Com conta: 1 giro por dia por conta, por WhatsApp e por aparelho. O código do cupom nasce no servidor.
+- **Painel → Clientes** (só o dono): quantas contas e quantas aceitaram promoções, a busca (nome ou WhatsApp), o filtro "Aceitaram promoções" e **Baixar lista (Excel)** (só quem aceitou, com a data). No cliente: os dados com a data das promoções, os cupons (**Dar baixa** quando foi usado, **Desfazer**), os pedidos, as vagas, os endereços e **Apagar a conta** (o pedido de exclusão que chegou pela conversa).
+
+### Testes
+
+- `npm run testar-api`: no fim, `scripts/testar-api-contas.mjs` (um PHP próprio com o Z-API falso): o mapa cobre toda rota do painel, cada papel em cada rota, os estados de cada um, senha provisória e troca obrigatória, desativar e redefinir; o código (formato, limites por número e por IP, 1 por minuto, expiração, tentativas, sem revelar conta), entrar/criar, a sessão, atualizar e trocar o número, endereços, pedidos e vagas, exportar, sair e apagar; a migração da conta do aparelho; o giro no servidor (sem conta, com conta, 1 por dia, prêmios do estado, álcool nunca) e o painel Clientes.
+- `npm run testar-painel -- <build>`: no fim, `scripts/testar-painel-contas.mjs` (roda sozinho também: `node scripts/testar-painel-contas.mjs <build>`; portas em `GC_TESTE_PORTA_CONTAS` e `GC_TESTE_PORTA_CONTAS_SITE`): o dono cria a gerente e o atendente no navegador, a troca obrigatória, o que cada papel vê e o que o servidor recusa, desativar/reativar/senha nova; no site (celular), entrar com o código, Minha conta, o endereço guardado oferecido no pedido guiado, o pedido em "Meus pedidos", o Teste minha sorte sorteado no servidor, a migração da conta do aparelho, Clientes (busca, CSV, baixa, apagar), sair, apagar e o código desligado. Axe e sem rolagem lateral nos 4 tamanhos.
+- `npm run revisao`: a rodada "conta no servidor" (simulada como no API.md): a conta do aparelho vai junto no primeiro login, Minha conta com pedidos, vagas e endereços da loja, em 390 e 320.
+
+### Como as contas estão montadas (pra comparar com outro sistema)
+
+Feito do zero aqui (o código do portalmultipla não estava acessível pra seguir o jeito dele); pra comparar, o desenho é este:
+
+- **Equipe**: tabela `usuarios` (login, nome, `papel`, `ufs` em JSON, hash da senha com `password_hash`, `trocar_senha`, `ativo`, `criado_por`) e `sessoes` (hash do token, validade deslizante de 30 dias, até 10 por pessoa; cookie `gc_painel` `HttpOnly` + `SameSite=Strict`) com CSRF por sessão no cabeçalho `X-CSRF`. Permissão por **mapa rota → permissão** (`GC_PERMISSAO_ROTA`) e papel → lista de permissões (`GC_PERMISSOES_PAPEL`), conferido num ponto só (o `gc_exigir_dono()`, que toda rota do painel chama); os estados filtram por `uf` nas consultas. Toda ação grava em `eventos` com o login de quem fez.
+- **Clientes**: tabela `clientes` (WhatsApp único como chave, nome, promoções com data, +18 com data, `origem` site/aparelho), `clientes_codigos` (HMAC do código, motivo, validade, tentativas), `clientes_sessoes` (hash do token, 90 dias, até 10; cookie `gc_cliente` `HttpOnly` + `SameSite=Lax`, separado do painel) e `clientes_enderecos`. Sem senha: o login é o código pelo WhatsApp. Limites em `tentativas` (por número e por IP).
+- **Sorte**: `giros` (dia de Brasília, conta, hash do WhatsApp, hash do aparelho, prêmio, reserva) e `cupons` (código único, prêmio congelado no dia, validade, baixa).
+- **Site**: a interface `AdaptadorConta` (`src/lib/conta.ts`) com dois adaptadores (`contaLocal` e `contaServidor`, em `src/lib/conta-adaptador.ts`) e a escolha automática em `src/lib/conta-modo.ts`; as telas leem o cache `gc-conta` (localStorage), que o adaptador do servidor preenche com o que a API devolve.
+
+### Onde fica cada coisa no código
+
+- Servidor (`public/api/nucleo/`): `contas-migracoes.php` (203–206), `equipe.php` (papéis, o mapa, os estados, as rotas da equipe), `sessao.php` (o usuário com papel e estados), `clientes.php` (código, sessão do cliente, rotas `cliente-*` e o painel Clientes), `sorte.php` (giros e cupons), `premios-semente.php` e `premios-sorte.json` (os prêmios até a frente da loja definir `gc_premios_ativos`).
+- Site: `src/lib/conta-modo.ts` (pergunta o `recursos` e escolhe), `src/lib/conta-servidor.ts` (a conversa com a API e o cache), `src/lib/conta-adaptador.ts`, `src/componentes/FormConta.tsx` (os passos do código), `src/componentes/ContaFolha.tsx` e `ContaServidor.tsx` (Minha conta: pedidos, vagas, endereços, meus dados).
+- Painel: `src/painel/permissoes.ts` (o que o papel pode), `src/painel/secoes.ts` (cada seção com a permissão e os papéis que têm ela na barra), `src/painel/contas/` (Equipe, a pessoa, Clientes, o cliente e a troca obrigatória da senha).
 
 ---
 

@@ -248,6 +248,12 @@ faixas: 1–99 base, 100–199 loja, 200–299 pedidos e contas). As desta frent
 (`gc_migracoes_pedidos()`, somada só quando o módulo existe): `200` pedidos, `201` avisos no WhatsApp (envios e
 tentativas), `202` falas trocadas do pedido guiado. Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
 
+As das contas moram em `nucleo/contas-migracoes.php` (`gc_migracoes_contas()`, somada quando o módulo existe):
+`203` equipe (colunas `ativo`, `ufs`, `trocar_senha`, `criado_por`, `desativado_em` em `usuarios`; índice dos eventos
+por usuário), `204` clientes (`clientes`, `clientes_codigos`, `clientes_sessoes`, `clientes_enderecos`), `205` Teste
+minha sorte no servidor (`cupons`, `giros`), `206` pedido ligado à conta (`pedidos.cliente_id` e índices por conta e
+por WhatsApp).
+
 ## Pedidos, avisos e falas (painel)
 
 Rotas `admin-*` com a sessão e o CSRF do Painel do dono (abaixo).
@@ -475,7 +481,7 @@ erros seguem as regras gerais.
 | GET `admin-backup` | — | arquivo `greencheese-loja-<data>-<hora>.sqlite` (cópia inteira e coerente do banco; horário de Brasília) |
 | POST `admin-upload` | multipart, campo `imagem` | 201 `{ imagem: 'uploads/<nome>', largura, altura, bytes, tipo }` |
 | GET `admin-diagnostico` | — | `Diagnostico` |
-| GET `admin-eventos` | — | `{ eventos: Evento[] }` (os últimos 100, do mais novo) |
+| GET `admin-eventos` | `[&usuario=<login>]` (só o dono) | `{ eventos: Evento[] }` (os últimos 100, do mais novo; gerente e atendente veem só os deles) |
 
 Erros de cada uma (além dos gerais e do `sem-sessao`/`csrf`):
 
@@ -501,7 +507,15 @@ Erros de cada uma (além dos gerais e do `sem-sessao`/`csrf`):
   (`campo: 'imagem'`), `envio-falhou` 500.
 
 ```ts
-interface Usuario { login: string; nome: string; papel: 'dono' }
+// quem está logado (admin-sessao, -entrar, -instalar, -recuperar e -senha): o painel esconde o que o papel não pode
+interface Usuario {
+  login: string
+  nome: string
+  papel: 'dono' | 'gerente' | 'atendente'
+  ufs: string[]                  // os estados dele ([] = todos: o dono)
+  permissoes: string[]           // as do papel (seção "Equipe"); o dono recebe todas
+  trocarSenha: boolean           // senha provisória: o painel só mostra a troca até ela ser feita
+}
 
 // O Rateio público + o que só o dono vê. status inclui 'rascunho' e 'cancelado'.
 interface RateioAdmin extends Omit<Rateio, 'status'> {
@@ -662,3 +676,171 @@ nunca sobe por alguém sem nome nem WhatsApp); cancelar continua valendo.
 
 **Cópia do banco**: `admin-backup` baixa o banco inteiro num arquivo só, já com o que estava no diário do SQLite
 (copiar o `loja.sqlite` à mão pode sair sem as últimas mudanças). Tem nome, WhatsApp e tudo: guardar em lugar seguro.
+
+## Equipe: papéis e permissões
+
+Cada pessoa entra no painel com o login dela. Três papéis (`nucleo/equipe.php`):
+
+| Papel | Pode | Estados |
+|---|---|---|
+| `dono` | tudo (todas as permissões, rota fora do mapa também) | todos |
+| `gerente` | `conta`, `resumo`, `atividade`, `pedidos`, `pedidos-dados`, `rateios-ver`, `rateios`, `participantes`, `participantes-dados`, `imagens`, `produtos` | só os dele |
+| `atendente` | `conta`, `resumo`, `atividade`, `pedidos`, `rateios-ver`, `participantes` | só os dele |
+
+Permissões que existem (`GC_PERMISSOES`): as de cima mais `loja`, `avisos`, `textos`, `servidor`, `equipe` e
+`clientes`, que só o dono tem. `produtos` (produtos, estoque, disponibilidade) e `loja` (estados, stories, textos da
+loja, prêmios) são da frente da loja.
+
+**O mapa** (`GC_PERMISSAO_ROTA`): toda rota `admin-*` tem a permissão que pede, num lugar só. O `gc_exigir_dono()`
+(que toda rota do painel já chamava) passou a conferir o mapa depois do CSRF: papel sem a permissão → 403
+`sem-permissao` ("Teu acesso não deixa fazer isso. Fala com o dono da loja."). Rota que não está no mapa: só o dono
+passa (gerente e atendente levam 403). As rotas abertas (`admin-sessao`, `-instalar`, `-entrar`, `-recuperar`) ficam
+fora: não têm usuário ainda. O `testar-api` recusa rota `admin-*` do `index.php` sem linha no mapa.
+
+**Rota nova (de outra frente) na integração**: põe a linha `'admin-<rota>' => '<permissão>'` no `GC_PERMISSAO_ROTA`
+(`produtos` pra produto, estoque e disponibilidade; `loja` pra estados, stories, textos da loja e prêmios; ou outra
+da lista), e, quando a rota lê ou muda coisa de um estado, filtra com `gc_filtro_ufs('<coluna uf>')` na lista e
+`gc_exigir_uf($uf)` no item (403 `sem-permissao` com `motivo: 'estado'`). No painel, a seção nova em
+`src/painel/secoes.ts` leva a mesma permissão (`permissao`) e os papéis que têm ela na barra do celular (`barra`).
+
+**Só os estados de cada um**: gerente e atendente veem e mexem só no que é dos estados deles. Pedidos (lista,
+contagem, detalhe, resumo), participantes (lista, CSV, incluir, mudar) e o Resumo filtram pelo `uf`; o rateio
+aparece quando vale pra algum estado da pessoa, e mudar o rateio (salvar, status, apagar) pede que ele seja só dos
+estados dela (`gc_exigir_rateio_inteiro`). De outro estado: 404 na lista/detalhe do rateio, 403 `sem-permissao`
+(`motivo: 'estado'`) no pedido e na vaga. A Atividade de gerente e atendente mostra só o que a própria pessoa fez; a
+situação dos avisos no WhatsApp (no Resumo e no pedido) vem `null`/`[]` pra quem não tem `avisos`.
+
+**Senha provisória**: o dono cria o acesso (ou gera senha nova) e a senha aparece uma vez, em 3 grupos de 4 letras e
+números sem os que confundem (`k7m2-x9q4-h3d8`; o banco guarda só o hash). Com ela, a sessão só passa em `admin-senha`
+e `admin-sair` (o resto: 403 `trocar-senha`); trocar libera tudo (evento `senha-provisoria-trocada`). Gerar senha nova
+derruba as sessões da pessoa; desativar também, e ela não entra mais (403 `desativado` depois da senha certa, que não
+revela nada a quem não sabe a senha). Sempre sobra um dono ativo; ninguém muda o próprio papel.
+
+| Rota | Corpo / parâmetros | Sucesso |
+|---|---|---|
+| GET `admin-usuarios` | — | `{ agora, usuarios: UsuarioAdmin[] }` (ativos e desativados) |
+| POST `admin-usuario-salvar` | `{ novo: true, login, nome, papel, ufs }` cria · `{ login, nome?, papel?, ufs? }` edita | 201 `{ usuario, senhaProvisoria }` · 200 `{ usuario }` |
+| POST `admin-usuario-senha` | `{ login }` | `{ usuario, senhaProvisoria }` (as sessões da pessoa caem) |
+| POST `admin-usuario-status` | `{ login, ativo }` | `{ usuario, jaEstava? }` (desativar derruba as sessões) |
+
+Erros: `nao-encontrado` 404 e `invalido` 400 com `campo`: `login` (repetido, fora do formato, a própria senha —
+que se troca em Conta —, desativar a si mesmo ou o último dono ativo), `nome`, `papel` (que não existe, tirar o
+próprio papel de dono, ficar sem dono), `ufs` (vazio pra gerente e atendente, estado que não existe), `ativo`.
+
+```ts
+interface UsuarioAdmin {
+  login: string; nome: string; papel: 'dono' | 'gerente' | 'atendente'; ufs: string[]
+  ativo: boolean; trocarSenha: boolean
+  criadoEm: string; criadoPor: string; acessoEm: string | null; senhaEm: string; desativadoEm: string | null
+  sessoes: number                // aparelhos logados agora
+  eu: boolean                    // é quem está vendo
+}
+```
+
+Na Atividade: `usuario-criado`, `usuario-editado`, `usuario-senha` (senha provisória nova), `usuario-desativado`,
+`usuario-reativado`, `senha-provisoria-trocada`, `entrar-desativado` (alvo `usuario:<login>`).
+
+## Contas dos clientes (site)
+
+A conta do cliente fica na loja quando o servidor consegue mandar o código de entrada pelo WhatsApp: os Avisos no
+WhatsApp ligados com um motor que manda mensagem pra número (Z-API ou Evolution) e o dono sem desligar em Clientes.
+Sem isso, o site segue com a conta só no aparelho (como antes). O site pergunta no `recursos`.
+
+- **Código**: 6 números, vale 10 min, 5 tentativas; pedir outro invalida o anterior. Vai pelo WhatsApp da loja:
+  `*482913* é teu código pra entrar na Green Cheese. Vale por 10 minutos.` + `Não passa ele pra ninguém: a loja nunca
+  pede esse código.` O banco guarda só o HMAC do código. A resposta do pedir é a mesma com ou sem conta (não revela se
+  o número tem conta).
+- **Limites**: 1 código por minuto por número; 3 em 15 min e 8 por dia por número; 10 por hora por IP; 30 entradas por
+  hora por IP; 30 giros por dia por IP.
+- **Cookie** `gc_cliente`: token de 32 bytes (o servidor guarda o hash), `HttpOnly`, `SameSite=Lax`, `Secure` no
+  HTTPS, `Path` = pasta do site, 90 dias, desliza a cada uso; até 10 sessões por conta. Separado do `gc_painel`.
+
+| Rota | Corpo / parâmetros | Sucesso |
+|---|---|---|
+| GET `recursos` | — | `{ contas: { codigo: boolean, sessao: boolean } }` (`codigo`: dá pra entrar com código; `sessao`: este aparelho tem conta aberta) |
+| POST `cliente-codigo` | `{ whatsapp, motivo?: 'entrar' \| 'trocar', site: '' }` | `{ enviado: true, para: '(33) 9••••-4567', expiraEm, reenviarEm }` |
+| POST `cliente-entrar` | `{ whatsapp, codigo, nome?, aceitaPromo?, aparelho?, migrar? }` | 201 (criou) / 200 `ContaEu & { criada, cupomGuardado, migrados, pendente: null }` + cookie · sem conta e sem nome: 200 `{ precisaNome: true, campo: 'nome' }` (sem sessão; o código continua valendo) |
+| GET `cliente-eu` | `[&aparelho=]` | `{ agora } & ContaEu` |
+| POST `cliente-atualizar` | `{ nome?, aceitaPromo?, whatsapp?, codigo? }` (WhatsApp novo pede o código que foi pra ele, `motivo: 'trocar'`) | `{ conta }` |
+| POST `cliente-sair` | `{}` | `{}`, apaga a sessão e o cookie |
+| POST `cliente-apagar` | `{ confirmar: true }` | `{}` (LGPD: some a conta, endereços, cupons, códigos e sessões; os pedidos ficam com a loja, sem a conta) |
+| GET `cliente-pedidos` | — | `{ pedidos: PedidoDaConta[] }` (os 30 últimos, da conta ou do WhatsApp dela) |
+| GET `cliente-vagas` | — | `{ vagas: Participacao[] }` (as vagas de rateio do WhatsApp da conta, sem token) |
+| GET `cliente-exportar` | — | arquivo `greencheese-meus-dados-<data>.json` (conta, endereços, cupons, giros, pedidos, vagas) |
+| POST `cliente-endereco-salvar` | `{ id?, apelido, cep, rua, numero, bairro, cidade, uf, livre }` (com CEP ou `livre`) | `{ enderecos }` (até 5) |
+| POST `cliente-endereco-apagar` | `{ id }` | `{ enderecos }` |
+
+Erros: `sem-codigo` 409 (o código está desligado: o site volta pra conta do aparelho), `sem-envio` 503 (o WhatsApp da
+loja não mandou; o código não vale), `codigo-errado` 403 (com `restam`), `codigo-vencido` 403 (passou dos 10 min ou das
+5 tentativas: pede outro), `whatsapp-existe` 409 (trocar pra um número que já tem conta), `limite-enderecos` 409,
+`sem-sessao` 401 (o site larga a conta do servidor e volta pro "Entrar"), `invalido` 400 (com `campo`),
+`muitas-tentativas` 429. O `site` é a armadilha de robô (preenchido → finge que mandou).
+
+**Primeiro login com a conta do aparelho** (`migrar`): `{ nome, aceitaPromo, aceitaPromoEm, cupons: [{ codigo,
+interativo, premioId, ganhoEm, validoAte }], pendente?, giros }`. Número sem conta na loja: a conta nasce com o nome e
+as promoções do aparelho (`origem: 'aparelho'`, sem pedir o nome). Os cupons que ainda valem entram (até 10, validade
+nunca maior que a do prêmio, o mesmo código quando está livre, `origem: 'aparelho'`); o prêmio reservado vira cupom;
+os dias de giro do aparelho contam como giro da conta. `migrados` diz quantos cupons vieram.
+
+**Pedido com a conta aberta**: o `POST pedido` liga o pedido à conta (`cliente_id`), completa o WhatsApp com o da
+conta quando veio vazio e guarda o endereço da entrega na conta (o mesmo endereço não repete; o mais antigo sai depois
+de 5). O pedido guiado oferece os endereços guardados do estado do atendimento.
+
+```ts
+interface ContaEu {
+  conta: { id: string; nome: string; whatsapp: string; aceitaPromo: boolean; aceitaPromoEm: string | null; confirmou18Em: string; criadaEm: string }
+  cupons: CupomConta[]
+  enderecos: { id: number; apelido: string; cep: string; rua: string; numero: string; bairro: string; cidade: string; uf: string; livre: string; usadoEm: string }[]
+  dias: { sorte: string[] }      // dias de Brasília em que a conta (ou o WhatsApp, ou o aparelho) girou
+}
+interface CupomConta {
+  codigo: string                 // 'SORTE-K8EA'
+  interativo: 'sorte'; premioId: string
+  retrato: object                // o prêmio congelado no dia (titulo, regra, aplicaA, comoUsar, tipo, valor)
+  demo: boolean; origem: 'giro' | 'aparelho' | 'conta'
+  ganhoEm: string; validoAte: string; usadoEm: string | null
+}
+interface PedidoDaConta { codigo: string; tipo: 'pedido' | 'encomenda'; status: 'novo' | 'confirmado' | 'saiu' | 'entregue' | 'cancelado'; uf: string; cidade: string; resumo: string; unidades: number; subtotalTexto: string; criadoEm: string; atualizadoEm: string }
+```
+
+Na Atividade (sem o nome de ninguém): `cliente-criou-conta`, `cliente-atualizou`, `cliente-exportou`,
+`cliente-conta-apagada` (pelo site ou pelo painel), `clientes-exportados` (CSV), `contas-codigo-ligado` /
+`-desligado`, `cupom-usado` / `cupom-desfeito`. O envio do código fica no registro dos avisos (`codigo-login`, alvo
+`conta:<whatsapp>`), que some quando a conta é apagada.
+
+### Clientes no painel (só o dono, permissão `clientes`)
+
+| Rota | Corpo / parâmetros | Sucesso |
+|---|---|---|
+| GET `admin-clientes` | `[&busca=][&promo=1][&antes=<id>][&limite=50]` | `{ agora, clientes: ClienteLinha[], mais, total, comPromo, codigo: { ligado, motor, desligadoPeloDono } }` |
+| GET `admin-cliente` | `&id=` | `{ cliente, cupons, enderecos, pedidos, vagas, giros }` |
+| GET `admin-clientes-csv` | — | arquivo `clientes-promocoes-<data>.csv` (`;`, BOM: Nome, WhatsApp, Estado, Aceitou promoções em, Conta criada em; só quem aceitou) |
+| POST `admin-cliente-apagar` | `{ id }` | `{}` (o pedido de exclusão que chegou pela conversa; as sessões do cliente caem) |
+| POST `admin-clientes-ajustes` | `{ codigo: boolean }` | `{ codigo }` (liga/desliga o entrar com código) |
+| POST `admin-cupom-usado` | `{ codigo, usado: boolean }` | `{ cupom }` (dar baixa / desfazer) |
+
+## Teste minha sorte no servidor
+
+Com a conta no servidor, quem sorteia é o servidor (o site só anima o resultado). Os prêmios vêm de
+`gc_premios_ativos(?string $uf)`: a frente da loja define essa função (os prêmios que o dono liga no painel); enquanto
+ela não existe, `nucleo/premios-semente.php` define uma igual lendo `api/nucleo/premios-sorte.json`, gerado de
+`src/dados/sorte.ts` (`node scripts/gerar-premios-sorte.mjs`; `--conferir` só confere; o `testar-api` recusa lista
+velha). Contrato da função: devolve a lista de prêmios `{ id, tipo, valor, titulo, descricao, regra, aplicaA,
+comoUsar, peso, validadeDias, demo, ufs? }` (o mesmo formato do `sorte.ts`); `uf` null = todos; com `uf`, os que valem
+nesse estado (sem nenhum no estado, o sorteio usa todos). Bebida alcoólica nunca é prêmio (o gerador e o `testar-api`
+recusam).
+
+- Sem conta: **1 giro por aparelho** (o segredo `aparelho`, 32 hex, que o site guarda); o prêmio fica reservado pro
+  aparelho por 24 h. Entrar ou criar a conta nesse aparelho guarda a reserva como cupom (`cupomGuardado`).
+- Com conta: **1 giro por dia** (dia de Brasília) por conta, por WhatsApp e por aparelho (trocar de conta no mesmo
+  aparelho não dá giro a mais); o cupom já nasce guardado, com o código `SORTE-XXXX` gerado no servidor.
+
+| Rota | Corpo / parâmetros | Sucesso |
+|---|---|---|
+| GET `cliente-giro` | `&interativo=sorte&aparelho=` | `{ agora, giro: { disponivel, motivo?: 'ja-girou-hoje' \| 'sem-conta-ja-girou', proximoEm?, girouHoje? }, pendente, dias }` |
+| POST `cliente-girar` | `{ interativo, uf, aparelho }` | `{ agora, premioId, cupom: CupomConta \| null, pendente: Pendente \| null, dias }` |
+| POST `cliente-guardar` | `{ interativo, aparelho }` (com sessão) | `{ cupom }` |
+| POST `cliente-cupom-usar` | `{ codigo }` (com sessão) | `{ cupom }` (o cupom foi no pedido; a loja desfaz no painel se precisar) |
+
+Erros: `sem-giro` 409 (com `giro`), `sem-premio` 409, `sem-pendente` 409, `pendente-vencido` 409, `nao-encontrado`
+404, `ja-usado` 409, `vencido` 409, `invalido` 400 (`interativo`, `aparelho`), `muitas-tentativas` 429.

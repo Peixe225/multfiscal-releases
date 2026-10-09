@@ -363,7 +363,9 @@ export const contaServidor: AdaptadorConta = {
     if (extra?.aceitaPromo != null) corpo.aceitaPromo = extra.aceitaPromo
     if (migrar) corpo.migrar = migrar.corpo
     const r = await pedirApi<Record<string, unknown>>('cliente-entrar', { metodo: 'POST', corpo })
-    if (!r.ok) return { ok: false, erro: r.erro === 'precisa-nome' ? 'precisa-nome' : erroCodigo(r) }
+    if (!r.ok) return { ok: false, erro: erroCodigo(r) }
+    // número sem conta: o código continua valendo e a pessoa manda de novo com o nome
+    if (r.dados.precisaNome === true) return { ok: false, erro: 'precisa-nome' }
     const aberta = abriuNoServidor(r.dados, migrar)
     return aberta ? { ok: true, valor: aberta } : { ok: false, erro: 'falhou' }
   },

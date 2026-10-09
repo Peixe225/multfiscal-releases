@@ -340,8 +340,7 @@ export async function testarContas(t) {
       erro(e1, 403, 'codigo-errado', 'código errado')
       igual(e1.json?.restam, 4, 'restam 4 tentativas')
       const p = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo: ` ${codigo.slice(0, 3)} ${codigo.slice(3)} ` })
-      erro(p, 409, 'precisa-nome', 'código certo, sem conta e sem nome: pede o nome')
-      igual(p.json?.campo, 'nome', 'o campo é o nome')
+      igual([p.status, p.json?.ok, p.json?.precisaNome, p.json?.campo, p.json?.conta], [200, true, true, 'nome', undefined], 'código certo, sem conta e sem nome: pede o nome (200 com precisaNome, sem conta)')
       ok(!ana.cliente, 'ainda sem sessão')
       const c = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo, nome: '  Ana   Souza ', aceitaPromo: true })
       igual([c.status, c.json?.criada, c.json?.conta?.nome, c.json?.conta?.whatsapp, c.json?.conta?.aceitaPromo], [201, true, 'Ana Souza', guardado(zapAna), true], 'conta criada com o mesmo código (que continuou valendo)')
@@ -650,7 +649,8 @@ export async function testarContas(t) {
       // criar de novo pede o nome (a conta não existe mais)
       const novaAna = novo()
       await novaAna.post('cliente-codigo', { whatsapp: zapAna }, { agora: AGORA + 1300 })
-      erro(await novaAna.post('cliente-entrar', { whatsapp: zapAna, codigo: ultimoCodigo(zapAna) }, { agora: AGORA + 1301 }), 409, 'precisa-nome', 'a conta apagada não existe mais')
+      const deNovo = await novaAna.post('cliente-entrar', { whatsapp: zapAna, codigo: ultimoCodigo(zapAna) }, { agora: AGORA + 1301 })
+      igual([deNovo.status, deNovo.json?.precisaNome, !!novaAna.cliente], [200, true, false], 'a conta apagada não existe mais (pede o nome, sem sessão)')
       const ev = (await dono.get('admin-eventos')).json.eventos
       ok(ev.some((x) => x.acao === 'cliente-conta-apagada' && x.texto === 'Conta de cliente apagada (LGPD)') && !JSON.stringify(ev).includes('Ana S.'), 'na Atividade, sem o nome')
     }
