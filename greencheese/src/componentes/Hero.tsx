@@ -247,7 +247,7 @@ function AvisoFora() {
   const abrir = useChat((s) => s.abrir)
   if (!palpiteFora || uf) return null
   return (
-    <div className="enquete hero-enquete" role="group" aria-label="Seu estado">
+    <div className="enquete hero-enquete" role="group" aria-label="Teu estado">
       <p className="enquete-pergunta">Parece que é {deUf(palpiteFora)}. A Green Cheese ainda não chegou aí.</p>
       <div className="enquete-opcoes">
         <button type="button" className="enquete-opcao toque" onClick={() => setSeletor(true)}>
@@ -688,6 +688,9 @@ export function Hero() {
       dispensarDica()
       return
     }
+    // o clique que o navegador gera depois deste toque cai no story novo (a borda encolhe até o nome e o produto fica
+    // embaixo do dedo): ele não abre nada (onClickCapture e abrirProduto)
+    semClique.current = performance.now() + 400
     irPara(borda < 0 ? -1 : 1, 'toque')
   }
 
@@ -743,8 +746,9 @@ export function Hero() {
         if (g.current && e.pointerId === g.current.id) encerrarGesto()
       }}
       onClickCapture={(e) => {
-        // o clique que chega depois de segurar ou arrastar em cima do mercador não chama ele
-        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador')) {
+        // o clique que chega depois de segurar, arrastar ou passar o story com um toque na borda não abre nem chama
+        // nada (o mercador, o produto, o VER PRODUTO que ficaram embaixo do dedo)
+        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador, .hero-produto, .hero-ver')) {
           e.stopPropagation()
           e.preventDefault()
         }

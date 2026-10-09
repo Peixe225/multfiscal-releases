@@ -542,6 +542,19 @@
   }
 }
 
+/* tela grande (1600 em diante): o hero não se espalha pela largura toda (sobrava um bloco preto em cima, à esquerda,
+   e ele não se alinhava com os destaques e a grade): fica numa moldura centrada e o perfil vai pro meio da coluna,
+   em cima da rua (que continua na maior escala que a coluna aceita) */
+@media (min-width: 1600px) {
+  .hero:not(.hero-empilhado) {
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+  .hero:not(.hero-empilhado) .hero-loja {
+    align-items: center;
+  }
+}
+
 /* 1200–1365 (notebook): o vão até o story perto do mínimo das setas (56) e a margem esquerda encostada na lateral, para
    a coluna do perfil e da rua ficar larga (a rua sobe para 3×); o story não muda de tamanho */
 @media (min-width: 1200px) and (max-width: 1365px) {
