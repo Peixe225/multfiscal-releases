@@ -7,3 +7,4 @@ dist
 scripts/.cache/
 dist-artifact
 dist-qa
+dist-*
