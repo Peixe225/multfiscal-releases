@@ -93,7 +93,7 @@ export interface League {
    * o 16º da Bundesliga (`upperPosition`) → quem vencer fica/sobe.
    */
   promotionPlayoff?: { positions: [number, number]; spots: number; upperPosition?: number }
-  /** Vagas para a continental terciária (Liga Conferência), depois das [principal, secundária]. */
+  /** Vagas para a continental terciária (Conference League), depois das [principal, secundária]. */
   continentalTertiarySlots?: number
   /** Segunda copa nacional (Copa da Liga Inglesa). */
   secondaryCupId?: string

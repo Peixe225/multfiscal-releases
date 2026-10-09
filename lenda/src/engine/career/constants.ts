@@ -144,13 +144,17 @@ export const AVG_MINUTES: Record<SquadRole, number> = {
   third_keeper: 90,
 }
 
-/** Grupo de taxa do Copero (5 famílias). O `PositionGroup` público tem 4. */
-export type RateRole = 'attacker' | 'creator' | 'support' | 'defensive' | 'goalkeeper'
+/**
+ * Grupo de taxa do Copero (5 famílias) + o meia aberto (ME/MD), que o Copero juntava ao meia-armador
+ * e por isso fazia 40–55 gols por temporada. O `PositionGroup` público tem 4.
+ */
+export type RateRole = 'attacker' | 'creator' | 'wide' | 'support' | 'defensive' | 'goalkeeper'
 
 /** Gols por jogo por faixa de delta (OVR − força do clube): ≥10, ≥6, ≥3, ≥−2, ≥−5, ≥−9, menor. */
 export const GOAL_RATES: Record<RateRole, number[]> = {
   attacker: [1.1, 0.85, 0.65, 0.5, 0.3, 0.15, 0.05],
   creator: [0.85, 0.6, 0.45, 0.3, 0.2, 0.1, 0.05],
+  wide: [0.55, 0.4, 0.3, 0.2, 0.13, 0.07, 0.03],
   support: [0.15, 0.1, 0.08, 0.05, 0.02, 0, 0],
   defensive: [0.1, 0.08, 0.06, 0.04, 0.02, 0, 0],
   goalkeeper: [0, 0, 0, 0, 0, 0, 0],
@@ -159,6 +163,7 @@ export const GOAL_RATES: Record<RateRole, number[]> = {
 export const ASSIST_RATES: Record<RateRole, number[]> = {
   attacker: [0.4, 0.3, 0.2, 0.15, 0.1, 0.08, 0.05],
   creator: [0.6, 0.45, 0.35, 0.25, 0.15, 0.08, 0.05],
+  wide: [0.7, 0.52, 0.4, 0.29, 0.17, 0.09, 0.05],
   support: [0.35, 0.25, 0.18, 0.12, 0.07, 0.03, 0.02],
   defensive: [0.1, 0.07, 0.05, 0.03, 0.01, 0, 0],
   goalkeeper: [0, 0, 0, 0, 0, 0, 0],

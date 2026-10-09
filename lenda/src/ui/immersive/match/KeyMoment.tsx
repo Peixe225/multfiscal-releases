@@ -144,7 +144,7 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
   const isPen = moment.minigame === 'penalty_kick' || moment.minigame === 'penalty_save'
   const [stage, setStage] = useState<'options' | 'timing' | 'penalty'>(isPen ? 'penalty' : 'options')
   const firstRef = useRef<HTMLButtonElement>(null)
-  const fallbackId = useMemo(() => moment.options.slice().sort((a, b) => b.chance - a.chance)[0]?.id, [moment])
+  const fallbackId = useMemo(() => (moment.suggested && moment.options.some((o) => o.id === moment.suggested) ? moment.suggested : moment.options.slice().sort((a, b) => b.chance - a.chance)[0]?.id), [moment])
   const defaultId = preset && moment.options.some((o) => o.id === preset) ? preset : fallbackId
   const done = useRef(false)
   const { left, held, start } = useCountdown(

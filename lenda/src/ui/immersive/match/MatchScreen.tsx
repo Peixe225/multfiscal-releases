@@ -146,7 +146,9 @@ function manOfMatch(live: LiveMatch, surname: string): { name: string; team: Tea
     if (e.player) bump(e.player, 'g')
     if (e.assist) bump(e.assist, 'a')
   }
-  const best = [...tally.entries()].sort((x, y) => y[1].g * 3 + y[1].a - (x[1].g * 3 + x[1].a))[0]
+  // expulso não é craque do jogo
+  const sentOff = new Set(live.events.filter((e) => e.type === 'red' && e.player).map((e) => `${e.side}|${e.player}`))
+  const best = [...tally.entries()].filter(([n]) => !sentOff.has(`${winnerSide}|${n}`)).sort((x, y) => y[1].g * 3 + y[1].a - (x[1].g * 3 + x[1].a))[0]
   const side = winnerSide === 'home' ? live.home : live.away
   if (best) {
     const { g, a } = best[1]
@@ -159,6 +161,7 @@ function manOfMatch(live: LiveMatch, surname: string): { name: string; team: Tea
   for (const e of live.events) {
     if (e.byUser || !e.player || (e.type !== 'chance' && e.type !== 'save' && e.type !== 'woodwork')) continue
     const k = `${e.side}|${e.player}`
+    if (sentOff.has(k)) continue
     shots.set(k, { n: (shots.get(k)?.n ?? 0) + 1, side: e.side })
   }
   const top = [...shots.entries()].sort((x, y) => y[1].n - x[1].n)[0]
@@ -219,10 +222,11 @@ const howtoSeen = () => {
     return true
   }
 }
-/** Opção padrão do lance pela postura. */
+/** Opção padrão do lance pela postura (fora do "pedir a bola", a mesma que o motor joga sem resposta: `suggested`). */
 function postureDefault(m: KeyMoment, p: Posture): string | undefined {
   const opts = m.options.slice()
   if (!opts.length) return undefined
+  if (p !== 'ataque' && m.suggested && opts.some((o) => o.id === m.suggested)) return m.suggested
   if (p === 'ataque') {
     const goalish = (id: string, label: string) => /shot|chute|finaliz|bater|pen_|gol|cabece|chip|long|cut|direto|left|right|center|dive|stay/i.test(`${id} ${label}`)
     return opts.sort((a, b) => b.chance * (goalish(b.id, b.label) ? 1.7 : 1) - a.chance * (goalish(a.id, a.label) ? 1.7 : 1))[0].id

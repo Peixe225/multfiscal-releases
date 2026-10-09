@@ -263,7 +263,7 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
                   void dispatch({ type: 'press_skip' })
                 }}
                 disabled={busy || !!chosen}
-                title={chosen ? 'Aguarde a próxima pergunta' : 'Sair da coletiva (Mídia −)'}
+                title={chosen ? 'Aguarde a próxima pergunta' : 'Sair da coletiva (Imprensa −)'}
               >
                 Encerrar coletiva
               </Button>

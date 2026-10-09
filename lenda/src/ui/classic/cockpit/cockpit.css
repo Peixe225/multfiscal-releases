@@ -24,7 +24,7 @@
 .ck-hero__main { flex: 1; min-width: 0; container: ckhero / inline-size; }
 .ck-hero__chips { display: flex; gap: 6px; flex-wrap: wrap; }
 /* sobrenomes longos (até 15 letras: "SCHWEINSTEIGER") encolhem a fonte para caber; reticências só em último caso */
-.ck-hero__name { --hero-fs: 36px; font: 900 clamp(20px, calc(100cqi / (var(--len, 8) * .64)), var(--hero-fs))/1 var(--font-display); letter-spacing: -.03em; margin: 10px 0 9px; text-shadow: 0 2px 18px rgba(0, 0, 0, .4);
+.ck-hero__name { --hero-fs: 36px; font: 900 clamp(20px, calc(100cqi / (var(--len, 8) * .72)), var(--hero-fs))/1 var(--font-display); letter-spacing: -.03em; margin: 10px 0 9px; text-shadow: 0 2px 18px rgba(0, 0, 0, .4);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
 .ck-hero__club { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 700; font-size: 15px; }
 /* o nome do clube tem prioridade: a liga ao lado encolhe primeiro (fica pelo menos o logo) */

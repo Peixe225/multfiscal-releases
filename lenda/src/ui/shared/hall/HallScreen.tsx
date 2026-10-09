@@ -539,7 +539,7 @@ const CAT_BLURB: Record<CategoryId, string> = {
   ballonDor: 'O prêmio individual mais cobiçado. Até 1995, só europeus podiam ganhar.',
   worldCups: 'A taça que define gerações. Pelé é o único tricampeão.',
   goldenBoots: 'Maior artilheiro das ligas europeias na temporada.',
-  ucl: 'A Liga dos Campeões — a orelhuda.',
+  ucl: 'A Champions League — a orelhuda.',
   libertadores: 'A glória eterna da América do Sul.',
   leagueTitles: 'Campeonatos nacionais de primeira divisão, em qualquer país.',
   clubs: 'Clubes defendidos na carreira (empréstimos incluídos).',

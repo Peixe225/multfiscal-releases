@@ -75,9 +75,9 @@ export const COMPETITIONS: Competition[] = [
   { id: 'conmebol.recopa', name: 'Recopa Sul-Americana', kind: 'continental_secondary', confed: 'CONMEBOL', size: 2, trophyId: 'recopa', superCup: true },
 
   // ─────────────── UEFA ───────────────
-  { id: 'uefa.champions', name: 'Liga dos Campeões da UEFA', kind: 'continental_primary', confed: 'UEFA', size: 36, trophyId: 'champions-league' },
+  { id: 'uefa.champions', name: 'Champions League', kind: 'continental_primary', confed: 'UEFA', size: 36, trophyId: 'champions-league' },
   { id: 'uefa.europa', name: 'Liga Europa', kind: 'continental_secondary', confed: 'UEFA', size: 36, trophyId: 'europa-league' },
-  { id: 'uefa.europa.conf', name: 'Liga Conferência', kind: 'continental_tertiary', confed: 'UEFA', size: 36, trophyId: 'conference-league' },
+  { id: 'uefa.europa.conf', name: 'Conference League', kind: 'continental_tertiary', confed: 'UEFA', size: 36, trophyId: 'conference-league' },
   { id: 'uefa.super_cup', name: 'Supercopa da UEFA', kind: 'continental_secondary', confed: 'UEFA', size: 2, trophyId: 'uefa-super-cup', superCup: true },
 
   // ─────────────── CONCACAF / AFC / CAF ───────────────

@@ -820,7 +820,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         if (!s.press) return false
         if (!answerPress(data, s, a.questionId, a.answerId, fx)) return false
         if (!s.press) {
-          toast(fx, 'success', 'Coletiva encerrada', `Torcida ${Math.round(s.relationships.fans)} · Mídia ${Math.round(s.relationships.media)}`)
+          toast(fx, 'success', 'Coletiva encerrada', `Torcida ${Math.round(s.relationships.fans)} · Imprensa ${Math.round(s.relationships.media)}`)
           complete(data, s, fx)
         }
         return true
@@ -831,7 +831,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         m.press = undefined
         applyDeltas(s, { media: -4 })
         addNews(s, `${s.identity.surname} falta à coletiva e irrita a imprensa`, 'negative', fx)
-        toast(fx, 'danger', 'Coletiva cancelada', 'Mídia −4')
+        toast(fx, 'danger', 'Coletiva cancelada', 'Imprensa −4')
         complete(data, s, fx)
         return true
       }

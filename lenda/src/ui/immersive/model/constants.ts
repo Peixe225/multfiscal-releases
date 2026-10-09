@@ -79,10 +79,10 @@ export interface PostTemplate {
 export const POST_TEMPLATES: PostTemplate[] = [
   { id: 'obrigado_torcida', label: '“Obrigado, torcida!”', text: 'Obrigado, torcida! Vocês empurraram a gente do começo ao fim. Juntos! 💚', tone: 'positive', when: ['win', 'goal', 'any'], hint: 'Torcida +' },
   { id: 'foto_gol', label: 'Foto do gol', text: 'Esse vai pro quadro. Primeiro de muitos? ⚽🔥 #{club}', tone: 'positive', when: ['goal'], hint: 'Seguidores ++' },
-  { id: 'provocar_rival', label: 'Provocar o rival', text: 'Tem gente que fala demais durante a semana… no campo a conversa é outra. 🤫', tone: 'negative', when: ['win', 'goal'], hint: 'Torcida ++ · Mídia −' },
+  { id: 'provocar_rival', label: 'Provocar o rival', text: 'Tem gente que fala demais durante a semana… no campo a conversa é outra. 🤫', tone: 'negative', when: ['win', 'goal'], hint: 'Torcida ++ · Imprensa −' },
   { id: 'foco_treino', label: 'Foco no treino', text: 'Cabeça no próximo jogo. Treino, descanso e trabalho. 💪', tone: 'neutral', when: ['any', 'draw', 'loss'], hint: 'Técnico +' },
   { id: 'pedir_desculpas', label: 'Pedir desculpas', text: 'Hoje não deu. Assumo minha parte e a gente volta mais forte. Desculpa, torcida.', tone: 'neutral', when: ['loss'], hint: 'Torcida + · Moral −' },
-  { id: 'mirar_titulo', label: 'Mirar o título', text: 'Ninguém aqui veio para ser coadjuvante. O objetivo é um só: taça. 🏆', tone: 'positive', when: ['win', 'any'], hint: 'Mídia + · Pressão ▲' },
+  { id: 'mirar_titulo', label: 'Mirar o título', text: 'Ninguém aqui veio para ser coadjuvante. O objetivo é um só: taça. 🏆', tone: 'positive', when: ['win', 'any'], hint: 'Imprensa + · Pressão ▲' },
   { id: 'familia', label: 'Post com a família', text: 'Tudo por eles. Obrigado por estarem sempre comigo. ❤️', tone: 'positive', when: ['any'], hint: 'Moral +' },
   { id: 'silencio', label: 'Ficar em silêncio', text: '', tone: 'neutral', when: ['any', 'loss', 'draw', 'win', 'goal'], hint: 'Sem efeito' },
 ]

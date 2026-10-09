@@ -147,7 +147,7 @@ function rating(
   if (rr === 'goalkeeper') {
     v += ((st.cleanSheets ?? 0) / apps) * 1.6 - Math.max(0, (st.conceded ?? 0) / apps - 1) * 0.8
   } else {
-    const w = rr === 'attacker' ? 1.4 : rr === 'creator' ? 1.6 : rr === 'support' ? 2.2 : 2.6
+    const w = rr === 'attacker' ? 1.4 : rr === 'creator' ? 1.6 : rr === 'wide' ? 1.8 : rr === 'support' ? 2.2 : 2.6
     v += ((st.goals + 0.7 * st.assists) / apps) * w
   }
   if (champion) v += 0.25
@@ -279,9 +279,16 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
     const ng = statsFor(rn, rr, napps, nd, effOvr, 0.6 * m.period.statsMult, { goals: Math.round(Math.max(ns.goalsFor, 1) * 0.6), assists: Math.round(Math.max(ns.goalsFor, 1) * 0.5) })
     national = { apps: napps, goals: ng.goals, assists: ng.assists }
     if (ns.tournament) {
+      // no torneio, só os jogos que a seleção fez nele (o resto são eliminatórias e amistosos): os gols
+      // da temporada caem no torneio na proporção dos jogos, nunca mais do que a seleção marcou lá
+      const tGames = ns.tournament.games ?? nm
+      const tApps = Math.min(napps, Math.round((tGames * napps) / Math.max(nm, tGames)))
+      let tGoals = 0
+      for (let g = 0; g < ng.goals; g++) if (rn.next() < tApps / napps) tGoals++
+      tGoals = Math.min(tGoals, ns.tournament.goalsFor ?? tGoals)
       national.tournament = { competitionId: ns.tournament.competitionId, reached: ns.tournament.reached }
-      natTournament = { competitionId: ns.tournament.competitionId, reached: ns.tournament.reached, goals: ng.goals }
-      s.national.tournaments.push({ competitionId: ns.tournament.competitionId, year: season + 1, reached: ns.tournament.reached, apps: napps, goals: ng.goals })
+      natTournament = { competitionId: ns.tournament.competitionId, reached: ns.tournament.reached, goals: tGoals }
+      s.national.tournaments.push({ competitionId: ns.tournament.competitionId, year: season + 1, reached: ns.tournament.reached, apps: tApps, goals: tGoals })
       if (ns.tournament.champion)
         nationTrophy = {
           trophyId: ns.tournament.trophyId,
@@ -330,6 +337,9 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
   let world = sim.world
   const awards: AwardWin[] = []
   if (!suspended) {
+    // artilharia da liga e Chuteira de Ouro: só os gols de clube na fatia de jogos de liga (sem seleção)
+    const leagueGames = sim.result.leagues[leagueId]?.table.find((r) => r.clubId === clubId)?.played ?? 0
+    const leagueGoals = summary.matches > 0 && leagueGames > 0 ? Math.round((goals * Math.min(leagueGames, summary.matches)) / summary.matches) : goals
     const entry: UserAwardEntry = {
       name: s.identity.surname,
       nationality: nat,
@@ -346,6 +356,7 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
       cleanSheets: stats.cleanSheets,
       titles: trophies.map((t) => t.competitionId),
       nationalTournament: natTournament,
+      leagueGoals,
     }
     const res = W.computeAwards(data, world, season, entry)
     world = res.world

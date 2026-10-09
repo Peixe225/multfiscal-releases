@@ -102,7 +102,7 @@ function BallonCard({ ballon, world, record }: { ballon: AwardResult; world: Sea
   const youAt = list.findIndex((e) => e.isUser)
   const seasonLabel = formatSeason(record.season, getLeague(record.leagueId)?.calendar)
   return (
-    <section className="tb-card tb-card--gold tb-bdo" aria-labelledby="tb-bdo-h">
+    <section className="tb-card tb-card--gold tb-bdo" aria-labelledby="tb-bdo-k tb-bdo-h">
       <div className="tb-bdo__stage" aria-hidden="true">
         <span className="tb-bdo__glow" />
         <TrophyArt id="ballon-dor" size={200} className="tb-bdo__trophy" />
@@ -111,9 +111,9 @@ function BallonCard({ ballon, world, record }: { ballon: AwardResult; world: Sea
       <div className="tb-bdo__main">
         <header className="tb-bdo__h">
           <div>
-            <div className="lx-serif-gold tb-bdo__serif">Ballon d'Or</div>
+            <div id="tb-bdo-k" className="lx-serif-gold tb-bdo__serif">Bola de Ouro</div>
             <h3 id="tb-bdo-h" className="tb-bdo__title">
-              Ranking da Bola de Ouro {ballon.year}
+              Ranking de {ballon.year}
             </h3>
             <p className="tb-bdo__sub">Temporada {seasonLabel} · top 10</p>
           </div>

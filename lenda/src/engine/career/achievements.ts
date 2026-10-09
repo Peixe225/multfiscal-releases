@@ -261,7 +261,7 @@ const DEFS: AchievementDef[] = [
       return Math.max(0, ...n.values()) >= 10
     },
   },
-  { id: 'continental_national', title: 'Campeão continental', description: 'Ganhe o torneio continental de seleções (Copa América, Euro…).', icon: 'medal', rarity: 'rara', check: (c) => count(c, kind('national_continental')) >= 1 },
+  { id: 'continental_national', title: 'Campeão continental', description: 'Ganhe o torneio continental de seleções (Copa América, Eurocopa…).', icon: 'medal', rarity: 'rara', check: (c) => count(c, kind('national_continental')) >= 1 },
   { id: 'kopa', title: 'Revelação', description: 'Ganhe o Troféu Kopa de melhor jogador sub-21.', icon: 'baby', rarity: 'rara', check: (c) => c.wins('kopa') >= 1 },
   { id: 'the_best', title: 'The Best', description: 'Ganhe o prêmio The Best da FIFA.', icon: 'award', rarity: 'rara', check: (c) => c.wins('the_best') >= 1 },
   {

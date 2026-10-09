@@ -40,7 +40,7 @@ export const TROPHIES: Trophy[] = [
 
   // ─────────────── continentais ───────────────
   ...make('continental_primary', [
-    ['champions-league', 'Liga dos Campeões da UEFA', 'champions-league', 'silver', '#0b1f5c'],
+    ['champions-league', 'Champions League', 'champions-league', 'silver', '#0b1f5c'],
     ['libertadores', 'Copa Libertadores', 'libertadores', 'silver', '#c8a13a'],
     ['concacaf-champions', 'Copa dos Campeões da Concacaf', 'concacaf-champions', 'silver', '#1d3b8f'],
     ['afc-champions', 'Liga dos Campeões da AFC', 'afc-champions', 'silver', '#8a1538'],
@@ -54,7 +54,7 @@ export const TROPHIES: Trophy[] = [
     ['afc-champions-two', 'Liga dos Campeões da AFC 2', 'cup-generic', 'silver', '#b5892b'],
     ['caf-confed', 'Copa das Confederações da CAF', 'cup-generic', 'gold', '#b5892b'],
   ]),
-  ...make('continental_tertiary', [['conference-league', 'Liga Conferência', 'conference-league', 'silver', '#1fa04a']]),
+  ...make('continental_tertiary', [['conference-league', 'Conference League', 'conference-league', 'silver', '#1fa04a']]),
 
   // ─────────────── ligas ───────────────
   ...make('league', [

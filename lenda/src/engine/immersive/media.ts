@@ -90,7 +90,7 @@ export function applyDeltas(s: ImmersiveState, d: Deltas): void {
 export function deltaLabels(d: Deltas): string[] {
   const L: [keyof Deltas, string][] = [
     ['fans', 'Torcida'],
-    ['media', 'Mídia'],
+    ['media', 'Imprensa'],
     ['coach', 'Técnico'],
     ['teammates', 'Vestiário'],
     ['morale', 'Moral'],
@@ -592,10 +592,10 @@ export interface PostTemplate {
 export const POST_TEMPLATES: PostTemplate[] = [
   { id: 'obrigado_torcida', label: '“Obrigado, torcida!”', text: 'Obrigado, torcida! Vocês empurraram a gente do começo ao fim. Juntos! 💚', tone: 'positive', hint: 'Torcida +', fx: { fans: 3, followers: 900 } },
   { id: 'foto_gol', label: 'Foto do gol', text: 'Esse vai pro quadro. ⚽🔥 #{club}', tone: 'positive', hint: 'Seguidores ++', fx: { followers: 2500, fans: 1 } },
-  { id: 'provocar_rival', label: 'Provocar o rival', text: 'Tem gente que fala demais durante a semana… no campo a conversa é outra. 🤫', tone: 'negative', hint: 'Torcida ++ · Mídia −', fx: { fans: 4, media: -3, coach: -1, followers: 3500 } },
+  { id: 'provocar_rival', label: 'Provocar o rival', text: 'Tem gente que fala demais durante a semana… no campo a conversa é outra. 🤫', tone: 'negative', hint: 'Torcida ++ · Imprensa −', fx: { fans: 4, media: -3, coach: -1, followers: 3500 } },
   { id: 'foco_treino', label: 'Foco no treino', text: 'Cabeça no próximo jogo. Treino, descanso e trabalho. 💪', tone: 'neutral', hint: 'Técnico +', fx: { coach: 1.5, followers: 300 } },
   { id: 'pedir_desculpas', label: 'Pedir desculpas', text: 'Hoje não deu. Assumo minha parte e a gente volta mais forte. Desculpa, torcida.', tone: 'neutral', hint: 'Torcida + · Moral −', fx: { fans: 2, morale: -1, media: 1 } },
-  { id: 'mirar_titulo', label: 'Mirar o título', text: 'Ninguém aqui veio para ser coadjuvante. O objetivo é um só: taça. 🏆', tone: 'positive', hint: 'Mídia + · Pressão ▲', fx: { media: 2, morale: 1, followers: 1200 } },
+  { id: 'mirar_titulo', label: 'Mirar o título', text: 'Ninguém aqui veio para ser coadjuvante. O objetivo é um só: taça. 🏆', tone: 'positive', hint: 'Imprensa + · Pressão ▲', fx: { media: 2, morale: 1, followers: 1200 } },
   { id: 'familia', label: 'Post com a família', text: 'Tudo por eles. Obrigado por estarem sempre comigo. ❤️', tone: 'positive', hint: 'Moral +', fx: { morale: 3, followers: 700 } },
   { id: 'silencio', label: 'Ficar em silêncio', text: '', tone: 'neutral', hint: 'Sem efeito', fx: {} },
 ]

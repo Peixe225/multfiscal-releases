@@ -25,7 +25,7 @@ describe.skipIf(!hasData)('strength · dados reais', () => {
   it('só o líder isolado (PSG) é comprimido; o resto da liga fica com a força real', () => {
     const [psg, second, ...rest] = top('fra.1')
     const b = baseStrength(ix, psg.id)
-    expect(b).toBeLessThan(psg.strength - 2)
+    expect(b).toBeLessThan(psg.strength - 1)
     expect(b).toBeGreaterThan(second.strength + EVOLVE.freeGap)
     for (const c of [second, ...rest]) if (giantness(ix, c.id, c.prestige) === 0) expect(baseStrength(ix, c.id)).toBe(c.strength)
   })
@@ -97,6 +97,15 @@ describe.skipIf(!hasData)('strength · dados reais', () => {
     expect(drought('ger.1', club('Bayern').id)).toBeLessThanOrEqual(5)
     expect(share('fra.1', club('PSG').id)).toBeGreaterThanOrEqual(0.5)
     expect(new Set(champs['bra.1']).size).toBeGreaterThanOrEqual(4)
+  })
+
+  it('MLS (teto salarial): ninguém é gigante e a vantagem do Inter Miami some em poucas temporadas', () => {
+    const miami = club('Inter Miami')
+    const second = top('usa.1')[1]
+    expect(g('Inter Miami')).toBe(0)
+    const dyn = { strength: miami.strength, leagueId: miami.leagueId, prestige: miami.prestige }
+    expect(clubAnchor(ix, miami.id, dyn, ix.firstSeason)).toBeCloseTo(miami.strength, 5)
+    expect(clubAnchor(ix, miami.id, dyn, ix.firstSeason + EVOLVE.parityFade)).toBeCloseTo(second.strength, 5)
   })
 
   it('a 1ª temporada começa das forças reais', () => {

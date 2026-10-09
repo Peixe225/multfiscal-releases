@@ -98,7 +98,7 @@ const MINI: MiniDef[] = [
     title: 'Proposta de patrocínio',
     description: 'Uma marca de chuteiras quer você como garoto-propaganda da nova campanha.',
     options: [
-      { id: 'assinar', title: 'Assinar', p: 0.9, ok: { balance: 1, followers: 2500, media: 2 }, bad: { media: -4, fans: -2 }, okText: 'Campanha no ar e dinheiro na conta.', badText: 'A campanha foi criticada nas redes.', chips: [['Saldo +', 'positive'], ['Mídia +', 'positive']] },
+      { id: 'assinar', title: 'Assinar', p: 0.9, ok: { balance: 1, followers: 2500, media: 2 }, bad: { media: -4, fans: -2 }, okText: 'Campanha no ar e dinheiro na conta.', badText: 'A campanha foi criticada nas redes.', chips: [['Saldo +', 'positive'], ['Imprensa +', 'positive']] },
       { id: 'recusar', title: 'Recusar', p: 1, ok: { morale: 1 }, okText: 'Foco total no futebol.', chips: [['Foco', 'neutral']] },
     ],
   },
@@ -129,8 +129,8 @@ const MINI: MiniDef[] = [
     title: 'Entrevista exclusiva',
     description: 'Um canal de TV quer uma entrevista exclusiva, com gravação na sua casa.',
     options: [
-      { id: 'aceitar', title: 'Aceitar', p: 0.9, ok: { media: 5, followers: 1500 }, bad: { media: -3 }, okText: 'Entrevista elogiada.', badText: 'Uma frase fora de contexto gerou polêmica.', chips: [['Mídia +', 'positive']] },
-      { id: 'recusar', title: 'Recusar', p: 1, ok: { media: -2 }, okText: 'A imprensa não gostou muito.', chips: [['Mídia −', 'negative']] },
+      { id: 'aceitar', title: 'Aceitar', p: 0.9, ok: { media: 5, followers: 1500 }, bad: { media: -3 }, okText: 'Entrevista elogiada.', badText: 'Uma frase fora de contexto gerou polêmica.', chips: [['Imprensa +', 'positive']] },
+      { id: 'recusar', title: 'Recusar', p: 1, ok: { media: -2 }, okText: 'A imprensa não gostou muito.', chips: [['Imprensa −', 'negative']] },
     ],
   },
   {
@@ -140,7 +140,7 @@ const MINI: MiniDef[] = [
     description: 'O clube organiza uma visita a um hospital infantil na folga da semana.',
     options: [
       { id: 'ir', title: 'Ir', p: 1, ok: { fans: 3, media: 2, morale: 2, fitness: -6 }, okText: 'Um dia que você não vai esquecer.', chips: [['Torcida +', 'positive'], ['Folga perdida', 'negative']] },
-      { id: 'nao', title: 'Não dá desta vez', p: 1, ok: { media: -2, fitness: 4 }, okText: 'Você descansou em casa.', chips: [['Energia +', 'positive'], ['Mídia −', 'negative']] },
+      { id: 'nao', title: 'Não dá desta vez', p: 1, ok: { media: -2, fitness: 4 }, okText: 'Você descansou em casa.', chips: [['Energia +', 'positive'], ['Imprensa −', 'negative']] },
     ],
   },
   {
@@ -169,7 +169,7 @@ const MINI: MiniDef[] = [
     title: 'Post antigo viraliza',
     description: 'Um tuíte seu de anos atrás volta à tona e a repercussão é ruim.',
     options: [
-      { id: 'desculpas', title: 'Pedir desculpas', p: 1, ok: { media: 2, fans: 1, morale: -2 }, okText: 'O assunto morreu rápido.', chips: [['Mídia +', 'positive']] },
+      { id: 'desculpas', title: 'Pedir desculpas', p: 1, ok: { media: 2, fans: 1, morale: -2 }, okText: 'O assunto morreu rápido.', chips: [['Imprensa +', 'positive']] },
       { id: 'ignorar', title: 'Ignorar', p: 0.5, ok: {}, bad: { media: -5, fans: -3 }, okText: 'Ninguém lembra mais.', badText: 'Virou pauta na TV a semana inteira.', chips: [['Risco', 'negative']] },
     ],
   },
@@ -200,8 +200,8 @@ const MINI: MiniDef[] = [
     title: 'Provocação nas redes',
     description: 'Um jogador rival te provoca nas redes sociais antes do próximo clássico.',
     options: [
-      { id: 'responder', title: 'Responder à altura', p: 0.6, ok: { fans: 4, followers: 4000, media: -2 }, bad: { media: -5, coach: -3 }, okText: 'A torcida foi à loucura.', badText: 'O clube pediu para você apagar o post.', chips: [['Torcida +', 'positive'], ['Mídia −', 'negative']] },
-      { id: 'ignorar', title: 'Ignorar', p: 1, ok: { media: 2, fans: -1.5 }, okText: 'Resposta dentro de campo.', chips: [['Mídia +', 'positive'], ['Torcida −', 'negative']] },
+      { id: 'responder', title: 'Responder à altura', p: 0.6, ok: { fans: 4, followers: 4000, media: -2 }, bad: { media: -5, coach: -3 }, okText: 'A torcida foi à loucura.', badText: 'O clube pediu para você apagar o post.', chips: [['Torcida +', 'positive'], ['Imprensa −', 'negative']] },
+      { id: 'ignorar', title: 'Ignorar', p: 1, ok: { media: 2, fans: -1.5 }, okText: 'Resposta dentro de campo.', chips: [['Imprensa +', 'positive'], ['Torcida −', 'negative']] },
     ],
   },
   {
@@ -223,7 +223,7 @@ const MINI: MiniDef[] = [
     description: 'Um podcast famoso (e polêmico) quer você numa conversa de três horas, sem cortes.',
     options: [
       { id: 'ir', title: 'Topar', p: 0.6, ok: { followers: 5000, media: 2, fans: 1 }, bad: { media: -5, coach: -2, followers: 2000 }, okText: 'Episódio viralizou pelo lado bom.', badText: 'Um trecho sobre o técnico virou manchete.', chips: [['Seguidores +', 'positive'], ['Risco de polêmica', 'negative']] },
-      { id: 'recusar', title: 'Recusar', p: 1, ok: { media: -1, coach: 0.5 }, okText: 'Discrição total.', chips: [['Mídia −', 'negative']] },
+      { id: 'recusar', title: 'Recusar', p: 1, ok: { media: -1, coach: 0.5 }, okText: 'Discrição total.', chips: [['Imprensa −', 'negative']] },
     ],
   },
   {
@@ -266,7 +266,7 @@ const MINI: MiniDef[] = [
     description: 'Um jornal europeu quer saber do seu futuro — e se você sonha em jogar lá fora.',
     options: [
       { id: 'falar', title: 'Falar abertamente', p: 0.7, ok: { media: 3, followers: 2000, reputation: 0.5 }, bad: { fans: -4, coach: -2 }, okText: 'Repercussão ótima: seu nome circula no mercado.', badText: 'A frase sobre "sonhar em sair" irritou a torcida.', chips: [['Vitrine +', 'positive'], ['Risco: torcida', 'negative']] },
-      { id: 'negar', title: 'Desconversar', p: 1, ok: { media: -1, fans: 1 }, okText: 'Foco no clube. A torcida gostou.', chips: [['Torcida +', 'positive'], ['Mídia −', 'negative']] },
+      { id: 'negar', title: 'Desconversar', p: 1, ok: { media: -1, fans: 1 }, okText: 'Foco no clube. A torcida gostou.', chips: [['Torcida +', 'positive'], ['Imprensa −', 'negative']] },
     ],
   },
   {

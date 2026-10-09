@@ -146,7 +146,8 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   }
 
   const share = async () => {
-    const text = `${state?.identity.surname ?? 'Meu jogador'} é ${hero.kicker.split(' · ')[0].toLowerCase()} (${hero.name} ${hero.year}) no LENDA ⚽🏆`
+    const who = state?.identity.surname ?? 'Meu jogador'
+    const text = multi && multiTitle ? `${who}: ${multiTitle.toLowerCase()} no LENDA — ${multiSubtitle(items)} ⚽🏆` : `${who} é ${hero.kicker.split(' · ')[0].toLowerCase()} (${hero.name} ${hero.year}) no LENDA ⚽🏆`
     setHeld(true)
     if (navigator.share) {
       try {

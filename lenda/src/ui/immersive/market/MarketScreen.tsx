@@ -103,7 +103,7 @@ function OfferFx({ o, s }: { o: ContractOffer; s: ImmersiveState }) {
   )
 }
 
-function OfferCard({ o, s, onNegotiate, i, best }: { o: ContractOffer; s: ImmersiveState; onNegotiate: () => void; i: number; best: boolean }) {
+function OfferCard({ o, s, onNegotiate, i, best, solo }: { o: ContractOffer; s: ImmersiveState; onNegotiate: () => void; i: number; best: boolean; solo?: boolean }) {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const c = getClub(o.clubId)
@@ -120,7 +120,7 @@ function OfferCard({ o, s, onNegotiate, i, best }: { o: ContractOffer; s: Immers
         <div className="min-w-0">
           <span className="im-offer__chips">
             <span className={cx('lx-chip lx-chip--sm', o.kind === 'renewal' ? 'lx-chip--accent' : 'lx-chip--gold')}>{KIND[o.kind]}</span>
-            {best && <span className="lx-chip lx-chip--sm lx-chip--solid-gold">Melhor proposta</span>}
+            {best && !solo && <span className="lx-chip lx-chip--sm lx-chip--solid-gold">Melhor proposta</span>}
           </span>
           <h3 className="im-offer__club">{c?.name ?? o.clubId}</h3>
           <span className="im-offer__lg">
@@ -433,7 +433,7 @@ export default function MarketScreen() {
               <p className="lx-t-small m-0">As ofertas chegam nas janelas de transferência. Jogar bem (e aparecer na mídia) faz o telefone tocar.</p>
             </div>
           ) : (
-            offers.map((o, i) => <OfferCard key={o.id} o={o} s={s} i={i} best={i === 0} onNegotiate={() => setNeg(o.id)} />)
+            offers.map((o, i) => <OfferCard key={o.id} o={o} s={s} i={i} best={i === 0} solo={offers.length === 1} onNegotiate={() => setNeg(o.id)} />)
           )}
         </section>
         <aside className="im-market__side">

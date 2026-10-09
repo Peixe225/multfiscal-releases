@@ -9,9 +9,13 @@
  *     Real/Barça 0,5, Dortmund 0,44, Inter/Juve/Milan 0,39; City/Arsenal 0,11, Flamengo/Palmeiras 0,22
  *     (ligas de muitos grandes seguem abertas). O gigante tem força estrutural, volta rápido à âncora
  *     e atravessa a fase ruim do ciclo quase sem tombo: perde uma liga aqui e ali, não uma década.
- *   - base: força inicial real + 2,2·g; só quem sobra mais de 4,5 pontos sobre o 2º da liga de origem
- *     tem o excedente comprimido (10% ficam) — nos dados reais, só o PSG (88 → ~85 contra 78).
- *     Bayern 87 → ~89 (Dortmund 84), Real/Barça ~89/88 (Atlético 85), Porto/Benfica ~82/81.
+ *   - base: força inicial real + 3·g; só quem sobra mais de 6 pontos sobre o 2º da liga de origem
+ *     tem o excedente comprimido (10% ficam) — nos dados reais, só o PSG (88 → ~87 contra 78).
+ *     Bayern 87 → ~89,5 (Dortmund 84), Real/Barça ~89/88,5 (Atlético 85), Porto/Benfica ~82,5/81,5.
+ *   - MLS (teto salarial): sem gigante; a vantagem de hoje do Inter Miami some em 6 temporadas.
+ *   - jejum: gigante de origem (g inicial ≥ 0,5) há 3+ temporadas sem a liga ganha 0,8·g de âncora
+ *     por ano de jejum (até 3,2·g) — abre o cofre para voltar a ganhar (títulos do clube do jogador
+ *     não contam).
  *   - ciclo: projeto esportivo de cada clube (técnico, gestão, investidor, geração da base), um
  *     ruído suave e sem estado — nós N(0; 2) (limitados a ±2σ) a cada 7 temporadas, com fase
  *     aleatória por clube e interpolação cossenoidal. Cria eras de desafiantes (o Dortmund campeão
@@ -20,11 +24,11 @@
  *   (pequenos de propósito: evitam dinastias eternas por realimentação). Desgaste de dinastia: quem
  *   ganhou mais de 2 das últimas 5 ligas (torneio anual) perde 1,4·(1 − g) por título além do 2º,
  *   todo ano — o campeão emergente é desmontado, o gigante segura o elenco.
- *   Calibrado em 30 temporadas × 48 seeds (dados reais de hoje): Bayern 70% das Bundesligas (pior
- *   seed 50%; jejum máximo ≤ 4 temporadas em 43 de 48 seeds, nunca > 6), PSG 68%, Real 40% + Barça
- *   37% (Atlético 16%), Porto+Benfica+Sporting 97%, PSV+Ajax+Feyenoord 94%, Celtic+Rangers 97%;
- *   líder da Premier ~34% (big six + Newcastle/Villa 89%), da Serie A ~35% (Inter/Juve/Milan/Napoli
- *   73%); Brasil 7–13 campeões, Argentina 8–18; Champions sem dono (nenhum clube > 12%).
+ *   Calibrado em 24 temporadas × 48 seeds (dados reais de hoje): Bayern 70% das Bundesligas (jejum
+ *   máximo de 7 temporadas, numa seed só), PSG 80% (antes 68%, com jejuns de até 9), Real +
+ *   Barça 80%, Porto+Benfica+Sporting 97%, PSV+Ajax 82%, Celtic+Rangers 97% (Celtic ~61%),
+ *   Flamengo+Palmeiras 54%; City ~29%, Inter ~38%; Brasil ~8 campeões em 24 anos; Champions sem dono
+ *   (nenhum clube > 15%: Bayern 14%, Real e Barça 11%, PSG 8%); Inter Miami 5% da Concachampions (antes 25%).
  *   A 1ª temporada usa a força real inicial (continua a tabela de hoje); tudo isso vale da 2ª em diante.
  * Prestígio (0–5): volta devagar ao inicial (5%/ano), +0,08 por liga, +0,15 por continental, −0,2 se cair.
  * Seleção: n' = n + 0,15·(âncora − n) + N(0; 0,9) − custo dos títulos − desgaste; âncora = base (a força
@@ -53,7 +57,7 @@ const PARITY_LEAGUES = new Set(['usa.1'])
 /** Parâmetros do equilíbrio de longo prazo (exportados para calibração). */
 export const EVOLVE = {
   /** Vantagem sobre o 2º mais forte da liga de origem mantida integralmente. */
-  freeGap: 4.5,
+  freeGap: 6,
   /** Fração mantida do excedente acima de `freeGap` (só o PSG passa disso nos dados reais). */
   gapKeep: 0.1,
   /** Desvio dos nós do ciclo do clube. */
@@ -67,7 +71,7 @@ export const EVOLVE = {
   /** Fração do ciclo NEGATIVO absorvida pelo gigante estrutural pleno (g = 1). */
   giantDamp: 0.9,
   /** Força estrutural somada à base do gigante pleno (g = 1, pelo prestígio inicial). */
-  giantBonus: 2.2,
+  giantBonus: 3,
   /** Pontos de prestígio acima da média dos 6 maiores prestígios da liga para g = 1. */
   giantSpan: 1.5,
   /**
@@ -256,9 +260,11 @@ export function evolveClubs(
     const next: ClubDynamic = { strength: cur.strength, leagueId, prestige: Math.round(prestige * 100) / 100 }
     let anchor = clubAnchor(ix, c.id, next, season + 1, seed)
     const g = giantness(ix, c.id, prestige)
-    if (g >= 0.5 && ix.league.get(cur.leagueId)?.tier === 1) {
+    // jejum: pelo tamanho de origem (o Real segue gigante mesmo com o prestígio arranhado por anos sem liga)
+    const g0 = giantness(ix, c.id, c.prestige)
+    if (g0 >= 0.5 - 1e-9 && ix.league.get(cur.leagueId)?.tier === 1) {
       const dry = drought(c.id, cur.leagueId) - EVOLVE.droughtFrom + 1
-      if (dry > 0) anchor += EVOLVE.droughtBoost * g * Math.min(4, dry)
+      if (dry > 0) anchor += EVOLVE.droughtBoost * g0 * Math.min(4, dry)
     }
     const pull = EVOLVE.pull + EVOLVE.giantPull * g
     let s = cur.strength + (anchor - cur.strength) * pull + rng.normal(0, EVOLVE.noise)

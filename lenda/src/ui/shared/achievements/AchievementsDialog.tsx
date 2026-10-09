@@ -192,7 +192,7 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
             const label = `${secret ? 'Conquista secreta' : a.title}${u ? ` — desbloqueada em ${longDate(u.unlockedAt)}` : ' — bloqueada'}`
             return (
               <li key={a.id}>
-                <Tooltip content={<span className="block max-w-[220px]"><b className="block">{secret ? 'Conquista secreta' : a.title}</b>{!secret && <span className="text-text-2">{a.description}</span>}</span>}>
+                <Tooltip tapToShow content={<span className="block max-w-[220px]"><b className="block">{secret ? 'Conquista secreta' : a.title}</b>{!secret && <span className="text-text-2">{a.description}</span>}</span>}>
                   <button type="button" className={cx('ac-cell', u && 'is-on')} aria-label={label}>
                     <AchTile a={a} on={!!u} size={56} />
                     {u && freshRef.current.has(a.id) && <span className="ac-new ac-new--dot" />}

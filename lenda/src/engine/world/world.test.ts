@@ -310,6 +310,32 @@ describe('jogador do usuário', () => {
     for (const id of tier1) expect(awards.some((a) => a.award === 'league_best_player' && a.leagueId === id)).toBe(true)
   })
 
+  it('Luva de Ouro e craque da liga: o reserva de 11 jogos não concorre, o titular sim', () => {
+    const w0 = worldEngine.createWorld(data, 'glove')
+    const r = worldEngine.simulateSeason(data, w0, { ...NO_USER, clubId: bestClub, clubStrengthBoost: 3 })
+    const club = worldEngine.clubSeason(r.result, data, bestClub)
+    const keeper = (apps: number) =>
+      worldEngine.computeAwards(data, r.world, r.result.season, {
+        name: 'Goleiro',
+        nationality: 'BRA',
+        position: 'GOL',
+        clubId: bestClub,
+        leagueId: 'bra.1',
+        ovr: 92,
+        age: 27,
+        role: apps >= 30 ? 'starter' : 'substitute',
+        apps,
+        goals: 0,
+        assists: 0,
+        cleanSheets: Math.round(apps * 0.55),
+        titles: club.titles.map((t) => t.competitionId),
+      }).awards
+    const has = (awards: ReturnType<typeof keeper>, id: string) => !!awards.find((a) => a.award === id && (a.leagueId ?? 'bra.1') === 'bra.1')?.ranking.some((e) => e.isUser)
+    expect(has(keeper(11), 'golden_glove')).toBe(false)
+    expect(has(keeper(11), 'league_best_player')).toBe(false)
+    expect(has(keeper(48), 'golden_glove')).toBe(true)
+  })
+
   it('prêmios exigem temporada cheia: o reserva do campeão não sobe ao pódio pelo OVR e pelas taças', () => {
     const w0 = worldEngine.createWorld(data, 'bdo-part')
     const r = worldEngine.simulateSeason(data, w0, { ...NO_USER, clubId: bestClub, clubStrengthBoost: 5 })

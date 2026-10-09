@@ -41,6 +41,19 @@ describe.skipIf(!available)('integração: dados reais + mundo real', () => {
     for (const o of d.options) expect(data.clubs.find((c) => c.id === o.clubId)?.country).toBe('BRA')
   }, 120_000)
 
+  it('oferta de base: os clubes de casa sempre entram (Nova Zelândia → Auckland, Wellington + Austrália)', async () => {
+    const { data, engine } = await load()
+    const leagues = new Set(data.leagues.map((l) => l.id))
+    const home = data.clubs.filter((c) => c.country === 'NZL' && leagues.has(c.leagueId)).map((c) => c.id)
+    expect(home.length).toBe(2)
+    for (let i = 0; i < 6; i++) {
+      const s = engine.newCareer(data, { surname: 'Teste', number: 10, foot: 'right', nationality: 'NZL', position: 'CA' }, 'normal', `nzl-${i}`)
+      const ids = s.pendingDecision!.options.map((o) => o.clubId!)
+      for (const id of home) expect(ids).toContain(id)
+      for (const id of ids) expect(['NZL', 'AUS']).toContain(data.clubs.find((c) => c.id === id)?.country)
+    }
+  }, 120_000)
+
   for (const [pace, pos, nat] of [
     ['expressa', 'CA', 'BRA'],
     ['normal', 'MEI', 'ARG'],

@@ -29,16 +29,34 @@ export function eligibleFor(club: Club, nationality: string): boolean {
 
 // ───────────────────────── oferta de base ─────────────────────────
 
+/** Vizinho natural de quem tem menos de 3 clubes em casa (país ou confederação → países). */
+const ACADEMY_NEIGHBOURS: Record<string, string[]> = {
+  OFC: ['AUS'],
+  CPV: ['POR'],
+  ANG: ['POR'],
+  MOZ: ['POR'],
+  GNB: ['POR'],
+  STP: ['POR'],
+  IRL: ['ENG', 'SCO'],
+  NIR: ['SCO', 'ENG'],
+  WAL: ['ENG'],
+}
+
 /**
  * 3 clubes REAIS do país do jogador, numa mistura ponderada: um grande, um médio e um menor
- * (de preferência da Série B/segunda divisão). Fallback: confederação → UEFA → todos (Copero).
+ * (de preferência da Série B/segunda divisão). Com menos de 3 em casa, os de casa sempre entram
+ * (Auckland e Wellington para o neozelandês) e o resto vem do vizinho (Oceania → Austrália,
+ * Cabo Verde → Portugal, Irlanda → Inglaterra/Escócia). Fallback: confederação → UEFA → todos (Copero).
  */
 export function academyClubs(data: GameData, state: CareerState, r: Rng): Club[] {
   const idx = indexData(data)
   const nat = state.identity.nationality
   const country = idx.country.get(nat)
   const ok = (c: Club) => eligibleFor(c, nat) && idx.league.has(c.leagueId)
-  let pool = (idx.clubsByCountry.get(nat) ?? []).filter(ok)
+  const home = (idx.clubsByCountry.get(nat) ?? []).filter(ok)
+  let pool = home
+  const near = ACADEMY_NEIGHBOURS[nat] ?? (country ? ACADEMY_NEIGHBOURS[country.confed] : undefined)
+  if (pool.length < 3 && near) pool = [...home, ...near.flatMap((code) => (idx.clubsByCountry.get(code) ?? []).filter(ok))]
   if (pool.length < 3 && country) pool = idx.simClubs.filter((c) => ok(c) && clubConfed(data, c) === country.confed)
   if (pool.length < 3) pool = idx.simClubs.filter((c) => ok(c) && clubConfed(data, c) === 'UEFA')
   if (pool.length < 3) pool = idx.simClubs.filter(ok)
@@ -60,6 +78,7 @@ export function academyClubs(data: GameData, state: CareerState, r: Rng): Club[]
   take(mid.length ? mid : sorted, () => 1)
   take(small.length ? small : sorted, () => 1)
   while (picks.length < 3) take(sorted, () => 1)
+  if (home.length && home.length < 3) return r.shuffle([...home, ...picks.filter((c) => !home.includes(c))].slice(0, 3))
   return r.shuffle(picks)
 }
 
@@ -315,10 +334,10 @@ export function clubCard(
   const league = clubLeague(data, state.world, club)
   const role = clubRole(data, state, club)
   const short = roleShortLabel(role)
-  // "Papel previsto: Rotação" (antes "Rotação previsto", sem concordância)
+  // "Papel: Rotação" (antes "Rotação previsto", sem concordância); curto para caber numa linha do card
   const chip: EffectChip = {
     kind: role === 'starter' ? 'positive' : short === 'Reserva' ? 'negative' : 'neutral',
-    label: `Papel previsto: ${short}`,
+    label: `Papel: ${short}`,
   }
   const coef = league?.coefficient ?? 0.5
   const value = marketValue(new Rng(1), state.ovr, state.age, coef)

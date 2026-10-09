@@ -152,6 +152,7 @@ export function offseasonRivals(env: RivalEnv, rivals: readonly Rival[]): Rival[
   const eliteGap = (env.targetElite - elite - pipeline * 0.5) / Math.max(1, env.targetElite)
   const potMean = 84 + clamp(eliteGap * 6, -2.5, 3.5)
   const nats = [...env.natWeight.entries()].filter(([code]) => ix.country.has(code))
+  const names = new Set(next.map((r) => r.name))
   for (let k = 0; k < count && nats.length; k++) {
     const nationality = rng.weighted(nats, (x) => x[1])[0]
     const potential = Math.round(clamp(rng.normal(potMean, 4), 74, 95))
@@ -160,9 +161,11 @@ export function offseasonRivals(env: RivalEnv, rivals: readonly Rival[]): Rival[
     const position = rng.weighted(POSITIONS, (p) => p[1])[0]
     let nm = randomName(nationality, rng)
     const clubId = pickClub(data, ix, clubs, nationality, ovr + 6, rng)
-    // dois "Lucas Silva" no mesmo elenco confundem a narração e os rankings: sorteia outro nome
-    const taken = (n: typeof nm) => next.some((x) => x.clubId === clubId && (x.name === n.name || x.shortName === n.shortName))
+    // nome repetido confunde a narração e os rankings (dois "Davi Pires" no pódio da Bola de Ouro, dois
+    // "Silva" no mesmo elenco): sorteia outro
+    const taken = (n: typeof nm) => names.has(n.name) || next.some((x) => x.clubId === clubId && x.shortName === n.shortName)
     for (let t = 0; t < 6 && taken(nm); t++) nm = randomName(nationality, rng)
+    names.add(nm.name)
     next.push({
       id: `g${env.season}-${k}`,
       name: nm.name,

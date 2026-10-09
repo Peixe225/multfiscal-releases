@@ -31,6 +31,8 @@ describe('newCareer', () => {
       expect(o.label).toBe('Assinar com')
       expect(o.title).toBeTruthy()
       expect(o.details?.map((x) => x.label)).toEqual(expect.arrayContaining(['Papel previsto', 'Salário/ano', 'Contrato']))
+      // pílula sem problema de concordância: "Papel: Rotação" (antes "Rotação previsto")
+      expect(o.effects[0].label).toMatch(/^Papel: (Titular|Rotação|Reserva)$/)
     }
     const strengths = clubs.map((c) => c.strength).sort((a, b) => b - a)
     expect(strengths[0] - strengths[2]).toBeGreaterThanOrEqual(6)

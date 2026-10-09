@@ -366,7 +366,7 @@ export const PressCard = memo(function PressCard({ it }: { it: CalendarItem }) {
             Ir para a coletiva
           </Button>
           <Button variant="ghost" size="lg" onClick={() => void dispatch({ type: 'press_skip' })}>
-            Faltar (Mídia −)
+            Faltar (Imprensa −)
           </Button>
         </div>
       </div>
@@ -430,9 +430,9 @@ function StoryOption({ o, i, chosen, onPick, s, ctx }: { o: DecisionOption; i: n
   const club = o.clubId ? getClub(o.clubId) : undefined
   const mins = club && !ctx.shared.minutes ? minutesOutlook(s, club.id) : null
   const state = chosen ? (chosen === o.id ? 'chosen' : 'dim') : 'idle'
-  // a pílula "Papel previsto: Reserva" repete o "Papel previsto" dos detalhes: fica só um
+  // a pílula "Papel: Reserva" repete o "Papel previsto" dos detalhes: fica só um
   const role = o.details?.find((d) => d.label === 'Papel previsto')?.value
-  const effects = o.effects.filter((e) => !(role && e.label === `Papel previsto: ${role}`))
+  const effects = o.effects.filter((e) => !(role && e.label === `Papel: ${role}`))
   // clube: a liga e a força do elenco no lugar do que é igual em todos os cards
   const details = [...(o.details ?? []).filter((d) => !ctx.shared.labels.has(d.label)), ...(club ? [{ label: 'Força do elenco', value: String(Math.round(clubStrength(s, club.id))) }] : [])].slice(0, 4)
   // arte: chave do evento; sem mapeamento, o texto da opção e o da decisão escolhem o tema (sem tema, sem quadro)

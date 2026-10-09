@@ -1453,8 +1453,8 @@ function buildPress(data: GameData, s: ImmersiveState): PressQuestion[] {
     q: last ? (last.res === 'V' ? `Vitória na última rodada. O ${club?.shortName} chega embalado contra o ${opp}?` : last.res === 'D' ? `Depois da derrota, a pressão aumentou. O que muda contra o ${opp}?` : `O empate deixou gosto amargo? Como encarar o ${opp}?`) : `Qual é a sua expectativa para o duelo contra o ${opp}?`,
     a: [
       ['“Respeito muito o adversário. Vamos com humildade e trabalho.”', 'humilde', ['Técnico +', 'Vestiário +'], { coach: 2, teammates: 2 }],
-      ['“Estamos prontos. Em casa ou fora, a gente vai para ganhar.”', 'confiante', ['Torcida +', 'Mídia +'], { fans: 3, media: 2, morale: 2 }],
-      [`“O ${opp} que se preocupe com a gente.”`, 'provocador', ['Torcida ++', 'Mídia −', 'Pressão ▲'], { fans: 5, media: -3, coach: -1 }],
+      ['“Estamos prontos. Em casa ou fora, a gente vai para ganhar.”', 'confiante', ['Torcida +', 'Imprensa +'], { fans: 3, media: 2, morale: 2 }],
+      [`“O ${opp} que se preocupe com a gente.”`, 'provocador', ['Torcida ++', 'Imprensa −', 'Pressão ▲'], { fans: 5, media: -3, coach: -1 }],
       ['“Pergunta para o professor. Eu só penso no treino.”', 'evasivo', ['Sem efeito'], {}],
     ],
   })
@@ -1463,7 +1463,7 @@ function buildPress(data: GameData, s: ImmersiveState): PressQuestion[] {
     q: bench ? 'Você tem começado no banco. Está incomodado com a reserva?' : `Você vive boa fase${s.seasonStats.goals ? ` com ${s.seasonStats.goals} gols` : ''}. Já se sente titular absoluto?`,
     a: [
       ['“Quem decide é o treinador. Eu trabalho para estar pronto.”', 'humilde', ['Técnico ++'], { coach: 4 }],
-      ['“Eu sei do meu potencial. Minha hora vai chegar — ou já chegou.”', 'confiante', ['Mídia +', 'Técnico −'], { media: 3, coach: -1, morale: 2 }],
+      ['“Eu sei do meu potencial. Minha hora vai chegar — ou já chegou.”', 'confiante', ['Imprensa +', 'Técnico −'], { media: 3, coach: -1, morale: 2 }],
       ['“Se não tiver espaço aqui, vai ter em outro lugar.”', 'provocador', ['Diretoria −−', 'Proposta ▲', 'Torcida −'], { coach: -4, fans: -3, media: 4, reputation: 1 }],
       ['“Isso é conversa para dentro do vestiário.”', 'evasivo', ['Vestiário +'], { teammates: 2 }],
     ],
@@ -1474,14 +1474,14 @@ function buildPress(data: GameData, s: ImmersiveState): PressQuestion[] {
     a: rumor
       ? [
           ['“Estou feliz aqui. Meu foco é o clube.”', 'humilde', ['Torcida +', 'Diretoria +'], { fans: 3, coach: 1 }],
-          ['“Proposta boa todo mundo gosta de receber. É sinal de trabalho bem feito.”', 'confiante', ['Mídia ++', 'Valor +3%'], { media: 4, reputation: 1 }],
+          ['“Proposta boa todo mundo gosta de receber. É sinal de trabalho bem feito.”', 'confiante', ['Imprensa ++', 'Valor +3%'], { media: 4, reputation: 1 }],
           ['“Se a diretoria não valorizar, tem clube que valoriza.”', 'provocador', ['Diretoria −−', 'Torcida −', 'Proposta ▲'], { coach: -3, fans: -4, media: 3 }],
-          ['“Meu empresário cuida disso. Eu só penso no próximo jogo.”', 'evasivo', ['Sem efeito', 'Mídia −'], { media: -1 }],
+          ['“Meu empresário cuida disso. Eu só penso no próximo jogo.”', 'evasivo', ['Sem efeito', 'Imprensa −'], { media: -1 }],
         ]
       : [
           ['“Obrigado pelo carinho. Vou devolver dentro de campo.”', 'humilde', ['Torcida ++'], { fans: 5 }],
-          ['“Podem esperar muitos gols. Isso é só o começo.”', 'confiante', ['Torcida +', 'Mídia +', 'Pressão ▲'], { fans: 3, media: 3 }],
-          ['“Torcida que vaia não ganha jogo. Quero apoio o tempo todo.”', 'provocador', ['Torcida −−', 'Mídia +'], { fans: -6, media: 2 }],
+          ['“Podem esperar muitos gols. Isso é só o começo.”', 'confiante', ['Torcida +', 'Imprensa +', 'Pressão ▲'], { fans: 3, media: 3 }],
+          ['“Torcida que vaia não ganha jogo. Quero apoio o tempo todo.”', 'provocador', ['Torcida −−', 'Imprensa +'], { fans: -6, media: 2 }],
           ['“Prefiro deixar o futebol falar.”', 'evasivo', ['Sem efeito'], {}],
         ],
   })
@@ -2071,7 +2071,7 @@ function dispatch(data: GameData, state: ImmersiveState, action: ImmersiveAction
       s.press = s.press.filter((x) => x.id !== action.questionId)
       if (!s.press.length) {
         s.press = null
-        fx.push({ type: 'toast', tone: 'success', title: 'Coletiva encerrada', description: `Torcida ${s.relationships.fans} · Mídia ${s.relationships.media}` })
+        fx.push({ type: 'toast', tone: 'success', title: 'Coletiva encerrada', description: `Torcida ${s.relationships.fans} · Imprensa ${s.relationships.media}` })
         complete(data, s, fx)
       }
       break
@@ -2081,7 +2081,7 @@ function dispatch(data: GameData, state: ImmersiveState, action: ImmersiveAction
       s.press = null
       s.relationships.media = clamp(s.relationships.media - 5, 0, 100)
       s.news.unshift(news(s, `${s.identity.surname} falta à coletiva e irrita a imprensa`, 'negative', 'Canal Resenha'))
-      fx.push({ type: 'toast', tone: 'danger', title: 'Coletiva cancelada', description: 'Mídia −5' })
+      fx.push({ type: 'toast', tone: 'danger', title: 'Coletiva cancelada', description: 'Imprensa −5' })
       complete(data, s, fx)
       break
     }

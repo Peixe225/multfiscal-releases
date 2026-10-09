@@ -75,10 +75,11 @@ export function rateRole(position: Position): RateRole {
     case 'CA':
     case 'PD':
       return 'attacker'
-    case 'ME':
     case 'MEI':
-    case 'MD':
       return 'creator'
+    case 'ME':
+    case 'MD':
+      return 'wide'
     case 'LE':
     case 'MC':
     case 'LD':

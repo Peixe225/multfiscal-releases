@@ -23,11 +23,13 @@ export interface TooltipProps {
   className?: string
   /** Wrapper element classes (the trigger is wrapped in an inline-flex span). */
   wrapperClassName?: string
+  /** Touch: also open on tap when the trigger is a button whose only job is to show this tip (e.g. a grid tile). */
+  tapToShow?: boolean
 }
 
 const ACTIONABLE = 'button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"]'
 
-export function Tooltip({ content, children, side = 'top', card, delay = 250, disabled, className, wrapperClassName }: TooltipProps) {
+export function Tooltip({ content, children, side = 'top', card, delay = 250, disabled, className, wrapperClassName, tapToShow }: TooltipProps) {
   const id = useId()
   const rm = useReducedMotion()
   const wrap = useRef<HTMLSpanElement>(null)
@@ -102,11 +104,11 @@ export function Tooltip({ content, children, side = 'top', card, delay = 250, di
         onPointerDown={() => (pressedAt.current = Date.now())}
         onPointerUp={(e) => {
           if (e.pointerType === 'mouse') return
-          if ((e.target as Element).closest?.(ACTIONABLE)) return hide()
+          if (!tapToShow && (e.target as Element).closest?.(ACTIONABLE)) return hide()
           if (open) return hide()
           show(true)
           clearTimeout(autoHide.current)
-          autoHide.current = window.setTimeout(hide, card ? 4000 : 1600)
+          autoHide.current = window.setTimeout(hide, card ? 4500 : 3000)
         }}
         onFocus={() => Date.now() - pressedAt.current > 1000 && show(true)}
         onBlur={hide}

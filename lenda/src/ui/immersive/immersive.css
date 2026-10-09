@@ -297,7 +297,9 @@
 .im-zbar[data-zone="reb"] { background: var(--lx-zone-reb, var(--negative)); }
 /* tabela completa (diálogo): J V E D GP GC SG P; no celular sem GP/GC */
 .im-mt.is-full .im-mt__row { grid-template-columns: 34px minmax(0, 1fr) repeat(4, 26px) repeat(2, 30px) 38px 32px; gap: 5px; }
-@media (max-width: 35.99rem) { .im-mt.is-full .im-mt__row { grid-template-columns: 30px minmax(0, 1fr) repeat(4, 22px) 32px 28px; gap: 4px; } .im-mt.is-full .is-gf { display: none; } }
+@media (max-width: 35.99rem) { .im-mt.is-full .im-mt__row { grid-template-columns: 30px minmax(0, 1fr) repeat(4, 22px) 32px 28px; gap: 4px; } .im-mt.is-full .is-gf { display: none; }
+  /* a linha do seu clube já vem destacada: o selo "Você" sai da vista (fica para leitor de tela) e o nome cabe inteiro */
+  .im-mt.is-full .im-mt__row.is-me .lx-you { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 .im-mt__more { display: block; margin: 12px 0 0 auto; padding: 0; background: none; border: 0; cursor: pointer; }
 .im-mt-dlg .im-mt { font-size: 14px; }
 .im-zlegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font: 700 11.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }

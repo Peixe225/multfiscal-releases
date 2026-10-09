@@ -271,7 +271,7 @@ function ChartTip({ p, left, top, w }: { p: ChartPoint; left: number; top: numbe
       <div className="sm-tip__t2">
         <OvrPill ovr={p.ovr} size="sm" />
         <span>
-          <b className="num">{p.goals}</b> gols em <b className="num">{p.apps}</b> jogos
+          <b className="num">{p.goals}</b> {p.goals === 1 ? 'gol' : 'gols'} em <b className="num">{p.apps}</b> {p.apps === 1 ? 'jogo' : 'jogos'}
         </span>
       </div>
       {(p.ballon || p.trophies.length > 0) && (

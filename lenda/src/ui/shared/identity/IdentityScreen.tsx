@@ -390,7 +390,7 @@ export default function IdentityScreen() {
       title="Substituir a carreira atual?"
       description={
         replaced
-          ? `A carreira ${immersive ? 'imersiva' : 'clássica'} de ${replaced.identity.surname} (${replaced.age} anos · OVR ${replaced.ovr}) será substituída por esta nova. A carreira ${immersive ? 'clássica' : 'imersiva'} não é afetada.`
+          ? `A carreira ${immersive ? 'imersiva' : 'clássica'} de ${replaced.identity.surname} (${replaced.age} anos · OVR ${replaced.ovr}) será substituída por esta nova. A do Modo ${immersive ? 'Clássico' : 'Imersivo'}, se houver, continua como está.`
           : 'Você tem uma carreira em andamento. Ao confirmar, ela será substituída por esta nova.'
       }
       footer={

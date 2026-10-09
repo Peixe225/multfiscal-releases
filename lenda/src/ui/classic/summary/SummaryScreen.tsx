@@ -295,7 +295,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, im
             <span className="sm-chip">
               Pico <b className="num">{summary.peakOvr}</b> aos {summary.peakOvrAge}
             </span>
-            <span className="sm-chip">{finished ? `Aposentou aos ${last?.age ?? career.age}` : `${career.age} anos · em atividade`}</span>
+            <span className="sm-chip">{finished ? `Aposentou-se aos ${last?.age ?? career.age}` : `${career.age} anos · em atividade`}</span>
             <span className="sm-chip">
               Valor máx. <b className="num">{formatMoney(summary.peakValue)}</b>
             </span>
