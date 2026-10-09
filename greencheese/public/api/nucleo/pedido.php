@@ -283,6 +283,15 @@ function gc_rota_pedido(): array
         if ($subCodigo !== null && $subToken !== null && $subToken !== $token) {
             $antigo = gc_um('SELECT * FROM pedidos WHERE token_hash = ? AND codigo = ?', [hash('sha256', $subToken), $subCodigo]);
         }
+        // quem estava logado na conta do site (clientes.php): o pedido entra nos "Meus pedidos" e, quando o aparelho não
+        // mandou o WhatsApp, vale o da conta (conferido pelo código); o endereço fica guardado pra próxima vez
+        $cliente = function_exists('gc_cliente_logado') ? gc_cliente_logado() : null;
+        if ($cliente !== null) {
+            $col['cliente_id'] = (int) $cliente['id'];
+            if ((string) $col['whatsapp'] === '') {
+                $col['whatsapp'] = (string) $cliente['whatsapp'];
+            }
+        }
         $col = ['codigo' => $codigo, 'token_hash' => $hash, 'status' => 'novo'] + $col + [
             'substitui_id' => $antigo === null ? null : (int) $antigo['id'],
             'criado_em' => $agora, 'atualizado_em' => $agora,
@@ -302,6 +311,9 @@ function gc_rota_pedido(): array
             $trocou = true;
         }
         $p = gc_pedido_um($id);
+        if ($cliente !== null) {
+            gc_cliente_pedido_feito((int) $cliente['id'], $p);
+        }
         gc_evento('site', $col['tipo'] === 'pedido' ? 'pedido-recebido' : 'encomenda-recebida', 'pedido:' . $codigo, [
             'id' => $id, 'uf' => $col['uf'], 'nome' => $col['nome'], 'itens' => count(json_decode((string) $col['itens'], true) ?: []),
         ]);
@@ -424,6 +436,10 @@ function gc_pedido_ou_404(mixed $id): array
     if ($p === null) {
         throw new ErroApi('nao-encontrado', 'Pedido não encontrado.', 404);
     }
+    // gerente e atendente: só os pedidos dos estados deles (equipe.php)
+    if (function_exists('gc_exigir_uf')) {
+        gc_exigir_uf((string) $p['uf'], 'Esse pedido');
+    }
     return $p;
 }
 
@@ -448,6 +464,11 @@ function gc_rota_admin_pedidos(): array
 
     $onde = [];
     $p = [];
+    [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('p.uf') : ['', []];
+    if ($fUf !== '') {
+        $onde[] = $fUf;
+        array_push($p, ...$pUf);
+    }
     if ($uf !== null) {
         $onde[] = 'p.uf = ?';
         $p[] = $uf;
@@ -480,7 +501,7 @@ function gc_rota_admin_pedidos(): array
     }
     $linhas = gc_todos(GC_PEDIDOS_SELECT . ($onde ? ' WHERE ' . implode(' AND ', $onde) : '') . ' ORDER BY p.id DESC LIMIT ' . ($limite + 1), $p);
     $mais = count($linhas) > $limite;
-    $ufs = array_map(static fn (array $l): string => (string) $l['uf'], gc_todos('SELECT DISTINCT uf FROM pedidos ORDER BY uf'));
+    $ufs = array_map(static fn (array $l): string => (string) $l['uf'], gc_todos('SELECT DISTINCT p.uf FROM pedidos p' . ($fUf === '' ? '' : " WHERE $fUf") . ' ORDER BY p.uf', $pUf));
     return [
         'agora' => gc_iso(gc_agora()),
         'pedidos' => array_map('gc_pedido_linha', array_slice($linhas, 0, $limite)),
@@ -495,13 +516,16 @@ function gc_rota_admin_pedidos_resumo(): array
 {
     gc_exigir_dono();
     gc_avisos_depois([]);
-    $novos = gc_todos(GC_PEDIDOS_SELECT . " WHERE p.status = 'novo' ORDER BY p.id DESC LIMIT 5");
+    [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('p.uf') : ['', []];
+    $e = $fUf === '' ? '' : " AND $fUf";
+    $novos = gc_todos(GC_PEDIDOS_SELECT . " WHERE p.status = 'novo'$e ORDER BY p.id DESC LIMIT 5", $pUf);
     return [
         'agora' => gc_iso(gc_agora()),
-        'novos' => (int) gc_valor("SELECT COUNT(*) FROM pedidos WHERE status = 'novo'"),
-        'emAndamento' => (int) gc_valor("SELECT COUNT(*) FROM pedidos WHERE status IN ('confirmado','saiu')"),
+        'novos' => (int) gc_valor("SELECT COUNT(*) FROM pedidos p WHERE p.status = 'novo'$e", $pUf),
+        'emAndamento' => (int) gc_valor("SELECT COUNT(*) FROM pedidos p WHERE p.status IN ('confirmado','saiu')$e", $pUf),
         'ultimos' => array_map('gc_pedido_linha', $novos),
-        'avisos' => gc_avisos_situacao(),
+        // a situação dos avisos no WhatsApp é coisa de quem cuida deles (o dono); os outros recebem null
+        'avisos' => !function_exists('gc_pode') || gc_pode('avisos') ? gc_avisos_situacao() : null,
     ];
 }
 
@@ -510,12 +534,14 @@ function gc_rota_admin_pedido(): array
 {
     gc_exigir_dono();
     $p = gc_pedido_ou_404($_GET['id'] ?? null);
-    $mesmos = gc_todos(GC_PEDIDOS_SELECT . ' WHERE p.codigo = ? AND p.id <> ? ORDER BY p.id DESC LIMIT 5', [$p['codigo'], $p['id']]);
+    [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('p.uf') : ['', []];
+    $mesmos = gc_todos(GC_PEDIDOS_SELECT . ' WHERE p.codigo = ? AND p.id <> ?' . ($fUf === '' ? '' : " AND $fUf") . ' ORDER BY p.id DESC LIMIT 5', [$p['codigo'], $p['id'], ...$pUf]);
+    $verAvisos = !function_exists('gc_pode') || gc_pode('avisos');
     return [
         'agora' => gc_iso(gc_agora()),
         'pedido' => gc_pedido_admin($p),
         'mesmoCodigo' => array_map('gc_pedido_linha', $mesmos),
-        'avisos' => array_map('gc_aviso_publico', gc_todos('SELECT * FROM avisos_envios WHERE alvo = ? ORDER BY id DESC LIMIT 5', ['pedido:' . $p['id']])),
+        'avisos' => $verAvisos ? array_map('gc_aviso_publico', gc_todos('SELECT * FROM avisos_envios WHERE alvo = ? ORDER BY id DESC LIMIT 5', ['pedido:' . $p['id']])) : [],
     ];
 }
 
@@ -641,6 +667,10 @@ function gc_rota_admin_pedido_apagar_dados(): array
             );
             // o aviso do grupo também tinha os dados (o texto e o pedido inteiro, que vai pro webhook)
             gc_avisos_apagar_dados('pedido:' . $p['id']);
+            // e a ligação com a conta do cliente (sai dos "Meus pedidos")
+            if (array_key_exists('cliente_id', $p)) {
+                gc_sql('UPDATE pedidos SET cliente_id = NULL WHERE id = ?', [$p['id']]);
+            }
             // e a Atividade, o nome de quem pediu
             foreach (gc_todos('SELECT id, detalhe FROM eventos WHERE alvo = ?', ['pedido:' . $p['codigo']]) as $ev) {
                 $d = json_decode((string) $ev['detalhe'], true);

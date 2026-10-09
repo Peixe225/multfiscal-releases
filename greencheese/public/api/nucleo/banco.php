@@ -80,6 +80,11 @@ function gc_migracoes(): array
     if (function_exists('gc_migracoes_pedidos')) {
         $m += gc_migracoes_pedidos();
     }
+    // contas da equipe e dos clientes (203–2xx, nucleo/contas-migracoes.php; a 206 mexe na tabela dos pedidos, então
+    // só entra junto com elas)
+    if (function_exists('gc_migracoes_contas') && function_exists('gc_migracoes_pedidos')) {
+        $m += gc_migracoes_contas();
+    }
     ksort($m);
     return $m;
 }

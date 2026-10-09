@@ -22,6 +22,12 @@ require __DIR__ . '/nucleo/pedido-migracoes.php';
 require __DIR__ . '/nucleo/pedido.php';
 require __DIR__ . '/nucleo/avisos.php';
 require __DIR__ . '/nucleo/textos.php';
+// contas: a equipe do painel (papéis e o mapa de permissões) e os clientes do site (entrar com código, Minha conta,
+// Teste minha sorte no servidor)
+require __DIR__ . '/nucleo/contas-migracoes.php';
+require __DIR__ . '/nucleo/equipe.php';
+require __DIR__ . '/nucleo/clientes.php';
+require __DIR__ . '/nucleo/sorte.php';
 
 $rotas = [
     // site
@@ -67,6 +73,33 @@ $rotas = [
     'admin-aviso-reenviar' => ['POST', 'gc_rota_admin_aviso_reenviar'],
     'admin-textos-pedido' => ['GET', 'gc_rota_admin_textos_pedido'],
     'admin-texto-pedido-salvar' => ['POST', 'gc_rota_admin_texto_pedido_salvar'],
+    // contas: o site (recursos, cliente-*) e o painel (equipe e clientes)
+    'recursos' => ['GET', 'gc_rota_recursos'],
+    'cliente-codigo' => ['POST', 'gc_rota_cliente_codigo'],
+    'cliente-entrar' => ['POST', 'gc_rota_cliente_entrar'],
+    'cliente-eu' => ['GET', 'gc_rota_cliente_eu'],
+    'cliente-atualizar' => ['POST', 'gc_rota_cliente_atualizar'],
+    'cliente-sair' => ['POST', 'gc_rota_cliente_sair'],
+    'cliente-apagar' => ['POST', 'gc_rota_cliente_apagar'],
+    'cliente-exportar' => ['GET', 'gc_rota_cliente_exportar'],
+    'cliente-pedidos' => ['GET', 'gc_rota_cliente_pedidos'],
+    'cliente-vagas' => ['GET', 'gc_rota_cliente_vagas'],
+    'cliente-endereco-salvar' => ['POST', 'gc_rota_cliente_endereco_salvar'],
+    'cliente-endereco-apagar' => ['POST', 'gc_rota_cliente_endereco_apagar'],
+    'cliente-giro' => ['GET', 'gc_rota_cliente_giro'],
+    'cliente-girar' => ['POST', 'gc_rota_cliente_girar'],
+    'cliente-guardar' => ['POST', 'gc_rota_cliente_guardar'],
+    'cliente-cupom-usar' => ['POST', 'gc_rota_cliente_cupom_usar'],
+    'admin-usuarios' => ['GET', 'gc_rota_admin_usuarios'],
+    'admin-usuario-salvar' => ['POST', 'gc_rota_admin_usuario_salvar'],
+    'admin-usuario-senha' => ['POST', 'gc_rota_admin_usuario_senha'],
+    'admin-usuario-status' => ['POST', 'gc_rota_admin_usuario_status'],
+    'admin-clientes' => ['GET', 'gc_rota_admin_clientes'],
+    'admin-cliente' => ['GET', 'gc_rota_admin_cliente'],
+    'admin-clientes-csv' => ['GET', 'gc_rota_admin_clientes_csv'],
+    'admin-cliente-apagar' => ['POST', 'gc_rota_admin_cliente_apagar'],
+    'admin-clientes-ajustes' => ['POST', 'gc_rota_admin_clientes_ajustes'],
+    'admin-cupom-usado' => ['POST', 'gc_rota_admin_cupom_usado'],
 ];
 
 if (gc_teste()) {

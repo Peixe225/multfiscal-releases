@@ -80,14 +80,20 @@ function gc_rota_admin_recuperar(): array
     $login = isset($c['login']) && $c['login'] !== '' ? gc_login($c['login']) : null;
     $u = $login !== null
         ? gc_um('SELECT * FROM usuarios WHERE login = ?', [$login])
-        : gc_um("SELECT * FROM usuarios WHERE papel = 'dono' ORDER BY id LIMIT 1");
+        : gc_um("SELECT * FROM usuarios WHERE papel = 'dono' AND COALESCE(ativo, 1) = 1 ORDER BY id LIMIT 1");
     if ($u === null) {
         throw gc_invalido('login', 'Login não encontrado.');
+    }
+    if ((int) ($u['ativo'] ?? 1) !== 1) {
+        throw gc_invalido('login', 'Esse acesso tá desativado: reativa ele pelo dono, em Equipe.');
     }
     $senhaHash = gc_hash_senha($senha);
     return gc_transacao(static function () use ($u, $hash, $senhaHash): array {
         $agora = gc_agora();
         gc_sql('UPDATE usuarios SET senha_hash = ?, senha_em = ? WHERE id = ?', [$senhaHash, $agora, $u['id']]);
+        if (array_key_exists('trocar_senha', $u)) {
+            gc_sql('UPDATE usuarios SET trocar_senha = 0 WHERE id = ?', [$u['id']]);
+        }
         gc_sql('DELETE FROM sessoes WHERE usuario_id = ?', [$u['id']]);
         gc_ajuste_definir('instalacao_usada', hash('sha256', $hash));
         $s = gc_sessao_criar((int) $u['id']);
@@ -123,6 +129,11 @@ function gc_rota_admin_entrar(): array
     $ok = password_verify($senha, $u === null ? GC_HASH_FALSO : (string) $u['senha_hash']);
     if ($u === null || !$ok || $senha === '') {
         throw new ErroApi('credenciais', 'Login ou senha não confere.', 401);
+    }
+    if ((int) ($u['ativo'] ?? 1) !== 1) {
+        // a senha confere, mas o dono desativou esse acesso: só aí a tela diz isso
+        gc_evento('painel', 'entrar-desativado', 'usuario:' . $u['login'], [], (int) $u['id']);
+        throw new ErroApi('desativado', 'Esse acesso foi desativado. Fala com o dono da loja.', 403);
     }
     return gc_transacao(static function () use ($u, $senha, $t1, $t2, $kLogin): array {
         gc_limite_apagar($t1);
@@ -163,12 +174,19 @@ function gc_rota_admin_senha(): array
         throw gc_invalido('nova', 'A senha nova tem que ser diferente da atual.');
     }
     $hash = gc_hash_senha($nova);
-    gc_transacao(static function () use ($s, $hash): void {
+    $provisoria = (bool) (gc_usuario_atual()['trocarSenha'] ?? false);
+    gc_transacao(static function () use ($s, $hash, $provisoria, $u): void {
         gc_sql('UPDATE usuarios SET senha_hash = ?, senha_em = ? WHERE id = ?', [$hash, gc_agora(), $s['usuario_id']]);
+        if (array_key_exists('trocar_senha', $u)) {
+            gc_sql('UPDATE usuarios SET trocar_senha = 0 WHERE id = ?', [$s['usuario_id']]);
+        }
         gc_sql('DELETE FROM sessoes WHERE usuario_id = ? AND id <> ?', [$s['usuario_id'], $s['id']]);
-        gc_evento('painel', 'senha-trocada', 'usuario:' . $s['login']);
+        gc_evento('painel', $provisoria ? 'senha-provisoria-trocada' : 'senha-trocada', 'usuario:' . $s['login']);
     });
-    return [];
+    // a sessão continua, agora sem a senha provisória: o painel recebe o usuário de novo
+    $atual = gc_usuario_atual() ?? [];
+    gc_usuario_atual(['trocarSenha' => false] + $atual);
+    return ['usuario' => gc_usuario_publico()];
 }
 
 // ─── resumo e rateios ───────────────────────────────────────────────────────────────────────────────────────────
@@ -179,31 +197,39 @@ function gc_rota_admin_resumo(): array
     gc_exigir_dono();
     gc_vencer_reservas();
     $agora = gc_agora();
+    // gerente e atendente veem só os estados deles (rateio que vale em algum deles; vaga de gente desses estados)
+    $visivel = function_exists('gc_rateio_visivel') ? 'gc_rateio_visivel' : static fn (array $r): bool => true;
+    [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('p.uf') : ['', []];
+    $eUf = $fUf === '' ? '' : " AND $fUf";
     $grupos = ['rascunho' => 0, 'aberto' => 0, 'andamento' => 0, 'encerrado' => 0, 'cancelado' => 0];
-    foreach (gc_todos('SELECT status, COUNT(*) AS n FROM rateios GROUP BY status') as $l) {
+    foreach (gc_todos('SELECT status, ufs FROM rateios') as $l) {
+        if (!$visivel($l)) {
+            continue;
+        }
         $g = in_array($l['status'], ['fechado', 'pedido', 'caminho', 'chegou'], true) ? 'andamento' : (string) $l['status'];
-        $grupos[$g] = ($grupos[$g] ?? 0) + (int) $l['n'];
+        $grupos[$g] = ($grupos[$g] ?? 0) + 1;
     }
     $res = gc_um(
         "SELECT COUNT(*) AS pessoas, COALESCE(SUM(p.quantidade), 0) AS vagas, COALESCE(SUM(p.quantidade * p.preco_unit), 0) AS valor,
                 COALESCE(SUM(CASE WHEN p.expira_em <= ? THEN 1 ELSE 0 END), 0) AS vencendo
            FROM participacoes p JOIN rateios r ON r.id = p.rateio_id
-          WHERE p.status = 'reservado' AND p.expira_em > ? AND r.status <> 'cancelado'",
-        [$agora + 6 * 3600, $agora],
+          WHERE p.status = 'reservado' AND p.expira_em > ? AND r.status <> 'cancelado'$eUf",
+        [$agora + 6 * 3600, $agora, ...$pUf],
     );
     $conf = gc_um(
         "SELECT COUNT(*) AS pessoas, COALESCE(SUM(p.quantidade), 0) AS vagas, COALESCE(SUM(p.quantidade * p.preco_unit), 0) AS valor
            FROM participacoes p JOIN rateios r ON r.id = p.rateio_id
-          WHERE p.status IN ('confirmado','entregue') AND r.status <> 'cancelado'",
+          WHERE p.status IN ('confirmado','entregue') AND r.status <> 'cancelado'$eUf",
+        $pUf,
     );
     $comTitulo = static fn (array $l): array => gc_participante_admin($l) + ['rateioTitulo' => (string) $l['titulo']];
     $esperando = gc_todos(
         "SELECT p.*, r.titulo FROM participacoes p JOIN rateios r ON r.id = p.rateio_id
-          WHERE p.status = 'reservado' AND p.expira_em > ? AND r.status <> 'cancelado'
+          WHERE p.status = 'reservado' AND p.expira_em > ? AND r.status <> 'cancelado'$eUf
           ORDER BY p.expira_em ASC, p.id ASC LIMIT 20",
-        [$agora],
+        [$agora, ...$pUf],
     );
-    $ultimas = gc_todos('SELECT p.*, r.titulo FROM participacoes p JOIN rateios r ON r.id = p.rateio_id ORDER BY p.criado_em DESC, p.id DESC LIMIT 10');
+    $ultimas = gc_todos('SELECT p.*, r.titulo FROM participacoes p JOIN rateios r ON r.id = p.rateio_id' . ($fUf === '' ? '' : " WHERE $fUf") . ' ORDER BY p.criado_em DESC, p.id DESC LIMIT 10', $pUf);
     return [
         'agora' => gc_iso($agora),
         'rateios' => $grupos,
@@ -224,6 +250,9 @@ function gc_rota_admin_rateios(): array
     gc_vencer_reservas();
     $ordem = array_flip(['aberto', 'rascunho', 'fechado', 'pedido', 'caminho', 'chegou', 'encerrado', 'cancelado']);
     $linhas = gc_todos('SELECT * FROM rateios');
+    if (function_exists('gc_rateio_visivel')) {
+        $linhas = array_values(array_filter($linhas, 'gc_rateio_visivel'));
+    }
     usort($linhas, static fn (array $a, array $b): int => [$ordem[$a['status']] ?? 9, -(int) $a['atualizado_em'], $a['id']] <=> [$ordem[$b['status']] ?? 9, -(int) $b['atualizado_em'], $b['id']]);
     $cont = gc_contagens();
     return [
@@ -236,7 +265,7 @@ function gc_rota_admin_rateios(): array
 function gc_rateio_ou_404(mixed $id): array
 {
     $r = gc_id_valido($id) ? gc_rateio_linha((string) $id) : null;
-    if ($r === null) {
+    if ($r === null || (function_exists('gc_rateio_visivel') && !gc_rateio_visivel($r))) {
         throw new ErroApi('nao-encontrado', 'Rateio não encontrado.', 404);
     }
     return $r;
@@ -406,8 +435,14 @@ function gc_rota_admin_rateio_salvar(): array
             if (in_array($atual['status'], ['encerrado', 'cancelado'], true)) {
                 throw new ErroApi('nao-editavel', 'Rateio ' . GC_ROTULO_STATUS[$atual['status']] . ' não edita mais.', 409);
             }
+            if (function_exists('gc_exigir_rateio_inteiro')) {
+                gc_exigir_rateio_inteiro($atual);
+            }
             gc_vencer_reservas((string) $atual['id']);
             $col = gc_ler_rateio($c, $atual);
+            if (function_exists('gc_exigir_rateio_inteiro')) {
+                gc_exigir_rateio_inteiro(['ufs' => $col['ufs']]);
+            }
             $mudou = array_keys(array_filter($col, static fn ($v, $k) => (string) $v !== (string) ($atual[$k] ?? ''), ARRAY_FILTER_USE_BOTH));
             if ($mudou !== []) {
                 $sets = implode(', ', array_map(static fn ($k) => "$k = ?", array_keys($col)));
@@ -419,6 +454,9 @@ function gc_rota_admin_rateio_salvar(): array
         }
 
         $col = gc_ler_rateio($c, null);
+        if (function_exists('gc_exigir_rateio_inteiro')) {
+            gc_exigir_rateio_inteiro(['ufs' => $col['ufs']]);
+        }
         $status = $c['status'] ?? 'rascunho';
         if (!in_array($status, ['rascunho', 'aberto'], true)) {
             throw gc_invalido('status', 'Rateio novo nasce em rascunho ou aberto.');
@@ -449,6 +487,9 @@ function gc_rota_admin_rateio_status(): array
     $c = gc_corpo();
     return gc_transacao(static function () use ($c): array {
         $r = gc_rateio_ou_404($c['id'] ?? null);
+        if (function_exists('gc_exigir_rateio_inteiro')) {
+            gc_exigir_rateio_inteiro($r);
+        }
         $id = (string) $r['id'];
         gc_vencer_reservas($id);
         $de = (string) $r['status'];
@@ -493,6 +534,9 @@ function gc_rota_admin_rateio_apagar(): array
     $c = gc_corpo();
     return gc_transacao(static function () use ($c): array {
         $r = gc_rateio_ou_404($c['id'] ?? null);
+        if (function_exists('gc_exigir_rateio_inteiro')) {
+            gc_exigir_rateio_inteiro($r);
+        }
         $id = (string) $r['id'];
         $n = (int) gc_valor('SELECT COUNT(*) FROM participacoes WHERE rateio_id = ?', [$id]);
         if (!($r['status'] === 'rascunho' || (bool) $r['demo'] || $n === 0)) {
@@ -514,7 +558,8 @@ function gc_rota_admin_participantes(): array
     $r = gc_rateio_ou_404($_GET['rateio'] ?? null);
     $id = (string) $r['id'];
     gc_vencer_reservas($id);
-    $linhas = gc_todos('SELECT * FROM participacoes WHERE rateio_id = ? ORDER BY criado_em ASC, id ASC', [$id]);
+    [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('uf') : ['', []];
+    $linhas = gc_todos('SELECT * FROM participacoes WHERE rateio_id = ?' . ($fUf === '' ? '' : " AND $fUf") . ' ORDER BY criado_em ASC, id ASC', [$id, ...$pUf]);
     return [
         'rateio' => gc_rateio_admin_por_id($id),
         'participantes' => array_map('gc_participante_admin', $linhas),
@@ -528,6 +573,9 @@ function gc_participacao_ou_404(mixed $id): array
     $p = $n === null ? null : gc_um('SELECT * FROM participacoes WHERE id = ?', [$n]);
     if ($p === null) {
         throw new ErroApi('nao-encontrado', 'Participação não encontrada.', 404);
+    }
+    if (function_exists('gc_exigir_uf')) {
+        gc_exigir_uf((string) $p['uf'], 'Essa vaga');
     }
     return $p;
 }
@@ -563,6 +611,9 @@ function gc_rota_admin_participante_salvar(): array
         $uf = $tem('uf') ? gc_uf($c['uf']) : ($atual['uf'] ?? null);
         if ($uf === null) {
             throw gc_invalido('uf', 'Escolhe o estado.');
+        }
+        if (function_exists('gc_uf_permitida') && !gc_uf_permitida($uf)) {
+            throw gc_invalido('uf', 'Teu acesso é só de ' . gc_ufs_texto() . '.');
         }
         $cidade = $tem('cidade') ? gc_texto($c['cidade']) : ($atual['cidade'] ?? '');
         if ($cidade === null || gc_tamanho($cidade) > 60) {
@@ -801,7 +852,8 @@ function gc_rota_admin_participantes_csv(): array
         'Código', 'Nome', 'WhatsApp', 'Estado', 'Cidade', 'Quantidade', 'Valor da vaga (R$)', 'Total (R$)', 'Status',
         'Entrou por', 'Entrou em', 'Confirmado em', 'Confirmado por', 'Entregue em', 'Observação',
     ]];
-    foreach (gc_todos('SELECT * FROM participacoes WHERE rateio_id = ? ORDER BY criado_em ASC, id ASC', [$id]) as $p) {
+    [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('uf') : ['', []];
+    foreach (gc_todos('SELECT * FROM participacoes WHERE rateio_id = ?' . ($fUf === '' ? '' : " AND $fUf") . ' ORDER BY criado_em ASC, id ASC', [$id, ...$pUf]) as $p) {
         $linhas[] = [
             (string) $p['codigo'], (string) $p['nome'], gc_whatsapp_formatado((string) $p['whatsapp']), strtoupper((string) $p['uf']),
             (string) $p['cidade'], (string) $p['quantidade'], gc_reais_texto((int) $p['preco_unit']),
@@ -874,16 +926,32 @@ function gc_evento_texto(array $e, array $d): string
         'imagem-enviada' => 'Enviou uma imagem',
         'backup-baixado' => 'Baixou a cópia do banco',
         // os dos pedidos, dos avisos no WhatsApp e das falas do pedido guiado têm a frase no módulo deles (pedido.php)
-        default => (function_exists('gc_pedidos_evento_texto') ? gc_pedidos_evento_texto((string) $e['acao'], $alvo, $d) : null) ?? (string) $e['acao'],
+        default => (function_exists('gc_pedidos_evento_texto') ? gc_pedidos_evento_texto((string) $e['acao'], $alvo, $d) : null)
+            // os da equipe e das contas dos clientes (equipe.php, clientes.php)
+            ?? (function_exists('gc_equipe_evento_texto') ? gc_equipe_evento_texto((string) $e['acao'], $alvo, $d) : null)
+            ?? (function_exists('gc_clientes_evento_texto') ? gc_clientes_evento_texto((string) $e['acao'], $alvo, $d) : null)
+            ?? (string) $e['acao'],
     };
 }
 
 /** GET admin-eventos: os últimos 100, do mais novo pro mais velho. */
 function gc_rota_admin_eventos(): array
 {
-    gc_exigir_dono();
+    $s = gc_exigir_dono();
+    // o dono vê tudo (e filtra por login: "quem fez o quê"); gerente e atendente, só o que eles mesmos fizeram
+    $onde = '';
+    $p = [];
+    $dono = (gc_usuario_atual()['papel'] ?? 'dono') === 'dono';
+    if (!$dono) {
+        $onde = ' WHERE e.usuario_id = ?';
+        $p[] = (int) $s['usuario_id'];
+    } elseif (isset($_GET['usuario']) && $_GET['usuario'] !== '') {
+        $login = gc_login($_GET['usuario']);
+        $onde = ' WHERE u.login = ?';
+        $p[] = $login ?? '';
+    }
     $out = [];
-    foreach (gc_todos('SELECT e.*, u.login FROM eventos e LEFT JOIN usuarios u ON u.id = e.usuario_id ORDER BY e.id DESC LIMIT 100') as $e) {
+    foreach (gc_todos('SELECT e.*, u.login FROM eventos e LEFT JOIN usuarios u ON u.id = e.usuario_id' . $onde . ' ORDER BY e.id DESC LIMIT 100', $p) as $e) {
         $d = json_decode((string) $e['detalhe'], true);
         $d = is_array($d) ? $d : [];
         $out[] = [

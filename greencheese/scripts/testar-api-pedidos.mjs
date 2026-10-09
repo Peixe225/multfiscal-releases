@@ -132,7 +132,7 @@ class Cli {
 }
 
 /** Servidor falso dos gateways: guarda cada requisição (método, caminho, cabeçalhos, corpo) e responde no modo da vez. */
-async function gatewayFalso() {
+export async function gatewayFalso() {
   const recebidos = []
   const estado = { modo: 'ok', atraso: 0 }
   const srv = createServer((req, res) => {
@@ -159,7 +159,7 @@ async function gatewayFalso() {
 }
 
 /** Espera até a função dar verdadeiro (o envio sai depois da resposta). */
-async function esperar(f, ms = 6000) {
+export async function esperar(f, ms = 6000) {
   const fim = Date.now() + ms
   while (Date.now() < fim) {
     if (await f()) return true
