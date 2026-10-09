@@ -21,7 +21,7 @@ export function SemAtendimento() {
         A Green Cheese ainda não chegou aí
       </h1>
       <p className="sem-txt legenda">
-        Por enquanto a entrega é no RJ, MG, SP, ES e SC. {emUf(uf).replace(/^./, (c) => c.toUpperCase())}, dá pra encomendar com um desses perfis.
+        Por enquanto a Green Cheese atende no RJ, MG, SP, ES e SC, e cada perfil confirma as cidades. {emUf(uf).replace(/^./, (c) => c.toUpperCase())}, dá pra encomendar com um desses perfis.
       </p>
       <MapaBrasil atual={uf} aoTocar={(s) => escolher(s, null, 'manual')} acender celulaMax={3} className="sem-mapa" />
       <ul className="sem-perfis">

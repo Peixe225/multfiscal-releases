@@ -64,3 +64,12 @@ export function resumoHorario(canal: Canal): string {
 export function ehDiaDeEntregaGratis(canal: Canal, agora = new Date()): boolean {
   return !!canal.entregaGratis && canal.entregaGratis.diaSemana === agora.getDay()
 }
+
+const DIAS_PLURAL = ['domingos', 'segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados']
+
+/** Fora do dia da promoção: "Entrega grátis às sextas." (no dia, quem mostra é o texto do canal, "Sextou…"). */
+export function entregaGratisNoDia(canal: Canal): string | null {
+  if (!canal.entregaGratis) return null
+  const d = canal.entregaGratis.diaSemana
+  return `Entrega grátis ${d === 0 || d === 6 ? 'aos' : 'às'} ${DIAS_PLURAL[d]}.`
+}

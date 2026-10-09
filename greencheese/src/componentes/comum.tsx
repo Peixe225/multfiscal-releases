@@ -53,9 +53,14 @@ export function tempoRelativo(iso: string, agora = Date.now()): string {
   return `${Math.floor(s / 604800)} sem`
 }
 
-/** Há quanto tempo o catálogo foi "postado". Sem data real, não mostra nada (não finge recência). */
-export function tempoDoCatalogo(): string | null {
-  return config.catalogoAtualizadoEm ? tempoRelativo(config.catalogoAtualizadoEm) : null
+/**
+ * Há quanto tempo o catálogo foi "postado". Sem data real, não mostra nada (não finge recência). Story vive 24 h: com
+ * mais de um dia o rótulo some, em vez de "4 d" ou "1 sem" (cara de loja parada).
+ */
+export function tempoDoCatalogo(agora = Date.now()): string | null {
+  const t = config.catalogoAtualizadoEm ? Date.parse(config.catalogoAtualizadoEm) : NaN
+  if (!Number.isFinite(t) || agora - t >= 86400000) return null
+  return tempoRelativo(config.catalogoAtualizadoEm!, agora)
 }
 
 /** Linha de cabeçalho do story: avatar, @, tempo. */

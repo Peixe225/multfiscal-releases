@@ -15,7 +15,7 @@ gsap.registerPlugin(ScrollTrigger)
 /** Texto do adesivo para o estado atual. */
 export function useTextoLocal(): { texto: string; procurando: boolean; vazio: boolean } {
   const { uf, cidade, cidadeInformada, detectando } = useLocal()
-  if (!uf) return { texto: detectando ? 'Procurando' : 'De onde você é?', procurando: detectando, vazio: !detectando }
+  if (!uf) return { texto: detectando ? 'Procurando' : 'De onde tu é?', procurando: detectando, vazio: !detectando }
   const canal = canalDa(uf)
   const c = nomeCidade(canal, cidade, cidadeInformada)
   return { texto: c ?? ufPorSigla(uf)?.nome ?? uf.toUpperCase(), procurando: false, vazio: false }
@@ -117,7 +117,7 @@ export function TopoLocal() {
 export function LinhaLocal({ className }: { className?: string }) {
   const { texto, procurando, vazio } = useTextoLocal()
   const setSeletor = useUI((s) => s.setSeletor)
-  const nome = vazio ? 'De onde você é?' : texto
+  const nome = vazio ? 'De onde tu é?' : texto
   return (
     <button
       type="button"
@@ -161,7 +161,7 @@ export function AvisoLocal({ variante = 'fixo' }: { variante?: 'fixo' | 'story' 
   if (aviso === 'confirmar' && uf) {
     return (
       <div className={cls} role="group" aria-label="Confirmar teu estado">
-        <p className="aviso-local-txt">Você está {emUf(uf)}?</p>
+        <p className="aviso-local-txt">Tu tá {emUf(uf)}?</p>
         <div className="aviso-local-opcoes">
           <button type="button" className="aviso-local-op toque" onClick={confirmar}>
             Sim
@@ -191,7 +191,7 @@ export function AvisoLocal({ variante = 'fixo' }: { variante?: 'fixo' | 'story' 
   return null
 }
 
-/** Enquete do story para o palpite de IP: "Você está em Minas Gerais?" [Sim] | [Trocar] (cidade atendida embaixo). */
+/** Enquete do story para o palpite de IP: "Tu tá em Minas Gerais?" [Sim] | [Trocar] (cidade atendida embaixo). */
 export function EnqueteLocal({ className, aoSim, aoTrocar }: { className?: string; aoSim?: () => void; aoTrocar?: () => void }) {
   const { uf, cidade, confirmado, origem, confirmar } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
@@ -199,9 +199,9 @@ export function EnqueteLocal({ className, aoSim, aoTrocar }: { className?: strin
   const canal = canalDa(uf)
   const c = nomeCidade(canal, cidade, null)
   return (
-    <div className={`enquete enquete-confirmar ${className ?? ''}`} role="group" aria-label="Confirmar seu estado">
+    <div className={`enquete enquete-confirmar ${className ?? ''}`} role="group" aria-label="Confirmar teu estado">
       <p className="enquete-pergunta">
-        Você está {emUf(uf)}?{c && <span className="enquete-sub">Atendimento de {c}</span>}
+        Tu tá {emUf(uf)}?{c && <span className="enquete-sub">Atendimento de {c}</span>}
       </p>
       <div className="enquete-opcoes">
         <button

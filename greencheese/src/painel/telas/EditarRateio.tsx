@@ -644,7 +644,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
                 {(a) => <Numero aria={a} valor={f.previsaoMax} aoMudar={(v) => mudar('previsaoMax', v)} min={1} max={120} sufixo="dias" rotuloMenos="Um dia a menos (máximo)" rotuloMais="Um dia a mais (máximo)" />}
               </Campo>
             </div>
-            <p className="pn-dica-bloco">Dias contados de quando fecha. No site: “Chega de {f.previsaoMin || '…'} a {f.previsaoMax || '…'} dias depois que fechar.”</p>
+            <p className="pn-dica-bloco">Dias contados de quando fecha. No site: “Previsão: de {f.previsaoMin || '…'} a {f.previsaoMax || '…'} dias depois que fechar.”</p>
 
             <label className="pn-troca">
               <input type="checkbox" checked={f.temPrazo} onChange={(e) => mudar('temPrazo', e.target.checked)} />

@@ -180,7 +180,7 @@ export function PreviaCartao({ r, rodape }: { r: Pick<RateioAdmin, 'titulo' | 'p
       </div>
       <div className="pn-previa-legenda">
         <p>
-          <strong>Chega {faixaDias(r.previsaoMin, r.previsaoMax)} depois que fechar.</strong>{' '}
+          <strong>Previsão: {faixaDias(r.previsaoMin, r.previsaoMax)} depois que fechar.</strong>{' '}
           {r.fechaEm ? `Fecha dia ${diaMes(r.fechaEm)} ou quando lotar.` : 'Fecha quando lotar.'}
         </p>
         {r.descricao && <p className="pn-previa-desc">{r.descricao}</p>}

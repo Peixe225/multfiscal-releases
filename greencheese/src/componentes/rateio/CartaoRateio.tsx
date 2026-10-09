@@ -272,7 +272,7 @@ export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoE
             <>
               <LinhaDoTempo rateio={r} />
               <p>
-                {r.status === 'encerrado' ? 'Entregue a todos.' : r.status === 'chegou' ? 'Chegou. A loja chama cada um pra entregar.' : `${textoPrevisao(r)}${janela ? ` Previsão: ${janela}.` : ''}`}
+                {r.status === 'encerrado' ? 'Entregue a todos.' : r.status === 'chegou' ? 'Chegou. A loja chama cada um pra entregar.' : janela ? `Previsão de chegada: ${janela}.` : textoPrevisao(r)}
               </p>
             </>
           )}

@@ -4,7 +4,7 @@ import { config } from '../dados/config'
 import { PixelArte } from '../arte/PixelArte'
 import { emblemas } from '../arte/pixel/grades'
 import { brl } from '../lib/formato'
-import { ehDiaDeEntregaGratis, resumoHorario, situacao } from '../lib/horario'
+import { ehDiaDeEntregaGratis, entregaGratisNoDia, resumoHorario, situacao } from '../lib/horario'
 import { alvoDeSaida } from '../lib/ambiente'
 import { NOME_PAGAMENTO, linkDM } from '../lib/mensagem'
 import { useChat } from '../store/chat'
@@ -32,7 +32,8 @@ export function InfoStory() {
   if (!aberto || !canal) return null
 
   const sit = situacao(canal)
-  const sextou = canal.entregaGratis
+  // a entrega grátis só fala "Sextou" no dia dela (como no Início e no perfil)
+  const sextou = ehDiaDeEntregaGratis(canal) ? canal.entregaGratis : null
   const demoVisivel = config.carimboDeExemplo
   const quadros: ReactNode[] = [
     <Quadro key="c">
@@ -41,8 +42,9 @@ export function InfoStory() {
       <PixelArte grade={emblemas[canal.emblema]} tamanho={72} className="info-emblema" />
       <p className="info-txt">Entrega em</p>
       <p className="adesivo-texto-bloco">
-        <span className="adesivo-texto">{canal.cidades.length ? canal.cidades.map((c) => c.nome).join(' · ') : `${canal.nome} · cidade a confirmar`}</span>
+        <span className="adesivo-texto">{canal.cidades.length ? canal.cidades.map((c) => c.nome).join(' · ') : canal.nome}</span>
       </p>
+      {!canal.cidades.length && <p className="info-txt legenda">Cidades a confirmar</p>}
       {nomeCidade(canal, cidade, cidadeInformada) && <p className="info-txt legenda">Teu atendimento: @{canal.instagram}</p>}
     </Quadro>,
     <Quadro key="h">
@@ -55,17 +57,23 @@ export function InfoStory() {
     <Quadro key="e">
       <Icone nome="moto" tamanho={64} />
       <p className="info-titulo px">ENTREGA</p>
-      {sextou && (
-        <p className="adesivo-texto-bloco">
-          <span className="adesivo-texto">{sextou.texto}</span>
-        </p>
+      {sextou ? (
+        <>
+          <p className="adesivo-texto-bloco">
+            <span className="adesivo-texto">{sextou.texto}</span>
+          </p>
+          <p className="info-txt">Nos outros dias, a taxa vem na resposta do atendimento.</p>
+        </>
+      ) : (
+        <>
+          <p className="info-grande px">
+            {canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? `Taxa ${brl(canal.taxaEntrega.valor)}` : 'Taxa a confirmar'}
+          </p>
+          <p className="info-txt">A taxa certa vem na resposta do atendimento.</p>
+          {canal.entregaGratis && <p className="info-txt legenda">{entregaGratisNoDia(canal)}</p>}
+          <Demo ativo={canal.taxaEntrega.demo} />
+        </>
       )}
-      <p className="info-grande px">
-        {canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? `Taxa ${brl(canal.taxaEntrega.valor)}` : 'Taxa a confirmar'}
-      </p>
-      <p className="info-txt">A taxa certa vem na resposta do atendimento.</p>
-      {sextou && !ehDiaDeEntregaGratis(canal) && <p className="info-txt legenda">Entrega grátis vale na sexta.</p>}
-      <Demo ativo={canal.taxaEntrega.demo} />
     </Quadro>,
     <Quadro key="p">
       <Icone nome="check" tamanho={64} />

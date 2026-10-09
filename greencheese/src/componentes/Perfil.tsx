@@ -25,7 +25,7 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
   const titulo = canal ? `Green Cheese Imports — ${cid ?? canal.nome}` : 'Green Cheese Imports'
 
   return (
-    <section className={`perfil perfil-${variante}`} aria-label="Perfil da Green Cheese no seu estado">
+    <section className={`perfil perfil-${variante}`} aria-label="Perfil da Green Cheese no teu estado">
       <div className="perfil-topo">
         <Avatar tamanho={variante === 'desktop' ? 150 : 86} />
         <dl className="perfil-numeros">

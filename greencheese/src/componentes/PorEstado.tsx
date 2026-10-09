@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, ufPorSigla } from '../dados/ufs'
-import { situacao } from '../lib/horario'
+import { ehDiaDeEntregaGratis, entregaGratisNoDia, situacao } from '../lib/horario'
 import { linkPerfil } from '../lib/mensagem'
 import { trocarEstado } from '../lib/troca'
 import { useChat } from '../store/chat'
@@ -159,7 +159,12 @@ export function PorEstado() {
                             {sit.texto} <Demo ativo={c.horario.demo} />
                           </p>
                         )}
-                        {c.entregaGratis && <p className="pe-conta-sextou">{c.entregaGratis.texto}</p>}
+                        {c.entregaGratis &&
+                          (ehDiaDeEntregaGratis(c) ? (
+                            <p className="pe-conta-sextou">{c.entregaGratis.texto}</p>
+                          ) : (
+                            <p className="pe-conta-horario legenda">{entregaGratisNoDia(c)}</p>
+                          ))}
                         <div className="pe-conta-botoes">
                           <button type="button" className="botao botao-cheio" onClick={() => abrirChat('pedido')}>
                             Pedir aqui
