@@ -38,6 +38,7 @@ export function ResumoPedidos() {
   // sem resposta (servidor sem a rota, rede): o Resumo segue sem o bloco
   if (!d) return null
   const agora = api.agora()
+  // avisos no grupo: só pra quem cuida deles (o dono); pros outros o servidor manda null
   const a = d.avisos
   return (
     <section className="pn-bloco pd-resumo-novos" aria-labelledby="h-pedidos-novos">
@@ -71,14 +72,14 @@ export function ResumoPedidos() {
           {d.emAndamento > 0 && <p className="pd-resumo-zero">E {plural(d.emAndamento, 'pedido', 'pedidos')} em andamento.</p>}
         </>
       )}
-      {a.ligado && a.falhas > 0 && (
+      {a && a.ligado && a.falhas > 0 && (
         <Link href={caminho.avisos} className="pd-resumo-alerta toque">
           <Ic nome="atencao" tamanho={16} />
           <span>{plural(a.falhas, 'aviso no grupo não foi', 'avisos no grupo não foram')} (7 dias)</span>
           <Ic nome="chevron-dir" tamanho={16} />
         </Link>
       )}
-      {!a.ligado && (
+      {a && !a.ligado && (
         <p className="pd-resumo-zero">
           Aviso no grupo do WhatsApp desligado.{' '}
           <Link href={caminho.avisos} className="pn-link">

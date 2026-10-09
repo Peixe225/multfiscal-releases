@@ -8,6 +8,7 @@ import { useAcao, useDados } from '../dados'
 import { brl, dia, diaMes, hora, quando, whatsappBonito } from '../formato'
 import { linkWhats } from '../mensagens'
 import { Link, Topo } from '../Moldura'
+import { usePode } from '../permissoes'
 import { caminho } from '../rotas'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Linha, TituloTela } from '../ui'
@@ -280,6 +281,9 @@ export function Pedido({ id }: { id: number }) {
   const leitura = useDados<Dados>(`pedido:${id}`, (s) => lerPedido(id, s))
   const acao = useAcao()
   const acaoAviso = useAcao()
+  // apagar os dados (LGPD) é com gerente e dono; os avisos no grupo, só com o dono
+  const apagaDados = usePode('pedidos-dados')
+  const veAvisos = usePode('avisos')
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
   const [anuncio, setAnuncio] = useState('')
   // logo depois de um passo, o botão do próximo espera um instante (o toque duplo não pula dois passos)
@@ -334,7 +338,7 @@ export function Pedido({ id }: { id: number }) {
   const anterior = atual > 0 && p.proximos.includes(ORDEM[atual - 1]) ? ORDEM[atual - 1] : null
   const podeCancelar = p.proximos.includes('cancelado')
   const podeReabrir = p.status === 'cancelado' && p.proximos.includes('novo')
-  const podeApagar = (p.status === 'entregue' || p.status === 'cancelado') && !p.dadosApagados
+  const podeApagar = apagaDados && (p.status === 'entregue' || p.status === 'cancelado') && !p.dadosApagados
   const oPedido = enc ? 'a encomenda' : 'o pedido'
   const msg = mensagemDoPasso(p)
 
@@ -658,6 +662,7 @@ export function Pedido({ id }: { id: number }) {
             </section>
           )}
 
+          {veAvisos && (
           <section className="pn-bloco" aria-labelledby="h-avisos">
             <div className="pn-h2-linha">
               <h2 id="h-avisos" className="pn-h2">
@@ -674,6 +679,7 @@ export function Pedido({ id }: { id: number }) {
               <ListaAvisos envios={d.avisos} agora={agora} ocupado={avisoOcupado} aoReenviar={reenviar} comPedido={false} />
             )}
           </section>
+          )}
 
           {(anterior || podeCancelar || podeApagar) && (
             <section className="pn-bloco" aria-labelledby="h-mais">
@@ -697,7 +703,7 @@ export function Pedido({ id }: { id: number }) {
                   </Botao>
                 )}
               </div>
-              {!podeApagar && !p.dadosApagados && <p className="pn-dica-bloco">Pra apagar os dados de quem pediu (LGPD), {oPedido} tem que estar entregue ou cancelad{enc ? 'a' : 'o'}.</p>}
+              {apagaDados && !podeApagar && !p.dadosApagados && <p className="pn-dica-bloco">Pra apagar os dados de quem pediu (LGPD), {oPedido} tem que estar entregue ou cancelad{enc ? 'a' : 'o'}.</p>}
             </section>
           )}
         </div>

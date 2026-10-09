@@ -5,6 +5,7 @@ import * as api from '../api'
 import { useDados } from '../dados'
 import { plural } from '../formato'
 import { Link, Topo } from '../Moldura'
+import { usePode } from '../permissoes'
 import { caminho, ir } from '../rotas'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
@@ -37,6 +38,9 @@ const PASSO_LIMITE = 50
 const LIMITE_MAXIMO = 100
 
 export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: string | null }) {
+  // avisos no WhatsApp e textos do pedido são ajustes do dono
+  const veAvisos = usePode('avisos')
+  const veTextos = usePode('textos')
   useTitulo('Pedidos')
   const filtro: FiltroPedidos = status ?? 'abertos'
   const [busca, setBusca] = useState('')
@@ -67,10 +71,12 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
       <Topo
         titulo={<TituloTela>Pedidos</TituloTela>}
         acoes={
-          <Link href={caminho.avisos} className="pn-botao pn-botao-cinza pn-botao-p">
-            <Ic nome="sino" tamanho={16} />
-            <span className="pn-botao-txt">Avisos</span>
-          </Link>
+          veAvisos && (
+            <Link href={caminho.avisos} className="pn-botao pn-botao-cinza pn-botao-p">
+              <Ic nome="sino" tamanho={16} />
+              <span className="pn-botao-txt">Avisos</span>
+            </Link>
+          )
         }
       />
       <div className="pn-pagina pn-pagina-estreita pd-pedidos">
@@ -146,27 +152,33 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
           </div>
         )}
 
+        {(veAvisos || veTextos) && (
         <section className="pn-bloco pd-ajustes" aria-labelledby="h-ajustes-pedido">
           <h2 id="h-ajustes-pedido" className="pn-h3 pn-h3-colado">
             Ajustes dos pedidos
           </h2>
           <ul className="pn-menu">
-            <li>
-              <Link href={caminho.avisos} className="pn-menu-item toque">
-                <Ic nome="sino" tamanho={16} />
-                <span>Avisos no WhatsApp</span>
-                <Ic nome="chevron-dir" tamanho={16} />
-              </Link>
-            </li>
-            <li>
-              <Link href={caminho.textos} className="pn-menu-item toque">
-                <Ic nome="balao" tamanho={16} />
-                <span>Textos do pedido</span>
-                <Ic nome="chevron-dir" tamanho={16} />
-              </Link>
-            </li>
+            {veAvisos && (
+              <li>
+                <Link href={caminho.avisos} className="pn-menu-item toque">
+                  <Ic nome="sino" tamanho={16} />
+                  <span>Avisos no WhatsApp</span>
+                  <Ic nome="chevron-dir" tamanho={16} />
+                </Link>
+              </li>
+            )}
+            {veTextos && (
+              <li>
+                <Link href={caminho.textos} className="pn-menu-item toque">
+                  <Ic nome="balao" tamanho={16} />
+                  <span>Textos do pedido</span>
+                  <Ic nome="chevron-dir" tamanho={16} />
+                </Link>
+              </li>
+            )}
           </ul>
         </section>
+        )}
       </div>
     </>
   )

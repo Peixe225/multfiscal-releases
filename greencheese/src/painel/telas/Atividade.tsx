@@ -1,6 +1,9 @@
 // Atividade: o que aconteceu (entradas pelo site, pagamentos confirmados, reservas que venceram, passos do rateio),
-// do mais novo pro mais velho, no molde das notificações do Instagram.
+// do mais novo pro mais velho, no molde das notificações do Instagram. Pra gerente e atendente, só o que a própria
+// pessoa fez; o dono vê tudo ou o que uma pessoa da equipe fez (vindo da tela dela).
 import * as api from '../api'
+import { eventosDe } from '../contas/api'
+import { useUsuario } from '../permissoes'
 import { useDados } from '../dados'
 import { dia, hora, relativo } from '../formato'
 import { Link, Topo } from '../Moldura'
@@ -18,9 +21,12 @@ function rateioDo(e: Evento): string | null {
   return typeof r === 'string' ? r : null
 }
 
-export function Atividade() {
-  useTitulo('Atividade')
-  const leitura = useDados<{ eventos: Evento[] }>('eventos', (s) => api.eventos(s))
+export function Atividade({ quem = null }: { quem?: string | null }) {
+  const eu = useUsuario()
+  const dono = !eu || eu.papel === 'dono'
+  const de = dono ? quem : null
+  useTitulo(de ? `Atividade de @${de}` : 'Atividade')
+  const leitura = useDados<{ eventos: Evento[] }>(de ? `eventos:${de}` : 'eventos', (s) => (de ? eventosDe(de, s) : api.eventos(s)))
   useRestaurarRolagem(!!leitura.dados)
   const lista = leitura.dados?.eventos ?? []
   const agora = api.agora()
@@ -36,8 +42,14 @@ export function Atividade() {
   }
   return (
     <>
-      <Topo titulo={<TituloTela>Atividade</TituloTela>} />
+      <Topo titulo={<TituloTela>{de ? `Atividade de @${de}` : 'Atividade'}</TituloTela>} voltar={de ? caminho.usuario(de) : undefined} />
       <div className="pn-pagina pn-pagina-estreita">
+        {!dono && <p className="pn-dica-bloco ct-intro">O que tu fez no painel. O resto da loja aparece pro dono.</p>}
+        {de && (
+          <p className="pn-dica-bloco ct-intro">
+            Só o que @{de} fez. <Link href={caminho.atividade} className="pn-link-botao">Ver a atividade da loja toda</Link>
+          </p>
+        )}
         {leitura.erro && <Aviso tipo="erro">{leitura.erro.message}</Aviso>}
         {!leitura.dados && !leitura.erro && <Carregando />}
         {leitura.dados && lista.length === 0 && <p className="pn-vazio">Nada por aqui ainda.</p>}

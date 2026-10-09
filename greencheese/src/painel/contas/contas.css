@@ -1,0 +1,241 @@
+/* Equipe e Clientes: listas no molde das de pedidos (linha com avatar de letra, nome, papel e o que importa), o
+   selo do papel, a senha provisória em pixel e os números do topo. */
+
+.ct-intro {
+  margin: 0 0 8px;
+}
+.ct-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ct-lista > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.ct-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 0;
+  color: var(--branco);
+}
+.ct-linha > svg {
+  flex: none;
+  color: var(--legenda);
+}
+.ct-linha-off {
+  color: var(--legenda);
+}
+.ct-linha-off .ct-avatar {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--chiado);
+  color: var(--legenda);
+}
+.ct-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bolha);
+  font: 500 20px/1 var(--pixel);
+  color: var(--branco);
+}
+.ct-avatar-g {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+}
+.ct-linha-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.ct-linha-topo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.ct-linha-meta {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--legenda);
+  overflow-wrap: anywhere;
+}
+.ct-papel {
+  color: var(--branco);
+  font-weight: 600;
+}
+.ct-papel-ufs {
+  font-weight: 400;
+}
+.ct-cab {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.ct-cab-nome {
+  font: 700 20px/1.2 var(--ui);
+  overflow-wrap: anywhere;
+}
+.ct-dados {
+  margin: 8px 0 0;
+}
+.ct-pode {
+  font-size: 15px;
+  line-height: 1.45;
+}
+.ct-botoes {
+  max-width: 360px;
+}
+.ct-papeis {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 0;
+}
+.ct-papeis dt {
+  font-weight: 700;
+  font-size: 15px;
+}
+.ct-papeis dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--legenda);
+}
+/* a senha provisória: login e senha em pixel, grandes pra ditar sem erro */
+.ct-senha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.ct-senha-dados {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bolha);
+}
+.ct-senha-dados dt {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.ct-senha-dados dd {
+  margin: 4px 0 0;
+}
+.ct-senha-valor {
+  font-size: 24px;
+  letter-spacing: 0.06em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* clientes */
+.ct-codigo {
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--bolha);
+  margin-bottom: 12px;
+}
+.ct-codigo .pn-troca {
+  align-items: flex-start;
+}
+.ct-codigo .pn-troca > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 3px;
+}
+.ct-codigo-sub,
+.ct-sub {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.ct-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 4px 0 14px;
+  font-size: 14px;
+  color: var(--legenda);
+}
+.ct-numeros strong {
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--branco);
+  margin-right: 2px;
+}
+.ct-busca {
+  margin-bottom: 10px;
+}
+.ct-cupons,
+.ct-enderecos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ct-cupom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--bolha);
+}
+.ct-cupom:first-child {
+  border-top: 0;
+}
+.ct-cupom-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.ct-cupom-txt small {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.ct-cupom .pn-botao {
+  flex: none;
+}
+.ct-enderecos li {
+  padding: 10px 0;
+  border-top: 1px solid var(--bolha);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.ct-enderecos li:first-child {
+  border-top: 0;
+}
+/* linha com link de 44 px (o WhatsApp do cliente): rótulo e valor na mesma altura */
+.ct-dados .pn-linha {
+  align-items: center;
+}
+.ct-dados .pn-linha .pn-link-botao {
+  margin: -12px -4px;
+}
+/* título seguido de texto (o colado é pra quando vem uma lista) */
+.ct-promo .pn-dica-bloco {
+  margin-top: 12px;
+}
+/* tela que o papel não abre */
+.ct-sem-acesso {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}

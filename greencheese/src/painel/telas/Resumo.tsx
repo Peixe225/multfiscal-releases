@@ -8,6 +8,7 @@ import { guardar, useDados } from '../dados'
 import { brl, falta, plural, relativo, vagas } from '../formato'
 import { Link, Topo } from '../Moldura'
 import { ResumoPedidos, useNovosPedidos } from '../pedidos/ResumoPedidos'
+import { usePode } from '../permissoes'
 import { Blocos, Selo } from '../rateio-ui'
 import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
@@ -87,19 +88,21 @@ export function Resumo({ nome }: { nome: string }) {
   })
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
   const pedidosNovos = useNovosPedidos()
+  // quem não mexe nos rateios (atendente) não cria nem muda o passo: das pendências fica a entrega de quem chegou
+  const mexe = usePode('rateios')
   useRestaurarRolagem(!!leitura.dados)
   const d = leitura.dados
   const agora = api.agora()
 
   const porId = new Map(d?.rateios.map((r) => [r.id, r]))
-  const lista = d ? pendencias(d.rateios, agora) : []
+  const lista = d ? pendencias(d.rateios, agora).filter((x) => mexe || x.rateio.status === 'chegou') : []
   const abertos = d?.rateios.filter((r) => r.status === 'aberto') ?? []
   const andamento = d?.rateios.filter((r) => ['pedido', 'caminho'].includes(r.status)) ?? []
   const esperando = d?.resumo.esperandoPagamento ?? []
 
   return (
     <>
-      <Topo marca titulo={<TituloTela focar={false}>Resumo</TituloTela>} acoes={<Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-celular-nao"><Ic nome="mais" tamanho={16} /><span className="pn-botao-txt">Criar rateio</span></Link>} />
+      <Topo marca titulo={<TituloTela focar={false}>Resumo</TituloTela>} acoes={mexe && <Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-celular-nao"><Ic nome="mais" tamanho={16} /><span className="pn-botao-txt">Criar rateio</span></Link>} />
       <div className="pn-pagina pn-resumo">
         <p className="pn-oi">
           Oi, {nome.split(' ')[0]}.{' '}
@@ -239,10 +242,12 @@ export function Resumo({ nome }: { nome: string }) {
                   ))}
                 </ul>
               )}
-              <Link href={caminho.novo} className="pn-botao pn-botao-cinza pn-botao-largo">
-                <Ic nome="mais" tamanho={16} />
-                <span className="pn-botao-txt">Criar rateio</span>
-              </Link>
+              {mexe && (
+                <Link href={caminho.novo} className="pn-botao pn-botao-cinza pn-botao-largo">
+                  <Ic nome="mais" tamanho={16} />
+                  <span className="pn-botao-txt">Criar rateio</span>
+                </Link>
+              )}
             </section>
 
             {andamento.length > 0 && (

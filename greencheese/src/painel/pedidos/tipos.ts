@@ -89,7 +89,8 @@ export interface ResumoPedidos {
   novos: number
   emAndamento: number
   ultimos: PedidoLinha[]
-  avisos: SituacaoAvisos
+  /** null pra quem não cuida dos avisos (só o dono). */
+  avisos: SituacaoAvisos | null
 }
 
 export interface TentativaAviso {

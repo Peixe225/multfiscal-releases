@@ -232,7 +232,7 @@ export const recuperar = (c: { codigo: string; senha: string; login?: string }) 
 
 export const sair = () => pedir<Ok<object>>('POST', 'admin-sair', { aberta: false, tentativa: 2 })
 
-export const trocarSenha = (c: { atual: string; nova: string }) => pedir<Ok<object>>('POST', 'admin-senha', { corpo: c })
+export const trocarSenha = (c: { atual: string; nova: string }) => pedir<Ok<{ usuario?: Usuario }>>('POST', 'admin-senha', { corpo: c })
 
 export const resumo = (sinal?: AbortSignal) => pedir<Ok<Resumo>>('GET', 'admin-resumo', { sinal })
 

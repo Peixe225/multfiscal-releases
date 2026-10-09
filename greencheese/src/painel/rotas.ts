@@ -11,12 +11,17 @@ export type Rota =
   | { tela: 'pedido'; id: number }
   | { tela: 'avisos' }
   | { tela: 'textos' }
+  // equipe e clientes (as contas)
+  | { tela: 'equipe' }
+  | { tela: 'usuario'; login: string }
+  | { tela: 'clientes'; promo: boolean }
+  | { tela: 'cliente'; id: number }
   | { tela: 'resumo' }
   | { tela: 'rateios' }
   | { tela: 'novo'; produto: string | null }
   | { tela: 'rateio'; id: string }
   | { tela: 'editar'; id: string }
-  | { tela: 'atividade' }
+  | { tela: 'atividade'; quem: string | null }
   | { tela: 'conta' }
   | { tela: 'servidor' }
 
@@ -38,6 +43,12 @@ function ler(): Rota {
       return { tela: 'avisos' }
     case 'textos':
       return { tela: 'textos' }
+    case 'equipe':
+      return partes[1] && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(partes[1]) ? { tela: 'usuario', login: partes[1] } : { tela: 'equipe' }
+    case 'clientes':
+      return { tela: 'clientes', promo: q.get('promo') === '1' }
+    case 'cliente':
+      return id && /^\d{1,12}$/.test(id) ? { tela: 'cliente', id: Number(id) } : { tela: 'clientes', promo: false }
     case 'rateios':
       return { tela: 'rateios' }
     case 'novo':
@@ -45,8 +56,10 @@ function ler(): Rota {
     case 'rateio':
       if (id) return partes[2] === 'editar' ? { tela: 'editar', id } : { tela: 'rateio', id }
       return { tela: 'rateios' }
-    case 'atividade':
-      return { tela: 'atividade' }
+    case 'atividade': {
+      const quem = q.get('quem')
+      return { tela: 'atividade', quem: quem && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(quem) ? quem : null }
+    }
     case 'conta':
       return { tela: 'conta' }
     case 'servidor':
@@ -155,6 +168,13 @@ export const caminho = {
   rateio: (id: string) => `#/rateio/${id}`,
   editar: (id: string) => `#/rateio/${id}/editar`,
   atividade: '#/atividade',
+  atividadeDe: (login: string) => `#/atividade?quem=${encodeURIComponent(login)}`,
+  // equipe e clientes
+  equipe: '#/equipe',
+  usuario: (login: string) => `#/equipe/${login}`,
+  clientes: '#/clientes',
+  clientesPromo: '#/clientes?promo=1',
+  cliente: (id: number) => `#/cliente/${id}`,
   conta: '#/conta',
   servidor: '#/servidor',
 }

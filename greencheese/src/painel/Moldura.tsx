@@ -2,8 +2,9 @@
 // Rateios, Criar no meio, Atividade e Conta) e o topo de cada tela.
 import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from 'react'
 import { Logo } from '../arte/Logo'
+import { useUsuario } from './permissoes'
 import { ir, voltar as voltarTela, type Rota } from './rotas'
-import { secoes, type Secao } from './secoes'
+import { barraDo, secoesDo, type Secao } from './secoes'
 import { Ic } from './ui'
 
 /** Link interno: entra no histórico do painel (Ctrl/⌘ + clique ainda abre em outra aba). */
@@ -33,6 +34,7 @@ function IconeSecao({ s, acesa, tamanho }: { s: Secao; acesa: boolean; tamanho: 
 }
 
 function Lateral({ rota }: { rota: Rota }) {
+  const usuario = useUsuario()
   return (
     <nav className="pn-lateral" aria-label="Seções do painel">
       <Link href="#/" className="pn-lateral-marca" aria-label="Green Cheese · Painel, ir pro resumo">
@@ -43,7 +45,7 @@ function Lateral({ rota }: { rota: Rota }) {
         </span>
       </Link>
       <ul>
-        {secoes.map((s) => {
+        {secoesDo(usuario).map((s) => {
           const acesa = ativa(s, rota)
           return (
             <li key={s.id}>
@@ -60,11 +62,10 @@ function Lateral({ rota }: { rota: Rota }) {
 }
 
 function Barra({ rota }: { rota: Rota }) {
+  const usuario = useUsuario()
   return (
     <nav className="pn-barra" aria-label="Seções do painel">
-      {secoes
-        .filter((s) => s.barra)
-        .map((s) => {
+      {barraDo(usuario).map((s) => {
           const acesa = ativa(s, rota)
           return (
             <Link key={s.id} href={s.href} className={`pn-barra-item${acesa ? ' ativa' : ''}`} aria-current={acesa ? 'page' : undefined} aria-label={s.nome}>

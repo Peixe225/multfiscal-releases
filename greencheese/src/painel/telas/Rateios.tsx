@@ -3,6 +3,7 @@ import { useState } from 'react'
 import * as api from '../api'
 import { useDados } from '../dados'
 import { Link, Topo } from '../Moldura'
+import { usePode } from '../permissoes'
 import { caminho } from '../rotas'
 import type { RateioAdmin, StatusRateio } from '../tipos'
 import { Aviso, Carregando, Ic, TituloTela } from '../ui'
@@ -20,6 +21,7 @@ const GRUPOS: { nome: string; status: StatusRateio[] }[] = [
 
 export function Rateios() {
   useTitulo('Rateios')
+  const cria = usePode('rateios')
   const leitura = useDados<{ agora: string; rateios: RateioAdmin[] }>('rateios', (s) => api.rateios(s))
   useRestaurarRolagem(!!leitura.dados)
   const lista = leitura.dados?.rateios ?? []
@@ -29,10 +31,12 @@ export function Rateios() {
       <Topo
         titulo={<TituloTela>Rateios</TituloTela>}
         acoes={
+          cria && (
           <Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p">
             <Ic nome="mais" tamanho={16} />
             <span className="pn-botao-txt">Criar rateio</span>
           </Link>
+          )
         }
       />
       <div className="pn-pagina pn-rateios">
@@ -50,10 +54,12 @@ export function Rateios() {
         {leitura.dados && lista.length === 0 && (
           <div className="pn-vazio-grande">
             <Ic nome="caixa" tamanho={48} />
-            <p>Nenhum rateio ainda. Cria o primeiro: escolhe o produto, o preço e quantas vagas.</p>
-            <Link href={caminho.novo} className="pn-botao pn-botao-cheio">
-              <span className="pn-botao-txt">Criar rateio</span>
-            </Link>
+            <p>{cria ? 'Nenhum rateio ainda. Cria o primeiro: escolhe o produto, o preço e quantas vagas.' : 'Nenhum rateio dos teus estados ainda.'}</p>
+            {cria && (
+              <Link href={caminho.novo} className="pn-botao pn-botao-cheio">
+                <span className="pn-botao-txt">Criar rateio</span>
+              </Link>
+            )}
           </div>
         )}
         {GRUPOS.map((g) => {
