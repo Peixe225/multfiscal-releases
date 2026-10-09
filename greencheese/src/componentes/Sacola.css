@@ -85,6 +85,31 @@
   color: var(--legenda);
   text-decoration: line-through;
 }
+/* saiu da loja (o produto ou a opção): o nome riscado, o porquê e os botões sem risco */
+.ls-saiu li {
+  align-items: flex-start;
+  text-decoration: none;
+}
+.ls-fora-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 4px;
+}
+.ls-saiu .ls-fora-nome {
+  text-decoration: line-through;
+}
+.ls-fora-motivo {
+  font: 400 12px/1.35 var(--ui);
+  color: var(--branco);
+  text-wrap: pretty;
+}
+.ls-fora-acoes {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
 .ls-tirar {
   min-height: 44px;
   padding: 0 14px;

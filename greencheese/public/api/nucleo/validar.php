@@ -14,15 +14,24 @@ const GC_DDDS = [
 ];
 
 /**
- * Derivados do tabaco e cigarro eletrônico não entram (Anvisa RDC 840/2023 e RDC 855/2024).
- * Comparação sem acento e sem caixa; 'rape' só como palavra inteira (senão pegaria "grape").
+ * Derivados do tabaco e cigarro eletrônico não entram (Anvisa RDC 840/2023 e RDC 855/2024): tabaco, vape, tabaco
+ * aquecido e narguilé, com os nomes do dia a dia (marcas e o produto pelo apelido). A mesma lista em
+ * src/painel/proibidos.ts (o scripts/testar-api-loja.mjs confere). Comparação sem acento e sem caixa, também com o
+ * número no lugar da letra (V4PE, P0D, C1GARRO: GC_TERMOS_LEET). Os da segunda lista só valem como palavra inteira:
+ * 'rape' pegaria "grape", 'pod' pegaria "podium", 'essencia' pegaria "essencial".
  */
 const GC_TERMOS_PROIBIDOS = [
     'backwoods', 'charuto', 'cigarrilha', 'cigarro', 'cigarrete', 'tabaco', 'fumo', 'palheiro', 'swisher',
     'dutch master', 'black & mild', 'black and mild', 'al capone', 'djarum', 'essencia de narguile', 'vape',
     'cigarro eletronico', 'pod descartavel', 'juul', 'ignite', 'elfbar', 'elf bar',
+    'narguile', 'arguile', 'hookah', 'nicotina', 'nicotine', 'nic salt', 'iqos', 'lost mary', 'geek bar',
 ];
-const GC_TERMOS_PALAVRA_INTEIRA = ['rape'];
+const GC_TERMOS_PALAVRA_INTEIRA = ['rape', 'pod', 'pods', 'essencia', 'essencias', 'heets', 'terea', 'waka', 'oxbar', 'shisha', 'ecig', 'e cig'];
+/** Número (e símbolo) no lugar da letra: cada texto é conferido também com cada troca destas. */
+const GC_TERMOS_LEET = [
+    ['4' => 'a', '3' => 'e', '0' => 'o', '1' => 'i', '@' => 'a', '$' => 's'],
+    ['4' => 'a', '3' => 'e', '0' => 'o', '1' => 'l', '@' => 'a', '$' => 's'],
+];
 
 /** Erro de campo: 400 invalido com o campo que a tela marca. */
 function gc_invalido(string $campo, string $mensagem, array $extra = []): ErroApi
@@ -205,28 +214,45 @@ function gc_sem_acento(string $s): string
 
 /**
  * Primeiro termo proibido achado nos textos (ou null). Pontuação vira espaço (o "&" fica), então
- * "Black&Mild", "black-and-mild" e "BLACK & MILD" caem igual; os de duas palavras também valem colados.
+ * "Black&Mild", "black-and-mild" e "BLACK & MILD" caem igual; os de duas palavras também valem colados. Cada texto vale
+ * também com o número no lugar da letra desfeito (V4PE, P0D).
  */
 function gc_termo_proibido(string ...$textos): ?string
 {
     foreach ($textos as $t) {
-        $s = gc_sem_acento($t);
-        $s = str_replace('&', ' & ', $s);
-        $s = (string) preg_replace('/[^a-z0-9&]+/', ' ', $s);
-        $s = ' ' . trim((string) preg_replace('/\s+/', ' ', $s)) . ' ';
-        $colado = str_replace(' ', '', $s);
-        foreach (GC_TERMOS_PROIBIDOS as $termo) {
-            if (str_contains($s, $termo)) {
-                return $termo;
-            }
-            if (str_contains($termo, ' ') && str_contains($colado, str_replace(' ', '', $termo))) {
+        $base = gc_sem_acento($t);
+        $formas = [$base];
+        foreach (GC_TERMOS_LEET as $troca) {
+            $formas[] = strtr($base, $troca);
+        }
+        foreach (array_unique($formas) as $forma) {
+            $termo = gc_termo_proibido_em($forma);
+            if ($termo !== null) {
                 return $termo;
             }
         }
-        foreach (GC_TERMOS_PALAVRA_INTEIRA as $termo) {
-            if (str_contains($s, ' ' . $termo . ' ')) {
-                return $termo;
-            }
+    }
+    return null;
+}
+
+/** O termo proibido num texto já sem acento (ver gc_termo_proibido). */
+function gc_termo_proibido_em(string $s): ?string
+{
+    $s = str_replace('&', ' & ', $s);
+    $s = (string) preg_replace('/[^a-z0-9&]+/', ' ', $s);
+    $s = ' ' . trim((string) preg_replace('/\s+/', ' ', $s)) . ' ';
+    $colado = str_replace(' ', '', $s);
+    foreach (GC_TERMOS_PROIBIDOS as $termo) {
+        if (str_contains($s, $termo)) {
+            return $termo;
+        }
+        if (str_contains($termo, ' ') && str_contains($colado, str_replace(' ', '', $termo))) {
+            return $termo;
+        }
+    }
+    foreach (GC_TERMOS_PALAVRA_INTEIRA as $termo) {
+        if (str_contains($s, ' ' . $termo . ' ')) {
+            return $termo;
         }
     }
     return null;

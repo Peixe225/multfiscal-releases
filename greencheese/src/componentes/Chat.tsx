@@ -70,7 +70,7 @@ export function ChatFolha() {
   const chat = useChat()
   const { aberto, modo, passo, feitos, respostas, respondendo, respondendoDe, fechar, responder, voltarPara, abrir } = chat
   const local = useLocal()
-  const { pedido, fora, todas } = useLinhasSacola()
+  const { pedido, fora, todas, saiu } = useLinhasSacola()
   const limparSacola = useSacola((s) => s.limpar)
   const setSeletor = useUI((s) => s.setSeletor)
   const setSacola = useUI((s) => s.setSacola)
@@ -278,7 +278,7 @@ export function ChatFolha() {
         if (pedido.length === 0) {
           return {
             perguntas: [
-              fora.length
+              fora.length || saiu.length
                 ? `Os itens da tua sacola não tão disponíveis em ${cidade ?? canal?.nome ?? 'teu estado'}.`
                 : 'Tua sacola tá vazia.',
             ],

@@ -51,11 +51,15 @@ export function ajustarSacolaAoEstoque(): { nome: string; restam: number }[] {
 
 /**
  * Confere a sacola na abertura (calado: a sacola mostra o aviso quando abrir) e de novo quando a loja muda ou a
- * pessoa troca de estado (com um aviso curto, se ela já está usando o site).
+ * pessoa troca de estado (com um aviso curto, se ela já está usando o site). Item guardado sem o retrato (nome, opção
+ * e preço de quando entrou) ganha o da loja que está na tela, pra o "saiu da loja" e o "preço novo" terem com o que
+ * comparar depois.
  */
 export function vigiarEstoqueDaSacola(): void {
+  useSacola.getState().completarRetratos()
   ajustarSacolaAoEstoque()
   const conferir = () => {
+    useSacola.getState().completarRetratos()
     const m = ajustarSacolaAoEstoque()
     if (!m.length || useUI.getState().aberturaAtiva) return
     useUI

@@ -52,6 +52,9 @@ export const salvarPremio = (c: PremioCorpo) => pedir<Ok<{ premio: PremioAdmin }
 
 export const apagarPremio = (id: string) => pedir<Ok<object>>('POST', 'admin-premio-apagar', { corpo: { id } })
 
-/** conferir: só diz o que sairia (a folha de confirmação mostra), sem apagar nada. */
-export const exemplos = (conferir: boolean) =>
-  pedir<Ok<{ plano: PlanoExemplos; apagou: boolean }>>('POST', 'admin-loja-exemplos-apagar', { corpo: conferir ? { conferir: true } : {} })
+/**
+ * Sem assinatura: só diz o que sairia (a folha de confirmação mostra), com a assinatura do plano, sem apagar nada. Com a
+ * assinatura da prévia: apaga, se nada mudou desde ela (mudou = 409 mudou, com o plano novo).
+ */
+export const exemplos = (assinatura?: string) =>
+  pedir<Ok<{ plano: PlanoExemplos; assinatura: string; apagou: boolean }>>('POST', 'admin-loja-exemplos-apagar', { corpo: assinatura ? { assinatura } : { conferir: true } })

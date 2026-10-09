@@ -18,7 +18,7 @@ import { atualizarParametros, lerParametros, linkCompartilhar } from '../lib/url
 import { disponivelEm, restamEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
-import { produtoSumido, useCanalDa } from '../store/loja'
+import { produtoSumido, useCanalDa, useLojaConferida } from '../store/loja'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI, type OrigemPagina, type PaginaAberta } from '../store/ui'
 import { EnqueteVariacao, Empurrao, QuizCombo, SeletorQtd, pulsar, voarAteSacola } from './AdesivosProduto'
@@ -332,7 +332,17 @@ function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: Pro
   // o produto que saiu da loja enquanto a página tava aberta continua na tela, como indisponível (nada some de repente)
   const atual = useCatalogo((s) => s.produtos.find((p) => p.id === id))
   const produto = atual ?? produtoSumido(id)
+  // produto que a loja daqui não tem (link de um produto criado no painel): "carregando" até a do servidor chegar
+  const conferida = useLojaConferida()
   const janela = useRef<HTMLDivElement>(null)
+
+  // chegou o produto que estava carregando: o foco (que estava no "Carregando…") vai pro nome dele
+  const carregava = useRef(!produto)
+  useEffect(() => {
+    if (!produto) return
+    if (carregava.current && topo) janela.current?.querySelector<HTMLElement>('.pp-nome')?.focus({ preventScroll: true })
+    carregava.current = false
+  }, [produto, topo])
 
   // entrada: do zero (a página abriu) ou por cima de outra (combina com). Voz app, só transform/opacity.
   useLayoutEffect(() => {
@@ -376,7 +386,7 @@ function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saindo])
 
-  if (!produto) return null
+  if (!produto && conferida) return null
   return (
     <div
       ref={janela}
@@ -385,8 +395,48 @@ function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: Pro
       inert={!topo}
       tabIndex={-1}
     >
-      <ConteudoProduto produto={produto} nivel={nivel} topo={topo} origem={origem} />
+      {produto ? <ConteudoProduto produto={produto} nivel={nivel} topo={topo} origem={origem} /> : <CarregandoProduto nivel={nivel} />}
     </div>
+  )
+}
+
+/**
+ * A página de um produto que a loja daqui ainda não tem (o link de um produto criado no painel depois da última
+ * visita), esperando a do servidor: o topo de sempre (voltar, fechar) e o "carregando" no lugar da arte e do nome.
+ */
+function CarregandoProduto({ nivel }: { nivel: number }) {
+  const canal = useCanalDa(useLocal((s) => s.uf))
+  const { voltarPagina, fecharPagina } = useUI.getState()
+  return (
+    <>
+      <header className="pp-topo">
+        <button type="button" className="icone-botao toque pp-voltar" onClick={voltarPagina} aria-label="Voltar">
+          <PixelArte grade={CHEVRON} tamanho={32} />
+        </button>
+        <p className="pp-loja">
+          <Avatar tamanho={28} />
+          <span className="pp-loja-nome">{canal?.instagram ?? 'Green Cheese'}</span>
+        </p>
+        <button type="button" className="icone-botao toque pp-fechar" onClick={fecharPagina} aria-label="Fechar">
+          <Icone nome="fechar" tamanho={20} />
+        </button>
+      </header>
+      <div className="pp-visual pp-carregando" aria-hidden="true">
+        <span className="pp-carregando-pontos">
+          <i />
+          <i />
+          <i />
+        </span>
+      </div>
+      <div className="pp-info" aria-busy="true">
+        <h2 id={`pp-nome-${nivel}`} className="pp-nome px" tabIndex={-1}>
+          Carregando o produto…
+        </h2>
+        <p className="pp-detalhe" role="status">
+          Só um instante: tô buscando ele na loja.
+        </p>
+      </div>
+    </>
   )
 }
 

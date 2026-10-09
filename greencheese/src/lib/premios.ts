@@ -2,6 +2,7 @@
 // pro que chega do servidor (o painel confere o mesmo, em src/painel/loja/validar.ts e no PHP). Fica fora do store da
 // loja e do cupom.ts pra os dois usarem sem um importar o outro.
 import { PALAVRAS_PROIBIDAS, type Premio } from '../dados/sorte'
+import { bebidaPeloProduto } from './alcool'
 
 const minusculoSemAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const PROIBIDAS = PALAVRAS_PROIBIDAS.map(minusculoSemAcento)
@@ -13,19 +14,23 @@ export function palavraProibida(texto: string): string | null {
   return null
 }
 
-/** O pedaço do catálogo que decide se um prêmio vale: os produtos (e a categoria deles) e o que é bebida. */
+/** O pedaço do catálogo que decide se um prêmio vale: os produtos (a categoria, o nome e o desenho) e o que é bebida. */
 export interface CatalogoDosPremios {
-  produtos: readonly { id: string; categoria: string }[]
+  produtos: readonly { id: string; categoria: string; nome?: string; arte?: { tipo?: string } | null }[]
   categorias: readonly { id: string; bebida?: boolean }[]
 }
 
 const TIPOS = new Set<string>(['desconto-percentual', 'leve-x-pague-y', 'brinde'])
 
-/** Por que o prêmio não entra (ou null). Prêmio nunca cai em bebida: as categorias marcadas `bebida`. */
+/**
+ * Por que o prêmio não entra (ou null). Prêmio nunca cai em bebida: as categorias marcadas `bebida` e, fora delas, o
+ * produto com desenho de bebida ou nome de bebida alcoólica (src/lib/alcool.ts, as listas do servidor).
+ */
 export function motivoInvalido(p: Premio, idsVistos: Set<string>, cat: CatalogoDosPremios): string | null {
   const produtos = new Map(cat.produtos.map((x) => [x.id, x]))
   const categorias = new Set(cat.categorias.map((c) => c.id))
   const fora = new Set(cat.categorias.filter((c) => c.bebida).map((c) => c.id))
+  const bebida = (x: CatalogoDosPremios['produtos'][number]) => fora.has(x.categoria) || bebidaPeloProduto(x)
   if (!p.id || idsVistos.has(p.id)) return 'id vazio ou repetido'
   if (!TIPOS.has(p.tipo)) return 'tipo desconhecido'
   const alvos = p.aplicaA?.produtos ?? []
@@ -34,7 +39,7 @@ export function motivoInvalido(p: Premio, idsVistos: Set<string>, cat: CatalogoD
   for (const id of alvos) {
     const x = produtos.get(id)
     if (!x) return `produto "${id}" não existe no catálogo`
-    if (fora.has(x.categoria)) return `produto "${id}" é de ${x.categoria} (prêmio só em acessórios)`
+    if (bebida(x)) return `produto "${id}" é bebida (prêmio só em acessórios)`
   }
   for (const c of cats) {
     if (!categorias.has(c)) return `categoria "${c}" não existe no catálogo`
@@ -51,7 +56,7 @@ export function motivoInvalido(p: Premio, idsVistos: Set<string>, cat: CatalogoD
   if (p.tipo === 'brinde') {
     const x = p.valor ? produtos.get(p.valor.produto) : undefined
     if (!x) return `brinde "${p.valor?.produto}" não existe no catálogo`
-    if (fora.has(x.categoria)) return `brinde "${p.valor.produto}" é de ${x.categoria}`
+    if (bebida(x)) return `brinde "${p.valor.produto}" é bebida`
     if (!(p.valor.qtd >= 1)) return 'brinde precisa de qtd 1 ou mais'
   }
   for (const campo of [p.titulo, p.descricao, p.regra, p.comoUsar ?? '']) {

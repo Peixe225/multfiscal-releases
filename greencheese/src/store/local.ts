@@ -6,7 +6,7 @@ import { ufPorSigla, slug } from '../dados/ufs'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 import { palpitePorIp } from '../lib/geo'
 import { atualizarParametros, lerParametros, manterNaURL } from '../lib/url'
-import { esperarLoja, lojaConferida, useCanalDa, useLoja } from './loja'
+import { esperarLoja, esperarLojaToda, lojaConferida, useCanalDa, useLoja } from './loja'
 
 export type Origem = 'link' | 'salvo' | 'ip' | 'manual'
 
@@ -85,8 +85,12 @@ manterNaURL(() => {
   return s.confirmado && s.uf && lerParametros().uf ? { uf: s.uf, cidade: s.cidade } : {}
 })
 
-/** Quanto a decisão do estado espera a loja do servidor quando a UF não está na daqui (estado ativado no painel). */
-const ESPERA_LOJA_MS = 2500
+/**
+ * Quanto o palpite por IP espera a loja do servidor quando a UF não está na daqui (pode ser estado ativado no painel).
+ * O palpite nunca abre o "ainda não chegou aí" sozinho, e o estado que entrar depois vira a pergunta (acompanharEstados):
+ * não precisa esperar a conversa inteira. O ?uf= do link espera ela toda (ver iniciarLocal).
+ */
+const ESPERA_PALPITE_MS = 2500
 
 /**
  * Ordem de decisão do estado: 1) ?uf= na URL (link da bio) 2) escolha salva 3) palpite por IP (pede confirmação) 4) seletor manual.
@@ -95,11 +99,11 @@ export async function iniciarLocal(): Promise<void> {
   const p = lerParametros()
   const st = useLocal.getState()
   if (p.uf && ufPorSigla(p.uf)) {
-    // estado que a loja daqui ainda não conhece (ativado no painel depois da última visita): espera a do servidor um
-    // pouco, "procurando", em vez de mostrar "ainda não chegou aí" e trocar logo depois
+    // estado que a loja daqui ainda não conhece (ativado no painel depois da última visita): espera a do servidor
+    // enquanto a conversa durar, "procurando", em vez de mostrar "ainda não chegou aí" e trocar logo depois
     if (!canalDa(p.uf) && !lojaConferida()) {
       useLocal.setState({ detectando: true })
-      await esperarLoja(ESPERA_LOJA_MS)
+      await esperarLojaToda()
       useLocal.setState({ detectando: false })
       if (useLocal.getState().confirmado && useLocal.getState().origem === 'manual') return
     }
@@ -121,7 +125,7 @@ export async function iniciarLocal(): Promise<void> {
   }
   // palpite num estado que a loja daqui não conhece: espera a do servidor um pouco (pode ser estado ativado no painel)
   if (palpite && !canalDa(palpite.uf) && !lojaConferida()) {
-    await esperarLoja(ESPERA_LOJA_MS)
+    await esperarLoja(ESPERA_PALPITE_MS)
     if (useLocal.getState().confirmado) {
       useLocal.setState({ detectando: false })
       return

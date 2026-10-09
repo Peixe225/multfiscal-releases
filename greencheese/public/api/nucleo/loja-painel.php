@@ -187,7 +187,7 @@ function gc_loja_mudancas(array $col, ?array $atual): array
 
 /**
  * Produto que é prêmio (ou brinde) do Teste minha sorte não vira bebida: nem indo pra uma categoria de bebida, nem
- * com nome de bebida alcoólica. Álcool nunca em prêmio.
+ * com nome de bebida alcoólica, nem com desenho de bebida. Álcool nunca em prêmio.
  * @param array<string, mixed> $col
  */
 function gc_loja_conferir_premios_do_produto(string $id, array $col): void
@@ -202,6 +202,9 @@ function gc_loja_conferir_premios_do_produto(string $id, array $col): void
     }
     if (gc_loja_parece_alcool((string) $col['nome'])) {
         throw gc_invalido('nome', "Esse produto é do prêmio $nome do Teste minha sorte, e bebida não entra em prêmio. Muda o prêmio antes.");
+    }
+    if (gc_loja_bebida_pelo_produto('', $col['arte'])) {
+        throw gc_invalido('arte', "Esse produto é do prêmio $nome do Teste minha sorte, e desenho de bebida não entra em prêmio. Muda o prêmio antes.");
     }
 }
 
@@ -705,17 +708,28 @@ function gc_rota_admin_premio_apagar(): array
 
 /**
  * O que sai com "apagar dados de exemplo": os prêmios de exemplo, os rateios de exemplo (com quem entrou neles) e os
- * produtos de exemplo. Produto de exemplo com histórico de verdade (num rateio ou prêmio que não é exemplo, e que fica)
- * não apaga: sai do site (desativa).
- * @return array{premios: list<array{id: string, titulo: string}>, rateios: list<array{id: string, titulo: string, pessoas: int}>, produtos: list<array{id: string, nome: string}>, desativar: list<array{id: string, nome: string}>}
+ * produtos de exemplo. Rateio de exemplo com gente que já pagou (confirmado ou entregue) nunca apaga: fica, como rateio
+ * de verdade (`manter`), com o histórico de quem pagou. Produto de exemplo com histórico de verdade (num rateio ou
+ * prêmio que não é exemplo, ou que fica) não apaga: sai do site (desativa).
+ * @return array{premios: list<array{id: string, titulo: string}>, rateios: list<array{id: string, titulo: string, pessoas: int}>, manter: list<array{id: string, titulo: string, pessoas: int, pagas: int}>, produtos: list<array{id: string, nome: string}>, desativar: list<array{id: string, nome: string}>}
  */
 function gc_loja_plano_exemplos(): array
 {
     $premios = array_map(static fn (array $p): array => ['id' => (string) $p['id'], 'titulo' => (string) $p['titulo']], gc_todos('SELECT id, titulo FROM loja_premios WHERE demo = 1 ORDER BY ordem, id'));
-    $rateios = array_map(
-        static fn (array $r): array => ['id' => (string) $r['id'], 'titulo' => (string) $r['titulo'], 'pessoas' => (int) $r['pessoas']],
-        gc_todos('SELECT r.id, r.titulo, (SELECT COUNT(*) FROM participacoes p WHERE p.rateio_id = r.id) AS pessoas FROM rateios r WHERE r.demo = 1 ORDER BY r.criado_em'),
-    );
+    $rateios = [];
+    $manter = [];
+    foreach (gc_todos(
+        "SELECT r.id, r.titulo, (SELECT COUNT(*) FROM participacoes p WHERE p.rateio_id = r.id) AS pessoas,
+                (SELECT COUNT(*) FROM participacoes p WHERE p.rateio_id = r.id AND p.status IN ('confirmado','entregue')) AS pagas
+           FROM rateios r WHERE r.demo = 1 ORDER BY r.criado_em",
+    ) as $r) {
+        $item = ['id' => (string) $r['id'], 'titulo' => (string) $r['titulo'], 'pessoas' => (int) $r['pessoas']];
+        if ((int) $r['pagas'] > 0) {
+            $manter[] = $item + ['pagas' => (int) $r['pagas']];
+        } else {
+            $rateios[] = $item;
+        }
+    }
     $saem = ['premios' => array_fill_keys(array_column($premios, 'id'), true), 'rateios' => array_fill_keys(array_column($rateios, 'id'), true)];
     $produtos = [];
     $desativar = [];
@@ -733,13 +747,30 @@ function gc_loja_plano_exemplos(): array
         }
         $produtos[] = $item;
     }
-    return ['premios' => $premios, 'rateios' => $rateios, 'produtos' => $produtos, 'desativar' => $desativar];
+    return ['premios' => $premios, 'rateios' => $rateios, 'manter' => $manter, 'produtos' => $produtos, 'desativar' => $desativar];
 }
 
 /**
- * POST admin-loja-exemplos-apagar { conferir? }: tira de uma vez o que é de exemplo (gc_loja_plano_exemplos).
- * conferir: true só diz o que sairia, sem mexer em nada (a folha de confirmação do painel mostra). Os valores de
- * exemplo dos estados (horário, taxa, pagamento) saem quando o dono salva os de verdade.
+ * A assinatura do plano: o que ele apaga e quem está dentro de cada rateio que sai (as participações, não só a
+ * contagem). A confirmação manda a da prévia; se mudou (alguém entrou num rateio de exemplo, pagou, o dono mexeu num
+ * prêmio), nada sai e o painel mostra a prévia nova.
+ */
+function gc_loja_assinatura_exemplos(array $plano): string
+{
+    $ids = array_column($plano['rateios'], 'id');
+    $pessoas = $ids === [] ? [] : gc_todos(
+        'SELECT rateio_id, id, status FROM participacoes WHERE rateio_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY rateio_id, id',
+        $ids,
+    );
+    return substr(hash('sha256', (string) json_encode([$plano, $pessoas])), 0, 24);
+}
+
+/**
+ * POST admin-loja-exemplos-apagar { conferir? , assinatura? }: tira de uma vez o que é de exemplo
+ * (gc_loja_plano_exemplos). conferir: true só diz o que sairia, com a assinatura do plano, sem mexer em nada (a folha
+ * de confirmação do painel mostra). Pra apagar, manda a assinatura da prévia: se o plano mudou desde então, 409 mudou
+ * com o plano novo (nada sai sem ter aparecido na folha). Rateio de exemplo com gente que pagou fica (vira de verdade).
+ * Os valores de exemplo dos estados (horário, taxa, pagamento) saem quando o dono salva os de verdade.
  */
 function gc_rota_admin_loja_exemplos_apagar(): array
 {
@@ -747,10 +778,18 @@ function gc_rota_admin_loja_exemplos_apagar(): array
     $c = gc_corpo();
     gc_loja_exigir_semeada();
     $conferir = array_key_exists('conferir', $c) && gc_loja_bool($c, 'conferir', 'Conferir é sim ou não.');
-    return gc_transacao(static function () use ($conferir): array {
+    $assinatura = $c['assinatura'] ?? null;
+    if (!$conferir && !is_string($assinatura)) {
+        throw gc_invalido('assinatura', 'Confere o que sai antes de apagar (a folha mostra).');
+    }
+    return gc_transacao(static function () use ($conferir, $assinatura): array {
         $plano = gc_loja_plano_exemplos();
+        $agora = gc_loja_assinatura_exemplos($plano);
         if ($conferir) {
-            return ['plano' => $plano, 'apagou' => false] + gc_loja_carimbo();
+            return ['plano' => $plano, 'assinatura' => $agora, 'apagou' => false] + gc_loja_carimbo();
+        }
+        if (!hash_equals($agora, (string) $assinatura)) {
+            throw new ErroApi('mudou', 'Mudou alguma coisa nos dados de exemplo desde a conferência (alguém entrou num rateio, por exemplo). Confere de novo.', 409, ['plano' => $plano, 'assinatura' => $agora]);
         }
         foreach ($plano['premios'] as $p) {
             gc_sql('DELETE FROM loja_premios WHERE id = ?', [$p['id']]);
@@ -766,7 +805,11 @@ function gc_rota_admin_loja_exemplos_apagar(): array
         foreach ($plano['desativar'] as $p) {
             gc_sql('UPDATE loja_produtos SET ativo = 0, atualizado_em = ? WHERE id = ?', [gc_agora(), $p['id']]);
         }
-        $resumo = ['produtos' => count($plano['produtos']), 'premios' => count($plano['premios']), 'rateios' => count($plano['rateios']), 'desativados' => count($plano['desativar'])];
+        // rateio de exemplo em que alguém pagou: fica, como rateio de verdade (o histórico de quem pagou não se perde)
+        foreach ($plano['manter'] as $r) {
+            gc_sql('UPDATE rateios SET demo = 0, atualizado_em = ? WHERE id = ?', [gc_agora(), $r['id']]);
+        }
+        $resumo = ['produtos' => count($plano['produtos']), 'premios' => count($plano['premios']), 'rateios' => count($plano['rateios']), 'desativados' => count($plano['desativar']), 'mantidos' => count($plano['manter'])];
         if (array_sum($resumo) > 0) {
             gc_loja_mudou();
             gc_evento('painel', 'loja-exemplos-apagados', 'loja', $resumo);
@@ -800,6 +843,8 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         gc_loja_plural((int) ($d['premios'] ?? 0), 'prêmio', 'prêmios'),
         gc_loja_plural((int) ($d['rateios'] ?? 0), 'rateio', 'rateios'),
     ]));
+    $m = (int) ($d['mantidos'] ?? 0);
+    $mantidos = $m === 0 ? '' : ($m === 1 ? '; 1 rateio com pagamento ficou' : "; $m rateios com pagamento ficaram");
     return match ($acao) {
         'loja-semeada' => 'A loja entrou no servidor (' . (int) ($d['produtos'] ?? 0) . ' produtos)',
         'produto-criado' => "Criou o produto $nome",
@@ -827,7 +872,7 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         'premio-ativado' => "Pôs no jogo o prêmio $nome",
         'premio-desativado' => "Tirou do jogo o prêmio $nome",
         'premio-apagado' => "Apagou o prêmio $nome",
-        'loja-exemplos-apagados' => $exemplos === '' ? 'Apagou os dados de exemplo' : "Apagou os dados de exemplo ($exemplos)",
+        'loja-exemplos-apagados' => ($exemplos === '' ? 'Apagou os dados de exemplo' : "Apagou os dados de exemplo ($exemplos)") . $mantidos,
         default => null,
     };
 }

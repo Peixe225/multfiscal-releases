@@ -7,25 +7,46 @@ import { ilustracoes } from '../arte/pixel/grades'
 import { palpebrasGarrafa } from '../arte/pixel/mercador-garrafa'
 import { brl, plural } from '../lib/formato'
 import { depoisDoHistorico } from '../lib/historico'
-import { nomeNaMensagem, textoSubtotal, totais } from '../lib/mensagem'
+import { entregaDoCanal, nomeNaMensagem, textoSubtotal, totais } from '../lib/mensagem'
 import { calcularLinha } from '../lib/preco'
 import { disponivelEm, produtoPorId } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useDisponiveis, useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
-import { useCanalDa, useTextosLoja } from '../store/loja'
-import { contarItens, useSacola } from '../store/sacola'
+import { useCanalDa, useLojaConferida, useTextosLoja } from '../store/loja'
+import { contarItens, useSacola, type ItemSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import { CupomSacola } from './CupomSacola'
 import { Folha } from './Folha'
 import './Sacola.css'
 
+/**
+ * "Piteira de vidro RAW (Slim)": o nome guardado no item, com a opção de antes. Item guardado antes do retrato existir
+ * fica com o id escrito por extenso (o id sai do nome: "coca-cola-cherry" → "Coca cola cherry").
+ */
+function nomeGuardado(item: ItemSacola, nomeAtual?: string): string {
+  const porExtenso = item.id.replace(/-+/g, ' ').trim()
+  const nome = item.nome ?? nomeAtual ?? `${porExtenso.charAt(0).toUpperCase()}${porExtenso.slice(1)}`
+  return item.variacaoNome ? `${nome} (${item.variacaoNome})` : nome
+}
+
+/** O texto da entrega embaixo do subtotal: a taxa do painel, o dia de entrega grátis, ou a confirmar. */
+function textoEntrega(canal: ReturnType<typeof useCanalDa>): string {
+  const e = canal ? entregaDoCanal(canal) : null
+  if (e === 'gratis') return 'Entrega grátis hoje.'
+  if (e != null) return `Entrega: ${brl(e)} (a loja confirma no atendimento).`
+  return 'Entrega: taxa a confirmar no atendimento.'
+}
+
 /** Linhas da sacola já no formato da mensagem do pedido. */
 export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
-  const { pedido, fora } = useLinhasSacola()
+  const { pedido, fora, saiu } = useLinhasSacola()
   const alterar = useSacola((s) => s.alterar)
   const remover = useSacola((s) => s.remover)
+  const abrirPagina = useUI((s) => s.abrirPagina)
+  const setSacola = useUI((s) => s.setSacola)
+  const conferida = useLojaConferida()
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = useCanalDa(uf)
   const lugar = nomeCidade(canal, cidade, cidadeInformada) ?? canal?.nome ?? 'teu estado'
@@ -66,6 +87,9 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
                     {foiAjustado(l.item.id, l.item.variacao) ? ': ajustei a quantidade.' : '.'}
                   </p>
                 )}
+                {l.precoAntes !== undefined && (
+                  <p className="ls-restam ls-preco-novo legenda">Preço novo: era {l.precoAntes == null ? 'a consultar' : `${brl(l.precoAntes)} a unidade`}.</p>
+                )}
               </div>
               {!compacta && (
                 <div className="ls-qtd-ctrl" role="group" aria-label={`Quantidade de ${l.produto.nome}`}>
@@ -90,17 +114,74 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
           )
         })}
       </ul>
-      {fora.length > 0 && (
+      {fora.some((l) => l.motivo === 'estado') && (
         <div className="ls-fora">
           <p className="legenda">Não tem em {lugar} agora (fica fora do pedido):</p>
           <ul>
-            {fora.map((l) => (
-              <li key={`${l.item.id}-${l.item.variacao}`}>
-                <span>
-                  {l.qtd}x {nomeNaMensagem(l)}
+            {fora
+              .filter((l) => l.motivo === 'estado')
+              .map((l) => (
+                <li key={`${l.item.id}-${l.item.variacao}`}>
+                  <span className="ls-fora-nome">
+                    {l.qtd}x {nomeNaMensagem(l)}
+                  </span>
+                  {!compacta && (
+                    <button type="button" className="ls-tirar toque" onClick={() => remover(l.item.id, l.item.variacao)}>
+                      Tirar
+                    </button>
+                  )}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+      {/* saiu da loja (o produto, ou a opção escolhida): fica fora do pedido, com o nome de quando entrou na sacola */}
+      {(saiu.length > 0 || fora.some((l) => l.motivo !== 'estado')) && (
+        <div className="ls-fora ls-saiu">
+          <p className="legenda">Saiu da loja (fica fora do pedido):</p>
+          <ul>
+            {fora
+              .filter((l) => l.motivo === 'variacao' || l.motivo === 'saiu')
+              .map((l) => (
+                <li key={`${l.item.id}-${l.item.variacao}`}>
+                  <span className="ls-fora-txt">
+                    <span className="ls-fora-nome">
+                      {l.qtd}x {l.motivo === 'variacao' ? nomeGuardado(l.item, l.produto.nome) : (l.item.nome ?? nomeNaMensagem(l))}
+                    </span>
+                    <span className="ls-fora-motivo">{l.motivo === 'variacao' ? `A opção ${l.item.variacaoNome ?? 'escolhida'} não tem mais. Escolhe outra.` : 'Esse produto saiu da loja.'}</span>
+                  </span>
+                  {!compacta && (
+                    <span className="ls-fora-acoes">
+                      {l.motivo === 'variacao' && (
+                        <button
+                          type="button"
+                          className="ls-tirar toque"
+                          onClick={() => {
+                            // a sacola sai do histórico primeiro; a página do produto (pra escolher outra opção) entra depois
+                            setSacola(false)
+                            depoisDoHistorico(() => abrirPagina(l.item.id, 'sacola'))
+                          }}
+                        >
+                          Trocar
+                        </button>
+                      )}
+                      <button type="button" className="ls-tirar toque" onClick={() => remover(l.item.id, l.item.variacao)} aria-label={`Tirar ${nomeGuardado(l.item, l.produto.nome)}`}>
+                        Tirar
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            {saiu.map((i) => (
+              <li key={`${i.id}-${i.variacao}`}>
+                <span className="ls-fora-txt">
+                  <span className="ls-fora-nome">
+                    {i.qtd}x {nomeGuardado(i)}
+                  </span>
+                  <span className="ls-fora-motivo">{conferida ? 'Esse produto saiu da loja.' : 'Conferindo na loja…'}</span>
                 </span>
                 {!compacta && (
-                  <button type="button" className="ls-tirar toque" onClick={() => remover(l.item.id, l.item.variacao)}>
+                  <button type="button" className="ls-tirar toque" onClick={() => remover(i.id, i.variacao)} aria-label={`Tirar ${nomeGuardado(i)}`}>
                     Tirar
                   </button>
                 )}
@@ -117,7 +198,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
       )}
       {pedido.length > 0 && t.economia > 0 && <p className="ls-economia legenda">Combo aplicado: {brl(t.economia)} a menos.</p>}
       <CupomSacola compacta={compacta} />
-      {pedido.length > 0 && <p className="ls-taxa legenda">Entrega: taxa a confirmar no atendimento.</p>}
+      {pedido.length > 0 && <p className="ls-taxa legenda">{textoEntrega(canal)}</p>}
     </div>
   )
 }
@@ -139,10 +220,14 @@ export function SacolaFolha() {
   const n = contarItens(itens)
   // o cupom aplicado ainda vale? (vencido, usado ou fora da conta sai com aviso)
   useConferirCupom(aberta)
-  // o aviso "ajustei a quantidade" vale até a sacola fechar (só no fechar: a folha monta fechada, depois do ajuste)
+  // o aviso "ajustei a quantidade" e o "preço novo" valem até a sacola fechar (só no fechar: a folha monta fechada,
+  // depois do ajuste); fechou, o retrato de cada item acompanha a loja
   const abertaAntes = useRef(aberta)
   useEffect(() => {
-    if (abertaAntes.current && !aberta) esquecerAjustes()
+    if (abertaAntes.current && !aberta) {
+      esquecerAjustes()
+      useSacola.getState().conferirRetratos()
+    }
     abertaAntes.current = aberta
   }, [aberta])
 
@@ -232,7 +317,7 @@ export function SacolaFolha() {
                 <br />
                 <strong>{sugestao.nome}</strong>
               </p>
-              <button type="button" className="botao botao-contorno" onClick={() => adicionar(sugestao.id, null, 1)}>
+              <button type="button" className="botao botao-contorno" onClick={() => adicionar(sugestao.id, sugestao.variacoes?.[0]?.id ?? null, 1)}>
                 Pôr junto
               </button>
             </div>

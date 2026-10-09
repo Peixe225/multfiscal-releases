@@ -43,10 +43,13 @@ Regras (o servidor é quem garante):
 - Quando `confirmadas >= vagas`, o rateio vira `fechado` sozinho (`fechadoEm`).
 - Um WhatsApp tem no máximo 1 participação ativa (reservado/confirmado) por rateio.
 - Derivados do tabaco e cigarro eletrônico não entram (Anvisa RDC 840/2023 e RDC 855/2024): o servidor recusa título ou
-  descrição com qualquer termo da lista (sem acento e sem caixa): `backwoods`, `charuto`, `cigarrilha`, `cigarro`,
-  `cigarrete`, `tabaco`, `fumo`, `palheiro`, `rape` (como palavra inteira), `swisher`, `dutch master`, `black & mild`,
-  `black and mild`, `al capone`, `djarum`, `essencia de narguile`, `vape`, `cigarro eletronico`, `pod descartavel`,
-  `juul`, `ignite`, `elfbar`, `elf bar`.
+  descrição com qualquer termo da lista (sem acento e sem caixa, e também com o número no lugar da letra: `V4PE`,
+  `P0D`, `C1GARRO`): `backwoods`, `charuto`, `cigarrilha`, `cigarro`, `cigarrete`, `tabaco`, `fumo`, `palheiro`,
+  `swisher`, `dutch master`, `black & mild`, `black and mild`, `al capone`, `djarum`, `essencia de narguile`, `vape`,
+  `cigarro eletronico`, `pod descartavel`, `juul`, `ignite`, `elfbar`, `elf bar`, `narguile`, `arguile`, `hookah`,
+  `nicotina`, `nicotine`, `nic salt`, `iqos`, `lost mary`, `geek bar` e, só como palavra inteira, `rape`, `pod`, `pods`,
+  `essencia`, `essencias`, `heets`, `terea`, `waka`, `oxbar`, `shisha`, `ecig`, `e cig` (`GC_TERMOS_PROIBIDOS` em
+  `nucleo/validar.php`; a mesma lista no painel, `src/painel/proibidos.ts`).
 
 Status do rateio: `rascunho` (só no painel) → `aberto` → `fechado` (lotou, ou o dono fechou) → `pedido` (dono fez o
 pedido) → `caminho` → `chegou` → `encerrado` (entregue a todos). `cancelado` em qualquer ponto (só no painel e nas
@@ -459,9 +462,14 @@ manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a 
    quando o jeito da `Loja` do site muda (aí a guardada só serve pra conferir de novo).
 5. Fora do ar, lento (10 s), 403/5xx ou JSON torto: fica com o que tem. **404 `sem-loja`**: apaga o guardado e volta pra
    embutida.
-6. Quem depende da loja do servidor espera ela no máximo 2,5 s: o estado do link da bio ou o salvo que a loja do
-   aparelho não conhece (estado ativado no painel: "procurando" e uma vaga preta no Início, em vez de "ainda não chegou
-   aí"), o palpite de IP num estado desses e os links diretos de produto (`?p=`, `?produto=`) e do jogo (`?jogo=`).
+6. Quem depende da loja do servidor espera a conversa com ele terminar (a leitura desiste em 10 s; rede de segurança
+   em 12 s), nunca um prazo curto (no 4G lento a resposta passa de 4 s): o estado do link da bio ou o salvo que a loja
+   do aparelho não conhece (estado ativado no painel: "procurando" e uma vaga preta no Início, em vez de "ainda não
+   chegou aí", que só aparece se a resposta chegar sem o estado ou o pedido falhar) e os links diretos de um produto
+   que ela não tem (criado no painel depois da última visita): a pergunta ao servidor sai na hora, sem esperar o
+   respiro; `?produto=` abre a página "carregando" e `?p=` avisa "Abrindo o produto…" e abre o story quando a loja
+   chega; produto que não veio nem depois da resposta (ou servidor fora do ar) sai da URL com um aviso. O palpite de IP
+   num estado desses e o jogo (`?jogo=`, que existe na loja daqui) esperam no máximo 2,5 s.
 
 ```ts
 interface Loja {
@@ -555,7 +563,7 @@ campo ausente fica como está.
 | POST `admin-sorte-salvar` | `{ ligado?, girosSemConta?, girosPorDiaComConta?, reservaSemContaHoras? }` | `{ sorte, versao, atualizadoEm }` |
 | POST `admin-premio-salvar` | `PremioCorpo` (sem `id` cria) | 201 ou 200 `{ premio: PremioAdmin, versao, atualizadoEm }` |
 | POST `admin-premio-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
-| POST `admin-loja-exemplos-apagar` | `{ conferir?: boolean }` | `{ plano, apagou, versao, atualizadoEm }` |
+| POST `admin-loja-exemplos-apagar` | `{ conferir: true }` ou `{ assinatura }` | `{ plano, assinatura, apagou, versao, atualizadoEm }` |
 
 Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
 
@@ -568,8 +576,12 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   rotulo?, detalhe?, tampa? }` (tipo da lista do `TipoArte`, cores `#rrggbb`); `obs` até 300 (só no painel); `demo` e
   `ativo` sim/não; `estados` `{ <uf>: { disponivel: boolean, estoque: number | null } }`, só estados da loja, estoque de 0
   a 99.999. Tabaco e vape (a lista do Rateio) em nome, tamanho, detalhe, descrição ou variação → 422 `proibido`
-  (`campo`, `termo`, `lista: 'tabaco'`). Id novo = slug do nome + tamanho, único. Produto que é prêmio ou brinde não vai
-  pra categoria de bebida nem ganha nome de bebida alcoólica (400, `campo: 'categoria' | 'nome'`).
+  (`campo`, `termo`, `lista: 'tabaco'`); a gíria e a promessa da `PALAVRAS_PROIBIDAS` (`GC_LOJA_PALAVRAS_LOJA`:
+  `fumaça`, `fumar`, `marofa`, `brisa`, `chapar`, `larica`, `prensado`, `420`, `grátis`, `frete`, `prazo`, `sorteio`, no
+  começo de palavra; `420` só o número inteiro) nos mesmos campos → 422 `proibido` (`lista: 'palavras'`). "folha",
+  "erva", "flor", "trago", "tapa" e "entrega" têm uso de verdade em produto e passam. Id novo = slug do nome + tamanho,
+  único. Produto que é prêmio ou brinde não vai pra categoria de bebida nem ganha nome ou desenho de bebida (400,
+  `campo: 'categoria' | 'nome' | 'arte'`).
 - **Troca rápida** (`admin-produto-estado`): manda o valor novo, não "inverter" (dois toques iguais dão no mesmo).
   `estoque: null` = não contar; `0` = esgotado: sai do disponível sozinho e volta quando o estoque subir (se seguir
   ligado no estado).
@@ -582,7 +594,7 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   `piteira`, `cuia`, `dichavador`, `tesoura`, `sacola` ou `estrela`; `bebida` (categoria nova nasce bebida até o dono
   dizer que não; bebida nunca entra em prêmio). Virar bebida com prêmio valendo nela ou nos produtos dela → 400
   (`campo: 'bebida'`). Apagar só vazia (nenhum produto, nem desativado) e sem prêmio → senão 409 `em-uso` (com
-  `produtos` ou `premios`).
+  `produtos` ou `premios`). Nome e curto sem tabaco nem a gíria e a promessa (422, como no produto).
 - **Estado**: `uf` uma das 27. UF que a loja ainda não tem = ativar um estado novo: Instagram e pagamento obrigatórios,
   emblema `generico`, horário "a confirmar" (fica de exemplo, que o site não mostra, até vir um), taxa a confirmar e
   nenhum produto à venda ainda. `destaque` 2–20 (padrão `DELIVERY <UF>`); `nomePerfil` 2–40 ou `null`; `instagram`
@@ -592,7 +604,10 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   `null` (a confirmar) ou de R$ 0 a R$ 100.000; `entregaGratis` `null` ou `{ dias: number[] (0–6), texto (2–40) }`;
   `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `ativo` (o último estado no site não sai: 409
   `ultimo-estado`). Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
-  junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`.
+  junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`. Destaque, nome do perfil e cidades
+  sem tabaco nem a gíria e a promessa (422, como no produto; o nome do perfil aparece no cabeçalho do site). A taxa de
+  verdade e o dia de entrega grátis aparecem na sacola e na mensagem do pedido (`(taxa R$ 15,50)`,
+  `(entrega grátis hoje)`); a de exemplo, não ("taxa a confirmar").
 - **Stories**: até 8 (as barrinhas do topo), sem repetir, produtos que existem, `uf` da loja; lista vazia =
   automático. No `GET loja` passam só os que estão à venda no estado na hora (no site, ligado, com estoque); se nenhum
   estiver, o estado fica no automático.
@@ -606,18 +621,25 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   `girosPorDiaComConta` 1–5, `reservaSemContaHoras` 1–72, `ligado`.
 - **Prêmio** (as regras de `src/lib/cupom.ts`): `tipo`; desconto 1–50 (%); leva 2–20 > paga 1–19; brinde
   `{ produto, qtd 1–10 }`; `aplicaA` `{ produtos?: até 20, categorias?: até 10 }`, pelo menos um, tudo existindo e nada
-  de bebida (categoria marcada como bebida, ou produto com nome de bebida alcoólica: whisky, gin, vodka, rum, tequila,
-  cachaça, conhaque, licor, cerveja, vinho…); `titulo` 2–60 (só no painel); `descricao` 2–40; `regra` 2–120;
+  de bebida (categoria marcada como bebida; ou produto com desenho de bebida, `GC_LOJA_ARTES_BEBIDA`: lata alta e as
+  garrafas; ou com nome de bebida alcoólica, `GC_LOJA_ALCOOL`: os tipos, como whisky, gin, vodka, chope, saquê, e as
+  marcas comuns, como Jack Daniels, Smirnoff, Heineken, Brahma, Skol, Campari; a mesma lista do site e do painel em
+  `src/lib/alcool.ts`); `titulo` 2–60 (só no painel); `descricao` 2–40; `regra` 2–120;
   `comoUsar` até 160; `peso` 1–1000; `validadeDias` 1–30; `ativo`; `demo`. Textos sem tabaco nem as palavras da lista
   (422). Trocar o tipo pede o valor novo junto. Id novo = slug do título. Os cupons já guardados no site têm o retrato
   do prêmio: apagar não quebra nada.
-- **Apagar dados de exemplo**: `conferir: true` só devolve o `plano` (`{ premios, rateios, produtos, desativar }`,
-  rateios com `pessoas`); sem ele, apaga de uma vez os prêmios de exemplo, os rateios de exemplo (com quem entrou neles)
-  e os produtos de exemplo. Produto de exemplo com histórico de verdade (citado num rateio ou prêmio que fica) só sai do
-  site (`desativar`). Os valores de exemplo dos estados saem quando o dono salva os de verdade.
+- **Apagar dados de exemplo**: `conferir: true` só devolve o `plano` (`{ premios, rateios, manter, produtos,
+  desativar }`, rateios com `pessoas`) e a `assinatura` dele; pra apagar, manda `{ assinatura }` (a da prévia que a
+  folha mostrou): apaga de uma vez os prêmios de exemplo, os rateios de exemplo (com quem entrou neles) e os produtos de
+  exemplo. Se o plano mudou desde a prévia (alguém entrou num rateio de exemplo, pagou, saiu), nada sai: 409 `mudou`,
+  com o `plano` e a `assinatura` novos. Sem assinatura: 400 (`campo: 'assinatura'`). Rateio de exemplo com gente que
+  pagou (confirmado ou entregue) nunca apaga: fica, como rateio de verdade (`manter`, com `pagas`; `demo` vira falso),
+  com o histórico. Produto de exemplo com histórico de verdade (citado num rateio ou prêmio que fica) só sai do site
+  (`desativar`). Os valores de exemplo dos estados saem quando o dono salva os de verdade.
 
 Erros (além dos gerais e do `sem-sessao`/`csrf`): `invalido` 400 (com `campo`; às vezes `indice`, `dia`, `uf`),
-`proibido` 422 (`campo`, `termo`, `lista`), `nao-encontrado` 404, `em-uso` 409, `ultimo-estado` 409.
+`proibido` 422 (`campo`, `termo`, `lista`), `nao-encontrado` 404, `em-uso` 409, `ultimo-estado` 409, `mudou` 409
+(apagar dados de exemplo).
 
 ```ts
 interface LojaAdmin {

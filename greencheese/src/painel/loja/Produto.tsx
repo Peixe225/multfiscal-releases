@@ -3,6 +3,7 @@
 // quando não tem foto e a prévia do card como o cliente vê. O que está sendo digitado fica guardado no aparelho até
 // salvar. Na edição, só vai pro servidor o que mudou (a troca rápida feita no outro aparelho não é desfeita).
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { ARTES_DE_BEBIDA } from '../../lib/alcool'
 import * as apiBase from '../api'
 import { ErroApi } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
@@ -125,13 +126,13 @@ function validar(f: Form, p: ProdutoAdmin | null, l: LojaAdmin): Erros {
   const e: Erros = {}
   const nome = f.nome.trim()
   if (tamanho(nome) < 2 || tamanho(nome) > 60) e.nome = 'Nome de 2 a 60 letras.'
-  else e.nome = problemaNoTexto(nome) ?? undefined
+  else e.nome = problemaNoTexto(nome, 'loja') ?? undefined
   if (tamanho(f.tamanho) > 20) e.tamanho = 'Tamanho até 20 letras (ex.: 350 ml, 1 L).'
-  else e.tamanho = problemaNoTexto(f.tamanho) ?? undefined
+  else e.tamanho = problemaNoTexto(f.tamanho, 'loja') ?? undefined
   if (tamanho(f.detalhe) > 60) e.detalhe = 'Até 60 letras.'
-  else e.detalhe = problemaNoTexto(f.detalhe) ?? undefined
+  else e.detalhe = problemaNoTexto(f.detalhe, 'loja') ?? undefined
   if (tamanho(f.descricao) > 300) e.descricao = 'Descrição até 300 letras.'
-  else e.descricao = problemaNoTexto(f.descricao) ?? undefined
+  else e.descricao = problemaNoTexto(f.descricao, 'loja') ?? undefined
   if (!f.categoria) e.categoria = 'Escolhe a categoria.'
   const preco = lerPreco(f.preco)
   if (preco === undefined) e.preco = 'Preço de R$ 0,00 a R$ 100.000,00, ou vazio pra aparecer “Consultar”.'
@@ -155,7 +156,7 @@ function validar(f: Form, p: ProdutoAdmin | null, l: LojaAdmin): Erros {
     const n = v.nome.trim()
     if (tamanho(n) < 1 || tamanho(n) > 40) e[`var-${i}`] = 'Nome da variação de 1 a 40 letras.'
     else if (nomes.has(n.toLowerCase())) e[`var-${i}`] = `Duas variações “${n}”: deixa uma só.`
-    else if (problemaNoTexto(n)) e[`var-${i}`] = problemaNoTexto(n) ?? undefined
+    else if (problemaNoTexto(n, 'loja')) e[`var-${i}`] = problemaNoTexto(n, 'loja') ?? undefined
     else if (v.preco.trim() && lerPreco(v.preco) == null) e[`var-${i}`] = 'Preço da variação inválido (ou deixa vazio: vale o do produto).'
     nomes.add(n.toLowerCase())
   })
@@ -165,6 +166,7 @@ function validar(f: Form, p: ProdutoAdmin | null, l: LojaAdmin): Erros {
   const cat = l.categorias.find((c) => c.id === f.categoria)
   if (p && p.uso.premios.length && !e.categoria && cat?.bebida) e.categoria = `É do prêmio “${p.uso.premios[0].titulo}”, e bebida não entra em prêmio. Muda o prêmio antes.`
   if (p && p.uso.premios.length && !e.nome && pareceAlcool(nome)) e.nome = `É do prêmio “${p.uso.premios[0].titulo}”, e bebida não entra em prêmio.`
+  if (p && p.uso.premios.length && ARTES_DE_BEBIDA.includes(f.formato)) e.arte = `É do prêmio “${p.uso.premios[0].titulo}”, e desenho de bebida não entra em prêmio. Muda o prêmio antes.`
   for (const k of Object.keys(e)) if (!e[k]) delete e[k]
   return e
 }
@@ -715,7 +717,7 @@ export function Produto({ id }: { id: string | null }) {
             <div className="pn-desenho">
               <ArteProduto produto={{ id: `${p?.id ?? 'novo'}-desenho`, nome: f.nome, cor: corBrilho, arte, foto: null }} largura={72} />
               <div className="pn-desenho-campos">
-                <Campo id={`${idDesenho}-formato`} rotulo="Formato">
+                <Campo id={`${idDesenho}-formato`} rotulo="Formato" erro={erros.arte}>
                   {(a) => (
                     <select {...a} className="pn-input pn-select" value={f.formato} onChange={(e) => mudar('formato', e.target.value as TipoArte)}>
                       {ARTES.map((x) => (

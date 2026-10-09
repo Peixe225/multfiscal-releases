@@ -57,7 +57,7 @@ por um revisor independente e no ar.
 - [ ] Produtos: foto (thumbnail), nome, descrição, preço, combos, variações, disponível/indisponível por estado e "restam X unidades".
 - [ ] Stories do Início: quais produtos passam e em que ordem.
 - [ ] Estados: WhatsApp por estado (ou um só pra todos), Instagram, cidades, horários de entrega, taxa, entrega grátis, formas de pagamento.
-- [ ] Pedido guiado: os textos de cada passo editáveis; prêmios e regras do Teste minha sorte; textos da loja.
+- [ ] Pedido guiado: os textos de cada passo editáveis (fica com a cadeia B, B1: entra no menu Loja quando juntar); prêmios e regras do Teste minha sorte; textos da loja.
 - [ ] O site lê tudo do servidor, com o que está embutido de reserva (nunca fica em branco).
 
 ## F11 · Início vivo e Mercado — feito (falta a rua como 1º story do celular)

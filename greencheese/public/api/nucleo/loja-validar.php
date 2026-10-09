@@ -3,9 +3,10 @@ declare(strict_types=1);
 defined('GC_API') || exit;
 
 // Conferência do que o painel manda pra loja: textos, preço, combos, variações, cores, horário, Instagram, cidades,
-// prêmios (as mesmas regras de src/lib/cupom.ts) e as duas listas de palavras: a do tabaco e vape (Anvisa, a mesma do
-// rateio: gc_termo_proibido) em tudo, e a PALAVRAS_PROIBIDAS do site (src/dados/sorte.ts) nos prêmios e nos textos da
-// loja. Na edição, campo ausente fica como está. Erro sempre com o campo que a tela marca.
+// prêmios (as mesmas regras de src/lib/cupom.ts) e as listas de palavras: a do tabaco e vape (Anvisa, a mesma do
+// rateio: gc_termo_proibido) em tudo, a PALAVRAS_PROIBIDAS do site (src/dados/sorte.ts) nos prêmios e nos textos da
+// loja, e a gíria e a promessa dela (GC_LOJA_PALAVRAS_LOJA) no produto, na categoria e no estado. Na edição, campo
+// ausente fica como está. Erro sempre com o campo que a tela marca.
 
 /** PALAVRAS_PROIBIDAS de src/dados/sorte.ts (o scripts/testar-api.mjs confere que é a mesma lista, na mesma ordem). */
 const GC_LOJA_PALAVRAS = [
@@ -14,13 +15,37 @@ const GC_LOJA_PALAVRAS = [
 ];
 
 /**
- * Bebida alcoólica no nome: prêmio não cai em produto assim (a regra é a categoria marcada como bebida; esta lista é a
- * rede pra quando o produto foi parar na categoria errada). Palavra inteira, sem acento.
+ * As da GC_LOJA_PALAVRAS que valem também no produto, na categoria e no estado (nome, detalhe, descrição, variação,
+ * nome do perfil, destaque, cidade): a gíria e a promessa. Ficam de fora as que têm uso de verdade nesses textos:
+ * "folha" (seda de 50 folhas), "erva" (erva-mate da cuia, licor de ervas), "flor" (floral), "trago" e "tapa", "entrega"
+ * (o story de entrega do estado) e as do tabaco (a lista da Anvisa já pega, em tudo). O mesmo PALAVRAS_LOJA do painel.
+ */
+const GC_LOJA_PALAVRAS_LOJA = ['fumaça', 'fumar', 'marofa', 'brisa', 'chapar', 'larica', 'prensado', '420', 'grátis', 'frete', 'prazo', 'sorteio'];
+
+/**
+ * Bebida alcoólica no nome: prêmio não cai em produto assim (a regra é a categoria marcada como bebida; esta lista e a
+ * do desenho são a rede pra quando o produto foi parar na categoria errada): os tipos e as marcas comuns. Palavra (ou
+ * palavras) inteira, sem acento. A mesma lista em src/lib/alcool.ts (o scripts/testar-api-loja.mjs confere).
  */
 const GC_LOJA_ALCOOL = [
     'whisky', 'whiskey', 'uisque', 'gin', 'vodka', 'vodca', 'rum', 'tequila', 'cachaca', 'conhaque', 'cognac', 'licor',
-    'cerveja', 'chopp', 'vinho', 'espumante', 'champagne', 'jagermeister', 'absinto', 'bourbon', 'mezcal',
+    'cerveja', 'chopp', 'vinho', 'espumante', 'champagne', 'jagermeister', 'absinto', 'bourbon', 'mezcal', 'chope',
+    'chopes', 'cervejas', 'vinhos', 'champanhe', 'prosecco', 'sidra', 'sake', 'saque', 'soju', 'vermute', 'vermouth',
+    'martini', 'pinga', 'aguardente', 'ice beer', 'beats', 'jager', 'jack daniel', 'jack daniels', 'smirnoff',
+    'absolut', 'ciroc', 'grey goose', 'johnnie walker', 'red label', 'black label', 'blue label', 'gold label',
+    'double black', 'chivas', 'jameson', 'ballantines', 'white horse', 'old parr', 'buchanans', 'jim beam',
+    'wild turkey', 'makers mark', 'glenfiddich', 'macallan', 'tanqueray', 'beefeater', 'bombay sapphire', 'gordons',
+    'bacardi', 'havana club', 'malibu', 'jose cuervo', 'cuervo', 'campari', 'aperol', 'baileys', 'amarula',
+    'cointreau', 'ypioca', 'velho barreiro', 'sagatiba', 'askov', 'catuaba', 'heineken', 'brahma', 'skol', 'budweiser',
+    'stella', 'corona', 'amstel', 'itaipava', 'eisenbahn', 'spaten', 'becks', 'devassa', 'bohemia', 'guinness',
+    'hoegaarden', 'michelob', 'kirin', 'sapporo', 'asahi', 'jinro', 'xeque mate',
 ];
+
+/**
+ * Formatos do desenho que são de bebida (lata alta e garrafas): produto assim não vira prêmio, mesmo fora de categoria
+ * de bebida. A lata comum fica de fora: é o desenho que todo produto novo ganha no painel. O ARTES_DE_BEBIDA do site.
+ */
+const GC_LOJA_ARTES_BEBIDA = ['lata-alta', 'garrafa-quadrada', 'garrafa-gin', 'garrafa-conhaque', 'garrafa-licor'];
 
 /** Texto pra comparar: minúsculo, sem acento (também o acento solto, de teclado que manda a letra decomposta). */
 function gc_loja_comparavel(string $s): string
@@ -51,16 +76,59 @@ function gc_loja_palavra_proibida(string $texto): ?string
     return null;
 }
 
-/** Nome com cara de bebida alcoólica? */
+/**
+ * Primeira palavra da GC_LOJA_PALAVRAS_LOJA no texto: no começo de palavra, como no site ("brisa" pega "brisada"), e
+ * número inteiro ("420" não pega "4200").
+ */
+function gc_loja_palavra_da_loja(string $texto): ?string
+{
+    $t = gc_loja_comparavel($texto);
+    foreach (GC_LOJA_PALAVRAS_LOJA as $p) {
+        $c = gc_loja_comparavel($p);
+        if (preg_match('/(^|[^a-z0-9])' . preg_quote($c, '/') . (ctype_digit($c) ? '(?![0-9])' : '') . '/', $t) === 1) {
+            return $p;
+        }
+    }
+    return null;
+}
+
+/**
+ * Produto, categoria e estado: nem tabaco nem a gíria e a promessa da GC_LOJA_PALAVRAS_LOJA.
+ * @param array<string, string> $campos
+ */
+function gc_loja_sem_palavras_da_loja(array $campos): void
+{
+    gc_loja_sem_tabaco($campos);
+    foreach ($campos as $campo => $texto) {
+        $p = gc_loja_palavra_da_loja($texto);
+        if ($p !== null) {
+            throw new ErroApi('proibido', "Tira o “{$p}”: o site não usa essa palavra.", 422, ['campo' => $campo, 'termo' => $p, 'lista' => 'palavras']);
+        }
+    }
+}
+
+/** Nome com cara de bebida alcoólica? O apóstrofo sai antes ("Jack Daniel's" e "Gordon's" são "daniels" e "gordons"). */
 function gc_loja_parece_alcool(string $texto): bool
 {
-    $t = ' ' . trim((string) preg_replace('/[^a-z0-9]+/', ' ', gc_loja_comparavel($texto))) . ' ';
+    $sem = str_replace(["'", '’', '`', '´'], '', gc_loja_comparavel($texto));
+    $t = ' ' . trim((string) preg_replace('/[^a-z0-9]+/', ' ', $sem)) . ' ';
     foreach (GC_LOJA_ALCOOL as $p) {
         if (str_contains($t, " $p ")) {
             return true;
         }
     }
     return false;
+}
+
+/**
+ * O produto é bebida pelo que ele mesmo diz, sem olhar a categoria: o desenho de bebida ou o nome de bebida alcoólica.
+ * @param mixed $arte o JSON da coluna arte (ou já lido)
+ */
+function gc_loja_bebida_pelo_produto(string $nome, mixed $arte): bool
+{
+    $a = is_string($arte) ? json_decode($arte, true) : $arte;
+    $tipo = is_array($a) ? ($a['tipo'] ?? null) : null;
+    return in_array($tipo, GC_LOJA_ARTES_BEBIDA, true) || gc_loja_parece_alcool($nome);
 }
 
 /**
@@ -230,7 +298,7 @@ function gc_loja_ler_variacoes(mixed $v): array
         if (!is_string($nome) || gc_tamanho($nome) < 1 || gc_tamanho($nome) > 40) {
             throw gc_invalido('variacoes', 'Nome da variação de 1 a 40 letras.', ['indice' => $i]);
         }
-        gc_loja_sem_tabaco(['variacoes' => $nome]);
+        gc_loja_sem_palavras_da_loja(['variacoes' => $nome]);
         $chave = gc_loja_comparavel($nome);
         if (isset($nomes[$chave])) {
             throw gc_invalido('variacoes', "Duas variações “{$nome}”: deixa uma só.", ['indice' => $i]);
@@ -286,7 +354,8 @@ function gc_loja_ler_por_uf(mixed $v): array
 }
 
 /**
- * Lê e confere um produto. Tabaco e vape não entram em nome, tamanho, detalhe, descrição nem variação.
+ * Lê e confere um produto. Tabaco e vape não entram em nome, tamanho, detalhe, descrição nem variação, nem a gíria e
+ * a promessa da GC_LOJA_PALAVRAS_LOJA ("larica", "420", "frete grátis", "prazo").
  * @param array<string, mixed> $c
  * @param array<string, mixed>|null $atual a linha de loja_produtos (edição)
  * @return array<string, mixed> colunas
@@ -313,7 +382,7 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
         throw gc_invalido('descricao', 'Descrição até 300 letras.');
     }
     $col['descricao'] = $descricao;
-    gc_loja_sem_tabaco(['nome' => $nome, 'tamanho' => $col['tamanho'], 'detalhe' => $col['detalhe'], 'descricao' => $descricao]);
+    gc_loja_sem_palavras_da_loja(['nome' => $nome, 'tamanho' => $col['tamanho'], 'detalhe' => $col['detalhe'], 'descricao' => $descricao]);
 
     $categoria = $tem('categoria') ? $c['categoria'] : ($atual['categoria_id'] ?? null);
     if (!gc_id_valido($categoria) || gc_um('SELECT 1 FROM loja_categorias WHERE id = ?', [$categoria]) === null) {
@@ -424,7 +493,7 @@ function gc_loja_ler_categoria(array $c, ?array $atual): array
     if (!is_string($curto) || gc_tamanho($curto) < 2 || gc_tamanho($curto) > 14) {
         throw gc_invalido('curto', 'Nome curto de 2 a 14 letras (é o que aparece embaixo da bolinha).');
     }
-    gc_loja_sem_tabaco(['nome' => $nome, 'curto' => $curto]);
+    gc_loja_sem_palavras_da_loja(['nome' => $nome, 'curto' => $curto]);
     $icone = $tem('icone') ? $c['icone'] : ($atual['icone'] ?? null);
     if (!in_array($icone, GC_LOJA_ICONES, true)) {
         throw gc_invalido('icone', 'Escolhe o ícone.');
@@ -519,6 +588,7 @@ function gc_loja_ler_estado(array $c, ?array $atual, string $uf): array
             if (!is_string($nome) || gc_tamanho($nome) < 2 || gc_tamanho($nome) > 60) {
                 throw gc_invalido('cidades', 'Nome da cidade de 2 a 60 letras.', ['indice' => $i]);
             }
+            gc_loja_sem_palavras_da_loja(['cidades' => $nome]);
             $slug = gc_loja_slug($nome, 'cidade');
             if (isset($slugs[$slug])) {
                 throw gc_invalido('cidades', "“{$nome}” tá duas vezes.", ['indice' => $i]);
@@ -603,7 +673,7 @@ function gc_loja_ler_estado(array $c, ?array $atual, string $uf): array
     }
     $col['pagamentos_demo'] = $demo('pagamentosDemo', 'pagamentos_demo', $tem('pagamentos'));
 
-    gc_loja_sem_tabaco(['destaque' => $destaque, 'nomePerfil' => (string) $perfil]);
+    gc_loja_sem_palavras_da_loja(['destaque' => $destaque, 'nomePerfil' => (string) $perfil]);
     $col['ativo'] = $tem('ativo') ? (gc_loja_bool($c, 'ativo', 'Ativo é sim ou não.') ? 1 : 0) : (int) ($atual['ativo'] ?? 1);
     return $col;
 }
@@ -673,7 +743,7 @@ function gc_loja_ler_textos(mixed $v, array $atual): array
 
 /**
  * Lê e confere um prêmio do Teste minha sorte: as regras de src/lib/cupom.ts (motivoInvalido). Só acessório: nada em
- * bebida (categoria marcada como bebida, ou nome de bebida alcoólica), peso > 0, validade de 1 a 30 dias, percentual
+ * bebida (categoria marcada como bebida, desenho de bebida ou nome de bebida alcoólica), peso > 0, validade de 1 a 30 dias, percentual
  * de 1 a 50, leve > pague, produto e categoria que existem, e nenhuma palavra da lista nos textos.
  * @return array<string, mixed> colunas
  */
@@ -693,7 +763,7 @@ function gc_loja_ler_premio(array $c, ?array $atual): array
         if ($p === null) {
             throw gc_invalido($campo, 'Produto não encontrado.');
         }
-        if ((int) $p['bebida'] === 1 || gc_loja_parece_alcool((string) $p['nome'])) {
+        if ((int) $p['bebida'] === 1 || gc_loja_bebida_pelo_produto((string) $p['nome'], $p['arte'])) {
             throw gc_invalido($campo, "“{$p['nome']}” é bebida: prêmio só em acessório (sedas, piteiras, acessórios).");
         }
         return $p;
@@ -784,13 +854,13 @@ function gc_loja_ler_premio(array $c, ?array $atual): array
     return $col;
 }
 
-/** O produto com o "bebida" da categoria dele, ou null. @return array<string, mixed>|null */
+/** O produto (nome e desenho) com o "bebida" da categoria dele, ou null. @return array<string, mixed>|null */
 function gc_loja_produto_e_categoria(mixed $id): ?array
 {
     if (!gc_id_valido($id)) {
         return null;
     }
-    return gc_um('SELECT p.id, p.nome, c.bebida FROM loja_produtos p JOIN loja_categorias c ON c.id = p.categoria_id WHERE p.id = ?', [$id]);
+    return gc_um('SELECT p.id, p.nome, p.arte, c.bebida FROM loja_produtos p JOIN loja_categorias c ON c.id = p.categoria_id WHERE p.id = ?', [$id]);
 }
 
 /**

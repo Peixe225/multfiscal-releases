@@ -202,7 +202,7 @@
   padding: 18px var(--gutter);
 }
 
-/* estado que a loja daqui não conhece, esperando a do servidor (até 2,5 s): só a vaga preta, no tamanho do story */
+/* estado que a loja daqui não conhece, esperando a do servidor (a conversa inteira): só a vaga preta, no tamanho do story */
 .inicio-esperando {
   min-height: min(100svh, 900px);
   background: var(--preto);

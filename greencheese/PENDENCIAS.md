@@ -152,17 +152,35 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
 
 - **Valores de exemplo dos estados** (horário, taxa e pagamento de RJ, MG, SP, ES e SC): o dono salva os de verdade em
   Loja → Estados; até lá o site mostra "a confirmar".
-- **Estoque é contado à mão**: nada baixa sozinho quando um pedido sai (os pedidos ainda não chegam no servidor).
-  Quando chegarem (cadeia B), decidir com o dono se o pedido confirmado baixa o estoque.
+- **Estoque é contado à mão**: nada baixa sozinho quando um pedido sai (os pedidos ainda não chegam no servidor nesta
+  branch). Quando a cadeia B (pedido salvo no servidor) juntar, decidir com o dono se o pedido confirmado baixa o
+  estoque: hoje o "restam X" depende de ele contar em Loja → Produtos.
+- **Textos de cada passo do pedido guiado editáveis (F10)**: não estão nesta branch; a tela é da cadeia B (B1, "Textos
+  do pedido"). Quando as duas juntarem, a tela entra no menu Loja do painel.
+- **Taxa na mensagem do pedido**: com a taxa de verdade salva no estado, a mensagem diz `(taxa R$ 15,50)`; no dia de
+  entrega grátis, `(entrega grátis hoje)`; com a de exemplo (ou "a confirmar"), segue `(taxa a confirmar)` como sempre.
+  A sacola mostra o mesmo. Confirmar com o dono que a taxa fixa pode ir assim (é uma linha em `src/lib/mensagem.ts`,
+  `entregaDoCanal`).
+- **Bebida no Teste minha sorte**: além da categoria de bebida, o desenho de bebida (lata alta e garrafas) e o nome de
+  bebida alcoólica (os tipos e ~100 marcas comuns, `src/lib/alcool.ts`) tiram o produto do prêmio. Marca nova que não
+  está na lista e produto com desenho de lata comum numa categoria sem bebida ainda passam: o certo é pôr a bebida na
+  categoria de bebida.
+- **Tabaco e vape**: a lista ganhou os nomes do dia a dia (pod, essência, narguilé, IQOS, Heets, nicotina, Lost Mary,
+  Geek Bar, Oxbar…) e a grafia com número (V4PE). Nome novo que aparecer vai em `GC_TERMOS_PROIBIDOS`
+  (`nucleo/validar.php`) e em `src/painel/proibidos.ts` (o `testar-api` confere que batem).
 - **"Restam X"**: começa em 5 unidades (padrão escolhido aqui, não veio do dono) e só aparece em produto com o estoque
   contado. Confirmar com o dono, mudar ou desligar em Loja → "Restam X".
-- **Apagar dados de exemplo**: os rateios de exemplo saem junto (com quem entrou neles). Conferir com o dono antes de
-  tocar no botão, no ar.
+- **Apagar dados de exemplo**: os rateios de exemplo saem junto (com quem entrou neles e ainda não pagou). Apaga só o
+  que a folha mostrou: se alguém entrar num rateio de exemplo com a folha aberta, o painel mostra a lista nova antes.
+  Rateio de exemplo em que alguém já pagou fica, como rateio de verdade (o dono cancela pelo rateio, se for o caso).
+  Conferir com o dono antes de tocar no botão, no ar.
 - **Foto do produto**: o site junta a foto ao preto da página (o preto da foto some no preto). Foto com fundo claro
   aparece como um cartão claro: o melhor é foto com fundo preto ou recortada. Combinar com o dono como ele fotografa.
 - **Estado ativado no painel**: entra com o emblema de pino (genérico) no story de atendimento; um desenho próprio
   (como o Pão de Açúcar do RJ) é arte nova em `src/arte/pixel/emblemas.ts`. Fora da lupa do Sudeste + SC, ele acende
-  no mapa inteiro e fica na lista do "Por estado" (sem botão na lupa).
+  no mapa inteiro e fica na lista do "Por estado" (sem botão na lupa); pra quem é desse estado, o "Por estado" mostra
+  o mapa inteiro maior, sem a lupa, com o estado dela em destaque. O destaque padrão (`DELIVERY BA`) cabe inteiro na
+  bolinha; nome maior que uns 11 letras vira "…" no celular (o painel avisa).
 - **A rua do mercador**: as falas dos personagens são do roteiro (`src/componentes/rua/falas.ts`), não do painel; as
   "falas do mercador" do painel são as do topo do Mercado.
 - **Mudança com a página aberta**: o site pergunta a loja ao abrir e quando a pessoa volta pra aba depois de 10 min fora

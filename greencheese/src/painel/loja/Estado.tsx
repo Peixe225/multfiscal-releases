@@ -89,10 +89,10 @@ function validar(f: Form): Erros {
   if (!lerInstagram(f.instagram)) e.instagram = 'Põe o @ do Instagram do estado (letras, números, ponto e _).'
   const perfil = f.nomePerfil.trim()
   if (perfil && (tamanho(perfil) < 2 || tamanho(perfil) > 40)) e.nomePerfil = 'Nome do perfil de 2 a 40 letras (ou vazio: aparece só o @).'
-  else if (problemaNoTexto(perfil)) e.nomePerfil = problemaNoTexto(perfil) ?? undefined
+  else if (problemaNoTexto(perfil, 'loja')) e.nomePerfil = problemaNoTexto(perfil, 'loja') ?? undefined
   const d = f.destaque.trim()
   if (tamanho(d) < 2 || tamanho(d) > 20) e.destaque = 'Nome do destaque de 2 a 20 letras (ex.: DELIVERY RJ).'
-  else if (problemaNoTexto(d)) e.destaque = problemaNoTexto(d) ?? undefined
+  else if (problemaNoTexto(d, 'loja')) e.destaque = problemaNoTexto(d, 'loja') ?? undefined
   if (f.whatsModo === 'proprio' && !lerWhatsapp(f.whatsapp)) e.whatsapp = 'Esse WhatsApp não fecha. Põe DDD + 9 dígitos (ou usa o da loja).'
   f.semana.forEach((x, i) => {
     if (!x.aberto) return
@@ -109,6 +109,21 @@ function validar(f: Form): Erros {
   if (!f.pagamentos.length) e.pagamentos = 'Escolhe pelo menos uma forma de pagamento.'
   for (const k of Object.keys(e)) if (!e[k]) delete e[k]
   return e
+}
+
+/**
+ * O nome do destaque cabe inteiro embaixo da bolinha no celular? A fonte e a largura do site (11 px; a bolinha do estado
+ * deixa uns 76 px no celular de 344 px). Sem como medir, diz que cabe.
+ */
+function cabeNaBolinha(texto: string): boolean {
+  try {
+    const c = document.createElement('canvas').getContext('2d')
+    if (!c) return true
+    c.font = "400 11px system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    return c.measureText(texto.trim()).width <= 76
+  } catch {
+    return true
+  }
 }
 
 function horario(f: Form): Turno[] {
@@ -187,6 +202,11 @@ function Cidades({ cidades, aoMudar, erro }: { cidades: string[]; aoMudar: (c: s
     }
     if (tamanho(n) < 2 || tamanho(n) > 60) {
       setFalha('Nome da cidade de 2 a 60 letras.')
+      return
+    }
+    const problema = problemaNoTexto(n, 'loja')
+    if (problema) {
+      setFalha(problema)
       return
     }
     if (cidades.some((c) => slug(c) === slug(n))) {
@@ -390,7 +410,17 @@ export function Estado({ uf }: { uf: string }) {
             <Campo id="e-nomePerfil" rotulo="Nome do perfil" erro={erros.nomePerfil} dica="O nome que aparece no perfil do Instagram (vazio: só o @)." lado={<span className="pn-opcional">opcional</span>}>
               {(a) => <input {...a} name="nomePerfil" className="pn-input" autoComplete="off" maxLength={40} placeholder="GREEN CHEESE LTDA" value={f.nomePerfil} onChange={(x) => mudar('nomePerfil', x.target.value)} />}
             </Campo>
-            <Campo id="e-destaque" rotulo="Nome do destaque" erro={erros.destaque} dica="A bolinha do estado nos destaques do Início (abre o atendimento)." lado={<span className="pn-contagem">{tamanho(f.destaque)}/20</span>}>
+            <Campo
+              id="e-destaque"
+              rotulo="Nome do destaque"
+              erro={erros.destaque}
+              dica={
+                cabeNaBolinha(f.destaque)
+                  ? 'A bolinha do estado nos destaques do Início (abre o atendimento).'
+                  : 'No celular, esse nome passa da bolinha e o fim vira “…” (como no Instagram). Umas 11 letras cabem inteiras (ex.: DELIVERY RJ).'
+              }
+              lado={<span className="pn-contagem">{tamanho(f.destaque)}/20</span>}
+            >
               {(a) => <input {...a} name="destaque" className="pn-input" autoComplete="off" maxLength={20} value={f.destaque} onChange={(x) => mudar('destaque', x.target.value)} />}
             </Campo>
           </Secao>

@@ -38,8 +38,9 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
     if (ocupado) return
     const e: Partial<Record<keyof FormCat, string>> = {}
     if (tamanho(f.nome) < 2 || tamanho(f.nome) > 30) e.nome = 'Nome de 2 a 30 letras.'
-    else if (problemaNoTexto(f.nome)) e.nome = problemaNoTexto(f.nome) ?? undefined
+    else if (problemaNoTexto(f.nome, 'loja')) e.nome = problemaNoTexto(f.nome, 'loja') ?? undefined
     if (tamanho(f.curto) < 2 || tamanho(f.curto) > 14) e.curto = 'Nome curto de 2 a 14 letras (é o que aparece embaixo da bolinha).'
+    else if (problemaNoTexto(f.curto, 'loja')) e.curto = problemaNoTexto(f.curto, 'loja') ?? undefined
     setErros(e)
     if (e.nome || e.curto) return
     setOcupado(true)

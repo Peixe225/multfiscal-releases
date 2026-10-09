@@ -97,6 +97,21 @@ if (oficial !== 'Cupom: SORTE-AB12 — Leva 4 Seda OCB Premium Slim e paga 3 (Te
 // o subtotal nunca é recalculado com o cupom
 if (a[iSub] !== b[iSub]) problemas.push('o subtotal mudou com o cupom')
 
+// a entrega que o painel pôs: com a taxa de exemplo é "taxa a confirmar" (a referência); com taxa de verdade, o valor;
+// no dia da entrega grátis, "entrega grátis hoje". Só a linha da Entrega muda.
+const sexta = new Date(2026, 9, 9, 15)
+const iEnt = a.findIndex((l) => l.startsWith('Entrega:'))
+const entregaCom = (c, agora = sexta) => m.montarPedido({ ...pedido, canal: { ...canal, ...c }, agora }).split('\n')
+const comTaxa = entregaCom({ taxaEntrega: { valor: 15.5, demo: false } })
+if (comTaxa[iEnt] !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (taxa R$ 15,50)') problemas.push(`entrega com a taxa do painel veio "${comTaxa[iEnt]}"`)
+if (comTaxa.filter((l, i) => i !== iEnt).join('\n') !== a.filter((l, i) => i !== iEnt).join('\n')) problemas.push('com a taxa do painel, outra linha mudou')
+const gratis = { taxaEntrega: { valor: 15.5, demo: false }, entregaGratis: { dias: [2, 5], texto: 'Terça e sexta sem taxa!', demo: false } }
+const naSexta = entregaCom(gratis)[iEnt]
+if (naSexta !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (entrega grátis hoje)') problemas.push(`entrega no dia grátis veio "${naSexta}"`)
+const naQuinta = entregaCom(gratis, new Date(2026, 9, 8, 15))[iEnt]
+if (naQuinta !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (taxa R$ 15,50)') problemas.push(`entrega fora do dia grátis veio "${naQuinta}"`)
+if (entregaCom({ taxaEntrega: { valor: null, demo: false } })[iEnt] !== a[iEnt]) problemas.push('taxa "a confirmar" de verdade não ficou "taxa a confirmar"')
+
 // rateio, no padrão do pedido: a vaga reservada (com o código) e, sem servidor, o pedido pra entrar (sem código)
 const mg = { ...canal, uf: 'mg', nome: 'Minas Gerais', cidades: [{ slug: 'teofilo-otoni', nome: 'Teófilo Otoni' }], instagram: 'greencheese_importsmg' }
 const vaga = { canal: mg, cidade: 'Teófilo Otoni', titulo: 'Arizona Green Tea 680 ml', quantidade: 2, precoRateio: 14.9, codigo: 'RAT-K8EA', nome: 'Ian Teste', whatsapp: '5533991234567' }
@@ -132,4 +147,4 @@ if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
-console.log(`mensagem ok: sem cupom igual à referência; com cupom, +1 linha depois do Subtotal:\n${com}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)
+console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

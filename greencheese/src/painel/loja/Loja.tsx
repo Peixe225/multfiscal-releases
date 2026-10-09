@@ -102,6 +102,13 @@ function textoDoPlano(p: PlanoExemplos): string[] {
   return linhas
 }
 
+/** O que fica mesmo sendo de exemplo (rateio em que alguém pagou: vira de verdade, com o histórico). */
+function textoDoQueFica(p: PlanoExemplos): string[] {
+  return (p.manter ?? []).map(
+    (r) => `O rateio “${r.titulo}” fica: ${r.pagas === 1 ? '1 pessoa já pagou' : `${r.pagas} pessoas já pagaram`}. Ele vira rateio de verdade (se for o caso, cancela pelo rateio).`,
+  )
+}
+
 export function Loja() {
   useTitulo('Loja')
   const leitura = useLoja()
@@ -181,35 +188,63 @@ export function Loja() {
     }
   }
 
-  const apagarExemplos = async () => {
-    if (conferindo) return
-    setConferindo(true)
-    setGeral(null)
-    try {
-      const { plano } = await api.exemplos(true)
-      const linhas = textoDoPlano(plano)
-      if (!linhas.length) {
-        setOk('Não tem mais nada de exemplo.')
-        return
-      }
-      setConfirmacao({
-        titulo: 'Apagar os dados de exemplo?',
-        texto: 'Sai de vez (não volta):',
-        detalhes: (
+  // a folha mostra o plano da prévia e apaga só ele: mudou no meio (alguém entrou num rateio de exemplo), o servidor
+  // recusa e a folha volta com o plano novo
+  const confirmarExemplos = (plano: PlanoExemplos, assinatura: string, mudou = false) => {
+    const linhas = textoDoPlano(plano)
+    const ficam = textoDoQueFica(plano)
+    if (!linhas.length) {
+      setConfirmacao(null)
+      setOk(ficam.length ? `Não tem mais nada pra apagar. ${ficam.join(' ')}` : 'Não tem mais nada de exemplo.')
+      return
+    }
+    setConfirmacao({
+      titulo: mudou ? 'Mudou: confere de novo' : 'Apagar os dados de exemplo?',
+      texto: mudou ? 'Alguém mexeu nos dados de exemplo enquanto a folha tava aberta. Agora sai de vez (não volta):' : 'Sai de vez (não volta):',
+      detalhes: (
+        <>
           <ul className="pn-plano">
             {linhas.map((x) => (
               <li key={x}>{x}</li>
             ))}
           </ul>
-        ),
-        botao: 'Apagar os de exemplo',
-        perigo: true,
-        acao: async () => {
-          await api.exemplos(false)
-          await leitura.recarregar()
-          setOk('Dados de exemplo apagados. O site já não mostra.')
-        },
-      })
+          {ficam.length > 0 && (
+            <ul className="pn-plano">
+              {ficam.map((x) => (
+                <li key={x}>{x}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      ),
+      botao: mudou ? 'Apagar assim' : 'Apagar os de exemplo',
+      perigo: true,
+      acao: async () => {
+        try {
+          await api.exemplos(assinatura)
+        } catch (e) {
+          if (e instanceof ErroApi && e.codigo === 'mudou' && e.dados.plano && typeof e.dados.assinatura === 'string') {
+            const novo = e.dados.plano as PlanoExemplos
+            const assinaturaNova = e.dados.assinatura
+            // esta folha fecha (a ação terminou); a do plano novo abre logo depois
+            window.setTimeout(() => confirmarExemplos(novo, assinaturaNova, true), 0)
+            return
+          }
+          throw e
+        }
+        await leitura.recarregar()
+        setOk('Dados de exemplo apagados. O site já não mostra.')
+      },
+    })
+  }
+
+  const apagarExemplos = async () => {
+    if (conferindo) return
+    setConferindo(true)
+    setGeral(null)
+    try {
+      const { plano, assinatura } = await api.exemplos()
+      confirmarExemplos(plano, assinatura)
     } catch (e) {
       setGeral(mensagemDe(e))
     } finally {

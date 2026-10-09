@@ -14,7 +14,7 @@ import { ArteProduto, NomeProduto } from './Arte'
 import { comPremio, estadosNoSite, guardarLoja, nomeCompleto, useLoja } from './dados'
 import { fraseDoPremio, PreviaPremio } from './premio-ui'
 import type { LojaAdmin, PremioAdmin, PremioCorpo, ProdutoAdmin, TipoPremio, ValorPremio } from './tipos'
-import { pareceAlcool, problemaNoTexto, tamanho } from './validar'
+import { bebidaPeloProduto, problemaNoTexto, tamanho } from './validar'
 
 interface Form {
   tipo: TipoPremio
@@ -85,9 +85,9 @@ function valorDo(f: Form): ValorPremio {
   return { produto: f.brinde, qtd: n(f.brindeQtd) ?? 1 }
 }
 
-/** Produto que pode virar prêmio: no ar, fora de categoria de bebida e sem nome de bebida alcoólica. */
+/** Produto que pode virar prêmio: no ar, fora de categoria de bebida, sem desenho de bebida e sem nome de bebida alcoólica. */
 function acessorio(p: ProdutoAdmin, l: LojaAdmin): boolean {
-  return !l.categorias.find((c) => c.id === p.categoria)?.bebida && !pareceAlcool(p.nome)
+  return !l.categorias.find((c) => c.id === p.categoria)?.bebida && !bebidaPeloProduto(p)
 }
 
 function validar(f: Form, l: LojaAdmin): Erros {

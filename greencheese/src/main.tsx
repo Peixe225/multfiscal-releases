@@ -18,9 +18,10 @@ import { iniciarLoja } from './store/loja'
 carregarArtesRealistas().catch(() => {})
 
 // a loja do servidor: a primeira tela já sai com a embutida (ou a guardada no aparelho) e a pergunta ao servidor vai
-// no primeiro respiro (na hora, se o estado do link ou o salvo não está nela); com o pedido aberto, a volta pra aba
-// não troca a loja debaixo da pessoa
-iniciarLoja({ pedidoAberto: () => useChat.getState().aberto, ufPedida: lerParametros().uf ?? useLocal.getState().uf })
+// no primeiro respiro (na hora, se o estado do link ou o salvo, ou o produto do link direto, não está nela); com o
+// pedido aberto, a volta pra aba não troca a loja debaixo da pessoa
+const link = lerParametros()
+iniciarLoja({ pedidoAberto: () => useChat.getState().aberto, ufPedida: link.uf ?? useLocal.getState().uf, produtosPedidos: [link.p, link.produto] })
 // a sacola nunca passa do "restam X" do estado (ajusta na abertura, quando a loja muda e quando troca de estado)
 vigiarEstoqueDaSacola()
 

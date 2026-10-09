@@ -13,7 +13,9 @@ import './MapaBrasil.css'
 // Tudo é desenhado em células inteiras: o mapa com `m` px por célula e a lupa com `l` px (sempre inteiros, nítidos).
 
 // Os estados da loja vêm do servidor (o dono ativa outros no painel): acendem no mapa inteiro e, se ficam dentro da
-// lupa, ganham o botão nela. A lupa (o recorte de src/dados/mapa-brasil.ts) é sempre a do Sudeste + SC.
+// lupa, ganham o botão nela. A lupa (o recorte de src/dados/mapa-brasil.ts) é sempre a do Sudeste + SC: pra quem é de
+// um estado atendido fora dela (BA, GO ativados no painel), ela não diria nada. Aí a lupa sai e o mapa inteiro, maior,
+// destaca o estado da pessoa (branco, com o pino).
 
 /** Os estados que a lupa amplia (LUPA_UFS do scripts/gerar-mapa-brasil.mjs): a moldura do zoom fica em volta deles. */
 const UFS_DA_LUPA = ['sp', 'mg', 'rj', 'es', 'sc']
@@ -459,7 +461,11 @@ export function MapaBrasil({
     }
   }, [])
 
-  const plano = useMemo(() => (largura ? planejar(largura, modo === 'secao', celulaMax, altoTela) : null), [largura, modo, celulaMax, altoTela])
+  // estado da pessoa atendido e fora da lupa: sem lupa, com o mapa inteiro o maior que couber (até 6 px por célula)
+  const foraDaLupa = modo === 'secao' && !!atual && atendidas.has(atual) && !dentroDaLupa(atual)
+  const comLupa = modo === 'secao' && !foraDaLupa
+  const celula = foraDaLupa ? Math.max(celulaMax, 6) : celulaMax
+  const plano = useMemo(() => (largura ? planejar(largura, comLupa, celula, altoTela) : null), [largura, comLupa, celula, altoTela])
   const linhasZoom = useMemo(() => (plano ? zoom(plano) : null), [plano])
 
   useEffect(() => {

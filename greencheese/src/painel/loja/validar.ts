@@ -14,25 +14,38 @@ export function palavraProibida(texto: string): string | null {
   return null
 }
 
-export const AVISO_TABACO = 'Tabaco e vape não entram no site (regra da Anvisa pra venda online).'
-export const avisoPalavra = (p: string) => `Tira o “${p}”: o site não usa essa palavra.`
+/**
+ * As da PALAVRAS_PROIBIDAS que valem também no produto, na categoria e no estado (a gíria e a promessa): as mesmas do
+ * GC_LOJA_PALAVRAS_LOJA do servidor. "folha" (seda de 50 folhas), "erva" (erva-mate), "flor", "trago", "tapa" e
+ * "entrega" têm uso de verdade nesses textos e ficam de fora.
+ */
+const PALAVRAS_LOJA = ['fumaça', 'fumar', 'marofa', 'brisa', 'chapar', 'larica', 'prensado', '420', 'grátis', 'frete', 'prazo', 'sorteio']
 
-/** O aviso do texto: tabaco primeiro, depois as palavras da lista (quando `palavras`). */
-export function problemaNoTexto(texto: string, palavras = false): string | null {
-  if (termoProibido(texto)) return AVISO_TABACO
-  if (palavras) {
-    const p = palavraProibida(texto)
-    if (p) return avisoPalavra(p)
+/** Primeira da PALAVRAS_LOJA no texto: no começo de palavra, e número inteiro ("420" não pega "4200"). */
+export function palavraDaLoja(texto: string): string | null {
+  const t = semAcento(texto)
+  for (const p of PALAVRAS_LOJA) {
+    const c = semAcento(p)
+    if (new RegExp(`(^|[^a-z0-9])${c}${/^\d+$/.test(c) ? '(?![0-9])' : ''}`).test(t)) return p
   }
   return null
 }
 
-/** Nome com cara de bebida alcoólica (a rede do servidor pra prêmio): palavra inteira, sem acento. */
-const ALCOOL = ['whisky', 'whiskey', 'uisque', 'gin', 'vodka', 'vodca', 'rum', 'tequila', 'cachaca', 'conhaque', 'cognac', 'licor', 'cerveja', 'chopp', 'vinho', 'espumante', 'champagne', 'jagermeister', 'absinto', 'bourbon', 'mezcal']
-export function pareceAlcool(nome: string): boolean {
-  const t = ` ${semAcento(nome).replace(/[^a-z0-9]+/g, ' ').trim()} `
-  return ALCOOL.some((p) => t.includes(` ${p} `))
+export const AVISO_TABACO = 'Tabaco e vape não entram no site (regra da Anvisa pra venda online).'
+export const avisoPalavra = (p: string) => `Tira o “${p}”: o site não usa essa palavra.`
+
+/**
+ * O aviso do texto: tabaco primeiro, depois as palavras. `palavras`: true = a lista inteira (textos da loja e
+ * prêmios); 'loja' = a gíria e a promessa (produto, categoria e estado); false = só o tabaco.
+ */
+export function problemaNoTexto(texto: string, palavras: boolean | 'loja' = false): string | null {
+  if (termoProibido(texto)) return AVISO_TABACO
+  const p = palavras === 'loja' ? palavraDaLoja(texto) : palavras ? palavraProibida(texto) : null
+  return p ? avisoPalavra(p) : null
 }
+
+// nome e desenho de bebida (a rede do servidor pra prêmio): as listas moram em src/lib/alcool.ts, a mesma do site
+export { bebidaPeloProduto, pareceAlcool } from '../../lib/alcool'
 
 /** Preço do campo: '' = sem preço (Consultar); número de 0 a 100.000; undefined = inválido. */
 export function lerPreco(texto: string): number | null | undefined {

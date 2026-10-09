@@ -133,7 +133,7 @@ function DestaqueInterativo({ i }: { i: Interativo }) {
 /** O destaque real do estado (moto): abre o story de atendimento (horário, entrega, cidades). */
 function DestaqueEstado({ canal, abrirInfo }: { canal: Canal; abrirInfo: () => void }) {
   return (
-    <button type="button" className="destaque toque" onClick={abrirInfo} aria-label={`${canal.destaque}: atendimento, horário e entrega`}>
+    <button type="button" className="destaque toque" data-destaque="estado" onClick={abrirInfo} aria-label={`${canal.destaque}: atendimento, horário e entrega`}>
       <span className="destaque-bola">
         <Anel total={1} acesos={1} />
         <span className="destaque-capa">

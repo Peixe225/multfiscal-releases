@@ -38,11 +38,18 @@ export async function lojaSemServidor(t) {
   const cli = execFileSync('node', [join(raiz, 'scripts', 'gerar-semente-loja.mjs'), '--conferir'], { encoding: 'utf8' })
   igual(cli.trim(), 'semente em dia', 'gerar-semente-loja.mjs --conferir')
   const php = JSON.parse(
-    execFileSync(PHP, ['-r', 'define("GC_API", 1); require $argv[1] . "/loja.php"; require $argv[1] . "/loja-validar.php"; echo json_encode([GC_LOJA_PALAVRAS, GC_LOJA_ALCOOL, GC_LOJA_ARTES, GC_LOJA_ICONES, GC_LOJA_NOMES_UF, GC_LOJA_STORIES_MAX, GC_LOJA_PAGAMENTOS, GC_LOJA_EMBLEMAS]);', join(raiz, 'public', 'api', 'nucleo')], { encoding: 'utf8' }),
+    execFileSync(PHP, ['-r', 'define("GC_API", 1); require $argv[1] . "/validar.php"; require $argv[1] . "/loja.php"; require $argv[1] . "/loja-validar.php"; echo json_encode([GC_LOJA_PALAVRAS, GC_LOJA_ALCOOL, GC_LOJA_ARTES, GC_LOJA_ICONES, GC_LOJA_NOMES_UF, GC_LOJA_STORIES_MAX, GC_LOJA_PAGAMENTOS, GC_LOJA_EMBLEMAS, GC_LOJA_ARTES_BEBIDA, GC_LOJA_PALAVRAS_LOJA, GC_TERMOS_PROIBIDOS, GC_TERMOS_PALAVRA_INTEIRA]);', join(raiz, 'public', 'api', 'nucleo')], { encoding: 'utf8' }),
   )
-  const [palavras, alcool, artes, icones, nomesUf, storiesMax, pagamentos, emblemas] = php
+  const [palavras, alcool, artes, icones, nomesUf, storiesMax, pagamentos, emblemas, artesBebida, palavrasLoja, tabaco, tabacoInteira] = php
   igual(palavras, listaTs(join(raiz, 'src/dados/sorte.ts'), 'PALAVRAS_PROIBIDAS = ['), 'PALAVRAS_PROIBIDAS: a mesma lista no PHP e no site, na mesma ordem')
-  igual(alcool, listaTs(join(raiz, 'src/painel/loja/validar.ts'), 'const ALCOOL = ['), 'nomes de bebida alcoólica: a mesma lista no servidor e no painel')
+  igual(alcool, listaTs(join(raiz, 'src/lib/alcool.ts'), 'export const ALCOOL = ['), 'nomes de bebida alcoólica: a mesma lista no servidor, no site e no painel')
+  ok(alcool.length > 90 && ['jack daniels', 'smirnoff', 'heineken', 'brahma', 'chope', 'saque', 'skol', 'campari'].every((x) => alcool.includes(x)), 'a lista de bebida alcoólica tem as marcas comuns (Jack Daniels, Smirnoff, Heineken, Brahma, Skol, Campari) e o chope e o saquê')
+  igual(artesBebida, listaTs(join(raiz, 'src/lib/alcool.ts'), 'export const ARTES_DE_BEBIDA = ['), 'desenhos de bebida: os mesmos no servidor e no site')
+  ok(artesBebida.every((a) => artes.includes(a)) && !artesBebida.includes('lata'), 'desenhos de bebida: formatos que existem, sem a lata (o desenho de todo produto novo)')
+  igual(palavrasLoja, listaTs(join(raiz, 'src/painel/loja/validar.ts'), 'const PALAVRAS_LOJA = ['), 'a gíria e a promessa do produto e do estado: a mesma lista no servidor e no painel')
+  ok(palavrasLoja.every((x) => palavras.includes(x)), 'a gíria e a promessa do produto e do estado saem da PALAVRAS_PROIBIDAS')
+  igual(tabaco, listaTs(join(raiz, 'src/painel/proibidos.ts'), 'const TERMOS = ['), 'tabaco e vape: a mesma lista no servidor e no painel')
+  igual(tabacoInteira, listaTs(join(raiz, 'src/painel/proibidos.ts'), 'const PALAVRA_INTEIRA = ['), 'tabaco e vape (palavra inteira): a mesma lista no servidor e no painel')
   igual(artes, listaTs(join(raiz, 'src/lib/tipos.ts'), 'export type TipoArte =', '\n\n'), 'formatos da arte: os do TipoArte do site')
   igual(artes, listaTs(join(raiz, 'src/painel/loja/nomes.ts'), 'export const ARTES', '\n]').filter((_, i) => i % 2 === 0), 'formatos da arte: os do painel')
   igual(icones, listaTs(join(raiz, 'src/painel/loja/nomes.ts'), 'export const ICONES', '\n]').filter((_, i) => i % 2 === 0), 'ícones de categoria: os do painel')
@@ -253,12 +260,34 @@ export async function loja(t, { nomesUf }) {
     for (const [mudar, campo, termo] of [
       [{ nome: 'Seda + Tabaco' }, 'nome', 'tabaco'], [{ descricao: 'Pra quem curte VAPE.' }, 'descricao', 'vape'], [{ detalhe: 'Essência de narguilé' }, 'detalhe', 'essencia de narguile'],
       [{ tamanho: 'Elf Bar 600' }, 'tamanho', 'elf bar'], [{ variacoes: [{ nome: 'Palheiro' }] }, 'variacoes', 'palheiro'], [{ nome: 'Dutch Masters' }, 'nome', 'dutch master'],
+      // os nomes do dia a dia do vape, do tabaco aquecido e do narguilé, e a grafia com número
+      [{ nome: 'Pod Oxbar 9500' }, 'nome', 'pod'], [{ nome: 'Essência Zomo 50g' }, 'nome', 'essencia'], [{ nome: 'Narguilé completo' }, 'nome', 'narguile'],
+      [{ nome: 'IQOS Iluma' }, 'nome', 'iqos'], [{ nome: 'Nicotina líquida 30ml' }, 'nome', 'nicotina'], [{ nome: 'Lost Mary BM600' }, 'nome', 'lost mary'],
+      [{ nome: 'Geek Bar Pulse' }, 'nome', 'geek bar'], [{ nome: 'Heets Amber' }, 'nome', 'heets'], [{ nome: 'V4PE' }, 'nome', 'vape'], [{ nome: 'Oxbar G8000' }, 'nome', 'oxbar'],
+      [{ descricao: 'Pro teu hookah.' }, 'descricao', 'hookah'], [{ detalhe: 'Kit e-cig' }, 'detalhe', 'e cig'], [{ nome: 'C1GARRO de palha' }, 'nome', 'cigarro'], [{ nome: 'E1f Bar' }, 'nome', 'elf bar'],
     ]) {
       const x = await dono.post('admin-produto-salvar', { ...novo, ...mudar })
       erro(x, 422, 'proibido', `tabaco/vape: recusa ${JSON.stringify(mudar)}`)
       igual([x.json.campo, x.json.termo, x.json.lista], [campo, termo, 'tabaco'], `campo e termo de ${JSON.stringify(mudar)}`)
     }
+    // a gíria e a promessa da PALAVRAS_PROIBIDAS também no produto (o nome, a linha de baixo e a descrição saem no site)
+    for (const [mudar, campo, termo] of [
+      [{ descricao: 'Mata a larica! Frete grátis e entrega no prazo. Brisa garantida.' }, 'descricao', 'brisa'], [{ nome: 'Seda 420' }, 'nome', '420'],
+      [{ detalhe: 'Chega no prazo' }, 'detalhe', 'prazo'], [{ variacoes: [{ nome: 'Marofa' }] }, 'variacoes', 'marofa'], [{ tamanho: 'Frete incluso' }, 'tamanho', 'frete'],
+    ]) {
+      const x = await dono.post('admin-produto-salvar', { ...novo, ...mudar })
+      erro(x, 422, 'proibido', `gíria/promessa: recusa ${JSON.stringify(mudar)}`)
+      igual([x.json.campo, x.json.termo, x.json.lista], [campo, termo, 'palavras'], `campo, termo e lista de ${JSON.stringify(mudar)}`)
+    }
     igual(await versao(), v, 'nada recusado entrou')
+    // o que tem uso de verdade passa: Seda Smoking, erva-mate, folhas, floral, entrega, "4200", "Podium", "essencial"
+    {
+      const x = await dono.post('admin-produto-salvar', {
+        ...novo, nome: 'Seda Smoking Podium 4200', detalhe: 'Essencial na cuia', descricao: 'Cuia pra erva-mate, aroma floral. Entrega com a seda de 50 folhas e um trago.',
+      })
+      igual(x.status, 201, 'produto com Smoking, erva-mate, folhas, floral, entrega, trago, 4200, Podium e essencial passa')
+      igual((await dono.post('admin-produto-apagar', { id: x.json.produto.id })).status, 200, 'e sai de novo')
+    }
     erro(await dono.post('admin-produto-salvar', { id: 'nao-existe', preco: 1 }), 404, 'nao-encontrado', 'editar produto que não existe')
   }
 
@@ -515,6 +544,15 @@ export async function loja(t, { nomesUf }) {
     const tb = await salvar({ uf: 'mg', destaque: 'DELIVERY VAPE' })
     erro(tb, 422, 'proibido', 'destaque com vape')
     igual([tb.json.campo, tb.json.termo], ['destaque', 'vape'], 'campo e termo')
+    // a gíria e a promessa também no nome do perfil (sai no cabeçalho), no destaque e na cidade
+    for (const [corpo, campo, termo, lista] of [
+      [{ uf: 'mg', nomePerfil: 'Brisa 420 Larica' }, 'nomePerfil', 'brisa', 'palavras'], [{ uf: 'mg', destaque: 'FRETE GRÁTIS' }, 'destaque', 'grátis', 'palavras'],
+      [{ uf: 'mg', cidades: ['Teófilo Otoni', 'Larica City'] }, 'cidades', 'larica', 'palavras'], [{ uf: 'mg', cidades: ['Pod City'] }, 'cidades', 'pod', 'tabaco'],
+    ]) {
+      const x = await salvar(corpo)
+      erro(x, 422, 'proibido', `estado: recusa ${JSON.stringify(corpo)}`)
+      igual([x.json.campo, x.json.termo, x.json.lista], [campo, termo, lista], `campo, termo e lista (${JSON.stringify(corpo)})`)
+    }
     igual(await versao(), v, 'nada recusado entrou')
 
     let x = await salvar({ uf: 'mg', instagram: ' @GreenCheese_ImportsMG ' })
@@ -765,6 +803,31 @@ export async function loja(t, { nomesUf }) {
     })
     igual(x.status, 201, 'prêmio de verdade com brinde de produto de exemplo')
     igual((await dono.post('admin-produto-apagar', { id: 'copo-de-whisky' })).status, 200, 'apaga o copo')
+
+    // bebida de marca fora da categoria de bebida (o nome não diz "whisky") e desenho de garrafa: nem brinde, nem alvo
+    const alcoolicos = []
+    for (const [nome, arte] of [
+      ['Jack Daniels Honey', null], ["Jack Daniel's Fire", null], ['Smirnoff Ice', null], ['Heineken long neck', null], ['Chope Brahma', null], ['Saquê Azuma', null],
+      ['Skol Beats', null], ['Campari 900ml', null], ['Garrafinha da casa', { tipo: 'garrafa-gin', corpo: '#2a6b3c' }], ['Lata alta da casa', { tipo: 'lata-alta', corpo: '#2a6b3c' }],
+    ]) {
+      const r = await dono.post('admin-produto-salvar', { nome, categoria: 'acessorios', preco: 50, ...(arte ? { arte } : {}) })
+      igual(r.status, 201, `"${nome}" entra em acessórios`)
+      alcoolicos.push([nome, r.json.produto.id])
+    }
+    const v2 = await versao()
+    for (const [nome, id] of alcoolicos) {
+      const b = await dono.post('admin-premio-salvar', { ...base1, tipo: 'brinde', valor: { produto: id, qtd: 1 }, aplicaA: { categorias: ['acessorios'] }, titulo: `Brinde ${id}`.slice(0, 60) })
+      erro(b, 400, 'invalido', `"${nome}" não vira brinde`)
+      igual(b.json.campo, 'valor', `campo do brinde "${nome}"`)
+      const a = await dono.post('admin-premio-salvar', { ...base1, aplicaA: { produtos: [id] }, titulo: `Vale ${id}`.slice(0, 60) })
+      erro(a, 400, 'invalido', `"${nome}" não é alvo de prêmio`)
+    }
+    igual(await versao(), v2, 'nenhum prêmio com bebida entrou')
+    for (const [, id] of alcoolicos) await dono.post('admin-produto-apagar', { id })
+    // o produto de um prêmio não ganha desenho de bebida
+    y = await dono.post('admin-produto-salvar', { id: 'isqueiro-clipper', arte: { tipo: 'garrafa-quadrada', corpo: '#ffffff' } })
+    erro(y, 400, 'invalido', 'o brinde do prêmio não ganha desenho de garrafa')
+    igual(y.json.campo, 'arte', 'campo arte')
   }
 
   parte('loja: Atividade')
@@ -831,20 +894,28 @@ export async function lojaMigracao(t) {
   }
 }
 
-/** No fim: "apagar dados de exemplo" (conferir primeiro, depois apagar de uma vez). */
+/**
+ * No fim: "apagar dados de exemplo" (conferir primeiro, depois apagar de uma vez, só o que a prévia mostrou). Alguém
+ * entra num rateio de exemplo entre a prévia e o toque: nada sai (409 mudou, com o plano novo). Rateio de exemplo em que
+ * alguém pagou nunca apaga: fica, como rateio de verdade.
+ */
 export async function lojaExemplos(t) {
   const { ok, igual, erro, parte, dono, site } = t
   parte('loja: apagar dados de exemplo')
   const pub = async () => (await site().get('loja')).json
   const adm = async () => (await dono.get('admin-loja')).json.loja
+  const conferir = async () => {
+    const c = await dono.post('admin-loja-exemplos-apagar', { conferir: true })
+    igual([c.status, c.json.apagou, typeof c.json.assinatura], [200, false, 'string'], 'conferir mostra o plano e a assinatura dele')
+    return c.json
+  }
   // story com um produto de exemplo: sai junto com ele
   await dono.post('admin-stories-salvar', { uf: 'sp', produtos: ['seda-raw-classic-king-size', 'seda-ocb-premium-slim'] })
   const antes = await pub()
   erro(await dono.post('admin-loja-exemplos-apagar', { conferir: 'sim' }), 400, 'invalido', 'conferir que não é sim/não')
-  const c = await dono.post('admin-loja-exemplos-apagar', { conferir: true })
-  igual([c.status, c.json.apagou], [200, false], 'conferir só mostra o plano')
-  const plano = c.json.plano
-  igual(Object.keys(plano).sort(), ['desativar', 'premios', 'produtos', 'rateios'], 'o plano: prêmios, rateios, produtos e o que só sai do site')
+  const c = await conferir()
+  const plano = c.plano
+  igual(Object.keys(plano).sort(), ['desativar', 'manter', 'premios', 'produtos', 'rateios'], 'o plano: prêmios, rateios, o que fica, produtos e o que só sai do site')
   const a0 = await adm()
   const demos = a0.produtos.filter((p) => p.demo)
   igual(plano.premios.map((p) => p.id).sort(), a0.sorte.premios.filter((p) => p.demo).map((p) => p.id).sort(), 'todos os prêmios de exemplo')
@@ -852,23 +923,52 @@ export async function lojaExemplos(t) {
   ok(plano.produtos.some((p) => p.id === 'seda-raw-classic-king-size') && plano.produtos.some((p) => p.id === 'arizona-green-tea'), 'sai produto de exemplo (até o do rateio de exemplo, que sai junto)')
   igual(plano.desativar.map((p) => p.id), ['isqueiro-clipper'], 'produto de exemplo que é brinde de um prêmio de verdade: só sai do site')
   ok(plano.rateios.every((r) => typeof r.pessoas === 'number'), 'rateios de exemplo com quantas pessoas entraram')
+  igual(plano.manter, [], 'nenhum rateio de exemplo com gente que pagou (ainda)')
   igual((await pub()).versao, antes.versao, 'conferir não mexe em nada')
-  const a = await dono.post('admin-loja-exemplos-apagar', {})
-  igual([a.status, a.json.apagou], [200, true], 'apagou')
+  // apagar sem a assinatura da prévia, ou com uma que não bate: nada sai
+  const sem = await dono.post('admin-loja-exemplos-apagar', {})
+  erro(sem, 400, 'invalido', 'apagar sem conferir antes')
+  igual(sem.json.campo, 'assinatura', 'campo assinatura')
+  const torta = await dono.post('admin-loja-exemplos-apagar', { assinatura: 'x'.repeat(24) })
+  erro(torta, 409, 'mudou', 'assinatura que não bate')
+  ok(torta.json.plano && typeof torta.json.assinatura === 'string', 'o 409 traz o plano novo e a assinatura dele')
+  // corrida: alguém entra no rateio de exemplo (o site mostra como rateio de verdade) depois da prévia
+  const alvo = plano.rateios.find((r) => r.id === 'arizona-green-tea')
+  ok(!!alvo, 'o Arizona (rateio de exemplo) tá no plano')
+  const e = await site().post('rateio-entrar', { rateio: 'arizona-green-tea', nome: 'Cliente Pagante', whatsapp: '(31) 98888-7766', uf: 'mg', quantidade: 1 })
+  igual(e.status, 201, 'cliente entra no rateio de exemplo depois da prévia')
+  const velha = await dono.post('admin-loja-exemplos-apagar', { assinatura: c.assinatura })
+  erro(velha, 409, 'mudou', 'apagar com a prévia velha: mudou, nada sai')
+  igual(velha.json.plano.rateios.find((r) => r.id === 'arizona-green-tea')?.pessoas, alvo.pessoas + 1, 'o plano novo mostra a pessoa que entrou')
+  igual((await pub()).versao, antes.versao, 'nada saiu')
+  igual((await dono.get('admin-participantes', { query: '&rateio=arizona-green-tea' })).status, 200, 'o rateio continua lá')
+  // ela paga: o rateio de exemplo não apaga mais, fica (vira de verdade) com o histórico
+  const pessoa = (await dono.get('admin-participantes', { query: '&rateio=arizona-green-tea' })).json.participantes.find((x) => x.nome === 'Cliente Pagante')
+  igual((await dono.post('admin-participante-status', { id: pessoa.id, status: 'confirmado' })).status, 200, 'dono confirma o pagamento')
+  const c2 = await conferir()
+  igual(c2.plano.manter.map((r) => [r.id, r.pagas]), [['arizona-green-tea', 1]], 'rateio de exemplo com pagamento: fica')
+  ok(!c2.plano.rateios.some((r) => r.id === 'arizona-green-tea'), 'e não está entre os que saem')
+  ok(c2.plano.desativar.some((p) => p.id === 'arizona-green-tea') && !c2.plano.produtos.some((p) => p.id === 'arizona-green-tea'), 'o produto dele só sai do site (tem histórico de verdade)')
+  const a = await dono.post('admin-loja-exemplos-apagar', { assinatura: c2.assinatura })
+  igual([a.status, a.json.apagou], [200, true], 'apagou com a prévia certa')
+  const fica = await dono.get('admin-participantes', { query: '&rateio=arizona-green-tea' })
+  ok(fica.status === 200 && fica.json.participantes.some((x) => x.nome === 'Cliente Pagante' && x.status === 'confirmado'), 'quem pagou continua no rateio (o registro não se perde)')
+  igual((await site().get('rateios')).json.rateios.find((r) => r.id === 'arizona-green-tea')?.demo, false, 'o rateio que ficou é de verdade agora')
   const l = await pub()
   ok(l.loja.produtos.length > 0 && l.loja.produtos.every((p) => p.demo === false), 'o site fica só com produto de verdade')
   ok(l.loja.sorte.premios.every((p) => p.demo === false), 'e só com prêmio de verdade')
   igual(l.loja.stories.sp, ['seda-ocb-premium-slim'], 'o produto de exemplo sai do story junto')
   ok(!(await site().get('rateios')).json.rateios.some((r) => r.demo), 'nenhum rateio de exemplo no site')
   const a1 = await adm()
-  igual(a1.produtos.filter((p) => p.demo).map((p) => [p.id, p.ativo]), [['isqueiro-clipper', false]], 'no painel fica só o Clipper (fora do site, com o histórico)')
+  igual(a1.produtos.filter((p) => p.demo).map((p) => [p.id, p.ativo]).sort(), [['arizona-green-tea', false], ['isqueiro-clipper', false]], 'no painel ficam o Clipper e o Arizona (fora do site, com o histórico)')
   igual(a1.sorte.premios.map((p) => [p.id, p.noSite]), [['clipper-de-brinde', false]], 'o prêmio de verdade continua, fora do jogo enquanto o brinde dele tá fora do site')
   ok(!l.loja.sorte.premios.some((p) => p.id === 'clipper-de-brinde'), 'e o site não sorteia ele')
   const ev = (await dono.get('admin-eventos')).json.eventos
-  const n = (k, um, varios) => (plano[k].length === 0 ? null : `${plano[k].length} ${plano[k].length === 1 ? um : varios}`)
-  const texto = `Apagou os dados de exemplo (${[n('produtos', 'produto', 'produtos'), n('premios', 'prêmio', 'prêmios'), n('rateios', 'rateio', 'rateios')].filter(Boolean).join(', ')})`
+  const n = (k, um, varios) => (c2.plano[k].length === 0 ? null : `${c2.plano[k].length} ${c2.plano[k].length === 1 ? um : varios}`)
+  const texto = `Apagou os dados de exemplo (${[n('produtos', 'produto', 'produtos'), n('premios', 'prêmio', 'prêmios'), n('rateios', 'rateio', 'rateios')].filter(Boolean).join(', ')}); 1 rateio com pagamento ficou`
   ok(ev.some((e) => e.acao === 'loja-exemplos-apagados' && e.texto === texto && e.usuario === 'dono'), `na Atividade: "${texto}"`)
-  const de2 = await dono.post('admin-loja-exemplos-apagar', {})
-  igual([de2.json.plano.produtos, de2.json.plano.premios, de2.json.plano.rateios, de2.json.plano.desativar], [[], [], [], []], 'de novo: nada mais pra apagar')
-  igual(de2.json.versao, a.json.versao, 'e a versão não sobe')
+  const c3 = await conferir()
+  igual([c3.plano.produtos, c3.plano.premios, c3.plano.rateios, c3.plano.desativar, c3.plano.manter], [[], [], [], [], []], 'de novo: nada mais pra apagar')
+  const de2 = await dono.post('admin-loja-exemplos-apagar', { assinatura: c3.assinatura })
+  igual([de2.status, de2.json.versao], [200, a.json.versao], 'e a versão não sobe')
 }

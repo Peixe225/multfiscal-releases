@@ -394,7 +394,7 @@ function gc_loja_alvos_do_premio(array $p): array
 
 /**
  * O que decide se um prêmio vale no site: os produtos no ar, as categorias e o que é bebida (categoria marcada, ou
- * produto com nome de bebida alcoólica).
+ * produto com desenho de bebida ou nome de bebida alcoólica).
  * @param list<array<string, mixed>> $produtos linhas de loja_produtos
  * @param list<array<string, mixed>> $categorias linhas de loja_categorias
  * @return array{ativos: array<string, true>, categorias: array<string, true>, bebidas: array<string, true>, categoriasBebida: array<string, true>}
@@ -412,7 +412,7 @@ function gc_loja_contexto_premios(array $produtos, array $categorias): array
         if ((int) $p['ativo'] === 1) {
             $ctx['ativos'][(string) $p['id']] = true;
         }
-        if (isset($ctx['categoriasBebida'][(string) $p['categoria_id']]) || gc_loja_parece_alcool((string) $p['nome'])) {
+        if (isset($ctx['categoriasBebida'][(string) $p['categoria_id']]) || gc_loja_bebida_pelo_produto((string) $p['nome'], $p['arte'] ?? null)) {
             $ctx['bebidas'][(string) $p['id']] = true;
         }
     }

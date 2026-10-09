@@ -218,8 +218,13 @@ function semServidorAqui(): boolean {
 let buscando: Promise<void> | null = null
 let ultimaBusca = 0
 let conferida = false
-/** A tela que espera a loja do servidor (estado que a daqui não conhece) para de esperar depois disso. */
-const PACIENCIA_MS = 2500
+/** O servidor já respondeu com a loja (nova, a mesma de antes ou "sem loja"): o que não está nela não existe mesmo. */
+let respondeu = false
+/**
+ * Rede de segurança de quem espera a loja do servidor (estado ou produto que a daqui não conhece): a espera dura a
+ * conversa inteira (no 4G lento ela passa de 4 s; a leitura desiste em LIMITE_MS) e, se algo travar fora dela, para aqui.
+ */
+const PACIENCIA_MS = LIMITE_MS + 2000
 let paciencia = false
 const ouvintesConferida = new Set<() => void>()
 const avisarConferida = () => ouvintesConferida.forEach((f) => f())
@@ -239,19 +244,34 @@ const primeira = new Promise<void>((ok) => {
 export const lojaPronta = () => primeira
 /** A primeira conversa com o servidor já terminou (ou aqui não tem servidor). */
 export const lojaConferida = () => conferida
+/**
+ * O servidor respondeu com a loja (ou aqui não tem servidor, e a daqui é a loja toda). Falso depois da conversa = fora
+ * do ar, lento demais ou resposta torta: o que não está na loja daqui pode existir lá.
+ */
+export const lojaDoServidorRespondeu = () => respondeu || semServidorAqui()
 /** Espera a primeira conversa com o servidor por no máximo `ms`: quem depende dela não fica preso num servidor lento. */
 export function esperarLoja(ms: number): Promise<void> {
   if (conferida) return Promise.resolve()
   return Promise.race([primeira, new Promise<void>((ok) => setTimeout(ok, ms))])
 }
+/**
+ * Espera a primeira conversa com o servidor até ela terminar (a leitura desiste sozinha em LIMITE_MS), com a rede de
+ * segurança de PACIENCIA_MS: pra quem não tem o que mostrar sem ela (o link de um produto que a loja daqui não tem).
+ */
+export const esperarLojaToda = () => esperarLoja(PACIENCIA_MS)
 
 function assinarConferida(f: () => void) {
   ouvintesConferida.add(f)
   return () => ouvintesConferida.delete(f)
 }
+/** A primeira conversa com o servidor já terminou (assina: redesenha quando termina). */
+export function useLojaConferida(): boolean {
+  return useSyncExternalStore(assinarConferida, () => conferida || paciencia, () => true)
+}
 /**
  * O estado escolhido ainda não está na loja daqui e a do servidor ainda não chegou (estado ativado no painel, com a
- * loja guardada de antes ou de outro build): a tela espera um pouco, sem dizer "ainda não chegou aí".
+ * loja guardada de antes ou de outro build): a tela espera enquanto a conversa com o servidor durar, sem dizer "ainda
+ * não chegou aí" (o "sem atendimento" só aparece quando a resposta chega sem o estado ou quando o pedido falha).
  */
 export function useEsperandoLoja(uf: string | null | undefined): boolean {
   const pronta = useSyncExternalStore(assinarConferida, () => conferida || paciencia, () => true)
@@ -291,6 +311,7 @@ async function perguntar(): Promise<void> {
     if (!ehObjeto(d)) return
     // o servidor existe e ainda não tem loja (painel não instalado): a embutida, que é a mesma da semente
     if (r.status === 404 && d.ok === false && d.erro === 'sem-loja') {
+      respondeu = true
       apagar(CHAVE)
       paraConferir = null
       if (useLoja.getState().fonte !== 'embutida') await aplicar(EMBUTIDA, 'embutida', null, null)
@@ -303,6 +324,7 @@ async function perguntar(): Promise<void> {
     const s = useLoja.getState()
     // a mesma versão que já tá na tela (o 304 de sempre): nada muda
     if (s.fonte !== 'embutida' && s.versao === versao && s.atualizadoEm === atualizadoEm) {
+      respondeu = true
       if (s.fonte !== 'servidor') useLoja.setState({ fonte: 'servidor' })
       return
     }
@@ -312,6 +334,7 @@ async function perguntar(): Promise<void> {
     paraConferir = null
     guardar(d.loja, loja, versao, atualizadoEm)
     await aplicar(loja, 'servidor', versao, atualizadoEm)
+    respondeu = true
   } catch {
     /* fora do ar, tempo esgotado: fica com o que tem */
   } finally {
@@ -361,9 +384,15 @@ function aplicar(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm:
  * Começa a conversa com o servidor: no primeiro respiro depois da primeira pintura (nunca na frente dela) e, depois,
  * quando a pessoa volta pra aba depois de um tempo fora (o celular que deixa o site aberto por dias). Sem o pedido
  * aberto: o pedido montado não muda debaixo da pessoa. `ufPedida` (o ?uf= do link da bio ou a escolha salva) que a
- * loja daqui não conhece é estado ativado no painel depois da última visita: aí pergunta na hora, sem esperar o respiro.
+ * loja daqui não conhece é estado ativado no painel depois da última visita; `produtosPedidos` (o ?p= e o ?produto= de
+ * um link direto) que ela não tem é produto criado no painel depois da última visita (o link que o dono posta no
+ * Instagram): nos dois casos pergunta na hora, sem esperar o respiro.
  */
-export function iniciarLoja({ pedidoAberto = () => false, ufPedida = null }: { pedidoAberto?: () => boolean; ufPedida?: string | null } = {}): void {
+export function iniciarLoja({
+  pedidoAberto = () => false,
+  ufPedida = null,
+  produtosPedidos = [],
+}: { pedidoAberto?: () => boolean; ufPedida?: string | null; produtosPedidos?: readonly (string | null | undefined)[] } = {}): void {
   if (typeof window === 'undefined' || semServidorAqui()) {
     avisarPrimeira()
     return
@@ -374,7 +403,10 @@ export function iniciarLoja({ pedidoAberto = () => false, ufPedida = null }: { p
   }, PACIENCIA_MS)
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
   const u = ufPedida?.toLowerCase()
-  if (u && !useLoja.getState().canais.some((c) => c.uf === u)) void buscarLoja()
+  const daqui = useLoja.getState()
+  const ufNova = !!u && !daqui.canais.some((c) => c.uf === u)
+  const produtoNovo = produtosPedidos.some((id) => !!id && !daqui.produtos.some((p) => p.id === id))
+  if (ufNova || produtoNovo) void buscarLoja()
   else if (w.requestIdleCallback) w.requestIdleCallback(() => void buscarLoja(), { timeout: 2500 })
   else setTimeout(() => void buscarLoja(), 1200)
   let escondidaEm = 0

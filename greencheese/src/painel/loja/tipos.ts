@@ -192,6 +192,8 @@ export interface PremioCorpo {
 export interface PlanoExemplos {
   premios: { id: string; titulo: string }[]
   rateios: { id: string; titulo: string; pessoas: number }[]
+  /** Rateio de exemplo em que alguém já pagou: fica, como rateio de verdade. */
+  manter: { id: string; titulo: string; pessoas: number; pagas: number }[]
   produtos: { id: string; nome: string }[]
   desativar: { id: string; nome: string }[]
 }
