@@ -7,6 +7,8 @@ import { ErroApi } from '../api'
 import { ArteRateio, urlImagem } from '../Arte'
 import { buscarProdutos, nomeDaCategoria, produtoDoCatalogo, tituloSugerido } from '../catalogo'
 import { doCache, guardar } from '../dados'
+import { CHAVE as CHAVE_LOJA, useLoja } from '../loja/dados'
+import type { LojaAdmin } from '../loja/tipos'
 import { brl, isoParaLocal, lerReais, reaisNoCampo } from '../formato'
 import { prepararFoto } from '../imagem'
 import { lembrarJson, lidoJson } from '../lembrar'
@@ -19,13 +21,20 @@ import { Aviso, Botao, Campo, Carregando, Ic, Numero, Pontinhos, TituloTela } fr
 import { avisarNaProxima } from './flash'
 import { useTitulo } from './comum'
 
-const UFS: { uf: string; nome: string }[] = [
+/** Os estados do site embutidos (enquanto a loja do servidor não chega). */
+const UFS_EMBUTIDAS: { uf: string; nome: string }[] = [
   { uf: 'rj', nome: 'Rio de Janeiro' },
   { uf: 'mg', nome: 'Minas Gerais' },
   { uf: 'sp', nome: 'São Paulo' },
   { uf: 'es', nome: 'Espírito Santo' },
   { uf: 'sc', nome: 'Santa Catarina' },
 ]
+
+/** Onde o rateio pode valer: os estados que estão no site (Loja → Estados), na ordem da loja. */
+function estadosDaLoja(l: LojaAdmin | undefined): { uf: string; nome: string }[] {
+  const ativos = l?.estados.filter((e) => e.ativo).map((e) => ({ uf: e.uf, nome: e.nome }))
+  return ativos?.length ? ativos : UFS_EMBUTIDAS
+}
 
 interface Form {
   produtoId: string | null
@@ -58,7 +67,7 @@ const NOVO: Form = {
   precoDepois: '',
   vagas: '10',
   limite: '1',
-  ufs: UFS.map((u) => u.uf),
+  ufs: UFS_EMBUTIDAS.map((u) => u.uf),
   previsaoMin: '6',
   previsaoMax: '10',
   temPrazo: false,
@@ -170,10 +179,14 @@ function EscolhaProduto({ produtoId, aoEscolher }: { produtoId: string | null; a
   const [abrindo, setAbrindo] = useState(!produtoId)
   const [todos, setTodos] = useState(false)
   const idLista = useId()
+  // os produtos da loja do servidor (os que o dono criou no painel, com a foto); até chegarem, os do site
+  const loja = useLoja().dados
   const p = produtoId ? produtoDoCatalogo(produtoId) : undefined
-  const todosOsProdutos = useMemo(() => buscarProdutos(''), [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const todosOsProdutos = useMemo(() => buscarProdutos(''), [loja])
   // sem busca, os 6 primeiros (o resto num toque); com busca, até 8
-  const achados = useMemo(() => (busca ? buscarProdutos(busca).slice(0, 8) : todos ? todosOsProdutos : todosOsProdutos.slice(0, 6)), [busca, todos, todosOsProdutos])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const achados = useMemo(() => (busca ? buscarProdutos(busca).slice(0, 8) : todos ? todosOsProdutos : todosOsProdutos.slice(0, 6)), [busca, todos, todosOsProdutos, loja])
   if (p && !abrindo) {
     return (
       <div className="pn-produto-escolhido">
@@ -359,6 +372,8 @@ function Secao({ titulo, children, id }: { titulo: string; children: ReactNode; 
 
 export function EditarRateio({ id, produtoInicial }: { id: string | null; produtoInicial?: string | null }) {
   useTitulo(id ? 'Editar rateio' : 'Novo rateio')
+  // os estados e os produtos da loja do servidor (o estado que o dono ativou entra em "Onde vale")
+  const loja = useLoja().dados
   const chaveRascunho = `rascunho:${id ?? 'novo'}`
   const [rateio, setRateio] = useState<RateioAdmin | null>(() => (id ? (doCache<{ rateio: RateioAdmin }>(`participantes:${id}`)?.rateio ?? null) : null))
   const [erroCarga, setErroCarga] = useState<string | null>(null)
@@ -378,7 +393,9 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
     let vivo = true
     const iniciar = (r: RateioAdmin | null) => {
       const p = produtoInicial ? produtoDoCatalogo(produtoInicial) : undefined
-      const limpo: Form = r ? doRateio(r) : p ? { ...NOVO, produtoId: p.id, titulo: tituloSugerido(p), tituloAuto: true, precoDepois: reaisNoCampo(p.preco) } : NOVO
+      // rateio novo vale em todos os estados do site (os da loja, se já chegou)
+      const novo: Form = { ...NOVO, ufs: estadosDaLoja(doCache<LojaAdmin>(CHAVE_LOJA)).map((u) => u.uf) }
+      const limpo: Form = r ? doRateio(r) : p ? { ...novo, produtoId: p.id, titulo: tituloSugerido(p), tituloAuto: true, precoDepois: reaisNoCampo(p.preco) } : novo
       inicial.current = JSON.stringify(limpo)
       const guardado = lidoJson<{ form: Form; base: string | null }>(chaveRascunho)
       if (guardado && guardado.base === (r?.atualizadoEm ?? null) && JSON.stringify({ ...NOVO, ...guardado.form }) !== inicial.current) {
@@ -518,6 +535,9 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
   const depois = lerReais(f.precoDepois)
   const eco = preco != null && depois != null && depois > preco ? depois - preco : null
   const ocupadas = rateio ? rateio.confirmadas + rateio.reservadas : 0
+  // os estados do site e, no fim, os que o rateio já tinha e saíram do site (dá pra desmarcar)
+  const estados = estadosDaLoja(loja)
+  const chipsUf = [...estados, ...f.ufs.filter((u) => !estados.some((e) => e.uf === u)).map((u) => ({ uf: u, nome: loja?.estados.find((e) => e.uf === u)?.nome ?? u.toUpperCase() }))]
   const tabacoTitulo = termoProibido(f.titulo)
   const tabacoDesc = termoProibido(f.descricao)
   const publicado = !!rateio && rateio.status !== 'rascunho'
@@ -607,7 +627,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
           <Secao titulo="Onde vale" id="s-ufs">
             <div className={`pn-campo${erros.ufs ? ' pn-campo-erro' : ''}`}>
               <div className="pn-chips" role="group" aria-labelledby="s-ufs" aria-describedby={erros.ufs ? 'r-ufs-erro' : undefined}>
-                {UFS.map((u) => {
+                {chipsUf.map((u) => {
                   const on = f.ufs.includes(u.uf)
                   return (
                     <button
@@ -617,7 +637,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
                       className={`pn-chip-uf px${on ? ' on' : ''}`}
                       aria-pressed={on}
                       aria-label={u.nome}
-                      onClick={() => mudar('ufs', on ? f.ufs.filter((x) => x !== u.uf) : UFS.map((x) => x.uf).filter((x) => x === u.uf || f.ufs.includes(x)))}
+                      onClick={() => mudar('ufs', on ? f.ufs.filter((x) => x !== u.uf) : chipsUf.map((x) => x.uf).filter((x) => x === u.uf || f.ufs.includes(x)))}
                     >
                       {on && <Ic nome="check" tamanho={16} />}
                       {u.uf.toUpperCase()}

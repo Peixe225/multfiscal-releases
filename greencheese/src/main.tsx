@@ -9,15 +9,18 @@ import './interativos/sorte/digitos.css'
 import { App } from './App'
 import { carregarArtesRealistas } from './arte/realista/carregar'
 import { vigiarEstoqueDaSacola } from './lib/estoque'
+import { lerParametros } from './lib/url'
 import { useChat } from './store/chat'
+import { useLocal } from './store/local'
 import { iniciarLoja } from './store/loja'
 
 // já fica na fila; o download em si espera liberarArtesRealistas() (ver carregar.ts)
 carregarArtesRealistas().catch(() => {})
 
 // a loja do servidor: a primeira tela já sai com a embutida (ou a guardada no aparelho) e a pergunta ao servidor vai
-// no primeiro respiro; com o pedido aberto, a volta pra aba não troca a loja debaixo da pessoa
-iniciarLoja(() => useChat.getState().aberto)
+// no primeiro respiro (na hora, se o estado do link ou o salvo não está nela); com o pedido aberto, a volta pra aba
+// não troca a loja debaixo da pessoa
+iniciarLoja({ pedidoAberto: () => useChat.getState().aberto, ufPedida: lerParametros().uf ?? useLocal.getState().uf })
 // a sacola nunca passa do "restam X" do estado (ajusta na abertura, quando a loja muda e quando troca de estado)
 vigiarEstoqueDaSacola()
 

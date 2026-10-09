@@ -442,12 +442,26 @@ function semServidorAqui(): boolean {
 
 let buscando: Promise<void> | null = null
 let ultimaBusca = 0
+let conferida = false
 let avisarPrimeira: () => void = () => {}
-/** Resolve quando a primeira conversa com o servidor termina (deu certo ou não): a planilha espera ela. */
+/**
+ * Resolve quando a primeira conversa com o servidor termina (deu certo ou não), já com a loja nova na tela: a planilha,
+ * o estado do link da bio e os links diretos esperam ela.
+ */
 const primeira = new Promise<void>((ok) => {
-  avisarPrimeira = ok
+  avisarPrimeira = () => {
+    conferida = true
+    ok()
+  }
 })
 export const lojaPronta = () => primeira
+/** A primeira conversa com o servidor já terminou (ou aqui não tem servidor). */
+export const lojaConferida = () => conferida
+/** Espera a primeira conversa com o servidor por no máximo `ms`: quem depende dela não fica preso num servidor lento. */
+export function esperarLoja(ms: number): Promise<void> {
+  if (conferida) return Promise.resolve()
+  return Promise.race([primeira, new Promise<void>((ok) => setTimeout(ok, ms))])
+}
 
 /** Pergunta a loja ao servidor e troca se veio outra. Nunca joga erro: sem resposta boa, fica tudo como está. */
 export function buscarLoja(): Promise<void> {
@@ -469,7 +483,7 @@ export function buscarLoja(): Promise<void> {
       // o servidor existe e ainda não tem loja (painel não instalado): a embutida, que é a mesma da semente
       if (r.status === 404 && d.ok === false && d.erro === 'sem-loja') {
         apagar(CHAVE)
-        if (useLoja.getState().fonte !== 'embutida') aplicar(EMBUTIDA, 'embutida', null, null)
+        if (useLoja.getState().fonte !== 'embutida') await aplicar(EMBUTIDA, 'embutida', null, null)
         return
       }
       if (!r.ok || d.ok !== true) return
@@ -485,7 +499,7 @@ export function buscarLoja(): Promise<void> {
       const loja = lerLoja(d.loja)
       if (!loja) return
       gravar(CHAVE, { formato: 1, versao, atualizadoEm, loja: d.loja } satisfies Guardada)
-      aplicar(loja, 'servidor', versao, atualizadoEm)
+      await aplicar(loja, 'servidor', versao, atualizadoEm)
     } catch {
       /* fora do ar, tempo esgotado: fica com o que tem */
     } finally {
@@ -498,26 +512,34 @@ export function buscarLoja(): Promise<void> {
   return buscando
 }
 
-/** Troca a loja de uma vez, num respiro do navegador (nunca no meio de um quadro de animação). */
-function aplicar(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm: string | null) {
-  const trocar = () => useLoja.setState((s) => estadoDe(l, fonte, versao, atualizadoEm, s), true)
-  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
-  if (w.requestIdleCallback) w.requestIdleCallback(trocar, { timeout: 800 })
-  else setTimeout(trocar, 0)
+/** Troca a loja de uma vez, num respiro do navegador (nunca no meio de um quadro de animação). Resolve já trocada. */
+function aplicar(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm: string | null): Promise<void> {
+  return new Promise((ok) => {
+    const trocar = () => {
+      useLoja.setState((s) => estadoDe(l, fonte, versao, atualizadoEm, s), true)
+      ok()
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(trocar, { timeout: 800 })
+    else setTimeout(trocar, 0)
+  })
 }
 
 /**
  * Começa a conversa com o servidor: no primeiro respiro depois da primeira pintura (nunca na frente dela) e, depois,
  * quando a pessoa volta pra aba depois de um tempo fora (o celular que deixa o site aberto por dias). Sem o pedido
- * aberto: o pedido montado não muda debaixo da pessoa.
+ * aberto: o pedido montado não muda debaixo da pessoa. `ufPedida` (o ?uf= do link da bio ou a escolha salva) que a
+ * loja daqui não conhece é estado ativado no painel depois da última visita: aí pergunta na hora, sem esperar o respiro.
  */
-export function iniciarLoja(pedidoAberto: () => boolean = () => false): void {
+export function iniciarLoja({ pedidoAberto = () => false, ufPedida = null }: { pedidoAberto?: () => boolean; ufPedida?: string | null } = {}): void {
   if (typeof window === 'undefined' || semServidorAqui()) {
     avisarPrimeira()
     return
   }
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
-  if (w.requestIdleCallback) w.requestIdleCallback(() => void buscarLoja(), { timeout: 2500 })
+  const u = ufPedida?.toLowerCase()
+  if (u && !useLoja.getState().canais.some((c) => c.uf === u)) void buscarLoja()
+  else if (w.requestIdleCallback) w.requestIdleCallback(() => void buscarLoja(), { timeout: 2500 })
   else setTimeout(() => void buscarLoja(), 1200)
   let escondidaEm = 0
   document.addEventListener('visibilitychange', () => {

@@ -6,7 +6,7 @@ import { ufPorSigla, slug } from '../dados/ufs'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 import { palpitePorIp } from '../lib/geo'
 import { atualizarParametros, lerParametros, manterNaURL } from '../lib/url'
-import { useCanalDa } from './loja'
+import { esperarLoja, lojaConferida, useCanalDa, useLoja } from './loja'
 
 export type Origem = 'link' | 'salvo' | 'ip' | 'manual'
 
@@ -85,6 +85,9 @@ manterNaURL(() => {
   return s.confirmado && s.uf && lerParametros().uf ? { uf: s.uf, cidade: s.cidade } : {}
 })
 
+/** Quanto a decisão do estado espera a loja do servidor quando a UF não está na daqui (estado ativado no painel). */
+const ESPERA_LOJA_MS = 2500
+
 /**
  * Ordem de decisão do estado: 1) ?uf= na URL (link da bio) 2) escolha salva 3) palpite por IP (pede confirmação) 4) seletor manual.
  */
@@ -92,9 +95,17 @@ export async function iniciarLocal(): Promise<void> {
   const p = lerParametros()
   const st = useLocal.getState()
   if (p.uf && ufPorSigla(p.uf)) {
+    // estado que a loja daqui ainda não conhece (ativado no painel depois da última visita): espera a do servidor um
+    // pouco, "procurando", em vez de mostrar "ainda não chegou aí" e trocar logo depois
+    if (!canalDa(p.uf) && !lojaConferida()) {
+      useLocal.setState({ detectando: true })
+      await esperarLoja(ESPERA_LOJA_MS)
+      useLocal.setState({ detectando: false })
+      if (useLocal.getState().confirmado && useLocal.getState().origem === 'manual') return
+    }
     const canal = canalDa(p.uf)
     const cidade = p.cidade && canal ? (canal.cidades.find((c) => c.slug === slug(p.cidade!))?.slug ?? null) : null
-    st.escolher(p.uf, cidade, 'link')
+    useLocal.getState().escolher(p.uf, cidade, 'link')
     return
   }
   if (st.confirmado && st.uf) {
@@ -108,11 +119,49 @@ export async function iniciarLocal(): Promise<void> {
     useLocal.setState({ detectando: false })
     return
   }
+  // palpite num estado que a loja daqui não conhece: espera a do servidor um pouco (pode ser estado ativado no painel)
+  if (palpite && !canalDa(palpite.uf) && !lojaConferida()) {
+    await esperarLoja(ESPERA_LOJA_MS)
+    if (useLocal.getState().confirmado) {
+      useLocal.setState({ detectando: false })
+      return
+    }
+  }
   // Palpite numa UF sem atendimento nunca abre a tela "não chegou aí" sozinho: só avisa e deixa escolher.
   if (palpite && canalDa(palpite.uf)) useLocal.getState().escolher(palpite.uf, null, 'ip')
   else if (palpite) useLocal.setState({ palpiteFora: palpite.uf })
   useLocal.setState({ detectando: false })
 }
+
+/**
+ * Os estados da loja mudaram (a do servidor chegou, o dono ativou ou tirou um estado): o local acompanha sem a pessoa
+ * fazer nada. Cidade que saiu do estado sai da escolha (estado com uma cidade só já fica com ela; a do link da bio
+ * volta, se o estado ganhou ela); palpite de IP num estado que entrou vira a pergunta "Você está em…?"; palpite (ainda
+ * sem "Sim") num estado que saiu vira só o aviso, como palpite fora. Escolha confirmada num estado que saiu fica: a
+ * pessoa vê a tela de sem atendimento e escolhe outro.
+ */
+function acompanharEstados(): void {
+  const s = useLocal.getState()
+  if (!s.uf) {
+    if (s.palpiteFora && !s.confirmado && !s.detectando && canalDa(s.palpiteFora)) s.escolher(s.palpiteFora, null, 'ip')
+    return
+  }
+  const canal = canalDa(s.uf)
+  if (!canal) {
+    if (s.origem === 'ip' && !s.confirmado) useLocal.setState({ uf: null, cidade: null, origem: null, palpiteFora: s.uf })
+    return
+  }
+  if (s.cidade && canal.cidades.some((c) => c.slug === s.cidade)) return
+  const p = lerParametros()
+  const doLink = s.origem === 'link' && p.uf === s.uf && p.cidade ? (canal.cidades.find((c) => c.slug === slug(p.cidade!))?.slug ?? null) : null
+  const cidade = doLink ?? (canal.cidades.length === 1 ? canal.cidades[0].slug : null)
+  if (cidade === s.cidade) return
+  useLocal.setState({ cidade })
+  if (s.confirmado && p.uf) atualizarParametros({ uf: s.uf, cidade })
+}
+useLoja.subscribe((s, a) => {
+  if (s.canais !== a.canais) acompanharEstados()
+})
 
 /** O canal do estado escolhido (redesenha quando a loja troca os estados). */
 export function useCanal(): Canal | undefined {

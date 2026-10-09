@@ -389,13 +389,18 @@ html.com-teclado .pn-pe-fixo {
 }
 /* "restam X": adesivo de texto da loja (caixa branca, um pouco torto) */
 .pn-sq-restam {
-  padding: 3px 7px 1px;
+  position: absolute;
+  top: 0;
+  right: 6%;
+  padding: 3px 6px 2px;
   background: var(--branco);
   color: var(--preto);
   border-radius: 3px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
-  transform: rotate(-2deg);
+  line-height: 1;
+  white-space: nowrap;
+  transform: rotate(4deg);
 }
 .pn-sq-barras {
   display: flex;

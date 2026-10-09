@@ -27,6 +27,7 @@ import { produtoPorId } from '../store/catalogo'
 import { useChat, type Passo, type Respostas } from '../store/chat'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
+import { siglasDosEstados, useLojaMarca } from '../store/loja'
 import { useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Avatar, Demo, Icone } from './comum'
@@ -93,6 +94,8 @@ export function ChatFolha() {
     modo === 'pedido' && !cupom ? (cupons.find((c) => c.status === 'ativo' && situacaoNoPedido(c, todas, local.uf, agora).tipo === 'ok') ?? null) : null
   useConferirCupom(aberto && passo === 'resumo')
 
+  // os estados, o WhatsApp e os pagamentos vêm da loja (o painel, ou o embutido): redesenha quando ela troca
+  useLojaMarca()
   // Canal: no pedido é o estado do site; na encomenda de quem está fora da área, é o escolhido no chat.
   const canalSite = canalDa(local.uf)
   const canal: Canal | undefined = modo === 'encomenda' && !canalSite ? canalDa(respostas.canalEnc) : canalSite
@@ -494,7 +497,7 @@ export function ChatFolha() {
         <div className="dm-perfil">
           <Avatar tamanho={88} />
           <strong>{canal?.nomePerfil ?? 'Green Cheese Imports'}</strong>
-          <span className="legenda">{canal ? `${canal.instagram} · Instagram` : 'RJ · MG · SP · ES · SC'}</span>
+          <span className="legenda">{canal ? `${canal.instagram} · Instagram` : siglasDosEstados(canais)}</span>
           {canal && (
             <a className="botao botao-cinza dm-ver-perfil" href={linkPerfil(canal.instagram)} target="_blank" rel="noopener noreferrer">
               Ver perfil

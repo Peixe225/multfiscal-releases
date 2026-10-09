@@ -1,6 +1,6 @@
 // Como o cliente vê no site (espelha o StoryQuadro do site): o card da grade, no preto, com o produto flutuando no
-// halo da cor dele, o nome e o preço em pixel e o "DISPONÍVEL ✅" do estado; "RESTAM 3" quando o estoque chega no
-// número dos ajustes. E o story do Início em miniatura (as barrinhas e o produto da vez).
+// halo da cor dele, o nome e o preço em pixel e o "DISPONÍVEL ✅" do estado; o adesivo "RESTAM 3" no canto da arte
+// quando o estoque chega no número dos ajustes. E o story do Início em miniatura (as barrinhas e o produto da vez).
 import { Logo } from '../../arte/Logo'
 import { brl } from '../formato'
 import { ArteProduto, type ProdutoArte } from './Arte'
@@ -18,13 +18,14 @@ export function PreviaCard({ p, situacao, restam, largura = 168 }: { p: DadosPre
     <div className={`pn-sq${off ? ' pn-sq-off' : ''}`} style={{ width: largura }}>
       <div className="pn-sq-arte">
         <ArteProduto produto={p} largura={Math.round(largura * 0.43)} cinza={off} />
+        {/* o adesivo do site (StoryQuadro): colado de lado no canto da arte */}
+        {restam != null && !off && <p className="pn-sq-restam px">{restam === 1 ? 'RESTA 1' : `RESTAM ${restam}`}</p>}
       </div>
       <div className="pn-sq-texto">
         <p className="pn-sq-nome px">{p.nome || 'Nome do produto'}</p>
         <p className="pn-sq-preco px">{p.preco == null ? 'Consultar' : brl(p.preco)}</p>
         {situacao != null && !off && <p className="pn-sq-disp px">DISPONÍVEL ✅</p>}
         {off && <p className="pn-sq-disp pn-sq-indisp px">INDISPONÍVEL</p>}
-        {restam != null && !off && <p className="pn-sq-restam px">RESTAM {restam}</p>}
       </div>
     </div>
   )

@@ -13,6 +13,7 @@ import { atualizarParametros, lerParametros } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal } from './store/local'
+import { esperarLoja, lojaConferida } from './store/loja'
 import { carregarRateios } from './store/rateio'
 import { useUI } from './store/ui'
 import { interativoPorParam } from './interativos/registro'
@@ -254,6 +255,23 @@ export function App() {
       }
       return
     }
+    // produto que a loja daqui não tem (criado no painel depois da última visita) ou o jogo (o dono pode ter desligado):
+    // espera a loja do servidor um pouco antes de abrir (ou de tirar o link da URL)
+    const precisaDaLoja = (!!p.p && !produtoPorId(p.p)) || (!!p.produto && !produtoPorId(p.produto)) || !!p.jogo
+    if (precisaDaLoja && !lojaConferida()) {
+      let vivo = true
+      void esperarLoja(2500).then(() => {
+        if (vivo) abrirLinks(p)
+      })
+      return () => {
+        vivo = false
+      }
+    }
+    abrirLinks(p)
+  }, [abertura, saida])
+
+  /** Abre o que o link pediu, por cima da aba: story (?p=), página do produto, jogo, chat e rateio. */
+  function abrirLinks(p: ReturnType<typeof lerParametros>) {
     if (p.p) {
       const produtos = useCatalogo.getState().produtos
       const i = produtos.findIndex((x) => x.id === p.p)
@@ -297,7 +315,7 @@ export function App() {
       quandoEmpilharem(pedidas, () => useUI.getState().setSeletor(true))
     }
     requestAnimationFrame(() => ScrollTrigger.refresh())
-  }, [abertura, saida])
+  }
 
   const fimAbertura = useCallback((trocarEstado: boolean) => {
     trocarDepois.current = trocarEstado

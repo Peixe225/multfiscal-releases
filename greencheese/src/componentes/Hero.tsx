@@ -411,6 +411,22 @@ export function Hero() {
     comRuaAntes.current = comRua
     setPos((p) => ({ ...p, i: Math.max(0, p.i + (comRua ? 1 : -1)) }))
   }, [comRua])
+  // os produtos do story mudaram (a loja do servidor chegou, o dono reordenou, um esgotou): o que está na tela fica
+  // nela, no lugar novo; se ele saiu, o story segue do mesmo ponto. Na rua, nada muda
+  const idsStory = lista.map((p) => p.id).join()
+  const storyAntes = useRef(idsStory)
+  useLayoutEffect(() => {
+    const antes = storyAntes.current ? storyAntes.current.split(',') : []
+    storyAntes.current = idsStory
+    setPos((p) => {
+      const i = p.i % (antes.length + off || 1)
+      if (off && i === 0) return p
+      const k = lista.findIndex((x) => x.id === antes[i - off])
+      const novo = k >= 0 ? k + off : Math.min(i, Math.max(0, lista.length + off - 1))
+      return novo === p.i ? p : { ...p, i: novo }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsStory])
   useLayoutEffect(() => {
     const antes = ufAnterior.current
     ufAnterior.current = uf

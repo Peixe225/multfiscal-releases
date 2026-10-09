@@ -689,7 +689,7 @@ function janelaTopo(el: HTMLElement | null): number {
   return topo ? topo.getBoundingClientRect().bottom : 0
 }
 
-/** "DISPONÍVEL ✅ em Teófilo Otoni · restam 3" · "INDISPONÍVEL em Minas Gerais" · sem estado: pede o estado. */
+/** "DISPONÍVEL ✅ em Teófilo Otoni" (+ "Só restam 3 unidades") · "INDISPONÍVEL em Minas Gerais" · sem estado: pede o estado. */
 function Disponibilidade({ produto, restam }: { produto: Produto; restam: number | null }) {
   const { uf, cidade, cidadeInformada, detectando } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
@@ -714,7 +714,7 @@ function Disponibilidade({ produto, restam }: { produto: Produto; restam: number
     <div className={`pp-disp ${disp ? '' : 'pp-indisp'}`}>
       <p>
         <span className="px pp-disp-selo">{disp ? 'DISPONÍVEL ✅' : 'INDISPONÍVEL'}</span> <span className="pp-disp-onde">{onde}</span>
-        {disp && restam != null && <span className="pp-disp-restam">{restam === 1 ? 'só resta 1 unidade' : `restam ${restam} unidades`}</span>}
+        {disp && restam != null && <span className="pp-disp-restam">{restam === 1 ? 'Só resta 1 unidade' : `Só restam ${restam} unidades`}</span>}
       </p>
       <button type="button" className="pp-trocar toque" onClick={() => setSeletor(true)} aria-label={`Trocar estado (agora: ${agora})`}>
         Trocar

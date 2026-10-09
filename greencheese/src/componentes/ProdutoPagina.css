@@ -130,7 +130,9 @@
   font-weight: 500;
   padding: 5px 9px 4px;
 }
+/* "Só restam 3 unidades": sempre na linha de baixo do DISPONÍVEL (no computador, ao lado, colava no lugar) */
 .pp-disp-restam {
+  flex-basis: 100%;
   color: var(--branco);
   font-weight: 600;
 }
