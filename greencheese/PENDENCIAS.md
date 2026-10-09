@@ -183,6 +183,10 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   bolinha; nome maior que uns 11 letras vira "…" no celular (o painel avisa).
 - **A rua do mercador**: as falas dos personagens são do roteiro (`src/componentes/rua/falas.ts`), não do painel; as
   "falas do mercador" do painel são as do topo do Mercado.
+- **A chave da rua no painel (09/10)**: a rua saiu do 1º story do celular e foi pro fim do Início (depois da grade,
+  antes do rodapé), a pedido do Ian. A chave continua com o nome `ruaNoStory` no JSON da loja e no banco (nenhuma
+  migração), mas agora liga e desliga a rua do fim do Início do celular; o computador não muda. As linhas que o
+  painel já gravou na Atividade antes da mudança continuam dizendo "no começo do Início"; as novas dizem "no celular".
 - **Mudança com a página aberta**: o site pergunta a loja ao abrir e quando a pessoa volta pra aba depois de 10 min fora
   (com o pedido guiado aberto, não pergunta: o pedido não muda debaixo da pessoa). Quem fica horas com a aba à vista
   só vê a mudança na próxima abertura.
@@ -192,6 +196,19 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   [928–1033] contra 959 [926–992] e 978 [950–1058]. A diferença fica dentro da variação da própria principal. O que a primeira
   tela baixa cresceu 4,0 KB comprimidos (226,7 → 230,7 KB): a conferência do servidor foi pra um pedaço à parte e os
   emblemas dos estados saíram da primeira tela (só o story do estado usa).
+- **Desempenho com a rua no fim do Início (09/10)** (mesmo celular e rede, mediana de 11 rodadas, entre colchetes do 1º
+  ao 3º quartil; "antes" é a 7744b7f, com a rua como 1º story e o pôster, e "ontem" é a a9f2083, o topo que voltou):
+  o story pintado na tela (a hora da pintura que o próprio navegador dá, Element Timing no nome do produto ou no
+  pôster; igual à FCP e à LCP) em 2576 ms [2564–2636], contra 2704 [2668–2740] antes e 2840 [2812–2904] ontem; a
+  arte do produto começa a se revelar em 2813 [2753–2845] (ontem 2896). A régua antiga (o 2º `requestAnimationFrame`
+  depois de o story ficar pronto) dá 2751 [2688–2774] contra 2696 [2682–2746]: ela soma o quadro seguinte à pintura,
+  que agora gera a arte do produto (antes era o pôster pronto), e fica dentro da variação. Até a pintura a primeira tela
+  baixa 235,4 KB (antes 253,3, ontem 242,2): o pôster e o código do story da rua saíram e a rua só baixa no fim. O
+  ganho veio de tirar da montagem as leituras que forçavam o navegador a calcular a página inteira mais de uma vez: as
+  medidas do story no `ResizeObserver`, a entrada do produto e o GSAP do palco no quadro seguinte, a faixa, a paralaxe
+  do próximo produto e o adesivo do topo ligando a rolagem quando a página respira (`quandoRespirar`), a lateral e as
+  setas dos destaques sem medir no celular, o teclado virtual conferido no quadro seguinte e a arte com prioridade
+  entrando na fila no quadro seguinte.
 
 ## Pedidos e avisos no WhatsApp
 
