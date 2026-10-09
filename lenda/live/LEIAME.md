@@ -2,7 +2,7 @@
 
 O chat comanda o Modo Clássico. Cada decisão da carreira (transferência, evento, pênalti decisivo) vira uma votação. O público vota comentando o número da opção ou mandando o presente ligado a ela: 🌹 Rosa no 1, 🎵 TikTok no 2 e assim por diante.
 
-No começo de cada carreira, o chat escolhe a posição e a nacionalidade da nova lenda. O maior apoiador da live dá o nome ao jogador.
+Antes de cada carreira abre uma **disputa**: quem doar mais nos próximos segundos cria a nova lenda. O vencedor escolhe nome, nacionalidade e posição digitando comandos no chat.
 
 ```
 TikTok LIVE ──► ponte (seu PC) ──► jogo no navegador ──► LIVE Studio (captura de janela) ──► sua live
@@ -72,11 +72,37 @@ Para encerrar, use **Sair do modo live** (no menu ⚙ da faixa ou na página de 
 
 Tudo isso é configurável na página: tempo da votação, peso das moedas, presente de cada opção, comentários valendo ou não e prorrogação.
 
+## Quem cria a nova lenda
+
+Em *3. Carreira automática*, no campo **Quem cria a nova lenda**, há três modos:
+
+| Modo | Como funciona |
+|---|---|
+| **Disputa de doações** (padrão) | Abre uma disputa de 30 s (ajustável). Quem doar mais moedas nesse tempo ganha e cria a lenda. O palco mostra o placar da disputa ao vivo. |
+| **Maior apoiador** | Quem mais doou durante a carreira que acabou cria a próxima, sem disputa. |
+| **Votação do chat** | O chat vota posição e nacionalidade, e o nome sai do maior apoiador (ou fica fixo ou aleatório). |
+
+O vencedor tem 60 s (ajustável) para digitar no chat. **Só as mensagens dele contam.** Os comandos são:
+
+```
+!nome Gabigol
+!pais Brasil          (aceita "Argentina", "ARG", "eua", "Holanda", com ou sem acento)
+!posicao atacante     (goleiro, zagueiro, lateral direito, lateral esquerdo, volante, meio campo,
+                       meia, ponta direita, ponta esquerda, centroavante...)
+!criar Gabigol, Brasil, atacante    (tudo de uma vez, em qualquer ordem)
+```
+
+- A ficha vai preenchendo na tela conforme ele digita. Quando os três campos ficam prontos, a lenda nasce.
+- Nomes com palavrão são recusados, e a tela avisa o vencedor para escolher outro.
+- O que ele não escolher a tempo vai para a votação do chat (dá para desligar em "Chat vota o que o criador não escolher"). Se faltar só o nome, vale o apelido dele.
+- Se ninguém doar na disputa, o chat vota a lenda do jeito normal.
+- O anúncio credita o criador: "Criada por @fulano, que venceu a disputa com 582 moedas!".
+
 ## O que acontece sozinho
 
 - **Comemoração de título:** fica alguns segundos na tela (padrão 6) e o jogo segue.
 - **Fim de carreira:** a tela final fica na tela (padrão 20 s) e começa a votação da próxima lenda. Com 0 segundos, o jogo espera você clicar em **Nova lenda**.
-- **Nome da lenda:** sai do apelido do maior apoiador, com um filtro de palavrões. Também dá para usar um nome fixo ou um aleatório.
+- **Nome da lenda quando ninguém cria:** sai do apelido do maior apoiador, com um filtro de palavrões. Também dá para usar um nome fixo ou um aleatório.
 - **Ritmo:** *Expresso* tem menos decisões por carreira e é bom para lives curtas.
 - **Intervenção manual:** você pode clicar numa opção para escolher no lugar do chat; a votação em andamento é cancelada. Também pode pausar as votações a qualquer momento.
 
@@ -84,7 +110,7 @@ Tudo isso é configurável na página: tempo da votação, peso das moedas, pres
 
 - **Simulador** (em *1. Conexão*): um público de mentira comenta números, manda rosas, curte e segue. A velocidade é ajustável.
 - `npm run live:demo`: a própria ponte gera eventos no formato do TikTok. Serve para testar o caminho completo (ponte → jogo) antes da live.
-- *4. Testar votos*: botões para comentar e mandar presentes durante uma votação.
+- *4. Testar votos*: botões para comentar e mandar presentes durante uma votação. Durante a disputa e a criação também aparecem botões para dar lance e para digitar os comandos como o vencedor.
 
 ## Usa o TikFinity?
 
