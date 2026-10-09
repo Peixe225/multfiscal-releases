@@ -32,7 +32,7 @@ export const PROMESSAS = [
 
 export const TEXTOS_PEDIDO = {
   // começo: o atendimento (estado e cidade)
-  'local.semEstado': { padrao: 'De qual estado você pede?', tipo: 'fala' },
+  'local.semEstado': { padrao: 'De qual estado tu pede?', tipo: 'fala' },
   'local.semEstado.encomenda': { padrao: 'A Green Cheese ainda não chegou no teu estado. Pra qual atendimento vai a encomenda?', tipo: 'fala' },
   'local.outroEstado': { padrao: 'Outro estado', tipo: 'botao' },
   'local.qualCidade': { padrao: 'Teu pedido vai pra Green Cheese {uf}. Qual cidade?', tipo: 'fala', marcadores: ['uf', 'estado'] },
@@ -101,9 +101,9 @@ export const TEXTOS_PEDIDO = {
   // resumo e o WhatsApp
   'resumo.pedido': { padrao: 'Pedido montado. Confere:', tipo: 'fala', marcadores: ['nome'] },
   'resumo.fechar': { padrao: 'Agora é só fechar no WhatsApp da loja. Vem no certo!', tipo: 'fala', marcadores: ['nome'] },
-  'resumo.naoAbriu': { padrao: 'Não abriu? Toca de novo no botão, ou copia o texto e manda pro WhatsApp da loja: {numero}.', tipo: 'fala', marcadores: ['numero'] },
+  'resumo.naoAbriu': { padrao: 'Não abriu? Aperta de novo o botão, ou copia o texto e manda pro WhatsApp da loja: {numero}.', tipo: 'fala', marcadores: ['numero'] },
   'resumo.copiar': { padrao: 'Copiar texto', tipo: 'botao' },
-  'resumo.prontoNoZap': { padrao: 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.', tipo: 'fala' },
+  'resumo.prontoNoZap': { padrao: 'Mensagem pronta no WhatsApp. Quem aperta enviar é tu.', tipo: 'fala' },
   'resumo.jaMandou': { padrao: 'Já mandou o pedido?', tipo: 'fala' },
   'resumo.marca': { padrao: 'Chegou? Marca {instagram} no story.', tipo: 'fala', marcadores: ['instagram'] },
   'resumo.mandei': { padrao: 'Mandei', tipo: 'botao' },
@@ -128,7 +128,7 @@ export const TEXTOS_PEDIDO = {
   'pix.trocou': { padrao: 'Pronto, pagamento no Pix. Agora fecha no WhatsApp: a chave vem lá.', tipo: 'fala' },
 
   // encomenda
-  'enc.produto': { padrao: 'Não achou? A Green Cheese importa. Qual produto você quer?', tipo: 'fala' },
+  'enc.produto': { padrao: 'Não achou? A Green Cheese importa. Qual produto tu quer?', tipo: 'fala' },
   'enc.produto.dica': { padrao: 'Ex.: Fanta de uva japonesa', tipo: 'dica' },
   'enc.produto.erro': { padrao: 'Escreve o produto.', tipo: 'erro' },
   'enc.produto.proibido': { padrao: 'Esse a Green Cheese não traz: a Anvisa não deixa vender pela internet.', tipo: 'erro' },

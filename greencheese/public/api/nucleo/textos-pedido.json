@@ -9,7 +9,7 @@
   },
   "textos": {
     "local.semEstado": {
-      "padrao": "De qual estado você pede?",
+      "padrao": "De qual estado tu pede?",
       "tipo": "fala",
       "marcadores": []
     },
@@ -338,7 +338,7 @@
       ]
     },
     "resumo.naoAbriu": {
-      "padrao": "Não abriu? Toca de novo no botão, ou copia o texto e manda pro WhatsApp da loja: {numero}.",
+      "padrao": "Não abriu? Aperta de novo o botão, ou copia o texto e manda pro WhatsApp da loja: {numero}.",
       "tipo": "fala",
       "marcadores": [
         "numero"
@@ -350,7 +350,7 @@
       "marcadores": []
     },
     "resumo.prontoNoZap": {
-      "padrao": "Mensagem pronta no WhatsApp. Quem aperta enviar é você.",
+      "padrao": "Mensagem pronta no WhatsApp. Quem aperta enviar é tu.",
       "tipo": "fala",
       "marcadores": []
     },
@@ -457,7 +457,7 @@
       "marcadores": []
     },
     "enc.produto": {
-      "padrao": "Não achou? A Green Cheese importa. Qual produto você quer?",
+      "padrao": "Não achou? A Green Cheese importa. Qual produto tu quer?",
       "tipo": "fala",
       "marcadores": []
     },

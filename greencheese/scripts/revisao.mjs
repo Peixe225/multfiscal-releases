@@ -2060,6 +2060,61 @@ for (const [w, h, reduzir] of [[1280, 800, false], [1280, 800, true]]) {
   }
 }
 
+// ---------- pedido guiado só no teclado (computador): a cada passo respondido, o foco continua dentro do chat (o
+// chip ou o campo que respondeu some; o foco não pode cair no <body> e o Tab seguinte ir pra página de trás). Na
+// busca do CEP o campo desliga: o foco espera na folha (um Enter a mais não escolhe "Sem CEP") ----------
+{
+  const resposta = (ph) =>
+    /cep/i.test(ph) ? '39800000' : /nome/i.test(ph) ? 'Ian Teste' : /quant/i.test(ph) ? '2' : /link|descri/i.test(ph) ? 'https://exemplo.com/fanta' : /rua/i.test(ph) ? 'Rua Doutor Manoel Esteves, 120, Centro' : /obs/i.test(ph) ? 'Portão azul' : 'Fanta de uva japonesa'
+  /** Responde cada passo só com o teclado até o resumo; devolve onde o foco saiu do chat (ou null) e o caminho. */
+  async function percorrer(page) {
+    const passos = []
+    for (let i = 0; i < 16; i++) {
+      const f = await page.evaluate(() => {
+        const a = document.activeElement
+        return { dentro: !!a?.closest('.folha-chat'), body: !a || a === document.body, tag: a?.tagName ?? '', chip: !!a?.classList.contains('dm-chip'), txt: (a?.textContent ?? '').trim().slice(0, 24), ph: a?.getAttribute('placeholder') ?? '', zap: !!document.querySelector('.folha-chat .dm-zap') }
+      })
+      passos.push(`${f.tag}${f.chip ? `(${f.txt})` : ''}${f.ph ? `[${f.ph}]` : ''}`)
+      if (!f.dentro) return { fora: `${f.body ? 'BODY' : f.tag} no passo ${i + 1}`, chegou: false, passos }
+      if (f.zap) return { fora: null, chegou: true, passos }
+      if (f.tag === 'INPUT') {
+        await page.keyboard.type(resposta(f.ph))
+        await page.keyboard.press('Enter')
+      } else if (f.chip) await page.keyboard.press('Enter')
+      else await page.keyboard.press('Tab')
+      await page.waitForTimeout(f.ph && /cep/i.test(f.ph) ? 2500 : 700)
+    }
+    return { fora: null, chegou: false, passos }
+  }
+  const ctx = await contexto(browser, { width: 1280, height: 800 })
+  const page = await ctx.newPage()
+  vigiarSemRede(page, 'teclado-chat')
+  const folha = page.locator('[aria-modal="true"][aria-label="Pedido guiado"]')
+  // a encomenda (só campos e o "Pode")
+  await page.goto(`${base}?uf=mg&chat=encomenda`)
+  await passarAbertura(page)
+  await folha.waitFor({ timeout: 8000 })
+  await page.waitForTimeout(700)
+  const enc = await percorrer(page)
+  conferir(!enc.fora && enc.chegou, `teclado-chat: encomenda, o foco fica no chat do 1º passo ao resumo (${enc.fora ?? enc.passos.join(' → ')})`)
+  if (enc.chegou) {
+    await page.keyboard.press('Tab')
+    conferir(await page.evaluate(() => !!document.activeElement?.closest('.folha-chat')), 'teclado-chat: no resumo da encomenda, o Tab segue dentro do chat')
+  }
+  // o pedido ("Isso" e "Tá certo" seguidos, o CEP procurado, o pagamento)
+  await page.goto(`${base}?uf=mg&cidade=teofilo-otoni&produto=seda-ocb-premium-slim`)
+  await page.getByRole('button', { name: /Pôr na sacola/ }).click()
+  await page.waitForTimeout(600)
+  await page.goto(`${base}?uf=mg&cidade=teofilo-otoni&chat=pedido`)
+  await folha.waitFor({ timeout: 8000 })
+  await page.waitForTimeout(700)
+  const ped = await percorrer(page)
+  conferir(!ped.fora && ped.chegou && ped.passos.some((x) => x === 'BUTTON(Isso)') && ped.passos.some((x) => x === 'BUTTON(Tá certo)'), `teclado-chat: pedido, o foco fica no chat do 1º passo ao resumo (${ped.fora ?? ped.passos.join(' → ')})`)
+  conferir(!ped.passos.some((x) => x === 'BUTTON(Sem CEP)'), 'teclado-chat: na busca do CEP o foco não cai no "Sem CEP"')
+  await foto(page, 'teclado-chat-resumo')
+  await ctx.close()
+}
+
 // ---------- as falas da rua: nenhuma palavra da lista PALAVRAS_PROIBIDAS (src/dados/sorte.ts) ----------
 {
   const raiz = new URL('../src/', import.meta.url)

@@ -106,6 +106,36 @@ export function ChatFolha() {
   const sugerido =
     modo === 'pedido' && !cupom ? (cupons.find((c) => c.status === 'ativo' && situacaoNoPedido(c, todas, local.uf, agora).tipo === 'ok') ?? null) : null
   useConferirCupom(aberto && passo === 'resumo')
+  // Teclado e leitor de tela: a resposta (o chip ou o campo) sai da tela quando o passo troca, e o foco caía no <body>
+  // (o Tab seguinte ia pra página de trás da folha). Quando isso acontece, ele vai pra primeira coisa do passo novo: as
+  // opções ou o resumo; o campo, só com mouse e teclado (no celular o teclado não abre sozinho); sem nada, a folha.
+  // Enquanto o CEP é procurado (o campo fica desligado), o foco espera na folha: um Enter a mais não escolhe "Sem CEP".
+  const esperandoCep = useRef(false)
+  useEffect(() => {
+    if (!aberto) return
+    const id = requestAnimationFrame(() => {
+      const folha = document.querySelector<HTMLElement>('.folha-chat:not(.folha-saindo)')
+      if (!folha) return
+      const ativo = document.activeElement
+      const perdido = !ativo || ativo === document.body || (esperandoCep.current && ativo === folha)
+      if (buscandoCep) {
+        if (perdido) {
+          esperandoCep.current = true
+          folha.focus({ preventScroll: true })
+        }
+        return
+      }
+      esperandoCep.current = false
+      if (!perdido) return
+      const fino = window.matchMedia('(pointer: fine)').matches
+      const alvo =
+        folha.querySelector<HTMLElement>('.dm-atual .dm-chip, .dm-atual a[href], .dm-atual button:not(:disabled)') ??
+        (fino ? folha.querySelector<HTMLElement>('.folha-rodape input:not(:disabled)') : null) ??
+        folha
+      alvo.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [passo, feitos.length, avisoCep, buscandoCep])
 
   // os estados, o WhatsApp e os pagamentos vêm da loja (o painel, ou o embutido): redesenha quando ela troca
   useLojaMarca()
@@ -574,7 +604,7 @@ export function ChatFolha() {
         !ehResumo && atual.campo ? (
           <EntradaDM key={passo} campo={atual.campo} desativado={buscandoCep} />
         ) : !ehResumo ? (
-          <p className="dm-dica legenda">Toca numa opção ali em cima</p>
+          <p className="dm-dica legenda">Escolhe uma opção ali em cima</p>
         ) : undefined
       }
     >
@@ -623,7 +653,7 @@ export function ChatFolha() {
                 <BolhaLoja key={i}>{q}</BolhaLoja>
               ))}
               {d.resposta && (
-                <button type="button" className="dm-bolha dm-eu dm-editavel" onClick={() => voltarPara(p)} aria-label={`${d.resposta}. Tocar para mudar`}>
+                <button type="button" className="dm-bolha dm-eu dm-editavel" onClick={() => voltarPara(p)} aria-label={`${d.resposta}. Mudar resposta`}>
                   {d.resposta}
                 </button>
               )}
@@ -1066,7 +1096,7 @@ function motivoCurto(s: Situacao, lugar: string): string {
     case 'indisponivel-aqui':
       return `não tem em ${lugar}`
     case 'fora-do-catalogo':
-      return 'saiu do catálogo'
+      return 'saiu do Mercado'
     case 'vencido':
       return 'venceu'
     default:

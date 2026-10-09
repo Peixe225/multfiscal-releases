@@ -95,7 +95,7 @@ function BotaoZap({
       {naoAbriu && (
         <div className="rp-nao-abriu">
           <p>
-            Não abriu? Toca de novo, ou copia o texto e manda pro WhatsApp da loja: <span className="dm-numero">{celularNoCampo(whatsappDoCanal(canal))}</span>.
+            Não abriu? Aperta de novo, ou copia o texto e manda pro WhatsApp da loja: <span className="dm-numero">{celularNoCampo(whatsappDoCanal(canal))}</span>.
           </p>
           <button type="button" className="dm-chip toque" onClick={() => avisar(copiarTexto(texto) ? 'Copiado.' : 'Segura no texto da mensagem e copia.')}>
             Copiar texto
