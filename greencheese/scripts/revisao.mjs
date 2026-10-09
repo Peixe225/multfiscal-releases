@@ -122,6 +122,8 @@ async function apiRateio(ctx) {
   await ctx.route('**/api/index.php**', async (route) => {
     const u = new URL(route.request().url())
     const r = u.searchParams.get('r')
+    // o servidor de agora também responde o recursos (API.md, "Contas dos clientes"): aqui, sem o código pelo WhatsApp
+    if (r === 'recursos') return route.fulfill({ json: { ok: true, contas: { codigo: false, sessao: false } } })
     if (r === 'rateios') return route.fulfill({ json: { ok: true, agora, rateios } })
     if (r === 'rateio') {
       const x = rateios.find((y) => y.id === u.searchParams.get('id'))

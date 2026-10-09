@@ -182,6 +182,7 @@ export async function fluxoContas(a) {
     await pD.goto(`${BASE}/painel/#/conta`)
     await pD.getByRole('link', { name: 'Equipe' }).first().click()
     await pD.getByRole('heading', { name: 'Equipe', level: 1 }).waitFor()
+    await pD.locator('.ct-linha').first().waitFor()
     ok((await pD.locator('.ct-linha').count()) === 1, 'equipe: só o dono no começo')
     await pD.getByRole('button', { name: 'Novo acesso' }).click()
     const folha = pD.getByRole('dialog', { name: 'Novo acesso' })
