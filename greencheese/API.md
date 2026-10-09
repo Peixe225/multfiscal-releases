@@ -453,12 +453,14 @@ manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a 
    nenhum estado que feche, a resposta inteira é ignorada. Entra na tela de uma vez, num respiro do navegador, e o que
    não mudou continua o mesmo objeto (nada pisca nem recomeça).
 4. Guardado: `{ formato: 2, build, versao, atualizadoEm, loja, pronta }` — o `loja` como veio e a `pronta` já
-   conferida. Outro build (site publicado de novo) confere o `loja` outra vez com as regras dele.
+   conferida, que abre a primeira tela sem conferir de novo. Guardado por outro build (site publicado de novo), o
+   `loja` é conferido outra vez com as regras do build novo logo depois da conversa com o servidor. O `formato` sobe
+   quando o jeito da `Loja` do site muda (aí a guardada só serve pra conferir de novo).
 5. Fora do ar, lento (10 s), 403/5xx ou JSON torto: fica com o que tem. **404 `sem-loja`**: apaga o guardado e volta pra
    embutida.
-6. Quem depende da loja do servidor espera ela no máximo 2,5 s: o estado do link da bio que a loja do aparelho não
-   conhece ("procurando", em vez de "ainda não chegou aí"), o palpite de IP num estado desses e os links diretos de
-   produto (`?p=`, `?produto=`) e do jogo (`?jogo=`).
+6. Quem depende da loja do servidor espera ela no máximo 2,5 s: o estado do link da bio ou o salvo que a loja do
+   aparelho não conhece (estado ativado no painel: "procurando" e uma vaga preta no Início, em vez de "ainda não chegou
+   aí"), o palpite de IP num estado desses e os links diretos de produto (`?p=`, `?produto=`) e do jogo (`?jogo=`).
 
 ```ts
 interface Loja {

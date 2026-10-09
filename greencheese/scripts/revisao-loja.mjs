@@ -224,6 +224,28 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   await ba.waitForTimeout(1500)
   conferir((await guardada(ba)) === 8 && (await ba.locator('.sem').count()) === 0, 'loja: resposta torta do servidor não troca nada (fica a versão 8)')
 
+  // loja guardada por outro build (o formato velho, só a resposta crua) com o servidor fora: a primeira tela sai com a
+  // embutida, a guardada é conferida no pedaço à parte e entra (a BA volta sem a tela de sem atendimento piscar)
+  servidor.modo = 'fora'
+  await ba.evaluate((l) => localStorage.setItem('gc-loja', JSON.stringify({ formato: 1, versao: 6, atualizadoEm: new Date().toISOString(), loja: l })), loja)
+  await ba.reload()
+  let piscou = false
+  for (let i = 0; i < 10; i++) {
+    if (await ba.locator('.sem').count()) piscou = true
+    await ba.waitForTimeout(150)
+  }
+  conferir(!piscou && (await esperar(ba, () => document.querySelector('.hero .story-cab-nome')?.textContent === 'greencheese_importsba')), 'loja: guardada por outro build, com o servidor fora: conferida de novo e a BA abre (sem "ainda não chegou aí")')
+  conferir(await esperar(ba, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.formato === 2), 'loja: a guardada é regravada já conferida por este build')
+  // guardada (já conferida) por outro build: abre a primeira tela na hora e é conferida de novo por este
+  await ba.evaluate(() => {
+    const g = JSON.parse(localStorage.getItem('gc-loja'))
+    localStorage.setItem('gc-loja', JSON.stringify({ ...g, build: 'outro-build' }))
+  })
+  await ba.reload()
+  await ba.waitForTimeout(300)
+  conferir((await ba.locator('.hero .story-cab-nome').textContent().catch(() => '')) === 'greencheese_importsba', 'loja: guardada por outro build: a pronta abre a primeira tela na hora (BA)')
+  conferir(await esperar(ba, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.build !== 'outro-build'), 'loja: e é conferida de novo e regravada por este build')
+
   // ── a BA sai do site: quem estava nela vê a tela de sem atendimento ──
   servidor.modo = 'ok'
   servidor.versao = 9

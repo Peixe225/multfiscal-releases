@@ -8,6 +8,7 @@
 // (src/store/loja-ler.ts, num pedaço à parte: só baixa quando chega loja nova).
 // Telas leem pelos hooks daqui; quem só lê na hora (o pedido, o rateio) usa canalDa/canais de src/dados/canais.ts e
 // produtoPorId de src/store/catalogo.ts, que acompanham a troca.
+import { useSyncExternalStore } from 'react'
 import { create } from 'zustand'
 import dados from '../dados/catalogo.json'
 import { canais as canaisAtuais, canaisEmbutidos, trocarCanais, type Canal } from '../dados/canais'
@@ -149,7 +150,10 @@ function estadoDe(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm
 
 /* ───────────────────────── o guardado no aparelho ───────────────────────── */
 
-/** O build que guardou: com o mesmo build, a loja guardada já foi conferida pelas mesmas regras. */
+/**
+ * O build que guardou. A `pronta` vale pra primeira tela em qualquer build do mesmo formato (o formato sobe quando o
+ * jeito da Loja muda); guardada por outro build, ela é conferida de novo logo depois, com as regras deste.
+ */
 const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : ''
 
 interface Guardada {
@@ -159,33 +163,35 @@ interface Guardada {
   atualizadoEm: string
   /** O `loja` como veio do servidor (outro build confere de novo, com as regras dele). */
   loja: unknown
-  /** A loja já conferida por este build (abre a primeira tela sem conferir de novo). */
+  /** A loja já conferida (abre a primeira tela sem conferir de novo). */
   pronta: Loja
 }
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
-/** A guardada no aparelho: pronta pra usar (mesmo build) ou só pra conferir de novo (outro build ou formato velho). */
-function lerGuardada(): { pronta: Loja | null; crua: unknown; versao: number; atualizadoEm: string } | null {
+/**
+ * A guardada no aparelho: a `pronta` (formato 2) abre a primeira tela; guardada por outro build (ou no formato velho, só
+ * a crua), ela também vai pra conferir de novo.
+ */
+function lerGuardada(): { pronta: Loja | null; conferir: boolean; crua: unknown; versao: number; atualizadoEm: string } | null {
   const g = ler<unknown>(CHAVE, null)
   if (!ehObjeto(g) || typeof g.versao !== 'number' || typeof g.atualizadoEm !== 'string' || (g.formato !== 1 && g.formato !== 2)) return null
-  const p = g.formato === 2 && g.build === BUILD && ehObjeto(g.pronta) ? (g.pronta as unknown as Loja) : null
+  const p = g.formato === 2 && ehObjeto(g.pronta) ? (g.pronta as unknown as Loja) : null
   const pronta = p && Array.isArray(p.canais) && p.canais.length && Array.isArray(p.produtos) && Array.isArray(p.categorias) && ehObjeto(p.sorte) && ehObjeto(p.textos) ? p : null
-  return { pronta, crua: g.loja, versao: g.versao, atualizadoEm: g.atualizadoEm }
+  return { pronta, conferir: !pronta || g.build !== BUILD, crua: g.loja, versao: g.versao, atualizadoEm: g.atualizadoEm }
 }
 
 function guardar(crua: unknown, pronta: Loja, versao: number, atualizadoEm: string) {
   gravar(CHAVE, { formato: 2, build: BUILD, versao, atualizadoEm, loja: crua, pronta } satisfies Guardada)
 }
 
-/** Guardada por outro build (ou no formato velho): a primeira tela sai com a embutida e ela é conferida depois. */
+/** Guardada por outro build (ou no formato velho): conferida de novo depois da conversa com o servidor. */
 let paraConferir: { crua: unknown; versao: number; atualizadoEm: string } | null = null
 
 function inicial(): EstadoLoja {
   const g = lerGuardada()
-  if (g?.pronta) return estadoDe(g.pronta, 'aparelho', g.versao, g.atualizadoEm, null)
-  if (g) paraConferir = { crua: g.crua, versao: g.versao, atualizadoEm: g.atualizadoEm }
-  return estadoDe(EMBUTIDA, 'embutida', null, null, null)
+  if (g?.conferir) paraConferir = { crua: g.crua, versao: g.versao, atualizadoEm: g.atualizadoEm }
+  return g?.pronta ? estadoDe(g.pronta, 'aparelho', g.versao, g.atualizadoEm, null) : estadoDe(EMBUTIDA, 'embutida', null, null, null)
 }
 
 export const useLoja = create<EstadoLoja>(inicial)
@@ -212,6 +218,11 @@ function semServidorAqui(): boolean {
 let buscando: Promise<void> | null = null
 let ultimaBusca = 0
 let conferida = false
+/** A tela que espera a loja do servidor (estado que a daqui não conhece) para de esperar depois disso. */
+const PACIENCIA_MS = 2500
+let paciencia = false
+const ouvintesConferida = new Set<() => void>()
+const avisarConferida = () => ouvintesConferida.forEach((f) => f())
 let avisarPrimeira: () => void = () => {}
 /**
  * Resolve quando a primeira conversa com o servidor termina (deu certo ou não), já com a loja nova na tela: a planilha,
@@ -219,8 +230,10 @@ let avisarPrimeira: () => void = () => {}
  */
 const primeira = new Promise<void>((ok) => {
   avisarPrimeira = () => {
+    if (conferida) return
     conferida = true
     ok()
+    avisarConferida()
   }
 })
 export const lojaPronta = () => primeira
@@ -232,51 +245,26 @@ export function esperarLoja(ms: number): Promise<void> {
   return Promise.race([primeira, new Promise<void>((ok) => setTimeout(ok, ms))])
 }
 
+function assinarConferida(f: () => void) {
+  ouvintesConferida.add(f)
+  return () => ouvintesConferida.delete(f)
+}
+/**
+ * O estado escolhido ainda não está na loja daqui e a do servidor ainda não chegou (estado ativado no painel, com a
+ * loja guardada de antes ou de outro build): a tela espera um pouco, sem dizer "ainda não chegou aí".
+ */
+export function useEsperandoLoja(uf: string | null | undefined): boolean {
+  const pronta = useSyncExternalStore(assinarConferida, () => conferida || paciencia, () => true)
+  const conhece = useLoja((s) => !!uf && s.canais.some((c) => c.uf === uf.toLowerCase()))
+  return !!uf && !conhece && !pronta
+}
+
 /** Pergunta a loja ao servidor e troca se veio outra. Nunca joga erro: sem resposta boa, fica tudo como está. */
 export function buscarLoja(): Promise<void> {
   if (buscando) return buscando
   buscando = (async () => {
     if (semServidorAqui()) return
-    ultimaBusca = Date.now()
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
-    const t = setTimeout(() => ctrl?.abort(), LIMITE_MS)
-    try {
-      const r = await fetch(ROTA, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: ctrl?.signal })
-      let d: unknown
-      try {
-        d = await r.json()
-      } catch {
-        return // HTML no lugar de JSON (sem servidor aqui) ou resposta cortada: fica como está
-      }
-      if (!ehObjeto(d)) return
-      // o servidor existe e ainda não tem loja (painel não instalado): a embutida, que é a mesma da semente
-      if (r.status === 404 && d.ok === false && d.erro === 'sem-loja') {
-        apagar(CHAVE)
-        paraConferir = null
-        if (useLoja.getState().fonte !== 'embutida') await aplicar(EMBUTIDA, 'embutida', null, null)
-        return
-      }
-      if (!r.ok || d.ok !== true) return
-      const versao = typeof d.versao === 'number' && Number.isFinite(d.versao) ? d.versao : null
-      const atualizadoEm = typeof d.atualizadoEm === 'string' && Number.isFinite(Date.parse(d.atualizadoEm)) ? d.atualizadoEm : null
-      if (versao == null || !atualizadoEm) return
-      const s = useLoja.getState()
-      // a mesma versão que já tá na tela (o 304 de sempre): nada muda
-      if (s.fonte !== 'embutida' && s.versao === versao && s.atualizadoEm === atualizadoEm) {
-        if (s.fonte !== 'servidor') useLoja.setState({ fonte: 'servidor' })
-        return
-      }
-      const { lerLoja } = await import('./loja-ler')
-      const loja = lerLoja(d.loja, EMBUTIDA, MAX_STORY)
-      if (!loja) return
-      paraConferir = null
-      guardar(d.loja, loja, versao, atualizadoEm)
-      await aplicar(loja, 'servidor', versao, atualizadoEm)
-    } catch {
-      /* fora do ar, tempo esgotado: fica com o que tem */
-    } finally {
-      clearTimeout(t)
-    }
+    await perguntar()
     // sem loja nova do servidor (fora do ar, resposta torta): a guardada por outro build, conferida agora, entra no
     // lugar da embutida
     if (paraConferir) await conferirGuardada()
@@ -287,7 +275,54 @@ export function buscarLoja(): Promise<void> {
   return buscando
 }
 
-/** A guardada por outro build (ou no formato velho), conferida com as regras deste: entra na tela e fica guardada. */
+/** Uma conversa com o servidor: troca a loja quando chega uma versão nova que fecha. */
+async function perguntar(): Promise<void> {
+  ultimaBusca = Date.now()
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const t = setTimeout(() => ctrl?.abort(), LIMITE_MS)
+  try {
+    const r = await fetch(ROTA, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: ctrl?.signal })
+    let d: unknown
+    try {
+      d = await r.json()
+    } catch {
+      return // HTML no lugar de JSON (sem servidor aqui) ou resposta cortada: fica como está
+    }
+    if (!ehObjeto(d)) return
+    // o servidor existe e ainda não tem loja (painel não instalado): a embutida, que é a mesma da semente
+    if (r.status === 404 && d.ok === false && d.erro === 'sem-loja') {
+      apagar(CHAVE)
+      paraConferir = null
+      if (useLoja.getState().fonte !== 'embutida') await aplicar(EMBUTIDA, 'embutida', null, null)
+      return
+    }
+    if (!r.ok || d.ok !== true) return
+    const versao = typeof d.versao === 'number' && Number.isFinite(d.versao) ? d.versao : null
+    const atualizadoEm = typeof d.atualizadoEm === 'string' && Number.isFinite(Date.parse(d.atualizadoEm)) ? d.atualizadoEm : null
+    if (versao == null || !atualizadoEm) return
+    const s = useLoja.getState()
+    // a mesma versão que já tá na tela (o 304 de sempre): nada muda
+    if (s.fonte !== 'embutida' && s.versao === versao && s.atualizadoEm === atualizadoEm) {
+      if (s.fonte !== 'servidor') useLoja.setState({ fonte: 'servidor' })
+      return
+    }
+    const { lerLoja } = await import('./loja-ler')
+    const loja = lerLoja(d.loja, EMBUTIDA, MAX_STORY)
+    if (!loja) return
+    paraConferir = null
+    guardar(d.loja, loja, versao, atualizadoEm)
+    await aplicar(loja, 'servidor', versao, atualizadoEm)
+  } catch {
+    /* fora do ar, tempo esgotado: fica com o que tem */
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+/**
+ * A guardada por outro build (ou no formato velho), conferida com as regras deste: entra na tela (o que não mudou fica
+ * o mesmo objeto) e fica guardada. Se a loja do servidor já entrou, ela vale mais.
+ */
 async function conferirGuardada(): Promise<void> {
   const g = paraConferir
   paraConferir = null
@@ -295,11 +330,17 @@ async function conferirGuardada(): Promise<void> {
   try {
     const { lerLoja } = await import('./loja-ler')
     const loja = lerLoja(g.crua, EMBUTIDA, MAX_STORY)
-    if (!loja || useLoja.getState().fonte !== 'embutida') return
+    if (!loja) {
+      // a guardada não fecha com as regras deste build: esquece ela (a embutida fica até o servidor responder)
+      apagar(CHAVE)
+      if (useLoja.getState().fonte === 'aparelho') await aplicar(EMBUTIDA, 'embutida', null, null)
+      return
+    }
+    if (useLoja.getState().fonte === 'servidor') return
     guardar(g.crua, loja, g.versao, g.atualizadoEm)
     await aplicar(loja, 'aparelho', g.versao, g.atualizadoEm)
   } catch {
-    /* o pedaço não baixou: segue com a embutida */
+    /* o pedaço não baixou: segue com o que tem */
   }
 }
 
@@ -327,6 +368,10 @@ export function iniciarLoja({ pedidoAberto = () => false, ufPedida = null }: { p
     avisarPrimeira()
     return
   }
+  setTimeout(() => {
+    paciencia = true
+    avisarConferida()
+  }, PACIENCIA_MS)
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
   const u = ufPedida?.toLowerCase()
   if (u && !useLoja.getState().canais.some((c) => c.uf === u)) void buscarLoja()

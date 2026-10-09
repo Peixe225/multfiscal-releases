@@ -10,7 +10,7 @@ import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useRateio } from '../store/rateio'
 import { useDisponiveis } from '../store/derivados'
-import { siglasDosEstados, useCanais, useCanalDa } from '../store/loja'
+import { siglasDosEstados, useCanais, useCanalDa, useEsperandoLoja } from '../store/loja'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { AdesivoInterativo } from './AdesivoInterativo'
@@ -199,11 +199,14 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
  */
 const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { abrirInfo: () => void; comGrade: boolean }) {
   const uf = useLocal((s) => s.uf)
-  // estado que a loja tirou do site (ou que nunca teve): a tela de sem atendimento no lugar do Início
+  // estado que a loja tirou do site (ou que nunca teve): a tela de sem atendimento no lugar do Início. Enquanto a loja
+  // do servidor não chega com um estado que a daqui não conhece, uma vaga preta (nem "ainda não chegou aí", nem produto
+  // apagado como indisponível)
+  const esperando = useEsperandoLoja(uf)
   const comEntrega = !!useCanalDa(uf) || !uf
   return (
     <>
-      {comEntrega ? <Hero /> : <SemAtendimento />}
+      {comEntrega ? <Hero /> : esperando ? <div className="inicio-esperando" aria-busy="true" /> : <SemAtendimento />}
       <Faixa />
       {comEntrega && (
         <>
@@ -243,7 +246,8 @@ const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => 
   const interativos = useInterativosAtivos()
   const total = useCatalogo((s) => s.produtos.length)
   const disp = useDisponiveis().length
-  if (uf && !canal) return <CatalogoSemEntrega />
+  const esperando = useEsperandoLoja(uf)
+  if (uf && !canal) return esperando ? <div className="inicio-esperando" aria-busy="true" /> : <CatalogoSemEntrega />
   const lugar = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? canal.nome) : null
   const legenda = canal ? `${disp} disponíveis em ${lugar} · ${total} produtos` : `${total} produtos · ${siglasDosEstados(canais)}`
   const interativo = interativos.length > 0
