@@ -27,6 +27,7 @@ export const SCREENS: Record<RoutePath, LazyExoticComponent<ComponentType>> = {
   '/imersivo': screen(() => import('@/ui/immersive/ImmersiveApp'), 'ImmersiveApp'),
   '/kit': screen(() => import('./KitScreen'), 'KitScreen'),
   '/creditos': screen(() => import('@/ui/shared/credits/CreditsScreen'), 'CreditsScreen'),
+  '/live': screen(() => import('@/ui/live/LiveScreen'), 'LiveScreen'),
 }
 
 export const AchievementsDialog = lazy(async () => {

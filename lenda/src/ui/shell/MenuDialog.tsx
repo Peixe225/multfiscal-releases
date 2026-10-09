@@ -2,7 +2,7 @@
  * Menu (sheet on phones, dialog on desktop): navigation, settings, abandon career.
  */
 import { useState } from 'react'
-import { ChevronRight, Crown, Flag as FlagIcon, House, ChartLine, Play, Radio, ScrollText, Settings2, Sparkles, Trash, UserRound } from 'lucide-react'
+import { ChevronRight, Crown, Flag as FlagIcon, House, ChartLine, Play, Radio, ScrollText, Settings2, Sparkles, Trash, UserRound, Video } from 'lucide-react'
 import { navigate, useApp, type RoutePath } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { useData } from '@/store/data'
@@ -55,6 +55,7 @@ export function MenuDialog() {
         {state && <NavRow icon={ChartLine} label="Resumo da carreira" to="/resumo" onGo={close} />}
         <NavRow icon={Radio} label="Ligas ao vivo" sub="Tabelas reais de hoje" to="/ligas" onGo={close} />
         <NavRow icon={Crown} label="Hall das Lendas" sub="Suas runs contra as lendas" to="/hall" onGo={close} />
+        <NavRow icon={Video} label="Live interativa" sub="TikTok LIVE: o chat decide com comentários e presentes" to="/live" onGo={close} />
         <NavRow icon={ScrollText} label="Créditos" sub="Fotos, fontes, dados e licenças" to="/creditos" onGo={close} />
         {import.meta.env.DEV && <NavRow icon={Sparkles} label="Design kit" sub="Primitivos e estados" to="/kit" onGo={close} />}
       </div>

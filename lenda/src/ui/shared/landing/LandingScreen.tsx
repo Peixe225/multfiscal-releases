@@ -275,6 +275,10 @@ export default function LandingScreen() {
             <a className="ld-footer__link" href={buildHash('/creditos')}>
               Créditos e licenças
             </a>
+            {' · '}
+            <a className="ld-footer__link" href={buildHash('/live')}>
+              Live interativa (TikTok)
+            </a>
           </span>
           <span>Dados de tabela: rodada atual de cada liga{data?.generatedAt ? ` · ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}</span>
         </footer>

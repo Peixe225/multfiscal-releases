@@ -16,6 +16,8 @@ import { TrophyArt } from '@/ui/trophies'
 import { LeagueLogo } from '@/ui/classic/cockpit/bits'
 import { EventArt } from '@/ui/art/EventArt'
 import { useReveal } from '@/ui/classic/reveal/store'
+import { useLiveSession } from '@/live/config'
+import { VoteBadge } from '@/ui/live/VoteBadge'
 
 export type CardState = 'idle' | 'chosen' | 'dim' | 'locked'
 
@@ -50,6 +52,7 @@ function OptionShell({
   const rm = useReducedMotion()
   const touch = useIsTouch()
   const focusIdx = useReveal((s) => s.focusIdx)
+  const live = useLiveSession((s) => s.on)
   const chosen = state === 'chosen'
   const dim = state === 'dim'
   return (
@@ -73,6 +76,7 @@ function OptionShell({
           {index + 1}
         </Kbd>
       )}
+      {live && <VoteBadge optionId={option.id} />}
       {children}
     </motion.button>
   )

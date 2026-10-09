@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "data": "node scripts/build-data.mjs"
+    "data": "node scripts/build-data.mjs",
+    "live": "node live/ponte.mjs",
+    "live:demo": "node live/ponte.mjs --demo --abrir"
   },
   "dependencies": {
     "@fontsource-variable/cormorant-garamond": "^5.3.0",
@@ -35,8 +37,10 @@
     "flag-icons": "^7.5.0",
     "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
+    "tiktok-live-connector": "^2.5.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "ws": "^8.22.0"
   }
 }

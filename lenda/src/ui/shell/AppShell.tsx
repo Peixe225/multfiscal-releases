@@ -2,10 +2,11 @@
  * App shell: router, club theming on the root, ambient stage, top bar, page transitions,
  * loading splash, dialogs (menu, achievements), toasts.
  */
-import { Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { navigate, startRouter, syncDocumentFlags, useApp, type RoutePath } from '@/store/app'
 import { useCareer } from '@/store/career'
+import { useLiveSession } from '@/live/config'
 import { useClub, useData } from '@/store/data'
 import { Skeleton, Stadium, Stage, Toaster } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
@@ -16,6 +17,9 @@ import { AchievementsDialog, SCREENS, themeFor } from './routes'
 import { useSlotStore } from './slots'
 import { Splash } from './Splash'
 import { TopBar } from './TopBar'
+
+/** Live interativa (TikTok): conexão, autopiloto e a faixa da live — carregados só quando usados. */
+const LiveRoot = lazy(() => import('@/ui/live/LiveRoot'))
 
 /** Brand light when there is no club (indigo + gold, from the landing mockup). */
 export const BRAND_COLORS: ClubColors = { primary: '#5c50ff', secondary: '#ffc45c', glow: '#5c50ff' }
@@ -65,6 +69,10 @@ export function AppShell() {
   const club = useClub(clubId)
   const rm = useReducedMotion()
   const theme = themeFor(route.path, route.query)
+  const liveOn = useLiveSession((s) => s.on)
+  const liveMounted = liveOn || route.path === '/live'
+  // a faixa da live ocupa o lugar da barra do topo onde o público vê o jogo
+  const liveHud = liveOn && (route.path === '/carreira' || (route.path === '/live' && route.query.tela === 'palco'))
 
   useEffect(() => startRouter(), [])
   useEffect(() => syncDocumentFlags(), [])
@@ -125,7 +133,12 @@ export function AppShell() {
         Pular para o conteúdo
       </button>
       <AmbientStage path={route.path} theme={theme} />
-      {ready && <TopBar path={route.path} />}
+      {ready && !liveHud && <TopBar path={route.path} />}
+      {ready && liveMounted && (
+        <Suspense fallback={null}>
+          <LiveRoot />
+        </Suspense>
+      )}
       {ready && (
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
