@@ -794,6 +794,12 @@ html.pn-compondo .pn-barra {
   color: var(--preto);
   box-shadow: none;
 }
+/* estado que não é de quem está logado (gerente, atendente): fica à vista, mas não marca */
+.pn-chip-uf:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
 
 /* interruptor e opções */
 .pn-troca,

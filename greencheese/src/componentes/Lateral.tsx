@@ -7,6 +7,7 @@ import { preenchida } from '../arte/pixel/preencher'
 import { useInterativosAtivos, type Interativo } from '../interativos/registro'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba } from '../lib/abas'
 import { useConta, useCupons } from '../lib/conta'
+import { useEntrarPorCodigo } from '../lib/conta-modo'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
 import { useCanalDa } from '../store/loja'
@@ -226,11 +227,24 @@ function ItemInterativo({ i }: { i: Interativo }) {
   )
 }
 
-/** "Minha conta" (só com conta), com o contador de cupons ativos. */
+/**
+ * "Minha conta" (com conta), com o contador de cupons ativos. Sem conta, quando a loja guarda as contas (entrar com o
+ * código pelo WhatsApp): "Entrar". Comprar nunca pede conta: é só um item a mais, no fim.
+ */
 function ItemConta() {
   const conta = useConta()
   const cupons = useCupons()
   const setConta = useUI((s) => s.setConta)
+  const entrar = useEntrarPorCodigo()
+  if (!conta && entrar)
+    return (
+      <button type="button" className="lateral-item toque" onClick={() => setConta(true)} aria-haspopup="dialog">
+        <span className="lateral-icone">
+          <Icone nome="conta" tamanho={24} />
+        </span>
+        <span>Entrar</span>
+      </button>
+    )
   if (!conta) return null
   const n = cupons.filter((c) => c.status === 'ativo').length
   return (

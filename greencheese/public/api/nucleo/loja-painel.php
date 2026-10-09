@@ -295,6 +295,10 @@ function gc_rota_admin_produto_estado(): array
         if ($uf === null || gc_um('SELECT 1 FROM loja_estados WHERE uf = ?', [$uf]) === null) {
             throw gc_invalido('uf', 'Estado que a loja não atende.');
         }
+        // o gerente só mexe nos estados dele (o dono, em todos)
+        if (function_exists('gc_exigir_uf')) {
+            gc_exigir_uf($uf, 'Esse estoque');
+        }
         $antes = gc_loja_por_uf($id)[$id][$uf] ?? ['disponivel' => false, 'estoque' => null];
         $novo = $antes;
         if (array_key_exists('disponivel', $c)) {

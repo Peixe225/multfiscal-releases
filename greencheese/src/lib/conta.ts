@@ -1,16 +1,16 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { regrasDaSorte } from '../store/loja'
-import { useContaStore, type Conta, type Cupom, type EstadoConta, type Pendente } from '../store/conta'
+import { useContaStore, type Conta, type Cupom, type EnderecoConta, type EstadoConta, type Pendente } from '../store/conta'
 import { diaSP, inicioDoDiaSeguinteSP, premioPorId, statusDo, type StatusCupom } from './cupom'
 
 // Conta do cliente atrás de uma interface (AdaptadorConta). Divisão do trabalho:
-// - ESCREVER é só com o adaptador (src/lib/conta-adaptador.ts): criar, entrar, girar, guardar, usar… Hoje vale o
-//   adaptador local (prévia: conta, cupons e limite só neste aparelho, sem rede). Na versão oficial entra o do
-//   servidor (PHP + MySQL na Hostinger) com os mesmos métodos: quem sorteia, gera o código e valida o limite é o
-//   servidor. Por isso todos os métodos são async, mesmo os locais.
+// - ESCREVER é só com o adaptador (src/lib/conta-adaptador.ts): criar, entrar, girar, guardar, usar… Dois adaptadores
+//   com os mesmos métodos: o do aparelho (conta, cupons e limite só aqui, sem rede) e o do servidor da loja (entrar com
+//   o WhatsApp + código; quem sorteia, gera o código e valida o limite é o servidor). Quem escolhe é src/lib/conta-modo.ts
+//   (o servidor diz no GET recursos). Por isso todos os métodos são async, mesmo os locais.
 // - LER é com os hooks daqui, que leem o store 'gc-conta' (src/store/conta.ts). Esse store é o CACHE da conta no
-//   aparelho: na prévia ele é a própria fonte; na versão oficial o adaptador do servidor grava nele o que a API
-//   devolve a cada chamada (conta, cupons, dias de giro e prêmio reservado). As telas não leem o store direto.
+//   aparelho: com a conta no aparelho ele é a própria fonte; com a do servidor, o adaptador grava nele o que a API
+//   devolve a cada chamada (conta, cupons, endereços, dias de giro e prêmio reservado). As telas não leem o store direto.
 // Este arquivo fica no pedaço principal (as entradas do site usam os hooks); o adaptador baixa só com o jogo e a conta.
 
 export type Resultado<T, E extends string> = { ok: true; valor: T } | { ok: false; erro: E }
@@ -24,26 +24,43 @@ export type GiroInfo =
 export interface ContaAberta {
   conta: Conta
   cupomGuardado: Cupom | null
+  /** Criar com um número que já tinha conta no servidor: entrou nela (a tela diz "oi de novo", não "conta criada"). */
+  jaTinha?: boolean
+  /**
+   * O prêmio do giro sem conta não entrou: a conta já tinha girado no dia daquele giro (1 giro por dia por conta). A
+   * reserva fica no aparelho, sem cupom.
+   */
+  pendenteRecusado?: 'ja-girou-hoje'
 }
+
+/** Os erros do código pelo WhatsApp (só o adaptador do servidor manda código). */
+export type ErroCodigo = 'codigo-errado' | 'codigo-vencido' | 'muitas-tentativas' | 'sem-envio' | 'falhou'
 
 export interface AdaptadorConta {
   modo: 'local' | 'servidor'
-  /** Cria e abre a conta; guarda na hora o prêmio reservado, se ainda vale. */
-  criar(d: { nome: string; whatsapp: string; aceitaPromo: boolean }): Promise<Resultado<ContaAberta, 'whatsapp-existe' | 'invalido' | 'sem-armazenamento'>>
   /**
-   * Entrar, passo 1: pede o código de confirmação pelo WhatsApp. `enviado: false` = não precisa de código
+   * Cria e abre a conta; guarda na hora o prêmio reservado, se ainda vale. No servidor, com o código que chegou no
+   * WhatsApp (pedirCodigo antes; sem ele: 'precisa-codigo').
+   */
+  criar(d: { nome: string; whatsapp: string; aceitaPromo: boolean; codigo?: string }): Promise<Resultado<ContaAberta, 'whatsapp-existe' | 'invalido' | 'sem-armazenamento' | 'precisa-codigo' | ErroCodigo>>
+  /**
+   * Passo 1 (entrar, criar ou trocar o número): pede o código pelo WhatsApp. `enviado: false` = não precisa de código
    * (adaptador local: a conta só existe neste aparelho) e a tela vai direto pro passo 2 sem pedir nada.
    */
-  pedirCodigo(whatsapp: string): Promise<Resultado<{ enviado: boolean }, 'nao-encontrada' | 'muitas-tentativas'>>
-  /** Entrar, passo 2: confere o código (o local ignora) e abre a conta; guarda o prêmio reservado, se ainda vale. */
-  confirmarCodigo(whatsapp: string, codigo: string | null): Promise<Resultado<ContaAberta, 'nao-encontrada' | 'codigo-errado'>>
+  pedirCodigo(whatsapp: string, motivo?: 'entrar' | 'criar' | 'trocar'): Promise<Resultado<{ enviado: boolean; esperaSegundos?: number; jaValendo?: boolean }, 'nao-encontrada' | 'invalido' | ErroCodigo>>
+  /**
+   * Entrar, passo 2: confere o código (o local ignora) e abre a conta; guarda o prêmio reservado, se ainda vale. No
+   * servidor, número sem conta pede o nome ('precisa-nome': manda de novo com `extra.nome`).
+   */
+  confirmarCodigo(whatsapp: string, codigo: string | null, extra?: { nome?: string; aceitaPromo?: boolean }): Promise<Resultado<ContaAberta, 'nao-encontrada' | 'precisa-nome' | ErroCodigo>>
   sair(): Promise<void>
-  /** LGPD: apaga a conta e os cupons deste aparelho (o giro de hoje continua usado). */
-  apagar(): Promise<void>
-  atualizar(d: Partial<Pick<Conta, 'nome' | 'whatsapp' | 'aceitaPromo'>>): Promise<Resultado<Conta, 'whatsapp-existe' | 'invalido'>>
+  /** LGPD: apaga a conta e os cupons (o giro de hoje continua usado). */
+  apagar(): Promise<Resultado<null, 'falhou'>>
+  /** Muda nome e promoções; trocar o WhatsApp no servidor pede o código que foi pro número novo. */
+  atualizar(d: Partial<Pick<Conta, 'nome' | 'whatsapp' | 'aceitaPromo'>> & { codigo?: string }): Promise<Resultado<Conta, 'whatsapp-existe' | 'invalido' | 'precisa-codigo' | ErroCodigo>>
   giroDisponivel(interativo: string): Promise<GiroInfo>
   girar(interativo: string, ctx: { uf: string | null }): Promise<Resultado<{ premioId: string; cupom: Cupom | null }, 'sem-giro' | 'sem-premio'>>
-  salvarCupom(interativo: string): Promise<Resultado<Cupom, 'sem-conta' | 'sem-pendente' | 'pendente-vencido'>>
+  salvarCupom(interativo: string): Promise<Resultado<Cupom, 'sem-conta' | 'sem-pendente' | 'pendente-vencido' | 'ja-girou-hoje'>>
   usarCupom(codigo: string): Promise<Resultado<Cupom, 'nao-encontrado' | 'ja-usado' | 'vencido'>>
 }
 
@@ -193,6 +210,13 @@ export function usePendente(interativo: string): { pendente: Pendente | null; va
     const valido = pendenteValido(doJogo, interativo, agora)
     return { pendente: doJogo, valido, vencido: !!doJogo && !valido }
   }, [pendente, agora, interativo])
+}
+
+const SEM_ENDERECOS: EnderecoConta[] = []
+
+/** Endereços guardados na conta da loja (o pedido guiado oferece na hora do endereço); sem conta da loja, nenhum. */
+export function useEnderecosDaConta(): EnderecoConta[] {
+  return useContaStore((s) => (s.servidor && s.servidor === s.atual ? s.enderecos : SEM_ENDERECOS))
 }
 
 export function useVisto(interativo: string): boolean {

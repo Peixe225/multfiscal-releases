@@ -1,0 +1,537 @@
+<?php
+declare(strict_types=1);
+defined('GC_API') || exit;
+
+// Teste minha sorte validado no servidor (quando a conta do site é a do servidor): quem sorteia, gera o código do cupom
+// e confere o limite é o servidor, nunca o aparelho. Regras (as de fábrica são as de src/dados/sorte.ts, regrasSorte;
+// com a loja no servidor, os números vêm do painel, gc_sorte_regras):
+// - sem conta: 1 giro por aparelho, pra sempre; o prêmio fica reservado pro aparelho por 24 h, sem código, até a
+//   pessoa guardar (criar a conta ou entrar, aí vira cupom);
+// - com conta: 1 giro por dia (dia de Brasília) por conta, por WhatsApp e por aparelho — sair, apagar a conta ou
+//   entrar em outra não dá giro novo no mesmo aparelho; e o giro sem conta guardado depois (cliente-guardar, entrar)
+//   vira o giro daquele dia da conta: se a conta (ou o WhatsApp dela) já tinha girado no dia, o prêmio não entra;
+// - todo giro ganha: sorteio por peso entre os prêmios que valem no estado (sem nenhum lá, entre todos os que valem).
+// O aparelho é um segredo de 32 hex gerado no site (localStorage gc-aparelho): só o hash fica no banco.
+// Os prêmios vêm de gc_premios_ativos() (loja.php: os do painel, com a sorte ligada); antes da loja ser montada no
+// servidor, da semente gerada de src/dados/sorte.ts (premios-semente.php, premios-sorte.json).
+
+const GC_INTERATIVOS = ['sorte'];
+// as regras de fábrica: valem até a loja ir pro servidor; dali em diante, as do painel (Loja → Teste minha sorte)
+const GC_SORTE_GIROS_SEM_CONTA = 1;
+const GC_SORTE_GIROS_POR_DIA = 1;
+const GC_SORTE_RESERVA = 24 * 3600;
+/** Cupons que a conta do aparelho (a do tempo em que tudo ficava no aparelho) traz pro servidor, uma vez por conta. */
+const GC_MIGRAR_CUPONS = 2;
+/** O alfabeto dos códigos de cupom do site (src/lib/cupom-uso.ts): sem I, L, O, 0, 1, S, 5, Z, 2. */
+const GC_ALFABETO_CUPOM = 'ABCDEFGHJKMNPQRTUVWXY346789';
+const GC_SORTE_PREFIXO = 'SORTE';
+
+// ─── relógio de Brasília ────────────────────────────────────────────────────────────────────────────────────────
+
+function gc_sp(int $t): DateTimeImmutable
+{
+    return (new DateTimeImmutable('@' . $t))->setTimezone(new DateTimeZone('America/Sao_Paulo'));
+}
+
+/** 'AAAA-MM-DD' no horário de Brasília. */
+function gc_dia_sp(int $t): string
+{
+    return gc_sp($t)->format('Y-m-d');
+}
+
+/** 23:59:59 (Brasília) do dia de $t mais $mais dias (a validade do cupom, como fimDoDiaSP do site). */
+function gc_fim_do_dia_sp(int $t, int $mais = 0): int
+{
+    return gc_sp($t)->modify("+$mais days")->setTime(23, 59, 59)->getTimestamp();
+}
+
+/** Meia-noite (Brasília) do dia seguinte: quando o giro de amanhã libera. */
+function gc_inicio_dia_seguinte_sp(int $t): int
+{
+    return gc_sp($t)->modify('+1 day')->setTime(0, 0, 0)->getTimestamp();
+}
+
+function gc_hash_whatsapp(string $w): string
+{
+    return $w === '' ? '' : hash_hmac('sha256', 'whatsapp|' . $w, gc_sal());
+}
+
+function gc_hash_aparelho(?string $token): string
+{
+    return $token === null ? '' : hash('sha256', 'aparelho|' . $token);
+}
+
+/**
+ * As regras do giro que valem agora: as do painel (gc_loja_sorte, as mesmas que o site lê no GET loja) quando a loja
+ * já está no servidor; senão, as de fábrica. A reserva sem conta em segundos.
+ * @return array{semConta: int, porDia: int, reserva: int}
+ */
+function gc_sorte_regras(): array
+{
+    if (function_exists('gc_loja_semeada') && function_exists('gc_loja_sorte') && gc_loja_semeada()) {
+        $s = gc_loja_sorte();
+        return [
+            'semConta' => max(1, $s['girosSemConta']),
+            'porDia' => max(1, $s['girosPorDiaComConta']),
+            'reserva' => max(1, $s['reservaSemContaHoras']) * 3600,
+        ];
+    }
+    return ['semConta' => GC_SORTE_GIROS_SEM_CONTA, 'porDia' => GC_SORTE_GIROS_POR_DIA, 'reserva' => GC_SORTE_RESERVA];
+}
+
+// ─── prêmios ────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Prêmios que valem agora no estado (sem nenhum lá, os que valem em qualquer estado). A loja define
+ * gc_premios_ativos(?string $uf) (loja.php); sem o módulo dela, vale a semente (carregada só aqui, depois de todos os
+ * módulos: a de lá, se existir, ganha). Cada prêmio no formato de src/dados/sorte.ts.
+ * @return list<array<string, mixed>>
+ */
+function gc_premios_do_giro(?string $uf): array
+{
+    if (!function_exists('gc_premios_ativos')) {
+        require_once __DIR__ . '/premios-semente.php';
+    }
+    $ok = static fn (array $p): bool => isset($p['id'], $p['tipo'], $p['peso'], $p['validadeDias']) && (float) $p['peso'] > 0;
+    $lista = array_values(array_filter(gc_premios_ativos($uf), $ok));
+    if ($lista === [] && $uf !== null) {
+        $lista = array_values(array_filter(gc_premios_ativos(null), $ok));
+    }
+    return $lista;
+}
+
+function gc_premio_por_id(string $id): ?array
+{
+    foreach (gc_premios_do_giro(null) as $p) {
+        if ($p['id'] === $id) {
+            return $p;
+        }
+    }
+    return null;
+}
+
+/** Sorteio por peso (random_int). @param list<array<string, mixed>> $lista */
+function gc_sortear(array $lista): ?array
+{
+    if ($lista === []) {
+        return null;
+    }
+    $escala = 1000;
+    $total = 0;
+    foreach ($lista as $p) {
+        $total += max(1, (int) round((float) $p['peso'] * $escala));
+    }
+    $r = random_int(0, $total - 1);
+    foreach ($lista as $p) {
+        $r -= max(1, (int) round((float) $p['peso'] * $escala));
+        if ($r < 0) {
+            return $p;
+        }
+    }
+    return $lista[count($lista) - 1];
+}
+
+/** O retrato do prêmio no dia (é ele que vale no cupom, mesmo que o prêmio mude depois). */
+function gc_retrato(array $p): array
+{
+    $r = [
+        'titulo' => (string) $p['titulo'],
+        'regra' => (string) $p['regra'],
+        'aplicaA' => (object) array_filter((array) ($p['aplicaA'] ?? []), static fn ($v): bool => is_array($v) && $v !== []),
+        'tipo' => (string) $p['tipo'],
+        'valor' => $p['valor'],
+    ];
+    if (isset($p['comoUsar']) && $p['comoUsar'] !== '') {
+        $r['comoUsar'] = (string) $p['comoUsar'];
+    }
+    return $r;
+}
+
+function gc_novo_codigo_cupom(): string
+{
+    for ($i = 0; $i < 60; $i++) {
+        $c = GC_SORTE_PREFIXO . '-';
+        for ($j = 0; $j < 4; $j++) {
+            $c .= GC_ALFABETO_CUPOM[random_int(0, strlen(GC_ALFABETO_CUPOM) - 1)];
+        }
+        if (gc_valor('SELECT 1 FROM cupons WHERE codigo = ?', [$c]) === null) {
+            return $c;
+        }
+    }
+    throw new RuntimeException('sem código de cupom livre');
+}
+
+/** Cria o cupom na conta. @return array<string, mixed> a linha */
+function gc_cupom_criar(int $clienteId, string $interativo, array $premio, string $origem, ?string $codigo = null, ?int $ganho = null, ?int $validoAte = null): array
+{
+    $agora = gc_agora();
+    $id = gc_inserir(
+        'INSERT INTO cupons (codigo, cliente_id, interativo, premio_id, retrato, demo, origem, ganho_em, valido_ate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+            $codigo ?? gc_novo_codigo_cupom(), $clienteId, $interativo, (string) $premio['id'],
+            json_encode(gc_retrato($premio), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ($premio['demo'] ?? false) ? 1 : 0, $origem, $ganho ?? $agora, $validoAte ?? gc_fim_do_dia_sp($agora, (int) $premio['validadeDias']),
+        ],
+    );
+    return (array) gc_um('SELECT * FROM cupons WHERE id = ?', [$id]);
+}
+
+/** O cupom como o site guarda (Cupom de src/store/conta.ts, datas em ISO). @param array<string, mixed> $k */
+function gc_cupom_publico(array $k): array
+{
+    $retrato = json_decode((string) $k['retrato'], true);
+    return [
+        'codigo' => (string) $k['codigo'],
+        'interativo' => (string) $k['interativo'],
+        'premioId' => (string) $k['premio_id'],
+        'retrato' => is_array($retrato) ? $retrato : (object) [],
+        'demo' => (int) $k['demo'] === 1,
+        'origem' => (string) $k['origem'],
+        'ganhoEm' => gc_iso((int) $k['ganho_em']),
+        'validoAte' => gc_iso((int) $k['valido_ate']),
+        'usadoEm' => gc_iso(gc_int_ou_nulo($k['usado_em'])),
+    ];
+}
+
+// ─── giros ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Dias de giro (os últimos 30) da conta, do WhatsApp dela e do aparelho: o site desenha "giro liberado" ou não com eles
+ * (regrasSorte), e o servidor recusa de qualquer jeito.
+ * @return list<string>
+ */
+function gc_giro_dias(string $interativo, ?int $clienteId, string $whatsapp, ?string $aparelho): array
+{
+    [$onde, $p] = gc_giro_quem($clienteId, $whatsapp, $aparelho);
+    if ($onde === '') {
+        return [];
+    }
+    $dias = array_map(static fn (array $l): string => (string) $l['dia'], gc_todos("SELECT dia FROM giros WHERE interativo = ? AND ($onde) ORDER BY dia DESC, id DESC LIMIT 30", [$interativo, ...$p]));
+    return array_reverse($dias);
+}
+
+/** WHERE de "quem girou": a conta, o WhatsApp ou o aparelho. @return array{0: string, 1: list<mixed>} */
+function gc_giro_quem(?int $clienteId, string $whatsapp, ?string $aparelho): array
+{
+    $partes = [];
+    $p = [];
+    if ($clienteId !== null) {
+        $partes[] = 'cliente_id = ?';
+        $p[] = $clienteId;
+    }
+    if ($whatsapp !== '') {
+        $partes[] = 'whatsapp_hash = ?';
+        $p[] = gc_hash_whatsapp($whatsapp);
+    }
+    if ($aparelho !== null) {
+        $partes[] = 'aparelho_hash = ?';
+        $p[] = gc_hash_aparelho($aparelho);
+    }
+    return [implode(' OR ', $partes), $p];
+}
+
+/**
+ * Giro liberado? Mesmo formato do GiroInfo do site (src/lib/conta.ts).
+ * @return array<string, mixed>
+ */
+function gc_giro_info(string $interativo, ?array $cliente, ?string $aparelho): array
+{
+    $agora = gc_agora();
+    if ($cliente === null) {
+        if ($aparelho === null) {
+            return ['disponivel' => true];
+        }
+        $dias = array_map(static fn (array $l): string => (string) $l['dia'], gc_todos('SELECT dia FROM giros WHERE interativo = ? AND aparelho_hash = ?', [$interativo, gc_hash_aparelho($aparelho)]));
+        if (count($dias) >= gc_sorte_regras()['semConta']) {
+            return ['disponivel' => false, 'motivo' => 'sem-conta-ja-girou', 'girouHoje' => in_array(gc_dia_sp($agora), $dias, true)];
+        }
+        return ['disponivel' => true];
+    }
+    [$onde, $p] = gc_giro_quem((int) $cliente['id'], (string) $cliente['whatsapp'], $aparelho);
+    $hoje = (int) gc_valor("SELECT COUNT(*) FROM giros WHERE interativo = ? AND dia = ? AND ($onde)", [$interativo, gc_dia_sp($agora), ...$p]);
+    if ($hoje >= gc_sorte_regras()['porDia']) {
+        return ['disponivel' => false, 'motivo' => 'ja-girou-hoje', 'proximoEm' => gc_iso(gc_inicio_dia_seguinte_sp($agora))];
+    }
+    return ['disponivel' => true];
+}
+
+/** O prêmio reservado pro aparelho (giro sem conta, dentro das 24 h, ainda não guardado). @return array<string, mixed>|null */
+function gc_reserva_do_aparelho(string $interativo, ?string $aparelho, bool $vencidaTambem = false): ?array
+{
+    if ($aparelho === null) {
+        return null;
+    }
+    return gc_um(
+        'SELECT * FROM giros WHERE interativo = ? AND aparelho_hash = ? AND cliente_id IS NULL AND cupom_id IS NULL AND reserva_expira IS NOT NULL'
+            . ($vencidaTambem ? '' : ' AND reserva_expira > ?') . ' ORDER BY id DESC LIMIT 1',
+        $vencidaTambem ? [$interativo, gc_hash_aparelho($aparelho)] : [$interativo, gc_hash_aparelho($aparelho), gc_agora()],
+    );
+}
+
+/** A reserva como o site guarda (Pendente de src/store/conta.ts). */
+function gc_pendente_publico(?array $g): ?array
+{
+    if ($g === null) {
+        return null;
+    }
+    return ['interativo' => (string) $g['interativo'], 'premioId' => (string) $g['premio_id'], 'sorteadoEm' => gc_iso((int) $g['em']), 'expiraEm' => gc_iso((int) $g['reserva_expira'])];
+}
+
+/**
+ * Guarda na conta o prêmio que o servidor reservou pro aparelho (quem girou sem conta e agora entrou ou criou). O giro
+ * guardado vira o giro daquele dia da conta: se a conta, ou o WhatsApp dela, já girou no dia do giro reservado (o giro
+ * logado de hoje, ou outro giro sem conta já guardado), recusa e a reserva fica como está, sem cupom — senão bastava
+ * girar sem o cookie num aparelho novo e guardar pra ganhar um giro a mais por dia. Dentro da transação de quem chama.
+ * @return array{cupom: array<string, mixed>|null, erro: string|null} erro: sem-pendente | pendente-vencido | ja-girou-hoje
+ */
+function gc_cupom_da_reserva(int $clienteId, string $whatsapp, ?string $aparelho, string $interativo = 'sorte'): array
+{
+    $g = gc_reserva_do_aparelho($interativo, $aparelho);
+    $premio = $g === null ? null : gc_premio_por_id((string) $g['premio_id']);
+    if ($g === null || $premio === null) {
+        return ['cupom' => null, 'erro' => gc_reserva_do_aparelho($interativo, $aparelho, true) !== null ? 'pendente-vencido' : 'sem-pendente'];
+    }
+    [$onde, $p] = gc_giro_quem($clienteId, $whatsapp, null);
+    $jaGirou = gc_valor(
+        "SELECT 1 FROM giros WHERE interativo = ? AND dia = ? AND id <> ? AND ($onde) LIMIT 1",
+        [$interativo, (string) $g['dia'], (int) $g['id'], ...$p],
+    ) !== null;
+    if ($jaGirou) {
+        return ['cupom' => null, 'erro' => 'ja-girou-hoje'];
+    }
+    $k = gc_cupom_criar($clienteId, $interativo, $premio, 'giro');
+    gc_sql('UPDATE giros SET cliente_id = ?, whatsapp_hash = ?, cupom_id = ? WHERE id = ?', [$clienteId, gc_hash_whatsapp($whatsapp), $k['id'], $g['id']]);
+    return ['cupom' => $k, 'erro' => null];
+}
+
+/** O erro do guardar como a API responde (cliente-guardar). */
+function gc_erro_guardar(string $erro): ErroApi
+{
+    return match ($erro) {
+        'ja-girou-hoje' => new ErroApi('ja-girou-hoje', 'Tua conta já tinha girado no dia desse giro: o prêmio dele não entra nela. É 1 giro por dia por conta.', 409),
+        'pendente-vencido' => new ErroApi('pendente-vencido', 'A reserva desse prêmio venceu.', 409),
+        default => new ErroApi('sem-pendente', 'Não tem prêmio reservado neste aparelho.', 409),
+    };
+}
+
+/**
+ * Desde quando a conta do site é a do servidor: a primeira vez que o entrar com código pelo WhatsApp esteve ligado
+ * (gravado uma vez, no primeiro GET recursos ou pedido de código com ele ligado). Antes disso, cupom só existia no
+ * aparelho; depois, todo cupom nasce no servidor — então a conta do aparelho só traz cupom ganho antes desse dia.
+ */
+function gc_contas_desde(): int
+{
+    $v = gc_ajuste('contas_desde');
+    if ($v === null || !ctype_digit($v)) {
+        $agora = gc_agora();
+        gc_sql('INSERT OR IGNORE INTO ajustes (chave, valor, atualizado_em) VALUES (?, ?, ?)', ['contas_desde', (string) $agora, $agora]);
+        $v = (string) gc_ajuste('contas_desde');
+    }
+    return (int) $v;
+}
+
+/**
+ * Traz pra conta o que o aparelho tinha da conta local (a do tempo em que tudo ficava no aparelho): os cupons que ainda
+ * valem (com o retrato do prêmio de hoje, o mesmo código quando está livre), o prêmio reservado sem conta e os dias de
+ * giro (que só limitam). Nada disso vem conferido — é o aparelho quem diz —, então os cupons e o prêmio reservado
+ * entram uma vez só por conta (clientes.migrado_em), no máximo GC_MIGRAR_CUPONS, só de prêmio que existe, só os ganhos
+ * ANTES de a conta do servidor existir (gc_contas_desde: depois disso todo cupom nasce no servidor) e com a validade
+ * contada do dia em que foi ganho (um cupom inventado com data velha vence junto com os de verdade). A loja confirma no
+ * WhatsApp como sempre. Os dias de giro entram sempre (só restringem). Dentro da transação. @return int quantos cupons
+ * entraram
+ */
+function gc_cliente_migrar(int $clienteId, string $whatsapp, array $m, ?string $aparelho): int
+{
+    $agora = gc_agora();
+    $entraram = 0;
+    $jaMigrou = gc_valor('SELECT migrado_em FROM clientes WHERE id = ?', [$clienteId]) !== null;
+    $cupons = [];
+    if (!$jaMigrou) {
+        $desde = gc_contas_desde();
+        $ja = (int) gc_valor("SELECT COUNT(*) FROM cupons WHERE cliente_id = ? AND origem = 'aparelho'", [$clienteId]);
+        // o prêmio reservado primeiro (é o mais recente); dos cupons, no máximo 10 olhados e GC_MIGRAR_CUPONS entram
+        $cupons = is_array($m['cupons'] ?? null) && array_is_list($m['cupons']) ? array_slice($m['cupons'], 0, 10) : [];
+        $pend = is_array($m['pendente'] ?? null) ? $m['pendente'] : null;
+        if ($pend !== null) {
+            array_unshift($cupons, ['pendente' => true] + $pend);
+        }
+        $ms = static fn (mixed $v): ?int => ($n = gc_inteiro($v, 1, PHP_INT_MAX >> 1)) === null ? null : intdiv($n, 1000);
+        foreach ($cupons as $k) {
+            if ($ja + $entraram >= GC_MIGRAR_CUPONS || !is_array($k)) {
+                break;
+            }
+            $interativo = $k['interativo'] ?? null;
+            $premio = is_string($k['premioId'] ?? null) ? gc_premio_por_id($k['premioId']) : null;
+            if (!in_array($interativo, GC_INTERATIVOS, true) || $premio === null || isset($k['usadoEm']) && $k['usadoEm'] !== null) {
+                continue;
+            }
+            if (isset($k['pendente'])) {
+                // prêmio reservado sem conta (no aparelho): sorteado antes da conta do servidor existir e ainda nas 24 h
+                // dele; vira cupom com a validade a partir de agora
+                $sorteado = $ms($k['sorteadoEm'] ?? null);
+                $expira = $ms($k['expiraEm'] ?? null);
+                if ($sorteado === null || $expira === null || $sorteado >= $desde || $sorteado > $agora || $expira <= $agora || $expira > $sorteado + gc_sorte_regras()['reserva'] + 3600) {
+                    continue;
+                }
+                $validoAte = gc_fim_do_dia_sp($agora, (int) $premio['validadeDias']);
+                $codigo = null;
+                $ganho = $agora;
+            } else {
+                $ate = $ms($k['validoAte'] ?? null);
+                $ganho = $ms($k['ganhoEm'] ?? null);
+                if ($ate === null || $ganho === null || $ganho >= $desde || $ganho > $agora) {
+                    continue;
+                }
+                $validoAte = min($ate, gc_fim_do_dia_sp($ganho, (int) $premio['validadeDias']));
+                if ($validoAte <= $agora) {
+                    continue;
+                }
+                $c = is_string($k['codigo'] ?? null) ? strtoupper($k['codigo']) : '';
+                $codigo = preg_match('/^' . GC_SORTE_PREFIXO . '-[' . GC_ALFABETO_CUPOM . ']{4}$/', $c) === 1 && gc_valor('SELECT 1 FROM cupons WHERE codigo = ?', [$c]) === null ? $c : null;
+            }
+            gc_cupom_criar($clienteId, (string) $interativo, $premio, 'aparelho', $codigo, $ganho, $validoAte);
+            $entraram++;
+        }
+        gc_sql('UPDATE clientes SET migrado_em = ? WHERE id = ?', [$agora, $clienteId]);
+    }
+    // os dias em que o aparelho girou (só restringem: o giro de hoje no aparelho conta como giro de hoje)
+    $giros = is_array($m['giros'] ?? null) ? $m['giros'] : [];
+    foreach (GC_INTERATIVOS as $interativo) {
+        $dias = is_array($giros[$interativo] ?? null) && array_is_list($giros[$interativo]) ? array_slice($giros[$interativo], -30) : [];
+        $limite = gc_dia_sp($agora - 30 * 86400);
+        foreach (array_unique(array_filter($dias, 'is_string')) as $dia) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dia) !== 1 || $dia < $limite || $dia > gc_dia_sp($agora)) {
+                continue;
+            }
+            [$quem, $pq] = gc_giro_quem($clienteId, '', $aparelho);
+            if (gc_valor("SELECT 1 FROM giros WHERE interativo = ? AND dia = ? AND ($quem)", [$interativo, $dia, ...$pq]) === null) {
+                gc_sql(
+                    "INSERT INTO giros (interativo, dia, em, cliente_id, whatsapp_hash, aparelho_hash, origem) VALUES (?, ?, ?, ?, ?, ?, 'aparelho')",
+                    [$interativo, $dia, $agora, $clienteId, gc_hash_whatsapp($whatsapp), gc_hash_aparelho($aparelho)],
+                );
+            }
+        }
+    }
+    return $entraram;
+}
+
+function gc_interativo_valido(mixed $v): string
+{
+    return is_string($v) && in_array($v, GC_INTERATIVOS, true) ? $v : throw gc_invalido('interativo', 'Interativo que não existe.');
+}
+
+/** GET cliente-giro&interativo=sorte&aparelho=<32 hex>: giro liberado?, o prêmio reservado do aparelho e os dias. */
+function gc_rota_cliente_giro(): array
+{
+    $interativo = gc_interativo_valido($_GET['interativo'] ?? null);
+    $aparelho = gc_token_do_aparelho($_GET['aparelho'] ?? null);
+    $cli = gc_cliente_logado();
+    return [
+        'agora' => gc_iso(gc_agora()),
+        'giro' => gc_giro_info($interativo, $cli, $aparelho),
+        'pendente' => $cli === null ? gc_pendente_publico(gc_reserva_do_aparelho($interativo, $aparelho)) : null,
+        'dias' => gc_giro_dias($interativo, $cli === null ? null : (int) $cli['id'], $cli === null ? '' : (string) $cli['whatsapp'], $aparelho),
+    ];
+}
+
+/**
+ * POST cliente-girar { interativo, uf, aparelho }: o servidor sorteia. Com a conta logada, o cupom já nasce guardado
+ * (código gerado aqui); sem conta, o prêmio fica reservado pro aparelho por 24 h. Limite também por IP (30 por dia),
+ * pra quem troca de aparelho de mentira.
+ */
+function gc_rota_cliente_girar(): array
+{
+    gc_conferir_origem();
+    $c = gc_corpo('interativo');
+    $interativo = gc_interativo_valido($c['interativo'] ?? null);
+    $aparelho = gc_token_do_aparelho($c['aparelho'] ?? null) ?? throw gc_invalido('aparelho', 'Recarrega a página e tenta de novo.');
+    $uf = gc_uf($c['uf'] ?? null);
+    gc_limite('cli-girar-ip', gc_chave_limite('ip', gc_ip()), 30, 86400, GC_MSG_TENTATIVAS_CLIENTE);
+    $r = gc_transacao(static function () use ($interativo, $aparelho, $uf): array {
+        $agora = gc_agora();
+        $cli = gc_cliente_logado();
+        $giro = gc_giro_info($interativo, $cli, $aparelho);
+        if (!$giro['disponivel']) {
+            return ['erro' => new ErroApi('sem-giro', $giro['motivo'] === 'ja-girou-hoje' ? 'Teu giro de hoje já foi. Volta amanhã.' : 'O giro deste aparelho já foi. Cria a conta pra girar todo dia.', 409, ['giro' => $giro])];
+        }
+        $premio = gc_sortear(gc_premios_do_giro($uf));
+        if ($premio === null) {
+            return ['erro' => new ErroApi('sem-premio', 'Sem prêmio pra sortear agora.', 409)];
+        }
+        $cupom = null;
+        $reserva = null;
+        if ($cli !== null) {
+            $cupom = gc_cupom_criar((int) $cli['id'], $interativo, $premio, 'giro');
+        } else {
+            $reserva = $agora + gc_sorte_regras()['reserva'];
+        }
+        $id = gc_inserir(
+            'INSERT INTO giros (interativo, dia, em, cliente_id, whatsapp_hash, aparelho_hash, premio_id, uf, reserva_expira, cupom_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $interativo, gc_dia_sp($agora), $agora, $cli === null ? null : (int) $cli['id'], $cli === null ? '' : gc_hash_whatsapp((string) $cli['whatsapp']),
+                gc_hash_aparelho($aparelho), (string) $premio['id'], $uf ?? '', $reserva, $cupom === null ? null : (int) $cupom['id'],
+            ],
+        );
+        if (random_int(1, 50) === 1) {
+            // o registro dos giros não cresce sem fim (o limite olha o dia; o "1 sem conta" do aparelho, os 60 dias)
+            gc_sql('DELETE FROM giros WHERE em < ? AND cupom_id IS NULL', [$agora - 60 * 86400]);
+            gc_sql("UPDATE giros SET whatsapp_hash = '' WHERE em < ? AND cliente_id IS NULL", [$agora - 2 * 86400]);
+        }
+        return ['ok' => [
+            'agora' => gc_iso($agora),
+            'premioId' => (string) $premio['id'],
+            'cupom' => $cupom === null ? null : gc_cupom_publico($cupom),
+            'pendente' => $reserva === null ? null : gc_pendente_publico((array) gc_um('SELECT * FROM giros WHERE id = ?', [$id])),
+            'dias' => gc_giro_dias($interativo, $cli === null ? null : (int) $cli['id'], $cli === null ? '' : (string) $cli['whatsapp'], $aparelho),
+        ]];
+    });
+    if (isset($r['erro'])) {
+        throw $r['erro'];
+    }
+    return $r['ok'];
+}
+
+/**
+ * POST cliente-guardar { interativo, aparelho }: guarda na conta o prêmio que o aparelho tinha reservado (409
+ * ja-girou-hoje quando a conta já girou no dia daquele giro; a reserva fica).
+ */
+function gc_rota_cliente_guardar(): array
+{
+    $cli = gc_exigir_cliente();
+    $c = gc_corpo('interativo');
+    $interativo = gc_interativo_valido($c['interativo'] ?? null);
+    $aparelho = gc_token_do_aparelho($c['aparelho'] ?? null) ?? throw gc_invalido('aparelho', 'Recarrega a página e tenta de novo.');
+    $r = gc_transacao(static function () use ($cli, $interativo, $aparelho): array {
+        $g = gc_cupom_da_reserva((int) $cli['id'], (string) $cli['whatsapp'], $aparelho, $interativo);
+        return $g['cupom'] !== null ? ['ok' => ['cupom' => gc_cupom_publico($g['cupom'])]] : ['erro' => gc_erro_guardar((string) $g['erro'])];
+    });
+    if (isset($r['erro'])) {
+        throw $r['erro'];
+    }
+    return $r['ok'];
+}
+
+/**
+ * POST cliente-cupom-usar { codigo }: o cupom foi no pedido (o "Mandei" do pedido guiado). A loja confirma no WhatsApp
+ * e pode desfazer no painel (Clientes).
+ */
+function gc_rota_cliente_cupom_usar(): array
+{
+    $cli = gc_exigir_cliente();
+    $c = gc_corpo('codigo');
+    $codigo = is_string($c['codigo'] ?? null) ? strtoupper(trim($c['codigo'])) : '';
+    return gc_transacao(static function () use ($cli, $codigo): array {
+        $k = gc_um('SELECT * FROM cupons WHERE codigo = ? AND cliente_id = ?', [$codigo, $cli['id']]);
+        if ($k === null) {
+            throw new ErroApi('nao-encontrado', 'Cupom não encontrado na tua conta.', 404);
+        }
+        if ($k['usado_em'] !== null) {
+            throw new ErroApi('ja-usado', 'Esse cupom já foi usado.', 409, ['cupom' => gc_cupom_publico($k)]);
+        }
+        if ((int) $k['valido_ate'] < gc_agora()) {
+            throw new ErroApi('vencido', 'Esse cupom venceu.', 409, ['cupom' => gc_cupom_publico($k)]);
+        }
+        gc_sql("UPDATE cupons SET usado_em = ?, usado_por = 'site' WHERE id = ?", [gc_agora(), $k['id']]);
+        return ['cupom' => gc_cupom_publico((array) gc_um('SELECT * FROM cupons WHERE id = ?', [$k['id']]))];
+    });
+}

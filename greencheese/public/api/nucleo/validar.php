@@ -168,6 +168,33 @@ function gc_centavos(mixed $v): ?int
     return $c;
 }
 
+/**
+ * Valor só informativo (o troco do pedido): o que der pra ler vira centavos arredondados ("50,555" → 5056); o que não
+ * der (texto torto, zero, negativo, acima de R$ 100.000) vira null — nunca derruba o pedido inteiro.
+ */
+function gc_centavos_informativo(mixed $v): ?int
+{
+    if (is_string($v)) {
+        $s = str_replace(['R$', ' '], '', trim($v));
+        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $s)) {
+            $s = str_replace('.', '', $s);
+        }
+        $s = str_replace(',', '.', $s);
+        if (!preg_match('/^\d{1,9}(\.\d+)?$/', $s)) {
+            return null;
+        }
+        $v = (float) $s;
+    }
+    if (is_int($v)) {
+        $v = (float) $v;
+    }
+    if (!is_float($v) || !is_finite($v)) {
+        return null;
+    }
+    $c = (int) round($v * 100);
+    return $c > 0 && $c <= 10_000_000 ? $c : null;
+}
+
 /** Centavos em reais como no catalogo.json: 9000 → 90, 1490 → 14.9. */
 function gc_reais(int $c): int|float
 {

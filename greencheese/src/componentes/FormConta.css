@@ -152,3 +152,25 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* o código de 6 números que chegou no WhatsApp: grande e espaçado, pra conferir de relance */
+.form-campo input.form-codigo {
+  font: 600 22px/1 var(--ui);
+  letter-spacing: 0.32em;
+  font-variant-numeric: tabular-nums;
+}
+.form-campo input.form-codigo::placeholder {
+  letter-spacing: 0.32em;
+  color: var(--chiado);
+}
+.form-codigo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 8px;
+}
+.form-codigo-acoes .botao-texto[disabled] {
+  color: var(--legenda);
+  text-decoration: none;
+  cursor: default;
+}

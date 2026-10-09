@@ -1,0 +1,537 @@
+{
+  "gerado": "scripts/gerar-textos-pedido.mjs (de src/dados/textos-pedido.ts)",
+  "maximo": {
+    "fala": 280,
+    "resposta": 80,
+    "botao": 40,
+    "dica": 60,
+    "erro": 120
+  },
+  "textos": {
+    "local.semEstado": {
+      "padrao": "De qual estado você pede?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "local.semEstado.encomenda": {
+      "padrao": "A Green Cheese ainda não chegou no teu estado. Pra qual atendimento vai a encomenda?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "local.outroEstado": {
+      "padrao": "Outro estado",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "local.qualCidade": {
+      "padrao": "Teu pedido vai pra Green Cheese {uf}. Qual cidade?",
+      "tipo": "fala",
+      "marcadores": [
+        "uf",
+        "estado"
+      ]
+    },
+    "local.confirmar": {
+      "padrao": "Teu pedido vai pro atendimento de {lugar}, certo?",
+      "tipo": "fala",
+      "marcadores": [
+        "lugar",
+        "cidade",
+        "uf",
+        "estado"
+      ]
+    },
+    "local.confirmar.encomenda": {
+      "padrao": "A encomenda vai pro atendimento de {lugar}. Pode ser?",
+      "tipo": "fala",
+      "marcadores": [
+        "lugar",
+        "cidade",
+        "uf",
+        "estado"
+      ]
+    },
+    "local.fechado": {
+      "padrao": "{horario}. Pode montar o pedido: a resposta vem quando abrir.",
+      "tipo": "fala",
+      "marcadores": [
+        "horario"
+      ]
+    },
+    "local.sim": {
+      "padrao": "Isso",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "local.sim.encomenda": {
+      "padrao": "Pode",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "local.trocarCidade": {
+      "padrao": "Trocar cidade",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "local.trocarEstado": {
+      "padrao": "Trocar estado",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "local.trocarAtendimento": {
+      "padrao": "Trocar atendimento",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "cidade.pergunta": {
+      "padrao": "A Green Cheese {uf} ainda tá fechando a lista de cidades. Qual a tua cidade?",
+      "tipo": "fala",
+      "marcadores": [
+        "uf",
+        "estado"
+      ]
+    },
+    "cidade.dica": {
+      "padrao": "Tua cidade…",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "cidade.erro": {
+      "padrao": "Escreve o nome da cidade.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "sacola.fora": {
+      "padrao": "Os itens da tua sacola não tão disponíveis em {onde}.",
+      "tipo": "fala",
+      "marcadores": [
+        "onde"
+      ]
+    },
+    "sacola.vazia": {
+      "padrao": "Tua sacola tá vazia.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "sacola.verMercado": {
+      "padrao": "Ver o Mercado",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "sacola.encomendar": {
+      "padrao": "Fazer encomenda",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "sacola.confere": {
+      "padrao": "Confere a sacola:",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "sacola.certo": {
+      "padrao": "Tá certo",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "sacola.mexer": {
+      "padrao": "Mexer na sacola",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "sacola.quero": {
+      "padrao": "Quero esse",
+      "tipo": "resposta",
+      "marcadores": []
+    },
+    "sacola.queroVarios": {
+      "padrao": "Quero esses",
+      "tipo": "resposta",
+      "marcadores": []
+    },
+    "nome.pergunta": {
+      "padrao": "Teu nome?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "nome.dica": {
+      "padrao": "Teu nome…",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "nome.erro": {
+      "padrao": "Escreve teu nome.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "endereco.pergunta": {
+      "padrao": "Onde entrega? Manda o CEP que o endereço se completa.",
+      "tipo": "fala",
+      "marcadores": [
+        "nome"
+      ]
+    },
+    "endereco.semCep": {
+      "padrao": "Sem CEP",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "endereco.dica": {
+      "padrao": "CEP (só números)",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "endereco.erro": {
+      "padrao": "O CEP tem 8 números.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "cep.procurando": {
+      "padrao": "Procurando o CEP…",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "cep.naoAchei": {
+      "padrao": "Não achei esse CEP. Confere os números ou segue sem CEP.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "cep.foraDoAr": {
+      "padrao": "O serviço de CEP não respondeu agora. Dá pra digitar o endereço.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "cep.outroEstado": {
+      "padrao": "Esse CEP é de {cidade}/{uf}. O atendimento escolhido é o de {ufAtendimento}.",
+      "tipo": "fala",
+      "marcadores": [
+        "cidade",
+        "uf",
+        "ufAtendimento"
+      ]
+    },
+    "cep.trocar": {
+      "padrao": "Trocar pra Green Cheese {uf}",
+      "tipo": "botao",
+      "marcadores": [
+        "uf"
+      ]
+    },
+    "cep.esseMesmo": {
+      "padrao": "É esse mesmo",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "cep.outro": {
+      "padrao": "Outro CEP",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "cep.digitar": {
+      "padrao": "Digitar endereço",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "numero.pergunta": {
+      "padrao": "{endereco} — {cidade}/{uf}. Número e complemento?",
+      "tipo": "fala",
+      "marcadores": [
+        "endereco",
+        "cidade",
+        "uf"
+      ]
+    },
+    "numero.dica": {
+      "padrao": "Ex.: 120, apto 201",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "numero.erro": {
+      "padrao": "Manda o número (ou \"s/n\").",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "rua.cepDaCidade": {
+      "padrao": "Esse CEP é de {cidade} inteira. Manda rua, número e bairro.",
+      "tipo": "fala",
+      "marcadores": [
+        "cidade"
+      ]
+    },
+    "rua.pergunta": {
+      "padrao": "Manda o endereço: rua, número e bairro.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "rua.dica": {
+      "padrao": "Rua, número, bairro",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "rua.erro": {
+      "padrao": "Falta coisa: rua, número e bairro.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "pagamento.pergunta": {
+      "padrao": "Como vai pagar?",
+      "tipo": "fala",
+      "marcadores": [
+        "nome"
+      ]
+    },
+    "troco.pergunta": {
+      "padrao": "Troco pra quanto?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "troco.sem": {
+      "padrao": "Sem troco",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "troco.dica": {
+      "padrao": "Ex.: 100",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "troco.erro": {
+      "padrao": "Só o valor, tipo 100 ou 50,00.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "troco.resposta": {
+      "padrao": "Troco pra {valor}",
+      "tipo": "resposta",
+      "marcadores": [
+        "valor"
+      ]
+    },
+    "obs.pergunta": {
+      "padrao": "Alguma observação? Ponto de referência, portão, horário…",
+      "tipo": "fala",
+      "marcadores": [
+        "nome"
+      ]
+    },
+    "obs.sem": {
+      "padrao": "Sem observação",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "obs.dica": {
+      "padrao": "Observação…",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "resumo.pedido": {
+      "padrao": "Pedido montado. Confere:",
+      "tipo": "fala",
+      "marcadores": [
+        "nome"
+      ]
+    },
+    "resumo.fechar": {
+      "padrao": "Agora é só fechar no WhatsApp da loja. Vem no certo!",
+      "tipo": "fala",
+      "marcadores": [
+        "nome"
+      ]
+    },
+    "resumo.naoAbriu": {
+      "padrao": "Não abriu? Toca de novo no botão, ou copia o texto e manda pro WhatsApp da loja: {numero}.",
+      "tipo": "fala",
+      "marcadores": [
+        "numero"
+      ]
+    },
+    "resumo.copiar": {
+      "padrao": "Copiar texto",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "resumo.prontoNoZap": {
+      "padrao": "Mensagem pronta no WhatsApp. Quem aperta enviar é você.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "resumo.jaMandou": {
+      "padrao": "Já mandou o pedido?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "resumo.marca": {
+      "padrao": "Chegou? Marca {instagram} no story.",
+      "tipo": "fala",
+      "marcadores": [
+        "instagram"
+      ]
+    },
+    "resumo.mandei": {
+      "padrao": "Mandei",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "resumo.naoConsegui": {
+      "padrao": "Não consegui",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "resumo.mudarEndereco": {
+      "padrao": "Mudar endereço",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "resumo.mudarPagamento": {
+      "padrao": "Mudar pagamento",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "resumo.mudarObs": {
+      "padrao": "Mudar obs.",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "duvida.instagram": {
+      "padrao": "Outra dúvida? Chama a {instagram} no Instagram",
+      "tipo": "fala",
+      "marcadores": [
+        "instagram"
+      ]
+    },
+    "cupom.vale": {
+      "padrao": "Cupom {cupom} no pedido: desconto confirmado pela loja no WhatsApp.",
+      "tipo": "fala",
+      "marcadores": [
+        "cupom"
+      ]
+    },
+    "cupom.naoVale": {
+      "padrao": "O cupom {cupom} não vale pra esse pedido ({motivo}). Vai sem cupom?",
+      "tipo": "fala",
+      "marcadores": [
+        "cupom",
+        "motivo"
+      ]
+    },
+    "cupom.sugerir": {
+      "padrao": "Tu tem o cupom {cupom} ({premio}). Usa nesse pedido?",
+      "tipo": "fala",
+      "marcadores": [
+        "cupom",
+        "premio"
+      ]
+    },
+    "cupom.usar": {
+      "padrao": "Usar cupom",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "cupom.sem": {
+      "padrao": "Sem cupom",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "cupom.tirar": {
+      "padrao": "Tirar cupom",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "pix.comPix": {
+      "padrao": "O Pix direto no site chega em breve. Por enquanto, fecha no WhatsApp: a loja te passa a chave Pix lá.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "pix.outroPagamento": {
+      "padrao": "O Pix direto no site chega em breve. Quer pagar com Pix? Troca o pagamento aqui e fecha no WhatsApp: a loja te passa a chave lá.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "pix.trocar": {
+      "padrao": "Trocar pra Pix",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "pix.trocou": {
+      "padrao": "Pronto, pagamento no Pix. Agora fecha no WhatsApp: a chave vem lá.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "enc.produto": {
+      "padrao": "Não achou? A Green Cheese importa. Qual produto você quer?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "enc.produto.dica": {
+      "padrao": "Ex.: Fanta de uva japonesa",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "enc.produto.erro": {
+      "padrao": "Escreve o produto.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "enc.produto.proibido": {
+      "padrao": "Esse a Green Cheese não traz: a Anvisa não deixa vender pela internet.",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "enc.qtd": {
+      "padrao": "Quantas unidades?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "enc.qtd.dica": {
+      "padrao": "Outra quantidade…",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "enc.qtd.erro": {
+      "padrao": "Quantas?",
+      "tipo": "erro",
+      "marcadores": []
+    },
+    "enc.ref": {
+      "padrao": "Tem link ou descrição? Marca, sabor, tamanho… pode colar o link.",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "enc.ref.pular": {
+      "padrao": "Pular",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "enc.ref.dica": {
+      "padrao": "Link ou descrição…",
+      "tipo": "dica",
+      "marcadores": []
+    },
+    "enc.ref.sem": {
+      "padrao": "Sem link",
+      "tipo": "resposta",
+      "marcadores": []
+    },
+    "enc.resumo": {
+      "padrao": "Encomenda montada. Confere:",
+      "tipo": "fala",
+      "marcadores": [
+        "nome"
+      ]
+    },
+    "enc.mudarProduto": {
+      "padrao": "Mudar produto",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "enc.mudarQtd": {
+      "padrao": "Mudar quantidade",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "enc.mudarNome": {
+      "padrao": "Mudar nome",
+      "tipo": "botao",
+      "marcadores": []
+    }
+  }
+}

@@ -2,6 +2,8 @@
 // - Sem cupom, a mensagem tem que ficar byte a byte igual à referência (scripts/mensagem-referencia.txt), gerada
 //   ANTES do cupom existir: o formato que a loja já conhece não muda.
 // - Com cupom, entra UMA linha só, logo depois de "Subtotal:".
+// - Com o código do pedido (GC-XXXXX, o que o painel e o grupo do WhatsApp usam), entra UMA linha logo depois do
+//   cabeçalho ("Código: GC-7KD2X"); o resto fica igual (no pedido, com ou sem cupom, e na encomenda).
 // - Rateio: a mensagem da vaga reservada (com o código), a de quem entra pelo WhatsApp sem servidor (sem código), a
 //   de quem já tem vaga (ja-participa: só o código, sem conta de vagas que o site não sabe) e a da loja fora do ar
 //   (a aba sem os rateios, ou a página de um, com o link).
@@ -111,6 +113,18 @@ if (naSexta !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (entrega
 const naQuinta = entregaCom(gratis, new Date(2026, 9, 8, 15))[iEnt]
 if (naQuinta !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (taxa R$ 15,50)') problemas.push(`entrega fora do dia grátis veio "${naQuinta}"`)
 if (entregaCom({ taxaEntrega: { valor: null, demo: false } })[iEnt] !== a[iEnt]) problemas.push('taxa "a confirmar" de verdade não ficou "taxa a confirmar"')
+// o código do pedido: UMA linha logo depois do cabeçalho, e mais nada muda (com e sem cupom)
+const comCodigo = m.montarPedido({ ...pedido, codigo: 'GC-7KD2X' }).split('\n')
+if (comCodigo.length !== a.length + 1 || comCodigo[1] !== 'Código: GC-7KD2X') problemas.push(`com código, a 2ª linha veio "${comCodigo[1]}"`)
+if ([comCodigo[0], ...comCodigo.slice(2)].join('\n') !== sem) problemas.push('com código, alguma outra linha mudou')
+const codigoECupom = m.montarPedido({ ...pedido, cupom, codigo: 'GC-7KD2X' }).split('\n')
+if ([codigoECupom[0], ...codigoECupom.slice(2)].join('\n') !== com || codigoECupom[1] !== 'Código: GC-7KD2X') problemas.push('com código e cupom, a mensagem não é a do cupom com a linha do código')
+const enc = { canal, cidade: 'Rio de Janeiro', produto: 'Fanta de uva japonesa', quantidade: '2', referencia: 'https://exemplo.com/fanta', nome: 'Ian Teste' }
+const encSem = m.montarEncomenda(enc)
+const encSemEsperada = ['ENCOMENDA GREEN CHEESE — RJ / Rio de Janeiro', 'Produto: Fanta de uva japonesa', 'Quantidade: 2', 'Link/descrição: https://exemplo.com/fanta', 'Nome: Ian Teste'].join('\n')
+if (encSem !== encSemEsperada) problemas.push(`encomenda sem código veio:\n${encSem}`)
+const encCom = m.montarEncomenda({ ...enc, codigo: 'GC-7KD2X' }).split('\n')
+if (encCom[1] !== 'Código: GC-7KD2X' || [encCom[0], ...encCom.slice(2)].join('\n') !== encSem) problemas.push(`encomenda com código veio:\n${encCom.join('\n')}`)
 
 // rateio, no padrão do pedido: a vaga reservada (com o código) e, sem servidor, o pedido pra entrar (sem código)
 const mg = { ...canal, uf: 'mg', nome: 'Minas Gerais', cidades: [{ slug: 'teofilo-otoni', nome: 'Teófilo Otoni' }], instagram: 'greencheese_importsmg' }
@@ -147,4 +161,4 @@ if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
-console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)
+console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\ncom o código do pedido (+1 linha depois do cabeçalho):\n${codigoECupom.join('\n')}\n\nencomenda com o código:\n${encCom.join('\n')}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

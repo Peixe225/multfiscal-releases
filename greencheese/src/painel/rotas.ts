@@ -1,14 +1,27 @@
 // Telas do painel por hash (#/rateios, #/rateio/<id>…): funciona em qualquer pasta, sem regra de servidor.
 // Cada tela entra no histórico (o voltar do Android volta de tela); as folhas também (o voltar fecha a folha).
 import { useSyncExternalStore } from 'react'
+import type { FiltroPedidos } from './pedidos/tipos'
+
+const FILTROS_PEDIDOS: FiltroPedidos[] = ['abertos', 'todos', 'novo', 'confirmado', 'saiu', 'entregue', 'cancelado']
 
 export type Rota =
+  // pedidos do site, avisos no WhatsApp e falas do pedido guiado
+  | { tela: 'pedidos'; status: FiltroPedidos | null; uf: string | null }
+  | { tela: 'pedido'; id: number }
+  | { tela: 'avisos' }
+  | { tela: 'textos' }
+  // equipe e clientes (as contas)
+  | { tela: 'equipe' }
+  | { tela: 'usuario'; login: string }
+  | { tela: 'clientes'; promo: boolean }
+  | { tela: 'cliente'; id: number }
   | { tela: 'resumo' }
   | { tela: 'rateios' }
   | { tela: 'novo'; produto: string | null }
   | { tela: 'rateio'; id: string }
   | { tela: 'editar'; id: string }
-  | { tela: 'atividade' }
+  | { tela: 'atividade'; quem: string | null }
   | { tela: 'conta' }
   | { tela: 'servidor' }
   // loja: produtos, estados, stories do Início, categorias, ajustes e Teste minha sorte
@@ -35,6 +48,23 @@ function ler(): Rota {
   const q = new URLSearchParams(busca)
   const id = partes[1] && /^[a-z0-9-]{1,80}$/.test(partes[1]) ? partes[1] : null
   switch (partes[0]) {
+    case 'pedidos': {
+      const status = q.get('status') as FiltroPedidos | null
+      const uf = q.get('uf')
+      return { tela: 'pedidos', status: status && FILTROS_PEDIDOS.includes(status) ? status : null, uf: uf && /^[a-z]{2}$/.test(uf) ? uf : null }
+    }
+    case 'pedido':
+      return id && /^\d{1,12}$/.test(id) ? { tela: 'pedido', id: Number(id) } : { tela: 'pedidos', status: null, uf: null }
+    case 'avisos':
+      return { tela: 'avisos' }
+    case 'textos':
+      return { tela: 'textos' }
+    case 'equipe':
+      return partes[1] && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(partes[1]) ? { tela: 'usuario', login: partes[1] } : { tela: 'equipe' }
+    case 'clientes':
+      return { tela: 'clientes', promo: q.get('promo') === '1' }
+    case 'cliente':
+      return id && /^\d{1,12}$/.test(id) ? { tela: 'cliente', id: Number(id) } : { tela: 'clientes', promo: false }
     case 'rateios':
       return { tela: 'rateios' }
     case 'novo':
@@ -42,8 +72,10 @@ function ler(): Rota {
     case 'rateio':
       if (id) return partes[2] === 'editar' ? { tela: 'editar', id } : { tela: 'rateio', id }
       return { tela: 'rateios' }
-    case 'atividade':
-      return { tela: 'atividade' }
+    case 'atividade': {
+      const quem = q.get('quem')
+      return { tela: 'atividade', quem: quem && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(quem) ? quem : null }
+    }
     case 'conta':
       return { tela: 'conta' }
     case 'servidor':
@@ -155,11 +187,30 @@ export function voltar(padrao: string): void {
 
 export const caminho = {
   resumo: '#/',
+  // pedidos, avisos no WhatsApp e falas do pedido guiado
+  pedidos: '#/pedidos',
+  pedidosDe: (status: FiltroPedidos | null, uf: string | null) => {
+    const q = new URLSearchParams()
+    if (status) q.set('status', status)
+    if (uf) q.set('uf', uf)
+    const s = q.toString()
+    return s ? `#/pedidos?${s}` : '#/pedidos'
+  },
+  pedido: (id: number) => `#/pedido/${id}`,
+  avisos: '#/avisos',
+  textos: '#/textos',
   rateios: '#/rateios',
   novo: '#/novo',
   rateio: (id: string) => `#/rateio/${id}`,
   editar: (id: string) => `#/rateio/${id}/editar`,
   atividade: '#/atividade',
+  atividadeDe: (login: string) => `#/atividade?quem=${encodeURIComponent(login)}`,
+  // equipe e clientes
+  equipe: '#/equipe',
+  usuario: (login: string) => `#/equipe/${login}`,
+  clientes: '#/clientes',
+  clientesPromo: '#/clientes?promo=1',
+  cliente: (id: number) => `#/cliente/${id}`,
   conta: '#/conta',
   servidor: '#/servidor',
   // loja

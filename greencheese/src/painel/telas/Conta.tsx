@@ -5,7 +5,8 @@ import { Logo } from '../../arte/Logo'
 import * as api from '../api'
 import { ErroApi } from '../api'
 import { Link, Topo } from '../Moldura'
-import { secoes } from '../secoes'
+import { descreverAcesso } from '../permissoes'
+import { barraDo, secoesDo } from '../secoes'
 import type { Usuario } from '../tipos'
 import { Aviso, Botao, Campo, Ic, TituloTela } from '../ui'
 import { useTitulo } from './comum'
@@ -84,7 +85,9 @@ function TrocarSenha({ login }: { login: string }) {
 export function Conta({ usuario, aoSair }: { usuario: Usuario; aoSair: () => Promise<void> }) {
   useTitulo('Conta')
   const [saindo, setSaindo] = useState(false)
-  const fora = secoes.filter((s) => !s.barra)
+  // as seções que o papel pode e que não cabem na barra de baixo do celular
+  const naBarra = barraDo(usuario)
+  const fora = secoesDo(usuario).filter((s) => !naBarra.includes(s))
   return (
     <>
       <Topo titulo={<TituloTela>Conta</TituloTela>} />
@@ -95,7 +98,9 @@ export function Conta({ usuario, aoSair }: { usuario: Usuario; aoSair: () => Pro
           </span>
           <div>
             <p className="pn-conta-nome">{usuario.nome}</p>
-            <p className="pn-conta-login">@{usuario.login} · dono da loja</p>
+            <p className="pn-conta-login">
+              @{usuario.login} · {descreverAcesso(usuario)}
+            </p>
           </div>
         </section>
 

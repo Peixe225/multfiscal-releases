@@ -489,6 +489,59 @@ function gc_loja_publica(): array
     ];
 }
 
+/**
+ * Os prêmios do Teste minha sorte que valem agora, pro giro no servidor (sorte.php): os mesmos que o site lê no GET loja
+ * (sorte ligada, tudo o que o prêmio cita no ar e nada de bebida). No estado ($uf), só os que dá pra usar lá: algum
+ * produto do prêmio à venda no estado e, no brinde, o brinde também (como premiosElegiveis do site). Estado que a loja
+ * não atende (ou null): todos. Antes da loja ser montada no servidor (painel sem instalar), valem os da semente.
+ * Cada prêmio no formato de src/dados/sorte.ts.
+ * @return list<array<string, mixed>>
+ */
+function gc_premios_ativos(?string $uf = null): array
+{
+    if (!gc_loja_semeada()) {
+        require_once __DIR__ . '/premios-semente.php';
+        return gc_premios_da_semente($uf);
+    }
+    if (!gc_loja_sorte()['ligado']) {
+        return [];
+    }
+    $produtos = gc_loja_linhas_produtos(true);
+    $ctx = gc_loja_contexto_premios($produtos, gc_loja_linhas_categorias());
+    $atende = $uf !== null && in_array($uf, array_map(static fn (array $e): string => (string) $e['uf'], gc_loja_linhas_estados(true)), true);
+    $porUf = $atende ? gc_loja_por_uf() : [];
+    $catDe = [];
+    foreach ($produtos as $p) {
+        $catDe[(string) $p['id']] = (string) $p['categoria_id'];
+    }
+    $vende = static fn (string $id): bool => gc_loja_vende($porUf[$id][$uf] ?? null);
+    $out = [];
+    foreach (gc_loja_linhas_premios() as $p) {
+        if (!gc_loja_premio_no_site($p, $ctx)) {
+            continue;
+        }
+        if ($atende) {
+            $alvos = gc_loja_alvos_do_premio($p);
+            $a = (array) gc_loja_lido($p['aplica_a'], []);
+            $produtosDoPremio = array_values(array_filter((array) ($a['produtos'] ?? []), 'is_string'));
+            $categoriasDoPremio = $alvos['categorias'];
+            $algum = false;
+            foreach ($catDe as $id => $cat) {
+                if ((in_array($id, $produtosDoPremio, true) || in_array($cat, $categoriasDoPremio, true)) && $vende($id)) {
+                    $algum = true;
+                    break;
+                }
+            }
+            $v = gc_loja_lido($p['valor'], null);
+            if (!$algum || ($p['tipo'] === 'brinde' && !(is_array($v) && is_string($v['produto'] ?? null) && $vende($v['produto'])))) {
+                continue;
+            }
+        }
+        $out[] = gc_loja_premio_publico($p);
+    }
+    return $out;
+}
+
 /** If-None-Match bate com o ETag? Aceita W/, lista e o sufixo que o compressor do servidor põe ("…-gzip"). */
 function gc_loja_etag_bate(string $pedido, string $etag): bool
 {

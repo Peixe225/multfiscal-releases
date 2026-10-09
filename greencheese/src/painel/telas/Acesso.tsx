@@ -28,7 +28,7 @@ function focarErro(form: HTMLFormElement | null, erros: Erros) {
 }
 
 /** Campo de senha com "Mostrar". */
-function CampoSenha({ id, nome, rotulo, valor, aoMudar, erro, dica, auto, refInput }: { id: string; nome: string; rotulo: string; valor: string; aoMudar: (v: string) => void; erro?: string; dica?: ReactNode; auto: 'current-password' | 'new-password'; refInput?: React.RefObject<HTMLInputElement | null> }) {
+export function CampoSenha({ id, nome, rotulo, valor, aoMudar, erro, dica, auto, refInput }: { id: string; nome: string; rotulo: string; valor: string; aoMudar: (v: string) => void; erro?: string; dica?: ReactNode; auto: 'current-password' | 'new-password'; refInput?: React.RefObject<HTMLInputElement | null> }) {
   const [ver, setVer] = useState(false)
   return (
     <Campo id={id} rotulo={rotulo} erro={erro} dica={dica}>
@@ -57,7 +57,7 @@ function CampoSenha({ id, nome, rotulo, valor, aoMudar, erro, dica, auto, refInp
   )
 }
 
-function Cabeca({ titulo, children }: { titulo: string; children?: ReactNode }) {
+export function Cabeca({ titulo, children }: { titulo: string; children?: ReactNode }) {
   return (
     <div className="pn-acesso-cabeca">
       {/* o logo se monta em pixels (como na abertura do site) e assenta no desenho de vetor */}

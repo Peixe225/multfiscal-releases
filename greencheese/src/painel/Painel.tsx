@@ -8,6 +8,20 @@ import { limparCache } from './dados'
 import { Moldura } from './Moldura'
 import { ir, useRota, type Rota } from './rotas'
 import { Entrar, FolhaSessao, Instalar } from './telas/Acesso'
+// pedidos, avisos no WhatsApp e textos do pedido guiado
+import { Avisos } from './pedidos/Avisos'
+import { Pedido } from './pedidos/Pedido'
+import { Pedidos } from './pedidos/Pedidos'
+import { Textos } from './pedidos/Textos'
+// equipe e clientes (as contas)
+import { Cliente } from './contas/Cliente'
+import { Clientes } from './contas/Clientes'
+import { Equipe } from './contas/Equipe'
+import { TrocarSenhaObrigatoria } from './contas/TrocarSenha'
+import { Usuario as TelaUsuario } from './contas/Usuario'
+import { definirUsuario, pode } from './permissoes'
+import { caminho } from './rotas'
+import { secaoDaTela } from './secoes'
 import { Atividade } from './telas/Atividade'
 import { Conta } from './telas/Conta'
 import { EditarRateio } from './telas/EditarRateio'
@@ -26,12 +40,53 @@ import { Produtos } from './loja/Produtos'
 import { Sorte } from './loja/Sorte'
 import { Stories } from './loja/Stories'
 import type { Usuario } from './tipos'
-import { Botao, Pontinhos } from './ui'
+import { Botao, Ic, Pontinhos } from './ui'
+import { Link, Topo } from './Moldura'
 
 type Fase = 'carregando' | 'erro' | 'instalar' | 'entrar' | 'dentro'
 
+/** Tela que o papel de quem está logado não abre (link guardado, papel mudado): diz e leva pro Resumo. */
+function SemAcesso() {
+  return (
+    <>
+      <Topo titulo={<h1 className="pn-h1 px">Sem acesso</h1>} />
+      <div className="pn-pagina pn-pagina-estreita ct-sem-acesso">
+        <p className="pn-vazio">
+          <Ic nome="cadeado" tamanho={16} /> Teu acesso não abre essa parte do painel. Se precisar, fala com o dono da loja.
+        </p>
+        <Link href={caminho.resumo} className="pn-botao pn-botao-cinza">
+          <span className="pn-botao-txt">Ir pro Resumo</span>
+        </Link>
+      </div>
+    </>
+  )
+}
+
 function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () => Promise<void> }) {
+  // o servidor recusa de qualquer jeito (403 sem-permissao); aqui a tela nem abre
+  const secao = secaoDaTela(rota.tela)
+  if (secao && !pode(secao.permissao, usuario)) return <SemAcesso />
+  // editar fica na seção dos rateios (que o atendente vê), mas pede a permissão de mexer
+  if (rota.tela === 'editar' && !pode('rateios', usuario)) return <SemAcesso />
   switch (rota.tela) {
+    // equipe e clientes
+    case 'equipe':
+      return <Equipe />
+    case 'usuario':
+      return <TelaUsuario key={rota.login} login={rota.login} />
+    case 'clientes':
+      return <Clientes promo={rota.promo} />
+    case 'cliente':
+      return <Cliente key={rota.id} id={rota.id} />
+    // pedidos, avisos no WhatsApp e textos do pedido guiado
+    case 'pedidos':
+      return <Pedidos status={rota.status} uf={rota.uf} />
+    case 'pedido':
+      return <Pedido key={rota.id} id={rota.id} />
+    case 'avisos':
+      return <Avisos />
+    case 'textos':
+      return <Textos />
     case 'rateios':
       return <Rateios />
     case 'novo':
@@ -41,7 +96,7 @@ function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () 
     case 'editar':
       return <EditarRateio key={`editar-${rota.id}`} id={rota.id} />
     case 'atividade':
-      return <Atividade />
+      return <Atividade quem={rota.quem} />
     case 'conta':
       return <Conta usuario={usuario} aoSair={sair} />
     case 'servidor':
@@ -87,6 +142,7 @@ export function Painel() {
       else if (!s.usuario || !s.csrf) setFase('entrar')
       else {
         api.guardarCsrf(s.csrf)
+        definirUsuario(s.usuario)
         setUsuario(s.usuario)
         setFase('dentro')
       }
@@ -100,6 +156,24 @@ export function Painel() {
     void iniciar()
   }, [iniciar])
   useEffect(() => api.assinarSessao(setCaiu), [])
+  // o dono pode mudar o papel ou os estados de quem está logado: ao voltar pro painel, confere de novo
+  useEffect(() => {
+    if (fase !== 'dentro') return
+    const conferir = () => {
+      if (document.visibilityState !== 'visible') return
+      void api
+        .sessao()
+        .then((s) => {
+          if (s.usuario) {
+            definirUsuario(s.usuario)
+            setUsuario(s.usuario)
+          }
+        })
+        .catch(() => {})
+    }
+    document.addEventListener('visibilitychange', conferir)
+    return () => document.removeEventListener('visibilitychange', conferir)
+  }, [fase])
   useEffect(() => vigiarTeclado(), [])
   // telas de criar e editar escondem a barra de baixo (como o "Novo post" do Instagram)
   useEffect(() => {
@@ -108,6 +182,7 @@ export function Painel() {
 
   const entrou = (u: Usuario, csrf: string) => {
     api.guardarCsrf(csrf)
+    definirUsuario(u)
     setUsuario(u)
     setFase('dentro')
   }
@@ -122,6 +197,7 @@ export function Painel() {
     api.largouASessao()
     limparCache()
     setCaiu(false)
+    definirUsuario(null)
     setUsuario(null)
     setFase('entrar')
     ir('#/', true)
@@ -153,6 +229,19 @@ export function Painel() {
   }
   if (fase === 'instalar') return <Instalar aoEntrar={entrou} jaInstalado={() => setFase('entrar')} />
   if (fase === 'entrar' || !usuario) return <Entrar aoEntrar={entrou} />
+  // senha provisória (o dono criou o acesso ou gerou uma nova): só entra depois de escolher a dela
+  if (usuario.trocarSenha)
+    return (
+      <TrocarSenhaObrigatoria
+        usuario={usuario}
+        aoTrocar={(u) => {
+          definirUsuario(u)
+          setUsuario(u)
+          ir('#/', true)
+        }}
+        aoSair={() => void sair()}
+      />
+    )
 
   return (
     <>
@@ -163,6 +252,7 @@ export function Painel() {
         aberta={caiu}
         login={usuario.login}
         aoEntrar={(u, csrf) => {
+          definirUsuario(u)
           setUsuario(u)
           api.voltouASessao(csrf)
         }}

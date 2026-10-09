@@ -361,7 +361,12 @@ try {
     erro(await dono.post('admin-instalar', { ...certo, login: 'x' }), 400, 'invalido', 'login curto')
     const r = await dono.post('admin-instalar', { ...certo, codigo: '  DEV instalar GREENCHEESE ' })
     igual(r.status, 201, 'instalou (código com espaço e maiúscula vale)')
-    igual(r.json.usuario, { login: 'dono', nome: 'Dono da Loja', papel: 'dono' }, 'usuário criado')
+    // o usuário vem com os estados (o dono: todos), as permissões do papel e se a senha é provisória (equipe, API.md)
+    igual(
+      { ...r.json.usuario, permissoes: r.json.usuario?.permissoes?.length },
+      { login: 'dono', nome: 'Dono da Loja', papel: 'dono', ufs: [], permissoes: 17, trocarSenha: false },
+      'usuário criado (dono, todos os estados, todas as permissões, senha dele)',
+    )
     const ck = r.cookies.find((c) => c.startsWith('gc_painel=')) ?? ''
     ok(/gc_painel=[0-9a-f]{64};/.test(ck), 'cookie com token de 32 bytes')
     ok(/HttpOnly/i.test(ck) && /SameSite=Strict/i.test(ck) && /path=\/;/i.test(ck) && /Max-Age=2592000/i.test(ck), `cookie HttpOnly, SameSite=Strict, Path=/ e 30 dias (${ck})`)
@@ -1071,6 +1076,24 @@ try {
   await lojaExemplos({ ...ajuda, dono })
 } catch (e) {
   ok(false, `exceção: ${e.stack}`)
+}
+
+// pedidos, avisos no WhatsApp e falas do pedido guiado (scripts/testar-api-pedidos.mjs), com o dono entrando de novo
+// (a senha que o "recuperar com código novo" deixou)
+try {
+  const { testarPedidos } = await import('./testar-api-pedidos.mjs')
+  const dono = new Cliente('198.51.100.120')
+  igual((await dono.post('admin-entrar', { login: 'dono', senha: 'recuperada-789' })).status, 200, 'dono entra pros testes dos pedidos')
+  await testarPedidos({ parte, ok, igual, erro, Cliente, base, dono, AGORA, tmp, dados, raiz, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
+} catch (e) {
+  ok(false, `exceção nos pedidos: ${e.stack}`)
+}
+// contas da equipe e dos clientes, Teste minha sorte no servidor (scripts/testar-api-contas.mjs), num servidor próprio
+try {
+  const { testarContas } = await import('./testar-api-contas.mjs')
+  await testarContas({ parte, ok, igual, erro, raiz, tmp, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
+} catch (e) {
+  ok(false, `exceção nas contas: ${e.stack}`)
 }
 derrubar(php)
 if (process.env.GC_TESTE_MANTER === '1') console.log(`dados do teste em ${tmp}`)

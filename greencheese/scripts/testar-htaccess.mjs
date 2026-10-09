@@ -2,8 +2,9 @@
 // LiteSpeed, que lê o mesmo .htaccess). Copia o build pra uma pasta temporária em /greencheese/, sem GC_DADOS
 // (como no ar: banco em api/privado/), gera um código de instalação de verdade e confere: o site abre, a API
 // responde, banco/log/módulos/instalacao.php dão 403, uploads/ só serve imagem (nenhum .php roda), o envio de
-// imagem funciona, o diagnóstico do painel, pela web, acha tudo fechado e o GET da loja sai com no-cache e ETag (304
-// quando nada mudou) enquanto o resto da API segue no-store.
+// imagem funciona, o pedido do site entra (e as falas do pedido guiado voltam com ETag e 304), o diagnóstico do
+// painel, pela web, acha tudo fechado e o GET da loja sai com no-cache e ETag (304 quando nada mudou) enquanto o resto
+// da API segue no-store.
 // Uso: node scripts/testar-htaccess.mjs [pasta-do-build]   (padrão: dist/; termina com "htaccess ok")
 // Precisa do apache2 e do libapache2-mod-php (APACHE=/caminho/do/apache2; GC_TESTE_PORTA escolhe a porta).
 import { execFileSync, spawn } from 'node:child_process'
@@ -13,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { crc32, deflateSync } from 'node:zlib'
+import { pedidoValido } from './testar-api-pedidos.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const build = resolve(process.argv[2] ?? join(raiz, 'dist'))
@@ -222,6 +224,8 @@ php_admin_value post_max_size 20M
     const fechados = [
       'api/privado/loja.sqlite', 'api/privado/loja.sqlite-wal', 'api/privado/loja.sqlite-shm', 'api/privado/erros.log', 'api/privado/', 'api/privado/index.html',
       'api/privado/.htaccess', 'api/nucleo/base.php', 'api/nucleo/', 'api/nucleo/.htaccess', 'api/instalacao.php', 'api/.htaccess', 'uploads/', 'uploads/.htaccess',
+      // os módulos dos pedidos, dos avisos (que leem os segredos do gateway) e a lista das falas
+      'api/nucleo/pedido.php', 'api/nucleo/avisos.php', 'api/nucleo/textos.php', 'api/nucleo/pedido-migracoes.php', 'api/nucleo/textos-pedido.json',
     ]
     for (const c of fechados) {
       const r = await fetch(`${base}/${c}`)
@@ -256,6 +260,19 @@ php_admin_value post_max_size 20M
       okm(img.status === 200 && /^image\/(webp|png)$/.test(img.headers.get('content-type') ?? ''), `a imagem abre (${img.status} ${img.headers.get('content-type')})`)
       okm(img.headers.get('x-content-type-options') === 'nosniff' && img.headers.get('content-security-policy') === "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox", `imagem com nosniff e CSP sandbox, sem nada em dobro (${img.headers.get('content-security-policy')})`)
     }
+
+    // o pedido do site pelo Apache (no toque do WhatsApp) e as falas do pedido guiado com ETag e 304
+    const pedido = pedidoValido()
+    const pp = await fetch(`${base}/api/index.php?r=pedido`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: `http://127.0.0.1:${porta}` }, body: JSON.stringify(pedido) })
+    const pj = await pp.json()
+    okm(pp.status === 201 && pj.pedido?.codigo === pedido.codigo, `o pedido do site entra pelo Apache (${pp.status} ${pj.erro ?? pj.pedido?.codigo})`)
+    const lp = await fetch(`${base}/api/index.php?r=admin-pedidos`, { headers: { Cookie: cookie } })
+    okm((await lp.json()).pedidos?.[0]?.codigo === pedido.codigo, 'e aparece no painel')
+    const ft = await fetch(`${base}/api/index.php?r=pedido-textos`)
+    const fj = await ft.json()
+    okm(ft.status === 200 && fj.ok === true && typeof fj.versao === 'string' && ft.headers.get('etag') === fj.versao, `falas do pedido com ETag (${ft.status} ${ft.headers.get('etag')})`)
+    const f304 = await fetch(`${base}/api/index.php?r=pedido-textos`, { headers: { 'If-None-Match': fj.versao } })
+    okm(f304.status === 304 && (await f304.text()) === '', `falas com a mesma versão: 304 sem corpo (${f304.status})`)
 
     // o diagnóstico do painel, pela web (o mesmo teste que o dono roda depois de publicar)
     const d = await fetch(`${base}/api/index.php?r=admin-diagnostico`, { headers: { Cookie: cookie } })

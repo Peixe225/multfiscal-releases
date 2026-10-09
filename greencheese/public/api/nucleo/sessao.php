@@ -69,12 +69,19 @@ function gc_sessao_atual(): ?array
         return null;
     }
     $agora = gc_agora();
+    // u.* (e não a lista das colunas): no meio da publicação o banco pode ainda não ter as colunas da equipe
+    // (ativo, ufs, trocar_senha), que chegam com a migração 203
     $s = gc_um(
-        'SELECT s.id, s.usuario_id, s.csrf, s.visto_em, s.expira_em, u.login, u.nome, u.papel
+        'SELECT u.*, s.id, s.usuario_id, s.csrf, s.visto_em, s.expira_em
            FROM sessoes s JOIN usuarios u ON u.id = s.usuario_id
           WHERE s.token_hash = ? AND s.expira_em > ?',
         [hash('sha256', $token), $agora],
     );
+    if ($s !== null && (int) ($s['ativo'] ?? 1) !== 1) {
+        // acesso desativado pelo dono: a sessão morre aqui também (o desativar já apaga todas)
+        gc_sql('DELETE FROM sessoes WHERE id = ?', [$s['id']]);
+        $s = null;
+    }
     if ($s === null) {
         gc_cookie_apagar();
         return null;
@@ -84,7 +91,7 @@ function gc_sessao_atual(): ?array
         gc_cookie($token, time() + GC_SESSAO_DURA);
     }
     $sessao = $s;
-    gc_usuario_atual(['id' => (int) $s['usuario_id'], 'login' => (string) $s['login'], 'nome' => (string) $s['nome'], 'papel' => (string) $s['papel']]);
+    gc_usuario_atual(gc_usuario_da_linha($s, (int) $s['usuario_id']));
     return $sessao;
 }
 
@@ -114,13 +121,34 @@ function gc_sessao_criar(int $usuarioId): array
     gc_sql('DELETE FROM sessoes WHERE expira_em <= ?', [$agora]);
     gc_sql('UPDATE usuarios SET acesso_em = ? WHERE id = ?', [$agora, $usuarioId]);
     gc_cookie($token, time() + GC_SESSAO_DURA);
-    $u = gc_um('SELECT id, login, nome, papel FROM usuarios WHERE id = ?', [$usuarioId]);
-    gc_usuario_atual(['id' => (int) $u['id'], 'login' => (string) $u['login'], 'nome' => (string) $u['nome'], 'papel' => (string) $u['papel']]);
+    $u = (array) gc_um('SELECT * FROM usuarios WHERE id = ?', [$usuarioId]);
+    gc_usuario_atual(gc_usuario_da_linha($u, (int) $u['id']));
     return ['csrf' => $csrf];
 }
 
 /**
- * Exige o dono logado. Em POST, também a origem e o X-CSRF da sessão.
+ * O usuário do painel como as outras funções leem: papel, estados (ufs vazia = todos) e se a senha é provisória.
+ * @param array<string, mixed> $u linha de usuarios (com ou sem as colunas da equipe)
+ * @return array{id: int, login: string, nome: string, papel: string, ufs: list<string>, trocarSenha: bool}
+ */
+function gc_usuario_da_linha(array $u, int $id): array
+{
+    $papel = in_array($u['papel'] ?? 'dono', ['dono', 'gerente', 'atendente'], true) ? (string) $u['papel'] : 'atendente';
+    $ufs = $papel === 'dono' ? [] : array_values(array_filter(explode(',', (string) ($u['ufs'] ?? '')), static fn (string $x): bool => gc_uf($x) !== null));
+    return [
+        'id' => $id,
+        'login' => (string) $u['login'],
+        'nome' => (string) $u['nome'],
+        'papel' => $papel,
+        'ufs' => $ufs,
+        'trocarSenha' => (int) ($u['trocar_senha'] ?? 0) === 1,
+    ];
+}
+
+/**
+ * Exige alguém da equipe logado (o nome ficou do tempo em que só tinha o dono) com a permissão que a rota pede no mapa
+ * de permissões (equipe.php: 403 sem-permissao; senha provisória: 403 trocar-senha). Em POST, também a origem e o
+ * X-CSRF da sessão.
  * @return array<string, mixed> a sessão
  */
 function gc_exigir_dono(): array
@@ -139,14 +167,28 @@ function gc_exigir_dono(): array
             throw new ErroApi('csrf', 'Recarrega a página e tenta de novo.', 403);
         }
     }
+    // papéis da equipe (dono, gerente, atendente): sem o módulo carregado (publicação no meio), só o dono existe
+    if (function_exists('gc_conferir_permissao')) {
+        gc_conferir_permissao();
+    }
     return $s;
 }
 
-/** Usuário pra resposta. @return array{login: string, nome: string, papel: string} */
+/**
+ * Usuário pra resposta: login, nome e papel; com o módulo da equipe, também os estados, as permissões e se a senha é
+ * provisória (acréscimo compatível).
+ * @return array<string, mixed>
+ */
 function gc_usuario_publico(): array
 {
     $u = gc_usuario_atual() ?? [];
-    return ['login' => (string) ($u['login'] ?? ''), 'nome' => (string) ($u['nome'] ?? ''), 'papel' => (string) ($u['papel'] ?? 'dono')];
+    $pub = ['login' => (string) ($u['login'] ?? ''), 'nome' => (string) ($u['nome'] ?? ''), 'papel' => (string) ($u['papel'] ?? 'dono')];
+    if (function_exists('gc_permissoes_do_papel')) {
+        $pub['ufs'] = $u['ufs'] ?? [];
+        $pub['permissoes'] = gc_permissoes_do_papel($pub['papel']);
+        $pub['trocarSenha'] = (bool) ($u['trocarSenha'] ?? false);
+    }
+    return $pub;
 }
 
 function gc_instalado(): bool

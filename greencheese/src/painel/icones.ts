@@ -4,6 +4,8 @@ import type { Grade } from '../arte/pixel/grades'
 import { icones } from '../arte/pixel/grades'
 import { iconesExtras } from '../arte/pixel/extras'
 import { iconesAbas } from '../arte/pixel/abas'
+import { iconesPedidos } from './pedidos/icones'
+import { iconesContas } from './contas/icones'
 
 function g(linhas: string[]): Grade {
   return { w: linhas[0]?.length ?? 0, h: linhas.length, linhas }
@@ -367,5 +369,6 @@ const setas: Record<string, Grade | undefined> = {
 const todos: Record<string, Grade | undefined> = { ...icones, ...iconesExtras, ...(iconesAbas as Record<string, Grade>), ...proprios, ...loja, ...setas }
 
 export function grade(nome: string): Grade | undefined {
-  return todos[nome]
+  // os de pedidos, avisos e falas moram em pedidos/icones.ts; os da equipe e dos clientes, em contas/icones.ts
+  return todos[nome] ?? iconesPedidos[nome] ?? iconesContas[nome]
 }

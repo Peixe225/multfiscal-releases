@@ -7,6 +7,8 @@ import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { guardar, useDados } from '../dados'
 import { brl, falta, plural, relativo, vagas } from '../formato'
 import { Link, Topo } from '../Moldura'
+import { ResumoPedidos, useNovosPedidos } from '../pedidos/ResumoPedidos'
+import { rateioEhMeu, usePode } from '../permissoes'
 import { Blocos, Selo } from '../rateio-ui'
 import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
@@ -69,11 +71,14 @@ function LinhaReserva({ p, rateio, aoConfirmar }: { p: ParticipanteComTitulo; ra
   )
 }
 
-function fraseDoDia(pagamentos: number, rateios: number): string {
-  if (!pagamentos && !rateios) return 'Nada esperando por ti agora.'
+function fraseDoDia(pagamentos: number, rateios: number, pedidos = 0): string {
+  if (!pagamentos && !rateios && !pedidos) return 'Nada esperando por ti agora.'
+  // pedidos novos do site primeiro (pedidos/ResumoPedidos.tsx)
+  const p = pedidos ? plural(pedidos, 'pedido novo', 'pedidos novos') : ''
   const a = pagamentos ? plural(pagamentos, 'pagamento pra confirmar', 'pagamentos pra confirmar') : ''
   const b = rateios ? plural(rateios, 'rateio pedindo atenção', 'rateios pedindo atenção') : ''
-  return `Tem ${[a, b].filter(Boolean).join(' e ')}.`
+  const partes = [p, a, b].filter(Boolean)
+  return `Tem ${partes.length > 1 ? `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}` : partes[0]}.`
 }
 
 export function Resumo({ nome }: { nome: string }) {
@@ -83,23 +88,29 @@ export function Resumo({ nome }: { nome: string }) {
     return { resumo: a, rateios: b.rateios }
   })
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
+  const pedidosNovos = useNovosPedidos()
+  // quem não mexe nos rateios (atendente) não cria nem muda o passo: das pendências fica a entrega de quem chegou
+  const mexe = usePode('rateios')
+  // o quadro da loja (esgotados, acabando, atalhos) leva às telas da loja: só pra quem pode abrir elas (o dono)
+  const cuidaDaLoja = usePode('loja')
   useRestaurarRolagem(!!leitura.dados)
   const d = leitura.dados
   const agora = api.agora()
 
   const porId = new Map(d?.rateios.map((r) => [r.id, r]))
-  const lista = d ? pendencias(d.rateios, agora) : []
+  // e o gerente, só nos rateios que valem só nos estados dele (o de MG+RJ é com o dono)
+  const lista = d ? pendencias(d.rateios, agora).filter((x) => (mexe && rateioEhMeu(x.rateio.ufs)) || x.rateio.status === 'chegou') : []
   const abertos = d?.rateios.filter((r) => r.status === 'aberto') ?? []
   const andamento = d?.rateios.filter((r) => ['pedido', 'caminho'].includes(r.status)) ?? []
   const esperando = d?.resumo.esperandoPagamento ?? []
 
   return (
     <>
-      <Topo marca titulo={<TituloTela focar={false}>Resumo</TituloTela>} acoes={<Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-celular-nao"><Ic nome="mais" tamanho={16} /><span className="pn-botao-txt">Criar rateio</span></Link>} />
+      <Topo marca titulo={<TituloTela focar={false}>Resumo</TituloTela>} acoes={mexe && <Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-celular-nao"><Ic nome="mais" tamanho={16} /><span className="pn-botao-txt">Criar rateio</span></Link>} />
       <div className="pn-pagina pn-resumo">
         <p className="pn-oi">
           Oi, {nome.split(' ')[0]}.{' '}
-          {d && fraseDoDia(esperando.length, lista.length)}
+          {d && fraseDoDia(esperando.length, lista.length, pedidosNovos)}
         </p>
         {leitura.erro && (
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
@@ -110,6 +121,8 @@ export function Resumo({ nome }: { nome: string }) {
         {d && (
           <div className="pn-resumo-grade">
             <div className="pn-col">
+            {/* pedidos do site: os novos e os avisos no grupo */}
+            <ResumoPedidos />
             <section className="pn-bloco pn-resumo-acao" aria-labelledby="h-acao">
               <h2 id="h-acao" className="pn-h2">
                 Pede tua ação
@@ -160,7 +173,7 @@ export function Resumo({ nome }: { nome: string }) {
             </section>
 
             {/* loja: produtos esgotados, acabando, fora do site e os atalhos */}
-            <ResumoLoja />
+            {cuidaDaLoja && <ResumoLoja />}
 
             <section className="pn-bloco pn-resumo-ultimas" aria-labelledby="h-ultimas">
               <div className="pn-h2-linha">
@@ -236,10 +249,12 @@ export function Resumo({ nome }: { nome: string }) {
                   ))}
                 </ul>
               )}
-              <Link href={caminho.novo} className="pn-botao pn-botao-cinza pn-botao-largo">
-                <Ic nome="mais" tamanho={16} />
-                <span className="pn-botao-txt">Criar rateio</span>
-              </Link>
+              {mexe && (
+                <Link href={caminho.novo} className="pn-botao pn-botao-cinza pn-botao-largo">
+                  <Ic nome="mais" tamanho={16} />
+                  <span className="pn-botao-txt">Criar rateio</span>
+                </Link>
+              )}
             </section>
 
             {andamento.length > 0 && (

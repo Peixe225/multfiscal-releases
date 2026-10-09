@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import * as api from '../api'
 import type { PedidoConfirmacao } from '../Confirmar'
 import { useAcao } from '../dados'
+import { usePode } from '../permissoes'
 import { Folha } from '../Folha'
 import { brl, falta, relativo, vagas, whatsappBonito } from '../formato'
 import type { Participante, RateioAdmin, StatusVaga } from '../tipos'
@@ -44,6 +45,8 @@ interface Props {
 }
 
 export function Participantes({ rateio, lista, aoMudar, pedir, aoIncluir, aoEditar, recado, aoLargarRecado }: Props) {
+  // apagar os dados (LGPD) é com gerente e dono (o atendente cuida das vagas)
+  const apagaDados = usePode('participantes-dados')
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState('todos')
   const [mais, setMais] = useState<Participante | null>(null)
@@ -202,7 +205,7 @@ export function Participantes({ rateio, lista, aoMudar, pedir, aoIncluir, aoEdit
           if (vivo && (p.status === 'reservado' || p.status === 'confirmado' || p.status === 'expirado'))
             itens.push({ nome: p.status === 'confirmado' ? 'Cancelar a vaga' : 'Cancelar a reserva', icone: 'fechar', feito: fechar(() => pedir(pedirCancelar(p, aoMudar))), perigo: true })
           const ativa = (p.status === 'reservado' || p.status === 'confirmado') && !['encerrado', 'cancelado'].includes(rateio.status)
-          if (p.whatsapp && !ativa) itens.push({ nome: 'Apagar os dados (LGPD)', icone: 'lixo', feito: fechar(() => pedir(pedirApagarDados(p, aoMudar))), perigo: true })
+          if (apagaDados && p.whatsapp && !ativa) itens.push({ nome: 'Apagar os dados (LGPD)', icone: 'lixo', feito: fechar(() => pedir(pedirApagarDados(p, aoMudar))), perigo: true })
           return itens
         }}
       />

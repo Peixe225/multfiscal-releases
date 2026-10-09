@@ -5,6 +5,7 @@ import * as api from '../api'
 import { ErroApi } from '../api'
 import { ufs as todasUfs } from '../../dados/ufs'
 import { Folha } from '../Folha'
+import { ufsDoUsuario } from '../permissoes'
 import { brl } from '../formato'
 import type { Participante, RateioAdmin } from '../tipos'
 import { Aviso, Botao, Campo, Numero } from '../ui'
@@ -30,10 +31,15 @@ export function FormPessoa({
 }
 
 function Form({ rateio, pessoa, aoFechar, aoSalvar }: { rateio: RateioAdmin; pessoa: Participante | null; aoFechar: () => void; aoSalvar: (r: { participante: Participante; rateio: RateioAdmin }, incluiu: boolean) => void }) {
+  // gerente e atendente só incluem gente dos estados deles (o servidor recusa o resto): a lista e o estado que já vem
+  // escolhido são os deles — primeiro os do rateio, depois os outros
+  const meus = ufsDoUsuario()
+  const permitido = (u: string) => meus === null || meus.includes(u)
+  const doRateio = rateio.ufs.filter(permitido)
   const [v, setV] = useState({
     nome: pessoa?.nome ?? '',
     whatsapp: pessoa ? celularNoCampo(pessoa.whatsapp) : '',
-    uf: pessoa?.uf ?? rateio.ufs[0] ?? 'mg',
+    uf: pessoa?.uf ?? doRateio[0] ?? (meus === null ? (rateio.ufs[0] ?? 'mg') : (meus[0] ?? rateio.ufs[0] ?? 'mg')),
     cidade: pessoa?.cidade ?? '',
     quantidade: pessoa?.quantidade ?? 1,
     observacao: pessoa?.observacao ?? '',
@@ -94,7 +100,9 @@ function Form({ rateio, pessoa, aoFechar, aoSalvar }: { rateio: RateioAdmin; pes
     }
   }
 
-  const outras = todasUfs.map((u) => u.sigla.toLowerCase()).filter((u) => !rateio.ufs.includes(u))
+  const outras = todasUfs.map((u) => u.sigla.toLowerCase()).filter((u) => !rateio.ufs.includes(u) && permitido(u))
+  // quem está editando alguém de um estado que não aparece na lista (não deveria acontecer): o dele continua lá
+  const naLista = [...doRateio, ...outras]
   return (
     <Folha
       aberta
@@ -120,20 +128,25 @@ function Form({ rateio, pessoa, aoFechar, aoSalvar }: { rateio: RateioAdmin; pes
           <Campo id="p-uf" rotulo="Estado" erro={erros.uf}>
             {(a) => (
               <select {...a} name="uf" className="pn-input pn-select" value={v.uf} onChange={(e) => mudar('uf', e.target.value)}>
-                <optgroup label="Onde o rateio vale">
-                  {rateio.ufs.map((u) => (
-                    <option key={u} value={u}>
-                      {u.toUpperCase()}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Outros estados">
-                  {outras.map((u) => (
-                    <option key={u} value={u}>
-                      {u.toUpperCase()}
-                    </option>
-                  ))}
-                </optgroup>
+                {!naLista.includes(v.uf) && <option value={v.uf}>{v.uf.toUpperCase()}</option>}
+                {doRateio.length > 0 && (
+                  <optgroup label="Onde o rateio vale">
+                    {doRateio.map((u) => (
+                      <option key={u} value={u}>
+                        {u.toUpperCase()}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {outras.length > 0 && (
+                  <optgroup label="Outros estados">
+                    {outras.map((u) => (
+                      <option key={u} value={u}>
+                        {u.toUpperCase()}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             )}
           </Campo>

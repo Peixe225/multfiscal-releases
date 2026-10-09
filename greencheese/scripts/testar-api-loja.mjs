@@ -864,6 +864,11 @@ export async function lojaMigracao(t) {
     JSON.parse(
       execFileSync(PHP, ['-r', '$d = new PDO("sqlite:" . $argv[1]); echo json_encode([array_map("intval", $d->query("SELECT numero FROM migracoes ORDER BY numero")->fetchAll(PDO::FETCH_COLUMN)), (int) $d->query("PRAGMA user_version")->fetchColumn(), (int) $d->query("SELECT COUNT(*) FROM eventos WHERE acao = \'loja-semeada\'")->fetchColumn()]);', arq], { encoding: 'utf8' }),
     )
+  // todas as migrações que o servidor registra (base, loja e as das outras frentes: pedidos e contas, 200–299)
+  const todas = JSON.parse(
+    execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
+  )
+  igual(todas.filter((n) => n < 200), [1, 100, 101], 'as migrações até a loja são 1, 100 e 101')
   const filhos = []
   try {
     filhos.push(await t.subirPhp(portaA, { GC_TESTE: '1', GC_DADOS: dirA, GC_UPLOADS: join(dirA, 'up') }, ['-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')]))
@@ -871,7 +876,7 @@ export async function lojaMigracao(t) {
     const r = await fetch(`${bA}/api/index.php?r=loja`)
     const j = await r.json()
     igual([r.status, j.versao, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 1, 17, 5, 5], 'banco já instalado: a migração 101 semeia a loja')
-    igual(banco(join(dirA, 'loja.sqlite')), [[1, 100, 101], 1, 1], 'registro com 1 (a de antes), 100 e 101; user_version segue 1 (a base); semeou uma vez')
+    igual(banco(join(dirA, 'loja.sqlite')), [todas, 1, 1], 'registro com 1 (a de antes), 100, 101 e as das outras frentes; user_version segue 1 (a base); semeou uma vez')
     await fetch(`${bA}/api/index.php?r=loja`).then((x) => x.text())
     igual(banco(join(dirA, 'loja.sqlite'))[2], 1, 'pedir de novo não semeia de novo')
     // banco novo, sem ninguém instalado: a 101 roda e não semeia; a instalação semeia
@@ -879,7 +884,7 @@ export async function lojaMigracao(t) {
     const bB = `http://127.0.0.1:${portaB}`
     const s0 = await fetch(`${bB}/api/index.php?r=loja`)
     igual([s0.status, (await s0.json()).erro], [404, 'sem-loja'], 'banco novo sem instalação: 404 sem-loja')
-    igual(banco(join(dirB, 'loja.sqlite')), [[1, 100, 101], 1, 0], 'banco novo: todas as migrações anotadas, nada semeado')
+    igual(banco(join(dirB, 'loja.sqlite')), [todas, 1, 0], 'banco novo: todas as migrações anotadas, nada semeado')
     const inst = await fetch(`${bB}/api/index.php?r=admin-instalar`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Origin: bB, 'X-GC-IP': '198.51.100.200' },
       body: JSON.stringify({ codigo: 'dev-instalar-greencheese', login: 'dono', nome: 'Dono', senha: 'senha-forte-123' }),

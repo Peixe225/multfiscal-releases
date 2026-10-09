@@ -30,6 +30,11 @@ export interface DadosPedido {
   cupom?: { codigo: string; regra: string; origem: string; exemplo: boolean }
   /** A hora do pedido (o dia da entrega grátis); sem ela, agora. */
   agora?: Date
+  /**
+   * Código do pedido (GC-XXXXX, nasce no aparelho): UMA linha logo depois do cabeçalho, pra loja achar o pedido no
+   * painel. O resto da mensagem não muda.
+   */
+  codigo?: string | null
 }
 
 export const NOME_PAGAMENTO: Record<FormaPagamento, string> = {
@@ -99,12 +104,13 @@ export function entregaDoCanal(canal: Canal, agora = new Date()): 'gratis' | num
 export function montarPedido(d: DadosPedido): string {
   const linhas = d.linhas.filter((l) => l.qtd > 0)
   const out = [cabecalho('PEDIDO', d.canal, d.cidade)]
+  if (d.codigo) out.push(`Código: ${d.codigo}`)
   for (const l of linhas) {
     const c = calcularLinha(l.produto, l.qtd, l.variacaoId)
     out.push(`${l.qtd}x ${nomeNaMensagem(l)} — ${c.total == null ? 'preço a consultar' : brl(c.total)}`)
   }
   out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
-  // sem cupom, a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
+  // sem cupom (e sem código), a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
   if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
   const entrega = entregaDoCanal(d.canal, d.agora)
   out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (${entrega === 'gratis' ? 'entrega grátis hoje' : entrega != null ? `taxa ${brl(entrega)}` : 'taxa a confirmar'})`)
@@ -121,10 +127,13 @@ export interface DadosEncomenda {
   quantidade: string
   referencia?: string
   nome: string
+  /** Código da encomenda (GC-XXXXX): uma linha logo depois do cabeçalho, como no pedido. */
+  codigo?: string | null
 }
 
 export function montarEncomenda(d: DadosEncomenda): string {
   const out = [cabecalho('ENCOMENDA', d.canal, d.cidade)]
+  if (d.codigo) out.push(`Código: ${d.codigo}`)
   out.push(`Produto: ${d.produto.trim()}`)
   out.push(`Quantidade: ${d.quantidade.trim()}`)
   if (d.referencia?.trim()) out.push(`Link/descrição: ${d.referencia.trim()}`)

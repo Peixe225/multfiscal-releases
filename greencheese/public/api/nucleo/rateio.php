@@ -383,11 +383,20 @@ function gc_participacao_criar(array $r, array $d, string $origem, ?string $toke
             (int) $r['preco_rateio'], $origem, $d['observacao'] ?? '', $agora, $agora, $agora + (int) $r['reserva_horas'] * 3600,
         ],
     );
+    // contas dos clientes (clientes.php): a vaga do painel tem o WhatsApp conferido; a do site com a conta logada fica
+    // ligada a ela (sem o módulo, na publicação no meio, segue sem)
+    if (function_exists('gc_vaga_ligar')) {
+        gc_vaga_ligar($id, $origem, (string) $d['whatsapp']);
+    }
     gc_tocar_rateio($rid);
     $p = gc_um('SELECT * FROM participacoes WHERE id = ?', [$id]);
     gc_evento($origem, $origem === 'site' ? 'participacao-reservada' : 'participacao-incluida', 'participacao:' . $p['codigo'], [
         'rateio' => $rid, 'titulo' => $r['titulo'], 'quantidade' => $d['quantidade'], 'uf' => $d['uf'],
     ]);
+    // aviso no grupo da loja (avisos.php), depois da resposta; sem o módulo (publicação no meio), segue sem aviso
+    if ($origem === 'site' && function_exists('gc_aviso_rateio_reserva')) {
+        gc_aviso_rateio_reserva($p, $r);
+    }
     return [$p, $token];
 }
 
@@ -444,9 +453,14 @@ function gc_confirmar_participacao(int $id, string $origem, string $por, ?int $u
             'rateio' => $r['id'], 'titulo' => $r['titulo'], 'de' => $de, 'quantidade' => (int) $p['quantidade'],
         ] + $detalhe, $usuarioId);
         $fechou = gc_fechar_se_lotou((string) $r['id']);
+        $agoraP = (array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$id]);
+        $agoraR = (array) gc_rateio_linha((string) $r['id']);
+        if (function_exists('gc_aviso_rateio_pago')) {
+            gc_aviso_rateio_pago($agoraP, $agoraR, $fechou, $por); // aviso no grupo da loja (avisos.php), depois da resposta
+        }
         return [
-            'participacao' => (array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$id]),
-            'rateio' => (array) gc_rateio_linha((string) $r['id']),
+            'participacao' => $agoraP,
+            'rateio' => $agoraR,
             'jaConfirmada' => false,
             'fechou' => $fechou,
         ];

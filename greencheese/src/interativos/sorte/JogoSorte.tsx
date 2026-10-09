@@ -7,6 +7,7 @@ import { config } from '../../dados/config'
 import type { Premio } from '../../dados/sorte'
 import { primeiroNome, type ContaAberta } from '../../lib/conta'
 import { conta as adaptador } from '../../lib/conta-adaptador'
+import { useModoConta } from '../../lib/conta-modo'
 import { formatarAte, formatarDiaMes, formatarDiaSemana, formatarEspera, formatarValidade, fraseDoPremio, nomeDoPremio, premioPorId } from '../../lib/cupom'
 import { ehDesktop, movimentoReduzido, ponteiroFino } from '../../lib/movimento'
 import type { Cupom } from '../../store/conta'
@@ -162,6 +163,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const rAgora = useRef(r)
   rAgora.current = r
   const uf = useLocal((s) => s.uf)
+  // a conta guardada na loja (entrar com o código) ou só no aparelho: muda a nota embaixo do convite
+  const notaConta = useModoConta() === 'servidor' ? T.contaServidor : T.contaLocal
   const instagram = useCanalDa(uf)?.instagram ?? null
   const avisar = useUI((s) => s.avisar)
   const setConta = useUI((s) => s.setConta)
@@ -301,6 +304,10 @@ export default function JogoSorte({ tela }: PropsJogo) {
     definirSubtela(naSubtela ? voltarDoCadastro : null)
   }, [naSubtela, voltarDoCadastro, definirSubtela])
   useEffect(() => () => definirSubtela(null), [definirSubtela])
+  // com a conta na loja, o giro de hoje e o prêmio reservado vêm do servidor (o cache só desenha a tela até lá)
+  useEffect(() => {
+    void adaptador.giroDisponivel(ID_SORTE)
+  }, [])
 
   // o foco vai pro título do formulário ("Cria tua conta"): o leitor de tela anuncia a tela nova
   const irParaCadastro = (modo: 'cadastro' | 'entrar', de: Fase) => {
@@ -656,7 +663,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   /* ───────────── depois de criar conta / entrar ───────────── */
   // Só conta o cupom que o adaptador acabou de guardar (o prêmio reservado). Um cupom velho da conta (até usado)
   // nunca aparece como recém-guardado.
-  const depoisDaConta = async ({ conta: c, cupomGuardado }: ContaAberta, modo: ModoForm) => {
+  const depoisDaConta = async ({ conta: c, cupomGuardado, pendenteRecusado }: ContaAberta, modo: ModoForm) => {
     if (cupomGuardado) {
       const premio = premioPorId(cupomGuardado.premioId) ?? ganho?.premio
       if (premio) setGanho({ premio, cupom: cupomGuardado, origem: 'conta' })
@@ -669,7 +676,9 @@ export default function JogoSorte({ tela }: PropsJogo) {
       focar(FOCO_FASE)
       return
     }
-    if (ganho && !ganho.cupom && modo !== 'editar') avisar(T.premioVencidoAoGuardar)
+    // o prêmio do giro sem conta que não entrou: a conta já tinha girado naquele dia (servidor), ou venceu
+    if (pendenteRecusado && modo !== 'editar') avisar(T.premioContaJaGirou)
+    else if (ganho && !ganho.cupom && modo !== 'editar') avisar(T.premioVencidoAoGuardar)
     setGanho(null)
     if (modo === 'entrar') {
       const giro = await adaptador.giroDisponivel(ID_SORTE)
@@ -792,7 +801,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
             <p>{T.limites}</p>
             <Regras />
           </div>
-          <p className="legenda sorte-nota">{T.contaLocal}</p>
+          <p className="legenda sorte-nota">{notaConta}</p>
         </div>
       )}
 
@@ -895,7 +904,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
           <button type="button" className="botao-texto toque" onClick={() => irParaCadastro('entrar', 'bloqueado')}>
             {T.jaTenhoConta}
           </button>
-          <p className="legenda sorte-nota">{T.contaLocal}</p>
+          <p className="legenda sorte-nota">{notaConta}</p>
         </div>
       )}
 

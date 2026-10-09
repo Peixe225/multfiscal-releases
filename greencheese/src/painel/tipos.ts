@@ -3,10 +3,18 @@
 export type StatusRateio = 'rascunho' | 'aberto' | 'fechado' | 'pedido' | 'caminho' | 'chegou' | 'encerrado' | 'cancelado'
 export type StatusVaga = 'reservado' | 'confirmado' | 'expirado' | 'cancelado' | 'entregue'
 
+export type Papel = 'dono' | 'gerente' | 'atendente'
+
 export interface Usuario {
   login: string
   nome: string
-  papel: 'dono'
+  papel: Papel
+  /** Estados de quem não é dono ([] = todos). Servidor de antes da equipe não manda: vale o dono. */
+  ufs?: string[]
+  /** O que o papel pode (o mapa do servidor, equipe.php). Sem a lista: o dono, que pode tudo. */
+  permissoes?: string[]
+  /** Senha provisória: só entra no painel depois de trocar. */
+  trocarSenha?: boolean
 }
 
 export interface Sessao {
