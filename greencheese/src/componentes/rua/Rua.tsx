@@ -21,6 +21,8 @@ export interface PropsRua {
   /** Escurece as pontas (a cena não vai de ponta a ponta da tela). */
   bordas?: boolean
   className?: string
+  /** O elenco não montou ou o motor falhou: quem mostra a rua decide o que fica no lugar (sem ele, nada). */
+  aoFalhar?: () => void
 }
 
 const REDUZ = '(prefers-reduced-motion: reduce)'
@@ -148,7 +150,7 @@ function avisoDoChamado(c: Chamado, rodando: boolean): string {
   return 'O mercador ofereceu o Mercado e abre o casaco.'
 }
 
-export default function Rua({ k, bordas = false, className }: PropsRua) {
+export default function Rua({ k, bordas = false, className, aoFalhar }: PropsRua) {
   const raiz = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
   const camadaBaloes = useRef<HTMLDivElement>(null)
@@ -183,7 +185,12 @@ export default function Rua({ k, bordas = false, className }: PropsRua) {
   const quadros = useRef(modoQuadros()).current
   const roda = !!pacote && naTela && abaVisivel && !camada && !pausada && !reduz && quadros == null
 
-  // o elenco monta no worker quando a rua chega perto da tela (no computador ela já nasce à vista)
+  useEffect(() => {
+    if (falhou) aoFalhar?.()
+  }, [falhou, aoFalhar])
+
+  // o elenco monta no worker quando a rua chega perto da tela (no computador ela já nasce à vista); no celular, também
+  // com a rua até duas telas acima (quem pulou pro fim da página e vai subir de volta até ela)
   const [perto, setPerto] = useState(false)
   useEffect(() => {
     const el = raiz.current
@@ -192,7 +199,7 @@ export default function Rua({ k, bordas = false, className }: PropsRua) {
       setPerto(true)
       return
     }
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && setPerto(true), { rootMargin: '100% 0px' })
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setPerto(true), { rootMargin: '200% 0px 100% 0px' })
     io.observe(el)
     return () => io.disconnect()
   }, [perto])
