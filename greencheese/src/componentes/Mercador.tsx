@@ -63,7 +63,9 @@ export function useCamadaAberta(): boolean {
       !!s.trocaPendente ||
       s.aberturaAtiva ||
       !!s.interativo ||
-      s.contaAberta,
+      s.contaAberta ||
+      !!s.rateio ||
+      !!s.comoFunciona,
   )
   const chat = useChat((s) => s.aberto)
   return ui || chat

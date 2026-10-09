@@ -141,6 +141,11 @@
 .hero-zona-dir {
   right: 0;
 }
+/* na rua as bordas ficam por cima da cena e do botão do mercador (StoryRua.css): ali o toque sempre passa e volta, mesmo
+   em cima de um personagem; o pé e a linha de resposta, que vêm depois no quadro, continuam por cima delas */
+.hero-story.na-rua .hero-zona {
+  z-index: 3;
+}
 
 /* tamanho e altura vêm da arte do produto atual (medidos no Hero.tsx): atrás dela, menor que ela, nunca no nome */
 .hero-espera {
@@ -218,6 +223,11 @@
 }
 .hero-dica.saindo {
   animation: hero-dica-sai 0.3s steps(3, jump-end) both;
+}
+/* na rua a dica fica logo abaixo do cabeçalho (o top vem do StoryRua), compacta, acima dos balões */
+.hero-story.na-rua .hero-dica {
+  gap: 3px;
+  padding: 6px 12px 5px;
 }
 .hero-dica-linha {
   display: flex;

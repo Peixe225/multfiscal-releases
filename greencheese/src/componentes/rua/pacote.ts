@@ -3,6 +3,8 @@
 // mão, evento, caixa do que é visível). Montar os 280 quadros custa uns 200 ms de CPU: vai num worker, longe do
 // toque; sem worker (navegador velho, arquivo único), monta aqui mesmo, no tempo ocioso.
 
+import { POSTE_EM_PE, POSTE_FAIXA } from './palco'
+
 export type Lado = 'dir' | 'esq'
 
 export interface QuadroMeta {
@@ -66,10 +68,17 @@ export interface Pacote {
   ladrilhos: Record<string, LadrilhoPronto>
 }
 
-/** Pedido ao montador: a altura do poste e da luz dele (a lâmpada cabe na faixa). */
+/** Pedido ao montador: os postes (id, id da luz e altura). A faixa e o story em pé saem juntos, uma vez só. */
 export interface PedidoPacote {
-  alturaPoste: number
-  alturaLuz: number
+  postes: { poste: string; luz: string; altura: number }[]
+}
+
+/** O pedido de sempre: o poste baixo da faixa e o alto do story em pé (o mesmo pacote serve às duas cenas). */
+export const PEDIDO: PedidoPacote = {
+  postes: [
+    { poste: 'poste', luz: 'luz', altura: POSTE_FAIXA },
+    { poste: 'poste-alto', luz: 'luz-alta', altura: POSTE_EM_PE },
+  ],
 }
 
 function paraImagem(i: ImageBitmap | Crua): CanvasImageSource {
@@ -102,9 +111,9 @@ async function montarAqui(pedido: PedidoPacote): Promise<Pacote> {
 
 const prontos = new Map<string, Promise<Pacote>>()
 
-/** O elenco pronto (uma vez por altura de poste; a segunda chamada reaproveita). */
-export function carregarPacote(pedido: PedidoPacote): Promise<Pacote> {
-  const chave = `${pedido.alturaPoste}:${pedido.alturaLuz}`
+/** O elenco pronto (uma vez só: a faixa e o story em pé usam o mesmo; a segunda chamada reaproveita). */
+export function carregarPacote(pedido: PedidoPacote = PEDIDO): Promise<Pacote> {
+  const chave = pedido.postes.map((p) => `${p.poste}:${p.altura}`).join()
   let p = prontos.get(chave)
   if (!p) {
     p = new Promise<Pacote>((ok) => {
