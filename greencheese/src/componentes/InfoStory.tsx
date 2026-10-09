@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { canalDa } from '../dados/canais'
 import { config } from '../dados/config'
 import { PixelArte } from '../arte/PixelArte'
 import { emblemas } from '../arte/pixel/grades'
 import { brl } from '../lib/formato'
-import { ehDiaDeEntregaGratis, resumoHorario, situacao } from '../lib/horario'
+import { diasDaEntregaGratis, ehDiaDeEntregaGratis, resumoHorario, situacao } from '../lib/horario'
 import { alvoDeSaida } from '../lib/ambiente'
 import { NOME_PAGAMENTO, linkDM } from '../lib/mensagem'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { useUI } from '../store/ui'
 import { Demo, Icone } from './comum'
 import { StoryShell } from './StoryShell'
@@ -26,7 +26,7 @@ export function InfoStory() {
   const aberto = useUI((s) => s.infoAberto)
   const setInfo = useUI((s) => s.setInfo)
   const { uf, cidade, cidadeInformada } = useLocal()
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
   const abrirChat = useChat((s) => s.abrir)
   const [i, setI] = useState(0)
   if (!aberto || !canal) return null
@@ -64,7 +64,7 @@ export function InfoStory() {
         {canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? `Taxa ${brl(canal.taxaEntrega.valor)}` : 'Taxa a confirmar'}
       </p>
       <p className="info-txt">A taxa certa vem na resposta do atendimento.</p>
-      {sextou && !ehDiaDeEntregaGratis(canal) && <p className="info-txt legenda">Entrega grátis vale na sexta.</p>}
+      {sextou && !ehDiaDeEntregaGratis(canal) && <p className="info-txt legenda">Entrega grátis vale {diasDaEntregaGratis(sextou.dias)}.</p>}
       <Demo ativo={canal.taxaEntrega.demo} />
     </Quadro>,
     <Quadro key="p">

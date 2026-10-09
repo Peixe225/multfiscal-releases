@@ -2,18 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { iconesExtras } from '../arte/pixel/extras'
-import { canalDa } from '../dados/canais'
 import { config } from '../dados/config'
-import { textosLoja } from '../dados/textos-loja'
 import { deUf } from '../dados/ufs'
 import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
-import { disponivelEm, useCatalogo } from '../store/catalogo'
+import { disponivelEm } from '../store/catalogo'
 import { useChat } from '../store/chat'
-import { useDisponiveis } from '../store/derivados'
+import { useStoryDoInicio } from '../store/derivados'
 import { useLocal } from '../store/local'
+import { siglasDosEstados, useCanais, useCanalDa, useTextosLoja } from '../store/loja'
 import { useUI } from '../store/ui'
 import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
@@ -27,7 +26,6 @@ import './Hero.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const MAX_BARRAS = 8
 /** Fração da largura em cada borda que passa o story (esquerda volta, direita avança); o meio é o produto. */
 const BORDA = 0.28
 /** Arrasto lateral mínimo (px) para passar. */
@@ -257,13 +255,13 @@ function AvisoFora() {
  */
 export function Hero() {
   const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf)
-  const todos = useCatalogo((s) => s.produtos)
-  const disponiveis = useDisponiveis()
-  // produto real com preço primeiro; exemplo por último
-  const peso = (p: (typeof todos)[number]) => (p.demo ? 2 : 0) + (p.preco == null ? 1 : 0)
+  const canal = useCanalDa(uf)
   const celular = useSyncExternalStore(CELULAR.assinar, CELULAR.ler)
-  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, MAX_BARRAS)
+  // os produtos do story: os do dono no painel (Stories do Início), na ordem dele; sem escolha, o automático (os à
+  // venda, os com preço primeiro e os de exemplo por último)
+  const lista = useStoryDoInicio(uf)
+  const textos = useTextosLoja()
+  const canais = useCanais()
   // palpite de IP pendente (celular): o aviso ocupa o lugar da linha de resposta até a pessoa responder
   const avisoLocal = useAvisoLocal()
   const { texto: lugar } = useTextoLocal()
@@ -729,7 +727,7 @@ export function Hero() {
             artePropsExtra={{ flutuar: true }}
             legenda={
               !uf ? (
-                <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
+                <p className="hero-sem-uf legenda">{siglasDosEstados(canais)}</p>
               ) : undefined
             }
           />
@@ -750,7 +748,7 @@ export function Hero() {
 
       <div className="hero-adesivos">
         <p className="adesivo-texto-bloco hero-frase">
-          <span className="adesivo-texto">{sextou ?? textosLoja.fraseStory}</span>
+          <span className="adesivo-texto">{sextou ?? textos.fraseStory}</span>
         </p>
         <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
           <Icone nome="link" tamanho={16} />

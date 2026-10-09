@@ -1,7 +1,7 @@
-import { canais } from '../dados/canais'
 import { emUf } from '../dados/ufs'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
+import { ondeEntrega, useCanais } from '../store/loja'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
 import { MapaBrasil } from './MapaBrasil'
@@ -12,6 +12,7 @@ export function SemAtendimento() {
   const { uf, escolher } = useLocal()
   const abrir = useChat((s) => s.abrir)
   const setSeletor = useUI((s) => s.setSeletor)
+  const canais = useCanais()
   return (
     <section className="sem" aria-labelledby="sem-titulo">
       <span className="sem-icone" aria-hidden="true">
@@ -21,7 +22,7 @@ export function SemAtendimento() {
         A Green Cheese ainda não chegou aí
       </h1>
       <p className="sem-txt legenda">
-        Por enquanto a entrega é no RJ, MG, SP, ES e SC. {emUf(uf).replace(/^./, (c) => c.toUpperCase())}, dá pra encomendar com um desses perfis.
+        Por enquanto a entrega é {ondeEntrega(canais)}. {emUf(uf).replace(/^./, (c) => c.toUpperCase())}, dá pra encomendar com um desses perfis.
       </p>
       <MapaBrasil atual={uf} aoTocar={(s) => escolher(s, null, 'manual')} acender celulaMax={3} className="sem-mapa" />
       <ul className="sem-perfis">

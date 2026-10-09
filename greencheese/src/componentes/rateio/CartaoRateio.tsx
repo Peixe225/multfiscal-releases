@@ -9,6 +9,7 @@ import type { Rateio } from '../../lib/rateio-api'
 import type { Produto } from '../../lib/tipos'
 import { produtoPorId } from '../../store/catalogo'
 import { agoraRateio } from '../../store/rateio'
+import { useLojaMarca } from '../../store/loja'
 import { Avatar, Icone } from '../comum'
 import { ETAPA, SELO, economia, janelaChegada, listaUfs, prazoAcabou, textoPrazo, textoPrevisao, vagasTexto } from './util'
 
@@ -206,6 +207,8 @@ interface Props {
 }
 
 export function CartaoRateio({ rateio: r, uf, variante = 'feed', hrefEntrar, aoEntrar, codigo, prioridade = false, children, tituloId, tituloRef }: Props) {
+  // o canal e o produto do rateio vêm da loja: redesenha quando ela troca
+  useLojaMarca()
   const foraDoEstado = !!uf && !r.ufs.includes(uf)
   const aberto = r.status === 'aberto'
   const apagado = foraDoEstado && aberto

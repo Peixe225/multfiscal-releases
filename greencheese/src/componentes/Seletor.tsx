@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { canais, canalDa } from '../dados/canais'
+import { canalDa } from '../dados/canais'
 import { ufPorSigla, ufs } from '../dados/ufs'
 import { nomeCidade, useLocal } from '../store/local'
+import { useCanais, useCanalDa } from '../store/loja'
 import { useUI } from '../store/ui'
 import { trocarEstado } from '../lib/troca'
 import { Avatar } from './comum'
@@ -14,7 +15,9 @@ export function SeletorFolha() {
   const aberto = useUI((s) => s.seletorAberto)
   const setSeletor = useUI((s) => s.setSeletor)
   const { uf, cidade, cidadeInformada, escolher, escolherCidade } = useLocal()
-  const canal = canalDa(uf)
+  // os estados da loja agora (o dono ativa outros no painel): a lista de cima e os "outros" acompanham
+  const canais = useCanais()
+  const canal = useCanalDa(uf)
   const atualNome = uf ? (nomeCidade(canal, cidade, cidadeInformada) ?? ufPorSigla(uf)?.nome) : null
   const fechar = () => setSeletor(false)
   const listaRef = useRef<HTMLDivElement>(null)
@@ -38,7 +41,7 @@ export function SeletorFolha() {
     requestAnimationFrame(() => listaRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' }))
   }, [aberto])
 
-  const outros = ufs.filter((u) => !canalDa(u.sigla))
+  const outros = ufs.filter((u) => !canais.some((c) => c.uf === u.sigla.toLowerCase()))
 
   return (
     <Folha

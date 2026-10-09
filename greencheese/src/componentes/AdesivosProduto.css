@@ -121,6 +121,11 @@
   color: var(--preto);
   border-color: var(--branco);
 }
+/* combo que passa do que resta no estado (o "restam X"): apagado, sem tocar */
+.ad-quiz-linha:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 
 /* adesivo de link: quantidade + pôr na sacola */
 .ad-sacola {

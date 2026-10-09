@@ -1,5 +1,3 @@
-import type { UfAtendida } from '../dados/canais'
-
 export type TipoArte =
   | 'lata'
   | 'lata-alta'
@@ -55,7 +53,10 @@ export interface Produto {
   preco: number | null
   combos?: Combo[]
   variacoes?: Variacao[]
-  disponivel: Record<UfAtendida, boolean>
+  /** uf → à venda lá. Do servidor já vem resolvido (ligado no estado e, com estoque contado, pelo menos 1). */
+  disponivel: Record<string, boolean>
+  /** uf → unidades, só onde o estoque contado chegou no "restam X" do painel (o adesivo RESTAM 3). */
+  restam?: Record<string, number>
   disponivelConfirmado?: string[]
   combinaCom?: string[]
   demo: boolean

@@ -25,7 +25,7 @@ const so = (o, chaves) => Object.fromEntries(chaves.filter((k) => o[k] !== undef
 /** A semente, montada de src/dados. Erro claro se algo não fecha (categoria que não existe, número torto…). */
 export async function montarSemente() {
   const catalogo = JSON.parse(readFileSync(`${raiz}src/dados/catalogo.json`, 'utf8'))
-  const { canais } = await lerTs('src/dados/canais.ts')
+  const { canaisEmbutidos: canais } = await lerTs('src/dados/canais.ts')
   const { config } = await lerTs('src/dados/config.ts')
   const { premios, regrasSorte } = await lerTs('src/dados/sorte.ts')
   const { textosLoja } = await lerTs('src/dados/textos-loja.ts')
@@ -64,8 +64,7 @@ export async function montarSemente() {
       cidades: c.cidades.map((x) => ({ slug: x.slug, nome: x.nome })),
       horario: { semana: c.horario.semana, demo: c.horario.demo },
       taxaEntrega: { valor: c.taxaEntrega.valor, demo: c.taxaEntrega.demo },
-      // no site é um dia só (diaSemana); no servidor, a lista dos dias
-      entregaGratis: c.entregaGratis ? { dias: [c.entregaGratis.diaSemana], texto: c.entregaGratis.texto, demo: c.entregaGratis.demo } : null,
+      entregaGratis: c.entregaGratis ? { dias: [...c.entregaGratis.dias], texto: c.entregaGratis.texto, demo: c.entregaGratis.demo } : null,
       pagamento: { opcoes: c.pagamento.opcoes, demo: c.pagamento.demo },
       emblema: c.emblema,
     }

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { gsap } from 'gsap'
 import { Icone } from '../../componentes/comum'
 import { FormConta, type ModoForm } from '../../componentes/FormConta'
-import { canalDa } from '../../dados/canais'
 import { config } from '../../dados/config'
 import type { Premio } from '../../dados/sorte'
 import { primeiroNome, type ContaAberta } from '../../lib/conta'
@@ -12,6 +11,7 @@ import { formatarAte, formatarDiaMes, formatarDiaSemana, formatarEspera, formata
 import { ehDesktop, movimentoReduzido, ponteiroFino } from '../../lib/movimento'
 import type { Cupom } from '../../store/conta'
 import { useLocal } from '../../store/local'
+import { regrasDaSorte, useCanalDa } from '../../store/loja'
 import { useUI } from '../../store/ui'
 import { FOCO_JOGO, useCasca } from '../CascaInterativo'
 import type { PropsJogo } from '../registro'
@@ -162,7 +162,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const rAgora = useRef(r)
   rAgora.current = r
   const uf = useLocal((s) => s.uf)
-  const instagram = canalDa(uf)?.instagram ?? null
+  const instagram = useCanalDa(uf)?.instagram ?? null
   const avisar = useUI((s) => s.avisar)
   const setConta = useUI((s) => s.setConta)
   const reduzido = useMemo(() => movimentoReduzido(), [])
@@ -823,7 +823,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
                     {T.fechou(primeiroNome(r.conta?.nome))}
                   </p>
                 ) : (
-                  <p className="sorte-pe-nota legenda">{T.naConta}</p>
+                  <p className="sorte-pe-nota legenda">{r.giro.disponivel ? T.naContaMaisHoje : T.naConta}</p>
                 )}
                 <div className="sorte-pe-botoes">
                   <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
@@ -880,7 +880,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
         <div className="sorte-bloco">
           {r.pendenteVencido && r.pendente && <p className="legenda">{T.premioVenceu(formatarDiaSemana(r.pendente.sorteadoEm))}</p>}
           <p className="sorte-fechou">{T.giroJaFoi}</p>
-          {r.giro.disponivel === false && r.giro.motivo === 'sem-conta-ja-girou' && r.giro.girouHoje ? (
+          {/* girou hoje sem conta: com 1 giro por dia, o de hoje já foi (cria conta e gira amanhã); com mais, gira agora */}
+          {r.giro.disponivel === false && r.giro.motivo === 'sem-conta-ja-girou' && r.giro.girouHoje && regrasDaSorte().girosPorDiaComConta <= 1 ? (
             <>
               <p>{T.criaAmanha}</p>
               <p className="legenda">{T.vantagens}</p>

@@ -170,9 +170,17 @@ export function montarAviso(canal: Canal, cidade: string | null | undefined, pro
   ].join('\n')
 }
 
+// O WhatsApp da loja: o embutido (config.whatsappPedidos) até a loja do servidor chegar com o do painel
+// (src/store/loja.ts troca). Fica aqui, sem importar o store: o conferir-mensagem roda este arquivo no Node.
+let whatsappLoja = config.whatsappPedidos
+
+export function definirWhatsappDaLoja(numero: string): void {
+  whatsappLoja = numero
+}
+
 /** WhatsApp que fecha o pedido do canal (só dígitos): o do estado, se tiver; senão o da loja. */
 export function whatsappDoCanal(canal: Canal): string {
-  return (canal.whatsapp ?? config.whatsappPedidos).replace(/\D/g, '')
+  return (canal.whatsapp ?? whatsappLoja).replace(/\D/g, '')
 }
 
 /** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) e o rateio usam. */
@@ -182,7 +190,7 @@ export function linkWhatsApp(canal: Canal, texto: string): string {
 
 /** wa.me da loja quando ainda não tem estado escolhido (o rateio sem conexão): o WhatsApp de pedidos de todos. */
 export function linkWhatsAppLoja(canal: Canal | null | undefined, texto: string): string {
-  return canal ? linkWhatsApp(canal, texto) : `https://wa.me/${config.whatsappPedidos.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`
+  return canal ? linkWhatsApp(canal, texto) : `https://wa.me/${whatsappLoja.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`
 }
 
 /** DM do Instagram do estado: dúvidas que o site não tira e "Avisar quando chegar". */

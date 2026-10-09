@@ -4,6 +4,7 @@ import { Logo } from '../arte/Logo'
 import { PixelArte } from '../arte/PixelArte'
 import { icones } from '../arte/pixel/grades'
 import { iconesExtras } from '../arte/pixel/extras'
+import { useLoja } from '../store/loja'
 
 export function Icone({ nome, tamanho = 24, titulo, className, style }: { nome: string; tamanho?: number; titulo?: string; className?: string; style?: CSSProperties }) {
   const g = icones[nome] ?? iconesExtras[nome]
@@ -53,9 +54,13 @@ export function tempoRelativo(iso: string, agora = Date.now()): string {
   return `${Math.floor(s / 604800)} sem`
 }
 
-/** Há quanto tempo o catálogo foi "postado". Sem data real, não mostra nada (não finge recência). */
+/**
+ * Há quanto tempo o catálogo foi "postado": a última mudança no painel (a loja do servidor) ou, sem servidor, a data
+ * de config.catalogoAtualizadoEm. Sem data real, não mostra nada (não finge recência).
+ */
 export function tempoDoCatalogo(): string | null {
-  return config.catalogoAtualizadoEm ? tempoRelativo(config.catalogoAtualizadoEm) : null
+  const quando = useLoja.getState().atualizadoEm ?? config.catalogoAtualizadoEm
+  return quando ? tempoRelativo(quando) : null
 }
 
 /** Linha de cabeçalho do story: avatar, @, tempo. */

@@ -38,9 +38,9 @@ export async function lojaSemServidor(t) {
   const cli = execFileSync('node', [join(raiz, 'scripts', 'gerar-semente-loja.mjs'), '--conferir'], { encoding: 'utf8' })
   igual(cli.trim(), 'semente em dia', 'gerar-semente-loja.mjs --conferir')
   const php = JSON.parse(
-    execFileSync(PHP, ['-r', 'define("GC_API", 1); require $argv[1] . "/loja.php"; require $argv[1] . "/loja-validar.php"; echo json_encode([GC_LOJA_PALAVRAS, GC_LOJA_ALCOOL, GC_LOJA_ARTES, GC_LOJA_ICONES, GC_LOJA_NOMES_UF, GC_LOJA_STORIES_MAX, GC_LOJA_PAGAMENTOS]);', join(raiz, 'public', 'api', 'nucleo')], { encoding: 'utf8' }),
+    execFileSync(PHP, ['-r', 'define("GC_API", 1); require $argv[1] . "/loja.php"; require $argv[1] . "/loja-validar.php"; echo json_encode([GC_LOJA_PALAVRAS, GC_LOJA_ALCOOL, GC_LOJA_ARTES, GC_LOJA_ICONES, GC_LOJA_NOMES_UF, GC_LOJA_STORIES_MAX, GC_LOJA_PAGAMENTOS, GC_LOJA_EMBLEMAS]);', join(raiz, 'public', 'api', 'nucleo')], { encoding: 'utf8' }),
   )
-  const [palavras, alcool, artes, icones, nomesUf, storiesMax, pagamentos] = php
+  const [palavras, alcool, artes, icones, nomesUf, storiesMax, pagamentos, emblemas] = php
   igual(palavras, listaTs(join(raiz, 'src/dados/sorte.ts'), 'PALAVRAS_PROIBIDAS = ['), 'PALAVRAS_PROIBIDAS: a mesma lista no PHP e no site, na mesma ordem')
   igual(alcool, listaTs(join(raiz, 'src/painel/loja/validar.ts'), 'const ALCOOL = ['), 'nomes de bebida alcoólica: a mesma lista no servidor e no painel')
   igual(artes, listaTs(join(raiz, 'src/lib/tipos.ts'), 'export type TipoArte =', '\n\n'), 'formatos da arte: os do TipoArte do site')
@@ -49,9 +49,17 @@ export async function lojaSemServidor(t) {
   igual(pagamentos, listaTs(join(raiz, 'src/painel/loja/nomes.ts'), 'export const PAGAMENTOS', '\n]').filter((_, i) => i % 2 === 0), 'formas de pagamento: as do painel')
   igual(Object.keys(nomesUf).sort(), (listaTs(join(raiz, 'public/api/nucleo/validar.php'), 'const GC_UFS = [') ?? []).sort(), 'os 27 nomes de UF batem com as UFs do servidor')
   igual(Object.keys(nomesUf).length, 27, '27 UFs com nome')
-  const maxHero = Number(/const MAX_BARRAS = (\d+)/.exec(readFileSync(join(raiz, 'src/componentes/Hero.tsx'), 'utf8'))?.[1])
+  // o story do Início do site sai da loja (src/store/loja.ts, MAX_STORY): as barrinhas do topo
+  const maxSite = Number(/export const MAX_STORY = (\d+)/.exec(readFileSync(join(raiz, 'src/store/loja.ts'), 'utf8'))?.[1])
   const maxPainel = Number(/const MAX = (\d+)/.exec(readFileSync(join(raiz, 'src/painel/loja/Stories.tsx'), 'utf8'))?.[1])
-  ok(storiesMax === maxHero && storiesMax === maxPainel, `até ${storiesMax} produtos no story: o MAX_BARRAS do site (${maxHero}) e o do painel (${maxPainel})`)
+  ok(storiesMax === maxSite && storiesMax === maxPainel, `até ${storiesMax} produtos no story: o MAX_STORY do site (${maxSite}) e o do painel (${maxPainel})`)
+  // o site confere o que chega do servidor com as mesmas listas (src/store/loja.ts): o que o painel aceita, o site mostra
+  const lojaTs = join(raiz, 'src/store/loja.ts')
+  igual(listaTs(lojaTs, 'const TIPOS_ARTE = new Set<TipoArte>(['), artes, 'formatos da arte: os que o site aceita do servidor')
+  igual(listaTs(lojaTs, 'const ICONES = new Set(['), icones, 'ícones de categoria: os que o site aceita do servidor')
+  igual(listaTs(lojaTs, 'const PAGAMENTOS = new Set<FormaPagamento>(['), pagamentos, 'formas de pagamento: as que o site aceita do servidor')
+  igual(listaTs(lojaTs, 'const EMBLEMAS = new Set<Emblema>(['), emblemas, 'emblemas: os que o site desenha (com o pino do genérico)')
+  igual(listaTs(join(raiz, 'src/dados/canais.ts'), 'export type Emblema =', '\n'), emblemas, 'emblemas: o tipo Emblema do site')
   return { nomesUf }
 }
 
@@ -82,8 +90,9 @@ export async function loja(t, { nomesUf }) {
   igual(chaves(r0.json), ['atualizadoEm', 'loja', 'ok', 'versao'], '{ ok, versao, atualizadoEm, loja }')
   ok(r0.json.ok === true && Number.isInteger(r0.json.versao) && r0.json.versao >= 1 && ISO.test(r0.json.atualizadoEm), `versão inteira e data ISO (${r0.json.versao}, ${r0.json.atualizadoEm})`)
   const L = r0.json.loja
-  igual(chaves(L), ['categorias', 'estados', 'produtos', 'restamAte', 'sorte', 'stories', 'textos', 'whatsapp'], 'as partes da loja')
+  igual(chaves(L), ['categorias', 'estados', 'produtos', 'restamAte', 'ruaNoStory', 'sorte', 'stories', 'textos', 'whatsapp'], 'as partes da loja')
   igual([L.whatsapp, L.restamAte], [s.ajustes.whatsapp, s.ajustes.restamAte], 'WhatsApp da loja e "restam X" da semente')
+  igual(L.ruaNoStory, true, 'a rua do mercador no começo do Início do celular nasce ligada')
   mesmo(L.textos, s.textos, 'textos da loja = src/dados/textos-loja.ts')
   mesmo(L.categorias, s.categorias, 'categorias da semente, com o "bebida"')
   ok(r0.texto.includes('"stories":{}') && r0.texto.includes('"restam":{}'), 'mapa vazio sai como {} (nunca [])')
@@ -373,6 +382,31 @@ export async function loja(t, { nomesUf }) {
     igual(aj.json.ajustes.restamAte, 5, '"restam X" volta pra 5')
     igual(await noSite(), [true, 3], '"restam 3" de novo')
     await troca({ estoque: null })
+  }
+
+  parte('loja: a rua do mercador no começo do Início (Stories do Início)')
+  {
+    igual((await adm()).ajustes.ruaNoStory, true, 'admin-loja: a chave da rua nasce ligada')
+    const v0 = await versao()
+    let aj = await dono.post('admin-loja-salvar', { ruaNoStory: false })
+    igual([aj.status, aj.json.ajustes.ruaNoStory], [200, false], 'desligou a rua')
+    const l = await pub()
+    igual([l.loja.ruaNoStory, l.versao], [false, v0 + 1], 'o site vê a rua desligada (e a versão sobe: o ETag muda)')
+    await temEvento('loja-ajustes', 'Desligou a rua do mercador no começo do Início', 'rua desligada')
+    const repetido = await dono.post('admin-loja-salvar', { ruaNoStory: false })
+    igual([repetido.status, repetido.json.versao], [200, v0 + 1], 'salvar igual não sobe a versão')
+    for (const v of ['nao', 0, null]) {
+      const y = await dono.post('admin-loja-salvar', { ruaNoStory: v })
+      erro(y, 400, 'invalido', `ruaNoStory ${JSON.stringify(v)}`)
+      igual(y.json.campo, 'ruaNoStory', `campo (ruaNoStory ${JSON.stringify(v)})`)
+    }
+    aj = await dono.post('admin-loja-salvar', { ruaNoStory: true })
+    igual([aj.json.ajustes.ruaNoStory, (await pub()).loja.ruaNoStory], [true, true], 'ligou de novo')
+    await temEvento('loja-ajustes', 'Ligou a rua do mercador no começo do Início', 'rua ligada')
+    aj = await dono.post('admin-loja-salvar', { ruaNoStory: false, restamAte: 4 })
+    await temEvento('loja-ajustes', 'Mudou os ajustes da loja', 'a rua junto com outro ajuste: a frase de sempre')
+    aj = await dono.post('admin-loja-salvar', { ruaNoStory: true, restamAte: 5 })
+    igual([aj.json.ajustes.ruaNoStory, aj.json.ajustes.restamAte], [true, 5], 'volta como tava')
   }
 
   parte('loja: apagar e ordem dos produtos')

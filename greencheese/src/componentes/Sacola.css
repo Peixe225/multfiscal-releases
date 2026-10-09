@@ -57,6 +57,15 @@
   min-width: 18px;
   text-align: center;
 }
+.ls-qtd-ctrl .icone-botao:disabled {
+  opacity: 0.3;
+}
+/* o "restam X" do estado: a sacola não passa dele e diz por quê, embaixo do preço */
+.ls-restam {
+  margin-top: 4px;
+  font: 400 12px/1.35 var(--ui);
+  text-wrap: pretty;
+}
 .ls-fora {
   padding: 12px var(--gutter);
   font-size: 13px;

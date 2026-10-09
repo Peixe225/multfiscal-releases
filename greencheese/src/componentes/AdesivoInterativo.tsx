@@ -1,4 +1,4 @@
-import { interativosAtivos, type Interativo } from '../interativos/registro'
+import { useInterativosAtivos, type Interativo } from '../interativos/registro'
 import { Avatar, Icone } from './comum'
 import './AdesivoInterativo.css'
 
@@ -6,7 +6,7 @@ import './AdesivoInterativo.css'
 // convite do interativo com a copy do estado da pessoa. Sem pop-up e sem aviso na chegada: só esta entrada.
 
 export function AdesivoInterativo() {
-  const ativos = interativosAtivos()
+  const ativos = useInterativosAtivos()
   if (!ativos.length) return null
   return (
     <section className="adesivos-interativos" aria-label="Interativos">

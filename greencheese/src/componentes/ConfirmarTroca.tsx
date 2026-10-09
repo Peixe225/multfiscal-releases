@@ -1,6 +1,7 @@
 import { canalDa } from '../dados/canais'
 import { emUf, praUf, semAcento, ufPorSigla } from '../dados/ufs'
 import { nomeCidade, useLocal } from '../store/local'
+import { useLojaMarca } from '../store/loja'
 import { useUI } from '../store/ui'
 import { Folha } from './Folha'
 
@@ -9,6 +10,7 @@ export function ConfirmarTroca() {
   const troca = useUI((s) => s.trocaPendente)
   const setTroca = useUI((s) => s.setTroca)
   const { uf, cidade, cidadeInformada, escolher } = useLocal()
+  useLojaMarca()
   const atual = nomeCidade(canalDa(uf), cidade, cidadeInformada) ?? canalDa(uf)?.nome ?? ''
   // "Trocar pra Teófilo Otoni?", "Trocar pro Rio de Janeiro?" (a cidade com o nome do estado leva o artigo dele)
   const cidadeDestino = troca ? canalDa(troca.uf)?.cidades[0]?.nome : undefined

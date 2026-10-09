@@ -19,6 +19,8 @@ export interface Ajustes {
   mesmoWhatsappParaTodos: boolean
   /** "Restam X" quando o estoque chega a esse número (null = nunca mostra). */
   restamAte: number | null
+  /** A rua do mercador no começo do Início no celular (Stories do Início). */
+  ruaNoStory: boolean
 }
 
 export interface Textos {

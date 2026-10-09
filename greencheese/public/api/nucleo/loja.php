@@ -64,7 +64,7 @@ function gc_loja_semeada(): bool
     return gc_ajuste('loja.semeada_em') !== null;
 }
 
-/** @return array{whatsapp: string, mesmoWhatsappParaTodos: bool, restamAte: int|null} */
+/** @return array{whatsapp: string, mesmoWhatsappParaTodos: bool, restamAte: int|null, ruaNoStory: bool} */
 function gc_loja_ajustes(): array
 {
     $restam = gc_ajuste('loja.restam_ate');
@@ -72,6 +72,8 @@ function gc_loja_ajustes(): array
         'whatsapp' => (string) gc_ajuste('loja.whatsapp'),
         'mesmoWhatsappParaTodos' => gc_ajuste('loja.mesmo_whatsapp') === '1',
         'restamAte' => $restam === null || $restam === '' ? null : (int) $restam,
+        // a rua do mercador no começo do Início no celular (Stories do Início, no painel); sem o ajuste, ligada
+        'ruaNoStory' => gc_ajuste('loja.rua_story') !== '0',
     ];
 }
 
@@ -473,6 +475,7 @@ function gc_loja_publica(): array
     return [
         'whatsapp' => $ajustes['whatsapp'],
         'restamAte' => $ajustes['restamAte'],
+        'ruaNoStory' => $ajustes['ruaNoStory'],
         'textos' => gc_loja_textos(),
         'categorias' => array_map('gc_loja_categoria_publica', $categorias),
         'produtos' => array_map(static fn (array $p): array => gc_loja_produto_publico($p, $porUf[$p['id']] ?? [], $ufs, $ajustes['restamAte'], $ativos), $produtos),

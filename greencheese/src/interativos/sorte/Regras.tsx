@@ -10,7 +10,8 @@ export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; c
   const id = useId()
   const uf = useLocal((s) => s.uf)
   const lista = aberto ? premiosElegiveis(uf) : []
-  // a validade sai dos prêmios (src/dados/sorte.ts): "vale 7 dias" quando todos têm a mesma; senão, a data do cupom
+  // a validade sai dos prêmios (os do painel; sem servidor, src/dados/sorte.ts): "vale 7 dias" quando todos têm a mesma;
+  // senão, a data do cupom
   const dias = new Set(lista.map((p) => p.validadeDias))
   const regras = T.regrasLista(dias.size === 1 ? [...dias][0] : null)
   return (

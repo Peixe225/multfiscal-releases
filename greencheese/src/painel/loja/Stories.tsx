@@ -1,6 +1,7 @@
 // Stories do Início: por estado, os produtos que passam no story do topo do site e em que ordem (até as 8
 // barrinhas). Lista vazia = automático (os à venda no estado, os com preço primeiro). Subir e descer por botão (dá no
-// teclado e no leitor de tela) e a prévia do story como o cliente vê.
+// teclado e no leitor de tela) e a prévia do story como o cliente vê. Em cima, a chave da rua do mercador no começo
+// do Início do celular (vale pra todos os estados; salva no toque).
 import { useEffect, useMemo, useState } from 'react'
 import { mensagemDe } from '../api'
 import { brl } from '../formato'
@@ -40,6 +41,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const [atual, setAtual] = useState(0)
+  const [rua, setRua] = useState<{ ocupado: boolean; erro: string | null; ok: string | null }>({ ocupado: false, erro: null, ok: null })
 
   // trocou de estado (ou a loja chegou): começa da lista salva dele
   useEffect(() => {
@@ -75,6 +77,19 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
     setOk(null)
     requestAnimationFrame(() => document.getElementById(`st-${d < 0 ? 'c' : 'b'}-${n[j]}`)?.focus())
   }
+  const trocarRua = async (ligada: boolean) => {
+    if (rua.ocupado) return
+    setRua({ ocupado: true, erro: null, ok: null })
+    try {
+      const r = await api.salvarLoja({ ruaNoStory: ligada })
+      const novo = (x: LojaAdmin): LojaAdmin => ({ ...x, versao: r.versao, atualizadoEm: r.atualizadoEm, ajustes: r.ajustes })
+      guardarLoja(novo)
+      leitura.trocar(novo)
+      setRua({ ocupado: false, erro: null, ok: r.ajustes.ruaNoStory ? 'A rua abre o Início no celular.' : 'O Início do celular abre sem a rua.' })
+    } catch (e) {
+      setRua({ ocupado: false, erro: mensagemDe(e), ok: null })
+    }
+  }
   const salvar = async (ids: string[]) => {
     if (ocupado) return
     setOcupado(true)
@@ -97,6 +112,22 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
     <>
       <Topo voltar={caminho.loja} titulo={<TituloTela>Stories do Início</TituloTela>} />
       <div className="pn-pagina pn-stories">
+        <section className="pn-bloco pn-st-rua" aria-labelledby="h-st-rua">
+          <h2 id="h-st-rua" className="sr-only">
+            Rua do mercador
+          </h2>
+          <label className="pn-troca">
+            <input type="checkbox" checked={l.ajustes.ruaNoStory} disabled={rua.ocupado} onChange={(e) => void trocarRua(e.target.checked)} />
+            <span className="pn-troca-marca" aria-hidden="true" />
+            <span>Mostrar a rua do mercador no começo (celular)</span>
+          </label>
+          <p className="pn-dica-bloco">
+            No celular, o Início abre com a rua: o mercador anda, vende e chama pro Mercado. Desligada, a rua sai do celular; no computador ela continua
+            embaixo do perfil.
+          </p>
+          {rua.erro && <Aviso tipo="erro">{rua.erro}</Aviso>}
+          {rua.ok && <Aviso tipo="ok">{rua.ok}</Aviso>}
+        </section>
         <div className="pn-filtros" role="group" aria-label="Estado">
           {estados.map((e) => (
             <button key={e.uf} type="button" className={`pn-filtro px${e.uf === uf ? ' on' : ''}`} aria-pressed={e.uf === uf} aria-label={e.nome} onClick={() => ir(caminho.storiesDe(e.uf), true)}>

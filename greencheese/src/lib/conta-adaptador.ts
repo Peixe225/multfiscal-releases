@@ -1,6 +1,7 @@
 import { configConta } from '../dados/conta'
 import { regrasSorte } from '../dados/sorte'
 import { useContaStore, type Conta, type Cupom, type EstadoConta } from '../store/conta'
+import { regrasDaSorte } from '../store/loja'
 import { useSacola } from '../store/sacola'
 import { armazenamentoOk, calcularGiro, contaAtual, pendenteValido, type AdaptadorConta, type ContaAberta } from './conta'
 import { diaSP, fimDoDiaSP, premioPorId, statusDo } from './cupom'
@@ -11,7 +12,8 @@ import { celularParaGuardar } from './telefone'
 // "Mandei" do pedido; baixa com eles, fora do pedaço principal). A interface está em src/lib/conta.ts.
 // Hoje (prévia) vale o adaptador local: grava direto no cache 'gc-conta', que aqui é a própria fonte.
 
-const H24 = regrasSorte.reservaSemContaHoras * 3600 * 1000
+// quanto tempo o prêmio de quem girou sem conta fica guardado (as regras do painel, ou as de src/dados/sorte.ts)
+const reservaMs = () => regrasDaSorte().reservaSemContaHoras * 3600 * 1000
 
 function codigosDoAparelho(s: EstadoConta): Set<string> {
   const out = new Set<string>()
@@ -185,7 +187,7 @@ export const contaLocal: AdaptadorConta = {
       }
       return { ok: true, valor: { premioId: premio.id, cupom } }
     }
-    gravar({ pendente: { interativo, premioId: premio.id, sorteadoEm: agora, expiraEm: agora + H24 } })
+    gravar({ pendente: { interativo, premioId: premio.id, sorteadoEm: agora, expiraEm: agora + reservaMs() } })
     return { ok: true, valor: { premioId: premio.id, cupom: null } }
   },
 

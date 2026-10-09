@@ -6,10 +6,15 @@
 // - instagram: é pra lá que vão as dúvidas que o site não tira (DM do estado) e o "Avisar quando chegar".
 // - demo: true = valor de demonstração (PENDENTE). Com config.carimboDeExemplo ele aparece com a marca "demo";
 //   sem o carimbo, horário demo não aparece e taxa demo vira "a confirmar".
+// - Com o painel instalado, quem manda nos estados é o servidor (Loja → Estados): o site começa com estes e troca
+//   pelos de lá quando a loja chega (src/store/loja.ts). Estes viram a semente de um banco novo e a reserva sem
+//   servidor. Sem import neste arquivo: o gerador da semente lê ele direto.
 
-export type UfAtendida = 'rj' | 'mg' | 'sp' | 'es' | 'sc'
+/** Sigla minúscula de um estado da loja. Os daqui são rj, mg, sp, es e sc; o dono ativa outros no painel. */
+export type UfAtendida = string
 export type FormaPagamento = 'pix' | 'dinheiro' | 'cartao'
-export type Emblema = 'pao-de-acucar' | 'pedra-preciosa' | 'predio-sp' | 'convento-es' | 'ponte-sc'
+/** O desenho do destaque do estado. 'generico' (o pino) = estado ativado no painel, sem desenho próprio. */
+export type Emblema = 'pao-de-acucar' | 'pedra-preciosa' | 'predio-sp' | 'convento-es' | 'ponte-sc' | 'generico'
 
 export interface Cidade {
   slug: string
@@ -31,13 +36,13 @@ export interface Canal {
   cidades: Cidade[]
   /** Perfil do estado: dúvidas (DM) e "Avisar quando chegar". */
   instagram: string
-  /** WhatsApp próprio do estado. null = o da loja (config.whatsappPedidos). */
+  /** WhatsApp próprio do estado. null = o da loja (config.whatsappPedidos, ou o do painel). */
   whatsapp: string | null
   /** Domingo = 0 ... sábado = 6. */
   horario: { semana: [Turno, Turno, Turno, Turno, Turno, Turno, Turno]; demo: boolean }
   taxaEntrega: { valor: number | null; texto?: string; demo: boolean }
-  /** Promoção real vista no Instagram (dia da semana: domingo = 0). */
-  entregaGratis: { diaSemana: number; texto: string; demo: boolean } | null
+  /** Entrega grátis nos dias da semana da lista (domingo = 0), com a frase do story. */
+  entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
   pagamento: { opcoes: FormaPagamento[]; demo: boolean }
   emblema: Emblema
 }
@@ -58,7 +63,7 @@ const horarioDemo: Canal['horario'] = {
 
 const pagamentoDemo: Canal['pagamento'] = { opcoes: ['pix', 'dinheiro', 'cartao'], demo: true }
 
-export const canais: Canal[] = [
+const embutidos: Canal[] = [
   {
     uf: 'rj',
     nomePerfil: 'GREEN CHEESE LTDA',
@@ -84,7 +89,7 @@ export const canais: Canal[] = [
     horario: horarioDemo,
     taxaEntrega: { valor: 8, demo: true },
     // Dado real dos stories de MG.
-    entregaGratis: { diaSemana: 5, texto: 'Sextou com entrega grátis!', demo: false },
+    entregaGratis: { dias: [5], texto: 'Sextou com entrega grátis!', demo: false },
     pagamento: pagamentoDemo,
     emblema: 'pedra-preciosa',
   },
@@ -137,9 +142,22 @@ export const perfisAConfirmar = [
   { instagram: 'greencheese_importsvv', nota: 'confirmar', obs: 'aparece em marcações de clientes do Rio' },
 ]
 
-export const ufsAtendidas = canais.map((c) => c.uf)
+/** Os estados que vão embutidos no site (a reserva sem servidor e a semente do banco). */
+export const canaisEmbutidos: readonly Canal[] = embutidos
+
+/**
+ * Os estados do site agora, na ordem da loja. Começa com os embutidos e vira os do servidor quando a loja chega
+ * (src/store/loja.ts chama trocarCanais). Quem só lê na hora (o pedido, o rateio) usa daqui; tela que mostra estado
+ * assina a loja (useCanais/useCanalDa em src/store/loja.ts) pra redesenhar quando eles mudam.
+ */
+export let canais: Canal[] = embutidos
+
+export function trocarCanais(novos: Canal[]): void {
+  canais = novos
+}
 
 export function canalDa(uf: string | null | undefined): Canal | undefined {
   if (!uf) return undefined
-  return canais.find((c) => c.uf === uf.toLowerCase())
+  const u = uf.toLowerCase()
+  return canais.find((c) => c.uf === u)
 }

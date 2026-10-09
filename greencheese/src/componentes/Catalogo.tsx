@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { gsap } from 'gsap'
-import { canalDa, type Canal } from '../dados/canais'
+import type { Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { PixelArte } from '../arte/PixelArte'
 import { iconesAbas } from '../arte/pixel/abas'
-import { interativosAtivos, type Interativo } from '../interativos/registro'
+import { useInterativosAtivos, type Interativo } from '../interativos/registro'
 import { semAcento } from '../dados/ufs'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba, type FocoAba } from '../lib/abas'
 import { alvoDeSaida } from '../lib/ambiente'
@@ -12,9 +12,10 @@ import { copiarTexto } from '../lib/copiar'
 import { linkDM, montarAviso } from '../lib/mensagem'
 import { movimentoReduzido } from '../lib/movimento'
 import type { Produto } from '../lib/tipos'
-import { disponivelEm, useCatalogo } from '../store/catalogo'
+import { disponivelEm, restamEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { useQuantosAbertos, useRateioNovo } from '../store/rateio'
 import { useUI } from '../store/ui'
 import { Avatar, Icone } from './comum'
@@ -41,8 +42,9 @@ const APELIDOS: Record<string, string> = {
   acessorios: 'acessorio dichavador triturador grinder isqueiro bandeja cuia bowl tabacaria',
 }
 
-function textoDeBusca(p: Produto): string {
-  return semAcento(`${p.nome} ${p.tamanho ?? ''} ${p.detalhe ?? ''} ${APELIDOS[p.categoria] ?? p.categoria}`)
+/** O que a busca procura: nome, tamanho, detalhe, o nome da categoria (a do painel também) e os apelidos dela. */
+function textoDeBusca(p: Produto, categoria: string | undefined): string {
+  return semAcento(`${p.nome} ${p.tamanho ?? ''} ${p.detalhe ?? ''} ${categoria ?? ''} ${APELIDOS[p.categoria] ?? p.categoria}`)
 }
 
 /** Termos da busca, sem acento e com plural simples (sedas → seda, piteiras → piteira). */
@@ -181,12 +183,13 @@ function FiltrosCategoria({ categoria, setCategoria }: { categoria: string; setC
 /** Bolinhas de destaque da aba Catálogo: o destaque real do estado (moto), os interativos e as categorias. */
 function Destaques({ categoria, setCategoria, abrirInfo }: { categoria: string; setCategoria: (c: string) => void; abrirInfo: () => void }) {
   const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
+  const interativos = useInterativosAtivos()
   return (
     // filtros, não abas (não há painel por aba): grupo de botões de alternar
     <div className="destaques" role="group" aria-label="Categorias">
       {canal && <DestaqueEstado canal={canal} abrirInfo={abrirInfo} />}
-      {interativosAtivos().map((i) => (
+      {interativos.map((i) => (
         <DestaqueInterativo key={i.id} i={i} />
       ))}
       <FiltrosCategoria categoria={categoria} setCategoria={setCategoria} />
@@ -338,7 +341,8 @@ function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: st
   const uf = useLocal((s) => s.uf)
   // o href das abas leva uf e cidade junto
   useLocal((s) => s.cidade)
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
+  const interativos = useInterativosAtivos()
   const linha = useRef<HTMLDivElement>(null)
   const setas = useSetasLinha(linha)
   return (
@@ -350,7 +354,7 @@ function DestaquesInicio({ categoria, setCategoria, abrirInfo }: { categoria: st
             <Icone nome="lupa" tamanho={32} />
           </DestaqueAba>
           <DestaqueRateio />
-          {interativosAtivos().map((i) => (
+          {interativos.map((i) => (
             <DestaqueInterativo key={i.id} i={i} />
           ))}
           <DestaqueAba aba="estados" rotulo="Por estado" nome="Por estado: os perfis de cada estado">
@@ -412,9 +416,9 @@ interface PropsCatalogo {
 
 export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCatalogo) {
   const inicio = onde === 'inicio'
-  const { produtos } = useCatalogo()
+  const { produtos, categorias } = useCatalogo()
   const { uf, cidade, cidadeInformada } = useLocal()
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
   const abrirStory = useUI((s) => s.abrirStory)
   const [categoria, setCategoria] = useState('tudo')
   const [busca, setBusca] = useState('')
@@ -429,15 +433,16 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
 
   const lista = useMemo(() => {
     const q = normalizarBusca(busca)
+    const nomeCat = new Map(categorias.map((c) => [c.id, c.nome]))
     const r = produtos.filter((p) => {
       if (categoria !== 'tudo' && p.categoria !== categoria) return false
       if (soDisp && !disponivelEm(p, uf)) return false
-      if (q && !q.every((t) => textoDeBusca(p).includes(t))) return false
+      if (q && !q.every((t) => textoDeBusca(p, nomeCat.get(p.categoria)).includes(t))) return false
       return true
     })
     // disponíveis primeiro (ordem estável)
     return uf ? [...r.filter((p) => disponivelEm(p, uf)), ...r.filter((p) => !disponivelEm(p, uf))] : r
-  }, [produtos, categoria, soDisp, busca, uf])
+  }, [produtos, categorias, categoria, soDisp, busca, uf])
 
   // reorganiza a grade com Flip ao trocar filtro/categoria (voz app)
   const comFlip = (f: () => void) => {
@@ -524,6 +529,7 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
         <ul className="grade" ref={grade}>
           {lista.map((p, i) => {
             const disp = uf ? (canal ? disponivelEm(p, uf) : false) : null
+            const restam = disp ? restamEm(p, uf) : null
             return (
               <li key={p.id} className={`card ${disp === false && canal ? 'card-off' : ''}`} data-flip-id={p.id}>
                 <button
@@ -537,7 +543,7 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
                       r,
                     )
                   }}
-                  aria-label={`${p.nome}${p.preco == null ? ', preço a consultar' : ''}${disp === true ? ', disponível' : disp === false ? ', indisponível' : ''}. Abrir story`}
+                  aria-label={`${p.nome}${p.preco == null ? ', preço a consultar' : ''}${disp === true ? ', disponível' : disp === false ? ', indisponível' : ''}${restam != null ? `, ${restam === 1 ? 'resta 1' : `restam ${restam}`}` : ''}. Abrir story`}
                 >
                   <StoryQuadro produto={p} escala="card" disponivel={disp} />
                 </button>

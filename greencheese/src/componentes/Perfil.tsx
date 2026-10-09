@@ -1,6 +1,4 @@
-import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
-import { textosLoja } from '../dados/textos-loja'
 import { ehDiaDeEntregaGratis, situacao } from '../lib/horario'
 import { verLoja } from '../lib/abas'
 import { linkPerfil } from '../lib/mensagem'
@@ -8,6 +6,7 @@ import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useDisponiveis } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
+import { siglasDosEstados, useCanais, useCanalDa, useTextosLoja } from '../store/loja'
 import { Avatar, Demo } from './comum'
 import { useUI } from '../store/ui'
 import './Perfil.css'
@@ -15,7 +14,9 @@ import './Perfil.css'
 /** Cabeçalho de perfil do Instagram do estado atual — com contagens tiradas do catálogo, nunca seguidores inventados. */
 export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'desktop' }) {
   const { uf, cidade, cidadeInformada } = useLocal()
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
+  const canais = useCanais()
+  const textos = useTextosLoja()
   const total = useCatalogo((s) => s.produtos.length)
   const disp = useDisponiveis().length
   const abrirChat = useChat((s) => s.abrir)
@@ -63,10 +64,10 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
         {titulo}
       </h1>
       <p className="perfil-nome">{canal ? (canal.nomePerfil ?? canal.instagram) : 'Green Cheese Imports'}</p>
-      <p className="perfil-arroba legenda">{canal ? `@${canal.instagram}` : 'RJ · MG · SP · ES · SC'}</p>
+      <p className="perfil-arroba legenda">{canal ? `@${canal.instagram}` : siglasDosEstados(canais)}</p>
       {canal && <p className="perfil-categoria legenda">Delivery · {canal.cidades.length ? canal.cidades.map((c) => c.nome).join(' · ') : canal.nome}</p>}
       <div className="perfil-bio">
-        {textosLoja.bio.map((linha, i) => (
+        {textos.bio.map((linha, i) => (
           <p key={i}>{linha}</p>
         ))}
         {sextou && <p className="perfil-sextou">{sextou.texto}</p>}

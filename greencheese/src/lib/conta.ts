@@ -1,5 +1,5 @@
 import { useMemo, useSyncExternalStore } from 'react'
-import { regrasSorte } from '../dados/sorte'
+import { regrasDaSorte } from '../store/loja'
 import { useContaStore, type Conta, type Cupom, type EstadoConta, type Pendente } from '../store/conta'
 import { diaSP, inicioDoDiaSeguinteSP, premioPorId, statusDo, type StatusCupom } from './cupom'
 
@@ -82,11 +82,11 @@ export function calcularGiro(s: EstadoConta, interativo: string, agora: number):
   const dias = s.giros[interativo] ?? []
   const hoje = diaSP(agora)
   if (!contaAtual(s)) {
-    if (dias.length >= regrasSorte.girosSemConta) return { disponivel: false, motivo: 'sem-conta-ja-girou', girouHoje: dias.includes(hoje) }
+    if (dias.length >= regrasDaSorte().girosSemConta) return { disponivel: false, motivo: 'sem-conta-ja-girou', girouHoje: dias.includes(hoje) }
     return { disponivel: true }
   }
   // girou sem conta hoje e criou conta hoje: o giro de hoje já foi (próximo amanhã)
-  if (dias.filter((d) => d === hoje).length >= regrasSorte.girosPorDiaComConta) return { disponivel: false, motivo: 'ja-girou-hoje', proximoEm: inicioDoDiaSeguinteSP(agora) }
+  if (dias.filter((d) => d === hoje).length >= regrasDaSorte().girosPorDiaComConta) return { disponivel: false, motivo: 'ja-girou-hoje', proximoEm: inicioDoDiaSeguinteSP(agora) }
   return { disponivel: true }
 }
 

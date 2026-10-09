@@ -62,5 +62,21 @@ export function resumoHorario(canal: Canal): string {
 }
 
 export function ehDiaDeEntregaGratis(canal: Canal, agora = new Date()): boolean {
-  return !!canal.entregaGratis && canal.entregaGratis.diaSemana === agora.getDay()
+  return !!canal.entregaGratis && canal.entregaGratis.dias.includes(agora.getDay())
+}
+
+const NO_DIA = ['no domingo', 'na segunda', 'na terça', 'na quarta', 'na quinta', 'na sexta', 'no sábado']
+
+/**
+ * Os dias da entrega grátis ditos como a loja fala: "na sexta", "na sexta e no sábado", "de sexta a domingo",
+ * "de segunda a sexta", "todo dia". A semana começa na segunda (o fim de semana fica junto).
+ */
+export function diasDaEntregaGratis(dias: readonly number[]): string {
+  const ordem = [1, 2, 3, 4, 5, 6, 0].filter((d) => dias.includes(d))
+  if (ordem.length === 7) return 'todo dia'
+  if (!ordem.length) return ''
+  const seguidos = ordem.every((d, i) => i === 0 || [1, 2, 3, 4, 5, 6, 0].indexOf(d) === [1, 2, 3, 4, 5, 6, 0].indexOf(ordem[i - 1]) + 1)
+  if (seguidos && ordem.length >= 3) return `de ${DIAS[ordem[0]]} a ${DIAS[ordem[ordem.length - 1]]}`
+  const ditos = ordem.map((d) => NO_DIA[d])
+  return ditos.length === 1 ? ditos[0] : `${ditos.slice(0, -1).join(', ')} e ${ditos[ditos.length - 1]}`
 }

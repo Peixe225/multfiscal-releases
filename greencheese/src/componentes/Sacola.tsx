@@ -1,6 +1,6 @@
-import { canalDa } from '../dados/canais'
-import { textosLoja } from '../dados/textos-loja'
+import { useEffect } from 'react'
 import { useConferirCupom } from '../lib/cupom-pedido'
+import { esquecerAjustes, foiAjustado } from '../lib/estoque'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import { ilustracoes } from '../arte/pixel/grades'
@@ -13,6 +13,7 @@ import { disponivelEm, produtoPorId } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useDisponiveis, useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
+import { useCanalDa, useTextosLoja } from '../store/loja'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
@@ -26,8 +27,13 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   const alterar = useSacola((s) => s.alterar)
   const remover = useSacola((s) => s.remover)
   const { uf, cidade, cidadeInformada } = useLocal()
-  const lugar = nomeCidade(canalDa(uf), cidade, cidadeInformada) ?? canalDa(uf)?.nome ?? 'teu estado'
+  const canal = useCanalDa(uf)
+  const lugar = nomeCidade(canal, cidade, cidadeInformada) ?? canal?.nome ?? 'teu estado'
   const t = totais(pedido)
+  // o que ainda cabe de cada produto (o "restam X" é do produto: as variações dividem)
+  const noPedido = new Map<string, number>()
+  for (const l of pedido) noPedido.set(l.item.id, (noPedido.get(l.item.id) ?? 0) + l.qtd)
+  const cabeMais = (id: string, limite: number | null) => (limite == null ? Infinity : limite - (noPedido.get(id) ?? 0))
 
   return (
     <div className={`lista-sacola ${compacta ? 'compacta' : ''}`}>
@@ -54,6 +60,12 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
                     </span>
                   ))}
                 </p>
+                {!compacta && l.limite != null && (cabeMais(l.item.id, l.limite) <= 0 || foiAjustado(l.item.id, l.item.variacao)) && (
+                  <p className="ls-restam legenda">
+                    {l.limite === 1 ? 'Só resta 1 unidade' : `Só restam ${l.limite} unidades`} em {lugar}
+                    {foiAjustado(l.item.id, l.item.variacao) ? ': ajustei a quantidade.' : '.'}
+                  </p>
+                )}
               </div>
               {!compacta && (
                 <div className="ls-qtd-ctrl" role="group" aria-label={`Quantidade de ${l.produto.nome}`}>
@@ -63,7 +75,13 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
                   <span className="px px-16" aria-live="polite">
                     {l.qtd}
                   </span>
-                  <button type="button" className="icone-botao toque" onClick={() => alterar(l.item.id, l.item.variacao, l.qtd + 1)} aria-label="Mais um">
+                  <button
+                    type="button"
+                    className="icone-botao toque"
+                    onClick={() => alterar(l.item.id, l.item.variacao, l.qtd + 1)}
+                    aria-label="Mais um"
+                    disabled={cabeMais(l.item.id, l.limite) <= 0}
+                  >
                     <Icone nome="mais" tamanho={16} />
                   </button>
                 </div>
@@ -117,9 +135,14 @@ export function SacolaFolha() {
   const chatAberto = useChat((s) => s.aberto)
   const uf = useLocal((s) => s.uf)
   const disponiveis = useDisponiveis()
+  const textos = useTextosLoja()
   const n = contarItens(itens)
   // o cupom aplicado ainda vale? (vencido, usado ou fora da conta sai com aviso)
   useConferirCupom(aberta)
+  // o aviso "ajustei a quantidade" vale até a sacola fechar
+  useEffect(() => {
+    if (!aberta) esquecerAjustes()
+  }, [aberta])
 
   // sugestão de combinação (dado da loja: Jack Daniel's + Coca-Cola Vanilla num post deles)
   const sugestoes = pedido
@@ -163,7 +186,7 @@ export function SacolaFolha() {
             <PixelArte grade={palpebrasGarrafa} tamanho={132} ancora="base" className="sacola-vazia-piscar" />
           </div>
           <p className="adesivo-texto-bloco">
-            <span className="adesivo-texto">{textosLoja.sacolaVazia}</span>
+            <span className="adesivo-texto">{textos.sacolaVazia}</span>
           </p>
           <CupomSacola />
           {ultimo.length > 0 && (

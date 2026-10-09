@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, type ComponentType, type LazyExoticComponent } from 'react'
 import { manterNaURL } from '../lib/url'
 import { useLocal } from '../store/local'
+import { useLojaMarca } from '../store/loja'
 import { useUI, type InterativoAberto } from '../store/ui'
 import { CarregandoJogo, CascaInterativo } from './CascaInterativo'
 import { interativoPorId, interativosAtivos, type Interativo as DefInterativo, type PropsJogo } from './registro'
@@ -52,8 +53,10 @@ manterNaURL(() => {
 export function Interativo() {
   const pedido = useUI((s) => s.interativo)
   const fechar = useUI((s) => s.fecharInterativo)
-  // trocou pra um estado sem atendimento com o jogo aberto: i.ativo() vira false e a camada fecha
+  // trocou pra um estado sem atendimento (ou o dono desligou o jogo no painel) com ele aberto: i.ativo() vira false e a
+  // camada fecha
   useLocal((s) => s.uf)
+  useLojaMarca()
   // o que está na tela (fica montado durante a saída) e quantas vezes abriu (cada abertura começa do zero)
   const [vista, setVista] = useState<{ aberto: InterativoAberto; vez: number; saindo: boolean } | null>(pedido ? { aberto: pedido, vez: 1, saindo: false } : null)
   if (!pedido && vista && !vista.saindo) setVista({ ...vista, saindo: true })

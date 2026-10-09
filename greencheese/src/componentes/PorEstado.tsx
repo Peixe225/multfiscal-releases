@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { canalDa, type Canal } from '../dados/canais'
+import { useMemo, useState } from 'react'
+import type { Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, ufPorSigla } from '../dados/ufs'
 import { situacao } from '../lib/horario'
@@ -7,15 +7,14 @@ import { linkPerfil } from '../lib/mensagem'
 import { trocarEstado } from '../lib/troca'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
+import { useCanais } from '../store/loja'
 import { Avatar, Demo, Icone } from './comum'
-import { MapaBrasil, ordemAtendidos } from './MapaBrasil'
+import { MapaBrasil, ordemNoMapa } from './MapaBrasil'
 import './PorEstado.css'
 
 // "Segue o perfil do teu estado": o mapa do Brasil com a lupa no Sudeste + SC e, ao lado, a lista dos perfis
 // no molde do "trocar de conta" do Instagram (um perfil por estado; o do cliente marcado). A lista segue a ordem
-// do mapa, de cima para baixo: MG, ES, RJ, SP, SC.
-
-const canaisNoMapa = ordemAtendidos.map((s) => canalDa(s)).filter((c): c is Canal => !!c)
+// do mapa, de cima para baixo (hoje MG, ES, RJ, SP, SC; estado ativado no painel entra no lugar dele).
 
 /** "greencheese_importsmg" que pode quebrar depois do "_" (no celular estreito vira duas linhas, sem cortar letra). */
 function Arroba({ perfil }: { perfil: string }) {
@@ -43,6 +42,9 @@ export function PorEstado() {
   const abrirChat = useChat((s) => s.abrir)
   const [fora, setFora] = useState<string | null>(null)
   const [realce, setRealce] = useState<string | null>(null)
+  const canais = useCanais()
+  const canaisNoMapa = useMemo(() => ordemNoMapa(canais.map((c) => c.uf)).map((s) => canais.find((c) => c.uf === s)!), [canais])
+  const canalDa = (s: string | null) => (s ? canais.find((c) => c.uf === s) : undefined)
   const canalAtual = canalDa(uf)
 
   const escolher = (s: string) => {

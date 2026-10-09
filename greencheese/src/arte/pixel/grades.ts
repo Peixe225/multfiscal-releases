@@ -730,6 +730,34 @@ export const emblemas: Record<Emblema, Grade> = {
     '...d........d.....d...d.',
     '........................',
   ]),
+  // Estado ativado no painel, sem desenho próprio: o pino do adesivo de localização fincado na linha do chão, com
+  // duas casas ao longe de janela acesa (as mesmas regras: estrelas, chão na 20, reflexo quebrado).
+  generico: e24([
+    '...................e....',
+    '...b....................',
+    '.........ccccde.........',
+    '.......cccceeeeed.......',
+    '......cceeeeeeeeed...e..',
+    '......cceeecceeede......',
+    '......cceec..deeed......',
+    '......ccec....dede......',
+    '......ccec....deed......',
+    '......cceee..deede......',
+    '..e...cceeeeeeeeed......',
+    '.......cceeeeeeed.......',
+    '.......cceeeeeede...c...',
+    '........ceeeeede........',
+    '........ceeeeeed........',
+    '.........ceeeed......d..',
+    '...d.....ceeede....dddd.',
+    '.dddd.....cede.....ddcd.',
+    '.dcdd.....ceed.....dddd.',
+    '.dddd......cd......dddd.',
+    '.eeeceeeeeecceeeeeceeee.',
+    '..d.d.d.d..dd..d.d.d.d..',
+    '....d...d...d.....d.....',
+    '..d.....d....d......d...',
+  ]),
 }
 
 /* ───────────────────────── ilustração ───────────────────────── */

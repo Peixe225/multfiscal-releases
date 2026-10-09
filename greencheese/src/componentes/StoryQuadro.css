@@ -184,3 +184,36 @@
     padding-top: 8px;
   }
 }
+
+/* "RESTAM 3": o estoque contado chegou no "restam X" do painel. Adesivo branco colado de lado na arte, como o de
+   local (sem cor: a cor é do produto); o 2 e o 5 redesenhados (GC Digitos) pra não ler S e Z. */
+.adesivo-restam {
+  display: inline-block;
+  padding: 4px 7px 3px;
+  background: var(--branco);
+  color: var(--preto);
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: 4px;
+  transform: rotate(4deg);
+}
+.sq-arte > .sq-restam {
+  position: absolute;
+  z-index: 2;
+  inset: auto;
+  top: 3%;
+  right: 7%;
+  width: auto;
+  height: auto;
+  animation: none;
+  pointer-events: none;
+}
+.sq-hero .sq-arte > .sq-restam,
+.sq-tela .sq-arte > .sq-restam {
+  font-size: 20px;
+  font-weight: 500;
+  padding: 5px 9px 4px;
+}

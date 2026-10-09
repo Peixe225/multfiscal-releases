@@ -1,14 +1,15 @@
-import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
 import { alvoDeSaida } from '../lib/ambiente'
 import { linkDM, linkPerfil } from '../lib/mensagem'
 import { useLocal } from '../store/local'
+import { useCanais, useCanalDa } from '../store/loja'
 import './Rodape.css'
 
 /** "Chegou teu pedido? Marca @… no story." */
 export function TextoReposts() {
   const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf) ?? canais[0]
+  const canais = useCanais()
+  const canal = useCanalDa(uf) ?? canais[0]
   return (
     <p className="reposts-txt">
       Chegou teu pedido? Marca <strong>@{canal.instagram}</strong> no story.
@@ -19,7 +20,8 @@ export function TextoReposts() {
 /** Rodapé no molde do instagram.com: os perfis dos estados, avisos, privacidade e o crédito. */
 export function Rodape() {
   // estado escolhido ou palpitado: a dúvida vai direto pra DM dele
-  const canal = canalDa(useLocal((s) => s.uf))
+  const canal = useCanalDa(useLocal((s) => s.uf))
+  const canais = useCanais()
   return (
     <footer className="rodape">
       {/* como fala com a loja: o pedido fecha no WhatsApp (só no fim do pedido guiado); dúvida, na DM do estado */}

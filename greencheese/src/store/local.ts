@@ -6,6 +6,7 @@ import { ufPorSigla, slug } from '../dados/ufs'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 import { palpitePorIp } from '../lib/geo'
 import { atualizarParametros, lerParametros, manterNaURL } from '../lib/url'
+import { useCanalDa } from './loja'
 
 export type Origem = 'link' | 'salvo' | 'ip' | 'manual'
 
@@ -113,8 +114,9 @@ export async function iniciarLocal(): Promise<void> {
   useLocal.setState({ detectando: false })
 }
 
+/** O canal do estado escolhido (redesenha quando a loja troca os estados). */
 export function useCanal(): Canal | undefined {
-  return canalDa(useLocal((s) => s.uf))
+  return useCanalDa(useLocal((s) => s.uf))
 }
 
 /** Nome da cidade para mostrar/usar no pedido: a cidade atendida escolhida ou a informada pela pessoa. */

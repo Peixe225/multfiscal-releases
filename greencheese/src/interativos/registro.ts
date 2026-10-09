@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { canalDa } from '../dados/canais'
 import { premiosValidos } from '../lib/cupom'
 import { useLocal } from '../store/local'
+import { useLojaMarca } from '../store/loja'
 import { useEntradaSorte } from './sorte/estado'
 
 // Registro dos interativos "underground" (o "Teste minha sorte" é o primeiro).
@@ -41,9 +42,9 @@ export interface Interativo {
   /** O que pede conta: guardar o prêmio, jogar, ou nada. */
   exigeContaPara: 'guardar' | 'jogar' | null
   /**
-   * Aparece no site? Sem prêmio válido, ou com um estado escolhido que a loja não atende (o cupom não serviria em
-   * lugar nenhum), some de todas as entradas e o ?jogo= é ignorado. Quem chama precisa re-renderizar quando o
-   * estado muda (as entradas leem useLocal).
+   * Aparece no site? Desligado no painel, sem prêmio válido, ou com um estado escolhido que a loja não atende (o cupom
+   * não serviria em lugar nenhum), some de todas as entradas e o ?jogo= é ignorado. Tela que mostra a entrada usa
+   * useInterativosAtivos (redesenha quando o estado ou a loja mudam).
    */
   ativo: () => boolean
   useEntrada?: () => EntradaInterativo
@@ -77,6 +78,13 @@ export const interativos: Interativo[] = [
 /** Interativos que aparecem no site agora (ativos e com prêmio). */
 export function interativosAtivos(): Interativo[] {
   return interativos.filter((i) => i.status === 'ativo' && i.ativo())
+}
+
+/** O mesmo, numa tela: redesenha quando o estado muda ou a loja troca (o jogo ligado no painel, os prêmios). */
+export function useInterativosAtivos(): Interativo[] {
+  useLojaMarca()
+  useLocal((s) => s.uf)
+  return interativosAtivos()
 }
 
 export function interativosEmBreve(): Interativo[] {

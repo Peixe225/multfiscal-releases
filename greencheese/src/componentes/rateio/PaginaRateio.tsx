@@ -17,6 +17,7 @@ import { atualizarParametros, lerParametros, linkCompartilhar } from '../../lib/
 import { nomeCidade, useLocal } from '../../store/local'
 import { agoraRateio, carregarRateios, useRateio, zapDoDono } from '../../store/rateio'
 import { useUI } from '../../store/ui'
+import { useLojaMarca } from '../../store/loja'
 import { Avatar, Icone } from '../comum'
 import { folhaDoTopo } from '../Folha'
 import { CartaoRateio } from './CartaoRateio'
@@ -242,6 +243,7 @@ function useRateioDaPagina(id: string): { rateio: Rateio | null; estado: 'buscan
 function Conteudo({ id, titulo }: { id: string; titulo: RefObject<HTMLHeadingElement | null> }) {
   const { rateio, estado, tentar } = useRateioDaPagina(id)
   const { uf, cidade, cidadeInformada } = useLocal()
+  useLojaMarca()
   const fonte = useRateio((s) => s.fonte)
   const vagas = useRateio((s) => s.vagas)
   const conta = useConta()

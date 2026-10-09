@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { canalDa, type Canal } from '../dados/canais'
+import type { Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { copiarTexto } from '../lib/copiar'
 import { linkPerfil } from '../lib/mensagem'
 import type { Produto } from '../lib/tipos'
 import { atualizarParametros, linkCompartilhar, manterNaURL } from '../lib/url'
-import { disponivelEm, produtoPorId } from '../store/catalogo'
+import { disponivelEm, produtoPorId, restamEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { AdesivoSacola, EnqueteVariacao, QuizCombo, voarAteSacola } from './AdesivosProduto'
@@ -121,7 +122,7 @@ export function StoryProduto() {
   const adicionar = useSacola((s) => s.adicionar)
   const itens = useSacola((s) => s.itens)
   const { uf, cidade, cidadeInformada } = useLocal()
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
   const { texto: lugar } = useTextoLocal()
   const [interagiu, setInteragiu] = useState(false)
   const [variacao, setVariacao] = useState<string | null>(null)
@@ -130,7 +131,8 @@ export function StoryProduto() {
   const sacolaRef = useRef<HTMLButtonElement>(null)
 
   const id = story?.lista[story.indice]
-  const produto = produtoPorId(id)
+  // assina a loja: o produto muda (preço, estoque) ou sai dela sem o story ficar com o de antes
+  const produto = useCatalogo((s) => (id ? s.produtos.find((p) => p.id === id) : undefined))
 
   // novo produto: zera escolhas e o congelamento
   useEffect(() => {
@@ -158,15 +160,29 @@ export function StoryProduto() {
     [],
   )
 
+  // o produto saiu da loja (o dono tirou do site) com o story aberto: fecha, em vez de ficar uma camada vazia por cima
+  useEffect(() => {
+    if (story && id && !produto) fecharStory()
+  }, [story, id, produto, fecharStory])
+
   if (!story || !produto) return null
   const disponivel = uf ? (canal ? disponivelEm(produto, uf) : false) : null
   const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
+  // "restam X": a quantidade não passa do que sobra no estado (com o que já tá na sacola)
+  const restam = disponivel ? restamEm(produto, uf) : null
+  const cabe = restam == null ? null : Math.max(0, restam - itens.reduce((n, i) => n + (i.id === produto.id ? i.qtd : 0), 0))
+  const maxQtd = cabe == null ? 99 : Math.max(1, cabe)
+  const qtdOk = Math.min(qtd, maxQtd)
 
   const interagir = () => setInteragiu(true)
 
   const porNaSacola = () => {
     interagir()
-    adicionar(produto.id, variacao, qtd)
+    if (cabe === 0) {
+      useUI.getState().avisar(`As ${restam === 1 ? 'unidade que resta' : `${restam} que restam`} aqui já tão na tua sacola.`)
+      return
+    }
+    adicionar(produto.id, variacao, qtdOk)
     setCarimbo((c) => c + 1)
     voarAteSacola(document.querySelector<HTMLElement>(`.story-produto [data-arte="${produto.id}"]`), sacolaRef.current)
   }
@@ -179,8 +195,9 @@ export function StoryProduto() {
     // responde ao story: o item entra na sacola (se ainda não estiver) e abre o chat citando o story
     // já na sacola: o pedido leva pelo menos a quantidade escolhida no adesivo (nunca menos do que já tinha)
     const naSacola = itens.find((i) => i.id === produto.id && i.variacao === variacao)
-    if (!naSacola) adicionar(produto.id, variacao, qtd)
-    else if (qtd > naSacola.qtd) useSacola.getState().alterar(produto.id, variacao, qtd)
+    if (!naSacola) {
+      if (cabe !== 0) adicionar(produto.id, variacao, qtdOk)
+    } else if (qtd > naSacola.qtd) useSacola.getState().alterar(produto.id, variacao, cabe == null ? qtd : Math.min(qtd, naSacola.qtd + cabe))
     abrirChat('pedido', { respondendo: [produto.id] })
   }
 
@@ -192,8 +209,8 @@ export function StoryProduto() {
     ) : (
       <div className="ad-pilha" onPointerDown={interagir}>
         {produto.variacoes && <EnqueteVariacao produto={produto} valor={variacao} mudar={setVariacao} />}
-        {produto.combos && produto.preco != null && <QuizCombo produto={produto} qtd={qtd} mudar={setQtd} />}
-        <AdesivoSacola produto={produto} variacao={variacao} qtd={qtd} mudar={setQtd} aoPor={porNaSacola} />
+        {produto.combos && produto.preco != null && <QuizCombo produto={produto} qtd={qtdOk} mudar={setQtd} max={maxQtd} />}
+        <AdesivoSacola produto={produto} variacao={variacao} qtd={qtdOk} mudar={setQtd} aoPor={porNaSacola} max={maxQtd} />
       </div>
     )
 

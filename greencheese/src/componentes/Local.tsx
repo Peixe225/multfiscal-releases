@@ -1,11 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { canalDa } from '../dados/canais'
 import { emUf, ufPorSigla } from '../dados/ufs'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import './Local.css'
@@ -15,8 +15,8 @@ gsap.registerPlugin(ScrollTrigger)
 /** Texto do adesivo para o estado atual. */
 export function useTextoLocal(): { texto: string; procurando: boolean; vazio: boolean } {
   const { uf, cidade, cidadeInformada, detectando } = useLocal()
+  const canal = useCanalDa(uf)
   if (!uf) return { texto: detectando ? 'Procurando' : 'De onde você é?', procurando: detectando, vazio: !detectando }
-  const canal = canalDa(uf)
   const c = nomeCidade(canal, cidade, cidadeInformada)
   return { texto: c ?? ufPorSigla(uf)?.nome ?? uf.toUpperCase(), procurando: false, vazio: false }
 }
@@ -195,8 +195,8 @@ export function AvisoLocal({ variante = 'fixo' }: { variante?: 'fixo' | 'story' 
 export function EnqueteLocal({ className, aoSim, aoTrocar }: { className?: string; aoSim?: () => void; aoTrocar?: () => void }) {
   const { uf, cidade, confirmado, origem, confirmar } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
+  const canal = useCanalDa(uf)
   if (!uf || confirmado || origem !== 'ip') return null
-  const canal = canalDa(uf)
   const c = nomeCidade(canal, cidade, null)
   return (
     <div className={`enquete enquete-confirmar ${className ?? ''}`} role="group" aria-label="Confirmar seu estado">

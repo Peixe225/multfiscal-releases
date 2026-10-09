@@ -2,11 +2,11 @@ import { useEffect, useRef, type MouseEvent } from 'react'
 import { gsap } from 'gsap'
 import { PixelArte } from '../arte/PixelArte'
 import { iconesAbas } from '../arte/pixel/abas'
-import { canalDa } from '../dados/canais'
-import { interativosAtivos, type Interativo } from '../interativos/registro'
+import { useInterativosAtivos, type Interativo } from '../interativos/registro'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba } from '../lib/abas'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { useQuantosAbertos } from '../store/rateio'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
@@ -31,7 +31,8 @@ export function BarraAbas() {
   const uf = useLocal((s) => s.uf)
   // o href das abas leva uf e cidade junto (re-renderiza quando mudam)
   useLocal((s) => s.cidade)
-  const sorte = interativosAtivos()[0]
+  const canal = useCanalDa(uf)
+  const sorte = useInterativosAtivos()[0]
   return (
     <nav className="barra-abas" aria-label="Abas">
       <a
@@ -54,7 +55,7 @@ export function BarraAbas() {
       >
         {aba === 'catalogo' ? <PixelArte grade={iconesAbas['lupa-grossa']} tamanho={32} /> : <Icone nome="lupa" tamanho={32} />}
       </a>
-      {(!uf || canalDa(uf)) && <CelulaRateio ativa={aba === 'rateio'} uf={uf} />}
+      {(!uf || canal) && <CelulaRateio ativa={aba === 'rateio'} uf={uf} />}
       {sorte && <CelulaSorte i={sorte} />}
       <CelulaSacola />
       <a

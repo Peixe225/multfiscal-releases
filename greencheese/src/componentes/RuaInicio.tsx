@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { alturaDaFaixa } from './rua/palco'
+import { useRuaNoStory } from '../store/loja'
 import { useUI } from '../store/ui'
 import './RuaInicio.css'
 
@@ -72,8 +73,12 @@ const lerCelular = () => {
   }
 }
 
-/** A rua no Início do celular: faixa de ponta a ponta, a 2 px por pixel da arte (no computador ela mora no hero). */
+/**
+ * A rua no Início do celular: faixa de ponta a ponta, a 2 px por pixel da arte (no computador ela mora no hero). O
+ * dono desliga no painel (Stories do Início → "Mostrar a rua do mercador no começo").
+ */
 export function RuaCelular() {
   const celular = useSyncExternalStore(assinarCelular, lerCelular, () => false)
-  return celular ? <RuaInicio k={2} className="rua-celular" /> : null
+  const ligada = useRuaNoStory()
+  return celular && ligada ? <RuaInicio k={2} className="rua-celular" /> : null
 }

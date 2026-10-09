@@ -568,8 +568,9 @@ function gc_rota_admin_stories_salvar(): array
 // ─── ajustes, textos e Teste minha sorte ────────────────────────────────────────────────────────────────────────
 
 /**
- * POST admin-loja-salvar { whatsapp?, mesmoWhatsappParaTodos?, restamAte?, textos? }: o WhatsApp da loja (o padrão),
- * se todos os estados usam ele (o número próprio de cada estado fica guardado), o "restam X" e os textos da loja.
+ * POST admin-loja-salvar { whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, textos? }: o WhatsApp da loja
+ * (o padrão), se todos os estados usam ele (o número próprio de cada estado fica guardado), o "restam X", a rua do
+ * mercador no começo do Início do celular e os textos da loja.
  */
 function gc_rota_admin_loja_salvar(): array
 {
@@ -588,16 +589,20 @@ function gc_rota_admin_loja_salvar(): array
         if (array_key_exists('restamAte', $c)) {
             $ajustes['restamAte'] = $c['restamAte'] === null ? null : (gc_inteiro($c['restamAte'], 1, 99) ?? throw gc_invalido('restamAte', 'De 1 a 99 unidades (ou nunca mostrar).'));
         }
+        if (array_key_exists('ruaNoStory', $c)) {
+            $ajustes['ruaNoStory'] = gc_loja_bool($c, 'ruaNoStory', 'É sim ou não.');
+        }
         $textosAntes = gc_loja_textos();
         $textos = array_key_exists('textos', $c) ? gc_loja_ler_textos($c['textos'], $textosAntes) : $textosAntes;
-        $campos = array_keys(array_filter(['whatsapp' => $ajustes['whatsapp'] !== $antes['whatsapp'], 'mesmoWhatsappParaTodos' => $ajustes['mesmoWhatsappParaTodos'] !== $antes['mesmoWhatsappParaTodos'], 'restamAte' => $ajustes['restamAte'] !== $antes['restamAte'], 'textos' => $textos !== $textosAntes]));
+        $campos = array_keys(array_filter(['whatsapp' => $ajustes['whatsapp'] !== $antes['whatsapp'], 'mesmoWhatsappParaTodos' => $ajustes['mesmoWhatsappParaTodos'] !== $antes['mesmoWhatsappParaTodos'], 'restamAte' => $ajustes['restamAte'] !== $antes['restamAte'], 'ruaNoStory' => $ajustes['ruaNoStory'] !== $antes['ruaNoStory'], 'textos' => $textos !== $textosAntes]));
         if ($campos !== []) {
             gc_ajuste_definir('loja.whatsapp', $ajustes['whatsapp']);
             gc_ajuste_definir('loja.mesmo_whatsapp', $ajustes['mesmoWhatsappParaTodos'] ? '1' : '0');
             gc_ajuste_definir('loja.restam_ate', $ajustes['restamAte'] === null ? '' : (string) $ajustes['restamAte']);
+            gc_ajuste_definir('loja.rua_story', $ajustes['ruaNoStory'] ? '1' : '0');
             gc_ajuste_definir('loja.textos', gc_loja_json($textos));
             gc_loja_mudou();
-            gc_evento('painel', 'loja-ajustes', 'loja', ['campos' => $campos]);
+            gc_evento('painel', 'loja-ajustes', 'loja', ['campos' => $campos, 'ruaNoStory' => $ajustes['ruaNoStory']]);
         }
         return ['ajustes' => gc_loja_ajustes(), 'textos' => gc_loja_textos()] + gc_loja_carimbo();
     });
@@ -812,7 +817,10 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         'estado-desativado' => "Tirou $uf do site",
         'estado-editado' => "Editou o atendimento de $uf",
         'stories-salvos' => (int) ($d['produtos'] ?? 0) === 0 ? "Story do Início de $uf no automático" : "Escolheu o story do Início de $uf (" . gc_loja_plural((int) $d['produtos'], 'produto', 'produtos') . ')',
-        'loja-ajustes' => 'Mudou os ajustes da loja',
+        // só a chave da rua: a frase diz o que ela faz; o resto, a frase de sempre
+        'loja-ajustes' => ($d['campos'] ?? null) === ['ruaNoStory']
+            ? (!empty($d['ruaNoStory']) ? 'Ligou a rua do mercador no começo do Início' : 'Desligou a rua do mercador no começo do Início')
+            : 'Mudou os ajustes da loja',
         'sorte-regras' => 'Mudou as regras do Teste minha sorte',
         'premio-criado' => "Criou o prêmio $nome",
         'premio-editado' => "Editou o prêmio $nome",
