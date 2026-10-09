@@ -453,8 +453,9 @@ manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a 
    nenhum estado que feche, a resposta inteira é ignorada. Entra na tela de uma vez, num respiro do navegador, e o que
    não mudou continua o mesmo objeto (nada pisca nem recomeça).
 4. Guardado: `{ formato: 2, build, versao, atualizadoEm, loja, pronta }` — o `loja` como veio e a `pronta` já
-   conferida, que abre a primeira tela sem conferir de novo. Guardado por outro build (site publicado de novo), o
-   `loja` é conferido outra vez com as regras do build novo logo depois da conversa com o servidor. O `formato` sobe
+   conferida, que abre a primeira tela sem conferir de novo. Guardado por outro build (site publicado de novo), a
+   `pronta` abre a primeira tela do mesmo jeito e o `loja` é conferido outra vez com as regras do build novo logo
+   depois da conversa com o servidor. O `formato` sobe
    quando o jeito da `Loja` do site muda (aí a guardada só serve pra conferir de novo).
 5. Fora do ar, lento (10 s), 403/5xx ou JSON torto: fica com o que tem. **404 `sem-loja`**: apaga o guardado e volta pra
    embutida.

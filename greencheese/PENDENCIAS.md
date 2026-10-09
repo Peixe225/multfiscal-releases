@@ -169,9 +169,9 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   (com o pedido guiado aberto, não pergunta: o pedido não muda debaixo da pessoa). Quem fica horas com a aba à vista
   só vê a mudança na próxima abertura.
 - **Desempenho medido** (celular 390×844, CPU 4× mais lenta, 4G lenta de 150 ms e 1,6 Mbps, mediana de 11, até o
-  story do Início à vista; entre colchetes, do 1º ao 3º quartil): primeira visita, a principal antes da A2 2605 ms
-  [2544–2818], a A2 sem PHP 2658 [2623–2702] e com PHP 2615 [2579–2667]; de volta (com a loja guardada), 1034 [949–1137]
-  contra 992 [940–1036] e 992 [947–1059]. A diferença fica dentro da variação da própria principal. O que a primeira
+  story do Início à vista; entre colchetes, do 1º ao 3º quartil; build final): primeira visita, a principal antes da A2
+  2523 ms [2475–2680], a A2 sem PHP 2568 [2466–2650] e com PHP 2558 [2543–2604]; de volta (com a loja guardada), 1001
+  [928–1033] contra 959 [926–992] e 978 [950–1058]. A diferença fica dentro da variação da própria principal. O que a primeira
   tela baixa cresceu 4,0 KB comprimidos (226,7 → 230,7 KB): a conferência do servidor foi pra um pedaço à parte e os
   emblemas dos estados saíram da primeira tela (só o story do estado usa).
 

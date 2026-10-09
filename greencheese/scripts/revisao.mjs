@@ -153,6 +153,8 @@ async function apiRateio(ctx) {
       x.disponiveis -= c.quantidade
       return route.fulfill({ status: 201, json: { ok: true, participacao: v, rateio: x } })
     }
+    // a loja: sem servidor dela aqui, o site segue com a embutida (com GC_LOJA_REAL, a rota de lá vem antes)
+    if (r === 'loja') return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' })
     return route.fulfill(naoAchei)
   })
 }
