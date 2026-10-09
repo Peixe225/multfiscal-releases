@@ -48,7 +48,7 @@ export function SeletorFolha() {
       rotulo="Escolher estado e cidade"
       cabecalho={
         <div className="seletor-cab">
-          <span className="seletor-cab-titulo">{atualNome ?? 'De onde você pede?'}</span>
+          <span className="seletor-cab-titulo">{atualNome ?? 'De onde tu pede?'}</span>
           <span className="seletor-cab-sub legenda">
             {uf ? `${ufPorSigla(uf)?.nome ?? ''}${canal ? ` · @${canal.instagram}` : ' · ainda sem Green Cheese'}` : 'Escolhe o estado e o pedido vai pro atendimento certo'}
           </span>

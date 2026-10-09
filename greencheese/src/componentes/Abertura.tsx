@@ -4,6 +4,7 @@ import { config } from '../dados/config'
 import { Logo, LogoPixel } from '../arte/Logo'
 import { liberarArtesRealistas } from '../arte/realista/carregar'
 import { gravar, ler } from '../lib/armazenamento'
+import { prenderTab } from '../lib/foco'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
 import { Icone } from './comum'
@@ -168,6 +169,11 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: (trocarEstado: bo
     }
   }, [fase, reduz])
 
+  // teclado e leitor de tela: a pergunta nova recebe o foco (o "Sim" do palpite de IP; o "Tenho" já vem com autoFocus)
+  useEffect(() => {
+    if (fase === 'local' && pergunta) raiz.current?.querySelector<HTMLElement>('.abertura-local .enquete-opcao')?.focus({ preventScroll: true })
+  }, [fase, pergunta])
+
   // quadro 3: o adesivo cola com pop e, depois, voa até o topo
   useLayoutEffect(() => {
     if (fase !== 'local') return
@@ -221,11 +227,20 @@ export function Abertura({ aoTerminar, aoSair }: { aoTerminar: (trocarEstado: bo
   }
 
   return (
-    <div ref={raiz} className="abertura" role="dialog" aria-modal="true" aria-label="Green Cheese Imports" onClick={(e) => {
-      if ((e.target as HTMLElement).closest('button, a, .enquete')) return
-      if (fase === 'logo' && logoPronto) setFase(fases[1])
-      else if (fase === 'local') terminar()
-    }}>
+    <div
+      ref={raiz}
+      className="abertura"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Green Cheese Imports"
+      // o Tab dá a volta dentro da abertura (no +18 o X fica desligado e o Tab caía no <body>)
+      onKeyDown={(e) => prenderTab(e, raiz.current)}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button, a, .enquete')) return
+        if (fase === 'logo' && logoPronto) setFase(fases[1])
+        else if (fase === 'local') terminar()
+      }}
+    >
       <div className="abertura-fundo" />
       <div className="abertura-barras abertura-some" aria-hidden="true">
         {fases.map((f, k) => (

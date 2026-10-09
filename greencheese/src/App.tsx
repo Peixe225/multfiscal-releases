@@ -7,6 +7,7 @@ import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
 import { iniciarAbas } from './lib/abas'
+import { focarVista } from './lib/foco'
 import { quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
 import { atualizarParametros, lerParametros } from './lib/url'
@@ -175,6 +176,8 @@ export function App() {
     return true
   })
   const [saida, setSaida] = useState(false)
+  // a abertura chegou a aparecer nesta visita (o foco dela precisa de um destino quando ela sai)
+  const teveAbertura = useRef(abertura)
   // "Trocar" na pergunta do palpite, dentro da abertura: o seletor abre quando ela sai (ver o efeito pós-abertura)
   const trocarDepois = useRef(false)
   const setAberturaUI = useUI((s) => s.setAbertura)
@@ -296,7 +299,11 @@ export function App() {
       const pedidas = (ui.story ? 1 : 0) + (ui.pagina?.pilha.length ?? 0) + (ui.interativo ? 1 : 0) + (useChat.getState().aberto ? 1 : 0) + (ui.rateio ? 1 : 0)
       quandoEmpilharem(pedidas, () => useUI.getState().setSeletor(true))
     }
-    requestAnimationFrame(() => ScrollTrigger.refresh())
+    requestAnimationFrame(() => {
+      ScrollTrigger.refresh()
+      // a abertura saiu e nenhuma camada pegou o foco: ele vai pro título da aba, não fica no <body>
+      if (teveAbertura.current && (!document.activeElement || document.activeElement === document.body)) focarVista(useUI.getState().aba)
+    })
   }, [abertura, saida])
 
   const fimAbertura = useCallback((trocarEstado: boolean) => {

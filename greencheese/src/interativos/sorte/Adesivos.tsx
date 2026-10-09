@@ -9,6 +9,7 @@ import type { Produto } from '../../lib/tipos'
 import { useUI } from '../../store/ui'
 import { T } from './textos'
 import './estilo'
+import '../../lib/fonte-codigo'
 
 // As peças do prêmio no molde dos stories do Instagram, desenhadas no estilo do site (sem copiar bitmap):
 // o anel e o selo dos Melhores amigos, o adesivo do código (como o adesivo de link: tocar copia) e o adesivo de

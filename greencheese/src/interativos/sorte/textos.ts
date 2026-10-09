@@ -11,7 +11,7 @@ export const T = {
   carregando: 'carregando…',
 
   // convite
-  sub: 'Gira a tampa do dichavador. Lá dentro tem um story dos Melhores amigos, só pra você.',
+  sub: 'Gira a tampa do dichavador. Lá dentro tem um story dos Melhores amigos, só pra ti.',
   adesivoGira: 'Gira a tampa',
   legendaCelular: 'Gira a tampa',
   legendaDesktop: 'Arrasta em círculo, usa a roda do mouse ou segura Espaço',
@@ -124,7 +124,7 @@ export const T = {
   zapPlaceholder: '(21) 99999-9999',
   promo: 'Quero receber promoções da Green Cheese no WhatsApp',
   promoLegenda: 'Opcional. Dá pra desligar quando quiser em Minha conta.',
-  promoLocal: ' (por enquanto, nada é enviado)',
+  promoLocal: ' Por enquanto, nada é enviado.',
   mais18: 'Ao criar a conta, tu confirma que tem 18 anos ou mais.',
   privacidade:
     'Teu nome e WhatsApp servem só pra guardar teus cupons e adiantar teu pedido. Por enquanto, a conta fica só neste aparelho: nada vai pra servidor da loja.',

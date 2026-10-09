@@ -49,14 +49,14 @@ export function listaUfs(ufs: string[]): string {
   return s.length <= 1 ? (s[0] ?? '') : `${s.slice(0, -1).join(', ')} e ${s[s.length - 1]}`
 }
 
-/** "de 6 a 10 dias" · "em 7 dias" */
+/** "de 6 a 10 dias" · "7 dias" */
 export function faixaDias(r: Pick<Rateio, 'previsaoMin' | 'previsaoMax'>): string {
-  return r.previsaoMin === r.previsaoMax ? `em ${r.previsaoMin} ${r.previsaoMin === 1 ? 'dia' : 'dias'}` : `de ${r.previsaoMin} a ${r.previsaoMax} dias`
+  return r.previsaoMin === r.previsaoMax ? `${r.previsaoMin} ${r.previsaoMin === 1 ? 'dia' : 'dias'}` : `de ${r.previsaoMin} a ${r.previsaoMax} dias`
 }
 
-/** "Chega de 6 a 10 dias depois que fechar." (aberto) · "…depois que fechou." */
+/** "Previsão: de 6 a 10 dias depois que fechar." (aberto) · "…depois que fechou." É previsão, nunca prazo. */
 export function textoPrevisao(r: Rateio): string {
-  return `Chega ${faixaDias(r)} depois que ${r.status === 'aberto' ? 'fechar' : 'fechou'}.`
+  return `Previsão: ${faixaDias(r)} depois que ${r.status === 'aberto' ? 'fechar' : 'fechou'}.`
 }
 
 /**

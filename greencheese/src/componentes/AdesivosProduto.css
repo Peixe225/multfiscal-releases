@@ -122,6 +122,17 @@
   border-color: var(--branco);
 }
 
+/* foco dentro do adesivo branco: o anel branco do site sumia no branco, aqui ele é preto (cabe no padding do adesivo) */
+.ad-enquete :focus-visible,
+.ad-quiz :focus-visible {
+  outline-color: var(--preto);
+}
+/* − e + encostam na borda do adesivo: anel preto por dentro */
+.ad-qtd :focus-visible {
+  outline: 2px solid var(--preto);
+  outline-offset: -4px;
+}
+
 /* adesivo de link: quantidade + pôr na sacola */
 .ad-sacola {
   display: flex;

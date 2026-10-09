@@ -603,7 +603,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
             <>
               <SeletorQtd qtd={qtd} mudar={setQtd} className="pp-qtd" tamanhoIcone={16} />
               <button type="button" className="botao botao-cheio pp-por toque" onClick={porNaSacola}>
-                <span>Adicionar à sacola</span>
+                <span>Pôr na sacola</span>
                 {linha.total != null && linha.total > 0 && <span className="pp-por-preco px px-16">{brl(linha.total)}</span>}
               </button>
             </>

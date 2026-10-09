@@ -212,16 +212,14 @@ function ItemInterativo({ i }: { i: Interativo }) {
   const e = i.useEntrada!()
   const abrir = useUI((s) => s.abrirInterativo)
   return (
-    <button type="button" className="lateral-item toque" onClick={() => abrir(i.id)} aria-haspopup="dialog">
+    // o leitor ouve o momento do jogo (giro liberado, prêmio guardado esperando…), o mesmo do destaque
+    <button type="button" className="lateral-item toque" onClick={() => abrir(i.id)} aria-haspopup="dialog" aria-label={e.aria}>
       <span className="lateral-icone">
         <Icone nome={i.icone} tamanho={24} />
         {/* ponto de notificação no canto do ícone, como no instagram.com */}
         {e.ponto && <span className="lateral-ponto" aria-hidden="true" />}
       </span>
-      <span>
-        {i.titulo}
-        {e.ponto && <span className="sr-only"> · liberado</span>}
-      </span>
+      <span>{i.titulo}</span>
     </button>
   )
 }

@@ -574,6 +574,8 @@
 }
 .rodape-credito a {
   display: inline-block;
+  /* alvo de 44 px como os outros @ do rodapé */
+  min-height: 44px;
   padding: 12px 2px;
   color: var(--branco);
   text-decoration: underline;

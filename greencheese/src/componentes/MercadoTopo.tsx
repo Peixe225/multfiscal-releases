@@ -19,7 +19,7 @@ const SOMBRA: Grade = {
   ],
 }
 
-const FALAS = ['Chega mais.', 'Vem no certo!', 'Quem já usou sabe da qualidade'] as const
+const FALAS = ['Chega mais.', 'Vem no certo!', 'Quem já usou sabe da qualidade.'] as const
 
 // celular pequeno (320–360 de largura ou até 700 de altura) e deitado: o mercador a 2×, para a primeira fileira de
 // produtos começar na primeira tela
@@ -59,8 +59,8 @@ export function MercadoTopo({ legenda }: { legenda: string }) {
           Mercado
         </h1>
         <p className="aba-legenda legenda">{legenda}</p>
-        {/* o balão dele: muda quando tocam (o leitor de tela ouve a fala nova) */}
-        <p className="mercado-fala" aria-live="polite">
+        {/* o balão dele: muda quando tocam (decorativo: sem região viva, que a busca usa a dela) */}
+        <p className="mercado-fala">
           <span className="mercado-fala-corpo px">{FALAS[fala]}</span>
         </p>
       </div>

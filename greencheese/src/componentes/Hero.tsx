@@ -247,7 +247,7 @@ function AvisoFora() {
   const abrir = useChat((s) => s.abrir)
   if (!palpiteFora || uf) return null
   return (
-    <div className="enquete hero-enquete" role="group" aria-label="Seu estado">
+    <div className="enquete hero-enquete" role="group" aria-label="Teu estado">
       <p className="enquete-pergunta">Parece que é {deUf(palpiteFora)}. A Green Cheese ainda não chegou aí.</p>
       <div className="enquete-opcoes">
         <button type="button" className="enquete-opcao toque" onClick={() => setSeletor(true)}>
@@ -442,8 +442,9 @@ export function Hero() {
     return () => io.disconnect()
   }, [])
 
-  // geometria do produto atual: as bordas que passam vão só até o topo do nome (nome e preço abrem o produto na
-  // largura toda), as setas do celular ficam no meio da arte e a dica só entra se a arte tiver altura para ela
+  // geometria do produto atual: as bordas que passam são largas até o topo do nome e estreitas dali até os adesivos
+  // (nome e preço abrem o produto no miolo), as setas do celular ficam no meio da arte e a dica só entra se a arte
+  // tiver altura para ela
   useLayoutEffect(() => {
     const q = quadroRef.current
     const h = historia.current
@@ -451,6 +452,7 @@ export function Hero() {
     // (o StoryRua mede; num celular muito baixo ela não cabe e fica para os produtos)
     if (ehRua && q && h) {
       q.style.removeProperty('--hero-texto')
+      q.style.removeProperty('--hero-pe')
       h.style.removeProperty('--hero-arte-meio')
       setDicaCabe(dicaRua != null)
       return
@@ -463,6 +465,7 @@ export function Hero() {
       const arteH = a.offsetHeight
       const meioArte = topoEm(a, q) + arteH / 2
       q.style.setProperty('--hero-texto', `${topoEm(t, q)}px`)
+      q.style.setProperty('--hero-pe', `${topoEm(meio, q) + meio.offsetHeight}px`)
       h.style.setProperty('--hero-arte-meio', `${Math.round(meioArte)}px`)
       // o próximo, esmaecido atrás, acompanha a arte: no máximo 60% da altura dela (nunca maior que o produto atual,
       // nunca por cima do nome) e some quando a arte fica pequena (enquete aberta num celular baixo)
@@ -688,6 +691,9 @@ export function Hero() {
       dispensarDica()
       return
     }
+    // o clique que o navegador gera depois deste toque cai no story novo (o nome muda de altura e o produto pode ficar
+    // embaixo do dedo): ele não abre nada (onClickCapture e abrirProduto)
+    semClique.current = performance.now() + 400
     irPara(borda < 0 ? -1 : 1, 'toque')
   }
 
@@ -743,8 +749,9 @@ export function Hero() {
         if (g.current && e.pointerId === g.current.id) encerrarGesto()
       }}
       onClickCapture={(e) => {
-        // o clique que chega depois de segurar ou arrastar em cima do mercador não chama ele
-        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador')) {
+        // o clique que chega depois de segurar, arrastar ou passar o story com um toque na borda não abre nem chama
+        // nada (o mercador, o produto, o VER PRODUTO que ficaram embaixo do dedo)
+        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador, .hero-produto, .hero-ver')) {
           e.stopPropagation()
           e.preventDefault()
         }

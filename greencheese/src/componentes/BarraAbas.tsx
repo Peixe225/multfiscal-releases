@@ -111,7 +111,7 @@ function CelulaSorte({ i }: { i: Interativo }) {
       type="button"
       className="aba-celula aba-sorte toque"
       data-aba="sorte"
-      aria-label={`${i.titulo}${e.ponto ? ' · liberado' : ''}`}
+      aria-label={e.aria}
       aria-haspopup="dialog"
       onClick={() => abrir(i.id)}
     >

@@ -23,8 +23,8 @@ export function ComoFuncionaFolha() {
     },
     { titulo: 'O contador mostra as vagas pagas.', texto: '8/10 quer dizer 8 vagas pagas de 10. As reservadas aparecem do lado, até o pagamento cair.' },
     { titulo: 'O pedido do rateio é feito depois que fecham as vagas.', texto: 'Lotou, a loja faz o pedido do lote inteiro.' },
-    { titulo: `Chega ${faixaDias(n)} depois que fechar.`, texto: 'É a previsão de cada rateio. Chegou, a loja te chama pra entregar.' },
-    { titulo: 'Por que sai mais barato?', texto: 'A loja compra junto, de uma vez, e repassa o preço. Depois que chega, o mesmo produto sai mais caro.' },
+    { titulo: `Previsão: ${faixaDias(n)} depois que fechar.`, texto: 'Cada rateio tem a sua previsão, que pode mudar. Chegou, a loja te chama pra entregar.' },
+    { titulo: 'Por que sai mais barato?', texto: 'A loja compra o lote de uma vez e repassa o preço. Quando o rateio tem preço de quando chegar, o cartão mostra os dois.' },
   ]
   return (
     <Folha id="como-funciona" aberta={!!c} aoFechar={fechar} rotulo="Como funciona o rateio" cabecalho="Como funciona o rateio" className="folha-como" rotuloCorpo="Passos do rateio">

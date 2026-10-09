@@ -67,6 +67,14 @@
   color: var(--legenda);
   text-wrap: pretty;
 }
+/* as estrelas do fundo ficam fora dos textos (sem ponto no meio das letras): um recorte preto que não mexe no layout */
+.ai-cab,
+.ai-titulo,
+.ai-texto,
+.ai-legenda {
+  background: var(--preto);
+  box-shadow: 0 0 0 6px var(--preto);
+}
 .ai-cta {
   margin-top: 4px;
   white-space: normal;

@@ -103,9 +103,9 @@ export function listaUfs(ufs: string[]): string {
   return s.length <= 1 ? (s[0] ?? '') : `${s.slice(0, -1).join(', ')} e ${s[s.length - 1]}`
 }
 
-/** "de 6 a 10 dias" · "em 7 dias" */
+/** "de 6 a 10 dias" · "7 dias" */
 export function faixaDias(min: number, max: number): string {
-  return min === max ? `em ${min} ${min === 1 ? 'dia' : 'dias'}` : `de ${min} a ${max} dias`
+  return min === max ? `${min} ${min === 1 ? 'dia' : 'dias'}` : `de ${min} a ${max} dias`
 }
 
 /** Previsão em datas a partir do dia em que fechou: "entre 14/10 e 18/10". */

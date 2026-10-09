@@ -128,6 +128,12 @@ function DestaqueInterativo({ i }: { i: Interativo }) {
   )
 }
 
+/** Nome do destaque que cabe embaixo da bolinha: "TEÓFILO OTONI" vira "T. OTONI" (o nome inteiro fica no aria). */
+function rotuloCurto(nome: string): string {
+  const p = nome.trim().split(/\s+/)
+  return nome.length > 11 && p.length > 1 ? `${p[0][0]}. ${p.slice(1).join(' ')}` : nome
+}
+
 /** O destaque real do estado (moto): abre o story de atendimento (horário, entrega, cidades). */
 function DestaqueEstado({ canal, abrirInfo }: { canal: Canal; abrirInfo: () => void }) {
   return (
@@ -138,7 +144,9 @@ function DestaqueEstado({ canal, abrirInfo }: { canal: Canal; abrirInfo: () => v
           <Icone nome="moto" tamanho={32} />
         </span>
       </span>
-      <span className="destaque-rot">{canal.destaque}</span>
+      <span className="destaque-rot" aria-hidden="true">
+        {rotuloCurto(canal.destaque)}
+      </span>
     </button>
   )
 }
@@ -232,7 +240,7 @@ function DestaqueRateio() {
       className="destaque destaque-interativo toque"
       href={hrefAba('rateio')}
       data-destaque="rateio"
-      aria-label={n ? `Rateio: ${n} ${n === 1 ? 'aberto' : 'abertos'}${novo ? ', novo' : ''}` : 'Rateio: compra junto, paga menos'}
+      aria-label={n ? `Rateio: ${n} ${n === 1 ? 'aberto' : 'abertos'}${novo ? ', novo' : ''}` : 'Rateio: divide a caixa com a galera'}
       onClick={(e) => {
         if (cliqueDeAba(e)) irParaAba('rateio')
       }}
@@ -390,7 +398,7 @@ export function CaixaEncomenda({ termo, className }: { termo?: string; className
       </span>
       <p className="caixa-titulo">{termo ? `Não achou “${termo}”? A Green Cheese importa.` : 'Não achou? A Green Cheese importa.'}</p>
       <div className="caixa-campo">
-        <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Digite o produto…" aria-label="Produto que você quer encomendar" maxLength={120} />
+        <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Digite o produto…" aria-label="Produto que tu quer encomendar" maxLength={120} />
       </div>
       <button type="submit" className="botao botao-cheio botao-largo caixa-enviar">
         {termo ? `Pedir encomenda de “${termo}”` : 'Pedir encomenda'}
@@ -465,6 +473,20 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
 
   const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
 
+  // o resultado da busca pro leitor de tela, quando a pessoa para de digitar (a grade muda calada)
+  const [anuncio, setAnuncio] = useState('')
+  const termoBusca = busca.trim()
+  const quantos = lista.length
+  useEffect(() => {
+    if (inicio) return
+    const t = setTimeout(() => {
+      if (!termoBusca) setAnuncio('')
+      else if (!quantos) setAnuncio(`Nenhum produto pra “${termoBusca}”. Dá pra encomendar logo abaixo.`)
+      else setAnuncio(`${quantos} ${quantos === 1 ? 'produto' : 'produtos'} pra “${termoBusca}”.`)
+    }, 600)
+    return () => clearTimeout(t)
+  }, [inicio, termoBusca, quantos])
+
   const trocarCategoria = (c: string) => comFlip(() => setCategoria(c))
 
   return (
@@ -508,6 +530,9 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
           >
             Só DISPONÍVEL ✅
           </button>
+          <p className="sr-only" role="status">
+            {anuncio}
+          </p>
         </div>
       )}
 

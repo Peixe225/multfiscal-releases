@@ -7,7 +7,8 @@
   --legenda: #a8a8a8;
   --branco: #fff;
 
-  --pixel: 'Pixelify Sans', ui-monospace, 'Courier New', monospace;
+  /* o 2 e o 5 redesenhados (GC Digitos, digitos.css no CSS principal) na frente da Pixelify: lá o 5 lia S e o 2 lia Z */
+  --pixel: 'GC Digitos', 'Pixelify Sans', ui-monospace, 'Courier New', monospace;
   --ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   --seg-topo: env(safe-area-inset-top, 0px);
@@ -29,6 +30,9 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  /* sem ligaduras: na Pixelify o "fi" vira um glifo que lê "A" ("a confirmar" → "a conArmar"). !important porque o
+     atalho font: (usado em muita regra) volta as ligaduras pro normal */
+  font-variant-ligatures: none !important;
 }
 
 html {

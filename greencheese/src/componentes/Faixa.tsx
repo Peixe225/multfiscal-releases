@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef } from 'react'
+import { Fragment, useLayoutEffect, useRef, type FocusEvent } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { canais } from '../dados/canais'
@@ -14,6 +14,15 @@ gsap.registerPlugin(ScrollTrigger)
 // perfis uma volta tem ~1550 px, menos que a faixa de um monitor largo)
 const VOLTAS = 3
 
+/** Foco que veio do teclado (o toque e o clique focam o botão sem :focus-visible). */
+function focoDeTeclado(el: Element): boolean {
+  try {
+    return el.matches(':focus-visible')
+  } catch {
+    return false
+  }
+}
+
 /**
  * A faixa em pixel com os estados: a lista de perfis que a marca posta no story, separados pela moto.
  * Só anda com a rolagem (para quando a pessoa para). Cada @ troca o site para aquele estado. Só os perfis confirmados
@@ -22,6 +31,7 @@ const VOLTAS = 3
 export function Faixa() {
   const ref = useRef<HTMLDivElement>(null)
   const trilho = useRef<HTMLDivElement>(null)
+  const anda = useRef<gsap.core.Tween | null>(null)
   const uf = useLocal((s) => s.uf)
 
   useLayoutEffect(() => {
@@ -29,7 +39,7 @@ export function Faixa() {
     const t = trilho.current
     if (!el || !t || movimentoReduzido()) return
     const ctx = gsap.context(() => {
-      gsap.fromTo(
+      anda.current = gsap.fromTo(
         t,
         { x: 0 },
         {
@@ -40,8 +50,34 @@ export function Faixa() {
         },
       )
     })
-    return () => ctx.revert()
+    return () => {
+      anda.current = null
+      ctx.revert()
+    }
   }, [])
+
+  // Teclado: o trilho anda com a rolagem e levava o @ focado pra fora da faixa (sem anel à vista). No foco do teclado,
+  // a rolagem solta o trilho e ele traz o botão pra dentro, num corte; quando o foco sai da faixa, volta a andar com a
+  // rolagem. Toque e clique também focam o botão, mas sem :focus-visible: aí o trilho segue com a rolagem.
+  const aoFocar = (e: FocusEvent<HTMLDivElement>) => {
+    const el = ref.current
+    const t = trilho.current
+    const b = e.target as HTMLElement
+    if (!el || !t || !anda.current || !b.classList.contains('faixa-item') || !focoDeTeclado(b)) return
+    anda.current.scrollTrigger?.disable(false)
+    el.scrollLeft = 0 // o navegador pode ter rolado a faixa (overflow) atrás do botão
+    const f = el.getBoundingClientRect()
+    const r = b.getBoundingClientRect()
+    const folga = 24
+    let dx = 0
+    if (r.left < f.left + folga) dx = f.left + folga - r.left
+    else if (r.right > f.right - folga) dx = f.right - folga - r.right
+    if (dx) gsap.set(t, { x: Math.round((Number(gsap.getProperty(t, 'x')) || 0) + dx) })
+  }
+  const aoSair = (e: FocusEvent<HTMLDivElement>) => {
+    if (ref.current?.contains(e.relatedTarget as Node | null)) return
+    anda.current?.scrollTrigger?.enable()
+  }
 
   const itens = (copia: number) => (
     <>
@@ -64,7 +100,7 @@ export function Faixa() {
   )
 
   return (
-    <div ref={ref} className="faixa" role="region" aria-label="Todos os perfis da Green Cheese">
+    <div ref={ref} className="faixa" role="region" aria-label="Todos os perfis da Green Cheese" onFocus={aoFocar} onBlur={aoSair}>
       <div ref={trilho} className="faixa-trilho">
         {Array.from({ length: VOLTAS }, (_, v) => (
           <Fragment key={v}>{itens(v)}</Fragment>

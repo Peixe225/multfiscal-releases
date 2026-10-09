@@ -6,7 +6,7 @@ export const FALAS = {
   mercador: {
     /** Quando chamam ele (toque ou teclado), com o botão do Mercado. A longa só onde o balão cabe em duas linhas. */
     chamado: ['Chega mais.', 'Vem no certo!'],
-    chamadoLongo: ['Quem já usou sabe da qualidade'],
+    chamadoLongo: ['Quem já usou sabe da qualidade.'],
     oferecer: ['Tem sim.', 'É pra já.', 'Chega mais.'],
     agradecer: ['Valeu!', 'Tamo junto.', 'Volta sempre!', 'Fechou!'],
     motoboy: ['Voa, parceiro!', 'Vai na fé!', 'Vai com cuidado!'],

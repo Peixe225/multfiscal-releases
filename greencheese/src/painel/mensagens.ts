@@ -17,7 +17,7 @@ const vaga = (p: Participante) => `Código ${p.codigo} · ${vagas(p.quantidade)}
 
 function previsao(r: RateioAdmin): string {
   const j = janela(r.fechadoEm, r.previsaoMin, r.previsaoMax)
-  return j ? `Previsão de chegada: ${j}.` : `Chega ${faixaDias(r.previsaoMin, r.previsaoMax)} depois que fechar.`
+  return j ? `Previsão de chegada: ${j}.` : `Previsão: ${faixaDias(r.previsaoMin, r.previsaoMax)} depois que fechar.`
 }
 
 /** Pagamento confirmado (o contador subiu). */

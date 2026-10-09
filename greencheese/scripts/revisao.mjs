@@ -478,7 +478,8 @@ const browser = await chromium.launch()
   conferir(avisar === dmDo('mg'), `cel: "Avisar quando chegar" abre a DM do estado (${avisar})`)
   await semZapForaDoFechamento(page, 'cel catálogo')
   // destaque do estado: o último quadro é o das dúvidas, com a DM do estado
-  await page.locator('.vista:not([hidden]) .destaque', { hasText: /TEÓFILO OTONI/ }).first().click()
+  // (o rótulo embaixo da bolinha é curto, "T. OTONI"; o nome inteiro fica no aria-label)
+  await page.locator('.vista:not([hidden]) .destaque[aria-label^="TEÓFILO OTONI"]').first().click()
   await page.waitForTimeout(900)
   for (let k = 0; k < 5; k++) {
     await page.keyboard.press('ArrowRight')

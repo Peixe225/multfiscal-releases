@@ -33,6 +33,8 @@
 /* o código como o adesivo do story do prêmio: branco, em pixel, colado torto */
 .cs-adesivo {
   flex: none;
+  /* o código na grade 5×7 (lib/fonte-codigo.ts): na Pixelify o C fecha e lê O */
+  font-family: 'GC Codigo', var(--pixel);
   padding: 6px 8px 4px;
   background: var(--branco);
   color: var(--preto);

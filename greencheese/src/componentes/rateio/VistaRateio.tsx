@@ -15,7 +15,7 @@ import { abertoParaEntrar, agoraRateio, carregarRateios, marcarRateiosVistos, us
 import { useUI } from '../../store/ui'
 import { Icone } from '../comum'
 import { ArteRateio, CartaoRateio } from './CartaoRateio'
-import { NOME_VAGA, ateQuando, faixaDias, statusVisto, vagaAtiva, vagaDoAparelho, vagasTexto } from './util'
+import { NOME_VAGA, ateQuando, faixaDias, janelaChegada, statusVisto, vagaAtiva, vagaDoAparelho, vagasTexto } from './util'
 import './estilo'
 
 // O corpo da aba Rateio (o título e o "?" moram no pedaço principal, em Abas.tsx): Minhas vagas (só com vaga neste
@@ -268,7 +268,7 @@ function andamento(v: VagaGuardada, r: Rateio | undefined): string | null {
     case 'fechado':
       return 'O rateio fechou. Agora a loja faz o pedido.'
     case 'pedido':
-      return `Pedido feito. Chega ${r ? faixaDias(r) : 'em alguns dias'} depois que fechou.`
+      return `Pedido feito. Previsão de chegada: ${r ? (janelaChegada(r) ?? `${faixaDias(r)} depois que fechou`) : 'alguns dias depois que fechou'}.`
     case 'caminho':
       return 'A caminho.'
     case 'chegou':

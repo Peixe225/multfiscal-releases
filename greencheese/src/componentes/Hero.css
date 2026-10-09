@@ -127,7 +127,9 @@
 }
 
 /* bordas que passam (esquerda volta, direita avança): por cima da arte, por baixo de enquete e adesivos.
-   Vão só até o topo do nome (--hero-texto, medido no Hero.tsx): nome, preço e DISPONÍVEL abrem o produto na largura toda */
+   Largas (28%) até o topo do nome (--hero-texto) e, dali até os adesivos (--hero-pe), uma faixa estreita (18%, nunca
+   menos de 48 px) na lateral: o miolo do nome, do preço e do DISPONÍVEL abre o produto, os lados sempre passam (medidas
+   no Hero.tsx) */
 .hero-zona {
   position: absolute;
   z-index: 2;
@@ -135,10 +137,23 @@
   height: var(--hero-texto, 100%);
   width: 28%;
 }
+.hero-zona::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  width: max(48px, calc(100% * 18 / 28));
+  height: max(0px, calc(var(--hero-pe, 0px) - var(--hero-texto, 0px)));
+}
 .hero-zona-esq {
   left: 0;
 }
+.hero-zona-esq::after {
+  left: 0;
+}
 .hero-zona-dir {
+  right: 0;
+}
+.hero-zona-dir::after {
   right: 0;
 }
 /* na rua as bordas ficam por cima da cena e do botão do mercador (StoryRua.css): ali o toque sempre passa e volta, mesmo
@@ -184,8 +199,8 @@
   letter-spacing: 0.08em;
 }
 
-/* o produto é link (arte + nome/preço): o .hero-meio inteiro — na altura da arte as bordas ficam por cima dele
-   e sobra a faixa do meio; do nome para baixo é ele na largura toda */
+/* o produto é link (arte + nome/preço): o .hero-meio inteiro — as bordas ficam por cima dele (largas na altura da
+   arte, estreitas do nome para baixo) e sobra o miolo */
 .hero-produto {
   position: absolute;
   z-index: 2;
@@ -539,6 +554,19 @@
   }
   .hero-empilhado .hero-story {
     justify-self: center;
+  }
+}
+
+/* tela grande (1600 em diante): o hero não se espalha pela largura toda (sobrava um bloco preto em cima, à esquerda,
+   e ele não se alinhava com os destaques e a grade): fica numa moldura centrada e o perfil vai pro meio da coluna,
+   em cima da rua (que continua na maior escala que a coluna aceita) */
+@media (min-width: 1600px) {
+  .hero:not(.hero-empilhado) {
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+  .hero:not(.hero-empilhado) .hero-loja {
+    align-items: center;
   }
 }
 
