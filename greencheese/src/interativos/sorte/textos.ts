@@ -20,6 +20,7 @@ export const T = {
   limites: 'Sem conta: 1 giro. Com conta: 1 giro por dia.',
   verRegras: 'O que pode sair? · Regras',
   contaLocal: 'Por enquanto, a conta fica só neste aparelho.',
+  contaServidor: 'A conta fica guardada na loja: entra com teu WhatsApp em qualquer aparelho.',
 
   // girando
   porQuartos: (q: number) =>
@@ -112,6 +113,7 @@ export const T = {
   oQuePodeSair: 'O que pode sair',
   mudaPorEstado: 'Muda conforme o estado.',
   regrasLocal: 'Por enquanto, a conta e o limite de giros ficam só neste aparelho.',
+  regrasServidor: 'A conta, os cupons e o limite de giros ficam guardados na loja.',
 
   // conta (formulário)
   criaTuaConta: 'Cria tua conta',
@@ -128,13 +130,31 @@ export const T = {
   mais18: 'Ao criar a conta, tu confirma que tem 18 anos ou mais.',
   privacidade:
     'Teu nome e WhatsApp servem só pra guardar teus cupons e adiantar teu pedido. Por enquanto, a conta fica só neste aparelho: nada vai pra servidor da loja.',
+  privacidadeServidor:
+    'Teu nome e WhatsApp servem só pra guardar teus cupons, teus endereços e adiantar teu pedido. A conta fica guardada na loja e tu apaga quando quiser, em Minha conta.',
   criarEGuardar: 'Criar conta e guardar prêmio',
   guardando: 'Guardando…',
   zapExiste: 'Esse WhatsApp já tem conta neste aparelho.',
+  zapExisteServidor: 'Esse WhatsApp já tem outra conta aqui.',
+  zapNaoFecha: 'Esse WhatsApp não fecha. Confere o DDD e os 9 números.',
   entrar: 'Entrar',
+  entrarSub: 'Põe teu WhatsApp: o WhatsApp da loja te manda um código de 6 números.',
+  contaDoAparelhoVai: (nome: string, cupons: number) =>
+    `Tua conta deste aparelho (${nome}${cupons ? `, ${cupons === 1 ? '1 cupom' : `${cupons} cupons`}` : ''}) vai junto: confirma teu WhatsApp com o código que a loja manda.`,
+  receberCodigo: 'Receber o código',
+  mandandoCodigo: 'Mandando o código…',
   codigoZap: 'Código que chegou no teu WhatsApp',
   codigoEnviado: (mascarado: string) => `Mandamos um código pro WhatsApp ${mascarado}.`,
   codigoErrado: 'Esse código não confere. Olha de novo no WhatsApp.',
+  codigoVencido: 'Esse código não vale mais. Pede outro.',
+  semEnvio: 'Não deu pra mandar o código agora. Tenta de novo daqui a pouco.',
+  outroCodigo: 'Mandar outro código',
+  outroCodigoEm: (s: number) => `Outro código em ${s} s`,
+  outroCodigoFoi: 'Mandamos outro código.',
+  confirmarNumero: 'Confirmar o número novo',
+  trocarNumeroLegenda: 'Pra trocar, a loja manda um código pro número novo.',
+  primeiraVez: 'Primeira vez por aqui',
+  primeiraVezSub: 'Esse WhatsApp ainda não tem conta. Põe teu nome pra criar.',
   muitasTentativas: 'Muitas tentativas. Espera uns minutos e tenta de novo.',
   trocarNumero: 'Trocar número',
   naoEncontrada: 'Esse WhatsApp não tem conta neste aparelho. Na prévia, a conta só existe no aparelho onde foi criada.',
@@ -155,6 +175,7 @@ export const T = {
   zapLegenda: (mascarado: string) => `WhatsApp ${mascarado}`,
   avisoContaLocal:
     'Por enquanto, a conta fica só neste aparelho. Abriu pelo Instagram? Ela fica no navegador do Instagram. Limpar os dados do navegador apaga tudo.',
+  avisoContaServidor: 'Tua conta fica guardada na loja: entra com teu WhatsApp em qualquer aparelho.',
   giroDeHoje: 'Giro de hoje',
   liberadoHoje: 'Teu giro de hoje tá liberado',
   girarDichavador: 'Girar o dichavador',
@@ -174,10 +195,15 @@ export const T = {
   editar: 'Editar',
   sair: 'Sair',
   sairLegenda: 'Pra entrar de novo, usa o mesmo WhatsApp neste aparelho.',
+  sairLegendaServidor: 'Pra entrar de novo, é só teu WhatsApp e o código que a loja manda.',
   apagarConta: 'Apagar minha conta deste aparelho',
+  apagarContaServidor: 'Apagar minha conta',
   apagarPergunta: 'Apagar conta e cupons deste aparelho? Não dá pra desfazer. O giro de hoje continua usado.',
+  apagarPerguntaServidor: 'Apagar tua conta, teus cupons e teus endereços? Não dá pra desfazer. Teus pedidos continuam com a loja, e o giro de hoje continua usado.',
   apagar: 'Apagar',
   apagada: 'Conta apagada deste aparelho.',
+  apagadaServidor: 'Conta apagada.',
+  naoApagou: 'Não deu pra apagar agora. Tenta de novo.',
   saiu: 'Tu saiu da conta.',
 } as const
 

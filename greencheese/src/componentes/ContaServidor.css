@@ -1,0 +1,136 @@
+/* Minha conta com a conta na loja: pedidos e vagas como cartões no preto (o código em pixel, o status num selo e o
+   andamento em degraus de story), endereços em linha com "Apagar" e o formulário no molde do de conta. */
+
+.cs-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 2px 0 12px;
+}
+.cs-item {
+  min-width: 0;
+}
+.cs-carregando {
+  padding-bottom: 10px;
+}
+.cs-legenda {
+  margin-top: -4px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.cs-pedido {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--bolha);
+  border-radius: 12px;
+}
+.cs-pedido-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+.cs-codigo {
+  font: 500 16px/1 var(--pixel);
+  letter-spacing: 0.04em;
+}
+.cs-status {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--bolha);
+  font: 600 13px/1 var(--ui);
+}
+/* entregue e confirmada: o selo branco (concluído); cancelado e vencida: só o contorno */
+.cs-status-entregue,
+.cs-vaga-confirmado,
+.cs-vaga-entregue {
+  background: var(--branco);
+  color: var(--preto);
+}
+.cs-status-cancelado,
+.cs-vaga-cancelado,
+.cs-vaga-expirado {
+  background: none;
+  border: 1px solid var(--chiado);
+  color: var(--legenda);
+}
+.cs-resumo {
+  font: 400 15px/1.35 var(--ui);
+  overflow-wrap: anywhere;
+}
+.cs-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 6px;
+  border: 1px solid var(--chiado);
+  border-radius: 4px;
+  font: 600 12px/1.3 var(--ui);
+  vertical-align: 1px;
+}
+.cs-pedido .legenda {
+  font-size: 13px;
+}
+/* os 4 passos do pedido (recebido, confirmado, saiu, entregue), como as barrinhas do topo de um story */
+.cs-andamento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 4px;
+}
+.cs-andamento span {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--chiado);
+}
+.cs-andamento span.cheio {
+  background: var(--branco);
+}
+.cs-ver {
+  align-self: flex-start;
+  margin-left: -10px;
+}
+.cs-endereco {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid var(--bolha);
+}
+.cs-endereco p {
+  min-width: 0;
+  font: 400 15px/1.35 var(--ui);
+  overflow-wrap: anywhere;
+}
+.cs-apagar {
+  flex: none;
+}
+.cs-form {
+  width: 100%;
+}
+.cs-form-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 10px;
+}
+.cs-uf select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--bolha);
+  color: var(--branco);
+  font-size: 16px;
+}
+.cs-uf select:focus-visible {
+  border-color: var(--legenda);
+  outline: none;
+}
+.cs-uf select[aria-invalid='true'] {
+  border-color: var(--branco);
+}

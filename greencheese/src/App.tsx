@@ -7,6 +7,7 @@ import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
 import { vigiarPedidosPendentes } from './lib/pedido-pendente'
+import { descobrirModo } from './lib/conta-modo'
 import { iniciarAbas } from './lib/abas'
 import { quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
@@ -208,6 +209,14 @@ export function App() {
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
     if (w.requestIdleCallback) w.requestIdleCallback(() => void carregarRateios(), { timeout: 3000 })
     else setTimeout(() => void carregarRateios(), 1500)
+  }, [abertura, saida])
+
+  // a conta do cliente: o servidor diz no tempo ocioso se ela fica na loja (entrar com código) ou no aparelho
+  useEffect(() => {
+    if (abertura || saida) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(() => void descobrirModo(), { timeout: 5000 })
+    else setTimeout(() => void descobrirModo(), 2500)
   }, [abertura, saida])
 
   // teclado virtual: as folhas sobem junto (ver --teclado)

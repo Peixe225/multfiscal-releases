@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { useModoConta } from '../../lib/conta-modo'
 import { nomeDoPremio, premiosElegiveis } from '../../lib/cupom-uso'
 import { useLocal } from '../../store/local'
 import { T } from './textos'
@@ -9,6 +10,7 @@ export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; c
   const [aberto, setAberto] = useState(false)
   const id = useId()
   const uf = useLocal((s) => s.uf)
+  const servidor = useModoConta() === 'servidor'
   const lista = aberto ? premiosElegiveis(uf) : []
   // a validade sai dos prêmios (src/dados/sorte.ts): "vale 7 dias" quando todos têm a mesma; senão, a data do cupom
   const dias = new Set(lista.map((p) => p.validadeDias))
@@ -39,7 +41,7 @@ export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; c
           </ol>
         </div>
         <p className="legenda regras-nota">{T.mudaPorEstado}</p>
-        <p className="legenda regras-nota">{T.regrasLocal}</p>
+        <p className="legenda regras-nota">{servidor ? T.regrasServidor : T.regrasLocal}</p>
       </div>
     </div>
   )

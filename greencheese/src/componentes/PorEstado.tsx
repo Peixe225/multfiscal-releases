@@ -2,11 +2,15 @@ import { useState } from 'react'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, ufPorSigla } from '../dados/ufs'
+import { primeiroNome, useConta } from '../lib/conta'
+import { useEntrarPorCodigo } from '../lib/conta-modo'
 import { situacao } from '../lib/horario'
 import { linkPerfil } from '../lib/mensagem'
 import { trocarEstado } from '../lib/troca'
 import { useChat } from '../store/chat'
+import { mascararCelular } from '../lib/telefone'
 import { useLocal } from '../store/local'
+import { useUI } from '../store/ui'
 import { Avatar, Demo, Icone } from './comum'
 import { MapaBrasil, ordemAtendidos } from './MapaBrasil'
 import './PorEstado.css'
@@ -37,6 +41,31 @@ function Arroba({ perfil }: { perfil: string }) {
 }
 
 const cidadesDe = (c: Canal) => (c.cidades.length ? c.cidades.map((x) => x.nome).join(' · ') : null)
+
+/**
+ * A conta de quem está no site, no fim da lista (no Instagram, a troca de conta também termina na tua): com conta,
+ * abre a Minha conta; sem conta, quando a loja guarda as contas (entrar com o código pelo WhatsApp), "Entrar".
+ */
+function TuaConta() {
+  const conta = useConta()
+  const entrar = useEntrarPorCodigo()
+  const setConta = useUI((s) => s.setConta)
+  if (!conta && !entrar) return null
+  return (
+    <li className="pe-conta pe-conta-tua">
+      <button type="button" className="pe-conta-linha toque" onClick={() => setConta(true)} aria-haspopup="dialog">
+        <span className="pe-conta-avatar pe-conta-avatar-mais" aria-hidden="true">
+          <Icone nome="conta" tamanho={24} />
+        </span>
+        <span className="pe-conta-txt">
+          <span className="pe-conta-arroba">{conta ? `${primeiroNome(conta.nome)} · Minha conta` : 'Entrar com teu WhatsApp'}</span>
+          <span className="pe-conta-sub legenda">{conta ? `WhatsApp ${mascararCelular(conta.whatsapp)}` : 'Teus cupons, pedidos e endereços guardados'}</span>
+        </span>
+        <Icone nome="chevron-dir" tamanho={16} />
+      </button>
+    </li>
+  )
+}
 
 export function PorEstado() {
   const { uf } = useLocal()
@@ -185,6 +214,7 @@ export function PorEstado() {
                   </span>
                 </button>
               </li>
+              <TuaConta />
             </ul>
           </div>
         </div>

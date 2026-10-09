@@ -6,6 +6,8 @@ import { ID_SORTE, useEstadoSorte, usarNoPedido } from '../interativos/sorte/est
 import { T } from '../interativos/sorte/textos'
 import { primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
+import { useModoConta } from '../lib/conta-modo'
+import { useContaStore } from '../store/conta'
 import { formatarDiaMes, formatarEspera } from '../lib/cupom'
 import { fraseDoPremio, nomeDoPremio } from '../lib/cupom-uso'
 import { AdesivoCodigo, AdesivoContagem, BolhaPremio } from '../interativos/sorte/Adesivos'
@@ -18,24 +20,42 @@ import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import { Folha } from './Folha'
 import { FormConta } from './FormConta'
+import { SecaoEnderecos, SecaoMeusDados, SecaoPedidos, SecaoVagas, useAtualizarConta } from './ContaServidor'
 import './ContaFolha.css'
 
-// "Minha conta": cupons guardados, giro de hoje, próximos interativos e os dados. Na prévia, tudo só neste aparelho.
+// "Minha conta": cupons guardados, giro de hoje, próximos interativos e os dados. Com a conta no aparelho, tudo fica
+// só aqui. Com a conta na loja (modo servidor), também os pedidos, as vagas de rateio, os endereços e o arquivo com
+// os dados; e a folha abre sem conta pra entrar (WhatsApp + código).
 
 export function ContaFolha() {
   const aberta = useUI((s) => s.contaAberta)
   const setConta = useUI((s) => s.setConta)
   const conta = useConta()
+  const servidor = useModoConta() === 'servidor'
   const fechar = () => setConta(false)
-  // sem conta não abre (as entradas nem aparecem); saiu ou apagou com a folha aberta: fecha
-  const ativa = aberta && !!conta
+  // sem conta só abre pra entrar na conta da loja; com a conta do aparelho, saiu ou apagou com a folha aberta: fecha
+  const ativa = aberta && (!!conta || servidor)
   useEffect(() => {
-    if (aberta && !conta) setConta(false)
-  }, [aberta, conta, setConta])
+    if (aberta && !conta && !servidor) setConta(false)
+  }, [aberta, conta, servidor, setConta])
   return (
     <Folha id="conta" aberta={ativa} aoFechar={fechar} rotulo="Minha conta" cabecalho={<span>{T.minhaConta}</span>}>
-      {conta && <Conteudo fechar={fechar} />}
+      {conta ? <Conteudo fechar={fechar} /> : servidor ? <Entrar /> : null}
     </Folha>
+  )
+}
+
+/** Sem conta, no modo servidor: entrar (ou criar) com o WhatsApp e o código, dentro da folha. */
+function Entrar() {
+  const [modo, setModo] = useState<'entrar' | 'criar'>('entrar')
+  const raiz = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    raiz.current?.querySelector<HTMLElement>('.form-titulo')?.focus()
+  }, [modo])
+  return (
+    <div ref={raiz} className="conta conta-entrar">
+      <FormConta key={modo} modo={modo} tituloMenor aoSucesso={() => undefined} aoTrocarModo={setModo} />
+    </div>
   )
 }
 
@@ -46,6 +66,8 @@ function Conteudo({ fechar }: { fechar: () => void }) {
   const avisar = useUI((s) => s.avisar)
   const [editando, setEditando] = useState(false)
   const [apagando, setApagando] = useState(false)
+  // a conta aberta é a da loja (não só do aparelho)
+  const naLoja = useContaStore((s) => !!s.servidor && s.servidor === s.atual)
   // o botão tocado some com a troca de tela: o foco vai pro que entrou (sem isto cairia no <body>)
   const raiz = useRef<HTMLDivElement>(null)
   const focarAlvo = useRef<string | null>(null)
@@ -79,7 +101,7 @@ function Conteudo({ fechar }: { fechar: () => void }) {
         <p className="legenda">{T.zapLegenda(mascararCelular(conta.whatsapp))}</p>
       </section>
 
-      <p className="conta-aviso">{T.avisoContaLocal}</p>
+      <p className="conta-aviso">{naLoja ? T.avisoContaServidor : T.avisoContaLocal}</p>
 
       {jogoAtivo && (
         <section className="conta-secao" aria-labelledby="conta-giro">
@@ -123,6 +145,15 @@ function Conteudo({ fechar }: { fechar: () => void }) {
           </ul>
         )}
       </section>
+
+      {naLoja && (
+        <>
+          <AtualizarConta />
+          <SecaoPedidos />
+          <SecaoVagas fechar={fechar} />
+          <SecaoEnderecos />
+        </>
+      )}
 
       {emBreve.length > 0 && (
         <section className="conta-secao" aria-labelledby="conta-proximos">
@@ -190,23 +221,27 @@ function Conteudo({ fechar }: { fechar: () => void }) {
         >
           {T.sair}
         </button>
-        <p className="legenda">{T.sairLegenda}</p>
+        <p className="legenda">{naLoja ? T.sairLegendaServidor : T.sairLegenda}</p>
         {!apagando ? (
           <button type="button" className="botao-texto toque" data-conta-apagar onClick={() => trocar(() => setApagando(true), '[data-conta-pergunta]')}>
-            {T.apagarConta}
+            {naLoja ? T.apagarContaServidor : T.apagarConta}
           </button>
         ) : (
-          <div className="conta-apagar" role="group" aria-label={T.apagarConta}>
+          <div className="conta-apagar" role="group" aria-label={naLoja ? T.apagarContaServidor : T.apagarConta}>
             <p tabIndex={-1} data-conta-pergunta>
-              {T.apagarPergunta}
+              {naLoja ? T.apagarPerguntaServidor : T.apagarPergunta}
             </p>
             <div className="conta-apagar-botoes">
               <button
                 type="button"
                 className="botao botao-cheio"
                 onClick={async () => {
-                  await adaptador.apagar()
-                  avisar(T.apagada)
+                  const res = await adaptador.apagar()
+                  if (!res.ok) {
+                    avisar(T.naoApagou)
+                    return
+                  }
+                  avisar(naLoja ? T.apagadaServidor : T.apagada)
                   fechar()
                 }}
               >
@@ -220,11 +255,19 @@ function Conteudo({ fechar }: { fechar: () => void }) {
         )}
       </section>
 
+      {naLoja && <SecaoMeusDados />}
+
       <section className="conta-secao">
         <Regras rotulo={T.regras} />
       </section>
     </div>
   )
+}
+
+/** Relê a conta da loja quando a Minha conta abre (sem desenho). */
+function AtualizarConta() {
+  useAtualizarConta()
+  return null
 }
 
 /**

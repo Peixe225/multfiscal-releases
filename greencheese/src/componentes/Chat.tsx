@@ -23,7 +23,7 @@ import { itensDoPedido } from '../lib/pedido-itens'
 import { termoProibido } from '../painel/proibidos'
 import { movimentoReduzido } from '../lib/movimento'
 import { celularNoCampo } from '../lib/telefone'
-import { useConta, useCupons, useAgora } from '../lib/conta'
+import { useConta, useCupons, useAgora, useEnderecosDaConta } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
 import { linhaCupom, nomeCategoria, nomeCurto, nomeDoPremio, situacaoNoPedido, type Situacao } from '../lib/cupom-uso'
@@ -87,6 +87,7 @@ export function ChatFolha() {
   const marcarEnviado = useChat((s) => s.marcarEnviado)
   const recomecar = useChat((s) => s.recomecar)
   const conta = useConta()
+  const enderecosConta = useEnderecosDaConta()
   const avisar = useUI((s) => s.avisar)
   const { cupom, situacao: situacaoCupom } = useCupomNoPedido()
   const cupons = useCupons()
@@ -384,6 +385,18 @@ export function ChatFolha() {
       case 'endereco': {
         const temAnterior = respostas.rua && respostas.numero && respostas.ufCep === canal?.uf
         const chips: Chip[] = []
+        // os endereços guardados na conta da loja, do estado do atendimento (até 3; o mesmo da resposta de antes não repete)
+        const anterior = temAnterior ? `${respostas.cep}|${respostas.numero}` : respostas.enderecoLivre
+        for (const e of enderecosConta.filter((x) => x.uf === canal?.uf && (x.cep ? `${x.cep}|${x.numero}` : x.livre) !== anterior).slice(0, 3)) {
+          const linha = e.cep ? `${e.rua}, ${e.numero}` : e.livre
+          chips.push({
+            rotulo: e.apelido ? `${e.apelido}: ${linha}` : linha,
+            acao: () =>
+              e.cep
+                ? resp({ cep: e.cep, rua: e.rua, numero: e.numero, bairro: e.bairro, cidadeCep: e.cidade, ufCep: e.uf, enderecoLivre: '' }, 'endereco', 'pagamento')
+                : resp({ cep: '', rua: '', numero: '', bairro: '', enderecoLivre: e.livre }, 'endereco', 'pagamento'),
+          })
+        }
         if (temAnterior) {
           chips.push({ rotulo: `${respostas.rua}, ${respostas.numero}`, acao: () => resp({}, 'endereco', 'pagamento') })
         } else if (respostas.cep && respostas.ufCep === canal?.uf) {
