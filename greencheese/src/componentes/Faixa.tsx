@@ -14,6 +14,15 @@ gsap.registerPlugin(ScrollTrigger)
 // perfis uma volta tem ~1550 px, menos que a faixa de um monitor largo)
 const VOLTAS = 3
 
+/** Foco que veio do teclado (o toque e o clique focam o botão sem :focus-visible). */
+function focoDeTeclado(el: Element): boolean {
+  try {
+    return el.matches(':focus-visible')
+  } catch {
+    return false
+  }
+}
+
 /**
  * A faixa em pixel com os estados: a lista de perfis que a marca posta no story, separados pela moto.
  * Só anda com a rolagem (para quando a pessoa para). Cada @ troca o site para aquele estado. Só os perfis confirmados
@@ -47,13 +56,14 @@ export function Faixa() {
     }
   }, [])
 
-  // Teclado: o trilho anda com a rolagem e levava o @ focado pra fora da faixa (sem anel à vista). No foco, a rolagem
-  // solta o trilho e ele traz o botão pra dentro, num corte; quando o foco sai da faixa, volta a andar com a rolagem.
+  // Teclado: o trilho anda com a rolagem e levava o @ focado pra fora da faixa (sem anel à vista). No foco do teclado,
+  // a rolagem solta o trilho e ele traz o botão pra dentro, num corte; quando o foco sai da faixa, volta a andar com a
+  // rolagem. Toque e clique também focam o botão, mas sem :focus-visible: aí o trilho segue com a rolagem.
   const aoFocar = (e: FocusEvent<HTMLDivElement>) => {
     const el = ref.current
     const t = trilho.current
     const b = e.target as HTMLElement
-    if (!el || !t || !anda.current || !b.classList.contains('faixa-item')) return
+    if (!el || !t || !anda.current || !b.classList.contains('faixa-item') || !focoDeTeclado(b)) return
     anda.current.scrollTrigger?.disable(false)
     el.scrollLeft = 0 // o navegador pode ter rolado a faixa (overflow) atrás do botão
     const f = el.getBoundingClientRect()

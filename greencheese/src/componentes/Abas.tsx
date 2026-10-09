@@ -345,7 +345,7 @@ const AbaRateio = memo(function AbaRateio() {
             <Icone nome="interrogacao" tamanho={32} />
           </button>
         </div>
-        <p className="aba-legenda rv-intro">Junta com a galera, divide a caixa e paga menos que depois que chega.</p>
+        <p className="aba-legenda rv-intro">Junta com a galera e divide a caixa importada.</p>
       </header>
       <CorpoDoRateio />
     </div>

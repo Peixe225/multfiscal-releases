@@ -240,7 +240,7 @@ function DestaqueRateio() {
       className="destaque destaque-interativo toque"
       href={hrefAba('rateio')}
       data-destaque="rateio"
-      aria-label={n ? `Rateio: ${n} ${n === 1 ? 'aberto' : 'abertos'}${novo ? ', novo' : ''}` : 'Rateio: compra junto, paga menos'}
+      aria-label={n ? `Rateio: ${n} ${n === 1 ? 'aberto' : 'abertos'}${novo ? ', novo' : ''}` : 'Rateio: divide a caixa com a galera'}
       onClick={(e) => {
         if (cliqueDeAba(e)) irParaAba('rateio')
       }}
