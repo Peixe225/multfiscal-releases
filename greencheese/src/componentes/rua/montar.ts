@@ -5,7 +5,6 @@
 import { cenario, criarLuz, criarPoste, elenco, itens, paletaCenario, sombras, type Personagem } from '../../arte/pixel/rua'
 import type { Peca } from '../../arte/pixel/rua/compor'
 import type { AnimMeta, Crua, FolhaMeta, PacoteBruto, PedidoPacote } from './pacote'
-import { alturaDaLuz } from './palco'
 
 const rgba = new Map<string, number>()
 /** '#rrggbb' → 0xRRGGBB. */
@@ -113,9 +112,8 @@ export async function montar(pedido: PedidoPacote): Promise<PacoteBruto> {
     cenario.objetos.porta,
     cenario.objetos.letreiro,
     cenario.objetos.engradado,
-    cenario.objetos.janela,
-    // um poste (e a luz dele) por cena: o baixo da faixa e o alto do story em pé
-    ...pedido.postes.flatMap((p) => [criarPoste(p.altura, p.poste), criarLuz(alturaDaLuz(p.altura), p.luz)]),
+    criarPoste(pedido.alturaPoste),
+    criarLuz(pedido.alturaLuz),
     // sombras com o id do personagem na frente: sombra-mercador…
     ...Object.values(sombras),
   ]

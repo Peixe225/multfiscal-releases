@@ -32,7 +32,11 @@ export interface Loja {
   whatsapp: string
   /** "Restam X" a partir de quantas unidades (null = nunca). O site usa o restam de cada produto, que já vem pronto. */
   restamAte: number | null
-  /** A rua do mercador no começo do Início no celular (Loja → Stories do Início, no painel). */
+  /**
+   * A rua do mercador no fim do Início do celular, depois da grade (Loja → Stories do Início, no painel). O nome é o do
+   * contrato (JSON e banco), de quando ela era o 1º story do celular; o significado mudou em 09/10 e o nome ficou, pra
+   * não quebrar a loja já salva. No computador a rua fica sempre embaixo do perfil.
+   */
   ruaNoStory: boolean
   textos: TextosLoja
   categorias: Categoria[]
@@ -433,7 +437,8 @@ export const useLojaMarca = () => useLoja((s) => s.marca)
 
 export const useTextosLoja = () => useLoja((s) => s.textos)
 
-export const useRuaNoStory = () => useLoja((s) => s.ruaNoStory)
+/** A rua no fim do Início do celular, ligada ou não pelo dono (a chave `ruaNoStory` da loja). */
+export const useRuaNoCelular = () => useLoja((s) => s.ruaNoStory)
 
 export function regrasDaSorte(): RegrasDaSorte {
   return useLoja.getState().sorte.regras

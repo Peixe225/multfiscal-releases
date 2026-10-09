@@ -1,11 +1,10 @@
 // Motor da rua: um canvas na resolução da grade (1 px do canvas = 1 pixel da arte; o CSS amplia em escala inteira de
 // px do aparelho, com image-rendering: pixelated), um relógio próprio (rAF com acumulador em passos fixos) e os
 // roteiros em geradores (roteiro.ts) que pedem "espera 300 ms" ou "espera até ele chegar". Desenha só quando algum
-// quadro troca (~10 vezes por segundo); parado, nem o rAF roda. A geometria vem do palco (palco.ts): a faixa do
-// computador ou o mundo em pé do story do celular.
+// quadro troca (~10 vezes por segundo); parado, nem o rAF roda.
 
 import type { Folha, Lado, Pacote, QuadroMeta } from './pacote'
-import type { Chao, Lugares, Palco } from './palco'
+import { ALTURA, ASFALTO, CALCADA, CHAO, LUZ_TOPO, MEIO_FIO, POSTE_PE, lugares, type Lugares } from './palco'
 
 /** Passo fixo do relógio (ms). */
 const PASSO = 1000 / 60
@@ -42,8 +41,6 @@ export interface Ator {
   alvoY: number | null
   /** Pediram a reação (toque); o roteiro atende quando dá. */
   querReagir: boolean
-  /** O roteiro dele está esperando o toque agora: a reação sai na hora (no story, só aí o toque não passa). */
-  ouve: boolean
   /** Efeito: some quando a animação acaba (ou em `ate`); sobe 1 linha a cada `sobe` ms (nota musical). */
   efeito?: { sobe: number; prox: number; ate: number }
   /** Ponto fixo do canto de cima (efeitos), em vez da âncora. */
@@ -54,8 +51,6 @@ export interface Balao {
   id: number
   ator: string
   texto: string
-  /** Quando entrou e quando sai (relógio da cena). */
-  de: number
   ate: number
 }
 
@@ -76,20 +71,17 @@ export interface Fala {
   lado: Lado
 }
 
-/** O que o motor desenha: o canvas da página ou, no build (pôster) e no laboratório, um canvas de mentira. */
-type Tela = Pick<HTMLCanvasElement, 'width' | 'height' | 'getContext'>
-
 export interface OpcoesMotor {
-  tela: Tela
+  tela: HTMLCanvasElement
   pacote: Pacote
-  palco: Palco
+  largura: number
+  /** Escurece as bordas da esquerda e da direita (cena que não vai de ponta a ponta). */
+  bordas: boolean
   semente: number
   /** Sexta-feira (o "Sextou!" só sai nela). */
   sexta: boolean
   aoBaloes: (b: Balao[]) => void
   aoDesenhar: () => void
-  /** Canvas de trabalho (o fundo); sem ele, document.createElement. */
-  criarTela?: (w: number, h: number) => Tela
 }
 
 /** Meio da cabeça de cada um (x no lado direito), para o balão. */
@@ -114,20 +106,11 @@ const BAYER = [
   [15, 7, 13, 5],
 ]
 
-/** Um número de 0 a 1 fixo por pixel (estrelas, grão do reboco): a mesma rua em todo aparelho e no pôster. */
-function ruido(x: number, y: number): number {
-  let h = Math.imul(x + 1, 374761393) ^ Math.imul(y + 1, 668265263)
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
-}
-
 export class Motor {
   readonly ctx: CanvasRenderingContext2D
   readonly pacote: Pacote
-  readonly palco: Palco
   readonly w: number
-  readonly h: number
-  readonly chao: Chao
+  readonly h = ALTURA
   readonly lugar: Lugares
   readonly rand: () => number
   readonly sexta: boolean
@@ -135,7 +118,7 @@ export class Motor {
   atores: Ator[] = []
   baloes: Balao[] = []
   private fios: Fio[] = []
-  private fundo: Tela
+  private fundo: HTMLCanvasElement
   private sujo = true
   private raf = 0
   private ultimo = 0
@@ -154,17 +137,14 @@ export class Motor {
   constructor(op: OpcoesMotor) {
     this.op = op
     this.pacote = op.pacote
-    this.palco = op.palco
-    this.w = op.palco.w
-    this.h = op.palco.h
-    this.chao = op.palco.chao
-    this.lugar = op.palco.lugar
-    const ctx = op.tela.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | null
+    this.w = op.largura
+    const ctx = op.tela.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('sem canvas 2d')
     this.ctx = ctx
     op.tela.width = this.w
     op.tela.height = this.h
     ctx.imageSmoothingEnabled = false
+    this.lugar = lugares(this.w)
     this.rand = aleatorio(op.semente)
     this.sexta = op.sexta
     this.fundo = this.montarFundo()
@@ -189,8 +169,8 @@ export class Motor {
       resto: folha.anims[anim].q[0].ms,
       lado: op.lado ?? 'dir',
       x: op.x ?? 0,
-      y: op.y ?? this.chao.meio,
-      prof: op.prof ?? op.y ?? this.chao.meio,
+      y: op.y ?? CHAO.meio,
+      prof: op.prof ?? op.y ?? CHAO.meio,
       visivel: op.visivel ?? true,
       item: null,
       itemPega: null,
@@ -200,7 +180,6 @@ export class Motor {
       alvo: null,
       alvoY: null,
       querReagir: false,
-      ouve: false,
     }
     this.atores.push(a)
     this.sujo = true
@@ -298,7 +277,7 @@ export class Motor {
 
   /** Um balão por vez: quem fala agora tira o balão de quem falou antes (conversa em turnos, nada encavalado). */
   falar(a: Ator, texto: string, ms = 1800) {
-    this.baloes = [{ id: this.proxBalao++, ator: a.id, texto, de: this.t, ate: this.t + ms }]
+    this.baloes = [{ id: this.proxBalao++, ator: a.id, texto, ate: this.t + ms }]
     this.op.aoBaloes(this.baloes)
   }
 
@@ -454,105 +433,51 @@ export class Motor {
 
   /* ───────────── desenho ───────────── */
 
-  private novaTela(w: number, h: number): Tela {
-    if (this.op.criarTela) return this.op.criarTela(w, h)
+  /** Muro, porta, engradados, calçada, meio-fio e asfalto, uma vez só; o topo some no preto em pontilhado. */
+  private montarFundo(): HTMLCanvasElement {
     const c = document.createElement('canvas')
-    c.width = w
-    c.height = h
-    return c
-  }
-
-  /**
-   * O cenário parado, uma vez só. Na faixa: muro, porta, engradados, calçada, meio-fio e asfalto, com o topo sumindo no
-   * preto em pontilhado. Em pé: o céu de madrugada (preto, um brilho ralo perto dos telhados e umas estrelas), o prédio
-   * do vizinho baixo à esquerda, a fachada da loja subindo à direita (reboco em pontilhado, janela acesa) e o mesmo chão.
-   */
-  private montarFundo(): Tela {
-    const P = this.palco
-    const c = this.novaTela(this.w, this.h)
-    const g = c.getContext('2d') as CanvasRenderingContext2D
+    c.width = this.w
+    c.height = this.h
+    const g = c.getContext('2d')!
     g.imageSmoothingEnabled = false
     g.fillStyle = '#000'
     g.fillRect(0, 0, this.w, this.h)
     const lad = this.pacote.ladrilhos
-    const repetir = (id: string, y0: number, y1: number, x0 = 0, x1 = this.w) => {
+    const repetir = (id: string, y0: number, y1: number) => {
       const l = lad[id]
       if (!l) return
-      for (let y = y0; y < y1; y += l.h)
-        for (let x = x0; x < x1; x += l.w) {
-          const w = Math.min(l.w, x1 - x)
-          const h = Math.min(l.h, y1 - y)
-          g.drawImage(l.img, 0, 0, w, h, x, y, w, h)
-        }
+      for (let y = y0; y < y1; y += l.h) for (let x = 0; x < this.w; x += l.w) g.drawImage(l.img, 0, 0, l.w, Math.min(l.h, y1 - y), x, y, l.w, Math.min(l.h, y1 - y))
     }
-    const pontos = (cor: string, x0: number, y0: number, x1: number, y1: number, liga: (x: number, y: number) => boolean) => {
-      g.fillStyle = cor
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (liga(x, y)) g.fillRect(x, y, 1, 1)
+    // muro alinhado por baixo: a última fiada de tijolo encosta na calçada
+    const muro = lad.muro
+    if (muro) {
+      const inicio = CALCADA - Math.ceil(CALCADA / muro.h) * muro.h
+      for (let y = inicio; y < CALCADA; y += muro.h) for (let x = 0; x < this.w; x += muro.w) g.drawImage(muro.img, x, y)
     }
-    if (P.emPe) this.montarFachada(g, repetir, pontos)
-    else {
-      // muro alinhado por baixo: a última fiada de tijolo encosta na calçada
-      const muro = lad.muro
-      if (muro) {
-        const inicio = P.calcada - Math.ceil(P.calcada / muro.h) * muro.h
-        for (let y = inicio; y < P.calcada; y += muro.h) for (let x = 0; x < this.w; x += muro.w) g.drawImage(muro.img, x, y)
-      }
+    this.desenharSo(g, this.folha('porta'), 'parado', 0, 'dir', this.lugar.porta, CALCADA)
+    repetir('calcada', CALCADA, MEIO_FIO)
+    repetir('meioFio', MEIO_FIO, ASFALTO)
+    repetir('asfalto', ASFALTO, ALTURA)
+    this.desenharSo(g, this.folha('engradado'), 'parado', 0, this.lugar.engradado > this.lugar.porta ? 'dir' : 'esq', this.lugar.engradado, CHAO.fundo)
+    // o muro some no preto nas primeiras linhas (Bayer): a rua sai do escuro, sem borda dura
+    g.fillStyle = '#000'
+    const SOME = 22
+    for (let y = 0; y < SOME; y++) {
+      const limiar = (y / SOME) * 16
+      for (let x = 0; x < this.w; x++) if (BAYER[y % 4][x % 4] >= limiar) g.fillRect(x, y, 1, 1)
     }
-    this.desenharSo(g, this.folha('porta'), 'parado', 0, 'dir', this.lugar.porta, P.calcada)
-    repetir('calcada', P.calcada, P.meioFio)
-    repetir('meioFio', P.meioFio, P.asfalto)
-    repetir('asfalto', P.asfalto, this.h)
-    this.desenharSo(g, this.folha('engradado'), 'parado', 0, this.lugar.engradado > this.lugar.porta ? 'dir' : 'esq', this.lugar.engradado, P.chao.fundo)
-    if (!P.emPe) {
-      // o muro some no preto nas primeiras linhas (Bayer): a rua sai do escuro, sem borda dura
-      const SOME = 22
-      pontos('#000', 0, 0, this.w, SOME, (x, y) => BAYER[y % 4][x % 4] >= (y / SOME) * 16)
-    } else {
-      // em pé, o asfalto que passa por trás dos adesivos e da barra de baixo some no preto (o texto fica limpo)
-      const y0 = P.asfalto + 4
-      const SOME = 20
-      pontos('#000', 0, y0, this.w, this.h, (x, y) => BAYER[y % 4][x % 4] < ((y - y0) / SOME) * 16)
-    }
-    if (P.bordas) {
+    if (this.op.bordas) {
       const B = 14
-      pontos('#000', 0, 0, B, this.h, (x, y) => BAYER[y % 4][x % 4] >= (x / B) * 16)
-      pontos('#000', this.w - B, 0, this.w, this.h, (x, y) => BAYER[y % 4][(this.w - 1 - x) % 4] >= ((this.w - 1 - x) / B) * 16)
+      for (let x = 0; x < B; x++) {
+        const limiar = (x / B) * 16
+        for (let y = 0; y < this.h; y++)
+          if (BAYER[y % 4][x % 4] >= limiar) {
+            g.fillRect(x, y, 1, 1)
+            g.fillRect(this.w - 1 - x, y, 1, 1)
+          }
+      }
     }
     return c
-  }
-
-  /** Em pé: céu, telhados e a fachada da loja (tudo acima da calçada). */
-  private montarFachada(
-    g: CanvasRenderingContext2D,
-    repetir: (id: string, y0: number, y1: number, x0?: number, x1?: number) => void,
-    pontos: (cor: string, x0: number, y0: number, x1: number, y1: number, liga: (x: number, y: number) => boolean) => void,
-  ) {
-    const P = this.palco
-    const F = FACHADA
-    // céu (à esquerda, por cima do vizinho baixo): preto puro em cima; perto do telhado, o brilho da cidade em
-    // pontilhado ralo, e umas estrelas fixas, quase todas apagadas
-    pontos('#141414', 0, F.brilho0, F.predio, F.vizinho, (x, y) => BAYER[y % 4][x % 4] < ((y - F.brilho0) / (F.vizinho - F.brilho0)) * 5)
-    for (let y = 2; y < F.vizinho - 6; y++)
-      for (let x = 0; x < F.predio - 1; x++) {
-        const r = ruido(x, y)
-        if (r < 0.0024) pontos(r < 0.0006 ? '#a8a8a8' : '#636363', x, y, x + 1, y + 1, () => true)
-      }
-    // o vizinho baixo (à esquerda): tijolo, com a mureta do telhado pegando a luz do poste
-    repetir('muro', F.vizinho, P.calcada, 0, F.predio)
-    pontos('#3a3a3a', 0, F.vizinho, F.predio, F.vizinho + 1, () => true)
-    pontos('#262626', 0, F.vizinho + 1, F.predio, F.vizinho + 2, (x) => x % 2 === 0)
-    // o prédio da loja: reboco em pontilhado (o tijolo só no térreo) e a quina da esquerda; em cima ele some no escuro
-    // (nada de linha dura atrás do cabeçalho do story, em celular nenhum)
-    pontos('#262626', F.predio, 0, this.w, F.terreo, (x, y) => BAYER[y % 4][x % 4] < 2 + (ruido(x, y) < 0.08 ? 1 : 0))
-    repetir('muro', F.terreo, P.calcada, F.predio, this.w)
-    pontos('#3a3a3a', F.predio, 0, F.predio + 1, P.calcada, () => true)
-    // a faixa do térreo (a loja), em cima da porta
-    pontos('#3a3a3a', F.predio, F.terreo, this.w, F.terreo + 1, () => true)
-    pontos('#262626', F.predio, F.terreo + 1, this.w, F.terreo + 2, () => true)
-    // as janelas do andar de cima: uma acesa e as apagadas
-    for (const j of F.janelas) this.desenharSo(g, this.folha('janela'), 'parado', j.acesa ? 0 : 1, 'dir', j.x, j.pe)
-    // o alto do prédio sumindo no preto (Bayer), por cima das janelas de cima também
-    pontos('#000', F.predio, 0, this.w, F.some, (x, y) => BAYER[y % 4][x % 4] >= (y / F.some) * 16)
   }
 
   private desenharSo(g: CanvasRenderingContext2D, f: Folha, anim: string, i: number, lado: Lado, x: number, y: number) {
@@ -585,7 +510,7 @@ export class Motor {
   desenhar() {
     this.sujo = false
     const g = this.ctx
-    g.drawImage(this.fundo as CanvasImageSource, 0, 0)
+    g.drawImage(this.fundo, 0, 0)
     const vis = this.atores.filter((a) => a.visivel)
     // sombras no chão, antes de todo mundo
     for (const a of vis) {
@@ -624,26 +549,8 @@ export class Motor {
   /** Cenário que mexe (luz do poste, letreiro) e o poste, na ordem do chão. */
   montarCenario() {
     const L = this.lugar
-    const P = this.palco
-    this.criar('luz', { folha: P.luz, x: L.poste + 12, y: P.luzTopo, prof: -2, anim: 'parado' })
-    this.criar('letreiro', { x: L.porta, y: P.letreiroPe, prof: -1, anim: 'parado' })
-    this.criar('poste', { folha: P.poste, x: L.poste, y: P.postePe, prof: P.postePe + 0.5, anim: 'parado' })
+    this.criar('luz', { x: L.poste + 12, y: LUZ_TOPO, prof: -2, anim: 'parado' })
+    this.criar('letreiro', { x: L.porta, y: CALCADA - 50, prof: -1, anim: 'parado' })
+    this.criar('poste', { x: L.poste, y: POSTE_PE, prof: POSTE_PE + 0.5, anim: 'parado' })
   }
 }
-
-/**
- * A fachada do mundo em pé (linhas e colunas da grade): onde o brilho do céu começa, o telhado do vizinho, a quina do
- * prédio da loja, até onde o alto dele some no escuro, a faixa do térreo e as janelas do andar de cima.
- */
-const FACHADA = {
-  brilho0: 70,
-  vizinho: 112,
-  predio: 62,
-  some: 44,
-  terreo: 125,
-  janelas: [
-    { x: 88, pe: 74, acesa: false },
-    { x: 128, pe: 74, acesa: false },
-    { x: 88, pe: 116, acesa: true },
-  ],
-} as const
