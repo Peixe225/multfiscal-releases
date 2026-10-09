@@ -163,19 +163,33 @@ export function parseMessage(raw: unknown, now = Date.now()): Parsed[] {
  *   envio único de presente "combo": repeat 1 (sem fim) + repeat 1 (fim) → 1
  *   sequência 1,2,3,4,5 + fim(5) → 5
  *   presente comum (não combo) → repeat (normalmente 1)
+ * Robusto a: fim perdido (uma sequência parada há mais de `gapMs` não conta mais como anterior), fim
+ * repetido (o mesmo fim de novo em até `gapMs` vale 0) e repeat fora de ordem (1,3,2 → 2 não recomeça).
  */
-export function createStreakTracker(ttlMs = 120_000) {
-  const last = new Map<string, { r: number; at: number }>()
+export function createStreakTracker(ttlMs = 120_000, gapMs = 10_000) {
+  const last = new Map<string, { r: number; at: number; ended: boolean }>()
   let calls = 0
   return (g: RawGiftEvent): number => {
     const r = Math.max(1, Math.floor(g.repeat || 1))
     if (!g.streakable) return r
     if (++calls % 200 === 0) for (const [k, v] of last) if (g.at - v.at > ttlMs) last.delete(k)
     const key = `${g.user.id}|${g.gift.id}|${g.group ?? ''}`
-    const prev = last.get(key)?.r ?? 0
-    const delta = r > prev ? r - prev : r < prev ? r : 0
-    if (g.streakEnd) last.delete(key)
-    else last.set(key, { r, at: g.at })
+    const e = last.get(key)
+    const fresh = !!e && Math.abs(g.at - e.at) <= gapMs
+    // o mesmo fim chegou de novo (reenvio): já contado
+    if (g.streakEnd && e?.ended && fresh && e.r === r) return 0
+    const prev = e && !e.ended && fresh ? e.r : 0
+    let delta: number
+    let keep = r
+    if (r > prev) delta = r - prev
+    else if (r === prev) delta = 0
+    else if (r === 1) delta = 1 // fim perdido e sequência nova começando
+    else {
+      // fora de ordem (3 chegou antes do 2): nada novo, guarda o maior
+      delta = 0
+      keep = prev
+    }
+    last.set(key, { r: keep, at: g.at, ended: g.streakEnd })
     return delta
   }
 }

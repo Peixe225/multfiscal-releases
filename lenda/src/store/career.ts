@@ -86,6 +86,12 @@ interface CareerStore {
   isFixture: boolean
 
   init(): Promise<void>
+  /**
+   * Relê do IndexedDB a carreira atual, o Hall e as conquistas, seja qual for o status — para uma janela
+   * que passa a rodar a live depois de outra (a memória dela pode estar velha). Não mexe numa carreira
+   * em andamento nesta janela (busy / revelação aberta) nem em fixtures.
+   */
+  reload(): Promise<void>
   start(identity: PlayerIdentity, pace: Pace, opts?: { seed?: string }): Promise<CareerState>
   choose(optionId: string): Promise<RevealScript | null>
   ackReveal(): void
@@ -119,6 +125,23 @@ const stripWorld = (s: CareerState): Omit<CareerState, 'world'> => {
 }
 
 let summaryCache: { key: unknown; value: CareerSummary | null } = { key: null, value: null }
+
+async function readHall(): Promise<HallEntry[]> {
+  try {
+    const hall = await kv.get<HallEntry[]>(KV_KEYS.hall)
+    return Array.isArray(hall) ? hall : []
+  } catch {
+    return []
+  }
+}
+
+/** Hall gravado + Hall em memória, sem repetir runs (o gravado vence: é o mais novo). */
+export function mergeHall(stored: HallEntry[], memory: HallEntry[]): HallEntry[] {
+  const byId = new Map<string, HallEntry>()
+  for (const h of memory) byId.set(h.id, h)
+  for (const h of stored) byId.set(h.id, h)
+  return withRunNumbers([...byId.values()])
+}
 
 async function ensureEngine(get: () => CareerStore, set: (p: Partial<CareerStore>) => void) {
   const s = get()
@@ -174,9 +197,22 @@ export const useCareer = create<CareerStore>()((set, get) => {
     }
     // corte do Hall: saem as de menor Nota de Legado (a nota de uma run não depende das outras)
     const nota = (h: HallEntry) => h.legacy?.raw ?? h.summary.legacyScore
-    const list = [entry, ...get().finishedCareers].sort((a, b) => nota(b) - nota(a)).slice(0, HALL_CAP)
+    const capped = (l: HallEntry[]) => l.sort((a, b) => nota(b) - nota(a)).slice(0, HALL_CAP)
+    if (get().isFixture) {
+      set({ finishedCareers: capped([entry, ...get().finishedCareers]) })
+      return
+    }
+    // ler-mesclar-gravar: outra janela (ex.: a da live) pode ter gravado runs que esta memória não tem
+    const stored = await readHall()
+    const merged = mergeHall(stored, get().finishedCareers)
+    if (merged.some((h) => h.id === entry.id)) {
+      set({ finishedCareers: merged })
+      return
+    }
+    entry.runNo = Math.max(merged.length, ...merged.map((h) => h.runNo ?? 0)) + 1
+    const list = capped([entry, ...merged])
     set({ finishedCareers: list })
-    if (!get().isFixture) await kv.set(KV_KEYS.hall, list)
+    await kv.set(KV_KEYS.hall, list)
   }
 
   return {
@@ -218,6 +254,33 @@ export const useCareer = create<CareerStore>()((set, get) => {
       set({ status: 'ready' })
       // warm the engine in the background
       void ensureEngine(get, set).catch(() => {})
+    },
+
+    async reload() {
+      if (get().status !== 'ready') return get().init()
+      try {
+        const [current, hall, ach] = await Promise.all([
+          kv.get<CareerState>(KV_KEYS.current),
+          readHall(),
+          kv.get<{ unlocked: Record<string, AchievementUnlock>; unseen: string[] }>(KV_KEYS.achievements),
+        ])
+        const s = get()
+        const patch: Partial<CareerStore> = { finishedCareers: mergeHall(hall, s.finishedCareers) }
+        if (ach?.unlocked) {
+          patch.achievements = { ...s.achievements, ...ach.unlocked }
+          patch.unseenAchievements = [...new Set([...s.unseenAchievements, ...(ach.unseen ?? [])])]
+        }
+        // a carreira: só troca se a gravada for outra (ou estiver mais adiante) e nada estiver rodando aqui
+        if (!s.isFixture && !s.busy && !s.saving && !s.reveal) {
+          const saved = current && current.version === 1 ? current : null
+          const mem = s.state
+          const differs = !saved !== !mem || (saved && mem && (saved.id !== mem.id || saved.period !== mem.period || saved.phase !== mem.phase || saved.seasons.length !== mem.seasons.length))
+          if (differs) Object.assign(patch, { state: saved, reveal: null, previous: null, lastUnlocked: [] })
+        }
+        set(patch)
+      } catch (err) {
+        console.warn('[LENDA] não foi possível reler o progresso', err)
+      }
     },
 
     async start(identity, pace, opts = {}) {

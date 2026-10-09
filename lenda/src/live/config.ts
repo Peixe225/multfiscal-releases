@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { Pace } from '@/engine/types'
-import { DEFAULT_BINDINGS } from './gifts'
+import { DEFAULT_BINDINGS, sameGift } from './gifts'
 import type { LiveSource } from './types'
 import type { VoteRules } from './votes'
 
@@ -49,6 +49,11 @@ export interface LiveConfig extends VoteRules {
   simSpeed: 1 | 2 | 3
   /** Curtidas para encher o "termômetro da torcida". */
   likesGoal: number
+  /**
+   * "Área segura do TikTok": na janela da live (9:16) a faixa fica abaixo da sobreposição do topo
+   * (~8% da altura) e as opções/votos acima do chat e da barra de presentes de baixo (~22%).
+   */
+  safeArea: boolean
 }
 
 export const DEFAULT_LIVE_CONFIG: LiveConfig = {
@@ -72,6 +77,7 @@ export const DEFAULT_LIVE_CONFIG: LiveConfig = {
   simAuto: true,
   simSpeed: 2,
   likesGoal: 1000,
+  safeArea: true,
   commentVotes: true,
   commentPoints: 1,
   pointsPerCoin: 10,
@@ -87,14 +93,19 @@ interface ConfigStore {
   reset(): void
 }
 
-const safeStorage = (get: () => Storage) =>
-  createJSONStorage(() => {
-    try {
-      return get()
-    } catch {
-      return undefined as unknown as Storage
-    }
-  })
+const CONFIG_KEY = 'lenda:live:v1'
+
+const sameBinding = (a: string, b: string) => !!a && !!b && sameGift({ id: a, name: a }, b)
+
+/** Opção (índice) que já tem esse presente, fora `index` (Rose e Rosa são o mesmo). -1 = nenhuma. */
+export function bindingConflict(bindings: readonly string[], index: number, gift: string): number {
+  return gift ? bindings.findIndex((b, j) => j !== index && sameBinding(b, gift)) : -1
+}
+
+/** Um presente por opção: repetições (depois da primeira) ficam sem presente. */
+export function dedupeBindings(bindings: readonly string[]): string[] {
+  return bindings.map((b, i) => (b && bindings.slice(0, i).some((x) => sameBinding(x, b)) ? '' : b))
+}
 
 export const useLiveConfig = create<ConfigStore>()(
   persist(
@@ -105,19 +116,35 @@ export const useLiveConfig = create<ConfigStore>()(
         set((s) => {
           const giftBindings = [...s.config.giftBindings]
           while (giftBindings.length < 4) giftBindings.push('')
+          // um presente nunca vale para duas opções: se ele já era de outra, as duas trocam de presente
+          const j = bindingConflict(giftBindings, index, gift)
+          if (j >= 0) giftBindings[j] = giftBindings[index] ?? ''
           giftBindings[index] = gift
-          return { config: { ...s.config, giftBindings } }
+          return { config: { ...s.config, giftBindings: dedupeBindings(giftBindings) } }
         }),
       reset: () => set({ config: DEFAULT_LIVE_CONFIG }),
     }),
     {
-      name: 'lenda:live:v1',
+      name: CONFIG_KEY,
       version: 1,
-      storage: safeStorage(() => localStorage),
-      merge: (persisted, current) => ({ ...current, config: { ...DEFAULT_LIVE_CONFIG, ...((persisted as { config?: Partial<LiveConfig> })?.config ?? {}) } }),
+      // sem storage (navegador bloqueando): o próprio zustand cai para memória — um wrapper que engole o
+      // erro faria o persist chamar setItem em undefined e a página ficar em branco
+      storage: createJSONStorage(() => localStorage),
+      merge: (persisted, current) => {
+        const config: LiveConfig = { ...DEFAULT_LIVE_CONFIG, ...((persisted as { config?: Partial<LiveConfig> })?.config ?? {}) }
+        // configuração salva com o mesmo presente em duas opções (versões antigas): fica só na primeira
+        return { ...current, config: { ...config, giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
+      },
     },
   ),
 )
+
+// outra aba/janela mudou a configuração (painel de controle ↔ janela da live): relê do localStorage.
+// O evento "storage" só dispara nas OUTRAS janelas da mesma origem, então não há eco.
+if (typeof window !== 'undefined')
+  window.addEventListener('storage', (e) => {
+    if (e.key === CONFIG_KEY || e.key === null) void useLiveConfig.persist?.rehydrate()
+  })
 
 interface SessionStore {
   /** O jogo está sendo controlado pelo chat. */
@@ -139,7 +166,7 @@ export const useLiveSession = create<SessionStore>()(
       stop: () => set({ on: false, paused: false }),
       setPaused: (paused) => set({ paused }),
     }),
-    { name: 'lenda:live:session', version: 1, storage: safeStorage(() => sessionStorage) },
+    { name: 'lenda:live:session', version: 1, storage: createJSONStorage(() => sessionStorage) },
   ),
 )
 

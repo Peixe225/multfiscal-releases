@@ -26,11 +26,26 @@
   background: linear-gradient(180deg, #08090e, rgba(8, 9, 14, .985));
   border-bottom: 1px solid rgba(255, 255, 255, .09);
   box-shadow: 0 18px 40px -24px rgba(0, 0, 0, .9);
-  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
 }
 .lv-hud.is-voting { border-bottom-color: rgba(255, 45, 85, .35); }
+.lv-hud.is-paused { border-bottom-color: rgba(255, 200, 87, .55); box-shadow: 0 18px 40px -24px rgba(0, 0, 0, .9), inset 0 -2px 0 rgba(255, 200, 87, .45); }
 .lv-hud__row { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.lv-hud__foot { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 12.5px; color: var(--text-2); }
+.lv-hud__foot { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 24px; font-size: 13px; color: var(--text-2); }
+/* "como participar": no celular, linha própria de largura toda (cabe a regra inteira sem espremer o título);
+   no computador, logo abaixo do título (a faixa não cresce) */
+.lv-hud__how { margin: 0; min-height: 1.35em; font-size: 13px; line-height: 1.35; color: var(--text-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.lv-hud__how.is-paused { color: var(--warning); font-weight: 700; }
+@media (min-width: 641px) {
+  .lv-hud { grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: 12px; }
+  .lv-hud__row { display: contents; }
+  .lv-hud__row > .lv-onair { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+  .lv-hud__row > .lv-head { grid-column: 2; grid-row: 1; }
+  .lv-hud__row > .lv-clock { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+  .lv-hud__row > .lv-menu { grid-column: 4; grid-row: 1 / span 2; align-self: center; }
+  .lv-hud > .lv-hud__how { grid-column: 2; grid-row: 2; margin-top: -6px; min-height: calc(2 * 1.35em); }
+  .lv-hud > .lv-legend, .lv-hud > .lv-hud__foot { grid-column: 1 / -1; }
+}
 
 .lv-onair { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 26px; padding: 0 9px; border-radius: 7px; background: #ff2d55; color: #fff; font: 800 11px/1 var(--font-ui); letter-spacing: .08em; }
 .lv-onair.is-off { background: rgba(255, 255, 255, .1); color: var(--text-2); }
@@ -41,9 +56,10 @@
 [data-motion="reduced"] .lv-onair__dot { animation: none; }
 
 .lv-head { display: grid; gap: 1px; min-width: 0; flex: 1; }
-.lv-head__k { display: inline-flex; align-items: center; gap: 6px; font: 700 10.5px/1.3 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: #ff8da1; }
-.lv-head__t { font: 800 17px/1.2 var(--font-display); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.lv-head__how { font-size: 12px; line-height: 1.35; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-head__k { display: flex; align-items: center; gap: 6px; min-width: 0; font: 700 11.5px/1.3 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: #ff8da1; }
+.lv-head__k.is-paused { color: var(--warning); }
+.lv-head__kt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-head__t { font: 800 18px/1.2 var(--font-display); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .lv-head.is-result .lv-head__k { color: var(--oc); }
 .lv-head__n { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; margin-right: 4px; border-radius: 6px; background: var(--oc); color: #0a0b10; font: 800 14px/1 var(--font-num); vertical-align: 2px; }
 
@@ -51,11 +67,12 @@
 .lv-menu__btn { all: unset; box-sizing: border-box; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; color: var(--text-2); background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
 .lv-menu__btn:hover { color: var(--text); background: rgba(255, 255, 255, .1); }
 .lv-menu__btn:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: 2px; }
-.lv-menu__pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 248px; padding: 6px; display: grid; gap: 2px; border-radius: 14px; background: rgba(14, 15, 21, .98); border: 1px solid rgba(255, 255, 255, .12); box-shadow: var(--shadow-3); }
+.lv-menu__pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 272px; max-width: calc(100vw - 24px); padding: 6px; display: grid; gap: 2px; border-radius: 14px; background: rgba(14, 15, 21, .98); border: 1px solid rgba(255, 255, 255, .12); box-shadow: var(--shadow-3); }
 .lv-menu__pop button { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--text); cursor: pointer; }
 .lv-menu__pop button:hover:not(:disabled), .lv-menu__pop button:focus-visible { background: rgba(255, 255, 255, .08); }
 .lv-menu__pop button:disabled { opacity: .4; cursor: default; }
 .lv-menu__pop button.is-danger { color: #ff8da1; }
+.lv-menu__note { margin: 2px 4px 4px; padding: 7px 9px; border-radius: 9px; background: rgba(255, 200, 87, .08); font-size: 12.5px; line-height: 1.4; color: #ffe3a6; }
 
 /* placar: cabo de guerra + chips */
 .lv-legend { display: grid; gap: 6px; min-width: 0; }
@@ -69,24 +86,31 @@
 .lv-chip__p { flex: none; font: 800 15px/1 var(--font-num); color: var(--text); }
 .lv-legend.is-big .lv-chip { height: 40px; }
 .lv-legend.is-big .lv-chip__l { font-size: 14px; }
+/* fora das votações a linha do placar continua lá, vazia: a faixa não "pula" a cada voto */
+.lv-legend.is-slot { visibility: hidden; }
+@media (min-width: 641px) { .lv-legend.is-slot { min-height: 44px; } }
 
 .lv-feed { position: relative; flex: 1; min-width: 0; height: 22px; overflow: hidden; }
 .lv-feed__it { position: absolute; inset: 0; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: lv-feed-in 180ms var(--ease-out); }
 @keyframes lv-feed-in { from { opacity: 0; transform: translateY(6px); } }
 [data-motion="reduced"] .lv-feed__it { animation: none; }
-.lv-feed__it b { color: var(--text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.lv-feed__it b { flex: 0 1 auto; min-width: 3.5em; max-width: 45%; color: var(--text); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* o resto da linha ("mandou 4× Rosa") encolhe com reticências — antes só o nome encolhia (até sumir) */
+.lv-feed__rest { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lv-feed__it.is-gift { color: #ffd6df; }
 .lv-feed__it.is-result { color: var(--text); }
 .lv-feed__opt { flex: none; padding: 1px 6px; border-radius: 5px; background: var(--oc); color: #0a0b10; font: 800 12px/1.4 var(--font-num); }
+/* presente guardado (a pessoa ainda não comentou um número): pede o número, sem cor de opção */
+.lv-feed__opt.is-held { background: rgba(255, 255, 255, .16); color: var(--text); font-family: var(--font-ui); font-weight: 700; }
 
 .lv-fans { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex: none; max-width: 52%; overflow: hidden; }
 .lv-fans.is-empty { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lv-fan { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 150px; height: 22px; padding: 0 7px; border-radius: 6px; background: rgba(255, 255, 255, .06); font-size: 11.5px; }
+.lv-fan { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 170px; height: 24px; padding: 0 7px; border-radius: 6px; background: rgba(255, 255, 255, .06); font-size: 12.5px; }
 .lv-fan.is-top { background: rgba(255, 200, 87, .14); color: var(--warning); }
 .lv-fan__n { font: 800 11px/1 var(--font-num); color: var(--text-3); }
 .lv-fan__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--text); }
 .lv-fan.is-top .lv-fan__name { color: var(--warning); }
-.lv-fan__c { flex: none; white-space: nowrap; font: 700 11.5px/1 var(--font-num); color: var(--text-2); }
+.lv-fan__c { flex: none; white-space: nowrap; font: 700 12.5px/1 var(--font-num); color: var(--text-2); }
 
 .lv-likes { display: inline-flex; align-items: center; gap: 5px; flex: none; color: #ff9f43; }
 .lv-likes__bar { width: 58px; height: 6px; border-radius: 4px; background: rgba(255, 255, 255, .1); overflow: hidden; }
@@ -98,33 +122,58 @@
 /* avisos (conquistas etc.) logo abaixo da faixa */
 :root:has(.lv-hud) .lx-toaster { top: calc(var(--lv-hud-h, 120px) + 10px); }
 
-/* celulares / janela da live em pé: faixa compacta (o placar das decisões já está nos cards) */
+/*
+ * Celulares / janela da live em pé (540 px, que o TikTok mostra encolhida num celular de ~400 px):
+ * texto de quem assiste com pelo menos 14 px e números maiores; o placar das decisões já está nos cards
+ * (menos no pênalti, que não tem cards: lá os chips ficam na faixa).
+ */
 @media (max-width: 640px) {
-  .lv-hud { padding: 8px 12px 8px; gap: 6px; }
-  .lv-hud__row { gap: 9px; }
-  .lv-head__t { font-size: 15px; }
-  .lv-head__how { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 11.5px; }
+  .lv-hud { padding: 8px 12px 9px; gap: 6px; }
+  /* alturas fixas por linha (com ou sem relógio, com ou sem apoiadores): a faixa não pula */
+  .lv-hud__row { gap: 9px; min-height: 46px; }
+  .lv-onair { height: 28px; font-size: 13px; padding: 0 10px; }
+  .lv-head__k { font-size: 14px; letter-spacing: .08em; }
+  .lv-head__t { font-size: 18px; }
+  /* até 3 linhas e sempre a altura de 3: a faixa não muda de tamanho entre votação e simulação */
+  .lv-hud__how { font-size: 14px; -webkit-line-clamp: 3; min-height: calc(3 * 1.35em); }
+  .lv-clock b { font-size: 19px; }
   .lv-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lv-chip { height: 34px; }
+  .lv-chip__l { font-size: 14px; }
+  .lv-chip__p { font-size: 17px; }
   .lv-hud.is-decision .lv-chips { display: none; }
-  .lv-feed { flex: 1 1 auto; }
-  .lv-fans { max-width: 44%; }
+  .lv-hud.is-penalty .lv-chips { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .lv-hud.is-penalty .lv-chip { height: 40px; }
+  .lv-hud.is-penalty .lv-chip__p { font-size: 19px; }
+  .lv-hud__foot { font-size: 14px; min-height: 26px; }
+  .lv-feed { flex: 1 1 auto; height: 24px; }
+  .lv-feed__opt { font-size: 14px; }
+  .lv-fans { max-width: 46%; }
+  .lv-fan { height: 26px; font-size: 14px; }
+  .lv-fan__c, .lv-fan__n { font-size: 14px; }
   .lv-fan:nth-child(n + 2) { display: none; }
   .lv-fans.is-empty { display: none; }
+}
+@media (max-width: 440px) {
+  .lv-fans { max-width: 36%; }
+  .lv-likes__bar { width: 34px; }
+  .lv-head__k { font-size: 12.5px; letter-spacing: .05em; }
 }
 
 /* ───────────── placar no topo do card de decisão ───────────── */
 .lv-vrow { position: relative; z-index: 3; display: flex; align-items: center; gap: 7px; height: 26px; margin: -2px 0 8px; padding: 0 8px 0 2px; border-radius: 8px; background: rgba(8, 9, 14, .55); border: 1px solid color-mix(in srgb, var(--oc) 45%, transparent); pointer-events: none; flex: none; }
-.lv-vrow b { display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 5px; background: var(--oc); color: #0a0b10; font: 800 13px/1 var(--font-num); }
+.lv-vrow b { display: grid; place-items: center; flex: none; width: 21px; height: 21px; border-radius: 5px; background: var(--oc); color: #0a0b10; font: 800 14px/1 var(--font-num); }
 .lv-vrow__bar { flex: 1; min-width: 0; height: 6px; border-radius: 4px; background: rgba(255, 255, 255, .1); overflow: hidden; }
 .lv-vrow__bar i { display: block; height: 100%; background: var(--oc); transition: width 380ms var(--ease-out); }
-.lv-vrow__p { flex: none; font: 800 15px/1 var(--font-num); color: var(--text); }
+.lv-vrow__p { flex: none; font: 800 16px/1 var(--font-num); color: var(--text); }
 .lv-vrow.is-won { box-shadow: 0 0 0 2px var(--oc), 0 0 22px -4px var(--oc); }
 
 /* ───────────── palco (#/live?tela=palco) ───────────── */
 .lv-stage { position: relative; z-index: 1; flex: 1; width: 100%; max-width: 980px; margin: 0 auto; padding: 18px 16px 32px; display: grid; gap: 14px; align-content: start; }
 @media (min-width: 900px) { .lv-stage { grid-template-columns: minmax(0, 1fr) 280px; align-items: start; padding-top: 28px; } }
 .lv-stage__card { padding: 22px 18px; border-radius: 24px; min-height: 340px; display: grid; align-content: center; }
-.lv-stage__k { display: inline-flex; align-items: center; gap: 7px; font: 700 11px/1.3 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: #ff8da1; }
+.lv-stage__k { display: inline-flex; align-items: center; gap: 7px; font: 700 14px/1.3 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: #ff8da1; }
+.lv-stage__k.is-paused, .lv-create .lv-stage__k.is-paused, .lv-bid .lv-stage__k.is-paused { color: var(--warning); }
 .lv-stage__t { margin: 8px 0 16px; font: 800 clamp(24px, 6vw, 36px)/1.08 var(--font-display); letter-spacing: -.03em; }
 .lv-stage__opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .lv-sopt { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 8px 16px 8px 10px; border-radius: 16px; background: rgba(0, 0, 0, .35); border: 1px solid color-mix(in srgb, var(--oc) 50%, transparent); transition: opacity 300ms, transform 300ms var(--ease-out); }
@@ -135,7 +184,9 @@
 .lv-sopt__p { flex: none; font: 800 26px/1 var(--font-num); }
 .lv-sopt.is-won { transform: scale(1.02); box-shadow: 0 0 0 2px var(--oc), 0 0 40px -6px var(--oc); }
 .lv-sopt.is-lost { opacity: .4; }
-.lv-stage__how { margin: 14px 0 0; font-size: 14px; line-height: 1.45; color: var(--text-2); }
+.lv-stage__how { margin: 14px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-2); }
+.lv-stage__how.is-paused { color: var(--warning); font-weight: 700; }
+.lv-stage__how.is-why { color: var(--text); font-weight: 700; }
 .lv-stage__idle { display: grid; justify-items: center; text-align: center; gap: 6px; color: var(--text-2); }
 .lv-stage__idle .lv-stage__t { margin: 6px 0 14px; font-size: 24px; color: var(--text); }
 .lv-stage__podium { padding: 16px; border-radius: 20px; background: rgba(255, 255, 255, .035); border: 1px solid var(--border); display: grid; gap: 10px; }
@@ -146,8 +197,8 @@
 .lv-pod__n { font: 800 15px/1 var(--font-num); color: var(--text-3); width: 14px; }
 .lv-stage__podium li.is-top .lv-pod__n { color: var(--warning); }
 .lv-pod__name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lv-pod__c { font: 700 13px/1 var(--font-num); color: var(--text-2); }
-.lv-stage__empty, .lv-stage__hint { margin: 0; font-size: 13px; color: var(--text-3); line-height: 1.45; }
+.lv-pod__c { font: 700 14px/1 var(--font-num); color: var(--text-2); }
+.lv-stage__empty, .lv-stage__hint { margin: 0; font-size: 15px; color: var(--text-3); line-height: 1.45; }
 .lv-stage__hint { color: var(--warning); }
 
 /* disputa e criação da lenda */
@@ -162,15 +213,19 @@
 .lv-bids__c { flex: none; font: 800 20px/1 var(--font-num); }
 .lv-bids__empty { margin-top: 14px; font-size: 15px; }
 .lv-draft { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
-.lv-draft__row { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 54px; padding: 8px 14px; border-radius: 14px; background: rgba(0, 0, 0, .35); border: 1px dashed rgba(255, 255, 255, .16); }
+.lv-draft__row { display: grid; grid-template-columns: 136px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 54px; padding: 8px 14px; border-radius: 14px; background: rgba(0, 0, 0, .35); border: 1px dashed rgba(255, 255, 255, .16); }
 .lv-draft__row.is-done { border-style: solid; border-color: rgba(62, 230, 164, .45); background: rgba(62, 230, 164, .07); }
-.lv-draft__l { font: 700 11px/1.3 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+.lv-draft__l { font: 700 13px/1.3 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
 .lv-draft__v { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font: 800 19px/1.2 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lv-draft__name { letter-spacing: .02em; }
-.lv-draft__wait { font: 500 14px/1.2 var(--font-ui); color: var(--text-3); }
+.lv-draft__wait { font: 500 15px/1.2 var(--font-ui); color: var(--text-3); }
 .lv-draft__ok { color: var(--positive); }
-.lv-draft__cmd { flex: none; padding: 3px 8px; border-radius: 7px; background: rgba(255, 255, 255, .08); font-size: 13px; color: var(--text); white-space: nowrap; }
-.lv-create__fb { margin: 10px 0 0; font-size: 14px; font-weight: 700; color: var(--positive); }
+.lv-draft__cmd { flex: none; padding: 3px 8px; border-radius: 7px; background: rgba(255, 255, 255, .08); font-size: 14px; color: var(--text); white-space: nowrap; }
+.lv-create__fb { margin: 10px 0 0; font-size: 15px; font-weight: 700; color: var(--positive); }
+.lv-create__fb.is-warn { color: var(--warning); }
+.lv-create > .lv-stage__empty { margin-top: 10px; font-size: 14px; }
+.lv-create__fb.is-ready { padding: 8px 12px; border-radius: 12px; background: rgba(62, 230, 164, .1); border: 1px solid rgba(62, 230, 164, .35); }
+.lv-create__fb code { padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, .1); color: var(--text); }
 .lv-stage__how code { padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, .08); color: var(--text); font-size: .92em; }
 @media (max-width: 480px) {
   .lv-draft__row { grid-template-columns: 1fr auto; }
@@ -178,9 +233,9 @@
 }
 
 .lv-announce { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 16px 0; }
-.lv-announce__k { font: 700 12px/1.3 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--warning); }
+.lv-announce__k { font: 700 14px/1.3 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--warning); }
 .lv-announce__name { font: 900 clamp(40px, 13vw, 84px)/0.95 var(--font-display); letter-spacing: -.04em; background: linear-gradient(180deg, #fff, #ffe08a); -webkit-background-clip: text; background-clip: text; color: transparent; overflow-wrap: anywhere; }
-.lv-announce__l { font-size: 15px; color: var(--text-2); line-height: 1.4; }
+.lv-announce__l { font-size: 16px; color: var(--text-2); line-height: 1.4; }
 
 /* ───────────── configuração (#/live) ───────────── */
 .lv-setup { position: relative; z-index: 1; width: 100%; max-width: 980px; margin: 0 auto; padding: 8px 16px 56px; display: grid; gap: 14px; }
@@ -237,12 +292,23 @@
 .lv-bind__n { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--oc); color: #0a0b10; font: 800 17px/1 var(--font-num); }
 .lv-bind .lv-select { flex: 1; }
 
-.lv-pin { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(0, 0, 0, .3); border: 1px dashed rgba(255, 255, 255, .16); }
-.lv-pin p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.lv-pins { display: grid; gap: 8px; }
+.lv-pins__grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .lv-pins__grid { grid-template-columns: 1fr 1fr; } }
+.lv-pin { display: grid; gap: 8px; align-content: start; padding: 12px; border-radius: 14px; background: rgba(0, 0, 0, .3); border: 1px dashed rgba(255, 255, 255, .16); }
+.lv-pin__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lv-pin__count { font: 700 12px/1 var(--font-num); color: var(--text-3); }
+.lv-pin__count.is-over { color: var(--negative); }
+.lv-pin p { margin: 0; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
 .lv-pin .lx-btn { justify-self: start; }
+.lv-secret input { min-width: 0; }
+.lv-secret__btn { all: unset; flex: none; padding: 2px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--text-2); cursor: pointer; }
+.lv-secret__btn:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
+.lv-secret__btn:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: 1px; }
 
 .lv-tests { display: flex; flex-wrap: wrap; gap: 8px; }
-.lv-tests__k { align-self: center; font-size: 13px; color: var(--text-2); }
+.lv-tests__k { align-self: center; margin: 0; font-size: 13px; color: var(--text-2); }
+.lv-tests.is-idle { opacity: .75; }
 .lv-test { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 4px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--oc) 40%, transparent); }
 .lv-test > b { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--oc); color: #0a0b10; font: 800 14px/1 var(--font-num); }
 .lv-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; color: var(--text-2); }
@@ -251,7 +317,67 @@
 }
 
 /* Ajustes sobre telas do Modo Clássico — fora da camada porque o CSS delas não usa @layer. */
-/* comemoração de título abaixo da faixa (a faixa continua visível, sem botões sobrepostos) */
+/* comemoração de título abaixo da faixa (a faixa continua visível, sem botões sobrepostos). O véu é
+   position:fixed e escapava do .ck-cel cobrindo a faixa — e o clique nela fechava a comemoração. */
 :root:has(.lv-hud) .ck-cel { top: var(--lv-hud-h, 0px); }
+:root:has(.lv-hud) .ck-cel .lx-veil { top: var(--lv-hud-h, 0px); }
 /* o atalho de teclado sai de cena durante a votação */
 .ck-opt:has(.lv-vrow) .ck-opt__kbd { display: none; }
+/* card de altura fixa (desktop grande) + linha de votos: centraliza sem cortar o topo/o rodapé */
+.ck-opt:has(.lv-vrow), .ck-grid-opts .ck-opt.is-compact:has(.lv-vrow) { justify-content: safe center; }
+@media (min-width: 1104px) {
+  .ck-opt--club.is-compact:has(.lv-vrow) .ck-opt__thumb.lx-option__crest { width: 56px; height: 56px; }
+  .ck-opt--club.is-compact:has(.lv-vrow) .ck-opt__thumb .lx-crest-box { transform: scale(1.2); }
+  /* card baixo (1280×720): a linha de votos ocupa o lugar de salário/contrato — o resto não é cortado */
+  @container ckopt (max-height: 185px) {
+    .ck-opt.is-compact:has(.lv-vrow) .ck-opt__mini { display: none; }
+  }
+}
+
+/* pênalti decisivo na live: o número da zona é o número da votação (na cor da opção) e a % é chance de gol,
+   não parcela de votos — o placar dos votos fica nos chips da faixa */
+:root:has(.lv-hud.is-penalty) .ck-pen__zone[data-idx="0"] { --zc: #ff4d6d; }
+:root:has(.lv-hud.is-penalty) .ck-pen__zone[data-idx="1"] { --zc: #2fd3ff; }
+:root:has(.lv-hud.is-penalty) .ck-pen__zone[data-idx="2"] { --zc: #a98bff; }
+:root:has(.lv-hud.is-penalty) .ck-pen__zone[data-idx="3"] { --zc: #ffc857; }
+:root:has(.lv-hud.is-penalty) .ck-pen__zlabel .lx-kbd { background: var(--zc, #fff); color: #0a0b10; border-color: transparent; font-weight: 800; }
+:root:has(.lv-hud.is-penalty) .ck-pen__zlabel b::before { content: 'chance '; font-weight: 600; color: rgba(255, 255, 255, .7); font-size: .85em; }
+
+/*
+ * ───────────── Área segura do TikTok (janela da live em pé, 9:16) ─────────────
+ * O app do TikTok desenha por cima da transmissão: nome/espectadores no topo (~8% da altura) e o chat, os
+ * presentes e a caixa de comentário embaixo (~22%). Com data-lv-safe (janela da live + opção ligada), a
+ * faixa começa abaixo do topo e as opções/votos ficam acima da faixa de baixo, que vira um fundo escuro
+ * (o chat do TikTok fica legível por cima dele).
+ */
+@media (orientation: portrait) {
+  :root[data-lv-safe] { --lv-safe-top: 8vh; --lv-safe-bottom: 22vh; }
+  :root[data-lv-safe] .lv-hud { padding-top: calc(var(--lv-safe-top) + 8px); }
+  :root[data-lv-safe] body::after {
+    content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: var(--lv-safe-bottom); z-index: 29; pointer-events: none;
+    background: linear-gradient(180deg, rgba(8, 9, 14, 0), #08090e 18px);
+  }
+  :root[data-lv-safe] .lx-toaster { top: calc(var(--lv-hud-h, 200px) + 10px); }
+  /* carreira: a folha da decisão para acima da faixa de baixo e nunca passa por baixo da faixa da live */
+  :root[data-lv-safe] .ck-sheet { bottom: var(--lv-safe-bottom); border-radius: 22px; }
+  :root[data-lv-safe] .ck-sheet__inner { max-height: calc(100vh - var(--lv-safe-bottom) - var(--lv-hud-h, 220px) - 64px); }
+  /* opções em duas colunas (4 opções = 2 linhas); durante a votação o título e o texto da decisão saem
+     da folha (o título já está na faixa) para sobrar espaço para o jogador e os cards */
+  :root[data-lv-safe] .ck-grid-opts:is(.is-n3, .is-n4) .ck-grid-opts__cell { grid-column: span 2; }
+  :root[data-lv-safe] .ck-grid-opts.is-n3 .ck-grid-opts__cell.is-center { grid-column: 2 / span 2; }
+  :root[data-lv-safe] .ck-decision:has(.lv-vrow) :is(.ck-decision__sub, .ck-decision__title) { display: none; }
+  :root[data-lv-safe] .ck-sheet .ck-grid-opts { gap: 7px; }
+  :root[data-lv-safe] .ck-sheet .ck-opt:has(.lv-vrow) { padding: 9px 9px 8px; }
+  :root[data-lv-safe] .ck-sheet .ck-opt .lv-vrow { margin: 0 0 6px; }
+  :root[data-lv-safe] .ck-sheet .ck-opt:has(.lv-vrow) .lx-fx { height: 26px; }
+  :root[data-lv-safe] .ck-sheet .ck-opt:has(.lv-vrow) .ck-opt__crest { height: 64px !important; }
+  :root[data-lv-safe] .ck-sheet { padding-bottom: 4px; }
+  /* jogador mais enxuto: OVR, nome e posição continuam à vista acima da folha da decisão */
+  :root[data-lv-safe] .ck-hero { padding: 10px 14px; gap: 12px; min-height: 0; }
+  :root[data-lv-safe] .ck-hero .lx-ovr { --w: 62px !important; }
+  :root[data-lv-safe] .ck-hero__name { font-size: 26px; margin: 6px 0 4px; }
+  /* o fim da página pode rolar até acima da faixa de baixo (o fim de carreira vem para o meio da tela) */
+  :root[data-lv-safe] main.ck { padding-bottom: calc(var(--lv-safe-bottom) + 12px); }
+  /* palco: o conteúdo para acima da faixa de baixo */
+  :root[data-lv-safe] .lv-stage { padding-bottom: calc(var(--lv-safe-bottom) + 16px); }
+}

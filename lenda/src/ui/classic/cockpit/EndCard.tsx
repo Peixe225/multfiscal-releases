@@ -2,11 +2,16 @@
  * "Sua carreira chegou ao fim" — replaces the decision card once the career is over:
  * retirement art, the reason, a 4-up stat strip and Ver resumo · Jogar novamente.
  */
-import { memo } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, Crown, RotateCcw } from 'lucide-react'
+import { ArrowRight, Crown, RotateCcw, Sparkles } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
+import { newLegendNow } from '@/live/autopilot'
+import { lockHolder, sendLiveCommand } from '@/live/channel'
+import { useLiveSession } from '@/live/config'
+import { topSupporters, useLive } from '@/live/store'
+import { coinsLabel } from '@/ui/live/bits'
 import { Button, formatInt, useReducedMotion } from '@/ui/primitives'
 import { EventArt } from '@/ui/art/EventArt'
 import { careerTotals, isKeeper } from './model'
@@ -16,6 +21,14 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   const { state } = data
   const rm = useReducedMotion()
   const abandon = useCareer((s) => s.abandon)
+  const live = useLiveSession((s) => s.on)
+  const ref = useRef<HTMLElement>(null)
+  // live: a janela é capturada e ninguém rola a página — o fim de carreira vem para o meio da tela
+  useEffect(() => {
+    if (!live) return
+    const t = setTimeout(() => ref.current?.scrollIntoView({ block: 'center', behavior: rm ? 'auto' : 'smooth' }), 400)
+    return () => clearTimeout(t)
+  }, [live, rm])
   const t = careerTotals(state.seasons)
   const gk = isKeeper(state.identity.position)
   const last = state.seasons[state.seasons.length - 1]
@@ -39,6 +52,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   }
   return (
     <motion.section
+      ref={ref}
       className="lx-glass lx-top-light ck-decision ck-end"
       aria-labelledby="ck-end-title"
       initial={rm ? false : { opacity: 0, y: 10 }}
@@ -72,18 +86,52 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
             </div>
           ))}
         </dl>
-        <div className="ck-end__actions">
-          <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => navigate('/resumo')}>
-            Ver resumo
-          </Button>
-          <Button variant="ghost" size="lg" icon={RotateCcw} onClick={again}>
-            Jogar novamente
-          </Button>
-        </div>
+        {live ? (
+          <LiveEndActions />
+        ) : (
+          <div className="ck-end__actions">
+            <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => navigate('/resumo')}>
+              Ver resumo
+            </Button>
+            <Button variant="ghost" size="lg" icon={RotateCcw} onClick={again}>
+              Jogar novamente
+            </Button>
+          </div>
+        )}
       </div>
     </motion.section>
   )
 })
+
+/**
+ * Modo live: a janela é a que vai ao ar — nada de sair para o resumo ou para o criador manual (a live
+ * seguiria sozinha por trás). Agradece aos maiores apoiadores e oferece a próxima lenda.
+ */
+function LiveEndActions() {
+  const supporters = useLive((s) => s.careerSupporters)
+  const top = topSupporters(supporters, 3).filter((s) => s.coins > 0)
+  return (
+    <>
+      {top.length > 0 && (
+        <p className="ck-decision__sub">
+          Obrigado, torcida! Maiores apoiadores desta carreira:{' '}
+          {top.map((s, i) => (
+            <span key={s.user.id}>
+              {i > 0 && ' · '}
+              <b>{s.user.name}</b> ({coinsLabel(s.coins)})
+            </span>
+          ))}
+        </p>
+      )}
+      <div className="ck-end__actions">
+        {/* numa janela "painel" o autopiloto não roda: o pedido vai para a janela da live */}
+        <Button variant="primary" size="lg" icon={Sparkles} onClick={() => (lockHolder() ? sendLiveCommand('new-legend') : newLegendNow())}>
+          Nova lenda agora
+        </Button>
+      </div>
+    </>
+  )
+}
 
 /** O motor grava a razão como chave (retirement_age, no_offers…); aqui vira texto pt-BR. */
 function retiredText(reason: string | undefined, age: number | undefined): string {

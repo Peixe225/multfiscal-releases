@@ -23,9 +23,19 @@ function send(msg: unknown) {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
 }
 
+/**
+ * @ do TikTok como a ponte espera: "@MeuPerfil " ou o link colado ("https://www.tiktok.com/@MeuPerfil/live")
+ * → "meuperfil". O @ do TikTok é sempre minúsculo: com maiúscula o TikTok responde que o perfil não existe.
+ */
+export function cleanTikTokUser(raw: string): string {
+  const s = raw.trim()
+  const link = s.match(/tiktok\.com\/@([^/?#\s]+)/i)
+  return (link ? link[1] : s).replace(/^@+/, '').replace(/\s+/g, '').toLowerCase()
+}
+
 /** Pede para a ponte entrar na live do @ configurado. */
 export function bridgeJoin(username = useLiveConfig.getState().config.username) {
-  const user = username.trim().replace(/^@/, '')
+  const user = cleanTikTokUser(username)
   const { signKey } = useLiveConfig.getState().config
   if (!user) {
     useLive.getState().setStatus({ state: 'idle', message: 'Digite o @ do perfil que está ao vivo.' })
@@ -52,6 +62,7 @@ function open() {
   }
   ws = sock
   sock.onopen = () => {
+    if (ws !== sock) return
     retry = 0
     if (cfg.source === 'ponte') {
       send({ type: 'hello' })
@@ -62,6 +73,7 @@ function open() {
     }
   }
   sock.onmessage = (e) => {
+    if (ws !== sock) return
     const live = useLive.getState()
     for (const p of parseMessage(e.data)) {
       if (p.type === 'gift-raw') {
@@ -74,7 +86,10 @@ function open() {
     }
   }
   sock.onclose = () => {
-    if (ws === sock) ws = null
+    // só o socket atual pode reconectar: o fechamento de um socket antigo (troca de fonte) chega depois,
+    // quando `stopped` já voltou a false — sem esta checagem ele abriria um socket zumbi duplicado
+    if (ws !== sock) return
+    ws = null
     if (stopped) return
     const wait = Math.min(10_000, 1000 * 2 ** retry++)
     useLive.getState().setStatus({
@@ -93,8 +108,11 @@ export function connectLive() {
   tracker = createStreakTracker()
   const cfg = useLiveConfig.getState().config
   const store = useLive.getState()
-  store.setSource(cfg.source)
-  if (cfg.source === 'simulador' || LIVE_SANDBOXED) {
+  const source = LIVE_SANDBOXED ? 'simulador' : cfg.source
+  // trocou a fonte (ex.: do simulador para a live de verdade): o público de teste não passa para a live
+  if (store.source && store.source !== source) store.clearSession()
+  store.setSource(source)
+  if (source === 'simulador') {
     store.setStatus({ state: 'demo', message: cfg.simAuto ? 'Simulador: público de teste votando' : 'Simulador: use os botões de teste' })
     if (cfg.simAuto) startSimulator()
     return
@@ -108,15 +126,21 @@ export function disconnectLive({ leave = false }: { leave?: boolean } = {}) {
   stopSimulator()
   if (retryTimer) clearTimeout(retryTimer)
   retryTimer = null
-  if (ws) {
+  const s = ws
+  ws = null
+  if (s) {
+    // solta os handlers antes de fechar: nada deste socket chega mais à live (nem o onclose tardio)
+    s.onopen = null
+    s.onmessage = null
+    s.onclose = null
+    s.onerror = null
     try {
-      if (leave) bridgeLeave()
-      ws.close()
+      if (leave && s.readyState === WebSocket.OPEN) s.send(JSON.stringify({ type: 'disconnect' }))
+      s.close()
     } catch {
       /* já fechado */
     }
   }
-  ws = null
   useLive.getState().setStatus({ state: 'idle' })
 }
 

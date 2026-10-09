@@ -104,13 +104,9 @@ export const useApp = create<AppStore>()(
     {
       name: 'lenda:settings',
       version: 1,
-      storage: createJSONStorage(() => {
-        try {
-          return localStorage
-        } catch {
-          return undefined as unknown as Storage
-        }
-      }),
+      // sem storage (navegador bloqueando): createJSONStorage engole o erro e o zustand segue só na memória.
+      // Devolver undefined daqui fazia o persist chamar getItem/setItem em undefined (página em branco).
+      storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ settings: s.settings }),
       merge: (persisted, current) => ({
         ...current,

@@ -69,6 +69,12 @@ export function sameGift(a: Pick<LiveGiftInfo, 'id' | 'name'>, binding: string):
   return !!meta && (giftKey(meta.pt) === k || giftKey(meta.name) === k)
 }
 
+/** 950 · "1,1 mil" · "2 mil" (sem ",0") · "12 mil". */
+export const fmtCoins = (n: number) => (n >= 10000 ? `${(n / 1000).toFixed(0)} mil` : n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',').replace(/,0$/, '')} mil` : String(n))
+
+/** "1 moeda" · "30 moedas" · "1,1 mil moedas". */
+export const coinsLabel = (n: number) => `${fmtCoins(n)} ${n === 1 ? 'moeda' : 'moedas'}`
+
 /** Catálogo para a configuração: lista real da sala (ordenada por preço) ou o de reserva. */
 export function giftCatalog(live: LiveGiftInfo[]): LiveGiftInfo[] {
   if (!live.length) return FALLBACK_GIFTS
