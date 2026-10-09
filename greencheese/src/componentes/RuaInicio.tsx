@@ -3,9 +3,9 @@ import { alturaDaFaixa } from './rua/palco'
 import { useUI } from '../store/ui'
 import './RuaInicio.css'
 
-// A vaga da rua viva no Início: reserva a altura exata da faixa desde o primeiro quadro (zero pulo) e só baixa a rua
-// (pedaço à parte, com o elenco montando num worker) no primeiro respiro depois da abertura. A primeira tela não paga
-// nada por ela.
+// A vaga da rua viva no Início do computador (embaixo do perfil): reserva a altura exata da faixa desde o primeiro
+// quadro (zero pulo) e só baixa a rua (pedaço à parte, com o elenco montando num worker) no primeiro respiro depois da
+// abertura. A primeira tela não paga nada por ela. No celular a rua é o primeiro story (rua/StoryRua.tsx).
 
 const Rua = lazy(() => import('./rua/Rua'))
 
@@ -52,28 +52,4 @@ export function RuaInicio({ k, bordas, className }: { k: number; bordas?: boolea
       )}
     </div>
   )
-}
-
-const CELULAR = '(max-width: 899px)'
-function assinarCelular(avisar: () => void) {
-  try {
-    const q = window.matchMedia(CELULAR)
-    q.addEventListener('change', avisar)
-    return () => q.removeEventListener('change', avisar)
-  } catch {
-    return () => {}
-  }
-}
-const lerCelular = () => {
-  try {
-    return window.matchMedia(CELULAR).matches
-  } catch {
-    return false
-  }
-}
-
-/** A rua no Início do celular: faixa de ponta a ponta, a 2 px por pixel da arte (no computador ela mora no hero). */
-export function RuaCelular() {
-  const celular = useSyncExternalStore(assinarCelular, lerCelular, () => false)
-  return celular ? <RuaInicio k={2} className="rua-celular" /> : null
 }

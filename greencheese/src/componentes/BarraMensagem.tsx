@@ -42,7 +42,8 @@ export function RespostaStory({ produtoId }: { produtoId: string | null }) {
       nav.share({ title: titulo, url: link }).catch(() => undefined)
       return
     }
-    avisar(copiarTexto(link) ? 'Link do produto copiado.' : 'Não deu pra copiar.')
+    // sem produto (o story da rua, ou nenhum à venda) o link é o da loja
+    avisar(copiarTexto(link) ? (produto ? 'Link do produto copiado.' : 'Link da loja copiado.') : 'Não deu pra copiar.')
   }
   return (
     <div className="hero-resposta">
