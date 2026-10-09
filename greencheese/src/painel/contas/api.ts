@@ -31,7 +31,7 @@ export const cliente = (id: number, sinal?: AbortSignal) => pedir<Ok<DetalheClie
 
 export const apagarCliente = (id: number) => pedir<Ok<object>>('POST', 'admin-cliente-apagar', { corpo: { id } })
 
-export const ajustesClientes = (codigo: boolean) => pedir<Ok<{ codigo: SituacaoCodigo }>>('POST', 'admin-clientes-ajustes', { corpo: { codigo } })
+export const ajustesClientes = (corpo: { codigo?: boolean; tetoHora?: number; tetoDia?: number }) => pedir<Ok<{ codigo: SituacaoCodigo }>>('POST', 'admin-clientes-ajustes', { corpo })
 
 export const cupomUsado = (codigo: string, usado: boolean) => pedir<Ok<{ cupom: CupomCliente }>>('POST', 'admin-cupom-usado', { corpo: { codigo, usado } })
 

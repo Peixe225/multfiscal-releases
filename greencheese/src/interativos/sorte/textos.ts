@@ -151,6 +151,7 @@ export const T = {
   outroCodigo: 'Mandar outro código',
   outroCodigoEm: (s: number) => `Outro código em ${s} s`,
   outroCodigoFoi: 'Mandamos outro código.',
+  codigoJaValendo: 'Já tem código valendo pra esse número: usa o último que chegou no teu WhatsApp.',
   confirmarNumero: 'Confirmar o número novo',
   trocarNumeroLegenda: 'Pra trocar, a loja manda um código pro número novo.',
   primeiraVez: 'Primeira vez por aqui',
@@ -168,6 +169,7 @@ export const T = {
   linkCopiado: 'Link copiado.',
   erroGuardar: 'Não deu pra guardar agora. Tenta de novo.',
   premioVencidoAoGuardar: 'Esse prêmio já tinha vencido. A conta foi criada.',
+  premioContaJaGirou: 'Tua conta já tinha girado nesse dia: o prêmio desse giro não entra nela. É 1 giro por dia por conta.',
 
   // minha conta
   minhaConta: 'Minha conta',

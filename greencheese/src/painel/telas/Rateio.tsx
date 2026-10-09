@@ -15,7 +15,7 @@ import type { Participante, RateioAdmin, StatusRateio } from '../tipos'
 import { Aviso, Botao, Carregando, Ic, Linha, TituloTela } from '../ui'
 import type { AoMudar } from '../vaga'
 import { AvisarTodos, avisados } from './AvisarTodos'
-import { usePode } from '../permissoes'
+import { DICA_RATEIO_DE_OUTRO, rateioEhMeu, usePode, useUsuario } from '../permissoes'
 import { useRestaurarRolagem, useTitulo } from './comum'
 import { avisarNaProxima, pegarRecado } from './flash'
 import { FormPessoa } from './FormPessoa'
@@ -95,8 +95,10 @@ function confirmacaoDoPasso(r: RateioAdmin, para: StatusRateio): { titulo: strin
 export function Rateio({ id }: { id: string }) {
   const leitura = useDados<Dados>(`participantes:${id}`, (s) => api.participantes(id, s))
   const [recado, setRecado] = useState(pegarRecado)
-  // atendente vê o rateio e cuida dos participantes; editar, mudar o status e apagar é com gerente e dono
-  const mexe = usePode('rateios')
+  // atendente vê o rateio e cuida dos participantes; editar, mudar o status e apagar é com gerente e dono — e o gerente
+  // só nos rateios que valem só nos estados dele (MG+RJ pro gerente de MG: só o dono)
+  const podeRateios = usePode('rateios')
+  const usuario = useUsuario()
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
   const [avisar, setAvisar] = useState<StatusRateio | null>(null)
   const [pessoa, setPessoa] = useState<{ aberta: boolean; p: Participante | null }>({ aberta: false, p: null })
@@ -135,6 +137,8 @@ export function Rateio({ id }: { id: string }) {
 
   const r = d.rateio
   const agora = api.agora()
+  const deOutro = podeRateios && !rateioEhMeu(r.ufs, usuario)
+  const mexe = podeRateios && !deOutro
   const aoMudar: AoMudar = ({ participante, rateio }) =>
     leitura.trocar((x) => ({ rateio, participantes: x.participantes.some((p) => p.id === participante.id) ? x.participantes.map((p) => (p.id === participante.id ? participante : p)) : [...x.participantes, participante] }))
 
@@ -301,7 +305,7 @@ export function Rateio({ id }: { id: string }) {
               )}
             </div>
           )}
-          {!mexe && (principal || reabrir) && <p className="pn-dica-bloco">Mudar o status do rateio é com o gerente ou o dono.</p>}
+          {!mexe && (principal || reabrir) && <p className="pn-dica-bloco">{deOutro ? DICA_RATEIO_DE_OUTRO : 'Mudar o status do rateio é com o gerente ou o dono.'}</p>}
           {comAviso.length > 0 && (
             <button type="button" className="pn-avisar-todos toque" onClick={() => setAvisar(r.status)}>
               <Ic nome="whatsapp" tamanho={24} />

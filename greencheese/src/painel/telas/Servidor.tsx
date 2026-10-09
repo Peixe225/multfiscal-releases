@@ -146,6 +146,7 @@ export function Servidor() {
                 Cópia do banco
               </h2>
               <p className="pn-dica-bloco">Baixa tudo num arquivo só (rateios, participantes, histórico). Faz toda semana e guarda fora do celular, num lugar seguro: tem nome e WhatsApp dos clientes.</p>
+              <p className="pn-dica-bloco">A cópia não leva as senhas dos Avisos no WhatsApp (token, apikey, segredo e endereço do webhook): se um dia voltar uma cópia, põe elas de novo em Avisos no WhatsApp.</p>
               {copia.erro && <Aviso tipo="erro">{copia.erro.message}</Aviso>}
               {/* pelo api.ts (não um link direto): sessão vencida abre o login e o download recomeça; erro aparece */}
               <Botao variante="cinza" icone="baixar" ocupado={copia.ocupado === 'copia'} onClick={() => void copia.rodar('copia', api.baixarBackup)}>

@@ -157,6 +157,28 @@
   gap: 2px;
   padding-top: 3px;
 }
+.ct-teto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ct-teto-campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.ct-teto-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.ct-teto-campo .pn-input {
+  width: 110px;
+}
 .ct-codigo-sub,
 .ct-sub {
   font-size: 13px;

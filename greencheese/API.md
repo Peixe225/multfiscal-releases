@@ -171,10 +171,14 @@ um aviso num grupo do WhatsApp (Avisos no WhatsApp, abaixo).
   até 2 h depois do envio, o pedido novo vai com `substitui: { codigo, token }` do de antes. O de antes, se ainda `novo`
   e de até 2 h atrás (relógio do servidor), vira `cancelado` com `substituidoPor`; se já andou (ou passou das 2 h), os
   dois ficam, ligados, e o aviso do grupo pede pra conferir. Depois das 2 h o aparelho manda sem `substitui`: é outro
-  pedido (a pessoa voltou outro dia sem tocar em "Mandei").
+  pedido (a pessoa voltou outro dia sem tocar em "Mandei"). O de antes que ainda não tinha chegado (o envio dele falhou):
+  o aparelho tira a cópia dele da fila quando manda o mudado, e o servidor guarda no mudado o código e o hash do token
+  do `substitui` — se o de antes chegar depois mesmo assim, entra já `cancelado`, ligado ao mudado, sem aviso no grupo.
 - No aparelho, a cópia fica pendente (`localStorage` `gc-pedidos`, até 10, por 3 dias) até o servidor confirmar: a
   volta pra aba (o retorno do WhatsApp) ou a próxima visita mandam de novo, com espera crescente (30 s, 1 min, 2 min…
-  até 6 h, ou o `esperaSegundos` do 429). Erro que não muda tentando de novo (recusado, site sem servidor) sai da fila.
+  até 6 h, ou o `esperaSegundos` do 429). Erro que não muda tentando de novo (recusado, site sem servidor) sai da fila,
+  mas a recusa fica anotada no aparelho (`localStorage` `gc-pedidos-recusados`, as 10 últimas, com o erro e o campo) e
+  no console; o servidor anota cada recusa no log dele (`[pedido] recusado GC-XXXXX: invalido (campo)`).
 - Sem servidor (o zip da prévia, `file:`, `npm run dev` com o PHP desligado), nada disso aparece pro cliente.
 
 ### POST `r=pedido`
@@ -203,10 +207,11 @@ interface CorpoPedido {
   }[]
   subtotal?: number | null       // tem que ser a soma dos totais conhecidos (null = tudo a consultar)
   subtotalTexto?: string         // 'R$ 169,89' · 'R$ 29,98 + itens a consultar' · 'a consultar'
-  cupom?: { codigo: string; regra: string; origem: string } | null // 'SORTE-K8EA'; a loja confirma
+  cupom?: { codigo: string; regra: string; origem: string } | null // 'SORTE-K8EA'; a loja confirma; torto vira null
   entrega?: { endereco: string; rua: string; numero: string; bairro: string; cep: string; cidade: string; uf: string }
-  pagamento?: 'pix' | 'dinheiro' | 'cartao' | null
-  troco?: number | null          // só com dinheiro
+  pagamento?: 'pix' | 'dinheiro' | 'cartao' | null // o que não for um desses vira null (não recusa)
+  troco?: number | null          // só com dinheiro; arredondado pra centavos (50.555 → 50,56); acima de R$ 100.000 ou
+                                 // ilegível vira null (não recusa: o troco só informa)
   obs?: string                   // até 200
   // encomenda
   encomenda?: { produto: string; quantidade: string; referencia: string } // produto 2 a 120; referência até 300
@@ -220,9 +225,14 @@ interface CorpoPedido {
 - 201 `{ ok, pedido: { codigo, tipo, status: 'novo', criadoEm } }` (nada pessoal volta: o aparelho já tem tudo).
 - 200 `{ ok, pedido, repetido: true }`: a mesma entrada de novo (código + token). Não grava, não avisa o grupo e não
   gasta o limite.
-- Erros: `invalido` 400 (`campo`: `codigo`, `token`, `tipo`, `uf`, `nome`, `itens`, `subtotal`, `cupom`, `pagamento`,
-  `troco`, `encomenda`, `mensagem`; `site` quando a armadilha veio preenchida; token de outro código também é
-  `token`), `proibido` 422 (`campo`: `itens` | `encomenda`, `termo`: derivado do tabaco ou cigarro eletrônico, a lista
+- **Campo informativo não derruba o pedido**: cupom, pagamento e troco tortos ficam de fora (null) e o pedido entra.
+  Campo estrutural torto (`uf`, `nome`, `itens`, `subtotal`, `encomenda`) com a **mensagem certa** (começa com o
+  cabeçalho e tem a linha do código): o pedido entra só com a mensagem (sem itens; o estado e o nome saem do cabeçalho e
+  da linha "Nome:" quando o corpo não trouxe) e a anotação diz o campo — o cliente já mandou essa mensagem pra loja, e
+  um desencontro entre o site e o servidor nunca faz o pedido sumir do painel e do grupo. O aviso do grupo leva a
+  mensagem do cliente. Tabaco nas linhas dos itens da mensagem continua 422.
+- Erros: `invalido` 400 (`campo`: `codigo`, `token`, `site` quando a armadilha veio preenchida, `mensagem`; e os
+  estruturais quando nem a mensagem serve; token de outro código também é `token`), `proibido` 422 (`campo`: `itens` | `encomenda`, `termo`: derivado do tabaco ou cigarro eletrônico, a lista
   do Rateio — a mesma recusa vale pra produto), `origem` 403, `muitas-tentativas` 429 (20 pedidos novos por hora por
   IP; a armadilha e o corpo quebrado contam), `ocupado` 503.
 
@@ -279,14 +289,15 @@ contagem por status vale pro estado escolhido (`abertos` = novo + confirmado + s
 **Status do pedido** (`admin-pedido-status`): `novo → confirmado → saiu → entregue`, voltar um passo (toque errado:
 `confirmado → novo`, `saiu → confirmado`, `entregue → saiu`; a data do passo desfeito sai), `cancelado` de qualquer
 um que não foi entregue e `cancelado → novo` (reabrir; recomeça sem as datas). Pedir o status que já tem: 200 com
-`jaEstava: true`. Pedido trocado pelo cliente (`substituidoPor`) não muda mais. O cliente não é avisado sozinho: o
+`jaEstava: true`. Pedido trocado pelo cliente (`substituidoPor`) não muda mais; pedido com os dados apagados (LGPD)
+também não (409 `dados-apagados`; `proximos: []`, o painel não mostra "Reabrir"). O cliente não é avisado sozinho: o
 painel mostra a mensagem pronta de cada passo pro dono mandar no WhatsApp de quem pediu.
 
 Erros: `nao-encontrado` 404; `invalido` 400 (`campo`: `status`, `whatsapp`, `nota` — até 500 —, `chave`, `texto`,
 `motor`, `destino`, `zapi.instancia`, `zapi.token`, `zapi.clientToken`, `evolution.url`, `evolution.instancia`,
 `evolution.apikey`, `webhook.url`, `webhook.segredo`, `eventos`; no `texto`, também `maximo`, `marcador` ou `termo`);
 `transicao-invalida` 409 (`de`, `para`, `permitidos`); `substituido` 409 (`por`, `porId`); `pedido-ativo` 409 (apagar
-dados de pedido em andamento); `dados-apagados` 409 (editar depois de apagar); `proibido` 422 (tabaco na fala);
+dados de pedido em andamento); `dados-apagados` 409 (editar ou mudar o status depois de apagar); `proibido` 422 (tabaco na fala);
 `avisos-desligados` 409 (testar ou reenviar com o motor desligado); `nao-reenvia` 409 (aviso que não guarda o texto de
 verdade, como o código de login das contas); `muitas-tentativas` 429 (20 testes/reenvios em 10 min por usuário).
 
@@ -676,6 +687,9 @@ nunca sobe por alguém sem nome nem WhatsApp); cancelar continua valendo.
 
 **Cópia do banco**: `admin-backup` baixa o banco inteiro num arquivo só, já com o que estava no diário do SQLite
 (copiar o `loja.sqlite` à mão pode sair sem as últimas mudanças). Tem nome, WhatsApp e tudo: guardar em lugar seguro.
+**Sem os segredos dos avisos**: o token e o Client-Token do Z-API, a apikey da Evolution e o segredo e o endereço do
+webhook saem da cópia (zerados, com `secure_delete` e `VACUUM`); quem voltar uma cópia põe eles de novo em Avisos no
+WhatsApp. O sal fica (sem ele os hashes e os limites da cópia não batem).
 
 ## Equipe: papéis e permissões
 
@@ -746,27 +760,33 @@ A conta do cliente fica na loja quando o servidor consegue mandar o código de e
 WhatsApp ligados com um motor que manda mensagem pra número (Z-API ou Evolution) e o dono sem desligar em Clientes.
 Sem isso, o site segue com a conta só no aparelho (como antes). O site pergunta no `recursos`.
 
-- **Código**: 6 números, vale 10 min, 5 tentativas; pedir outro invalida o anterior. Vai pelo WhatsApp da loja:
+- **Código**: 6 números, vale 10 min, 5 tentativas; valem os **2 últimos** do número (pedir outro não mata o que já
+  chegou; o terceiro mata o primeiro; o chute errado conta nos dois; usado um, o outro para de valer). Vai pelo WhatsApp da loja:
   `*482913* é teu código pra entrar na Green Cheese. Vale por 10 minutos.` + `Não passa ele pra ninguém: a loja nunca
   pede esse código.` O banco guarda só o HMAC do código. A resposta do pedir é a mesma com ou sem conta (não revela se
   o número tem conta).
-- **Limites**: 1 código por minuto por número; 3 em 15 min e 8 por dia por número; 10 por hora por IP; 30 entradas por
-  hora por IP; 30 giros por dia por IP.
+- **Limites**: 1 código por minuto por número; 3 em 15 min e 8 por dia por número; 10 por hora por IP; 20 por hora por
+  rede (IPv4 /24, IPv6 /48); e o **teto da loja inteira** (30 por hora e 200 por dia, o dono muda em Clientes): batido,
+  o entrar com código **pausa sozinho** (`recursos` diz `codigo: false`, o site volta pra conta do aparelho, o pedir
+  código responde `sem-codigo` 409 com `pausado: true`, a Atividade registra `contas-codigo-pausado`) e volta sozinho
+  quando a janela passa. No limite do número, se ainda tem código valendo, o 429 vem com `codigoValendo: true` (a tela
+  vai pro passo do código: quem pede código pro número dos outros não trava a dona). Do **aparelho em que a conta já
+  entrou** (`aparelho` no corpo), o limite do número é só dele. 30 entradas por hora por IP; 30 giros por dia por IP.
 - **Cookie** `gc_cliente`: token de 32 bytes (o servidor guarda o hash), `HttpOnly`, `SameSite=Lax`, `Secure` no
   HTTPS, `Path` = pasta do site, 90 dias, desliza a cada uso; até 10 sessões por conta. Separado do `gc_painel`.
 
 | Rota | Corpo / parâmetros | Sucesso |
 |---|---|---|
 | GET `recursos` | — | `{ contas: { codigo: boolean, sessao: boolean } }` (`codigo`: dá pra entrar com código; `sessao`: este aparelho tem conta aberta) |
-| POST `cliente-codigo` | `{ whatsapp, motivo?: 'entrar' \| 'trocar', site: '' }` | `{ enviado: true, para: '(33) 9••••-4567', expiraEm, reenviarEm }` |
-| POST `cliente-entrar` | `{ whatsapp, codigo, nome?, aceitaPromo?, aparelho?, migrar? }` | 201 (criou) / 200 `ContaEu & { criada, cupomGuardado, migrados, pendente: null }` + cookie · sem conta e sem nome: 200 `{ precisaNome: true, campo: 'nome' }` (sem sessão; o código continua valendo) |
+| POST `cliente-codigo` | `{ whatsapp, motivo?: 'entrar' \| 'trocar', aparelho?, site: '' }` | `{ enviado: true, para: '(33) 9••••-4567', expiraEm, reenviarEm }` |
+| POST `cliente-entrar` | `{ whatsapp, codigo, nome?, aceitaPromo?, aparelho?, migrar? }` | 201 (criou) / 200 `ContaEu & { criada, cupomGuardado, pendenteRecusado: 'ja-girou-hoje' \| null, migrados, pendente: null }` + cookie · sem conta e sem nome: 200 `{ precisaNome: true, campo: 'nome' }` (sem sessão; o código continua valendo) |
 | GET `cliente-eu` | `[&aparelho=]` | `{ agora } & ContaEu` |
 | POST `cliente-atualizar` | `{ nome?, aceitaPromo?, whatsapp?, codigo? }` (WhatsApp novo pede o código que foi pra ele, `motivo: 'trocar'`) | `{ conta }` |
 | POST `cliente-sair` | `{}` | `{}`, apaga a sessão e o cookie |
 | POST `cliente-apagar` | `{ confirmar: true }` | `{}` (LGPD: some a conta, endereços, cupons, códigos e sessões; os pedidos ficam com a loja, sem a conta) |
-| GET `cliente-pedidos` | — | `{ pedidos: PedidoDaConta[] }` (os 30 últimos, da conta ou do WhatsApp dela) |
-| GET `cliente-vagas` | — | `{ vagas: Participacao[] }` (as vagas de rateio do WhatsApp da conta, sem token) |
-| GET `cliente-exportar` | — | arquivo `greencheese-meus-dados-<data>.json` (conta, endereços, cupons, giros, pedidos, vagas) |
+| GET `cliente-pedidos` | — | `{ pedidos: PedidoDaConta[] }` (os 30 últimos: os feitos com a conta logada e os do WhatsApp dela quando o número foi conferido) |
+| GET `cliente-vagas` | — | `{ vagas: Participacao[] }` (as vagas feitas com a conta logada e as do WhatsApp dela quando conferido, sem token) |
+| GET `cliente-exportar` | — | arquivo `greencheese-meus-dados-<data>.json` (conta, endereços, cupons, giros, pedidos, vagas; pedido/vaga achado só pelo número vai sem nome, endereço, observação, mensagem e cidade, com `achadoPeloWhatsapp`/`achadaPeloWhatsapp`) |
 | POST `cliente-endereco-salvar` | `{ id?, apelido, cep, rua, numero, bairro, cidade, uf, livre }` (com CEP ou `livre`) | `{ enderecos }` (até 5) |
 | POST `cliente-endereco-apagar` | `{ id }` | `{ enderecos }` |
 
@@ -778,12 +798,21 @@ loja não mandou; o código não vale), `codigo-errado` 403 (com `restam`), `cod
 
 **Primeiro login com a conta do aparelho** (`migrar`): `{ nome, aceitaPromo, aceitaPromoEm, cupons: [{ codigo,
 interativo, premioId, ganhoEm, validoAte }], pendente?, giros }`. Número sem conta na loja: a conta nasce com o nome e
-as promoções do aparelho (`origem: 'aparelho'`, sem pedir o nome). Os cupons que ainda valem entram (até 10, validade
-nunca maior que a do prêmio, o mesmo código quando está livre, `origem: 'aparelho'`); o prêmio reservado vira cupom;
-os dias de giro do aparelho contam como giro da conta. `migrados` diz quantos cupons vieram.
+as promoções do aparelho (`origem: 'aparelho'`, sem pedir o nome). Nada disso vem conferido (é o aparelho quem diz),
+então: os cupons e o prêmio reservado entram **uma vez por conta** (a primeira vez que a conta recebe `migrar`), **no
+máximo 2** (o prêmio reservado primeiro), só de prêmio que existe e **só os ganhos antes de a conta do servidor
+existir** (o primeiro dia em que o entrar com código esteve ligado, guardado no ajuste `contas_desde`: depois disso
+todo cupom nasce no servidor), com a validade contada do dia em que foram ganhos (`ganhoEm` + a validade do prêmio) e o
+mesmo código quando está livre (`origem: 'aparelho'`). Os dias de giro do aparelho contam como giro da conta (sempre:
+só restringem). `migrados` diz quantos cupons vieram.
+
+**Pedidos e vagas da conta**: o pedido (ou a vaga) entra na conta quando foi feito com ela logada, ou quando o
+WhatsApp dele foi **conferido**: veio da conta logada (que entrou pelo código) ou a loja salvou o número no painel
+(`admin-pedido-salvar` com `whatsapp`, mesmo que seja o que já estava; a vaga incluída pelo painel ou com o WhatsApp
+trocado no painel). O número que a pessoa digita no aparelho não liga nada a conta nenhuma.
 
 **Pedido com a conta aberta**: o `POST pedido` liga o pedido à conta (`cliente_id`), completa o WhatsApp com o da
-conta quando veio vazio e guarda o endereço da entrega na conta (o mesmo endereço não repete; o mais antigo sai depois
+conta quando veio vazio (conferido quando é o da conta) e guarda o endereço da entrega na conta (o mesmo endereço não repete; o mais antigo sai depois
 de 5). O pedido guiado oferece os endereços guardados do estado do atendimento.
 
 ```ts
@@ -805,18 +834,20 @@ interface PedidoDaConta { codigo: string; tipo: 'pedido' | 'encomenda'; status: 
 
 Na Atividade (sem o nome de ninguém): `cliente-criou-conta`, `cliente-atualizou`, `cliente-exportou`,
 `cliente-conta-apagada` (pelo site ou pelo painel), `clientes-exportados` (CSV), `contas-codigo-ligado` /
-`-desligado`, `cupom-usado` / `cupom-desfeito`. O envio do código fica no registro dos avisos (`codigo-login`, alvo
-`conta:<whatsapp>`), que some quando a conta é apagada.
+`-desligado`, `contas-codigo-teto` (o dono mudou o teto), `contas-codigo-pausado` (a loja bateu o teto), `cupom-usado` /
+`cupom-desfeito`. O envio do código fica no registro dos avisos (`codigo-login`) só com o número mascarado: o texto
+"Código de entrada pra (33) 9••••-4567", o destino `{ tipo: 'numero', valor: '(33) 9••••-4567' }` (o número inteiro
+vai só pro gateway, nunca pro banco) e o alvo `conta:<hash do número>`, que some quando a conta é apagada.
 
 ### Clientes no painel (só o dono, permissão `clientes`)
 
 | Rota | Corpo / parâmetros | Sucesso |
 |---|---|---|
-| GET `admin-clientes` | `[&busca=][&promo=1][&antes=<id>][&limite=50]` | `{ agora, clientes: ClienteLinha[], mais, total, comPromo, codigo: { ligado, motor, desligadoPeloDono } }` |
+| GET `admin-clientes` | `[&busca=][&promo=1][&antes=<id>][&limite=50]` | `{ agora, clientes: ClienteLinha[], mais, total, comPromo, codigo: { ligado, motor, desligadoPeloDono, teto: { hora, dia, usadosHora, usadosDia, pausadoAte } } }` |
 | GET `admin-cliente` | `&id=` | `{ cliente, cupons, enderecos, pedidos, vagas, giros }` |
 | GET `admin-clientes-csv` | — | arquivo `clientes-promocoes-<data>.csv` (`;`, BOM: Nome, WhatsApp, Estado, Aceitou promoções em, Conta criada em; só quem aceitou) |
 | POST `admin-cliente-apagar` | `{ id }` | `{}` (o pedido de exclusão que chegou pela conversa; as sessões do cliente caem) |
-| POST `admin-clientes-ajustes` | `{ codigo: boolean }` | `{ codigo }` (liga/desliga o entrar com código) |
+| POST `admin-clientes-ajustes` | `{ codigo?: boolean, tetoHora?: 1–1000, tetoDia?: 1–10000 }` | `{ codigo }` (liga/desliga o entrar com código; o teto de códigos da loja inteira, o do dia nunca menor que o da hora) |
 | POST `admin-cupom-usado` | `{ codigo, usado: boolean }` | `{ cupom }` (dar baixa / desfazer) |
 
 ## Teste minha sorte no servidor
@@ -831,7 +862,10 @@ nesse estado (sem nenhum no estado, o sorteio usa todos). Bebida alcoólica nunc
 recusam).
 
 - Sem conta: **1 giro por aparelho** (o segredo `aparelho`, 32 hex, que o site guarda); o prêmio fica reservado pro
-  aparelho por 24 h. Entrar ou criar a conta nesse aparelho guarda a reserva como cupom (`cupomGuardado`).
+  aparelho por 24 h. Entrar ou criar a conta nesse aparelho guarda a reserva como cupom (`cupomGuardado`), e esse giro
+  vira o giro daquele dia da conta: se a conta (ou o WhatsApp dela) já tinha girado no dia do giro reservado, não
+  guarda (`pendenteRecusado: 'ja-girou-hoje'` no entrar; 409 `ja-girou-hoje` no `cliente-guardar`) e a reserva fica
+  sem cupom — senão bastava girar sem o cookie num aparelho novo e guardar pra ter um giro a mais por dia.
 - Com conta: **1 giro por dia** (dia de Brasília) por conta, por WhatsApp e por aparelho (trocar de conta no mesmo
   aparelho não dá giro a mais); o cupom já nasce guardado, com o código `SORTE-XXXX` gerado no servidor.
 
@@ -839,8 +873,8 @@ recusam).
 |---|---|---|
 | GET `cliente-giro` | `&interativo=sorte&aparelho=` | `{ agora, giro: { disponivel, motivo?: 'ja-girou-hoje' \| 'sem-conta-ja-girou', proximoEm?, girouHoje? }, pendente, dias }` |
 | POST `cliente-girar` | `{ interativo, uf, aparelho }` | `{ agora, premioId, cupom: CupomConta \| null, pendente: Pendente \| null, dias }` |
-| POST `cliente-guardar` | `{ interativo, aparelho }` (com sessão) | `{ cupom }` |
+| POST `cliente-guardar` | `{ interativo, aparelho }` (com sessão) | `{ cupom }` (409 `ja-girou-hoje` quando a conta já girou no dia daquele giro) |
 | POST `cliente-cupom-usar` | `{ codigo }` (com sessão) | `{ cupom }` (o cupom foi no pedido; a loja desfaz no painel se precisar) |
 
-Erros: `sem-giro` 409 (com `giro`), `sem-premio` 409, `sem-pendente` 409, `pendente-vencido` 409, `nao-encontrado`
+Erros: `sem-giro` 409 (com `giro`), `sem-premio` 409, `sem-pendente` 409, `pendente-vencido` 409, `ja-girou-hoje` 409, `nao-encontrado`
 404, `ja-usado` 409, `vencido` 409, `invalido` 400 (`interativo`, `aparelho`), `muitas-tentativas` 429.

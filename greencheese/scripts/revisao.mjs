@@ -610,11 +610,19 @@ const browser = await chromium.launch()
   const texto2 = decodeURIComponent((await zap.getAttribute('href')).split('text=')[1] ?? '')
   const cod2 = texto2.split('\n')[1]?.replace('Código: ', '')
   conferir(LINHA_CODIGO.test(texto2.split('\n')[1] ?? '') && cod2 !== cod1 && /^Obs\.: Portão verde$/m.test(texto2), `pedido: mudou depois de mandar → código novo na mensagem (${cod1} → ${cod2})`)
+  // como se o envio do de antes tivesse falhado: a cópia dele ainda esperando na fila do aparelho
+  await page.evaluate((corpo) => localStorage.setItem('gc-pedidos', JSON.stringify([{ corpo, criado: Date.now(), tentativas: 1, proxima: 0 }])), a)
   const n = recebidos.length
   await zap.click()
   for (let k = 0; k < 40 && recebidos.length === n; k++) await page.waitForTimeout(100)
   const c = recebidos[n]?.c
   conferir(c?.codigo === cod2 && c?.mensagem === texto2 && c?.substitui?.codigo === cod1 && c?.substitui?.token === a?.token && c?.token !== a?.token, `pedido: o novo vai com o de antes no "substitui" (${c?.substitui?.codigo ?? '?'} → ${c?.codigo ?? '?'})`)
+  // o mudado tira da fila a cópia do de antes: ela não vai mais sozinha (chegaria depois do novo e viraria outro pedido)
+  const filaDepois = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-pedidos') ?? '[]').map((p) => p.corpo.codigo))
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await page.waitForTimeout(1500)
+  const foiDeNovo = recebidos.slice(n + 1).filter((x) => x.c?.codigo === cod1).length
+  conferir(!filaDepois.includes(cod1) && foiDeNovo === 0, `pedido: o mudado tira da fila a cópia do de antes que não tinha chegado (fila: ${filaDepois.join(', ') || 'vazia'}; o de antes foi de novo ${foiDeNovo}×)`)
   await foto(page, 'cel-17-servidor-trocou')
   await ctx.close()
   // encomenda: tabaco e vape recusados no chat, com a fala da Anvisa (aparelho novo: neste, o toque no WhatsApp faz a
@@ -632,6 +640,64 @@ const browser = await chromium.launch()
   conferir(/a Anvisa não deixa vender pela internet/.test(recusa), `encomenda: tabaco recusado no chat (${recusa.trim() || 'sem aviso'})`)
   await foto(pg, 'cel-17-servidor-encomenda-tabaco')
   await ctx2.close()
+}
+
+// ---------- troco: o chat guarda em centavos e no teto do servidor (o que o chat aceita, o servidor aceita igual) ----------
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 })
+  const recebidos = []
+  await ctx.route('**/api/index.php?r=pedido', async (route) => {
+    const req = route.request()
+    if (req.method() !== 'POST') return route.fallback()
+    let c = null
+    try {
+      c = JSON.parse(req.postData() ?? '')
+    } catch {
+      c = null
+    }
+    recebidos.push(c)
+    return route.fulfill({ status: 201, json: { ok: true, pedido: { codigo: c?.codigo, tipo: c?.tipo, status: 'novo', criadoEm: new Date().toISOString() } } })
+  })
+  await ctx.addInitScript(() => {
+    document.addEventListener('click', (e) => {
+      if (e.target instanceof Element && e.target.closest('a[href*="wa.me"]')) e.preventDefault()
+    }, true)
+  })
+  const page = await ctx.newPage()
+  vigiar(page, 'troco')
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  await irAba(page, 'catalogo')
+  await page.getByRole('button', { name: /Jack Daniel's.*Abrir story/ }).click()
+  await page.waitForTimeout(900)
+  await page.getByRole('button', { name: 'Pôr na sacola' }).click()
+  await page.waitForTimeout(900)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(700)
+  await page.locator('.barra-abas [data-aba="sacola"]:visible, .lateral-item:has-text("Sacola"):visible').first().click()
+  await page.waitForTimeout(700)
+  await page.getByRole('button', { name: 'Fazer pedido' }).click()
+  await page.waitForTimeout(700)
+  await clicar(page, 'Isso')
+  await clicar(page, 'Tá certo')
+  await digitar(page, 'Ian Teste')
+  await digitar(page, '39800001')
+  await page.waitForTimeout(500)
+  await digitar(page, '120')
+  await clicar(page, 'Dinheiro')
+  await digitar(page, '250.000')
+  const acima = (await page.locator('.dm-erro').allTextContents()).join(' ')
+  conferir(/Só o valor/.test(acima), `troco: acima do teto do servidor (R$ 250.000) o chat não aceita (${acima.trim() || 'aceitou'})`)
+  await digitar(page, '50,555')
+  await digitar(page, 'Portão azul')
+  await page.waitForTimeout(500)
+  const zap = page.getByRole('link', { name: 'Fechar pedido no WhatsApp' })
+  const texto = decodeURIComponent((await zap.getAttribute('href')).split('text=')[1] ?? '')
+  await zap.click()
+  for (let k = 0; k < 40 && !recebidos.length; k++) await page.waitForTimeout(100)
+  conferir(/^Pagamento: Dinheiro \(troco pra R\$\s50,56\)$/m.test(texto) && recebidos[0]?.troco === 50.56 && recebidos[0]?.pagamento === 'dinheiro', `troco: "50,555" vira R$ 50,56 na mensagem e na cópia do pedido (${recebidos[0]?.troco ?? 'nada chegou'})`)
+  await foto(page, 'cel-17-troco')
+  await ctx.close()
 }
 
 // ---------- estado sem atendimento ----------

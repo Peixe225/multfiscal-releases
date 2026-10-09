@@ -3,7 +3,10 @@
 // espera resposta). O código GC-XXXXX e o token nascem em codigo-pedido.ts; os itens, em pedido-itens.ts.
 // A cópia fica pendente no aparelho até o servidor confirmar (201, ou 200 "repetido"): quando a aba volta a ficar à
 // vista, ou na próxima visita, ela vai de novo (o mesmo código com o mesmo token nunca vira outro pedido). Erro que não
-// muda tentando de novo (pedido recusado, site sem servidor) tira da fila.
+// muda tentando de novo (pedido recusado, site sem servidor) tira da fila — e a recusa fica anotada no aparelho
+// (CHAVE_RECUSADOS) e no console, nunca some em silêncio (o servidor também anota no log dele). O pedido mudado
+// (substitui) tira da fila o de antes: dentro das 2 h ele não entra mais sozinho (o servidor liga os dois se ele já
+// tiver saído).
 // Este pedaço baixa sozinho na volta pro site (pedido-pendente.ts): por isso não importa nada do resto do site (nem o
 // armazenamento): assim ele não puxa pedaço novo pra primeira tela.
 import type { FormaPagamento } from '../dados/canais'
@@ -12,6 +15,8 @@ const API = './api/index.php?r=pedido'
 /** Onde ficam as cópias que o servidor ainda não confirmou (o pedaço principal só olha se existe: pedido-pendente.ts). */
 export const CHAVE_PENDENTES = 'gc-pedidos'
 const MAX_PENDENTES = 10
+/** As cópias que o servidor recusou de vez (o rastro: código, quando, o erro e o campo), as 10 últimas. */
+export const CHAVE_RECUSADOS = 'gc-pedidos-recusados'
 const VALIDADE_MS = 3 * 86_400_000
 const MAX_TENTATIVAS = 8
 const LIMITE_MS = 15_000
@@ -130,8 +135,25 @@ function adiar(token: string, esperaMs: number | null): void {
   )
 }
 
-type Resultado = { tipo: 'ok' } | { tipo: 'tirar' } | { tipo: 'depois'; esperaMs: number | null }
-type Resposta = { ok?: unknown; erro?: unknown; esperaSegundos?: unknown }
+type Resultado = { tipo: 'ok' } | { tipo: 'tirar'; recusa?: { status: number; erro: string; campo: string; mensagem: string } } | { tipo: 'depois'; esperaMs: number | null }
+type Resposta = { ok?: unknown; erro?: unknown; esperaSegundos?: unknown; campo?: unknown; mensagem?: unknown }
+
+/** Anota a recusa (o rastro no aparelho e no console): quem for olhar sabe que a cópia não entrou e por quê. */
+function anotarRecusa(codigo: string, r: NonNullable<Extract<Resultado, { tipo: 'tirar' }>['recusa']>): void {
+  try {
+    console.warn(`[pedido] o servidor recusou a cópia do ${codigo}: ${r.status} ${r.erro}${r.campo ? ` (${r.campo})` : ''} — ${r.mensagem}`)
+  } catch {
+    /* sem console */
+  }
+  try {
+    const v = JSON.parse(localStorage.getItem(CHAVE_RECUSADOS) ?? '[]') as unknown
+    const lista = Array.isArray(v) ? v : []
+    lista.push({ codigo, em: Date.now(), ...r })
+    localStorage.setItem(CHAVE_RECUSADOS, JSON.stringify(lista.slice(-10)))
+  } catch {
+    /* sem armazenamento */
+  }
+}
 
 /** Um envio com resposta (fetch). keepalive = o toque, com a página saindo pro WhatsApp. */
 async function mandar(corpo: CorpoPedido, keepalive: boolean): Promise<Resultado> {
@@ -172,13 +194,24 @@ async function mandar(corpo: CorpoPedido, keepalive: boolean): Promise<Resultado
   // o repasse do Vite com o PHP desligado (npm run dev): aqui não tem servidor
   if (j.erro === 'sem-servidor') return { tipo: 'tirar' }
   if (j.erro === 'ocupado' || j.erro === 'erro-interno' || r.status >= 500) return { tipo: 'depois', esperaMs: null }
-  // recusado de vez (dado errado, armadilha, tabaco, Origin): tentar de novo não muda nada
-  return { tipo: 'tirar' }
+  // recusado de vez (dado errado, armadilha, tabaco, Origin): tentar de novo não muda nada — mas fica o rastro
+  return {
+    tipo: 'tirar',
+    recusa: {
+      status: r.status,
+      erro: typeof j.erro === 'string' ? j.erro : '',
+      campo: typeof j.campo === 'string' ? j.campo : '',
+      mensagem: typeof j.mensagem === 'string' ? j.mensagem.slice(0, 200) : '',
+    },
+  }
 }
 
-function aplicar(token: string, r: Resultado): void {
-  if (r.tipo === 'depois') adiar(token, r.esperaMs)
-  else tirar(token)
+function aplicar(corpo: CorpoPedido, r: Resultado): void {
+  if (r.tipo === 'depois') adiar(corpo.token, r.esperaMs)
+  else {
+    if (r.tipo === 'tirar' && r.recusa) anotarRecusa(corpo.codigo, r.recusa)
+    tirar(corpo.token)
+  }
 }
 
 /**
@@ -187,7 +220,10 @@ function aplicar(token: string, r: Resultado): void {
  */
 export function enviarPedido(corpo: CorpoPedido): void {
   if (semServidorAqui()) return
-  const resto = lerPendentes().filter((p) => p.corpo.token !== corpo.token)
+  // o pedido mudado entra no lugar do de antes: a cópia do de antes que ainda esperava na fila (o envio dele falhou) não
+  // vai mais sozinha — senão ela chegava DEPOIS do novo e virava um segundo pedido
+  const sub = corpo.substitui
+  const resto = lerPendentes().filter((p) => p.corpo.token !== corpo.token && !(sub && p.corpo.token === sub.token && p.corpo.codigo === sub.codigo))
   gravarPendentes([...resto, { corpo, criado: Date.now(), tentativas: 0, proxima: 0 }])
   let foi = false
   try {
@@ -195,7 +231,7 @@ export function enviarPedido(corpo: CorpoPedido): void {
   } catch {
     foi = false // navegador que não aceita JSON no beacon
   }
-  if (!foi) void mandar(corpo, true).then((r) => aplicar(corpo.token, r))
+  if (!foi) void mandar(corpo, true).then((r) => aplicar(corpo, r))
 }
 
 let reenviando = false
@@ -209,7 +245,12 @@ export async function reenviarPendentes(): Promise<void> {
     gravarPendentes(lista) // já sem as vencidas
     for (const p of lista) {
       if (p.proxima > Date.now()) continue
-      aplicar(p.corpo.token, await mandar(p.corpo, false))
+      // o pedido mudado que já foi pra fila tira o de antes (o toque dele pode ter sido antes desta volta)
+      if (lista.some((x) => x.corpo.substitui?.token === p.corpo.token && x.corpo.substitui?.codigo === p.corpo.codigo)) {
+        tirar(p.corpo.token)
+        continue
+      }
+      aplicar(p.corpo, await mandar(p.corpo, false))
     }
   } finally {
     reenviando = false

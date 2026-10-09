@@ -6,7 +6,7 @@ import { alvoDeSaida } from '../lib/ambiente'
 import { config } from '../dados/config'
 import { situacao } from '../lib/horario'
 import { copiarTexto } from '../lib/copiar'
-import { brl, formatarCep, soDigitos } from '../lib/formato'
+import { brl, formatarCep, lerReais, REAIS_MAX, soDigitos } from '../lib/formato'
 import {
   NOME_PAGAMENTO,
   linkDM,
@@ -475,11 +475,13 @@ export function ChatFolha() {
             placeholder: t('troco.dica'),
             modo: 'decimal',
             max: 10,
+            // o troco guardado já vem em centavos ("50,555" → 50,56) e no teto do servidor: a mensagem e a cópia do
+            // pedido mostram o mesmo valor, e o servidor nunca recusa o que o chat aceitou
             validar: (v) => {
-              const n = Number(v.replace(/[^\d,.]/g, '').replace(',', '.'))
-              return !Number.isFinite(n) || n <= 0 ? t('troco.erro') : null
+              const n = lerReais(v)
+              return n == null || n <= 0 || n > REAIS_MAX ? t('troco.erro') : null
             },
-            enviar: (v) => resp({ troco: Number(v.replace(/[^\d,.]/g, '').replace(',', '.')) }, 'troco', 'obs'),
+            enviar: (v) => resp({ troco: lerReais(v) }, 'troco', 'obs'),
           },
           resposta: respostas.troco ? t('troco.resposta', { valor: brl(respostas.troco) }) : t('troco.sem'),
         }

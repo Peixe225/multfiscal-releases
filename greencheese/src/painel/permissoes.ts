@@ -39,6 +39,24 @@ export function usePode(permissao: string): boolean {
   return pode(permissao, u)
 }
 
+/** Os estados de quem está logado (null = todos: o dono, ou o servidor de antes da equipe). */
+export function ufsDoUsuario(u: Usuario | null = atual): string[] | null {
+  if (!u || u.papel === 'dono' || !u.permissoes) return null
+  return u.ufs ?? []
+}
+
+/**
+ * O rateio vale só em estados de quem está logado? Num que vale também em estado de outro (MG+RJ pro gerente de MG),
+ * editar, mudar o passo e cancelar é só com o dono (o servidor recusa: 403 "só o dono mexe nele").
+ */
+export function rateioEhMeu(ufsRateio: string[], u: Usuario | null = atual): boolean {
+  const meus = ufsDoUsuario(u)
+  return meus === null || ufsRateio.every((x) => meus.includes(x))
+}
+
+/** A dica de quem pode mexer no rateio mas não nesse (vale em estado que não é dele). */
+export const DICA_RATEIO_DE_OUTRO = 'Esse rateio vale em estado que não é teu: só o dono mexe nele.'
+
 export const NOME_PAPEL: Record<Papel, string> = { dono: 'dono da loja', gerente: 'gerente', atendente: 'atendente' }
 
 /** "gerente de MG e RJ" · "dono da loja" */

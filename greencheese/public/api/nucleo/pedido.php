@@ -153,17 +153,14 @@ function gc_ler_pedido(array $c, string $codigo): array
         $col['subtotal_texto'] = gc_texto_curto($c['subtotalTexto'] ?? '', 80);
         $proibir = array_column($itens, 'nome');
 
+        // cupom, pagamento e troco só informam (a loja confirma na conversa; a mensagem exata tem tudo): o que não vier
+        // certo fica de fora, nunca derruba o pedido inteiro
         $cupom = $c['cupom'] ?? null;
-        if (is_array($cupom)) {
-            $cod = is_string($cupom['codigo'] ?? null) ? strtoupper(trim($cupom['codigo'])) : '';
-            if (preg_match('/^[A-Z0-9]{2,12}-[A-Z0-9]{3,10}$/', $cod) !== 1) {
-                throw gc_invalido('cupom', 'O cupom não veio certo.');
-            }
+        $cod = is_array($cupom) && is_string($cupom['codigo'] ?? null) ? strtoupper(trim($cupom['codigo'])) : '';
+        if (preg_match('/^[A-Z0-9]{2,12}-[A-Z0-9]{3,10}$/', $cod) === 1) {
             $col['cupom'] = (string) json_encode([
                 'codigo' => $cod, 'regra' => gc_texto_curto($cupom['regra'] ?? '', 200), 'origem' => gc_texto_curto($cupom['origem'] ?? '', 40),
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        } elseif ($cupom !== null) {
-            throw gc_invalido('cupom', 'O cupom não veio certo.');
         }
 
         $e = is_array($c['entrega'] ?? null) ? $c['entrega'] : [];
@@ -176,12 +173,10 @@ function gc_ler_pedido(array $c, string $codigo): array
         $col['cidade_entrega'] = gc_texto_curto($e['cidade'] ?? '', 60);
         $col['uf_entrega'] = gc_uf($e['uf'] ?? null) ?? '';
 
-        $pagamento = $c['pagamento'] ?? null;
-        if ($pagamento !== null && !in_array($pagamento, GC_PAGAMENTOS, true)) {
-            throw gc_invalido('pagamento', 'A forma de pagamento não veio certa.');
-        }
+        $pagamento = in_array($c['pagamento'] ?? null, GC_PAGAMENTOS, true) ? $c['pagamento'] : null;
         $col['pagamento'] = $pagamento;
-        $col['troco'] = $pagamento === 'dinheiro' ? gc_centavos_ou_nulo($c['troco'] ?? null, 'troco', 'O troco não veio certo.') : null;
+        // "50,555" ou 50.555 → R$ 50,56 (o mesmo que a mensagem mostrou); o que não der pra ler: sem troco
+        $col['troco'] = $pagamento === 'dinheiro' && ($c['troco'] ?? null) !== null ? gc_centavos_informativo($c['troco']) : null;
     } else {
         $e = is_array($c['encomenda'] ?? null) ? $c['encomenda'] : [];
         $produto = gc_texto($e['produto'] ?? null);
@@ -211,6 +206,70 @@ function gc_ler_pedido(array $c, string $codigo): array
     return $col;
 }
 
+/**
+ * A cópia veio com um campo estrutural torto (itens, subtotal, encomenda, nome…), mas a mensagem do WhatsApp veio
+ * certa (com a linha do código): o pedido entra só com a mensagem, e a anotação diz o que veio errado. O cliente já
+ * mandou essa mensagem pra loja; sem isso, o site e o servidor desencontrados (um arredondamento, um campo novo) fariam
+ * o pedido sumir do painel e do grupo sem ninguém saber. null = nem a mensagem serve (aí vale o erro de antes).
+ * @param array<string, mixed> $c
+ * @return array<string, mixed>|null
+ */
+function gc_ler_pedido_resgate(array $c, string $codigo, ErroApi $erro): ?array
+{
+    $tipo = $c['tipo'] ?? null;
+    if ($tipo !== 'pedido' && $tipo !== 'encomenda') {
+        return null;
+    }
+    $msg = gc_mensagem_exata($c['mensagem'] ?? null);
+    $topo = $tipo === 'pedido' ? 'PEDIDO GREEN CHEESE' : 'ENCOMENDA GREEN CHEESE';
+    if ($msg === null || gc_tamanho($msg) > 4000 || !str_starts_with($msg, $topo) || !in_array("Código: $codigo", explode("\n", $msg), true)) {
+        return null;
+    }
+    $linhas = explode("\n", $msg);
+    $uf = gc_uf($c['uf'] ?? null);
+    if ($uf === null && preg_match('/GREEN CHEESE\s+—\s+([A-Z]{2})\b/u', $linhas[0], $m) === 1) {
+        $uf = gc_uf(strtolower($m[1]));
+    }
+    if ($uf === null) {
+        return null;
+    }
+    // o tabaco não entra nem assim: as linhas dos itens (e do produto da encomenda) da própria mensagem
+    $itensMsg = array_values(array_filter($linhas, static fn (string $l): bool => preg_match('/^(\d+x |Produto: |Link\/descrição: )/u', $l) === 1));
+    $termo = gc_termo_proibido(...$itensMsg);
+    if ($termo !== null) {
+        throw new ErroApi('proibido', 'Derivado do tabaco e cigarro eletrônico não entram no site (Anvisa).', 422, ['campo' => $tipo === 'pedido' ? 'itens' : 'encomenda', 'termo' => $termo]);
+    }
+    $nome = gc_texto_curto($c['nome'] ?? '', 60);
+    if (gc_tamanho($nome) < 2) {
+        foreach ($linhas as $l) {
+            if (str_starts_with($l, 'Nome: ')) {
+                $nome = gc_texto_curto(substr($l, 6), 60);
+            }
+        }
+    }
+    $e = is_array($c['entrega'] ?? null) ? $c['entrega'] : [];
+    $cep = is_string($e['cep'] ?? null) ? (string) preg_replace('/\D/', '', $e['cep']) : '';
+    $pagamento = in_array($c['pagamento'] ?? null, GC_PAGAMENTOS, true) ? $c['pagamento'] : null;
+    $campo = (string) ($erro->extra['campo'] ?? '');
+    return [
+        'tipo' => $tipo, 'uf' => $uf, 'cidade' => gc_texto_curto($c['cidade'] ?? '', 60), 'nome' => gc_tamanho($nome) >= 2 ? $nome : 'Sem nome',
+        'whatsapp' => gc_whatsapp($c['whatsapp'] ?? null) ?? '', 'itens' => '[]', 'subtotal' => null, 'subtotal_texto' => '', 'cupom' => null,
+        'endereco' => $tipo === 'pedido' ? gc_texto_curto($e['endereco'] ?? '', 240) : '', 'rua' => $tipo === 'pedido' ? gc_texto_curto($e['rua'] ?? '', 140) : '',
+        'numero' => $tipo === 'pedido' ? gc_texto_curto($e['numero'] ?? '', 60) : '', 'bairro' => $tipo === 'pedido' ? gc_texto_curto($e['bairro'] ?? '', 80) : '',
+        'cep' => $tipo === 'pedido' && strlen($cep) === 8 ? $cep : '', 'cidade_entrega' => $tipo === 'pedido' ? gc_texto_curto($e['cidade'] ?? '', 60) : '',
+        'uf_entrega' => $tipo === 'pedido' ? (gc_uf($e['uf'] ?? null) ?? '') : '', 'pagamento' => $tipo === 'pedido' ? $pagamento : null,
+        'troco' => $tipo === 'pedido' && $pagamento === 'dinheiro' && ($c['troco'] ?? null) !== null ? gc_centavos_informativo($c['troco']) : null,
+        'observacao' => gc_texto_curto($c['obs'] ?? '', 200), 'encomenda' => null, 'mensagem' => $msg,
+        'nota' => 'A cópia do site veio incompleta' . ($campo !== '' ? " (campo $campo)" : '') . ': o pedido entrou só com a mensagem do cliente. Confere na conversa.',
+    ];
+}
+
+/** Pedido do site que entrou só com a mensagem (gc_ler_pedido_resgate): sem itens nem produto. */
+function gc_pedido_resgatado(array $p): bool
+{
+    return $p['tipo'] === 'pedido' ? (string) $p['itens'] === '[]' : $p['encomenda'] === null;
+}
+
 /** O que a busca do painel procura: código, nome, cidade e WhatsApp, sem acento e sem caixa. */
 function gc_pedido_busca(string $codigo, string $nome, string $cidade, string $whatsapp): string
 {
@@ -229,7 +288,10 @@ function gc_pedido_publico(array $p): array
  * repetido: true, sem gravar, sem avisar e sem gastar o limite. Token de outro código: invalido. O mesmo código com
  * outro token (dois aparelhos que sortearam igual) vira outro pedido: o painel mostra os dois.
  * substitui { codigo, token }: o aparelho mudou o pedido depois de mandar; o de antes, se ainda novo e de até 2 h
- * atrás, sai da lista (fora disso os dois ficam, ligados, e o aviso pede pra conferir).
+ * atrás, sai da lista (fora disso os dois ficam, ligados, e o aviso pede pra conferir). O de antes que ainda não
+ * chegou (o envio dele falhou) fica anotado no novo (código + hash do token): quando chegar, entra já trocado e
+ * ligado, sem aviso. Campo informativo torto (troco, cupom, pagamento) fica de fora; campo estrutural torto com a
+ * mensagem certa: o pedido entra só com a mensagem (gc_ler_pedido_resgate). Recusa de vez fica no log do servidor.
  */
 function gc_rota_pedido(): array
 {
@@ -261,7 +323,17 @@ function gc_rota_pedido(): array
     if ($token === null) {
         throw gc_invalido('token', 'O pedido não veio certo. Recarrega a página e tenta de novo.');
     }
-    $col = gc_ler_pedido($c, $codigo);
+    try {
+        $col = gc_ler_pedido($c, $codigo);
+    } catch (ErroApi $e) {
+        // campo estrutural torto com a mensagem certa: entra só com a mensagem (o cliente já mandou ela pra loja)
+        $col = $e->codigo === 'invalido' ? gc_ler_pedido_resgate($c, $codigo, $e) : null;
+        if ($col === null) {
+            gc_log("[pedido] recusado $codigo: {$e->codigo}" . (isset($e->extra['campo']) ? ' (' . $e->extra['campo'] . ')' : '') . ' · ' . $e->getMessage());
+            throw $e;
+        }
+        gc_log("[pedido] $codigo entrou só com a mensagem: " . ($e->extra['campo'] ?? '?') . ' · ' . $e->getMessage());
+    }
     $sub = is_array($c['substitui'] ?? null) ? $c['substitui'] : null;
     $subCodigo = $sub === null ? null : gc_codigo_pedido($sub['codigo'] ?? null);
     $subToken = $sub === null ? null : gc_token_do_aparelho($sub['token'] ?? null);
@@ -283,23 +355,44 @@ function gc_rota_pedido(): array
         if ($subCodigo !== null && $subToken !== null && $subToken !== $token) {
             $antigo = gc_um('SELECT * FROM pedidos WHERE token_hash = ? AND codigo = ?', [hash('sha256', $subToken), $subCodigo]);
         }
+        // e o contrário: este é o de antes de um pedido mudado que já chegou (o envio deste falhou e ele chegou atrasado,
+        // da fila do aparelho). O cliente já trocou ele pelo novo: entra trocado, ligado ao novo, sem aviso no grupo
+        $novo = gc_um("SELECT * FROM pedidos WHERE substitui_token_hash = ? AND substitui_codigo = ? AND substitui_id IS NULL ORDER BY id DESC LIMIT 1", [$hash, $codigo]);
         // quem estava logado na conta do site (clientes.php): o pedido entra nos "Meus pedidos" e, quando o aparelho não
-        // mandou o WhatsApp, vale o da conta (conferido pelo código); o endereço fica guardado pra próxima vez
+        // mandou o WhatsApp, vale o da conta (conferido pelo código); o endereço fica guardado pra próxima vez. Só o
+        // WhatsApp conferido (o da conta) liga o pedido à conta de quem tem o número (whatsapp_conferido)
         $cliente = function_exists('gc_cliente_logado') ? gc_cliente_logado() : null;
         if ($cliente !== null) {
             $col['cliente_id'] = (int) $cliente['id'];
             if ((string) $col['whatsapp'] === '') {
                 $col['whatsapp'] = (string) $cliente['whatsapp'];
             }
+            $col['whatsapp_conferido'] = (string) $col['whatsapp'] === (string) $cliente['whatsapp'] ? 1 : 0;
         }
+        $nota = (string) ($col['nota'] ?? '');
+        unset($col['nota']);
         $col = ['codigo' => $codigo, 'token_hash' => $hash, 'status' => 'novo'] + $col + [
             'substitui_id' => $antigo === null ? null : (int) $antigo['id'],
+            'substitui_codigo' => $subCodigo !== null && $subToken !== null && $subToken !== $token ? $subCodigo : '',
+            'substitui_token_hash' => $subCodigo !== null && $subToken !== null && $subToken !== $token ? hash('sha256', $subToken) : '',
+            'nota' => $nota,
             'criado_em' => $agora, 'atualizado_em' => $agora,
             'busca' => gc_pedido_busca($codigo, (string) $col['nome'], (string) $col['cidade'], (string) $col['whatsapp']),
         ];
+        if ($novo !== null) {
+            $col['status'] = 'cancelado';
+            $col['cancelado_em'] = $agora;
+            $col['substituido_por_id'] = (int) $novo['id'];
+            $col['status_por'] = 'site';
+        }
         $nomes = implode(', ', array_keys($col));
         $marcas = implode(', ', array_fill(0, count($col), '?'));
         $id = gc_inserir("INSERT INTO pedidos ($nomes) VALUES ($marcas)", array_values($col));
+        if ($novo !== null) {
+            gc_sql('UPDATE pedidos SET substitui_id = ? WHERE id = ?', [$id, $novo['id']]);
+            gc_evento('site', 'pedido-substituido', 'pedido:' . $codigo, ['id' => $id, 'por' => (string) $novo['codigo'], 'atrasado' => true]);
+            return ['_status' => 201, 'pedido' => gc_pedido_publico(gc_pedido_um($id))];
+        }
         $trocou = false;
         $recente = $antigo !== null && $agora - (int) $antigo['criado_em'] <= GC_PEDIDO_JANELA_TROCA;
         if ($antigo !== null && $recente && $antigo['status'] === 'novo' && $antigo['substituido_por_id'] === null) {
@@ -396,8 +489,8 @@ function gc_pedido_admin(array $p): array
     $cupom = $p['cupom'] === null ? null : json_decode((string) $p['cupom'], true);
     $enc = $p['encomenda'] === null ? null : json_decode((string) $p['encomenda'], true);
     $status = (string) $p['status'];
-    // o pedido que entrou no lugar dele é que vale: o trocado não muda mais
-    $proximos = $p['substituido_por_id'] !== null ? [] : (GC_PEDIDO_TRANSICOES[$status] ?? []);
+    // o pedido que entrou no lugar dele é que vale: o trocado não muda mais; nem o que teve os dados apagados (LGPD)
+    $proximos = $p['substituido_por_id'] !== null || gc_pedido_dados_apagados($p) ? [] : (GC_PEDIDO_TRANSICOES[$status] ?? []);
     return gc_pedido_linha($p) + [
         'itens' => array_map(static fn (array $i): array => [
             'produtoId' => $i['produtoId'] ?? null,
@@ -548,6 +641,7 @@ function gc_rota_admin_pedido(): array
 /**
  * POST admin-pedido-status { id, status }: novo → confirmado → saiu → entregue (e voltar um passo), cancelado de
  * qualquer um que não foi entregue, cancelado → novo (reabrir). Pedir o status que já tem não é erro (jaEstava).
+ * Pedido com os dados apagados (LGPD) não muda mais (409 dados-apagados).
  */
 function gc_rota_admin_pedido_status(): array
 {
@@ -567,6 +661,10 @@ function gc_rota_admin_pedido_status(): array
         if ($p['substituido_por_id'] !== null) {
             $por = (string) ($p['substituido_por_codigo'] ?? '');
             throw new ErroApi('substituido', "O cliente mandou esse pedido de novo, com mudança: vale o $por.", 409, ['por' => $por, 'porId' => (int) $p['substituido_por_id']]);
+        }
+        if (gc_pedido_dados_apagados($p)) {
+            // reabrir um pedido sem nome, endereço nem mensagem só faria um "Dados apagados" voltar pros novos
+            throw new ErroApi('dados-apagados', 'Os dados de quem pediu foram apagados (LGPD): esse pedido não volta mais.', 409);
         }
         $permitidos = GC_PEDIDO_TRANSICOES[$de] ?? [];
         if (!in_array($para, $permitidos, true)) {
@@ -603,7 +701,8 @@ function gc_rota_admin_pedido_status(): array
 
 /**
  * POST admin-pedido-salvar { id, whatsapp?, nota? }: o WhatsApp do cliente (quando o site não sabia: ele chega na
- * conversa do pedido) e uma anotação da loja. Campo ausente fica como está.
+ * conversa do pedido; salvar o número, mesmo o que já estava, conta como conferido pela loja e liga o pedido à conta
+ * desse número) e uma anotação da loja. Campo ausente fica como está.
  */
 function gc_rota_admin_pedido_salvar(): array
 {
@@ -628,6 +727,11 @@ function gc_rota_admin_pedido_salvar(): array
                 throw gc_invalido('nota', 'Anotação até 500 letras.');
             }
             $novo['nota'] = $nota;
+        }
+        if (array_key_exists('whatsapp', $novo) && array_key_exists('whatsapp_conferido', $p)) {
+            // o número que a loja salva (o da conversa do pedido, mesmo que seja o que já estava) é conferido: o pedido
+            // aparece na conta de quem tem esse número
+            $novo['whatsapp_conferido'] = $novo['whatsapp'] === '' ? 0 : 1;
         }
         $mudou = array_keys(array_filter($novo, static fn ($v, $k) => (string) $v !== (string) $p[$k], ARRAY_FILTER_USE_BOTH));
         if ($mudou !== []) {

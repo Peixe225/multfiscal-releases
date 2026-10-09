@@ -19,7 +19,7 @@ import { useUI } from '../store/ui'
 import './ContaServidor.css'
 
 // O que a Minha conta ganha quando a conta é a do servidor da loja: meus pedidos (com o status que a loja dá no
-// painel), minhas vagas de rateio (do WhatsApp da conta, em qualquer aparelho), os endereços (o pedido guiado oferece;
+// painel), minhas vagas de rateio (as feitas com a conta e as do WhatsApp dela que a loja conferiu, em qualquer aparelho), os endereços (o pedido guiado oferece;
 // o do último pedido entra sozinho) e o arquivo com os dados (LGPD). Baixa com a Minha conta.
 
 const TC = {

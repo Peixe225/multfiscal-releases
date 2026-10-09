@@ -184,22 +184,22 @@ export async function testarPedidos(t) {
     execFileSync(PHP, ['-r', `${base1} $d = new PDO('sqlite:${arq}'); $d->exec(gc_migracoes_base()[1]); $d->exec('PRAGMA user_version = 1'); $d->exec("INSERT INTO ajustes (chave, valor) VALUES ('sal', 'velho')");`])
     const ler = () => JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode(['m' => $db->query('SELECT numero, aplicada_em FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_ASSOC), 'v' => (int) $db->query('PRAGMA user_version')->fetchColumn(), 'versao' => gc_versao_banco(), 'sal' => gc_ajuste('sal'), 'tabelas' => $db->query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN)]);`], { env: { ...process.env, GC_DADOS: d }, encoding: 'utf8' }))
     const a = ler()
-    igual(a.m.map((x) => Number(x.numero)), [1, 200, 201, 202], 'banco antigo: a 1 entra anotada e as dos pedidos (200–202) rodam')
-    igual([a.v, a.versao, a.sal], [1, 202, 'velho'], 'user_version segue contando só a base (código de antes não recria nada), o Diagnóstico mostra a 202 e os dados de antes ficam')
+    igual(a.m.map((x) => Number(x.numero)), [1, 200, 201, 202, 208], 'banco antigo: a 1 entra anotada e as dos pedidos (200–202, 208) rodam')
+    igual([a.v, a.versao, a.sal], [1, 208, 'velho'], 'user_version segue contando só a base (código de antes não recria nada), o Diagnóstico mostra a 208 e os dados de antes ficam')
     ok(['avisos_envios', 'avisos_tentativas', 'migracoes', 'pedidos', 'textos_pedido', 'usuarios'].every((x) => a.tabelas.includes(x)), `tabelas novas criadas (${a.tabelas.join(', ')})`)
     const b = ler()
     igual(b.m, a.m, 'de novo: nada roda nem muda (aplicada_em igual)')
     const novo = join(tmp, 'banco-novo')
     mkdirSync(novo, { recursive: true })
     const c = JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: novo }, encoding: 'utf8' }))
-    igual(c.map(Number), [1, 200, 201, 202], 'banco novo: todas, na ordem')
+    igual(c.map(Number), [1, 200, 201, 202, 208], 'banco novo: todas, na ordem')
     // o index.php de antes (sem o módulo dos pedidos) com o banco.php novo, no meio da publicação: só a base, sem erro
     const meio = join(tmp, 'banco-meio')
     mkdirSync(meio, { recursive: true })
     const so = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); require '${raiz}public/api/nucleo/base.php'; require '${raiz}public/api/nucleo/banco.php'; $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: meio }, encoding: 'utf8' }))
     igual(so.map(Number), [1], 'sem o módulo carregado (publicação no meio): só a base, e as dos pedidos esperam a próxima chamada')
     const depois = JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: meio }, encoding: 'utf8' }))
-    igual(depois.map(Number), [1, 200, 201, 202], 'com o módulo de volta: as que faltavam rodam')
+    igual(depois.map(Number), [1, 200, 201, 202, 208], 'com o módulo de volta: as que faltavam rodam')
   }
 
   // ─── pedido ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -209,6 +209,9 @@ export async function testarPedidos(t) {
     erro(await c.post('pedido', pedidoValido(), { origem: null }), 403, 'origem', 'sem Origin')
     erro(await c.post('pedido', pedidoValido(), { origem: 'https://golpe.example' }), 403, 'origem', 'Origin de fora')
     erro(await c.post('pedido', 'codigo=GC-AAAAA', { cab: { 'Content-Type': 'text/plain' } }), 415, 'invalido', 'corpo que não é JSON')
+    // campo estrutural torto: sem a mensagem certa (aqui, sem a linha do código) recusa com o campo — com ela, o pedido
+    // entra só com a mensagem (parte de baixo); cupom, pagamento e troco só informam (também lá embaixo)
+    const semLinhaDoCodigo = (p) => ({ ...p, mensagem: p.mensagem.split('\n').filter((l) => !l.startsWith('Código: ')).join('\n') })
     const casos = [
       [{ codigo: 'GC-0O1IL' }, 'codigo', 'código com letra ambígua'],
       [{ codigo: 'RAT-K8EA' }, 'codigo', 'código de outro tipo'],
@@ -222,13 +225,10 @@ export async function testarPedidos(t) {
       [{ itens: [{ nome: 'X', qtd: 1, precoUnit: 1.999, total: 1.999 }], subtotal: 1.999 }, 'itens', 'preço com 3 casas'],
       [{ itens: [{ nome: 'X', qtd: 1, precoUnit: null, total: 5 }] }, 'itens', 'total sem preço unitário'],
       [{ subtotal: 170 }, 'subtotal', 'subtotal que não bate com os itens'],
-      [{ cupom: { codigo: 'x', regra: 'r', origem: 'o' } }, 'cupom', 'cupom mal formado'],
-      [{ cupom: 'SORTE-AB12' }, 'cupom', 'cupom que não é objeto'],
-      [{ pagamento: 'boleto' }, 'pagamento', 'pagamento desconhecido'],
       [{ mensagem: 'PEDIDO GREEN CHEESE — MG\n1x Jack' }, 'mensagem', 'mensagem sem a linha do código'],
     ]
     for (const [extra, campo, msg] of casos) {
-      const r = await c.post('pedido', pedidoValido(extra))
+      const r = await c.post('pedido', semLinhaDoCodigo(pedidoValido(extra)))
       erro(r, 400, 'invalido', msg)
       igual(r.json?.campo, campo, `${msg}: campo`)
     }
@@ -243,9 +243,59 @@ export async function testarPedidos(t) {
     igual([fumo.json?.campo, fumo.json?.termo], ['itens', 'backwoods'], 'tabaco: campo e termo')
     const vape = await site().post('pedido', encomendaValida({ encomenda: { produto: 'Vape descartável', quantidade: '1', referencia: '' } }))
     erro(vape, 422, 'proibido', 'encomenda de vape')
-    erro(await site().post('pedido', encomendaValida({ encomenda: { produto: 'X', quantidade: '1' } })), 400, 'invalido', 'encomenda sem produto')
+    erro(await site().post('pedido', semLinhaDoCodigo(encomendaValida({ encomenda: { produto: 'X', quantidade: '1' } }))), 400, 'invalido', 'encomenda sem produto')
     const contagem = Number(execFileSync(PHP, ['-r', `$d = new PDO('sqlite:${join(t.dados, 'loja.sqlite')}'); echo $d->query('SELECT COUNT(*) FROM pedidos')->fetchColumn();`], { encoding: 'utf8' }))
     igual(contagem, 0, 'nada recusado foi gravado')
+    const log = existsSync(join(t.dados, 'erros.log')) ? readFileSync(join(t.dados, 'erros.log'), 'utf8') : ''
+    ok(/\[pedido\] recusado GC-\w{5}: invalido \(uf\)/.test(log), 'a recusa fica no log do servidor (com o campo)')
+  }
+
+  parte('pedido: campo informativo não derruba; estrutural torto entra só com a mensagem')
+  {
+    const det = async (codigo) => {
+      const l = (await dono.get('admin-pedidos', { query: `&busca=${codigo}` })).json.pedidos.find((x) => x.codigo === codigo)
+      return l ? (await dono.get('admin-pedido', { query: `&id=${l.id}` })).json.pedido : null
+    }
+    // o troco só informa: arredonda pra centavos ("50,555" → 50,56, o que a mensagem mostrou); fora do teto ou
+    // ilegível, fica sem troco — o pedido entra sempre
+    for (const [troco, esperado] of [['50,555', 50.56], [50.555, 50.56], [100, 100], [250000, null], ['abc', null], [0, null]]) {
+      const p = pedidoValido({ pagamento: 'dinheiro', troco })
+      igual((await site().post('pedido', p)).status, 201, `troco ${JSON.stringify(troco)}: o pedido entra`)
+      igual((await det(p.codigo))?.troco, esperado, `troco ${JSON.stringify(troco)}: ${esperado}`)
+    }
+    for (const [extra, chave, msg] of [
+      [{ cupom: { codigo: 'x', regra: 'r', origem: 'o' } }, 'cupom', 'cupom mal formado'],
+      [{ cupom: 'SORTE-AB12' }, 'cupom', 'cupom que não é objeto'],
+      [{ pagamento: 'boleto' }, 'pagamento', 'pagamento desconhecido'],
+    ]) {
+      const p = pedidoValido(extra)
+      igual((await site().post('pedido', p)).status, 201, `${msg}: o pedido entra`)
+      const d = await det(p.codigo)
+      igual([d?.[chave], d?.itens.length, d?.nota], [null, 2, ''], `${msg}: fica de fora, o resto como veio`)
+    }
+    // estrutural torto com a mensagem certa: entra só com a mensagem (sem itens), a anotação diz o campo
+    for (const [extra, campo, msg] of [
+      [{ subtotal: 170 }, 'subtotal', 'subtotal que não bate com os itens'],
+      [{ itens: [{ nome: 'X', qtd: 1, precoUnit: 1.999, total: 1.999 }], subtotal: 1.999 }, 'itens', 'preço com 3 casas'],
+      [{ uf: 'xx' }, 'uf', 'estado inválido (vale o da mensagem)'],
+      [{ nome: 'I' }, 'nome', 'nome curto (vale o da mensagem)'],
+    ]) {
+      const p = pedidoValido(extra)
+      igual((await site().post('pedido', p)).status, 201, `${msg}: entra só com a mensagem`)
+      const d = await det(p.codigo)
+      igual([d?.itens.length, d?.subtotal, d?.mensagem === p.mensagem, d?.uf, d?.status], [0, null, true, 'mg', 'novo'], `${msg}: sem itens, com a mensagem exata, no estado da mensagem`)
+      ok(d?.nota.includes(`(campo ${campo})`), `${msg}: a anotação diz o campo (${d?.nota})`)
+      if (campo === 'nome') igual(d?.nome, 'Ian Teste', 'nome curto: vale o "Nome:" da mensagem')
+    }
+    const enc = encomendaValida({ encomenda: { produto: 'X', quantidade: '1' } })
+    igual((await site().post('pedido', enc)).status, 201, 'encomenda com produto torto e a mensagem certa: entra só com a mensagem')
+    igual((await det(enc.codigo))?.encomenda, null, 'sem a encomenda estruturada')
+    // tabaco na mensagem do pedido que entraria só com ela: 422 como sempre
+    const fumo = pedidoValido({ subtotal: 1 })
+    fumo.mensagem = fumo.mensagem.replace('3x Seda OCB Premium Slim', '3x Backwoods Honey')
+    erro(await site().post('pedido', fumo), 422, 'proibido', 'tabaco nas linhas dos itens da mensagem')
+    const log = readFileSync(join(t.dados, 'erros.log'), 'utf8')
+    ok(/\[pedido\] GC-\w{5} entrou só com a mensagem: subtotal/.test(log), 'o pedido que entrou só com a mensagem fica no log')
   }
 
   parte('pedido: grava uma vez só')
@@ -352,6 +402,21 @@ export async function testarPedidos(t) {
     await c.post('pedido', z)
     const lz = (await dono.get('admin-pedidos', { query: `&busca=${z.codigo}` })).json.pedidos[0]
     igual([(await dono.get('admin-pedido', { query: `&id=${ly.id}` })).json.pedido.status, lz.substitui], ['confirmado', { id: ly.id, codigo: y.codigo }], 'o de antes confirmado fica; o novo lembra dele')
+    // o envio do de antes falhou e o mudado chegou primeiro: quando o de antes chega (a fila do aparelho), entra já
+    // trocado e ligado ao novo, sem aviso no grupo
+    const antes = pedidoValido()
+    const mudado = pedidoValido({ substitui: { codigo: antes.codigo, token: antes.token } })
+    igual((await c.post('pedido', mudado)).status, 201, 'o mudado chega antes do de antes')
+    const atrasado = await c.post('pedido', antes)
+    igual([atrasado.status, atrasado.json?.pedido?.status], [201, 'cancelado'], 'o de antes chega depois: entra cancelado')
+    const lant = (await dono.get('admin-pedidos', { query: `&busca=${antes.codigo}` })).json.pedidos.find((p) => p.codigo === antes.codigo)
+    const lmud = (await dono.get('admin-pedidos', { query: `&busca=${mudado.codigo}` })).json.pedidos[0]
+    igual([lant.substituidoPor, lmud.substitui, lmud.status], [{ id: lmud.id, codigo: mudado.codigo }, { id: lant.id, codigo: antes.codigo }, 'novo'], 'os dois ficam ligados; vale o mudado')
+    igual((await c.post('pedido', antes)).json?.repetido, true, 'o de antes de novo: repetido')
+    // com o token errado no substitui, quem chega depois com aquele código é outro pedido
+    const outro = pedidoValido()
+    await c.post('pedido', pedidoValido({ substitui: { codigo: outro.codigo, token: novoToken() } }))
+    igual((await c.post('pedido', outro)).json?.pedido?.status, 'novo', 'substitui com outro token: quem chega depois é pedido novo')
   }
 
   parte('pedido: limite por IP')
@@ -447,6 +512,9 @@ export async function testarPedidos(t) {
     const a = (await dono.post('admin-pedido-apagar-dados', { id })).json.pedido
     igual([a.nome, a.whatsapp, a.entrega.rua, a.entrega.cep, a.observacao, a.mensagem, a.nota, a.dadosApagados, a.subtotal, a.itens.length], ['Dados apagados', '', '', '', '', '', '', true, 169.89, 2], 'dados apagados; itens e valores ficam')
     erro(await dono.post('admin-pedido-salvar', { id, nota: 'x' }), 409, 'dados-apagados', 'não edita depois de apagar')
+    igual(a.proximos, [], 'com os dados apagados, o pedido não muda mais de status (o painel não mostra "Reabrir")')
+    erro(await dono.post('admin-pedido-status', { id, status: 'novo' }), 409, 'dados-apagados', 'reabrir o pedido com os dados apagados')
+    igual((await dono.get('admin-pedido', { query: `&id=${id}` })).json.pedido.status, 'cancelado', 'continua cancelado')
     const linha = (await dono.get('admin-pedidos', { query: `&busca=${p.codigo}` })).json.pedidos.find((x) => x.id === id)
     igual([linha?.nome, linha?.whatsapp, linha?.dadosApagados], ['Dados apagados', '', true], 'na lista, a linha diz que os dados foram apagados')
     ok(!(await dono.get('admin-pedidos', { query: `&busca=${encodeURIComponent('98888')}` })).json.pedidos.some((x) => x.id === id), 'a busca não acha mais pelo WhatsApp')

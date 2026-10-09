@@ -35,6 +35,11 @@ export interface SituacaoCodigo {
   motor: boolean
   /** O dono desligou aqui. */
   desligadoPeloDono: boolean
+  /**
+   * O teto de códigos da loja inteira (por hora e por dia), quantos saíram e, batido o teto, até quando o entrar com
+   * código fica pausado (a conta de cada cliente fica no aparelho até liberar). Servidor de antes: não manda.
+   */
+  teto?: { hora: number; dia: number; usadosHora: number; usadosDia: number; pausadoAte: string | null }
 }
 
 export interface ClienteLinha {

@@ -102,5 +102,12 @@ function gc_migracoes_pedidos(): array
           por TEXT NOT NULL DEFAULT ''
         );
         SQL,
+        // 208: o pedido mudado guarda qual ele substitui (o código e o hash do token do de antes) mesmo quando o de antes
+        // ainda não chegou (o envio dele falhou): quando ele chegar depois, entra já trocado e ligado, sem aviso.
+        208 => <<<'SQL'
+        ALTER TABLE pedidos ADD COLUMN substitui_codigo TEXT NOT NULL DEFAULT '';
+        ALTER TABLE pedidos ADD COLUMN substitui_token_hash TEXT NOT NULL DEFAULT '';
+        CREATE INDEX pedidos_substitui_token ON pedidos(substitui_token_hash);
+        SQL,
     ];
 }

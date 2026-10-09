@@ -122,5 +122,33 @@ function gc_migracoes_contas(): array
         CREATE INDEX pedidos_whatsapp ON pedidos(whatsapp, id);
         CREATE INDEX participacoes_whatsapp_todas ON participacoes(whatsapp, id);
         SQL,
+        // 207: o que a revisão das contas pediu.
+        // - clientes.migrado_em: a conta do aparelho (cupons e prêmio reservado) entra uma vez só por conta.
+        // - clientes_aparelhos: os aparelhos em que a conta já entrou (só o hash do segredo do aparelho): pedir código
+        //   de um deles não fica preso no limite do número que qualquer um gasta.
+        // - whatsapp_conferido (pedidos e vagas): o WhatsApp foi conferido (veio da conta logada, que entrou pelo
+        //   código, ou a loja pôs no painel). Só assim o pedido/vaga aparece na conta de quem tem o número; o número
+        //   digitado à mão no aparelho não liga nada a conta nenhuma. participacoes.cliente_id: a vaga feita com a conta
+        //   logada.
+        // - o histórico dos códigos de entrada fica sem o número inteiro (só o mascarado) e sem o número no alvo.
+        207 => <<<'SQL'
+        ALTER TABLE clientes ADD COLUMN migrado_em INTEGER;
+        CREATE TABLE clientes_aparelhos (
+          cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+          aparelho_hash TEXT NOT NULL,
+          visto_em INTEGER NOT NULL,
+          PRIMARY KEY (cliente_id, aparelho_hash)
+        );
+        ALTER TABLE pedidos ADD COLUMN whatsapp_conferido INTEGER NOT NULL DEFAULT 0;
+        UPDATE pedidos SET whatsapp_conferido = 1
+          WHERE cliente_id IS NOT NULL AND whatsapp <> '' AND whatsapp = (SELECT c.whatsapp FROM clientes c WHERE c.id = pedidos.cliente_id);
+        ALTER TABLE participacoes ADD COLUMN cliente_id INTEGER REFERENCES clientes(id) ON DELETE SET NULL;
+        ALTER TABLE participacoes ADD COLUMN whatsapp_conferido INTEGER NOT NULL DEFAULT 0;
+        CREATE INDEX participacoes_cliente ON participacoes(cliente_id, id);
+        UPDATE participacoes SET whatsapp_conferido = 1 WHERE origem = 'painel' AND whatsapp <> '';
+        UPDATE avisos_envios SET para = 'numero:(' || substr(para, 10, 2) || ') 9••••-' || substr(para, 17, 4)
+          WHERE tipo = 'codigo-login' AND para LIKE 'numero:55%' AND length(para) = 20;
+        UPDATE avisos_envios SET alvo = '' WHERE tipo = 'codigo-login';
+        SQL,
     ];
 }

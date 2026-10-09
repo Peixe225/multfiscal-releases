@@ -158,6 +158,8 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
       return null
     }
     if (!p.valor.enviado) return 'direto'
+    // o limite do número bateu, mas o código que já chegou no WhatsApp ainda vale: vai pro passo do código
+    if (p.valor.jaValendo) avisar(T.codigoJaValendo)
     setCodigo('')
     setEnviadoEm(Date.now())
     setAgora(Date.now())
@@ -253,7 +255,7 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
         setCodigo('')
         setEnviadoEm(Date.now())
         setAgora(Date.now())
-        avisar(T.outroCodigoFoi)
+        avisar(p.valor.jaValendo ? T.codigoJaValendo : T.outroCodigoFoi)
         codigoRef.current?.focus()
       }
     } finally {

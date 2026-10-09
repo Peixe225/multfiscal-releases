@@ -8,7 +8,7 @@ import { guardar, useDados } from '../dados'
 import { brl, falta, plural, relativo, vagas } from '../formato'
 import { Link, Topo } from '../Moldura'
 import { ResumoPedidos, useNovosPedidos } from '../pedidos/ResumoPedidos'
-import { usePode } from '../permissoes'
+import { rateioEhMeu, usePode } from '../permissoes'
 import { Blocos, Selo } from '../rateio-ui'
 import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
@@ -95,7 +95,8 @@ export function Resumo({ nome }: { nome: string }) {
   const agora = api.agora()
 
   const porId = new Map(d?.rateios.map((r) => [r.id, r]))
-  const lista = d ? pendencias(d.rateios, agora).filter((x) => mexe || x.rateio.status === 'chegou') : []
+  // e o gerente, só nos rateios que valem só nos estados dele (o de MG+RJ é com o dono)
+  const lista = d ? pendencias(d.rateios, agora).filter((x) => (mexe && rateioEhMeu(x.rateio.ufs)) || x.rateio.status === 'chegou') : []
   const abertos = d?.rateios.filter((r) => r.status === 'aberto') ?? []
   const andamento = d?.rateios.filter((r) => ['pedido', 'caminho'].includes(r.status)) ?? []
   const esperando = d?.resumo.esperandoPagamento ?? []

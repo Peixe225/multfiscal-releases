@@ -26,6 +26,11 @@ export interface ContaAberta {
   cupomGuardado: Cupom | null
   /** Criar com um número que já tinha conta no servidor: entrou nela (a tela diz "oi de novo", não "conta criada"). */
   jaTinha?: boolean
+  /**
+   * O prêmio do giro sem conta não entrou: a conta já tinha girado no dia daquele giro (1 giro por dia por conta). A
+   * reserva fica no aparelho, sem cupom.
+   */
+  pendenteRecusado?: 'ja-girou-hoje'
 }
 
 /** Os erros do código pelo WhatsApp (só o adaptador do servidor manda código). */
@@ -42,7 +47,7 @@ export interface AdaptadorConta {
    * Passo 1 (entrar, criar ou trocar o número): pede o código pelo WhatsApp. `enviado: false` = não precisa de código
    * (adaptador local: a conta só existe neste aparelho) e a tela vai direto pro passo 2 sem pedir nada.
    */
-  pedirCodigo(whatsapp: string, motivo?: 'entrar' | 'criar' | 'trocar'): Promise<Resultado<{ enviado: boolean; esperaSegundos?: number }, 'nao-encontrada' | 'invalido' | ErroCodigo>>
+  pedirCodigo(whatsapp: string, motivo?: 'entrar' | 'criar' | 'trocar'): Promise<Resultado<{ enviado: boolean; esperaSegundos?: number; jaValendo?: boolean }, 'nao-encontrada' | 'invalido' | ErroCodigo>>
   /**
    * Entrar, passo 2: confere o código (o local ignora) e abre a conta; guarda o prêmio reservado, se ainda vale. No
    * servidor, número sem conta pede o nome ('precisa-nome': manda de novo com `extra.nome`).
@@ -55,7 +60,7 @@ export interface AdaptadorConta {
   atualizar(d: Partial<Pick<Conta, 'nome' | 'whatsapp' | 'aceitaPromo'>> & { codigo?: string }): Promise<Resultado<Conta, 'whatsapp-existe' | 'invalido' | 'precisa-codigo' | ErroCodigo>>
   giroDisponivel(interativo: string): Promise<GiroInfo>
   girar(interativo: string, ctx: { uf: string | null }): Promise<Resultado<{ premioId: string; cupom: Cupom | null }, 'sem-giro' | 'sem-premio'>>
-  salvarCupom(interativo: string): Promise<Resultado<Cupom, 'sem-conta' | 'sem-pendente' | 'pendente-vencido'>>
+  salvarCupom(interativo: string): Promise<Resultado<Cupom, 'sem-conta' | 'sem-pendente' | 'pendente-vencido' | 'ja-girou-hoje'>>
   usarCupom(codigo: string): Promise<Resultado<Cupom, 'nao-encontrado' | 'ja-usado' | 'vencido'>>
 }
 

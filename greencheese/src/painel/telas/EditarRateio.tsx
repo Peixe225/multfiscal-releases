@@ -12,6 +12,7 @@ import { prepararFoto } from '../imagem'
 import { lembrarJson, lidoJson } from '../lembrar'
 import { Topo } from '../Moldura'
 import { AVISO_PROIBIDO, termoProibido } from '../proibidos'
+import { DICA_RATEIO_DE_OUTRO, rateioEhMeu, ufsDoUsuario } from '../permissoes'
 import { PreviaCartao } from '../rateio-ui'
 import { caminho, ir } from '../rotas'
 import type { RateioAdmin, RateioCorpo } from '../tipos'
@@ -64,6 +65,12 @@ const NOVO: Form = {
   temPrazo: false,
   fechaEm: '',
   reservaHoras: '24',
+}
+
+/** O rateio novo nasce com os estados de quem está logado (o dono: todos; o gerente de MG: só MG). */
+function novoForm(): Form {
+  const meus = ufsDoUsuario()
+  return meus === null ? NOVO : { ...NOVO, ufs: NOVO.ufs.filter((u) => meus.includes(u)) }
 }
 
 function doRateio(r: RateioAdmin): Form {
@@ -378,11 +385,14 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
     let vivo = true
     const iniciar = (r: RateioAdmin | null) => {
       const p = produtoInicial ? produtoDoCatalogo(produtoInicial) : undefined
-      const limpo: Form = r ? doRateio(r) : p ? { ...NOVO, produtoId: p.id, titulo: tituloSugerido(p), tituloAuto: true, precoDepois: reaisNoCampo(p.preco) } : NOVO
+      const limpo: Form = r ? doRateio(r) : p ? { ...novoForm(), produtoId: p.id, titulo: tituloSugerido(p), tituloAuto: true, precoDepois: reaisNoCampo(p.preco) } : novoForm()
       inicial.current = JSON.stringify(limpo)
       const guardado = lidoJson<{ form: Form; base: string | null }>(chaveRascunho)
-      if (guardado && guardado.base === (r?.atualizadoEm ?? null) && JSON.stringify({ ...NOVO, ...guardado.form }) !== inicial.current) {
-        setF({ ...NOVO, ...guardado.form })
+      // o rascunho guardado no aparelho não traz estado que não é de quem está logado
+      const meus = ufsDoUsuario()
+      const doGuardado = guardado ? { ...NOVO, ...guardado.form, ...(meus === null || r ? {} : { ufs: (guardado.form.ufs ?? []).filter((u) => meus.includes(u)) }) } : null
+      if (guardado && doGuardado && guardado.base === (r?.atualizadoEm ?? null) && JSON.stringify(doGuardado) !== inicial.current) {
+        setF(doGuardado)
         setVoltouRascunho(true)
       } else {
         if (guardado) lembrarJson(chaveRascunho, null)
@@ -435,7 +445,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
     lembrarJson(chaveRascunho, null)
     setVoltouRascunho(false)
     setErros({})
-    const limpo = rateio ? doRateio(rateio) : NOVO
+    const limpo = rateio ? doRateio(rateio) : novoForm()
     inicial.current = JSON.stringify(limpo)
     setF(limpo)
   }
@@ -503,6 +513,16 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
       </>
     )
   }
+  if (rateio && !rateioEhMeu(rateio.ufs)) {
+    return (
+      <>
+        <Topo voltar={voltarPara} titulo={<TituloTela>Editar rateio</TituloTela>} />
+        <div className="pn-pagina">
+          <Aviso tipo="info">{DICA_RATEIO_DE_OUTRO}</Aviso>
+        </div>
+      </>
+    )
+  }
   if (rateio && ['encerrado', 'cancelado'].includes(rateio.status)) {
     return (
       <>
@@ -514,6 +534,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
     )
   }
 
+  const meus = ufsDoUsuario()
   const preco = lerReais(f.precoRateio)
   const depois = lerReais(f.precoDepois)
   const eco = preco != null && depois != null && depois > preco ? depois - preco : null
@@ -609,6 +630,8 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
               <div className="pn-chips" role="group" aria-labelledby="s-ufs" aria-describedby={erros.ufs ? 'r-ufs-erro' : undefined}>
                 {UFS.map((u) => {
                   const on = f.ufs.includes(u.uf)
+                  // estado que não é de quem está logado: o chip fica, mas não marca (o servidor recusaria o rateio)
+                  const fora = meus !== null && !meus.includes(u.uf)
                   return (
                     <button
                       key={u.uf}
@@ -616,7 +639,8 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
                       type="button"
                       className={`pn-chip-uf px${on ? ' on' : ''}`}
                       aria-pressed={on}
-                      aria-label={u.nome}
+                      aria-label={fora ? `${u.nome} (não é teu)` : u.nome}
+                      disabled={fora && !on}
                       onClick={() => mudar('ufs', on ? f.ufs.filter((x) => x !== u.uf) : UFS.map((x) => x.uf).filter((x) => x === u.uf || f.ufs.includes(x)))}
                     >
                       {on && <Ic nome="check" tamanho={16} />}
@@ -625,6 +649,7 @@ export function EditarRateio({ id, produtoInicial }: { id: string | null; produt
                   )
                 })}
               </div>
+              {meus !== null && <p className="pn-dica-bloco">Teu acesso é só de {meus.length ? meus.map((x) => x.toUpperCase()).join(', ') : 'nenhum estado'}: rateio em outro estado é com o dono.</p>}
               {erros.ufs && (
                 <p id="r-ufs-erro" className="pn-erro">
                   <Ic nome="atencao" tamanho={16} />

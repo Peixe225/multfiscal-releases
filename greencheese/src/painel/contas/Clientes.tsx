@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as api from '../api'
 import { useDados } from '../dados'
-import { plural, relativo, whatsappBonito } from '../formato'
+import { hora, plural, relativo, whatsappBonito } from '../formato'
 import { Link, Topo } from '../Moldura'
 import { caminho, ir } from '../rotas'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
@@ -167,7 +167,7 @@ function Codigo({ situacao, aoMudar }: { situacao: SituacaoCodigo; aoMudar: () =
     setOcupado(true)
     setErro(null)
     try {
-      await ajustesClientes(ligar)
+      await ajustesClientes({ codigo: ligar })
       aoMudar()
     } catch (e) {
       setErro(api.mensagemDe(e))
@@ -189,9 +189,78 @@ function Codigo({ situacao, aoMudar }: { situacao: SituacaoCodigo; aoMudar: () =
         <span className="pn-troca-marca" aria-hidden="true" />
         <span>
           Clientes entram com o código pelo WhatsApp
-          <small className="ct-codigo-sub">{situacao.ligado ? 'O WhatsApp da loja manda um código de 6 números pra quem entra no site.' : 'Desligado: a conta de cada cliente fica só no aparelho dele.'}</small>
+          <small className="ct-codigo-sub">
+            {situacao.ligado
+              ? 'O WhatsApp da loja manda um código de 6 números pra quem entra no site.'
+              : situacao.teto?.pausadoAte && !situacao.desligadoPeloDono
+                ? 'Pausado pelo teto de códigos (aqui embaixo): volta sozinho.'
+                : 'Desligado: a conta de cada cliente fica só no aparelho dele.'}
+          </small>
         </span>
       </label>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {situacao.teto && <Teto teto={situacao.teto} desligado={situacao.desligadoPeloDono} aoMudar={aoMudar} />}
+    </div>
+  )
+}
+
+/**
+ * O teto de códigos da loja inteira: protege o WhatsApp da loja (o mesmo dos avisos do grupo) de quem pede código pro
+ * número dos outros. Batido, o entrar com código pausa sozinho até liberar.
+ */
+function Teto({ teto, desligado, aoMudar }: { teto: NonNullable<SituacaoCodigo['teto']>; desligado: boolean; aoMudar: () => void }) {
+  const [porHora, setPorHora] = useState(String(teto.hora))
+  const [porDia, setPorDia] = useState(String(teto.dia))
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvo, setSalvo] = useState(false)
+  useEffect(() => {
+    setPorHora(String(teto.hora))
+    setPorDia(String(teto.dia))
+  }, [teto.hora, teto.dia])
+  const mudou = porHora !== String(teto.hora) || porDia !== String(teto.dia)
+  const salvar = async () => {
+    const h = Number(porHora)
+    const d = Number(porDia)
+    if (!Number.isInteger(h) || h < 1 || h > 1000) return setErro('Por hora: de 1 a 1000 códigos.')
+    if (!Number.isInteger(d) || d < 1 || d > 10000) return setErro('Por dia: de 1 a 10000 códigos.')
+    if (d < h) return setErro('O teto do dia não pode ser menor que o da hora.')
+    setOcupado(true)
+    setErro(null)
+    try {
+      await ajustesClientes({ tetoHora: h, tetoDia: d })
+      setSalvo(true)
+      aoMudar()
+    } catch (e) {
+      setErro(api.mensagemDe(e))
+    } finally {
+      setOcupado(false)
+    }
+  }
+  return (
+    <div className="ct-teto">
+      {teto.pausadoAte && !desligado && (
+        <Aviso tipo="erro">
+          Pausado: a loja chegou no teto de códigos ({teto.usadosHora} na última hora, {teto.usadosDia} nas últimas 24 h). Volta sozinho às {hora(teto.pausadoAte)}; até lá, a conta de cada cliente fica no aparelho dele.
+        </Aviso>
+      )}
+      <p className="ct-codigo-sub">
+        Teto da loja inteira (protege o WhatsApp da loja de quem pede código pro número dos outros). Saíram {teto.usadosHora} na última hora e {teto.usadosDia} nas últimas 24 h.
+      </p>
+      <div className="ct-teto-campos">
+        <label className="ct-teto-campo">
+          <span>Por hora</span>
+          <input className="pn-input" type="number" inputMode="numeric" min={1} max={1000} value={porHora} onChange={(e) => (setPorHora(e.target.value), setSalvo(false))} />
+        </label>
+        <label className="ct-teto-campo">
+          <span>Por dia</span>
+          <input className="pn-input" type="number" inputMode="numeric" min={1} max={10000} value={porDia} onChange={(e) => (setPorDia(e.target.value), setSalvo(false))} />
+        </label>
+        <Botao variante="cinza" ocupado={ocupado} disabled={!mudou} onClick={() => void salvar()}>
+          Salvar o teto
+        </Botao>
+      </div>
+      {salvo && !mudou && <p className="ct-codigo-sub" role="status">Teto salvo.</p>}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
     </div>
   )

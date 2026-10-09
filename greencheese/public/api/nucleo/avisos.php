@@ -409,12 +409,14 @@ function gc_whatsapp_enviar(string $texto, ?array $para = null, string $tipo = '
  * Manda AGORA (tempo limite curto) pra um número ou grupo e registra a tentativa no histórico dos avisos, sem fila nem
  * nova tentativa: pra quem precisa saber na hora se saiu (o código de login das contas). $registro é o que o histórico
  * do painel mostra no lugar do texto (ex.: "Código de login pra (33) 9••••-4567"): com ele, o texto de verdade nunca
- * fica guardado e o painel não reenvia. Chame FORA de transação (a espera do gateway não pode segurar o banco).
+ * fica guardado e o painel não reenvia. $paraRegistro (com $registro) é o destino que o histórico guarda no lugar do
+ * de verdade (ex.: 'numero:(33) 9••••-4567'): o número inteiro só vai pro gateway, nunca pro banco. Chame FORA de
+ * transação (a espera do gateway não pode segurar o banco).
  * @param array{tipo: string, valor: string} $para
  * @param array<string, mixed> $dados vão no webhook ({tipo, texto, dados}); com $registro, não ficam guardados
  * @return array{ok: bool, motor: string, http: int, ms: int, erro: string, envio: int|null}
  */
-function gc_whatsapp_mandar(string $texto, array $para, string $tipo, string $alvo = '', ?string $registro = null, array $dados = []): array
+function gc_whatsapp_mandar(string $texto, array $para, string $tipo, string $alvo = '', ?string $registro = null, array $dados = [], ?string $paraRegistro = null): array
 {
     $guardado = gc_para_guardar($para);
     if ($guardado === null || $guardado === '') {
@@ -424,7 +426,7 @@ function gc_whatsapp_mandar(string $texto, array $para, string $tipo, string $al
     $id = gc_inserir(
         "INSERT INTO avisos_envios (tipo, alvo, para, texto, dados, reenvia, status, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, 'enviando', ?, ?)",
         [
-            $tipo, $alvo, $guardado, $registro ?? $texto,
+            $tipo, $alvo, $registro !== null && $paraRegistro !== null ? $paraRegistro : $guardado, $registro ?? $texto,
             $registro === null ? json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) : '{}',
             $registro === null ? 1 : 0, $agora, $agora,
         ],
@@ -678,6 +680,17 @@ function gc_aviso_texto_pedido(array $p, ?array $antes): string
             : "_O cliente mandou de novo depois do #{$antes['codigo']} (" . (GC_PEDIDO_ROTULO[$antes['status']] ?? $antes['status']) . '): confere os dois._';
     }
     $l[] = '';
+    if (function_exists('gc_pedido_resgatado') && gc_pedido_resgatado($p)) {
+        // a cópia do site veio incompleta (pedido.php, gc_ler_pedido_resgate): vai a mensagem do cliente como saiu
+        $l[] = '_A cópia do site veio incompleta. A mensagem do cliente:_';
+        $l[] = '';
+        $l[] = gc_tamanho((string) $p['mensagem']) > 1500 ? rtrim(mb_substr((string) $p['mensagem'], 0, 1499, 'UTF-8')) . '…' : (string) $p['mensagem'];
+        $link = gc_link_painel('#/pedido/' . $p['id']);
+        if ($link !== '') {
+            array_push($l, '', 'Painel: ' . $link);
+        }
+        return implode("\n", $l);
+    }
     if ($enc) {
         $e = json_decode((string) $p['encomenda'], true);
         $e = is_array($e) ? $e : [];

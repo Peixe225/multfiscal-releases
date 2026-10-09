@@ -5,7 +5,13 @@
 // - clientes: o código pelo WhatsApp (formato, limites por número e por IP, 1 por minuto, expiração em 10 min, 5
 //   tentativas, sem revelar se o número tem conta), criar e entrar, a sessão gc_cliente (cookie, 90 dias), atualizar
 //   (promoções com data, trocar o WhatsApp com código), endereços, pedidos e vagas da conta, exportar, sair, apagar;
-// - a conta do aparelho migrando no primeiro login (nome, cupons que valem, prêmio reservado, dias de giro);
+// - a conta do aparelho migrando no primeiro login (nome, cupons ganhos antes da conta do servidor, no máximo 2, uma
+//   vez por conta; prêmio reservado; dias de giro);
+// - o que liga pedido e vaga à conta (a conta logada, ou o WhatsApp conferido pela loja) e o arquivo da LGPD sem os
+//   dados de quem pediu quando o pedido foi achado só pelo número;
+// - os limites do código contra quem pede pro número dos outros: valem os 2 últimos códigos, a resposta diz quando já
+//   tem código valendo, o aparelho em que a conta já entrou tem o limite dele, rede (/24, /48) e o teto da loja inteira
+//   (pausa sozinho, volta sozinho); o histórico dos códigos só com o número mascarado;
 // - Teste minha sorte no servidor: giro sem conta (reserva do aparelho), com conta (cupom com código), 1 por dia por
 //   conta/WhatsApp/aparelho, prêmios do estado, álcool nunca, usar cupom, limite por IP;
 // - o painel Clientes (lista, busca, promoções, CSV, apagar, ligar/desligar o código, baixa de cupom).
@@ -77,7 +83,8 @@ export async function testarContas(t) {
   ])
   const base = `http://127.0.0.1:${porta}`
   let ipN = 0
-  const novo = () => new Cli(base, `198.19.${Math.floor(ipN / 200)}.${(ipN++ % 200) + 1}`)
+  // cada cliente numa rede (/24) diferente: o limite por rede (20 códigos por hora) é testado à parte
+  const novo = () => new Cli(base, `198.19.${ipN % 250}.${Math.floor(ipN++ / 250) + 1}`)
   const AGORA = Math.floor(Date.now() / 1000)
   let numero = 0
   const whats = () => `(31) 9${String(70000000 + numero++).padStart(8, '0')}`
@@ -304,6 +311,9 @@ export async function testarContas(t) {
       erro(await novo().post('cliente-codigo', { whatsapp: whats() }), 409, 'sem-codigo', 'pedir código sem motor')
       await dono.post('admin-avisos-salvar', { motor: 'zapi', zapi: { instancia: '3C5A0B1D2E3F', token: 'TOKENZAPI0123456789' }, destino: { tipo: 'grupo', valor: '120363012345678901' } })
       igual((await novo().get('recursos')).json?.contas, { codigo: true, sessao: false }, 'com o Z-API: entrar por código ligado')
+      // o teto de códigos da loja inteira (30 por hora) fica alto aqui: os testes mandam muito código; ele é testado à parte
+      const t = await dono.post('admin-clientes-ajustes', { tetoHora: 1000, tetoDia: 10000 })
+      igual([t.status, t.json?.codigo?.teto?.hora, t.json?.codigo?.teto?.dia], [200, 1000, 10000], 'o dono muda o teto de códigos')
     }
 
     parte('clientes: o código pelo WhatsApp')
@@ -323,8 +333,11 @@ export async function testarContas(t) {
       const codigo = ultimoCodigo(zapAna)
       const hist = (await dono.get('admin-avisos')).json.envios.find((x) => x.tipo === 'codigo-login')
       igual([hist?.texto, hist?.reenvia, hist?.status], [`Código de entrada pra (31) 9••••-${zapAna.slice(-4)}`, false, 'enviado'], 'no histórico do painel: só o número mascarado, sem reenvio')
+      igual(hist?.para, { tipo: 'numero', valor: `(31) 9••••-${zapAna.slice(-4)}` }, 'o destino no histórico também mascarado')
+      ok(/^conta:[0-9a-f]{24}$/.test(hist?.alvo ?? ''), `o alvo sem o número (${hist?.alvo})`)
       const banco = ['loja.sqlite', 'loja.sqlite-wal'].map((n) => join(dados, n)).filter((f) => existsSync(f)).map((f) => readFileSync(f).toString('latin1')).join('')
       ok(codigo && !banco.includes(codigo), 'o código não fica no banco (só o hash)')
+      ok(!JSON.stringify((await dono.get('admin-avisos')).json).includes(guardado(zapAna).slice(2)), 'o número inteiro de quem pediu código (sem conta ainda) não aparece no histórico dos avisos')
       erro(await ana.post('cliente-codigo', { whatsapp: zapAna }), 429, 'muitas-tentativas', 'outro código pro mesmo número antes de 1 min')
       // sem revelar se o número tem conta: o mesmo pedido de código, com conta e sem conta, responde igual (até a forma)
       const semConta = await novo().post('cliente-codigo', { whatsapp: whats() })
@@ -345,7 +358,7 @@ export async function testarContas(t) {
       const c = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo, nome: '  Ana   Souza ', aceitaPromo: true })
       igual([c.status, c.json?.criada, c.json?.conta?.nome, c.json?.conta?.whatsapp, c.json?.conta?.aceitaPromo], [201, true, 'Ana Souza', guardado(zapAna), true], 'conta criada com o mesmo código (que continuou valendo)')
       ok(ISO.test(c.json?.conta?.aceitaPromoEm ?? '') && ISO.test(c.json?.conta?.confirmou18Em ?? ''), 'promoções e +18 gravados com a data')
-      igual(chaves(c.json), ['conta', 'criada', 'cupomGuardado', 'cupons', 'dias', 'enderecos', 'migrados', 'ok', 'pendente'], 'resposta do entrar com as chaves do contrato')
+      igual(chaves(c.json), ['conta', 'criada', 'cupomGuardado', 'cupons', 'dias', 'enderecos', 'migrados', 'ok', 'pendente', 'pendenteRecusado'], 'resposta do entrar com as chaves do contrato')
       igual(chaves(c.json?.conta), ['aceitaPromo', 'aceitaPromoEm', 'confirmou18Em', 'criadaEm', 'id', 'nome', 'whatsapp'], 'ContaCliente com as chaves do contrato')
       const ck = c.cookies.find((x) => x.startsWith('gc_cliente=')) ?? ''
       ok(/gc_cliente=[0-9a-f]{64};/.test(ck) && /HttpOnly/i.test(ck) && /SameSite=Lax/i.test(ck) && /path=\/;/i.test(ck) && /Max-Age=7776000/i.test(ck) && !/Secure/i.test(ck), `cookie gc_cliente: HttpOnly, SameSite=Lax, 90 dias, sem Secure no http (${ck})`)
@@ -379,19 +392,41 @@ export async function testarContas(t) {
       for (let i = 0; i < 4; i++) await cli.post('cliente-entrar', { whatsapp: z2, codigo: errado })
       erro(await cli.post('cliente-entrar', { whatsapp: z2, codigo: errado }), 403, 'codigo-vencido', '5º erro: o código para de valer')
       erro(await cli.post('cliente-entrar', { whatsapp: z2, codigo: certo, nome: 'Fulano' }), 403, 'codigo-vencido', 'nem o certo vale depois de 5 erros')
-      // por número: 3 em 15 min (com 1 min entre eles)
+      // por número: 3 em 15 min (com 1 min entre eles); no limite, a resposta diz que ainda tem código valendo (a tela vai
+      // pro passo do código: quem pede pro número dos outros não trava a dona)
       const z3 = whats()
       for (let i = 0; i < 3; i++) igual((await novo().post('cliente-codigo', { whatsapp: z3 }, { agora: AGORA + i * 61 })).status, 200, `código ${i + 1} pro mesmo número`)
-      erro(await novo().post('cliente-codigo', { whatsapp: z3 }, { agora: AGORA + 3 * 61 }), 429, 'muitas-tentativas', '4º código pro mesmo número em 15 min')
-      // o novo código desliga o de antes
+      const quarto = await novo().post('cliente-codigo', { whatsapp: z3 }, { agora: AGORA + 3 * 61 })
+      erro(quarto, 429, 'muitas-tentativas', '4º código pro mesmo número em 15 min')
+      igual(quarto.json?.codigoValendo, true, 'no limite: diz que o código que já foi ainda vale')
+      igual((await novo().post('cliente-codigo', { whatsapp: z3 }, { agora: AGORA + 1500 })).json?.codigoValendo, undefined, 'passou o limite: código novo, sem aviso')
+      // o pedido novo não mata o de antes: valem os 2 últimos (o 3º mata o 1º)
       const z4 = whats()
       const c4 = novo()
-      await c4.post('cliente-codigo', { whatsapp: z4 }, { agora: AGORA })
-      const velho = ultimoCodigo(z4)
-      await c4.post('cliente-codigo', { whatsapp: z4 }, { agora: AGORA + 61 })
-      const atual = ultimoCodigo(z4)
-      if (velho !== atual) erro(await c4.post('cliente-entrar', { whatsapp: z4, codigo: velho, nome: 'Fulano' }, { agora: AGORA + 62 }), 403, 'codigo-errado', 'o código de antes não vale mais')
-      igual((await c4.post('cliente-entrar', { whatsapp: z4, codigo: atual, nome: 'Fulano Quatro' }, { agora: AGORA + 63 })).status, 201, 'o mais novo vale')
+      const cods = []
+      for (let i = 0; i < 3; i++) {
+        await c4.post('cliente-codigo', { whatsapp: z4 }, { agora: AGORA + i * 61 })
+        cods.push(ultimoCodigo(z4))
+      }
+      if (cods[0] !== cods[1] && cods[0] !== cods[2]) erro(await c4.post('cliente-entrar', { whatsapp: z4, codigo: cods[0], nome: 'Fulano' }, { agora: AGORA + 125 }), 403, 'codigo-errado', 'o antepenúltimo código não vale mais')
+      igual((await c4.post('cliente-entrar', { whatsapp: z4, codigo: cods[1], nome: 'Fulano Quatro' }, { agora: AGORA + 126 })).status, 201, 'o penúltimo ainda vale')
+      if (cods[2] !== cods[1]) erro(await novo().post('cliente-entrar', { whatsapp: z4, codigo: cods[2] }, { agora: AGORA + 127 }), 403, 'codigo-vencido', 'usado um, o outro que valia para de valer')
+      // o aparelho em que a conta já entrou: o limite do número é só dele (o comum, quem quiser gasta)
+      const z6 = whats()
+      const dona = novo()
+      const apDona = novoToken()
+      await dona.post('cliente-codigo', { whatsapp: z6, aparelho: apDona }, { agora: AGORA })
+      igual((await dona.post('cliente-entrar', { whatsapp: z6, codigo: ultimoCodigo(z6), nome: 'Dona Seis', aparelho: apDona }, { agora: AGORA + 5 })).status, 201, 'a dona cria a conta no aparelho dela')
+      await dona.post('cliente-sair', {}, { agora: AGORA + 6 })
+      for (let i = 0; i < 2; i++) await novo().post('cliente-codigo', { whatsapp: z6 }, { agora: AGORA + 61 + i * 61 })
+      erro(await novo().post('cliente-codigo', { whatsapp: z6 }, { agora: AGORA + 200 }), 429, 'muitas-tentativas', 'o limite comum do número acabou (3 em 15 min)')
+      igual((await dona.post('cliente-codigo', { whatsapp: z6, aparelho: apDona }, { agora: AGORA + 260 })).status, 200, 'do aparelho em que ela já entrou, o código sai')
+      igual((await dona.post('cliente-entrar', { whatsapp: z6, codigo: ultimoCodigo(z6), aparelho: apDona }, { agora: AGORA + 265 })).status, 200, 'e ela entra')
+      erro(await novo().post('cliente-codigo', { whatsapp: z6, aparelho: novoToken() }, { agora: AGORA + 330 }), 429, 'muitas-tentativas', 'aparelho que nunca entrou na conta: o limite comum')
+      // por rede: 20 por hora do mesmo /48 (IPv6, cada um num /64) ou /24 (IPv4)
+      let rede
+      for (let i = 0; i < 21; i++) rede = await new Cli(base, `2001:db8:77:${i.toString(16)}::/64`).post('cliente-codigo', { whatsapp: whats() })
+      erro(rede, 429, 'muitas-tentativas', '21º código do mesmo /48 em 1 hora')
       // por IP: 10 por hora
       const mesmoIp = novo()
       let ultimo
@@ -466,15 +501,24 @@ export async function testarContas(t) {
       igual((await ana.get('cliente-eu')).json.enderecos.some((x) => x.cep === '39801000' && x.numero === '55'), true, 'o endereço do pedido ficou guardado pra próxima')
       await dono.post('admin-pedido-status', { id, status: 'confirmado' })
       igual((await ana.get('cliente-pedidos')).json.pedidos[0].status, 'confirmado', 'o status que a loja deu aparece pro cliente')
-      // um pedido de antes da conta, com o mesmo WhatsApp, também aparece
-      const antes = pedidoValido({ whatsapp: zapAna })
+      // um pedido de OUTRA pessoa com o número da conta digitado à mão: não aparece (o número não foi conferido)
+      const antes = pedidoValido({ whatsapp: zapAna, nome: 'Outra Pessoa', obs: 'Deixar com a vizinha' })
       await novo().post('pedido', antes)
-      igual((await ana.get('cliente-pedidos')).json.pedidos.map((x) => x.codigo), [antes.codigo, p.codigo], 'os pedidos do mesmo WhatsApp também')
+      igual((await ana.get('cliente-pedidos')).json.pedidos.map((x) => x.codigo), [p.codigo], 'pedido com o número digitado no aparelho (sem conferir): não entra na conta')
+      // a loja confere o número na conversa e salva no painel (o mesmo que já estava): aí o pedido é dessa conta
+      const idAntes = (await dono.get('admin-pedidos', { query: `&busca=${antes.codigo}` })).json.pedidos[0].id
+      await dono.post('admin-pedido-salvar', { id: idAntes, whatsapp: zapAna })
+      igual((await ana.get('cliente-pedidos')).json.pedidos.map((x) => x.codigo), [antes.codigo, p.codigo], 'a loja salvou o número no painel: o pedido entra na conta')
       erro(await novo().get('cliente-pedidos'), 401, 'sem-sessao', 'sem sessão')
       const rat = (await dono.get('admin-rateios')).json.rateios.find((x) => x.status === 'aberto' && x.ufs.includes('mg'))
-      await novo().post('rateio-entrar', { rateio: rat.id, nome: 'Ana', whatsapp: zapAna, uf: 'mg', quantidade: 1 })
+      // a vaga que outra pessoa reservou com o número da conta (sem a conta logada): não aparece
+      await novo().post('rateio-entrar', { rateio: rat.id, nome: 'Outra Pessoa', whatsapp: zapAna, uf: 'mg', quantidade: 1 })
+      igual((await ana.get('cliente-vagas')).json.vagas.length, 0, 'vaga com o número digitado (sem a conta logada): não entra na conta')
+      // a vaga feita com a conta logada: entra
+      const rat2 = (await dono.post('admin-rateio-salvar', { titulo: 'Rateio da Ana', descricao: '', produtoId: null, precoRateio: 10, precoDepois: 15, vagas: 10, limitePorPessoa: 2, ufs: ['mg'], status: 'aberto', previsaoMin: 6, previsaoMax: 10 })).json.rateio
+      await ana.post('rateio-entrar', { rateio: rat2.id, nome: 'Ana', whatsapp: zapAna, uf: 'mg', cidade: 'Teófilo Otoni', quantidade: 1 })
       const v = (await ana.get('cliente-vagas')).json.vagas
-      igual([v.length, v[0]?.rateio, v[0]?.status, v[0]?.token], [1, rat.id, 'reservado', ''], 'a vaga do WhatsApp da conta (sem o token de aparelho)')
+      igual([v.length, v[0]?.rateio, v[0]?.status, v[0]?.token], [1, rat2.id, 'reservado', ''], 'a vaga feita com a conta logada (sem o token de aparelho)')
       // LGPD do pedido no painel: sai dos Meus pedidos
       await dono.post('admin-pedido-status', { id, status: 'cancelado' })
       await dono.post('admin-pedido-apagar-dados', { id })
@@ -489,6 +533,10 @@ export async function testarContas(t) {
       const j = x.json
       igual([j?.conta?.nome, j?.pedidos?.length, j?.vagasEmRateios?.length, j?.enderecos?.length], ['Ana S.', 1, 1, 2], 'tem a conta, os pedidos, as vagas e os endereços')
       ok(j?.pedidos?.[0] && !('nota' in j.pedidos[0]) && !('statusPor' in j.pedidos[0]), 'sem a anotação interna da loja')
+      const pa = j?.pedidos?.[0]
+      igual([pa?.achadoPeloWhatsapp, 'nome' in (pa ?? {}), 'entrega' in (pa ?? {}), 'observacao' in (pa ?? {}), 'mensagem' in (pa ?? {}), pa?.itens?.length], [true, false, false, false, false, 2], 'pedido achado só pelo número: sem nome, endereço, observação nem mensagem de quem pediu')
+      ok(!x.texto.includes('Outra Pessoa') && !x.texto.includes('Deixar com a vizinha'), 'nada da outra pessoa no arquivo')
+      igual([j?.vagasEmRateios?.[0]?.nome, j?.vagasEmRateios?.[0]?.cidade], ['Ana', 'Teófilo Otoni'], 'a vaga feita com a conta: com nome e cidade')
       erro(await novo().get('cliente-exportar'), 401, 'sem-sessao', 'sem sessão')
     }
 
@@ -570,6 +618,15 @@ export async function testarContas(t) {
       igual((await outra.post('cliente-girar', { interativo: 'sorte', uf: 'mg', aparelho: novoToken() }, { agora: amanha + 120 })).status, 200, 'a outra conta, no aparelho dela, gira')
       // a mesma conta em outro aparelho, no mesmo dia: não gira (limite por conta e por WhatsApp)
       erro(await anonimo.post('cliente-girar', { interativo: 'sorte', uf: 'mg', aparelho: novoToken() }, { agora: amanha + 180 }), 409, 'sem-giro', 'a mesma conta em outro aparelho')
+      // nem girando SEM a conta num aparelho novo e guardando nela depois (o giro guardado é o do dia da conta)
+      const apNovo = novoToken()
+      const semCookie = novo()
+      igual((await semCookie.post('cliente-girar', { interativo: 'sorte', uf: 'mg', aparelho: apNovo }, { agora: amanha + 190 })).status, 200, 'sem o cookie, num aparelho novo, o giro sem conta sai')
+      erro(await anonimo.post('cliente-guardar', { interativo: 'sorte', aparelho: apNovo }, { agora: amanha + 195 }), 409, 'ja-girou-hoje', 'guardar na conta que já girou hoje: recusa')
+      await semCookie.post('cliente-codigo', { whatsapp: z }, { agora: amanha + 200 })
+      const ent = await semCookie.post('cliente-entrar', { whatsapp: z, codigo: ultimoCodigo(z), aparelho: apNovo }, { agora: amanha + 205 })
+      igual([ent.status, ent.json?.cupomGuardado, ent.json?.pendenteRecusado], [200, null, 'ja-girou-hoje'], 'entrar com essa reserva: não guarda e diz por quê')
+      igual((await anonimo.get('cliente-eu', { agora: amanha + 210 })).json?.cupons?.filter((x) => x.ganhoEm.slice(0, 10) === k.ganhoEm.slice(0, 10)).length, 1, 'a conta continua com 1 cupom ganho naquele dia')
       // usar o cupom
       const u = await anonimo.post('cliente-cupom-usar', { codigo: k.codigo.toLowerCase() }, { agora: amanha + 200 })
       ok(u.status === 200 && ISO.test(u.json?.cupom?.usadoEm ?? ''), 'usou o cupom')
@@ -592,16 +649,19 @@ export async function testarContas(t) {
       await cli.post('cliente-codigo', { whatsapp: z })
       const agoraMs = Date.now()
       const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+      // a conta do servidor nasceu no começo destas contas (o primeiro "recursos" com o código ligado): o aparelho só traz o
+      // que ganhou antes disso — cupom com data de depois foi inventado (todo cupom de depois nasce no servidor)
       const migrar = {
         nome: 'Dani do Aparelho',
         aceitaPromo: true,
         aceitaPromoEm: agoraMs - 5 * 86400000,
         cupons: [
-          { codigo: 'SORTE-AB34', interativo: 'sorte', premioId: 'ocb-4-por-3', ganhoEm: agoraMs - 86400000, validoAte: agoraMs + 3 * 86400000 },
           { codigo: 'SORTE-CD67', interativo: 'sorte', premioId: 'piteira-vidro-15', ganhoEm: agoraMs - 20 * 86400000, validoAte: agoraMs - 86400000 },
-          { codigo: 'SORTE-EF89', interativo: 'sorte', premioId: 'premio-inventado', ganhoEm: agoraMs, validoAte: agoraMs + 86400000 },
+          { codigo: 'SORTE-EF89', interativo: 'sorte', premioId: 'premio-inventado', ganhoEm: agoraMs - 86400000, validoAte: agoraMs + 86400000 },
           { codigo: 'SORTE-GH34', interativo: 'sorte', premioId: 'bandeja-10', ganhoEm: agoraMs, validoAte: agoraMs + 365 * 86400000 },
-          { codigo: 'SORTE-JK34', interativo: 'sorte', premioId: 'bandeja-10', ganhoEm: agoraMs, validoAte: agoraMs + 86400000, usadoEm: agoraMs },
+          { codigo: 'SORTE-JK34', interativo: 'sorte', premioId: 'bandeja-10', ganhoEm: agoraMs - 86400000, validoAte: agoraMs + 86400000, usadoEm: agoraMs },
+          { codigo: 'SORTE-AB34', interativo: 'sorte', premioId: 'ocb-4-por-3', ganhoEm: agoraMs - 86400000, validoAte: agoraMs + 3 * 86400000 },
+          { codigo: 'SORTE-MN34', interativo: 'sorte', premioId: 'piteira-vidro-15', ganhoEm: agoraMs - 2 * 86400000, validoAte: agoraMs + 3 * 86400000 },
         ],
         pendente: { interativo: 'sorte', premioId: 'dichavador-10', sorteadoEm: agoraMs - 3600000, expiraEm: agoraMs + 20 * 3600000 },
         giros: { sorte: [hoje, '2020-01-01', 'lixo'] },
@@ -609,14 +669,18 @@ export async function testarContas(t) {
       const e = await cli.post('cliente-entrar', { whatsapp: z, codigo: ultimoCodigo(z), aparelho: ap, migrar })
       igual([e.status, e.json?.criada, e.json?.conta?.nome, e.json?.conta?.aceitaPromo], [201, true, 'Dani do Aparelho', true], 'a conta nasceu com o nome do aparelho (sem pedir de novo)')
       ok(Math.abs(Date.parse(e.json.conta.aceitaPromoEm) - (agoraMs - 5 * 86400000)) < 2000, 'a data das promoções é a de quando ela marcou no aparelho')
-      igual(e.json?.migrados, 3, 'entraram 3: o cupom que vale, o de validade longa (ajustada) e o prêmio reservado')
+      igual(e.json?.migrados, 2, 'entraram 2 (o teto): o prêmio reservado e o primeiro cupom que vale')
       const k = Object.fromEntries(e.json.cupons.map((x) => [x.premioId, x]))
       ok(k['ocb-4-por-3']?.codigo === 'SORTE-AB34', 'o código do aparelho fica quando está livre')
-      ok(!k['piteira-vidro-15'] && !k['premio-inventado'], 'vencido e prêmio que não existe ficam de fora')
-      const max = Date.now() + 8 * 86400000
-      ok(k['bandeja-10'] && Date.parse(k['bandeja-10'].validoAte) <= max, 'validade além da do prêmio é cortada')
+      ok(!k['piteira-vidro-15'] && !k['premio-inventado'], 'vencido, prêmio que não existe e o que passou do teto ficam de fora')
+      ok(!k['bandeja-10'], 'cupom ganho depois que a conta do servidor existe (inventado) fica de fora')
       ok(k['dichavador-10'] && k['dichavador-10'].origem === 'aparelho', 'o prêmio reservado no aparelho virou cupom')
       ok(e.json.cupons.every((x) => x.origem === 'aparelho'), 'marcados como vindos do aparelho')
+      // uma vez só por conta: entrar de novo (outro aparelho) com a conta do aparelho de novo não traz nada
+      const cli2 = novo()
+      await cli2.post('cliente-codigo', { whatsapp: z }, { agora: AGORA + 2000 })
+      const de2 = await cli2.post('cliente-entrar', { whatsapp: z, codigo: ultimoCodigo(z), aparelho: novoToken(), migrar: { ...migrar, pendente: undefined, cupons: [migrar.cupons[5]] } }, { agora: AGORA + 2005 })
+      igual([de2.status, de2.json?.migrados, de2.json?.cupons?.length], [200, 0, 2], 'a conta do aparelho entra uma vez só por conta')
       const g = await cli.post('cliente-girar', { interativo: 'sorte', uf: 'mg', aparelho: ap })
       erro(g, 409, 'sem-giro', 'o giro de hoje do aparelho veio junto: não gira de novo hoje')
       ok(e.json?.dias?.sorte?.includes(hoje) && !e.json.dias.sorte.includes('2020-01-01'), 'só os dias dos últimos 30 entram')
@@ -624,8 +688,12 @@ export async function testarContas(t) {
       const z2 = whats()
       const c2 = novo()
       await c2.post('cliente-codigo', { whatsapp: z2 })
-      const e2 = await c2.post('cliente-entrar', { whatsapp: z2, codigo: ultimoCodigo(z2), migrar: { nome: 'Edu', cupons: [migrar.cupons[0]] } })
-      ok(e2.json?.cupons?.[0]?.codigo && e2.json.cupons[0].codigo !== 'SORTE-AB34', 'código já usado por outra conta: troca')
+      const longo = { codigo: 'SORTE-PQ34', interativo: 'sorte', premioId: 'bandeja-10', ganhoEm: agoraMs - 2 * 86400000, validoAte: agoraMs + 365 * 86400000 }
+      const e2 = await c2.post('cliente-entrar', { whatsapp: z2, codigo: ultimoCodigo(z2), migrar: { nome: 'Edu', cupons: [migrar.cupons[4], longo] } })
+      const k2 = Object.fromEntries((e2.json?.cupons ?? []).map((x) => [x.premioId, x]))
+      ok(k2['ocb-4-por-3']?.codigo && k2['ocb-4-por-3'].codigo !== 'SORTE-AB34', 'código já usado por outra conta: troca')
+      const bandeja = JSON.parse(readFileSync(join(raiz, 'public/api/nucleo/premios-sorte.json'), 'utf8')).premios.find((p) => p.id === 'bandeja-10')
+      ok(k2['bandeja-10'] && Date.parse(k2['bandeja-10'].validoAte) <= agoraMs - 2 * 86400000 + (bandeja.validadeDias + 1) * 86400000, 'a validade conta do dia em que o cupom foi ganho, não de hoje')
     }
 
     parte('clientes: sair e apagar a conta')
@@ -636,13 +704,16 @@ export async function testarContas(t) {
       erro(await ana.get('cliente-eu'), 401, 'sem-sessao', 'sem sessão depois de sair')
       igual((await ana.post('cliente-sair', {})).status, 200, 'sair de novo também responde 200')
       // entra de novo e apaga
+      const envios = (await dono.get('admin-avisos')).json.envios
+      const alvos = new Set(envios.filter((x) => x.tipo === 'codigo-login' && x.texto.endsWith(zapAna.slice(-4))).map((x) => x.alvo))
+      ok(alvos.size >= 1 && [...alvos].every((a) => /^conta:[0-9a-f]{24}$/.test(a)), `os códigos dela no histórico, pelo alvo sem o número (${[...alvos].join(', ')})`)
       await ana.post('cliente-codigo', { whatsapp: zapAna }, { agora: AGORA + 1200 })
       await ana.post('cliente-entrar', { whatsapp: zapAna, codigo: ultimoCodigo(zapAna) }, { agora: AGORA + 1201 })
       erro(await ana.post('cliente-apagar', {}), 400, 'invalido', 'apagar sem confirmar')
       const ap = await ana.post('cliente-apagar', { confirmar: true })
       igual(ap.status, 200, 'apagou a conta')
       erro(await ana.get('cliente-eu'), 401, 'sem-sessao', 'a sessão foi junto')
-      const av = (await dono.get('admin-avisos')).json.envios.filter((x) => x.alvo === `conta:${guardado(zapAna)}`)
+      const av = (await dono.get('admin-avisos')).json.envios.filter((x) => alvos.has(x.alvo))
       igual(av, [], 'os registros dos códigos dela saíram do histórico')
       const pedidos = (await dono.get('admin-pedidos', { query: `&busca=${guardado(zapAna).slice(2)}` })).json.pedidos
       ok(pedidos.length >= 1, 'os pedidos ficam com a loja')
@@ -662,14 +733,15 @@ export async function testarContas(t) {
       igual(l.status, 200, 'lista')
       ok(l.json.total >= 5 && l.json.clientes.length === l.json.total, `todos os clientes (${l.json.total})`)
       igual(chaves(l.json.clientes[0]), ['aceitaPromo', 'aceitaPromoEm', 'acessoEm', 'criadoEm', 'cuponsAtivos', 'id', 'nome', 'origem', 'pedidos', 'uf', 'whatsapp'], 'ClienteLinha com as chaves do contrato')
-      igual(l.json.codigo, { ligado: true, motor: true, desligadoPeloDono: false }, 'a situação do entrar com código')
+      igual([l.json.codigo?.ligado, l.json.codigo?.motor, l.json.codigo?.desligadoPeloDono], [true, true, false], 'a situação do entrar com código')
+      igual(chaves(l.json.codigo?.teto), ['dia', 'hora', 'pausadoAte', 'usadosDia', 'usadosHora'], 'com o teto de códigos da loja')
       const b = await dono.get('admin-clientes', { query: '&busca=dani' })
       igual(b.json.clientes.map((c) => c.nome), ['Dani do Aparelho'], 'busca pelo nome, sem acento e sem caixa')
       const p = await dono.get('admin-clientes', { query: '&promo=1' })
       ok(p.json.clientes.length === p.json.comPromo && p.json.clientes.every((c) => c.aceitaPromo), 'só quem aceitou promoções')
       const dani = b.json.clientes[0]
       const d = await dono.get('admin-cliente', { query: `&id=${dani.id}` })
-      igual([d.status, d.json?.cupons?.length, chaves(d.json)], [200, 3, ['agora', 'cliente', 'cupons', 'enderecos', 'giros', 'ok', 'pedidos', 'vagas']], 'detalhe com cupons, pedidos e vagas')
+      igual([d.status, d.json?.cupons?.length, chaves(d.json)], [200, 2, ['agora', 'cliente', 'cupons', 'enderecos', 'giros', 'ok', 'pedidos', 'vagas']], 'detalhe com cupons, pedidos e vagas')
       const k = d.json.cupons[0].codigo
       const u = await dono.post('admin-cupom-usado', { codigo: k, usado: true })
       ok(u.status === 200 && ISO.test(u.json?.cupom?.usadoEm ?? ''), 'a loja deu baixa no cupom')
@@ -681,10 +753,27 @@ export async function testarContas(t) {
       ok(csv.texto.includes('Dani do Aparelho') && !csv.texto.includes('Cida Giro'), 'só quem aceitou promoções')
       ok(/attachment; filename="clientes-promocoes-\d{4}-\d{2}-\d{2}\.csv"/.test(csv.headers.get('content-disposition') ?? ''), 'nome do arquivo com a data')
       const des = await dono.post('admin-clientes-ajustes', { codigo: false })
-      igual(des.json?.codigo, { ligado: false, motor: true, desligadoPeloDono: true }, 'desligou o entrar com código')
+      igual([des.json?.codigo?.ligado, des.json?.codigo?.motor, des.json?.codigo?.desligadoPeloDono], [false, true, true], 'desligou o entrar com código')
       igual((await novo().get('recursos')).json?.contas?.codigo, false, 'o site volta pra conta no aparelho')
       erro(await novo().post('cliente-codigo', { whatsapp: whats() }), 409, 'sem-codigo', 'e o código não sai')
       await dono.post('admin-clientes-ajustes', { codigo: true })
+      // o teto da loja inteira: batido, o entrar com código pausa sozinho (o site volta pra conta do aparelho), o painel diz
+      // até quando, a Atividade conta; passada a janela, volta sozinho
+      erro(await dono.post('admin-clientes-ajustes', { tetoHora: 0 }), 400, 'invalido', 'teto por hora 0')
+      erro(await dono.post('admin-clientes-ajustes', { tetoHora: 50, tetoDia: 10 }), 400, 'invalido', 'teto do dia menor que o da hora')
+      const T = AGORA + 30 * 86400
+      const usados = (await dono.get('admin-clientes', { agora: T })).json.codigo.teto.usadosHora
+      await dono.post('admin-clientes-ajustes', { tetoHora: usados + 2, tetoDia: 10000 })
+      const r1 = []
+      for (let i = 0; i < 3; i++) r1.push(await new Cli(base, `203.0.${113 + i}.9`).post('cliente-codigo', { whatsapp: whats() }, { agora: T + i }))
+      igual(r1.map((x) => x.status), [200, 200, 409], 'o teto da hora: os 2 que cabem saem, o 3º não')
+      igual([r1[2].json?.erro, r1[2].json?.pausado], ['sem-codigo', true], 'pausado (o site volta pra conta do aparelho)')
+      igual((await novo().get('recursos', { agora: T + 5 })).json?.contas?.codigo, false, 'recursos: o código não vale agora')
+      const sit = (await dono.get('admin-clientes', { agora: T + 5 })).json.codigo
+      ok(sit.ligado === false && sit.desligadoPeloDono === false && ISO.test(sit.teto.pausadoAte ?? ''), `o painel mostra a pausa e até quando (${sit.teto.pausadoAte})`)
+      ok((await dono.get('admin-eventos')).json.eventos.some((x) => x.acao === 'contas-codigo-pausado' && /pausou sozinho/.test(x.texto)), 'a pausa na Atividade')
+      igual((await novo().get('recursos', { agora: T + 3700 })).json?.contas?.codigo, true, 'passou a hora: volta sozinho')
+      await dono.post('admin-clientes-ajustes', { tetoHora: 1000, tetoDia: 10000 })
       igual((await dono.post('admin-cliente-apagar', { id: dani.id })).status, 200, 'o dono apaga a conta (pedido de exclusão pela conversa)')
       erro(await dono.get('admin-cliente', { query: `&id=${dani.id}` }), 404, 'nao-encontrado', 'não existe mais')
       erro(await atendente2.get('admin-clientes'), 403, 'sem-permissao', 'clientes é só do dono')

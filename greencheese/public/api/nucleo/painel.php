@@ -670,6 +670,9 @@ function gc_rota_admin_participante_salvar(): array
                 'UPDATE participacoes SET nome = ?, whatsapp = ?, uf = ?, cidade = ?, quantidade = ?, observacao = ?, atualizado_em = ? WHERE id = ?',
                 [$nome, $whatsapp, $uf, $cidade, $quantidade, $obs, $agora, $id],
             );
+            if (in_array('whatsapp', $mudou, true) && function_exists('gc_vaga_whatsapp_conferido')) {
+                gc_vaga_whatsapp_conferido($id); // a loja pôs o número da conversa
+            }
             gc_tocar_rateio($rid);
             gc_evento('painel', 'participacao-editada', 'participacao:' . $atual['codigo'], ['rateio' => $rid, 'titulo' => $r['titulo'], 'campos' => $mudou]);
             if (in_array('quantidade', $mudou, true)) {
@@ -775,6 +778,10 @@ function gc_rota_admin_participante_apagar(): array
             "UPDATE participacoes SET nome = 'Dados apagados', whatsapp = '', cidade = '', observacao = '', token_hash = ?, atualizado_em = ? WHERE id = ?",
             [hash('sha256', bin2hex(random_bytes(16))), gc_agora(), $p['id']],
         );
+        // e a ligação com a conta do cliente (sai da Minha conta), quando as contas estão aqui (clientes.php)
+        if (function_exists('gc_vaga_ligar')) {
+            gc_sql('UPDATE participacoes SET cliente_id = NULL, whatsapp_conferido = 0 WHERE id = ?', [$p['id']]);
+        }
         // os avisos dessa vaga no grupo da loja (avisos.php) também tinham o nome e o WhatsApp
         if (function_exists('gc_avisos_apagar_dados')) {
             gc_avisos_apagar_dados('participacao:' . $p['codigo']);
@@ -786,8 +793,39 @@ function gc_rota_admin_participante_apagar(): array
 }
 
 /**
- * GET admin-backup: cópia do banco inteira e coerente (VACUUM INTO), pra baixar e guardar. Copiar o loja.sqlite à
- * mão pode sair sem as últimas mudanças, que ficam no loja.sqlite-wal até o SQLite juntar.
+ * Tira da cópia do banco os segredos dos avisos no WhatsApp (token e Client-Token do Z-API, apikey da Evolution,
+ * segredo e endereço do webhook — o caminho do endereço costuma ser o segredo do n8n): o arquivo vai pro celular do
+ * dono e pode parar em qualquer lugar, e esses segredos dão o WhatsApp da loja pra quem tiver. Quem voltar a cópia põe
+ * os segredos de novo em Avisos no WhatsApp. O sal fica: sem ele os hashes e limites da cópia não batem, e ele sozinho
+ * não abre nada (os dados que ele protege estão na própria cópia). secure_delete + VACUUM: o valor velho não sobra em
+ * página livre do arquivo.
+ */
+function gc_backup_sem_segredos(string $arq): void
+{
+    $c = new PDO('sqlite:' . $arq, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $c->exec('PRAGMA journal_mode = DELETE');
+    $c->exec('PRAGMA secure_delete = ON');
+    $v = $c->query("SELECT valor FROM ajustes WHERE chave = 'avisos'")->fetchColumn();
+    $cfg = is_string($v) ? json_decode($v, true) : null;
+    if (is_array($cfg)) {
+        foreach ([['zapi', 'token'], ['zapi', 'clientToken'], ['evolution', 'apikey'], ['webhook', 'segredo'], ['webhook', 'url']] as [$a, $b]) {
+            if (is_array($cfg[$a] ?? null) && array_key_exists($b, $cfg[$a])) {
+                $cfg[$a][$b] = '';
+            }
+        }
+        $c->prepare("UPDATE ajustes SET valor = ? WHERE chave = 'avisos'")->execute([json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+    }
+    $c->exec('VACUUM');
+    $c = null;
+    foreach (['-journal', '-wal', '-shm'] as $x) {
+        @unlink($arq . $x);
+    }
+}
+
+/**
+ * GET admin-backup: cópia do banco inteira e coerente (VACUUM INTO), pra baixar e guardar, sem os segredos dos avisos
+ * (gc_backup_sem_segredos). Copiar o loja.sqlite à mão pode sair sem as últimas mudanças, que ficam no loja.sqlite-wal
+ * até o SQLite juntar.
  */
 function gc_rota_admin_backup(): array
 {
@@ -812,6 +850,7 @@ function gc_rota_admin_backup(): array
                 throw new RuntimeException('não deu pra copiar o banco');
             }
         }
+        gc_backup_sem_segredos($tmp);
         $quando = (new DateTimeImmutable('@' . gc_agora()))->setTimezone(new DateTimeZone('America/Sao_Paulo'))->format('Y-m-d-Hi');
         http_response_code(200);
         gc_cabecalhos('application/vnd.sqlite3');
@@ -819,7 +858,9 @@ function gc_rota_admin_backup(): array
         header('Content-Length: ' . filesize($tmp));
         readfile($tmp);
     } finally {
-        @unlink($tmp);
+        foreach (['', '-journal', '-wal', '-shm'] as $x) {
+            @unlink($tmp . $x);
+        }
     }
     exit;
 }

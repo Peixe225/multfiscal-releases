@@ -663,7 +663,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   /* ───────────── depois de criar conta / entrar ───────────── */
   // Só conta o cupom que o adaptador acabou de guardar (o prêmio reservado). Um cupom velho da conta (até usado)
   // nunca aparece como recém-guardado.
-  const depoisDaConta = async ({ conta: c, cupomGuardado }: ContaAberta, modo: ModoForm) => {
+  const depoisDaConta = async ({ conta: c, cupomGuardado, pendenteRecusado }: ContaAberta, modo: ModoForm) => {
     if (cupomGuardado) {
       const premio = premioPorId(cupomGuardado.premioId) ?? ganho?.premio
       if (premio) setGanho({ premio, cupom: cupomGuardado, origem: 'conta' })
@@ -676,7 +676,9 @@ export default function JogoSorte({ tela }: PropsJogo) {
       focar(FOCO_FASE)
       return
     }
-    if (ganho && !ganho.cupom && modo !== 'editar') avisar(T.premioVencidoAoGuardar)
+    // o prêmio do giro sem conta que não entrou: a conta já tinha girado naquele dia (servidor), ou venceu
+    if (pendenteRecusado && modo !== 'editar') avisar(T.premioContaJaGirou)
+    else if (ganho && !ganho.cupom && modo !== 'editar') avisar(T.premioVencidoAoGuardar)
     setGanho(null)
     if (modo === 'entrar') {
       const giro = await adaptador.giroDisponivel(ID_SORTE)

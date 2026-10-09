@@ -292,7 +292,7 @@ function abriuNoServidor(d: Record<string, unknown>, migrou: ReturnType<typeof d
   }
   definirModo('servidor')
   esquecerRecursos()
-  return { conta, cupomGuardado: guardado, jaTinha: d.criada === false }
+  return { conta, cupomGuardado: guardado, jaTinha: d.criada === false, ...(d.pendenteRecusado === 'ja-girou-hoje' ? { pendenteRecusado: 'ja-girou-hoje' as const } : {}) }
 }
 
 /** A conta do servidor sai deste aparelho (sair, apagar): o cache esquece ela, o cupom aplicado sai da sacola. */
@@ -343,8 +343,12 @@ export const contaServidor: AdaptadorConta = {
   async pedirCodigo(whatsappTexto, motivo = 'entrar') {
     const whatsapp = celularParaGuardar(whatsappTexto)
     if (!whatsapp) return { ok: false, erro: 'invalido' }
-    const r = await pedirApi('cliente-codigo', { metodo: 'POST', corpo: { whatsapp, motivo: motivo === 'trocar' ? 'trocar' : 'entrar', site: '' } })
+    // o segredo deste aparelho: se a conta já entrou aqui, o limite do número fica só deste aparelho (quem pede código pro
+    // número dos outros não trava a dona)
+    const r = await pedirApi('cliente-codigo', { metodo: 'POST', corpo: { whatsapp, motivo: motivo === 'trocar' ? 'trocar' : 'entrar', aparelho: aparelho(), site: '' } })
     if (r.ok) return { ok: true, valor: { enviado: true } }
+    // limite do número, mas o código que já chegou no WhatsApp ainda vale (valem os 2 últimos): vai pro passo do código
+    if (r.erro === 'muitas-tentativas' && r.extra.codigoValendo === true) return { ok: true, valor: { enviado: true, jaValendo: true } }
     if (r.erro === 'sem-codigo') {
       // a loja desligou o código no meio do caminho: a conta volta pro aparelho
       definirModo('local')
@@ -443,7 +447,7 @@ export const contaServidor: AdaptadorConta = {
 
   async salvarCupom(interativo) {
     const r = await pedirApi<{ cupom: unknown }>('cliente-guardar', { metodo: 'POST', corpo: { interativo, aparelho: aparelho() } })
-    if (!r.ok) return { ok: false, erro: r.erro === 'sem-sessao' ? 'sem-conta' : r.erro === 'pendente-vencido' ? 'pendente-vencido' : 'sem-pendente' }
+    if (!r.ok) return { ok: false, erro: r.erro === 'sem-sessao' ? 'sem-conta' : r.erro === 'pendente-vencido' || r.erro === 'ja-girou-hoje' ? r.erro : 'sem-pendente' }
     const cupom = cupomDaApi(r.dados.cupom)
     if (!cupom) return { ok: false, erro: 'sem-pendente' }
     gravar({ pendente: null })
