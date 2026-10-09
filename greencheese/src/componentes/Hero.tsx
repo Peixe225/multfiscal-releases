@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { iconesExtras } from '../arte/pixel/extras'
 import { canalDa } from '../dados/canais'
 import { config } from '../dados/config'
+import { textosLoja } from '../dados/textos-loja'
 import { deUf } from '../dados/ufs'
 import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
@@ -749,7 +750,7 @@ export function Hero() {
 
       <div className="hero-adesivos">
         <p className="adesivo-texto-bloco hero-frase">
-          <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
+          <span className="adesivo-texto">{sextou ?? textosLoja.fraseStory}</span>
         </p>
         <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
           <Icone nome="link" tamanho={16} />

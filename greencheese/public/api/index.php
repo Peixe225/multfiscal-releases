@@ -17,6 +17,11 @@ require __DIR__ . '/nucleo/publico.php';
 require __DIR__ . '/nucleo/painel.php';
 require __DIR__ . '/nucleo/upload.php';
 require __DIR__ . '/nucleo/diagnostico.php';
+// loja: catálogo, estados, stories, ajustes e Teste minha sorte (site e painel)
+require __DIR__ . '/nucleo/loja-migracoes.php';
+require __DIR__ . '/nucleo/loja.php';
+require __DIR__ . '/nucleo/loja-validar.php';
+require __DIR__ . '/nucleo/loja-painel.php';
 
 $rotas = [
     // site
@@ -47,6 +52,23 @@ $rotas = [
     'admin-upload' => ['POST', 'gc_rota_admin_upload'],
     'admin-diagnostico' => ['GET', 'gc_rota_admin_diagnostico'],
     'admin-eventos' => ['GET', 'gc_rota_admin_eventos'],
+    // loja: o site lê tudo num JSON só; o painel mexe em cada pedaço
+    'loja' => ['GET', 'gc_rota_loja'],
+    'admin-loja' => ['GET', 'gc_rota_admin_loja'],
+    'admin-loja-salvar' => ['POST', 'gc_rota_admin_loja_salvar'],
+    'admin-loja-exemplos-apagar' => ['POST', 'gc_rota_admin_loja_exemplos_apagar'],
+    'admin-produto-salvar' => ['POST', 'gc_rota_admin_produto_salvar'],
+    'admin-produto-estado' => ['POST', 'gc_rota_admin_produto_estado'],
+    'admin-produto-apagar' => ['POST', 'gc_rota_admin_produto_apagar'],
+    'admin-produtos-ordem' => ['POST', 'gc_rota_admin_produtos_ordem'],
+    'admin-categoria-salvar' => ['POST', 'gc_rota_admin_categoria_salvar'],
+    'admin-categoria-apagar' => ['POST', 'gc_rota_admin_categoria_apagar'],
+    'admin-categorias-ordem' => ['POST', 'gc_rota_admin_categorias_ordem'],
+    'admin-estado-salvar' => ['POST', 'gc_rota_admin_estado_salvar'],
+    'admin-stories-salvar' => ['POST', 'gc_rota_admin_stories_salvar'],
+    'admin-sorte-salvar' => ['POST', 'gc_rota_admin_sorte_salvar'],
+    'admin-premio-salvar' => ['POST', 'gc_rota_admin_premio_salvar'],
+    'admin-premio-apagar' => ['POST', 'gc_rota_admin_premio_apagar'],
 ];
 
 if (gc_teste()) {

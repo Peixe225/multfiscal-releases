@@ -1,4 +1,5 @@
 import { canalDa } from '../dados/canais'
+import { textosLoja } from '../dados/textos-loja'
 import { useConferirCupom } from '../lib/cupom-pedido'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
@@ -162,7 +163,7 @@ export function SacolaFolha() {
             <PixelArte grade={palpebrasGarrafa} tamanho={132} ancora="base" className="sacola-vazia-piscar" />
           </div>
           <p className="adesivo-texto-bloco">
-            <span className="adesivo-texto">Nada aqui ainda. Vem no certo!</span>
+            <span className="adesivo-texto">{textosLoja.sacolaVazia}</span>
           </p>
           <CupomSacola />
           {ultimo.length > 0 && (

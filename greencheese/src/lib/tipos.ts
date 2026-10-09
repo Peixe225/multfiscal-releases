@@ -71,4 +71,6 @@ export interface Categoria {
   nome: string
   curto: string
   icone: string
+  /** Bebida (com ou sem álcool): nunca entra em prêmio do Teste minha sorte. */
+  bebida?: boolean
 }

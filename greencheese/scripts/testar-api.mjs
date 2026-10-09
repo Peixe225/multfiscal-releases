@@ -4,7 +4,8 @@
 // rateios (criar, editar, status, apagar, tabaco/vape), entrar no rateio (cada erro), o token do aparelho (a mesma
 // entrada de novo devolve a mesma vaga), CONCORRÊNCIA (30 entradas juntas em 10 vagas → exatamente 10), vencimento da
 // reserva (relógio de teste), confirmar → contador → fecha sozinho, minhas vagas, CSV, envio de imagem, o IP do
-// cliente atrás de CDN (GC_PROXIES) e o que tem que ficar fechado.
+// cliente atrás de CDN (GC_PROXIES) e o que tem que ficar fechado. A loja (GET loja e as rotas admin-* dela) fica em
+// scripts/testar-api-loja.mjs, chamado daqui.
 // Uso: node scripts/testar-api.mjs   (termina com "api ok")
 // GC_TESTE_PORTA escolhe a porta (padrão: uma livre); PHP=/caminho/do/php troca o binário; GC_TESTE_MANTER=1 guarda a
 // pasta temporária (banco, log, envios) pra olhar depois.
@@ -15,6 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { crc32, deflateSync, inflateRawSync } from 'node:zlib'
+import { loja, lojaAntesDeInstalar, lojaExemplos, lojaMigracao, lojaSemServidor } from './testar-api-loja.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const PHP = process.env.PHP ?? 'php'
@@ -259,6 +261,8 @@ parte('publicar (ensaio)')
   ok(/fica fora: api\/privado\/loja\.sqlite/.test(emp.saida) && emp.saida.includes(` ${arquivosZip.length} arquivos · 5 de fora`), `a saída diz o que ficou de fora (${emp.saida.trim().split('\n').at(-1)})`)
 }
 
+const lojaListas = await lojaSemServidor({ ok, igual, parte, raiz, PHP })
+
 // ─── servidor de teste ──────────────────────────────────────────────────────────────────────────────────────────
 
 const porta = await portaLivre()
@@ -312,6 +316,8 @@ class Cliente {
 }
 const site = () => new Cliente()
 const crua = (caminho) => fetch(`${base}${caminho}`, { redirect: 'manual' })
+// o que os testes da loja usam daqui (o dono entra quando existir)
+const ajuda = { ok, igual, erro, parte, site, Cliente, base, raiz, PHP, tmp, uploads, png, crua, subirPhp, portaLivre, derrubar, porta, ISO, chaves }
 
 let numero = 0
 const whats = () => `(33) 9${String(80000000 + numero++).padStart(8, '0')}`
@@ -340,6 +346,7 @@ try {
     ok(readFileSync(join(dados, 'erros.log'), 'utf8').includes('detalhe-secreto-do-teste'), 'o detalhe vai pro log no privado')
     ok(existsSync(join(dados, '.htaccess')) && existsSync(join(dados, 'index.html')), 'pasta de dados nasce com .htaccess e index.html')
   }
+  await lojaAntesDeInstalar(ajuda)
 
   parte('instalar')
   const dono = new Cliente('198.51.100.10')
@@ -458,6 +465,9 @@ try {
     outra.csrf = dono.csrf
     erro(await outra.post('admin-rateio-salvar', novo), 401, 'sem-sessao', 'CSRF sem a sessão não vale')
   }
+
+  await loja({ ...ajuda, dono }, lojaListas)
+  await lojaMigracao(ajuda)
 
   parte('rateio: criar, editar, tabaco')
   let r10
@@ -1057,6 +1067,8 @@ try {
     ok(ev.some((e) => e.acao === 'rateio-apagado' && e.usuario === 'dono' && /Apagou o rateio "Dichavador/.test(e.texto)), 'apagar entra na auditoria com quem fez')
     ok(ev.some((e) => e.acao === 'imagem-enviada'), 'envio na auditoria')
   }
+
+  await lojaExemplos({ ...ajuda, dono })
 } catch (e) {
   ok(false, `exceção: ${e.stack}`)
 }

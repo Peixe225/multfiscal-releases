@@ -2,7 +2,8 @@
 // LiteSpeed, que lê o mesmo .htaccess). Copia o build pra uma pasta temporária em /greencheese/, sem GC_DADOS
 // (como no ar: banco em api/privado/), gera um código de instalação de verdade e confere: o site abre, a API
 // responde, banco/log/módulos/instalacao.php dão 403, uploads/ só serve imagem (nenhum .php roda), o envio de
-// imagem funciona e o diagnóstico do painel, pela web, acha tudo fechado.
+// imagem funciona, o diagnóstico do painel, pela web, acha tudo fechado e o GET da loja sai com no-cache e ETag (304
+// quando nada mudou) enquanto o resto da API segue no-store.
 // Uso: node scripts/testar-htaccess.mjs [pasta-do-build]   (padrão: dist/; termina com "htaccess ok")
 // Precisa do apache2 e do libapache2-mod-php (APACHE=/caminho/do/apache2; GC_TESTE_PORTA escolhe a porta).
 import { execFileSync, spawn } from 'node:child_process'
@@ -188,6 +189,8 @@ php_admin_value post_max_size 20M
     const cab = ['x-content-type-options', 'cache-control', 'referrer-policy', 'content-security-policy', 'content-type'].map((k) => api.headers.get(k))
     okm(JSON.stringify(cab) === JSON.stringify(['nosniff', 'no-store, max-age=0', 'same-origin', "default-src 'none'; frame-ancestors 'none'", 'application/json; charset=utf-8']), `cabeçalhos da API, sem nada em dobro: ${JSON.stringify(cab)}`)
     okm(existsSync(join(site, 'api', 'privado', 'loja.sqlite')), 'o banco nasceu em api/privado/ (sem GC_DADOS, como no ar)')
+    const semLoja = await fetch(`${base}/api/index.php?r=loja`)
+    okm(semLoja.status === 404 && (await semLoja.json()).erro === 'sem-loja', `antes de instalar, GET loja: 404 sem-loja (${semLoja.status})`)
 
     // instala com o código de verdade, pela web
     const inst = await fetch(`${base}/api/index.php?r=admin-instalar`, {
@@ -200,6 +203,21 @@ php_admin_value post_max_size 20M
     okm(/path=\/greencheese\//i.test(ck), `cookie no caminho do site (${ck.split(';').slice(1).join(';')})`)
     const cookie = ck.split(';')[0]
     const csrf = ij.csrf
+
+    // a loja (semeada na instalação) pelo Apache: no-cache + ETag, e 304 sem corpo quando nada mudou
+    const lj = await fetch(`${base}/api/index.php?r=loja`)
+    const ljj = await lj.json()
+    okm(lj.status === 200 && ljj.ok === true && ljj.loja?.produtos?.length > 0, `GET loja pelo Apache (${lj.status}, ${ljj.loja?.produtos?.length} produtos)`)
+    const cabLoja = ['x-content-type-options', 'cache-control', 'referrer-policy', 'content-security-policy', 'content-type'].map((k) => lj.headers.get(k))
+    okm(JSON.stringify(cabLoja) === JSON.stringify(['nosniff', 'no-cache', 'same-origin', "default-src 'none'; frame-ancestors 'none'", 'application/json; charset=utf-8']), `cabeçalhos do GET loja (no-cache), sem nada em dobro: ${JSON.stringify(cabLoja)}`)
+    const etag = lj.headers.get('etag') ?? ''
+    okm(/^(W\/)?"[0-9a-f]{32}(-gzip)?"$/.test(etag), `GET loja com ETag (${etag})`)
+    const l304 = await fetch(`${base}/api/index.php?r=loja`, { headers: { 'If-None-Match': etag } })
+    okm(l304.status === 304 && (await l304.text()) === '', `If-None-Match igual: 304 sem corpo (${l304.status})`)
+    const l200 = await fetch(`${base}/api/index.php?r=loja`, { headers: { 'If-None-Match': '"00000000000000000000000000000000"' } })
+    okm(l200.status === 200 && (await l200.json()).ok === true, `If-None-Match diferente: 200 com a loja (${l200.status})`)
+    const rt = await fetch(`${base}/api/index.php?r=rateios`)
+    okm(rt.headers.get('cache-control') === 'no-store, max-age=0' && !rt.headers.get('etag'), `o resto da API segue no-store, sem ETag (${rt.headers.get('cache-control')})`)
 
     const fechados = [
       'api/privado/loja.sqlite', 'api/privado/loja.sqlite-wal', 'api/privado/loja.sqlite-shm', 'api/privado/erros.log', 'api/privado/', 'api/privado/index.html',

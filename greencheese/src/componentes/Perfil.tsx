@@ -1,5 +1,6 @@
 import { canais, canalDa } from '../dados/canais'
 import { config } from '../dados/config'
+import { textosLoja } from '../dados/textos-loja'
 import { ehDiaDeEntregaGratis, situacao } from '../lib/horario'
 import { verLoja } from '../lib/abas'
 import { linkPerfil } from '../lib/mensagem'
@@ -65,8 +66,9 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
       <p className="perfil-arroba legenda">{canal ? `@${canal.instagram}` : 'RJ · MG · SP · ES · SC'}</p>
       {canal && <p className="perfil-categoria legenda">Delivery · {canal.cidades.length ? canal.cidades.map((c) => c.nome).join(' · ') : canal.nome}</p>}
       <div className="perfil-bio">
-        <p>Importados, destilados, sedas, piteiras e acessórios.</p>
-        <p>Quem tiver interesse é só mandar dm</p>
+        {textosLoja.bio.map((linha, i) => (
+          <p key={i}>{linha}</p>
+        ))}
         {sextou && <p className="perfil-sextou">{sextou.texto}</p>}
         {/* horário de exemplo sem carimbo não aparece: ninguém lê "fechado" num horário que a loja não passou */}
         {sit && (config.carimboDeExemplo || !canal?.horario.demo) && (

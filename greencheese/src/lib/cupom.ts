@@ -23,11 +23,11 @@ export function palavraProibida(texto: string): string | null {
 
 interface CatalogoCru {
   produtos: { id: string; categoria: string }[]
-  categorias: { id: string }[]
+  categorias: { id: string; bebida?: boolean }[]
 }
 const cru = dados as unknown as CatalogoCru
-/** Prêmio nunca cai em bebida alcoólica, refrigerante importado nem destilado. */
-const CATEGORIAS_FORA = new Set(['bebidas', 'destilados'])
+/** Prêmio nunca cai em bebida alcoólica, refrigerante importado nem destilado: as categorias marcadas `bebida`. */
+const CATEGORIAS_FORA = new Set(cru.categorias.filter((c) => c.bebida).map((c) => c.id))
 
 function motivoInvalido(p: Premio, idsVistos: Set<string>): string | null {
   const produtos = new Map(cru.produtos.map((x) => [x.id, x]))

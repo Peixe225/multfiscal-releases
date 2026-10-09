@@ -11,6 +11,22 @@ export type Rota =
   | { tela: 'atividade' }
   | { tela: 'conta' }
   | { tela: 'servidor' }
+  // loja: produtos, estados, stories do Início, categorias, ajustes e Teste minha sorte
+  | { tela: 'produtos'; ver: VerProdutos | null }
+  | { tela: 'produto'; id: string }
+  | { tela: 'produto-novo' }
+  | { tela: 'loja' }
+  | { tela: 'estados' }
+  | { tela: 'estado'; uf: string }
+  | { tela: 'stories'; uf: string | null }
+  | { tela: 'categorias' }
+  | { tela: 'sorte' }
+  | { tela: 'premio'; id: string | null }
+
+/** Recortes da lista de produtos que o Resumo abre direto (?ver=). */
+export type VerProdutos = 'esgotados' | 'acabando' | 'fora' | 'exemplo'
+const VER: VerProdutos[] = ['esgotados', 'acabando', 'fora', 'exemplo']
+const UF = /^[a-z]{2}$/
 
 function ler(): Rota {
   const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''))
@@ -32,6 +48,26 @@ function ler(): Rota {
       return { tela: 'conta' }
     case 'servidor':
       return { tela: 'servidor' }
+    case 'produtos': {
+      if (partes[1] === 'novo') return { tela: 'produto-novo' }
+      const ver = q.get('ver') as VerProdutos | null
+      return { tela: 'produtos', ver: ver && VER.includes(ver) ? ver : null }
+    }
+    case 'produto':
+      return id ? { tela: 'produto', id } : { tela: 'produtos', ver: null }
+    case 'loja': {
+      const uf = partes[2] && UF.test(partes[2]) ? partes[2] : null
+      if (partes[1] === 'estados') return { tela: 'estados' }
+      if (partes[1] === 'estado') return uf ? { tela: 'estado', uf } : { tela: 'estados' }
+      if (partes[1] === 'stories') return { tela: 'stories', uf }
+      if (partes[1] === 'categorias') return { tela: 'categorias' }
+      if (partes[1] === 'sorte') {
+        if (partes[2] === 'novo') return { tela: 'premio', id: null }
+        const premio = partes[2] === 'premio' && partes[3] && /^[a-z0-9-]{1,80}$/.test(partes[3]) ? partes[3] : null
+        return premio ? { tela: 'premio', id: premio } : { tela: 'sorte' }
+      }
+      return { tela: 'loja' }
+    }
     default:
       return { tela: 'resumo' }
   }
@@ -126,4 +162,18 @@ export const caminho = {
   atividade: '#/atividade',
   conta: '#/conta',
   servidor: '#/servidor',
+  // loja
+  produtos: '#/produtos',
+  produtosVer: (ver: VerProdutos) => `#/produtos?ver=${ver}`,
+  produto: (id: string) => `#/produto/${id}`,
+  produtoNovo: '#/produtos/novo',
+  loja: '#/loja',
+  estados: '#/loja/estados',
+  estado: (uf: string) => `#/loja/estado/${uf}`,
+  stories: '#/loja/stories',
+  storiesDe: (uf: string) => `#/loja/stories/${uf}`,
+  categorias: '#/loja/categorias',
+  sorte: '#/loja/sorte',
+  premio: (id: string) => `#/loja/sorte/premio/${id}`,
+  premioNovo: '#/loja/sorte/novo',
 }

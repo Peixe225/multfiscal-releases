@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 import { config } from './src/dados/config'
+import { conferirSemente } from './scripts/gerar-semente-loja.mjs'
 
 declare const process: { env: Record<string, string | undefined> }
 
@@ -41,6 +42,19 @@ function repasse(): ProxyOptions {
   }
 }
 const proxyApi = { '/api/': repasse(), '/uploads/': repasse() }
+
+// A semente da loja do servidor (public/api/nucleo/semente-loja.json) sai de src/dados: mexeu lá e não gerou de novo,
+// o build para e diz o que rodar (um servidor novo nasceria com a loja velha).
+function sementeEmDia(): Plugin {
+  return {
+    name: 'semente-em-dia',
+    apply: 'build',
+    async buildStart() {
+      const erro = await conferirSemente()
+      if (erro) this.error(erro)
+    },
+  }
+}
 
 // Liga o noindex e ajusta título/descrição a partir de src/dados/config.ts.
 function htmlDaConfig(): Plugin {
@@ -101,7 +115,7 @@ function painelAParte(): Plugin {
 export default defineConfig({
   // Caminhos relativos: o dist/ sobe em qualquer pasta ou subdomínio da Hostinger.
   base: './',
-  plugins: [react(), htmlDaConfig(), painelAParte()],
+  plugins: [react(), htmlDaConfig(), sementeEmDia(), painelAParte()],
   // Hora do build: vira o "há 2 h" do cabeçalho do story quando config.catalogoAtualizadoEm está vazio.
   define: definir,
   build: {

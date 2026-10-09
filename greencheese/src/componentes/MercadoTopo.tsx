@@ -1,6 +1,7 @@
 import { useRef, useState, useSyncExternalStore } from 'react'
 import { PixelArte } from '../arte/PixelArte'
 import type { Grade } from '../arte/pixel/grades'
+import { textosLoja } from '../dados/textos-loja'
 import { abrirCasacoJa, MercadorAnimado, useMercadorAnda } from './Mercador'
 import './MercadoTopo.css'
 
@@ -19,7 +20,7 @@ const SOMBRA: Grade = {
   ],
 }
 
-const FALAS = ['Chega mais.', 'Vem no certo!', 'Quem já usou sabe da qualidade'] as const
+const FALAS = textosLoja.falasMercado
 
 // celular pequeno (320–360 de largura ou até 700 de altura) e deitado: o mercador a 2×, para a primeira fileira de
 // produtos começar na primeira tela

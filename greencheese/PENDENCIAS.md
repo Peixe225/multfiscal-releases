@@ -142,7 +142,46 @@ O painel (`/painel/`, ver LEIA-ME.md, "Painel do dono") está pronto e testado c
 - **Rateio que não lota, devolução e sair depois de pagar**: o painel não promete nada (a mensagem do cancelamento diz que a loja chama pra combinar). Ver "Servidor".
 - **Celular de verdade**: abrir o painel no celular do dono, entrar e "Adicionar à tela de início" (Android/Chrome e iPhone/Safari). Os testes daqui simulam toque e tamanho de tela, não o aparelho.
 - **"Avisados"** (quem já recebeu o aviso de cada passo) fica guardado no aparelho: em outro celular a marcação recomeça (as mensagens continuam todas lá).
-- **Próximas seções** (produtos, prêmios, ajustes, pedidos): entram na lista de `src/painel/secoes.ts` quando existirem; por enquanto o painel mostra só o que funciona.
+- **Próximas seções** (pedidos): entram na lista de `src/painel/secoes.ts` quando existirem; produtos, prêmios e ajustes já estão em Produtos e Loja.
+
+## Loja no servidor (cadeia A)
+
+O servidor e o painel já cuidam da loja inteira (ver LEIA-ME.md, "Loja no painel"; contrato em API.md, "Loja"). O
+**site ainda lê `src/dados`**: a próxima etapa (A2) liga o site no `GET api/index.php?r=loja`. O que ela precisa:
+
+- **Ler a loja**: buscar `r=loja` ao abrir (o navegador já guarda com o ETag e o `no-cache`: sem mudança vem 304 vazio)
+  e, se der 404 `sem-loja`, erro ou sem servidor, seguir com o que está embutido (`src/dados`, a mesma loja da semente).
+  Guardar a última resposta no aparelho ajuda a primeira pintura sem rede.
+- **Produtos**: `disponivel` já vem resolvido (ligado no estado e com estoque, quando contado); `restam` (uf → n) é o
+  adesivo "RESTAM X" (só aparece quando o dono conta o estoque e chega no `restamAte`); `combinaCom` só aponta pra
+  produto no site; `foto` pode ser `uploads/<nome>` (enviada pelo painel, como a imagem do rateio) além de
+  `produtos/<arquivo>`: o `ProdutoVisual` precisa aceitar as duas. Preço `null` continua "Consultar".
+- **Estados** → canais: `whatsapp: null` = o WhatsApp da loja (`loja.whatsapp`, que substitui o
+  `config.whatsappPedidos`); `entregaGratis.dias` pode ter mais de um dia (o site hoje só conhece `diaSemana`, que vem
+  igual ao primeiro); `emblema: 'generico'` (estado ativado no painel) precisa de um emblema de pino no destaque e no
+  "Por estado"; `nome` vem do servidor; estado fora do site não vem.
+- **Stories**: `stories[uf]` é a lista na ordem do dono (já filtrada: só o que está à venda, até 8 = `MAX_BARRAS`); sem
+  a chave, o automático de hoje.
+- **Categorias**: o `bebida` de cada uma substitui a lista `CATEGORIAS_FORA` do `cupom.ts` (já lê o `bebida` do
+  catálogo).
+- **Teste minha sorte**: `sorte.ligado` (desligado, o jogo some do site inteiro), `sorte.regras` no lugar de
+  `regrasSorte` e `sorte.premios` no lugar de `premios`. Os textos do jogo que citam as regras ("Sem conta: 1 giro. Com
+  conta: 1 giro por dia", "24 h" em `src/interativos/sorte/textos.ts` e o `conta-adaptador.ts`) passam a usar os números
+  do servidor. Cupom já guardado fica com o retrato do prêmio (o dono pode apagar ou mudar o prêmio depois).
+- **Textos da loja** (`bio`, `fraseStory`, `sacolaVazia`, `falasMercado`) no lugar de `src/dados/textos-loja.ts`.
+
+Também pendente:
+
+- **Criar rateio** no painel ainda busca o produto no catálogo embutido (`src/dados`): passar a usar os produtos do
+  servidor (`admin-loja`), com a foto que o dono mandou.
+- **Valores de exemplo dos estados** (horário, taxa e pagamento de RJ, MG, SP, ES e SC): o dono salva os de verdade em
+  Loja → Estados; até lá o site mostra "a confirmar".
+- **Estoque é contado à mão**: nada baixa sozinho quando um pedido sai (os pedidos ainda não chegam no servidor).
+  Quando chegarem, decidir com o dono se o pedido confirmado baixa o estoque.
+- **Apagar dados de exemplo**: os rateios de exemplo saem junto (com quem entrou neles). Conferir com o dono antes de
+  tocar no botão, no ar.
+- **"Restam X"**: começa em 5 unidades (padrão escolhido aqui, não veio do dono) e só aparece em produto com o estoque
+  contado. Confirmar com o dono, mudar ou desligar em Loja → "Restam X".
 
 ## Publicação
 
