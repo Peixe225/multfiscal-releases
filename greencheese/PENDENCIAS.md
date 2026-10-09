@@ -144,6 +144,19 @@ O painel (`/painel/`, ver LEIA-ME.md, "Painel do dono") está pronto e testado c
 - **"Avisados"** (quem já recebeu o aviso de cada passo) fica guardado no aparelho: em outro celular a marcação recomeça (as mensagens continuam todas lá).
 - **Próximas seções** (produtos, prêmios, ajustes, pedidos): entram na lista de `src/painel/secoes.ts` quando existirem; por enquanto o painel mostra só o que funciona.
 
+## Pedidos e avisos no WhatsApp
+
+O pedido com código, a cópia no servidor, o painel dos pedidos, os avisos no grupo e os textos do pedido estão prontos e testados (ver LEIA-ME.md, "Pedidos, avisos no WhatsApp e textos do pedido"). Falta da loja:
+
+1. **Número que manda e o serviço de envio**: escolher Z-API ou Evolution API (contratar ou subir o servidor) e um chip só pra mandar os avisos. Esses serviços usam o WhatsApp Web do número conectado, não a API oficial da Meta: por isso um número à parte, nunca o que atende os clientes. Conectar (QR Code), criar o grupo privado com o celular da loja, preencher em Avisos no WhatsApp e tocar em "Enviar teste". Até lá os avisos ficam desligados: os pedidos chegam no WhatsApp da loja e no painel do mesmo jeito.
+2. **A mensagem do grupo**: conferir com o dono o modelo (LEIA-ME tem o exemplo): o que falta, o que sobra, a ordem. Os textos moram em `public/api/nucleo/avisos.php` (`gc_aviso_texto_pedido`, `gc_aviso_rateio_reserva`, `gc_aviso_rateio_pago`).
+3. **Mensagens prontas pro cliente** em cada passo do pedido (`src/painel/pedidos/mensagens.ts`): confirmar o tom. A do confirmado diz o valor dos itens e que "a taxa de entrega e o total a gente fecha por aqui" (a taxa não está no painel).
+4. **WhatsApp de quem pediu**: o site só sabe quando a pessoa tem a conta do Teste minha sorte no aparelho. Nos outros pedidos o dono guarda o número no pedido (tirando da conversa) até as contas de cliente existirem (próxima etapa: entrar com WhatsApp e código).
+5. **Pedido mudado**: até 2 h depois de mandar, o pedido mudado entra no lugar do de antes (que sai da lista se ainda estava novo); depois disso são dois pedidos, ligados, e o aviso pede pra conferir. Confirmar com o dono se 2 h é o tempo certo.
+6. **LGPD dos pedidos**: o servidor guarda nome, endereço, observação e (quando tem) o WhatsApp de quem pediu, e o texto dos avisos. Valem as mesmas definições pendentes do rateio (controlador, prazo de retenção, canal de exclusão, política de privacidade). O painel já apaga os dados de um pedido entregue ou cancelado ("Apagar os dados (LGPD)").
+7. **Pedidos no celular**: no painel do celular, Pedidos, Avisos e Textos ficam no Resumo (os novos no topo) e em Conta → "Mais do painel", fora da barra de baixo (que segue com 5: Resumo, Rateios, Criar, Atividade e Conta). Se o dono usar mais os pedidos que os rateios, trocar em `src/painel/secoes.ts` (confirmar com o Ian).
+8. **Textos do pedido**: o dono troca as falas do chat; o formato da mensagem do WhatsApp e o botão "Fechar pedido no WhatsApp" continuam fixos (combinados com a loja). Promessa de prazo ou frete e tabaco são recusados.
+
 ## Publicação
 
 - **No ar em `https://oprojeto.online/greencheese/`** (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.

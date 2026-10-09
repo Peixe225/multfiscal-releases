@@ -1,6 +1,7 @@
 // Falas do pedido guiado (o DM da loja), com o texto de sempre. O dono troca cada uma no painel (Textos do pedido);
 // o servidor guarda só o que ele trocou (GET r=pedido-textos) e, sem servidor, vale o daqui.
-// Marcadores entre chaves ({nome}, {uf}, {lugar}…) viram o dado da hora; cada fala só aceita os da lista dela.
+// Marcadores entre chaves ({nome}, {uf}, {lugar}…) viram o dado da hora ({nome} = o primeiro nome); cada fala só aceita
+// os da lista dela.
 // {instagram} já vem com o @ (um "@" escrito logo antes dele não dobra).
 // A mensagem que vai pro WhatsApp (src/lib/mensagem.ts) NÃO está aqui: o formato dela é combinado com a loja.
 // Depois de mexer aqui: node scripts/gerar-textos-pedido.mjs (gera a lista que o servidor confere).

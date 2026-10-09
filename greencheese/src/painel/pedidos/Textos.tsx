@@ -153,7 +153,7 @@ function Editor({ chave, troca, aoFechar, aoSalvar }: { chave: ChaveTexto; troca
                   <code>{`{${m}}`}</code>
                   <small>
                     {NOME_MARCADOR[m] ?? m}
-                    {EXEMPLO_MARCADOR[m] ? ` (ex.: ${EXEMPLO_MARCADOR[m]})` : ''}
+                    {EXEMPLO_MARCADOR[m] ? ` · ex.: ${EXEMPLO_MARCADOR[m]}` : ''}
                   </small>
                 </button>
               ))}

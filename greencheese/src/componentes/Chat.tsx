@@ -17,7 +17,7 @@ import {
   whatsappDoCanal,
 } from '../lib/mensagem'
 import type { Pedaco } from '../dados/textos-pedido'
-import { atualizarFalas, useFala } from '../lib/falas'
+import { atualizarFalas, primeiroNome, useFala } from '../lib/falas'
 import { enviarPedido, type CorpoPedido } from '../lib/pedido-envio'
 import { itensDoPedido } from '../lib/pedido-itens'
 import { termoProibido } from '../painel/proibidos'
@@ -250,6 +250,8 @@ export function ChatFolha() {
 
   function def(p: Passo): Def {
     const nome = respostas.nome.trim()
+    // o {nome} das falas é só o primeiro nome
+    const chamar = primeiroNome(nome)
     // com conta, o nome da conta já vem sugerido (o passo não é pulado)
     const sugestaoNome = nome || conta?.nome.trim() || ''
     switch (p) {
@@ -391,7 +393,7 @@ export function ChatFolha() {
         }
         chips.push({ rotulo: t('endereco.semCep'), acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') })
         return {
-          perguntas: [t('endereco.pergunta', { nome })],
+          perguntas: [t('endereco.pergunta', { nome: chamar })],
           chips,
           campo: {
             placeholder: t('endereco.dica'),
@@ -442,7 +444,7 @@ export function ChatFolha() {
         return {
           perguntas: [
             <span key="p">
-              {t('pagamento.pergunta', { nome })} <Demo ativo={!!canal?.pagamento.demo} />
+              {t('pagamento.pergunta', { nome: chamar })} <Demo ativo={!!canal?.pagamento.demo} />
             </span>,
           ],
           chips: opcoes.map((o) => ({
@@ -470,7 +472,7 @@ export function ChatFolha() {
         }
       case 'obs':
         return {
-          perguntas: [t('obs.pergunta', { nome })],
+          perguntas: [t('obs.pergunta', { nome: chamar })],
           chips: [{ rotulo: t('obs.sem'), acao: () => resp({ obs: '' }, 'obs', 'resumo') }],
           campo: {
             placeholder: t('obs.dica'),
@@ -661,7 +663,7 @@ export function ChatFolha() {
             mensagem={mensagem}
             encomenda={modo === 'encomenda'}
             pagamento={respostas.pagamento}
-            nome={respostas.nome.trim()}
+            nome={primeiroNome(respostas.nome)}
             enviadoEm={enviadoEm}
             enviouAqui={enviouAqui}
             aoEnviar={() => {
@@ -818,7 +820,7 @@ function Resumo({
   encomenda: boolean
   /** Forma de pagamento escolhida no pedido (a resposta do "Pix em breve" muda quando não é Pix). */
   pagamento: FormaPagamento | null
-  /** Nome de quem pede (marcador {nome} das falas). */
+  /** Primeiro nome de quem pede (marcador {nome} das falas). */
   nome: string
   enviadoEm: number | null
   enviouAqui: boolean

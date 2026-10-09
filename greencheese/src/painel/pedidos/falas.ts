@@ -148,7 +148,7 @@ export const EXEMPLO_MARCADOR: Record<string, string> = {
 
 /** O que cada marcador vira (o chip do editor). */
 export const NOME_MARCADOR: Record<string, string> = {
-  nome: 'nome do cliente',
+  nome: 'primeiro nome do cliente',
   uf: 'sigla do estado',
   estado: 'nome do estado',
   cidade: 'cidade',

@@ -167,9 +167,11 @@ um aviso num grupo do WhatsApp (Avisos no WhatsApp, abaixo).
   servidor. Vai numa linha só da mensagem, logo depois do cabeçalho: `Código: GC-7KD2X`. O resto da mensagem não muda.
 - O mesmo código com o mesmo token é sempre o mesmo pedido (o site pode mandar de novo à vontade). O mesmo código com
   outro token (dois aparelhos que sortearam igual) vira outro pedido: o painel avisa que tem dois com o mesmo código.
-- Mudou o pedido depois de mandar (voltou do WhatsApp e trocou a obs., o endereço…): o aparelho sorteia código novo e o
-  pedido novo vai com `substitui: { codigo, token }` do de antes. O de antes, se ainda `novo`, vira `cancelado` com
-  `substituidoPor`; se já andou, os dois ficam e o aviso do grupo pede pra conferir.
+- Mudou o pedido depois de mandar (voltou do WhatsApp e trocou a obs., o endereço…): o aparelho sorteia código novo e,
+  até 2 h depois do envio, o pedido novo vai com `substitui: { codigo, token }` do de antes. O de antes, se ainda `novo`
+  e de até 2 h atrás (relógio do servidor), vira `cancelado` com `substituidoPor`; se já andou (ou passou das 2 h), os
+  dois ficam, ligados, e o aviso do grupo pede pra conferir. Depois das 2 h o aparelho manda sem `substitui`: é outro
+  pedido (a pessoa voltou outro dia sem tocar em "Mandei").
 - No aparelho, a cópia fica pendente (`localStorage` `gc-pedidos`, até 10, por 3 dias) até o servidor confirmar: a
   volta pra aba (o retorno do WhatsApp) ou a próxima visita mandam de novo, com espera crescente (30 s, 1 min, 2 min…
   até 6 h, ou o `esperaSegundos` do 429). Erro que não muda tentando de novo (recusado, site sem servidor) sai da fila.
@@ -229,11 +231,11 @@ interface CorpoPedido {
 As falas do pedido guiado (o chat do site) que o dono trocou no painel: `{ ok, textos: { [chave]: string }, versao }`
 (só as trocadas; o resto é o texto de sempre, que mora no site em `src/dados/textos-pedido.ts`). `ETag` = `versao`; o
 site guarda as trocas com a versão (`localStorage` `gc-falas`) e pede de novo cada vez que o chat abre, no máximo 1 vez
-por minuto, com `If-None-Match`: igual, 304 sem corpo. Sem servidor, vale o que o aparelho tinha (na primeira vez, as
-de sempre). O site só aceita troca de chave que ele conhece, com os marcadores da lista dela, no tamanho e sem promessa.
+por minuto, com `If-None-Match`: igual, 304 sem corpo (a versão marcada por proxy, `W/"…"` ou `"…-gzip"`, também
+vale). Sem servidor, vale o que o aparelho tinha (na primeira vez, as de sempre). O site só aceita troca de chave que ele conhece, com os marcadores da lista dela, no tamanho e sem promessa.
 
 Cada fala tem um tipo (`fala` 280 letras, `resposta` 80, `botao` 40, `dica` 60, `erro` 120) e só aceita os marcadores
-da lista dela (`{nome}`, `{uf}`, `{estado}`, `{cidade}`, `{lugar}`, `{horario}`, `{onde}`, `{endereco}`,
+da lista dela (`{nome}` — o primeiro nome —, `{uf}`, `{estado}`, `{cidade}`, `{lugar}`, `{horario}`, `{onde}`, `{endereco}`,
 `{ufAtendimento}`, `{valor}`, `{numero}`, `{instagram}` — já com o @ —, `{cupom}`, `{motivo}`, `{premio}`). A lista
 das chaves, tipos e marcadores que o servidor confere é `api/nucleo/textos-pedido.json`, gerado do arquivo do site
 (`node scripts/gerar-textos-pedido.mjs`; o `testar-api` recusa lista velha). A mensagem que vai pro WhatsApp não é fala:

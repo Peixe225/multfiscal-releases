@@ -215,9 +215,16 @@
 .pd-sem-quebra {
   white-space: nowrap;
 }
-.pd-mapa {
+/* o "Ver no mapa" numa linha só dele, embaixo do endereço (o .pd-ligado de baixo é inline) */
+.pd-ligado.pd-mapa {
   display: flex;
   width: max-content;
+}
+/* botão de texto embaixo da lista: quebra a linha em vez de passar da borda */
+.pn-botao.pd-editar-whats {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 .pd-acoes-linha > .pn-botao.pd-copiar {
   flex: 0 1 auto;

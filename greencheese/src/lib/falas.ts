@@ -87,6 +87,13 @@ export function atualizarFalas(): Promise<void> {
 
 export type Valores = Record<string, string | null | undefined>
 
+/** O {nome} das falas: o primeiro nome, como a loja chama no chat ("Ian", não "Ian Teste"). */
+export function primeiroNome(nome: string): string {
+  const n = nome.trim()
+  const primeiro = n.split(/\s+/)[0] ?? ''
+  return primeiro.length >= 2 ? primeiro : n
+}
+
 /** O texto da fala agora (a troca do dono ou o de sempre). */
 export function textoDaFala(trocas: Trocas, chave: ChaveTexto): string {
   return trocas[chave] ?? TEXTOS_PEDIDO[chave].padrao

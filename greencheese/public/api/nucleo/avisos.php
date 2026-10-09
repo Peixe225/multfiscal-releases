@@ -263,7 +263,7 @@ function gc_http_post(string $url, array $cabecalhos, string $corpo, int $conexa
         curl_exec($c);
         $numero = curl_errno($c);
         $status = (int) curl_getinfo($c, CURLINFO_RESPONSE_CODE);
-        curl_close($c);
+        // sem curl_close: desde o PHP 8 a alça fecha sozinha (no 8.5 a função fica obsoleta e daria aviso)
         $erro = $numero === 0 ? '' : ($numero === 28 ? 'tempo' : 'conexao');
         return ['status' => $numero === 0 ? $status : 0, 'corpo' => $resposta, 'erro' => $erro, 'ms' => (int) ((hrtime(true) - $inicio) / 1e6)];
     }
@@ -586,6 +586,19 @@ function gc_aviso_publico(array $l, ?array $tentativas = null): array
             'ms' => (int) $x['ms'], 'erro' => (string) $x['erro'], 'por' => (string) $x['por'],
         ], array_slice($t, 0, 5)),
     ];
+}
+
+/**
+ * Pedido de exclusão (LGPD): os avisos de um alvo ('pedido:12', 'participacao:RAT-K8EA') perdem o texto e os dados
+ * (nome, WhatsApp, endereço…), e o que ainda esperava nova tentativa para: nada mais sai deles.
+ */
+function gc_avisos_apagar_dados(string $alvo): void
+{
+    gc_sql(
+        "UPDATE avisos_envios SET texto = 'Dados apagados (LGPD).', dados = '{}', reenvia = 0, tentar_em = NULL,
+           status = CASE WHEN status = 'enviado' THEN 'enviado' ELSE 'falhou' END WHERE alvo = ?",
+        [$alvo],
+    );
 }
 
 /** Situação dos avisos pro Resumo e pra tela: ligado?, quantos falharam (7 dias), na fila e o último que chegou. */

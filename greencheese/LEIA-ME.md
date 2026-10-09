@@ -86,7 +86,7 @@ Dentro de `public_html/greencheese/`:
 | `api/privado/` | o banco `loja.sqlite` (com o diário `loja.sqlite-wal` e `-shm`) e o `erros.log` (passou de 1 MB, vira `erros.log.1`) | fechado (403) |
 | `uploads/` | as imagens que o dono envia pelo painel (WebP, nome aleatório) | só imagem; nenhum `.php` roda ali |
 
-- O banco nasce sozinho no primeiro acesso e se atualiza sozinho (migrações pelo `PRAGMA user_version`).
+- O banco nasce sozinho no primeiro acesso e se atualiza sozinho (migrações numeradas, com registro na tabela `migracoes`; cada frente na sua faixa: API.md, "Migrações").
 - Precisa de **PHP 8.1 ou mais novo** (hPanel → Avançado → Configuração do PHP; 8.3 é o melhor) com `pdo_sqlite`, que a Hostinger já tem. Com GD + WebP, as fotos do painel são ajustadas (lado maior até 1600 px, viram WebP); sem isso, sobem do jeito que vieram.
 - Cada pasta interna tem o próprio `.htaccess` (com as duas sintaxes: `Require` e `Order/Deny`) e cada módulo PHP começa com uma guarda: mesmo se o `.htaccess` falhar, abrir um módulo direto não faz nada.
 - **Sem `RewriteEngine` nas nossas pastas**, de propósito: ligar a reescrita aqui anularia as regras da raiz do domínio (HTTPS etc.). Por isso a rota é um parâmetro.
@@ -133,7 +133,7 @@ npm run dev    # em outro terminal: o Vite repassa /api e /uploads pro PHP (o pr
 
 ### Onde fica cada coisa no código
 
-`public/api/index.php` (a lista de rotas) e, em `public/api/nucleo/`: `base.php` (respostas, erros, Origin, relógio), `banco.php` (SQLite, migrações, transação — o único arquivo que muda pra ir pro MySQL), `validar.php` (WhatsApp, estado, dinheiro, datas, slug e a lista do tabaco), `limite.php` (tentativas), `sessao.php` (cookie, CSRF, código de instalação), `rateio.php` (as regras de vaga; `gc_confirmar_participacao` é a única porta pro contador subir), `publico.php` (rotas do site), `painel.php` (rotas do dono), `upload.php`, `diagnostico.php` e `exemplos.php` (os 2 rateios de exemplo). Mudança no banco: uma migração nova no fim de `gc_migracoes()`.
+`public/api/index.php` (a lista de rotas) e, em `public/api/nucleo/`: `base.php` (respostas, erros, Origin, relógio), `banco.php` (SQLite, migrações, transação — o único arquivo que muda pra ir pro MySQL), `validar.php` (WhatsApp, estado, dinheiro, datas, slug e a lista do tabaco), `limite.php` (tentativas), `sessao.php` (cookie, CSRF, código de instalação), `rateio.php` (as regras de vaga; `gc_confirmar_participacao` é a única porta pro contador subir), `publico.php` (rotas do site), `painel.php` (rotas do dono), `upload.php`, `diagnostico.php` e `exemplos.php` (os 2 rateios de exemplo). Mudança no banco: uma migração nova, com o próximo número livre da faixa da frente (`gc_migracoes()` em `banco.php` junta todas).
 
 ### Link para a bio de cada perfil
 
@@ -200,6 +200,83 @@ Derivado do tabaco e cigarro eletrônico não entra (Anvisa): o nome ou a descri
 
 - `painel/index.html` (a página) e `public/painel/` (manifesto e `.htaccess`). O `npm run build` gera o site e, logo depois, o painel num build à parte na mesma pasta (plugin `painelAParte` do `vite.config.ts`): num build só, o Vite repartiria o React entre as duas páginas e o site ganharia pedaços e pedidos novos. Assim o site sai **byte a byte igual** ao de antes do painel e o painel leva o dele (`assets/painel-*.js`, com o CSS dentro, em `src/painel/estilo.ts`). No `npm run dev`, o `/painel/` abre direto. Variável nova no `define` do site (ex.: `__ARQUIVO_UNICO__`) entra na constante `definir`, que vale pros dois.
 - `src/painel/`: `api.ts` (conversa com o servidor: csrf, sessão que cai, rede), `rotas.ts` (telas por `#/…`, histórico), `secoes.ts` (**a lista de seções**: seção nova entra aqui, com a tela dela em `Painel.tsx`), `mensagens.ts` (os textos do WhatsApp), `proibidos.ts` (a lista do tabaco, igual à do servidor), `painel.css` e `telas/`.
+
+---
+
+## Pedidos, avisos no WhatsApp e textos do pedido
+
+O pedido continua fechando no WhatsApp da loja, do jeito que o cliente já conhece. O que mudou: cada pedido ganha um **código** (`GC-7KD2X`), uma cópia completa fica no **painel** (Pedidos) e, se o dono ligar, um número de WhatsApp da loja manda o pedido **formatado num grupo privado** com o celular que recebe e notifica. As falas do pedido guiado (o chat do site) o dono troca no painel (Textos do pedido). Contrato: API.md, "Pedidos do site", "Pedidos, avisos e falas (painel)" e "Avisos no WhatsApp".
+
+### O pedido no servidor
+
+- O código nasce no aparelho (5 letras e números sem os que confundem: nada de 0/O, 1/I/L) e vai numa linha só da mensagem, logo depois do cabeçalho: `Código: GC-7KD2X`. O resto da mensagem não mudou (o `conferir-mensagem.mjs` garante). Com ele a loja acha o pedido no painel e no grupo.
+- No toque de "Fechar pedido no WhatsApp" (e "Fechar encomenda…"), o site manda a cópia estruturada pro servidor (`navigator.sendBeacon`, ou `fetch` com `keepalive`) **sem segurar o link**: o WhatsApp abre na hora, como sempre. Itens com quantidade, variação, preço de cada um, total com o combo, subtotal, cupom, estado, cidade, nome, endereço com CEP e bairro, pagamento, troco, observação e a mensagem exata.
+- A cópia fica guardada no aparelho até o servidor confirmar: se a internet cair no toque, ela vai de novo quando a pessoa volta pro site (o mesmo código nunca vira dois pedidos).
+- Mudou o pedido depois de mandar (voltou do WhatsApp, tocou em "Não consegui" e trocou o endereço, por exemplo): nasce um código novo, que **entra no lugar** do de antes até 2 h depois (o de antes sai da lista se ainda estava "novo"). Depois disso é outro pedido.
+- Sem servidor (o zip da prévia, o `npm run dev` com o PHP desligado), nada disso aparece pro cliente: o pedido fecha no WhatsApp igual.
+- O WhatsApp do cliente só vai junto quando o aparelho sabe (a conta do Teste minha sorte). Nos outros, o dono guarda o número no pedido, tirando da conversa (até as contas de cliente chegarem).
+
+### Painel → Pedidos
+
+- **Onde**: no Resumo, o bloco "Pedidos novos" (e a frase de cima conta os novos); no computador, na lateral; no celular, também em Conta → "Mais do painel".
+- **Lista**: abre no "Em aberto" (novo, confirmado e saiu pra entrega), o mais novo primeiro; filtros por status (só aparecem os que têm pedido), por estado e busca por código (com ou sem o "GC-"), nome, cidade ou WhatsApp.
+- **Pedido por dentro**: quem pediu (com o link do WhatsApp dele), os itens com o combo, o subtotal (sem a taxa de entrega: a loja combina na conversa), o cupom, o endereço com "Ver no mapa", o pagamento com o troco, a observação, a mensagem que foi pro WhatsApp e a anotação da loja (só o painel vê).
+- **Passos**: Recebido → Confirmado → Saiu pra entrega → Entregue (ou Cancelado), com o próximo passo num botão. Em cada passo, a **mensagem pronta pro cliente** ("Teu pedido GC-… tá confirmado ✅…"), que abre o WhatsApp com o texto escrito; o cliente nunca é avisado sozinho. Toque errado: "Voltar pra…" e "Desfazer a entrega" (com confirmação); cancelado dá pra reabrir.
+- **Apagar os dados (LGPD)**: com o pedido entregue ou cancelado, tira nome, WhatsApp, endereço, observação, anotação e a mensagem (e o texto do aviso no grupo). Itens, valores e datas ficam nas contas.
+
+### Avisos no WhatsApp (o grupo da loja)
+
+A ideia do Ian: um número de WhatsApp da loja **só pra mandar** (um chip à parte, não o número que atende os clientes), conectado num serviço de envio, e um **grupo privado** com esse número e o celular da loja. Cada pedido vira uma mensagem no grupo, e o celular notifica.
+
+1. Contratar o serviço de envio e conectar o número que manda: **Z-API** (serviço contratado à parte) ou **Evolution API** (servidor próprio ou contratado). Os dois usam o WhatsApp Web do número conectado (ler o QR Code com o celular desse número).
+2. Criar o grupo com esse número e o celular da loja. Pegar o **ID do grupo** no serviço (a lista de grupos do número): no Z-API ele termina em `-group`, na Evolution em `@g.us`. O painel aceita com ou sem esse final.
+3. Painel → **Avisos no WhatsApp** → escolher o serviço e preencher: Z-API (ID e token da instância e, se a conta tiver o token de segurança ligado, o Client-Token) ou Evolution (endereço do servidor com `https://`, nome da instância e apikey); depois, "Quem recebe" (o grupo, ou um número só). **Salvar** e tocar em **"Enviar teste"**: a mensagem de teste tem que chegar no grupo.
+4. "O que avisa": pedido novo, encomenda, reserva de rateio e pagamento de rateio confirmado (cada um liga e desliga).
+5. Quem já usa n8n, Make ou outro automatizador: **Webhook**. A loja manda um POST em JSON (`tipo`, `texto` pronto e `dados` com o pedido inteiro) assinado com `X-GC-Assinatura` (HMAC-SHA256 do corpo com o segredo, que o painel gera); o fluxo confere a assinatura e manda o texto pro WhatsApp.
+
+A mensagem no grupo (negrito e itálico do WhatsApp, sem enfeite):
+
+```
+*NOVO PEDIDO* · #GC-7KD2X
+MG / Teófilo Otoni · qua., 08/10 às 22:41
+
+*Itens*
+1x Jack Daniel's Old No. 7 1 L — R$ 149,90
+3x Seda OCB Premium Slim — R$ 19,99 _(combo 3 por R$ 19,99)_
+Subtotal: *R$ 169,89*
+Cupom: SORTE-K8EA — Leva 4 Seda OCB Premium Slim e paga 3 _(a loja confirma)_
+
+*Entrega:* Rua Doutor Manoel Esteves, 120 — Centro · CEP 39800-000 _(taxa a confirmar)_
+*Pagamento:* Pix
+*Cliente:* Ian · wa.me/5533…
+*Obs.:* Portão azul
+
+Painel: https://oprojeto.online/greencheese/painel/#/pedido/12
+```
+
+A encomenda (`*NOVA ENCOMENDA*`, com produto, quantidade e o link do cliente), o pedido que o cliente mudou (`*PEDIDO ATUALIZADO*`, dizendo qual saiu da lista) e o rateio (`*RATEIO · NOVA RESERVA*` com o placar e até quando a vaga fica guardada; `*RATEIO · PAGAMENTO CONFIRMADO* ✅` com o placar e quem confirmou) têm os modelos deles. Nada de prazo, frete ou valor que a loja não passou.
+
+- O aviso sai **depois** que o cliente já teve a resposta (o site nunca espera o serviço de envio). Não foi? Tenta de novo sozinho em 1 min e em 5 min; depois, o histórico da tela mostra o que não foi, o porquê em português e o botão **"Mandar de novo"**. O Resumo avisa quando algum aviso não foi.
+- Token, Client-Token, apikey e o segredo do webhook ficam **só no servidor**: o painel mostra só o final (`•••1234`). Campo de segredo em branco ao salvar mantém o guardado.
+
+### Painel → Textos do pedido
+
+Cada fala do chat que monta o pedido (as perguntas, as respostas e os botões) com a prévia do balão. Toca na fala, troca o texto e salva; o site usa a nova na próxima vez que alguém abrir o chat. Os **marcadores** (`{nome}`, que é o primeiro nome, `{cidade}`, `{uf}`…) viram o dado de quem tá pedindo: cada fala mostra os que valem nela e põe com um toque. O painel (e o servidor de novo) recusa marcador que não existe naquela fala, texto grande demais, promessa de prazo ou frete ("frete grátis", "em 30 minutos"…) e tabaco. "Voltar ao padrão" põe o texto de sempre. A mensagem que vai pro WhatsApp **não** muda por aqui (o formato é o combinado com a loja), nem o botão "Fechar pedido no WhatsApp".
+
+Pra quem mexe no código: o texto de sempre de cada fala, o tipo e os marcadores moram em `src/dados/textos-pedido.ts`. Depois de mexer: `node scripts/gerar-textos-pedido.mjs` (gera a lista que o servidor confere, `public/api/nucleo/textos-pedido.json`; o `testar-api` recusa lista velha).
+
+### Testes
+
+- `npm run testar-api`: também os pedidos (cada validação, a armadilha, o Origin, o tabaco, a mesma entrada de novo, 8 envios juntos, o mesmo código em dois aparelhos, o pedido mudado com a janela de 2 h, o limite por IP), o painel dos pedidos, as falas (ETag e 304) e os avisos contra servidores falsos do Z-API, da Evolution e do webhook: o formato exato de cada requisição, a resposta que não espera o envio, falha, nova tentativa, "Mandar de novo" e segredo que nunca volta (`scripts/testar-api-pedidos.mjs`).
+- `npm run testar-painel -- <build>`: no fim, o fluxo dos pedidos, dos avisos (webhook falso com a assinatura conferida) e dos textos no navegador, com axe e os 4 tamanhos (`scripts/testar-painel-pedidos.mjs`; roda sozinho também: `node scripts/testar-painel-pedidos.mjs <build>`).
+- `npm run revisao`: a rodada "pedido no servidor" (a cópia sai no toque, com a mensagem exata e o código; fica no aparelho até o servidor confirmar; código novo quando o pedido muda; as falas trocadas no painel; tabaco recusado na encomenda).
+- `testar-htaccess`: os módulos novos fechados pela web, o pedido e as falas pelo Apache.
+
+### Onde fica cada coisa no código
+
+- Servidor (`public/api/nucleo/`): `pedido-migracoes.php` (as tabelas, faixa 200–299), `pedido.php` (o `POST pedido` e as rotas do painel), `avisos.php` (os motores, a fila, as mensagens do grupo e as portas `gc_whatsapp_enviar`, `gc_whatsapp_mandar` e `gc_aviso_enfileirar`), `textos.php` (as falas) e `textos-pedido.json` (gerado); em `base.php`, `gc_depois()` (o trabalho que roda depois da resposta).
+- Site: `src/lib/codigo-pedido.ts` (o código e o token), `src/store/chat.ts` (o código do pedido montado), `src/lib/pedido-envio.ts` (a cópia e a fila no aparelho), `src/lib/pedido-itens.ts`, `src/lib/pedido-pendente.ts` (a nova tentativa na volta pro site), `src/lib/falas.ts` e `src/dados/textos-pedido.ts` (as falas), `src/componentes/Chat.tsx`.
+- Painel: `src/painel/pedidos/` (as telas Pedidos, Pedido, Avisos e Textos, o bloco do Resumo, as mensagens prontas de cada passo em `mensagens.ts`, o CSS em `pedidos.css`).
 
 ---
 

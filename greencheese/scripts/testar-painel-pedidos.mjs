@@ -32,6 +32,24 @@ async function servidorFalso() {
   return s
 }
 
+/**
+ * Elementos que passam da borda da tela fora de um trilho que rola de lado (os filtros): o html corta o que sobra
+ * (overflow-x: clip), então o scrollWidth não acusa, mas o texto sairia cortado.
+ */
+const cortados = (p) =>
+  p.evaluate(() => {
+    const noTrilho = (el) => {
+      for (let e = el.parentElement; e; e = e.parentElement) if (/^(auto|scroll)$/.test(getComputedStyle(e).overflowX)) return true
+      return false
+    }
+    return [...document.querySelectorAll('body *')]
+      .filter((el) => {
+        const b = el.getBoundingClientRect()
+        return b.width > 1 && b.height > 1 && (b.right > innerWidth + 0.5 || b.left < -0.5) && !noTrilho(el)
+      })
+      .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ').join('.')} "${(el.textContent ?? '').trim().slice(0, 30)}"`)
+  })
+
 const esperar = async (cond, ms = 8000) => {
   const fim = Date.now() + ms
   while (Date.now() < fim) {
@@ -327,6 +345,8 @@ export async function fluxoPedidos(a) {
       ['resumo', '#/'],
       ['lista', '#/pedidos'],
       ['detalhe', `#/pedido/${ids.at(-2)}`],
+      // a encomenda, sem o WhatsApp de quem pediu (o botão de guardar o número)
+      ['encomenda', `#/pedido/${ids.at(-3)}`],
       ['avisos', '#/avisos'],
       ['textos', '#/textos'],
     ]
@@ -346,6 +366,11 @@ export async function fluxoPedidos(a) {
           todas = false
           ok(false, `${w}×${h} ${rota}: rolagem lateral`)
         }
+        const fora = await cortados(q)
+        if (fora.length) {
+          todas = false
+          ok(false, `${w}×${h} ${rota}: passa da borda (cortado): ${fora.slice(0, 4).join(' · ')}`)
+        }
         if (prints && w !== 320) await q.screenshot({ path: join(prints, `pedidos-${nome}-${w}x${h}.png`), fullPage: true })
       }
       if (w === 320) {
@@ -359,9 +384,9 @@ export async function fluxoPedidos(a) {
           const corpo = document.querySelector('.pn-folha-corpo')
           return !!corpo && corpo.scrollWidth <= corpo.clientWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth + 0.5
         })
-        ok(cabe, '320 px: o editor de fala não rola pro lado')
+        ok(cabe && (await cortados(q)).length === 0, '320 px: o editor de fala não rola pro lado nem corta nada')
       }
-      ok(todas, `${w}×${h}: pedidos, pedido, avisos e textos sem rolagem lateral`)
+      ok(todas, `${w}×${h}: pedidos, pedido, avisos e textos sem rolagem lateral e sem nada cortado na borda`)
       await c.close()
     }
   } finally {

@@ -724,6 +724,10 @@ function gc_rota_admin_participante_apagar(): array
             "UPDATE participacoes SET nome = 'Dados apagados', whatsapp = '', cidade = '', observacao = '', token_hash = ?, atualizado_em = ? WHERE id = ?",
             [hash('sha256', bin2hex(random_bytes(16))), gc_agora(), $p['id']],
         );
+        // os avisos dessa vaga no grupo da loja (avisos.php) também tinham o nome e o WhatsApp
+        if (function_exists('gc_avisos_apagar_dados')) {
+            gc_avisos_apagar_dados('participacao:' . $p['codigo']);
+        }
         gc_tocar_rateio($rid);
         gc_evento('painel', 'participacao-dados-apagados', 'participacao:' . $p['codigo'], ['rateio' => $rid, 'titulo' => $r['titulo']]);
         return ['participante' => gc_participante_admin((array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$p['id']])), 'rateio' => gc_rateio_admin_por_id($rid)];

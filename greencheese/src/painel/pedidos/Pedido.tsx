@@ -153,7 +153,13 @@ function EditarWhats({ p, aoSalvar }: { p: PedidoAdmin; aoSalvar: (p: PedidoAdmi
           setAberto(true)
         }}
       >
-        {p.whatsapp ? 'Trocar o WhatsApp' : 'Guardar o WhatsApp de quem pediu'}
+        {p.whatsapp ? (
+          'Trocar o WhatsApp'
+        ) : (
+          <>
+            Guardar o WhatsApp<span className="sr-only"> de quem pediu</span>
+          </>
+        )}
       </Botao>
     )
   }
@@ -663,7 +669,7 @@ export function Pedido({ id }: { id: number }) {
             </div>
             {acaoAviso.erro && <Aviso tipo="erro">{acaoAviso.erro.message}</Aviso>}
             {d.avisos.length === 0 ? (
-              <p className="pn-vazio">Sem aviso no grupo pra esse pedido: quando ele chegou, os avisos no WhatsApp tavam desligados.</p>
+              <p className="pn-vazio">Sem aviso no grupo {enc ? 'pra essa encomenda' : 'pra esse pedido'}: quando {enc ? 'ela' : 'ele'} chegou, esse aviso tava desligado.</p>
             ) : (
               <ListaAvisos envios={d.avisos} agora={agora} ocupado={avisoOcupado} aoReenviar={reenviar} comPedido={false} />
             )}

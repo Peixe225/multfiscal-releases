@@ -711,6 +711,12 @@ export async function testarPedidos(t) {
       await loja.post('admin-participante-status', { id: parts.find((x) => x.nome === 'Bruno Lima').id, status: 'confirmado' })
       await new Promise((r) => setTimeout(r, 300))
       igual(falso.recebidos.length, 0, 'confirmar de novo não avisa de novo')
+      // apagar os dados da vaga (LGPD) também limpa os avisos dela (o nome e o WhatsApp estavam no texto)
+      const idBruno = parts.find((x) => x.nome === 'Bruno Lima').id
+      await loja.post('admin-participante-status', { id: idBruno, status: 'cancelado' })
+      igual((await loja.post('admin-participante-apagar', { id: idBruno })).status, 200, 'apagar os dados da vaga do Bruno')
+      const dele = (await loja.get('admin-avisos')).json.envios.filter((x) => x.alvo === `participacao:${ent.json.participacao.codigo}`)
+      ok(dele.length === 2 && dele.every((x) => x.texto === 'Dados apagados (LGPD).' && !x.reenvia) && !JSON.stringify(dele).includes('Bruno') && !JSON.stringify(dele).includes('98765'), `os 2 avisos da vaga sem nome nem WhatsApp, e sem reenviar (${dele.map((x) => x.texto).join(' | ')})`)
     }
 
     parte('avisos: webhook (assinatura)')

@@ -35,7 +35,12 @@ export function LinhaPedido({ p, agora }: { p: PedidoLinha; agora: number }) {
       </span>
       <span className="pd-linha-valor">
         {valor}
-        {p.tipo === 'pedido' && p.unidades > 0 && <small>{plural(p.unidades, 'item', 'itens')}</small>}
+        {/* item sem preço: o valor de cima não é o total (a loja passa o resto na conversa) */}
+        {p.tipo === 'pedido' && p.subtotal != null && p.subtotalTexto.includes('consultar') ? (
+          <small>+ a consultar</small>
+        ) : (
+          p.tipo === 'pedido' && p.unidades > 0 && <small>{plural(p.unidades, 'item', 'itens')}</small>
+        )}
       </span>
       {p.resumo && <span className="pd-linha-itens">{p.resumo}</span>}
       <span className="pd-linha-meta">
@@ -130,6 +135,8 @@ export function tituloDoAviso(e: EnvioAviso): string {
 }
 
 function praOnde(e: EnvioAviso): string {
+  // no webhook, quem leva pro WhatsApp é o automatizador
+  if (e.motor === 'webhook' && !e.para) return 'pro webhook'
   if (!e.para) return 'no grupo'
   return e.para.tipo === 'numero' ? `pro ${whatsappBonito(e.para.valor)}` : 'pra outro grupo'
 }

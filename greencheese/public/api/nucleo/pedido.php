@@ -640,12 +640,7 @@ function gc_rota_admin_pedido_apagar_dados(): array
                 [is_array($enc) ? json_encode($enc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : $p['encomenda'], gc_sem_acento((string) $p['codigo']), $agora, $agora, $p['id']],
             );
             // o aviso do grupo também tinha os dados (o texto e o pedido inteiro, que vai pro webhook)
-            // (e nada mais sai dele: o que ainda esperava nova tentativa para)
-            gc_sql(
-                "UPDATE avisos_envios SET texto = 'Dados apagados (LGPD).', dados = '{}', reenvia = 0, tentar_em = NULL,
-                   status = CASE WHEN status = 'enviado' THEN 'enviado' ELSE 'falhou' END WHERE alvo = ?",
-                ['pedido:' . $p['id']],
-            );
+            gc_avisos_apagar_dados('pedido:' . $p['id']);
             // e a Atividade, o nome de quem pediu
             foreach (gc_todos('SELECT id, detalhe FROM eventos WHERE alvo = ?', ['pedido:' . $p['codigo']]) as $ev) {
                 $d = json_decode((string) $ev['detalhe'], true);
