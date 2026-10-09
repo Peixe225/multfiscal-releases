@@ -101,8 +101,12 @@ function gc_rota_pedido_textos(): array
 {
     $textos = array_map(static fn (array $l): string => (string) $l['texto'], gc_textos_trocados());
     $versao = gc_textos_versao($textos);
-    $pediu = (string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '');
-    if ($pediu !== '' && in_array($versao, array_map('trim', explode(',', $pediu)), true)) {
+    // o site manda a versão que veio no corpo; um proxy que comprime pode ter trocado a do cabeçalho (W/"…", "…-gzip")
+    $pediu = array_map(
+        static fn (string $x): string => (string) preg_replace(['/^W\//', '/-(gzip|br|deflate)"$/'], ['', '"'], trim($x)),
+        explode(',', (string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')),
+    );
+    if (in_array($versao, $pediu, true)) {
         http_response_code(304);
         gc_cabecalhos();
         header('ETag: ' . $versao);

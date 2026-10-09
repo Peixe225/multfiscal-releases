@@ -1,15 +1,12 @@
 // O pedido no servidor da loja (API.md, "Pedidos"): a cópia estruturada que sai no toque de "Fechar pedido no
 // WhatsApp" — sendBeacon (ou fetch keepalive), sem segurar o link (regra do Instagram: o link já está montado; nada
-// espera resposta). O código GC-XXXXX e o token nascem em codigo-pedido.ts.
+// espera resposta). O código GC-XXXXX e o token nascem em codigo-pedido.ts; os itens, em pedido-itens.ts.
 // A cópia fica pendente no aparelho até o servidor confirmar (201, ou 200 "repetido"): quando a aba volta a ficar à
 // vista, ou na próxima visita, ela vai de novo (o mesmo código com o mesmo token nunca vira outro pedido). Erro que não
 // muda tentando de novo (pedido recusado, site sem servidor) tira da fila.
+// Este pedaço baixa sozinho na volta pro site (pedido-pendente.ts): por isso não importa nada do resto do site (nem o
+// armazenamento): assim ele não puxa pedaço novo pra primeira tela.
 import type { FormaPagamento } from '../dados/canais'
-import { apagar, gravar, ler } from './armazenamento'
-import { codigoValido, tokenValido } from './codigo-pedido'
-import { brl } from './formato'
-import { nomeNaMensagem, textoSubtotal, totais, type LinhaPedido } from './mensagem'
-import { calcularLinha, precoUnitario } from './preco'
 
 const API = './api/index.php?r=pedido'
 /** Onde ficam as cópias que o servidor ainda não confirmou (o pedaço principal só olha se existe: pedido-pendente.ts). */
@@ -60,40 +57,6 @@ export interface CorpoPedido {
   substitui: { codigo: string; token: string } | null
 }
 
-/** "3 por R$ 19,99" · "2× 3 por R$ 19,99 + 1 avulsa" · null (sem combo). */
-export function textoCombo(c: ReturnType<typeof calcularLinha>): string | null {
-  if (!c.combos.length) return null
-  const partes = c.combos.map((x) => `${x.vezes > 1 ? `${x.vezes}× ` : ''}${x.qtd} por ${brl(x.total)}`)
-  if (c.avulsas > 0) partes.push(`${c.avulsas} ${c.avulsas === 1 ? 'avulsa' : 'avulsas'}`)
-  return partes.join(' + ')
-}
-
-/** Os itens como a sacola e a mensagem mostram (preço unitário, total com combo), o subtotal e o texto dele. */
-export function itensDoPedido(linhas: LinhaPedido[]): { itens: ItemPedido[]; subtotal: number | null; subtotalTexto: string } {
-  const validas = linhas.filter((l) => l.qtd > 0)
-  const itens = validas.map((l) => {
-    const c = calcularLinha(l.produto, l.qtd, l.variacaoId)
-    const v = l.variacaoId ? l.produto.variacoes?.find((x) => x.id === l.variacaoId) : undefined
-    const unit = precoUnitario(l.produto, l.variacaoId)
-    return {
-      produtoId: l.produto.id,
-      nome: nomeNaMensagem(l),
-      variacao: v?.nome ?? null,
-      qtd: l.qtd,
-      precoUnit: unit,
-      total: unit == null ? null : c.total,
-      combo: unit == null ? null : textoCombo(c),
-    }
-  })
-  const t = totais(validas)
-  return {
-    itens,
-    // sem nenhum preço conhecido, o subtotal é "a consultar" (null), nunca zero
-    subtotal: itens.some((i) => i.total != null) ? t.subtotal : null,
-    subtotalTexto: textoSubtotal(t, validas.length > 0),
-  }
-}
-
 /* ───────────────────────── fila no aparelho ───────────────────────── */
 
 interface Pendente {
@@ -113,17 +76,27 @@ function semServidorAqui(): boolean {
   }
 }
 
+/** localStorage pode falhar (aba anônima, navegador do Instagram): nunca quebra o pedido. */
+function lerFila(): unknown {
+  try {
+    const v = localStorage.getItem(CHAVE_PENDENTES)
+    return v == null ? [] : JSON.parse(v)
+  } catch {
+    return []
+  }
+}
+
 function lerPendentes(): Pendente[] {
   const agora = Date.now()
-  const lista = ler<unknown>(CHAVE_PENDENTES, [])
+  const lista = lerFila()
   if (!Array.isArray(lista)) return []
   return lista.filter((x): x is Pendente => {
     const p = x as Pendente | null
     return (
       !!p &&
       typeof p === 'object' &&
-      codigoValido(p.corpo?.codigo) &&
-      tokenValido(p.corpo?.token) &&
+      typeof p.corpo?.codigo === 'string' &&
+      typeof p.corpo?.token === 'string' &&
       typeof p.criado === 'number' &&
       agora - p.criado < VALIDADE_MS &&
       typeof p.tentativas === 'number' &&
@@ -133,8 +106,12 @@ function lerPendentes(): Pendente[] {
 }
 
 function gravarPendentes(lista: Pendente[]): void {
-  if (lista.length) gravar(CHAVE_PENDENTES, lista.slice(-MAX_PENDENTES))
-  else apagar(CHAVE_PENDENTES)
+  try {
+    if (lista.length) localStorage.setItem(CHAVE_PENDENTES, JSON.stringify(lista.slice(-MAX_PENDENTES)))
+    else localStorage.removeItem(CHAVE_PENDENTES)
+  } catch {
+    /* sem armazenamento: o envio do toque ainda sai, só não tem a nova tentativa */
+  }
 }
 
 function tirar(token: string): void {

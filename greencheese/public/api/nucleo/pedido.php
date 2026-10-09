@@ -30,6 +30,12 @@ const GC_NOME_PAGAMENTO = ['pix' => 'Pix', 'dinheiro' => 'Dinheiro', 'cartao' =>
 /** Pedidos novos por hora, por IP (o mesmo pedido de novo não conta). */
 const GC_PEDIDOS_POR_HORA = 20;
 
+/**
+ * Até quanto tempo depois do de antes o pedido mudado entra no lugar dele (o site usa a mesma janela). Passou disso, os
+ * dois ficam e o aviso do grupo pede pra conferir.
+ */
+const GC_PEDIDO_JANELA_TROCA = 7200;
+
 /** 'GC-7KD2X' (5 caracteres do alfabeto sem ambíguos dos códigos), ou null. */
 function gc_codigo_pedido(mixed $v): ?string
 {
@@ -222,7 +228,8 @@ function gc_pedido_publico(array $p): array
  * importa é gravar uma vez só e avisar o grupo. A mesma entrada de novo (código + token) devolve 200 com
  * repetido: true, sem gravar, sem avisar e sem gastar o limite. Token de outro código: invalido. O mesmo código com
  * outro token (dois aparelhos que sortearam igual) vira outro pedido: o painel mostra os dois.
- * substitui { codigo, token }: o aparelho mudou o pedido depois de mandar; o de antes, se ainda novo, sai da lista.
+ * substitui { codigo, token }: o aparelho mudou o pedido depois de mandar; o de antes, se ainda novo e de até 2 h
+ * atrás, sai da lista (fora disso os dois ficam, ligados, e o aviso pede pra conferir).
  */
 function gc_rota_pedido(): array
 {
@@ -285,7 +292,8 @@ function gc_rota_pedido(): array
         $marcas = implode(', ', array_fill(0, count($col), '?'));
         $id = gc_inserir("INSERT INTO pedidos ($nomes) VALUES ($marcas)", array_values($col));
         $trocou = false;
-        if ($antigo !== null && $antigo['status'] === 'novo' && $antigo['substituido_por_id'] === null) {
+        $recente = $antigo !== null && $agora - (int) $antigo['criado_em'] <= GC_PEDIDO_JANELA_TROCA;
+        if ($antigo !== null && $recente && $antigo['status'] === 'novo' && $antigo['substituido_por_id'] === null) {
             gc_sql(
                 "UPDATE pedidos SET status = 'cancelado', cancelado_em = ?, substituido_por_id = ?, status_por = 'site', atualizado_em = ? WHERE id = ?",
                 [$agora, $id, $agora, $antigo['id']],

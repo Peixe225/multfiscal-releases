@@ -388,8 +388,9 @@ function gc_participacao_criar(array $r, array $d, string $origem, ?string $toke
     gc_evento($origem, $origem === 'site' ? 'participacao-reservada' : 'participacao-incluida', 'participacao:' . $p['codigo'], [
         'rateio' => $rid, 'titulo' => $r['titulo'], 'quantidade' => $d['quantidade'], 'uf' => $d['uf'],
     ]);
-    if ($origem === 'site') {
-        gc_aviso_rateio_reserva($p, $r); // aviso no grupo da loja (avisos.php), depois da resposta
+    // aviso no grupo da loja (avisos.php), depois da resposta; sem o módulo (publicação no meio), segue sem aviso
+    if ($origem === 'site' && function_exists('gc_aviso_rateio_reserva')) {
+        gc_aviso_rateio_reserva($p, $r);
     }
     return [$p, $token];
 }
@@ -449,7 +450,9 @@ function gc_confirmar_participacao(int $id, string $origem, string $por, ?int $u
         $fechou = gc_fechar_se_lotou((string) $r['id']);
         $agoraP = (array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$id]);
         $agoraR = (array) gc_rateio_linha((string) $r['id']);
-        gc_aviso_rateio_pago($agoraP, $agoraR, $fechou, $por); // aviso no grupo da loja (avisos.php), depois da resposta
+        if (function_exists('gc_aviso_rateio_pago')) {
+            gc_aviso_rateio_pago($agoraP, $agoraR, $fechou, $por); // aviso no grupo da loja (avisos.php), depois da resposta
+        }
         return [
             'participacao' => $agoraP,
             'rateio' => $agoraR,

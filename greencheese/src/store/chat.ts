@@ -67,23 +67,31 @@ export const respostasVazias: Respostas = {
 
 /**
  * O código do pedido que está sendo montado (vai na mensagem do WhatsApp) e o segredo dele. enviada = a mensagem que
- * já foi pro servidor com esse código: se o pedido mudar depois disso, nasce um código novo que substitui o de antes
- * (o servidor tira o velho da lista, se ainda for novo). Recomeçar, ou trocar de pedido pra encomenda, = código novo.
+ * já foi pro servidor com esse código (enviadaEm = quando): se o pedido mudar depois disso, nasce um código novo. Até
+ * JANELA_TROCA_MS depois do envio, o novo substitui o de antes (o servidor tira o velho da lista, se ainda for novo);
+ * depois disso é outro pedido (a pessoa voltou outro dia sem tocar em "Mandei"). Recomeçar, ou trocar de pedido pra
+ * encomenda, = código novo.
  */
 export interface CodigoPedido {
   codigo: string
   token: string
   enviada: string | null
+  enviadaEm: number | null
   substitui: { codigo: string; token: string } | null
 }
 
-const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, substitui })
+/** Até quanto tempo depois de mandar uma mudança ainda é "o mesmo pedido, mudado" (o servidor confere o mesmo). */
+export const JANELA_TROCA_MS = 2 * 3600_000
+
+const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui })
 
 function codigoLido(v: unknown): CodigoPedido {
   const c = v as Partial<CodigoPedido> | null
   if (!c || !codigoValido(c.codigo) || !tokenValido(c.token)) return codigoNovo()
   const sub = c.substitui && codigoValido(c.substitui.codigo) && tokenValido(c.substitui.token) ? { codigo: c.substitui.codigo, token: c.substitui.token } : null
-  return { codigo: c.codigo, token: c.token, enviada: typeof c.enviada === 'string' ? c.enviada : null, substitui: sub }
+  const enviada = typeof c.enviada === 'string' ? c.enviada : null
+  const enviadaEm = enviada !== null && typeof c.enviadaEm === 'number' && Number.isFinite(c.enviadaEm) ? c.enviadaEm : null
+  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub }
 }
 
 interface ChatState {
@@ -129,8 +137,13 @@ export const useChat = create<ChatState>()(
       enviadoEm: null,
       marcarEnviado: (v) => set({ enviadoEm: v }),
       pedido: codigoNovo(),
-      marcarPedidoEnviado: (mensagem) => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem } })),
-      trocarCodigo: () => set((s) => ({ pedido: codigoNovo({ codigo: s.pedido.codigo, token: s.pedido.token }) })),
+      marcarPedidoEnviado: (mensagem) => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now() } })),
+      trocarCodigo: () =>
+        set((s) => {
+          const { codigo, token, enviadaEm } = s.pedido
+          const recente = enviadaEm !== null && Date.now() - enviadaEm < JANELA_TROCA_MS
+          return { pedido: codigoNovo(recente ? { codigo, token } : null) }
+        }),
       abrir: (modo, opts) => {
         const s = get()
         // Reabrir o mesmo modo continua de onde parou; trocar de modo recomeça o roteiro (as respostas ficam).

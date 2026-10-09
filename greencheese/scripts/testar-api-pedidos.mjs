@@ -335,6 +335,14 @@ export async function testarPedidos(t) {
     await c.post('pedido', x)
     await c.post('pedido', pedidoValido({ substitui: { codigo: x.codigo, token: novoToken() } }))
     igual((await dono.get('admin-pedidos', { query: `&busca=${x.codigo}` })).json.pedidos[0].status, 'novo', 'substitui com outro token: o de antes fica')
+    // passou da janela (2 h depois do de antes): é outro pedido; o de antes fica novo e o novo só lembra dele
+    const velho = pedidoValido()
+    await c.post('pedido', velho)
+    const tarde = pedidoValido({ substitui: { codigo: velho.codigo, token: velho.token } })
+    igual((await c.post('pedido', tarde, { agora: agoraJa() + 7300 })).status, 201, 'mudado 2 h depois: entra')
+    const lv = (await dono.get('admin-pedidos', { query: `&busca=${velho.codigo}` })).json.pedidos.find((p) => p.codigo === velho.codigo)
+    const lt = (await dono.get('admin-pedidos', { query: `&busca=${tarde.codigo}` })).json.pedidos[0]
+    igual([lv.status, lv.substituidoPor, lt.substitui], ['novo', null, { id: lv.id, codigo: velho.codigo }], 'passou de 2 h: o de antes continua novo (os dois ficam, ligados)')
     // o de antes já confirmado: os dois ficam (o painel avisa no grupo pra conferir)
     const y = pedidoValido()
     await c.post('pedido', y)
@@ -463,6 +471,8 @@ export async function testarPedidos(t) {
     ok(/^"t[0-9a-f]{20}"$/.test(etag0 ?? '') && g0.json?.versao === etag0, `ETag (${etag0})`)
     const n304 = await site().get('pedido-textos', { cab: { 'If-None-Match': etag0 } })
     igual([n304.status, n304.texto], [304, ''], 'If-None-Match igual: 304 sem corpo')
+    const proxy = await site().get('pedido-textos', { cab: { 'If-None-Match': `"t-velha", W/${etag0.replace(/"$/, '-gzip"')}` } })
+    igual(proxy.status, 304, 'a versão que um proxy marcou (W/ e -gzip), no meio de outras: 304 também')
     erro(await site().post('admin-texto-pedido-salvar', { chave: 'nome.pergunta', texto: 'Oi' }), 401, 'sem-sessao', 'trocar fala sem sessão')
     const sal = await dono.post('admin-texto-pedido-salvar', { chave: 'nome.pergunta', texto: '  Como te chamo?  ' })
     igual(sal.json?.textos?.['nome.pergunta']?.texto, 'Como te chamo?', 'trocou (sem os espaços das pontas)')
