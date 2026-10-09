@@ -52,6 +52,8 @@ export interface StoryDaRua {
   saco: Saco
   /** O texto do adesivo do pé: o chamado não repete ele. */
   legenda: string
+  /** O que mais os balões evitam cobrir no quadro (a dica de primeira vez), em px de CSS do quadro. */
+  obstaculos?: () => { x0: number; y0: number; x1: number; y1: number }[]
 }
 
 export interface PropsRua {
@@ -269,6 +271,8 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
   /** Balões e o botão do mercador seguem quem fala / o mercador (depois de cada desenho). */
   const limites = useRef({ topo: 2, base: Infinity })
   limites.current = story ? { topo: story.recorte.topo, base: story.recorte.base } : { topo: 2, base: Infinity }
+  const obstaculosRef = useRef(story?.obstaculos)
+  obstaculosRef.current = story?.obstaculos
   const posicionar = useCallback(() => {
     const mo = montada.current
     const caixa = raiz.current
@@ -278,6 +282,7 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
     const snap = (v: number) => Math.round(v * dpr) / dpr
     const W = caixa.clientWidth
     const { topo: TOPO, base: BASE } = limites.current
+    const extras = obstaculosRef.current?.() ?? []
     const CAUDA = 7
     camadaBaloes.current?.querySelectorAll<HTMLElement>('[data-ator]').forEach((el) => {
       const a = motor.ator(el.dataset.ator!)
@@ -306,6 +311,8 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
         }
       }
       if (caixa.querySelector('.rua-pausa')) obst.push({ x0: W - 38, y0: 6, x1: W - 6, y1: 38, peso: 2 })
+      // no story, a dica de primeira vez pesa como uma cabeça: o balão vai para o lado ou quebra antes de cobrir ela
+      for (const o of extras) obst.push({ ...o, peso: 10 })
       // em cima da cabeça, um pouco para a frente (para onde ele olha), com a ponta da cauda em cima dele, dentro da
       // caixa (no story, entre o cabeçalho e os adesivos); se cobrir alguma coisa, vai para o lado ou quebra em duas
       // (três) linhas: ganha o que cobre menos
@@ -354,8 +361,15 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
     }
   }, [cta.ref])
 
-  // monta a cena (e remonta quando muda a largura ou o recorte, o elenco ou o movimento reduzido)
+  // monta a cena (e remonta quando muda a largura, o palco do story ou a escala, o elenco ou o movimento reduzido). No
+  // story, o mundo mudar de lugar no quadro (o pé desce com o aviso de local respondido, a janela encolhe com o teclado
+  // do Android) não remonta: só reposiciona (efeito de baixo) e a cena continua de onde estava
   const recorte = story?.recorte
+  const recorteRef = useRef(recorte)
+  recorteRef.current = recorte
+  const palcoStory = recorte?.palco
+  const kkStory = recorte?.kk
+  const dprStory = recorte?.dpr
   const saco = story?.saco
   const legenda = story?.legenda
   const [pintada, setPintada] = useState(false)
@@ -366,12 +380,13 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
     let px: number
     let ox: number
     let oy = 0
-    if (recorte) {
+    const rec = recorteRef.current
+    if (palcoStory && kkStory && dprStory && rec) {
       // story: o mundo inteiro no canvas, recortado pelo quadro (left/top já no pixel do aparelho)
-      palco = recorte.palco
-      px = recorte.kk / recorte.dpr
-      ox = recorte.left
-      oy = recorte.top
+      palco = palcoStory
+      px = kkStory / dprStory
+      ox = rec.left
+      oy = rec.top
       c.style.width = `${palco.w * px}px`
       c.style.height = `${palco.h * px}px`
       c.style.transform = `translate(${ox}px, ${oy}px)`
@@ -403,7 +418,7 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
       return
     }
     // no story, a rua começa com um cliente já entrando (cabe um atendimento inteiro no segmento)
-    const cena = reduz ? montarRetrato(motor, { evitar: legenda }) : montarCena(motor, recorte ? { story: true, saco, evitar: legenda } : {})
+    const cena = reduz ? montarRetrato(motor, { evitar: legenda }) : montarCena(motor, palcoStory ? { story: true, saco, evitar: legenda } : {})
     montada.current = { motor, cena, px, ox, oy }
     motor.desenhar()
     setPintada(true)
@@ -420,7 +435,24 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
       montada.current = null
       setBaloes([])
     }
-  }, [pacote, largura, k, bordas, reduz, quadros, posicionar, recorte, saco, legenda])
+  }, [pacote, largura, k, bordas, reduz, quadros, posicionar, palcoStory, kkStory, dprStory, saco, legenda])
+
+  // story: o mundo no novo lugar do quadro (mesma escala, mesma cena): o canvas, os balões e o botão do mercador
+  const leftStory = recorte?.left
+  const topStory = recorte?.top
+  const topoStory = recorte?.topo
+  const baseStory = recorte?.base
+  useLayoutEffect(() => {
+    const mo = montada.current
+    const c = tela.current
+    if (!mo || !c || leftStory == null || topStory == null) return
+    if (mo.ox !== leftStory || mo.oy !== topStory) {
+      mo.ox = leftStory
+      mo.oy = topStory
+      c.style.transform = `translate(${leftStory}px, ${topStory}px)`
+    }
+    posicionar()
+  }, [leftStory, topStory, topoStory, baseStory, versao, posicionar])
 
   // liga e desliga o relógio
   useEffect(() => {
@@ -451,8 +483,9 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
   }
 
   /**
-   * Toque do story num ponto da página (px do cliente), fora do botão do mercador: o cliente tocado reage (o mercador,
-   * pela folga dos 44 px, é chamado). Na foto (movimento reduzido) ninguém reage: o toque passa o story.
+   * Toque do story no miolo do quadro (px do cliente), fora do botão do mercador: o cliente tocado reage se pode reagir
+   * agora (o mercador, pela folga dos 44 px, é chamado). Na foto (movimento reduzido) ninguém reage: o toque passa o
+   * story.
    */
   const tocarEm = (x: number, y: number): string | null => {
     const mo = montada.current
@@ -466,7 +499,8 @@ export default function Rua({ k = 2, bordas = false, className, story }: PropsRu
       chamar()
       return 'mercador'
     }
-    return mo.cena.tocar(gx, gy, folga)
+    // só quem reage na hora segura o story (ocupado, o toque passa)
+    return mo.cena.tocar(gx, gy, folga, true)
   }
   const tocarRef = useRef(tocarEm)
   tocarRef.current = tocarEm

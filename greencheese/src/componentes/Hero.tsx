@@ -20,7 +20,7 @@ import { AvisoLocal, LinhaLocal, useAvisoLocal, useTextoLocal } from './Local'
 import { RuaInicio } from './RuaInicio'
 import { alturaDaFaixa } from './rua/palco'
 import type { AlcaRua } from './rua/Rua'
-import { StoryRua } from './rua/StoryRua'
+import { CONSULTA_DEITADO, StoryRua } from './rua/StoryRua'
 import { lerParametros } from '../lib/url'
 import { Perfil } from './Perfil'
 import { StoryQuadro } from './StoryQuadro'
@@ -134,7 +134,7 @@ const LARGO = consulta('(min-width: 1200px)')
 /** Celular: perfil embaixo do story (Abas.tsx) e a rua como o primeiro story (StoryRua); a rua embaixo do perfil é do computador. */
 const CELULAR = consulta('(max-width: 899px)')
 /** Celular deitado (o mesmo corte do Hero.css): a rua do story é a faixa larga. */
-const DEITADO = consulta('(max-width: 899px) and (max-height: 480px) and (orientation: landscape)')
+const DEITADO = consulta(CONSULTA_DEITADO)
 
 /** Perfil mais estreito que isto fica compacto (Hero.css). */
 const PERFIL_COMPACTO = 380
@@ -334,6 +334,8 @@ export function Hero() {
   // o adesivo do Mercado aberto segura o story; sem a rua pronta (pedaço chegando), o tempo dela não corre
   const [ruaSegura, setRuaSegura] = useState(false)
   const [ruaPronta, setRuaPronta] = useState(false)
+  // onde a dica de primeira vez fica na rua (logo abaixo do cabeçalho), ou null se ela não cabe acima dos balões
+  const [dicaRua, setDicaRua] = useState<number | null>(null)
   const ehRuaRef = useRef(ehRua)
   ehRuaRef.current = ehRua
   // link direto de um produto do story (?p=): no celular o story começa no produto, não na rua
@@ -445,11 +447,12 @@ export function Hero() {
   useLayoutEffect(() => {
     const q = quadroRef.current
     const h = historia.current
-    // na rua: as bordas que passam vão até o pé, as setas ficam no meio do quadro e a dica cabe no céu
+    // na rua: as bordas que passam vão até o pé, as setas ficam no meio do quadro e a dica fica no céu, acima dos balões
+    // (o StoryRua mede; num celular muito baixo ela não cabe e fica para os produtos)
     if (ehRua && q && h) {
       q.style.removeProperty('--hero-texto')
       h.style.removeProperty('--hero-arte-meio')
-      setDicaCabe(true)
+      setDicaCabe(dicaRua != null)
       return
     }
     const meio = q?.querySelector<HTMLElement>('.hero-meio')
@@ -475,7 +478,7 @@ export function Hero() {
     ro.observe(meio)
     ro.observe(t)
     return () => ro.disconnect()
-  }, [idAtual, uf, ehRua])
+  }, [idAtual, uf, ehRua, dicaRua])
 
   // a rua: o tempo dela é o dela (~12 s), só corre com ela pronta e para enquanto o adesivo do Mercado está aberto
   const ruaEspera = ehRua && (ruaSegura || !ruaPronta)
@@ -554,8 +557,9 @@ export function Hero() {
   }, [irPara, alternarPausa])
 
   // gestos: toque na borda esquerda volta, no resto (fora do produto) avança; arrastar de lado passa; segurar pausa.
-  // O produto é link: tocar nele abre a página (o clique do <a>), segurar nele abre o menu do link do navegador.
-  const g = useRef<{ x: number; y: number; id: number; produto: boolean; arrastando: boolean; segurou: boolean; timer: number } | null>(null)
+  // O produto é link: tocar nele abre a página (o clique do <a>), segurar nele abre o menu do link do navegador. Na rua,
+  // o mercador é botão: tocar chama (o clique dele), segurar pausa como no resto do quadro.
+  const g = useRef<{ x: number; y: number; id: number; produto: boolean; merc: boolean; arrastando: boolean; segurou: boolean; timer: number } | null>(null)
   /** Até quando ignorar o clique no produto (o clique que vem depois de arrastar ou segurar). */
   const semClique = useRef(0)
   /** Produto que estava sob o dedo quando ele pousou: é ele que abre, mesmo que a barra vire entre soltar e o clique. */
@@ -606,8 +610,10 @@ export function Hero() {
     if (alvo.closest('.hero-resposta')) return
     // o produto e o VER PRODUTO são links do produto: tocar abre, arrastar passa, nunca contam como toque de borda
     const produto = !!alvo.closest('.hero-produto, .hero-ver')
+    // o mercador da rua: segurar pausa e arrastar passa; o toque curto é o clique dele (chama)
+    const merc = !!alvo.closest('.rua-mercador')
     // outros botões e links e a enquete não navegam
-    if (!produto && alvo.closest('button, a, input, .enquete')) return
+    if (!produto && !merc && alvo.closest('button, a, input, .enquete')) return
     // gesto anterior que ficou sem fim: destrava antes de começar outro
     if (g.current) encerrarGesto()
     alvoDoToque.current = produto && atual ? { id: atual.id, ate: Infinity } : null
@@ -620,7 +626,7 @@ export function Hero() {
           setSegurando(true)
           dispensarDica()
         }, 220)
-    g.current = { x: e.clientX, y: e.clientY, id: e.pointerId, produto, arrastando: false, segurou: false, timer }
+    g.current = { x: e.clientX, y: e.clientY, id: e.pointerId, produto, merc, arrastando: false, segurou: false, timer }
     setTocando(true)
   }
   const aoMover = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -672,11 +678,17 @@ export function Hero() {
       setSegurando(false)
       return
     }
-    if (s.produto || Math.hypot(dx, dy) > 12) return
-    // na rua, tocar num cliente faz ele reagir (o mercador tem o botão dele, por cima): o story não passa
-    if (ehRua && alcaRua.current?.tocar(e.clientX, e.clientY)) return
+    if (s.produto || s.merc || Math.hypot(dx, dy) > 12) return
     const r = e.currentTarget.getBoundingClientRect()
-    irPara(e.clientX - r.left < r.width * BORDA ? -1 : 1, 'toque')
+    const x = e.clientX - r.left
+    const borda = x < r.width * BORDA ? -1 : x > r.width * (1 - BORDA) ? 1 : 0
+    // na rua, as bordas sempre passam e voltam; no miolo, tocar num cliente que pode reagir agora faz ele reagir (e no
+    // mercador, chama): o story não passa. Ocupado (pegando, pagando), o toque passa
+    if (ehRua && !borda && alcaRua.current?.tocar(e.clientX, e.clientY)) {
+      dispensarDica()
+      return
+    }
+    irPara(borda < 0 ? -1 : 1, 'toque')
   }
 
   const abrirProduto = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -729,6 +741,13 @@ export function Hero() {
       onPointerUp={aoSoltar}
       onPointerCancel={(e) => {
         if (g.current && e.pointerId === g.current.id) encerrarGesto()
+      }}
+      onClickCapture={(e) => {
+        // o clique que chega depois de segurar ou arrastar em cima do mercador não chama ele
+        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador')) {
+          e.stopPropagation()
+          e.preventDefault()
+        }
       }}
       onContextMenu={(e) => {
         // segurar o produto (link) mostra o menu do navegador (abrir em aba nova) e o story volta a correr atrás dele;
@@ -811,7 +830,7 @@ export function Hero() {
           </>
         )}
         {comDica && (
-          <div className={`hero-dica degrau${dica === 'saindo' ? ' saindo' : ''}`} aria-hidden="true">
+          <div className={`hero-dica degrau${dica === 'saindo' ? ' saindo' : ''}`} aria-hidden="true" style={ehRua && dicaRua != null ? { top: dicaRua } : undefined}>
             <p className="hero-dica-linha px px-16">
               <Icone nome="chevron-esq" tamanho={16} />
               toca nos lados pra passar
@@ -844,6 +863,8 @@ export function Hero() {
           aoPronta={setRuaPronta}
           alca={alcaRua}
           refCena={cenaRua}
+          aoDica={setDicaRua}
+          aoChamado={dispensarDica}
         />
       )}
       {atual?.demo && config.carimboDeExemplo && <span className="hero-demo carimbo">exemplo</span>}

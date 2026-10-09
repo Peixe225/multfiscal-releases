@@ -1,7 +1,7 @@
 /* A rua da loja no primeiro story do celular: a cena atrás de tudo no quadro (o cabeçalho, as barrinhas e a linha de
    resposta ficam por cima), o pôster na hora e a rua viva por cima dele. Sem z-index na cena: o botão do mercador e os
-   balões entram na pilha do quadro, por cima das bordas que passam o story. Movimento só no canvas e em
-   transform/opacity no DOM. */
+   balões entram na pilha do quadro; as bordas que passam o story ficam por cima do botão (Hero.css: nas bordas o toque
+   sempre passa). Movimento só no canvas e em transform/opacity no DOM. */
 
 .rua-story {
   position: absolute;
@@ -46,7 +46,31 @@
   z-index: 3;
 }
 .rua-em-story .rua-mercador {
-  z-index: 4;
+  z-index: 2;
+}
+
+/* celular baixo: o alto do mundo atrás do cabeçalho some no escuro (o @ e o local legíveis por cima da janela acesa e
+   da lâmpada do poste): preto até a primeira linha da arte abaixo do cabeçalho e duas linhas de pontilhado (metade e um
+   quarto), alinhado aos pixels da arte (StoryRua.tsx acerta tamanho e lugar). Curto, para o letreiro GC logo abaixo
+   ficar inteiro. Parado; some junto com o cabeçalho ao segurar */
+.rua-ceu {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--preto), var(--preto)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='2' shape-rendering='crispEdges'%3E%3Crect x='1' y='0' width='1' height='1'/%3E%3Crect x='3' y='0' width='1' height='1'/%3E%3Crect x='2' y='1' width='1' height='1'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, repeat-x;
+  image-rendering: pixelated;
+}
+.rua-ceu[hidden] {
+  display: none;
+}
+.hero-story.segurando .rua-ceu {
+  opacity: 0;
 }
 
 /* o pé do story da rua, no lugar dos adesivos do produto: o "Chega mais." em pixel e, quando chamam o mercador, o

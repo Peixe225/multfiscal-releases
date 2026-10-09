@@ -4,7 +4,7 @@ import { cliqueDeAba, hrefAba, irParaAba } from '../../lib/abas'
 import { useUI } from '../../store/ui'
 import { Icone } from '../comum'
 import { avisoDoChamado, useCtaMercado } from './cta'
-import { ALTURA, ANCORA, EM_PE, LARGURA_DEITADO, escalaDoAparelho, palcoEmPe, palcoFaixaStory } from './palco'
+import { ALTURA, ANCORA, CABECA_MERCADOR, EM_PE, LARGURA_DEITADO, escalaDoAparelho, palcoEmPe, palcoFaixaStory } from './palco'
 import type { AlcaRua, EstadoRua, RecorteStory } from './Rua'
 import type { Chamado, Saco } from './roteiro'
 import './StoryRua.css'
@@ -32,11 +32,29 @@ class Guarda extends Component<{ children: ReactNode; aoFalhar: () => void }, { 
   }
 }
 
+/** Celular deitado (o mesmo corte do Hero.css): a rua do story é a faixa larga. */
+export const CONSULTA_DEITADO = '(max-width: 899px) and (max-height: 480px) and (orientation: landscape)'
+
+function deitadoAgora(senao: boolean): boolean {
+  try {
+    return window.matchMedia(CONSULTA_DEITADO).matches
+  } catch {
+    return senao
+  }
+}
+
 /** Entre o fim do cabeçalho e o balão; entre o pé dos personagens e os adesivos (px de CSS). */
 const FOLGA_TOPO = 6
 const FOLGA_PE = 4
 /** Sem a rua pronta (rede lenta), o story corre com o pôster depois disto. */
 const ESPERA_RUA = 4000
+/** Do alto de um balão de uma linha à cabeça de quem fala (px de CSS: o corpo, a cauda e a folga do Rua.tsx). */
+const ALTURA_FALA = 43
+/** A dica de primeira vez na rua (duas linhas, compacta: Hero.css) e quanto do pé dela um balão pode cobrir sem texto. */
+const ALTURA_DICA = 49
+const PE_DICA = 5
+/** Linhas da arte do pontilhado embaixo do preto atrás do cabeçalho (StoryRua.css: metade e um quarto). */
+const SOME_CEU = 2
 
 export interface PropsStoryRua {
   /** O segmento da rua é o que está no quadro (escondido, ela fica montada e parada: a cena continua na volta). */
@@ -55,10 +73,19 @@ export interface PropsStoryRua {
   alca: RefObject<AlcaRua | null>
   /** A cena (o Hero anima a entrada e o arrasto nela). */
   refCena: RefObject<HTMLDivElement | null>
+  /**
+   * Onde a dica de primeira vez fica na rua (px do topo do .hero-meio: logo abaixo do cabeçalho) ou null quando ela não
+   * cabe acima dos balões (celular muito baixo: fica para os produtos).
+   */
+  aoDica?: (y: number | null) => void
+  /** Chamaram o mercador (o gesto que a dica ensina: ela sai). */
+  aoChamado?: () => void
 }
 
-export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, alca, refCena }: PropsStoryRua) {
+export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, alca, refCena, aoDica, aoChamado }: PropsStoryRua) {
   const pe = useRef<HTMLDivElement>(null)
+  const aoDicaRef = useRef(aoDica)
+  aoDicaRef.current = aoDica
   const [recorte, setRecorte] = useState<RecorteStory | null>(null)
   const saco = useRef<Saco>({ fila: [], ultimo: null }).current
   const [montar, setMontar] = useState(false)
@@ -78,12 +105,15 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
       const hf = quadro.clientHeight
       const linha = pe.current
       if (!wf || !hf || !linha || !aqui) return
+      // girou e o Hero ainda não renderizou deitado (ou em pé): espera, sem montar uma cena de passagem
+      if (deitadoAgora(deitado) !== deitado) return
       const dpr = window.devicePixelRatio || 1
       const snap = (v: number) => Math.round(v * dpr) / dpr
       const cab = quadro.querySelector<HTMLElement>('.hero-cab')
       const topo = cab ? cab.offsetTop + cab.offsetHeight + FOLGA_TOPO : 0
       const base = linha.offsetTop - FOLGA_PE
       let novo: RecorteStory
+      const meio = quadro.querySelector<HTMLElement>('.hero-meio')
       if (deitado) {
         // 2× (px inteiros do aparelho); no celular deitado baixo, o que couber com a ponta do poste (a linha 1 da faixa)
         // abaixo do cabeçalho
@@ -94,16 +124,26 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
         const top = snap(base - ALTURA * px)
         const palco = palcoFaixaStory(LARGURA_DEITADO)
         novo = { palco: { ...palco, visivel: { x0: Math.max(0, -left / px), x1: Math.min(LARGURA_DEITADO, (wf - left) / px) } }, kk, dpr, left, top, topo, base }
+        // deitado a dica não aparece (Hero.css)
+        aoDicaRef.current?.(null)
       } else {
         const kk = escalaDoAparelho(wf >= 360 ? 3 : 2, dpr)
         const px = kk / dpr
         const left = snap((wf - EM_PE.w * px) / 2)
         const top = snap(base - ANCORA * px)
         novo = { palco: palcoEmPe({ x0: -left / px, x1: (wf - left) / px }), kk, dpr, left, top, topo, base }
+        // a dica de primeira vez: 3 px abaixo do cabeçalho, se couber acima do balão mais alto (o do mercador)
+        const yDica = topo - FOLGA_TOPO + 3
+        const teto = top + CABECA_MERCADOR * px - ALTURA_FALA
+        aoDicaRef.current?.(meio && yDica + ALTURA_DICA <= teto + PE_DICA ? Math.round(yDica - meio.offsetTop) : null)
       }
-      setRecorte((r) =>
-        r && r.kk === novo.kk && r.dpr === novo.dpr && r.left === novo.left && r.top === novo.top && r.topo === novo.topo && r.base === novo.base && r.palco.emPe === novo.palco.emPe ? r : novo,
-      )
+      // o palco (e com ele a cena) só é outro com outra orientação ou outro pedaço à vista; o resto só reposiciona
+      setRecorte((r) => {
+        const v = novo.palco.visivel
+        const palco = r && r.palco.emPe === novo.palco.emPe && r.palco.w === novo.palco.w && r.palco.visivel.x0 === v.x0 && r.palco.visivel.x1 === v.x1 ? r.palco : novo.palco
+        if (r && palco === r.palco && r.kk === novo.kk && r.dpr === novo.dpr && r.left === novo.left && r.top === novo.top && r.topo === novo.topo && r.base === novo.base) return r
+        return { ...novo, palco }
+      })
     }
     medir()
     // o pé muda de lugar sem mudar de tamanho (o aviso de local no lugar da linha de resposta): quem acusa é o meio do
@@ -113,6 +153,8 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
     if (pe.current) ro.observe(pe.current)
     const meio = quadro.querySelector('.hero-meio')
     if (meio) ro.observe(meio)
+    const cab = quadro.querySelector('.hero-cab')
+    if (cab) ro.observe(cab)
     window.addEventListener('resize', medir)
     return () => {
       ro.disconnect()
@@ -148,16 +190,28 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
   useEffect(() => aoSegurar(cta.visivel), [cta.visivel, aoSegurar])
 
   const abrirCta = cta.abrir
+  const aoChamadoRef = useRef(aoChamado)
+  aoChamadoRef.current = aoChamado
   const aoChamar = useCallback(
     (c: Chamado, rodando: boolean) => {
       abrirCta()
       setAviso(avisoDoChamado(c, rodando))
+      aoChamadoRef.current?.()
     },
     [abrirCta],
   )
+  // os balões não cobrem a dica de primeira vez (no mesmo sistema de coordenadas deles: a cena)
+  const obstaculos = useCallback(() => {
+    const cena = refCena.current
+    const dica = cena?.parentElement?.querySelector<HTMLElement>('.hero-dica:not(.saindo)')
+    if (!cena || !dica) return []
+    const c = cena.getBoundingClientRect()
+    const d = dica.getBoundingClientRect()
+    return [{ x0: d.left - c.left, y0: d.top - c.top, x1: d.right - c.left, y1: d.bottom - c.top }]
+  }, [refCena])
   const story = useMemo(
-    () => (recorte ? { recorte, ativa, alca, aoChamar, aoEstado: setEstado, saco, legenda } : null),
-    [recorte, ativa, alca, aoChamar, saco, legenda],
+    () => (recorte ? { recorte, ativa, alca, aoChamar, aoEstado: setEstado, saco, legenda, obstaculos } : null),
+    [recorte, ativa, alca, aoChamar, saco, legenda, obstaculos],
   )
 
   // o pôster da faixa (celular deitado) num pedaço à parte, de uns 2 KB: só quem deita baixa
@@ -177,6 +231,14 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
   const px = recorte ? recorte.kk / recorte.dpr : 0
   const poster = deitado ? posterFaixa : posterEmPe
   const viva = estado === 'rodando' || estado === 'parada' || estado === 'foto'
+  // celular baixo: o alto do mundo (a janela acesa, a lâmpada do poste) cai atrás do cabeçalho; ali ele some no escuro,
+  // até a primeira linha da arte abaixo do cabeçalho e depois em pontilhado, alinhado aos pixels dela
+  const ceu = (() => {
+    if (!recorte || deitado || recorte.top >= recorte.topo) return null
+    const y = recorte.top + Math.ceil((recorte.topo - FOLGA_TOPO - recorte.top) / px) * px
+    const tile = 4 * px
+    return { y, h: y + SOME_CEU * px, tile, x: ((recorte.left % tile) + tile) % tile }
+  })()
 
   return (
     <>
@@ -206,6 +268,14 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
           </Guarda>
         )}
       </div>
+      {ceu && (
+        <div
+          className="rua-ceu"
+          hidden={!aqui}
+          aria-hidden="true"
+          style={{ height: ceu.h, backgroundSize: `100% ${ceu.y}px, ${ceu.tile}px ${SOME_CEU * px}px`, backgroundPosition: `0 0, ${ceu.x}px ${ceu.y}px` }}
+        />
+      )}
       <div ref={pe} className="hero-adesivos rua-adesivos" hidden={!aqui}>
         <p className="adesivo-texto-bloco rua-frase">
           <span className="rua-frase-texto px">{legenda}</span>

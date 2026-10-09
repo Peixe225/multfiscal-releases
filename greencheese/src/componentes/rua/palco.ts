@@ -34,6 +34,11 @@ export const LARGURA_DEITADO = 220
 export const EM_PE = { w: 176, calcada: 200, h: 281 } as const
 /** Linha do mundo em pé que fica logo acima dos adesivos do story (a sombra da moto, 2 abaixo da roda). */
 export const ANCORA = EM_PE.calcada + 15
+/**
+ * Linha do alto da cabeça do mercador parado no meio da calçada do mundo em pé (62 acima do pé, na arte dele): os
+ * balões mais altos da cena saem dela.
+ */
+export const CABECA_MERCADOR = EM_PE.calcada + 4 - 62
 
 export interface Lugares {
   w: number

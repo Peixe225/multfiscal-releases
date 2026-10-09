@@ -33,10 +33,15 @@ interface Vez {
 
 /** No story as pausas da conversa encurtam (os gestos e o andar continuam no tempo deles). */
 const pausa = (v: { story: boolean }, ms: number, curta: number) => (v.story ? curta : ms)
+/**
+ * No story, quanto tempo a fala de um cliente fica na tela antes de o mercador responder (dá para ler): o que encurta é
+ * a espera muda, não a fala.
+ */
+const LER = 1200
 
 /**
- * O saco dos clientes. Quem monta a cena pode guardar o saco: no story a rua recomeça a cada volta e o saco continua
- * (os quatro passam antes de alguém repetir).
+ * O saco dos clientes. Quem monta a cena pode guardar o saco: ele dura enquanto o story existir (os quatro passam antes
+ * de alguém repetir); a cena só é montada de novo quando a escala ou a orientação do quadro muda.
  */
 export interface Saco {
   fila: Cliente[]
@@ -77,6 +82,13 @@ function fora(m: Motor, a: Ator): boolean {
   return x1 < v.x0 - 2 || x0 > v.x1 + 2
 }
 
+/** Espera `cond` ouvindo o toque nele: só aí a reação sai na hora (no story, fora disso o toque passa o story). */
+function* ouvindo(a: Ator, cond: () => boolean): Roteiro {
+  a.ouve = true
+  yield cond
+  a.ouve = false
+}
+
 /** Reação ao toque (o roteiro chama quando o personagem está livre): a reação dele e volta ao que fazia. */
 function* reage(m: Motor, a: Ator, depois: string): Roteiro {
   a.querReagir = false
@@ -91,7 +103,7 @@ function* espera(m: Motor, a: Ator, ms: number, parado = 'parado'): Roteiro {
   const fim = m.t + ms
   if (a.anim !== parado) m.tocar(a, parado)
   while (m.t < fim) {
-    yield () => m.t >= fim || a.querReagir
+    yield* ouvindo(a, () => m.t >= fim || a.querReagir)
     if (a.querReagir) {
       yield* reage(m, a, parado)
     }
@@ -113,7 +125,9 @@ function* anda(m: Motor, a: Ator, alvo: number, anim: string, op: { y?: number; 
   }
   ir()
   while (!chegou()) {
+    if (op.reage) a.ouve = true
     yield () => chegou() || (!!op.reage && a.querReagir) || (!!op.chamavel && m.chamado)
+    a.ouve = false
     if (chegou()) break
     a.alvo = null
     a.alvoY = null
@@ -349,6 +363,31 @@ function entrada(m: Motor, lado: Lado, folga: number, jaEntrando = false, quem?:
   return lado === 'dir' ? v.x1 + folga : v.x0 - folga
 }
 
+/**
+ * Story: o mercador responde quando a fala do cliente (a última, agora) deu tempo de ler, sem parar o que está fazendo.
+ * Se chamaram ele nesse meio-tempo, fica o balão do chamado.
+ */
+function responder(m: Motor, merc: Ator, texto: string, ms: number) {
+  const em = m.t + LER
+  m.lancar(
+    (function* (): Roteiro {
+      yield () => m.t >= em
+      if (!m.baloes.some((b) => b.ator === merc.id)) m.falar(merc, texto, ms)
+    })(),
+  )
+}
+
+/**
+ * Story: antes de o cliente abrir a conversa, a fala que está na tela (o "Sextou!" do mercador chegando ao ponto, o
+ * chamado) fica pelo menos LER: ele não fala por cima dela antes de dar para ler.
+ */
+function* vez(m: Motor, v: { story: boolean }): Roteiro {
+  const b = m.baloes[0]
+  if (!v.story || !b) return
+  const ate = b.de + LER
+  yield () => m.t >= ate || !m.baloes.length
+}
+
 /** Roda um roteiro em paralelo e devolve quando ele acabou. */
 function emParalelo(m: Motor, gen: Roteiro): () => boolean {
   const h = m.lancar(gen)
@@ -379,9 +418,17 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
   )
   yield* v.vida
   yield* esperarCliente(m, merc, () => chegou, !bebe, () => !sk.visivel, v.jaEntrando)
+  yield* vez(m, v)
   m.falar(sk, sortear(FALAS.skatista.pedir, m.rand), 1900)
-  yield* espera(m, sk, pausa(v, 1500, 300))
-  m.falar(merc, sortear(falasSem(FALAS.mercador.oferecer, v.evitar), m.rand), 1500)
+  const oferta = sortear(falasSem(FALAS.mercador.oferecer, v.evitar), m.rand)
+  if (v.story) {
+    // no story ele já abre o casaco ouvindo e responde quando a pergunta deu tempo de ler
+    responder(m, merc, oferta, 1500)
+    yield* espera(m, sk, 300)
+  } else {
+    yield* espera(m, sk, 1500)
+    m.falar(merc, oferta, 1500)
+  }
   yield* anima(m, merc, 'abrir')
   m.tocar(merc, 'mostrar')
   m.tocar(sk, 'apontar')
@@ -409,10 +456,12 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
   m.falar(sk, sortear(FALAS.skatista.valeu, m.rand), 1300)
   // sai: volta por onde veio ou segue em frente; seguindo, desce para a beira da calçada enquanto sobe e rema (passa
   // na frente do mercador, mais perto de quem olha, como a moto) e só dá o ollie depois de passar por ele. No story,
-  // volta por onde veio, já saindo enquanto o mercador termina o joia
+  // volta por onde veio, já saindo enquanto o mercador termina o joia, e o "valeu" vai com ele até o fim do tempo dele
   const sair = function* (): Roteiro {
-    yield* espera(m, sk, pausa(v, 500, 100))
-    m.calar(sk)
+    if (!v.story) {
+      yield* espera(m, sk, 500)
+      m.calar(sk)
+    }
     const segue = !v.story && m.rand() < 0.5
     if (!segue) sk.lado = lado
     sk.prof = m.chao.meio + 0.6
@@ -434,7 +483,7 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
     yield* anima(m, sk, 'ollie')
     m.tocar(sk, 'rodar')
     while (!fora(m, sk)) {
-      yield () => fora(m, sk) || sk.querReagir
+      yield* ouvindo(sk, () => fora(m, sk) || sk.querReagir)
       if (sk.querReagir) {
         yield* reage(m, sk, 'rodar')
       }
@@ -475,10 +524,18 @@ function* atoMotoboy(m: Motor, merc: Ator, v: Vez): Ato {
   mb.alvo = null
   yield* espera(m, mb, pausa(v, 350, 200))
   yield* anima(m, mb, 'abrirViseira')
+  yield* vez(m, v)
   m.falar(mb, sortear(FALAS.motoboy.pedir, m.rand), 1700)
-  yield pausa(v, 1300, 900)
-  m.falar(merc, sortear(FALAS.mercador.entregar, m.rand), 1300)
-  yield 300
+  const entrega = sortear(FALAS.mercador.entregar, m.rand)
+  if (v.story) {
+    // no story o mercador já tira a sacola com o pedido ainda na tela e responde quando deu tempo de ler
+    responder(m, merc, entrega, 1300)
+    yield 900
+  } else {
+    yield 1300
+    m.falar(merc, entrega, 1300)
+    yield 300
+  }
   // a sacola pela alça (pega 4,1); o motoboy, sentado, pega por baixo (4,10)
   yield* passar(m, merc, mb, 'sacola', { pegaNaBase: [4, 10] })
   yield* anima(m, mb, 'fecharViseira')
@@ -487,12 +544,14 @@ function* atoMotoboy(m: Motor, merc: Ator, v: Vez): Ato {
   yield* anima(m, mb, 'reagir')
   mb.querReagir = false
   m.falar(mb, sortear(FALAS.motoboy.valeu, m.rand), 1200)
-  yield pausa(v, 800, 400)
+  yield pausa(v, 800, 350)
   const saiu = emParalelo(
     m,
     (function* (): Roteiro {
-      // segue em frente, passando na frente do mercador (a moto está mais perto de quem olha); o balão fica
-      m.calar(mb)
+      // segue em frente, passando na frente do mercador (a moto está mais perto de quem olha). No story volta por onde
+      // veio, com o "valeu" indo junto até o fim do tempo do balão (sem passar por cima do rosto do mercador)
+      if (v.story) mb.lado = lado
+      else m.calar(mb)
       yield* anima(m, mb, 'sair')
       m.tocar(mb, 'chegar')
       yield () => fora(m, mb)
@@ -522,23 +581,26 @@ function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
   )
   yield* v.vida
   yield* esperarCliente(m, merc, () => chegou, !bebe, () => !mc.visivel, v.jaEntrando)
+  yield* vez(m, v)
   m.falar(mc, sortear(FALAS.mc.chegar, m.rand), 1600)
-  yield* espera(m, mc, pausa(v, 1200, 300))
+  yield* espera(m, mc, pausa(v, 1200, LER))
   m.falar(merc, sortear(FALAS.mercador.mc, m.rand), 1200)
   yield* espera(m, mc, pausa(v, 600, 100))
   yield* toque(m, merc, mc)
   m.tocar(merc, 'parado')
   m.falar(mc, sortear(FALAS.mc.pedir, m.rand), 1600)
-  yield* espera(m, mc, pausa(v, 1300, 500))
+  yield* espera(m, mc, pausa(v, 1300, LER))
   m.falar(merc, sortear(FALAS.mercador.entregar, m.rand), 1200)
   // pega a Arizona e fica com ela erguida (o último quadro do pegar segura a lata na altura do rosto)
   yield* passar(m, merc, mc, 'lataArizona')
   m.falar(mc, sortear(FALAS.mc.valeu, m.rand), 1400)
-  // volta por onde veio, dançando (não atravessa o mercador); no story, já saindo enquanto o mercador ri: uma volta de
-  // dança e sai no passo do beat
+  // volta por onde veio, dançando (não atravessa o mercador); no story, já saindo enquanto o mercador ri (uma volta de
+  // dança e sai no passo do beat), com o "valeu" indo junto até o fim do tempo do balão
   const sair = function* (): Roteiro {
-    yield pausa(v, 300, 100)
-    m.calar(mc)
+    if (!v.story) {
+      yield 300
+      m.calar(mc)
+    }
     mc.lado = lado
     m.tocar(mc, 'sair')
     let passo = 'sair'
@@ -549,7 +611,7 @@ function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
       m.tocar(mc, passo)
     }
     while (!fora(m, mc)) {
-      yield () => fora(m, mc) || mc.querReagir
+      yield* ouvindo(mc, () => fora(m, mc) || mc.querReagir)
       if (mc.querReagir) yield* reage(m, mc, passo)
     }
     m.remover(mc)
@@ -580,8 +642,9 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
   )
   yield* v.vida
   yield* esperarCliente(m, merc, () => chegou, !bebe, () => !tu.visivel, v.jaEntrando)
+  yield* vez(m, v)
   m.falar(tu, sortear(FALAS.turista.pedir, m.rand), 1900)
-  yield* espera(m, tu, pausa(v, 1500, 1000))
+  yield* espera(m, tu, pausa(v, 1500, LER))
   m.falar(merc, sortear(falasSem(FALAS.mercador.turista, v.evitar), m.rand), 1400)
   yield* anima(m, merc, 'abrir')
   m.tocar(merc, 'mostrar')
@@ -598,7 +661,7 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
   yield* pagar(m, merc, tu)
   m.tocar(tu, 'parado')
   m.falar(tu, sortear(FALAS.turista.valeu, m.rand), 1400)
-  yield* espera(m, tu, pausa(v, 700, 400))
+  yield* espera(m, tu, pausa(v, 700, LER))
   m.falar(merc, sortear(FALAS.mercador.agradecer, m.rand), 1400)
   yield* anima(m, merc, 'aprovar')
   m.tocar(merc, 'parado')
@@ -610,7 +673,7 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
       tu.lado = lado
       m.tocar(tu, 'sair')
       while (!fora(m, tu)) {
-        yield () => fora(m, tu) || tu.querReagir
+        yield* ouvindo(tu, () => fora(m, tu) || tu.querReagir)
         if (tu.querReagir) yield* reage(m, tu, 'sair')
       }
       m.remover(tu)
@@ -696,11 +759,13 @@ function* diretor(m: Motor, merc: Ator, gato: Ator, op: OpcoesCena): Roteiro {
       fila.unshift(i >= 0 ? fila.splice(i, 1)[0] : op.primeiro)
     }
     // na primeira, um que chega rápido (o turista andando de pato leva uns segundos para entrar); no story, o skatista
-    // ou o motoboy, os que cabem com folga nos ~12 s do segmento em todo celular (o MC e o turista vêm depois)
+    // ou o motoboy, os que cabem com folga nos ~12 s do segmento em todo celular (o MC e o turista vêm depois), e
+    // nunca o último da cena de antes (o saco continua): a regra de não repetir não empurra ele para o fim
     else if (primeira && op.story) {
-      const i = fila.findIndex((c) => c === 'skatista' || c === 'motoboy')
+      const rapido = (c: Cliente) => (c === 'skatista' || c === 'motoboy') && c !== saco.ultimo
+      const i = fila.findIndex(rapido)
       if (i > 0) fila.unshift(fila.splice(i, 1)[0])
-      else if (i < 0) fila.unshift(m.rand() < 0.5 ? 'skatista' : 'motoboy')
+      else if (i < 0) fila.unshift(saco.ultimo === 'skatista' ? 'motoboy' : saco.ultimo === 'motoboy' ? 'skatista' : m.rand() < 0.5 ? 'skatista' : 'motoboy')
     } else if (primeira && fila[0] === 'turista') fila.push(fila.shift()!)
     if (fila[0] === saco.ultimo && fila.length > 1) fila.push(fila.shift()!)
     const cliente = fila.shift()!
@@ -729,7 +794,7 @@ function* diretor(m: Motor, merc: Ator, gato: Ator, op: OpcoesCena): Roteiro {
 /** O gato nos engradados: parado, e no toque empina a cabeça (o mesmo carinho). */
 function* vidaDoGato(m: Motor, gato: Ator): Roteiro {
   while (true) {
-    yield () => gato.querReagir
+    yield* ouvindo(gato, () => gato.querReagir)
     gato.querReagir = false
     if (gato.anim === 'carinho' && !gato.acabou) continue
     yield* anima(m, gato, 'carinho')
@@ -749,8 +814,11 @@ export interface Cena {
   merc: Ator
   /** Toque ou teclado no mercador: o balão sai na hora; o casaco abre quando ele puder. */
   chamar(longo: boolean): Chamado
-  /** Toque na cena (px da grade): quem foi tocado reage. Devolve o id, ou null. */
-  tocar(x: number, y: number, folga: number): string | null
+  /**
+   * Toque na cena (px da grade): quem foi tocado reage. Devolve o id, ou null. `soNaHora` (story): só vale quem reage
+   * agora; ocupado (pegando, pagando), o toque não fica na fila e devolve null (o story passa).
+   */
+  tocar(x: number, y: number, folga: number, soNaHora?: boolean): string | null
 }
 
 /**
@@ -803,13 +871,15 @@ export function montarCena(m: Motor, op: OpcoesCena = {}): Cena {
       m.chamado = true
       return livre ? 'agora' : 'depois'
     },
-    tocar(x, y, folga) {
+    tocar(x, y, folga, soNaHora = false) {
       const a = m.quemEsta(x, y, folga)
       if (!a) return null
       if (a.id === 'mercador') {
         this.chamar(false)
         return a.id
       }
+      // o gato no meio do carinho não ouve (o roteiro dele descarta o toque)
+      if (soNaHora && (!a.ouve || (a.anim === 'carinho' && !a.acabou))) return null
       a.querReagir = true
       return a.id
     },

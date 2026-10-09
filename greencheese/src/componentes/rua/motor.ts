@@ -42,6 +42,8 @@ export interface Ator {
   alvoY: number | null
   /** Pediram a reação (toque); o roteiro atende quando dá. */
   querReagir: boolean
+  /** O roteiro dele está esperando o toque agora: a reação sai na hora (no story, só aí o toque não passa). */
+  ouve: boolean
   /** Efeito: some quando a animação acaba (ou em `ate`); sobe 1 linha a cada `sobe` ms (nota musical). */
   efeito?: { sobe: number; prox: number; ate: number }
   /** Ponto fixo do canto de cima (efeitos), em vez da âncora. */
@@ -52,6 +54,8 @@ export interface Balao {
   id: number
   ator: string
   texto: string
+  /** Quando entrou e quando sai (relógio da cena). */
+  de: number
   ate: number
 }
 
@@ -196,6 +200,7 @@ export class Motor {
       alvo: null,
       alvoY: null,
       querReagir: false,
+      ouve: false,
     }
     this.atores.push(a)
     this.sujo = true
@@ -293,7 +298,7 @@ export class Motor {
 
   /** Um balão por vez: quem fala agora tira o balão de quem falou antes (conversa em turnos, nada encavalado). */
   falar(a: Ator, texto: string, ms = 1800) {
-    this.baloes = [{ id: this.proxBalao++, ator: a.id, texto, ate: this.t + ms }]
+    this.baloes = [{ id: this.proxBalao++, ator: a.id, texto, de: this.t, ate: this.t + ms }]
     this.op.aoBaloes(this.baloes)
   }
 
@@ -342,19 +347,6 @@ export class Motor {
         return
       }
     }
-  }
-
-  /** Para todos os roteiros e tira todo mundo de cena (o story recomeça a rua a cada volta). */
-  limpar() {
-    for (const f of this.fios) f.vivo = false
-    this.fios = []
-    this.atores = []
-    this.baloes = []
-    this.chamado = false
-    this.mercadorLivre = false
-    this.fase = 'vida'
-    this.op.aoBaloes(this.baloes)
-    this.sujo = true
   }
 
   /* ───────────── relógio ───────────── */

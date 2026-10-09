@@ -1,10 +1,11 @@
 // O pôster da rua, desenhado no build (vite.config.ts) com o mesmo motor e o mesmo elenco da página, num canvas de
 // mentira: o quadro 0 da rua parada (montarElenco). O story do celular mostra ele na hora, antes de o pedaço da rua e
 // o worker chegarem, e a animação assume por cima sem piscar (o primeiro quadro dela é este mesmo, no mesmo lugar).
-// Só roda no Node: nada daqui vai para o navegador.
+// Só roda no Node (o vite.config.ts carrega este arquivo só quando o pôster é pedido): nada daqui vai para o navegador.
 
+import { montar } from './montar'
 import { Motor } from './motor'
-import type { Folha, LadrilhoPronto, Pacote, PacoteBruto } from './pacote'
+import { PEDIDO, type Folha, type LadrilhoPronto, type Pacote, type PacoteBruto } from './pacote'
 import { EM_PE, LARGURA_DEITADO, palcoEmPe, palcoFaixaStory } from './palco'
 import { montarElenco } from './roteiro'
 import { TelaFalsa, type ImagemCrua } from './tela-falsa'
@@ -38,4 +39,10 @@ export function pintarPoster(bruto: PacoteBruto, cena: 'emPe' | 'faixa'): Poster
   montarElenco(m)
   m.desenhar()
   return { w: m.w, h: m.h, rgba: tela.pixels() }
+}
+
+/** Os dois pôsteres, com o elenco montado aqui mesmo (o mesmo pedido da página). */
+export async function pintarPosteres(): Promise<Record<'emPe' | 'faixa', Poster>> {
+  const bruto = await montar(PEDIDO)
+  return { emPe: pintarPoster(bruto, 'emPe'), faixa: pintarPoster(bruto, 'faixa') }
 }
