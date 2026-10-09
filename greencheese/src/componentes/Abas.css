@@ -207,3 +207,18 @@
   min-height: min(100svh, 900px);
   background: var(--preto);
 }
+/* celular: a vaga tem a altura do story que vem no lugar dela (Hero.css, .hero-story): quando a loja chega, a faixa dos @
+   fica onde estava */
+@media (max-width: 899px) {
+  .vista-inicio > .inicio-esperando {
+    min-height: 0;
+    height: clamp(480px, calc(100vh - var(--barra-baixo) - var(--seg-baixo) - 44px), 780px);
+    height: clamp(480px, calc(100svh - var(--barra-baixo) - var(--seg-baixo) - 44px), 780px);
+  }
+}
+@media (max-width: 899px) and (max-height: 700px) {
+  .vista-inicio > .inicio-esperando {
+    height: clamp(420px, calc(100vh - var(--barra-baixo) - var(--seg-baixo)), 780px);
+    height: clamp(420px, calc(100svh - var(--barra-baixo) - var(--seg-baixo)), 780px);
+  }
+}

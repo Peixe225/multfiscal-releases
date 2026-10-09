@@ -194,6 +194,30 @@
   letter-spacing: 0.08em;
 }
 
+/* celular, estado atendido sem nada à venda: o aviso no lugar do produto, no miolo do quadro (Hero.tsx, HeroVazio) */
+.hero-vazio-meio {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 var(--gutter) 24px;
+  text-align: center;
+}
+.hero-vazio-titulo {
+  font-size: 24px;
+  text-transform: uppercase;
+  text-wrap: balance;
+  line-height: 1.05;
+  max-width: 18ch;
+}
+.hero-vazio-texto {
+  font-size: 15px;
+  line-height: 1.4;
+  max-width: 30ch;
+}
+.hero-vazio-encomenda {
+  margin-top: 8px;
+}
+
 /* o produto é link (arte + nome/preço): o .hero-meio inteiro — as bordas ficam por cima dele (largas na altura da
    arte, estreitas do nome para baixo) e sobra o miolo */
 .hero-produto {

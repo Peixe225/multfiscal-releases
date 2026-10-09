@@ -21,6 +21,11 @@ interface LocalState {
   /** Palpite de IP só vale depois do "Sim" na enquete. Link e escolha manual já nascem confirmados. */
   confirmado: boolean
   detectando: boolean
+  /**
+   * O ?uf= do link (estado que a loja daqui ainda não conhece) esperando a do servidor: o Início e o Mercado mostram a
+   * vaga de espera, não a tela do estado de antes (nem a de sem estado) para trocar logo depois. Não fica salvo.
+   */
+  linkEsperando: string | null
   /** Palpite de IP numa UF sem atendimento: não troca o site, só avisa. */
   palpiteFora: string | null
   escolher: (uf: string, cidade?: string | null, origem?: Origem) => void
@@ -38,6 +43,7 @@ export const useLocal = create<LocalState>()(
       origem: null,
       confirmado: false,
       detectando: false,
+      linkEsperando: null,
       palpiteFora: null,
       escolher: (uf, cidade = null, origem = 'manual') => {
         const u = uf.toLowerCase()
@@ -102,9 +108,9 @@ export async function iniciarLocal(): Promise<void> {
     // estado que a loja daqui ainda não conhece (ativado no painel depois da última visita): espera a do servidor
     // enquanto a conversa durar, "procurando", em vez de mostrar "ainda não chegou aí" e trocar logo depois
     if (!canalDa(p.uf) && !lojaConferida()) {
-      useLocal.setState({ detectando: true })
+      useLocal.setState({ detectando: true, linkEsperando: p.uf.toLowerCase() })
       await esperarLojaToda()
-      useLocal.setState({ detectando: false })
+      useLocal.setState({ detectando: false, linkEsperando: null })
       if (useLocal.getState().confirmado && useLocal.getState().origem === 'manual') return
     }
     const canal = canalDa(p.uf)
@@ -166,6 +172,14 @@ function acompanharEstados(): void {
 useLoja.subscribe((s, a) => {
   if (s.canais !== a.canais) acompanharEstados()
 })
+
+/**
+ * O link com ?uf= ainda espera a loja do servidor (estado que a daqui não conhece) e a pessoa não escolheu outro na mão
+ * nesse meio-tempo: a tela espera numa vaga preta.
+ */
+export function useEsperandoLink(): boolean {
+  return useLocal((s) => s.linkEsperando != null && !(s.confirmado && s.origem === 'manual'))
+}
 
 /** O canal do estado escolhido (redesenha quando a loja troca os estados). */
 export function useCanal(): Canal | undefined {

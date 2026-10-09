@@ -370,11 +370,29 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar }) {
   await abrir('uf=mg')
   ok((await s.locator('.barra-abas [data-aba="sorte"]').count()) === 1, 'site: ligado de novo, a Sorte volta')
 
-  // a Bahia (ativada no painel, sem produto à venda ainda): o site atende (o perfil com o @ dela, sem story: nenhum
-  // produto à venda, como no computador; a rua no fim do Início); tirada, a tela de sem atendimento
+  // a Bahia (ativada no painel, sem produto à venda ainda): o site atende (o perfil com o @ dela; no topo do celular o
+  // quadro do story fica, com o @ e o local no cabeçalho, o aviso "nada à venda" no meio e a linha de mensagem no pé; a
+  // rua no fim do Início); tirada, a tela de sem atendimento
   await abrir('uf=ba')
   ok((await s.locator('.sem').count()) === 0 && /greencheese_importsba/.test((await s.locator('.vista-inicio .so-celular .perfil').textContent().catch(() => '')) ?? ''), 'site: a Bahia ativada no painel atende (o perfil com o @ dela)')
-  ok((await s.locator('.vista-inicio .hero').count()) === 0 && !!(await ruaNoFim()), 'site: sem produto à venda na Bahia, sem story (como no computador) e com a rua no fim do Início')
+  {
+    const vazio = await s.evaluate(() => {
+      const h = document.querySelector('.vista-inicio .hero.hero-vazio')
+      return h
+        ? {
+            nome: h.querySelector('.story-cab-nome')?.textContent ?? null,
+            local: h.querySelector('.hero-cab-local')?.textContent ?? null,
+            titulo: h.querySelector('.hero-vazio-titulo')?.textContent ?? null,
+            pe: !!h.querySelector('.hero-resposta'),
+            produto: !!h.querySelector('.hero-palco, .sq'),
+          }
+        : null
+    })
+    ok(
+      !!vazio && vazio.nome === 'greencheese_importsba' && /Bahia/.test(vazio.local ?? '') && vazio.titulo === 'Nada à venda na Bahia agora' && vazio.pe && !vazio.produto && !!(await ruaNoFim()),
+      `site: sem produto à venda na Bahia, o celular mantém o quadro do story (@, local, "nada à venda", linha de mensagem) e a rua no fim do Início (${JSON.stringify(vazio)})`,
+    )
+  }
   await print(s, 'site-loja-ba')
   await p.goto(`${BASE}/painel/#/loja/estado/ba`)
   await p.locator('label.pn-troca').filter({ hasText: 'Aparece no site' }).tap()

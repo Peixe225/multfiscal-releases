@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { iconesExtras } from '../arte/pixel/extras'
 import { config } from '../dados/config'
-import { deUf } from '../dados/ufs'
+import { deUf, emUf } from '../dados/ufs'
 import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
 import { ehDesktop, movimentoReduzido, quandoRespirar } from '../lib/movimento'
@@ -248,6 +248,59 @@ function AvisoFora() {
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Celular, estado atendido sem nada à venda (o dono ativou o estado no painel antes de pôr produto, ou tirou tudo): o
+ * quadro do story fica no topo, com o @ e o local no cabeçalho e, no pé, o aviso do palpite de IP ou a linha "Enviar
+ * mensagem…"; no meio, o aviso no lugar do produto, com a encomenda. Sem ele o Início começava direto na faixa dos @,
+ * sem o local e sem o "Tu tá na Bahia?" (o aviso fixo não aparece no Início). No computador o hero continua saindo.
+ */
+function HeroVazio() {
+  const uf = useLocal((s) => s.uf)
+  const cidade = useLocal((s) => s.cidade)
+  const canal = useCanalDa(uf)
+  const avisoLocal = useAvisoLocal()
+  const { texto: lugar } = useTextoLocal()
+  const abrir = useChat((s) => s.abrir)
+  // "na Bahia", "em Teófilo Otoni"; sem estado (catálogo inteiro vazio), sem lugar
+  const onde = !uf ? '' : cidade ? ` em ${lugar}` : ` ${emUf(uf)}`
+  return (
+    <section className="hero hero-vazio" aria-label="Stories da Green Cheese">
+      <div className="hero-story">
+        <div className="hero-quadro">
+          <div className="story-barras hero-barras" aria-hidden="true">
+            <span className="story-barra" />
+          </div>
+          <div className="hero-cab">
+            <Avatar tamanho={32} />
+            <div className="hero-cab-texto">
+              <div className="hero-cab-linha">
+                <span className="story-cab-nome">{canal?.instagram ?? 'Green Cheese Imports'}</span>
+              </div>
+              <LinhaLocal className="hero-cab-local" />
+            </div>
+          </div>
+          <div className="hero-meio hero-vazio-meio">
+            <Avatar tamanho={96} />
+            <p className="hero-vazio-titulo px">Nada à venda{onde} agora</p>
+            <p className="hero-vazio-texto legenda">Dá pra encomendar o que tu procura ou mandar mensagem pra loja.</p>
+            <button type="button" className="adesivo-link toque hero-vazio-encomenda" onClick={() => abrir('encomenda')}>
+              <Icone nome="balao" tamanho={16} />
+              PEDIR ENCOMENDA
+            </button>
+          </div>
+          {avisoLocal ? (
+            <div className="hero-resposta hero-aviso-local">
+              <AvisoLocal variante="story" />
+            </div>
+          ) : (
+            <RespostaStory produtoId={null} />
+          )}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -707,7 +760,8 @@ export function Hero() {
   // a rua embaixo do perfil (computador): a escala sai da largura da coluna dele e, ao lado do story, da altura
   const lojaDesktop = useLojaDesktop(loja, !celular, largo)
 
-  if (!atual) return null
+  // nada à venda: no celular o quadro do story fica (HeroVazio); no computador o hero sai, como sempre
+  if (!atual) return celular ? <HeroVazio /> : null
 
   const quadro = (
     <div
