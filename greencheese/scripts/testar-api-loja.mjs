@@ -99,7 +99,7 @@ export async function loja(t, { nomesUf }) {
   const L = r0.json.loja
   igual(chaves(L), ['categorias', 'estados', 'produtos', 'restamAte', 'ruaNoStory', 'sorte', 'stories', 'textos', 'whatsapp'], 'as partes da loja')
   igual([L.whatsapp, L.restamAte], [s.ajustes.whatsapp, s.ajustes.restamAte], 'WhatsApp da loja e "restam X" da semente')
-  igual(L.ruaNoStory, true, 'a rua do mercador no começo do Início do celular nasce ligada')
+  igual(L.ruaNoStory, true, 'a rua do mercador no fim do Início do celular (ruaNoStory) nasce ligada')
   mesmo(L.textos, s.textos, 'textos da loja = src/dados/textos-loja.ts')
   mesmo(L.categorias, s.categorias, 'categorias da semente, com o "bebida"')
   ok(r0.texto.includes('"stories":{}') && r0.texto.includes('"restam":{}'), 'mapa vazio sai como {} (nunca [])')
@@ -413,7 +413,7 @@ export async function loja(t, { nomesUf }) {
     await troca({ estoque: null })
   }
 
-  parte('loja: a rua do mercador no começo do Início (Stories do Início)')
+  parte('loja: a rua do mercador no fim do Início do celular (ruaNoStory, Stories do Início)')
   {
     igual((await adm()).ajustes.ruaNoStory, true, 'admin-loja: a chave da rua nasce ligada')
     const v0 = await versao()
@@ -421,7 +421,7 @@ export async function loja(t, { nomesUf }) {
     igual([aj.status, aj.json.ajustes.ruaNoStory], [200, false], 'desligou a rua')
     const l = await pub()
     igual([l.loja.ruaNoStory, l.versao], [false, v0 + 1], 'o site vê a rua desligada (e a versão sobe: o ETag muda)')
-    await temEvento('loja-ajustes', 'Desligou a rua do mercador no começo do Início', 'rua desligada')
+    await temEvento('loja-ajustes', 'Desligou a rua do mercador no celular', 'rua desligada')
     const repetido = await dono.post('admin-loja-salvar', { ruaNoStory: false })
     igual([repetido.status, repetido.json.versao], [200, v0 + 1], 'salvar igual não sobe a versão')
     for (const v of ['nao', 0, null]) {
@@ -431,7 +431,7 @@ export async function loja(t, { nomesUf }) {
     }
     aj = await dono.post('admin-loja-salvar', { ruaNoStory: true })
     igual([aj.json.ajustes.ruaNoStory, (await pub()).loja.ruaNoStory], [true, true], 'ligou de novo')
-    await temEvento('loja-ajustes', 'Ligou a rua do mercador no começo do Início', 'rua ligada')
+    await temEvento('loja-ajustes', 'Ligou a rua do mercador no celular', 'rua ligada')
     aj = await dono.post('admin-loja-salvar', { ruaNoStory: false, restamAte: 4 })
     await temEvento('loja-ajustes', 'Mudou os ajustes da loja', 'a rua junto com outro ajuste: a frase de sempre')
     aj = await dono.post('admin-loja-salvar', { ruaNoStory: true, restamAte: 5 })

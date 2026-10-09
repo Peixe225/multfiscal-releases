@@ -72,7 +72,9 @@ function gc_loja_ajustes(): array
         'whatsapp' => (string) gc_ajuste('loja.whatsapp'),
         'mesmoWhatsappParaTodos' => gc_ajuste('loja.mesmo_whatsapp') === '1',
         'restamAte' => $restam === null || $restam === '' ? null : (int) $restam,
-        // a rua do mercador no começo do Início no celular (Stories do Início, no painel); sem o ajuste, ligada
+        // a rua do mercador no fim do Início do celular, depois da grade (Stories do Início, no painel); sem o ajuste,
+        // ligada. O nome (ruaNoStory, loja.rua_story) é de quando ela era o 1º story do celular: mudou o significado em
+        // 09/10 e ficou o nome, pra loja já salva continuar valendo
         'ruaNoStory' => gc_ajuste('loja.rua_story') !== '0',
     ];
 }

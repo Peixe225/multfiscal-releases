@@ -5,7 +5,8 @@
 // bebida fora da lista) e mudar um texto da loja. Cada passo é conferido no GET loja (o que o site lê). axe e prints
 // em cada tela. No fim, o site de verdade (siteVeLoja): o que o painel mudou aparece no site (preço, foto, "RESTA 1",
 // produto novo, story na ordem do dono, Bahia), o WhatsApp próprio do estado e o "o mesmo pra todos", a rua do
-// mercador desligada, o Teste minha sorte desligado, o estado tirado do site e o ETag (304 sem mudança).
+// mercador no fim do Início do celular desligada e ligada de novo, o Teste minha sorte desligado, o estado tirado do
+// site e o ETag (304 sem mudança).
 
 /** As telas da loja (o testar-painel.mjs confere 320 px sem rolagem lateral em cada uma). */
 export const ROTAS_LOJA = ['#/produtos', '#/produto/seda-ocb-premium-slim', '#/produtos/novo', '#/loja', '#/loja/estados', '#/loja/estado/mg', '#/loja/estado/ba', '#/loja/stories/mg', '#/loja/categorias', '#/loja/sorte', '#/loja/sorte/novo', '#/loja/sorte/premio/ocb-4-por-3']
@@ -217,20 +218,39 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar }) {
     await s.waitForFunction((v) => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === v, v, { timeout: 8000 }).catch(() => {})
     await s.waitForTimeout(900)
   }
-  const nomeNoStory = () => s.evaluate(() => (document.querySelector('.hero-story.na-rua') ? 'rua' : (document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?')))
+  const nomeNoStory = () => s.evaluate(() => document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?')
+  /** A rua no fim do Início do celular: depois da grade e antes do rodapé (null: não tem rua no Início). */
+  const ruaNoFim = () =>
+    s.evaluate(() => {
+      const v = document.querySelector('.vista-inicio')
+      const vaga = v?.querySelector('.rua-fim .rua-vaga')
+      if (!vaga) return null
+      const grade = v.querySelector('.catalogo-inicio')?.getBoundingClientRect()
+      const rodape = document.querySelector('.rodape')?.getBoundingClientRect()
+      const b = vaga.getBoundingClientRect()
+      return { depoisDaGrade: !!grade && b.top >= grade.bottom - 1, antesDoRodape: !!rodape && b.bottom <= rodape.top + 1, noHero: !!v.querySelector('.hero .rua, .hero .rua-vaga') }
+    })
   const passar = async () => {
     await s.locator('.hero-quadro').first().click({ position: { x: 370, y: 300 } })
     await s.waitForTimeout(700)
   }
 
-  // MG: o story na ordem do dono depois da rua; a OCB com o preço novo, a foto e "RESTA 1"; o produto novo na grade
+  // MG: o story na ordem do dono (só produtos: a rua fica no fim do Início); a OCB com o preço novo, a foto e
+  // "RESTA 1"; o produto novo na grade
   await abrir('uf=mg')
   const ordem = []
   for (let i = 0; i < 3; i++) {
     ordem.push(await nomeNoStory())
     await passar()
   }
-  ok(JSON.stringify(ordem) === JSON.stringify(['rua', 'Isqueiro Bic Mini', 'Seda OCB Premium Slim']), `site: o story de MG na ordem do painel, depois da rua (${ordem.join(' → ')})`)
+  ok(
+    JSON.stringify(ordem) === JSON.stringify(['Isqueiro Bic Mini', 'Seda OCB Premium Slim', 'Isqueiro Bic Mini']) && (await s.locator('.hero-barras .story-barra').count()) === 2,
+    `site: o story de MG na ordem do painel, dando a volta (2 barrinhas: ${ordem.join(' → ')})`,
+  )
+  {
+    const r = await ruaNoFim()
+    ok(!!r && r.depoisDaGrade && r.antesDoRodape && !r.noHero, `site: a rua do mercador no fim do Início do celular, depois da grade e antes do rodapé (${JSON.stringify(r)})`)
+  }
   await passar()
   await passar()
   ok((await nomeNoStory()) === 'Seda OCB Premium Slim' && (await s.locator('.hero-palco .sq-restam').textContent().catch(() => null)) === 'RESTA 1', 'site: "RESTA 1" na OCB do story (estoque 1 em MG)')
@@ -320,33 +340,41 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar }) {
   ok(zap?.startsWith('https://wa.me/5533991139036?text='), `site: "o mesmo pra todos" ligado: o pedido de MG volta pro WhatsApp da loja (${zap?.slice(0, 40)}…)`)
   await s.keyboard.press('Escape')
 
-  // a rua do mercador desligada no painel: o Início do celular começa no 1º produto do story
+  // a rua do mercador desligada no painel: o fim do Início do celular fica sem ela (a grade e logo o rodapé); o story
+  // continua o mesmo; ligada de novo, ela volta pro fim
   await p.goto(`${BASE}/painel/#/loja/stories/mg`)
-  await p.locator('label.pn-troca').filter({ hasText: 'Mostrar a rua do mercador no começo' }).tap()
-  await p.getByText('O Início do celular abre sem a rua.').waitFor()
+  await p.locator('label.pn-troca').filter({ hasText: 'Rua do mercador no fim do Início (celular)' }).tap()
+  await p.getByText('O Início do celular fica sem a rua.').waitFor()
   await abrir('uf=mg')
-  ok((await nomeNoStory()) === 'Isqueiro Bic Mini' && (await s.locator('.hero-barras .story-barra').count()) === 2, 'site: rua desligada no painel: o story do celular começa no 1º produto (2 barrinhas)')
+  ok((await ruaNoFim()) === null && (await s.locator('.vista-inicio .rua').count()) === 0, 'site: rua desligada no painel: o Início do celular fica sem a rua')
+  ok((await nomeNoStory()) === 'Isqueiro Bic Mini' && (await s.locator('.hero-barras .story-barra').count()) === 2, 'site: rua desligada: o story do celular não muda (1º produto, 2 barrinhas)')
+  await s.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
+  await s.waitForTimeout(500)
   await print(s, 'site-loja-sem-rua')
-  await p.locator('label.pn-troca').filter({ hasText: 'Mostrar a rua do mercador no começo' }).tap()
-  await p.getByText('A rua abre o Início no celular.').waitFor()
+  await p.locator('label.pn-troca').filter({ hasText: 'Rua do mercador no fim do Início (celular)' }).tap()
+  await p.getByText('A rua fecha o Início no celular.').waitFor()
+  await abrir('uf=mg')
+  {
+    const r = await ruaNoFim()
+    ok(!!r && r.depoisDaGrade && r.antesDoRodape, `site: rua ligada de novo: ela volta pro fim do Início do celular (${JSON.stringify(r)})`)
+  }
 
   // o Teste minha sorte desligado: some da barra do site
   await p.goto(`${BASE}/painel/#/loja/sorte`)
   await p.locator('label.pn-troca').filter({ hasText: 'Teste minha sorte no site' }).tap()
   await p.getByText('Teste minha sorte desligado: some do site inteiro.').waitFor()
   await abrir('uf=mg')
-  // a rua volta pra conta do story (3 barrinhas) sem trocar o produto que já tava na tela
-  ok((await s.locator('.barra-abas [data-aba="sorte"]').count()) === 0 && (await s.locator('.hero-barras .story-barra').count()) === 3, 'site: Teste minha sorte desligado some da barra (e a rua voltou pro story)')
+  ok((await s.locator('.barra-abas [data-aba="sorte"]').count()) === 0 && (await s.locator('.hero-barras .story-barra').count()) === 2, 'site: Teste minha sorte desligado some da barra (o story continua com os 2 do dono)')
   await p.locator('label.pn-troca').filter({ hasText: 'Teste minha sorte no site' }).tap()
   await p.getByText('Teste minha sorte ligado no site.').waitFor()
   await abrir('uf=mg')
   ok((await s.locator('.barra-abas [data-aba="sorte"]').count()) === 1, 'site: ligado de novo, a Sorte volta')
 
-  // a Bahia (ativada no painel, sem produto à venda ainda): o site atende, com o story só da rua; tirada, a tela de
-  // sem atendimento
+  // a Bahia (ativada no painel, sem produto à venda ainda): o site atende (o perfil com o @ dela, sem story: nenhum
+  // produto à venda, como no computador; a rua no fim do Início); tirada, a tela de sem atendimento
   await abrir('uf=ba')
-  ok((await s.locator('.sem').count()) === 0 && (await s.locator('.hero .story-cab-nome').textContent().catch(() => '')) === 'greencheese_importsba', 'site: a Bahia ativada no painel atende (story com o @ dela)')
-  ok((await s.locator('.hero-barras .story-barra').count()) === 1 && (await nomeNoStory()) === 'rua', 'site: sem produto à venda na Bahia, a rua é o story inteiro')
+  ok((await s.locator('.sem').count()) === 0 && /greencheese_importsba/.test((await s.locator('.vista-inicio .so-celular .perfil').textContent().catch(() => '')) ?? ''), 'site: a Bahia ativada no painel atende (o perfil com o @ dela)')
+  ok((await s.locator('.vista-inicio .hero').count()) === 0 && !!(await ruaNoFim()), 'site: sem produto à venda na Bahia, sem story (como no computador) e com a rua no fim do Início')
   await print(s, 'site-loja-ba')
   await p.goto(`${BASE}/painel/#/loja/estado/ba`)
   await p.locator('label.pn-troca').filter({ hasText: 'Aparece no site' }).tap()

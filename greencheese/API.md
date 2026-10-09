@@ -776,7 +776,7 @@ manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a 
 interface Loja {
   whatsapp: string               // o WhatsApp da loja ('5533991139036'): onde o pedido fecha
   restamAte: number | null       // "restam X": o estoque contado chegou nesse número (null = nunca mostra)
-  ruaNoStory: boolean            // a rua do mercador como 1º story do Início no celular (sem o ajuste, true)
+  ruaNoStory: boolean            // a rua do mercador no fim do Início do celular, depois da grade (sem o ajuste, true)
   textos: { bio: string[]; fraseStory: string; sacolaVazia: string; falasMercado: string[] } // src/dados/textos-loja.ts
   categorias: { id: string; nome: string; curto: string; icone: string; bebida: boolean }[] // na ordem dos destaques
   produtos: ProdutoLoja[]        // só os que estão no site, na ordem da grade
@@ -840,6 +840,13 @@ interface PremioLoja {
   demo: boolean
 }
 ```
+
+**`ruaNoStory` (a rua do mercador no celular)**: desde 09/10 (pedido do Ian) a chave liga e desliga a rua viva no
+**fim do Início do celular**, depois da grade e antes do rodapé. O nome ficou o de quando a rua era o 1º story do
+celular (no JSON, no corpo do `admin-loja-salvar` e no banco, a chave `loja.rua_story` da tabela `ajustes`), pra loja
+já salva continuar valendo sem migração. Ligada (o padrão, também sem o ajuste): a rua aparece no fim do Início do
+celular. Desligada: o celular fica sem a rua. O story do Início não tem mais a rua em nenhum dos dois casos, e o
+computador mostra a rua embaixo do perfil sempre (a chave não vale pra ele).
 
 ## Loja (painel)
 
@@ -913,8 +920,8 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   automático. No `GET loja` passam só os que estão à venda no estado na hora (no site, ligado, com estoque); se nenhum
   estiver, o estado fica no automático.
 - **Ajustes**: `whatsapp` (celular brasileiro); `mesmoWhatsappParaTodos` (o número de cada estado fica guardado);
-  `restamAte` 1–99 ou `null`; `ruaNoStory` sim/não (a rua do mercador no começo do Início do celular; o painel mostra
-  em Stories do Início); `textos` (só o que vier muda): `bio` 1–3 linhas de até 80 (até 150 no todo; linha em
+  `restamAte` 1–99 ou `null`; `ruaNoStory` sim/não (a rua do mercador no fim do Início do celular; o painel mostra
+  em Stories do Início, "Rua do mercador no fim do Início (celular)"); `textos` (só o que vier muda): `bio` 1–3 linhas de até 80 (até 150 no todo; linha em
   branco some), `fraseStory` 2–28, `sacolaVazia` 2–48, `falasMercado` 1–5 de até 32. Nos textos, tabaco (422,
   `lista: 'tabaco'`) e as `PALAVRAS_PROIBIDAS` do site (422 `proibido`, `lista: 'palavras'`, no começo de palavra:
   "tapa" não pega "etapa").
@@ -1002,7 +1009,7 @@ rápida: `MG: "Seda OCB" esgotado (0 un.)`), `produto-apagado`, `produtos-ordem`
 `categoria-editada`, `categoria-apagada`, `categorias-ordem`, `estado-ativado`, `estado-desativado`, `estado-editado`,
 `stories-salvos`, `loja-ajustes`, `sorte-regras`, `premio-criado`, `premio-editado`, `premio-ativado`,
 `premio-desativado`, `premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto` (o
-`loja-ajustes` só da rua diz o que ela faz: "Ligou a rua do mercador no começo do Início" ou "Desligou…").
+`loja-ajustes` só da rua diz o que ela faz: "Ligou a rua do mercador no celular" ou "Desligou…").
 
 **Sem os segredos dos avisos**: o token e o Client-Token do Z-API, a apikey da Evolution e o segredo e o endereço do
 webhook saem da cópia (zerados, com `secure_delete` e `VACUUM`); quem voltar uma cópia põe eles de novo em Avisos no

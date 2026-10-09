@@ -1,6 +1,7 @@
 // A loja do servidor no site (rodada do scripts/revisao.mjs): o GET loja simulado no formato do API.md ("Loja"),
 // nascido da semente (public/api/nucleo/semente-loja.json, a loja de um servidor recém-instalado) e mexido como o dono
-// mexe no painel. Confere: o story do Início na ordem do dono (depois da rua) e sem a rua quando ela é desligada; o
+// mexe no painel. Confere: o story do Início na ordem do dono (só produtos: a rua do celular fica no fim do Início,
+// depois da grade) e a rua do fim sumindo quando o dono desliga ela; o
 // "RESTAM 2" no card, no story e na página do produto, a quantidade que não passa do que resta e o aviso; o estado
 // ativado no painel (BA) no site inteiro, sem a tela de sem atendimento piscar; o WhatsApp próprio do estado e o "o
 // mesmo pra todos"; a entrega grátis em mais de um dia; a frase do story; o Teste minha sorte desligado; a loja guardada
@@ -91,17 +92,18 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   // ── MG: a loja do servidor troca a embutida ──
   await page.goto(`${base}?uf=mg`)
   conferir(await esperar(page, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 7), 'loja: a resposta do servidor fica guardada no aparelho (gc-loja, versão 7)')
-  conferir(await esperar(page, () => document.querySelector('.hero-story.na-rua') && document.querySelectorAll('.hero-barras .story-barra').length === 3), 'loja: MG, story do Início com a rua e os 2 escolhidos pelo dono (3 barrinhas)')
+  conferir(
+    await esperar(page, () => document.querySelectorAll('.hero-barras .story-barra').length === 2 && !document.querySelector('.hero .rua, .hero .rua-vaga') && !!document.querySelector('.vista-inicio .rua-fim .rua-vaga')),
+    'loja: MG, story do Início com os 2 escolhidos pelo dono (2 barrinhas, sem a rua) e a rua no fim do Início',
+  )
   const nomes = []
   for (let i = 0; i < 3; i++) {
-    nomes.push(await page.evaluate(() => (document.querySelector('.hero-story.na-rua') ? 'rua' : (document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?'))))
+    nomes.push(await page.evaluate(() => document.querySelector('.hero-palco .sq-nome')?.textContent ?? '?'))
     await page.locator('.hero-quadro').first().click({ position: { x: 370, y: 300 } })
     await page.waitForTimeout(700)
   }
-  conferir(JSON.stringify(nomes) === JSON.stringify(['rua', 'Piteira de papel RAW', 'Seda OCB Premium Slim']), `loja: a ordem do dono depois da rua (${nomes.join(' → ')})`)
-  // de volta na OCB (o 3º): o adesivo do estoque no story do Início
-  await page.locator('.hero-quadro').first().click({ position: { x: 20, y: 300 } })
-  await page.waitForTimeout(700)
+  conferir(JSON.stringify(nomes) === JSON.stringify(['Piteira de papel RAW', 'Seda OCB Premium Slim', 'Piteira de papel RAW']), `loja: a ordem do dono, dando a volta (${nomes.join(' → ')})`)
+  // de volta na OCB (o 2º, depois de dar a volta): o adesivo do estoque no story do Início
   conferir((await page.locator('.hero-palco .sq-restam').textContent().catch(() => null)) === 'RESTAM 2', 'loja: "RESTAM 2" no story do Início')
   await foto(page, 'loja-01-story-restam')
   const frase = (await page.locator('.hero-frase .adesivo-texto').textContent())?.trim()
@@ -157,10 +159,9 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   await page.keyboard.press('Escape')
   await page.waitForTimeout(500)
 
-  // ── SP: entrega grátis em mais de um dia (a frase fica nos produtos; a rua tem o adesivo dela) ──
+  // ── SP: entrega grátis em mais de um dia (a frase fica nos produtos) ──
   await page.goto(`${base}?uf=sp`)
-  await esperar(page, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 7 && !!document.querySelector('.hero-story.na-rua'))
-  await page.locator('.hero-quadro').first().click({ position: { x: 370, y: 300 } })
+  await esperar(page, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 7 && !!document.querySelector('.hero-palco .sq-nome'))
   conferir(await esperar(page, () => document.querySelector('.hero-frase .adesivo-texto')?.textContent?.trim() === 'Entrega grátis no fim de semana!'), 'loja: SP com entrega grátis hoje e amanhã: a frase dela no story')
 
   // ── BA: estado ativado no painel (primeira visita, sem nada guardado) ──
@@ -205,9 +206,21 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   servidor.loja = { ...loja, ruaNoStory: false, estados: loja.estados.map((e) => ({ ...e, whatsapp: null })), sorte: { ...loja.sorte, ligado: false } }
   await page.goto(`${base}?uf=mg&jogo=sorte`)
   conferir(await esperar(page, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 8), 'loja: a versão nova chega e fica guardada')
-  conferir(await esperar(page, () => !document.querySelector('.barra-abas [data-aba="sorte"]') && !document.querySelector('.hero-story.na-rua') && !!document.querySelector('.hero-palco .sq-nome')), 'loja: Teste minha sorte desligado (some da barra) e o Início do celular sem a rua')
+  conferir(
+    await esperar(page, () => !document.querySelector('.barra-abas [data-aba="sorte"]') && !document.querySelector('.vista-inicio .rua-fim, .vista-inicio .rua-vaga, .vista-inicio .rua') && !!document.querySelector('.hero-palco .sq-nome')),
+    'loja: Teste minha sorte desligado (some da barra) e a rua desligada: o fim do Início do celular sem a rua',
+  )
   conferir(!(await page.locator('.casca').count()) && !new URL(page.url()).searchParams.has('jogo'), 'loja: ?jogo=sorte com o jogo desligado: nada abre e o parâmetro sai')
-  conferir((await page.locator('.hero-palco .sq-nome').textContent()) === 'Piteira de papel RAW', 'loja: sem a rua, o story começa no 1º do dono')
+  conferir((await page.locator('.hero-palco .sq-nome').textContent()) === 'Piteira de papel RAW', 'loja: o story começa no 1º do dono')
+  {
+    // a rua desligada: no fim do Início, a grade e logo o rodapé
+    const fim = await page.evaluate(() => {
+      const g = document.querySelector('.vista-inicio .catalogo-inicio')?.getBoundingClientRect()
+      const r = document.querySelector('.rodape')?.getBoundingClientRect()
+      return g && r ? Math.round(r.top - g.bottom) : null
+    })
+    conferir(fim != null && fim >= -1 && fim <= 2, `loja: sem a rua, o rodapé vem logo depois da grade (${fim} px)`)
+  }
   await foto(page, 'loja-07-sem-rua-sem-sorte')
   zap = await fecharPedido()
   conferir(zap?.startsWith(ZAP_LOJA), `loja: "o mesmo WhatsApp pra todos": o pedido de MG fecha no da loja (${zap?.slice(0, 40)}…)`)
@@ -258,8 +271,11 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   servidor.modo = 'sem-loja'
   await page.goto(`${base}?uf=mg`)
   conferir(await esperar(page, () => localStorage.getItem('gc-loja') === null), 'loja: 404 sem-loja apaga a loja guardada')
-  // a rua volta pra conta do story (sem trocar o produto que tá na tela) e a Sorte volta pra barra
-  conferir(await esperar(page, () => !!document.querySelector('.vista-inicio .rua-story') && document.querySelectorAll('.hero-barras .story-barra').length === 9 && !!document.querySelector('.barra-abas [data-aba="sorte"]')), 'loja: 404 sem-loja: volta pra embutida (a rua e a Sorte de volta)')
+  // a rua volta pro fim do Início do celular, o story volta pro automático (8 barrinhas, só produtos) e a Sorte pra barra
+  conferir(
+    await esperar(page, () => !!document.querySelector('.vista-inicio .rua-fim .rua-vaga') && document.querySelectorAll('.hero-barras .story-barra').length === 8 && !document.querySelector('.hero .rua') && !!document.querySelector('.barra-abas [data-aba="sorte"]')),
+    'loja: 404 sem-loja: volta pra embutida (a rua no fim do Início e a Sorte de volta)',
+  )
   conferir(servidor.pedidos >= 4, `loja: o site perguntou a loja a cada abertura (${servidor.pedidos} pedidos)`)
   await ctx.close()
 }

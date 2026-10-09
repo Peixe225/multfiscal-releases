@@ -55,7 +55,7 @@ por um revisor independente e no ar.
 
 ## F10 · Painel: a loja inteira no controle do dono — feito
 - [x] Produtos: foto (thumbnail), nome, descrição, preço, combos, variações, disponível/indisponível por estado e "restam X unidades".
-- [x] Stories do Início: quais produtos passam e em que ordem (e a rua do mercador no começo, no celular, liga e desliga).
+- [x] Stories do Início: quais produtos passam e em que ordem (e a rua do mercador no fim do Início do celular, liga e desliga).
 - [x] Estados: WhatsApp por estado (ou um só pra todos), Instagram, cidades, horários de entrega, taxa, entrega grátis em um ou mais dias, formas de pagamento; estado novo ativado pelo painel.
 - [x] Pedido guiado: as falas de cada passo editáveis (Textos do pedido); prêmios e regras do Teste minha sorte (valem também no giro do servidor); textos da loja e as falas do mercador.
 - [x] O site lê tudo do servidor, com o que está embutido de reserva (nunca fica em branco).
@@ -63,7 +63,7 @@ por um revisor independente e no ar.
 ## F11 · Início vivo e Mercado — feito
 - [x] Início: o mercador anda pela rua, bebe (refrigerante importado: álcool e tabaco fora da animação) e vende para 4 personagens bem diferentes, cada um com uma interação própria com ele — celular e computador.
 - [x] Aba Catálogo vira "Mercado", com o mercador e a animação que ele já tem.
-- [x] Celular: a rua do mercador como o 1º story do Início (visível na primeira tela), a faixa sai do meio e o perfil volta logo depois do story.
+- [x] Celular: a rua do mercador no fim do Início, depois da grade e antes do rodapé (pedido do Ian em 09/10); o topo volta a ser o de 08/10 (o 1º story é de produto, faixa e perfil logo depois) e a rua só baixa quando chega perto da tela.
 
 ## F12 · Pedido completo no WhatsApp da Green Cheese — feito (falta o gateway da loja)
 - [x] Ao fechar, o pedido fica salvo no servidor (com o código GC-XXXXX na mensagem) e o aviso sai completo e formatado pro grupo privado do WhatsApp por um gateway (Z-API, Evolution API ou webhook), configurado em Avisos no WhatsApp, com envio de teste e reenvio.
