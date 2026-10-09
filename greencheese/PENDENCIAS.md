@@ -146,42 +146,34 @@ O painel (`/painel/`, ver LEIA-ME.md, "Painel do dono") está pronto e testado c
 
 ## Loja no servidor (cadeia A)
 
-O servidor e o painel já cuidam da loja inteira (ver LEIA-ME.md, "Loja no painel"; contrato em API.md, "Loja"). O
-**site ainda lê `src/dados`**: a próxima etapa (A2) liga o site no `GET api/index.php?r=loja`. O que ela precisa:
+O servidor, o painel e o site já cuidam da loja inteira: o site lê o `GET api/index.php?r=loja` (ver LEIA-ME.md, "Loja
+no painel" e "O site lendo a loja"; contrato em API.md, "Loja"). Sem servidor, ou com ele fora do ar, segue com a loja
+guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou fica pra depois:
 
-- **Ler a loja**: buscar `r=loja` ao abrir (o navegador já guarda com o ETag e o `no-cache`: sem mudança vem 304 vazio)
-  e, se der 404 `sem-loja`, erro ou sem servidor, seguir com o que está embutido (`src/dados`, a mesma loja da semente).
-  Guardar a última resposta no aparelho ajuda a primeira pintura sem rede.
-- **Produtos**: `disponivel` já vem resolvido (ligado no estado e com estoque, quando contado); `restam` (uf → n) é o
-  adesivo "RESTAM X" (só aparece quando o dono conta o estoque e chega no `restamAte`); `combinaCom` só aponta pra
-  produto no site; `foto` pode ser `uploads/<nome>` (enviada pelo painel, como a imagem do rateio) além de
-  `produtos/<arquivo>`: o `ProdutoVisual` precisa aceitar as duas. Preço `null` continua "Consultar".
-- **Estados** → canais: `whatsapp: null` = o WhatsApp da loja (`loja.whatsapp`, que substitui o
-  `config.whatsappPedidos`); `entregaGratis.dias` pode ter mais de um dia (o site hoje só conhece `diaSemana`, que vem
-  igual ao primeiro); `emblema: 'generico'` (estado ativado no painel) precisa de um emblema de pino no destaque e no
-  "Por estado"; `nome` vem do servidor; estado fora do site não vem.
-- **Stories**: `stories[uf]` é a lista na ordem do dono (já filtrada: só o que está à venda, até 8 = `MAX_BARRAS`); sem
-  a chave, o automático de hoje.
-- **Categorias**: o `bebida` de cada uma substitui a lista `CATEGORIAS_FORA` do `cupom.ts` (já lê o `bebida` do
-  catálogo).
-- **Teste minha sorte**: `sorte.ligado` (desligado, o jogo some do site inteiro), `sorte.regras` no lugar de
-  `regrasSorte` e `sorte.premios` no lugar de `premios`. Os textos do jogo que citam as regras ("Sem conta: 1 giro. Com
-  conta: 1 giro por dia", "24 h" em `src/interativos/sorte/textos.ts` e o `conta-adaptador.ts`) passam a usar os números
-  do servidor. Cupom já guardado fica com o retrato do prêmio (o dono pode apagar ou mudar o prêmio depois).
-- **Textos da loja** (`bio`, `fraseStory`, `sacolaVazia`, `falasMercado`) no lugar de `src/dados/textos-loja.ts`.
-
-Também pendente:
-
-- **Criar rateio** no painel ainda busca o produto no catálogo embutido (`src/dados`): passar a usar os produtos do
-  servidor (`admin-loja`), com a foto que o dono mandou.
 - **Valores de exemplo dos estados** (horário, taxa e pagamento de RJ, MG, SP, ES e SC): o dono salva os de verdade em
   Loja → Estados; até lá o site mostra "a confirmar".
 - **Estoque é contado à mão**: nada baixa sozinho quando um pedido sai (os pedidos ainda não chegam no servidor).
-  Quando chegarem, decidir com o dono se o pedido confirmado baixa o estoque.
-- **Apagar dados de exemplo**: os rateios de exemplo saem junto (com quem entrou neles). Conferir com o dono antes de
-  tocar no botão, no ar.
+  Quando chegarem (cadeia B), decidir com o dono se o pedido confirmado baixa o estoque.
 - **"Restam X"**: começa em 5 unidades (padrão escolhido aqui, não veio do dono) e só aparece em produto com o estoque
   contado. Confirmar com o dono, mudar ou desligar em Loja → "Restam X".
+- **Apagar dados de exemplo**: os rateios de exemplo saem junto (com quem entrou neles). Conferir com o dono antes de
+  tocar no botão, no ar.
+- **Foto do produto**: o site junta a foto ao preto da página (o preto da foto some no preto). Foto com fundo claro
+  aparece como um cartão claro: o melhor é foto com fundo preto ou recortada. Combinar com o dono como ele fotografa.
+- **Estado ativado no painel**: entra com o emblema de pino (genérico) no story de atendimento; um desenho próprio
+  (como o Pão de Açúcar do RJ) é arte nova em `src/arte/pixel/emblemas.ts`. Fora da lupa do Sudeste + SC, ele acende
+  no mapa inteiro e fica na lista do "Por estado" (sem botão na lupa).
+- **A rua do mercador**: as falas dos personagens são do roteiro (`src/componentes/rua/falas.ts`), não do painel; as
+  "falas do mercador" do painel são as do topo do Mercado.
+- **Mudança com a página aberta**: o site pergunta a loja ao abrir e quando a pessoa volta pra aba depois de 10 min fora
+  (com o pedido guiado aberto, não pergunta: o pedido não muda debaixo da pessoa). Quem fica horas com a aba à vista
+  só vê a mudança na próxima abertura.
+- **Desempenho medido** (celular 390×844, CPU 4× mais lenta, 4G lenta de 150 ms e 1,6 Mbps, mediana de 11, até o
+  story do Início à vista; entre colchetes, do 1º ao 3º quartil): primeira visita, a principal antes da A2 2605 ms
+  [2544–2818], a A2 sem PHP 2658 [2623–2702] e com PHP 2615 [2579–2667]; de volta (com a loja guardada), 1034 [949–1137]
+  contra 992 [940–1036] e 992 [947–1059]. A diferença fica dentro da variação da própria principal. O que a primeira
+  tela baixa cresceu 4,0 KB comprimidos (226,7 → 230,7 KB): a conferência do servidor foi pra um pedaço à parte e os
+  emblemas dos estados saíram da primeira tela (só o story do estado usa).
 
 ## Publicação
 

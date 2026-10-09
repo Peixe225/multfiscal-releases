@@ -418,8 +418,9 @@ Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, par
 
 ## Loja
 
-O catálogo, os estados (canais), os stories do Início, os ajustes (WhatsApp, "restam X", textos) e o Teste minha sorte
-moram no servidor, e o dono mexe neles pelo painel. O site lê tudo num JSON só.
+O catálogo, os estados (canais), os stories do Início, os ajustes (WhatsApp, "restam X", a rua do mercador, textos)
+e o Teste minha sorte moram no servidor, e o dono mexe neles pelo painel. O site lê tudo num JSON só (ver "Como o site
+lê", logo abaixo).
 
 A loja nasce da semente `nucleo/semente-loja.json`, gerada de `src/dados` (catálogo, canais, config, prêmios e textos)
 por `node scripts/gerar-semente-loja.mjs`; o build e o `testar-api` recusam semente velha. Ela entra na instalação do
@@ -440,10 +441,30 @@ manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a 
 - Só o que o site mostra: nada de anotação do dono, estoque contado, produto ou estado desativado nem prêmio fora do
   jogo. Mapa vazio sai como `{}`.
 
+**Como o site lê** (`src/store/loja.ts`):
+
+1. A primeira tela sai com a loja guardada no aparelho (`gc-loja` no `localStorage`, a última que veio do servidor) ou,
+   sem ela, com a embutida no build (`src/dados`, a mesma da semente). Nunca espera a rede.
+2. No primeiro respiro depois da primeira pintura (na hora, se o `?uf=` do link ou o estado salvo não está na loja do
+   aparelho: estado ativado no painel) pergunta `GET r=loja`; o navegador manda o `If-None-Match` sozinho e, sem
+   mudança, recebe 304. Volta pra aba depois de 10 min fora: pergunta de novo (com o pedido guiado aberto, não).
+3. Versão nova: o `loja` é conferido campo a campo (`src/store/loja-ler.ts`, num pedaço à parte que só baixa aí): item
+   torto fica de fora, texto com palavra da lista volta pro embutido, prêmio passa pelas regras do `cupom.ts`; sem
+   nenhum estado que feche, a resposta inteira é ignorada. Entra na tela de uma vez, num respiro do navegador, e o que
+   não mudou continua o mesmo objeto (nada pisca nem recomeça).
+4. Guardado: `{ formato: 2, build, versao, atualizadoEm, loja, pronta }` — o `loja` como veio e a `pronta` já
+   conferida. Outro build (site publicado de novo) confere o `loja` outra vez com as regras dele.
+5. Fora do ar, lento (10 s), 403/5xx ou JSON torto: fica com o que tem. **404 `sem-loja`**: apaga o guardado e volta pra
+   embutida.
+6. Quem depende da loja do servidor espera ela no máximo 2,5 s: o estado do link da bio que a loja do aparelho não
+   conhece ("procurando", em vez de "ainda não chegou aí"), o palpite de IP num estado desses e os links diretos de
+   produto (`?p=`, `?produto=`) e do jogo (`?jogo=`).
+
 ```ts
 interface Loja {
   whatsapp: string               // o WhatsApp da loja ('5533991139036'): onde o pedido fecha
   restamAte: number | null       // "restam X": o estoque contado chegou nesse número (null = nunca mostra)
+  ruaNoStory: boolean            // a rua do mercador como 1º story do Início no celular (sem o ajuste, true)
   textos: { bio: string[]; fraseStory: string; sacolaVazia: string; falasMercado: string[] } // src/dados/textos-loja.ts
   categorias: { id: string; nome: string; curto: string; icone: string; bebida: boolean }[] // na ordem dos destaques
   produtos: ProdutoLoja[]        // só os que estão no site, na ordem da grade
@@ -527,7 +548,7 @@ campo ausente fica como está.
 | POST `admin-categorias-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
 | POST `admin-estado-salvar` | `EstadoCorpo` (UF que a loja não tem = ativar) | 201 ou 200 `{ estado: EstadoAdmin, versao, atualizadoEm }` |
 | POST `admin-stories-salvar` | `{ uf, produtos: string[] }` | `{ uf, produtos, versao, atualizadoEm }` |
-| POST `admin-loja-salvar` | `{ whatsapp?, mesmoWhatsappParaTodos?, restamAte?, textos? }` | `{ ajustes, textos, versao, atualizadoEm }` |
+| POST `admin-loja-salvar` | `{ whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, textos? }` | `{ ajustes, textos, versao, atualizadoEm }` |
 | POST `admin-sorte-salvar` | `{ ligado?, girosSemConta?, girosPorDiaComConta?, reservaSemContaHoras? }` | `{ sorte, versao, atualizadoEm }` |
 | POST `admin-premio-salvar` | `PremioCorpo` (sem `id` cria) | 201 ou 200 `{ premio: PremioAdmin, versao, atualizadoEm }` |
 | POST `admin-premio-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
@@ -573,7 +594,8 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   automático. No `GET loja` passam só os que estão à venda no estado na hora (no site, ligado, com estoque); se nenhum
   estiver, o estado fica no automático.
 - **Ajustes**: `whatsapp` (celular brasileiro); `mesmoWhatsappParaTodos` (o número de cada estado fica guardado);
-  `restamAte` 1–99 ou `null`; `textos` (só o que vier muda): `bio` 1–3 linhas de até 80 (até 150 no todo; linha em
+  `restamAte` 1–99 ou `null`; `ruaNoStory` sim/não (a rua do mercador no começo do Início do celular; o painel mostra
+  em Stories do Início); `textos` (só o que vier muda): `bio` 1–3 linhas de até 80 (até 150 no todo; linha em
   branco some), `fraseStory` 2–28, `sacolaVazia` 2–48, `falasMercado` 1–5 de até 32. Nos textos, tabaco (422,
   `lista: 'tabaco'`) e as `PALAVRAS_PROIBIDAS` do site (422 `proibido`, `lista: 'palavras'`, no começo de palavra:
   "tapa" não pega "etapa").
@@ -598,7 +620,7 @@ Erros (além dos gerais e do `sem-sessao`/`csrf`): `invalido` 400 (com `campo`; 
 interface LojaAdmin {
   versao: number
   atualizadoEm: string
-  ajustes: { whatsapp: string; mesmoWhatsappParaTodos: boolean; restamAte: number | null }
+  ajustes: { whatsapp: string; mesmoWhatsappParaTodos: boolean; restamAte: number | null; ruaNoStory: boolean }
   textos: Loja['textos']
   categorias: (Loja['categorias'][number] & { ordem: number; produtos: number; premios: { id: string; titulo: string }[] })[]
   produtos: ProdutoAdmin[]       // todos, até os desativados
@@ -653,4 +675,5 @@ Auditoria (`alvo` → `produto:<id>`, `categoria:<id>`, `estado:<uf>`, `premio:<
 rápida: `MG: "Seda OCB" esgotado (0 un.)`), `produto-apagado`, `produtos-ordem`, `categoria-criada`,
 `categoria-editada`, `categoria-apagada`, `categorias-ordem`, `estado-ativado`, `estado-desativado`, `estado-editado`,
 `stories-salvos`, `loja-ajustes`, `sorte-regras`, `premio-criado`, `premio-editado`, `premio-ativado`,
-`premio-desativado`, `premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto`.
+`premio-desativado`, `premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto` (o
+`loja-ajustes` só da rua diz o que ela faz: "Ligou a rua do mercador no começo do Início" ou "Desligou…").

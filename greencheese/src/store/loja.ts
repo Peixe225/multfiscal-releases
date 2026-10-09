@@ -4,20 +4,21 @@
 // 3) No tempo ocioso pergunta ao servidor (GET api/index.php?r=loja). Com o ETag, sem mudança o navegador recebe 304 e
 //    devolve a mesma; chegou outra versão, troca tudo de uma vez (o que não mudou fica o mesmo objeto: nada pisca).
 // Servidor fora do ar, lento ou com resposta torta: fica com o que tem (nunca em branco). Servidor sem loja (404
-// sem-loja, painel não instalado): volta pra embutida. O que chega é conferido campo a campo antes de entrar.
+// sem-loja, painel não instalado): volta pra embutida. O que chega é conferido campo a campo antes de entrar
+// (src/store/loja-ler.ts, num pedaço à parte: só baixa quando chega loja nova).
 // Telas leem pelos hooks daqui; quem só lê na hora (o pedido, o rateio) usa canalDa/canais de src/dados/canais.ts e
 // produtoPorId de src/store/catalogo.ts, que acompanham a troca.
 import { create } from 'zustand'
 import dados from '../dados/catalogo.json'
-import { canais as canaisAtuais, canaisEmbutidos, trocarCanais, type Canal, type Cidade, type Emblema, type FormaPagamento, type Turno } from '../dados/canais'
+import { canais as canaisAtuais, canaisEmbutidos, trocarCanais, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { premios as premiosEmbutidos, regrasSorte, type Premio } from '../dados/sorte'
 import { textosLoja, type TextosLoja } from '../dados/textos-loja'
 import { ufPorSigla } from '../dados/ufs'
 import { apagar, ler, gravar } from '../lib/armazenamento'
 import { definirWhatsappDaLoja } from '../lib/mensagem'
-import { palavraProibida, validarPremios } from '../lib/premios'
-import type { Arte, Categoria, Combo, Produto, TipoArte, Variacao } from '../lib/tipos'
+import { validarPremios } from '../lib/premios'
+import type { Categoria, Produto } from '../lib/tipos'
 
 export interface RegrasDaSorte {
   girosSemConta: number
@@ -92,257 +93,6 @@ function montarEmbutida(): Loja {
 /** A embutida, montada uma vez (em dev, prêmio errado em src/dados/sorte.ts para aqui, na abertura). */
 const EMBUTIDA = montarEmbutida()
 
-/* ───────────────────────── conferência do que chega ───────────────────────── */
-
-type Bruto = Record<string, unknown>
-const obj = (v: unknown): v is Bruto => !!v && typeof v === 'object' && !Array.isArray(v)
-const textoDe = (v: unknown, max = 300): string | null => {
-  if (typeof v !== 'string') return null
-  const t = v.trim()
-  return t ? t.slice(0, max) : null
-}
-const numeroDe = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
-const inteiroDe = (v: unknown, min: number, max: number): number | null => {
-  const n = numeroDe(v)
-  return n != null && Number.isInteger(n) && n >= min && n <= max ? n : null
-}
-const ID = /^[a-z0-9][a-z0-9-]{0,79}$/
-const UF = /^[a-z]{2}$/
-const COR = /^#[0-9a-f]{6}$/i
-const HORA = /^([01]\d|2[0-3]):[0-5]\d$/
-// só foto de dentro do site: a que o painel enviou (uploads/) ou a do build (produtos/)
-const FOTO = /^(uploads|produtos)\/[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/
-const WHATSAPP = /^55\d{2}9\d{8}$/
-const TIPOS_ARTE = new Set<TipoArte>(['lata', 'lata-alta', 'garrafa-quadrada', 'garrafa-gin', 'garrafa-conhaque', 'garrafa-licor', 'seda', 'piteira-vidro', 'piteira-papel', 'cuia', 'dichavador', 'isqueiro', 'bandeja'])
-const EMBLEMAS = new Set<Emblema>(['pao-de-acucar', 'pedra-preciosa', 'predio-sp', 'convento-es', 'ponte-sc', 'generico'])
-const PAGAMENTOS = new Set<FormaPagamento>(['pix', 'dinheiro', 'cartao'])
-const ICONES = new Set(['lata', 'garrafa', 'seda', 'piteira', 'cuia', 'dichavador', 'tesoura', 'sacola', 'estrela'])
-
-function arteDe(v: unknown, cor: string): Arte {
-  const a = obj(v) ? v : {}
-  const tipo = TIPOS_ARTE.has(a.tipo as TipoArte) ? (a.tipo as TipoArte) : 'lata'
-  const arte: Arte = { tipo, corpo: typeof a.corpo === 'string' && COR.test(a.corpo) ? a.corpo : cor }
-  for (const k of ['faixa', 'rotulo', 'detalhe', 'tampa'] as const) if (typeof a[k] === 'string' && COR.test(a[k] as string)) arte[k] = a[k] as string
-  return arte
-}
-
-function produtoDe(v: unknown): Produto | null {
-  if (!obj(v)) return null
-  const id = typeof v.id === 'string' && ID.test(v.id) ? v.id : null
-  const nome = textoDe(v.nome, 80)
-  const categoria = typeof v.categoria === 'string' && ID.test(v.categoria) ? v.categoria : null
-  if (!id || !nome || !categoria) return null
-  const preco = numeroDe(v.preco)
-  const cor = typeof v.cor === 'string' && COR.test(v.cor) ? v.cor : '#a8a8a8'
-  const p: Produto = {
-    id,
-    nome,
-    categoria,
-    // preço que não fecha vira "Consultar" (nunca um número inventado)
-    preco: preco != null && preco >= 0 ? preco : null,
-    disponivel: {},
-    demo: v.demo === true,
-    foto: typeof v.foto === 'string' && FOTO.test(v.foto) && !v.foto.includes('..') ? v.foto : null,
-    cor,
-    arte: arteDe(v.arte, cor),
-  }
-  const tamanho = textoDe(v.tamanho, 30)
-  const detalhe = textoDe(v.detalhe, 80)
-  const descricao = textoDe(v.descricao, 400)
-  if (tamanho) p.tamanho = tamanho
-  if (detalhe) p.detalhe = detalhe
-  if (descricao) p.descricao = descricao
-  if (Array.isArray(v.combos) && p.preco != null) {
-    const combos: Combo[] = []
-    for (const c of v.combos) {
-      const qtd = obj(c) ? inteiroDe(c.qtd, 2, 99) : null
-      const total = obj(c) ? numeroDe(c.total) : null
-      if (qtd != null && total != null && total > 0 && !combos.some((x) => x.qtd === qtd)) combos.push({ qtd, total })
-    }
-    if (combos.length) p.combos = combos.sort((a, b) => a.qtd - b.qtd)
-  }
-  if (Array.isArray(v.variacoes)) {
-    const vs: Variacao[] = []
-    for (const x of v.variacoes) {
-      if (!obj(x)) continue
-      const vid = textoDe(x.id, 60)
-      const vnome = textoDe(x.nome, 60)
-      if (!vid || !vnome || vs.some((y) => y.id === vid)) continue
-      const vpreco = numeroDe(x.preco)
-      vs.push(vpreco != null && vpreco >= 0 ? { id: vid, nome: vnome, preco: vpreco } : { id: vid, nome: vnome })
-    }
-    if (vs.length) p.variacoes = vs
-  }
-  if (obj(v.disponivel)) for (const [uf, sim] of Object.entries(v.disponivel)) if (UF.test(uf)) p.disponivel[uf] = sim === true
-  if (obj(v.restam)) {
-    const restam: Record<string, number> = {}
-    for (const [uf, n] of Object.entries(v.restam)) {
-      const k = inteiroDe(n, 1, 99999)
-      if (UF.test(uf) && k != null && p.disponivel[uf]) restam[uf] = k
-    }
-    if (Object.keys(restam).length) p.restam = restam
-  }
-  if (Array.isArray(v.combinaCom)) {
-    const ids = v.combinaCom.filter((x): x is string => typeof x === 'string' && ID.test(x) && x !== id)
-    if (ids.length) p.combinaCom = [...new Set(ids)].slice(0, 8)
-  }
-  return p
-}
-
-function turnoDe(v: unknown): Turno | undefined {
-  if (v === null) return null
-  if (Array.isArray(v) && v.length === 2 && typeof v[0] === 'string' && typeof v[1] === 'string' && HORA.test(v[0]) && HORA.test(v[1]) && v[0] !== v[1]) return [v[0], v[1]]
-  return undefined
-}
-
-function canalDe(v: unknown): Canal | null {
-  if (!obj(v)) return null
-  const uf = typeof v.uf === 'string' && UF.test(v.uf) ? v.uf : null
-  const instagram = typeof v.instagram === 'string' && /^[A-Za-z0-9._]{1,30}$/.test(v.instagram) ? v.instagram : null
-  if (!uf || !instagram) return null
-  const h = obj(v.horario) ? v.horario : {}
-  const semana = Array.isArray(h.semana) && h.semana.length === 7 ? h.semana.map(turnoDe) : null
-  // horário que não fecha fica "a confirmar" (de exemplo: o site não mostra), nunca um horário inventado
-  const horarioOk = !!semana && semana.every((t) => t !== undefined)
-  const t = obj(v.taxaEntrega) ? v.taxaEntrega : {}
-  const taxa = numeroDe(t.valor)
-  const g = obj(v.entregaGratis) ? v.entregaGratis : null
-  const diasCrus = g && Array.isArray(g.dias) ? g.dias : g && typeof g.diaSemana === 'number' ? [g.diaSemana] : []
-  const dias = [...new Set(diasCrus.filter((d): d is number => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6))]
-  const textoGratis = g ? textoDe(g.texto, 60) : null
-  const pg = obj(v.pagamento) ? v.pagamento : {}
-  const opcoes = Array.isArray(pg.opcoes) ? [...new Set(pg.opcoes.filter((o): o is FormaPagamento => PAGAMENTOS.has(o as FormaPagamento)))] : []
-  const cidades: Cidade[] = []
-  if (Array.isArray(v.cidades)) {
-    for (const c of v.cidades) {
-      const slug = obj(c) && typeof c.slug === 'string' && ID.test(c.slug) ? c.slug : null
-      const nome = obj(c) ? textoDe(c.nome, 60) : null
-      if (slug && nome && !cidades.some((x) => x.slug === slug)) cidades.push({ slug, nome })
-    }
-  }
-  return {
-    uf,
-    nome: textoDe(v.nome, 40) ?? ufPorSigla(uf)?.nome ?? uf.toUpperCase(),
-    destaque: textoDe(v.destaque, 24) ?? `DELIVERY ${uf.toUpperCase()}`,
-    nomePerfil: textoDe(v.nomePerfil, 40),
-    cidades,
-    instagram,
-    whatsapp: typeof v.whatsapp === 'string' && WHATSAPP.test(v.whatsapp) ? v.whatsapp : null,
-    horario: horarioOk ? { semana: semana as Canal['horario']['semana'], demo: h.demo === true } : { semana: [null, null, null, null, null, null, null], demo: true },
-    taxaEntrega: { valor: taxa != null && taxa >= 0 ? taxa : null, demo: t.demo === true },
-    entregaGratis: dias.length && textoGratis ? { dias, texto: textoGratis, demo: g!.demo === true } : null,
-    // pagamento que não fecha: as três, como exemplo ("Como vai pagar?" nunca fica sem opção)
-    pagamento: opcoes.length ? { opcoes, demo: pg.demo === true } : { opcoes: ['pix', 'dinheiro', 'cartao'], demo: true },
-    emblema: EMBLEMAS.has(v.emblema as Emblema) ? (v.emblema as Emblema) : 'generico',
-  }
-}
-
-function categoriaDe(v: unknown): Categoria | null {
-  if (!obj(v)) return null
-  const id = typeof v.id === 'string' && ID.test(v.id) ? v.id : null
-  const nome = textoDe(v.nome, 40)
-  if (!id || !nome) return null
-  return { id, nome, curto: textoDe(v.curto, 20) ?? nome, icone: typeof v.icone === 'string' && ICONES.has(v.icone) ? v.icone : 'estrela', bebida: v.bebida !== false }
-}
-
-/** Texto da loja: o do servidor, ou o embutido quando falta ou tem palavra da lista. */
-function textoLimpo(v: unknown, max: number, reserva: string): string {
-  const t = textoDe(v, max)
-  return t && !palavraProibida(t) ? t : reserva
-}
-function linhasLimpas(v: unknown, maxLinhas: number, max: number, reserva: string[]): string[] {
-  const l = Array.isArray(v) ? v.map((x) => textoDe(x, max)).filter((x): x is string => !!x && !palavraProibida(x)).slice(0, maxLinhas) : []
-  return l.length ? l : reserva
-}
-
-function premioDe(v: unknown): Premio | null {
-  if (!obj(v) || typeof v.id !== 'string' || typeof v.tipo !== 'string' || !obj(v.aplicaA)) return null
-  const a = v.aplicaA
-  const lista = (x: unknown) => (Array.isArray(x) ? x.filter((y): y is string => typeof y === 'string') : undefined)
-  const p = {
-    id: v.id,
-    tipo: v.tipo,
-    valor: v.valor,
-    titulo: textoDe(v.titulo, 80) ?? '',
-    descricao: textoDe(v.descricao, 60) ?? '',
-    regra: textoDe(v.regra, 160) ?? '',
-    aplicaA: { produtos: lista(a.produtos), categorias: lista(a.categorias) },
-    peso: numeroDe(v.peso) ?? 0,
-    validadeDias: numeroDe(v.validadeDias) ?? 0,
-    demo: v.demo === true,
-  } as Premio
-  const como = textoDe(v.comoUsar, 200)
-  if (como) p.comoUsar = como
-  if (!p.aplicaA.produtos) delete p.aplicaA.produtos
-  if (!p.aplicaA.categorias) delete p.aplicaA.categorias
-  return p
-}
-
-/**
- * A loja do servidor (o `loja` do GET r=loja, API.md), conferida. Item torto fica de fora; sem nenhum estado que
- * feche, a resposta inteira não vale (o site nunca fica sem estado por causa de uma resposta torta).
- */
-export function lerLoja(v: unknown): Loja | null {
-  if (!obj(v)) return null
-  const reserva = EMBUTIDA
-  const canais: Canal[] = []
-  for (const x of Array.isArray(v.estados) ? v.estados : []) {
-    const c = canalDe(x)
-    if (c && !canais.some((y) => y.uf === c.uf)) canais.push(c)
-  }
-  if (!canais.length) return null
-  const categorias: Categoria[] = []
-  for (const x of Array.isArray(v.categorias) ? v.categorias : []) {
-    const c = categoriaDe(x)
-    if (c && !categorias.some((y) => y.id === c.id)) categorias.push(c)
-  }
-  const produtos: Produto[] = []
-  for (const x of Array.isArray(v.produtos) ? v.produtos : []) {
-    const p = produtoDe(x)
-    if (p && !produtos.some((y) => y.id === p.id)) produtos.push(p)
-  }
-  const ids = new Set(produtos.map((p) => p.id))
-  for (const p of produtos) if (p.combinaCom) p.combinaCom = p.combinaCom.filter((id) => ids.has(id))
-  const stories: Record<string, string[]> = {}
-  if (obj(v.stories)) {
-    for (const [uf, lista] of Object.entries(v.stories)) {
-      if (!UF.test(uf) || !Array.isArray(lista)) continue
-      const l = [...new Set(lista.filter((id): id is string => typeof id === 'string' && ids.has(id)))].slice(0, MAX_STORY)
-      if (l.length) stories[uf] = l
-    }
-  }
-  const t = obj(v.textos) ? v.textos : {}
-  const s = obj(v.sorte) ? v.sorte : {}
-  const r = obj(s.regras) ? s.regras : {}
-  const premiosCrus = (Array.isArray(s.premios) ? s.premios : []).map(premioDe).filter((p): p is Premio => !!p)
-  const restamAte = v.restamAte === null ? null : inteiroDe(v.restamAte, 1, 99)
-  return {
-    whatsapp: typeof v.whatsapp === 'string' && WHATSAPP.test(v.whatsapp) ? v.whatsapp : reserva.whatsapp,
-    restamAte: restamAte ?? null,
-    ruaNoStory: v.ruaNoStory !== false,
-    textos: {
-      bio: linhasLimpas(t.bio, 3, 80, reserva.textos.bio),
-      fraseStory: textoLimpo(t.fraseStory, 28, reserva.textos.fraseStory),
-      sacolaVazia: textoLimpo(t.sacolaVazia, 48, reserva.textos.sacolaVazia),
-      falasMercado: linhasLimpas(t.falasMercado, 5, 32, reserva.textos.falasMercado),
-    },
-    categorias,
-    produtos,
-    canais,
-    stories,
-    sorte: {
-      ligado: s.ligado !== false,
-      regras: {
-        girosSemConta: inteiroDe(r.girosSemConta, 1, 3) ?? regrasEmbutidas.girosSemConta,
-        girosPorDiaComConta: inteiroDe(r.girosPorDiaComConta, 1, 5) ?? regrasEmbutidas.girosPorDiaComConta,
-        reservaSemContaHoras: inteiroDe(r.reservaSemContaHoras, 1, 72) ?? regrasEmbutidas.reservaSemContaHoras,
-      },
-      // as mesmas regras do embutido (cupom.ts): nada de bebida, produto que existe, palavras da lista
-      premios: validarPremios(premiosCrus, { produtos, categorias }),
-    },
-  }
-}
-
 /* ───────────────────────── o que o site mostra ───────────────────────── */
 
 /** Os de exemplo (demo) saem com config.dadosDeExemplo desligado; prêmio que cita produto que saiu, sai junto. */
@@ -399,24 +149,43 @@ function estadoDe(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm
 
 /* ───────────────────────── o guardado no aparelho ───────────────────────── */
 
+/** O build que guardou: com o mesmo build, a loja guardada já foi conferida pelas mesmas regras. */
+const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : ''
+
 interface Guardada {
-  formato: 1
+  formato: 2
+  build: string
   versao: number
   atualizadoEm: string
-  /** O `loja` como veio do servidor: conferido de novo a cada abertura, com as regras do build que abriu. */
+  /** O `loja` como veio do servidor (outro build confere de novo, com as regras dele). */
   loja: unknown
+  /** A loja já conferida por este build (abre a primeira tela sem conferir de novo). */
+  pronta: Loja
 }
 
-function lerGuardada(): { loja: Loja; versao: number; atualizadoEm: string } | null {
-  const g = ler<Guardada | null>(CHAVE, null)
-  if (!obj(g) || g.formato !== 1 || typeof g.versao !== 'number' || typeof g.atualizadoEm !== 'string') return null
-  const loja = lerLoja(g.loja)
-  return loja ? { loja, versao: g.versao, atualizadoEm: g.atualizadoEm } : null
+const ehObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+
+/** A guardada no aparelho: pronta pra usar (mesmo build) ou só pra conferir de novo (outro build ou formato velho). */
+function lerGuardada(): { pronta: Loja | null; crua: unknown; versao: number; atualizadoEm: string } | null {
+  const g = ler<unknown>(CHAVE, null)
+  if (!ehObjeto(g) || typeof g.versao !== 'number' || typeof g.atualizadoEm !== 'string' || (g.formato !== 1 && g.formato !== 2)) return null
+  const p = g.formato === 2 && g.build === BUILD && ehObjeto(g.pronta) ? (g.pronta as unknown as Loja) : null
+  const pronta = p && Array.isArray(p.canais) && p.canais.length && Array.isArray(p.produtos) && Array.isArray(p.categorias) && ehObjeto(p.sorte) && ehObjeto(p.textos) ? p : null
+  return { pronta, crua: g.loja, versao: g.versao, atualizadoEm: g.atualizadoEm }
 }
+
+function guardar(crua: unknown, pronta: Loja, versao: number, atualizadoEm: string) {
+  gravar(CHAVE, { formato: 2, build: BUILD, versao, atualizadoEm, loja: crua, pronta } satisfies Guardada)
+}
+
+/** Guardada por outro build (ou no formato velho): a primeira tela sai com a embutida e ela é conferida depois. */
+let paraConferir: { crua: unknown; versao: number; atualizadoEm: string } | null = null
 
 function inicial(): EstadoLoja {
   const g = lerGuardada()
-  return g ? estadoDe(g.loja, 'aparelho', g.versao, g.atualizadoEm, null) : estadoDe(EMBUTIDA, 'embutida', null, null, null)
+  if (g?.pronta) return estadoDe(g.pronta, 'aparelho', g.versao, g.atualizadoEm, null)
+  if (g) paraConferir = { crua: g.crua, versao: g.versao, atualizadoEm: g.atualizadoEm }
+  return estadoDe(EMBUTIDA, 'embutida', null, null, null)
 }
 
 export const useLoja = create<EstadoLoja>(inicial)
@@ -479,15 +248,16 @@ export function buscarLoja(): Promise<void> {
       } catch {
         return // HTML no lugar de JSON (sem servidor aqui) ou resposta cortada: fica como está
       }
-      if (!obj(d)) return
+      if (!ehObjeto(d)) return
       // o servidor existe e ainda não tem loja (painel não instalado): a embutida, que é a mesma da semente
       if (r.status === 404 && d.ok === false && d.erro === 'sem-loja') {
         apagar(CHAVE)
+        paraConferir = null
         if (useLoja.getState().fonte !== 'embutida') await aplicar(EMBUTIDA, 'embutida', null, null)
         return
       }
       if (!r.ok || d.ok !== true) return
-      const versao = numeroDe(d.versao)
+      const versao = typeof d.versao === 'number' && Number.isFinite(d.versao) ? d.versao : null
       const atualizadoEm = typeof d.atualizadoEm === 'string' && Number.isFinite(Date.parse(d.atualizadoEm)) ? d.atualizadoEm : null
       if (versao == null || !atualizadoEm) return
       const s = useLoja.getState()
@@ -496,20 +266,41 @@ export function buscarLoja(): Promise<void> {
         if (s.fonte !== 'servidor') useLoja.setState({ fonte: 'servidor' })
         return
       }
-      const loja = lerLoja(d.loja)
+      const { lerLoja } = await import('./loja-ler')
+      const loja = lerLoja(d.loja, EMBUTIDA, MAX_STORY)
       if (!loja) return
-      gravar(CHAVE, { formato: 1, versao, atualizadoEm, loja: d.loja } satisfies Guardada)
+      paraConferir = null
+      guardar(d.loja, loja, versao, atualizadoEm)
       await aplicar(loja, 'servidor', versao, atualizadoEm)
     } catch {
       /* fora do ar, tempo esgotado: fica com o que tem */
     } finally {
       clearTimeout(t)
     }
+    // sem loja nova do servidor (fora do ar, resposta torta): a guardada por outro build, conferida agora, entra no
+    // lugar da embutida
+    if (paraConferir) await conferirGuardada()
   })().finally(() => {
     buscando = null
     avisarPrimeira()
   })
   return buscando
+}
+
+/** A guardada por outro build (ou no formato velho), conferida com as regras deste: entra na tela e fica guardada. */
+async function conferirGuardada(): Promise<void> {
+  const g = paraConferir
+  paraConferir = null
+  if (!g) return
+  try {
+    const { lerLoja } = await import('./loja-ler')
+    const loja = lerLoja(g.crua, EMBUTIDA, MAX_STORY)
+    if (!loja || useLoja.getState().fonte !== 'embutida') return
+    guardar(g.crua, loja, g.versao, g.atualizadoEm)
+    await aplicar(loja, 'aparelho', g.versao, g.atualizadoEm)
+  } catch {
+    /* o pedaço não baixou: segue com a embutida */
+  }
 }
 
 /** Troca a loja de uma vez, num respiro do navegador (nunca no meio de um quadro de animação). Resolve já trocada. */

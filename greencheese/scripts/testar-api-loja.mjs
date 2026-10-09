@@ -53,8 +53,8 @@ export async function lojaSemServidor(t) {
   const maxSite = Number(/export const MAX_STORY = (\d+)/.exec(readFileSync(join(raiz, 'src/store/loja.ts'), 'utf8'))?.[1])
   const maxPainel = Number(/const MAX = (\d+)/.exec(readFileSync(join(raiz, 'src/painel/loja/Stories.tsx'), 'utf8'))?.[1])
   ok(storiesMax === maxSite && storiesMax === maxPainel, `até ${storiesMax} produtos no story: o MAX_STORY do site (${maxSite}) e o do painel (${maxPainel})`)
-  // o site confere o que chega do servidor com as mesmas listas (src/store/loja.ts): o que o painel aceita, o site mostra
-  const lojaTs = join(raiz, 'src/store/loja.ts')
+  // o site confere o que chega do servidor com as mesmas listas (src/store/loja-ler.ts): o que o painel aceita, o site mostra
+  const lojaTs = join(raiz, 'src/store/loja-ler.ts')
   igual(listaTs(lojaTs, 'const TIPOS_ARTE = new Set<TipoArte>(['), artes, 'formatos da arte: os que o site aceita do servidor')
   igual(listaTs(lojaTs, 'const ICONES = new Set(['), icones, 'ícones de categoria: os que o site aceita do servidor')
   igual(listaTs(lojaTs, 'const PAGAMENTOS = new Set<FormaPagamento>(['), pagamentos, 'formas de pagamento: as que o site aceita do servidor')

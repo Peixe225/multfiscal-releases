@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { config } from '../dados/config'
 import { PixelArte } from '../arte/PixelArte'
-import { emblemas } from '../arte/pixel/grades'
+import { emblemas } from '../arte/pixel/emblemas'
 import { brl } from '../lib/formato'
 import { diasDaEntregaGratis, ehDiaDeEntregaGratis, resumoHorario, situacao } from '../lib/horario'
 import { alvoDeSaida } from '../lib/ambiente'
