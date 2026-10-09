@@ -96,6 +96,15 @@
   color: var(--legenda);
   text-wrap: pretty;
 }
+/* o céu fica atrás dos textos corridos, sem estrela no meio das letras ("ta.mpa", "um·"): um recorte preto, sem
+   mexer no layout (a sombra passa da caixa) */
+.sorte-sub,
+.sorte-legenda,
+.sorte-fechou,
+.sorte-mini-titulo {
+  background: var(--preto);
+  box-shadow: 0 0 0 6px var(--preto);
+}
 /* tela baixa (navegador do Instagram): o adesivo sai, o disco ganha espaço */
 @media (max-height: 639px) {
   .sorte-pergunta {
@@ -956,6 +965,10 @@
 .ad-codigo-txt.px > span {
   grid-area: 1 / 1;
   text-align: center;
+}
+/* o código na grade 5×7 do código (lib/fonte-codigo.ts): na Pixelify o C fecha e lê O; o "COPIADO" fica na Pixelify */
+.ad-codigo-txt.px > [data-letras] {
+  font-family: 'GC Codigo', var(--pixel);
 }
 .ad-codigo-txt.px > span:last-child,
 .ad-codigo[data-copiado] .ad-codigo-txt > span:first-child {

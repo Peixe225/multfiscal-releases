@@ -237,12 +237,12 @@ export function StoryShell(p: Props) {
       <div className="story-coluna">
         {p.vizinho && indice > 0 && (
           <button type="button" className="story-vizinho story-vizinho-esq" onClick={anterior} aria-label="Story anterior" tabIndex={-1}>
-            {p.vizinho(indice - 1)}
+            <span aria-hidden="true">{p.vizinho(indice - 1)}</span>
           </button>
         )}
         {p.vizinho && indice < total - 1 && (
           <button type="button" className="story-vizinho story-vizinho-dir" onClick={proximo} aria-label="Próximo story" tabIndex={-1}>
-            {p.vizinho(indice + 1)}
+            <span aria-hidden="true">{p.vizinho(indice + 1)}</span>
           </button>
         )}
         <div ref={quadro} className="story-quadro" tabIndex={-1} onContextMenu={(e) => e.preventDefault()}>

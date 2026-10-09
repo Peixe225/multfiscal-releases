@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { canalDa, type Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { copiarTexto } from '../lib/copiar'
@@ -24,13 +24,47 @@ function MenuStory({ produto, canal }: { produto: Produto; canal: Canal | undefi
   const avisar = useUI((s) => s.avisar)
   const abrirPagina = useUI((s) => s.abrirPagina)
   const botao = useRef<HTMLButtonElement>(null)
+  const lista = useRef<HTMLDivElement>(null)
+  // abriu: o foco vai pro 1º item, como num menu de verdade
+  useEffect(() => {
+    if (aberto) lista.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true })
+  }, [aberto])
+  // setas, Home e End andam pelos itens; Esc fecha só o menu (o story fica) e devolve o foco pro ⋯
+  const teclas = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape' && aberto) {
+      e.preventDefault()
+      e.stopPropagation()
+      setAberto(false)
+      botao.current?.focus({ preventScroll: true })
+      return
+    }
+    if (!aberto) {
+      if (e.target === botao.current && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault()
+        e.stopPropagation()
+        setAberto(true)
+      }
+      return
+    }
+    const itens = [...(lista.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+    const i = itens.indexOf(document.activeElement as HTMLElement)
+    let j = -1
+    if (e.key === 'ArrowDown') j = (i + 1) % itens.length
+    else if (e.key === 'ArrowUp') j = i < 0 ? itens.length - 1 : (i - 1 + itens.length) % itens.length
+    else if (e.key === 'Home') j = 0
+    else if (e.key === 'End') j = itens.length - 1
+    if (j < 0 || !itens.length) return
+    e.preventDefault()
+    e.stopPropagation()
+    itens[j].focus({ preventScroll: true })
+  }
   return (
-    <div className="story-menu">
-      <button ref={botao} type="button" className="icone-botao toque" onClick={() => setAberto((v) => !v)} aria-label="Mais opções" aria-expanded={aberto}>
+    <div className="story-menu" onKeyDown={teclas}>
+      <button ref={botao} type="button" className="icone-botao toque" onClick={() => setAberto((v) => !v)} aria-label="Mais opções" aria-haspopup="menu" aria-expanded={aberto}>
         <Icone nome="mais-opcoes" tamanho={20} />
       </button>
       {aberto && (
-        <div className="story-menu-lista" role="menu">
+        <div ref={lista} className="story-menu-lista" role="menu" aria-label="Mais opções">
           <button
             type="button"
             role="menuitem"

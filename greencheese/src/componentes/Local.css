@@ -281,6 +281,17 @@ button.adesivo-local-g {
 .enquete-opcao + .enquete-opcao {
   border-left: 1px solid #dbdbdb;
 }
+/* a moldura das opções corta o que passa da borda (overflow): anel preto por dentro, visível no branco e no cheio.
+   Só com mouse/teclado: no toque o foco que a abertura põe no "Tenho" e no "Sim" não vira um quadro preto na tela */
+@media (hover: hover) and (pointer: fine) {
+  .enquete-opcao:focus-visible {
+    outline: 2px solid var(--preto);
+    outline-offset: -4px;
+  }
+  .enquete-opcao.escolhida:focus-visible {
+    outline-color: var(--branco);
+  }
+}
 .enquete-opcao .enquete-cheio {
   position: absolute;
   inset: 0;

@@ -1,4 +1,5 @@
 import { gsap } from 'gsap'
+import type { KeyboardEvent } from 'react'
 import { brl } from '../lib/formato'
 import { movimentoReduzido } from '../lib/movimento'
 import { calcularLinha } from '../lib/preco'
@@ -8,16 +9,56 @@ import './AdesivosProduto.css'
 
 // Adesivos interativos do produto (enquete, quiz, link da sacola): os mesmos no story aberto e na página do produto.
 
+/**
+ * Grupo de rádio no teclado: só o marcado é parada de Tab (sem marcado, o 1º) e as setas, Home e End trocam a escolha
+ * levando o foco junto. As setas não passam o story por baixo.
+ */
+function setasRadio<T>(e: KeyboardEvent<HTMLElement>, valores: T[], atual: T | null, mudar: (v: T) => void) {
+  const n = valores.length
+  const i = atual == null ? -1 : valores.indexOf(atual)
+  let j = -1
+  if (e.key === 'ArrowDown' || e.key === 'ArrowRight') j = (i + 1) % n
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') j = i < 0 ? n - 1 : (i - 1 + n) % n
+  else if (e.key === 'Home') j = 0
+  else if (e.key === 'End') j = n - 1
+  if (j < 0 || !n) return
+  e.preventDefault()
+  e.stopPropagation()
+  mudar(valores[j])
+  e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[j]?.focus()
+}
+
 /** Variação = adesivo de enquete. A metade escolhida enche. */
 export function EnqueteVariacao({ produto, valor, mudar }: { produto: Produto; valor: string | null; mudar: (v: string) => void }) {
   const vs = produto.variacoes ?? []
+  const parada = vs.some((v) => v.id === valor) ? valor : vs[0]?.id
   return (
-    <div className="ad-enquete" role="radiogroup" aria-label="Formato">
+    <div
+      className="ad-enquete"
+      role="radiogroup"
+      aria-label="Formato"
+      onKeyDown={(e) =>
+        setasRadio(
+          e,
+          vs.map((v) => v.id),
+          valor,
+          mudar,
+        )
+      }
+    >
       {vs.map((v) => {
         const [titulo, ...resto] = v.nome.split('·')
         const sel = v.id === valor
         return (
-          <button key={v.id} type="button" role="radio" aria-checked={sel} className={`ad-enquete-op ${sel ? 'sel' : ''}`} onClick={() => mudar(v.id)}>
+          <button
+            key={v.id}
+            type="button"
+            role="radio"
+            aria-checked={sel}
+            tabIndex={v.id === parada ? 0 : -1}
+            className={`ad-enquete-op ${sel ? 'sel' : ''}`}
+            onClick={() => mudar(v.id)}
+          >
             <span className="ad-enquete-cheio" aria-hidden="true" />
             <span className="ad-enquete-txt">
               <strong>{titulo.trim()}</strong>
@@ -33,12 +74,39 @@ export function EnqueteVariacao({ produto, valor, mudar }: { produto: Produto; v
 /** Combo = adesivo de quiz: cada linha é um preço; tocar escolhe a quantidade. */
 export function QuizCombo({ produto, qtd, mudar }: { produto: Produto; qtd: number; mudar: (q: number) => void }) {
   const linhas = [{ qtd: 1, total: produto.preco ?? 0 }, ...(produto.combos ?? [])]
+  // fora do combo (ex.: 4 pelo − +), nenhuma linha marcada: a parada de Tab fica na 1ª
+  const parada = linhas.some((l) => l.qtd === qtd) ? qtd : 1
   return (
-    <div className="ad-quiz" role="radiogroup" aria-label="Quanto leva">
-      <p className="ad-quiz-topo">Quanto leva?</p>
+    <div
+      className="ad-quiz"
+      role="radiogroup"
+      aria-label="Quanto leva"
+      onKeyDown={(e) =>
+        setasRadio(
+          e,
+          linhas.map((l) => l.qtd),
+          linhas.some((l) => l.qtd === qtd) ? qtd : null,
+          mudar,
+        )
+      }
+    >
+      <p className="ad-quiz-topo" aria-hidden="true">
+        Quanto leva?
+      </p>
       {linhas.map((l) => (
-        <button key={l.qtd} type="button" role="radio" aria-checked={qtd === l.qtd} className={`ad-quiz-linha ${qtd === l.qtd ? 'sel' : ''}`} onClick={() => mudar(l.qtd)}>
-          <span className="ad-quiz-letra">{l.qtd}</span>
+        <button
+          key={l.qtd}
+          type="button"
+          role="radio"
+          aria-checked={qtd === l.qtd}
+          tabIndex={l.qtd === parada ? 0 : -1}
+          className={`ad-quiz-linha ${qtd === l.qtd ? 'sel' : ''}`}
+          onClick={() => mudar(l.qtd)}
+        >
+          {/* o número do quiz é enfeite: o leitor ouve "2 por R$ 14,99", sem o "2" repetido */}
+          <span className="ad-quiz-letra" aria-hidden="true">
+            {l.qtd}
+          </span>
           <span>
             {l.qtd} por {brl(l.total)}
           </span>

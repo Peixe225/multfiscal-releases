@@ -102,6 +102,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  /* folga em cima e embaixo pro acento do maiúsculo (TEÓFILO) não ser cortado; a margem devolve o espaço */
+  padding-block: 3px;
+  margin-block: -3px;
 }
 .story-cab-tempo {
   font: 400 14px/1 var(--ui);
@@ -182,13 +185,18 @@
     top: calc(var(--qh) / 2 - var(--qh) * 0.21);
     display: block;
     width: calc(var(--qw) * 0.42);
-    opacity: 0.45;
+    /* 0,5: o texto branco esmaecido fica em 5,3:1 (com 0,45 dava 4,4:1, abaixo do mínimo) */
+    opacity: 0.5;
     border-radius: 8px;
     overflow: hidden;
     transition: opacity 0.2s;
   }
   .story-vizinho:hover {
     opacity: 0.8;
+  }
+  /* o miolo esmaecido fica fora do leitor (o botão já tem nome) */
+  .story-vizinho > span {
+    display: block;
   }
   .story-vizinho-esq {
     right: calc(100% + 96px);

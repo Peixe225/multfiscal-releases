@@ -15,6 +15,7 @@ import { nomeCidade, useLocal } from '../store/local'
 import { useSacola } from '../store/sacola'
 import { useUI, type TelaInterativo } from '../store/ui'
 import { Icone } from './comum'
+import '../lib/fonte-codigo'
 import './CupomSacola.css'
 
 // Cupom na sacola: a linha do cupom aplicado (com a situação dele neste pedido) ou, sem cupom, um convite discreto
@@ -129,7 +130,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
         : 'A Green Cheese ainda não chegou no teu estado. O cupom fica guardado.'
       break
     case 'fora-do-catalogo':
-      texto = 'Esse produto saiu do catálogo. Fala com a loja.'
+      texto = 'Esse produto saiu do Mercado. Fala com a loja.'
       break
     default:
       return null
