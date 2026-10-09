@@ -15,14 +15,17 @@
 // o GET falhando não "sai do ar", a vaga do "Entrar com outro WhatsApp" não preenche o formulário nem vira "Tua vaga",
 // sem vaga sobrando não tem formulário pra amigo e o sem-vagas com 0 trava o envio, as setas do estado limpam a cidade e
 // o selo da lateral usa o 2 redesenhado. A API do rateio é simulada como no contrato do API.md; nas outras rodadas ela
-// responde como "sem servidor" (HTML no lugar de JSON, sem erro no console).
+// responde como "sem servidor" (HTML no lugar de JSON, sem erro no console). A loja do servidor (o GET loja simulado,
+// mexido como o dono mexe no painel) tem a rodada dela em scripts/revisao-loja.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
+// GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { rodadaLoja } from './revisao-loja.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -85,6 +88,8 @@ async function contexto(browser, viewport, opts = {}) {
   await ctx.route(/viacep\.com\.br/, (r) => r.fulfill({ json: { erro: true } }))
   if (opts.rateio) await apiRateio(ctx)
   else await ctx.route('**/api/index.php**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' }))
+  // GC_LOJA_REAL=1: a loja vem do servidor de verdade (PHP ligado e painel instalado; sem mexer, é a mesma da semente)
+  if (process.env.GC_LOJA_REAL) await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.continue())
   if (opts.semDica) await ctx.addInitScript(() => sessionStorage.setItem('gc-dica-hero', '1'))
   return ctx
 }
@@ -1792,6 +1797,9 @@ for (const [w, h, reduzir] of [[1280, 800, false], [1280, 800, true]]) {
   const achou = lista.filter((p) => textos.some((t) => new RegExp(`(^|[^a-zà-ú])${p}([^a-zà-ú]|$)`).test(t)))
   conferir(lista.length > 10 && textos.length > 20 && !achou.length, `rua: as falas sem palavra proibida (${achou.join(', ') || `${textos.length} falas`})`)
 }
+
+// ---------- a loja do servidor no site (scripts/revisao-loja.mjs) ----------
+await rodadaLoja({ browser, base, contexto, conferir, foto, vigiar, vigiarSemRede, clicar, digitar })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

@@ -203,7 +203,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
             <h2 id="h-st-previa" className="pn-h2">
               Como passa no site
             </h2>
-            <PreviaStory produtos={naTela} atual={Math.min(atual, Math.max(0, naTela.length - 1))} instagram={estado.instagram} />
+            <PreviaStory produtos={naTela} atual={Math.min(atual, Math.max(0, naTela.length - 1))} instagram={estado.instagram} comRua={l.ajustes.ruaNoStory} />
             {naTela.length > 1 && (
               <div className="pn-botoes pn-botoes-linha pn-previa-passar">
                 <Botao variante="cinza" onClick={() => setAtual((a) => (a - 1 + naTela.length) % naTela.length)} aria-label="Produto anterior na prévia">
@@ -218,7 +218,8 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
               </div>
             )}
             <p className="pn-dica-bloco pn-previa-legenda-p">
-              {auto ? 'No automático agora.' : 'A tua ordem.'} Pra mudar o que tá à venda,{' '}
+              {auto ? 'No automático agora.' : 'A tua ordem.'}
+              {l.ajustes.ruaNoStory ? ' No celular, a rua do mercador passa antes.' : ''} Pra mudar o que tá à venda,{' '}
               <Link href={caminho.produtos} className="pn-link pn-link-dentro">
                 Produtos
               </Link>

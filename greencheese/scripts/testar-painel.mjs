@@ -347,7 +347,7 @@ try {
   await p.getByRole('dialog').waitFor({ state: 'detached' })
   ok(true, 'Esc fecha a folha')
 
-  await fluxoLoja({ p, BASE, ok, print, axe, foto })
+  await fluxoLoja({ p, BASE, ok, print, axe, foto, browser })
 
   // conta: trocar senha, sair, entrar com a nova
   await p.goto(`${BASE}/painel/#/conta`)

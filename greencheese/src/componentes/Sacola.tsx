@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useConferirCupom } from '../lib/cupom-pedido'
 import { esquecerAjustes, foiAjustado } from '../lib/estoque'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
@@ -139,9 +139,11 @@ export function SacolaFolha() {
   const n = contarItens(itens)
   // o cupom aplicado ainda vale? (vencido, usado ou fora da conta sai com aviso)
   useConferirCupom(aberta)
-  // o aviso "ajustei a quantidade" vale até a sacola fechar
+  // o aviso "ajustei a quantidade" vale até a sacola fechar (só no fechar: a folha monta fechada, depois do ajuste)
+  const abertaAntes = useRef(aberta)
   useEffect(() => {
-    if (!aberta) esquecerAjustes()
+    if (abertaAntes.current && !aberta) esquecerAjustes()
+    abertaAntes.current = aberta
   }, [aberta])
 
   // sugestão de combinação (dado da loja: Jack Daniel's + Coca-Cola Vanilla num post deles)
