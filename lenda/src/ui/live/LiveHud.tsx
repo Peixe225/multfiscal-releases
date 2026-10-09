@@ -3,7 +3,6 @@
  * opção · último presente · maiores apoiadores · termômetro de curtidas · menu do streamer.
  */
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { Crown, Flame, Pause, Play, Settings2, SkipForward, Sparkles, Square, Users } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { newLegendNow } from '@/live/autopilot'
@@ -101,6 +100,7 @@ function ResultHead() {
 
 function StageHead() {
   const stage = useLive((s) => s.stage)
+  const creation = useLive((s) => s.creation)
   const nextAt = useLive((s) => s.nextCareerAt)
   const paused = useLiveSession((s) => s.paused)
   const phase = useReveal((s) => s.phase)
@@ -114,6 +114,12 @@ function StageHead() {
   } else if (stage === 'ending') {
     k = 'Fim de carreira'
     t = nextAt ? `Nova lenda em ${Math.max(0, Math.ceil((nextAt - now) / 1000))}s` : 'A próxima lenda começa quando o streamer quiser'
+  } else if (creation?.phase === 'bidding') {
+    k = 'Disputa pela criação'
+    t = 'Quem doar mais agora cria a próxima lenda!'
+  } else if (creation?.phase === 'creating') {
+    k = 'Criação da lenda'
+    t = `${creation.winner?.user.name ?? 'O vencedor'} está criando a lenda`
   } else if (stage === 'identity') {
     k = 'Nova lenda'
     t = 'O chat está montando o próximo craque'
@@ -138,13 +144,12 @@ function FeedLine() {
   const item = feed.find((f) => f.kind !== 'vote') ?? feed[0]
   return (
     <div className="lv-feed" aria-live="polite">
-      <AnimatePresence mode="popLayout" initial={false}>
-        {item && (
-          <motion.span key={item.id} className={cx('lv-feed__it', `is-${item.kind}`)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
-            <FeedText item={item} />
-          </motion.span>
-        )}
-      </AnimatePresence>
+      {/* troca seca + entrada curta: com muitos presentes seguidos, saída animada sobrepunha duas linhas */}
+      {item && (
+        <span key={item.id} className={cx('lv-feed__it', `is-${item.kind}`)}>
+          <FeedText item={item} />
+        </span>
+      )}
     </div>
   )
 }
@@ -220,6 +225,7 @@ function HudMenu() {
   const [open, setOpen] = useState(false)
   const paused = useLiveSession((s) => s.paused)
   const round = useLive((s) => s.round)
+  const creation = useLive((s) => s.creation)
   const stage = useLive((s) => s.stage)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -244,8 +250,8 @@ function HudMenu() {
           <button type="button" role="menuitem" onClick={act(() => useLiveSession.getState().setPaused(!paused))}>
             {paused ? <Play size={15} /> : <Pause size={15} />} {paused ? 'Retomar votações' : 'Pausar votações'}
           </button>
-          <button type="button" role="menuitem" disabled={!round} onClick={act(() => useLive.getState().closeNow())}>
-            <SkipForward size={15} /> Encerrar a votação agora
+          <button type="button" role="menuitem" disabled={!round && !creation} onClick={act(() => useLive.getState().closeNow())}>
+            <SkipForward size={15} /> {creation ? (creation.phase === 'bidding' ? 'Encerrar a disputa agora' : 'Encerrar a criação agora') : 'Encerrar a votação agora'}
           </button>
           <button type="button" role="menuitem" disabled={stage === 'identity'} onClick={act(() => newLegendNow())}>
             <Sparkles size={15} /> Nova lenda (chat vota)

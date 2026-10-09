@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createStreakTracker, parseMessage, resolveGift } from './protocol'
 import { applyEvent, createRound, decide, leaders, parseVote, percents, shouldExtend, type Round, type VoteRules } from './votes'
-import { cleanFixed, nationChoices, surnameFromNick } from './identity'
+import { cleanFixed, makeCountryFinder, nationChoices, parseCreatorCommand, safeName, surnameFromNick } from './identity'
 import { sameGift } from './gifts'
 import type { LiveEvent, RawGiftEvent } from './types'
 
@@ -159,5 +159,48 @@ describe('identity & gifts', () => {
     expect(sameGift({ id: '5655', name: 'Rose' }, 'Rosa')).toBe(true)
     expect(sameGift({ id: '5655', name: 'rose' }, '5655')).toBe(true)
     expect(sameGift({ id: '1', name: 'GG' }, 'Rose')).toBe(false)
+  })
+})
+
+describe('creator commands (top donor builds the legend)', () => {
+  const find = makeCountryFinder([
+    { code: 'BRA', name: 'Brasil' },
+    { code: 'ARG', name: 'Argentina' },
+    { code: 'USA', name: 'Estados Unidos' },
+    { code: 'NED', name: 'Países Baixos' },
+    { code: 'JPN', name: 'Japão' },
+    { code: 'POR', name: 'Portugal' },
+  ])
+  it('finds countries by name, code, accent-free text, aliases and unique prefix', () => {
+    expect(find('Brasil')).toBe('BRA')
+    expect(find('arg')).toBe('ARG')
+    expect(find('japao')).toBe('JPN')
+    expect(find('EUA')).toBe('USA')
+    expect(find('holanda')).toBe('NED')
+    expect(find('portu')).toBe('POR')
+    expect(find('França')).toBeNull()
+  })
+  it('reads single commands with or without "!" and separators', () => {
+    expect(parseCreatorCommand('!nome Gabigol', find)?.draft).toEqual({ surname: 'GABIGOL' })
+    expect(parseCreatorCommand('nome: de bruyne', find)?.draft).toEqual({ surname: 'DE BRUYNE' })
+    expect(parseCreatorCommand('!país Argentina', find)?.draft).toEqual({ nationality: 'ARG' })
+    expect(parseCreatorCommand('!posicao goleiro', find)?.draft).toEqual({ position: 'GOL' })
+    expect(parseCreatorCommand('!pos lateral esquerdo', find)?.draft).toEqual({ position: 'LE' })
+    expect(parseCreatorCommand('posição: camisa 10', find)?.draft).toEqual({ position: 'MEI' })
+  })
+  it('reads !criar in any order and plain country/position messages', () => {
+    expect(parseCreatorCommand('!criar Fenômeno, Brasil, atacante', find)?.draft).toEqual({ surname: 'FENOMENO', nationality: 'BRA', position: 'CA' })
+    expect(parseCreatorCommand('!criar zagueiro / japão / Tsubasa', find)?.draft).toEqual({ surname: 'TSUBASA', nationality: 'JPN', position: 'ZAG' })
+    expect(parseCreatorCommand('Brasil', find)?.draft).toEqual({ nationality: 'BRA' })
+    expect(parseCreatorCommand('goleiro', find)?.draft).toEqual({ position: 'GOL' })
+    expect(parseCreatorCommand('1', find)).toBeNull()
+    expect(parseCreatorCommand('bora time kkkk', find)).toBeNull()
+    expect(parseCreatorCommand('!pais Wakanda', find)).toBeNull()
+  })
+  it('refuses offensive names and keeps shirt names short', () => {
+    expect(parseCreatorCommand('!nome caralhudo', find)).toEqual({ draft: {}, rejected: 'name' })
+    expect(parseCreatorCommand('!criar Porra, Brasil, meia', find)).toEqual({ draft: { nationality: 'BRA', position: 'MEI' }, rejected: 'name' })
+    expect(safeName('Pedro Henrique Alves da Silva')?.length).toBeLessThanOrEqual(15)
+    expect(safeName('x')).toBeNull()
   })
 })

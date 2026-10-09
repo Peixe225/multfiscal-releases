@@ -1,17 +1,20 @@
 /**
- * Palco da live (#/live?tela=palco): votação grande para criar a próxima lenda (posição, nacionalidade)
- * e o anúncio "Nasce uma lenda" com o nome do maior apoiador.
+ * Palco da live (#/live?tela=palco): disputa (quem doar mais cria a lenda), criação pelo vencedor com
+ * comandos no chat, votação grande do que faltar (posição, nacionalidade) e o anúncio "Nasce uma lenda".
  */
+import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Crown, Play, Radio } from 'lucide-react'
+import { Check, Crown, Gift, PenLine, Play, Radio } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { newLegendNow } from '@/live/autopilot'
 import { useLiveConfig, useLiveSession } from '@/live/config'
-import { topSupporters, useLive } from '@/live/store'
+import { POSITION_NAMES } from '@/engine/career/util'
+import { useCountry } from '@/store/data'
+import { topBids, topSupporters, useLive, type Creation } from '@/live/store'
 import { percents } from '@/live/votes'
-import { Button, cx } from '@/ui/primitives'
+import { Button, Flag, cx } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
-import { GiftIcon, OPTION_COLORS, fmtCoins, howToVote } from './bits'
+import { Countdown, GiftIcon, OPTION_COLORS, fmtCoins, howToVote } from './bits'
 
 function StageVote() {
   const round = useLive((s) => s.round)
@@ -43,6 +46,85 @@ function StageVote() {
   )
 }
 
+function Bidding({ c }: { c: Creation }) {
+  const paused = useLiveSession((s) => s.paused)
+  const min = useLiveConfig((s) => s.config.minBidCoins)
+  const bids = topBids(c, 5)
+  return (
+    <div className="lv-stage__vote lv-bid">
+      <div className="lv-create__top">
+        <span className="lv-stage__k">
+          <Gift size={14} aria-hidden="true" /> Disputa pela criação
+        </span>
+        <Countdown endsAt={c.endsAt} total={c.endsAt - c.startedAt} size={54} paused={paused} />
+      </div>
+      <h1 className="lv-stage__t">Quem doar mais agora cria a próxima lenda!</h1>
+      <p className="lv-stage__how">Qualquer presente vale{min > 1 ? ` (mínimo ${min} moedas)` : ''}. O vencedor escolhe nome, nacionalidade e posição do jogador.</p>
+      {bids.length ? (
+        <ol className="lv-bids">
+          {bids.map((b, i) => (
+            <li key={b.user.id} className={cx(i === 0 && 'is-top')}>
+              {i === 0 ? <Crown size={18} aria-hidden="true" /> : <span className="lv-pod__n">{i + 1}</span>}
+              <span className="lv-pod__name">{b.user.name}</span>
+              <span className="lv-bids__c tabular-nums">{fmtCoins(b.coins)} moedas</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="lv-stage__empty lv-bids__empty">Ninguém doou ainda. Seja o primeiro!</p>
+      )}
+    </div>
+  )
+}
+
+function DraftRow({ label, value, hint, done }: { label: string; value?: ReactNode; hint: string; done: boolean }) {
+  return (
+    <li className={cx('lv-draft__row', done && 'is-done')}>
+      <span className="lv-draft__l">{label}</span>
+      <span className="lv-draft__v">{done ? value : <span className="lv-draft__wait">aguardando…</span>}</span>
+      {done ? <Check size={18} aria-hidden="true" className="lv-draft__ok" /> : <code className="lv-draft__cmd">{hint}</code>}
+    </li>
+  )
+}
+
+function Creating({ c }: { c: Creation }) {
+  const paused = useLiveSession((s) => s.paused)
+  const country = useCountry(c.draft.nationality ?? null)
+  const d = c.draft
+  return (
+    <div className="lv-stage__vote lv-create">
+      <div className="lv-create__top">
+        <span className="lv-stage__k">
+          <PenLine size={14} aria-hidden="true" /> Criação da lenda
+        </span>
+        <Countdown endsAt={c.endsAt} total={c.endsAt - c.startedAt} size={54} paused={paused} />
+      </div>
+      <h1 className="lv-stage__t">
+        <Crown size={26} aria-hidden="true" className="lv-create__crown" /> {c.winner?.user.name ?? 'O vencedor'} está criando a lenda
+      </h1>
+      <p className="lv-stage__how">
+        Só as mensagens de <b>@{c.winner?.user.id}</b> contam. Digite no chat os comandos abaixo, ou tudo de uma vez: <code>!criar Nome, País, Posição</code>
+      </p>
+      <ul className="lv-draft">
+        <DraftRow label="Nome" done={!!d.surname} value={<b className="lv-draft__name">{d.surname}</b>} hint="!nome SEUNOME" />
+        <DraftRow
+          label="Nacionalidade"
+          done={!!d.nationality}
+          value={
+            <>
+              <Flag code={d.nationality} h={18} decorative /> {country?.name ?? d.nationality}
+            </>
+          }
+          hint="!pais Brasil"
+        />
+        <DraftRow label="Posição" done={!!d.position} value={d.position ? POSITION_NAMES[d.position] : ''} hint="!posicao atacante" />
+      </ul>
+      {c.feedback && <p className="lv-create__fb">{c.feedback}</p>}
+      <p className="lv-stage__empty">O que não for escolhido a tempo, o chat decide na votação.</p>
+    </div>
+  )
+}
+
 function Announce() {
   const a = useLive((s) => s.announce)
   const rm = useReducedMotion()
@@ -66,6 +148,7 @@ function Announce() {
 function Podium() {
   const supporters = useLive((s) => s.supporters)
   const nameMode = useLiveConfig((s) => s.config.nameMode)
+  const creator = useLiveConfig((s) => s.config.creator)
   const top = topSupporters(supporters, 5)
   return (
     <aside className="lv-stage__podium" aria-label="Maiores apoiadores da live">
@@ -85,7 +168,13 @@ function Podium() {
       ) : (
         <p className="lv-stage__empty">Ninguém mandou presente ainda.</p>
       )}
-      {nameMode === 'apoiador' && <p className="lv-stage__hint">O maior apoiador dá o nome para a próxima lenda!</p>}
+      {creator === 'disputa' ? (
+        <p className="lv-stage__hint">Na disputa, quem doar mais cria a próxima lenda: nome, país e posição!</p>
+      ) : creator === 'apoiador' ? (
+        <p className="lv-stage__hint">Quem mais doar na carreira cria a próxima lenda!</p>
+      ) : (
+        nameMode === 'apoiador' && <p className="lv-stage__hint">O maior apoiador dá o nome para a próxima lenda!</p>
+      )}
     </aside>
   )
 }
@@ -95,12 +184,13 @@ export function LiveStage() {
   const round = useLive((s) => s.round)
   const result = useLive((s) => s.result)
   const announce = useLive((s) => s.announce)
+  const creation = useLive((s) => s.creation)
   const stage = useLive((s) => s.stage)
-  const idle = !round && !announce && !result && stage !== 'identity'
+  const idle = !round && !announce && !result && !creation && stage !== 'identity'
   return (
     <main id="conteudo" className="lv-stage" tabIndex={-1}>
       <div className="lv-stage__card lx-glass lx-top-light">
-        {announce ? <Announce /> : round || result ? <StageVote /> : null}
+        {announce ? <Announce /> : creation?.phase === 'bidding' ? <Bidding c={creation} /> : creation?.phase === 'creating' ? <Creating c={creation} /> : round || result ? <StageVote /> : null}
         {idle && (
           <div className="lv-stage__idle">
             <Radio size={28} aria-hidden="true" />

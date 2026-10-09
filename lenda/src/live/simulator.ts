@@ -40,9 +40,37 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let favRound = ''
 let fav = 0
 
+const SIM_NAMES = ['GABIGOL', 'FENÔMENO', 'PELEZINHO', 'ZICO', 'RAFINHA', 'DUDU', 'MANU', 'TÉO']
+const SIM_COUNTRIES = ['Brasil', 'Argentina', 'Portugal', 'França', 'Japão', 'eua']
+const SIM_POSITIONS = ['atacante', 'meia', 'goleiro', 'zagueiro', 'ponta', 'volante', 'lateral esquerdo']
+
+/** Vencedor de mentira digitando a ficha aos poucos (às vezes tudo de uma vez). */
+function simCreator(): boolean {
+  const c = useLive.getState().creation
+  if (c?.phase !== 'creating' || !c.winner || !HANDLES.includes(c.winner.user.id)) return false
+  if (Math.random() > 0.3) return false
+  const u = c.winner.user
+  const d = c.draft
+  if (!d.surname && !d.nationality && !d.position && Math.random() < 0.3) simChat(`!criar ${pick(SIM_NAMES)}, ${pick(SIM_COUNTRIES)}, ${pick(SIM_POSITIONS)}`, u)
+  else if (!d.surname) simChat(`!nome ${pick(SIM_NAMES)}`, u)
+  else if (!d.nationality) simChat(`!pais ${pick(SIM_COUNTRIES)}`, u)
+  else if (!d.position) simChat(`!posicao ${pick(SIM_POSITIONS)}`, u)
+  return true
+}
+
 function step() {
   const cfg = useLiveConfig.getState().config
   const live = useLive.getState()
+  if (simCreator()) {
+    timer = setTimeout(step, 900)
+    return
+  }
+  // disputa: o público de teste dá lances (presentes) para criar a lenda
+  if (live.creation?.phase === 'bidding' && Math.random() < 0.6) {
+    simGift(pick(['Rose', 'Rose', 'TikTok', 'Finger Heart', 'Doughnut', 'Perfume']), Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 6) : 1, viewer())
+    timer = setTimeout(step, (cfg.simSpeed === 3 ? 260 : cfg.simSpeed === 2 ? 650 : 1400) * (0.5 + Math.random()))
+    return
+  }
   const r = live.round
   const n = r?.options.length ?? 0
   if (r && r.id !== favRound) {

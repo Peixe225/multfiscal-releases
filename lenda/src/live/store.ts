@@ -5,8 +5,10 @@
  *   useLive.getState().ingest({ type: 'gift', … })       // simulador / conexão
  */
 import { create } from 'zustand'
+import { useData } from '@/store/data'
 import { useLiveConfig, useLiveSession } from './config'
 import { giftLabel } from './gifts'
+import { makeCountryFinder, parseCreatorCommand, type CreatorDraft } from './identity'
 import type { BridgeStatus, LiveEvent, LiveGiftInfo, LiveSource, LiveUser } from './types'
 import { applyEvent, createRound, decide, extend, shouldExtend, type Outcome, type Round, type RoundKind, type VoteOption } from './votes'
 
@@ -39,6 +41,28 @@ export interface Announcement {
   until: number
 }
 
+export interface Bid {
+  user: LiveUser
+  coins: number
+  at: number
+}
+
+/** Disputa (quem doar mais cria a lenda) e a criação pelo vencedor (comandos no chat). */
+export interface Creation {
+  phase: 'bidding' | 'creating'
+  startedAt: number
+  endsAt: number
+  bids: Record<string, Bid>
+  winner?: Bid
+  draft: CreatorDraft
+  /** Último retorno para o criador ("Nome: GABIGOL ✓", "nome recusado"). */
+  feedback?: string
+}
+
+export function topBids(c: Creation | null, n = 5): Bid[] {
+  return c ? Object.values(c.bids).sort((a, b) => b.coins - a.coins || a.at - b.at).slice(0, n) : []
+}
+
 export interface RoundSpec {
   id: string
   kind: RoundKind
@@ -69,6 +93,7 @@ interface LiveStore {
   /** Fim de carreira: quando começa a próxima (ms epoch). */
   nextCareerAt: number | null
   announce: Announcement | null
+  creation: Creation | null
 
   setSource(s: LiveSource | null): void
   setStatus(s: BridgeStatus): void
@@ -81,6 +106,16 @@ interface LiveStore {
   resetCareerSupporters(): void
   clearSession(): void
   pushInfo(text: string): void
+  startBidding(seconds: number): void
+  startCreating(winner: Bid, seconds: number): void
+  endCreation(): void
+}
+
+let countryFinder: { src: unknown; find: (q: string) => string | null } | null = null
+function findCountry(q: string): string | null {
+  const countries = useData.getState().data?.countries ?? []
+  if (!countryFinder || countryFinder.src !== countries) countryFinder = { src: countries, find: makeCountryFinder(countries) }
+  return countryFinder.find(q)
 }
 
 const FEED_MAX = 14
@@ -120,6 +155,8 @@ export const useLive = create<LiveStore>()((set, get) => {
     const now = Date.now()
     const dt = lastTick ? now - lastTick : 0
     lastTick = now
+    const c = get().creation
+    if (c && useLiveSession.getState().paused) set({ creation: { ...c, endsAt: c.endsAt + dt } })
     const r = get().round
     if (!r) return
     if (useLiveSession.getState().paused) {
@@ -152,6 +189,7 @@ export const useLive = create<LiveStore>()((set, get) => {
     stage: 'idle',
     nextCareerAt: null,
     announce: null,
+    creation: null,
 
     setSource: (source) => set({ source }),
     setStatus: (status) => set({ status }),
@@ -181,6 +219,23 @@ export const useLive = create<LiveStore>()((set, get) => {
         // a lista de presentes da configuração aprende com os presentes reais (imagem e preço da sala)
         if (e.gift.image && !get().catalog.some((g) => g.name === e.gift.name)) set((s) => ({ catalog: [...s.catalog, e.gift].sort((a, b) => a.coins - b.coins) }))
         set((s) => ({ supporters: addSupporter(s.supporters, e.user, coins, e.count, e.at), careerSupporters: addSupporter(s.careerSupporters, e.user, coins, e.count, e.at) }))
+        const c = get().creation
+        if (c?.phase === 'bidding' && Date.now() < c.endsAt) {
+          const cur = c.bids[e.user.id]
+          set({ creation: { ...c, bids: { ...c.bids, [e.user.id]: { user: { ...cur?.user, ...e.user }, coins: (cur?.coins ?? 0) + coins, at: cur?.at ?? e.at } } } })
+        }
+      }
+      if (e.type === 'chat') {
+        const c = get().creation
+        if (c?.phase === 'creating' && c.winner && c.winner.user.id === e.user.id && Date.now() < c.endsAt) {
+          const parsed = parseCreatorCommand(e.text, findCountry)
+          if (parsed) {
+            const draft = { ...c.draft, ...parsed.draft }
+            const bits = [parsed.draft.surname && `Nome: ${parsed.draft.surname}`, parsed.draft.nationality && 'País escolhido', parsed.draft.position && 'Posição escolhida'].filter(Boolean)
+            const feedback = parsed.rejected === 'name' && !parsed.draft.surname ? 'Esse nome não pode — escolha outro' : bits.length ? `${bits.join(' · ')} ✓` : c.feedback
+            set({ creation: { ...c, draft, ...(feedback ? { feedback } : {}) } })
+          }
+        }
       }
       const r = get().round
       if (r) {
@@ -209,7 +264,25 @@ export const useLive = create<LiveStore>()((set, get) => {
 
     closeNow() {
       if (get().round) close()
+      const c = get().creation
+      if (c) set({ creation: { ...c, endsAt: Date.now() } })
     },
+
+    startBidding(seconds) {
+      const now = Date.now()
+      set({ creation: { phase: 'bidding', startedAt: now, endsAt: now + seconds * 1000, bids: {}, draft: {} } })
+      lastTick = now
+      if (!ticker) ticker = setInterval(tick, 200)
+    },
+
+    startCreating(winner, seconds) {
+      const now = Date.now()
+      set((s) => ({ creation: { phase: 'creating', startedAt: now, endsAt: now + seconds * 1000, bids: s.creation?.bids ?? {}, winner, draft: {} } }))
+      lastTick = now
+      if (!ticker) ticker = setInterval(tick, 200)
+    },
+
+    endCreation: () => set({ creation: null }),
 
     cancelRound() {
       const res = resolver
@@ -224,7 +297,7 @@ export const useLive = create<LiveStore>()((set, get) => {
       get().cancelRound()
       if (ticker) clearInterval(ticker)
       ticker = null
-      set({ result: null, feed: [], supporters: {}, careerSupporters: {}, likes: 0, likesMeter: 0, likeBursts: 0, stage: 'idle', nextCareerAt: null, announce: null })
+      set({ result: null, feed: [], supporters: {}, careerSupporters: {}, likes: 0, likesMeter: 0, likeBursts: 0, stage: 'idle', nextCareerAt: null, announce: null, creation: null })
     },
 
     pushInfo: (text) => pushFeed({ kind: 'info', text, at: Date.now() }),

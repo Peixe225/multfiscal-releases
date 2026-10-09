@@ -13,6 +13,8 @@ import type { LiveSource } from './types'
 import type { VoteRules } from './votes'
 
 export type NameMode = 'apoiador' | 'fixo' | 'aleatorio'
+/** Quem cria a próxima lenda: o maior doador de uma disputa, o maior apoiador da carreira anterior ou o chat (votação). */
+export type CreatorMode = 'disputa' | 'apoiador' | 'votacao'
 
 export interface LiveConfig extends VoteRules {
   source: LiveSource
@@ -30,7 +32,14 @@ export interface LiveConfig extends VoteRules {
   celebrationSeconds: number
   /** Ao fim da carreira: segundos na tela final antes de começar outra. 0 = esperar o streamer. */
   nextCareerSeconds: number
-  /** O chat vota posição e nacionalidade da próxima lenda. */
+  creator: CreatorMode
+  /** Segundos da disputa (quem doar mais nesse tempo cria a lenda). */
+  bidSeconds: number
+  /** Segundos para o vencedor digitar nome, país e posição. */
+  createSeconds: number
+  /** Moedas mínimas para vencer a disputa. */
+  minBidCoins: number
+  /** O chat vota posição e nacionalidade (ou o que o criador não escolheu a tempo). */
   identityVote: boolean
   nameMode: NameMode
   fixedName: string
@@ -52,6 +61,10 @@ export const DEFAULT_LIVE_CONFIG: LiveConfig = {
   extendOnTie: true,
   celebrationSeconds: 6,
   nextCareerSeconds: 20,
+  creator: 'disputa',
+  bidSeconds: 30,
+  createSeconds: 60,
+  minBidCoins: 1,
   identityVote: true,
   nameMode: 'apoiador',
   fixedName: '',

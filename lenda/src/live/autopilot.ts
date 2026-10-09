@@ -1,15 +1,17 @@
 /**
  * Autopiloto do Modo Clássico durante a live: o chat decide, o jogo anda sozinho.
  *
- *   sem carreira / carreira encerrada → palco (#/live?tela=palco): o chat vota posição e nacionalidade,
- *                                       o maior apoiador dá nome à lenda → carreira começa
+ *   sem carreira / carreira encerrada → palco (#/live?tela=palco): disputa (quem doar mais cria a lenda:
+ *                                       nome, país e posição por comandos no chat) ou votação do chat
+ *                                       → carreira começa
  *   decisão pendente                  → votação (comentários + presentes) → escolha automática
  *   comemoração de título             → fica N s na tela e segue
  *   fim de carreira                   → tela final por N s (com os maiores apoiadores) → nova lenda
  *
  * O streamer pode pausar (as votações congelam) ou clicar numa opção ele mesmo (a votação é cancelada).
  */
-import type { Decision, PlayerIdentity } from '@/engine/types'
+import type { Decision, PlayerIdentity, Position } from '@/engine/types'
+import { POSITION_NAMES } from '@/engine/career/util'
 import { navigate, useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { getClub, getCountry } from '@/store/data'
@@ -17,8 +19,8 @@ import { penaltyTargets, isPenaltyDecision } from '@/ui/classic/decision/Penalty
 import { director } from '@/ui/classic/reveal/director'
 import { useReveal } from '@/ui/classic/reveal/store'
 import { useLiveConfig, useLiveSession } from './config'
-import { POSITION_CHOICES, cleanFixed, footFor, nationChoices, randomSurname, surnameFromNick } from './identity'
-import { topSupporters, useLive, type RoundSpec } from './store'
+import { NUMBER_BY_POSITION, POSITION_CHOICES, cleanFixed, footFor, nationChoices, randomSurname, surnameFromNick, type CreatorDraft } from './identity'
+import { topBids, topSupporters, useLive, type Bid, type RoundSpec } from './store'
 import type { LiveUser } from './types'
 
 type Side = 'left' | 'center' | 'right'
@@ -106,46 +108,140 @@ function legendName(): { surname: string; honoree?: LiveUser } {
   return { surname: randomSurname(seed) }
 }
 
-/** Palco: posição → nacionalidade → anúncio → carreira. */
+const sessionOn = () => running && useLiveSession.getState().on
+
+/** Espera `done()` (checa a cada 200 ms); false se a live parou no meio. */
+async function waitUntil(done: () => boolean): Promise<boolean> {
+  while (sessionOn() && !done()) await sleep(200)
+  return sessionOn()
+}
+
+/** Disputa: quem doar mais em N segundos ganha o direito de criar a lenda. */
+async function runBidding(): Promise<Bid | null> {
+  const cfg = useLiveConfig.getState().config
+  useLive.getState().startBidding(cfg.bidSeconds)
+  const ok = await waitUntil(() => {
+    const c = useLive.getState().creation
+    return !c || Date.now() >= c.endsAt
+  })
+  const top = topBids(useLive.getState().creation, 1)[0]
+  if (!ok) return null
+  if (!top || top.coins < Math.max(1, cfg.minBidCoins)) {
+    useLive.getState().endCreation()
+    useLive.getState().pushInfo('Ninguém doou na disputa: o chat escolhe a nova lenda')
+    return null
+  }
+  return top
+}
+
+/** O vencedor digita nome, país e posição no chat (só as mensagens dele contam). */
+async function runCreation(winner: Bid): Promise<CreatorDraft | null> {
+  const cfg = useLiveConfig.getState().config
+  useLive.getState().startCreating(winner, cfg.createSeconds)
+  let readyAt = 0
+  const ok = await waitUntil(() => {
+    const c = useLive.getState().creation
+    if (!c) return true
+    const d = c.draft
+    if (d.surname && d.nationality && d.position) {
+      // tudo escolhido: um instante para a galera ver a ficha completa
+      readyAt ||= Date.now() + 2500
+      return Date.now() >= readyAt
+    }
+    return Date.now() >= c.endsAt
+  })
+  return ok ? (useLive.getState().creation?.draft ?? {}) : null
+}
+
+/** Maior apoiador da carreira que acabou (ou da live), para o modo "apoiador". */
+function topSupporterBid(): Bid | null {
+  const live = useLive.getState()
+  const s = topSupporters(live.careerSupporters, 1)[0] ?? topSupporters(live.supporters, 1)[0]
+  return s && s.coins > 0 ? { user: s.user, coins: s.coins, at: s.at } : null
+}
+
+/** Votação de posição (quando ninguém escolheu). */
+async function votePosition(): Promise<Position | null> {
+  const out = await useLive.getState().startRound({ id: `id:pos:${Date.now()}`, kind: 'identity', title: 'Qual vai ser a posição da nova lenda?', options: POSITION_CHOICES.map((p) => ({ id: p.id, label: p.label })) })
+  if (!out || !sessionOn()) return null
+  await sleep(1800)
+  return POSITION_CHOICES[out.winner].id
+}
+
+async function voteNationality(): Promise<string | null> {
+  const codes = nationChoices(Date.now() + legends, (c) => !!getCountry(c))
+  const out = await useLive.getState().startRound({ id: `id:nat:${Date.now()}`, kind: 'identity', title: 'E a nacionalidade?', options: codes.map((c) => ({ id: c, label: getCountry(c)?.name ?? c })) })
+  if (!out || !sessionOn()) return null
+  await sleep(1800)
+  return codes[out.winner]
+}
+
+/**
+ * Nova lenda: disputa → criação pelo vencedor (ou maior apoiador) → o chat vota o que faltou → anúncio →
+ * carreira. No modo "votação", o chat vota posição e nacionalidade e o nome vem do maior apoiador.
+ */
 async function runIdentity() {
   if (identityBusy) return
   identityBusy = true
   clearEnd()
-  const live = useLive.getState()
   const cfg = useLiveConfig.getState().config
   useLive.setState({ stage: 'identity', announce: null })
   navigate('/live', { query: { tela: 'palco' } })
   try {
     legends++
-    let position = POSITION_CHOICES[0]
-    let nationality = 'BRA'
-    if (cfg.identityVote) {
-      const pos = await live.startRound({ id: `id:pos:${Date.now()}`, kind: 'identity', title: 'Qual vai ser a posição da nova lenda?', options: POSITION_CHOICES.map((p) => ({ id: p.id, label: p.label })) })
-      if (!pos || !useLiveSession.getState().on) return
-      position = POSITION_CHOICES[pos.winner]
-      await sleep(1800)
-      const codes = nationChoices(Date.now() + legends, (c) => !!getCountry(c))
-      const nat = await useLive.getState().startRound({ id: `id:nat:${Date.now()}`, kind: 'identity', title: 'E a nacionalidade?', options: codes.map((c) => ({ id: c, label: getCountry(c)?.name ?? c })) })
-      if (!nat || !useLiveSession.getState().on) return
-      nationality = codes[nat.winner]
-      await sleep(1800)
-    } else {
-      position = POSITION_CHOICES[legends % POSITION_CHOICES.length]
+    let draft: CreatorDraft = {}
+    let creator: Bid | null = null
+    if (cfg.creator !== 'votacao') {
+      creator = cfg.creator === 'apoiador' ? topSupporterBid() : await runBidding()
+      if (!sessionOn()) return
+      if (creator) {
+        const d = await runCreation(creator)
+        if (!d) return
+        draft = d
+      }
+      useLive.getState().endCreation()
     }
-    const { surname, honoree } = legendName()
-    const identity: PlayerIdentity = { surname, number: position.number, foot: footFor(Date.now()), nationality, position: position.id }
+    let position: Position = draft.position ?? POSITION_CHOICES[legends % POSITION_CHOICES.length].id
+    if (!draft.position && cfg.identityVote) {
+      const p = await votePosition()
+      if (!p) return
+      position = p
+    }
+    let nationality = draft.nationality ?? 'BRA'
+    if (!draft.nationality && cfg.identityVote) {
+      const n = await voteNationality()
+      if (!n) return
+      nationality = n
+    }
+    let surname: string
+    let honoree: LiveUser | undefined
+    if (creator) {
+      surname = draft.surname ?? surnameFromNick(creator.user.name) ?? surnameFromNick(creator.user.id) ?? randomSurname(Date.now())
+      honoree = creator.user
+    } else {
+      ;({ surname, honoree } = legendName())
+    }
+    const number = NUMBER_BY_POSITION[position]
+    const identity: PlayerIdentity = { surname, number, foot: footFor(Date.now()), nationality, position }
     const country = getCountry(nationality)?.name ?? nationality
+    const credit = creator
+      ? cfg.creator === 'apoiador'
+        ? `Criada por @${creator.user.id}, maior apoiador da última carreira!`
+        : `Criada por @${creator.user.id}, que venceu a disputa com ${creator.coins} moedas!`
+      : honoree
+        ? `Nome em homenagem a @${honoree.id}, maior apoiador!`
+        : 'Cada decisão da carreira será votada pelo chat.'
     useLive.setState({
       announce: {
         kicker: 'Nasce uma lenda',
         title: surname,
-        lines: [`${position.label} · ${country} · camisa ${position.number}`, honoree ? `Nome em homenagem a @${honoree.id}, maior apoiador!` : 'Cada decisão da carreira será votada pelo chat.'],
+        lines: [`${POSITION_NAMES[position]} · ${country} · camisa ${number}`, credit],
         ...(honoree ? { honoree } : {}),
         until: Date.now() + 5000,
       },
     })
     await sleep(5000)
-    if (!useLiveSession.getState().on) return
+    if (!sessionOn()) return
     await useCareer.getState().start(identity, cfg.pace)
     useLive.getState().resetCareerSupporters()
     useLive.setState({ announce: null, stage: 'career' })
@@ -155,6 +251,7 @@ async function runIdentity() {
     console.error('[LENDA live] falha ao criar a lenda', err)
     useLive.getState().pushInfo('Não deu para criar a lenda — tentando de novo')
   } finally {
+    useLive.getState().endCreation()
     identityBusy = false
   }
 }
@@ -248,6 +345,7 @@ export function stopAutopilot() {
   celebTimer = null
   clearEnd()
   useLive.getState().cancelRound()
+  useLive.getState().endCreation()
   useLive.setState({ stage: 'idle', announce: null })
   identityBusy = false
 }

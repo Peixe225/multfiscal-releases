@@ -10,7 +10,7 @@ import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow } from '@/live/autopilot'
 import { lockHolder, sendLiveCommand } from '@/live/channel'
-import { LIVE_SANDBOXED, useLiveConfig, useLiveSession, type NameMode } from '@/live/config'
+import { LIVE_SANDBOXED, useLiveConfig, useLiveSession, type CreatorMode, type NameMode } from '@/live/config'
 import { bridgeJoin, bridgeLeave } from '@/live/connection'
 import { giftCatalog, giftLabel } from '@/live/gifts'
 import { simChat, simGift } from '@/live/simulator'
@@ -216,7 +216,16 @@ function GiftSelect({ index }: { index: number }) {
 
 function PinnedText() {
   const cfg = useLiveConfig((s) => s.config)
-  const text = useMemo(() => `🗳️ O CHAT DECIDE A CARREIRA! ${howToVote(4)}. Maior apoiador dá nome à próxima lenda 👑`, [cfg])
+  const text = useMemo(
+    () =>
+      `🗳️ O CHAT DECIDE A CARREIRA! ${howToVote(4)}. ` +
+      (cfg.creator === 'disputa'
+        ? 'Na disputa, quem doar mais cria a próxima lenda: !nome, !pais e !posicao 👑'
+        : cfg.creator === 'apoiador'
+          ? 'Quem mais doar na carreira cria a próxima lenda: !nome, !pais e !posicao 👑'
+          : 'Maior apoiador dá nome à próxima lenda 👑'),
+    [cfg],
+  )
   const [ok, setOk] = useState(false)
   return (
     <div className="lv-pin is-wide">
@@ -302,8 +311,42 @@ function AutoSection() {
             ]}
           />
         </Field>
-        <Switch checked={cfg.identityVote} onChange={(v) => set({ identityVote: v })} label="Chat escolhe a nova lenda" description="Votação de posição e nacionalidade antes de cada carreira" />
-        <Field label="Nome da lenda">
+        <Field label="Quem cria a nova lenda" hint={cfg.creator === 'disputa' ? 'Antes de cada carreira abre uma disputa: quem doar mais nesse tempo escolhe nome, nacionalidade e posição pelo chat.' : cfg.creator === 'apoiador' ? 'Quem mais doou na carreira que acabou escolhe nome, nacionalidade e posição pelo chat.' : 'O chat vota posição e nacionalidade; o nome segue a opção abaixo.'} wide>
+          <Segmented
+            aria-label="Quem cria a nova lenda"
+            size="sm"
+            full
+            value={cfg.creator}
+            onChange={(v) => set({ creator: v as CreatorMode })}
+            options={[
+              { value: 'disputa', label: 'Disputa de doações' },
+              { value: 'apoiador', label: 'Maior apoiador' },
+              { value: 'votacao', label: 'Votação do chat' },
+            ]}
+          />
+        </Field>
+        {cfg.creator === 'disputa' && (
+          <>
+            <Field label="Tempo da disputa">
+              <NumberInput value={cfg.bidSeconds} min={10} max={180} onChange={(v) => set({ bidSeconds: v })} suffix="segundos" />
+            </Field>
+            <Field label="Mínimo para vencer a disputa">
+              <NumberInput value={cfg.minBidCoins} min={1} max={100000} onChange={(v) => set({ minBidCoins: v })} suffix="moedas" />
+            </Field>
+          </>
+        )}
+        {cfg.creator !== 'votacao' && (
+          <Field label="Tempo para o vencedor criar" hint="Comandos no chat: !nome, !pais, !posicao ou !criar Nome, País, Posição.">
+            <NumberInput value={cfg.createSeconds} min={20} max={300} onChange={(v) => set({ createSeconds: v })} suffix="segundos" />
+          </Field>
+        )}
+        <Switch
+          checked={cfg.identityVote}
+          onChange={(v) => set({ identityVote: v })}
+          label={cfg.creator === 'votacao' ? 'Chat vota posição e nacionalidade' : 'Chat vota o que o criador não escolher'}
+          description={cfg.creator === 'votacao' ? 'Votação antes de cada carreira' : 'Se o vencedor não preencher a tempo (ou ninguém doar), o chat decide'}
+        />
+        <Field label={cfg.creator === 'votacao' ? 'Nome da lenda' : 'Nome quando ninguém cria'}>
           <Segmented
             aria-label="Nome da lenda"
             size="sm"
@@ -341,6 +384,32 @@ function AutoSection() {
   )
 }
 
+function CreatorTests() {
+  const creation = useLive((s) => s.creation)
+  if (!creation) return null
+  if (creation.phase === 'bidding')
+    return (
+      <div className="lv-tests">
+        <b className="lv-tests__k">Disputa aberta:</b>
+        <Button variant="ghost" size="sm" onClick={() => simGift('Doughnut')}>
+          <GiftIcon name="Doughnut" size={16} /> Dar lance (30 moedas)
+        </Button>
+      </div>
+    )
+  const w = creation.winner?.user
+  if (!w) return null
+  return (
+    <div className="lv-tests">
+      <b className="lv-tests__k">Como @{w.id}:</b>
+      {['!nome GABIGOL', '!pais Argentina', '!posicao goleiro', '!criar Fenômeno, Brasil, atacante'].map((t) => (
+        <Button key={t} variant="ghost" size="sm" onClick={() => simChat(t, w)}>
+          {t}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
 function TestSection() {
   const bindings = useLiveConfig((s) => s.config.giftBindings)
   const round = useLive((s) => s.round)
@@ -349,6 +418,7 @@ function TestSection() {
     <Section n={4} title="Testar votos" icon={Gift}>
       <p className="lv-note">Botões de teste locais (não vão para o TikTok). Funcionam durante uma votação — inicie o modo live e use aqui ou no simulador.</p>
       {round && <Legend round={round} />}
+      <CreatorTests />
       <div className="lv-tests">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="lv-test" style={{ ['--oc' as string]: OPTION_COLORS[i] }}>
