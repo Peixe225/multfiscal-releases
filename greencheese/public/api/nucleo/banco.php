@@ -64,14 +64,31 @@ function gc_db(): PDO
 }
 
 /**
- * Migrações em ordem; a posição + 1 é o PRAGMA user_version depois dela. Nunca edite uma que já foi pro ar:
- * acrescente outra no fim.
- * @return list<string>
+ * Migrações por número: cada uma roda uma vez e fica anotada na tabela migracoes (o número e quando rodou). Cada
+ * frente tem a sua faixa, pra duas frentes nunca pegarem o mesmo número: 1–99 a base (painel e rateio, aqui),
+ * 100–199 a loja, 200–299 pedidos e contas. Nunca edite uma que já foi pro ar: acrescente outra com o próximo número
+ * livre da faixa. Uma migração é SQL ou uma função que recebe o PDO (pra semear dados: ela roda dentro da trava, com a
+ * conexão ainda sendo aberta, então nada de gc_sql/gc_transacao/gc_evento lá dentro).
+ * @return array<int, string|callable(PDO): void>
  */
 function gc_migracoes(): array
 {
+    $m = gc_migracoes_base();
+    // pedidos, avisos no WhatsApp e textos do pedido guiado (200–299, nucleo/pedido-migracoes.php). Na publicação este
+    // arquivo sobe antes do index.php novo: com o index.php velho, o módulo ainda não foi carregado e as migrações dele
+    // esperam a próxima chamada (sem erro no meio da subida).
+    if (function_exists('gc_migracoes_pedidos')) {
+        $m += gc_migracoes_pedidos();
+    }
+    ksort($m);
+    return $m;
+}
+
+/** @return array<int, string> */
+function gc_migracoes_base(): array
+{
     return [
-        <<<'SQL'
+        1 => <<<'SQL'
         CREATE TABLE ajustes (
           chave TEXT PRIMARY KEY,
           valor TEXT NOT NULL,
@@ -174,26 +191,72 @@ function gc_migracoes(): array
     ];
 }
 
+/**
+ * Números das migrações que já rodaram neste banco. Banco de antes do registro (a versão ficava só no PRAGMA
+ * user_version, uma migração por número a partir do 1): vale o user_version.
+ * @return array<int, true>
+ */
+function gc_migracoes_aplicadas(PDO $db): array
+{
+    $registro = $db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'migracoes'")->fetchColumn();
+    if ($registro === false) {
+        $antiga = (int) $db->query('PRAGMA user_version')->fetchColumn();
+        return $antiga > 0 ? array_fill_keys(range(1, $antiga), true) : [];
+    }
+    $feitas = [];
+    foreach ($db->query('SELECT numero FROM migracoes')->fetchAll(PDO::FETCH_COLUMN) as $n) {
+        $feitas[(int) $n] = true;
+    }
+    return $feitas;
+}
+
+/** Roda, em ordem de número e numa trava só, as migrações que faltam neste banco. */
 function gc_migrar(PDO $db): void
 {
     $migracoes = gc_migracoes();
-    $total = count($migracoes);
-    if ((int) $db->query('PRAGMA user_version')->fetchColumn() >= $total) {
+    if (array_diff_key($migracoes, gc_migracoes_aplicadas($db)) === []) {
         return;
     }
     $db->exec('BEGIN IMMEDIATE');
     try {
         // de novo, já com a trava: outro pedido pode ter migrado enquanto este esperava
-        $versao = (int) $db->query('PRAGMA user_version')->fetchColumn();
-        for ($i = $versao; $i < $total; $i++) {
-            $db->exec($migracoes[$i]);
+        $feitas = gc_migracoes_aplicadas($db);
+        $db->exec('CREATE TABLE IF NOT EXISTS migracoes (numero INTEGER PRIMARY KEY, aplicada_em INTEGER NOT NULL)');
+        $anotar = $db->prepare('INSERT OR IGNORE INTO migracoes (numero, aplicada_em) VALUES (?, ?)');
+        foreach (array_keys($feitas) as $n) {
+            $anotar->execute([$n, gc_agora()]); // as do user_version, agora no registro
         }
-        $db->exec('PRAGMA user_version = ' . $total);
+        foreach ($migracoes as $n => $migracao) {
+            if (isset($feitas[$n])) {
+                continue;
+            }
+            if (is_string($migracao)) {
+                $db->exec($migracao);
+            } else {
+                $migracao($db);
+            }
+            $anotar->execute([$n, gc_agora()]);
+            $feitas[$n] = true;
+        }
+        // o user_version segue contando a base em sequência (1, 2…): um código de antes do registro, se voltar,
+        // não tenta criar de novo as tabelas que já existem
+        $base = 0;
+        while ($base < 99 && isset($feitas[$base + 1])) {
+            $base++;
+        }
+        $db->exec('PRAGMA user_version = ' . $base);
         $db->exec('COMMIT');
     } catch (Throwable $e) {
         $db->exec('ROLLBACK');
         throw $e;
     }
+}
+
+/** A migração mais nova que rodou (o Diagnóstico mostra). */
+function gc_versao_banco(): int
+{
+    $feitas = array_keys(gc_migracoes_aplicadas(gc_db()));
+    return $feitas === [] ? 0 : max($feitas);
 }
 
 /**

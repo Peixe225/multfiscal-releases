@@ -6,6 +6,7 @@ import { liberarArtesRealistas } from './arte/realista/carregar'
 import { vigiarTeclado } from './lib/ambiente'
 import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
+import { vigiarPedidosPendentes } from './lib/pedido-pendente'
 import { iniciarAbas } from './lib/abas'
 import { quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
@@ -211,6 +212,9 @@ export function App() {
 
   // teclado virtual: as folhas sobem junto (ver --teclado)
   useEffect(() => vigiarTeclado(), [])
+
+  // a cópia de um pedido que o servidor ainda não confirmou (o toque no WhatsApp) vai de novo na volta pro site
+  useEffect(() => vigiarPedidosPendentes(), [])
 
   // rolagem suave só com mouse (no celular, a nativa; nunca briga com o arrastar do story)
   useEffect(() => {

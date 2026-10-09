@@ -869,7 +869,8 @@ function gc_evento_texto(array $e, array $d): string
         'participacao-dados-apagados' => "Apagou os dados de $alvo (LGPD)",
         'imagem-enviada' => 'Enviou uma imagem',
         'backup-baixado' => 'Baixou a cópia do banco',
-        default => (string) $e['acao'],
+        // os dos pedidos, dos avisos no WhatsApp e das falas do pedido guiado têm a frase no módulo deles (pedido.php)
+        default => (function_exists('gc_pedidos_evento_texto') ? gc_pedidos_evento_texto((string) $e['acao'], $alvo, $d) : null) ?? (string) $e['acao'],
     };
 }
 

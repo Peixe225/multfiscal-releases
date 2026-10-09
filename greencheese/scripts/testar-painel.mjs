@@ -415,6 +415,9 @@ try {
     ok(incluir && (await semLadoNaFolha(q)), `${w}×${h}: as folhas de incluir e editar não rolam pro lado (o + fica dentro)`)
     await c.close()
   }
+  // pedidos, avisos no WhatsApp e textos do pedido guiado (scripts/testar-painel-pedidos.mjs), com a senha nova do dono
+  const { fluxoPedidos } = await import('./testar-painel-pedidos.mjs')
+  await fluxoPedidos({ browser, novoContexto, BASE, ok, print, axe, lateral, erros, login: 'dono', senha: 'outra-senha-boa-456', nome: 'Dono da Green', prints: PRINTS })
 } catch (e) {
   ok(false, `exceção: ${e.stack}`)
   for (const c of browser.contexts()) for (const pg of c.pages()) if (PRINTS) await pg.screenshot({ path: join(PRINTS, `falha-${Date.now()}.png`) }).catch(() => {})

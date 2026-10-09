@@ -388,6 +388,9 @@ function gc_participacao_criar(array $r, array $d, string $origem, ?string $toke
     gc_evento($origem, $origem === 'site' ? 'participacao-reservada' : 'participacao-incluida', 'participacao:' . $p['codigo'], [
         'rateio' => $rid, 'titulo' => $r['titulo'], 'quantidade' => $d['quantidade'], 'uf' => $d['uf'],
     ]);
+    if ($origem === 'site') {
+        gc_aviso_rateio_reserva($p, $r); // aviso no grupo da loja (avisos.php), depois da resposta
+    }
     return [$p, $token];
 }
 
@@ -444,9 +447,12 @@ function gc_confirmar_participacao(int $id, string $origem, string $por, ?int $u
             'rateio' => $r['id'], 'titulo' => $r['titulo'], 'de' => $de, 'quantidade' => (int) $p['quantidade'],
         ] + $detalhe, $usuarioId);
         $fechou = gc_fechar_se_lotou((string) $r['id']);
+        $agoraP = (array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$id]);
+        $agoraR = (array) gc_rateio_linha((string) $r['id']);
+        gc_aviso_rateio_pago($agoraP, $agoraR, $fechou, $por); // aviso no grupo da loja (avisos.php), depois da resposta
         return [
-            'participacao' => (array) gc_um('SELECT * FROM participacoes WHERE id = ?', [$id]),
-            'rateio' => (array) gc_rateio_linha((string) $r['id']),
+            'participacao' => $agoraP,
+            'rateio' => $agoraR,
             'jaConfirmada' => false,
             'fechou' => $fechou,
         ];

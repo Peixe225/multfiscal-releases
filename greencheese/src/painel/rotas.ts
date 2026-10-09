@@ -1,8 +1,16 @@
 // Telas do painel por hash (#/rateios, #/rateio/<id>…): funciona em qualquer pasta, sem regra de servidor.
 // Cada tela entra no histórico (o voltar do Android volta de tela); as folhas também (o voltar fecha a folha).
 import { useSyncExternalStore } from 'react'
+import type { FiltroPedidos } from './pedidos/tipos'
+
+const FILTROS_PEDIDOS: FiltroPedidos[] = ['abertos', 'todos', 'novo', 'confirmado', 'saiu', 'entregue', 'cancelado']
 
 export type Rota =
+  // pedidos do site, avisos no WhatsApp e falas do pedido guiado
+  | { tela: 'pedidos'; status: FiltroPedidos | null; uf: string | null }
+  | { tela: 'pedido'; id: number }
+  | { tela: 'avisos' }
+  | { tela: 'textos' }
   | { tela: 'resumo' }
   | { tela: 'rateios' }
   | { tela: 'novo'; produto: string | null }
@@ -19,6 +27,17 @@ function ler(): Rota {
   const q = new URLSearchParams(busca)
   const id = partes[1] && /^[a-z0-9-]{1,80}$/.test(partes[1]) ? partes[1] : null
   switch (partes[0]) {
+    case 'pedidos': {
+      const status = q.get('status') as FiltroPedidos | null
+      const uf = q.get('uf')
+      return { tela: 'pedidos', status: status && FILTROS_PEDIDOS.includes(status) ? status : null, uf: uf && /^[a-z]{2}$/.test(uf) ? uf : null }
+    }
+    case 'pedido':
+      return id && /^\d{1,12}$/.test(id) ? { tela: 'pedido', id: Number(id) } : { tela: 'pedidos', status: null, uf: null }
+    case 'avisos':
+      return { tela: 'avisos' }
+    case 'textos':
+      return { tela: 'textos' }
     case 'rateios':
       return { tela: 'rateios' }
     case 'novo':
@@ -119,6 +138,18 @@ export function voltar(padrao: string): void {
 
 export const caminho = {
   resumo: '#/',
+  // pedidos, avisos no WhatsApp e falas do pedido guiado
+  pedidos: '#/pedidos',
+  pedidosDe: (status: FiltroPedidos | null, uf: string | null) => {
+    const q = new URLSearchParams()
+    if (status) q.set('status', status)
+    if (uf) q.set('uf', uf)
+    const s = q.toString()
+    return s ? `#/pedidos?${s}` : '#/pedidos'
+  },
+  pedido: (id: number) => `#/pedido/${id}`,
+  avisos: '#/avisos',
+  textos: '#/textos',
   rateios: '#/rateios',
   novo: '#/novo',
   rateio: (id: string) => `#/rateio/${id}`,

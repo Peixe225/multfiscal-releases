@@ -21,6 +21,10 @@ export const secoes: Secao[] = [
   { id: 'rateios', nome: 'Rateios', href: caminho.rateios, icone: 'caixa', iconeAtivo: 'caixa-cheia', telas: ['rateios', 'rateio', 'editar'], barra: true },
   { id: 'novo', nome: 'Criar rateio', href: caminho.novo, icone: 'criar', iconeAtivo: 'criar-cheio', telas: ['novo'], barra: true },
   { id: 'atividade', nome: 'Atividade', href: caminho.atividade, icone: 'coracao', iconeAtivo: 'coracao-cheio', telas: ['atividade'], barra: true },
+  // pedidos do site, avisos no WhatsApp e falas do pedido guiado: no celular, pelo Resumo e por Conta → "Mais do painel"
+  { id: 'pedidos', nome: 'Pedidos', href: caminho.pedidos, icone: 'pedido', iconeAtivo: 'pedido-cheio', telas: ['pedidos', 'pedido'], barra: false },
+  { id: 'avisos', nome: 'Avisos no WhatsApp', href: caminho.avisos, icone: 'sino', iconeAtivo: 'sino-cheio', telas: ['avisos'], barra: false },
+  { id: 'textos', nome: 'Textos do pedido', href: caminho.textos, icone: 'balao', iconeAtivo: 'balao-cheio', telas: ['textos'], barra: false },
   { id: 'conta', nome: 'Conta', href: caminho.conta, icone: 'conta', iconeAtivo: 'conta', telas: ['conta'], barra: true },
   { id: 'servidor', nome: 'Servidor', href: caminho.servidor, icone: 'servidor', iconeAtivo: 'servidor-cheio', telas: ['servidor'], barra: false },
 ]

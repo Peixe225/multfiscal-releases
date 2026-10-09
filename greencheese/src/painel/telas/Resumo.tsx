@@ -7,6 +7,7 @@ import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { guardar, useDados } from '../dados'
 import { brl, falta, plural, relativo, vagas } from '../formato'
 import { Link, Topo } from '../Moldura'
+import { ResumoPedidos, useNovosPedidos } from '../pedidos/ResumoPedidos'
 import { Blocos, Selo } from '../rateio-ui'
 import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
@@ -68,11 +69,14 @@ function LinhaReserva({ p, rateio, aoConfirmar }: { p: ParticipanteComTitulo; ra
   )
 }
 
-function fraseDoDia(pagamentos: number, rateios: number): string {
-  if (!pagamentos && !rateios) return 'Nada esperando por ti agora.'
+function fraseDoDia(pagamentos: number, rateios: number, pedidos = 0): string {
+  if (!pagamentos && !rateios && !pedidos) return 'Nada esperando por ti agora.'
+  // pedidos novos do site primeiro (pedidos/ResumoPedidos.tsx)
+  const p = pedidos ? plural(pedidos, 'pedido novo', 'pedidos novos') : ''
   const a = pagamentos ? plural(pagamentos, 'pagamento pra confirmar', 'pagamentos pra confirmar') : ''
   const b = rateios ? plural(rateios, 'rateio pedindo atenção', 'rateios pedindo atenção') : ''
-  return `Tem ${[a, b].filter(Boolean).join(' e ')}.`
+  const partes = [p, a, b].filter(Boolean)
+  return `Tem ${partes.length > 1 ? `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}` : partes[0]}.`
 }
 
 export function Resumo({ nome }: { nome: string }) {
@@ -82,6 +86,7 @@ export function Resumo({ nome }: { nome: string }) {
     return { resumo: a, rateios: b.rateios }
   })
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
+  const pedidosNovos = useNovosPedidos()
   useRestaurarRolagem(!!leitura.dados)
   const d = leitura.dados
   const agora = api.agora()
@@ -98,7 +103,7 @@ export function Resumo({ nome }: { nome: string }) {
       <div className="pn-pagina pn-resumo">
         <p className="pn-oi">
           Oi, {nome.split(' ')[0]}.{' '}
-          {d && fraseDoDia(esperando.length, lista.length)}
+          {d && fraseDoDia(esperando.length, lista.length, pedidosNovos)}
         </p>
         {leitura.erro && (
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
@@ -109,6 +114,8 @@ export function Resumo({ nome }: { nome: string }) {
         {d && (
           <div className="pn-resumo-grade">
             <div className="pn-col">
+            {/* pedidos do site: os novos e os avisos no grupo */}
+            <ResumoPedidos />
             <section className="pn-bloco pn-resumo-acao" aria-labelledby="h-acao">
               <h2 id="h-acao" className="pn-h2">
                 Pede tua ação

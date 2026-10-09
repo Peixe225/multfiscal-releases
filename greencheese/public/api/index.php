@@ -17,6 +17,11 @@ require __DIR__ . '/nucleo/publico.php';
 require __DIR__ . '/nucleo/painel.php';
 require __DIR__ . '/nucleo/upload.php';
 require __DIR__ . '/nucleo/diagnostico.php';
+// pedidos, avisos no WhatsApp e textos do pedido guiado (site e painel)
+require __DIR__ . '/nucleo/pedido-migracoes.php';
+require __DIR__ . '/nucleo/pedido.php';
+require __DIR__ . '/nucleo/avisos.php';
+require __DIR__ . '/nucleo/textos.php';
 
 $rotas = [
     // site
@@ -47,6 +52,21 @@ $rotas = [
     'admin-upload' => ['POST', 'gc_rota_admin_upload'],
     'admin-diagnostico' => ['GET', 'gc_rota_admin_diagnostico'],
     'admin-eventos' => ['GET', 'gc_rota_admin_eventos'],
+    // pedidos, avisos no WhatsApp e textos do pedido guiado: o site manda o pedido e lê as falas; o painel cuida do resto
+    'pedido' => ['POST', 'gc_rota_pedido'],
+    'pedido-textos' => ['GET', 'gc_rota_pedido_textos'],
+    'admin-pedidos' => ['GET', 'gc_rota_admin_pedidos'],
+    'admin-pedidos-resumo' => ['GET', 'gc_rota_admin_pedidos_resumo'],
+    'admin-pedido' => ['GET', 'gc_rota_admin_pedido'],
+    'admin-pedido-status' => ['POST', 'gc_rota_admin_pedido_status'],
+    'admin-pedido-salvar' => ['POST', 'gc_rota_admin_pedido_salvar'],
+    'admin-pedido-apagar-dados' => ['POST', 'gc_rota_admin_pedido_apagar_dados'],
+    'admin-avisos' => ['GET', 'gc_rota_admin_avisos'],
+    'admin-avisos-salvar' => ['POST', 'gc_rota_admin_avisos_salvar'],
+    'admin-avisos-testar' => ['POST', 'gc_rota_admin_avisos_testar'],
+    'admin-aviso-reenviar' => ['POST', 'gc_rota_admin_aviso_reenviar'],
+    'admin-textos-pedido' => ['GET', 'gc_rota_admin_textos_pedido'],
+    'admin-texto-pedido-salvar' => ['POST', 'gc_rota_admin_texto_pedido_salvar'],
 ];
 
 if (gc_teste()) {

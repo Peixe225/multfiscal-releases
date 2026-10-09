@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { canais, canalDa, type Canal, type FormaPagamento } from '../dados/canais'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { buscarCep, type Endereco } from '../lib/cep'
@@ -16,6 +16,10 @@ import {
   montarPedido,
   whatsappDoCanal,
 } from '../lib/mensagem'
+import type { Pedaco } from '../dados/textos-pedido'
+import { atualizarFalas, useFala } from '../lib/falas'
+import { enviarPedido, itensDoPedido, type CorpoPedido } from '../lib/pedido-envio'
+import { termoProibido } from '../painel/proibidos'
 import { movimentoReduzido } from '../lib/movimento'
 import { celularNoCampo } from '../lib/telefone'
 import { useConta, useCupons, useAgora } from '../lib/conta'
@@ -86,6 +90,13 @@ export function ChatFolha() {
   const { cupom, situacao: situacaoCupom } = useCupomNoPedido()
   const cupons = useCupons()
   const agora = useAgora()
+  // as falas da loja (as trocas do dono no painel, ou as de sempre) e o código do pedido que vai na mensagem
+  const { t, p: falaEmPedacos } = useFala()
+  const codigoPedido = useChat((s) => s.pedido)
+  const marcarPedidoEnviado = useChat((s) => s.marcarPedidoEnviado)
+  useEffect(() => {
+    if (aberto) void atualizarFalas()
+  }, [aberto])
   // o cupom só entra na mensagem quando vale nesse pedido (encomenda nunca leva cupom)
   const cupomOk = modo === 'pedido' && cupom && situacaoCupom?.tipo === 'ok' ? cupom : null
   // sem cupom aplicado: um cupom guardado que vale nesse pedido, pra perguntar se usa
@@ -110,6 +121,10 @@ export function ChatFolha() {
     return precisaCidade(c) ? 'cidade' : 'sacola'
   }
 
+  const endereco = respostas.rua
+    ? `${respostas.rua}${respostas.numero ? `, ${respostas.numero}` : ''}${respostas.bairro ? `, ${respostas.bairro}` : ''}${canal && canal.cidades.length === 0 && respostas.cidadeCep ? `, ${respostas.cidadeCep}` : ''}`
+    : respostas.enderecoLivre
+
   const mensagem = useMemo(() => {
     if (!canal) return ''
     if (modo === 'encomenda') {
@@ -120,11 +135,9 @@ export function ChatFolha() {
         quantidade: respostas.encQtd,
         referencia: respostas.encRef,
         nome: respostas.nome,
+        codigo: codigoPedido.codigo,
       })
     }
-    const endereco = respostas.rua
-      ? `${respostas.rua}${respostas.numero ? `, ${respostas.numero}` : ''}${respostas.bairro ? `, ${respostas.bairro}` : ''}${canal.cidades.length === 0 && respostas.cidadeCep ? `, ${respostas.cidadeCep}` : ''}`
-      : respostas.enderecoLivre
     return montarPedido({
       canal,
       cidade,
@@ -135,8 +148,56 @@ export function ChatFolha() {
       troco: respostas.troco,
       obs: respostas.obs,
       cupom: cupomOk ? linhaCupom(cupomOk, 'Teste minha sorte', cupomOk.demo && config.carimboDeExemplo) : undefined,
+      codigo: codigoPedido.codigo,
     })
-  }, [canal, cidade, modo, respostas, pedido, cupomOk])
+  }, [canal, cidade, modo, respostas, pedido, cupomOk, endereco, codigoPedido.codigo])
+
+  // o pedido mudou depois de ir pro servidor (outro endereço, outra sacola): código novo, que substitui o de antes.
+  // Antes de pintar: o link do WhatsApp nunca sai com o código velho numa mensagem nova
+  const noResumo = passo === 'resumo' || passo === 'enc-resumo'
+  useLayoutEffect(() => {
+    if (!noResumo || !mensagem) return
+    const { pedido: atual, trocarCodigo } = useChat.getState()
+    if (atual.enviada !== null && atual.enviada !== mensagem) trocarCodigo()
+  }, [noResumo, mensagem])
+
+  /** A cópia estruturada do pedido, do jeito que a mensagem mostra (vai pro servidor no toque do WhatsApp). */
+  function corpoDoPedido(): CorpoPedido | null {
+    if (!canal || !mensagem) return null
+    const base = {
+      codigo: codigoPedido.codigo,
+      token: codigoPedido.token,
+      tipo: modo,
+      uf: canal.uf,
+      cidade: cidade ?? '',
+      nome: respostas.nome.trim(),
+      whatsapp: conta?.whatsapp ?? '',
+      mensagem,
+      site: '' as const,
+      substitui: codigoPedido.substitui,
+    }
+    if (modo === 'encomenda') {
+      return { ...base, encomenda: { produto: respostas.encProduto.trim(), quantidade: respostas.encQtd.trim(), referencia: respostas.encRef.trim() } }
+    }
+    const comRua = !!respostas.rua
+    return {
+      ...base,
+      ...itensDoPedido(pedido),
+      cupom: cupomOk ? { codigo: cupomOk.codigo, regra: cupomOk.retrato.regra, origem: 'Teste minha sorte' } : null,
+      entrega: {
+        endereco: endereco.trim(),
+        rua: comRua ? respostas.rua : '',
+        numero: comRua ? respostas.numero : '',
+        bairro: comRua ? respostas.bairro : '',
+        cep: respostas.cep,
+        cidade: respostas.cep ? respostas.cidadeCep : '',
+        uf: respostas.cep ? respostas.ufCep : '',
+      },
+      pagamento: respostas.pagamento,
+      troco: respostas.pagamento === 'dinheiro' ? respostas.troco : null,
+      obs: respostas.obs.trim(),
+    }
+  }
 
   // sobe para a última mensagem a cada passo (rola o corpo da folha, não a página: a pergunta e as opções ficam à vista
   // mesmo num celular baixo)
@@ -194,7 +255,7 @@ export function ChatFolha() {
       case 'local': {
         if (!canal) {
           return {
-            perguntas: [modo === 'encomenda' ? 'A Green Cheese ainda não chegou no teu estado. Pra qual atendimento vai a encomenda?' : 'De qual estado você pede?'],
+            perguntas: [t(modo === 'encomenda' ? 'local.semEstado.encomenda' : 'local.semEstado')],
             chips: [
               ...canais.map((c) => ({
                 rotulo: `${c.uf.toUpperCase()} · ${c.cidades[0]?.nome ?? c.nome}`,
@@ -206,14 +267,14 @@ export function ChatFolha() {
                   }
                 },
               })),
-              ...(modo === 'pedido' ? [{ rotulo: 'Outro estado', acao: () => setSeletor(true) }] : []),
+              ...(modo === 'pedido' ? [{ rotulo: t('local.outroEstado'), acao: () => setSeletor(true) }] : []),
             ],
             resposta: canal ? lugar : null,
           }
         }
         if (canal === canalSite && canal.cidades.length > 1 && !local.cidade) {
           return {
-            perguntas: [`Teu pedido vai pra Green Cheese ${canal.uf.toUpperCase()}. Qual cidade?`],
+            perguntas: [t('local.qualCidade', { uf: canal.uf.toUpperCase(), estado: canal.nome })],
             chips: canal.cidades.map((c) => ({
               rotulo: c.nome,
               acao: () => {
@@ -225,22 +286,22 @@ export function ChatFolha() {
           }
         }
         const sit = situacao(canal)
+        const doLocal = { lugar, cidade: cidade ?? canal.nome, uf: canal.uf.toUpperCase(), estado: canal.nome }
+        const sim = t(modo === 'encomenda' ? 'local.sim.encomenda' : 'local.sim')
         return {
           perguntas: [
-            modo === 'encomenda'
-              ? `A encomenda vai pro atendimento de ${lugar}. Pode ser?`
-              : `Teu pedido vai pro atendimento de ${lugar}, certo?`,
+            t(modo === 'encomenda' ? 'local.confirmar.encomenda' : 'local.confirmar', doLocal),
             ...(!sit.aberto && (config.carimboDeExemplo || !canal.horario.demo)
               ? [
                   <span key="h">
-                    {sit.texto}. Pode montar o pedido: a resposta vem quando abrir. <Demo ativo={canal.horario.demo} />
+                    {t('local.fechado', { horario: sit.texto })} <Demo ativo={canal.horario.demo} />
                   </span>,
                 ]
               : []),
           ],
           chips: [
             {
-              rotulo: modo === 'encomenda' ? 'Pode' : 'Isso',
+              rotulo: sim,
               acao: () => {
                 if (canal === canalSite && !local.confirmado) local.confirmar()
                 resp({}, 'local', depoisDoLocal(canal))
@@ -248,22 +309,22 @@ export function ChatFolha() {
             },
             {
               // o seletor abre na lista de estados: "cidade" só quando o canal tem mais de uma
-              rotulo: canal === canalSite ? (canal.cidades.length > 1 ? 'Trocar cidade' : 'Trocar estado') : 'Trocar atendimento',
+              rotulo: t(canal === canalSite ? (canal.cidades.length > 1 ? 'local.trocarCidade' : 'local.trocarEstado') : 'local.trocarAtendimento'),
               acao: () => (canal === canalSite ? setSeletor(true) : resp({ canalEnc: '' }, 'local', 'local')),
             },
           ],
-          resposta: `${modo === 'encomenda' ? 'Pode' : 'Isso'} — ${lugar}`,
+          resposta: `${sim} — ${lugar}`,
         }
       }
       case 'cidade':
         return {
-          perguntas: [`A Green Cheese ${canal?.uf.toUpperCase() ?? ''} ainda tá fechando a lista de cidades. Qual a tua cidade?`],
+          perguntas: [t('cidade.pergunta', { uf: canal?.uf.toUpperCase() ?? '', estado: canal?.nome ?? '' })],
           campo: {
-            placeholder: 'Tua cidade…',
+            placeholder: t('cidade.dica'),
             autoComplete: 'address-level2',
             max: 60,
             inicial: local.cidadeInformada ?? '',
-            validar: (v) => (v.trim().length < 2 ? 'Escreve o nome da cidade.' : null),
+            validar: (v) => (v.trim().length < 2 ? t('cidade.erro') : null),
             enviar: (v) => {
               local.informarCidade(v.trim())
               resp({}, 'cidade', 'sacola')
@@ -275,46 +336,44 @@ export function ChatFolha() {
         if (pedido.length === 0) {
           return {
             perguntas: [
-              fora.length
-                ? `Os itens da tua sacola não tão disponíveis em ${cidade ?? canal?.nome ?? 'teu estado'}.`
-                : 'Tua sacola tá vazia.',
+              fora.length ? t('sacola.fora', { onde: cidade ?? canal?.nome ?? 'teu estado' }) : t('sacola.vazia'),
             ],
             chips: [
               {
-                rotulo: 'Ver o Mercado',
+                rotulo: t('sacola.verMercado'),
                 acao: () => {
                   fechar()
                   setTimeout(() => rolarPara('#catalogo', -70), 320)
                 },
               },
-              { rotulo: 'Fazer encomenda', acao: () => abrir('encomenda') },
+              { rotulo: t('sacola.encomendar'), acao: () => abrir('encomenda') },
             ],
           }
         }
         return {
           perguntas: [
-            'Confere a sacola:',
+            t('sacola.confere'),
             <div className="dm-cartao" key="sacola">
               <ListaSacola compacta />
             </div>,
           ],
           chips: [
-            { rotulo: 'Tá certo', acao: () => resp({}, 'sacola', 'nome') },
-            { rotulo: 'Mexer na sacola', acao: () => setSacola(true) },
+            { rotulo: t('sacola.certo'), acao: () => resp({}, 'sacola', 'nome') },
+            { rotulo: t('sacola.mexer'), acao: () => setSacola(true) },
           ],
-          resposta: 'Tá certo',
+          resposta: t('sacola.certo'),
         }
       }
       case 'nome':
       case 'enc-nome':
         return {
-          perguntas: ['Teu nome?'],
+          perguntas: [t('nome.pergunta')],
           chips: sugestaoNome ? [{ rotulo: sugestaoNome, acao: () => resp({ nome: sugestaoNome }, p, p === 'nome' ? 'endereco' : 'enc-resumo') }] : undefined,
           campo: {
-            placeholder: 'Teu nome…',
+            placeholder: t('nome.dica'),
             autoComplete: 'name',
             max: 60,
-            validar: (v) => (v.trim().length < 2 ? 'Escreve teu nome.' : null),
+            validar: (v) => (v.trim().length < 2 ? t('nome.erro') : null),
             enviar: (v) => resp({ nome: v.trim() }, p, p === 'nome' ? 'endereco' : 'enc-resumo'),
           },
           resposta: nome,
@@ -329,44 +388,50 @@ export function ChatFolha() {
         } else if (respostas.enderecoLivre && !respostas.cep) {
           chips.push({ rotulo: respostas.enderecoLivre, acao: () => resp({}, 'endereco', 'pagamento') })
         }
-        chips.push({ rotulo: 'Sem CEP', acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') })
+        chips.push({ rotulo: t('endereco.semCep'), acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') })
         return {
-          perguntas: ['Onde entrega? Manda o CEP que o endereço se completa.'],
+          perguntas: [t('endereco.pergunta', { nome })],
           chips,
           campo: {
-            placeholder: 'CEP (só números)',
+            placeholder: t('endereco.dica'),
             modo: 'numeric',
             autoComplete: 'postal-code',
             max: 9,
             mascara: formatarCep,
-            validar: (v) => (soDigitos(v).length !== 8 ? 'O CEP tem 8 números.' : null),
+            validar: (v) => (soDigitos(v).length !== 8 ? t('endereco.erro') : null),
             enviar: (v) => void enviarCep(v),
           },
-          resposta: respostas.cep ? formatarCep(respostas.cep) : 'Sem CEP',
+          resposta: respostas.cep ? formatarCep(respostas.cep) : t('endereco.semCep'),
         }
       }
       case 'numero':
         return {
-          perguntas: [`${respostas.rua}${respostas.bairro ? `, ${respostas.bairro}` : ''} — ${respostas.cidadeCep}/${respostas.ufCep.toUpperCase()}. Número e complemento?`],
+          perguntas: [
+            t('numero.pergunta', {
+              endereco: `${respostas.rua}${respostas.bairro ? `, ${respostas.bairro}` : ''}`,
+              cidade: respostas.cidadeCep,
+              uf: respostas.ufCep.toUpperCase(),
+            }),
+          ],
           campo: {
-            placeholder: 'Ex.: 120, apto 201',
+            placeholder: t('numero.dica'),
             autoComplete: 'address-line2',
             max: 60,
             inicial: respostas.numero,
-            validar: (v) => (!v.trim() ? 'Manda o número (ou "s/n").' : null),
+            validar: (v) => (!v.trim() ? t('numero.erro') : null),
             enviar: (v) => resp({ numero: v.trim() }, 'numero', 'pagamento'),
           },
           resposta: respostas.numero,
         }
       case 'rua':
         return {
-          perguntas: [respostas.cep && !respostas.rua ? `Esse CEP é de ${respostas.cidadeCep} inteira. Manda rua, número e bairro.` : 'Manda o endereço: rua, número e bairro.'],
+          perguntas: [respostas.cep && !respostas.rua ? t('rua.cepDaCidade', { cidade: respostas.cidadeCep }) : t('rua.pergunta')],
           campo: {
-            placeholder: 'Rua, número, bairro',
+            placeholder: t('rua.dica'),
             autoComplete: 'street-address',
             max: 140,
             inicial: respostas.enderecoLivre,
-            validar: (v) => (v.trim().length < 6 ? 'Falta coisa: rua, número e bairro.' : null),
+            validar: (v) => (v.trim().length < 6 ? t('rua.erro') : null),
             enviar: (v) => resp({ enderecoLivre: v.trim(), rua: '', numero: '' }, 'rua', 'pagamento'),
           },
           resposta: respostas.enderecoLivre,
@@ -376,7 +441,7 @@ export function ChatFolha() {
         return {
           perguntas: [
             <span key="p">
-              Como vai pagar? <Demo ativo={!!canal?.pagamento.demo} />
+              {t('pagamento.pergunta', { nome })} <Demo ativo={!!canal?.pagamento.demo} />
             </span>,
           ],
           chips: opcoes.map((o) => ({
@@ -388,67 +453,69 @@ export function ChatFolha() {
       }
       case 'troco':
         return {
-          perguntas: ['Troco pra quanto?'],
-          chips: [{ rotulo: 'Sem troco', acao: () => resp({ troco: null }, 'troco', 'obs') }],
+          perguntas: [t('troco.pergunta')],
+          chips: [{ rotulo: t('troco.sem'), acao: () => resp({ troco: null }, 'troco', 'obs') }],
           campo: {
-            placeholder: 'Ex.: 100',
+            placeholder: t('troco.dica'),
             modo: 'decimal',
             max: 10,
             validar: (v) => {
               const n = Number(v.replace(/[^\d,.]/g, '').replace(',', '.'))
-              return !Number.isFinite(n) || n <= 0 ? 'Só o valor, tipo 100 ou 50,00.' : null
+              return !Number.isFinite(n) || n <= 0 ? t('troco.erro') : null
             },
             enviar: (v) => resp({ troco: Number(v.replace(/[^\d,.]/g, '').replace(',', '.')) }, 'troco', 'obs'),
           },
-          resposta: respostas.troco ? `Troco pra ${brl(respostas.troco)}` : 'Sem troco',
+          resposta: respostas.troco ? t('troco.resposta', { valor: brl(respostas.troco) }) : t('troco.sem'),
         }
       case 'obs':
         return {
-          perguntas: ['Alguma observação? Ponto de referência, portão, horário…'],
-          chips: [{ rotulo: 'Sem observação', acao: () => resp({ obs: '' }, 'obs', 'resumo') }],
+          perguntas: [t('obs.pergunta', { nome })],
+          chips: [{ rotulo: t('obs.sem'), acao: () => resp({ obs: '' }, 'obs', 'resumo') }],
           campo: {
-            placeholder: 'Observação…',
+            placeholder: t('obs.dica'),
             max: 200,
             inicial: respostas.obs,
             enviar: (v) => resp({ obs: v.trim() }, 'obs', 'resumo'),
           },
-          resposta: respostas.obs || 'Sem observação',
+          resposta: respostas.obs || t('obs.sem'),
         }
       case 'enc-produto':
         return {
-          perguntas: ['Não achou? A Green Cheese importa. Qual produto você quer?'],
+          perguntas: [t('enc.produto')],
           campo: {
-            placeholder: 'Ex.: Fanta de uva japonesa',
+            placeholder: t('enc.produto.dica'),
             max: 120,
             inicial: respostas.encProduto,
-            validar: (v) => (v.trim().length < 2 ? 'Escreve o produto.' : null),
+            // tabaco e vape a loja não traz (Anvisa): nem chega no WhatsApp
+            validar: (v) => (v.trim().length < 2 ? t('enc.produto.erro') : termoProibido(v) ? t('enc.produto.proibido') : null),
             enviar: (v) => resp({ encProduto: v.trim() }, 'enc-produto', 'enc-qtd'),
           },
           resposta: respostas.encProduto,
         }
       case 'enc-qtd':
         return {
-          perguntas: ['Quantas unidades?'],
+          perguntas: [t('enc.qtd')],
           chips: ['1', '2', '3', '6', '12'].map((q) => ({ rotulo: q, acao: () => resp({ encQtd: q }, 'enc-qtd', 'enc-ref') })),
           campo: {
-            placeholder: 'Outra quantidade…',
+            placeholder: t('enc.qtd.dica'),
             max: 30,
-            validar: (v) => (!v.trim() ? 'Quantas?' : null),
+            validar: (v) => (!v.trim() ? t('enc.qtd.erro') : null),
             enviar: (v) => resp({ encQtd: v.trim() }, 'enc-qtd', 'enc-ref'),
           },
           resposta: respostas.encQtd,
         }
       case 'enc-ref':
         return {
-          perguntas: ['Tem link ou descrição? Marca, sabor, tamanho… pode colar o link.'],
-          chips: [{ rotulo: 'Pular', acao: () => resp({ encRef: '' }, 'enc-ref', 'enc-nome') }],
+          perguntas: [t('enc.ref')],
+          chips: [{ rotulo: t('enc.ref.pular'), acao: () => resp({ encRef: '' }, 'enc-ref', 'enc-nome') }],
           campo: {
-            placeholder: 'Link ou descrição…',
+            placeholder: t('enc.ref.dica'),
             max: 300,
             inicial: respostas.encRef,
+            validar: (v) => (termoProibido(v) ? t('enc.produto.proibido') : null),
             enviar: (v) => resp({ encRef: v.trim() }, 'enc-ref', 'enc-nome'),
           },
-          resposta: respostas.encRef || 'Sem link',
+          resposta: respostas.encRef || t('enc.ref.sem'),
         }
       case 'resumo':
       case 'enc-resumo':
@@ -504,7 +571,9 @@ export function ChatFolha() {
           {canal && (
             <a className="dm-duvida" href={linkDM(canal)} target={alvoDeSaida()} rel="noopener noreferrer">
               <Icone nome="instagram" tamanho={16} className="dm-duvida-icone" />
-              Outra dúvida? Chama a <span className="dm-duvida-arroba">@{canal.instagram}</span> no Instagram
+              {desenhar(falaEmPedacos('duvida.instagram', { instagram: `@${canal.instagram}` }), {
+                instagram: (v) => <span className="dm-duvida-arroba">{v}</span>,
+              })}
             </a>
           )}
         </div>
@@ -520,7 +589,7 @@ export function ChatFolha() {
                 </div>
               ))}
             </div>
-            <p className="dm-bolha dm-eu">Quero esse{produtosCitados.length > 1 ? 's' : ''}</p>
+            <p className="dm-bolha dm-eu">{t(produtosCitados.length > 1 ? 'sacola.queroVarios' : 'sacola.quero')}</p>
           </div>
         )}
 
@@ -546,13 +615,11 @@ export function ChatFolha() {
             {ultimaPergunta.map((q, i) => (
               <BolhaLoja key={i}>{q}</BolhaLoja>
             ))}
-            {buscandoCep && <BolhaLoja>Procurando o CEP…</BolhaLoja>}
-            {avisoCep?.tipo === 'nao-achei' && <BolhaLoja>Não achei esse CEP. Confere os números ou segue sem CEP.</BolhaLoja>}
-            {avisoCep?.tipo === 'fora-do-ar' && <BolhaLoja>O serviço de CEP não respondeu agora. Dá pra digitar o endereço.</BolhaLoja>}
+            {buscandoCep && <BolhaLoja>{t('cep.procurando')}</BolhaLoja>}
+            {avisoCep?.tipo === 'nao-achei' && <BolhaLoja>{t('cep.naoAchei')}</BolhaLoja>}
+            {avisoCep?.tipo === 'fora-do-ar' && <BolhaLoja>{t('cep.foraDoAr')}</BolhaLoja>}
             {avisoCep?.tipo === 'outra-uf' && (
-              <BolhaLoja>
-                Esse CEP é de {avisoCep.end.cidade}/{avisoCep.end.uf.toUpperCase()}. O atendimento escolhido é o de {canal?.uf.toUpperCase()}.
-              </BolhaLoja>
+              <BolhaLoja>{t('cep.outroEstado', { cidade: avisoCep.end.cidade, uf: avisoCep.end.uf.toUpperCase(), ufAtendimento: canal?.uf.toUpperCase() ?? '' })}</BolhaLoja>
             )}
             <Chips
               chips={
@@ -561,7 +628,7 @@ export function ChatFolha() {
                       ...(canalDa(avisoCep.end.uf)
                         ? [
                             {
-                              rotulo: `Trocar pra Green Cheese ${avisoCep.end.uf.toUpperCase()}`,
+                              rotulo: t('cep.trocar', { uf: avisoCep.end.uf.toUpperCase() }),
                               acao: () => {
                                 const end = avisoCep.end
                                 local.escolher(end.uf, null, 'manual')
@@ -576,11 +643,11 @@ export function ChatFolha() {
                             },
                           ]
                         : []),
-                      { rotulo: 'É esse mesmo', acao: () => aplicarCep(avisoCep.end) },
-                      { rotulo: 'Outro CEP', acao: () => setAvisoCep(null) },
+                      { rotulo: t('cep.esseMesmo'), acao: () => aplicarCep(avisoCep.end) },
+                      { rotulo: t('cep.outro'), acao: () => setAvisoCep(null) },
                     ]
                   : avisoCep?.tipo === 'nao-achei' || avisoCep?.tipo === 'fora-do-ar'
-                    ? [{ rotulo: 'Digitar endereço', acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') }]
+                    ? [{ rotulo: t('cep.digitar'), acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') }]
                     : (atual.chips ?? [])
               }
             />
@@ -593,11 +660,18 @@ export function ChatFolha() {
             mensagem={mensagem}
             encomenda={modo === 'encomenda'}
             pagamento={respostas.pagamento}
+            nome={respostas.nome.trim()}
             enviadoEm={enviadoEm}
             enviouAqui={enviouAqui}
             aoEnviar={() => {
               setEnviouAqui(true)
               marcarEnviado(Date.now())
+              // a cópia do pedido vai pro servidor da loja junto com o toque (sem segurar o link do WhatsApp)
+              const corpo = corpoDoPedido()
+              if (corpo) {
+                enviarPedido(corpo)
+                marcarPedidoEnviado(mensagem)
+              }
             }}
             naoConsegui={() => marcarEnviado(null)}
             // "Trocar pra Pix" da resposta do Pix em breve: muda o pagamento sem refazer os passos
@@ -640,12 +714,19 @@ function BolhaLoja({ children }: { children: ReactNode }) {
   return <div className="dm-bolha dm-loja">{children}</div>
 }
 
+/** Os pedaços de uma fala na tela; o marcador com cara própria (o @ que encolhe, o código em pixel) vira o elemento dele. */
+function desenhar(pedacos: Pedaco[], estilos: Record<string, (valor: string) => ReactNode> = {}): ReactNode[] {
+  return pedacos.map((x, i) => ('texto' in x ? x.texto : <Fragment key={i}>{estilos[x.marcador]?.(x.valor) ?? x.valor}</Fragment>))
+}
+
+const codigoPixel = (v: string) => <span className="px px-16">{v}</span>
+
 function Chips({ chips }: { chips: Chip[] }) {
   if (!chips.length) return null
   return (
     <div className="dm-chips" role="group" aria-label="Respostas rápidas">
-      {chips.map((c) => (
-        <button key={c.rotulo} type="button" className="dm-chip toque" onClick={c.acao}>
+      {chips.map((c, i) => (
+        <button key={`${i}·${c.rotulo}`} type="button" className="dm-chip toque" onClick={c.acao}>
           {c.rotulo}
         </button>
       ))}
@@ -716,6 +797,7 @@ function Resumo({
   mensagem,
   encomenda,
   pagamento,
+  nome,
   enviadoEm,
   enviouAqui,
   aoEnviar,
@@ -735,6 +817,8 @@ function Resumo({
   encomenda: boolean
   /** Forma de pagamento escolhida no pedido (a resposta do "Pix em breve" muda quando não é Pix). */
   pagamento: FormaPagamento | null
+  /** Nome de quem pede (marcador {nome} das falas). */
+  nome: string
   enviadoEm: number | null
   enviouAqui: boolean
   aoEnviar: () => void
@@ -753,6 +837,7 @@ function Resumo({
   mexerSacola: () => void
 }) {
   const avisar = useUI((s) => s.avisar)
+  const { t, p } = useFala()
   const [naoAbriu, setNaoAbriu] = useState(false)
   // "Sem cupom" esconde a pergunta até sair do resumo
   const [semCupom, setSemCupom] = useState(false)
@@ -799,25 +884,23 @@ function Resumo({
 
   return (
     <div className="dm-troca dm-atual">
-      <BolhaLoja>{encomenda ? 'Encomenda montada. Confere:' : 'Pedido montado. Confere:'}</BolhaLoja>
+      <BolhaLoja>{t(encomenda ? 'enc.resumo' : 'resumo.pedido', { nome })}</BolhaLoja>
       <pre className="dm-mensagem" aria-label="Mensagem que vai pro WhatsApp">
         {mensagem}
       </pre>
       {cupom && cupomOk && (
         <BolhaLoja>
-          Cupom <span className="px px-16">{cupom.codigo}</span> no pedido: desconto confirmado pela loja no WhatsApp.
+          {desenhar(p('cupom.vale', { cupom: cupom.codigo }), { cupom: codigoPixel })}
           {cupom.exemplo && <> <span className="carimbo">exemplo</span></>}
         </BolhaLoja>
       )}
       {cupom && !cupomOk && !enviadoEm && (
         <>
-          <BolhaLoja>
-            O cupom <span className="px px-16">{cupom.codigo}</span> não vale pra esse pedido ({motivoCurto(cupom.situacao, lugar)}). Vai sem cupom?
-          </BolhaLoja>
+          <BolhaLoja>{desenhar(p('cupom.naoVale', { cupom: cupom.codigo, motivo: motivoCurto(cupom.situacao, lugar) }), { cupom: codigoPixel })}</BolhaLoja>
           <Chips
             chips={[
-              { rotulo: 'Tirar cupom', acao: tirarCupom },
-              { rotulo: 'Mexer na sacola', acao: mexerSacola },
+              { rotulo: t('cupom.tirar'), acao: tirarCupom },
+              { rotulo: t('sacola.mexer'), acao: mexerSacola },
             ]}
           />
         </>
@@ -825,18 +908,18 @@ function Resumo({
       {!cupom && sugerido && !semCupom && !enviadoEm && (
         <>
           <BolhaLoja>
-            Tu tem o cupom <span className="px px-16">{sugerido.codigo}</span> ({sugerido.titulo}). Usa nesse pedido?
+            {desenhar(p('cupom.sugerir', { cupom: sugerido.codigo, premio: sugerido.titulo }), { cupom: codigoPixel })}
             {sugerido.exemplo && <> <span className="carimbo">exemplo</span></>}
           </BolhaLoja>
           <Chips
             chips={[
-              { rotulo: 'Usar cupom', acao: () => aplicarCupom(sugerido.codigo) },
-              { rotulo: 'Sem cupom', acao: () => setSemCupom(true) },
+              { rotulo: t('cupom.usar'), acao: () => aplicarCupom(sugerido.codigo) },
+              { rotulo: t('cupom.sem'), acao: () => setSemCupom(true) },
             ]}
           />
         </>
       )}
-      <BolhaLoja>Agora é só fechar no WhatsApp da loja. Vem no certo!</BolhaLoja>
+      <BolhaLoja>{t('resumo.fechar', { nome })}</BolhaLoja>
       <div className="dm-acoes">
         {/* ícone dentro do texto: se a linha quebrar (fonte grande no aparelho), ele vai junto da primeira palavra.
             Celular estreito: a encomenda lê "Fechar no WhatsApp" (o "encomenda" sai do nome acessível também) */}
@@ -862,20 +945,20 @@ function Resumo({
       {pix && (
         <div key={pix.n} ref={respostaPix} className="dm-resposta-pix">
           {pix.era === 'pix' ? (
-            <BolhaLoja>O Pix direto no site chega em breve. Por enquanto, fecha no WhatsApp: a loja te passa a chave Pix lá.</BolhaLoja>
+            <BolhaLoja>{t('pix.comPix')}</BolhaLoja>
           ) : (
             <>
-              <BolhaLoja>O Pix direto no site chega em breve. Quer pagar com Pix? Troca o pagamento aqui e fecha no WhatsApp: a loja te passa a chave lá.</BolhaLoja>
+              <BolhaLoja>{t('pix.outroPagamento')}</BolhaLoja>
               {pix.trocou ? (
                 <>
-                  <p className="dm-bolha dm-eu">Trocar pra Pix</p>
-                  <BolhaLoja>Pronto, pagamento no Pix. Agora fecha no WhatsApp: a chave vem lá.</BolhaLoja>
+                  <p className="dm-bolha dm-eu">{t('pix.trocar')}</p>
+                  <BolhaLoja>{t('pix.trocou')}</BolhaLoja>
                 </>
               ) : (
                 <Chips
                   chips={[
                     {
-                      rotulo: 'Trocar pra Pix',
+                      rotulo: t('pix.trocar'),
                       acao: () => {
                         trocarPraPix()
                         setPix((p) => p && { ...p, trocou: true })
@@ -890,13 +973,11 @@ function Resumo({
       )}
       {naoAbriu && (
         <>
-          <BolhaLoja>
-            Não abriu? Toca de novo no botão, ou copia o texto e manda pro WhatsApp da loja: <span className="dm-numero">{numero}</span>.
-          </BolhaLoja>
+          <BolhaLoja>{desenhar(p('resumo.naoAbriu', { numero }), { numero: (v) => <span className="dm-numero">{v}</span> })}</BolhaLoja>
           <Chips
             chips={[
               {
-                rotulo: 'Copiar texto',
+                rotulo: t('resumo.copiar'),
                 acao: () => avisar(copiarTexto(mensagem) ? 'Copiado.' : 'Segura no texto do pedido e copia.'),
               },
             ]}
@@ -906,12 +987,12 @@ function Resumo({
       {enviadoEm && (
         <>
           {/* com o "Não abriu?" na tela, não dá pra dizer que a mensagem já tá no WhatsApp */}
-          <BolhaLoja>{enviouAqui && !naoAbriu ? 'Mensagem pronta no WhatsApp. Quem aperta enviar é você.' : 'Já mandou o pedido?'}</BolhaLoja>
-          <BolhaLoja>Chegou? Marca @{canal.instagram} no story.</BolhaLoja>
+          <BolhaLoja>{t(enviouAqui && !naoAbriu ? 'resumo.prontoNoZap' : 'resumo.jaMandou')}</BolhaLoja>
+          <BolhaLoja>{t('resumo.marca', { instagram: `@${canal.instagram}` })}</BolhaLoja>
           <Chips
             chips={[
-              { rotulo: 'Mandei', acao: mandei },
-              { rotulo: 'Não consegui', acao: naoConsegui },
+              { rotulo: t('resumo.mandei'), acao: mandei },
+              { rotulo: t('resumo.naoConsegui'), acao: naoConsegui },
             ]}
           />
         </>
@@ -921,15 +1002,15 @@ function Resumo({
           chips={
             encomenda
               ? [
-                  { rotulo: 'Mudar produto', acao: () => editar('enc-produto') },
-                  { rotulo: 'Mudar quantidade', acao: () => editar('enc-qtd') },
-                  { rotulo: 'Mudar nome', acao: () => editar('enc-nome') },
+                  { rotulo: t('enc.mudarProduto'), acao: () => editar('enc-produto') },
+                  { rotulo: t('enc.mudarQtd'), acao: () => editar('enc-qtd') },
+                  { rotulo: t('enc.mudarNome'), acao: () => editar('enc-nome') },
                 ]
               : [
-                  { rotulo: 'Mudar endereço', acao: () => editar('endereco') },
-                  { rotulo: 'Mudar pagamento', acao: () => editar('pagamento') },
-                  { rotulo: 'Mudar obs.', acao: () => editar('obs') },
-                  ...(cupom && cupomOk ? [{ rotulo: 'Tirar cupom', acao: tirarCupom }] : []),
+                  { rotulo: t('resumo.mudarEndereco'), acao: () => editar('endereco') },
+                  { rotulo: t('resumo.mudarPagamento'), acao: () => editar('pagamento') },
+                  { rotulo: t('resumo.mudarObs'), acao: () => editar('obs') },
+                  ...(cupom && cupomOk ? [{ rotulo: t('cupom.tirar'), acao: tirarCupom }] : []),
                 ]
           }
         />

@@ -1060,6 +1060,17 @@ try {
 } catch (e) {
   ok(false, `exceção: ${e.stack}`)
 }
+
+// pedidos, avisos no WhatsApp e falas do pedido guiado (scripts/testar-api-pedidos.mjs), com o dono entrando de novo
+// (a senha que o "recuperar com código novo" deixou)
+try {
+  const { testarPedidos } = await import('./testar-api-pedidos.mjs')
+  const dono = new Cliente('198.51.100.120')
+  igual((await dono.post('admin-entrar', { login: 'dono', senha: 'recuperada-789' })).status, 200, 'dono entra pros testes dos pedidos')
+  await testarPedidos({ parte, ok, igual, erro, Cliente, base, dono, AGORA, tmp, dados, raiz, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
+} catch (e) {
+  ok(false, `exceção nos pedidos: ${e.stack}`)
+}
 derrubar(php)
 if (process.env.GC_TESTE_MANTER === '1') console.log(`dados do teste em ${tmp}`)
 else rmSync(tmp, { recursive: true, force: true })

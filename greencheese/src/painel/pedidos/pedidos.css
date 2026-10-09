@@ -1,0 +1,837 @@
+/* Pedidos, avisos no WhatsApp e falas do pedido guiado. Vem depois do painel.css (tokens, botões, campos, folhas) e
+   segue a mesma linguagem: listas com fio de 1 px, alvos de 44 px, Pixelify nos números e códigos, nada de cor fora da
+   paleta. Movimento só em transform/opacity; com movimento reduzido, corte. */
+
+/* ───────────────────────── status do pedido ───────────────────────── */
+
+.pd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font: 600 12px/1.2 var(--ui);
+  white-space: nowrap;
+}
+/* novo = o que pede o olho do dono: o adesivo branco */
+.pd-status-novo {
+  background: var(--branco);
+  color: var(--preto);
+}
+.pd-status-confirmado {
+  box-shadow: inset 0 0 0 1px var(--branco);
+  color: var(--branco);
+}
+.pd-status-saiu {
+  background: var(--bolha);
+  color: var(--branco);
+  box-shadow: inset 0 0 0 1px var(--chiado);
+}
+.pd-status-entregue {
+  color: var(--legenda);
+  box-shadow: inset 0 0 0 1px var(--bolha);
+}
+.pd-status-cancelado {
+  color: var(--legenda);
+  box-shadow: inset 0 0 0 1px var(--chiado);
+  text-decoration: line-through;
+}
+.pd-tag {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--bolha);
+  font: 600 11px/1.3 var(--ui);
+  letter-spacing: 0.02em;
+  color: var(--branco);
+}
+
+/* ───────────────────────── lista ───────────────────────── */
+
+.pd-busca-linha {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 4px;
+}
+.pd-busca-linha .pn-busca {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pd-busca-linha .pn-select {
+  flex: 0 1 220px;
+  min-width: 0;
+}
+/* celular: a busca numa linha, o estado embaixo */
+@media (max-width: 559px) {
+  .pd-busca-linha {
+    flex-direction: column;
+  }
+  .pd-busca-linha .pn-select {
+    flex: none;
+  }
+}
+.pd-lista > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.pd-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: start;
+  padding: 14px 0;
+  color: var(--branco);
+}
+.pd-linha-topo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.pd-linha-nome {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pd-linha-valor {
+  font-family: var(--pixel);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: right;
+}
+.pd-linha-valor small {
+  display: block;
+  font-family: var(--ui);
+  font-size: 12px;
+  color: var(--legenda);
+}
+.pd-linha-itens {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--branco);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.pd-linha-meta {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-linha-apagado .pd-linha-nome,
+.pd-linha-apagado .pd-linha-itens {
+  color: var(--legenda);
+}
+.pd-mais {
+  margin-top: 8px;
+}
+/* trocando de filtro: a lista de antes fica, apagadinha, até a nova chegar */
+.pd-trocando {
+  opacity: 0.55;
+  transition: opacity 0.15s linear;
+}
+.pd-achados {
+  padding: 4px 0 2px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-ajustes {
+  margin-top: 28px;
+}
+.pd-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 40px 0;
+  text-align: center;
+  color: var(--legenda);
+}
+.pd-vazio p {
+  max-width: 34ch;
+}
+
+/* ───────────────────────── detalhe ───────────────────────── */
+
+.pd-cab {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.pd-cab-linha {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.pd-cab-nome {
+  font: 700 22px/1.2 var(--ui);
+  overflow-wrap: anywhere;
+}
+.pd-cab-sub {
+  font-size: 14px;
+  color: var(--legenda);
+}
+.pd-recado {
+  margin-top: 12px;
+}
+.pd-cab + .pn-nota {
+  margin-top: 12px;
+}
+.pd-quebra {
+  overflow-wrap: anywhere;
+}
+.pd-sem {
+  color: var(--legenda);
+}
+/* o valor das linhas "rótulo · valor" quebra à direita sem empurrar o rótulo */
+.pd-detalhe .pn-linha dd {
+  min-width: 0;
+  text-align: right;
+}
+.pd-editar-whats {
+  margin-top: 6px;
+}
+.pd-detalhe .pn-linha.pd-linha-longa {
+  flex-direction: column;
+  gap: 4px;
+}
+.pd-detalhe .pd-linha-longa dd {
+  text-align: left;
+}
+/* link sozinho no valor da linha: alvo de 44 px sem esticar a linha */
+.pd-detalhe .pn-linha:not(.pd-linha-longa) dd > .pd-ligado {
+  margin: -12px 0;
+}
+.pd-sem-quebra {
+  white-space: nowrap;
+}
+.pd-mapa {
+  display: flex;
+  width: max-content;
+}
+.pd-acoes-linha > .pn-botao.pd-copiar {
+  flex: 0 1 auto;
+}
+.pd-nota-cab {
+  margin-bottom: 0;
+}
+.pd-nota-cab .pn-h2 {
+  margin-bottom: 0;
+}
+.pd-col-dir .pd-acoes-linha,
+.pd-mais-botoes {
+  max-width: 420px;
+}
+.pd-form {
+  margin-top: 12px;
+}
+.pd-salvo {
+  align-self: center;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-zap-dica {
+  margin-top: 10px;
+}
+.pd-sem-taxa {
+  margin-top: 8px;
+}
+
+/* linha do status: no celular, de cima pra baixo (como rastreio); de 480 px pra cima, um trilho de 4 passos */
+@media (min-width: 480px) {
+  .pn-tempo.pd-tempo {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.pd-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+}
+.pd-acoes-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pd-acoes-linha > .pn-botao {
+  flex: 1 1 150px;
+}
+.pd-acoes + .pd-zap {
+  margin-top: 16px;
+}
+.pd-zap {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--pn-raio);
+  box-shadow: inset 0 0 0 1px var(--bolha);
+}
+.pd-zap-rot {
+  font: 600 13px/1.3 var(--ui);
+  color: var(--legenda);
+  margin-bottom: 8px;
+}
+.pd-zap-msg {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--bolha);
+  border-radius: 14px 14px 14px 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.pd-itens > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bolha);
+  font-size: 15px;
+}
+.pd-itens > li:first-child {
+  border-top: 0;
+}
+.pd-item-qtd {
+  font-family: var(--pixel);
+  font-weight: 400;
+  margin-right: 6px;
+}
+.pd-item-valor {
+  font-family: var(--pixel);
+  font-weight: 400;
+  white-space: nowrap;
+  text-align: right;
+}
+.pd-item-sub {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 2px;
+  border-top: 1px solid var(--chiado);
+  font-weight: 700;
+}
+.pd-total span:last-child {
+  font-family: var(--pixel);
+  font-weight: 500;
+  font-size: 18px;
+}
+.pd-cupom {
+  margin-top: 10px;
+  font-size: 14px;
+}
+.pd-msg {
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 14px;
+  font: 500 13px/1.45 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.pd-detalhes summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font: 600 14px var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.pd-ligado {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* duas colunas no computador: status e ações à esquerda, o pedido inteiro à direita */
+@media (min-width: 1100px) {
+  .pd-detalhe {
+    display: grid;
+    grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+    column-gap: 48px;
+    align-items: start;
+  }
+  .pd-detalhe > .pn-aviso {
+    grid-column: 1 / -1;
+  }
+  .pd-col-dir > .pn-bloco:first-child {
+    border-top: 0;
+    padding-top: 8px;
+  }
+}
+.pd-col-esq,
+.pd-col-dir {
+  min-width: 0;
+}
+
+/* ───────────────────────── avisos no WhatsApp ───────────────────────── */
+
+.pd-situacao {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--pn-raio);
+  box-shadow: inset 0 0 0 1px var(--chiado);
+}
+.pd-situacao-on {
+  background: var(--bolha);
+  box-shadow: none;
+}
+.pd-situacao-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--preto);
+  box-shadow: inset 0 0 0 1px var(--chiado);
+}
+.pd-situacao-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+  color: var(--legenda);
+}
+.pd-situacao-txt strong {
+  font-size: 16px;
+  color: var(--branco);
+}
+.pd-como {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--legenda);
+}
+.pd-como ol {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  list-style: decimal;
+}
+.pd-como li + li {
+  margin-top: 4px;
+}
+.pd-guardado {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-guardado strong {
+  font: 600 13px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--branco);
+}
+.pd-segredo-linha {
+  display: flex;
+  gap: 8px;
+}
+.pd-segredo-linha .pn-input {
+  flex: 1;
+  min-width: 0;
+}
+.pd-segredo-linha .pn-botao {
+  flex: none;
+}
+.pd-segredo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.pd-segredo > .pn-campo {
+  align-self: stretch;
+}
+.pd-apagar-guardado {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 13px;
+}
+.pd-evento {
+  align-items: flex-start;
+  padding: 8px 0;
+}
+.pd-evento .pn-troca-marca {
+  margin-top: 1px;
+}
+.pd-evento-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pd-evento-txt small {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-form-avisos {
+  margin-top: 20px;
+}
+.pd-salvar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0 8px;
+  border-top: 1px solid var(--bolha);
+}
+.pd-historico {
+  margin-top: 20px;
+}
+.pd-historico .pn-h2-linha .pn-h2 {
+  margin-bottom: 0;
+}
+.pd-envios > li {
+  padding: 14px 0;
+  border-top: 1px solid var(--bolha);
+}
+.pd-envios > li:first-child {
+  border-top: 0;
+}
+.pd-envio-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.pd-envio-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 1px;
+  border-radius: 50%;
+}
+.pd-envio-enviado .pd-envio-ic {
+  background: var(--branco);
+  color: var(--preto);
+}
+.pd-envio-falhou .pd-envio-ic {
+  box-shadow: inset 0 0 0 2px var(--branco);
+  color: var(--branco);
+}
+.pd-envio-pendente .pd-envio-ic,
+.pd-envio-enviando .pd-envio-ic {
+  box-shadow: inset 0 0 0 1px var(--chiado);
+  color: var(--legenda);
+}
+.pd-envio-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pd-envio-txt strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.pd-envio-txt span {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-envio-erro {
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--branco);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.pd-envio-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 38px;
+}
+.pd-envio-acoes:empty {
+  display: none;
+}
+.pd-envio-mais {
+  margin-top: 2px;
+  padding-left: 38px;
+}
+.pd-envio-mais .pd-zap-msg {
+  margin: 4px 0 8px;
+}
+.pd-envio-acoes.pd-envio-acoes-dentro {
+  padding-left: 0;
+}
+.pd-tentativas {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-tentativas li {
+  padding: 3px 0;
+}
+
+/* ───────────────────────── falas do pedido guiado ───────────────────────── */
+
+.pd-textos-intro {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.pd-grupos > li {
+  border-top: 1px solid var(--bolha);
+}
+.pd-grupo > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.pd-grupo > summary::-webkit-details-marker {
+  display: none;
+}
+.pd-grupo-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pd-grupo-nome {
+  font-family: var(--pixel);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.15;
+}
+.pd-grupo-n {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-grupo > summary > svg {
+  flex: none;
+  transform: rotate(90deg);
+}
+.pd-grupo[open] > summary > svg {
+  transform: rotate(-90deg);
+}
+.pd-grupo .pd-falas {
+  padding-bottom: 12px;
+}
+@media (hover: hover) {
+  .pd-grupo > summary:hover .pd-grupo-nome {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.pd-falas > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.pd-texto-fala {
+  min-height: 88px;
+}
+.pd-marcadores-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pd-fala {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 0;
+  text-align: left;
+  color: var(--branco);
+}
+.pd-fala-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pd-fala-rot {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pd-fala-trocada {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--branco);
+  color: var(--preto);
+  font: 700 11px/1.4 var(--ui);
+  vertical-align: 1px;
+}
+.pd-fala > svg {
+  flex: none;
+  color: var(--legenda);
+}
+
+/* a prévia: o balão como no chat do site */
+.pd-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pd-bolha {
+  max-width: 88%;
+  padding: 9px 13px;
+  border-radius: 20px;
+  font: 400 15px/1.35 var(--ui);
+  overflow-wrap: anywhere;
+}
+.pd-bolha-loja {
+  align-self: flex-start;
+  background: var(--bolha);
+  color: var(--branco);
+}
+.pd-bolha-eu {
+  align-self: flex-end;
+  background: var(--branco);
+  color: var(--preto);
+}
+.pd-chip {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 0 16px;
+  border: 1px solid var(--legenda);
+  border-radius: 22px;
+  font: 600 14px/1.1 var(--ui);
+  overflow-wrap: anywhere;
+}
+.pd-campo-dica {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  background: var(--bolha);
+  border-radius: 22px;
+  font-size: 15px;
+  color: var(--legenda);
+}
+.pd-campo-erro {
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--branco);
+}
+.pd-marca {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+.pd-editor-previa {
+  padding: 14px;
+  border-radius: var(--pn-raio);
+  background: var(--preto);
+  box-shadow: inset 0 0 0 1px var(--bolha);
+}
+.pd-editor-previa-rot {
+  margin-bottom: 10px;
+  font: 600 12px/1.2 var(--ui);
+  color: var(--legenda);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.pd-marcadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pd-marcador {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 44px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--chiado);
+  text-align: left;
+  color: var(--branco);
+}
+.pd-marcador code {
+  font: 600 14px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+.pd-marcador small {
+  font-size: 11px;
+  color: var(--legenda);
+}
+.pd-padrao {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--legenda);
+}
+.pd-padrao q {
+  color: var(--branco);
+}
+
+@media (hover: hover) {
+  .pd-linha:hover .pd-linha-nome,
+  .pd-fala:hover .pd-fala-rot {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .pd-marcador:hover {
+    box-shadow: inset 0 0 0 1px var(--branco);
+  }
+}
+
+/* ───────────────────────── Resumo ───────────────────────── */
+
+.pd-resumo-novos .pd-lista > li:first-child .pd-linha {
+  padding-top: 4px;
+}
+.pd-resumo-zero {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--legenda);
+}
+.pd-resumo-alerta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border-radius: var(--pn-raio);
+  box-shadow: inset 0 0 0 1px var(--branco);
+  font: 600 14px/1.3 var(--ui);
+  color: var(--branco);
+}
+.pd-resumo-alerta > span {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-trocando {
+    transition: none;
+  }
+}

@@ -361,7 +361,11 @@ function gc_atender(array $rotas): void
         $res = $funcao();
         $status = (int) ($res['_status'] ?? 200);
         unset($res['_status']);
-        gc_enviar_json(['ok' => true] + $res, $status);
+        if (gc_depois() === []) {
+            gc_enviar_json(['ok' => true] + $res, $status);
+        } else {
+            gc_responder_e_soltar(['ok' => true] + $res, $status);
+        }
     } catch (ErroApi $e) {
         if (isset($e->extra['esperaSegundos']) && !headers_sent()) {
             header('Retry-After: ' . (int) $e->extra['esperaSegundos']);
@@ -378,5 +382,65 @@ function gc_atender(array $rotas): void
         }
         gc_log("[$rota] " . get_class($e) . ': ' . $e->getMessage() . ' em ' . basename($e->getFile()) . ':' . $e->getLine());
         gc_enviar_json(['ok' => false, 'erro' => 'erro-interno', 'mensagem' => GC_MSG_INTERNO], 500);
+    }
+}
+
+// ─── depois da resposta (cadeia B: o aviso no WhatsApp) ─────────────────────────────────────────────────────────
+
+/**
+ * Trabalho pra depois de responder (o aviso no grupo do WhatsApp): quem pediu não espera por ele. Só roda quando a rota
+ * deu certo (com erro, a transação desfez o que ia ser avisado). A função recebe true quando o cliente já foi solto
+ * (fastcgi_finish_request/litespeed_finish_request) e false quando a conexão ainda tá presa: aí usa tempo limite curto.
+ * Sem argumento, só devolve a fila.
+ * @return list<callable(bool): void>
+ */
+function gc_depois(?callable $f = null): array
+{
+    static $fila = [];
+    if ($f !== null) {
+        $fila[] = $f;
+    }
+    return $fila;
+}
+
+/**
+ * Responde com Content-Length (o aparelho termina de ler sem esperar o fim do script), solta o cliente quando a
+ * hospedagem deixa e roda a fila do gc_depois. Erro daqui pra frente só vai pro log: a resposta já saiu.
+ * @param array<string, mixed> $dados
+ */
+function gc_responder_e_soltar(array $dados, int $status): void
+{
+    $corpo = (string) json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    if (!headers_sent()) {
+        http_response_code($status);
+        gc_cabecalhos();
+        // com a compressão do PHP o tamanho muda: aí o aparelho espera o fim (e o envio usa o tempo curto)
+        if (!filter_var(ini_get('zlib.output_compression'), FILTER_VALIDATE_BOOLEAN)) {
+            header('Content-Length: ' . strlen($corpo));
+        }
+    }
+    echo $corpo;
+    ignore_user_abort(true);
+    $solto = false;
+    if (function_exists('fastcgi_finish_request')) {
+        $solto = fastcgi_finish_request();
+    } elseif (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+        $solto = true;
+    } else {
+        while (ob_get_level() > 0 && @ob_end_flush()) {
+            // esvazia os buffers: a resposta sai agora
+        }
+        flush();
+    }
+    if ($solto) {
+        @set_time_limit(60);
+    }
+    foreach (gc_depois() as $f) {
+        try {
+            $f($solto);
+        } catch (Throwable $e) {
+            gc_log('[depois] ' . get_class($e) . ': ' . $e->getMessage() . ' em ' . basename($e->getFile()) . ':' . $e->getLine());
+        }
     }
 }

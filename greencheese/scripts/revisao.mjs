@@ -55,10 +55,14 @@ const REFERENCIA = {
   mg: "PEDIDO GREEN CHEESE — MG / Teófilo Otoni\n1x Jack Daniel's Old No. 7 1 L — R$ 149,90\n3x Seda OCB Premium Slim — R$ 19,99\nSubtotal: R$ 169,89\nEntrega: …\nPagamento: Pix\nNome: Ian Teste\nObs.: Portão azul",
   rj: "PEDIDO GREEN CHEESE — RJ / Rio de Janeiro\n1x Jack Daniel's Old No. 7 1 L — R$ 149,90\n3x Seda OCB Premium Slim — R$ 19,99\nSubtotal: R$ 169,89\nEntrega: …\nPagamento: Pix\nNome: Ian Teste\nObs.: Portão azul",
 }
+// A linha do código do pedido (GC-XXXXX, nasce no aparelho) vem logo depois do cabeçalho: o resto não muda
+const LINHA_CODIGO = /^Código: GC-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/
 function conferirMensagem(uf, texto) {
-  const semEntrega = texto.replace(/^Entrega: .*$/m, 'Entrega: …')
+  const linhas = texto.split('\n')
+  if (!LINHA_CODIGO.test(linhas[1] ?? '')) erros.push(`[mensagem ${uf}] sem a linha do código (Código: GC-XXXXX) logo depois do cabeçalho: "${linhas[1] ?? ''}"`)
+  const semEntrega = linhas.filter((_, i) => i !== 1 || !LINHA_CODIGO.test(linhas[1])).join('\n').replace(/^Entrega: .*$/m, 'Entrega: …')
   if (semEntrega !== REFERENCIA[uf]) erros.push(`[mensagem ${uf}] mudou:\n--- referência\n${REFERENCIA[uf]}\n--- agora\n${semEntrega}`)
-  else relatorio.push(`mensagem ${uf}: igual à referência`)
+  else relatorio.push(`mensagem ${uf}: igual à referência (mais a linha do código)`)
 }
 
 async function contexto(browser, viewport, opts = {}) {
@@ -521,6 +525,90 @@ const browser = await chromium.launch()
   await page.locator('[aria-modal="true"][aria-label="Pedido guiado"]').waitFor({ timeout: 8000 })
   await page.waitForTimeout(700)
   await fluxoEncomenda(page, 'mg', 'cel-14b-mg')
+  await ctx.close()
+}
+
+// ---------- pedido no servidor (API.md, "Pedidos"): a cópia que sai no toque do WhatsApp (sem segurar o link), a
+// mensagem exata com o código, a fila no aparelho até o servidor confirmar, o código novo quando o pedido muda depois
+// de mandar (com o de antes no "substitui"), as falas que o dono trocou no painel e o tabaco recusado na encomenda ----
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 })
+  const recebidos = []
+  let falas = 0
+  await ctx.route('**/api/index.php?r=pedido*', async (route) => {
+    const req = route.request()
+    const r = new URL(req.url()).searchParams.get('r')
+    if (r === 'pedido-textos') {
+      falas++
+      const versao = '"t-revisao"'
+      return route.fulfill({ status: 200, headers: { ETag: versao }, json: { ok: true, versao, textos: { 'nome.pergunta': 'Como a loja te chama?', 'obs.pergunta': 'Algum recado pra entrega, {nome}?' } } })
+    }
+    if (r === 'pedido' && req.method() === 'POST') {
+      let c = null
+      try {
+        c = JSON.parse(req.postData() ?? '')
+      } catch {
+        c = null
+      }
+      recebidos.push({ c, via: req.resourceType() })
+      return route.fulfill({ status: 201, json: { ok: true, pedido: { codigo: c?.codigo, tipo: c?.tipo, status: 'novo', criadoEm: new Date().toISOString() } } })
+    }
+    return route.fallback()
+  })
+  // o toque no WhatsApp fica no site (o envio sai do mesmo jeito; aqui não tem WhatsApp pra abrir)
+  await ctx.addInitScript(() => {
+    document.addEventListener('click', (e) => {
+      if (e.target instanceof Element && e.target.closest('a[href*="wa.me"]')) e.preventDefault()
+    }, true)
+  })
+  const page = await ctx.newPage()
+  vigiar(page, 'pedido-servidor')
+  await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  await fluxoPedido(page, 'mg', '39800001', 'cel-17-servidor')
+  const bolhas = (await page.locator('.dm-loja').allTextContents()).join(' | ')
+  conferir(falas > 0 && bolhas.includes('Como a loja te chama?') && bolhas.includes('Algum recado pra entrega, Ian Teste?'), `pedido: o chat usa as falas que o dono trocou no painel (GET pedido-textos ${falas}×)`)
+  const zap = page.getByRole('link', { name: 'Fechar pedido no WhatsApp' })
+  const texto1 = decodeURIComponent((await zap.getAttribute('href')).split('text=')[1] ?? '')
+  const cod1 = texto1.split('\n')[1]?.replace('Código: ', '')
+  await zap.click()
+  for (let k = 0; k < 40 && !recebidos.length; k++) await page.waitForTimeout(100)
+  const a = recebidos[0]?.c
+  const seda = a?.itens?.find((i) => i.qtd === 3)
+  conferir(
+    !!a && a.codigo === cod1 && a.mensagem === texto1 && a.tipo === 'pedido' && a.uf === 'mg' && a.nome === 'Ian Teste' && a.itens?.length === 2 && seda?.combo === '3 por R$ 19,99' && a.subtotal === 169.89 && a.pagamento === 'pix' && a.obs === 'Portão azul' && (a.entrega?.cep ?? '').replace(/\D/g, '') === '39800001' && a.site === '' && a.substitui === null && /^[0-9a-f]{32}$/.test(a.token ?? ''),
+    `pedido: o toque no WhatsApp manda o pedido pro servidor — código, itens com o combo, subtotal, entrega, pagamento e a mensagem exata (${recebidos[0]?.via ?? 'nada chegou'})`,
+  )
+  const pendentes = () => page.evaluate(() => JSON.parse(localStorage.getItem('gc-pedidos') ?? '[]').length)
+  const naFila = await pendentes()
+  // a volta pro site (a aba à vista de novo) manda de novo o que o servidor ainda não confirmou; o mesmo código e token
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  for (let k = 0; k < 60 && ((await pendentes()) > 0 || recebidos.length < 2); k++) await page.waitForTimeout(100)
+  const b = recebidos[1]?.c
+  conferir(naFila === (recebidos[0]?.via === 'ping' ? 1 : 0) && (await pendentes()) === 0 && b?.codigo === a?.codigo && b?.token === a?.token, `pedido: a cópia fica no aparelho até o servidor confirmar e vai de novo com o mesmo código e token (${naFila} na fila, depois ${await pendentes()})`)
+  // mudou depois de mandar: código novo na mensagem, e o novo diz qual substitui
+  await clicar(page, 'Não consegui')
+  await clicar(page, 'Mudar obs.')
+  await digitar(page, 'Portão verde')
+  await page.waitForTimeout(500)
+  const texto2 = decodeURIComponent((await zap.getAttribute('href')).split('text=')[1] ?? '')
+  const cod2 = texto2.split('\n')[1]?.replace('Código: ', '')
+  conferir(LINHA_CODIGO.test(texto2.split('\n')[1] ?? '') && cod2 !== cod1 && /^Obs\.: Portão verde$/m.test(texto2), `pedido: mudou depois de mandar → código novo na mensagem (${cod1} → ${cod2})`)
+  const n = recebidos.length
+  await zap.click()
+  for (let k = 0; k < 40 && recebidos.length === n; k++) await page.waitForTimeout(100)
+  const c = recebidos[n]?.c
+  conferir(c?.codigo === cod2 && c?.mensagem === texto2 && c?.substitui?.codigo === cod1 && c?.substitui?.token === a?.token && c?.token !== a?.token, `pedido: o novo vai com o de antes no "substitui" (${c?.substitui?.codigo ?? '?'} → ${c?.codigo ?? '?'})`)
+  await foto(page, 'cel-17-servidor-trocou')
+  // encomenda: tabaco e vape recusados no chat, com a fala da Anvisa
+  await page.goto(`${base}?uf=mg&chat=encomenda`)
+  await page.locator('[aria-modal="true"][aria-label="Pedido guiado"]').waitFor({ timeout: 8000 })
+  await page.waitForTimeout(700)
+  await clicar(page, 'Pode')
+  await digitar(page, 'Cigarro de palha')
+  const recusa = (await page.locator('.dm-erro').allTextContents()).join(' ')
+  conferir(/a Anvisa não deixa vender pela internet/.test(recusa), `encomenda: tabaco recusado no chat (${recusa.trim() || 'sem aviso'})`)
+  await foto(page, 'cel-17-servidor-encomenda-tabaco')
   await ctx.close()
 }
 

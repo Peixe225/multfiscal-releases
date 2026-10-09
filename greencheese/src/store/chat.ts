@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { FormaPagamento } from '../dados/canais'
 import { armazenamentoSeguro } from '../lib/armazenamento'
+import { codigoValido, novoCodigoPedido, tokenValido } from '../lib/codigo-pedido'
 
 export type ModoChat = 'pedido' | 'encomenda'
 
@@ -64,6 +65,27 @@ export const respostasVazias: Respostas = {
   canalEnc: '',
 }
 
+/**
+ * O código do pedido que está sendo montado (vai na mensagem do WhatsApp) e o segredo dele. enviada = a mensagem que
+ * já foi pro servidor com esse código: se o pedido mudar depois disso, nasce um código novo que substitui o de antes
+ * (o servidor tira o velho da lista, se ainda for novo). Recomeçar, ou trocar de pedido pra encomenda, = código novo.
+ */
+export interface CodigoPedido {
+  codigo: string
+  token: string
+  enviada: string | null
+  substitui: { codigo: string; token: string } | null
+}
+
+const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, substitui })
+
+function codigoLido(v: unknown): CodigoPedido {
+  const c = v as Partial<CodigoPedido> | null
+  if (!c || !codigoValido(c.codigo) || !tokenValido(c.token)) return codigoNovo()
+  const sub = c.substitui && codigoValido(c.substitui.codigo) && tokenValido(c.substitui.token) ? { codigo: c.substitui.codigo, token: c.substitui.token } : null
+  return { codigo: c.codigo, token: c.token, enviada: typeof c.enviada === 'string' ? c.enviada : null, substitui: sub }
+}
+
 interface ChatState {
   aberto: boolean
   modo: ModoChat
@@ -78,6 +100,11 @@ interface ChatState {
   /** Quando a pessoa tocou em "Fechar pedido no WhatsApp" (para perguntar "Já mandou?" na volta). */
   enviadoEm: number | null
   marcarEnviado: (v: number | null) => void
+  pedido: CodigoPedido
+  /** A cópia com esse código foi pro servidor (no toque do WhatsApp). */
+  marcarPedidoEnviado: (mensagem: string) => void
+  /** O pedido mudou depois de ir pro servidor: código novo, que substitui o de antes. */
+  trocarCodigo: () => void
   abrir: (modo: ModoChat, opts?: { produtoEncomenda?: string; respondendo?: string[]; de?: 'story' | 'pagina' }) => void
   fechar: () => void
   responder: (passo: Passo, dados: Partial<Respostas>, proximo: Passo) => void
@@ -101,12 +128,17 @@ export const useChat = create<ChatState>()(
       respondendoDe: 'story',
       enviadoEm: null,
       marcarEnviado: (v) => set({ enviadoEm: v }),
+      pedido: codigoNovo(),
+      marcarPedidoEnviado: (mensagem) => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem } })),
+      trocarCodigo: () => set((s) => ({ pedido: codigoNovo({ codigo: s.pedido.codigo, token: s.pedido.token }) })),
       abrir: (modo, opts) => {
         const s = get()
         // Reabrir o mesmo modo continua de onde parou; trocar de modo recomeça o roteiro (as respostas ficam).
         if (s.modo !== modo || ((s.passo === 'resumo' || s.passo === 'enc-resumo') && !s.enviadoEm)) {
           set({ modo, feitos: [], passo: inicio(modo), enviadoEm: null })
         }
+        // pedido virou encomenda (ou o contrário): é outro pedido, com outro código
+        if (s.modo !== modo) set({ pedido: codigoNovo() })
         if (opts?.produtoEncomenda != null) set((st) => ({ respostas: { ...st.respostas, encProduto: opts.produtoEncomenda! } }))
         set({ aberto: true, respondendo: opts?.respondendo ?? [], respondendoDe: opts?.de ?? 'story' })
       },
@@ -123,16 +155,16 @@ export const useChat = create<ChatState>()(
           const i = s.feitos.indexOf(passo)
           return { feitos: i >= 0 ? s.feitos.slice(0, i) : s.feitos, passo, enviadoEm: null }
         }),
-      recomecar: () => set((s) => ({ feitos: [], passo: inicio(s.modo), enviadoEm: null })),
+      recomecar: () => set((s) => ({ feitos: [], passo: inicio(s.modo), enviadoEm: null, pedido: codigoNovo() })),
     }),
     {
       name: 'gc-chat',
       storage: createJSONStorage(() => armazenamentoSeguro),
-      partialize: (s) => ({ modo: s.modo, feitos: s.feitos, passo: s.passo, respostas: s.respostas, respondendo: s.respondendo, respondendoDe: s.respondendoDe, enviadoEm: s.enviadoEm }),
+      partialize: (s) => ({ modo: s.modo, feitos: s.feitos, passo: s.passo, respostas: s.respostas, respondendo: s.respondendo, respondendoDe: s.respondendoDe, enviadoEm: s.enviadoEm, pedido: s.pedido }),
       // respostas novas (campos acrescentados depois) não quebram quem já tinha dados salvos
       merge: (salvo, atual) => {
         const s = (salvo ?? {}) as Partial<ChatState>
-        return { ...atual, ...s, respostas: { ...respostasVazias, ...(s.respostas ?? {}) } }
+        return { ...atual, ...s, respostas: { ...respostasVazias, ...(s.respostas ?? {}) }, pedido: codigoLido(s.pedido) }
       },
     },
   ),

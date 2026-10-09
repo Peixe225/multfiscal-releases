@@ -145,7 +145,7 @@ function erroDaResposta(status: number, json: Record<string, unknown> | null): E
   return new ErroApi(codigo, msg, status, json ?? {})
 }
 
-async function pedir<T>(metodo: 'GET' | 'POST', rota: string, op: Opcoes = {}): Promise<T> {
+export async function pedir<T>(metodo: 'GET' | 'POST', rota: string, op: Opcoes = {}): Promise<T> {
   const tentativa = op.tentativa ?? 0
   const cab: Record<string, string> = { Accept: 'application/json' }
   let corpo: string | undefined

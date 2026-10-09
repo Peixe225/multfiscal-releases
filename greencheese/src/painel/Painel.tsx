@@ -8,6 +8,11 @@ import { limparCache } from './dados'
 import { Moldura } from './Moldura'
 import { ir, useRota, type Rota } from './rotas'
 import { Entrar, FolhaSessao, Instalar } from './telas/Acesso'
+// pedidos, avisos no WhatsApp e textos do pedido guiado
+import { Avisos } from './pedidos/Avisos'
+import { Pedido } from './pedidos/Pedido'
+import { Pedidos } from './pedidos/Pedidos'
+import { Textos } from './pedidos/Textos'
 import { Atividade } from './telas/Atividade'
 import { Conta } from './telas/Conta'
 import { EditarRateio } from './telas/EditarRateio'
@@ -22,6 +27,15 @@ type Fase = 'carregando' | 'erro' | 'instalar' | 'entrar' | 'dentro'
 
 function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () => Promise<void> }) {
   switch (rota.tela) {
+    // pedidos, avisos no WhatsApp e textos do pedido guiado
+    case 'pedidos':
+      return <Pedidos status={rota.status} uf={rota.uf} />
+    case 'pedido':
+      return <Pedido key={rota.id} id={rota.id} />
+    case 'avisos':
+      return <Avisos />
+    case 'textos':
+      return <Textos />
     case 'rateios':
       return <Rateios />
     case 'novo':

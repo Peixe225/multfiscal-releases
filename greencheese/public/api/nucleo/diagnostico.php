@@ -134,7 +134,7 @@ function gc_rota_admin_diagnostico(): array
             'gravavel' => is_writable($dados),
             'bancoBytes' => is_file($banco) ? (int) filesize($banco) : 0,
             'diario' => $modo,
-            'versaoBanco' => (int) gc_db()->query('PRAGMA user_version')->fetchColumn(),
+            'versaoBanco' => gc_versao_banco(),
         ],
         'uploads' => [
             'existe' => is_dir($uploads),
