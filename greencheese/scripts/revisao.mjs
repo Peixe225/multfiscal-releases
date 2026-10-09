@@ -1746,16 +1746,21 @@ for (const reduzir of [false, true]) {
     await page.waitForTimeout(700)
     const correndo = t0 !== (await barraDaRua())
     const m = await page.locator('.vista-inicio .rua-em-story .rua-mercador').boundingBox()
+    // onde o mercador estava no quadro (0 = borda esquerda, 1 = direita) e em qual segmento: pra entender uma falha rara
+    const fx = Math.round(((m.x + m.width / 2 - q.x) / q.width) * 100) / 100
     await page.mouse.click(m.x + m.width / 2, m.y + m.height / 2)
     await page.waitForTimeout(400)
     const balao = await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()
     const aberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
     const b1 = await barraDaRua()
     await page.waitForTimeout(1500)
-    const segura = b1 === (await barraDaRua())
+    const b1b = await barraDaRua()
+    const segura = b1 === b1b
+    const aindaAberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
+    const naRua = !(await cena.isHidden())
     conferir(
-      correndo && aberto && segura && balao.some((t) => /Vem no certo|Quem já usou/.test(t)) && !balao.some((t) => /Chega mais/.test(t)),
-      `${nome}: tocar no mercador abre o "Ver o Mercado" e segura o story (${JSON.stringify({ correndo, aberto, segura, balao })})`,
+      correndo && aberto && aindaAberto && naRua && segura && balao.some((t) => /Vem no certo|Quem já usou/.test(t)) && !balao.some((t) => /Chega mais/.test(t)),
+      `${nome}: tocar no mercador abre o "Ver o Mercado" e segura o story (${JSON.stringify({ correndo, aberto, aindaAberto, naRua, segura, fx, b1: b1.slice(7, 15), b1b: b1b.slice(7, 15), balao })})`,
     )
     await foto(page, `${nome}-2-chamado-toque`)
     for (let k = 0; k < 40 && (await page.locator('.vista-inicio .rua-ver').count()); k++) await page.waitForTimeout(250)

@@ -60,10 +60,10 @@ por um revisor independente e no ar.
 - [ ] Pedido guiado: os textos de cada passo editáveis; prêmios e regras do Teste minha sorte; textos da loja.
 - [ ] O site lê tudo do servidor, com o que está embutido de reserva (nunca fica em branco).
 
-## F11 · Início vivo e Mercado — feito (falta a rua como 1º story do celular)
+## F11 · Início vivo e Mercado — feito
 - [x] Início: o mercador anda pela rua, bebe (refrigerante importado: álcool e tabaco fora da animação) e vende para 4 personagens bem diferentes, cada um com uma interação própria com ele — celular e computador.
 - [x] Aba Catálogo vira "Mercado", com o mercador e a animação que ele já tem.
-- [ ] Celular: a rua do mercador como o 1º story do Início (visível na primeira tela), a faixa sai do meio e o perfil volta logo depois do story.
+- [x] Celular: a rua do mercador como o 1º story do Início (visível na primeira tela), a faixa sai do meio e o perfil volta logo depois do story.
 
 ## F12 · Pedido completo no WhatsApp da Green Cheese
 - [ ] Ao fechar, o pedido fica salvo no servidor e chega completo e formatado num grupo privado do WhatsApp (número de envio da loja → grupo com o celular que recebe e notifica), por um gateway (Evolution API ou Z-API), configurado no painel.
