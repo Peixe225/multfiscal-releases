@@ -118,6 +118,9 @@ export function createWorld(data: GameData, seed: string): WorldState {
 
 // ───────────────────────── temporada ─────────────────────────
 
+/** Países cujos clubes jogam a pirâmide (e a copa) do vizinho. */
+const CUP_GUESTS = new Set(['AND', 'MON', 'SMR', 'WAL'])
+
 function leagueMembers(data: GameData, ix: DataIndex, ctx: SeasonCtx, leagueId: string): string[] {
   const members = data.clubs.filter((c) => ctx.leagueOf.get(c.id) === leagueId).map((c) => c.id)
   if (!ctx.first) return members
@@ -254,15 +257,21 @@ export function simulateSeason(
     if (agendaOnly && !relevantCups.has(id)) continue
     const comp = ix.comp.get(id)
     if (!comp) continue
+    // clubes de outro país na liga (Toronto na MLS, Auckland na A-League) não jogam a copa nacional;
+    // os de microestados e de Gales que jogam a pirâmide vizinha (FC Andorra, Mônaco, Cardiff) jogam
     const participants = data.clubs
       .filter((c) => {
         const lg = ix.league.get(leagueOf.get(c.id) ?? '')
-        return lg && (lg.domesticCupId === id || lg.secondaryCupId === id)
+        if (!lg || (lg.domesticCupId !== id && lg.secondaryCupId !== id)) return false
+        return !comp.country || c.country === comp.country || CUP_GUESTS.has(c.country)
       })
       .map((c) => c.id)
     const r = simulateDomesticCup(ctx, comp, participants)
     if (r) cups[id] = r
   }
+  // estaduais: jogos e gols guardados à parte (os craques não somam o estadual nas estatísticas)
+  const beforeRegional = new Map<string, number[]>()
+  for (const [id, v] of ctx.cs) beforeRegional.set(id, v.slice())
   if (!first) {
     for (const comp of ix.regionalComps) {
       if (agendaOnly && (!userRegion || comp.region !== userRegion)) continue
@@ -273,6 +282,11 @@ export function simulateSeason(
       const r = simulateRegionalCup(ctx, comp, participants)
       if (r) cups[comp.id] = r
     }
+  }
+  const regionalCs = new Map<string, number[]>()
+  for (const [id, v] of ctx.cs) {
+    const b = beforeRegional.get(id) ?? [0, 0, 0, 0]
+    if (v[0] > b[0]) regionalCs.set(id, v.map((x, k) => x - b[k]))
   }
 
   // supercopas (campeões da temporada anterior)
@@ -390,14 +404,19 @@ export function simulateSeason(
   }
 
   // 6. estatísticas dos rivais e artilharia
-  rivals = rivalSeasonStats(seed, S, rivals, ctx.cs, (id) => str.get(id) ?? 60)
+  const rivalCs = new Map(ctx.cs)
+  for (const [id, d] of regionalCs) {
+    const v = ctx.cs.get(id)!
+    rivalCs.set(id, [v[0] - d[0], v[1] - d[1], v[2] - d[2], v[3] - d[3]])
+  }
+  rivals = rivalSeasonStats(seed, S, rivals, rivalCs, (id) => str.get(id) ?? 60)
   const leaguePlayed = new Map<string, number>()
   for (const lr of Object.values(leagues)) for (const r of lr.table) leaguePlayed.set(r.clubId, r.played)
   const rivalsByClub = new Map<string, { name: string; goals: number }[]>()
   for (const r of rivals) {
     if (!r.lastSeason) continue
-    const total = ctx.cs.get(r.clubId)?.[0] ?? 0
-    const share = total > 0 ? (leaguePlayed.get(r.clubId) ?? 0) / total : 0
+    const total = rivalCs.get(r.clubId)?.[0] ?? 0
+    const share = total > 0 ? Math.min(1, (leaguePlayed.get(r.clubId) ?? 0) / total) : 0
     const g = Math.round(r.lastSeason.goals * share)
     const l = rivalsByClub.get(r.clubId)
     if (l) l.push({ name: r.name, goals: g })

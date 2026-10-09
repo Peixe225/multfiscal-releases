@@ -44,6 +44,11 @@ import { clamp, rng as subRng } from '../rng'
 import type { DataIndex } from './context'
 
 const MONEY_LEAGUES = new Set(['ENG', 'KSA'])
+/**
+ * Ligas com teto salarial (MLS): ninguém é gigante estrutural e a vantagem de hoje sobre o 2º mais
+ * forte (o Inter Miami de Messi, Suárez e De Paul) some em `parityFade` temporadas.
+ */
+const PARITY_LEAGUES = new Set(['usa.1'])
 
 /** Parâmetros do equilíbrio de longo prazo (exportados para calibração). */
 export const EVOLVE = {
@@ -74,6 +79,15 @@ export const EVOLVE = {
   fatigue: 1.4,
   /** Ruído anual da força (entressafra: contratações, lesões longas). */
   noise: 1.4,
+  /** Temporadas para a vantagem do líder de uma liga com teto salarial sumir. */
+  parityFade: 6,
+  /**
+   * Jejum do gigante estrutural (g ≥ 0,5): da `droughtFrom`-ésima temporada seguida sem a liga, a
+   * âncora sobe `droughtBoost`·g por ano de jejum (até 4×) — o clube abre o cofre para voltar a ganhar.
+   * Títulos do clube que o jogador carregava não contam no jejum de ninguém.
+   */
+  droughtFrom: 3,
+  droughtBoost: 0.8,
 }
 
 /**
@@ -86,7 +100,7 @@ export const EVOLVE = {
 export function giantness(ix: DataIndex, clubId: string, prestige: number): number {
   const c = ix.club.get(clubId)
   const ref = c && contenderRef(ix).get(c.leagueId)
-  if (!ref) return 0
+  if (!ref || PARITY_LEAGUES.has(c.leagueId)) return 0
   return clamp((prestige - ref.prestige) / EVOLVE.giantSpan, 0, 1)
 }
 
@@ -165,6 +179,8 @@ export function clubAnchor(ix: DataIndex, clubId: string, dyn: ClubDynamic, seas
   const homeMean = ix.leagueMean.get(c.leagueId) ?? c.strength
   const curMean = ix.leagueMean.get(dyn.leagueId) ?? homeMean
   let a = baseStrength(ix, clubId) + 1.5 * (dyn.prestige - c.prestige) + 0.6 * (curMean - homeMean)
+  const ref = PARITY_LEAGUES.has(c.leagueId) ? contenderRef(ix).get(c.leagueId) : undefined
+  if (ref) a -= Math.max(0, c.strength - ref.strength) * clamp((season - ix.firstSeason) / EVOLVE.parityFade, 0, 1)
   const lg = ix.league.get(dyn.leagueId)
   if (lg && lg.tier === 1 && MONEY_LEAGUES.has(lg.country)) a += 0.1 * Math.min(20, Math.max(0, season - ix.firstSeason))
   if (seed !== undefined) {
@@ -216,6 +232,17 @@ export function evolveClubs(
     const w = cf.primary && result.cups[cf.primary.id]?.winner
     if (w) continental.add(w)
   }
+  // temporadas seguidas sem a liga (do gigante estrutural): o título do clube carregado pelo jogador não conta
+  const drought = (clubId: string, leagueId: string) => {
+    let n = 0
+    for (let s = season; s > season - 8; s--) {
+      const r = s === season ? result : past[s]
+      const l = r?.leagues[leagueId]
+      if (!l || l.champions?.length || l.champion === clubId) break
+      if (r.userBoost?.clubId !== l.champion) n++
+    }
+    return n
+  }
   const out: Record<string, ClubDynamic> = {}
   for (const c of data.clubs) {
     const cur = clubs[c.id]
@@ -227,8 +254,12 @@ export function evolveClubs(
     if (relegated.has(c.id)) prestige -= 0.2
     prestige = clamp(prestige, 0, 5)
     const next: ClubDynamic = { strength: cur.strength, leagueId, prestige: Math.round(prestige * 100) / 100 }
-    const anchor = clubAnchor(ix, c.id, next, season + 1, seed)
+    let anchor = clubAnchor(ix, c.id, next, season + 1, seed)
     const g = giantness(ix, c.id, prestige)
+    if (g >= 0.5 && ix.league.get(cur.leagueId)?.tier === 1) {
+      const dry = drought(c.id, cur.leagueId) - EVOLVE.droughtFrom + 1
+      if (dry > 0) anchor += EVOLVE.droughtBoost * g * Math.min(4, dry)
+    }
     const pull = EVOLVE.pull + EVOLVE.giantPull * g
     let s = cur.strength + (anchor - cur.strength) * pull + rng.normal(0, EVOLVE.noise)
     if (champs.has(c.id)) s += 0.3

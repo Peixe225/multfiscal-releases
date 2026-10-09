@@ -39,6 +39,14 @@ function hostsFor(ctx: SeasonCtx, comp: Competition, year: number, pool: Country
   const table = KNOWN_HOSTS[comp.kind === 'world_cup' ? 'world_cup' : (comp.confed ?? '')]
   const known = table?.[year]?.filter((c) => ctx.ix.country.has(c))
   if (known?.length) return known
+  if (comp.kind === 'national_continental') {
+    // Copa Ouro: nos EUA (às vezes dividida com Canadá ou México); Oceania: rodízio entre os membros
+    if (comp.confed === 'CONCACAF' && ctx.ix.country.has('USA')) {
+      const co = ['CAN', 'MEX'].filter((c) => ctx.ix.country.has(c))
+      return co.length && rng.chance(0.3) ? ['USA', rng.pick(co)] : ['USA']
+    }
+    if (comp.confed === 'OFC' && pool.length) return [rng.pick(pool).code]
+  }
   const cands = pool.filter((c) => c.strength >= 60)
   if (!cands.length) return pool.length ? [pool[0].code] : []
   return [rng.weighted(cands, (c) => Math.pow(c.strength / 60, 4)).code]

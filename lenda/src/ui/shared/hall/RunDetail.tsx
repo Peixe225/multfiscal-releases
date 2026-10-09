@@ -5,8 +5,8 @@ import { CATEGORIES, CATEGORY_IDS, LEGACY_WEIGHTS, LEGENDS_AS_OF, compareRun, fo
 import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useClub, useCountry } from '@/store/data'
-import { Button, Crest, Eyebrow, Modal, POSITION_LABEL, cx, formatInt, toast } from '@/ui/primitives'
-import { CategoryGlyph, LegendAvatar, NotaRing, RunCrests, valueOf } from './parts'
+import { Button, Crest, Eyebrow, Modal, POSITION_LABEL, cx, formatInt, plural, toast } from '@/ui/primitives'
+import { CategoryGlyph, LegendAvatar, NotaRing, RunCrests, useRunModeLabel, valueOf } from './parts'
 import { gapText, runHeadline, yearsLabel, type HallModel } from './model'
 
 function Breakdown({ items, values }: { items: RunLegacy['breakdown']; values: RunLegacy | LegendLegacy }) {
@@ -41,6 +41,8 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
   const cmp = useMemo(() => (run ? compareRun(run, hall.legends, { max: 8 }) : []), [run, hall.legends])
   const next = useMemo(() => (run ? nextTarget(run, hall.legends) : null), [run, hall.legends])
   const rank = run ? (hall.overall.find((r) => r.entry === run)?.rank ?? 0) : 0
+  const mode = useRunModeLabel(run?.id ?? '')
+  const gk = run?.stats.position === 'GOL'
   const del = async () => {
     if (!run) return
     const name = run.input.identity.surname
@@ -59,13 +61,13 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
         title={
           run ? (
             <span className="hl-md__t">
-              {run.input.identity.surname} <span className="hl-runtag">Run nº {run.runNo}</span>
+              {run.input.identity.surname} <span className="hl-runtag">Carreira nº {run.runNo}</span>
             </span>
           ) : undefined
         }
         description={
           run
-            ? `${run.tier.label} · ${rank}º de ${hall.overall.length} no Hall das Lendas · ${POSITION_LABEL[run.stats.position]} · ${run.stats.seasons} temporadas${h ? ` · ${runHeadline(h, run, rank)}` : ''}`
+            ? `${run.tier.label} · ${rank}º de ${hall.overall.length} no Hall das Lendas · ${mode ? `Modo ${mode} · ` : ''}${POSITION_LABEL[run.stats.position]} · ${plural(run.stats.seasons, 'temporada', 'temporadas')}${h ? ` · ${runHeadline(h, run, rank)}` : ''}`
             : undefined
         }
         footer={
@@ -89,9 +91,11 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
             <div className="hl-md__col">
               <div className="hl-md__meta">
                 {club && <Crest club={club} size={22} decorative />}
-                <RunCrests run={run} max={8} size={20} />
+                <RunCrests run={run} max={8} size={20} exclude={club ? run.stats.mainClubId : undefined} />
                 <span>
-                  {formatInt(run.stats.apps)} jogos · {formatInt(run.stats.goals)} gols · {formatInt(run.stats.assists)} assistências · {formatInt(run.stats.titles)} títulos
+                  {plural(run.stats.apps, 'jogo', 'jogos')} ·{' '}
+                  {gk ? `${plural(run.stats.cleanSheets, 'jogo', 'jogos')} sem sofrer gol` : `${plural(run.stats.goals, 'gol', 'gols')} · ${plural(run.stats.assists, 'assistência', 'assistências')}`} ·{' '}
+                  {plural(run.stats.titles, 'título', 'títulos')}
                 </span>
               </div>
               <Eyebrow as="h3">Composição da Nota de Legado</Eyebrow>
@@ -137,12 +141,12 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
                   ))}
                 </ul>
               ) : (
-                <p className="hl-md__empty">Nenhum recorde histórico nesta run. Supere uma marca mundial (Bolas de Ouro, gols, Libertadores…) para entrar nesta lista.</p>
+                <p className="hl-md__empty">Nenhum recorde histórico nesta carreira. Supere uma marca mundial (Bolas de Ouro, gols, Libertadores…) para entrar nesta lista.</p>
               )}
               {run.personal.length > 0 && (
                 <>
                   <Eyebrow as="h3" className="mt-4 block">
-                    Recordes das suas runs · {run.personal.length}
+                    Recordes das suas carreiras · {run.personal.length}
                   </Eyebrow>
                   <ul className="hl-recs">
                     {run.personal.map((r) => (
@@ -183,7 +187,7 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
         onClose={() => setConfirm(false)}
         size="sm"
         title="Remover do Hall das Lendas?"
-        description={run ? `A run nº ${run.runNo} (${run.input.identity.surname}) será apagada deste navegador. Não dá para desfazer.` : undefined}
+        description={run ? `A carreira nº ${run.runNo} (${run.input.identity.surname}) será apagada deste navegador. Não dá para desfazer.` : undefined}
         footer={
           <div className="flex gap-2 justify-end w-full">
             <Button variant="ghost" size="md" onClick={() => setConfirm(false)}>
@@ -237,7 +241,7 @@ export function LegendDetail({ entry, hall, onClose }: { entry: LegendLegacy | n
               <NotaRing score={entry.score} size={64} />
               <div>
                 <b className="hl-tier">{entry.tier.label}</b>
-                <span>Nota de Legado na mesma escala das suas runs</span>
+                <span>Nota de Legado na mesma escala das suas carreiras</span>
               </div>
             </div>
             <dl className="hl-facts">
@@ -337,7 +341,7 @@ const HOW: { label: string; weight: number; rule: string }[] = [
   { label: 'Champions + Libertadores', weight: LEGACY_WEIGHTS.continental, rule: 'somadas; o peso é dividido entre as duas' },
   { label: 'Gols', weight: LEGACY_WEIGHTS.goals, rule: '300 ≈ 55%, 500 ≈ 73%, 1.000 ≈ 93% (ajustado por posição)' },
   { label: 'Média de gols', weight: LEGACY_WEIGHTS.goalsPerGame, rule: 'de 0,25 a 0,90 gol por jogo, com 300+ jogos' },
-  { label: 'Recordes mundiais', weight: LEGACY_WEIGHTS.records, rule: 'nas métricas do jogo: 1 ≈ 28%, 3 ≈ 63%. Recordes das suas runs são só selo' },
+  { label: 'Recordes mundiais', weight: LEGACY_WEIGHTS.records, rule: 'nas métricas do jogo: 1 ≈ 28%, 3 ≈ 63%. Recordes das suas carreiras são só selo' },
   { label: 'Títulos nacionais', weight: LEGACY_WEIGHTS.leagueTitles, rule: 'só primeira divisão; 5 ≈ 57%, 10 ≈ 81%' },
   { label: 'Assistências', weight: LEGACY_WEIGHTS.assists, rule: '160 ≈ 63%, 400 ≈ 92%' },
   { label: 'Chuteiras de Ouro', weight: LEGACY_WEIGHTS.goldenBoots, rule: '1 ≈ 43%, 3 ≈ 81%' },
@@ -346,7 +350,7 @@ const HOW: { label: string; weight: number; rule: string }[] = [
 
 export function HowModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Modal open={open} onClose={onClose} size="md" title="Como a Nota de Legado é calculada" description="A mesma fórmula avalia as suas runs e as lendas reais — por isso dá para comparar.">
+    <Modal open={open} onClose={onClose} size="md" title="Como a Nota de Legado é calculada" description="A mesma fórmula avalia as suas carreiras e as lendas reais — por isso dá para comparar.">
       <div className="hl-how">
         <p>Cada categoria rende pontos com retorno decrescente (o primeiro título vale mais que o nono). Os pesos somam 100; a soma passa por uma curva final que vai de 0 a 100.</p>
         <table>
@@ -371,7 +375,7 @@ export function HowModal({ open, onClose }: { open: boolean; onClose: () => void
           <b>Posição conta:</b> gols e assistências de meio-campistas valem ×1,5; de defensores, ×3 mais um bônus de longevidade (0,2 por jogo, sem passar de um artilheiro de verdade); goleiros pontuam pela longevidade (jogos). OVR não entra: as lendas não têm.
         </p>
         <p>
-          <b>A nota é só da run:</b> não muda com a ordem das runs nem quando uma run sai do Hall. Superar as suas runs anteriores rende selo, não pontos.
+          <b>A nota é só da carreira:</b> não muda com a ordem das carreiras nem quando uma delas sai do Hall. Superar as suas carreiras anteriores rende selo, não pontos.
         </p>
         <p>
           <b>Níveis:</b> Promessa (0–24) · Profissional (25–44) · Ídolo (45–59) · Craque (60–74) · Lenda (75–89) · Imortal (90+).

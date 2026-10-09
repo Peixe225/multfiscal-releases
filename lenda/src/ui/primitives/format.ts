@@ -2,9 +2,9 @@
  * Formatting helpers (pt-BR UI, Copero-compatible money).
  *
  *   formatMoney(100_000)    → "€100K"
- *   formatMoney(5_500_000)  → "€5.5M"
+ *   formatMoney(5_500_000)  → "€5,5M"
  *   formatMoney(45_000_000) → "€45M"
- *   formatMoney(1.2e9)      → "€1.2B"
+ *   formatMoney(1.2e9)      → "€1,2B"
  */
 import type { League, Position, PositionGroup } from '@/engine/types'
 
@@ -25,7 +25,8 @@ export function formatMoney(v: number | null | undefined, opts: { sign?: boolean
   if (neg) return `${MINUS}${s}`
   return opts.sign ? `+${s}` : s
 }
-const trim = (s: string) => s.replace(/\.0$/, '')
+/** pt-BR: "5.5" → "5,5" e "7.0" → "7". */
+const trim = (s: string) => s.replace(/\.0$/, '').replace('.', ',')
 
 const intFmt = new Intl.NumberFormat('pt-BR')
 /** pt-BR integer: 1284 → "1.284". */

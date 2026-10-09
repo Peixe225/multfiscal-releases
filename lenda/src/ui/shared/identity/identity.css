@@ -48,6 +48,11 @@
 .id-fields { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 10px; }
 .id-field { min-width: 0; }
 .id-count { font-size: 11px; font-weight: 600; color: var(--text-3); flex: none; font-variant-numeric: tabular-nums; }
+.id-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.id-label-row .id-count { font-size: 10.5px; line-height: 1; }
+/* sobrenomes longos (até 15 letras) cabem inteiros: a letra e o espaçamento encolhem com o tamanho */
+.id-field .lx-input--name[data-len="l"] { font-size: 14px; letter-spacing: .05em; }
+.id-field .lx-input--name[data-len="xl"] { font-size: 12.5px; letter-spacing: .02em; }
 .id-stepper input { width: 100%; min-width: 0; text-align: center; background: transparent; border: 0; outline: 0; color: var(--text); font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 800; padding: 0; }
 .id-stepper[data-invalid="true"] { border-color: color-mix(in srgb, var(--negative) 60%, transparent); background: color-mix(in srgb, var(--negative) 7%, rgba(0, 0, 0, .35)); }
 .id-stepper[data-invalid="true"] input { color: var(--negative); }
@@ -88,7 +93,8 @@
 @media (max-width: 44.98rem) { .id-pitch .lx-pchip { min-width: 54px; height: 38px; font-size: 16px; } }
 .id-poscard { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
 .id-col--pos .id-poscard { margin-top: 0; align-self: start; }
-@media (min-width: 69rem) { .id-col--pos .id-poscard { margin-top: 14px; } }
+/* altura do card com posição já reservada: escolher a posição não encolhe o campo */
+@media (min-width: 69rem) { .id-col--pos .id-poscard { margin-top: 14px; min-height: 172px; } }
 .id-poscard__h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .id-poscard__h b { font-family: var(--font-display); font-size: 16px; font-weight: 800; }
 .id-attr { display: grid; grid-template-columns: 116px minmax(0, 1fr) 40px; align-items: center; gap: 10px; height: 22px; font-size: 12px; font-weight: 600; color: var(--text-2); }
@@ -97,8 +103,10 @@
 .id-attr b { font-family: var(--font-num); font-size: 15px; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
 .id-poscard__note { font-size: 11.5px; color: var(--text-3); line-height: 1.45; margin: 8px 0 0; }
 
-/* action bar */
-.id-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px; border-radius: 20px; }
+/* action bar — fixa no rodapé quando a janela é baixa (1366×768, 1280×720): "Confirmar" sempre à vista
+   (position: sticky vai inline no componente: o Glass traz o utilitário `relative`, que vence a camada components) */
+.id-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px; border-radius: 20px; bottom: 10px; z-index: 5;
+  background-color: color-mix(in srgb, var(--bg, #07080b) 88%, transparent); }
 .id-actions__mid { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); min-width: 0; white-space: nowrap; overflow: hidden; }
 .id-actions__mid b { color: var(--text); font-weight: 700; }
 .id-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--nx-text-4, #555b6b); flex: none; }

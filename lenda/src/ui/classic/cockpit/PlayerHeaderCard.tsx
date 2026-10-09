@@ -7,6 +7,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
+import { deCountry } from '@/engine/immersive/util'
 import { useClub, useCountry, useLeague } from '@/store/data'
 import { Crest, Flag, OvrBadge, clubVars, cx, formatMoney, positionFamily, tierOf, gradeOf, useCountUp, useReducedMotion } from '@/ui/primitives'
 import { sfx } from '@/ui/shell/sfx'
@@ -15,6 +16,17 @@ import { FOOT_LABEL } from './model'
 import type { CockpitData } from './view'
 
 const BRAND = { primary: '#5c50ff', secondary: '#ffc45c' } as const
+
+/** Width of the surname in "average letters" (spaces are narrow): drives the hero font size in CSS. */
+const nameLength = (name: string) => Math.max(6, name.replace(/\s/g, '').length + (name.match(/\s/g)?.length ?? 0) * 0.4)
+
+/**
+ * The player's age now: the one of the season the open decision is about (same as the Menu and the
+ * "Escolhendo clube…" row); once the career is over, the age of the last season played.
+ */
+function heroAge(s: CockpitData['state']): number {
+  return s.phase === 'finished' || s.retired ? (s.seasons[s.seasons.length - 1]?.age ?? s.age) : s.age
+}
 
 function lastLeagueOf(seasons: CockpitData['state']['seasons'], clubId: string): string | undefined {
   for (let i = seasons.length - 1; i >= 0; i--) if (seasons[i].clubId === clubId) return seasons[i].leagueId
@@ -55,8 +67,7 @@ export const PlayerHeaderCard = memo(function PlayerHeaderCard({ data }: { data:
   }, [gates.revealing, state.ovr])
 
   // ── age / value ──
-  const lastBefore = before.seasons[before.seasons.length - 1]
-  const ageNow = gates.postOverall ? (last?.age ?? state.age) : (lastBefore?.age ?? before.age)
+  const ageNow = gates.postOverall ? heroAge(state) : heroAge(before)
   const valueNow = gates.postOverall ? state.marketValue : before.marketValue
   const valueDelta = gates.revealing ? (gates.postOverall ? state.marketValue - before.marketValue : 0) : last && prevSeason ? last.marketValue - prevSeason.marketValue : 0
   const age = useCountUp(ageNow, { duration: 700 })
@@ -106,7 +117,9 @@ export const PlayerHeaderCard = memo(function PlayerHeaderCard({ data }: { data:
           </span>
           <span className="lx-chip lx-chip--muted">{FOOT_LABEL[state.identity.foot]}</span>
         </div>
-        <h1 className="ck-hero__name">{state.identity.surname}</h1>
+        <h1 className="ck-hero__name" style={{ ['--len' as string]: nameLength(state.identity.surname) }}>
+          {state.identity.surname}
+        </h1>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={clubId ?? 'none'}
@@ -121,14 +134,14 @@ export const PlayerHeaderCard = memo(function PlayerHeaderCard({ data }: { data:
                 <Crest club={club} size={24} decorative />
                 <span className="ck-hero__clubname">{club.name}</span>
                 {league && (
-                  <span className="ck-hero__league">
+                  <span className="ck-hero__league" title={league.name}>
                     <LeagueLogo league={league} size={15} />
-                    {league.shortName}
+                    <span className="ck-hero__lgname">{league.shortName}</span>
                   </span>
                 )}
               </>
             ) : (
-              <span className="ck-hero__noclub">{country ? `Promessa de ${country.name}` : 'Jovem promessa'} · aguardando a primeira oferta</span>
+              <span className="ck-hero__noclub">{country ? `Promessa ${deCountry(country.name)}` : 'Jovem promessa'} · aguardando a primeira oferta</span>
             )}
           </motion.div>
         </AnimatePresence>

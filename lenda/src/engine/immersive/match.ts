@@ -18,6 +18,7 @@
  */
 import { clamp, type Rng } from '../rng'
 import type { GameData, Position } from '../types'
+import { stageDepth } from '../world/knockout'
 import { expectedGoals, MATCH } from '../world/match'
 import type {
   CalendarItem,
@@ -34,7 +35,7 @@ import type {
   UserMatchStats,
 } from './types'
 import { mem, type Fx, type LiveMem, type MomentOptionSpec, type MomentSpec, type PlannedMoment } from './mem'
-import { MOMENT_DESC, RESULT_TEXT, T, say } from './narration'
+import { ASSIST_TEXT, CROSS_OPTIONS, MOMENT_DESC, RESULT_TEXT, SHOT_KIND, SHOT_TEXT, T, fill, say } from './narration'
 import { attr, isGK } from './player'
 import { namesFor, squadOf } from './squad'
 import { artigo, clubOf, countryArt, countryOf, irng, nationStrength, r1, type Art } from './util'
@@ -51,11 +52,12 @@ const N_MOMENTS: Record<Position, [number, number]> = {
   ME: [3, 5], MD: [3, 5], MC: [3, 5], VOL: [3, 5], LD: [3, 5], LE: [3, 5], ZAG: [3, 5], GOL: [3, 5],
 }
 
+// cara a cara é raro (e vale muito: ~35–50% de gol); chute de fora/da entrada da área, comum e difícil
 const MIX: Record<Position, Partial<Record<KeyMomentSituation, number>>> = {
-  CA: { shot: 1.4, header: 1.2, one_on_one: 0.9, dribble: 1.5, pass: 2.4, tackle: 0.6, free_kick: 0.3, penalty: 0.25 },
-  PE: { dribble: 3, shot: 1.8, cross: 2, one_on_one: 0.6, through_ball: 1, pass: 1.2, free_kick: 0.3, penalty: 0.15 },
-  PD: { dribble: 3, shot: 1.8, cross: 2, one_on_one: 0.6, through_ball: 1, pass: 1.2, free_kick: 0.3, penalty: 0.15 },
-  MEI: { through_ball: 2.4, pass: 2, shot: 2.1, dribble: 1.4, free_kick: 0.8, one_on_one: 0.3, penalty: 0.15 },
+  CA: { shot: 1.4, header: 1.2, one_on_one: 0.6, dribble: 1.5, pass: 2.4, tackle: 0.6, free_kick: 0.3, penalty: 0.25 },
+  PE: { dribble: 3, shot: 1.8, cross: 2, one_on_one: 0.4, through_ball: 1, pass: 1.2, free_kick: 0.3, penalty: 0.15 },
+  PD: { dribble: 3, shot: 1.8, cross: 2, one_on_one: 0.4, through_ball: 1, pass: 1.2, free_kick: 0.3, penalty: 0.15 },
+  MEI: { through_ball: 2.4, pass: 2, shot: 2.1, dribble: 1.4, free_kick: 0.8, one_on_one: 0.2, penalty: 0.15 },
   ME: { cross: 2.4, dribble: 2, pass: 2, shot: 1, through_ball: 1, tackle: 0.8, interception: 0.5 },
   MD: { cross: 2.4, dribble: 2, pass: 2, shot: 1, through_ball: 1, tackle: 0.8, interception: 0.5 },
   MC: { pass: 3, through_ball: 1.8, shot: 1, tackle: 1.5, interception: 1.3, free_kick: 0.4 },
@@ -118,8 +120,8 @@ function priorAggregate(s: ImmersiveState, f: Fx): [number, number] | undefined 
 
 // ───────────────────────── criação ─────────────────────────
 
-export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem): LiveMatch {
-  const m = mem(s)
+/** Forças (mandante, visitante), mando e neutro da partida do item. */
+function sides(data: GameData, s: ImmersiveState, item: CalendarItem) {
   const national = item.kind === 'national_match'
   const f = agendaFixture(s, item)
   const userTeam = national ? s.identity.nationality : s.clubId!
@@ -137,22 +139,41 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
     sh = userHome ? us : them
     sa = userHome ? them : us
   }
-  const userSide: Side = userHome ? 'home' : 'away'
-  const teamStr = userHome ? sh : sa
-  const oppStr = userHome ? sa : sh
-  const r = irng(s, 'live', item.id, 'setup')
+  return { national, f, userTeam, oppId, userHome, sh, sa, neutral }
+}
+
+/** Fase de mata-mata do item ("Quartas de final · ida", "Clausura — Final") → profundidade (7 = quartas). */
+const koDepth = (stage: string | undefined) => stageDepth(stage?.split(' — ').pop()?.replace(/ · (ida|volta)$/, ''))
+
+interface Selection {
+  status: LiveMatch['userStatus']
+  sel: number
+  reason: string
+  youthPlan: boolean
+  rotationPlan: boolean
+  debut: boolean
+}
+
+/**
+ * Escalação (titular/banco/fora + motivo). Consome o `r` do setup da partida na mesma ordem sempre:
+ * a prévia (`selectionPreview`) e o `createLive` chegam ao mesmo resultado.
+ */
+function selection(s: ImmersiveState, item: CalendarItem, national: boolean, teamStr: number, r: Rng): Selection {
+  const m = mem(s)
   const importance = item.importance ?? 0.4
   const pos = s.identity.position
   const gk = isGK(pos)
   const ovr = effOvr(s)
-
-  // ── escalação ──
   let status: LiveMatch['userStatus']
   let sel = 0
   let reason = ''
   const injured = !!s.condition.injury
   const suspended = !national && (s.condition.suspendedMatches ?? 0) > 0
   const cup = !national && item.competitionId !== s.leagueId
+  // jogo grande (decisão, clássico, quartas em diante): o plano de minutos da base não vale
+  const bigGame = importance >= 0.7 || koDepth(item.stage) >= 7
+  // 1ª temporada no clube da base: o garoto viaja com o elenco (banco) desde a 1ª rodada
+  const academySeason = !national && s.seasons.length === 0 && s.age <= 17 && !!s.clubId && s.clubId === m.firstClubId
   let youthPlan = false
   let rotationPlan = false
   let debut = false
@@ -195,7 +216,7 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
       if (target > 0) {
         const behind = target * m.clubMatches - s.seasonStats.apps
         const p = clamp(0.7 - importance * 0.45 + behind * 0.15 + (s.relationships.coach - 50) / 150, 0.15, 0.95)
-        if (r.chance(p)) {
+        if (r.chance(p) && !bigGame) {
           status = 'bench'
           youthPlan = true
         }
@@ -205,13 +226,15 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
         status = 'bench'
         rotationPlan = true
       }
+      if (status === 'out' && academySeason && !bigGame) status = 'bench'
     }
     // garoto da base já no banco: segue o mesmo plano de minutos (não o critério de briga por posição)
     if (status === 'bench' && !gk && s.age <= 19 && !rotationPlan) youthPlan = true
-    // estreia garantida: sem jogos na temporada e já passou ao menos um jogo do clube → relacionado e entra
-    if (!gk && s.age <= 19 && status !== 'starter' && s.seasonStats.apps === 0) {
+    // estreia garantida: sem jogos na temporada e já passou ao menos um jogo do clube (na 1ª temporada da
+    // base, já no 1º) → relacionado e entra; nunca num jogo grande
+    if (!gk && s.age <= 19 && status !== 'starter' && s.seasonStats.apps === 0 && !bigGame) {
       const seen = s.calendar.filter((i) => i.kind === 'match' && i.season === s.season && i.done).length
-      if (seen >= 1) {
+      if (seen >= 1 || academySeason) {
         status = 'bench'
         youthPlan = true
         debut = true
@@ -246,6 +269,29 @@ export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem
                 ? 'Fora dos relacionados: sem condição física'
                 : 'Fora dos relacionados: opção do técnico'
   }
+  return { status, sel, reason, youthPlan, rotationPlan, debut }
+}
+
+/** Situação do jogador na partida do item (o mesmo sorteio do `createLive`), sem tocar no estado. */
+export function selectionPreview(data: GameData, s: ImmersiveState, item: CalendarItem): LiveMatch['userStatus'] {
+  const { national, userHome, sh, sa } = sides(data, s, item)
+  return selection(s, item, national, userHome ? sh : sa, irng(s, 'live', item.id, 'setup')).status
+}
+
+export function createLive(data: GameData, s: ImmersiveState, item: CalendarItem): LiveMatch {
+  const m = mem(s)
+  const { national, f, userTeam, oppId, userHome, sh, sa, neutral } = sides(data, s, item)
+  const userSide: Side = userHome ? 'home' : 'away'
+  const teamStr = userHome ? sh : sa
+  const oppStr = userHome ? sa : sh
+  const r = irng(s, 'live', item.id, 'setup')
+  const importance = item.importance ?? 0.4
+  const pos = s.identity.position
+  const gk = isGK(pos)
+  const ovr = effOvr(s)
+
+  // ── escalação ──
+  const { status, sel, reason, youthPlan, rotationPlan, debut } = selection(s, item, national, teamStr, r)
   let onAt = 999
   if (status === 'starter') onAt = 0
   else if (status === 'bench') {
@@ -421,9 +467,10 @@ function optionDefs(sit: KeyMomentSituation, tm: string): OptDef[] {
         { id: 'lay_off', label: `Tocar para ${tm}`, icon: 'send', base: 0.62, attrs: ['passing'], on: 'assist_chance', p2: 0.22, rating: [0.2, -0.1] },
       ]
     case 'one_on_one':
+      // cara a cara: base ≈ 30% (≈ 40% para um atacante de nível, ≈ 50% para um craque; ≈ 20–25% aos 16 anos)
       return [
-        { id: 'finish', label: 'Tirar do goleiro', icon: 'target', base: 0.62 * G, attrs: ['shooting'], on: 'goal', rating: [1, -0.3], goal: true },
-        { id: 'round_gk', label: 'Driblar o goleiro', icon: 'zap', base: 0.52 * G, attrs: ['dribbling'], on: 'goal', risk: 'Perde a bola', rating: [1.15, -0.35], goal: true },
+        { id: 'finish', label: 'Tirar do goleiro', icon: 'target', base: 0.97 * G, attrs: ['shooting'], on: 'goal', rating: [1, -0.3], goal: true },
+        { id: 'round_gk', label: 'Driblar o goleiro', icon: 'zap', base: 0.81 * G, attrs: ['dribbling'], on: 'goal', risk: 'Perde a bola', rating: [1.15, -0.35], goal: true },
         { id: 'square', label: `Rolar para ${tm}`, icon: 'send', base: 0.66, attrs: ['passing'], on: 'assist_chance', p2: 0.27, rating: [0.3, -0.25] },
       ]
     case 'dribble':
@@ -516,7 +563,9 @@ function optionChance(s: ImmersiveState, d: OptDef, oppStr: number, importance: 
   if (d.goal && !penalty) {
     // finalizações: efeitos relativos (uma chance baixa não some com um adversário forte)
     const rel = (fitness - 70) * 0.004 + (c.form - 50) * 0.003 + (c.sharpness - 60) * 0.002 + (c.morale - 60) * 0.002
-    const mult = clamp(1 + (a - 70) * 0.02 + rel - (oppStr - 72) * 0.025 - pressure * 2.5, 0.35, 1.9)
+    // a qualidade separa mais no topo: acima de 85 (craque) cada ponto vale o dobro
+    const skill = (a - 70) * 0.02 + Math.max(0, a - 85) * 0.02
+    const mult = clamp(1 + skill + rel - (oppStr - 72) * 0.025 - pressure * 2.5, 0.35, 2.1)
     return clamp(d.base * mult, 0.02, 0.9)
   }
   const cond = (fitness - 70) * 0.0015 + (c.form - 50) * 0.0012 + (c.sharpness - 60) * 0.0008 + (c.morale - 60) * 0.0008
@@ -689,7 +738,29 @@ export function kickoff(s: ImmersiveState, fx: ImmersiveEffect[]) {
   live.minute = 0
   if (lm.onAt === 0) live.userOnPitch = true
   const r = irng(s, 'live', lm.itemId, 'kickoff')
-  push(s, live, { minute: 0, type: 'kickoff', side: 'home', text: say(r, T.kickoff, { h: live.home.shortName, aw: live.away.shortName, st: live.stage ? ` · ${live.stage}` : '' }), at: { x: 50, y: 50 } }, fx)
+  push(s, live, { minute: 0, type: 'kickoff', side: 'home', text: say(r, T.kickoff, { h: live.home.shortName, aw: live.away.shortName, st: stagePhrase(live.stage) }), at: { x: 50, y: 50 } }, fx)
+}
+
+/**
+ * Fase do jogo no fim da frase de abertura (" pela 31ª rodada", " na volta da semifinal"); fase sem
+ * jeito natural de dizer fica de fora (o placar da TV já mostra).
+ */
+export function stagePhrase(stage: string | undefined): string {
+  if (!stage) return ''
+  const [head, tail] = stage.includes(' — ') ? [stage.slice(stage.lastIndexOf(' — ') + 3), stage.slice(0, stage.indexOf(' — '))] : [stage, '']
+  const m = /^(.*?)(?: · (ida|volta))?$/.exec(head)!
+  const name = m[1]
+  const leg = m[2]
+  const rodada = /^(?:(.+) · )?(\d+ª rodada)$/.exec(name)
+  if (rodada) return ` pela ${rodada[2]}${rodada[1] ? ` do ${rodada[1]}` : ''}`
+  if (name === 'Amistoso internacional') return ' em amistoso internacional'
+  if (name === 'Eliminatórias da Copa') return ' pelas Eliminatórias da Copa'
+  const KO: Record<string, string> = { Final: 'da final', Semifinal: 'da semifinal', 'Quartas de final': 'das quartas de final', 'Oitavas de final': 'das oitavas de final' }
+  if (KO[name]) {
+    const what = leg ? `${leg === 'ida' ? 'na ida' : 'na volta'} ${KO[name]}` : name === 'Final' ? 'na grande final' : `${KO[name].replace(/^d/, 'n')}`
+    return ` ${what}${tail ? ` do ${/^play-off/i.test(tail) ? tail.toLowerCase() : tail}` : ''}`
+  }
+  return ''
 }
 
 /**
@@ -801,13 +872,13 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
     }
   }
   // gols de fundo
-  const reds = [live.events.some((e) => e.type === 'red' && e.side === 'home'), live.events.some((e) => e.type === 'red' && e.side === 'away')]
+  // expulsões de cada lado (um a menos pesa; dois a menos, mais)
+  const reds = [live.events.filter((e) => e.type === 'red' && e.side === 'home').length, live.events.filter((e) => e.type === 'red' && e.side === 'away').length]
   const etMult = live.phase === 'extra_time' ? MATCH.extraTime * 3 : 1
   for (const side of ['home', 'away'] as Side[]) {
     const i = idx(side)
     let lam = lm.lambda[i] * etMult
-    if (reds[i]) lam *= 0.75
-    if (reds[1 - i]) lam *= 1.2
+    lam *= Math.pow(0.75, Math.min(2, reds[i])) * Math.pow(1.2, Math.min(2, reds[1 - i]))
     if (r.chance(lam / 90)) {
       const scorer = pickName(lm, live, side, r)
       const list = lineup(lm, live, side).xi
@@ -829,15 +900,29 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
     else if (roll < 0.93) push(s, live, { minute: t, type: 'save', side, player: p, text: say(r, T.save, { p, g: lm.keeper[1 - idx(side)] }), at: at(side, 'box', r) }, fx)
     else push(s, live, { minute: t, type: 'woodwork', side, player: p, text: say(r, T.woodwork, { p }), at: at(side, 'goal', r) }, fx)
   }
+  // cartões (qualquer um em campo, não só os craques): o 2º amarelo expulsa — quem já tem amarelo joga
+  // com cuidado, então a falta dele só vira 2º amarelo às vezes (≈ 0,1 expulsão assim por jogo); expulso
+  // sai da escalação (um a menos, e some da narração); nunca amarelo e vermelho direto no mesmo minuto
+  let carded = false
   if (r.chance(0.035)) {
     const side: Side = r.chance(0.5) ? 'home' : 'away'
-    const p = pickName(lm, live, side, r)
-    push(s, live, { minute: t, type: 'yellow', side, player: p, text: say(r, T.yellow, { p, t: teamName(live, side) }), at: at(side, 'mid', r) }, fx)
+    const { xi } = lineup(lm, live, side)
+    const booked = (lm.booked ??= [[], []])[idx(side)]
+    let p = r.pick(xi.length ? xi : side === live.userSide ? lm.teammates : lm.opponents)
+    const clean = xi.filter((x) => !booked.includes(x))
+    const second = booked.includes(p) && r.chance(0.3)
+    if (booked.includes(p) && !second && clean.length) p = r.pick(clean)
+    carded = true
+    if (booked.includes(p)) sendOff(s, lm, live, side, p, say(r, T.secondYellow, { p, t: teamName(live, side) }), t, r, fx)
+    else {
+      booked.push(p)
+      push(s, live, { minute: t, type: 'yellow', side, player: p, text: say(r, T.yellow, { p, t: teamName(live, side) }), at: at(side, 'mid', r) }, fx)
+    }
   }
-  if (r.chance(0.0012)) {
+  if (r.chance(0.0012) && !carded) {
     const side: Side = r.chance(0.5) ? 'home' : 'away'
     const p = pickName(lm, live, side, r)
-    push(s, live, { minute: t, type: 'red', side, player: p, text: say(r, T.red, { p, t: teamName(live, side) }), at: at(side, 'mid', r) }, fx)
+    sendOff(s, lm, live, side, p, say(r, T.red, { p, t: teamName(live, side) }), t, r, fx)
   }
   if (t >= 58 && t <= 88 && live.phase === 'second_half') {
     // até 5 trocas por time em no máx. 3 paradas (duplas às vezes)
@@ -859,10 +944,11 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
           xi[j] = ins[k]
         }
         cameOn(lm, side, ins)
-        const text = double
-          ? say(r, T.subDouble, { p: ins[0], p2: ins[1], a: outs[0], a2: outs[1], t: teamName(live, side) })
-          : say(r, T.subOn, { p: ins[0], a: outs[0], t: teamName(live, side) })
-        push(s, live, { minute: t, type: 'sub_on', side, player: ins[0], assist: outs[0], text, at: at(side, 'bench', r) }, fx)
+        // um evento por troca (os Lances listam as duas); na dupla, a 2ª frase continua a 1ª
+        const v = { p: ins[0], p2: ins[1], a: outs[0], a2: outs[1], t: teamName(live, side) }
+        const pair = double ? r.pick(T.subDouble) : null
+        push(s, live, { minute: t, type: 'sub_on', side, player: ins[0], assist: outs[0], text: pair ? fill(pair[0], v) : say(r, T.subOn, v), at: at(side, 'bench', r) }, fx)
+        if (pair) push(s, live, { minute: t, type: 'sub_on', side, player: ins[1], assist: outs[1], text: fill(pair[1], v), at: at(side, 'bench', r) }, fx)
       }
     }
   }
@@ -870,6 +956,14 @@ function minute(data: GameData, s: ImmersiveState, t: number, fx: ImmersiveEffec
   const drift = Math.round(r.normal(0, 0.6))
   const ph = clamp(live.team.possession[0] + drift, 28, 72)
   live.team.possession = [ph, 100 - ph]
+}
+
+/** Expulsão de um jogador de fundo: sai da escalação (sem reposição) e o time segue com um a menos. */
+function sendOff(s: ImmersiveState, lm: LiveMem, live: LiveMatch, side: Side, p: string, text: string, t: number, r: Rng, fx: ImmersiveEffect[]) {
+  const { xi } = lineup(lm, live, side)
+  const j = xi.indexOf(p)
+  if (j >= 0) xi.splice(j, 1)
+  push(s, live, { minute: t, type: 'red', side, player: p, text, at: at(side, 'mid', r) }, fx)
 }
 
 function userOff(s: ImmersiveState, t: number, fx: ImmersiveEffect[], why: 'coach' | 'injury' | 'ask' | 'red') {
@@ -888,7 +982,8 @@ function userOff(s: ImmersiveState, t: number, fx: ImmersiveEffect[], why: 'coac
     xi.push(on)
     cameOn(lm, live.userSide, [on])
   }
-  const text = say(r, why === 'ask' ? T.userAskOff : T.userSubOff, { p: s.identity.surname, a: on })
+  // pediu para sair: "sentindo o cansaço" só com a energia baixa
+  const text = say(r, why === 'ask' ? (lm.fitness < 50 ? T.userAskOff : T.userAskOffFresh) : T.userSubOff, { p: s.identity.surname, a: on })
   push(s, live, { minute: t, type: 'sub_off', side: live.userSide, byUser: true, player: s.identity.surname, assist: on, text, at: at(live.userSide, 'bench', r) }, fx)
 }
 
@@ -948,13 +1043,16 @@ function finishRegulation(s: ImmersiveState, fx: ImmersiveEffect[]) {
   const lm = mem(s).live!
   const r = irng(s, 'live', lm.itemId, 'ft')
   live.phase = 'full_time'
-  if (live.userOnPitch) live.stats.minutes = Math.max(0, live.minute - lm.startMinute)
+  // minutos e nota final já no apito (a tela de fim de jogo mostra a mesma nota gravada na carreira)
+  if (live.userOnPitch) live.stats.minutes = Math.max(1, Math.min(120, live.minute) - lm.startMinute)
+  if (live.stats.minutes > 0) finalRating(s)
   const [h, a] = live.score
   const vars: Record<string, string> = { h: live.home.shortName, aw: live.away.shortName, s: `${h}–${a}` }
   let text: string
   if (live.pens) {
     vars.w = live.pens[0] > live.pens[1] ? live.home.shortName : live.away.shortName
-    vars.pens = `${live.pens[0]}–${live.pens[1]}`
+    // "Fulano leva a melhor (4–3)": o placar da disputa com o do vencedor primeiro
+    vars.pens = `${Math.max(live.pens[0], live.pens[1])}–${Math.min(live.pens[0], live.pens[1])}`
     text = say(r, T.fullTimePens, vars)
   } else if (h === a) text = say(r, T.fullTimeDraw, vars)
   else {
@@ -1075,7 +1173,9 @@ function openMoment(data: GameData, s: ImmersiveState, pm: PlannedMoment, fx: Im
     specs.push({ id: d.id, chance: ch, onSuccess: d.on, p2: d.p2, card: d.card, rating: d.rating, label: d.label })
     const o: KeyMomentOption = { id: d.id, label: d.label, chance: ch, icon: d.icon }
     if (d.risk) o.risk = d.risk
-    if (d.on === 'assist_chance') o.detail = `Passe · ${Math.round((d.p2 ?? 0.3) * 100)}% de virar gol`
+    // passe: chance de a jogada inteira virar gol (acertar o passe × o companheiro marcar), comparável
+    // com a de uma finalização
+    if (d.on === 'assist_chance') o.detail = `Passe · gol em ${Math.max(1, Math.round(ch * (d.p2 ?? 0.3) * 100))}%`
     else if (d.on === 'goal') o.detail = 'Finalização'
     else if (d.on === 'stop' || d.on === 'save') o.detail = `Se falhar: ${Math.round((d.p2 ?? 0.4) * 100)}% de gol deles`
     else if (d.on === 'follow_shot') o.detail = 'Abre espaço para finalizar'
@@ -1098,7 +1198,10 @@ function openMoment(data: GameData, s: ImmersiveState, pm: PlannedMoment, fx: Im
     at: DEFENSIVE.has(pm.situation) ? at(opp(us), 'box', r) : at(us, 'box', r),
   }
   if (minigame) km.minigame = minigame
-  lm.pending = { id, situation: pm.situation, options: specs, teammate: tm, opponent: op, minigame }
+  // jogada recomendada (maior valor esperado em gols, sem sorteio): é a que vale se o tempo acabar
+  const suggested = aiChoice({ id, situation: pm.situation, options: specs, teammate: tm, opponent: op }, 'smart')
+  km.suggested = suggested
+  lm.pending = { id, situation: pm.situation, options: specs, teammate: tm, opponent: op, minigame, suggested }
   live.pendingMoment = km
   fx.push({ type: 'key_moment', moment: km })
 }
@@ -1297,11 +1400,14 @@ export function resolveMoment(
   switch (o.onSuccess) {
     case 'goal': {
       live.stats.shots++
+      // narração pela finalização escolhida (cabeceio só no lance de cabeça, falta com barreira…)
+      const shot = SHOT_TEXT[SHOT_KIND[o.id] ?? 'placed']
+      const sv = { p: me, P: me.toUpperCase(), g: lm.keeper[idx(them)] }
       if (success) {
         goal = true
         live.stats.shotsOnTarget++
         live.stats.goals++
-        text = spec.situation === 'penalty' ? say(r, T.penaltyGoal, { p: me, g: lm.keeper[idx(them)] }) : say(r, T.goalUser, { p: me, P: me.toUpperCase() })
+        text = spec.situation === 'penalty' ? say(r, T.penaltyGoal, { p: me, g: lm.keeper[idx(them)] }) : say(r, [...shot.goal, ...T.goalUser], sv)
         add(spec.situation === 'penalty' ? 'penalty_goal' : 'goal', us, { byUser: true, player: me, text })
         rating(o.rating[0] + (big ? 0.2 : 0))
         text = spec.situation === 'penalty' ? penText() : r.pick(RESULT_TEXT.goal)
@@ -1312,13 +1418,13 @@ export function resolveMoment(
           add('penalty_miss', us, { byUser: true, player: me, text })
         } else if (roll < 0.45) {
           live.stats.shotsOnTarget++
-          text = say(r, T.save, { p: me, g: lm.keeper[idx(them)] })
+          text = say(r, shot.save, sv)
           add('save', us, { byUser: true, player: me, text })
         } else if (roll < 0.9) {
-          text = say(r, T.chance, { p: me, t: teamName(live, us) })
+          text = say(r, shot.wide, sv)
           add('chance', us, { byUser: true, player: me, text })
         } else {
-          text = say(r, T.woodwork, { p: me })
+          text = say(r, shot.post, sv)
           add('woodwork', us, { byUser: true, player: me, text })
         }
         rating(o.rating[1])
@@ -1330,17 +1436,19 @@ export function resolveMoment(
       if (success) {
         live.stats.keyPasses++
         const mate = spec.teammate
+        // o companheiro finaliza como a jogada pede: de cabeça depois do cruzamento, com os pés no passe
+        const fin = CROSS_OPTIONS.has(o.id) ? ASSIST_TEXT.cross : ASSIST_TEXT.ground
         if (r.chance(o.p2 ?? 0.3)) {
           goal = true
           live.stats.assists++
-          text = say(r, T.goalAssistUser, { p: mate, a: me, t: teamName(live, us) })
+          text = say(r, fin.goal, { p: mate, a: me, t: teamName(live, us) })
           add('goal', us, { player: mate, assist: me, byUser: true, text })
           rating(0.7 + (big ? 0.1 : 0))
           text = r.pick(RESULT_TEXT.assist)
         } else {
           // um sorteio só: a narração e o tipo do lance (defesa × para fora) têm de bater
           const saved = r.chance(0.5)
-          text = say(r, saved ? T.save : T.chance, { p: mate, g: lm.keeper[idx(them)], t: teamName(live, us) })
+          text = say(r, saved ? fin.save : fin.wide, { p: mate, g: lm.keeper[idx(them)], t: teamName(live, us) })
           add(saved ? 'save' : 'chance', us, { player: mate, assist: me, text })
           rating(o.rating[0])
           text = r.pick(saved ? RESULT_TEXT.chanceSaved : RESULT_TEXT.chanceWide)
@@ -1365,14 +1473,35 @@ export function resolveMoment(
         rating(o.rating[0])
         let next: KeyMomentSituation
         if (o.onSuccess === 'foul_won') next = r.chance(0.22) ? 'penalty' : 'free_kick'
-        else next = r.chance(0.3) ? 'one_on_one' : 'shot'
+        else next = r.chance(0.25) ? 'one_on_one' : 'shot'
         lm.plan.splice(lm.momentIdx + 1, 0, { minute: Math.min(live.minute + 1, live.phase === 'first_half' ? 45 : live.phase === 'extra_time' ? 120 : 90), situation: next, chained: true })
-        text = o.onSuccess === 'foul_won' ? (next === 'penalty' ? 'Derrubado na área: PÊNALTI!' : 'Falta sofrida em boa posição!') : r.pick(RESULT_TEXT.dribbleOk)
-        add('key_moment', us, { byUser: true, player: me, text: o.onSuccess === 'foul_won' ? `${me} é derrubado por ${spec.opponent}. ${next === 'penalty' ? 'Pênalti!' : 'Falta perigosa.'}` : `${me} passa por ${spec.opponent} e ganha espaço.` })
+        const oneTwo = o.id === 'one_two'
+        text = o.onSuccess === 'foul_won' ? (next === 'penalty' ? 'Derrubado na área: PÊNALTI!' : 'Falta sofrida em boa posição!') : r.pick(oneTwo ? RESULT_TEXT.oneTwoOk : RESULT_TEXT.dribbleOk)
+        add('key_moment', us, {
+          byUser: true,
+          player: me,
+          text:
+            o.onSuccess === 'foul_won'
+              ? `${me} é derrubado por ${spec.opponent}. ${next === 'penalty' ? 'Pênalti!' : 'Falta perigosa.'}`
+              : oneTwo
+                ? `${me} tabela com ${spec.teammate} e recebe de volta na frente.`
+                : `${me} passa por ${spec.opponent} e ganha espaço.`,
+        })
       } else {
         rating(o.rating[1])
-        text = r.pick(RESULT_TEXT.dribbleFail)
-        add('key_moment', us, { byUser: true, player: me, text: `${spec.opponent} desarma ${me}.` })
+        // falha conforme a opção: tabela cortada, falta não marcada ou desarme
+        const how = o.id === 'one_two' ? 'one_two' : o.onSuccess === 'foul_won' ? 'foul' : 'dribble'
+        text = r.pick(how === 'one_two' ? RESULT_TEXT.oneTwoFail : how === 'foul' ? RESULT_TEXT.foulFail : RESULT_TEXT.dribbleFail)
+        add('key_moment', us, {
+          byUser: true,
+          player: me,
+          text:
+            how === 'one_two'
+              ? `${spec.opponent} corta o passe da tabela entre ${me} e ${spec.teammate}.`
+              : how === 'foul'
+                ? `${me} cai no contato com ${spec.opponent}, mas o árbitro manda seguir.`
+                : `${spec.opponent} desarma ${me}.`,
+        })
       }
       break
     }
@@ -1385,7 +1514,7 @@ export function resolveMoment(
           if (!wide) live.stats.saves = (live.stats.saves ?? 0) + 1
           text = spec.situation === 'penalty_save' ? penText() : r.pick(RESULT_TEXT.save)
           if (wide) add('penalty_miss', them, { player: spec.opponent, text: say(r, kick!.tpl, { p: spec.opponent, g: me }) })
-          else add('save', them, { player: spec.opponent, text: say(r, T.save, { p: spec.opponent, g: me }), byUser: true })
+          else add('save', them, { player: spec.opponent, text: say(r, T.saveUser, { p: spec.opponent, g: me }), byUser: true })
         } else {
           live.stats.tackles++
           text = r.pick(RESULT_TEXT.stop)
@@ -1450,11 +1579,12 @@ export function runToEnd(data: GameData, s: ImmersiveState, fx: ImmersiveEffect[
   }
 }
 
-/** Ajustes finais da nota (resultado e jogo sem sofrer gol). */
+/** Ajustes finais da nota (resultado e jogo sem sofrer gol) — uma vez só por partida. */
 export function finalRating(s: ImmersiveState): void {
   const live = s.live!
   const lm = mem(s).live!
-  if (live.stats.minutes <= 0) return
+  if (live.stats.minutes <= 0 || lm.rated) return
+  lm.rated = true
   const ui = idx(live.userSide)
   const u = live.score[ui]
   const o = live.score[1 - ui]

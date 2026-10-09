@@ -10,9 +10,10 @@
  */
 import { memo, useMemo, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, ChartLine, Crown, Flag as FlagIcon, Landmark, Quote, RotateCcw, Share2, Sparkles, Star, Trophy as TrophyIcon, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChartLine, Crown, Flag as FlagIcon, Landmark, Quote, RotateCcw, Share2, Sparkles, Star, Trophy as TrophyIcon, Users } from 'lucide-react'
 import type { CareerSummary } from '@/engine/types'
 import { LEGENDS } from '@/engine/career/summary'
+import { clubArticle } from '@/engine/career/util'
 import { navigate, useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { getClub, getCompetition, getCountry, getLeague, getTrophy } from '@/store/data'
@@ -35,8 +36,10 @@ import {
   rowClubVars,
   tierOf,
   useIsDesktop,
+  useMediaQuery,
   useReducedMotion,
   POSITION_LABEL,
+  plural,
 } from '@/ui/primitives'
 import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
@@ -103,7 +106,7 @@ export default function SummaryScreen() {
       </PlaceholderScreen>
     )
   }
-  return <SummaryBody career={career} summary={summary} live={live} saved={saved || !!hall} />
+  return <SummaryBody career={career} summary={summary} live={live} saved={saved || !!hall} immersive={!live && hall?.mode === 'immersive'} />
 }
 
 // ───────────────────────── top bar ─────────────────────────
@@ -115,29 +118,46 @@ function scrollToShare() {
 }
 
 function TopActions({ live, finished, desktop }: { live: boolean; finished: boolean; desktop: boolean }) {
+  // até ~1100 px só o ícone: o rótulo "Resumo da carreira" da barra continua visível ao lado da marca
+  const roomy = useMediaQuery('(min-width: 69rem)')
   if (!desktop) return <IconButton label="Compartilhar card" icon={Share2} onClick={scrollToShare} />
   return (
     <>
-      {live && (
+      {/* em andamento, "Continuar carreira" (abaixo) já leva à tabela: nada de dois botões para o mesmo lugar */}
+      {live && finished && (
         <Button variant="ghost" size="sm" icon={ChartLine} onClick={() => navigate('/carreira')} className="max-lg:hidden">
-          {finished ? 'Ver tabela completa' : 'Voltar à carreira'}
+          Ver tabela completa
         </Button>
       )}
-      <Button variant="ghost" size="sm" icon={Share2} onClick={scrollToShare}>
-        Compartilhar card
-      </Button>
+      {roomy ? (
+        <Button variant="ghost" size="sm" icon={Share2} onClick={scrollToShare}>
+          Compartilhar card
+        </Button>
+      ) : (
+        <IconButton label="Compartilhar card" icon={Share2} onClick={scrollToShare} />
+      )}
       <PlayAgain size="sm" live={live} finished={finished} />
     </>
   )
 }
 
+/**
+ * Ação principal: continuar a carreira em andamento, jogar de novo depois do fim, ou — num resumo
+ * aberto pelo Hall das Lendas (clássico ou imersivo) — voltar ao Hall.
+ */
 function PlayAgain({ size = 'md', live, finished }: { size?: 'sm' | 'md' | 'lg'; live: boolean; finished: boolean }) {
   const abandon = useCareer((s) => s.abandon)
-  const hasActive = useCareer((s) => !!s.state && s.state.phase !== 'finished' && !s.state.retired)
   if (live && !finished) {
     return (
       <Button variant="primary" size={size} iconRight={ArrowRight} onClick={() => navigate('/carreira')}>
         Continuar carreira
+      </Button>
+    )
+  }
+  if (!live) {
+    return (
+      <Button variant="primary" size={size} icon={ArrowLeft} onClick={() => navigate('/hall')}>
+        Voltar ao Hall
       </Button>
     )
   }
@@ -147,19 +167,19 @@ function PlayAgain({ size = 'md', live, finished }: { size?: 'sm' | 'md' | 'lg';
       size={size}
       icon={RotateCcw}
       onClick={async () => {
-        // the finished career is already in the Hall das Lendas; clear it only when it is the current one
-        if (live) await abandon()
-        navigate(hasActive && !live ? '/carreira' : '/identidade')
+        // the finished career is already in the Hall das Lendas; clear it before starting over
+        await abandon()
+        navigate('/identidade')
       }}
     >
-      {hasActive && !live ? 'Voltar à carreira' : 'Jogar novamente'}
+      Jogar novamente
     </Button>
   )
 }
 
 // ───────────────────────── body ─────────────────────────
 
-const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: { career: SummaryCareer; summary: CareerSummary; live: boolean; saved: boolean }) {
+const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, immersive }: { career: SummaryCareer; summary: CareerSummary; live: boolean; saved: boolean; immersive?: boolean }) {
   const rm = useReducedMotion()
   const desktop = useIsDesktop()
   const seasons = career.seasons
@@ -201,12 +221,21 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
     mainClubId: main,
     retired: finished,
   }
-  const kpis: [string, number][] = [
-    ['Jogos', summary.totals.apps],
-    [pos === 'GOL' ? 'Sem sofrer gol' : 'Gols', pos === 'GOL' ? (summary.totals.cleanSheets ?? 0) : summary.totals.goals],
-    ['Assistências', summary.totals.assists],
-    ['Títulos', titles],
-  ]
+  // goleiro: jogos sem sofrer gol no lugar dos gols, e sem a coluna de assistências (sempre 0 ou quase)
+  const kpis: [string, number][] =
+    pos === 'GOL'
+      ? [
+          ['Jogos', summary.totals.apps],
+          ['Sem sofrer gol', summary.totals.cleanSheets ?? 0],
+          ['Títulos', titles],
+        ]
+      : [
+          ['Jogos', summary.totals.apps],
+          ['Gols', summary.totals.goals],
+          ['Assistências', summary.totals.assists],
+          ['Títulos', titles],
+        ]
+  const longestWord = Math.max(4, ...id.surname.split(/\s+/).map((w) => w.length))
   const enter = (i: number) => (rm ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay: 0.08 * i, ease: [0.16, 1, 0.3, 1] as const } })
 
   return (
@@ -235,13 +264,21 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
           <div className="sm-ident__eyebrow lx-eyebrow">
             <span>{finished ? 'Fim de carreira' : 'Carreira em andamento'}</span>
             <i aria-hidden="true" />
+            {immersive && (
+              <>
+                <span>Modo Imersivo</span>
+                <i aria-hidden="true" />
+              </>
+            )}
             <span className="num">{span.label}</span>
             <i aria-hidden="true" />
             <span>
               {summary.seasons} {summary.seasons === 1 ? 'temporada' : 'temporadas'}
             </span>
           </div>
-          <h1 className="sm-ident__name">{id.surname}</h1>
+          <h1 className="sm-ident__name" style={{ '--len': longestWord } as CSSProperties}>
+            {id.surname}
+          </h1>
           <div className="sm-ident__legacy">
             <span className={cx('sm-grade', `is-${grade === 'base' ? tier : grade}`)}>
               <Crown aria-hidden="true" /> {grade === 'icon' ? 'Ícone' : grade === 'elite' ? 'Elite' : TIER_LABEL[tier]}
@@ -263,7 +300,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
               Valor máx. <b className="num">{formatMoney(summary.peakValue)}</b>
             </span>
           </div>
-          <dl className="sm-kpis">
+          <dl className="sm-kpis" style={{ '--n': kpis.length } as CSSProperties}>
             {kpis.map(([k, v], i) => (
               <div key={k}>
                 <dd className="num">
@@ -426,12 +463,14 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved }: 
         <PlayAgain size="lg" live={live} finished={finished} />
         {live && finished && (
           <Button variant="ghost" size="lg" icon={ChartLine} onClick={() => navigate('/carreira')}>
-            {finished ? 'Ver tabela completa' : 'Voltar à carreira'}
+            Ver tabela completa
           </Button>
         )}
-        <Button variant="text" size="lg" icon={Users} onClick={() => navigate('/hall')}>
-          Hall das Lendas
-        </Button>
+        {live && (
+          <Button variant="text" size="lg" icon={Users} onClick={() => navigate('/hall')}>
+            Hall das Lendas
+          </Button>
+        )}
       </footer>
     </div>
   )
@@ -485,6 +524,11 @@ function HonorCard({ h }: { h: Honor }) {
 
 // ───────────────────────── records chips ─────────────────────────
 
+/** "pelo Arsenal" / "pela Roma". */
+function pelo(club: Parameters<typeof clubArticle>[0]): string {
+  return `${clubArticle(club) === 'a' ? 'pela' : 'pelo'} ${club?.shortName ?? ''}`
+}
+
 function Records({ career, summary, saved }: { career: SummaryCareer; summary: CareerSummary; saved: boolean }) {
   const s = career.seasons
   const best = [...s].sort((a, b) => b.stats.goals - a.stats.goals)[0]
@@ -492,8 +536,8 @@ function Records({ career, summary, saved }: { career: SummaryCareer; summary: C
   const topClub = [...summary.clubs].sort((a, b) => b.goals - a.goals)[0]
   const promos = s.filter((r) => r.promoted).length
   const items: { icon: typeof Star; lead: string; rest: string }[] = []
-  if (topClub && topClub.goals > 0) items.push({ icon: Star, lead: `${formatInt(topClub.goals)} gols`, rest: `pelo ${getClub(topClub.clubId)?.shortName ?? ''}` })
-  if (best && best.stats.goals > 0) items.push({ icon: BallIcon as unknown as typeof Star, lead: `${best.stats.goals} gols`, rest: `em ${best.season} · recorde pessoal` })
+  if (topClub && topClub.goals > 0) items.push({ icon: Star, lead: plural(topClub.goals, 'gol', 'gols'), rest: pelo(getClub(topClub.clubId)) })
+  if (best && best.stats.goals > 0) items.push({ icon: BallIcon as unknown as typeof Star, lead: plural(best.stats.goals, 'gol', 'gols'), rest: `em ${best.season} · recorde pessoal` })
   if (caps) items.push({ icon: Crown, lead: `Capitão`, rest: `em ${caps} ${caps === 1 ? 'temporada' : 'temporadas'}` })
   if (promos) items.push({ icon: TrophyIcon, lead: `${promos} ${promos === 1 ? 'acesso' : 'acessos'}`, rest: 'de divisão' })
   if (saved) items.push({ icon: Landmark, lead: 'Salvo', rest: 'no Hall das Lendas' })

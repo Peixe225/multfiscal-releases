@@ -3,6 +3,7 @@ import { memo, useId, type CSSProperties } from 'react'
 import { Goal, HandHelping, Medal, Shirt, Target, Zap, type LucideProps } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { CATEGORIES, formatCategoryValue, type CategoryId, type LegendLegacy, type RankEntry, type RunLegacy } from '@/engine/legacy'
+import { useCareer } from '@/store/career'
 import { useClub } from '@/store/data'
 import { Crest, Flag, OvrBadge, cx } from '@/ui/primitives'
 import { TrophyArt } from '@/ui/trophies'
@@ -127,11 +128,13 @@ function LegendCrest({ id, size }: { id: string; size: number }) {
   return club ? <Crest club={club} size={size} decorative /> : null
 }
 
-export function RunCrests({ run, max = 5, size = 18 }: { run: RunLegacy; max?: number; size?: number }) {
+/** Escudos dos clubes da run (mais temporadas primeiro). `exclude`: um escudo já mostrado ao lado. */
+export function RunCrests({ run, max = 5, size = 18, exclude }: { run: RunLegacy; max?: number; size?: number; exclude?: string }) {
   const ids = run.stats.clubTotals
     .slice()
     .sort((a, b) => b.seasons - a.seasons || b.apps - a.apps)
     .map((c) => c.clubId)
+    .filter((id) => id !== exclude)
   return (
     <span className="hl-crests">
       {ids.slice(0, max).map((id) => (
@@ -140,4 +143,10 @@ export function RunCrests({ run, max = 5, size = 18 }: { run: RunLegacy; max?: n
       {ids.length > max && <span className="hl-crests__more">+{ids.length - max}</span>}
     </span>
   )
+}
+
+/** "Clássico" / "Imersivo": o modo em que a carreira do Hall foi jogada. */
+export function useRunModeLabel(id: string): string | null {
+  const mode = useCareer((s) => s.finishedCareers.find((h) => h.id === id)?.mode)
+  return mode === 'immersive' ? 'Imersivo' : mode === 'classic' ? 'Clássico' : null
 }

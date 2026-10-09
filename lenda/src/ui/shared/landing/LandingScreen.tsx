@@ -82,6 +82,13 @@ export default function LandingScreen() {
 
   const club = state?.clubId ? index?.clubById.get(state.clubId) : undefined
   const finished = !!state && (state.phase === 'finished' || state.retired)
+  const classicActive = !!state && !state.retired && active
+  const other =
+    mode === 'imersivo' && state && classicActive
+      ? { to: '/carreira' as const, surname: state.identity.surname, age: state.age, ovr: state.ovr }
+      : mode === 'classico' && classicActive && imm && !imm.retired
+        ? { to: '/imersivo' as const, surname: imm.identity.surname, age: imm.age, ovr: imm.ovr }
+        : null
   const day = shortDate(data?.generatedAt)
   const trophyCount = data?.trophies.length ?? 0
   const trophyLabel = trophyCount >= 20 ? `${Math.floor(trophyCount / 10) * 10}+ taças` : 'Taças reais'
@@ -109,7 +116,7 @@ export default function LandingScreen() {
               <LivePill>
                 Temporada 2026 ao vivo
                 <span className="hidden sm:inline-block w-px h-3 bg-[rgba(189,245,220,.25)]" aria-hidden />
-                <span className="hidden sm:inline text-[rgba(189,245,220,.72)] font-semibold">Tabelas reais de hoje{day ? ` · ${day}` : ''}</span>
+                <span className="hidden sm:inline text-[rgba(189,245,220,.72)] font-semibold">{day ? `Tabelas reais de ${day}` : 'Tabelas reais'}</span>
               </LivePill>
             </motion.div>
             <motion.h1 className="ld-h1" {...rise(rm, 1)}>
@@ -191,15 +198,25 @@ export default function LandingScreen() {
               </button>
             </motion.div>
 
-            <motion.div className="ld-rhythm" {...rise(rm, 4)}>
-              <span className="lx-eyebrow max-sm:hidden" id="ld-ritmo">
-                Ritmo
-              </span>
-              <Segmented<Pace> value={pace} onChange={setPace} options={paceOptions} aria-label="Ritmo da carreira" />
-              <span className="ld-rhythm__hint" aria-live="polite">
-                <b>{info.lead}</b> · {info.tail}
-              </span>
-            </motion.div>
+            {/* o ritmo (decisões a cada N temporadas) é só do Clássico; no Imersivo, o que esperar */}
+            {mode === 'imersivo' ? (
+              <motion.div className="ld-rhythm ld-rhythm--imm" {...rise(rm, 4)}>
+                <span className="lx-eyebrow max-sm:hidden">Ritmo</span>
+                <span className="ld-rhythm__hint" aria-live="polite">
+                  <b>Semana a semana, partida a partida</b> · treino, imprensa, mercado e os lances decisivos de cada jogo
+                </span>
+              </motion.div>
+            ) : (
+              <motion.div className="ld-rhythm" {...rise(rm, 4)}>
+                <span className="lx-eyebrow max-sm:hidden" id="ld-ritmo">
+                  Ritmo
+                </span>
+                <Segmented<Pace> value={pace} onChange={setPace} options={paceOptions} aria-label="Ritmo da carreira" />
+                <span className="ld-rhythm__hint" aria-live="polite">
+                  <b>{info.lead}</b> · {info.tail}
+                </span>
+              </motion.div>
+            )}
 
             <motion.div className="ld-ctas" {...rise(rm, 5)}>
               <Button variant="primary" size="xl" iconRight={ArrowRight} className="ld-ctas__start" onClick={start} onMouseEnter={() => void import('@/ui/shared/identity/IdentityScreen')}>
@@ -218,7 +235,7 @@ export default function LandingScreen() {
                   </span>
                 </Button>
               )}
-              {mode === 'classico' && imm && !imm.retired && !(state && !state.retired && active) && (
+              {mode === 'classico' && imm && !imm.retired && !classicActive && (
                 <Button variant="ghost" size="xl" className="ld-ctas__continue" onClick={() => navigate('/imersivo')} aria-label={`Continuar carreira imersiva: ${imm.identity.surname}, ${imm.age} anos, OVR ${imm.ovr}`}>
                   <span className="ld-continue">
                     <Tv2 size={18} aria-hidden />
@@ -231,7 +248,7 @@ export default function LandingScreen() {
                   </span>
                 </Button>
               )}
-              {mode === 'classico' && state && !state.retired && active && (
+              {mode === 'classico' && state && classicActive && (
                 <Button variant="ghost" size="xl" className="ld-ctas__continue" onClick={() => navigate('/carreira')} aria-label={`Continuar carreira: ${state.identity.surname}, ${state.age} anos, OVR ${state.ovr}`}>
                   <span className="ld-continue">
                     {club ? <Crest club={club} size={22} decorative /> : <Play size={18} aria-hidden />}
@@ -262,6 +279,16 @@ export default function LandingScreen() {
                 </span>
               </button>
             </motion.div>
+            {/* a carreira do outro modo em andamento também aparece, numa linha discreta (as duas podem existir) */}
+            {other && (
+              <motion.button type="button" className="ld-also" onClick={() => navigate(other.to)} {...rise(rm, 6)}>
+                {other.to === '/carreira' ? <Layers size={15} aria-hidden /> : <Tv2 size={15} aria-hidden />}
+                <span className="min-w-0">
+                  Também em andamento: carreira {other.to === '/carreira' ? 'clássica' : 'imersiva'} de <b>{other.surname}</b> · {other.age} anos · OVR {other.ovr}
+                </span>
+                <ArrowRight size={14} aria-hidden className="flex-none" />
+              </motion.button>
+            )}
           </div>
           <HeroArt />
         </div>

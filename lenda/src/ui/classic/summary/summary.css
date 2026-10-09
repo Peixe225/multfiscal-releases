@@ -20,10 +20,13 @@
 .sm-cardslot__glow { position: absolute; left: 50%; top: 50%; width: 320px; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle, rgba(200, 170, 255, .30), rgba(140, 110, 255, .08) 45%, transparent 66%); }
 
-.sm-ident { min-width: 0; }
+/* container: o sobrenome e os números se medem pela coluna (332 px a 1280, 444 px a 1440) */
+.sm-ident { min-width: 0; container-type: inline-size; }
 .sm-ident__eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sm-ident__eyebrow i { width: 3px; height: 3px; border-radius: 50%; background: var(--text-3); }
-.sm-ident__name { margin: 10px 0 0; font: 900 clamp(46px, 5.4vw, 72px)/.92 var(--font-display); letter-spacing: -.045em; text-transform: uppercase; overflow-wrap: anywhere;
+/* nunca quebra no meio da palavra: a letra encolhe até a maior palavra (--len letras) caber na coluna */
+.sm-ident__name { margin: 10px 0 0; font: 900 clamp(46px, 5.4vw, 72px)/.92 var(--font-display); font-size: min(clamp(46px, 5.4vw, 72px), calc(100cqw / (var(--len, 8) * .72)));
+  letter-spacing: -.045em; text-transform: uppercase; overflow-wrap: normal; word-break: keep-all;
   background: linear-gradient(180deg, #ffffff 35%, #d9dde6); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, .55)); }
 .sm-ident__legacy { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
@@ -42,13 +45,19 @@
   font-size: 12px; font-weight: 650; color: var(--text-2); white-space: nowrap; }
 .sm-chip b { color: var(--text); font-size: 14px; font-weight: 800; }
 .sm-chip--pos { background: rgba(255, 94, 120, .14); border-color: rgba(255, 94, 120, .3); color: #ffc2cc; }
-.sm-kpis { display: grid; grid-template-columns: repeat(4, auto); justify-content: start; gap: 30px; margin: 20px 0 0; }
+.sm-kpis { display: grid; grid-template-columns: repeat(var(--n, 4), max-content); justify-content: start; gap: 30px; margin: 20px 0 0; }
 .sm-kpis div { min-width: 0; }
 .sm-kpis dd { margin: 0; font: 800 46px/.9 var(--font-num); letter-spacing: .005em; }
-.sm-kpis dt { margin-top: 7px; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+.sm-kpis dt { margin-top: 7px; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+@container (max-width: 420px) {
+  .sm-kpis { gap: 18px; }
+  .sm-kpis dd { font-size: 38px; }
+  .sm-kpis dt { font-size: 9px; letter-spacing: .1em; }
+}
 @media (max-width: 44.99rem) {
+  .sm-ident { justify-self: stretch; }
   .sm-ident__eyebrow, .sm-ident__legacy, .sm-ident__chips { justify-content: center; }
-  .sm-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; justify-content: stretch; }
+  .sm-kpis { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 8px; width: 100%; justify-content: stretch; }
   .sm-kpis dd { font-size: 32px; }
   .sm-kpis dt { font-size: 8.5px; letter-spacing: .1em; }
   .sm-cardslot { min-height: 0; }

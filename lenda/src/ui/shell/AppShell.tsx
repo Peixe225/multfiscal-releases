@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { navigate, startRouter, syncDocumentFlags, useApp, type RoutePath } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useLiveSession } from '@/live/config'
+import { isCaptureWindow } from '@/live/channel'
 import { useClub, useData } from '@/store/data'
 import { Skeleton, Stadium, Stage, Toaster } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
@@ -73,6 +74,8 @@ export function AppShell() {
   const liveMounted = liveOn || route.path === '/live'
   // a faixa da live ocupa o lugar da barra do topo onde o público vê o jogo
   const liveHud = liveOn && (route.path === '/carreira' || (route.path === '/live' && route.query.tela === 'palco'))
+  // janela de captura esperando o começo: sem a barra do jogo no ar (nada de menu clicável na live)
+  const captureIdle = !liveOn && route.path === '/live' && route.query.tela === 'palco' && isCaptureWindow()
 
   useEffect(() => startRouter(), [])
   useEffect(() => syncDocumentFlags(), [])
@@ -133,7 +136,7 @@ export function AppShell() {
         Pular para o conteúdo
       </button>
       <AmbientStage path={route.path} theme={theme} />
-      {ready && !liveHud && <TopBar path={route.path} />}
+      {ready && !liveHud && !captureIdle && <TopBar path={route.path} />}
       {ready && liveMounted && (
         <Suspense fallback={null}>
           <LiveRoot />

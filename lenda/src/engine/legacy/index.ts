@@ -4,7 +4,7 @@
  *   const hall = evaluateHall(entries.map(hallEntryToRun))   // runs + lendas + rankings
  *   hall.overall[0]                                          // #1 geral (run ou lenda)
  *   hall.categories.libertadores.slice(0, 3)                 // pódio da categoria
- *   compareRun(hall.runs[2])                                 // "Sua run nº 3 tem mais Libertadores que Pelé (2)."
+ *   compareRun(hall.runs[2])                                 // "Sua carreira nº 3 tem mais Libertadores que Pelé (2)."
  *   placeRun(liveCareer, previousRuns)                       // nota/posição de uma carreira recém-encerrada
  *
  * Pesos da Nota de Legado: ver ./score.ts.

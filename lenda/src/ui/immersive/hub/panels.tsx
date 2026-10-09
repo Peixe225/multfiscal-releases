@@ -109,10 +109,12 @@ export const PlayerPlate = memo(function PlayerPlate({ s, compact }: { s: Immers
               <>
                 {league && <CompLogo id={league.id} size={16} />}
                 <span className="im-pp__lg">{league?.shortName ?? '—'}</span>
-                {/* previsão para o próximo jogo num chip próprio (nada de "Liga Venezuelana · S…") */}
-                <span className={cx('lx-chip lx-chip--sm im-pp__fc', fc.tone === 'pos' ? 'lx-chip--pos-ok' : fc.tone === 'neg' ? 'lx-chip--neg' : 'lx-chip--gold')} title="Previsão da escalação para o próximo jogo">
-                  {fc.label}
-                </span>
+                {/* previsão para o próximo jogo num chip próprio (nada de "Liga Venezuelana · S…"); aposentado, sem previsão */}
+                {!s.retired && (
+                  <span className={cx('lx-chip lx-chip--sm im-pp__fc', fc.tone === 'pos' ? 'lx-chip--pos-ok' : fc.tone === 'neg' ? 'lx-chip--neg' : 'lx-chip--gold')} title="Previsão da escalação para o próximo jogo">
+                    {fc.label}
+                  </span>
+                )}
               </>
             ) : (
               <span className="im-pp__lg">{s.log.some((l) => l.type === 'joined') ? 'Livre no mercado' : 'Escolha a sua base para começar'}</span>

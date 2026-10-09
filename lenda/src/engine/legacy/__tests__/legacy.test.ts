@@ -206,7 +206,7 @@ describe('recordes', () => {
     expect(hall.runs.map((r) => r.runNo)).toEqual([1, 2])
     expect(hall.runs[0].personal).toHaveLength(0)
     const p = hall.runs[1].personal
-    expect(p.find((x) => x.metric === 'goals')!.text).toBe('240 gols: recorde das suas runs (antes: 200, run nº 1).')
+    expect(p.find((x) => x.metric === 'goals')!.text).toBe('240 gols: recorde das suas carreiras (antes: 200, carreira nº 1).')
     // "primeira vez" (a run anterior tinha 0) não é recorde
     expect(p.find((x) => x.metric === 'libertadores')).toBeUndefined()
     // recordes das suas runs são só selo: não entram na categoria Recordes nem na nota
@@ -228,15 +228,15 @@ describe('recordes', () => {
 })
 
 describe('comparações e ranking', () => {
-  it('"Sua run nº 3 tem mais Libertadores que Pelé"', () => {
+  it('"Sua carreira nº 3 tem mais Libertadores que Pelé"', () => {
     const seasons = Array.from({ length: 18 }, (_, i) => rec(18 + i, { t: i % 5 === 0 ? [primary('CONMEBOL')] : [] }))
     const r = evaluateRun(run(seasons, { runNo: 3 }))
     expect(r.values.libertadores).toBe(4)
     const texts = compareRun(r, evaluateLegends(), { max: 20 }).map((c) => c.text)
-    expect(texts.some((t) => /^Sua run nº 3 tem mais Libertadores que Riquelme \(3\) — ninguém entre as lendas tem mais\.$/.test(t))).toBe(true)
+    expect(texts.some((t) => /^Sua carreira nº 3 tem mais Libertadores que Riquelme \(3\) — ninguém entre as lendas tem mais\.$/.test(t))).toBe(true)
     const r2 = evaluateRun(run(seasons.slice(0, 11), { runNo: 3 }))
     expect(r2.values.libertadores).toBe(3)
-    expect(compareRun(r2, evaluateLegends(), { max: 20 }).map((c) => c.text)).toContain('Sua run nº 3 tem mais Libertadores que Pelé (2).')
+    expect(compareRun(r2, evaluateLegends(), { max: 20 }).map((c) => c.text)).toContain('Sua carreira nº 3 tem mais Libertadores que Pelé (2).')
   })
 
   it('evaluateHall mistura runs e lendas no geral e em todas as 11 categorias', () => {

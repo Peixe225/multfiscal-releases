@@ -43,6 +43,7 @@ import {
 } from './player'
 import {
   callUpOvr,
+  clubArticle,
   clubConfed,
   clubLeagueId,
   clubPrestige,
@@ -425,8 +426,9 @@ export function playSeason(inp: SeasonInput): SeasonRecord {
   for (const t of trophies)
     log.push({ season, age, type: 'trophy', text: `Campeão: ${trophyName(data, t.trophyId, t.competitionId)} (${t.scope === 'club' ? cname : country?.name ?? nat}).`, data: { trophyId: t.trophyId } })
   for (const a of awards) log.push({ season, age, type: 'award', text: awardText(a), data: { award: a.award, place: a.place } })
-  if (record.promoted) log.push({ season, age, type: 'promotion', text: `Acesso com o ${cname}!` })
-  if (record.relegated) log.push({ season, age, type: 'relegation', text: `Rebaixamento com o ${cname}.` })
+  const oClub = clubArticle(club)
+  if (record.promoted) log.push({ season, age, type: 'promotion', text: `Acesso com ${oClub} ${cname}!` })
+  if (record.relegated) log.push({ season, age, type: 'relegation', text: `Rebaixamento com ${oClub} ${cname}.` })
   s.seasons.push(record)
   const after = totalsOf(s)
   for (const g of GOAL_MILESTONES) if (before.goals < g && after.goals >= g) log.push({ season, age, type: 'milestone', text: `${g} gols na carreira!` })

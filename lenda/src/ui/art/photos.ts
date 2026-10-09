@@ -243,7 +243,11 @@ export interface PhotoForOptions {
   slot?: number
 }
 
-/** Texto em pt-BR → tema (para chaves desconhecidas: título/rótulo da opção, título da decisão…). */
+/**
+ * Texto em pt-BR → tema (para chaves desconhecidas: título/rótulo da opção, título e texto da decisão).
+ * Palavras curtas vão com limite de palavra: "favor" não é "avô", "proposta" não é "post", "Série B" não
+ * é série de TV, "fase" não é "fãs", "atacante" não é "taça", "Estudiantes" não é escola.
+ */
 const TEXT_HINTS: readonly [RegExp, PhotoTheme][] = [
   [/aposent|despedid|pendurar/i, 'crowd'],
   [/pênalti|penalti|cobran[çc]a/i, 'crowd'],
@@ -252,19 +256,19 @@ const TEXT_HINTS: readonly [RegExp, PhotoTheme][] = [
   [/trein|academia|f[íi]sic|prepara|pr[ée]-temporada|t[ée]cnica/i, 'training'],
   [/descans|rotina|folga|f[ée]rias|poupar/i, 'rest'],
   [/imprensa|entrevista|declara|coletiva|pol[êe]mica/i, 'press'],
-  [/post|rede social|celular|internet|v[íi]deo viral/i, 'phone'],
+  [/\bposts?\b|\bpost(?:ar|ou|agem)|rede social|celular|internet|v[íi]deo viral/i, 'phone'],
   [/tatua/i, 'tattoo'],
-  [/escola|estud|diploma|col[ée]gio/i, 'school'],
-  [/fam[íi]lia|filh|m[ãa]e|pai|esposa/i, 'family'],
-  [/document[áa]rio|s[ée]rie|tv|c[âa]mera|reality/i, 'tv'],
+  [/escola|\bestud(?!iantes)|diploma|col[ée]gio/i, 'school'],
+  [/fam[íi]lia|filh|\bm[ãa]e\b|\bpai\b|esposa/i, 'family'],
+  [/document[áa]rio|\bs[ée]rie (?:de tv|documental)|\btv\b|c[âa]mera|reality/i, 'tv'],
   [/capit[ãa]o|bra[çc]adeira/i, 'captain'],
-  [/sele[çc][ãa]o|convoca|p[áa]tria|av[ôo]/i, 'national'],
+  [/sele[çc][ãa]o|convoca|p[áa]tria|\bav[ôóo](?![a-z])/i, 'national'],
   [/imposto|dinheiro|milh|sal[áa]rio|oferta|€|pix|dívida/i, 'money'],
   [/contrat|renova|agente|empres[áa]rio|assinar/i, 'contract'],
   [/viag|aeroporto|exterior|voltar para|empr[ée]stimo/i, 'airport'],
   [/vesti[áa]rio|elenco|t[ée]cnico|treinador|crise/i, 'locker'],
-  [/torcida|f[ãa]s|est[áa]dio|vaia/i, 'crowd'],
-  [/t[íi]tulo|ta[çc]a|campe[ãa]o|final/i, 'celebration'],
+  [/torcida|\bf[ãa]s\b|est[áa]dio|vaia/i, 'crowd'],
+  [/t[íi]tulo|\bta[çc]as?\b|campe[ãa]o|\bfinal\b/i, 'celebration'],
 ]
 
 /** Tema a partir de texto; linhas são testadas em ordem (a 1ª que casar vence). */

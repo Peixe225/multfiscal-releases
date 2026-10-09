@@ -149,7 +149,7 @@ export const TrophyShowcase = memo(function TrophyShowcase({ data }: { data: Coc
 /** "Sala de troféus" — every group with its years. */
 function TrophyRoom({ open, onClose, groups, total }: { open: boolean; onClose: () => void; groups: TrophyGroup[]; total: number }) {
   return (
-    <Modal open={open} onClose={onClose} title="Sala de troféus" description={`${total} ${total === 1 ? 'conquista' : 'conquistas'} na carreira`} size="lg">
+    <Modal open={open} onClose={onClose} title="Sala de troféus" description={`${total} ${total === 1 ? 'troféu' : 'troféus'} na carreira`} size="lg">
       <ul className="ck-room">
         {groups.map((g) => (
           <li key={g.key} className="ck-room__item lx-trophy-spot" style={{ ['--spot' as string]: '110px' }}>

@@ -247,8 +247,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-2);
-    backdrop-filter: blur(22px) saturate(140%);
     -webkit-backdrop-filter: blur(22px) saturate(140%);
+    backdrop-filter: blur(22px) saturate(140%);
   }
   :where([data-lx-theme]) .lx-glass-flat {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
@@ -258,18 +258,18 @@
   }
   :where([data-lx-theme]) .lx-glass-hud {              /* floats over pitch / art (moment panel) */
     background: rgba(9, 10, 15, .82); border: 1px solid rgba(255, 255, 255, .14); border-radius: 22px;
-    backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%);
     box-shadow: 0 30px 70px -20px #000;
   }
   :where([data-lx-theme]) .lx-glass-tag {              /* small floating tags, trail, tooltips */
     background: var(--glass); border: 1px solid var(--border-strong);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
     box-shadow: 0 10px 24px -10px #000;
   }
   :where([data-lx-theme]) .lx-tooltip {
     padding: 10px 12px; border-radius: var(--radius-md); min-width: 230px;
     background: rgba(12, 13, 19, .92); border: 1px solid var(--nx-border-3);
-    box-shadow: 0 20px 40px -12px #000; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 20px 40px -12px #000; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   }
   :where([data-lx-theme]) .lx-hairline { height: 1px; background: linear-gradient(90deg, transparent, var(--border-strong), transparent); }
   :where([data-lx-theme]) .lx-top-light { position: relative; }
@@ -407,7 +407,7 @@
     height: 30px; padding: 0 12px; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 8px;
     font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #ffe7a6;
     background: rgba(40, 28, 4, .55); border: 1px solid rgba(255, 210, 110, .35);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   }
   :where([data-lx-theme]) .lx-badge-new {              /* "NOVO" holographic tag */
     font-size: 9.5px; font-weight: 800; letter-spacing: .1em; padding: 3px 6px; border-radius: var(--radius-xs);
@@ -799,7 +799,7 @@
     display: grid; place-items: center; cursor: pointer;
     font-family: var(--font-num); font-weight: 700; font-size: 15px; letter-spacing: .04em;
     background: rgba(6, 22, 14, .72); border: 1px solid rgba(255, 255, 255, .14); color: #dff5e8;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .8);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .8);
     transition: background-color var(--dur-2), color var(--dur-2), box-shadow var(--dur-2);
   }
   :where([data-lx-theme]) .lx-pchip--atk { border-color: rgba(255, 107, 129, .35); }
@@ -880,18 +880,18 @@
 /* Higher contrast on request: solid borders, brighter dim text */
 @media (prefers-contrast: more) {
   [data-lx-theme="noite"] { --border: rgba(255, 255, 255, .22); --border-strong: rgba(255, 255, 255, .34); --text-3: #a6abb8; --text-2: #d4d7df; }
-  [data-lx-theme="noite"] .lx-glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: #14161c; }
+  [data-lx-theme="noite"] .lx-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: #14161c; }
 }
 
 /* Reduced transparency — and .lx-lowfx (set on <html> for low-end devices / battery saver):
    no backdrop blur, opaque surfaces, no film grain, no rotating rays. */
 @media (prefers-reduced-transparency: reduce) {
-  [data-lx-theme="noite"] :is(.lx-glass, .lx-glass-hud, .lx-glass-tag, .lx-tooltip, .lx-pill-gold, .lx-pchip) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  [data-lx-theme="noite"] :is(.lx-glass, .lx-glass-hud, .lx-glass-tag, .lx-tooltip, .lx-pill-gold, .lx-pchip) { -webkit-backdrop-filter: none; backdrop-filter: none; }
   [data-lx-theme="noite"] .lx-glass { background: #121317; }
   [data-lx-theme="noite"] :is(.lx-glass-hud, .lx-glass-tag, .lx-tooltip) { background: #0c0d12; }
 }
 [data-lx-theme="noite"].lx-lowfx :is(.lx-glass, .lx-glass-hud, .lx-glass-tag, .lx-tooltip, .lx-pill-gold, .lx-pchip),
-.lx-lowfx [data-lx-theme="noite"] :is(.lx-glass, .lx-glass-hud, .lx-glass-tag, .lx-tooltip, .lx-pill-gold, .lx-pchip) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.lx-lowfx [data-lx-theme="noite"] :is(.lx-glass, .lx-glass-hud, .lx-glass-tag, .lx-tooltip, .lx-pill-gold, .lx-pchip) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 [data-lx-theme="noite"].lx-lowfx .lx-glass, .lx-lowfx [data-lx-theme="noite"] .lx-glass { background: #121317; }
 [data-lx-theme="noite"].lx-lowfx .lx-rays, .lx-lowfx [data-lx-theme="noite"] .lx-rays { animation: none; }
 [data-lx-theme="noite"].lx-lowfx .lx-stage::after, .lx-lowfx [data-lx-theme="noite"] .lx-stage::after { background-image: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .55) 100%); }

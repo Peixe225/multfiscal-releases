@@ -17,6 +17,11 @@ Motor: `src/engine/immersive/index.ts` exporta `immersiveEngine`, `createImmersi
 | `LiveMatch` | `selectionReason?: string` | por que o técnico escalou/deixou no banco/fora ("No banco: o técnico quer dar minutos ao garoto da base", "Fora dos relacionados: suspenso"…) — mostrar no pré-jogo |
 | `ImmersiveEffect` `moment_result` | `optionId?: string`, `penalty?: { shot, keeper }` (`'left' \| 'center' \| 'right'`) | opção efetivamente resolvida; no pênalti, canto da cobrança e do pulo do goleiro |
 | `ImmersiveEngine` | `acceptChance?(data, state, offerId, counter)` → `{ accept, improve, walk, ceiling, roundsLeft } \| null` | chances da contraproposta (mesma conta do `counter()`); também exportada como `acceptChance(state, offerId, counter, data?)` e `counterOdds` |
+| `ImmersiveEngine` | `liveTable(data, state, tournament?)` | liga de Apertura/Clausura: a tabela de um torneio (0/1); sem o parâmetro, a do torneio em curso. O Balanço mostra as duas (somam a tabela anual do mundo) |
+| `ContractOffer` | `rounds?: number` | rodadas no início da negociação (paciência e pips depois de recarregar a página) |
+| `ImmersiveState` | `pressLog?: { itemId, total, start, answers[] } \| null` | coletiva em andamento: relações no começo e respostas (tom + `newsId`) — o medidor e o card de fechamento sobrevivem a recarregar; `null` ao pular |
+| `KeyMoment` | `suggested?: string` | opção recomendada (maior valor esperado, sem sorteio): é a que o `match_timeout` resolve — marcar como "Padrão" |
+| `SeasonRecord` | `spans?: SeasonSpan[]` | temporada dividida entre clubes: a parte de cada um (jogos, gols, assist., minutos, posição); títulos pelo `teamId` |
 
 `ImmersiveState.score`/`result.score` e `LiveMatch.score` são sempre **[mandante, visitante]**.
 `state.potential` é uma **estimativa de olheiro** (o potencial real fica oculto em `state.engine`).
@@ -179,3 +184,47 @@ Efeitos usados: `toast`, `attribute_up`, `ovr_change`, `match_event`, `key_momen
   - Empréstimo: o salário da proposta (negociável) vale durante o empréstimo; o do clube dono volta ao fim
     (`mem.loan.parentSalary`).
   - Frase "amplia a vibração da torcida" (gol que não ampliava nada) trocada.
+
+## QA v5 (motor) — aditivo
+- `KeyMoment.suggested?: string`: a opção recomendada (maior valor esperado em gols — finalizar, passe que vira
+  gol, gols evitados — sem sorteio). `match_timeout` resolve exatamente ela (antes: a de maior % bruto, quase sempre
+  o passe "seguro", e um atacante de 86–89 fazia 4–5 gols por temporada sem responder). A UI deve marcar esta como
+  "Padrão" (hoje marca a de maior %). O detalhe do passe mostra a chance da jogada inteira virar gol
+  ("Passe · gol em 14%" = acerto do passe × conversão), comparável com o "Gol 28%" das finalizações.
+- Chances de gol por situação: cara a cara com base ≈ 30% (≈ 40% para um atacante de nível, ≈ 50% para um craque,
+  ≈ 25% aos 16 anos); chute da entrada da área ≈ 10–16%; cabeceio ≈ 12–20%. A qualidade pesa mais no topo
+  (acima de 85, cada ponto vale o dobro) e o cara a cara ficou mais raro no sorteio dos lances. Médias de
+  temporada (IA): atacante comum de clube médio ~0,45 gol/jogo (era 0,44); craque no Real ~0,6 (era 0,45).
+- `SeasonRecord.spans?: SeasonSpan[]` (types.ts): temporada dividida entre clubes (transferência/empréstimo no
+  meio) traz a parte de cada clube (jogos, gols, assistências, minutos, posição na liga). `stats`/`clubId` seguem
+  sendo o total e o clube do fim da temporada; `summarize` agora atribui jogos/gols/títulos por parte (título pelo
+  `TrophyWin.teamId`). `SeasonClubSpan` (memória) ganhou `loan`/`goals`/`assists`/`minutes`.
+- `buildPress(data, s, item, leaguePos, leagueSize)`; `MatchSummary.scorers?`; exportados `selectionPreview`,
+  `stagePhrase` (match.ts), `safestOption` (index.ts), `clubStreak`/`fanTails` (media.ts), `pl` (util.ts).
+- Comportamento (sem mudar o contrato):
+  - Cartões por jogador: 2º amarelo expulsa ("Segundo amarelo…"); expulso sai da escalação (time com um a menos,
+    nunca mais aparece na narração); amarelo e vermelho direto nunca no mesmo minuto; cartão sai de qualquer um em
+    campo (≈ 0,1 expulsão por jogo).
+  - Nota final (resultado, jogo sem sofrer gol) aplicada no apito (`finishRegulation`), uma vez só: a tela de fim de
+    jogo mostra a mesma nota gravada na carreira.
+  - Escalação extraída em `selection()`: coletiva pré-jogo só para quem está relacionado (fora/lesionado/suspenso →
+    recado "Coletiva sem você" da assessoria). 1ª temporada na base: banco desde a 1ª rodada e estreia garantida no
+    1º jogo; o plano de minutos da base não vale em jogo grande (importância ≥ 0,7 ou quartas em diante).
+  - Play-off de liga só aparece na agenda com a fase regular (do torneio) encerrada — e com o confronto da tabela real.
+  - Salto para o encerramento (semana 62): só as 2 primeiras semanas contam como semanas sem jogo (o ritmo não zera).
+  - Fim de empréstimo com o contrato do clube dono vencido: livre no mercado ("terminou durante o empréstimo");
+    "Sem renovação" nunca sai para contrato já vencido.
+  - "Simular": decisão aberta → opção de menor risco (nunca a "mala preta"); para em propostas novas, em janela com
+    propostas e antes de uma proposta vencer (toast). Até a aposentadoria a IA segue sorteando.
+  - Coletivas: 3 variantes por pergunta e tom, perguntas de contexto (tabela, rebaixamento, acesso, sequência,
+    resultado anterior, volta de lesão, idade, reta final), sem repetir pergunta em 4 semanas; uma manchete por
+    coletiva (a resposta mais quente) e sem manchete repetida; notícias de tabela (liderança, zona de rebaixamento,
+    G-k/acesso, sequências) e de fim de temporada (título, acesso, rebaixamento, posição final).
+  - Narração do lance pela opção escolhida (colocado/forte/cara a cara/drible no goleiro/de longe/cabeceio/falta;
+    tabela com o companheiro; cruzamento termina de cabeça); "pediu para sair" só fala em cansaço com a energia
+    baixa; abertura "… pela 31ª rodada"; pênaltis com o placar do vencedor primeiro; dupla substituição = dois eventos.
+  - Artigos: tabela explícita para as 211 seleções ("da África do Sul", "de Aruba", "das Bermudas"); `artigo()` usa
+    o `clubArticle` do Clássico ("da Cremonese", "da Juve Stabia"); "Argentino Q.." vira "Argentino Q.".
+  - Rede social: frases sem repetir nos últimos posts, com placar/adversário/autor do gol, "três pontos" só na liga,
+    torcedor com @ na língua do país do clube, "com urgência"; posts de torcedores da temporada passada saem na
+    virada; "1 gol na temporada". Propostas: "{Clube} oferece €61K/ano por 5 anos para você ser titular."

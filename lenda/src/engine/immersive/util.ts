@@ -2,12 +2,16 @@
 import { clamp, rng as subRng, type Rng } from '../rng'
 import type { Club, Competition, Country, GameData, League, WorldState } from '../types'
 import { indexData as worldIndex } from '../world/context'
+import { clubArticle } from '../career/util'
 import type { ImmersiveState } from './types'
 import { mem } from './mem'
 
 export { clamp }
 
 export const r1 = (v: number) => Math.round(v * 10) / 10
+
+/** "1 gol", "12 gols". */
+export const pl = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** Clona tudo menos o mundo (o mundo só é trocado inteiro, nunca mutado). */
 export function cloneState(st: ImmersiveState): ImmersiveState {
@@ -92,27 +96,65 @@ export function competitionName(data: GameData, id: string | undefined): string 
   return compOf(data, id)?.name ?? id
 }
 
-/** "no"/"na" — igual ao Clássico. */
+/** "no"/"na" — o mesmo helper do Clássico (uma fonte só: "da Cremonese" nos dois modos). */
 export function artigo(club: Pick<Club, 'name' | 'shortName'> | undefined): 'o' | 'a' {
-  if (!club) return 'o'
-  const n = `${club.name} ${club.shortName}`.toLowerCase()
-  if (/inter miami|internacional|america|américa/.test(n)) return 'o'
-  if (/juventus|roma\b|lazio|fiorentina|atalanta|udinese|sampdoria|real sociedad|chapecoense|ponte preta|portuguesa|ferroviária|internazionale|inter de milão/.test(n)) return 'a'
-  return 'o'
+  return clubArticle(club)
 }
 
 /** Artigo de um time/país na frase ('' = sem artigo: "de Portugal"). */
 export type Art = 'o' | 'a' | 'os' | 'as' | ''
-const NAT_FEM = /^(argentina|espanha|frança|alemanha|itália|inglaterra|holanda|bélgica|croácia|colômbia|venezuela|bolívia|suíça|suécia|noruega|dinamarca|polônia|rússia|turquia|grécia|áustria|escócia|irlanda|irlanda do norte|nigéria|costa rica|arábia saudita|austrália|coreia do sul|coreia do norte|tunísia|argélia|sérvia|ucrânia|república tcheca|hungria|romênia|eslováquia|eslovênia|finlândia|islândia|jamaica|costa do marfim|albânia|bósnia|macedônia do norte|geórgia|nova zelândia|china|índia|jordânia|síria|guiné|guatemala|república dominicana|bulgária|letônia|lituânia|estônia|bielorrússia|armênia|nicarágua|tailândia|indonésia|malásia|zâmbia|tanzânia|mauritânia|líbia|república centro-africana|rd do congo)$/
-const NAT_NONE = /^(portugal|israel|cuba|angola|honduras|moçambique|cabo verde|andorra|mônaco|malta|chipre|luxemburgo|singapura|hong kong|macau|madagascar|trinidad e tobago|san marino|timor-leste|são tomé e príncipe|omã|kosovo)$/
-const NAT_PL_M = /^(estados unidos|emirados árabes unidos|países baixos|camarões)$/
-const NAT_PL_F = /^(ilhas .*|bahamas|maldivas|seicheles|comores|filipinas)$/
 
-/** Artigo do nome de um país ("o Brasil", "a Argentina", "Portugal", "os Estados Unidos"). */
+/**
+ * Artigo de cada seleção do jogo (os 211 países de game-data.json, pelo nome em pt-BR; o teste confere
+ * que nenhum ficou de fora). Fora da lista: "Ilhas …" → "as", senão "o".
+ */
+const COUNTRY_ART: Record<Exclude<Art, 'o'>, string[]> = {
+  a: [
+    'África do Sul', 'Albânia', 'Alemanha', 'Arábia Saudita', 'Argélia', 'Argentina', 'Armênia', 'Austrália', 'Áustria', 'Bélgica',
+    'Bielorrússia', 'Bolívia', 'Bósnia', 'Bulgária', 'China', 'Colômbia', 'Coreia do Norte', 'Coreia do Sul', 'Costa do Marfim',
+    'Costa Rica', 'Croácia', 'Dinamarca', 'Dominica', 'Eritreia', 'Escócia', 'Eslováquia', 'Eslovênia', 'Espanha', 'Estônia',
+    'Etiópia', 'Finlândia', 'França', 'Gâmbia', 'Geórgia', 'Grécia', 'Guatemala', 'Guiana', 'Guiné', 'Guiné Equatorial',
+    'Guiné-Bissau', 'Holanda', 'Hungria', 'Índia', 'Indonésia', 'Inglaterra', 'Irlanda', 'Irlanda do Norte', 'Islândia', 'Itália',
+    'Jamaica', 'Jordânia', 'Letônia', 'Libéria', 'Líbia', 'Lituânia', 'Macedônia do Norte', 'Malásia', 'Mauritânia', 'Moldávia',
+    'Mongólia', 'Namíbia', 'Nicarágua', 'Nigéria', 'Noruega', 'Nova Caledônia', 'Nova Zelândia', 'Palestina', 'Papua-Nova Guiné',
+    'Polinésia Francesa', 'Polônia', 'RD do Congo', 'República Centro-Africana', 'República Dominicana', 'República Tcheca', 'Romênia',
+    'Rússia', 'Samoa Americana', 'Serra Leoa', 'Sérvia', 'Síria', 'Somália', 'Suécia', 'Suíça', 'Tailândia', 'Tanzânia', 'Tunísia',
+    'Turquia', 'Ucrânia', 'Venezuela', 'Zâmbia',
+  ],
+  os: ['Camarões', 'Emirados Árabes Unidos', 'Estados Unidos', 'Países Baixos'],
+  as: [
+    'Bahamas', 'Bermudas', 'Comores', 'Filipinas', 'Ilhas Cayman', 'Ilhas Cook', 'Ilhas Faroé', 'Ilhas Salomão', 'Ilhas Turcas e Caicos',
+    'Ilhas Virgens Americanas', 'Ilhas Virgens Britânicas', 'Maldivas', 'Seicheles',
+  ],
+  '': [
+    'Andorra', 'Angola', 'Anguila', 'Antígua e Barbuda', 'Aruba', 'Barbados', 'Belize', 'Botsuana', 'Brunei', 'Burquina Faso',
+    'Cabo Verde', 'Chipre', 'Cuba', 'Curaçao', 'El Salvador', 'Fiji', 'Gibraltar', 'Granada', 'Guam', 'Honduras', 'Hong Kong',
+    'Israel', 'Kosovo', 'Liechtenstein', 'Luxemburgo', 'Macau', 'Madagascar', 'Malta', 'Maurício', 'Mianmar', 'Moçambique', 'Mônaco',
+    'Montserrat', 'Omã', 'Portugal', 'Ruanda', 'Samoa', 'San Marino', 'Santa Lúcia', 'São Cristóvão e Névis', 'São Tomé e Príncipe',
+    'São Vicente e Granadinas', 'Singapura', 'Taipé Chinesa', 'Timor-Leste', 'Tonga', 'Trinidad e Tobago', 'Uganda', 'Vanuatu',
+  ],
+}
+/** Países com "o" (o resto do jogo) — listados para o teste conferir a cobertura. */
+export const COUNTRY_ART_O = [
+  'Afeganistão', 'Azerbaijão', 'Bangladesh', 'Barein', 'Benin', 'Brasil', 'Burundi', 'Butão', 'Camboja', 'Canadá', 'Catar',
+  'Cazaquistão', 'Chade', 'Chile', 'Congo', 'Djibuti', 'Egito', 'Equador', 'Essuatíni', 'Gabão', 'Gana', 'Haiti', 'Iêmen', 'Irã',
+  'Iraque', 'Japão', 'Kuwait', 'Laos', 'Lesoto', 'Líbano', 'Malaui', 'Mali', 'Marrocos', 'México', 'Montenegro', 'Nepal', 'Níger',
+  'País de Gales', 'Panamá', 'Paquistão', 'Paraguai', 'Peru', 'Porto Rico', 'Quênia', 'Quirguistão', 'Senegal', 'Sri Lanka', 'Sudão',
+  'Sudão do Sul', 'Suriname', 'Tadjiquistão', 'Togo', 'Turcomenistão', 'Uruguai', 'Uzbequistão', 'Vietnã', 'Zimbábue',
+]
+const COUNTRY_ART_BY = new Map<string, Art>([
+  ...COUNTRY_ART_O.map((n) => [n.toLowerCase(), 'o'] as [string, Art]),
+  ...(Object.entries(COUNTRY_ART) as [Art, string[]][]).flatMap(([art, names]) => names.map((n) => [n.toLowerCase(), art] as [string, Art])),
+])
+
+/** Artigo do nome de um país ("o Brasil", "a Argentina", "Portugal", "os Estados Unidos", "as Bermudas"). */
 export function countryArt(name: string): Art {
   const n = name.toLowerCase()
-  return NAT_PL_M.test(n) ? 'os' : NAT_PL_F.test(n) ? 'as' : NAT_NONE.test(n) ? '' : NAT_FEM.test(n) ? 'a' : 'o'
+  return COUNTRY_ART_BY.get(n) ?? (/^ilhas /.test(n) ? 'as' : 'o')
 }
+
+/** O país está na tabela explícita de artigos? (teste de cobertura) */
+export const hasCountryArt = (name: string) => COUNTRY_ART_BY.has(name.toLowerCase())
 
 /** "do Brasil", "da Argentina", "de Portugal", "dos Estados Unidos". */
 export function deCountry(name: string): string {

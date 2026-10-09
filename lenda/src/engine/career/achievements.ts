@@ -186,7 +186,7 @@ const DEFS: AchievementDef[] = [
     rarity: 'rara',
     check: (c) => sameSeason(c, ['league', 'domestic_cup', 'continental_primary']),
   },
-  { id: 'baldosero', title: 'Mochileiro', description: 'Jogue por 24 clubes diferentes (só dá no ritmo Intensa, um clube por temporada).', icon: 'backpack', rarity: 'lendaria', check: (c) => clubsOf(c).size >= 24 },
+  { id: 'baldosero', title: 'Mochileiro', description: 'Jogue por 24 clubes diferentes, um por temporada (no Modo Clássico, só no ritmo Intenso).', icon: 'backpack', rarity: 'lendaria', check: (c) => clubsOf(c).size >= 24 },
 
   // ─────────────── LENDA (30) ───────────────
   { id: 'first_title', title: 'Primeira taça', description: 'Conquiste o seu primeiro título.', icon: 'trophy', rarity: 'comum', check: (c) => c.trophies.length >= 1 },
@@ -228,7 +228,7 @@ const DEFS: AchievementDef[] = [
     rarity: 'comum',
     check: (c) => c.finished && c.seasons.length >= 18 && !c.seasons.some((r) => r.relegated),
   },
-  { id: 'globetrotter', title: 'Globetrotter', description: 'Jogue em clubes de cinco países diferentes.', icon: 'plane', rarity: 'comum', check: (c) => new Set(c.seasons.map((r) => r.country).filter(Boolean)).size >= 5 },
+  { id: 'globetrotter', title: 'Cidadão do mundo', description: 'Jogue em clubes de cinco países diferentes.', icon: 'plane', rarity: 'comum', check: (c) => new Set(c.seasons.map((r) => r.country).filter(Boolean)).size >= 5 },
   {
     id: 'one_club_only',
     title: 'Um clube só',

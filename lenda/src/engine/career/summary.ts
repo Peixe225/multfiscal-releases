@@ -76,17 +76,21 @@ export function summarize(data: GameData, s: CareerState): CareerSummary {
   const seasons = s.seasons
   const trophies = seasons.flatMap((r) => r.trophies)
 
-  // clubes na ordem em que apareceram
+  // clubes na ordem em que apareceram (temporada dividida entre clubes no imersivo: cada parte no seu
+  // clube, e cada título no clube que o conquistou)
   const clubs = new Map<string, CareerSummary['clubs'][number]>()
   for (const r of seasons) {
-    const c = clubs.get(r.clubId) ?? { clubId: r.clubId, seasons: 0, apps: 0, goals: 0, assists: 0, trophies: 0, loan: true }
-    c.seasons++
-    c.apps += r.stats.apps
-    c.goals += r.stats.goals
-    c.assists += r.stats.assists
-    c.trophies += r.trophies.filter((t) => t.scope === 'club').length
-    c.loan = c.loan && r.loan
-    clubs.set(r.clubId, c)
+    const parts = r.spans?.length ? r.spans : [{ clubId: r.clubId, loan: r.loan, apps: r.stats.apps, goals: r.stats.goals, assists: r.stats.assists }]
+    for (const p of parts) {
+      const c = clubs.get(p.clubId) ?? { clubId: p.clubId, seasons: 0, apps: 0, goals: 0, assists: 0, trophies: 0, loan: true }
+      c.seasons++
+      c.apps += p.apps
+      c.goals += p.goals
+      c.assists += p.assists
+      c.trophies += r.trophies.filter((t) => t.scope === 'club' && (!r.spans?.length || t.teamId === p.clubId)).length
+      c.loan = c.loan && !!p.loan
+      clubs.set(p.clubId, c)
+    }
   }
 
   const t = totalsOf(s)
@@ -286,7 +290,7 @@ function comparisons(k: KindCounts, wins: (a: AwardId) => number, t: ReturnType<
   const beaten = scorers.find((l) => t.goals > l.goals)
   if (beaten) out.push(`Seus ${n(t.goals)} gols superam ${beaten.name} (${note(beaten)}).`)
   const above = scorers.filter((l) => l.goals >= t.goals).pop()
-  if (above && t.goals >= 100) out.push(`Faltaram ${n(above.goals - t.goals + 1)} gols para passar ${above.name} (${note(above)}).`)
+  if (above && t.goals >= 100) out.push(`${above.goals - t.goals + 1 === 1 ? 'Faltou 1 gol' : `Faltaram ${n(above.goals - t.goals + 1)} gols`} para passar ${above.name} (${note(above)}).`)
 
   const bdo = countLine(wins('ballon_dor'), (l) => l.ballonDor, (v) => plural(v, 'Bola de Ouro', 'Bolas de Ouro'), 'ballonDor')
   if (bdo) out.push(bdo)

@@ -9,7 +9,7 @@ import { useId, useRef, type ComponentType, type CSSProperties, type KeyboardEve
 import { motion } from 'motion/react'
 import type { LucideProps } from 'lucide-react'
 import { cx } from './cx'
-import { useReducedMotion } from './hooks'
+import { useIsTouch, useReducedMotion } from './hooks'
 import { sfx } from '@/ui/shell/sfx'
 
 export interface SegmentOption<T extends string> {
@@ -37,6 +37,7 @@ export interface SegmentedProps<T extends string> {
 export function Segmented<T extends string>({ value, onChange, options, variant = 'track', full, size = 'md', className, style, ...aria }: SegmentedProps<T>) {
   const id = useId()
   const rm = useReducedMotion()
+  const touch = useIsTouch()
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const idx = Math.max(0, options.findIndex((o) => o.value === value))
 
@@ -81,7 +82,8 @@ export function Segmented<T extends string>({ value, onChange, options, variant 
             disabled={o.disabled}
             title={o.hint}
             className={cx('lx-seg__item', on && 'is-on')}
-            style={size === 'sm' ? { height: 28, padding: '0 11px', fontSize: 12.5 } : undefined}
+            // small segments stay 28px with a mouse; a finger needs 36px
+            style={size === 'sm' ? { height: touch ? 36 : 28, padding: '0 11px', fontSize: 12.5 } : undefined}
             onClick={() => {
               if (!on) {
                 sfx.play('tap')

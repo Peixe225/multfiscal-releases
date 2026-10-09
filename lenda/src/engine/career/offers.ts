@@ -4,6 +4,7 @@
  */
 import { Rng } from '../rng'
 import type { CareerState, Club, Confed, DecisionOption, EffectChip, GameData, SquadRole } from '../types'
+import { PACES } from './constants'
 import { mem } from './memory'
 import {
   contractYears,
@@ -314,17 +315,22 @@ export function clubCard(
   const league = clubLeague(data, state.world, club)
   const role = clubRole(data, state, club)
   const short = roleShortLabel(role)
+  // "Papel previsto: Rotação" (antes "Rotação previsto", sem concordância)
   const chip: EffectChip = {
     kind: role === 'starter' ? 'positive' : short === 'Reserva' ? 'negative' : 'neutral',
-    label: `${short} previsto`,
+    label: `Papel previsto: ${short}`,
   }
   const coef = league?.coefficient ?? 0.5
   const value = marketValue(new Rng(1), state.ovr, state.age, coef)
   const salary = estimateSalary(value, clubPrestige(state.world, club), coef, opts.salaryMult ?? 1)
   const years = opts.years ?? contractYears(state.age)
+  // o empréstimo dura um trecho da carreira (1, 2 ou 3 temporadas, conforme o ritmo)
+  const loanSeasons = PACES[state.pace]?.seasons ?? 1
   const details = [
     { label: 'Papel previsto', value: short },
-    { label: opts.loan ? 'Duração' : 'Contrato', value: opts.loan ? 'Empréstimo' : `${years} ${years === 1 ? 'ano' : 'anos'}` },
+    opts.loan
+      ? { label: 'Duração', value: `${loanSeasons} ${loanSeasons === 1 ? 'temporada' : 'temporadas'}` }
+      : { label: 'Contrato', value: `${years} ${years === 1 ? 'ano' : 'anos'}` },
     { label: 'Salário/ano', value: formatMoney(salary) },
   ]
   if (league) details.push({ label: 'Liga', value: league.shortName })

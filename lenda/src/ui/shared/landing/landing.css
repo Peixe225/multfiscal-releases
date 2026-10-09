@@ -6,8 +6,12 @@
   background: linear-gradient(180deg, #fff, #e6e8ee);
   box-shadow: 0 4px 10px -4px #000, inset 0 0 0 1px rgba(0, 0, 0, .06);
 }
-.lx-pcard .lx-pcard__ovr i { margin: 2.2cqw 0; }
-.lx-pcard .lx-pcard__ovr .lx-crest-box { margin-top: 2cqw; }
+/* coluna OVR · posição · bandeira · escudo compacta: o escudo termina antes do nome (76–77cqw), que
+   em sobrenomes longos (NASCIMENTO, ALBUQUERQUE) ocupa a largura toda do card */
+.lx-pcard .lx-pcard__ovr span { line-height: 1; }
+.lx-pcard .lx-pcard__ovr i { margin: 2cqw 0; }
+.lx-pcard .lx-pcard__ovr .lx-crest-box { margin-top: 1.6cqw; }
+.lx-pcard .lx-pcard__name { top: 77cqw; }
 .lx-league-tile--dark { background: linear-gradient(180deg, #3a2d6b, #1d1640); box-shadow: 0 4px 10px -4px #000, inset 0 0 0 1px rgba(255, 255, 255, .12); }
 .ld-page { position: relative; z-index: 1; width: 100%; max-width: 1392px; margin: 0 auto; padding: 0 16px; }
 @media (min-width: 36rem) { .ld-page { padding: 0 24px; } }
@@ -45,6 +49,12 @@
 @media (min-width: 36rem) { .ld-rhythm { flex-wrap: nowrap; } }
 .ld-rhythm__hint { font-size: 12.5px; color: var(--text-3); line-height: 1.45; flex: 1 1 180px; min-width: 0; max-width: 290px; }
 .ld-rhythm__hint b { color: var(--text-2); font-weight: 650; }
+.ld-rhythm--imm { min-height: 40px; }
+.ld-rhythm--imm .ld-rhythm__hint { max-width: 440px; }
+/* a carreira do outro modo, quando as duas estão em andamento */
+.ld-also { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin-top: 12px; padding: 6px 2px; font-size: 12.5px; color: var(--text-3); text-align: left; border-radius: 8px; cursor: pointer; transition: color var(--dur-2); }
+.ld-also b { color: var(--text-2); font-weight: 700; }
+.ld-also:hover, .ld-also:focus-visible { color: var(--text-2); }
 @media (max-width: 35.98rem) {
   .ld-rhythm > [role="radiogroup"] { width: 100%; }
   .ld-rhythm > [role="radiogroup"] > * { flex: 1; }

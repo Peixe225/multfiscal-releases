@@ -2,46 +2,27 @@
  * Trophy celebration overlay (DESIGN-SPEC §10.5 + Copero `_t`): the cockpit blurs underneath,
  * warm veil + beam + god rays, the hero trophy rises on a lit floor with a breathing glow and a
  * glint, 18 burst particles + canvas-confetti (2 bursts), kicker · chrome title · sub · facts,
- * "Continuar". Auto-dismisses 1800 ms after it settles (paused while hovered); click, Esc or
- * Space dismiss it. Relegation variant: red glow and particles, no confetti.
+ * "Continuar". Auto-dismisses 1800 ms after it settles (paused while hovered, and for good once the
+ * content is touched or scrolled); a click on the veil, Esc or Space dismiss it. Several titles: one
+ * figure per trophy (LaLiga ×3), at most 3 side by side on a phone. Relegation variant: red glow
+ * and particles, no confetti.
  */
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowDown, ArrowRight, Share, Sparkles, Star, TrendingUp, Trophy, Volume2, VolumeX, X } from 'lucide-react'
+import { ArrowDown, ArrowRight, Copy, Share, Sparkles, Star, TrendingDown, TrendingUp, Trophy, Volume2, VolumeX, X } from 'lucide-react'
 import { useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useClub } from '@/store/data'
-import { BallIcon, Button, IconButton, OvrPill, clubColors, cx, toast, useIsWide, useReducedMotion } from '@/ui/primitives'
+import { BallIcon, Button, IconButton, Modal, OvrPill, clubColors, cx, plural, toast, useIsWide, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { darken, lighten } from '@/ui/theme/club'
 import { TrophyArt } from '@/ui/trophies'
-import { careerTotals, isKeeper } from '@/ui/classic/cockpit/model'
+import { careerTotals, isKeeper, seasonLabel } from '@/ui/classic/cockpit/model'
 import { director } from '@/ui/classic/reveal/director'
 import { CELEBRATION_HOLD, useReveal } from '@/ui/classic/reveal/store'
-import type { CelebrationItem } from './items'
+import { celebrationHeadline, celebrationKicker, celebrationPill, celebrationSeasons, groupCelebration, multiSubtitle, type CelebrationItem } from './items'
 
 const ENTRANCE = 900
-/** Troféus mostrados lado a lado; o resto vira uma fileira menor logo abaixo. */
-const MULTI_MAX = 4
-
-/** "Copa da Itália e Supercopa da UEFA com a Roma." */
-function multiSubtitle(items: CelebrationItem[]): string {
-  const names = items.map((i) => i.name)
-  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}` : names[0]
-  const teams = [...new Set(items.filter((i) => i.kind === 'trophy').map((i) => i.teamName).filter(Boolean))]
-  return teams.length === 1 ? `${list} — com ${teams[0]}.` : `${list}.`
-}
-
-/** Manchete de uma temporada com vários títulos: dobradinha, tríplice coroa, temporada histórica… */
-function celebrationHeadline(items: CelebrationItem[]): string {
-  const fam = new Set(items.map((i) => i.family))
-  const awards = items.filter((i) => i.kind === 'award').length
-  const titles = items.length - awards
-  if (awards && titles) return 'Temporada histórica'
-  if (titles >= 3 && fam.has('league') && fam.has('domestic_cup') && fam.has('continental_primary')) return 'Tríplice coroa'
-  if (titles === 2 && fam.has('league') && fam.has('domestic_cup')) return 'Dobradinha'
-  return titles >= 4 ? 'Temporada perfeita' : titles === 3 ? 'Três taças' : titles === 2 ? 'Duas taças' : `${items.length} prêmios`
-}
 const EASE = [0.16, 1, 0.3, 1] as const
 
 export function TrophyCelebrationHost() {
@@ -60,23 +41,30 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   const sound = useApp((s) => s.settings.sound)
   const toggle = useApp((s) => s.toggleSetting)
   const wide = useIsWide()
+  const phone = useMediaQuery('(max-width: 575.98px)')
   const hero = items[0]
   const rel = hero.kind === 'relegation'
   const club = useClub(hero.scope === 'club' ? hero.teamId : null)
   const colors = clubColors(club ?? null)
   const state = useCareer((s) => s.state)
   const reveal = useCareer((s) => s.reveal)
-  // todos os títulos do período aparecem juntos, lado a lado (dobradinha, tríplice coroa…) —
-  // nada de um herói e o resto escondido num canto
+  // todos os títulos do período aparecem juntos, lado a lado (dobradinha, tríplice coroa…) — uma
+  // figura por taça (LaLiga ×3), até 4 lado a lado (3 no celular) e o resto numa fileira menor
   const multi = !rel && items.length > 1
-  const shown = multi ? items.slice(0, MULTI_MAX) : [hero]
-  const extra = multi ? items.slice(MULTI_MAX) : []
+  const groups = groupCelebration(items)
+  const MULTI_MAX = phone ? 3 : 4
+  const shown = multi ? groups.slice(0, MULTI_MAX) : [{ ...hero, count: 1, years: [hero.year] }]
+  const extra = multi ? groups.slice(MULTI_MAX) : []
   const multiTitle = multi ? celebrationHeadline(items) : null
-  const years = [...new Set(items.map((i) => i.year))]
-  const [paused, setPaused] = useState(false)
+  const severalSeasons = celebrationSeasons(items) > 1
+  // pausa: mouse sobre os botões (volta ao sair); toque, rolagem ou o diálogo de compartilhar (até fechar)
+  const [hover, setHover] = useState(false)
+  const [held, setHeld] = useState(false)
+  const [shareText, setShareText] = useState<string | null>(null)
+  const paused = hover || held || !!shareText
   const continueRef = useRef<HTMLButtonElement>(null)
 
-  // auto-dismiss after the entrance + hold (paused while the pointer is on the content)
+  // auto-dismiss after the entrance + hold
   useEffect(() => {
     if (paused) return
     const t = setTimeout(onClose, (rm ? 200 : ENTRANCE) + CELEBRATION_HOLD + (shown.length - 1) * 900)
@@ -132,16 +120,17 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   }, [])
 
   const totals = state ? careerTotals(state.seasons) : null
-  const newTitles = items.filter((i) => i.kind === 'trophy').length
-  const pill = rel ? null : hero.kind === 'award' ? 'PRÊMIO INDIVIDUAL' : newTitles > 1 ? `+${newTitles} TÍTULOS · ${totals?.titles ?? newTitles} NA CARREIRA` : `${totals?.titles ?? 1}º TÍTULO DA CARREIRA`
+  const pill = celebrationPill(items, totals?.titles)
   const rec = hero.record
   const gk = isKeeper(state?.identity.position)
+  // num período de várias temporadas, os números são da temporada do troféu principal: diz qual
+  const inSeason = rec && severalSeasons ? `em ${seasonLabel(rec)}` : 'na temporada'
   const facts: { key: string; tone: 'gold' | 'pos' | 'neg'; icon: typeof Star; body: React.ReactNode }[] = []
   if (reveal && reveal.ovrAfter !== reveal.ovrBefore)
     facts.push({
       key: 'ovr',
       tone: reveal.ovrAfter > reveal.ovrBefore ? 'pos' : 'neg',
-      icon: TrendingUp,
+      icon: reveal.ovrAfter > reveal.ovrBefore ? TrendingUp : TrendingDown,
       body: (
         <>
           OVR <OvrPill ovr={reveal.ovrBefore} size="xs" /> <ArrowRight className="ck-cel__arrow" aria-hidden="true" /> <OvrPill ovr={reveal.ovrAfter} size="xs" />
@@ -150,22 +139,29 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
     })
   if (rec && !rel) {
     const scorer = rec.awards.find((a) => a.award === 'league_top_scorer' && a.place === 1)
-    if (scorer) facts.push({ key: 'art', tone: 'gold', icon: Star, body: `Artilheiro da liga · ${rec.stats.goals} gols` })
-    else if (!gk && rec.stats.goals > 0) facts.push({ key: 'g', tone: 'gold', icon: BallIcon as unknown as typeof Star, body: `${rec.stats.goals} ${rec.stats.goals === 1 ? 'gol' : 'gols'} na temporada` })
-    else if (gk && (rec.stats.cleanSheets ?? 0) > 0) facts.push({ key: 'sg', tone: 'gold', icon: Star, body: `${rec.stats.cleanSheets} jogos sem sofrer gol` })
+    if (scorer) facts.push({ key: 'art', tone: 'gold', icon: Star, body: `Artilheiro da liga · ${plural(rec.stats.goals, 'gol', 'gols')}${severalSeasons ? ` ${inSeason}` : ''}` })
+    else if (!gk && rec.stats.goals > 0) facts.push({ key: 'g', tone: 'gold', icon: BallIcon as unknown as typeof Star, body: `${plural(rec.stats.goals, 'gol', 'gols')} ${inSeason}` })
+    else if (gk && (rec.stats.cleanSheets ?? 0) > 0) facts.push({ key: 'sg', tone: 'gold', icon: Star, body: `${plural(rec.stats.cleanSheets ?? 0, 'jogo', 'jogos')} sem sofrer gol` })
     if (rec.captain) facts.push({ key: 'cap', tone: 'gold', icon: Sparkles, body: 'Capitão do time' })
   }
 
   const share = async () => {
     const text = `${state?.identity.surname ?? 'Meu jogador'} é ${hero.kicker.split(' · ')[0].toLowerCase()} (${hero.name} ${hero.year}) no LENDA ⚽🏆`
-    try {
-      if (navigator.share) await navigator.share({ title: 'LENDA', text })
-      else {
-        await navigator.clipboard.writeText(text)
-        toast.success('Copiado!', 'Cole onde quiser para compartilhar.')
+    setHeld(true)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'LENDA', text })
+        return
+      } catch (err) {
+        if ((err as DOMException)?.name === 'AbortError') return // a pessoa fechou a folha de compartilhar
       }
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Copiado!', 'Cole onde quiser para compartilhar.')
     } catch {
-      /* cancelled */
+      // sem Web Share e sem área de transferência (ex.: dentro do claude.ai): o texto para copiar à mão
+      setShareText(text)
     }
   }
 
@@ -176,6 +172,8 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   } as CSSProperties
   const vh = typeof window !== 'undefined' ? window.innerHeight : 900
   const heroH = Math.round(Math.max(150, Math.min(wide ? 320 : 220, vh * (wide ? 0.34 : 0.27))))
+  /** Altura de cada taça lado a lado: no celular cabem 3 numa linha, sem empurrar os botões para fora da tela. */
+  const multiH = (n: number) => (phone ? Math.round(Math.max(96, vh * (n === 1 ? 0.24 : n === 2 ? 0.19 : 0.16))) : Math.round(heroH * (n === 1 ? 1 : n === 2 ? 0.86 : n === 3 ? 0.74 : 0.62)))
   const d = (ms: number) => (rm ? 0 : ms / 1000)
 
   return (
@@ -184,7 +182,7 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
       style={vars}
       role="dialog"
       aria-modal="true"
-      aria-label={items.map((i) => i.name).join(', ')}
+      aria-label={groups.map((g) => (g.count > 1 ? `${g.name} (${g.count} vezes)` : g.name)).join(', ')}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: rm ? 0 : 0.24 } }}
@@ -204,7 +202,13 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
         <IconButton label={sound ? 'Desativar som' : 'Ativar som'} icon={sound ? Volume2 : VolumeX} onClick={() => toggle('sound')} />
         <IconButton label="Fechar celebração" icon={X} onClick={onClose} />
       </div>
-      <div className="ck-cel__col">
+      <div
+        className="ck-cel__col"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={() => setHeld(true)}
+        onScroll={() => setHeld(true)}
+        onPointerDown={(e) => e.pointerType !== 'mouse' && setHeld(true)}
+      >
         {pill && (
           <motion.span className="lx-pill-gold ck-cel__pill" initial={rm ? false : { opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(200), duration: d(420), ease: EASE }}>
             <Trophy aria-hidden="true" /> {pill}
@@ -213,7 +217,7 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
         {multi ? (
           <div className="ck-cel__multi lx-trophy-glow" style={{ ['--n' as string]: shown.length } as CSSProperties}>
             {shown.map((it, i) => {
-              const h = Math.round(heroH * (shown.length === 2 ? 0.86 : shown.length === 3 ? 0.74 : 0.62) * (i === 0 ? 1 : 0.92))
+              const h = Math.round(multiH(shown.length) * (i === 0 ? 1 : 0.92))
               return (
                 <motion.figure
                   key={it.key}
@@ -224,10 +228,14 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
                 >
                   <span className="ck-cel__mart" style={{ height: h }}>
                     <TrophyArt id={it.art} size={h} trophy={it.trophy} className="lx-trophy lx-trophy--hero" title={it.name} />
+                    {it.count > 1 && <span className="lx-count lx-count--gold ck-cel__mx">×{it.count}</span>}
                   </span>
                   <figcaption>
                     <b>{it.name}</b>
-                    <small>{it.kind === 'award' ? 'Prêmio individual' : it.teamName ?? ''}{years.length > 1 ? ` · ${it.year}` : ''}</small>
+                    <small>
+                      {it.kind === 'award' ? 'Prêmio individual' : (it.teamName ?? '')}
+                      {severalSeasons || it.count > 1 ? ` · ${it.years.join(' · ')}` : ''}
+                    </small>
                   </figcaption>
                 </motion.figure>
               )
@@ -250,7 +258,7 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
         <span className={cx('lx-floor ck-cel__floor', rel && 'is-rel')} aria-hidden="true" />
         <motion.p className="ck-cel__kicker" initial={rm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(620), duration: d(420), ease: EASE }}>
           <span aria-hidden="true" />
-          {multi ? `${items.length} TÍTULOS · ${years.join(' · ')}` : hero.kicker}
+          {multi ? celebrationKicker(items) : hero.kicker}
           <span aria-hidden="true" />
         </motion.p>
         <motion.h2 className={cx('ck-cel__title', rel ? 'is-rel' : 'lx-chrome-text')} initial={rm ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: d(700), duration: d(420), ease: EASE }}>
@@ -269,9 +277,12 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
         {extra.length > 0 && (
           <motion.div className="ck-cel__row" initial={rm ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: d(860), duration: d(300) }}>
             {extra.map((it) => (
-              <span key={it.key} className="ck-cel__rowitem" title={`${it.name} ${it.year}`}>
+              <span key={it.key} className="ck-cel__rowitem" title={`${it.name} ${it.years.join(', ')}`}>
                 <TrophyArt id={it.art} size={40} trophy={it.trophy} className="lx-trophy" />
-                <span>{it.name}</span>
+                <span>
+                  {it.name}
+                  {it.count > 1 ? ` ×${it.count}` : ''}
+                </span>
               </span>
             ))}
           </motion.div>
@@ -294,9 +305,9 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: d(ENTRANCE), duration: d(300) }}
           onClick={(e) => e.stopPropagation()}
-          onPointerMove={(e) => e.pointerType === 'mouse' && !paused && setPaused(true)}
-          onPointerLeave={() => setPaused(false)}
-          onFocus={(e) => (e.target as HTMLElement) !== continueRef.current && setPaused(true)}
+          onPointerMove={(e) => e.pointerType === 'mouse' && !hover && setHover(true)}
+          onPointerLeave={(e) => e.pointerType === 'mouse' && setHover(false)}
+          onFocus={(e) => (e.target as HTMLElement) !== continueRef.current && setHeld(true)}
         >
           <Button ref={continueRef} variant="primary" size="lg" iconRight={ArrowRight} onClick={onClose} className="ck-cel__continue">
             Continuar
@@ -310,6 +321,8 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
               </span>
             </Button>
           )}
+          {/* dentro dos botões (que param o clique): um clique no diálogo não fecha a celebração */}
+          <ShareTextDialog text={shareText} onClose={() => setShareText(null)} />
         </motion.div>
       </div>
     </motion.div>
@@ -333,5 +346,48 @@ function Burst({ rel }: { rel: boolean }) {
         return <i key={e} style={style} />
       })}
     </span>
+  )
+}
+
+/** Sem Web Share nem área de transferência (iframe do claude.ai): o texto, selecionado, para copiar à mão. */
+function ShareTextDialog({ text, onClose }: { text: string | null; onClose: () => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const copy = () => {
+    const el = ref.current
+    if (!el) return
+    el.focus()
+    el.select()
+    let ok = false
+    try {
+      ok = document.execCommand('copy')
+    } catch {
+      ok = false
+    }
+    if (ok) {
+      toast.success('Copiado!', 'Cole onde quiser para compartilhar.')
+      onClose()
+    } else toast.info('Texto selecionado', 'Use Ctrl+C (ou toque e segure → Copiar).')
+  }
+  return (
+    <Modal
+      open={!!text}
+      onClose={onClose}
+      size="sm"
+      title="Compartilhar momento"
+      description="Aqui o navegador não abre o compartilhamento. Copie o texto e cole onde quiser."
+      initialFocusRef={ref}
+      footer={
+        <div className="flex gap-2 justify-end w-full">
+          <Button variant="ghost" size="md" onClick={onClose}>
+            Fechar
+          </Button>
+          <Button variant="primary" size="md" icon={Copy} onClick={copy}>
+            Copiar texto
+          </Button>
+        </div>
+      }
+    >
+      <textarea ref={ref} className="lx-input ck-cel__sharetext" readOnly value={text ?? ''} rows={3} onFocus={(e) => e.currentTarget.select()} aria-label="Texto para compartilhar" />
+    </Modal>
   )
 }

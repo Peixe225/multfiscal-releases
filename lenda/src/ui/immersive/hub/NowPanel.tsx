@@ -430,9 +430,9 @@ function StoryOption({ o, i, chosen, onPick, s, ctx }: { o: DecisionOption; i: n
   const club = o.clubId ? getClub(o.clubId) : undefined
   const mins = club && !ctx.shared.minutes ? minutesOutlook(s, club.id) : null
   const state = chosen ? (chosen === o.id ? 'chosen' : 'dim') : 'idle'
-  // "Reserva previsto" repete o "Papel previsto" dos detalhes: fica só um
+  // a pílula "Papel previsto: Reserva" repete o "Papel previsto" dos detalhes: fica só um
   const role = o.details?.find((d) => d.label === 'Papel previsto')?.value
-  const effects = o.effects.filter((e) => !(role && e.label === `${role} previsto`))
+  const effects = o.effects.filter((e) => !(role && e.label === `Papel previsto: ${role}`))
   // clube: a liga e a força do elenco no lugar do que é igual em todos os cards
   const details = [...(o.details ?? []).filter((d) => !ctx.shared.labels.has(d.label)), ...(club ? [{ label: 'Força do elenco', value: String(Math.round(clubStrength(s, club.id))) }] : [])].slice(0, 4)
   // arte: chave do evento; sem mapeamento, o texto da opção e o da decisão escolhem o tema (sem tema, sem quadro)
@@ -591,6 +591,7 @@ export const WindowCard = memo(function WindowCard({ s, it }: { s: ImmersiveStat
   const bestClub = best ? getClub(best.clubId) : undefined
   // negócio fechado nesta janela (empréstimo/transferência já assinados, ou acerto para a próxima temporada)
   const deal = !n ? s.inbox.find((m) => m.season === s.season && m.week === s.week && ((m.from === 'Diretoria' && /^Bem-vindo/.test(m.subject)) || /^Acerto fechado/.test(m.subject))) : undefined
+  const renewed = !n && !deal && s.news.some((x) => x.season === s.season && x.week === s.week && / renova com /.test(x.headline))
   const club = getClub(s.clubId)
   const fem = artigo(club) === 'a'
   const dealText = deal
@@ -599,7 +600,9 @@ export const WindowCard = memo(function WindowCard({ s, it }: { s: ImmersiveStat
       : s.parentClubId
         ? `Você foi emprestado ${fem ? 'à' : 'ao'} ${club?.shortName ?? 'novo clube'}.`
         : `Contrato assinado: agora você joga ${fem ? 'na' : 'no'} ${club?.shortName ?? 'novo clube'}.`
-    : null
+    : renewed
+      ? `Contrato renovado: você segue ${fem ? 'na' : 'no'} ${club?.shortName ?? 'clube'} até ${s.finance.contractUntil}.`
+      : null
   return (
     <section className="lx-plate lx-c-lg im-now im-cardnow" aria-labelledby="im-win-h">
       <i className="lx-hl-top" aria-hidden="true" />
@@ -609,13 +612,13 @@ export const WindowCard = memo(function WindowCard({ s, it }: { s: ImmersiveStat
             const c = getClub(o.clubId)
             return c ? <Crest key={o.id} club={c} size={i === 0 ? 86 : 58} decorative className={`is-${i}`} /> : null
           })}
-          {!n && deal && club && <Crest club={club} size={86} decorative />}
-          {!n && !(deal && club) && <Repeat2 size={56} aria-hidden="true" />}
+          {!n && dealText && club && <Crest club={club} size={86} decorative />}
+          {!n && !(dealText && club) && <Repeat2 size={56} aria-hidden="true" />}
         </div>
       </div>
       <div className="im-cardnow__body">
         {/* o título do motor já pode começar com "Mercado ·" (sem clube): sem "Mercado · Mercado ·" */}
-        <PanelHead kicker={<span id="im-win-h">Mercado · {it.title.replace(/^mercado\s*·\s*/i, '')}</span>} icon={Repeat2} title={n ? `${n} ${n === 1 ? 'proposta na mesa' : 'propostas na mesa'}` : deal ? 'Negócio fechado' : 'Janela aberta'} gold={!!deal} />
+        <PanelHead kicker={<span id="im-win-h">Mercado · {it.title.replace(/^mercado\s*·\s*/i, '')}</span>} icon={Repeat2} title={n ? `${n} ${n === 1 ? 'proposta na mesa' : 'propostas na mesa'}` : dealText ? 'Negócio fechado' : 'Janela aberta'} gold={!!dealText} />
         <p className="lx-t-body m-0">
           {n
             ? free
@@ -653,6 +656,11 @@ export function CloseWindowDialog({ s, open, onClose }: { s: ImmersiveState; ope
   const busy = useImmersive((x) => x.busy)
   const best = bestOffer(s.offers)
   const team = best ? teamInfo(best.clubId) : undefined
+  // o botão segue vivo na animação de saída do diálogo: um clique duplo aceitaria duas vezes
+  const sent = useRef(false)
+  useEffect(() => {
+    if (open) sent.current = false
+  }, [open])
   return (
     <Modal
       open={open && !!best}
@@ -664,7 +672,7 @@ export function CloseWindowDialog({ s, open, onClose }: { s: ImmersiveState; ope
       footer={
         <div className="flex flex-wrap gap-2 justify-end w-full">
           <Button variant="ghost" size="md" onClick={onClose}>
-            Ver as propostas
+            Voltar
           </Button>
           <Button
             variant="primary"
@@ -672,7 +680,8 @@ export function CloseWindowDialog({ s, open, onClose }: { s: ImmersiveState; ope
             iconRight={ArrowRight}
             loading={busy}
             onClick={() => {
-              if (best) void dispatch({ type: 'offer_respond', offerId: best.id, response: 'accept' })
+              if (best && !sent.current) void dispatch({ type: 'offer_respond', offerId: best.id, response: 'accept' })
+              sent.current = true
               onClose()
             }}
           >

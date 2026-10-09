@@ -5,7 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { PHOTOS, PHOTO_CREDITS, photoFor, themeFor } from './photos'
+import { PHOTOS, PHOTO_CREDITS, photoFor, themeFor, themeFromText } from './photos'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 
@@ -51,6 +51,16 @@ describe('fotos de eventos', () => {
     const b = photoFor('mini-discussao-frente', { salt: 'd1', slot: 1 })
     expect(a).toBeTruthy()
     expect(a).not.toBe(b)
+  })
+
+  it('tema pelo texto sem falsos positivos de pedaço de palavra', () => {
+    expect(themeFromText('Alguém do clube quer um favor.')).toBeNull()
+    expect(themeFromText('Uma proposta do Estudiantes na Série B')).toBeNull()
+    expect(themeFromText('Oferta do Estudiantes na Série B')).toBe('money')
+    expect(themeFromText('Fase ruim do atacante')).toBeNull()
+    expect(themeFromText('Seu avô era italiano')).toBe('national')
+    expect(themeFromText('Post antigo viraliza')).toBe('phone')
+    expect(themeFromText('Final da Copa')).toBe('celebration')
   })
 
   it('arquivos existem e têm crédito', () => {

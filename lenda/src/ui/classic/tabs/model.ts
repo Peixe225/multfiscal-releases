@@ -58,8 +58,10 @@ export function seasonEntries(state: CareerState | null): SeasonEntry[] {
 interface TabSeasonStore {
   careerId: string | null
   season: number | null
-  /** true once the user picked a season by hand (then new seasons do not move the selection). */
+  /** true once the user picked an older season by hand (until the next simulated season arrives). */
   pinned: boolean
+  /** Latest simulated season when the selection was (re)set: a newer one drops the pin. */
+  latest: number | null
   select(season: number, pinned?: boolean): void
   reset(careerId: string | null, season: number | null): void
 }
@@ -68,22 +70,30 @@ export const useTabSeason = create<TabSeasonStore>()((set) => ({
   careerId: null,
   season: null,
   pinned: false,
+  latest: null,
   select: (season, pinned = true) => set({ season, pinned }),
-  reset: (careerId, season) => set({ careerId, season, pinned: false }),
+  reset: (careerId, season) => set({ careerId, season, latest: season, pinned: false }),
 }))
 
-/** Current season entry + setter; follows the latest season until the user pins one. */
+/** Season the user pinned by hand, or null while the tabs follow the latest one (`latest` = newest shown). */
+export function pinnedSeason(s: Pick<TabSeasonStore, 'pinned' | 'season' | 'latest'>, latest: number | null | undefined): number | null {
+  return s.pinned && s.season != null && s.latest === latest ? s.season : null
+}
+
+/** Current season entry + setter; follows the latest season, or the one the user pinned until a new season is simulated. */
 export function useSelectedSeason(state: CareerState | null) {
   const entries = useMemo(() => seasonEntries(state), [state])
-  const { careerId, season, pinned, select, reset } = useTabSeason()
+  const { careerId, season, pinned, latest: seen, select, reset } = useTabSeason()
   const latest = entries.length ? entries[entries.length - 1].season : null
   const id = state?.id ?? null
   useEffect(() => {
-    if (careerId !== id) reset(id, latest)
+    if (careerId !== id || seen !== latest) reset(id, latest)
     else if (!pinned && season !== latest) reset(id, latest)
     else if (season != null && !entries.some((e) => e.season === season)) reset(id, latest)
-  }, [careerId, id, latest, pinned, season, entries, reset])
-  const current = entries.find((e) => e.season === season) ?? entries[entries.length - 1] ?? null
+  }, [careerId, id, latest, seen, pinned, season, entries, reset])
+  // a reset is due (other career / new season simulated): show the latest right away, not the stale pick
+  const shown = careerId !== id || seen !== latest ? latest : season
+  const current = entries.find((e) => e.season === shown) ?? entries[entries.length - 1] ?? null
   return { entries, current, select }
 }
 
@@ -373,6 +383,20 @@ export function scoreLine(tie: KnockoutStage['ties'][number], first: string = ti
   let s = `${x}×${y}`
   if (g.pens) s += ` (${flip ? g.pens[1] : g.pens[0]}×${flip ? g.pens[0] : g.pens[1]} pên.)`
   return s
+}
+
+/** Real-history scores ("3–3 (4–2 pên.)") in the style the simulated ones use ("3×3 (4×2 pên.)"). */
+export const scoreStyle = (score: string) => score.replace(/(\d)\s*[–-]\s*(\d)/g, '$1×$2')
+
+/** "Itália", "Itália e Turquia", "Espanha, Portugal e Marrocos". */
+export function joinPt(list: string[]): string {
+  return list.length > 1 ? `${list.slice(0, -1).join(', ')} e ${list[list.length - 1]}` : (list[0] ?? '')
+}
+
+/** Host country names of a tournament: the data lists FIFA codes split by "," or "/" ("ITA,TUR", "CAN/MEX/USA"). */
+export function hostNames(host: string | undefined, name: (code: string) => string = (c) => getCountry(c)?.name ?? c): string | undefined {
+  const list = (host ?? '').split(/[,/]/).map((h) => h.trim()).filter(Boolean)
+  return list.length ? joinPt(list.map(name)) : undefined
 }
 
 export function finalTie(cup: CupResult): KnockoutStage['ties'][number] | undefined {

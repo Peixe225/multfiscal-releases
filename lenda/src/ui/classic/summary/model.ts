@@ -4,7 +4,7 @@
  */
 import type { AwardId, CareerState, CareerSummary, SeasonRecord, TrophyFamily, WorldState } from '@/engine/types'
 import { getClub, getCompetition, getCountry, getLeague, getTrophy } from '@/store/data'
-import { formatSeason } from '@/ui/primitives'
+import { formatSeason, plural } from '@/ui/primitives'
 
 export type SummaryCareer = Omit<CareerState, 'world'> & { world?: WorldState }
 
@@ -194,7 +194,7 @@ export function honors(summary: CareerSummary, career: SummaryCareer): Honor[] {
       title: 'Copa do Mundo',
       count: wcWins,
       chips: wc.map((t) => ({ label: t.reached === 'Campeão' ? String(t.year) : `${reachShort(t.reached)} ${t.year}`, win: t.reached === 'Campeão' })),
-      foot: final ? { k: final.reached === 'Campeão' ? 'Campeão' : reachShort(final.reached), v: `${final.year} · ${final.apps} jogos · ${final.goals} ${final.goals === 1 ? 'gol' : 'gols'}` } : undefined,
+      foot: final ? { k: final.reached === 'Campeão' ? 'Campeão' : reachShort(final.reached), v: `${final.year} · ${plural(final.apps, 'jogo', 'jogos')} · ${plural(final.goals, 'gol', 'gols')}` } : undefined,
       tone: 'green',
     })
   } else if (cont.length) {
@@ -208,7 +208,7 @@ export function honors(summary: CareerSummary, career: SummaryCareer): Honor[] {
       title: comp?.name ?? 'Seleção',
       count: wins,
       chips: cont.filter((t) => t.competitionId === id).map((t) => ({ label: t.reached === 'Campeão' ? String(t.year) : `${reachShort(t.reached)} ${t.year}`, win: t.reached === 'Campeão' })),
-      foot: { k: 'Seleção', v: `${nat.apps} jogos · ${nat.goals} gols` },
+      foot: { k: 'Seleção', v: `${plural(nat.apps, 'jogo', 'jogos')} · ${plural(nat.goals, 'gol', 'gols')}` },
       tone: 'green',
     })
   } else {
@@ -219,7 +219,7 @@ export function honors(summary: CareerSummary, career: SummaryCareer): Honor[] {
       trophyId: 'world-cup',
       title: nat.apps ? (country?.name ?? 'Seleção') : 'Seleção',
       count: 0,
-      chips: nat.apps ? [{ label: `${nat.apps} jogos` }, { label: `${nat.goals} gols` }] : [{ label: 'Nunca convocado' }],
+      chips: nat.apps ? [{ label: plural(nat.apps, 'jogo', 'jogos') }, { label: plural(nat.goals, 'gol', 'gols') }] : [{ label: 'Nunca convocado' }],
       foot: nat.firstCallUp ? { k: 'Estreia', v: String(nat.firstCallUp) } : undefined,
       tone: 'green',
     })
@@ -229,11 +229,11 @@ export function honors(summary: CareerSummary, career: SummaryCareer): Honor[] {
   const boot = summary.awards.find((a) => a.award === 'golden_boot' && a.count > 0)
   const scorer = summary.awards.find((a) => a.award === 'league_top_scorer' && a.count > 0)
   const bestSeason = [...seasons].sort((a, b) => b.stats.goals - a.stats.goals)[0]
-  const rec = bestSeason ? { k: 'Recorde', v: `${bestSeason.stats.goals} gols`, me: `${getLeague(bestSeason.leagueId)?.shortName ?? ''} ${formatSeason(bestSeason.season, getLeague(bestSeason.leagueId)?.calendar)}` } : undefined
+  const rec = bestSeason ? { k: 'Recorde', v: plural(bestSeason.stats.goals, 'gol', 'gols'), me: `${getLeague(bestSeason.leagueId)?.shortName ?? ''} ${formatSeason(bestSeason.season, getLeague(bestSeason.leagueId)?.calendar)}` } : undefined
   const gk = career.identity.position === 'GOL'
   if (gk) {
     const glove = summary.awards.find((a) => a.award === 'golden_glove' && a.count > 0)
-    out.push({ key: 'gk', corner: 'Gol', trophyId: 'golden-glove', title: 'Luva de Ouro', count: glove?.count ?? 0, chips: (glove?.years ?? []).map((y) => ({ label: String(y), win: true })), foot: { k: 'Sem sofrer gol', v: `${summary.totals.cleanSheets ?? 0} jogos` }, tone: 'blue' })
+    out.push({ key: 'gk', corner: 'Gol', trophyId: 'golden-glove', title: 'Luva de Ouro', count: glove?.count ?? 0, chips: (glove?.years ?? []).map((y) => ({ label: String(y), win: true })), foot: { k: 'Sem sofrer gol', v: plural(summary.totals.cleanSheets ?? 0, 'jogo', 'jogos') }, tone: 'blue' })
   } else if (boot) {
     out.push({ key: 'boot', corner: 'Artilharia', trophyId: 'golden-boot', title: 'Chuteira de Ouro', count: boot.count, chips: boot.years.map((y) => ({ label: String(y), win: true })), foot: rec, tone: 'amber' })
   } else {
@@ -243,7 +243,7 @@ export function honors(summary: CareerSummary, career: SummaryCareer): Honor[] {
       trophyId: 'golden-boot',
       title: scorer ? 'Artilheiro da liga' : 'Gols na carreira',
       count: scorer?.count ?? 0,
-      chips: scorer ? scorer.years.map((y) => ({ label: String(y), win: true })) : [{ label: `${summary.totals.goals} gols` }, { label: `${(summary.totals.goals / Math.max(1, summary.totals.apps)).toFixed(2).replace('.', ',')} por jogo` }],
+      chips: scorer ? scorer.years.map((y) => ({ label: String(y), win: true })) : [{ label: plural(summary.totals.goals, 'gol', 'gols') }, { label: `${(summary.totals.goals / Math.max(1, summary.totals.apps)).toFixed(2).replace('.', ',')} por jogo` }],
       foot: rec,
       tone: 'amber',
     })

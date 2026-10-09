@@ -5,7 +5,7 @@
  *     tabs={[{ value: 'carreira', label: 'Carreira', icon: LineChart }, { value: 'premios', label: 'Prêmios', badge: 'BOLA 3º' }]} />
  *   <TabPanel idPrefix="cockpit" value="carreira" active={tab === 'carreira'}>…</TabPanel>
  */
-import { useId, useRef, type ComponentType, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ComponentType, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import type { LucideProps } from 'lucide-react'
 import { cx } from './cx'
@@ -38,7 +38,37 @@ export function Tabs<T extends string>({ value, onChange, tabs, variant = 'pill'
   const prefix = idPrefix ?? `tabs${auto.replace(/:/g, '')}`
   const rm = useReducedMotion()
   const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const list = useRef<HTMLDivElement>(null)
   const idx = Math.max(0, tabs.findIndex((t) => t.value === value))
+
+  // a strip wider than its box scrolls: flag the edges that hide tabs (`data-more-start/end`, faded in CSS)
+  useEffect(() => {
+    const el = list.current
+    if (!el) return
+    const mark = () => {
+      el.toggleAttribute('data-more-start', el.scrollLeft > 1)
+      el.toggleAttribute('data-more-end', el.scrollLeft < el.scrollWidth - el.clientWidth - 1)
+    }
+    mark()
+    el.addEventListener('scroll', mark, { passive: true })
+    const ro = new ResizeObserver(mark)
+    ro.observe(el)
+    for (const c of el.children) ro.observe(c)
+    return () => {
+      el.removeEventListener('scroll', mark)
+      ro.disconnect()
+    }
+  }, [tabs.length])
+  // …and keep the selected tab fully in view (only the strip scrolls, never the page)
+  useEffect(() => {
+    const el = list.current
+    const tab = refs.current[idx]
+    if (!el || !tab || el.scrollWidth <= el.clientWidth) return
+    const a = el.getBoundingClientRect()
+    const b = tab.getBoundingClientRect()
+    const dx = b.left < a.left ? b.left - a.left - 24 : b.right > a.right ? b.right - a.right + 24 : 0
+    if (dx) el.scrollBy({ left: dx, behavior: rm ? 'auto' : 'smooth' })
+  }, [idx, rm])
 
   const focusTo = (e: KeyboardEvent, j: number) => {
     e.preventDefault()
@@ -58,6 +88,7 @@ export function Tabs<T extends string>({ value, onChange, tabs, variant = 'pill'
 
   return (
     <div
+      ref={list}
       role="tablist"
       aria-label={aria['aria-label']}
       className={cx('lx-tabs', variant === 'pill' ? 'lx-tabs--pill' : 'lx-tabs--underline', className)}

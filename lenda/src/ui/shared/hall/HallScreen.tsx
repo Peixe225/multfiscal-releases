@@ -20,7 +20,7 @@ import { Button, Eyebrow, POSITION_LABEL, Segmented, clubVars, cx, formatInt, ro
 import { useShellSlots } from '@/ui/shell/slots'
 import { clubKit } from '@/ui/shared/identity/kit'
 import { PlayerCard } from '@/ui/shared/landing/PlayerCard'
-import { CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, entryName, valueOf } from './parts'
+import { CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, entryName, useRunModeLabel, valueOf } from './parts'
 import { HowModal, LegendDetail, RunDetail } from './RunDetail'
 import { gapText, runHeadline, useHallModel, yearsLabel, type HallModel } from './model'
 import '@/ui/shared/achievements/unlockToasts'
@@ -68,7 +68,7 @@ export default function HallScreen() {
           </h1>
           <p>
             {runs
-              ? `${runs === 1 ? 'Sua run' : `Suas ${runs} runs`} contra ${hall.legends.length} lendas reais, na mesma escala: a Nota de Legado, de 0 a 100.`
+              ? `${runs === 1 ? 'Sua carreira' : `Suas ${runs} carreiras`} contra ${hall.legends.length} lendas reais, na mesma escala: a Nota de Legado, de 0 a 100.`
               : `${hall.legends.length} lendas reais já estão aqui. Termine uma carreira e descubra onde ela entra.`}
           </p>
         </div>
@@ -103,7 +103,7 @@ function Hero({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => voi
   const top = hall.topLegend
   const enter = (i: number) => (rm ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.55, delay: 0.08 * i, ease: EASE } })
   return (
-    <motion.section className="hl-hero lx-glass" aria-label={best ? 'Sua melhor run contra o número 1' : 'Número 1 do Hall'} {...enter(0)}>
+    <motion.section className="hl-hero lx-glass" aria-label={best ? 'Sua melhor carreira contra o número 1' : 'Número 1 do Hall'} {...enter(0)}>
       <div className="hl-hero__grid">
         {best ? <HeroRun run={best} hall={hall} onOpen={onOpen} /> : <HeroEmpty />}
         <div className={cx('hl-vs', !best && 'hl-vs--empty')} aria-hidden="true">
@@ -138,7 +138,8 @@ function HeroRun({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
           name={id.surname}
           number={id.number}
           stats={[
-            ['GOL', formatInt(run.stats.goals)],
+            // goleiro: jogos sem sofrer gol (SG), como no card do Resumo — "GOL 0" se lia como a posição
+            run.stats.position === 'GOL' ? ['SG', formatInt(run.stats.cleanSheets)] : ['GOL', formatInt(run.stats.goals)],
             ['TÍT', formatInt(run.stats.titles)],
             ['REC', formatInt(run.historic.length)],
           ]}
@@ -148,7 +149,7 @@ function HeroRun({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
       </div>
       <div className="hl-hero__info">
         <span className="hl-kicker">
-          <Crown size={12} aria-hidden /> Sua maior lenda · Run nº {run.runNo}
+          <Crown size={12} aria-hidden /> Sua maior lenda · Carreira nº {run.runNo}
         </span>
         <h2 className="hl-hero__name">{id.surname}</h2>
         {entry && <p className="hl-hero__hl">{runHeadline(entry, run, rank)}</p>}
@@ -245,7 +246,7 @@ export function LegendPlaque({ legend, width = 150 }: { legend: LegendLegacy; wi
 
 function Duels({ run, legend }: { run: RunLegacy; legend: LegendLegacy }) {
   return (
-    <ul className="hl-duels" aria-label={`Sua run nº ${run.runNo} contra ${legend.legend.name}`}>
+    <ul className="hl-duels" aria-label={`Sua carreira nº ${run.runNo} contra ${legend.legend.name}`}>
       {DUELS.map((id) => {
         const a = run.values[id]
         const b = legend.values[id]
@@ -308,7 +309,7 @@ function HeroFoot({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOp
         {!cmp.length && (
           <li>
             <Quote size={13} aria-hidden />
-            <span>Ainda sem números acima de uma lenda. A próxima run pode ser a sua.</span>
+            <span>Ainda sem números acima de uma lenda. A próxima carreira pode ser a sua.</span>
           </li>
         )}
       </ul>
@@ -340,7 +341,7 @@ function Overall({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => 
       <header className="hl-panel__h">
         <div>
           <h2 id="hl-overall-h">Ranking geral</h2>
-          <p>Nota de Legado · runs e lendas na mesma régua</p>
+          <p>Nota de Legado · suas carreiras e as lendas na mesma régua</p>
         </div>
         {hall.runs.length > 0 && (
           <Segmented<Filter>
@@ -353,7 +354,7 @@ function Overall({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => 
             aria-label="Filtrar ranking"
             options={[
               { value: 'todos', label: 'Todos' },
-              { value: 'runs', label: 'Suas runs' },
+              { value: 'runs', label: 'Suas carreiras' },
               { value: 'lendas', label: 'Lendas' },
             ]}
           />
@@ -414,7 +415,7 @@ function OverallRow({ row, gap, onOpen }: { row: RankRow; gap: boolean; onOpen: 
           <span className="hl-row__name">
             <b>
               {entryName(e)}
-              {e.kind === 'run' && <span className="hl-runtag">Run nº {e.runNo}</span>}
+              {e.kind === 'run' && <span className="hl-runtag">Carreira nº {e.runNo}</span>}
             </b>
             <small>{e.kind === 'run' ? <RunSub run={e} /> : <LegendSub legend={e} />}</small>
           </span>
@@ -440,8 +441,15 @@ function OverallRow({ row, gap, onOpen }: { row: RankRow; gap: boolean; onOpen: 
 }
 
 function RunSub({ run }: { run: RunLegacy }) {
+  const mode = useRunModeLabel(run.id)
   return (
     <>
+      {mode && (
+        <>
+          <span>{mode}</span>
+          <span className="hl-dot" />
+        </>
+      )}
       <span>{POSITION_LABEL[run.stats.position]}</span>
       <span className="hl-dot" />
       <span>{run.stats.seasons} temp.</span>
@@ -505,14 +513,14 @@ function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) 
           </ol>
           {myRuns.length > 0 && (
             <div className="hl-myruns">
-              <Eyebrow as="h3">Suas runs nesta categoria</Eyebrow>
+              <Eyebrow as="h3">Suas carreiras nesta categoria</Eyebrow>
               <ul>
                 {myRuns.slice(0, 5).map((r) => (
                   <li key={r.entry.id}>
                     <button type="button" onClick={() => onOpen(r.entry)}>
                       <span className="hl-myruns__pos num">{r.value > 0 ? `${r.rank}º` : '—'}</span>
                       <b>
-                        {entryName(r.entry)} <span className="hl-runtag">Run nº {(r.entry as RunLegacy).runNo}</span>
+                        {entryName(r.entry)} <span className="hl-runtag">Carreira nº {(r.entry as RunLegacy).runNo}</span>
                       </b>
                       <span className="num">{valueOf(r.entry, cat, true)}</span>
                     </button>
@@ -537,7 +545,7 @@ const CAT_BLURB: Record<CategoryId, string> = {
   clubs: 'Clubes defendidos na carreira (empréstimos incluídos).',
   goals: 'Gols oficiais por clubes e pela seleção principal.',
   assists: 'Passes para gol. Para lendas antigas, estimativa.',
-  records: 'Recordes mundiais nas métricas do jogo (Bolas de Ouro, gols, Libertadores…): os que a run quebrou e os que a lenda tem ou teve.',
+  records: 'Recordes mundiais nas métricas do jogo (Bolas de Ouro, gols, Libertadores…): os que a carreira quebrou e os que a lenda tem ou teve.',
   goalsPerGame: 'Gols por jogo oficial, com no mínimo 300 jogos.',
 }
 
@@ -565,7 +573,7 @@ function CatHero({ cat, rows }: { cat: CategoryId; rows: RankRow[] }) {
             </div>
           )}
           <div>
-            <dt>Sua melhor run</dt>
+            <dt>Sua melhor carreira</dt>
             <dd>{bestRun ? <><b className="num">{valueOf(bestRun.entry, cat)}</b> {bestRun.value > 0 ? `${bestRun.rank}º lugar` : 'ainda sem pontuar'}</> : <span className="text-text-3">—</span>}</dd>
           </div>
           <div>
@@ -588,7 +596,7 @@ function PodiumStep({ row, place, cat, onOpen }: { row: RankRow; place: number; 
       <span className="hl-step__who">
         <EntryAvatar entry={e} size={place === 1 ? 54 : 44} />
         <b>{entryName(e)}</b>
-        {e.kind === 'run' ? <span className="hl-runtag">Run nº {e.runNo}</span> : <small>{e.legend.nationality === 'URS' ? 'URSS' : e.legend.nationality}</small>}
+        {e.kind === 'run' ? <span className="hl-runtag">Carreira nº {e.runNo}</span> : <small>{e.legend.nationality === 'URS' ? 'URSS' : e.legend.nationality}</small>}
       </span>
       <span className="hl-step__block">
         <span className="hl-step__place">{row.rank}º</span>
@@ -612,7 +620,7 @@ function CatRow({ row, cat, onOpen }: { row: RankRow; cat: CategoryId; onOpen: (
         <EntryAvatar entry={e} size={26} />
         <b>
           {entryName(e)}
-          {e.kind === 'run' && <span className="hl-runtag">Run nº {e.runNo}</span>}
+          {e.kind === 'run' && <span className="hl-runtag">Carreira nº {e.runNo}</span>}
         </b>
         <span className="hl-lrow__v num">{valueOf(e, cat)}</span>
       </button>
@@ -628,8 +636,8 @@ function Runs({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => voi
     <section aria-labelledby="hl-runs-h" className="hl-runs">
       <header className="hl-panel__h hl-panel__h--bare">
         <div>
-          <h2 id="hl-runs-h">Suas runs</h2>
-          <p>Cada carreira avaliada contra as lendas e contra as suas runs anteriores</p>
+          <h2 id="hl-runs-h">Suas carreiras</h2>
+          <p>Cada carreira avaliada contra as lendas e contra as suas carreiras anteriores</p>
         </div>
       </header>
       <ul className="hl-rgrid">
@@ -648,12 +656,15 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
   const club = useClub(run.stats.mainClubId)
   const rank = hall.overall.find((r) => r.entry === run)?.rank ?? 0
   const best = useMemo(() => compareRun(run, hall.legends, { max: 1 })[0], [run, hall.legends])
+  const mode = useRunModeLabel(run.id)
+  const gk = run.stats.position === 'GOL'
   return (
     <article className="hl-rcard lx-glass" style={clubVars(club ?? {})}>
       <div className="hl-rcard__top">
         <RunAvatar run={run} size={46} />
         <div className="min-w-0 flex-1">
-          <span className="hl-runtag">Run nº {run.runNo}</span>
+          <span className="hl-runtag">Carreira nº {run.runNo}</span>
+          {mode && <span className="hl-runtag hl-runtag--mode">{mode}</span>}
           <h3>{run.input.identity.surname}</h3>
           <p>{runHeadline(entry, run, rank)}</p>
         </div>
@@ -665,8 +676,8 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
           <small>no Hall</small>
         </span>
         <span>
-          <b className="num">{formatInt(run.stats.goals)}</b>
-          <small>Gols</small>
+          <b className="num">{formatInt(gk ? run.stats.cleanSheets : run.stats.goals)}</b>
+          <small>{gk ? 'Sem sofrer gol' : 'Gols'}</small>
         </span>
         <span>
           <b className="num">{formatInt(run.stats.titles)}</b>
@@ -693,7 +704,7 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
       )}
       {run.personal.length > 0 && (
         <p className="hl-rcard__rec hl-rcard__rec--own">
-          {run.personal.length} {run.personal.length === 1 ? 'recorde das suas runs' : 'recordes das suas runs'}
+          {run.personal.length} {run.personal.length === 1 ? 'recorde das suas carreiras' : 'recordes das suas carreiras'}
         </p>
       )}
       <div className="hl-rcard__foot">

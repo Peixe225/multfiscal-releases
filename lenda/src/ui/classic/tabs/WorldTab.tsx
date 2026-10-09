@@ -9,8 +9,8 @@ import { memo, useMemo, useState } from 'react'
 import { Globe, History, ListOrdered, MapPin, Sparkles } from 'lucide-react'
 import type { CareerState, CupResult, GameData, NationalTournamentResult, SeasonRecord, SeasonWorldResult } from '@/engine/types'
 import { getClub, getCompetition, getCountry, getLeague, useGameData } from '@/store/data'
-import { Crest, Flag, cx, nationColors, rowClubVars } from '@/ui/primitives'
-import { compName, compRank, editionLabel, finalTie, isNation, scoreLine, teamName, useSelectedSeason, useTabState } from './model'
+import { Crest, Flag, cx, nationColors, rowClubVars, useMediaQuery } from '@/ui/primitives'
+import { compName, compRank, editionLabel, finalTie, hostNames, isNation, scoreLine, scoreStyle, teamName, useSelectedSeason, useTabState } from './model'
 import { CompLogo, EmptyTab, Prize, SeasonRail, Section, TeamMark, You } from './parts'
 import { Bracket } from './Bracket'
 import './tabs.css'
@@ -68,6 +68,14 @@ function champions(world: SeasonWorldResult): Champ[] {
   return out.sort((a, b) => a.rank - b.rank)
 }
 
+/** "2026" → [2026] · "2026/27" → [2026, 2027]. */
+function yearsOf(label: string): number[] {
+  const m = /^(\d{4})(?:\/(\d{2}))?$/.exec(label)
+  if (!m) return []
+  const a = Number(m[1])
+  return m[2] ? [a, Math.floor(a / 100) * 100 + Number(m[2])] : [a]
+}
+
 const FEATURED_LEAGUES = new Set(['bra.1', 'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'por.1'])
 const FEATURED_CONFEDS = ['uefa.', 'conmebol.']
 
@@ -95,11 +103,14 @@ const WorldBody = memo(function WorldBody({ state, record, world }: { state: Car
   })
   const nationals = Object.values(world.national).sort((a, b) => compRank(getCompetition(a.competitionId)) - compRank(getCompetition(b.competitionId)))
   const isYou = (c: Champ) => c.winner === record.clubId || c.winner === nation
+  // "temporada 2026" (calendário brasileiro) também traz os torneios do meio de 2027 (seleções, Mundial de Clubes)
+  const label = editionLabel(record.leagueId, record.season)
+  const later = [...new Set(featured.map((c) => editionLabel(c.id, record.season)).filter((y) => /^\d{4}$/.test(y) && !yearsOf(label).includes(Number(y))))].sort()
   return (
     <div className="tb-grid">
       <Section
-        title={`Campeões de ${editionLabel(record.leagueId, record.season)}`}
-        eyebrow="O mundo nesta temporada"
+        title={`Campeões da temporada ${label}`}
+        eyebrow={later.length ? `O mundo nesta temporada · inclui os torneios de ${later.join(' e ')}` : 'O mundo nesta temporada'}
         icon={<Sparkles aria-hidden="true" />}
         aside={<span className="tb-count-note">{all.length} competições simuladas</span>}
       >
@@ -126,10 +137,12 @@ const ChampCard = memo(function ChampCard({ c, season, you }: { c: Champ; season
   const trophyId = comp?.trophyId ?? lg?.trophyId ?? ''
   const nat = isNation(c.winner)
   const vars = nat ? rowClubVars(nationColors(getCountry(c.winner))) : rowClubVars(getClub(c.winner))
+  // phones: one card per row (trophy on the left), so the names fit whole
+  const row = useMediaQuery('(max-width: 35.99rem)')
   return (
     <article className={cx('tb-champ', you && 'is-you')} style={vars}>
       <div className="tb-champ__art lx-trophy-spot lx-trophy-spot--gold">
-        <Prize id={trophyId} h={78} maxW={96} />
+        <Prize id={trophyId} h={row ? 56 : 78} maxW={row ? 52 : 96} />
       </div>
       <div className="tb-champ__comp">
         <CompLogo id={c.id} size={16} />
@@ -158,11 +171,14 @@ const ChampCard = memo(function ChampCard({ c, season, you }: { c: Champ; season
 function NationalCard({ t, nation }: { t: NationalTournamentResult; nation: string }) {
   const comp = getCompetition(t.competitionId)
   const year = editionLabel(t.competitionId, t.season)
-  const host = t.host ? t.host.split('/').map((h) => getCountry(h)?.name ?? h).join(' / ') : undefined
+  const host = hostNames(t.host)
+  const hosts = t.host?.split(/[,/]/).filter(Boolean).length ?? 0
   const fin = finalTie(t)
   const reached = t.reached?.[nation] ?? (t.winner === nation ? 'Campeão' : undefined)
   const group = t.groups?.find((g) => g.table.some((r) => r.clubId === nation))
   const colors = nationColors(getCountry(t.winner))
+  // phones: the art box is 96px tall — a 120px trophy spilled over "CAMPEÃO"
+  const phone = useMediaQuery('(max-width: 35.99rem)')
   return (
     <Section
       className="tb-natcard"
@@ -173,15 +189,18 @@ function NationalCard({ t, nation }: { t: NationalTournamentResult; nation: stri
       icon={<CompLogo id={t.competitionId} size={40} />}
       aside={
         host ? (
-          <span className="tb-chip">
-            <MapPin aria-hidden="true" /> Sede: <b>{host}</b>
+          <span className="tb-chip tb-chip--wrap">
+            <MapPin aria-hidden="true" />
+            <span>
+              {hosts > 1 ? 'Sedes' : 'Sede'}: <b>{host}</b>
+            </span>
           </span>
         ) : undefined
       }
     >
       <div className="tb-nathero">
         <div className="tb-nathero__art lx-trophy-spot lx-trophy-spot--gold">
-          <Prize id={comp?.trophyId ?? ''} h={120} maxW={110} />
+          <Prize id={comp?.trophyId ?? ''} h={phone ? 92 : 120} maxW={phone ? 68 : 110} />
         </div>
         <div className="tb-nathero__t">
           <div className="lx-eyebrow">Campeão</div>
@@ -274,14 +293,16 @@ function AllComps({ list, season, isYou }: { list: Champ[]; season: number; isYo
         {rows.map((c) => {
           const lg = getLeague(c.id)
           const country = lg ? getCountry(lg.country) : getCountry(getCompetition(c.id)?.country)
+          const split = !!c.note && c.kind === 'league' && lg?.tournamentsPerSeason === 2
           return (
             <div key={c.id + c.winner + (c.note ?? "")} className={cx("tb-allc__r", isYou(c) && 'is-you')}>
               <CompLogo id={c.id} size={24} />
               <span className="tb-allc__c">
                 <b>{compName(c.id)}</b>
                 <small>
-                  {country && <Flag code={country.code} h={9} decorative />} {country?.name ?? ''}
-                  {c.note && c.kind === 'league' && getLeague(c.id)?.tournamentsPerSeason === 2 ? ` · ${c.note}` : ''} · {editionLabel(c.id, season)}
+                  {country && <Flag code={country.code} h={9} decorative />}
+                  {/* one text run (wraps next to the flag); "Apertura 2031" already carries the year */}
+                  {`${country?.name ?? ''}${split ? ` · ${c.note}` : ''}${split && /\d{4}/.test(c.note ?? '') ? '' : ` · ${editionLabel(c.id, season)}`}`}
                 </small>
               </span>
               <span className="tb-allc__w">
@@ -310,6 +331,8 @@ interface HistRow {
   sub?: string
   simulated: boolean
   you?: boolean
+  /** Real edition not awarded yet when the data was captured. */
+  open?: boolean
 }
 
 function HistoryCard({ state, data, nation }: { state: CareerState; data: GameData | null; nation: string }) {
@@ -342,7 +365,7 @@ function HistoryCard({ state, data, nation }: { state: CareerState; data: GameDa
           <i className="is-sim" aria-hidden="true" /> {sim} {sim === 1 ? 'edição simulada' : 'edições simuladas'} na sua carreira
         </span>
         <span>
-          <i className="is-real" aria-hidden="true" /> {rows.length - sim} reais
+          <i className="is-real" aria-hidden="true" /> {rows.filter((r) => !r.simulated && !r.open).length} reais
         </span>
       </div>
       <ol className="tb-histlist">
@@ -355,7 +378,7 @@ function HistoryCard({ state, data, nation }: { state: CareerState; data: GameDa
               {r.you && <You />}
             </span>
             <span className="tb-histlist__s">{r.sub}</span>
-            <span className={cx('tb-histlist__tag', r.simulated ? 'is-sim' : 'is-real')}>{r.simulated ? 'Simulada' : 'Real'}</span>
+            <span className={cx('tb-histlist__tag', r.simulated ? 'is-sim' : 'is-real')}>{r.simulated ? 'Simulada' : r.open ? 'Em aberto' : 'Real'}</span>
           </li>
         ))}
       </ol>
@@ -370,7 +393,7 @@ function buildHistory(k: HistKind, state: CareerState, data: GameData | null, na
   const hist = data?.history
   if (k === 'wc') {
     for (const w of hist?.worldCup ?? []) {
-      out.push({ year: String(w.year), sort: w.year, winner: w.champion, nat: w.champion, sub: `${w.score ? `${w.score} ` : ''}vs ${getCountry(w.runnerUp)?.name ?? w.runnerUp}${w.host ? ` · ${w.host.split('/').map((h) => getCountry(h)?.name ?? h).join('/')}` : ''}`, simulated: false })
+      out.push({ year: String(w.year), sort: w.year, winner: w.champion, nat: w.champion, sub: `${w.score ? `${scoreStyle(w.score)} ` : ''}vs ${getCountry(w.runnerUp)?.name ?? w.runnerUp}${w.host ? ` · ${hostNames(w.host)}` : ''}`, simulated: false })
     }
     for (const s of seasons) {
       const t = s.national['fifa.world']
@@ -383,7 +406,7 @@ function buildHistory(k: HistKind, state: CareerState, data: GameData | null, na
         sort: y,
         winner: t.winner,
         nat: t.winner,
-        sub: `${fin ? `${scoreLine(fin, t.winner)} ` : ''}vs ${getCountry(t.runnerUp)?.name ?? t.runnerUp}${t.host ? ` · ${getCountry(t.host)?.name ?? t.host}` : ''}`,
+        sub: `${fin ? `${scoreLine(fin, t.winner)} ` : ''}vs ${getCountry(t.runnerUp)?.name ?? t.runnerUp}${t.host ? ` · ${hostNames(t.host)}` : ''}`,
         simulated: true,
         you: t.winner === nation && state.national.tournaments.some((x) => x.competitionId === 'fifa.world' && x.year === y),
       })
@@ -391,6 +414,12 @@ function buildHistory(k: HistKind, state: CareerState, data: GameData | null, na
   } else if (k === 'bdo') {
     for (const b of hist?.ballonDor ?? []) {
       out.push({ year: String(b.year), sort: b.year, winner: b.player, winnerLabel: b.player, nat: b.nationality, sub: getClub(b.club)?.name ?? b.club, simulated: false })
+    }
+    // a Bola de Ouro 2026 (temporada 2025/26) é entregue depois do retrato dos dados e antes da 1ª simulada (2027)
+    const next = hist?.ballonDorShortlist
+    if (next && !out.some((r) => r.sort === next.year) && !seasons.some((s) => s.awards.some((a) => a.award === 'ballon_dor' && a.year === next.year))) {
+      const day = next.ceremony?.split('-').reverse().join('/')
+      out.push({ year: String(next.year), sort: next.year, winner: '', winnerLabel: 'A definir', sub: `${day ? `cerimônia em ${day} · ` : ''}${next.players.length} indicados`, simulated: false, open: true })
     }
     for (const s of seasons) {
       const b = s.awards.find((a) => a.award === 'ballon_dor')

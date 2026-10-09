@@ -72,7 +72,7 @@ export interface InjuryDef {
 
 /** As 10 lesões do Copero (pesos somam 100), com os nomes em pt-BR. */
 export const INJURIES: InjuryDef[] = [
-  { id: 'hamstring', weight: 24, ovr: -3, name: 'Lesão na coxa posterior' },
+  { id: 'hamstring', weight: 24, ovr: -3, name: 'Lesão na posterior da coxa' },
   { id: 'meniscus', weight: 18, ovr: -2, name: 'Ruptura de menisco' },
   { id: 'acl', weight: 14, ovr: -5, name: 'Rompimento do ligamento cruzado' },
   { id: 'ankle_sprain', weight: 14, ovr: -1, name: 'Entorse no tornozelo' },

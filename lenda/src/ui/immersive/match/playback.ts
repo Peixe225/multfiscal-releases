@@ -139,7 +139,7 @@ export function usePlaybackDriver(live: LiveMatch | null, paused: boolean) {
     if (usePlayback.getState().itemId === l.itemId) return
     const pos = useImmersive.getState().isFixture ? null : readPos()
     const target = targetOf(l)
-    if (pos && pos.itemId === l.itemId && pos.shown < l.events.length && pos.clock <= target) {
+    if (pos && pos.itemId === l.itemId && pos.shown <= l.events.length && pos.clock <= target && (pos.shown < l.events.length || pos.clock < target)) {
       usePlayback.setState({ itemId: l.itemId, shown: pos.shown, clock: Math.max(pos.clock, l.events[pos.shown - 1]?.minute ?? 0), settled: false, hold: 0, last: null, burst: [], userPaused: false })
       return
     }

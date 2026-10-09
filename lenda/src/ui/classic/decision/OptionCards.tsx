@@ -82,11 +82,29 @@ function OptionShell({
   )
 }
 
+/** Long engine verbs, shortened for the narrow 3–4 option cards on desktop (one eyebrow line). */
+const SHORT_VERB: Record<string, string> = {
+  'Ir por empréstimo para': 'Empréstimo',
+  'Assinar em definitivo com': 'Em definitivo',
+}
+
 /** Title block: verb eyebrow ("ASSINAR COM") + name. */
 function OptTitle({ verb, name, center }: { verb?: string; name: string; center?: boolean }) {
+  const short = verb ? SHORT_VERB[verb] : undefined
   return (
     <span className={cx('ck-opt__head', center && 'is-center')}>
-      {verb ? <span className="lx-eyebrow ck-opt__verb">{verb}</span> : null}
+      {verb ? (
+        <span className="lx-eyebrow ck-opt__verb">
+          {short ? (
+            <>
+              <span className="ck-opt__vfull">{verb}</span>
+              <span className="ck-opt__vshort">{short}</span>
+            </>
+          ) : (
+            verb
+          )}
+        </span>
+      ) : null}
       <span className="ck-opt__name">{name}</span>
     </span>
   )
@@ -208,9 +226,9 @@ function ClubMeta({ league, country, center }: { league?: ReturnType<typeof useL
       )}
       {league && country && <span className="ck-dot" aria-hidden="true" />}
       {country && (
-        <span className="ck-opt__ct">
+        <span className="ck-opt__ct" title={country.name}>
           <Flag code={country.code} h={12} w={16} radius={2} decorative />
-          {country.code}
+          <span className="ck-opt__ctcode">{country.code}</span>
         </span>
       )}
     </span>
@@ -220,7 +238,8 @@ function ClubMeta({ league, country, center }: { league?: ReturnType<typeof useL
 /** Footer facts: salary + contract (the role is already an effect chip; the league is in the meta). */
 function pickDetails(details: DecisionOption['details']): { label: string; value: string }[] {
   if (!details?.length) return []
-  const clean = details.filter((d) => !/^liga$/i.test(d.label) && !/papel/i.test(d.label))
+  // "Duração: Empréstimo" only repeats the verb ("Ir por empréstimo para")
+  const clean = details.filter((d) => !/^liga$/i.test(d.label) && !/papel/i.test(d.label) && !/^empr[ée]stimo$/i.test(d.value))
   const sal = clean.find((d) => /sal[aá]rio/i.test(d.label))
   const con = clean.find((d) => /contrato|dura[cç][aã]o/i.test(d.label))
   const out = [sal, con].filter(Boolean) as { label: string; value: string }[]
@@ -230,20 +249,25 @@ function pickDetails(details: DecisionOption['details']): { label: string; value
 
 // ───────────────────────── event ─────────────────────────
 
+/** Variants that share an event key but not its picture ("Dieta nova" is a personal_coach variant: no beach). */
+const VARIANT_ART: Record<string, string> = { 'nutrition_plan-reject': 'family' }
+
 export const EventOptionCard = memo(function EventOptionCard(p: OptionCardProps) {
   const { option, decision, compact, state } = p
   const nat = useCareer((s) => s.state?.identity.nationality)
   const seed = useCareer((s) => s.state?.seed)
   const club = useClub(option.clubId)
   const retire = decision.kind === 'retirement' && /retire|aposent/i.test(`${option.id} ${option.art ?? ''} ${option.title ?? ''}`)
-  const art = option.art ?? (retire ? 'retirement' : decision.eventKey ? `${decision.eventKey}` : decision.kind)
+  const optKey = option.art?.slice(option.art.indexOf('-') + 1)
+  const art = (decision.variant && VARIANT_ART[`${decision.variant}-${optKey}`]) || (option.art ?? (retire ? 'retirement' : decision.eventKey ? `${decision.eventKey}` : decision.kind))
   const name = option.title || option.label || 'Opção'
   const verb = option.title && option.label && option.label !== option.title && !GENERIC_VERB.test(option.label) ? option.label : undefined
   const label = `${verb ? `${verb} ` : ''}${name}. ${effectsAria(option)}`
   const tint = club ? clubColors(club).glow : undefined
   const media = (
     <>
-      <EventArt art={art} hint={`${option.title ?? ''} ${option.label ?? ''}\n${decision.title}\n${decision.description}`} nationality={nat} salt={seed} tint={tint} fill priority />
+      {/* slot: two options of the same theme never show the same photo */}
+      <EventArt art={art} hint={`${option.title ?? ''} ${option.label ?? ''}\n${decision.title}\n${decision.description}`} nationality={nat} salt={seed} slot={p.index} tint={tint} fill priority />
       {club && (
         <span className="ck-opt__overlay">
           <Crest club={club} size={compact ? 30 : 48} decorative shadow />

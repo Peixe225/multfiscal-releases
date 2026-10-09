@@ -43,14 +43,14 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
         <NotaRing score={run.score} size={86} />
         <div className="min-w-0">
           <span className="hl-kicker hl-kicker--gold">
-            <Landmark size={12} aria-hidden /> Hall das Lendas{inHall ? ` · Run nº ${run.runNo}` : ''}
+            <Landmark size={12} aria-hidden /> Hall das Lendas{inHall ? ` · Carreira nº ${run.runNo}` : ''}
           </span>
           <h2 id="hl-lrc-h" className="hl-lrc__t">
             {run.tier.label} · <span className="lx-metal-text">{p.rank}º</span> de {p.total}
           </h2>
           <p className="hl-lrc__s">
             {p.legendsBelow > 0 ? `Acima de ${p.legendsBelow} das 50 lendas reais` : 'Ainda abaixo das 50 lendas reais'}
-            {p.runCount > 1 ? ` · ${p.runRank}ª entre as suas ${p.runCount} runs` : ''}
+            {p.runCount > 1 ? ` · ${p.runRank}ª entre as suas ${p.runCount} carreiras` : ''}
             {!finished ? ' · parcial' : ''}
           </p>
         </div>
@@ -63,7 +63,7 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
         {run.personal.length > 0 && (
           <span title="Só selo: não entra na nota nem é comparado com as lendas">
             <Zap size={14} aria-hidden />
-            <b>{run.personal.length}</b> {run.personal.length === 1 ? 'recorde das suas runs' : 'recordes das suas runs'}
+            <b>{run.personal.length}</b> {run.personal.length === 1 ? 'recorde das suas carreiras' : 'recordes das suas carreiras'}
           </span>
         )}
         {p.next && (
@@ -78,7 +78,7 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
           {p.comparisons.slice(0, 3).map((c) => (
             <li key={c.text}>
               <Quote size={13} aria-hidden />
-              <span>{c.text.replace(/^Sua run nº \d+/, inHall ? `Sua run nº ${run.runNo}` : 'Esta carreira')}</span>
+              <span>{c.text.replace(/^Sua carreira nº \d+/, inHall ? `Sua carreira nº ${run.runNo}` : 'Esta carreira')}</span>
             </li>
           ))}
         </ul>

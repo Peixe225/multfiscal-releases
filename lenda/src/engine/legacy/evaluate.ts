@@ -1,6 +1,6 @@
 /**
  * Avaliação de runs e do Hall inteiro: nota, recordes, ranking geral misto (runs + lendas),
- * pódios por categoria e frases de comparação ("Sua run nº 3 tem mais Libertadores que Pelé").
+ * pódios por categoria e frases de comparação ("Sua carreira nº 3 tem mais Libertadores que Pelé").
  */
 import { REAL_LEGENDS, type Legend } from '../../data/catalog/legends'
 import { CATEGORIES, CATEGORY_IDS, formatCategoryValue, type CategoryId, type CategoryValues } from './categories'
@@ -115,7 +115,7 @@ export interface LegacyComparison {
   weight: number
 }
 
-const runLabel = (run: RunLegacy) => `Sua run nº ${run.runNo}`
+const runLabel = (run: RunLegacy) => `Sua carreira nº ${run.runNo}`
 const PRODUCTION = new Set<CategoryId>(['goals', 'assists', 'goalsPerGame'])
 
 /**

@@ -123,7 +123,7 @@
   :where([data-lx-theme="transmissao"]) .lx-seg__thumb { display: none; }
 
   /* ---------------------------------------------------------------- dialog / sheet */
-  .lx-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(4, 5, 8, .62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .lx-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(4, 5, 8, .62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .lx-dialog-wrap { position: fixed; inset: 0; z-index: 61; display: grid; place-items: center; padding: 24px 16px; pointer-events: none; }
   .lx-dialog {
     position: relative; pointer-events: auto; width: 100%; max-height: min(88dvh, 860px); display: flex; flex-direction: column; overflow: hidden;
@@ -151,7 +151,7 @@
     position: fixed; z-index: 80; pointer-events: none; max-width: min(280px, calc(100vw - 24px));
     padding: 7px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; line-height: 1.35; color: var(--text);
     background: rgba(12, 13, 19, .94); border: 1px solid var(--nx-border-3, rgba(255, 255, 255, .18));
-    box-shadow: 0 16px 36px -12px #000; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 16px 36px -12px #000; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   }
   .lx-tip--card { padding: 10px 12px; border-radius: var(--radius-md); min-width: 200px; font-weight: 500; }
 

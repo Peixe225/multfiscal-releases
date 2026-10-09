@@ -44,11 +44,11 @@ function Steps({ current, items = ['Identidade', 'Clube de base', 'Estreia'] }: 
   )
 }
 
-function ColHead({ k, title, done, doneLabel, todo }: { k: string; title: string; done: boolean; doneLabel?: string; todo?: string }) {
+function ColHead({ k, title, done, doneLabel, todo }: { k?: string; title: string; done: boolean; doneLabel?: string; todo?: string }) {
   return (
     <div className="id-col-h">
       <h2>
-        <span className="k">{k}</span>
+        {k && <span className="k">{k}</span>}
         {title}
       </h2>
       {done ? (
@@ -76,6 +76,19 @@ export default function IdentityScreen() {
   const hasClassic = useCareer(selectHasActiveCareer)
   const hasImmersive = useImmersive(selectHasImmersiveCareer)
   const hasActive = immersive ? hasImmersive : hasClassic
+  // a carreira que "Começar nova carreira" substitui (o aviso diz qual é, e que a do outro modo fica)
+  const current = useCareer((s) => (immersive ? null : s.state))
+  const currentImm = useImmersive((s) => (immersive ? s.state : null))
+  const replaced = immersive ? currentImm : current
+  // ?nova=1: a pessoa já confirmou a substituição (landing, Trajetória). Vale só para esta visita — o
+  // parâmetro sai da URL, para que voltar no histórico até aqui não pule a confirmação.
+  const [agreedReplace] = useState(() => !!query.nova)
+  useEffect(() => {
+    if (!query.nova) return
+    const rest = { ...query }
+    delete rest.nova
+    navigate('/identidade', { query: rest, replace: true })
+  }, [query])
   useEffect(() => {
     if (immersive) void useImmersive.getState().init()
   }, [immersive])
@@ -147,11 +160,12 @@ export default function IdentityScreen() {
         // Modo Imersivo: sobrenome em caixa normal nas frases (o grafismo põe em caixa-alta pelo CSS)
         const surname = identity.surname.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_m, a: string, b: string) => a + b.toUpperCase())
         await useImmersive.getState().start({ ...identity, surname })
-        navigate('/imersivo')
+        // replace: o "voltar" do navegador não reabre o formulário preenchido da carreira que já começou
+        navigate('/imersivo', { replace: true })
         return
       }
       await useCareer.getState().start(identity, pace)
-      navigate('/carreira')
+      navigate('/carreira', { replace: true })
     } catch (err) {
       console.error(err)
       toast.error('Não foi possível começar a carreira', 'Tente de novo em instantes.')
@@ -163,7 +177,7 @@ export default function IdentityScreen() {
       if (!draft.nationality) searchRef.current?.focus()
       return
     }
-    if (hasActive && !query.nova) {
+    if (hasActive && !agreedReplace) {
       setConfirmReplace(true)
       return
     }
@@ -171,12 +185,14 @@ export default function IdentityScreen() {
   }
 
   // ───────────────────────── columns ─────────────────────────
+  // 01/02/03 só no painel de colunas; no assistente do celular a ordem é outra (o passo diz qual é)
+  const colNo = (n: string) => (wide ? n : undefined)
   const colIdentity = (
     <section className="id-col" aria-labelledby="id-h-1">
       <span id="id-h-1" className="sr-only">
         Identidade
       </span>
-      <ColHead k="01" title="Identidade" done={surname.trim().length > 0 && numberOk} todo="Nome e número" />
+      <ColHead k={colNo("01")} title="Identidade" done={surname.trim().length > 0 && numberOk} todo="Nome e número" />
       <div className="id-jersey">
         <div className="id-jersey__ovr">
           {/* no Imersivo (tema Transmissão) o selo de OVR é o do próprio modo — o da Noite não encaixa lá */}
@@ -210,10 +226,16 @@ export default function IdentityScreen() {
       </div>
       <div className="id-fields">
         <div className="id-field">
-          <label className="id-label" htmlFor="id-surname">
-            Sobrenome
-          </label>
-          <span className="lx-input lx-input--name">
+          <div className="id-label-row">
+            <label className="id-label" htmlFor="id-surname">
+              Sobrenome
+            </label>
+            <span className="id-count" id="id-surname-count" aria-label={`${surname.length} de 15 caracteres`}>
+              {surname.length}/15
+            </span>
+          </div>
+          {/* o contador fica na linha do rótulo e a letra encolhe com o tamanho: os 15 caracteres cabem inteiros */}
+          <span className="lx-input lx-input--name" data-len={surname.length > 12 ? 'xl' : surname.length > 9 ? 'l' : undefined}>
             <input
               id="id-surname"
               ref={surnameRef}
@@ -226,9 +248,6 @@ export default function IdentityScreen() {
               onChange={(e) => patch({ surname: cleanSurname(e.target.value) })}
               aria-describedby="id-surname-count"
             />
-            <span className="id-count" id="id-surname-count" aria-label={`${surname.length} de 15 caracteres`}>
-              {surname.length}/15
-            </span>
           </span>
         </div>
         <div className="id-field">
@@ -311,7 +330,7 @@ export default function IdentityScreen() {
       <span id="id-h-2" className="sr-only">
         Nacionalidade
       </span>
-      <ColHead k="02" title="Nacionalidade" done={!!country} doneLabel={country?.name} todo="Busque seu país" />
+      <ColHead k={colNo("02")} title="Nacionalidade" done={!!country} doneLabel={country?.name} todo="Busque seu país" />
       <NationalityPicker countries={countries} value={draft.nationality} onChange={(nationality) => patch({ nationality })} searchRef={searchRef} />
     </section>
   )
@@ -321,7 +340,7 @@ export default function IdentityScreen() {
       <span id="id-h-3" className="sr-only">
         Posição
       </span>
-      <ColHead k="03" title="Posição" done={!!draft.position} doneLabel={draft.position ? POSITION_LABEL[draft.position] : undefined} todo="Seu lugar em campo" />
+      <ColHead k={colNo("03")} title="Posição" done={!!draft.position} doneLabel={draft.position ? POSITION_LABEL[draft.position] : undefined} todo="Seu lugar em campo" />
       <Pitch value={draft.position} onChange={(position) => patch({ position })} />
       <PositionCard value={draft.position} />
     </section>
@@ -369,9 +388,13 @@ export default function IdentityScreen() {
       onClose={() => setConfirmReplace(false)}
       size="sm"
       title="Substituir a carreira atual?"
-      description="Você tem uma carreira em andamento. Ao confirmar, ela será substituída por esta nova."
+      description={
+        replaced
+          ? `A carreira ${immersive ? 'imersiva' : 'clássica'} de ${replaced.identity.surname} (${replaced.age} anos · OVR ${replaced.ovr}) será substituída por esta nova. A carreira ${immersive ? 'clássica' : 'imersiva'} não é afetada.`
+          : 'Você tem uma carreira em andamento. Ao confirmar, ela será substituída por esta nova.'
+      }
       footer={
-        <div className="flex gap-2 justify-end flex-wrap w-full">
+        <div className="flex gap-2 justify-end flex-nowrap w-full">
           <Button variant="ghost" size="md" onClick={() => setConfirmReplace(false)}>
             Cancelar
           </Button>
@@ -385,7 +408,7 @@ export default function IdentityScreen() {
               void doStart()
             }}
           >
-            Começar nova carreira
+            Substituir
           </Button>
         </div>
       }
@@ -480,7 +503,7 @@ export default function IdentityScreen() {
           {colPosition}
         </Glass>
       </motion.div>
-      <Glass className="id-actions" padding="none">
+      <Glass className="id-actions" padding="none" style={{ position: 'sticky' }}>
         <Button variant="ghost" size="lg" icon={ArrowLeft} onClick={() => navigate('/')}>
           Voltar
         </Button>

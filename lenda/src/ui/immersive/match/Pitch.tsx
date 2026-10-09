@@ -167,10 +167,13 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
       }
       el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0)`
     }
-    /** Etiqueta "NOME · nota" perto da linha lateral/de fundo: ancora para dentro em vez de centralizar. */
+    /** Etiqueta "NOME · nota" perto da linha de fundo / lateral: ancora para dentro em vez de centralizar. */
     let edge = ''
     const tagEdge = (x: number, y: number) => {
-      const e = `${x < 12 ? 'l' : x > 88 ? 'r' : ''}${y < 14 ? 't' : ''}`
+      const B = box.current
+      const px = (x / 100) * B.w
+      // ~80 px = meia etiqueta larga ("NASCIMENTO · 6,9"); ~50 px = etiqueta + disco acima do ponto
+      const e = `${px < 80 ? 'l' : px > B.w - 80 ? 'r' : ''}${(y / 100) * B.h < 50 ? 't' : ''}`
       if (e === edge || !me.current) return
       edge = e
       me.current.dataset.edge = e

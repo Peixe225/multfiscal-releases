@@ -19,6 +19,7 @@ import type {
   TrophyFamily,
   TrophyWin,
 } from '@/engine/types'
+import { deCountry } from '@/engine/immersive/util'
 import { getCompetition, getCountry, getLeague, getTrophy } from '@/store/data'
 import { formatSeason } from '@/ui/primitives'
 
@@ -427,7 +428,7 @@ export function nationalLine(seasons: SeasonRecord[], nationality: string): Nati
   return { code, name: nationalTeamName(country?.name ?? code), firstCallUp: first, apps, goals, assists, trophies, caption }
 }
 
-/** "Brasil" → "Seleção Brasileira" for the most common nations, else "Seleção de {País}". */
+/** "Brasil" → "Seleção Brasileira" for the most common nations, else "Seleção do Equador / da Croácia / de Angola". */
 export function nationalTeamName(country: string): string {
   const adj: Record<string, string> = {
     Brasil: 'Seleção Brasileira',
@@ -450,5 +451,5 @@ export function nationalTeamName(country: string): string {
     Japão: 'Seleção Japonesa',
     Marrocos: 'Seleção Marroquina',
   }
-  return adj[country] ?? `Seleção de ${country}`
+  return adj[country] ?? `Seleção ${deCountry(country)}`
 }

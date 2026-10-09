@@ -227,11 +227,16 @@ export interface KeyMoment {
   /** pt-BR: "Ribeiro recebe na entrada da área, marcado por Marquinhos…" */
   description: string
   options: KeyMomentOption[]
-  /** Tempo para decidir (ms). Sem resposta → a IA escolhe a opção mais segura. */
+  /** Tempo para decidir (ms). Sem resposta (`match_timeout`) → vale a opção `suggested`. */
   timeLimitMs: number
   /** Minijogo associado (pênalti: escolher canto; timing: barra de precisão). */
   minigame?: 'penalty_kick' | 'penalty_save' | 'timing'
   at?: { x: number; y: number }
+  /**
+   * (aditivo) Opção recomendada: a de maior valor esperado em gols (finalizar × passe que vira gol ×
+   * gols evitados), sem sorteio. É a escolhida quando o tempo acaba — a UI deve marcá-la como padrão.
+   */
+  suggested?: string
 }
 
 export interface UserMatchStats {
@@ -324,6 +329,8 @@ export interface ContractOffer {
   expiresWeek: number
   /** Negociação: quantas contrapropostas ainda cabem. */
   roundsLeft: number
+  /** (aditivo) Rodadas no início da negociação (paciência da diretoria e pips; ausente em saves antigos). */
+  rounds?: number
   note?: string // "O técnico te quer como camisa 10"
 }
 
@@ -399,6 +406,20 @@ export interface ImmersiveState {
   leagueId?: string | null
   /** Seguidores nas redes (alcance dos posts). */
   followers?: number
+  /**
+   * Coletiva em andamento (fica até a próxima começar): relações no começo e respostas já dadas — o
+   * medidor, os pips e o card de fechamento sobrevivem a recarregar a página.
+   */
+  pressLog?: PressLog | null
+}
+
+export interface PressLog {
+  /** Item da agenda (as perguntas são `${itemId}:q0`, `:q1`…). */
+  itemId: string
+  total: number
+  start: { fans: number; media: number; coach: number; teammates: number; morale: number }
+  /** Na ordem; `newsId` = manchete que a resposta gerou. */
+  answers: { questionId: string; answerId: string; tone: PressQuestion['answers'][number]['tone']; newsId: string }[]
 }
 
 // ───────────────────────────── ações e efeitos ─────────────────────────────
@@ -460,8 +481,11 @@ export interface ImmersiveEngine {
   /** Utilitários para a UI. */
   nextItem(state: ImmersiveState): CalendarItem | null
   ovrOf(attributes: Attributes, position: Position): number
-  /** Tabela ao vivo da liga do jogador na rodada atual (reais + pré-simulados + os do jogador). */
-  liveTable(data: GameData, state: ImmersiveState): import('../types').StandingRow[]
+  /**
+   * Tabela ao vivo da liga do jogador na rodada atual (reais + pré-simulados + os do jogador). Liga de
+   * Apertura/Clausura: a do torneio em curso, ou a de `tournament` (0 = Apertura, 1 = Clausura).
+   */
+  liveTable(data: GameData, state: ImmersiveState, tournament?: number): import('../types').StandingRow[]
   // ── aditivos (motor) ──
   /** Ações aceitas agora pelo `dispatch` (as demais viram no-op com toast). */
   validActions?(state: ImmersiveState): ImmersiveAction['type'][]

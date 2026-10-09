@@ -71,6 +71,8 @@ export interface LiveMem {
   bench?: [string[], string[]]
   /** Quem entrou do banco em cada lado (não é substituído de novo). */
   fromBench?: [string[], string[]]
+  /** Jogadores de fundo com amarelo em cada lado (o 2º expulsa). */
+  booked?: [string[], string[]]
   keeper: [string, string]
   /** Nomes que já saíram (substituídos/expulsos) — narrativa. */
   subsDone: [number, number]
@@ -87,6 +89,8 @@ export interface LiveMem {
   motm?: boolean
   /** Fora por suspensão (desconta um jogo ao fim). */
   suspendedOut?: boolean
+  /** Ajustes finais da nota já aplicados (no apito final). */
+  rated?: boolean
   /** Postura atual e saldo de lances criados (+) ou cortados (−) por ela (limitado a −1…+2). */
   posture?: MatchPosture
   postureNet?: number
@@ -112,6 +116,8 @@ export interface MomentSpec {
   teammate: string
   opponent: string
   minigame?: 'penalty_kick' | 'penalty_save' | 'timing'
+  /** Opção recomendada (IA "esperta" sem sorteio) — a do tempo esgotado. */
+  suggested?: string
 }
 
 export interface Deltas {
@@ -137,6 +143,11 @@ export interface SeasonClubSpan {
   clubId: string
   comps: string[]
   apps: number
+  // ── números da passagem (temporada dividida entre clubes; ausentes em saves antigos) ──
+  loan?: boolean
+  goals?: number
+  assists?: number
+  minutes?: number
 }
 
 export interface ImmersiveMemory {
@@ -265,6 +276,14 @@ export interface ImmersiveMemory {
   penHist?: number[]
   /** Amarelos por competição (suspensão ao acumular). */
   yellowsBy?: Record<string, number>
+  /** Coletivas: pergunta → semana em que saiu (temporada·100 + semana); não volta em 4 semanas. */
+  pressSeen?: Record<string, number>
+  /** Manchete da coletiva em andamento (uma só por coletiva: a resposta mais quente). */
+  pressHead?: { newsId: string; rank: number }
+  /** Posição na liga depois do último jogo de liga (notícias de G-4/Z-4, liderança). */
+  lastLeaguePos?: number
+  /** Semana (temporada·100 + semana) da última notícia de tabela/sequência. */
+  tableNewsWeek?: number
 }
 
 export function mem(s: ImmersiveState): ImmersiveMemory {

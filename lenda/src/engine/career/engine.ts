@@ -34,7 +34,7 @@ import {
 import { clampOvr, contractYears, isBenchRole, isPlayingRole, predictRole, roleFromDelta, roundMoney } from './player'
 import { playSeason } from './season'
 import { summarize } from './summary'
-import { clubStrength, indexData, withArticle } from './util'
+import { clubArticle, clubStrength, indexData, withArticle } from './util'
 
 // ───────────────────────── helpers de estado ─────────────────────────
 
@@ -81,7 +81,7 @@ function joinOpt(data: GameData, s: CareerState, club: Club, id: string, label: 
 function stayOpt(data: GameData, s: CareerState, club: Club): EventOption {
   return {
     option: clubCard(data, s, club, `stay-${club.id}`, `Ficar ${withArticle('em', club)}`),
-    spec: { type: 'stay', optionKey: 'stay', clubId: club.id, outcomes: plain(`Seguiu no ${club.name}.`) },
+    spec: { type: 'stay', optionKey: 'stay', clubId: club.id, outcomes: plain(`Seguiu ${withArticle('em', club)} ${club.name}.`) },
   }
 }
 
@@ -119,7 +119,7 @@ function transferDecision(data: GameData, s: CareerState, reason?: 'suspended'):
   const canRetire = (offers.length === 0 && s.age >= 34) || s.age >= 36
   if (canRetire) options.push(retireOpt(s, 'voluntary'))
   let description = offers.length
-    ? 'Chegaram propostas depois do último trecho da carreira. Aceite uma delas ou continue no clube.'
+    ? 'Chegaram propostas. Aceite uma delas ou continue no clube.'
     : canRetire
       ? 'Nenhuma proposta apareceu. Dá para seguir no clube ou pendurar as chuteiras.'
       : 'Nenhuma proposta apareceu desta vez. Você segue no clube.'
@@ -154,7 +154,7 @@ function loanReturnDecision(data: GameData, s: CareerState): Decision | null {
     options.push(stayOpt(data, s, parent))
     return assembleDecision(s, 'loan_return', {
       title: 'Volta ao clube',
-      description: `O empréstimo acabou e o ${parent.shortName} conta com você. Se ainda quiser sair, há propostas na mesa.`,
+      description: `O empréstimo acabou e ${clubArticle(parent)} ${parent.shortName} conta com você. Se ainda quiser sair, há propostas na mesa.`,
       options,
     }, { context: { retained: true } })
   }
@@ -166,7 +166,7 @@ function loanReturnDecision(data: GameData, s: CareerState): Decision | null {
   options.push(stayOpt(data, s, parent))
   return assembleDecision(s, 'loan_return', {
     title: 'Volta ao clube',
-    description: `O empréstimo acabou, mas o ${parent.shortName} não conta com você. Dá para sair de novo, ficar de vez onde estava ou brigar por espaço.`,
+    description: `O empréstimo acabou, mas ${clubArticle(parent)} ${parent.shortName} não conta com você. Dá para sair de novo, ficar de vez onde estava ou brigar por espaço.`,
     options,
   }, { context: { retained: false } })
 }

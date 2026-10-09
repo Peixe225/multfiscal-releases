@@ -51,6 +51,9 @@ function lockApp(on: boolean) {
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
+/** Open modals, innermost last: only the top one answers Esc / Tab that reach the document. */
+const stack: object[] = []
+
 export function Modal(props: ModalProps) {
   const { open } = props
   return typeof document === 'undefined' ? null : createPortal(<AnimatePresence>{open && <ModalInner key="m" {...props} />}</AnimatePresence>, document.body)
@@ -69,6 +72,8 @@ function ModalInner({ onClose, title, description, media, children, footer, size
   const drag = useDragControls()
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  const dismissRef = useRef(dismissible)
+  dismissRef.current = dismissible
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
@@ -84,6 +89,31 @@ function ModalInner({ onClose, title, description, media, children, footer, size
       prev?.focus?.({ preventScroll: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Focus can fall out of the panel (the focused button unmounts → <body>): the panel's own onKeyDown
+  // never sees the key then. Esc still closes the top modal, and Tab brings focus back inside.
+  useEffect(() => {
+    const me = {}
+    stack.push(me)
+    const onDocKey = (e: KeyboardEvent) => {
+      const el = panel.current
+      const lost = !document.activeElement || document.activeElement === document.body
+      if (stack[stack.length - 1] !== me || !el || !lost) return
+      if (e.key === 'Escape' && dismissRef.current) {
+        e.preventDefault()
+        closeRef.current()
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        const items = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((x) => x.offsetParent !== null)
+        ;((e.shiftKey ? items[items.length - 1] : items[0]) ?? el).focus()
+      }
+    }
+    document.addEventListener('keydown', onDocKey)
+    return () => {
+      document.removeEventListener('keydown', onDocKey)
+      stack.splice(stack.indexOf(me), 1)
+    }
   }, [])
 
   const onKeyDown = (e: React.KeyboardEvent) => {

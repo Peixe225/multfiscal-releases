@@ -180,11 +180,14 @@ describe('determinismo e serialização', () => {
 })
 
 describe('helpers para a UI', () => {
-  it('formatMoney segue a regra do Copero', () => {
+  it('formatMoney segue a regra do Copero, com vírgula decimal e sem ",0"', () => {
     expect(formatMoney(100_000)).toBe('€100K')
     expect(formatMoney(380_000)).toBe('€380K')
-    expect(formatMoney(5_500_000)).toBe('€5.5M')
-    expect(formatMoney(5_100_000)).toBe('€5.1M')
+    expect(formatMoney(5_500_000)).toBe('€5,5M')
+    expect(formatMoney(5_100_000)).toBe('€5,1M')
+    expect(formatMoney(7_000_000)).toBe('€7M')
+    expect(formatMoney(9_980_000)).toBe('€10M')
+    expect(formatMoney(999_800)).toBe('€1M')
     expect(formatMoney(45_000_000)).toBe('€45M')
     expect(formatMoney(250_000_000)).toBe('€250M')
     expect(formatMoney(10_000)).toBe('€10K')

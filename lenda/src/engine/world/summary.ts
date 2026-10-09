@@ -84,13 +84,32 @@ export function nationSeason(result: SeasonWorldResult, countryCode: string): Na
   for (const t of Object.values(result.national)) {
     const reached = t.winner === countryCode ? 'Campeão' : t.reached[countryCode]
     if (!reached) continue
+    const rec = tournamentRecord(t, countryCode)
     out.tournament = {
       competitionId: t.competitionId,
       reached,
       champion: t.winner === countryCode,
       trophyId: t.trophyId ?? t.competitionId,
+      games: rec.games,
+      goalsFor: rec.goals,
     }
     break
   }
   return out
+}
+
+/** Jogos e gols de uma seleção DENTRO de um torneio (grupos + mata-mata). */
+export function tournamentRecord(t: SeasonWorldResult['national'][string], code: string): { goals: number; games: number } {
+  let goals = 0
+  let games = 0
+  for (const g of t.groups ?? []) for (const r of g.table) if (r.clubId === code) (goals += r.gf), (games += r.played)
+  for (const st of t.knockout) {
+    for (const tie of st.ties) {
+      for (const l of tie.legs) {
+        if (l.home === code) (goals += l.score[0]), games++
+        else if (l.away === code) (goals += l.score[1]), games++
+      }
+    }
+  }
+  return { goals, games }
 }

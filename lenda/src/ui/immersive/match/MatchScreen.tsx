@@ -1348,14 +1348,21 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
   const goals = matchGoals(live.events)
   const gk = s.identity.position === 'GOL'
   const refused = refusedBench(live.itemId)
-  // de volta à Central: o foco vai para a tela nova (não cai no <body>), se ninguém o pegou antes
+  // de volta à Central: o foco vai para a tela nova (não cai no <body>) assim que ela monta (pode vir
+  // de um chunk ainda carregando), se ninguém o pegou antes
   const back = () =>
-    void dispatch({ type: 'match_finish' }).then(() =>
-      setTimeout(() => {
+    void dispatch({ type: 'match_finish' }).then(() => {
+      let n = 0
+      const t = window.setInterval(() => {
         const a = document.activeElement
-        if (!a || a === document.body) document.getElementById('conteudo')?.focus({ preventScroll: true })
-      }, 80),
-    )
+        const main = document.getElementById('conteudo')
+        if (a && a !== document.body) return window.clearInterval(t)
+        if (main && !main.closest('.im-match')) {
+          main.focus({ preventScroll: true })
+          window.clearInterval(t)
+        } else if (++n > 30) window.clearInterval(t)
+      }, 100)
+    })
   useEffect(() => {
     imSfx.play(glory ? 'trophy' : 'whistle')
   }, [glory])

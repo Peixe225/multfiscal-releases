@@ -18,6 +18,12 @@ import { useReveal, type Side } from '@/ui/classic/reveal/store'
 
 const SIDES: Side[] = ['left', 'center', 'right']
 const SIDE_LABEL: Record<Side, string> = { left: 'Esquerda', center: 'Meio', right: 'Direita' }
+/** Screen-reader phrase: "o canto" is masculine ("no canto esquerdo", "para o canto direito"). */
+const SIDE_ARIA: Record<Side, { shot: string; dive: string }> = {
+  left: { shot: 'Chutar no canto esquerdo', dive: 'Pular para o canto esquerdo' },
+  center: { shot: 'Chutar no meio', dive: 'Ficar no meio' },
+  right: { shot: 'Chutar no canto direito', dive: 'Pular para o canto direito' },
+}
 const SIDE_ICON = { left: ArrowLeft, center: ArrowUp, right: ArrowRight } as const
 /** Ball / keeper x offsets inside the goal (% of goal width, from the centre). */
 const X: Record<Side, number> = { left: -34, center: 0, right: 34 }
@@ -147,7 +153,7 @@ export const PenaltyMinigame = memo(function PenaltyMinigame({ decision, locked 
                 data-idx={i}
                 className={cx('ck-pen__zone', `is-${t.side}`, on && 'is-on', picked && picked !== t.side && 'is-off')}
                 disabled={!aiming}
-                aria-label={`${gk ? 'Pular para' : 'Chutar no'} ${t.side === 'center' ? 'meio' : `canto ${SIDE_LABEL[t.side].toLowerCase()}`}${t.p != null ? ` (${formatPercent(t.p)} de chance)` : ''}`}
+                aria-label={`${SIDE_ARIA[t.side][gk ? 'dive' : 'shot']}${t.p != null ? ` (${formatPercent(t.p)} de chance)` : ''}`}
                 aria-keyshortcuts={String(i + 1)}
                 onMouseEnter={() => setHover(t.side)}
                 onMouseLeave={() => setHover(null)}

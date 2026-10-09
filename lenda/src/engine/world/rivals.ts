@@ -20,6 +20,8 @@ export const GOAL_W: Record<Position, number> = {
 export const ASSIST_W: Record<Position, number> = {
   CA: 0.5, PE: 0.85, PD: 0.85, MEI: 1.0, ME: 0.7, MD: 0.7, MC: 0.6, VOL: 0.3, LE: 0.5, LD: 0.5, ZAG: 0.12, GOL: 0.02,
 }
+/** Teto de jogos de um craque na temporada (sem estaduais e seleção). */
+const MAX_APPS = 60
 /** Teto de gols esperados por jogo. */
 const GOAL_CAP: Partial<Record<Position, number>> = { CA: 0.9, PE: 0.65, PD: 0.65, MEI: 0.5, ME: 0.35, MD: 0.35, MC: 0.3 }
 
@@ -156,7 +158,11 @@ export function offseasonRivals(env: RivalEnv, rivals: readonly Rival[]): Rival[
     const age = rng.int(17, 19)
     const ovr = Math.round(clamp(potential - rng.range(9, 17) + (age - 17) * 1.5, 58, 84))
     const position = rng.weighted(POSITIONS, (p) => p[1])[0]
-    const nm = randomName(nationality, rng)
+    let nm = randomName(nationality, rng)
+    const clubId = pickClub(data, ix, clubs, nationality, ovr + 6, rng)
+    // dois "Lucas Silva" no mesmo elenco confundem a narração e os rankings: sorteia outro nome
+    const taken = (n: typeof nm) => next.some((x) => x.clubId === clubId && (x.name === n.name || x.shortName === n.shortName))
+    for (let t = 0; t < 6 && taken(nm); t++) nm = randomName(nationality, rng)
     next.push({
       id: `g${env.season}-${k}`,
       name: nm.name,
@@ -166,14 +172,19 @@ export function offseasonRivals(env: RivalEnv, rivals: readonly Rival[]): Rival[
       birthYear: env.season - age,
       ovr,
       potential,
-      clubId: pickClub(data, ix, clubs, nationality, ovr + 6, rng),
+      clubId,
       generated: true,
     })
   }
   return next
 }
 
-/** Craques em clubes fracos demais sobem; veteranos às vezes vão para ligas ricas (KSA/USA). */
+/**
+ * Craques em clubes fracos demais sobem; veteranos às vezes vão para ligas ricas (KSA/USA).
+ * No auge (até 30 anos, OVR 82+), só a Europa: o Brasileirão (coef. 0,74) recebia regens europeus no
+ * auge e virava a liga dos 70 gols por temporada. Abaixo disso, ligas fora da UEFA pesam menos (e quase
+ * nada para quem é de outro continente) — o argentino vai ao Brasil, o holandês de 25 anos, não.
+ */
 function transfers(env: RivalEnv, rivals: Rival[], rng: Rng) {
   const { data, ix, clubs } = env
   const big = data.clubs.filter((c) => {
@@ -181,6 +192,12 @@ function transfers(env: RivalEnv, rivals: Rival[], rng: Rng) {
     const lg = d && ix.league.get(d.leagueId)
     return lg && lg.tier === 1 && lg.coefficient >= 0.7
   })
+  const confedOf = (clubId: string) => ix.league.get(clubs[clubId]?.leagueId ?? '')?.confed
+  const pull = (r: Rival, clubId: string) => {
+    const cf = confedOf(clubId)
+    return cf === 'UEFA' ? 1 : cf === ix.country.get(r.nationality)?.confed ? 0.5 : 0.1
+  }
+  const prime = (r: Rival, age: number) => age <= 30 && r.ovr >= 82
   const rich = data.clubs.filter((c) => {
     const d = clubs[c.id]
     const lg = d && ix.league.get(d.leagueId)
@@ -194,9 +211,11 @@ function transfers(env: RivalEnv, rivals: Rival[], rng: Rng) {
     const gap = r.ovr - cs
     const allowed = (c: (typeof data.clubs)[number]) => (!c.onlyNationality || c.onlyNationality === r.nationality) && c.id !== r.clubId
     if (age <= 31 && r.ovr >= 78 && gap > 4 && rng.chance(clamp(0.3 + 0.04 * (gap - 4), 0, 0.8))) {
-      const cands = big.filter((c) => allowed(c) && clubs[c.id].strength >= r.ovr - 7 && clubs[c.id].strength <= r.ovr + 3)
+      const cands = big.filter(
+        (c) => allowed(c) && clubs[c.id].strength >= r.ovr - 7 && clubs[c.id].strength <= r.ovr + 3 && (!prime(r, age) || confedOf(c.id) === 'UEFA'),
+      )
       if (cands.length) {
-        const dest = rng.weighted(cands, (c) => (1 + clubs[c.id].prestige) / (1 + (starsAt.get(c.id) ?? 0)) ** 1.5)
+        const dest = rng.weighted(cands, (c) => ((1 + clubs[c.id].prestige) / (1 + (starsAt.get(c.id) ?? 0)) ** 1.5) * pull(r, c.id))
         starsAt.set(r.clubId, Math.max(0, (starsAt.get(r.clubId) ?? 1) - 1))
         starsAt.set(dest.id, (starsAt.get(dest.id) ?? 0) + 1)
         r.clubId = dest.id
@@ -206,7 +225,7 @@ function transfers(env: RivalEnv, rivals: Rival[], rng: Rng) {
       if (cands.length) r.clubId = rng.weighted(cands, (c) => clubs[c.id].strength - 50).id
     } else if (age <= 30 && r.ovr >= 82 && rng.chance(0.05)) {
       // transferência "de mercado" entre clubes de nível parecido
-      const cands = big.filter((c) => allowed(c) && Math.abs(clubs[c.id].strength - cs) <= 3)
+      const cands = big.filter((c) => allowed(c) && Math.abs(clubs[c.id].strength - cs) <= 3 && confedOf(c.id) === 'UEFA')
       if (cands.length) r.clubId = rng.pick(cands).id
     }
   }
@@ -214,7 +233,8 @@ function transfers(env: RivalEnv, rivals: Rival[], rng: Rng) {
 
 /**
  * Estatísticas da temporada de cada rival a partir das estatísticas do clube
- * (`clubStats`: [jogos, gols pró, gols contra, sem sofrer gol]).
+ * (`clubStats`: [jogos, gols pró, gols contra, sem sofrer gol] — sem os estaduais, que não contam
+ * para os rankings: o Flamengo faz 60+ jogos com o Carioca e o craque dele virava artilheiro de 70 gols).
  */
 export function rivalSeasonStats(
   seed: string,
@@ -259,7 +279,7 @@ export function rivalSeasonStats(
     const WA = wa + restA
     for (const i of idxs) {
       const r = rivals[i]
-      const apps = Math.round(m * avail[i])
+      const apps = Math.min(MAX_APPS, Math.round(m * avail[i]))
       // parcela do clube, limitada a 42% dos gols e a um teto por jogo (evita 40 gols em 27 jogos)
       const sg = WG > 0 ? Math.min(0.42, (GOAL_W[r.position] * quality(r.ovr) * avail[i]) / WG) : 0
       const sa = WA > 0 ? Math.min(0.3, (ASSIST_W[r.position] * quality(r.ovr) * avail[i]) / WA) : 0

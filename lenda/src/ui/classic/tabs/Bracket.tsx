@@ -91,7 +91,7 @@ export const TieCard = memo(function TieCard({ tie, highlight, final }: { tie: T
   const path = !!highlight && (tie.a === highlight || tie.b === highlight)
   const legs = tie.legs.length
   const title = tie.legs
-    .map((l, i) => `${legs > 1 ? `${i + 1}º jogo: ` : ''}${teamName(l.home, true)} ${l.score[0]}×${l.score[1]} ${teamName(l.away, true)}${l.pens ? ` (pên. ${l.pens[0]}×${l.pens[1]})` : ''}${l.aet && !l.pens ? ' (prorr.)' : ''}`)
+    .map((l, i) => `${legs > 1 ? `${i + 1}º jogo: ` : ''}${teamName(l.home, true)} ${l.score[0]}×${l.score[1]} ${teamName(l.away, true)}${l.pens ? ` (${l.pens[0]}×${l.pens[1]} pên.)` : ''}${l.aet && !l.pens ? ' (prorr.)' : ''}`)
     .join(' · ')
   return (
     <div className={cx('tb-tie', path && 'is-path', final && 'is-final')} title={title}>

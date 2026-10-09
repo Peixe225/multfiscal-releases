@@ -21,10 +21,11 @@ export interface IdentityDraft {
 
 export const EMPTY_DRAFT: IdentityDraft = { surname: '', number: '10', foot: 'right', nationality: null, position: null }
 
+/** `label` concorda com "ritmo" ("Ritmo Intenso", como na barra do cockpit), não com o id da engine. */
 export const PACE_INFO: Record<Pace, { label: string; seasons: number; lead: string; tail: string }> = {
-  intensa: { label: 'Intensa', seasons: 1, lead: '1 decisão por temporada', tail: 'imersão profunda' },
+  intensa: { label: 'Intenso', seasons: 1, lead: '1 decisão por temporada', tail: 'imersão profunda' },
   normal: { label: 'Normal', seasons: 2, lead: 'Decisões a cada 2 temporadas', tail: 'experiência equilibrada' },
-  expressa: { label: 'Expressa', seasons: 3, lead: 'Decisões a cada 3 temporadas', tail: 'para jogar mais rápido' },
+  expressa: { label: 'Expresso', seasons: 3, lead: 'Decisões a cada 3 temporadas', tail: 'para jogar mais rápido' },
 }
 
 export const isValidNumber = (v: string) => /^(?:[1-9]|[1-9]\d)$/.test(v.trim())

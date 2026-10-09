@@ -1,11 +1,12 @@
 /**
  * Coletiva de imprensa: parede de patrocínio, cone de luz, mesa e microfones de veículos
- * fictícios; lower-third "AO VIVO"; medidor de repercussão (crise ↔ ídolo) e pips de progresso;
+ * fictícios; lower-third "AO VIVO"; medidor de repercussão (negativa ↔ positiva) e pips de progresso;
  * pergunta em lower-third; 4 respostas por tom com dicas de efeito. Sem cronômetro.
  *
  * Ritmo: a resposta escolhida fica em destaque (flashes de câmera, demais esmaecidas) ~1,1 s antes
  * de a próxima pergunta entrar; a manchete aparece num espaço reservado (nada "pula"). No fim, um
- * card de fechamento mostra a repercussão, as manchetes e o que mudou nas relações.
+ * card de fechamento mostra a repercussão, as manchetes e o que mudou nas relações. O motor guarda o
+ * começo e as respostas (`pressLog`): recarregar no meio não zera o medidor, os pips nem o fechamento.
  */
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Brain, Megaphone, Mic, MicOff, Newspaper, Smile, Users } from 'lucide-react'
@@ -20,6 +21,10 @@ import { imSfx, keyBlocked } from '../hooks'
 
 const SHIFT: Record<Tone, number> = { humilde: 0.07, confiante: 0.1, provocador: -0.16, evasivo: -0.04 }
 const HOLD_MS = 1100
+/** Medidor: parte de 0,55 e anda com cada resposta, na ordem (preso entre 0,04 e 0,96). */
+const gaugeOf = (tones: Tone[]) => tones.reduce((g, t) => Math.max(0.04, Math.min(0.96, g + SHIFT[t])), 0.55)
+type Mood = 'pos' | 'neu' | 'neg'
+const MOOD: Record<Mood, string> = { pos: 'positiva', neu: 'neutra', neg: 'negativa' }
 
 function MicCluster() {
   return (
@@ -68,11 +73,14 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
   const rm = useReducedMotion()
   const skip = useSkipAnimations()
   const press = s.press ?? []
-  const total = useRef(Math.max(press.length, 1))
+  // coletiva retomada (a página recarregou no meio): o registro do motor traz o começo e as respostas
+  const log = s.pressLog && (!press.length || press[0].id.startsWith(`${s.pressLog.itemId}:`)) ? s.pressLog : null
+  const total = useRef(Math.max(log?.total ?? press.length, 1))
   // retrato no começo da coletiva (para o card de fechamento)
-  const start = useRef({ rel: { ...s.relationships }, morale: s.condition.morale, item: currentItem(s) })
-  const [gauge, setGauge] = useState(0.55)
-  const [chosen, setChosen] = useState<{ q: string; a: string } | null>(null)
+  const start = useRef({ rel: log ? { fans: log.start.fans, media: log.start.media, coach: log.start.coach, teammates: log.start.teammates } : { ...s.relationships }, morale: log?.start.morale ?? s.condition.morale, item: currentItem(s) })
+  // respostas desta visita (só vale para um motor sem `pressLog`)
+  const [picked, setPicked] = useState<Tone[]>([])
+  const [chosen, setChosen] = useState<{ q: string; a: string; tone: Tone } | null>(null)
   const [flashes, setFlashes] = useState<{ id: number; x: number; y: number; d: number }[]>([])
   const [headline, setHeadline] = useState<string | null>(null)
   const [heads, setHeads] = useState<NewsItem[]>([])
@@ -105,8 +113,8 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
 
   const answer = (a: PressQuestion['answers'][number]) => {
     if (!q || chosen || busy) return
-    setChosen({ q: q.id, a: a.id })
-    setGauge((g) => Math.max(0.04, Math.min(0.96, g + SHIFT[a.tone])))
+    setChosen({ q: q.id, a: a.id, tone: a.tone })
+    setPicked((t) => [...t, a.tone])
     imSfx.play('click')
     if (!rm) {
       let seed = 7 + done * 13
@@ -138,7 +146,11 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
   const usName = game?.kind === 'national_match' || opp?.national ? teamInfo(s.identity.nationality).short : club?.shortName
   const ltValue = opp && usName ? (game?.home === false ? `${opp.short} × ${usName}` : `${usName} × ${opp.short}`) : club ? `${surnameOf(s)} · ${club.shortName}` : 'Sala de imprensa'
   const initials = q ? OUTLET_SHORT[q.outlet] ?? q.outlet.slice(0, 3).toUpperCase() : ''
-  const mood = gauge >= 0.66 ? 'Ídolo' : gauge <= 0.34 ? 'Crise' : 'Neutro'
+  // a resposta escolhida já move o medidor durante a pausa, antes de o motor registrá-la
+  const waiting = chosen && log && !log.answers.some((x) => x.questionId === chosen.q) ? [chosen.tone] : []
+  const gauge = gaugeOf(log ? [...log.answers.map((x) => x.tone), ...waiting] : picked)
+  const mood: Mood = gauge >= 0.66 ? 'pos' : gauge <= 0.34 ? 'neg' : 'neu'
+  const logHeads = log ? log.answers.flatMap((x) => s.news.find((n) => n.id === x.newsId) ?? []) : []
   return (
     <main id="conteudo" tabIndex={-1} className={cx('im-press outline-none', ended && 'is-ended')}>
       <div className="lx-press-wall im-press__wall" aria-hidden="true" />
@@ -167,13 +179,14 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
             <span className="im-gauge__needle" />
           </div>
           <div className="im-gauge__ends">
-            <span className="lx-label is-neg">Crise</span>
-            <span className="lx-label">Neutro</span>
-            <span className="lx-label is-pos">Ídolo</span>
+            <span className="lx-label is-neg">Negativa</span>
+            <span className="lx-label">Neutra</span>
+            <span className="lx-label is-pos">Positiva</span>
           </div>
         </div>
         <span className="im-gauge__pip" aria-hidden="true" data-mood={mood}>
-          {mood} · {Math.min(done + (ended ? 0 : 1), total.current)}/{total.current}
+          <small>Repercussão</small>
+          {MOOD[mood]} · {Math.min(done + (ended ? 0 : 1), total.current)}/{total.current}
         </span>
       </div>
 
@@ -219,6 +232,8 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
                     <span className="lx-tone" data-tone={TONE_CSS[a.tone]}>
                       {TONE_LABEL[a.tone] === 'Provocador' ? 'Polêmico' : TONE_LABEL[a.tone]}
                     </span>
+                    {/* dentro do card (o clip-path do chanfro cortava a etiqueta pendurada embaixo) */}
+                    {chosen?.a === a.id && <span className="im-ans__said">Resposta dada</span>}
                     <span className="lx-option__key">{i + 1}</span>
                   </span>
                   <blockquote className="im-ans__q">{a.label}</blockquote>
@@ -229,7 +244,6 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
                       </span>
                     ))}
                   </span>
-                  {chosen?.a === a.id && <span className="im-ans__said">Resposta dada</span>}
                 </button>
               ))}
             </div>
@@ -256,7 +270,7 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
             </div>
           </>
         ) : (
-          !skipped && <PressRecap gauge={gauge} mood={mood} heads={heads} before={start.current} onDone={() => onDone?.()} />
+          !skipped && <PressRecap gauge={gauge} mood={mood} heads={logHeads.length ? logHeads : heads} before={start.current} onDone={() => onDone?.()} />
         )}
       </div>
     </main>
@@ -264,7 +278,7 @@ export default function PressConference({ onDone }: { onDone?: () => void }) {
 }
 
 /** Card de fechamento: repercussão final, manchetes do dia e o que mudou. */
-function PressRecap({ gauge, mood, heads, before, onDone }: { gauge: number; mood: string; heads: NewsItem[]; before: { rel: { fans: number; media: number; coach: number; teammates: number }; morale: number }; onDone: () => void }) {
+function PressRecap({ gauge, mood, heads, before, onDone }: { gauge: number; mood: Mood; heads: NewsItem[]; before: { rel: { fans: number; media: number; coach: number; teammates: number }; morale: number }; onDone: () => void }) {
   const s = useImmersive((x) => x.state)!
   const btn = useRef<HTMLButtonElement>(null)
   useEffect(() => {
@@ -279,7 +293,7 @@ function PressRecap({ gauge, mood, heads, before, onDone }: { gauge: number; moo
         <div>
           <span className="lx-kicker">Coletiva encerrada</span>
           <h2 className="lx-t-sec im-recap__t" id="im-recap-t">
-            Repercussão: <span className={cx(mood === 'Ídolo' ? 'text-positive' : mood === 'Crise' ? 'text-negative' : 'text-text-2')}>{mood}</span>
+            Repercussão <span className={cx(mood === 'pos' ? 'text-positive' : mood === 'neg' ? 'text-negative' : 'text-text-2')}>{MOOD[mood]}</span>
           </h2>
         </div>
         <span className="im-recap__gauge" style={{ ['--lx-v' as string]: gauge }} aria-hidden="true">

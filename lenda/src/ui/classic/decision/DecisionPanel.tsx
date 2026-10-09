@@ -84,6 +84,12 @@ export const DecisionPanel = memo(function DecisionPanel({ footer }: { footer?: 
             ) : (
               <span className="ck-step">
                 <StepDots index={index} total={prog.total} />
+                {/* shown (CSS) while a card has keyboard focus: the number keys only focus, Enter picks */}
+                {!touch && (
+                  <span className="ck-step__hint" aria-hidden="true">
+                    <Kbd>Enter</Kbd> confirma
+                  </span>
+                )}
                 <span>
                   Decisão {index} de {prog.total}
                 </span>

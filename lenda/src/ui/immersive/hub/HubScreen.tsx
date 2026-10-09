@@ -76,7 +76,8 @@ export default function HubScreen() {
           <h1 className="lx-t-display im-hub__title">Sua semana</h1>
         </div>
         <div className="im-hub__actions">
-          <Button variant="ghost" size="md" icon={Share2} onClick={() => navigate('/imersivo', { query: { tela: 'social' } })} className="max-sm:hidden">
+          {/* tablet e celular: a aba Social já está à mão (menos botões espremendo o título) */}
+          <Button variant="ghost" size="md" icon={Share2} onClick={() => navigate('/imersivo', { query: { tela: 'social' } })} className="max-lg:hidden">
             Rede social
           </Button>
           {toMatch && (

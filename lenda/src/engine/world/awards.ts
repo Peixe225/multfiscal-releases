@@ -10,9 +10,11 @@
  *   estatística: ataque G + 0,55·A · meio 1,25·G + 0,85·A + 4 · defesa 1,6·G + A + 6 · goleiro 0,6·SG + 6
  *   títulos: Champions 32 (Libertadores 22, outras 10), Copa do Mundo 36, Euro/Copa América 20,
  *   liga 14·coef, copa 4, Liga Europa 10, Mundial de Clubes 14 … + bônus por final/semifinal.
- * Chuteira de Ouro: só ligas UEFA, gols na liga × 2 (5 maiores) ou × 1,5.
- * Luva de Ouro: goleiros · Kopa: sub-21 · Puskás: sorteio ponderado por gols^1,3 entre atacantes.
- * Artilheiro e craque de cada liga de 1ª divisão; Bola e Chuteira de Ouro da Copa em anos de Copa.
+ * Chuteira de Ouro: só 1ª divisão das ligas UEFA, gols na liga × 2 (5 maiores) ou × 1,5.
+ * Luva de Ouro: goleiros com 25+ jogos; nota = [3·(OVR − 70)·(0,3 + 0,7·part) + 1,3·SG
+ *   + 0,5·títulos·(0,25 + 0,75·part)]·fL. Kopa: sub-21 · Puskás: sorteio ponderado por gols^1,3.
+ * Artilheiro e craque de cada liga de 1ª divisão (craque: 50%+ dos jogos de liga do clube, estatística
+ *   × (0,3 + 0,7·part)); Bola e Chuteira de Ouro da Copa em anos de Copa (gols do jogador ≤ os da seleção).
  */
 import type { UserAwardEntry } from '../api'
 import type {
@@ -31,6 +33,7 @@ import { clamp, rng as subRng } from '../rng'
 import { indexData, type DataIndex } from './context'
 import { stageDepth } from './knockout'
 import { GOAL_W, quality } from './rivals'
+import { tournamentRecord } from './summary'
 
 export function positionGroup(p: Position): PositionGroup {
   if (p === 'GOL') return 'goalkeeper'
@@ -144,6 +147,9 @@ function statsScore(c: Candidate): number {
       return 0.6 * c.cleanSheets + 6
   }
 }
+
+/** Luva de Ouro: jogos mínimos do goleiro na temporada (reserva que fez 11 jogos não concorre). */
+export const GLOVE_MIN_APPS = 25
 
 /** Participação na temporada (0–1): 40+ jogos = temporada cheia de um titular de clube grande. */
 export function participation(apps: number, full = 40): number {
@@ -305,21 +311,6 @@ function syntheticCandidates(env: AwardEnv, leagueId: string): Candidate[] {
 
 // ───────────────────────── Copa do Mundo ─────────────────────────
 
-function tournamentGoals(t: SeasonWorldResult['national'][string], code: string): { goals: number; games: number } {
-  let goals = 0
-  let games = 0
-  for (const g of t.groups ?? []) for (const r of g.table) if (r.clubId === code) (goals += r.gf), (games += r.played)
-  for (const st of t.knockout) {
-    for (const tie of st.ties) {
-      for (const l of tie.legs) {
-        if (l.home === code) (goals += l.score[0]), games++
-        else if (l.away === code) (goals += l.score[1]), games++
-      }
-    }
-  }
-  return { goals, games }
-}
-
 function worldCupAwards(env: AwardEnv, cands: Candidate[], user: UserAwardEntry | null): AwardResult[] {
   const wc = Object.values(env.result.national).find((t) => env.ix.comp.get(t.competitionId)?.kind === 'world_cup')
   if (!wc) return []
@@ -334,8 +325,9 @@ function worldCupAwards(env: AwardEnv, cands: Candidate[], user: UserAwardEntry 
     else byNation.set(c.nationality, [c])
   }
   for (const [code, list] of byNation) {
-    const tg = tournamentGoals(wc, code).goals
-    const userGoals = list.find((c) => c.isUser)?.nation?.competitionId === wc.competitionId ? (user?.nationalTournament?.goals ?? 0) : 0
+    const tg = tournamentRecord(wc, code).goals
+    // o jogador não faz mais gols no torneio do que a própria seleção
+    const userGoals = list.find((c) => c.isUser)?.nation?.competitionId === wc.competitionId ? Math.min(tg, user?.nationalTournament?.goals ?? 0) : 0
     let left = Math.max(0, tg - userGoals)
     const rng = subRng(env.world.seed, 'awards', env.season, 'wc-goals', code)
     const pool = list.filter((c) => !c.isUser)
@@ -434,17 +426,26 @@ export function computeAwards(
       5,
     ),
   )
+  // Luva de Ouro: só o goleiro titular (25+ jogos), com a mesma régua de participação e de liga da Bola de Ouro
   push(
     rank(
       'golden_glove',
       year,
-      cands.filter((c) => c.position === 'GOL'),
-      (c) => Math.max(0, c.ovr - 70) * 3 + c.cleanSheets * 1.3 + titlesScore(env, c) * 0.5 + noiseFor(env, 'golden_glove', c.key, 4),
+      cands.filter((c) => c.position === 'GOL' && c.apps >= GLOVE_MIN_APPS),
+      (c) => {
+        const part = participation(c.apps)
+        const lf = 0.45 + 0.55 * coefOf(env, c.leagueId)
+        const base = Math.max(0, c.ovr - 70) * 3 * (0.3 + 0.7 * part) + c.cleanSheets * 1.3 + titlesScore(env, c) * 0.5 * (0.25 + 0.75 * part)
+        return base * lf + noiseFor(env, 'golden_glove', c.key, 4)
+      },
       5,
     ),
   )
-  // Chuteira de Ouro europeia (só ligas da UEFA)
-  const uefaLeague = (id: string | undefined) => !!id && ix.league.get(id)?.confed === 'UEFA'
+  // Chuteira de Ouro europeia (só 1ª divisão das ligas da UEFA, como a real)
+  const uefaLeague = (id: string | undefined) => {
+    const lg = id ? ix.league.get(id) : undefined
+    return !!lg && lg.confed === 'UEFA' && lg.tier === 1
+  }
   const shoe: Candidate[] = cands.filter((c) => uefaLeague(c.leagueId))
   for (const l of data.leagues) if (l.confed === 'UEFA' && l.tier === 1) shoe.push(...syntheticCandidates(env, l.id))
   const shoeRes = rank(
@@ -495,19 +496,21 @@ export function computeAwards(
       })
       awards.push({ award: 'league_top_scorer', year: ly, winner: ranking[0], ranking, leagueId: l.id })
     }
-    const inLeague = cands.filter((c) => c.leagueId === l.id)
+    // craque da liga: só quem jogou ao menos metade dos jogos de liga do clube
+    const leagueGames = (id: string | undefined) => (id && lr.table.find((r) => r.clubId === id)?.played) || 0
+    const inLeague = cands.filter((c) => c.leagueId === l.id && c.apps >= 0.5 * leagueGames(c.clubId))
     const syn = syntheticCandidates(env, l.id)
     const best = rank(
       'league_best_player',
       ly,
       [...inLeague, ...syn],
       (c) => {
-        // craque da liga: quem foi titular a temporada toda (a mesma régua da Bola de Ouro)
+        // quem foi titular a temporada toda (a mesma régua da Bola de Ouro)
         const part = participation(c.apps, 35)
         const titles = (c.titles.includes(l.id) ? 12 : 0) + (l.domesticCupId && c.titles.includes(l.domesticCupId) ? 3 : 0)
         return (
           Math.max(0, c.ovr - 70) * 3.2 * (0.3 + 0.7 * part) +
-          statsScore(c) +
+          statsScore(c) * (0.3 + 0.7 * part) +
           titles * (0.25 + 0.75 * part) +
           noiseFor(env, `lbp:${l.id}`, c.key, 4)
         )

@@ -1,5 +1,5 @@
 /**
- * "AO VIVO · Líderes de hoje" — the leader of each league from the REAL standings snapshot.
+ * "AO VIVO · Líderes das ligas" — the leader of each league from the REAL standings snapshot.
  * Marquee (70 s, pauses on hover/focus); static + horizontally scrollable under reduced motion.
  */
 import { memo, useMemo } from 'react'
@@ -54,12 +54,12 @@ export const LiveTicker = memo(function LiveTicker() {
       </a>
     ))
   return (
-    <section className="ld-ticker lx-glass" aria-label="Líderes das ligas hoje">
+    <section className="ld-ticker lx-glass" aria-label="Líderes das ligas">
       <div className="ld-ticker__l">
         <span className="lx-dot lx-dot--blink" aria-hidden="true" />
         <div>
           Ao vivo
-          <small>Líderes de hoje</small>
+          <small>Líderes das ligas</small>
         </div>
       </div>
       <div className="lx-marquee no-scrollbar">

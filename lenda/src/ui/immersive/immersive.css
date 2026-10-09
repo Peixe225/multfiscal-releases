@@ -10,10 +10,9 @@
 .im-root > :not(.lx-stadium) { position: relative; z-index: 1; }
 .im-root .lx-club-glow { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .im-wrap { width: 100%; max-width: 1400px; margin: 0 auto; padding: 18px 24px 40px; flex: 1; }
-.im-link { font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); text-decoration: none; }
+.im-link { position: relative; font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); text-decoration: none; }
 .im-link:hover { text-decoration: underline; }
 /* alvo de toque de 44 px sem mexer no layout (o texto tem 12 px) */
-.im-link { position: relative; }
 .im-link::before { content: ""; position: absolute; inset: -16px -8px; }
 .im-divider { height: 1px; margin: 14px 0; background: var(--border); }
 .num { font-variant-numeric: tabular-nums; }
@@ -96,7 +95,8 @@
 .im-nav__badge { display: inline-grid; place-items: center; min-width: 18px; height: 16px; padding: 0 4px; font: 800 11px/1 var(--font-num); color: var(--accent-ink); background: var(--accent); clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%); }
 .im-season { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; height: 34px; padding: 0 14px; background: rgb(20 28 92 / .45); box-shadow: inset 0 0 0 1px var(--border); clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
 .im-season b { font: italic 800 20px/1 var(--font-num); }
-@media (max-width: 79.99rem) { .im-season__w { display: none; } }
+/* "Semana 41" / "Fim de temporada" só com folga (1440+): com as abas e os selos, encostava na Carreira */
+@media (max-width: 89.99rem) { .im-season__w { display: none; } }
 @media (max-width: 44.99rem) { .im-season { margin-left: auto; height: 30px; padding: 0 10px; } .im-season b { font-size: 17px; } }
 .im-top-money { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; margin-right: 6px; }
 .im-top-money b { font: italic 800 17px/1 var(--font-num); color: var(--lx-gold); }
@@ -250,7 +250,12 @@
   /* rótulos com no mínimo 11 px no celular */
   .im-contract small, .im-week__n small, .im-cstats small, .im-crow.is-head, .im-shelf__it .lx-label { font-size: 11px; }
 }
-.im-contract { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 6px 14px; padding: 10px 14px; background: rgb(12 19 68 / .72); box-shadow: inset 0 0 0 1px var(--border); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
+/* a borda inset é cortada nos chanfros: as duas diagonais (1px, do lado de dentro) fecham os cantos */
+.im-contract { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 6px 14px; padding: 10px 14px; box-shadow: inset 0 0 0 1px var(--border); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(to bottom left, transparent 50%, var(--border) 50% calc(50% + 1px), transparent calc(50% + 1px)) 100% 0 / 10px 10px no-repeat,
+    linear-gradient(to top right, transparent 50%, var(--border) 50% calc(50% + 1px), transparent calc(50% + 1px)) 0 100% / 10px 10px no-repeat,
+    rgb(12 19 68 / .72); }
 .im-contract.has-balance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .im-contract span { display: grid; align-content: start; gap: 3px; min-width: 0; }
 .im-contract small { font: 700 10px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
@@ -293,7 +298,7 @@
 /* tabela completa (diálogo): J V E D GP GC SG P; no celular sem GP/GC */
 .im-mt.is-full .im-mt__row { grid-template-columns: 34px minmax(0, 1fr) repeat(4, 26px) repeat(2, 30px) 38px 32px; gap: 5px; }
 @media (max-width: 35.99rem) { .im-mt.is-full .im-mt__row { grid-template-columns: 30px minmax(0, 1fr) repeat(4, 22px) 32px 28px; gap: 4px; } .im-mt.is-full .is-gf { display: none; } }
-.im-mt__more { display: block; position: relative; margin: 12px 0 0 auto; padding: 0; background: none; border: 0; cursor: pointer; }
+.im-mt__more { display: block; margin: 12px 0 0 auto; padding: 0; background: none; border: 0; cursor: pointer; }
 .im-mt-dlg .im-mt { font-size: 14px; }
 .im-zlegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font: 700 11.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
 .im-zlegend span { position: relative; display: inline-flex; align-items: center; gap: 6px; padding-left: 12px; }
@@ -327,7 +332,8 @@
 .im-agenda__row > * { scroll-snap-align: start; }
 .im-day { height: 100%; min-height: 112px; gap: 7px; }
 .im-day__act { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text); }
-.im-day__t { font: italic 800 17px/1 var(--font-display); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* "Fim de temporada" quebra a linha em vez de virar "Fim de tempo…" */
+.im-day__t { min-width: 0; font: italic 800 17px/1.05 var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
 .im-day__sub { display: flex; align-items: center; gap: 5px; min-width: 0; font: 500 12px/1.2 var(--font-ui); color: var(--text-3); }
 .im-day__st { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .im-day__done { display: flex; align-items: center; gap: 6px; margin-top: auto; color: var(--positive); }
@@ -508,8 +514,8 @@
 .im-dot__pulse { position: absolute; inset: -9px; border-radius: 50%; border: 2px solid #3BE4FF; animation: lx-me-pulse 1.8s ease-in-out infinite; }
 .im-dot__tag { position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%); padding: 4px 10px; white-space: nowrap; font: italic 800 13px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: #F4F6FF; background: #06103A; box-shadow: inset 0 0 0 1px rgb(59 228 255 / .6); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 /* perto da linha lateral / de fundo (data-edge do Pitch): a etiqueta ancora para dentro do campo */
-.im-dot.is-me[data-edge^="l"] .im-dot__tag { left: -6px; transform: none; }
-.im-dot.is-me[data-edge^="r"] .im-dot__tag { left: auto; right: -6px; transform: none; }
+.im-dot.is-me[data-edge^="l"] .im-dot__tag { left: 0; transform: none; }
+.im-dot.is-me[data-edge^="r"] .im-dot__tag { left: auto; right: 0; transform: none; }
 .im-dot.is-me[data-edge$="t"] .im-dot__tag { bottom: auto; top: calc(100% + 9px); }
 .im-ball { position: absolute; left: 0; top: 0; z-index: 4; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #CFD6EE); box-shadow: 0 0 0 1.5px #0A0F3A, 0 3px 5px rgb(0 0 0 / .5); will-change: transform; }
 .im-ball-trail { position: absolute; left: 0; top: 0; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #fff; will-change: transform; }
@@ -662,6 +668,7 @@
   .im-match__tabbox { padding: 0; }
   .im-match__tabs .lx-tab { font-size: 12px; letter-spacing: .06em; }
   .im-match__tabp { max-height: 44vh; padding-top: 0; }
+  @media (max-width: 22.49rem) { .im-match__tabs .lx-tabs__label > svg { display: none; } }
   .im-ctrl.is-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 35 !important; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); clip-path: none; }
   /* (menu "⋯" em portal com posição fixa calculada) */
   .im-field__lt { left: 8px; bottom: 8px; max-width: 70%; transform: scale(.72); transform-origin: left bottom; }
@@ -879,8 +886,10 @@ html:has(.im-ft) { overflow: hidden; }
 .im-gauge__needle { position: absolute; top: -5px; left: calc(var(--lx-v, .5) * 100%); width: 4px; height: 20px; margin-left: -2px; background: #fff; box-shadow: 0 0 10px #fff; transition: left 600ms var(--ease-spring); }
 .im-gauge__ends { display: flex; justify-content: space-between; }
 .im-gauge__pip { display: none; align-self: flex-start; padding: 5px 10px; font: 800 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--text-2); background: rgb(8 12 44 / .7); box-shadow: inset 0 0 0 1px var(--border-strong); clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); }
-.im-gauge__pip[data-mood="Ídolo"] { color: var(--positive); }
-.im-gauge__pip[data-mood="Crise"] { color: var(--negative); }
+/* no celular é o único medidor: diz de quê é a leitura */
+.im-gauge__pip small { display: block; margin-bottom: 3px; font-size: 11px; letter-spacing: .14em; color: var(--text-3); }
+.im-gauge__pip[data-mood="pos"] { color: var(--positive); }
+.im-gauge__pip[data-mood="neg"] { color: var(--negative); }
 .im-press__bottom { grid-row: 3; display: grid; gap: 12px; justify-items: center; z-index: 2; }
 .im-press__q { width: min(980px, 100%); filter: drop-shadow(0 18px 30px rgb(0 0 0 / .6)); transition: opacity 300ms var(--ease-out); }
 .im-press__q .lx-lt { width: 100%; }
@@ -893,10 +902,10 @@ html:has(.im-ft) { overflow: hidden; }
 .im-ans { position: relative; min-height: 150px; }
 .im-ans.is-picked { transform: translateY(-6px); }
 .im-ans:disabled { cursor: default; }
-.im-ans__top { display: flex; justify-content: space-between; align-items: center; }
+.im-ans__top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .im-ans__q { margin: 0; font: 400 15px/1.45 var(--font-ui); color: var(--text); }
 .im-ans__fx { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; }
-.im-ans__said { position: absolute; right: 10px; bottom: -11px; padding: 4px 8px; font: 800 10px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent); clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); animation: im-drop 250ms var(--ease-out) backwards; }
+.im-ans__said { margin-left: auto; padding: 4px 8px; white-space: nowrap; font: 800 10px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent); clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); animation: im-drop 250ms var(--ease-out) backwards; }
 .im-press__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(1180px, 100%); }
 .im-press__foot .lx-kbd { padding: 2px 5px; }
 /* fechamento */
@@ -976,6 +985,10 @@ html:has(.im-ft) { overflow: hidden; }
 .im-hints em.is-pos { color: var(--positive); }
 .im-hints em.is-neg { color: var(--negative); }
 .im-compose__opt.is-on { color: var(--accent); }
+/* já postou: as outras opções apagam de vez (não "quase ativas") e o motivo fica escrito embaixo */
+.im-compose__opts.is-done .im-compose__opt:not(.is-on) { opacity: .45; filter: none; }
+.im-compose__opts.is-done .im-compose__opt.is-on { filter: none; }
+.im-compose__why { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font: 500 12.5px/1.3 var(--font-ui); color: var(--text-3); }
 .im-post { display: grid; grid-template-columns: 40px 1fr; gap: 12px; }
 .im-post.is-me { box-shadow: inset 3px 0 0 var(--accent); }
 .im-post__ribbon { position: absolute; top: 0; right: 16px; padding: 4px 8px; font: 800 9.5px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--lx-gold-ink, #1D1300); background: linear-gradient(180deg, #FFE9A0, #E9A61E); }
@@ -1028,6 +1041,9 @@ html:has(.im-ft) { overflow: hidden; }
 .im-shop li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .im-shop b { display: block; font: 600 14px/1.2 var(--font-ui); }
 .im-shop small { font: 700 10.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--positive); }
+/* sem saldo: botão bem apagado + quanto falta */
+.im-shop li.is-locked .lx-btn:disabled { opacity: .45; filter: none; }
+.im-shop small.im-shop__why { display: block; margin-top: 5px; font: 500 12px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-3); }
 @media (max-width: 63.99rem) { .im-market__grid { grid-template-columns: 1fr; } }
 @media (max-width: 44.99rem) { .im-market__offers { grid-template-columns: 1fr; } .im-offer__terms { grid-template-columns: repeat(3, minmax(0, 1fr)); } .im-offer__foot > .flex-1 { display: none; } .im-offer__foot { justify-content: stretch; } .im-offer__foot > button { flex: 1; } }
 
@@ -1054,6 +1070,9 @@ html:has(.im-ft) { overflow: hidden; }
 .im-term__ctl .lx-range-wrap { flex: 1; min-width: 0; }
 .im-term__v { min-width: 90px; font: italic 800 22px/1 var(--font-num); text-align: right; }
 .im-term > .lx-chip { justify-self: end; }
+/* empréstimo: duração e papel são do clube (no lugar do seletor desativado) */
+.im-term__lock { display: inline-flex; align-items: center; gap: 6px; font: 500 13px/1.3 var(--font-ui); color: var(--text-3); }
+.im-term__lock > svg { flex: none; }
 .im-neg__side { display: grid; gap: 8px; align-content: start; padding: 14px; background: rgb(3 5 26 / .3); }
 .im-neg__p { font: italic 800 60px/1 var(--font-num); }
 .im-neg__p.is-pos { color: var(--positive); }
@@ -1136,12 +1155,14 @@ html:has(.im-ft) { overflow: hidden; }
 @media (max-width: 87.49rem) { .im-career__grid { grid-template-columns: 480px minmax(0, 1fr); } .im-crow { grid-template-columns: 48px 46px minmax(0, 1fr) 100px 46px 40px 40px 40px 48px; } }
 @media (max-width: 69.99rem) { .im-career__grid { grid-template-columns: 1fr; height: auto !important; } }
 @media (max-width: 44.99rem) {
-  .im-crow { grid-template-columns: 42px minmax(0, 1fr) 46px 40px 36px 34px; font-size: 14px; }
+  .im-crow { grid-template-columns: 40px minmax(0, 1fr) 38px 40px 30px 30px; gap: 5px; font-size: 14px; }
   .im-crow > :nth-child(2) { display: none; }
   .im-crow__tr { display: none; }
   .im-crow__tag { display: none; }
-  /* "Em andamento" não cabe na coluna do clube no celular (invadia a posição): a linha já vem destacada */
-  .im-crow__club .lx-chip--live { display: none; }
+  /* no celular o empréstimo fica só na seta (o chip "Emp." empurrava o nome para "ESTUD…") */
+  .im-crow__club { gap: 6px; }
+  .im-crow__club .lx-chip { display: none; }
+  .im-crow__club > b { min-width: 0; }
   .im-cstats b { font-size: 26px; }
   .im-cstats > span { padding: 10px; }
   .im-cstats small svg { display: none; }
@@ -1168,6 +1189,21 @@ html:has(.im-ft) { overflow: hidden; }
 .im-review__table li.is-me > span:first-child { color: var(--text); }
 .im-review__table li.is-gap { margin-top: 8px; }
 .im-review__table li.is-gap::before { content: ""; position: absolute; left: 0; right: 0; top: -5px; border-top: 1px dashed var(--border-strong); }
+.im-review__nm { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.im-review__cup-ic { display: inline-grid; flex: none; color: var(--lx-gold); }
+/* Apertura/Clausura: colocação e campeão de cada torneio (a tabela abaixo é a anual) */
+.im-review__tours { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0 0 14px; }
+.im-review__tour { display: grid; align-content: start; gap: 6px; min-width: 0; padding: 10px 12px; background: rgb(20 28 92 / .35); box-shadow: inset 3px 0 0 var(--border-strong); }
+.im-review__tour.is-win { background: linear-gradient(90deg, rgb(247 201 72 / .2), rgb(247 201 72 / .04)); box-shadow: inset 3px 0 0 var(--lx-gold); }
+.im-review__tpos { font: 600 13px/1.2 var(--font-ui); color: var(--text-2); }
+.im-review__tpos b { font: italic 800 17px/1 var(--font-num); color: var(--text); }
+.im-review__tchamp { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 5px; min-width: 0; font: 600 13px/1.2 var(--font-ui); color: var(--text-3); }
+.im-review__tchamp > svg { flex: none; color: var(--lx-gold); }
+.im-review__tchamp b { min-width: 0; overflow-wrap: anywhere; font: italic 800 15px/1.1 var(--font-display); text-transform: uppercase; color: var(--text); }
+/* o dourado (gala) em cima; "Pular cerimônia" vira link discreto embaixo dele */
+.im-review__go { display: flex; flex-direction: column; align-items: flex-end; gap: 18px; } /* > 16px: a área de toque do link (.im-link::before) não invade o dourado */
+.im-review__skip { display: inline-flex; align-items: center; gap: 6px; padding: 0; background: none; border: 0; cursor: pointer; color: var(--text-2); }
+.im-review__skip:disabled { opacity: .5; cursor: default; }
 .im-review__none { display: flex; align-items: center; gap: 10px; padding: 4px 0; color: var(--text-3); }
 .im-review__trophies.is-empty { padding-bottom: 14px; }
 .im-review__trophies.is-empty .im-phead { margin-bottom: 8px; }
@@ -1194,7 +1230,7 @@ html:has(.im-ft) { overflow: hidden; }
 .im-awards__more { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; background: none; border: 0; cursor: pointer; padding: 0; }
 .im-review__cta { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 @media (max-width: 63.99rem) { .im-review__grid { grid-template-columns: 1fr; } }
-@media (max-width: 44.99rem) { .im-review__big > b { font-size: 80px; } .im-review__kpis { grid-template-columns: repeat(2, 1fr); } .im-review__cta > * { flex: 1; } }
+@media (max-width: 44.99rem) { .im-review__big > b { font-size: 80px; } .im-review__kpis { grid-template-columns: repeat(2, 1fr); } .im-review__cta > * { flex: 1; } .im-review__go { align-items: stretch; } .im-review__skip { align-self: center; } .im-review__tours { grid-template-columns: 1fr; } }
 
 /* ---------- CAMPEÃO! (§5.11) ---------- */
 .im-cele { cursor: pointer; -webkit-backdrop-filter: blur(6px) brightness(.5) saturate(.8); backdrop-filter: blur(6px) brightness(.5) saturate(.8); }

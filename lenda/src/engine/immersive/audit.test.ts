@@ -92,6 +92,14 @@ describe.skipIf(!hasRealData)('auditoria do modo imersivo', () => {
       else s = dispatch(data, s, { type: 'advance' }).state
     }
     expect(checks).toBeGreaterThan(25)
+    // Balanço: a tabela de cada torneio (a mesma da Central) soma a tabela anual do mundo
+    const tours = [E.liveTable(data, s, 0), E.liveTable(data, s, 1)]
+    expect(tours.every((t) => t.some((r) => r.clubId === s.clubId && r.played > 0))).toBe(true)
+    s = dispatch(data, s, { type: 'advance' }).state
+    const rec = s.seasons[s.seasons.length - 1]
+    const annual = s.world.seasons[rec.season].leagues[rec.leagueId].table
+    expect(annual.length).toBeGreaterThan(10)
+    for (const r of annual) expect(tours.reduce((n, t) => n + (t.find((x) => x.clubId === r.clubId)?.points ?? 0), 0)).toBe(r.points)
   })
 
   it('mando alternado: nenhum clube de nenhuma liga com mais de 3 jogos seguidos no mesmo mando', () => {

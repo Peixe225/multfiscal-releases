@@ -10,7 +10,7 @@ import type { Club, GameData, League } from '@/engine/types'
 import { navigate, useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useData } from '@/store/data'
-import { Button, Crest, CrestFallback, Eyebrow, Flag, Glass, LivePill, Modal, Skeleton, YouBadge, cx, formatSeason, signed, toast, useReducedMotion } from '@/ui/primitives'
+import { Button, Crest, CrestFallback, Eyebrow, Flag, Glass, LivePill, Modal, Skeleton, YouBadge, cx, formatSeason, plural, signed, toast, useReducedMotion } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
 import { clubColors } from '@/ui/theme/club'
 import '@/ui/shared/landing/landing.css'
@@ -243,7 +243,7 @@ export default function LiveLeaguesScreen() {
           <Eyebrow>Temporada 2026 · tabelas reais</Eyebrow>
           <h1>Ligas ao vivo</h1>
           <p>
-            A classificação de hoje de {leagues.length} ligas — o ponto de partida da sua carreira.
+            A classificação real de {leagues.length} ligas — o ponto de partida da sua carreira.
             {ARTIFACT
               ? ` Aqui no claude.ai o jogo não consulta a internet: as tabelas são as reais de ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })}.`
               : ' Atualize direto da ESPN para ver a rodada mais recente.'}
@@ -291,18 +291,17 @@ export default function LiveLeaguesScreen() {
                 {league.name} {season}
               </h2>
               <div className="lv-th__sub">
-                <LivePill>{live ? 'Ao vivo · ESPN' : 'Tabela real de hoje'}</LivePill>
+                <LivePill>{live ? 'Ao vivo · ESPN' : `Tabela real de ${shownDay}`}</LivePill>
                 <span>
                   {phase ? `${phase} · ` : ''}
-                  {view.grouped ? `${view.round} jogos` : `Rodada ${view.round}${snap?.gamesPerTeam ? ` de ${snap.gamesPerTeam}` : ''}`}
-                  {!live && ` · ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo' }).replace(/\./g, '').replace(/ de /g, ' ')}`}
+                  {view.grouped ? plural(view.round, 'jogo', 'jogos') : `Rodada ${view.round}${snap?.gamesPerTeam ? ` de ${snap.gamesPerTeam}` : ''}`}
                 </span>
               </div>
             </div>
             <div className="lv-refresh">
               <span className="lv-refresh__t" aria-live="polite">
-                <b>{loading ? 'Buscando na ESPN…' : live ? 'ESPN ao vivo' : 'Snapshot do jogo'}</b>
-                atualizado {relTime(updatedTs, now)}
+                <b>{loading ? 'Buscando na ESPN…' : live ? 'ESPN ao vivo' : 'Tabela do jogo'}</b>
+                {live || loading ? 'atualizado' : 'atualizada'} {relTime(updatedTs, now)}
               </span>
               {!ARTIFACT && (
               <Button variant="ghost" size="sm" icon={RefreshCw} onClick={refresh} disabled={!canRefresh || loading} className={cx(loading && 'lv-btn-spin')} title={blocked ? 'Atualização ao vivo indisponível neste ambiente' : canRefresh ? 'Buscar a tabela mais recente na ESPN' : 'Liga sem fonte ao vivo'}>
@@ -429,7 +428,7 @@ export default function LiveLeaguesScreen() {
               </span>
             ))}
             {view.grouped && <span>Classificação por grupo</span>}
-            <span className="lv-legend__src">Fonte: ESPN · {live ? `ao vivo, ${relTime(updatedTs, now)}` : `snapshot de ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`}</span>
+            <span className="lv-legend__src">Fonte: ESPN · {live ? `ao vivo, ${relTime(updatedTs, now)}` : `tabela de ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`}</span>
           </div>
         </motion.section>
 
@@ -439,7 +438,7 @@ export default function LiveLeaguesScreen() {
         </aside>
       </div>
 
-      <Modal open={allOpen} onClose={() => setAllOpen(false)} title="Todas as ligas" description={`${leagues.length} ligas com tabela real de hoje`} size="xl">
+      <Modal open={allOpen} onClose={() => setAllOpen(false)} title="Todas as ligas" description={`${leagues.length} ligas com tabela real de ${shortDay(data.generatedAt)}`} size="xl">
         <div className="lv-all">
           {regionsOf.map((r) => (
             <section key={r.key} className="lv-all__sec">

@@ -23,20 +23,20 @@
  */
 import type { WorldEngine } from '../api'
 import { rng as subRng } from '../rng'
-import type { GameData, PlayerIdentity, StandingRow } from '../types'
+import type { Decision, GameData, PlayerIdentity, StandingRow } from '../types'
 import { summarize } from '../career/summary'
 import { NATIONAL_SLOTS, INJURIES } from '../career/constants'
 import { callUpOvr, positionGroup } from '../career/util'
 import { worldEngine } from '../world'
 import { isScheduled } from '../world/national'
 import { addResult, newRow, sortTable } from '../world/table'
-import { kindIsNational, matchdayOf, weekDate } from './calendar'
+import { END_WEEK, kindIsNational, matchdayOf, weekDate } from './calendar'
 import type { Position } from '../types'
 import type { AttributeKey, Attributes, CalendarItem, ImmersiveAction, ImmersiveEffect, ImmersiveEngine, ImmersiveState, TrainingFocus, TrainingPreviewInfo } from './types'
 import { academyDecision, resolveDecision, storyDecision } from './events'
-import { aiChoice, createLive, finalRating, kickoff, requestSub, resolveMoment, runToEnd, setPosture, simulate } from './match'
+import { aiChoice, createLive, finalRating, kickoff, requestSub, resolveMoment, runToEnd, selectionPreview, setPosture, simulate } from './match'
 import { mem, newMemory, type Fx } from './mem'
-import { addInbox, addNews, answerPress, applyDeltas, buildPress, buyItem, matchReactions, userPost, type MatchSummary } from './media'
+import { addInbox, addNews, answerPress, applyDeltas, buildPress, buyItem, clubStreak, matchReactions, userPost, type MatchSummary } from './media'
 import { acceptChance, respondOffer, windowOffers, type CounterAsk, type CounterOdds } from './offers'
 import {
   applyGrowth,
@@ -57,7 +57,7 @@ import {
 } from './player'
 import { endSeason, rebuildCalendar, resim, retireNow, startNextSeason } from './season'
 import { shadowCareer } from './shadow'
-import { clamp, cloneState, clubOf, countryOf, deCountry, do_, ix, leagueById, nationStrength, r1, teamShort, trng } from './util'
+import { clamp, cloneState, clubOf, countryOf, deCountry, do_, ix, leagueById, nationStrength, r1, teamShort, trng, withArt } from './util'
 
 export { POST_TEMPLATES, LIFESTYLE_ITEMS, OUTLETS } from './media'
 export { acceptChance, counterOdds, type CounterAsk, type CounterOdds } from './offers'
@@ -80,6 +80,32 @@ function toast(fx: ImmersiveEffect[], tone: 'info' | 'success' | 'gold' | 'dange
   fx.push(description ? { type: 'toast', tone, title, description } : { type: 'toast', tone, title })
 }
 
+/**
+ * Opção de menor risco de uma decisão: a com menos efeito negativo (pílulas negativas pesadas pela
+ * probabilidade); empate → a com mais efeitos positivos; depois, a primeira. Determinística.
+ */
+export function safestOption(opts: Decision['options']): Decision['options'][number] {
+  const score = (o: Decision['options'][number]) => {
+    let neg = 0
+    let pos = 0
+    for (const e of o.effects ?? []) {
+      if (e.kind === 'negative') neg += e.probability ?? 1
+      else if (e.kind === 'positive') pos += e.probability ?? 1
+    }
+    return { neg, pos }
+  }
+  let best = opts[0]
+  let bs = score(best)
+  for (const o of opts.slice(1)) {
+    const sc = score(o)
+    if (sc.neg < bs.neg - 1e-9 || (Math.abs(sc.neg - bs.neg) < 1e-9 && sc.pos > bs.pos)) {
+      best = o
+      bs = sc
+    }
+  }
+  return best
+}
+
 export function createImmersiveEngine(world: WorldEngine = worldEngine): ImmersiveEngine & {
   validActions(state: ImmersiveState): ImmersiveAction['type'][]
   summarize(data: GameData, state: ImmersiveState): ReturnType<typeof summarize>
@@ -93,6 +119,10 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
   function weekTick(data: GameData, s: ImmersiveState, to: number, fx: ImmersiveEffect[]) {
     const m = mem(s)
     let guard = 0
+    // salto para o encerramento (semana 62): só as 2 primeiras semanas contam como semanas sem jogo —
+    // o resto é numeração do calendário, não pode zerar o ritmo nem a forma para a pré-temporada
+    const toEnd = to >= END_WEEK
+    let idle = 0
     while (s.week < to && guard++ < 80) {
       s.week++
       const C = s.condition
@@ -103,13 +133,16 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         m.paidWeeks = (m.paidWeeks ?? 0) + 1
       }
       C.fitness = clamp(C.fitness + 22, 0, 100)
-      C.morale = r1(C.morale + (60 - C.morale) * 0.06)
-      R.coach = r1(R.coach + (50 - R.coach) * 0.015)
-      R.fans = r1(R.fans + (50 - R.fans) * 0.015)
-      R.media = r1(R.media + (50 - R.media) * 0.02)
-      R.teammates = r1(R.teammates + (50 - R.teammates) * 0.015)
+      const real = !toEnd || idle++ < 2
+      if (real) {
+        C.morale = r1(C.morale + (60 - C.morale) * 0.06)
+        R.coach = r1(R.coach + (50 - R.coach) * 0.015)
+        R.fans = r1(R.fans + (50 - R.fans) * 0.015)
+        R.media = r1(R.media + (50 - R.media) * 0.02)
+        R.teammates = r1(R.teammates + (50 - R.teammates) * 0.015)
+      }
       const lastPlayed = m.lastMatchWeek ?? -1
-      if (lastPlayed < s.week - 1) {
+      if (lastPlayed < s.week - 1 && real) {
         C.sharpness = clamp(C.sharpness - 6, 0, 100)
         C.form = r1(C.form + (50 - C.form) * 0.04)
       }
@@ -143,6 +176,23 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
           const d = s.pendingDecision ? null : storyDecision(data, s)
           if (d) s.pendingDecision = d
           else {
+            complete(data, s, fx, undefined, false)
+            continue
+          }
+          return
+        }
+        case 'press': {
+          // coletiva pré-jogo só para quem vai estar no jogo (titular ou banco): fora dos relacionados,
+          // vira um recado dos bastidores (a escalação usa o mesmo sorteio da partida)
+          const game = it.fixtureKey ? s.calendar.find((x) => x.fixtureKey === it.fixtureKey && (x.kind === 'match' || x.kind === 'national_match') && !x.done) : undefined
+          if (!s.press && game && selectionPreview(data, s, game) === 'out') {
+            const opp = withArt(data, game.opponentId)
+            const why = s.condition.injury
+              ? 'Em tratamento no departamento médico, você foi poupado da coletiva'
+              : (s.condition.suspendedMatches ?? 0) > 0 && game.kind === 'match'
+                ? 'Suspenso, você não participa da coletiva'
+                : 'Você está fora dos relacionados: a coletiva fica com o técnico e os titulares'
+            addInbox(s, 'Assessoria de imprensa', 'Coletiva sem você', `${why} antes do jogo contra ${opp}.`)
             complete(data, s, fx, undefined, false)
             continue
           }
@@ -427,6 +477,9 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         if (rating >= 7.8 && (rating >= 8.4 || won)) ss.motm++
         if (span) {
           span.apps++
+          span.goals = (span.goals ?? 0) + st.goals
+          span.assists = (span.assists ?? 0) + st.assists
+          span.minutes = (span.minutes ?? 0) + minutes
           if (it.competitionId && !span.comps.includes(it.competitionId)) span.comps.push(it.competitionId)
         }
       }
@@ -488,8 +541,10 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     const result: NonNullable<CalendarItem['result']> = { score: [live.score[0], live.score[1]], userGoals: st.goals, userAssists: st.assists, rating, played, minutes }
     if (live.pens) result.pens = [live.pens[0], live.pens[1]]
     if (aet) result.aet = true
-    const ms: MatchSummary = { item: it, userGoals: st.goals, userAssists: st.assists, rating, minutes, won, lost, scoreFor: us, scoreAgainst: them, national, status: live.userStatus }
+    const scorers = live.events.filter((e) => (e.type === 'goal' || e.type === 'penalty_goal') && e.side === live.userSide && !e.shootout && e.player && e.player !== s.identity.surname).map((e) => e.player!)
+    const ms: MatchSummary = { item: it, userGoals: st.goals, userAssists: st.assists, rating, minutes, won, lost, scoreFor: us, scoreAgainst: them, national, status: live.userStatus, scorers }
     matchReactions(data, s, ms, fx, trng(s, 'reactions', it.id))
+    if (!national) tableNews(data, s, it, fx)
     const clubShort = live.userSide === 'home' ? live.home.shortName : live.away.shortName
     const oppShort = live.userSide === 'home' ? live.away.shortName : live.home.shortName
     toast(fx, won ? 'success' : lost ? 'danger' : 'info', `${won ? 'Vitória' : lost ? 'Derrota' : 'Empate'} · ${clubShort} ${us}–${them} ${oppShort}${live.pens ? ` (pên. ${live.pens[ui]}–${live.pens[1 - ui]})` : ''}`, played ? `Nota ${rating.toFixed(1).replace('.', ',')}${st.goals ? ` · ${st.goals} gol${st.goals > 1 ? 's' : ''}` : ''}${st.assists ? ` · ${st.assists} assist.` : ''}` : live.userStatus === 'out' ? 'Você não foi relacionado.' : 'Você não entrou em campo.')
@@ -505,6 +560,50 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     const idx = s.calendar.findIndex((x) => !x.done)
     s.cursor = idx < 0 ? s.calendar.length : idx
     arrive(data, s, fx)
+  }
+
+  /**
+   * Depois de cada rodada da liga (a partir da 5ª): notícia quando o clube assume a liderança, entra ou
+   * sai da zona de rebaixamento ou do G-k (vagas continentais; na divisão de baixo, zona de acesso), ou
+   * chega a uma sequência marcante — no máximo uma por jogo.
+   */
+  function tableNews(data: GameData, s: ImmersiveState, it: CalendarItem, fx: ImmersiveEffect[]) {
+    const m = mem(s)
+    const md = /(\d+)ª rodada/.exec(it.stage ?? '')
+    if (!s.clubId || it.competitionId !== s.leagueId || !md) return
+    const lg = leagueById(data, s.leagueId)
+    const t = liveTableFor(data, s)
+    const row = t.findIndex((r) => r.clubId === s.clubId)
+    const prev = m.lastLeaguePos
+    if (row < 0 || !lg) return
+    const pos = row + 1
+    m.lastLeaguePos = pos
+    if ((t[row].played ?? 0) < 5) return
+    const name = clubOf(data, s.clubId)?.shortName ?? 'Time'
+    // tabela de mata-mata no fim ou de dois torneios: só a liderança vira notícia
+    const zones = !lg.format.playoffTeams && (lg.tournamentsPerSeason ?? 1) === 1
+    const k = lg.continentalSlots[0]
+    const rel = (p: number) => zones && lg.relegation > 0 && p > t.length - lg.relegation
+    const top = (p: number) => zones && (lg.tier === 1 ? k >= 2 && p <= k : lg.promotion > 0 && p <= lg.promotion)
+    let head: [string, 'positive' | 'negative'] | null = null
+    if (prev) {
+      if (pos === 1 && prev > 1) head = [`${name} assume a liderança após a ${md[1]}ª rodada`, 'positive']
+      else if (rel(pos) && !rel(prev)) head = [`${name} entra na zona de rebaixamento`, 'negative']
+      else if (!rel(pos) && rel(prev)) head = [`${name} deixa a zona de rebaixamento`, 'positive']
+      else if (top(pos) && !top(prev)) head = [lg.tier === 1 ? `${name} entra no G-${k} e sonha com a vaga continental` : `${name} entra na zona de acesso`, 'positive']
+      else if (!top(pos) && top(prev)) head = [lg.tier === 1 ? `${name} perde o lugar no G-${k}` : `${name} sai da zona de acesso`, 'negative']
+    }
+    if (!head) {
+      const n = clubStreak(s)
+      if (n === 4 || n === 6 || n === 8 || n === 10) head = [`${name} chega a ${n} vitórias seguidas`, 'positive']
+      else if (n === -4 || n === -6 || n === -8) head = [`${name} chega a ${-n} jogos sem vencer e a pressão aumenta`, 'negative']
+    }
+    // sobe-e-desce de uma rodada para a outra não vira manchete toda semana (a liderança sempre vira)
+    const now = s.season * 100 + s.week
+    if (head && (pos === 1 || now - (m.tableNewsWeek ?? -99) >= 3)) {
+      addNews(s, head[0], head[1], fx, { aboutUser: false, clubId: s.clubId })
+      m.tableNewsWeek = now
+    }
   }
 
   function import_shift(s: ImmersiveState, delta: number) {
@@ -621,11 +720,8 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
             startLive(data, s, it, fx)
             return true
           case 'press': {
-            const pos = (() => {
-              const t = liveTableFor(data, s)
-              return t.findIndex((r) => r.clubId === s.clubId) + 1
-            })()
-            s.press = buildPress(data, s, it, pos)
+            const t = liveTableFor(data, s)
+            s.press = buildPress(data, s, it, t.findIndex((r) => r.clubId === s.clubId) + 1, t.length)
             return true
           }
           case 'transfer_window': {
@@ -701,8 +797,11 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
         if (typeof a.optionId !== 'string') return false
         return resolveMoment(data, s, a.optionId, a.minigame, fx, 'safe')
       case 'match_timeout': {
-        const ok = resolveMoment(data, s, null, undefined, fx, 'safe')
-        if (ok) toast(fx, 'info', 'Tempo esgotado', 'Você hesitou: a jogada mais segura foi escolhida.')
+        // tempo esgotado: vale a jogada recomendada (maior valor esperado), não a de maior % bruto —
+        // o passe "seguro" de 62% vira gol bem menos que a finalização de 28%
+        const spec = m.live?.pending
+        const ok = resolveMoment(data, s, spec ? (spec.suggested ?? aiChoice(spec, 'smart')) : null, undefined, fx, 'smart')
+        if (ok) toast(fx, 'info', 'Tempo esgotado', 'Você hesitou e foi no instinto: valeu a jogada recomendada.')
         return ok
       }
       case 'match_sub_request': {
@@ -728,6 +827,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
       case 'press_skip': {
         if (s.live || s.pendingDecision || (!s.press && it?.kind !== 'press')) return false
         s.press = null
+        s.pressLog = null
         m.press = undefined
         applyDeltas(s, { media: -4 })
         addNews(s, `${s.identity.surname} falta à coletiva e irrita a imprensa`, 'negative', fx)
@@ -786,20 +886,41 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     const startSeasonN = s.season
     const offers0 = new Set(s.offers.map((o) => o.id))
     const pending0 = s.pendingDecision?.id
+    const manual = until !== 'retirement'
     for (let i = 0; i < max && !s.retired; i++) {
       m.tick++
       if (s.pendingDecision) {
-        // decisão que já estava aberta quando o jogador pediu "simular": a IA escolhe; decisões novas
-        // param a simulação (exceto até a aposentadoria)
-        if (until !== 'retirement' && s.pendingDecision.id !== pending0) return
+        // decisão que já estava aberta quando o jogador pediu "simular": a IA escolhe a opção mais segura
+        // (a de menos risco, nunca uma aposta como a "mala preta"); decisões novas param a simulação.
+        // Até a aposentadoria a carreira inteira é da IA: sorteio entre as opções.
+        if (manual && s.pendingDecision.id !== pending0) return
         const d = s.pendingDecision
         const r = subRng(s.seed, 'imm', 'auto-dec', m.tick)
         const opts = d.options.filter((o) => !o.id.startsWith('retire'))
-        const pick = d.kind === 'academy' ? d.options.slice().sort((x, y) => (s.world.clubs[y.clubId ?? '']?.strength ?? 0) - (s.world.clubs[x.clubId ?? '']?.strength ?? 0))[Math.min(1, d.options.length - 1)] : (opts.length ? r.pick(opts) : d.options[0])
+        const pick =
+          d.kind === 'academy'
+            ? d.options.slice().sort((x, y) => (s.world.clubs[y.clubId ?? '']?.strength ?? 0) - (s.world.clubs[x.clubId ?? '']?.strength ?? 0))[Math.min(1, d.options.length - 1)]
+            : !opts.length
+              ? d.options[0]
+              : manual
+                ? safestOption(opts)
+                : r.pick(opts)
         step(data, s, { type: 'decision_choose', optionId: pick.id }, fx)
         continue
       }
-      if (until === 'decision' && s.offers.some((o) => !offers0.has(o.id))) return
+      // propostas: as novas param a simulação; a que venceria no próximo passo também (avisando)
+      if (manual && s.offers.some((o) => !offers0.has(o.id))) return
+      if (manual && i > 0 && !s.live && !s.press) {
+        const it = current(s)
+        const next = s.calendar.slice(s.cursor + 1).find((x) => !x.done)
+        const expiring = next ? s.offers.find((o) => o.expiresWeek < next.week) : undefined
+        if (it?.kind === 'transfer_window' && s.offers.length) return
+        if (expiring) {
+          const c = clubOf(data, expiring.clubId)
+          toast(fx, 'gold', 'Simulação pausada', `A proposta ${do_(c)} ${teamShort(data, expiring.clubId)} vence nesta semana: responda no Mercado.`)
+          return
+        }
+      }
       if (until === 'retirement' && s.offers.length && !s.live) {
         const choice = pickOffer(data, s)
         if (choice) {
@@ -859,9 +980,10 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
   /**
    * Tabela ao vivo da liga do jogador: jogos dos outros clubes até a rodada que ele já disputou + os
    * resultados dele. Liga de dois torneios (Apertura/Clausura): a tabela é a do torneio atual (o do
-   * último jogo de liga disputado; antes do 1º jogo, o do próximo).
+   * último jogo de liga disputado; antes do 1º jogo, o do próximo) ou a de `tournament` (0/1, o
+   * Balanço mostra as duas).
    */
-  function liveTableFor(data: GameData, s: ImmersiveState): StandingRow[] {
+  function liveTableFor(data: GameData, s: ImmersiveState, tournament?: number): StandingRow[] {
     const m = mem(s)
     const log = m.league
     if (!log) return []
@@ -873,7 +995,7 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     for (const [h, a, , , round, t] of log.matches) if (h === club || a === club) tOf.set(`${h}|${a}|${round}`, t ?? 0)
     const tOfFx = (f: Fx) => tOf.get(`${f.home}|${f.away}|${f.round}`) ?? 0
     const played = mine.filter((f) => m.fixed[f.key])
-    const T = played.length ? tOfFx(played[played.length - 1]) : mine.length ? tOfFx(mine[0]) : 0
+    const T = tournament ?? (played.length ? tOfFx(played[played.length - 1]) : mine.length ? tOfFx(mine[0]) : 0)
     const startT = log.matches.length ? Math.min(...log.matches.map((x) => x[5] ?? 0)) : 0
     const rows = new Map<string, StandingRow>()
     if (T === startT) for (const r of log.start) rows.set(r.clubId, { ...r })
@@ -1029,8 +1151,8 @@ export function createImmersiveEngine(world: WorldEngine = worldEngine): Immersi
     ovrOf(attributes: Attributes, position: Position) {
       return ovrOfAttrs(attributes, position)
     },
-    liveTable(data: GameData, state: ImmersiveState) {
-      return liveTableFor(data, state)
+    liveTable(data: GameData, state: ImmersiveState, tournament?: number) {
+      return liveTableFor(data, state, tournament)
     },
     validActions,
     /** Chances da contraproposta (mesma conta do `offer_respond`/counter). */

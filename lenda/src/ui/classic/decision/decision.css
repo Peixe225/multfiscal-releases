@@ -33,6 +33,7 @@
 .ck-opt__head { display: flex; flex-direction: column; min-width: 0; padding-right: 26px; }
 .ck-opt__head.is-center { align-items: center; text-align: center; padding: 0 22px; }
 .ck-opt__verb { font-size: 10px; }
+.ck-opt__vshort { display: none; }
 .ck-opt__name { font: 800 19px/1.2 var(--font-display); letter-spacing: -.02em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .ck-opt.is-locked { cursor: default; }
 .ck-opt.is-locked:not(.is-chosen):hover { transform: none; box-shadow: none; border-color: var(--border-strong); }
@@ -165,8 +166,16 @@
   .ck-opt--event.is-compact .ck-opt__media { height: 64px; }
   .ck-pen__scene { flex: none; height: 300px; }
 }
+/* toque: sem a tecla 1–4 no canto, o título usa a largura toda do card */
+@media (hover: none) and (pointer: coarse) {
+  .ck-opt__head, .ck-opt.is-compact .ck-opt__head { padding-right: 0; }
+  .ck-opt__head.is-center { padding: 0 2px; }
+}
 @media (max-width: 575.98px) {
   .ck-decision__title { font-size: 21px; }
+  /* cards de evento lado a lado (~170px): o nome e as consequências quebram linha, nunca reticências */
+  .ck-opt--event:not(.is-compact) .ck-opt__name { font-size: 16px; -webkit-line-clamp: 3; }
+  .ck-opt:not(.is-compact) .lx-fx > .truncate { display: block; -webkit-line-clamp: none; overflow: visible; text-overflow: clip; }
   .ck-dots { display: none; }
   .ck-grid-opts { gap: 8px; }
   .ck-grid-opts:is(.is-n3, .is-n4) .ck-grid-opts__cell, .ck-grid-opts.is-n3 .ck-grid-opts__cell.is-center { grid-column: 1 / -1; }
@@ -196,6 +205,30 @@
 .ck-dots { min-width: 0; flex: 0 1 auto; overflow: hidden; }
 .ck-dots i { flex: 0 1 12px; min-width: 3px; }
 .ck-step > :last-child { flex: none; }
+/* card escolhido no teclado (1–4 / Tab): no lugar dos pontinhos, "[Enter] confirma" */
+.ck-step__hint { display: none; align-items: center; gap: 5px; color: var(--text-2); flex: none; }
+.ck-step__hint .lx-kbd { height: 18px; font-size: 9.5px; }
+.ck-decision:has(:is(.ck-opt, .ck-pen__zone):is(.is-focus, :focus-visible)) .ck-step__hint { display: inline-flex; }
+.ck-decision:has(:is(.ck-opt, .ck-pen__zone):is(.is-focus, :focus-visible)) .ck-dots { display: none; }
+.ck-opt.is-focus .ck-opt__kbd { color: var(--text); border-color: rgba(255, 255, 255, .55); }
+
+/* 3 opções no desktop: uma linha de três — com 2 + 1 cada card ficava baixo demais e escondia o 2º efeito */
+@media (min-width: 1104px) {
+  .ck-grid-opts.is-n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ck-grid-opts.is-n3 .ck-grid-opts__cell, .ck-grid-opts.is-n3 .ck-grid-opts__cell.is-center { grid-column: auto; }
+}
+
+/* 3–4 opções no desktop (cards de ~250px): verbo curto numa linha só ("EMPRÉSTIMO") e só a bandeira do
+   país — a sigla ao lado cortava o nome da liga ("Premier Leag…") */
+@media (min-width: 1104px) {
+  .ck-opt.is-compact .ck-opt__verb { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ck-opt.is-compact .ck-opt__vfull { display: none; }
+  .ck-opt.is-compact .ck-opt__vshort { display: inline; }
+  .ck-opt.is-compact .ck-opt__ctcode, .ck-opt.is-compact .ck-opt__meta .ck-dot { display: none; }
+  .ck-opt.is-compact .ck-opt__meta { gap: 6px; }
+  .ck-opt.is-compact .ck-opt__hrow { margin-bottom: 6px; }
+  .ck-opt.is-compact .ck-opt__htext { gap: 3px; }
+}
 
 /* 3–4 opções no desktop: cada cartão se adapta à altura que tem — baixo = linha compacta (escudo ao
    lado do nome); alto = escudo grande no centro, nome, liga, salário e efeitos (sem miolo vazio). */
@@ -212,6 +245,9 @@
     .ck-opt--club.is-compact .ck-opt__thumb .lx-crest-box { transform: scale(1.35); }
     .ck-opt--event.is-compact .ck-opt__thumb.ck-opt__media { width: 100%; height: clamp(58px, 36cqh, 150px); }
     .ck-opt.is-compact:is(.ck-opt--club, .ck-opt--event) .ck-opt__fx { margin-top: 2px; width: 100%; }
+    /* cards estreitos: o efeito quebra linha em vez de virar "Base co…" */
+    .ck-opt.is-compact .lx-fx { height: auto; min-height: 27px; padding-top: 3px; padding-bottom: 3px; }
+    .ck-opt.is-compact .lx-fx > .truncate { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
   }
 }
 @media (min-width: 1104px) {

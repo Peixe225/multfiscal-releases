@@ -484,13 +484,23 @@ export function adjustPlacements(s: ImmersiveState, fixtures: Fx[], placed: Map<
   }
 }
 
-/** Fixtures visíveis: toda a liga e, em cada copa, só até a fase atual (a do 1º jogo não disputado). */
+/**
+ * Fixtures visíveis: toda a liga e, em cada copa, só até a fase atual (a do 1º jogo não disputado).
+ * Play-off de liga (acesso, título, rebaixamento) só aparece com a fase regular do torneio encerrada:
+ * antes disso a vaga é só uma projeção da pré-simulação (o time pode estar em último).
+ */
 export function visibleFixtures(fixtures: Fx[], fixed: Record<string, unknown>): Fx[] {
   const byComp = new Map<string, Fx[]>()
   for (const f of fixtures) {
     const l = byComp.get(f.competitionId)
     if (l) l.push(f)
     else byComp.set(f.competitionId, [f])
+  }
+  const regular = fixtures.filter(isRegularLeague)
+  const tNames = [...new Set(regular.map((f) => f.stage))]
+  const regularOpen = (f: Fx) => {
+    const t = tNames.find((n) => f.stage.startsWith(`${n} — `))
+    return regular.some((x) => (t === undefined || x.stage === t) && !fixed[x.key])
   }
   const out: Fx[] = []
   for (const [, list] of byComp) {
@@ -500,6 +510,7 @@ export function visibleFixtures(fixtures: Fx[], fixed: Record<string, unknown>):
         out.push(f)
         continue
       }
+      if (f.kind === 'league' && regularOpen(f)) continue
       if (currentStage === null) currentStage = f.stage
       if (f.stage === currentStage) out.push(f)
     }
@@ -629,7 +640,7 @@ export function buildCalendar(data: GameData, s: ImmersiveState, minPos = -1): C
         week: it.week,
         order: it.order - 0.5,
         kind: 'press',
-        title: `Coletiva · antes de ${it.title.split(' · ')[0]} contra ${teamLabel(data, it.opponentId)}`,
+        title: `Coletiva pré-jogo · ${teamLabel(data, it.opponentId)}`,
         opponentId: it.opponentId,
         competitionId: it.competitionId,
         importance: it.importance,

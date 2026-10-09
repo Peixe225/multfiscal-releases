@@ -219,10 +219,11 @@ function YourSeason({ record, world }: { record: SeasonRecord; world: SeasonWorl
         <div className="tb-youline__who">
           <div className="tb-youline__club">
             <Crest club={club} size={18} decorative />
-            <b>{club?.name ?? record.clubId}</b>
-            {record.loan && <span className="tb-mini">empréstimo</span>}
+            <b title={club?.name}>{club?.shortName || club?.name || record.clubId}</b>
           </div>
+          {/* "empréstimo" fica na linha de baixo: ao lado do nome espremia o clube até "B…" */}
           <div className="tb-youline__meta">
+            {record.loan && <span className="tb-mini">empréstimo</span>}
             {ROLE_LABEL[record.role] ?? record.role}
             {record.captain ? ' · capitão' : ''}
             {s.rating ? ` · nota ${formatRating(s.rating)}` : ''}

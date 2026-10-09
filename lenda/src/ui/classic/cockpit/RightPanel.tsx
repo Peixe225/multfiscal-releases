@@ -4,8 +4,9 @@
  */
 import { Suspense, lazy, memo, useRef, useState } from 'react'
 import { ChartLine, Clock, Sparkles } from 'lucide-react'
-import { Skeleton, TabPanel, Tabs, formatSeason, useIsWide, useReducedMotion, type TabItem } from '@/ui/primitives'
+import { Skeleton, TabPanel, Tabs, formatSeason, useIsWide, useMediaQuery, useReducedMotion, type TabItem } from '@/ui/primitives'
 import { useReveal } from '@/ui/classic/reveal/store'
+import { pinnedSeason, useTabSeason } from '@/ui/classic/tabs/model'
 import { getLeague } from '@/store/data'
 import { CareerTable } from './CareerTable'
 import { PACE_SEASONS, LAST_AGE } from './model'
@@ -20,6 +21,7 @@ type Tab = 'carreira' | 'temporada' | 'premios' | 'mundo'
 export const RightPanel = memo(function RightPanel({ data, compactFuture }: { data: CockpitData; compactFuture?: boolean }) {
   const [tab, setTab] = useState<Tab>('carreira')
   const wide = useIsWide()
+  const phone = !useMediaQuery('(min-width: 36rem)')
   const rm = useReducedMotion()
   const panel = useRef<HTMLElement>(null)
   // phones/tablets: the decision sheet covers the lower half — fold it and bring the tab into view
@@ -43,14 +45,18 @@ export const RightPanel = memo(function RightPanel({ data, compactFuture }: { da
   const { state, gates } = data
   const shown = data.trophySeasons
   const last = data.visibleSeasons[data.visibleSeasons.length - 1]
-  const lg = getLeague(last?.leagueId)
-  const season = last ? formatSeason(last.season, lg?.calendar) : String(state.season)
+  // the tab names the season the three tabs show: the latest one, or the one pinned on the rail
+  const pin = useTabSeason((s) => pinnedSeason(s, last?.season))
+  const shownRec = (pin != null && data.visibleSeasons.find((r) => r.season === pin)) || last
+  const lg = getLeague(shownRec?.leagueId)
+  const season = shownRec ? formatSeason(shownRec.season, lg?.calendar) : String(state.season)
   const podium = [...shown].reverse().find((r) => r.awards.some((a) => a.award === 'ballon_dor'))
   const bola = podium?.awards.find((a) => a.award === 'ballon_dor')
   const badge = bola && podium === shown[shown.length - 1] ? (bola.place === 1 ? 'BOLA DE OURO' : `BOLA ${bola.place}º`) : undefined
   const tabs: TabItem<Tab>[] = [
     { value: 'carreira', label: 'Carreira', icon: ChartLine },
-    { value: 'temporada', label: `Temporada ${season}`, disabled: !last },
+    // phones: "Temporada 34/35" (the rail below spells the season out)
+    { value: 'temporada', label: `Temporada ${phone ? season.replace(/^\d\d(\d\d\/\d\d)$/, '$1') : season}`, disabled: !last },
     { value: 'premios', label: 'Prêmios', badge },
     { value: 'mundo', label: 'Mundo', disabled: !last },
   ]

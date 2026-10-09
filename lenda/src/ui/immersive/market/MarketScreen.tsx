@@ -4,7 +4,7 @@
  * → resposta do clube) + contrato atual e estilo de vida.
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { ArrowRight, BadgeDollarSign, Banknote, Check, CircleSlash, Clock3, Crown, FileSignature, Handshake, Repeat2, Shirt, ShoppingBag, Sparkles, Star, TrendingDown, TrendingUp, X } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, Banknote, Check, CircleSlash, Clock3, Crown, FileSignature, Handshake, Lock, Repeat2, Shirt, ShoppingBag, Sparkles, Star, TrendingDown, TrendingUp, X } from 'lucide-react'
 import type { ContractOffer, ImmersiveState } from '@/engine/immersive/types'
 import { useApp } from '@/store/app'
 import { getClub, getCountry, getLeague } from '@/store/data'
@@ -49,13 +49,11 @@ function niceStep(v: number): number {
   return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e
 }
 
-/** Rodadas iniciais de cada proposta (para os pips: o motor dá 2, ou 3 com superempresário). */
-const firstRounds = new Map<string, number>()
-const roundsOf = (o: ContractOffer) => {
-  const v = Math.max(firstRounds.get(o.id) ?? 0, o.roundsLeft, 1)
-  firstRounds.set(o.id, v)
-  return v
-}
+/**
+ * Rodadas no início da negociação (pips e paciência): o motor guarda na proposta; save antigo sem o
+ * campo → a regra do motor (2, ou 3 com superempresário). Sobrevive a recarregar a página.
+ */
+const roundsOf = (o: ContractOffer, s: ImmersiveState) => Math.max(o.rounds ?? ((s.engine as { superAgent?: boolean } | undefined)?.superAgent ? 3 : 2), o.roundsLeft, 1)
 
 // nota da proposta (destaca a melhor com o único botão dourado): offerScore, em model/view — a mesma
 // régua do "Assinar com…" da Central
@@ -113,7 +111,7 @@ function OfferCard({ o, s, onNegotiate, i, best }: { o: ContractOffer; s: Immers
   const country = c ? getCountry(c.country) : undefined
   const vars = c ? (clubVars(c) as CSSProperties) : undefined
   const left = o.expiresWeek - s.week
-  const total = roundsOf(o)
+  const total = roundsOf(o, s)
   return (
     <article className={cx('lx-plate lx-c-lg im-offer lx-anim-rise', best && 'is-best')} style={{ ...vars, ['--i' as string]: i }}>
       <div className="lx-club-glow" aria-hidden="true" />
@@ -200,7 +198,6 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   const [years, setYears] = useState(o?.years ?? 3)
   const [role, setRole] = useState<ContractOffer['role']>(o?.role ?? 'Rotação')
   const [reply, setReply] = useState<string | null>(null)
-  const total = useRef(3)
   const closeRef = useRef<HTMLButtonElement>(null)
   const ended = !!offerId && !live
   useEffect(() => {
@@ -209,7 +206,6 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   // abre com os termos do clube (a contraproposta parte da oferta, nunca abaixo dela)
   useEffect(() => {
     if (!o) return
-    total.current = roundsOf(o)
     setSalary(o.salary)
     setYears(o.years)
     setRole(o.role)
@@ -235,7 +231,8 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
   const p = same ? 1 : odds.accept
   const tone = p >= 0.65 ? 'pos' : p >= 0.35 ? 'warn' : 'neg'
   const overTerms = (salary > o.salary ? 1 : 0) + (ROLE_RANK[role] > ROLE_RANK[o.role] ? 1 : 0) + (years !== o.years ? 1 : 0)
-  const patience = Math.round((o.roundsLeft / Math.max(1, total.current)) * 10)
+  const total = roundsOf(o, s)
+  const patience = Math.round((o.roundsLeft / total) * 10)
   const closed = !live
   const loan = o.kind === 'loan'
   const delta = (a: number, b: number, fmt: (n: number) => string) => (a === b ? <span className="lx-chip lx-chip--sm">=</span> : <span className={cx('lx-chip lx-chip--sm', a > b ? 'lx-chip--gold' : 'lx-chip--neg')}>{a > b ? '+' : '−'}{fmt(Math.abs(a - b))}</span>)
@@ -275,11 +272,11 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
           </div>
           <div className="im-neg__rounds">
             <span className="lx-label">
-              Rodada {Math.min(total.current, total.current - o.roundsLeft + 1)}/{total.current}
+              Rodada {Math.min(total, total - o.roundsLeft + 1)}/{total}
             </span>
             <span className="im-pips is-lg">
-              {Array.from({ length: total.current }).map((_, k) => (
-                <i key={k} className={k < total.current - o.roundsLeft ? 'is-done' : k === total.current - o.roundsLeft ? 'is-on' : undefined} />
+              {Array.from({ length: total }).map((_, k) => (
+                <i key={k} className={k < total - o.roundsLeft ? 'is-done' : k === total - o.roundsLeft ? 'is-on' : undefined} />
               ))}
             </span>
           </div>
@@ -308,7 +305,14 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
               <span className="lx-t-row">Duração</span>
               <span className="im-term__club num">{yearsLabel(o.years)}</span>
               <div className="im-term__ctl">
-                <ImSeg<string> size="touch" value={String(years)} onChange={(v) => setYears(Number(v))} label="Duração do contrato em anos" disabled={closed || loan} options={[1, 2, 3, 4, 5].map((y) => ({ value: String(y), label: `${y}`, hint: yearsLabel(y) }))} />
+                {loan ? (
+                  // empréstimo: nada de seletor morto — o motivo no lugar dele
+                  <span className="im-term__lock">
+                    <Lock size={13} aria-hidden="true" /> No empréstimo, a duração é do clube
+                  </span>
+                ) : (
+                  <ImSeg<string> size="touch" value={String(years)} onChange={(v) => setYears(Number(v))} label="Duração do contrato em anos" disabled={closed} options={[1, 2, 3, 4, 5].map((y) => ({ value: String(y), label: `${y}`, hint: yearsLabel(y) }))} />
+                )}
               </div>
               {delta(years, o.years, (n) => (n === 1 ? '1 ano' : `${n} anos`))}
             </div>
@@ -316,7 +320,13 @@ export function Negotiation({ offerId, onClose }: { offerId: string | null; onCl
               <span className="lx-t-row">Papel</span>
               <span className="im-term__club">{o.role}</span>
               <div className="im-term__ctl">
-                <ImSeg<ContractOffer['role']> size="touch" value={role} onChange={setRole} label="Papel no elenco" disabled={closed || loan} options={ROLES.map((r) => ({ value: r, label: r }))} />
+                {loan ? (
+                  <span className="im-term__lock">
+                    <Lock size={13} aria-hidden="true" /> No empréstimo, o papel é do clube
+                  </span>
+                ) : (
+                  <ImSeg<ContractOffer['role']> size="touch" value={role} onChange={setRole} label="Papel no elenco" disabled={closed} options={ROLES.map((r) => ({ value: r, label: r }))} />
+                )}
               </div>
               {ROLE_RANK[role] === ROLE_RANK[o.role] ? <span className="lx-chip lx-chip--sm">=</span> : <span className={cx('lx-chip lx-chip--sm', ROLE_RANK[role] > ROLE_RANK[o.role] ? 'lx-chip--gold' : 'lx-chip--neg')}>{ROLE_RANK[role] > ROLE_RANK[o.role] ? '▲' : '▼'}</span>}
             </div>
@@ -443,17 +453,23 @@ export default function MarketScreen() {
           <section className="lx-plate lx-plate--flat lx-c-md im-panel">
             <PanelHead kicker="Estilo de vida" icon={ShoppingBag} />
             <ul className="im-shop">
-              {shop.slice(0, 6).map((it2) => (
-                <li key={it2.id}>
-                  <span className="min-w-0">
-                    <b>{it2.name}</b>
-                    <small>Moral +{it2.morale}</small>
-                  </span>
-                  <Button variant={owned.has(it2.id) ? 'ghost' : 'outline'} size="sm" icon={owned.has(it2.id) ? Check : Sparkles} disabled={busy || owned.has(it2.id) || s.finance.balance < it2.price} onClick={() => void dispatch({ type: 'buy', itemId: it2.id })}>
-                    {owned.has(it2.id) ? 'Seu' : fmtMoney(it2.price)}
-                  </Button>
-                </li>
-              ))}
+              {shop.slice(0, 6).map((it2) => {
+                const mine = owned.has(it2.id)
+                // sem saldo: o botão apaga de vez e a linha diz quanto falta
+                const short = mine ? 0 : it2.price - s.finance.balance
+                return (
+                  <li key={it2.id} className={cx(short > 0 && 'is-locked')}>
+                    <span className="min-w-0">
+                      <b>{it2.name}</b>
+                      <small>Moral +{it2.morale}</small>
+                      {short > 0 && <small className="im-shop__why">Saldo insuficiente: faltam {fmtMoney(short)}</small>}
+                    </span>
+                    <Button variant={mine ? 'ghost' : 'outline'} size="sm" icon={mine ? Check : short > 0 ? Lock : Sparkles} disabled={busy || mine || short > 0} onClick={() => void dispatch({ type: 'buy', itemId: it2.id })}>
+                      {mine ? 'Seu' : fmtMoney(it2.price)}
+                    </Button>
+                  </li>
+                )
+              })}
             </ul>
           </section>
         </aside>

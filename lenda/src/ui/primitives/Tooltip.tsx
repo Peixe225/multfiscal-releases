@@ -1,5 +1,6 @@
 /**
- * Tooltip (hover after 250ms, keyboard focus, Esc to hide; tap-to-toggle on touch).
+ * Tooltip (hover after 250ms, keyboard focus, Esc to hide; tap-to-toggle on touch for non-interactive
+ * triggers only — a tap on a button just runs the button — and a touch-opened tip hides by itself).
  * Positioned in a portal, flipped/clamped inside the viewport.
  *
  *   <Tooltip content="Próxima decisão em 2 temporadas"><button …/></Tooltip>
@@ -24,12 +25,17 @@ export interface TooltipProps {
   wrapperClassName?: string
 }
 
+const ACTIONABLE = 'button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"]'
+
 export function Tooltip({ content, children, side = 'top', card, delay = 250, disabled, className, wrapperClassName }: TooltipProps) {
   const id = useId()
   const rm = useReducedMotion()
   const wrap = useRef<HTMLSpanElement>(null)
   const tip = useRef<HTMLDivElement>(null)
   const timer = useRef<number | undefined>(undefined)
+  const autoHide = useRef<number | undefined>(undefined)
+  /** Focus that comes right after a pointer press (on touch it lands after the tap) is not keyboard focus: no tip for it. */
+  const pressedAt = useRef(0)
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ x: number; y: number; side: 'top' | 'bottom' }>({ x: -9999, y: -9999, side })
 
@@ -43,10 +49,17 @@ export function Tooltip({ content, children, side = 'top', card, delay = 250, di
   )
   const hide = useCallback(() => {
     clearTimeout(timer.current)
+    clearTimeout(autoHide.current)
     setOpen(false)
   }, [])
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+      clearTimeout(autoHide.current)
+    },
+    [],
+  )
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && hide()
@@ -86,8 +99,16 @@ export function Tooltip({ content, children, side = 'top', card, delay = 250, di
         className={cx('inline-flex max-w-full', wrapperClassName)}
         onPointerEnter={(e) => e.pointerType === 'mouse' && show()}
         onPointerLeave={(e) => e.pointerType === 'mouse' && hide()}
-        onPointerUp={(e) => e.pointerType !== 'mouse' && (open ? hide() : show(true))}
-        onFocus={() => show(true)}
+        onPointerDown={() => (pressedAt.current = Date.now())}
+        onPointerUp={(e) => {
+          if (e.pointerType === 'mouse') return
+          if ((e.target as Element).closest?.(ACTIONABLE)) return hide()
+          if (open) return hide()
+          show(true)
+          clearTimeout(autoHide.current)
+          autoHide.current = window.setTimeout(hide, card ? 4000 : 1600)
+        }}
+        onFocus={() => Date.now() - pressedAt.current > 1000 && show(true)}
         onBlur={hide}
       >
         {child}

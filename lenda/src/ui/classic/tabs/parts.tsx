@@ -26,19 +26,33 @@ export const SeasonRail = memo(function SeasonRail({
   label?: string
 }) {
   const rail = useRef<HTMLDivElement>(null)
+  const first = useRef(true)
   const idx = entries.findIndex((e) => e.season === value)
   const latest = entries[entries.length - 1]?.season
+  const pick = (season: number) => {
+    if (season === value) return
+    // the tab body below is re-mounted per season: hold the tab's height across the swap, or the page
+    // shrinks for a moment mid-commit and the browser clamps the scroll back to the top
+    const tb = rail.current?.closest<HTMLElement>('.tb')
+    if (tb) {
+      tb.style.minHeight = `${tb.offsetHeight}px`
+      requestAnimationFrame(() => requestAnimationFrame(() => (tb.style.minHeight = '')))
+    }
+    onChange(season, season !== latest)
+  }
   const go = (i: number) => {
     const e = entries[Math.max(0, Math.min(entries.length - 1, i))]
-    if (e) onChange(e.season, e.season !== latest)
+    if (e) pick(e.season)
   }
-  // keep the selected chip in view
+  // keep the selected chip in view (rects: the chip's offsetParent is not the track)
   useEffect(() => {
-    const el = rail.current?.querySelector<HTMLElement>('[aria-checked="true"]')
-    if (!el || !rail.current) return
     const r = rail.current
-    const left = el.offsetLeft - r.clientWidth / 2 + el.clientWidth / 2
-    r.scrollTo({ left, behavior: 'smooth' })
+    const el = r?.querySelector<HTMLElement>('[aria-checked="true"]')
+    if (!r || !el) return
+    const a = r.getBoundingClientRect()
+    const b = el.getBoundingClientRect()
+    r.scrollTo({ left: r.scrollLeft + (b.left - a.left) - r.clientWidth / 2 + b.width / 2, behavior: first.current ? 'auto' : 'smooth' })
+    first.current = false
   }, [value])
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
@@ -79,7 +93,7 @@ export const SeasonRail = memo(function SeasonRail({
               tabIndex={on ? 0 : -1}
               className={cx('tb-rail__chip', on && 'is-on', !e.world && 'is-empty')}
               style={rowClubVars(club)}
-              onClick={() => onChange(e.season, e.season !== latest)}
+              onClick={() => pick(e.season)}
               title={`${e.label} · ${e.record.age} anos · ${club?.name ?? ''}`}
             >
               <Crest club={club} size={16} decorative />
@@ -92,6 +106,11 @@ export const SeasonRail = memo(function SeasonRail({
       <button type="button" className="tb-rail__arrow" aria-label="Próxima temporada" disabled={idx < 0 || idx >= entries.length - 1} onClick={() => go(idx + 1)}>
         <ChevronRight aria-hidden="true" />
       </button>
+      {idx >= 0 && idx < entries.length - 1 && (
+        <button type="button" className="tb-rail__now" title="Voltar para a temporada atual" aria-label="Voltar para a temporada atual" onClick={() => go(entries.length - 1)}>
+          Atual
+        </button>
+      )}
     </div>
   )
 })

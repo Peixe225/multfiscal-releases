@@ -4,14 +4,15 @@
  * carreira IMERSIVA (nunca na clássica), mais navegação e ajustes (som, pular animações, movimento,
  * tempo dos lances).
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, ChevronRight, Crown, Flag as FlagIcon, House, Menu, Radio, Repeat2, ScrollText, Settings2, Share2, Shirt, Trash, Trophy, UserRound, Volume2, VolumeX } from 'lucide-react'
 import { navigate, useApp, type RoutePath } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useData } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
-import { Button, Eyebrow, Hairline, IconButton, MedalIcon, Modal, Segmented, Switch, cx, toast } from '@/ui/primitives'
+import { Button, Eyebrow, Hairline, IconButton, MedalIcon, Modal, Segmented, Switch, cx, toast, useReducedMotion } from '@/ui/primitives'
 import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
+import { shortDate } from '@/ui/shared/live/leagues'
 import { sfx } from '@/ui/shell/sfx'
 import { ImDlgTitle } from '../bits'
 import { goTab, ImTopActions, type ImTab } from './ImTopBar'
@@ -61,7 +62,25 @@ export function ImMenuDialog({ open, onClose }: { open: boolean; onClose: () => 
   const kind = useImmersive((x) => x.engineKind)
   const isFixture = useImmersive((x) => x.isFixture)
   const source = useData((x) => x.source)
+  const tablesDay = shortDate(useData((x) => x.data?.generatedAt))
   const [confirm, setConfirm] = useState(false)
+  const openDialog = useApp((x) => x.openDialog)
+  const unlocked = useCareer((x) => Object.keys(x.achievements).length)
+  const total = useAchievementCatalog((x) => x.list.length)
+  const rm = useReducedMotion()
+  // "Abandonar": a confirmação aparece no fim da lista → rola até ela e põe o foco em "Cancelar";
+  // ao cancelar, o foco volta para o botão que abriu (nada de foco perdido no <body>)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const abandonRef = useRef<HTMLButtonElement>(null)
+  const wasConfirm = useRef(false)
+  useEffect(() => {
+    if (confirm) {
+      cancelRef.current?.focus({ preventScroll: true })
+      confirmRef.current?.scrollIntoView({ block: 'nearest', behavior: rm ? 'auto' : 'smooth' })
+    } else if (wasConfirm.current) abandonRef.current?.focus({ preventScroll: true })
+    wasConfirm.current = confirm
+  }, [confirm, rm])
   const [slow, setSlow] = useState(() => readFlag('lenda:imm:slowtimer'))
   const [noTimer, setNoTimer] = useState(() => readFlag('lenda:imm:notimer'))
   const locked = !!s?.live || !!s?.press
@@ -105,8 +124,18 @@ export function ImMenuDialog({ open, onClose }: { open: boolean; onClose: () => 
       <div className="grid gap-1">
         <Row icon={House} label="Início" onClick={() => go('/')} />
         <Row icon={UserRound} label="Nova carreira imersiva" sub="Começa do zero (a atual é substituída ao confirmar)" onClick={() => go('/identidade', { modo: 'imersivo' })} />
-        <Row icon={Radio} label="Ligas ao vivo" sub="Tabelas reais de hoje" onClick={() => go('/ligas')} />
-        <Row icon={Crown} label="Hall das Lendas" sub="Suas runs contra as lendas" onClick={() => go('/hall')} />
+        <Row icon={Radio} label="Ligas ao vivo" sub={tablesDay ? `Tabelas reais de ${tablesDay}` : 'Tabelas reais'} onClick={() => go('/ligas')} />
+        <Row icon={Crown} label="Hall das Lendas" sub="Suas carreiras contra as lendas reais" onClick={() => go('/hall')} />
+        <Row
+          icon={MedalIcon as unknown as typeof House}
+          label="Conquistas"
+          sub={`${unlocked} de ${total} desbloqueadas`}
+          onClick={() => {
+            sfx.play('click')
+            close()
+            openDialog('achievements')
+          }}
+        />
         <Row icon={ScrollText} label="Créditos" sub="Fotos, fontes, dados e licenças" onClick={() => go('/creditos')} />
       </div>
 
@@ -158,7 +187,7 @@ export function ImMenuDialog({ open, onClose }: { open: boolean; onClose: () => 
         <>
           <Hairline className="my-4" />
           {confirm ? (
-            <div className="im-menu__danger" role="alert">
+            <div ref={confirmRef} className="im-menu__danger scroll-mb-3" role="alert">
               <p className="m-0 text-[13px] text-text-2">
                 Abandonar a carreira imersiva de <b className="text-text">{s.identity.surname}</b>? O progresso será apagado (o Hall das Lendas e a carreira clássica continuam).
               </p>
@@ -176,13 +205,13 @@ export function ImMenuDialog({ open, onClose }: { open: boolean; onClose: () => 
                 >
                   Abandonar
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setConfirm(false)}>
+                <Button ref={cancelRef} variant="ghost" size="sm" onClick={() => setConfirm(false)}>
                   Cancelar
                 </Button>
               </div>
             </div>
           ) : (
-            <Button variant="text" size="sm" icon={Trash} onClick={() => setConfirm(true)}>
+            <Button ref={abandonRef} variant="text" size="sm" icon={Trash} onClick={() => setConfirm(true)}>
               Abandonar a carreira imersiva
             </Button>
           )}

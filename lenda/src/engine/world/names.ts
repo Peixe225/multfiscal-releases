@@ -11,9 +11,26 @@ interface Pool {
   firstNameShort?: number
 }
 
+/** Partículas que abrem um sobrenome composto ("de Jong", "van den Berg", "De Luca", "El Amrani"). */
+const PARTICLES = new Set(['de', 'De', 'van', 'Van', 'den', 'der', 'El', 'da', 'dos', 'del', 'Del', 'di', 'Di'])
+
+/** Lista separada por espaços; a partícula fica grudada na palavra seguinte ("van den Berg" é um nome só). */
+function words(list: string): string[] {
+  const out: string[] = []
+  let pre = ''
+  for (const w of list.split(' ')) {
+    if (PARTICLES.has(w)) pre += `${w} `
+    else {
+      out.push(pre + w)
+      pre = ''
+    }
+  }
+  return out
+}
+
 const P = (first: string, last: string, firstNameShort = 0): Pool => ({
-  first: first.split(' '),
-  last: last.split(' '),
+  first: words(first),
+  last: words(last),
   firstNameShort,
 })
 
@@ -159,7 +176,8 @@ export function randomName(nationality: string, rng: Rng): GeneratedName {
   const pool = poolFor(nationality)
   const first = rng.pick(pool.first)
   const last = rng.pick(pool.last)
-  const shortName = pool.firstNameShort && rng.chance(pool.firstNameShort) ? first : last
+  // sozinho, o sobrenome composto vem com maiúscula: "Virgil van Dijk" → "Van Dijk"
+  const shortName = pool.firstNameShort && rng.chance(pool.firstNameShort) ? first : last[0].toUpperCase() + last.slice(1)
   return { name: `${first} ${last}`, shortName }
 }
 

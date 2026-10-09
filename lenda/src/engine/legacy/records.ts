@@ -24,7 +24,7 @@ export interface LegacyRecord {
   label: string
   value: number
   previous: number
-  /** Quem tinha a marca: "Messi", "run nº 2". */
+  /** Quem tinha a marca: "Messi", "carreira nº 2". */
   holder: string
   /** Marca nova, pronta para exibir: "9 Bolas de Ouro". */
   valueText: string
@@ -153,8 +153,8 @@ export function personalRecords(stats: RunStats, previous: { stats: RunStats; ru
     if (best <= 0 || v <= best) continue
     const valueText = def.fmt(v)
     const prev = metric === 'goalsPerGame' ? dec(best) : int(best)
-    const holder = who ? `run nº ${who}` : 'run anterior'
-    const text = `${cap(valueText)}: recorde das suas runs (antes: ${prev}, ${holder}).`
+    const holder = who ? `carreira nº ${who}` : 'carreira anterior'
+    const text = `${cap(valueText)}: recorde das suas carreiras (antes: ${prev}, ${holder}).`
     out.push({ id: `runs:${metric}`, scope: 'runs', metric, label: def.label, value: v, previous: best, holder, valueText, text })
   }
   return out

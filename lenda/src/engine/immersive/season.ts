@@ -32,7 +32,7 @@ import {
   scoutPotential,
 } from './player'
 import { shadowCareer } from './shadow'
-import { artigo, clamp, clubLeagueId, clubOf, clubPrestige, compOf, countryOf, do_, irng, ix, leagueById, no, r1 } from './util'
+import { artigo, clamp, clubLeagueId, clubOf, clubPrestige, compOf, countryArt, countryOf, do_, irng, ix, leagueById, no, r1 } from './util'
 
 const PODIUM_AWARDS = new Set<AwardId>(['ballon_dor', 'the_best', 'golden_boot', 'golden_glove', 'kopa'])
 
@@ -114,7 +114,8 @@ function resetSeasonMemory(s: ImmersiveState) {
   m.league = undefined
   m.matchday = undefined
   m.natSeason = { apps: 0, goals: 0, assists: 0, tournamentGoals: 0 }
-  m.spans = s.clubId ? [{ clubId: s.clubId, comps: [], apps: 0 }] : []
+  m.spans = s.clubId ? [{ clubId: s.clubId, comps: [], apps: 0, loan: !!m.loan }] : []
+  m.lastLeaguePos = undefined
   m.seasonStartOvr = s.ovr
   m.seasonInjury = undefined
   m.physicalWeeks = 0
@@ -132,6 +133,8 @@ function resetSeasonMemory(s: ImmersiveState) {
   m.leagueGoals = 0
   m.paidWeeks = 0
   s.seasonStats = { apps: 0, starts: 0, minutes: 0, goals: 0, assists: 0, cleanSheets: 0, ratingSum: 0, motm: 0 }
+  // a rede social vira a página: posts de torcedores e veículos da temporada passada saem (os seus ficam)
+  s.social = s.social.filter((p) => p.season >= s.season || p.byUser)
 }
 
 export function startSeason(W: WorldEngine, data: GameData, s: ImmersiveState): void {
@@ -254,7 +257,8 @@ export function transferNow(W: WorldEngine, data: GameData, s: ImmersiveState, c
     const at = placed.get(f.key)
     if (at && at.week * 1000 + at.order <= p && !m.fixed[f.key]) m.fixed[f.key] = f.pens ? { score: f.score, pens: f.pens } : { score: f.score }
   }
-  if (!m.spans.some((x) => x.clubId === clubId)) m.spans.push({ clubId, comps: [], apps: 0 })
+  if (!m.spans.some((x) => x.clubId === clubId)) m.spans.push({ clubId, comps: [], apps: 0, loan: !!m.loan })
+  m.lastLeaguePos = undefined
   // itens futuros do clube antigo saem (merge só mantém os concluídos); os do novo entram
   s.calendar = mergeCalendar(s.calendar, buildCalendar(data, s), p)
   const i = s.calendar.findIndex((it) => !it.done)
@@ -449,6 +453,19 @@ export function endSeason(W: WorldEngine, data: GameData, s: ImmersiveState, fx:
     position: s.identity.position,
     clubPrestige: clubId ? clubPrestige(s.world, data, clubId) : undefined,
   }
+  // temporada dividida (transferência/empréstimo no meio): a parte de cada clube, com a posição dele
+  const played = m.spans.filter((x) => x.apps > 0)
+  if (played.length > 1 || (played.length === 1 && played[0].clubId !== record.clubId)) {
+    record.spans = played.map((x) => {
+      const sp: NonNullable<SeasonRecord['spans']>[number] = { clubId: x.clubId, apps: x.apps, goals: x.goals ?? 0, assists: x.assists ?? 0, minutes: x.minutes ?? 0 }
+      const lg = clubLeagueId(s.world, data, x.clubId)
+      if (lg) sp.leagueId = lg
+      if (x.loan) sp.loan = true
+      const pos = x.clubId === clubId ? summary?.position : W.clubSeason(sim.result, data, x.clubId).position
+      if (pos) sp.leaguePosition = pos
+      return sp
+    })
+  }
   if (summary?.promoted) record.promoted = true
   if (summary?.relegated) record.relegated = true
   if (suspendedAll) record.suspended = true
@@ -471,6 +488,7 @@ export function endSeason(W: WorldEngine, data: GameData, s: ImmersiveState, fx:
   for (const a of awards) s.log.push({ season, age: s.age, type: 'award', text: `${a.place === 1 ? 'Venceu' : `${a.place}º lugar`}: ${AWARD_LABEL[a.award]} ${a.year}.`, data: { award: a.award, place: a.place } })
   if (record.promoted) s.log.push({ season, age: s.age, type: 'promotion', text: `Acesso com ${artigo(club)} ${cname}!` })
   if (record.relegated) s.log.push({ season, age: s.age, type: 'relegation', text: `Rebaixamento com ${artigo(club)} ${cname}.` })
+  seasonNews(data, s, record, fx)
   fx.push({ type: 'season_end', record })
   m.pendingAwards = awardResults
     .filter((a) => a.award === 'ballon_dor' || a.winner.isUser || a.ranking.some((e) => e.isUser))
@@ -483,6 +501,30 @@ export function endSeason(W: WorldEngine, data: GameData, s: ImmersiveState, fx:
   for (const id of fresh) fx.push({ type: 'achievement', id })
   m.seasonsAtClub++
   return { record, trophies, awards: awardResults }
+}
+
+/**
+ * Manchetes do fim da temporada: títulos ("Brasileirão: Flamengo é campeão com Ribeiro"), acesso,
+ * rebaixamento ou a posição final na liga.
+ */
+function seasonNews(data: GameData, s: ImmersiveState, record: SeasonRecord, fx: ImmersiveEffect[]): void {
+  const idxd = ix(data)
+  const me = s.identity.surname
+  const champ = (art: string) => (art === 'a' ? 'campeã' : art === 'as' ? 'campeãs' : art === 'os' ? 'campeões' : 'campeão')
+  for (const t of record.trophies) {
+    const comp = idxd.league.get(t.competitionId)?.shortName ?? idxd.comp.get(t.competitionId)?.name ?? t.competitionId
+    const team = clubOf(data, t.teamId)
+    const name = team ? team.shortName || team.name : (countryOf(data, t.teamId)?.name ?? t.teamId)
+    const art = team ? artigo(team) : countryArt(name)
+    addNews(s, `${comp}: ${name} é ${champ(art)} com ${me}`, 'positive', fx, { clubId: team?.id })
+  }
+  const club = clubOf(data, record.clubId)
+  if (!club || record.suspended) return
+  const name = club.shortName || club.name
+  if (record.relegated) addNews(s, `Rebaixamento: ${name} cai de divisão`, 'negative', fx, { aboutUser: false, clubId: club.id })
+  else if (record.promoted) addNews(s, `Acesso: ${name} sobe de divisão`, 'positive', fx, { aboutUser: false, clubId: club.id })
+  else if (record.leaguePosition && !record.trophies.some((t) => t.kind === 'league' && t.teamId === club.id))
+    addNews(s, `${name} termina a temporada em ${record.leaguePosition}º lugar na liga`, record.leaguePosition <= 4 ? 'positive' : 'neutral', fx, { aboutUser: false, clubId: club.id })
 }
 
 export const AWARD_LABEL: Record<AwardId, string> = {
@@ -524,15 +566,25 @@ export function startNextSeason(W: WorldEngine, data: GameData, s: ImmersiveStat
     s.parentClubId = undefined
     m.seasonsAtClub = 0
     s.log.push({ season: s.season, age: s.age, type: 'loan_ended', text: `Fim do empréstimo. De volta: ${teamLabel(data, parent)}.`, data: { parentClubId: parent, loanClubId: loanClub } })
-    addInbox(s, 'Diretoria', 'De volta para casa', `O empréstimo acabou. Você se reapresenta ${no(clubOf(data, parent))} ${teamLabel(data, parent)} para a pré-temporada.`)
+    if (s.finance.contractUntil <= season) {
+      // o contrato com o clube dono acabou durante o empréstimo: não há para onde voltar
+      const pc = clubOf(data, parent)
+      s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Contrato com ${artigo(pc)} ${teamLabel(data, parent)} encerrado durante o empréstimo. Livre no mercado.` })
+      addInbox(s, 'Seu empresário', 'Você está livre no mercado', `Seu contrato com ${artigo(pc)} ${teamLabel(data, parent)} terminou durante o empréstimo. Vou buscar propostas — fique de olho na caixa de entrada.`)
+      s.clubId = null
+      s.captain = false
+      m.captainAt = null
+    } else addInbox(s, 'Diretoria', 'De volta para casa', `O empréstimo acabou. Você se reapresenta ${no(clubOf(data, parent))} ${teamLabel(data, parent)} para a pré-temporada.`)
   } else if (s.clubId && s.finance.contractUntil <= season) {
-    // contrato acabou sem renovação
-    const old = s.clubId
+    // contrato acabou sem renovação (emprestado: o contrato que acabou é o do clube dono)
+    const old = m.loan?.parentClubId ?? s.clubId
     s.log.push({ season: s.season, age: s.age, type: 'decision', text: `Contrato com ${artigo(clubOf(data, old))} ${teamLabel(data, old)} encerrado. Livre no mercado.` })
     addInbox(s, 'Seu empresário', 'Você está livre no mercado', `O contrato com ${artigo(clubOf(data, old))} ${teamLabel(data, old)} acabou. Vou buscar propostas — fique de olho na caixa de entrada.`)
     s.clubId = null
     s.captain = false
     m.captainAt = null
+    m.loan = undefined
+    s.parentClubId = undefined
   }
   // transferência acertada no meio da temporada para um clube de outro calendário
   if (m.deferredJoin) {

@@ -558,6 +558,24 @@ export interface SeasonRecord {
   position?: Position
   /** Prestígio (0–5) do clube nesta temporada. */
   clubPrestige?: number
+  /**
+   * (aditivo, imersivo) Temporada dividida entre clubes (transferência/empréstimo no meio): a parte de
+   * cada um, na ordem. `stats`/`clubId` da linha seguem sendo o total e o clube do fim da temporada;
+   * cada título (`trophies`) é do clube em `teamId`.
+   */
+  spans?: SeasonSpan[]
+}
+
+/** Parte de uma temporada num clube (ver `SeasonRecord.spans`). */
+export interface SeasonSpan {
+  clubId: string
+  leagueId?: string
+  loan?: boolean
+  apps: number
+  goals: number
+  assists: number
+  minutes: number
+  leaguePosition?: number
 }
 
 export type EffectKind = 'positive' | 'negative' | 'neutral' | 'fixed'

@@ -14,7 +14,7 @@ import type { Club, DecisionOption, EffectChip, Position } from '../../types'
 import { INJURIES, type InjuryDef } from '../constants'
 import { clubCard, foreignClub, homeClub, moneyClub, rivalClubs } from '../offers'
 import { isPlayingRole, predictRole } from '../player'
-import { clubStrength, confedCompetition, indexData, POSITION_NAMES, withArticle } from '../util'
+import { clubArticle, clubStrength, confedCompetition, indexData, POSITION_NAMES, withArticle } from '../util'
 import type { BuiltEvent, EffectSpec, EventDef, EventEnv, EventOption, OutcomeSpec } from './types'
 
 // ───────────────────────── construtores ─────────────────────────
@@ -74,6 +74,8 @@ function exitOption(env: EventEnv, eventKey: string, label: string): EventOption
 }
 
 const no = (env: EventEnv) => withArticle('em', env.club ?? undefined)
+/** "O Flamengo" / "A Juventus" no começo da frase. */
+const theClub = (club: Club) => `${clubArticle(club).toUpperCase()} ${club.name}`
 const hasOffer = (env: EventEnv) => env.offers().length > 0
 
 const RELATIVES: Record<string, [string, string]> = {
@@ -301,7 +303,7 @@ const COPERO: EventDef[] = [
     eligible: (env) => env.age > 22 && isPlayingRole(env.role) && hasOffer(env),
     build(env) {
       const k = 'unexpected_prospect'
-      const exit = exitOption(env, k, `Buscar uma saída ${withArticle('em', env.offers()[0])}`)
+      const exit = exitOption(env, k, 'Sair para')
       if (!exit) return null
       return {
         title: 'Joia da base',
@@ -353,11 +355,11 @@ const COPERO: EventDef[] = [
     build(env, _v, r) {
       const k = 'rival_offer'
       const rival = r.pick(rivalClubs(env.data, env.state))
-      const join = clubJoin(env, k, 'accept', 'Ir para', rival, { roleOverride: 'high_rotation', boost: 1.5 }, `Trocou de lado: agora joga no ${rival.name}.`)
+      const join = clubJoin(env, k, 'accept', 'Ir para', rival, { roleOverride: 'high_rotation', boost: 1.5 }, `Trocou de lado: agora joga ${withArticle('em', rival)} ${rival.name}.`)
       join.option.effects = [pos('Mais chances de título'), neg('Menos minutos')]
       return {
         title: 'Proposta do rival',
-        description: `O ${rival.name} quer te tirar daqui para montar um esquadrão. Topa a provocação?`,
+        description: `${theClub(rival)} quer te tirar daqui para montar um esquadrão. Topa a provocação?`,
         options: [join, clubStay(env, k, 'reject', `Ficar ${no(env)}`, [fixed('Você segue titular')], nothing('Você recusou o rival.'))],
         context: { rivalClubId: rival.id },
       }
@@ -370,7 +372,7 @@ const COPERO: EventDef[] = [
     eligible: (env) => env.clubPrestige >= 2 && hasOffer(env),
     build(env) {
       const k = 'club_crisis'
-      const exit = exitOption(env, k, `Buscar uma saída ${withArticle('em', env.offers()[0])}`)
+      const exit = exitOption(env, k, 'Sair para')
       if (!exit) return null
       return {
         title: 'Clube em crise',
@@ -435,7 +437,8 @@ const COPERO: EventDef[] = [
     key: 'tax_trouble',
     weight: 25,
     origin: 'copero',
-    eligible: (env) => !!env.club && indexData(env.data).simClubs.some((c) => c.country !== env.club!.country),
+    // o fisco "local" e a permanência no país só fazem sentido para quem joga fora de casa
+    eligible: (env) => env.abroad && !!env.club && indexData(env.data).simClubs.some((c) => c.country !== env.club!.country),
     build(env, _v, r) {
       const k = 'tax_trouble'
       const exit = foreignClub(env.data, env.state, r)
@@ -466,7 +469,7 @@ const COPERO: EventDef[] = [
         title: 'Avô estrangeiro',
         description: `Uma pesquisa de família revelou um avô nascido no exterior. Com isso, você pode defender outra seleção: ${alt.name}.`,
         options: [
-          choice(k, 'switch_national_team', 'Mudar de seleção', [fixed('Você passa a defender uma nova seleção')], sure({ switchNationality: alt.code }, `Agora você defende: ${alt.name}.`), { title: alt.name }),
+          choice(k, 'switch_national_team', 'Mudar de seleção', [fixed('Você passa a defender uma nova seleção')], sure({ switchNationality: alt.code }, `Nova seleção: ${alt.name}.`), { title: alt.name }),
           choice(k, 'keep_national_team', 'Manter a seleção', [fixed('Tudo segue como está')], nothing('Você manteve sua seleção.'), { title: env.nat!.name }),
         ],
         context: { alternativeNationality: alt.code },
@@ -541,7 +544,7 @@ const COPERO: EventDef[] = [
         description: `O clube não quer liberar você para a preparação da seleção antes da ${t.name}.`,
         options: [
           choice(k, 'go_anyway', 'Ir mesmo assim', [pos(`Você joga a ${t.name}`), neg('Reserva no clube')], sure({ national: 'force', roleOverride: 'substitute' }, `Você foi para a ${t.name} e perdeu espaço no clube.`)),
-          choice(k, 'comply', 'Obedecer o clube', [pos('Seu papel no clube não muda'), neg(`Fora da ${t.name}`)], sure({ national: 'skip' }, `Você ficou fora da ${t.name}.`)),
+          choice(k, 'comply', 'Obedecer ao clube', [pos('Seu papel no clube não muda'), neg(`Fora da ${t.name}`)], sure({ national: 'skip' }, `Você ficou fora da ${t.name}.`)),
         ],
         context: { tournament: t },
       }
@@ -668,7 +671,7 @@ const LENDA: EventDef[] = [
       join.option.effects = [pos('Salário astronômico'), neg('Adeus ao sonho da Bola de Ouro')]
       return {
         title: 'Proposta milionária',
-        description: `O ${club.name} oferece um caminhão de dinheiro para você virar a estrela do projeto.`,
+        description: `${theClub(club)} oferece um caminhão de dinheiro para você virar a estrela do projeto.`,
         options: [join, clubStay(env, k, 'stay', `Ficar ${no(env)}`, [fixed('O sonho continua')], nothing('Você recusou os milhões.'))],
       }
     },

@@ -98,9 +98,19 @@
 .ck-cel__mitem.is-first figcaption b { color: #ffe39a; }
 .ck-cel__multi + .ck-cel__floor { display: none; }
 .ck-cel__mart { position: relative; }
+/* a mesma taça mais de uma vez no período: uma figura só, com ×N */
+.ck-cel__mx { position: absolute; right: -6px; top: 4px; height: 24px; min-width: 32px; padding: 0 7px; font-size: 13px; line-height: 22px; z-index: 1; }
+.ck-cel__sharetext { display: block; width: 100%; min-height: 96px; padding: 12px 14px; border-radius: 13px; resize: none; font: 600 14px/1.45 var(--font-ui, inherit);
+  color: var(--text); background: rgba(0, 0, 0, .35); border: 1px solid var(--border-strong); outline: none; }
+.ck-cel__sharetext:focus { border-color: rgba(255, 255, 255, .4); box-shadow: 0 0 0 4px rgba(255, 255, 255, .06); }
 .ck-cel__mart::after { content: ''; position: absolute; left: 50%; bottom: -12px; width: 150%; height: 28px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 214, 110, .38), rgba(255, 214, 110, .08) 60%, transparent); z-index: -1; pointer-events: none; }
 @media (max-width: 575.98px) {
-  .ck-cel__multi { gap: 10px; flex-wrap: wrap; }
+  .ck-cel__multi { gap: 10px; flex-wrap: nowrap; }
+  .ck-cel__mitem { flex: 0 1 auto; }
+  .ck-cel__mx { height: 20px; min-width: 26px; font-size: 11.5px; line-height: 18px; right: -4px; }
+  /* Continuar / Compartilhar sempre à vista: rodapé fixo na coluna que rola */
+  .ck-cel__actions { position: sticky; bottom: 0; z-index: 4; padding: 14px 0 calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(rgba(10, 9, 14, 0), rgba(10, 9, 14, .9) 30%, rgba(10, 9, 14, .96)); }
   .ck-cel__mitem figcaption { max-width: 110px; }
   .ck-cel__mitem figcaption b { font-size: 13px; }
   .ck-cel__mitem figcaption small { font-size: 10px; }

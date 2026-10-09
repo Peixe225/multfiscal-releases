@@ -30,7 +30,7 @@ export interface CategoryMeta {
   /** Singular/plural para "3 Bolas de Ouro". */
   one: string
   many: string
-  /** Verbo da comparação: "Sua run nº 3 {more} Pelé (2)". */
+  /** Verbo da comparação: "Sua carreira nº 3 {more} Pelé (2)". */
   more: string
   /** Arte de troféu (src/ui/trophies) quando existe. */
   art?: string

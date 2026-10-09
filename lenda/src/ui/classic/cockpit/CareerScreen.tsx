@@ -51,6 +51,7 @@ export default function CareerScreen() {
   )
   useCockpitKeys()
   useMobileRevealScroll(!wide)
+  useShortDesktopScroll(wide)
 
   if (!data) {
     if (status !== 'ready') return null
@@ -229,6 +230,30 @@ function useCockpitKeys() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+}
+
+/**
+ * Desktop windows shorter than the cockpit (≈ 1280×720): when a decision arrives with its options
+ * below the fold, scroll just enough to show them; while a reveal plays, go back up (hero + table).
+ */
+function useShortDesktopScroll(enabled: boolean) {
+  const phase = useReveal((s) => s.phase)
+  const id = useCareer((s) => s.state?.pendingDecision?.id ?? null)
+  const rm = useReducedMotion()
+  useEffect(() => {
+    if (!enabled || phase !== 'idle' || !id) return
+    const t = setTimeout(() => {
+      const el = document.querySelector('.ck-left .ck-decision')
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const dy = Math.min(r.bottom - innerHeight + 16, r.top - 8)
+      if (dy > 0) window.scrollBy({ top: dy, behavior: rm ? 'auto' : 'smooth' })
+    }, 600)
+    return () => clearTimeout(t)
+  }, [enabled, phase, id, rm])
+  useEffect(() => {
+    if (enabled && phase === 'identity' && scrollY > 0) window.scrollTo({ top: 0, behavior: rm ? 'auto' : 'smooth' })
+  }, [enabled, phase, rm])
 }
 
 /** Phones: follow the revealed row, then come back to the next decision. */

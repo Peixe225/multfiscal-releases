@@ -43,17 +43,24 @@ function makeOffer(data: GameData, s: ImmersiveState, club: Club, kind: Contract
     role: roleFor(s, club.id, data),
     expiresWeek: s.week + weeks,
     roundsLeft: m.superAgent ? 3 : 2,
+    rounds: m.superAgent ? 3 : 2,
   }
   if (kind === 'transfer') offer.fee = roundMoney(value * r.range(0.9, 1.35) * (yearsLeft >= 2 ? 1 : yearsLeft === 1 ? 0.75 : 0.4))
   if (kind !== 'loan') offer.releaseClause = roundMoney(value * r.range(2.5, 4))
   if (kind !== 'loan' && salary >= 1_000_000) offer.signingBonus = roundMoney(salary * 0.1)
+  // a nota complementa o papel (que já vai na frase da proposta): nada de "titular… titular absoluto"
   const notes: Record<ContractOffer['role'], string[]> = {
-    Titular: ['O técnico te quer como titular absoluto.', 'Querem montar o time em volta de você.'],
-    Rotação: ['Você brigaria por posição com espaço garantido.', 'Papel importante na rotação do elenco.'],
-    Reserva: ['Chegaria para compor o elenco.', 'Começaria como opção de banco.'],
+    Titular: ['Querem montar o time em volta de você.', 'O técnico ligou pessoalmente: você seria peça-chave.'],
+    Rotação: ['Teria espaço na rotação, com chances reais de virar titular.', 'O técnico gosta do seu jogo e promete oportunidades.'],
+    Reserva: ['Chegaria para compor o elenco e ganhar espaço aos poucos.', 'A concorrência na posição é forte: minutos não são garantidos.'],
     Promessa: ['Apostam no seu potencial a longo prazo.', 'Plano de desenvolvimento com minutos na equipe B.'],
   }
-  offer.note = kind === 'loan' ? 'Empréstimo de uma temporada com minutos garantidos.' : r.pick(notes[offer.role])
+  offer.note =
+    kind === 'loan'
+      ? offer.role === 'Titular' || offer.role === 'Rotação'
+        ? 'O clube conta com você: é a chance de ganhar rodagem.'
+        : 'Chance de somar minutos e ganhar rodagem fora de casa.'
+      : r.pick(notes[offer.role])
   m.offerBase = { ...(m.offerBase ?? {}), [offer.id]: salary }
   return offer
 }
@@ -75,14 +82,25 @@ function fallbackClub(data: GameData, s: ImmersiveState, r: ReturnType<typeof ir
   return list.length ? r.pick(list) : undefined
 }
 
+/** Papel prometido na frase da proposta ("… por 5 anos para você ser titular"). */
+const ROLE_PHRASE: Record<ContractOffer['role'], string> = {
+  Titular: 'para você ser titular',
+  Rotação: 'para você brigar por posição',
+  Reserva: 'como opção de banco',
+  Promessa: 'como aposta para o futuro',
+}
+
 function announce(data: GameData, s: ImmersiveState, o: ContractOffer, fx: ImmersiveEffect[]) {
   const name = clubOf(data, o.clubId)?.name ?? o.clubId
   const subject =
-    o.kind === 'renewal' ? `${name} quer renovar` : o.kind === 'loan' ? `Empréstimo: ${name}` : o.kind === 'free_agent' ? `Proposta (sem custo): ${name}` : `Proposta: ${name}`
+    o.kind === 'renewal' ? `${name} quer renovar` : o.kind === 'loan' ? `Empréstimo: ${name}` : o.kind === 'free_agent' ? `Proposta: ${name} (jogador livre)` : `Proposta: ${name}`
+  const years = `${o.years} ${o.years === 1 ? 'ano' : 'anos'}`
   const body =
     o.kind === 'renewal'
-      ? `A diretoria oferece ${o.years} ${o.years === 1 ? 'ano' : 'anos'} e ${formatMoney(o.salary)}/ano. Dá para pedir mais — eles têm margem.`
-      : `${name} ${o.fee ? `ofereceu ${formatMoney(o.fee)} ao clube e ` : ''}te quer como ${o.role.toLowerCase()} por ${formatMoney(o.salary)}/ano (${o.years} ${o.years === 1 ? 'ano' : 'anos'}). ${o.note ?? ''}`.trim()
+      ? `A diretoria oferece ${years} e ${formatMoney(o.salary)}/ano. Dá para pedir mais — eles têm margem.`
+      : o.kind === 'loan'
+        ? `${name} quer você emprestado por uma temporada, pagando ${formatMoney(o.salary)}/ano, ${ROLE_PHRASE[o.role]}. ${o.note ?? ''}`.trim()
+        : `${name} oferece ${formatMoney(o.salary)}/ano por ${years} ${ROLE_PHRASE[o.role]}.${o.fee ? ` Pela transferência, oferece ${formatMoney(o.fee)} ao seu clube.` : ''} ${o.note ?? ''}`.trim()
   addInbox(s, 'Seu empresário', subject, body, { offerId: o.id })
   void fx
 }
@@ -142,6 +160,8 @@ export function renewalOffer(data: GameData, s: ImmersiveState): ContractOffer |
   const club = clubOf(data, s.clubId)
   if (!club) return null
   const wants = s.relationships.coach >= 38 && s.ovr >= str - 9 && s.age <= 35
+  // contrato já vencido (save antigo que voltou de empréstimo assim): nada de "termina ao fim da temporada"
+  if (left < 0) return null
   if (left <= 0) {
     if (!wants) {
       if (m.noRenewal !== s.season) {

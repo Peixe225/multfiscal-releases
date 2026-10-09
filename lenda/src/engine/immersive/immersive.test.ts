@@ -197,6 +197,8 @@ describe.skipIf(!hasRealData)('modo imersivo (dados reais)', () => {
     const o = transfers[0]
     expect(o.salary).toBeGreaterThan(0)
     expect(o.fee).toBeGreaterThan(0)
+    // rodadas do começo ficam na proposta (paciência/pips depois de recarregar a página)
+    expect(o.rounds).toBe(o.roundsLeft)
     expect(withOffers.inbox.some((m) => m.offerId === o.id)).toBe(true)
     // pedir 10× o salário nunca é aceito de cara
     const greedy = dispatch(data, withOffers, { type: 'offer_respond', offerId: o.id, response: 'counter', counter: { salary: o.salary * 10 } }).state
@@ -204,6 +206,7 @@ describe.skipIf(!hasRealData)('modo imersivo (dados reais)', () => {
     if (g) {
       expect(g.salary).toBeLessThan(o.salary * 10)
       expect(g.roundsLeft).toBe(o.roundsLeft - 1)
+      expect(g.rounds).toBe(o.rounds)
     }
     // aceitar: troca de clube, calendário refeito para o clube novo
     const r = dispatch(data, withOffers, { type: 'offer_respond', offerId: o.id, response: 'accept' })
@@ -235,6 +238,9 @@ describe.skipIf(!hasRealData)('modo imersivo (dados reais)', () => {
     expect(s.calendar[s.cursor].kind).toBe('press')
     s = dispatch(data, s, { type: 'advance' }).state
     expect(s.press?.length).toBeGreaterThanOrEqual(2)
+    // registro da coletiva: começo e respostas sobrevivem a recarregar a página
+    expect(s.pressLog).toMatchObject({ itemId: s.calendar[s.cursor].id, total: s.press!.length, answers: [] })
+    expect(s.pressLog!.start.fans).toBe(s.relationships.fans)
     expect(E.validActions!(s)).toEqual(expect.arrayContaining(['press_answer', 'press_skip']))
     const q = s.press![0]
     const prov = q.answers.find((a) => a.tone === 'provocador')!
@@ -243,6 +249,9 @@ describe.skipIf(!hasRealData)('modo imersivo (dados reais)', () => {
     expect(r.state.relationships.fans).toBeGreaterThan(s.relationships.fans)
     expect(r.state.relationships.media).toBeLessThan(s.relationships.media)
     expect(r.effects.some((e) => e.type === 'news')).toBe(true)
+    expect(r.state.pressLog!.answers).toEqual([expect.objectContaining({ questionId: q.id, answerId: prov.id, tone: 'provocador' })])
+    expect(r.state.news.some((n) => n.id === r.state.pressLog!.answers[0].newsId)).toBe(true)
+    expect(r.state.pressLog!.start).toEqual(s.pressLog!.start)
     const h = s.press![0].answers.find((a) => a.tone === 'humilde')!
     const hr = dispatch(data, s, { type: 'press_answer', questionId: q.id, answerId: h.id }).state
     expect(hr.relationships.media).toBeGreaterThan(s.relationships.media)
@@ -250,6 +259,7 @@ describe.skipIf(!hasRealData)('modo imersivo (dados reais)', () => {
     const sk = dispatch(data, s, { type: 'press_skip' }).state
     expect(sk.relationships.media).toBeCloseTo(s.relationships.media - 4, 0)
     expect(sk.press).toBeNull()
+    expect(sk.pressLog).toBeNull()
     // post provocador: torcida ↑, mídia ↓, seguidores ↑; repetir na mesma semana rende metade
     const p1 = dispatch(data, sk, { type: 'social_post', templateId: 'provocar_rival' }).state
     expect(p1.relationships.fans).toBeGreaterThan(sk.relationships.fans)

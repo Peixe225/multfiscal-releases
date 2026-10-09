@@ -5,6 +5,7 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { ArrowRight, Award, ChevronDown, Medal, PartyPopper, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react'
 import type { AwardResult, SeasonRecord, TrophyWin } from '@/engine/types'
+import { tournamentNames } from '@/engine/world/league'
 import { navigate } from '@/store/app'
 import { getClub, getLeague, getTrophy } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
@@ -45,17 +46,40 @@ export function seasonAwards(world: { seasons: Record<number, { awards?: AwardRe
   return world.seasons?.[season]?.awards ?? []
 }
 
+/** "a uma posição", "a duas posições"… (só vale até o 4º lugar). */
+const POS_WORD = ['', 'uma', 'duas', 'três']
+
 export default function SeasonReview() {
   const s = useImmersive((x) => x.state)!
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
+  const engine = useImmersive((x) => x.engine)
+  const data = useImmersive((x) => x.data)
   const [cele, setCele] = useState<TrophyWin | null>(null)
   const rec: SeasonRecord | undefined = s.seasons[s.seasons.length - 1]
   const it = currentItem(s)
   const pendingAwards = it?.kind === 'awards'
   const awards = rec ? relevantAwards(seasonAwards(s.world, rec.season), rec.leagueId) : []
   const [allAwards, setAllAwards] = useState(false)
-  const table = useMemo(() => (rec ? s.world.seasons?.[rec.season]?.leagues?.[rec.leagueId]?.table ?? [] : []), [s.world, rec])
+  const lgRes = rec ? s.world.seasons?.[rec.season]?.leagues?.[rec.leagueId] : undefined
+  const table = useMemo(() => lgRes?.table ?? [], [lgRes])
+  // Apertura/Clausura: a tabela é a anual (soma dos dois); cada torneio tem campeão próprio (o do
+  // mata-mata, quando há) e a sua colocação vem da tabela do torneio (a mesma da Central)
+  const tours = useMemo(() => {
+    const lg = rec ? getLeague(rec.leagueId) : undefined
+    if (!rec || !lg || (lg.tournamentsPerSeason ?? 1) < 2 || !lgRes?.champions?.length) return null
+    return lgRes.champions.map((c) => {
+      const t = /^apertura/i.test(c.name) ? 0 : 1
+      let pos = 0
+      try {
+        const tt = engine && data ? engine.liveTable(data, s, t) : []
+        if (tt.some((r) => r.played > 0)) pos = tt.findIndex((r) => r.clubId === rec.clubId) + 1
+      } catch {
+        // sem a tabela do torneio: fica só o campeão
+      }
+      return { name: c.name.replace(/\s*\d{4}$/, ''), clubId: c.clubId, pos }
+    })
+  }, [rec, lgRes, engine, data, s])
   if (!rec) {
     return (
       <main id="conteudo" tabIndex={-1} className="im-wrap outline-none">
@@ -70,6 +94,8 @@ export default function SeasonReview() {
   const league = getLeague(rec.leagueId)
   const pos = rec.leaguePosition ?? 0
   const zone = zoneOf(league, pos, table.length || 20)
+  const won = tours?.filter((t) => t.clubId === rec.clubId).map((t) => t.name) ?? []
+  const champion = tours ? won.length > 0 : pos === 1
   const dOvr = rec.ovrEnd - rec.ovrStart
   const gk = rec.position === 'GOL'
   const next = () =>
@@ -79,6 +105,11 @@ export default function SeasonReview() {
   const rows = (() => {
     const idx = new Set<number>([0, 1, 2])
     if (mine >= 0) for (let k = Math.max(0, mine - 2); k <= Math.min(table.length - 1, mine + 2); k++) idx.add(k)
+    // os campeões do Apertura/Clausura sempre aparecem (o 1º da tabela anual não é o campeão)
+    for (const t of tours ?? []) {
+      const k = table.findIndex((r) => r.clubId === t.clubId)
+      if (k >= 0) idx.add(k)
+    }
     // buraco de uma linha só (ex.: 4º entre o G3 e a sua faixa) vira a própria linha — "…" para esconder um time só confunde
     for (const i of [...idx]) if (!idx.has(i + 1) && idx.has(i + 2)) idx.add(i + 1)
     return [...idx].filter((i) => i < table.length).sort((a, b) => a - b)
@@ -92,14 +123,15 @@ export default function SeasonReview() {
         </div>
         <div className="im-hub__actions">
           {pendingAwards ? (
-            <>
-              <Button variant="ghost" size="md" iconRight={ArrowRight} loading={busy} onClick={next}>
-                Pular cerimônia e começar {rec.season + 1}
-              </Button>
+            // o dourado vem primeiro (no celular, em cima); pular a festa é um link discreto embaixo
+            <div className="im-review__go">
               <Button variant="primary" size="lg" icon={Award} onClick={() => navigate('/imersivo', { query: { tela: 'gala' } })}>
                 Noite da Bola de Ouro
               </Button>
-            </>
+              <button type="button" className="im-link im-review__skip" onClick={next} disabled={busy}>
+                Pular cerimônia e começar {rec.season + 1} <ArrowRight size={13} aria-hidden="true" />
+              </button>
+            </div>
           ) : (
             <Button variant="ghost" size="md" onClick={() => navigate('/imersivo')}>
               Voltar à Central
@@ -112,9 +144,9 @@ export default function SeasonReview() {
         <div className="im-review__col is-l">
         <section className="lx-plate lx-c-lg im-review__pos lx-anim-rise" style={{ ['--i' as string]: 1 }}>
           <div className="lx-club-glow" aria-hidden="true" />
-          <span className="lx-label">Classificação final</span>
+          <span className="lx-label">{tours && league ? `Tabela anual (${tournamentNames(league, rec.season).map((n) => n.replace(/\s*\d{4}$/, '')).join(' + ')})` : 'Classificação final'}</span>
           <div className="im-review__big">
-            <b className={cx('num', pos === 1 && 'lx-metal-gold')}>{pos ? `${pos}º` : '—'}</b>
+            <b className={cx('num', champion && 'lx-metal-gold')}>{pos ? `${pos}º` : '—'}</b>
             <div className="min-w-0">
               <span className="im-review__lg">
                 <CompLogo id={rec.leagueId} size={26} />
@@ -124,19 +156,41 @@ export default function SeasonReview() {
                 {club && <Crest club={club} size={26} decorative />}
                 {club?.name}
               </span>
-              {pos === 1 ? (
-                <span className="lx-chip lx-chip--sm lx-chip--solid-gold">Campeão</span>
+              {champion ? (
+                <span className="lx-chip lx-chip--sm lx-chip--solid-gold">{won.length ? `Campeão do ${won.join(' e do ')}` : 'Campeão'}</span>
               ) : zone ? (
                 <span className={cx('lx-chip lx-chip--sm', zone === 'reb' ? 'lx-chip--neg' : 'lx-chip--pos-ok')}>{zone === 'reb' ? '▼ Rebaixado' : zone === 'up' ? '▲ Acesso' : `Vaga · ${zoneName(league, zone)}`}</span>
               ) : null}
             </div>
           </div>
+          {tours && (
+            <div className="im-review__tours">
+              {tours.map((t) => {
+                const c = getClub(t.clubId)
+                return (
+                  <div key={t.name} className={cx('im-review__tour', t.clubId === rec.clubId && 'is-win')}>
+                    <span className="lx-label">{t.name}</span>
+                    {t.pos > 0 && (
+                      <span className="im-review__tpos">
+                        {club?.shortName ?? 'Você'}: <b className="num">{t.pos}º</b>
+                      </span>
+                    )}
+                    <span className="im-review__tchamp">
+                      <Trophy size={13} aria-hidden="true" /> Campeão: {c && <Crest club={c} size={16} decorative />}
+                      <b>{c?.shortName ?? t.clubId}</b>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {table.length > 0 && (
             <ol className="im-review__table">
               {rows.map((i, k) => {
                 const r = table[i]
                 const c = getClub(r.clubId)
                 const z = zoneOf(league, i + 1, table.length)
+                const titles = tours?.filter((t) => t.clubId === r.clubId).map((t) => t.name) ?? []
                 return (
                   <li key={r.clubId} className={cx(r.clubId === rec.clubId && 'is-me', k > 0 && rows[k - 1] !== i - 1 && 'is-gap')}>
                     <span className="num">
@@ -144,7 +198,14 @@ export default function SeasonReview() {
                       {i + 1}
                     </span>
                     {c && <Crest club={c} size={18} decorative />}
-                    <b className="truncate">{c?.shortName ?? r.clubId}</b>
+                    <b className="im-review__nm">
+                      <span className="truncate">{c?.shortName ?? r.clubId}</span>
+                      {titles.length > 0 && (
+                        <span className="im-review__cup-ic" title={`Campeão do ${titles.join(' e do ')}`}>
+                          <Trophy size={13} aria-label={`Campeão do ${titles.join(' e do ')}`} />
+                        </span>
+                      )}
+                    </b>
                     <span className="num">{r.points} pts</span>
                   </li>
                 )
@@ -196,7 +257,7 @@ export default function SeasonReview() {
             <div className="im-review__none">
               <Trophy size={22} aria-hidden="true" />
               <p className="lx-t-small m-0">
-                Nenhuma taça desta vez{pos > 1 && pos <= 4 ? ` — ficou a ${pos - 1} ${pos - 1 === 1 ? 'posição' : 'posições'} do título da liga` : ''}. A próxima temporada é uma nova chance.
+                Nenhuma taça desta vez{!tours && pos > 1 && pos <= 4 ? ` — ficou a ${POS_WORD[pos - 1]} ${pos - 1 === 1 ? 'posição' : 'posições'} do título da liga` : ''}. A próxima temporada é uma nova chance.
               </p>
             </div>
           ) : (

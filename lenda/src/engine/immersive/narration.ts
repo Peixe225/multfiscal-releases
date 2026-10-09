@@ -8,7 +8,8 @@ import type { Rng } from '../rng'
 export type Vars = Record<string, string | number | undefined>
 
 export function fill(tpl: string, v: Vars): string {
-  return tpl.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k] ?? ''))
+  // nome abreviado com ponto ("Argentino Q.") seguido da pontuação do modelo: um ponto só
+  return tpl.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k] ?? '')).replace(/(\p{L})\.\.(?!\.)/gu, '$1.')
 }
 
 export function say(r: Rng, list: readonly string[], v: Vars = {}): string {
@@ -16,9 +17,10 @@ export function say(r: Rng, list: readonly string[], v: Vars = {}): string {
 }
 
 export const T = {
+  // {st}: complemento opcional no fim da frase (" pela 31ª rodada", " em amistoso internacional")
   kickoff: [
     'Bola rolando! {h} e {aw} começam a partida{st}.',
-    'Autorizou o árbitro, começa o jogo{st}: {h} × {aw}.',
+    'Autorizou o árbitro: começa {h} × {aw}{st}.',
     'Tudo pronto, estádio cheio e a bola rola para {h} × {aw}{st}.',
     'Apita o árbitro! Vai começar {h} × {aw}{st}.',
   ],
@@ -38,18 +40,12 @@ export const T = {
     'É do {t}! {p} bate colocado no canto.',
     'GOL! {a} rouba no meio, toca para {p}, que não perdoa.',
   ],
+  // gol do jogador, frases que servem a qualquer finalização (somadas às do tipo de chute, `SHOT_TEXT`)
   goalUser: [
     'GOOOOOL! É DELE! {p} decide e explode a arquibancada!',
-    'GOLAÇO DE {P}! Que finalização!',
     'É GOL! {p} não perdoa e deixa sua marca!',
-    'GOOOL! {p} bate com categoria e corre para a torcida!',
     'Balançou a rede! {p} faz o dele!',
     'GOL, GOL, GOL! {p} marca e o estádio vem abaixo!',
-  ],
-  goalAssistUser: [
-    'GOOOL! Passe açucarado de {a} e {p} só completa!',
-    'É GOL do {t}! Assistência de {a}, conclusão de {p}!',
-    'GOL! Visão de jogo de {a}, que deixa {p} na cara do gol!',
   ],
   goalOpp: [
     'Gol do {t}. {p} aproveita a desatenção e marca.',
@@ -68,6 +64,8 @@ export const T = {
     '{p} limpa a marcação e chuta para fora.',
   ],
   save: ['Que defesa! {g} voa e espalma o chute de {p}.', '{g} segura firme a finalização de {p}.', 'Milagre de {g}! Defesa à queima-roupa em chute de {p}.'],
+  /** Defesa do jogador goleiro (o lance pode ser chute de longe, cabeceio ou cara a cara: frase neutra). */
+  saveUser: ['Que defesa! {g} voa e espalma o chute de {p}.', '{g} segura firme a finalização de {p}.', '{g} fecha o gol e para {p}!'],
   woodwork: ['NA TRAVE! {p} acerta o poste!', 'Explodiu no travessão! {p} quase marca um golaço.', 'Bola no pé da trave em chute de {p}!'],
   yellow: [
     'Cartão amarelo para {p}, do {t}, por falta dura.',
@@ -82,6 +80,7 @@ export const T = {
     'O {t} reclama muito e {p} acaba levando o amarelo.',
   ],
   red: ['Cartão vermelho! {p} é expulso e o {t} fica com um a menos.', 'Expulso! {p} recebe o vermelho direto.'],
+  secondYellow: ['Segundo amarelo para {p}! Expulso, e o {t} fica com um a menos.', 'Mais uma falta de {p}: segundo amarelo e vermelho. O {t} vai jogar com dez.'],
   subOn: [
     'Substituição no {t}: entra {p}, sai {a}.',
     'Mexe o técnico do {t}: {p} no lugar de {a}.',
@@ -92,17 +91,107 @@ export const T = {
     '{a} sente e pede para sair. Entra {p} no {t}.',
     'O {t} renova o ataque: {p} no lugar de {a}.',
   ],
+  // dupla substituição: duas linhas (um evento por troca), a 2ª continua a 1ª
   subDouble: [
-    'Dupla substituição no {t}: entram {p} e {p2}; saem {a} e {a2}.',
-    'O técnico do {t} mexe duas vezes: {p} e {p2} nos lugares de {a} e {a2}.',
-    'Duas trocas de uma vez no {t}: {a} e {a2} dão lugar a {p} e {p2}.',
-  ],
+    ['Dupla substituição no {t}. Primeiro: entra {p}, sai {a}.', 'Na mesma parada, {p2} entra no lugar de {a2}.'],
+    ['O técnico do {t} mexe duas vezes: {p} no lugar de {a}…', '…e {p2} no lugar de {a2}.'],
+    ['Duas trocas de uma vez no {t}: {a} dá lugar a {p}…', '…e {a2} sai para a entrada de {p2}.'],
+  ] as const,
   var: ['O VAR revisa o lance… jogo segue.', 'Checagem do VAR em possível pênalti: nada marcado.', 'Árbitro consulta o VAR e mantém a decisão de campo.'],
   injury: ['{p} sente a coxa e pede atendimento.', 'Preocupação: {p} cai no gramado e recebe atendimento médico.'],
   userSubOn: ['Entra {p}! A torcida aplaude a mudança. Sai {a}.', 'É a sua vez: {p} entra no lugar de {a}.', 'O técnico chama {p}, que entra no lugar de {a}.'],
   userSubOff: ['Sai {p}, aplaudido, para a entrada de {a}.', '{p} deixa o campo e dá lugar a {a}.', 'Fim de jogo para {p}: entra {a}.'],
-  userAskOff: ['{p} pede para sair, sentindo o cansaço. Entra {a}.'],
+  userAskOff: ['{p} pede para sair, sentindo o cansaço. Entra {a}.', '{p} está no limite e pede a troca. Entra {a}.'],
+  /** Pediu para sair ainda inteiro (energia alta): sem "cansaço". */
+  userAskOffFresh: ['{p} pede para sair e é substituído. Entra {a}.', '{p} pede a troca ao banco. Entra {a} no lugar dele.'],
 }
+
+/** Tipo de finalização do jogador (pela opção escolhida): cada um tem a sua narração. */
+export type ShotKind = 'placed' | 'power' | 'finish' | 'round_gk' | 'long' | 'cut_back' | 'header' | 'fk'
+
+export const SHOT_KIND: Record<string, ShotKind> = {
+  shoot_placed: 'placed',
+  shoot_power: 'power',
+  finish: 'finish',
+  round_gk: 'round_gk',
+  long_shot: 'long',
+  cut_back: 'cut_back',
+  header_goal: 'header',
+  fk_direct: 'fk',
+}
+
+/**
+ * Narração da finalização do jogador por tipo (gol, defesa, para fora, trave): cabeceio só no lance de
+ * cabeça, "à queima-roupa" só cara a cara, cobrança de falta com barreira. {p} jogador, {P} em
+ * maiúsculas, {g} goleiro.
+ */
+export const SHOT_TEXT: Record<ShotKind, { goal: readonly string[]; save: readonly string[]; wide: readonly string[]; post: readonly string[] }> = {
+  placed: {
+    goal: ['GOOOL! {p} ajeita e bate colocado, no cantinho de {g}!', 'É GOL! {p} coloca a bola onde {g} não alcança!', 'GOLAÇO DE {P}! Chute colocado, no canto, sem chance!'],
+    save: ['{g} se estica todo e espalma o chute colocado de {p}.', 'Chute colocado de {p}, mas {g} adivinha o canto e defende.'],
+    wide: ['{p} tenta colocar e a bola passa raspando a trave.', 'Chute colocado de {p}, mas a bola sai pela linha de fundo.'],
+    post: ['NA TRAVE! {p} bate colocado e a bola beija o poste!', 'Bola no pé da trave em chute colocado de {p}!'],
+  },
+  power: {
+    goal: ['GOOOL! {p} solta a bomba e estufa a rede!', 'É GOL! Pancada de {p}, sem chance para {g}!', 'GOLAÇO DE {P}! Encheu o pé e a bola entrou rasgando!'],
+    save: ['{p} solta a bomba e {g} espalma para escanteio!', 'Pancada de {p}! {g} rebate firme.'],
+    wide: ['{p} bate forte demais e isola por cima do gol.', 'Pancada de {p} que sobe demais: por cima do travessão.'],
+    post: ['Explodiu no travessão! Que bomba de {p}!', 'NA TRAVE! O chute forte de {p} carimba o poste!'],
+  },
+  finish: {
+    goal: ['GOOOL! {p} fica cara a cara e tira de {g}!', 'É GOL! {p} toca na saída de {g} e corre para a torcida!', 'GOOOL! Frente a frente com {g}, {p} não perdoa!'],
+    save: ['{g} sai bem e fecha o ângulo: defesa na cara do gol diante de {p}!', 'Milagre de {g}! Defesa à queima-roupa na finalização de {p}.'],
+    wide: ['Cara a cara, {p} toca na saída de {g}… e a bola sai rente à trave!', '{p} fica sozinho com {g} e manda para fora!'],
+    post: ['NA TRAVE! {p} tira de {g} e a bola explode no poste!', 'Cara a cara, {p} toca por cima de {g}… e acerta o travessão!'],
+  },
+  round_gk: {
+    goal: ['GOOOL! {p} dribla {g} e entra com bola e tudo!', 'É GOL! {p} deixa {g} no chão e empurra para a rede vazia!'],
+    save: ['{p} tenta driblar {g}, que se joga nos pés dele e fica com a bola.', '{g} não cai no drible e abafa a jogada de {p}.'],
+    wide: ['{p} passa por {g}, mas fica sem ângulo e chuta para fora.', '{p} dribla {g} e demora: o zagueiro volta e trava em cima da linha.'],
+    post: ['{p} dribla {g} e chuta de ângulo difícil… na trave!'],
+  },
+  long: {
+    goal: ['GOLAÇO DE {P}! Arriscou de longe e acertou o ângulo!', 'GOOOL! {p} acerta um chutaço de fora da área!'],
+    save: ['{p} arrisca de longe e {g} encaixa sem problemas.', 'Chute de fora da área de {p}; {g} voa e espalma.'],
+    wide: ['{p} arrisca de longe, por cima do travessão.', 'Chute de fora da área de {p} que sai longe do gol.'],
+    post: ['De longe! {p} solta o pé e a bola explode no travessão!'],
+  },
+  cut_back: {
+    goal: ['GOOOL! {p} corta para dentro e finaliza no canto!', 'É GOL! {p} puxa para o pé bom e não perdoa!'],
+    save: ['{p} corta para dentro e chuta; {g} defende no canto.', 'Finalização de {p} depois do corte, e {g} segura.'],
+    wide: ['{p} corta o marcador e chuta, mas a bola sai à esquerda.', '{p} puxa para dentro e finaliza mal, para fora.'],
+    post: ['{p} corta para dentro, bate colocado… e acerta a trave!'],
+  },
+  header: {
+    goal: ['GOOOL! {p} sobe mais que todo mundo e cabeceia para a rede!', 'É GOL de cabeça! {p} testa firme, sem chance para {g}!'],
+    save: ['{p} cabeceia firme e {g} faz grande defesa!', 'Cabeçada de {p} no canto, mas {g} se estica e espalma.'],
+    wide: ['Uuuh! {p} cabeceia e a bola sai tirando tinta do poste.', '{p} sobe sozinho, mas cabeceia por cima do gol.'],
+    post: ['Cabeçada de {p} no travessão!', 'NA TRAVE! {p} testa firme e a bola carimba o poste!'],
+  },
+  fk: {
+    goal: ['GOLAÇO DE FALTA! {p} passa a bola por cima da barreira e mata {g}!', 'GOOOL! Cobrança perfeita de {p}, no ângulo de {g}!'],
+    save: ['{p} bate a falta por cima da barreira e {g} voa para espalmar!', 'Cobrança de falta de {p} no canto; {g} defende.'],
+    wide: ['{p} bate a falta e a bola passa por cima do gol.', 'A cobrança de {p} explode na barreira.'],
+    post: ['A cobrança de falta de {p} explode no travessão!', 'NA TRAVE! A falta de {p} passa pela barreira e carimba o poste!'],
+  },
+}
+
+/** Finalização do companheiro depois do seu passe: de cabeça (cruzamento) ou com os pés (passe rasteiro). */
+export const ASSIST_TEXT = {
+  cross: {
+    goal: ['GOOOL! Cruzamento de {a} na medida e {p} cabeceia para a rede!', 'É GOL do {t}! {a} levanta na área e {p} completa de cabeça!'],
+    save: ['{p} cabeceia o cruzamento e {g} defende.', '{p} sobe para o cabeceio, mas {g} segura.'],
+    wide: ['{p} cabeceia o cruzamento por cima do gol.', '{p} chega atrasado e a cabeçada sai fraca, para fora.'],
+  },
+  ground: {
+    goal: ['GOOOL! Passe açucarado de {a} e {p} só completa!', 'É GOL do {t}! Assistência de {a}, conclusão de {p}!', 'GOL! Visão de jogo de {a}, que deixa {p} na cara do gol!'],
+    save: ['{p} recebe o passe e finaliza, mas {g} defende.', 'Passe na medida e {p} chuta; {g} faz a defesa.'],
+    wide: ['{p} recebe na área e finaliza para fora.', 'Passe perfeito, mas {p} pega mal e a bola sai.'],
+  },
+} as const
+
+/** Opções de passe que terminam em cabeceio do companheiro. */
+export const CROSS_OPTIONS = new Set(['cross_high', 'fk_cross', 'nod_down'])
 
 /** Descrições de lances-chave por situação. */
 export const MOMENT_DESC: Record<string, readonly string[]> = {
@@ -161,6 +250,9 @@ export const RESULT_TEXT = {
   passFail: ['Passe interceptado.', 'A bola não chegou.'],
   dribbleOk: ['Passou! Você deixa o marcador para trás.', 'Drible desconcertante!'],
   dribbleFail: ['Desarmado.', 'O marcador levou a melhor.'],
+  oneTwoOk: ['Tabela perfeita! A bola volta e você sai na frente.', 'Tabelou! Você recebe de volta com espaço.'],
+  oneTwoFail: ['Passe cortado.', 'A tabela não saiu: cortaram o passe.'],
+  foulFail: ['O árbitro mandou seguir.', 'Não convenceu o árbitro: jogo segue.'],
   stop: ['Desarme limpo! Bola recuperada.', 'Cortou! Perigo afastado.', 'Leitura perfeita, bola roubada.'],
   stopFail: ['Passou por você…', 'Chegou atrasado.'],
   save: ['DEFESAÇA!', 'Espalmou!', 'Segurou firme!'],

@@ -19,10 +19,13 @@ import type { RateRole } from './constants'
 
 // ───────────────────────── formatação (UI) ─────────────────────────
 
-/** Regra do Copero: ≥ €1M → "€5.5M" (1 casa até €10M, depois inteiro); abaixo → "€380K". */
+/** Regra do Copero em pt-BR: ≥ €1M → "€5,5M" (1 casa até €10M, sem ",0"; depois inteiro); abaixo → "€380K". */
 export function formatMoney(v: number): string {
   const n = Math.max(0, v)
-  if (n >= 1e6) return `€${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M`
+  if (n >= 999_500) {
+    const m = n / 1e6
+    return `€${m >= 9.95 ? Math.round(m) : m.toFixed(1).replace(/\.0$/, '').replace('.', ',')}M`
+  }
   return `€${Math.round(n / 1e3)}K`
 }
 
@@ -257,6 +260,7 @@ const FEMININE_WORDS = [
   'real sociedad', 'chapecoense', 'ponte preta', 'portuguesa', 'ferroviária', 'tombense',
   'inter de milão', 'internazionale', 'inter milan', 'reggiana', 'spezia', 'ternana', 'sambenedettese',
   'lusitana', 'académica', 'naval', 'real sociedade', 'gimnástica', 'cultural leonesa', 'ponferradina',
+  'juve stabia', 'carrarese',
 ]
 
 const MASCULINE_OVERRIDES = ['inter miami', 'internacional', 'america', 'américa']

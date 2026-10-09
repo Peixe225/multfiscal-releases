@@ -163,7 +163,15 @@ export interface NationSeasonSummary {
   countryCode: string
   matches: number
   goalsFor: number
-  tournament?: { competitionId: string; reached: string; champion: boolean; trophyId: string }
+  tournament?: {
+    competitionId: string
+    reached: string
+    champion: boolean
+    trophyId: string
+    /** (aditivo) Jogos e gols da seleção no torneio (o resto da temporada são eliminatórias/amistosos). */
+    games?: number
+    goalsFor?: number
+  }
 }
 
 // ───────────────────────── motor da carreira (modo Clássico) ↔ UI ─────────────────────────

@@ -1,15 +1,20 @@
 /**
  * Menu (sheet on phones, dialog on desktop): navigation, settings, abandon career.
+ * With a classic AND an immersive career saved, both "Continuar" rows show (the classic one labelled).
  */
-import { useState } from 'react'
-import { ChevronRight, Crown, Flag as FlagIcon, House, ChartLine, Play, Radio, ScrollText, Settings2, Sparkles, Trash, UserRound, Video } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronRight, Crown, Flag as FlagIcon, House, ChartLine, Play, Radio, ScrollText, Settings2, Sparkles, Trash, Tv2, UserRound, Video } from 'lucide-react'
+import type { ImmersiveState } from '@/engine/immersive/types'
 import { navigate, useApp, type RoutePath } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
+import { peekSavedImmersive, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
-import { Button, Eyebrow, Hairline, Modal, Segmented, Switch, toast } from '@/ui/primitives'
+import { Button, Eyebrow, Hairline, MedalIcon, Modal, Segmented, Switch, toast, useReducedMotion } from '@/ui/primitives'
+import { shortDate } from '@/ui/shared/live/leagues'
+import { useAchievementCatalog } from './achievementsRegistry'
 import { sfx } from './sfx'
 
-function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label: string; sub?: string; to: RoutePath; onGo: () => void }) {
+function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label: string; sub?: string; to?: RoutePath; onGo: () => void }) {
   return (
     <button
       type="button"
@@ -17,7 +22,7 @@ function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label
       onClick={() => {
         sfx.play('click')
         onGo()
-        navigate(to)
+        if (to) navigate(to)
       }}
     >
       <span className="grid place-items-center w-9 h-9 rounded-[11px] bg-surface-2 border border-border text-text-2 group-hover:text-text flex-none">
@@ -35,6 +40,7 @@ function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label
 export function MenuDialog() {
   const open = useApp((s) => s.dialog === 'menu')
   const close = useApp((s) => s.closeDialog)
+  const openDialog = useApp((s) => s.openDialog)
   const settings = useApp((s) => s.settings)
   const setSetting = useApp((s) => s.setSetting)
   const active = useCareer(selectHasActiveCareer)
@@ -43,18 +49,45 @@ export function MenuDialog() {
   const isFixture = useCareer((s) => s.isFixture)
   const abandon = useCareer((s) => s.abandon)
   const source = useData((s) => s.source)
+  const tablesDay = shortDate(useData((s) => s.data?.generatedAt))
+  const unlocked = useCareer((s) => Object.keys(s.achievements).length)
+  const total = useAchievementCatalog((s) => s.list.length)
+  const rm = useReducedMotion()
   const [confirm, setConfirm] = useState(false)
+  // a carreira imersiva salva (o store do Imersivo só carrega dentro do modo; aqui basta espiar o save)
+  const immLoaded = useImmersive((s) => (s.state && !s.isFixture ? s.state : null))
+  const [immSaved, setImmSaved] = useState<ImmersiveState | null>(null)
+  useEffect(() => {
+    if (open) void peekSavedImmersive().then(setImmSaved).catch(() => {})
+  }, [open])
+  const imm = immLoaded ?? immSaved
+  const both = !!(active && state && imm && !imm.retired)
+  // "Abandonar": a confirmação aparece no fim da lista → rola até ela e põe o foco em "Cancelar";
+  // ao cancelar, o foco volta para o botão que abriu (nada de foco perdido no <body>)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const abandonRef = useRef<HTMLButtonElement>(null)
+  const wasConfirm = useRef(false)
+  useEffect(() => {
+    if (confirm) {
+      cancelRef.current?.focus({ preventScroll: true })
+      confirmRef.current?.scrollIntoView({ block: 'nearest', behavior: rm ? 'auto' : 'smooth' })
+    } else if (wasConfirm.current) abandonRef.current?.focus({ preventScroll: true })
+    wasConfirm.current = confirm
+  }, [confirm, rm])
 
   const rmValue = settings.reducedMotion == null ? 'auto' : settings.reducedMotion ? 'on' : 'off'
   return (
     <Modal open={open} onClose={() => (setConfirm(false), close())} title="Menu" size="md">
       <div className="grid gap-1">
         <NavRow icon={House} label="Início" to="/" onGo={close} />
-        {active && state && <NavRow icon={Play} label="Continuar carreira" sub={`${state.identity.surname} · ${state.age} anos · OVR ${state.ovr}`} to="/carreira" onGo={close} />}
+        {active && state && <NavRow icon={Play} label={both ? 'Continuar carreira clássica' : 'Continuar carreira'} sub={`${state.identity.surname} · ${state.age} anos · OVR ${state.ovr}`} to="/carreira" onGo={close} />}
+        {imm && !imm.retired && <NavRow icon={Tv2} label="Continuar carreira imersiva" sub={`${imm.identity.surname} · ${imm.age} anos · OVR ${imm.ovr}`} to="/imersivo" onGo={close} />}
         <NavRow icon={UserRound} label="Nova carreira" sub="Modo Clássico" to="/identidade" onGo={close} />
         {state && <NavRow icon={ChartLine} label="Resumo da carreira" to="/resumo" onGo={close} />}
-        <NavRow icon={Radio} label="Ligas ao vivo" sub="Tabelas reais de hoje" to="/ligas" onGo={close} />
-        <NavRow icon={Crown} label="Hall das Lendas" sub="Suas runs contra as lendas" to="/hall" onGo={close} />
+        <NavRow icon={Radio} label="Ligas ao vivo" sub={tablesDay ? `Tabelas reais de ${tablesDay}` : 'Tabelas reais'} to="/ligas" onGo={close} />
+        <NavRow icon={Crown} label="Hall das Lendas" sub="Suas carreiras contra as lendas reais" to="/hall" onGo={close} />
+        <NavRow icon={MedalIcon as unknown as typeof House} label="Conquistas" sub={`${unlocked} de ${total} desbloqueadas`} onGo={() => openDialog('achievements')} />
         <NavRow icon={Video} label="Live interativa" sub="TikTok LIVE: o chat decide com comentários e presentes" to="/live" onGo={close} />
         <NavRow icon={ScrollText} label="Créditos" sub="Fotos, fontes, dados e licenças" to="/creditos" onGo={close} />
         {import.meta.env.DEV && <NavRow icon={Sparkles} label="Design kit" sub="Primitivos e estados" to="/kit" onGo={close} />}
@@ -109,9 +142,9 @@ export function MenuDialog() {
         <>
           <Hairline className="my-4" />
           {confirm ? (
-            <div className="rounded-md p-3 bg-negative-bg border border-[rgba(255,94,120,.22)]">
+            <div ref={confirmRef} className="rounded-md p-3 bg-negative-bg border border-[rgba(255,94,120,.22)] scroll-mb-3">
               <p className="m-0 text-[13px] text-text-2">
-                Abandonar a carreira de <b className="text-text">{state.identity.surname}</b>? O progresso atual será apagado (o Hall das Lendas continua).
+                Abandonar a carreira {both ? 'clássica ' : ''}de <b className="text-text">{state.identity.surname}</b>? O progresso atual será apagado (o Hall das Lendas{both ? ' e a carreira imersiva continuam' : ' continua'}).
               </p>
               <div className="flex gap-2 mt-3">
                 <Button
@@ -128,14 +161,14 @@ export function MenuDialog() {
                 >
                   Abandonar
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setConfirm(false)}>
+                <Button ref={cancelRef} variant="ghost" size="sm" onClick={() => setConfirm(false)}>
                   Cancelar
                 </Button>
               </div>
             </div>
           ) : (
-            <Button variant="text" size="sm" icon={Trash} onClick={() => setConfirm(true)}>
-              Abandonar carreira atual
+            <Button ref={abandonRef} variant="text" size="sm" icon={Trash} onClick={() => setConfirm(true)}>
+              {both ? 'Abandonar a carreira clássica' : 'Abandonar carreira atual'}
             </Button>
           )}
         </>

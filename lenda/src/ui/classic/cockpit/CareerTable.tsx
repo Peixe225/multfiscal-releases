@@ -12,7 +12,7 @@ import { motion } from 'motion/react'
 import { CornerDownRight, ArrowDown, ArrowUp, Trophy, Ban } from 'lucide-react'
 import type { SeasonRecord } from '@/engine/types'
 import { useClub, useGameData } from '@/store/data'
-import { AgeBadge, BallIcon, BootIcon, CleanSheetIcon, Crest, Flag, GlovesIcon, OvrPill, ShirtIcon, cx, rowClubVars, useReducedMotion, nationColors } from '@/ui/primitives'
+import { AgeBadge, BallIcon, BootIcon, CleanSheetIcon, Crest, Flag, GlovesIcon, OvrPill, ShirtIcon, cx, plural, rowClubVars, useReducedMotion, nationColors } from '@/ui/primitives'
 import { useCountry } from '@/store/data'
 import { TrophyArt } from '@/ui/trophies'
 import { Num } from './bits'
@@ -168,6 +168,12 @@ const FilledRow = memo(function FilledRow({ row, rec, gk, data, maskLabel }: { r
             {tags.map((t) => (
               <RowTagChip key={t.label} tag={t} hidden={isNew && !showTrophies} />
             ))}
+            {/* phones show the first honour only, then "+N" (CSS) — four trophies ran over the OVR badge */}
+            {items.length + tags.length > 1 && (
+              <span className={cx('ck-row__hmore', isNew && !showTrophies && 'is-hidden')} title={[...items.map((it) => it.name), ...tags.map((t) => t.title)].join(' · ')} aria-hidden="true">
+                +{items.length + tags.length - 1}
+              </span>
+            )}
           </span>
         )}
       </span>
@@ -302,10 +308,10 @@ const NationalTeamRow = memo(function NationalTeamRow({ data, gk }: { data: Cock
   const called = stats.apps > 0
   const nc = nationColors(country ?? null)
   const style = { ['--nat' as string]: nc.primary, ['--nat-2' as string]: nc.secondary } as CSSProperties
-  // goalkeepers: caps · clean sheets are not tracked for the national team → show caps · gols · ast
-  void gk
+  // goalkeepers: clean sheets / goals conceded are not tracked for the national team → "—" under SG · GS
+  const summary = gk ? plural(stats.apps, 'jogo', 'jogos') : `${plural(stats.apps, 'jogo', 'jogos')}, ${plural(stats.goals, 'gol', 'gols')}, ${plural(stats.assists, 'assistência', 'assistências')}`
   return (
-    <div className={cx('ck-nat', !called && 'is-off')} role="rowgroup" aria-label={called ? `${stats.name}: ${stats.apps} jogos, ${stats.goals} gols, ${stats.assists} assistências` : `${stats.name}: ainda sem convocação`}>
+    <div className={cx('ck-nat', !called && 'is-off')} role="rowgroup" aria-label={called ? `${stats.name}: ${summary}` : `${stats.name}: ainda sem convocação`}>
       <div role="row" className="ck-row ck-grid ck-nat__row lx-club-row" style={style}>
         <span role="cell" className="ck-nat__flag">
           <Flag code={stats.code} h={22} w={30} radius={6} decorative />
@@ -326,6 +332,11 @@ const NationalTeamRow = memo(function NationalTeamRow({ data, gk }: { data: Cock
                   <TrophyArt id={it.art} size={24} trophy={it.trophy} className="lx-trophy lx-trophy--row" title={it.name} />
                 </span>
               ))}
+              {trophies.trophies.length > 1 && (
+                <span className="ck-row__hmore" title={trophies.trophies.map((it) => `${it.name} ${it.year}`).join(' · ')} aria-hidden="true">
+                  +{trophies.trophies.length - 1}
+                </span>
+              )}
             </span>
           )}
           {trophies.caption ? <span className="ck-nat__cap">{trophies.caption}</span> : !called ? <span className="ck-nat__cap">Aguardando a primeira convocação</span> : null}
@@ -334,12 +345,25 @@ const NationalTeamRow = memo(function NationalTeamRow({ data, gk }: { data: Cock
         <span role="cell" className={cx('ck-row__n', stats.apps === 0 && 'is-zero')}>
           <Num value={stats.apps} duration={500} />
         </span>
-        <span role="cell" className={cx('ck-row__n', stats.goals === 0 && 'is-zero')}>
-          <Num value={stats.goals} duration={500} />
-        </span>
-        <span role="cell" className={cx('ck-row__n', stats.assists === 0 && 'is-zero')}>
-          <Num value={stats.assists} duration={500} />
-        </span>
+        {gk ? (
+          <>
+            <span role="cell" className="ck-row__n is-zero" title="Não registrado na seleção">
+              —
+            </span>
+            <span role="cell" className="ck-row__n is-zero" title="Não registrado na seleção">
+              —
+            </span>
+          </>
+        ) : (
+          <>
+            <span role="cell" className={cx('ck-row__n', stats.goals === 0 && 'is-zero')}>
+              <Num value={stats.goals} duration={500} />
+            </span>
+            <span role="cell" className={cx('ck-row__n', stats.assists === 0 && 'is-zero')}>
+              <Num value={stats.assists} duration={500} />
+            </span>
+          </>
+        )}
       </div>
     </div>
   )

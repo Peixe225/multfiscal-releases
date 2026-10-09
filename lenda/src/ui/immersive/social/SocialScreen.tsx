@@ -3,7 +3,7 @@
  * respostas prontas (o jogo não tem texto livre), feed e "Em alta".
  */
 import { memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { BadgeCheck, Eye, Heart, MessageCircle, Repeat2, Send, Share2, TrendingUp } from 'lucide-react'
+import { BadgeCheck, Eye, Heart, Lock, MessageCircle, Repeat2, Send, Share2, TrendingUp } from 'lucide-react'
 import type { CalendarItem, ImmersiveState, SocialPost } from '@/engine/immersive/types'
 import { navigate } from '@/store/app'
 import { getClub } from '@/store/data'
@@ -12,13 +12,8 @@ import { Button, Crest, clubVars, cx } from '@/ui/primitives'
 import { CompLogo, PanelHead, TeamMark } from '../bits'
 import { POST_TEMPLATES, type PostContext } from '../model/constants'
 import { compactNumber, recentForm, relWeek, resultLetter, stageSuffix, teamInfo } from '../model/view'
+import { fanHandle, hashTag, slug, userHandle } from './handles'
 
-const slug = (x: string) =>
-  x
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
 const hash = (str: string) => {
   let h = 2166136261
   for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619)
@@ -37,7 +32,7 @@ export function displayAuthor(p: SocialPost, clubAbbr?: string, clubShort?: stri
   if (!p.byUser && !p.verified && /^torcedor(a)?( raiz)?$/i.test(p.author.trim())) {
     const name = FANS[hash(p.id) % FANS.length]
     const tail = /_(\w+)$/.exec(p.handle)?.[1] ?? String(hash(p.id) % 100)
-    return { name, handle: `@${slug(name.split(' ')[0])}_${tail}` }
+    return { name, handle: fanHandle(name, tail) }
   }
   return { name: p.author, handle }
 }
@@ -207,32 +202,39 @@ export function Composer({ s, compact }: { s: ImmersiveState; compact?: boolean 
     <div className={cx('lx-plate lx-plate--flat lx-c-sm im-compose', compact && 'is-compact')}>
       <span className="lx-kicker">{lastMatch ? 'Postar após o jogo' : 'Postar'}</span>
       {postedThisWeek && !posted ? (
-        <p className="lx-t-small m-0 mt-2">Você já postou nesta semana. Volte depois do próximo jogo.</p>
+        <p className="lx-t-small m-0 mt-2">Você já postou nesta semana. Volte na semana que vem.</p>
       ) : (
-        <div className="im-compose__opts">
-          {list.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={cx('lx-btn lx-btn--line lx-btn--xs im-compose__opt', posted === t.id && 'is-on')}
-              disabled={busy || !!posted}
-              title={t.text || 'Não postar nada'}
-              onClick={() => {
-                setPosted(t.id)
-                void dispatch({ type: 'social_post', templateId: t.id })
-              }}
-            >
-              <span>{t.label}</span>
-              <small className="im-hints">
-                {t.hint.split(/\s*·\s*/).map((h) => (
-                  <em key={h} className={cx(/[−-]|▼/.test(h) ? 'is-neg' : /\+|▲/.test(h) ? 'is-pos' : 'is-neu')}>
-                    {h}
-                  </em>
-                ))}
-              </small>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className={cx('im-compose__opts', posted && 'is-done')}>
+            {list.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={cx('lx-btn lx-btn--line lx-btn--xs im-compose__opt', posted === t.id && 'is-on')}
+                disabled={busy || !!posted}
+                title={t.text || 'Não postar nada'}
+                onClick={() => {
+                  setPosted(t.id)
+                  void dispatch({ type: 'social_post', templateId: t.id })
+                }}
+              >
+                <span>{t.label}</span>
+                <small className="im-hints">
+                  {t.hint.split(/\s*·\s*/).map((h) => (
+                    <em key={h} className={cx(/[−-]|▼/.test(h) ? 'is-neg' : /\+|▲/.test(h) ? 'is-pos' : 'is-neu')}>
+                      {h}
+                    </em>
+                  ))}
+                </small>
+              </button>
+            ))}
+          </div>
+          {posted && (
+            <p className="im-compose__why">
+              <Lock size={12} aria-hidden="true" /> {posted === 'silencio' ? 'Você preferiu o silêncio nesta semana' : '1 post por semana — volte na semana que vem'}
+            </p>
+          )}
+        </>
       )}
     </div>
   )
@@ -252,14 +254,13 @@ function Profile({ s }: { s: ImmersiveState }) {
         <div className="min-w-0">
           <div className="lx-t-card">{s.identity.surname}</div>
           <div className="lx-handle im-prof__h">
-            @{s.identity.surname.toLowerCase()}
-            {s.squadNumber} {s.reputation >= 20 && <BadgeCheck size={13} className="inline -mt-0.5" aria-label="Verificado" />}
+            {userHandle(s)} {s.reputation >= 20 && <BadgeCheck size={13} className="inline -mt-0.5" aria-label="Verificado" />}
           </div>
         </div>
         <span className="lx-label">Seguidores</span>
         <b className="im-prof__big num">{compactNumber(f)}</b>
         <span className="lx-chip lx-chip--sm lx-chip--pos-ok">
-          <TrendingUp size={11} aria-hidden="true" /> Fama {s.reputation}/100
+          <TrendingUp size={11} aria-hidden="true" /> Fama {s.reputation.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/100
         </span>
         {club && <span className="lx-t-small">{club.name}</span>}
       </section>
@@ -297,10 +298,10 @@ function Trending({ s }: { s: ImmersiveState }) {
     }
     for (const p of s.social) for (const h of p.text.match(/#[\wÀ-ú]+/g) ?? []) add(h, p.likes + p.reposts * 3)
     const club = getClub(s.clubId)
-    if (club) add(`#${club.shortName.replace(/\s+/g, '')}`, 5000)
-    add(`#${s.identity.surname.charAt(0).toUpperCase()}${s.identity.surname.slice(1).toLowerCase()}${s.squadNumber}`, 1200 + s.reputation * 900)
+    if (club) add(`#${hashTag(club.shortName)}`, 5000)
+    add(`#${hashTag(s.identity.surname)}${s.identity.number}`, 1200 + s.reputation * 900)
     return [...m.values()].sort((a, b) => b.n - a.n).slice(0, 5).map((x) => [x.tag, x.n] as const)
-  }, [s.social, s.clubId, s.identity, s.squadNumber, s.reputation])
+  }, [s.social, s.clubId, s.identity, s.reputation])
   return (
     <section className="lx-plate lx-plate--flat lx-c-sm im-trend">
       <span className="lx-kicker">Em alta</span>
