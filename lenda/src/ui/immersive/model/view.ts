@@ -1,7 +1,7 @@
 /**
  * Modo Imersivo — derivações puras para a UI (nada aqui muda estado).
  */
-import type { CalendarItem, ImmersiveState, LiveMatch, MatchEvent, TeamSide } from '@/engine/immersive/types'
+import type { CalendarItem, ContractOffer, ImmersiveState, LiveMatch, MatchEvent, TeamSide } from '@/engine/immersive/types'
 import type { Club, Country, League, Position, StandingRow } from '@/engine/types'
 import { artigo, countryArt, type Art } from '@/engine/immersive/util'
 import { getClub, getCompetition, getCountry, getLeague, useData } from '@/store/data'
@@ -328,14 +328,60 @@ export const fmtMoney = (v: number | null | undefined, opts?: { sign?: boolean }
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 export const yearsLabel = (n: number) => plural(n, 'ano', 'anos')
+/** "1 pt" · "0 pts" · "12 pts". */
+export const ptsLabel = (p: number) => plural(p, 'pt', 'pts')
 
-/** "esta semana" · "há 1 sem." · "há 3 sem." · "2025" (temporadas anteriores). */
+/**
+ * "esta semana" · "há 1 sem." · "há 3 sem." · "sem. 17" / "pré-temp." (mais de 8 semanas atrás) ·
+ * "temp. 2025" (temporadas anteriores). O bloco de fim de temporada do motor (semanas 53–62) conta
+ * como a semana 52: nada de "há 62 sem.".
+ */
 export function relWeek(s: Pick<ImmersiveState, 'week' | 'season'>, week: number, season?: number): string {
-  if (season != null && season !== s.season) return season < s.season ? `temp. ${season}` : `sem. ${week}`
-  const d = s.week - week
+  const w = Math.min(52, Math.max(0, week))
+  const at = w === 0 ? 'pré-temp.' : `sem. ${w}`
+  if (season != null && season !== s.season) return season < s.season ? `temp. ${season}` : at
+  const d = Math.min(52, s.week) - w
   if (d <= 0) return 'esta semana'
   if (d === 1) return 'há 1 sem.'
-  return `há ${d} sem.`
+  return d > 8 ? at : `há ${d} sem.`
+}
+
+/** Frase de abertura do aviso de carreira encerrada (o motor grava a razão como chave). */
+export function retiredLead(reason: string | undefined): string {
+  switch (reason) {
+    case 'retirement_age':
+      return 'Fim da linha: o corpo pediu a aposentadoria.'
+    case 'no_offers':
+      return 'Sem propostas na mesa, você encerrou a carreira.'
+    case undefined:
+    case '':
+    case 'voluntary':
+    case 'retired':
+      return 'Você decidiu pendurar as chuteiras.'
+    default:
+      // razões já em texto (motor de exemplo) passam direto; chave desconhecida vira o texto genérico
+      return /^[a-z_]+$/.test(reason) ? 'Você pendurou as chuteiras.' : reason
+  }
+}
+
+const ROLE_RANK: Record<ContractOffer['role'], number> = { Promessa: 0, Reserva: 1, Rotação: 2, Titular: 3 }
+
+/** Nota da proposta: a mesma régua da "Melhor proposta" do Mercado e do "Assinar com…" da Central. */
+export const offerScore = (o: ContractOffer) => ROLE_RANK[o.role] * 30 + (getClub(o.clubId)?.strength ?? 60) + (getClub(o.clubId)?.prestige ?? 0) * 4 + Math.log10(Math.max(1, o.salary)) * 3
+
+/** Melhor proposta da mesa (null sem propostas). */
+export function bestOffer(offers: ContractOffer[]): ContractOffer | null {
+  return offers.reduce<ContractOffer | null>((b, o) => (!b || offerScore(o) > offerScore(b) ? o : b), null)
+}
+
+/**
+ * Item de convocação na agenda: "Data FIFA · Brasil" até a lista sair; "Convocado" quando o seu nome
+ * esteve nela; "Lista final" para a de um torneio (Copa, Copa América…).
+ */
+export function callupLabel(s: Pick<ImmersiveState, 'inbox' | 'season'>, it: Pick<CalendarItem, 'id' | 'kind' | 'title' | 'week' | 'done'>): { label: string; sub: string; called: boolean } {
+  const sub = it.title.replace(/^Convocação\s*·\s*/i, '')
+  const called = !!it.done && s.inbox.some((m) => m.season === s.season && m.week === it.week && /sele/i.test(m.from) && /convocad/i.test(m.subject))
+  return { label: called ? 'Convocado' : it.id.startsWith('ct:') ? 'Lista final' : 'Data FIFA', sub, called }
 }
 
 /** Nome em caixa normal ("RIBEIRO" → "Ribeiro"); o CSS põe em caixa-alta onde o grafismo pede. */

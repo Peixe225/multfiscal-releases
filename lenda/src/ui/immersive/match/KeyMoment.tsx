@@ -4,11 +4,13 @@
  * postura) escolhida quando o tempo acaba. Minijogos: pênalti (canto × goleiro no gol em
  * perspectiva) e barra de precisão (pare o marcador; 0–1).
  * O cronômetro pausa com a aba oculta ou com um diálogo do app aberto; "Tempo ×2" nos ajustes locais.
+ * O tempo restante fica salvo neste navegador: recarregar no meio do lance não zera o cronômetro.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Flag, Hand, Minus, Move, Repeat, Send, Shield, Target, Timer, TrendingDown, TrendingUp, Zap } from 'lucide-react'
 import type { ImmersiveEffect, KeyMoment, KeyMomentOption, LiveMatch } from '@/engine/immersive/types'
 import { Kbd, cx, formatPercent, useIsTouch, useReducedMotion } from '@/ui/primitives'
+import { useImmersive } from '@/store/immersive'
 import { SITUATION_LABEL } from '../model/constants'
 import { optionSide, outcomeOf, type PenSide, type TeamInfo } from '../model/view'
 import { appModalOpen, imSfx, keyBlocked } from '../hooks'
@@ -36,15 +38,38 @@ const prefs = {
 
 // ───────────────────────── cronômetro ─────────────────────────
 
-function useCountdown(ms: number, running: boolean, onEnd: () => void) {
-  const [left, setLeft] = useState(ms)
+const LEFT_KEY = 'lenda:imm:lance'
+/** Tempo restante salvo para este lance (`key` = partida:lance); ao voltar, pelo menos 3 s para se situar. */
+function savedLeft(key: string | undefined, ms: number): number {
+  if (!key) return ms
+  try {
+    const v = JSON.parse(localStorage.getItem(LEFT_KEY) ?? 'null') as { k?: string; left?: number } | null
+    if (v?.k === key && typeof v.left === 'number' && Number.isFinite(v.left)) return Math.min(ms, Math.max(Math.min(3000, ms), v.left))
+  } catch {
+    /* ignore */
+  }
+  return ms
+}
+function saveLeft(key: string, left: number | null) {
+  try {
+    if (left == null) localStorage.removeItem(LEFT_KEY)
+    else localStorage.setItem(LEFT_KEY, JSON.stringify({ k: key, left: Math.round(left) }))
+  } catch {
+    /* ignore */
+  }
+}
+
+function useCountdown(ms: number, running: boolean, onEnd: () => void, key?: string) {
+  const [start] = useState(() => savedLeft(key, ms))
+  const [left, setLeft] = useState(start)
   const [held, setHeld] = useState(false)
   const end = useRef(onEnd)
   end.current = onEnd
-  const leftRef = useRef(ms)
+  const leftRef = useRef(start)
   useEffect(() => {
     if (!running) return
     let last = performance.now()
+    let saved = -1
     const id = setInterval(() => {
       const now = performance.now()
       const dt = now - last
@@ -55,14 +80,19 @@ function useCountdown(ms: number, running: boolean, onEnd: () => void) {
       if (hold) return
       leftRef.current = Math.max(0, leftRef.current - dt)
       setLeft(leftRef.current)
+      const q = Math.ceil(leftRef.current / 250)
+      if (key && q !== saved) {
+        saved = q
+        saveLeft(key, leftRef.current > 0 ? leftRef.current : null)
+      }
       if (leftRef.current <= 0) {
         clearInterval(id)
         end.current()
       }
     }, 100)
     return () => clearInterval(id)
-  }, [running])
-  return { left, held }
+  }, [running, key])
+  return { left, held, start }
 }
 
 // ───────────────────────── par de consequências ─────────────────────────
@@ -106,8 +136,10 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
   const rm = useReducedMotion()
   const touch = useIsTouch()
   const root = useRef<HTMLElement>(null)
+  const fixture = useImmersive((x) => x.isFixture)
   const noTimer = prefs.noTimer
-  const total = moment.timeLimitMs * (prefs.slow ? 2 : 1)
+  const slow = prefs.slow
+  const total = moment.timeLimitMs * (slow ? 2 : 1)
   const [chosen, setChosen] = useState<string | null>(null)
   const isPen = moment.minigame === 'penalty_kick' || moment.minigame === 'penalty_save'
   const [stage, setStage] = useState<'options' | 'timing' | 'penalty'>(isPen ? 'penalty' : 'options')
@@ -115,11 +147,19 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
   const fallbackId = useMemo(() => moment.options.slice().sort((a, b) => b.chance - a.chance)[0]?.id, [moment])
   const defaultId = preset && moment.options.some((o) => o.id === preset) ? preset : fallbackId
   const done = useRef(false)
-  const { left, held } = useCountdown(total, !noTimer && !chosen && stage !== 'timing', () => {
-    if (done.current) return
-    done.current = true
-    onTimeout()
-  })
+  const { left, held, start } = useCountdown(
+    total,
+    !noTimer && !chosen && stage !== 'timing',
+    () => {
+      if (done.current) return
+      done.current = true
+      onTimeout()
+    },
+    fixture ? undefined : `${live.itemId}:${moment.id}`,
+  )
+  // barra e anel (animação CSS de `total`) começam já gastos quando o lance retoma depois de recarregar
+  const cdStyle = { ['--lx-cd-dur' as string]: `${total}ms` }
+  const cdFill = start < total ? { animationDelay: `${Math.round(start - total)}ms` } : undefined
   const secs = Math.ceil(left / 1000)
   const urgency = secs <= 3 ? 'crit' : secs <= 5 ? 'warn' : 'ok'
 
@@ -127,6 +167,30 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
     imSfx.play('whistle')
     const t = setTimeout(() => (root.current?.querySelector('button:not([disabled])') as HTMLButtonElement | null)?.focus({ preventScroll: true }), 60)
     return () => clearTimeout(t)
+  }, [])
+  // Tab fica dentro do lance (sem escapar para o topo e sair da partida com o cronômetro correndo);
+  // com outro diálogo do app por cima (Como jogar), quem manda é ele
+  useEffect(() => {
+    const el = root.current
+    if (!el) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || appModalOpen(el)) return
+      const items = [...el.querySelectorAll<HTMLElement>('button:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null)
+      const cur = document.activeElement as HTMLElement | null
+      if (!items.length) {
+        e.preventDefault()
+        el.focus({ preventScroll: true })
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey ? cur === first || !el.contains(cur) || cur === el : cur === last || !el.contains(cur)) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus({ preventScroll: true })
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [])
   useEffect(() => {
     if (urgency === 'crit' && !chosen && !noTimer && !held) imSfx.tick()
@@ -160,42 +224,46 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
     return () => window.removeEventListener('keydown', onKey)
   }, [moment.options, pick, stage])
 
-  const us = live.userSide === 'home' ? live.score[0] : live.score[1]
-  const them = live.userSide === 'home' ? live.score[1] : live.score[0]
+  // placar NO MOMENTO do lance (congelado: o gol da escolha não pode aparecer na frase "Jogo empatado…")
+  const [[us, them, pens]] = useState(() => {
+    const u = live.userSide === 'home' ? 0 : 1
+    return [live.score[u], live.score[1 - u], live.phase === 'penalties' && live.pens ? ([live.pens[u], live.pens[1 - u]] as const) : null] as const
+  })
+  const scoreChip = pens ? `Pênaltis ${pens[0]}–${pens[1]}` : `${us > them ? 'Vencendo' : us < them ? 'Perdendo' : 'Empate'} ${us}–${them}`
   const title = SITUATION_LABEL[moment.situation]
   const running = !chosen && !held && stage !== 'timing'
   const showTimer = !noTimer && stage !== 'timing' && !(stage === 'penalty' && chosen)
   return (
-    <section ref={root} className={cx('im-km', stage !== 'options' && 'is-game', stage === 'penalty' && 'is-pen')} role="alertdialog" aria-modal="false" aria-labelledby="im-km-t" aria-describedby="im-km-d">
+    <section ref={root} tabIndex={-1} className={cx('im-km outline-none', stage !== 'options' && 'is-game', stage === 'penalty' && 'is-pen')} role="alertdialog" aria-modal="false" aria-labelledby="im-km-t" aria-describedby="im-km-d">
       <div className="lx-elev-2">
         <div className={cx('lx-plate lx-c-lg im-km__plate', stage !== 'options' && 'is-game')}>
           <i className="lx-hl-top" aria-hidden="true" />
           {showTimer && (
-            <div className={cx('lx-countdown', !running && 'is-paused', rm && 'is-steps')} data-urgency={urgency} style={{ ['--lx-cd-dur' as string]: `${total}ms` }}>
-              <i className="lx-countdown__fill" />
+            <div className={cx('lx-countdown', !running && 'is-paused', rm && 'is-steps')} data-urgency={urgency} style={cdStyle}>
+              <i className="lx-countdown__fill" style={cdFill} />
             </div>
           )}
           <div className="im-km__h">
             <div className="min-w-0">
-              <span className="lx-kicker">
-                <span className="lx-live-dot" />
-                Lance decisivo · {moment.minute}&apos;
+              <span className="im-km__k">
+                <span className="lx-kicker">
+                  <span className="lx-live-dot" />
+                  Lance decisivo · {moment.minute}&apos;
+                </span>
+                <span className="im-km__sc num">{scoreChip}</span>
               </span>
               <h2 className="lx-t-sec im-km__t" id="im-km-t">
                 {title}
               </h2>
-              <p className="lx-t-body im-km__d" id="im-km-d">
-                {moment.description}{' '}
-                <b className="text-text num">
-                  {us}–{them}
-                </b>
+              <p className="lx-t-body im-km__d" id="im-km-d" title={moment.description}>
+                {moment.description}
               </p>
             </div>
             {showTimer && (
               <div className="im-km__ring" aria-hidden="true">
-                <svg className={cx('lx-cd-ring', !running && 'is-paused')} viewBox="0 0 44 44" data-urgency={urgency} style={{ ['--lx-cd-dur' as string]: `${total}ms` }}>
+                <svg className={cx('lx-cd-ring', !running && 'is-paused')} viewBox="0 0 44 44" data-urgency={urgency} style={cdStyle}>
                   <circle className="lx-cd-ring__track" cx="22" cy="22" r="19" pathLength="100" />
-                  <circle className="lx-cd-ring__fill" cx="22" cy="22" r="19" pathLength="100" />
+                  <circle className="lx-cd-ring__fill" cx="22" cy="22" r="19" pathLength="100" style={cdFill} />
                 </svg>
                 <span className="lx-cd-num">{secs}</span>
               </div>
@@ -237,6 +305,8 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
           {stage === 'timing' && chosen && (
             <TimingBar
               label={moment.options.find((o) => o.id === chosen)?.label ?? ''}
+              autoMs={noTimer ? null : slow ? 8400 : 4200}
+              slow={slow}
               onDone={(timing) => {
                 done.current = true
                 onBusy(true)
@@ -261,7 +331,7 @@ export const KeyMomentPrompt = memo(function KeyMomentPrompt({ live, moment, def
         </div>
       </div>
       <p className="sr-only" aria-live="assertive">
-        {stage === 'options' && !chosen ? (secs === Math.ceil(total / 1000) ? `Lance decisivo. ${secs} segundos. Opções 1 a ${moment.options.length}.` : secs === 3 ? '3 segundos.' : '') : ''}
+        {stage === 'options' && !chosen ? (secs === Math.ceil(start / 1000) ? `Lance decisivo. ${secs} segundos. Opções 1 a ${moment.options.length}.` : secs === 3 ? '3 segundos.' : '') : ''}
       </p>
     </section>
   )
@@ -292,7 +362,8 @@ function TimerPrefs() {
 
 // ───────────────────────── barra de precisão ─────────────────────────
 
-export function TimingBar({ label, onDone }: { label: string; onDone: (timing: number) => void }) {
+/** `autoMs`: sem reação nesse tempo → batida fraca (null = "Lances sem cronômetro": espera você). */
+export function TimingBar({ label, onDone, autoMs = 4200, slow = false }: { label: string; onDone: (timing: number) => void; autoMs?: number | null; slow?: boolean }) {
   const rm = useReducedMotion()
   const [pos, setPos] = useState(0)
   const [stopped, setStopped] = useState<{ timing: number; at: number } | null>(null)
@@ -317,7 +388,8 @@ export function TimingBar({ label, onDone }: { label: string; onDone: (timing: n
   useEffect(() => {
     btn.current?.focus({ preventScroll: true })
     const t0 = performance.now()
-    const period = rm ? 2600 : 1250
+    // "Tempo ×2" (acessibilidade): marcador mais lento também
+    const period = rm ? 2600 : slow ? 1900 : 1250
     const f = (t: number) => {
       if (stoppedRef.current) return
       const u = ((t - t0) % period) / period
@@ -327,13 +399,13 @@ export function TimingBar({ label, onDone }: { label: string; onDone: (timing: n
       raf.current = requestAnimationFrame(f)
     }
     raf.current = requestAnimationFrame(f)
-    // sem reação em 4,2 s → batida fraca (uma vez só: o guard do ref impede o 2º envio)
-    auto.current = window.setTimeout(stop, 4200)
+    // sem reação em 4,2 s (8,4 s com "Tempo ×2") → batida fraca (uma vez só: o guard do ref impede o 2º envio)
+    if (autoMs != null) auto.current = window.setTimeout(stop, autoMs)
     return () => {
       cancelAnimationFrame(raf.current)
       clearTimeout(auto.current)
     }
-  }, [rm, stop])
+  }, [rm, stop, autoMs, slow])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== ' ' && e.key !== 'Enter') return

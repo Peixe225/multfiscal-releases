@@ -56,6 +56,8 @@ export interface EventArtProps {
   nationality?: string
   /** Sal para variar a foto entre carreiras (mantém o determinismo). */
   salt?: string | number
+  /** Posição entre as opções da mesma decisão: opções do mesmo tema não repetem a foto (ver photoFor). */
+  slot?: number
   /** Carrega sem lazy (card acima da dobra). */
   priority?: boolean
   /** Preenche o pai (position: absolute; inset: 0) em vez de usar `ratio`. */
@@ -108,6 +110,7 @@ export function EventArt({
   tint,
   nationality,
   salt,
+  slot,
   priority,
   fill,
   hint,
@@ -116,7 +119,7 @@ export function EventArt({
 }: EventArtProps) {
   const mapped = themeFor(art)
   const fallback = mapped ? null : (fallbackTheme ?? themeFromText(hint))
-  const src = photoFor(art, { nationality, salt, fallbackTheme: fallback })
+  const src = photoFor(art, { nationality, salt, slot, fallbackTheme: fallback })
   const [failed, setFailed] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<string | null>(null)
   const showPhoto = !!src && failed !== src

@@ -501,6 +501,12 @@
   :where([data-lx-theme="transmissao"]) .lx-btn--ghost   { --lx-btn-line: inset 0 0 0 1.5px rgb(140 165 255 / .5); }
   :where([data-lx-theme="transmissao"]) .lx-btn--line    { --lx-btn-fill: rgb(18 26 86 / .6); --lx-btn-line: inset 0 0 0 1.5px rgb(140 165 255 / .38); }
   :where([data-lx-theme="transmissao"]) .lx-btn--danger  { color: #fff; --lx-btn-fill: linear-gradient(180deg, #FF6F88, #D6203F); }
+  /* variantes do <Button> sem desenho próprio aqui (outline, danger → danger-soft): sem a borda e o fundo
+     retangulares do lenda.css em volta do paralelogramo — o contorno é o --lx-btn-line, recortado.
+     Sem :where — o lenda.css vem depois na mesma camada e empataria em especificidade. */
+  [data-lx-theme="transmissao"] .lx-btn--outline { border: 0; background: none; --lx-btn-fill: rgb(18 26 86 / .6); --lx-btn-line: inset 0 0 0 1.5px rgb(140 165 255 / .5); }
+  [data-lx-theme="transmissao"] .lx-btn--danger-soft { border: 0; background: none; color: #FFD3DB; --lx-btn-fill: linear-gradient(180deg, rgb(150 24 52 / .55), rgb(90 12 34 / .7)); --lx-btn-line: inset 0 0 0 1.5px rgb(255 94 120 / .6); }
+  [data-lx-theme="transmissao"] :is(.lx-btn--outline, .lx-btn--danger-soft):hover { background: none; border-color: transparent; }
   :where([data-lx-theme="transmissao"]) .lx-btn--sm      { --lx-k: 10px; height: 42px; padding: 0 20px; font-size: 16px; }
   :where([data-lx-theme="transmissao"]) .lx-btn--xs      { --lx-k: 7px; height: 32px; padding: 0 14px; font-size: 14px; letter-spacing: .08em; }
   :where([data-lx-theme="transmissao"]) .lx-btn--sq      { --lx-k: 10px; width: 54px; padding: 0; }

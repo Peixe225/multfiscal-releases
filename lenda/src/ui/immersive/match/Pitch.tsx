@@ -154,14 +154,26 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
     let last = performance.now()
     let seed = 1
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-    /** % do campo → px, fora da zona do bug. */
-    const place = (el: HTMLElement | null | undefined, x: number, y: number) => {
+    /** % do campo → px, fora da zona do bug; `r` = raio do disco (fica inteiro dentro do campo). */
+    const place = (el: HTMLElement | null | undefined, x: number, y: number, r = 0) => {
       if (!el) return
       const B = box.current
       let px = (x / 100) * B.w
       let py = (y / 100) * B.h
       if (B.bugW && px < B.bugW && py < B.bugH) py = B.bugH
+      if (r) {
+        px = Math.max(r, Math.min(B.w - r, px))
+        py = Math.max(r, Math.min(B.h - r, py))
+      }
       el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0)`
+    }
+    /** Etiqueta "NOME · nota" perto da linha lateral/de fundo: ancora para dentro em vez de centralizar. */
+    let edge = ''
+    const tagEdge = (x: number, y: number) => {
+      const e = `${x < 12 ? 'l' : x > 88 ? 'r' : ''}${y < 14 ? 't' : ''}`
+      if (e === edge || !me.current) return
+      edge = e
+      me.current.dataset.edge = e
     }
     const frame = (t: number) => {
       raf = requestAnimationFrame(frame)
@@ -243,8 +255,11 @@ export const Pitch = memo(function Pitch({ live, home, away, userPos, userNumber
             S.px[j] += (Math.max(1.8, Math.min(98.2, x)) - S.px[j]) * k
             S.px[j + 1] += (Math.max(3.5, Math.min(96.5, y)) - S.px[j + 1]) * k
           }
-          place(dots.current[team * 11 + i], S.px[j], S.px[j + 1])
-          if (i === userSlot && (team === 0) === (L.userSide === 'home')) place(me.current, S.px[j], S.px[j + 1])
+          place(dots.current[team * 11 + i], S.px[j], S.px[j + 1], 12)
+          if (i === userSlot && (team === 0) === (L.userSide === 'home')) {
+            place(me.current, S.px[j], S.px[j + 1], 16)
+            tagEdge(S.px[j], S.px[j + 1])
+          }
         }
       }
       S.inited = true

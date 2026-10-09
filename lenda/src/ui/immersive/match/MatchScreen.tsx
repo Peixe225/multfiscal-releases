@@ -38,8 +38,8 @@ import {
 import type { CalendarItem, KeyMoment, LiveMatch, MatchEvent, MatchPosture, UserMatchStats } from '@/engine/immersive/types'
 import { useEffectStream, useImmersive } from '@/store/immersive'
 import { getClub } from '@/store/data'
-import { BallIcon, Button, Crest, Tabs, clubVars, cx, useIsTouch, useMediaQuery, useReducedMotion } from '@/ui/primitives'
-import { CompLogo, ImOvr, ImSeg, Kpi, LowerThird, Meter, PanelHead, RatingBadge, SplitStat, TeamMark } from '../bits'
+import { BallIcon, Button, Crest, Dialog, Tabs, clubVars, cx, useIsTouch, useIsWide, useMediaQuery, useReducedMotion } from '@/ui/primitives'
+import { CompLogo, ImDlgTitle, ImOvr, ImSeg, Kpi, LowerThird, Meter, PanelHead, RatingBadge, SplitStat, TeamMark } from '../bits'
 import { compInfo, deTeam, fmtRating, importanceLabel, isGoal, matchGoals, oppTeam, optionSide, presenceAt, ratingTone, scoreColors, scoreFrom, shootoutSet, stageSuffix, surnameOf, teamInfo, userTeam, visibleColor, type PitchPresence, type TeamInfo } from '../model/view'
 import { isLeagueGame, liveStandings, roundGames } from '../model/round'
 import { imSfx, keyBlocked, useFocusTrap } from '../hooks'
@@ -194,6 +194,23 @@ const savePosture = (p: Posture) => {
     /* ignore */
   }
 }
+/** Partida em que você recusou o banco (o motor só marca "fora"): o fim de jogo conta o porquê. */
+const REFUSED_KEY = 'lenda:imm:recusou'
+const markRefused = (itemId: string | null) => {
+  try {
+    if (itemId) localStorage.setItem(REFUSED_KEY, itemId)
+    else localStorage.removeItem(REFUSED_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+const refusedBench = (itemId: string) => {
+  try {
+    return localStorage.getItem(REFUSED_KEY) === itemId
+  } catch {
+    return false
+  }
+}
 const HOWTO_KEY = 'lenda:imm:comojogar:v1'
 const howtoSeen = () => {
   try {
@@ -231,10 +248,16 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const phone = useMediaQuery('(max-width: 44.99rem)')
+  const touch = useIsTouch()
   const home = teamInfo(live.home.id, live.home)
   const away = teamInfo(live.away.id, live.away)
   const comp = compInfo(live.competitionId)
   const st = live.userStatus
+  // foco no botão principal sem rolar a página (autoFocus rolava o pré-jogo no celular); no toque, nada
+  const cta = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!touch) cta.current?.focus({ preventScroll: true })
+  }, [touch])
   // a transmissão desta partida começa do apito inicial (inclusive assistindo da tribuna)
   useEffect(() => {
     usePlayback.getState().prime(live.itemId)
@@ -252,11 +275,14 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
             ? 'Suspenso: você acompanha da tribuna.'
             : 'Não relacionado pelo técnico: você acompanha o jogo da tribuna. Treine e ganhe a confiança dele para entrar na lista.'
   const [posture, setPosture] = useState<Posture>(readPosture)
-  // banco: a transmissão adianta até você entrar · tribuna: "Ver o resultado" adianta até o apito final
+  // banco: a transmissão adianta em 4× até você entrar (se não entrar, vira melhores momentos) ·
+  // tribuna: "Ver o resultado" adianta até o apito final
   const start = (accept?: boolean, mode: 'play' | 'watch' | 'result' = 'play') => {
     imSfx.play('whistle')
     savePosture(posture)
-    usePlayback.getState().setFF(mode === 'result' || (mode === 'play' && st === 'bench' && accept !== false))
+    const bench = mode === 'play' && st === 'bench' && accept !== false
+    usePlayback.getState().setFF(mode === 'result' || bench, bench)
+    markRefused(st === 'bench' && accept === false ? live.itemId : null)
     void dispatch({ type: 'match_start', accept, posture: st === 'out' ? undefined : posture })
   }
   return (
@@ -333,7 +359,7 @@ const PreMatch = memo(function PreMatch({ live }: { live: LiveMatch }) {
               Assistir da tribuna
             </Button>
           )}
-          <Button variant="primary" size="xl" icon={st === 'out' ? SkipForward : Play} loading={busy} onClick={() => start(true, st === 'out' ? 'result' : 'play')} autoFocus>
+          <Button ref={cta} variant="primary" size="xl" icon={st === 'out' ? SkipForward : Play} loading={busy} onClick={() => start(true, st === 'out' ? 'result' : 'play')}>
             {st === 'out' ? 'Ver o resultado' : st === 'bench' ? 'Ir para o banco' : 'Entrar em campo'}
           </Button>
         </div>
@@ -540,13 +566,18 @@ const LiveTable = memo(function LiveTable({ live, clock, score, done }: { live: 
   const rows = useMemo(() => liveStandings(base, s, live, games, clock, score, done), [base, s, live, games, clock, score, done])
   const me = rows.findIndex((r) => r.row.clubId === s.clubId)
   const league = isLeagueGame(s, live)
+  const started = base.some((r) => r.played > 0)
+  // seleção: a tabela é a do clube, que não muda (nada de "Amistoso: a tabela entra no ar…")
+  const national = !!(teamInfo(live.home.id, live.home).national || teamInfo(live.away.id, live.away).national)
+  const note = national ? 'Jogo da seleção: a tabela do clube não muda.' : `${compInfo(live.competitionId).short}: a tabela da liga não muda neste jogo.`
+  if (national && (me < 0 || !started)) return <p className="lx-t-small m-0">{note}</p>
   if (me < 0) return <p className="lx-t-small m-0">Jogo fora da liga: a tabela não muda nesta partida.</p>
   // liga ainda sem rodadas (estadual/copa antes do campeonato): uma tabela de zeros não diz nada
-  if (!league && !base.some((r) => r.played > 0)) return <p className="lx-t-small m-0">{compInfo(live.competitionId).short}: a tabela da liga entra no ar na 1ª rodada do campeonato.</p>
+  if (!league && !started) return <p className="lx-t-small m-0">{compInfo(live.competitionId).short}: a tabela da liga entra no ar na 1ª rodada do campeonato.</p>
   const from = Math.max(0, Math.min(rows.length - 5, me - 2))
   return (
     <>
-    {!league && <p className="lx-t-small m-0 mb-2">{compInfo(live.competitionId).short}: a tabela da liga não muda neste jogo.</p>}
+    {!league && <p className="lx-t-small m-0 mb-2">{note}</p>}
     <ol className="im-ltable">
       {rows.slice(from, from + 5).map((r) => {
         const c = getClub(r.row.clubId)
@@ -578,18 +609,36 @@ interface Lt {
   icon?: typeof Zap
   style?: CSSProperties
   mark?: TeamInfo
+  /** Minuto do lance: na fila há mais de 6 minutos de jogo → sai sem aparecer. */
+  at?: number
 }
 
-function useLowerThirds(speed: Speed) {
+/**
+ * Fila de lower-thirds (no máximo 3). Cada um fica o seu tempo a partir de quando APARECE (chegar outro
+ * na fila não renova o atual) e o relógio para enquanto o lance decisivo cobre o campo (`hidden`).
+ * `now`: entra na frente (resultado do seu lance, logo depois da escolha).
+ */
+function useLowerThirds(speed: Speed, hidden: boolean, clock: number) {
   const [list, setList] = useState<Lt[]>([])
   const idRef = useRef(0)
-  const push = useCallback((lt: Omit<Lt, 'id'>) => setList((l) => [...l.slice(-2), { ...lt, id: ++idRef.current }]), [])
+  const clockRef = useRef(clock)
+  clockRef.current = clock
+  const push = useCallback((lt: Omit<Lt, 'id'>, now = false) => setList((l) => (now ? [{ ...lt, id: ++idRef.current }, ...l.slice(0, 2)] : [...l.slice(-2), { ...lt, id: ++idRef.current }])), [])
+  const cur = list[0]?.id
   useEffect(() => {
-    if (!list.length) return
-    const t = setTimeout(() => setList((l) => l.slice(1)), speed === 4 ? 1400 : speed === 2 ? 2000 : 3500)
+    if (cur == null || hidden) return
+    const t = setTimeout(() => setList((l) => l.slice(1).filter((x) => x.at == null || clockRef.current - x.at <= 6)), speed === 4 ? 1400 : speed === 2 ? 2000 : 3500)
     return () => clearTimeout(t)
-  }, [list, speed])
+  }, [cur, speed, hidden])
   return { current: list[0] ?? null, push }
+}
+
+/** VAR no lower-third: a decisão em poucas palavras (a frase inteira fica na narração). */
+function varShort(text: string): string {
+  if (/mant[ée]m a decis/i.test(text)) return 'Decisão de campo mantida'
+  if (/nada marcado/i.test(text)) return 'Possível pênalti: nada marcado'
+  if (/jogo segue/i.test(text)) return 'Lance revisado: o jogo segue'
+  return text
 }
 
 // ───────────────────────── menu "⋯" dos controles ─────────────────────────
@@ -679,6 +728,8 @@ function LiveMatchView() {
   const rm = useReducedMotion()
   const touch = useIsTouch()
   const phone = useMediaQuery('(max-width: 44.99rem)')
+  // sem as colunas laterais (< 69rem, as mesmas do `max-lg:hidden`): abas + "você" sob os controles
+  const compact = !useIsWide()
   const home = useMemo(() => teamInfo(live.home.id, live.home), [live.home])
   const away = useMemo(() => teamInfo(live.away.id, live.away), [live.away])
   const [auto, setAutoState] = useState(() => {
@@ -704,8 +755,10 @@ function LiveMatchView() {
     if (live.phase !== 'full_time' && live.phase !== 'penalties' && !live.pendingMoment) void dispatch({ type: 'match_posture', posture: p })
   }
   const ff = usePlayback((x) => x.ff)
+  const ffFast = usePlayback((x) => x.ffFast)
   const setFF = usePlayback((x) => x.setFF)
   const [howto, setHowto] = useState(false)
+  const [offConfirm, setOffConfirm] = useState(false)
   const [active, setActive] = useState<KeyMoment | null>(null)
   const [mBusy, setMBusy] = useState(false)
   const [stinger, setStinger] = useState<{ id: number; mine: boolean; own: boolean } | null>(null)
@@ -719,10 +772,10 @@ function LiveMatchView() {
   const burst = usePlayback((x) => x.burst)
   const clockF = usePlayback((x) => Math.floor(x.clock * 4) / 4)
   const clock = Math.floor(clockF)
-  const lt = useLowerThirds(speed)
+  const lt = useLowerThirds(ff && ffFast ? 4 : speed, !!active, clockF)
   const paused = !!active || !!stinger
 
-  usePlaybackDriver(live, !!active || howto)
+  usePlaybackDriver(live, !!active || howto || offConfirm)
   const events = useShownEvents(live)
   const allShown = events.length === live.events.length
   const target = live.phase === 'pre' ? 0 : live.minute
@@ -757,11 +810,11 @@ function LiveMatchView() {
         const mine = scorer === live.userSide
         setStinger({ id: seq, mine, own: !!e.byUser })
         imSfx.play(mine ? 'goal' : 'miss')
-        lt.push({ k: `${EV_LABEL[e.type]} · ${e.minute}'`, v: `${e.player ?? t.short} · ${(scorer === 'home' ? home : away).short}`, tone: mine ? undefined : 'accent', mark: scorer === 'home' ? home : away })
-      } else if (e.type === 'yellow' || e.type === 'red') lt.push({ k: `${EV_LABEL[e.type]} · ${e.minute}'`, v: `${e.player ?? ''} · ${t.short}`, tone: e.type === 'red' ? 'red' : 'yellow', icon: Square })
-      else if (e.type === 'sub_on') lt.push({ k: `Substituição · ${e.minute}'`, v: `Entra ${e.player ?? ''}${e.assist ? ` · sai ${e.assist}` : ''}`, tone: 'club', icon: ArrowLeftRight, style: clubVars(t.colors) as CSSProperties })
-      else if (e.type === 'injury') lt.push({ k: `Lesão · ${e.minute}'`, v: e.player ?? t.short, tone: 'red', icon: HeartPulse })
-      else if (e.type === 'var') lt.push({ k: 'VAR', v: e.text.slice(0, 48), tone: 'accent', icon: Tv })
+        lt.push({ k: `${EV_LABEL[e.type]} · ${e.minute}'`, v: `${e.player ?? t.short} · ${(scorer === 'home' ? home : away).short}`, tone: mine ? undefined : 'accent', mark: scorer === 'home' ? home : away, at: e.minute })
+      } else if (e.type === 'yellow' || e.type === 'red') lt.push({ k: `${EV_LABEL[e.type]} · ${e.minute}'`, v: `${e.player ?? ''} · ${t.short}`, tone: e.type === 'red' ? 'red' : 'yellow', icon: Square, at: e.minute })
+      else if (e.type === 'sub_on') lt.push({ k: `Substituição · ${e.minute}'`, v: `Entra ${e.player ?? ''}${e.assist ? ` · sai ${e.assist}` : ''}`, tone: 'club', icon: ArrowLeftRight, style: clubVars(t.colors) as CSSProperties, at: e.minute })
+      else if (e.type === 'injury') lt.push({ k: `Lesão · ${e.minute}'`, v: e.player ?? t.short, tone: 'red', icon: HeartPulse, at: e.minute })
+      else if (e.type === 'var') lt.push({ k: `VAR · ${e.minute}'`, v: varShort(e.text), tone: 'accent', icon: Tv, at: e.minute })
       else if (e.type === 'half_time') {
         lt.push({ k: 'Intervalo', v: `${home.abbr} ${scoreFrom(events)[0]} × ${scoreFrom(events)[1]} ${away.abbr}`, tone: 'live', icon: FlagIcon })
         imSfx.play('whistle')
@@ -775,9 +828,12 @@ function LiveMatchView() {
     return () => clearTimeout(t)
   }, [stinger, rm, speed])
 
-  // resultado do lance → lower-third
+  // resultado do lance → lower-third na frente da fila (o texto inteiro: o CSS corta em 2 linhas com
+  // reticências); deu certo mas não terminou bem ("passe certo, mas o goleiro defendeu") → só "Lance"
   useEffectStream((e) => {
-    if (e.type === 'moment_result' && !e.goal) lt.push({ k: e.success ? 'Deu certo' : 'Não deu', v: e.text.replace(/^[A-ZÇÃÉÍÓÚ!]+[!.]\s*/, '').slice(0, 60), tone: e.success ? 'accent' : 'red', icon: Zap })
+    if (e.type !== 'moment_result' || e.goal) return
+    const mixed = e.success && /\bmas\b|não entrou|salvou|defendeu|para fora/i.test(e.text)
+    lt.push({ k: mixed ? 'Lance' : e.success ? 'Deu certo' : 'Não deu', v: e.text.replace(/^[A-ZÇÃÉÍÓÚ!]+[!.]\s*/, ''), tone: e.success ? 'accent' : 'red', icon: Zap, at: active?.minute ?? clock }, true)
   })
 
   const running = live.phase === 'first_half' || live.phase === 'second_half' || live.phase === 'extra_time' || (live.phase === 'penalties' && !live.pendingMoment)
@@ -786,12 +842,12 @@ function LiveMatchView() {
 
   // auto: segue até o próximo lance (a não ser que a transmissão esteja pausada)
   useEffect(() => {
-    if (howto) return
+    if (howto || offConfirm) return
     if (ff ? false : !auto || userPaused || !!stinger) return
     if (!canSim) return
     const t = setTimeout(() => void dispatch({ type: 'match_sim' }), ff || speed === 0 ? 80 : speed === 4 ? 350 : 900)
     return () => clearTimeout(t)
-  }, [auto, userPaused, canSim, stinger, speed, dispatch, live.minute, live.events.length, ff, howto])
+  }, [auto, userPaused, canSim, stinger, speed, dispatch, live.minute, live.events.length, ff, howto, offConfirm])
 
   // adiantando: você entrou em campo → volta à velocidade escolhida (e avisa); intervalo → segue sozinho
   useEffect(() => {
@@ -827,11 +883,14 @@ function LiveMatchView() {
 
   // "Pedir para sair": o motor só aceita sem lance pendente — e ele pode já ter um lance à frente do
   // replay (ainda não mostrado). Nesse caso o pedido fica guardado e sai logo depois do lance.
+  // Com energia de sobra (> 60) o técnico não gosta: o menu pede confirmação antes.
   const [offAsked, setOffAsked] = useState(false)
+  const fresh = s.condition.fitness > 60
   const askOff = useCallback(async () => {
     const l = useImmersive.getState().state?.live
     if (!l?.userOnPitch) return
-    lt.push({ k: 'Pedido ao técnico', v: 'Você pede para sair — a troca sai na próxima parada', tone: 'accent', icon: LogOut })
+    const rested = (useImmersive.getState().state?.condition.fitness ?? 0) > 60
+    lt.push({ k: 'Pedido ao técnico', v: rested ? 'Você pede para sair com gás de sobra — o técnico não gostou' : 'Você pede para sair — a troca sai na próxima parada', tone: rested ? 'red' : 'accent', icon: LogOut })
     if (l.pendingMoment) return setOffAsked(true)
     const fx = await dispatch({ type: 'match_sub_request' })
     if (fx.some((e) => e.type === 'toast' && e.tone === 'danger')) setOffAsked(true)
@@ -961,8 +1020,8 @@ function LiveMatchView() {
         <div className="im-ff" role="status">
           <FastForward size={18} aria-hidden="true" />
           <span>
-            <b>{live.userStatus === 'bench' ? 'Você está no banco' : 'Você não foi relacionado'}</b>
-            <small>{live.userStatus === 'bench' ? 'Adiantando o jogo até a hora de você entrar' : 'Adiantando até o apito final'}</small>
+            <b>{live.userStatus === 'bench' ? 'Você está no banco' : refusedBench(live.itemId) ? 'Você recusou o banco' : 'Você não foi relacionado'}</b>
+            <small>{live.userStatus === 'bench' ? 'Adiantando em 4× até a hora de você entrar' : 'Adiantando até o apito final'}</small>
           </span>
           <Button variant="outline" size="sm" onClick={() => setFF(false)}>
             Assistir normalmente
@@ -986,7 +1045,7 @@ function LiveMatchView() {
       : []),
     { label: 'Simular até o fim', icon: SkipForward, group: 'a', onClick: () => void simToEnd(), disabled: busy || live.phase === 'full_time' || locked },
     ...(me.on && live.userOnPitch && live.phase !== 'full_time' && live.phase !== 'penalties'
-      ? [{ label: offAsked ? 'Saída pedida ao técnico' : 'Pedir para sair', icon: LogOut, group: 'a', onClick: () => void askOff(), disabled: busy || locked || offAsked }]
+      ? [{ label: offAsked ? 'Saída pedida ao técnico' : 'Pedir para sair', icon: LogOut, group: 'a', onClick: () => (fresh ? setOffConfirm(true) : void askOff()), disabled: busy || locked || offAsked }]
       : []),
   ]
   const controls = (
@@ -1043,6 +1102,7 @@ function LiveMatchView() {
     { value: 'stats' as const, label: 'Números', icon: Activity },
     { value: 'tabela' as const, label: 'Tabela', icon: Table2 },
   ]
+  const ftDone = done && live.phase === 'full_time'
 
   return (
     <main ref={rootRef} id="conteudo" tabIndex={-1} className={cx('im-match outline-none', phone && 'is-phone', active && 'has-moment', (active?.minigame === 'penalty_kick' || active?.minigame === 'penalty_save') && 'has-pen')} style={vars}>
@@ -1063,19 +1123,21 @@ function LiveMatchView() {
           {phone && active && <KeyMomentPrompt key={active.id} live={live} moment={active} defaultId={postureDefault(active, posture)} keeperTeam={keeperTeam} onChoose={choose} onTimeout={timeout} onBusy={setMBusy} />}
           <Momentum live={live} events={events} clock={clockF} home={home} away={away} />
           {!phone && controls}
-          {phone && (
+          {compact && (
             <div className="im-match__tabs">
-              <Tabs value={tab} onChange={setTab} idPrefix="im-mt" variant="underline" aria-label="Painéis da partida" tabs={tabs} />
-              <div className="im-match__tabp">
-                {tab === 'lances' ? (
-                  <EventsList events={events} home={home} away={away} />
-                ) : tab === 'narracao' ? (
-                  <Narration events={events} />
-                ) : tab === 'stats' ? (
-                  <StatsPanel live={live} events={events} home={home} away={away} />
-                ) : (
-                  <LiveTable live={live} clock={clockF} score={score} done={done && live.phase === 'full_time'} />
-                )}
+              <div className={cx('im-match__tabbox', !phone && 'lx-plate lx-plate--flat lx-c-md')}>
+                <Tabs value={tab} onChange={setTab} idPrefix="im-mt" variant="underline" aria-label="Painéis da partida" tabs={tabs} />
+                <div className="im-match__tabp" role="tabpanel" id={`im-mt-panel-${tab}`} aria-labelledby={`im-mt-tab-${tab}`}>
+                  {tab === 'lances' ? (
+                    <EventsList events={events} home={home} away={away} />
+                  ) : tab === 'narracao' ? (
+                    <Narration events={events} />
+                  ) : tab === 'stats' ? (
+                    <StatsPanel live={live} events={events} home={home} away={away} />
+                  ) : (
+                    <LiveTable live={live} clock={clockF} score={score} done={ftDone} />
+                  )}
+                </div>
               </div>
               <YouCard live={live} me={me} stats={stats} />
             </div>
@@ -1089,14 +1151,33 @@ function LiveMatchView() {
           </section>
           <section className="lx-plate lx-plate--flat lx-c-md im-panel im-ltable-panel">
             <PanelHead kicker={isLeagueGame(s, live) ? 'Tabela ao vivo' : 'Classificação da liga'} icon={Table2} />
-            <LiveTable live={live} clock={clockF} score={score} done={done && live.phase === 'full_time'} />
+            <LiveTable live={live} clock={clockF} score={score} done={ftDone} />
           </section>
         </aside>
       </div>
       {phone && !active && controls}
-      {!phone && <LiveTicker live={live} clock={clockF} done={done && live.phase === 'full_time'} />}
+      {/* INT/FIM só quando o replay chega lá (o motor já está no intervalo enquanto a tela mostra 15') */}
+      {!phone && <LiveTicker live={live} clock={clockF} done={ftDone} ht={live.phase === 'half_time' && done} />}
       {ft && <FullTime live={live} home={home} away={away} />}
-      {howto && <HowToPlay onClose={closeHowto} />}
+      {howto && <HowToPlay onClose={closeHowto} touch={touch} phone={phone} />}
+      <Dialog
+        open={offConfirm}
+        onClose={() => setOffConfirm(false)}
+        size="md"
+        className="im-dlg"
+        title={<ImDlgTitle kicker="Pedido ao técnico">Sair agora?</ImDlgTitle>}
+        description={`Você ainda tem ${Math.round(s.condition.fitness)} de energia. Pedir para sair assim pode irritar o técnico.`}
+        footer={
+          <div className="flex flex-wrap gap-2 justify-end w-full *:grow">
+            <Button variant="ghost" size="md" onClick={() => setOffConfirm(false)}>
+              Ficar em campo
+            </Button>
+            <Button variant="danger" size="md" icon={LogOut} onClick={() => { setOffConfirm(false); void askOff() }}>
+              Pedir para sair
+            </Button>
+          </div>
+        }
+      />
       {paused && <span className="sr-only">Transmissão pausada</span>}
     </main>
   )
@@ -1104,17 +1185,39 @@ function LiveMatchView() {
 
 // ───────────────────────── como jogar ─────────────────────────
 
-const HOWTO: { icon: typeof Zap; t: string; d: string }[] = [
-  { icon: Play, t: 'A partida corre sozinha', d: 'Você é o seu jogador em campo. O jogo anda no relógio e para quando a bola chega em você.' },
-  { icon: Zap, t: 'Lance decisivo: você escolhe', d: 'Aparecem 2 ou 3 jogadas com a chance de dar certo e o risco. Clique ou use as teclas 1, 2 e 3 antes de o tempo acabar; sem resposta, vale a opção Padrão.' },
-  { icon: BallIcon as unknown as typeof Zap, t: 'Pênalti e chute no tempo certo', d: 'No pênalti, escolha o canto. No chute no tempo certo, aperte Espaço (ou toque) quando o marcador passar pela faixa verde.' },
-  { icon: Activity, t: 'Postura', d: 'Pedir a bola: mais lances seus e mais cansaço. Poupar: menos lances e menos cansaço. Troque quando quiser.' },
-  { icon: SkipForward, t: 'Ritmo da transmissão', d: 'Velocidade 1×, 2×, 4× ou instantânea, pausa, e Próx. lance (Espaço) para pular direto ao próximo acontecimento.' },
-]
+/** Guia com os controles que existem na tela: toque × teclado; no celular a postura fica no ⋯. */
+function howtoItems(touch: boolean, phone: boolean): { icon: typeof Zap; t: string; d: string }[] {
+  return [
+    { icon: Play, t: 'A partida corre sozinha', d: 'Você é o seu jogador em campo. O jogo anda no relógio e para quando a bola chega em você.' },
+    {
+      icon: Zap,
+      t: 'Lance decisivo: você escolhe',
+      d: `Aparecem 2 ou 3 jogadas com a chance de dar certo e o risco. ${touch ? 'Toque numa delas' : 'Clique ou use as teclas 1, 2 e 3'} antes de o tempo acabar; sem resposta, vale a opção Padrão.`,
+    },
+    {
+      icon: BallIcon as unknown as typeof Zap,
+      t: 'Pênalti e chute no tempo certo',
+      d: `No pênalti, escolha o canto. No chute no tempo certo, ${touch ? 'toque em Agora!' : 'aperte Espaço (ou clique em Agora!)'} quando o marcador passar pela faixa verde (no dourado, é perfeito).`,
+    },
+    { icon: Activity, t: 'Postura', d: `Pedir a bola: mais lances seus e mais cansaço. Poupar: menos lances e menos cansaço. ${phone ? 'Troque no botão ⋯ quando quiser.' : 'Troque quando quiser.'}` },
+    {
+      icon: SkipForward,
+      t: 'Ritmo da transmissão',
+      d: phone
+        ? 'Toque na velocidade para trocar (1×, 2×, 4× ou instantânea) e pause quando quiser. Pular (ou Próx. lance) vai direto ao próximo acontecimento.'
+        : `Velocidade 1×, 2×, 4× ou instantânea e pausa. Pular (ou Próx. lance${touch ? '' : ', tecla Espaço'}) vai direto ao próximo acontecimento.`,
+    },
+  ]
+}
 
-function HowToPlay({ onClose }: { onClose: () => void }) {
+function HowToPlay({ onClose, touch, phone }: { onClose: () => void; touch: boolean; phone: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
+  const go = useRef<HTMLButtonElement>(null)
   useFocusTrap(ref)
+  // teclado: foco no botão (sem rolar o cartão até o fim); no toque, o contêiner basta
+  useEffect(() => {
+    if (!touch) go.current?.focus({ preventScroll: true })
+  }, [touch])
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -1131,7 +1234,7 @@ function HowToPlay({ onClose }: { onClose: () => void }) {
           Como jogar a partida
         </h2>
         <ol className="im-howto__list">
-          {HOWTO.map((h) => (
+          {howtoItems(touch, phone).map((h) => (
             <li key={h.t}>
               <span className="im-howto__ic">
                 <h.icon size={18} aria-hidden="true" />
@@ -1143,7 +1246,7 @@ function HowToPlay({ onClose }: { onClose: () => void }) {
             </li>
           ))}
         </ol>
-        <Button variant="primary" size="lg" icon={Play} onClick={onClose} block autoFocus>
+        <Button ref={go} variant="primary" size="lg" icon={Play} onClick={onClose} block>
           Bola rolando
         </Button>
       </div>
@@ -1244,7 +1347,15 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
   const glory = won && isBigGame(live)
   const goals = matchGoals(live.events)
   const gk = s.identity.position === 'GOL'
-  const back = () => void dispatch({ type: 'match_finish' })
+  const refused = refusedBench(live.itemId)
+  // de volta à Central: o foco vai para a tela nova (não cai no <body>), se ninguém o pegou antes
+  const back = () =>
+    void dispatch({ type: 'match_finish' }).then(() =>
+      setTimeout(() => {
+        const a = document.activeElement
+        if (!a || a === document.body) document.getElementById('conteudo')?.focus({ preventScroll: true })
+      }, 80),
+    )
   useEffect(() => {
     imSfx.play(glory ? 'trophy' : 'whistle')
   }, [glory])
@@ -1311,7 +1422,13 @@ function FullTime({ live, home, away }: { live: LiveMatch; home: TeamInfo; away:
                 </div>
               </>
             ) : (
-              <p className="lx-t-body m-0 mt-2">{live.userStatus === 'out' ? 'Você acompanhou da tribuna. Treine forte e conquiste o técnico para ser relacionado.' : 'Você ficou no banco e não entrou em campo desta vez.'}</p>
+              <p className="lx-t-body m-0 mt-2">
+                {refused
+                  ? 'Você recusou o banco e viu o jogo da tribuna. O técnico não gostou da atitude.'
+                  : live.userStatus === 'out'
+                    ? 'Você acompanhou da tribuna. Treine forte e conquiste o técnico para ser relacionado.'
+                    : 'Você ficou no banco e não entrou em campo desta vez.'}
+              </p>
             )}
           </section>
           <section className={cx('lx-plate lx-c-md im-ft__motm', motm.you && 'lx-plate--gold')}>

@@ -152,8 +152,12 @@ export function AttrBar({ label, short, value, flash, className }: { label: stri
   )
 }
 
-/** Badge de OVR no desenho da Transmissão (.lx-ovr[data-tier] + __label/__num). */
-export function ImOvr({ ovr, w = 116, label = true, from, countUp, className }: { ovr: number; w?: number; label?: boolean; from?: number; countUp?: { duration?: number; delay?: number }; className?: string }) {
+/**
+ * Badge de OVR no desenho da Transmissão (.lx-ovr[data-tier] + __label/__num). `sweep`: o reflexo que
+ * passa uma vez — num filho próprio, porque o ::after do .lx-ovr já é o filete interno (com .lx-sweep no
+ * mesmo elemento os dois ::after se fundiam numa moldura torta cortando os números).
+ */
+export function ImOvr({ ovr, w = 116, label = true, from, countUp, sweep, className }: { ovr: number; w?: number; label?: boolean; from?: number; countUp?: { duration?: number; delay?: number }; sweep?: boolean; className?: string }) {
   const shown = useCountUp(ovr, { from: countUp ? from : ovr, duration: countUp ? countUp.duration ?? 1200 : 0, delay: countUp?.delay })
   const h = Math.round(w * 1.086)
   return (
@@ -166,6 +170,7 @@ export function ImOvr({ ovr, w = 116, label = true, from, countUp, className }: 
       <span className="lx-ovr__num" style={{ fontSize: Math.round(w * (label ? 0.6 : 0.64)) }} aria-hidden="true">
         {shown}
       </span>
+      {sweep && <span className="im-ovr__sweep lx-sweep lx-sweep--once" aria-hidden="true" />}
     </div>
   )
 }

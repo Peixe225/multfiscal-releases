@@ -37,7 +37,7 @@ import { Crest, Flag, Modal, Button, POSITION_LABEL, YouBadge, clubVars, cx } fr
 import { AttrBar, CompLogo, FormChips, ImDlgTitle, ImOvr, Meter, PanelHead, TeamMark } from '../bits'
 import { ATTR_LABEL, KIND_LABEL } from '../model/constants'
 import { attrKeysFor, attrValue } from '../model/training'
-import { compInfo, fmtMoney, goalDiff, importanceLabel, itemTitle, levelOf, weekName, recentForm, relWeek, resultLetter, selectionForecast, teamArt, teamInfo, userLeagueId, zoneName, zoneOf, type ZoneKey } from '../model/view'
+import { callupLabel, compInfo, fmtMoney, goalDiff, importanceLabel, itemTitle, levelOf, plural, weekName, recentForm, relWeek, resultLetter, selectionForecast, teamArt, teamInfo, userLeagueId, zoneName, zoneOf, type ZoneKey } from '../model/view'
 import type { NewsItem } from '@/engine/immersive/types'
 
 /** Mesma manchete em veículos diferentes na mesma semana: fica a primeira. */
@@ -74,9 +74,10 @@ export const PlayerPlate = memo(function PlayerPlate({ s, compact }: { s: Immers
   const kind = useImmersive((x) => x.engineKind)
   const vars = (club ? clubVars(club) : { '--club': '#3D5BFF', '--club-2': '#1A2B8E' }) as CSSProperties
   const fc = selectionForecast(s, kind)
+  const name = club?.shortName ?? 'Sem clube'
   return (
     <section className={cx('im-pp lx-anim-rise', compact && 'is-compact')} aria-label="Seu jogador" style={{ ['--i' as string]: 1 }}>
-      <ImOvr ovr={s.ovr} w={116} className="im-pp__ovr lx-sweep lx-sweep--once" />
+      <ImOvr ovr={s.ovr} w={116} sweep className="im-pp__ovr" />
       <div className="im-pp__plate lx-club-plate" style={vars}>
         {club && <Crest club={club} size={150} decorative className="lx-club-plate__wm" />}
         <div className="im-pp__main">
@@ -98,12 +99,24 @@ export const PlayerPlate = memo(function PlayerPlate({ s, compact }: { s: Immers
           </div>
           <div className="im-pp__name">
             {club && <Crest club={club} size={34} decorative />}
-            {/* nome longo ("Athletico-PR", "Borussia M'gladbach") encolhe em vez de virar reticências */}
-            <b className={cx((club?.shortName.length ?? 0) > 13 ? 'is-xlong' : (club?.shortName.length ?? 0) > 10 && 'is-long')}>{club?.shortName ?? 'Sem clube'}</b>
+            {/* nome longo ("Estudiantes", "Borussia M'gladbach") encolhe até caber na placa (--pp-len, ver CSS) */}
+            <b style={{ ['--pp-len' as string]: name.length }} title={club?.name}>
+              {name}
+            </b>
           </div>
           <div className="im-pp__meta">
-            {league && <CompLogo id={league.id} size={16} />}
-            <span className="truncate">{club ? `${league?.shortName ?? '—'} · ${fc.label}` : 'Escolha a sua base para começar'}</span>
+            {club ? (
+              <>
+                {league && <CompLogo id={league.id} size={16} />}
+                <span className="im-pp__lg">{league?.shortName ?? '—'}</span>
+                {/* previsão para o próximo jogo num chip próprio (nada de "Liga Venezuelana · S…") */}
+                <span className={cx('lx-chip lx-chip--sm im-pp__fc', fc.tone === 'pos' ? 'lx-chip--pos-ok' : fc.tone === 'neg' ? 'lx-chip--neg' : 'lx-chip--gold')} title="Previsão da escalação para o próximo jogo">
+                  {fc.label}
+                </span>
+              </>
+            ) : (
+              <span className="im-pp__lg">{s.log.some((l) => l.type === 'joined') ? 'Livre no mercado' : 'Escolha a sua base para começar'}</span>
+            )}
           </div>
           <div className="im-pp__mnums">
             <span>
@@ -297,9 +310,66 @@ export const ContractStrip = memo(function ContractStrip({ s, balance }: { s: Im
 /**
  * Mini-tabela em linhas de grid (nada de pseudo-elemento em <tr>): barra de zona na célula da
  * posição, seu clube destacado na linha inteira, lacuna tracejada e legenda das zonas (§1.6).
+ * "Tabela completa" abre a classificação inteira (V/E/D/GP/GC) num diálogo.
  */
 export const MiniTable = memo(function MiniTable({ s, rows, full }: { s: ImmersiveState; rows: StandingRow[]; full?: boolean }) {
   const league = getLeague(userLeagueId(s))
+  const [open, setOpen] = useState(false)
+  const round = rows.length ? Math.max(...rows.map((r) => r.played)) : 0
+  const zones = useMemo(() => {
+    const set = new Set<Exclude<ZoneKey, null>>()
+    for (let i = 0; i < rows.length; i++) {
+      const z = zoneOf(league, i + 1, rows.length)
+      if (z) set.add(z)
+    }
+    return (['lib', 'up', 'sul', 'reb'] as const).filter((z) => set.has(z))
+  }, [league, rows.length])
+  const roundLabel = round ? `${round}ª rodada` : league?.shortName
+  const legend = zones.length > 0 && (
+    <div className="im-zlegend" aria-label="Legenda das zonas">
+      {zones.map((z) => (
+        <span key={z}>
+          <i className="im-zbar" data-zone={z} aria-hidden="true" />
+          {zoneName(league, z, true)}
+        </span>
+      ))}
+    </div>
+  )
+  return (
+    <section className="lx-plate lx-plate--flat lx-c-md im-panel lx-anim-rise" style={{ ['--i' as string]: 5 }} aria-labelledby="im-table">
+      <PanelHead
+        kicker={<span id="im-table">Classificação</span>}
+        icon={Trophy}
+        right={
+          <span className="lx-t-small inline-flex items-center gap-1.5">
+            {league && <CompLogo id={league.id} size={16} />}
+            {roundLabel}
+          </span>
+        }
+      />
+      {rows.length === 0 || !round ? (
+        <p className="lx-t-small m-0">Tabela disponível após a primeira rodada.</p>
+      ) : (
+        <>
+          <StandingsGrid s={s} rows={rows} league={league} full={full} />
+          {legend}
+          {!full && rows.length > 8 && (
+            <button type="button" className="im-link im-mt__more" onClick={() => setOpen(true)}>
+              Tabela completa ›
+            </button>
+          )}
+        </>
+      )}
+      <Modal open={open} onClose={() => setOpen(false)} size="md" className="im-dlg im-mt-dlg" title={<ImDlgTitle kicker={[league?.name, roundLabel].filter(Boolean).join(' · ')}>Classificação</ImDlgTitle>}>
+        <StandingsGrid s={s} rows={rows} league={league} full />
+        {legend}
+      </Modal>
+    </section>
+  )
+})
+
+/** Linhas da classificação: recorte (topo, ±2 em volta de você, lanterna) ou a tabela inteira com V/E/D/GP/GC. */
+function StandingsGrid({ s, rows, league, full }: { s: ImmersiveState; rows: StandingRow[]; league: ReturnType<typeof getLeague>; full?: boolean }) {
   const me = rows.findIndex((r) => r.clubId === s.clubId)
   const n = rows.length
   const shown = useMemo(() => {
@@ -312,88 +382,70 @@ export const MiniTable = memo(function MiniTable({ s, rows, full }: { s: Immersi
     for (let k = 1; k < list.length; k++) if (list[k] - list[k - 1] === 2) idx.add(list[k] - 1)
     return [...idx].sort((a, b) => a - b).map((i) => ({ r: rows[i], i }))
   }, [rows, me, n, full])
-  const round = rows.length ? Math.max(...rows.map((r) => r.played)) : 0
-  const zones = useMemo(() => {
-    const set = new Set<Exclude<ZoneKey, null>>()
-    for (let i = 0; i < n; i++) {
-      const z = zoneOf(league, i + 1, n)
-      if (z) set.add(z)
-    }
-    return (['lib', 'up', 'sul', 'reb'] as const).filter((z) => set.has(z))
-  }, [league, n])
   return (
-    <section className="lx-plate lx-plate--flat lx-c-md im-panel lx-anim-rise" style={{ ['--i' as string]: 5 }} aria-labelledby="im-table">
-      <PanelHead
-        kicker={<span id="im-table">Classificação</span>}
-        icon={Trophy}
-        right={
-          <span className="lx-t-small inline-flex items-center gap-1.5">
-            {league && <CompLogo id={league.id} size={16} />}
-            {round ? `${round}ª rodada` : league?.shortName}
-          </span>
-        }
-      />
-      {rows.length === 0 || !round ? (
-        <p className="lx-t-small m-0">Tabela disponível após a primeira rodada.</p>
-      ) : (
-        <>
-          <div className="im-mt" role="table" aria-label="Classificação">
-            <div className="im-mt__row is-head" role="row">
-              <span role="columnheader" className="is-pos">
-                #
-              </span>
-              <span role="columnheader">Clube</span>
-              <span role="columnheader">J</span>
-              <span role="columnheader" className="max-sm:hidden">
-                SG
-              </span>
-              <span role="columnheader">P</span>
-            </div>
-            {shown.map(({ r, i }, k) => {
-              const c = getClub(r.clubId)
-              const z: ZoneKey = zoneOf(league, i + 1, n)
-              const gap = k > 0 && shown[k - 1].i !== i - 1
-              const mine = r.clubId === s.clubId
-              const cut = league?.relegation && i + 1 === n - league.relegation + 1 && !gap
-              return (
-                <div key={r.clubId} role="row" className={cx('im-mt__row', mine && 'is-me', gap && 'is-gap', cut && 'is-cut')}>
-                  <span role="cell" className="is-pos num">
-                    <i className="im-zbar" data-zone={z ?? undefined} aria-hidden="true" />
-                    {i + 1}
-                  </span>
-                  <span role="cell" className="im-mt__club">
-                    {c && <Crest club={c} size={18} decorative />}
-                    <span className="truncate">{c?.shortName ?? r.clubId}</span>
-                    {mine && <YouBadge>Você</YouBadge>}
-                  </span>
-                  <span role="cell" className="num">
-                    {r.played}
-                  </span>
-                  <span role="cell" className="num max-sm:hidden">
-                    {goalDiff(r) > 0 ? `+${goalDiff(r)}` : goalDiff(r)}
-                  </span>
-                  <span role="cell" className="num is-pts">
-                    {r.points}
-                  </span>
-                </div>
-              )
-            })}
+    <div className={cx('im-mt', full && 'is-full')} role="table" aria-label="Classificação">
+      <div className="im-mt__row is-head" role="row">
+        <span role="columnheader" className="is-pos">
+          #
+        </span>
+        <span role="columnheader">Clube</span>
+        <span role="columnheader" title="Jogos">J</span>
+        {full && (
+          <>
+            <span role="columnheader" title="Vitórias">V</span>
+            <span role="columnheader" title="Empates">E</span>
+            <span role="columnheader" title="Derrotas">D</span>
+            <span role="columnheader" className="is-gf" title="Gols pró">GP</span>
+            <span role="columnheader" className="is-gf" title="Gols contra">GC</span>
+          </>
+        )}
+        <span role="columnheader" className={full ? undefined : 'max-sm:hidden'} title="Saldo de gols">
+          SG
+        </span>
+        <span role="columnheader" title="Pontos">P</span>
+      </div>
+      {shown.map(({ r, i }, k) => {
+        const c = getClub(r.clubId)
+        const z: ZoneKey = zoneOf(league, i + 1, n)
+        const gap = k > 0 && shown[k - 1].i !== i - 1
+        const mine = r.clubId === s.clubId
+        const cut = league?.relegation && i + 1 === n - league.relegation + 1 && !gap
+        const sg = goalDiff(r)
+        return (
+          <div key={r.clubId} role="row" className={cx('im-mt__row', mine && 'is-me', gap && 'is-gap', cut && 'is-cut')}>
+            <span role="cell" className="is-pos num">
+              <i className="im-zbar" data-zone={z ?? undefined} aria-hidden="true" />
+              {i + 1}
+            </span>
+            <span role="cell" className="im-mt__club">
+              {c && <Crest club={c} size={18} decorative />}
+              <span className="truncate">{c?.shortName ?? r.clubId}</span>
+              {mine && <YouBadge>Você</YouBadge>}
+            </span>
+            <span role="cell" className="num">
+              {r.played}
+            </span>
+            {full && (
+              <>
+                <span role="cell" className="num">{r.won}</span>
+                <span role="cell" className="num">{r.drawn}</span>
+                <span role="cell" className="num">{r.lost}</span>
+                <span role="cell" className="num is-gf">{r.gf}</span>
+                <span role="cell" className="num is-gf">{r.ga}</span>
+              </>
+            )}
+            <span role="cell" className={cx('num', !full && 'max-sm:hidden')}>
+              {sg > 0 ? `+${sg}` : sg}
+            </span>
+            <span role="cell" className="num is-pts">
+              {r.points}
+            </span>
           </div>
-          {zones.length > 0 && (
-            <div className="im-zlegend" aria-label="Legenda das zonas">
-              {zones.map((z) => (
-                <span key={z}>
-                  <i className="im-zbar" data-zone={z} aria-hidden="true" />
-                  {zoneName(league, z, true)}
-                </span>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </section>
+        )
+      })}
+    </div>
   )
-})
+}
 
 // ───────────────────────── caixa de entrada ─────────────────────────
 
@@ -458,7 +510,7 @@ export const InboxPanel = memo(function InboxPanel({ s, max = 4 }: { s: Immersiv
   const unread = s.inbox.filter((m) => !m.read).length
   return (
     <section className="lx-plate lx-plate--flat lx-c-md im-panel lx-anim-rise" style={{ ['--i' as string]: 6 }} aria-labelledby="im-inbox">
-      <PanelHead kicker={<span id="im-inbox">Caixa de entrada</span>} icon={Inbox} right={unread ? <span className="lx-chip lx-chip--sm lx-chip--accent num">{unread} novas</span> : undefined} />
+      <PanelHead kicker={<span id="im-inbox">Caixa de entrada</span>} icon={Inbox} right={unread ? <span className="lx-chip lx-chip--sm lx-chip--accent num">{plural(unread, 'nova', 'novas')}</span> : undefined} />
       <InboxList s={s} max={max} onView={view} />
       <MessageModal s={s} id={openId} onClose={() => setOpen(null)} />
     </section>
@@ -470,7 +522,7 @@ export function InboxDialog({ s, onClose }: { s: ImmersiveState; onClose: () => 
   const { openId, setOpen, view } = useInboxView()
   return (
     <>
-      <Modal open={!openId} onClose={onClose} size="md" className="im-dlg" title={<ImDlgTitle kicker={`${s.inbox.filter((m) => !m.read).length} não lidas`}>Caixa de entrada</ImDlgTitle>}>
+      <Modal open={!openId} onClose={onClose} size="md" className="im-dlg" title={<ImDlgTitle kicker={plural(s.inbox.filter((m) => !m.read).length, 'não lida', 'não lidas')}>Caixa de entrada</ImDlgTitle>}>
         <InboxList s={s} max={40} onView={view} />
       </Modal>
       <MessageModal s={s} id={openId} onClose={() => setOpen(null)} />
@@ -520,21 +572,23 @@ export function DayCard({ it, s, state }: { it: CalendarItem; s: ImmersiveState;
   const res = isMatch && it.result ? resultLetter(it) : null
   const vars = isMatch && opp ? ({ ['--club' as string]: opp.colors.primary } as CSSProperties) : undefined
   const comp = isMatch ? compInfo(it.competitionId) : null
+  // convocação: "Data FIFA · Brasil" até a lista sair (nada de "Convocação · Convocação · Brasil")
+  const call = it.kind === 'national_callup' ? callupLabel(s, it) : null
   return (
     <div className={cx('lx-day im-day', state === 'past' && 'is-past', state === 'today' && 'is-today', isMatch && 'is-match', it.kind === 'transfer_window' && 'lx-window-band')} style={vars} aria-current={state === 'today' ? 'step' : undefined}>
       <span className="lx-day__dow">{weekName(it.week, true)}{state === 'today' ? ' · agora' : ''}</span>
       <span className="im-day__act">
         {isMatch && opp ? <TeamMark team={opp} size={24} /> : <Ico size={18} aria-hidden="true" />}
-        <span className="im-day__t">{isMatch && opp ? `${it.home === false ? '@ ' : 'vs '}${opp.abbr}` : KIND_LABEL[it.kind]}</span>
+        <span className="im-day__t">{isMatch && opp ? `${it.home === false ? '@ ' : 'vs '}${opp.abbr}` : call ? call.label : KIND_LABEL[it.kind]}</span>
       </span>
       <span className="im-day__sub">
         {isMatch ? (
           <>
             {comp?.id && <CompLogo id={comp.id} size={14} />}
-            <span className="truncate">{it.stage ?? comp?.short}</span>
+            <span className="im-day__st">{it.stage ?? comp?.short}</span>
           </>
         ) : (
-          <span className="truncate">{itemTitle(it, true)}</span>
+          <span className="im-day__st">{call ? call.sub : itemTitle(it, true)}</span>
         )}
       </span>
       {state === 'past' && (

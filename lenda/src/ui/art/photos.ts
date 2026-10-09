@@ -150,6 +150,49 @@ const OPTION_THEME: Readonly<Record<string, PhotoTheme>> = {
   apologize: 'press',
 }
 
+/**
+ * Mini-eventos do Imersivo (chave `mini-${evento}-${opção}`, engine/immersive/events.ts): tema por
+ * opção; a chave só do evento vale para as opções sem entrada própria.
+ */
+const MINI_THEME: Readonly<Record<string, PhotoTheme>> = {
+  treino_extra: 'training',
+  'treino_extra-nao': 'rest',
+  'festa-ir': 'phone',
+  'festa-ficar': 'family',
+  patrocinio: 'contract',
+  'patrocinio-recusar': 'training',
+  jovem_base: 'training',
+  'jovem_base-semtempo': 'rest',
+  discussao: 'locker',
+  entrevista: 'press',
+  'entrevista-recusar': 'locker',
+  acao_social: 'family',
+  'acao_social-nao': 'rest',
+  conversa_tecnico: 'locker',
+  dor_muscular: 'injury',
+  'dor_muscular-tratar': 'doctor',
+  post_antigo: 'phone',
+  familia: 'family',
+  'familia-foco': 'training',
+  mentor: 'training',
+  'mentor-agradecer': 'locker',
+  provocacao: 'phone',
+  'provocacao-ignorar': 'training',
+  nutricionista: 'doctor',
+  'nutricionista-nao': 'training',
+  podcast: 'tv',
+  'podcast-recusar': 'rest',
+  clinica: 'training',
+  'clinica-nao': 'locker',
+  videogame: 'rest',
+  capitao_cobra: 'captain',
+  'capitao_cobra-responder': 'locker',
+  jornal_estrangeiro: 'press',
+  'jornal_estrangeiro-negar': 'crowd',
+  desfalque: 'training',
+  'desfalque-rodizio': 'rest',
+}
+
 /** FNV-1a 32 bits — estável entre sessões e builds. */
 function hash(s: string): number {
   let h = 0x811c9dc5
@@ -170,6 +213,10 @@ function splitArt(artKey: string): [string, string] {
 export function themeFor(artKey: string): PhotoTheme | null {
   if (!artKey) return null
   const key = artKey.trim().toLowerCase()
+  if (key.startsWith('mini-')) {
+    const rest = key.slice(5)
+    return MINI_THEME[rest] ?? MINI_THEME[splitArt(rest)[0]] ?? null
+  }
   const direct = OPTION_THEME[key] ?? EVENT_THEME[key] ?? (key in PHOTOS ? (key as PhotoTheme) : undefined)
   if (direct) return direct
   const [ev, opt] = splitArt(key)
@@ -189,6 +236,11 @@ export interface PhotoForOptions {
   salt?: string | number
   /** Tema usado quando a chave não tem mapeamento (ex.: inferido do texto com `themeFromText`). */
   fallbackTheme?: PhotoTheme | null
+  /**
+   * Posição do card entre as opções da mesma decisão (com o mesmo `salt`): a foto sai do tema em
+   * sequência, então duas opções do mesmo tema nunca repetem a foto (se o tema tiver mais de uma).
+   */
+  slot?: number
 }
 
 /** Texto em pt-BR → tema (para chaves desconhecidas: título/rótulo da opção, título da decisão…). */
@@ -234,7 +286,7 @@ export function photoFor(artKey: string, opts: PhotoForOptions = {}): string | n
     pool = [...pool, ...NATIONAL_EXTRA[opts.nationality]]
   }
   if (pool.length === 0) return null
-  const file = pool[hash(`${artKey}|${opts.salt ?? ''}`) % pool.length]
+  const file = opts.slot != null ? pool[(hash(`${theme}|${opts.salt ?? ''}`) + opts.slot) % pool.length] : pool[hash(`${artKey}|${opts.salt ?? ''}`) % pool.length]
   return photoUrl(file)
 }
 

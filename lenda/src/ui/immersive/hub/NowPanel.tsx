@@ -29,14 +29,16 @@ import {
 import type { CalendarItem, ImmersiveState, TrainingFocus } from '@/engine/immersive/types'
 import type { DecisionOption } from '@/engine/types'
 import { navigate } from '@/store/app'
-import { getClub, getCountry } from '@/store/data'
+import { getClub, getCountry, getLeague } from '@/store/data'
+import { artigo, deCountry } from '@/engine/immersive/util'
+import { themeFor, themeFromText } from '@/ui/art/photos'
 import { useImmersive } from '@/store/immersive'
 import { EventArt } from '@/ui/art/EventArt'
-import { Button, Crest, EffectChip, Kbd, cx, formatPercent, useIsDesktop, useReducedMotion, useSkipAnimations } from '@/ui/primitives'
-import { CompLogo, FormChips, ImSeg, PanelHead, TeamMark } from '../bits'
+import { Button, Crest, EffectChip, Kbd, Modal, cx, formatPercent, useIsDesktop, useReducedMotion, useSkipAnimations } from '@/ui/primitives'
+import { CompLogo, FormChips, ImDlgTitle, ImSeg, PanelHead, TeamMark } from '../bits'
 import { ATTR_LABEL, FOCUS_ORDER, INTENSITY, TRAINING_FOCUS, type Intensity } from '../model/constants'
-import { trainingPreview } from '../model/training'
-import { artTeam, compInfo, importanceLabel, itemTitle, recentForm, selectionForecast, stageSuffix, teamInfo, weeksUntil, winProbs } from '../model/view'
+import { WEEK_RECOVERY, energyAtNext, trainingPreview } from '../model/training'
+import { artTeam, bestOffer, compInfo, deTeam, fmtMoney, importanceLabel, itemTitle, ptsLabel, recentForm, selectionForecast, stageSuffix, teamInfo, userLeagueId, weeksUntil, winProbs, yearsLabel, type TeamInfo } from '../model/view'
 import { clubForm } from '../model/round'
 import { useImHotkey } from '../hooks'
 
@@ -161,13 +163,20 @@ export const TrainingPicker = memo(function TrainingPicker({ s, it }: { s: Immer
                 ))}
             {(() => {
               const f = exact ?? pv
+              // a prévia mostra a energia no próximo compromisso (a virada da semana devolve +22), e o
+              // gasto do treino à parte — nada de "Energia 77" que vira 99 no jogo
+              const at = energyAtNext(s, f.fitnessAfter)
+              const delta = f.fitnessDelta >= 0 ? `+${f.fitnessDelta}` : `−${Math.abs(f.fitnessDelta)}`
               return (
-                <span className={cx('lx-fx lx-fx--sm', f.fitnessDelta >= 0 ? 'lx-fx--up' : 'lx-fx--down')} title={exact ? 'Energia logo após o treino (a semana devolve +22)' : undefined}>
+                <span
+                  className={cx('lx-fx lx-fx--sm', f.fitnessDelta >= 0 ? 'lx-fx--up' : 'lx-fx--down')}
+                  title={at.weeks ? `Logo após o treino: ${f.fitnessAfter}. No próximo compromisso: ${at.value} (a semana devolve +${WEEK_RECOVERY})` : 'Energia logo após o treino'}
+                >
                   <span className="lx-fx__ic">
                     <BatteryMedium size={14} aria-hidden="true" />
                   </span>
-                  Energia {f.fitnessAfter}
-                  <span className="lx-fx__p">{f.fitnessDelta >= 0 ? `+${f.fitnessDelta}` : `−${Math.abs(f.fitnessDelta)}`}</span>
+                  Energia {at.value}
+                  <span className="lx-fx__p">treino {delta}</span>
                 </span>
               )
             })()}
@@ -216,7 +225,7 @@ function ImportancePips({ it }: { it: CalendarItem }) {
   )
 }
 
-export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s: ImmersiveState; it: CalendarItem; table: { clubId: string; points: number; won?: number; drawn?: number; lost?: number }[]; primary: boolean }) {
+export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s: ImmersiveState; it: CalendarItem; table: { clubId: string; points: number; played?: number; won?: number; drawn?: number; lost?: number }[]; primary: boolean }) {
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const kind = useImmersive((x) => x.engineKind)
@@ -229,9 +238,14 @@ export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s:
   const home = it.home !== false
   const [H, A] = home ? [us, them] : [them, us]
   const comp = compInfo(it.competitionId)
-  const pos = (id: string) => {
-    const i = table.findIndex((r) => r.clubId === id)
-    return i >= 0 ? `${i + 1}º · ${table[i].points} pts` : national ? 'Seleção' : comp.short
+  // posição só num jogo da liga e com rodada disputada (nada de "2º vs 11º · 0 pts" na estreia nem
+  // de posição do Brasileirão numa final do Baiano); fora disso, a liga de cada clube (o nível do rival)
+  const ranked = !national && it.competitionId === userLeagueId(s) && table.some((r) => (r.played ?? 0) > 0)
+  const pos = (t: TeamInfo) => {
+    if (t.national) return 'Seleção'
+    const i = ranked ? table.findIndex((r) => r.clubId === t.id) : -1
+    if (i >= 0) return `${i + 1}º · ${ptsLabel(table[i].points)}`
+    return getLeague(s.world?.clubs?.[t.id]?.leagueId ?? t.club?.leagueId)?.shortName ?? comp.short
   }
   const usStr = (national ? us.country?.strength : us.club?.strength) ?? 70
   const themStr = (them.national ? them.country?.strength : them.club?.strength) ?? 70
@@ -253,30 +267,22 @@ export const MatchHero = memo(function MatchHero({ s, it, table, primary }: { s:
   }, [primary, it.id])
   const side = (t: typeof us, isHome: boolean) => {
     const form = t.id === usId ? recentForm(s) : t.national ? [] : clubForm(s, t.id)
-    const row = t.national ? undefined : (table.find((r) => r.clubId === t.id) as (typeof table)[number] & { played?: number } | undefined)
+    const row = t.national ? undefined : table.find((r) => r.clubId === t.id)
     return (
       <div className={cx('im-vs__team', isHome ? 'is-home' : 'is-away')} style={{ ['--tc' as string]: t.colors.primary } as CSSProperties}>
         <TeamMark team={t} size={desk && primary ? 76 : desk ? 56 : 52} className="im-vs__crest" />
         <b className="im-vs__name">{t.short}</b>
         <span className="im-vs__pos">
-          {t.id === usId ? <span className="lx-you">Você</span> : null} {pos(t.id)}
+          {t.id === usId ? <span className="lx-you">Você</span> : null} {pos(t)}
         </span>
         {form.length ? (
           <FormChips form={form} />
-        ) : row && row.won != null && row.played ? (
+        ) : ranked && row && row.won != null && row.played ? (
           // antes de jogos acompanhados no imersivo: a campanha na liga (a tabela real já tem jogos)
           <span className="im-vs__camp lx-t-small num" title="Campanha na liga">
             {row.won}V · {row.drawn}E · {row.lost}D
           </span>
-        ) : (
-          <span className="im-form is-empty" aria-label="Sem jogos recentes">
-            {[0, 1, 2, 3, 4].map((k) => (
-              <span key={k} className="lx-form">
-                –
-              </span>
-            ))}
-          </span>
-        )}
+        ) : null}
       </div>
     )
   }
@@ -375,28 +381,69 @@ export const PressCard = memo(function PressCard({ it }: { it: CalendarItem }) {
  * minutos do banco). Consequência antes da escolha: clube grande = mais banco no começo.
  */
 function minutesOutlook(s: ImmersiveState, clubId: string): { label: string; cls: string; pct: number } {
-  const str = (s.world?.clubs?.[clubId]?.strength as number | undefined) ?? getClub(clubId)?.strength ?? s.ovr
+  const str = clubStrength(s, clubId)
   const gap = s.ovr - str
   const youth = s.age <= 19 ? 0.14 : 0
   // plano de minutos da base no motor (≤ 17: meta de ~42% dos jogos saindo do banco; 18–19: 30%):
   // mesmo no clube grande o garoto entra em ~1/3 dos jogos — não "8%"
   const floor = s.age <= 17 ? 0.3 : s.age <= 19 ? 0.22 : 0.08
   const pct = Math.max(floor, Math.min(0.92, 0.55 + gap * 0.03 + youth))
-  return pct >= 0.55 ? { label: 'Minutos: muitos', cls: 'lx-fx--up', pct } : pct >= 0.3 ? { label: 'Minutos: alguns', cls: 'lx-fx--info', pct } : { label: 'Minutos: poucos', cls: 'lx-fx--down', pct }
+  return { label: 'Tempo de jogo', cls: pct >= 0.55 ? 'lx-fx--up' : pct >= 0.3 ? 'lx-fx--info' : 'lx-fx--down', pct }
 }
 
-function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number; chosen: string | null; onPick: (id: string) => void; s: ImmersiveState }) {
+const clubStrength = (s: ImmersiveState, clubId: string) => (s.world?.clubs?.[clubId]?.strength as number | undefined) ?? getClub(clubId)?.strength ?? s.ovr
+
+function MinutesChip({ m }: { m: { label: string; cls: string; pct: number } }) {
+  return (
+    <span className={cx('lx-fx', m.cls)} title="Tempo de jogo previsto nesta temporada (OVR × força do elenco)">
+      <span className="lx-fx__ic">
+        <Timer size={14} aria-hidden="true" />
+      </span>
+      {m.label}
+      <span className="lx-fx__p">~{formatPercent(m.pct)} dos jogos</span>
+    </span>
+  )
+}
+
+/**
+ * O que é igual em todas as opções (oferta da base: mesmo papel, contrato, salário e minutos nos três
+ * clubes) sai dos cards e aparece uma vez só, acima deles — cada card mostra o que o diferencia.
+ */
+function sharedTerms(s: ImmersiveState, opts: DecisionOption[]) {
+  const labels = new Set<string>()
+  if (opts.length < 2) return { labels, minutes: null }
+  for (const d of opts[0].details ?? []) if (opts.every((o) => o.details?.some((x) => x.label === d.label && x.value === d.value))) labels.add(d.label)
+  const mins = opts.every((o) => o.clubId) ? opts.map((o) => minutesOutlook(s, o.clubId!)) : []
+  const minutes = mins.length && mins.every((m) => Math.round(m.pct * 100) === Math.round(mins[0].pct * 100)) ? mins[0] : null
+  return { labels, minutes }
+}
+
+interface StoryCtx {
+  id: string
+  title: string
+  description: string
+  shared: ReturnType<typeof sharedTerms>
+}
+
+function StoryOption({ o, i, chosen, onPick, s, ctx }: { o: DecisionOption; i: number; chosen: string | null; onPick: (id: string) => void; s: ImmersiveState; ctx: StoryCtx }) {
   const rm = useReducedMotion()
   const club = o.clubId ? getClub(o.clubId) : undefined
-  const mins = club ? minutesOutlook(s, club.id) : null
+  const mins = club && !ctx.shared.minutes ? minutesOutlook(s, club.id) : null
   const state = chosen ? (chosen === o.id ? 'chosen' : 'dim') : 'idle'
   // "Reserva previsto" repete o "Papel previsto" dos detalhes: fica só um
   const role = o.details?.find((d) => d.label === 'Papel previsto')?.value
   const effects = o.effects.filter((e) => !(role && e.label === `${role} previsto`))
+  // clube: a liga e a força do elenco no lugar do que é igual em todos os cards
+  const details = [...(o.details ?? []).filter((d) => !ctx.shared.labels.has(d.label)), ...(club ? [{ label: 'Força do elenco', value: String(Math.round(clubStrength(s, club.id))) }] : [])].slice(0, 4)
+  // arte: chave do evento; sem mapeamento, o texto da opção e o da decisão escolhem o tema (sem tema, sem quadro)
+  const hint = [o.title ?? o.label, ctx.title, ctx.description].join('\n')
+  const art = o.art ?? 'default'
+  const hasArt = !!(themeFor(art) ?? themeFromText(hint))
+  const kbd = <Kbd className="im-story__kbd">{i + 1}</Kbd>
   return (
     <motion.button
       type="button"
-      className={cx('lx-option im-story__opt', state === 'chosen' && 'is-chosen')}
+      className={cx('lx-option im-story__opt', state === 'chosen' && 'is-chosen', club && 'has-crest', !club && !hasArt && 'no-media')}
       aria-pressed={state === 'chosen'}
       aria-keyshortcuts={String(i + 1)}
       disabled={!!chosen}
@@ -405,24 +452,29 @@ function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number
       animate={{ opacity: state === 'dim' ? 0.35 : 1, y: 0, scale: state === 'chosen' ? 1.01 : 1 }}
       transition={{ duration: 0.34, delay: rm ? 0 : 0.08 + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
     >
-      <span className="im-story__media">
-        {club ? (
-          <span className="im-story__crest">
-            <Crest club={club} size={84} decorative />
-          </span>
-        ) : (
-          <EventArt art={o.art ?? 'default'} hint={o.title ?? o.label} fill />
-        )}
-        <Kbd className="im-story__kbd">{i + 1}</Kbd>
-      </span>
+      {club || hasArt ? (
+        <span className="im-story__media">
+          {club ? (
+            <span className="im-story__crest">
+              <Crest club={club} size={84} decorative />
+            </span>
+          ) : (
+            // slot: as duas opções do mesmo tema saem com fotos diferentes
+            <EventArt art={art} hint={hint} salt={ctx.id} slot={i} fill />
+          )}
+          {kbd}
+        </span>
+      ) : (
+        kbd
+      )}
       <span className="im-story__txt">
         {/* eventos sem título trazem só o rótulo: nada de "Pedir desculpas / Pedir desculpas" */}
         {o.title && o.title !== o.label && <span className="lx-option__meta">{o.label}</span>}
         <span className="lx-option__title">{o.title ?? o.label}</span>
       </span>
-      {!!o.details?.length && (
+      {details.length > 0 && (
         <span className="im-story__det">
-          {o.details.slice(0, 3).map((d) => (
+          {details.map((d) => (
             <span key={d.label}>
               <small>{d.label}</small>
               <b>{d.value}</b>
@@ -430,20 +482,14 @@ function StoryOption({ o, i, chosen, onPick, s }: { o: DecisionOption; i: number
           ))}
         </span>
       )}
-      <span className="im-story__fx">
-        {effects.slice(0, mins ? 2 : 3).map((e, k) => (
-          <EffectChip key={k} effect={e} />
-        ))}
-        {mins && (
-          <span className={cx('lx-fx', mins.cls)} title="Estimativa de jogos em campo nesta temporada (OVR × força do elenco)">
-            <span className="lx-fx__ic">
-              <Timer size={14} aria-hidden="true" />
-            </span>
-            {mins.label}
-            <span className="lx-fx__p">{formatPercent(mins.pct)}</span>
-          </span>
-        )}
-      </span>
+      {(effects.length > 0 || mins) && (
+        <span className="im-story__fx">
+          {effects.slice(0, mins ? 2 : 3).map((e, k) => (
+            <EffectChip key={k} effect={e} />
+          ))}
+          {mins && <MinutesChip m={mins} />}
+        </span>
+      )}
     </motion.button>
   )
 }
@@ -462,14 +508,34 @@ export const StoryDecision = memo(function StoryDecision({ s }: { s: ImmersiveSt
     const o = d.options[Number(e.key) - 1]
     if (o) pick(o.id)
   })
+  const ctx = useMemo<StoryCtx>(() => ({ id: d.id, title: d.title, description: d.description, shared: sharedTerms(s, d.options) }), [d, s])
+  const first = d.options[0]
+  const common = (first?.details ?? []).filter((x) => ctx.shared.labels.has(x.label))
+  const clubs = d.options.every((o) => o.clubId)
+  const n = d.options.length
+  const who = clubs ? (n === 2 ? 'Nos dois clubes' : n === 3 ? 'Nos três clubes' : 'Em todos os clubes') : n === 2 ? 'Nas duas opções' : n === 3 ? 'Nas três opções' : 'Em todas as opções'
   return (
     <section className="lx-plate lx-c-lg im-now im-story" aria-labelledby="im-story-h">
       <i className="lx-hl-top" aria-hidden="true" />
       <PanelHead kicker={<span>{DECISION_KICKER[d.kind] ?? 'Decisão'}</span>} icon={Sparkles} title={<span id="im-story-h">{d.title}</span>} />
       <p className="lx-t-body im-story__desc">{d.description}</p>
+      {(common.length > 0 || ctx.shared.minutes) && (
+        <div className="im-story__common">
+          <span className="lx-label">{who}</span>
+          <span className="im-story__det">
+            {common.map((x) => (
+              <span key={x.label}>
+                <small>{x.label}</small>
+                <b>{x.value}</b>
+              </span>
+            ))}
+          </span>
+          {ctx.shared.minutes && <MinutesChip m={ctx.shared.minutes} />}
+        </div>
+      )}
       <div className={cx('im-story__opts', d.options.length >= 3 && 'is-3')}>
         {d.options.map((o, i) => (
-          <StoryOption key={o.id} o={o} i={i} chosen={chosen} onPick={pick} s={s} />
+          <StoryOption key={o.id} o={o} i={i} chosen={chosen} onPick={pick} s={s} ctx={ctx} />
         ))}
       </div>
     </section>
@@ -519,6 +585,21 @@ export const WindowCard = memo(function WindowCard({ s, it }: { s: ImmersiveStat
   const dispatch = useImmersive((x) => x.dispatch)
   const busy = useImmersive((x) => x.busy)
   const n = s.offers.length
+  const free = !s.clubId
+  // sem clube, "seguir" não existe: a ação é assinar com a melhor proposta (a mesma régua do Mercado)
+  const best = free ? bestOffer(s.offers) : null
+  const bestClub = best ? getClub(best.clubId) : undefined
+  // negócio fechado nesta janela (empréstimo/transferência já assinados, ou acerto para a próxima temporada)
+  const deal = !n ? s.inbox.find((m) => m.season === s.season && m.week === s.week && ((m.from === 'Diretoria' && /^Bem-vindo/.test(m.subject)) || /^Acerto fechado/.test(m.subject))) : undefined
+  const club = getClub(s.clubId)
+  const fem = artigo(club) === 'a'
+  const dealText = deal
+    ? /^Acerto/.test(deal.subject)
+      ? `${deal.subject}: você termina esta temporada onde está e se apresenta na pré-temporada.`
+      : s.parentClubId
+        ? `Você foi emprestado ${fem ? 'à' : 'ao'} ${club?.shortName ?? 'novo clube'}.`
+        : `Contrato assinado: agora você joga ${fem ? 'na' : 'no'} ${club?.shortName ?? 'novo clube'}.`
+    : null
   return (
     <section className="lx-plate lx-c-lg im-now im-cardnow" aria-labelledby="im-win-h">
       <i className="lx-hl-top" aria-hidden="true" />
@@ -528,26 +609,80 @@ export const WindowCard = memo(function WindowCard({ s, it }: { s: ImmersiveStat
             const c = getClub(o.clubId)
             return c ? <Crest key={o.id} club={c} size={i === 0 ? 86 : 58} decorative className={`is-${i}`} /> : null
           })}
-          {!n && <Repeat2 size={56} aria-hidden="true" />}
+          {!n && deal && club && <Crest club={club} size={86} decorative />}
+          {!n && !(deal && club) && <Repeat2 size={56} aria-hidden="true" />}
         </div>
       </div>
       <div className="im-cardnow__body">
-        <PanelHead kicker={<span id="im-win-h">Mercado · {it.title}</span>} icon={Repeat2} title={n ? `${n} ${n === 1 ? 'proposta na mesa' : 'propostas na mesa'}` : 'Janela aberta'} />
-        <p className="lx-t-body m-0">{n ? 'Seu empresário reuniu as ofertas. Negocie salário, duração e papel no elenco — ou siga onde está.' : 'Nenhum clube fez proposta desta vez. Continue jogando bem e o telefone toca.'}</p>
+        {/* o título do motor já pode começar com "Mercado ·" (sem clube): sem "Mercado · Mercado ·" */}
+        <PanelHead kicker={<span id="im-win-h">Mercado · {it.title.replace(/^mercado\s*·\s*/i, '')}</span>} icon={Repeat2} title={n ? `${n} ${n === 1 ? 'proposta na mesa' : 'propostas na mesa'}` : deal ? 'Negócio fechado' : 'Janela aberta'} gold={!!deal} />
+        <p className="lx-t-body m-0">
+          {n
+            ? free
+              ? 'Você está sem clube. Seu empresário reuniu as ofertas: compare salário, duração e papel no elenco e escolha onde jogar.'
+              : 'Seu empresário reuniu as ofertas. Negocie salário, duração e papel no elenco — ou siga onde está.'
+            : (dealText ?? 'Nenhum clube fez proposta desta vez. Continue jogando bem e o telefone toca.')}
+        </p>
         <div className="flex flex-wrap gap-2 mt-5">
           {n > 0 && (
-            <Button variant="primary" size="lg" icon={Repeat2} onClick={() => navigate('/imersivo', { query: { tela: 'mercado' } })}>
+            <Button variant={free ? 'ghost' : 'primary'} size="lg" icon={Repeat2} onClick={() => navigate('/imersivo', { query: { tela: 'mercado' } })}>
               Ver propostas
             </Button>
           )}
-          <Button variant={n ? 'ghost' : 'primary'} size="lg" iconRight={ArrowRight} loading={busy} onClick={() => void dispatch({ type: 'advance' })}>
-            {n ? 'Seguir no clube' : 'Continuar'}
-          </Button>
+          {free && best ? (
+            <Button variant="primary" size="lg" iconRight={ArrowRight} loading={busy} onClick={() => void dispatch({ type: 'offer_respond', offerId: best.id, response: 'accept' })} title="A proposta marcada como a melhor no Mercado">
+              Assinar com {bestClub?.shortName ?? 'o clube'}
+            </Button>
+          ) : (
+            <Button variant={n ? 'ghost' : 'primary'} size="lg" iconRight={ArrowRight} loading={busy} onClick={() => void dispatch({ type: 'advance' })}>
+              {n ? 'Seguir no clube' : 'Continuar'}
+            </Button>
+          )}
         </div>
       </div>
     </section>
   )
 })
+
+/**
+ * "Fechar a janela" do Mercado sem clube: o motor assinaria sozinho com alguém. Aqui a escolha é
+ * explícita — a melhor proposta (a mesma marcada no Mercado) ou voltar às propostas.
+ */
+export function CloseWindowDialog({ s, open, onClose }: { s: ImmersiveState; open: boolean; onClose: () => void }) {
+  const dispatch = useImmersive((x) => x.dispatch)
+  const busy = useImmersive((x) => x.busy)
+  const best = bestOffer(s.offers)
+  const team = best ? teamInfo(best.clubId) : undefined
+  return (
+    <Modal
+      open={open && !!best}
+      onClose={onClose}
+      size="sm"
+      className="im-dlg"
+      title={<ImDlgTitle kicker="Mercado · sem clube">Assinar com {team?.short ?? 'o clube'}?</ImDlgTitle>}
+      description={best ? `Você está sem clube: a janela só fecha com uma assinatura. A melhor proposta na mesa é a ${deTeam(team)} — ${best.role}, ${yearsLabel(best.years)}, ${fmtMoney(best.salary)}/ano.` : undefined}
+      footer={
+        <div className="flex flex-wrap gap-2 justify-end w-full">
+          <Button variant="ghost" size="md" onClick={onClose}>
+            Ver as propostas
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            iconRight={ArrowRight}
+            loading={busy}
+            onClick={() => {
+              if (best) void dispatch({ type: 'offer_respond', offerId: best.id, response: 'accept' })
+              onClose()
+            }}
+          >
+            Assinar com {team?.short ?? 'o clube'}
+          </Button>
+        </div>
+      }
+    />
+  )
+}
 
 export const GenericCard = memo(function GenericCard({ s, it }: { s: ImmersiveState; it: CalendarItem }) {
   const dispatch = useImmersive((x) => x.dispatch)
@@ -571,7 +706,7 @@ export const GenericCard = memo(function GenericCard({ s, it }: { s: ImmersiveSt
           {callup
             ? msg?.body ??
               // sem mensagem da seleção nesta semana: a lista saiu (na chegada ao item) sem você, longe do corte
-              `A ${country?.name ?? 'seleção'} divulgou a lista ${it.id.startsWith('ct:') ? `final para a ${it.title.replace(/^Convocação\s*·\s*/i, '')}` : 'desta data FIFA'} e seu nome não está nela. ${s.age < 17 ? 'A seleção principal só chama a partir dos 17 anos.' : 'Minutos no clube e OVR em alta colocam você no radar da comissão técnica.'}`
+              `A seleção${country ? ` ${deCountry(country.name)}` : ''} divulgou a lista ${it.id.startsWith('ct:') ? `final para a ${it.title.replace(/^Convocação\s*·\s*/i, '')}` : 'desta data FIFA'} e seu nome não está nela. ${s.age < 17 ? 'A seleção principal só chama a partir dos 17 anos.' : 'Minutos no clube e OVR em alta colocam você no radar da comissão técnica.'}`
             : end
               ? 'Última semana. Hora do balanço: tabela final, evolução, prêmios e a conversa sobre o futuro.'
               : awards

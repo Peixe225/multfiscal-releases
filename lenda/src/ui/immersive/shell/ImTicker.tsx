@@ -110,8 +110,11 @@ export const ImTicker = memo(function ImTicker() {
   )
 })
 
-/** Durante a partida: os outros jogos da rodada (placar no relógio exibido) + a classificação. */
-export const LiveTicker = memo(function LiveTicker({ live, clock, done }: { live: LiveMatch; clock: number; done: boolean }) {
+/**
+ * Durante a partida: os outros jogos da rodada (placar no relógio exibido) + a classificação.
+ * `ht`/`done`: o replay chegou ao intervalo / ao apito final (a fase do motor chega antes da tela).
+ */
+export const LiveTicker = memo(function LiveTicker({ live, clock, done, ht }: { live: LiveMatch; clock: number; done: boolean; ht: boolean }) {
   const s = useImmersive((x) => x.state)!
   const rm = useReducedMotion()
   const all = useTable()
@@ -119,7 +122,6 @@ export const LiveTicker = memo(function LiveTicker({ live, clock, done }: { live
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const games = useMemo(() => roundGames(s, live), [live.itemId, s.engine])
   const lg = getLeague(userLeagueId(s))
-  const ht = live.phase === 'half_time'
   const minute = done ? 'FIM' : ht ? 'INT' : live.phase === 'pre' ? '—' : `${Math.min(90, Math.floor(clock))}'`
   const row = (dup: boolean) => (
     <>

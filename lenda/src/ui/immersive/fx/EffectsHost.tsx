@@ -32,6 +32,17 @@ const ACTION_PT: Record<string, string> = {
   buy: 'Compra indisponível agora.',
   inbox_read: 'Mensagem indisponível.',
 }
+/** Avisos que só repetem o que a tela já mostra: a escalação (pré-jogo) e o fechamento da coletiva. */
+const ON_SCREEN = new Set(['Titular', 'No banco', 'Fora do jogo', 'Coletiva encerrada'])
+/** No celular o aviso fica acima das abas, por cima do conteúdo: some mais rápido. */
+const PHONE_MS: Record<string, number> = { gold: 2600, danger: 3200 }
+const isPhone = () => {
+  try {
+    return matchMedia('(max-width: 44.99rem)').matches
+  } catch {
+    return false
+  }
+}
 /** Conquistas do motor de exemplo (o catálogo do Clássico cobre as do motor real). */
 const IMM_ACH: Record<string, string> = {
   'imersivo-estreia': 'Estreia profissional',
@@ -61,7 +72,7 @@ export function EffectsHost() {
   const say = (key: string, t: Parameters<typeof toast>[0]) => {
     if (shown.current.has(key)) return
     shown.current.add(key)
-    toast(t)
+    toast(isPhone() && !t.action ? { ...t, duration: PHONE_MS[t.tone ?? ''] ?? 1800 } : t)
   }
 
   useEffectStream((e: ImmersiveEffect, q) => {
@@ -71,9 +82,14 @@ export function EffectsHost() {
         if (e.tone === 'danger' && /indispon[ií]vel/i.test(e.title)) {
           const id = e.description ?? ''
           if (RACE.has(id)) return
+          // clique duplo em "Aposentar": o segundo envio chega com a carreira já encerrada
+          if (id === 'retire' && useImmersive.getState().state?.retired) return
           say(`deny:${id}`, { title: 'Agora não dá', description: ACTION_PT[id] ?? 'Essa ação não está disponível neste momento.', tone: 'danger' })
           return
         }
+        // treino escolhido na Central: no desktop os atributos já sobem animados no painel; no celular
+        // (painel longe, lá embaixo) o aviso fica só quando algum atributo subiu
+        if (ON_SCREEN.has(e.title) || (e.title === 'Treino concluído' && q.action === 'train' && (!isPhone() || !e.description?.startsWith('+')))) return
         const tone = e.tone === 'info' ? 'default' : e.tone
         // "Bem-vindo ao …" e o efeito de transferência são o mesmo aviso: vale o primeiro
         say(/^bem-vindo/i.test(e.title) ? 'welcome' : `t:${e.title}`, { title: e.title, description: e.description, tone })

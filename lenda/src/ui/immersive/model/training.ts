@@ -17,6 +17,19 @@ export interface TrainingPreview {
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
+/** Energia que o motor devolve a cada virada de semana (weekTick). */
+export const WEEK_RECOVERY = 22
+
+/**
+ * Energia no próximo compromisso: a de logo após o treino mais a recuperação de cada semana que vira
+ * até ele (treino na semana 38, jogo na 39: +22). Mesmo semana: a de logo após o treino.
+ */
+export function energyAtNext(s: Pick<ImmersiveState, 'calendar' | 'cursor' | 'week'>, after: number): { value: number; weeks: number } {
+  const next = s.calendar[s.cursor + 1]
+  const weeks = next ? Math.max(0, Math.min(52, next.week) - s.week) : 0
+  return { value: clamp(Math.round(after + weeks * WEEK_RECOVERY), 0, 100), weeks }
+}
+
 export function attrKeysFor(s: Pick<ImmersiveState, 'identity'>): AttributeKey[] {
   return isGk(s.identity.position) ? [...GK_KEYS] : [...OUTFIELD_KEYS]
 }

@@ -5,7 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { PHOTOS, PHOTO_CREDITS, themeFor } from './photos'
+import { PHOTOS, PHOTO_CREDITS, photoFor, themeFor } from './photos'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 
@@ -32,6 +32,25 @@ describe('fotos de eventos', () => {
 
   it('chaves avulsas (aposentadoria, tipos de decisão) também', () => {
     for (const k of ['retirement', 'academy', 'transfer', 'loan', 'loan_return', 'non_renewal', 'national_call', 'injury-continue']) expect(themeFor(k), k).not.toBeNull()
+  })
+
+  it('mini-eventos do Imersivo (`mini-${evento}-${opção}`) também', () => {
+    const src = readFileSync(`${root}src/engine/immersive/events.ts`, 'utf8')
+    const block = src.slice(src.indexOf('const MINI'), src.indexOf('function miniDecision'))
+    const keys: string[] = []
+    for (const b of block.split(/\n    key: '/).slice(1)) {
+      const ev = b.slice(0, b.indexOf("'"))
+      for (const m of b.matchAll(/\{ id: '([a-z_]+)'/g)) keys.push(`mini-${ev}-${m[1]}`)
+    }
+    expect(keys.length).toBeGreaterThan(30)
+    expect(keys.filter((k) => !themeFor(k))).toEqual([])
+  })
+
+  it('opções vizinhas do mesmo tema não repetem a foto (slot)', () => {
+    const a = photoFor('mini-discussao-desculpas', { salt: 'd1', slot: 0 })
+    const b = photoFor('mini-discussao-frente', { salt: 'd1', slot: 1 })
+    expect(a).toBeTruthy()
+    expect(a).not.toBe(b)
   })
 
   it('arquivos existem e têm crédito', () => {

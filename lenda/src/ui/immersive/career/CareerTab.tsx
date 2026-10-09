@@ -3,7 +3,7 @@
  * desenho da carreira do Clássico (uma linha por temporada, idade na cor do clube, troféus,
  * posição, OVR, J/G/A) com a temporada em andamento ao vivo. Links para o balanço e o Hall.
  */
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ArrowRight, CornerDownRight, Flag as FlagIcon, Landmark, LogOut, Timer, Trophy } from 'lucide-react'
 import type { ImmersiveState } from '@/engine/immersive/types'
 import type { SeasonRecord, TrophyWin } from '@/engine/types'
@@ -15,7 +15,7 @@ import { TrophyArt } from '@/ui/trophies'
 import { CompLogo, ImDlgTitle, ImOvrS, PanelHead } from '../bits'
 import { PlayerPlate } from '../hub/panels'
 import { prizeArt } from '../model/constants'
-import { fmtRating, plural, zoneOf } from '../model/view'
+import { fmtRating, plural, retiredLead, zoneOf } from '../model/view'
 import { getLeague } from '@/store/data'
 
 const AWARD_NAME: Record<string, string> = {
@@ -70,7 +70,7 @@ function Shelf({ trophies, awards }: { trophies: TrophyWin[]; awards: { award: s
   )
 }
 
-function Row({ r, gk, current, livePos }: { r: SeasonRecord; gk: boolean; current?: boolean; livePos?: number }) {
+function Row({ r, gk, current, livePos, retired }: { r: SeasonRecord; gk: boolean; current?: boolean; livePos?: number; retired?: boolean }) {
   const club = getClub(r.clubId)
   const lg = getLeague(r.leagueId)
   const z = r.leaguePosition ? (r.leaguePosition === 1 ? 'champ' : r.relegated ? 'reb' : zoneOf(lg, r.leaguePosition, 20)) : null
@@ -98,7 +98,6 @@ function Row({ r, gk, current, livePos }: { r: SeasonRecord; gk: boolean; curren
             </span>
           ))}
         </span>
-        {current && <span className="lx-chip lx-chip--sm lx-chip--live">Em andamento</span>}
       </span>
       <span role="cell" className="im-crow__pos">
         {r.leaguePosition ? (
@@ -109,9 +108,12 @@ function Row({ r, gk, current, livePos }: { r: SeasonRecord; gk: boolean; curren
             {z === 'champ' ? <span className="im-crow__tag is-gold">Campeão</span> : r.relegated || z === 'reb' ? <span className="im-crow__tag is-neg">▼ Rebaixado</span> : r.promoted ? <span className="im-crow__tag is-pos">▲ Acesso</span> : null}
           </span>
         ) : current ? (
-          // temporada em andamento: posição atual na tabela da liga
-          <span className="lx-rank" title={livePos ? 'Posição atual na liga' : 'Tabela disponível após a primeira rodada'}>
-            {livePos ? `${livePos}º` : '—'}
+          // temporada em andamento: posição atual na tabela da liga (o selo fica aqui, não espremendo o clube)
+          <span className="im-crow__rk">
+            <span className="lx-rank" title={livePos ? 'Posição atual na liga' : 'Tabela disponível após a primeira rodada'}>
+              {livePos ? `${livePos}º` : '—'}
+            </span>
+            {retired ? <span className="im-crow__tag">Aposentou</span> : <span className="im-crow__tag is-live">Em andamento</span>}
           </span>
         ) : (
           '—'
@@ -164,6 +166,16 @@ export default function CareerTab() {
   const dispatch = useImmersive((x) => x.dispatch)
   const engine = useImmersive((x) => x.engine)
   const [confirm, setConfirm] = useState(false)
+  // o botão continua vivo durante a saída do diálogo: um clique duplo mandaria "retire" duas vezes
+  const sent = useRef(false)
+  const retire = () => {
+    if (sent.current || s.retired) return
+    sent.current = true
+    setConfirm(false)
+    void dispatch({ type: 'retire' }).finally(() => {
+      if (!useImmersive.getState().state?.retired) sent.current = false
+    })
+  }
   const gk = s.identity.position === 'GOL'
   const country = getCountry(s.identity.nationality)
   const cur = currentRecord(s)
@@ -171,13 +183,18 @@ export default function CareerTab() {
   const livePos = useMemo(() => {
     if (!engine || !data || !s.clubId) return undefined
     try {
-      const i = engine.liveTable(data, s).findIndex((row) => row.clubId === s.clubId)
+      const t = engine.liveTable(data, s)
+      // antes da 1ª rodada a tabela é toda zero: nada de "9º"
+      if (!t.some((row) => row.played > 0)) return undefined
+      const i = t.findIndex((row) => row.clubId === s.clubId)
       return i >= 0 ? i + 1 : undefined
     } catch {
       return undefined
     }
   }, [engine, data, s])
-  const all = cur ? [...s.seasons, cur] : s.seasons
+  // aposentado: a temporada em curso fecha (sem posição ao vivo); sem nenhum jogo, nem entra na tabela
+  const curRow = cur && !(s.retired && !cur.stats.apps) ? cur : null
+  const all = curRow ? [...s.seasons, curRow] : s.seasons
   const tot = all.reduce((a, r) => ({ apps: a.apps + r.stats.apps, goals: a.goals + r.stats.goals, assists: a.assists + r.stats.assists }), { apps: 0, goals: 0, assists: 0 })
   const prizes = s.awards.filter((a) => a.place === 1).length
   // aposentadoria: o motor diz quando vale (motor real: a partir dos 34 anos)
@@ -205,8 +222,8 @@ export default function CareerTab() {
       {s.retired && (
         <div className="im-retired lx-anim-rise" role="status">
           <b>Carreira encerrada</b>
-          <span>
-            {s.retiredReason ?? 'Você pendurou as chuteiras.'} Aos {s.age} anos, com OVR {s.ovr} e {plural(s.trophies.length, 'título', 'títulos')}. A trajetória está no Hall das Lendas.
+          <span className="im-retired__text">
+            {retiredLead(s.retiredReason)} Aos {s.age} anos, com OVR {s.ovr} e {plural(s.trophies.length, 'título', 'títulos')}. A trajetória está no Hall das Lendas.
           </span>
           <Button variant="primary" size="md" iconRight={ArrowRight} onClick={() => navigate('/identidade', { query: { modo: 'imersivo', nova: 1 } })}>
             Nova carreira imersiva
@@ -282,7 +299,7 @@ export default function CareerTab() {
               </span>
             </div>
             {all.map((r) => (
-              <Row key={r.season} r={r} gk={gk} current={cur === r} livePos={cur === r ? livePos : undefined} />
+              <Row key={r.season} r={r} gk={gk} current={curRow === r} livePos={curRow === r && !s.retired ? livePos : undefined} retired={s.retired} />
             ))}
             {!s.retired &&
               Array.from({ length: futureN }).map((_, i) => {
@@ -333,7 +350,7 @@ export default function CareerTab() {
             <Button variant="ghost" size="md" onClick={() => setConfirm(false)}>
               Continuar jogando
             </Button>
-            <Button variant="danger" size="md" iconRight={ArrowRight} onClick={() => { setConfirm(false); void dispatch({ type: 'retire' }) }}>
+            <Button variant="danger" size="md" iconRight={ArrowRight} disabled={s.retired} onClick={retire}>
               Aposentar
             </Button>
           </div>

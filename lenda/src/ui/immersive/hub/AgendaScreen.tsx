@@ -38,7 +38,7 @@ function WeekResult({ list, cursor }: { list: { it: CalendarItem; idx: number }[
                 <b className="num">{sc}</b>
               </>
             ) : (
-              <small className="truncate">{it.stage ?? compInfo(it.competitionId).short}</small>
+              <small>{it.stage ?? compInfo(it.competitionId).short}</small>
             )}
           </span>
         )

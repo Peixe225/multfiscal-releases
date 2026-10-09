@@ -13,7 +13,8 @@ import { Button, Crest, Flag, Modal, clubVars, cx, formatPercent } from '@/ui/pr
 import { CompLogo, ImDlgTitle, ImSeg, PanelHead } from '../bits'
 import { LIFESTYLE_ITEMS } from '../model/constants'
 import { ContractStrip } from '../hub/panels'
-import { currentItem, fmtMoney, yearsLabel } from '../model/view'
+import { currentItem, fmtMoney, offerScore, yearsLabel } from '../model/view'
+import { CloseWindowDialog } from '../hub/NowPanel'
 
 const KIND: Record<ContractOffer['kind'], string> = { transfer: 'Transferência', loan: 'Empréstimo', renewal: 'Renovação', free_agent: 'Sem clube' }
 const ROLE_RANK: Record<ContractOffer['role'], number> = { Promessa: 0, Reserva: 1, Rotação: 2, Titular: 3 }
@@ -56,8 +57,8 @@ const roundsOf = (o: ContractOffer) => {
   return v
 }
 
-/** Nota da proposta (para destacar a melhor com o único botão dourado). */
-const offerScore = (o: ContractOffer) => ROLE_RANK[o.role] * 30 + (getClub(o.clubId)?.strength ?? 60) + (getClub(o.clubId)?.prestige ?? 0) * 4 + Math.log10(Math.max(1, o.salary)) * 3
+// nota da proposta (destaca a melhor com o único botão dourado): offerScore, em model/view — a mesma
+// régua do "Assinar com…" da Central
 
 /** Consequências (com chance) de assinar — princípio "consequência antes da escolha". */
 function OfferFx({ o, s }: { o: ContractOffer; s: ImmersiveState }) {
@@ -383,6 +384,8 @@ export default function MarketScreen() {
   const busy = useImmersive((x) => x.busy)
   const query = useApp((x) => x.route.query)
   const [neg, setNeg] = useState<string | null>(null)
+  // sem clube, fechar a janela com propostas assinaria por você: pergunta antes (CloseWindowDialog)
+  const [closing, setClosing] = useState(false)
   useEffect(() => {
     if (query.proposta && s.offers.some((o) => o.id === query.proposta)) setNeg(query.proposta)
     else if (fixture === 'negociacao' && s.offers[0]) setNeg(s.offers[0].id)
@@ -405,7 +408,7 @@ export default function MarketScreen() {
         </div>
         {open && (
           <div className="im-hub__actions">
-            <Button variant="ghost" size="md" iconRight={ArrowRight} loading={busy} onClick={() => void dispatch({ type: 'advance' })}>
+            <Button variant="ghost" size="md" iconRight={ArrowRight} loading={busy} onClick={() => (!s.clubId && s.offers.length ? setClosing(true) : void dispatch({ type: 'advance' }))}>
               Fechar a janela
             </Button>
           </div>
@@ -456,6 +459,7 @@ export default function MarketScreen() {
         </aside>
       </div>
       <Negotiation offerId={neg} onClose={() => setNeg(null)} />
+      <CloseWindowDialog s={s} open={closing} onClose={() => setClosing(false)} />
     </main>
   )
 }

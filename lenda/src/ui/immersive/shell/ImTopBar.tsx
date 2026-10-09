@@ -7,7 +7,7 @@ import { CalendarDays, Home, Inbox, Mic, Pause, Play, Repeat2, Share2, Shirt } f
 import { navigate } from '@/store/app'
 import { useImmersive } from '@/store/immersive'
 import { IconButton, cx } from '@/ui/primitives'
-import { compInfo, currentItem, fmtMoney, itemTitle, stageSuffix, teamInfo, weekLabel } from '../model/view'
+import { compInfo, currentItem, fmtMoney, itemTitle, plural, stageSuffix, teamInfo, weekLabel } from '../model/view'
 import { CompLogo, ImOvrS } from '../bits'
 import { usePlayback } from '../match/playback'
 
@@ -28,21 +28,27 @@ export const ImNav = memo(function ImNav({ active }: { active: ImTab | null }) {
   const unread = useImmersive((s) => s.state?.inbox.filter((m) => !m.read).length ?? 0)
   const season = useImmersive((s) => s.state?.season)
   const week = useImmersive((s) => s.state?.week)
+  // aposentado, só a Carreira abre (o app segura as outras telas nela): as demais abas ficam apagadas
+  const retired = useImmersive((s) => !!s.state?.retired)
   return (
     <>
       <nav className="im-nav" aria-label="Modo Imersivo">
         {(Object.keys(TAB_META) as ImTab[]).map((t) => {
           const M = TAB_META[t]
-          const badge = t === 'mercado' ? offers : t === 'central' ? unread : 0
+          const off = retired && t !== 'carreira'
+          const badge = off ? 0 : t === 'mercado' ? offers : t === 'central' ? unread : 0
           return (
             <a
               key={t}
-              href={t === 'central' ? '#/imersivo' : `#/imersivo?tela=${t}`}
-              className={cx('im-nav__a', active === t && 'is-on')}
+              href={off ? undefined : t === 'central' ? '#/imersivo' : `#/imersivo?tela=${t}`}
+              className={cx('im-nav__a', active === t && 'is-on', off && 'is-off')}
               aria-current={active === t ? 'page' : undefined}
+              aria-disabled={off || undefined}
+              title={off ? 'Carreira encerrada' : undefined}
+              role={off ? 'link' : undefined}
               onClick={(e) => {
                 e.preventDefault()
-                goTab(t)
+                if (!off) goTab(t)
               }}
             >
               <M.icon size={15} aria-hidden="true" />
@@ -83,7 +89,7 @@ export const ImTopActions = memo(function ImTopActions() {
       <span className="im-top-ovr max-sm:hidden" title={`OVR ${s.ovr} · potencial ${s.potential}`}>
         <ImOvrS ovr={s.ovr} title={`OVR ${s.ovr} · potencial ${s.potential}`} />
       </span>
-      <IconButton label={unread ? `Caixa de entrada (${unread} não lidas)` : 'Caixa de entrada'} icon={Inbox} dot={unread > 0} onClick={() => navigate('/imersivo', { query: { caixa: 1 } })} className="max-sm:hidden" />
+      <IconButton label={unread ? `Caixa de entrada (${plural(unread, 'não lida', 'não lidas')})` : 'Caixa de entrada'} icon={Inbox} dot={unread > 0} onClick={() => navigate('/imersivo', { query: { caixa: 1 } })} className="max-sm:hidden" />
     </>
   )
 })
