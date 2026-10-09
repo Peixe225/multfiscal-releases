@@ -287,7 +287,9 @@ function useSetasLinha(linha: RefObject<HTMLDivElement | null>) {
     const medir = () => {
       raf = 0
       const fino = !!mouse?.matches
-      const max = el.scrollWidth - el.clientWidth
+      // sem mouse (celular) não há setas e nada a medir: ler a largura aqui forçava um layout da página inteira na
+      // montagem e atrasava a primeira tela
+      const max = fino ? el.scrollWidth - el.clientWidth : 0
       const antes = fino && el.scrollLeft > 1
       const depois = fino && el.scrollLeft < max - 1
       setSetas((s) => (s.antes === antes && s.depois === depois ? s : { antes, depois }))

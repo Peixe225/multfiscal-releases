@@ -6,7 +6,7 @@ import { config } from '../dados/config'
 import { deUf } from '../dados/ufs'
 import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
-import { ehDesktop, movimentoReduzido } from '../lib/movimento'
+import { ehDesktop, movimentoReduzido, quandoRespirar } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
 import { disponivelEm } from '../store/catalogo'
 import { useChat } from '../store/chat'
@@ -425,21 +425,25 @@ export function Hero() {
     const a = q?.querySelector<HTMLElement>('.hero-palco .sq-arte')
     if (!q || !h || !t || !a || !meio) return
     const medir = () => {
+      // lê tudo antes de escrever: uma escrita no meio das leituras faria o navegador refazer o layout para a seguinte
       const arteH = a.offsetHeight
       const meioArte = topoEm(a, q) + arteH / 2
-      q.style.setProperty('--hero-texto', `${topoEm(t, q)}px`)
-      q.style.setProperty('--hero-pe', `${topoEm(meio, q) + meio.offsetHeight}px`)
-      h.style.setProperty('--hero-arte-meio', `${Math.round(meioArte)}px`)
+      const texto = topoEm(t, q)
+      const pe = topoEm(meio, q) + meio.offsetHeight
       // o próximo, esmaecido atrás, acompanha a arte: no máximo 60% da altura dela (nunca maior que o produto atual,
       // nunca por cima do nome) e some quando a arte fica pequena (enquete aberta num celular baixo)
       const esperaH = Math.min(arteH * 0.6, (q.clientWidth * 0.22 * 16) / 9)
+      q.style.setProperty('--hero-texto', `${texto}px`)
+      q.style.setProperty('--hero-pe', `${pe}px`)
+      h.style.setProperty('--hero-arte-meio', `${Math.round(meioArte)}px`)
       h.style.setProperty('--hero-espera-w', `${Math.round((esperaH * 9) / 16)}px`)
       h.style.setProperty('--hero-espera-y', `${Math.round(meioArte - esperaH * 0.35)}px`)
       h.style.setProperty('--hero-espera-vis', arteH < ESPACO_ESPERA ? 'hidden' : 'visible')
       setDicaCabe(arteH >= ESPACO_DICA)
     }
-    medir()
-    // a enquete some, o nome quebra em duas linhas, a fonte em pixel chega: tudo muda a altura de um dos dois
+    // a primeira medida também vem do ResizeObserver (ele entrega logo depois do layout, antes da pintura): medir
+    // aqui, no meio da montagem, forçava um layout da página inteira a mais e atrasava a primeira tela do celular.
+    // Depois, a enquete some, o nome quebra em duas linhas, a fonte em pixel chega: tudo muda a altura de um dos dois
     const ro = new ResizeObserver(medir)
     ro.observe(meio)
     ro.observe(t)
@@ -462,31 +466,64 @@ export function Hero() {
   }, [idx, idsStory, uf, reduz])
 
   // troca de produto (voz app): sozinha, o que esperava atrás vem pro centro; na mão, desliza do lado de onde veio
+  const palcoEntrou = useRef(false)
   useLayoutEffect(() => {
     const p = palco.current
     if (!p || reduz) return
-    if (pos.origem === 'auto') {
-      gsap.fromTo(p, { scale: 0.42, opacity: 0.3, x: 40, y: -30 }, { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out' })
-    } else {
-      gsap.fromTo(p, { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2, scale: 1, y: 0 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out' })
+    const animar = () => {
+      if (pos.origem === 'auto') {
+        gsap.fromTo(p, { scale: 0.42, opacity: 0.3, x: 40, y: -30 }, { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out' })
+      } else {
+        gsap.fromTo(p, { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2, scale: 1, y: 0 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out' })
+      }
+    }
+    if (palcoEntrou.current || pos.origem !== 'auto') {
+      palcoEntrou.current = true
+      return animar()
+    }
+    // a primeira entrada (a página abrindo): o ponto de partida vai direto no estilo e o GSAP assume no quadro
+    // seguinte, antes da pintura. Ele lê o estilo calculado do palco ao começar, e ler aqui, no meio da montagem,
+    // obrigava o navegador a calcular o estilo da página inteira a mais, atrasando a primeira tela do celular
+    palcoEntrou.current = true
+    p.style.transform = 'translate(40px, -30px) scale(0.42)'
+    p.style.opacity = '0.3'
+    let quadro = requestAnimationFrame(() => {
+      quadro = 0
+      animar()
+    })
+    return () => {
+      if (!quadro) return
+      // trocou antes da primeira pintura (o estado chegou, o story se ajeitou): a entrada seguinte ainda é a primeira
+      cancelAnimationFrame(quadro)
+      palcoEntrou.current = false
+      p.style.transform = ''
+      p.style.opacity = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, uf, reduz])
 
-  // paralaxe: só o próximo produto, atrás, acompanha a rolagem (posição presa em 2 px)
+  // paralaxe: só o próximo produto, atrás, acompanha a rolagem (posição presa em 2 px). Liga quando a página respira
+  // depois da primeira tela: o ScrollTrigger mede o hero ao nascer, e medir no meio da montagem atrasava a primeira
+  // tela (no topo da rolagem o próximo está parado no lugar dele, igual)
   useLayoutEffect(() => {
     const e = espera.current
     const r = raiz.current
     if (!e || !r || reduz) return
-    const ctx = gsap.context(() => {
-      gsap.to(e, {
-        y: -90,
-        ease: 'none',
-        modifiers: { y: (y: string) => `${Math.round(parseFloat(y) / 2) * 2}px` },
-        scrollTrigger: { trigger: r, start: 'top top', end: 'bottom top', scrub: true },
+    let ctx: gsap.Context | undefined
+    const cancelar = quandoRespirar(() => {
+      ctx = gsap.context(() => {
+        gsap.to(e, {
+          y: -90,
+          ease: 'none',
+          modifiers: { y: (y: string) => `${Math.round(parseFloat(y) / 2) * 2}px` },
+          scrollTrigger: { trigger: r, start: 'top top', end: 'bottom top', scrub: true },
+        })
       })
     })
-    return () => ctx.revert()
+    return () => {
+      cancelar()
+      ctx?.revert()
+    }
   }, [reduz])
 
   // teclado: ← → com o foco no hero, ou com ele quase todo na tela e o foco fora de campo de texto; K pausa.

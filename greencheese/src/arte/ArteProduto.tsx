@@ -417,12 +417,18 @@ export function ArteProduto({
       }
     }
 
+    let quadro = 0
     if (typeof IntersectionObserver === 'undefined') {
       naTela = true
       preparar()
     } else {
-      if (prioridade) preparar()
-      else {
+      // com prioridade e ainda por gerar, entra na fila no quadro seguinte: entrando já, ela era gerada no primeiro
+      // quadro e atrasava a primeira pintura da página (o story do topo). A revelação começa vazia de qualquer jeito, e a
+      // arte que já está pronta (cache) segue desenhada na hora
+      if (prioridade) {
+        if (imagem) preparar()
+        else quadro = requestAnimationFrame(preparar)
+      } else {
         const perto = new IntersectionObserver(
           (es) => {
             if (!es.some((e) => e.isIntersecting)) return
@@ -452,6 +458,7 @@ export function ArteProduto({
 
     return () => {
       vivo = false
+      cancelAnimationFrame(quadro)
       // Revelação cortada no meio (inclusive pelo StrictMode em dev): na próxima vez ela aparece.
       if (cancelar) {
         cancelar()

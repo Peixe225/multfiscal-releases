@@ -52,8 +52,9 @@ function useLateralRola(ref: RefObject<HTMLElement | null>) {
       const rola = el.scrollHeight > el.clientHeight + 1
       el.toggleAttribute('data-lenis-prevent', rola)
     }
-    medir()
-    // a própria lateral (janela) e cada bloco dela (a enquete entra e sai, o contador da sacola, a prévia)
+    // a primeira medida também vem do ResizeObserver (logo depois do layout, antes da pintura; escondida, no celular,
+    // ele nem chama): medir aqui, no meio da montagem, forçava um layout da página inteira a mais na primeira tela.
+    // Depois, a própria lateral (janela) e cada bloco dela (a enquete entra e sai, o contador da sacola, a prévia)
     const ro = new ResizeObserver(medir)
     ro.observe(el)
     for (const filho of el.children) ro.observe(filho)

@@ -1815,10 +1815,15 @@ for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, 
   const botao = page.locator('.vista:not([hidden]) .rua-mercador')
   await botao.focus()
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(400)
+  // o balão do chamado sai na hora; no meio de um atendimento a fala seguinte do roteiro pode tomar o lugar dele logo
+  // depois (um balão por vez): o que vale é ele ter aparecido. As falas vistas nos primeiros 400 ms
+  const bal = new Set()
+  for (let k = 0; k < 8; k++) {
+    for (const t of await page.locator('.vista:not([hidden]) .rua-balao[data-ator="mercador"]').allTextContents()) bal.add(t)
+    await page.waitForTimeout(50)
+  }
   const cta = page.locator('.vista:not([hidden]) .rua-cta')
-  const bal = await page.locator('.vista:not([hidden]) .rua-balao').allTextContents()
-  conferir((await cta.count()) === 1 && bal.some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${bal.join(' | ')})`)
+  conferir((await cta.count()) === 1 && [...bal].some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${[...bal].join(' | ')})`)
   // o leitor de tela ouve o que de fato acontece: livre, ele abre o casaco; atendendo, abre no fim do atendimento; na
   // foto (movimento reduzido), só oferece
   const aviso = (await page.locator('.vista:not([hidden]) .rua [aria-live]').textContent())?.trim()
