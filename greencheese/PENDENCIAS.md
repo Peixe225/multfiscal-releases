@@ -150,3 +150,10 @@ O painel (`/painel/`, ver LEIA-ME.md, "Painel do dono") está pronto e testado c
 - **Publicar à mão** (hPanel): o pacote sai de `npm run empacotar`, com as mesmas regras do `publicar.mjs` (recusa o código de dev, deixa banco, log e fotos de fora). O `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site, sem `api/`): gerar de novo antes de usar.
 - Se o endereço final for outro, trocar `urlPublica` em `src/dados/config.ts` e gerar o build de novo.
 - Testar no navegador do Instagram, no Android e no iPhone de verdade (os testes daqui simulam toque e tamanho de tela, não o aparelho).
+
+## Da auditoria (para depois da integração do pedido guiado)
+
+- **Foco no pedido guiado** (D1): a cada passo novo o foco precisa ir pro chip ou campo do passo; hoje cai no `<body>` e o Tab sai do chat.
+- **"prévia" que sobrou** (D2): "Na prévia, a conta só existe…" e "Exemplo da prévia, encerrado" em `src/interativos/sorte/textos.ts` (aparecem no Entrar e na Minha conta).
+- **Voz e termos no chat** (C8, D9, D16, D17): "De qual estado você pede?", "Qual produto você quer?", "Quem aperta enviar é você.", "saiu do catálogo" e "Toca numa opção…"/"Tocar para mudar" no computador. Fora do chat a voz já está em "tu".
+- **Tragos do mercador no topo do Mercado** (D5): decisão do dono; para a versão oficial a recomendação continua `mercadorTraga: false` (ver "Repost: tragos do mercador").
