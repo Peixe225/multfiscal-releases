@@ -1,6 +1,7 @@
 import { useRef, useState, useSyncExternalStore } from 'react'
 import { PixelArte } from '../arte/PixelArte'
 import type { Grade } from '../arte/pixel/grades'
+import { useTextosLoja } from '../store/loja'
 import { abrirCasacoJa, MercadorAnimado, useMercadorAnda } from './Mercador'
 import './MercadoTopo.css'
 
@@ -18,8 +19,6 @@ const SOMBRA: Grade = {
     '.........xxxxxxxxxxxxxxxxxxxxx..............',
   ],
 }
-
-const FALAS = ['Chega mais.', 'Vem no certo!', 'Quem já usou sabe da qualidade.'] as const
 
 // celular pequeno (320–360 de largura ou até 700 de altura) e deitado: o mercador a 2×, para a primeira fileira de
 // produtos começar na primeira tela
@@ -44,11 +43,13 @@ const lerBaixa = () => {
 export function MercadoTopo({ legenda }: { legenda: string }) {
   const figura = useRef<HTMLDivElement>(null)
   const anda = useMercadorAnda(figura)
+  // as falas do dono no painel (Loja → Textos), uma por toque, na ordem
+  const falas = useTextosLoja().falasMercado
   const [fala, setFala] = useState(0)
   const k = useSyncExternalStore(assinarBaixa, lerBaixa, () => false) ? 2 : 3
   const tocar = () => {
     abrirCasacoJa(figura.current)
-    setFala((f) => (f + 1) % FALAS.length)
+    setFala((f) => (f + 1) % falas.length)
   }
   return (
     <header className={`aba-cab mercado-topo${k === 2 ? ' compacto' : ''}`} style={{ ['--k' as string]: `${k}px` }}>
@@ -61,7 +62,7 @@ export function MercadoTopo({ legenda }: { legenda: string }) {
         <p className="aba-legenda legenda">{legenda}</p>
         {/* o balão dele: muda quando tocam (decorativo: sem região viva, que a busca usa a dela) */}
         <p className="mercado-fala">
-          <span className="mercado-fala-corpo px">{FALAS[fala]}</span>
+          <span className="mercado-fala-corpo px">{falas[fala % falas.length]}</span>
         </p>
       </div>
       <button

@@ -12,6 +12,7 @@ import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
 import { Aviso, Carregando, Ic, TituloTela } from '../ui'
 import { BotaoWhats, NOME_VAGA, avisoDeAgora, pedirConfirmarPagamento } from '../vaga'
+import { ResumoLoja } from '../loja/ResumoLoja'
 import { useRestaurarRolagem } from './comum'
 
 interface Dados {
@@ -157,6 +158,9 @@ export function Resumo({ nome }: { nome: string }) {
                 </>
               )}
             </section>
+
+            {/* loja: produtos esgotados, acabando, fora do site e os atalhos */}
+            <ResumoLoja />
 
             <section className="pn-bloco pn-resumo-ultimas" aria-labelledby="h-ultimas">
               <div className="pn-h2-linha">

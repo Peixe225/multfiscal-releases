@@ -2,17 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { iconesExtras } from '../arte/pixel/extras'
-import { canalDa } from '../dados/canais'
 import { config } from '../dados/config'
 import { deUf } from '../dados/ufs'
 import { gravarSessao, lerSessao } from '../lib/armazenamento'
 import { ehDiaDeEntregaGratis } from '../lib/horario'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { useProgresso } from '../lib/progresso'
-import { disponivelEm, useCatalogo } from '../store/catalogo'
+import { disponivelEm } from '../store/catalogo'
 import { useChat } from '../store/chat'
-import { useDisponiveis } from '../store/derivados'
+import { useStoryDoInicio } from '../store/derivados'
 import { useLocal } from '../store/local'
+import { siglasDosEstados, useCanais, useCanalDa, useRuaNoStory, useTextosLoja } from '../store/loja'
 import { useUI } from '../store/ui'
 import { RespostaStory } from './BarraMensagem'
 import { Avatar, Icone, tempoDoCatalogo } from './comum'
@@ -29,7 +29,6 @@ import './Hero.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const MAX_BARRAS = 8
 /** Fração da largura em cada borda que passa o story (esquerda volta, direita avança); o meio é o produto. */
 const BORDA = 0.28
 /** Arrasto lateral mínimo (px) para passar. */
@@ -268,13 +267,13 @@ function AvisoFora() {
  */
 export function Hero() {
   const uf = useLocal((s) => s.uf)
-  const canal = canalDa(uf)
-  const todos = useCatalogo((s) => s.produtos)
-  const disponiveis = useDisponiveis()
-  // produto real com preço primeiro; exemplo por último
-  const peso = (p: (typeof todos)[number]) => (p.demo ? 2 : 0) + (p.preco == null ? 1 : 0)
+  const canal = useCanalDa(uf)
   const celular = useSyncExternalStore(CELULAR.assinar, CELULAR.ler)
-  const lista = [...(canal ? disponiveis : todos)].sort((a, b) => peso(a) - peso(b)).slice(0, MAX_BARRAS)
+  // os produtos do story: os do dono no painel (Stories do Início), na ordem dele; sem escolha, o automático (os à
+  // venda, os com preço primeiro e os de exemplo por último)
+  const lista = useStoryDoInicio(uf)
+  const textos = useTextosLoja()
+  const canais = useCanais()
   // palpite de IP pendente (celular): o aviso ocupa o lugar da linha de resposta até a pessoa responder
   const avisoLocal = useAvisoLocal()
   const { texto: lugar } = useTextoLocal()
@@ -319,8 +318,10 @@ export function Hero() {
   const reduz = movimentoReduzido()
 
   const n = lista.length
-  // ── a rua da loja como primeiro story do celular (StoryRua): depois dela os produtos; no fim, volta para ela ──
-  const comRua = celular
+  // ── a rua da loja como primeiro story do celular (StoryRua): depois dela os produtos; no fim, volta para ela. O dono
+  // desliga no painel (Stories do Início) ──
+  const ruaNoStory = useRuaNoStory()
+  const comRua = celular && ruaNoStory
   const off = comRua ? 1 : 0
   const total = n + off
   const idx = total ? pos.i % total : 0
@@ -410,6 +411,22 @@ export function Hero() {
     comRuaAntes.current = comRua
     setPos((p) => ({ ...p, i: Math.max(0, p.i + (comRua ? 1 : -1)) }))
   }, [comRua])
+  // os produtos do story mudaram (a loja do servidor chegou, o dono reordenou, um esgotou): o que está na tela fica
+  // nela, no lugar novo; se ele saiu, o story segue do mesmo ponto. Na rua, nada muda
+  const idsStory = lista.map((p) => p.id).join()
+  const storyAntes = useRef(idsStory)
+  useLayoutEffect(() => {
+    const antes = storyAntes.current ? storyAntes.current.split(',') : []
+    storyAntes.current = idsStory
+    setPos((p) => {
+      const i = p.i % (antes.length + off || 1)
+      if (off && i === 0) return p
+      const k = lista.findIndex((x) => x.id === antes[i - off])
+      const novo = k >= 0 ? k + off : Math.min(i, Math.max(0, lista.length + off - 1))
+      return novo === p.i ? p : { ...p, i: novo }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsStory])
   useLayoutEffect(() => {
     const antes = ufAnterior.current
     ufAnterior.current = uf
@@ -827,7 +844,7 @@ export function Hero() {
                 artePropsExtra={{ flutuar: true }}
                 legenda={
                   !uf ? (
-                    <p className="hero-sem-uf legenda">RJ · MG · SP · ES · SC</p>
+                    <p className="hero-sem-uf legenda">{siglasDosEstados(canais)}</p>
                   ) : undefined
                 }
               />
@@ -851,7 +868,7 @@ export function Hero() {
       {atual && (
         <div className="hero-adesivos">
           <p className="adesivo-texto-bloco hero-frase">
-            <span className="adesivo-texto">{sextou ?? 'Vem no certo!'}</span>
+            <span className="adesivo-texto">{sextou ?? textos.fraseStory}</span>
           </p>
           <a className="adesivo-link toque hero-ver" href={linkProduto(atual.id)} onClick={abrirProduto} draggable={false}>
             <Icone nome="link" tamanho={16} />

@@ -57,6 +57,15 @@
   min-width: 18px;
   text-align: center;
 }
+.ls-qtd-ctrl .icone-botao:disabled {
+  opacity: 0.3;
+}
+/* o "restam X" do estado: a sacola não passa dele e diz por quê, embaixo do preço */
+.ls-restam {
+  margin-top: 4px;
+  font: 400 12px/1.35 var(--ui);
+  text-wrap: pretty;
+}
 .ls-fora {
   padding: 12px var(--gutter);
   font-size: 13px;
@@ -75,6 +84,31 @@
   gap: 8px;
   color: var(--legenda);
   text-decoration: line-through;
+}
+/* saiu da loja (o produto ou a opção): o nome riscado, o porquê e os botões sem risco */
+.ls-saiu li {
+  align-items: flex-start;
+  text-decoration: none;
+}
+.ls-fora-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 4px;
+}
+.ls-saiu .ls-fora-nome {
+  text-decoration: line-through;
+}
+.ls-fora-motivo {
+  font: 400 12px/1.35 var(--ui);
+  color: var(--branco);
+  text-wrap: pretty;
+}
+.ls-fora-acoes {
+  flex: none;
+  display: flex;
+  gap: 6px;
 }
 .ls-tirar {
   min-height: 44px;

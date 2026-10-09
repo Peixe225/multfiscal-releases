@@ -1,0 +1,970 @@
+{
+  "_leia": "Gerado por scripts/gerar-semente-loja.mjs a partir de src/dados (não edite à mão). É a loja com que o servidor nasce; depois, quem manda é o painel.",
+  "formato": 1,
+  "ajustes": {
+    "whatsapp": "5533991139036",
+    "mesmoWhatsappParaTodos": true,
+    "restamAte": 5
+  },
+  "textos": {
+    "bio": [
+      "Importados, destilados, sedas, piteiras e acessórios.",
+      "Quem tiver interesse é só mandar dm"
+    ],
+    "fraseStory": "Vem no certo!",
+    "sacolaVazia": "Nada aqui ainda. Vem no certo!",
+    "falasMercado": [
+      "Chega mais.",
+      "Vem no certo!",
+      "Quem já usou sabe da qualidade."
+    ]
+  },
+  "categorias": [
+    {
+      "id": "bebidas",
+      "nome": "Bebidas importadas",
+      "curto": "Importadas",
+      "icone": "lata",
+      "bebida": true
+    },
+    {
+      "id": "destilados",
+      "nome": "Destilados",
+      "curto": "Destilados",
+      "icone": "garrafa",
+      "bebida": true
+    },
+    {
+      "id": "sedas",
+      "nome": "Sedas",
+      "curto": "Sedas",
+      "icone": "seda",
+      "bebida": false
+    },
+    {
+      "id": "piteiras",
+      "nome": "Piteiras",
+      "curto": "Piteiras",
+      "icone": "piteira",
+      "bebida": false
+    },
+    {
+      "id": "acessorios",
+      "nome": "Acessórios",
+      "curto": "Acessórios",
+      "icone": "cuia",
+      "bebida": false
+    }
+  ],
+  "produtos": [
+    {
+      "id": "fanta-ghost-face-punch",
+      "nome": "Fanta Ghost Face Punch",
+      "tamanho": "350 ml",
+      "detalhe": "Lata 350 ml · importada",
+      "descricao": "Refrigerante Fanta Ghost Face Punch, importado, em lata de 350 ml. É só abrir e servir bem gelado.",
+      "categoria": "bebidas",
+      "preco": null,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": false,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#d8325f",
+      "arte": {
+        "tipo": "lata",
+        "corpo": "#141414",
+        "faixa": "#d8325f",
+        "detalhe": "#f2f2f2"
+      },
+      "demo": false,
+      "obs": "Visto disponível no story de MG. Preço PENDENTE."
+    },
+    {
+      "id": "coca-cola-vanilla",
+      "nome": "Coca-Cola Vanilla",
+      "tamanho": "lata",
+      "detalhe": "Lata · importada",
+      "descricao": "A Coca-Cola com sabor de baunilha, importada, em lata. Serve bem gelada.",
+      "categoria": "bebidas",
+      "preco": null,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#d21f35",
+      "arte": {
+        "tipo": "lata",
+        "corpo": "#c8102e",
+        "faixa": "#f1e3c0",
+        "detalhe": "#ffffff"
+      },
+      "demo": false,
+      "obs": "Visto nos stories. Preço e estados PENDENTES."
+    },
+    {
+      "id": "arizona-green-tea",
+      "nome": "Arizona Green Tea",
+      "tamanho": "680 ml",
+      "detalhe": "Lata 680 ml · importada",
+      "descricao": "Chá verde gelado da AriZona, pronto pra beber. Vem na lata alta de 680 ml, importada.",
+      "categoria": "bebidas",
+      "preco": 19.9,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": false
+      },
+      "foto": null,
+      "cor": "#6fc3a0",
+      "arte": {
+        "tipo": "lata-alta",
+        "corpo": "#7ccaa8",
+        "faixa": "#e892ad",
+        "detalhe": "#fdf6e4"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "dr-pepper",
+      "nome": "Dr Pepper",
+      "tamanho": "355 ml",
+      "detalhe": "Lata 355 ml · importada",
+      "descricao": "O refrigerante americano Dr Pepper, em lata de 355 ml importada. Serve bem gelado.",
+      "categoria": "bebidas",
+      "preco": 12.9,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": false
+      },
+      "foto": null,
+      "cor": "#9b1c2e",
+      "arte": {
+        "tipo": "lata",
+        "corpo": "#6d0f1d",
+        "faixa": "#e9e1d6",
+        "detalhe": "#b8202f"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "jack-daniels-old-no7-1l",
+      "nome": "Jack Daniel's Old No. 7",
+      "tamanho": "1 L",
+      "detalhe": "Garrafa 1 L",
+      "descricao": "Tennessee whiskey filtrado gota a gota em carvão de bordo antes de envelhecer no barril. Garrafa de 1 L.",
+      "categoria": "destilados",
+      "preco": 149.9,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [
+        "coca-cola-vanilla"
+      ],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#c8832f",
+      "arte": {
+        "tipo": "garrafa-quadrada",
+        "corpo": "#7a4314",
+        "rotulo": "#0d0d0d",
+        "detalhe": "#f2f2f2",
+        "tampa": "#0d0d0d"
+      },
+      "demo": false,
+      "obs": "R$ 149,90 visto no story de MG."
+    },
+    {
+      "id": "gin-tanqueray-london-dry",
+      "nome": "Gin Tanqueray London Dry",
+      "tamanho": "750 ml",
+      "detalhe": "Garrafa 750 ml",
+      "descricao": "Gin no estilo London Dry, com o zimbro na frente. Garrafa de 750 ml, base de drinque como o gin tônica.",
+      "categoria": "destilados",
+      "preco": 99.99,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#3f8a5a",
+      "arte": {
+        "tipo": "garrafa-gin",
+        "corpo": "#1f5c37",
+        "rotulo": "#e9e4d8",
+        "detalhe": "#b3202a",
+        "tampa": "#b3202a"
+      },
+      "demo": false,
+      "obs": "R$ 99,99 visto nos stories do RJ e de MG."
+    },
+    {
+      "id": "hennessy-very-special",
+      "nome": "Hennessy Very Special",
+      "tamanho": "",
+      "detalhe": "Conhaque · garrafa",
+      "descricao": "Conhaque Hennessy, feito na região de Cognac, na França. V.S quer dizer Very Special: envelhece no mínimo 2 anos em barril de carvalho.",
+      "categoria": "destilados",
+      "preco": null,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": false,
+        "es": true,
+        "sc": false
+      },
+      "foto": null,
+      "cor": "#b8662a",
+      "arte": {
+        "tipo": "garrafa-conhaque",
+        "corpo": "#5a2c0e",
+        "rotulo": "#e8dcc0",
+        "detalhe": "#111111",
+        "tampa": "#151515"
+      },
+      "demo": false,
+      "obs": "Visto no story do RJ. Preço PENDENTE."
+    },
+    {
+      "id": "jagermeister-700ml",
+      "nome": "Jägermeister",
+      "tamanho": "700 ml",
+      "detalhe": "Garrafa 700 ml",
+      "descricao": "Licor de ervas alemão, de uma receita com 56 botânicos. Garrafa de 700 ml, pra servir bem gelado.",
+      "categoria": "destilados",
+      "preco": 139.9,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#d9731f",
+      "arte": {
+        "tipo": "garrafa-licor",
+        "corpo": "#1b3a24",
+        "rotulo": "#e5781f",
+        "detalhe": "#f4ead2",
+        "tampa": "#e5781f"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "seda-ocb-premium-slim",
+      "nome": "Seda OCB Premium Slim",
+      "tamanho": "",
+      "detalhe": "Livreto slim",
+      "descricao": "Livreto de seda OCB, da linha Premium, no formato slim. A OCB é uma marca francesa de papel de seda.",
+      "categoria": "sedas",
+      "preco": 9.99,
+      "combos": [
+        {
+          "qtd": 2,
+          "total": 14.99
+        },
+        {
+          "qtd": 3,
+          "total": 19.99
+        }
+      ],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#8f9bb3",
+      "arte": {
+        "tipo": "seda",
+        "corpo": "#101010",
+        "faixa": "#d9d9d9",
+        "detalhe": "#ffffff"
+      },
+      "demo": false,
+      "obs": "R$ 9,99 · 2 por R$ 14,99 · 3 por R$ 19,99 visto no story do RJ."
+    },
+    {
+      "id": "seda-raw-classic-king-size",
+      "nome": "Seda RAW Classic King Size",
+      "tamanho": "",
+      "detalhe": "Livreto king size slim",
+      "descricao": "Livreto de seda RAW Classic, no tamanho king size slim, com o papel sem branqueamento da marca.",
+      "categoria": "sedas",
+      "preco": 12.99,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#c08a55",
+      "arte": {
+        "tipo": "seda",
+        "corpo": "#b9895a",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "seda-smoking-brown",
+      "nome": "Seda Smoking Brown",
+      "tamanho": "",
+      "detalhe": "Livreto king size",
+      "descricao": "Livreto de seda Smoking Brown, no tamanho king size, com o papel marrom da linha Brown.",
+      "categoria": "sedas",
+      "preco": 7.99,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#8a5a36",
+      "arte": {
+        "tipo": "seda",
+        "corpo": "#5c3a22",
+        "faixa": "#d8b48a",
+        "detalhe": "#f5e6cf"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "piteira-de-vidro-raw",
+      "nome": "Piteira de vidro RAW",
+      "tamanho": "",
+      "detalhe": "Vidro · escolha o formato",
+      "descricao": "Piteira de vidro RAW, reutilizável: dá pra lavar e usar de novo. Dois formatos: flat (6 mm × 3,5 cm) ou slim (7 mm × 5 cm).",
+      "categoria": "piteiras",
+      "preco": 29.99,
+      "combos": [],
+      "variacoes": [
+        {
+          "id": "flat",
+          "nome": "Flat · 6 mm × 3,5 cm"
+        },
+        {
+          "id": "slim",
+          "nome": "Slim · 7 mm × 5 cm"
+        }
+      ],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#9fd6e3",
+      "arte": {
+        "tipo": "piteira-vidro",
+        "corpo": "#bfe6ee",
+        "detalhe": "#ffffff"
+      },
+      "demo": false,
+      "obs": "R$ 29,99 (flat 6 mm × 3,5 cm e slim 7 mm × 5 cm) visto no story do RJ."
+    },
+    {
+      "id": "piteira-de-papel-raw",
+      "nome": "Piteira de papel RAW",
+      "tamanho": "",
+      "detalhe": "Bloco de piteiras",
+      "descricao": "Bloco de piteiras de papel RAW: é só destacar uma, enrolar e usar.",
+      "categoria": "piteiras",
+      "preco": 6.99,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": true,
+        "es": false,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#c9a27a",
+      "arte": {
+        "tipo": "piteira-papel",
+        "corpo": "#c9a27a",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "cuia-de-silicone-raw",
+      "nome": "Cuia de silicone RAW",
+      "tamanho": "",
+      "detalhe": "Silicone · não quebra",
+      "descricao": "Cuia de silicone da RAW. Por ser de silicone, é flexível e não quebra se cair no chão.",
+      "categoria": "acessorios",
+      "preco": null,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#c3874f",
+      "arte": {
+        "tipo": "cuia",
+        "corpo": "#a8703f",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      },
+      "demo": false,
+      "obs": "Visto disponível no story do RJ. Preço PENDENTE."
+    },
+    {
+      "id": "dichavador-metal-4-partes",
+      "nome": "Dichavador de metal 4 partes",
+      "tamanho": "55 mm",
+      "detalhe": "55 mm · com peneira",
+      "descricao": "Dichavador de metal de 55 mm, em 4 partes e com peneira. Desmonta pra limpar.",
+      "categoria": "acessorios",
+      "preco": 59.9,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#8aa3b8",
+      "arte": {
+        "tipo": "dichavador",
+        "corpo": "#7d8894",
+        "faixa": "#3d4650",
+        "detalhe": "#e6edf2"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "isqueiro-clipper",
+      "nome": "Isqueiro Clipper",
+      "tamanho": "",
+      "detalhe": "Recarregável",
+      "descricao": "Isqueiro Clipper recarregável: quando o gás acaba, dá pra recarregar em vez de jogar fora.",
+      "categoria": "acessorios",
+      "preco": 14.99,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": true,
+        "mg": true,
+        "sp": false,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#e2552f",
+      "arte": {
+        "tipo": "isqueiro",
+        "corpo": "#e2552f",
+        "faixa": "#1a1a1a",
+        "detalhe": "#f2f2f2"
+      },
+      "demo": true,
+      "obs": ""
+    },
+    {
+      "id": "bandeja-raw-pequena",
+      "nome": "Bandeja RAW pequena",
+      "tamanho": "",
+      "detalhe": "Metal · 18 × 12 cm",
+      "descricao": "Bandeja de metal RAW, de 18 × 12 cm. Deixa teus acessórios organizados num lugar só.",
+      "categoria": "acessorios",
+      "preco": 49.9,
+      "combos": [],
+      "variacoes": [],
+      "combinaCom": [],
+      "disponivel": {
+        "rj": false,
+        "mg": true,
+        "sp": true,
+        "es": true,
+        "sc": true
+      },
+      "foto": null,
+      "cor": "#c49a6c",
+      "arte": {
+        "tipo": "bandeja",
+        "corpo": "#c49a6c",
+        "faixa": "#4a2a14",
+        "detalhe": "#f3e3c8"
+      },
+      "demo": true,
+      "obs": ""
+    }
+  ],
+  "estados": [
+    {
+      "uf": "rj",
+      "destaque": "DELIVERY RJ",
+      "nomePerfil": "GREEN CHEESE LTDA",
+      "instagram": "greencheese_importsrj",
+      "whatsapp": null,
+      "cidades": [
+        {
+          "slug": "rio-de-janeiro",
+          "nome": "Rio de Janeiro"
+        }
+      ],
+      "horario": {
+        "semana": [
+          [
+            "15:00",
+            "23:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ]
+        ],
+        "demo": true
+      },
+      "taxaEntrega": {
+        "valor": 10,
+        "demo": true
+      },
+      "entregaGratis": null,
+      "pagamento": {
+        "opcoes": [
+          "pix",
+          "dinheiro",
+          "cartao"
+        ],
+        "demo": true
+      },
+      "emblema": "pao-de-acucar"
+    },
+    {
+      "uf": "mg",
+      "destaque": "TEÓFILO OTONI",
+      "nomePerfil": "GREEN CHEESE LTDA",
+      "instagram": "greencheese_importsmg",
+      "whatsapp": null,
+      "cidades": [
+        {
+          "slug": "teofilo-otoni",
+          "nome": "Teófilo Otoni"
+        }
+      ],
+      "horario": {
+        "semana": [
+          [
+            "15:00",
+            "23:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ]
+        ],
+        "demo": true
+      },
+      "taxaEntrega": {
+        "valor": 8,
+        "demo": true
+      },
+      "entregaGratis": {
+        "dias": [
+          5
+        ],
+        "texto": "Sextou com entrega grátis!",
+        "demo": false
+      },
+      "pagamento": {
+        "opcoes": [
+          "pix",
+          "dinheiro",
+          "cartao"
+        ],
+        "demo": true
+      },
+      "emblema": "pedra-preciosa"
+    },
+    {
+      "uf": "sp",
+      "destaque": "DELIVERY SP",
+      "nomePerfil": null,
+      "instagram": "greencheese_importssp",
+      "whatsapp": null,
+      "cidades": [],
+      "horario": {
+        "semana": [
+          [
+            "15:00",
+            "23:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ]
+        ],
+        "demo": true
+      },
+      "taxaEntrega": {
+        "valor": 12,
+        "demo": true
+      },
+      "entregaGratis": null,
+      "pagamento": {
+        "opcoes": [
+          "pix",
+          "dinheiro",
+          "cartao"
+        ],
+        "demo": true
+      },
+      "emblema": "predio-sp"
+    },
+    {
+      "uf": "es",
+      "destaque": "DELIVERY ES",
+      "nomePerfil": null,
+      "instagram": "greencheese_importses",
+      "whatsapp": null,
+      "cidades": [],
+      "horario": {
+        "semana": [
+          [
+            "15:00",
+            "23:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ]
+        ],
+        "demo": true
+      },
+      "taxaEntrega": {
+        "valor": 10,
+        "demo": true
+      },
+      "entregaGratis": null,
+      "pagamento": {
+        "opcoes": [
+          "pix",
+          "dinheiro",
+          "cartao"
+        ],
+        "demo": true
+      },
+      "emblema": "convento-es"
+    },
+    {
+      "uf": "sc",
+      "destaque": "DELIVERY SC",
+      "nomePerfil": null,
+      "instagram": "greencheese_importssc",
+      "whatsapp": null,
+      "cidades": [],
+      "horario": {
+        "semana": [
+          [
+            "15:00",
+            "23:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "00:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ],
+          [
+            "14:00",
+            "03:00"
+          ]
+        ],
+        "demo": true
+      },
+      "taxaEntrega": {
+        "valor": 12,
+        "demo": true
+      },
+      "entregaGratis": null,
+      "pagamento": {
+        "opcoes": [
+          "pix",
+          "dinheiro",
+          "cartao"
+        ],
+        "demo": true
+      },
+      "emblema": "ponte-sc"
+    }
+  ],
+  "stories": {},
+  "sorte": {
+    "ligado": true,
+    "regras": {
+      "girosSemConta": 1,
+      "girosPorDiaComConta": 1,
+      "reservaSemContaHoras": 24
+    },
+    "premios": [
+      {
+        "id": "ocb-4-por-3",
+        "tipo": "leve-x-pague-y",
+        "valor": {
+          "leve": 4,
+          "pague": 3
+        },
+        "titulo": "4 por 3 na OCB",
+        "descricao": "Uma OCB por conta da sorte.",
+        "regra": "Leva 4 Seda OCB Premium Slim e paga 3",
+        "aplicaA": {
+          "produtos": [
+            "seda-ocb-premium-slim"
+          ]
+        },
+        "comoUsar": "Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.",
+        "peso": 30,
+        "validadeDias": 7,
+        "demo": true
+      },
+      {
+        "id": "piteira-vidro-15",
+        "tipo": "desconto-percentual",
+        "valor": 15,
+        "titulo": "15% na piteira de vidro",
+        "descricao": "A de vidro sai mais em conta.",
+        "regra": "15% de desconto na Piteira de vidro RAW",
+        "aplicaA": {
+          "produtos": [
+            "piteira-de-vidro-raw"
+          ]
+        },
+        "comoUsar": "Põe a piteira na sacola e usa o cupom.",
+        "peso": 20,
+        "validadeDias": 7,
+        "demo": true
+      },
+      {
+        "id": "brinde-piteira-papel",
+        "tipo": "brinde",
+        "valor": {
+          "produto": "piteira-de-papel-raw",
+          "qtd": 1
+        },
+        "titulo": "Piteira de papel de brinde",
+        "descricao": "Vem junto com tua seda.",
+        "regra": "1 Piteira de papel RAW de brinde no pedido com seda",
+        "aplicaA": {
+          "categorias": [
+            "sedas"
+          ]
+        },
+        "comoUsar": "Põe qualquer seda na sacola e usa o cupom.",
+        "peso": 25,
+        "validadeDias": 7,
+        "demo": true
+      },
+      {
+        "id": "dichavador-10",
+        "tipo": "desconto-percentual",
+        "valor": 10,
+        "titulo": "10% no dichavador",
+        "descricao": "Agora gira o de verdade.",
+        "regra": "10% de desconto no Dichavador de metal 4 partes",
+        "aplicaA": {
+          "produtos": [
+            "dichavador-metal-4-partes"
+          ]
+        },
+        "peso": 15,
+        "validadeDias": 7,
+        "demo": true
+      },
+      {
+        "id": "bandeja-10",
+        "tipo": "desconto-percentual",
+        "valor": 10,
+        "titulo": "10% na bandeja RAW",
+        "descricao": "Tudo no lugar pra enrolar.",
+        "regra": "10% de desconto na Bandeja RAW pequena",
+        "aplicaA": {
+          "produtos": [
+            "bandeja-raw-pequena"
+          ]
+        },
+        "peso": 10,
+        "validadeDias": 7,
+        "demo": true
+      }
+    ]
+  }
+}

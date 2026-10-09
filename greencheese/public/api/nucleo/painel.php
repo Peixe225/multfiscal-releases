@@ -57,6 +57,11 @@ function gc_rota_admin_instalar(): array
         $s = gc_sessao_criar($id);
         gc_evento('painel', 'painel-instalado', 'usuario:' . $login, [], $id);
         gc_semear_exemplos();
+        // a loja nasce com a semente (a mesma do site de agora); dali em diante, quem manda é o painel. Sem o
+        // módulo (index.php de antes da loja, no meio de uma publicação), a migração 101 semeia depois.
+        if (function_exists('gc_loja_semear')) {
+            gc_loja_semear(gc_db(), gc_loja_semente());
+        }
         return ['_status' => 201, 'usuario' => gc_usuario_publico(), 'csrf' => $s['csrf']];
     });
 }
@@ -826,6 +831,11 @@ function gc_rota_admin_participantes_csv(): array
 /** Frase curta do evento, pra lista do painel ('Pagamento de RAT-K8EA confirmado em "Arizona…"'). */
 function gc_evento_texto(array $e, array $d): string
 {
+    // os da loja (produtos, categorias, estados, stories, prêmios) têm a frase no módulo dela
+    $loja = function_exists('gc_loja_evento_texto') ? gc_loja_evento_texto((string) $e['acao'], $d) : null;
+    if ($loja !== null) {
+        return $loja;
+    }
     $alvo = (string) preg_replace('/^[a-z]+:/', '', (string) $e['alvo']);
     // o rateio pelo título (o id só se o título não veio)
     $t = isset($d['titulo']) ? '"' . $d['titulo'] . '"' : (string) ($d['rateio'] ?? $alvo);

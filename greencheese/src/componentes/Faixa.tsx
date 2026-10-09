@@ -1,9 +1,9 @@
 import { Fragment, useLayoutEffect, useRef, type FocusEvent } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { canais } from '../dados/canais'
 import { movimentoReduzido } from '../lib/movimento'
 import { useLocal } from '../store/local'
+import { useCanais } from '../store/loja'
 import { trocarEstado } from '../lib/troca'
 import { Icone } from './comum'
 import './Faixa.css'
@@ -33,6 +33,8 @@ export function Faixa() {
   const trilho = useRef<HTMLDivElement>(null)
   const anda = useRef<gsap.core.Tween | null>(null)
   const uf = useLocal((s) => s.uf)
+  // os estados da loja (o dono ativa e desativa no painel): a faixa mostra os de agora
+  const canais = useCanais()
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -78,6 +80,16 @@ export function Faixa() {
     if (ref.current?.contains(e.relatedTarget as Node | null)) return
     anda.current?.scrollTrigger?.enable()
   }
+
+  // mudou a lista (a loja do servidor chegou com outro estado): o trilho mede de novo a volta
+  const primeira = useRef(true)
+  useLayoutEffect(() => {
+    if (primeira.current) {
+      primeira.current = false
+      return
+    }
+    ScrollTrigger.refresh()
+  }, [canais])
 
   const itens = (copia: number) => (
     <>

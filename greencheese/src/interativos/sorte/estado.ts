@@ -3,13 +3,13 @@
 // O jogo, o adaptador da conta, o sorteio e o resto da copy só baixam quando a camada abre.
 import { useMemo } from 'react'
 import { config } from '../../dados/config'
-import { canalDa } from '../../dados/canais'
 import type { Premio } from '../../dados/sorte'
 import { formatarAte, formatarEspera, formatarFalta, nomeDoPremio, premioPorId, diasEntre } from '../../lib/cupom'
 import { depoisDoHistorico } from '../../lib/historico'
 import { primeiroNome, useAgora, useConta, useCupons, useGiro, usePendente, useVisto, type CupomComStatus, type GiroInfo } from '../../lib/conta'
 import type { Conta, Pendente } from '../../store/conta'
 import { useLocal } from '../../store/local'
+import { regrasDaSorte, useCanalDa } from '../../store/loja'
 import { useSacola } from '../../store/sacola'
 import { useUI } from '../../store/ui'
 import type { EntradaInterativo } from '../registro'
@@ -96,7 +96,7 @@ export function useEntradaSorte(): EntradaInterativo {
   const r = useEstadoSorte()
   const visto = useVisto(ID_SORTE)
   const uf = useLocal((s) => s.uf)
-  const instagram = canalDa(uf)?.instagram ?? null
+  const instagram = useCanalDa(uf)?.instagram ?? null
   return useMemo(() => {
     const { estado, conta, agora } = r
     const aceso = estado === 'A' || estado === 'B' || estado === 'D'
@@ -117,7 +117,8 @@ export function useEntradaSorte(): EntradaInterativo {
         break
       case 'C-hoje':
       case 'C-antes':
-        adesivo = { titulo: T.tituloPx, pergunta: T.giroJaFoi, texto: estado === 'C-hoje' ? T.criaAmanha : T.criaAgora, cta: T.criarConta, acao: () => abrir('cadastro') }
+        // girou hoje sem conta: com 1 giro por dia (as regras do painel), o de hoje já foi; com mais, cria e gira agora
+        adesivo = { titulo: T.tituloPx, pergunta: T.giroJaFoi, texto: estado === 'C-hoje' && regrasDaSorte().girosPorDiaComConta <= 1 ? T.criaAmanha : T.criaAgora, cta: T.criarConta, acao: () => abrir('cadastro') }
         break
       case 'D':
         adesivo = { titulo: T.tituloPx, pergunta: `${primeiroNome(conta?.nome)}, teu giro de hoje tá liberado`, cta: T.girar, legenda: T.todoGiroGanha, acao: () => abrir() }

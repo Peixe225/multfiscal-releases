@@ -16,6 +16,7 @@ import { useChat } from '../../store/chat'
 import { useLocal } from '../../store/local'
 import { agoraRateio, carregarRateios, guardarPendente, guardarVaga, pendenteDe, tirarPendente, trocarRateio, useRateio, zapDoDono, type EntradaPendente, type VagaGuardada } from '../../store/rateio'
 import { useUI } from '../../store/ui'
+import { useLojaMarca } from '../../store/loja'
 import { Icone } from '../comum'
 import { NOME_VAGA, ateQuando, contaVagas, guardadaTexto, listaUfs, statusVisto, total, vagaDoAparelho, vagasTexto } from './util'
 
@@ -261,6 +262,8 @@ interface Props {
 }
 
 export function EntrarRateio({ rateio, modo, podeEntrar }: Props) {
+  // os estados (canalDa) vêm da loja: o formulário redesenha quando ela troca
+  useLojaMarca()
   const vagas = useRateio((s) => s.vagas)
   const conta = useConta()
   const minha = vagaDoAparelho(vagas, rateio.id, agoraRateio(), zapDoDono(vagas, conta?.whatsapp))

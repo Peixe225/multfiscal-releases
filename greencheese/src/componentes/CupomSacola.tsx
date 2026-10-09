@@ -12,6 +12,7 @@ import { disponivelEm } from '../store/catalogo'
 import type { RetratoPremio } from '../store/conta'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
+import { useLojaMarca } from '../store/loja'
 import { useSacola } from '../store/sacola'
 import { useUI, type TelaInterativo } from '../store/ui'
 import { Icone } from './comum'
@@ -156,6 +157,8 @@ function ConviteCupom() {
   const setConta = useUI((s) => s.setConta)
   const avisar = useUI((s) => s.avisar)
   const uf = useLocal((s) => s.uf)
+  // a loja trocou (o jogo desligado no painel, estado que saiu): o convite redesenha
+  useLojaMarca()
   const ativo = interativoPorId(ID_SORTE)?.ativo() ?? false
   // cupom só serve onde a loja atende (fora da área o caminho é a encomenda, que não leva cupom)
   if (r.conta && r.ativos.length && canalDa(uf)) {

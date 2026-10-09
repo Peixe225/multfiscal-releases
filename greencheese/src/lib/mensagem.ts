@@ -1,6 +1,7 @@
 import type { Canal, FormaPagamento } from '../dados/canais'
 import { config } from '../dados/config'
 import { brl } from './formato'
+import { ehDiaDeEntregaGratis } from './horario'
 import { calcularLinha } from './preco'
 import { formatarCelular } from './telefone'
 import type { Produto } from './tipos'
@@ -27,6 +28,8 @@ export interface DadosPedido {
    * "Subtotal:"; o subtotal nunca é recalculado (a loja confirma o desconto). exemplo = prêmio de exemplo da prévia.
    */
   cupom?: { codigo: string; regra: string; origem: string; exemplo: boolean }
+  /** A hora do pedido (o dia da entrega grátis); sem ela, agora. */
+  agora?: Date
 }
 
 export const NOME_PAGAMENTO: Record<FormaPagamento, string> = {
@@ -78,7 +81,21 @@ export function textoPagamento(pagamento: FormaPagamento | null, troco?: number 
   return NOME_PAGAMENTO[pagamento]
 }
 
-/** Mensagem do pedido no formato combinado com a loja. Quem envia é o cliente. */
+/**
+ * A entrega do estado como o painel deixou: 'gratis' (hoje é dia de entrega grátis), o valor da taxa (o dono pôs um
+ * valor de verdade; o de exemplo só com o carimbo de exemplo à vista) ou null (a confirmar no atendimento).
+ */
+export function entregaDoCanal(canal: Canal, agora = new Date()): 'gratis' | number | null {
+  const g = canal.entregaGratis
+  if (g && (!g.demo || config.carimboDeExemplo) && ehDiaDeEntregaGratis(canal, agora)) return 'gratis'
+  const t = canal.taxaEntrega
+  return t.valor != null && (!t.demo || config.carimboDeExemplo) ? t.valor : null
+}
+
+/**
+ * Mensagem do pedido no formato combinado com a loja. Quem envia é o cliente. A entrega diz a taxa que o painel pôs
+ * (ou o dia de entrega grátis); sem isso (ou com a de exemplo), "taxa a confirmar", como sempre.
+ */
 export function montarPedido(d: DadosPedido): string {
   const linhas = d.linhas.filter((l) => l.qtd > 0)
   const out = [cabecalho('PEDIDO', d.canal, d.cidade)]
@@ -89,7 +106,8 @@ export function montarPedido(d: DadosPedido): string {
   out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
   // sem cupom, a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
   if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
-  out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (taxa a confirmar)`)
+  const entrega = entregaDoCanal(d.canal, d.agora)
+  out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (${entrega === 'gratis' ? 'entrega grátis hoje' : entrega != null ? `taxa ${brl(entrega)}` : 'taxa a confirmar'})`)
   out.push(`Pagamento: ${textoPagamento(d.pagamento, d.troco)}`)
   out.push(`Nome: ${d.nome.trim()}`)
   if (d.obs?.trim()) out.push(`Obs.: ${d.obs.trim()}`)
@@ -170,9 +188,17 @@ export function montarAviso(canal: Canal, cidade: string | null | undefined, pro
   ].join('\n')
 }
 
+// O WhatsApp da loja: o embutido (config.whatsappPedidos) até a loja do servidor chegar com o do painel
+// (src/store/loja.ts troca). Fica aqui, sem importar o store: o conferir-mensagem roda este arquivo no Node.
+let whatsappLoja = config.whatsappPedidos
+
+export function definirWhatsappDaLoja(numero: string): void {
+  whatsappLoja = numero
+}
+
 /** WhatsApp que fecha o pedido do canal (só dígitos): o do estado, se tiver; senão o da loja. */
 export function whatsappDoCanal(canal: Canal): string {
-  return (canal.whatsapp ?? config.whatsappPedidos).replace(/\D/g, '')
+  return (canal.whatsapp ?? whatsappLoja).replace(/\D/g, '')
 }
 
 /** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) e o rateio usam. */
@@ -182,7 +208,7 @@ export function linkWhatsApp(canal: Canal, texto: string): string {
 
 /** wa.me da loja quando ainda não tem estado escolhido (o rateio sem conexão): o WhatsApp de pedidos de todos. */
 export function linkWhatsAppLoja(canal: Canal | null | undefined, texto: string): string {
-  return canal ? linkWhatsApp(canal, texto) : `https://wa.me/${config.whatsappPedidos.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`
+  return canal ? linkWhatsApp(canal, texto) : `https://wa.me/${whatsappLoja.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`
 }
 
 /** DM do Instagram do estado: dúvidas que o site não tira e "Avisar quando chegar". */

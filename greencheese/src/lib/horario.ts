@@ -62,14 +62,34 @@ export function resumoHorario(canal: Canal): string {
 }
 
 export function ehDiaDeEntregaGratis(canal: Canal, agora = new Date()): boolean {
-  return !!canal.entregaGratis && canal.entregaGratis.diaSemana === agora.getDay()
+  return !!canal.entregaGratis && canal.entregaGratis.dias.includes(agora.getDay())
+}
+
+const NO_DIA = ['no domingo', 'na segunda', 'na terça', 'na quarta', 'na quinta', 'na sexta', 'no sábado']
+
+/**
+ * Os dias da entrega grátis ditos como a loja fala: "na sexta", "na sexta e no sábado", "de sexta a domingo",
+ * "de segunda a sexta", "todo dia". A semana começa na segunda (o fim de semana fica junto).
+ */
+export function diasDaEntregaGratis(dias: readonly number[]): string {
+  const ordem = [1, 2, 3, 4, 5, 6, 0].filter((d) => dias.includes(d))
+  if (ordem.length === 7) return 'todo dia'
+  if (!ordem.length) return ''
+  const seguidos = ordem.every((d, i) => i === 0 || [1, 2, 3, 4, 5, 6, 0].indexOf(d) === [1, 2, 3, 4, 5, 6, 0].indexOf(ordem[i - 1]) + 1)
+  if (seguidos && ordem.length >= 3) return `de ${DIAS[ordem[0]]} a ${DIAS[ordem[ordem.length - 1]]}`
+  const ditos = ordem.map((d) => NO_DIA[d])
+  return ditos.length === 1 ? ditos[0] : `${ditos.slice(0, -1).join(', ')} e ${ditos[ditos.length - 1]}`
 }
 
 const DIAS_PLURAL = ['domingos', 'segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados']
 
-/** Fora do dia da promoção: "Entrega grátis às sextas." (no dia, quem mostra é o texto do canal, "Sextou…"). */
+/**
+ * Fora do dia da promoção: "Entrega grátis às sextas.", "Entrega grátis de sexta a domingo." (no dia, quem mostra é o
+ * texto do canal, "Sextou…").
+ */
 export function entregaGratisNoDia(canal: Canal): string | null {
-  if (!canal.entregaGratis) return null
-  const d = canal.entregaGratis.diaSemana
-  return `Entrega grátis ${d === 0 || d === 6 ? 'aos' : 'às'} ${DIAS_PLURAL[d]}.`
+  const dias = canal.entregaGratis?.dias ?? []
+  if (!dias.length) return null
+  if (dias.length === 1) return `Entrega grátis ${dias[0] === 0 || dias[0] === 6 ? 'aos' : 'às'} ${DIAS_PLURAL[dias[0]]}.`
+  return `Entrega grátis ${diasDaEntregaGratis(dias)}.`
 }

@@ -18,6 +18,9 @@ export interface Secao {
 
 export const secoes: Secao[] = [
   { id: 'resumo', nome: 'Resumo', href: caminho.resumo, icone: 'casa', iconeAtivo: 'casa-cheia', telas: ['resumo'], barra: true },
+  // loja: no celular, pelo Resumo (atalhos) e por Conta → "Mais do painel"
+  { id: 'produtos', nome: 'Produtos', href: caminho.produtos, icone: 'sacola', iconeAtivo: 'sacola-cheia', telas: ['produtos', 'produto', 'produto-novo'], barra: false },
+  { id: 'loja', nome: 'Loja', href: caminho.loja, icone: 'loja', iconeAtivo: 'loja-cheia', telas: ['loja', 'estados', 'estado', 'stories', 'categorias', 'sorte', 'premio'], barra: false },
   { id: 'rateios', nome: 'Rateios', href: caminho.rateios, icone: 'caixa', iconeAtivo: 'caixa-cheia', telas: ['rateios', 'rateio', 'editar'], barra: true },
   { id: 'novo', nome: 'Criar rateio', href: caminho.novo, icone: 'criar', iconeAtivo: 'criar-cheio', telas: ['novo'], barra: true },
   { id: 'atividade', nome: 'Atividade', href: caminho.atividade, icone: 'coracao', iconeAtivo: 'coracao-cheio', telas: ['atividade'], barra: true },

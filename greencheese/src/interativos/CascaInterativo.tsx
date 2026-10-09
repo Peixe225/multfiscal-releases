@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as KeyboardEventReact, type ReactNode } from 'react'
 import { gsap } from 'gsap'
-import { canalDa } from '../dados/canais'
 import { Avatar, Icone } from '../componentes/comum'
 import { folhaDoTopo } from '../componentes/Folha'
 import { useConta, marcarVisto } from '../lib/conta'
@@ -10,6 +9,7 @@ import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { liberarRolagem, travarRolagem } from '../lib/rolagem'
 import { atualizarParametros } from '../lib/url'
 import { useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { useUI } from '../store/ui'
 import type { Interativo } from './registro'
 import './interativos.css'
@@ -62,7 +62,7 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
   const voltarFoco = useRef<HTMLElement | null>(null)
   const conta = useConta()
   const uf = useLocal((s) => s.uf)
-  const instagram = canalDa(uf)?.instagram ?? null
+  const instagram = useCanalDa(uf)?.instagram ?? null
   const setConta = useUI((s) => s.setConta)
   const fecharRef = useRef(aoFechar)
   fecharRef.current = aoFechar

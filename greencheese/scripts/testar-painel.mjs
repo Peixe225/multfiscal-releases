@@ -7,7 +7,8 @@
 // de entrar), toque duplo, voltar do Android fecha a folha, teclado, celular deitado, 320 px sem rolagem lateral (nas
 // telas e nas folhas de incluir e editar, com o + das vagas dentro da caixa).
 // Também confere o HTML do painel (noindex, título, manifesto, caminhos relativos, sem o CSS do site) e que o site
-// não carrega nada do painel.
+// não carrega nada do painel. A loja (produtos, estoque, foto, estado novo, story, prêmio, textos) fica em
+// scripts/testar-painel-loja.mjs, chamado daqui.
 // Uso: node scripts/testar-painel.mjs <pasta-do-build>   (termina com "painel ok")
 // GC_TESTE_PORTA = porta do PHP (a do preview é a seguinte, ou GC_TESTE_PORTA_SITE); GC_PRINTS=<pasta> guarda os prints; GC_AXE=<axe.min.js>
 // roda o axe em cada tela; PHP=/caminho troca o binário.
@@ -17,6 +18,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { fluxoLoja, ROTAS_LOJA } from './testar-painel-loja.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const build = process.argv[2] ? resolve(process.argv[2]) : null
@@ -125,7 +127,7 @@ async function print(p, nome, cheia = false) {
 async function axe(p, nome) {
   if (!AXE) return
   await p.addScriptTag({ path: AXE })
-  const v = await p.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes.length})`))
+  const v = await p.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes.length}: ${x.nodes.map((n) => n.target.join(' ')).join(', ').slice(0, 200)})`))
   ok(v.length === 0, `axe ${nome}: ${v.join(', ') || '0 violações'}`)
 }
 const lateral = (p) => p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 0.5)
@@ -345,6 +347,8 @@ try {
   await p.getByRole('dialog').waitFor({ state: 'detached' })
   ok(true, 'Esc fecha a folha')
 
+  await fluxoLoja({ p, BASE, ok, print, axe, foto, browser })
+
   // conta: trocar senha, sair, entrar com a nova
   await p.goto(`${BASE}/painel/#/conta`)
   await p.getByLabel('Senha de agora').fill('senha-forte-123')
@@ -392,7 +396,7 @@ try {
     await q.getByRole('button', { name: 'Entrar', exact: true }).tap()
     await q.getByText('Oi, Dono.').waitFor()
     let todas = true
-    for (const rota of ['#/', '#/rateios', '#/rateio/isqueiro-clipper', '#/novo', '#/conta', '#/servidor', '#/atividade']) {
+    for (const rota of ['#/', '#/rateios', '#/rateio/isqueiro-clipper', '#/novo', '#/conta', '#/servidor', '#/atividade', ...ROTAS_LOJA]) {
       await q.goto(`${BASE}/painel/${rota}`)
       await q.waitForTimeout(500)
       if (!(await lateral(q))) {

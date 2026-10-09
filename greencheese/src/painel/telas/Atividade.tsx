@@ -1,5 +1,5 @@
-// Atividade: o que aconteceu (entradas pelo site, pagamentos confirmados, reservas que venceram, passos do rateio),
-// do mais novo pro mais velho, no molde das notificações do Instagram.
+// Atividade: o que aconteceu (entradas pelo site, pagamentos confirmados, reservas que venceram, passos do rateio, o
+// que mudou na loja), do mais novo pro mais velho, no molde das notificações do Instagram.
 import * as api from '../api'
 import { useDados } from '../dados'
 import { dia, hora, relativo } from '../formato'
@@ -16,6 +16,22 @@ function rateioDo(e: Evento): string | null {
   if (e.alvo.startsWith('rateio:')) return e.alvo.slice(7)
   const r = (e.detalhe as { rateio?: unknown }).rateio
   return typeof r === 'string' ? r : null
+}
+
+/** Pra onde a linha leva: o rateio, ou a tela da loja que o evento mexeu (o que foi apagado não leva a lugar nenhum). */
+function destinoDe(e: Evento): string | null {
+  if (/-apagad[oa]$/.test(e.acao)) return null
+  const rid = rateioDo(e)
+  if (rid) return caminho.rateio(rid)
+  const [tipo, id] = e.alvo.split(':')
+  if (tipo === 'produto' && id) return caminho.produto(id)
+  if (tipo === 'estado' && id) return e.acao === 'stories-salvos' ? caminho.storiesDe(id) : caminho.estado(id)
+  if (tipo === 'premio' && id) return caminho.premio(id)
+  if (tipo === 'categoria' || e.acao === 'categorias-ordem') return caminho.categorias
+  if (e.acao === 'produtos-ordem') return caminho.produtos
+  if (e.acao === 'sorte-regras') return caminho.sorte
+  if (e.acao.startsWith('loja-')) return caminho.loja
+  return null
 }
 
 export function Atividade() {
@@ -46,7 +62,7 @@ export function Atividade() {
             <h2 className="pn-h3 pn-dia">{g.dia[0].toUpperCase() + g.dia.slice(1)}</h2>
             <ul className="pn-eventos">
               {g.itens.map(({ e, vezes }) => {
-                const rid = rateioDo(e)
+                const destino = destinoDe(e)
                 const conteudo = (
                   <>
                     <span className={`pn-evento-ic pn-evento-${e.origem}`} aria-hidden="true">
@@ -64,8 +80,8 @@ export function Atividade() {
                 )
                 return (
                   <li key={e.id}>
-                    {rid && e.acao !== 'rateio-apagado' ? (
-                      <Link href={caminho.rateio(rid)} className="pn-evento toque">
+                    {destino ? (
+                      <Link href={destino} className="pn-evento toque">
                         {conteudo}
                         <Ic nome="chevron-dir" tamanho={16} />
                       </Link>

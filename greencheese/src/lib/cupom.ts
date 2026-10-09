@@ -1,99 +1,27 @@
-// Núcleo dos cupons dos interativos: validação dos prêmios, relógio de Brasília, status e os formatadores de data.
+// Núcleo dos cupons dos interativos: os prêmios que valem, relógio de Brasília, status e os formatadores de data.
 // É o que as entradas do site (destaque, lateral, adesivo) precisam, então fica no pedaço principal, junto com o nome
 // do prêmio. Sorteio, código e situação no pedido ficam em cupom-uso.ts (baixam com o jogo, a sacola e a conta).
 // Na prévia tudo roda no aparelho; na versão oficial, sorteio, código e limite são validados no servidor.
-import dados from '../dados/catalogo.json'
 import { config } from '../dados/config'
-import { PALAVRAS_PROIBIDAS, premios, regrasSorte, type Premio, type ValorPremio } from '../dados/sorte'
+import { regrasSorte, type Premio, type ValorPremio } from '../dados/sorte'
 import { useCatalogo } from '../store/catalogo'
+import { useLoja } from '../store/loja'
 import type { Cupom, RetratoPremio } from '../store/conta'
 import type { Produto } from './tipos'
 
-/* ───────────────────────── validação dos prêmios (ao carregar o módulo) ───────────────────────── */
+/* ───────────────────────── os prêmios que valem ───────────────────────── */
 
-const minusculoSemAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-const PROIBIDAS = PALAVRAS_PROIBIDAS.map(minusculoSemAcento)
+// As regras (nada de bebida, produto que existe, palavras da lista) ficam em src/lib/premios.ts e valem pro embutido e
+// pro que chega do servidor; aqui só o que o site usa.
+export { palavraProibida } from './premios'
 
-/** Primeira palavra proibida que aparece no texto (no começo de palavra: "tapa" não pega "etapa"), ou null. */
-export function palavraProibida(texto: string): string | null {
-  const t = minusculoSemAcento(texto)
-  for (const p of PROIBIDAS) if (new RegExp(`(^|[^a-z0-9])${p}`).test(t)) return p
-  return null
-}
-
-interface CatalogoCru {
-  produtos: { id: string; categoria: string }[]
-  categorias: { id: string }[]
-}
-const cru = dados as unknown as CatalogoCru
-/** Prêmio nunca cai em bebida alcoólica, refrigerante importado nem destilado. */
-const CATEGORIAS_FORA = new Set(['bebidas', 'destilados'])
-
-function motivoInvalido(p: Premio, idsVistos: Set<string>): string | null {
-  const produtos = new Map(cru.produtos.map((x) => [x.id, x]))
-  const categorias = new Set(cru.categorias.map((c) => c.id))
-  if (!p.id || idsVistos.has(p.id)) return 'id vazio ou repetido'
-  const alvos = p.aplicaA.produtos ?? []
-  const cats = p.aplicaA.categorias ?? []
-  if (!alvos.length && !cats.length) return 'aplicaA sem produto nem categoria'
-  for (const id of alvos) {
-    const x = produtos.get(id)
-    if (!x) return `produto "${id}" não existe no catalogo.json`
-    if (CATEGORIAS_FORA.has(x.categoria)) return `produto "${id}" é de ${x.categoria} (prêmio só em acessórios)`
-  }
-  for (const c of cats) {
-    if (!categorias.has(c)) return `categoria "${c}" não existe no catalogo.json`
-    if (CATEGORIAS_FORA.has(c)) return `categoria "${c}" não pode ter prêmio`
-  }
-  if (!(p.peso > 0)) return 'peso precisa ser maior que 0'
-  if (!Number.isInteger(p.validadeDias) || p.validadeDias < 1 || p.validadeDias > 30) return 'validadeDias vai de 1 a 30'
-  if (p.tipo === 'desconto-percentual' && !(p.valor >= 1 && p.valor <= 50)) return 'percentual vai de 1 a 50'
-  if (p.tipo === 'leve-x-pague-y' && !(Number.isInteger(p.valor.leve) && Number.isInteger(p.valor.pague) && p.valor.leve > p.valor.pague && p.valor.pague >= 1))
-    return 'leve precisa ser maior que pague, e pague pelo menos 1'
-  if (p.tipo === 'brinde') {
-    const x = produtos.get(p.valor.produto)
-    if (!x) return `brinde "${p.valor.produto}" não existe no catalogo.json`
-    if (CATEGORIAS_FORA.has(x.categoria)) return `brinde "${p.valor.produto}" é de ${x.categoria}`
-    if (!(p.valor.qtd >= 1)) return 'brinde precisa de qtd 1 ou mais'
-  }
-  for (const campo of [p.titulo, p.descricao, p.regra, p.comoUsar ?? '']) {
-    const w = palavraProibida(campo)
-    if (w) return `palavra fora da lista ("${w}") em "${campo}"`
-  }
-  return null
-}
-
-function validarPremios(): Premio[] {
-  const ok: Premio[] = []
-  const ids = new Set<string>()
-  for (const p of premios) {
-    const motivo = motivoInvalido(p, ids)
-    ids.add(p.id)
-    if (motivo) {
-      // em dev falha cedo (quem editou src/dados/sorte.ts vê na hora); no ar, só descarta o prêmio
-      if (import.meta.env.DEV) throw new Error(`[sorte] prêmio "${p.id}": ${motivo}`)
-      console.warn(`[sorte] prêmio "${p.id}" fora: ${motivo}`)
-      continue
-    }
-    ok.push(p)
-  }
-  return ok
-}
-
-const VALIDADOS = validarPremios()
-
-function referidosExistem(p: Premio, produtos: Produto[], categorias: { id: string }[]): boolean {
-  const ids = new Set(produtos.map((x) => x.id))
-  if ((p.aplicaA.produtos ?? []).some((id) => !ids.has(id))) return false
-  if ((p.aplicaA.categorias ?? []).some((c) => !categorias.some((x) => x.id === c))) return false
-  if (p.tipo === 'brinde' && !ids.has(p.valor.produto)) return false
-  return true
-}
-
-/** Prêmios que valem agora: validados, sem os de exemplo fora da prévia, e com todos os produtos no catálogo. */
+/**
+ * Prêmios que valem agora: os da loja (src/store/loja.ts: o servidor ou o embutido, já conferidos e sem os de exemplo
+ * fora da prévia). Com o Teste minha sorte desligado no painel, nenhum: o jogo some do site inteiro.
+ */
 export function premiosValidos(): Premio[] {
-  const { produtos, categorias } = useCatalogo.getState()
-  return VALIDADOS.filter((p) => (config.dadosDeExemplo || !p.demo) && referidosExistem(p, produtos, categorias))
+  const { sorte } = useLoja.getState()
+  return sorte.ligado ? sorte.premios : []
 }
 
 export function premioPorId(id: string | null | undefined): Premio | undefined {
@@ -102,8 +30,8 @@ export function premioPorId(id: string | null | undefined): Premio | undefined {
 
 /* ───────────────────────── relógio de Brasília ───────────────────────── */
 
-// O Brasil não tem horário de verão desde 2019, e os 5 estados atendidos (RJ, MG, SP, ES, SC) ficam em -03:00.
-// Por isso o fim e o começo do dia são escritos com -03:00 fixo.
+// O dia do cupom é o de Brasília em qualquer estado da loja (o Brasil não tem horário de verão desde 2019). Por isso o
+// fim e o começo do dia são escritos com -03:00 fixo.
 const FUSO = regrasSorte.fuso
 const fmtDia = new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' })
 

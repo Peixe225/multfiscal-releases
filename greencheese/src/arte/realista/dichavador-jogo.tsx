@@ -9,6 +9,7 @@
 //    de dentro dela vira o story do prêmio) · LabioCamara (a frente da borda e as laterais, por cima da boca). A largura
 //    do corpo (2R) é igual ao diâmetro do disco, e o centro da tampa deitada cai no Y0.
 // Só gradientes e formas (sem filtro, sem mix-blend), caminhos calculados uma vez no módulo.
+import { siglasDosEstados, useCanais } from '../../store/loja'
 import { LOGO_CUIA, LOGO_LAMINAS, LOGO_TEXTO } from '../logo-paths'
 import { ANEL, CAMARA, COLETOR, CX, FUNDO, K, METAL, OURO, PENEIRA, R, RISCOS, Y0, arco, cunha, faixa } from './acessorios-dichavador'
 import { r1 } from './acessorios-base'
@@ -73,8 +74,15 @@ export function FundoTampa({ id }: { id: string }) {
 }
 
 /** O que gira: recartilhado, face lisa, logo gravado, texto em anel e o entalhe. */
+/** A gravação do anel: a marca e os estados da loja (com muitos estados, só a marca: o texto cobre parte da volta). */
+function textoDoAnel(siglas: string, n: number): string {
+  return n && n <= 7 ? `GREEN CHEESE IMPORTS · ${siglas} ·` : 'GREEN CHEESE IMPORTS ·'
+}
+
 export function Rotor({ id }: { id: string }) {
   const u = (s: string) => `${id}-${s}`
+  const canais = useCanais()
+  const anel = textoDoAnel(siglasDosEstados(canais), canais.length)
   return (
     <svg viewBox="0 0 340 340" width="100%" height="100%" aria-hidden="true" focusable="false">
       <defs>
@@ -119,10 +127,10 @@ export function Rotor({ id }: { id: string }) {
       {/* texto em anel: cobre só parte da volta (a assimetria mostra o giro) */}
       <g fontFamily={FONTE.sans} fontSize="11.5" fontWeight="700" letterSpacing="2.4">
         <text fill="#fff" opacity="0.25" transform="translate(0 1.2)">
-          <textPath href={`#${u('anelTxt')}`}>GREEN CHEESE IMPORTS · RJ · MG · SP · ES · SC ·</textPath>
+          <textPath href={`#${u('anelTxt')}`}>{anel}</textPath>
         </text>
         <text fill="#3a444f" opacity="0.6">
-          <textPath href={`#${u('anelTxt')}`}>GREEN CHEESE IMPORTS · RJ · MG · SP · ES · SC ·</textPath>
+          <textPath href={`#${u('anelTxt')}`}>{anel}</textPath>
         </text>
       </g>
       <circle cx={C} cy={C} r="5" fill="#5f6b77" opacity="0.5" />

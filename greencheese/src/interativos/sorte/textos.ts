@@ -3,7 +3,13 @@
 // Nunca: "sorteio", "grátis", "frete", prazo, chance em %, valor de desconto calculado, nem as palavras de
 // PALAVRAS_PROIBIDAS (src/dados/sorte.ts). Em dev, a lista é conferida aqui embaixo.
 import { PALAVRAS_PROIBIDAS } from '../../dados/sorte'
+import { regrasDaSorte } from '../../store/loja'
 import { TE } from './textos-entrada'
+
+// os números das regras vêm do painel (Teste minha sorte → Regras; sem servidor, os de src/dados/sorte.ts): os textos
+// que citam giro por dia leem na hora (getter), e as telas continuam usando T.limites etc. do jeito de sempre
+const giros = (n: number) => (n === 1 ? '1 giro' : `${n} giros`)
+const vezes = (n: number) => (n === 1 ? '1 vez' : `${n} vezes`)
 
 export const T = {
   ...TE,
@@ -17,7 +23,10 @@ export const T = {
   legendaDesktop: 'Arrasta em círculo, usa a roda do mouse ou segura Espaço',
   botaoGirar: 'Girar',
   ariaGirar: 'Girar a tampa um quarto de volta',
-  limites: 'Sem conta: 1 giro. Com conta: 1 giro por dia.',
+  get limites() {
+    const r = regrasDaSorte()
+    return `Sem conta: ${giros(r.girosSemConta)}. Com conta: ${giros(r.girosPorDiaComConta)} por dia.`
+  },
   verRegras: 'O que pode sair? · Regras',
   contaLocal: 'Por enquanto, a conta fica só neste aparelho.',
 
@@ -74,6 +83,7 @@ export const T = {
   usarAgora: 'Usar agora',
   verCuponsN: (n: number) => `Ver meus cupons (${n})`,
   naConta: 'Tá na tua conta. Amanhã tem mais.',
+  naContaMaisHoje: 'Tá na tua conta. Ainda tem giro hoje.',
 
   // guardado
   faixaPremio: (titulo: string) => `Teu prêmio: ${titulo}`,
@@ -93,7 +103,9 @@ export const T = {
 
   // bloqueado
   premioVenceu: (dia: string) => `O prêmio de ${dia} venceu.`,
-  vantagens: 'Com conta: 1 giro por dia, cupons guardados e teu nome já no pedido.',
+  get vantagens() {
+    return `Com conta: ${giros(regrasDaSorte().girosPorDiaComConta)} por dia, cupons guardados e teu nome já no pedido.`
+  },
   jaTenhoConta: 'Já tenho conta',
 
   // regras
@@ -101,7 +113,7 @@ export const T = {
   /** `dias`: a validade, quando todos os prêmios têm a mesma (src/dados/sorte.ts); null = cada cupom diz a dele. */
   regrasLista: (dias: number | null) => [
     'Todo giro ganha.',
-    'Sem conta: 1 giro. Com conta: 1 giro por dia (vira à meia-noite, horário de Brasília).',
+    `Sem conta: ${giros(regrasDaSorte().girosSemConta)}. Com conta: ${giros(regrasDaSorte().girosPorDiaComConta)} por dia (vira à meia-noite, horário de Brasília).`,
     dias != null
       ? `O cupom vale ${dias} ${dias === 1 ? 'dia' : 'dias'} depois de guardado, 1 vez, em 1 pedido.`
       : 'O cupom vale até a data escrita nele, 1 vez, em 1 pedido.',
@@ -115,8 +127,12 @@ export const T = {
 
   // conta (formulário)
   criaTuaConta: 'Cria tua conta',
-  subComPremio: 'Só nome e WhatsApp. O prêmio fica guardado, tu gira 1 vez por dia e teu nome já vai no pedido.',
-  subSemPremio: 'Só nome e WhatsApp. Com conta: 1 giro por dia, cupons guardados e teu nome já no pedido.',
+  get subComPremio() {
+    return `Só nome e WhatsApp. O prêmio fica guardado, tu gira ${vezes(regrasDaSorte().girosPorDiaComConta)} por dia e teu nome já vai no pedido.`
+  },
+  get subSemPremio() {
+    return `Só nome e WhatsApp. Com conta: ${giros(regrasDaSorte().girosPorDiaComConta)} por dia, cupons guardados e teu nome já no pedido.`
+  },
   teuNome: 'Teu nome',
   nomePlaceholder: 'Como a loja te chama',
   erroNome: 'Escreve teu nome.',

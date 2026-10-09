@@ -294,7 +294,77 @@ const proprios: Record<string, Grade> = {
   ]),
 }
 
-const todos: Record<string, Grade | undefined> = { ...icones, ...iconesExtras, ...(iconesAbas as Record<string, Grade>), ...proprios }
+// ─── loja ───
+const loja: Record<string, Grade> = {
+  // Fachada da loja: toldo listrado em cima, vitrine à esquerda e a porta à direita.
+  loja: g([
+    '................',
+    '.xxxxxxxxxxxxxx.',
+    'x..x..x..x..x..x',
+    'x..x..x..x..x..x',
+    'xxxxxxxxxxxxxxxx',
+    '.x............x.',
+    '.x............x.',
+    '.x.xxxx.......x.',
+    '.x.x..x..xxxx.x.',
+    '.x.x..x..x..x.x.',
+    '.x.xxxx..x..x.x.',
+    '.x.......x..x.x.',
+    '.x.......x..x.x.',
+    '.x.......x..x.x.',
+    '.xxxxxxxxxxxxxx.',
+    '................',
+  ]),
+  'loja-cheia': g([
+    '................',
+    '.xxxxxxxxxxxxxx.',
+    'xxxx..xxxx..xxxx',
+    'xxxx..xxxx..xxxx',
+    'xxxxxxxxxxxxxxxx',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xx....xxxxxxxx.',
+    '.xx....xx....xx.',
+    '.xx....xx....xx.',
+    '.xx....xx....xx.',
+    '.xxxxxxxx....xx.',
+    '.xxxxxxxx....xx.',
+    '.xxxxxxxx....xx.',
+    '.xxxxxxxx....xx.',
+    '................',
+  ]),
+  // A sacola do site, cheia (a seção acesa), com os furos da alça.
+  'sacola-cheia': g([
+    '................',
+    '......xxxx......',
+    '.....x....x.....',
+    '....x......x....',
+    '....x......x....',
+    '.xxxxxxxxxxxxxx.',
+    '.xxx.xxxxxx.xxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '................',
+  ]),
+}
+
+/** A grade deitada de lado (linha vira coluna): o chevron da direita vira o de baixo, o da esquerda o de cima. */
+function deitar(x: Grade | undefined): Grade | undefined {
+  if (!x) return undefined
+  return g(Array.from({ length: x.w }, (_, c) => x.linhas.map((l) => l[c]).join('')))
+}
+const setas: Record<string, Grade | undefined> = {
+  'chevron-cima': deitar(iconesExtras['chevron-esq']),
+  'chevron-baixo': deitar(iconesExtras['chevron-dir']),
+}
+
+const todos: Record<string, Grade | undefined> = { ...icones, ...iconesExtras, ...(iconesAbas as Record<string, Grade>), ...proprios, ...loja, ...setas }
 
 export function grade(nome: string): Grade | undefined {
   return todos[nome]

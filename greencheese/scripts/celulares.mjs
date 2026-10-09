@@ -13,6 +13,7 @@
 // a barra de abas sai). A API do rateio responde como "sem servidor" (o zip, o preview sem PHP): os rateios de
 // exemplo, sem erro no console.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
+// GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua como "sem servidor").
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
 import { mkdirSync } from 'node:fs'
@@ -38,6 +39,8 @@ async function contexto(w, h, opts = {}) {
   await ctx.route(/ipwho|geojs/, (r) => r.fulfill({ json: { success: true, country_code: 'BR', ...ip } }))
   // sem servidor da loja (HTML no lugar de JSON, como o preview sem PHP): o rateio mostra os exemplos
   await ctx.route('**/api/index.php**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' }))
+  // GC_LOJA_REAL=1: a loja vem do servidor de verdade (PHP ligado e painel instalado; sem mexer, é a mesma da semente)
+  if (process.env.GC_LOJA_REAL) await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.continue())
   if (opts.semDica) await ctx.addInitScript(() => sessionStorage.setItem('gc-dica-hero', '1'))
   return ctx
 }

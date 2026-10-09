@@ -1,4 +1,3 @@
-import type { UfAtendida } from '../dados/canais'
 import type { Produto } from './tipos'
 
 /** CSV simples com aspas (Google Sheets publicado). */
@@ -35,10 +34,9 @@ export function lerCsv(texto: string): string[][] {
 }
 
 const SIM = /^(sim|s|x|1|true|verdadeiro|disponivel|disponível|✅)$/i
-const UFS: UfAtendida[] = ['rj', 'mg', 'sp', 'es', 'sc']
 
-/** Aplica preço e disponibilidade da planilha sobre o catálogo (só para ids que já existem). */
-export function aplicarPlanilha(produtos: Produto[], csv: string): Produto[] {
+/** Aplica preço e disponibilidade da planilha sobre o catálogo (só para ids que já existem; colunas = os estados da loja). */
+export function aplicarPlanilha(produtos: Produto[], csv: string, ufs: readonly string[]): Produto[] {
   const [cab, ...linhas] = lerCsv(csv)
   if (!cab) return produtos
   const idx = (n: string) => cab.findIndex((c) => c.trim().toLowerCase() === n)
@@ -58,7 +56,7 @@ export function aplicarPlanilha(produtos: Produto[], csv: string): Produto[] {
         if (Number.isFinite(n) && n > 0) novo.preco = n
       }
     }
-    for (const uf of UFS) {
+    for (const uf of ufs) {
       const i = idx(uf)
       if (i >= 0 && l[i] != null) novo.disponivel[uf] = SIM.test(l[i].trim())
     }

@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
 import type { Grade } from '../arte/pixel/grades'
-import { canalDa, type Canal } from '../dados/canais'
+import type { Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, semAcento, ufPorSigla } from '../dados/ufs'
 import { copiarTexto } from '../lib/copiar'
@@ -15,15 +15,17 @@ import { calcularLinha, precoUnitario } from '../lib/preco'
 import { liberarRolagem, travarRolagem } from '../lib/rolagem'
 import type { Produto } from '../lib/tipos'
 import { atualizarParametros, lerParametros, linkCompartilhar } from '../lib/url'
-import { disponivelEm, produtoPorId, useCatalogo } from '../store/catalogo'
+import { disponivelEm, restamEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
+import { produtoSumido, useCanalDa, useLojaConferida } from '../store/loja'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI, type OrigemPagina, type PaginaAberta } from '../store/ui'
 import { EnqueteVariacao, Empurrao, QuizCombo, SeletorQtd, pulsar, voarAteSacola } from './AdesivosProduto'
 import { LinkAvisar } from './Catalogo'
 import { Avatar, Icone } from './comum'
 import { folhaDoTopo } from './Folha'
+import { AdesivoRestam } from './StoryQuadro'
 import './ProdutoPagina.css'
 
 // Página do produto: a "aba" que abre ao tocar no produto, no molde da página de produto do Instagram Shopping.
@@ -327,8 +329,20 @@ interface PropsNivel {
 
 /** Uma página de produto (um nível da pilha). */
 function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: PropsNivel) {
-  const produto = produtoPorId(id)
+  // o produto que saiu da loja enquanto a página tava aberta continua na tela, como indisponível (nada some de repente)
+  const atual = useCatalogo((s) => s.produtos.find((p) => p.id === id))
+  const produto = atual ?? produtoSumido(id)
+  // produto que a loja daqui não tem (link de um produto criado no painel): "carregando" até a do servidor chegar
+  const conferida = useLojaConferida()
   const janela = useRef<HTMLDivElement>(null)
+
+  // chegou o produto que estava carregando: o foco (que estava no "Carregando…") vai pro nome dele
+  const carregava = useRef(!produto)
+  useEffect(() => {
+    if (!produto) return
+    if (carregava.current && topo) janela.current?.querySelector<HTMLElement>('.pp-nome')?.focus({ preventScroll: true })
+    carregava.current = false
+  }, [produto, topo])
 
   // entrada: do zero (a página abriu) ou por cima de outra (combina com). Voz app, só transform/opacity.
   useLayoutEffect(() => {
@@ -372,7 +386,7 @@ function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saindo])
 
-  if (!produto) return null
+  if (!produto && conferida) return null
   return (
     <div
       ref={janela}
@@ -381,14 +395,54 @@ function PaginaNivel({ id, nivel, topo, escondido, saindo, origem, aoSair }: Pro
       inert={!topo}
       tabIndex={-1}
     >
-      <ConteudoProduto produto={produto} nivel={nivel} topo={topo} origem={origem} />
+      {produto ? <ConteudoProduto produto={produto} nivel={nivel} topo={topo} origem={origem} /> : <CarregandoProduto nivel={nivel} />}
     </div>
+  )
+}
+
+/**
+ * A página de um produto que a loja daqui ainda não tem (o link de um produto criado no painel depois da última
+ * visita), esperando a do servidor: o topo de sempre (voltar, fechar) e o "carregando" no lugar da arte e do nome.
+ */
+function CarregandoProduto({ nivel }: { nivel: number }) {
+  const canal = useCanalDa(useLocal((s) => s.uf))
+  const { voltarPagina, fecharPagina } = useUI.getState()
+  return (
+    <>
+      <header className="pp-topo">
+        <button type="button" className="icone-botao toque pp-voltar" onClick={voltarPagina} aria-label="Voltar">
+          <PixelArte grade={CHEVRON} tamanho={32} />
+        </button>
+        <p className="pp-loja">
+          <Avatar tamanho={28} />
+          <span className="pp-loja-nome">{canal?.instagram ?? 'Green Cheese'}</span>
+        </p>
+        <button type="button" className="icone-botao toque pp-fechar" onClick={fecharPagina} aria-label="Fechar">
+          <Icone nome="fechar" tamanho={20} />
+        </button>
+      </header>
+      <div className="pp-visual pp-carregando" aria-hidden="true">
+        <span className="pp-carregando-pontos">
+          <i />
+          <i />
+          <i />
+        </span>
+      </div>
+      <div className="pp-info" aria-busy="true">
+        <h2 id={`pp-nome-${nivel}`} className="pp-nome px" tabIndex={-1}>
+          Carregando o produto…
+        </h2>
+        <p className="pp-detalhe" role="status">
+          Só um instante: tô buscando ele na loja.
+        </p>
+      </div>
+    </>
   )
 }
 
 function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; nivel: number; topo: boolean; origem: OrigemPagina }) {
   const { uf, cidade, cidadeInformada } = useLocal()
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
   const produtos = useCatalogo((s) => s.produtos)
   const categorias = useCatalogo((s) => s.categorias)
   const itens = useSacola((s) => s.itens)
@@ -407,12 +461,22 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   const disponivel = uf ? (canal ? disponivelEm(produto, uf) : false) : null
   const vendavel = disponivel !== false
   const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
+  // "restam X" no estado: a quantidade não passa do que sobra (as variações dividem as mesmas unidades)
+  const restam = disponivel ? restamEm(produto, uf) : null
+  const naSacolaTodas = itens.reduce((n, i) => n + (i.id === produto.id ? i.qtd : 0), 0)
+  const cabe = restam == null ? null : Math.max(0, restam - naSacolaTodas)
+  const maxQtd = cabe == null ? 99 : Math.max(1, cabe)
   const unitario = precoUnitario(produto, variacao)
   const linha = calcularLinha(produto, qtd, variacao)
   const nSacola = contarItens(itens)
   // só a variação escolhida (a Slim na sacola não conta como "Na sacola" com a Flat selecionada)
   const nDeste = itens.filter((i) => i.id === produto.id && i.variacao === variacao).reduce((n, i) => n + i.qtd, 0)
   const temCombo = !!produto.combos && produto.preco != null
+
+  // a sacola encheu até o que resta (ou o estoque baixou): a quantidade escolhida desce junto
+  useEffect(() => {
+    if (qtd > maxQtd) setQtd(maxQtd)
+  }, [qtd, maxQtd])
 
   // "Combina com" é só o que a loja indicou (combinaCom); o resto da mesma categoria vai em "Mais em…", sem dizer
   // que combina (whiskey não "combina com" gin). Até 4 no total, o indicado primeiro.
@@ -448,10 +512,16 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   }, [topo])
 
   const porNaSacola = () => {
-    adicionar(produto.id, variacao, qtd)
+    // nunca passa do "restam X": com tudo que resta já na sacola, só avisa
+    const vai = cabe == null ? qtd : Math.min(qtd, cabe)
+    if (vai <= 0) {
+      avisar(`As ${restam === 1 ? 'unidade que resta' : `${restam} que restam`} aqui já tão na tua sacola.`)
+      return
+    }
+    adicionar(produto.id, variacao, vai)
     setCarimbo((c) => c + 1)
     // leitor de tela: a região viva já está montada, então até o primeiro "Adicionar" é anunciado
-    setAnuncio(`Foi pra sacola. Na sacola: ${plural(nDeste + qtd, 'unidade', 'unidades')} deste item.`)
+    setAnuncio(`Foi pra sacola. Na sacola: ${plural(nDeste + vai, 'unidade', 'unidades')} deste item.`)
     // a miniatura só voa se a arte está à vista; rolou pra baixo, o contador pula sozinho
     const r = visual.current?.getBoundingClientRect()
     const topoBarra = janelaTopo(visual.current)
@@ -465,10 +535,12 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
       abrirChat('encomenda', { produtoEncomenda: `${produto.nome}${produto.tamanho ? ` ${produto.tamanho}` : ''}` })
       return
     }
-    // já na sacola: o pedido leva pelo menos a quantidade escolhida aqui (nunca menos do que a sacola já tinha)
+    // já na sacola: o pedido leva pelo menos a quantidade escolhida aqui (nunca menos do que a sacola já tinha, nem mais
+    // do que resta no estado)
     const naSacola = itens.find((i) => i.id === produto.id && i.variacao === variacao)
-    if (!naSacola) adicionar(produto.id, variacao, qtd)
-    else if (qtd > naSacola.qtd) alterar(produto.id, variacao, qtd)
+    if (!naSacola) {
+      if (cabe == null || cabe > 0) adicionar(produto.id, variacao, cabe == null ? qtd : Math.min(qtd, cabe))
+    } else if (qtd > naSacola.qtd) alterar(produto.id, variacao, cabe == null ? qtd : Math.min(qtd, naSacola.qtd + cabe))
     abrirChat('pedido', { respondendo: [produto.id], de: 'pagina' })
   }
 
@@ -530,6 +602,11 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
             NA SACOLA
           </span>
         )}
+        {restam != null && (
+          <span className="pp-restam" aria-hidden="true">
+            <AdesivoRestam n={restam} />
+          </span>
+        )}
         {produto.demo && config.carimboDeExemplo && <span className="pp-demo carimbo">exemplo</span>}
       </div>
 
@@ -541,15 +618,15 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
         <p className={`pp-preco px ${disponivel === false ? 'pp-off' : ''}`}>{precoOuConsultar(unitario)}</p>
         {temCombo && <p className="pp-combos px px-n">{produto.combos!.map((c) => `${c.qtd} por ${brl(c.total)}`).join(' · ')}</p>}
 
-        <Disponibilidade produto={produto} />
+        <Disponibilidade produto={produto} restam={restam} />
 
         {produto.descricao && <p className="pp-desc">{produto.descricao}</p>}
 
         {vendavel && (produto.variacoes || temCombo) && (
           <div className="pp-opcoes">
             {produto.variacoes && <EnqueteVariacao produto={produto} valor={variacao} mudar={setVariacao} />}
-            {temCombo && <QuizCombo produto={produto} qtd={qtd} mudar={setQtd} />}
-            <Empurrao produto={produto} qtd={qtd} />
+            {temCombo && <QuizCombo produto={produto} qtd={qtd} mudar={setQtd} max={maxQtd} />}
+            <Empurrao produto={produto} qtd={qtd} max={maxQtd} />
           </div>
         )}
 
@@ -601,7 +678,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
         <div className="pp-acoes">
           {vendavel ? (
             <>
-              <SeletorQtd qtd={qtd} mudar={setQtd} className="pp-qtd" tamanhoIcone={16} />
+              <SeletorQtd qtd={qtd} mudar={setQtd} className="pp-qtd" tamanhoIcone={16} max={maxQtd} />
               <button type="button" className="botao botao-cheio pp-por toque" onClick={porNaSacola}>
                 <span>Pôr na sacola</span>
                 {linha.total != null && linha.total > 0 && <span className="pp-por-preco px px-16">{brl(linha.total)}</span>}
@@ -622,7 +699,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
 function Sugestoes({ id, titulo, lista }: { id: string; titulo: string; lista: Produto[] }) {
   const uf = useLocal((s) => s.uf)
   const abrirPagina = useUI((s) => s.abrirPagina)
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
   if (!lista.length) return null
   return (
     <section className="pp-combina" aria-labelledby={id}>
@@ -662,11 +739,11 @@ function janelaTopo(el: HTMLElement | null): number {
   return topo ? topo.getBoundingClientRect().bottom : 0
 }
 
-/** "DISPONÍVEL ✅ em Teófilo Otoni" · "INDISPONÍVEL em Minas Gerais" · sem estado: pede o estado. */
-function Disponibilidade({ produto }: { produto: Produto }) {
+/** "DISPONÍVEL ✅ em Teófilo Otoni" (+ "Só restam 3 unidades") · "INDISPONÍVEL em Minas Gerais" · sem estado: pede o estado. */
+function Disponibilidade({ produto, restam }: { produto: Produto; restam: number | null }) {
   const { uf, cidade, cidadeInformada, detectando } = useLocal()
   const setSeletor = useUI((s) => s.setSeletor)
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
   if (!uf) {
     return (
       <div className="pp-disp pp-disp-sem">
@@ -687,6 +764,7 @@ function Disponibilidade({ produto }: { produto: Produto }) {
     <div className={`pp-disp ${disp ? '' : 'pp-indisp'}`}>
       <p>
         <span className="px pp-disp-selo">{disp ? 'DISPONÍVEL ✅' : 'INDISPONÍVEL'}</span> <span className="pp-disp-onde">{onde}</span>
+        {disp && restam != null && <span className="pp-disp-restam">{restam === 1 ? 'Só resta 1 unidade' : `Só restam ${restam} unidades`}</span>}
       </p>
       <button type="button" className="pp-trocar toque" onClick={() => setSeletor(true)} aria-label={`Trocar estado (agora: ${agora})`}>
         Trocar

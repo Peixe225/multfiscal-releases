@@ -4,6 +4,7 @@ import { Logo } from '../arte/Logo'
 import { PixelArte } from '../arte/PixelArte'
 import { icones } from '../arte/pixel/grades'
 import { iconesExtras } from '../arte/pixel/extras'
+import { useLoja } from '../store/loja'
 
 export function Icone({ nome, tamanho = 24, titulo, className, style }: { nome: string; tamanho?: number; titulo?: string; className?: string; style?: CSSProperties }) {
   const g = icones[nome] ?? iconesExtras[nome]
@@ -54,13 +55,15 @@ export function tempoRelativo(iso: string, agora = Date.now()): string {
 }
 
 /**
- * Há quanto tempo o catálogo foi "postado". Sem data real, não mostra nada (não finge recência). Story vive 24 h: com
- * mais de um dia o rótulo some, em vez de "4 d" ou "1 sem" (cara de loja parada).
+ * Há quanto tempo o catálogo foi "postado": a última mudança no painel (a loja do servidor) ou, sem servidor, a data
+ * de config.catalogoAtualizadoEm. Sem data real, não mostra nada (não finge recência). Story vive 24 h: com mais de um
+ * dia o rótulo some, em vez de "4 d" ou "1 sem" (cara de loja parada).
  */
 export function tempoDoCatalogo(agora = Date.now()): string | null {
-  const t = config.catalogoAtualizadoEm ? Date.parse(config.catalogoAtualizadoEm) : NaN
-  if (!Number.isFinite(t) || agora - t >= 86400000) return null
-  return tempoRelativo(config.catalogoAtualizadoEm!, agora)
+  const quando = useLoja.getState().atualizadoEm ?? config.catalogoAtualizadoEm
+  const t = quando ? Date.parse(quando) : NaN
+  if (!quando || !Number.isFinite(t) || agora - t >= 86400000) return null
+  return tempoRelativo(quando, agora)
 }
 
 /** Linha de cabeçalho do story: avatar, @, tempo. */

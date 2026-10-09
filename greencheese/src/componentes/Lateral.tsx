@@ -4,12 +4,12 @@ import { PixelArte } from '../arte/PixelArte'
 import { iconesAbas } from '../arte/pixel/abas'
 import { icones } from '../arte/pixel/grades'
 import { preenchida } from '../arte/pixel/preencher'
-import { canalDa } from '../dados/canais'
-import { interativosAtivos, type Interativo } from '../interativos/registro'
+import { useInterativosAtivos, type Interativo } from '../interativos/registro'
 import { cliqueDeAba, hrefAba, irParaAba, type Aba } from '../lib/abas'
 import { useConta, useCupons } from '../lib/conta'
 import { useChat } from '../store/chat'
 import { useLocal } from '../store/local'
+import { useCanalDa } from '../store/loja'
 import { useQuantosAbertos } from '../store/rateio'
 import { contarItens, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
@@ -90,7 +90,8 @@ function ItemAba({ aba, rotulo, ativo, icone, aoTocar, contador }: { aba: Aba; r
 function ItemRateio({ ativo }: { ativo: boolean }) {
   const uf = useLocal((s) => s.uf)
   const n = useQuantosAbertos(uf)
-  if (uf && !canalDa(uf)) return null
+  const canal = useCanalDa(uf)
+  if (uf && !canal) return null
   return (
     <ItemAba
       aba="rateio"
@@ -113,6 +114,7 @@ export function Lateral() {
   const n = useSacola((s) => contarItens(s.itens))
   // os links das abas levam uf e cidade junto
   useLocal((s) => s.cidade)
+  const interativos = useInterativosAtivos()
   const [buscando, setBuscando] = useBuscarAtivo(aba)
   const buscarAtivo = aba === 'catalogo' && buscando
   const catalogoAtivo = aba === 'catalogo' && !buscando
@@ -191,7 +193,7 @@ export function Lateral() {
           )}
         </button>
         {/* depois da Sacola: os interativos e, com conta, a Minha conta */}
-        {interativosAtivos().map((x) => (
+        {interativos.map((x) => (
           <ItemInterativo key={x.id} i={x} />
         ))}
         <ItemConta />

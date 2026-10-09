@@ -1,8 +1,7 @@
 import { Component, lazy, memo, startTransition, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { canais, canalDa } from '../dados/canais'
-import { interativosAtivos } from '../interativos/registro'
+import { useInterativosAtivos } from '../interativos/registro'
 import { focarBusca, irParaAba, ultimaTroca, type Aba } from '../lib/abas'
 import { alvoDoFoco } from '../lib/foco'
 import { movimentoReduzido } from '../lib/movimento'
@@ -11,6 +10,7 @@ import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useRateio } from '../store/rateio'
 import { useDisponiveis } from '../store/derivados'
+import { siglasDosEstados, useCanais, useCanalDa, useEsperandoLoja } from '../store/loja'
 import { nomeCidade, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { AdesivoInterativo } from './AdesivoInterativo'
@@ -199,10 +199,14 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
  */
 const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { abrirInfo: () => void; comGrade: boolean }) {
   const uf = useLocal((s) => s.uf)
-  const comEntrega = !uf || !!canalDa(uf)
+  // estado que a loja tirou do site (ou que nunca teve): a tela de sem atendimento no lugar do Início. Enquanto a loja
+  // do servidor não chega com um estado que a daqui não conhece, uma vaga preta (nem "ainda não chegou aí", nem produto
+  // apagado como indisponível)
+  const esperando = useEsperandoLoja(uf)
+  const comEntrega = !!useCanalDa(uf) || !uf
   return (
     <>
-      {comEntrega ? <Hero /> : <SemAtendimento />}
+      {comEntrega ? <Hero /> : esperando ? <div className="inicio-esperando" aria-busy="true" /> : <SemAtendimento />}
       <Faixa />
       {comEntrega && (
         <>
@@ -237,13 +241,16 @@ function TituloSecao({ id, icone, children }: { id: string; icone: string; child
  */
 const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => void }) {
   const { uf, cidade, cidadeInformada } = useLocal()
-  const canal = canalDa(uf)
+  const canal = useCanalDa(uf)
+  const canais = useCanais()
+  const interativos = useInterativosAtivos()
   const total = useCatalogo((s) => s.produtos.length)
   const disp = useDisponiveis().length
-  if (uf && !canal) return <CatalogoSemEntrega />
+  const esperando = useEsperandoLoja(uf)
+  if (uf && !canal) return esperando ? <div className="inicio-esperando" aria-busy="true" /> : <CatalogoSemEntrega />
   const lugar = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? canal.nome) : null
-  const legenda = canal ? `${disp} disponíveis em ${lugar} · ${total} produtos` : `${total} produtos · ${canais.map((c) => c.uf.toUpperCase()).join(' · ')}`
-  const interativo = interativosAtivos().length > 0
+  const legenda = canal ? `${disp} disponíveis em ${lugar} · ${total} produtos` : `${total} produtos · ${siglasDosEstados(canais)}`
+  const interativo = interativos.length > 0
   return (
     <div className="aba-pagina aba-catalogo">
       <MercadoTopo legenda={legenda} />

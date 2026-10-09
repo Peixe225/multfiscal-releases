@@ -1,8 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { brasil, cidadesNoMapa, legenda, lupa, type MalhaPixel } from '../dados/mapa-brasil'
-import { canalDa, ufsAtendidas } from '../dados/canais'
+import { canalDa } from '../dados/canais'
 import { emUf, ufPorSigla } from '../dados/ufs'
 import { movimentoReduzido } from '../lib/movimento'
+import { useCanais } from '../store/loja'
 import { Icone } from './comum'
 import './MapaBrasil.css'
 
@@ -11,14 +12,38 @@ import './MapaBrasil.css'
 // No modo "secao", uma lupa amplia o Sudeste + SC: lá cada atendido é um botão de verdade.
 // Tudo é desenhado em células inteiras: o mapa com `m` px por célula e a lupa com `l` px (sempre inteiros, nítidos).
 
-const atendidas = new Set<string>(ufsAtendidas)
+// Os estados da loja vêm do servidor (o dono ativa outros no painel): acendem no mapa inteiro e, se ficam dentro da
+// lupa, ganham o botão nela. A lupa (o recorte de src/dados/mapa-brasil.ts) é sempre a do Sudeste + SC: pra quem é de
+// um estado atendido fora dela (BA, GO ativados no painel), ela não diria nada. Aí a lupa sai e o mapa inteiro, maior,
+// destaca o estado da pessoa (branco, com o pino).
 
-/** Atendidos de cima para baixo no mapa (MG, ES, RJ, SP, SC): a ordem da lista e do acender. */
-export const ordemAtendidos: string[] = [...ufsAtendidas].sort((a, b) => {
-  const [ax, ay] = lupa.rotulos[a] ?? [0, 0]
-  const [bx, by] = lupa.rotulos[b] ?? [0, 0]
-  return ay - by || bx - ax
-})
+/** Os estados que a lupa amplia (LUPA_UFS do scripts/gerar-mapa-brasil.mjs): a moldura do zoom fica em volta deles. */
+const UFS_DA_LUPA = ['sp', 'mg', 'rj', 'es', 'sc']
+
+/** Ponto do estado no espaço da lupa (os de fora dela, convertidos do mapa inteiro): ordena todos do mesmo jeito. */
+function pontoNaLupa(s: string): [number, number] {
+  const p = lupa.rotulos[s]
+  if (p) return p
+  const b = brasil.rotulos[s] ?? [0, 0]
+  const { cx, cy, raio } = lupa.noBrasil
+  const k = lupa.w / (2 * raio)
+  return [(b[0] - (cx - raio)) * k, (b[1] - (cy - raio)) * k]
+}
+
+/** O estado aparece dentro do círculo da lupa (com folga da borda): aí ele ganha o botão nela. */
+function dentroDaLupa(s: string): boolean {
+  const p = lupa.rotulos[s]
+  return !!p && Math.hypot(p[0] - R_LUPA, p[1] - R_LUPA) < R_LUPA - 3
+}
+
+/** Atendidos de cima para baixo no mapa (hoje MG, ES, RJ, SP, SC): a ordem da lista e do acender. */
+export function ordemNoMapa(ufs: readonly string[]): string[] {
+  return [...ufs].sort((a, b) => {
+    const [ax, ay] = pontoNaLupa(a)
+    const [bx, by] = pontoNaLupa(b)
+    return ay - by || bx - ax
+  })
+}
 
 /* ───────────── geometria (calculada uma vez por grade) ───────────── */
 
@@ -68,8 +93,6 @@ interface Geometria {
   divisa: string
   /** Células encostadas no mar. */
   costa: string
-  /** Divisa entre dois atendidos: linha preta que separa os acesos. */
-  divisaAcesa: string
   porUf: Record<string, string>
 }
 
@@ -104,17 +127,29 @@ function geometria(malha: MalhaPixel): Geometria {
       return !!s && (outro(s, em(i + 1, j)) || outro(s, em(i, j + 1)))
     }),
     costa: caminho(w, h, naCosta),
-    divisaAcesa: caminho(w, h, (i, j) => {
-      const s = em(i, j)
-      if (!s || !atendidas.has(s)) return false
-      const d = em(i + 1, j)
-      const b = em(i, j + 1)
-      return (!!d && d !== s && atendidas.has(d)) || (!!b && b !== s && atendidas.has(b))
-    }),
     porUf: Object.fromEntries(Object.keys(celulas).map((s) => [s, caminho(w, h, (i, j) => em(i, j) === s)])),
   }
   cacheGeo.set(malha, geo)
   return geo
+}
+
+const cacheDivisa = new Map<string, string>()
+
+/** Divisa entre dois atendidos: linha preta que separa os acesos (uma por grade e por lista de estados). */
+function divisaAcesa(malha: MalhaPixel, atendidas: ReadonlySet<string>): string {
+  const chave = `${malha === lupa ? 'l' : 'b'}:${[...atendidas].sort().join()}`
+  const pronta = cacheDivisa.get(chave)
+  if (pronta != null) return pronta
+  const { em } = geometria(malha)
+  const d = caminho(malha.w, malha.h, (i, j) => {
+    const s = em(i, j)
+    if (!s || !atendidas.has(s)) return false
+    const dir = em(i + 1, j)
+    const baixo = em(i, j + 1)
+    return (!!dir && dir !== s && atendidas.has(dir)) || (!!baixo && baixo !== s && atendidas.has(baixo))
+  })
+  cacheDivisa.set(chave, d)
+  return d
 }
 
 // Lupa: o círculo de terra tem raio 32 células; em volta, o aro branco (1 célula, sem furo nas diagonais),
@@ -164,11 +199,11 @@ function pecas(): PecasLupa {
   return pecasLupa
 }
 
-/** Caixa (em células do mapa inteiro) dos estados atendidos: é o que a lupa amplia. */
+/** Caixa (em células do mapa inteiro) dos estados da lupa: é o que ela amplia. */
 const focoAtendidos = (() => {
   const g = geometria(brasil)
   let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity]
-  for (const s of atendidas)
+  for (const s of UFS_DA_LUPA)
     for (const [i, j] of g.celulas[s] ?? []) {
       x0 = Math.min(x0, i)
       y0 = Math.min(y0, j)
@@ -395,6 +430,10 @@ export function MapaBrasil({
   const ref = useRef<HTMLDivElement>(null)
   const palcoRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  // os estados da loja agora (o dono ativa e desativa no painel): acesos no mapa; os de dentro da lupa, botão nela
+  const canais = useCanais()
+  const atendidas = useMemo(() => new Set(canais.map((c) => c.uf)), [canais])
+  const ordemAtendidos = useMemo(() => ordemNoMapa(canais.map((c) => c.uf)), [canais])
   const aoClicar = useRef<(e: { clientX: number; clientY: number }) => void>(() => {})
   const fecharBalao = useRef(aoFecharBalao)
   fecharBalao.current = aoFecharBalao
@@ -422,7 +461,11 @@ export function MapaBrasil({
     }
   }, [])
 
-  const plano = useMemo(() => (largura ? planejar(largura, modo === 'secao', celulaMax, altoTela) : null), [largura, modo, celulaMax, altoTela])
+  // estado da pessoa atendido e fora da lupa: sem lupa, com o mapa inteiro o maior que couber (até 6 px por célula)
+  const foraDaLupa = modo === 'secao' && !!atual && atendidas.has(atual) && !dentroDaLupa(atual)
+  const comLupa = modo === 'secao' && !foraDaLupa
+  const celula = foraDaLupa ? Math.max(celulaMax, 6) : celulaMax
+  const plano = useMemo(() => (largura ? planejar(largura, comLupa, celula, altoTela) : null), [largura, comLupa, celula, altoTela])
   const linhasZoom = useMemo(() => (plano ? zoom(plano) : null), [plano])
 
   useEffect(() => {
@@ -499,6 +542,8 @@ export function MapaBrasil({
   const lx = plano.lupa?.x ?? 0
   const ly = plano.lupa?.y ?? 0
   const atendidoAtual = !!atual && atendidas.has(atual)
+  // botão na lupa só pra quem aparece dentro dela; o estado de fora (ativado no painel) acende no mapa inteiro e fica na lista
+  const comBotaoNaLupa = plano.lupa ? ordemAtendidos.filter(dentroDaLupa) : []
   const destaque = sobre ?? realce
 
   // a lupa fica por cima do mapa: o ponto está nela?
@@ -534,7 +579,7 @@ export function MapaBrasil({
   }
 
   // pino: na lupa, o estado atendido do cliente vira o adesivo de localização (na sigla); no mapa inteiro nos outros casos
-  const pinoNaLupa = !!plano.lupa && atendidoAtual
+  const pinoNaLupa = !!atual && comBotaoNaLupa.includes(atual)
   const pontoB = atual ? (cidade?.brasil ?? brasil.rotulos[atual]) : undefined
 
   const rotuloMapa = `Mapa do Brasil. A Green Cheese entrega em ${ordemAtendidos.map(NOME).join(', ').replace(/, ([^,]*)$/, ' e $1')}.${
@@ -543,7 +588,7 @@ export function MapaBrasil({
 
   const estilo = { width: plano.w, height: plano.h, ['--n' as string]: ordemAtendidos.length } as CSSProperties
   // função (não componente): o React não remonta as camadas a cada render (a animação do acender recomeçaria do zero)
-  const camadas = (geo: Geometria, p: string) => (
+  const camadas = (geo: Geometria, malha: MalhaPixel, p: string) => (
     <>
       <path d={geo.todaTerra} fill={`url(#${p}-escuro)`} />
       <path d={geo.divisa} fill={`url(#${p}-medio)`} />
@@ -564,7 +609,7 @@ export function MapaBrasil({
             style={{ ['--i' as string]: k }}
           />
         ))}
-      <path d={geo.divisaAcesa} className="mbr-divisa" />
+      <path d={divisaAcesa(malha, atendidas)} className="mbr-divisa" />
     </>
   )
   const padroes = (p: string, s: number) => {
@@ -576,9 +621,7 @@ export function MapaBrasil({
     ))
   }
   const pl = pecas()
-  const vizinhos = plano.lupa
-    ? Object.entries(lupa.rotulos).filter(([s, [x, y]]) => !atendidas.has(s) && Math.hypot(x - R_LUPA, y - R_LUPA) < R_LUPA - 3)
-    : []
+  const vizinhos = plano.lupa ? Object.entries(lupa.rotulos).filter(([s]) => !atendidas.has(s) && dentroDaLupa(s)) : []
 
   return (
     <div ref={ref} className={`mbr mbr-${modo} mbr-${fase} ${className ?? ''}`}>
@@ -604,7 +647,7 @@ export function MapaBrasil({
             {plano.lupa && padroes(`${id}l`, l)}
           </defs>
           <g transform={`scale(${m})`}>
-            {camadas(geoB, `${id}m`)}
+            {camadas(geoB, brasil, `${id}m`)}
             {linhasZoom && (
               <>
                 <path d={linhasZoom.linhas} className="mbr-zoom-linha" />
@@ -616,7 +659,7 @@ export function MapaBrasil({
             <g transform={`translate(${lx} ${ly}) scale(${l})`} className="mbr-lupa">
               <path d={pl.caboContorno} className="mbr-preto" />
               <path d={pl.disco} className="mbr-preto" />
-              {camadas(geoL, `${id}l`)}
+              {camadas(geoL, lupa, `${id}l`)}
               <path d={pl.aro} className="mbr-aro" />
               <path d={pl.cabo} className="mbr-aro" />
             </g>
@@ -632,9 +675,9 @@ export function MapaBrasil({
 
         {/* os atendidos na lupa: botões de verdade, alvo de 44 px na sigla. O do cliente vira o adesivo de localização
             do site em miniatura (pino + "RJ"): do tamanho da sigla, não cobre a faixa fina do RJ ou do ES nem a sigla vizinha */}
-        {plano.lupa && (
+        {comBotaoNaLupa.length > 0 && (
           <div className="mbr-botoes" role="group" aria-label="Lupa no Sudeste e em Santa Catarina">
-            {ordemAtendidos.map((s) => {
+            {comBotaoNaLupa.map((s) => {
               const eh = s === atual
               const c = canalDa(s)
               const [x, y] = lupa.rotulos[s]

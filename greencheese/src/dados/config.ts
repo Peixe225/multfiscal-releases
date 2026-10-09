@@ -51,6 +51,12 @@ export const config = {
   storySegundos: 6,
 
   /**
+   * "Restam X" no produto quando o estoque de um estado chega a esse número ou menos (null = nunca mostra). Só vale pra
+   * produto com estoque contado no painel do dono; sem o servidor, nenhum tem.
+   */
+  restamAte: 5 as number | null,
+
+  /**
    * Mostra o mercador dando uns tragos no repost. A Lei 9.294/96 (art. 3º) veda propaganda de produtos fumígenos;
    * para a versão oficial, a recomendação é false.
    */

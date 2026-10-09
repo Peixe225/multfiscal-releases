@@ -43,10 +43,13 @@ Regras (o servidor é quem garante):
 - Quando `confirmadas >= vagas`, o rateio vira `fechado` sozinho (`fechadoEm`).
 - Um WhatsApp tem no máximo 1 participação ativa (reservado/confirmado) por rateio.
 - Derivados do tabaco e cigarro eletrônico não entram (Anvisa RDC 840/2023 e RDC 855/2024): o servidor recusa título ou
-  descrição com qualquer termo da lista (sem acento e sem caixa): `backwoods`, `charuto`, `cigarrilha`, `cigarro`,
-  `cigarrete`, `tabaco`, `fumo`, `palheiro`, `rape` (como palavra inteira), `swisher`, `dutch master`, `black & mild`,
-  `black and mild`, `al capone`, `djarum`, `essencia de narguile`, `vape`, `cigarro eletronico`, `pod descartavel`,
-  `juul`, `ignite`, `elfbar`, `elf bar`.
+  descrição com qualquer termo da lista (sem acento e sem caixa, e também com o número no lugar da letra: `V4PE`,
+  `P0D`, `C1GARRO`): `backwoods`, `charuto`, `cigarrilha`, `cigarro`, `cigarrete`, `tabaco`, `fumo`, `palheiro`,
+  `swisher`, `dutch master`, `black & mild`, `black and mild`, `al capone`, `djarum`, `essencia de narguile`, `vape`,
+  `cigarro eletronico`, `pod descartavel`, `juul`, `ignite`, `elfbar`, `elf bar`, `narguile`, `arguile`, `hookah`,
+  `nicotina`, `nicotine`, `nic salt`, `iqos`, `lost mary`, `geek bar` e, só como palavra inteira, `rape`, `pod`, `pods`,
+  `essencia`, `essencias`, `heets`, `terea`, `waka`, `oxbar`, `shisha`, `ecig`, `e cig` (`GC_TERMOS_PROIBIDOS` em
+  `nucleo/validar.php`; a mesma lista no painel, `src/painel/proibidos.ts`).
 
 Status do rateio: `rascunho` (só no painel) → `aberto` → `fechado` (lotou, ou o dono fechou) → `pedido` (dono fez o
 pedido) → `caminho` → `chegou` → `encerrado` (entregue a todos). `cancelado` em qualquer ponto (só no painel e nas
@@ -389,3 +392,313 @@ nunca sobe por alguém sem nome nem WhatsApp); cancelar continua valendo.
 
 **Cópia do banco**: `admin-backup` baixa o banco inteiro num arquivo só, já com o que estava no diário do SQLite
 (copiar o `loja.sqlite` à mão pode sair sem as últimas mudanças). Tem nome, WhatsApp e tudo: guardar em lugar seguro.
+
+## Banco: migrações por número
+
+O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de número e numa trava só
+(`BEGIN IMMEDIATE`), na primeira conexão depois de publicar, e fica anotada na tabela `migracoes` (`numero`,
+`aplicada_em`). Cada frente tem a sua faixa, pra duas frentes nunca pegarem o mesmo número:
+
+| Faixa | De quem | Onde |
+|---|---|---|
+| 1–99 | base (painel e rateio) | `nucleo/banco.php`, `gc_migracoes_base()` |
+| 100–199 | loja (catálogo, estados, stories, ajustes, Teste minha sorte) | `nucleo/loja-migracoes.php`, `gc_migracoes_loja()` |
+| 200–299 | pedidos e contas | a frente dela acrescenta a função dela e o `+=` em `gc_migracoes()`, como a loja |
+
+- Nunca edite uma migração que já foi pro ar: acrescente outra com o próximo número livre da faixa.
+- Uma migração é SQL ou uma função que recebe o `PDO` (pra semear dados). A função roda dentro da trava, com a conexão
+  ainda abrindo: nada de `gc_sql`/`gc_transacao`/`gc_evento` lá dentro, só o `PDO` que ela recebe.
+- Banco de antes do registro (a versão ficava só no `PRAGMA user_version`, uma migração por número a partir do 1): o
+  que o `user_version` diz conta como feito e entra no registro na primeira vez. O `user_version` segue contando a base
+  em sequência, pra um código antigo que volte não tentar criar de novo o que já existe.
+- O `gc_migracoes()` só soma a faixa de um módulo quando a função dele existe (`function_exists`). Na publicação os
+  módulos sobem antes do `index.php` novo: no meio da subida, o index velho não carrega a loja e as migrações dela
+  esperam a próxima chamada, sem erro.
+- O Diagnóstico mostra em `dados.versaoBanco` o número da migração mais nova que rodou.
+
+Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, participações), `100` (as tabelas da loja) e
+`101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel).
+
+## Loja
+
+O catálogo, os estados (canais), os stories do Início, os ajustes (WhatsApp, "restam X", a rua do mercador, textos)
+e o Teste minha sorte moram no servidor, e o dono mexe neles pelo painel. O site lê tudo num JSON só (ver "Como o site
+lê", logo abaixo).
+
+A loja nasce da semente `nucleo/semente-loja.json`, gerada de `src/dados` (catálogo, canais, config, prêmios e textos)
+por `node scripts/gerar-semente-loja.mjs`; o build e o `testar-api` recusam semente velha. Ela entra na instalação do
+painel e, num banco já instalado, pela migração 101, com os "exemplo" (`demo`) de cada coisa. Depois de semeada, quem
+manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a semente de um banco novo.
+
+### GET `r=loja`
+
+`{ ok: true, versao: number, atualizadoEm: string, loja: Loja }`
+
+- **ETag** (`"<32 hex>"`: o mesmo conteúdo, o mesmo ETag) e `Cache-Control: no-cache`. O navegador guarda a resposta e
+  pergunta de novo com `If-None-Match`; nada mudou → **304 sem corpo** (vale o ETag fraco `W/"…"`, a lista `"a", "b"`
+  e o sufixo que o compressor do servidor põe, `"…-gzip"`). As outras rotas seguem `no-store`.
+- `versao` sobe a cada mudança feita no painel (preço, estoque, estado, story, prêmio, texto, qualquer uma) e
+  `atualizadoEm` é a hora dela.
+- Antes da loja existir no servidor (painel ainda não instalado): **404 `sem-loja`**. O site segue com o que tem
+  embutido (`src/dados`), que é a mesma loja da semente.
+- Só o que o site mostra: nada de anotação do dono, estoque contado, produto ou estado desativado nem prêmio fora do
+  jogo. Mapa vazio sai como `{}`.
+
+**Como o site lê** (`src/store/loja.ts`):
+
+1. A primeira tela sai com a loja guardada no aparelho (`gc-loja` no `localStorage`, a última que veio do servidor) ou,
+   sem ela, com a embutida no build (`src/dados`, a mesma da semente). Nunca espera a rede.
+2. No primeiro respiro depois da primeira pintura (na hora, se o `?uf=` do link ou o estado salvo não está na loja do
+   aparelho: estado ativado no painel) pergunta `GET r=loja`; o navegador manda o `If-None-Match` sozinho e, sem
+   mudança, recebe 304. Volta pra aba depois de 10 min fora: pergunta de novo (com o pedido guiado aberto, não).
+3. Versão nova: o `loja` é conferido campo a campo (`src/store/loja-ler.ts`, num pedaço à parte que só baixa aí): item
+   torto fica de fora, texto com palavra da lista volta pro embutido, prêmio passa pelas regras do `cupom.ts`; sem
+   nenhum estado que feche, a resposta inteira é ignorada. Entra na tela de uma vez, num respiro do navegador, e o que
+   não mudou continua o mesmo objeto (nada pisca nem recomeça).
+4. Guardado: `{ formato: 2, build, versao, atualizadoEm, loja, pronta }` — o `loja` como veio e a `pronta` já
+   conferida, que abre a primeira tela sem conferir de novo. Guardado por outro build (site publicado de novo), a
+   `pronta` abre a primeira tela do mesmo jeito e o `loja` é conferido outra vez com as regras do build novo logo
+   depois da conversa com o servidor. O `formato` sobe
+   quando o jeito da `Loja` do site muda (aí a guardada só serve pra conferir de novo).
+5. Fora do ar, lento (10 s), 403/5xx ou JSON torto: fica com o que tem. **404 `sem-loja`**: apaga o guardado e volta pra
+   embutida.
+6. Quem depende da loja do servidor espera a conversa com ele terminar (a leitura desiste em 10 s; rede de segurança
+   em 12 s), nunca um prazo curto (no 4G lento a resposta passa de 4 s): o estado do link da bio ou o salvo que a loja
+   do aparelho não conhece (estado ativado no painel: "procurando" e uma vaga preta no Início, em vez de "ainda não
+   chegou aí", que só aparece se a resposta chegar sem o estado ou o pedido falhar) e os links diretos de um produto
+   que ela não tem (criado no painel depois da última visita): a pergunta ao servidor sai na hora, sem esperar o
+   respiro; `?produto=` abre a página "carregando" e `?p=` avisa "Abrindo o produto…" e abre o story quando a loja
+   chega; produto que não veio nem depois da resposta (ou servidor fora do ar) sai da URL com um aviso. O palpite de IP
+   num estado desses e o jogo (`?jogo=`, que existe na loja daqui) esperam no máximo 2,5 s.
+
+```ts
+interface Loja {
+  whatsapp: string               // o WhatsApp da loja ('5533991139036'): onde o pedido fecha
+  restamAte: number | null       // "restam X": o estoque contado chegou nesse número (null = nunca mostra)
+  ruaNoStory: boolean            // a rua do mercador como 1º story do Início no celular (sem o ajuste, true)
+  textos: { bio: string[]; fraseStory: string; sacolaVazia: string; falasMercado: string[] } // src/dados/textos-loja.ts
+  categorias: { id: string; nome: string; curto: string; icone: string; bebida: boolean }[] // na ordem dos destaques
+  produtos: ProdutoLoja[]        // só os que estão no site, na ordem da grade
+  estados: EstadoLoja[]          // só os que estão no site, na ordem
+  stories: Record<string, string[]> // uf → ids na ordem do dono; uf ausente = automático (o site escolhe, como hoje)
+  sorte: {
+    ligado: boolean              // desligado: o Teste minha sorte some do site
+    regras: { girosSemConta: number; girosPorDiaComConta: number; reservaSemContaHoras: number }
+    premios: PremioLoja[]        // só os que valem agora
+  }
+}
+
+// O Produto do site (src/lib/tipos.ts), com o disponível já resolvido e o "restam".
+interface ProdutoLoja {
+  id: string
+  nome: string
+  tamanho?: string               // campo vazio fica de fora, como no catalogo.json
+  detalhe?: string
+  descricao?: string
+  categoria: string
+  preco: number | null           // null = "Consultar" (nunca inventar preço)
+  combos?: { qtd: number; total: number }[]
+  variacoes?: { id: string; nome: string; preco?: number }[]
+  disponivel: Record<string, boolean> // cada estado do site: ligado nele e, com estoque contado, pelo menos 1
+  restam: Record<string, number> // só os estados com de 1 a restamAte unidades contadas
+  combinaCom?: string[]          // só ids de produtos que estão no site
+  demo: boolean
+  foto: string | null            // 'uploads/<nome>' (enviada pelo painel) ou 'produtos/<arquivo>' (do build do site)
+  cor: string                    // '#rrggbb' (o halo)
+  arte: { tipo: TipoArte; corpo: string; faixa?: string; rotulo?: string; detalhe?: string; tampa?: string }
+}
+
+// O Canal do site (src/dados/canais.ts).
+interface EstadoLoja {
+  uf: string
+  nome: string                   // 'Minas Gerais'
+  destaque: string               // a bolinha dos destaques ('DELIVERY MG')
+  nomePerfil: string | null
+  cidades: { slug: string; nome: string }[]
+  instagram: string              // sem @
+  whatsapp: string | null        // o próprio do estado; null = o da loja (sempre null com "o mesmo pra todos")
+  horario: { semana: ([string, string] | null)[]; demo: boolean } // 7 dias, domingo primeiro; demo: de exemplo, o site não mostra
+  taxaEntrega: { valor: number | null; demo: boolean }            // valor null = a confirmar
+  entregaGratis: { diaSemana: number; dias: number[]; texto: string; demo: boolean } | null // diaSemana = dias[0]
+  pagamento: { opcoes: ('pix' | 'dinheiro' | 'cartao')[]; demo: boolean }
+  emblema: 'pao-de-acucar' | 'pedra-preciosa' | 'predio-sp' | 'convento-es' | 'ponte-sc' | 'generico' // generico: estado ativado no painel
+}
+
+// O Premio do site (src/dados/sorte.ts). Vale agora = ligado, tudo que ele cita no site e nada de bebida.
+interface PremioLoja {
+  id: string
+  tipo: 'desconto-percentual' | 'leve-x-pague-y' | 'brinde'
+  valor: number | { leve: number; pague: number } | { produto: string; qtd: number }
+  titulo: string
+  descricao: string
+  regra: string
+  aplicaA: { produtos?: string[]; categorias?: string[] }
+  comoUsar?: string
+  peso: number
+  validadeDias: number
+  demo: boolean
+}
+```
+
+## Loja (painel)
+
+Rotas `admin-*` da loja: dono, sessão, Origin e `X-CSRF` como as outras. Toda escrita roda numa transação, sobe a
+`versao` da loja (o ETag do `GET loja` muda: o site vê na hora) e entra na Atividade com quem fez. As escritas
+devolvem o pedaço novo e o carimbo `{ versao, atualizadoEm }`; salvar sem mudar nada não sobe a versão. Na edição,
+campo ausente fica como está.
+
+| Rota | Corpo | Sucesso |
+|---|---|---|
+| GET `admin-loja` | — | `{ loja: LojaAdmin }` |
+| POST `admin-produto-salvar` | `ProdutoCorpo` (sem `id` cria) | 201 ou 200 `{ produto: ProdutoAdmin, versao, atualizadoEm }` |
+| POST `admin-produto-estado` | `{ id, uf, disponivel?, estoque? }` | `{ produto, versao, atualizadoEm }` |
+| POST `admin-produto-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
+| POST `admin-produtos-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
+| POST `admin-categoria-salvar` | `{ id?, nome, curto?, icone, bebida? }` | 201 ou 200 `{ categoria, versao, atualizadoEm }` |
+| POST `admin-categoria-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
+| POST `admin-categorias-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
+| POST `admin-estado-salvar` | `EstadoCorpo` (UF que a loja não tem = ativar) | 201 ou 200 `{ estado: EstadoAdmin, versao, atualizadoEm }` |
+| POST `admin-stories-salvar` | `{ uf, produtos: string[] }` | `{ uf, produtos, versao, atualizadoEm }` |
+| POST `admin-loja-salvar` | `{ whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, textos? }` | `{ ajustes, textos, versao, atualizadoEm }` |
+| POST `admin-sorte-salvar` | `{ ligado?, girosSemConta?, girosPorDiaComConta?, reservaSemContaHoras? }` | `{ sorte, versao, atualizadoEm }` |
+| POST `admin-premio-salvar` | `PremioCorpo` (sem `id` cria) | 201 ou 200 `{ premio: PremioAdmin, versao, atualizadoEm }` |
+| POST `admin-premio-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
+| POST `admin-loja-exemplos-apagar` | `{ conferir: true }` ou `{ assinatura }` | `{ plano, assinatura, apagou, versao, atualizadoEm }` |
+
+Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
+
+- **Produto**: nome 2–60; tamanho até 20; detalhe até 60; descrição até 300; categoria que existe; `preco` `null` ou
+  `''` = Consultar, senão de R$ 0 a R$ 100.000 (número ou `"14,90"`); `combos` até 5, quantidade 2–99 sem repetir,
+  precisam do preço da unidade, cada um mais barato que avulso e o total subindo com a quantidade (conferidos de novo
+  quando o preço muda); `variacoes` até 12, nome 1–40 sem repetir (sem olhar acento e caixa), preço opcional, o `id`
+  fica o mesmo na edição; `combinaCom` até 8 produtos que existem (nunca ele mesmo); `foto` `'uploads/<nome>'` (o que o
+  `admin-upload` devolveu: tem que existir) ou `'produtos/<arquivo>'`; `cor` `#rrggbb`; `arte` `{ tipo, corpo, faixa?,
+  rotulo?, detalhe?, tampa? }` (tipo da lista do `TipoArte`, cores `#rrggbb`); `obs` até 300 (só no painel); `demo` e
+  `ativo` sim/não; `estados` `{ <uf>: { disponivel: boolean, estoque: number | null } }`, só estados da loja, estoque de 0
+  a 99.999. Tabaco e vape (a lista do Rateio) em nome, tamanho, detalhe, descrição ou variação → 422 `proibido`
+  (`campo`, `termo`, `lista: 'tabaco'`); a gíria e a promessa da `PALAVRAS_PROIBIDAS` (`GC_LOJA_PALAVRAS_LOJA`:
+  `fumaça`, `fumar`, `marofa`, `brisa`, `chapar`, `larica`, `prensado`, `420`, `grátis`, `frete`, `prazo`, `sorteio`, no
+  começo de palavra; `420` só o número inteiro) nos mesmos campos → 422 `proibido` (`lista: 'palavras'`). "folha",
+  "erva", "flor", "trago", "tapa" e "entrega" têm uso de verdade em produto e passam. Id novo = slug do nome + tamanho,
+  único. Produto que é prêmio ou brinde não vai pra categoria de bebida nem ganha nome ou desenho de bebida (400,
+  `campo: 'categoria' | 'nome' | 'arte'`).
+- **Troca rápida** (`admin-produto-estado`): manda o valor novo, não "inverter" (dois toques iguais dão no mesmo).
+  `estoque: null` = não contar; `0` = esgotado: sai do disponível sozinho e volta quando o estoque subir (se seguir
+  ligado no estado).
+- **Apagar produto**: só sem histórico (rateio ou prêmio que cita ele) → senão 409 `em-uso` (com `rateios` e
+  `premios`): aí desativa (`ativo: false`), ele sai do site e o histórico fica. Apagar tira o produto do "Combina com"
+  dos outros e dos stories.
+- **Ordem** (produtos e categorias): os ids que vieram primeiro e quem não veio (criado noutro aparelho) depois, na
+  ordem que tinha. Lista vazia, repetida ou com id que não existe → 400 (`campo: 'ids'`).
+- **Categoria**: nome 2–30; curto 2–14 (sem curto, vale o nome se couber); `icone` `lata`, `garrafa`, `seda`,
+  `piteira`, `cuia`, `dichavador`, `tesoura`, `sacola` ou `estrela`; `bebida` (categoria nova nasce bebida até o dono
+  dizer que não; bebida nunca entra em prêmio). Virar bebida com prêmio valendo nela ou nos produtos dela → 400
+  (`campo: 'bebida'`). Apagar só vazia (nenhum produto, nem desativado) e sem prêmio → senão 409 `em-uso` (com
+  `produtos` ou `premios`). Nome e curto sem tabaco nem a gíria e a promessa (422, como no produto).
+- **Estado**: `uf` uma das 27. UF que a loja ainda não tem = ativar um estado novo: Instagram e pagamento obrigatórios,
+  emblema `generico`, horário "a confirmar" (fica de exemplo, que o site não mostra, até vir um), taxa a confirmar e
+  nenhum produto à venda ainda. `destaque` 2–20 (padrão `DELIVERY <UF>`); `nomePerfil` 2–40 ou `null`; `instagram`
+  (aceita `@`, maiúscula e o link do perfil colado); `whatsapp` do estado ou `null` (= o da loja); `cidades` até 30, de
+  2 a 60 letras, sem repetir (`[{ nome }]` ou `['nome']`: o slug sai do nome); `horario` 7 dias, cada um `null` ou
+  `['HH:MM', 'HH:MM']` (abre ≠ fecha; fechar antes de abrir = madrugada do dia seguinte), o erro diz o `dia`; `taxa`
+  `null` (a confirmar) ou de R$ 0 a R$ 100.000; `entregaGratis` `null` ou `{ dias: number[] (0–6), texto (2–40) }`;
+  `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `ativo` (o último estado no site não sai: 409
+  `ultimo-estado`). Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
+  junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`. Destaque, nome do perfil e cidades
+  sem tabaco nem a gíria e a promessa (422, como no produto; o nome do perfil aparece no cabeçalho do site). A taxa de
+  verdade e o dia de entrega grátis aparecem na sacola e na mensagem do pedido (`(taxa R$ 15,50)`,
+  `(entrega grátis hoje)`); a de exemplo, não ("taxa a confirmar").
+- **Stories**: até 8 (as barrinhas do topo), sem repetir, produtos que existem, `uf` da loja; lista vazia =
+  automático. No `GET loja` passam só os que estão à venda no estado na hora (no site, ligado, com estoque); se nenhum
+  estiver, o estado fica no automático.
+- **Ajustes**: `whatsapp` (celular brasileiro); `mesmoWhatsappParaTodos` (o número de cada estado fica guardado);
+  `restamAte` 1–99 ou `null`; `ruaNoStory` sim/não (a rua do mercador no começo do Início do celular; o painel mostra
+  em Stories do Início); `textos` (só o que vier muda): `bio` 1–3 linhas de até 80 (até 150 no todo; linha em
+  branco some), `fraseStory` 2–28, `sacolaVazia` 2–48, `falasMercado` 1–5 de até 32. Nos textos, tabaco (422,
+  `lista: 'tabaco'`) e as `PALAVRAS_PROIBIDAS` do site (422 `proibido`, `lista: 'palavras'`, no começo de palavra:
+  "tapa" não pega "etapa").
+- **Regras do Teste minha sorte**: `girosSemConta` 1–3 (o primeiro giro sem conta é sempre livre),
+  `girosPorDiaComConta` 1–5, `reservaSemContaHoras` 1–72, `ligado`.
+- **Prêmio** (as regras de `src/lib/cupom.ts`): `tipo`; desconto 1–50 (%); leva 2–20 > paga 1–19; brinde
+  `{ produto, qtd 1–10 }`; `aplicaA` `{ produtos?: até 20, categorias?: até 10 }`, pelo menos um, tudo existindo e nada
+  de bebida (categoria marcada como bebida; ou produto com desenho de bebida, `GC_LOJA_ARTES_BEBIDA`: lata alta e as
+  garrafas; ou com nome de bebida alcoólica, `GC_LOJA_ALCOOL`: os tipos, como whisky, gin, vodka, chope, saquê, e as
+  marcas comuns, como Jack Daniels, Smirnoff, Heineken, Brahma, Skol, Campari; a mesma lista do site e do painel em
+  `src/lib/alcool.ts`); `titulo` 2–60 (só no painel); `descricao` 2–40; `regra` 2–120;
+  `comoUsar` até 160; `peso` 1–1000; `validadeDias` 1–30; `ativo`; `demo`. Textos sem tabaco nem as palavras da lista
+  (422). Trocar o tipo pede o valor novo junto. Id novo = slug do título. Os cupons já guardados no site têm o retrato
+  do prêmio: apagar não quebra nada.
+- **Apagar dados de exemplo**: `conferir: true` só devolve o `plano` (`{ premios, rateios, manter, produtos,
+  desativar }`, rateios com `pessoas`) e a `assinatura` dele; pra apagar, manda `{ assinatura }` (a da prévia que a
+  folha mostrou): apaga de uma vez os prêmios de exemplo, os rateios de exemplo (com quem entrou neles) e os produtos de
+  exemplo. Se o plano mudou desde a prévia (alguém entrou num rateio de exemplo, pagou, saiu), nada sai: 409 `mudou`,
+  com o `plano` e a `assinatura` novos. Sem assinatura: 400 (`campo: 'assinatura'`). Rateio de exemplo com gente que
+  pagou (confirmado ou entregue) nunca apaga: fica, como rateio de verdade (`manter`, com `pagas`; `demo` vira falso),
+  com o histórico. Produto de exemplo com histórico de verdade (citado num rateio ou prêmio que fica) só sai do site
+  (`desativar`). Os valores de exemplo dos estados saem quando o dono salva os de verdade.
+
+Erros (além dos gerais e do `sem-sessao`/`csrf`): `invalido` 400 (com `campo`; às vezes `indice`, `dia`, `uf`),
+`proibido` 422 (`campo`, `termo`, `lista`), `nao-encontrado` 404, `em-uso` 409, `ultimo-estado` 409, `mudou` 409
+(apagar dados de exemplo).
+
+```ts
+interface LojaAdmin {
+  versao: number
+  atualizadoEm: string
+  ajustes: { whatsapp: string; mesmoWhatsappParaTodos: boolean; restamAte: number | null; ruaNoStory: boolean }
+  textos: Loja['textos']
+  categorias: (Loja['categorias'][number] & { ordem: number; produtos: number; premios: { id: string; titulo: string }[] })[]
+  produtos: ProdutoAdmin[]       // todos, até os desativados
+  estados: EstadoAdmin[]         // todos, até os desativados
+  stories: Record<string, string[]> // a lista inteira que o dono escolheu (o GET loja filtra o que não tá à venda)
+  sorte: { ligado: boolean; girosSemConta: number; girosPorDiaComConta: number; reservaSemContaHoras: number; premios: PremioAdmin[] }
+}
+
+interface ProdutoAdmin {
+  id: string
+  nome: string
+  tamanho: string                // '' quando vazio
+  detalhe: string
+  descricao: string
+  categoria: string
+  preco: number | null
+  combos: { qtd: number; total: number }[]
+  variacoes: { id: string; nome: string; preco: number | null }[]
+  combinaCom: string[]
+  foto: string | null
+  cor: string
+  arte: ProdutoLoja['arte']
+  obs: string                    // anotação só do dono
+  ativo: boolean                 // no site
+  demo: boolean
+  ordem: number
+  estados: Record<string, { disponivel: boolean; estoque: number | null }> // só as linhas que existem (sem linha = desligado, sem contar)
+  uso: { rateios: { id: string; titulo: string; demo: boolean }[]; premios: { id: string; titulo: string }[] }
+  podeApagar: boolean            // sem histórico
+  criadoEm: string
+  atualizadoEm: string
+}
+
+// O EstadoLoja + o que é do dono. whatsapp: o próprio do estado, mesmo com "o mesmo pra todos" ligado.
+interface EstadoAdmin extends Omit<EstadoLoja, 'entregaGratis'> {
+  ativo: boolean
+  entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
+  ordem: number
+  atualizadoEm: string
+}
+
+interface PremioAdmin extends PremioLoja {
+  ativo: boolean                 // no jogo
+  ordem: number
+  noSite: boolean                // vale no site agora (ligado, o que ele cita no site, nada de bebida)
+  atualizadoEm: string
+}
+```
+
+Auditoria (`alvo` → `produto:<id>`, `categoria:<id>`, `estado:<uf>`, `premio:<id>` ou `loja`): `loja-semeada`
+(sistema), `produto-criado`, `produto-editado`, `produto-ativado`, `produto-desativado`, `produto-estado` (a troca
+rápida: `MG: "Seda OCB" esgotado (0 un.)`), `produto-apagado`, `produtos-ordem`, `categoria-criada`,
+`categoria-editada`, `categoria-apagada`, `categorias-ordem`, `estado-ativado`, `estado-desativado`, `estado-editado`,
+`stories-salvos`, `loja-ajustes`, `sorte-regras`, `premio-criado`, `premio-editado`, `premio-ativado`,
+`premio-desativado`, `premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto` (o
+`loja-ajustes` só da rua diz o que ela faz: "Ligou a rua do mercador no começo do Início" ou "Desligou…").

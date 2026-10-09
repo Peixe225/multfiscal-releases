@@ -13,6 +13,7 @@ import { nomeCidade, useLocal } from '../../store/local'
 import { atualizarMinhasVagas, temVagaAndando } from '../../lib/minhas-vagas'
 import { abertoParaEntrar, agoraRateio, carregarRateios, marcarRateiosVistos, useRateio, valeNoEstado, zapDoDono, type VagaGuardada } from '../../store/rateio'
 import { useUI } from '../../store/ui'
+import { useLojaMarca } from '../../store/loja'
 import { Icone } from '../comum'
 import { ArteRateio, CartaoRateio } from './CartaoRateio'
 import { NOME_VAGA, ateQuando, faixaDias, janelaChegada, statusVisto, vagaAtiva, vagaDoAparelho, vagasTexto } from './util'
@@ -79,6 +80,8 @@ function useAtualizarNaAba(ativa: boolean) {
 export function VistaRateio() {
   const ativa = useUI((s) => s.aba === 'rateio')
   const uf = useLocal((s) => s.uf)
+  // os estados e os produtos vêm da loja (canalDa e o catálogo, lidos na hora): redesenha quando ela troca
+  useLojaMarca()
   const rateios = useRateio((s) => s.rateios)
   const fonte = useRateio((s) => s.fonte)
   const vagas = useRateio((s) => s.vagas)

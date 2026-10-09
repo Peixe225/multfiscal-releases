@@ -3,6 +3,9 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Logo } from '../arte/Logo'
 import { canalDa } from '../dados/canais'
+import { doCache } from './dados'
+import { CHAVE as CHAVE_LOJA } from './loja/dados'
+import type { LojaAdmin } from './loja/tipos'
 import { ArteRateio } from './Arte'
 import { brl, diaMes, faixaDias, listaUfs, vagas as txtVagas } from './formato'
 import type { RateioAdmin, StatusRateio } from './tipos'
@@ -114,7 +117,8 @@ export function LinhaDoTempo({ r }: { r: RateioAdmin }) {
 /** O que o cliente vê no site: o post do perfil com a mídia em forma de story (espelha o cartão do site). */
 export function PreviaCartao({ r, rodape }: { r: Pick<RateioAdmin, 'titulo' | 'produtoId' | 'imagem' | 'precoRateio' | 'precoDepois' | 'vagas' | 'confirmadas' | 'reservadas' | 'disponiveis' | 'ufs' | 'previsaoMin' | 'previsaoMax' | 'fechaEm' | 'status' | 'descricao'>; rodape?: ReactNode }) {
   const eco = r.precoDepois != null && r.precoDepois > r.precoRateio ? Math.round((r.precoDepois - r.precoRateio) * 100) / 100 : null
-  const insta = canalDa(r.ufs[0])?.instagram ?? 'greencheese_imports'
+  // o @ do primeiro estado do rateio: o da loja do servidor (estado ativado no painel também) ou o embutido
+  const insta = doCache<LojaAdmin>(CHAVE_LOJA)?.estados.find((e) => e.uf === r.ufs[0])?.instagram ?? canalDa(r.ufs[0])?.instagram ?? 'greencheese_imports'
   const aberto = r.status === 'aberto' || r.status === 'rascunho'
   const sobra = r.vagas - r.confirmadas - r.reservadas
   return (

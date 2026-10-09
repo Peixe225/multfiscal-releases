@@ -1,11 +1,12 @@
-// A arte do rateio no painel: a foto que o dono mandou, a ilustração do produto do catálogo (o mesmo pedaço
-// realista do site, carregado só quando precisa) ou a caixa de importação em pixel. Atrás, o halo pontilhado da cor
-// do produto, com a trava de matiz do site (verde e roxo viram cinza).
+// A arte do rateio no painel: a imagem do rateio que o dono mandou, o produto do catálogo como o site mostra (a foto
+// do produto, a ilustração ou o desenho em pixel; loja/Arte.tsx) ou a caixa de importação em pixel. Atrás, o halo
+// pontilhado da cor do produto, com a trava de matiz do site (verde e roxo viram cinza).
 import { useEffect, useId, useSyncExternalStore, type CSSProperties } from 'react'
 import type { Arte } from '../arte/realista/comum'
 import { PixelArte } from '../arte/PixelArte'
 import { grade } from './icones'
 import { produtoDoCatalogo } from './catalogo'
+import { ArteProduto } from './loja/Arte'
 
 let artes: Record<string, Arte> | null = null
 let pedido: Promise<void> | null = null
@@ -73,8 +74,10 @@ export function ArteRateio({ produtoId, imagem, largura, halo = true, className,
   const produto = produtoId ? produtoDoCatalogo(produtoId) : undefined
   const Desenho = produtoId ? lista?.[produtoId] : undefined
   useEffect(() => {
-    if (produtoId && !imagem) carregar()
-  }, [produtoId, imagem])
+    if (produtoId && !imagem && !produto) carregar()
+  }, [produtoId, imagem, produto])
+  // sem imagem do rateio: o produto como o site mostra no cartão (a foto do produto, a ilustração ou o desenho em pixel)
+  if (!imagem && produto) return <ArteProduto produto={produto} largura={largura} halo={halo} cinza={apagada} className={className} />
   const estilo = { width: largura, '--pn-halo': apagada ? '#636363' : corDoHalo(produto?.cor) } as CSSProperties
   const caixa = grade('caixa')
   return (

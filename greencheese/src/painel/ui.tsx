@@ -13,6 +13,8 @@ interface PropsAria {
   id: string
   'aria-invalid'?: true
   'aria-describedby'?: string
+  /** Sem Campo em volta (sem rótulo à vista), o nome do campo. */
+  'aria-label'?: string
 }
 
 /** Campo com rótulo em cima, dica e erro embaixo, ligados ao controle (aria-describedby). */

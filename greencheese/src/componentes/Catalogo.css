@@ -52,6 +52,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* na aba Mercado também: o destaque do estado é o primeiro, com a margem à esquerda e a Sorte (curta) à direita */
+.destaques > [data-destaque='estado'] .destaque-rot {
+  max-width: 96px;
+}
 .destaque.sel .destaque-rot {
   color: var(--branco);
   font-weight: 600;
@@ -409,6 +413,12 @@
 .destaques-inicio .destaque-rot {
   max-width: calc(var(--d-col) + var(--d-vao) - 2px);
   font-size: var(--d-rot);
+}
+/* o destaque do estado ("DELIVERY RJ", o nome que o dono põe no painel) é o primeiro da linha: à esquerda tem a margem
+   da página e à direita o "Buscar" (curto). Pode passar 12 px de cada lado, centrado: "DELIVERY XX" cabe inteiro em
+   toda largura (o painel mostra o que cabe) */
+.destaques-inicio [data-destaque='estado'] .destaque-rot {
+  max-width: calc(var(--d-col) + 24px);
 }
 /* "Por estado" é a última aba: à direita tem o fio e o "Tudo" (curto), à esquerda a Sorte (curta); pode usar um vão
    inteiro de cada lado sem encostar em ninguém (com fonte larga, não vira "Por esta…" nas colunas estreitas) */

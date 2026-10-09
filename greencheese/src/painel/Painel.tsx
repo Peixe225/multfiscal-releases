@@ -15,6 +15,16 @@ import { Rateio } from './telas/Rateio'
 import { Rateios } from './telas/Rateios'
 import { Resumo } from './telas/Resumo'
 import { Servidor } from './telas/Servidor'
+// loja
+import { Categorias } from './loja/Categorias'
+import { Estado } from './loja/Estado'
+import { Estados } from './loja/Estados'
+import { Loja } from './loja/Loja'
+import { Premio } from './loja/Premio'
+import { Produto } from './loja/Produto'
+import { Produtos } from './loja/Produtos'
+import { Sorte } from './loja/Sorte'
+import { Stories } from './loja/Stories'
 import type { Usuario } from './tipos'
 import { Botao, Pontinhos } from './ui'
 
@@ -36,6 +46,26 @@ function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () 
       return <Conta usuario={usuario} aoSair={sair} />
     case 'servidor':
       return <Servidor />
+    case 'produtos':
+      return <Produtos ver={rota.ver} />
+    case 'produto':
+      return <Produto key={rota.id} id={rota.id} />
+    case 'produto-novo':
+      return <Produto key="novo" id={null} />
+    case 'loja':
+      return <Loja />
+    case 'estados':
+      return <Estados />
+    case 'estado':
+      return <Estado key={rota.uf} uf={rota.uf} />
+    case 'stories':
+      return <Stories uf={rota.uf} />
+    case 'categorias':
+      return <Categorias />
+    case 'sorte':
+      return <Sorte />
+    case 'premio':
+      return <Premio key={rota.id ?? 'novo'} id={rota.id} />
     default:
       return <Resumo nome={usuario.nome} />
   }
@@ -73,7 +103,7 @@ export function Painel() {
   useEffect(() => vigiarTeclado(), [])
   // telas de criar e editar escondem a barra de baixo (como o "Novo post" do Instagram)
   useEffect(() => {
-    document.documentElement.classList.toggle('pn-compondo', rota.tela === 'novo' || rota.tela === 'editar')
+    document.documentElement.classList.toggle('pn-compondo', ['novo', 'editar', 'produto', 'produto-novo', 'estado', 'premio'].includes(rota.tela))
   }, [rota.tela])
 
   const entrou = (u: Usuario, csrf: string) => {

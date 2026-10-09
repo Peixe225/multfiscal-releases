@@ -1,39 +1,43 @@
-import { create } from 'zustand'
-import dados from '../dados/catalogo.json'
+// O catálogo visto pelas telas: um pedaço da loja (src/store/loja.ts, a fonte única). useCatalogo é a própria loja
+// (produtos, categorias…), então quem já lia daqui acompanha a troca da embutida pela do servidor sem mudar nada.
 import { config } from '../dados/config'
 import { aplicarPlanilha } from '../lib/planilha'
-import type { Categoria, Produto } from '../lib/tipos'
+import type { Produto } from '../lib/tipos'
+import { lojaPronta, produtoSumido, useLoja } from './loja'
 
-interface CatalogoState {
-  produtos: Produto[]
-  categorias: Categoria[]
-  fonte: 'json' | 'planilha'
-}
-
-// Produto de exemplo (demo: true) fica enquanto config.dadosDeExemplo; com false, some do site.
-const daLoja = (dados.produtos as Produto[]).filter((p) => config.dadosDeExemplo || !p.demo)
-
-export const useCatalogo = create<CatalogoState>(() => ({
-  produtos: daLoja,
-  categorias: dados.categorias as Categoria[],
-  fonte: 'json',
-}))
+export { useLoja as useCatalogo }
 
 export function produtoPorId(id: string | null | undefined): Produto | undefined {
   if (!id) return undefined
-  return useCatalogo.getState().produtos.find((p) => p.id === id)
+  return useLoja.getState().produtos.find((p) => p.id === id)
+}
+
+/** O produto, ou o retrato dele se saiu da loja agora há pouco (a página aberta mostra como indisponível). */
+export function produtoOuSumido(id: string | null | undefined): Produto | undefined {
+  return id ? (produtoPorId(id) ?? produtoSumido(id)) : undefined
 }
 
 /** Disponibilidade no estado atual. Estado sem atendimento (ou não escolhido) = indisponível. */
 export function disponivelEm(p: Produto, uf: string | null | undefined): boolean {
   if (!uf) return false
-  return (p.disponivel as Record<string, boolean>)[uf] === true
+  return p.disponivel[uf] === true
 }
 
-/** Planilha publicada do Google (opcional): o dono marca preço/disponível pelo celular. Falhou = segue o JSON. */
+/** "Restam X" no estado: as unidades quando o estoque contado chegou no limite do painel (senão null). */
+export function restamEm(p: Produto, uf: string | null | undefined): number | null {
+  if (!uf || p.disponivel[uf] !== true) return null
+  return p.restam?.[uf] ?? null
+}
+
+/**
+ * Planilha publicada do Google (opcional, só sem o servidor): o dono marca preço/disponível pelo celular. Com a loja
+ * do servidor, quem manda é o painel. Falhou = segue o embutido.
+ */
 export async function carregarPlanilha(): Promise<void> {
   const url = config.planilhaCsvUrl
   if (!url) return
+  await lojaPronta()
+  if (useLoja.getState().fonte !== 'embutida') return
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
@@ -41,7 +45,7 @@ export async function carregarPlanilha(): Promise<void> {
     clearTimeout(t)
     if (!r.ok) return
     const csv = await r.text()
-    useCatalogo.setState((s) => ({ produtos: aplicarPlanilha(s.produtos, csv), fonte: 'planilha' }))
+    useLoja.setState((s) => ({ produtos: aplicarPlanilha(s.produtos, csv, s.canais.map((c) => c.uf)), marca: s.marca + 1 }))
   } catch {
     /* segue com o catalogo.json */
   }

@@ -2,11 +2,10 @@
 // '.' transparente, 'x' = currentColor (ícone segue a cor do texto), outras letras vêm da paleta.
 //
 // Tamanhos que saem nítidos (múltiplos da grade; o PixelArte ajusta o resto ao pixel da tela):
-//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 → 48, 72, 96 px
+//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 (pixel/emblemas.ts) → 48, 72, 96 px
 //   · mercador 44×64 (repost e sacola vazia) → 132 ou 176 px de largura.
 // A moto tem uma capa 32×32 (`grande`) que o PixelArte usa sozinho a partir de 64 px.
 
-import type { Emblema } from '../../dados/canais'
 import { mercador } from './mercador'
 import { mercadorGarrafa } from './mercador-garrafa'
 
@@ -26,7 +25,6 @@ function nova(w: number, h: number, linhas: string[], paleta?: Record<string, st
   return { w, h, linhas, paleta }
 }
 const i16 = (linhas: string[], grande?: Grade): Grade => ({ ...nova(16, 16, linhas), grande })
-const e24 = (linhas: string[]) => nova(24, 24, linhas, tons)
 
 // Confere o desenho em dev: altura, largura de cada linha e letras sem cor. Cada grade é conferida uma vez só.
 const conferidas = new WeakSet<Grade>()
@@ -50,7 +48,7 @@ export function validarGrade(grade: Grade, nome = 'grade'): boolean {
 /* ───────────────────────── paleta (só os tokens do base.css) ───────────────────────── */
 
 // b = branco (só brilho pontual), c = --legenda, e = --chiado, d = --bolha.
-const tons = { b: '#ffffff', c: '#a8a8a8', e: '#636363', d: '#262626' }
+export const tons = { b: '#ffffff', c: '#a8a8a8', e: '#636363', d: '#262626' }
 
 /* ───────────────────────── ícones 16×16 (monocromáticos) ───────────────────────── */
 
@@ -587,151 +585,6 @@ export type NomeIcone = keyof typeof iconesBase
 // Nome literal devolve Grade (e o editor autocompleta); nome vindo de dado (string) devolve Grade | undefined.
 export const icones: Readonly<Record<NomeIcone, Grade>> & Readonly<Partial<Record<string, Grade>>> = iconesBase
 
-/* ───────────────────────── emblemas 24×24 ───────────────────────── */
-
-// Regras do conjunto: madrugada com 4–5 estrelas; chão ou linha d'água sempre na linha 20 e reflexo
-// quebrado em 'd' nas linhas 21–23; tudo dentro das colunas 1–22 (1 px de margem, nada sangra);
-// luz acesa só na linha d'água ou em 'c'; branco só em pontos (lua, cruz, ponta de cristal, 3 janelas).
-export const emblemas: Record<Emblema, Grade> = {
-  // RJ: Pão de Açúcar em sino assimétrico com estrias de granito no lado da lua, Morro da Urca baixo,
-  // o cabo do bondinho com a cabine, lua crescente e as luzes da orla na água.
-  'pao-de-acucar': e24([
-    '....................e...',
-    '....b...................',
-    '..bb.....c......cde.....',
-    '.bb............ceede....',
-    '.bb............ceced.e..',
-    '..bb..........cecede....',
-    '....b......e..cceeed....',
-    '..............cecede....',
-    '.............ececeede...',
-    '.......e....e.ceceeed...',
-    '..........ee.cccecede...',
-    '.....ccceecc.cececeed...',
-    '...ccceded...ceeecede...',
-    '..ceeeeeded..cececeede..',
-    '..eeeeedede.ccceeeeeed..',
-    '.eeeeeeededececeeeeede..',
-    '.eeeeeeeededceceeeeeede.',
-    '.eeeeeeededcececeeeeeed.',
-    '.dededededcceeceeeeeede.',
-    '.ededededcececeeeeeeeed.',
-    '.eeceeeceeeeceeeeceeece.',
-    '.dee.dee.d.eed.dee.dee..',
-    '..d.d.d.d.d..dd...d...d.',
-    '..d.....d.....d.....d...',
-  ]),
-  // MG / Teófilo Otoni, "capital das pedras preciosas": cacho de cristais prismáticos brutos
-  // (turmalina, água-marinha) saindo de uma pedra, com brilho na ponta do maior.
-  'pedra-preciosa': e24([
-    '........................',
-    '........c...............',
-    '................e.......',
-    '...e...............b....',
-    '...........ce.....bbb...',
-    '..........ccee.....b....',
-    '.........cceedd.........',
-    '.........cceedd.........',
-    '....ce...cceedd...c.....',
-    '....ced..cceedd.cce..e..',
-    '....cddd.cceedd.cde.....',
-    '..e.cedd.cceeddccedd....',
-    '....cceddcceeddcedd.....',
-    '.....cdedcceeddcddd.....',
-    '.....ccddcceeddced..cc..',
-    '..edd.cedcceeddcdeccde..',
-    '..cdecededceedeeeeedde..',
-    '...cccccdedededededed...',
-    '...dedededededededede...',
-    '...ededededededededed...',
-    '.eeeeeeeeeeeeeeeeeeeeee.',
-    '...d.d.d.d.d.d.d.d.d....',
-    '......d...d...d...d.....',
-    '........d.....d.....d...',
-  ]),
-  // SP: o Copan com os brises em onda (uma linha sim, uma não) e o Banespa com a antena acesa.
-  'predio-sp': e24([
-    '.................b......',
-    '.........c.......e......',
-    '..e..............e......',
-    '..............e..e......',
-    '.................cd.....',
-    '.........cccc....cd...e.',
-    '.cc....ccddddc..cded....',
-    '.ddccccddccccd..ceed....',
-    '.ccddddccddddc.cededd...',
-    '.ddccccddccccd.ceeeed...',
-    '.ccddddcbddddc.cededd...',
-    '.ddccccddccccd.ceeeed...',
-    '.ccddddccddddc.cededd...',
-    '.ddcbccddccccd.ceeeeded.',
-    '.ccddddccddddc.cededdee.',
-    '.ddccccddccbcd.ceeeeded.',
-    '.ccddddccddddc.cededdee.',
-    '.ddccccddccccd.ceeeeded.',
-    '.ccddddccddddc.cededdee.',
-    '.ddddddddddddd.ceeeeded.',
-    '.ceeeeeeeeeeeeceeeeeece.',
-    'ee.d.d.d.d.d.eed.d.dee..',
-    '..d...d...d....d..d...d.',
-    '..d.....d...........d...',
-  ]),
-  // ES: Convento da Penha no alto do morro, com a torre e a cruz.
-  'convento-es': e24([
-    '..........b.............',
-    '.........bbb....e.......',
-    '..........c.........e...',
-    '...e.....cce............',
-    '.........cde.eeeee......',
-    '.........ccecccccce.....',
-    '.........ccccccccce.....',
-    '......c..ccdcdcdcde.....',
-    '.........ccccccccce...e.',
-    '........cccceeeeded.....',
-    '.......cceeeeeeeeded....',
-    '.......ceceeeeeeeede....',
-    '......ceceeeeeeeeeede...',
-    '.....ceceeeeeeeeeeded...',
-    '.....cceeeeeeeeeeeede...',
-    '....cceeeeeeeeeeeeeede..',
-    '...cceeeeeeeeeeeeeeded..',
-    '..cceeeeeeeeeeeeeeeeded.',
-    '..ceceeeeeeeeeeeeeeeede.',
-    '.ceceeeeeeeeeeeeeeeeded.',
-    '.eeceeeeeceeeeeeceeeece.',
-    '.dee.d.dee.d.d.eed.dee..',
-    '..d.d.d...d...d..dd...d.',
-    '..d.....d.....d.....d...',
-  ]),
-  // SC: ponte Hercílio Luz, com a corrente descendo até encostar no tabuleiro no meio do vão.
-  'ponte-sc': e24([
-    '........................',
-    '...........c.........e..',
-    '..e.b..............b....',
-    '....ce............ce....',
-    '....ce.........e..ce....',
-    '...ecec.e........ccee...',
-    '....cedc........c.ce....',
-    '..e.ce..c......c..ce.e..',
-    '..e.ced.c......cd.ce.e..',
-    '....ce...c....c...ce....',
-    '.e..ced.d.c..cd.d.ce..e.',
-    '.e..ce....c..c....ce..e.',
-    '....ced.d.dcc.d.d.ce....',
-    '.cccccccbccccccbccccccc.',
-    '.ededededededededededed.',
-    '....ce............ce....',
-    '....ce............ce....',
-    '....ce............ce....',
-    '....ce............ce....',
-    '....ce............ce....',
-    '.eceeeeeeeeceeeeeeeeece.',
-    '.ee..d....ee.......dee..',
-    '...d........d.....d...d.',
-    '........................',
-  ]),
-}
-
 /* ───────────────────────── ilustração ───────────────────────── */
 
 // O mercador mora em arquivos próprios (grade 44×64, grande demais para ficar no meio dos ícones): o do repost, que
@@ -740,5 +593,5 @@ export const ilustracoes: Record<'mercador' | 'mercadorGarrafa', Grade> = { merc
 
 // Em dev, confere tudo já no carregamento (não espera a arte aparecer na tela).
 if (import.meta.env?.DEV) {
-  for (const [nome, gr] of Object.entries({ ...iconesBase, ...emblemas, ...ilustracoes })) validarGrade(gr, nome)
+  for (const [nome, gr] of Object.entries({ ...iconesBase, ...ilustracoes })) validarGrade(gr, nome)
 }

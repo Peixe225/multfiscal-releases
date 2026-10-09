@@ -8,12 +8,13 @@ import { gravarSessao, lerSessao } from './lib/armazenamento'
 import { movimentoReduzido, ponteiroFino } from './lib/movimento'
 import { iniciarAbas } from './lib/abas'
 import { focarVista } from './lib/foco'
-import { quandoEmpilharem } from './lib/historico'
+import { depoisDoHistorico, quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
 import { atualizarParametros, lerParametros } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal } from './store/local'
+import { esperarLoja, esperarLojaToda, lojaConferida, lojaDoServidorRespondeu } from './store/loja'
 import { carregarRateios } from './store/rateio'
 import { useUI } from './store/ui'
 import { interativoPorParam } from './interativos/registro'
@@ -257,21 +258,92 @@ export function App() {
       }
       return
     }
-    if (p.p) {
-      const produtos = useCatalogo.getState().produtos
-      const i = produtos.findIndex((x) => x.id === p.p)
-      if (i >= 0) {
-        const daCat = produtos.filter((x) => x.categoria === produtos[i].categoria)
-        useUI.getState().abrirStory(
-          daCat.map((x) => x.id),
-          daCat.findIndex((x) => x.id === p.p),
-        )
-      }
+    if (lojaConferida()) {
+      abrirLinks(p)
+      return
     }
+    // A loja do servidor ainda não chegou. Produto que a loja daqui não tem (criado no painel depois da última visita: o
+    // link que o dono posta no Instagram): a página abre já, "carregando", e o story espera; os dois esperam a conversa
+    // com o servidor terminar (nunca um prazo curto: no 4G lento ela passa de 4 s) e só desistem se o produto continuar
+    // sem existir depois da resposta. O jogo existe na daqui: espera só um pouco (o dono pode ter desligado), sem segurar
+    // o resto.
+    const storyEspera = !!p.p && !produtoPorId(p.p)
+    const paginaEspera = !!p.produto && !produtoPorId(p.produto)
+    abrirLinks({ ...p, p: storyEspera ? null : p.p, jogo: null })
+    let vivo = true
+    if (p.jogo) {
+      const jogo = p.jogo
+      void esperarLoja(2500).then(() => {
+        if (vivo) abrirJogo(jogo)
+      })
+    }
+    if (storyEspera || paginaEspera) {
+      if (storyEspera && !paginaEspera) useUI.getState().avisar('Abrindo o produto…')
+      void esperarLojaToda().then(() => {
+        if (!vivo) return
+        if (storyEspera && p.p) abrirStoryDoLink(p.p, true)
+        if (paginaEspera && p.produto && !produtoPorId(p.produto)) desistirDaPagina(p.produto)
+      })
+    }
+    return () => {
+      vivo = false
+    }
+  }, [abertura, saida])
+
+  /**
+   * O produto do link não está na loja nem depois da conversa com o servidor: o link sai da URL, com o aviso do porquê
+   * (o servidor respondeu e ele não existe, ou o servidor não respondeu: fora do ar, 4G caiu).
+   */
+  function avisarProdutoQueFalta(chave: 'p' | 'produto', id: string) {
+    useUI.getState().avisar(lojaDoServidorRespondeu() ? 'Não achei esse produto na loja.' : 'Sem conexão pra abrir esse produto agora. Tenta de novo pelo link.')
+    depoisDoHistorico(() => {
+      if (lerParametros()[chave] === id) atualizarParametros({ [chave]: null })
+    })
+  }
+
+  /**
+   * Story do link (?p=): a categoria do produto, a partir dele. Depois de esperar a loja do servidor (`atrasado`), não
+   * passa por cima de um story que a pessoa já abriu, e o link de um produto que não existe sai da URL com um aviso.
+   */
+  function abrirStoryDoLink(id: string, atrasado = false) {
+    const produtos = useCatalogo.getState().produtos
+    const i = produtos.findIndex((x) => x.id === id)
+    if (i < 0) {
+      if (atrasado) avisarProdutoQueFalta('p', id)
+      return
+    }
+    if (atrasado && useUI.getState().story) return
+    const daCat = produtos.filter((x) => x.categoria === produtos[i].categoria)
+    useUI.getState().abrirStory(
+      daCat.map((x) => x.id),
+      daCat.findIndex((x) => x.id === id),
+    )
+  }
+
+  /** A conversa com o servidor terminou e o produto da página aberta pelo link não veio: a página "carregando" fecha. */
+  function desistirDaPagina(id: string) {
+    const pg = useUI.getState().pagina
+    const aberta = !!pg && pg.pilha.length === 1 && pg.pilha[0] === id
+    if (aberta) useUI.getState().fecharPagina()
+    // a pessoa já fechou a página "carregando": nada a avisar (o link saiu da URL quando ela fechou)
+    if (aberta || lerParametros().produto === id) avisarProdutoQueFalta('produto', id)
+  }
+
+  /** Interativo (?jogo=sorte): sem prêmio ativo (ou jogo desconhecido), o parâmetro sai da URL. */
+  function abrirJogo(param: string) {
+    const i = interativoPorParam(param)
+    if (i?.ativo()) useUI.getState().abrirInterativo(i.id)
+    else atualizarParametros({ jogo: null })
+  }
+
+  /** Abre o que o link pediu, por cima da aba: story (?p=), página do produto, jogo, chat e rateio. */
+  function abrirLinks(p: ReturnType<typeof lerParametros>) {
+    if (p.p) abrirStoryDoLink(p.p)
     // página do produto por cima (link aberto numa aba nova cai aqui depois do +18; "Voltar" fecha na aba da URL).
-    // Recarregou com níveis empilhados? A entrada do histórico guardou a pilha inteira (ver ProdutoPagina).
+    // Recarregou com níveis empilhados? A entrada do histórico guardou a pilha inteira (ver ProdutoPagina). Produto que
+    // a loja daqui não tem, com a do servidor ainda a caminho: a página abre "carregando" (ver acima).
     if (p.produto && !useUI.getState().pagina) {
-      if (produtoPorId(p.produto)) {
+      if (produtoPorId(p.produto) || !lojaConferida()) {
         const guardada: unknown = history.state?.gcPagina
         const pilha =
           Array.isArray(guardada) && guardada.length <= 12 && guardada[guardada.length - 1] === p.produto && guardada.every((id) => typeof id === 'string' && produtoPorId(id))
@@ -281,12 +353,8 @@ export function App() {
         pilha.forEach((id) => useUI.getState().abrirPagina(id, origem))
       } else atualizarParametros({ produto: null })
     }
-    // interativo (?jogo=sorte): abre depois do +18; sem prêmio ativo (ou jogo desconhecido), o parâmetro sai da URL
-    if (p.jogo) {
-      const i = interativoPorParam(p.jogo)
-      if (i?.ativo()) useUI.getState().abrirInterativo(i.id)
-      else atualizarParametros({ jogo: null })
-    }
+    // interativo (?jogo=sorte): abre depois do +18
+    if (p.jogo) abrirJogo(p.jogo)
     if (p.chat === 'pedido' || p.chat === 'encomenda') useChat.getState().abrir(p.chat)
     // página de um rateio (?rateio=, o adesivo de link dos stories): quem confere se ele existe é a própria página
     if (p.rateio && /^[a-z0-9-]+$/.test(p.rateio) && !useUI.getState().rateio) useUI.getState().abrirRateio(p.rateio)
@@ -304,7 +372,7 @@ export function App() {
       // a abertura saiu e nenhuma camada pegou o foco: ele vai pro título da aba, não fica no <body>
       if (teveAbertura.current && (!document.activeElement || document.activeElement === document.body)) focarVista(useUI.getState().aba)
     })
-  }, [abertura, saida])
+  }
 
   const fimAbertura = useCallback((trocarEstado: boolean) => {
     trocarDepois.current = trocarEstado
