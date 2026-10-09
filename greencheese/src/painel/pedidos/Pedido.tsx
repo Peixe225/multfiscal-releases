@@ -613,7 +613,7 @@ export function Pedido({ id }: { id: number }) {
 
           <section className="pn-bloco" aria-labelledby="h-entrega">
             <h2 id="h-entrega" className="pn-h2">
-              Entrega e pagamento
+              {enc ? 'Entrega' : 'Entrega e pagamento'}
             </h2>
             <dl className="pn-lista-det">
               <LinhaLonga rotulo="Endereço">

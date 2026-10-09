@@ -156,6 +156,7 @@ O pedido com código, a cópia no servidor, o painel dos pedidos, os avisos no g
 6. **LGPD dos pedidos**: o servidor guarda nome, endereço, observação e (quando tem) o WhatsApp de quem pediu, e o texto dos avisos. Valem as mesmas definições pendentes do rateio (controlador, prazo de retenção, canal de exclusão, política de privacidade). O painel já apaga os dados de um pedido entregue ou cancelado ("Apagar os dados (LGPD)").
 7. **Pedidos no celular**: no painel do celular, Pedidos, Avisos e Textos ficam no Resumo (os novos no topo) e em Conta → "Mais do painel", fora da barra de baixo (que segue com 5: Resumo, Rateios, Criar, Atividade e Conta). Se o dono usar mais os pedidos que os rateios, trocar em `src/painel/secoes.ts` (confirmar com o Ian).
 8. **Textos do pedido**: o dono troca as falas do chat; o formato da mensagem do WhatsApp e o botão "Fechar pedido no WhatsApp" continuam fixos (combinados com a loja). Promessa de prazo ou frete e tabaco são recusados.
+9. **Limite de pedidos por IP e a CDN**: o servidor aceita 20 pedidos novos por hora de cada IP (contra robô). Se ele estiver vendo o IP da CDN no lugar do de cada cliente (ver "Servidor", IP do cliente), o limite vira da loja inteira: depois do 20º pedido na hora, a cópia dos próximos fica guardada no aparelho e só chega no painel e no grupo quando a pessoa volta ao site (o pedido em si chega no WhatsApp da loja na hora, como sempre). Conferir o Diagnóstico depois de publicar.
 
 ## Publicação
 
