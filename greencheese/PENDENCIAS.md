@@ -185,8 +185,9 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   "falas do mercador" do painel são as do topo do Mercado.
 - **A chave da rua no painel (09/10)**: a rua saiu do 1º story do celular e foi pro fim do Início (depois da grade,
   antes do rodapé), a pedido do Ian. A chave continua com o nome `ruaNoStory` no JSON da loja e no banco (nenhuma
-  migração), mas agora liga e desliga a rua do fim do Início do celular; o computador não muda. As linhas que o
-  painel já gravou na Atividade antes da mudança continuam dizendo "no começo do Início"; as novas dizem "no celular".
+  migração), mas agora liga e desliga a rua do fim do Início do celular; o computador não muda. A Atividade monta o
+  texto na hora de listar (o banco guarda só a ação e o detalhe), então todas as linhas da chave, também as gravadas
+  antes da mudança, passam a dizer "no celular".
 - **Mudança com a página aberta**: o site pergunta a loja ao abrir e quando a pessoa volta pra aba depois de 10 min fora
   (com o pedido guiado aberto, não pergunta: o pedido não muda debaixo da pessoa). Quem fica horas com a aba à vista
   só vê a mudança na próxima abertura.
