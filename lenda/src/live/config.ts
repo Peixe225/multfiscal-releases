@@ -171,6 +171,19 @@ const edited = () => {
   for (const f of [...editListeners]) f()
 }
 
+/**
+ * Configuração salva no navegador → a desta janela: campos novos (de versões novas do jogo) entram com o
+ * padrão; os que a pessoa já tinha ficam como estavam — inclusive o ritmo (quem usava "Normal" continua no
+ * Normal; só configurações novas começam no automático).
+ */
+export function mergePersistedConfig(persisted: unknown): { config: LiveConfig; editedAt: number } {
+  const p = persisted as { config?: Partial<LiveConfig>; editedAt?: unknown } | undefined
+  const config: LiveConfig = { ...DEFAULT_LIVE_CONFIG, ...(p?.config ?? {}) }
+  const editedAt = typeof p?.editedAt === 'number' && Number.isFinite(p.editedAt) ? p.editedAt : 0
+  // configuração salva com o mesmo presente em duas opções (versões antigas): fica só na primeira
+  return { editedAt, config: { ...config, pace: validPace(config.pace, DEFAULT_LIVE_CONFIG.pace), giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
+}
+
 export const useLiveConfig = create<ConfigStore>()(
   persist(
     (set) => ({
@@ -203,13 +216,7 @@ export const useLiveConfig = create<ConfigStore>()(
       // sem storage (navegador bloqueando): o próprio zustand cai para memória — um wrapper que engole o
       // erro faria o persist chamar setItem em undefined e a página ficar em branco
       storage: createJSONStorage(() => localStorage),
-      merge: (persisted, current) => {
-        const p = persisted as { config?: Partial<LiveConfig>; editedAt?: unknown } | undefined
-        const config: LiveConfig = { ...DEFAULT_LIVE_CONFIG, ...(p?.config ?? {}) }
-        const editedAt = typeof p?.editedAt === 'number' && Number.isFinite(p.editedAt) ? p.editedAt : 0
-        // configuração salva com o mesmo presente em duas opções (versões antigas): fica só na primeira
-        return { ...current, editedAt, config: { ...config, pace: validPace(config.pace, DEFAULT_LIVE_CONFIG.pace), giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
-      },
+      merge: (persisted, current) => ({ ...current, ...mergePersistedConfig(persisted) }),
     },
   ),
 )

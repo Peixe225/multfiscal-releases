@@ -185,7 +185,6 @@
   .lv-callout__in { min-height: 57px; padding: 6px 12px 6px 7px; gap: 10px; border-radius: 14px; }
   .lv-callout__ic { width: 34px; height: 34px; border-radius: 10px; }
   .lv-callout__t { font-size: 17px; line-height: 1.24; }
-  .lv-callout.is-stage, .lv-callout.is-stage .lv-callout__in { min-height: 50px; }
   .lv-clock b { font-size: 19px; }
   .lv-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lv-chip { height: 34px; }

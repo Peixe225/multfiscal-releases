@@ -26,8 +26,9 @@ const firstUrl = (img: unknown): string | undefined => {
 
 export function userOf(d: Obj): LiveUser {
   const u = isObj(d.user) ? d.user : d
-  const id = str(u.uniqueId) ?? str(d.uniqueId) ?? str(u.displayId) ?? str(u.userId) ?? str(d.userId) ?? 'anonimo'
-  const name = str(u.nickname) ?? str(d.nickname) ?? id
+  // formato da ponte/simulador ({ id, name }) por último: no conector 2.x `user.id` é o número interno, não o @
+  const id = str(u.uniqueId) ?? str(d.uniqueId) ?? str(u.displayId) ?? str(u.userId) ?? str(d.userId) ?? str(u.id) ?? 'anonimo'
+  const name = str(u.nickname) ?? str(d.nickname) ?? str(u.name) ?? id
   const avatar = str(u.profilePictureUrl) ?? str(d.profilePictureUrl) ?? firstUrl(u.profilePicture) ?? firstUrl(u.avatarThumb)
   return { id, name, ...(avatar ? { avatar } : {}) }
 }

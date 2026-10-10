@@ -73,7 +73,7 @@ export function LiveCallout({ round, showResult, how, onStage }: { round: Round 
         icon: <Hand size={17} aria-hidden="true" />,
         text: (
           <>
-            Chegou {name} · {creation?.phase === 'bidding' ? 'o maior presente cria a próxima lenda' : `comenta 1 a ${n} pra jogar`}
+            Chegou {name} · {creation?.phase === 'bidding' ? 'doe e crie a próxima lenda' : `comenta 1 a ${n} pra jogar`}
           </>
         ),
       }
