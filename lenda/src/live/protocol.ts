@@ -82,8 +82,14 @@ function fromConnector(event: string, d: Obj, at: number): Parsed | null {
       if (kind.includes('share')) return { type: 'share', user: userOf(d), at }
       return null
     }
-    case 'member':
+    case 'member': {
+      // entrada na sala. O conector 2.x manda `action` (1 = entrou, 3 = virou assinante) e o TikFinity, no
+      // formato v1, `actionId` (1) com o rótulo "{0:user} joined"; sem código nenhum, vale como entrada
+      const act = num(d.actionId) ?? num(d.action)
+      const label = `${str(d.label) ?? ''} ${str(d.actionDescription) ?? ''}`
+      if (act != null && act !== 0 && act !== 1 && !/join/i.test(label)) return null
       return { type: 'join', user: userOf(d), at }
+    }
     case 'roomUser': {
       const count = num(d.viewerCount) ?? num(d.total) ?? num(d.totalUser)
       return count != null ? { type: 'viewers', count, at } : null

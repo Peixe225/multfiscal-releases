@@ -480,7 +480,8 @@ function wire(c, user) {
   on('LIKE', (d) => broadcast({ event: 'like', data: { user: slimUser(d.user), likeCount: d.likeCount ?? d.count, totalLikeCount: d.totalLikeCount ?? d.total } }))
   on('FOLLOW', (d) => broadcast({ event: 'follow', data: { user: slimUser(d.user) } }))
   on('SHARE', (d) => broadcast({ event: 'share', data: { user: slimUser(d.user) } }))
-  on('MEMBER', (d) => broadcast({ event: 'member', data: { user: slimUser(d.user) } }))
+  // entrou na sala (action 1; 3 = virou assinante, que o jogo ignora): as boas-vindas na tela da live
+  on('MEMBER', (d) => broadcast({ event: 'member', data: { user: slimUser(d.user), ...(d.action != null ? { actionId: Number(d.action) } : {}) } }))
   on('ROOM_USER', (d) => {
     const n = d.viewerCount ?? d.total
     if (n != null) broadcast({ event: 'roomUser', data: { viewerCount: Number(n) } })

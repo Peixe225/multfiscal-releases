@@ -17,6 +17,25 @@ import type { LiveSource } from './types'
 import type { VoteRules } from './votes'
 
 export type NameMode = 'apoiador' | 'fixo' | 'aleatorio'
+/** Ritmo da carreira na live: um dos ritmos do jogo ou 'auto' (escolhido a cada lenda pelo movimento da sala). */
+export type LivePace = Pace | 'auto'
+
+/**
+ * Ritmo automático: a cada nova lenda o autopiloto conta quantas PESSOAS diferentes participaram nos
+ * últimos 5 minutos (comentaram, mandaram presente, curtiram, seguiram ou compartilharam — entrar na sala
+ * não conta; o voto do streamer e os testes numa live de verdade também não):
+ *   menos de 3   → Expresso (8 decisões): carreiras curtas, mais disputas = mais momentos de presente
+ *   3 a 14       → Normal (12)
+ *   15 ou mais   → Intenso (24): sala cheia aguenta a carreira longa (e é onde as "extraordinárias" brilham)
+ */
+export const AUTO_PACE = { windowMs: 5 * 60_000, normalFrom: 3, intenseFrom: 15 } as const
+
+export function autoPace(people: number): Pace {
+  return people >= AUTO_PACE.intenseFrom ? 'intensa' : people >= AUTO_PACE.normalFrom ? 'normal' : 'expressa'
+}
+
+/** "Expresso" · "Normal" · "Intenso" (como no painel). */
+export const PACE_NAMES: Record<Pace, string> = { expressa: 'Expresso', normal: 'Normal', intensa: 'Intenso' }
 /** Quem cria a próxima lenda: o maior doador de uma disputa, o maior apoiador da carreira anterior ou o chat (votação). */
 export type CreatorMode = 'disputa' | 'apoiador' | 'votacao'
 
@@ -47,7 +66,17 @@ export interface LiveConfig extends VoteRules {
   identityVote: boolean
   nameMode: NameMode
   fixedName: string
-  pace: Pace
+  /** 'auto' = escolhido a cada lenda pelo movimento da sala (AUTO_PACE). */
+  pace: LivePace
+  /**
+   * "Sala vazia": votação (ou disputa) sem NENHUM voto (lance) depois destes segundos fecha antes do fim,
+   * com o sorteio de sempre (na disputa, o caminho de "ninguém doou"). Chegou um voto, vai até o fim. 0 = desligado.
+   */
+  quietSeconds: number
+  /** Chamadas na tela: frases curtas girando a cada ~6 s (como jogar, presentes, seguir, jogar grátis). */
+  ctaOn: boolean
+  /** Frase do streamer que entra no rodízio das chamadas (passa pelo filtro de palavrões). '' = nenhuma. */
+  ctaCustom: string
   /** Simulador: público de mentira mandando votos e presentes. */
   simAuto: boolean
   simSpeed: 1 | 2 | 3
@@ -77,7 +106,11 @@ export const DEFAULT_LIVE_CONFIG: LiveConfig = {
   identityVote: true,
   nameMode: 'apoiador',
   fixedName: '',
-  pace: 'normal',
+  // configurações novas começam no automático; as já salvas guardam o ritmo que tinham (merge do persist)
+  pace: 'auto',
+  quietSeconds: 10,
+  ctaOn: true,
+  ctaCustom: '',
   simAuto: true,
   simSpeed: 2,
   likesGoal: 1000,
@@ -166,7 +199,7 @@ export const useLiveConfig = create<ConfigStore>()(
         const config: LiveConfig = { ...DEFAULT_LIVE_CONFIG, ...(p?.config ?? {}) }
         const editedAt = typeof p?.editedAt === 'number' && Number.isFinite(p.editedAt) ? p.editedAt : 0
         // configuração salva com o mesmo presente em duas opções (versões antigas): fica só na primeira
-        return { ...current, editedAt, config: { ...config, giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
+        return { ...current, editedAt, config: { ...config, pace: validPace(config.pace, DEFAULT_LIVE_CONFIG.pace), giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
       },
     },
   ),
@@ -202,8 +235,12 @@ export function mergeSyncedConfig(local: LiveConfig, incoming: unknown): LiveCon
     } else if (typeof v === typeof want && (typeof v !== 'number' || Number.isFinite(v))) out[k] = v
   }
   const config = out as unknown as LiveConfig
-  return { ...config, giftBindings: dedupeBindings(config.giftBindings) }
+  return { ...config, pace: validPace(config.pace, local.pace), giftBindings: dedupeBindings(config.giftBindings) }
 }
+
+const PACES: readonly string[] = ['auto', 'expressa', 'normal', 'intensa'] satisfies LivePace[]
+/** Ritmo conhecido ou o de antes (texto qualquer vindo da ponte/do armazenamento não vira ritmo). */
+export const validPace = (v: unknown, fallback: LivePace): LivePace => (typeof v === 'string' && PACES.includes(v) ? (v as LivePace) : fallback)
 
 /** As duas janelas estão com a mesma configuração (fora o que é de cada uma)? */
 export function sameSyncedConfig(a: LiveConfig, b: LiveConfig): boolean {

@@ -75,6 +75,11 @@ export interface Round {
   pendingGifts: Record<string, PendingGift[]>
   /** Decidida por presente grande. */
   decidedBy?: { user: LiveUser; gift: string; coins: number; option: number }
+  /**
+   * "Sala vazia": se até este instante (ms epoch) ninguém votou, a rodada fecha antes do fim, com o sorteio
+   * estável de sempre (store.ts; a pausa empurra junto com endsAt). Sem o campo = vai até o fim.
+   */
+  quietAt?: number
   closed: boolean
 }
 
@@ -266,6 +271,14 @@ export function pendingCoins(r: Round): number {
   return sum
 }
 
+/**
+ * Alguém já participou desta rodada? Pontos, número comentado (mesmo com "comentário vale voto" desligado),
+ * presente guardado ou apoio em alguma opção — qualquer um deles impede o encerramento da "sala vazia".
+ */
+export function hasVotes(r: Round): boolean {
+  return totalPoints(r) > 0 || Object.keys(r.commentVote ?? {}).length > 0 || pendingCoins(r) > 0 || r.tallies.some((t) => t.coins > 0 || t.voters > 0)
+}
+
 export function totalPoints(r: Round): number {
   return r.tallies.reduce((s, t) => s + t.points, 0)
 }
@@ -317,6 +330,8 @@ export interface Outcome {
    * ou 'draw' (empate total: sorteio).
    */
   tieBy?: 'coins' | 'voters' | 'draw'
+  /** Sem votos e fechada antes do fim pela "sala vazia" (quietAt): a tela diz "o destino escolheu". */
+  quiet?: boolean
 }
 
 /** Resultado final. Sem votos → sorteio estável pela rodada (a live não trava esperando o chat). */
