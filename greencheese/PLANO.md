@@ -78,5 +78,7 @@ por um revisor independente e no ar.
 ## F14 · Pix direto no site
 - [ ] QR dinâmico e confirmação automática (pedido e rateio), quando a loja escolher o provedor.
 
-## Publicação
-- [ ] Publicar F7–F13 no ar (pede o ok do Ian) e criar o acesso do dono com o código de instalação.
+## Publicação — feito
+- [x] F7–F13 no ar em oprojeto.online/greencheese/ (ok do Ian em 09/10), com o painel instalado e o acesso do dono criado.
+- [x] 10/10: atualização com o celular no layout de ontem e a rua do mercador só no fim do Início (banco, painel e código de instalação do servidor intactos).
+- [ ] LCP do celular (DES-01): a arte do 1º story contar como a maior pintura desde o começo (rascunho guardado, sem teste).
