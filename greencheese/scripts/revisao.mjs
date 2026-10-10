@@ -1,12 +1,18 @@
 // Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp da loja (RJ e MG, pedido e
 // encomenda), o Pix "em breve", as dúvidas na DM do estado, a navegação em abas (Início | Mercado | Rateio | Por
 // estado), as sequências de voltar, os links diretos (?aba=mercado e o velho ?aba=catalogo), o Início (destaques e grade,
-// sem o fim da aba Mercado), a rua viva (no celular, só no fim do Início, depois da grade e antes do rodapé, e o 1º
-// story é de produto; no computador embaixo do perfil, em escala inteira, na matriz de desktop): no celular ela não
-// monta nem baixa na primeira tela; aparece, o rAF dela para em cada pausa (o botão, fora da tela, camada por cima, aba
-// escondida), fica parada com movimento reduzido, o mercador chamado oferece o Mercado; o Mercado com o mercador no
-// topo; as falas da rua sem palavra proibida;
-// as setas da linha de destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência.
+// sem o fim da aba Mercado), a rua viva (no celular, o primeiro story do Início, e nenhuma faixa dela entre a faixa e o
+// perfil; no computador embaixo do perfil, em escala inteira, na matriz de desktop): aparece, o rAF dela para em cada
+// pausa (story pausado, outro segmento, dedo segurando, camada por cima, fora da tela, aba escondida; na faixa, o botão),
+// fica parada com movimento reduzido, o mercador chamado oferece o Mercado (no story, segurando o tempo dele enquanto o
+// adesivo está aberto); o Mercado com o mercador no topo; as falas da rua sem palavra proibida;
+// a Home 2 (home2/ → ?home=2, pedido do Ian em 10/10): o endereço escolhe a home (home2/, Home2/, HOME2/ e os jeitos
+// velhos da chave), a visita mantém a Home 2 (abas, story, produto, sacola, chat, rateio, voltar, recarregar, voltar de
+// outro site), /greencheese/ sem a chave é a home de sempre, os links diretos valem nas duas, o compartilhado vai sem
+// a chave; no celular dela o 1º story é de produto e a rua fica só no fim do Início (não monta nem baixa na primeira
+// tela, monta pra quem pula pro fim, some inteira se o pedaço não baixar, o rAF para em cada pausa); no computador as
+// duas são iguais;
+// as setas da linha de destaques no computador, o axe em cada aba e os pontos de referência.
 // Conta no servidor (simulada como no API.md): a conta do aparelho espera o número e vai junto no primeiro login;
 // Minha conta com pedidos, vagas e endereços da loja.
 // Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona (que rola pelo teclado em 320×568), o
@@ -193,11 +199,11 @@ async function foto(page, nome, cheia = false) {
 }
 
 /**
- * O Início acaba na grade (a caixa de encomenda por último) e no rodapé; no celular, a rua viva fica entre os dois
- * (pedido do Ian em 09/10). Destaques com as abas primeiro, o fio e os filtros; sem busca, sem o Teste minha sorte e o
- * repost do fim da aba Catálogo, sem os ids dela.
+ * O Início acaba na grade (a caixa de encomenda por último) e no rodapé; no celular da Home 2 (h2), a rua viva fica
+ * entre os dois. Destaques com as abas primeiro, o fio e os filtros; sem busca, sem o Teste minha sorte e o repost do
+ * fim da aba Catálogo, sem os ids dela.
  */
-async function conferirInicio(page, nome) {
+async function conferirInicio(page, nome, h2 = false) {
   await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
   const r = await page.evaluate(() => {
     const v = document.querySelector('.vista[data-vista="inicio"]')
@@ -221,13 +227,13 @@ async function conferirInicio(page, nome) {
     }
   })
   conferir(r.grade && r.caixaNoFim, `${nome}: Início com a grade e a caixa de encomenda por último`)
-  if (r.celular) {
+  if (r.celular && h2) {
     conferir(
       !!r.rua && r.rua.depoisDaGrade >= -1 && r.rua.depoisDaGrade <= 100 && r.rua.rodape >= -1 && r.rua.rodape <= 40,
       `${nome}: a rua no fim do Início, logo depois da grade e logo antes do rodapé (${JSON.stringify(r.rua)})`,
     )
   } else {
-    conferir(!r.rua, `${nome}: no computador, nada de rua no fim do Início (ela mora embaixo do perfil)`)
+    conferir(!r.rua, r.celular ? `${nome}: nada de rua no fim do Início (na home ela é o 1º story)` : `${nome}: no computador, nada de rua no fim do Início (ela mora embaixo do perfil)`)
     conferir(r.rodapeLogo != null && r.rodapeLogo >= -1 && r.rodapeLogo <= 120, `${nome}: o rodapé vem logo depois da grade (${r.rodapeLogo == null ? '?' : Math.round(r.rodapeLogo)} px)`)
   }
   conferir(r.destaques, `${nome}: destaques do Início com as abas, o fio e os filtros, nessa ordem`)
@@ -453,35 +459,29 @@ const browser = await chromium.launch()
   await foto(page, 'cel-04-hero-palpite-ip')
   await page.waitForTimeout(500)
   await foto(page, 'cel-05-hero-confirmado')
-  conferir(
-    (await page.locator('.vista-inicio .hero-palco .sq-nome').count()) === 1 && (await page.locator('.vista-inicio .hero .rua, .vista-inicio .hero .rua-vaga, .rua-story').count()) === 0,
-    'cel: o 1º story do Início é de produto (a rua fica no fim do Início)',
-  )
+  conferir((await page.locator('.vista-inicio .rua-story:not([hidden])').count()) === 1, 'cel: o story do Início abre na rua (o primeiro story)')
+  conferir((await page.locator('.app[data-home]').count()) === 0 && !new URL(page.url()).searchParams.has('home'), 'cel: /greencheese/ sem a chave é a home de sempre')
   await page.evaluate(() => document.querySelector('.vista:not([hidden]) .so-celular .perfil')?.scrollIntoView({ block: 'center' }))
   await page.waitForTimeout(600)
   await foto(page, 'cel-06-perfil')
   await conferirInicio(page, 'cel')
   {
-    // o story só com produtos; o perfil logo depois da faixa dos @; a rua viva só no fim do Início (uma vaga, com o
-    // título pequeno); mercador de repost, só no topo do Mercado
+    // a rua viva é o primeiro story (o mercador mora nela); a faixa dela saiu do celular: o perfil vem logo depois da
+    // faixa dos @; mercador de repost, só no topo do Mercado
     const r = await page.evaluate(() => {
       const v = document.querySelector('.vista[data-vista="inicio"]')
       const caixa = (s) => v?.querySelector(s)?.getBoundingClientRect() ?? null
       const faixa = caixa('.faixa')
       const perfil = caixa('.so-celular .perfil')
       return {
+        story: !!v?.querySelector('.hero .rua-story[role="group"]'),
         barras: v?.querySelectorAll('.hero-barras .story-barra').length ?? 0,
-        vagas: v?.querySelectorAll('.rua-vaga').length ?? 0,
-        noFim: v?.querySelectorAll('.rua-fim .rua-vaga').length ?? 0,
-        titulo: v?.querySelector('.rua-fim h2')?.textContent?.trim() ?? null,
+        faixaDaRua: v?.querySelectorAll('.rua-vaga, .rua:not(.rua-em-story)').length ?? 0,
         colado: faixa && perfil ? Math.round(perfil.top - faixa.bottom) : null,
         repost: v?.querySelectorAll('.repost-figura').length ?? 0,
       }
     })
-    conferir(
-      r.barras >= 2 && r.vagas === 1 && r.noFim === 1 && !!r.titulo && r.colado != null && r.colado >= 0 && r.colado <= 40 && !r.repost,
-      `cel: o story de produtos, o perfil colado na faixa dos @, a rua viva só no fim do Início e sem mercador de repost (${JSON.stringify(r)})`,
-    )
+    conferir(r.story && r.barras >= 2 && !r.faixaDaRua && r.colado != null && r.colado >= 0 && r.colado <= 40 && !r.repost, `cel: a rua viva no story, sem a faixa dela entre a faixa e o perfil e sem mercador de repost no Início (${JSON.stringify(r)})`)
   }
   await page.locator('.vista-inicio .so-celular .perfil-loja').click()
   await page.waitForTimeout(1200)
@@ -861,44 +861,371 @@ const browser = await chromium.launch()
   }
 }
 
-// ---------- links velhos da Home 2: home2/ (Home2/ e HOME2/ sobem pelo publicar.mjs), ?home=2, ?Home2 ----------
-// abrem a home de sempre, com o resto do link e sem as chaves home*
+// ---------- a Home 2 (oprojeto.online/greencheese/home2/ → ?home=2, pedido do Ian em 10/10) ----------
+// O endereço escolhe a home: home2/ (e Home2/, HOME2/, que o publicar.mjs sobe com o mesmo HTML) leva pra ../?home=2
+// com o resto do link; os jeitos velhos da chave (?home2, ?Home2, ?HOME=2, ?home-2) viram ?home=2; ?home=1 e afins
+// são a home de sempre, sem chave nenhuma
 {
-  for (const pasta of ['home2']) {
-    const r = await fetch(new URL(`${pasta}/index.html`, base)).catch(() => null)
-    const html = r?.ok ? await r.text() : ''
-    // script só de arquivo (a CSP bloqueia script em linha) e o meta refresh para quem está sem JavaScript
-    const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
-    conferir(
-      scripts.length === 1 && /src="[^"]*ir\.js"/.test(scripts[0][1]) && !scripts[0][2].trim() && /<noscript><meta http-equiv="refresh"[^>]*url=\.\.\/"/.test(html),
-      `${pasta}/index.html: script de arquivo + meta refresh de reserva para ../`,
-    )
-  }
+  const r = await fetch(new URL('home2/index.html', base)).catch(() => null)
+  const html = r?.ok ? await r.text() : ''
+  // script só de arquivo (a CSP bloqueia script em linha) e o meta refresh para quem está sem JavaScript
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+  conferir(
+    scripts.length === 1 && /src="ir\.js"/.test(scripts[0][1]) && !scripts[0][2].trim() && /<noscript><meta http-equiv="refresh"[^>]*url=\.\.\/\?home=2"/.test(html),
+    'home2/index.html: script de arquivo + meta refresh de reserva para ../?home=2',
+  )
   const ctx = await contexto(browser, { width: 390, height: 844 })
+  // Home2/ e HOME2/: o HTML que o publicar.mjs sobe (o mesmo, com o script de home2/; o servidor diferencia maiúsculas)
+  await ctx.route(/\/(Home2|HOME2)\/(\?[^#]*)?$/, (rota) => rota.fulfill({ contentType: 'text/html', body: html.replace('src="ir.js"', 'src="../home2/ir.js"') }))
   const page = await ctx.newPage()
-  vigiar(page, 'atalho-h2')
-  for (const [entrada, espera] of [
-    ['home2/?uf=rj&aba=catalogo', { uf: 'rj', aba: 'catalogo' }],
-    ['home2/', {}],
-    ['?Home2&uf=rj', { uf: 'rj' }],
-    ['?HOME=2', {}],
-    ['?home=1&uf=mg', { uf: 'mg' }],
+  vigiar(page, 'home2-endereco')
+  for (const [entrada, h2, espera] of [
+    ['home2/?uf=rj&aba=catalogo', true, { uf: 'rj', aba: 'catalogo' }],
+    ['home2/', true, {}],
+    ['Home2/?uf=mg', true, { uf: 'mg' }],
+    ['HOME2/?uf=mg&aba=estados', true, { uf: 'mg', aba: 'estados' }],
+    ['home2/?home=1&uf=mg', true, { uf: 'mg' }],
+    ['?home=2&uf=mg', true, { uf: 'mg' }],
+    ['?uf=rj&Home2', true, { uf: 'rj' }],
+    ['?HOME=2', true, {}],
+    ['?home-2&uf=mg', true, { uf: 'mg' }],
+    ['?home=1&uf=mg', false, { uf: 'mg' }],
+    ['?home1', false, {}],
+    ['?uf=mg', false, { uf: 'mg' }],
   ]) {
     await page.goto(new URL(entrada, base).href)
     await page.locator('.app').waitFor({ state: 'attached', timeout: 15000 })
     await page.waitForTimeout(300)
-    const r = await page.evaluate(() => ({
-      home: document.querySelector('.app')?.getAttribute('data-home'),
-      pasta: location.pathname,
-      q: Object.fromEntries(new URLSearchParams(location.search)),
-    }))
-    const ok =
-      r.home == null &&
-      !/home2/i.test(r.pasta) &&
-      Object.entries(espera).every(([k, v]) => r.q[k] === v) &&
-      !Object.keys(r.q).some((k) => /^home/i.test(k))
-    conferir(ok, `link velho ${entrada}: home de sempre${Object.keys(espera).length ? ', ' + Object.keys(espera).join('/') + ' mantidos' : ''}, sem home* na URL (${JSON.stringify(r)})`)
+    const r = await page.evaluate(() => ({ home: document.querySelector('.app')?.getAttribute('data-home') ?? null, pasta: location.pathname, q: [...new URLSearchParams(location.search)] }))
+    const q = Object.fromEntries(r.q)
+    const chaves = r.q.map(([k]) => k).filter((k) => /^home/i.test(k))
+    const certa = h2 ? r.home === '2' && JSON.stringify(chaves) === '["home"]' && q.home === '2' && r.q[0]?.[0] === 'home' : r.home == null && !chaves.length
+    conferir(
+      certa && !/home2/i.test(r.pasta) && Object.entries(espera).every(([k, val]) => q[k] === val),
+      `${entrada}: ${h2 ? 'a Home 2 (?home=2 na frente, só ele)' : 'a home de sempre (sem home* na URL)'}${Object.keys(espera).length ? `, ${Object.keys(espera).join('/')} mantidos` : ''} (${JSON.stringify(r)})`,
+    )
   }
+  await ctx.close()
+}
+
+// A visita na Home 2 (celular): o Início dela (1º story de produto, a rua só no fim); abas, story, página do produto,
+// sacola, chat, rateio e o voltar mantêm o ?home=2; recarregar e voltar de outro site (o WhatsApp abre fora e a pessoa
+// volta) também; os links que a pessoa abre em aba nova (as abas, o produto do story) levam a chave, o que ela manda pra
+// outra pessoa (compartilhar) é o endereço da loja, sem a chave; abrir /greencheese/ sem a chave na mesma aba é a home
+// de sempre de novo
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { semDica: true })
+  await ctx.addInitScript(() => {
+    navigator.share = (d) => {
+      window.__compartilhado = d
+      return Promise.resolve()
+    }
+  })
+  const page = await ctx.newPage()
+  vigiar(page, 'home2-visita')
+  await page.goto(new URL('home2/?uf=mg', base).href)
+  await passarAbertura(page)
+  const estado = () =>
+    page.evaluate(() => ({ home: document.querySelector('.app')?.getAttribute('data-home') ?? null, q: location.search, pasta: location.pathname }))
+  const naHome2 = async (onde, chave) => {
+    const e = await estado()
+    const q = new URLSearchParams(e.q)
+    conferir(e.home === '2' && q.get('home') === '2' && !/home2/i.test(e.pasta) && (!chave || q.has(chave)), `home2-visita: ${onde}, a Home 2 continua (${e.q})`)
+  }
+  const inicioDaHome2 = async (onde) => {
+    const r = await page.evaluate(() => ({
+      produto: !!document.querySelector('.vista-inicio .hero-palco .sq-nome'),
+      ruaStory: document.querySelectorAll('.vista-inicio .rua-story').length,
+      ruaFim: document.querySelectorAll('.vista-inicio .rua-fim .rua-vaga').length,
+    }))
+    conferir(r.produto && !r.ruaStory && r.ruaFim === 1, `home2-visita: ${onde}, o Início da Home 2 (1º story de produto, a rua no fim) (${JSON.stringify(r)})`)
+  }
+  await naHome2('abrindo pelo home2/')
+  await inicioDaHome2('abrindo')
+  await foto(page, 'home2-01-celular')
+  await conferirInicio(page, 'home2-cel', true)
+  {
+    // o story só com produtos; o perfil logo depois da faixa dos @; a rua viva só no fim do Início (uma vaga, com o
+    // título pequeno); mercador de repost, só no topo do Mercado
+    const r = await page.evaluate(() => {
+      const v = document.querySelector('.vista[data-vista="inicio"]')
+      const caixa = (s) => v?.querySelector(s)?.getBoundingClientRect() ?? null
+      const faixa = caixa('.faixa')
+      const perfil = caixa('.so-celular .perfil')
+      return {
+        barras: v?.querySelectorAll('.hero-barras .story-barra').length ?? 0,
+        vagas: v?.querySelectorAll('.rua-vaga').length ?? 0,
+        noFim: v?.querySelectorAll('.rua-fim .rua-vaga').length ?? 0,
+        titulo: v?.querySelector('.rua-fim h2')?.textContent?.trim() ?? null,
+        colado: faixa && perfil ? Math.round(perfil.top - faixa.bottom) : null,
+        repost: v?.querySelectorAll('.repost-figura').length ?? 0,
+      }
+    })
+    conferir(
+      r.barras >= 2 && r.vagas === 1 && r.noFim === 1 && !!r.titulo && r.colado != null && r.colado >= 0 && r.colado <= 40 && !r.repost,
+      `home2-cel: o story de produtos, o perfil colado na faixa dos @, a rua viva só no fim do Início e sem mercador de repost (${JSON.stringify(r)})`,
+    )
+  }
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.waitForTimeout(400)
+  // os links que a pessoa abre em aba nova (Ctrl+clique, segurar o dedo): as abas da barra e o produto do story
+  const hrefs = await page.evaluate(() => ({
+    abas: [...document.querySelectorAll('.barra-abas a[href]')].map((a) => a.getAttribute('href')),
+    produto: document.querySelector('.vista-inicio .hero-produto')?.getAttribute('href') ?? null,
+  }))
+  const daHome2 = (h) => new URLSearchParams((h ?? '').replace(/^[^?]*/, '')).get('home') === '2'
+  conferir(
+    hrefs.abas.length >= 3 && hrefs.abas.every(daHome2) && daHome2(hrefs.produto) && new URLSearchParams((hrefs.produto ?? '').replace(/^[^?]*/, '')).has('produto'),
+    `home2-visita: as abas e o produto do story abertos em aba nova continuam na Home 2 (${JSON.stringify(hrefs)})`,
+  )
+  // compartilhar (vai pra outra pessoa): o endereço da loja, sem a chave
+  await page.locator('.vista-inicio .hero-compartilhar').click()
+  await page.waitForTimeout(300)
+  const semChave = (url) => {
+    try {
+      const u = new URL(url)
+      return ![...u.searchParams.keys()].some((k) => /^home/i.test(k)) && !/home2/i.test(u.pathname)
+    } catch {
+      return false
+    }
+  }
+  const doStory = await page.evaluate(() => window.__compartilhado?.url ?? null)
+  conferir(!!doStory && new URL(doStory).searchParams.has('p') && semChave(doStory), `home2-visita: o link compartilhado do story é o da loja, sem a Home 2 (${doStory})`)
+  // as abas
+  await irAba(page, 'catalogo')
+  await naHome2('na aba Mercado')
+  // o story aberto pelo Mercado (?p=) e fechado
+  await page.getByRole('button', { name: /Seda OCB Premium Slim.*Abrir story/ }).click()
+  await page.locator('.story').waitFor({ timeout: 6000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  await naHome2('com o story aberto (?p=)', 'p')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(800)
+  await naHome2('fechando o story')
+  // a página do produto (?produto=), compartilhar dela e voltar
+  await irAba(page, 'inicio')
+  await page.locator('.vista-inicio .hero-ver').click()
+  await page.locator('.pp-janela').first().waitFor({ timeout: 6000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  await naHome2('na página do produto (?produto=)', 'produto')
+  await page.evaluate(() => {
+    window.__compartilhado = null
+  })
+  await page.locator('.pp-janela').getByRole('button', { name: 'Compartilhar produto' }).first().click()
+  await page.waitForTimeout(300)
+  const daPagina = await page.evaluate(() => window.__compartilhado?.url ?? null)
+  conferir(!!daPagina && new URL(daPagina).searchParams.has('produto') && semChave(daPagina), `home2-visita: o link compartilhado da página do produto é o da loja, sem a Home 2 (${daPagina})`)
+  await voltar(page)
+  conferir(!(await page.locator('.pp-janela').count()), 'home2-visita: o voltar fecha a página do produto')
+  await naHome2('voltando da página do produto')
+  // a sacola e o chat
+  await page.locator('.barra-abas [data-aba="sacola"]').click()
+  await page.waitForTimeout(700)
+  await naHome2('com a sacola aberta')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(700)
+  await page.locator('.vista-inicio .hero-resposta .barra-pilula').click()
+  await page.locator('.dm').waitFor({ timeout: 6000 }).catch(() => {})
+  await page.waitForTimeout(500)
+  await naHome2('com o chat aberto')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(800)
+  await naHome2('fechando o chat')
+  // o rateio: a aba e a página de um rateio (?rateio=)
+  await irAba(page, 'rateio')
+  await naHome2('na aba Rateio')
+  await page.locator('.vista[data-vista="rateio"] .rt-entrar').first().click()
+  await page.locator('.rp').first().waitFor({ timeout: 6000 }).catch(() => {})
+  await page.waitForTimeout(500)
+  await naHome2('na página do rateio (?rateio=)', 'rateio')
+  await voltar(page)
+  await naHome2('voltando da página do rateio')
+  // o voltar do Android até o Início
+  for (let k = 0; k < 4 && (await abaAberta(page)) !== 'inicio'; k++) await voltar(page)
+  conferir((await abaAberta(page)) === 'inicio', 'home2-visita: o voltar chega no Início')
+  await naHome2('voltando até o Início')
+  await inicioDaHome2('voltando até o Início')
+  // recarregar e voltar de outro site: a URL é a mesma, a Home 2 também
+  await page.reload()
+  await page.locator('.vista-inicio .hero').waitFor({ timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(800)
+  await naHome2('recarregando')
+  await inicioDaHome2('recarregando')
+  // o WhatsApp de mentira (o wa.me abre fora do site) e o voltar do celular
+  await ctx.route('https://wa.me/**', (rota) => rota.fulfill({ contentType: 'text/html', body: '<!doctype html><title>WhatsApp</title><p>WhatsApp</p>' }))
+  await page.goto('https://wa.me/5533991139036?text=oi')
+  await page.goBack()
+  await page.locator('.vista-inicio .hero').waitFor({ timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(800)
+  await naHome2('voltando de outro site (o WhatsApp)')
+  await inicioDaHome2('voltando de outro site')
+  // axe em cada aba da Home 2 (passar pelas abas também mantém ela)
+  await axeNasAbas(page, 'home2')
+  await naHome2('depois de passar por todas as abas')
+  // /greencheese/ sem a chave, na mesma aba: a home de sempre (com a rua no 1º story)
+  await page.goto(new URL('?uf=mg', base).href)
+  await page.locator('.vista-inicio .hero').waitFor({ timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(800)
+  const deSempre = await page.evaluate(() => ({
+    home: document.querySelector('.app')?.getAttribute('data-home') ?? null,
+    q: location.search,
+    ruaStory: !!document.querySelector('.vista-inicio .rua-story:not([hidden])'),
+    ruaFim: document.querySelectorAll('.vista-inicio .rua-fim').length,
+  }))
+  conferir(deSempre.home == null && !/home/i.test(deSempre.q) && deSempre.ruaStory && !deSempre.ruaFim, `home2-visita: /greencheese/ sem a chave na mesma aba é a home de sempre (${JSON.stringify(deSempre)})`)
+  await ctx.close()
+}
+
+// Numa visita nova (outro aparelho), /greencheese/ é a home de sempre; e o link compartilhado de dentro da Home 2 (sem
+// a chave) abre o produto nela
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { semDica: true })
+  const page = await ctx.newPage()
+  vigiar(page, 'home-visita-nova')
+  await page.goto(new URL('?uf=mg&p=seda-ocb-premium-slim', base).href)
+  await passarAbertura(page)
+  await page.locator('.story').waitFor({ timeout: 8000 }).catch(() => {})
+  const r = await page.evaluate(() => ({
+    home: document.querySelector('.app')?.getAttribute('data-home') ?? null,
+    story: document.querySelector('.story .story-produto .sq-nome')?.textContent ?? null,
+    ruaStory: !!document.querySelector('.vista-inicio .rua-story'),
+  }))
+  conferir(r.home == null && r.story === 'Seda OCB Premium Slim' && r.ruaStory, `home: visita nova com o link compartilhado (?p=): o produto abre por cima da home de sempre (${JSON.stringify(r)})`)
+  await ctx.close()
+}
+
+// Os links diretos nas duas homes (celular): ?produto=, ?p=, ?rateio=, ?jogo=, ?chat=, ?aba= abrem o que pedem; na
+// Home 2 (pelo home2/), com o ?home=2 junto. A Home 2 com a página do Início atrás é a dela (sem a rua no story)
+for (const [nome, prefixo] of [
+  ['home', ''],
+  ['home2', 'home2/'],
+]) {
+  for (const [q, sel, chave] of [
+    ['uf=mg&produto=seda-ocb-premium-slim', '.pp-janela', 'produto'],
+    ['uf=mg&p=seda-ocb-premium-slim', '.story', 'p'],
+    ['uf=mg&rateio=arizona-green-tea', '.rp', 'rateio'],
+    ['uf=mg&jogo=sorte', '.casca', 'jogo'],
+    ['uf=mg&chat=pedido', '.dm', null],
+    ['uf=mg&aba=estados', '.vista[data-vista="estados"]:not([hidden])', 'aba'],
+  ]) {
+    const ctx = await contexto(browser, { width: 390, height: 844 }, { semDica: true })
+    await ctx.addInitScript(() => {
+      localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5))
+      sessionStorage.setItem('gc-abertura', '1')
+    })
+    const page = await ctx.newPage()
+    vigiar(page, `${nome}-link-${q}`)
+    await page.goto(new URL(`${prefixo}?${q}`, base).href)
+    const abriu = await page
+      .locator(sel)
+      .first()
+      .waitFor({ state: 'attached', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false)
+    await page.waitForTimeout(500)
+    const r = await page.evaluate(() => ({
+      home: document.querySelector('.app')?.getAttribute('data-home') ?? null,
+      q: location.search,
+      ruaStory: document.querySelectorAll('.vista-inicio .rua-story').length,
+    }))
+    const u = new URLSearchParams(r.q)
+    const h2 = nome === 'home2'
+    conferir(
+      abriu && (h2 ? r.home === '2' && u.get('home') === '2' && !r.ruaStory : r.home == null && !u.has('home')) && u.get('uf') === 'mg' && (!chave || u.has(chave)),
+      `${nome}: o link direto ?${q} abre o que pede${h2 ? ', na Home 2' : ''} (${JSON.stringify({ abriu, ...r })})`,
+    )
+    await ctx.close()
+  }
+}
+
+// No computador as duas homes são iguais: a rua embaixo do perfil (a vaga no hero), nada da rua no story nem no fim
+for (const [nome, caminho] of [
+  ['home', '?uf=mg'],
+  ['home2', 'home2/?uf=mg'],
+]) {
+  const ctx = await contexto(browser, { width: 1440, height: 900 })
+  const page = await ctx.newPage()
+  vigiar(page, `${nome}-1440`)
+  await page.goto(new URL(caminho, base).href)
+  await passarAbertura(page)
+  await page.waitForFunction(() => ['rodando', 'parada'].includes(document.querySelector('.vista-inicio .hero .rua')?.getAttribute('data-rua') ?? ''), null, { timeout: 15000 }).catch(() => {})
+  const r = await page.evaluate(() => ({
+    home: document.querySelector('.app')?.getAttribute('data-home') ?? null,
+    vagaHero: document.querySelectorAll('.vista-inicio .hero .rua-vaga').length,
+    rua: document.querySelector('.vista-inicio .hero .rua')?.getAttribute('data-rua') ?? null,
+    ruaStory: document.querySelectorAll('.vista-inicio .rua-story').length,
+    ruaFim: document.querySelectorAll('.vista-inicio .rua-fim').length,
+    produto: !!document.querySelector('.vista-inicio .hero-palco .sq-nome'),
+  }))
+  conferir(
+    r.home === (nome === 'home2' ? '2' : null) && r.vagaHero === 1 && ['rodando', 'parada'].includes(r.rua) && !r.ruaStory && !r.ruaFim && r.produto,
+    `${nome}-1440: no computador, a rua embaixo do perfil e o story de produtos, igual nas duas homes (${JSON.stringify(r)})`,
+  )
+  await foto(page, `${nome}-1440`)
+  await ctx.close()
+}
+
+// Home 2: quem pula pro fim da página (End, a barra de rolagem) deixa a rua acima da tela: o pedaço dela baixa assim
+// mesmo e, subindo de volta, ela já anda (a folga nos dois sentidos)
+{
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { semDica: true })
+  const page = await ctx.newPage()
+  vigiar(page, 'home2-pulo-pro-fim')
+  await page.goto(new URL('home2/?uf=mg', base).href)
+  await passarAbertura(page)
+  await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+  await page.waitForTimeout(1000)
+  const baixada = () => page.evaluate(() => performance.getEntriesByType('resource').some((e) => /\/Rua-[^/]*\.js|elenco\.worker/.test(e.name)))
+  const antes = await baixada()
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  let veio = false
+  for (let k = 0; k < 40 && !(veio = await baixada()); k++) await page.waitForTimeout(100)
+  await page.waitForTimeout(800)
+  await page.evaluate(() => document.querySelector('.vista-inicio .rua-fim')?.scrollIntoView({ block: 'center' }))
+  let est = null
+  for (let k = 0; k < 60 && (est = await page.locator('.vista-inicio .rua-fim .rua').getAttribute('data-rua').catch(() => null)) !== 'rodando'; k++) await page.waitForTimeout(100)
+  conferir(!antes && veio && est === 'rodando', `home2: pulando pro fim da página o pedaço da rua baixa e, subindo, ela já anda (${JSON.stringify({ antes, veio, est })})`)
+  await ctx.close()
+}
+
+// O pedaço da rua que não baixa nem tentando de novo (4G caindo): na Home 2 a seção do fim some inteira (título e
+// vaga), com o rodapé logo depois da grade; na home de sempre, o story fica no pôster
+for (const h2 of [true, false]) {
+  const nome = h2 ? 'home2-rua-falhou' : 'home-rua-falhou'
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { semDica: true })
+  let tentativas = 0
+  await ctx.route(/\/assets\/Rua-[^/?]*\.js/, (rota) => {
+    tentativas++
+    return rota.abort()
+  })
+  const page = await ctx.newPage()
+  // as falhas de rede e a do import provocadas aqui não contam; o resto conta
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !/Failed to load resource|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(m.text())) erros.push(`[${nome}] console: ${m.text()}`)
+  })
+  page.on('pageerror', (e) => erros.push(`[${nome}] pageerror: ${e.message}`))
+  await page.goto(new URL(h2 ? 'home2/?uf=mg' : '?uf=mg', base).href)
+  await passarAbertura(page)
+  if (h2) {
+    await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+    await page.evaluate(() => document.querySelector('.vista-inicio .rua-fim')?.scrollIntoView({ block: 'center' }))
+    for (let k = 0; k < 80 && (await page.locator('.vista-inicio .rua-fim').count()); k++) await page.waitForTimeout(100)
+    const fim = await page.evaluate(() => {
+      const g = document.querySelector('.vista-inicio .catalogo-inicio')?.getBoundingClientRect()
+      const r = document.querySelector('.rodape')?.getBoundingClientRect()
+      return { secao: document.querySelectorAll('.vista-inicio .rua-fim, .vista-inicio .rua-vaga').length, vao: g && r ? Math.round(r.top - g.bottom) : null }
+    })
+    conferir(tentativas >= 3 && !fim.secao && fim.vao != null && fim.vao >= -1 && fim.vao <= 2, `${nome}: o pedaço da rua não baixou (${tentativas} tentativas): a seção do fim some inteira e o rodapé vem logo depois da grade (${JSON.stringify(fim)})`)
+  } else {
+    const cena = page.locator('.vista-inicio .rua-story')
+    for (let k = 0; k < 80 && (await cena.getAttribute('data-rua').catch(() => null)) !== 'falhou'; k++) await page.waitForTimeout(100)
+    const r = await page.evaluate(() => {
+      const c = document.querySelector('.vista-inicio .rua-story')
+      return { estado: c?.getAttribute('data-rua') ?? null, aqui: !!c && !c.hidden, poster: !!c?.querySelector('.rua-story-poster') }
+    })
+    conferir(tentativas >= 3 && r.estado === 'falhou' && r.aqui && r.poster, `${nome}: o pedaço da rua não baixou (${tentativas} tentativas): o story fica no pôster (${JSON.stringify(r)})`)
+  }
+  await foto(page, nome)
   await ctx.close()
 }
 
@@ -1694,19 +2021,218 @@ function contarVoltasDaRua() {
   }
 }
 
-// No celular, a rua no fim do Início, depois da grade e antes do rodapé (pedido do Ian em 09/10): na primeira tela ela
-// nem monta nem baixa (a vaga já guarda a altura); rolando até ela, o pedaço baixa e ela anda; o rAF para com o botão,
-// fora da tela, com a sacola por cima e com a aba escondida; movimento reduzido, a foto. No computador, a faixa embaixo
-// do perfil: aparece, para fora da tela e no botão. Nos dois, o mercador chamado pelo teclado abre o "Ver o Mercado",
-// que leva à aba Mercado.
-for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, false], [1280, 800, true]]) {
-  const cel = w < 900
-  const nome = `rua-${cel ? 'fim-' : ''}${w}${reduzir ? '-reduzido' : ''}`
-  const ctx = await contexto(browser, { width: w, height: h }, { reduzir })
+// No celular, o primeiro story do Início: o rAF dela só roda com o segmento dela à vista e tocando (para com o story
+// pausado, no produto, com o dedo segurando, com a sacola ou o chat por cima, fora da tela e com a aba escondida; na
+// volta, a mesma cena continua); o mercador chamado (toque ou teclado) abre o "Ver o Mercado" e o story segura o tempo
+// dele enquanto o adesivo está aberto. Movimento reduzido: a foto, sem rAF e sem botão de pausar.
+for (const reduzir of [false, true]) {
+  const nome = `rua-story-390${reduzir ? '-reduzido' : ''}`
+  const ctx = await contexto(browser, { width: 390, height: 844 }, { reduzir, semDica: true })
   await ctx.addInitScript(contarVoltasDaRua)
   const page = await ctx.newPage()
   vigiar(page, nome)
   await page.goto(`${base}?uf=mg`)
+  await passarAbertura(page)
+  const cena = page.locator('.vista-inicio .rua-story')
+  const estadoDaRua = () => cena.getAttribute('data-rua')
+  for (let k = 0; k < 80 && !['rodando', 'foto'].includes(await estadoDaRua()); k++) await page.waitForTimeout(100)
+  const estado = await estadoDaRua()
+  conferir(estado === (reduzir ? 'foto' : 'rodando'), `${nome}: o primeiro story é a rua, ${reduzir ? 'em foto (movimento reduzido)' : 'andando'} (${estado})`)
+  const a11y = await page.evaluate(() => {
+    const c = document.querySelector('.vista-inicio .rua-story')
+    return {
+      aqui: !!c && !c.hidden,
+      papel: c?.getAttribute('role'),
+      nome: c?.getAttribute('aria-label'),
+      telas: c?.querySelectorAll('.rua-tela[aria-hidden="true"]').length ?? 0,
+      poster: c?.querySelector('.rua-story-poster')?.getAttribute('alt'),
+      botao: c?.querySelector('.rua-mercador')?.getAttribute('aria-label'),
+      faixa: document.querySelectorAll('.vista-inicio .rua-vaga, .vista-inicio .rua:not(.rua-em-story), .vista-inicio .rua-pausa').length,
+    }
+  })
+  conferir(
+    a11y.aqui && a11y.papel === 'group' && a11y.nome === 'A rua da loja: o mercador atendendo' && a11y.telas === 1 && a11y.poster === '' && a11y.botao === 'Chamar o mercador' && !a11y.faixa,
+    `${nome}: o story com o nome da rua, canvas e pôster decorativos, "Chamar o mercador" e nenhuma faixa da rua no celular (${JSON.stringify(a11y)})`,
+  )
+  const cores = await page.evaluate(() => {
+    const c = document.querySelector('.vista-inicio .rua-em-story .rua-tela')
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+    const s = new Set()
+    for (let i = 0; i < d.length; i += 4 * 7) s.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+    return s.size
+  })
+  conferir(cores > 6, `${nome}: a rua desenhada no canvas (${cores} cores)`)
+  await foto(page, `${nome}-1`)
+  const quadroDaRua = () => page.evaluate(() => document.querySelector('.vista-inicio .rua-em-story .rua-tela').toDataURL())
+  const voltas = () => page.evaluate(() => window.__voltas)
+  /** Voltas do rAF da rua em 1 s (depois de 300 ms para assentar). */
+  const porSegundo = async () => {
+    await page.waitForTimeout(300)
+    const a = await voltas()
+    await page.waitForTimeout(1000)
+    return (await voltas()) - a
+  }
+  const q = await page.locator('.vista-inicio .hero-quadro').boundingBox()
+  const tocar = (fx) => page.touchscreen.tap(q.x + q.width * fx, q.y + q.height * 0.3)
+  // a barrinha da rua (a primeira): andando ou parada
+  const barraDaRua = () => page.evaluate(() => getComputedStyle(document.querySelector('.vista-inicio .hero-barras .story-barra:first-child > i')).transform)
+  if (reduzir) {
+    const a = await quadroDaRua()
+    await page.waitForTimeout(2500)
+    conferir(a === (await quadroDaRua()), `${nome}: com movimento reduzido nada anda (o mesmo quadro)`)
+    const v = await porSegundo()
+    conferir(!(await page.locator('.vista-inicio .hero-pausa').count()) && v <= 1, `${nome}: sem botão de pausar e sem rAF da rua (${v})`)
+  } else {
+    const rAF = {}
+    rAF.vista = await porSegundo()
+    // o botão de pausar do story (44 px; no celular, só para o teclado e o leitor de tela: segurar já pausa). O foco do
+    // teclado dentro do story segura o tempo dele, não a cena (chamado pelo teclado, o mercador responde); o Enter
+    // libera e o seguinte pausa de verdade: aí a rua para junto
+    const pausa = page.locator('.vista-inicio .hero-pausa')
+    const bb = await pausa.boundingBox()
+    conferir(!!bb && bb.width >= 44 && bb.height >= 44, `${nome}: botão de pausar com alvo de 44 px (${bb ? `${bb.width}×${bb.height}` : '?'})`)
+    await pausa.focus()
+    await page.waitForTimeout(200)
+    const comFoco = { rotulo: await pausa.getAttribute('aria-label'), rua: await estadoDaRua() }
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(200)
+    const liberado = await pausa.getAttribute('aria-label')
+    await page.keyboard.press('Enter')
+    rAF.pausado = await porSegundo()
+    const pausou = { rotulo: await pausa.getAttribute('aria-label'), rua: await estadoDaRua() }
+    await page.keyboard.press('Enter')
+    await page.evaluate(() => document.activeElement?.blur?.())
+    await page.waitForTimeout(300)
+    conferir(
+      comFoco.rotulo === 'Continuar stories' && comFoco.rua === 'rodando' && liberado === 'Pausar stories' && pausou.rotulo === 'Continuar stories' && pausou.rua === 'parada' && (await estadoDaRua()) === 'rodando',
+      `${nome}: o foco segura o tempo do story e a rua segue; pausar o story para a rua e continuar volta a andar (${JSON.stringify({ comFoco, liberado, pausou })})`,
+    )
+    // outro segmento (o produto): a rua fica montada, escondida e parada; na volta, a mesma cena continua
+    await page.evaluate(() => {
+      window.__tela = document.querySelector('.vista-inicio .rua-em-story .rua-tela')
+    })
+    await tocar(0.92)
+    rAF.produto = await porSegundo()
+    const noProduto = { estado: await estadoDaRua(), escondida: await cena.isHidden() }
+    await tocar(0.08)
+    await page.waitForTimeout(400)
+    const mesma = await page.evaluate(() => document.querySelector('.vista-inicio .rua-em-story .rua-tela') === window.__tela)
+    conferir(noProduto.estado === 'parada' && noProduto.escondida && (await estadoDaRua()) === 'rodando' && mesma, `${nome}: no produto a rua para escondida; de volta, a mesma cena continua (${JSON.stringify(noProduto)}, mesma ${mesma})`)
+    // o dedo segurando: a rua para no toque e o story não passa ao soltar
+    await page.mouse.move(q.x + q.width * 0.5, q.y + q.height * 0.3)
+    await page.mouse.down()
+    rAF.segurando = await porSegundo()
+    const segurou = (await estadoDaRua()) === 'parada'
+    await page.mouse.up()
+    await page.waitForTimeout(400)
+    conferir(segurou && (await estadoDaRua()) === 'rodando' && !(await cena.isHidden()), `${nome}: segurar para a rua; soltar volta a andar sem passar o story`)
+    // camada por cima: a sacola e o chat ("Enviar mensagem…")
+    await page.locator('.barra-abas [data-aba="sacola"]').click()
+    await page.waitForTimeout(500)
+    rAF.sacola = await porSegundo()
+    const comSacola = (await estadoDaRua()) === 'parada'
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(700)
+    await page.locator('.vista-inicio .hero-resposta .barra-pilula').click()
+    await page.waitForTimeout(600)
+    rAF.chat = await porSegundo()
+    const comChat = (await estadoDaRua()) === 'parada'
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(700)
+    const fechou = !(await page.locator('.folha').count())
+    conferir(comSacola && comChat && fechou && (await estadoDaRua()) === 'rodando', `${nome}: com a sacola ou o chat por cima a rua para; fechou, volta a andar`)
+    // fora da tela e com a aba do navegador escondida
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await page.waitForTimeout(600)
+    rAF.foraDaTela = await porSegundo()
+    const fora = (await estadoDaRua()) === 'parada'
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(600)
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    rAF.abaEscondida = await porSegundo()
+    const escondida = (await estadoDaRua()) === 'parada'
+    await page.evaluate(() => {
+      delete document.visibilityState
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await page.waitForTimeout(400)
+    conferir(fora && escondida && (await estadoDaRua()) === 'rodando', `${nome}: fora da tela e com a aba escondida a rua para; de volta, anda`)
+    relatorio.push(`${nome}: rAF da rua por segundo — ${Object.entries(rAF).map(([k, v]) => `${k} ${v}`).join(', ')}`)
+    const { vista, ...parada } = rAF
+    conferir(vista >= 30 && Object.values(parada).every((v) => v <= 2), `${nome}: o rAF da rua só roda com o segmento dela à vista e tocando (${JSON.stringify(rAF)})`)
+    // tocar no mercador: o balão do chamado (sem repetir o adesivo do pé), o "Ver o Mercado" e o story segurando o tempo
+    // dele enquanto o adesivo está aberto; o adesivo sai sozinho e o tempo volta a correr
+    await page.evaluate(() => document.activeElement?.blur?.())
+    await page.waitForTimeout(200)
+    const t0 = await barraDaRua()
+    await page.waitForTimeout(700)
+    const correndo = t0 !== (await barraDaRua())
+    const m = await page.locator('.vista-inicio .rua-em-story .rua-mercador').boundingBox()
+    // onde o mercador estava no quadro (0 = borda esquerda, 1 = direita) e em qual segmento: pra entender uma falha rara
+    const fx = Math.round(((m.x + m.width / 2 - q.x) / q.width) * 100) / 100
+    await page.mouse.click(m.x + m.width / 2, m.y + m.height / 2)
+    await page.waitForTimeout(400)
+    const balao = await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()
+    const aberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
+    const b1 = await barraDaRua()
+    await page.waitForTimeout(1500)
+    const b1b = await barraDaRua()
+    const segura = b1 === b1b
+    const aindaAberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
+    const naRua = !(await cena.isHidden())
+    conferir(
+      correndo && aberto && aindaAberto && naRua && segura && balao.some((t) => /Vem no certo|Quem já usou/.test(t)) && !balao.some((t) => /Chega mais/.test(t)),
+      `${nome}: tocar no mercador abre o "Ver o Mercado" e segura o story (${JSON.stringify({ correndo, aberto, aindaAberto, naRua, segura, fx, b1: b1.slice(7, 15), b1b: b1b.slice(7, 15), balao })})`,
+    )
+    await foto(page, `${nome}-2-chamado-toque`)
+    for (let k = 0; k < 40 && (await page.locator('.vista-inicio .rua-ver').count()); k++) await page.waitForTimeout(250)
+    const sumiu = !(await page.locator('.vista-inicio .rua-ver').count())
+    const b2 = await barraDaRua()
+    await page.waitForTimeout(700)
+    conferir(sumiu && b2 !== (await barraDaRua()) && !(await cena.isHidden()), `${nome}: o adesivo sai sozinho e o tempo do story volta a correr`)
+  }
+  // chamar o mercador pelo teclado: o botão focável abre o balão e o "Ver o Mercado", que leva à aba Mercado
+  const botao = page.locator('.vista-inicio .rua-em-story .rua-mercador')
+  await botao.focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(400)
+  const ver = page.locator('.vista-inicio .rua-ver')
+  const bal = await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()
+  conferir(
+    (await ver.count()) === 1 && bal.some((t) => /Vem no certo|Quem já usou/.test(t)) && !bal.some((t) => /Chega mais/.test(t)),
+    `${nome}: chamar o mercador pelo teclado abre o balão (sem repetir o adesivo) e o "Ver o Mercado" (${bal.join(' | ')})`,
+  )
+  // o leitor de tela ouve o que de fato acontece (livre, ele abre o casaco; atendendo, no fim do atendimento; na foto,
+  // só oferece)
+  const aviso = (await page.locator('.vista-inicio .rua-aviso').textContent())?.trim()
+  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.)$/.test(aviso ?? '')
+  conferir(avisoCerto, `${nome}: o aviso do chamado diz o que acontece na cena (${aviso})`)
+  const cb = await ver.boundingBox()
+  conferir(!!cb && cb.height >= 44, `${nome}: "Ver o Mercado" com alvo de 44 px (${cb ? Math.round(cb.height) : '?'})`)
+  await foto(page, `${nome}-3-chamado-teclado`)
+  await page.keyboard.press('Tab')
+  conferir(await ver.evaluate((e) => e === document.activeElement), `${nome}: o Tab seguinte cai no "Ver o Mercado"`)
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(800)
+  conferir((await abaAberta(page)) === 'catalogo', `${nome}: "Ver o Mercado" abre a aba Mercado`)
+  await ctx.close()
+}
+// Na Home 2, a rua no fim do Início do celular, depois da grade e antes do rodapé: na primeira tela ela nem monta nem
+// baixa (a vaga já guarda a altura); rolando até ela, o pedaço baixa e ela anda; o rAF para com o botão, fora da tela,
+// com a sacola por cima e com a aba escondida; movimento reduzido, a foto. No computador (igual nas duas homes), a
+// faixa embaixo do perfil: aparece, para fora da tela e no botão. Nos dois, o mercador chamado pelo teclado abre o "Ver
+// o Mercado", que leva à aba Mercado.
+for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, false], [1280, 800, true]]) {
+  const cel = w < 900
+  const nome = `rua-${cel ? 'fim-h2-' : ''}${w}${reduzir ? '-reduzido' : ''}`
+  const ctx = await contexto(browser, { width: w, height: h }, { reduzir })
+  await ctx.addInitScript(contarVoltasDaRua)
+  const page = await ctx.newPage()
+  vigiar(page, nome)
+  await page.goto(`${base}${cel ? '?home=2&' : '?'}uf=mg`)
   await passarAbertura(page)
   const baixada = () => page.evaluate(() => performance.getEntriesByType('resource').some((e) => /\/Rua-[^/]*\.js|elenco\.worker/.test(e.name)))
   if (cel) {
@@ -1814,14 +2340,30 @@ for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, 
   // chamar o mercador pelo teclado: o botão focável abre o balão e o adesivo "Ver o Mercado", que leva à aba Mercado
   const botao = page.locator('.vista:not([hidden]) .rua-mercador')
   await botao.focus()
-  await page.keyboard.press('Enter')
   // o balão do chamado sai na hora; no meio de um atendimento a fala seguinte do roteiro pode tomar o lugar dele logo
-  // depois (um balão por vez): o que vale é ele ter aparecido. As falas vistas nos primeiros 400 ms
+  // depois (um balão por vez, às vezes no quadro seguinte): o que vale é ele ter aparecido. Cada balão do mercador que
+  // entra na camada dos balões desde o Enter (MutationObserver) e os que estão nela nos primeiros 400 ms
+  await page.evaluate(() => {
+    const camada = document.querySelector('.vista:not([hidden]) .rua-baloes')
+    const vistos = new Set()
+    window.__baloesDoMercador = vistos
+    if (!camada) return
+    const anotar = () => camada.querySelectorAll('.rua-balao[data-ator="mercador"]').forEach((e) => vistos.add(e.textContent))
+    window.__vigiaBaloes?.disconnect()
+    window.__vigiaBaloes = new MutationObserver(anotar)
+    window.__vigiaBaloes.observe(camada, { childList: true, subtree: true, characterData: true })
+  })
+  await page.keyboard.press('Enter')
   const bal = new Set()
   for (let k = 0; k < 8; k++) {
     for (const t of await page.locator('.vista:not([hidden]) .rua-balao[data-ator="mercador"]').allTextContents()) bal.add(t)
     await page.waitForTimeout(50)
   }
+  for (const t of await page.evaluate(() => {
+    window.__vigiaBaloes?.disconnect()
+    return [...(window.__baloesDoMercador ?? [])]
+  }))
+    bal.add(t)
   const cta = page.locator('.vista:not([hidden]) .rua-cta')
   conferir((await cta.count()) === 1 && [...bal].some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${[...bal].join(' | ')})`)
   // o leitor de tela ouve o que de fato acontece: livre, ele abre o casaco; atendendo, abre no fim do atendimento; na

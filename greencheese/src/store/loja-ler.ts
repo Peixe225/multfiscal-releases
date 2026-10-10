@@ -233,7 +233,7 @@ export function lerLoja(v: unknown, reserva: Loja, maxStory: number): Loja | nul
   return {
     whatsapp: typeof v.whatsapp === 'string' && WHATSAPP.test(v.whatsapp) ? v.whatsapp : reserva.whatsapp,
     restamAte: restamAte ?? null,
-    // a rua no fim do Início do celular (o nome vem de quando ela era o 1º story): sem o ajuste, ligada
+    // a rua do mercador no celular (1º story na home, fim do Início na Home 2): sem o ajuste, ligada
     ruaNoStory: v.ruaNoStory !== false,
     textos: {
       bio: linhasLimpas(t.bio, 3, 80, reserva.textos.bio),

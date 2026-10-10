@@ -577,7 +577,7 @@ function gc_rota_admin_stories_salvar(): array
 /**
  * POST admin-loja-salvar { whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, textos? }: o WhatsApp da loja
  * (o padrão), se todos os estados usam ele (o número próprio de cada estado fica guardado), o "restam X", a rua do
- * mercador no fim do Início do celular (`ruaNoStory`: o nome é de quando ela era o 1º story) e os textos da loja.
+ * mercador no celular (`ruaNoStory`: o 1º story do Início na home, o fim do Início na Home 2) e os textos da loja.
  */
 function gc_rota_admin_loja_salvar(): array
 {
@@ -866,7 +866,8 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         'estado-desativado' => "Tirou $uf do site",
         'estado-editado' => "Editou o atendimento de $uf",
         'stories-salvos' => (int) ($d['produtos'] ?? 0) === 0 ? "Story do Início de $uf no automático" : "Escolheu o story do Início de $uf (" . gc_loja_plural((int) $d['produtos'], 'produto', 'produtos') . ')',
-        // só a chave da rua: a frase diz o que ela faz; o resto, a frase de sempre
+        // só a chave da rua: a frase diz o que ela faz (a rua do mercador no celular, na home e na Home 2); o resto, a
+        // frase de sempre
         'loja-ajustes' => ($d['campos'] ?? null) === ['ruaNoStory']
             ? (!empty($d['ruaNoStory']) ? 'Ligou a rua do mercador no celular' : 'Desligou a rua do mercador no celular')
             : 'Mudou os ajustes da loja',

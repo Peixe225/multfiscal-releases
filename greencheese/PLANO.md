@@ -11,7 +11,7 @@ por um revisor independente e no ar.
 - [x] `noindex` continua (`indexar: false`) até o catálogo ter só dados reais.
 
 ## F1 · Início — feito
-- [x] Uma home só (sai Home 1/Home 2, `?home`, balão, rosto do mercador na barra, passo do mercador no story); `/home2/` continua abrindo a home.
+- [x] Uma home só (sai Home 1/Home 2, `?home`, balão, rosto do mercador na barra, passo do mercador no story); `/home2/` continua abrindo a home. (Em 10/10 a Home 2 voltou, com outra cara: ver F11.)
 - [x] Celular: story → faixa → perfil (igual) → destaques → grade do catálogo → rodapé dos @.
 - [x] Destaques do Início: abas primeiro (destaque do estado, Buscar, Teste minha sorte, Por estado), separador, filtros à direita (Tudo, Importadas, Destilados, Sedas, Piteiras, Acessórios) filtrando a grade no lugar.
 - [x] Início termina na grade, sem o mercador e sem o Teste minha sorte; aba Catálogo e busca como estão.
@@ -55,7 +55,7 @@ por um revisor independente e no ar.
 
 ## F10 · Painel: a loja inteira no controle do dono — feito
 - [x] Produtos: foto (thumbnail), nome, descrição, preço, combos, variações, disponível/indisponível por estado e "restam X unidades".
-- [x] Stories do Início: quais produtos passam e em que ordem (e a rua do mercador no fim do Início do celular, liga e desliga).
+- [x] Stories do Início: quais produtos passam e em que ordem (e a rua do mercador no celular, liga e desliga: o 1º story na home, o fim do Início na Home 2).
 - [x] Estados: WhatsApp por estado (ou um só pra todos), Instagram, cidades, horários de entrega, taxa, entrega grátis em um ou mais dias, formas de pagamento; estado novo ativado pelo painel.
 - [x] Pedido guiado: as falas de cada passo editáveis (Textos do pedido); prêmios e regras do Teste minha sorte (valem também no giro do servidor); textos da loja e as falas do mercador.
 - [x] O site lê tudo do servidor, com o que está embutido de reserva (nunca fica em branco).
@@ -63,7 +63,8 @@ por um revisor independente e no ar.
 ## F11 · Início vivo e Mercado — feito
 - [x] Início: o mercador anda pela rua, bebe (refrigerante importado: álcool e tabaco fora da animação) e vende para 4 personagens bem diferentes, cada um com uma interação própria com ele — celular e computador.
 - [x] Aba Catálogo vira "Mercado", com o mercador e a animação que ele já tem.
-- [x] Celular: a rua do mercador no fim do Início, depois da grade e antes do rodapé (pedido do Ian em 09/10); o topo volta a ser o de 08/10 (o 1º story é de produto, faixa e perfil logo depois) e a rua só baixa quando chega perto da tela.
+- [x] Celular: a rua do mercador como o 1º story do Início (visível na primeira tela), a faixa sai do meio e o perfil volta logo depois do story.
+- [x] Home 2 (`/home2/` → `?home=2`, pedido do Ian em 10/10: "a home atual móbile está ótima, com o mercador no primeiro stories; a versão com ele no final, apenas na home 2"): o topo de 08/10 (o 1º story é de produto) e a rua do mercador só no fim do Início, depois da grade e antes do rodapé, baixando quando chega perto da tela; a visita inteira fica na Home 2; no computador as duas são iguais.
 
 ## F12 · Pedido completo no WhatsApp da Green Cheese — feito (falta o gateway da loja)
 - [x] Ao fechar, o pedido fica salvo no servidor (com o código GC-XXXXX na mensagem) e o aviso sai completo e formatado pro grupo privado do WhatsApp por um gateway (Z-API, Evolution API ou webhook), configurado em Avisos no WhatsApp, com envio de teste e reenvio.
@@ -80,5 +81,6 @@ por um revisor independente e no ar.
 
 ## Publicação — feito
 - [x] F7–F13 no ar em oprojeto.online/greencheese/ (ok do Ian em 09/10), com o painel instalado e o acesso do dono criado.
-- [x] 10/10: atualização com o celular no layout de ontem e a rua do mercador só no fim do Início (banco, painel e código de instalação do servidor intactos).
-- [ ] LCP do celular (DES-01): a arte do 1º story contar como a maior pintura desde o começo (rascunho guardado, sem teste).
+- [x] 10/10: atualização com o celular no layout de ontem e a rua do mercador só no fim do Início (banco, painel e código de instalação do servidor intactos); a pedido do Ian, a home com a rua no 1º story (7744b7f) voltou pro ar.
+- [ ] Publicar a home com a rua no 1º story junto com a Home 2 (`/home2/`, a rua no fim do Início) — pede o ok do Ian.
+- [ ] LCP do celular da Home 2 (DES-01): a arte do 1º story contar como a maior pintura desde o começo (rascunho guardado, sem teste).

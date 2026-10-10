@@ -19,7 +19,7 @@ export interface Ajustes {
   mesmoWhatsappParaTodos: boolean
   /** "Restam X" quando o estoque chega a esse número (null = nunca mostra). */
   restamAte: number | null
-  /** A rua do mercador no fim do Início do celular (Stories do Início). O nome é de quando ela era o 1º story. */
+  /** A rua do mercador no celular (Stories do Início): o 1º story na home, o fim do Início na Home 2. */
   ruaNoStory: boolean
 }
 

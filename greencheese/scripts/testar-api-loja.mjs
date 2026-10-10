@@ -99,7 +99,7 @@ export async function loja(t, { nomesUf }) {
   const L = r0.json.loja
   igual(chaves(L), ['categorias', 'estados', 'produtos', 'restamAte', 'ruaNoStory', 'sorte', 'stories', 'textos', 'whatsapp'], 'as partes da loja')
   igual([L.whatsapp, L.restamAte], [s.ajustes.whatsapp, s.ajustes.restamAte], 'WhatsApp da loja e "restam X" da semente')
-  igual(L.ruaNoStory, true, 'a rua do mercador no fim do Início do celular (ruaNoStory) nasce ligada')
+  igual(L.ruaNoStory, true, 'a rua do mercador no celular (ruaNoStory: o 1º story na home, o fim do Início na Home 2) nasce ligada')
   mesmo(L.textos, s.textos, 'textos da loja = src/dados/textos-loja.ts')
   mesmo(L.categorias, s.categorias, 'categorias da semente, com o "bebida"')
   ok(r0.texto.includes('"stories":{}') && r0.texto.includes('"restam":{}'), 'mapa vazio sai como {} (nunca [])')
@@ -413,7 +413,7 @@ export async function loja(t, { nomesUf }) {
     await troca({ estoque: null })
   }
 
-  parte('loja: a rua do mercador no fim do Início do celular (ruaNoStory, Stories do Início)')
+  parte('loja: a rua do mercador no celular (ruaNoStory, Stories do Início: o 1º story na home, o fim do Início na Home 2)')
   {
     igual((await adm()).ajustes.ruaNoStory, true, 'admin-loja: a chave da rua nasce ligada')
     const v0 = await versao()

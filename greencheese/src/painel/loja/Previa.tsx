@@ -31,12 +31,21 @@ export function PreviaCard({ p, situacao, restam, largura = 168 }: { p: DadosPre
   )
 }
 
-/** O story do Início em miniatura: as barrinhas (uma por produto), o perfil do estado e o produto da vez. */
-export function PreviaStory({ produtos, atual, instagram, largura = 200 }: { produtos: DadosPrevia[]; atual: number; instagram: string; largura?: number }) {
+/**
+ * O story do Início em miniatura: as barrinhas (uma por produto e, com a rua do mercador ligada, a dela antes, já
+ * passada, como no celular da home; na Home 2 a rua fica no fim do Início, fora do story), o perfil do estado e o
+ * produto da vez.
+ */
+export function PreviaStory({ produtos, atual, instagram, largura = 200, comRua = false }: { produtos: DadosPrevia[]; atual: number; instagram: string; largura?: number; comRua?: boolean }) {
   const p = produtos[atual] ?? produtos[0]
   return (
     <div className="pn-sq pn-sq-story" style={{ width: largura }}>
       <div className="pn-sq-barras" aria-hidden="true">
+        {comRua && (
+          <span>
+            <i style={{ transform: 'scaleX(1)' }} />
+          </span>
+        )}
         {produtos.map((x, i) => (
           <span key={x.id}>
             <i style={{ transform: `scaleX(${i < atual ? 1 : i === atual ? 0.5 : 0})` }} />

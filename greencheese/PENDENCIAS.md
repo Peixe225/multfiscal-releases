@@ -183,11 +183,14 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   bolinha; nome maior que uns 11 letras vira "…" no celular (o painel avisa).
 - **A rua do mercador**: as falas dos personagens são do roteiro (`src/componentes/rua/falas.ts`), não do painel; as
   "falas do mercador" do painel são as do topo do Mercado.
-- **A chave da rua no painel (09/10)**: a rua saiu do 1º story do celular e foi pro fim do Início (depois da grade,
-  antes do rodapé), a pedido do Ian. A chave continua com o nome `ruaNoStory` no JSON da loja e no banco (nenhuma
-  migração), mas agora liga e desliga a rua do fim do Início do celular; o computador não muda. A Atividade monta o
-  texto na hora de listar (o banco guarda só a ação e o detalhe), então todas as linhas da chave, também as gravadas
-  antes da mudança, passam a dizer "no celular".
+- **A chave da rua no painel (10/10)**: a home do celular voltou a ter a rua no 1º story e a Home 2 (`/home2/`) tem
+  ela no fim do Início (depois da grade, antes do rodapé), a pedido do Ian. A chave continua com o nome `ruaNoStory` no
+  JSON da loja e no banco (nenhuma migração) e liga e desliga a rua do celular nas duas homes ("Rua do mercador no
+  celular" no painel); o computador não muda. A Atividade monta o texto na hora de listar (o banco guarda só a ação e o
+  detalhe), então todas as linhas da chave, também as gravadas antes, dizem "no celular".
+- **A Home 2 é escolhida pela URL** (`?home=2`, que o `home2/` põe): ela fica a visita inteira, mas quem apaga a chave
+  na mão, ou abre um link compartilhado (que vai sem a chave, de propósito), cai na home de sempre. Não tem jeito de
+  trocar de home dentro do site, e o servidor não sabe qual delas a pessoa viu (o pedido no WhatsApp é igual nas duas).
 - **Mudança com a página aberta**: o site pergunta a loja ao abrir e quando a pessoa volta pra aba depois de 10 min fora
   (com o pedido guiado aberto, não pergunta: o pedido não muda debaixo da pessoa). Quem fica horas com a aba à vista
   só vê a mudança na próxima abertura.
@@ -197,7 +200,7 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   [928–1033] contra 959 [926–992] e 978 [950–1058]. A diferença fica dentro da variação da própria principal. O que a primeira
   tela baixa cresceu 4,0 KB comprimidos (226,7 → 230,7 KB): a conferência do servidor foi pra um pedaço à parte e os
   emblemas dos estados saíram da primeira tela (só o story do estado usa).
-- **Desempenho com a rua no fim do Início (09/10)** (mesmo celular e rede, mediana de 11 rodadas, entre colchetes do 1º
+- **Desempenho com a rua no fim do Início (09/10; desde 10/10, a Home 2)** (mesmo celular e rede, mediana de 11 rodadas, entre colchetes do 1º
   ao 3º quartil; "antes" é a 7744b7f, com a rua como 1º story e o pôster, e "ontem" é a a9f2083, o topo que voltou):
   o story pintado na tela (a hora da pintura que o próprio navegador dá, Element Timing no nome do produto ou no
   pôster; igual à FCP e à LCP) em 2576 ms [2564–2636], contra 2704 [2668–2740] antes e 2840 [2812–2904] ontem; a
@@ -209,7 +212,12 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   medidas do story no `ResizeObserver`, a entrada do produto e o GSAP do palco no quadro seguinte, a faixa, a paralaxe
   do próximo produto e o adesivo do topo ligando a rolagem quando a página respira (`quandoRespirar`), a lateral e as
   setas dos destaques sem medir no celular, o teclado virtual conferido no quadro seguinte e a arte com prioridade
-  entrando na fila no quadro seguinte.
+  entrando na fila no quadro seguinte. Essas correções valem nas duas homes; a home de sempre (a rua no 1º story, com o
+  pôster) não foi medida de novo nesta rodada (a medida de referência é a "antes" acima, 2704 ms), e a primeira tela
+  dela ficou igual à de 7744b7f nos prints (390×844 e 360×740).
+- **LCP da Home 2 (DES-01)**: no celular da Home 2 o navegador ainda pode contar como a maior pintura um produto que
+  entra depois (o 2º story), porque a borda cortada do halo muda a área de um produto pro outro. O rascunho da correção
+  (o halo do tamanho do desenho) está guardado, sem teste: continua pendente.
 
 ## Pedidos e avisos no WhatsApp
 

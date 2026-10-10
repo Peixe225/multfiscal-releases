@@ -6,11 +6,12 @@ import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import './RuaInicio.css'
 
-// A vaga da rua viva no Início: reserva a altura exata da faixa desde o primeiro quadro (zero pulo) e só baixa a rua
-// (pedaço à parte, com o elenco montando num worker) depois da abertura. A primeira tela não paga nada por ela.
+// A vaga da rua viva em faixa no Início: reserva a altura exata da faixa desde o primeiro quadro (zero pulo) e só baixa
+// a rua (pedaço à parte, com o elenco montando num worker) depois da abertura. A primeira tela não paga nada por ela.
 //   - computador (Hero.tsx, embaixo do perfil): baixa no primeiro respiro, porque ela está na primeira tela;
-//   - celular (RuaCelular, no fim do Início, depois da grade): só quando a vaga chega perto da tela, rolando para baixo
-//     ou subindo de volta (quem pula pro fim da página com End, Ctrl+End ou a barra de rolagem passa por cima dela).
+//   - celular da Home 2 (RuaCelular, no fim do Início, depois da grade): só quando a vaga chega perto da tela, rolando
+//     para baixo ou subindo de volta (quem pula pro fim da página com End, Ctrl+End ou a barra de rolagem passa por
+//     cima dela). Na home de sempre a rua do celular é o primeiro story (rua/StoryRua.tsx).
 
 // o pedaço tenta de novo antes de desistir (no celular ele só baixa no fim da página, e a rede pode ter caído no meio)
 const Rua = lazy(() => tentar(() => import('./rua/Rua')))
@@ -125,10 +126,11 @@ const lerCelular = () => {
 }
 
 /**
- * A rua no fim do Início do celular, depois da grade e antes do rodapé (pedido do Ian em 09/10): faixa de ponta a ponta,
- * a 2 px por pixel da arte, com um título pequeno em cima. No computador ela mora no hero, embaixo do perfil. O dono
- * desliga no painel (Stories do Início, a chave `ruaNoStory` da loja): desligada, o celular fica sem a rua. Se o pedaço
- * não baixar (mesmo tentando de novo) ou a rua não montar, a seção inteira some: título e vaga juntos.
+ * A rua no fim do Início do celular da Home 2, depois da grade e antes do rodapé (Abas.tsx só monta ela na Home 2):
+ * faixa de ponta a ponta, a 2 px por pixel da arte, com um título pequeno em cima. No computador ela mora no hero,
+ * embaixo do perfil. O dono desliga no painel (Stories do Início, a rua do mercador no celular: a chave `ruaNoStory` da
+ * loja): desligada, o celular fica sem a rua. Se o pedaço não baixar (mesmo tentando de novo) ou a rua não montar, a
+ * seção inteira some: título e vaga juntos.
  */
 export function RuaCelular() {
   const celular = useSyncExternalStore(assinarCelular, lerCelular, () => false)

@@ -13,7 +13,7 @@ import { tentar } from './lib/pedaco'
 import { focarVista } from './lib/foco'
 import { depoisDoHistorico, quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
-import { atualizarParametros, lerParametros } from './lib/url'
+import { atualizarParametros, ehHome2, lerParametros } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal } from './store/local'
@@ -392,7 +392,8 @@ export function App() {
           }}
         />
       )}
-      <div className="app" inert={abertura || saida}>
+      {/* data-home: a Home 2 (?home=2, src/lib/url.ts), que só muda o Início do celular */}
+      <div className="app" inert={abertura || saida} data-home={ehHome2() ? '2' : undefined}>
         <Lateral />
         <TopoLocal />
         <main className="principal" id="principal">

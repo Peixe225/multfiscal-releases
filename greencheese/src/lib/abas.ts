@@ -4,7 +4,7 @@ import { dentroDeIframe } from './ambiente'
 import { depoisDoHistorico, haCamadaAberta, historicoParado, quandoSemCamadas } from './historico'
 import { movimentoReduzido } from './movimento'
 import { desviarAncoras, obterLenis, rolarPara } from './rolagem'
-import { abaDaURL, abaNaURL, atualizarParametros, lerParametros, limparHomeVelha, type Aba } from './url'
+import { abaDaURL, abaNaURL, atualizarParametros, consultaDaVisita, lerParametros, normalizarHome, type Aba } from './url'
 
 // Abas do site (Início, Mercado, Rateio, Por estado): vistas do mesmo app, no molde das abas do Instagram.
 //
@@ -40,7 +40,10 @@ let pendente: Aba | null = null
 const ABAS: readonly Aba[] = ['inicio', 'catalogo', 'rateio', 'estados']
 const ehAba = (v: unknown): v is Aba => typeof v === 'string' && (ABAS as readonly string[]).includes(v)
 
-/** URL de uma aba: mantém uf e cidade; tira o que é de camada (story, página do produto, jogo, chat, rateio). */
+/**
+ * URL de uma aba: mantém uf, cidade e a Home 2 (?home=2); tira o que é de camada (story, página do produto, jogo, chat,
+ * rateio).
+ */
 function urlCom(a: Aba): string {
   const u = new URL(location.href)
   for (const k of ['p', 'produto', 'jogo', 'chat', 'rateio']) u.searchParams.delete(k)
@@ -126,15 +129,13 @@ export function irParaAba(nova: Aba, op: { foco?: FocoAba } = {}) {
   else depoisDoHistorico(trocar)
 }
 
-/** Link de uma aba (href das abas da barra e da lateral: Ctrl+clique ou botão do meio abre em aba nova). */
+/**
+ * Link de uma aba (href das abas da barra e da lateral: Ctrl+clique ou botão do meio abre em aba nova, na mesma home:
+ * a Home 2 leva o ?home=2 junto).
+ */
 export function hrefAba(a: Aba): string {
-  const q = new URLSearchParams()
   const p = lerParametros()
-  if (p.uf) q.set('uf', p.uf)
-  if (p.cidade) q.set('cidade', p.cidade)
-  if (a !== 'inicio') q.set('aba', abaNaURL(a))
-  const s = q.toString()
-  return s ? `?${s}` : location.pathname
+  return consultaDaVisita({ uf: p.uf, cidade: p.cidade, aba: a !== 'inicio' ? abaNaURL(a) : null })
 }
 
 /** Clique simples que vira troca de aba (Ctrl/⌘/Shift/Alt ou botão do meio deixam o navegador abrir aba nova). */
@@ -147,13 +148,14 @@ export function cliqueDeAba(e: { button: number; ctrlKey: boolean; metaKey: bool
 let iniciado = false
 
 /**
- * Liga as abas antes do primeiro render (main.tsx/App): normaliza ?aba, marca a entrada atual com a aba, ouve o
- * voltar, desvia as âncoras antigas e leva ao Início quando a pessoa troca de estado na aba Por estado.
+ * Liga as abas antes do primeiro render (main.tsx/App): lê a home pedida (?home=2, a Home 2: src/lib/url.ts), normaliza
+ * ?aba, marca a entrada atual com a aba, ouve o voltar, desvia as âncoras antigas e leva ao Início quando a pessoa troca
+ * de estado na aba Por estado.
  */
 export function iniciarAbas() {
   if (iniciado) return
   iniciado = true
-  limparHomeVelha()
+  normalizarHome()
   // link de um rateio (?rateio=, o adesivo de link dos stories) sem aba: a página abre por cima da aba Rateio, e fechar
   // mostra os outros rateios (troca no lugar, sem entrada nova: voltar ainda sai do site)
   if (lerParametros().rateio && !lerParametros().aba) atualizarParametros({ aba: 'rateio' })

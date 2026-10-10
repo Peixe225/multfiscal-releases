@@ -1,5 +1,5 @@
-// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=mercado&rateio=id):
-// funciona em qualquer pasta da Hostinger, sem regra de servidor.
+// Tudo por query string (?uf=mg&cidade=teofilo-otoni&p=id&produto=id&chat=pedido&jogo=sorte&aba=mercado&rateio=id e
+// ?home=2, a Home 2): funciona em qualquer pasta da Hostinger, sem regra de servidor.
 
 export interface Parametros {
   uf: string | null
@@ -49,21 +49,63 @@ export function abaDaURL(): Aba {
   return v === 'catalogo' || v === 'rateio' || v === 'estados' ? v : 'inicio'
 }
 
+// ---------- a Home 2 (oprojeto.online/greencheese/home2/, pedido do Ian em 10/10) ----------
+// Duas homes, que só mudam no celular: a de sempre, com a rua do mercador como o 1º story do Início, e a Home 2, com o
+// topo de 08/10 (o 1º story é de produto) e a rua no fim do Início, depois da grade. Quem escolhe é o endereço:
+// /home2/ (e Home2/, HOME2/) leva para ../?home=2 mantendo o resto do link (public/home2/ir.js) e a chave fica na URL a
+// visita inteira: as trocas de aba, as camadas e o voltar só mexem nas chaves delas (atualizarParametros, urlCom), e os
+// links que a pessoa abre em aba nova (hrefAba, o produto do story) levam a chave junto. Recarregar e voltar do WhatsApp
+// mantêm a Home 2 (a URL é a mesma); abrir /greencheese/ sem a chave é a home de sempre. O que sai do site para outra
+// pessoa (linkCompartilhar: o produto, o rateio, a Sorte) é o endereço da loja, sem a chave.
+
+/** As chaves da home na URL: home, home1, home2, home-1, home-2, em qualquer caixa. */
+const CHAVE_HOME = /^home(-?[12])?$/i
+
+/** A URL pede a Home 2? ?home=2, e os jeitos velhos ?home2, ?Home2, ?HOME=2, ?home-2 (?home=1, ?home1: a de sempre). */
+function pedeHome2(q: URLSearchParams): boolean {
+  return [...q.keys()].some((k) => CHAVE_HOME.test(k) && (/2$/.test(k) || (!/1$/.test(k) && q.get(k) === '2')))
+}
+
+let home2: boolean | null = null
+
 /**
- * Links velhos da Home 2, que ficou em teste e saiu (?home=2, ?home2, ?Home2, ?HOME=1…): a chave sai da URL e nada
- * muda, a home é uma só. Roda antes do primeiro render (src/lib/abas.ts).
+ * Lê a home pedida e deixa a URL no jeito de sempre antes do primeiro render (src/lib/abas.ts): na Home 2, ?home=2 na
+ * frente e só ele; na de sempre, nenhuma chave home*.
  */
-export function limparHomeVelha(): void {
+export function normalizarHome(): void {
   try {
     const q = new URLSearchParams(location.search)
-    const velhas = [...q.keys()].filter((k) => /^home(-?[12])?$/i.test(k))
-    if (!velhas.length) return
-    velhas.forEach((k) => q.delete(k))
-    const s = q.toString()
-    history.replaceState(history.state, '', `${location.pathname}${s ? `?${s}` : ''}${location.hash}`)
+    home2 = pedeHome2(q)
+    const resto = [...q.entries()].filter(([k]) => !CHAVE_HOME.test(k))
+    const nova = new URLSearchParams([...(home2 ? [['home', '2']] : []), ...resto]).toString()
+    if (nova === q.toString()) return
+    history.replaceState(history.state, '', `${location.pathname}${nova ? `?${nova}` : ''}${location.hash}`)
   } catch {
     /* ignora */
   }
+}
+
+/** Esta visita é a Home 2 (o celular com a rua no fim do Início)? Não muda durante a visita. */
+export function ehHome2(): boolean {
+  if (home2 == null) {
+    try {
+      home2 = pedeHome2(new URLSearchParams(location.search))
+    } catch {
+      home2 = false
+    }
+  }
+  return home2
+}
+
+/**
+ * A query de um link que a própria pessoa abre (em aba nova, segurando o dedo): os parâmetros pedidos e, na Home 2, o
+ * ?home=2 na frente, para ela continuar na mesma home. Sem nada, o endereço da página.
+ */
+export function consultaDaVisita(params: Record<string, string | null | undefined>): string {
+  const q = new URLSearchParams(ehHome2() ? [['home', '2']] : [])
+  for (const [k, v] of Object.entries(params)) if (v) q.set(k, v)
+  const s = q.toString()
+  return s ? `?${s}` : location.pathname
 }
 
 /** Atualiza a query sem recarregar e sem criar entrada no histórico. null remove a chave. */
@@ -99,7 +141,10 @@ export function manterNaURL(fonte: () => Partial<Parametros>): () => void {
   }
 }
 
-/** Link absoluto para compartilhar (produto ou estado), preservando a pasta onde o site está. */
+/**
+ * Link absoluto para compartilhar (produto ou estado), preservando a pasta onde o site está. Vai para outra pessoa: o
+ * endereço da loja, sem a chave da Home 2.
+ */
 export function linkCompartilhar(params: Record<string, string>): string {
   const u = new URL(location.href)
   u.search = ''

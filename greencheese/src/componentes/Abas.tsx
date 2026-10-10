@@ -6,6 +6,7 @@ import { focarBusca, irParaAba, ultimaTroca, type Aba } from '../lib/abas'
 import { alvoDoFoco } from '../lib/foco'
 import { movimentoReduzido } from '../lib/movimento'
 import { obterLenis } from '../lib/rolagem'
+import { ehHome2 } from '../lib/url'
 import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { useRateio } from '../store/rateio'
@@ -29,9 +30,10 @@ import './Abas.css'
 gsap.registerPlugin(ScrollTrigger)
 
 // As vistas do site, sempre no mesmo app (a barra de baixo do celular e a lateral do computador trocam):
-//   Início: o story, a faixa dos @, o perfil (no computador, com a rua viva embaixo, ao lado do story) e a loja —
-//     destaques (as abas primeiro, os filtros à direita) e a grade. No celular, a rua viva fecha o Início, depois da
-//     grade; aí vem o rodapé.
+//   Início: o story (no celular, a rua viva é o primeiro story), a faixa dos @, o perfil (no computador, com a rua viva
+//     embaixo, ao lado do story) e a loja — destaques (as abas primeiro, os filtros à direita) e a grade. Acaba na
+//     grade, com o rodapé. Na Home 2 (?home=2, src/lib/url.ts), o story do celular é só de produtos e a rua viva fecha
+//     o Início, depois da grade e antes do rodapé.
 //   Mercado (id 'catalogo', ?aba=mercado ou catalogo): o mercador no topo recebendo, destaques, busca, grade,
 //     encomenda e, no fim, o interativo.
 //   Rateio: o título com o "?" (aqui, no pedaço principal: o foco tem onde cair na hora) e o corpo, que baixa à parte
@@ -196,7 +198,8 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
 
 /**
  * Início: o hero (ou o aviso de estado sem entrega), a faixa dos @, no celular o perfil embaixo e a loja (destaques e
- * grade, sem busca) e, só no celular, a rua viva depois da grade. O interativo e os reposts são do fim da aba Catálogo.
+ * grade, sem busca) e, só no celular da Home 2, a rua viva depois da grade. O interativo e os reposts são do fim da aba
+ * Catálogo.
  */
 const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { abrirInfo: () => void; comGrade: boolean }) {
   const uf = useLocal((s) => s.uf)
@@ -214,15 +217,17 @@ const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { a
       <Faixa />
       {comEntrega && (
         <>
-          {/* celular: o perfil logo depois da faixa (no computador ele fica no hero, com a rua viva embaixo) */}
+          {/* celular: o perfil logo depois da faixa (a rua viva é o primeiro story; no computador ele fica no hero, com a rua
+              viva embaixo) */}
           <div className="so-celular">
             <Perfil />
           </div>
           <div className="loja-inicio">
             <Catalogo abrirInfo={abrirInfo} onde="inicio" comGrade={comGrade} />
           </div>
-          {/* celular: a rua viva fecha o Início, depois da grade e antes do rodapé (pedido do Ian em 09/10) */}
-          <RuaCelular />
+          {/* Home 2, celular: a rua viva fecha o Início, depois da grade e antes do rodapé (pedido do Ian em 10/10: a home
+              de sempre tem ela no 1º story) */}
+          {ehHome2() && <RuaCelular />}
         </>
       )}
     </>

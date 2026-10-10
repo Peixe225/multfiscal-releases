@@ -1,8 +1,9 @@
 // Stories do Início: por estado, os produtos que passam no story do topo do site e em que ordem (até as 8
 // barrinhas). Lista vazia = automático (os à venda no estado, os com preço primeiro). Subir e descer por botão (dá no
-// teclado e no leitor de tela) e a prévia do story como o cliente vê. Em cima, a chave da rua do mercador no fim do
-// Início do celular (vale pra todos os estados; salva no toque). A chave é a `ruaNoStory` da loja: o nome é de quando a
-// rua era o 1º story do celular; desde 09/10 ela liga e desliga a rua no fim do Início, depois da grade.
+// teclado e no leitor de tela) e a prévia do story como o cliente vê. Em cima, a chave da rua do mercador no celular
+// (vale pra todos os estados; salva no toque): o 1º story do Início na home e o fim do Início, depois da grade, na Home 2
+// (/home2/). A chave é a `ruaNoStory` da loja (o nome é de quando a rua só era o 1º story); desligada, o celular fica sem
+// a rua nas duas.
 import { useEffect, useMemo, useState } from 'react'
 import { mensagemDe } from '../api'
 import { brl } from '../formato'
@@ -86,7 +87,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
       const novo = (x: LojaAdmin): LojaAdmin => ({ ...x, versao: r.versao, atualizadoEm: r.atualizadoEm, ajustes: r.ajustes })
       guardarLoja(novo)
       leitura.trocar(novo)
-      setRua({ ocupado: false, erro: null, ok: r.ajustes.ruaNoStory ? 'A rua fecha o Início no celular.' : 'O Início do celular fica sem a rua.' })
+      setRua({ ocupado: false, erro: null, ok: r.ajustes.ruaNoStory ? 'A rua tá no celular: o 1º story do Início (na Home 2, no fim).' : 'O celular fica sem a rua (na home e na Home 2).' })
     } catch (e) {
       setRua({ ocupado: false, erro: mensagemDe(e), ok: null })
     }
@@ -120,11 +121,11 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
           <label className="pn-troca">
             <input type="checkbox" checked={l.ajustes.ruaNoStory} disabled={rua.ocupado} onChange={(e) => void trocarRua(e.target.checked)} />
             <span className="pn-troca-marca" aria-hidden="true" />
-            <span>Rua do mercador no fim do Início (celular)</span>
+            <span>Rua do mercador no celular</span>
           </label>
           <p className="pn-dica-bloco">
-            No celular, a rua fecha o Início, depois dos produtos: o mercador anda, vende e chama pro Mercado. Desligada, a rua sai do celular; no
-            computador ela continua embaixo do perfil.
+            No celular, a rua é o 1º story do Início: o mercador anda, vende e chama pro Mercado. Na Home 2 (o endereço /home2/), ela fecha o Início,
+            depois dos produtos. Desligada, a rua sai do celular nas duas; no computador ela continua embaixo do perfil.
           </p>
           {rua.erro && <Aviso tipo="erro">{rua.erro}</Aviso>}
           {rua.ok && <Aviso tipo="ok">{rua.ok}</Aviso>}
@@ -204,7 +205,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
             <h2 id="h-st-previa" className="pn-h2">
               Como passa no site
             </h2>
-            <PreviaStory produtos={naTela} atual={Math.min(atual, Math.max(0, naTela.length - 1))} instagram={estado.instagram} />
+            <PreviaStory produtos={naTela} atual={Math.min(atual, Math.max(0, naTela.length - 1))} instagram={estado.instagram} comRua={l.ajustes.ruaNoStory} />
             {naTela.length > 1 && (
               <div className="pn-botoes pn-botoes-linha pn-previa-passar">
                 <Botao variante="cinza" onClick={() => setAtual((a) => (a - 1 + naTela.length) % naTela.length)} aria-label="Produto anterior na prévia">
@@ -219,7 +220,8 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
               </div>
             )}
             <p className="pn-dica-bloco pn-previa-legenda-p">
-              {auto ? 'No automático agora.' : 'A tua ordem.'} Pra mudar o que tá à venda,{' '}
+              {auto ? 'No automático agora.' : 'A tua ordem.'}
+              {l.ajustes.ruaNoStory ? ' No celular, a rua do mercador passa antes (na Home 2, ela fica no fim do Início).' : ''} Pra mudar o que tá à venda,{' '}
               <Link href={caminho.produtos} className="pn-link pn-link-dentro">
                 Produtos
               </Link>

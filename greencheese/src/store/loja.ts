@@ -33,9 +33,9 @@ export interface Loja {
   /** "Restam X" a partir de quantas unidades (null = nunca). O site usa o restam de cada produto, que já vem pronto. */
   restamAte: number | null
   /**
-   * A rua do mercador no fim do Início do celular, depois da grade (Loja → Stories do Início, no painel). O nome é o do
-   * contrato (JSON e banco), de quando ela era o 1º story do celular; o significado mudou em 09/10 e o nome ficou, pra
-   * não quebrar a loja já salva. No computador a rua fica sempre embaixo do perfil.
+   * A rua do mercador no celular (Loja → Stories do Início, no painel): o 1º story do Início na home e o fim do Início,
+   * depois da grade, na Home 2. O nome é o do contrato (JSON e banco), de quando ela só era o 1º story; desligada, o
+   * celular fica sem a rua nas duas. No computador a rua fica sempre embaixo do perfil.
    */
   ruaNoStory: boolean
   textos: TextosLoja
@@ -437,7 +437,7 @@ export const useLojaMarca = () => useLoja((s) => s.marca)
 
 export const useTextosLoja = () => useLoja((s) => s.textos)
 
-/** A rua no fim do Início do celular, ligada ou não pelo dono (a chave `ruaNoStory` da loja). */
+/** A rua do mercador no celular (1º story na home, fim do Início na Home 2), ligada ou não pelo dono (`ruaNoStory`). */
 export const useRuaNoCelular = () => useLoja((s) => s.ruaNoStory)
 
 export function regrasDaSorte(): RegrasDaSorte {
