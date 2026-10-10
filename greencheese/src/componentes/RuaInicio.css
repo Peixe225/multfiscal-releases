@@ -4,3 +4,24 @@
   background: var(--preto);
   overflow: hidden;
 }
+
+/* celular: a rua no fim do Início, depois da grade e antes do rodapé, com um título pequeno no estilo dos títulos de
+   seção do Mercado (fio em cima, rótulo em caixa-alta). A faixa vai de ponta a ponta da tela */
+.rua-fim {
+  padding-bottom: 8px;
+}
+.rua-fim-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--gutter) 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bolha);
+  font: 600 12px/1 var(--ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--legenda);
+}
+.rua-fim-titulo svg {
+  color: var(--branco);
+}

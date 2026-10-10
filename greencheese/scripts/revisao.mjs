@@ -1,11 +1,11 @@
 // Revisão por screenshots (seção 10 do briefing) + teste do fluxo até o link do WhatsApp da loja (RJ e MG, pedido e
 // encomenda), o Pix "em breve", as dúvidas na DM do estado, a navegação em abas (Início | Mercado | Rateio | Por
 // estado), as sequências de voltar, os links diretos (?aba=mercado e o velho ?aba=catalogo), o Início (destaques e grade,
-// sem o fim da aba Mercado), a rua viva (no celular, o primeiro story do Início, e nenhuma faixa dela entre a faixa e o
-// perfil; no computador embaixo do perfil, em escala inteira, na matriz de desktop): aparece, o rAF dela para em cada
-// pausa (story pausado, outro segmento, dedo segurando, camada por cima, fora da tela, aba escondida; na faixa, o botão),
-// fica parada com movimento reduzido, o mercador chamado oferece o Mercado (no story, segurando o tempo dele enquanto o
-// adesivo está aberto); o Mercado com o mercador no topo; as falas da rua sem palavra proibida;
+// sem o fim da aba Mercado), a rua viva (no celular, só no fim do Início, depois da grade e antes do rodapé, e o 1º
+// story é de produto; no computador embaixo do perfil, em escala inteira, na matriz de desktop): no celular ela não
+// monta nem baixa na primeira tela; aparece, o rAF dela para em cada pausa (o botão, fora da tela, camada por cima, aba
+// escondida), fica parada com movimento reduzido, o mercador chamado oferece o Mercado; o Mercado com o mercador no
+// topo; as falas da rua sem palavra proibida;
 // as setas da linha de destaques no computador, o atalho antigo home2/, o axe em cada aba e os pontos de referência.
 // Conta no servidor (simulada como no API.md): a conta do aparelho espera o número e vai junto no primeiro login;
 // Minha conta com pedidos, vagas e endereços da loja.
@@ -193,8 +193,9 @@ async function foto(page, nome, cheia = false) {
 }
 
 /**
- * O Início acaba na grade (a caixa de encomenda por último) e no rodapé: destaques com as abas primeiro, o fio e os
- * filtros; sem busca, sem o Teste minha sorte e o repost do fim da aba Catálogo, sem os ids dela.
+ * O Início acaba na grade (a caixa de encomenda por último) e no rodapé; no celular, a rua viva fica entre os dois
+ * (pedido do Ian em 09/10). Destaques com as abas primeiro, o fio e os filtros; sem busca, sem o Teste minha sorte e o
+ * repost do fim da aba Catálogo, sem os ids dela.
  */
 async function conferirInicio(page, nome) {
   await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
@@ -205,10 +206,14 @@ async function conferirInicio(page, nome) {
     const nav = v?.querySelector('.destaques-inicio nav')
     const fio = v?.querySelector('.destaques-inicio .destaques-fio')
     const filtros = v?.querySelector('.destaques-inicio [role="group"]')
+    const rua = v?.querySelector('.rua-fim .rua-vaga')?.getBoundingClientRect()
     return {
+      celular: matchMedia('(max-width: 899px)').matches,
       grade: !!grade,
       caixaNoFim: !!grade?.lastElementChild?.classList.contains('card-caixa'),
       rodapeLogo: grade && rodape ? rodape.getBoundingClientRect().top - grade.getBoundingClientRect().bottom : null,
+      // a rua do fim (celular): quanto depois da grade ela começa e quanto depois dela o rodapé começa
+      rua: rua && grade && rodape ? { depoisDaGrade: rua.top - grade.getBoundingClientRect().bottom, rodape: rodape.getBoundingClientRect().top - rua.bottom } : null,
       destaques: !!(nav && fio && filtros && nav.compareDocumentPosition(fio) & 4 && fio.compareDocumentPosition(filtros) & 4),
       fimCatalogo: !!v?.querySelector('.aba-fim, .reposts, .adesivos-interativos'),
       ids: !!v?.querySelector('#catalogo, #catalogo-titulo'),
@@ -216,7 +221,15 @@ async function conferirInicio(page, nome) {
     }
   })
   conferir(r.grade && r.caixaNoFim, `${nome}: Início com a grade e a caixa de encomenda por último`)
-  conferir(r.rodapeLogo != null && r.rodapeLogo >= -1 && r.rodapeLogo <= 120, `${nome}: o rodapé vem logo depois da grade (${r.rodapeLogo == null ? '?' : Math.round(r.rodapeLogo)} px)`)
+  if (r.celular) {
+    conferir(
+      !!r.rua && r.rua.depoisDaGrade >= -1 && r.rua.depoisDaGrade <= 100 && r.rua.rodape >= -1 && r.rua.rodape <= 40,
+      `${nome}: a rua no fim do Início, logo depois da grade e logo antes do rodapé (${JSON.stringify(r.rua)})`,
+    )
+  } else {
+    conferir(!r.rua, `${nome}: no computador, nada de rua no fim do Início (ela mora embaixo do perfil)`)
+    conferir(r.rodapeLogo != null && r.rodapeLogo >= -1 && r.rodapeLogo <= 120, `${nome}: o rodapé vem logo depois da grade (${r.rodapeLogo == null ? '?' : Math.round(r.rodapeLogo)} px)`)
+  }
   conferir(r.destaques, `${nome}: destaques do Início com as abas, o fio e os filtros, nessa ordem`)
   conferir(!r.fimCatalogo && !r.ids && !r.busca, `${nome}: Início sem Teste minha sorte/repost do fim, sem os ids e a busca da aba Catálogo`)
 }
@@ -440,28 +453,35 @@ const browser = await chromium.launch()
   await foto(page, 'cel-04-hero-palpite-ip')
   await page.waitForTimeout(500)
   await foto(page, 'cel-05-hero-confirmado')
-  conferir((await page.locator('.vista-inicio .rua-story:not([hidden])').count()) === 1, 'cel: o story do Início abre na rua (o primeiro story)')
+  conferir(
+    (await page.locator('.vista-inicio .hero-palco .sq-nome').count()) === 1 && (await page.locator('.vista-inicio .hero .rua, .vista-inicio .hero .rua-vaga, .rua-story').count()) === 0,
+    'cel: o 1º story do Início é de produto (a rua fica no fim do Início)',
+  )
   await page.evaluate(() => document.querySelector('.vista:not([hidden]) .so-celular .perfil')?.scrollIntoView({ block: 'center' }))
   await page.waitForTimeout(600)
   await foto(page, 'cel-06-perfil')
   await conferirInicio(page, 'cel')
   {
-    // a rua viva é o primeiro story (o mercador mora nela); a faixa dela saiu do celular: o perfil vem logo depois da
-    // faixa dos @; mercador de repost, só no topo do Mercado
+    // o story só com produtos; o perfil logo depois da faixa dos @; a rua viva só no fim do Início (uma vaga, com o
+    // título pequeno); mercador de repost, só no topo do Mercado
     const r = await page.evaluate(() => {
       const v = document.querySelector('.vista[data-vista="inicio"]')
       const caixa = (s) => v?.querySelector(s)?.getBoundingClientRect() ?? null
       const faixa = caixa('.faixa')
       const perfil = caixa('.so-celular .perfil')
       return {
-        story: !!v?.querySelector('.hero .rua-story[role="group"]'),
         barras: v?.querySelectorAll('.hero-barras .story-barra').length ?? 0,
-        faixaDaRua: v?.querySelectorAll('.rua-vaga, .rua:not(.rua-em-story)').length ?? 0,
+        vagas: v?.querySelectorAll('.rua-vaga').length ?? 0,
+        noFim: v?.querySelectorAll('.rua-fim .rua-vaga').length ?? 0,
+        titulo: v?.querySelector('.rua-fim h2')?.textContent?.trim() ?? null,
         colado: faixa && perfil ? Math.round(perfil.top - faixa.bottom) : null,
         repost: v?.querySelectorAll('.repost-figura').length ?? 0,
       }
     })
-    conferir(r.story && r.barras >= 2 && !r.faixaDaRua && r.colado != null && r.colado >= 0 && r.colado <= 40 && !r.repost, `cel: a rua viva no story, sem a faixa dela entre a faixa e o perfil e sem mercador de repost no Início (${JSON.stringify(r)})`)
+    conferir(
+      r.barras >= 2 && r.vagas === 1 && r.noFim === 1 && !!r.titulo && r.colado != null && r.colado >= 0 && r.colado <= 40 && !r.repost,
+      `cel: o story de produtos, o perfil colado na faixa dos @, a rua viva só no fim do Início e sem mercador de repost (${JSON.stringify(r)})`,
+    )
   }
   await page.locator('.vista-inicio .so-celular .perfil-loja').click()
   await page.waitForTimeout(1200)
@@ -1674,223 +1694,51 @@ function contarVoltasDaRua() {
   }
 }
 
-// No celular, o primeiro story do Início: o rAF dela só roda com o segmento dela à vista e tocando (para com o story
-// pausado, no produto, com o dedo segurando, com a sacola ou o chat por cima, fora da tela e com a aba escondida; na
-// volta, a mesma cena continua); o mercador chamado (toque ou teclado) abre o "Ver o Mercado" e o story segura o tempo
-// dele enquanto o adesivo está aberto. Movimento reduzido: a foto, sem rAF e sem botão de pausar.
-for (const reduzir of [false, true]) {
-  const nome = `rua-story-390${reduzir ? '-reduzido' : ''}`
-  const ctx = await contexto(browser, { width: 390, height: 844 }, { reduzir, semDica: true })
-  await ctx.addInitScript(contarVoltasDaRua)
-  const page = await ctx.newPage()
-  vigiar(page, nome)
-  await page.goto(`${base}?uf=mg`)
-  await passarAbertura(page)
-  const cena = page.locator('.vista-inicio .rua-story')
-  const estadoDaRua = () => cena.getAttribute('data-rua')
-  for (let k = 0; k < 80 && !['rodando', 'foto'].includes(await estadoDaRua()); k++) await page.waitForTimeout(100)
-  const estado = await estadoDaRua()
-  conferir(estado === (reduzir ? 'foto' : 'rodando'), `${nome}: o primeiro story é a rua, ${reduzir ? 'em foto (movimento reduzido)' : 'andando'} (${estado})`)
-  const a11y = await page.evaluate(() => {
-    const c = document.querySelector('.vista-inicio .rua-story')
-    return {
-      aqui: !!c && !c.hidden,
-      papel: c?.getAttribute('role'),
-      nome: c?.getAttribute('aria-label'),
-      telas: c?.querySelectorAll('.rua-tela[aria-hidden="true"]').length ?? 0,
-      poster: c?.querySelector('.rua-story-poster')?.getAttribute('alt'),
-      botao: c?.querySelector('.rua-mercador')?.getAttribute('aria-label'),
-      faixa: document.querySelectorAll('.vista-inicio .rua-vaga, .vista-inicio .rua:not(.rua-em-story), .vista-inicio .rua-pausa').length,
-    }
-  })
-  conferir(
-    a11y.aqui && a11y.papel === 'group' && a11y.nome === 'A rua da loja: o mercador atendendo' && a11y.telas === 1 && a11y.poster === '' && a11y.botao === 'Chamar o mercador' && !a11y.faixa,
-    `${nome}: o story com o nome da rua, canvas e pôster decorativos, "Chamar o mercador" e nenhuma faixa da rua no celular (${JSON.stringify(a11y)})`,
-  )
-  const cores = await page.evaluate(() => {
-    const c = document.querySelector('.vista-inicio .rua-em-story .rua-tela')
-    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
-    const s = new Set()
-    for (let i = 0; i < d.length; i += 4 * 7) s.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
-    return s.size
-  })
-  conferir(cores > 6, `${nome}: a rua desenhada no canvas (${cores} cores)`)
-  await foto(page, `${nome}-1`)
-  const quadroDaRua = () => page.evaluate(() => document.querySelector('.vista-inicio .rua-em-story .rua-tela').toDataURL())
-  const voltas = () => page.evaluate(() => window.__voltas)
-  /** Voltas do rAF da rua em 1 s (depois de 300 ms para assentar). */
-  const porSegundo = async () => {
-    await page.waitForTimeout(300)
-    const a = await voltas()
-    await page.waitForTimeout(1000)
-    return (await voltas()) - a
-  }
-  const q = await page.locator('.vista-inicio .hero-quadro').boundingBox()
-  const tocar = (fx) => page.touchscreen.tap(q.x + q.width * fx, q.y + q.height * 0.3)
-  // a barrinha da rua (a primeira): andando ou parada
-  const barraDaRua = () => page.evaluate(() => getComputedStyle(document.querySelector('.vista-inicio .hero-barras .story-barra:first-child > i')).transform)
-  if (reduzir) {
-    const a = await quadroDaRua()
-    await page.waitForTimeout(2500)
-    conferir(a === (await quadroDaRua()), `${nome}: com movimento reduzido nada anda (o mesmo quadro)`)
-    const v = await porSegundo()
-    conferir(!(await page.locator('.vista-inicio .hero-pausa').count()) && v <= 1, `${nome}: sem botão de pausar e sem rAF da rua (${v})`)
-  } else {
-    const rAF = {}
-    rAF.vista = await porSegundo()
-    // o botão de pausar do story (44 px; no celular, só para o teclado e o leitor de tela: segurar já pausa). O foco do
-    // teclado dentro do story segura o tempo dele, não a cena (chamado pelo teclado, o mercador responde); o Enter
-    // libera e o seguinte pausa de verdade: aí a rua para junto
-    const pausa = page.locator('.vista-inicio .hero-pausa')
-    const bb = await pausa.boundingBox()
-    conferir(!!bb && bb.width >= 44 && bb.height >= 44, `${nome}: botão de pausar com alvo de 44 px (${bb ? `${bb.width}×${bb.height}` : '?'})`)
-    await pausa.focus()
-    await page.waitForTimeout(200)
-    const comFoco = { rotulo: await pausa.getAttribute('aria-label'), rua: await estadoDaRua() }
-    await page.keyboard.press('Enter')
-    await page.waitForTimeout(200)
-    const liberado = await pausa.getAttribute('aria-label')
-    await page.keyboard.press('Enter')
-    rAF.pausado = await porSegundo()
-    const pausou = { rotulo: await pausa.getAttribute('aria-label'), rua: await estadoDaRua() }
-    await page.keyboard.press('Enter')
-    await page.evaluate(() => document.activeElement?.blur?.())
-    await page.waitForTimeout(300)
-    conferir(
-      comFoco.rotulo === 'Continuar stories' && comFoco.rua === 'rodando' && liberado === 'Pausar stories' && pausou.rotulo === 'Continuar stories' && pausou.rua === 'parada' && (await estadoDaRua()) === 'rodando',
-      `${nome}: o foco segura o tempo do story e a rua segue; pausar o story para a rua e continuar volta a andar (${JSON.stringify({ comFoco, liberado, pausou })})`,
-    )
-    // outro segmento (o produto): a rua fica montada, escondida e parada; na volta, a mesma cena continua
-    await page.evaluate(() => {
-      window.__tela = document.querySelector('.vista-inicio .rua-em-story .rua-tela')
-    })
-    await tocar(0.92)
-    rAF.produto = await porSegundo()
-    const noProduto = { estado: await estadoDaRua(), escondida: await cena.isHidden() }
-    await tocar(0.08)
-    await page.waitForTimeout(400)
-    const mesma = await page.evaluate(() => document.querySelector('.vista-inicio .rua-em-story .rua-tela') === window.__tela)
-    conferir(noProduto.estado === 'parada' && noProduto.escondida && (await estadoDaRua()) === 'rodando' && mesma, `${nome}: no produto a rua para escondida; de volta, a mesma cena continua (${JSON.stringify(noProduto)}, mesma ${mesma})`)
-    // o dedo segurando: a rua para no toque e o story não passa ao soltar
-    await page.mouse.move(q.x + q.width * 0.5, q.y + q.height * 0.3)
-    await page.mouse.down()
-    rAF.segurando = await porSegundo()
-    const segurou = (await estadoDaRua()) === 'parada'
-    await page.mouse.up()
-    await page.waitForTimeout(400)
-    conferir(segurou && (await estadoDaRua()) === 'rodando' && !(await cena.isHidden()), `${nome}: segurar para a rua; soltar volta a andar sem passar o story`)
-    // camada por cima: a sacola e o chat ("Enviar mensagem…")
-    await page.locator('.barra-abas [data-aba="sacola"]').click()
-    await page.waitForTimeout(500)
-    rAF.sacola = await porSegundo()
-    const comSacola = (await estadoDaRua()) === 'parada'
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(700)
-    await page.locator('.vista-inicio .hero-resposta .barra-pilula').click()
-    await page.waitForTimeout(600)
-    rAF.chat = await porSegundo()
-    const comChat = (await estadoDaRua()) === 'parada'
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(700)
-    const fechou = !(await page.locator('.folha').count())
-    conferir(comSacola && comChat && fechou && (await estadoDaRua()) === 'rodando', `${nome}: com a sacola ou o chat por cima a rua para; fechou, volta a andar`)
-    // fora da tela e com a aba do navegador escondida
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-    await page.waitForTimeout(600)
-    rAF.foraDaTela = await porSegundo()
-    const fora = (await estadoDaRua()) === 'parada'
-    await page.evaluate(() => window.scrollTo(0, 0))
-    await page.waitForTimeout(600)
-    await page.evaluate(() => {
-      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-    rAF.abaEscondida = await porSegundo()
-    const escondida = (await estadoDaRua()) === 'parada'
-    await page.evaluate(() => {
-      delete document.visibilityState
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-    await page.waitForTimeout(400)
-    conferir(fora && escondida && (await estadoDaRua()) === 'rodando', `${nome}: fora da tela e com a aba escondida a rua para; de volta, anda`)
-    relatorio.push(`${nome}: rAF da rua por segundo — ${Object.entries(rAF).map(([k, v]) => `${k} ${v}`).join(', ')}`)
-    const { vista, ...parada } = rAF
-    conferir(vista >= 30 && Object.values(parada).every((v) => v <= 2), `${nome}: o rAF da rua só roda com o segmento dela à vista e tocando (${JSON.stringify(rAF)})`)
-    // tocar no mercador: o balão do chamado (sem repetir o adesivo do pé), o "Ver o Mercado" e o story segurando o tempo
-    // dele enquanto o adesivo está aberto; o adesivo sai sozinho e o tempo volta a correr
-    await page.evaluate(() => document.activeElement?.blur?.())
-    await page.waitForTimeout(200)
-    const t0 = await barraDaRua()
-    await page.waitForTimeout(700)
-    const correndo = t0 !== (await barraDaRua())
-    const m = await page.locator('.vista-inicio .rua-em-story .rua-mercador').boundingBox()
-    // onde o mercador estava no quadro (0 = borda esquerda, 1 = direita) e em qual segmento: pra entender uma falha rara
-    const fx = Math.round(((m.x + m.width / 2 - q.x) / q.width) * 100) / 100
-    await page.mouse.click(m.x + m.width / 2, m.y + m.height / 2)
-    await page.waitForTimeout(400)
-    const balao = await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()
-    const aberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
-    const b1 = await barraDaRua()
-    await page.waitForTimeout(1500)
-    const b1b = await barraDaRua()
-    const segura = b1 === b1b
-    const aindaAberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
-    const naRua = !(await cena.isHidden())
-    conferir(
-      correndo && aberto && aindaAberto && naRua && segura && balao.some((t) => /Vem no certo|Quem já usou/.test(t)) && !balao.some((t) => /Chega mais/.test(t)),
-      `${nome}: tocar no mercador abre o "Ver o Mercado" e segura o story (${JSON.stringify({ correndo, aberto, aindaAberto, naRua, segura, fx, b1: b1.slice(7, 15), b1b: b1b.slice(7, 15), balao })})`,
-    )
-    await foto(page, `${nome}-2-chamado-toque`)
-    for (let k = 0; k < 40 && (await page.locator('.vista-inicio .rua-ver').count()); k++) await page.waitForTimeout(250)
-    const sumiu = !(await page.locator('.vista-inicio .rua-ver').count())
-    const b2 = await barraDaRua()
-    await page.waitForTimeout(700)
-    conferir(sumiu && b2 !== (await barraDaRua()) && !(await cena.isHidden()), `${nome}: o adesivo sai sozinho e o tempo do story volta a correr`)
-  }
-  // chamar o mercador pelo teclado: o botão focável abre o balão e o "Ver o Mercado", que leva à aba Mercado
-  const botao = page.locator('.vista-inicio .rua-em-story .rua-mercador')
-  await botao.focus()
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(400)
-  const ver = page.locator('.vista-inicio .rua-ver')
-  const bal = await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()
-  conferir(
-    (await ver.count()) === 1 && bal.some((t) => /Vem no certo|Quem já usou/.test(t)) && !bal.some((t) => /Chega mais/.test(t)),
-    `${nome}: chamar o mercador pelo teclado abre o balão (sem repetir o adesivo) e o "Ver o Mercado" (${bal.join(' | ')})`,
-  )
-  // o leitor de tela ouve o que de fato acontece (livre, ele abre o casaco; atendendo, no fim do atendimento; na foto,
-  // só oferece)
-  const aviso = (await page.locator('.vista-inicio .rua-aviso').textContent())?.trim()
-  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.)$/.test(aviso ?? '')
-  conferir(avisoCerto, `${nome}: o aviso do chamado diz o que acontece na cena (${aviso})`)
-  const cb = await ver.boundingBox()
-  conferir(!!cb && cb.height >= 44, `${nome}: "Ver o Mercado" com alvo de 44 px (${cb ? Math.round(cb.height) : '?'})`)
-  await foto(page, `${nome}-3-chamado-teclado`)
-  await page.keyboard.press('Tab')
-  conferir(await ver.evaluate((e) => e === document.activeElement), `${nome}: o Tab seguinte cai no "Ver o Mercado"`)
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(800)
-  conferir((await abaAberta(page)) === 'catalogo', `${nome}: "Ver o Mercado" abre a aba Mercado`)
-  await ctx.close()
-}
-
-// No computador, a faixa embaixo do perfil: aparece, para fora da tela (o rAF para), pausa no botão, movimento
-// reduzido parado, chamar o mercador
-for (const [w, h, reduzir] of [[1280, 800, false], [1280, 800, true]]) {
-  const nome = `rua-${w}${reduzir ? '-reduzido' : ''}`
+// No celular, a rua no fim do Início, depois da grade e antes do rodapé (pedido do Ian em 09/10): na primeira tela ela
+// nem monta nem baixa (a vaga já guarda a altura); rolando até ela, o pedaço baixa e ela anda; o rAF para com o botão,
+// fora da tela, com a sacola por cima e com a aba escondida; movimento reduzido, a foto. No computador, a faixa embaixo
+// do perfil: aparece, para fora da tela e no botão. Nos dois, o mercador chamado pelo teclado abre o "Ver o Mercado",
+// que leva à aba Mercado.
+for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, false], [1280, 800, true]]) {
+  const cel = w < 900
+  const nome = `rua-${cel ? 'fim-' : ''}${w}${reduzir ? '-reduzido' : ''}`
   const ctx = await contexto(browser, { width: w, height: h }, { reduzir })
   await ctx.addInitScript(contarVoltasDaRua)
   const page = await ctx.newPage()
   vigiar(page, nome)
   await page.goto(`${base}?uf=mg`)
   await passarAbertura(page)
+  const baixada = () => page.evaluate(() => performance.getEntriesByType('resource').some((e) => /\/Rua-[^/]*\.js|elenco\.worker/.test(e.name)))
+  if (cel) {
+    // a primeira tela não paga nada pela rua do fim: nem montada nem baixada, com a altura dela já guardada
+    await page.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ state: 'attached', timeout: 6000 }).catch(() => {})
+    await page.waitForTimeout(1500)
+    const antes = await page.evaluate(() => ({
+      montada: document.querySelectorAll('.vista-inicio .rua').length,
+      vaga: Math.round(document.querySelector('.vista-inicio .rua-fim .rua-vaga')?.getBoundingClientRect().height ?? 0),
+      noHero: document.querySelectorAll('.vista-inicio .hero .rua, .vista-inicio .hero .rua-vaga').length,
+    }))
+    const b = await baixada()
+    conferir(!antes.montada && !b && !antes.noHero && antes.vaga >= 150 && antes.vaga <= 190, `${nome}: na primeira tela a rua do fim nem monta nem baixa e a vaga já guarda a altura (${JSON.stringify({ ...antes, baixada: b })})`)
+  }
   const rua = page.locator('.vista:not([hidden]) .rua')
+  const paraARua = () => page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga').scrollIntoView({ block: 'center' }))
+  await paraARua()
   await rua.waitFor({ state: 'attached', timeout: 10000 })
-  await page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga').scrollIntoView({ block: 'center' }))
   for (let k = 0; k < 60 && !['rodando', 'foto'].includes(await rua.getAttribute('data-rua')); k++) await page.waitForTimeout(100)
   const estado = await rua.getAttribute('data-rua')
   conferir(estado === (reduzir ? 'foto' : 'rodando'), `${nome}: a rua ${reduzir ? 'vira uma foto (movimento reduzido)' : 'anda à vista'} (${estado})`)
   conferir((await page.locator('.vista:not([hidden]) .rua-tela[aria-hidden="true"]').count()) === 1 && (await rua.getAttribute('aria-label')) === 'A rua da loja', `${nome}: canvas decorativo e grupo com rótulo curto`)
+  if (cel) {
+    // o título pequeno em cima (um h2 de verdade, pro leitor de tela) e a rua sem rolagem lateral, de ponta a ponta
+    const t = await page.evaluate(() => {
+      const s = document.querySelector('.vista-inicio .rua-fim')
+      const vaga = s?.querySelector('.rua-vaga')?.getBoundingClientRect()
+      return { titulo: s?.querySelector('h2')?.textContent?.trim(), rotulo: s?.getAttribute('aria-labelledby'), larg: document.documentElement.scrollWidth > innerWidth, borda: vaga ? [Math.round(vaga.left), Math.round(vaga.right - innerWidth)] : null }
+    })
+    conferir(!!t.titulo && t.rotulo === 'rua-fim-titulo' && !t.larg && JSON.stringify(t.borda) === '[0,0]', `${nome}: o título pequeno em cima e a rua de ponta a ponta, sem rolagem lateral (${JSON.stringify(t)})`)
+    await foto(page, `${nome}-1`)
+  }
   // desenho de verdade no canvas (não ficou preto)
   const cores = await page.evaluate(() => {
     const c = document.querySelector('.vista:not([hidden]) .rua-tela')
@@ -1901,48 +1749,81 @@ for (const [w, h, reduzir] of [[1280, 800, false], [1280, 800, true]]) {
   })
   conferir(cores > 6, `${nome}: a rua desenhada no canvas (${cores} cores)`)
   const quadro = () => page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-tela').toDataURL())
+  const voltas = () => page.evaluate(() => window.__voltas)
+  /** Voltas do rAF da rua em 1 s (depois de 300 ms para assentar). */
+  const porSegundo = async () => {
+    await page.waitForTimeout(300)
+    const a = await voltas()
+    await page.waitForTimeout(1000)
+    return (await voltas()) - a
+  }
   if (reduzir) {
     const a = await quadro()
     await page.waitForTimeout(2500)
     conferir(a === (await quadro()), `${nome}: com movimento reduzido nada anda (o mesmo quadro)`)
     conferir(!(await page.locator('.rua-pausa').count()), `${nome}: sem botão de pausar (nada se mexe)`)
+    conferir((await porSegundo()) <= 1, `${nome}: com movimento reduzido, sem rAF da rua`)
   } else {
+    const rAF = {}
+    rAF.vista = await porSegundo()
     // botão de pausar: alvo de 44 px, pausa e continua
     const pausa = page.locator('.vista:not([hidden]) .rua-pausa')
     const bb = await pausa.boundingBox()
     conferir(!!bb && bb.width >= 44 && bb.height >= 44, `${nome}: botão de pausar com alvo de 44 px (${bb ? `${bb.width}×${bb.height}` : '?'})`)
     await pausa.click()
-    await page.waitForTimeout(200)
-    const v0 = await page.evaluate(() => window.__voltas)
-    await page.waitForTimeout(1000)
-    const v1 = await page.evaluate(() => window.__voltas)
+    rAF.pausada = await porSegundo()
     conferir((await rua.getAttribute('data-rua')) === 'parada' && (await pausa.getAttribute('aria-label')) === 'Continuar a rua', `${nome}: pausar para a rua`)
     await pausa.click()
     await page.waitForTimeout(200)
     conferir((await rua.getAttribute('data-rua')) === 'rodando', `${nome}: continuar volta a andar`)
-    // fora da tela o relógio para: o rAF quase não volta (só o que sobra do resto da página)
-    const n0 = await page.evaluate(() => window.__voltas)
-    await page.waitForTimeout(1000)
-    const n1 = await page.evaluate(() => window.__voltas)
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    // fora da tela o relógio para (no celular a rua mora no fim: fora da tela é lá em cima; no computador, embaixo)
+    await page.evaluate((cel) => window.scrollTo(0, cel ? 0 : document.documentElement.scrollHeight), cel)
     await page.waitForTimeout(600)
-    const f0 = await page.evaluate(() => window.__voltas)
-    await page.waitForTimeout(1500)
-    const f1 = await page.evaluate(() => window.__voltas)
+    rAF.foraDaTela = await porSegundo()
     conferir((await rua.getAttribute('data-rua')) === 'parada', `${nome}: fora da tela a rua para`)
-    relatorio.push(`${nome}: rAF por segundo — à vista ${n1 - n0}, pausada ${v1 - v0}, fora da tela ${Math.round((f1 - f0) / 1.5)}`)
-    conferir(n1 - n0 >= 30 && f1 - f0 <= 3 && v1 - v0 <= 3, `${nome}: o rAF da rua para fora da tela e pausada (${n1 - n0} → ${f1 - f0} / ${v1 - v0})`)
-    await page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga').scrollIntoView({ block: 'center' }))
+    await paraARua()
+    await page.waitForTimeout(400)
+    conferir((await rua.getAttribute('data-rua')) === 'rodando', `${nome}: de volta à vista, a rua anda`)
+    if (cel) {
+      // camada por cima (a sacola) e a aba do navegador escondida
+      await page.locator('.barra-abas [data-aba="sacola"]').click()
+      await page.waitForTimeout(500)
+      rAF.sacola = await porSegundo()
+      const comSacola = (await rua.getAttribute('data-rua')) === 'parada'
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(700)
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+      rAF.abaEscondida = await porSegundo()
+      const escondida = (await rua.getAttribute('data-rua')) === 'parada'
+      await page.evaluate(() => {
+        delete document.visibilityState
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+      await page.waitForTimeout(400)
+      conferir(comSacola && escondida && (await rua.getAttribute('data-rua')) === 'rodando', `${nome}: com a sacola por cima e com a aba escondida a rua para; depois, anda`)
+    }
+    relatorio.push(`${nome}: rAF da rua por segundo — ${Object.entries(rAF).map(([k, v]) => `${k} ${v}`).join(', ')}`)
+    const { vista, ...parada } = rAF
+    conferir(vista >= 30 && Object.values(parada).every((v) => v <= 3), `${nome}: o rAF da rua só roda à vista e tocando (${JSON.stringify(rAF)})`)
+    await paraARua()
     await page.waitForTimeout(400)
   }
   // chamar o mercador pelo teclado: o botão focável abre o balão e o adesivo "Ver o Mercado", que leva à aba Mercado
   const botao = page.locator('.vista:not([hidden]) .rua-mercador')
   await botao.focus()
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(400)
+  // o balão do chamado sai na hora; no meio de um atendimento a fala seguinte do roteiro pode tomar o lugar dele logo
+  // depois (um balão por vez): o que vale é ele ter aparecido. As falas vistas nos primeiros 400 ms
+  const bal = new Set()
+  for (let k = 0; k < 8; k++) {
+    for (const t of await page.locator('.vista:not([hidden]) .rua-balao[data-ator="mercador"]').allTextContents()) bal.add(t)
+    await page.waitForTimeout(50)
+  }
   const cta = page.locator('.vista:not([hidden]) .rua-cta')
-  const bal = await page.locator('.vista:not([hidden]) .rua-balao').allTextContents()
-  conferir((await cta.count()) === 1 && bal.some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${bal.join(' | ')})`)
+  conferir((await cta.count()) === 1 && [...bal].some((t) => /Chega mais|Vem no certo|Quem já usou/.test(t)), `${nome}: chamar o mercador abre o balão e o "Ver o Mercado" (${[...bal].join(' | ')})`)
   // o leitor de tela ouve o que de fato acontece: livre, ele abre o casaco; atendendo, abre no fim do atendimento; na
   // foto (movimento reduzido), só oferece
   const aviso = (await page.locator('.vista:not([hidden]) .rua [aria-live]').textContent())?.trim()

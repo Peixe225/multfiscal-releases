@@ -11,7 +11,7 @@ import { useChat } from '../store/chat'
 import { useRateio } from '../store/rateio'
 import { useDisponiveis } from '../store/derivados'
 import { siglasDosEstados, useCanais, useCanalDa, useEsperandoLoja } from '../store/loja'
-import { nomeCidade, useLocal } from '../store/local'
+import { nomeCidade, useEsperandoLink, useLocal } from '../store/local'
 import { useUI } from '../store/ui'
 import { AdesivoInterativo } from './AdesivoInterativo'
 import { Catalogo } from './Catalogo'
@@ -22,15 +22,16 @@ import { Perfil } from './Perfil'
 import { PorEstado } from './PorEstado'
 import { MercadoTopo } from './MercadoTopo'
 import { Rodape, TextoReposts } from './Rodape'
+import { RuaCelular } from './RuaInicio'
 import { SemAtendimento } from './SemAtendimento'
 import './Abas.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
 // As vistas do site, sempre no mesmo app (a barra de baixo do celular e a lateral do computador trocam):
-//   Início: o story (no celular, a rua viva é o primeiro story), a faixa dos @, o perfil (no computador, com a rua viva
-//     embaixo, ao lado do story) e a loja — destaques (as abas primeiro, os filtros à direita) e a grade. Acaba na
-//     grade, com o rodapé.
+//   Início: o story, a faixa dos @, o perfil (no computador, com a rua viva embaixo, ao lado do story) e a loja —
+//     destaques (as abas primeiro, os filtros à direita) e a grade. No celular, a rua viva fecha o Início, depois da
+//     grade; aí vem o rodapé.
 //   Mercado (id 'catalogo', ?aba=mercado ou catalogo): o mercador no topo recebendo, destaques, busca, grade,
 //     encomenda e, no fim, o interativo.
 //   Rateio: o título com o "?" (aqui, no pedaço principal: o foco tem onde cair na hora) e o corpo, que baixa à parte
@@ -195,28 +196,33 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
 
 /**
  * Início: o hero (ou o aviso de estado sem entrega), a faixa dos @, no celular o perfil embaixo e a loja (destaques e
- * grade, sem busca). Acaba na grade: o interativo e os reposts são do fim da aba Catálogo.
+ * grade, sem busca) e, só no celular, a rua viva depois da grade. O interativo e os reposts são do fim da aba Catálogo.
  */
 const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { abrirInfo: () => void; comGrade: boolean }) {
   const uf = useLocal((s) => s.uf)
   // estado que a loja tirou do site (ou que nunca teve): a tela de sem atendimento no lugar do Início. Enquanto a loja
   // do servidor não chega com um estado que a daqui não conhece, uma vaga preta (nem "ainda não chegou aí", nem produto
-  // apagado como indisponível)
-  const esperando = useEsperandoLoja(uf)
-  const comEntrega = !!useCanalDa(uf) || !uf
+  // apagado como indisponível). O link com ?uf= de um estado que a loja daqui não conhece espera do mesmo jeito: antes,
+  // o story de sem estado (ou o do estado de antes) aparecia por um segundo e trocava, e a página pulava
+  const esperandoLink = useEsperandoLink()
+  const esperando = useEsperandoLoja(uf) || esperandoLink
+  const canal = useCanalDa(uf)
+  const comEntrega = !esperandoLink && (!!canal || !uf)
   return (
     <>
       {comEntrega ? <Hero /> : esperando ? <div className="inicio-esperando" aria-busy="true" /> : <SemAtendimento />}
       <Faixa />
       {comEntrega && (
         <>
-          {/* celular: o perfil logo depois da faixa (a rua viva é o primeiro story; no computador, embaixo do perfil) */}
+          {/* celular: o perfil logo depois da faixa (no computador ele fica no hero, com a rua viva embaixo) */}
           <div className="so-celular">
             <Perfil />
           </div>
           <div className="loja-inicio">
             <Catalogo abrirInfo={abrirInfo} onde="inicio" comGrade={comGrade} />
           </div>
+          {/* celular: a rua viva fecha o Início, depois da grade e antes do rodapé (pedido do Ian em 09/10) */}
+          <RuaCelular />
         </>
       )}
     </>
@@ -246,7 +252,9 @@ const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => 
   const interativos = useInterativosAtivos()
   const total = useCatalogo((s) => s.produtos.length)
   const disp = useDisponiveis().length
+  const esperandoLink = useEsperandoLink()
   const esperando = useEsperandoLoja(uf)
+  if (esperandoLink) return <div className="inicio-esperando" aria-busy="true" />
   if (uf && !canal) return esperando ? <div className="inicio-esperando" aria-busy="true" /> : <CatalogoSemEntrega />
   const lugar = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? canal.nome) : null
   const legenda = canal ? `${disp} disponíveis em ${lugar} · ${total} produtos` : `${total} produtos · ${siglasDosEstados(canais)}`

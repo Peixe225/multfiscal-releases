@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { emUf, ufPorSigla } from '../dados/ufs'
-import { ehDesktop, movimentoReduzido } from '../lib/movimento'
+import { ehDesktop, movimentoReduzido, quandoRespirar } from '../lib/movimento'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa } from '../store/loja'
@@ -72,24 +72,54 @@ export function TopoLocal() {
 
   // Fora do Início (abas Catálogo e Por estado) não há story com a linha de local: o adesivo fica sempre à vista,
   // como cabeçalho, já no render (por classe, sem gsap.set, que forçava o layout da vista nova na troca de aba).
-  // No Início, aparece quando o topo da tela passa do fim do story (ou da tela "ainda não chegou aí").
+  // No Início, aparece quando o topo da tela passa do fim do story (ou da tela "ainda não chegou aí", ou da vaga de
+  // espera da loja). O story também pode entrar ou sair sem a pessoa rolar (a loja do servidor chega, o estado muda): a
+  // vista do Início muda de altura e o adesivo confere de novo (ResizeObserver).
   const ancorado = useUI((s) => s.aba !== 'inicio')
   const [passouDoStory, setPassouDoStory] = useState(false)
+  const jaMediu = useRef(false)
   useLayoutEffect(() => {
     if (ehDesktop() || ancorado) return
     const medir = () => {
-      const topo = document.querySelector('.hero, .sem-atendimento')
+      const topo = document.querySelector('.vista-inicio')?.querySelector('.hero, .sem-atendimento, .inicio-esperando')
       const fim = topo ? topo.getBoundingClientRect().bottom : 0
       setPassouDoStory(fim < 72)
     }
-    // volta de outra aba: mede já (a rolagem volta à altura guardada do Início)
-    medir()
-    const st = ScrollTrigger.create({ trigger: document.documentElement, start: 0, end: 'max', onUpdate: medir })
-    const conferir = () => st.refresh()
-    window.addEventListener('resize', conferir)
+    let st: ScrollTrigger | undefined
+    let ro: ResizeObserver | undefined
+    const conferir = () => st?.refresh()
+    const ligar = () => {
+      st = ScrollTrigger.create({ trigger: document.documentElement, start: 0, end: 'max', onUpdate: medir })
+      window.addEventListener('resize', conferir)
+      const vista = document.querySelector('.vista-inicio')
+      if (vista && typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(() => medir())
+        ro.observe(vista)
+      }
+    }
+    // volta de outra aba: mede e liga já (a rolagem volta à altura guardada do Início). Na página abrindo, mede no
+    // quadro seguinte e liga a rolagem quando a página respira: ler a posição (e o ScrollTrigger lê a rolagem ao
+    // nascer) aqui, no meio da montagem, obrigava o navegador a calcular a página inteira a mais e atrasava a primeira
+    // tela (ela abre no topo, com o story à vista; o adesivo começa escondido, como já estava)
+    let quadro = 0
+    let cancelar = () => {}
+    if (jaMediu.current) {
+      medir()
+      ligar()
+    } else {
+      quadro = requestAnimationFrame(medir)
+      cancelar = quandoRespirar(() => {
+        medir()
+        ligar()
+      })
+    }
+    jaMediu.current = true
     return () => {
+      cancelAnimationFrame(quadro)
+      cancelar()
       window.removeEventListener('resize', conferir)
-      st.kill()
+      ro?.disconnect()
+      st?.kill()
     }
   }, [ancorado])
   const visivel = ancorado || passouDoStory

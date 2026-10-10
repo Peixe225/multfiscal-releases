@@ -1,7 +1,7 @@
 import { Fragment, useLayoutEffect, useRef, type FocusEvent } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { movimentoReduzido } from '../lib/movimento'
+import { movimentoReduzido, quandoRespirar } from '../lib/movimento'
 import { useLocal } from '../store/local'
 import { useCanais } from '../store/loja'
 import { trocarEstado } from '../lib/troca'
@@ -36,25 +36,32 @@ export function Faixa() {
   // os estados da loja (o dono ativa e desativa no painel): a faixa mostra os de agora
   const canais = useCanais()
 
+  // o trilho começa a andar quando a página respira depois da primeira tela: o GSAP lê o estilo do trilho e o
+  // ScrollTrigger mede a página ao nascer, e fazer isso no meio da montagem atrasava a primeira tela (o trilho parte
+  // do x 0 e o scrub leva até a posição da rolagem, igual)
   useLayoutEffect(() => {
     const el = ref.current
     const t = trilho.current
     if (!el || !t || movimentoReduzido()) return
-    const ctx = gsap.context(() => {
-      anda.current = gsap.fromTo(
-        t,
-        { x: 0 },
-        {
-          x: () => -(t.scrollWidth / VOLTAS),
-          ease: 'none',
-          modifiers: { x: (x: string) => `${Math.round(parseFloat(x) / 2) * 2}px` },
-          scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: 0.3, invalidateOnRefresh: true },
-        },
-      )
+    let ctx: gsap.Context | undefined
+    const cancelar = quandoRespirar(() => {
+      ctx = gsap.context(() => {
+        anda.current = gsap.fromTo(
+          t,
+          { x: 0 },
+          {
+            x: () => -(t.scrollWidth / VOLTAS),
+            ease: 'none',
+            modifiers: { x: (x: string) => `${Math.round(parseFloat(x) / 2) * 2}px` },
+            scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: 0.3, invalidateOnRefresh: true },
+          },
+        )
+      })
     })
     return () => {
+      cancelar()
       anda.current = null
-      ctx.revert()
+      ctx?.revert()
     }
   }, [])
 

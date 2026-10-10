@@ -38,9 +38,11 @@ function campoDeTexto(el: Element | null): boolean {
 export function vigiarTeclado(): () => void {
   const vv = window.visualViewport
   const raiz = document.documentElement
-  // altura da janela sem teclado: a maior vista nesta largura (girar o celular recomeça a conta)
-  let largura = window.innerWidth
-  let base = window.innerHeight
+  // altura da janela sem teclado: a maior vista nesta largura (girar o celular recomeça a conta). As duas são lidas na
+  // primeira conferência: ler a janela na montagem forçava um layout da página inteira a mais
+  let largura = -1
+  let base = 0
+  let teclado = raiz.style.getPropertyValue('--teclado') || '0px'
   const atualizar = () => {
     const focado = campoDeTexto(document.activeElement)
     if (window.innerWidth !== largura) {
@@ -50,7 +52,13 @@ export function vigiarTeclado(): () => void {
     const coberto = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
     // a barra de endereço que aparece e some mexe uns 60 px: o teclado tira bem mais que isso
     const encolheu = focado ? base - window.innerHeight : 0
-    raiz.style.setProperty('--teclado', `${Math.round(coberto)}px`)
+    // só escreve quando muda: --teclado mora na raiz, e cada escrita refaz o estilo da página inteira (sem ela, o CSS
+    // usa 0px)
+    const valor = `${Math.round(coberto)}px`
+    if (valor !== teclado) {
+      teclado = valor
+      raiz.style.setProperty('--teclado', valor)
+    }
     raiz.classList.toggle('com-teclado', coberto > 80 || encolheu > 150)
   }
   // o foco muda antes do teclado subir (a janela encolhe depois, no resize); trocar de um campo para outro passa
@@ -65,7 +73,9 @@ export function vigiarTeclado(): () => void {
   window.addEventListener('resize', atualizar)
   document.addEventListener('focusin', aoFocar)
   document.addEventListener('focusout', aoFocar)
-  atualizar()
+  // a primeira conferência vai no quadro seguinte (antes da pintura): ler a visualViewport na montagem forçava um
+  // layout da página inteira a mais e atrasava a primeira tela
+  quadro = requestAnimationFrame(atualizar)
   return () => {
     cancelAnimationFrame(quadro)
     vv?.removeEventListener('resize', atualizar)
