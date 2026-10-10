@@ -14,9 +14,10 @@ import App from './App'
  * Firefox, Safari e do próprio Vite), com internet, e no máximo UMA vez por build nesta aba: a marca no
  * sessionStorage é o endereço do index-<hash>.js que falhou (import.meta.url), então um index.html velho
  * vindo de um cache não vira laço, e o deploy seguinte ainda ganha a sua recarga. Erro dentro do módulo
- * (bug de verdade), sem internet, ou import opcional que já se vira sozinho (o confete, as pré-cargas do
- * hover) seguem o caminho de antes: o .catch de quem chamou, ou a tela de erro da rota. Sem sessionStorage
- * não dá para garantir o "uma vez", então nem tenta.
+ * (bug de verdade) e falha sem internet seguem o caminho de antes: o .catch de quem chamou, ou a tela de
+ * erro da rota. Um import opcional (o confete, as pré-cargas do hover) que não achar o arquivo com internet
+ * também recarrega: arquivo sumido quer dizer build velho, e a próxima tela daria o mesmo erro. Sem
+ * sessionStorage não dá para garantir o "uma vez", então nem tenta.
  * Sem preventDefault de propósito: com ele o import() resolveria `undefined` e quem chamou quebraria com
  * um erro sem sentido. O erro original segue o caminho normal, e o #root some até a página nova chegar
  * (a tela de erro da rota não pisca antes do reload).

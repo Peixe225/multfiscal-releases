@@ -22,8 +22,11 @@ import './live.css'
 
 /**
  * Build publicado no claude.ai: a CSP bloqueia a ESPN, então não oferecemos um botão que nunca funciona.
- * Só o VITE_ARTIFACT conta — no site público (VITE_SITE) a página é nossa, sem essa CSP, e o fetch da ESPN
- * (CORS aberto) funciona como no PC: lá o "Atualizar agora" fica.
+ * Só o VITE_ARTIFACT conta. No site público (VITE_SITE) o oprojeto.online manda uma CSP própria para o site
+ * inteiro (connect-src sem a ESPN), mas o .htaccess da pasta lenda/ (scripts/build-site.mjs) troca por uma
+ * que libera site.api.espn.com e os logos da a.espncdn.com — e o fetch da ESPN (CORS aberto) funciona como
+ * no PC: lá o "Atualizar agora" fica. Se um cabeçalho acima do .htaccess vencer, o espn.ts percebe a
+ * violação da CSP na 1ª tentativa, desliga o botão ("Sem acesso à ESPN") e mostra o texto do site.
  */
 const ARTIFACT = import.meta.env.VITE_ARTIFACT === '1'
 

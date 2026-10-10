@@ -99,7 +99,11 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
     import('canvas-confetti')
       .then(({ default: confetti }) => {
         if (cancelled) return
-        const fire = confetti.create(undefined, { resize: true, useWorker: true, disableForReducedMotion: true })
+        // No site público sem worker: o canvas-confetti entrega o canvas a um worker criado de blob:, e uma
+        // CSP sem worker-src blob: (a do .htaccess da pasta libera, mas um cabeçalho do CDN/painel acima dela
+        // pode não liberar) mata o worker depois de o canvas já ter ido — confete nenhum, sem erro. Na página
+        // mesmo funciona com qualquer CSP, e ~280 partículas por 3 s não pesam. Nos outros builds, como antes.
+        const fire = confetti.create(undefined, { resize: true, useWorker: import.meta.env.VITE_SITE !== '1', disableForReducedMotion: true })
         timers.push(setTimeout(() => void fire({ particleCount: Math.round(140 * scale), spread: 80, startVelocity: 45, origin: { y: 0.25 }, colors: palette, disableForReducedMotion: true, zIndex: 80 }), 300))
         timers.push(
           setTimeout(() => {

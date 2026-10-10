@@ -156,8 +156,19 @@ function knownBlockedHost(): boolean {
   return false
 }
 
+/**
+ * 'blocked' = a CSP da página não deixa falar com a ESPN. No Artifact do claude.ai (e nos builds de PC, que
+ * só veem isso se forem abertos lá) o texto cita o claude.ai. No site público (VITE_SITE=1) só acontece se
+ * um cabeçalho acima do .htaccess da pasta — CDN, painel da hospedagem — passar por cima da CSP que o
+ * scripts/build-site.mjs escreve: aí o visitante não deve ler sobre o claude.ai.
+ */
+const BLOCKED_TEXT =
+  import.meta.env.VITE_SITE === '1'
+    ? 'Este site não tem permissão para consultar a ESPN agora, então a tabela não pode ser atualizada daqui.'
+    : 'Este ambiente bloqueia conexões externas (como dentro do claude.ai), então a ESPN não pode ser consultada daqui.'
+
 export const LIVE_ERROR_TEXT: Record<LiveErrorKind, string> = {
-  blocked: 'Este ambiente bloqueia conexões externas (como dentro do claude.ai), então a ESPN não pode ser consultada daqui.',
+  blocked: BLOCKED_TEXT,
   offline: 'Você está sem internet.',
   timeout: 'A ESPN demorou demais para responder.',
   http: 'A ESPN recusou o pedido agora.',

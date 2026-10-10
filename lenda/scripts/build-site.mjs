@@ -6,9 +6,11 @@
  *
  * Este script:
  *   1. roda `vite build` em dist-site/ com VITE_SITE=1 (a live só com o simulador: a página pública nunca
- *      abre ws://localhost — ver LIVE_SANDBOXED em src/live/config.ts) e LENDA_SITE_URL (o plugin
- *      lenda:site-meta do vite.config.ts põe no index.html o canonical e o cartão Open Graph/Twitter);
- *   2. escreve o .htaccess da pasta (tipos, compressão, cache, sem listagem) e o de assets/ (cache de 1 ano);
+ *      abre ws://localhost — ver LIVE_SANDBOXED em src/live/config.ts), LENDA_SITE_URL (o plugin
+ *      lenda:site-meta do vite.config.ts põe no index.html o canonical e o cartão Open Graph/Twitter) e
+ *      VITE_CRESTS_V (hash dos atlas de escudos: eles vão para crests/<hash>/ — ver src/ui/primitives/crestAtlas.ts);
+ *   2. escreve o .htaccess da pasta (tipos, compressão, cache, CSP própria, sem listagem) e o de assets/
+ *      (cache de 1 ano);
  *   3. copia a imagem de compartilhamento (scripts/site/og.jpg, 1200×630 — refaça com
  *      `node scripts/site/render-og.mjs`) e gera o apple-touch-icon.png (180×180) a partir do favicon.svg;
  *   4. tira o carimbo .lenda-build (é da ponte, só faz sentido no dist/ local) e confere o resultado;
@@ -18,17 +20,21 @@
  *
  * Uso: npm run build:site
  *      LENDA_SITE_URL=https://outro.site/jogo/ npm run build:site   (outro endereço final)
- *      SITE_OUT=dist-site2 npm run build:site                        (outra pasta de saída)
+ *      SITE_OUT=dist-site2 npm run build:site                        (outra pasta de saída, relativa ao
+ *                                                                     projeto ou absoluta)
  */
-import { execSync } from 'node:child_process'
-import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const outName = process.env.SITE_OUT || 'dist-site'
-const out = join(root, outName)
+// resolve (e não join): SITE_OUT=/tmp/x vale como absoluto, igual ao que o vite faria com o --outDir
+const out = resolve(root, process.env.SITE_OUT || 'dist-site')
+const outName = relative(root, out) || '.'
 // sempre com a barra final: é a PASTA do jogo (o og:image e o canonical são montados em cima dela)
 const siteUrl = new URL(process.env.LENDA_SITE_URL || 'https://oprojeto.online/lenda/').href.replace(/\/?$/, '/')
 
@@ -40,15 +46,77 @@ const fail = (msg) => {
 // ── 1. vite build ──
 // as chaves dos outros builds saem do ambiente: um VITE_ARTIFACT esquecido no terminal faria um site com
 // o texto do claude.ai, e o VITE_FLAG_PACK trocaria as bandeiras soltas pelo pacote
-const env = { ...process.env, VITE_SITE: '1', LENDA_SITE_URL: siteUrl }
+//
+// Versão dos escudos: os atlas (public/crests/<liga>.webp) têm nome fixo, mas a ordem dos escudos dentro
+// deles segue a tabela do dia em que `npm run data` rodou, e o índice de cada clube fica no JS (com hash).
+// Com o cache de 30 dias das imagens (e o CDN da Hostinger na frente), um atlas velho seria desenhado com os
+// índices novos: escudo de outro clube, liga inteira, sem erro nenhum. Por isso eles vão para
+// crests/<hash do conteúdo>/ — dado novo, pasta nova; dado igual, mesma pasta (o cache continua valendo).
+// O jogo monta o caminho com o VITE_CRESTS_V (src/ui/primitives/crestAtlas.ts e src/data/index.ts).
+const crestsSrc = join(root, 'public', 'crests')
+const crestFiles = readdirSync(crestsSrc).filter((f) => f.endsWith('.webp')).sort()
+if (!crestFiles.length) fail('public/crests/ sem nenhum atlas .webp (rode npm run data)')
+const crestHash = createHash('sha256')
+for (const f of crestFiles) crestHash.update(f).update('\0').update(readFileSync(join(crestsSrc, f))).update('\0')
+const crestsV = crestHash.digest('hex').slice(0, 10)
+
+const env = { ...process.env, VITE_SITE: '1', LENDA_SITE_URL: siteUrl, VITE_CRESTS_V: crestsV }
 for (const k of ['VITE_ARTIFACT', 'LENDA_ARTIFACT', 'VITE_FLAG_PACK']) delete env[k]
-execSync(`npx vite build --outDir ${outName} --emptyOutDir`, { cwd: root, stdio: 'inherit', env })
+// o vite pelo node, sem npx nem shell: a pasta de saída vai como argumento, então espaço ou acento no
+// caminho não quebram o comando (e funciona igual no Windows)
+const viteBin = (() => {
+  const pkgPath = createRequire(import.meta.url).resolve('vite/package.json')
+  const bin = JSON.parse(readFileSync(pkgPath, 'utf8')).bin
+  return join(dirname(pkgPath), typeof bin === 'string' ? bin : bin.vite)
+})()
+execFileSync(process.execPath, [viteBin, 'build', '--outDir', out, '--emptyOutDir'], { cwd: root, stdio: 'inherit', env })
+if (!existsSync(join(out, 'assets'))) fail('o vite build não gerou a pasta assets/')
+
+// os atlas que o vite copiou de public/crests/ descem para crests/<versão>/
+const crestsOut = join(out, 'crests')
+const crestsTmp = join(out, `.crests-${crestsV}`)
+renameSync(crestsOut, crestsTmp)
+mkdirSync(crestsOut)
+renameSync(crestsTmp, join(crestsOut, crestsV))
 
 // ── 2. .htaccess ──
 // Vale só para public_html/lenda/ e o que está dentro: o .htaccess do public_html continua mandando no
 // resto do site, e nada daqui chega às pastas irmãs. Nenhuma RewriteRule/RewriteEngine de propósito (ver o
 // cabeçalho do arquivo). Cada bloco dentro de <IfModule>: módulo ausente = bloco ignorado, nunca erro 500.
 const TEXT_TYPES = 'text/html text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml text/plain'
+
+// CSP da pasta. O oprojeto.online manda uma CSP para o site inteiro (Header always, até nos 403) feita para
+// a página principal: connect-src sem a ESPN, img-src sem os logos dela, child-src 'self' (nada de worker
+// de blob:). Herdada aqui, ela quebraria o "Atualizar agora" das Ligas ao vivo e os logos dos times que não
+// estão nos nossos dados. Então o index.html daqui sai com a NOSSA, com só o que o jogo usa:
+//  · script-src: os arquivos daqui + o hash de cada <script> embutido no index.html (o de pré-pintura do tema),
+//    calculado agora — sem 'unsafe-inline'. Se algo no caminho reescrever esse script (minificador de CDN),
+//    ele é barrado e o tema só entra quando o app carrega (src/store/app.ts aplica de novo), sem quebrar nada;
+//  · style-src 'unsafe-inline': os style="" do React/motion e o <style> do index.html;
+//  · img-src: data: e blob: (o cartão de compartilhamento: html-to-image e o "Ver imagem") e os logos da ESPN;
+//  · connect-src: a API de tabelas da ESPN (CORS aberto, pedido simples);
+//  · o resto fica em 'self' (fontes, áudio, workers) ou fechado (object, base, form).
+// Só nos .html: CSP só vale para documentos, e é onde a de cima estaria. "unset" tira a que veio por
+// "Header set" e "always set" substitui a que veio por "Header always set" — com só um dos dois, o navegador
+// recebe DUAS CSPs e aplica as duas (vale a mais fechada). Dentro de <FilesMatch> porque um <FilesMatch> do
+// .htaccess de cima é aplicado depois das linhas soltas deste e venceria (testado no Apache 2.4).
+const html0 = readFileSync(join(out, 'index.html'), 'utf8')
+const inlineScripts = [...html0.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1])
+const scriptHashes = inlineScripts.map((code) => `'sha256-${createHash('sha256').update(code, 'utf8').digest('base64')}'`)
+const CSP = [
+  "default-src 'self'",
+  ['script-src', "'self'", ...scriptHashes].join(' '),
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://a.espncdn.com",
+  "font-src 'self'",
+  "connect-src 'self' https://site.api.espn.com",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  'upgrade-insecure-requests',
+].join('; ')
+if (CSP.includes('"')) fail('a CSP não pode ter aspas duplas (vai entre aspas no .htaccess)')
 const htaccess = `# ─────────────────────────────────────────────────────────────────────────────────────────────
 # LENDA · public_html/lenda/.htaccess — gerado por scripts/build-site.mjs (não edite aqui: rode
 # "npm run build:site" de novo e suba a pasta dist-site/ inteira).
@@ -108,7 +176,9 @@ const htaccess = `# ────────────────────
 # Cache.
 #  · index.html: sempre pergunta ao servidor antes de usar a cópia guardada (no-cache; com ETag a resposta
 #    é um 304 de poucos bytes). É ele que aponta para os arquivos do build novo depois de um deploy.
-#  · imagens e fontes com nome fixo (escudos, fotos, troféus, bandeiras, ligas, og.jpg): 30 dias.
+#  · imagens e fontes com nome fixo (fotos, troféus, bandeiras, ligas, og.jpg): 30 dias. Os escudos também,
+#    mas numa pasta com o hash do conteúdo (crests/<hash>/): dado novo vem com pasta nova, e um atlas velho
+#    guardado nunca é desenhado com os índices novos. As pastas antigas podem ser apagadas do servidor.
 #  · assets/ (nome com hash, muda a cada build): 1 ano e immutable — no .htaccess de lá.
 # As regras de cabeçalho vão em <FilesMatch>: assim valem mesmo se o .htaccess de cima tiver regras de
 # cache por arquivo (as de <FilesMatch> são aplicadas por último, e as daqui depois das de lá).
@@ -127,6 +197,22 @@ const htaccess = `# ────────────────────
   <FilesMatch "\\.html?$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
+</IfModule>
+
+# CSP desta pasta, no lugar da do site inteiro (a de cima não deixa o jogo falar com a ESPN nem mostrar os
+# logos dela). "unset" + "always set": sobra UMA só, venha a de cima por "Header set" ou "Header always set".
+# O hash em script-src é o do <script> embutido no index.html deste build (muda quando ele muda).
+# Depois de subir, confira: curl -sI ${siteUrl} | grep -i content-security
+# (tem que aparecer UMA linha, esta). Se aparecer a do site também, ela vem de fora do .htaccess (CDN ou
+# painel): o jogo segue funcionando, só sem o "Atualizar agora" das Ligas ao vivo e os logos da ESPN.
+<IfModule mod_headers.c>
+  <FilesMatch "\\.html?$">
+    Header unset Content-Security-Policy
+    Header always set Content-Security-Policy "${CSP}"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_headers.c>
   <FilesMatch "\\.(webp|png|jpe?g|svg|ico|woff2)$">
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
@@ -149,7 +235,6 @@ ${['text/javascript', 'application/javascript', 'text/css', 'application/json', 
   </FilesMatch>
 </IfModule>
 `
-if (!existsSync(join(out, 'assets'))) fail('o vite build não gerou a pasta assets/')
 writeFileSync(join(out, '.htaccess'), htaccess)
 writeFileSync(join(out, 'assets', '.htaccess'), htaccessAssets)
 
@@ -194,6 +279,11 @@ const html = readFileSync(join(out, 'index.html'), 'utf8')
 for (const need of [`<link rel="canonical" href="${siteUrl}"`, `content="${siteUrl}og.jpg"`, 'twitter:card', 'apple-touch-icon']) {
   if (!html.includes(need)) fail(`index.html sem ${need} (o plugin lenda:site-meta do vite.config.ts rodou?)`)
 }
+// o caminho versionado dos escudos tem que estar no JS (senão o jogo pediria crests/<liga>.webp, que não existe mais)
+const crestsRef = `crests/${crestsV}/`
+if (!readdirSync(join(out, 'assets')).some((f) => f.endsWith('.js') && readFileSync(join(out, 'assets', f), 'utf8').includes(crestsRef))) {
+  fail(`nenhum JS do build monta ${crestsRef} (o VITE_CRESTS_V chegou em src/ui/primitives/crestAtlas.ts?)`)
+}
 
 // ── 5. resumo ──
 const files = []
@@ -215,8 +305,9 @@ for (const f of files) {
   byDir[top].n++
   byDir[top].size += f.size
 }
-console.log(`\n✓ site: ${files.length} arquivos · ${kb(total)} em ${outName}/ → suba o conteúdo para public_html/lenda/`)
+console.log(`\n✓ site: ${files.length} arquivos · ${kb(total)} em ${outName.startsWith('..') ? out : outName}/ → suba o conteúdo para public_html/lenda/`)
 console.log(`  endereço: ${siteUrl}`)
+console.log(`  escudos: crests/${crestsV}/ · CSP: ${scriptHashes.length} script(s) embutido(s) com hash`)
 console.log('  por pasta:')
 for (const [d, v] of Object.entries(byDir).sort((a, b) => b[1].size - a[1].size)) console.log(`    ${d.padEnd(12)} ${String(v.n).padStart(4)} arq.  ${kb(v.size).padStart(10)}`)
 console.log('  maiores:')
