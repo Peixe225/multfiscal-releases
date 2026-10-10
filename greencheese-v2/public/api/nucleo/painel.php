@@ -975,6 +975,7 @@ function gc_evento_texto(array $e, array $d): string
         'participacao-expirada' => "Reserva $alvo venceu em $t",
         'participacao-dados-apagados' => "Apagou os dados de $alvo (LGPD)",
         'imagem-enviada' => 'Enviou uma imagem',
+        'video-enviado' => 'Enviou um vídeo (thumb animada)',
         'backup-baixado' => 'Baixou a cópia do banco',
         // os dos pedidos, dos avisos no WhatsApp e das falas do pedido guiado têm a frase no módulo deles (pedido.php)
         default => (function_exists('gc_pedidos_evento_texto') ? gc_pedidos_evento_texto((string) $e['acao'], $alvo, $d) : null)

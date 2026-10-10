@@ -1,4 +1,5 @@
-// Produto (criar e editar): foto (vira a capa do card e da página do produto no site), nome, tamanho, categoria,
+// Produto (criar e editar): foto (vira a capa do card e da página do produto no site; o Estúdio deixa ela no estilo
+// do site) e thumb animada (MidiaProduto.tsx), nome, tamanho, categoria,
 // preço ou "Consultar", combos, variações, onde tem (à venda e estoque por estado), "Combina com", o desenho de
 // quando não tem foto e a prévia do card como o cliente vê. O que está sendo digitado fica guardado no aparelho até
 // salvar. Na edição, só vai pro servidor o que mudou (a troca rápida feita no outro aparelho não é desfeita).
@@ -9,16 +10,16 @@ import { ErroApi } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { Folha } from '../Folha'
 import { brl, lerReais, reaisNoCampo } from '../formato'
-import { prepararFoto } from '../imagem'
 import { lembrarJson, lidoJson } from '../lembrar'
 import { Topo } from '../Moldura'
 import { caminho, ir, voltar } from '../rotas'
 import { avisarNaProxima } from '../telas/flash'
 import { useTitulo } from '../telas/comum'
-import { Aviso, Botao, Campo, Carregando, Ic, Numero, Pontinhos, TituloTela } from '../ui'
+import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
 import * as api from './api'
 import { ArteProduto, NomeProduto, useIlustracoes } from './Arte'
 import { comProduto, estadosNoSite, guardarLoja, semProduto, situacao, useLoja } from './dados'
+import { FotoProduto, VideoProduto } from './MidiaProduto'
 import { ARTES } from './nomes'
 import { PreviaCard } from './Previa'
 import { lerPreco, pareceAlcool, problemaNoTexto, tamanho } from './validar'
@@ -40,6 +41,11 @@ interface Form {
   combos: { qtd: string; total: string }[]
   variacoes: { id?: string; nome: string; preco: string }[]
   foto: string | null
+  /** A cor do brilho que a foto do Estúdio sugeriu (null = a do desenho, como antes). */
+  corFoto: string | null
+  /** Thumb animada: o vídeo e a capa (os dois ou nenhum). */
+  video: string | null
+  capa: string | null
   formato: TipoArte
   cor1: string
   cor2: string
@@ -70,6 +76,9 @@ function doProduto(p: ProdutoAdmin, l: LojaAdmin): Form {
     combos: p.combos.map((c) => ({ qtd: String(c.qtd), total: reaisNoCampo(c.total) })),
     variacoes: p.variacoes.map((v) => ({ id: v.id, nome: v.nome, preco: reaisNoCampo(v.preco) })),
     foto: p.foto,
+    corFoto: null,
+    video: p.video ?? null,
+    capa: p.capa ?? null,
     formato: p.arte.tipo,
     cor1: p.arte.corpo,
     cor2: (GARRAFAS.includes(p.arte.tipo) ? p.arte.rotulo : p.arte.faixa) ?? '',
@@ -92,6 +101,9 @@ function novo(l: LojaAdmin): Form {
     combos: [],
     variacoes: [],
     foto: null,
+    corFoto: null,
+    video: null,
+    capa: null,
     formato: 'lata',
     cor1: '#a8a8a8',
     cor2: '',
@@ -183,6 +195,8 @@ function corpo(f: Form, p: ProdutoAdmin | null): ProdutoCorpo {
     variacoes: f.variacoes.map((v) => ({ ...(v.id ? { id: v.id } : {}), nome: v.nome.trim(), preco: v.preco.trim() ? (lerPreco(v.preco) ?? null) : null })),
     combinaCom: f.combinaCom,
     foto: f.foto,
+    video: f.video,
+    capa: f.video ? f.capa : null,
     obs: f.obs.trim(),
     ativo: f.ativo,
     demo: f.demo,
@@ -194,6 +208,9 @@ function corpo(f: Form, p: ProdutoAdmin | null): ProdutoCorpo {
     c.arte = arte
     c.cor = corDoBrilho(f.cor1, f.cor2)
   }
+  // a cor que a foto do Estúdio sugeriu vai pro brilho (o halo do site); tirou a foto, o brilho volta pro desenho
+  if (f.corFoto && f.foto) c.cor = f.corFoto
+  else if (p && p.foto && !f.foto) c.cor = corDoBrilho(f.cor1, f.cor2)
   // estados: só os que mudaram
   const estados: Record<string, NoEstado> = {}
   for (const [uf, x] of Object.entries(f.estados)) {
@@ -237,65 +254,6 @@ function Reais({ id, valor, aoMudar, placeholder, rotulo, erro }: { id: string; 
           if (n != null) aoMudar(reaisNoCampo(n))
         }}
       />
-    </div>
-  )
-}
-
-/**
- * A foto do produto: sobe pelo admin-upload (o celular reduz antes) e vira a capa do card no site. Do lado, o card como
- * o cliente vê (no computador ele fica na coluna da prévia).
- */
-function FotoProduto({ foto, aoMudar, previa, semFoto }: { foto: string | null; aoMudar: (f: string | null) => void; previa: ReactNode; semFoto: string }) {
-  const [andamento, setAndamento] = useState<number | null>(null)
-  const [falha, setFalha] = useState<string | null>(null)
-  const entrada = useRef<HTMLInputElement>(null)
-  const escolher = async (f: File | undefined) => {
-    if (!f || andamento !== null) return
-    setFalha(null)
-    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
-      setFalha('Manda foto em JPG, PNG ou WebP.')
-      return
-    }
-    setAndamento(0)
-    try {
-      const pronta = await prepararFoto(f)
-      const r = await apiBase.enviarImagem(pronta.blob, pronta.nome, (x) => setAndamento(x))
-      aoMudar(r.imagem)
-    } catch (e) {
-      setFalha(apiBase.mensagemDe(e))
-    } finally {
-      setAndamento(null)
-      if (entrada.current) entrada.current.value = ''
-    }
-  }
-  return (
-    <div className="pn-foto pn-foto-produto">
-      <div className="pn-foto-card">{previa}</div>
-      <div className="pn-foto-lado">
-        <p className="pn-dica-bloco">{foto ? 'No site, o preto da foto some no preto da página: produto em fundo preto fica melhor.' : semFoto}</p>
-        {andamento !== null && (
-          <div className="pn-foto-andamento-linha" role="status">
-            <Pontinhos rotulo="Subindo a foto…" />
-            <span className="pn-foto-barra" aria-hidden="true">
-              <i style={{ transform: `scaleX(${andamento})` }} />
-            </span>
-            <span>{Math.round(andamento * 100)}%</span>
-          </div>
-        )}
-        <div className="pn-foto-acoes">
-          <label className={`pn-botao pn-botao-cinza${andamento !== null ? ' pn-ocupado' : ''}`}>
-            <Ic nome="camera" tamanho={16} />
-            <span className="pn-botao-txt">{foto ? 'Trocar foto' : 'Enviar foto'}</span>
-            <input ref={entrada} id="p-foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={andamento !== null} onChange={(e) => void escolher(e.target.files?.[0])} />
-          </label>
-          {foto && andamento === null && (
-            <button type="button" className="pn-botao pn-botao-texto" onClick={() => aoMudar(null)}>
-              <span className="pn-botao-txt">Tirar foto</span>
-            </button>
-          )}
-        </div>
-        {falha && <Aviso tipo="erro">{falha}</Aviso>}
-      </div>
     </div>
   )
 }
@@ -516,10 +474,10 @@ export function Produto({ id }: { id: string | null }) {
   const cat = l.categorias.find((c) => c.id === f.categoria)
   const temIlustracao = !!(p && ilustracoes?.[p.id])
   const arte = arteDoForm(f, p?.arte ?? null)
-  const corBrilho = p && JSON.stringify(arte) === JSON.stringify(p.arte) ? p.cor : corDoBrilho(f.cor1, f.cor2)
+  const corBrilho = f.corFoto && f.foto ? f.corFoto : p && JSON.stringify(arte) === JSON.stringify(p.arte) ? p.cor : corDoBrilho(f.cor1, f.cor2)
   const previaEst = previaUf ? f.estados[previaUf] : undefined
   const previaNo: NoEstado | null = previaEst ? { disponivel: previaEst.disponivel, estoque: previaEst.contar ? (inteiro(previaEst.estoque) ?? 0) : null } : null
-  const previaP = { id: p?.id ?? 'novo', nome: f.nome.trim(), cor: corBrilho, arte, foto: f.foto, preco: preco ?? null, detalhe: f.detalhe }
+  const previaP = { id: p?.id ?? 'novo', nome: f.nome.trim(), cor: corBrilho, arte, foto: f.foto, video: f.video, capa: f.capa, preco: preco ?? null, detalhe: f.detalhe }
   const sit = previaUf && previaNo ? situacao({ ...(p ?? ({} as ProdutoAdmin)), ativo: f.ativo, estados: { [previaUf]: previaNo } } as ProdutoAdmin, previaUf, l.ajustes.restamAte) : null
   const restam = sit === 'acabando' ? (previaNo?.estoque ?? null) : null
 
@@ -555,9 +513,23 @@ export function Produto({ id }: { id: string | null }) {
           <Secao titulo="Foto" id="s-foto" dica="Vira a capa do produto no site: o card da grade, o story e a página dele.">
             <FotoProduto
               foto={f.foto}
-              aoMudar={(v) => mudar('foto', v)}
+              nome={f.nome.trim()}
+              preco={preco ?? null}
+              cor={corBrilho}
+              aoMudar={(foto, cor) => setF((s) => (s ? { ...s, foto, corFoto: foto ? cor : null } : s))}
               previa={<PreviaCard p={previaP} situacao={!f.ativo ? 'desligado' : sit} restam={restam} largura={132} />}
               semFoto={temIlustracao ? 'Sem foto, o site mostra a ilustração do produto (essa do lado).' : 'Sem foto, o site mostra o desenho em pixel (o formato e as cores ficam em “Desenho”, lá embaixo).'}
+            />
+          </Secao>
+
+          <Secao titulo="Thumb animada" id="s-video" dica="Opcional: um vídeo curto do produto toca no card da grade, no story e na página dele (sem som). O painel deixa no estilo da loja.">
+            <VideoProduto
+              video={f.video}
+              capa={f.capa}
+              nome={f.nome.trim()}
+              preco={preco ?? null}
+              cor={corBrilho}
+              aoMudar={(v) => setF((s) => (s ? { ...s, video: v?.video ?? null, capa: v?.capa ?? null } : s))}
             />
           </Secao>
 

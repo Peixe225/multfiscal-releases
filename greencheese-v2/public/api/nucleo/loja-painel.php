@@ -57,6 +57,8 @@ function gc_loja_produto_admin(array $p, array $porUf, array $uso): array
         ),
         'combinaCom' => array_values(array_filter((array) gc_loja_lido($p['combina_com'], []), 'is_string')),
         'foto' => $p['foto'] === null ? null : (string) $p['foto'],
+        'video' => ($p['video'] ?? null) === null ? null : (string) $p['video'],
+        'capa' => ($p['capa'] ?? null) === null ? null : (string) $p['capa'],
         'cor' => (string) $p['cor'],
         'arte' => gc_loja_lido($p['arte'], ['tipo' => 'lata', 'corpo' => (string) $p['cor']]),
         'obs' => (string) $p['obs'],
@@ -240,7 +242,9 @@ function gc_rota_admin_produto_salvar(): array
     gc_exigir_dono();
     $c = gc_corpo();
     gc_loja_exigir_semeada();
-    return gc_transacao(static function () use ($c): array {
+    // foto, vídeo e capa que saíram do produto: a pasta de envios perde o arquivo depois de gravar (gc_uploads_soltos)
+    $soltos = [];
+    $r = gc_transacao(static function () use ($c, &$soltos): array {
         $agora = gc_agora();
         $estados = array_key_exists('estados', $c) ? gc_loja_ler_por_uf($c['estados']) : [];
         if (isset($c['id']) && $c['id'] !== '' && $c['id'] !== null) {
@@ -249,6 +253,11 @@ function gc_rota_admin_produto_salvar(): array
             $col = gc_loja_ler_produto($c, $atual);
             gc_loja_conferir_premios_do_produto($id, $col);
             $mudou = gc_loja_mudancas($col, $atual);
+            foreach (['foto', 'video', 'capa'] as $k) {
+                if (in_array($k, $mudou, true)) {
+                    $soltos[] = $atual[$k] ?? null;
+                }
+            }
             if ($mudou !== []) {
                 $sets = implode(', ', array_map(static fn (string $k): string => "$k = ?", array_keys($col)));
                 gc_sql("UPDATE loja_produtos SET $sets, atualizado_em = ? WHERE id = ?", [...array_values($col), $agora, $id]);
@@ -276,6 +285,8 @@ function gc_rota_admin_produto_salvar(): array
         gc_evento('painel', 'produto-criado', 'produto:' . $id, ['nome' => $col['nome']]);
         return ['_status' => 201, 'produto' => gc_loja_produto_admin_por_id($id)] + gc_loja_carimbo();
     });
+    gc_uploads_soltos($soltos);
+    return $r;
 }
 
 /**
@@ -322,7 +333,8 @@ function gc_rota_admin_produto_apagar(): array
     gc_exigir_dono();
     $c = gc_corpo();
     gc_loja_exigir_semeada();
-    return gc_transacao(static function () use ($c): array {
+    $soltos = [];
+    $r = gc_transacao(static function () use ($c, &$soltos): array {
         $p = gc_loja_produto_ou_404($c['id'] ?? null);
         $id = (string) $p['id'];
         $uso = gc_loja_usos()[$id] ?? [];
@@ -339,8 +351,11 @@ function gc_rota_admin_produto_apagar(): array
         gc_sql('DELETE FROM loja_produtos WHERE id = ?', [$id]);
         gc_loja_mudou();
         gc_evento('painel', 'produto-apagado', 'produto:' . $id, ['nome' => $p['nome'], 'demo' => (bool) $p['demo']]);
+        $soltos = [$p['foto'] ?? null, $p['video'] ?? null, $p['capa'] ?? null];
         return gc_loja_carimbo();
     });
+    gc_uploads_soltos($soltos);
+    return $r;
 }
 
 /** Tira o produto do "Combina com" dos outros (ele vai sair). */
@@ -786,7 +801,8 @@ function gc_rota_admin_loja_exemplos_apagar(): array
     if (!$conferir && !is_string($assinatura)) {
         throw gc_invalido('assinatura', 'Confere o que sai antes de apagar (a folha mostra).');
     }
-    return gc_transacao(static function () use ($conferir, $assinatura): array {
+    $soltos = [];
+    $r = gc_transacao(static function () use ($conferir, $assinatura, &$soltos): array {
         $plano = gc_loja_plano_exemplos();
         $agora = gc_loja_assinatura_exemplos($plano);
         if ($conferir) {
@@ -799,10 +815,13 @@ function gc_rota_admin_loja_exemplos_apagar(): array
             gc_sql('DELETE FROM loja_premios WHERE id = ?', [$p['id']]);
         }
         foreach ($plano['rateios'] as $r) {
+            $soltos[] = gc_valor('SELECT imagem FROM rateios WHERE id = ?', [$r['id']]);
             gc_sql('DELETE FROM participacoes WHERE rateio_id = ?', [$r['id']]);
             gc_sql('DELETE FROM rateios WHERE id = ?', [$r['id']]);
         }
         foreach ($plano['produtos'] as $p) {
+            $arquivos = gc_um('SELECT foto, video, capa FROM loja_produtos WHERE id = ?', [$p['id']]) ?? [];
+            array_push($soltos, ...array_values($arquivos));
             gc_loja_tirar_de_combina($p['id']);
             gc_sql('DELETE FROM loja_produtos WHERE id = ?', [$p['id']]);
         }
@@ -820,6 +839,8 @@ function gc_rota_admin_loja_exemplos_apagar(): array
         }
         return ['plano' => $plano, 'apagou' => true] + gc_loja_carimbo();
     });
+    gc_uploads_soltos($soltos);
+    return $r;
 }
 
 // ─── auditoria ──────────────────────────────────────────────────────────────────────────────────────────────────

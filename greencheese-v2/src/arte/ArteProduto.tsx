@@ -5,28 +5,14 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react'
 import type { Produto } from '../lib/tipos'
 import { movimentoReduzido } from '../lib/movimento'
-import { desenharArte, paletaDoDesenho } from './produtos/desenhar'
-import {
-  aplicarAro,
-  aplicarBrilho,
-  corDoBrilho,
-  corDominante,
-  ditherizar,
-  montarPaleta,
-  NEUTROS,
-  paletaDaImagem,
-  recortarFundoPreto,
-  revelar as revelarArte,
-  silhuetaDe,
-  type Cor,
-} from './produtos/dither'
+import { compor, sementeDe } from './produtos/compor'
+import { revelar as revelarArte, silhuetaDe } from './produtos/dither'
 import {
   agendar,
   carregarFoto,
   chaveRevelacao,
   chiadoEmCache,
   desmarcarRevelada,
-  guardarSilhueta,
   guardarVizinha,
   imagemEmCache,
   jaRevelada,
@@ -78,53 +64,9 @@ function chaveArte(produto: Produto, w: number | '*', indisponivel: boolean, bri
   return [produto.id, w, indisponivel ? 'cinza' : 'cor', brilho ? 'b' : 'sb', produto.nome, produto.foto ?? '', produto.cor, a.tipo, a.corpo, a.faixa, a.rotulo, a.detalhe, a.tampa].join('|')
 }
 
-function sementeDe(id: string): number {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (Math.imul(h, 31) + id.charCodeAt(i)) | 0
-  return h
-}
-
 function urlDaFoto(foto: string): string {
   if (/^(https?:|data:|blob:)/.test(foto)) return foto
   return `${import.meta.env.BASE_URL}${foto.replace(/^\/+/, '')}`
-}
-
-/* ---------------------------------------------------------------- canvas de rascunho */
-
-// Um canvas reaproveitado para todas as artes. Só é usado em trecho síncrono (depois do
-// await da foto), então dá para compartilhar.
-let rascunhoCtx: CanvasRenderingContext2D | null = null
-
-function rascunho(w: number, h: number): CanvasRenderingContext2D {
-  if (!rascunhoCtx) {
-    rascunhoCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
-    if (!rascunhoCtx) throw new Error('canvas 2d indisponível')
-  }
-  const ctx = rascunhoCtx
-  // Mesmo tamanho: só limpa e zera o estado (redimensionar realoca).
-  if (ctx.canvas.width !== w || ctx.canvas.height !== h) {
-    ctx.canvas.width = w
-    ctx.canvas.height = h
-  } else {
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.clearRect(0, 0, w, h)
-  }
-  return ctx
-}
-
-/** Foto em "contain", com respiro, centrada (como o produto recortado no story). */
-function desenharFoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) {
-  const iw = img.naturalWidth || img.width
-  const ih = img.naturalHeight || img.height
-  if (!iw || !ih) return
-  const k = Math.min((w * 0.9) / iw, (h * 0.84) / ih)
-  const dw = iw * k
-  const dh = ih * k
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh)
 }
 
 /**
@@ -150,48 +92,6 @@ export function gerarImagemArte(produto: Produto, largura: number, opts: OpcoesA
     const img = await agendar(() => compor(produto, w, h, indisponivel, brilho, foto, chave))
     guardarVizinha(chaveArte(produto, '*', indisponivel, brilho), img)
     return img
-  })
-}
-
-function compor(produto: Produto, w: number, h: number, indisponivel: boolean, brilho: boolean, foto: HTMLImageElement | null, chave: string): ImageData {
-  const camada = rascunho(w, h)
-  let cor = produto.cor
-  let px: ImageData | null = null
-  let base: readonly Cor[] = []
-  if (foto) {
-    try {
-      desenharFoto(camada, foto, w, h)
-      px = camada.getImageData(0, 0, w, h)
-      recortarFundoPreto(px)
-      cor = corDominante(px)
-      base = paletaDaImagem(px, 10)
-    } catch {
-      // foto de outro domínio sem CORS "suja" o canvas: volta para o desenho
-      px = null
-      camada.clearRect(0, 0, w, h)
-    }
-  }
-  if (!px) {
-    desenharArte(camada, produto.arte, w, h, { nome: produto.nome })
-    px = camada.getImageData(0, 0, w, h)
-    base = paletaDoDesenho(produto.arte)
-  }
-  // Silhueta lida ANTES do brilho: o chiado do indisponível cai só no produto, nunca no halo.
-  const silhueta = silhuetaDe(px)
-  guardarSilhueta(chave, silhueta)
-  const a = produto.arte
-  const alternativas = [a.faixa, a.tampa, a.detalhe, a.rotulo]
-  const tom = corDoBrilho(cor, alternativas).rgb
-  if (brilho && !indisponivel) aplicarAro(px, silhueta, tom)
-  // Brilho em JS direto nos pixels (sem segundo canvas): é o trecho que pesa no Android.
-  const composta = brilho ? aplicarBrilho(px, indisponivel ? '#9a9a9a' : cor, indisponivel ? 0.22 : 1, alternativas) : px
-  return ditherizar(composta, {
-    cinza: indisponivel,
-    contraste: 1.06,
-    grao: indisponivel ? 0.03 : 0.04,
-    semente: sementeDe(produto.id),
-    // paleta curta: as cores do produto, o tom do halo e os cinzas da interface
-    paleta: indisponivel ? undefined : montarPaleta(base, brilho ? [tom] : [], NEUTROS),
   })
 }
 

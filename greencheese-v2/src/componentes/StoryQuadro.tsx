@@ -27,6 +27,8 @@ interface Props {
   /** Esconde o preço (quando o adesivo de combo já mostra os preços). */
   semPreco?: boolean
   artePropsExtra?: { flutuar?: boolean }
+  /** Toca a thumb animada do produto (quando tem) enquanto está à vista: o card da grade e o story aberto. */
+  video?: boolean
   className?: string
   style?: CSSProperties
 }
@@ -57,6 +59,7 @@ export function StoryQuadro({
   legenda,
   semPreco = false,
   artePropsExtra,
+  video = false,
   className,
   style,
 }: Props) {
@@ -74,7 +77,7 @@ export function StoryQuadro({
         </div>
       )}
       <div className={`sq-arte ${artePropsExtra?.flutuar && !indisponivel ? 'sq-flutua' : ''}`} data-arte={produto.id}>
-        <ProdutoVisual produto={produto} largura={larguraArte} indisponivel={indisponivel} revelar={revelar} prioridade={prioridade} rotulo={null} />
+        <ProdutoVisual produto={produto} largura={larguraArte} indisponivel={indisponivel} revelar={revelar} prioridade={prioridade} rotulo={null} video={video} />
         {restam != null && <AdesivoRestam n={restam} className="sq-restam" />}
       </div>
       <div className="sq-texto">

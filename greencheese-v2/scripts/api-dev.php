@@ -1,7 +1,8 @@
 <?php
 // Roteador do "php -S" no desenvolvimento (npm run api) e nos testes (scripts/testar-api.mjs).
 // Imita o .htaccess do ar: na API só o index.php responde (privado/, nucleo/, instalacao.php e o resto: 403);
-// /uploads/ serve só imagem com nome gerado pelo servidor (qualquer .php ali: 403, nunca executa).
+// /uploads/ serve só imagem e o vídeo do produto com nome gerado pelo servidor (com Range, como o Apache; qualquer .php
+// ali: 403, nunca executa).
 // Dados em greencheese/.dados-dev/ (fora do public/, nunca vão pro build), trocáveis por GC_DADOS e GC_UPLOADS.
 declare(strict_types=1);
 
@@ -45,18 +46,38 @@ if (str_starts_with($caminho, '/api/')) {
 if (str_starts_with($caminho, '/uploads/')) {
     $nome = substr($caminho, strlen('/uploads/'));
     $pasta = (string) getenv('GC_UPLOADS');
-    if (preg_match('/^[a-z0-9]{8,64}\.(webp|jpe?g|png)$/', $nome, $m) !== 1) {
+    if (preg_match('/^[a-z0-9]{8,64}\.(webp|jpe?g|png|mp4|webm)$/', $nome, $m) !== 1) {
         return negar(403, 'proibido');
     }
     $arquivo = $pasta . '/' . $nome;
     if (!is_file($arquivo)) {
         return negar(404, 'não encontrado');
     }
-    header('Content-Type: ' . ['webp' => 'image/webp', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png'][$m[1]]);
+    $tam = (int) filesize($arquivo);
+    header('Content-Type: ' . ['webp' => 'image/webp', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'mp4' => 'video/mp4', 'webm' => 'video/webm'][$m[1]]);
     header('X-Content-Type-Options: nosniff');
-    header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+    header("Content-Security-Policy: default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox");
     header('Cache-Control: public, max-age=31536000, immutable');
-    header('Content-Length: ' . filesize($arquivo));
+    header('Accept-Ranges: bytes');
+    // pedaço do arquivo (Range: bytes=a-b), como o Apache faz: o <video> pede assim
+    $faixa = (string) ($_SERVER['HTTP_RANGE'] ?? '');
+    if ($faixa !== '' && preg_match('/^bytes=(\d*)-(\d*)$/', $faixa, $r) === 1 && ($r[1] !== '' || $r[2] !== '')) {
+        [$ini, $fim] = $r[1] === '' ? [max(0, $tam - (int) $r[2]), $tam - 1] : [(int) $r[1], $r[2] === '' ? $tam - 1 : min((int) $r[2], $tam - 1)];
+        if ($ini > $fim || $ini >= $tam) {
+            http_response_code(416);
+            header("Content-Range: bytes */$tam");
+            return true;
+        }
+        http_response_code(206);
+        header("Content-Range: bytes $ini-$fim/$tam");
+        header('Content-Length: ' . ($fim - $ini + 1));
+        $f = fopen($arquivo, 'rb');
+        fseek($f, $ini);
+        echo fread($f, $fim - $ini + 1);
+        fclose($f);
+        return true;
+    }
+    header('Content-Length: ' . $tam);
     readfile($arquivo);
     return true;
 }

@@ -26,6 +26,9 @@ const COR = /^#[0-9a-f]{6}$/i
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/
 // só foto de dentro do site: a que o painel enviou (uploads/) ou a do build (produtos/)
 const FOTO = /^(uploads|produtos)\/[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/
+// a thumb animada: o vídeo e a capa que o painel enviou (nome gerado pelo servidor)
+const VIDEO = /^uploads\/[a-z0-9]{8,64}\.(mp4|webm)$/
+const CAPA = /^uploads\/[a-z0-9]{8,64}\.(webp|jpe?g|png)$/
 const WHATSAPP = /^55\d{2}9\d{8}$/
 const TIPOS_ARTE = new Set<TipoArte>(['lata', 'lata-alta', 'garrafa-quadrada', 'garrafa-gin', 'garrafa-conhaque', 'garrafa-licor', 'seda', 'piteira-vidro', 'piteira-papel', 'cuia', 'dichavador', 'isqueiro', 'bandeja'])
 const EMBLEMAS = new Set<Emblema>(['pao-de-acucar', 'pedra-preciosa', 'predio-sp', 'convento-es', 'ponte-sc', 'generico'])
@@ -59,6 +62,10 @@ function produtoDe(v: unknown): Produto | null {
     foto: typeof v.foto === 'string' && FOTO.test(v.foto) && !v.foto.includes('..') ? v.foto : null,
     cor,
     arte: arteDe(v.arte, cor),
+  }
+  if (typeof v.video === 'string' && VIDEO.test(v.video) && typeof v.capa === 'string' && CAPA.test(v.capa)) {
+    p.video = v.video
+    p.capa = v.capa
   }
   const tamanho = textoDe(v.tamanho, 30)
   const detalhe = textoDe(v.detalhe, 80)

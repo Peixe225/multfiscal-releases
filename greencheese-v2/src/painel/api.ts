@@ -10,6 +10,7 @@
 import type {
   Diagnostico,
   Envio,
+  EnvioVideo,
   Evento,
   Participante,
   ParticipanteCorpo,
@@ -291,31 +292,32 @@ export async function baixarBackup(): Promise<void> {
 }
 
 /**
- * Envio da foto (multipart, campo `imagem`), com o andamento. XHR em vez de fetch só por causa do progresso.
- * Sessão caída no meio: espera entrar de novo e manda outra vez.
+ * Envio de arquivo (multipart), com o andamento: a foto (admin-upload, campo `imagem`) e o vídeo da thumb animada
+ * (admin-video-upload, campo `video`). XHR em vez de fetch só por causa do progresso. Sessão caída no meio: espera
+ * entrar de novo e manda outra vez.
  */
-export function enviarImagem(arquivo: Blob, nome: string, aoAndar?: (fracao: number) => void, tentativa = 0): Promise<Envio> {
-  return new Promise<Envio>((ok, nao) => {
+function enviarArquivo<T>(rota: string, campo: string, oQue: string, arquivo: Blob, nome: string, aoAndar?: (fracao: number) => void, tentativa = 0): Promise<T> {
+  return new Promise<T>((ok, nao) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', urlApi('admin-upload'))
-    xhr.timeout = 120_000
+    xhr.open('POST', urlApi(rota))
+    xhr.timeout = 180_000
     xhr.responseType = 'json'
     if (csrf) xhr.setRequestHeader('X-CSRF', csrf)
     xhr.setRequestHeader('Accept', 'application/json')
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) aoAndar?.(e.loaded / e.total)
     }
-    xhr.onerror = () => nao(new ErroApi('rede', 'A foto não subiu: sem conexão com o servidor. Tenta de novo.'))
-    xhr.ontimeout = () => nao(new ErroApi('demorou', 'A foto demorou demais pra subir. Tenta de novo, de preferência no Wi-Fi.'))
+    xhr.onerror = () => nao(new ErroApi('rede', `${oQue} não subiu: sem conexão com o servidor. Tenta de novo.`))
+    xhr.ontimeout = () => nao(new ErroApi('demorou', `${oQue} demorou demais pra subir. Tenta de novo, de preferência no Wi-Fi.`))
     xhr.onload = () => {
       const json = (xhr.response ?? null) as Record<string, unknown> | null
       if (xhr.status >= 200 && xhr.status < 300 && json?.ok === true) {
-        ok(json as unknown as Envio)
+        ok(json as unknown as T)
         return
       }
       const erro = json ? erroDaResposta(xhr.status, json) : new ErroApi('resposta', 'O servidor respondeu de um jeito estranho. Tenta de novo.', xhr.status)
       if ((erro.codigo === 'sem-sessao' || erro.codigo === 'csrf') && tentativa < 2) {
-        const refazer = () => enviarImagem(arquivo, nome, aoAndar, tentativa + 1).then(ok, nao)
+        const refazer = () => enviarArquivo<T>(rota, campo, oQue, arquivo, nome, aoAndar, tentativa + 1).then(ok, nao)
         if (erro.codigo === 'csrf') {
           sessao()
             .then((s) => {
@@ -332,7 +334,16 @@ export function enviarImagem(arquivo: Blob, nome: string, aoAndar?: (fracao: num
       nao(erro)
     }
     const f = new FormData()
-    f.append('imagem', arquivo, nome)
+    f.append(campo, arquivo, nome)
     xhr.send(f)
   })
+}
+
+export function enviarImagem(arquivo: Blob, nome: string, aoAndar?: (fracao: number) => void): Promise<Envio> {
+  return enviarArquivo<Envio>('admin-upload', 'imagem', 'A foto', arquivo, nome, aoAndar)
+}
+
+/** O vídeo da thumb animada (já tratado no painel, até 6 MB): { video: 'uploads/<nome>.mp4|webm', tipo, bytes }. */
+export function enviarVideo(arquivo: Blob, nome: string, aoAndar?: (fracao: number) => void): Promise<EnvioVideo> {
+  return enviarArquivo<EnvioVideo>('admin-video-upload', 'video', 'O vídeo', arquivo, nome, aoAndar)
 }

@@ -273,6 +273,7 @@ export function StoryProduto() {
             semPreco={!!produto.combos && disponivel !== false}
             adesivos={adesivos}
             artePropsExtra={{ flutuar: true }}
+            video
           />
           {carimbo > 0 && (
             <span key={carimbo} className="carimbo-sacola px" role="status">

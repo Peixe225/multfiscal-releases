@@ -595,7 +595,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
 
       <div ref={visual} className="pp-visual" style={{ '--brilho': produto.cor } as CSSProperties}>
         <div className={`pp-arte ${disponivel === false ? '' : 'pp-arte-flutua'}`} data-arte={produto.id}>
-          <ProdutoVisual produto={produto} largura={120} indisponivel={disponivel === false} prioridade={topo} rotulo={null} />
+          <ProdutoVisual produto={produto} largura={120} indisponivel={disponivel === false} prioridade={topo} rotulo={null} video />
         </div>
         {carimbo > 0 && (
           <span key={carimbo} className="carimbo-sacola px" aria-hidden="true">

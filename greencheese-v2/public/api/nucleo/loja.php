@@ -325,6 +325,11 @@ function gc_loja_produto_publico(array $p, array $porUf, array $ufs, ?int $resta
     }
     $out['demo'] = (bool) $p['demo'];
     $out['foto'] = $p['foto'] === null ? null : (string) $p['foto'];
+    // a thumb animada (vídeo + capa) só vai quando existe: o JSON de quem não tem fica igual (e o ETag também)
+    if (($p['video'] ?? null) !== null && ($p['capa'] ?? null) !== null) {
+        $out['video'] = (string) $p['video'];
+        $out['capa'] = (string) $p['capa'];
+    }
     $out['cor'] = (string) $p['cor'];
     $out['arte'] = gc_loja_lido($p['arte'], ['tipo' => 'lata', 'corpo' => (string) $p['cor']]);
     return $out;

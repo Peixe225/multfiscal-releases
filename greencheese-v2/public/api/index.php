@@ -61,6 +61,7 @@ $rotas = [
     'admin-participantes-csv' => ['GET', 'gc_rota_admin_participantes_csv'],
     'admin-backup' => ['GET', 'gc_rota_admin_backup'],
     'admin-upload' => ['POST', 'gc_rota_admin_upload'],
+    'admin-video-upload' => ['POST', 'gc_rota_admin_video_upload'],
     'admin-diagnostico' => ['GET', 'gc_rota_admin_diagnostico'],
     'admin-eventos' => ['GET', 'gc_rota_admin_eventos'],
     // loja: o site lê tudo num JSON só; o painel mexe em cada pedaço

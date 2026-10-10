@@ -2,12 +2,19 @@
 // Na 1ª vez que entra na tela, "sintoniza": chiado → versão em pixel art → produto real (dissolve em ordem Bayer).
 // Indisponível: o mesmo produto em cinza, com dither recortado na silhueta e chiado andando por dentro.
 // Sem ilustração nem foto, cai na arte em pixel (ArteProduto).
+// Thumb animada (o vídeo que o dono fez no Estúdio do produto): onde `video` está ligado (card da grade, story aberto e
+// página do produto), mostra a capa e, depois da sintonia, toca o vídeo por cima enquanto ele está à vista (no máximo 2
+// ao mesmo tempo, nunca antes da primeira tela pintar; quem toca e quando: video-produto.ts, que só baixa se precisar).
+// Movimento reduzido, economia de dados ou vídeo que o navegador não toca: fica na capa. Erro no vídeo: volta pra foto
+// ou pra ilustração, como se não tivesse vídeo.
 
-import { useEffect, useId, useLayoutEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Produto } from '../lib/tipos'
-import { movimentoReduzido } from '../lib/movimento'
+import { movimentoReduzido, quandoRespirar } from '../lib/movimento'
 import { ArteProduto, gerarImagemArte } from './ArteProduto'
 import { carregarArtesRealistas, useArtesRealistas } from './realista/carregar'
+import { haloDataUrl, sintonizar } from './sintonia'
+import type { RegistroVideo } from './video-produto'
 import './ProdutoVisual.css'
 
 export interface PropsProdutoVisual {
@@ -23,174 +30,79 @@ export interface PropsProdutoVisual {
   prioridade?: boolean
   /** null = decorativo (o nome já aparece em texto ao lado). */
   rotulo?: string | null
+  /** Toca a thumb animada (o vídeo do produto, quando tem) enquanto está à vista: card da grade, story aberto, página. */
+  video?: boolean
 }
 
-/* ---------------------------------------------------------------- Bayer 8×8 */
+/* ---------------------------------------------------------------- thumb animada: quando pode */
 
-const BAYER = (() => {
-  const m = [
-    [0, 32, 8, 40, 2, 34, 10, 42],
-    [48, 16, 56, 24, 50, 18, 58, 26],
-    [12, 44, 4, 36, 14, 46, 6, 38],
-    [60, 28, 52, 20, 62, 30, 54, 22],
-    [3, 35, 11, 43, 1, 33, 9, 41],
-    [51, 19, 59, 27, 49, 17, 57, 25],
-    [15, 47, 7, 39, 13, 45, 5, 37],
-    [63, 31, 55, 23, 61, 29, 53, 21],
-  ]
-  return (x: number, y: number) => (m[y & 7][x & 7] + 0.5) / 64
-})()
-
-/* ---------------------------------------------------------------- halo pontilhado */
-
-function hexRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '')
-  const n = parseInt(h.length === 3 ? h.replace(/./g, (c) => c + c) : h, 16)
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-
-/** Trava de matiz: verde e roxo viram cinza (verde só no ✅; nada de roxo). Também pinta o confete do prêmio. */
-export function corDoHalo(hex: string, cinza: boolean): [number, number, number] {
-  if (cinza) return [150, 150, 150]
-  const [r, g, b] = hexRgb(hex)
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const d = max - min
-  if (d < 18) return [r, g, b]
-  let h = 0
-  if (max === r) h = ((g - b) / d) % 6
-  else if (max === g) h = (b - r) / d + 2
-  else h = (r - g) / d + 4
-  h = (h * 60 + 360) % 360
-  if ((h > 75 && h < 165) || (h > 255 && h < 300)) return [168, 168, 168]
-  return [r, g, b]
-}
-
-const halos = new Map<string, string>()
-
-/** Halo radial quantizado em Bayer (3 níveis), gerado uma vez por cor e guardado como dataURL. */
-function haloDataUrl(cor: string, cinza: boolean): string {
-  const chave = `${cor}|${cinza}`
-  const pronto = halos.get(chave)
-  if (pronto) return pronto
-  const w = 90
-  const h = 160
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const ctx = c.getContext('2d')
-  if (!ctx) return ''
-  const img = ctx.createImageData(w, h)
-  const [r, g, b] = corDoHalo(cor, cinza)
-  const cx = w / 2
-  const cy = h * 0.5
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++) {
-      // elipse um pouco mais alta que larga, como o brilho atrás do produto nos stories
-      const dx = (x - cx) / (w * 0.46)
-      const dy = (y - cy) / (h * 0.36)
-      const dist = Math.sqrt(dx * dx + dy * dy)
-      const v = Math.max(0, 1 - dist) ** 1.6 * (cinza ? 0.5 : 0.95)
-      if (v <= BAYER(x, y)) continue
-      const k = (y * w + x) * 4
-      const nivel = v > 0.6 ? 1 : v > 0.3 ? 0.72 : 0.45
-      img.data[k] = r
-      img.data[k + 1] = g
-      img.data[k + 2] = b
-      img.data[k + 3] = Math.round(255 * nivel)
-    }
-  ctx.putImageData(img, 0, 0)
-  const url = c.toDataURL('image/png')
-  halos.set(chave, url)
-  return url
-}
-
-/* ---------------------------------------------------------------- revelação */
-
-const revelados = new Set<string>()
+let primeiraTela: Promise<void> | null = null
 
 /**
- * Chiado → pixel art → produto real. A camada de cima (canvas em resolução de pixel) começa como ruído, vira a arte
- * em pixel e some em ordem Bayer, deixando ver a ilustração por baixo.
+ * A primeira tela já pintou: a página carregou, a maior pintura (LCP) saiu e o navegador respirou. Antes disso nenhum
+ * vídeo baixa (nem o código que cuida deles).
  */
-function sintonizar(canvas: HTMLCanvasElement, pixel: ImageData, aoMostrarReal: () => void, aoTerminar: () => void): () => void {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) {
-    aoMostrarReal()
-    aoTerminar()
-    return () => {}
-  }
-  const w = pixel.width
-  const h = pixel.height
-  canvas.width = w
-  canvas.height = h
-  const quadro = ctx.createImageData(w, h)
-  const src = pixel.data
-  const dst = quadro.data
-  const dur = 1000
-  const t0 = performance.now()
-  let raf = 0
-  let real = false
-  let semente = 1
-  const ruido = () => {
-    semente = (semente * 16807) % 2147483647
-    return semente / 2147483647
-  }
-  const passo = (agora: number) => {
-    const t = Math.min(1, (agora - t0) / dur)
-    // 0–0,45: ruído vira pixel art; 0,45–1: pixel art dissolve no produto real
-    const a = Math.min(1, t / 0.45)
-    const b = t <= 0.45 ? 0 : (t - 0.45) / 0.55
-    if (b > 0 && !real) {
-      real = true
-      aoMostrarReal()
-    }
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
-        const k = (y * w + x) * 4
-        const lim = BAYER(x, y)
-        if (b > lim) {
-          dst[k + 3] = 0
-          continue
-        }
-        if (a > lim) {
-          dst[k] = src[k]
-          dst[k + 1] = src[k + 1]
-          dst[k + 2] = src[k + 2]
-          dst[k + 3] = src[k + 3]
-        } else if (ruido() < 0.16) {
-          const v = 90 + Math.floor(ruido() * 150)
-          dst[k] = v
-          dst[k + 1] = v
-          dst[k + 2] = v
-          dst[k + 3] = 255
-        } else dst[k + 3] = 0
+function depoisDaPrimeiraTela(): Promise<void> {
+  primeiraTela ??= new Promise<void>((ok) => {
+    const respirar = () => quandoRespirar(ok, 2000)
+    const carregou = () => {
+      const tipos = typeof PerformanceObserver === 'undefined' ? [] : (PerformanceObserver.supportedEntryTypes ?? [])
+      if (!tipos.includes('largest-contentful-paint')) return respirar()
+      let feito = false
+      const fim = () => {
+        if (feito) return
+        feito = true
+        po.disconnect()
+        respirar()
       }
-    ctx.putImageData(quadro, 0, 0)
-    if (t < 1) raf = requestAnimationFrame(passo)
-    else {
-      ctx.clearRect(0, 0, w, h)
-      aoTerminar()
+      const po = new PerformanceObserver((l) => {
+        if (l.getEntries().length) fim()
+      })
+      po.observe({ type: 'largest-contentful-paint', buffered: true })
+      window.setTimeout(fim, 3000)
     }
-  }
-  raf = requestAnimationFrame(passo)
-  // parou no meio (pulou, desmontou): nada do quadro velho fica por cima do produto
-  return () => {
-    cancelAnimationFrame(raf)
-    ctx.clearRect(0, 0, w, h)
+    if (document.readyState === 'complete') carregou()
+    else window.addEventListener('load', carregou, { once: true })
+  })
+  return primeiraTela
+}
+
+/** Movimento reduzido, economia de dados (ou 2G) e vídeo que o navegador não toca: fica na capa. */
+function videoPodeTocar(src: string): boolean {
+  if (movimentoReduzido()) return false
+  const rede = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  if (rede?.saveData || /(^|-)2g$/.test(rede?.effectiveType ?? '')) return false
+  try {
+    return document.createElement('video').canPlayType(src.endsWith('.webm') ? 'video/webm' : 'video/mp4') !== ''
+  } catch {
+    return false
   }
 }
+
+/** Trava de matiz do halo (verde e roxo viram cinza): também pinta o confete do prêmio. */
+export { corDoHalo } from './sintonia'
+
+const revelados = new Set<string>()
 
 /* ---------------------------------------------------------------- componente */
 
 export function ProdutoVisual(props: PropsProdutoVisual) {
-  const { produto, largura = 90, indisponivel = false, revelar = true, brilho = true, className, style, prioridade = false } = props
+  const { produto, largura = 90, indisponivel = false, revelar = true, brilho = true, className, style, prioridade = false, video: querVideo = false } = props
   const artes = useArtesRealistas()
   const Arte = artes?.[produto.id]
-  const temReal = !!Arte || !!produto.foto
+  // vídeo que deu erro: o produto volta pra foto ou pra ilustração, como se não tivesse vídeo
+  const [videoFalhou, setVideoFalhou] = useState<string | null>(null)
+  const temVideo = !!produto.video && !!produto.capa && videoFalhou !== produto.video
+  const tocar = querVideo && temVideo && !indisponivel
+  // a imagem do produto: a foto; sem foto, a capa do vídeo. Onde o vídeo toca, a capa (o 1º quadro dele: a troca não pula)
+  const imagem = tocar ? (produto.capa ?? null) : (produto.foto ?? (temVideo ? (produto.capa ?? null) : null))
+  const temReal = !!Arte || !!imagem
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const raiz = useRef<HTMLDivElement>(null)
   const camada = useRef<HTMLCanvasElement>(null)
+  const filme = useRef<HTMLVideoElement>(null)
+  const registro = useRef<RegistroVideo | null>(null)
+  const revelando = useRef(false)
   const chave = `${produto.id}|${indisponivel ? 'off' : 'on'}`
 
   // revelação na 1ª vez que entra na tela (por produto + estado); sem movimento reduzido
@@ -202,11 +114,18 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
     const animar = !!revelar && (revelar === 'sempre' || !revelados.has(chave)) && !movimentoReduzido()
     el.dataset.real = animar ? 'nao' : 'sim'
     if (!animar) return
+    revelando.current = true
+    registro.current?.pronto(false)
     let cancelar: (() => void) | undefined
     let vivo = true
+    // a sintonia acabou (ou não deu): o vídeo, se tiver, pode tocar
+    const revelou = () => {
+      revelando.current = false
+      registro.current?.pronto(true)
+    }
     const iniciar = () => {
       revelados.add(chave)
-      gerarImagemArte(produto, largura, { indisponivel, brilho: false }).then(
+      gerarImagemArte(imagem === produto.foto ? produto : { ...produto, foto: imagem }, largura, { indisponivel, brilho: false }).then(
         (pix) => {
           if (!vivo) return
           cancelar = sintonizar(
@@ -217,11 +136,13 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
             },
             () => {
               cancelar = undefined
+              revelou()
             },
           )
         },
         () => {
           el.dataset.real = 'sim'
+          revelou()
         },
       )
     }
@@ -230,6 +151,7 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
       return () => {
         vivo = false
         cancelar?.()
+        revelando.current = false
       }
     }
     const io = new IntersectionObserver(
@@ -245,11 +167,36 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
       vivo = false
       io.disconnect()
       cancelar?.()
+      revelando.current = false
       // se saiu no meio, mostra o real da próxima vez
       if (el.dataset.real !== 'sim') revelados.delete(chave)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chave, temReal, revelar, prioridade])
+
+  // thumb animada: depois da primeira tela, quem cuida dos vídeos (video-produto.ts) decide quando este toca
+  const videoSrc = tocar ? (produto.video ?? null) : null
+  useEffect(() => {
+    const el = raiz.current
+    const v = filme.current
+    if (!videoSrc || !el || !v || !videoPodeTocar(videoSrc)) return
+    let vivo = true
+    depoisDaPrimeiraTela()
+      .then(() => import('./video-produto'))
+      .then(
+        (m) => {
+          if (!vivo) return
+          registro.current = m.registrarVideo(el, v, fotoUrl(videoSrc), () => setVideoFalhou(videoSrc))
+          registro.current.pronto(!revelando.current && el.dataset.real !== 'nao')
+        },
+        () => {},
+      )
+    return () => {
+      vivo = false
+      registro.current?.soltar()
+      registro.current = null
+    }
+  }, [videoSrc])
 
   // halo como fundo (dataURL pronto, sem canvas vivo)
   useLayoutEffect(() => {
@@ -284,8 +231,8 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
       aria-hidden={props.rotulo === null ? true : undefined}
       data-real="sim"
     >
-      {produto.foto ? (
-        <img className="pv-real" src={fotoUrl(produto.foto)} alt="" loading={prioridade ? 'eager' : 'lazy'} decoding="async" draggable={false} />
+      {imagem ? (
+        <img className="pv-real" src={fotoUrl(imagem)} alt="" loading={prioridade ? 'eager' : 'lazy'} decoding="async" draggable={false} />
       ) : (
         Arte && (
           <svg className="pv-real" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
@@ -321,6 +268,8 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
           </svg>
         )
       )}
+      {/* a thumb animada: sem src até a vez dele (nada baixa antes); aparece quando o 1º quadro chega, por cima da capa */}
+      {videoSrc && <video ref={filme} className="pv-real pv-video" muted loop playsInline preload="none" disablePictureInPicture disableRemotePlayback aria-hidden="true" tabIndex={-1} />}
       <canvas ref={camada} className="pv-camada" width={1} height={1} aria-hidden="true" />
     </div>
   )

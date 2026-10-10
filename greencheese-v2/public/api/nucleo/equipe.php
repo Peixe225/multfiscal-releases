@@ -84,6 +84,8 @@ const GC_PERMISSAO_ROTA = [
     'admin-loja-exemplos-apagar' => 'loja',
     'admin-produto-salvar' => 'loja',
     'admin-produto-apagar' => 'loja',
+    // o vídeo só serve de thumb animada do produto, que só quem tem 'loja' salva (e é o envio pesado: até 6 MB)
+    'admin-video-upload' => 'loja',
     'admin-produtos-ordem' => 'loja',
     'admin-categoria-salvar' => 'loja',
     'admin-categoria-apagar' => 'loja',
