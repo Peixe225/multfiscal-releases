@@ -21,6 +21,8 @@ export interface Ajustes {
   restamAte: number | null
   /** A rua do mercador no celular (Stories do Início): o 1º story na home, o fim do Início na Home 2. */
   ruaNoStory: boolean
+  /** O mercador mostra produtos da loja na rua (Loja → "O mercador mostra produtos na rua"); sem o ajuste, ligada. */
+  vitrineNaRua: boolean
 }
 
 export interface Textos {

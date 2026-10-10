@@ -777,6 +777,7 @@ interface Loja {
   whatsapp: string               // o WhatsApp da loja ('5533991139036'): onde o pedido fecha
   restamAte: number | null       // "restam X": o estoque contado chegou nesse número (null = nunca mostra)
   ruaNoStory: boolean            // a rua do mercador no celular: 1º story do Início na home, fim do Início na Home 2 (sem o ajuste, true)
+  vitrineNaRua: boolean          // o mercador mostra produtos da loja na rua, nos três lugares dela (sem o ajuste, true)
   textos: { bio: string[]; fraseStory: string; sacolaVazia: string; falasMercado: string[] } // src/dados/textos-loja.ts
   categorias: { id: string; nome: string; curto: string; icone: string; bebida: boolean }[] // na ordem dos destaques
   produtos: ProdutoLoja[]        // só os que estão no site, na ordem da grade
@@ -850,6 +851,16 @@ aparece no celular, no lugar de cada home. Desligada: o celular fica sem a rua n
 produto). O computador mostra a rua embaixo do perfil sempre, nas duas (a chave não vale pra ele). A Home 2 é coisa do
 site (a URL), não da API: o `GET loja` é o mesmo nas duas.
 
+**`vitrineNaRua` (o mercador mostra produtos na rua)**: ligada (o padrão, também sem o ajuste, a chave `loja.rua_vitrine`
+da tabela `ajustes`), entre um cliente e outro o mercador ergue um produto da loja, com a plaquinha do nome e do preço
+(`preco` null = "Consultar"), nos três lugares da rua (o 1º story do celular, a faixa do computador e o fim do Início da
+Home 2). Quem escolhe os produtos é o site, com o que este `GET loja` manda: só os `disponivel[uf]` do estado da pessoa,
+os do `stories[uf]` primeiro (na ordem do dono) e depois os outros, até 8; nunca bebida alcoólica (categoria com nome
+de álcool, desenho de garrafa, nome ou descrição com álcool, e a categoria de bebida inteira quando um produto dela tem
+cara de álcool) nem isqueiro (`src/componentes/rua/vitrine-regras.ts`; tabaco já não entra no catálogo). Desligada, a
+rua fica só com os itens desenhados. Sem a loja do servidor nesta visita (fora do ar, antes de chegar), o site também
+fica nos itens desenhados: preço da loja guardada de outra visita não vai pra rua.
+
 ## Loja (painel)
 
 Rotas `admin-*` da loja: dono, sessão, Origin e `X-CSRF` como as outras. Toda escrita roda numa transação, sobe a
@@ -869,7 +880,7 @@ campo ausente fica como está.
 | POST `admin-categorias-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
 | POST `admin-estado-salvar` | `EstadoCorpo` (UF que a loja não tem = ativar) | 201 ou 200 `{ estado: EstadoAdmin, versao, atualizadoEm }` |
 | POST `admin-stories-salvar` | `{ uf, produtos: string[] }` | `{ uf, produtos, versao, atualizadoEm }` |
-| POST `admin-loja-salvar` | `{ whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, textos? }` | `{ ajustes, textos, versao, atualizadoEm }` |
+| POST `admin-loja-salvar` | `{ whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, vitrineNaRua?, textos? }` | `{ ajustes, textos, versao, atualizadoEm }` |
 | POST `admin-sorte-salvar` | `{ ligado?, girosSemConta?, girosPorDiaComConta?, reservaSemContaHoras? }` | `{ sorte, versao, atualizadoEm }` |
 | POST `admin-premio-salvar` | `PremioCorpo` (sem `id` cria) | 201 ou 200 `{ premio: PremioAdmin, versao, atualizadoEm }` |
 | POST `admin-premio-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
@@ -923,7 +934,9 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   estiver, o estado fica no automático.
 - **Ajustes**: `whatsapp` (celular brasileiro); `mesmoWhatsappParaTodos` (o número de cada estado fica guardado);
   `restamAte` 1–99 ou `null`; `ruaNoStory` sim/não (a rua do mercador no celular: o 1º story do Início na home, o
-  fim do Início na Home 2; o painel mostra em Stories do Início, "Rua do mercador no celular"); `textos` (só o que vier
+  fim do Início na Home 2; o painel mostra em Stories do Início, "Rua do mercador no celular"); `vitrineNaRua` sim/não
+  (o mercador mostra produtos da loja na rua; o painel mostra em Loja, "O mercador mostra produtos na rua"; na
+  Atividade, sozinha, "Ligou/Desligou os produtos na rua do mercador"); `textos` (só o que vier
   muda): `bio` 1–3 linhas de até 80 (até 150 no todo; linha em
   branco some), `fraseStory` 2–28, `sacolaVazia` 2–48, `falasMercado` 1–5 de até 32. Nos textos, tabaco (422,
   `lista: 'tabaco'`) e as `PALAVRAS_PROIBIDAS` do site (422 `proibido`, `lista: 'palavras'`, no começo de palavra:
@@ -956,7 +969,7 @@ Erros (além dos gerais e do `sem-sessao`/`csrf`): `invalido` 400 (com `campo`; 
 interface LojaAdmin {
   versao: number
   atualizadoEm: string
-  ajustes: { whatsapp: string; mesmoWhatsappParaTodos: boolean; restamAte: number | null; ruaNoStory: boolean }
+  ajustes: { whatsapp: string; mesmoWhatsappParaTodos: boolean; restamAte: number | null; ruaNoStory: boolean; vitrineNaRua: boolean }
   textos: Loja['textos']
   categorias: (Loja['categorias'][number] & { ordem: number; produtos: number; premios: { id: string; titulo: string }[] })[]
   produtos: ProdutoAdmin[]       // todos, até os desativados

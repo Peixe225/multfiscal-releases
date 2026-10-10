@@ -235,6 +235,8 @@ export function lerLoja(v: unknown, reserva: Loja, maxStory: number): Loja | nul
     restamAte: restamAte ?? null,
     // a rua do mercador no celular (1º story na home, fim do Início na Home 2): sem o ajuste, ligada
     ruaNoStory: v.ruaNoStory !== false,
+    // o mercador mostra produtos da loja na rua (a vitrine): sem o ajuste, ligada
+    vitrineNaRua: v.vitrineNaRua !== false,
     textos: {
       bio: linhasLimpas(t.bio, 3, 80, reserva.textos.bio),
       fraseStory: textoLimpo(t.fraseStory, 28, reserva.textos.fraseStory),

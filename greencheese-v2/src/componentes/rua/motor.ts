@@ -76,6 +76,17 @@ export interface Fala {
   lado: Lado
 }
 
+/**
+ * A vitrine da cena (Rua.tsx liga): os produtos de verdade que o mercador mostra entre um cliente e outro. O roteiro
+ * pede o próximo pronto (a folha dele já no pacote) e avisa quando a plaquinha entra e sai.
+ */
+export interface VitrineDaCena {
+  /** O próximo produto pronto para mostrar, ou null (sem loja, sem produto permitido, arte ainda não pronta). */
+  proximo(): { id: string; folha: string } | null
+  /** A plaquinha: o produto erguido (id) ou nenhum (null). */
+  aoMostrar(id: string | null): void
+}
+
 /** O que o motor desenha: o canvas da página ou, no build (pôster) e no laboratório, um canvas de mentira. */
 type Tela = Pick<HTMLCanvasElement, 'width' | 'height' | 'getContext'>
 
@@ -150,6 +161,10 @@ export class Motor {
   mercadorLivre = false
   /** Em que pé está a vez: vivendo, a caminho do ponto, no ponto esperando, atendendo. */
   fase: 'vida' | 'rumo' | 'ponto' | 'ato' = 'vida'
+  /** A vitrine (sem ela, a rua de sempre, só com os itens desenhados). */
+  vitrine: VitrineDaCena | null = null
+  /** O produto que o mercador tem na mão agora (id), da hora que tira do casaco até guardar. */
+  mostrando: { id: string; folha: string } | null = null
 
   constructor(op: OpcoesMotor) {
     this.op = op
@@ -254,6 +269,23 @@ export class Motor {
     const [cx, cy] = this.canto(a)
     const mx = a.lado === 'dir' ? m[0] : a.folha.w - 1 - m[0]
     return [cx + mx, cy + m[1]]
+  }
+
+  /**
+   * Caixa do item na mão (x0, y0, x1, y1 na grade), ou null. Com `pose`, a da mão naquele quadro (a plaquinha fica presa
+   * à pose, não ao quadro: não sobe e desce com o balanço da mão).
+   */
+  caixaDoItem(a: Ator, pose?: { anim: string; i: number }): [number, number, number, number] | null {
+    const it = a.item ? this.pacote.folhas[a.item] : undefined
+    if (!it) return null
+    const q = pose ? a.folha.anims[pose.anim]?.q[pose.i] : this.quadro(a)
+    if (!q?.mao) return null
+    const [cx, cy] = this.canto(a)
+    const mx = cx + (a.lado === 'dir' ? q.mao[0] : a.folha.w - 1 - q.mao[0])
+    const my = cy + q.mao[1]
+    const [ax, ay] = a.itemPega ?? [it.ancora.x, it.ancora.y]
+    const px = a.lado === 'dir' ? ax : it.w - 1 - ax
+    return [mx - px, my - ay, mx - px + it.w, my - ay + it.h]
   }
 
   /** Canto de cima à esquerda do quadro na grade. */

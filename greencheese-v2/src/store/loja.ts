@@ -38,6 +38,11 @@ export interface Loja {
    * celular fica sem a rua nas duas. No computador a rua fica sempre embaixo do perfil.
    */
   ruaNoStory: boolean
+  /**
+   * O mercador mostra produtos da loja na rua, um de cada vez, com a plaquinha do nome e do preço (Loja → "O mercador
+   * mostra produtos na rua", no painel). Vale nos três lugares da rua. Desligada, a rua fica só com os itens desenhados.
+   */
+  vitrineNaRua: boolean
   textos: TextosLoja
   categorias: Categoria[]
   /** Os do site, na ordem da grade (os de exemplo saem com config.dadosDeExemplo desligado). */
@@ -85,6 +90,7 @@ function montarEmbutida(): Loja {
     whatsapp: config.whatsappPedidos,
     restamAte: config.restamAte,
     ruaNoStory: true,
+    vitrineNaRua: true,
     textos: textosLoja,
     categorias,
     produtos,
@@ -139,6 +145,8 @@ function estadoDe(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm
     whatsapp: site.whatsapp,
     restamAte: site.restamAte,
     ruaNoStory: site.ruaNoStory,
+    // a guardada por um build de antes da chave não tem o campo: sem ele, ligada (como no servidor)
+    vitrineNaRua: site.vitrineNaRua !== false,
     textos: antes ? igual(antes.textos, site.textos) : site.textos,
     categorias: antes ? reaproveitar(site.categorias, antes.categorias) : site.categorias,
     produtos,

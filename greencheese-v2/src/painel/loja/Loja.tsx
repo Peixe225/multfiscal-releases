@@ -1,6 +1,7 @@
 // Loja: a porta das partes da loja (produtos, estados, stories do Início, categorias, Teste minha sorte) e os ajustes
-// que valem pro site todo: o WhatsApp da loja (e se todos os estados usam ele), o "restam X", os textos da loja
-// (bio do perfil, frase do story, sacola vazia, falas do mercador) e o "apagar dados de exemplo".
+// que valem pro site todo: o WhatsApp da loja (e se todos os estados usam ele), o "restam X", se o mercador mostra
+// produtos da loja na rua, os textos da loja (bio do perfil, frase do story, sacola vazia, falas do mercador) e o
+// "apagar dados de exemplo".
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ErroApi, mensagemDe } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
@@ -19,6 +20,8 @@ interface Form {
   mesmo: boolean
   restamLigado: boolean
   restamAte: string
+  /** O mercador mostra produtos da loja na rua (a vitrine). */
+  vitrine: boolean
   bio: string[]
   fraseStory: string
   sacolaVazia: string
@@ -33,6 +36,7 @@ function doServidor(l: LojaAdmin): Form {
     mesmo: l.ajustes.mesmoWhatsappParaTodos,
     restamLigado: l.ajustes.restamAte != null,
     restamAte: String(l.ajustes.restamAte ?? 5),
+    vitrine: l.ajustes.vitrineNaRua !== false,
     bio: [...l.textos.bio, '', '', ''].slice(0, 3),
     fraseStory: l.textos.fraseStory,
     sacolaVazia: l.textos.sacolaVazia,
@@ -164,6 +168,7 @@ export function Loja() {
         whatsapp: lerWhatsapp(f.whatsapp) ?? undefined,
         mesmoWhatsappParaTodos: f.mesmo,
         restamAte: f.restamLigado ? Number(f.restamAte) : null,
+        vitrineNaRua: f.vitrine,
         textos: {
           bio: f.bio.map((x) => x.trim()).filter(Boolean),
           fraseStory: f.fraseStory.trim(),
@@ -303,6 +308,22 @@ export function Loja() {
                     {(a) => <Numero aria={a} valor={f.restamAte} aoMudar={(v) => mudar('restamAte', v.slice(0, 2))} min={1} max={99} sufixo="ou menos" rotuloMenos="Uma unidade a menos" rotuloMais="Uma unidade a mais" />}
                   </Campo>
                 )}
+              </section>
+
+              <section className="pn-bloco" aria-labelledby="h-l-vitrine">
+                <h2 id="h-l-vitrine" className="pn-h2">
+                  Rua do mercador
+                </h2>
+                <label className="pn-troca">
+                  <input id="l-vitrine" type="checkbox" checked={f.vitrine} onChange={(e) => mudar('vitrine', e.target.checked)} />
+                  <span className="pn-troca-marca" aria-hidden="true" />
+                  <span>O mercador mostra produtos na rua</span>
+                </label>
+                <p className="pn-dica-bloco">
+                  {f.vitrine
+                    ? 'Ligado: entre um cliente e outro ele ergue um produto à venda no estado, com o nome e o preço (os do story do Início primeiro, na tua ordem). Bebida alcoólica e isqueiro nunca aparecem na rua.'
+                    : 'Desligado: a rua fica só com os itens desenhados (a lata, a seda, a piteira).'}
+                </p>
               </section>
 
               <section className="pn-bloco" aria-labelledby="h-l-textos">

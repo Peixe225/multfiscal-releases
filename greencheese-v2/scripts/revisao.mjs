@@ -24,7 +24,8 @@
 // sem vaga sobrando não tem formulário pra amigo e o sem-vagas com 0 trava o envio, as setas do estado limpam a cidade e
 // o selo da lateral usa o 2 redesenhado. A API do rateio é simulada como no contrato do API.md; nas outras rodadas ela
 // responde como "sem servidor" (HTML no lugar de JSON, sem erro no console). A loja do servidor (o GET loja simulado,
-// mexido como o dono mexe no painel) tem a rodada dela em scripts/revisao-loja.mjs.
+// mexido como o dono mexe no painel) tem a rodada dela em scripts/revisao-loja.mjs; a vitrine da rua (o mercador
+// mostrando produtos de verdade da loja, nos três lugares da rua), em scripts/revisao-vitrine.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
@@ -34,6 +35,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { rodadaLoja } from './revisao-loja.mjs'
+import { rodadaVitrine } from './revisao-vitrine.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -2167,6 +2169,9 @@ for (const reduzir of [false, true]) {
     // dele enquanto o adesivo está aberto; o adesivo sai sozinho e o tempo volta a correr
     await page.evaluate(() => document.activeElement?.blur?.())
     await page.waitForTimeout(200)
+    // com a loja do servidor (GC_LOJA_REAL), a plaquinha da vitrine também segura o tempo: a conta começa sem ela
+    const semPlaquinha = () => page.waitForFunction(() => !document.querySelector('.vista-inicio .rua-vitrine.mostra'), null, { timeout: 8000 }).catch(() => {})
+    await semPlaquinha()
     const t0 = await barraDaRua()
     await page.waitForTimeout(700)
     const correndo = t0 !== (await barraDaRua())
@@ -2190,6 +2195,7 @@ for (const reduzir of [false, true]) {
     await foto(page, `${nome}-2-chamado-toque`)
     for (let k = 0; k < 40 && (await page.locator('.vista-inicio .rua-ver').count()); k++) await page.waitForTimeout(250)
     const sumiu = !(await page.locator('.vista-inicio .rua-ver').count())
+    await semPlaquinha()
     const b2 = await barraDaRua()
     await page.waitForTimeout(700)
     conferir(sumiu && b2 !== (await barraDaRua()) && !(await cena.isHidden()), `${nome}: o adesivo sai sozinho e o tempo do story volta a correr`)
@@ -2551,6 +2557,9 @@ for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, 
 
 // ---------- a loja do servidor no site (scripts/revisao-loja.mjs) ----------
 await rodadaLoja({ browser, base, contexto, conferir, foto, vigiar, vigiarSemRede, clicar, digitar })
+
+// ---------- a vitrine da rua (scripts/revisao-vitrine.mjs): produtos de verdade da loja na mão do mercador ----------
+await rodadaVitrine({ browser, base, contexto, conferir, foto, vigiarSemRede })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

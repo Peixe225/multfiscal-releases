@@ -575,9 +575,10 @@ function gc_rota_admin_stories_salvar(): array
 // ─── ajustes, textos e Teste minha sorte ────────────────────────────────────────────────────────────────────────
 
 /**
- * POST admin-loja-salvar { whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, textos? }: o WhatsApp da loja
- * (o padrão), se todos os estados usam ele (o número próprio de cada estado fica guardado), o "restam X", a rua do
- * mercador no celular (`ruaNoStory`: o 1º story do Início na home, o fim do Início na Home 2) e os textos da loja.
+ * POST admin-loja-salvar { whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, vitrineNaRua?, textos? }: o
+ * WhatsApp da loja (o padrão), se todos os estados usam ele (o número próprio de cada estado fica guardado), o "restam
+ * X", a rua do mercador no celular (`ruaNoStory`: o 1º story do Início na home, o fim do Início na Home 2), se o mercador
+ * mostra produtos da loja na rua (`vitrineNaRua`) e os textos da loja.
  */
 function gc_rota_admin_loja_salvar(): array
 {
@@ -599,17 +600,21 @@ function gc_rota_admin_loja_salvar(): array
         if (array_key_exists('ruaNoStory', $c)) {
             $ajustes['ruaNoStory'] = gc_loja_bool($c, 'ruaNoStory', 'É sim ou não.');
         }
+        if (array_key_exists('vitrineNaRua', $c)) {
+            $ajustes['vitrineNaRua'] = gc_loja_bool($c, 'vitrineNaRua', 'É sim ou não.');
+        }
         $textosAntes = gc_loja_textos();
         $textos = array_key_exists('textos', $c) ? gc_loja_ler_textos($c['textos'], $textosAntes) : $textosAntes;
-        $campos = array_keys(array_filter(['whatsapp' => $ajustes['whatsapp'] !== $antes['whatsapp'], 'mesmoWhatsappParaTodos' => $ajustes['mesmoWhatsappParaTodos'] !== $antes['mesmoWhatsappParaTodos'], 'restamAte' => $ajustes['restamAte'] !== $antes['restamAte'], 'ruaNoStory' => $ajustes['ruaNoStory'] !== $antes['ruaNoStory'], 'textos' => $textos !== $textosAntes]));
+        $campos = array_keys(array_filter(['whatsapp' => $ajustes['whatsapp'] !== $antes['whatsapp'], 'mesmoWhatsappParaTodos' => $ajustes['mesmoWhatsappParaTodos'] !== $antes['mesmoWhatsappParaTodos'], 'restamAte' => $ajustes['restamAte'] !== $antes['restamAte'], 'ruaNoStory' => $ajustes['ruaNoStory'] !== $antes['ruaNoStory'], 'vitrineNaRua' => $ajustes['vitrineNaRua'] !== $antes['vitrineNaRua'], 'textos' => $textos !== $textosAntes]));
         if ($campos !== []) {
             gc_ajuste_definir('loja.whatsapp', $ajustes['whatsapp']);
             gc_ajuste_definir('loja.mesmo_whatsapp', $ajustes['mesmoWhatsappParaTodos'] ? '1' : '0');
             gc_ajuste_definir('loja.restam_ate', $ajustes['restamAte'] === null ? '' : (string) $ajustes['restamAte']);
             gc_ajuste_definir('loja.rua_story', $ajustes['ruaNoStory'] ? '1' : '0');
+            gc_ajuste_definir('loja.rua_vitrine', $ajustes['vitrineNaRua'] ? '1' : '0');
             gc_ajuste_definir('loja.textos', gc_loja_json($textos));
             gc_loja_mudou();
-            gc_evento('painel', 'loja-ajustes', 'loja', ['campos' => $campos, 'ruaNoStory' => $ajustes['ruaNoStory']]);
+            gc_evento('painel', 'loja-ajustes', 'loja', ['campos' => $campos, 'ruaNoStory' => $ajustes['ruaNoStory'], 'vitrineNaRua' => $ajustes['vitrineNaRua']]);
         }
         return ['ajustes' => gc_loja_ajustes(), 'textos' => gc_loja_textos()] + gc_loja_carimbo();
     });
@@ -866,11 +871,13 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         'estado-desativado' => "Tirou $uf do site",
         'estado-editado' => "Editou o atendimento de $uf",
         'stories-salvos' => (int) ($d['produtos'] ?? 0) === 0 ? "Story do Início de $uf no automático" : "Escolheu o story do Início de $uf (" . gc_loja_plural((int) $d['produtos'], 'produto', 'produtos') . ')',
-        // só a chave da rua: a frase diz o que ela faz (a rua do mercador no celular, na home e na Home 2); o resto, a
-        // frase de sempre
-        'loja-ajustes' => ($d['campos'] ?? null) === ['ruaNoStory']
-            ? (!empty($d['ruaNoStory']) ? 'Ligou a rua do mercador no celular' : 'Desligou a rua do mercador no celular')
-            : 'Mudou os ajustes da loja',
+        // só uma das chaves da rua (a rua do mercador no celular, os produtos que ele mostra nela): a frase diz o que ela
+        // faz; o resto, a frase de sempre
+        'loja-ajustes' => match ($d['campos'] ?? null) {
+            ['ruaNoStory'] => !empty($d['ruaNoStory']) ? 'Ligou a rua do mercador no celular' : 'Desligou a rua do mercador no celular',
+            ['vitrineNaRua'] => !empty($d['vitrineNaRua']) ? 'Ligou os produtos na rua do mercador' : 'Desligou os produtos na rua do mercador',
+            default => 'Mudou os ajustes da loja',
+        },
         'sorte-regras' => 'Mudou as regras do Teste minha sorte',
         'premio-criado' => "Criou o prêmio $nome",
         'premio-editado' => "Editou o prêmio $nome",

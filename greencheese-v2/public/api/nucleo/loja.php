@@ -64,7 +64,7 @@ function gc_loja_semeada(): bool
     return gc_ajuste('loja.semeada_em') !== null;
 }
 
-/** @return array{whatsapp: string, mesmoWhatsappParaTodos: bool, restamAte: int|null, ruaNoStory: bool} */
+/** @return array{whatsapp: string, mesmoWhatsappParaTodos: bool, restamAte: int|null, ruaNoStory: bool, vitrineNaRua: bool} */
 function gc_loja_ajustes(): array
 {
     $restam = gc_ajuste('loja.restam_ate');
@@ -76,6 +76,9 @@ function gc_loja_ajustes(): array
         // depois da grade, na Home 2 (/home2/); sem o ajuste, ligada. O nome (ruaNoStory, loja.rua_story) é de quando ela
         // só era o 1º story: ficou, pra loja já salva continuar valendo
         'ruaNoStory' => gc_ajuste('loja.rua_story') !== '0',
+        // o mercador mostra produtos da loja na rua (a vitrine: um de cada vez, com a plaquinha do nome e do preço; só o
+        // que está à venda no estado e pode aparecer na rua, sem álcool nem tabaco); sem o ajuste, ligada
+        'vitrineNaRua' => gc_ajuste('loja.rua_vitrine') !== '0',
     ];
 }
 
@@ -478,6 +481,7 @@ function gc_loja_publica(): array
         'whatsapp' => $ajustes['whatsapp'],
         'restamAte' => $ajustes['restamAte'],
         'ruaNoStory' => $ajustes['ruaNoStory'],
+        'vitrineNaRua' => $ajustes['vitrineNaRua'],
         'textos' => gc_loja_textos(),
         'categorias' => array_map('gc_loja_categoria_publica', $categorias),
         'produtos' => array_map(static fn (array $p): array => gc_loja_produto_publico($p, $porUf[$p['id']] ?? [], $ufs, $ajustes['restamAte'], $ativos), $produtos),

@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
 import { cliqueDeAba, hrefAba, irParaAba } from '../../lib/abas'
+import { precoOuConsultar } from '../../lib/formato'
+import { consultaDaVisita } from '../../lib/url'
+import { useUI } from '../../store/ui'
 import { Icone } from '../comum'
 import { useCamadaAberta } from '../Mercador'
 import { avisoDoChamado, useCtaMercado } from './cta'
-import { Motor, type Balao } from './motor'
+import { Motor, type Balao, type VitrineDaCena } from './motor'
 import { carregarPacote, type Pacote } from './pacote'
 import { ALTURA, LARGURA_MAX, escalaDoAparelho, palcoFaixa, type Palco } from './palco'
 import { montarCena, montarRetrato, type Cena, type Chamado, type Saco } from './roteiro'
+import { useVitrineDaRua } from './vitrine'
+import { arteNaRua, chaveDaArte, folhaDoProduto } from './vitrine-arte'
 import './Rua.css'
 
 // A rua viva: o mercador anda, bebe a Fanta e vende para o skatista, o motoboy, o MC e o turista. Um canvas na
@@ -18,6 +23,11 @@ import './Rua.css'
 //   - o STORY do celular, na home (StoryRua): o mundo em pé (ou a faixa larga, deitado) recortado no quadro do story;
 //     quem diz se ela anda é o story (segmento à vista e tocando), o adesivo do Mercado e o toque ficam com ele.
 // Para o leitor de tela é decorativa: o rótulo do grupo e o botão do mercador.
+// A VITRINE (vitrine.ts): com a loja do servidor, entre um cliente e outro o mercador ergue um produto de verdade da loja
+// do estado (permitido na rua: nada de álcool nem tabaco) e a plaquinha com o nome e o preço aparece uns 2,6 s; o
+// próximo vem no intervalo seguinte. Tocar no produto ou na plaquinha abre a página dele; no teclado, a plaquinha é um
+// link (aparece com o foco), sem aviso nenhum a cada troca. Com movimento reduzido, a foto com um produto parado (o
+// próximo quando a rua volta à vista). Sem loja ou sem produto permitido, a rua de sempre.
 
 export type EstadoRua = 'carregando' | 'foto' | 'rodando' | 'parada' | 'falhou'
 
@@ -55,6 +65,10 @@ export interface StoryDaRua {
   legenda: string
   /** O que mais os balões evitam cobrir no quadro (a dica de primeira vez), em px de CSS do quadro. */
   obstaculos?: () => { x0: number; y0: number; x1: number; y1: number }[]
+  /** O segmento da rua é o que está no quadro (com movimento reduzido, a vitrine troca de produto quando ela volta). */
+  aqui: boolean
+  /** A plaquinha do produto entrou ou saiu (o story segura o tempo enquanto ela está à vista, como no adesivo). */
+  aoVitrine?: (mostra: boolean) => void
 }
 
 export interface PropsRua {
@@ -181,6 +195,10 @@ interface Caixa {
   peso: number
 }
 const cobre = (x0: number, y0: number, x1: number, y1: number, c: Caixa) => Math.max(0, Math.min(x1, c.x1) - Math.max(x0, c.x0)) * Math.max(0, Math.min(y1, c.y1) - Math.max(y0, c.y0))
+/** Da plaquinha ao produto: o comprimento da cauda (px de CSS). */
+const CAUDA_PLACA = 7
+/** Onde a cauda da plaquinha fica: embaixo (a placa em cima do produto) ou de um lado (a placa do lado dele). */
+type LadoCauda = 'baixo' | 'esq' | 'dir'
 /** Custo de quebrar a fala (px² cobertos que valem uma linha a mais). */
 const CUSTO_LINHA = [0, 150, 1000]
 
@@ -205,6 +223,40 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
   // à vista de verdade (faixa): a barra de abas do celular (64 px, fixa embaixo) cobre o pé da tela
   const [naTela, setNaTela] = useState(false)
   const emStory = !!story
+
+  // ── a vitrine: os produtos permitidos da loja do estado (vitrine.ts) e, de cada um, a arte em pixel pronta ──
+  const lista = useVitrineDaRua()
+  /** chave da arte do produto (vitrine-arte.ts) → a folha dele no pacote. */
+  const [prontas, setProntas] = useState<ReadonlyMap<string, string>>(() => new Map())
+  /** O produto da plaquinha (o erguido agora, ou o último) e se ela está à vista. */
+  const [naPlaca, setNaPlaca] = useState<string | null>(null)
+  const [placaVisivel, setPlacaVisivel] = useState(false)
+  const placa = useRef<HTMLAnchorElement>(null)
+  const vit = useRef({ lista, prontas, atual: null as string | null, focada: false })
+  vit.current.lista = lista
+  vit.current.prontas = prontas
+  /** O que o roteiro pede: o próximo produto pronto (o mesmo enquanto a plaquinha tem o foco) e a plaquinha. */
+  const controlador = useMemo<VitrineDaCena>(
+    () => ({
+      proximo() {
+        const v = vit.current
+        const ok = v.lista.filter((p) => v.prontas.has(chaveDaArte(p)))
+        if (!ok.length) return null
+        // o seguinte ao último mostrado, na ordem da vitrine (a lista pode ter crescido ou mudado desde ele); com o foco
+        // na plaquinha, o mesmo
+        const i = v.atual ? ok.findIndex((x) => x.id === v.atual) : -1
+        const p = v.focada && i >= 0 ? ok[i] : ok[(i + 1) % ok.length]
+        v.atual = p.id
+        return { id: p.id, folha: v.prontas.get(chaveDaArte(p))! }
+      },
+      aoMostrar(id) {
+        if (id) setNaPlaca(id)
+        setPlacaVisivel(!!id)
+      },
+    }),
+    [],
+  )
+
   useEffect(() => {
     const el = raiz.current
     if (!el || emStory) return
@@ -293,6 +345,12 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
     const { topo: TOPO, base: BASE } = limites.current
     const extras = obstaculosRef.current?.() ?? []
     const CAUDA = 7
+    // o produto erguido (a vitrine) e a plaquinha: o balão não cobre nenhum dos dois
+    const merc = motor.ator('mercador')
+    const ci = merc && motor.mostrando && merc.item === motor.mostrando.folha ? motor.caixaDoItem(merc, { anim: 'segurar', i: 0 }) : null
+    const produto: Caixa | null = ci ? { x0: ox + ci[0] * px, y0: oy + ci[1] * px, x1: ox + ci[2] * px, y1: oy + ci[3] * px, peso: 10 } : null
+    /** Onde os balões ficaram (a plaquinha foge deles). */
+    const ocupados: Caixa[] = []
     camadaBaloes.current?.querySelectorAll<HTMLElement>('[data-ator]').forEach((el) => {
       const a = motor.ator(el.dataset.ator!)
       if (!a) return
@@ -322,6 +380,7 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
       if (caixa.querySelector('.rua-pausa')) obst.push({ x0: W - 38, y0: 6, x1: W - 6, y1: 38, peso: 2 })
       // no story, a dica de primeira vez pesa como uma cabeça: o balão vai para o lado ou quebra antes de cobrir ela
       for (const o of extras) obst.push({ ...o, peso: 10 })
+      if (produto) obst.push(produto)
       // em cima da cabeça, um pouco para a frente (para onde ele olha), com a ponta da cauda em cima dele, dentro da
       // caixa (no story, entre o cabeçalho e os adesivos); se cobrir alguma coisa, vai para o lado ou quebra em duas
       // (três) linhas: ganha o que cobre menos
@@ -352,8 +411,8 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
       }
       el.style.transform = `translate(${snap(melhor.left)}px, ${snap(melhor.top)}px)`
       el.style.setProperty('--cauda', `${Math.round(Math.max(12, Math.min(v.w - 12, cx - melhor.left)))}px`)
+      ocupados.push({ x0: melhor.left, y0: melhor.top, x1: melhor.left + v.w, y1: melhor.top + v.h, peso: 6 })
     })
-    const merc = motor.ator('mercador')
     const b = botaoMerc.current
     if (merc && b) {
       const [x0, y0, x1, y1] = motor.caixa(merc)
@@ -368,7 +427,64 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
         l.style.transform = `translate(${snap(Math.max(6, Math.min(W - w - 6, meio - w / 2)))}px, 0) rotate(2deg)`
       }
     }
-  }, [cta.ref])
+    // a plaquinha do produto: presa ao produto erguido (na pose, não no balanço da mão) ou, sem produto na mão (o foco
+    // do teclado chegou nela), ao lado da cabeça do mercador. Em cima dele com a cauda embaixo, ou do lado, com a cauda
+    // apontando para ele: ganha o lugar que cobre menos (as cabeças, o produto, o letreiro, os balões)
+    const pl = placa.current
+    if (pl && merc) {
+      const hc = motor.cabeca(merc)
+      const alvo = produto ?? { x0: ox + (hc.x - 6) * px, y0: oy + hc.y * px, x1: ox + (hc.x + 6) * px, y1: oy + (hc.y + 12) * px, peso: 10 }
+      const w = pl.offsetWidth
+      const h = pl.offsetHeight
+      const cx = (alvo.x0 + alvo.x1) / 2
+      const cy = (alvo.y0 + alvo.y1) / 2
+      const obst: Caixa[] = [{ ...alvo, peso: 30 }, ...ocupados]
+      for (const o of motor.atores) {
+        if (!o.visivel || o.efeito) continue
+        if (motor.temCabeca(o)) {
+          const oc = motor.cabeca(o)
+          const [bx0, by0, bx1, by1] = motor.caixa(o)
+          const topo = Math.min(oc.y, by0)
+          obst.push({ x0: ox + (oc.x - 10) * px, y0: oy + topo * px, x1: ox + (oc.x + 10) * px, y1: oy + (topo + 14) * px, peso: 10 })
+          // o corpo também (a placa por cima do casaco dele esconde quem mostra)
+          obst.push({ x0: ox + bx0 * px, y0: oy + by0 * px, x1: ox + bx1 * px, y1: oy + by1 * px, peso: 2 })
+        } else if (o.id === 'letreiro') {
+          // o GC em néon (a marca da loja na cena): a placa só cobre se não tiver outro lugar
+          const [x0, y0, x1, y1] = motor.caixa(o)
+          obst.push({ x0: ox + x0 * px, y0: oy + y0 * px, x1: ox + x1 * px, y1: oy + y1 * px, peso: 4 })
+        }
+      }
+      // o botão de pausar (WCAG 2.2.2) nunca fica embaixo da placa
+      if (caixa.querySelector('.rua-pausa')) obst.push({ x0: W - 44, y0: 0, x1: W, y1: 44, peso: 40 })
+      for (const o of extras) obst.push({ ...o, peso: 10 })
+      // no story, as bordas que passam (28% de cada lado) ficam por cima: melhor no miolo, onde o toque abre o produto
+      if (emStory) obst.push({ x0: 0, y0: TOPO, x1: W * 0.28, y1: BASE, peso: 0.3 }, { x0: W * 0.72, y0: TOPO, x1: W, y1: BASE, peso: 0.3 })
+      const frente: LadoCauda = merc.lado === 'dir' ? 'esq' : 'dir'
+      const lugares: { lado: LadoCauda; left: number; top: number; base: number }[] = [
+        // em cima: no meio, mais para trás (por cima da cabeça dele) ou mais para a frente, sempre com a cauda nele
+        { lado: 'baixo', left: cx - w / 2, top: alvo.y0 - CAUDA_PLACA - h, base: 0 },
+        { lado: 'baixo', left: cx - w + 16, top: alvo.y0 - CAUDA_PLACA - h, base: 10 },
+        { lado: 'baixo', left: cx - 16, top: alvo.y0 - CAUDA_PLACA - h, base: 10 },
+      ]
+      // do lado: na frente dele (para onde olha) ou atrás, com a cauda no meio do produto, a placa no meio, mais para
+      // cima ou mais para baixo (na faixa baixa do computador, por baixo do letreiro)
+      for (const [lado, base] of [[frente, 30], [frente === 'esq' ? 'dir' : 'esq', 60]] as const)
+        for (const top of [cy - h / 2, cy - 12, cy - h + 12, alvo.y1 - 14])
+          lugares.push({ lado, left: lado === 'esq' ? alvo.x1 + CAUDA_PLACA : alvo.x0 - CAUDA_PLACA - w, top, base: base + (top === cy - h / 2 ? 0 : 8) })
+      let melhor = { custo: Infinity, lado: 'baixo' as LadoCauda, left: 0, top: 0 }
+      for (const l of lugares) {
+        const left = Math.max(4, Math.min(W - w - 4, l.left))
+        const top = Math.max(TOPO, Math.min(BASE - h, l.top))
+        let custo = l.base + (Math.abs(left - l.left) + Math.abs(top - l.top)) * 2
+        for (const o of obst) custo += o.peso * cobre(left, top, left + w, top + h, o)
+        if (custo < melhor.custo) melhor = { custo, lado: l.lado, left, top }
+      }
+      pl.style.transform = `translate(${snap(melhor.left)}px, ${snap(melhor.top)}px)`
+      pl.dataset.cauda = melhor.lado
+      const ponta = melhor.lado === 'baixo' ? cx - melhor.left : cy - melhor.top
+      pl.style.setProperty('--cauda', `${Math.round(Math.max(10, Math.min((melhor.lado === 'baixo' ? w : h) - 10, ponta)))}px`)
+    }
+  }, [cta.ref, emStory])
 
   // monta a cena (e remonta quando muda a largura, o palco do story ou a escala, o elenco ou o movimento reduzido). No
   // story, o mundo mudar de lugar no quadro (o pé desce com o aviso de local respondido, a janela encolhe com o teclado
@@ -428,6 +544,7 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
     }
     // no story, a rua começa com um cliente já entrando (cabe um atendimento inteiro no segmento)
     const cena = reduz ? montarRetrato(motor, { evitar: legenda }) : montarCena(motor, palcoStory ? { story: true, saco, evitar: legenda } : {})
+    if (!reduz) motor.vitrine = controlador
     montada.current = { motor, cena, px, ox, oy }
     motor.desenhar()
     setPintada(true)
@@ -443,8 +560,10 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
       motor.destruir()
       montada.current = null
       setBaloes([])
+      // a cena nova começa sem produto na mão
+      setPlacaVisivel(false)
     }
-  }, [pacote, largura, k, bordas, reduz, quadros, posicionar, palcoStory, kkStory, dprStory, saco, legenda])
+  }, [pacote, largura, k, bordas, reduz, quadros, posicionar, palcoStory, kkStory, dprStory, saco, legenda, controlador])
 
   // story: o mundo no novo lugar do quadro (mesma escala, mesma cena): o canvas, os balões e o botão do mercador
   const leftStory = recorte?.left
@@ -476,6 +595,90 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
     posicionar()
   }, [baloes, cta.visivel, posicionar])
 
+  // a arte de cada produto da vitrine, um por respiro do navegador, só depois que a rua já pintou o primeiro quadro (a
+  // primeira tela e a abertura da cena não pagam nada por ela); a folha entra no pacote do motor
+  useEffect(() => {
+    if (!pacote || !pintada || !lista.length) return
+    let vivo = true
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    let cancelar = () => {}
+    const ociosa = (f: () => void) => {
+      if (w.requestIdleCallback && w.cancelIdleCallback) {
+        const id = w.requestIdleCallback(f, { timeout: 1500 })
+        cancelar = () => w.cancelIdleCallback?.(id)
+      } else {
+        const id = window.setTimeout(f, 120)
+        cancelar = () => window.clearTimeout(id)
+      }
+    }
+    const feitas = new Set<string>()
+    const seguinte = () => {
+      const p = lista.find((x) => !vit.current.prontas.has(chaveDaArte(x)) && !feitas.has(chaveDaArte(x)))
+      if (!p) return
+      const chave = chaveDaArte(p)
+      feitas.add(chave)
+      ociosa(() => {
+        void arteNaRua(p).then((a) => {
+          if (!vivo) return
+          if (a) {
+            const folha = `produto:${chave}`
+            pacote.folhas[folha] = folhaDoProduto(folha, a)
+            setProntas((m) => new Map(m).set(chave, folha))
+          }
+          seguinte()
+        })
+      })
+    }
+    seguinte()
+    return () => {
+      vivo = false
+      cancelar()
+    }
+  }, [pacote, pintada, lista])
+
+  // a plaquinha: o produto dela (sem nenhum erguido ainda, o primeiro pronto, para o teclado já achar o link) e só
+  // enquanto ele estiver na vitrine (o dono tirou do site ou esgotou: some)
+  const prontosNaLista = lista.filter((p) => prontas.has(chaveDaArte(p)))
+  const produtoPlaca = prontosNaLista.find((p) => p.id === naPlaca) ?? (naPlaca ? null : (prontosNaLista[0] ?? null))
+  const temVitrine = prontosNaLista.length > 0
+  const placaAVista = placaVisivel && !!produtoPlaca
+  /** O produto da plaquinha saiu da vitrine (o dono tirou do site, esgotou no estado). */
+  const placaSaiu = !!naPlaca && !produtoPlaca
+
+  // movimento reduzido: a foto com um produto erguido, parado; o próximo só quando a rua volta à vista (o segmento do
+  // story de novo, a faixa que volta para a tela), nunca sozinho na frente de quem olha
+  const aVista = emStory ? !!story?.aqui : naTela && abaVisivel && !camada
+  useEffect(() => {
+    const mo = montada.current
+    if (!reduz || !mo?.cena.vitrineFoto) return
+    if (!temVitrine) {
+      if (mo.motor.mostrando) {
+        mo.cena.vitrineFoto(null)
+        mo.motor.desenhar()
+      }
+      setPlacaVisivel(false)
+      return
+    }
+    // fora da vista, fica o que está; o que saiu da vitrine troca na hora
+    if (!aVista && mo.motor.mostrando && !placaSaiu) return
+    const p = controlador.proximo()
+    mo.cena.vitrineFoto(p)
+    mo.motor.desenhar()
+    setNaPlaca(p?.id ?? null)
+    setPlacaVisivel(!!p)
+  }, [reduz, aVista, temVitrine, placaSaiu, versao, controlador])
+
+  // o story segura o tempo dele enquanto a plaquinha está à vista (na foto ela fica, e o story corre normal)
+  const aoVitrine = story?.aoVitrine
+  useEffect(() => {
+    aoVitrine?.(placaAVista && !reduz)
+  }, [placaAVista, reduz, aoVitrine])
+
+  // plaquinha nova (ou que saiu): posiciona antes de pintar
+  useLayoutEffect(() => {
+    posicionar()
+  }, [placaAVista, produtoPlaca, posicionar])
+
   const chamar = () => {
     const mo = montada.current
     if (!mo) return
@@ -491,19 +694,40 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
     setAviso(avisoDoChamado(c, mo.motor.rodando))
   }
 
+  /** O produto erguido no ponto (px da grade), com folga para o alvo ter 44 px; null se não tem produto ali. */
+  const produtoEm = (gx: number, gy: number, folga: number): string | null => {
+    const mo = montada.current
+    const merc = mo?.motor.ator('mercador')
+    const p = mo?.motor.mostrando
+    if (!mo || !merc || !p || merc.item !== p.folha) return null
+    const c = mo.motor.caixaDoItem(merc)
+    if (!c) return null
+    const fx = Math.max(0, folga - (c[2] - c[0]) / 2)
+    const fy = Math.max(0, folga - (c[3] - c[1]) / 2)
+    return gx >= c[0] - fx && gx < c[2] + fx && gy >= c[1] - fy && gy < c[3] + fy ? p.id : null
+  }
+  /** Abre a página do produto, o mesmo caminho do story de produto do Início. */
+  const abrirProduto = (id: string) => useUI.getState().abrirPagina(id, 'hero')
+
   /**
-   * Toque do story no miolo do quadro (px do cliente), fora do botão do mercador: o cliente tocado reage se pode reagir
-   * agora (o mercador, pela folga dos 44 px, é chamado). Na foto (movimento reduzido) ninguém reage: o toque passa o
-   * story.
+   * Toque do story no miolo do quadro (px do cliente), fora do botão do mercador: no produto erguido, abre a página
+   * dele; o cliente tocado reage se pode reagir agora (o mercador, pela folga dos 44 px, é chamado). Na foto (movimento
+   * reduzido) ninguém reage (o toque passa o story), mas o produto dela abre.
    */
   const tocarEm = (x: number, y: number): string | null => {
     const mo = montada.current
     const c = tela.current
-    if (!mo || !c || reduz) return null
+    if (!mo || !c) return null
     const r = c.getBoundingClientRect()
     const gx = (x - r.left) / mo.px
     const gy = (y - r.top) / mo.px
     const folga = 22 / mo.px
+    const prod = produtoEm(gx, gy, 12 / mo.px)
+    if (prod) {
+      abrirProduto(prod)
+      return 'produto'
+    }
+    if (reduz) return null
     if (mo.motor.quemEsta(gx, gy, folga)?.id === 'mercador') {
       chamar()
       return 'mercador'
@@ -524,20 +748,40 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
 
   const tocarCena = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const mo = montada.current
-    if (!mo || reduz || emStory) return
+    if (!mo || emStory) return
     const r = e.currentTarget.getBoundingClientRect()
     const gx = (e.clientX - r.left) / mo.px
     const gy = (e.clientY - r.top) / mo.px
+    const prod = produtoEm(gx, gy, 12 / mo.px)
+    if (prod) return abrirProduto(prod)
+    if (reduz) return
     const quem = mo.cena.tocar(gx, gy, 22 / mo.px)
     if (quem === 'mercador') chamar()
+  }
+
+  /**
+   * O botão do mercador cobre o corpo dele inteiro, com o braço erguido: o produto na palma fica em cima do botão. O
+   * toque (ou o clique) no produto abre o produto; no resto do mercador (e no Enter do teclado), chama ele.
+   */
+  const clicarMercador = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const mo = montada.current
+    const c = tela.current
+    if (mo && c && e.detail > 0) {
+      const r = c.getBoundingClientRect()
+      const prod = produtoEm((e.clientX - r.left) / mo.px, (e.clientY - r.top) / mo.px, 0)
+      if (prod) return abrirProduto(prod)
+    }
+    chamar()
   }
 
   const apontar = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const mo = montada.current
     if (!mo || e.pointerType !== 'mouse') return
     const r = e.currentTarget.getBoundingClientRect()
-    const quem = mo.motor.quemEsta((e.clientX - r.left) / mo.px, (e.clientY - r.top) / mo.px, 0)
-    e.currentTarget.style.cursor = quem && !reduz ? 'pointer' : ''
+    const gx = (e.clientX - r.left) / mo.px
+    const gy = (e.clientY - r.top) / mo.px
+    const quem = mo.motor.quemEsta(gx, gy, 0)
+    e.currentTarget.style.cursor = produtoEm(gx, gy, 0) || (quem && !reduz) ? 'pointer' : ''
   }
 
   const estado: EstadoRua = falhou ? 'falhou' : !pacote || !pintada ? 'carregando' : reduz ? 'foto' : roda ? 'rodando' : 'parada'
@@ -555,8 +799,47 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
       role={emStory ? undefined : 'group'}
       aria-label={emStory ? undefined : 'A rua da loja'}
       data-rua={estado}
+      data-vitrine={prontosNaLista.length}
     >
       <canvas ref={tela} className="rua-tela" aria-hidden="true" onClick={tocarCena} onPointerMove={apontar} />
+      {/* a plaquinha do produto da vitrine: link de verdade (abre a página dele), antes do mercador na ordem do Tab (o
+          "Ver o Mercado" continua logo depois do mercador); some quando ele guarda o produto e volta com o foco */}
+      {produtoPlaca && (
+        <a
+          ref={placa}
+          className={`rua-vitrine${placaAVista ? ' mostra' : ''}`}
+          href={consultaDaVisita({ produto: produtoPlaca.id })}
+          data-produto={produtoPlaca.id}
+          draggable={false}
+          onClick={(e) => {
+            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+            e.preventDefault()
+            abrirProduto(produtoPlaca.id)
+          }}
+          onFocus={() => {
+            // com o foco nela, o produto dela fica (o próximo erguido é o mesmo): o nome não troca debaixo do teclado
+            vit.current.focada = true
+            vit.current.atual = produtoPlaca.id
+            posicionar()
+          }}
+          onBlur={() => {
+            vit.current.focada = false
+          }}
+        >
+          <span className="rua-vitrine-placa" key={`${produtoPlaca.id}-${placaAVista ? 1 : 0}`}>
+            <span className="rua-vitrine-corpo">
+              <span className="sr-only">Ver </span>
+              <span className="rua-vitrine-nome">{produtoPlaca.nome}</span>
+              <span className="sr-only">, </span>
+              <span className="rua-vitrine-preco">
+                {precoOuConsultar(produtoPlaca.preco)}
+                <Icone nome="link" tamanho={16} />
+              </span>
+            </span>
+            <span className="rua-vitrine-cauda" aria-hidden="true" />
+          </span>
+        </a>
+      )}
       <div ref={camadaBaloes} className="rua-baloes" aria-hidden="true">
         {baloes.map((b) => (
           <p key={b.id} className="rua-balao" data-ator={b.ator}>
@@ -565,7 +848,7 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
         ))}
       </div>
       {pacote && (
-        <button ref={botaoMerc} type="button" className="rua-mercador" aria-label="Chamar o mercador" onClick={chamar} />
+        <button ref={botaoMerc} type="button" className="rua-mercador" aria-label="Chamar o mercador" onClick={clicarMercador} />
       )}
       {!emStory && cta.visivel && (
         <a

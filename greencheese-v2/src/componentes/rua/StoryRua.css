@@ -48,6 +48,10 @@
 .rua-em-story .rua-mercador {
   z-index: 2;
 }
+/* a plaquinha do produto, como o mercador: embaixo das bordas que passam (ali o toque sempre passa o story) */
+.rua-em-story .rua-vitrine {
+  z-index: 2;
+}
 
 /* celular baixo: o alto do mundo atrás do cabeçalho some no escuro (o @ e o local legíveis por cima da janela acesa e
    da lâmpada do poste): preto até a primeira linha da arte abaixo do cabeçalho e duas linhas de pontilhado (metade e um

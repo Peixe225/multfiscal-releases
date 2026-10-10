@@ -724,8 +724,9 @@ export function Hero() {
     if (alvo.closest('.hero-resposta')) return
     // o produto e o VER PRODUTO são links do produto: tocar abre, arrastar passa, nunca contam como toque de borda
     const produto = !!alvo.closest('.hero-produto, .hero-ver')
-    // o mercador da rua: segurar pausa e arrastar passa; o toque curto é o clique dele (chama)
-    const merc = !!alvo.closest('.rua-mercador')
+    // o mercador da rua e a plaquinha do produto que ele mostra: segurar pausa e arrastar passa; o toque curto é o
+    // clique deles (chama o mercador, abre o produto)
+    const merc = !!alvo.closest('.rua-mercador, .rua-vitrine')
     // outros botões e links e a enquete não navegam
     if (!produto && !merc && alvo.closest('button, a, input, .enquete')) return
     // gesto anterior que ficou sem fim: destrava antes de começar outro
@@ -863,7 +864,7 @@ export function Hero() {
       onClickCapture={(e) => {
         // o clique que chega depois de segurar, arrastar ou passar o story com um toque na borda não abre nem chama
         // nada (o mercador, o produto, o VER PRODUTO que ficaram embaixo do dedo)
-        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador, .hero-produto, .hero-ver')) {
+        if (performance.now() < semClique.current && (e.target as HTMLElement).closest('.rua-mercador, .rua-vitrine, .hero-produto, .hero-ver')) {
           e.stopPropagation()
           e.preventDefault()
         }

@@ -97,9 +97,10 @@ export async function loja(t, { nomesUf }) {
   igual(chaves(r0.json), ['atualizadoEm', 'loja', 'ok', 'versao'], '{ ok, versao, atualizadoEm, loja }')
   ok(r0.json.ok === true && Number.isInteger(r0.json.versao) && r0.json.versao >= 1 && ISO.test(r0.json.atualizadoEm), `versão inteira e data ISO (${r0.json.versao}, ${r0.json.atualizadoEm})`)
   const L = r0.json.loja
-  igual(chaves(L), ['categorias', 'estados', 'produtos', 'restamAte', 'ruaNoStory', 'sorte', 'stories', 'textos', 'whatsapp'], 'as partes da loja')
+  igual(chaves(L), ['categorias', 'estados', 'produtos', 'restamAte', 'ruaNoStory', 'sorte', 'stories', 'textos', 'vitrineNaRua', 'whatsapp'], 'as partes da loja')
   igual([L.whatsapp, L.restamAte], [s.ajustes.whatsapp, s.ajustes.restamAte], 'WhatsApp da loja e "restam X" da semente')
   igual(L.ruaNoStory, true, 'a rua do mercador no celular (ruaNoStory: o 1º story na home, o fim do Início na Home 2) nasce ligada')
+  igual(L.vitrineNaRua, true, 'o mercador mostrando produtos da loja na rua (vitrineNaRua) nasce ligado')
   mesmo(L.textos, s.textos, 'textos da loja = src/dados/textos-loja.ts')
   mesmo(L.categorias, s.categorias, 'categorias da semente, com o "bebida"')
   ok(r0.texto.includes('"stories":{}') && r0.texto.includes('"restam":{}'), 'mapa vazio sai como {} (nunca [])')
@@ -436,6 +437,36 @@ export async function loja(t, { nomesUf }) {
     await temEvento('loja-ajustes', 'Mudou os ajustes da loja', 'a rua junto com outro ajuste: a frase de sempre')
     aj = await dono.post('admin-loja-salvar', { ruaNoStory: true, restamAte: 5 })
     igual([aj.json.ajustes.ruaNoStory, aj.json.ajustes.restamAte], [true, 5], 'volta como tava')
+  }
+
+  parte('loja: o mercador mostra produtos na rua (vitrineNaRua, Loja: a vitrine nos três lugares da rua)')
+  {
+    igual((await adm()).ajustes.vitrineNaRua, true, 'admin-loja: a chave da vitrine nasce ligada')
+    const r0 = await site().get('loja')
+    const etag = r0.headers.get('etag')
+    const v0 = r0.json.versao
+    let aj = await dono.post('admin-loja-salvar', { vitrineNaRua: false })
+    igual([aj.status, aj.json.ajustes.vitrineNaRua, aj.json.ajustes.ruaNoStory], [200, false, true], 'desligou a vitrine (a rua continua ligada)')
+    const r1 = await comEtag(etag)
+    const j1 = await r1.json()
+    igual([r1.status, j1?.loja?.vitrineNaRua, j1?.versao], [200, false, v0 + 1], 'o site vê a vitrine desligada: o ETag de antes não vale mais (200, versão nova)')
+    const r2 = await comEtag(r1.headers.get('etag'))
+    igual([r2.status, await r2.text()], [304, ''], 'pedindo de novo com o ETag novo: 304 vazio')
+    await temEvento('loja-ajustes', 'Desligou os produtos na rua do mercador', 'vitrine desligada')
+    const repetido = await dono.post('admin-loja-salvar', { vitrineNaRua: false })
+    igual([repetido.status, repetido.json.versao], [200, v0 + 1], 'salvar igual não sobe a versão')
+    for (const v of ['sim', 1, null, []]) {
+      const y = await dono.post('admin-loja-salvar', { vitrineNaRua: v })
+      erro(y, 400, 'invalido', `vitrineNaRua ${JSON.stringify(v)}`)
+      igual(y.json.campo, 'vitrineNaRua', `campo (vitrineNaRua ${JSON.stringify(v)})`)
+    }
+    aj = await dono.post('admin-loja-salvar', { vitrineNaRua: true })
+    igual([aj.json.ajustes.vitrineNaRua, (await pub()).loja.vitrineNaRua], [true, true], 'ligou de novo')
+    await temEvento('loja-ajustes', 'Ligou os produtos na rua do mercador', 'vitrine ligada')
+    aj = await dono.post('admin-loja-salvar', { vitrineNaRua: false, ruaNoStory: false })
+    await temEvento('loja-ajustes', 'Mudou os ajustes da loja', 'a vitrine junto com outro ajuste: a frase de sempre')
+    aj = await dono.post('admin-loja-salvar', { vitrineNaRua: true, ruaNoStory: true })
+    igual([aj.json.ajustes.vitrineNaRua, aj.json.ajustes.ruaNoStory], [true, true], 'volta como tava')
   }
 
   parte('loja: apagar e ordem dos produtos')

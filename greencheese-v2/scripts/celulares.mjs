@@ -17,11 +17,15 @@
 // o ?p= abre o produto por cima) e a rua do mercador só no fim do Início, depois da grade e antes do rodapé, com a
 // altura guardada desde o começo; o pedaço dela não baixa na primeira tela (só quando a vaga chega perto), anda à vista
 // e para fora da tela; deitado e com o palpite de IP no pé do story, também. Trocar de aba mantém a Home 2.
+// A vitrine da rua em cada celular (com a loja do servidor simulada: o mercador ergue um produto de verdade e a
+// plaquinha do nome e do preço aparece): no story da home, a plaquinha e o produto inteiros no quadro, entre o cabeçalho
+// e os adesivos do pé, sem rolagem lateral e com alvo de 44 px; no fim do Início da Home 2, dentro da faixa.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua como "sem servidor").
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
 import { mkdirSync } from 'node:fs'
+import { lojaDaSemente } from './revisao-loja.mjs'
 
 const base = process.argv[3] ?? 'http://localhost:5173/'
 const out = new URL(`../revisao/${process.argv[2] ?? 'celulares'}/`, import.meta.url).pathname
@@ -570,17 +574,30 @@ for (const [aparelho, w, h] of aparelhos) {
     if ((await info()).nome === 'rua') t0 = Date.now()
   }
   if (noUltimo.nome === 'rua' || !t0) problemas.push(`barras: o último produto (${noUltimo.nome}) não andou sozinho para a rua`)
-  // na rua, ~12 s antes de passar sozinha (com 6 s, ainda nela)
-  await p.waitForTimeout(6000)
-  if ((await info()).nome !== 'rua') problemas.push('barras: a rua passou antes de ~12 s')
-  let passou = 0
-  for (let k = 0; k < 40 && !passou; k++) {
-    await p.waitForTimeout(250)
-    if ((await info()).nome !== 'rua') passou = Date.now() - t0
+  // na rua, ~12 s antes de passar sozinha (com 6 s, ainda nela). Com a loja do servidor (GC_LOJA_REAL), a plaquinha da
+  // vitrine segura o tempo enquanto está à vista (uns 2,6 s, como o "Ver o Mercado"): aí a rua pode durar até ~15 s
+  let vitrine = false
+  const olhar = async () => {
+    const i = await p.evaluate(() => ({
+      rua: !!document.querySelector('.vista-inicio .rua-story:not([hidden])'),
+      placa: !!document.querySelector('.vista-inicio .rua-vitrine.mostra'),
+    }))
+    if (i.placa) vitrine = true
+    return i.rua
   }
-  if (!passou || passou < 11000 || passou > 13500) problemas.push(`barras: a rua durou ${passou} ms (esperado ~12 s)`)
+  for (let k = 0; k < 24; k++) {
+    await p.waitForTimeout(250)
+    await olhar()
+  }
+  if (!(await olhar())) problemas.push('barras: a rua passou antes de ~12 s')
+  let passou = 0
+  for (let k = 0; k < 60 && !passou; k++) {
+    await p.waitForTimeout(250)
+    if (!(await olhar())) passou = Date.now() - t0
+  }
+  if (!passou || passou < 11000 || passou > (vitrine ? 16500 : 13500)) problemas.push(`barras: a rua durou ${passou} ms (esperado ~12 s${vitrine ? ', mais a plaquinha da vitrine' : ''})`)
   await ctx.close()
-  console.log('✓ barras do story', `(${vistos.length} stories: a rua e ${vistos.length - 1} produtos; a rua em ${passou} ms)`)
+  console.log('✓ barras do story', `(${vistos.length} stories: a rua e ${vistos.length - 1} produtos; a rua em ${passou} ms${vitrine ? ', com a vitrine' : ''})`)
 }
 
 // ---------- link direto de um produto (?p=): o story do produto abre por cima e o do Início começa nele, não na rua ----
@@ -1098,6 +1115,78 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
     }
     await ctx.close()
     console.log('✓', tag)
+  }
+}
+
+// ── a vitrine da rua (a loja do servidor simulada, a rua andando na mão com ?ruaquadros): a plaquinha cabe ──
+{
+  const loja = lojaDaSemente()
+  const resposta = { ok: true, versao: 5, atualizadoEm: new Date().toISOString(), loja }
+  for (const [aparelho, w, h] of aparelhos) {
+    for (const h2 of [false, true]) {
+      const tag = `${aparelho} vitrine${h2 ? ' home2' : ''}`
+      const ctx = await contexto(w, h, { semDica: true })
+      await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: resposta }))
+      const p = await ctx.newPage()
+      await abrirLembrado(ctx, p, tag, `${base}?${h2 ? 'home=2&' : ''}uf=mg&ruaquadros=7`)
+      if (h2) await p.evaluate(() => document.querySelector('.vista-inicio .rua-vaga')?.scrollIntoView({ block: 'center' }))
+      else await p.keyboard.press('k')
+      const RUA = '.vista-inicio .rua'
+      const pronta = await p.waitForFunction((s) => Number(document.querySelector(s)?.getAttribute('data-vitrine')) > 0, RUA, { timeout: 15000 }).then(() => true, () => false)
+      if (!pronta) {
+        problemas.push(`${tag}: a vitrine não ficou pronta`)
+        await ctx.close()
+        continue
+      }
+      const m = await p.evaluate(async (s) => {
+        const vis = () => document.querySelector(`${s} .rua-vitrine.mostra`)
+        for (let t = 0; !vis() && t < 90_000; t += 250) {
+          window.__rua.avancar(250)
+          await new Promise((ok) => requestAnimationFrame(() => ok()))
+        }
+        // meio segundo de produto erguido (a placa já no lugar dela)
+        window.__rua.avancar(500)
+        await new Promise((ok) => requestAnimationFrame(() => ok()))
+        const v = vis()
+        if (!v) return null
+        const r = (el) => {
+          const b = el?.getBoundingClientRect()
+          return b ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null
+        }
+        const motor = window.__rua.motor
+        const c = motor.caixaDoItem(motor.ator('mercador'))
+        const tela = document.querySelector(`${s} .rua-tela`).getBoundingClientRect()
+        const px = tela.width / motor.w
+        return {
+          placa: r(v),
+          produto: c && { l: tela.left + c[0] * px, t: tela.top + c[1] * px, r: tela.left + c[2] * px, b: tela.top + c[3] * px },
+          quadro: r(document.querySelector('.vista-inicio .hero-quadro')),
+          cab: r(document.querySelector('.vista-inicio .hero-cab')),
+          pe: r(document.querySelector('.vista-inicio .rua-adesivos')),
+          faixa: r(document.querySelector(s)),
+          lateral: document.documentElement.scrollWidth > innerWidth,
+          alvo: v.getBoundingClientRect().height,
+        }
+      }, RUA)
+      if (!m) problemas.push(`${tag}: a plaquinha não apareceu`)
+      else {
+        const dentro = (a, c, f = 1) => a.l >= c.l - f && a.r <= c.r + f && a.t >= c.t - f && a.b <= c.b + f
+        const cruza = (a, c) => a && c && a.l < c.r && a.r > c.l && a.t < c.b && a.b > c.t
+        if (m.lateral) problemas.push(`${tag}: rolagem lateral com a plaquinha`)
+        if (m.alvo < 44) problemas.push(`${tag}: plaquinha com alvo de ${Math.round(m.alvo)} px`)
+        if (h2) {
+          if (!dentro(m.placa, m.faixa)) problemas.push(`${tag}: a plaquinha sai da faixa (${JSON.stringify(m.placa)} em ${JSON.stringify(m.faixa)})`)
+        } else {
+          if (!dentro(m.placa, m.quadro)) problemas.push(`${tag}: a plaquinha sai do quadro do story`)
+          if (cruza(m.placa, m.cab) || cruza(m.placa, m.pe)) problemas.push(`${tag}: a plaquinha cobre o cabeçalho ou os adesivos do pé`)
+          if (m.produto && (m.produto.l < m.quadro.l || m.produto.r > m.quadro.r)) problemas.push(`${tag}: o produto erguido sai do quadro`)
+        }
+        if (cruza(m.placa, m.produto)) problemas.push(`${tag}: a plaquinha cobre o produto`)
+      }
+      await p.screenshot({ path: `${out}${tag.replaceAll(' ', '-')}.png` })
+      await ctx.close()
+      console.log('✓', tag)
+    }
   }
 }
 

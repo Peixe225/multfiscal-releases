@@ -29,6 +29,8 @@ interface Vez {
   story: boolean
   /** Story: a fala que o adesivo do pé já diz (o mercador não repete ela no balão). */
   evitar?: string
+  /** A vitrine desta vez: um produto por intervalo (no interlúdio ou, se não deu, esperando o cliente). */
+  vitrine: { mostrou: boolean }
 }
 
 /** No story as pausas da conversa encurtam (os gestos e o andar continuam no tempo deles). */
@@ -223,6 +225,44 @@ function* toque(m: Motor, merc: Ator, mc: Ator): Roteiro {
   yield () => merc.acabou && mc.acabou
 }
 
+/* ───────────── a vitrine ───────────── */
+
+/** Quanto tempo a plaquinha do produto fica à vista, com o produto erguido: dá para ler o nome e o preço. */
+export const VITRINE_MS = 2600
+
+/**
+ * A vitrine: o mercador tira um produto da loja do casaco, ergue na palma (a plaquinha com o nome e o preço entra),
+ * segura uns 2,6 s e guarda. Virado para o lado com mais rua à vista (o produto e a plaquinha cabem). Sem produto
+ * pronto, não faz nada (devolve false sem esperar).
+ */
+function* vitrine(m: Motor, merc: Ator): Generator<Espera, boolean, void> {
+  const p = m.vitrine?.proximo()
+  if (!p) return false
+  const v = m.palco.visivel
+  merc.lado = merc.x < (v.x0 + v.x1) / 2 ? 'dir' : 'esq'
+  m.mostrando = p
+  merc.item = p.folha
+  merc.itemPega = null
+  yield* anima(m, merc, 'erguer')
+  m.vitrine?.aoMostrar(p.id)
+  yield* anima(m, merc, 'segurar', { ms: VITRINE_MS })
+  m.vitrine?.aoMostrar(null)
+  yield* anima(m, merc, 'baixar')
+  merc.item = null
+  m.mostrando = null
+  m.tocar(merc, 'parado')
+  return true
+}
+
+/** Uma vez a vitrine, atendendo o chamado antes. */
+function* vezDaVitrine(m: Motor, merc: Ator, vt: { mostrou: boolean }): Generator<Espera, boolean, void> {
+  if (vt.mostrou || !m.vitrine) return false
+  if (m.chamado) yield* atenderChamado(m, merc)
+  const ok = yield* vitrine(m, merc)
+  if (ok) vt.mostrou = true
+  return ok
+}
+
 /* ───────────── a vida do mercador ───────────── */
 
 function* acenar(m: Motor, merc: Ator): Roteiro {
@@ -278,24 +318,29 @@ function* interludio(
   gato: Ator,
   ponto: number,
   lado: Lado,
-  op: { curto: boolean; bebe: boolean; carinho: boolean; acenou: boolean; story: boolean },
+  op: { curto: boolean; bebe: boolean; carinho: boolean; acenou: boolean; story: boolean; vitrine: { mostrou: boolean } },
 ): Roteiro {
   const L = m.lugar
   m.fase = 'vida'
   if (!op.curto) {
-    // primeiro olha o cliente ir embora (ou acena, se ainda não acenou): ninguém atravessa ninguém
     m.mercadorLivre = true
-    yield* batida(m, merc, () => (!op.acenou && m.rand() < 0.4 ? acenar(m, merc) : olhar(m, merc)))
+    // no story, com produto pronto, a vitrine logo depois do atendimento, no lugar do resto (cabe no segmento)
+    const mostrou = op.story && (yield* vezDaVitrine(m, merc, op.vitrine))
+    // primeiro olha o cliente ir embora (ou acena, se ainda não acenou): ninguém atravessa ninguém
+    if (!mostrou) yield* batida(m, merc, () => (!op.acenou && m.rand() < 0.4 ? acenar(m, merc) : olhar(m, merc)))
     if (op.story) {
-      if (op.bebe) yield* batida(m, merc, () => beber(m, merc))
+      if (mostrou) {
+        /* o produto foi a coisa do intervalo */
+      } else if (op.bebe) yield* batida(m, merc, () => beber(m, merc))
       else if (op.carinho) yield* batida(m, merc, () => carinho(m, merc, gato))
       else yield* batida(m, merc, () => respirar(m, merc, 800))
     } else {
-      // primeiro anda (passeio ou carinho no gato), depois para e olha, depois bebe
+      // a vitrine (um produto da loja), depois anda (passeio ou carinho no gato), para e olha, e bebe
+      const vitrine = yield* vezDaVitrine(m, merc, op.vitrine)
       const longe = L.passeio.filter((x) => Math.abs(x - merc.x) > 18)
       if (op.carinho) yield* batida(m, merc, () => carinho(m, merc, gato))
       else if (longe.length) yield* batida(m, merc, () => passear(m, merc, longe[Math.floor(m.rand() * longe.length)]))
-      if (m.rand() < 0.6) yield* batida(m, merc, () => olhar(m, merc))
+      if (!vitrine && m.rand() < 0.6) yield* batida(m, merc, () => olhar(m, merc))
       if (op.bebe) yield* batida(m, merc, () => beber(m, merc))
       else yield* batida(m, merc, () => respirar(m, merc, 1600))
     }
@@ -319,7 +364,15 @@ function* interludio(
  * ele guardou a lata (`bebendo`, na entrada de cada ato). Com o cliente já entrando (story), ele só respira: o
  * primeiro quadro da rua é o mesmo em todo aparelho (o pôster).
  */
-function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber: boolean, longe: () => boolean, soRespira = false): Roteiro {
+function* esperarCliente(
+  m: Motor,
+  merc: Ator,
+  chegou: () => boolean,
+  podeBeber: boolean,
+  longe: () => boolean,
+  soRespira: boolean,
+  vt: { mostrou: boolean },
+): Roteiro {
   m.mercadorLivre = true
   let bebeu = !podeBeber || soRespira
   while (!chegou()) {
@@ -331,6 +384,8 @@ function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber:
       yield* respirar(m, merc, 2360, chegou)
       continue
     }
+    // a vitrine que não coube no intervalo, com o cliente ainda fora da tela (ele só entra depois do produto guardado)
+    if (longe() && (yield* vezDaVitrine(m, merc, vt))) continue
     const r = m.rand()
     if (!bebeu && r < 0.35 && longe()) {
       bebeu = true
@@ -348,6 +403,8 @@ function* esperarCliente(m: Motor, merc: Ator, chegou: () => boolean, podeBeber:
 
 /** O mercador está com a lata na mão (o cliente espera ele guardar para entrar). */
 const bebendo = (merc: Ator) => merc.anim === 'beber' && !merc.acabou
+/** Com a lata ou com um produto da vitrine na mão: o cliente espera ele guardar para entrar. */
+const ocupado = (m: Motor, merc: Ator) => bebendo(merc) || !!m.mostrando
 
 /**
  * Onde o cliente entra: fora da tela, do lado para onde o mercador olha. Já entrando (story), colado na beira: o quadro
@@ -406,7 +463,7 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
       // chega rápido: só depois que o mercador parou no ponto (e um respiro; já entrando, sem respiro)
       yield () => m.fase === 'ponto' && v.livre()
       if (!v.jaEntrando) yield 300 + Math.round(m.rand() * 1200)
-      yield () => !bebendo(merc)
+      yield () => !ocupado(m, merc)
       sk.visivel = true
       yield* anda(m, sk, xc + (lado === 'dir' ? FREIO : -FREIO), 'rodar', { reage: true })
       sk.alvo = xc
@@ -417,7 +474,7 @@ function* atoSkatista(m: Motor, merc: Ator, v: Vez): Ato {
     })(),
   )
   yield* v.vida
-  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !sk.visivel, v.jaEntrando)
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !sk.visivel, v.jaEntrando, v.vitrine)
   yield* vez(m, v)
   m.falar(sk, sortear(FALAS.skatista.pedir, m.rand), 1900)
   const oferta = sortear(falasSem(FALAS.mercador.oferecer, v.evitar), m.rand)
@@ -572,7 +629,7 @@ function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
   m.lancar(
     (function* (): Roteiro {
       // vem no beat enquanto o mercador volta para o ponto
-      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !bebendo(merc)
+      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !ocupado(m, merc)
       mc.visivel = true
       yield* anda(m, mc, xc, 'chegar', { reage: true })
       m.tocar(mc, 'parado')
@@ -580,7 +637,7 @@ function* atoMC(m: Motor, merc: Ator, v: Vez): Ato {
     })(),
   )
   yield* v.vida
-  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !mc.visivel, v.jaEntrando)
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !mc.visivel, v.jaEntrando, v.vitrine)
   yield* vez(m, v)
   m.falar(mc, sortear(FALAS.mc.chegar, m.rand), 1600)
   yield* espera(m, mc, pausa(v, 1200, LER))
@@ -631,7 +688,7 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
   m.lancar(
     (function* (): Roteiro {
       // anda de pato, devagar: entra enquanto o mercador ainda volta para o ponto
-      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !bebendo(merc)
+      yield () => (m.fase === 'rumo' || m.fase === 'ponto') && v.livre() && !ocupado(m, merc)
       tu.visivel = true
       // lendo o mapa, quase esbarra: abaixa o mapa, se assusta, guarda o mapa
       yield* anda(m, tu, xc, 'chegar', { reage: true })
@@ -641,7 +698,7 @@ function* atoTurista(m: Motor, merc: Ator, v: Vez): Ato {
     })(),
   )
   yield* v.vida
-  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !tu.visivel, v.jaEntrando)
+  yield* esperarCliente(m, merc, () => chegou, !bebe, () => !tu.visivel, v.jaEntrando, v.vitrine)
   yield* vez(m, v)
   m.falar(tu, sortear(FALAS.turista.pedir, m.rand), 1900)
   yield* espera(m, tu, pausa(v, 1500, LER))
@@ -779,7 +836,9 @@ function* diretor(m: Motor, merc: Ator, gato: Ator, op: OpcoesCena): Roteiro {
     const carinho: boolean = !primeira && !carinhou && m.rand() < 0.6
     // o motoboy sai com o aceno do mercador: não acena de novo
     const story = !!op.story
-    const vida = interludio(m, merc, gato, ponto, lado, { curto: primeira, bebe, carinho, acenou: anterior === 'motoboy', story })
+    // um produto da vitrine por intervalo
+    const vt = { mostrou: false }
+    const vida = interludio(m, merc, gato, ponto, lado, { curto: primeira, bebe, carinho, acenou: anterior === 'motoboy', story, vitrine: vt })
     // story: o primeiro já vem entrando (o segmento tem ~12 s para um atendimento inteiro)
     const jaEntrando = primeira && story
     bebeu = bebe
@@ -787,7 +846,7 @@ function* diretor(m: Motor, merc: Ator, gato: Ator, op: OpcoesCena): Roteiro {
     primeira = false
     // o próximo só entra quando o de antes saiu da tela: um cliente por vez
     const antes = saiu
-    saiu = yield* ATOS[cliente](m, merc, { lado, ponto, bebe, vida, livre: antes, jaEntrando, story, evitar: op.evitar })
+    saiu = yield* ATOS[cliente](m, merc, { lado, ponto, bebe, vida, livre: antes, jaEntrando, story, evitar: op.evitar, vitrine: vt })
   }
 }
 
@@ -819,6 +878,11 @@ export interface Cena {
    * agora; ocupado (pegando, pagando), o toque não fica na fila e devolve null (o story passa).
    */
   tocar(x: number, y: number, folga: number, soNaHora?: boolean): string | null
+  /**
+   * Movimento reduzido (a foto): o mercador posa com o produto da vitrine erguido na palma (null: a foto de sempre,
+   * atendendo o skatista). Na rua viva quem mostra é o roteiro, entre um cliente e outro.
+   */
+  vitrineFoto?(p: { id: string; folha: string } | null): void
 }
 
 /**
@@ -907,6 +971,21 @@ export function montarRetrato(m: Motor, op: Pick<OpcoesCena, 'evitar'> = {}): Ce
     chamar(longo) {
       m.falar(merc, sortear(falasDoChamado(longo, op.evitar), m.rand), 60_000)
       return 'foto'
+    },
+    vitrineFoto(p) {
+      // com o produto: ele sozinho mostrando, e a plaquinha é a fala da foto (o skatista e o balão saem); sem: a de
+      // sempre, com o balão
+      m.mostrando = p
+      merc.item = p?.folha ?? null
+      sk.visivel = !p
+      if (p) {
+        m.pose(merc, 'segurar', 0, 'dir')
+        m.calar(merc)
+      } else {
+        m.pose(merc, 'mostrar', 0, 'dir')
+        if (!m.baloes.length) m.falar(merc, falasDoChamado(false, op.evitar)[0], 60_000)
+      }
+      m.marcar()
     },
     tocar(x, y, folga) {
       const a = m.quemEsta(x, y, folga)

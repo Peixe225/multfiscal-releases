@@ -189,7 +189,9 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
   }, [baixando, cansou])
   const pronta = estado !== 'carregando' || cansou
   useEffect(() => aoPronta(pronta), [pronta, aoPronta])
-  useEffect(() => aoSegurar(cta.visivel), [cta.visivel, aoSegurar])
+  // o story espera com o adesivo do Mercado aberto e com a plaquinha de um produto à vista (a vitrine, uns 2,6 s)
+  const [vitrine, setVitrine] = useState(false)
+  useEffect(() => aoSegurar(cta.visivel || vitrine), [cta.visivel, vitrine, aoSegurar])
 
   const abrirCta = cta.abrir
   const aoChamadoRef = useRef(aoChamado)
@@ -212,8 +214,8 @@ export function StoryRua({ aqui, ativa, deitado, legenda, aoSegurar, aoPronta, a
     return [{ x0: d.left - c.left, y0: d.top - c.top, x1: d.right - c.left, y1: d.bottom - c.top }]
   }, [refCena])
   const story = useMemo(
-    () => (recorte ? { recorte, ativa, alca, aoChamar, aoEstado: setEstado, saco, legenda, obstaculos } : null),
-    [recorte, ativa, alca, aoChamar, saco, legenda, obstaculos],
+    () => (recorte ? { recorte, ativa, alca, aoChamar, aoEstado: setEstado, saco, legenda, obstaculos, aqui, aoVitrine: setVitrine } : null),
+    [recorte, ativa, alca, aoChamar, saco, legenda, obstaculos, aqui],
   )
 
   // o pôster da faixa (celular deitado) num pedaço à parte, de uns 2 KB: só quem deita baixa

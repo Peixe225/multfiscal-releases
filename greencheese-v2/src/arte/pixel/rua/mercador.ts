@@ -246,6 +246,14 @@ const dando = estendido(luvaSegura, { x: 46, y: 22 }, { x: 48, y: 23 })
 const palma = estendido(luvaPalma, { x: 46, y: 22 }, { x: 49, y: 22 })
 const punhoFrente = estendido(luvaPunho, { x: 45, y: 22 }, { x: 47, y: 23 }, { x: 44.5, y: 24.5 })
 
+/**
+ * A vitrine: o produto de pé na palma aberta, o braço erguido para a frente, na altura do ombro (o produto fica do lado
+ * da cabeça, sem cobrir o rosto). O segundo quadro sobe a mão 1 px (o produto balança de leve enquanto ele mostra).
+ */
+const palmaAlta = braco({ x: 40.5, y: 21.5 }, { x: 45.5, y: 19.5 }, luvaPalma, { x: 46, y: 17 }, { x: 48, y: 17 })
+const palmaAlta2 = braco({ x: 40.5, y: 21.5 }, { x: 45.5, y: 18.5 }, luvaPalma, { x: 46, y: 16 }, { x: 48, y: 16 })
+const palmaMeio = estendido(luvaPalma, { x: 46, y: 22 }, { x: 48, y: 22 })
+
 /** Meio caminho entre caído e erguido (o aceno sobe e desce por aqui). */
 const meioAlto = braco({ x: 38.5, y: 18.5 }, { x: 41.5, y: 12.5 }, luvaAberta, { x: 39, y: 6 })
 /** Erguido, a mão aberta acima do ombro, nos dois tempos do aceno. */
@@ -537,6 +545,28 @@ const animacoes: Record<string, AnimacaoDef> = {
       q(),
     ],
     ms: [160, 120, 260, 260, 120, 260, 300, 200, 300],
+  },
+  // a vitrine (Rua.tsx): um produto de verdade da loja na palma, com a plaquinha do nome e do preço
+  erguer: {
+    sobre: 'Tira um produto do casaco e ergue na palma aberta, do lado da cabeça (evento "ergue" no quadro de cima). Para erguido.',
+    quadros: [q(), q({ braco: noCasaco }), q({ braco: palmaMeio, olhar: 1 }), { ...q({ braco: palmaAlta, olhar: 'riso' }), evento: 'ergue' }],
+    ms: [160, 260, 200, 300],
+  },
+  segurar: {
+    sobre: 'Segura o produto erguido na palma, olhando para ele; a mão sobe e desce 1 px e ele pisca.',
+    quadros: [
+      q({ braco: palmaAlta, olhar: 1 }),
+      q({ braco: palmaAlta2, olhar: 1 }),
+      q({ braco: palmaAlta, olhar: 1 }),
+      q({ braco: palmaAlta, olhar: 'fechados' }),
+    ],
+    ms: [700, 420, 700, 120],
+    laco: true,
+  },
+  baixar: {
+    sobre: 'Baixa o produto e guarda no casaco (evento "guarda", com a mão dentro dele).',
+    quadros: [q({ braco: palmaMeio, olhar: 1 }), { ...q({ braco: noCasaco }), evento: 'guarda' }, q()],
+    ms: [200, 260, 260],
   },
 }
 
