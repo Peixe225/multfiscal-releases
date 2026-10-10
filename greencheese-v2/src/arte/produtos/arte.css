@@ -1,0 +1,83 @@
+/* Arte do produto: canvas em baixa resolução ampliado em pixel nítido. O pai manda no tamanho da
+   caixa; dentro dela, um quadro 9:16 centrado (escala inteira de pixel de tela, pelo
+   ResizeObserver) onde a arte e o chiado têm a mesma geometria. */
+
+/* :where() = especificidade zero; qualquer regra do pai (ex.: .sq-arte > *) ganha.
+   aspect-ratio só pesa quando o pai não dá altura (mantém a proporção, como o canvas fazia). */
+:where(.arte-produto) {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 9 / 16;
+}
+
+/* Centrado por margem (sem transform: nada de meio pixel reamostrando o canvas).
+   width/height em px vêm do ResizeObserver; 100% é só a reserva. */
+.arte-quadro {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.arte-quadro canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* ---------- indisponível: chiado só na silhueta, 3 quadros alternados por opacity ---------- */
+
+.arte-chiado {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* Sem quadros ainda (arte não desenhada), nada de chiado. */
+.arte-chiado:not([data-pronto]) {
+  visibility: hidden;
+}
+
+/* Um quadro aceso por vez, em degraus (voz pixel): só opacity, sem repintar. */
+.arte-chiado > canvas {
+  opacity: 0;
+  animation: arte-chiado 0.36s steps(1, end) infinite;
+}
+.arte-chiado > canvas:nth-child(2) {
+  animation-delay: -0.24s;
+}
+.arte-chiado > canvas:nth-child(3) {
+  animation-delay: -0.12s;
+}
+.arte-chiado[data-pausado] > canvas {
+  animation-play-state: paused;
+}
+
+@keyframes arte-chiado {
+  0% {
+    opacity: 1;
+  }
+  33.333% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arte-chiado > canvas {
+    animation: none;
+  }
+  .arte-chiado > canvas:first-child {
+    opacity: 1;
+  }
+}

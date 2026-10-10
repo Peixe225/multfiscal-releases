@@ -1,0 +1,100 @@
+/* Barra de abas do celular (no molde da barra de baixo do Instagram). */
+
+.barra-abas {
+  position: fixed;
+  z-index: 35;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  height: calc(var(--barra-baixo) + var(--seg-baixo));
+  padding: 0 var(--seg-dir) var(--seg-baixo) var(--seg-esq);
+  background: var(--preto);
+  border-top: 1px solid var(--bolha);
+}
+/* teclado virtual aberto: a barra sai de baixo do campo */
+html.com-teclado .barra-abas {
+  transform: translateY(100%);
+  visibility: hidden;
+}
+@media (min-width: 900px) {
+  .barra-abas {
+    display: none;
+  }
+}
+
+/* cada célula ocupa a mesma fatia (em 320 px: 64×52) */
+.aba-celula {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--barra-baixo);
+  display: grid;
+  place-items: center;
+  color: var(--branco);
+  -webkit-touch-callout: none;
+}
+.aba-celula:focus-visible {
+  outline-offset: -4px;
+}
+.aba-icone,
+.aba-perfil {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+/* aba que acabou de ficar ativa: o ícone troca na hora e dá um pulo de 2 px, em degrau (voz pixel) */
+.aba-celula.ativa svg,
+.aba-celula.ativa .avatar {
+  animation-name: aba-pulo;
+  animation-duration: 0.12s;
+  animation-timing-function: steps(1, end);
+}
+@keyframes aba-pulo {
+  from,
+  to {
+    transform: translateY(-2px);
+  }
+}
+
+/* contador da sacola: pílula branca no canto de cima do ícone (o desenho continua à vista) */
+.aba-contador {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--branco);
+  color: var(--preto);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--preto);
+  /* o 2 e o 5 da Pixelify liam Z e S ("55" virava "SS"): digitos.css, carregado com o CSS principal */
+  font-family: 'GC Digitos', var(--pixel);
+}
+/* ponto branco de pixel: o Teste minha sorte tem coisa liberada */
+.aba-ponto {
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  width: 6px;
+  height: 6px;
+  background: var(--branco);
+  box-shadow: 0 0 0 2px var(--preto);
+}
+
+/* aba Por estado: o avatar da loja (como a foto do perfil na barra do Instagram) e o selo da UF, reconhecível */
+.aba-uf {
+  position: absolute;
+  right: -12px;
+  bottom: -6px;
+  padding: 2px 3px 1px;
+  background: var(--branco);
+  color: var(--preto);
+  font-size: 10px;
+  line-height: 1;
+  transform: rotate(-4deg);
+  box-shadow: 0 0 0 2px var(--preto);
+}

@@ -1,0 +1,83 @@
+// Ícones das seções de pedidos, avisos e falas, no traço dos outros do painel (16×16, '.' transparente, 'x' = a cor do
+// texto). O sino e o balão vazados são os do site; aqui ficam os cheios (seção acesa) e a prancheta dos pedidos.
+import type { Grade } from '../../arte/pixel/grades'
+
+function g(linhas: string[]): Grade {
+  return { w: linhas[0]?.length ?? 0, h: linhas.length, linhas }
+}
+
+export const iconesPedidos: Record<string, Grade> = {
+  // prancheta com a lista do pedido (marcador e linha em cada item)
+  pedido: g([
+    '................',
+    '.....xxxxxx.....',
+    '..xxxx....xxxx..',
+    '..x..xxxxxx..x..',
+    '..x..........x..',
+    '..x.xx.xxxxx.x..',
+    '..x..........x..',
+    '..x.xx.xxxxx.x..',
+    '..x..........x..',
+    '..x.xx.xxxxx.x..',
+    '..x..........x..',
+    '..x.xx.xxx...x..',
+    '..x..........x..',
+    '..xxxxxxxxxxxx..',
+    '................',
+    '................',
+  ]),
+  'pedido-cheio': g([
+    '................',
+    '.....xxxxxx.....',
+    '..xxxx....xxxx..',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '..xx..x.....xx..',
+    '..xxxxxxxxxxxx..',
+    '..xx..x.....xx..',
+    '..xxxxxxxxxxxx..',
+    '..xx..x.....xx..',
+    '..xxxxxxxxxxxx..',
+    '..xx..x...xxxx..',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '................',
+    '................',
+  ]),
+  'sino-cheio': g([
+    '.......xx.......',
+    '......xxxx......',
+    '.....xxxxxx.....',
+    '....xxxxxxxx....',
+    '....xxxxxxxx....',
+    '....xxxxxxxx....',
+    '...xxxxxxxxxx...',
+    '...xxxxxxxxxx...',
+    '..xxxxxxxxxxxx..',
+    '.xxxxxxxxxxxxxx.',
+    '................',
+    '......xxxx......',
+    '.......xx.......',
+    '................',
+    '................',
+    '................',
+  ]),
+  'balao-cheio': g([
+    '................',
+    '................',
+    '..xxxxxxxxxxxx..',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxx..x..x..xxx.',
+    '.xxx..x..x..xxx.',
+    '.xxxxxxxxxxxxxx.',
+    '.xxxxxxxxxxxxxx.',
+    '..xxxxxxxxxxxx..',
+    '...xxx..........',
+    '...xx...........',
+    '...x............',
+    '................',
+    '................',
+  ]),
+}

@@ -1,0 +1,597 @@
+// Pixel art de interface, toda em texto. Cada caractere é um pixel:
+// '.' transparente, 'x' = currentColor (ícone segue a cor do texto), outras letras vêm da paleta.
+//
+// Tamanhos que saem nítidos (múltiplos da grade; o PixelArte ajusta o resto ao pixel da tela):
+//   ícones 16×16 → 16, 32, 48 px · emblemas 24×24 (pixel/emblemas.ts) → 48, 72, 96 px
+//   · mercador 44×64 (repost e sacola vazia) → 132 ou 176 px de largura.
+// A moto tem uma capa 32×32 (`grande`) que o PixelArte usa sozinho a partir de 64 px.
+
+import { mercador } from './mercador'
+import { mercadorGarrafa } from './mercador-garrafa'
+
+export interface Grade {
+  w: number
+  h: number
+  linhas: string[]
+  paleta?: Record<string, string>
+  /** Versão mais detalhada do mesmo desenho. O PixelArte troca para ela quando cada pixel dela cabe em 2 px CSS ou mais. */
+  grande?: Grade
+}
+
+export const TRANSPARENTE = '.'
+export const COR_TEXTO = 'x'
+
+function nova(w: number, h: number, linhas: string[], paleta?: Record<string, string>): Grade {
+  return { w, h, linhas, paleta }
+}
+const i16 = (linhas: string[], grande?: Grade): Grade => ({ ...nova(16, 16, linhas), grande })
+
+// Confere o desenho em dev: altura, largura de cada linha e letras sem cor. Cada grade é conferida uma vez só.
+const conferidas = new WeakSet<Grade>()
+export function validarGrade(grade: Grade, nome = 'grade'): boolean {
+  if (conferidas.has(grade)) return true
+  conferidas.add(grade)
+  const erros: string[] = []
+  if (grade.linhas.length !== grade.h) erros.push(`${grade.linhas.length} linhas, esperado h=${grade.h}`)
+  grade.linhas.forEach((linha, y) => {
+    if (linha.length !== grade.w) erros.push(`linha ${y} com ${linha.length} pixels, esperado w=${grade.w}`)
+    for (const c of linha) {
+      if (c !== TRANSPARENTE && c !== COR_TEXTO && !grade.paleta?.[c]) erros.push(`linha ${y}: "${c}" sem cor na paleta`)
+    }
+  })
+  if (grade.grande && grade.grande.w / grade.grande.h !== grade.w / grade.h) erros.push('grande com outra proporção')
+  if (erros.length) console.warn(`[pixel] ${nome}: ${erros.join('; ')}`)
+  const grandeOk = grade.grande ? validarGrade(grade.grande, `${nome} (grande)`) : true
+  return erros.length === 0 && grandeOk
+}
+
+/* ───────────────────────── paleta (só os tokens do base.css) ───────────────────────── */
+
+// b = branco (só brilho pontual), c = --legenda, e = --chiado, d = --bolha.
+export const tons = { b: '#ffffff', c: '#a8a8a8', e: '#636363', d: '#262626' }
+
+/* ───────────────────────── ícones 16×16 (monocromáticos) ───────────────────────── */
+
+const iconesBase = {
+  // Motoboy de lado, indo para a direita: baú sobre a roda de trás, piloto inclinado, capacete com viseira,
+  // garfo inclinado do guidão até a roda da frente, farol. Rodas com pneu de 2 px (centros em x≈3 e x≈12).
+  moto: i16(
+    [
+      '.........xxx....',
+      '........xxxxx...',
+      '........xx..x...',
+      'xxxx....xxxx....',
+      'xxxx....xx......',
+      'x..x...xxxxxx...',
+      'xxxx..xxx...x.x.',
+      'xxxx.xxx....xxx.',
+      '.xxxxxxxxx...x..',
+      '..x.....xx...x..',
+      '.xxxx.xxx..xxxx.',
+      'xxxxxx....xxxxxx',
+      'xx..xx....xx..xx',
+      'xx..xx....xx..xx',
+      'xxxxxx....xxxxxx',
+      '.xxxx......xxxx.',
+    ],
+    // Capa 32×32 para 64 px ou mais (InfoStory): o mesmo desenho com tampa e fecho no baú, tanque, motor e cubo nas rodas.
+    nova(32, 32, [
+      '...................xxxxx........',
+      '..................xxxxxxx.......',
+      '.................xxxxxxxxx......',
+      '.................xxxx....x......',
+      '.................xxxx....x......',
+      '.................xxxxxxxxx......',
+      '..................xxxxxxx.......',
+      'xxxxxxxxx.......xxxxxxx.........',
+      'xxxxxxxxx......xxxxxxxx.........',
+      'x.......x.....xxxxxxxxxx........',
+      'xxxxxxxxx....xxxxxx..xxxx.......',
+      'xxxx.xxxx...xxxxxx.....xxx.xx...',
+      'xxxx.xxxx...xxxxxx......xxxxxx..',
+      'xxxxxxxxx..xxxxxx...xxxxxx.xx...',
+      'xxxxxxxxx..xxxxxx..xxxxxxx......',
+      'xxxxxxxxx.xxxxxxxxx.....xx......',
+      'xxxxxxxxx.xxxxxxxxxx.....xx.....',
+      'xxxxxxxxxxxxxxxx..xx.....xx.....',
+      '............xxxxx.xx.....xx.....',
+      '............xx.xx.xxxx...xx.....',
+      '....xxxx....xxxxx.......xxxx....',
+      '..xxxxxxxx...xxx......xxxxxxxx..',
+      '.xxxxxxxxxx..........xxxxxxxxxx.',
+      '.xxx....xxx..........xxx....xxx.',
+      'xxx......xxx........xxx......xxx',
+      'xxx..xx..xxx........xxx..xx..xxx',
+      'xxx..xx..xxx........xxx..xx..xxx',
+      'xxx......xxx........xxx......xxx',
+      '.xxx....xxx..........xxx....xxx.',
+      '.xxxxxxxxxx..........xxxxxxxxxx.',
+      '..xxxxxxxx............xxxxxxxx..',
+      '....xxxx................xxxx....',
+    ]),
+  ),
+  // Cuia do logo: boca larga e achatada, aba grossa na frente, corpo em U e pé curto.
+  cuia: i16([
+    '................',
+    '................',
+    '..xxxxxxxxxxxx..',
+    'xx............xx',
+    'xxxxxxxxxxxxxxxx',
+    'x.xxxxxxxxxxxx.x',
+    'x..............x',
+    'x..............x',
+    '.x............x.',
+    '..x..........x..',
+    '...xx......xx...',
+    '.....xxxxxx.....',
+    '......x..x......',
+    '.....xxxxxx.....',
+    '................',
+    '................',
+  ]),
+  // Tesoura do logo: aberta, argolas embaixo à esquerda, lâminas cheias apontando para a direita.
+  tesoura: i16([
+    '................',
+    '...............x',
+    '.............xxx',
+    '...........xxxx.',
+    '..xxx.....xxxx..',
+    '.x...x...xxx....',
+    '.x...xxxxxx.....',
+    '.x...x..x.xxxx..',
+    '..xxx..xxx..xxxx',
+    '......xx........',
+    '..xxxxx.........',
+    '.x...x..........',
+    '.x...x..........',
+    '.x...x..........',
+    '..xxx...........',
+    '................',
+  ]),
+  sacola: i16([
+    '................',
+    '......xxxx......',
+    '.....x....x.....',
+    '....x......x....',
+    '....x......x....',
+    '.xxxxxxxxxxxxxx.',
+    '.x..x......x..x.',
+    '.x............x.',
+    '.x............x.',
+    '.x............x.',
+    '.x............x.',
+    '.x............x.',
+    '.x............x.',
+    '.x............x.',
+    '.xxxxxxxxxxxxxx.',
+    '................',
+  ]),
+  // Pin do adesivo de localização do Instagram (cheio, com o furo).
+  pin: i16([
+    '................',
+    '.....xxxxxx.....',
+    '....xxxxxxxx....',
+    '...xxxxxxxxxx...',
+    '...xxxx..xxxx...',
+    '...xxx....xxx...',
+    '...xxx....xxx...',
+    '...xxxx..xxxx...',
+    '...xxxxxxxxxx...',
+    '....xxxxxxxx....',
+    '....xxxxxxxx....',
+    '.....xxxxxx.....',
+    '......xxxx......',
+    '.......xx.......',
+    '................',
+    '................',
+  ]),
+  // Lupa: só contorno, sem brilho interno (mesma regra dos outros ícones de linha).
+  lupa: i16([
+    '................',
+    '....xxxx........',
+    '..xx....xx......',
+    '..x......x......',
+    '.x........x.....',
+    '.x........x.....',
+    '.x........x.....',
+    '.x........x.....',
+    '..x......x......',
+    '..xx....xxx.....',
+    '....xxxxxxxx....',
+    '..........xxx...',
+    '...........xxx..',
+    '............xxx.',
+    '.............xx.',
+    '................',
+  ]),
+  // Balão de DM com "digitando…".
+  balao: i16([
+    '................',
+    '................',
+    '..xxxxxxxxxxxx..',
+    '.x............x.',
+    '.x............x.',
+    '.x............x.',
+    '.x..xx.xx.xx..x.',
+    '.x..xx.xx.xx..x.',
+    '.x............x.',
+    '.x............x.',
+    '..xx..xxxxxxxx..',
+    '...x.x..........',
+    '...xx...........',
+    '...x............',
+    '................',
+    '................',
+  ]),
+  // Aviãozinho do Direct: só o contorno, sem dobra interna.
+  enviar: i16([
+    '................',
+    '..............x.',
+    '............xxx.',
+    '..........xx..x.',
+    '........xx...x..',
+    '......xx.....x..',
+    '....xx......x...',
+    '..xx........x...',
+    '...xx......x....',
+    '.....xx....x....',
+    '.......x..x.....',
+    '.......x..x.....',
+    '........xx......',
+    '........x.......',
+    '................',
+    '................',
+  ]),
+  instagram: i16([
+    '................',
+    '...xxxxxxxxxx...',
+    '..x..........x..',
+    '.x............x.',
+    '.x.........x..x.',
+    '.x....xxxx....x.',
+    '.x...x....x...x.',
+    '.x...x....x...x.',
+    '.x...x....x...x.',
+    '.x...x....x...x.',
+    '.x....xxxx....x.',
+    '.x............x.',
+    '.x............x.',
+    '..x..........x..',
+    '...xxxxxxxxxx...',
+    '................',
+  ]),
+  // Balão redondo com telefone (genérico, não é o logo).
+  whatsapp: i16([
+    '................',
+    '......xxxx......',
+    '....xx....xx....',
+    '...x........x...',
+    '..x..xx......x..',
+    '..x.xxx......x..',
+    '.x..xx........x.',
+    '.x..xx........x.',
+    '.x...xx..xx...x.',
+    '.x....xxxxx...x.',
+    '..x....xxx...x..',
+    '..x..........x..',
+    '..x.......xxx...',
+    '.x...xxxxx......',
+    '.xxxx...........',
+    '................',
+  ]),
+  relogio: i16([
+    '................',
+    '......xxxx......',
+    '....xx....xx....',
+    '...x........x...',
+    '..x....x.....x..',
+    '..x....x.....x..',
+    '.x.....x......x.',
+    '.x.....x......x.',
+    '.x.....xxxx...x.',
+    '.x............x.',
+    '..x..........x..',
+    '..x..........x..',
+    '...x........x...',
+    '....xx....xx....',
+    '......xxxx......',
+    '................',
+  ]),
+  // Coração: só contorno, sem brilho (com brilho ele parecia trincado a 20–24 px).
+  coracao: i16([
+    '................',
+    '................',
+    '...xxx....xxx...',
+    '..x...x..x...x..',
+    '.x.....xx.....x.',
+    '.x............x.',
+    '.x............x.',
+    '..x..........x..',
+    '...x........x...',
+    '....x......x....',
+    '.....x....x.....',
+    '......x..x......',
+    '.......xx.......',
+    '................',
+    '................',
+    '................',
+  ]),
+  mais: i16([
+    '................',
+    '................',
+    '.......xx.......',
+    '.......xx.......',
+    '.......xx.......',
+    '.......xx.......',
+    '.......xx.......',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '.......xx.......',
+    '.......xx.......',
+    '.......xx.......',
+    '.......xx.......',
+    '.......xx.......',
+    '................',
+    '................',
+  ]),
+  menos: i16([
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+  ]),
+  fechar: i16([
+    '................',
+    '................',
+    '..xx........xx..',
+    '..xxx......xxx..',
+    '...xxx....xxx...',
+    '....xxx..xxx....',
+    '.....xxxxxx.....',
+    '......xxxx......',
+    '......xxxx......',
+    '.....xxxxxx.....',
+    '....xxx..xxx....',
+    '...xxx....xxx...',
+    '..xxx......xxx..',
+    '..xx........xx..',
+    '................',
+    '................',
+  ]),
+  // Setas: haste e cabeça com o mesmo traço de 2 px (a cabeça corre em degraus de 3 px).
+  'seta-esq': i16([
+    '................',
+    '................',
+    '................',
+    '......xx........',
+    '.....xxx........',
+    '....xxx.........',
+    '...xxx..........',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '...xxx..........',
+    '....xxx.........',
+    '.....xxx........',
+    '......xx........',
+    '................',
+    '................',
+    '................',
+  ]),
+  'seta-dir': i16([
+    '................',
+    '................',
+    '................',
+    '........xx......',
+    '........xxx.....',
+    '.........xxx....',
+    '..........xxx...',
+    '..xxxxxxxxxxxx..',
+    '..xxxxxxxxxxxx..',
+    '..........xxx...',
+    '.........xxx....',
+    '........xxx.....',
+    '........xx......',
+    '................',
+    '................',
+    '................',
+  ]),
+  check: i16([
+    '................',
+    '................',
+    '................',
+    '............xx..',
+    '...........xxx..',
+    '..........xxx...',
+    '.........xxx....',
+    '..xx....xxx.....',
+    '..xxx..xxx......',
+    '...xxxxxx.......',
+    '....xxxx........',
+    '.....xx.........',
+    '................',
+    '................',
+    '................',
+    '................',
+  ]),
+  copiar: i16([
+    '................',
+    '.....xxxxxxxxx..',
+    '.....x.......x..',
+    '.....x.......x..',
+    '..xxxxxxxx...x..',
+    '..x......x...x..',
+    '..x......x...x..',
+    '..x.xxxx.x...x..',
+    '..x......x...x..',
+    '..x.xxxx.x...x..',
+    '..x......xxxxx..',
+    '..x.xxx..x......',
+    '..x......x......',
+    '..x......x......',
+    '..xxxxxxxx......',
+    '................',
+  ]),
+  // Caixa com seta para cima (compartilhar do celular).
+  compartilhar: i16([
+    '................',
+    '.......xx.......',
+    '......xxxx......',
+    '.....xxxxxx.....',
+    '....xx.xx.xx....',
+    '.......xx.......',
+    '..xxx..xx..xxx..',
+    '..x....xx....x..',
+    '..x....xx....x..',
+    '..x..........x..',
+    '..x..........x..',
+    '..x..........x..',
+    '..x..........x..',
+    '..x..........x..',
+    '..xxxxxxxxxxxx..',
+    '................',
+  ]),
+  // Estrela da categoria "Tudo".
+  estrela: i16([
+    '................',
+    '.......xx.......',
+    '......x..x......',
+    '......x..x......',
+    '.....x....x.....',
+    '.xxxxx....xxxxx.',
+    '..x..........x..',
+    '...x........x...',
+    '....x......x....',
+    '....x......x....',
+    '...x...xx...x...',
+    '...x..x..x..x...',
+    '..x..x....x..x..',
+    '..x.x......x.x..',
+    '..xx........xx..',
+    '................',
+  ]),
+
+  /* categorias */
+  // Lata com a fita ondulada (bebidas importadas).
+  lata: i16([
+    '................',
+    '....xxxxxxxx....',
+    '...x..xxx...x...',
+    '...xxxxxxxxxx...',
+    '...x........x...',
+    '...x........x...',
+    '...x.......xx...',
+    '...x.....xxxx...',
+    '...xx..xxxx.x...',
+    '...xxxxxx...x...',
+    '...xxx......x...',
+    '...x........x...',
+    '...x........x...',
+    '...xxxxxxxxxx...',
+    '....xxxxxxxx....',
+    '................',
+  ]),
+  garrafa: i16([
+    '......xxxx......',
+    '......xxxx......',
+    '......x..x......',
+    '......x..x......',
+    '......x..x......',
+    '.....x....x.....',
+    '....x......x....',
+    '....x......x....',
+    '....xxxxxxxx....',
+    '....x.xxxx.x....',
+    '....x......x....',
+    '....xxxxxxxx....',
+    '....x......x....',
+    '....x......x....',
+    '....xxxxxxxx....',
+    '................',
+  ]),
+  // Livreto de seda: a folha puxada para cima, um pouco torta (degrau no topo), com a linha de cola
+  // pontilhada; o livreto cheio com a aba em V e o friso de baixo.
+  seda: i16([
+    '................',
+    '........x.x.x.x.',
+    '.......x.......x',
+    '.......x......x.',
+    '......x.......x.',
+    '......x......x..',
+    '.....x.......x..',
+    '.....x......x...',
+    '....x.......x...',
+    'xxxxx.......xxxx',
+    'xxxxxx.....xxxxx',
+    'xxxxxxx...xxxxxx',
+    'xxxxxxxxxxxxxxxx',
+    'x..............x',
+    'xxxxxxxxxxxxxxxx',
+    '................',
+  ]),
+  // Piteira de vidro deitada: tubo com brilho no alto e a boca em elipse aberta na ponta.
+  piteira: i16([
+    '................',
+    '................',
+    '................',
+    '................',
+    '..........xxxx..',
+    '.xxxxxxxxx....x.',
+    'x..xxx.....xx..x',
+    'x.........x..x.x',
+    'x.........x..x.x',
+    'x..........xx..x',
+    '.xxxxxxxxx....x.',
+    '..........xxxx..',
+    '................',
+    '................',
+    '................',
+    '................',
+  ]),
+  // Alternativa à estrela para "Tudo": grade 2×2.
+  tudo: i16([
+    '................',
+    '................',
+    '..xxxxx..xxxxx..',
+    '..x...x..x...x..',
+    '..x...x..x...x..',
+    '..x...x..x...x..',
+    '..xxxxx..xxxxx..',
+    '................',
+    '................',
+    '..xxxxx..xxxxx..',
+    '..x...x..x...x..',
+    '..x...x..x...x..',
+    '..x...x..x...x..',
+    '..xxxxx..xxxxx..',
+    '................',
+    '................',
+  ]),
+} satisfies Record<string, Grade>
+
+export type NomeIcone = keyof typeof iconesBase
+
+// Nome literal devolve Grade (e o editor autocompleta); nome vindo de dado (string) devolve Grade | undefined.
+export const icones: Readonly<Record<NomeIcone, Grade>> & Readonly<Partial<Record<string, Grade>>> = iconesBase
+
+/* ───────────────────────── ilustração ───────────────────────── */
+
+// O mercador mora em arquivos próprios (grade 44×64, grande demais para ficar no meio dos ícones): o do repost, que
+// abre o casaco, e o da sacola vazia, de casaco fechado erguendo a garrafa (ele tomou o lugar do bonequinho de boné).
+export const ilustracoes: Record<'mercador' | 'mercadorGarrafa', Grade> = { mercador, mercadorGarrafa }
+
+// Em dev, confere tudo já no carregamento (não espera a arte aparecer na tela).
+if (import.meta.env?.DEV) {
+  for (const [nome, gr] of Object.entries({ ...iconesBase, ...ilustracoes })) validarGrade(gr, nome)
+}

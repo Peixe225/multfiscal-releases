@@ -1,0 +1,132 @@
+{
+  "_leia": "Gerado de src/dados/sorte.ts e do catálogo por scripts/gerar-premios-sorte.mjs. Não edite à mão.",
+  "ufsAtendidas": [
+    "rj",
+    "mg",
+    "sp",
+    "es",
+    "sc"
+  ],
+  "premios": [
+    {
+      "id": "ocb-4-por-3",
+      "tipo": "leve-x-pague-y",
+      "valor": {
+        "leve": 4,
+        "pague": 3
+      },
+      "titulo": "4 por 3 na OCB",
+      "descricao": "Uma OCB por conta da sorte.",
+      "regra": "Leva 4 Seda OCB Premium Slim e paga 3",
+      "aplicaA": {
+        "produtos": [
+          "seda-ocb-premium-slim"
+        ]
+      },
+      "comoUsar": "Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.",
+      "peso": 30,
+      "validadeDias": 7,
+      "demo": true,
+      "ufs": [
+        "rj",
+        "mg",
+        "sp",
+        "es",
+        "sc"
+      ]
+    },
+    {
+      "id": "piteira-vidro-15",
+      "tipo": "desconto-percentual",
+      "valor": 15,
+      "titulo": "15% na piteira de vidro",
+      "descricao": "A de vidro sai mais em conta.",
+      "regra": "15% de desconto na Piteira de vidro RAW",
+      "aplicaA": {
+        "produtos": [
+          "piteira-de-vidro-raw"
+        ]
+      },
+      "comoUsar": "Põe a piteira na sacola e usa o cupom.",
+      "peso": 20,
+      "validadeDias": 7,
+      "demo": true,
+      "ufs": [
+        "rj",
+        "sp",
+        "es",
+        "sc"
+      ]
+    },
+    {
+      "id": "brinde-piteira-papel",
+      "tipo": "brinde",
+      "valor": {
+        "produto": "piteira-de-papel-raw",
+        "qtd": 1
+      },
+      "titulo": "Piteira de papel de brinde",
+      "descricao": "Vem junto com tua seda.",
+      "regra": "1 Piteira de papel RAW de brinde no pedido com seda",
+      "aplicaA": {
+        "categorias": [
+          "sedas"
+        ]
+      },
+      "comoUsar": "Põe qualquer seda na sacola e usa o cupom.",
+      "peso": 25,
+      "validadeDias": 7,
+      "demo": true,
+      "ufs": [
+        "rj",
+        "mg",
+        "sp",
+        "sc"
+      ]
+    },
+    {
+      "id": "dichavador-10",
+      "tipo": "desconto-percentual",
+      "valor": 10,
+      "titulo": "10% no dichavador",
+      "descricao": "Agora gira o de verdade.",
+      "regra": "10% de desconto no Dichavador de metal 4 partes",
+      "aplicaA": {
+        "produtos": [
+          "dichavador-metal-4-partes"
+        ]
+      },
+      "peso": 15,
+      "validadeDias": 7,
+      "demo": true,
+      "ufs": [
+        "mg",
+        "sp",
+        "es",
+        "sc"
+      ]
+    },
+    {
+      "id": "bandeja-10",
+      "tipo": "desconto-percentual",
+      "valor": 10,
+      "titulo": "10% na bandeja RAW",
+      "descricao": "Tudo no lugar pra enrolar.",
+      "regra": "10% de desconto na Bandeja RAW pequena",
+      "aplicaA": {
+        "produtos": [
+          "bandeja-raw-pequena"
+        ]
+      },
+      "peso": 10,
+      "validadeDias": 7,
+      "demo": true,
+      "ufs": [
+        "mg",
+        "sp",
+        "es",
+        "sc"
+      ]
+    }
+  ]
+}
