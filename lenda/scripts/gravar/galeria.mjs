@@ -15,6 +15,43 @@ const leg = existsSync(join(dir, '_legendas.json')) ? JSON.parse(readFileSync(jo
 const dados = cat.map((i) => ({ ...i, ...(leg[i.nome] ?? {}), url: `${i.nome}.mp4`, corte: i.corte ? `${i.nome}-corte.mp4` : null, capa: i.capa ? `${i.nome}.jpg` : null }))
 const json = JSON.stringify(dados).replace(/</g, '\\u003c')
 
+const GALERIA_JS = `const D = JSON.parse(document.getElementById('dados').textContent)
+const FX = [['todos','Todos'],['extraordinaria','Extraordinárias'],['otima','Ótimas'],['boa','Boas'],['mediana','Medianas'],['ruim','Ruins'],['pessima','Péssimas'],['live','Live'],['imersivo','Imersivo'],['hall','Hall'],['compilacao','Compilação'],['vertical','Verticais'],['horizontal','Horizontais']]
+const NOME = {extraordinaria:'Extraordinária',otima:'Ótima',boa:'Boa',mediana:'Mediana',ruim:'Ruim',pessima:'Péssima',live:'Live',imersivo:'Imersivo',hall:'Hall',compilacao:'Compilação'}
+let filtro = 'todos'
+const chips = document.getElementById('chips'), grid = document.getElementById('grid'), toast = document.getElementById('toast')
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+const mmss = (s) => Math.floor(s/60) + ':' + String(Math.round(s%60)).padStart(2,'0')
+const OQ = {inicio:'Início',criacao:'Criação do jogador',carreira:'Começa a carreira',decisao:'Decisão',titulo:'Título!',fim:'Fim de carreira',resumo:'Resumo',nota:'Nota de Legado',card:'Card final',disputa:'Disputa pela criação',nasce:'Nasce uma lenda',votacao:'Votação do chat',hall:'Hall',ranking:'Ranking',filtro:'Filtro',categorias:'Categorias','suas-carreiras':'Suas carreiras',ficha:'Ficha da carreira',lenda:'Ficha da lenda',lance:'Lance decisivo',penalti:'Pênalti',intervalo:'Intervalo','fim-jogo':'Fim de jogo','pre-jogo':'Pré-jogo',treino:'Treino'}
+function avisar(t){toast.textContent=t;toast.classList.add('on');clearTimeout(avisar.t);avisar.t=setTimeout(()=>toast.classList.remove('on'),1800)}
+function chipsRender(){chips.innerHTML=FX.filter(([k])=>k==='todos'||D.some(i=>i.faixa===k||i.formato===k)).map(([k,l])=>'<button class="chip" aria-pressed="'+(k===filtro)+'" data-k="'+k+'">'+l+' <span style="opacity:.6">'+(k==='todos'?D.length:D.filter(i=>i.faixa===k||i.formato===k).length)+'</span></button>').join('')}
+function render(){
+  chipsRender()
+  const L = D.filter(i=>filtro==='todos'||i.faixa===filtro||i.formato===filtro)
+  if(!L.length){grid.innerHTML='<p class="vazio">Nenhum vídeo nesta categoria.</p>';return}
+  grid.innerHTML = L.map((i,ix)=>{
+    const titulo = i.titulo || (i.jogador ? i.jogador + ' · ' + (i.headline||'') : NOME[i.faixa]||i.nome)
+    const meta = [NOME[i.faixa], i.formato==='vertical'?'9:16':'16:9', mmss(i.duracao), i.mb?i.mb+' MB':''].filter(Boolean).join(' · ')
+    const fatos = i.jogador ? esc(i.pais)+' · '+esc(i.posicao)+' · '+(i.gols??0)+' gols · '+(i.totalTitulos??0)+' títulos' : ''
+    const legenda = [i.legenda, i.hashtags].filter(Boolean).join('\\n\\n')
+    return '<article class="card '+(i.formato==='horizontal'?'h':'')+'">'+
+      '<div class="vid"><video controls preload="none" playsinline '+(i.capa?'poster="'+esc(i.capa)+'"':'')+' src="'+esc(i.url)+'"></video>'+
+      '<div class="badge">'+(i.nota!=null?'<span class="pill n">Nota '+i.nota+'</span>':'')+'<span class="pill">'+esc(NOME[i.faixa]||i.faixa)+'</span></div></div>'+
+      '<div class="body"><h2 class="t">'+esc(titulo)+'</h2><div class="meta">'+esc(meta)+'</div>'+(fatos?'<div class="meta">'+fatos+'</div>':'')+
+      (i.gancho?'<div class="hook"><b>Gancho:</b> '+esc(i.gancho)+'</div>':'')+
+      (i.resumo?'<div class="meta">'+esc(i.resumo)+'</div>':'')+
+      '<details><summary>Marcas para editar ('+(i.marcas||[]).length+')</summary><ol>'+(i.marcas||[]).map(m=>'<li>'+mmss(m.t)+' — '+esc(OQ[m.o]||m.o)+(m.escolha?': '+esc(m.escolha):'')+'</li>').join('')+'</ol></details>'+
+      (legenda?'<details><summary>Legenda e hashtags</summary><div class="leg">'+esc(legenda)+'</div></details>':'')+
+      '<div class="row"><a class="btn p" href="'+esc(i.url)+'" download>Baixar original</a>'+(i.corte?'<a class="btn" href="'+esc(i.corte)+'" download>Corte rápido</a>':'')+(legenda?'<button class="btn" data-copiar="'+ix+'">Copiar legenda</button>':'')+'</div></div></article>'
+  }).join('')
+  grid.querySelectorAll('[data-copiar]').forEach(b=>b.addEventListener('click',async()=>{const i=L[+b.dataset.copiar];const t=[i.legenda,i.hashtags].filter(Boolean).join('\\n\\n');try{await navigator.clipboard.writeText(t);avisar('Legenda copiada')}catch{avisar('Selecione e copie o texto da legenda')}}))
+}
+chips.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;filtro=b.dataset.k;render()})
+// um vídeo tocando por vez
+document.addEventListener('play',e=>{document.querySelectorAll('video').forEach(v=>{if(v!==e.target)v.pause()})},true)
+render()
+`
+
 const html = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -79,45 +116,11 @@ details ol{margin:8px 0 0;padding-left:18px}
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script id="dados" type="application/json">${json}</script>
-<script>
-const D = JSON.parse(document.getElementById('dados').textContent)
-const FX = [['todos','Todos'],['extraordinaria','Extraordinárias'],['otima','Ótimas'],['boa','Boas'],['mediana','Medianas'],['ruim','Ruins'],['pessima','Péssimas'],['live','Live'],['imersivo','Imersivo'],['hall','Hall'],['compilacao','Compilação'],['vertical','Verticais'],['horizontal','Horizontais']]
-const NOME = {extraordinaria:'Extraordinária',otima:'Ótima',boa:'Boa',mediana:'Mediana',ruim:'Ruim',pessima:'Péssima',live:'Live',imersivo:'Imersivo',hall:'Hall',compilacao:'Compilação'}
-let filtro = 'todos'
-const chips = document.getElementById('chips'), grid = document.getElementById('grid'), toast = document.getElementById('toast')
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
-const mmss = (s) => Math.floor(s/60) + ':' + String(Math.round(s%60)).padStart(2,'0')
-const OQ = {inicio:'Início',criacao:'Criação do jogador',carreira:'Começa a carreira',decisao:'Decisão',titulo:'Título!',fim:'Fim de carreira',resumo:'Resumo',nota:'Nota de Legado',card:'Card final',disputa:'Disputa pela criação',nasce:'Nasce uma lenda',votacao:'Votação do chat',hall:'Hall',ranking:'Ranking',filtro:'Filtro',categorias:'Categorias','suas-carreiras':'Suas carreiras',ficha:'Ficha da carreira',lenda:'Ficha da lenda',lance:'Lance decisivo',penalti:'Pênalti',intervalo:'Intervalo','fim-jogo':'Fim de jogo','pre-jogo':'Pré-jogo',treino:'Treino'}
-function avisar(t){toast.textContent=t;toast.classList.add('on');clearTimeout(avisar.t);avisar.t=setTimeout(()=>toast.classList.remove('on'),1800)}
-function chipsRender(){chips.innerHTML=FX.filter(([k])=>k==='todos'||D.some(i=>i.faixa===k||i.formato===k)).map(([k,l])=>'<button class="chip" aria-pressed="'+(k===filtro)+'" data-k="'+k+'">'+l+' <span style="opacity:.6">'+(k==='todos'?D.length:D.filter(i=>i.faixa===k||i.formato===k).length)+'</span></button>').join('')}
-function render(){
-  chipsRender()
-  const L = D.filter(i=>filtro==='todos'||i.faixa===filtro||i.formato===filtro)
-  if(!L.length){grid.innerHTML='<p class="vazio">Nenhum vídeo nesta categoria.</p>';return}
-  grid.innerHTML = L.map((i,ix)=>{
-    const titulo = i.titulo || (i.jogador ? i.jogador + ' · ' + (i.headline||'') : NOME[i.faixa]||i.nome)
-    const meta = [NOME[i.faixa], i.formato==='vertical'?'9:16':'16:9', mmss(i.duracao), i.mb?i.mb+' MB':''].filter(Boolean).join(' · ')
-    const fatos = i.jogador ? esc(i.pais)+' · '+esc(i.posicao)+' · '+(i.gols??0)+' gols · '+(i.totalTitulos??0)+' títulos' : ''
-    const legenda = [i.legenda, i.hashtags].filter(Boolean).join('\\n\\n')
-    return '<article class="card '+(i.formato==='horizontal'?'h':'')+'">'+
-      '<div class="vid"><video controls preload="none" playsinline '+(i.capa?'poster="'+esc(i.capa)+'"':'')+' src="'+esc(i.url)+'"></video>'+
-      '<div class="badge">'+(i.nota!=null?'<span class="pill n">Nota '+i.nota+'</span>':'')+'<span class="pill">'+esc(NOME[i.faixa]||i.faixa)+'</span></div></div>'+
-      '<div class="body"><h2 class="t">'+esc(titulo)+'</h2><div class="meta">'+esc(meta)+'</div>'+(fatos?'<div class="meta">'+fatos+'</div>':'')+
-      (i.gancho?'<div class="hook"><b>Gancho:</b> '+esc(i.gancho)+'</div>':'')+
-      (i.resumo?'<div class="meta">'+esc(i.resumo)+'</div>':'')+
-      '<details><summary>Marcas para editar ('+(i.marcas||[]).length+')</summary><ol>'+(i.marcas||[]).map(m=>'<li>'+mmss(m.t)+' — '+esc(OQ[m.o]||m.o)+(m.escolha?': '+esc(m.escolha):'')+'</li>').join('')+'</ol></details>'+
-      (legenda?'<details><summary>Legenda e hashtags</summary><div class="leg">'+esc(legenda)+'</div></details>':'')+
-      '<div class="row"><a class="btn p" href="'+esc(i.url)+'" download>Baixar original</a>'+(i.corte?'<a class="btn" href="'+esc(i.corte)+'" download>Corte rápido</a>':'')+(legenda?'<button class="btn" data-copiar="'+ix+'">Copiar legenda</button>':'')+'</div></div></article>'
-  }).join('')
-  grid.querySelectorAll('[data-copiar]').forEach(b=>b.addEventListener('click',async()=>{const i=L[+b.dataset.copiar];const t=[i.legenda,i.hashtags].filter(Boolean).join('\\n\\n');try{await navigator.clipboard.writeText(t);avisar('Legenda copiada')}catch{avisar('Selecione e copie o texto da legenda')}}))
-}
-chips.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;filtro=b.dataset.k;render()})
-// um vídeo tocando por vez
-document.addEventListener('play',e=>{document.querySelectorAll('video').forEach(v=>{if(v!==e.target)v.pause()})},true)
-render()
-</script>
+<script src="galeria.js"></script>
 </body>
 </html>
 `
 writeFileSync(join(dir, 'index.html'), html)
+// o JS fica num arquivo à parte: a CSP de /lenda/ (script-src 'self' + hash do jogo) bloqueia <script> embutido
+writeFileSync(join(dir, 'galeria.js'), GALERIA_JS)
 console.log(`galeria: ${dados.length} vídeos → ${join(dir, 'index.html')}`)
