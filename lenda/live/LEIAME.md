@@ -1,5 +1,9 @@
 # LENDA na live do TikTok
 
+> Começando agora? Abra o **`lenda/GUIA-LANCAMENTO.html`** no navegador. É o guia passo a passo, com o checklist,
+> o simulador da votação, o plano de postagem e a galeria dos criativos. O jogo também está no site
+> **https://oprojeto.online/lenda/**, onde a live roda só com o simulador. A live de verdade usa este kit no seu PC.
+
 O chat comanda o Modo Clássico. Cada decisão da carreira (proposta de clube, empréstimo, evento, pênalti decisivo) vira uma votação. O público vota comentando o número da opção ou mandando o presente ligado a ela: 🌹 Rosa no 1, 🎵 TikTok no 2, 🎮 GG no 3 e 🍦 Sorvete no 4.
 
 Antes de cada carreira abre uma **disputa**: quem doar mais nos próximos segundos cria a nova lenda, digitando no chat o nome, a nacionalidade e a posição do jogador.
