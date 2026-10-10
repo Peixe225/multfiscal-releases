@@ -6,7 +6,17 @@
 import { useSyncExternalStore } from 'react'
 import type { CrestRef } from '@/engine/types'
 
-export const crestConfig = { cols: 8, cell: 128, base: `${import.meta.env.BASE_URL ?? './'}crests/` }
+/**
+ * Pasta dos atlas. No site público (scripts/build-site.mjs) ela leva a versão no caminho — crests/<hash>/,
+ * hash do conteúdo de todos os atlas, passado em VITE_CRESTS_V: o nome do arquivo (bra.1.webp) é fixo, mas a
+ * ordem dos escudos dentro dele segue a tabela do dia em que os dados foram gerados, e o índice de cada clube
+ * mora no JS (que tem hash). Com a pasta versionada, um atlas velho guardado no navegador ou no CDN nunca
+ * é desenhado com os índices novos (escudo trocado, sem erro nenhum). Nos outros builds: crests/, como sempre.
+ * O crestStyle de src/data/index.ts monta o mesmo caminho.
+ */
+const CRESTS_DIR = import.meta.env.VITE_CRESTS_V ? `crests/${import.meta.env.VITE_CRESTS_V}/` : 'crests/'
+
+export const crestConfig = { cols: 8, cell: 128, base: `${import.meta.env.BASE_URL ?? './'}${CRESTS_DIR}` }
 
 export function configureCrests(c: { cols?: number; cell?: number; base?: string }) {
   if (c.cols) crestConfig.cols = c.cols

@@ -121,6 +121,9 @@ export const clubsInLeague = (data: GameData, leagueId: string) => indexes(data)
 /** URL pública de um arquivo em public/ respeitando o `base` do Vite. */
 export const publicUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
+/** Pasta dos atlas: crests/<hash>/ no site público (VITE_CRESTS_V), crests/ nos outros — ver src/ui/primitives/crestAtlas.ts. */
+const CRESTS_DIR = import.meta.env.VITE_CRESTS_V ? `crests/${import.meta.env.VITE_CRESTS_V}/` : 'crests/'
+
 /**
  * CSS para desenhar um escudo do atlas num elemento de `size` px:
  *   <span style={crestStyle(club.crest, 28)} />
@@ -132,7 +135,7 @@ export function crestStyle(ref: CrestRef | undefined, size = 32): Record<string,
   return {
     width: `${size}px`,
     height: `${size}px`,
-    backgroundImage: `url(${publicUrl(`crests/${ref.atlas}`)})`,
+    backgroundImage: `url(${publicUrl(`${CRESTS_DIR}${ref.atlas}`)})`,
     backgroundRepeat: 'no-repeat',
     backgroundSize: `${ATLAS_COLS * size}px auto`,
     backgroundPosition: `-${col * size}px -${row * size}px`,
