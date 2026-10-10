@@ -14,6 +14,7 @@ const tipos = { classico: gravarClassico }
 try { const m = await import('./live.mjs'); tipos.live = m.gravarLive } catch {}
 try { const m = await import('./hall.mjs'); tipos.hall = m.gravarHall } catch {}
 try { const m = await import('./imersivo.mjs'); tipos.imersivo = m.gravarImersivo } catch {}
+try { const m = await import('./imersivo-lances.mjs'); tipos.lances = m.gravarImersivoLances } catch {}
 
 let prox = 0
 async function trabalhador(w) {

@@ -44,8 +44,21 @@ for (const f of readdirSync(dir).filter((f) => /\.json$/.test(f) && !f.startsWit
       selecao: s.national ? { jogos: s.national.caps ?? s.national.apps ?? 0, gols: s.national.goals ?? 0 } : null,
       comparacoes: s.comparisons.slice(0, 3),
     })
-  }
+  } else if (m.identity) Object.assign(item, { jogador: m.identity.surname, numero: m.identity.number, pais: paisNome(m.identity.nationality), posicao: POS[m.identity.position] ?? m.identity.position })
   lista.push(item)
+}
+// legendas (scripts de legenda escrevem saida/_legendas.json); {jogador}, {nota}… viram os dados reais
+const LEG = existsSync(join(dir, '_legendas.json')) ? JSON.parse(readFileSync(join(dir, '_legendas.json'), 'utf8')) : {}
+const TIER = (n) => (n >= 90 ? 'Imortal' : n >= 75 ? 'Lenda' : n >= 60 ? 'Craque' : n >= 45 ? 'Ídolo' : n >= 25 ? 'Profissional' : 'Promessa')
+for (const i of lista) {
+  const l = LEG[i.nome]
+  if (!l) continue
+  const v = { jogador: i.jogador, nota: i.nota, tier: i.nota != null ? TIER(i.nota) : null, headline: i.headline, pais: i.pais, posicao: i.posicao, gols: i.gols, titulos: i.totalTitulos }
+  const encher = (t) => String(t ?? '').replace(/\{(\w+)\}/g, (m, k) => (v[k] != null && v[k] !== '' ? String(v[k]) : m))
+  for (const k of ['titulo', 'gancho', 'resumo', 'legenda', 'hashtags', 'ideia']) if (l[k]) i[k] = encher(l[k])
+  if (i.nota != null) i.tier = TIER(i.nota)
+  const sobrou = ['titulo', 'gancho', 'resumo', 'legenda'].filter((k) => /\{\w+\}/.test(i[k] ?? ''))
+  if (sobrou.length) console.warn(`aviso: ${i.nome} ainda tem marcador em ${sobrou.join(', ')}`)
 }
 lista.sort((a, b) => (ORDEM[a.faixa] ?? 9) - (ORDEM[b.faixa] ?? 9) || (b.nota ?? 0) - (a.nota ?? 0) || a.nome.localeCompare(b.nome))
 writeFileSync(join(dir, '_catalogo.json'), JSON.stringify(lista, null, 1))

@@ -15,6 +15,7 @@ const FF = process.env.LENDA_FFMPEG || 'ffmpeg'
 const dir = process.argv[2]
 const ff = (args) => execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: ['ignore', 'ignore', 'inherit'] })
 const metas = readdirSync(dir).filter((f) => f.endsWith('.json') && !f.startsWith('_')).map((f) => ({ f, m: JSON.parse(readFileSync(join(dir, f), 'utf8')) })).filter((x) => x.m.ok && x.m.segundos)
+  .filter((x) => !process.env.LENDA_SO || new RegExp(process.env.LENDA_SO).test(x.f)) // LENDA_SO=regex: só esses vídeos
 
 const quadro = (mp4, t, out, w) => ff(['-ss', String(Math.max(0, t)), '-i', mp4, '-frames:v', '1', '-vf', `scale=${w}:-2`, '-q:v', '3', out])
 const achar = (m, o) => m.marcas.find((x) => x.o === o)
