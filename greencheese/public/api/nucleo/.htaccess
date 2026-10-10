@@ -1,0 +1,16 @@
+# Nada desta pasta é servido pela web (banco, log, módulos).
+Options -Indexes
+<IfModule mod_authz_core.c>
+  Require all denied
+  <FilesMatch ".*">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+  <FilesMatch ".*">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>

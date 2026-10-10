@@ -1,0 +1,67 @@
+.pv {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* halo pontilhado (pixel nítido) atrás do produto */
+.pv-com-halo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--pv-halo) center / contain no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.pv-real {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+img.pv-real {
+  /* foto recortada sobre preto: o preto da foto some no preto da página */
+  mix-blend-mode: lighten;
+}
+
+/* enquanto sintoniza, o produto real espera escondido sob a camada */
+.pv[data-real='nao'] .pv-real {
+  opacity: 0;
+}
+
+.pv-camada {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* indisponível: cinza, apagado, com dither na silhueta e chiado andando em degraus (só transform) */
+.pv-off .pv-real {
+  filter: grayscale(1) brightness(0.62) contrast(0.95);
+}
+.pv-chiado {
+  animation: pv-chiado 0.72s steps(1, end) infinite;
+}
+.pv[data-fora] .pv-chiado {
+  animation-play-state: paused;
+}
+@keyframes pv-chiado {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-17px, 11px); }
+  50% { transform: translate(9px, -23px); }
+  75% { transform: translate(-29px, -7px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-chiado {
+    animation: none;
+  }
+}

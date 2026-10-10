@@ -1,0 +1,367 @@
+/* ---------- DM: Pedido guiado ---------- */
+
+.folha-chat {
+  height: calc(100vh - var(--seg-topo) - 24px - var(--teclado, 0px));
+  height: calc(100dvh - var(--seg-topo) - 24px - var(--teclado, 0px));
+}
+@media (min-width: 900px) {
+  .folha-chat {
+    height: min(820px, calc(100vh - 48px));
+    height: min(820px, calc(100dvh - 48px));
+  }
+}
+
+.dm-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dm-cab-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dm-cab-txt strong {
+  font: 700 15px/1.2 var(--ui);
+}
+.dm-cab-txt .legenda {
+  font: 400 12px/1.3 var(--ui);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 16px;
+}
+
+.dm-perfil {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 0 8px;
+  text-align: center;
+}
+.dm-perfil strong {
+  margin-top: 8px;
+  font: 700 17px/1.2 var(--ui);
+}
+.dm-perfil .legenda {
+  font-size: 13px;
+}
+.dm-ver-perfil {
+  margin-top: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* "Outra dúvida? Chama a @… no Instagram": linha discreta embaixo do perfil, no tom do aviso de empresa do Direct.
+   Texto corrido e centrado (o ícone vai junto da primeira palavra quando quebra a linha). */
+.dm-duvida {
+  display: block;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 12px 8px;
+  max-width: 34ch;
+  font: 400 13px/1.45 var(--ui);
+  color: var(--legenda);
+  text-align: center;
+  text-wrap: balance;
+}
+.dm-duvida-icone {
+  display: inline-block;
+  margin: -3px 5px 0 0;
+  vertical-align: middle;
+}
+.dm-duvida-arroba {
+  font-weight: 600;
+  color: var(--branco);
+  overflow-wrap: anywhere;
+}
+@media (hover: hover) {
+  .dm-duvida:hover .dm-duvida-arroba {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.dm-hora {
+  text-align: center;
+  font-size: 12px;
+  padding: 10px 0 6px;
+}
+
+.dm-troca {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.dm-bolha {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: 20px;
+  font: 400 15px/1.35 var(--ui);
+  overflow-wrap: anywhere;
+}
+.dm-loja {
+  align-self: flex-start;
+  background: var(--bolha);
+  color: var(--branco);
+}
+.dm-loja + .dm-loja {
+  border-top-left-radius: 6px;
+}
+.dm-eu {
+  align-self: flex-end;
+  background: var(--branco);
+  color: var(--preto);
+  text-align: left;
+}
+/* resposta já dada: tocar volta pra ela (alvo de 44 px, como os chips) */
+.dm-editavel {
+  min-height: 44px;
+  cursor: pointer;
+}
+.dm-editavel:active {
+  opacity: 0.7;
+}
+
+/* cartão (sacola) dentro da bolha */
+.dm-cartao {
+  margin: 2px -5px;
+  min-width: min(280px, 70vw);
+}
+
+/* story respondido */
+.dm-citado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+}
+.dm-citado-rot {
+  font-size: 12px;
+}
+.dm-citado-pilha {
+  display: flex;
+  flex-direction: row-reverse;
+  padding-right: 4px;
+}
+.dm-citado-quadro {
+  width: 84px;
+  aspect-ratio: 9 / 16;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--preto);
+  outline: 1px solid var(--bolha);
+}
+
+/* respostas rápidas: pílulas contornadas, empilhadas à direita */
+.dm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dm-chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--legenda);
+  border-radius: 22px;
+  font: 600 14px/1.1 var(--ui);
+  color: var(--branco);
+  max-width: 100%;
+  text-align: center;
+}
+
+/* mensagem exata que vai pro WhatsApp */
+.dm-mensagem {
+  align-self: stretch;
+  margin: 4px 0;
+  padding: 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 16px;
+  font: 500 14px/1.45 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.dm-acoes {
+  display: flex;
+  flex-direction: column;
+  /* o carimbo "EM BREVE" sobe sobre o vão: 26 px deixam uns 10 px até o WhatsApp (o anel do realce não passa por baixo) */
+  gap: 26px;
+  margin-top: 8px;
+}
+.dm-acoes .botao {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-block: 10px;
+}
+.dm-acoes .botao svg {
+  flex: none;
+}
+
+/* Fechar no WhatsApp: o botão principal. Depois do "Pix em breve" o foco volta pra ele com um anel que pulsa duas
+   vezes (voz "app", lisa; sem movimento, o anel só aparece e some). ::before porque o ::after é do .toque. */
+.dm-zap {
+  position: relative;
+  min-height: 52px;
+  padding-inline: 16px;
+  font-size: 16px;
+}
+/* o ícone corre junto do texto: se a linha quebrar, não fica sozinho na borda */
+.dm-zap-icone {
+  display: inline-block;
+  margin: -3px 8px 0 0;
+  vertical-align: middle;
+}
+/* 320 px: "Fechar pedido no WhatsApp" numa linha só */
+@media (max-width: 359px) {
+  .dm-zap {
+    padding-inline: 12px;
+    font-size: 15px;
+  }
+}
+/* até 383 px "Fechar encomenda no WhatsApp" quebra: lê "Fechar no WhatsApp" (o resumo já diz "Encomenda montada") */
+@media (max-width: 383px) {
+  .dm-zap-meio {
+    display: none;
+  }
+}
+.dm-zap::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--branco);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+.dm-zap.dm-realce::before {
+  animation-name: dm-realce;
+  animation-duration: 0.7s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: 2;
+}
+@keyframes dm-realce {
+  0% {
+    opacity: 0;
+    transform: scale(0.97, 0.9);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1, 1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dm-zap.dm-realce::before {
+    animation-name: none;
+    opacity: 1;
+  }
+}
+
+/* Pagar com Pix aqui no site: ainda não existe. Contorno apagado + carimbo "EM BREVE" colado no canto, como o "novo"
+   dos destaques; tocar não sai do site (a loja responde e devolve pro WhatsApp). */
+.dm-pix {
+  position: relative;
+  border-color: var(--chiado);
+  color: var(--legenda);
+  font-weight: 500;
+}
+/* Pixelify no 16 (a grade dela): menor que isso o B vira G e "EM BREVE" lê "EM GREVE" */
+.dm-embreve {
+  position: absolute;
+  z-index: 1;
+  top: -14px;
+  right: 12px;
+  padding: 4px 7px 2px;
+  border-width: 2px;
+  font-size: 16px;
+  word-spacing: 2px;
+  background: var(--preto);
+  color: var(--branco);
+  transform: rotate(3deg);
+  pointer-events: none;
+}
+.dm-resposta-pix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+/* respostas longas: sem o "lá." sozinho na última linha */
+.dm-resposta-pix .dm-loja {
+  text-wrap: pretty;
+}
+.dm-numero {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.dm-fim {
+  height: 1px;
+}
+
+/* campo no molde do Direct */
+.dm-entrada {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dm-entrada-pilula {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 6px 0 16px;
+  background: var(--bolha);
+  border-radius: 23px;
+}
+.dm-entrada-pilula input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  background: none;
+  outline: none;
+  font-size: 16px; /* 16px: o iOS não dá zoom */
+}
+.dm-entrada-pilula input::placeholder {
+  color: var(--legenda);
+}
+.dm-entrada-pilula:focus-within {
+  box-shadow: 0 0 0 1px var(--legenda);
+}
+.dm-enviar {
+  min-height: 44px;
+  padding: 0 12px;
+  font: 700 15px/1 var(--ui);
+  color: var(--branco);
+}
+.dm-erro {
+  font-size: 13px;
+  color: var(--branco);
+  padding-left: 16px;
+}
+.dm-dica {
+  text-align: center;
+  font-size: 13px;
+  min-height: 22px;
+}

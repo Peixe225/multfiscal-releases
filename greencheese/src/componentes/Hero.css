@@ -1,0 +1,841 @@
+.hero {
+  position: relative;
+}
+.hero-loja {
+  display: none;
+}
+
+.hero-story {
+  position: relative;
+  /* celular: o story vai até 44 px acima da barra de abas; a sobra mostra a faixa dos @ andando ("tem mais embaixo") */
+  height: clamp(480px, calc(100vh - var(--barra-baixo) - var(--seg-baixo) - 44px), 780px);
+  height: clamp(480px, calc(100svh - var(--barra-baixo) - var(--seg-baixo) - 44px), 780px);
+}
+/* celular baixo: sem sobra, o story encosta na barra */
+@media (max-width: 899px) and (max-height: 700px) {
+  .hero-story {
+    height: clamp(420px, calc(100vh - var(--barra-baixo) - var(--seg-baixo)), 780px);
+    height: clamp(420px, calc(100svh - var(--barra-baixo) - var(--seg-baixo)), 780px);
+  }
+}
+.hero-quadro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* cabeçalho de duas linhas (@ e local) e nada mais por cima: o produto ganha a altura que era do adesivo e da enquete */
+  padding-top: calc(var(--seg-topo) + 70px);
+  overflow: hidden;
+  /* a página rola na vertical por cima do story; o arrasto lateral fica com o story */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.hero-barras {
+  top: calc(var(--seg-topo) + 8px);
+}
+.hero-cab {
+  position: absolute;
+  z-index: 5;
+  top: calc(var(--seg-topo) + 16px);
+  left: max(10px, var(--seg-esq));
+  right: max(10px, var(--seg-dir));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+/* pausar: no celular segurar já pausa e o @ precisa da linha toda — o botão fica escondido (mas inteiro, 44 px)
+   para teclado e leitor de tela, e aparece no foco; no desktop fica à vista, como no instagram.com */
+.hero-pausa {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  margin-top: -22px;
+  background: var(--preto);
+  border-radius: 50%;
+  clip-path: inset(50%);
+}
+.hero-pausa:focus-visible {
+  clip-path: none;
+}
+.hero-cab-texto {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hero-cab-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.hero-enquetes {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 var(--gutter);
+}
+.hero-enquete {
+  margin: 4px 0 8px 4px;
+}
+.hero-enquetes:empty {
+  display: none;
+}
+/* celular baixo (navegador do Instagram 360×560, iPhone SE): a enquete da primeira visita fica compacta — pergunta
+   à esquerda, Sim/Trocar à direita (a cidade já está no adesivo de local do topo) — e a arte não vira um pontinho */
+@media (max-width: 899px) and (max-height: 700px) {
+  .hero-enquetes .enquete {
+    width: 100%;
+    padding: 8px 8px 8px 12px;
+    transform: rotate(-2deg);
+  }
+  .hero-enquetes .enquete-pergunta {
+    margin-bottom: 8px;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+  .hero-enquetes .enquete-sub {
+    display: none;
+  }
+  .hero-enquetes .enquete-opcao {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  /* "Você está em Minas Gerais?" cabe ao lado do Sim/Trocar */
+  .hero-enquetes .enquete-confirmar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-enquetes .enquete-confirmar .enquete-pergunta {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    text-align: left;
+  }
+  .hero-enquetes .enquete-confirmar .enquete-opcoes {
+    flex: none;
+  }
+  .hero-enquetes .enquete-confirmar .enquete-opcao {
+    padding: 0 12px;
+  }
+}
+
+/* bordas que passam (esquerda volta, direita avança): por cima da arte, por baixo de enquete e adesivos.
+   Largas (28%) até o topo do nome (--hero-texto) e, dali até os adesivos (--hero-pe), uma faixa estreita (18%, nunca
+   menos de 48 px) na lateral: o miolo do nome, do preço e do DISPONÍVEL abre o produto, os lados sempre passam (medidas
+   no Hero.tsx) */
+.hero-zona {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  height: var(--hero-texto, 100%);
+  width: 28%;
+}
+.hero-zona::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  width: max(48px, calc(100% * 18 / 28));
+  height: max(0px, calc(var(--hero-pe, 0px) - var(--hero-texto, 0px)));
+}
+.hero-zona-esq {
+  left: 0;
+}
+.hero-zona-esq::after {
+  left: 0;
+}
+.hero-zona-dir {
+  right: 0;
+}
+.hero-zona-dir::after {
+  right: 0;
+}
+/* na rua as bordas ficam por cima da cena e do botão do mercador (StoryRua.css): ali o toque sempre passa e volta, mesmo
+   em cima de um personagem; o pé e a linha de resposta, que vêm depois no quadro, continuam por cima delas */
+.hero-story.na-rua .hero-zona {
+  z-index: 3;
+}
+
+/* tamanho e altura vêm da arte do produto atual (medidos no Hero.tsx): atrás dela, menor que ela, nunca no nome */
+.hero-espera {
+  position: absolute;
+  z-index: 0;
+  right: 4%;
+  top: var(--hero-espera-y, 42%);
+  width: var(--hero-espera-w, 22%);
+  aspect-ratio: 9 / 16;
+  opacity: 0.3;
+  visibility: var(--hero-espera-vis, visible);
+  pointer-events: none;
+}
+
+.hero-meio {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hero-palco {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  will-change: transform;
+}
+.hero-palco > .sq {
+  height: 100%;
+  aspect-ratio: auto;
+  background: transparent;
+}
+.hero-sem-uf {
+  font: 600 13px/1 var(--ui);
+  letter-spacing: 0.08em;
+}
+
+/* celular, estado atendido sem nada à venda e sem a rua no story (Home 2, ou a rua desligada no painel): o aviso no lugar
+   do produto, no miolo do quadro (Hero.tsx, HeroVazio) */
+.hero-vazio-meio {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 var(--gutter) 24px;
+  text-align: center;
+}
+.hero-vazio-titulo {
+  font-size: 24px;
+  text-transform: uppercase;
+  text-wrap: balance;
+  line-height: 1.05;
+  max-width: 18ch;
+}
+.hero-vazio-texto {
+  font-size: 15px;
+  line-height: 1.4;
+  max-width: 30ch;
+}
+.hero-vazio-encomenda {
+  margin-top: 8px;
+}
+
+/* o produto é link (arte + nome/preço): o .hero-meio inteiro — as bordas ficam por cima dele (largas na altura da
+   arte, estreitas do nome para baixo) e sobra o miolo */
+.hero-produto {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  cursor: pointer;
+  -webkit-touch-callout: default; /* segurar abre o menu do link (abrir em aba nova) */
+}
+.hero-produto:focus-visible {
+  outline-offset: -2px;
+}
+
+/* dica de primeira vez: no alto da arte, nunca sobre o nome, o preço ou os adesivos — o Hero.tsx só a mostra
+   quando a arte tem altura para ela (com a enquete num celular baixo, espera a enquete sair) */
+.hero-dica {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 9px;
+  /* transparência do jeito pixel (a mesma da cortina): o produto aparece atrás, o texto fica legível */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='2' height='1'/%3E%3Crect y='1' width='1' height='1'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  background-color: rgba(0, 0, 0, 0.55);
+  image-rendering: pixelated;
+  color: var(--branco);
+  white-space: nowrap;
+  pointer-events: none;
+  /* voz pixel: aparece e some em degraus */
+  animation: hero-dica-entra 0.45s steps(3, jump-end) 0.4s both;
+}
+.hero-dica.saindo {
+  animation: hero-dica-sai 0.3s steps(3, jump-end) both;
+}
+/* na rua a dica fica logo abaixo do cabeçalho (o top vem do StoryRua), compacta, acima dos balões */
+.hero-story.na-rua .hero-dica {
+  gap: 3px;
+  padding: 6px 12px 5px;
+}
+.hero-dica-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.1;
+}
+@keyframes hero-dica-entra {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes hero-dica-sai {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* setas: no celular, nas bordas do quadro, no meio da arte — visíveis só durante a dica (e no foco do teclado).
+   O toque passa direto para a borda de baixo (que faz o mesmo e ainda segura e arrasta); teclado e leitor de tela
+   continuam ativando o botão (a ativação do VoiceOver/TalkBack vai no elemento, não no ponto) */
+.hero-seta {
+  position: absolute;
+  z-index: 6;
+  top: var(--hero-arte-meio, 50%);
+  margin-top: -22px;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--branco);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-app);
+}
+.hero-seta-esq {
+  left: var(--seg-esq);
+}
+.hero-seta-dir {
+  right: var(--seg-dir);
+}
+.hero-seta-disco {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+}
+.hero-story.com-dica .hero-seta,
+.hero-seta:focus-visible {
+  opacity: 1;
+}
+/* cutucada em degraus para o lado de cada seta (voz pixel) */
+.hero-story.com-dica .hero-seta-esq svg {
+  animation: hero-cutuca-esq 1.2s steps(1, jump-end) 0.4s infinite;
+}
+.hero-story.com-dica .hero-seta-dir svg {
+  animation: hero-cutuca-dir 1.2s steps(1, jump-end) 0.4s infinite;
+}
+@keyframes hero-cutuca-esq {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(-4px);
+  }
+}
+@keyframes hero-cutuca-dir {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  70%,
+  90% {
+    transform: translateX(2px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.hero-adesivos {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* celular: a linha de resposta vem logo embaixo */
+  padding: 0 var(--gutter) 8px;
+  min-height: 64px;
+}
+/* linha de resposta do story (celular), como no visualizador de stories do Instagram */
+.hero-resposta {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px var(--gutter) 10px;
+}
+.hero-resposta .barra-pilula {
+  border-color: var(--legenda);
+}
+.hero-compartilhar {
+  margin-right: -10px;
+  color: var(--branco);
+}
+.hero-frase .adesivo-texto {
+  font-size: 16px;
+}
+.adesivo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 10px;
+  font: 800 14px/1 var(--ui);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex: none;
+  transform: rotate(2deg);
+  transition: transform 0.2s var(--ease-app);
+}
+.hero-demo {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  top: calc(var(--seg-topo) + 64px);
+}
+/* fora da tela (rolou pra baixo): o produto para de flutuar e o resto do hero não gasta CPU */
+.hero-story.fora * {
+  animation-play-state: paused !important;
+}
+/* segurando: some o que está por cima do produto, como no app */
+.hero-story.segurando .hero-cab,
+.hero-story.segurando .hero-barras,
+.hero-story.segurando .hero-adesivos,
+.hero-story.segurando .hero-dica,
+.hero-story.segurando .hero-seta,
+.hero-story.segurando .hero-resposta {
+  opacity: 0;
+}
+
+/* mouse: passar por cima do produto endireita o adesivo VER PRODUTO (diz o que o clique faz) */
+@media (hover: hover) and (pointer: fine) {
+  .hero-quadro:has(.hero-produto:hover) .adesivo-link,
+  .adesivo-link:hover {
+    transform: rotate(0deg) scale(1.04);
+  }
+}
+
+/* ---------- desktop: [perfil do estado / rua viva] | story ---------- */
+@media (min-width: 900px) {
+  .hero {
+    /* altura do story (a largura sai dela, 9:16) e o arranjo lado a lado, em variáveis */
+    --hh: min(calc(100vh - 120px), 760px);
+    --lado-esq: clamp(24px, 3vw, 64px);
+    /* folga para as setas de fora do quadro (44 px + 12 px de cada lado) */
+    --lado-dir: clamp(76px, 6vw, 112px);
+    --lado-vao: clamp(76px, 7vw, 112px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--lado-vao);
+    padding: 48px var(--lado-dir) 40px var(--lado-esq);
+    min-height: min(100vh, 900px);
+    min-height: min(100dvh, 900px);
+  }
+  /* a coluna do perfil inteira (o Hero.tsx mede a largura e a altura dela para a rua): o perfil encostado no story e,
+     embaixo, a rua viva de ponta a ponta da coluna (o mercador mora nela). O vão encolhe para 16 no aperto */
+  .hero-loja {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: var(--vao-rua, 32px);
+    justify-self: stretch;
+    align-self: stretch;
+    min-width: 0;
+  }
+  .hero-desktop-perfil {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 420px;
+  }
+  .rua-hero {
+    align-self: stretch;
+    flex: none;
+  }
+  .hero-story {
+    height: var(--hh);
+    width: calc(var(--hh) * 9 / 16);
+    justify-self: start;
+  }
+  .hero-quadro {
+    padding-top: 92px;
+    border-radius: 10px;
+    outline: 1px solid var(--bolha);
+  }
+  .hero-barras {
+    top: 8px;
+  }
+  .hero-cab {
+    top: 16px;
+    right: 0;
+  }
+  /* 32 px de largura (o ícone tem 16; mouse): no notebook o quadro tem ~300–340 px e o @ inteiro precisa caber */
+  .hero-pausa {
+    position: static;
+    width: 32px;
+    margin: 0 0 0 auto;
+    clip-path: none;
+    background: none;
+  }
+  .hero-demo {
+    top: 64px;
+  }
+  .hero-dica {
+    display: none;
+  }
+  /* no computador o pedido sai pela lateral (Pedido guiado, Sacola) e pelo perfil */
+  .hero-resposta {
+    display: none;
+  }
+  .hero-adesivos {
+    padding-bottom: 18px;
+  }
+
+  /* setas fora do quadro, no meio da altura, como no instagram.com */
+  .hero-seta {
+    top: 50%;
+    opacity: 1;
+    color: var(--preto);
+    pointer-events: auto;
+  }
+  .hero-seta-esq {
+    left: auto;
+    right: calc(100% + 12px);
+  }
+  .hero-seta-dir {
+    right: auto;
+    left: calc(100% + 12px);
+  }
+  .hero-seta-disco {
+    width: 32px;
+    height: 32px;
+    background: var(--branco);
+    opacity: 0.8;
+    transition:
+      opacity 0.2s var(--ease-app),
+      transform 0.2s var(--ease-app);
+  }
+  .hero-seta:hover .hero-seta-disco {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  .hero-seta:active .hero-seta-disco {
+    transform: scale(0.94);
+  }
+  .hero-seta:focus-visible {
+    outline: none;
+  }
+  .hero-seta:focus-visible .hero-seta-disco {
+    opacity: 1;
+    outline: 2px solid var(--branco);
+    outline-offset: 3px;
+  }
+  /* setas de fora do quadro, sempre à vista: sem a cutucada (só o nome, para a conferência do build achar
+     "animation:none" apenas nos blocos de movimento reduzido) */
+  .hero-story.com-dica .hero-seta svg {
+    animation-name: none;
+  }
+  .hero-story.segurando .hero-seta {
+    opacity: 1;
+  }
+}
+
+/* empilhado (o Hero.tsx liga de 900 a 1199): o story vem primeiro, centrado com as setas, e o perfil e a rua logo abaixo
+   (o Hero.tsx troca a ordem no DOM: o Tab segue) */
+@media (min-width: 900px) {
+  .hero.hero-empilhado {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 48px;
+    padding: 40px 76px;
+  }
+  .hero-empilhado .hero-loja {
+    align-items: center;
+    width: 100%;
+  }
+  .hero-empilhado .hero-story {
+    justify-self: center;
+  }
+}
+
+/* tela grande (1600 em diante): o hero não se espalha pela largura toda (sobrava um bloco preto em cima, à esquerda,
+   e ele não se alinhava com os destaques e a grade): fica numa moldura centrada e o perfil vai pro meio da coluna,
+   em cima da rua (que continua na maior escala que a coluna aceita) */
+@media (min-width: 1600px) {
+  .hero:not(.hero-empilhado) {
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+  .hero:not(.hero-empilhado) .hero-loja {
+    align-items: center;
+  }
+}
+
+/* 1200–1365 (notebook): o vão até o story perto do mínimo das setas (56) e a margem esquerda encostada na lateral, para
+   a coluna do perfil e da rua ficar larga (a rua sobe para 3×); o story não muda de tamanho */
+@media (min-width: 1200px) and (max-width: 1365px) {
+  .hero {
+    --lado-vao: 68px;
+    --lado-esq: 24px;
+  }
+}
+
+/* perfil compacto (o Hero.tsx liga quando a coluna dele tem menos de 380 px: logo acima de 1200).
+   O perfil inteiro (números numa linha, dois botões) pede ~374: números mais juntos, sem o "aqui", bio e botões
+   menores, e nunca mais largo que a coluna (passava por baixo da lateral fixa e o texto saía cortado). No mínimo do
+   Hero.tsx (285 px) "Enviar mensagem" ainda cabe numa linha */
+@media (min-width: 900px) {
+  .perfil-compacto .perfil-desktop .perfil-numeros {
+    gap: 18px;
+  }
+  .perfil-compacto .perfil-aqui {
+    display: none;
+  }
+  .perfil-compacto .perfil-desktop .perfil-bio {
+    font-size: 14px;
+  }
+  .perfil-compacto .perfil-desktop .perfil-botoes {
+    gap: 6px;
+  }
+  .perfil-compacto .perfil-desktop .perfil-botao {
+    padding: 0 4px;
+    font-size: 13px;
+  }
+}
+
+/* perfil baixo (o Hero.tsx liga quando a janela é baixa demais para o perfil inteiro e a rua embaixo dele, ao lado do
+   story: notebook de 1366×768 com a barra do navegador). O avatar vai para o lado dos números, como no perfil do
+   celular (~100 px a menos); o resto do perfil fica igual */
+@media (min-width: 900px) {
+  .perfil-baixo .perfil-desktop .perfil-topo {
+    flex-direction: row;
+    align-items: center;
+    gap: 22px;
+  }
+  .perfil-baixo .perfil-desktop .perfil-topo > .avatar {
+    width: 96px !important;
+    height: 96px !important;
+  }
+  .perfil-baixo .perfil-desktop .perfil-numeros {
+    flex: 1;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: center;
+  }
+  .perfil-baixo .perfil-desktop .perfil-numeros dd {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .perfil-baixo .perfil-desktop .perfil-numeros strong {
+    font-size: 18px;
+  }
+  .perfil-baixo .perfil-aqui {
+    display: none;
+  }
+  .perfil-baixo .perfil-desktop .perfil-nome {
+    margin-top: 14px;
+  }
+  .perfil-baixo .perfil-desktop .perfil-botoes {
+    margin-top: 16px;
+  }
+}
+
+/* desktop baixo (notebook 1366×768 e menores): o quadro fica com menos de ~340 px e o "13 h" sai para o @ caber inteiro */
+@media (min-width: 900px) and (max-height: 719px) {
+  .hero-cab .story-cab-tempo {
+    display: none;
+  }
+}
+
+/* desktop baixo (notebook): o story fica estreito (< 400 px) e os dois adesivos não cabem lado a lado em 16/14 px */
+@media (min-width: 900px) and (max-height: 830px) {
+  .hero-adesivos {
+    gap: 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .hero-frase .adesivo-texto {
+    font-size: 15px;
+  }
+  .adesivo-link {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+}
+
+@supports (height: 100dvh) {
+  @media (min-width: 900px) {
+    .hero {
+      --hh: min(calc(100dvh - 120px), 760px);
+    }
+  }
+}
+
+/* story estreito no computador (~300 px: notebook com a barra do navegador): pela largura do próprio story, não da
+   janela, os dois adesivos do pé cabem lado a lado ("Vem no certo!" quebrava em duas ou três linhas) */
+@media (min-width: 900px) {
+  .hero-story {
+    container-type: inline-size;
+  }
+}
+@container (max-width: 340px) {
+  .hero-adesivos {
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .hero-frase .adesivo-texto {
+    font-size: 13px;
+    padding: 2px 6px;
+  }
+  .hero-adesivos .adesivo-link {
+    gap: 4px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .hero-frase .adesivo-texto {
+    font-size: 14px;
+  }
+  .adesivo-link {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+}
+
+/* celular deitado: o story do hero cabe inteiro entre o topo e a barra de abas (568×320 deixa 268 px), com a arte à
+   esquerda e nome, preço e DISPONÍVEL à direita (empilhados, a arte virava um pontinho). Uma linha só no pé:
+   VER PRODUTO e o "Enviar mensagem…" lado a lado (duas linhas comiam 120 px e cortavam o DISPONÍVEL).
+   O local é a linha embaixo do @ (o adesivo fixo do topo só aparece depois do story): a arte começa logo abaixo do
+   cabeçalho, com uma folga para o desenho, que sangra uns 12 px acima da caixa, não encostar na linha de local */
+@media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
+  .hero-story {
+    height: calc(100vh - var(--barra-baixo) - var(--seg-baixo));
+    height: calc(100svh - var(--barra-baixo) - var(--seg-baixo));
+  }
+  .hero-quadro {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'meio meio'
+      'adesivos resposta';
+    padding-top: calc(var(--seg-topo) + 60px);
+  }
+  .hero-meio {
+    grid-area: meio;
+  }
+  .hero-adesivos {
+    grid-area: adesivos;
+    min-height: 0;
+    padding: 4px 0 8px var(--gutter);
+  }
+  .hero-resposta {
+    grid-area: resposta;
+    min-width: 0;
+    padding: 4px var(--gutter) 8px 12px;
+  }
+  .hero-resposta .barra-pilula {
+    min-width: 0;
+  }
+  /* sem espaço para a frase ao lado do VER PRODUTO e da linha de resposta */
+  .hero-frase {
+    display: none;
+  }
+  /* a enquete de local (1ª visita) vira adesivo por cima da arte, embaixo do adesivo de local: fora do fluxo, ela
+     não espreme o nome e o preço */
+  .hero-enquetes {
+    position: absolute;
+    left: 0;
+    top: calc(var(--seg-topo) + 108px);
+    width: 50%;
+  }
+  .hero-palco > .sq-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  .hero-palco > .sq-hero .sq-arte {
+    align-self: stretch;
+    margin-top: 10px;
+  }
+  .hero-palco > .sq-hero .sq-texto {
+    padding: 0 var(--gutter) 0 0;
+    gap: 6px;
+  }
+  .hero-palco > .sq-hero .sq-nome {
+    font-size: 20px;
+  }
+  .hero-palco > .sq-hero .sq-preco {
+    font-size: 28px;
+  }
+  .hero-palco > .sq-hero .sq-disp {
+    font-size: 18px;
+  }
+  /* carimbo "exemplo": no canto de baixo da arte (no alto da direita ficaria em cima do nome) */
+  .hero-demo {
+    top: auto;
+    right: auto;
+    left: var(--gutter);
+    bottom: 64px;
+  }
+  /* a dica de primeira vez cobriria o nome ao lado da arte; as bordas continuam passando */
+  .hero-dica {
+    display: none;
+  }
+  /* o próximo esmaecido, atrás da coluna do texto, encostava na legenda dos estados (sem estado escolhido) */
+  .hero-espera {
+    display: none;
+  }
+}
+
+/* movimento reduzido: dica parada, setas sem cutucada (o resto já corta seco) */
+@media (prefers-reduced-motion: reduce) {
+  .hero-dica,
+  .hero-story.com-dica .hero-seta svg {
+    animation: none;
+  }
+  .hero-dica.saindo {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* local: no celular, a linha do cabeçalho; no desktop, o adesivo da lateral e o de dentro do story já fazem esse papel */
+@media (max-width: 899px) {
+  .hero-enquetes {
+    display: none;
+  }
+}
+@media (min-width: 900px) {
+  .hero-cab-local {
+    display: none;
+  }
+}

@@ -1,0 +1,1178 @@
+/* Rateio: o cartão (um post do perfil, com a mídia em forma de story), a aba, a página e o "Como funciona".
+   Os adesivos são os do story do Instagram: controle deslizante (o contador) e "Adicione o seu" (a entrada).
+   Baixa junto com os pedaços do rateio (estilo.ts), fora do CSS único do site; o cabeçalho da aba fica no Abas.css.
+   Números em pixel usam o 2 e o 5 redesenhados (na Pixelify o 5 vira S e o 2 vira Z: "55 MM" lia "SS MM"); o código
+   RAT-XXXX tem fonte própria (GC Codigo, grade 5×7), porque é lido, anotado e ditado pra loja. */
+
+.rt,
+.rv,
+.rp,
+.mv {
+  --pixel-num: 'GC Digitos', 'GC Letras', var(--pixel);
+  /* o código RAT-XXXX: a pessoa anota e dita, então nada de 2 que parece Z (codigo.css) */
+  --pixel-codigo: 'GC Codigo', ui-monospace, 'SF Mono', Menlo, 'Roboto Mono', monospace;
+}
+
+/* ───────────────────────── cartão ───────────────────────── */
+
+.rt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--preto);
+}
+.rt-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px var(--gutter);
+}
+.rt-cab-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.rt-cab-nome {
+  font: 600 14px/1.15 var(--ui);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rt-cab-sub {
+  font: 400 12px/1.2 var(--ui);
+  color: var(--legenda);
+}
+
+/* a mídia: story em 4:5 (cresce se o conteúdo pedir), com o produto flutuando no preto */
+.rt-midia {
+  position: relative;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  aspect-ratio: 3 / 4;
+  padding: 10px 14px 18px;
+  /* clip, não hidden: com hidden o 3:4 deixaria de crescer com o conteúdo (título em 2 linhas cortava o adesivo) */
+  overflow: clip;
+  background: var(--preto);
+}
+.rt-barras {
+  align-self: stretch;
+  display: flex;
+  gap: 4px;
+}
+.rt-barra {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.32);
+}
+.rt-barra i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+}
+
+/* selo do status: pixel, colado no canto; aberto = contorno com o ponto piscando (ao vivo), o resto = cheio */
+.rt-selo {
+  font-family: var(--pixel-num);
+  position: absolute;
+  z-index: 2;
+  top: 24px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px 2px;
+  border: 2px solid var(--branco);
+  font-size: 16px;
+  font-weight: 400;
+  word-spacing: 2px;
+  transform: rotate(-3deg);
+  transform-origin: left center;
+}
+.rt-selo:not(.rt-selo-aberto) {
+  background: var(--branco);
+  color: var(--preto);
+}
+.rt-selo-aberto::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-top: -2px;
+  background: var(--branco);
+  animation-name: rt-piscar;
+  animation-duration: 1.2s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+/* aceso 2/3 do tempo, apaga em corte seco */
+@keyframes rt-piscar {
+  0%,
+  66% {
+    opacity: 1;
+  }
+  67%,
+  100% {
+    opacity: 0;
+  }
+}
+.rt-exemplo {
+  position: absolute;
+  top: 26px;
+  right: 14px;
+}
+
+.rt-arte {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 168px;
+  margin: 2px 0 -4px;
+}
+.rt-arte > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.rt-flutua > * {
+  animation-name: rt-flutuar;
+  animation-duration: 2.4s;
+  animation-timing-function: steps(4, jump-none);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes rt-flutuar {
+  from {
+    transform: translateY(2px) rotate(-1.5deg);
+  }
+  to {
+    transform: translateY(-8px) rotate(1.5deg);
+  }
+}
+/* sem produto nem imagem: a caixa de importação grande */
+.rt-caixa {
+  display: grid;
+  place-items: center;
+  color: var(--branco);
+}
+
+.rt-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.rt-titulo {
+  font-family: var(--pixel-num);
+  max-width: 100%;
+  font-size: 20px;
+  line-height: 1.05;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.rt-titulo:focus {
+  outline: none;
+}
+.rt-preco {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  column-gap: 8px;
+}
+.rt-preco-valor {
+  font-family: var(--pixel-num);
+  font-size: 32px;
+}
+.rt-preco-no {
+  font-family: var(--pixel-num);
+  font-size: 16px;
+  font-weight: 400;
+}
+.rt-depois {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font: 500 13px/1.2 var(--ui);
+  color: var(--legenda);
+}
+/* "economiza R$ 5,00": adesivo de texto pequeno */
+.rt-economia {
+  padding: 3px 7px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 4px;
+  font: 800 12px/1.2 var(--ui);
+  transform: rotate(-2deg);
+}
+
+.rt-adesivos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(300px, 100%);
+  margin-top: 4px;
+}
+
+/* contador = adesivo de controle deslizante: um bloco por vaga */
+.rt-contador {
+  width: 100%;
+  padding: 9px 12px 12px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 14px;
+  transform: rotate(-1.5deg);
+}
+.rt-contador-topo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.rt-contador-num {
+  font-family: var(--pixel-num);
+  font-size: 24px;
+}
+.rt-contador-rot {
+  font: 700 14px/1 var(--ui);
+}
+.rt-contador-res {
+  margin-left: auto;
+  font: 600 12px/1 var(--ui);
+  color: #545454;
+  white-space: nowrap;
+}
+.rt-blocos {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 2px;
+  height: 14px;
+  margin-top: 9px;
+}
+.rt-blocos i {
+  position: relative;
+  background: #dbdbdb;
+}
+.rt-blocos i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform-origin: center bottom;
+}
+/* paga: preto cheio, entra em degrau (só os que acabaram de ser pagos animam) */
+.rt-blocos .rt-pago::after {
+  background: var(--preto);
+  animation-name: rt-encher;
+  animation-duration: 0.24s;
+  animation-timing-function: steps(3, end);
+  animation-delay: calc(var(--i) * 45ms);
+  animation-fill-mode: both;
+}
+/* reservada: xadrez de pixel, esperando o pagamento */
+.rt-blocos .rt-guardado::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+}
+@keyframes rt-encher {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rt-blocos .rt-pago::after,
+  .rt-selo-aberto::before,
+  .rt-flutua > * {
+    animation-name: none;
+  }
+}
+
+/* entrada = adesivo "Adicione o seu" */
+.rt-entrar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 8px 8px 10px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 14px;
+  text-align: left;
+  transform: rotate(1.5deg);
+  transition: transform 0.2s var(--ease-app);
+}
+.rt-entrar-icone,
+.rt-entrar-mais {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.rt-entrar-icone {
+  background: var(--preto);
+  color: var(--branco);
+}
+.rt-entrar-mais {
+  border: 2px solid var(--preto);
+}
+.rt-entrar-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rt-entrar-txt strong {
+  font: 800 15px/1.1 var(--ui);
+}
+.rt-entrar-txt small {
+  font: 600 12px/1.2 var(--ui);
+  color: #545454;
+}
+@media (hover: hover) {
+  .rt-entrar:hover {
+    transform: rotate(0deg) scale(1.03);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rt-entrar {
+    transition: none;
+  }
+}
+.rt-aviso-adesivo {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed var(--chiado);
+  border-radius: 14px;
+  font: 600 13px/1.3 var(--ui);
+  color: var(--legenda);
+  text-align: center;
+}
+
+/* fora do estado: apagado, sem perder a leitura */
+.rt-off .rt-titulo,
+.rt-off .rt-preco,
+.rt-off .rt-selo {
+  color: var(--legenda);
+}
+.rt-off .rt-selo {
+  border-color: var(--legenda);
+}
+.rt-off .rt-selo-aberto::before {
+  background: var(--legenda);
+  animation-name: none;
+}
+.rt-off .rt-contador {
+  background: var(--legenda);
+}
+.rt-off .rt-contador-res {
+  color: var(--preto);
+}
+.rt-off .rt-economia {
+  background: var(--legenda);
+}
+
+/* legenda do post */
+.rt-legenda {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px var(--gutter) 4px;
+  font: 400 14px/1.4 var(--ui);
+}
+.rt-legenda strong {
+  font-weight: 600;
+}
+
+/* linha do tempo do rateio em andamento */
+.rt-linha {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.rt-linha li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+  font: 400 12px/1.2 var(--ui);
+  color: var(--legenda);
+}
+/* trilho que liga os pontos */
+.rt-linha li::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  right: -4px;
+  height: 2px;
+  background: var(--bolha);
+}
+.rt-linha li:last-child::before {
+  display: none;
+}
+.rt-linha li.feito::before {
+  background: var(--branco);
+}
+.rt-linha-ponto {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--chiado);
+  background: var(--preto);
+}
+.rt-linha .feito {
+  color: var(--branco);
+}
+.rt-linha .feito .rt-linha-ponto {
+  border-color: var(--branco);
+  background: var(--branco);
+}
+.rt-linha .atual .rt-linha-nome {
+  font-weight: 700;
+}
+.rt-linha-dia {
+  color: var(--legenda);
+}
+
+/* cartão largo (página, computador): letras maiores */
+@container (min-width: 360px) {
+  .rt-titulo {
+    font-size: 24px;
+  }
+  .rt-preco-valor {
+    font-size: 40px;
+  }
+  .rt-preco-no {
+    font-size: 20px;
+  }
+}
+
+/* ───────────────────────── aba Rateio ───────────────────────── */
+
+.rv {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 10px;
+}
+.rv-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-margin-top: 80px;
+}
+.rv-secao:focus {
+  outline: none;
+}
+.rv-titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 var(--gutter);
+  font: 700 16px/1.2 var(--ui);
+}
+.rv-conta {
+  font-weight: 400;
+  color: var(--legenda);
+}
+.rv-nota {
+  padding: 0 var(--gutter);
+  font-size: 14px;
+}
+.rv-grade {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+/* card fora da tela não pinta (como os da grade do catálogo) */
+.rv-grade > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+/* nenhum aberto */
+.rv-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px var(--gutter) 12px;
+  text-align: center;
+}
+.rv-vazio-arte {
+  display: block;
+  margin-bottom: 6px;
+}
+.rv-vazio-titulo {
+  font: 700 18px/1.25 var(--ui);
+}
+.rv-vazio .legenda {
+  max-width: 36ch;
+  font-size: 14px;
+}
+.rv-vazio-ig {
+  margin-top: 6px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-block: 8px;
+}
+.rv-vazio-curto {
+  align-items: flex-start;
+  text-align: left;
+}
+/* sem conexão: o WhatsApp (caminho que funciona agora) e o "Tentar de novo" lado a lado; empilham em tela estreita */
+.rv-sem-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+.rv-sem-acoes .botao {
+  flex: 1 1 auto;
+}
+
+/* chegaram: linhas */
+.rv-chegaram,
+.mv-lista {
+  display: flex;
+  flex-direction: column;
+}
+.rv-chegou {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px var(--gutter);
+  border-top: 1px solid var(--bolha);
+}
+.rv-mini,
+.mv-arte {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+}
+.rv-chegou-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: 400 14px/1.3 var(--ui);
+}
+.rv-chegou-txt strong {
+  font-weight: 600;
+}
+.rv-chegou-txt .legenda {
+  font-size: 13px;
+}
+.rv-selo-p {
+  font-family: var(--pixel-num);
+  flex: none;
+  padding: 3px 5px 1px;
+  border: 2px solid var(--chiado);
+  color: var(--legenda);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* minhas vagas */
+.mv {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 10px;
+  padding: 12px var(--gutter);
+  border-top: 1px solid var(--bolha);
+}
+.mv:last-child {
+  border-bottom: 1px solid var(--bolha);
+}
+.mv-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mv-titulo {
+  font: 600 15px/1.25 var(--ui);
+}
+.mv-dados {
+  font: 400 13px/1.3 var(--ui);
+  color: var(--legenda);
+}
+.mv-codigo {
+  font-family: var(--pixel-codigo);
+  color: var(--branco);
+  font-size: 16px;
+  font-weight: 400;
+}
+.mv-status {
+  display: block;
+  font: 400 14px/1.35 var(--ui);
+}
+.mv-status strong {
+  font-weight: 700;
+}
+.mv-linha {
+  color: var(--legenda);
+}
+/* ponto de pixel do status: cheio = andando, vazado = parou */
+.mv-ponto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: var(--branco);
+}
+.mv-reservado .mv-ponto {
+  animation-name: rt-piscar;
+  animation-duration: 1.2s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.mv-expirado .mv-ponto,
+.mv-cancelado .mv-ponto {
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--chiado);
+}
+.mv-expirado strong,
+.mv-cancelado strong {
+  color: var(--legenda);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mv-reservado .mv-ponto {
+    animation-name: none;
+  }
+}
+.mv-mais {
+  font: 400 14px/1.35 var(--ui);
+}
+.mv-de-novo {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font: 600 14px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mv-zap {
+  grid-column: 2;
+  justify-self: start;
+  font-size: 14px;
+}
+@media (min-width: 560px) {
+  .mv {
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .mv-zap {
+    grid-column: 3;
+  }
+}
+
+/* celular deitado, tablet e computador: os posts em grade (do tamanho do feed do instagram.com: 2 por linha; 1 só
+   onde não cabem 2 de 300 px) */
+@media (min-width: 600px) {
+  .rv-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 24px;
+    max-width: calc(940px + 2 * var(--gutter));
+    padding: 0 var(--gutter);
+  }
+  /* cada post ganha o fio do feed (a borda fica dentro: o card fora da tela não pinta nada fora dele) */
+  .rv-grade > li > .rt {
+    height: 100%;
+    border: 1px solid var(--bolha);
+  }
+  .rv-grade .rt-legenda {
+    padding-bottom: 14px;
+  }
+}
+@media (min-width: 900px) {
+  .rv-intro {
+    padding-top: 2px;
+  }
+  /* na largura da grade dos posts */
+  .mv-lista,
+  .rv-chegaram {
+    max-width: 940px;
+    margin: 0 var(--gutter);
+  }
+  .mv,
+  .rv-chegou {
+    padding-inline: 0;
+  }
+}
+
+/* ───────────────────────── página do rateio ───────────────────────── */
+
+.rp-visual .rt-pagina {
+  border-bottom: 1px solid var(--bolha);
+}
+.rp-info {
+  gap: 0;
+}
+.rp-desc {
+  font: 400 15px/1.5 var(--ui);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+.rp-resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--bolha);
+}
+.rp-resumo-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 400 14px/1.4 var(--ui);
+}
+/* marcador de pixel */
+.rp-resumo-lista li {
+  position: relative;
+  padding-left: 16px;
+}
+.rp-resumo-lista li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  background: var(--legenda);
+}
+.rp-como {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font: 600 14px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rp-entrar-area {
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--bolha);
+  scroll-margin-top: 64px;
+}
+.rp-secao-titulo {
+  font: 700 18px/1.2 var(--ui);
+}
+.rp-nome {
+  font-size: 24px;
+  line-height: 1.1;
+}
+.rp-nome:focus {
+  outline: none;
+}
+.rp-vazio {
+  gap: 14px;
+  align-items: flex-start;
+  padding-top: 32px;
+}
+.rp-vazio-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* formulário (os campos são os de FormConta.css) */
+.rp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.rp-rotulo {
+  font: 600 14px/1.2 var(--ui);
+}
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rp-chip {
+  font-family: var(--pixel-num);
+  min-width: 56px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--chiado);
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 400;
+}
+.rp-chip-texto {
+  font: 600 15px/1 var(--ui);
+}
+.rp-chip.sel {
+  background: var(--branco);
+  color: var(--preto);
+  border-color: var(--branco);
+}
+.rp-cidade-fixa {
+  font-size: 13px;
+}
+.rp-qtd-linha {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.ad-qtd.rp-qtd {
+  background: none;
+  color: var(--branco);
+  border: 1px solid var(--chiado);
+  border-radius: 999px;
+}
+.rp-qtd .icone-botao {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+}
+.rp-qtd .px {
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--pixel-num);
+}
+.rp-teto,
+.rp-uma {
+  font-size: 13px;
+}
+.rp-total {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 2px;
+  font: 500 14px/1.3 var(--ui);
+  color: var(--legenda);
+}
+.rp-total-valor {
+  color: var(--branco);
+  font-family: var(--pixel-num);
+}
+/* armadilha pra robô: fora da tela (sem display:none, que robô esperto pula) */
+.rp-armadilha {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.rp-privacidade {
+  font-size: 13px;
+}
+.rp-alerta .botao {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+.rp-alerta-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rp-envio {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.rp-reservar {
+  min-height: 52px;
+  font-size: 16px;
+}
+.rp-honesto {
+  font-size: 13px;
+  text-align: center;
+}
+.rp-fora {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font: 400 15px/1.45 var(--ui);
+}
+
+/* confirmação: "Tá no rateio!" */
+.rp-feito {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rp-feito-topo {
+  position: relative;
+  display: grid;
+  place-items: center start;
+  min-height: 56px;
+}
+.rp-feito-titulo {
+  position: relative;
+  z-index: 1;
+  font-size: 32px;
+  line-height: 1;
+}
+.rp-feito-titulo:focus {
+  outline: none;
+}
+/* comemoração curta em pixel: quadradinhos saindo de trás do título, em degrau, uma vez só */
+.rp-festa {
+  position: absolute;
+  left: 90px;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+.rp-festa i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--branco);
+  opacity: 0;
+  --a: calc(var(--k) * 30deg);
+  animation-name: rp-festa;
+  animation-duration: 0.7s;
+  animation-timing-function: steps(5, end);
+  animation-fill-mode: both;
+  animation-delay: 0.08s;
+}
+.rp-festa i:nth-child(3n) {
+  width: 4px;
+  height: 4px;
+}
+.rp-festa i:nth-child(4n + 1) {
+  background: var(--legenda);
+}
+@keyframes rp-festa {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateX(10px);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(calc(64px + var(--k) * 3px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rp-festa {
+    display: none;
+  }
+}
+.rp-codigo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 12px 8px 12px 14px;
+  border: 2px dashed var(--chiado);
+}
+.rp-codigo-rot {
+  flex-basis: 100%;
+  font: 600 12px/1 var(--ui);
+  color: var(--legenda);
+}
+.rp-codigo-valor {
+  font-family: var(--pixel-codigo);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+.rp-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--bolha);
+  font: 600 14px/1 var(--ui);
+}
+.rp-feito-txt {
+  font: 400 15px/1.45 var(--ui);
+}
+.rp-mensagem {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--bolha);
+  border-radius: 12px;
+  font: 400 13px/1.45 var(--ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rp-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 4px;
+}
+/* o botão do WhatsApp quebra a linha em vez de cortar o texto: a fonte do aparelho pode ser mais larga que a métrica do
+   Arial (SF no iPhone SE, fontes de fabricante); o ícone corre junto da 1ª palavra (.dm-zap-icone) */
+.rp-zap {
+  white-space: normal;
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.2;
+  padding-block: 10px;
+}
+.rp-pix-resposta {
+  max-width: 100%;
+  margin-top: -6px;
+}
+.rp-nao-abriu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  font: 400 14px/1.4 var(--ui);
+}
+.rp-minhas {
+  align-self: flex-start;
+  padding-left: 0;
+}
+.rp-tua {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rp-tua-linha {
+  font: 400 14px/1.3 var(--ui);
+  color: var(--legenda);
+}
+.rp-tua-codigo {
+  font-family: var(--pixel-codigo);
+  color: var(--branco);
+  font-size: 20px;
+}
+.rp-tua-mais {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+}
+.rp-tua-mais .botao-texto {
+  padding-left: 0;
+}
+
+/* celular deitado, tablet e computador: 2 colunas (o cartão à esquerda, a conversa à direita), cada uma rolando
+   sozinha. No computador a janela é o diálogo da página do produto; abaixo de 900 px, a tela inteira */
+@media (min-width: 600px) {
+  .rp .pp-janela {
+    display: grid;
+    grid-template-columns: 45% minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'topo topo'
+      'visual info';
+    overflow: hidden;
+  }
+  .rp .pp-topo {
+    grid-area: topo;
+  }
+  .rp-visual {
+    grid-area: visual;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-right: 1px solid var(--bolha);
+    scrollbar-width: thin;
+    scrollbar-color: var(--bolha) transparent;
+  }
+  .rp .rp-info {
+    grid-area: info;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 22px;
+  }
+  .rp-visual .rt-pagina {
+    min-height: 100%;
+    border-bottom: 0;
+  }
+  .rp-visual .rt-pagina .rt-midia {
+    aspect-ratio: auto;
+    min-height: 100%;
+    flex: 1;
+  }
+  /* rateio que não abriu: a mensagem ocupa a janela toda */
+  .rp .rp-vazio {
+    grid-area: auto;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ───────────────────────── Como funciona ───────────────────────── */
+
+.folha-como {
+  --pixel-num: 'GC Digitos', 'GC Letras', var(--pixel);
+}
+.como-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px var(--gutter) 6px;
+  counter-reset: passo;
+}
+.como-passo {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  font: 400 15px/1.45 var(--ui);
+}
+.como-passo strong {
+  font-weight: 700;
+}
+.como-num {
+  font-family: var(--pixel-num);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -2px;
+  background: var(--branco);
+  color: var(--preto);
+  font-size: 20px;
+}
+.como-se-nao {
+  margin: 8px var(--gutter) 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--chiado);
+  font: 400 15px/1.45 var(--ui);
+}

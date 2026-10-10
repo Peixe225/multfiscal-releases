@@ -1,0 +1,224 @@
+/* Vistas (abas) do site: Início, Catálogo, Por estado. */
+
+/* escondida sem jogar fora o layout (display:none recalculava o catálogo inteiro a cada troca): content-visibility
+   guarda estilo e layout, tira do Tab, da busca da página e do leitor de tela, e a vista fica com altura zero.
+   Navegador sem content-visibility (iOS < 18) fica no display:none */
+.vista[hidden] {
+  display: none;
+}
+@supports (content-visibility: hidden) {
+  .vista[hidden] {
+    display: block;
+    content-visibility: hidden;
+  }
+  /* o catálogo recém-montado, por um quadro: fora do fluxo, recortado em altura zero (nada aparece nem conta para a
+     rolagem), mas com estilo e layout calculados no tempo ocioso. Sem visibility/pointer-events, que herdam: trocar
+     esses valores depois sujaria o estilo dos 7 mil filhos de novo */
+  .vista[hidden][data-aquecendo] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    overflow: hidden;
+    content-visibility: visible;
+  }
+}
+.vista:focus,
+.vista h1:focus {
+  outline: none;
+}
+
+/* moldura das abas Catálogo e Por estado: cabeçalho, destaques, filtros e grade dividem a mesma borda esquerda */
+.aba-pagina {
+  /* celular: embaixo do adesivo de local ancorado no topo */
+  padding-top: calc(var(--seg-topo) + 72px);
+  padding-bottom: 24px;
+}
+.aba-cab {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 var(--gutter) 6px;
+}
+.aba-titulo {
+  font-size: 20px;
+  line-height: 1.1;
+}
+.aba-legenda {
+  font: 400 14px/1.3 var(--ui);
+}
+
+/* fim do catálogo: o interativo e os reposts, com título de seção (não são abas) */
+.aba-fim {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 8px var(--gutter) 0;
+}
+.aba-secao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.aba-secao-titulo {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bolha);
+  font: 600 12px/1 var(--ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--legenda);
+}
+.aba-secao-titulo svg {
+  color: var(--branco);
+}
+/* as peças trazem o respiro da página antiga: aqui o título de seção já separa */
+.aba-secao .adesivos-interativos,
+.aba-secao .reposts {
+  padding: 0;
+  width: 100%;
+}
+.aba-catalogo > .reposts-txt {
+  padding: 18px var(--gutter) 8px;
+}
+
+/* estado sem entrega */
+.sem-entrega {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px var(--gutter) 24px;
+  padding: 22px 18px;
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+}
+.sem-entrega-titulo {
+  font: 700 18px/1.25 var(--ui);
+}
+.sem-entrega-texto {
+  font-size: 15px;
+}
+.sem-entrega-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.aba-estados .estados {
+  padding-top: 0;
+}
+
+@media (min-width: 900px) {
+  .aba-pagina {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 0 64px;
+  }
+  .aba-titulo {
+    font-size: 24px;
+  }
+  .aba-catalogo .grade {
+    padding: 0 var(--gutter);
+    gap: 6px;
+  }
+  .aba-fim {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 340px));
+    justify-content: center;
+    align-items: stretch;
+    gap: 48px;
+    padding-top: 24px;
+  }
+  .aba-fim-um {
+    grid-template-columns: minmax(0, 340px);
+  }
+  /* títulos na mesma linha e os dois cards alinhados embaixo */
+  .aba-secao > :last-child {
+    margin-top: auto;
+  }
+  .aba-catalogo > .reposts-txt {
+    padding-top: 28px;
+  }
+}
+/* a grade fica com 4 colunas dentro da moldura (5 colunas de 200 px viravam figurinha) */
+@media (min-width: 1360px) {
+  .aba-catalogo .grade,
+  .loja-inicio .grade {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- loja do Início (destaques e grade, depois do perfil) ---------- */
+/* o rodapé vem logo depois da grade (sem o respiro grande do fim da aba Catálogo) */
+.loja-inicio .catalogo {
+  padding-bottom: 24px;
+}
+/* computador: a mesma moldura e a mesma grade da aba Catálogo */
+@media (min-width: 900px) {
+  .loja-inicio {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px 0 40px;
+  }
+  .loja-inicio .grade {
+    padding: 0 var(--gutter);
+    gap: 6px;
+  }
+}
+
+/* ---------- aba Rateio: o cabeçalho (o corpo e o resto do rateio baixam à parte, rateio/Rateio.css) ---------- */
+.rv-cab-linha {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* o "?" do título (44 px de alvo) */
+.rv-ajuda {
+  margin: -10px 0 -10px -6px;
+}
+.rv-intro {
+  max-width: 46ch;
+  font: 400 15px/1.4 var(--ui);
+  color: var(--legenda);
+}
+.rv-buscando {
+  min-height: 60vh;
+  padding: 8px var(--gutter);
+  font-size: 14px;
+}
+.rv-falhou {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 40vh;
+  padding: 18px var(--gutter);
+}
+
+/* estado que a loja daqui não conhece, esperando a do servidor (a conversa inteira): só a vaga preta, no tamanho do story */
+.inicio-esperando {
+  min-height: min(100svh, 900px);
+  background: var(--preto);
+}
+/* celular: a vaga tem a altura do story que vem no lugar dela (Hero.css, .hero-story): quando a loja chega, a faixa dos @
+   fica onde estava */
+@media (max-width: 899px) {
+  .vista-inicio > .inicio-esperando {
+    min-height: 0;
+    height: clamp(480px, calc(100vh - var(--barra-baixo) - var(--seg-baixo) - 44px), 780px);
+    height: clamp(480px, calc(100svh - var(--barra-baixo) - var(--seg-baixo) - 44px), 780px);
+  }
+}
+@media (max-width: 899px) and (max-height: 700px) {
+  .vista-inicio > .inicio-esperando {
+    height: clamp(420px, calc(100vh - var(--barra-baixo) - var(--seg-baixo)), 780px);
+    height: clamp(420px, calc(100svh - var(--barra-baixo) - var(--seg-baixo)), 780px);
+  }
+}

@@ -1,0 +1,36 @@
+# Green Cheese — regras só desta pasta (oprojeto.online/greencheese/).
+# A raiz do domínio tem uma CSP estrita (connect-src só o próprio domínio) que bloquearia a detecção de
+# estado por IP e a busca de CEP. Aqui ela é substituída por uma própria, igualmente fechada, que libera
+# só os serviços que o site usa. Os links do WhatsApp e do Instagram são navegação, não entram na CSP.
+Options -Indexes -MultiViews
+DirectoryIndex index.html
+
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
+  # A raiz tem uma CSP em <FilesMatch "^(index|demo|catalogo)\.html$"> que, por ser seção de arquivo, passaria por
+  # cima da regra acima no index.html desta pasta. Uma seção de arquivo aqui (aplicada depois da raiz) devolve a nossa.
+  <FilesMatch "\.html$">
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
+  </FilesMatch>
+  # HTML sempre revalidado: quem abre no celular vê a versão nova na hora.
+  # Os arquivos de assets/ têm o hash no nome, então podem ficar em cache por 1 ano.
+  <FilesMatch "\.(html|webmanifest)$">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(js|css|woff2?)$">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # o script do atalho home2/ (ir.js) não tem hash no nome: revalida sempre, como o HTML
+  <FilesMatch "^ir\.js$">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+AddType text/javascript .js
+AddType application/manifest+json .webmanifest
+AddType font/woff2 .woff2

@@ -1,0 +1,217 @@
+/* Minha conta: cupons no molde do story do prêmio (cartão escuro com os adesivos), o resto no preto do site. */
+
+.conta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px var(--gutter) 28px;
+}
+.conta-oi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.conta-nome {
+  font: 700 20px/1.2 var(--ui);
+}
+.conta-nome:focus {
+  outline: none;
+}
+.conta-oi .legenda {
+  font-size: 13px;
+}
+.conta-aviso {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bolha);
+  border-radius: 8px;
+  font: 400 13px/1.45 var(--ui);
+}
+.conta-secao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 0 4px;
+  border-bottom: 1px solid var(--bolha);
+}
+.conta-secao:last-child {
+  border-bottom: 0;
+}
+.conta-titulo {
+  font: 700 15px/1.2 var(--ui);
+}
+.conta-giro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+}
+.conta-giro-txt,
+.conta-vazio {
+  font: 400 15px/1.4 var(--ui);
+}
+.conta-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+.conta-cupons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  padding: 4px 0 12px;
+}
+
+/* cupom no molde do story do prêmio: cartão escuro, a bolinha de story dos Melhores amigos, o destaque em pixel e
+   os adesivos (código e contagem) */
+.ingresso {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 8px;
+  border: 1px solid var(--bolha);
+  border-radius: 12px;
+  background: var(--preto);
+}
+.ingresso-topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ingresso-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ingresso-destaque {
+  /* o 2 e o 5 redesenhados (digitos.css, que baixa com o CSS do jogo) */
+  font-family: 'GC Digitos', var(--pixel);
+  font-size: 26px;
+  line-height: 1;
+}
+.ingresso-alvo {
+  font: 600 15px/1.25 var(--ui);
+}
+.ingresso-exemplo {
+  align-self: flex-start;
+  margin-left: auto;
+  transform: rotate(-6deg);
+}
+.ingresso-adesivos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 12px;
+  padding-left: 2px;
+}
+.ingresso-cond {
+  margin: 2px -4px 0;
+}
+.ingresso-link {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px;
+  font: 600 13px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ingresso-acao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+.ingresso-na-sacola {
+  font: 700 14px/1 var(--ui);
+}
+/* usado ou vencido: o story "já visto" (anel cinza, adesivo apagado) e o carimbo em pixel */
+.ingresso-usado .ingresso-destaque,
+.ingresso-vencido .ingresso-destaque,
+.ingresso-encerrado .ingresso-destaque,
+.ingresso-usado .ingresso-alvo,
+.ingresso-vencido .ingresso-alvo,
+.ingresso-encerrado .ingresso-alvo {
+  color: var(--legenda);
+}
+.ingresso-carimbo {
+  padding: 5px 7px 3px;
+  border: 2px solid var(--legenda);
+  color: var(--legenda);
+  font-size: 16px;
+  font-weight: 400;
+  transform: rotate(-4deg);
+}
+
+.conta-proximos {
+  display: flex;
+  gap: 16px;
+}
+.conta-travado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 72px;
+}
+.conta-travado-bola {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #111;
+  box-shadow: 0 0 0 2px #3a3a3a;
+  color: var(--legenda);
+}
+.conta-travado-rot {
+  font: 400 12px/1 var(--ui);
+  color: var(--legenda);
+}
+.conta-dados {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font: 400 15px/1.4 var(--ui);
+}
+.conta-dados dd {
+  margin: 0;
+}
+.conta-sair {
+  align-items: stretch;
+}
+.conta-sair .legenda {
+  font-size: 13px;
+}
+.conta-sair .botao-texto {
+  align-self: flex-start;
+  padding-left: 0;
+}
+.conta-apagar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--chiado);
+  border-radius: 8px;
+  font: 400 14px/1.4 var(--ui);
+}
+.conta-apagar-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.conta .regras {
+  align-items: flex-start;
+}
+.conta .regras-botao {
+  padding-left: 0;
+}
