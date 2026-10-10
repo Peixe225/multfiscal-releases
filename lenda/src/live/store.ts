@@ -10,15 +10,24 @@
  *
  * Disputa, criação, anúncio e apoiadores ficam também no sessionStorage da aba: recarregar a janela da live
  * no meio da disputa retoma de onde parou (quem pagou não perde o direito de criar).
+ *
+ * Sala vazia (o começo de toda live):
+ *   - quem participa (comenta, manda presente, curte, segue, compartilha) entra na conta de "pessoas nos
+ *     últimos 5 min" (recentParticipants) — é ela que escolhe o ritmo automático da próxima lenda;
+ *   - votação/disputa sem nenhum voto depois de config.quietSeconds fecha antes do fim (quietAt);
+ *   - quem entra na sala, segue ou compartilha ganha uma chamada na tela (fila em shoutouts.ts → `shout`);
+ *   - o streamer pode votar como uma pessoa do chat (streamerVote): vale um comentário e pode mudar.
+ * Nada disso inventa gente: numa live de verdade, teste e voto do streamer não contam como participante.
  */
 import { create } from 'zustand'
-import type { PlayerIdentity } from '@/engine/types'
+import type { Pace, PlayerIdentity } from '@/engine/types'
 import { getCountry, useData } from '@/store/data'
-import { LIVE_SANDBOXED, useLiveConfig, useLiveSession } from './config'
+import { AUTO_PACE, LIVE_SANDBOXED, useLiveConfig, useLiveSession } from './config'
 import { giftLabel } from './gifts'
 import { creatorFeedback, makeCountryFinder, parseCreatorCommand, type CountryFinder, type CreatorDraft } from './identity'
+import { SHOUT, createShoutQueue, type Shout, type ShoutKind } from './shoutouts'
 import type { BridgeStatus, LiveEvent, LiveGiftInfo, LiveSource, LiveUser } from './types'
-import { applyEvent, createRound, decide, extend, shouldExtend, type Outcome, type Round, type RoundKind, type VoteOption } from './votes'
+import { applyEvent, createRound, decide, extend, hasVotes, shouldExtend, type Outcome, type Round, type RoundKind, type VoteOption } from './votes'
 
 export interface FeedItem {
   id: number
@@ -32,7 +41,21 @@ export interface FeedItem {
   option?: number
   /** Presente solto guardado: a pessoa ainda não comentou um número (valor = quantas opções há). */
   held?: number
+  /** Voto do streamer (painel): aparece como "voto do streamer". */
+  streamer?: boolean
   at: number
+}
+
+/** Quem vota pelo painel ("votar como streamer"): um @ que o TikTok não aceita, então nunca é de alguém do chat. */
+export const STREAMER: LiveUser = { id: '#streamer', name: 'Streamer' }
+
+/** Quem criou a lenda da carreira em jogo (para o ranking da live no fim dela). */
+export interface LegendCredit {
+  careerId: string
+  /** Vencedor da disputa / maior apoiador. Sem = o chat. */
+  by?: LiveUser
+  /** Criada com o simulador ou com um lance de teste. */
+  sim?: boolean
 }
 
 export interface Supporter {
@@ -53,6 +76,11 @@ export interface Announcement {
   until: number
   /** A lenda anunciada (recarregar no meio do anúncio começa direto esta carreira). */
   identity?: PlayerIdentity
+  /** Ritmo da carreira que vai começar (o automático já decidido) e o selo da tela ("Ritmo Normal · automático"). */
+  pace?: Pace
+  badge?: string
+  /** Quem criou (para o ranking da live), guardado para a retomada depois de recarregar. */
+  credit?: { by?: LiveUser; sim?: boolean }
 }
 
 export interface Bid {
@@ -83,6 +111,10 @@ export interface Creation {
   feedback?: string
   /** Ficha completa: a carreira começa neste instante (ms epoch). Some se a ficha ficar incompleta. */
   readyAt?: number
+  /** Disputa: sem nenhum lance até este instante, ela acaba antes do fim ("sala vazia"). */
+  quietAt?: number
+  /** A disputa acabou cedo porque ninguém deu lance. */
+  quiet?: boolean
 }
 
 export function topBids(c: Creation | null, n = 5): Bid[] {
@@ -121,12 +153,20 @@ interface LiveStore {
   announce: Announcement | null
   creation: Creation | null
   pendingLegend: PendingLegend | null
+  /** Boas-vindas / agradecimento na tela agora (some em `until`). */
+  shout: (Shout & { until: number }) | null
+  credit: LegendCredit | null
 
   setSource(s: LiveSource | null): void
   setStatus(s: BridgeStatus): void
   setCatalog(list: LiveGiftInfo[]): void
-  /** `sim`: evento do simulador ou de um botão de teste. */
-  ingest(e: LiveEvent, meta?: { sim?: boolean }): void
+  /** `sim`: evento do simulador ou de um botão de teste. `streamer`: voto do streamer pelo painel. */
+  ingest(e: LiveEvent, meta?: { sim?: boolean; streamer?: boolean }): void
+  /**
+   * Voto do streamer na opção `option` (0-based): um comentário do STREAMER — vale o mesmo que o de uma
+   * pessoa e pode mudar. `roundId`: só vale se ainda for a mesma votação. false = não havia o que votar.
+   */
+  streamerVote(option: number, roundId?: string): boolean
   startRound(spec: RoundSpec): Promise<Outcome | null>
   /** Encerra a votação agora (o streamer apertou "encerrar"). */
   closeNow(): void
@@ -156,6 +196,35 @@ let resolver: ((o: Outcome | null) => void) | null = null
 let ticker: ReturnType<typeof setInterval> | null = null
 let lastTick = 0
 
+// ── quem participou (para o ritmo automático) ──
+
+/** @ → última participação (ms epoch). */
+const participants = new Map<string, number>()
+
+function noteParticipant(id: string, at: number) {
+  participants.set(id, at)
+  if (participants.size > 5000) for (const [k, t] of participants) if (at - t > AUTO_PACE.windowMs) participants.delete(k)
+}
+
+/**
+ * Pessoas diferentes que comentaram, mandaram presente, curtiram, seguiram ou compartilharam nos últimos
+ * `windowMs` (entrar na sala não conta). Numa live de verdade, eventos de teste e o voto do streamer ficam
+ * de fora; no simulador, o público de teste conta (é para ver o ritmo automático funcionando).
+ */
+export function recentParticipants(now = Date.now(), windowMs: number = AUTO_PACE.windowMs): number {
+  let n = 0
+  for (const [k, t] of participants) {
+    if (now - t <= windowMs) n++
+    else if (now - t > windowMs * 2) participants.delete(k)
+  }
+  return n
+}
+
+// ── boas-vindas e agradecimentos ──
+
+const shouts = createShoutQueue()
+let shoutTimer: ReturnType<typeof setTimeout> | null = null
+
 function addSupporter(map: Record<string, Supporter>, user: LiveUser, coins: number, count: number, at: number, sim: boolean): Record<string, Supporter> {
   const cur = map[user.id]
   return { ...map, [user.id]: { user: { ...cur?.user, ...user }, coins: (cur?.coins ?? 0) + coins, gifts: (cur?.gifts ?? 0) + count, at, ...(sim || cur?.sim ? { sim: true } : {}) } }
@@ -178,7 +247,7 @@ const CONFIRM_RE = /^\s*[!/]\s*(ok|okay|confirmar|confirma|pronto|bora)\s*[!.]*\
 // ── retomada depois de recarregar (sessionStorage da aba) ──
 
 const SNAP_KEY = 'lenda:live:estado'
-type Snapshot = Pick<LiveStore, 'creation' | 'announce' | 'pendingLegend' | 'supporters' | 'careerSupporters' | 'stage'> & { v: 1; at: number }
+type Snapshot = Pick<LiveStore, 'creation' | 'announce' | 'pendingLegend' | 'supporters' | 'careerSupporters' | 'stage' | 'credit'> & { v: 1; at: number }
 
 function readSnapshot(): Snapshot | null {
   try {
@@ -194,7 +263,7 @@ function readSnapshot(): Snapshot | null {
 
 function writeSnapshot(s: LiveStore) {
   try {
-    const snap: Snapshot = { v: 1, at: Date.now(), creation: s.creation, announce: s.announce, pendingLegend: s.pendingLegend, supporters: s.supporters, careerSupporters: s.careerSupporters, stage: s.stage }
+    const snap: Snapshot = { v: 1, at: Date.now(), creation: s.creation, announce: s.announce, pendingLegend: s.pendingLegend, supporters: s.supporters, careerSupporters: s.careerSupporters, stage: s.stage, credit: s.credit }
     sessionStorage.setItem(SNAP_KEY, JSON.stringify(snap))
   } catch {
     /* sem storage: só não retoma */
@@ -212,13 +281,15 @@ function dropSnapshot() {
 export const useLive = create<LiveStore>()((set, get) => {
   const pushFeed = (item: Omit<FeedItem, 'id'>) => set((s) => ({ feed: [{ ...item, id: feedId++ }, ...s.feed].slice(0, FEED_MAX) }))
 
-  const close = () => {
+  /** Fecha a votação aberta. `quiet`: ninguém votou até quietAt ("sala vazia") — mesmo sorteio, outra frase. */
+  const close = (quiet = false) => {
     const r = get().round
     if (!r) return
     const done: Round = { ...r, closed: true }
-    const outcome = decide(done)
+    const outcome: Outcome = quiet ? { ...decide(done), quiet: true } : decide(done)
     set({ round: null, result: { round: done, outcome, at: Date.now() } })
     const opt = done.options[outcome.winner]
+    if (quiet) pushFeed({ kind: 'info', text: 'Ninguém votou: o destino escolheu', at: Date.now() })
     pushFeed({ kind: 'result', text: opt ? opt.label : '', option: outcome.winner, at: Date.now() })
     const res = resolver
     resolver = null
@@ -236,13 +307,23 @@ export const useLive = create<LiveStore>()((set, get) => {
     lastTick = now
     const c = get().creation
     const r = get().round
+    const paused = useLiveSession.getState().paused
     // nada para cronometrar: o relógio para (volta com a próxima votação/disputa)
     if (!c && !r) return stopClock()
-    if (c && useLiveSession.getState().paused) set({ creation: { ...c, endsAt: c.endsAt + dt, ...(c.readyAt ? { readyAt: c.readyAt + dt } : {}) } })
+    if (c && paused) set({ creation: { ...c, endsAt: c.endsAt + dt, ...(c.readyAt ? { readyAt: c.readyAt + dt } : {}), ...(c.quietAt ? { quietAt: c.quietAt + dt } : {}) } })
+    else if (c?.phase === 'bidding' && c.quietAt != null && now >= c.quietAt && now < c.endsAt && !Object.keys(c.bids).length) {
+      // sala vazia: ninguém deu lance até quietAt → a disputa acaba já (o autopiloto segue o "ninguém doou")
+      set({ creation: { ...c, endsAt: now, quiet: true } })
+    }
     if (!r) return
-    if (useLiveSession.getState().paused) {
-      // pausa congela o relógio
-      set({ round: { ...r, endsAt: r.endsAt + dt } })
+    if (paused) {
+      // pausa congela o relógio (e o prazo da sala vazia junto)
+      set({ round: { ...r, endsAt: r.endsAt + dt, ...(r.quietAt != null ? { quietAt: r.quietAt + dt } : {}) } })
+      return
+    }
+    // sala vazia: ninguém votou até quietAt → fecha já, com o sorteio de sempre. Chegou um voto, vai até o fim.
+    if (r.quietAt != null && now >= r.quietAt && now < r.endsAt && !hasVotes(r)) {
+      close(true)
       return
     }
     if (now < r.endsAt) return
@@ -257,6 +338,30 @@ export const useLive = create<LiveStore>()((set, get) => {
   const startClock = () => {
     lastTick = Date.now()
     if (!ticker) ticker = setInterval(tick, 200)
+  }
+
+  /** Mostra a próxima chamada da fila quando der (1 a cada SHOUT.gapMs, cada uma por SHOUT.showMs). */
+  const pumpShouts = () => {
+    if (shoutTimer) clearTimeout(shoutTimer)
+    shoutTimer = null
+    const now = Date.now()
+    const cur = get().shout
+    const later = (ms: number) => {
+      shoutTimer = setTimeout(pumpShouts, Math.max(50, ms))
+    }
+    if (cur && now < cur.until) return later(cur.until - now)
+    const next = shouts.take(now)
+    if (next) {
+      set({ shout: { ...next, until: now + SHOUT.showMs } })
+      return later(SHOUT.showMs)
+    }
+    if (cur) set({ shout: null })
+    const wait = shouts.wait(now)
+    if (wait != null) later(wait)
+  }
+
+  const shoutOut = (kind: ShoutKind, user: LiveUser) => {
+    if (shouts.push(kind, user, Date.now())) pumpShouts()
   }
 
   /**
@@ -319,6 +424,8 @@ export const useLive = create<LiveStore>()((set, get) => {
     announce: null,
     creation: null,
     pendingLegend: null,
+    shout: null,
+    credit: null,
 
     setSource: (source) => set({ source }),
     setStatus: (status) => set({ status }),
@@ -327,12 +434,15 @@ export const useLive = create<LiveStore>()((set, get) => {
     ingest(e, meta) {
       const cfg = useLiveConfig.getState().config
       const sim = !!meta?.sim
+      const streamer = !!meta?.streamer
       // numa live de verdade, teste vale voto mas não vira apoiador nem lance
       const counts = !(sim && realSource(get().source))
       if (e.type === 'viewers') {
         set({ viewers: e.count })
         return
       }
+      // participou (ritmo automático): gente de verdade — ou o público do simulador, no simulador
+      if (counts && !streamer && e.type !== 'join' && e.user.id !== STREAMER.id) noteParticipant(e.user.id, Date.now())
       if (e.type === 'like') {
         const goal = Math.max(50, cfg.likesGoal)
         const meter = get().likesMeter + e.count
@@ -343,9 +453,14 @@ export const useLive = create<LiveStore>()((set, get) => {
       }
       if (e.type === 'follow' || e.type === 'share') {
         pushFeed({ kind: e.type, user: e.user, text: e.type === 'follow' ? 'começou a seguir' : 'compartilhou a live', at: e.at })
+        if (counts) shoutOut(e.type, e.user)
         return
       }
-      if (e.type === 'join') return
+      if (e.type === 'join') {
+        // boas-vindas na tela (com limite: ver shoutouts.ts). Entrada de teste numa live de verdade não aparece.
+        if (counts) shoutOut('join', e.user)
+        return
+      }
       if (e.type === 'gift') {
         const coins = e.gift.coins * e.count
         // a lista de presentes da configuração aprende com os presentes reais (imagem e preço da sala)
@@ -382,6 +497,7 @@ export const useLive = create<LiveStore>()((set, get) => {
           })
         else if (res.released && res.option != null)
           pushFeed({ kind: 'info', user: e.user, text: `${e.user.name}: presente guardado`, option: res.option, at: e.at })
+        else if (streamer && res.option != null) pushFeed({ kind: 'info', user: e.user, text: 'Voto do streamer', option: res.option, streamer: true, at: e.at })
         else if (res.option != null) pushFeed({ kind: 'vote', user: e.user, text: `votou ${res.option + 1}`, option: res.option, at: e.at })
         if (res.decided) close()
         return
@@ -389,11 +505,22 @@ export const useLive = create<LiveStore>()((set, get) => {
       if (e.type === 'gift') pushFeed({ kind: 'gift', user: e.user, text: `${e.count > 1 ? `${e.count}× ` : ''}${giftLabel(e.gift.name)}`, gift: e.gift, count: e.count, coins: e.gift.coins * e.count, at: e.at })
     },
 
+    streamerVote(option, roundId) {
+      const r = get().round
+      if (!r || (roundId && r.id !== roundId) || !Number.isInteger(option) || option < 0 || option >= r.options.length) return false
+      get().ingest({ type: 'chat', user: STREAMER, text: String(option + 1), at: Date.now() }, { streamer: true })
+      return true
+    },
+
     startRound(spec) {
       // uma votação por vez: a anterior é cancelada
       if (get().round) get().cancelRound()
       const cfg = useLiveConfig.getState().config
-      const round = createRound({ ...spec, seconds: spec.seconds ?? cfg.voteSeconds }, Date.now())
+      const now = Date.now()
+      const round0 = createRound({ ...spec, seconds: spec.seconds ?? cfg.voteSeconds }, now)
+      // sala vazia: sem voto nenhum em quietSeconds, a rodada fecha antes (só se isso for antes do fim normal)
+      const quiet = Math.max(0, cfg.quietSeconds || 0) * 1000
+      const round: Round = quiet > 0 && now + quiet < round0.endsAt ? { ...round0, quietAt: now + quiet } : round0
       set({ round, result: null })
       startClock()
       return new Promise<Outcome | null>((res) => {
@@ -409,7 +536,9 @@ export const useLive = create<LiveStore>()((set, get) => {
 
     startBidding(seconds) {
       const now = Date.now()
-      set({ creation: { phase: 'bidding', startedAt: now, endsAt: now + seconds * 1000, bids: {}, draft: {} } })
+      const endsAt = now + seconds * 1000
+      const quiet = Math.max(0, useLiveConfig.getState().config.quietSeconds || 0) * 1000
+      set({ creation: { phase: 'bidding', startedAt: now, endsAt, bids: {}, draft: {}, ...(quiet > 0 && now + quiet < endsAt ? { quietAt: now + quiet } : {}) } })
       startClock()
     },
 
@@ -437,7 +566,11 @@ export const useLive = create<LiveStore>()((set, get) => {
     clearSession() {
       get().cancelRound()
       stopClock()
-      set({ result: null, feed: [], supporters: {}, careerSupporters: {}, likes: 0, likesMeter: 0, likeBursts: 0, stage: 'idle', nextCareerAt: null, announce: null, creation: null, pendingLegend: null })
+      participants.clear()
+      shouts.clear()
+      if (shoutTimer) clearTimeout(shoutTimer)
+      shoutTimer = null
+      set({ result: null, feed: [], supporters: {}, careerSupporters: {}, likes: 0, likesMeter: 0, likeBursts: 0, stage: 'idle', nextCareerAt: null, announce: null, creation: null, pendingLegend: null, shout: null, credit: null })
       dropSnapshot()
     },
 
@@ -453,7 +586,7 @@ export const useLive = create<LiveStore>()((set, get) => {
     useLive.setState(rest)
   }
   let pending: ReturnType<typeof setTimeout> | null = null
-  const KEYS = ['creation', 'announce', 'pendingLegend', 'supporters', 'careerSupporters', 'stage'] as const
+  const KEYS = ['creation', 'announce', 'pendingLegend', 'supporters', 'careerSupporters', 'stage', 'credit'] as const
   useLive.subscribe((s, prev) => {
     if (!KEYS.some((k) => s[k] !== prev[k])) return
     if (pending) return

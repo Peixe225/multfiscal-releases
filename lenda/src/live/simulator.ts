@@ -1,7 +1,7 @@
 /**
  * Simulador de público: testa a live sem estar ao vivo (e é o único modo que funciona dentro do claude.ai).
  *
- *   startSimulator()          // espectadores de mentira comentando números, mandando rosas, curtindo
+ *   startSimulator()          // espectadores de mentira entrando, comentando números, mandando rosas, curtindo
  *   simGift('Rose', 3)        // botões de teste
  *   simChat('2')
  *
@@ -97,6 +97,9 @@ function step() {
   // a live roda em outra janela: este é só o painel, o público de teste fica quieto aqui
   if (lockHolder()) return next(1500)
   const live = useLive.getState()
+  // de vez em quando alguém "entra na sala" (boas-vindas na tela — só aqui, no SIMULADOR; numa live de
+  // verdade só gente de verdade entra)
+  if (Math.random() < 0.05) autoEvent({ type: 'join', user: viewer(), at: Date.now() })
   if (simCreator()) return next(900)
   // disputa: o público de teste dá lances (presentes) para criar a lenda
   if (live.creation?.phase === 'bidding' && Math.random() < 0.6) {

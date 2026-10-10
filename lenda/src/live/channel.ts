@@ -16,6 +16,10 @@
  *
  *   sendLiveSim(evento) · onLiveSim((evento) => store.ingest(evento))
  *
+ * Voto do streamer (painel, numa live de verdade): um voto na opção, para a janela que roda a live.
+ *
+ *   sendStreamerVote(1, roundId) · onStreamerVote((opção, roundId) => store.streamerVote(opção, roundId))
+ *
  * Live dentro do OBS (fonte de navegador → http://localhost:5178/obs): é outro navegador, sem o
  * localStorage nem o BroadcastChannel do painel. Com a ponte ligada (startRelay(), no LiveRoot), tudo isto
  * também passa por ela (relay.ts): comandos, começo, testes, os batimentos (guardados na memória, com a
@@ -35,6 +39,9 @@ export interface LiveSummary {
   status: string
   /** Título da votação aberta. */
   round?: string
+  /** Id e rótulos (curtos) das opções da votação aberta: o painel vota como streamer nela. */
+  roundId?: string
+  labels?: string[]
   secondsLeft?: number
   paused?: boolean
   stage?: string
@@ -246,7 +253,7 @@ export function captureReady(now = Date.now()): LiveBeat | null {
 
 // ── mensagens entre janelas ──
 
-type Message = { cmd: LiveCommand } | { cmd: 'start'; mode: StartMode; to?: string } | { sim: LiveEvent }
+type Message = { cmd: LiveCommand } | { cmd: 'start'; mode: StartMode; to?: string } | { sim: LiveEvent } | { cmd: 'streamer-vote'; option: number; round?: string }
 /** No fio: id da mensagem (para não valer duas vezes) e quem mandou. */
 type Wire = Message & { mid?: string; from?: string }
 
@@ -323,6 +330,17 @@ export function sendLiveSim(e: LiveEvent) {
 export function onLiveSim(fn: (e: LiveEvent) => void): () => void {
   return listen((m) => {
     if ('sim' in m && m.sim && typeof m.sim === 'object' && typeof (m.sim as { type?: unknown }).type === 'string') fn(m.sim)
+  })
+}
+
+/** Painel → janela da live: o streamer vota na opção `option` (0-based) da votação `roundId`. */
+export function sendStreamerVote(option: number, roundId?: string) {
+  post({ cmd: 'streamer-vote', option, ...(roundId ? { round: roundId } : {}) })
+}
+
+export function onStreamerVote(fn: (option: number, roundId?: string) => void): () => void {
+  return listen((m) => {
+    if ('cmd' in m && m.cmd === 'streamer-vote' && Number.isInteger(m.option)) fn(m.option, typeof m.round === 'string' ? m.round : undefined)
   })
 }
 

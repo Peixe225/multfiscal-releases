@@ -1,9 +1,10 @@
 /**
  * Faixa da live sobre o jogo (substitui a barra do topo): AO VIVO · votação com relógio e placar por
- * opção · último presente · maiores apoiadores · termômetro de curtidas · menu do streamer.
+ * opção · chamadas/boas-vindas (LiveCallout) · último presente · maiores apoiadores · termômetro de
+ * curtidas · menu do streamer.
  */
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Crown, Flame, Pause, Play, Settings2, SkipForward, Sparkles, Square, Users } from 'lucide-react'
+import { Crown, Dices, Flame, Mic, Pause, Play, Settings2, SkipForward, Sparkles, Square, Users } from 'lucide-react'
 import { useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow, requestStop } from '@/live/autopilot'
@@ -14,6 +15,7 @@ import { percents, type Outcome, type Round } from '@/live/votes'
 import { useReveal } from '@/ui/classic/reveal/store'
 import { cx } from '@/ui/primitives'
 import { Countdown, GiftIcon, NEW_LEGEND_LABEL, OPTION_COLORS, coinsLabel, confirmNewLegend, fmtCoins, howToVote, useNow, useSafeArea } from './bits'
+import { LiveCallout } from './LiveCallout'
 
 /** Pênalti decisivo: as opções são as zonas do gol (ids "opção:left|center|right"), desenhadas sem placar nos cards. */
 export const isPenaltyRound = (r: Round | null | undefined) => r?.kind === 'decision' && r.options.some((o) => /:(?:left|center|right)$/.test(o.id))
@@ -82,7 +84,7 @@ function RoundHead({ round, paused }: { round: Round; paused: boolean }) {
 /** Por que a opção venceu (faixa e palco): votos, presente que decide, desempate ou sorteio. */
 export function outcomeWhy(round: Round, outcome: Outcome): string {
   if (outcome.reason === 'instant' && round.decidedBy) return `@${round.decidedBy.user.id} decidiu com ${coinsLabel(round.decidedBy.coins)}!`
-  if (outcome.reason === 'no-votes') return 'Ninguém votou: sorteio'
+  if (outcome.reason === 'no-votes') return outcome.quiet ? 'Ninguém votou: o destino escolheu' : 'Ninguém votou: sorteio'
   if (outcome.reason === 'tie-break')
     return outcome.tieBy === 'coins'
       ? 'Empate nos votos — venceu quem mandou mais moedas'
@@ -97,10 +99,12 @@ function ResultHead() {
   if (!result) return null
   const { round, outcome } = result
   const opt = round.options[outcome.winner]
+  // sem voto nenhum quem escolheu não foi o chat: a faixa não diz que foi
+  const fate = outcome.reason === 'no-votes'
   return (
     <div className="lv-head is-result" style={{ ['--oc' as string]: OPTION_COLORS[outcome.winner] }}>
       <span className="lv-head__k">
-        <Sparkles size={13} aria-hidden="true" /> <span className="lv-head__kt">O chat decidiu</span>
+        {fate ? <Dices size={13} aria-hidden="true" /> : <Sparkles size={13} aria-hidden="true" />} <span className="lv-head__kt">{fate ? 'O destino escolheu' : 'O chat decidiu'}</span>
       </span>
       <span className="lv-head__t">
         <b className="lv-head__n">{outcome.winner + 1}</b> {opt?.label}
@@ -155,8 +159,8 @@ function StageHead() {
   )
 }
 
-/** Linha "como participar" da faixa, conforme a fase (votação, disputa, criação, fim de carreira…). */
-function HowLine({ round, showResult }: { round: Round | null; showResult: boolean }) {
+/** Texto "como participar" da faixa, conforme a fase (votação, disputa, criação, fim de carreira…). */
+function useHowText(round: Round | null, showResult: boolean): string {
   const paused = useLiveSession((s) => s.paused)
   const creation = useLive((s) => s.creation)
   const stage = useLive((s) => s.stage)
@@ -173,6 +177,20 @@ function HowLine({ round, showResult }: { round: Round | null; showResult: boole
   else if (announce) text = announce.lines[0] ?? 'Cada decisão da carreira será votada pelo chat'
   else if (stage === 'ending') text = creator === 'disputa' ? 'Prepare os presentes para a próxima disputa' : creator === 'apoiador' ? 'Quem mais doou nesta carreira cria a próxima lenda' : 'Na próxima lenda, o chat vota de novo'
   else text = 'Cada decisão da carreira é votada aqui: comentários e presentes'
+  return text
+}
+
+/**
+ * Linha "como participar" — com as chamadas ligadas (ou uma boas-vindas na fila) vira a linha de chamadas,
+ * no mesmo lugar e com a mesma altura. No palco, onde o cartão grande já explica a fase, só as chamadas.
+ */
+function HowLine({ round, showResult, onStage }: { round: Round | null; showResult: boolean; onStage: boolean }) {
+  const paused = useLiveSession((s) => s.paused)
+  const ctaOn = useLiveConfig((s) => s.config.ctaOn)
+  const shout = useLive((s) => s.shout)
+  const text = useHowText(round, showResult)
+  if (ctaOn || shout) return <LiveCallout round={round} showResult={showResult} how={text} onStage={onStage} />
+  if (onStage) return null
   return <p className={cx('lv-hud__how', paused && 'is-paused')}>{text}</p>
 }
 
@@ -216,6 +234,7 @@ export function FeedText({ item }: { item: FeedItem }) {
   if (item.kind === 'info')
     return (
       <>
+        {item.streamer && <Mic size={14} aria-hidden="true" />}
         <span className="lv-feed__rest">{item.text}</span>
         {item.option != null && (
           <span className="lv-feed__opt" style={{ ['--oc' as string]: OPTION_COLORS[item.option] }}>
@@ -407,7 +426,7 @@ export function LiveHud({ leader }: { leader: boolean }) {
         {round && <Countdown endsAt={round.endsAt} total={round.endsAt - round.startedAt} paused={paused} />}
         <HudMenu leader />
       </div>
-      {!onStage && <HowLine round={round} showResult={showResult} />}
+      <HowLine round={round} showResult={showResult} onStage={onStage} />
       {/* a linha do placar fica sempre montada (vazia fora das votações): a faixa não muda de altura a cada voto */}
       {decision ? <Legend round={decision} /> : !onStage && <LegendSlot />}
       <div className="lv-hud__foot">

@@ -119,6 +119,50 @@
 @keyframes lv-pop { 50% { transform: scale(1.35); filter: drop-shadow(0 0 8px #ff9f43); } }
 [data-motion="reduced"] .lv-likes.is-pop { animation: none; }
 
+/*
+ * Linha de chamadas (LiveCallout): no lugar do "como participar", com a mesma altura (a faixa não pula).
+ * Boas-vindas, agradecimentos, resultado e as chamadas girando têm cada um a sua cor; "quente" = votação
+ * aberta sem nenhum voto ainda (pulsa — parado com movimento reduzido).
+ */
+.lv-callout { --tc: #cfd3ff; position: relative; display: flex; align-items: center; min-width: 0; min-height: 38px; }
+.lv-callout__in {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; min-height: 36px; padding: 5px 12px 5px 5px;
+  border-radius: 12px; background: rgba(255, 255, 255, .045); border: 1px solid rgba(255, 255, 255, .09);
+  animation: lv-callout-in 260ms var(--ease-out);
+}
+@keyframes lv-callout-in { from { opacity: 0; transform: translateY(5px); } }
+.lv-callout__ic { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: color-mix(in srgb, var(--tc) 16%, transparent); color: var(--tc); }
+.lv-callout__t { flex: 1; min-width: 0; font: 700 14px/1.28 var(--font-ui); color: var(--text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.lv-callout__t b { color: var(--tc); font-weight: 800; }
+/* chamadas (is-cta-*): só o ícone ganha cor — o fundo colorido fica para boas-vindas, agradecimentos e o "quente" */
+.lv-callout:is(.is-cta-gift, .is-cta-bid) { --tc: #ffb86b; }
+.lv-callout.is-cta-creator { --tc: var(--warning); }
+.lv-callout.is-cta-site { --tc: #7ee0ff; }
+.lv-callout.is-cta-follow { --tc: #ff7b98; }
+.lv-callout.is-cta-custom { --tc: #c9b6ff; }
+.lv-callout:is(.is-cta-vote, .is-how) { --tc: #ff8da1; }
+.lv-callout:is(.is-quiet, .is-cta-quiet) { --tc: #a98bff; }
+.lv-callout.is-paused { --tc: var(--warning); }
+.lv-callout.is-paused .lv-callout__t { color: var(--warning); }
+.lv-callout.is-result { --tc: var(--oc, #fff); }
+.lv-callout.is-result .lv-callout__in { border-color: color-mix(in srgb, var(--oc, #fff) 55%, transparent); background: color-mix(in srgb, var(--oc, #fff) 10%, rgba(0, 0, 0, .25)); }
+.lv-callout:is(.is-join, .is-follow, .is-share) .lv-callout__in { background: color-mix(in srgb, var(--tc) 13%, rgba(0, 0, 0, .25)); border-color: color-mix(in srgb, var(--tc) 50%, transparent); }
+.lv-callout.is-join { --tc: #3ee6a4; }
+.lv-callout.is-share { --tc: #2fd3ff; }
+.lv-callout.is-follow { --tc: #ff7b98; }
+.lv-callout.is-hot { --tc: #fff; }
+.lv-callout.is-hot .lv-callout__in {
+  background: linear-gradient(100deg, rgba(255, 45, 85, .34), rgba(255, 45, 85, .12) 70%);
+  border-color: rgba(255, 77, 109, .75);
+  animation: lv-callout-in 260ms var(--ease-out), lv-callout-glow 1.8s ease-in-out infinite;
+}
+.lv-callout.is-hot .lv-callout__ic { background: #ff2d55; color: #fff; }
+@keyframes lv-callout-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 45, 85, 0); } 50% { box-shadow: 0 0 22px -4px rgba(255, 45, 85, .75); } }
+[data-motion="reduced"] .lv-callout__in, [data-motion="reduced"] .lv-callout.is-hot .lv-callout__in { animation: none; }
+@media (min-width: 641px) {
+  .lv-hud > .lv-callout { grid-column: 2; grid-row: 2; margin-top: -3px; }
+}
+
 /* avisos (conquistas etc.) logo abaixo da faixa */
 :root:has(.lv-hud) .lx-toaster { top: calc(var(--lv-hud-h, 120px) + 10px); }
 
@@ -136,6 +180,12 @@
   .lv-head__t { font-size: 18px; }
   /* até 3 linhas e sempre a altura de 3: a faixa não muda de tamanho entre votação e simulação */
   .lv-hud__how { font-size: 14px; -webkit-line-clamp: 3; min-height: calc(3 * 1.35em); }
+  /* chamadas: a mesma altura das 3 linhas do "como participar" (57 px), letra maior — é a linha que ensina */
+  .lv-callout { min-height: 57px; }
+  .lv-callout__in { min-height: 57px; padding: 6px 12px 6px 7px; gap: 10px; border-radius: 14px; }
+  .lv-callout__ic { width: 34px; height: 34px; border-radius: 10px; }
+  .lv-callout__t { font-size: 17px; line-height: 1.24; }
+  .lv-callout.is-stage, .lv-callout.is-stage .lv-callout__in { min-height: 50px; }
   .lv-clock b { font-size: 19px; }
   .lv-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lv-chip { height: 34px; }
@@ -236,10 +286,44 @@
   .lv-draft__l { grid-column: 1 / -1; }
 }
 
+.lv-bids__quiet { color: #c9b6ff; font-weight: 700; }
+
+/* ranking da live de hoje (fim de carreira) e o recorde do dia (palco) */
+.lv-rank { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 16px; background: rgba(8, 9, 14, .55); border: 1px solid rgba(255, 200, 87, .22); text-align: left; }
+.lv-rank.is-record { border-color: rgba(255, 200, 87, .6); box-shadow: 0 0 34px -12px rgba(255, 200, 87, .7); }
+.lv-rank__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lv-rank__k { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px/1.3 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--warning); }
+.lv-rank__n { font: 700 12.5px/1 var(--font-num); color: var(--text-3); }
+.lv-rank__party { margin: 0; padding: 7px 10px; border-radius: 10px; background: linear-gradient(90deg, rgba(255, 200, 87, .22), rgba(255, 200, 87, .06)); font: 800 15px/1.25 var(--font-display); color: #ffe08a; animation: lv-rank-party 1.6s ease-in-out 3; }
+@keyframes lv-rank-party { 50% { box-shadow: 0 0 26px -4px rgba(255, 200, 87, .7); } }
+[data-motion="reduced"] .lv-rank__party { animation: none; }
+.lv-rank__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lv-rank__list li { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; padding: 4px 10px; border-radius: 10px; background: rgba(255, 255, 255, .04); }
+.lv-rank__list li.is-top { background: rgba(255, 200, 87, .12); }
+.lv-rank__list li.is-me { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
+.lv-rank__pos { flex: none; width: 16px; font: 800 14px/1 var(--font-num); color: var(--text-3); }
+.lv-rank__list li.is-top .lv-rank__pos { color: var(--warning); }
+.lv-rank__name { flex: 0 1 auto; min-width: 0; font: 800 15px/1.2 var(--font-display); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-rank__tier { flex: none; padding: 2px 7px; border-radius: 6px; background: rgba(255, 255, 255, .08); font: 700 11.5px/1.3 var(--font-ui); color: var(--text-2); }
+.lv-rank__by { flex: 1 1 0; min-width: 0; font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.lv-rank__score { flex: none; min-width: 2ch; font: 800 18px/1 var(--font-num); color: var(--text); text-align: right; }
+.lv-rank__list li.is-top .lv-rank__score { color: var(--warning); }
+.lv-rank__me, .lv-rank__best { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.lv-rank__best b { color: var(--warning); }
+.lv-rank__line { display: flex; align-items: center; gap: 7px; margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: var(--text-2); }
+.lv-rank__line svg { flex: none; color: var(--warning); }
+.lv-rank__line b { color: var(--warning); }
+@media (max-width: 640px) {
+  .lv-rank__name { font-size: 16px; }
+  .lv-rank__by { font-size: 13.5px; }
+  .lv-rank__me, .lv-rank__best { font-size: 14px; }
+}
+
 .lv-announce { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 16px 0; }
 .lv-announce__k { font: 700 14px/1.3 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--warning); }
 .lv-announce__name { font: 900 clamp(40px, 13vw, 84px)/0.95 var(--font-display); letter-spacing: -.04em; background: linear-gradient(180deg, #fff, #ffe08a); -webkit-background-clip: text; background-clip: text; color: transparent; overflow-wrap: anywhere; }
 .lv-announce__l { font-size: 16px; color: var(--text-2); line-height: 1.4; }
+.lv-announce__pace { display: inline-flex; align-items: center; gap: 7px; margin-top: 4px; padding: 6px 12px; border-radius: 999px; background: rgba(169, 139, 255, .14); border: 1px solid rgba(169, 139, 255, .45); font: 700 14px/1.2 var(--font-ui); color: #d9ccff; }
 
 /* ───────────── configuração (#/live) ───────────── */
 .lv-setup { position: relative; z-index: 1; width: 100%; max-width: 980px; margin: 0 auto; padding: 8px 16px 56px; display: grid; gap: 14px; }
@@ -253,6 +337,21 @@
 .lv-ctrl__txt b { font: 800 17px/1.25 var(--font-display); }
 .lv-ctrl__txt span:last-child { font-size: 13px; color: var(--text-2); }
 .lv-ctrl__btns { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* voto do streamer (painel, live de verdade) */
+.lv-svote { display: grid; gap: 12px; padding: 14px 16px; border-radius: 20px; border: 1px solid rgba(255, 77, 109, .25); }
+.lv-svote__txt { display: grid; gap: 3px; min-width: 0; }
+.lv-svote__txt b { font: 800 16px/1.25 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-svote__txt > span:last-child { font-size: 12.5px; line-height: 1.4; color: var(--text-2); }
+.lv-svote__btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.lv-svote__btn { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; min-width: 0; height: 44px; padding: 0 12px 0 6px; border-radius: 12px; cursor: pointer; background: color-mix(in srgb, var(--oc) 10%, rgba(0, 0, 0, .3)); border: 1px solid color-mix(in srgb, var(--oc) 45%, transparent); }
+.lv-svote__btn b { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--oc); color: #0a0b10; font: 800 17px/1 var(--font-num); }
+.lv-svote__btn span { min-width: 0; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-svote__btn:hover:not(:disabled) { background: color-mix(in srgb, var(--oc) 20%, rgba(0, 0, 0, .3)); }
+.lv-svote__btn:focus-visible { outline: 2px solid rgba(255, 255, 255, .7); outline-offset: 2px; }
+.lv-svote__btn.is-on { background: color-mix(in srgb, var(--oc) 30%, rgba(0, 0, 0, .2)); box-shadow: 0 0 0 2px var(--oc), 0 0 22px -6px var(--oc); }
+.lv-svote__btn:disabled { opacity: .4; cursor: default; }
+.lv-warn { color: var(--warning); font-weight: 700; }
 
 .lv-sec { padding: 16px; border-radius: 20px; display: grid; gap: 14px; }
 .lv-sec__head { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }

@@ -12,6 +12,7 @@ import { lockHolder, sendLiveCommand } from '@/live/channel'
 import { useLiveSession } from '@/live/config'
 import { topSupporters, useLive } from '@/live/store'
 import { coinsLabel } from '@/ui/live/bits'
+import { LiveRanking } from '@/ui/live/LiveRanking'
 import { Button, formatInt, useReducedMotion } from '@/ui/primitives'
 import { EventArt } from '@/ui/art/EventArt'
 import { careerTotals, isKeeper } from './model'
@@ -87,7 +88,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
           ))}
         </dl>
         {live ? (
-          <LiveEndActions />
+          <LiveEndActions careerId={state.id} />
         ) : (
           <div className="ck-end__actions">
             <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => navigate('/resumo')}>
@@ -105,9 +106,10 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
 
 /**
  * Modo live: a janela é a que vai ao ar — nada de sair para o resumo ou para o criador manual (a live
- * seguiria sozinha por trás). Agradece aos maiores apoiadores e oferece a próxima lenda.
+ * seguiria sozinha por trás). Agradece aos maiores apoiadores, mostra o ranking da live de hoje (com a
+ * comemoração quando esta lenda bate o recorde do dia) e oferece a próxima lenda.
  */
-function LiveEndActions() {
+function LiveEndActions({ careerId }: { careerId: string }) {
   const supporters = useLive((s) => s.careerSupporters)
   const top = topSupporters(supporters, 3).filter((s) => s.coins > 0)
   return (
@@ -123,6 +125,7 @@ function LiveEndActions() {
           ))}
         </p>
       )}
+      <LiveRanking highlight={careerId} />
       <div className="ck-end__actions">
         {/* numa janela "painel" o autopiloto não roda: o pedido vai para a janela da live */}
         <Button variant="primary" size="lg" icon={Sparkles} onClick={() => (lockHolder() ? sendLiveCommand('new-legend') : newLegendNow())}>

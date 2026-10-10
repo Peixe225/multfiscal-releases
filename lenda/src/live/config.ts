@@ -36,6 +36,15 @@ export function autoPace(people: number): Pace {
 
 /** "Expresso" · "Normal" · "Intenso" (como no painel). */
 export const PACE_NAMES: Record<Pace, string> = { expressa: 'Expresso', normal: 'Normal', intensa: 'Intenso' }
+
+const PACES: readonly string[] = ['auto', 'expressa', 'normal', 'intensa'] satisfies LivePace[]
+/**
+ * Ritmo conhecido ou o de antes (texto qualquer vindo da ponte/do armazenamento não vira ritmo). Fica antes
+ * da store: o persist relê o localStorage já na criação dela (uma const declarada depois estaria em TDZ).
+ */
+export function validPace(v: unknown, fallback: LivePace): LivePace {
+  return typeof v === 'string' && PACES.includes(v) ? (v as LivePace) : fallback
+}
 /** Quem cria a próxima lenda: o maior doador de uma disputa, o maior apoiador da carreira anterior ou o chat (votação). */
 export type CreatorMode = 'disputa' | 'apoiador' | 'votacao'
 
@@ -237,10 +246,6 @@ export function mergeSyncedConfig(local: LiveConfig, incoming: unknown): LiveCon
   const config = out as unknown as LiveConfig
   return { ...config, pace: validPace(config.pace, local.pace), giftBindings: dedupeBindings(config.giftBindings) }
 }
-
-const PACES: readonly string[] = ['auto', 'expressa', 'normal', 'intensa'] satisfies LivePace[]
-/** Ritmo conhecido ou o de antes (texto qualquer vindo da ponte/do armazenamento não vira ritmo). */
-export const validPace = (v: unknown, fallback: LivePace): LivePace => (typeof v === 'string' && PACES.includes(v) ? (v as LivePace) : fallback)
 
 /** As duas janelas estão com a mesma configuração (fora o que é de cada uma)? */
 export function sameSyncedConfig(a: LiveConfig, b: LiveConfig): boolean {

@@ -6,7 +6,11 @@
  *                                       → carreira começa
  *   decisão pendente                  → votação (comentários + presentes) → escolha automática
  *   comemoração de título             → fica N s na tela e segue
- *   fim de carreira                   → tela final por N s (com os maiores apoiadores) → nova lenda
+ *   fim de carreira                   → tela final por N s (com os maiores apoiadores e o ranking da live
+ *                                       de hoje) → nova lenda
+ *
+ * Ritmo automático (config.pace = 'auto'): cada lenda nasce no ritmo que a sala aguenta — conta quem
+ * participou nos últimos 5 min (store.recentParticipants) e escolhe Expresso/Normal/Intenso (config.autoPace).
  *
  * O streamer pode pausar (as votações, a disputa, a contagem do fim de carreira e a comemoração congelam)
  * ou clicar numa opção ele mesmo (a votação é cancelada).
@@ -14,7 +18,7 @@
  * Cada start/stop do autopiloto abre uma "geração": um fluxo assíncrono antigo (anúncio, espera, votação)
  * que acorde depois de um stop + start não age sobre a sessão nova.
  */
-import type { Decision, PlayerIdentity, Position } from '@/engine/types'
+import type { CareerState, Decision, Pace, PlayerIdentity, Position } from '@/engine/types'
 import { POSITION_NAMES } from '@/engine/career/util'
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
@@ -23,10 +27,11 @@ import { penaltyTargets, isPenaltyDecision } from '@/ui/classic/decision/Penalty
 import { director } from '@/ui/classic/reveal/director'
 import { useReveal } from '@/ui/classic/reveal/store'
 import { isCaptureWindow, type StartMode } from './channel'
-import { useLiveConfig, useLiveSession } from './config'
+import { PACE_NAMES, autoPace, useLiveConfig, useLiveSession } from './config'
 import { coinsLabel } from './gifts'
 import { NUMBER_BY_POSITION, POSITION_CHOICES, cleanFixed, footFor, nationChoices, randomSurname, surnameFromNick, type CreatorDraft } from './identity'
-import { realSource, topBids, topSupporters, useLive, type Bid, type RoundSpec, type Supporter } from './store'
+import { recordLiveLegend } from './ranking'
+import { realSource, recentParticipants, topBids, topSupporters, useLive, type Bid, type RoundSpec, type Supporter } from './store'
 import type { LiveUser } from './types'
 import { MAX_OPTIONS, fitOptions } from './votes'
 
@@ -108,6 +113,49 @@ let legends = 0
 /** Pediram uma nova lenda antes de o autopiloto rodar (ex.: botão no painel ao ligar a live). */
 let wantNew = false
 let lastClock = 0
+/** Carreiras que o autopiloto viu em jogo nesta janela (só elas entram no ranking da live quando acabam). */
+const seenPlaying = new Set<string>()
+/** Última carreira mandada para o ranking (o fim de carreira passa pelo tick várias vezes). */
+let rankedFor: string | null = null
+
+/**
+ * Ritmo da próxima lenda: o da configuração ou, no automático, pelo movimento da sala (quantas pessoas
+ * participaram nos últimos 5 min). `badge` é o selo do anúncio.
+ */
+export function resolvePace(): { pace: Pace; auto: boolean; people: number; badge: string } {
+  const cfg = useLiveConfig.getState().config
+  const people = recentParticipants()
+  if (cfg.pace !== 'auto') return { pace: cfg.pace, auto: false, people, badge: `Ritmo ${PACE_NAMES[cfg.pace]}` }
+  const pace = autoPace(people)
+  return { pace, auto: true, people, badge: `Ritmo ${PACE_NAMES[pace]} · automático` }
+}
+
+/**
+ * Carreira encerrada na live → ranking de hoje (Nota de Legado, faixa e quem criou). Numa live de verdade,
+ * lenda criada com o simulador/lance de teste vai marcada e não aparece (ranking.ts).
+ */
+async function rankFinished(st: CareerState) {
+  if (rankedFor === st.id || !seenPlaying.has(st.id)) return
+  rankedFor = st.id
+  const credit = useLive.getState().credit
+  const mine = credit?.careerId === st.id ? credit : null
+  let score: number | null = null
+  let tier = ''
+  try {
+    // import dinâmico, como no Hall: o motor de legado fica fora do bundle inicial
+    const { evaluateRun, legacyTier } = await import('@/engine/legacy')
+    const run = evaluateRun({ id: st.id, identity: st.identity, seasons: st.seasons, national: st.national }, { finished: true })
+    score = run.score
+    tier = legacyTier(run.score).label
+  } catch (err) {
+    console.warn('[LENDA live] nota de legado para o ranking falhou', err)
+  }
+  if (score == null) return
+  const real = realSource()
+  const sim = mine ? !!mine.sim : !real
+  const { record } = recordLiveLegend({ id: st.id, surname: st.identity.surname, score, tier, ...(mine?.by ? { by: mine.by.id } : {}), ...(sim ? { sim: true } : {}), at: Date.now() }, real)
+  if (record) useLive.getState().pushInfo(`Novo recorde do dia! ${st.identity.surname}: nota ${score} 🏆`)
+}
 
 const onStage = () => {
   const r = useApp.getState().route
@@ -240,8 +288,12 @@ async function runIdentity() {
   navigate('/live', { query: { tela: 'palco' } })
   try {
     let identity: PlayerIdentity
+    let pace: Pace
+    let madeBy: { by?: LiveUser; sim?: boolean }
     if (resumeAnnounce?.identity) {
       identity = resumeAnnounce.identity
+      pace = resumeAnnounce.pace ?? resolvePace().pace
+      madeBy = resumeAnnounce.credit ?? { sim: !realSource() }
       await sleep(Math.max(0, Math.min(5000, resumeAnnounce.until - Date.now())))
       if (!alive()) return
     } else {
@@ -290,6 +342,11 @@ async function runIdentity() {
       }
       const number = NUMBER_BY_POSITION[position]
       identity = { surname, number, foot: footFor(Date.now()), nationality, position }
+      // ritmo da carreira: decidido agora (no automático, pelo movimento da sala) e mostrado no anúncio
+      // (a contagem de pessoas fica só no painel: o feed vai ao ar, e "0 pessoas" numa sala vazia não ajuda ninguém)
+      const chosen = resolvePace()
+      pace = chosen.pace
+      madeBy = { ...(creator ? { by: creator.user } : {}), ...(!realSource() || creator?.sim ? { sim: true } : {}) }
       const country = getCountry(nationality)?.name ?? nationality
       const credit = creator
         ? cfg.creator === 'apoiador'
@@ -306,18 +363,23 @@ async function runIdentity() {
           ...(honoree ? { honoree } : {}),
           until: Date.now() + 5000,
           identity,
+          pace,
+          badge: chosen.badge,
+          credit: madeBy,
         },
         pendingLegend: null,
       })
       await sleep(5000)
       if (!alive()) return
     }
-    await useCareer.getState().start(identity, cfg.pace)
+    await useCareer.getState().start(identity, pace)
     if (g !== gen) return
     // nenhuma escolha pendurada da carreira anterior pode passar para a nova
     director.reset()
     useLive.getState().resetCareerSupporters()
-    useLive.setState({ announce: null, stage: 'career', pendingLegend: null })
+    const careerId = useCareer.getState().state?.id
+    if (careerId) seenPlaying.add(careerId)
+    useLive.setState({ announce: null, stage: 'career', pendingLegend: null, credit: careerId ? { careerId, ...madeBy } : null })
     decisionFor = null
     navigate('/carreira')
   } catch (err) {
@@ -357,6 +419,8 @@ async function tick() {
       void runIdentity()
       return
     }
+    // a carreira jogada nesta live acabou: entra no ranking de hoje (uma vez)
+    void rankFinished(st)
     if (r.phase !== 'idle') return
     if (useApp.getState().route.path !== '/carreira') {
       // já no palco sem votação (ex.: recarregou a página): segue para a próxima lenda
@@ -376,6 +440,7 @@ async function tick() {
     }
     return
   }
+  seenPlaying.add(st.id)
   if (live.stage !== 'career') useLive.setState({ stage: 'career' })
   if (useApp.getState().route.path !== '/carreira') {
     navigate('/carreira')

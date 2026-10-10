@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow, requestStart, requestStop, startAutopilot, stopAutopilot } from '@/live/autopilot'
-import { acquireLiveLock, beatCaptureReady, clearCaptureReady, isCaptureWindow, lockHolder, onLiveCommand, onLiveSim, onLiveStart, releaseLiveLock, startRelay, type LiveSummary } from '@/live/channel'
+import { acquireLiveLock, beatCaptureReady, clearCaptureReady, isCaptureWindow, lockHolder, onLiveCommand, onLiveSim, onLiveStart, onStreamerVote, releaseLiveLock, startRelay, type LiveSummary } from '@/live/channel'
 import { useLiveConfig, useLiveSession } from '@/live/config'
 import { connectLive, disconnectLive } from '@/live/connection'
 import { useLive } from '@/live/store'
@@ -34,7 +34,8 @@ function summary(): LiveSummary {
   const career = useCareer.getState().state
   return {
     status: l.status.state,
-    ...(l.round ? { round: l.round.title, secondsLeft: secsLeft(l.round.endsAt) } : {}),
+    // id e rótulos curtos das opções: o painel mostra "1 Coritiba · 2 Santos…" nos botões do voto do streamer
+    ...(l.round ? { round: l.round.title, roundId: l.round.id, labels: l.round.options.map((o) => Array.from(o.label).slice(0, 24).join('')), secondsLeft: secsLeft(l.round.endsAt) } : {}),
     paused: useLiveSession.getState().paused,
     stage: l.stage,
     ...(c ? { creation: { phase: c.phase, secondsLeft: secsLeft(c.endsAt), ...(c.winner ? { winner: c.winner.user } : {}) } } : {}),
@@ -128,10 +129,13 @@ export default function LiveRoot() {
     })
     // botões de teste de um painel: entram aqui como eventos simulados
     const offSim = onLiveSim((e) => useLive.getState().ingest(e, { sim: true }))
+    // voto do streamer pelo painel (pode ser outro navegador: chega pela ponte)
+    const offVote = onStreamerVote((option, roundId) => useLive.getState().streamerVote(option, roundId))
     return () => {
       alive = false
       offCmd()
       offSim()
+      offVote()
       stopAutopilot()
     }
   }, [on, leader])

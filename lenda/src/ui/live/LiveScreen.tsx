@@ -2,19 +2,22 @@
  * #/live — configuração da live interativa (TikTok LIVE) · #/live?tela=palco — palco da votação.
  *
  * Passo a passo na própria tela: conectar (ponte do LENDA, TikFinity ou simulador), regras de votação
- * (comentários, presentes por opção, pontos por moeda), carreira automática, testes e como transmitir.
+ * (comentários, presentes por opção, pontos por moeda, sala vazia), carreira automática (ritmo automático),
+ * testes, chamadas na tela e como transmitir. Com a live de verdade no ar, o painel também vota como
+ * streamer (botões 1–4 ou as teclas 1 a 4).
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, Check, CircleAlert, Copy, Gift, MessageSquare, MonitorPlay, Pause, Play, Plug, Radio, Sparkles, Square, Unplug, Wand2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ArrowRight, Check, CircleAlert, Copy, Gift, Megaphone, MessageSquare, Mic, MonitorPlay, Pause, Play, Plug, Radio, Sparkles, Square, Unplug, Wand2 } from 'lucide-react'
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow, requestStart } from '@/live/autopilot'
-import { CAPTURE_WINDOW_NAME, captureReady, isCaptureWindow, isObsView, lockHolder, markCaptureWindow, sendLiveCommand, sendLiveStart, type LiveSummary, type StartMode } from '@/live/channel'
-import { LIVE_IN_CLAUDE, LIVE_SANDBOXED, bindingConflict, useLiveConfig, useLiveSession, type CreatorMode, type LiveConfig, type NameMode } from '@/live/config'
+import { CAPTURE_WINDOW_NAME, captureReady, isCaptureWindow, isObsView, lockHolder, markCaptureWindow, sendLiveCommand, sendLiveStart, sendStreamerVote, type LiveSummary, type StartMode } from '@/live/channel'
+import { AUTO_PACE, LIVE_IN_CLAUDE, LIVE_SANDBOXED, PACE_NAMES, autoPace, bindingConflict, useLiveConfig, useLiveSession, type CreatorMode, type LiveConfig, type LivePace, type NameMode } from '@/live/config'
+import { CTA_CUSTOM_MAX, CTA_SITE, cleanCustomCta } from '@/live/cta'
 import { bridgeJoin, bridgeLeave, cleanTikTokUser } from '@/live/connection'
 import { giftCatalog, giftEmoji, giftLabel } from '@/live/gifts'
 import { simChat, simGift, type SimTarget } from '@/live/simulator'
-import { useLive } from '@/live/store'
+import { recentParticipants, useLive } from '@/live/store'
 import type { LiveSource } from '@/live/types'
 import { Button, Segmented, Switch, cx, toast } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
@@ -374,6 +377,9 @@ function RulesSection() {
         <Field label="Tempo de cada votação">
           <NumberInput value={cfg.voteSeconds} min={10} max={120} onChange={(v) => set({ voteSeconds: v })} suffix="segundos" />
         </Field>
+        <Field label="Sala vazia: sem nenhum voto, fechar em" hint="Votação ou disputa sem nenhum voto (lance) fecha antes, com o sorteio de sempre (“o destino escolheu”). Chegou um voto, vai até o fim. 0 = desligado.">
+          <NumberInput value={cfg.quietSeconds} min={0} max={60} onChange={(v) => set({ quietSeconds: v })} suffix="segundos" />
+        </Field>
         <Field label="Cada moeda de presente vale" hint="1 Rosa = 1 moeda. Com 10, uma rosa vale 10 comentários.">
           <NumberInput value={cfg.pointsPerCoin} min={0} max={1000} onChange={(v) => set({ pointsPerCoin: v })} suffix="votos" />
         </Field>
@@ -411,19 +417,36 @@ function RulesSection() {
   )
 }
 
+/** Dica do ritmo: no automático, como ele escolhe e o que escolheria agora (quem participou nos últimos 5 min). */
+function PaceHint({ pace }: { pace: LivePace }) {
+  const now = useNow(pace === 'auto', 5000)
+  if (pace !== 'auto') return <>Expresso = 8 decisões por carreira (lives curtas) · Normal = 12 · Intenso = 24.</>
+  const people = recentParticipants(now)
+  return (
+    <>
+      A cada nova lenda, pelo movimento da sala nos últimos 5 min: menos de {AUTO_PACE.normalFrom} pessoas = Expresso (8 decisões, mais disputas) · {AUTO_PACE.normalFrom} a {AUTO_PACE.intenseFrom - 1} = Normal (12) · {AUTO_PACE.intenseFrom} ou mais = Intenso (24). Agora:{' '}
+      <b>
+        {people} {people === 1 ? 'pessoa' : 'pessoas'} → {PACE_NAMES[autoPace(people)]}
+      </b>
+      .
+    </>
+  )
+}
+
 function AutoSection() {
   const cfg = useLiveConfig((s) => s.config)
   const set = useLiveConfig((s) => s.set)
   return (
     <Section n={3} title="Carreira automática" icon={Wand2}>
       <div className="lv-grid">
-        <Field label="Ritmo da carreira" hint="Expresso = menos decisões por carreira (lives curtas).">
+        <Field label="Ritmo da carreira" hint={<PaceHint pace={cfg.pace} />} wide>
           <Segmented
             aria-label="Ritmo"
             size="sm"
             value={cfg.pace}
             onChange={(v) => set({ pace: v })}
             options={[
+              { value: 'auto', label: 'Automático', hint: 'Escolhe a cada lenda pelo movimento da sala' },
               { value: 'expressa', label: 'Expresso' },
               { value: 'normal', label: 'Normal' },
               { value: 'intensa', label: 'Intenso' },
@@ -608,6 +631,35 @@ function TestSection() {
   )
 }
 
+/** Chamadas na tela (liga/desliga) + a frase do streamer no rodízio (com o filtro de palavrões). */
+function CtaSettings() {
+  const ctaOn = useLiveConfig((s) => s.config.ctaOn)
+  const ctaCustom = useLiveConfig((s) => s.config.ctaCustom)
+  const set = useLiveConfig((s) => s.set)
+  const blocked = !!ctaCustom.trim() && !cleanCustomCta(ctaCustom)
+  return (
+    <div className="lv-grid">
+      <Switch
+        checked={ctaOn}
+        onChange={(v) => set({ ctaOn: v })}
+        label="Chamadas na tela"
+        description={`Na faixa da live, uma frase curta a cada 6 s: como votar, quanto vale cada presente, quem cria a próxima lenda, “siga” e “jogue grátis: ${CTA_SITE}”. Fica chamativa enquanto ninguém votou.`}
+      />
+      {ctaOn && (
+        <Field
+          label="Sua chamada (opcional)"
+          hint={blocked ? <span className="lv-warn">Essa frase não vai para a tela: o filtro de palavrões barrou.</span> : `Entra no rodízio, até ${CTA_CUSTOM_MAX} letras. Ex.: “Meta de hoje: 100 seguidores!”`}
+        >
+          <span className="lx-input">
+            <Megaphone size={15} aria-hidden="true" className="lv-at" />
+            <input value={ctaCustom} maxLength={CTA_CUSTOM_MAX} onChange={(e) => set({ ctaCustom: e.target.value })} placeholder="Meta de hoje: 100 seguidores!" spellCheck={false} />
+          </span>
+        </Field>
+      )}
+    </div>
+  )
+}
+
 function StreamSection() {
   const safeArea = useLiveConfig((s) => s.config.safeArea)
   const bridgeUrl = useLiveConfig((s) => s.config.bridgeUrl)
@@ -641,6 +693,7 @@ function StreamSection() {
         label="Área segura do TikTok"
         description="Na janela da live (9:16), a faixa fica abaixo do nome e dos espectadores no topo, e as opções e os votos ficam acima do chat e dos presentes, que o TikTok desenha por cima da parte de baixo."
       />
+      <CtaSettings />
       <p className="lv-note">
         Siga as regras de LIVE do TikTok: os presentes só influenciam as escolhas do jogo — não prometa prêmios, dinheiro ou vantagens fora da live em troca de presentes.
       </p>
@@ -807,6 +860,78 @@ function ControlBar() {
 }
 
 /**
+ * Voto do streamer (live de verdade): um voto na votação aberta — vale um comentário e dá para mudar —, para
+ * narrar com a sala vazia ("eu vou de 2!"). Vai para a janela da live (ou o OBS) pelo canal/ponte; nesta
+ * página, as teclas 1 a 4 votam também (fora dos campos de texto).
+ */
+function StreamerVote() {
+  const real = useLiveConfig((s) => !LIVE_SANDBOXED && s.config.source !== 'simulador')
+  const on = useLiveSession((s) => s.on)
+  const local = useLive((s) => s.round)
+  const now = useNow(real, 1000)
+  const holder = real ? lockHolder(now) : null
+  const sum = holder?.summary
+  const roundId = holder ? sum?.roundId : local?.id
+  const title = holder ? sum?.round : local?.title
+  const labels = useMemo(() => (holder ? (sum?.labels ?? []) : (local?.options.map((o) => o.label) ?? [])).slice(0, 4), [holder, sum?.labels, local])
+  const [mine, setMine] = useState<{ round: string; option: number } | null>(null)
+  const vote = useCallback(
+    (i: number) => {
+      if (!roundId || i < 0 || i >= labels.length) return
+      if (holder) sendStreamerVote(i, roundId)
+      else if (!useLive.getState().streamerVote(i, roundId)) return
+      setMine({ round: roundId, option: i })
+    },
+    [roundId, labels.length, holder],
+  )
+  useEffect(() => {
+    if (!real || !roundId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+      const n = Number(e.key)
+      if (Number.isInteger(n) && n >= 1 && n <= 4) {
+        e.preventDefault()
+        vote(n - 1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [real, roundId, vote])
+  if (!real || !(on || holder)) return null
+  const picked = mine && mine.round === roundId ? mine.option : null
+  return (
+    <section className="lv-svote lx-glass" aria-label="Votar como streamer">
+      <div className="lv-svote__txt">
+        <span className="lv-ctrl__k">
+          <Mic size={14} aria-hidden="true" /> Votar como streamer
+        </span>
+        <b>{roundId ? title : 'Sem votação aberta agora'}</b>
+        <span>Vale um comentário do chat (dá para mudar) e aparece na live como “voto do streamer”. Atalho: teclas 1 a 4 nesta página.</span>
+      </div>
+      <div className="lv-svote__btns" role="group" aria-label="Opções da votação">
+        {[0, 1, 2, 3].map((i) => (
+          <button
+            key={i}
+            type="button"
+            className={cx('lv-svote__btn', picked === i && 'is-on')}
+            style={{ ['--oc' as string]: OPTION_COLORS[i] }}
+            disabled={!roundId || i >= labels.length}
+            aria-pressed={picked === i}
+            aria-keyshortcuts={String(i + 1)}
+            onClick={() => vote(i)}
+          >
+            <b>{i + 1}</b>
+            <span>{labels[i] ?? '—'}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/**
  * Janela da live antes de começar (é o que a captura do LIVE Studio / o OBS mostra): "a live vai começar" para
  * o público. O painel (a aba de configurações) manda o começo; os botões daqui só aparecem com o mouse em cima.
  */
@@ -887,6 +1012,7 @@ function LiveSetup() {
         <p>{heroText}</p>
       </header>
       <ControlBar />
+      <StreamerVote />
       <ConnectionSection />
       <RulesSection />
       <AutoSection />

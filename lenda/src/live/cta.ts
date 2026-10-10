@@ -58,17 +58,13 @@ export function ctaItems(ctx: CtaContext): { items: CtaItem[]; hot: boolean } {
   const n = Math.max(1, Math.min(4, ctx.round?.options ?? 4))
   const list = numberList(n)
   const ppc = Math.max(0, cfg.pointsPerCoin)
-  const gifts: CtaItem[] =
-    ppc > 0
-      ? cfg.giftBindings
-          .slice(0, n)
-          .map((g, i) => {
-            if (!g) return null
-            const pts = Math.max(1, ctx.giftCoins(g)) * ppc
-            return { id: `gift:${i}`, kind: 'gift' as const, gift: g, text: `${giftLabel(g)} = ${pts} ${pts === 1 ? 'ponto' : 'pontos'} na opção ${i + 1}` }
-          })
-          .filter((x): x is CtaItem => !!x)
-      : []
+  const gifts: CtaItem[] = []
+  if (ppc > 0)
+    cfg.giftBindings.slice(0, n).forEach((g, i) => {
+      if (!g) return
+      const pts = Math.max(1, ctx.giftCoins(g)) * ppc
+      gifts.push({ id: `gift:${i}`, kind: 'gift', gift: g, text: `${giftLabel(g)} = ${pts} ${pts === 1 ? 'ponto' : 'pontos'} na opção ${i + 1}` })
+    })
   const custom = cleanCustomCta(cfg.ctaCustom ?? '')
   const creator: CtaItem | null =
     cfg.creator === 'disputa'

@@ -14,7 +14,7 @@ import { clubeNome, paisNome, tacaNome } from './comum.mjs'
 const dir = process.argv[2]
 const URL_BASE = process.argv[3] || 'https://oprojeto.online/lenda/criativos/'
 const POS = { CA: 'Centroavante', PE: 'Ponta esquerda', PD: 'Ponta direita', MEI: 'Meia-atacante', MC: 'Meio-campista', VOL: 'Volante', LE: 'Lateral esquerdo', LD: 'Lateral direito', ZAG: 'Zagueiro', GOL: 'Goleiro', ME: 'Meia esquerda', MD: 'Meia direita' }
-const PREMIO = { ballon_dor: 'Bola de Ouro', the_best: 'The Best', golden_boot: 'Chuteira de Ouro', golden_glove: 'Luva de Ouro', wc_golden_ball: 'Bola de Ouro da Copa', league_top_scorer: 'Artilheiro da liga', league_best_player: 'Melhor da liga', kopa: 'Troféu Kopa', puskas: 'Prêmio Puskás' }
+const PREMIO = { wc_golden_boot: 'Chuteira de Ouro da Copa', ballon_dor: 'Bola de Ouro', the_best: 'The Best', golden_boot: 'Chuteira de Ouro', golden_glove: 'Luva de Ouro', wc_golden_ball: 'Bola de Ouro da Copa', league_top_scorer: 'Artilheiro da liga', league_best_player: 'Melhor da liga', kopa: 'Troféu Kopa', puskas: 'Prêmio Puskás' }
 const ORDEM = { extraordinaria: 0, otima: 1, boa: 2, mediana: 3, ruim: 4, pessima: 5, live: 6, imersivo: 7, hall: 8, compilacao: 9 }
 
 const lista = []

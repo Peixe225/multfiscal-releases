@@ -1,10 +1,12 @@
 /**
  * Palco da live (#/live?tela=palco): disputa (quem doar mais cria a lenda), criação pelo vencedor com
- * comandos no chat, votação grande do que faltar (posição, nacionalidade) e o anúncio "Nasce uma lenda".
+ * comandos no chat, votação grande do que faltar (posição, nacionalidade) e o anúncio "Nasce uma lenda"
+ * (com o ritmo da carreira — no automático, o que o movimento da sala escolheu). Ao lado, os maiores
+ * apoiadores e o recorde do dia (ranking da live).
  */
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Check, Crown, Gift, Pause, PenLine, Play, Radio } from 'lucide-react'
+import { Check, Crown, Dices, Gauge, Gift, Pause, PenLine, Play, Radio } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { newLegendNow } from '@/live/autopilot'
 import { lockHolder, sendLiveCommand } from '@/live/channel'
@@ -17,6 +19,7 @@ import { Button, Flag, cx } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
 import { Countdown, GiftIcon, OPTION_COLORS, coinsLabel, howToVote, useNow, useSafeArea } from './bits'
 import { PAUSED_HOW, outcomeWhy } from './LiveHud'
+import { DayRecordLine } from './LiveRanking'
 
 /** Cabeçalho da disputa/criação no palco; em pausa vira "… pausada", em amarelo. */
 function Kicker({ paused, pausedText, icon, children }: { paused: boolean; pausedText: string; icon: ReactNode; children: ReactNode }) {
@@ -36,11 +39,16 @@ function StageVote() {
   if (!r) return null
   const pct = percents(r)
   const winner = !round && result ? result.outcome.winner : null
+  const fate = !round && result?.outcome.reason === 'no-votes'
   return (
     <div className="lv-stage__vote">
       {round && paused ? (
         <span className="lv-stage__k is-paused">
           <Pause size={14} aria-hidden="true" /> Votação pausada
+        </span>
+      ) : fate ? (
+        <span className="lv-stage__k">
+          <Dices size={14} aria-hidden="true" /> O destino escolheu
         </span>
       ) : (
         <span className="lv-stage__k">
@@ -72,6 +80,9 @@ function Bidding({ c }: { c: Creation }) {
   const paused = useLiveSession((s) => s.paused)
   const min = useLiveConfig((s) => s.config.minBidCoins)
   const bids = topBids(c, 5)
+  // sala vazia: sem lance nenhum, a disputa acaba em quietAt — a tela avisa (honesto e dá pressa)
+  const now = useNow(c.quietAt != null && !bids.length, 500)
+  const quietIn = c.quietAt != null && !bids.length && !paused ? Math.max(0, Math.ceil((c.quietAt - now) / 1000)) : null
   return (
     <div className="lv-stage__vote lv-bid">
       <div className="lv-create__top">
@@ -95,7 +106,10 @@ function Bidding({ c }: { c: Creation }) {
           ))}
         </ol>
       ) : (
-        <p className="lv-stage__empty lv-bids__empty">Ninguém doou ainda. Seja o primeiro!</p>
+        <p className="lv-stage__empty lv-bids__empty">
+          Ninguém doou ainda. Seja o primeiro!
+          {quietIn != null && quietIn > 0 && <span className="lv-bids__quiet"> Sem lances, a lenda nasce em {quietIn} s.</span>}
+        </p>
       )}
     </div>
   )
@@ -181,6 +195,11 @@ function Announce() {
               {l}
             </span>
           ))}
+          {a.badge && (
+            <span className="lv-announce__pace">
+              <Gauge size={15} aria-hidden="true" /> {a.badge}
+            </span>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
@@ -191,6 +210,8 @@ function Podium() {
   const supporters = useLive((s) => s.supporters)
   const nameMode = useLiveConfig((s) => s.config.nameMode)
   const creator = useLiveConfig((s) => s.config.creator)
+  // com as chamadas ligadas, "quem doar mais cria a próxima lenda" já gira na faixa: o pódio não repete
+  const ctaOn = useLiveConfig((s) => s.config.ctaOn)
   const top = topSupporters(supporters, 5)
   return (
     <aside className="lv-stage__podium" aria-label="Maiores apoiadores da live">
@@ -208,15 +229,17 @@ function Podium() {
           ))}
         </ol>
       ) : (
-        <p className="lv-stage__empty">Ninguém mandou presente ainda.</p>
+        // sala vazia: convite, não lamento — o primeiro presente já põe a pessoa no pódio da live
+        <p className="lv-stage__empty">Mande o primeiro presente e entre no pódio da live!</p>
       )}
-      {creator === 'disputa' ? (
+      {ctaOn ? null : creator === 'disputa' ? (
         <p className="lv-stage__hint">Na disputa, quem doar mais cria a próxima lenda: nome, país e posição!</p>
       ) : creator === 'apoiador' ? (
         <p className="lv-stage__hint">Quem mais doar na carreira cria a próxima lenda!</p>
       ) : (
         nameMode === 'apoiador' && <p className="lv-stage__hint">O maior apoiador dá o nome para a próxima lenda!</p>
       )}
+      <DayRecordLine />
     </aside>
   )
 }
