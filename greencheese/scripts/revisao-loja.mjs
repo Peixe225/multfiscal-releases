@@ -35,7 +35,9 @@ const ZAP_MG = '5533988887777'
  *   vigiar: Function, vigiarSemRede: Function, clicar: Function, digitar: Function }} h
  */
 export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigiar, vigiarSemRede, clicar, digitar }) {
-  const hoje = new Date().getDay()
+  // o dia da semana de Brasília (o fuso do navegador do teste e o da loja): perto da meia-noite UTC o container já
+  // está no dia seguinte e a entrega grátis "de hoje" não bateria
+  const hoje = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(new Date()))
   const loja = lojaDaSemente()
   const est = (uf) => loja.estados.find((e) => e.uf === uf)
   const prod = (id) => loja.produtos.find((p) => p.id === id)
