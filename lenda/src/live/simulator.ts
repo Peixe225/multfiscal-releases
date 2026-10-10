@@ -67,7 +67,8 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let favRound = ''
 let fav = 0
 
-const SIM_NAMES = ['GABIGOL', 'FENÔMENO', 'PELEZINHO', 'ZICO', 'RAFINHA', 'DUDU', 'MANU', 'TÉO']
+// apelidos inventados (nada de nome de jogador de verdade: os vídeos de divulgação mostram o simulador)
+const SIM_NAMES = ['FOGUETE', 'MAESTRO', 'MURALHA', 'RAFINHA', 'DUDU', 'MANU', 'TÉO', 'CANHOTINHA']
 const SIM_COUNTRIES = ['Brasil', 'Argentina', 'Portugal', 'França', 'Japão', 'eua']
 const SIM_POSITIONS = ['atacante', 'meia', 'goleiro', 'zagueiro', 'ponta', 'volante', 'lateral esquerdo']
 

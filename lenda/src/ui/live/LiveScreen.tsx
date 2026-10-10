@@ -10,7 +10,7 @@ import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { newLegendNow, requestStart } from '@/live/autopilot'
 import { CAPTURE_WINDOW_NAME, captureReady, isCaptureWindow, isObsView, lockHolder, markCaptureWindow, sendLiveCommand, sendLiveStart, type LiveSummary, type StartMode } from '@/live/channel'
-import { LIVE_SANDBOXED, bindingConflict, useLiveConfig, useLiveSession, type CreatorMode, type LiveConfig, type NameMode } from '@/live/config'
+import { LIVE_IN_CLAUDE, LIVE_SANDBOXED, bindingConflict, useLiveConfig, useLiveSession, type CreatorMode, type LiveConfig, type NameMode } from '@/live/config'
 import { bridgeJoin, bridgeLeave, cleanTikTokUser } from '@/live/connection'
 import { giftCatalog, giftEmoji, giftLabel } from '@/live/gifts'
 import { simChat, simGift, type SimTarget } from '@/live/simulator'
@@ -147,9 +147,16 @@ function ConnectionSection() {
       {LIVE_SANDBOXED && (
         <p className="lv-note is-warn">
           <CircleAlert size={16} aria-hidden="true" />
-          <span>
-            Aqui dentro do claude.ai o navegador não deixa a página falar com programas do seu computador, então <b>só o simulador funciona</b>. Para a live de verdade, rode o LENDA no seu PC com <code>npm run live</code> (ou o <code>INICIAR-LIVE.bat</code>): o passo a passo está no arquivo <code>lenda/live/LEIAME.md</code>.
-          </span>
+          {LIVE_IN_CLAUDE ? (
+            <span>
+              Aqui dentro do claude.ai o navegador não deixa a página falar com programas do seu computador, então <b>só o simulador funciona</b>. Para a live de verdade, rode o LENDA no seu PC com <code>npm run live</code> (ou o <code>INICIAR-LIVE.bat</code>): o passo a passo está no arquivo <code>lenda/live/LEIAME.md</code>.
+            </span>
+          ) : (
+            // site público: quem chega aqui não tem a pasta do jogo — o caminho é o guia, não o LEIAME
+            <span>
+              No site, a live roda com o <b>simulador</b> (público de teste): dá para ver as votações, os presentes e a carreira automática sem estar ao vivo. Para a live de verdade no TikTok, rode o LENDA no seu PC pelo <code>INICIAR-LIVE.bat</code> (ou pelo <code>LIVE-OBS.bat</code>, se transmite pelo OBS) — o passo a passo está no guia.
+            </span>
+          )}
         </p>
       )}
       <Segmented
@@ -777,7 +784,9 @@ function ControlBar() {
           </>
         ) : (
           <>
-            {!LIVE_SANDBOXED && (
+            {/* no claude.ai a página roda num iframe sem pop-ups; no site a janela 9:16 funciona (fala com
+                este painel pelo BroadcastChannel, sem ponte) e serve para ver a live do simulador em pé */}
+            {!LIVE_IN_CLAUDE && (
               <Button variant="ghost" icon={MonitorPlay} onClick={openWindow}>
                 {ready && ready.where !== 'obs' ? 'Mostrar janela da live' : 'Abrir janela da live (9:16)'}
               </Button>

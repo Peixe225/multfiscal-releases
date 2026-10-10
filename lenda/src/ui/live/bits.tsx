@@ -3,7 +3,7 @@
  */
 import { useEffect, useState } from 'react'
 import { isCaptureWindow, type LiveBeat } from '@/live/channel'
-import { LIVE_SANDBOXED, useLiveConfig, type CreatorMode } from '@/live/config'
+import { LIVE_IN_CLAUDE, useLiveConfig, type CreatorMode } from '@/live/config'
 import { giftEmoji, giftLabel, sameGift } from '@/live/gifts'
 import { useLive } from '@/live/store'
 import { cx } from '@/ui/primitives'
@@ -16,7 +16,9 @@ export function GiftIcon({ name, size = 18, className }: { name: string; size?: 
   const g = name ? catalog.find((x) => sameGift(x, name)) : undefined
   const [broken, setBroken] = useState(false)
   if (!name) return null
-  if (g?.image && !broken && !LIVE_SANDBOXED)
+  // a imagem vem do CDN do TikTok (catálogo da ponte): a CSP do claude.ai a bloqueia, então lá fica o
+  // emoji direto; no site e no PC ela carrega — e, se falhar, o onError volta para o emoji
+  if (g?.image && !broken && !LIVE_IN_CLAUDE)
     return <img className={cx('lv-gift-img', className)} src={g.image} alt="" width={size} height={size} referrerPolicy="no-referrer" onError={() => setBroken(true)} />
   return (
     <span className={cx('lv-gift-emoji', className)} style={{ fontSize: Math.round(size * 0.92), width: size, height: size }} aria-hidden="true">

@@ -20,7 +20,11 @@ import { groupRows, liveLeagues, roundOf, shortDate, zoneLegend, zonesFor, type 
 import '@/ui/shared/achievements/unlockToasts'
 import './live.css'
 
-/** Build publicado no claude.ai: a CSP bloqueia a ESPN, então não oferecemos um botão que nunca funciona. */
+/**
+ * Build publicado no claude.ai: a CSP bloqueia a ESPN, então não oferecemos um botão que nunca funciona.
+ * Só o VITE_ARTIFACT conta — no site público (VITE_SITE) a página é nossa, sem essa CSP, e o fetch da ESPN
+ * (CORS aberto) funciona como no PC: lá o "Atualizar agora" fica.
+ */
 const ARTIFACT = import.meta.env.VITE_ARTIFACT === '1'
 
 const REGIONS: { key: string; label: string; test: (l: League) => boolean }[] = [

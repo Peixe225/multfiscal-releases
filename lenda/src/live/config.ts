@@ -241,5 +241,20 @@ export const useLiveSession = create<SessionStore>()(
   ),
 )
 
-/** No Artifact do claude.ai a página não pode abrir conexões locais (CSP): só o simulador funciona. */
-export const LIVE_SANDBOXED = import.meta.env.VITE_ARTIFACT === '1'
+/**
+ * Build publicado como Artifact no claude.ai (scripts/build-artifact.mjs, VITE_ARTIFACT=1): a CSP de lá
+ * bloqueia conexões locais e imagens de fora. Separado de LIVE_SANDBOXED só para o texto e as imagens
+ * poderem mudar — o comportamento da live é o mesmo nos dois builds abaixo.
+ */
+export const LIVE_IN_CLAUDE = import.meta.env.VITE_ARTIFACT === '1'
+
+/**
+ * Site público (oprojeto.online/lenda, scripts/build-site.mjs, VITE_SITE=1): qualquer visitante abre a
+ * página, então ela nunca tenta ws://localhost (nem a ponte, nem o revezamento, nem o TikFinity) — no PC de
+ * quem não tem a ponte isso só geraria erro no console, e no de quem tem seria uma página da internet
+ * conversando com um programa local. A live de verdade continua sendo o LENDA rodando no PC (INICIAR-LIVE.bat).
+ */
+export const LIVE_ON_SITE = import.meta.env.VITE_SITE === '1'
+
+/** Live só com o simulador: Artifact do claude.ai (a CSP não deixa) ou site público (não deve). */
+export const LIVE_SANDBOXED = LIVE_IN_CLAUDE || LIVE_ON_SITE
