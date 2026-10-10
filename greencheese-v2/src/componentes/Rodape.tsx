@@ -17,6 +17,12 @@ export function TextoReposts() {
   )
 }
 
+/** Copyright desde 2026, o ano em que o site foi ao ar ("2026–2027" quando virar o ano). */
+function anoDoCopyright(): string {
+  const ano = new Date().getFullYear()
+  return ano > 2026 ? `2026–${ano}` : '2026'
+}
+
 /** Rodapé no molde do instagram.com: os perfis dos estados, avisos, privacidade e o crédito. */
 export function Rodape() {
   // estado escolhido ou palpitado: a dúvida vai direto pra DM dele
@@ -64,7 +70,7 @@ export function Rodape() {
           </a>
         </p>
       )}
-      <p className="rodape-assinatura">Green Cheese Imports · {new Date().getFullYear()}</p>
+      <p className="rodape-assinatura">© {anoDoCopyright()} Green Cheese Imports. Todos os direitos reservados.</p>
     </footer>
   )
 }
