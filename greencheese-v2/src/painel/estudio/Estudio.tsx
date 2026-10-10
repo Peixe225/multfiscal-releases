@@ -350,6 +350,28 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
                 <Ic nome="estrela" tamanho={16} /> Ver entrar no site
               </button>
             </div>
+            {tirarFundo && vista === 'depois' && (
+              <div className="pn-est-toque">
+                <p className="pn-rotulo">Tocar na foto pra</p>
+                <div className="pn-filtros" role="group" aria-label="Tocar na foto pra">
+                  {(
+                    [
+                      ['mexer', 'Mexer'],
+                      ['apagar', 'Apagar'],
+                      ['devolver', 'Devolver'],
+                    ] as const
+                  ).map(([v, r]) => (
+                    <button key={v} type="button" className={`pn-filtro${toque === v ? ' on' : ''}`} aria-pressed={toque === v} onClick={() => setToque(v)}>
+                      {r}
+                    </button>
+                  ))}
+                  <button type="button" className="pn-filtro" onClick={voltarUm} disabled={!desfazer.current.length}>
+                    Desfazer
+                  </button>
+                </div>
+                <p className="pn-dica">{toque === 'mexer' ? 'Arrasta pra mudar de lugar; pinça (dois dedos) muda o tamanho.' : toque === 'apagar' ? 'Toca num pedaço de fundo que ficou: ele some.' : 'Toca num pedaço do produto que sumiu: ele volta.'}</p>
+              </div>
+            )}
             <div className="pn-est-vitrines">
               <figure className="pn-est-fig">
                 <Vitrine
@@ -431,26 +453,6 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
                       />
                       <span aria-hidden="true">Mais</span>
                     </div>
-                  </div>
-                  <div className="pn-est-toque">
-                    <p className="pn-rotulo">Tocar na foto pra</p>
-                    <div className="pn-filtros" role="group" aria-label="Tocar na foto pra">
-                      {(
-                        [
-                          ['mexer', 'Mexer'],
-                          ['apagar', 'Apagar'],
-                          ['devolver', 'Devolver'],
-                        ] as const
-                      ).map(([v, r]) => (
-                        <button key={v} type="button" className={`pn-filtro${toque === v ? ' on' : ''}`} aria-pressed={toque === v} onClick={() => setToque(v)}>
-                          {r}
-                        </button>
-                      ))}
-                      <button type="button" className="pn-filtro" onClick={voltarUm} disabled={!desfazer.current.length}>
-                        Desfazer
-                      </button>
-                    </div>
-                    <p className="pn-dica">{toque === 'mexer' ? 'Arrasta pra mudar de lugar; pinça (dois dedos) muda o tamanho.' : toque === 'apagar' ? 'Toca num pedaço de fundo que ficou: ele some.' : 'Toca num pedaço do produto que sumiu: ele volta.'}</p>
                   </div>
                 </>
               )}

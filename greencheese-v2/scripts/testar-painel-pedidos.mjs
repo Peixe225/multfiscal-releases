@@ -12,7 +12,7 @@ import { createHmac } from 'node:crypto'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { encomendaValida, pedidoValido } from './testar-api-pedidos.mjs'
+import { encomendaValida, pedidoValido, portaDoFalso } from './testar-api-pedidos.mjs'
 
 /** Servidor falso do webhook: guarda o que chegou e responde o status de agora. */
 async function servidorFalso() {
@@ -26,7 +26,7 @@ async function servidorFalso() {
       res.end(JSON.stringify(s.status < 300 ? { ok: true } : { erro: 'falhou de propósito' }))
     })
   })
-  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok))
+  await new Promise((ok) => srv.listen(portaDoFalso(), '127.0.0.1', ok))
   s.porta = srv.address().port
   s.fechar = () => new Promise((ok) => srv.close(ok))
   return s

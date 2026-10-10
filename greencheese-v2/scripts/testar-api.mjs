@@ -7,7 +7,8 @@
 // cliente atrás de CDN (GC_PROXIES) e o que tem que ficar fechado. A loja (GET loja e as rotas admin-* dela) fica em
 // scripts/testar-api-loja.mjs, chamado daqui.
 // Uso: node scripts/testar-api.mjs   (termina com "api ok")
-// GC_TESTE_PORTA escolhe a porta (padrão: uma livre); PHP=/caminho/do/php troca o binário; GC_TESTE_MANTER=1 guarda a
+// GC_TESTE_PORTA escolhe a porta (padrão: uma livre; as dos outros servidores de teste são as seguintes) e GC_TESTE_PORTA_FALSO a
+// dos gateways falsos do WhatsApp (uma a mais pra cada); PHP=/caminho/do/php troca o binário; GC_TESTE_MANTER=1 guarda a
 // pasta temporária (banco, log, envios) pra olhar depois.
 import { execFileSync, spawn } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -15,6 +16,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { testarVideo } from './testar-api-video.mjs'
 import { crc32, deflateSync, inflateRawSync } from 'node:zlib'
 import { loja, lojaAntesDeInstalar, lojaExemplos, lojaMigracao, lojaSemServidor } from './testar-api-loja.mjs'
 
@@ -472,6 +474,8 @@ try {
   }
 
   await loja({ ...ajuda, dono }, lojaListas)
+  // a thumb animada: envio de vídeo, o produto com vídeo e capa, a limpeza dos arquivos (scripts/testar-api-video.mjs)
+  await testarVideo({ ...ajuda, dono })
   await lojaMigracao(ajuda)
 
   parte('rateio: criar, editar, tabaco')

@@ -114,6 +114,27 @@ await sharp({ create: { width: 3000, height: 4000, channels: 3, background: '#1c
   .composite([{ input: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="2200"><rect width="800" height="2200" rx="120" fill="#e2552f"/></svg>'), left: 1100, top: 900 }])
   .jpeg({ quality: 92 })
   .toFile(foto)
+// a foto do produto como o dono tira (fundo claro, com sombra), pro Estúdio da foto
+const fotoClara = join(dados, 'produto-fundo-branco.jpg')
+await sharp({ create: { width: 2400, height: 3200, channels: 3, background: '#f4f3ef' } })
+  .composite([
+    { input: await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="3200"><ellipse cx="1200" cy="2620" rx="520" ry="70" fill="#000" fill-opacity="0.3"/></svg>')).blur(40).png().toBuffer(), left: 0, top: 0 },
+    { input: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="700" height="1900"><rect x="200" width="300" height="300" rx="40" fill="#222"/><rect y="260" width="700" height="1640" rx="140" fill="#e2552f"/><rect x="80" y="900" width="540" height="420" fill="#f7e7c4"/></svg>'), left: 850, top: 700 },
+  ])
+  .jpeg({ quality: 90 })
+  .toFile(fotoClara)
+// os vídeos da thumb animada (o ffmpeg gera; o Chromium dos testes não abre H.264, então vão em VP9): o produto
+// "girando" num fundo claro (WebM) e um "MP4 original" pequeno (VP9 dentro do MP4) pro caminho sem MediaRecorder
+let videos = null
+try {
+  const ff = (args) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args], { stdio: 'pipe' })
+  const cena = ['-f', 'lavfi', '-i', 'color=c=0xf2f1ec:s=360x640:r=24:d=4', '-f', 'lavfi', '-i', 'color=c=0xd8432a:s=120x330:r=24:d=4', '-filter_complex', "[1]scale=w='max(8,trunc(120*abs(cos(t*1.6))/2)*2)':h=330:eval=frame[l];[0][l]overlay=x='(W-w)/2':y=150:eval=frame,format=yuv420p"]
+  videos = { webm: join(dados, 'produto-girando.webm'), mp4: join(dados, 'produto-original.mp4') }
+  ff([...cena, '-t', '4', '-c:v', 'libvpx-vp9', '-b:v', '600k', videos.webm])
+  ff([...cena, '-t', '3', '-c:v', 'libvpx-vp9', '-b:v', '600k', '-f', 'mp4', videos.mp4])
+} catch {
+  videos = null
+}
 
 const browser = await chromium.launch()
 const erros = []
@@ -348,7 +369,7 @@ try {
   await p.getByRole('dialog').waitFor({ state: 'detached' })
   ok(true, 'Esc fecha a folha')
 
-  await fluxoLoja({ p, BASE, ok, print, axe, foto, browser })
+  await fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, videos, browser, sharp })
 
   // conta: trocar senha, sair, entrar com a nova
   await p.goto(`${BASE}/painel/#/conta`)
