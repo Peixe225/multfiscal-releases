@@ -1,0 +1,156 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//LENDA//Cronograma de lancamento//PT-BR
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:LENDA · Lançamento
+X-WR-TIMEZONE:America/Sao_Paulo
+BEGIN:VTIMEZONE
+TZID:America/Sao_Paulo
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:-0300
+TZOFFSETTO:-0300
+TZNAME:-03
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:teste-live-20261011@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261011T140000
+DTEND;TZID=America/Sao_Paulo:20261011T170000
+SUMMARY:LENDA · Instalar e testar a live
+DESCRIPTION:1. Instalar Node 22 e OBS Studio (abrir o OBS uma vez).\n2. R
+ odar lenda\\live\\INSTALAR-OBS.bat.\n3. Testar com LIVE-OBS.bat --demo.\n
+ 4. Live curta de teste e mandar uma rosa de outra conta.\nChecklist compl
+ eto no guia: https://claude.ai/artifact/A2kvr3cpekaDSJRuUVqcaC\nRelatóri
+ o: https://claude.ai/code/artifact/a627cf6c-cbd7-4bb0-bc97-1921b35d9eab
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Instalar e testar a live
+TRIGGER:-PT60M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:numeros-diarios@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261012T090000
+DTEND;TZID=America/Sao_Paulo:20261012T091500
+SUMMARY:LENDA · Números de ontem e diário
+DESCRIPTION:Anotar seguidores\, views\, live e visitas no site. Escrever 
+ uma linha no diário do relatório: https://claude.ai/code/artifact/a627c
+ f6c-cbd7-4bb0-bc97-1921b35d9eab
+RRULE:FREQ=DAILY;COUNT=14
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Números de ontem e diário
+TRIGGER:-PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:post1-diario@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261012T120000
+DTEND;TZID=America/Sao_Paulo:20261012T121500
+SUMMARY:LENDA · Post 1 no TikTok + Short do dia
+DESCRIPTION:Vídeo sugerido no plano de postagem do guia: https://claude.
+ ai/artifact/A2kvr3cpekaDSJRuUVqcaC\nVídeos\, cortes e legendas: https://
+ oprojeto.online/lenda/criativos/
+RRULE:FREQ=DAILY;COUNT=14
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Post 1 no TikTok + Short do dia
+TRIGGER:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:post2-diario@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261012T180000
+DTEND;TZID=America/Sao_Paulo:20261012T181500
+SUMMARY:LENDA · Post 2 no TikTok
+DESCRIPTION:Legenda pronta na galeria: https://oprojeto.online/lenda/cria
+ tivos/
+RRULE:FREQ=DAILY;COUNT=14
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Post 2 no TikTok
+TRIGGER:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:live-20h@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261013T193000
+DTEND;TZID=America/Sao_Paulo:20261013T220000
+SUMMARY:LENDA · Live às 20h (abrir o kit às 19h30)
+DESCRIPTION:19h30: abrir LIVE-OBS.bat (ou INICIAR-LIVE.bat para o LIVE St
+ udio) e clicar em Iniciar modo live.\n20h: entrar ao vivo e narrar.\nDepo
+ is: anotar pico de espectadores\, presentes e o recorde do dia no diário
+ : https://claude.ai/code/artifact/a627cf6c-cbd7-4bb0-bc97-1921b35d9eab
+RRULE:FREQ=WEEKLY;BYDAY=TU,TH,SA;COUNT=6
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Live às 20h (abrir o kit às 19h30)
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:youtube-longo-18@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261018T100000
+DTEND;TZID=America/Sao_Paulo:20261018T120000
+SUMMARY:LENDA · Vídeo longo no YouTube
+DESCRIPTION:Usar os vídeos horizontais da galeria: https://oprojeto.onli
+ ne/lenda/criativos/
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Vídeo longo no YouTube
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:youtube-longo-25@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261025T100000
+DTEND;TZID=America/Sao_Paulo:20261025T120000
+SUMMARY:LENDA · Vídeo longo no YouTube
+DESCRIPTION:Usar os vídeos horizontais da galeria (extraordinárias no r
+ itmo Intenso): https://oprojeto.online/lenda/criativos/
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Vídeo longo no YouTube
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:revisao-18@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261018T170000
+DTEND;TZID=America/Sao_Paulo:20261018T180000
+SUMMARY:LENDA · Revisão da semana 1
+DESCRIPTION:Olhar os números da semana\, decidir o ritmo da live e o que
+  repetir. Relatório: https://claude.ai/code/artifact/a627cf6c-cbd7-4bb0-
+ bc97-1921b35d9eab
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Revisão da semana 1
+TRIGGER:-PT15M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:revisao-25@lenda.oprojeto.online
+DTSTAMP:20261010T222310Z
+DTSTART;TZID=America/Sao_Paulo:20261025T170000
+DTEND;TZID=America/Sao_Paulo:20261025T180000
+SUMMARY:LENDA · Revisão da semana 2 + decisão do Pay2Win
+DESCRIPTION:Números das duas semanas e decisão sobre a versão Pay2Win.
+  Relatório: https://claude.ai/code/artifact/a627cf6c-cbd7-4bb0-bc97-1921
+ b35d9eab
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LENDA · Revisão da semana 2 + decisão do Pay2Win
+TRIGGER:-PT15M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
