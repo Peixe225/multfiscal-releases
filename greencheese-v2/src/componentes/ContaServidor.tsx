@@ -33,7 +33,7 @@ const TC = {
   encomenda: 'Encomenda',
   itens: (n: number) => (n === 1 ? '1 item' : `${n} itens`),
   vagas: 'Minhas vagas de rateio',
-  vagasVazio: 'Nenhuma vaga ainda. As vagas que tu pegar com este WhatsApp aparecem aqui.',
+  vagasVazio: 'Nenhuma vaga ainda. As vagas que tu pegar com a conta aberta aparecem aqui.',
   vaga: { reservado: 'Esperando pagamento', confirmado: 'Confirmada ✅', expirado: 'Venceu — a vaga voltou', cancelado: 'Cancelada', entregue: 'Entregue' } as Record<VagaDaConta['status'], string>,
   verRateio: 'Ver rateio',
   vagasN: (n: number) => (n === 1 ? '1 vaga' : `${n} vagas`),

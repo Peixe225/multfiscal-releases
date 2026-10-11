@@ -14,7 +14,14 @@ import { agoraLoja, aoMudarHoraDaLoja } from './relogio'
 //   devolve a cada chamada (conta, cupons, endereços, dias de giro e prêmio reservado). As telas não leem o store direto.
 // Este arquivo fica no pedaço principal (as entradas do site usam os hooks); o adaptador baixa só com o jogo e a conta.
 
-export type Resultado<T, E extends string> = { ok: true; valor: T } | { ok: false; erro: E }
+export type Resultado<T, E extends string> = { ok: true; valor: T } | { ok: false; erro: E; detalhe?: DetalheErro }
+
+/** O que o servidor disse junto com o erro do código (a tela mostra): tentativas que restam, a espera e a frase dele. */
+export interface DetalheErro {
+  restam?: number
+  esperaSegundos?: number
+  mensagem?: string
+}
 
 export type GiroInfo =
   | { disponivel: true }
@@ -32,10 +39,15 @@ export interface ContaAberta {
    * reserva fica no aparelho, sem cupom.
    */
   pendenteRecusado?: 'ja-girou-hoje'
+  /** A conta do aparelho foi junto no primeiro login: quantos cupons ela levou e quantos vieram (entram até 2). */
+  migracao?: { levou: number; vieram: number }
 }
 
-/** Os erros do código pelo WhatsApp (só o adaptador do servidor manda código). */
-export type ErroCodigo = 'codigo-errado' | 'codigo-vencido' | 'muitas-tentativas' | 'sem-envio' | 'falhou'
+/**
+ * Os erros do código pelo WhatsApp (só o adaptador do servidor manda código). 'pausado': a loja desligou o código ou
+ * bateu o teto de códigos (a conta volta pro aparelho); 'rede': o servidor da loja não respondeu.
+ */
+export type ErroCodigo = 'codigo-errado' | 'codigo-vencido' | 'muitas-tentativas' | 'sem-envio' | 'pausado' | 'rede' | 'falhou'
 
 export interface AdaptadorConta {
   modo: 'local' | 'servidor'

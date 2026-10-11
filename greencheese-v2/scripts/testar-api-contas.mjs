@@ -3,7 +3,8 @@
 //   (403 sem-permissao no que o papel não pode); senha provisória com troca obrigatória; só os estados de cada um
 //   (pedidos, rateios, participantes, resumo); desativar, redefinir a senha, sempre um dono; quem fez o quê;
 // - clientes: o código pelo WhatsApp (formato, limites por número e por IP, 1 por minuto, expiração em 10 min, 5
-//   tentativas, sem revelar se o número tem conta), criar e entrar, a sessão gc_cliente (cookie, 90 dias), atualizar
+//   tentativas, sem revelar se o número tem conta, o código que o gateway não mandou não trava a nova tentativa), criar
+//   e entrar, a sessão gc_cliente (cookie, 90 dias), atualizar
 //   (promoções com data, trocar o WhatsApp com código), endereços, pedidos e vagas da conta, exportar, sair, apagar;
 // - a conta do aparelho migrando no primeiro login (nome, cupons ganhos antes da conta do servidor, no máximo 2, uma
 //   vez por conta; prêmio reservado; dias de giro);
@@ -442,6 +443,26 @@ export async function testarContas(t) {
       erro(f, 503, 'sem-envio', 'gateway fora: não deu pra mandar')
       const cod5 = ultimoCodigo(z5)
       erro(await novo().post('cliente-entrar', { whatsapp: z5, codigo: cod5 ?? '123456', nome: 'Fulano' }), 403, 'codigo-vencido', 'o código que não saiu não vale')
+      // e tentar de novo na hora pode: o que não saiu não conta como "acabou de sair um código" (antes: 429 "Acabou de
+      // sair um código pra esse número" logo depois de "Não deu pra mandar o código")
+      const z7 = whats()
+      const c7 = novo()
+      falso.estado.modo = '500'
+      erro(await c7.post('cliente-codigo', { whatsapp: z7 }), 503, 'sem-envio', 'gateway fora (2)')
+      falso.estado.modo = 'ok'
+      const de7 = await c7.post('cliente-codigo', { whatsapp: z7 })
+      igual(de7.status, 200, 'gateway de volta: o código sai na hora, sem esperar 1 min')
+      igual((await c7.post('cliente-entrar', { whatsapp: z7, codigo: ultimoCodigo(z7), nome: 'Sete Depois' })).status, 201, 'e o código que saiu entra')
+      // do aparelho conhecido também (o limite dele é a tentativa do número, que volta quando o envio falha)
+      await c7.post('cliente-sair', {})
+      const ap7 = novoToken()
+      igual((await c7.post('cliente-codigo', { whatsapp: z7, aparelho: ap7 }, { agora: AGORA + 1000 })).status, 200, 'código pro aparelho que vai entrar')
+      await c7.post('cliente-entrar', { whatsapp: z7, codigo: ultimoCodigo(z7), aparelho: ap7 }, { agora: AGORA + 1001 })
+      await c7.post('cliente-sair', {}, { agora: AGORA + 1002 })
+      falso.estado.modo = '500'
+      erro(await c7.post('cliente-codigo', { whatsapp: z7, aparelho: ap7 }, { agora: AGORA + 1100 }), 503, 'sem-envio', 'gateway fora (aparelho conhecido)')
+      falso.estado.modo = 'ok'
+      igual((await c7.post('cliente-codigo', { whatsapp: z7, aparelho: ap7 }, { agora: AGORA + 1101 })).status, 200, 'aparelho conhecido: tenta de novo na hora depois da falha')
     }
 
     parte('clientes: atualizar, promoções e trocar o WhatsApp')

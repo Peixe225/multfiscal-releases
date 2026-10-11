@@ -87,9 +87,15 @@ export interface EstadoConta {
    * ainda não confirmou o número. Ela fica em `contas` e vai junto no primeiro login (nome, cupons que valem).
    */
   paraMigrar: string | null
+  /**
+   * Saiu da conta da loja com o servidor fora do ar: a conta já saiu da tela, mas a sessão (o cookie, que o site não
+   * apaga) ainda vale no servidor. Na próxima conversa com ele, o site termina de sair (conta-modo.ts) em vez de trazer
+   * a conta de volta.
+   */
+  sairPendente: boolean
 }
 
-export const estadoContaVazio: EstadoConta = { contas: {}, atual: null, giros: {}, pendente: null, vistos: [], servidor: null, enderecos: [], aparelho: null, paraMigrar: null }
+export const estadoContaVazio: EstadoConta = { contas: {}, atual: null, giros: {}, pendente: null, vistos: [], servidor: null, enderecos: [], aparelho: null, paraMigrar: null, sairPendente: false }
 
 export const useContaStore = create<EstadoConta>()(
   persist(() => ({ ...estadoContaVazio }), {

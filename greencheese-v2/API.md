@@ -1226,7 +1226,8 @@ Sem isso, o site segue com a conta só no aparelho (como antes). O site pergunta
 | POST `cliente-endereco-apagar` | `{ id }` | `{ enderecos }` |
 
 Erros: `sem-codigo` 409 (o código está desligado: o site volta pra conta do aparelho), `sem-envio` 503 (o WhatsApp da
-loja não mandou; o código não vale), `codigo-errado` 403 (com `restam`), `codigo-vencido` 403 (passou dos 10 min ou das
+loja não mandou; o código não vale e não conta no "1 por minuto" nem nos 3 em 15 min do número: dá pra pedir de novo na
+hora — os limites por IP, por rede, por dia e o teto da loja continuam contando), `codigo-errado` 403 (com `restam`), `codigo-vencido` 403 (passou dos 10 min ou das
 5 tentativas: pede outro), `whatsapp-existe` 409 (trocar pra um número que já tem conta), `limite-enderecos` 409,
 `sem-sessao` 401 (o site larga a conta do servidor e volta pro "Entrar"), `invalido` 400 (com `campo`),
 `muitas-tentativas` 429. O `site` é a armadilha de robô (preenchido → finge que mandou).

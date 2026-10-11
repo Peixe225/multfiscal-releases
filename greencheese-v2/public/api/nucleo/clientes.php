@@ -394,8 +394,9 @@ function gc_rota_cliente_codigo(): array
     }
     gc_limite('cli-codigo-ip', $kIp, 10, 3600, GC_MSG_TENTATIVAS_CLIENTE);
     gc_limite('cli-codigo-rede', gc_chave_limite('rede', gc_rede_do_ip(gc_ip())), GC_CODIGO_REDE_HORA, 3600, GC_MSG_TENTATIVAS_CLIENTE);
+    $tentativaNum = null;
     try {
-        gc_limite('cli-codigo-num', $kNum, 3, 900, GC_MSG_TENTATIVAS_CLIENTE);
+        $tentativaNum = gc_limite('cli-codigo-num', $kNum, 3, 900, GC_MSG_TENTATIVAS_CLIENTE);
         gc_limite('cli-codigo-dia', $kNum, 8, 86400, 'Esse número já pediu código demais hoje. Tenta de novo amanhã.');
     } catch (ErroApi $e) {
         // o código que já chegou no WhatsApp continua valendo: a tela vai pro passo do código
@@ -429,7 +430,12 @@ function gc_rota_cliente_codigo(): array
     $mascarado = gc_whatsapp_mascarado($whats);
     $r = gc_whatsapp_mandar($texto, ['tipo' => 'numero', 'valor' => $whats], 'codigo-login', gc_alvo_conta($whats), 'Código de entrada pra ' . $mascarado, [], 'numero:' . $mascarado);
     if (!$r['ok']) {
-        gc_sql('UPDATE clientes_codigos SET expira_em = ? WHERE id = ?', [$agora, $id]);
+        // o código que não saiu some (não vale e não conta como "acabou de sair um código": tentar de novo na hora pode);
+        // a tentativa do número também volta. Os limites por IP, por rede, por dia e o teto da loja continuam contando
+        gc_sql('DELETE FROM clientes_codigos WHERE id = ?', [$id]);
+        if ($tentativaNum !== null) {
+            gc_limite_apagar($tentativaNum);
+        }
         gc_log('[cliente-codigo] não saiu: ' . $r['erro']);
         throw new ErroApi('sem-envio', 'Não deu pra mandar o código agora. Tenta de novo daqui a pouco.', 503);
     }

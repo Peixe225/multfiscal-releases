@@ -11,7 +11,8 @@ import { useContaStore } from '../store/conta'
 
 export type ModoConta = 'local' | 'servidor'
 
-const API = './api/index.php?r=recursos'
+const BASE_API = './api/index.php?r='
+const API = `${BASE_API}recursos`
 const CHAVE_SESSAO = 'gc-recursos'
 const VALE_MS = 5 * 60_000
 const ESPERA_MS = 6_000
@@ -42,10 +43,17 @@ function aplicar(novo: ModoConta, ligado: boolean) {
   avisar()
 }
 
+/** A conta da loja saiu sozinha nesta visita (a sessão acabou): o "Entrar" diz por quê, até a pessoa entrar de novo. */
+let sessaoCaiu = false
+export function sessaoCaiuNestaVisita(): boolean {
+  return sessaoCaiu
+}
+
 /** O servidor diz que a sessão da conta morreu (saiu em outro aparelho, a conta foi apagada, 90 dias sem usar). */
 export function sessaoDoServidorCaiu() {
   const s = st()
   if (!s.servidor) return
+  sessaoCaiu = true
   const contas = { ...s.contas }
   delete contas[s.servidor]
   useContaStore.setState({ contas, atual: s.atual === s.servidor ? null : s.atual, servidor: null, enderecos: [] })
@@ -77,8 +85,38 @@ function guardar(codigo: boolean, sessao: boolean) {
   }
 }
 
+/**
+ * Termina o "sair" que não chegou no servidor (saiu com a internet caída): a sessão ainda vale lá e voltaria sozinha.
+ * Até o servidor confirmar, a conta não volta pra tela.
+ */
+let saindo = false
+function terminarDeSair() {
+  if (saindo) return
+  saindo = true
+  void fetch(`${BASE_API}cliente-sair`, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: '{}' })
+    .then((r) => {
+      if (r.ok || r.status === 401) {
+        useContaStore.setState({ sairPendente: false })
+        esquecerRecursos()
+      }
+    })
+    .catch(() => {
+      /* sem servidor de novo: tenta na próxima visita */
+    })
+    .finally(() => {
+      saindo = false
+    })
+}
+
 /** Decide o modo pelo que o servidor respondeu (codigo: dá pra entrar por código; sessao: tem sessão viva). */
-function decidir(codigo: boolean, sessao: boolean): ModoConta {
+function decidir(codigo: boolean, sessaoNoServidor: boolean): ModoConta {
+  let sessao = sessaoNoServidor
+  if (st().sairPendente) {
+    // saiu com o servidor fora: termina agora (e a conta não volta); sem sessão lá, não tem nada pra terminar
+    if (sessao && !st().servidor) terminarDeSair()
+    else if (!sessao) useContaStore.setState({ sairPendente: false })
+    if (!st().servidor) sessao = false
+  }
   if (st().servidor && !sessao) sessaoDoServidorCaiu()
   // sessão viva sem a conta no cache (o navegador limpou o armazenamento e ficou o cookie): a conta volta quando o
   // adaptador estiver aqui (ele baixa com o jogo, a Minha conta e o pedido guiado; daqui não se importa ele, pra não
@@ -159,8 +197,21 @@ export function entrarPorCodigo(): boolean {
 
 /** O adaptador muda o modo na hora (entrou: servidor; o servidor desligou o código: aparelho). */
 export function definirModo(novo: ModoConta) {
+  if (novo === 'servidor') sessaoCaiu = false
   if (novo === modo) return
   modo = novo
+  avisar()
+}
+
+/**
+ * O servidor respondeu que o entrar com código está desligado ou pausado (o dono desligou, ou a loja bateu o teto de
+ * códigos): o "Entrar" some das telas e, sem conta da loja aberta, a conta volta a ser a do aparelho. Quem já está
+ * logado continua na conta da loja (a sessão vale; só não dá pra pedir código agora).
+ */
+export function codigoDesligou() {
+  codigoLigado = false
+  guardar(false, !!st().servidor)
+  if (!st().servidor) modo = 'local'
   avisar()
 }
 

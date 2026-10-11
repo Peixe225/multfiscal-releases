@@ -6,6 +6,7 @@
 // do cache (conta-modo.ts) e a tela volta pro "Entrar".
 import type { Conta, Cupom, EnderecoConta, EstadoConta, Pendente, RetratoPremio } from '../store/conta'
 import { useContaStore } from '../store/conta'
+import { useUI } from '../store/ui'
 import { sessaoDoServidorCaiu } from './conta-modo'
 
 const BASE = './api/index.php?r='
@@ -40,7 +41,13 @@ export async function pedirApi<T = Record<string, unknown>>(
     }
     if (r.ok && j?.ok === true) return { ok: true, status: r.status, dados: j as T }
     const erro = typeof j?.erro === 'string' ? j.erro : j ? 'erro' : 'resposta'
-    if (erro === 'sem-sessao') sessaoDoServidorCaiu()
+    if (erro === 'sem-sessao') {
+      // a conta saiu do aparelho sem a pessoa pedir (apagada em outro aparelho ou pelo painel, 90 dias sem usar): a tela
+      // volta pro "Entrar" e diz por quê (no sair e no apagar, a própria tela já avisa)
+      const tinha = !!useContaStore.getState().servidor
+      sessaoDoServidorCaiu()
+      if (tinha && rota !== 'cliente-sair' && rota !== 'cliente-apagar') useUI.getState().avisar(typeof j?.mensagem === 'string' ? j.mensagem : 'Tua sessão acabou. Entra de novo com teu WhatsApp.')
+    }
     return { ok: false, status: r.status, erro, mensagem: typeof j?.mensagem === 'string' ? j.mensagem : null, extra: j ?? {} }
   } catch {
     return { ok: false, status: 0, erro: 'rede', mensagem: null, extra: {} }
