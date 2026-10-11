@@ -1696,6 +1696,10 @@ html.pn-compondo .pn-barra {
   border-top: 0;
   padding-top: 4px;
 }
+/* com pedido, pagamento ou aviso esperando, a lista "Pra deixar a loja pronta" vem logo depois do "Pede tua ação" */
+.pn-resumo-pronto-depois {
+  order: 1;
+}
 .pn-resumo-dinheiro {
   order: 2;
 }

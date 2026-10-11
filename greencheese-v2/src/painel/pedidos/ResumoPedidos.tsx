@@ -68,6 +68,14 @@ export function ResumoPedidos() {
           Ver pedidos
         </Link>
       </div>
+      {/* o aviso que não foi vem antes da lista: é o que o dono precisa resolver (antes ficava embaixo dos pedidos) */}
+      {a && a.ligado && a.falhas > 0 && (
+        <Link href={caminho.avisos} className="pd-resumo-alerta toque">
+          <Ic nome="atencao" tamanho={16} />
+          <span>{plural(a.falhas, 'aviso no grupo não foi', 'avisos no grupo não foram')} (7 dias)</span>
+          <Ic nome="chevron-dir" tamanho={16} />
+        </Link>
+      )}
       {d.novos === 0 ? (
         <p className="pn-vazio">
           <Ic nome="check" tamanho={16} />{' '}
@@ -89,13 +97,6 @@ export function ResumoPedidos() {
           )}
           {d.emAndamento > 0 && <p className="pd-resumo-zero">E {plural(d.emAndamento, 'pedido', 'pedidos')} em andamento.</p>}
         </>
-      )}
-      {a && a.ligado && a.falhas > 0 && (
-        <Link href={caminho.avisos} className="pd-resumo-alerta toque">
-          <Ic nome="atencao" tamanho={16} />
-          <span>{plural(a.falhas, 'aviso no grupo não foi', 'avisos no grupo não foram')} (7 dias)</span>
-          <Ic nome="chevron-dir" tamanho={16} />
-        </Link>
       )}
       {a && !a.ligado && (
         <p className="pd-resumo-zero">

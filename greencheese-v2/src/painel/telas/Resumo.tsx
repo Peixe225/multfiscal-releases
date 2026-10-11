@@ -258,7 +258,7 @@ export function Resumo({ nome }: { nome: string }) {
             </section>
 
             {/* com pedido novo, pagamento ou aviso esperando, a lista da loja pronta vem depois do que pede ação */}
-            {urgente && paraDeixarPronto}
+            {urgente && cuidaDaLoja && <div className="pn-resumo-pronto-depois">{paraDeixarPronto}</div>}
 
             {/* loja: produtos esgotados, acabando, fora do site e os atalhos */}
             {cuidaDaLoja && <ResumoLoja />}

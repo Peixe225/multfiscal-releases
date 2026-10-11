@@ -291,6 +291,24 @@ export async function fluxoPedidos(a) {
     ok(/Webhook · HTTP 500 · falhou de propósito/.test((await linhaD.locator('details').textContent()) ?? '') && /Ver detalhes/.test(vistoD), 'o detalhe do serviço fica em "Ver detalhes"')
     await axe(p, 'avisos com falha')
     await print(p, 'avisos-falha', true)
+    // o Início avisa antes da lista dos pedidos (antes ficava embaixo dela, fora da tela com 3 ou 4 pedidos novos)
+    await p.goto(`${BASE}/painel/#/`)
+    const alerta = p.locator('.pd-resumo-alerta')
+    await alerta.waitFor()
+    const posAlerta = await alerta.evaluate((e) => {
+      const lista = e.closest('section')?.querySelector('.pd-lista')
+      return { topo: e.getBoundingClientRect().top, antes: !lista || e.getBoundingClientRect().bottom <= lista.getBoundingClientRect().top + 1 }
+    })
+    ok(posAlerta.antes && /1 aviso no grupo não foi/.test(await alerta.innerText()), `Início: "1 aviso no grupo não foi" em cima da lista dos pedidos novos (${JSON.stringify(posAlerta)})`)
+    // com pedido novo e aviso esperando, a lista "Pra deixar a loja pronta" desce pra depois do que pede ação
+    await p.locator('.pn-resumo-acao').waitFor()
+    const ordem = await p.evaluate(() => {
+      const top = (sel) => document.querySelector(sel)?.getBoundingClientRect().top ?? null
+      return { pedidos: top('.pd-resumo-novos'), acao: top('.pn-resumo-acao'), lista: top('.pn-pronto') }
+    })
+    ok(ordem.lista === null || (ordem.lista > ordem.acao && ordem.acao > ordem.pedidos), `Início com pedido novo: pedidos, "Pede tua ação" e só depois a lista da loja pronta (${JSON.stringify(ordem)})`)
+    await p.goto(`${BASE}/painel/#/avisos`)
+    await linhaD.waitFor()
     webhook.status = 200
     await linhaD.getByRole('button', { name: /Mandar de novo/ }).click()
     await p.waitForFunction((c) => [...document.querySelectorAll('.pd-envio')].some((e) => e.textContent.includes(`Pedido ${c}`) && /Enviado/.test(e.textContent)), D.codigo, { timeout: 15000 })
