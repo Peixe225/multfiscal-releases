@@ -145,7 +145,7 @@ export const T = {
   promoLocal: ' Por enquanto, nada é enviado.',
   mais18: 'Ao criar a conta, tu confirma que tem 18 anos ou mais.',
   privacidade:
-    'Teu nome e WhatsApp servem só pra guardar teus cupons e adiantar teu pedido. Por enquanto, a conta fica só neste aparelho: nada vai pra servidor da loja.',
+    'Teu nome e WhatsApp servem só pra guardar teus cupons e já pôr teu nome no pedido. Por enquanto, a conta fica só neste aparelho: o WhatsApp dela não vai pra loja.',
   privacidadeServidor:
     'Teu nome e WhatsApp servem só pra guardar teus cupons, teus endereços e adiantar teu pedido. A conta fica guardada na loja e tu apaga quando quiser, em Minha conta.',
   criarEGuardar: 'Criar conta e guardar prêmio',
