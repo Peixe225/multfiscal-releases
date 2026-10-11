@@ -768,6 +768,30 @@ const browser = await chromium.launch()
     await ctx.close()
   }
   {
+    // auditoria de navegação (NAV-12): o story aberto pelo link (?p=) e o chat do link (?chat=) fechados no Esc tiram a
+    // chave da URL, e recarregar não reabre o que a pessoa fechou; ?uf= que não é estado sai da URL (POL-13)
+    const { ctx, page } = await nova(`${base}?uf=mg&p=gin-tanqueray-london-dry`, 'link-p-fechar')
+    await page.locator('.story').waitFor({ timeout: 8000 }).catch(() => {})
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(1000)
+    const semP = !new URL(page.url()).searchParams.has('p') && !(await page.locator('.story').count())
+    await page.reload()
+    await page.waitForTimeout(2500)
+    conferir(semP && !(await page.locator('.story').count()), `links: fechar o story do ?p= tira a chave e recarregar não reabre (${page.url()})`)
+    await page.goto(`${base}?uf=mg&chat=pedido`)
+    await page.locator('[aria-modal="true"][aria-label="Pedido guiado"]').waitFor({ timeout: 8000 }).catch(() => {})
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(1000)
+    const semChat = !new URL(page.url()).searchParams.has('chat')
+    await page.reload()
+    await page.waitForTimeout(2500)
+    conferir(semChat && !(await page.locator('[aria-modal="true"][aria-label="Pedido guiado"]').count()), `links: fechar o chat do ?chat= tira a chave e recarregar não reabre (${page.url()})`)
+    await page.goto(`${base}?uf=xx`)
+    await page.waitForTimeout(2500)
+    conferir(!new URL(page.url()).searchParams.has('uf'), `links: ?uf= que não é estado sai da URL (${page.url()})`)
+    await ctx.close()
+  }
+  {
     const { ctx, page } = await nova(`${base}?uf=mg`, 'voltar-2')
     await irAba(page, 'catalogo')
     await irAba(page, 'estados')
@@ -1295,6 +1319,18 @@ for (const h2 of [true, false]) {
   await page.keyboard.type('jack')
   await page.waitForTimeout(300)
   conferir(JSON.stringify(await ativo()) === '["Buscar"]', 'lateral: Buscar ativo com a busca em uso')
+  // a busca acha o produto certo (NAV-02): "jack" e "whisky" só o Jack Daniel's, "gin" só o gin, "vidro" só a de vidro
+  const achados = async (q) => {
+    await page.locator('.vista[data-vista="catalogo"] .busca input').fill(q)
+    await page.waitForTimeout(500)
+    return page.evaluate(() => [...document.querySelectorAll('.vista[data-vista="catalogo"] .grade > .card:not(.card-caixa) .sq-nome')].map((e) => e.textContent.trim()))
+  }
+  const busca = { jack: await achados('jack'), whisky: await achados('whisky'), gin: await achados('gin'), vidro: await achados('vidro') }
+  conferir(
+    busca.jack.length === 1 && /Jack/.test(busca.jack[0]) && busca.whisky.length === 1 && /Jack/.test(busca.whisky[0]) && busca.gin.length === 1 && /Gin/.test(busca.gin[0]) && busca.vidro.length === 1 && /vidro/i.test(busca.vidro[0]),
+    `busca: "jack"/"whisky" só o Jack, "gin" só o gin, "vidro" só a piteira de vidro (${JSON.stringify(busca)})`,
+  )
+  await page.locator('.vista[data-vista="catalogo"] .busca input').fill('')
   await page.locator('.lateral [data-aba="catalogo"]').click()
   await page.waitForTimeout(700)
   conferir(JSON.stringify(await ativo()) === '["Mercado"]', 'lateral: tocar em Mercado depois de buscar deixa Mercado ativo')
