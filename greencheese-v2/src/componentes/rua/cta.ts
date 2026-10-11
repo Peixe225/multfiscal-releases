@@ -31,6 +31,8 @@ export function useCtaMercado() {
 /** O que o leitor de tela ouve quando chamam o mercador: o que de fato acontece na cena. */
 export function avisoDoChamado(c: Chamado, rodando: boolean): string {
   if (c === 'foto') return 'O mercador ofereceu o Mercado.'
+  // no meio do atendimento o casaco pode já estar aberto pro cliente (no story ele abre ouvindo): é o que se vê agora
+  if (c === 'aberto') return 'O mercador ofereceu o Mercado. Ele está de casaco aberto, atendendo um cliente.'
   if (!rodando) return 'O mercador ofereceu o Mercado. A rua está parada: ele abre o casaco quando ela voltar a andar.'
   if (c === 'depois') return 'O mercador ofereceu o Mercado. Ele abre o casaco assim que terminar o atendimento.'
   return 'O mercador ofereceu o Mercado e abre o casaco.'

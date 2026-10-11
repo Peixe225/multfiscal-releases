@@ -2208,7 +2208,7 @@ for (const reduzir of [false, true]) {
   // o leitor de tela ouve o que de fato acontece (livre, ele abre o casaco; atendendo, no fim do atendimento; na foto,
   // só oferece)
   const aviso = (await page.locator('.vista-inicio .rua-aviso').textContent())?.trim()
-  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.)$/.test(aviso ?? '')
+  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.|\. Ele está de casaco aberto, atendendo um cliente\.)$/.test(aviso ?? '')
   conferir(avisoCerto, `${nome}: o aviso do chamado diz o que acontece na cena (${aviso})`)
   const cb = await ver.boundingBox()
   conferir(!!cb && cb.height >= 44, `${nome}: "Ver o Mercado" com alvo de 44 px (${cb ? Math.round(cb.height) : '?'})`)
@@ -2369,7 +2369,7 @@ for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, 
   // o leitor de tela ouve o que de fato acontece: livre, ele abre o casaco; atendendo, abre no fim do atendimento; na
   // foto (movimento reduzido), só oferece
   const aviso = (await page.locator('.vista:not([hidden]) .rua [aria-live]').textContent())?.trim()
-  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.)$/.test(aviso ?? '')
+  const avisoCerto = reduzir ? aviso === 'O mercador ofereceu o Mercado.' : /^O mercador ofereceu o Mercado( e abre o casaco\.|\. Ele abre o casaco assim que terminar o atendimento\.|\. Ele está de casaco aberto, atendendo um cliente\.)$/.test(aviso ?? '')
   conferir(avisoCerto, `${nome}: o aviso do chamado diz o que acontece na cena (${aviso})`)
   const cb = await cta.boundingBox()
   conferir(!!cb && cb.height >= 44, `${nome}: "Ver o Mercado" com alvo de 44 px (${cb ? Math.round(cb.height) : '?'})`)
