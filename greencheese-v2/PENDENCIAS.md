@@ -215,9 +215,20 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   entrando na fila no quadro seguinte. Essas correções valem nas duas homes; a home de sempre (a rua no 1º story, com o
   pôster) não foi medida de novo nesta rodada (a medida de referência é a "antes" acima, 2704 ms), e a primeira tela
   dela ficou igual à de 7744b7f nos prints (390×844 e 360×740).
-- **LCP da Home 2 (DES-01)**: no celular da Home 2 o navegador ainda pode contar como a maior pintura um produto que
-  entra depois (o 2º story), porque a borda cortada do halo muda a área de um produto pro outro. O rascunho da correção
-  (o halo do tamanho do desenho) está guardado, sem teste: continua pendente.
+- **Desempenho medido depois da auditoria de navegação (11/10)** (celular 390×844, CPU 4× mais lenta, 4G lenta de
+  150 ms e 1,6 Mbps, 9 rodadas alternadas entre o build de antes e o de depois na mesma máquina, mediana e, entre
+  colchetes, do 1º ao 3º quartil; loja semeada como na auditoria: RESTAM 3 na OCB, o Jack Daniel's esgotado em MG):
+  **Home 2** — LCP 5904 ms [5288–6116] → **2528 [2524–2548]**: antes a maior pintura era o halo de um
+  produto que entrava depois da primeira tela (a troca do 1º story quando a loja do servidor chegava, ou o 2º story);
+  agora é o halo do 1º produto, na primeira pintura, nas 9 rodadas (LCP = FCP). FCP 2488 [2448–2520] → 2528
+  [2524–2548] (igual, dentro da variação). CLS da carga 0,047 (máx. 0,124) → **0,006**. DOM 14.812 → **8.011**
+  elementos. Tarefas longas nos primeiros 11 s 3,1 s → 2,8 s. **Home de sempre** (a rua no 1º story) — FCP = LCP (o
+  pôster da rua) 2464 [2452–2476] → **2480 [2468–2524]** (igual), CLS 0 → 0, DOM 13.823 → **7.022**, tarefas longas
+  2,5 s → 2,2 s. **Primeira tela igual**: prints de 390×844 e 360×740 de antes e de depois (story parado, sem o
+  flutuar) diferem em 0,43% e 0,01% dos pixels na Home 2 (só o pontilhado do halo, um pixel ao lado: a caixa dele agora
+  é a do desenho) e em 0,00% na home de sempre com a rua parada no mesmo quadro (`?ruaquadros=7`). Medido com
+  `lcp.mjs` e `prints-primeira.mjs` (scratchpad da auditoria, `navfix/`); as medidas no build de 525da85, os prints no
+  de e51a932 (os commits entre eles não mexem na primeira tela). DES-01 resolvido.
 
 ## Pedidos e avisos no WhatsApp
 
@@ -255,6 +266,28 @@ A equipe com papéis e estados, as contas dos clientes com código pelo WhatsApp
 - **Publicar à mão** (hPanel): o pacote sai de `npm run empacotar`, com as mesmas regras do `publicar.mjs` (recusa o código de dev, deixa banco, log e fotos de fora). O `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site, sem `api/`): gerar de novo antes de usar.
 - Se o endereço final for outro, trocar `urlPublica` em `src/dados/config.ts` e gerar o build de novo.
 - Testar no navegador do Instagram, no Android e no iPhone de verdade (os testes daqui simulam toque e tamanho de tela, não o aparelho).
+
+## Da auditoria de navegação (11/10)
+
+As correções estão no LEIA-ME ("Correções da auditoria de navegação"). Fica:
+
+- **Fonte em px (POL-09), de propósito**: o "Tamanho da fonte" do navegador (Chrome/Firefox no computador) continua sem
+  mudar o texto; o zoom (Ctrl +) e o escalonamento de texto do Android funcionam (o harness confere texto 2× e zoom de
+  200%: nada corta nem encavala). Passar os tamanhos pra `rem` não muda nada no tamanho padrão, mas são 372 tamanhos em
+  px em 35 arquivos de CSS (mais 24 no TSX e o texto desenhado em canvas, que não acompanha), e a voz do site é a fonte
+  em pixel (Pixelify, GC Digitos), que só fica nítida em px inteiros: com outro tamanho de fonte no navegador ela sairia
+  borrada, e os adesivos e o quadro do story, que têm medida fixa, cortariam. Uma migração pela metade (só o texto em
+  system-ui) deixaria parte do site crescendo e parte não. Fica pra quando a loja pedir, de uma vez, com a fonte em
+  pixel em degraus inteiros.
+- **DOM da primeira tela (POL-12)**: caiu de ~14 mil pra ~7 mil elementos (o Mercado monta na 1ª visita), ainda acima
+  dos 3 mil que o harness pede. O resto são as ilustrações em SVG da grade do Início (cada uma com centenas de
+  `<path>`, `<rect>` e `<stop>`). Pintar cada ilustração uma vez num bitmap e usar a imagem nos cards (a sugestão da
+  auditoria) mexe na arte do produto e na revelação dela (`ProdutoVisual.tsx`, da frente da arte): fica pra ela.
+- **Checagens do harness que continuam falhando** (rodada final: 3.546 checagens, 22 falhas; antes, 3.369 e 134): as
+  12 de "Texto a 200%: o texto segue o tamanho de fonte do navegador" (POL-09, acima), as 4 de "DOM com menos de 3.000
+  elementos" (acima), as 5 do rodapé (NAV-01, o texto de privacidade, que é da frente da compra) e 1 de "a rua anda à
+  vista" que oscilou com a máquina carregada (o módulo da rua rodando sozinho: 138 checagens, 0 falha). Rodada e
+  resumo em `auditoria/site-nav/` e `navfix/harness-depois/` (scratchpad).
 
 ## Da auditoria (para depois da integração do pedido guiado)
 
