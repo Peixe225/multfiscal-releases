@@ -6,11 +6,11 @@ Options -Indexes -MultiViews
 DirectoryIndex index.html
 
 <IfModule mod_headers.c>
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
   # A raiz tem uma CSP em <FilesMatch "^(index|demo|catalogo)\.html$"> que, por ser seção de arquivo, passaria por
   # cima da regra acima no index.html desta pasta. Uma seção de arquivo aqui (aplicada depois da raiz) devolve a nossa.
   <FilesMatch "\.html$">
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
   </FilesMatch>
   # HTML sempre revalidado: quem abre no celular vê a versão nova na hora.
   # Os arquivos de assets/ têm o hash no nome, então podem ficar em cache por 1 ano.

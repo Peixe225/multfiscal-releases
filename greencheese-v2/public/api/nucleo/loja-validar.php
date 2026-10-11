@@ -443,6 +443,31 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
     }
     $col['foto'] = $foto;
 
+    // thumb animada: o vídeo curto que o painel tratou e mandou pelo admin-video-upload, e a capa dele (o 1º quadro,
+    // imagem do admin-upload: antes de tocar e onde vídeo não roda). Os dois juntos; sem vídeo, sem capa.
+    $video = $tem('video') ? $c['video'] : ($atual['video'] ?? null);
+    if ($video === '' || $video === null) {
+        $video = null;
+    } elseif (!is_string($video) || preg_match('#^uploads/([a-z0-9]{8,64}\.(?:mp4|webm))$#', $video, $m) !== 1) {
+        throw gc_invalido('video', 'Vídeo inválido. Envia de novo.');
+    } elseif ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
+        throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
+    }
+    $capa = $video === null ? null : ($tem('capa') ? $c['capa'] : ($atual['capa'] ?? null));
+    if ($video !== null) {
+        if (!is_string($capa) || $capa === '') {
+            throw gc_invalido('capa', 'Falta a capa do vídeo. Manda o vídeo de novo.');
+        }
+        if (preg_match('#^uploads/([a-z0-9]{8,64}\.(?:webp|jpe?g|png))$#', $capa, $m) !== 1) {
+            throw gc_invalido('capa', 'Capa do vídeo inválida. Manda o vídeo de novo.');
+        }
+        if ($capa !== ($atual['capa'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
+            throw gc_invalido('capa', 'Capa do vídeo não encontrada. Manda o vídeo de novo.');
+        }
+    }
+    $col['video'] = $video;
+    $col['capa'] = $capa;
+
     $cor = $tem('cor') ? gc_loja_cor($c['cor']) : ($atual['cor'] ?? '#a8a8a8');
     if ($cor === null) {
         throw gc_invalido('cor', 'Cor em #rrggbb (ex.: #d8325f).');

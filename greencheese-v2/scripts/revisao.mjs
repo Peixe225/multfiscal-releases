@@ -25,7 +25,9 @@
 // o selo da lateral usa o 2 redesenhado. A API do rateio é simulada como no contrato do API.md; nas outras rodadas ela
 // responde como "sem servidor" (HTML no lugar de JSON, sem erro no console). A loja do servidor (o GET loja simulado,
 // mexido como o dono mexe no painel) tem a rodada dela em scripts/revisao-loja.mjs; a vitrine da rua (o mercador
-// mostrando produtos de verdade da loja, nos três lugares da rua), em scripts/revisao-vitrine.mjs.
+// mostrando produtos de verdade da loja, nos três lugares da rua), em scripts/revisao-vitrine.mjs; a thumb animada (o
+// vídeo do produto: só à vista, no máximo 2, nunca antes da primeira tela, parada com movimento reduzido), em
+// scripts/revisao-thumb.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
@@ -36,6 +38,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { rodadaLoja } from './revisao-loja.mjs'
 import { rodadaVitrine } from './revisao-vitrine.mjs'
+import { rodadaThumb } from './revisao-thumb.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -2578,6 +2581,8 @@ await rodadaLoja({ browser, base, contexto, conferir, foto, vigiar, vigiarSemRed
 
 // ---------- a vitrine da rua (scripts/revisao-vitrine.mjs): produtos de verdade da loja na mão do mercador ----------
 await rodadaVitrine({ browser, base, contexto, conferir, foto, vigiarSemRede })
+// ---------- a thumb animada no site (scripts/revisao-thumb.mjs) ----------
+await rodadaThumb({ browser, base, contexto, conferir, foto })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

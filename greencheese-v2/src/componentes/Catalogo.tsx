@@ -572,7 +572,7 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
                   }}
                   aria-label={`${p.nome}${p.preco == null ? ', preço a consultar' : ''}${disp === true ? ', disponível' : disp === false ? ', indisponível' : ''}${restam != null ? `, ${restam === 1 ? 'resta 1' : `restam ${restam}`}` : ''}. Abrir story`}
                 >
-                  <StoryQuadro produto={p} escala="card" disponivel={disp} />
+                  <StoryQuadro produto={p} escala="card" disponivel={disp} video />
                 </button>
                 {disp === false && canal && <LinkAvisar produto={p} canal={canal} cidade={cidadeNome} compacto className="card-avisar" />}
                 {p.demo && config.carimboDeExemplo && <span className="card-demo carimbo">exemplo</span>}

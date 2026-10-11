@@ -4,9 +4,10 @@
 // do site sozinho, o "restam X", o story filtrado, prêmio só em acessório, a migração num banco de antes da loja e o
 // "apagar dados de exemplo".
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { conferirSemente, montarSemente } from './gerar-semente-loja.mjs'
+import { mp4Montado } from './testar-api-video.mjs'
 
 /** JSON com as chaves em ordem (compara objeto sem depender da ordem das chaves). */
 const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v)
@@ -153,7 +154,8 @@ export async function loja(t, { nomesUf }) {
   igual(chaves(a0), ['ajustes', 'atualizadoEm', 'categorias', 'estados', 'produtos', 'sorte', 'stories', 'textos', 'versao'], 'admin-loja: as partes')
   igual(a0.versao, r0.json.versao, 'a mesma versão do site')
   const ocb0 = a0.produtos.find((p) => p.id === 'seda-ocb-premium-slim')
-  igual(chaves(ocb0), ['arte', 'ativo', 'atualizadoEm', 'categoria', 'combinaCom', 'combos', 'cor', 'criadoEm', 'demo', 'descricao', 'detalhe', 'estados', 'foto', 'id', 'nome', 'obs', 'ordem', 'podeApagar', 'preco', 'tamanho', 'uso', 'variacoes'], 'produto do painel: as chaves')
+  igual(chaves(ocb0), ['arte', 'ativo', 'atualizadoEm', 'capa', 'categoria', 'combinaCom', 'combos', 'cor', 'criadoEm', 'demo', 'descricao', 'detalhe', 'estados', 'foto', 'id', 'nome', 'obs', 'ordem', 'podeApagar', 'preco', 'tamanho', 'uso', 'variacoes', 'video'], 'produto do painel: as chaves (com o vídeo e a capa da thumb animada)')
+  igual([ocb0.video, ocb0.capa], [null, null], 'a semente vem sem thumb animada')
   igual([ocb0.podeApagar, ocb0.uso.premios.map((x) => x.id)], [false, ['ocb-4-por-3']], 'a OCB tem histórico (prêmio)')
   igual(a0.produtos.find((p) => p.id === 'arizona-green-tea').uso.rateios.map((x) => x.id), ['arizona-green-tea'], 'o Arizona tem histórico (rateio de exemplo)')
   igual(a0.categorias.find((c) => c.id === 'sedas').premios.map((x) => x.id), ['brinde-piteira-papel'], 'categoria mostra o prêmio que vale nela')
@@ -899,7 +901,7 @@ export async function lojaMigracao(t) {
   const todas = JSON.parse(
     execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
-  igual(todas.filter((n) => n < 200), [1, 100, 101], 'as migrações até a loja são 1, 100 e 101')
+  igual(todas.filter((n) => n < 200), [1, 100, 101, 102], 'as migrações até a loja são 1, 100, 101 e 102 (o vídeo e a capa do produto)')
   const filhos = []
   try {
     filhos.push(await t.subirPhp(portaA, { GC_TESTE: '1', GC_DADOS: dirA, GC_UPLOADS: join(dirA, 'up') }, ['-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')]))
@@ -985,8 +987,19 @@ export async function lojaExemplos(t) {
   igual(c2.plano.manter.map((r) => [r.id, r.pagas]), [['arizona-green-tea', 1]], 'rateio de exemplo com pagamento: fica')
   ok(!c2.plano.rateios.some((r) => r.id === 'arizona-green-tea'), 'e não está entre os que saem')
   ok(c2.plano.desativar.some((p) => p.id === 'arizona-green-tea') && !c2.plano.produtos.some((p) => p.id === 'arizona-green-tea'), 'o produto dele só sai do site (tem histórico de verdade)')
+  // produto de exemplo com thumb animada: o vídeo e a capa saem da pasta junto com ele
+  const fv = new FormData()
+  fv.append('video', new Blob([mp4Montado(2)], { type: 'video/mp4' }), 'v.mp4')
+  const vid = (await dono.post('admin-video-upload', fv)).json.video
+  const fc = new FormData()
+  fc.append('imagem', new Blob([t.png(36, 64)], { type: 'image/png' }), 'c.png')
+  const capaEx = (await dono.post('admin-upload', fc)).json.imagem
+  igual((await dono.post('admin-produto-salvar', { id: 'seda-raw-classic-king-size', video: vid, capa: capaEx })).status, 200, 'produto de exemplo com vídeo')
+  const naPasta = (c) => existsSync(join(t.uploads, c.slice('uploads/'.length)))
+  ok(naPasta(vid) && naPasta(capaEx), 'o vídeo e a capa estão na pasta')
   const a = await dono.post('admin-loja-exemplos-apagar', { assinatura: c2.assinatura })
   igual([a.status, a.json.apagou], [200, true], 'apagou com a prévia certa')
+  ok(!naPasta(vid) && !naPasta(capaEx), 'o vídeo e a capa do produto de exemplo saíram da pasta')
   const fica = await dono.get('admin-participantes', { query: '&rateio=arizona-green-tea' })
   ok(fica.status === 200 && fica.json.participantes.some((x) => x.nome === 'Cliente Pagante' && x.status === 'confirmado'), 'quem pagou continua no rateio (o registro não se perde)')
   igual((await site().get('rateios')).json.rateios.find((r) => r.id === 'arizona-green-tea')?.demo, false, 'o rateio que ficou é de verdade agora')

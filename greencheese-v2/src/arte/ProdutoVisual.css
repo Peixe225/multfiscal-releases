@@ -24,9 +24,26 @@
   -webkit-user-drag: none;
   user-select: none;
 }
-img.pv-real {
+img.pv-real,
+video.pv-real {
   /* foto recortada sobre preto: o preto da foto some no preto da página */
   mix-blend-mode: lighten;
+}
+/* foto recortada (com transparência): cobre o halo como a ilustração, sem o halo vazar nas partes escuras */
+img.pv-real[data-alfa] {
+  mix-blend-mode: normal;
+}
+/* a thumb animada: invisível até o 1º quadro chegar (a capa embaixo segura o lugar), sem piscar */
+video.pv-real {
+  opacity: 0;
+  pointer-events: none;
+}
+video.pv-real[data-tocando] {
+  opacity: 1;
+}
+/* o vídeo já tem quadro: a capa (o 1º quadro dele) sai de baixo; tocando ou pausado, fica só o vídeo */
+.pv[data-video] > img.pv-real {
+  opacity: 0;
 }
 
 /* enquanto sintoniza, o produto real espera escondido sob a camada */

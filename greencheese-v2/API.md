@@ -494,6 +494,7 @@ erros seguem as regras gerais.
 | GET `admin-participantes-csv` | `&rateio=` | arquivo `rateio-<id>-<data>.csv` (`;`, BOM UTF-8: abre direto no Excel; data no horário de Brasília) |
 | GET `admin-backup` | — | arquivo `greencheese-loja-<data>-<hora>.sqlite` (cópia inteira e coerente do banco; horário de Brasília) |
 | POST `admin-upload` | multipart, campo `imagem` | 201 `{ imagem: 'uploads/<nome>', largura, altura, bytes, tipo }` |
+| POST `admin-video-upload` | multipart, campo `video` (a thumb animada, já tratada no painel) | 201 `{ video: 'uploads/<nome>.mp4\|webm', tipo: 'video/mp4' \| 'video/webm', bytes, segundos }` |
 | GET `admin-diagnostico` | — | `Diagnostico` |
 | GET `admin-eventos` | `[&usuario=<login>]` (só o dono) | `{ eventos: Evento[] }` (os últimos 100, do mais novo; gerente e atendente veem só os deles) |
 
@@ -519,6 +520,20 @@ Erros de cada uma (além dos gerais e do `sem-sessao`/`csrf`):
 - `admin-upload`: `grande-demais` 413 (`limite` em bytes: 8 MB ou o limite do PHP, o menor), `tipo-invalido` 415 (só
   JPG, PNG e WebP de verdade, conferidos pelo conteúdo), `imagem-grande` 413 (mais de 40 megapixels), `invalido` 400
   (`campo: 'imagem'`), `envio-falhou` 500.
+- `admin-video-upload` (permissão `loja`, como salvar o produto): o vídeo curto do produto que o Estúdio do painel
+  gravou (ou o MP4 original pequeno, no navegador que não grava). A hospedagem não tem ffmpeg: o servidor **não
+  recodifica** o vídeo, então confere os bytes de verdade e guarda como veio, com nome aleatório: **MP4** = o arquivo
+  inteiro é uma fila de caixas bem formadas (tamanho de 32 ou 64 bits, nome de 4 letras, nenhuma passa do fim), a
+  primeira é `ftyp` com marca conhecida (`isom`, `iso2`–`iso9`, `mp41`, `mp42`, `avc1`, `M4V `, `dash`, `3gp*`, `qt  `
+  do iPhone…, a principal ou uma compatível) e tem `moov` e `mdat` (o MP4 em pedaços do navegador também); **WebM** =
+  cabeçalho EBML (`1A45DFA3`) com `DocType` `webm`, logo depois o `Segment` (até o fim do arquivo: tamanho batendo ou
+  "desconhecido"), com `Tracks` e um `Cluster`. Página, script ou PHP escondido no meio (`<?php `, `<script`, `<html`,
+  `<!doctype`, `<iframe`, `<body`: o poliglota) → recusa. Erros: `grande-demais` 413 (`limite`: 6 MB ou o limite do
+  PHP), `tipo-invalido` 415 (não é MP4/WebM de verdade, ou tem coisa estranha dentro), `video-longo` 413 (a duração
+  escrita no arquivo passa de 10 s; o painel corta em até 6; `segundos`), `invalido` 400 (`campo: 'video'`),
+  `envio-falhou` 500. Fica em `uploads/<24 hex>.mp4|webm`, servido como `video/mp4`/`video/webm` com `nosniff`, a CSP
+  `sandbox` e `Range` (206), pelo `.htaccess` de `uploads/` (os três lugares: `public/uploads/.htaccess`, a constante
+  `GC_HTACCESS_UPLOADS` e o roteador de desenvolvimento `scripts/api-dev.php`, que imita).
 
 ```ts
 // quem está logado (admin-sessao, -entrar, -instalar, -recuperar e -senha): o painel esconde o que o papel não pode
@@ -715,7 +730,8 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 - O Diagnóstico mostra em `dados.versaoBanco` o número da migração mais nova que rodou.
 
 Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, participações), `100` (as tabelas da loja),
-`101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel) e, dos pedidos e das
+`101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel), `102` (o vídeo e a
+capa da thumb animada do produto: `loja_produtos.video` e `.capa`) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho) e `208` (o pedido
 mudado guarda qual ele substitui).
@@ -806,6 +822,8 @@ interface ProdutoLoja {
   combinaCom?: string[]          // só ids de produtos que estão no site
   demo: boolean
   foto: string | null            // 'uploads/<nome>' (enviada pelo painel) ou 'produtos/<arquivo>' (do build do site)
+  video?: string                 // a thumb animada: 'uploads/<nome>.mp4|webm' (já no estilo do site, sobre preto); só vem com a capa
+  capa?: string                  // o 1º quadro dela, imagem ('uploads/<nome>.webp…'): antes de tocar e onde vídeo não roda
   cor: string                    // '#rrggbb' (o halo)
   arte: { tipo: TipoArte; corpo: string; faixa?: string; rotulo?: string; detalhe?: string; tampa?: string }
 }
@@ -893,7 +911,9 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   precisam do preço da unidade, cada um mais barato que avulso e o total subindo com a quantidade (conferidos de novo
   quando o preço muda); `variacoes` até 12, nome 1–40 sem repetir (sem olhar acento e caixa), preço opcional, o `id`
   fica o mesmo na edição; `combinaCom` até 8 produtos que existem (nunca ele mesmo); `foto` `'uploads/<nome>'` (o que o
-  `admin-upload` devolveu: tem que existir) ou `'produtos/<arquivo>'`; `cor` `#rrggbb`; `arte` `{ tipo, corpo, faixa?,
+  `admin-upload` devolveu: tem que existir) ou `'produtos/<arquivo>'`; `video` `'uploads/<nome>.mp4|webm'` (o que o
+  `admin-video-upload` devolveu) com `capa` `'uploads/<nome>.webp|jpg|png'` (do `admin-upload`), os dois juntos (vídeo
+  sem capa → 400 `campo: 'capa'`; `video: null` tira os dois); `cor` `#rrggbb`; `arte` `{ tipo, corpo, faixa?,
   rotulo?, detalhe?, tampa? }` (tipo da lista do `TipoArte`, cores `#rrggbb`); `obs` até 300 (só no painel); `demo` e
   `ativo` sim/não; `estados` `{ <uf>: { disponivel: boolean, estoque: number | null } }`, só estados da loja, estoque de 0
   a 99.999. Tabaco e vape (a lista do Rateio) em nome, tamanho, detalhe, descrição ou variação → 422 `proibido`
@@ -909,6 +929,10 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
 - **Apagar produto**: só sem histórico (rateio ou prêmio que cita ele) → senão 409 `em-uso` (com `rateios` e
   `premios`): aí desativa (`ativo: false`), ele sai do site e o histórico fica. Apagar tira o produto do "Combina com"
   dos outros e dos stories.
+- **Arquivos que saem de uso**: foto, vídeo ou capa trocados ou tirados (`admin-produto-salvar`), os do produto apagado
+  (`admin-produto-apagar`) e os do que sai no "apagar dados de exemplo" saem de `uploads/` logo depois de gravar, se
+  nenhum produto nem rateio cita mais o arquivo (`gc_uploads_soltos`, em `nucleo/upload.php`). O que outro ainda usa
+  fica; falha ao apagar vai pro log e não desfaz nada.
 - **Ordem** (produtos e categorias): os ids que vieram primeiro e quem não veio (criado noutro aparelho) depois, na
   ordem que tinha. Lista vazia, repetida ou com id que não existe → 400 (`campo: 'ids'`).
 - **Categoria**: nome 2–30; curto 2–14 (sem curto, vale o nome se couber); `icone` `lata`, `garrafa`, `seda`,
@@ -990,6 +1014,8 @@ interface ProdutoAdmin {
   variacoes: { id: string; nome: string; preco: number | null }[]
   combinaCom: string[]
   foto: string | null
+  video: string | null           // a thumb animada e a capa dela (os dois ou nenhum)
+  capa: string | null
   cor: string
   arte: ProdutoLoja['arte']
   obs: string                    // anotação só do dono
@@ -1043,8 +1069,10 @@ Cada pessoa entra no painel com o login dela. Três papéis (`nucleo/equipe.php`
 
 Permissões que existem (`GC_PERMISSOES`): as de cima mais `loja`, `avisos`, `textos`, `servidor`, `equipe` e
 `clientes`, que só o dono tem. Na loja: `produtos` (ler a loja do painel, `admin-loja`, e mudar o disponível e o
-estoque de um estado, `admin-produto-estado`, só nos estados de quem pede) e `loja` (o resto: produto, categorias,
-estados, stories, textos da loja, Teste minha sorte e prêmios). No painel, Produtos e Loja ficam só pro dono por
+estoque de um estado, `admin-produto-estado`, só nos estados de quem pede) e `loja` (o resto: produto, o vídeo da
+thumb animada (`admin-video-upload`), categorias, estados, stories, textos da loja, Teste minha sorte e prêmios). A foto
+(`admin-upload`) segue na permissão `imagens`, que o gerente tem (é a do rateio também); o vídeo só serve ao produto,
+que só quem tem `loja` salva. No painel, Produtos e Loja ficam só pro dono por
 enquanto: a tela de estoque do gerente (só o disponível e o estoque dos estados dele) é o passo seguinte.
 
 **O mapa** (`GC_PERMISSAO_ROTA`): toda rota `admin-*` tem a permissão que pede, num lugar só. O `gc_exigir_dono()`

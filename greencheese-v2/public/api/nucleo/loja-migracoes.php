@@ -2,8 +2,9 @@
 declare(strict_types=1);
 defined('GC_API') || exit;
 
-// Migrações da loja, na faixa 100–199 do registro de banco.php: as tabelas (100) e a semente nos bancos que já
-// estavam instalados antes da loja ir pro servidor (101). Banco novo é semeado na instalação do painel.
+// Migrações da loja, na faixa 100–199 do registro de banco.php: as tabelas (100), a semente nos bancos que já
+// estavam instalados antes da loja ir pro servidor (101) e o vídeo do produto com a capa (102). Banco novo é semeado
+// na instalação do painel.
 // Dinheiro em centavos; listas e objetos pequenos (combos, cidades, horário…) em JSON; hora em unix UTC.
 
 /** @return array<int, string|callable(PDO): void> */
@@ -102,5 +103,12 @@ function gc_migracoes_loja(): array
                 gc_loja_semear($db, gc_loja_semente());
             }
         },
+        // thumb animada do produto (Estúdio do produto, no painel): o vídeo curto já tratado ('uploads/<nome>.mp4' ou
+        // '.webm') e a capa dele (o 1º quadro, imagem: aparece antes de tocar e onde vídeo não roda). Os dois juntos ou
+        // nenhum (loja-validar.php).
+        102 => <<<'SQL'
+        ALTER TABLE loja_produtos ADD COLUMN video TEXT;
+        ALTER TABLE loja_produtos ADD COLUMN capa TEXT;
+        SQL,
     ];
 }

@@ -1,8 +1,8 @@
 // Testa os .htaccess de verdade num Apache local com mod_php (o mais perto da Hostinger que dá pra ter aqui; lá é
 // LiteSpeed, que lê o mesmo .htaccess). Copia o build pra uma pasta temporária em /greencheese/, sem GC_DADOS
 // (como no ar: banco em api/privado/), gera um código de instalação de verdade e confere: o site abre, a API
-// responde, banco/log/módulos/instalacao.php dão 403, uploads/ só serve imagem (nenhum .php roda), o envio de
-// imagem funciona, o pedido do site entra (e as falas do pedido guiado voltam com ETag e 304), o diagnóstico do
+// responde, banco/log/módulos/instalacao.php dão 403, uploads/ só serve imagem e o vídeo do produto (nenhum .php roda), o envio de
+// imagem e de vídeo (com Range) funcionam, o pedido do site entra (e as falas do pedido guiado voltam com ETag e 304), o diagnóstico do
 // painel, pela web, acha tudo fechado e o GET da loja sai com no-cache e ETag (304 quando nada mudou) enquanto o resto
 // da API segue no-store.
 // Uso: node scripts/testar-htaccess.mjs [pasta-do-build]   (padrão: dist/; termina com "htaccess ok")
@@ -29,6 +29,24 @@ if (!existsSync(join(build, 'api', 'index.php'))) {
   console.error(`${build} não tem api/index.php: rode o build antes`)
   process.exit(2)
 }
+
+// os vídeos da thumb animada (o ffmpeg gera, quando tem; senão, os montados à mão do testar-api-video.mjs)
+const { mp4Montado } = await import('./testar-api-video.mjs')
+function videosDeTeste() {
+  const pasta = mkdtempSync(join(tmpdir(), 'gc-vid-'))
+  try {
+    const fonte = ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=240x426:rate=24', '-t', '2']
+    execFileSync('ffmpeg', [...fonte, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', join(pasta, 'a.mp4')], { stdio: 'pipe' })
+    execFileSync('ffmpeg', [...fonte, '-c:v', 'libvpx', '-b:v', '300k', join(pasta, 'a.webm')], { stdio: 'pipe' })
+    const out = [['thumb.mp4', 'video/mp4', readFileSync(join(pasta, 'a.mp4'))], ['thumb.webm', 'video/webm', readFileSync(join(pasta, 'a.webm'))]]
+    rmSync(pasta, { recursive: true, force: true })
+    return out
+  } catch {
+    rmSync(pasta, { recursive: true, force: true })
+    return [['thumb.mp4', 'video/mp4', mp4Montado(2)]]
+  }
+}
+const videos = videosDeTeste()
 
 let falhas = 0
 let checagens = 0
@@ -179,6 +197,8 @@ php_admin_value post_max_size 20M
     okm(/noindex/.test(painel.headers.get('x-robots-tag') ?? ''), `painel com X-Robots-Tag noindex (${painel.headers.get('x-robots-tag')})`)
     okm(/no-store/.test(painel.headers.get('cache-control') ?? ''), `HTML do painel sem cache (${painel.headers.get('cache-control')})`)
     okm(/default-src 'self'/.test(painel.headers.get('content-security-policy') ?? ''), 'a CSP do site vale no painel')
+    // o Estúdio do produto abre o vídeo escolhido no próprio painel (blob:): a CSP deixa
+    okm(/media-src 'self' blob:/.test(painel.headers.get('content-security-policy') ?? ''), `a CSP deixa o painel tocar o vídeo escolhido (media-src blob:)`)
     const refsPainel = [...htmlPainel.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1])
     for (const r of refsPainel) {
       const u = new URL(r, `${base}/painel/`)
@@ -258,8 +278,42 @@ php_admin_value post_max_size 20M
     if (uj.imagem) {
       const img = await fetch(`${base}/${uj.imagem}`)
       okm(img.status === 200 && /^image\/(webp|png)$/.test(img.headers.get('content-type') ?? ''), `a imagem abre (${img.status} ${img.headers.get('content-type')})`)
-      okm(img.headers.get('x-content-type-options') === 'nosniff' && img.headers.get('content-security-policy') === "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox", `imagem com nosniff e CSP sandbox, sem nada em dobro (${img.headers.get('content-security-policy')})`)
+      okm(img.headers.get('x-content-type-options') === 'nosniff' && img.headers.get('content-security-policy') === "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox", `imagem com nosniff e CSP sandbox, sem nada em dobro (${img.headers.get('content-security-policy')})`)
     }
+
+    // a thumb animada pelo Apache: o vídeo enviado abre com o tipo certo, com Range (206), e nada disfarçado roda
+    for (const [nome, tipo, buf] of videos) {
+      const fv = new FormData()
+      fv.append('video', new Blob([buf], { type: tipo }), nome)
+      const uv = await fetch(`${base}/api/index.php?r=admin-video-upload`, { method: 'POST', headers: { Cookie: cookie, 'X-CSRF': csrf, Origin: `http://127.0.0.1:${porta}` }, body: fv })
+      const vj = await uv.json()
+      const ext = tipo === 'video/webm' ? 'webm' : 'mp4'
+      okm(uv.status === 201 && new RegExp(`^uploads/[0-9a-f]{24}\\.${ext}$`).test(vj.video ?? ''), `envio de vídeo ${ext} pelo Apache (${uv.status} ${vj.erro ?? vj.video})`)
+      if (!vj.video) continue
+      const g = await fetch(`${base}/${vj.video}`)
+      const corpo = Buffer.from(await g.arrayBuffer())
+      okm(g.status === 200 && g.headers.get('content-type') === tipo && corpo.equals(buf), `o ${ext} abre como ${tipo}, byte a byte (${g.status} ${g.headers.get('content-type')})`)
+      okm(g.headers.get('x-content-type-options') === 'nosniff' && /sandbox/.test(g.headers.get('content-security-policy') ?? ''), `${ext} com nosniff e CSP sandbox`)
+      okm(g.headers.get('accept-ranges') === 'bytes', `${ext} com Accept-Ranges (${g.headers.get('accept-ranges')})`)
+      const r = await fetch(`${base}/${vj.video}`, { headers: { Range: 'bytes=0-99' } })
+      const pedaco = Buffer.from(await r.arrayBuffer())
+      okm(r.status === 206 && r.headers.get('content-range') === `bytes 0-99/${buf.length}` && pedaco.equals(buf.subarray(0, 100)), `Range no ${ext}: 206 com os 100 primeiros bytes (${r.status} ${r.headers.get('content-range')})`)
+      const r2 = await fetch(`${base}/${vj.video}`, { headers: { Range: `bytes=${buf.length - 50}-` } })
+      okm(r2.status === 206 && Buffer.from(await r2.arrayBuffer()).equals(buf.subarray(buf.length - 50)), `Range do fim do ${ext}: 206 (${r2.status})`)
+    }
+    // disfarçados plantados em uploads/: nome com .php e .html no meio ou no fim nunca roda; nome certo com conteúdo
+    // de página sai como vídeo (nosniff), nunca como página
+    const disfarcados = { 'abcdefgh.php.mp4': '<?php echo "EXEC" . "UTOU";', 'abcdefgh.mp4.php': '<?php echo "EXEC" . "UTOU";', 'abcdefgh.webm.html': '<script>alert(1)</script>', 'gc-mal.mp4': '<?php echo "EXEC" . "UTOU";' }
+    for (const [n, c] of Object.entries(disfarcados)) writeFileSync(join(site, 'uploads', n), c)
+    for (const n of Object.keys(disfarcados)) {
+      const r = await fetch(`${base}/uploads/${n}`)
+      const corpo = await r.text()
+      okm(r.status === 403 && !corpo.includes('EXECUTOU'), `uploads/${n} → ${r.status} (esperado 403, sem executar)`)
+    }
+    writeFileSync(join(site, 'uploads', 'abcdefgh12.mp4'), '<html><script>alert(1)</script><?php echo "EXEC" . "UTOU"; ?>')
+    const fingido = await fetch(`${base}/uploads/abcdefgh12.mp4`)
+    const corpoFingido = await fingido.text()
+    okm(fingido.headers.get('content-type') === 'video/mp4' && fingido.headers.get('x-content-type-options') === 'nosniff' && !corpoFingido.includes('EXECUTOU'), `página com nome de vídeo sai como video/mp4 com nosniff, sem rodar o PHP (${fingido.headers.get('content-type')})`)
 
     // o pedido do site pelo Apache (no toque do WhatsApp) e as falas do pedido guiado com ETag e 304
     const pedido = pedidoValido()

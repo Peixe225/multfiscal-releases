@@ -61,6 +61,12 @@ export interface Produto {
   combinaCom?: string[]
   demo: boolean
   foto: string | null
+  /**
+   * Thumb animada (Estúdio do produto, no painel): vídeo curto já no estilo do site, sobre preto ('uploads/<nome>.mp4'
+   * ou '.webm'), e a capa dele (o 1º quadro, imagem): aparece antes de tocar e onde o vídeo não roda. Os dois juntos.
+   */
+  video?: string
+  capa?: string
   /** Cor de brilho (a cor dominante do produto). Com foto, é recalculada a partir dela. */
   cor: string
   arte: Arte

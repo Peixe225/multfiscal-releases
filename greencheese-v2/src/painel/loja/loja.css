@@ -7,10 +7,26 @@
 .pn-arte-loja {
   isolation: isolate;
 }
+/* o halo do site (o mesmo desenho pontilhado, src/arte/sintonia.ts), no lugar do gradiente do painel */
+.pn-arte-halo-site::before {
+  inset: 0;
+  background: var(--pn-halo-img) center / contain no-repeat;
+  image-rendering: pixelated;
+  opacity: 1;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.pn-arte-cinza.pn-arte-halo-site::before {
+  opacity: 1;
+}
 .pn-arte-foto-loja {
   object-fit: contain;
   /* como no site: o preto da foto some no preto (e o halo aparece por trás) */
   mix-blend-mode: lighten;
+}
+.pn-arte-foto-loja[data-alfa] {
+  /* como no site: foto recortada cobre o halo */
+  mix-blend-mode: normal;
 }
 .pn-arte-pixel {
   object-fit: contain;
@@ -554,6 +570,15 @@ html.com-teclado .pn-pe-fixo {
 }
 .pn-foto-lado > .pn-dica-bloco {
   margin: 0;
+}
+/* a thumb animada ainda sem vídeo: o lugar dela, tracejado */
+.pn-video-vazio {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  aspect-ratio: 9 / 16;
+  border: 1px dashed var(--bolha);
+  color: var(--legenda);
 }
 @media (min-width: 1100px) {
   .pn-foto-card {

@@ -182,3 +182,11 @@ export interface Envio {
   bytes: number
   tipo: string
 }
+
+/** POST admin-video-upload (a thumb animada do produto). */
+export interface EnvioVideo {
+  video: string
+  tipo: 'video/mp4' | 'video/webm'
+  bytes: number
+  segundos: number
+}

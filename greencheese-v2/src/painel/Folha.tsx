@@ -33,6 +33,8 @@ interface Props {
   papel?: 'dialog' | 'alertdialog'
   /** Sem o X (a folha só sai pelo que está nela). */
   semFechar?: boolean
+  /** Classe a mais na folha (o Estúdio do produto, que ocupa mais espaço). */
+  className?: string
 }
 
 export function Folha(props: Props) {
@@ -40,7 +42,7 @@ export function Folha(props: Props) {
   return createPortal(<FolhaAberta {...props} />, document.body)
 }
 
-function FolhaAberta({ aoFechar, titulo, sub, children, rodape, larga, preso, focoInicial, papel = 'dialog', semFechar }: Props) {
+function FolhaAberta({ aoFechar, titulo, sub, children, rodape, larga, preso, focoInicial, papel = 'dialog', semFechar, className }: Props) {
   const idTitulo = useId()
   const idSub = useId()
   const ref = useRef<HTMLDivElement>(null)
@@ -108,7 +110,7 @@ function FolhaAberta({ aoFechar, titulo, sub, children, rodape, larga, preso, fo
       <div className="cortina" aria-hidden="true" onClick={() => !presoRef.current && fechar.current()} />
       <div
         ref={ref}
-        className={`folha degrau-topo pn-folha${larga ? ' pn-folha-larga' : ''}`}
+        className={`folha degrau-topo pn-folha${larga ? ' pn-folha-larga' : ''}${className ? ` ${className}` : ''}`}
         role={papel}
         aria-modal="true"
         aria-labelledby={idTitulo}

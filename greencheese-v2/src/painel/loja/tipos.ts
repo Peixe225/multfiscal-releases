@@ -57,6 +57,9 @@ export interface ProdutoAdmin {
   variacoes: { id: string; nome: string; preco: number | null }[]
   combinaCom: string[]
   foto: string | null
+  /** Thumb animada (Estúdio do produto): o vídeo ('uploads/<nome>.mp4|webm') e a capa dele; os dois ou nenhum. */
+  video: string | null
+  capa: string | null
   cor: string
   arte: Arte
   obs: string
@@ -150,6 +153,8 @@ export interface ProdutoCorpo {
   variacoes?: { id?: string; nome: string; preco?: number | null }[]
   combinaCom?: string[]
   foto?: string | null
+  video?: string | null
+  capa?: string | null
   cor?: string
   arte?: Arte
   obs?: string
