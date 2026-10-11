@@ -241,9 +241,13 @@ export async function rodadaVitrine({ browser, base, contexto, conferir, foto, v
   {
     const nome = 'vitrine-fim-h2-390'
     const { ctx, page } = await abrir({ width: 390, height: 844 }, '?home=2&uf=es&ruaquadros=5')
-    await page.waitForTimeout(1500)
-    await page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga')?.scrollIntoView({ block: 'center' }))
-    conferir(await esperar(page, (s) => Number(document.querySelector(s)?.getAttribute('data-vitrine')) >= 4, RUA, 15000), `${nome}: a vitrine pronta na rua do fim do Início (${await prontos(page)})`)
+    // a rua do fim só baixa perto da tela: rola até ela (de novo, se a grade montou depois e empurrou a vaga)
+    let pronta = false
+    for (let k = 0; k < 15 && !pronta; k++) {
+      await page.evaluate(() => document.querySelector('.vista:not([hidden]) .rua-vaga')?.scrollIntoView({ block: 'center' }))
+      pronta = await esperar(page, (s) => Number(document.querySelector(s)?.getAttribute('data-vitrine')) >= 4, RUA, 1000)
+    }
+    conferir(pronta, `${nome}: a vitrine pronta na rua do fim do Início (${await prontos(page)})`)
     const vistos = await sequencia(page, 2)
     conferirPlaquinhas(nome, 'es', vistos)
     await ateMostrar(page)

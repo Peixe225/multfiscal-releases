@@ -1129,10 +1129,14 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
       await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: resposta }))
       const p = await ctx.newPage()
       await abrirLembrado(ctx, p, tag, `${base}?${h2 ? 'home=2&' : ''}uf=mg&ruaquadros=7`)
-      if (h2) await p.evaluate(() => document.querySelector('.vista-inicio .rua-vaga')?.scrollIntoView({ block: 'center' }))
-      else await p.keyboard.press('k')
+      if (!h2) await p.keyboard.press('k')
       const RUA = '.vista-inicio .rua'
-      const pronta = await p.waitForFunction((s) => Number(document.querySelector(s)?.getAttribute('data-vitrine')) > 0, RUA, { timeout: 15000 }).then(() => true, () => false)
+      // na Home 2 a rua do fim só baixa perto da tela: rola até ela (de novo, se a grade montou depois e empurrou a vaga)
+      let pronta = false
+      for (let k = 0; k < 15 && !pronta; k++) {
+        if (h2) await p.evaluate(() => document.querySelector('.vista-inicio .rua-vaga')?.scrollIntoView({ block: 'center' }))
+        pronta = await p.waitForFunction((s) => Number(document.querySelector(s)?.getAttribute('data-vitrine')) > 0, RUA, { timeout: 1000 }).then(() => true, () => false)
+      }
       if (!pronta) {
         problemas.push(`${tag}: a vitrine não ficou pronta`)
         await ctx.close()

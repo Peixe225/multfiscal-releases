@@ -174,6 +174,17 @@
 .rua-vitrine:focus-visible .rua-vitrine-corpo {
   clip-path: none;
 }
+/* sem lugar do lado do produto (a faixa do celular de 320 px): a placa estreita, com a fonte um pouco menor */
+.rua-vitrine[data-estreita] {
+  max-width: 116px;
+}
+.rua-vitrine[data-estreita] .rua-vitrine-corpo {
+  padding: 4px 7px 5px;
+  font-size: 12px;
+}
+.rua-vitrine[data-estreita] .rua-vitrine-preco {
+  font-size: 15px;
+}
 /* o nome em até duas linhas; o preço embaixo, maior, com o ícone de link (como o VER PRODUTO do story) */
 .rua-vitrine-nome {
   display: -webkit-box;

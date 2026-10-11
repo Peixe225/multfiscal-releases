@@ -434,8 +434,6 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
     if (pl && merc) {
       const hc = motor.cabeca(merc)
       const alvo = produto ?? { x0: ox + (hc.x - 6) * px, y0: oy + hc.y * px, x1: ox + (hc.x + 6) * px, y1: oy + (hc.y + 12) * px, peso: 10 }
-      const w = pl.offsetWidth
-      const h = pl.offsetHeight
       const cx = (alvo.x0 + alvo.x1) / 2
       const cy = (alvo.y0 + alvo.y1) / 2
       const obst: Caixa[] = [{ ...alvo, peso: 30 }, ...ocupados]
@@ -460,25 +458,38 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
       // no story, as bordas que passam (28% de cada lado) ficam por cima: melhor no miolo, onde o toque abre o produto
       if (emStory) obst.push({ x0: 0, y0: TOPO, x1: W * 0.28, y1: BASE, peso: 0.3 }, { x0: W * 0.72, y0: TOPO, x1: W, y1: BASE, peso: 0.3 })
       const frente: LadoCauda = merc.lado === 'dir' ? 'esq' : 'dir'
-      const lugares: { lado: LadoCauda; left: number; top: number; base: number }[] = [
-        // em cima: no meio, mais para trás (por cima da cabeça dele) ou mais para a frente, sempre com a cauda nele
-        { lado: 'baixo', left: cx - w / 2, top: alvo.y0 - CAUDA_PLACA - h, base: 0 },
-        { lado: 'baixo', left: cx - w + 16, top: alvo.y0 - CAUDA_PLACA - h, base: 10 },
-        { lado: 'baixo', left: cx - 16, top: alvo.y0 - CAUDA_PLACA - h, base: 10 },
-      ]
-      // do lado: na frente dele (para onde olha) ou atrás, com a cauda no meio do produto, a placa no meio, mais para
-      // cima ou mais para baixo (na faixa baixa do computador, por baixo do letreiro)
-      for (const [lado, base] of [[frente, 30], [frente === 'esq' ? 'dir' : 'esq', 60]] as const)
-        for (const top of [cy - h / 2, cy - 12, cy - h + 12, alvo.y1 - 14])
-          lugares.push({ lado, left: lado === 'esq' ? alvo.x1 + CAUDA_PLACA : alvo.x0 - CAUDA_PLACA - w, top, base: base + (top === cy - h / 2 ? 0 : 8) })
-      let melhor = { custo: Infinity, lado: 'baixo' as LadoCauda, left: 0, top: 0 }
-      for (const l of lugares) {
-        const left = Math.max(4, Math.min(W - w - 4, l.left))
-        const top = Math.max(TOPO, Math.min(BASE - h, l.top))
-        let custo = l.base + (Math.abs(left - l.left) + Math.abs(top - l.top)) * 2
-        for (const o of obst) custo += o.peso * cobre(left, top, left + w, top + h, o)
-        if (custo < melhor.custo) melhor = { custo, lado: l.lado, left, top }
+      const escolher = () => {
+        const w = pl.offsetWidth
+        const h = pl.offsetHeight
+        const lugares: { lado: LadoCauda; left: number; top: number; base: number }[] = [
+          // em cima: no meio, mais para trás (por cima da cabeça dele) ou mais para a frente, sempre com a cauda nele
+          { lado: 'baixo', left: cx - w / 2, top: alvo.y0 - CAUDA_PLACA - h, base: 0 },
+          { lado: 'baixo', left: cx - w + 16, top: alvo.y0 - CAUDA_PLACA - h, base: 10 },
+          { lado: 'baixo', left: cx - 16, top: alvo.y0 - CAUDA_PLACA - h, base: 10 },
+        ]
+        // do lado: na frente dele (para onde olha) ou atrás, com a cauda no meio do produto, a placa no meio, mais para
+        // cima ou mais para baixo (na faixa baixa do computador, por baixo do letreiro)
+        for (const [lado, base] of [[frente, 30], [frente === 'esq' ? 'dir' : 'esq', 60]] as const)
+          for (const top of [cy - h / 2, cy - 12, cy - h + 12, alvo.y1 - 14])
+            lugares.push({ lado, left: lado === 'esq' ? alvo.x1 + CAUDA_PLACA : alvo.x0 - CAUDA_PLACA - w, top, base: base + (top === cy - h / 2 ? 0 : 8) })
+        let melhor = { custo: Infinity, lado: 'baixo' as LadoCauda, left: 0, top: 0 }
+        for (const l of lugares) {
+          const left = Math.max(4, Math.min(W - w - 4, l.left))
+          const top = Math.max(TOPO, Math.min(BASE - h, l.top))
+          let custo = l.base + (Math.abs(left - l.left) + Math.abs(top - l.top)) * 2
+          for (const o of obst) custo += o.peso * cobre(left, top, left + w, top + h, o)
+          if (custo < melhor.custo) melhor = { custo, lado: l.lado, left, top }
+        }
+        return { ...melhor, w, h }
       }
+      // sem lugar que não cubra o produto (a faixa estreita do celular de 320 px), a placa estreita: fonte menor, menos
+      // largura; fica assim até ele guardar esse produto
+      let melhor = escolher()
+      if (pl.dataset.estreita == null && cobre(melhor.left, melhor.top, melhor.left + melhor.w, melhor.top + melhor.h, alvo) > 0) {
+        pl.dataset.estreita = '1'
+        melhor = escolher()
+      }
+      const { w, h } = melhor
       pl.style.transform = `translate(${snap(melhor.left)}px, ${snap(melhor.top)}px)`
       pl.dataset.cauda = melhor.lado
       const ponta = melhor.lado === 'baixo' ? cx - melhor.left : cy - melhor.top
@@ -674,8 +685,9 @@ export default function Rua({ k = 2, bordas = false, className, story, aoFalhar 
     aoVitrine?.(placaAVista && !reduz)
   }, [placaAVista, reduz, aoVitrine])
 
-  // plaquinha nova (ou que saiu): posiciona antes de pintar
+  // plaquinha nova (ou que saiu): posiciona antes de pintar, na largura de sempre (a estreita é só quando não cabe)
   useLayoutEffect(() => {
+    if (placa.current) delete placa.current.dataset.estreita
     posicionar()
   }, [placaAVista, produtoPlaca, posicionar])
 

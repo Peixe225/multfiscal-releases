@@ -217,6 +217,14 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   entrando na fila no quadro seguinte. Essas correções valem nas duas homes; a home de sempre (a rua no 1º story, com o
   pôster) não foi medida de novo nesta rodada (a medida de referência é a "antes" acima, 2704 ms), e a primeira tela
   dela ficou igual à de 7744b7f nos prints (390×844 e 360×740).
+- **Desempenho com a vitrine da rua (10/10)** (celular 390×844, CPU 4× mais lenta, 4G lenta de 150 ms e 1,6 Mbps, a
+  home de sempre com a rua no 1º story, mediana de 9 rodadas alternadas, entre colchetes do 1º ao 3º quartil, os dois
+  builds com o PHP ligado e a loja do servidor chegando): o story pintado na tela (Element Timing no pôster) em 2660 ms
+  [2560–2740] com a vitrine, contra 2692 [2688–2776] antes, dentro da variação; até a pintura a primeira tela baixa
+  255,2 KB contra 254,6 (o CSS da plaquinha, +0,5 KB comprimido, e +0,1 KB no pedaço principal). O pôster do build é o
+  mesmo, byte a byte (o mesmo md5 nos dois PNG, em pé e deitado). A vitrine fica no pedaço da rua (`Rua-*.js`, de 12,3
+  para 16,2 KB comprimidos), e as artes dos produtos só são geradas depois que a rua pintou o primeiro quadro, uma por
+  respiro do navegador.
 - **LCP da Home 2 (DES-01)**: no celular da Home 2 o navegador ainda pode contar como a maior pintura um produto que
   entra depois (o 2º story), porque a borda cortada do halo muda a área de um produto pro outro. O rascunho da correção
   (o halo do tamanho do desenho) está guardado, sem teste: continua pendente.
