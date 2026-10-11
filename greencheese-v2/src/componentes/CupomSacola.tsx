@@ -8,12 +8,13 @@ import { useCupomNoPedido } from '../lib/cupom-pedido'
 import { fraseDoPremio, nomeCategoria, type Situacao } from '../lib/cupom-uso'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
-import { disponivelEm } from '../store/catalogo'
+import { cabemMais } from '../lib/estoque'
+import { disponivelEm, restamEm } from '../store/catalogo'
 import type { RetratoPremio } from '../store/conta'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useLojaMarca } from '../store/loja'
-import { useSacola } from '../store/sacola'
+import { MAX_POR_ITEM, useSacola } from '../store/sacola'
 import { useUI, type TelaInterativo } from '../store/ui'
 import { Icone } from './comum'
 import '../lib/fonte-codigo'
@@ -81,19 +82,29 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
       {T.tirar}
     </button>
   )
-  const por = (p: Produto, qtd: number, rotulo: string) =>
-    disponivelEm(p, uf) && (
-      <button
-        type="button"
-        className="cs-botao toque"
-        onClick={() => {
-          const naSacola = todas.find((l) => l.produto.id === p.id)
-          adicionar(p.id, naSacola?.item.variacao ?? p.variacoes?.[0]?.id ?? null, qtd)
-        }}
-      >
+  // "Pôr mais N" só quando as N cabem: o "restam X" do estado e os 99 da linha. Não cabendo, nada de botão (pôr menos
+  // não faz o cupom valer, e o que passa do estoque ficaria guardado no aparelho sem ir no pedido)
+  const cabem = (p: Produto, variacao: string | null): number => {
+    const linha = todas.find((l) => l.produto.id === p.id && l.item.variacao === variacao)?.qtd ?? 0
+    const estoque = cabemMais(p.id, uf)
+    return Math.min(estoque ?? Infinity, MAX_POR_ITEM - linha)
+  }
+  const por = (p: Produto, qtd: number, rotulo: string) => {
+    if (!disponivelEm(p, uf)) return false
+    const variacao = todas.find((l) => l.produto.id === p.id)?.item.variacao ?? p.variacoes?.[0]?.id ?? null
+    if (cabem(p, variacao) < qtd) return false
+    return (
+      <button type="button" className="cs-botao toque" onClick={() => adicionar(p.id, variacao, qtd)}>
         {rotulo}
       </button>
     )
+  }
+  /** "Só restam 2 aqui: esse cupom precisa de 4." (o estoque não fecha o cupom) */
+  const naoCabe = (p: Produto, precisa: number): string | null => {
+    const restam = restamEm(p, uf)
+    if (restam == null || restam >= precisa || !disponivelEm(p, uf)) return null
+    return `${restam === 1 ? 'Só resta 1' : `Só restam ${restam}`} em ${lugar}: esse cupom precisa de ${precisa}.`
+  }
 
   let texto: string
   let acao = botaoTirar
@@ -110,7 +121,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
       )
     case 'falta-produto':
       if (situacao.produto) {
-        texto = `Vale pra ${situacao.produto.nome}. Põe na sacola pra valer.`
+        texto = naoCabe(situacao.produto, situacao.precisa) ?? `Vale pra ${situacao.produto.nome}. Põe na sacola pra valer.`
         acao = por(situacao.produto, situacao.precisa, situacao.precisa > 1 ? `Pôr ${situacao.precisa} na sacola` : 'Pôr na sacola') || botaoTirar
       } else {
         const cat = nomeCategoria(situacao.categoria)
@@ -120,7 +131,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
     case 'qtd-insuficiente': {
       const falta = situacao.precisa - situacao.tem
       const nome = situacao.produto?.nome ?? nomeCategoria(situacao.categoria)
-      texto = `Pra valer, são ${situacao.precisa} ${nome} (tem ${situacao.tem}).`
+      texto = (situacao.produto && naoCabe(situacao.produto, situacao.precisa)) || `Pra valer, são ${situacao.precisa} ${nome} (tem ${situacao.tem}).`
       if (situacao.produto) acao = por(situacao.produto, falta, `Pôr mais ${falta}`) || botaoTirar
       break
     }
