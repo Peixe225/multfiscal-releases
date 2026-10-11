@@ -1,8 +1,10 @@
 // O recado depois de cada ação, sempre no mesmo lugar: embaixo, logo acima da barra (no computador, embaixo no meio da
 // área da direita), por 6 s (8 s quando tem "Desfazer"), um de cada vez. Para de contar com o dedo/mouse em cima ou com
 // o foco dentro (dá tempo de tocar no "Desfazer"), e o leitor de tela lê na hora. Quem salvou e muda de tela chama
-// recado() antes de navegar: ele continua aparecendo na tela seguinte.
+// recado() antes de navegar: ele continua aparecendo na tela seguinte. O recado de uma ação de antes (a troca na lista)
+// sai quando a pessoa vai pra outra tela.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useRota } from './rotas'
 import { Ic, Pontinhos } from './ui'
 
 export interface Desfazer {
@@ -20,14 +22,22 @@ export interface Recado {
 
 let atual: Recado | null = null
 let contador = 0
+let criadoEm = 0
 const ouvintes = new Set<() => void>()
 const avisar = () => ouvintes.forEach((f) => f())
 
 /** Mostra o recado (troca o que estiver na tela). */
 export function recado(texto: string, opcoes: { tipo?: Recado['tipo']; desfazer?: Desfazer } = {}): void {
   atual = { id: ++contador, texto, tipo: opcoes.tipo ?? 'ok', desfazer: opcoes.desfazer }
+  criadoEm = Date.now()
   avisar()
 }
+
+/**
+ * Mudou de tela: o recado de quem salvou e mudou de tela agora segue pra tela nova; o de uma ação de antes, e o que tem
+ * "Desfazer" (a troca na lista), fica pra trás, em vez de cobrir a tela seguinte.
+ */
+const SEGUE_POR_MS = 1500
 
 /** Tira o recado da tela (ex.: a ação que ele descreve foi desfeita por outro caminho). */
 export function tirarRecado(): void {
@@ -49,11 +59,22 @@ export function useRecado(): Recado | null {
 /** O recado na tela (a Moldura põe um só, pra todas as telas). */
 export function Recados() {
   const r = useRecado()
+  const rota = useRota()
   const [parado, setParado] = useState(false)
   const [desfazendo, setDesfazendo] = useState(false)
   const caixa = useRef<HTMLDivElement>(null)
+  const telaAntes = useRef(rota)
   useEffect(() => {
+    if (telaAntes.current === rota) return
+    telaAntes.current = rota
+    // o "Desfazer" é da tela onde a ação aconteceu: esse recado nunca segue
+    if (atual && (atual.desfazer || Date.now() - criadoEm > SEGUE_POR_MS)) tirarRecado()
+  }, [rota])
+  useEffect(() => {
+    // recado novo começa a contar do zero: o dedo que tocou no "Desfazer" do anterior (e sumiu junto com ele, sem o
+    // pointerleave) não pode deixar este parado pra sempre
     setDesfazendo(false)
+    setParado(false)
   }, [r?.id])
   useEffect(() => {
     if (!r || parado || desfazendo) return

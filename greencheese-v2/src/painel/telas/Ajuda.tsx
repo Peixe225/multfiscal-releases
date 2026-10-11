@@ -24,7 +24,7 @@ const TAREFAS: Tarefa[] = [
   {
     id: 'preco',
     titulo: 'Mudar o preço de um produto',
-    passos: ['Toca em Produtos (na barra de baixo) e busca o produto.', 'Toca no produto, troca o preço e toca em Salvar.', 'Pronto: o site já mostra o preço novo.'],
+    passos: ['Toca em Produtos (na barra de baixo) e busca o produto.', 'Toca no produto: o preço fica logo embaixo da foto e do nome. Troca e toca em Salvar.', 'Pronto: o site já mostra o preço novo. Saiu sem salvar? O painel pergunta antes.'],
     botao: 'Abrir Produtos',
     href: caminho.produtos,
     pode: dono,
@@ -33,9 +33,9 @@ const TAREFAS: Tarefa[] = [
     id: 'acabou',
     titulo: 'Marcar que acabou (esgotado)',
     passos: [
-      'Em Produtos, toca no estado lá em cima (ex.: MG).',
-      'Desliga o “À venda” do produto: ele sai do site só naquele estado.',
-      'Contando o estoque (− e +), quando chega a 0 ele sai sozinho e volta quando tu põe mais.',
+      'Em Produtos, toca no chip do estado na linha do produto (“À venda em: ✓ MG”): ele sai do site só lá e o chip fica riscado.',
+      'Errou? Toca em “Desfazer” no recado que aparece embaixo.',
+      'Pra contar o estoque, escolhe o estado lá em cima e usa o − e +: chegou a 0, sai sozinho e volta quando tu põe mais.',
     ],
     botao: 'Abrir Produtos',
     href: caminho.produtos,
@@ -52,7 +52,7 @@ const TAREFAS: Tarefa[] = [
   {
     id: 'foto',
     titulo: 'Trocar a foto de um produto',
-    passos: ['Em Produtos, abre o produto.', 'Toca em “Trocar foto” e escolhe da galeria (produto em fundo preto fica melhor no site).', 'Toca em Salvar.'],
+    passos: ['Em Produtos, abre o produto e toca em “Trocar foto”.', 'Escolhe da galeria uma foto bem iluminada, com o produto inteiro, num fundo liso: o Estúdio tira o fundo e centraliza sozinho.', 'Confere e toca em “Usar assim”; depois, em Salvar.'],
     botao: 'Abrir Produtos',
     href: caminho.produtos,
     pode: dono,
@@ -60,7 +60,11 @@ const TAREFAS: Tarefa[] = [
   {
     id: 'produto-novo',
     titulo: 'Cadastrar um produto novo',
-    passos: ['Toca no + da barra e em “Novo produto”.', 'Põe a foto, o nome, a categoria e o preço.', 'Em “Onde tem”, liga os estados onde tem e toca em “Criar produto”.'],
+    passos: [
+      'Em Produtos, escolhe o estado lá em cima (ex.: MG) e toca em “Novo”: o produto já nasce à venda nele. (Ou o + da barra › “Novo produto”.)',
+      'Põe a foto, o nome, a categoria e o preço. Tamanho, descrição e combos ficam em “Mais detalhes”, se quiser.',
+      'Confere “Onde tem” e toca no botão, que diz onde vai à venda (“Criar e pôr à venda em MG”).',
+    ],
     botao: 'Novo produto',
     href: caminho.produtoNovo,
     pode: dono,
