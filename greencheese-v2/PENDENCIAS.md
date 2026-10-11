@@ -160,7 +160,8 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
 - **Taxa na mensagem do pedido**: com a taxa de verdade salva no estado, a mensagem diz `(taxa R$ 15,50)`; no dia de
   entrega grátis, `(entrega grátis hoje)`; com a de exemplo (ou "a confirmar"), segue `(taxa a confirmar)` como sempre.
   A sacola mostra o mesmo. Confirmar com o dono que a taxa fixa pode ir assim (é uma linha em `src/lib/mensagem.ts`,
-  `entregaDoCanal`).
+  `entregaDoCanal`). Taxa R$ 0,00 de verdade sai como `(entrega grátis)` (na sacola, "Entrega grátis."): confirmar com o
+  dono que 0 no painel quer dizer isso (`textoEntrega`, no mesmo arquivo).
 - **Bebida no Teste minha sorte**: além da categoria de bebida, o desenho de bebida (lata alta e garrafas) e o nome de
   bebida alcoólica (os tipos e ~100 marcas comuns, `src/lib/alcool.ts`) tiram o produto do prêmio. Marca nova que não
   está na lista e produto com desenho de lata comum numa categoria sem bebida ainda passam: o certo é pôr a bebida na
@@ -226,7 +227,7 @@ O pedido com código, a cópia no servidor, o painel dos pedidos, os avisos no g
 1. **Número que manda e o serviço de envio**: escolher Z-API ou Evolution API (contratar ou subir o servidor) e um chip só pra mandar os avisos. Esses serviços usam o WhatsApp Web do número conectado, não a API oficial da Meta: por isso um número à parte, nunca o que atende os clientes. Conectar (QR Code), criar o grupo privado com o celular da loja, preencher em Avisos no WhatsApp e tocar em "Enviar teste". Até lá os avisos ficam desligados: os pedidos chegam no WhatsApp da loja e no painel do mesmo jeito.
 2. **A mensagem do grupo**: conferir com o dono o modelo (LEIA-ME tem o exemplo): o que falta, o que sobra, a ordem. Os textos moram em `public/api/nucleo/avisos.php` (`gc_aviso_texto_pedido`, `gc_aviso_rateio_reserva`, `gc_aviso_rateio_pago`).
 3. **Mensagens prontas pro cliente** em cada passo do pedido (`src/painel/pedidos/mensagens.ts`): confirmar o tom. A do confirmado diz o valor dos itens e que "a taxa de entrega e o total a gente fecha por aqui" (a taxa não está no painel).
-4. **WhatsApp de quem pediu**: vai junto quando a pessoa está com a conta aberta (a conta com código pelo WhatsApp liga com os avisos). Nos outros pedidos o dono guarda o número no pedido, tirando da conversa.
+4. **WhatsApp de quem pediu**: vai junto quando a pessoa está com a conta aberta (a conta com código pelo WhatsApp liga com os avisos). A conta só do aparelho não manda mais o número dela (decisão da auditoria da compra, CMP-02: o número não foi conferido e a loja recebe o pedido no WhatsApp de quem pede). Nos outros pedidos o dono guarda o número no pedido, tirando da conversa.
 5. **Pedido mudado**: até 2 h depois de mandar, o pedido mudado entra no lugar do de antes (que sai da lista se ainda estava novo); depois disso são dois pedidos, ligados, e o aviso pede pra conferir. Confirmar com o dono se 2 h é o tempo certo.
 6. **LGPD dos pedidos**: o servidor guarda nome, endereço, observação e (quando tem) o WhatsApp de quem pediu, e o texto dos avisos. Valem as mesmas definições pendentes do rateio (controlador, prazo de retenção, canal de exclusão, política de privacidade). O painel já apaga os dados de um pedido entregue ou cancelado ("Apagar os dados (LGPD)").
 7. **Pedidos no celular**: no painel do celular, Pedidos, Avisos e Textos ficam no Resumo (os novos no topo) e em Conta → "Mais do painel", fora da barra de baixo (que segue com 5: Resumo, Rateios, Criar, Atividade e Conta). Se o dono usar mais os pedidos que os rateios, trocar em `src/painel/secoes.ts` (confirmar com o Ian).
@@ -255,6 +256,36 @@ A equipe com papéis e estados, as contas dos clientes com código pelo WhatsApp
 - **Publicar à mão** (hPanel): o pacote sai de `npm run empacotar`, com as mesmas regras do `publicar.mjs` (recusa o código de dev, deixa banco, log e fotos de fora). O `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site, sem `api/`): gerar de novo antes de usar.
 - Se o endereço final for outro, trocar `urlPublica` em `src/dados/config.ts` e gerar o build de novo.
 - Testar no navegador do Instagram, no Android e no iPhone de verdade (os testes daqui simulam toque e tamanho de tela, não o aparelho).
+
+## Da auditoria da compra (CMP-01 a CMP-15, corrigidos)
+
+O que a correção deixou pra loja, pra outra frente ou pra conferir no ar (o comportamento novo está no LEIA-ME, "Regras
+da compra"):
+
+1. **Painel: combo + variação com preço próprio (outra frente, `src/painel/**` e `loja-validar.php`)**: o site já não
+   aplica o combo do produto numa variação de outro preço (ela sai pelo preço dela). O painel e o servidor ainda aceitam
+   os dois juntos sem dizer nada: falta o painel avisar no cadastro ("Premium tem preço próprio: ela sai sem o combo") ou,
+   se a loja quiser combo na variação, um combo por variação (contrato novo).
+2. **Troco**: o chat confere o troco contra o subtotal (a taxa de entrega a loja confirma na conversa). Com item "a
+   consultar" não dá pra conferir e qualquer valor passa.
+3. **Endereço sem CEP**: até 200 letras (o mesmo do endereço guardado na conta). Ponto de referência longo vai na
+   observação; o chat avisa e não corta.
+4. **Duas abas**: o código preso à aba usa Web Locks (Safari 15.4+, Chrome, Firefox, os navegadores do Instagram de hoje).
+   Navegador mais velho segue como antes: as duas abas podem sair com o mesmo código, e o servidor ainda trata o mesmo
+   código + token como repetido (a 2ª mensagem não entra no painel; a loja recebe as duas no WhatsApp). A conversa é de
+   cada aba, mas o aparelho guarda a última gravada: quem recarrega uma aba depois de mexer na outra volta com a conversa
+   da outra (com um código novo, se a outra ainda estiver aberta).
+5. **Hora da loja no ar**: o site usa o cabeçalho `Date` do `GET loja` (mais o `Age`, se a CDN da Hostinger guardar a
+   resposta). Conferir no ar, com o relógio do celular adiantado um dia, que o "Aberto agora" e a entrega grátis seguem
+   o dia de verdade.
+6. **Privacidade**: o rodapé e o formulário da conta do aparelho agora dizem o que vai pro servidor da loja (a cópia do
+   pedido com nome, endereço, observação, itens e pagamento; o WhatsApp só com a conta da loja; conta, cupons e
+   endereços quando a conta é da loja; o CEP na BrasilAPI ou no ViaCEP; as vagas do rateio). Sem prazo de guarda e sem
+   controlador, de propósito: continuam pendentes as definições de LGPD de "Servidor" e "Contas" (controlador, prazo,
+   canal de exclusão, política publicada com link no rodapé).
+7. **Sugestões do QA que ficam com a loja**: o CEP na mensagem do WhatsApp (hoje só a cópia do servidor tem; o formato é
+   combinado com a loja), retirada no balcão (o pedido guiado só tem entrega) e o aviso do limite de 1 código por minuto
+   no 2º aparelho ("Muitas tentativas…" na primeira vez).
 
 ## Da auditoria (para depois da integração do pedido guiado)
 

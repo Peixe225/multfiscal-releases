@@ -248,7 +248,25 @@ O pedido continua fechando no WhatsApp da loja, do jeito que o cliente já conhe
 - Mudou o pedido depois de mandar (voltou do WhatsApp, tocou em "Não consegui" e trocou o endereço, por exemplo): nasce um código novo, que **entra no lugar** do de antes até 2 h depois (o de antes sai da lista se ainda estava "novo"). Depois disso é outro pedido. Se o envio do de antes tinha falhado, ele não vai mais sozinho; e se chegar atrasado mesmo assim, entra já trocado pelo novo, sem aviso no grupo.
 - Campo que só informa (troco, cupom, pagamento) nunca derruba o pedido: o chat guarda o troco em centavos ("50,555" → R$ 50,56) e no mesmo teto do servidor; o servidor arredonda o que vier. Se a cópia vier torta num campo de estrutura (itens, subtotal) mas com a mensagem certa, o pedido entra só com a mensagem (a anotação diz o que veio errado) — nunca some do painel e do grupo. O que o servidor recusa de vez fica anotado no aparelho e no log do servidor.
 - Sem servidor (o zip da prévia, o `npm run dev` com o PHP desligado), nada disso aparece pro cliente: o pedido fecha no WhatsApp igual.
-- O WhatsApp do cliente vai junto quando ele está com a conta aberta (ver "Contas: equipe e clientes": o pedido fica na conta dele e o endereço é guardado). Nos outros, o dono guarda o número no pedido, tirando da conversa.
+- O WhatsApp do cliente vai junto só quando ele está com a **conta da loja** aberta (a que entra com o código pelo WhatsApp; ver "Contas: equipe e clientes": o pedido fica na conta dele e o endereço é guardado). A conta só do aparelho não manda o número dela: ele não foi conferido, e a loja já recebe o pedido no WhatsApp de quem pede. Nos outros, o dono guarda o número no pedido, tirando da conversa.
+
+### Regras da compra (auditoria de QA, CMP-01 a CMP-15)
+
+O que a sacola, o pedido guiado e a mensagem conferem desde a auditoria da lógica de compra (1.564 casos; a bateria fica fora do repositório, as checagens que cabem aqui estão no `conferir-mensagem.mjs` e no `revisao.mjs`):
+
+- **Combo e variação**: o combo é do produto, pensado pro preço dele. A variação com preço próprio (diferente do produto) não herda: 2 × Premium de R$ 50,00 = R$ 100,00 na página, no story, na sacola, na mensagem e na cópia do servidor (`combosDa` em `src/lib/preco.ts`). O quiz "Quanto leva?" mostra as mesmas quantidades com a conta cheia ("2 por R$ 100,00", sem o "cada"); o "2 por R$ 14,99" embaixo do preço e o empurrão do combo só aparecem na variação que leva o combo.
+- **Hora da loja**: aberto/fechado, "entrega grátis hoje", a validade do cupom e o "Hoje 20:12" do chat são do horário de Brasília (`America/Sao_Paulo`), com o aparelho em qualquer fuso, e corrigidos pela hora do servidor: o cabeçalho `Date` da resposta do `GET loja` (vem até no 304, sem mexer no ETag) e o `agora` do `GET rateios`. Desvio de mais de 90 s vira correção (guardada no aparelho em `gc-relogio` até a próxima resposta). Sem servidor, vale o relógio do aparelho lido em Brasília (`src/lib/relogio.ts`).
+- **Troca de estado no meio do pedido** (seletor, Por estado, CEP de outro estado): o pedido volta pra confirmação do atendimento; o CEP de outro estado e o pagamento que o estado novo não aceita saem (o nome, a observação e o endereço digitado sem CEP ficam como sugestão). "Trocar pra Green Cheese RJ" no aviso do CEP passa pela mesma confirmação do seletor quando algum item não tem lá.
+- **CEP de outra cidade do mesmo estado** (estado com cidades cadastradas): "Esse CEP é de Belo Horizonte/MG. A Green Cheese MG entrega em Teófilo Otoni." com "É esse mesmo" (segue, sem travar) e "Outro CEP"; a cidade do CEP vai no fim da linha da Entrega sempre que não é a do cabeçalho. CEP de outra cidade atendida do mesmo estado troca a cidade do atendimento. O CEP colado com ponto, espaço ou "CEP " chega inteiro na máscara (o campo não corta antes).
+- **Endereço sem CEP**: até 200 letras (o mesmo do endereço guardado na conta), com o contador perto do limite; passou, o chat avisa e não corta nada calado.
+- **Troco**: o valor tem que cobrir o subtotal ("Esse valor não cobre o pedido (R$ 169,89)."; com item a consultar, não dá pra conferir) e o sinal de menos é recusado.
+- **Pedido mudado depois de tocar no WhatsApp**: o código novo zera o "Já mandou?": o resumo volta a pedir pra fechar no WhatsApp (o "Mandei" nunca limpa a sacola de uma mensagem que não saiu).
+- **Duas abas**: a sacola é uma só (a aba relê quando a outra grava) e o código do pedido é de uma aba só (cada aba prende o seu com Web Locks; a que abre com o código de outra aba aberta ganha um novo). `src/lib/abas-do-aparelho.ts`.
+- **Limites da sacola**: 99 por linha (o mesmo produto com a mesma opção): o "+" da sacola desliga e a linha diz "Até 99 por item."; na página e no story, "Pôr na sacola" só avisa ("Até 99 por item: tua sacola já tem 99 deste."), sem carimbo nem "Foi pra sacola", e a barra da página diz "Na sacola: 99 · até 99 por item". O "Pôr mais N" do cupom só aparece quando as N cabem no "restam X" (senão: "Só restam 2 em Teófilo Otoni: esse cupom precisa de 4.").
+- **Confirmação da troca de estado**: cada item com a opção ("Piteira de vidro RAW (Flat · 6 mm × 3,5 cm)"), sem repetir, e "Ficar no Rio de Janeiro", "Ficar em Teófilo Otoni", "Ficar no Espírito Santo".
+- **Taxa R$ 0,00 no painel**: é entrega sem taxa: "Entrega grátis." na sacola, "(entrega grátis)" na mensagem e "Entrega grátis" no destaque do estado.
+- **Endereços guardados**: o pedido oferece os 3 de uso mais recente do estado e "Outros endereços (N)" mostra o resto.
+- **Privacidade**: o rodapé diz o que vai pro servidor da loja (a cópia do pedido; com a conta da loja, conta, cupons e endereços; as vagas do rateio), que o CEP é consultado na BrasilAPI ou no ViaCEP e o que fica no aparelho (a sacola; a conta do Teste minha sorte quando ela é só do aparelho). A política de privacidade em si continua com a loja (PENDENCIAS).
 
 ### Painel → Pedidos
 
@@ -303,7 +321,8 @@ Pra quem mexe no código: o texto de sempre de cada fala, o tipo e os marcadores
 
 - `npm run testar-api`: também os pedidos (cada validação, a armadilha, o Origin, o tabaco, a mesma entrada de novo, 8 envios juntos, o mesmo código em dois aparelhos, o pedido mudado com a janela de 2 h, o limite por IP), o painel dos pedidos, as falas (ETag e 304) e os avisos contra servidores falsos do Z-API, da Evolution e do webhook: o formato exato de cada requisição, a resposta que não espera o envio, falha, nova tentativa, "Mandar de novo" e segredo que nunca volta (`scripts/testar-api-pedidos.mjs`).
 - `npm run testar-painel -- <build>`: no fim, o fluxo dos pedidos, dos avisos (webhook falso com a assinatura conferida) e dos textos no navegador, com axe e os 4 tamanhos (`scripts/testar-painel-pedidos.mjs`; roda sozinho também: `node scripts/testar-painel-pedidos.mjs <build>`).
-- `npm run revisao`: a rodada "pedido no servidor" (a cópia sai no toque, com a mensagem exata e o código; fica no aparelho até o servidor confirmar; código novo quando o pedido muda; as falas trocadas no painel; tabaco recusado na encomenda).
+- `npm run revisao`: a rodada "pedido no servidor" (a cópia sai no toque, com a mensagem exata e o código; fica no aparelho até o servidor confirmar; código novo quando o pedido muda; as falas trocadas no painel; tabaco recusado na encomenda), a do troco (centavos, teto, menor que o subtotal e negativo recusados) e a "compra" (CEP colado, CEP de outra cidade com a cidade na mensagem, endereço no limite, troca de estado no meio do pedido, duas abas e o teto de 99).
+- `node scripts/conferir-mensagem.mjs`: além do formato, a taxa R$ 0,00 como "(entrega grátis)", o dia grátis pelo horário de Brasília em 5 fusos e a variação de preço próprio sem o combo.
 - `testar-htaccess`: os módulos novos fechados pela web, o pedido e as falas pelo Apache.
 
 ### Onde fica cada coisa no código
@@ -509,7 +528,7 @@ Um estado com WhatsApp próprio: em `src/dados/canais.ts`, troque o `whatsapp: n
 
 No arquivo de canais: cidades atendidas (`cidades`), horário (`horario`), taxa de entrega (`taxaEntrega`), formas de pagamento (`pagamento`) e o "Sextou com entrega grátis!" de MG (`entregaGratis`: o texto só aparece no dia da semana dele, no Início, no perfil, no Por estado e no destaque; nos outros dias sai "Entrega grátis às sextas."). Em `perfisAConfirmar` ficam os perfis vistos em marcações de clientes que ainda não foram confirmados (hoje o @greencheese_importsvv): eles não aparecem em nenhuma tela pública (faixa, rodapé, Por estado); quando um for confirmado, vira um estado em `canais`. Quando trocar um valor de demonstração pelo real, mude também `demo: true` para `demo: false`.
 
-Estado com mais de uma cidade: liste todas em `cidades` — o site pergunta a cidade.
+Estado com mais de uma cidade: liste todas em `cidades` — o site pergunta a cidade. O horário e os dias de entrega grátis são lidos no horário de Brasília, pela hora do servidor quando ela vem (ver "Regras da compra"); taxa `0` (de verdade, sem `demo`) aparece como entrega grátis.
 
 ### Produto, preço e disponibilidade — `src/dados/catalogo.json`
 
@@ -529,7 +548,7 @@ Cada produto:
 ```
 
 - **Preço**: número com ponto (`149.9`). Sem preço: `null` → aparece "Consultar" (nunca inventar).
-- **Combo** (ex.: 2 por R$ 14,99): `"combos": [{ "qtd": 2, "total": 14.99 }, { "qtd": 3, "total": 19.99 }]` — a sacola aplica o melhor preço sozinha.
+- **Combo** (ex.: 2 por R$ 14,99): `"combos": [{ "qtd": 2, "total": 14.99 }, { "qtd": 3, "total": 19.99 }]` — a sacola aplica o melhor preço sozinha. Variação com preço próprio (diferente do produto) não leva o combo: ela sai pelo preço dela.
 - **Variações** (ex.: piteira flat/slim): `"variacoes": [{ "id": "flat", "nome": "Flat · 6 mm × 3,5 cm" }]`.
 - **Disponível/indisponível**: `true`/`false` por estado. Indisponível continua aparecendo, em cinza, com "Avisar quando chegar".
 - **Descrição** (página do produto): `"descricao"`, 1 ou 2 frases curtas, só fato certo do produto (sem promessa de preço, frete ou prazo). Sem ela, a página só omite o bloco.
@@ -612,7 +631,7 @@ Em `src/dados/config.ts`: `dadosDeExemplo` (produtos, prêmios, horário e taxa 
 - Encomenda ("Não achou? A Green Cheese importa.", fecha no mesmo WhatsApp), "Avisar quando chegar" (DM do Instagram do estado), todos os Instagrams.
 - Dúvidas: o pedido guiado, o destaque do estado e o rodapé mandam pra DM/Instagram do estado; o WhatsApp fica só pro fechamento.
 - "Segue o perfil do teu estado": mapa do Brasil em pixel (atendidos acesos, os outros em pontinhos apagados) com uma lupa no Sudeste + SC, onde cada estado atendido é um botão (a sigla do estado do cliente vira o adesivo de localização em miniatura: pino + "MG"); tocar num estado sem atendimento mostra "ainda não chegou" com Encomendar (fecha no X, no Esc ou tocando fora). Ao lado, a lista dos perfis no molde do "trocar de conta" do Instagram (na ordem do mapa, de cima pra baixo): tocar troca o site de estado. Mapa e lista ficam lado a lado quando a própria seção tem 910 px ou mais (container query; a coluna do mapa precisa caber o Brasil com a lupa); mais estreito, a lista vai embaixo. O tamanho das células e o lugar da lupa saem de `planejar()` em `MapaBrasil.tsx` (sempre em escala inteira, sem passar da largura da coluna nem da altura da tela).
-- Sacola e respostas ficam salvas no aparelho; o botão voltar do Android fecha a camada aberta.
+- Sacola e respostas ficam salvas no aparelho (a sacola é a mesma em duas abas abertas); o botão voltar do Android fecha a camada aberta.
 - **Rateio**: compra junto de produto importado, com vagas, código RAT-XXXX e pagamento fechado no WhatsApp da loja (ver "Rateio (site)").
 - **Teste minha sorte** (célula da barra no celular, destaque "Sorte" no Início e no Mercado, item na lateral, card no fim do Mercado, convite discreto na sacola): gira a tampa do dichavador com o dedo (ou o botão "Girar", as setas, Espaço/Enter segurado, a roda do mouse); ele abre e, lá dentro, tem um story dos Melhores amigos só pra pessoa, com o prêmio. O 1º giro é sem conta; pra guardar e usar o cupom, cria conta com nome e WhatsApp. Com conta: 1 giro por dia, cupons em "Minha conta" e o nome já no pedido. O cupom aplicado vira uma linha na mensagem do WhatsApp; a loja confirma o desconto (o subtotal do site não muda).
 
