@@ -5,11 +5,18 @@
   height: 100%;
 }
 
-/* halo pontilhado (pixel nítido) atrás do produto */
+/* halo pontilhado (pixel nítido) atrás do produto. A caixa é a do próprio desenho (9:16, centrada; o mesmo lugar do
+   "contain" na caixa toda): no story do celular a caixa do produto é mais larga que a tela, e a borda cortada mudava a
+   área que o navegador conta para a LCP de um produto para o outro — o 2º story virava a LCP aos ~8 s */
 .pv-com-halo::before {
   content: '';
   position: absolute;
   inset: 0;
+  margin: auto;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
   background: var(--pv-halo) center / contain no-repeat;
   image-rendering: pixelated;
   pointer-events: none;

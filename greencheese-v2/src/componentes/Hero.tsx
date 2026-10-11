@@ -580,7 +580,10 @@ export function Hero() {
   }, [idx, ids, uf, reduz])
 
   // troca de produto (voz app): sozinha, o que esperava atrás vem pro centro; na mão, desliza do lado de onde veio. A
-  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás
+  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás. O produto que muda no mesmo lugar (a
+  // loja do servidor chegou e o 1º story de antes saiu, ou a ordem mudou) também entra assim, em vez de trocar seco: o
+  // novo aparecia inteiro de uma vez e o navegador contava ele como a maior pintura da página (DES-01, a LCP da Home 2
+  // ia pra hora em que a loja chegava)
   const palcoEntrou = useRef(false)
   useLayoutEffect(() => {
     const p = ehRua ? cenaRua.current : palco.current
@@ -620,7 +623,7 @@ export function Hero() {
       p.style.opacity = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, uf, reduz])
+  }, [idx, uf, reduz, idAtual])
 
   // paralaxe: só o próximo produto, atrás, acompanha a rolagem (posição presa em 2 px). Liga quando a página respira
   // depois da primeira tela: o ScrollTrigger mede o hero ao nascer, e medir no meio da montagem atrasava a primeira

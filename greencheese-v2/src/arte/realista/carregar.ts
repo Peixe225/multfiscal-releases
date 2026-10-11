@@ -4,6 +4,7 @@
 // Até chegar, o produto aparece na versão em pixel art; quando chega, sintoniza no real.
 import { useSyncExternalStore } from 'react'
 import type { Arte } from './comum'
+import { IDS_REALISTAS } from './ids'
 
 let artes: Record<string, Arte> | null = null
 let pedido: Promise<Record<string, Arte>> | null = null
@@ -23,6 +24,11 @@ export function carregarArtesRealistas(): Promise<Record<string, Arte>> {
   pedido ??= liberacao.then(() => import('./index')).then(
     (m) => {
       artes = m.artesRealistas
+      if (import.meta.env.DEV) {
+        const ids = Object.keys(artes)
+        const fora = ids.filter((id) => !IDS_REALISTAS.has(id)).concat([...IDS_REALISTAS].filter((id) => !ids.includes(id)))
+        if (fora.length) console.error(`IDS_REALISTAS (realista/ids.ts) diferente das ilustrações: ${fora.join(', ')}`)
+      }
       ouvintes.forEach((f) => f())
       return artes
     },
