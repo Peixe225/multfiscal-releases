@@ -2,7 +2,8 @@
 // como o dono mexe), o mercador ergue produtos de verdade, um de cada vez, com a plaquinha do nome e do preço. Confere,
 // nos três lugares da rua (o 1º story do celular, a faixa do computador e o fim do Início da Home 2):
 //  · os produtos do estado certo, na ordem do story do dono e depois os outros, e nunca bebida alcoólica (a loja de
-//    teste tem um destilado e um gin no topo do story de MG) nem o isqueiro;
+//    teste tem no topo do story de MG uma lata de nome neutro numa categoria marcada "Bebida alcoólica" no painel, uma
+//    caneca nos Destilados sem a marca, um destilado e um gin) nem o isqueiro;
 //  · o preço da plaquinha igual ao do catálogo (o dono mudou o do dichavador) e "Consultar" sem preço;
 //  · tocar no produto (ou na plaquinha) abre a página dele; no story, tocar na borda continua passando, segurar continua
 //    pausando e tocar no mercador continua chamando; pelo teclado, a plaquinha é um link com o nome do produto, antes do
@@ -23,9 +24,19 @@ export async function rodadaVitrine({ browser, base, contexto, conferir, foto, v
   const loja = lojaDaSemente()
   const prod = (id) => loja.produtos.find((p) => p.id === id)
   // o dono: o destilado e o gin no topo do story de MG (a rua pula os dois), o dichavador com preço novo
-  loja.stories = { mg: ['jack-daniels-old-no7-1l', 'gin-tanqueray-london-dry', 'dichavador-metal-4-partes', 'seda-ocb-premium-slim'] }
+  // a marca "Bebida alcoólica" do painel (alcool): a categoria de nome neutro marcada fica fora da rua inteira, até a lata
+  // sem nome de bebida ("Lata da casa"); e a dedução pelo nome continua, de reforço: os Destilados sem a marca (a loja de
+  // um servidor de antes dela) seguem fora, até a caneca de nome neutro que mora lá
+  const fanta = prod('fanta-ghost-face-punch')
+  loja.categorias.push({ id: 'da-casa', nome: 'Da casa', curto: 'Da casa', icone: 'lata', bebida: true, alcool: true })
+  loja.categorias.find((c) => c.id === 'destilados').alcool = false
+  loja.produtos.push(
+    { ...fanta, id: 'lata-da-casa', nome: 'Lata da casa', tamanho: '473 ml', detalhe: '', descricao: '', categoria: 'da-casa', preco: 15, foto: null },
+    { ...fanta, id: 'caneca-de-cobre', nome: 'Caneca de cobre', tamanho: '', detalhe: '', descricao: '', categoria: 'destilados', preco: 39.9, foto: null },
+  )
+  loja.stories = { mg: ['lata-da-casa', 'caneca-de-cobre', 'jack-daniels-old-no7-1l', 'gin-tanqueray-london-dry', 'dichavador-metal-4-partes', 'seda-ocb-premium-slim'] }
   prod('dichavador-metal-4-partes').preco = 61.5
-  const ALCOOL = new Set(loja.produtos.filter((p) => p.categoria === 'destilados').map((p) => p.id))
+  const ALCOOL = new Set(loja.produtos.filter((p) => p.categoria === 'destilados' || p.categoria === 'da-casa').map((p) => p.id))
   /** O que pode aparecer na rua no estado (à venda lá, sem destilado e sem isqueiro). */
   const pode = (uf) => new Set(loja.produtos.filter((p) => p.disponivel[uf] && !ALCOOL.has(p.id) && p.arte.tipo !== 'isqueiro').map((p) => p.id))
 
@@ -118,7 +129,7 @@ export async function rodadaVitrine({ browser, base, contexto, conferir, foto, v
     // o story parado (K): a rua anda só na mão
     await page.keyboard.press('k')
     const vistos = await sequencia(page, 4)
-    conferir(vistos[0]?.id === 'dichavador-metal-4-partes' && vistos[1]?.id === 'seda-ocb-premium-slim', `${nome}: a ordem do story do dono, pulando o destilado e o gin (${vistos.map((v) => v.id).join(' → ')})`)
+    conferir(vistos[0]?.id === 'dichavador-metal-4-partes' && vistos[1]?.id === 'seda-ocb-premium-slim', `${nome}: a ordem do story do dono, pulando a categoria marcada como bebida alcoólica, os Destilados (pelo nome), o destilado e o gin (${vistos.map((v) => v.id).join(' → ')})`)
     conferirPlaquinhas(nome, 'mg', vistos)
     conferir(vistos[0]?.preco?.trim() === 'R$ 61,50', `${nome}: o preço que o dono mudou (${vistos[0]?.preco})`)
     conferir(vistos.some((v) => v.preco?.trim() === 'Consultar'), `${nome}: sem preço, "Consultar" (${vistos.map((v) => v.preco?.trim()).join(', ')})`)

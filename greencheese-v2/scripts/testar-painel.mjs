@@ -542,6 +542,18 @@ try {
       }
     }
     ok(todas, `${w}×${h}: nenhuma tela com rolagem lateral`)
+    if (w === 320) {
+      // Produtos: o "Organizar" com o nome à vista ("Ordem" no estreito) e o título "Produtos" numa linha (antes, "Produto/s")
+      await q.goto(`${BASE}/painel/#/produtos`)
+      await q.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
+      const topoP = await q.evaluate(() => {
+        const h1 = document.querySelector('.pn-topo .pn-h1')
+        const b = document.querySelector('.pn-botao-organizar')
+        const linha = parseFloat(getComputedStyle(h1).lineHeight) || 28
+        return { linhas: Math.round(h1.getBoundingClientRect().height / linha), botao: b?.innerText.trim(), dentro: !!b && b.getBoundingClientRect().right <= innerWidth }
+      })
+      ok(topoP.linhas === 1 && topoP.botao === 'Ordem' && topoP.dentro, `320: Produtos com o título numa linha e o botão da ordem com o nome à vista (${JSON.stringify(topoP)})`)
+    }
     // as folhas com o número de vagas (incluir e editar) também não rolam pro lado
     await q.goto(`${BASE}/painel/#/rateio/arizona-green-tea`)
     await q.getByRole('button', { name: 'Incluir', exact: true }).tap()
