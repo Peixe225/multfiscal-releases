@@ -194,15 +194,39 @@
 .sorte-labio {
   z-index: 5;
 }
-/* o preto do buraco da câmara: no mergulho cresce até virar o quadro do story (revelar.ts) */
-.sorte-boca {
+/* o beck dentro da câmara: entre o corpo (3) e o lábio (5), recortado pela borda da frente da boca (clip-path no
+   Palco); sobe quando a tampa sai e para no meio da tela, onde a fumaça assume (revelar.ts) */
+.sorte-beck-caixa {
   position: absolute;
-  z-index: 9;
-  border-radius: 50%;
-  background: var(--preto);
+  z-index: 4;
+  inset: 0;
   pointer-events: none;
+}
+.sorte-beck {
+  position: absolute;
   opacity: 0;
   visibility: hidden;
+  will-change: transform;
+}
+.sorte-beck > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* o palco da fumaça: a área visível da coluna (a altura vem do JogoSorte), por cima da cena e embaixo do story */
+.sorte > .sorte-fumaca {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.sorte > .sorte-fumaca.ativa {
+  pointer-events: auto;
 }
 .sorte-tampa {
   position: absolute;
@@ -549,7 +573,7 @@
 }
 .sorte.sorte-revelando > .sorte-story {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   top: 8px;
   left: 0;
   right: 0;
@@ -820,15 +844,40 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* o chiado que cobre o story na revelação e sintoniza (4 px de tela por pixel, como os produtos) */
-.sp-cobertura {
+/* o brilho do produto na cor da raridade (o halo pontilhado dos produtos, ProdutoVisual) */
+.sp-halo {
   position: absolute;
-  z-index: 10;
   inset: 0;
-  width: 100%;
+  margin: auto;
   height: 100%;
+  width: auto;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+  background: center / contain no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
+}
+/* o carimbo da raridade, como adesivo (o par do "DEU SORTE!", do outro lado da vitrine) */
+.sp-raridade {
+  position: absolute;
+  z-index: 3;
+  top: 4%;
+  right: 2%;
+  rotate: 6deg;
+  padding: 5px 8px 4px;
+  background: var(--r-cor);
+  color: var(--r-tinta, var(--r-escura));
+  border: 2px solid var(--preto);
+  border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--preto);
+  font-size: clamp(13px, 5.2cqi, 19px);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.sp-raridade-lendario {
+  color: #1a0b02;
+  background: linear-gradient(105deg, #ffc53d 0%, #fff1b8 22%, #ff5fb0 45%, #35d4ff 68%, #9466ff 86%, #ffc53d 100%);
 }
 
 /* story baixo (320×568, diálogo baixo): sem a linha de apoio, o destaque um pouco menor, o produto fica com a sobra */
@@ -1430,6 +1479,13 @@
 .sorte-story[data-modo='lado'] .sp-produto {
   top: 2%;
   bottom: 2%;
+}
+/* deitado, a vitrine é estreita: o carimbo da raridade vai pro pé dela (o "DEU SORTE!" fica em cima) */
+.sorte-story[data-modo='lado'] .sp-raridade {
+  top: auto;
+  bottom: 3%;
+  right: 4%;
+  font-size: clamp(12px, 3.4cqi, 16px);
 }
 /* o que o story baixo faz (@container max-height não vale aqui: o quadro deitado cresce com o conteúdo) */
 .sorte-story[data-modo='lado'] .sp-apoio {

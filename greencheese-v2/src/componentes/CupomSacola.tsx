@@ -6,6 +6,7 @@ import { T } from '../interativos/sorte/textos'
 import { formatarAte } from '../lib/cupom'
 import { useCupomNoPedido } from '../lib/cupom-pedido'
 import { fraseDoPremio, nomeCategoria, type Situacao } from '../lib/cupom-uso'
+import { raridadeDoRetrato, SeloRaridade } from '../interativos/sorte/SeloRaridade'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { cabemMais } from '../lib/estoque'
@@ -58,7 +59,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
       <span className="cs-adesivo px">{codigo}</span>
       <span className="sr-only">: </span>
       <span className="cs-premio">
-        <span className="cs-destaque px">{destaque}</span> {alvo}
+        <span className="cs-destaque px">{destaque}</span> {alvo} <SeloRaridade raridade={raridadeDoRetrato(retrato)} />
         {exemplo && (
           <>
             {' '}
@@ -193,7 +194,7 @@ function ConviteCupom() {
                 <span className="cs-adesivo px">{c.codigo}</span>
                 <span className="sr-only">: </span>
                 <span className="cs-premio">
-                  <span className="cs-destaque px">{destaque}</span> {alvo}
+                  <span className="cs-destaque px">{destaque}</span> {alvo} <SeloRaridade raridade={raridadeDoRetrato(c.retrato)} />
                   {c.demo && config.carimboDeExemplo && (
                     <>
                       {' '}

@@ -45,6 +45,8 @@ export const T = {
 
   // revelação
   vivoSaiu: (titulo: string, regra: string, exemplo: boolean) => `Saiu: ${titulo}. ${regra}.${exemplo ? ' Prêmio de exemplo.' : ''}`,
+  // a fumaça já anunciou o prêmio e a raridade ("Prêmio épico: 15% OFF, Piteira de vidro RAW."): no fim, só a regra
+  vivoRegra: (regra: string, exemplo: boolean) => `${regra}.${exemplo ? ' Prêmio de exemplo.' : ''}`,
 
   // story do prêmio: o prêmio é o herói (destaque + produto + 1 linha de apoio); as condições ficam no "Ver condições"
   melhoresAmigos: 'Melhores amigos',

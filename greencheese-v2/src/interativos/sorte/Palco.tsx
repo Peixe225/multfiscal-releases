@@ -3,12 +3,34 @@ import { PixelArte } from '../../arte/PixelArte'
 import type { Grade } from '../../arte/pixel/grades'
 import { BOCA, CorpoAberto, Estatico, FundoTampa, LabioCamara, LadoTampa, PROPORCAO_CORPO, Rotor } from '../../arte/realista/dichavador-jogo'
 import { Icone } from '../../componentes/comum'
+import { Beck } from './fumaca/Beck'
 import { T } from './textos'
 
 // O palco do jogo: disco (tampa vista de cima) com o anel de 8 segmentos e o indicador às 12h; por trás, o corpo em
-// 3/4 que aparece quando a "câmera deita", a boca da câmara e o lábio por cima dela. Em cima do buraco da câmara, o
-// preto dele (`boca`, um div elíptico liso): no mergulho ele cresce até virar o quadro do story do prêmio.
+// 3/4 que aparece quando a "câmera deita", a boca da câmara e o lábio por cima dela. Dentro da câmara, o beck bolado
+// (entre o corpo e o lábio, recortado pela borda da frente da boca): quando a tampa sai, ele sobe de dentro dela até o
+// meio da tela, onde a RevelacaoFumaca assume (revelar.ts).
 // Medidas em função de --d (diâmetro da caixa do disco): min(78vw, 44dvh, 340px), 250 px numa tela de 320.
+
+/** Altura do beck dentro da câmara, em diâmetros do disco. */
+export const BECK_ALT = 0.7
+
+/**
+ * O que fica à vista do beck: tudo acima da borda da frente da boca (a metade de baixo da elipse do buraco). A parede da
+ * frente da câmara esconde o resto; o lábio (por cima) cuida da borda. Muito além do palco pra cima e pros lados: o beck
+ * sai do palco subindo até o meio da tela.
+ */
+const RECORTE_BOCA = (() => {
+  const px = (fx: number, fy: number) => `calc(16px + var(--d) * ${fx.toFixed(4)}) calc(16px + var(--d) * ${fy.toFixed(4)})`
+  const pts: string[] = ['-600% -600%', '700% -600%', `700% calc(16px + var(--d) * ${BOCA.y.toFixed(4)})`]
+  const n = 14
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI
+    pts.push(px(BOCA.x + BOCA.rxBuraco * Math.cos(a), BOCA.y + BOCA.ryBuraco * Math.sin(a)))
+  }
+  pts.push(`-600% calc(16px + var(--d) * ${BOCA.y.toFixed(4)})`)
+  return `polygon(${pts.join(', ')})`
+})()
 
 /** Triângulo do indicador às 12h: 8×4 em escala 3 (24×12 px). */
 const TRIANGULO: Grade = { w: 8, h: 4, linhas: ['xxxxxxxx', '.xxxxxx.', '..xxxx..', '...xx...'] }
@@ -18,7 +40,8 @@ export interface RefsPalco {
   anel: RefObject<SVGSVGElement | null>
   corpo: RefObject<HTMLDivElement | null>
   labio: RefObject<HTMLDivElement | null>
-  boca: RefObject<HTMLDivElement | null>
+  /** O beck dentro da câmara (sobe quando a tampa sai). */
+  beck: RefObject<HTMLDivElement | null>
   tampa: RefObject<HTMLDivElement | null>
   lado: RefObject<HTMLDivElement | null>
   disco: RefObject<HTMLDivElement | null>
@@ -55,12 +78,12 @@ export function Palco({ refs, quartos, modo, interativo, aoTecla, aoSoltarTecla,
     return () => ro.disconnect()
   }, [refs.palco])
   const caixaCorpo = { left: 16, top: 16, width: 'var(--d)', height: `calc(var(--d) * ${PROPORCAO_CORPO.toFixed(4)})` }
-  // o buraco escuro da câmara, no mesmo lugar do desenho (a elipse de dentro da borda)
-  const caixaBoca = {
-    left: `calc(16px + var(--d) * ${(BOCA.x - BOCA.rxBuraco).toFixed(4)})`,
-    top: `calc(16px + var(--d) * ${(BOCA.y - BOCA.ryBuraco).toFixed(4)})`,
-    width: `calc(var(--d) * ${(2 * BOCA.rxBuraco).toFixed(4)})`,
-    height: `calc(var(--d) * ${(2 * BOCA.ryBuraco).toFixed(4)})`,
+  // o beck em pé no meio da boca, com 70% do disco de altura (sobe crescendo até o tamanho do meio da tela)
+  const caixaBeck = {
+    left: `calc(16px + var(--d) * ${(BOCA.x - BECK_ALT * 0.125).toFixed(4)})`,
+    top: `calc(16px + var(--d) * ${(BOCA.y - BECK_ALT * 0.5).toFixed(4)})`,
+    width: `calc(var(--d) * ${(BECK_ALT * 0.25).toFixed(4)})`,
+    height: `calc(var(--d) * ${BECK_ALT.toFixed(4)})`,
   }
   return (
     <div ref={refs.palco} className={`sorte-palco sorte-palco-${modo}${interativo ? ' sorte-palco-ativo' : ''}`} data-lenis-prevent>
@@ -71,7 +94,11 @@ export function Palco({ refs, quartos, modo, interativo, aoTecla, aoSoltarTecla,
       <div ref={refs.labio} className="sorte-labio" style={caixaCorpo} aria-hidden="true">
         <LabioCamara id={`${id}l`} />
       </div>
-      <div ref={refs.boca} className="sorte-boca" style={caixaBoca} aria-hidden="true" />
+      <div className="sorte-beck-caixa" style={{ clipPath: RECORTE_BOCA }} aria-hidden="true">
+        <div ref={refs.beck} className="sorte-beck" style={caixaBeck}>
+          <Beck id={`${id}b`} />
+        </div>
+      </div>
       <div ref={refs.tampa} className="sorte-tampa">
         <div ref={refs.lado} className="sorte-lado" style={caixaCorpo} aria-hidden="true">
           <LadoTampa id={`${id}t`} />

@@ -1,0 +1,175 @@
+/* A revelação da fumaça (RevelacaoFumaca). Entra como <style> junto com o componente (o jogo e o painel usam o mesmo):
+   não depende do CSS do site (o painel tem o dele). Só transform e opacity no que mexe; o canvas da fumaça e o das
+   faíscas sobem com image-rendering: pixelated (o pixel grande do site). As medidas do cartão seguem o palco (cq). */
+
+.fm {
+  --fm-px: var(--pixel, 'GC Digitos', 'Pixelify Sans', ui-monospace, monospace);
+  --fm-ui: var(--ui, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  contain: strict;
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.fm[data-modo='previa'] {
+  background: #000;
+}
+.fm[data-fase='pronto'],
+.fm[data-fase='dissipando'],
+.fm[data-fase='fim'] {
+  cursor: default;
+}
+.fm-palco {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.fm-beck {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  /* o motor põe no lugar (e mostra) no primeiro quadro */
+  visibility: hidden;
+}
+.fm-beck > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.fm-fumaca,
+.fm-faiscas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.fm-suave .fm-fumaca {
+  image-rendering: auto;
+}
+
+/* o prêmio no meio da fumaça: o produto grande com o brilho da raridade (no canvas, atrás), o carimbo da raridade, o
+   destaque em pixel e o nome do produto. Contorno de pixel escuro nos textos: a fumaça atrás muda de cor. */
+.fm-cartao {
+  --fm-v: clamp(96px, min(46cqw, 29cqh), 210px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: 92cqw;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.fm-visual {
+  position: relative;
+  width: var(--fm-v);
+  aspect-ratio: 9 / 16;
+}
+.fm-visual > * {
+  position: absolute;
+  inset: 0;
+}
+.fm-px {
+  font-family: var(--fm-px);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  font-synthesis: none;
+}
+.fm-carimbo {
+  position: relative;
+  z-index: 2;
+  margin-top: calc(var(--fm-v) * -0.26);
+  padding: 7px 14px 6px;
+  font-size: clamp(18px, 6.2cqmin, 28px);
+  letter-spacing: 0.05em;
+  color: var(--fm-tinta, var(--fm-escura));
+  background: var(--fm-cor);
+  border: 2px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  transform: rotate(-7deg);
+  opacity: 0;
+  visibility: hidden;
+}
+.fm-lendario .fm-carimbo {
+  font-size: clamp(20px, 7cqmin, 32px);
+  color: #1a0b02;
+  background: linear-gradient(105deg, #ffc53d 0%, #fff1b8 14%, #ff5fb0 30%, #35d4ff 48%, #9466ff 64%, #ffc53d 80%, #fff1b8 92%, #ffc53d 100%);
+  background-size: 300% 100%;
+  background-position: calc(var(--holo, 0) * 100%) 0;
+}
+.fm-destaque {
+  margin-top: 10px;
+  max-width: 92cqw;
+  font-size: clamp(30px, min(12.5cqw, 7.4cqh), 60px);
+  line-height: 1.02;
+  text-wrap: balance;
+  text-shadow:
+    0 2px 0 #000,
+    2px 0 0 #000,
+    0 -2px 0 #000,
+    -2px 0 0 #000,
+    2px 2px 0 #000,
+    -2px -2px 0 #000,
+    2px -2px 0 #000,
+    -2px 2px 0 #000,
+    5px 5px 0 var(--fm-escura);
+}
+.fm-produto {
+  margin-top: 6px;
+  max-width: min(80cqw, 340px);
+  font: 700 clamp(15px, min(4.8cqw, 3.4cqh), 22px) / 1.2 var(--fm-ui);
+  text-wrap: balance;
+  text-shadow:
+    0 1px 0 #000,
+    1px 0 0 #000,
+    0 -1px 0 #000,
+    -1px 0 0 #000,
+    1px 1px 0 #000,
+    -1px -1px 0 #000,
+    0 2px 6px #000;
+}
+/* teste do painel: o selo PRÉVIA sempre à vista (nunca vale cupom) */
+.fm-selo {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  left: 10px;
+  padding: 5px 8px 4px;
+  font-size: 14px;
+  color: #000;
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+}
+.fm-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

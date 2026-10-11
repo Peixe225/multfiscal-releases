@@ -1,12 +1,16 @@
 // Tato do dichavador: vibração curta onde existir navigator.vibrate (Android; o iPhone ignora) e o "modo leve".
 // A vibração nunca é citada em texto e nunca há som.
 
+// o prêmio vibra mais quanto mais raro (a revelação da fumaça, pedido do Ian em 11/10)
 const PADROES = {
   trava: 8,
   quarto: 14,
   estalo: [18, 40, 28],
   mosaico: 8,
   premio: [10, 60, 10, 60, 24],
+  premioRaro: [12, 50, 12, 50, 32],
+  premioEpico: [16, 40, 16, 40, 16, 40, 44],
+  premioLendario: [22, 30, 22, 30, 22, 30, 60, 50, 90],
 } as const
 
 export type Pulso = keyof typeof PADROES
@@ -18,7 +22,7 @@ export function vibrar(p: Pulso): void {
   try {
     if (!('vibrate' in navigator)) return
     const agora = performance.now()
-    if (p !== 'estalo' && agora - ultimo < 60) return
+    if (p !== 'estalo' && !p.startsWith('premio') && agora - ultimo < 60) return
     ultimo = agora
     navigator.vibrate(PADROES[p] as number | number[])
   } catch {

@@ -8,8 +8,8 @@ import type { Premio } from '../../dados/sorte'
 import { primeiroNome, type ContaAberta } from '../../lib/conta'
 import { conta as adaptador } from '../../lib/conta-adaptador'
 import { useModoConta } from '../../lib/conta-modo'
-import { formatarAte, formatarDiaMes, formatarDiaSemana, formatarEspera, formatarValidade, fraseDoPremio, nomeDoPremio, premioPorId } from '../../lib/cupom'
-import { ehDesktop, movimentoReduzido, ponteiroFino } from '../../lib/movimento'
+import { formatarAte, formatarDiaMes, formatarDiaSemana, formatarEspera, formatarValidade, fraseDoPremio, nomeDoPremio, premioPorId, premiosValidos } from '../../lib/cupom'
+import { ehDesktop, movimentoReduzido, ponteiroFino, quandoRespirar } from '../../lib/movimento'
 import type { Cupom } from '../../store/conta'
 import { useLocal } from '../../store/local'
 import { regrasDaSorte, useCanalDa } from '../../store/loja'
@@ -21,15 +21,22 @@ import { AdesivoCodigo, BolhaPremio } from './Adesivos'
 import { ID_SORTE, useEstadoSorte, usarNoPedido, type ResumoSorte } from './estado'
 import { Palco, type RefsPalco } from './Palco'
 import { Regras } from './Regras'
-import { estalo, montarRevelacao, pintarFinal, PULAR_ATE, PULAR_DESDE, type ElementosRevelacao } from './revelar'
-import { FaixaPremio, StoryPremio, type DadosPremio, type Sintonia } from './StoryPremio'
+import { entrarStory, estalo, montarRevelacao, pintarFinal, PULAR_DESDE, RESPIRO_AUGE, type ElementosRevelacao } from './revelar'
+import { FaixaPremio, StoryPremio, type DadosPremio } from './StoryPremio'
+import { raridadeDoRetrato, SeloRaridade } from './SeloRaridade'
+import { dissiparFumaca, preCarregarFumaca, RevelacaoFumaca } from './fumaca'
+import { raridadeForcada } from './fumaca/forcar'
+import { duracao } from './fumaca/roteiro'
+import { ProdutoVisual } from '../../arte/ProdutoVisual'
+import { raridadeDe, type Raridade } from '../../lib/raridade'
 import { modoLeve, vibrar } from './tato'
 import { T } from './textos'
 import { useGestoGiro } from './useGiro'
 import './estilo'
 
-// "Teste minha sorte": gira a tampa do dichavador, ele abre, a câmera mergulha na câmara escura e o preto de dentro
-// vira um story dos Melhores amigos, só pra pessoa, com o prêmio (StoryPremio).
+// "Teste minha sorte": gira a tampa do dichavador, ele abre e de dentro da câmara sobe um beck bolado; ele é aceso e
+// fumado, a fumaça (RevelacaoFumaca, mais viajada quanto mais raro o prêmio) mostra o prêmio no meio dela e dela sai um
+// story dos Melhores amigos, só pra pessoa, com o prêmio (StoryPremio).
 // Máquina de fases (o React guarda fase e quartos; ângulo, velocidade e trava ficam nos refs do gesto):
 // convite → girando → revelando → prêmio → (cadastro | entrar) → guardado · espera (com conta, já girou hoje) ·
 // bloqueado (sem conta, já girou). O sorteio é gravado no estalo, antes da animação: recarregar não sorteia de novo.
@@ -60,6 +67,18 @@ function dadosDe(premio: Premio | undefined, cupom: Cupom | null): DadosPremio |
   }
   if (!premio) return null
   return { titulo: premio.titulo, regra: premio.regra, descricao: premio.descricao, comoUsar: premio.comoUsar, aplicaA: premio.aplicaA, demo: premio.demo, validadeDias: premio.validadeDias, valor: premio }
+}
+
+/**
+ * A raridade do prêmio na tela: a do prêmio (ou a congelada no cupom); sem o campo (os prêmios de antes de 11/10), comum.
+ * Em dev, ?raridade= força (ver fumaca/forcar.ts).
+ */
+function raridadeDoGanho(g: Ganho | null): Raridade {
+  const forcada = raridadeForcada()
+  if (forcada) return forcada
+  const doPremio = g?.premio as unknown as { raridade?: unknown } | undefined
+  const doCupom = g?.cupom?.retrato as unknown as { raridade?: unknown } | undefined
+  return raridadeDe(doPremio?.raridade != null ? doPremio : doCupom)
 }
 
 /** Alvo de foco da tela que acabou de entrar (ex.: "Fechou, Ian. Teu cupom tá guardado."); sem ele, o h2. */
@@ -180,20 +199,23 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const [rodada, setRodada] = useState(0)
   const [semPremio, setSemPremio] = useState<{ nome: string } | null>(null)
   const [convidando, setConvidando] = useState(true)
-  // o produto do story: só sintoniza no corte da revelação; fora dela, já pronto
-  const [sintonia, setSintonia] = useState<Sintonia>('pronto')
+  // a fumaça da revelação: monta na emenda (o beck chegou no meio da tela) e sai quando o story já entrou
+  const [fumaca, setFumaca] = useState(false)
   // guardou agora: o adesivo do código começa trancado e destrava com um estalo
   const [destrava, setDestrava] = useState<'trancado' | 'abrindo' | null>(null)
   const tlRev = useRef<gsap.core.Timeline | null>(null)
   const tlEstalo = useRef<gsap.core.Timeline | null>(null)
   const abrindo = useRef(false)
+  // os retornos da fumaça (onPronto/onPular) apontam pra revelação que está rodando
+  const aoAuge = useRef<() => void>(() => {})
+  const aoPularFumaca = useRef<() => void>(() => {})
 
   const refs: RefsPalco = {
     palco: useRef<HTMLDivElement>(null),
     anel: useRef<SVGSVGElement>(null),
     corpo: useRef<HTMLDivElement>(null),
     labio: useRef<HTMLDivElement>(null),
-    boca: useRef<HTMLDivElement>(null),
+    beck: useRef<HTMLDivElement>(null),
     tampa: useRef<HTMLDivElement>(null),
     lado: useRef<HTMLDivElement>(null),
     disco: useRef<HTMLDivElement>(null),
@@ -204,7 +226,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const raiz = useRef<HTMLDivElement>(null)
   const story = useRef<HTMLDivElement>(null)
   const quadro = useRef<HTMLDivElement>(null)
-  const cobertura = useRef<HTMLCanvasElement>(null)
+  const palcoFumaca = useRef<HTMLDivElement>(null)
   const pe = useRef<HTMLDivElement>(null)
   const cromo = useRef<HTMLDivElement>(null)
   const segAbrir = useRef<HTMLElement>(null)
@@ -312,8 +334,6 @@ export default function JogoSorte({ tela }: PropsJogo) {
   // o foco vai pro título do formulário ("Cria tua conta"): o leitor de tela anuncia a tela nova
   const irParaCadastro = (modo: 'cadastro' | 'entrar', de: Fase) => {
     setVoltaDe(de)
-    // na volta, o story aparece pronto (o produto não sintoniza de novo)
-    setSintonia('pronto')
     const ir = () => {
       setFase(modo)
       focar(FOCO_JOGO)
@@ -344,10 +364,6 @@ export default function JogoSorte({ tela }: PropsJogo) {
       return
     }
     setGanho({ premio, cupom: res.valor.cupom, origem: 'giro' })
-    // a versão em pixel do produto já fica pronta enquanto a câmera deita (no corte ela só aparece)
-    const prod = fraseDoPremio(premio).produto
-    if (prod) void gerarImagemArte(prod, 108, { brilho: false }).catch(() => undefined)
-    setSintonia('antes')
     setFase('revelando')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uf, reduzido])
@@ -462,25 +478,25 @@ export default function JogoSorte({ tela }: PropsJogo) {
   /* ───────────── revelação ───────────── */
   const coletar = (): ElementosRevelacao | null => {
     const p = refs
-    if (!quadro.current || !cobertura.current) return null
+    if (!quadro.current || !palcoFumaca.current) return null
     const palco = p.palco.current
-    if (!palco || !p.anel.current || !p.corpo.current || !p.labio.current || !p.boca.current || !p.tampa.current || !p.lado.current || !p.disco.current || !p.rotor.current || !p.indicador.current) return null
+    if (!palco || !p.anel.current || !p.corpo.current || !p.labio.current || !p.beck.current || !p.tampa.current || !p.lado.current || !p.disco.current || !p.rotor.current || !p.indicador.current) return null
     return {
       palco,
       anel: p.anel.current,
       corpo: p.corpo.current,
       labio: p.labio.current,
-      boca: p.boca.current,
+      beck: p.beck.current,
       tampa: p.tampa.current,
       lado: p.lado.current,
       disco: p.disco.current,
       rotor: p.rotor.current,
       indicador: p.indicador.current,
+      fumaca: palcoFumaca.current,
       sumir: [...(raiz.current?.querySelectorAll('[data-some]') ?? [])],
       subir: subirNaRevelacao(raiz.current),
       alturaIntro: alturaDe(raiz.current?.querySelector<HTMLElement>('.sorte-intro')),
       quadro: quadro.current,
-      cobertura: cobertura.current,
       pe: pe.current,
       segAbrir: segAbrir.current,
       segPremio: segPremio.current,
@@ -491,24 +507,24 @@ export default function JogoSorte({ tela }: PropsJogo) {
 
   /** O story pronto, sem o palco (prêmio reservado, guardado, depois da revelação). */
   const coletarStory = (): ElementosRevelacao | null => {
-    if (!quadro.current || !cobertura.current) return null
+    if (!quadro.current) return null
     const nada = document.createElement('i')
     return {
       palco: nada,
       anel: nada,
       corpo: nada,
       labio: nada,
-      boca: nada,
+      beck: nada,
       tampa: nada,
       lado: nada,
       disco: nada,
       rotor: nada,
       indicador: nada,
+      fumaca: nada,
       sumir: [],
       subir: [],
       alturaIntro: 0,
       quadro: quadro.current,
-      cobertura: cobertura.current,
       pe: pe.current,
       segAbrir: segAbrir.current,
       segPremio: segPremio.current,
@@ -516,52 +532,119 @@ export default function JogoSorte({ tela }: PropsJogo) {
     }
   }
 
+  // o motor da fumaça baixa quando o jogo abre (na hora do prêmio ele já está aqui); a versão em pixel de cada produto
+  // que pode sair fica pronta no tempo ocioso, um por vez (compor a arte na hora do prêmio travava a câmera deitando)
+  useEffect(() => {
+    void preCarregarFumaca().catch(() => undefined)
+    const fila = [...new Set(premiosValidos().map((p) => fraseDoPremio(p).produto).filter((x): x is NonNullable<typeof x> => !!x))]
+    let vivo = true
+    let cancelar = () => {}
+    const proximo = () => {
+      const prod = fila.shift()
+      if (!prod || !vivo) return
+      cancelar = quandoRespirar(() => {
+        if (vivo) void gerarImagemArte(prod, 108, { brilho: false }).catch(() => undefined).finally(proximo)
+      }, 4000)
+    }
+    proximo()
+    return () => {
+      vivo = false
+      cancelar()
+    }
+  }, [])
+
   useLayoutEffect(() => {
     if (fase !== 'revelando') return
-    casca.corpo?.scrollTo({ top: 0 })
-    // o story já no tamanho certo (as ações acabaram de montar) antes de medir o quadro pro mergulho
+    const corpo = casca.corpo
+    corpo?.scrollTo({ top: 0 })
+    // o story já no tamanho certo (as ações acabaram de montar) e o palco da fumaça do tamanho da área visível
     ajustarStory()
+    if (palcoFumaca.current && corpo) palcoFumaca.current.style.height = `${corpo.clientHeight}px`
     const el = coletar()
     if (!el) {
-      setSintonia('pronto')
       setFase('premio')
       return
     }
-    // onde o dedo girava (antes de qualquer transform da revelação): ver "pular" abaixo
-    const area = refs.palco.current?.getBoundingClientRect() ?? null
+    // a coluna não rola durante a revelação (o palco da fumaça é a área visível)
+    const rolagem = corpo?.style.overflowY ?? ''
+    if (corpo) corpo.style.overflowY = 'hidden'
+    const premioAgora = ganho
+    const rar = raridadeDoGanho(premioAgora)
+    let terminou = false
+    let pulou = false
+    let auge = false
+    let emendou = false
+    let espera = 0
+    let tlStory: gsap.core.Timeline | null = null
+    const terminar = () => {
+      if (terminou) return
+      terminou = true
+      abrindo.current = false
+      // leitor de tela: a fumaça já anunciou o prêmio e a raridade; aqui, a regra (o foco vai pro destaque do story)
+      const d = premioAgora ? dadosDe(premioAgora.premio, premioAgora.cupom) : null
+      if (d) setVivo(T.vivoRegra(d.regra, d.demo && config.carimboDeExemplo))
+      setFase('premio')
+      focar(`#${idTitulo}`)
+    }
+    // pular: o story pronto de uma vez (a fumaça sai sem se desfazer)
+    const pular = () => {
+      if (terminou || pulou) return
+      pulou = true
+      tlRev.current?.kill()
+      tlStory?.kill()
+      window.clearTimeout(espera)
+      pintarFinal(el)
+      setFumaca(false)
+      terminar()
+    }
+    aoPularFumaca.current = pular
+    // o auge (o prêmio assentado no meio da fumaça): respira um pouco e o story sai da fumaça
+    aoAuge.current = () => {
+      if (pulou || auge) return
+      auge = true
+      espera = window.setTimeout(
+        () => {
+          if (pulou || terminou) return
+          if (reduzido) {
+            pintarFinal(el)
+            setFumaca(false)
+            terminar()
+            return
+          }
+          void dissiparFumaca(el.fumaca, 0.9).then(() => setFumaca(false))
+          tlStory = entrarStory(el, { aoFim: terminar })
+        },
+        (reduzido ? 1.2 : RESPIRO_AUGE) * 1000,
+      )
+    }
     const tl = montarRevelacao(el, {
       reduzido,
       leve: modoLeve(),
-      aoSintonizar: () => setSintonia(reduzido ? 'pronto' : 'agora'),
-      aoFim: () => {
-        abrindo.current = false
-        if (reduzido) setSintonia('pronto')
-        // leitor de tela: o resultado, numa frase (a região viva fala só na metade, no "Abriu!" e aqui)
-        const d = ganho ? dadosDe(ganho.premio, ganho.cupom) : null
-        if (d) setVivo(T.vivoSaiu(nomeDoPremio({ titulo: d.titulo, aplicaA: d.aplicaA, ...d.valor }), d.regra, d.demo && config.carimboDeExemplo))
-        setFase('premio')
-        // o story deixa de ser inerte no render da fase nova; o foco vai pro destaque no quadro seguinte
-        focar(`#${idTitulo}`)
+      duracaoFumaca: duracao(rar, false),
+      aoEmenda: () => {
+        emendou = true
+        setFumaca(true)
       },
     })
     tlRev.current = tl
-    // Pular pro fim: só um toque de verdade (sem arrasto) fora de onde o dichavador estava, e só depois que a câmera já
-    // começou a mergulhar (PULAR_DESDE). Quem gira com o polegar em vários toques dá mais um por reflexo quando abre:
-    // esse toque cai no lugar da tampa (ou vem cedo demais) e não pode engolir a revelação. A área é medida agora,
-    // antes da cena subir. O clique desse toque não aperta botão nenhum.
-    const corpo = casca.corpo
+    // Pular pela casca (antes da emenda, e depois do auge): um toque de verdade (sem arrasto) fora de onde o dichavador
+    // estava, e só depois que a tampa já saiu (PULAR_DESDE). Quem gira com o polegar em vários toques dá mais um por
+    // reflexo quando abre: esse toque cai no lugar da tampa (ou vem cedo demais) e não pode engolir a revelação. Entre a
+    // emenda e o auge, quem pula é a fumaça (onPular). A área é medida agora, antes da cena subir. O clique desse toque
+    // não aperta botão nenhum.
+    const area = refs.palco.current?.getBoundingClientRect() ?? null
     const naArea = (x: number, y: number) => !!area && x >= area.left && x <= area.right && y >= area.top && y <= area.bottom
+    const daFumaca = (e: Event) => emendou && !auge && e.target instanceof Element && !!e.target.closest('.sorte-fumaca')
     let inicio: { x: number; y: number; id: number } | null = null
     const desce = (e: PointerEvent) => {
-      inicio = e.isPrimary && !naArea(e.clientX, e.clientY) ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null
+      inicio = e.isPrimary && !naArea(e.clientX, e.clientY) && !daFumaca(e) ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null
     }
     const sobe = (e: PointerEvent) => {
       const i = inicio
       inicio = null
       if (!i || e.pointerId !== i.id || Math.hypot(e.clientX - i.x, e.clientY - i.y) > 10) return
-      if (tl.time() < PULAR_DESDE || tl.time() >= PULAR_ATE) return
-      tl.progress(1)
-      setSintonia('pronto')
+      if (tl.time() < PULAR_DESDE || terminou) return
+      pular()
       const engole = (ev: Event) => {
         ev.stopPropagation()
         ev.preventDefault()
@@ -572,17 +655,34 @@ export default function JogoSorte({ tela }: PropsJogo) {
     const cancela = () => {
       inicio = null
     }
+    // Enter/Espaço também pulam (antes da emenda; entre a emenda e o auge, a fumaça cuida), nunca a tecla ainda
+    // segurada do giro (repeat)
+    const tecla = (e: globalThis.KeyboardEvent) => {
+      if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat || terminou) return
+      if (emendou && !auge) return
+      if (!emendou && tl.time() < PULAR_DESDE) return
+      e.preventDefault()
+      pular()
+    }
     corpo?.addEventListener('pointerdown', desce)
     corpo?.addEventListener('pointerup', sobe)
     corpo?.addEventListener('pointercancel', cancela)
+    window.addEventListener('keydown', tecla, true)
     return () => {
       corpo?.removeEventListener('pointerdown', desce)
       corpo?.removeEventListener('pointerup', sobe)
       corpo?.removeEventListener('pointercancel', cancela)
+      window.removeEventListener('keydown', tecla, true)
+      window.clearTimeout(espera)
       tl.kill()
+      tlStory?.kill()
       tlEstalo.current?.kill()
-      // o título sumiu no corte; fora da revelação ele volta (só pro leitor de tela com o story, à vista no resto)
+      aoAuge.current = () => {}
+      aoPularFumaca.current = () => {}
+      if (corpo) corpo.style.overflowY = rolagem
+      // o título sumiu na emenda; fora da revelação ele volta (só pro leitor de tela com o story, à vista no resto)
       if (el.titulo) gsap.set(el.titulo, { clearProps: 'opacity,visibility' })
+      setFumaca(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fase])
@@ -669,7 +769,6 @@ export default function JogoSorte({ tela }: PropsJogo) {
       if (premio) setGanho({ premio, cupom: cupomGuardado, origem: 'conta' })
       setSemPremio(null)
       setRodada((n) => n + 1)
-      setSintonia('pronto')
       setDestrava(reduzido ? null : 'trancado')
       setFase('guardado')
       setVivo(T.vivoGuardado(cupomGuardado.codigo, formatarValidade(cupomGuardado.validoAte)))
@@ -719,6 +818,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
 
   /* ───────────── composição ───────────── */
   const dados = ganho ? dadosDe(ganho.premio, ganho.cupom) : null
+  const raridade = raridadeDoGanho(ganho)
+  const premioNaTela = dados ? fraseDoPremio({ titulo: dados.titulo, aplicaA: dados.aplicaA, ...dados.valor }) : { destaque: '', alvo: '', produto: null }
   const jogando = fase === 'convite' || fase === 'girando'
   const temPalco = jogando || fase === 'revelando' || fase === 'espera' || fase === 'bloqueado'
   const modoPalco = fase === 'espera' ? 'parado' : fase === 'bloqueado' ? 'travado' : 'girar'
@@ -805,8 +906,25 @@ export default function JogoSorte({ tela }: PropsJogo) {
         </div>
       )}
 
-      {/* o story do prêmio: na revelação fica por cima de tudo, já no lugar final (o mergulho mira nele); depois, no
-          fluxo, no mesmo lugar. As ações ficam no pé dele (embaixo ou por cima do pé, conforme a tela) */}
+      {/* o palco da fumaça: a área visível da coluna, por cima da cena e embaixo do story. Na emenda (o beck chegou no
+          meio da tela) a RevelacaoFumaca monta aqui; quando o story entra, a fumaça vira o fundo dele e se desfaz */}
+      {fase === 'revelando' && ganho && (
+        <div ref={palcoFumaca} className={`sorte-fumaca${fumaca ? ' ativa' : ''}`} aria-hidden={fumaca ? undefined : true} data-forcada={raridadeForcada() ? '' : undefined}>
+          {fumaca && (
+            <RevelacaoFumaca
+              premio={{ destaque: premioNaTela.destaque, produto: premioNaTela.alvo, raridade: raridade }}
+              visual={premioNaTela.produto ? <ProdutoVisual produto={premioNaTela.produto} largura={180} revelar={false} brilho={false} prioridade rotulo={null} /> : <BolhaPremio produto={null} tamanho={96} />}
+              modo="jogo"
+              reduzido={reduzido}
+              onPronto={() => aoAuge.current()}
+              onPular={() => aoPularFumaca.current()}
+            />
+          )}
+        </div>
+      )}
+
+      {/* o story do prêmio: na revelação fica por cima de tudo, já no lugar final (sai da fumaça); depois, no fluxo, no
+          mesmo lugar. As ações ficam no pé dele (embaixo ou por cima do pé, conforme a tela) */}
       {comStory && dados && ganho && (
         <div ref={story} className="sorte-story" style={estiloStory} data-modo={medida?.modo}>
           <StoryPremio
@@ -815,14 +933,15 @@ export default function JogoSorte({ tela }: PropsJogo) {
             cupom={cupomNaTela}
             idTitulo={idTitulo}
             instagram={instagram}
-            sintonia={fase === 'revelando' ? sintonia : sintonia === 'agora' && fase === 'premio' ? 'agora' : 'pronto'}
+            sintonia="pronto"
+            raridade={raridade}
             agora={r.agora}
             postadoEm={ganho.origem === 'pendente' ? (r.pendente?.sorteadoEm ?? null) : null}
             reserva={reservaTexto}
             aoGuardar={fase === 'premio' && !ganho.cupom ? () => irParaCadastro('cadastro', 'premio') : undefined}
             inerte={fase === 'revelando'}
             focoJogo={focoNoStory}
-            refs={{ quadro, cobertura }}
+            refs={{ quadro }}
           />
           <div ref={pe} className="sorte-pe" inert={fase === 'revelando'}>
             {guardadoAgora || (comConta && ganho.cupom) ? (
@@ -970,7 +1089,9 @@ function Espera({ r, usar, verCupons }: { r: ResumoSorte; usar: (c: string) => v
         <div className="sorte-mini">
           <BolhaPremio produto={premioHoje.produto} tamanho={56} vista={hoje.status !== 'ativo'} />
           <div className="sorte-mini-txt">
-            <p className="legenda">{T.hojeSaiu}</p>
+            <p className="legenda sorte-mini-rot">
+              {T.hojeSaiu} <SeloRaridade raridade={raridadeDoRetrato(hoje.retrato)} apagado={hoje.status !== 'ativo'} />
+            </p>
             <p className="sorte-mini-titulo">
               <span className="sorte-mini-valor px">{premioHoje.destaque}</span>
               <span className="sr-only">: </span>

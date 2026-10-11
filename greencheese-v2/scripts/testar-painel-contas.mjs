@@ -538,8 +538,13 @@ export async function fluxoContas(a) {
       await pJ.keyboard.press('ArrowRight')
       await pJ.waitForTimeout(220)
     }
-    await pJ.locator('.story-premio').waitFor({ timeout: 10000 })
-    await pJ.waitForTimeout(3500)
+    // a revelação (11/10): o beck sobe, a fumaça da raridade do prêmio vai até o auge e o story sai dela pronto
+    await pJ.locator('.sorte-fumaca .fm').waitFor({ timeout: 10000 })
+    const rarJ = await pJ.locator('.fm').getAttribute('data-raridade')
+    await pJ.locator('.sorte.sorte-premio').waitFor({ timeout: 20000 })
+    await pJ.waitForTimeout(400)
+    const seloJ = await pJ.locator('.story-premio [data-raridade-selo]').getAttribute('class').catch(() => '')
+    ok(['comum', 'raro', 'epico', 'lendario'].includes(rarJ ?? '') && (seloJ ?? '').includes(`sp-raridade-${rarJ}`), `sorte: a fumaça e o story levam a raridade do prêmio sorteado (${rarJ})`)
     const aparelhoJ = await pJ.evaluate(() => JSON.parse(localStorage.getItem('gc-conta') ?? '{}').state?.aparelho ?? null)
     const giroJ = await apiSite(pJ, `cliente-giro&interativo=sorte&aparelho=${aparelhoJ}`)
     ok(giroJ.json?.pendente?.premioId && giroJ.json?.giro?.disponivel === false, `sorte sem conta: o servidor sorteou e reservou pro aparelho (${giroJ.json?.pendente?.premioId})`)
