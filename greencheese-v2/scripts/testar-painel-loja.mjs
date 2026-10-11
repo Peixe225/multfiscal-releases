@@ -101,7 +101,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   const secoesP = (await p.locator('.pn-editar-form h2').allInnerTexts()).map((x) => x.trim())
   ok(secoesP.join(' · ') === 'Foto · Nome e preço · Onde tem', `Produto: o básico em cima (${secoesP.join(' · ')})`)
   const maisDetalhes = p.getByRole('button', { name: /^Mais detalhes/ })
-  ok((await maisDetalhes.getAttribute('aria-expanded')) === 'false' && (await p.getByLabel('Tamanho').count()) === 0, 'o resto (tamanho, descrição, combos, variações, desenho, anotação) em "Mais detalhes", fechado')
+  ok((await maisDetalhes.getAttribute('aria-expanded')) === 'false' && (await p.locator('#p-descricao').count()) === 0 && (await p.getByLabel('Tamanho').isVisible()), 'o resto (linha de baixo, descrição, combos, variações, desenho, anotação) em "Mais detalhes", fechado; o tamanho do lado do nome')
   const precoNaTela = await preco.evaluate((e) => {
     const r = e.getBoundingClientRect()
     return r.top >= 0 && r.bottom <= document.querySelector('.pn-editar-pe').getBoundingClientRect().top
@@ -111,10 +111,8 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   ok((await p.locator('.pn-previa-em-sel').inputValue()) === 'mg' && /Em MG/.test(await p.locator('.pn-previa-em-sel').innerText()), 'o card do lado da foto mostra MG, o estado do filtro, e diz "Em MG" (antes, o RJ calado)')
   await axe(p, 'produto: o básico')
   await print(p, 'loja-produto-basico')
-  // PNL-20: o Tamanho (em Mais detalhes) sem placeholder que parece valor
-  await maisDetalhes.tap()
-  ok((await p.getByLabel('Tamanho').getAttribute('placeholder')) === null, 'Tamanho sem o "350 ml" cinza que parecia preenchido')
-  await maisDetalhes.tap()
+  // PNL-20: o Tamanho sem placeholder que parece valor (era "350 ml", cinza, num isqueiro)
+  ok(/^ex\.: /.test((await p.getByLabel('Tamanho').getAttribute('placeholder')) ?? ''), `Tamanho com o exemplo dito como exemplo ("${await p.getByLabel('Tamanho').getAttribute('placeholder')}", não "350 ml")`)
   // PNL-08: voltar com mudança pergunta; descartar volta pro preço salvo e apaga o rascunho
   await preco.fill('10,99')
   await p.getByRole('button', { name: 'Voltar', exact: true }).tap()

@@ -1,8 +1,8 @@
 // Produto (criar e editar). Em cima, o básico, que é o que o dono mais mexe: a foto (vira a capa do card e da página do
-// produto no site; o Estúdio deixa ela no estilo do site) e a thumb animada (MidiaProduto.tsx), nome, categoria, preço
-// ou "Consultar" e onde tem (à venda e estoque por estado), com o Salvar fixo embaixo. O resto mora em "Mais
-// detalhes": tamanho, linha de baixo, descrição, combos, variações, "Combina com", o desenho de quando não tem foto, no
-// site sim/não, exemplo, anotação e apagar. O card do lado da foto mostra o estado do filtro da lista (ou o primeiro
+// produto no site; o Estúdio deixa ela no estilo do site) e a thumb animada (MidiaProduto.tsx), nome (com o tamanho
+// do lado: vai junto dele na mensagem do pedido), categoria, preço ou "Consultar" e onde tem (à venda e estoque por
+// estado), com o Salvar fixo embaixo. O resto mora em "Mais detalhes": linha de baixo, descrição, combos, variações,
+// "Combina com", o desenho de quando não tem foto, no site sim/não, exemplo, anotação e apagar. O card do lado da foto mostra o estado do filtro da lista (ou o primeiro
 // onde tá à venda) e diz qual é. O produto novo já nasce à venda no estado do filtro e o botão diz onde vai à venda.
 // O que está sendo digitado fica guardado no aparelho até salvar, e sair com mudança pergunta antes (useAvisarAoSair).
 // O erro de um campo some assim que ele fica certo. Na edição, só vai pro servidor o que mudou (a troca rápida feita
@@ -338,7 +338,7 @@ function EscolherCombina({ l, proprio, ids, aoMudar }: { l: LojaAdmin; proprio: 
 const grupoDoErro = (k: string) => k.replace(/-(\d+|[a-z]{2})$/, '')
 
 /** Os campos que moram em "Mais detalhes": o erro num deles abre a seção antes de levar o foco. */
-const EM_DETALHES = new Set(['tamanho', 'detalhe', 'descricao', 'combo', 'combos', 'var', 'variacoes', 'combinaCom', 'arte', 'cor', 'obs'])
+const EM_DETALHES = new Set(['detalhe', 'descricao', 'combo', 'combos', 'var', 'variacoes', 'combinaCom', 'arte', 'cor', 'obs'])
 
 /** "MG", "MG e SP", "3 estados". */
 function listaUfs(ufs: string[]): string {
@@ -351,7 +351,6 @@ function listaUfs(ufs: string[]): string {
 /** O que tem em "Mais detalhes", numa linha (embaixo do botão que abre). */
 function resumoDetalhes(f: Form): string {
   const tem: string[] = []
-  if (f.tamanho.trim()) tem.push(f.tamanho.trim())
   if (f.descricao.trim() || f.detalhe.trim()) tem.push('descrição')
   if (f.combos.length) tem.push(f.combos.length === 1 ? '1 combo' : `${f.combos.length} combos`)
   if (f.variacoes.length) tem.push(f.variacoes.length === 1 ? '1 variação' : `${f.variacoes.length} variações`)
@@ -359,7 +358,7 @@ function resumoDetalhes(f: Form): string {
   if (f.obs.trim()) tem.push('anotação')
   if (!f.ativo) tem.push('fora do site')
   if (f.demo) tem.push('exemplo')
-  return tem.length ? tem.join(' · ') : 'Tamanho, descrição, combos, variações, desenho, anotação'
+  return tem.length ? tem.join(' · ') : 'Linha de baixo, descrição, combos, variações, desenho, anotação'
 }
 
 export function Produto({ id, ufNovo = null }: { id: string | null; ufNovo?: string | null }) {
@@ -703,9 +702,15 @@ export function Produto({ id, ufNovo = null }: { id: string | null; ufNovo?: str
           </Secao>
 
           <Secao titulo="Nome e preço" id="s-produto">
-            <Campo id="p-nome" rotulo="Nome" erro={erroDe('nome')} lado={<span className="pn-contagem">{tamanho(f.nome)}/60</span>}>
-              {(a) => <input {...a} name="nome" className="pn-input" autoComplete="off" maxLength={60} placeholder="Ex.: Fanta Ghost Face Punch" value={f.nome} onChange={(e) => mudar('nome', e.target.value)} />}
-            </Campo>
+            {/* o tamanho vai junto do nome na mensagem do pedido ("Fanta 350 ml"): fica do lado dele, sem custar altura */}
+            <div className="pn-dupla pn-dupla-nome">
+              <Campo id="p-nome" rotulo="Nome" erro={erroDe('nome')} lado={<span className="pn-contagem">{tamanho(f.nome)}/60</span>}>
+                {(a) => <input {...a} name="nome" className="pn-input" autoComplete="off" maxLength={60} placeholder="Ex.: Fanta Uva" value={f.nome} onChange={(e) => mudar('nome', e.target.value)} />}
+              </Campo>
+              <Campo id="p-tamanho" rotulo="Tamanho" erro={erroDe('tamanho')}>
+                {(a) => <input {...a} name="tamanho" className="pn-input pn-input-exemplo" autoComplete="off" maxLength={20} placeholder="ex.: 350 ml" aria-description="Opcional. Vai junto do nome na mensagem do pedido." value={f.tamanho} onChange={(e) => mudar('tamanho', e.target.value)} />}
+              </Campo>
+            </div>
             <div className="pn-dupla pn-dupla-basico">
               <Campo id="p-categoria" rotulo="Categoria" erro={erroDe('categoria')}>
                 {(a) => (
@@ -747,9 +752,6 @@ export function Produto({ id, ufNovo = null }: { id: string | null; ufNovo?: str
           {detalhes && (
             <div id="p-detalhes" className="pn-detalhes-corpo">
               <Secao titulo="Detalhes" id="s-detalhes">
-                <Campo id="p-tamanho" rotulo="Tamanho" erro={erroDe('tamanho')} dica="Ex.: 350 ml, 1 L, 55 mm. Vai junto do nome na mensagem do pedido." lado={<span className="pn-opcional">opcional</span>}>
-                  {(a) => <input {...a} name="tamanho" className="pn-input" autoComplete="off" maxLength={20} value={f.tamanho} onChange={(e) => mudar('tamanho', e.target.value)} />}
-                </Campo>
                 <Campo id="p-detalhe" rotulo="Linha de baixo" erro={erroDe('detalhe')} dica="Aparece embaixo do nome no story e na página (ex.: Lata 350 ml · importada)." lado={<span className="pn-opcional">opcional</span>}>
                   {(a) => <input {...a} name="detalhe" className="pn-input" autoComplete="off" maxLength={60} value={f.detalhe} onChange={(e) => mudar('detalhe', e.target.value)} />}
                 </Campo>

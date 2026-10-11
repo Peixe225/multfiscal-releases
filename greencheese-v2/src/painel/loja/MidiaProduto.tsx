@@ -224,7 +224,7 @@ export function VideoProduto({ video, capa, nome, preco, cor, aoMudar, compacto 
   )
   const botoes = (
     <div className="pn-foto-acoes">
-      <label className="pn-botao pn-botao-cinza">
+      <label className={`pn-botao pn-botao-cinza${compacto ? ' pn-botao-p' : ''}`}>
         <Ic nome="play" tamanho={16} />
         <span className="pn-botao-txt">{video ? 'Trocar vídeo' : compacto ? 'Escolher vídeo' : 'Thumb animada'}</span>
         <input ref={entrada} id="p-video" name="video" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,.mp4,.mov,.webm,.m4v,image/gif" className="sr-only" onChange={(e) => escolher(e.target.files?.[0])} />
@@ -242,7 +242,7 @@ export function VideoProduto({ video, capa, nome, preco, cor, aoMudar, compacto 
       <div className="pn-foto-lado">
         {compacto ? (
           <p className="pn-video-txt">
-            <strong>Thumb animada</strong> <span>{video ? 'toca no card, no story e na página (sem som).' : 'opcional: um vídeo de 3 a 6 s do produto.'}</span>
+            <strong>Thumb animada</strong> <span>{video ? '(toca no card e no story)' : '(opcional)'}</span>
           </p>
         ) : (
           <p className="pn-dica-bloco">

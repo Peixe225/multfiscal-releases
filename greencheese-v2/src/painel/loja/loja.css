@@ -1329,6 +1329,21 @@ html.com-teclado .pn-pe-fixo {
 .pn-editar-produto .pn-form-secao {
   gap: 14px;
 }
+/* nome e tamanho na mesma linha (o tamanho é curto); no celular bem estreito, um embaixo do outro */
+.pn-dupla-nome {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+@media (max-width: 359px) {
+  .pn-dupla-nome {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* placeholder que é exemplo ("ex.: 350 ml"): em itálico e apagado, pra não parecer preenchido */
+.pn-input-exemplo::placeholder {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--chiado);
+}
 /* "Em MG ▾" debaixo do card do lado da foto: de qual estado é o que o card mostra */
 .pn-previa-em {
   display: block;
@@ -1407,7 +1422,20 @@ html.com-teclado .pn-pe-fixo {
   width: 40px;
 }
 .pn-video-compacto .pn-foto-lado {
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.pn-video-compacto .pn-video-txt {
+  flex: 1 1 96px;
+}
+.pn-video-compacto .pn-foto-acoes {
+  flex: none;
+}
+.pn-video-compacto .pn-foto-lado > .pn-aviso {
+  flex-basis: 100%;
 }
 .pn-video-txt {
   margin: 0;
