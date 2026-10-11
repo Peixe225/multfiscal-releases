@@ -580,16 +580,15 @@ export function Hero() {
   }, [idx, ids, uf, reduz])
 
   // troca de produto (voz app): sozinha, o que esperava atrás vem pro centro; na mão, desliza do lado de onde veio. A
-  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás. O produto que muda no mesmo lugar (a
-  // loja do servidor chegou e o 1º story de antes saiu, ou a ordem mudou) também entra assim, em vez de trocar seco.
+  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás.
+  // A primeira entrada da página (ela abrindo no produto) só esmaece, no lugar, sem crescer de trás: assim a 1ª pintura
+  // do story já é do tamanho dele (o halo do 1º produto é a maior pintura, a LCP, na primeira tela) e nada que pinta
+  // depois passa dela: o próximo que espera atrás é menor, os produtos seguintes pintam pequenos (crescendo de trás) e
+  // o que troca no mesmo lugar quando a loja do servidor chega pinta do mesmo tamanho (DES-01).
   // O ponto de partida vai direto no estilo e o GSAP assume no quadro seguinte (antes da pintura dele): o produto novo
   // sempre pinta pela primeira vez no ponto de partida. Começando o GSAP aqui, no meio do commit, o tempo do commit
-  // (centenas de ms num celular lento) contava como animação: a 1ª pintura já saía quase inteira e o navegador contava
-  // o produto novo como a maior pintura da página (DES-01, a LCP da Home 2 caía na troca). E o GSAP lê o estilo
-  // calculado ao começar: ler aqui obrigava o navegador a calcular o estilo da página inteira a mais.
-  // A primeira entrada da página (ela abrindo no produto) só esmaece, no lugar, sem crescer de trás: assim a 1ª pintura
-  // do story já é do tamanho dele, e nada que entra depois (o próximo que espera atrás, os produtos seguintes, que
-  // pintam pequenos) passa dela como a maior pintura (DES-01)
+  // (centenas de ms num celular lento) contava como animação e a 1ª pintura já saía quase inteira. E o GSAP lê o estilo
+  // calculado ao começar: ler aqui obrigava o navegador a calcular o estilo da página inteira a mais
   const palcoEntrou = useRef(false)
   useLayoutEffect(() => {
     const p = ehRua ? cenaRua.current : palco.current
@@ -629,7 +628,7 @@ export function Hero() {
       p.style.opacity = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, uf, reduz, idAtual])
+  }, [idx, uf, reduz])
 
   // paralaxe: só o próximo produto, atrás, acompanha a rolagem (posição presa em 2 px). Liga quando a página respira
   // depois da primeira tela: o ScrollTrigger mede o hero ao nascer, e medir no meio da montagem atrasava a primeira
