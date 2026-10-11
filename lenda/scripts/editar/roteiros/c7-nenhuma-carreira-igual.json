@@ -102,9 +102,9 @@
    ]
   },
   {
-   "src": "v-ruim-02.mp4",
-   "de": 97.5,
-   "ate": 98.0,
+   "src": "v-ruim-03.mp4",
+   "de": 89.0,
+   "ate": 89.5,
    "vel": 1.0,
    "zoom": [
     1.6,
@@ -214,13 +214,27 @@
    ]
   },
   {
+   "src": "v-boa-01.mp4",
+   "de": 65.1,
+   "ate": 65.6,
+   "vel": 1.0,
+   "zoom": [
+    1.06,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
    "src": "v-otima-06.mp4",
    "de": 85.8,
    "ate": 86.3,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -233,8 +247,8 @@
    "ate": 97.6,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -247,8 +261,8 @@
    "ate": 92.6,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -261,8 +275,8 @@
    "ate": 77.9,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -275,8 +289,8 @@
    "ate": 121.0,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -289,8 +303,8 @@
    "ate": 51.0,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -303,8 +317,8 @@
    "ate": 106.7,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -317,8 +331,8 @@
    "ate": 35.2,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -331,8 +345,8 @@
    "ate": 207.1,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -345,8 +359,8 @@
    "ate": 44.7,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -359,8 +373,8 @@
    "ate": 89.0,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -373,8 +387,8 @@
    "ate": 170.9,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -387,8 +401,8 @@
    "ate": 132.7,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -401,8 +415,8 @@
    "ate": 88.2,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -415,8 +429,8 @@
    "ate": 130.3,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -429,8 +443,8 @@
    "ate": 91.4,
    "vel": 1.0,
    "zoom": [
-    1.0,
-    1.06
+    1.06,
+    1.0
    ],
    "foco": [
     0.5,
@@ -443,8 +457,8 @@
    "ate": 324.8,
    "vel": 1.0,
    "zoom": [
-    1.06,
-    1.0
+    1.0,
+    1.06
    ],
    "foco": [
     0.5,
@@ -466,94 +480,24 @@
    ]
   },
   {
-   "src": "v-otima-04.mp4",
-   "de": 152.8,
-   "ate": 153.13,
+   "src": "v-intenso-01.mp4",
+   "de": 16.6,
+   "ate": 18.6,
    "vel": 1.0,
    "zoom": [
-    1.45,
-    1.5
+    1,
+    1
    ],
    "foco": [
     0.5,
-    0.0
-   ]
-  },
-  {
-   "src": "v-intenso-03.mp4",
-   "de": 308.5,
-   "ate": 308.83,
-   "vel": 1.0,
-   "zoom": [
-    1.45,
-    1.5
-   ],
-   "foco": [
-    0.5,
-    0.0
-   ]
-  },
-  {
-   "src": "v-boa-01.mp4",
-   "de": 118.4,
-   "ate": 118.73,
-   "vel": 1.0,
-   "zoom": [
-    1.45,
-    1.5
-   ],
-   "foco": [
-    0.5,
-    0.0
-   ]
-  },
-  {
-   "src": "v-mediana-05.mp4",
-   "de": 104.3,
-   "ate": 104.63,
-   "vel": 1.0,
-   "zoom": [
-    1.45,
-    1.5
-   ],
-   "foco": [
-    0.5,
-    0.0
-   ]
-  },
-  {
-   "src": "v-otima-05.mp4",
-   "de": 132.8,
-   "ate": 133.13,
-   "vel": 1.0,
-   "zoom": [
-    1.45,
-    1.5
-   ],
-   "foco": [
-    0.5,
-    0.0
-   ]
-  },
-  {
-   "src": "v-extraordinaria-02.mp4",
-   "de": 166.1,
-   "ate": 166.43,
-   "vel": 1.0,
-   "zoom": [
-    1.45,
-    1.5
-   ],
-   "foco": [
-    0.5,
-    0.0
+    0.5
    ]
   },
   {
    "src": "v-intenso-01.mp4",
-   "de": 355.0,
-   "ate": 357.52,
-   "vel": 0.7,
+   "de": 18.6,
+   "ate": 21.6,
+   "vel": 1.0,
    "zoom": [
     1,
     1
@@ -570,9 +514,10 @@
    "ate": 2.0,
    "tipo": "gancho",
    "texto": "*30 carreiras.*\nNenhuma igual.",
-   "tam": 104,
-   "y": 190,
-   "anim": "pop"
+   "tam": 96,
+   "y": 205,
+   "anim": "pop",
+   "fundo": true
   },
   {
    "de": 2.0,
@@ -588,7 +533,8 @@
    "tipo": "contador",
    "numero": "26",
    "rotulo": "CASTAÑEDA",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -598,7 +544,8 @@
    "tipo": "contador",
    "numero": "29",
    "rotulo": "VAN DOORN",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -608,7 +555,8 @@
    "tipo": "contador",
    "numero": "40",
    "rotulo": "VERMEULEN",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -618,7 +566,8 @@
    "tipo": "contador",
    "numero": "44",
    "rotulo": "DECLERCQ",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -628,7 +577,8 @@
    "tipo": "contador",
    "numero": "46",
    "rotulo": "SOLANO",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -638,7 +588,8 @@
    "tipo": "contador",
    "numero": "51",
    "rotulo": "MACLEOD",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -648,7 +599,8 @@
    "tipo": "contador",
    "numero": "56",
    "rotulo": "GAMARRA",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -656,42 +608,32 @@
    "de": 7.5,
    "ate": 8.0,
    "tipo": "contador",
-   "numero": "61",
-   "rotulo": "RONDEROS",
-   "tam": 240,
+   "numero": "58",
+   "rotulo": "IBARRA",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
-  },
-  {
-   "de": 4.0,
-   "ate": 8.0,
-   "tipo": "legenda",
-   "texto": "…tem quem vire *ídolo*…",
-   "y": 1380
   },
   {
    "de": 8.0,
    "ate": 8.5,
    "tipo": "contador",
-   "numero": "63",
-   "rotulo": "KESSLER",
-   "tam": 240,
+   "numero": "61",
+   "rotulo": "RONDEROS",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
-  },
-  {
-   "de": 8.0,
-   "ate": 8.12,
-   "tipo": "flash",
-   "anim": "corte"
   },
   {
    "de": 8.5,
    "ate": 9.0,
    "tipo": "contador",
-   "numero": "67",
-   "rotulo": "FERRAZ",
-   "tam": 240,
+   "numero": "63",
+   "rotulo": "KESSLER",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -699,9 +641,10 @@
    "de": 9.0,
    "ate": 9.5,
    "tipo": "contador",
-   "numero": "69",
-   "rotulo": "OLIVERA",
-   "tam": 240,
+   "numero": "67",
+   "rotulo": "FERRAZ",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -709,9 +652,10 @@
    "de": 9.5,
    "ate": 10.0,
    "tipo": "contador",
-   "numero": "72",
-   "rotulo": "WHITMORE",
-   "tam": 240,
+   "numero": "69",
+   "rotulo": "OLIVERA",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -719,9 +663,10 @@
    "de": 10.0,
    "ate": 10.5,
    "tipo": "contador",
-   "numero": "74",
-   "rotulo": "BERNARDINI",
-   "tam": 240,
+   "numero": "72",
+   "rotulo": "WHITMORE",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -729,9 +674,10 @@
    "de": 10.5,
    "ate": 11.0,
    "tipo": "contador",
-   "numero": "77",
-   "rotulo": "DUCHAMP",
-   "tam": 240,
+   "numero": "74",
+   "rotulo": "BERNARDINI",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -739,9 +685,10 @@
    "de": 11.0,
    "ate": 11.5,
    "tipo": "contador",
-   "numero": "80",
-   "rotulo": "ORNELAS",
-   "tam": 240,
+   "numero": "77",
+   "rotulo": "DUCHAMP",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -749,9 +696,10 @@
    "de": 11.5,
    "ate": 12.0,
    "tipo": "contador",
-   "numero": "81",
-   "rotulo": "WEIDNER",
-   "tam": 240,
+   "numero": "80",
+   "rotulo": "ORNELAS",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -759,9 +707,10 @@
    "de": 12.0,
    "ate": 12.5,
    "tipo": "contador",
-   "numero": "84",
-   "rotulo": "CAVALCANTE",
-   "tam": 240,
+   "numero": "81",
+   "rotulo": "WEIDNER",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -769,9 +718,10 @@
    "de": 12.5,
    "ate": 13.0,
    "tipo": "contador",
-   "numero": "85",
-   "rotulo": "LEMAIRE",
-   "tam": 240,
+   "numero": "84",
+   "rotulo": "CAVALCANTE",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -779,9 +729,10 @@
    "de": 13.0,
    "ate": 13.5,
    "tipo": "contador",
-   "numero": "89",
-   "rotulo": "VANHOVE",
-   "tam": 240,
+   "numero": "85",
+   "rotulo": "LEMAIRE",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -789,9 +740,10 @@
    "de": 13.5,
    "ate": 14.0,
    "tipo": "contador",
-   "numero": "90",
-   "rotulo": "OLANO",
-   "tam": 240,
+   "numero": "89",
+   "rotulo": "VANHOVE",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -800,8 +752,9 @@
    "ate": 14.5,
    "tipo": "contador",
    "numero": "90",
-   "rotulo": "MONTEIRO",
-   "tam": 240,
+   "rotulo": "OLANO",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -809,9 +762,10 @@
    "de": 14.5,
    "ate": 15.0,
    "tipo": "contador",
-   "numero": "91",
-   "rotulo": "REZENDE",
-   "tam": 240,
+   "numero": "90",
+   "rotulo": "MONTEIRO",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -819,9 +773,10 @@
    "de": 15.0,
    "ate": 15.5,
    "tipo": "contador",
-   "numero": "92",
-   "rotulo": "VALDEZ",
-   "tam": 240,
+   "numero": "91",
+   "rotulo": "REZENDE",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
@@ -830,60 +785,93 @@
    "ate": 16.0,
    "tipo": "contador",
    "numero": "92",
-   "rotulo": "CORDEIRO",
-   "tam": 240,
+   "rotulo": "VALDEZ",
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "corte",
    "y": 200
   },
   {
    "de": 16.0,
-   "ate": 17.5,
+   "ate": 16.5,
+   "tipo": "contador",
+   "numero": "92",
+   "rotulo": "CORDEIRO",
+   "topo": "Nota de Legado",
+   "tam": 230,
+   "anim": "corte",
+   "y": 200
+  },
+  {
+   "de": 16.5,
+   "ate": 18.0,
    "tipo": "contador",
    "numero": "93",
    "rotulo": "VAN RIJN",
-   "tam": 240,
+   "topo": "Nota de Legado",
+   "tam": 230,
    "anim": "pop",
    "y": 200
   },
   {
-   "de": 16.0,
-   "ate": 16.12,
+   "de": 16.5,
+   "ate": 16.62,
    "tipo": "flash",
    "anim": "corte"
   },
   {
+   "de": 4.0,
+   "ate": 6.0,
+   "tipo": "legenda",
+   "texto": "…tem quem vire *profissional*…",
+   "y": 1380,
+   "escuro": true
+  },
+  {
+   "de": 6.0,
+   "ate": 8.0,
+   "tipo": "legenda",
+   "texto": "…tem quem vire *ídolo*…",
+   "y": 1380,
+   "escuro": true
+  },
+  {
    "de": 8.0,
-   "ate": 10.5,
+   "ate": 11.0,
    "tipo": "legenda",
    "texto": "…tem quem vire *craque*…",
-   "y": 1380
+   "y": 1380,
+   "escuro": true
   },
   {
-   "de": 10.5,
-   "ate": 13.5,
+   "de": 11.0,
+   "ate": 14.0,
    "tipo": "legenda",
    "texto": "…tem quem vire *lenda*…",
-   "y": 1380
+   "y": 1380,
+   "escuro": true
   },
   {
-   "de": 13.5,
-   "ate": 17.5,
+   "de": 14.0,
+   "ate": 18.0,
    "tipo": "legenda",
    "texto": "…e tem quem vire *IMORTAL*",
-   "y": 1380
+   "y": 1380,
+   "escuro": true
   },
   {
-   "de": 17.5,
-   "ate": 19.498,
+   "de": 18.0,
+   "ate": 20.0,
    "tipo": "gancho",
    "texto": "E a *sua*?",
    "tam": 150,
-   "y": 200,
-   "anim": "pop"
+   "y": 215,
+   "anim": "pop",
+   "fundo": true
   },
   {
-   "de": 19.498,
-   "ate": 23.098,
+   "de": 20.0,
+   "ate": 23.0,
    "tipo": "cta",
    "texto": "Toda lenda\ncomeça do *zero*.",
    "anim": "fade"
@@ -976,28 +964,28 @@
   {
    "t": 7.52,
    "tipo": "ding",
-   "nota": 12,
+   "nota": 11,
    "nivel": 0.6
-  },
-  {
-   "t": 8.0,
-   "tipo": "riser",
-   "nivel": 0.9
   },
   {
    "t": 8.02,
    "tipo": "ding",
    "nota": 12,
-   "nivel": 0.75
+   "nivel": 0.6
   },
   {
-   "t": 8.0,
+   "t": 8.5,
+   "tipo": "riser",
+   "nivel": 0.9
+  },
+  {
+   "t": 8.5,
    "tipo": "impacto"
   },
   {
    "t": 8.52,
    "tipo": "ding",
-   "nota": 14,
+   "nota": 12,
    "nivel": 0.75
   },
   {
@@ -1009,25 +997,25 @@
   {
    "t": 9.52,
    "tipo": "ding",
-   "nota": 15,
+   "nota": 14,
    "nivel": 0.75
   },
   {
    "t": 10.02,
    "tipo": "ding",
-   "nota": 16,
+   "nota": 15,
    "nivel": 0.75
   },
   {
    "t": 10.52,
    "tipo": "ding",
-   "nota": 17,
+   "nota": 16,
    "nivel": 0.75
   },
   {
    "t": 11.02,
    "tipo": "ding",
-   "nota": 18,
+   "nota": 17,
    "nivel": 0.75
   },
   {
@@ -1039,19 +1027,19 @@
   {
    "t": 12.02,
    "tipo": "ding",
-   "nota": 19,
+   "nota": 18,
    "nivel": 0.75
   },
   {
    "t": 12.52,
    "tipo": "ding",
-   "nota": 20,
+   "nota": 19,
    "nivel": 0.75
   },
   {
    "t": 13.02,
    "tipo": "ding",
-   "nota": 21,
+   "nota": 20,
    "nivel": 0.75
   },
   {
@@ -1069,7 +1057,7 @@
   {
    "t": 14.52,
    "tipo": "ding",
-   "nota": 22,
+   "nota": 21,
    "nivel": 0.75
   },
   {
@@ -1091,48 +1079,24 @@
    "nivel": 0.75
   },
   {
-   "t": 16.0,
+   "t": 16.52,
+   "tipo": "ding",
+   "nota": 22,
+   "nivel": 0.75
+  },
+  {
+   "t": 16.5,
    "tipo": "impacto"
   },
   {
-   "t": 17.5,
-   "tipo": "tick",
-   "nivel": 0.6
-  },
-  {
-   "t": 17.833,
-   "tipo": "tick",
-   "nivel": 0.6
-  },
-  {
-   "t": 18.166,
-   "tipo": "tick",
-   "nivel": 0.6
-  },
-  {
-   "t": 18.499,
-   "tipo": "tick",
-   "nivel": 0.6
-  },
-  {
-   "t": 18.832,
-   "tipo": "tick",
-   "nivel": 0.6
-  },
-  {
-   "t": 19.165,
-   "tipo": "tick",
-   "nivel": 0.6
-  },
-  {
-   "t": 17.5,
+   "t": 18.0,
    "tipo": "whoosh"
   },
   {
-   "t": 19.498,
+   "t": 20.0,
    "tipo": "whoosh"
   }
  ],
- "drop": 8.0,
- "fim": 19.898
+ "drop": 8.5,
+ "fim": 20.4
 }

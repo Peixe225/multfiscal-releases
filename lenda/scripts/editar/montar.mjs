@@ -58,7 +58,8 @@ textos.forEach((t, k) => {
   const dur = t.ate - t.de
   entradas.push('-loop', '1', '-framerate', String(FPS), '-t', f2(dur + 0.05), '-i', pngs[t.id])
   const fi = t.anim === 'corte' ? 0.001 : t.tipo === 'flash' ? 0.02 : 0.16
-  const fo = t.tipo === 'flash' ? Math.max(0.05, dur - 0.04) : 0.16
+  // o cartão final fica inteiro até o último quadro
+  const fo = t.tipo === 'flash' ? Math.max(0.05, dur - 0.04) : t.tipo === 'cta' ? 0.001 : 0.16
   let cadeia = `[${idx}:v]format=rgba,fade=in:st=0:d=${fi}:alpha=1,fade=out:st=${f2(Math.max(0, dur - fo))}:d=${f2(fo)}:alpha=1`
   let x = '0', y = '0'
   if (t.anim === 'pop') {

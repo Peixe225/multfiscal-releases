@@ -6,11 +6,11 @@
   {
    "src": "v-live-04.mp4",
    "de": 3.0,
-   "ate": 8.81,
+   "ate": 8.8,
    "vel": 2.0,
    "zoom": [
-    1.32,
-    1.36
+    1.0,
+    1.05
    ],
    "foco": [
     0.5,
@@ -48,7 +48,7 @@
   {
    "src": "v-live-04.mp4",
    "de": 24.0,
-   "ate": 30.97,
+   "ate": 30.96,
    "vel": 1.8,
    "zoom": [
     1.3,
@@ -62,7 +62,7 @@
   {
    "src": "v-live-04.mp4",
    "de": 32.6,
-   "ate": 34.54,
+   "ate": 34.5333,
    "vel": 1.0,
    "zoom": [
     1.3,
@@ -76,15 +76,15 @@
   {
    "src": "v-live-04.mp4",
    "de": 51.4,
-   "ate": 53.34,
+   "ate": 53.3333,
    "vel": 1.0,
    "zoom": [
-    1.05,
-    1.15
+    1.3,
+    1.36
    ],
    "foco": [
     0.5,
-    0.35
+    0.62
    ]
   },
   {
@@ -107,8 +107,8 @@
    "ate": 152.2,
    "vel": 1.0,
    "zoom": [
-    1.3,
-    1.34
+    1.0,
+    1.05
    ],
    "foco": [
     0.5,
@@ -118,7 +118,7 @@
   {
    "src": "v-live-04.mp4",
    "de": 154.0,
-   "ate": 157.1,
+   "ate": 157.0933,
    "vel": 0.8,
    "zoom": [
     1,
@@ -133,113 +133,113 @@
  "textos": [
   {
    "de": 0,
-   "ate": 2.903,
+   "ate": 2.9,
    "tipo": "gancho",
-   "texto": "E se o *CHAT*\ndecidisse a carreira\ninteira?",
+   "texto": "E se o *CHAT*\ndecidisse tudo?",
    "anim": "pop",
    "y": 1080,
-   "tam": 100
+   "fundo": true
   },
   {
-   "de": 2.903,
-   "ate": 5.806,
+   "de": 2.9,
+   "ate": 5.8,
    "tipo": "legenda",
    "texto": "Quem doa mais\n*cria o jogador*",
    "y": 1150
   },
   {
-   "de": 6.006,
-   "ate": 8.709,
+   "de": 6.0,
+   "ate": 8.7,
    "tipo": "legenda",
    "texto": "Nasce uma lenda",
    "y": 1150,
    "escuro": true
   },
   {
-   "de": 8.709,
-   "ate": 12.58,
+   "de": 8.7,
+   "ate": 12.5667,
    "tipo": "legenda",
-   "texto": "Comente *1, 2, 3 ou 4*\nou mande uma rosa (10 votos)",
+   "texto": "Comente *1, 2 ou 3*\nRosa = *10 votos na opção 1*",
    "y": 1180
   },
   {
-   "de": 12.58,
-   "ate": 14.515,
+   "de": 12.5667,
+   "ate": 14.5,
    "tipo": "legenda",
    "texto": "*O chat decidiu!*",
    "y": 1180
   },
   {
-   "de": 14.515,
-   "ate": 16.45,
+   "de": 14.5,
+   "ate": 16.4333,
    "tipo": "legenda",
    "texto": "Rebaixou? *Culpa do chat.*",
-   "y": 1180,
+   "y": 430,
    "escuro": true
   },
   {
-   "de": 16.45,
-   "ate": 19.353,
+   "de": 16.4333,
+   "ate": 18.3833,
    "tipo": "legenda",
-   "texto": "Título também.",
+   "texto": "Bola de Ouro?\n*Também é do chat.*",
    "y": 330
   },
   {
-   "de": 19.353,
-   "ate": 22.256,
+   "de": 19.3333,
+   "ate": 22.2333,
    "tipo": "legenda",
    "texto": "No fim, os maiores\napoiadores *na tela*",
-   "y": 1180
+   "y": 300
+  },
+  {
+   "de": 22.2333,
+   "ate": 26.1,
+   "tipo": "cta",
+   "texto": "*Live interativa*\naqui no perfil",
+   "anim": "fade",
+   "rodape": "Siga o perfil pra jogar junto"
   },
   {
    "de": 0,
-   "ate": 22.256,
+   "ate": 26.1,
    "tipo": "selo",
    "texto": "SIMULAÇÃO DA LIVE",
    "anim": "corte",
    "y": 210
-  },
-  {
-   "de": 22.256,
-   "ate": 26.127,
-   "tipo": "cta",
-   "texto": "*Live interativa*\naqui no perfil",
-   "rodape": "Siga pra jogar com a gente",
-   "anim": "fade"
   }
  ],
  "efeitos": [
   {
-   "t": 2.903,
+   "t": 2.9,
    "tipo": "whoosh"
   },
   {
-   "t": 5.806,
+   "t": 5.8,
    "tipo": "impacto"
   },
   {
-   "t": 8.709,
+   "t": 8.7,
    "tipo": "whoosh"
   },
   {
-   "t": 12.58,
+   "t": 12.5667,
    "tipo": "pop"
   },
   {
-   "t": 14.515,
+   "t": 14.5,
    "tipo": "impacto",
    "nivel": 0.7
   },
   {
-   "t": 16.55,
+   "t": 16.5333,
    "tipo": "ding",
    "nota": 7
   },
   {
-   "t": 22.256,
+   "t": 22.2333,
    "tipo": "whoosh"
   }
  ],
- "drop": 2.903225806451613,
- "fim": 22.256032258064515
+ "drop": 2.9032,
+ "fim": 22.229
 }

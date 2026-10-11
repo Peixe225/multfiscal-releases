@@ -5,8 +5,8 @@
  "cenas": [
   {
    "src": "v-intenso-01.mp4",
-   "de": 49.4,
-   "ate": 51.8,
+   "de": 49.85,
+   "ate": 52.25,
    "vel": 1.0,
    "zoom": [
     1.0,
@@ -23,8 +23,8 @@
    "ate": 92.3,
    "vel": 1.0,
    "zoom": [
-    1.2,
-    1.26
+    1.05,
+    1.1
    ],
    "foco": [
     0.5,
@@ -33,9 +33,9 @@
   },
   {
    "src": "v-intenso-01.mp4",
-   "de": 93.0,
-   "ate": 100.92,
-   "vel": 3.3,
+   "de": 99.9,
+   "ate": 101.3,
+   "vel": 1.0,
    "zoom": [
     1.08,
     1.08
@@ -90,7 +90,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 173.35,
-   "ate": 174.55,
+   "ate": 173.95,
    "vel": 1.0,
    "zoom": [
     1.08,
@@ -104,7 +104,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 188.35,
-   "ate": 189.55,
+   "ate": 188.95,
    "vel": 1.0,
    "zoom": [
     1.0,
@@ -118,7 +118,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 204.25,
-   "ate": 205.45,
+   "ate": 204.85,
    "vel": 1.0,
    "zoom": [
     1.08,
@@ -132,7 +132,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 220.05,
-   "ate": 221.25,
+   "ate": 220.65,
    "vel": 1.0,
    "zoom": [
     1.0,
@@ -146,7 +146,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 235.55,
-   "ate": 236.75,
+   "ate": 236.15,
    "vel": 1.0,
    "zoom": [
     1.08,
@@ -160,7 +160,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 251.45,
-   "ate": 252.65,
+   "ate": 252.05,
    "vel": 1.0,
    "zoom": [
     1.0,
@@ -174,7 +174,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 267.95,
-   "ate": 269.15,
+   "ate": 268.55,
    "vel": 1.0,
    "zoom": [
     1.08,
@@ -188,7 +188,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 281.95,
-   "ate": 283.15,
+   "ate": 282.55,
    "vel": 1.0,
    "zoom": [
     1.0,
@@ -220,7 +220,7 @@
    "vel": 1.0,
    "zoom": [
     1.0,
-    1.22
+    1.1
    ],
    "foco": [
     0.5,
@@ -230,7 +230,7 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 348.6,
-   "ate": 352.2,
+   "ate": 351.0,
    "vel": 1.0,
    "zoom": [
     1.42,
@@ -244,8 +244,8 @@
   {
    "src": "v-intenso-01.mp4",
    "de": 355.0,
-   "ate": 357.52,
-   "vel": 0.7,
+   "ate": 357.4,
+   "vel": 0.8,
    "zoom": [
     1,
     1
@@ -270,19 +270,19 @@
    "ate": 4.8,
    "tipo": "legenda",
    "texto": "…até escolher\no *Barcelona*",
-   "y": 1180
+   "y": 330
   },
   {
    "de": 4.8,
-   "ate": 7.2,
+   "ate": 6.2,
    "tipo": "legenda",
-   "texto": "Dois anos depois…",
+   "texto": "Dois anos depois,\njá no *City*…",
    "y": 1180,
    "escuro": true
   },
   {
-   "de": 7.2,
-   "ate": 8.4,
+   "de": 6.2,
+   "ate": 7.4,
    "tipo": "contador",
    "numero": "1",
    "prefixo": "×",
@@ -291,14 +291,14 @@
    "y": 200
   },
   {
-   "de": 7.2,
-   "ate": 7.32,
+   "de": 6.2,
+   "ate": 6.32,
    "tipo": "flash",
    "anim": "corte"
   },
   {
-   "de": 8.4,
-   "ate": 9.6,
+   "de": 7.4,
+   "ate": 8.6,
    "tipo": "contador",
    "numero": "2",
    "prefixo": "×",
@@ -307,8 +307,8 @@
    "y": 200
   },
   {
-   "de": 9.6,
-   "ate": 10.8,
+   "de": 8.6,
+   "ate": 9.8,
    "tipo": "contador",
    "numero": "3",
    "prefixo": "×",
@@ -317,88 +317,94 @@
    "y": 200
   },
   {
-   "de": 10.8,
-   "ate": 12.0,
+   "de": 9.8,
+   "ate": 10.4,
    "tipo": "contador",
    "numero": "4",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 12.0,
-   "ate": 13.2,
+   "de": 10.4,
+   "ate": 11.0,
    "tipo": "contador",
    "numero": "5",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 13.2,
-   "ate": 14.4,
+   "de": 11.0,
+   "ate": 11.6,
    "tipo": "contador",
    "numero": "6",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 14.4,
-   "ate": 15.6,
+   "de": 11.6,
+   "ate": 12.2,
    "tipo": "contador",
    "numero": "7",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 15.6,
-   "ate": 16.8,
+   "de": 12.2,
+   "ate": 12.8,
    "tipo": "contador",
    "numero": "8",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 16.8,
-   "ate": 18.0,
+   "de": 12.8,
+   "ate": 13.4,
    "tipo": "contador",
    "numero": "9",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 18.0,
-   "ate": 19.2,
+   "de": 13.4,
+   "ate": 14.0,
    "tipo": "contador",
    "numero": "10",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 19.2,
-   "ate": 20.4,
+   "de": 14.0,
+   "ate": 14.6,
    "tipo": "contador",
    "numero": "11",
    "prefixo": "×",
    "rotulo": "Bolas de Ouro seguidas",
-   "anim": "pop",
+   "anim": "corte",
    "y": 200
   },
   {
-   "de": 20.4,
-   "ate": 22.8,
+   "de": 14.6,
+   "ate": 14.72,
+   "tipo": "flash",
+   "anim": "corte"
+  },
+  {
+   "de": 14.6,
+   "ate": 17.0,
    "tipo": "contador",
    "numero": "12",
    "prefixo": "×",
@@ -407,15 +413,15 @@
    "y": 200
   },
   {
-   "de": 23.2,
-   "ate": 25.8,
+   "de": 17.3,
+   "ate": 20.0,
    "tipo": "legenda",
-   "texto": "794 gols:\n*mais que o Pelé*",
+   "texto": "794 gols oficiais:\n*mais que o Pelé (757)*",
    "y": 210
   },
   {
-   "de": 26.1,
-   "ate": 29.4,
+   "de": 20.2,
+   "ate": 22.4,
    "tipo": "nota",
    "nota": "93",
    "tier": "Imortal",
@@ -423,8 +429,8 @@
    "y": 980
   },
   {
-   "de": 29.4,
-   "ate": 33.0,
+   "de": 22.4,
+   "ate": 25.4,
    "tipo": "cta",
    "texto": "E a *sua* carreira,\nvai até onde?",
    "anim": "fade"
@@ -441,99 +447,104 @@
    "tipo": "whoosh"
   },
   {
-   "t": 7.2,
+   "t": 6.2,
    "tipo": "riser",
    "nivel": 0.9
   },
   {
-   "t": 7.24,
+   "t": 6.24,
    "tipo": "ding",
    "nota": 0,
    "nivel": 0.85
   },
   {
-   "t": 7.2,
+   "t": 6.2,
    "tipo": "impacto"
   },
   {
-   "t": 8.44,
+   "t": 7.44,
    "tipo": "ding",
    "nota": 2,
    "nivel": 0.85
   },
   {
-   "t": 9.64,
+   "t": 8.64,
    "tipo": "ding",
    "nota": 4,
    "nivel": 0.85
   },
   {
-   "t": 10.84,
+   "t": 9.84,
    "tipo": "ding",
    "nota": 5,
    "nivel": 0.85
   },
   {
-   "t": 12.04,
+   "t": 10.44,
    "tipo": "ding",
    "nota": 7,
    "nivel": 0.85
   },
   {
-   "t": 13.24,
+   "t": 11.04,
    "tipo": "ding",
    "nota": 9,
    "nivel": 0.85
   },
   {
-   "t": 14.44,
+   "t": 11.64,
    "tipo": "ding",
    "nota": 11,
    "nivel": 0.85
   },
   {
-   "t": 15.64,
+   "t": 12.24,
    "tipo": "ding",
    "nota": 12,
    "nivel": 0.85
   },
   {
-   "t": 16.84,
+   "t": 12.84,
    "tipo": "ding",
    "nota": 14,
    "nivel": 0.85
   },
   {
-   "t": 18.04,
+   "t": 13.44,
    "tipo": "ding",
    "nota": 16,
    "nivel": 0.85
   },
   {
-   "t": 19.24,
+   "t": 14.04,
    "tipo": "ding",
    "nota": 17,
    "nivel": 0.85
   },
   {
-   "t": 20.45,
+   "t": 14.65,
    "tipo": "ding",
    "nota": 19
   },
   {
-   "t": 22.8,
+   "t": 14.6,
    "tipo": "impacto"
   },
   {
-   "t": 26.0,
+   "t": 17.0,
+   "tipo": "impacto",
+   "nivel": 0.6
+  },
+  {
+   "t": 20.2,
    "tipo": "ding",
    "nota": 12
   },
   {
-   "t": 29.4,
+   "t": 22.4,
    "tipo": "whoosh"
   }
  ],
- "drop": 7.2,
- "fim": 29.8
+ "drop": 6.2,
+ "fim": 22.8
 }
