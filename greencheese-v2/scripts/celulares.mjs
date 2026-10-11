@@ -17,11 +17,14 @@
 // o ?p= abre o produto por cima) e a rua do mercador só no fim do Início, depois da grade e antes do rodapé, com a
 // altura guardada desde o começo; o pedaço dela não baixa na primeira tela (só quando a vaga chega perto), anda à vista
 // e para fora da tela; deitado e com o palpite de IP no pé do story, também. Trocar de aba mantém a Home 2.
+// A thumb animada (o vídeo do produto, GET loja simulado com 4 produtos com vídeo) em cada celular: a primeira tela não
+// baixa vídeo, a grade toca só o que está à vista (no máximo 2) e, com movimento reduzido, fica na capa.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua como "sem servidor").
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
 import { mkdirSync } from 'node:fs'
+import { arquivosDaThumb, COM_VIDEO, esperarVideos, estadoDosVideos, irPraGrade, prepararThumb } from './revisao-thumb.mjs'
 
 const base = process.argv[3] ?? 'http://localhost:5173/'
 const out = new URL(`../revisao/${process.argv[2] ?? 'celulares'}/`, import.meta.url).pathname
@@ -1099,6 +1102,41 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
     await ctx.close()
     console.log('✓', tag)
   }
+}
+
+// ---------- thumb animada em cada celular: nada na primeira tela, só o que está à vista, no máximo 2, reduzido parado ----------
+{
+  const arquivos = arquivosDaThumb()
+  if (!arquivos) console.log('· thumb animada: sem ffmpeg aqui, fica de fora')
+  else
+    for (const [nome, w, h] of aparelhos) {
+      for (const reduzir of [false, true]) {
+        if (reduzir && nome !== 'iphone13-390x844') continue
+        const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'pt-BR', reducedMotion: reduzir ? 'reduce' : 'no-preference' })
+        await ctx.route(/ipwho|geojs/, (r) => r.fulfill({ json: { success: true, country_code: 'BR', region: 'Minas Gerais', region_code: 'MG' } }))
+        await ctx.route('**/api/index.php**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' }))
+        const { pedidos } = await prepararThumb(ctx, arquivos)
+        const p = await ctx.newPage()
+        const tag = `${nome}${reduzir ? ' reduzido' : ''} thumb`
+        await abrirLembrado(ctx, p, tag, `${base}?uf=mg`)
+        await p.waitForTimeout(4000)
+        const topo = await estadoDosVideos(p)
+        if (pedidos.length || topo.some((v) => v.src)) problemas.push(`${tag}: a primeira tela baixou vídeo (${pedidos.join(', ')})`)
+        await irPraGrade(p)
+        const e = reduzir ? (await p.waitForTimeout(3000), await estadoDosVideos(p)) : await esperarVideos(p, (x) => x.some((v) => v.tocando))
+        const tocando = e.filter((v) => v.tocando)
+        if (reduzir) {
+          if (tocando.length || pedidos.length) problemas.push(`${tag}: com movimento reduzido, tocou ou baixou vídeo (${tocando.length}, ${pedidos.length})`)
+        } else {
+          if (tocando.length < 1 || tocando.length > 2) problemas.push(`${tag}: na grade tocam ${tocando.length} (o certo é 1 ou 2)`)
+          if (tocando.some((v) => v.vis < 0.5)) problemas.push(`${tag}: tocando fora da tela (${tocando.map((v) => `${v.id} ${v.vis}`).join(', ')})`)
+          if (!tocando.some((v) => COM_VIDEO.includes(v.id))) problemas.push(`${tag}: o card da grade não tocou`)
+        }
+        await p.screenshot({ path: `${out}${nome}${reduzir ? '-reduzido' : ''}-thumb.png` })
+        await ctx.close()
+        console.log('✓', tag)
+      }
+    }
 }
 
 await b.close()

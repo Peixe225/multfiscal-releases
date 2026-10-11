@@ -89,6 +89,9 @@
   /* como no site: o preto da foto some no preto (e o halo aparece por trás) */
   mix-blend-mode: lighten;
 }
+.pn-est-real.pn-est-alfa {
+  mix-blend-mode: normal;
+}
 .pn-est-camada {
   image-rendering: pixelated;
   pointer-events: none;
@@ -186,6 +189,23 @@
 }
 .pn-est-pe-dupla > .pn-botao-texto {
   flex: 0 0 auto;
+}
+/* celular pequeno (320×568): a foto aparece sem rolar — o subtítulo sai e o rodapé fica em duas linhas, não três */
+@media (max-height: 700px) {
+  .pn-folha-estudio .pn-folha-sub {
+    display: none;
+  }
+}
+@media (max-width: 400px) {
+  .pn-est-pe-dupla {
+    flex-wrap: nowrap;
+  }
+  .pn-est-pe-dupla > .pn-botao {
+    min-width: 0;
+    padding-inline: 12px;
+    white-space: normal;
+    line-height: 1.15;
+  }
 }
 
 /* ─── thumb animada: o trecho ─── */

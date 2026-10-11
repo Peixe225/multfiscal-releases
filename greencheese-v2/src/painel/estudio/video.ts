@@ -8,7 +8,6 @@
 //   toca em todo lugar) quando o navegador grava, senão WebM.
 // - A capa é o 1º quadro tratado (imagem): aparece antes de tocar e onde vídeo não roda.
 
-import { LINEAR } from './cor'
 import { medirComModelo, recortar, type AjusteCor, type Analise, type MapaDoFundo } from './recorte'
 import { contexto, novoCanvas, transformar, type Quadro } from './render'
 
@@ -543,11 +542,4 @@ export function capaSimples(img: CanvasImageSource, fw: number, fh: number): HTM
   g.imageSmoothingQuality = 'high'
   g.drawImage(img, (c.width - fw * k) / 2, (c.height - fh * k) / 2, fw * k, fh * k)
   return c
-}
-
-/** Média de cor (sRGB) de um quadro pequeno: pra testes e pra saber se o quadro veio vazio. */
-export function brilhoMedio(px: ImageData): number {
-  let s = 0
-  for (let i = 0; i < px.data.length; i += 4) s += LINEAR[px.data[i]] + LINEAR[px.data[i + 1]] + LINEAR[px.data[i + 2]]
-  return s / (px.data.length / 4) / 3
 }

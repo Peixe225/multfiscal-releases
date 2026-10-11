@@ -155,3 +155,24 @@ export function sintonizar(canvas: HTMLCanvasElement, pixel: ImageData, aoMostra
     ctx.clearRect(0, 0, w, h)
   }
 }
+
+/**
+ * A foto tem transparência (recortada no Estúdio: PNG/WebP com alfa)? Então ela cobre o halo como a ilustração
+ * (mistura normal: o halo não vaza nas partes escuras do produto). Sem alfa, fica o lighten: o preto da foto some no
+ * preto da página. Lê a imagem já carregada num canvas de 24×42 (barato; fotos do mesmo site, sem bloqueio).
+ */
+export function temTransparencia(img: HTMLImageElement): boolean {
+  try {
+    const c = document.createElement('canvas')
+    c.width = 24
+    c.height = 42
+    const g = c.getContext('2d', { willReadFrequently: true })
+    if (!g) return false
+    g.drawImage(img, 0, 0, c.width, c.height)
+    const d = g.getImageData(0, 0, c.width, c.height).data
+    for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true
+    return false
+  } catch {
+    return false
+  }
+}

@@ -120,6 +120,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await estudio.waitFor({ state: 'detached', timeout: 30000 })
   await p.getByText('Trocar foto').waitFor({ timeout: 20000 })
   ok(await p.locator('.pn-foto-card img.pn-arte-foto-loja').isVisible(), 'a foto tratada aparece no card do site, do lado dos botões')
+  ok(await esperar(() => p.locator('.pn-foto-card img.pn-arte-foto-loja[data-alfa]').count().then((n) => n === 1)), 'a foto tratada tem transparência: cobre o halo como no site (sem lighten)')
   ok(await p.getByRole('button', { name: 'Ajustar a foto' }).isVisible(), '"Ajustar a foto" pra foto salva')
   await axe(p, 'produto')
   await print(p, 'loja-produto', true)
@@ -403,6 +404,9 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar, vid
   await s.waitForTimeout(800)
   const src = await card.locator('img.pv-real').getAttribute('src').catch(() => null)
   ok(/uploads\/[0-9a-f]+\.\w+$/.test(src ?? ''), `site: o card da OCB com a foto que o dono mandou (${src})`)
+  // a foto recortada no Estúdio (com transparência) cobre o halo como a ilustração: mistura normal, sem o lighten
+  const mistura = await card.locator('img.pv-real').evaluate((i) => Promise.resolve(i.complete || new Promise((ok) => i.addEventListener('load', ok, { once: true }))).then(() => [i.hasAttribute('data-alfa'), getComputedStyle(i).mixBlendMode])).catch(() => null)
+  ok(!!mistura && mistura[0] && mistura[1] === 'normal', `site: a foto recortada cobre o halo (mistura normal, não lighten: ${JSON.stringify(mistura)})`)
   ok(/R\$ 10,49/.test((await card.textContent()) ?? '') && (await card.locator('.sq-restam').textContent().catch(() => null)) === 'RESTA 1', 'site: o card com o preço novo (R$ 10,49) e "RESTA 1"')
   const novo = s.locator('.vista-inicio .card').filter({ hasText: 'Isqueiro Bic Mini' }).first()
   ok((await novo.count()) === 1 && /R\$ 6,50/.test((await novo.textContent()) ?? ''), 'site: o produto novo (Isqueiro Bic Mini, R$ 6,50) na grade de MG')

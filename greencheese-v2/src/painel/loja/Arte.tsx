@@ -3,7 +3,7 @@
 // cor do produto atrás. Indisponível: em cinza, como no site.
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import type { Arte as Ilustracao } from '../../arte/realista/comum'
-import { haloDataUrl } from '../../arte/sintonia'
+import { haloDataUrl, temTransparencia } from '../../arte/sintonia'
 import { corDoHalo, urlImagem } from '../Arte'
 import type { Arte } from './tipos'
 
@@ -101,7 +101,7 @@ export function ArteProduto({ produto, largura, halo = true, cinza = false, clas
       {animada && !cinza && produto.video && foto ? (
         <VideoPequeno src={urlImagem(produto.video)} capa={urlImagem(foto)} aoFalhar={() => setFotoFalhou(produto.capa ?? null)} />
       ) : foto ? (
-        <img className="pn-arte-foto pn-arte-foto-loja" src={urlImagem(foto)} alt="" draggable={false} onError={() => setFotoFalhou(foto)} />
+        <img className="pn-arte-foto pn-arte-foto-loja" src={urlImagem(foto)} alt="" draggable={false} onError={() => setFotoFalhou(foto)} onLoad={(e) => e.currentTarget.toggleAttribute('data-alfa', temTransparencia(e.currentTarget))} />
       ) : Desenho ? (
         <svg className="pn-arte-svg" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid meet">
           <Desenho id={`pl${id}`} />

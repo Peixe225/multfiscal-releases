@@ -174,8 +174,18 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   que a folha mostrou: se alguém entrar num rateio de exemplo com a folha aberta, o painel mostra a lista nova antes.
   Rateio de exemplo em que alguém já pagou fica, como rateio de verdade (o dono cancela pelo rateio, se for o caso).
   Conferir com o dono antes de tocar no botão, no ar.
-- **Foto do produto**: o site junta a foto ao preto da página (o preto da foto some no preto). Foto com fundo claro
-  aparece como um cartão claro: o melhor é foto com fundo preto ou recortada. Combinar com o dono como ele fotografa.
+- **Foto do produto**: o site junta a foto ao preto da página (o preto da foto some no preto). O Estúdio do produto
+  (painel) já tira fundo liso (branco, cinza, bege, com sombra leve) e enquadra no estilo das ilustrações; fundo
+  bagunçado fica com o fundo (moldura escura). Os limites do recorte (`src/painel/estudio/recorte.ts`) foram afinados
+  com fotos geradas aqui: conferir com fotos reais do dono (celular dele, luz da loja) e ajustar se precisar.
+  Combinar com o dono: fundo liso e claro atrás do produto, sem outro objeto encostado.
+- **Thumb animada**: nenhum vídeo de exemplo do dono veio; os testes usam vídeos gerados. Falta conferir num celular
+  de verdade: gravação no Chrome do Android (MP4/H.264 ou WebM), no Safari do iPhone (sem gravação em alguns iOS:
+  aí vai o MP4 original, até 6 MB e 6 s) e o vídeo tocando na grade do site no iPhone (WebM gravado no Chrome não
+  toca em iPhone antigo: a capa fica e o site não quebra; gravar no iPhone ou no Chrome que grava MP4 resolve).
+  No vídeo de teste (lata girando com sombra), a sombra escura encostada na base deixa um risco cinza fino em alguns
+  quadros (a borda do vídeo sai de uma cópia de 128 px): afinar `LADO_MASCARA` e a conta da borda no shader
+  (`src/painel/estudio/video.ts`) com o vídeo de verdade do dono.
 - **Estado ativado no painel**: entra com o emblema de pino (genérico) no story de atendimento; um desenho próprio
   (como o Pão de Açúcar do RJ) é arte nova em `src/arte/pixel/emblemas.ts`. Fora da lupa do Sudeste + SC, ele acende
   no mapa inteiro e fica na lista do "Por estado" (sem botão na lupa); pra quem é desse estado, o "Por estado" mostra

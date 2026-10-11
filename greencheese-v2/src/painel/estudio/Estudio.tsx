@@ -282,6 +282,8 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
   const complexo = !!base && !fundoLiso(base.an)
   const pouco = !!rec && tirarFundo && rec.area <= 0.015
   const nada = !!rec && tirarFundo && rec.area >= 0.92
+  // recortada (com transparência), a foto cobre o halo como no site; com o fundo, o preto dela some no preto (lighten)
+  const classeReal = `pn-est-real${vista === 'depois' && usaRecorte ? ' pn-est-alfa' : ''}`
   let aviso: { texto: string; acao?: { rotulo: string; fazer: () => void } } | null = null
   if (base && rec) {
     if (tirarFundo && pouco) aviso = { texto: 'Quase não sobrou produto: o fundo parece com ele. Diminui o “Quanto do fundo apagar” ou mantém o fundo.', acao: { rotulo: 'Manter o fundo', fazer: () => setTirarFundo(false) } }
@@ -350,6 +352,43 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
                 <Ic nome="estrela" tamanho={16} /> Ver entrar no site
               </button>
             </div>
+            <div className="pn-est-vitrines">
+              <figure className="pn-est-fig">
+                <Vitrine
+                  largura={252}
+                  style={{ width: larguraGrande, height: `calc(${larguraGrande} * 16 / 9)` }}
+                  cor={vista === 'antes' ? cor : corHalo}
+                  sintonia={vista === 'depois' && previa.current && sintonia ? { vez: sintonia, imagem: previa.current } : null}
+                  className={`pn-est-grande pn-est-toque-${toque}`}
+                  onPointerDown={aoDescer}
+                  onPointerMove={aoMover}
+                  onPointerUp={aoSubir}
+                  onPointerCancel={aoSubir}
+                  role="img"
+                  aria-label={vista === 'antes' ? 'Antes: a foto como veio, no site' : 'Depois: a foto tratada, como fica no story'}
+                  data-vista={vista}
+                >
+                  <canvas ref={real} className={classeReal} width={PREVIA.w} height={PREVIA.h} />
+                </Vitrine>
+                <figcaption>No story</figcaption>
+              </figure>
+              <figure className="pn-est-fig">
+                <div className="pn-sq pn-est-card" style={{ width: 'min(30vw, 132px)' }}>
+                  <div className="pn-sq-arte">
+                    <Vitrine largura={56} cor={vista === 'antes' ? cor : corHalo} sintonia={vista === 'depois' && previa.current && sintonia ? { vez: sintonia, imagem: previa.current } : null} style={{ width: '43%', height: 'auto', aspectRatio: '9 / 16' }}>
+                      <canvas ref={realCard} className={classeReal} width={180} height={320} />
+                    </Vitrine>
+                  </div>
+                  <div className="pn-sq-texto">
+                    <p className="pn-sq-nome px">{nome || 'Nome do produto'}</p>
+                    <p className="pn-sq-preco px">{preco == null ? 'Consultar' : brl(preco)}</p>
+                    <p className="pn-sq-disp px">DISPONÍVEL ✅</p>
+                  </div>
+                </div>
+                <figcaption>No card</figcaption>
+              </figure>
+            </div>
+
             {tirarFundo && vista === 'depois' && (
               <div className="pn-est-toque">
                 <p className="pn-rotulo">Tocar na foto pra</p>
@@ -372,43 +411,6 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
                 <p className="pn-dica">{toque === 'mexer' ? 'Arrasta pra mudar de lugar; pinça (dois dedos) muda o tamanho.' : toque === 'apagar' ? 'Toca num pedaço de fundo que ficou: ele some.' : 'Toca num pedaço do produto que sumiu: ele volta.'}</p>
               </div>
             )}
-            <div className="pn-est-vitrines">
-              <figure className="pn-est-fig">
-                <Vitrine
-                  largura={252}
-                  style={{ width: larguraGrande, height: `calc(${larguraGrande} * 16 / 9)` }}
-                  cor={vista === 'antes' ? cor : corHalo}
-                  sintonia={vista === 'depois' && previa.current && sintonia ? { vez: sintonia, imagem: previa.current } : null}
-                  className={`pn-est-grande pn-est-toque-${toque}`}
-                  onPointerDown={aoDescer}
-                  onPointerMove={aoMover}
-                  onPointerUp={aoSubir}
-                  onPointerCancel={aoSubir}
-                  role="img"
-                  aria-label={vista === 'antes' ? 'Antes: a foto como veio, no site' : 'Depois: a foto tratada, como fica no story'}
-                  data-vista={vista}
-                >
-                  <canvas ref={real} className="pn-est-real" width={PREVIA.w} height={PREVIA.h} />
-                </Vitrine>
-                <figcaption>No story</figcaption>
-              </figure>
-              <figure className="pn-est-fig">
-                <div className="pn-sq pn-est-card" style={{ width: 'min(30vw, 132px)' }}>
-                  <div className="pn-sq-arte">
-                    <Vitrine largura={56} cor={vista === 'antes' ? cor : corHalo} sintonia={vista === 'depois' && previa.current && sintonia ? { vez: sintonia, imagem: previa.current } : null} style={{ width: '43%', height: 'auto', aspectRatio: '9 / 16' }}>
-                      <canvas ref={realCard} className="pn-est-real" width={180} height={320} />
-                    </Vitrine>
-                  </div>
-                  <div className="pn-sq-texto">
-                    <p className="pn-sq-nome px">{nome || 'Nome do produto'}</p>
-                    <p className="pn-sq-preco px">{preco == null ? 'Consultar' : brl(preco)}</p>
-                    <p className="pn-sq-disp px">DISPONÍVEL ✅</p>
-                  </div>
-                </div>
-                <figcaption>No card</figcaption>
-              </figure>
-            </div>
-
             {aviso && (
               <Aviso
                 tipo="info"

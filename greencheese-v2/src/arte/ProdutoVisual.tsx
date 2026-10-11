@@ -13,7 +13,7 @@ import type { Produto } from '../lib/tipos'
 import { movimentoReduzido, quandoRespirar } from '../lib/movimento'
 import { ArteProduto, gerarImagemArte } from './ArteProduto'
 import { carregarArtesRealistas, useArtesRealistas } from './realista/carregar'
-import { haloDataUrl, sintonizar } from './sintonia'
+import { haloDataUrl, sintonizar, temTransparencia } from './sintonia'
 import type { RegistroVideo } from './video-produto'
 import './ProdutoVisual.css'
 
@@ -232,7 +232,7 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
       data-real="sim"
     >
       {imagem ? (
-        <img className="pv-real" src={fotoUrl(imagem)} alt="" loading={prioridade ? 'eager' : 'lazy'} decoding="async" draggable={false} />
+        <img className="pv-real" src={fotoUrl(imagem)} alt="" loading={prioridade ? 'eager' : 'lazy'} decoding="async" draggable={false} onLoad={(e) => e.currentTarget.toggleAttribute('data-alfa', temTransparencia(e.currentTarget))} />
       ) : (
         Arte && (
           <svg className="pv-real" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">

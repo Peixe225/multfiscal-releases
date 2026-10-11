@@ -24,6 +24,10 @@
   /* como no site: o preto da foto some no preto (e o halo aparece por trás) */
   mix-blend-mode: lighten;
 }
+.pn-arte-foto-loja[data-alfa] {
+  /* como no site: foto recortada cobre o halo */
+  mix-blend-mode: normal;
+}
 .pn-arte-pixel {
   object-fit: contain;
   image-rendering: pixelated;
