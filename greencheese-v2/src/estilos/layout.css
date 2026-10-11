@@ -42,7 +42,7 @@
 }
 
 .principal {
-  /* bloco de referência do catálogo "aquecendo" (Abas.css): a mesma largura que ele terá no fluxo */
+  /* bloco de referência das vistas posicionadas (Abas.css) */
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;

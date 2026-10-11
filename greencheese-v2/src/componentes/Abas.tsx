@@ -40,10 +40,12 @@ gsap.registerPlugin(ScrollTrigger)
 //     (no tempo ocioso ou na primeira visita).
 //   Por estado: os perfis de cada estado.
 // Escondidas com hidden (fora do Tab, da busca da página e do leitor de tela: ver Abas.css). O Início fica sempre
-// montado; a grade dele e o Catálogo montam no tempo ocioso depois da abertura, um de cada vez (ou o Catálogo na
-// primeira visita) e não desmontam mais (busca, filtro e o story aberto continuam onde estavam); Por estado monta na
-// primeira visita.
-// Trocar de aba precisa ser instantâneo num Android médio: cada grade tem ~7 mil elementos (a pixel art é <rect>).
+// montado; a grade dele monta no tempo ocioso depois da abertura. O Mercado, o Rateio e Por estado montam na primeira
+// visita e não desmontam mais (busca, filtro e o story aberto continuam onde estavam).
+// Cada grade tem ~7 mil elementos (as ilustrações em SVG): o Mercado montado de reserva no respiro dobrava o DOM da
+// primeira tela (~14 mil) e somava ~1 s de tarefas longas logo depois de abrir num celular médio (POL-12). Na 1ª
+// visita ao Mercado o cabeçalho, os destaques e a busca aparecem na hora e a grade entra numa transição logo depois.
+// Trocar de aba precisa ser instantâneo num Android médio:
 //   - a vista escondida usa content-visibility: hidden (Abas.css), não display:none: o navegador guarda o estilo e o
 //     layout dela e mostrar de novo não recalcula nada. Sem inert: ele muda o estilo calculado de cada filho, e
 //     trocá-lo a cada aba recalculava a vista inteira (o content-visibility já tira a vista do Tab e do leitor). O
@@ -51,8 +53,6 @@ gsap.registerPlugin(ScrollTrigger)
 //     igual ao display:none).
 //   - as grades montam numa transição (o React fatia o trabalho e o toque passa na frente) e cada card fora da tela
 //     fica com content-visibility: auto (Catalogo.css): só os da tela calculam layout e pintam.
-//   - o Catálogo, montado no respiro, ganha um quadro "aquecendo" (fora do fluxo, recortado em altura zero): o estilo e
-//     o layout dele saem no tempo ocioso, e a 1ª visita também não trava.
 //   - o conteúdo de cada vista é memo: trocar de aba não re-renderiza o catálogo nem o hero.
 
 const TITULO_ORIGINAL = typeof document !== 'undefined' ? document.title : ''
@@ -78,33 +78,24 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
   const [rateio, setRateio] = useState(aba === 'rateio')
   // a grade do Início (os destaques já vêm na hora)
   const [loja, setLoja] = useState(false)
-  // o Catálogo montado no respiro passa um quadro "aquecendo" (ver o comentário do topo)
-  const [aquecendo, setAquecendo] = useState(false)
   if (aba === 'catalogo' && !catalogo) setCatalogo(true)
   if (aba === 'estados' && !estados) setEstados(true)
   if (aba === 'rateio' && !rateio) setRateio(true)
 
-  // depois da abertura, no tempo ocioso: primeiro a grade do Início, no respiro seguinte o Catálogo (a troca de aba
-  // fica instantânea). Em transição: montar 7 mil elementos não segura o toque de quem já está usando o site
-  // o corpo do Rateio baixa no tempo ocioso depois do Catálogo (a 1ª visita à aba já abre pronta)
+  // o corpo do Rateio baixa no tempo ocioso depois da grade do Início (a 1ª visita à aba já abre pronta)
   useEffect(() => {
-    if (aberturaAtiva || !loja || !catalogo) return
+    if (aberturaAtiva || !loja) return
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
     const baixar = () => void baixarRateio().catch(() => {})
     if (w.requestIdleCallback) w.requestIdleCallback(baixar, { timeout: 4000 })
     else setTimeout(baixar, 2000)
-  }, [aberturaAtiva, loja, catalogo])
+  }, [aberturaAtiva, loja])
 
+  // depois da abertura, no tempo ocioso: a grade do Início. Em transição: montar 7 mil elementos não segura o toque de
+  // quem já está usando o site
   useEffect(() => {
-    if (aberturaAtiva || (loja && catalogo)) return
-    const montar = () =>
-      startTransition(() => {
-        if (!loja) setLoja(true)
-        else {
-          setCatalogo(true)
-          setAquecendo(true)
-        }
-      })
+    if (aberturaAtiva || loja) return
+    const montar = () => startTransition(() => setLoja(true))
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     if (w.requestIdleCallback) {
       const id = w.requestIdleCallback(montar, { timeout: 2500 })
@@ -112,21 +103,7 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
     }
     const t = setTimeout(montar, 1200)
     return () => clearTimeout(t)
-  }, [aberturaAtiva, loja, catalogo])
-
-  // aquecendo: um quadro para o navegador calcular estilo e layout do catálogo (o 1º requestAnimationFrame roda antes
-  // desse quadro, o 2º depois dele); aí ele volta a ser só escondido, com o layout guardado
-  useEffect(() => {
-    if (!aquecendo) return
-    let r2 = 0
-    const r1 = requestAnimationFrame(() => {
-      r2 = requestAnimationFrame(() => setAquecendo(false))
-    })
-    return () => {
-      cancelAnimationFrame(r1)
-      cancelAnimationFrame(r2)
-    }
-  }, [aquecendo])
+  }, [aberturaAtiva, loja])
 
   // depois de pintar a aba nova: rolagem (topo, ou a de antes no voltar), gatilhos de rolagem, entrada, foco e título
   const primeira = useRef(true)
@@ -171,13 +148,7 @@ export function Vistas({ abrirInfo }: { abrirInfo: () => void }) {
         <ConteudoInicio abrirInfo={abrirInfo} comGrade={loja} />
       </div>
       {catalogo && (
-        <div
-          className="vista"
-          data-vista="catalogo"
-          data-aquecendo={aquecendo && aba !== 'catalogo' ? '' : undefined}
-          hidden={aba !== 'catalogo'}
-          tabIndex={-1}
-        >
+        <div className="vista" data-vista="catalogo" hidden={aba !== 'catalogo'} tabIndex={-1}>
           <AbaCatalogo abrirInfo={abrirInfo} />
         </div>
       )}
@@ -259,6 +230,10 @@ const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => 
   const disp = useDisponiveis().length
   const esperandoLink = useEsperandoLink()
   const esperando = useEsperandoLoja(uf)
+  // 1ª visita: o cabeçalho, os destaques e a busca na hora; a grade (~7 mil elementos) numa transição logo depois, que
+  // não segura o toque
+  const [comGrade, setComGrade] = useState(false)
+  useEffect(() => startTransition(() => setComGrade(true)), [])
   if (esperandoLink) return <div className="inicio-esperando" aria-busy="true" />
   if (uf && !canal) return esperando ? <div className="inicio-esperando" aria-busy="true" /> : <CatalogoSemEntrega />
   const lugar = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? canal.nome) : null
@@ -267,7 +242,7 @@ const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => 
   return (
     <div className="aba-pagina aba-catalogo">
       <MercadoTopo legenda={legenda} />
-      <Catalogo abrirInfo={abrirInfo} />
+      <Catalogo abrirInfo={abrirInfo} comGrade={comGrade} />
       {interativo && (
         <div className="aba-fim aba-fim-um">
           <section className="aba-secao" aria-labelledby="secao-interativo">

@@ -11,18 +11,6 @@
     display: block;
     content-visibility: hidden;
   }
-  /* o catálogo recém-montado, por um quadro: fora do fluxo, recortado em altura zero (nada aparece nem conta para a
-     rolagem), mas com estilo e layout calculados no tempo ocioso. Sem visibility/pointer-events, que herdam: trocar
-     esses valores depois sujaria o estilo dos 7 mil filhos de novo */
-  .vista[hidden][data-aquecendo] {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 0;
-    overflow: hidden;
-    content-visibility: visible;
-  }
 }
 .vista:focus,
 .vista h1:focus {
