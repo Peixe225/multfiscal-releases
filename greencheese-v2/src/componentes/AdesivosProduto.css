@@ -164,6 +164,8 @@
 }
 .ad-por {
   flex: 1;
+  /* a largura é a do adesivo (o que sobra do − +), nunca a do texto: o preço que não cabe sai (AdesivoSacola) */
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -183,6 +185,12 @@
   font-size: 16px;
   padding-left: 7px;
   border-left: 1px solid #dbdbdb;
+}
+/* não coube inteiro: sai da linha, mas continua medível (o botão confere de novo quando o quadro muda) */
+.ad-por.sem-preco .ad-por-preco {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
 }
 .ad-empurrao {
   font-size: 16px;

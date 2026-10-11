@@ -22,8 +22,12 @@
 
 /* Adesivos interativos (enquete, quiz, sacola, carimbo, voo): AdesivosProduto.css. Aqui só os apertos do quadro do story. */
 
-/* tela baixa: o quadro do story tem altura fixa, os adesivos encolhem */
-@media (max-height: 700px) {
+/* Os apertos medem o quadro do story (container "quadro", StoryShell.css), não a janela: no celular de pé o quadro é
+   a janela menos o rodapé (604 px = a janela de 700, 556 = a de 620); no computador o quadro é bem mais baixo e
+   estreito que a janela (1024×600: 259×460; 1366×657: 286×508). */
+
+/* quadro baixo: os adesivos encolhem */
+@container quadro (max-height: 604px) {
   .story-produto .ad-quiz-topo {
     padding: 4px 10px;
     font-size: 12px;
@@ -120,8 +124,10 @@
   line-height: 1;
 }
 
-/* tela bem baixa (navegador do Instagram em celular pequeno): combo vira 3 pílulas lado a lado */
-@media (max-height: 620px) {
+/* quadro bem baixo (navegador do Instagram em celular pequeno, deitado, notebook): o combo vira pílulas, 3 por linha,
+   cada uma com a quantidade em cima e o preço embaixo ("2 por" / "R$ 14,99"), inteiras dentro dela. Combo com 4 linhas
+   ou mais (o painel deixa até 5 combos) vira pílula também em quadro médio: a lista não caberia com o "Pôr na sacola" */
+@container quadro (max-height: 556px) {
   .story-produto .ad-quiz {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -138,11 +144,19 @@
   .story-produto .ad-quiz-linha {
     margin: 0;
     min-height: 44px;
-    padding: 0 4px;
+    padding: 2px;
     justify-content: center;
     text-align: center;
     font-size: 12px;
+    /* preço de 4 dígitos (R$ 3.799,90) no quadro de 259 px: a letra acompanha a largura do quadro, até 12 px */
+    font-size: min(12px, 3.9cqw);
     line-height: 1.1;
+  }
+  .story-produto .ad-quiz-linha > .ad-quiz-txt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    white-space: nowrap;
   }
   .story-produto .ad-pilha {
     gap: 6px;
@@ -158,14 +172,61 @@
     display: none;
   }
 }
-
-/* celular estreito: o preço já aparece no texto e no combo; o botão fica só com a ação */
-@media (max-width: 360px) {
-  .story-produto .ad-por-preco {
+@container quadro (max-height: 740px) {
+  .story-produto .ad-quiz-muitas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    width: min(320px, 100%);
+    transform: rotate(1deg);
+  }
+  .story-produto .ad-quiz-muitas .ad-quiz-topo,
+  .story-produto .ad-quiz-muitas .ad-quiz-letra,
+  .story-produto .ad-quiz-muitas .ad-quiz-cada {
     display: none;
   }
+  .story-produto .ad-quiz-muitas .ad-quiz-linha {
+    margin: 0;
+    min-height: 44px;
+    padding: 2px;
+    justify-content: center;
+    text-align: center;
+    font-size: 12px;
+    /* preço de 4 dígitos (R$ 3.799,90) no quadro de 259 px: a letra acompanha a largura do quadro, até 12 px */
+    font-size: min(12px, 3.9cqw);
+    line-height: 1.1;
+  }
+  .story-produto .ad-quiz-muitas .ad-quiz-linha > .ad-quiz-txt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    white-space: nowrap;
+  }
+}
+
+/* quadro estreito (celular de 320 a 375; o story do computador tem 259 a 380 px de largura): − + mais justos. O preço
+   do "Pôr na sacola" só fica se couber inteiro (AdesivoSacola mede); senão a linha mostra só a ação */
+@container quadro (max-width: 380px) {
   .story-produto .ad-qtd .icone-botao {
     width: 34px;
+  }
+}
+/* o quadro do notebook (1024×600: 259 px de largura): a sacola inteira numa linha, sem cortar o "Pôr na sacola" */
+@container quadro (max-width: 300px) {
+  .story-produto .sq-adesivos {
+    padding-inline: 4%;
+  }
+  .story-produto .ad-qtd .icone-botao {
+    width: 30px;
+  }
+  .story-produto .ad-sacola {
+    gap: 6px;
+  }
+  .story-produto .ad-por {
+    gap: 5px;
+    padding: 0 8px;
+    font-size: 14px;
   }
 }
 
@@ -193,5 +254,18 @@
   }
   .story-produto .sq-tela .sq-adesivo {
     top: 60px;
+    /* o adesivo fica na coluna da arte (cidade longa não passa por cima do nome e do DISPONÍVEL) */
+    right: 56%;
+  }
+  /* combo com 4 linhas ou mais: duas fileiras de pílulas mais baixas e a sacola mais justa, pro nome não subir no
+     cabeçalho */
+  .story-produto .ad-quiz-muitas .ad-quiz-linha {
+    min-height: 36px;
+  }
+  .story-produto .sq-tela:has(.ad-quiz-muitas) .ad-pilha {
+    gap: 4px;
+  }
+  .story-produto .sq-tela:has(.ad-quiz-muitas) .ad-por {
+    min-height: 44px;
   }
 }

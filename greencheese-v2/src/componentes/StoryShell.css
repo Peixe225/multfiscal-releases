@@ -40,6 +40,9 @@
   overflow: hidden;
   outline: none;
   will-change: transform;
+  /* os apertos do story aberto (StoryQuadro.css, StoryProduto.css) medem o quadro, não a janela: no computador a janela
+     é alta e o quadro é baixo e estreito (1366×657: janela de 657 px, quadro de 286×508) */
+  container: quadro / size;
 }
 @media (max-width: 599px) {
   /* no celular o story ocupa a tela (como no app), sem faixas pretas dos lados */
