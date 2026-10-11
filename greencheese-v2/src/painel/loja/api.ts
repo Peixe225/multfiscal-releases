@@ -15,6 +15,7 @@ import type {
   ProdutoAdmin,
   ProdutoCorpo,
   RegrasSorte,
+  SimulacaoSorte,
   Textos,
 } from './tipos'
 
@@ -47,6 +48,9 @@ export const salvarLoja = (c: Partial<Ajustes> & { textos?: Partial<Textos> }) =
   pedir<Ok<{ ajustes: Ajustes; textos: Textos }>>('POST', 'admin-loja-salvar', { corpo: c })
 
 export const salvarSorte = (c: Partial<RegrasSorte>) => pedir<Ok<{ sorte: RegrasSorte }>>('POST', 'admin-sorte-salvar', { corpo: c })
+
+/** Roda o sorteio de verdade `giros` vezes (100 a 10.000), sem gravar nada; uf null = todos os prêmios. */
+export const simularSorte = (giros: number, uf: string | null) => pedir<{ ok: true } & SimulacaoSorte>('POST', 'admin-sorte-simular', { corpo: { giros, uf } })
 
 export const salvarPremio = (c: PremioCorpo) => pedir<Ok<{ premio: PremioAdmin }>>('POST', 'admin-premio-salvar', { corpo: c })
 

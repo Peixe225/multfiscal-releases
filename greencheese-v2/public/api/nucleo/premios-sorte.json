@@ -27,6 +27,7 @@
       "peso": 30,
       "validadeDias": 7,
       "demo": true,
+      "raridade": "comum",
       "ufs": [
         "rj",
         "mg",
@@ -51,6 +52,7 @@
       "peso": 20,
       "validadeDias": 7,
       "demo": true,
+      "raridade": "raro",
       "ufs": [
         "rj",
         "sp",
@@ -77,6 +79,7 @@
       "peso": 25,
       "validadeDias": 7,
       "demo": true,
+      "raridade": "raro",
       "ufs": [
         "rj",
         "mg",
@@ -99,6 +102,7 @@
       "peso": 15,
       "validadeDias": 7,
       "demo": true,
+      "raridade": "comum",
       "ufs": [
         "mg",
         "sp",
@@ -121,6 +125,55 @@
       "peso": 10,
       "validadeDias": 7,
       "demo": true,
+      "raridade": "comum",
+      "ufs": [
+        "mg",
+        "sp",
+        "es",
+        "sc"
+      ]
+    },
+    {
+      "id": "bandeja-25",
+      "tipo": "desconto-percentual",
+      "valor": 25,
+      "titulo": "25% na bandeja RAW",
+      "descricao": "Bandeja bem mais em conta.",
+      "regra": "25% de desconto na Bandeja RAW pequena",
+      "aplicaA": {
+        "produtos": [
+          "bandeja-raw-pequena"
+        ]
+      },
+      "comoUsar": "Põe a bandeja na sacola e usa o cupom.",
+      "peso": 1,
+      "validadeDias": 7,
+      "demo": true,
+      "raridade": "epico",
+      "ufs": [
+        "mg",
+        "sp",
+        "es",
+        "sc"
+      ]
+    },
+    {
+      "id": "dichavador-40",
+      "tipo": "desconto-percentual",
+      "valor": 40,
+      "titulo": "40% no dichavador",
+      "descricao": "Sorte grande no dichavador.",
+      "regra": "40% de desconto no Dichavador de metal 4 partes",
+      "aplicaA": {
+        "produtos": [
+          "dichavador-metal-4-partes"
+        ]
+      },
+      "comoUsar": "Põe o dichavador na sacola e usa o cupom.",
+      "peso": 1,
+      "validadeDias": 7,
+      "demo": true,
+      "raridade": "lendario",
       "ufs": [
         "mg",
         "sp",

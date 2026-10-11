@@ -1,7 +1,8 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { regrasDaSorte } from '../store/loja'
 import { useContaStore, type Conta, type Cupom, type EnderecoConta, type EstadoConta, type Pendente } from '../store/conta'
-import { diaSP, inicioDoDiaSeguinteSP, premioPorId, statusDo, type StatusCupom } from './cupom'
+import { diaSP, premioPorId, statusDo, type StatusCupom } from './cupom'
+import { girouNaJanela, liberaEm } from './frequencia'
 import { agoraLoja, aoMudarHoraDaLoja } from './relogio'
 
 // Conta do cliente atrás de uma interface (AdaptadorConta). Divisão do trabalho:
@@ -16,9 +17,15 @@ import { agoraLoja, aoMudarHoraDaLoja } from './relogio'
 
 export type Resultado<T, E extends string> = { ok: true; valor: T } | { ok: false; erro: E }
 
+/**
+ * Giro liberado? Com conta, N giros a cada X dias (regrasDaSorte: intervaloDias e girosPorIntervalo). Os nomes são os
+ * de quando era 1 por dia (o contrato do servidor): 'ja-girou-hoje' = já girou no período, e libera em `proximoEm` (a
+ * meia-noite de Brasília do dia que libera); sem conta, `girouHoje` = o giro deste aparelho ainda conta na janela de
+ * quem criar a conta aqui (com X = 1, girou hoje) e `proximoComConta` = quando essa conta gira (sem ele, na hora).
+ */
 export type GiroInfo =
   | { disponivel: true }
-  | { disponivel: false; motivo: 'sem-conta-ja-girou'; girouHoje: boolean }
+  | { disponivel: false; motivo: 'sem-conta-ja-girou'; girouHoje: boolean; proximoComConta?: number }
   | { disponivel: false; motivo: 'ja-girou-hoje'; proximoEm: number }
 
 /** Conta aberta e o cupom que foi guardado nessa hora (prêmio reservado sem conta), se teve. */
@@ -99,14 +106,21 @@ export function contaAtual(s: EstadoConta): { conta: Conta; cupons: Cupom[] } | 
 export function calcularGiro(s: EstadoConta, interativo: string, agora: number): GiroInfo {
   const dias = s.giros[interativo] ?? []
   const hoje = diaSP(agora)
+  const r = regrasDaSorte()
+  const libera = liberaEm(dias, hoje, r)
   if (!contaAtual(s)) {
-    if (dias.length >= regrasDaSorte().girosSemConta) return { disponivel: false, motivo: 'sem-conta-ja-girou', girouHoje: dias.includes(hoje) }
+    if (dias.length >= r.girosSemConta) {
+      return { disponivel: false, motivo: 'sem-conta-ja-girou', girouHoje: girouNaJanela(dias, hoje, r.intervaloDias), ...(libera ? { proximoComConta: meiaNoiteSP(libera) } : {}) }
+    }
     return { disponivel: true }
   }
-  // girou sem conta hoje e criou conta hoje: o giro de hoje já foi (próximo amanhã)
-  if (dias.filter((d) => d === hoje).length >= regrasDaSorte().girosPorDiaComConta) return { disponivel: false, motivo: 'ja-girou-hoje', proximoEm: inicioDoDiaSeguinteSP(agora) }
+  // girou sem conta e criou a conta no período: aquele giro conta (o próximo libera no dia que a janela deixa)
+  if (libera) return { disponivel: false, motivo: 'ja-girou-hoje', proximoEm: meiaNoiteSP(libera) }
   return { disponivel: true }
 }
+
+/** Meia-noite de Brasília do dia 'AAAA-MM-DD' (o Brasil não tem horário de verão desde 2019: -03:00 fixo). */
+export const meiaNoiteSP = (dia: string): number => Date.parse(`${dia}T00:00:00-03:00`)
 
 export function pendenteValido(p: Pendente | null, interativo: string, agora: number): boolean {
   return !!p && p.interativo === interativo && agora < p.expiraEm && !!premioPorId(p.premioId)

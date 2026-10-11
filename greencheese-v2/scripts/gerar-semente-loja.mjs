@@ -28,6 +28,7 @@ export async function montarSemente() {
   const { canaisEmbutidos: canais } = await lerTs('src/dados/canais.ts')
   const { config } = await lerTs('src/dados/config.ts')
   const { premios, regrasSorte } = await lerTs('src/dados/sorte.ts')
+  const { CHANCES_PADRAO, RARIDADES } = await lerTs('src/lib/raridade.ts')
   const { textosLoja } = await lerTs('src/dados/textos-loja.ts')
 
   // alcool: a marca "Bebida alcoólica" (os Destilados): alcoólica é sempre bebida, no servidor também
@@ -89,12 +90,21 @@ export async function montarSemente() {
     stories: {},
     sorte: {
       ligado: true,
+      // as mesmas chaves do GET loja (sorte.regras): com conta, girosPorIntervalo a cada intervaloDias dias (e o
+      // girosPorDiaComConta de antes, igual); as chances de cada raridade (src/lib/raridade.ts)
       regras: {
         girosSemConta: regrasSorte.girosSemConta,
-        girosPorDiaComConta: regrasSorte.girosPorDiaComConta,
+        intervaloDias: regrasSorte.intervaloDias,
+        girosPorIntervalo: regrasSorte.girosPorIntervalo,
+        girosPorDiaComConta: regrasSorte.girosPorIntervalo,
         reservaSemContaHoras: regrasSorte.reservaSemContaHoras,
+        chances: { ...CHANCES_PADRAO },
       },
-      premios: premios.map((p) => so(p, ['id', 'tipo', 'valor', 'titulo', 'descricao', 'regra', 'aplicaA', 'comoUsar', 'peso', 'validadeDias', 'demo'])),
+      // a raridade (sem ela, comum: o servidor e o site leem assim)
+      premios: premios.map((p) => {
+        if (p.raridade !== undefined && !RARIDADES.includes(p.raridade)) throw new Error(`prêmio ${p.id}: raridade "${p.raridade}" não existe (comum, raro, epico, lendario)`)
+        return { ...so(p, ['id', 'tipo', 'valor', 'titulo', 'descricao', 'regra', 'aplicaA', 'comoUsar', 'peso', 'validadeDias', 'demo']), raridade: p.raridade ?? 'comum' }
+      }),
     },
   }
 }

@@ -635,7 +635,11 @@ function gc_rota_admin_loja_salvar(): array
     });
 }
 
-/** POST admin-sorte-salvar { ligado?, girosSemConta?, girosPorDiaComConta?, reservaSemContaHoras? } */
+/**
+ * POST admin-sorte-salvar { ligado?, girosSemConta?, intervaloDias?, girosPorIntervalo?, reservaSemContaHoras?,
+ * chances? } (o girosPorDiaComConta de antes vale como girosPorIntervalo). Na Atividade, a frase diz o que mudou: ligou
+ * ou desligou, a frequência nova, as chances novas.
+ */
 function gc_rota_admin_sorte_salvar(): array
 {
     gc_exigir_dono();
@@ -644,13 +648,60 @@ function gc_rota_admin_sorte_salvar(): array
     return gc_transacao(static function () use ($c): array {
         $antes = gc_loja_sorte();
         $sorte = gc_loja_ler_sorte($c, $antes);
-        if ($sorte !== $antes) {
+        $campos = array_values(array_filter(
+            ['ligado', 'girosSemConta', 'intervaloDias', 'girosPorIntervalo', 'reservaSemContaHoras', 'chances'],
+            static fn (string $k): bool => $sorte[$k] != $antes[$k],
+        ));
+        if ($campos !== []) {
             gc_ajuste_definir('loja.sorte', gc_loja_json($sorte));
             gc_loja_mudou();
-            gc_evento('painel', 'sorte-regras', 'loja', ['campos' => array_keys(array_diff_assoc(array_map('strval', $sorte), array_map('strval', $antes)))]);
+            gc_evento('painel', 'sorte-regras', 'loja', [
+                'campos' => $campos, 'ligado' => $sorte['ligado'], 'intervaloDias' => $sorte['intervaloDias'],
+                'girosPorIntervalo' => $sorte['girosPorIntervalo'], 'chances' => $sorte['chances'],
+            ]);
         }
         return ['sorte' => gc_loja_sorte()] + gc_loja_carimbo();
     });
+}
+
+/**
+ * POST admin-sorte-simular { giros: 100–10000, uf?: string|null }: roda o sorteio de verdade (gc_sortear, o mesmo do
+ * giro) N vezes sem gravar nada, com os prêmios que valem no estado (sem estado, todos; sem nenhum no estado, todos,
+ * como o giro) e as chances de agora. Mesmo com o jogo desligado (testa antes de ligar: `desligado: true`). Dono e
+ * gerente (permissão 'produtos'; o gerente só nos estados dele), 60 por hora por IP. Na Atividade: "Simulou N giros".
+ */
+function gc_rota_admin_sorte_simular(): array
+{
+    gc_exigir_dono();
+    $c = gc_corpo();
+    $giros = gc_inteiro($c['giros'] ?? null, GC_SIMULAR_MIN, GC_SIMULAR_MAX) ?? throw gc_invalido('giros', 'Simula de 100 a 10.000 giros por vez.');
+    $uf = null;
+    if (array_key_exists('uf', $c) && $c['uf'] !== null && $c['uf'] !== '') {
+        $uf = gc_uf($c['uf']) ?? throw gc_invalido('uf', 'Esse estado não existe.');
+        if (function_exists('gc_exigir_uf')) {
+            gc_exigir_uf($uf, 'Esse estado');
+        }
+    }
+    gc_limite('admin-simular-ip', gc_chave_limite('ip', gc_ip()), 60, 3600, 'Muita simulação seguida. Espera um pouco e tenta de novo.');
+    gc_loja_exigir_semeada();
+    // estado fora do site, ou sem nenhum prêmio que valha lá: o giro sorteia entre todos (gc_premios_do_giro); aqui também
+    $atende = $uf !== null && in_array($uf, array_map(static fn (array $e): string => (string) $e['uf'], gc_loja_linhas_estados(true)), true);
+    $noEstado = $atende ? gc_premios_ativos($uf, true) : [];
+    $lista = $noEstado !== [] ? $noEstado : gc_premios_ativos(null, true);
+    $sorte = gc_loja_sorte();
+    $r = gc_sorte_simular($lista, $sorte['chances'], $giros);
+    gc_transacao(static function () use ($giros, $uf): void {
+        gc_evento('painel', 'sorte-simulada', 'loja', ['giros' => $giros, 'uf' => $uf]);
+    });
+    return [
+        'giros' => $giros,
+        'uf' => $uf,
+        // estado sem nenhum prêmio que valha lá: o giro sorteia entre todos (como aqui)
+        'todosOsEstados' => $uf !== null && $noEstado === [],
+        'foraDoSite' => $uf !== null && !$atende,
+        'desligado' => !$sorte['ligado'],
+        'chances' => $sorte['chances'],
+    ] + $r;
 }
 
 /** O prêmio no painel (o do site + ligado, ordem e se ele está valendo no site agora). */
@@ -690,7 +741,7 @@ function gc_rota_admin_premio_salvar(): array
                 gc_sql("UPDATE loja_premios SET $sets, atualizado_em = ? WHERE id = ?", [...array_values($col), $agora, $atual['id']]);
                 gc_loja_mudou();
                 $acao = $mudou === ['ativo'] ? ($col['ativo'] ? 'premio-ativado' : 'premio-desativado') : 'premio-editado';
-                gc_evento('painel', $acao, 'premio:' . $atual['id'], ['titulo' => $col['titulo'], 'campos' => $mudou]);
+                gc_evento('painel', $acao, 'premio:' . $atual['id'], ['titulo' => $col['titulo'], 'campos' => $mudou, 'raridade' => $col['raridade']]);
             }
             return ['premio' => gc_loja_premio_admin_por_id((string) $atual['id'])] + gc_loja_carimbo();
         }
@@ -705,7 +756,7 @@ function gc_rota_admin_premio_salvar(): array
         $marcas = implode(', ', array_fill(0, count($col), '?'));
         gc_sql("INSERT INTO loja_premios ($nomes) VALUES ($marcas)", array_values($col));
         gc_loja_mudou();
-        gc_evento('painel', 'premio-criado', 'premio:' . $id, ['titulo' => $col['titulo']]);
+        gc_evento('painel', 'premio-criado', 'premio:' . $id, ['titulo' => $col['titulo'], 'raridade' => $col['raridade']]);
         return ['_status' => 201, 'premio' => gc_loja_premio_admin_por_id($id)] + gc_loja_carimbo();
     });
 }
@@ -856,6 +907,30 @@ function gc_loja_plural(int $n, string $um, string $varios): string
     return $n === 0 ? '' : $n . ' ' . ($n === 1 ? $um : $varios);
 }
 
+/**
+ * A frase das regras do Teste minha sorte na Atividade: o que mudou, quando dá pra dizer numa linha (ligou, a
+ * frequência nova, as chances novas); o resto (ou evento de antes, sem os valores), a frase de sempre.
+ * @param array<string, mixed> $d
+ */
+function gc_loja_texto_regras(array $d): string
+{
+    $campos = is_array($d['campos'] ?? null) ? $d['campos'] : [];
+    if ($campos === ['ligado'] && array_key_exists('ligado', $d)) {
+        return !empty($d['ligado']) ? 'Ligou o Teste minha sorte no site' : 'Desligou o Teste minha sorte no site';
+    }
+    if ($campos !== [] && array_diff($campos, ['intervaloDias', 'girosPorIntervalo']) === [] && isset($d['intervaloDias'], $d['girosPorIntervalo']) && function_exists('gc_sorte_frase')) {
+        return 'Mudou a frequência do Teste minha sorte: ' . gc_sorte_frase((int) $d['intervaloDias'], (int) $d['girosPorIntervalo']) . ' com conta';
+    }
+    if ($campos === ['chances'] && is_array($d['chances'] ?? null) && defined('GC_NOME_RARIDADE')) {
+        $partes = [];
+        foreach (GC_NOME_RARIDADE as $r => $nome) {
+            $partes[] = $nome . ' ' . str_replace('.', ',', (string) ($d['chances'][$r] ?? 0)) . '%';
+        }
+        return 'Mudou as chances das raridades: ' . implode(', ', $partes);
+    }
+    return 'Mudou as regras do Teste minha sorte';
+}
+
 /** Frase da Atividade pros eventos da loja (null = não é da loja). */
 function gc_loja_evento_texto(string $acao, array $d): ?string
 {
@@ -899,9 +974,11 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
             ['vitrineNaRua'] => !empty($d['vitrineNaRua']) ? 'Ligou os produtos na rua do mercador' : 'Desligou os produtos na rua do mercador',
             default => 'Mudou os ajustes da loja',
         },
-        'sorte-regras' => 'Mudou as regras do Teste minha sorte',
-        'premio-criado' => "Criou o prêmio $nome",
-        'premio-editado' => "Editou o prêmio $nome",
+        'sorte-regras' => gc_loja_texto_regras($d),
+        'sorte-simulada' => 'Simulou ' . number_format((int) ($d['giros'] ?? 0), 0, ',', '.') . ' giros' . (is_string($d['uf'] ?? null) ? ' em ' . strtoupper($d['uf']) : ''),
+        'sorte-raridades' => (int) ($d['novos'] ?? 0) > 0 ? 'Os prêmios de exemplo ganharam raridade (e entraram um épico e um lendário de exemplo)' : 'Os prêmios de exemplo ganharam raridade',
+        'premio-criado' => "Criou o prêmio $nome" . (($d['raridade'] ?? 'comum') !== 'comum' && function_exists('gc_raridade_de') ? ' (' . GC_NOME_RARIDADE[gc_raridade_de($d)] . ')' : ''),
+        'premio-editado' => ($d['campos'] ?? null) === ['raridade'] && function_exists('gc_raridade_de') ? "Mudou o prêmio $nome pra " . GC_NOME_RARIDADE[gc_raridade_de($d)] : "Editou o prêmio $nome",
         'premio-ativado' => "Pôs no jogo o prêmio $nome",
         'premio-desativado' => "Tirou do jogo o prêmio $nome",
         'premio-apagado' => "Apagou o prêmio $nome",

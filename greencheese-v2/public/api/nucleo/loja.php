@@ -94,15 +94,26 @@ function gc_loja_textos(): array
     ];
 }
 
-/** @return array{ligado: bool, girosSemConta: int, girosPorDiaComConta: int, reservaSemContaHoras: int} */
+/**
+ * As regras do Teste minha sorte (Loja → Teste minha sorte). Com conta: `girosPorIntervalo` giros a cada
+ * `intervaloDias` dias (sem os campos — loja salva antes de 11/10 —, o `girosPorDiaComConta` de antes a cada 1 dia);
+ * `girosPorDiaComConta` sai igual ao `girosPorIntervalo`, pro site com o JS velho no cache. As chances de cada
+ * raridade (em %), as de fábrica quando faltam ou não fecham.
+ * @return array{ligado: bool, girosSemConta: int, intervaloDias: int, girosPorIntervalo: int, girosPorDiaComConta: int, reservaSemContaHoras: int, chances: array<string, int|float>}
+ */
 function gc_loja_sorte(): array
 {
     $s = gc_loja_lido(gc_ajuste('loja.sorte'), []);
+    $porIntervalo = (int) ($s['girosPorIntervalo'] ?? $s['girosPorDiaComConta'] ?? 1);
+    $chances = function_exists('gc_chances_ler') && isset($s['chances']) ? gc_chances_ler($s['chances'])['chances'] : null;
     return [
         'ligado' => (bool) ($s['ligado'] ?? true),
         'girosSemConta' => (int) ($s['girosSemConta'] ?? 1),
-        'girosPorDiaComConta' => (int) ($s['girosPorDiaComConta'] ?? 1),
+        'intervaloDias' => min(30, max(1, (int) ($s['intervaloDias'] ?? 1))),
+        'girosPorIntervalo' => $porIntervalo,
+        'girosPorDiaComConta' => $porIntervalo,
         'reservaSemContaHoras' => (int) ($s['reservaSemContaHoras'] ?? 24),
+        'chances' => $chances ?? (defined('GC_CHANCES_PADRAO') ? GC_CHANCES_PADRAO : ['comum' => 60, 'raro' => 25, 'epico' => 12, 'lendario' => 3]),
     ];
 }
 
@@ -200,15 +211,23 @@ function gc_loja_semear(PDO $db, array $s): void
             $story->execute([$uf, $id, $i]);
         }
     }
-    $premio = $db->prepare(
-        'INSERT INTO loja_premios (id, tipo, valor, titulo, descricao, regra, aplica_a, como_usar, peso, validade_dias, ativo, demo, ordem, criado_em, atualizado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)',
-    );
+    // a raridade do prêmio (migração 103): na 101 (banco instalado antes da loja) a coluna ainda não existe, e a própria
+    // 103 põe a raridade da semente logo depois
+    $comRaridade = false;
+    foreach ($db->query('PRAGMA table_info(loja_premios)')->fetchAll(PDO::FETCH_ASSOC) as $coluna) {
+        $comRaridade = $comRaridade || $coluna['name'] === 'raridade';
+    }
+    $premio = $db->prepare($comRaridade
+        ? 'INSERT INTO loja_premios (id, tipo, valor, titulo, descricao, regra, aplica_a, como_usar, peso, validade_dias, ativo, demo, ordem, criado_em, atualizado_em, raridade)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)'
+        : 'INSERT INTO loja_premios (id, tipo, valor, titulo, descricao, regra, aplica_a, como_usar, peso, validade_dias, ativo, demo, ordem, criado_em, atualizado_em)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)');
     foreach (array_values($s['sorte']['premios']) as $i => $p) {
-        $premio->execute([
+        $valores = [
             $p['id'], $p['tipo'], gc_loja_json($p['valor']), $p['titulo'], $p['descricao'], $p['regra'], gc_loja_json($p['aplicaA']),
             $p['comoUsar'] ?? '', (int) $p['peso'], (int) $p['validadeDias'], !empty($p['demo']) ? 1 : 0, $i, $agora, $agora,
-        ]);
+        ];
+        $premio->execute($comRaridade ? [...$valores, gc_raridade_de($p)] : $valores);
     }
     $a = $s['ajustes'];
     $sorte = ['ligado' => (bool) ($s['sorte']['ligado'] ?? true)] + $s['sorte']['regras'];
@@ -396,7 +415,9 @@ function gc_loja_premio_publico(array $p): array
     if ((string) $p['como_usar'] !== '') {
         $out['comoUsar'] = (string) $p['como_usar'];
     }
-    return $out + ['peso' => (int) $p['peso'], 'validadeDias' => (int) $p['validade_dias'], 'demo' => (bool) $p['demo']];
+    // a raridade (comum|raro|epico|lendario; sem a coluna, de antes da migração 103: comum)
+    $raridade = function_exists('gc_raridade_de') ? gc_raridade_de($p) : 'comum';
+    return $out + ['peso' => (int) $p['peso'], 'validadeDias' => (int) $p['validade_dias'], 'demo' => (bool) $p['demo'], 'raridade' => $raridade];
 }
 
 /**
@@ -507,7 +528,16 @@ function gc_loja_publica(): array
         'stories' => gc_loja_mapa($stories),
         'sorte' => [
             'ligado' => $sorte['ligado'],
-            'regras' => ['girosSemConta' => $sorte['girosSemConta'], 'girosPorDiaComConta' => $sorte['girosPorDiaComConta'], 'reservaSemContaHoras' => $sorte['reservaSemContaHoras']],
+            // com conta: girosPorIntervalo a cada intervaloDias dias; girosPorDiaComConta = girosPorIntervalo (o JS velho
+            // no cache lê esse); as chances de cada raridade (o site só usa no sorteio do aparelho, nunca mostra)
+            'regras' => [
+                'girosSemConta' => $sorte['girosSemConta'],
+                'intervaloDias' => $sorte['intervaloDias'],
+                'girosPorIntervalo' => $sorte['girosPorIntervalo'],
+                'girosPorDiaComConta' => $sorte['girosPorDiaComConta'],
+                'reservaSemContaHoras' => $sorte['reservaSemContaHoras'],
+                'chances' => $sorte['chances'],
+            ],
             'premios' => $premios,
         ],
     ];
@@ -518,16 +548,17 @@ function gc_loja_publica(): array
  * (sorte ligada, tudo o que o prêmio cita no ar e nada de bebida). No estado ($uf), só os que dá pra usar lá: algum
  * produto do prêmio à venda no estado e, no brinde, o brinde também (como premiosElegiveis do site). Estado que a loja
  * não atende (ou null): todos. Antes da loja ser montada no servidor (painel sem instalar), valem os da semente.
- * Cada prêmio no formato de src/dados/sorte.ts.
+ * Cada prêmio no formato de src/dados/sorte.ts. $mesmoDesligado: os que valeriam com o jogo ligado (o "Simular giros"
+ * do painel, que testa antes de ligar).
  * @return list<array<string, mixed>>
  */
-function gc_premios_ativos(?string $uf = null): array
+function gc_premios_ativos(?string $uf = null, bool $mesmoDesligado = false): array
 {
     if (!gc_loja_semeada()) {
         require_once __DIR__ . '/premios-semente.php';
         return gc_premios_da_semente($uf);
     }
-    if (!gc_loja_sorte()['ligado']) {
+    if (!$mesmoDesligado && !gc_loja_sorte()['ligado']) {
         return [];
     }
     $produtos = gc_loja_linhas_produtos(true);

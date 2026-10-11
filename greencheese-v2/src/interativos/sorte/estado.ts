@@ -4,7 +4,8 @@
 import { useMemo } from 'react'
 import { config } from '../../dados/config'
 import type { Premio } from '../../dados/sorte'
-import { formatarAte, formatarEspera, formatarFalta, nomeDoPremio, premioPorId, diasEntre } from '../../lib/cupom'
+import { diaSP, formatarAte, formatarFalta, formatarLibera, nomeDoPremio, premioPorId, diasEntre } from '../../lib/cupom'
+import { diaQueLibera } from '../../lib/frequencia'
 import { depoisDoHistorico } from '../../lib/historico'
 import { primeiroNome, useAgora, useConta, useCupons, useGiro, usePendente, useVisto, type CupomComStatus, type GiroInfo } from '../../lib/conta'
 import type { Conta, Pendente } from '../../store/conta'
@@ -36,7 +37,7 @@ export interface ResumoSorte {
   todos: CupomComStatus[]
   /** Cupom ativo que vence hoje ou amanhã (E1). */
   vencendo: CupomComStatus | null
-  /** Cupom ganho hoje (tela de espera). */
+  /** Cupom ganho no período da frequência (com 1 por dia, hoje): a tela de espera mostra o último. */
   deHoje: CupomComStatus | null
   agora: number
 }
@@ -50,7 +51,8 @@ export function useEstadoSorte(): ResumoSorte {
   return useMemo(() => {
     const ativos = todos.filter((c) => c.status === 'ativo' && c.interativo === ID_SORTE)
     const vencendo = ativos.find((c) => diasEntre(agora, c.validoAte) <= 1) ?? null
-    const deHoje = [...todos].filter((c) => c.interativo === ID_SORTE && diasEntre(c.ganhoEm, agora) === 0).sort((a, b) => b.ganhoEm - a.ganhoEm)[0] ?? null
+    const janela = regrasDaSorte().intervaloDias
+    const deHoje = [...todos].filter((c) => c.interativo === ID_SORTE && diasEntre(c.ganhoEm, agora) < janela).sort((a, b) => b.ganhoEm - a.ganhoEm)[0] ?? null
     let estado: EstadoSorte
     if (!conta) estado = valido ? 'B' : giro.disponivel ? 'A' : giro.motivo === 'sem-conta-ja-girou' && giro.girouHoje ? 'C-hoje' : 'C-antes'
     else if (giro.disponivel) estado = 'D'
@@ -91,6 +93,14 @@ const ARIA: Record<EstadoSorte, string> = {
   E1: 'Teste minha sorte: próximo giro amanhã',
 }
 
+/** O rótulo da entrada, com o dia que libera quando a frequência do painel não é 1 por dia. */
+function ariaDe(r: ResumoSorte): string {
+  if (regrasDaSorte().intervaloDias === 1 && regrasDaSorte().girosPorIntervalo === 1) return ARIA[r.estado]
+  if (r.estado === 'D') return 'Teste minha sorte: giro liberado'
+  if ((r.estado === 'E' || r.estado === 'E1') && r.giro.disponivel === false && r.giro.motivo === 'ja-girou-hoje') return `Teste minha sorte: próximo giro ${diaQueLibera(diaSP(r.giro.proximoEm), diaSP(r.agora))}`
+  return ARIA[r.estado]
+}
+
 /** Entrada do "Teste minha sorte" no registro (destaque, lateral, adesivo). */
 export function useEntradaSorte(): EntradaInterativo {
   const r = useEstadoSorte()
@@ -116,12 +126,16 @@ export function useEntradaSorte(): EntradaInterativo {
         }
         break
       case 'C-hoje':
-      case 'C-antes':
-        // girou hoje sem conta: com 1 giro por dia (as regras do painel), o de hoje já foi; com mais, cria e gira agora
-        adesivo = { titulo: T.tituloPx, pergunta: T.giroJaFoi, texto: estado === 'C-hoje' && regrasDaSorte().girosPorDiaComConta <= 1 ? T.criaAmanha : T.criaAgora, cta: T.criarConta, acao: () => abrir('cadastro') }
+      case 'C-antes': {
+        // o giro sem conta deste aparelho ainda conta na janela de quem criar a conta aqui (a frequência do painel): a
+        // conta gira no dia que a janela deixa ("amanhã", "sábado, 17/10"); senão, cria e gira agora
+        const comConta = r.giro.disponivel === false && r.giro.motivo === 'sem-conta-ja-girou' ? r.giro.proximoComConta : undefined
+        const dia = comConta ? diaQueLibera(diaSP(comConta), diaSP(agora)) : null
+        adesivo = { titulo: T.tituloPx, pergunta: T.giroJaFoi, texto: !dia ? T.criaAgora : dia === 'amanhã' ? T.criaAmanha : `Cria tua conta pra girar de novo ${dia}.`, cta: T.criarConta, acao: () => abrir('cadastro') }
         break
+      }
       case 'D':
-        adesivo = { titulo: T.tituloPx, pergunta: `${primeiroNome(conta?.nome)}, teu giro de hoje tá liberado`, cta: T.girar, legenda: T.todoGiroGanha, acao: () => abrir() }
+        adesivo = { titulo: T.tituloPx, pergunta: `${primeiroNome(conta?.nome)}, ${regrasDaSorte().intervaloDias === 1 ? 'teu giro de hoje tá liberado' : 'teu giro tá liberado'}`, cta: T.girar, legenda: T.todoGiroGanha, acao: () => abrir() }
         break
       case 'E1': {
         const c = r.vencendo!
@@ -129,11 +143,12 @@ export function useEntradaSorte(): EntradaInterativo {
         break
       }
       case 'E': {
-        const espera = r.giro.disponivel === false && r.giro.motivo === 'ja-girou-hoje' ? formatarEspera(r.giro.proximoEm - agora, true) : 'amanhã'
+        const espera = r.giro.disponivel === false && r.giro.motivo === 'ja-girou-hoje' ? formatarLibera(r.giro.proximoEm, agora, true) : 'amanhã'
         const n = r.ativos.length
+        const umPorDia = regrasDaSorte().intervaloDias === 1 && regrasDaSorte().girosPorIntervalo === 1
         adesivo = {
           titulo: T.tituloPx,
-          pergunta: `Hoje já foi. Próximo giro ${espera}.`,
+          pergunta: `${umPorDia ? 'Hoje já foi' : 'Teu giro já foi'}. Próximo giro ${espera}.`,
           texto: n ? `${n} ${n === 1 ? 'cupom guardado' : 'cupons guardados'}` : undefined,
           cta: T.verCupons,
           acao: () => useUI.getState().setConta(true),
@@ -146,7 +161,7 @@ export function useEntradaSorte(): EntradaInterativo {
       ponto: aceso,
       novo: !visto,
       rotulo: estado === 'B' ? T.curtoPremio : T.curto,
-      aria: ARIA[estado],
+      aria: ariaDe(r),
       instagram,
       exemplo: config.carimboDeExemplo,
       adesivo,

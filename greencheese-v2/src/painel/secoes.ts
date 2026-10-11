@@ -43,7 +43,7 @@ export const secoes: Secao[] = [
   // as partes da loja (só o dono)
   { id: 'estados', nome: 'Estados', sub: 'Horário, taxa, entrega grátis, cidades e WhatsApp', href: caminho.estados, icone: 'pin', iconeAtivo: 'pin', telas: ['estados', 'estado'], permissao: 'loja', grupo: 'loja' },
   { id: 'stories', nome: 'Stories do Início', sub: 'Os produtos que passam no story de cada estado', href: caminho.stories, icone: 'estrela', iconeAtivo: 'estrela', telas: ['stories'], permissao: 'loja', grupo: 'loja' },
-  { id: 'sorte', nome: 'Teste minha sorte', sub: 'Liga e desliga o jogo, prêmios e regras', href: caminho.sorte, icone: 'dichavador', iconeAtivo: 'dichavador', telas: ['sorte', 'premio'], permissao: 'loja', grupo: 'loja' },
+  { id: 'sorte', nome: 'Teste minha sorte', sub: 'Com que frequência gira, prêmios e chances', href: caminho.sorte, icone: 'dichavador', iconeAtivo: 'dichavador', telas: ['sorte', 'premio'], permissao: 'loja', grupo: 'loja' },
   { id: 'loja', nome: 'Ajustes da loja', sub: 'WhatsApp do pedido, “restam X”, textos e dados de exemplo', href: caminho.loja, icone: 'loja', iconeAtivo: 'loja-cheia', telas: ['loja'], permissao: 'loja', grupo: 'loja' },
   // o que se configura uma vez (Equipe primeiro: é o que mais se abre daqui)
   { id: 'equipe', nome: 'Equipe', sub: 'Logins de gerente e atendente, senha provisória', href: caminho.equipe, icone: 'equipe', iconeAtivo: 'equipe-cheia', telas: ['equipe', 'usuario'], permissao: 'equipe', grupo: 'config' },

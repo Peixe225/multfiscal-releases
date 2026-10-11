@@ -1,7 +1,8 @@
 // Tipos da loja no painel: o contrato do API.md (seção "Loja (painel)"). Dinheiro em reais, datas em ISO UTC.
+import type { Raridade } from '../../lib/raridade'
 import type { Arte, TipoArte } from '../../lib/tipos'
 
-export type { Arte, TipoArte }
+export type { Arte, Raridade, TipoArte }
 export type FormaPagamento = 'pix' | 'dinheiro' | 'cartao'
 export type Turno = [string, string] | null
 export type TipoPremio = 'desconto-percentual' | 'leve-x-pague-y' | 'brinde'
@@ -106,9 +107,12 @@ export interface PremioAdmin {
   regra: string
   aplicaA: { produtos?: string[]; categorias?: string[] }
   comoUsar?: string
+  /** Peso dentro da raridade (1 a 1000; o padrão é 1). */
   peso: number
   validadeDias: number
   demo: boolean
+  /** Comum, raro, épico ou lendário (src/lib/raridade.ts): a cor e a chance da raridade. */
+  raridade: Raridade
   ativo: boolean
   ordem: number
   /** Vale no site agora (ligado, com o produto no ar e sem bebida). */
@@ -119,8 +123,29 @@ export interface PremioAdmin {
 export interface RegrasSorte {
   ligado: boolean
   girosSemConta: number
+  /** Com conta: girosPorIntervalo giros a cada intervaloDias dias (1 a 30), em dias de calendário de Brasília. */
+  intervaloDias: number
+  girosPorIntervalo: number
+  /** O nome de antes (igual ao girosPorIntervalo): o servidor ainda manda e aceita. */
   girosPorDiaComConta: number
   reservaSemContaHoras: number
+  /** A chance de cada raridade, em % (até 1 casa; somam 100; quanto mais raro, menor). */
+  chances: Record<Raridade, number>
+}
+
+/** O que o admin-sorte-simular devolve (o sorteio de verdade, N vezes, sem gravar nada). */
+export interface SimulacaoSorte {
+  giros: number
+  uf: string | null
+  /** Estado fora do site ou sem prêmio que valha lá: o giro sorteia entre todos (como aqui). */
+  todosOsEstados: boolean
+  foraDoSite: boolean
+  /** O jogo tá desligado: a simulação mostra como sairia com ele ligado. */
+  desligado: boolean
+  chances: Record<Raridade, number>
+  /** esperado e saiuPct em %; saiu em vezes. */
+  premios: { id: string; titulo: string; raridade: Raridade; peso: number; esperado: number; saiu: number; saiuPct: number }[]
+  raridades: { raridade: Raridade; chance: number; premios: number; esperado: number; saiu: number; saiuPct: number }[]
 }
 
 export interface LojaAdmin {
@@ -194,6 +219,7 @@ export interface PremioCorpo {
   comoUsar?: string
   peso?: number
   validadeDias?: number
+  raridade?: Raridade
   ativo?: boolean
   demo?: boolean
 }

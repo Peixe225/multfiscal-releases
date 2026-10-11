@@ -26,6 +26,7 @@ async function carregar(arquivo) {
 }
 
 const { premios, PALAVRAS_PROIBIDAS } = await carregar('src/dados/sorte.ts')
+const { RARIDADES } = await carregar('src/lib/raridade.ts')
 const { config } = await carregar('src/dados/config.ts')
 // os estados que vão embutidos no site (a loja do servidor, quando montada, usa os do painel: loja.php)
 const ufsAtendidas = (await carregar('src/dados/canais.ts')).canaisEmbutidos.map((c) => c.uf)
@@ -60,6 +61,7 @@ for (const p of premios) {
     if (FORA.has(c)) erro(`categoria "${c}" não pode ter prêmio`)
   }
   if (!(p.peso > 0)) erro('peso precisa ser maior que 0')
+  if (p.raridade !== undefined && !RARIDADES.includes(p.raridade)) erro(`raridade "${p.raridade}" não existe (comum, raro, epico, lendario)`)
   if (!Number.isInteger(p.validadeDias) || p.validadeDias < 1 || p.validadeDias > 30) erro('validadeDias vai de 1 a 30')
   if (p.tipo === 'desconto-percentual' && !(p.valor >= 1 && p.valor <= 50)) erro('percentual vai de 1 a 50')
   if (p.tipo === 'leve-x-pague-y' && !(p.valor.leve > p.valor.pague && p.valor.pague >= 1)) erro('leve precisa ser maior que pague')
@@ -94,6 +96,8 @@ for (const p of premios) {
     peso: p.peso,
     validadeDias: p.validadeDias,
     demo: !!p.demo,
+    // sem raridade, comum (como raridadeDe do site e gc_raridade_de do servidor)
+    raridade: p.raridade ?? 'comum',
     ufs,
   })
 }

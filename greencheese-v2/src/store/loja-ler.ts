@@ -5,6 +5,8 @@ import type { Canal, Cidade, Emblema, FormaPagamento, Turno } from '../dados/can
 import type { Premio } from '../dados/sorte'
 import { ufPorSigla } from '../dados/ufs'
 import { palavraProibida, validarPremios } from '../lib/premios'
+import { ehRaridade } from '../lib/raridade'
+import { chancesDe } from '../lib/sorteio'
 import type { Arte, Categoria, Combo, Produto, TipoArte, Variacao } from '../lib/tipos'
 import type { Loja } from './loja'
 
@@ -194,11 +196,29 @@ function premioDe(v: unknown): Premio | null {
     validadeDias: numeroDe(v.validadeDias) ?? 0,
     demo: v.demo === true,
   } as Premio
+  // a raridade (sem ela, ou uma que não existe: comum, como raridadeDe)
+  if (ehRaridade(v.raridade)) p.raridade = v.raridade
   const como = textoDe(v.comoUsar, 200)
   if (como) p.comoUsar = como
   if (!p.aplicaA.produtos) delete p.aplicaA.produtos
   if (!p.aplicaA.categorias) delete p.aplicaA.categorias
   return p
+}
+
+/**
+ * As regras do Teste minha sorte. Servidor de antes da frequência (sem intervaloDias nem girosPorIntervalo): o
+ * girosPorDiaComConta a cada 1 dia; sem chances (ou chances que não fecham), as de fábrica.
+ */
+function regrasDe(r: Bruto, reserva: Loja['sorte']['regras']): Loja['sorte']['regras'] {
+  const porIntervalo = inteiroDe(r.girosPorIntervalo, 1, 5) ?? inteiroDe(r.girosPorDiaComConta, 1, 5) ?? reserva.girosPorIntervalo
+  return {
+    girosSemConta: inteiroDe(r.girosSemConta, 1, 3) ?? reserva.girosSemConta,
+    intervaloDias: inteiroDe(r.intervaloDias, 1, 30) ?? 1,
+    girosPorIntervalo: porIntervalo,
+    girosPorDiaComConta: porIntervalo,
+    reservaSemContaHoras: inteiroDe(r.reservaSemContaHoras, 1, 72) ?? reserva.reservaSemContaHoras,
+    chances: chancesDe(r.chances) ?? { ...reserva.chances },
+  }
 }
 
 /**
@@ -258,11 +278,7 @@ export function lerLoja(v: unknown, reserva: Loja, maxStory: number): Loja | nul
     stories,
     sorte: {
       ligado: s.ligado !== false,
-      regras: {
-        girosSemConta: inteiroDe(r.girosSemConta, 1, 3) ?? reserva.sorte.regras.girosSemConta,
-        girosPorDiaComConta: inteiroDe(r.girosPorDiaComConta, 1, 5) ?? reserva.sorte.regras.girosPorDiaComConta,
-        reservaSemContaHoras: inteiroDe(r.reservaSemContaHoras, 1, 72) ?? reserva.sorte.regras.reservaSemContaHoras,
-      },
+      regras: regrasDe(r, reserva.sorte.regras),
       // as mesmas regras do embutido (cupom.ts): nada de bebida, produto que existe, palavras da lista
       premios: validarPremios(premiosCrus, { produtos, categorias }),
     },

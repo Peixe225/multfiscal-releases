@@ -7,6 +7,7 @@ import { regrasSorte, type Premio, type ValorPremio } from '../dados/sorte'
 import { useCatalogo } from '../store/catalogo'
 import { useLoja } from '../store/loja'
 import type { Cupom, RetratoPremio } from '../store/conta'
+import { diaQueLibera } from './frequencia'
 import type { Produto } from './tipos'
 
 /* ───────────────────────── os prêmios que valem ───────────────────────── */
@@ -103,13 +104,25 @@ export function formatarAte(ms: number, agora: number): string {
   return `${formatarValidade(ms)}, ${hora}`
 }
 
-/** "em 14 h 20 min" · "em 35 min" · "em 1 min" (curto: "em 14 h"). */
+/**
+ * "em 14 h 20 min" · "em 35 min" · "em 1 min" (curto: "em 14 h"). Mais de 24 h (o próximo giro libera depois de
+ * amanhã, com a frequência do painel): "em 3 dias" — a espera até a meia-noite em que libera, em dias de calendário.
+ */
 export function formatarEspera(msAte: number, curto = false): string {
   const min = Math.max(1, Math.ceil(msAte / 60000))
+  if (min > 24 * 60) return `em ${Math.ceil(min / (24 * 60))} dias`
   if (min < 60) return `em ${min} min`
   const h = Math.floor(min / 60)
   const m = min % 60
   return curto || m === 0 ? `em ${h} h` : `em ${h} h ${m} min`
+}
+
+/**
+ * Quando libera o próximo giro (a meia-noite de Brasília em `proximoEm`): até 24 h, a contagem ("em 14 h 20 min");
+ * depois, o dia ("sábado, 17/10").
+ */
+export function formatarLibera(proximoEm: number, agora: number, curto = false): string {
+  return proximoEm - agora <= 86400000 ? formatarEspera(proximoEm - agora, curto) : diaQueLibera(diaSP(proximoEm), diaSP(agora))
 }
 
 /** "faltam 3 dias" · "vence amanhã" · "vence hoje" */

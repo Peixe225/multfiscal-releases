@@ -778,12 +778,15 @@ export async function loja(t, { nomesUf }) {
       igual(x.json.campo, campo, `campo (${JSON.stringify(corpo)})`)
     }
     ok(/primeiro é sempre livre/.test((await dono.post('admin-sorte-salvar', { girosSemConta: 0 })).json.mensagem), 'sem conta: o primeiro giro é sempre livre (conta é incentivo, nunca pedágio)')
+    // o girosPorDiaComConta de antes (o painel com o JS velho no cache) vale como girosPorIntervalo, a cada 1 dia
     const x = await dono.post('admin-sorte-salvar', { girosPorDiaComConta: 2, reservaSemContaHoras: 48 })
-    igual(x.json.sorte, { ligado: true, girosSemConta: 1, girosPorDiaComConta: 2, reservaSemContaHoras: 48 }, 'regras novas')
-    igual((await pub()).loja.sorte.regras, { girosSemConta: 1, girosPorDiaComConta: 2, reservaSemContaHoras: 48 }, 'o site recebe as regras')
+    const fabrica = { comum: 60, raro: 25, epico: 12, lendario: 3 }
+    igual(x.json.sorte, { ligado: true, girosSemConta: 1, intervaloDias: 1, girosPorIntervalo: 2, girosPorDiaComConta: 2, reservaSemContaHoras: 48, chances: fabrica }, 'regras novas')
+    igual((await pub()).loja.sorte.regras, { girosSemConta: 1, intervaloDias: 1, girosPorIntervalo: 2, girosPorDiaComConta: 2, reservaSemContaHoras: 48, chances: fabrica }, 'o site recebe as regras (com a frequência e as chances)')
     await temEvento('sorte-regras', 'Mudou as regras do Teste minha sorte', 'regras')
     igual((await dono.post('admin-sorte-salvar', { ligado: false })).json.sorte.ligado, false, 'desliga o jogo')
     igual((await pub()).loja.sorte.ligado, false, 'o site vê desligado')
+    await temEvento('sorte-regras', 'Desligou o Teste minha sorte no site', 'desligar o jogo')
     await dono.post('admin-sorte-salvar', { ligado: true, girosPorDiaComConta: 1, reservaSemContaHoras: 24 })
   }
 
@@ -826,7 +829,7 @@ export async function loja(t, { nomesUf }) {
     igual([p.id, p.tipo, p.valor, p.aplicaA, p.peso, p.validadeDias, p.ativo, p.demo, p.noSite, p.comoUsar], ['vinte-na-cuia', 'desconto-percentual', 20, { produtos: ['cuia-de-silicone-raw'] }, 10, 5, true, false, true, 'Põe a cuia na sacola e usa o cupom.'], 'campos do prêmio novo')
     const noJogo = async () => (await pub()).loja.sorte.premios.map((x) => x.id)
     ok((await noJogo()).includes('vinte-na-cuia'), 'o site já sorteia o prêmio novo')
-    mesmo((await pub()).loja.sorte.premios.find((x) => x.id === 'vinte-na-cuia'), { id: 'vinte-na-cuia', tipo: 'desconto-percentual', valor: 20, titulo: 'Vinte na cuia', descricao: 'A cuia mais em conta.', regra: '20% de desconto na Cuia de silicone RAW', aplicaA: { produtos: ['cuia-de-silicone-raw'] }, comoUsar: 'Põe a cuia na sacola e usa o cupom.', peso: 10, validadeDias: 5, demo: false }, 'no site: o Premio de src/dados/sorte.ts')
+    mesmo((await pub()).loja.sorte.premios.find((x) => x.id === 'vinte-na-cuia'), { id: 'vinte-na-cuia', tipo: 'desconto-percentual', valor: 20, titulo: 'Vinte na cuia', descricao: 'A cuia mais em conta.', regra: '20% de desconto na Cuia de silicone RAW', aplicaA: { produtos: ['cuia-de-silicone-raw'] }, comoUsar: 'Põe a cuia na sacola e usa o cupom.', peso: 10, validadeDias: 5, demo: false, raridade: 'comum' }, 'no site: o Premio de src/dados/sorte.ts (sem raridade: comum)')
     await temEvento('premio-criado', 'Criou o prêmio "Vinte na cuia"', 'criar prêmio')
     x = await dono.post('admin-premio-salvar', { id: 'vinte-na-cuia', ativo: false })
     igual([x.json.premio.ativo, x.json.premio.noSite], [false, false], 'tira do jogo')
@@ -936,7 +939,7 @@ export async function lojaMigracao(t) {
   const todas = JSON.parse(
     execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes', 'painel-dono'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
-  igual(todas.filter((n) => n < 200), [1, 100, 101, 102], 'as migrações até a loja são 1, 100, 101 e 102 (o vídeo e a capa do produto)')
+  igual(todas.filter((n) => n < 200), [1, 100, 101, 102, 103], 'as migrações até a loja são 1, 100, 101, 102 (o vídeo e a capa do produto) e 103 (a raridade dos prêmios)')
   igual(todas.filter((n) => n >= 300), [300, 301], 'as do painel do dono (300–399): 300 (os códigos da senha) e 301 (a marca "Bebida alcoólica" das categorias)')
   // a 301 mexe na tabela da loja: sem o módulo da loja carregado, ela espera (como a 206 com o dos pedidos)
   const semLoja = JSON.parse(
@@ -950,7 +953,9 @@ export async function lojaMigracao(t) {
     const bA = `http://127.0.0.1:${portaA}`
     const r = await fetch(`${bA}/api/index.php?r=loja`)
     const j = await r.json()
-    igual([r.status, j.versao, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 1, 17, 5, 5], 'banco já instalado: a migração 101 semeia a loja')
+    igual([r.status, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 17, 5, 7], 'banco já instalado: a migração 101 semeia a loja')
+    igual(j.versao, 2, 'e a 103 põe a raridade da semente (sobe a versão: o site lê de novo)')
+    igual(Object.fromEntries((j.loja?.sorte?.premios ?? []).map((p) => [p.id, p.raridade])), Object.fromEntries((await montarSemente()).sorte.premios.map((p) => [p.id, p.raridade])), 'banco já instalado: a 101 semeia sem a coluna e a 103 põe a raridade de cada prêmio da semente')
     igual(marcaDe(j), 'destilados', 'banco já instalado: a 101 semeia sem a coluna e a 301 marca os Destilados como bebida alcoólica')
     igual(banco(join(dirA, 'loja.sqlite')), [todas, 1, 1], 'registro com 1 (a de antes), 100, 101 e as das outras frentes; user_version segue 1 (a base); semeou uma vez')
     await fetch(`${bA}/api/index.php?r=loja`).then((x) => x.text())

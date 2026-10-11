@@ -110,5 +110,102 @@ function gc_migracoes_loja(): array
         ALTER TABLE loja_produtos ADD COLUMN video TEXT;
         ALTER TABLE loja_produtos ADD COLUMN capa TEXT;
         SQL,
+        // a raridade dos prêmios do Teste minha sorte (comum, raro, épico, lendário: src/lib/raridade.ts). Prêmio de
+        // antes fica comum. Os de exemplo de fábrica ganham a raridade deles (e entram o épico e o lendário de exemplo)
+        // só se ainda forem exatamente os de fábrica: o que o dono mudou fica como está.
+        103 => static function (PDO $db): void {
+            $db->exec("ALTER TABLE loja_premios ADD COLUMN raridade TEXT NOT NULL DEFAULT 'comum' CHECK (raridade IN ('comum','raro','epico','lendario'))");
+            gc_loja_raridades_de_fabrica($db);
+        },
     ];
+}
+
+/** Os 5 prêmios de exemplo de fábrica de antes da raridade (src/dados/sorte.ts até 11/10), pra conferir se seguem intactos. */
+const GC_LOJA_PREMIOS_FABRICA_103 = [
+    'ocb-4-por-3' => ['leve-x-pague-y', ['leve' => 4, 'pague' => 3], '4 por 3 na OCB', 'Uma OCB por conta da sorte.', 'Leva 4 Seda OCB Premium Slim e paga 3', ['produtos' => ['seda-ocb-premium-slim']], 'Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.', 30, 7],
+    'piteira-vidro-15' => ['desconto-percentual', 15, '15% na piteira de vidro', 'A de vidro sai mais em conta.', '15% de desconto na Piteira de vidro RAW', ['produtos' => ['piteira-de-vidro-raw']], 'Põe a piteira na sacola e usa o cupom.', 20, 7],
+    'brinde-piteira-papel' => ['brinde', ['produto' => 'piteira-de-papel-raw', 'qtd' => 1], 'Piteira de papel de brinde', 'Vem junto com tua seda.', '1 Piteira de papel RAW de brinde no pedido com seda', ['categorias' => ['sedas']], 'Põe qualquer seda na sacola e usa o cupom.', 25, 7],
+    'dichavador-10' => ['desconto-percentual', 10, '10% no dichavador', 'Agora gira o de verdade.', '10% de desconto no Dichavador de metal 4 partes', ['produtos' => ['dichavador-metal-4-partes']], '', 15, 7],
+    'bandeja-10' => ['desconto-percentual', 10, '10% na bandeja RAW', 'Tudo no lugar pra enrolar.', '10% de desconto na Bandeja RAW pequena', ['produtos' => ['bandeja-raw-pequena']], '', 10, 7],
+];
+/** A raridade de cada exemplo de fábrica (a da semente de 11/10): os 10% e o 4 por 3 comuns, o 15% e o brinde raros. */
+const GC_LOJA_RARIDADE_FABRICA_103 = ['ocb-4-por-3' => 'comum', 'piteira-vidro-15' => 'raro', 'brinde-piteira-papel' => 'raro', 'dichavador-10' => 'comum', 'bandeja-10' => 'comum'];
+/** O épico e o lendário de exemplo que entram junto (os mesmos da semente de 11/10), na mesma ordem das colunas de cima. */
+const GC_LOJA_PREMIOS_NOVOS_103 = [
+    'bandeja-25' => ['desconto-percentual', 25, '25% na bandeja RAW', 'Bandeja bem mais em conta.', '25% de desconto na Bandeja RAW pequena', ['produtos' => ['bandeja-raw-pequena']], 'Põe a bandeja na sacola e usa o cupom.', 1, 7, 'epico'],
+    'dichavador-40' => ['desconto-percentual', 40, '40% no dichavador', 'Sorte grande no dichavador.', '40% de desconto no Dichavador de metal 4 partes', ['produtos' => ['dichavador-metal-4-partes']], 'Põe o dichavador na sacola e usa o cupom.', 1, 7, 'lendario'],
+];
+
+/**
+ * Migração 103 (dentro da trava, com o PDO): a raridade dos prêmios de exemplo de fábrica, sem pisar no que o dono
+ * mudou. Dois casos põem a raridade; qualquer outro deixa tudo comum:
+ * - o banco no ar com os 5 exemplos de fábrica intactos (os mesmos ids e textos, de exemplo e no jogo): cada um ganha a
+ *   raridade dele e entram o épico e o lendário de exemplo (pra loja ver as 4 raridades);
+ * - a loja que a 101 acabou de semear, sem a coluna (painel instalado antes da loja): os prêmios são os da semente de
+ *   agora, intactos, e ganham a raridade dela.
+ * Mudou alguma coisa: a versão da loja sobe (o site lê de novo) e fica na Atividade.
+ */
+function gc_loja_raridades_de_fabrica(PDO $db): void
+{
+    $linhas = $db->query('SELECT * FROM loja_premios ORDER BY ordem, id')->fetchAll(PDO::FETCH_ASSOC);
+    if ($linhas === []) {
+        return;
+    }
+    $porId = [];
+    foreach ($linhas as $l) {
+        $porId[(string) $l['id']] = $l;
+    }
+    /** A linha tem esse conteúdo? (tipo, valor, textos, aplicaA, como usar, peso, validade; de exemplo e no jogo) */
+    $intacta = static function (array $l, array $f): bool {
+        [$tipo, $valor, $titulo, $descricao, $regra, $aplica, $como, $peso, $validade] = $f;
+        return (string) $l['tipo'] === $tipo && json_decode((string) $l['valor'], true) == $valor && (string) $l['titulo'] === $titulo
+            && (string) $l['descricao'] === $descricao && (string) $l['regra'] === $regra && json_decode((string) $l['aplica_a'], true) == $aplica
+            && (string) $l['como_usar'] === $como && (int) $l['peso'] === $peso && (int) $l['validade_dias'] === $validade
+            && (int) $l['demo'] === 1 && (int) $l['ativo'] === 1;
+    };
+    $agora = gc_agora();
+    $raridade = $db->prepare('UPDATE loja_premios SET raridade = ? WHERE id = ?');
+    $novos = 0;
+    $fabrica = array_keys(GC_LOJA_PREMIOS_FABRICA_103);
+    $ids = array_keys($porId);
+    sort($ids);
+    sort($fabrica);
+    if ($ids === $fabrica && array_filter(GC_LOJA_PREMIOS_FABRICA_103, static fn (array $f, string $id): bool => !$intacta($porId[$id], $f), ARRAY_FILTER_USE_BOTH) === []) {
+        foreach (GC_LOJA_RARIDADE_FABRICA_103 as $id => $r) {
+            $raridade->execute([$r, $id]);
+        }
+        $ordem = max(array_map(static fn (array $l): int => (int) $l['ordem'], $linhas)) + 1;
+        $inserir = $db->prepare(
+            'INSERT INTO loja_premios (id, tipo, valor, titulo, descricao, regra, aplica_a, como_usar, peso, validade_dias, ativo, demo, ordem, criado_em, atualizado_em, raridade)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?)',
+        );
+        foreach (GC_LOJA_PREMIOS_NOVOS_103 as $id => [$tipo, $valor, $titulo, $descricao, $regra, $aplica, $como, $peso, $validade, $r]) {
+            $inserir->execute([$id, $tipo, gc_loja_json($valor), $titulo, $descricao, $regra, gc_loja_json($aplica), $como, $peso, $validade, $ordem++, $agora, $agora, $r]);
+            $novos++;
+        }
+    } else {
+        // a 101 acabou de semear (sem a coluna): os prêmios são os da semente de agora, intactos
+        $semente = [];
+        foreach ((array) (gc_loja_semente()['sorte']['premios'] ?? []) as $p) {
+            $semente[(string) $p['id']] = $p;
+        }
+        $daSemente = array_keys($semente);
+        sort($daSemente);
+        if ($ids !== $daSemente) {
+            return;
+        }
+        foreach ($semente as $id => $p) {
+            $f = [(string) $p['tipo'], $p['valor'], (string) $p['titulo'], (string) $p['descricao'], (string) $p['regra'], $p['aplicaA'], (string) ($p['comoUsar'] ?? ''), (int) $p['peso'], (int) $p['validadeDias']];
+            if (!$intacta($porId[$id], $f) || empty($p['demo'])) {
+                return;
+            }
+        }
+        foreach ($semente as $id => $p) {
+            $raridade->execute([gc_raridade_de($p), $id]);
+        }
+    }
+    $db->prepare("UPDATE ajustes SET valor = CAST(CAST(valor AS INTEGER) + 1 AS TEXT), atualizado_em = ? WHERE chave = 'loja.versao'")->execute([$agora]);
+    $db->prepare("UPDATE ajustes SET valor = ?, atualizado_em = ? WHERE chave = 'loja.atualizado_em'")->execute([(string) $agora, $agora]);
+    $db->prepare("INSERT INTO eventos (em, usuario_id, origem, acao, alvo, detalhe) VALUES (?, NULL, 'sistema', 'sorte-raridades', 'loja', ?)")
+        ->execute([$agora, gc_loja_json(['novos' => $novos])]);
 }

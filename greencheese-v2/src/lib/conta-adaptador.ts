@@ -183,7 +183,7 @@ export const contaLocal: AdaptadorConta = {
     if (!premio) return { ok: false, erro: 'sem-premio' }
     // 3) grava o dia do giro (do aparelho)
     const hoje = diaSP(agora)
-    gravar((s) => ({ giros: { ...s.giros, [interativo]: [...(s.giros[interativo] ?? []), hoje].slice(-30) } }))
+    gravar((s) => ({ giros: { ...s.giros, [interativo]: [...(s.giros[interativo] ?? []), hoje].slice(-60) } }))
     // 4) com conta, o cupom já nasce guardado; sem conta, fica reservado 24 h (sem código)
     const s = st()
     if (contaAtual(s) && s.atual) {
@@ -327,7 +327,8 @@ function giroDaApi(x: unknown): GiroInfo | null {
     const t = typeof g.proximoEm === 'string' ? Date.parse(g.proximoEm) : NaN
     return { disponivel: false, motivo: 'ja-girou-hoje', proximoEm: Number.isFinite(t) ? t : Date.now() + 3600_000 }
   }
-  return { disponivel: false, motivo: 'sem-conta-ja-girou', girouHoje: g.girouHoje === true }
+  const comConta = typeof g.proximoComConta === 'string' ? Date.parse(g.proximoComConta) : NaN
+  return { disponivel: false, motivo: 'sem-conta-ja-girou', girouHoje: g.girouHoje === true, ...(Number.isFinite(comConta) ? { proximoComConta: comConta } : {}) }
 }
 
 export const contaServidor: AdaptadorConta = {
