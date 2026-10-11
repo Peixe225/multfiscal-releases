@@ -594,6 +594,8 @@ export function Hero() {
     const p = ehRua ? cenaRua.current : palco.current
     if (!p || reduz) return
     if (ehRua) {
+      // a página abriu na rua (a home de sempre): o 1º produto, que vem depois dela, cresce de trás como os outros
+      palcoEntrou.current = true
       if (pos.origem === 'auto') gsap.fromTo(p, { opacity: 0, x: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out', clearProps: 'opacity,transform' })
       else gsap.fromTo(p, { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out', clearProps: 'opacity,transform' })
       return

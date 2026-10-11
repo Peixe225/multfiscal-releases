@@ -159,8 +159,8 @@ function usePrecoCabe(botao: RefObject<HTMLButtonElement | null>, temPreco: bool
   const [cabe, setCabe] = useState(true)
   useLayoutEffect(() => {
     const el = botao.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => {
+    if (!el) return
+    const medir = () => {
       const preco = el.querySelector<HTMLElement>('.ad-por-preco')
       if (!preco) return setCabe(true)
       const st = getComputedStyle(el)
@@ -169,7 +169,11 @@ function usePrecoCabe(botao: RefObject<HTMLButtonElement | null>, temPreco: bool
       let usado = parseFloat(st.paddingLeft) + parseFloat(st.paddingRight)
       for (const filho of el.children) usado += (filho as HTMLElement).getBoundingClientRect().width + (filho === preco ? 0 : vao)
       setCabe(usado <= el.clientWidth + 0.5)
-    })
+    }
+    // já antes da 1ª pintura do story (sem um quadro com o preço passando do botão); depois, no ResizeObserver
+    medir()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(medir)
     // o botão (o quadro mudou), o texto (a fonte chegou) e o preço (a quantidade mudou)
     ro.observe(el)
     for (const filho of el.children) ro.observe(filho)
