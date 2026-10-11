@@ -30,9 +30,11 @@ export const REAIS_MAX = 100_000
 /**
  * Valor em reais digitado ("50", "50,5", "1.000,00", "R$ 75,90") com 2 casas, arredondado pelo próprio texto (meio pra
  * cima: "50,555" → 50.56, sem o erro do ponto flutuante), como o servidor lê (validar.php, gc_centavos_informativo).
- * Ponto com 3 dígitos depois é milhar ("1.000" = mil). null = não dá pra ler.
+ * Ponto com 3 dígitos depois é milhar ("1.000" = mil). null = não dá pra ler (ou tem sinal de menos).
  */
 export function lerReais(texto: string): number | null {
+  // valor negativo não é dinheiro ("-5" não vira R$ 5,00 calado)
+  if (/[-−–]/.test(texto)) return null
   let s = texto.replace(/[^\d,.]/g, '')
   if (!s) return null
   if (s.includes(',')) {

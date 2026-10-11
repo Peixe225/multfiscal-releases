@@ -5,6 +5,7 @@ import { buscarCep, type Endereco } from '../lib/cep'
 import { alvoDeSaida } from '../lib/ambiente'
 import { config } from '../dados/config'
 import { situacao } from '../lib/horario'
+import { relogioBrasilia } from '../lib/relogio'
 import { copiarTexto } from '../lib/copiar'
 import { brl, formatarCep, lerReais, REAIS_MAX, soDigitos } from '../lib/formato'
 import {
@@ -14,6 +15,7 @@ import {
   linkWhatsApp,
   montarEncomenda,
   montarPedido,
+  totais,
   whatsappDoCanal,
 } from '../lib/mensagem'
 import type { Pedaco } from '../dados/textos-pedido'
@@ -28,6 +30,9 @@ import { conta as adaptador } from '../lib/conta-adaptador'
 import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
 import { linhaCupom, nomeCategoria, nomeCurto, nomeDoPremio, situacaoNoPedido, type Situacao } from '../lib/cupom-uso'
 import { rolarPara } from '../lib/rolagem'
+import { trocarEstado } from '../lib/troca'
+import { semAcento } from '../dados/ufs'
+import { useContaStore } from '../store/conta'
 import { produtoPorId } from '../store/catalogo'
 import { useChat, type Passo, type Respostas } from '../store/chat'
 import { useLinhasSacola } from '../store/derivados'
@@ -49,7 +54,14 @@ interface Campo {
   placeholder: string
   modo?: 'text' | 'numeric' | 'tel' | 'decimal'
   autoComplete?: string
+  /** Teto duro do campo (maxLength): o navegador para de aceitar letra. */
   max?: number
+  /**
+   * Teto que avisa em vez de cortar (o colado nunca perde o fim calado): o contador aparece perto dele e o envio acima
+   * dele mostra `erroLimite`.
+   */
+  limite?: number
+  erroLimite?: string
   inicial?: string
   mascara?: (v: string) => string
   validar?: (v: string) => string | null
@@ -64,11 +76,17 @@ interface Def {
   resposta?: string | null
 }
 
-type AvisoCep = { tipo: 'outra-uf'; end: Endereco } | { tipo: 'nao-achei' } | { tipo: 'fora-do-ar' } | null
+type AvisoCep = { tipo: 'outra-uf'; end: Endereco } | { tipo: 'outra-cidade'; end: Endereco } | { tipo: 'nao-achei' } | { tipo: 'fora-do-ar' } | null
 
-function horaAgora(): string {
-  const d = new Date()
-  return `Hoje ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+/** O endereço guardado da conta tem até 200 letras (a Minha conta e o servidor): o digitado sem CEP, o mesmo. */
+const LIMITE_ENDERECO = 200
+
+const mesmaCidade = (a: string, b: string) => semAcento(a).trim() === semAcento(b).trim()
+
+/** "Hoje 20:12" no topo da conversa: a hora da loja, em Brasília (a mesma do aberto/fechado). */
+function horaAgora(agora: number): string {
+  const { minuto } = relogioBrasilia(agora)
+  return `Hoje ${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`
 }
 
 export function ChatFolha() {
@@ -88,7 +106,12 @@ export function ChatFolha() {
   const marcarEnviado = useChat((s) => s.marcarEnviado)
   const recomecar = useChat((s) => s.recomecar)
   const conta = useConta()
+  // a conta da loja (entrou com o código pelo WhatsApp): só ela manda o WhatsApp junto com o pedido. A conta só do
+  // aparelho não manda: o número dela não foi conferido e a loja já recebe o pedido no WhatsApp de quem pede
+  const contaDaLoja = useContaStore((s) => !!s.servidor && s.servidor === s.atual)
   const enderecosConta = useEnderecosDaConta()
+  // "Outros endereços": com mais de 3 guardados no estado, o resto aparece no toque
+  const [todosEnderecos, setTodosEnderecos] = useState(false)
   const avisar = useUI((s) => s.avisar)
   const { cupom, situacao: situacaoCupom } = useCupomNoPedido()
   const cupons = useCupons()
@@ -156,8 +179,11 @@ export function ChatFolha() {
     return precisaCidade(c) ? 'cidade' : 'sacola'
   }
 
+  // a cidade do CEP vai no fim quando o estado não tem cidades cadastradas (a do cabeçalho é a do CEP) ou quando ela não
+  // é a do cabeçalho (CEP de Belo Horizonte no atendimento de Teófilo Otoni: a loja vê de onde é)
+  const cidadeNoEndereco = !!respostas.cidadeCep && !!canal && (canal.cidades.length === 0 || !mesmaCidade(respostas.cidadeCep, cidade ?? ''))
   const endereco = respostas.rua
-    ? `${respostas.rua}${respostas.numero ? `, ${respostas.numero}` : ''}${respostas.bairro ? `, ${respostas.bairro}` : ''}${canal && canal.cidades.length === 0 && respostas.cidadeCep ? `, ${respostas.cidadeCep}` : ''}`
+    ? `${respostas.rua}${respostas.numero ? `, ${respostas.numero}` : ''}${respostas.bairro ? `, ${respostas.bairro}` : ''}${cidadeNoEndereco ? `, ${respostas.cidadeCep}` : ''}`
     : respostas.enderecoLivre
 
   const mensagem = useMemo(() => {
@@ -184,17 +210,21 @@ export function ChatFolha() {
       obs: respostas.obs,
       cupom: cupomOk ? linhaCupom(cupomOk, 'Teste minha sorte', cupomOk.demo && config.carimboDeExemplo) : undefined,
       codigo: codigoPedido.codigo,
+      // a hora da loja (Brasília, corrigida pelo servidor): a entrega grátis do dia não depende do relógio do aparelho
+      agora: new Date(agora),
     })
-  }, [canal, cidade, modo, respostas, pedido, cupomOk, endereco, codigoPedido.codigo])
+  }, [canal, cidade, modo, respostas, pedido, cupomOk, endereco, codigoPedido.codigo, agora])
 
   // o pedido mudou depois de ir pro servidor (outro endereço, outra sacola): código novo, que substitui o de antes.
   // Antes de pintar: o link do WhatsApp nunca sai com o código velho numa mensagem nova
   const noResumo = passo === 'resumo' || passo === 'enc-resumo'
+  // Só com o chat aberto: mudou a sacola com ele fechado, o pedido reabre no resumo (o "Já mandou?" ainda vale até aqui)
+  // e só então ganha o código novo, que tira o "Já mandou?" e o "Mandei" (a mensagem nova ainda não foi pro WhatsApp)
   useLayoutEffect(() => {
-    if (!noResumo || !mensagem) return
+    if (!aberto || !noResumo || !mensagem) return
     const { pedido: atual, trocarCodigo } = useChat.getState()
     if (atual.enviada !== null && atual.enviada !== mensagem) trocarCodigo()
-  }, [noResumo, mensagem])
+  }, [aberto, noResumo, mensagem])
 
   /** A cópia estruturada do pedido, do jeito que a mensagem mostra (vai pro servidor no toque do WhatsApp). */
   function corpoDoPedido(): CorpoPedido | null {
@@ -206,7 +236,7 @@ export function ChatFolha() {
       uf: canal.uf,
       cidade: cidade ?? '',
       nome: respostas.nome.trim(),
-      whatsapp: conta?.whatsapp ?? '',
+      whatsapp: contaDaLoja ? (conta?.whatsapp ?? '') : '',
       mensagem,
       site: '' as const,
       substitui: codigoPedido.substitui,
@@ -265,6 +295,16 @@ export function ChatFolha() {
         setAvisoCep({ tipo: 'outra-uf', end })
         return
       }
+      // estado com cidades cadastradas: CEP de outra cidade avisa (sem travar: "É esse mesmo" segue e a cidade vai na
+      // mensagem); de outra cidade atendida do mesmo estado, o atendimento passa pra ela
+      if (canal === canalSite && canal.cidades.length > 0) {
+        const atendida = canal.cidades.find((c) => mesmaCidade(c.nome, end.cidade))
+        if (!atendida) {
+          setAvisoCep({ tipo: 'outra-cidade', end })
+          return
+        }
+        if (atendida.slug !== local.cidade && canal.cidades.length > 1) local.escolherCidade(atendida.slug)
+      }
       aplicarCep(end)
     } catch {
       setAvisoCep({ tipo: 'fora-do-ar' })
@@ -272,6 +312,34 @@ export function ChatFolha() {
       setBuscandoCep(false)
     }
   }
+
+  // "Trocar pra Green Cheese RJ" pelo aviso do CEP: passa pela mesma confirmação do seletor (itens que não têm lá).
+  // Com a confirmação aberta, o chat espera: trocou, guarda o CEP e volta pro atendimento; ficou, o aviso continua.
+  const trocaPeloCep = useRef<Endereco | null>(null)
+  function depoisDaTrocaPeloCep(end: Endereco) {
+    trocaPeloCep.current = null
+    if (canalDa(end.uf)?.cidades.length === 0) local.informarCidade(end.cidade)
+    setAvisoCep(null)
+    // o CEP fica guardado para reaproveitar no passo do endereço
+    useChat.setState((st) => ({
+      respostas: { ...st.respostas, cep: end.cep, rua: end.rua, bairro: end.bairro, cidadeCep: end.cidade, ufCep: end.uf, numero: '' },
+    }))
+    voltarPara('local')
+  }
+  function trocarPeloCep(end: Endereco) {
+    trocaPeloCep.current = end
+    if (trocarEstado(end.uf)) depoisDaTrocaPeloCep(end)
+  }
+  useEffect(() => {
+    const end = trocaPeloCep.current
+    if (end && local.uf === end.uf) depoisDaTrocaPeloCep(end)
+  }, [local.uf])
+  // "Ficar em…" na confirmação: esquece a troca pedida (o aviso do CEP continua na tela)
+  const trocaPendente = useUI((s) => s.trocaPendente)
+  useEffect(() => {
+    const end = trocaPeloCep.current
+    if (!trocaPendente && end && local.uf !== end.uf) trocaPeloCep.current = null
+  }, [trocaPendente, local.uf])
 
   function aplicarCep(end: Endereco) {
     if (canal && canal.cidades.length === 0) local.informarCidade(end.cidade)
@@ -322,7 +390,7 @@ export function ChatFolha() {
             resposta: lugar,
           }
         }
-        const sit = situacao(canal)
+        const sit = situacao(canal, new Date(agora))
         const doLocal = { lugar, cidade: cidade ?? canal.nome, uf: canal.uf.toUpperCase(), estado: canal.nome }
         const sim = t(modo === 'encomenda' ? 'local.sim.encomenda' : 'local.sim')
         return {
@@ -418,9 +486,12 @@ export function ChatFolha() {
       case 'endereco': {
         const temAnterior = respostas.rua && respostas.numero && respostas.ufCep === canal?.uf
         const chips: Chip[] = []
-        // os endereços guardados na conta da loja, do estado do atendimento (até 3; o mesmo da resposta de antes não repete)
+        // os endereços guardados na conta da loja, do estado do atendimento (os 3 de uso mais recente; com mais, "Outros
+        // endereços" mostra o resto; o mesmo da resposta de antes não repete)
         const anterior = temAnterior ? `${respostas.cep}|${respostas.numero}` : respostas.enderecoLivre
-        for (const e of enderecosConta.filter((x) => x.uf === canal?.uf && (x.cep ? `${x.cep}|${x.numero}` : x.livre) !== anterior).slice(0, 3)) {
+        const guardados = enderecosConta.filter((x) => x.uf === canal?.uf && (x.cep ? `${x.cep}|${x.numero}` : x.livre) !== anterior)
+        const mostrar = todosEnderecos || guardados.length <= 3 ? guardados : guardados.slice(0, 3)
+        for (const e of mostrar) {
           const linha = e.cep ? `${e.rua}, ${e.numero}` : e.livre
           chips.push({
             rotulo: e.apelido ? `${e.apelido}: ${linha}` : linha,
@@ -429,6 +500,9 @@ export function ChatFolha() {
                 ? resp({ cep: e.cep, rua: e.rua, numero: e.numero, bairro: e.bairro, cidadeCep: e.cidade, ufCep: e.uf, enderecoLivre: '' }, 'endereco', 'pagamento')
                 : resp({ cep: '', rua: '', numero: '', bairro: '', enderecoLivre: e.livre }, 'endereco', 'pagamento'),
           })
+        }
+        if (mostrar.length < guardados.length) {
+          chips.push({ rotulo: t('endereco.outros', { n: String(guardados.length - mostrar.length) }), acao: () => setTodosEnderecos(true) })
         }
         if (temAnterior) {
           chips.push({ rotulo: `${respostas.rua}, ${respostas.numero}`, acao: () => resp({}, 'endereco', 'pagamento') })
@@ -445,7 +519,7 @@ export function ChatFolha() {
             placeholder: t('endereco.dica'),
             modo: 'numeric',
             autoComplete: 'postal-code',
-            max: 9,
+            // sem maxLength: o colado com ponto, espaço ou "CEP " chega inteiro na máscara, que fica com os 8 números
             mascara: formatarCep,
             validar: (v) => (soDigitos(v).length !== 8 ? t('endereco.erro') : null),
             enviar: (v) => void enviarCep(v),
@@ -478,7 +552,8 @@ export function ChatFolha() {
           campo: {
             placeholder: t('rua.dica'),
             autoComplete: 'street-address',
-            max: 140,
+            limite: LIMITE_ENDERECO,
+            erroLimite: t('rua.longo', { max: String(LIMITE_ENDERECO) }),
             inicial: respostas.enderecoLivre,
             validar: (v) => (v.trim().length < 6 ? t('rua.erro') : null),
             enviar: (v) => resp({ enderecoLivre: v.trim(), rua: '', numero: '' }, 'rua', 'pagamento'),
@@ -512,7 +587,11 @@ export function ChatFolha() {
             // pedido mostram o mesmo valor, e o servidor nunca recusa o que o chat aceitou
             validar: (v) => {
               const n = lerReais(v)
-              return n == null || n <= 0 || n > REAIS_MAX ? t('troco.erro') : null
+              if (n == null || n <= 0 || n > REAIS_MAX) return t('troco.erro')
+              // com o subtotal conhecido (nada a consultar), o troco é pra um valor que cobre o pedido
+              const tot = totais(pedido)
+              if (!tot.temConsultar && tot.subtotal > 0 && n < tot.subtotal) return t('troco.menor', { subtotal: brl(tot.subtotal) })
+              return null
             },
             enviar: (v) => resp({ troco: lerReais(v) }, 'troco', 'obs'),
           },
@@ -628,7 +707,7 @@ export function ChatFolha() {
             </a>
           )}
         </div>
-        <p className="dm-hora legenda">{horaAgora()}</p>
+        <p className="dm-hora legenda">{horaAgora(agora)}</p>
 
         {produtosCitados.length > 0 && modo === 'pedido' && (
           <div className="dm-citado">
@@ -672,6 +751,9 @@ export function ChatFolha() {
             {avisoCep?.tipo === 'outra-uf' && (
               <BolhaLoja>{t('cep.outroEstado', { cidade: avisoCep.end.cidade, uf: avisoCep.end.uf.toUpperCase(), ufAtendimento: canal?.uf.toUpperCase() ?? '' })}</BolhaLoja>
             )}
+            {avisoCep?.tipo === 'outra-cidade' && (
+              <BolhaLoja>{t('cep.outraCidade', { cidade: avisoCep.end.cidade, uf: avisoCep.end.uf.toUpperCase(), cidades: listaCidades(canal?.cidades.map((c) => c.nome) ?? []) })}</BolhaLoja>
+            )}
             <Chips
               chips={
                 avisoCep?.tipo === 'outra-uf'
@@ -680,23 +762,18 @@ export function ChatFolha() {
                         ? [
                             {
                               rotulo: t('cep.trocar', { uf: avisoCep.end.uf.toUpperCase() }),
-                              acao: () => {
-                                const end = avisoCep.end
-                                local.escolher(end.uf, null, 'manual')
-                                if (canalDa(end.uf)?.cidades.length === 0) local.informarCidade(end.cidade)
-                                setAvisoCep(null)
-                                // o CEP fica guardado para reaproveitar no passo do endereço
-                                useChat.setState((st) => ({
-                                  respostas: { ...st.respostas, cep: end.cep, rua: end.rua, bairro: end.bairro, cidadeCep: end.cidade, ufCep: end.uf, numero: '' },
-                                }))
-                                voltarPara('local')
-                              },
+                              acao: () => trocarPeloCep(avisoCep.end),
                             },
                           ]
                         : []),
                       { rotulo: t('cep.esseMesmo'), acao: () => aplicarCep(avisoCep.end) },
                       { rotulo: t('cep.outro'), acao: () => setAvisoCep(null) },
                     ]
+                  : avisoCep?.tipo === 'outra-cidade'
+                    ? [
+                        { rotulo: t('cep.esseMesmo'), acao: () => aplicarCep(avisoCep.end) },
+                        { rotulo: t('cep.outro'), acao: () => setAvisoCep(null) },
+                      ]
                   : avisoCep?.tipo === 'nao-achei' || avisoCep?.tipo === 'fora-do-ar'
                     ? [{ rotulo: t('cep.digitar'), acao: () => resp({ cep: '', rua: '', bairro: '', numero: '' }, 'endereco', 'rua') }]
                     : (atual.chips ?? [])
@@ -761,6 +838,11 @@ export function ChatFolha() {
   )
 }
 
+/** "Teófilo Otoni" · "Rio de Janeiro e Niterói" · "A, B e C". */
+function listaCidades(nomes: string[]): string {
+  return nomes.length <= 1 ? (nomes[0] ?? '') : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
+}
+
 function BolhaLoja({ children }: { children: ReactNode }) {
   return <div className="dm-bolha dm-loja">{children}</div>
 }
@@ -790,12 +872,15 @@ function EntradaDM({ campo, desativado }: { campo: Campo; desativado?: boolean }
   const [v, setV] = useState(campo.inicial ?? '')
   const [erro, setErro] = useState<string | null>(null)
   const ref = useRef<HTMLInputElement>(null)
+  const letras = [...v].length
+  // o contador aparece perto do limite (e passando dele): a pessoa vê antes de mandar
+  const contador = campo.limite != null && letras >= Math.floor(campo.limite * 0.8)
   useEffect(() => {
     // no celular, não abrir o teclado sozinho por cima das opções; no desktop, foca
     if (window.matchMedia('(pointer: fine)').matches) ref.current?.focus({ preventScroll: true })
   }, [])
   const enviar = () => {
-    const e = campo.validar?.(v) ?? null
+    const e = (campo.limite != null && letras > campo.limite ? (campo.erroLimite ?? `Até ${campo.limite} letras.`) : null) ?? campo.validar?.(v) ?? null
     setErro(e)
     if (e) return
     campo.enviar(v)
@@ -825,7 +910,8 @@ function EntradaDM({ campo, desativado }: { campo: Campo; desativado?: boolean }
           aria-label={campo.placeholder}
           inputMode={campo.modo === 'tel' ? 'tel' : campo.modo === 'numeric' ? 'numeric' : campo.modo === 'decimal' ? 'decimal' : 'text'}
           autoComplete={campo.autoComplete ?? 'off'}
-          maxLength={campo.max}
+          maxLength={campo.limite != null ? undefined : campo.max}
+          aria-describedby={contador ? 'dm-contador' : undefined}
           enterKeyHint="send"
           disabled={desativado}
           onFocus={() => {
@@ -839,6 +925,11 @@ function EntradaDM({ campo, desativado }: { campo: Campo; desativado?: boolean }
           </button>
         )}
       </div>
+      {contador && (
+        <p id="dm-contador" className={`dm-contador legenda ${letras > campo.limite! ? 'dm-contador-passou' : ''}`}>
+          {letras}/{campo.limite} letras
+        </p>
+      )}
     </form>
   )
 }

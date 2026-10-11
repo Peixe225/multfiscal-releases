@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { regrasDaSorte } from '../store/loja'
 import { useContaStore, type Conta, type Cupom, type EnderecoConta, type EstadoConta, type Pendente } from '../store/conta'
 import { diaSP, inicioDoDiaSeguinteSP, premioPorId, statusDo, type StatusCupom } from './cupom'
+import { agoraLoja, aoMudarHoraDaLoja } from './relogio'
 
 // Conta do cliente atrás de uma interface (AdaptadorConta). Divisão do trabalho:
 // - ESCREVER é só com o adaptador (src/lib/conta-adaptador.ts): criar, entrar, girar, guardar, usar… Dois adaptadores
@@ -120,15 +121,18 @@ export function marcarVisto(interativo: string) {
 /* ───────────────────────── relógio compartilhado ───────────────────────── */
 
 // Um relógio só para o site inteiro: avança a cada virada de minuto e quando a aba volta a ficar visível
-// (o celular dormiu, a pessoa voltou do WhatsApp). Sem segundos na tela.
-let agoraCache = Date.now()
+// (o celular dormiu, a pessoa voltou do WhatsApp). Sem segundos na tela. É a hora da loja (src/lib/relogio.ts): o
+// relógio do aparelho corrigido pela hora do servidor, então a validade do cupom e o giro do dia não dependem de o
+// aparelho estar com a data certa; e quando o servidor mostra outra hora, todo mundo redesenha.
+let agoraCache = agoraLoja()
 const ouvintesRelogio = new Set<() => void>()
 let timerRelogio = 0
 
 function tique() {
-  agoraCache = Date.now()
+  agoraCache = agoraLoja()
   ouvintesRelogio.forEach((f) => f())
 }
+aoMudarHoraDaLoja(tique)
 function agendar() {
   clearTimeout(timerRelogio)
   timerRelogio = window.setTimeout(
@@ -148,7 +152,7 @@ function aoVoltar() {
 function assinarRelogio(f: () => void) {
   ouvintesRelogio.add(f)
   if (ouvintesRelogio.size === 1) {
-    agoraCache = Date.now()
+    agoraCache = agoraLoja()
     agendar()
     document.addEventListener('visibilitychange', aoVoltar)
   }
@@ -161,7 +165,7 @@ function assinarRelogio(f: () => void) {
   }
 }
 
-/** Agora em ms, atualizado a cada minuto e no visibilitychange. */
+/** Agora em ms pela hora da loja, atualizado a cada minuto, no visibilitychange e quando a hora do servidor chega. */
 export function useAgora(): number {
   return useSyncExternalStore(assinarRelogio, () => agoraCache, () => agoraCache)
 }

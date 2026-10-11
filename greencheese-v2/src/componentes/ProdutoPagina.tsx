@@ -11,7 +11,7 @@ import { brl, plural, precoOuConsultar } from '../lib/formato'
 import { prenderTab } from '../lib/foco'
 import { depoisDoHistorico, useCamadaNoHistorico } from '../lib/historico'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
-import { calcularLinha, precoUnitario } from '../lib/preco'
+import { calcularLinha, combosDa, precoUnitario } from '../lib/preco'
 import { liberarRolagem, travarRolagem } from '../lib/rolagem'
 import type { Produto } from '../lib/tipos'
 import { atualizarParametros, lerParametros, linkCompartilhar } from '../lib/url'
@@ -19,7 +19,7 @@ import { disponivelEm, restamEm, useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { produtoSumido, useCanalDa, useLojaConferida } from '../store/loja'
-import { contarItens, useSacola } from '../store/sacola'
+import { contarItens, MAX_POR_ITEM, useSacola } from '../store/sacola'
 import { useUI, type OrigemPagina, type PaginaAberta } from '../store/ui'
 import { EnqueteVariacao, Empurrao, QuizCombo, SeletorQtd, pulsar, voarAteSacola } from './AdesivosProduto'
 import { LinkAvisar } from './Catalogo'
@@ -464,14 +464,19 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   // "restam X" no estado: a quantidade não passa do que sobra (as variações dividem as mesmas unidades)
   const restam = disponivel ? restamEm(produto, uf) : null
   const naSacolaTodas = itens.reduce((n, i) => n + (i.id === produto.id ? i.qtd : 0), 0)
-  const cabe = restam == null ? null : Math.max(0, restam - naSacolaTodas)
-  const maxQtd = cabe == null ? 99 : Math.max(1, cabe)
+  // só a variação escolhida (a Slim na sacola não conta como "Na sacola" com a Flat selecionada)
+  const nDeste = itens.filter((i) => i.id === produto.id && i.variacao === variacao).reduce((n, i) => n + i.qtd, 0)
+  // o que ainda cabe: o "restam X" do produto e o teto de 99 da linha (a mesma opção), o menor dos dois
+  const cabeEstoque = restam == null ? Infinity : Math.max(0, restam - naSacolaTodas)
+  const cabe = Math.min(cabeEstoque, Math.max(0, MAX_POR_ITEM - nDeste))
+  const maxQtd = Math.max(1, cabe)
   const unitario = precoUnitario(produto, variacao)
   const linha = calcularLinha(produto, qtd, variacao)
   const nSacola = contarItens(itens)
-  // só a variação escolhida (a Slim na sacola não conta como "Na sacola" com a Flat selecionada)
-  const nDeste = itens.filter((i) => i.id === produto.id && i.variacao === variacao).reduce((n, i) => n + i.qtd, 0)
-  const temCombo = !!produto.combos && produto.preco != null
+  // o quiz aparece com os combos do produto; o texto "2 por R$ 14,99" embaixo do preço, só quando a variação escolhida
+  // leva esses combos (a de preço próprio não leva: combosDa)
+  const temCombo = !!produto.combos?.length && produto.preco != null
+  const combosAqui = combosDa(produto, variacao)
 
   // a sacola encheu até o que resta (ou o estoque baixou): a quantidade escolhida desce junto
   useEffect(() => {
@@ -512,10 +517,15 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   }, [topo])
 
   const porNaSacola = () => {
-    // nunca passa do "restam X": com tudo que resta já na sacola, só avisa
-    const vai = cabe == null ? qtd : Math.min(qtd, cabe)
+    // nunca passa do "restam X" nem dos 99 da linha: sem espaço, só avisa (sem carimbo e sem "Foi pra sacola")
+    const vai = Math.min(qtd, cabe)
     if (vai <= 0) {
-      avisar(`As ${restam === 1 ? 'unidade que resta' : `${restam} que restam`} aqui já tão na tua sacola.`)
+      setAnuncio('')
+      avisar(
+        cabeEstoque <= 0
+          ? `As ${restam === 1 ? 'unidade que resta' : `${restam} que restam`} aqui já tão na tua sacola.`
+          : `Até ${MAX_POR_ITEM} por item: tua sacola já tem ${nDeste} deste.`,
+      )
       return
     }
     adicionar(produto.id, variacao, vai)
@@ -539,8 +549,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
     // do que resta no estado)
     const naSacola = itens.find((i) => i.id === produto.id && i.variacao === variacao)
     if (!naSacola) {
-      if (cabe == null || cabe > 0) adicionar(produto.id, variacao, cabe == null ? qtd : Math.min(qtd, cabe))
-    } else if (qtd > naSacola.qtd) alterar(produto.id, variacao, cabe == null ? qtd : Math.min(qtd, naSacola.qtd + cabe))
+      if (cabe > 0) adicionar(produto.id, variacao, Math.min(qtd, cabe))
+    } else if (qtd > naSacola.qtd) alterar(produto.id, variacao, Math.min(qtd, naSacola.qtd + cabe))
     abrirChat('pedido', { respondendo: [produto.id], de: 'pagina' })
   }
 
@@ -616,7 +626,7 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
         </h2>
         {(produto.detalhe ?? produto.tamanho) && <p className="pp-detalhe">{produto.detalhe ?? produto.tamanho}</p>}
         <p className={`pp-preco px ${disponivel === false ? 'pp-off' : ''}`}>{precoOuConsultar(unitario)}</p>
-        {temCombo && <p className="pp-combos px px-n">{produto.combos!.map((c) => `${c.qtd} por ${brl(c.total)}`).join(' · ')}</p>}
+        {combosAqui.length > 0 && <p className="pp-combos px px-n">{combosAqui.map((c) => `${c.qtd} por ${brl(c.total)}`).join(' · ')}</p>}
 
         <Disponibilidade produto={produto} restam={restam} />
 
@@ -625,8 +635,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
         {vendavel && (produto.variacoes || temCombo) && (
           <div className="pp-opcoes">
             {produto.variacoes && <EnqueteVariacao produto={produto} valor={variacao} mudar={setVariacao} />}
-            {temCombo && <QuizCombo produto={produto} qtd={qtd} mudar={setQtd} max={maxQtd} />}
-            <Empurrao produto={produto} qtd={qtd} max={maxQtd} />
+            {temCombo && <QuizCombo produto={produto} variacao={variacao} qtd={qtd} mudar={setQtd} max={maxQtd} />}
+            <Empurrao produto={produto} variacao={variacao} qtd={qtd} max={maxQtd} />
           </div>
         )}
 
@@ -668,6 +678,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
               <Icone nome="check" tamanho={16} />
               <span>
                 Na sacola: <span className="px px-16">{nDeste}</span>
+                {/* no teto da linha: o "Pôr na sacola" só avisa, e a barra já diz por quê */}
+                {nDeste >= MAX_POR_ITEM && <span className="legenda"> · até {MAX_POR_ITEM} por item</span>}
               </span>
             </span>
             <button type="button" className="pp-ver-sacola toque" onClick={() => setSacola(true)}>

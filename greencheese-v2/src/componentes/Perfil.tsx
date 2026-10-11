@@ -1,6 +1,7 @@
 import { config } from '../dados/config'
 import { ehDiaDeEntregaGratis, situacao } from '../lib/horario'
 import { verLoja } from '../lib/abas'
+import { useAgora } from '../lib/conta'
 import { linkPerfil } from '../lib/mensagem'
 import { useCatalogo } from '../store/catalogo'
 import { useChat } from '../store/chat'
@@ -22,8 +23,10 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
   const abrirChat = useChat((s) => s.abrir)
   const setSeletor = useUI((s) => s.setSeletor)
   const cid = nomeCidade(canal, cidade, cidadeInformada)
-  const sit = canal ? situacao(canal) : null
-  const sextou = canal && ehDiaDeEntregaGratis(canal) ? canal.entregaGratis : null
+  // a hora da loja (Brasília, corrigida pelo servidor): redesenha na virada do minuto e quando a hora do servidor chega
+  const agora = new Date(useAgora())
+  const sit = canal ? situacao(canal, agora) : null
+  const sextou = canal && ehDiaDeEntregaGratis(canal, agora) ? canal.entregaGratis : null
   const titulo = canal ? `Green Cheese Imports — ${cid ?? canal.nome}` : 'Green Cheese Imports'
 
   return (

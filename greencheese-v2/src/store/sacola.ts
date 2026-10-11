@@ -20,6 +20,9 @@ export interface ItemSacola {
 
 export const chaveItem = (id: string, variacao: string | null) => `${id}::${variacao ?? ''}`
 
+/** Teto de cada linha da sacola (o produto com a opção): a sacola, a página e o story travam e avisam aqui. */
+export const MAX_POR_ITEM = 99
+
 /** O retrato do item agora (vazio se a loja daqui não tem o produto, ou não tem mais a opção). */
 function retrato(id: string, variacao: string | null): Pick<ItemSacola, 'nome' | 'variacaoNome' | 'preco'> {
   const p = produtoPorId(id)
@@ -66,15 +69,15 @@ export const useSacola = create<SacolaState>()(
         set((s) => {
           const k = chaveItem(id, variacao)
           const existe = s.itens.find((i) => chaveItem(i.id, i.variacao) === k)
-          if (existe) return { itens: s.itens.map((i) => (i === existe ? { ...i, ...retrato(id, variacao), qtd: Math.min(99, i.qtd + qtd) } : i)) }
-          return { itens: [...s.itens, { id, variacao, qtd: Math.min(99, qtd), ...retrato(id, variacao) }] }
+          if (existe) return { itens: s.itens.map((i) => (i === existe ? { ...i, ...retrato(id, variacao), qtd: Math.min(MAX_POR_ITEM, i.qtd + qtd) } : i)) }
+          return { itens: [...s.itens, { id, variacao, qtd: Math.min(MAX_POR_ITEM, qtd), ...retrato(id, variacao) }] }
         }),
       alterar: (id, variacao, qtd) =>
         set((s) => ({
           itens:
             qtd <= 0
               ? s.itens.filter((i) => chaveItem(i.id, i.variacao) !== chaveItem(id, variacao))
-              : s.itens.map((i) => (chaveItem(i.id, i.variacao) === chaveItem(id, variacao) ? { ...i, qtd: Math.min(99, qtd) } : i)),
+              : s.itens.map((i) => (chaveItem(i.id, i.variacao) === chaveItem(id, variacao) ? { ...i, qtd: Math.min(MAX_POR_ITEM, qtd) } : i)),
         })),
       remover: (id, variacao) => set((s) => ({ itens: s.itens.filter((i) => chaveItem(i.id, i.variacao) !== chaveItem(id, variacao)) })),
       limpar: () => set({ itens: [], cupom: null }),

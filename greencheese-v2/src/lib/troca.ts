@@ -14,12 +14,20 @@ export function trocarEstado(uf: string, cidade: string | null = null): boolean 
     useLocal.getState().escolher(uf, cidade, 'manual')
     return true
   }
+  // cada linha da sacola com a opção dela ("Piteira de vidro RAW (Flat · 6 mm × 3,5 cm)"), sem repetir o mesmo nome
   const fora = canalDa(atual) && canalDa(uf)
-    ? useSacola
-        .getState()
-        .itens.map((i) => produtoPorId(i.id))
-        .filter((p): p is NonNullable<typeof p> => !!p && disponivelEm(p, atual) && !disponivelEm(p, uf))
-        .map((p) => p.nome)
+    ? [
+        ...new Set(
+          useSacola
+            .getState()
+            .itens.map((i) => ({ i, p: produtoPorId(i.id) }))
+            .filter((x): x is { i: (typeof x)['i']; p: NonNullable<(typeof x)['p']> } => !!x.p && disponivelEm(x.p, atual) && !disponivelEm(x.p, uf))
+            .map(({ i, p }) => {
+              const opcao = i.variacao ? (p.variacoes?.find((v) => v.id === i.variacao)?.nome ?? i.variacaoNome) : null
+              return opcao ? `${p.nome} (${opcao})` : p.nome
+            }),
+        ),
+      ]
     : []
   if (fora.length) {
     useUI.getState().setTroca({ uf, cidade, fora })

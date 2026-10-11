@@ -8,6 +8,7 @@ import type { Cupom } from '../store/conta'
 import { contaAtual, useAgora, useCuponsDaConta } from './conta'
 import { statusDo } from './cupom'
 import { situacaoNoPedido, type Situacao } from './cupom-uso'
+import { agoraLoja } from './relogio'
 
 // Cupom aplicado no pedido (sacola e resumo do pedido guiado). Só a sacola, o chat e a Minha conta usam: fica fora do
 // pedaço principal. Lê o cache da conta pelos mesmos caminhos dos hooks de src/lib/conta.ts.
@@ -34,7 +35,7 @@ export function conferirCupomAplicado(): void {
   if (!codigo) return
   const atual = contaAtual(useContaStore.getState())
   const c = atual?.cupons.find((x) => x.codigo === codigo)
-  const status = c ? statusDo(c, Date.now()) : null
+  const status = c ? statusDo(c, agoraLoja()) : null
   if (status === 'ativo') return
   useSacola.getState().tirarCupom()
   useUI.getState().avisar(status === 'vencido' ? `Teu cupom ${codigo} venceu e saiu do pedido.` : `Teu cupom ${codigo} não vale mais e saiu do pedido.`)

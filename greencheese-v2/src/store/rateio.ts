@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import { config } from '../dados/config'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 import { buscarRateios, ESPERA_LISTA_MS, lerRateio, type Participacao, type Rateio } from '../lib/rateio-api'
+import { registrarHoraServidor } from '../lib/relogio'
 
 // Rateios: a lista pública (memória, vem do servidor ou dos exemplos) e as vagas DESTE aparelho (localStorage
 // 'gc-rateio': o token de cada participação, que é o que deixa ver "Minhas vagas", e o que a pessoa preencheu para a
@@ -149,6 +150,8 @@ export function carregarRateios(forcar = false): Promise<void> {
     const r = await buscarRateios()
     if (r.ok) {
       const desvio = r.agora ? Date.parse(r.agora) - Date.now() : 0
+      // a mesma hora vale pro resto do site (horário, entrega grátis, cupom: src/lib/relogio.ts)
+      if (r.agora) registrarHoraServidor(Date.parse(r.agora))
       useRateio.setState({ rateios: r.rateios.filter(valeNaTela), fonte: 'servidor', carregadoEm: Date.now(), desvio: Math.abs(desvio) > 90_000 ? desvio : 0, servidorVisto: true })
       return
     }

@@ -1,5 +1,6 @@
 import { config } from '../dados/config'
 import { alvoDeSaida } from '../lib/ambiente'
+import { useModoConta } from '../lib/conta-modo'
 import { linkDM, linkPerfil } from '../lib/mensagem'
 import { useLocal } from '../store/local'
 import { useCanais, useCanalDa } from '../store/loja'
@@ -28,6 +29,7 @@ export function Rodape() {
   // estado escolhido ou palpitado: a dúvida vai direto pra DM dele
   const canal = useCanalDa(useLocal((s) => s.uf))
   const canais = useCanais()
+  const modoConta = useModoConta()
   return (
     <footer className="rodape">
       {/* como fala com a loja: o pedido fecha no WhatsApp (só no fim do pedido guiado); dúvida, na DM do estado */}
@@ -59,8 +61,14 @@ export function Rodape() {
       <p className="rodape-txt">
         Derivados do tabaco não são vendidos pelo site (Anvisa, RDC 840/2023). Sedas, piteiras e acessórios, sim.
       </p>
+      {/* o que vai pro servidor da loja e o que fica no aparelho, do jeito que o site faz (a conta muda com o modo:
+          a do aparelho ou a da loja, com código pelo WhatsApp). A política de privacidade em si é da loja (PENDENCIAS) */}
       <p className="rodape-txt">
-        Privacidade: o palpite de estado vem da localização aproximada pelo IP, sem GPS, e serve só pra indicar o atendimento. A sacola, as respostas do pedido e a conta do Teste minha sorte ficam só neste aparelho. Quem entra num rateio manda nome, WhatsApp, estado, cidade e quantidade pro servidor da loja, só pra organizar o rateio, e uma cópia das tuas vagas fica neste aparelho pra tu acompanhar.
+        Privacidade: o palpite de estado vem da localização aproximada pelo IP, sem GPS, e serve só pra indicar o atendimento. A sacola fica neste aparelho. Ao fechar um pedido, uma cópia dele vai pro servidor da loja: nome, endereço, observação, itens e pagamento. O CEP que tu digita é consultado na BrasilAPI ou no ViaCEP pra completar o endereço.{' '}
+        {modoConta === 'servidor'
+          ? 'Com a conta da loja, teu nome, WhatsApp, cupons e endereços ficam guardados no servidor dela, e o pedido feito com a conta aberta leva teu WhatsApp.'
+          : 'A conta do Teste minha sorte fica só neste aparelho.'}{' '}
+        Quem entra num rateio manda nome, WhatsApp, estado, cidade e quantidade pro servidor da loja, só pra organizar o rateio, e uma cópia das tuas vagas fica neste aparelho pra tu acompanhar.
       </p>
       {config.credito && (
         <p className="rodape-credito">

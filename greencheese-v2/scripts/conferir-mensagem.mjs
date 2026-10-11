@@ -113,6 +113,28 @@ if (naSexta !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (entrega
 const naQuinta = entregaCom(gratis, new Date(2026, 9, 8, 15))[iEnt]
 if (naQuinta !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (taxa R$ 15,50)') problemas.push(`entrega fora do dia grátis veio "${naQuinta}"`)
 if (entregaCom({ taxaEntrega: { valor: null, demo: false } })[iEnt] !== a[iEnt]) problemas.push('taxa "a confirmar" de verdade não ficou "taxa a confirmar"')
+// taxa R$ 0,00 do painel: a entrega não tem taxa ("entrega grátis"), nunca "taxa R$ 0,00"; só a linha da Entrega muda
+const taxaZero = entregaCom({ taxaEntrega: { valor: 0, demo: false } })
+if (taxaZero[iEnt] !== 'Entrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (entrega grátis)') problemas.push(`entrega com taxa R$ 0,00 veio "${taxaZero[iEnt]}"`)
+if (taxaZero.filter((l, i) => i !== iEnt).join('\n') !== a.filter((l, i) => i !== iEnt).join('\n')) problemas.push('com a taxa R$ 0,00, outra linha mudou')
+// o dia da entrega grátis é o de Brasília, com o aparelho em qualquer fuso: sexta 23:30 de Brasília (sábado 02:30 UTC)
+// ainda é o dia grátis; sábado 00:30 de Brasília (sexta à noite em Manaus) já não é
+const tzAntes = process.env.TZ
+for (const tz of ['America/Sao_Paulo', 'UTC', 'Asia/Tokyo', 'America/Manaus', 'Pacific/Kiritimati']) {
+  process.env.TZ = tz
+  const sextaNoite = entregaCom(gratis, new Date('2026-10-09T23:30:00-03:00'))[iEnt]
+  const sabadoCedo = entregaCom(gratis, new Date('2026-10-10T00:30:00-03:00'))[iEnt]
+  if (!sextaNoite.endsWith('(entrega grátis hoje)')) problemas.push(`aparelho em ${tz}, sexta 23:30 de Brasília: "${sextaNoite}"`)
+  if (!sabadoCedo.endsWith('(taxa R$ 15,50)')) problemas.push(`aparelho em ${tz}, sábado 00:30 de Brasília: "${sabadoCedo}"`)
+}
+if (tzAntes === undefined) delete process.env.TZ
+else process.env.TZ = tzAntes
+// variação com preço próprio não herda o combo do produto (o combo foi pensado pro preço dele); a sem preço herda
+const ocbVar = { ...ocb, variacoes: [{ id: 'comum', nome: 'Comum' }, { id: 'premium', nome: 'Premium', preco: 50 }] }
+const linhaVar = (variacaoId, qtd) => m.montarPedido({ ...pedido, linhas: [{ produto: ocbVar, qtd, variacaoId }] }).split('\n').find((l) => /^\d+x /.test(l))
+if (linhaVar('premium', 2) !== '2x Seda OCB Premium Slim (Premium) — R$ 100,00') problemas.push(`variação Premium × 2 veio "${linhaVar('premium', 2)}"`)
+if (linhaVar('premium', 3) !== '3x Seda OCB Premium Slim (Premium) — R$ 150,00') problemas.push(`variação Premium × 3 veio "${linhaVar('premium', 3)}"`)
+if (linhaVar('comum', 3) !== '3x Seda OCB Premium Slim (Comum) — R$ 19,99') problemas.push(`variação sem preço × 3 veio "${linhaVar('comum', 3)}"`)
 // o código do pedido: UMA linha logo depois do cabeçalho, e mais nada muda (com e sem cupom)
 const comCodigo = m.montarPedido({ ...pedido, codigo: 'GC-7KD2X' }).split('\n')
 if (comCodigo.length !== a.length + 1 || comCodigo[1] !== 'Código: GC-7KD2X') problemas.push(`com código, a 2ª linha veio "${comCodigo[1]}"`)

@@ -209,6 +209,15 @@
         "ufAtendimento"
       ]
     },
+    "cep.outraCidade": {
+      "padrao": "Esse CEP é de {cidade}/{uf}. A Green Cheese {uf} entrega em {cidades}.",
+      "tipo": "fala",
+      "marcadores": [
+        "cidade",
+        "uf",
+        "cidades"
+      ]
+    },
     "cep.trocar": {
       "padrao": "Trocar pra Green Cheese {uf}",
       "tipo": "botao",
@@ -272,6 +281,20 @@
       "tipo": "erro",
       "marcadores": []
     },
+    "rua.longo": {
+      "padrao": "Até {max} letras. Ponto de referência vai na observação, no fim.",
+      "tipo": "erro",
+      "marcadores": [
+        "max"
+      ]
+    },
+    "endereco.outros": {
+      "padrao": "Outros endereços ({n})",
+      "tipo": "botao",
+      "marcadores": [
+        "n"
+      ]
+    },
     "pagamento.pergunta": {
       "padrao": "Como vai pagar?",
       "tipo": "fala",
@@ -298,6 +321,13 @@
       "padrao": "Só o valor, tipo 100 ou 50,00.",
       "tipo": "erro",
       "marcadores": []
+    },
+    "troco.menor": {
+      "padrao": "Esse valor não cobre o pedido ({subtotal}). Troco pra quanto?",
+      "tipo": "erro",
+      "marcadores": [
+        "subtotal"
+      ]
     },
     "troco.resposta": {
       "padrao": "Troco pra {valor}",

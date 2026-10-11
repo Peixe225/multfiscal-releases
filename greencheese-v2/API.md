@@ -196,7 +196,8 @@ interface CorpoPedido {
   uf: string
   cidade: string                 // até 60
   nome: string                   // 2 a 60
-  whatsapp: string               // só quando o aparelho sabe (conta do Teste minha sorte); '' = a loja vê na conversa;
+  whatsapp: string               // só com a conta da loja aberta (a do código pelo WhatsApp); a conta só do aparelho
+                                 // não manda; '' = a loja vê na conversa;
                                  // o que não fechar vira '' (nunca recusa o pedido por isso)
   // pedido
   itens?: {                      // de 1 a 60, como a sacola e a mensagem mostram
@@ -821,6 +822,10 @@ manda é o painel: mexer em `src/dados` muda só o que vai embutido no site e a 
 2. No primeiro respiro depois da primeira pintura (na hora, se o `?uf=` do link ou o estado salvo não está na loja do
    aparelho: estado ativado no painel) pergunta `GET r=loja`; o navegador manda o `If-None-Match` sozinho e, sem
    mudança, recebe 304. Volta pra aba depois de 10 min fora: pergunta de novo (com o pedido guiado aberto, não).
+   O cabeçalho `Date` da resposta (que vem até no 304; mais o `Age`, se uma CDN guardou) é a hora do servidor: o
+   aberto/fechado, a entrega grátis do dia e a validade do cupom seguem ela, no horário de Brasília
+   (`src/lib/relogio.ts`; o `agora` do `GET rateios` vale igual). O corpo não ganha campo de hora: o ETag e o 304 não
+   mudam.
 3. Versão nova: o `loja` é conferido campo a campo (`src/store/loja-ler.ts`, num pedaço à parte que só baixa aí): item
    torto fica de fora, texto com palavra da lista volta pro embutido, prêmio passa pelas regras do `cupom.ts`; sem
    nenhum estado que feche, a resposta inteira é ignorada. Entra na tela de uma vez, num respiro do navegador, e o que

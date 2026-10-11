@@ -8,6 +8,7 @@ import './estilos/base.css'
 import './interativos/sorte/digitos.css'
 import { App } from './App'
 import { carregarArtesRealistas } from './arte/realista/carregar'
+import { vigiarAbasDoAparelho } from './lib/abas-do-aparelho'
 import { vigiarEstoqueDaSacola } from './lib/estoque'
 import { lerParametros } from './lib/url'
 import { useChat } from './store/chat'
@@ -24,6 +25,8 @@ const link = lerParametros()
 iniciarLoja({ pedidoAberto: () => useChat.getState().aberto, ufPedida: link.uf ?? useLocal.getState().uf, produtosPedidos: [link.p, link.produto] })
 // a sacola nunca passa do "restam X" do estado (ajusta na abertura, quando a loja muda e quando troca de estado)
 vigiarEstoqueDaSacola()
+// duas abas: a sacola é a mesma nas duas e o código do pedido é de uma aba só
+vigiarAbasDoAparelho()
 
 createRoot(document.getElementById('raiz')!).render(
   <StrictMode>

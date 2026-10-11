@@ -17,13 +17,25 @@ export function precoUnitario(p: Produto, variacaoId?: string | null): number | 
   return v?.preco ?? p.preco
 }
 
+/**
+ * Os combos que valem pra essa escolha. O combo é do produto e foi pensado pro preço dele ("2 por R$ 14,99" com a
+ * unidade a R$ 9,99): a variação com preço próprio, diferente do produto, não herda (2 × Premium de R$ 50,00 são
+ * R$ 100,00, não R$ 14,99). A variação sem preço (ou com o mesmo preço do produto) leva os combos dele.
+ */
+export function combosDa(p: Produto, variacaoId?: string | null): Combo[] {
+  if (p.preco == null || !p.combos?.length) return []
+  const v = variacaoId ? p.variacoes?.find((x) => x.id === variacaoId) : undefined
+  if (v?.preco != null && Math.round(v.preco * 100) !== Math.round(p.preco * 100)) return []
+  return p.combos.filter((c) => c.qtd > 1 && c.total > 0)
+}
+
 /** Menor custo para levar `qtd` unidades, combinando combos e unidades avulsas (programação dinâmica). */
 export function calcularLinha(p: Produto, qtd: number, variacaoId?: string | null): CalculoLinha {
   const unit = precoUnitario(p, variacaoId)
   if (unit == null || qtd <= 0) {
     return { total: unit == null ? null : 0, semCombo: unit == null ? null : 0, combos: [], avulsas: qtd, economia: 0 }
   }
-  const combos = (p.combos ?? []).filter((c) => c.qtd > 1 && c.total > 0)
+  const combos = combosDa(p, variacaoId)
   // custo[n] em centavos para evitar erro de ponto flutuante
   const cent = (v: number) => Math.round(v * 100)
   const custo: number[] = [0]

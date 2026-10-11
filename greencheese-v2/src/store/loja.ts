@@ -19,6 +19,7 @@ import { ufPorSigla } from '../dados/ufs'
 import { apagar, ler, gravar } from '../lib/armazenamento'
 import { definirWhatsappDaLoja } from '../lib/mensagem'
 import { validarPremios } from '../lib/premios'
+import { registrarHoraDaResposta } from '../lib/relogio'
 import type { Categoria, Produto } from '../lib/tipos'
 
 export interface RegrasDaSorte {
@@ -314,6 +315,8 @@ async function perguntar(): Promise<void> {
   const t = setTimeout(() => ctrl?.abort(), LIMITE_MS)
   try {
     const r = await fetch(ROTA, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: ctrl?.signal })
+    // a hora do servidor (o cabeçalho Date, que vem até no 304): o horário, a entrega grátis e o cupom seguem ela
+    registrarHoraDaResposta(r)
     let d: unknown
     try {
       d = await r.json()

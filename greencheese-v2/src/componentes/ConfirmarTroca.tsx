@@ -11,7 +11,10 @@ export function ConfirmarTroca() {
   const setTroca = useUI((s) => s.setTroca)
   const { uf, cidade, cidadeInformada, escolher } = useLocal()
   useLojaMarca()
-  const atual = nomeCidade(canalDa(uf), cidade, cidadeInformada) ?? canalDa(uf)?.nome ?? ''
+  // "Ficar em Teófilo Otoni", "Ficar no Rio de Janeiro" (a cidade com o nome do estado leva o artigo dele), "Ficar no
+  // Espírito Santo", "Ficar em Minas Gerais"
+  const cidadeAtual = nomeCidade(canalDa(uf), cidade, cidadeInformada)
+  const ficar = cidadeAtual && semAcento(cidadeAtual) !== semAcento(ufPorSigla(uf)?.nome ?? '') ? `em ${cidadeAtual}` : emUf(uf)
   // "Trocar pra Teófilo Otoni?", "Trocar pro Rio de Janeiro?" (a cidade com o nome do estado leva o artigo dele)
   const cidadeDestino = troca ? canalDa(troca.uf)?.cidades[0]?.nome : undefined
   const paraOnde = !troca
@@ -46,7 +49,7 @@ export function ConfirmarTroca() {
               Trocar mesmo
             </button>
             <button type="button" className="botao botao-contorno" onClick={() => setTroca(null)}>
-              Ficar em {atual}
+              Ficar {ficar}
             </button>
           </div>
         </div>
