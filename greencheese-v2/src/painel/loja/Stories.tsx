@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { mensagemDe } from '../api'
 import { brl } from '../formato'
 import { Link, Topo } from '../Moldura'
+import { recado } from '../recado'
 import { caminho, ir } from '../rotas'
 import { useTitulo } from '../telas/comum'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
@@ -58,7 +59,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
   if (!l || !uf) {
     return (
       <>
-        <Topo voltar={caminho.loja} titulo={<TituloTela>Stories do Início</TituloTela>} />
+        <Topo voltar={caminho.mais} titulo={<TituloTela>Stories do Início</TituloTela>} />
         <div className="pn-pagina">{leitura.erro ? <Aviso tipo="erro">{leitura.erro.message}</Aviso> : <Carregando />}</div>
       </>
     )
@@ -87,7 +88,8 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
       const novo = (x: LojaAdmin): LojaAdmin => ({ ...x, versao: r.versao, atualizadoEm: r.atualizadoEm, ajustes: r.ajustes })
       guardarLoja(novo)
       leitura.trocar(novo)
-      setRua({ ocupado: false, erro: null, ok: r.ajustes.ruaNoStory ? 'A rua tá no celular: o 1º story do Início (na Home 2, no fim).' : 'O celular fica sem a rua (na home e na Home 2).' })
+      setRua({ ocupado: false, erro: null, ok: null })
+      recado(r.ajustes.ruaNoStory ? 'A rua tá no celular: o 1º story do Início (na Home 2, no fim).' : 'O celular fica sem a rua (na home e na Home 2).')
     } catch (e) {
       setRua({ ocupado: false, erro: mensagemDe(e), ok: null })
     }
@@ -102,7 +104,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
       guardarLoja((x) => ({ ...x, versao: r.versao, atualizadoEm: r.atualizadoEm, stories: { ...x.stories, [uf]: r.produtos.length ? r.produtos : undefined } }))
       leitura.trocar((x) => ({ ...x, versao: r.versao, atualizadoEm: r.atualizadoEm, stories: { ...x.stories, [uf]: r.produtos.length ? r.produtos : undefined } }))
       setLista(null)
-      setOk(r.produtos.length ? `Story de ${estado.nome} salvo: ${r.produtos.length === 1 ? '1 produto' : `${r.produtos.length} produtos`}, nessa ordem.` : `Story de ${estado.nome} no automático.`)
+      recado(r.produtos.length ? `Story de ${estado.nome} salvo: ${r.produtos.length === 1 ? '1 produto' : `${r.produtos.length} produtos`}, nessa ordem.` : `Story de ${estado.nome} no automático.`)
     } catch (e) {
       setErro(mensagemDe(e))
     } finally {
@@ -112,7 +114,7 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
 
   return (
     <>
-      <Topo voltar={caminho.loja} titulo={<TituloTela>Stories do Início</TituloTela>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Stories do Início</TituloTela>} />
       <div className="pn-pagina pn-stories">
         <section className="pn-bloco pn-st-rua" aria-labelledby="h-st-rua">
           <h2 id="h-st-rua" className="sr-only">
@@ -123,10 +125,13 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
             <span className="pn-troca-marca" aria-hidden="true" />
             <span>Rua do mercador no celular</span>
           </label>
-          <p className="pn-dica-bloco">
-            No celular, a rua é o 1º story do Início: o mercador anda, vende e chama pro Mercado. Na Home 2 (o endereço /home2/), ela fecha o Início,
-            depois dos produtos. Desligada, a rua sai do celular nas duas; no computador ela continua embaixo do perfil.
-          </p>
+          <p className="pn-dica-bloco">No celular, a rua é o 1º story do Início: o mercador anda, vende e chama pro Mercado.</p>
+          <details className="pd-detalhes">
+            <summary>Saiba mais</summary>
+            <p className="pn-dica-bloco">
+              Na Home 2 (o endereço /home2/), ela fecha o Início, depois dos produtos. Desligada, a rua sai do celular nas duas; no computador ela continua embaixo do perfil.
+            </p>
+          </details>
           {rua.erro && <Aviso tipo="erro">{rua.erro}</Aviso>}
           {rua.ok && <Aviso tipo="ok">{rua.ok}</Aviso>}
         </section>

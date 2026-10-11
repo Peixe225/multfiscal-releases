@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { brl, whatsappBonito } from '../formato'
 import { Link, Topo } from '../Moldura'
 import { caminho, ir } from '../rotas'
-import { pegarRecado } from '../telas/flash'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
 import { useLoja } from './dados'
@@ -40,7 +39,6 @@ export function Estados() {
   useTitulo('Estados')
   const leitura = useLoja()
   const l = leitura.dados
-  const [recado, setRecado] = useState(pegarRecado)
   const [novo, setNovo] = useState('')
   useRestaurarRolagem(!!l)
   const noSite = l?.estados.filter((e) => e.ativo) ?? []
@@ -48,13 +46,8 @@ export function Estados() {
   const livres = l ? UFS_TODAS.filter((uf) => !l.estados.some((e) => e.uf === uf)) : []
   return (
     <>
-      <Topo voltar={caminho.loja} titulo={<TituloTela>Estados</TituloTela>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Estados</TituloTela>} />
       <div className="pn-pagina pn-pagina-estreita">
-        {recado && (
-          <Aviso tipo="ok" acao={<button type="button" className="icone-botao" aria-label="Fechar o recado" onClick={() => setRecado(null)}><Ic nome="fechar" tamanho={16} /></button>}>
-            {recado}
-          </Aviso>
-        )}
         {leitura.erro && <Aviso tipo="erro">{leitura.erro.message}</Aviso>}
         {!l && !leitura.erro && <Carregando />}
         {l && (
@@ -66,7 +59,7 @@ export function Estados() {
               <p className="pn-dica-bloco">
                 {l.ajustes.mesmoWhatsappParaTodos ? `Todos fecham o pedido no WhatsApp da loja, ${whatsappBonito(l.ajustes.whatsapp)}.` : 'Cada estado fecha o pedido no WhatsApp dele (ou no da loja, quando não tem um próprio).'}{' '}
                 <Link href={caminho.loja} className="pn-link pn-link-dentro">
-                  Mudar na Loja
+                  Mudar nos Ajustes da loja
                 </Link>
               </p>
               <ul className="pn-lista-est">
@@ -80,7 +73,7 @@ export function Estados() {
                 <h2 id="h-est-fora" className="pn-h2">
                   Fora do site <span className="pn-conta">{fora.length}</span>
                 </h2>
-                <p className="pn-dica-bloco">Guardados com tudo. Abre e liga “Aparece no site” pra voltar.</p>
+                <p className="pn-dica-bloco">Guardados com tudo. Abre o estado e toca em “Pôr de volta no site”.</p>
                 <ul className="pn-lista-est">
                   {fora.map((e) => (
                     <LinhaEstado key={e.uf} e={e} l={l} />

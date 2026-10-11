@@ -37,6 +37,11 @@ const DATA: Record<StatusPedido, (p: PedidoAdmin) => string | null> = {
 const NOME_PAGAMENTO = { pix: 'Pix', dinheiro: 'Dinheiro', cartao: 'Cartão na entrega' } as const
 
 /** "18h30" (hoje) · "08/10" */
+/** O nome do passo como a linha do tempo diz ("Recebido", e não "novo"): o botão e a pergunta usam o mesmo. */
+function nomePasso(s: StatusPedido, tipo: 'pedido' | 'encomenda'): string {
+  return s === 'novo' ? (tipo === 'encomenda' ? 'Recebida' : 'Recebido') : nomeStatus(s, tipo)
+}
+
 function curto(iso: string, agora: number): string {
   return dia(iso, agora) === 'hoje' ? hora(iso) : diaMes(iso)
 }
@@ -53,7 +58,7 @@ function Passos({ p, agora }: { p: PedidoAdmin; agora: number }) {
         return (
           <li key={s} className={`${feito ? 'feito' : ''}${aqui ? ' atual' : ''}`} aria-current={aqui ? 'step' : undefined}>
             <span className="pn-tempo-ponto" aria-hidden="true" />
-            <span className="pn-tempo-nome">{s === 'novo' ? (p.tipo === 'encomenda' ? 'Recebida' : 'Recebido') : nomeStatus(s, p.tipo)}</span>
+            <span className="pn-tempo-nome">{nomePasso(s, p.tipo)}</span>
             <span className="pn-tempo-dia">{d && feito ? curto(d, agora) : ' '}</span>
             {!feito && <span className="sr-only"> (ainda não)</span>}
           </li>
@@ -297,6 +302,8 @@ export function Pedido({ id }: { id: number }) {
 
   if (leitura.erro && !d) {
     const sumiu = leitura.erro.codigo === 'nao-encontrado'
+    // de outro estado (gerente e atendente): tentar de novo não resolve, o caminho é a lista dos pedidos dele
+    const semPermissao = leitura.erro.codigo === 'sem-permissao'
     return (
       <>
         <Topo voltar={caminho.pedidos} titulo={<TituloTela>Pedido</TituloTela>} />
@@ -304,7 +311,7 @@ export function Pedido({ id }: { id: number }) {
           <Aviso
             tipo="erro"
             acao={
-              sumiu ? (
+              sumiu || semPermissao ? (
                 <Link className="pn-link" href={caminho.pedidos}>
                   Ver os pedidos
                 </Link>
@@ -378,9 +385,9 @@ export function Pedido({ id }: { id: number }) {
   const pedirVoltar = (para: StatusPedido) =>
     mudarCom(
       {
-        titulo: p.status === 'entregue' ? 'Desfazer a entrega?' : `Voltar pra ${nomeStatus(para, p.tipo).toLowerCase()}?`,
+        titulo: p.status === 'entregue' ? 'Desfazer a entrega?' : `Voltar pra ${nomePasso(para, p.tipo)}?`,
         texto: <p>Use se tocou no passo errado. A data do passo desfeito sai.</p>,
-        botao: p.status === 'entregue' ? 'Desfazer a entrega' : 'Voltar',
+        botao: p.status === 'entregue' ? 'Desfazer a entrega' : `Voltar pra ${nomePasso(para, p.tipo)}`,
       },
       para,
     )
@@ -389,7 +396,7 @@ export function Pedido({ id }: { id: number }) {
     mudarCom(
       {
         titulo: enc ? 'Reabrir a encomenda?' : 'Reabrir o pedido?',
-        texto: <p>Volta pra {enc ? 'nova' : 'novo'} e recomeça os passos.</p>,
+        texto: <p>Volta pra {enc ? 'Recebida' : 'Recebido'} e recomeça os passos.</p>,
         botao: 'Reabrir',
       },
       'novo',
@@ -689,7 +696,7 @@ export function Pedido({ id }: { id: number }) {
               <div className="pn-botoes pd-mais-botoes">
                 {anterior && (
                   <Botao variante="cinza" largo onClick={() => pedirVoltar(anterior)}>
-                    {p.status === 'entregue' ? 'Desfazer a entrega' : `Voltar pra ${nomeStatus(anterior, p.tipo).toLowerCase()}`}
+                    {p.status === 'entregue' ? 'Desfazer a entrega' : `Voltar pra ${nomePasso(anterior, p.tipo)}`}
                   </Botao>
                 )}
                 {podeCancelar && (

@@ -1,5 +1,7 @@
-// Resumo: primeiro o que pede ação (quem tá esperando confirmar o pagamento, rateio que lotou ou chegou, prazo
-// vencido), depois os rateios abertos com a barra, o dinheiro (pago e a receber) e as últimas entradas.
+// Início (o Resumo): a frase do dia, os atalhos do que mais se faz ("Preço e estoque", "Novo produto", "Horário e taxa",
+// "Stories"), o lembrete da cópia de segurança, a lista "Pra deixar a loja pronta" (até completar), os pedidos novos, o
+// que pede ação (quem tá esperando confirmar o pagamento, rateio que lotou ou chegou, prazo vencido), a loja, os
+// rateios abertos com a barra, o dinheiro (pago e a receber) e as últimas entradas.
 import { useState } from 'react'
 import * as api from '../api'
 import { ArteRateio } from '../Arte'
@@ -7,15 +9,20 @@ import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { guardar, useDados } from '../dados'
 import { brl, falta, plural, relativo, vagas } from '../formato'
 import { Link, Topo } from '../Moldura'
-import { ResumoPedidos, useNovosPedidos } from '../pedidos/ResumoPedidos'
+import { ResumoPedidos, useAvisosQueFalharam, useNovosPedidos } from '../pedidos/ResumoPedidos'
 import { rateioEhMeu, usePode } from '../permissoes'
 import { Blocos, Selo } from '../rateio-ui'
 import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
 import { Aviso, Carregando, Ic, TituloTela } from '../ui'
 import { BotaoWhats, NOME_VAGA, avisoDeAgora, pedirConfirmarPagamento } from '../vaga'
+import { contagens, useLojaSe } from '../loja/dados'
 import { ResumoLoja } from '../loja/ResumoLoja'
+import { Botao } from '../ui'
 import { useRestaurarRolagem } from './comum'
+import { diasDaCopia, textoUltimaCopia, useBaixarCopia, usePronto } from './copia'
+import { faltamPronto, itensPronto, ProntoLista } from './Pronto'
+import { useIlustracoes } from '../loja/Arte'
 
 interface Dados {
   resumo: TResumo
@@ -71,14 +78,69 @@ function LinhaReserva({ p, rateio, aoConfirmar }: { p: ParticipanteComTitulo; ra
   )
 }
 
-function fraseDoDia(pagamentos: number, rateios: number, pedidos = 0): string {
-  if (!pagamentos && !rateios && !pedidos) return 'Nada esperando por ti agora.'
-  // pedidos novos do site primeiro (pedidos/ResumoPedidos.tsx)
+function fraseDoDia(pagamentos: number, rateios: number, pedidos = 0, esgotados = 0, avisos = 0): string {
+  if (!pagamentos && !rateios && !pedidos && !esgotados && !avisos) return 'Nada esperando por ti agora.'
+  // pedidos novos do site primeiro (pedidos/ResumoPedidos.tsx); depois o dinheiro, os rateios, a loja e os avisos
   const p = pedidos ? plural(pedidos, 'pedido novo', 'pedidos novos') : ''
   const a = pagamentos ? plural(pagamentos, 'pagamento pra confirmar', 'pagamentos pra confirmar') : ''
   const b = rateios ? plural(rateios, 'rateio pedindo atenção', 'rateios pedindo atenção') : ''
-  const partes = [p, a, b].filter(Boolean)
+  const c = esgotados ? plural(esgotados, 'produto esgotado', 'produtos esgotados') : ''
+  const d = avisos ? (avisos === 1 ? '1 aviso que não foi' : `${avisos} avisos que não foram`) : ''
+  const partes = [p, a, b, c, d].filter(Boolean)
   return `Tem ${partes.length > 1 ? `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}` : partes[0]}.`
+}
+
+/** Os atalhos do topo (o que mais se faz), pelo que o papel pode. */
+function Atalhos({ loja, rateios, estoque }: { loja: boolean; rateios: boolean; estoque: boolean }) {
+  const itens = loja
+    ? [
+        { href: caminho.produtos, icone: 'sacola', nome: 'Preço e estoque' },
+        { href: caminho.produtoNovo, icone: 'mais', nome: 'Novo produto' },
+        { href: caminho.estados, icone: 'relogio', nome: 'Horário e taxa' },
+        { href: caminho.stories, icone: 'estrela', nome: 'Stories' },
+      ]
+    : [
+        ...(estoque ? [{ href: caminho.estoque, icone: 'estoque', nome: 'Estoque' }] : []),
+        ...(rateios ? [{ href: caminho.novo, icone: 'mais', nome: 'Novo rateio' }] : []),
+      ]
+  if (!itens.length) return null
+  return (
+    <nav className={`pn-fazer pn-fazer-${itens.length}`} aria-label="Atalhos">
+      {itens.map((x) => (
+        <Link key={x.href} href={x.href} className="pn-fazer-item toque">
+          <Ic nome={x.icone} tamanho={24} />
+          <span>{x.nome}</span>
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+/** Passou de 7 dias sem cópia de segurança (ou nunca, com o painel instalado há uma semana): lembra, com o botão. */
+function LembreteCopia({ leitura, naLista }: { leitura: ReturnType<typeof usePronto>; naLista: boolean }) {
+  const { baixar, ocupado, erro } = useBaixarCopia(leitura)
+  const p = leitura.dados
+  if (!p) return null
+  const agora = api.agora()
+  const dias = diasDaCopia(p.copia.ultimaEm, agora)
+  const instalado = p.instaladoEm ? Math.floor((agora - Date.parse(p.instaladoEm)) / 86_400_000) : 0
+  const vence = dias === null ? !naLista && instalado >= 7 : dias >= 7
+  if (!vence) return null
+  return (
+    <div className="pn-lembrete-copia">
+      <Aviso
+        tipo="info"
+        acao={
+          <Botao variante="cinza" className="pn-botao-p" icone="baixar" ocupado={ocupado} onClick={() => void baixar()}>
+            Baixar agora
+          </Botao>
+        }
+      >
+        <strong>Faz uma cópia de segurança</strong> (1 toque). {textoUltimaCopia(p.copia.ultimaEm, agora)}
+      </Aviso>
+      {erro && <Aviso tipo="erro">{erro.message}</Aviso>}
+    </div>
+  )
 }
 
 export function Resumo({ nome }: { nome: string }) {
@@ -88,13 +150,21 @@ export function Resumo({ nome }: { nome: string }) {
     return { resumo: a, rateios: b.rateios }
   })
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
+  const d = leitura.dados
   const pedidosNovos = useNovosPedidos()
+  const avisosFalhos = useAvisosQueFalharam()
   // quem não mexe nos rateios (atendente) não cria nem muda o passo: das pendências fica a entrega de quem chegou
   const mexe = usePode('rateios')
   // o quadro da loja (esgotados, acabando, atalhos) leva às telas da loja: só pra quem pode abrir elas (o dono)
   const cuidaDaLoja = usePode('loja')
+  const temEstoque = usePode('produtos')
+  const loja = useLojaSe(cuidaDaLoja)
+  const esgotados = cuidaDaLoja && loja.dados ? contagens(loja.dados).esgotados : 0
+  // a lista "Pra deixar a loja pronta" e o lembrete da cópia (só o dono)
+  const pronto = usePronto(cuidaDaLoja)
+  const ilustracoes = useIlustracoes()
+  const copiaNaLista = !!(pronto.dados && loja.dados && d && faltamPronto(itensPronto(pronto.dados, loja.dados, d.rateios, ilustracoes), pronto.dados).some((i) => i.id === 'copia'))
   useRestaurarRolagem(!!leitura.dados)
-  const d = leitura.dados
   const agora = api.agora()
 
   const porId = new Map(d?.rateios.map((r) => [r.id, r]))
@@ -103,15 +173,30 @@ export function Resumo({ nome }: { nome: string }) {
   const abertos = d?.rateios.filter((r) => r.status === 'aberto') ?? []
   const andamento = d?.rateios.filter((r) => ['pedido', 'caminho'].includes(r.status)) ?? []
   const esperando = d?.resumo.esperandoPagamento ?? []
+  // o lembrete da cópia e a lista "Pra deixar a loja pronta" (só o dono): em cima, ou depois do que pede ação
+  const urgente = pedidosNovos > 0 || esperando.length > 0 || avisosFalhos > 0
+  const paraDeixarPronto = cuidaDaLoja && (
+    <>
+      <LembreteCopia leitura={pronto} naLista={copiaNaLista} />
+      {d && <ProntoLista leitura={pronto} rateios={d.rateios} />}
+    </>
+  )
 
   return (
     <>
-      <Topo marca titulo={<TituloTela focar={false}>Resumo</TituloTela>} acoes={mexe && <Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-celular-nao"><Ic nome="mais" tamanho={16} /><span className="pn-botao-txt">Criar rateio</span></Link>} />
+      <Topo marca titulo={<TituloTela focar={false}>Início</TituloTela>} acoes={mexe && <Link href={caminho.novo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-celular-nao"><Ic nome="mais" tamanho={16} /><span className="pn-botao-txt">Criar rateio</span></Link>} />
       <div className="pn-pagina pn-resumo">
         <p className="pn-oi">
           Oi, {nome.split(' ')[0]}.{' '}
-          {d && fraseDoDia(esperando.length, lista.length, pedidosNovos)}
+          {d && fraseDoDia(esperando.length, lista.length, pedidosNovos, esgotados, avisosFalhos)}
         </p>
+        <Atalhos loja={cuidaDaLoja} rateios={mexe} estoque={temEstoque} />
+        <p className="pn-resumo-ajuda">
+          <Link href={caminho.ajuda} className="pn-link">
+            <Ic nome="interrogacao" tamanho={16} /> Como usar o painel
+          </Link>
+        </p>
+        {!urgente && paraDeixarPronto}
         {leitura.erro && (
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
             {leitura.erro.message}
@@ -172,6 +257,9 @@ export function Resumo({ nome }: { nome: string }) {
               )}
             </section>
 
+            {/* com pedido novo, pagamento ou aviso esperando, a lista da loja pronta vem depois do que pede ação */}
+            {urgente && cuidaDaLoja && <div className="pn-resumo-pronto-depois">{paraDeixarPronto}</div>}
+
             {/* loja: produtos esgotados, acabando, fora do site e os atalhos */}
             {cuidaDaLoja && <ResumoLoja />}
 
@@ -181,7 +269,7 @@ export function Resumo({ nome }: { nome: string }) {
                   Últimas entradas
                 </h2>
                 <Link href={caminho.atividade} className="pn-link">
-                  Atividade
+                  Histórico
                 </Link>
               </div>
               {d.resumo.ultimasEntradas.length === 0 ? (

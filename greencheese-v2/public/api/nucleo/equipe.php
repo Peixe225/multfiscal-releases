@@ -26,7 +26,7 @@ const GC_PERMISSOES = [
 
 /**
  * O mapa: cada rota admin-* e a permissão que ela pede. As de antes da sessão (admin-sessao, -instalar, -entrar,
- * -recuperar) ficam de fora: não têm usuário ainda. 'produtos' (ler a loja, disponível e estoque por estado) e 'loja'
+ * -recuperar, -recuperar-codigo, -recuperar-codigo-entrar) ficam de fora: não têm usuário ainda. 'produtos' (ler a loja, disponível e estoque por estado) e 'loja'
  * (produtos, categorias, estados, stories, textos da loja, prêmios) são as da loja.
  */
 const GC_PERMISSAO_ROTA = [
@@ -95,6 +95,10 @@ const GC_PERMISSAO_ROTA = [
     'admin-sorte-salvar' => 'loja',
     'admin-premio-salvar' => 'loja',
     'admin-premio-apagar' => 'loja',
+    // o dono: a lista "Pra deixar a loja pronta" (com a cópia e a senha esquecida). As de pedir e usar o código da senha
+    // (admin-recuperar-codigo, -entrar) ficam de fora, como o admin-recuperar: ainda não tem usuário
+    'admin-pronto' => 'loja',
+    'admin-pronto-salvar' => 'loja',
 ];
 
 /** Com a senha provisória, só dá pra trocar a senha, ver a sessão e sair. */

@@ -11,7 +11,7 @@
 // minha sorte desligado, o estado tirado do site e o ETag (304 sem mudança).
 
 /** As telas da loja (o testar-painel.mjs confere 320 px sem rolagem lateral em cada uma). */
-export const ROTAS_LOJA = ['#/produtos', '#/produto/seda-ocb-premium-slim', '#/produtos/novo', '#/loja', '#/loja/estados', '#/loja/estado/mg', '#/loja/estado/ba', '#/loja/stories/mg', '#/loja/categorias', '#/loja/sorte', '#/loja/sorte/novo', '#/loja/sorte/premio/ocb-4-por-3']
+export const ROTAS_LOJA = ['#/mais', '#/ajuda', '#/estoque', '#/produtos', '#/produto/seda-ocb-premium-slim', '#/produtos/novo', '#/loja', '#/loja/estados', '#/loja/estado/mg', '#/loja/estado/ba', '#/loja/stories/mg', '#/loja/categorias', '#/loja/sorte', '#/loja/sorte/novo', '#/loja/sorte/premio/ocb-4-por-3']
 
 export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, videos, browser, sharp }) {
   const loja = async () => (await (await fetch(`${BASE}/api/index.php?r=loja`)).json()).loja
@@ -30,13 +30,19 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     return [x.disponivel[uf], x.restam[uf] ?? null]
   }
 
-  // Resumo → Produtos pelo atalho do bloco da loja
+  // Início → Produtos pelo atalho do topo ("Preço e estoque") e pela barra
   await p.goto(`${BASE}/painel/#/`)
   await p.getByRole('heading', { name: 'Loja', exact: true }).waitFor()
   await axe(p, 'resumo com a loja')
-  await p.locator('.pn-atalhos').getByRole('link', { name: 'Produtos' }).tap()
+  const atalhos = await p.locator('.pn-fazer a').allInnerTexts()
+  ok(atalhos.map((x) => x.trim()).join(' · ') === 'Preço e estoque · Novo produto · Horário e taxa · Stories', `Início: os 4 atalhos no topo (${atalhos.join(' · ')})`)
+  ok(await p.locator('.pn-fazer').evaluate((e) => e.getBoundingClientRect().bottom < innerHeight - 60), 'Início: os atalhos à vista sem rolar (antes ficavam depois dos pedidos e pagamentos)')
+  const barra = await p.locator('.pn-barra-item .pn-barra-nome').allInnerTexts()
+  ok(barra.map((x) => x.trim()).join(' · ') === 'Início · Pedidos · Criar · Produtos · Mais', `barra do dono com o nome embaixo de cada ícone (${barra.map((x) => x.trim()).join(' · ')})`)
+  await p.locator('.pn-fazer').getByRole('link', { name: 'Preço e estoque' }).tap()
   await p.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
-  ok(p.url().endsWith('#/produtos'), 'Resumo → Produtos pelo atalho da loja')
+  ok(p.url().endsWith('#/produtos'), 'Início → Produtos pelo atalho "Preço e estoque"')
+  ok((await p.locator('.pn-barra-item.ativa').innerText()).trim() === 'Produtos', 'a barra acende Produtos')
   await axe(p, 'produtos')
   await print(p, 'loja-produtos')
 
@@ -257,8 +263,46 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     return e?.instagram === 'greencheese_importsba' && e.emblema === 'generico' && e.horario.demo === true
   }), 'Bahia ativada: o site já vê (emblema genérico, horário a confirmar)')
 
-  // a hora com máscara: "930" vira 09:30; salva e o horário deixa de ser exemplo
+  // Estado: horário em cima; sair com mudança pergunta; o rascunho volta depois de recarregar
   await p.goto(`${BASE}/painel/#/loja/estado/mg`)
+  await p.getByLabel('Segunda: abre às').waitFor()
+  const secoes = await p.locator('.pn-editar-form h2').allInnerTexts()
+  ok(secoes.map((x) => x.trim()).join(' · ') === 'Horário de entrega · Taxa de entrega · Entrega grátis · Pagamento · Cidades · WhatsApp do pedido · Perfil · Tirar do site', `Estado na ordem nova, o "tirar do site" por último (${secoes.join(' · ')})`)
+  ok((await p.locator('#e-ativo').count()) === 0, 'Estado: sem o interruptor "Aparece no site" no topo')
+  await p.getByLabel('Segunda: abre às').fill('15:00')
+  await p.getByRole('button', { name: 'Voltar', exact: true }).tap()
+  const pergunta = p.getByRole('alertdialog', { name: 'Tem mudança não salva' })
+  await pergunta.waitFor()
+  const botoesPergunta = (await pergunta.getByRole('button').allInnerTexts()).map((x) => x.trim()).filter(Boolean).join(' · ')
+  ok(botoesPergunta.endsWith('Salvar · Descartar · Continuar editando'), `voltar com mudança: pergunta antes de sair (${botoesPergunta})`)
+  await axe(p, 'mudança não salva')
+  await print(p, 'loja-estado-pergunta')
+  await pergunta.getByRole('button', { name: 'Continuar editando' }).tap()
+  await pergunta.waitFor({ state: 'detached' })
+  ok(p.url().endsWith('#/loja/estado/mg') && (await p.getByLabel('Segunda: abre às').inputValue()) === '15:00', 'continuar editando: fica na tela, com o que tava digitado')
+  await p.waitForTimeout(500)
+  await p.reload()
+  await p.getByText('Continuando de onde tu parou').waitFor()
+  ok((await p.getByLabel('Segunda: abre às').inputValue()) === '15:00', 'Estado: recarregou e o rascunho voltou (antes, perdia)')
+  await p.goBack()
+  await pergunta.waitFor()
+  ok(p.url().endsWith('#/loja/estado/mg'), 'voltar do Android com mudança: fica na tela e pergunta')
+  await pergunta.getByRole('button', { name: 'Descartar' }).tap()
+  await p.waitForFunction(() => !location.hash.includes('/estado/'), null, { timeout: 5000 }).catch(() => {})
+  ok(!p.url().includes('/estado/mg'), `descartar: sai da tela (${p.url().split('#')[1]})`)
+  await p.goto(`${BASE}/painel/#/loja/estado/mg`)
+  await p.getByLabel('Segunda: abre às').waitFor()
+  ok((await p.getByText('Continuando de onde tu parou').count()) === 0 && (await p.getByLabel('Segunda: abre às').inputValue()) !== '15:00', 'descartou: o rascunho saiu junto')
+  // taxa 0: sugere entrega grátis e não salva como valor fixo
+  await p.getByText('Um valor fixo').tap()
+  await p.locator('#e-taxa').fill('0')
+  ok(await p.getByText('Taxa R$ 0? Liga a “Entrega grátis”').isVisible(), 'taxa R$ 0: sugere ligar a entrega grátis')
+  await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+  ok(/Taxa R\$ 0,00: pra entregar sem taxa/.test(await p.locator('#e-taxa-erro').innerText().catch(() => '')), 'taxa R$ 0 não salva como valor fixo (antes, salvava {"valor":0})')
+  await p.locator('#e-taxa').fill('8,00')
+  // a cidade digitada sem tocar em "Adicionar" entra ao salvar
+  await p.locator('#e-cidade-nova').fill('Nanuque')
+  // a hora com máscara: "930" vira 09:30; salva e o horário deixa de ser exemplo
   const abre = p.getByLabel('Segunda: abre às')
   await abre.fill('930')
   ok((await abre.inputValue()) === '9:30', `digitando "930": 9:30 (${await abre.inputValue()})`)
@@ -271,6 +315,12 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     const e = (await loja()).estados.find((x) => x.uf === 'mg')
     return e.horario.demo === false && e.horario.semana[1]?.[0] === '09:30'
   }), 'horário salvo: o site mostra o de verdade (segunda abre 09:30)')
+  ok(await esperar(async () => JSON.stringify((await loja()).estados.find((x) => x.uf === 'mg').cidades).includes('Nanuque')), 'a cidade digitada sem "Adicionar" entrou ao salvar (antes, sumia)')
+  // tira a cidade de novo (o pedido no site, mais embaixo, conta com MG de uma cidade só)
+  await p.goto(`${BASE}/painel/#/loja/estado/mg`)
+  await p.getByRole('button', { name: 'Tirar Nanuque' }).tap()
+  await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+  ok(await esperar(async () => !JSON.stringify((await loja()).estados.find((x) => x.uf === 'mg').cidades).includes('Nanuque')), 'tirou a cidade e salvou: o site deixa de mostrar')
 
   // story de MG: escolher dois e subir o segundo
   await p.goto(`${BASE}/painel/#/loja/stories/mg`)
@@ -311,9 +361,24 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
 
   // um texto da loja
   await p.goto(`${BASE}/painel/#/loja`)
+  await p.getByRole('heading', { name: 'Ajustes da loja', level: 1 }).waitFor()
   await p.getByLabel('Frase do story do Início').fill('Vem que tem!')
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
   ok(await esperar(async () => (await loja()).textos.fraseStory === 'Vem que tem!'), 'frase do story salva: o site recebe')
+  await p.getByText('Ajustes da loja salvos. O site já mostra.').waitFor()
+  ok(await p.locator('.pn-recados').getByText('Ajustes da loja salvos').isVisible(), 'o recado aparece embaixo, no lugar de sempre')
+  // trocar o WhatsApp de todos os pedidos pergunta antes
+  const whatsDaLoja = () => p.evaluate(async () => (await (await fetch('../api/index.php?r=admin-loja')).json()).loja.ajustes.whatsapp)
+  const whatsAntes = await whatsDaLoja()
+  await p.getByLabel('WhatsApp da loja').fill('(21) 98888-7777')
+  await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+  const trocaWhats = p.getByRole('alertdialog', { name: 'Trocar o WhatsApp da loja?' })
+  await trocaWhats.waitFor()
+  ok(/\(21\) 98888-7777/.test(await trocaWhats.innerText()) && /antes: \(33\) 99113-9036/.test(await trocaWhats.innerText()), 'trocar o WhatsApp da loja: confirma antes, com o número novo e o de antes')
+  await trocaWhats.getByRole('button', { name: 'Deixa como tá' }).tap()
+  await trocaWhats.waitFor({ state: 'detached' })
+  ok(whatsAntes === '5533991139036' && (await whatsDaLoja()) === whatsAntes, '"Deixa como tá": não troca')
+  await p.locator('.pn-pe-fixo').getByRole('button', { name: 'Desfazer' }).tap()
   // a vitrine da rua: a chave "O mercador mostra produtos na rua" desliga e liga de novo (o site recebe as duas)
   const chaveVitrine = p.locator('label.pn-troca').filter({ hasText: 'O mercador mostra produtos na rua' })
   ok(await chaveVitrine.locator('input').isChecked(), 'a chave da vitrine da rua nasce ligada')
@@ -497,7 +562,7 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar, vid
   await p.goto(`${BASE}/painel/#/loja`)
   await p.locator('label.pn-troca').filter({ hasText: 'O mesmo WhatsApp pra todos os estados' }).tap()
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
-  await p.getByText('Salvo. O site já mostra.').waitFor()
+  await p.getByText('Ajustes da loja salvos. O site já mostra.').last().waitFor()
   ok(await esperar(async () => (await loja()).estados.find((e) => e.uf === 'mg').whatsapp === '5533988887777'), 'painel: MG com WhatsApp próprio e "o mesmo pra todos" desligado (o GET loja manda o de MG)')
   await abrir('uf=mg')
   let zap = await pedirNoSite()
@@ -505,7 +570,8 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar, vid
   await p.goto(`${BASE}/painel/#/loja`)
   await p.locator('label.pn-troca').filter({ hasText: 'O mesmo WhatsApp pra todos os estados' }).tap()
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
-  await p.getByText('Salvo. O site já mostra.').waitFor()
+  await p.getByText('Ajustes da loja salvos. O site já mostra.').last().waitFor()
+  await esperar(async () => (await loja()).estados.find((e) => e.uf === 'mg').whatsapp == null)
   await abrir('uf=mg')
   zap = await pedirNoSite()
   ok(zap?.startsWith('https://wa.me/5533991139036?text='), `site: "o mesmo pra todos" ligado: o pedido de MG volta pro WhatsApp da loja (${zap?.slice(0, 40)}…)`)
@@ -573,10 +639,21 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar, vid
     )
     await print(s, 'site-loja-ba-home2')
   }
+  // tirar a Bahia do site: o botão fica no fim da tela e confirma antes (antes, um toque + Salvar tirava sem perguntar)
   await p.goto(`${BASE}/painel/#/loja/estado/ba`)
-  await p.locator('label.pn-troca').filter({ hasText: 'Aparece no site' }).tap()
-  await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
-  await p.getByText('Bahia: salvo. O site já mostra.').waitFor()
+  await p.getByRole('button', { name: 'Tirar Bahia do site' }).tap()
+  const tirar = p.getByRole('alertdialog', { name: 'Tirar Bahia do site?' })
+  await tirar.waitFor()
+  ok(/ainda não chegou aí/.test(await tirar.innerText()) && (await loja()).estados.some((x) => x.uf === 'ba'), 'tirar do site: confirma antes, dizendo o que o cliente vai ver (e ainda não tirou)')
+  const botoesTirar = (await tirar.getByRole('button').allInnerTexts()).map((x) => x.trim()).filter(Boolean)
+  ok(botoesTirar.includes('Tirar Bahia do site') && botoesTirar.includes('Deixa como tá') && new Set(botoesTirar).size === botoesTirar.length, `os botões com nomes diferentes, nada de "Voltar"/"Voltar" (${botoesTirar.join(' · ')})`)
+  await axe(p, 'tirar do site')
+  await print(p, 'loja-estado-tirar')
+  await tirar.getByRole('button', { name: 'Tirar Bahia do site' }).tap()
+  await p.getByText(/Bahia saiu do site/).waitFor()
+  ok(await p.locator('.pn-recados').getByRole('button', { name: 'Desfazer' }).isVisible(), 'o recado de "saiu do site" tem Desfazer')
+  ok(await esperar(async () => !(await loja()).estados.some((x) => x.uf === 'ba')), 'confirmou: a Bahia sai do site')
+  ok(await p.getByRole('button', { name: 'Pôr de volta no site' }).isVisible(), 'estado fora do site: "Pôr de volta no site" em cima')
   await abrir('uf=ba')
   ok((await s.locator('.sem').count()) === 1, 'site: a Bahia tirada do site: quem está nela vê "ainda não chegou aí"')
   ok(!erros.length, `site: sem erro no console (${erros.join(' | ') || 'nenhum'})`)

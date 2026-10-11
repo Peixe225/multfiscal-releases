@@ -897,9 +897,10 @@ export async function lojaMigracao(t) {
     JSON.parse(
       execFileSync(PHP, ['-r', '$d = new PDO("sqlite:" . $argv[1]); echo json_encode([array_map("intval", $d->query("SELECT numero FROM migracoes ORDER BY numero")->fetchAll(PDO::FETCH_COLUMN)), (int) $d->query("PRAGMA user_version")->fetchColumn(), (int) $d->query("SELECT COUNT(*) FROM eventos WHERE acao = \'loja-semeada\'")->fetchColumn()]);', arq], { encoding: 'utf8' }),
     )
-  // todas as migrações que o servidor registra (base, loja e as das outras frentes: pedidos e contas, 200–299)
+  // todas as migrações que o servidor registra (base, loja e as das outras frentes: pedidos e contas, 200–299; o painel
+  // do dono, 300–399)
   const todas = JSON.parse(
-    execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
+    execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes', 'painel-dono'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
   igual(todas.filter((n) => n < 200), [1, 100, 101, 102], 'as migrações até a loja são 1, 100, 101 e 102 (o vídeo e a capa do produto)')
   const filhos = []

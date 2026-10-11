@@ -119,6 +119,15 @@ export async function fluxoContas(a) {
     await p.getByLabel('Senha', { exact: true }).fill(senha)
     await p.getByRole('button', { name: 'Entrar', exact: true }).click()
   }
+  // espera a condição ficar verdadeira (o servidor muda depois do toque)
+  const esperarAte = async (f, ms = 8000) => {
+    const fim = Date.now() + ms
+    while (Date.now() < fim) {
+      if (await f()) return true
+      await new Promise((r) => setTimeout(r, 150))
+    }
+    return false
+  }
   // pedido do painel por fora da tela (com a sessão e o csrf dela): o que o servidor faz quando a tela nem oferece
   const api = (p, rota, corpo) =>
     p.evaluate(
@@ -180,7 +189,12 @@ export async function fluxoContas(a) {
     await entrarPainel(pD, 'dono', 'senha-forte-123')
     await pD.getByText('Oi, Dono.').waitFor()
     await pD.goto(`${BASE}/painel/#/conta`)
-    await pD.getByRole('link', { name: 'Equipe' }).first().click()
+    ok(/Só tu é dono/.test(await pD.locator('.pn-senha-esquecida').innerText()) && (await pD.getByRole('link', { name: 'Cadastrar um 2º dono' }).count()) === 1, 'conta: sugere cadastrar um 2º dono (pra senha esquecida)')
+    ok(/manda um código pro WhatsApp da loja, \(33\) 9••••-9036/.test(await pD.locator('.pn-senha-esquecida').innerText()), 'conta: com os Avisos ligados, o código vai pro WhatsApp da loja (mascarado)')
+    await axe(pD, 'conta do dono')
+    await print(pD, 'contas-390-conta-dono', true)
+    await pD.goto(`${BASE}/painel/#/mais`)
+    await pD.getByRole('link', { name: /^Equipe/ }).first().click()
     await pD.getByRole('heading', { name: 'Equipe', level: 1 }).waitFor()
     await pD.locator('.ct-linha').first().waitFor()
     ok((await pD.locator('.ct-linha').count()) === 1, 'equipe: só o dono no começo')
@@ -217,6 +231,17 @@ export async function fluxoContas(a) {
     await pD.waitForTimeout(300)
     const linhas = await pD.locator('.ct-linha').allInnerTexts()
     ok(linhas.length === 3 && linhas.some((t) => /Carla Mendes[\s\S]*Gerente · MG[\s\S]*Ainda não trocou a senha provisória/.test(t)) && linhas.some((t) => /Bruno Lima[\s\S]*Atendente · RJ/.test(t)), 'equipe: os dois novos com papel, estado e "ainda não trocou a senha"')
+    // estado ativado no painel (Bahia) entra nos estados da equipe (antes, a lista era fixa: RJ MG SP ES SC)
+    const ativouBa = await dono('admin-estado-salvar', { uf: 'ba', ativo: true, instagram: 'greencheese_importsba', destaque: 'DELIVERY BA', pagamentos: ['pix'] })
+    ok([200, 201].includes(ativouBa.status), `contas: a Bahia ativada (${ativouBa.status})`)
+    await pD.reload()
+    await pD.locator('.ct-linha').first().waitFor()
+    await pD.getByRole('button', { name: 'Novo acesso' }).click()
+    await folha.waitFor()
+    await folha.getByRole('radio', { name: /^Gerente/ }).check()
+    ok((await folha.getByRole('button', { name: 'Bahia' }).count()) === 1, 'novo acesso: a Bahia (ativada no painel) aparece nos estados')
+    await folha.getByRole('button', { name: 'Fechar', exact: true }).click()
+    await folha.waitFor({ state: 'detached' })
 
     // ─── a gerente: troca obrigatória e o que ela vê ───────────────────────────────────────────────────────────────
     const cG = await contexto(390, 844)
@@ -240,7 +265,8 @@ export async function fluxoContas(a) {
     await pG.getByRole('button', { name: 'Salvar e entrar' }).click()
     await pG.getByText('Oi, Carla.').waitFor()
     await pG.locator('.pd-resumo-novos .pd-linha').first().waitFor()
-    const barraG = await pG.locator('.pn-barra a').allInnerTexts().catch(() => [])
+    const barraG = await pG.locator('.pn-barra-item .pn-barra-nome').allInnerTexts().catch(() => [])
+    ok(barraG.map((x) => x.trim()).join(' · ') === 'Início · Pedidos · Criar · Estoque · Mais', `gerente: a barra com Estoque (${barraG.map((x) => x.trim()).join(' · ')})`)
     const lateralG = await pG.evaluate(() => [...document.querySelectorAll('.pn-barra a, .pn-lateral a')].map((a) => a.getAttribute('aria-label') || a.textContent.trim()))
     ok(!lateralG.some((t) => /Equipe|Clientes|Avisos|Textos|Servidor/.test(t)), `gerente: sem Equipe, Clientes, Avisos, Textos e Servidor no menu (${lateralG.join(', ') || barraG.join(', ')})`)
     const novosG = await pG.locator('.pd-resumo-novos .pd-linha').allInnerTexts()
@@ -254,6 +280,29 @@ export async function fluxoContas(a) {
     await pG.goto(`${BASE}/painel/#/pedido/${idRJ}`)
     await pG.waitForTimeout(800)
     ok(/outro estado/.test(await pG.locator('.pn-pagina').innerText()), 'gerente: pedido do RJ por link é recusado (é de outro estado)')
+    ok((await pG.getByRole('link', { name: 'Ver os pedidos' }).count()) === 1 && (await pG.getByRole('button', { name: 'Tentar de novo' }).count()) === 0, 'gerente: pedido de outro estado leva pros pedidos dela (sem o "Tentar de novo" que não resolve)')
+    // o Estoque da gerente: o "acabou" e a contagem só em MG (o servidor já deixava; antes, "Sem acesso")
+    await pG.locator('.pn-barra').getByRole('link', { name: 'Estoque' }).tap()
+    await pG.getByRole('heading', { name: 'Estoque', level: 1 }).waitFor()
+    const linhaOcb = pG.locator('.pn-prod').filter({ hasText: 'Seda OCB Premium Slim' })
+    await linhaOcb.waitFor()
+    ok((await pG.locator('.pn-filtros[aria-label="Estado"]').count()) === 0 && /Minas Gerais/.test(await pG.locator('.pn-pagina').innerText()), 'estoque: só MG (o estado dela)')
+    ok((await linhaOcb.getByRole('link').count()) === 0, 'estoque: sem editar nome, preço e foto (é com o dono)')
+    await axe(pG, 'estoque da gerente')
+    await print(pG, 'contas-390-estoque-gerente', true)
+    const ocbMg = async () => (await dono('admin-loja', null)).json?.loja?.produtos?.find((x) => x.id === 'seda-ocb-premium-slim')?.estados?.mg?.disponivel
+    await linhaOcb.locator('label.pn-troca').tap()
+    ok(await esperarAte(async () => (await ocbMg()) === false), 'estoque: um toque e a OCB sai de MG')
+    await pG.getByText(/Seda OCB Premium Slim saiu de MG/).waitFor()
+    await pG.locator('.pn-recados').getByRole('button', { name: 'Desfazer' }).tap()
+    ok(await esperarAte(async () => (await ocbMg()) === true), 'estoque: "Desfazer" no recado põe de volta')
+    await linhaOcb.getByRole('button', { name: /Contar o estoque/ }).tap()
+    const contar = pG.getByRole('dialog', { name: 'Estoque em Minas Gerais' })
+    await contar.getByLabel('Unidades').fill('2')
+    await contar.getByRole('button', { name: 'Salvar o estoque' }).tap()
+    await contar.waitFor({ state: 'detached' })
+    ok(await esperarAte(async () => (await dono('admin-loja', null)).json?.loja?.produtos?.find((x) => x.id === 'seda-ocb-premium-slim')?.estados?.mg?.estoque === 2), 'estoque: a gerente conta o estoque de MG (2)')
+    ok((await api(pG, 'admin-produto-estado', { id: 'seda-ocb-premium-slim', uf: 'rj', disponivel: false })).json?.erro === 'sem-permissao', 'estoque: o servidor recusa mexer no RJ (não é dela)')
     await pG.goto(`${BASE}/painel/#/pedidos`)
     await pG.locator('.pd-linha').first().waitFor()
     ok((await pG.getByRole('link', { name: 'Avisos', exact: true }).count()) === 0 && (await pG.getByText('Ajustes dos pedidos').count()) === 0, 'gerente: Pedidos sem o atalho dos Avisos e dos Textos')
@@ -272,7 +321,7 @@ export async function fluxoContas(a) {
     await pG.goto(`${BASE}/painel/#/novo`)
     await pG.locator('#r-uf-mg').waitFor()
     const chipsG = await pG.locator('[aria-labelledby="s-ufs"] button').evaluateAll((b) => b.map((x) => `${x.id.slice(5)}:${x.getAttribute('aria-pressed')}:${x.disabled}`))
-    ok(chipsG.join(' ') === 'rj:false:true mg:true:false sp:false:true es:false:true sc:false:true', `gerente: o rateio novo nasce só com MG e os outros estados ficam travados (${chipsG.join(' ')})`)
+    ok(chipsG.join(' ') === 'rj:false:true mg:true:false sp:false:true es:false:true sc:false:true ba:false:true', `gerente: o rateio novo nasce só com MG e os outros estados ficam travados (${chipsG.join(' ')})`)
     ok(/Teu acesso é só de MG/.test(await pG.locator('#s-ufs').locator('xpath=..').innerText()), 'gerente: diz que o acesso é só de MG')
     await axe(pG, 'rateio novo da gerente')
     await print(pG, 'contas-390-rateio-novo-gerente', true)
@@ -289,7 +338,10 @@ export async function fluxoContas(a) {
     await pA.locator('.pd-resumo-novos .pd-linha').first().waitFor()
     const novosA = await pA.locator('.pd-resumo-novos .pd-linha').allInnerTexts()
     ok(novosA.length === 1 && novosA[0].includes(pedRJ.codigo), 'atendente: o Resumo mostra só o pedido do RJ')
+    ok(!(await pA.evaluate(() => performance.getEntriesByType('resource').some((e) => e.name.includes('r=admin-loja')))), 'atendente: o Início não pede a loja (que daria 403 no console)')
     ok((await pA.getByRole('link', { name: 'Criar rateio' }).count()) === 0, 'atendente: sem Criar rateio')
+    const barraA = (await pA.locator('.pn-barra-item .pn-barra-nome').allInnerTexts()).map((x) => x.trim())
+    ok(barraA.join(' · ') === 'Início · Pedidos · Rateios · Mais', `atendente: a barra (${barraA.join(' · ')})`)
     await pA.goto(`${BASE}/painel/#/rateio/arizona-green-tea`)
     await pA.getByRole('heading', { name: /Arizona/ }).waitFor()
     const det = await pA.locator('.pn-pagina').innerText()
@@ -344,7 +396,7 @@ export async function fluxoContas(a) {
     await pG.getByLabel('Senha provisória', { exact: true }).waitFor()
     ok(true, 'senha nova: a gerente entra com ela e troca de novo')
     await pD.goto(`${BASE}/painel/#/atividade?quem=carla.mendes`)
-    await pD.getByRole('heading', { name: 'Atividade de @carla.mendes' }).waitFor()
+    await pD.getByRole('heading', { name: 'Histórico de @carla.mendes' }).waitFor()
     ok(/Só o que @carla\.mendes fez/.test(await pD.locator('.pn-pagina').innerText()), 'dono: a Atividade filtrada por pessoa')
 
     // ─── site: entrar com o código (número sem conta pede o nome) ──────────────────────────────────────────────────
@@ -591,6 +643,9 @@ export async function fluxoContas(a) {
     ok((await apiSite(pM, 'cliente-eu')).json?.cupons?.find((k) => k.codigo === 'SORTE-K8EA')?.usadoEm, 'cliente: a baixa do cupom chega na conta do cliente')
     await axe(pD, 'cliente')
     await print(pD, 'contas-390-cliente', true)
+    // o recado da lista baixada fica parado enquanto o ponteiro tá em cima dele: fecha antes de seguir
+    const fecharRecado = pD.locator('.pn-recados').getByRole('button', { name: 'Fechar o recado' })
+    if (await fecharRecado.count()) await fecharRecado.first().click()
     await pD.getByRole('button', { name: 'Apagar a conta' }).click()
     await pD.getByRole('alertdialog', { name: /Apagar a conta de Bia/ }).getByRole('button', { name: 'Apagar a conta' }).click()
     await pD.getByText('Conta apagada.').waitFor()
@@ -598,6 +653,11 @@ export async function fluxoContas(a) {
 
     // ─── site: sair e apagar (LGPD) ──────────────────────────────────────────────────────────────────────────────
     await pS.goto(`${BASE}/?uf=mg&aba=estados`)
+    // o pedido guiado pode voltar perguntando se mandou (como acima): fecha ele
+    if (await chat.waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+      await pS.keyboard.press('Escape')
+      await chat.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+    }
     await pS.locator('.pe-conta-tua button').click()
     await pS.locator('.conta-oi').waitFor()
     await pS.getByRole('button', { name: 'Sair', exact: true }).click()
@@ -669,6 +729,38 @@ export async function fluxoContas(a) {
       ok(await lateral(q), `${w}×${h}: entrar no site sem rolagem lateral`)
       await print(q, `contas-${w}-site-entrar`)
       await s.close()
+    }
+    // ─── o dono esqueceu a senha: o código no WhatsApp da loja (2ª via, sem depender de quem fez o site) ───────────
+    {
+      const c = await contexto(390, 844)
+      const p = await pagina(c, 'senha esquecida')
+      await p.goto(`${BASE}/painel/`)
+      await p.getByRole('button', { name: 'Esqueci a senha' }).click()
+      await p.getByRole('heading', { name: 'Esqueci a senha' }).waitFor()
+      const jeitos = await p.locator('.pn-esqueci').innerText()
+      ok(/É da equipe/.test(jeitos) && /Pede pro dono gerar uma senha provisória/.test(jeitos) && /código de instalação novo/.test(jeitos), 'esqueci a senha: equipe com o dono, outro dono, e o código de instalação por último')
+      await p.getByRole('button', { name: 'Receber o código no WhatsApp da loja' }).waitFor()
+      await axe(p, 'esqueci a senha')
+      await print(p, 'contas-390-esqueci')
+      await p.getByRole('button', { name: 'Receber o código no WhatsApp da loja' }).click()
+      await p.getByLabel('Login').fill('dono')
+      const antes = falso.recebidos.length
+      await p.getByRole('button', { name: 'Mandar código pro WhatsApp da loja' }).click()
+      await p.getByText(/Se esse login for de um dono da loja, o código chega no WhatsApp da loja/).waitFor()
+      ok(await esperarAte(() => falso.recebidos.slice(antes).some((x) => JSON.parse(x.corpo || '{}').phone === '5533991139036')), 'o código saiu pro WhatsApp da loja')
+      const msg = falso.recebidos.slice(antes).find((x) => JSON.parse(x.corpo || '{}').phone === '5533991139036')
+      const codigo = /\*(\d{6})\*/.exec(JSON.parse(msg?.corpo ?? '{}').message ?? '')?.[1] ?? ''
+      await p.getByLabel('Código', { exact: true }).fill(codigo === '000000' ? '111111' : '000000')
+      await p.getByLabel('Senha nova', { exact: true }).fill('senha-nova-do-dono-1')
+      await p.getByLabel('Repete a senha nova').fill('senha-nova-do-dono-1')
+      await p.getByRole('button', { name: 'Trocar a senha e entrar' }).click()
+      ok(/Código errado ou vencido/.test(await p.locator('#w-codigo-erro').innerText().catch(() => '')), 'código errado: diz no campo (sem dizer mais nada)')
+      await p.getByLabel('Código', { exact: true }).fill(codigo)
+      await p.getByRole('button', { name: 'Trocar a senha e entrar' }).click()
+      await p.getByText('Oi, Dono.').waitFor()
+      ok(true, 'com o código certo: senha nova e já dentro do painel')
+      ok((await api(pD, 'admin-resumo')).status === 401, 'as outras sessões do dono caíram')
+      await c.close()
     }
   } catch (e) {
     // o print de onde parou, antes de fechar as páginas

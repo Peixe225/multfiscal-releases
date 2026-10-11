@@ -10,6 +10,11 @@ export function useLoja(intervalo = 60_000): Leitura<LojaAdmin> {
   return useDados<LojaAdmin>(CHAVE, async (s) => (await api.loja(s)).loja, intervalo)
 }
 
+/** A loja só pra quem pode ler ela (o Início do atendente não pergunta: o servidor daria 403). */
+export function useLojaSe(ligado: boolean): Leitura<LojaAdmin> {
+  return useDados<LojaAdmin>(ligado ? CHAVE : 'loja-sem-acesso', async (s) => (ligado ? (await api.loja(s)).loja : Promise.reject(new Error('sem acesso'))), ligado ? 60_000 : 0)
+}
+
 /** Troca a loja guardada (pra outra tela já abrir com o que acabou de salvar). */
 export function guardarLoja(f: (l: LojaAdmin) => LojaAdmin): void {
   const l = doCache<LojaAdmin>(CHAVE)

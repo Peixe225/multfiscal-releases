@@ -7,7 +7,7 @@ import { useDados } from '../dados'
 import { Folha } from '../Folha'
 import { relativo } from '../formato'
 import { Link, Topo } from '../Moldura'
-import { caminho } from '../rotas'
+import { caminho, ir } from '../rotas'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import type { Papel } from '../tipos'
 import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
@@ -16,10 +16,11 @@ import { EscolherUfs, PAPEIS, SeloPapel, SenhaProvisoria } from './comum'
 import './estilo'
 import type { UsuarioAdmin } from './tipos'
 
-export function Equipe() {
+export function Equipe({ novo: novoRota = null }: { novo?: 'dono' | null }) {
   useTitulo('Equipe')
   const leitura = useDados<{ agora: string; usuarios: UsuarioAdmin[] }>('usuarios', (s) => usuarios(s))
-  const [novo, setNovo] = useState(false)
+  // #/equipe?novo=dono (da Conta: "Cadastrar um 2º dono") abre o "Novo acesso" já no papel de dono
+  const [novo, setNovo] = useState(novoRota === 'dono')
   useRestaurarRolagem(!!leitura.dados)
   const lista = leitura.dados?.usuarios ?? []
   const ativos = lista.filter((u) => u.ativo)
@@ -28,6 +29,7 @@ export function Equipe() {
   return (
     <>
       <Topo
+        voltar={caminho.mais}
         titulo={<TituloTela>Equipe</TituloTela>}
         acoes={
           <Botao variante="cinza" icone="incluir-pessoa" className="pn-botao-p" onClick={() => setNovo(true)}>
@@ -36,7 +38,7 @@ export function Equipe() {
         }
       />
       <div className="pn-pagina pn-pagina-estreita">
-        <p className="pn-dica-bloco ct-intro">Cada pessoa entra com o login dela, e o painel mostra só o que o papel dela pode. Tudo que alguém faz fica na Atividade com o login de quem fez.</p>
+        <p className="pn-dica-bloco ct-intro">Cada pessoa entra com o login dela, e o painel mostra só o que o papel dela pode. Tudo que alguém faz fica no Histórico com o login de quem fez.</p>
         {leitura.erro && (
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
             {leitura.erro.message}
@@ -82,7 +84,11 @@ export function Equipe() {
       </div>
       <FolhaNovoAcesso
         aberta={novo}
-        aoFechar={() => setNovo(false)}
+        papelInicial={novoRota === 'dono' ? 'dono' : 'atendente'}
+        aoFechar={() => {
+          setNovo(false)
+          if (novoRota) ir(caminho.equipe, true)
+        }}
         aoCriar={(u) => leitura.trocar((d) => ({ ...d, usuarios: [...d.usuarios.filter((x) => x.login !== u.login), u] }))}
       />
     </>
@@ -133,8 +139,8 @@ function loginDoNome(nome: string): string {
   return (base.length > 1 ? `${base[0]}.${base[base.length - 1]}` : (base[0] ?? '')).slice(0, 32)
 }
 
-function FolhaNovoAcesso({ aberta, aoFechar, aoCriar }: { aberta: boolean; aoFechar: () => void; aoCriar: (u: UsuarioAdmin) => void }) {
-  const [v, setV] = useState<{ nome: string; login: string; papel: Papel; ufs: string[] }>({ nome: '', login: '', papel: 'atendente', ufs: [] })
+function FolhaNovoAcesso({ aberta, aoFechar, aoCriar, papelInicial = 'atendente' }: { aberta: boolean; aoFechar: () => void; aoCriar: (u: UsuarioAdmin) => void; papelInicial?: Papel }) {
+  const [v, setV] = useState<{ nome: string; login: string; papel: Papel; ufs: string[] }>({ nome: '', login: '', papel: papelInicial, ufs: [] })
   const [loginMexido, setLoginMexido] = useState(false)
   const [erros, setErros] = useState<Erros>({})
   const [geral, setGeral] = useState<string | null>(null)
@@ -166,7 +172,7 @@ function FolhaNovoAcesso({ aberta, aoFechar, aoCriar }: { aberta: boolean; aoFec
     setGeral(null)
     const primeiro = (Object.keys(n) as (keyof Erros)[]).find((k) => n[k])
     if (primeiro) {
-      form.current?.querySelector<HTMLElement>(primeiro === 'ufs' ? '#ct-uf-rj' : `[name="${primeiro}"]`)?.focus()
+      form.current?.querySelector<HTMLElement>(primeiro === 'ufs' ? '.pn-chips button' : `[name="${primeiro}"]`)?.focus()
       return
     }
     trava.current = true
@@ -179,7 +185,7 @@ function FolhaNovoAcesso({ aberta, aoFechar, aoCriar }: { aberta: boolean; aoFec
       if (err instanceof ErroApi && (err.campo === 'login' || err.campo === 'nome' || err.campo === 'ufs')) {
         const c = err.campo
         setErros({ [c]: err.message })
-        form.current?.querySelector<HTMLElement>(c === 'ufs' ? '#ct-uf-rj' : `[name="${c}"]`)?.focus()
+        form.current?.querySelector<HTMLElement>(c === 'ufs' ? '.pn-chips button' : `[name="${c}"]`)?.focus()
       } else setGeral(api.mensagemDe(err))
     } finally {
       trava.current = false

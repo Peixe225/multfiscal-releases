@@ -1,17 +1,21 @@
-// Loja: a porta das partes da loja (produtos, estados, stories do Início, categorias, Teste minha sorte) e os ajustes
-// que valem pro site todo: o WhatsApp da loja (e se todos os estados usam ele), o "restam X", se o mercador mostra
-// produtos da loja na rua, os textos da loja (bio do perfil, frase do story, sacola vazia, falas do mercador) e o
-// "apagar dados de exemplo".
+// Ajustes da loja: o que vale pro site todo: o WhatsApp da loja (e se todos os estados usam ele, com confirmação antes
+// de trocar o número de todos os pedidos), o "restam X", se o mercador mostra produtos da loja na rua (a vitrine), os
+// textos da loja (bio do perfil, frase do story, sacola vazia, falas do mercador) e o "apagar dados de exemplo". As
+// partes da loja (produtos, estados, stories, categorias, Teste minha sorte) ficam no "Mais". O que tá sendo digitado
+// fica guardado no aparelho até salvar, e sair com mudança pergunta antes (sair.tsx).
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ErroApi, mensagemDe } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { whatsappBonito } from '../formato'
-import { Link, Topo } from '../Moldura'
+import { lembrarJson, lidoJson } from '../lembrar'
+import { Topo } from '../Moldura'
+import { recado } from '../recado'
 import { caminho } from '../rotas'
+import { useAvisarAoSair } from '../sair'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
 import * as api from './api'
-import { contagens, estadosNoSite, guardarLoja, useLoja } from './dados'
+import { guardarLoja, useLoja } from './dados'
 import type { LojaAdmin, PlanoExemplos } from './tipos'
 import { lerWhatsapp, problemaNoTexto, tamanho } from './validar'
 
@@ -66,37 +70,6 @@ function validar(f: Form): Erros {
   return e
 }
 
-/** As partes da loja, cada uma com o resumo de agora. */
-function Portas({ l }: { l: LojaAdmin }) {
-  const c = contagens(l)
-  const noSite = estadosNoSite(l)
-  const escolhidos = noSite.filter((e) => l.stories[e.uf]?.length).map((e) => e.uf.toUpperCase())
-  const premiosNoJogo = l.sorte.premios.filter((p) => p.noSite).length
-  const itens = [
-    { href: caminho.produtos, icone: 'sacola', nome: 'Produtos', sub: `${c.noSite} no site${c.esgotados ? ` · ${c.esgotados} esgotado${c.esgotados === 1 ? '' : 's'}` : ''}${c.fora ? ` · ${c.fora} fora` : ''}` },
-    { href: caminho.estados, icone: 'pin', nome: 'Estados', sub: noSite.length ? `No site: ${noSite.map((e) => e.uf.toUpperCase()).join(' · ')}` : 'Nenhum no site' },
-    { href: caminho.stories, icone: 'estrela', nome: 'Stories do Início', sub: escolhidos.length ? `Escolhidos em ${escolhidos.join(', ')}; o resto no automático` : 'Todos no automático (os à venda no estado)' },
-    { href: caminho.categorias, icone: 'tudo', nome: 'Categorias', sub: l.categorias.map((x) => x.curto).join(' · ') },
-    { href: caminho.sorte, icone: 'dichavador', nome: 'Teste minha sorte', sub: l.sorte.ligado ? `${premiosNoJogo === 1 ? '1 prêmio' : `${premiosNoJogo} prêmios`} no jogo` : 'Desligado' },
-  ]
-  return (
-    <ul className="pn-menu pn-portas">
-      {itens.map((x) => (
-        <li key={x.href}>
-          <Link href={x.href} className="pn-menu-item toque">
-            <Ic nome={x.icone} tamanho={24} />
-            <span className="pn-porta-txt">
-              <strong>{x.nome}</strong>
-              <small>{x.sub}</small>
-            </span>
-            <Ic nome="chevron-dir" tamanho={16} />
-          </Link>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 function textoDoPlano(p: PlanoExemplos): string[] {
   const linhas: string[] = []
   if (p.produtos.length) linhas.push(`${p.produtos.length === 1 ? '1 produto' : `${p.produtos.length} produtos`}: ${p.produtos.map((x) => x.nome).join(', ')}`)
@@ -113,8 +86,10 @@ function textoDoQueFica(p: PlanoExemplos): string[] {
   )
 }
 
+const CHAVE_RASCUNHO = 'loja-ajustes'
+
 export function Loja() {
-  useTitulo('Loja')
+  useTitulo('Ajustes da loja')
   const leitura = useLoja()
   const l = leitura.dados
   const [f, setF] = useState<Form | null>(null)
@@ -122,20 +97,28 @@ export function Loja() {
   const versao = useRef<number | null>(null)
   const [erros, setErros] = useState<Erros>({})
   const [geral, setGeral] = useState<string | null>(null)
-  const [ok, setOk] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [conferindo, setConferindo] = useState(false)
+  const [voltouRascunho, setVoltouRascunho] = useState(false)
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
   useRestaurarRolagem(!!l)
 
-  // o formulário segue o servidor enquanto ninguém mexeu nele (mudou em outro aparelho: atualiza)
+  // o formulário segue o servidor enquanto ninguém mexeu nele (mudou em outro aparelho: atualiza); na primeira vez, o
+  // rascunho deste aparelho volta se o que tá no servidor não mudou desde ele
   useEffect(() => {
     if (!l) return
     const limpo = doServidor(l)
     const atual = f ? JSON.stringify(f) : null
     if (!f || atual === antes.current || versao.current === null) {
-      setF(limpo)
+      const guardado = !f ? lidoJson<{ form: Form; base: string }>(CHAVE_RASCUNHO) : null
       antes.current = JSON.stringify(limpo)
+      if (guardado && guardado.base === antes.current && JSON.stringify(guardado.form) !== antes.current) {
+        setF(guardado.form)
+        setVoltouRascunho(true)
+      } else {
+        if (guardado) lembrarJson(CHAVE_RASCUNHO, null)
+        setF(limpo)
+      }
     }
     versao.current = l.versao
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,14 +126,20 @@ export function Loja() {
 
   const mudar = <K extends keyof Form>(k: K, v: Form[K]) => {
     setF((s) => (s ? { ...s, [k]: v } : s))
-    setOk(null)
     if (erros[k as string]) setErros((e) => ({ ...e, [k]: undefined }))
   }
   const mexeu = !!f && JSON.stringify(f) !== antes.current
+  // o rascunho no aparelho (some quando volta a ficar igual ao do servidor)
+  useEffect(() => {
+    if (!f || antes.current === null) return
+    const t = window.setTimeout(() => lembrarJson(CHAVE_RASCUNHO, JSON.stringify(f) === antes.current ? null : { form: f, base: antes.current }), 300)
+    return () => window.clearTimeout(t)
+  }, [f])
 
-  const salvar = async (ev?: FormEvent) => {
+  // salvar; o WhatsApp da loja trocado pergunta antes (todo pedido do site passa a fechar no número novo)
+  const salvar = async (ev?: FormEvent, confirmado = false): Promise<boolean> => {
     ev?.preventDefault()
-    if (!f || !l || salvando) return
+    if (!f || !l || salvando) return false
     const e = validar(f)
     setErros(e)
     setGeral(null)
@@ -160,7 +149,24 @@ export function Loja() {
       const el = document.getElementById(id)
       el?.focus()
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      return
+      return false
+    }
+    const numero = lerWhatsapp(f.whatsapp)
+    if (!confirmado && numero && numero !== l.ajustes.whatsapp) {
+      const proprios = l.estados.filter((x) => x.ativo && x.whatsapp)
+      setConfirmacao({
+        titulo: 'Trocar o WhatsApp da loja?',
+        texto: (
+          <p>
+            {f.mesmo || !proprios.length ? 'Todo pedido do site' : 'O pedido dos estados que usam o da loja'} vai passar a fechar no <strong>{whatsappBonito(numero)}</strong> (antes: {whatsappBonito(l.ajustes.whatsapp)}).
+          </p>
+        ),
+        botao: 'Trocar e salvar',
+        acao: async () => {
+          await salvar(undefined, true)
+        },
+      })
+      return false
     }
     setSalvando(true)
     try {
@@ -180,18 +186,24 @@ export function Loja() {
       guardarLoja(novo)
       leitura.trocar(novo)
       const limpo = doServidor(novo(l))
-      setF(limpo)
       antes.current = JSON.stringify(limpo)
-      setOk('Salvo. O site já mostra.')
+      setF(limpo)
+      lembrarJson(CHAVE_RASCUNHO, null)
+      setVoltouRascunho(false)
+      recado('Ajustes da loja salvos. O site já mostra.')
+      return true
     } catch (err) {
       if (err instanceof ErroApi && err.campo) {
         const c = err.campo === 'falasMercado' ? 'falas' : err.campo
         setErros({ [c]: err.message })
       } else setGeral(mensagemDe(err))
+      return false
     } finally {
       setSalvando(false)
     }
   }
+
+  useAvisarAoSair(mexeu, { salvar: () => salvar(), descartar: () => lembrarJson(CHAVE_RASCUNHO, null) })
 
   // a folha mostra o plano da prévia e apaga só ele: mudou no meio (alguém entrou num rateio de exemplo), o servidor
   // recusa e a folha volta com o plano novo
@@ -200,7 +212,7 @@ export function Loja() {
     const ficam = textoDoQueFica(plano)
     if (!linhas.length) {
       setConfirmacao(null)
-      setOk(ficam.length ? `Não tem mais nada pra apagar. ${ficam.join(' ')}` : 'Não tem mais nada de exemplo.')
+      recado(ficam.length ? `Não tem mais nada pra apagar. ${ficam.join(' ')}` : 'Não tem mais nada de exemplo.', { tipo: 'info' })
       return
     }
     setConfirmacao({
@@ -238,7 +250,7 @@ export function Loja() {
           throw e
         }
         await leitura.recarregar()
-        setOk('Dados de exemplo apagados. O site já não mostra.')
+        recado('Dados de exemplo apagados. O site já não mostra.')
       },
     })
   }
@@ -260,15 +272,33 @@ export function Loja() {
   const proprios = l ? l.estados.filter((e) => e.whatsapp) : []
   return (
     <>
-      <Topo titulo={<TituloTela>Loja</TituloTela>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Ajustes da loja</TituloTela>} />
       <div className="pn-pagina pn-pagina-estreita pn-loja">
         {leitura.erro && !l && <Aviso tipo="erro">{leitura.erro.message}</Aviso>}
         {!l && !leitura.erro && <Carregando />}
         {l && f && (
           <>
-            <section className="pn-bloco" aria-label="Partes da loja">
-              <Portas l={l} />
-            </section>
+            {voltouRascunho && (
+              <Aviso
+                tipo="info"
+                acao={
+                  <button
+                    type="button"
+                    className="pn-link-botao"
+                    onClick={() => {
+                      lembrarJson(CHAVE_RASCUNHO, null)
+                      setVoltouRascunho(false)
+                      setErros({})
+                      setF(doServidor(l))
+                    }}
+                  >
+                    Desfazer mudanças
+                  </button>
+                }
+              >
+                Continuando de onde tu parou (ficou guardado neste aparelho).
+              </Aviso>
+            )}
 
             <form onSubmit={(ev) => void salvar(ev)} noValidate>
               <section className="pn-bloco" aria-labelledby="h-l-whats">
@@ -377,10 +407,9 @@ export function Loja() {
                 </div>
               </section>
 
-              {(mexeu || ok || geral) && (
+              {(mexeu || geral) && (
                 <div className="pn-editar-pe pn-pe-fixo">
                   {geral && <Aviso tipo="erro">{geral}</Aviso>}
-                  {ok && !mexeu && <Aviso tipo="ok">{ok}</Aviso>}
                   {mexeu && (
                     <div className="pn-botoes pn-botoes-linha">
                       <Botao
@@ -388,6 +417,8 @@ export function Loja() {
                         onClick={() => {
                           setF(doServidor(l))
                           setErros({})
+                          lembrarJson(CHAVE_RASCUNHO, null)
+                          setVoltouRascunho(false)
                         }}
                         disabled={salvando}
                       >

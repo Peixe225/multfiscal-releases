@@ -5,7 +5,11 @@
 // → chegou → entregue → CSV → incluir quem veio pela DM → trocar senha → sair → entrar com a nova. E a robustez:
 // rascunho guardado, tabaco recusado, erro de rede, sessão que cai no meio (o salvar e o CSV terminam sozinhos depois
 // de entrar), toque duplo, voltar do Android fecha a folha, teclado, celular deitado, 320 px sem rolagem lateral (nas
-// telas e nas folhas de incluir e editar, com o + das vagas dentro da caixa).
+// telas e nas folhas de incluir e editar, com o + das vagas dentro da caixa). E o dono sem depender de ninguém: a barra
+// com o nome de cada ícone e o "+" (Novo produto, Novo rateio), o Mais agrupado com o rodapé, o guia "Como usar o
+// painel", a lista "Pra deixar a loja pronta" (pular com Desfazer; some quando fica feito), a cópia de segurança em
+// Conta (com "última cópia", o lembrete do Início depois de 7 dias e o Diagnóstico que falha sem esconder a cópia), os
+// campos de senha com "Mostrar", os textos do Entrar e do Esqueci a senha e a lateral no tablet (768).
 // Também confere o HTML do painel (noindex, título, manifesto, caminhos relativos, sem o CSS do site) e que o site
 // não carrega nada do painel. A loja (produtos, estoque, foto, estado novo, story, prêmio, textos) fica em
 // scripts/testar-painel-loja.mjs, chamado daqui.
@@ -371,6 +375,92 @@ try {
 
   await fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, videos, browser, sharp })
 
+  // ─── o dono sem depender de ninguém ──────────────────────────────────────────────────────────────────────────────
+  // o "+" da barra: Novo produto e Novo rateio
+  await p.goto(`${BASE}/painel/#/`)
+  await p.locator('.pn-pronto').waitFor()
+  await p.locator('.pn-barra').getByRole('button', { name: 'Criar' }).tap()
+  const criar = p.getByRole('dialog', { name: 'Criar' })
+  await criar.waitFor()
+  const opcoesCriar = (await criar.getByRole('link').allInnerTexts()).map((x) => x.split('\n')[0].trim())
+  ok(opcoesCriar.join(' · ') === 'Novo produto · Novo rateio', `o + da barra: Novo produto e Novo rateio (${opcoesCriar.join(' · ')})`)
+  await axe(p, 'criar')
+  await print(p, 'criar-folha')
+  await criar.getByRole('link', { name: /Novo rateio/ }).tap()
+  await p.waitForFunction(() => location.hash === '#/novo', null, { timeout: 5000 })
+  ok(true, '"Novo rateio" abre o Criar rateio')
+  await p.goBack()
+  await p.waitForFunction(() => location.hash === '#/' || location.hash === '', null, { timeout: 5000 })
+  ok((await p.getByRole('dialog').count()) === 0, 'voltar do Criar rateio cai no Início (a folha não fica no caminho)')
+  // a lista "Pra deixar a loja pronta": cada item leva à tela; pular tira da lista (com Desfazer)
+  const pronto = p.locator('.pn-pronto')
+  ok(/Pra deixar a loja pronta/.test(await pronto.innerText()) && (await pronto.getByText('Troca a senha que veio na entrega').count()) === 1, 'Início: a lista "Pra deixar a loja pronta" (a senha da entrega primeiro)')
+  ok((await pronto.getByText('Horário e taxa de cada estado').count()) === 1, 'a lista vê os estados com horário ou taxa de exemplo')
+  await axe(p, 'início com a lista')
+  await print(p, 'inicio-lista', true)
+  await pronto.getByRole('button', { name: 'Pular: Horário e taxa de cada estado' }).tap()
+  await p.getByText('“Horário e taxa de cada estado” saiu da lista.').waitFor()
+  ok((await pronto.getByText('Horário e taxa de cada estado').count()) === 0, 'pular: o item sai da lista')
+  await p.locator('.pn-recados').getByRole('button', { name: 'Desfazer' }).tap()
+  await pronto.getByText('Horário e taxa de cada estado').waitFor()
+  ok(true, 'Desfazer: o item volta')
+  await pronto.getByRole('link', { name: /Troca a senha que veio na entrega/ }).tap()
+  await p.waitForFunction(() => location.hash === '#/conta', null, { timeout: 5000 })
+  ok(true, 'o item leva à tela certa (a senha: Conta)')
+  // Conta: cópia de segurança com "última cópia", senha com "Mostrar", a senha esquecida e o rodapé
+  await p.getByRole('heading', { name: 'Cópia de segurança' }).waitFor()
+  ok(await p.getByText('Nenhuma cópia ainda.').isVisible(), 'Conta: "Nenhuma cópia ainda" (antes, a cópia morava em Servidor, no fim)')
+  ok((await p.getByRole('button', { name: 'Mostrar a senha' }).count()) === 3, 'Conta: os três campos de senha com "Mostrar a senha"')
+  ok(/Só tu é dono/.test(await p.locator('.pn-senha-esquecida').innerText()) && /código de instalação novo/.test(await p.locator('.pn-senha-esquecida').innerText()), 'Conta: se esquecer a senha (2º dono; sem os Avisos, o WhatsApp não vale; o código de instalação por último)')
+  ok((await p.locator('.pn-rodape-painel').innerText()).trim() === '© 2026 Green Cheese Imports · painel por I&H Soluções Digitais', 'Conta: o rodapé da loja')
+  const [copia] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: 'Baixar cópia de segurança' }).tap()])
+  ok(/^greencheese-loja-\d{4}-\d{2}-\d{2}-\d{4}\.sqlite$/.test(copia.suggestedFilename()), `Conta: baixou a cópia (${copia.suggestedFilename()})`)
+  await p.getByText(/^Cópia baixada \(greencheese-loja-.*Guarda fora do celular/).waitFor()
+  ok(await p.getByText('Última cópia: hoje.').isVisible(), 'depois de baixar: "Última cópia: hoje" e o recado embaixo (antes, nenhum recado)')
+  await axe(p, 'conta com a cópia')
+  await print(p, 'conta-dono', true)
+  // a lista não pede mais a 1ª cópia; passou de 7 dias, o Início lembra
+  sql(`UPDATE ajustes SET valor = '${Math.floor(Date.now() / 1000) - 8 * 86400}' WHERE chave = 'copia_em'`)
+  await p.goto(`${BASE}/painel/#/`)
+  await p.locator('.pn-lembrete-copia').waitFor()
+  ok(/Faz uma cópia de segurança/.test(await p.locator('.pn-lembrete-copia').innerText()) && /há 8 dias/.test(await p.locator('.pn-lembrete-copia').innerText()), 'Início: passou de 7 dias, lembra a cópia ("há 8 dias")')
+  ok((await p.locator('.pn-pronto').getByText('Baixar a 1ª cópia de segurança').count()) === 0, 'a lista não pede mais a 1ª cópia')
+  const [copia2] = await Promise.all([p.waitForEvent('download'), p.locator('.pn-lembrete-copia').getByRole('button', { name: 'Baixar agora' }).tap()])
+  ok(/\.sqlite$/.test(copia2.suggestedFilename()), 'o lembrete baixa com 1 toque')
+  await p.locator('.pn-lembrete-copia').waitFor({ state: 'detached' })
+  ok(true, 'baixou: o lembrete some')
+  // o Diagnóstico que falha não esconde a cópia
+  await p.route('**/api/index.php?r=admin-diagnostico*', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"ok":false,"erro":"erro-interno","mensagem":"Deu erro aqui. Tenta de novo."}' }))
+  await p.goto(`${BASE}/painel/#/servidor`)
+  await p.getByText('Deu erro aqui. Tenta de novo.').waitFor()
+  ok(await p.getByRole('button', { name: 'Baixar cópia de segurança' }).isVisible(), 'Diagnóstico que falhou: a cópia de segurança continua à vista (antes, sumia)')
+  await p.unroute('**/api/index.php?r=admin-diagnostico*')
+  // Mais: tudo agrupado, com o guia e o rodapé
+  await p.goto(`${BASE}/painel/#/`)
+  await p.locator('.pn-barra').getByRole('link', { name: 'Mais' }).tap()
+  await p.getByRole('heading', { name: 'Mais', level: 1 }).waitFor()
+  const grupos = (await p.locator('.pn-mais-grupo h2').allInnerTexts()).map((x) => x.trim())
+  ok(grupos.join(' · ') === 'Dia a dia · Loja · Configurações da loja · Ajuda · Tua conta', `Mais: os grupos (${grupos.join(' · ')})`)
+  const config = await p.locator('.pn-mais-grupo').filter({ hasText: 'Configurações da loja' }).innerText()
+  ok(['Avisos no WhatsApp', 'Textos do pedido', 'Categorias', 'Equipe', 'Clientes', 'Diagnóstico'].every((x) => config.includes(x)), 'Mais: o que se configura uma vez junto (Avisos, Textos, Categorias, Equipe, Clientes, Diagnóstico)')
+  ok((await p.locator('.pn-barra-item.ativa').innerText()).trim() === 'Mais', 'a barra acende Mais')
+  ok((await p.locator('.pn-rodape-painel').count()) === 1, 'Mais: o rodapé da loja')
+  await axe(p, 'mais')
+  await print(p, 'mais', true)
+  await p.getByRole('link', { name: /^Como usar o painel/ }).tap()
+  await p.getByRole('heading', { name: 'Como usar o painel', level: 1 }).waitFor()
+  const tarefas = await p.locator('.pn-ajuda-item summary').allInnerTexts()
+  ok(tarefas.length >= 10 && tarefas.length <= 12, `Como usar o painel: ${tarefas.length} tarefas do dono`)
+  ok(['Mudar o preço de um produto', 'Marcar que acabou (esgotado)', 'Trocar a foto de um produto', 'Cadastrar um produto novo', 'Confirmar um pedido', 'Criar um rateio e confirmar o pagamento', 'Mudar o horário e a taxa de entrega', 'Pôr entrega grátis num dia', 'Trocar os produtos dos stories', 'Dar acesso pra alguém da equipe', 'Fazer a cópia de segurança', 'O aviso do WhatsApp não chegou'].every((x) => tarefas.some((t) => t.includes(x))), 'Como usar: as tarefas do dia a dia, do preço ao aviso que não chegou')
+  await p.locator('.pn-ajuda-item summary').filter({ hasText: 'Mudar o preço de um produto' }).tap()
+  const passos = await p.locator('#ajuda-preco ol li').count()
+  ok(passos >= 2 && passos <= 4, `cada tarefa em 2 a 4 passos (${passos})`)
+  await axe(p, 'como usar')
+  await print(p, 'como-usar', true)
+  await p.locator('#ajuda-preco').getByRole('link', { name: 'Abrir Produtos' }).tap()
+  await p.waitForFunction(() => location.hash === '#/produtos', null, { timeout: 5000 })
+  ok(true, 'o botão da tarefa leva à tela')
+
   // conta: trocar senha, sair, entrar com a nova
   await p.goto(`${BASE}/painel/#/conta`)
   await p.getByLabel('Senha de agora').fill('senha-forte-123')
@@ -381,6 +471,16 @@ try {
   await axe(p, 'conta')
   await p.getByRole('button', { name: 'Sair do painel' }).tap()
   await p.getByRole('heading', { name: 'Painel da loja' }).waitFor()
+  ok(await p.getByText('Entra pra cuidar da loja: pedidos, produtos e rateios.').isVisible(), 'Entrar: fala da loja inteira (antes, "pra cuidar dos rateios")')
+  await p.getByRole('button', { name: 'Esqueci a senha' }).tap()
+  await p.getByRole('heading', { name: 'Esqueci a senha' }).waitFor()
+  const jeitos = await p.locator('.pn-esqueci').innerText()
+  ok(/É da equipe/.test(jeitos) && /Pede pro dono gerar uma senha provisória/.test(jeitos), 'Esqueci a senha: quem é da equipe resolve com o dono')
+  ok((await p.getByRole('button', { name: 'Receber o código no WhatsApp da loja' }).count()) === 0, 'Esqueci a senha: sem os Avisos ligados, não oferece o código no WhatsApp')
+  await axe(p, 'esqueci a senha')
+  await print(p, 'esqueci')
+  await p.getByRole('button', { name: 'Lembrei a senha' }).tap()
+  await p.getByRole('heading', { name: 'Painel da loja' }).waitFor()
   await p.getByLabel('Senha', { exact: true }).fill('senha-forte-123')
   await p.getByRole('button', { name: 'Entrar', exact: true }).tap()
   await p.getByText('Login ou senha não confere.').waitFor()
@@ -389,6 +489,8 @@ try {
   await p.getByRole('button', { name: 'Entrar', exact: true }).tap()
   await p.getByText('Oi, Dono.').waitFor()
   ok(true, 'trocou a senha, saiu e entrou com a nova')
+  await p.locator('.pn-pronto').waitFor()
+  ok((await p.locator('.pn-pronto').getByText('Troca a senha que veio na entrega').count()) === 0, 'a lista: a senha trocada sai sozinha (calculada do estado de verdade)')
   for (const [nome, rota, espera] of [['atividade', '#/atividade', 'Hoje'], ['servidor', '#/servidor', /Fechado pra quem não deve/], ['rateios', '#/rateios', 'Em andamento']]) {
     await p.goto(`${BASE}/painel/${rota}`)
     await p.getByRole('heading', { name: espera }).waitFor({ timeout: 20000 })
@@ -409,6 +511,19 @@ try {
   await t.keyboard.press('Tab')
   ok(/Pular pro conteúdo/.test((await t.evaluate(() => document.activeElement?.textContent)) ?? ''), 'teclado: entra só com Tab/Enter; o primeiro Tab cai no "Pular pro conteúdo"')
   await k.close()
+  {
+    const c = await novoContexto(768, 1024)
+    const q = await c.newPage()
+    await q.goto(`${BASE}/painel/`)
+    await q.getByLabel('Login').fill('dono')
+    await q.getByLabel('Senha', { exact: true }).fill('outra-senha-boa-456')
+    await q.getByRole('button', { name: 'Entrar', exact: true }).tap()
+    await q.getByText('Oi, Dono.').waitFor()
+    ok((await q.locator('.pn-lateral').isVisible()) && !(await q.locator('.pn-barra').isVisible()), 'tablet (768): a lateral no lugar da barra de baixo')
+    ok(await lateral(q), 'tablet (768): sem rolagem lateral')
+    await print(q, 'tablet-inicio', true)
+    await c.close()
+  }
   for (const [w, h] of [[844, 390], [320, 568]]) {
     const c = await novoContexto(w, h)
     const q = await c.newPage()

@@ -22,8 +22,10 @@ import { Usuario as TelaUsuario } from './contas/Usuario'
 import { definirUsuario, pode } from './permissoes'
 import { caminho } from './rotas'
 import { secaoDaTela } from './secoes'
+import { Ajuda } from './telas/Ajuda'
 import { Atividade } from './telas/Atividade'
 import { Conta } from './telas/Conta'
+import { Mais } from './telas/Mais'
 import { EditarRateio } from './telas/EditarRateio'
 import { Rateio } from './telas/Rateio'
 import { Rateios } from './telas/Rateios'
@@ -33,6 +35,7 @@ import { Servidor } from './telas/Servidor'
 import { Categorias } from './loja/Categorias'
 import { Estado } from './loja/Estado'
 import { Estados } from './loja/Estados'
+import { Estoque } from './loja/Estoque'
 import { Loja } from './loja/Loja'
 import { Premio } from './loja/Premio'
 import { Produto } from './loja/Produto'
@@ -55,7 +58,7 @@ function SemAcesso() {
           <Ic nome="cadeado" tamanho={16} /> Teu acesso não abre essa parte do painel. Se precisar, fala com o dono da loja.
         </p>
         <Link href={caminho.resumo} className="pn-botao pn-botao-cinza">
-          <span className="pn-botao-txt">Ir pro Resumo</span>
+          <span className="pn-botao-txt">Ir pro Início</span>
         </Link>
       </div>
     </>
@@ -71,7 +74,7 @@ function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () 
   switch (rota.tela) {
     // equipe e clientes
     case 'equipe':
-      return <Equipe />
+      return <Equipe key={rota.novo ?? 'lista'} novo={rota.novo} />
     case 'usuario':
       return <TelaUsuario key={rota.login} login={rota.login} />
     case 'clientes':
@@ -101,6 +104,12 @@ function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () 
       return <Conta usuario={usuario} aoSair={sair} />
     case 'servidor':
       return <Servidor />
+    case 'mais':
+      return <Mais />
+    case 'ajuda':
+      return <Ajuda />
+    case 'estoque':
+      return <Estoque uf={rota.uf} />
     case 'produtos':
       return <Produtos ver={rota.ver} />
     case 'produto':

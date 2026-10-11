@@ -105,7 +105,8 @@ export async function testarContas(t) {
     const equipe = readFileSync(join(raiz, 'public/api/nucleo/equipe.php'), 'utf8')
     const rotas = [...indice.matchAll(/'(admin-[a-z-]+)' => \['(GET|POST)'/g)].map((m) => ({ rota: m[1], metodo: m[2] }))
     const mapa = Object.fromEntries([...(/const GC_PERMISSAO_ROTA = \[([\s\S]*?)\];/.exec(equipe)?.[1] ?? '').matchAll(/'(admin-[a-z-]+)' => '([a-z-]+)'/g)].map((m) => [m[1], m[2]]))
-    const abertas = ['admin-sessao', 'admin-instalar', 'admin-entrar', 'admin-recuperar']
+    // as de antes da sessão (a senha esquecida pelo WhatsApp da loja também: ainda não tem usuário)
+    const abertas = ['admin-sessao', 'admin-instalar', 'admin-entrar', 'admin-recuperar', 'admin-recuperar-codigo', 'admin-recuperar-codigo-entrar']
     const semMapa = rotas.filter((r) => !abertas.includes(r.rota) && !mapa[r.rota]).map((r) => r.rota)
     igual(semMapa, [], 'toda rota admin-* do index.php está no mapa (rota nova: põe no GC_PERMISSAO_ROTA)')
     igual(Object.keys(mapa).filter((r) => !rotas.some((x) => x.rota === r)), [], 'nada no mapa que não existe no index.php')
@@ -817,11 +818,14 @@ export async function testarContas(t) {
       erro(await dono.get('admin-cliente', { query: `&id=${dani.id}` }), 404, 'nao-encontrado', 'não existe mais')
       erro(await atendente2.get('admin-clientes'), 403, 'sem-permissao', 'clientes é só do dono')
     }
+    // o que deixa o dono independente (a lista do Resumo, a cópia e a senha pelo WhatsApp da loja): por último, porque
+    // troca a senha do dono e desliga os avisos
+    const { testarDono } = await import('./testar-api-dono.mjs')
+    await testarDono({ parte, ok, igual, erro, novo, dono, falso, dados, PHP, AGORA, esperar })
   } catch (e) {
     ok(false, `exceção nas contas: ${e.stack}`)
   } finally {
     derrubar(filho)
     falso.srv.close()
   }
-  void esperar
 }

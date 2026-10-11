@@ -6,11 +6,13 @@ import * as api from '../api'
 import { useAcao, useDados } from '../dados'
 import { plural } from '../formato'
 import { Topo } from '../Moldura'
+import { recado as mostrarRecado } from '../recado'
+import { caminho } from '../rotas'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
 import { celularNoCampo, conferirCelular, mascaraCelular } from '../whats'
 import { avisos as lerAvisos, reenviarAviso, salvarAvisos, testarAvisos } from './api'
-import { diaHora, ListaAvisos } from './comum'
+import { diaHora, ListaAvisos, partesDoErro } from './comum'
 import './estilo'
 import type { ConfigAvisos, CorpoAvisos, DadosAvisos, EnvioAviso, EventoAviso, Motor, SituacaoAvisos } from './tipos'
 
@@ -169,7 +171,10 @@ function Situacao({ s, agora }: { s: SituacaoAvisos; agora: number }) {
             {s.naFila > 0 && <span>{plural(s.naFila, 'aviso na fila', 'avisos na fila')}.</span>}
           </>
         ) : (
-          <span>Os pedidos continuam chegando no WhatsApp da loja e aqui no painel. Ligando, cada pedido também vira um aviso no grupo da loja.</span>
+          <>
+            <span>Os pedidos continuam chegando no WhatsApp da loja e aqui no painel. Ligando, cada pedido também vira um aviso no grupo da loja.</span>
+            <span>Isso é configurado uma vez por quem cuida do site. Tu só precisa tocar em “Enviar teste” pra conferir.</span>
+          </>
         )}
       </span>
     </section>
@@ -295,7 +300,8 @@ export function Avisos() {
   useRestaurarRolagem(!!d)
   const [f, setF] = useState<Form | null>(null)
   const [erros, setErros] = useState<Erros>({})
-  const [recado, setRecado] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+  // o teste que não foi fica na tela (com o porquê e o "Ver detalhes"); o que deu certo vai pro recado de baixo
+  const [recado, setRecado] = useState<{ tipo: 'ok' | 'erro'; texto: string; detalhe?: string | null } | null>(null)
   const [soFalhas, setSoFalhas] = useState(false)
   const salvar = useAcao()
   const teste = useAcao()
@@ -309,7 +315,7 @@ export function Avisos() {
   if (leitura.erro && !d) {
     return (
       <>
-        <Topo titulo={<TituloTela>Avisos no WhatsApp</TituloTela>} />
+        <Topo voltar={caminho.mais} titulo={<TituloTela>Avisos no WhatsApp</TituloTela>} />
         <div className="pn-pagina pn-pagina-estreita">
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
             {leitura.erro.message}
@@ -321,7 +327,7 @@ export function Avisos() {
   if (!d || !f) {
     return (
       <>
-        <Topo titulo={<TituloTela>Avisos no WhatsApp</TituloTela>} />
+        <Topo voltar={caminho.mais} titulo={<TituloTela>Avisos no WhatsApp</TituloTela>} />
         <Carregando rotulo="Carregando os avisos…" />
       </>
     )
@@ -357,7 +363,7 @@ export function Avisos() {
     if (r) {
       leitura.trocar((x) => ({ ...x, config: r.config, situacao: r.situacao }))
       setF(formDe(r.config))
-      setRecado({ tipo: 'ok', texto: r.config.motor === 'nenhum' ? 'Salvo. Os avisos no grupo tão desligados.' : `Salvo. Os avisos saem pelo ${NOME_MOTOR[r.config.motor]}: toca em “Enviar teste” pra conferir.` })
+      mostrarRecado(r.config.motor === 'nenhum' ? 'Salvo. Os avisos no grupo tão desligados.' : `Salvo. Os avisos saem pelo ${NOME_MOTOR[r.config.motor]}: toca em “Enviar teste” pra conferir.`)
     }
   }
   // erro do servidor no salvar: no campo certo (ou embaixo, quando não é de um campo)
@@ -371,11 +377,11 @@ export function Avisos() {
     if (r) {
       leitura.trocar((x) => ({ ...x, envios: [r.envio, ...x.envios.filter((e) => e.id !== r.envio.id)] }))
       void leitura.recarregar()
-      setRecado(
-        r.envio.status === 'enviado'
-          ? { tipo: 'ok', texto: `A mensagem de teste saiu pelo ${NOME_MOTOR[c.motor]}. Confere se chegou ${c.destino.tipo === 'numero' ? 'no número' : 'no grupo'}.` }
-          : { tipo: 'erro', texto: `O teste não foi: ${r.envio.erro || 'o serviço não respondeu.'}` },
-      )
+      if (r.envio.status === 'enviado') mostrarRecado(`A mensagem de teste saiu pelo ${NOME_MOTOR[c.motor]}. Confere se chegou ${c.destino.tipo === 'numero' ? 'no número' : 'no grupo'}.`)
+      else {
+        const { frase, detalhe } = partesDoErro(r.envio.erro || 'O serviço não respondeu.')
+        setRecado({ tipo: 'erro', texto: `O teste não foi: ${frase}`, detalhe })
+      }
     }
   }
 
@@ -393,7 +399,7 @@ export function Avisos() {
 
   return (
     <>
-      <Topo titulo={<TituloTela>Avisos no WhatsApp</TituloTela>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Avisos no WhatsApp</TituloTela>} />
       <div className="pn-pagina pn-pagina-estreita pd-avisos">
         <Situacao s={d.situacao} agora={agora} />
 
@@ -518,7 +524,17 @@ export function Avisos() {
           <div className="pd-salvar">
             {erroSalvar && !campoServidor && <Aviso tipo="erro">{erroSalvar.message}</Aviso>}
             {teste.erro && <Aviso tipo="erro">{teste.erro.message}</Aviso>}
-            {recado && <Aviso tipo={recado.tipo}>{recado.texto}</Aviso>}
+            {recado && (
+              <Aviso tipo={recado.tipo}>
+                {recado.texto}
+                {recado.detalhe && (
+                  <details className="pd-detalhes">
+                    <summary>Ver detalhes</summary>
+                    <p className="pd-tentativas">Pra quem cuida do site: {recado.detalhe}</p>
+                  </details>
+                )}
+              </Aviso>
+            )}
             <div className="pd-acoes-linha">
               <Botao type="submit" ocupado={salvar.ocupado === 'salvar'}>
                 Salvar

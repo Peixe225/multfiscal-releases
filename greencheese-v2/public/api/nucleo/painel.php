@@ -26,6 +26,8 @@ function gc_rota_admin_sessao(): array
         'usuario' => $s === null ? null : gc_usuario_publico(),
         'csrf' => $s === null ? null : (string) $s['csrf'],
         'versao' => GC_API,
+        // o "Esqueci a senha" oferece o código pelo WhatsApp da loja (não diz nada de login nenhum)
+        'recuperarPeloWhatsapp' => function_exists('gc_recuperacao_whatsapp_valendo') && gc_recuperacao_whatsapp_valendo(),
     ];
 }
 
@@ -844,6 +846,10 @@ function gc_rota_admin_backup(): array
         }
     }
     gc_evento('painel', 'backup-baixado', 'banco');
+    // "Última cópia: há N dias" (Conta) e o lembrete do Resumo depois de 7 dias
+    if (function_exists('gc_copia_marcar')) {
+        gc_copia_marcar();
+    }
     $tmp = $dir . '/copia-' . bin2hex(random_bytes(8)) . '.sqlite';
     try {
         try {
@@ -976,12 +982,14 @@ function gc_evento_texto(array $e, array $d): string
         'participacao-dados-apagados' => "Apagou os dados de $alvo (LGPD)",
         'imagem-enviada' => 'Enviou uma imagem',
         'video-enviado' => 'Enviou um vídeo (thumb animada)',
-        'backup-baixado' => 'Baixou a cópia do banco',
+        'backup-baixado' => 'Baixou a cópia de segurança',
         // os dos pedidos, dos avisos no WhatsApp e das falas do pedido guiado têm a frase no módulo deles (pedido.php)
         default => (function_exists('gc_pedidos_evento_texto') ? gc_pedidos_evento_texto((string) $e['acao'], $alvo, $d) : null)
             // os da equipe e das contas dos clientes (equipe.php, clientes.php)
             ?? (function_exists('gc_equipe_evento_texto') ? gc_equipe_evento_texto((string) $e['acao'], $alvo, $d) : null)
             ?? (function_exists('gc_clientes_evento_texto') ? gc_clientes_evento_texto((string) $e['acao'], $alvo, $d) : null)
+            // os do painel do dono (painel-dono.php: senha pelo WhatsApp, a lista do Resumo)
+            ?? (function_exists('gc_dono_evento_texto') ? gc_dono_evento_texto((string) $e['acao'], $alvo, $d) : null)
             ?? (string) $e['acao'],
     };
 }

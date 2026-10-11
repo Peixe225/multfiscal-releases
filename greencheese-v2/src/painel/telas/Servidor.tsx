@@ -1,13 +1,15 @@
-// Servidor: o diagnóstico do admin-diagnostico em português de gente (o que precisa de atenção primeiro, depois cada
-// conferência), a conferência pela web do que tem que ficar fechado e a cópia do banco pra baixar.
+// Diagnóstico (pra quem cuida do site): o admin-diagnostico em português de gente (o que precisa de atenção primeiro,
+// depois cada conferência), a conferência pela web do que tem que ficar fechado e a cópia de segurança, que aparece
+// mesmo se o diagnóstico falhar (é a rede de segurança; o dono acha ela em Conta).
 import { useEffect, useRef, useState } from 'react'
 import * as api from '../api'
-import { useAcao } from '../dados'
 import { bytes } from '../formato'
 import { Topo } from '../Moldura'
+import { caminho } from '../rotas'
 import type { Diagnostico } from '../tipos'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
 import { useTitulo } from './comum'
+import { BlocoCopia, usePronto } from './copia'
 
 const NOME_WEB: Record<string, string> = {
   api: 'A API responde pelo endereço do site',
@@ -40,11 +42,11 @@ function Item({ ok, nome, sub }: { ok: boolean | null; nome: string; sub?: strin
 }
 
 export function Servidor() {
-  useTitulo('Servidor')
+  useTitulo('Diagnóstico')
   const [d, setD] = useState<Diagnostico | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [conferindo, setConferindo] = useState(false)
-  const copia = useAcao()
+  const pronto = usePronto()
   // trava síncrona: o estado só muda no próximo desenho, e um toque duplo passaria pelos dois
   const trava = useRef(false)
   const conferir = async () => {
@@ -69,8 +71,9 @@ export function Servidor() {
 
   return (
     <>
-      <Topo titulo={<TituloTela>Servidor</TituloTela>} acoes={<Botao variante="cinza" className="pn-botao-p pn-so-icone-estreito" icone="giro" ocupado={conferindo} onClick={() => void conferir()}>Conferir de novo</Botao>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Diagnóstico</TituloTela>} acoes={<Botao variante="cinza" className="pn-botao-p pn-so-icone-estreito" icone="giro" ocupado={conferindo} onClick={() => void conferir()}>Conferir de novo</Botao>} />
       <div className="pn-pagina pn-pagina-estreita">
+        <p className="pn-dica-bloco">Pra quem cuida do site: o servidor por dentro. No dia a dia não precisa abrir aqui.</p>
         {erro && <Aviso tipo="erro">{erro}</Aviso>}
         {!d && !erro && <Carregando rotulo="Conferindo o servidor…" />}
         {d && (
@@ -141,20 +144,10 @@ export function Servidor() {
               </ul>
             </section>
 
-            <section className="pn-bloco" aria-labelledby="h-copia">
-              <h2 id="h-copia" className="pn-h2">
-                Cópia do banco
-              </h2>
-              <p className="pn-dica-bloco">Baixa tudo num arquivo só (rateios, participantes, histórico). Faz toda semana e guarda fora do celular, num lugar seguro: tem nome e WhatsApp dos clientes.</p>
-              <p className="pn-dica-bloco">A cópia não leva as senhas dos Avisos no WhatsApp (token, apikey, segredo e endereço do webhook): se um dia voltar uma cópia, põe elas de novo em Avisos no WhatsApp.</p>
-              {copia.erro && <Aviso tipo="erro">{copia.erro.message}</Aviso>}
-              {/* pelo api.ts (não um link direto): sessão vencida abre o login e o download recomeça; erro aparece */}
-              <Botao variante="cinza" icone="baixar" ocupado={copia.ocupado === 'copia'} onClick={() => void copia.rodar('copia', api.baixarBackup)}>
-                Baixar cópia do banco
-              </Botao>
-            </section>
           </>
         )}
+        {/* fora do diagnóstico: se ele falhar, a cópia continua aqui */}
+        <BlocoCopia leitura={pronto} />
       </div>
     </>
   )

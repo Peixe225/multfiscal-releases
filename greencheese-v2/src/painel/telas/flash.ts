@@ -1,12 +1,11 @@
-// Recado pra próxima tela ("Publicado! …"): quem salvou deixa, a tela que abre mostra uma vez.
-let recado: string | null = null
+// Recado pra próxima tela ("Publicado! …"): quem salvou deixa e muda de tela. Agora é o recado de sempre (recado.tsx),
+// que aparece embaixo e continua na tela que abre; pegarRecado() fica pras telas de antes (não tem mais nada guardado).
+import { recado } from '../recado'
 
 export function avisarNaProxima(texto: string): void {
-  recado = texto
+  recado(texto)
 }
 
 export function pegarRecado(): string | null {
-  const r = recado
-  recado = null
-  return r
+  return null
 }

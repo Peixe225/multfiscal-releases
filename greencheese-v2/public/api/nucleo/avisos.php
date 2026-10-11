@@ -282,19 +282,15 @@ function gc_http_post(string $url, array $cabecalhos, string $corpo, int $conexa
 }
 
 /**
- * Frase curta, em português, do que deu errado (pro painel). Nunca leva a URL (o token do Z-API mora nela) e tira os
- * segredos de qualquer texto que o gateway devolveu.
+ * O que deu errado, em duas linhas (pro painel): a 1ª é a frase de dono, com o que fazer agora; a 2ª, o detalhe pra quem
+ * cuida do site (o serviço, o HTTP e o texto que ele devolveu), que o painel mostra só em "Ver detalhes". Nunca leva a
+ * URL (o token do Z-API mora nela) e tira os segredos de qualquer texto que o gateway devolveu.
  * @param array{status: int, corpo: string, erro: string, ms: int} $r
  * @param list<string> $segredos
  */
 function gc_aviso_erro(string $motor, array $r, array $segredos): string
 {
-    if ($r['erro'] === 'tempo') {
-        return 'O ' . GC_AVISO_NOME_MOTOR[$motor] . ' não respondeu a tempo.';
-    }
-    if ($r['erro'] !== '' || $r['status'] === 0) {
-        return 'Não deu pra conectar no ' . GC_AVISO_NOME_MOTOR[$motor] . '. Confere o endereço e a internet do servidor.';
-    }
+    $nome = GC_AVISO_NOME_MOTOR[$motor];
     $j = json_decode($r['corpo'], true);
     $dele = '';
     if (is_array($j)) {
@@ -315,14 +311,42 @@ function gc_aviso_erro(string $motor, array $r, array $segredos): string
         }
     }
     $dele = gc_texto_curto($dele, 120);
-    $junto = $dele === '' ? '' : " ($dele)";
-    return match (true) {
-        $r['status'] === 401 || $r['status'] === 403 => 'O ' . GC_AVISO_NOME_MOTOR[$motor] . ' recusou a chave: confere o token.' . $junto,
-        $r['status'] === 404 => 'O ' . GC_AVISO_NOME_MOTOR[$motor] . ' não achou a instância (ou o endereço).' . $junto,
-        $r['status'] >= 500 => 'O ' . GC_AVISO_NOME_MOTOR[$motor] . ' deu erro (HTTP ' . $r['status'] . '). Tenta de novo daqui a pouco.' . $junto,
-        $r['status'] >= 200 && $r['status'] < 300 => 'O ' . GC_AVISO_NOME_MOTOR[$motor] . ' respondeu, mas não confirmou o envio.' . $junto,
-        default => 'O ' . GC_AVISO_NOME_MOTOR[$motor] . ' recusou a mensagem (HTTP ' . $r['status'] . ').' . $junto,
+    $tecnico = implode(' · ', array_filter([
+        $nome,
+        $r['erro'] === 'tempo' ? 'sem resposta a tempo' : ($r['erro'] !== '' || $r['status'] === 0 ? 'não conectou' : 'HTTP ' . $r['status']),
+        $dele,
+    ]));
+    $fluxo = 'o serviço que manda o aviso (n8n, Make…)';
+    $de = ['zapi' => 'o Z-API', 'evolution' => 'a Evolution', 'webhook' => $fluxo][$motor] ?? "o $nome";
+    $De = ucfirst($de);
+    $frase = match (true) {
+        $r['erro'] === 'tempo' => "$De demorou demais pra responder. Toca em “Mandar de novo” daqui a pouco.",
+        $r['erro'] !== '' || $r['status'] === 0 => match ($motor) {
+            'webhook' => "Não deu pra falar com $fluxo. Abre o fluxo lá e vê se tá ligado; depois toca em “Mandar de novo”.",
+            'evolution' => 'Não deu pra falar com o servidor da Evolution. Confere o endereço (e se ele tá ligado) e toca em “Mandar de novo”.',
+            default => "Não deu pra falar com $de. Confere a internet e toca em “Mandar de novo” daqui a pouco.",
+        },
+        $r['status'] === 401 || $r['status'] === 403 => match ($motor) {
+            'zapi' => 'O Z-API recusou o token. Copia o token de novo na tela da instância do Z-API e cola aqui.',
+            'evolution' => 'A Evolution recusou a apikey. Copia a apikey de novo no painel da Evolution e cola aqui.',
+            default => 'O fluxo (n8n, Make…) recusou o aviso. Confere se o segredo lá é o mesmo daqui.',
+        },
+        $r['status'] === 404 => match ($motor) {
+            'zapi' => 'O Z-API não achou a instância: confere o ID da instância.',
+            'evolution' => 'A Evolution não achou a instância: confere o nome dela e o endereço do servidor.',
+            default => 'O endereço do webhook não existe mais: copia de novo o endereço do começo do fluxo.',
+        },
+        $r['status'] >= 500 => match ($motor) {
+            'webhook' => "$De não respondeu. Abre o fluxo lá e vê se tá ligado; depois toca em “Mandar de novo”.",
+            'zapi' => 'O Z-API tá com problema agora (é do lado deles). Espera uns minutos e toca em “Mandar de novo”.',
+            default => 'O servidor da Evolution deu erro. Vê se ele tá ligado e toca em “Mandar de novo”.',
+        },
+        $r['status'] >= 200 && $r['status'] < 300 => $motor === 'zapi'
+            ? 'O Z-API respondeu, mas não mandou: o WhatsApp do número que avisa pode ter desconectado. Abre o Z-API e lê o QR Code de novo.'
+            : "$De respondeu, mas não confirmou o envio. Confere se o WhatsApp do número que avisa tá conectado.",
+        default => "$De recusou a mensagem. Manda o que tá em “Ver detalhes” pra quem cuida do site.",
     };
+    return $frase . "\n" . $tecnico;
 }
 
 /**

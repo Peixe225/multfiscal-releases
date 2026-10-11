@@ -6,6 +6,7 @@ import { ErroApi, mensagemDe } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { Topo } from '../Moldura'
 import { caminho, ir, voltar } from '../rotas'
+import { useAvisarAoSair } from '../sair'
 import { avisarNaProxima } from '../telas/flash'
 import { useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
@@ -190,6 +191,10 @@ export function Premio({ id }: { id: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l, p])
 
+  // sair com mudança pergunta antes (o salvar mora lá embaixo, depois das telas de espera: vai por referência)
+  const salvarRef = useRef<(ev?: FormEvent, ficar?: boolean) => Promise<boolean>>(async () => false)
+  const { liberar } = useAvisarAoSair(!!f && JSON.stringify(f) !== inicial.current, { salvar: () => salvarRef.current(undefined, true) })
+
   const titulo = <TituloTela>{id ? 'Editar prêmio' : 'Novo prêmio'}</TituloTela>
   if (l && id && !p) {
     return (
@@ -225,9 +230,9 @@ export function Premio({ id }: { id: string | null }) {
   const categorias = l.categorias.filter((c) => !c.bebida)
   const insta = estadosNoSite(l)[0]?.instagram ?? 'greencheese_imports'
 
-  const salvar = async (ev?: FormEvent) => {
+  const salvar = async (ev?: FormEvent, ficar = false): Promise<boolean> => {
     ev?.preventDefault()
-    if (salvando) return
+    if (salvando || !f || !l) return false
     const e = validar(f, l)
     setErros(e)
     setGeral(null)
@@ -237,25 +242,32 @@ export function Premio({ id }: { id: string | null }) {
       const el = document.getElementById(alvo)
       el?.focus()
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      return
+      return false
     }
-    if (trava.current) return
+    if (trava.current) return false
     trava.current = true
     setSalvando(true)
     try {
       const r = await api.salvarPremio(corpo(f, p?.id ?? null))
       guardarLoja((x) => comPremio(x, r.premio, r))
       avisarNaProxima(p ? `Prêmio salvo.${r.premio.noSite ? ' Já vale no jogo.' : ''}` : `Prêmio criado.${r.premio.noSite ? ' Já tá no jogo.' : ''}`)
-      if (p) voltar(caminho.sorte)
-      else ir(caminho.sorte, true)
+      liberar()
+      if (!ficar) {
+        if (p) voltar(caminho.sorte)
+        else ir(caminho.sorte, true)
+      }
+      return true
     } catch (err) {
       if (err instanceof ErroApi && err.campo) setErros({ [err.campo]: err.message })
       else setGeral(mensagemDe(err))
+      return false
     } finally {
       trava.current = false
       setSalvando(false)
     }
   }
+
+  salvarRef.current = salvar
 
   const pedirApagar = () => {
     if (!p) return
@@ -268,6 +280,7 @@ export function Premio({ id }: { id: string | null }) {
         await api.apagarPremio(p.id)
         await leitura.recarregar()
         avisarNaProxima('Prêmio apagado.')
+        liberar()
         ir(caminho.sorte, true)
       },
     })
