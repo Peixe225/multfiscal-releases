@@ -46,7 +46,7 @@ const cards = L.ordem.map((nome, i) => {
 
 writeFileSync(join(dest, 'index.html'), `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LENDA · Criativos editados</title><meta name="robots" content="noindex">
+<title>LENDA · Criativos editados</title><link rel="icon" href="../../favicon.svg"><meta name="robots" content="noindex">
 <style>
 :root{--bg:#0b0c10;--card:#15171d;--tx:#f2f2f2;--mut:#9aa0aa;--ouro:#F4C95D;--borda:rgba(255,255,255,.08)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -54,7 +54,7 @@ header{padding:28px 16px 8px;max-width:1180px;margin:0 auto}h1{margin:0;font-siz
 header p{color:var(--mut);margin:6px 0 0;max-width:760px}
 main{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding:18px 16px 48px;max-width:1180px;margin:0 auto}
 .c{background:var(--card);border:1px solid var(--borda);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
-video{width:100%;aspect-ratio:9/16;background:#000;display:block}
+video{width:100%;aspect-ratio:9/16;max-height:72vh;object-fit:contain;background:#000;display:block}
 .b{padding:14px;display:flex;flex-direction:column;gap:10px}.q{color:var(--ouro);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 h2{margin:0;font-size:20px}h2 span{color:var(--mut);font-weight:500;font-size:14px}
 .d{display:flex;flex-wrap:wrap;gap:8px}
