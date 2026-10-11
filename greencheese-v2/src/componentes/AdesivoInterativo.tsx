@@ -26,7 +26,7 @@ function Adesivo({ i }: { i: Interativo }) {
       <div className="ai-cab">
         <Avatar tamanho={28} />
         <span className="ai-cab-nome">{e.instagram ?? 'Green Cheese'}</span>
-        <span className="ai-cab-rot legenda">interativo</span>
+        <span className="ai-cab-rot legenda">jogo</span>
       </div>
       <div className="ai-dentro">
         <Icone nome={i.icone} tamanho={64} className="ai-icone" />

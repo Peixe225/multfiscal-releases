@@ -328,7 +328,8 @@ export function Saida({ voltar }: { voltar: () => void }) {
         Aqui é só pra maiores de 18.
       </h1>
       <p className="saida-txt legenda">A Green Cheese vende bebida alcoólica e acessórios. A venda é proibida para menores de 18 anos.</p>
-      <button type="button" className="saida-voltar" onClick={voltar}>
+      {/* o diálogo abre com o foco no único botão (como o "Tenho" da pergunta): o leitor de tela anuncia a tela */}
+      <button type="button" className="saida-voltar" onClick={voltar} autoFocus>
         Errei, voltar
       </button>
     </div>

@@ -55,10 +55,18 @@
   margin-top: -22px;
   background: var(--preto);
   border-radius: 50%;
+  /* escondido de verdade (o recorte deixa o toque passar pro local embaixo; a opacidade tira da tela também pra quem
+     mede o que está à vista) */
   clip-path: inset(50%);
+  opacity: 0;
 }
 .hero-pausa:focus-visible {
   clip-path: none;
+  opacity: 1;
+}
+/* com o foco nele, o @ e o tempo abrem espaço (em 320 px o botão cobria o "5 min") */
+.hero-cab:has(> .hero-pausa:focus-visible) > .hero-cab-texto {
+  padding-right: 40px;
 }
 .hero-cab-texto {
   min-width: 0;
@@ -493,13 +501,17 @@
     top: 16px;
     right: 0;
   }
-  /* 32 px de largura (o ícone tem 16; mouse): no notebook o quadro tem ~300–340 px e o @ inteiro precisa caber */
+  /* 44 px de alvo (o ícone tem 16): no notebook o quadro tem ~290–340 px e o @ inteiro ainda cabe ao lado */
   .hero-pausa {
     position: static;
-    width: 32px;
+    width: 44px;
     margin: 0 0 0 auto;
     clip-path: none;
+    opacity: 1;
     background: none;
+  }
+  .hero-cab:has(> .hero-pausa:focus-visible) > .hero-cab-texto {
+    padding-right: 0;
   }
   .hero-demo {
     top: 64px;

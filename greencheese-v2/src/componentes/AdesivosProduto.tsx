@@ -1,5 +1,5 @@
 import { gsap } from 'gsap'
-import type { KeyboardEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { brl } from '../lib/formato'
 import { movimentoReduzido } from '../lib/movimento'
 import { calcularLinha, combosDa, precoUnitario } from '../lib/preco'
@@ -89,7 +89,8 @@ export function QuizCombo({ produto, variacao = null, qtd, mudar, max = 99 }: { 
   const parada = cabem.includes(qtd) ? qtd : (cabem[0] ?? 1)
   return (
     <div
-      className="ad-quiz"
+      // 4 linhas ou mais (o painel deixa até 5 combos): no story de quadro médio ele vira pílulas (StoryProduto.css)
+      className={linhas.length > 3 ? 'ad-quiz ad-quiz-muitas' : 'ad-quiz'}
       role="radiogroup"
       aria-label="Quanto leva"
       onKeyDown={(e) =>
@@ -119,8 +120,9 @@ export function QuizCombo({ produto, variacao = null, qtd, mudar, max = 99 }: { 
           <span className="ad-quiz-letra" aria-hidden="true">
             {l.qtd}
           </span>
-          <span>
-            {l.qtd} por {brl(l.total)}
+          {/* duas partes: na lista ficam na mesma linha; na pílula do story baixo, a quantidade em cima e o preço embaixo */}
+          <span className="ad-quiz-txt">
+            <span>{l.qtd} por</span> <span>{brl(l.total)}</span>
           </span>
           {l.qtd > 1 && Math.round(l.total * 100) < Math.round(unit * 100) * l.qtd && <span className="ad-quiz-cada">{brl(Math.round((l.total / l.qtd) * 100) / 100)} cada</span>}
         </button>
@@ -160,6 +162,40 @@ export function Empurrao({ produto, variacao = null, qtd, className, max = 99 }:
   )
 }
 
+/**
+ * O preço do "Pôr na sacola" só aparece inteiro: no quadro estreito (celular de 320, story do notebook), deitado ou com
+ * preço comprido (combo grande), ele sai e o botão fica só com a ação (o preço está no quiz e no texto do story). O
+ * preço fica medível fora do fluxo (.sem-preco) e o ResizeObserver confere quando o quadro ou o preço mudam de tamanho.
+ */
+function usePrecoCabe(botao: RefObject<HTMLButtonElement | null>, temPreco: boolean): boolean {
+  const [cabe, setCabe] = useState(true)
+  useLayoutEffect(() => {
+    const el = botao.current
+    if (!el) return
+    const medir = () => {
+      const preco = el.querySelector<HTMLElement>('.ad-por-preco')
+      if (!preco) return setCabe(true)
+      const st = getComputedStyle(el)
+      const vao = parseFloat(st.columnGap) || 0
+      // o que vem antes do preço (ícone e texto) + o preço + os vãos + o recheio, contra a largura do botão. As caixas
+      // na tela vêm escaladas enquanto o story abre (ele cresce do card): divide pela escala do próprio botão
+      const k = el.getBoundingClientRect().width / (el.offsetWidth || 1) || 1
+      let usado = parseFloat(st.paddingLeft) + parseFloat(st.paddingRight)
+      for (const filho of el.children) usado += filho.getBoundingClientRect().width / k + (filho === preco ? 0 : vao)
+      setCabe(usado <= el.clientWidth + 0.5)
+    }
+    // já antes da 1ª pintura do story (sem um quadro com o preço passando do botão); depois, no ResizeObserver
+    medir()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(medir)
+    // o botão (o quadro mudou), o texto (a fonte chegou) e o preço (a quantidade mudou)
+    ro.observe(el)
+    for (const filho of el.children) ro.observe(filho)
+    return () => ro.disconnect()
+  }, [botao, temPreco])
+  return cabe
+}
+
 /** "Pôr na sacola" = adesivo de link, com a quantidade dentro (até o que resta no estado). */
 export function AdesivoSacola({
   produto,
@@ -177,14 +213,17 @@ export function AdesivoSacola({
   max?: number
 }) {
   const c = calcularLinha(produto, qtd, variacao)
+  const botao = useRef<HTMLButtonElement>(null)
+  const temPreco = c.total != null && c.total > 0
+  const cabe = usePrecoCabe(botao, temPreco)
   return (
     <>
       <div className="ad-sacola">
         <SeletorQtd qtd={qtd} mudar={mudar} max={max} />
-        <button type="button" className="ad-por toque" onClick={aoPor}>
+        <button ref={botao} type="button" className={cabe ? 'ad-por toque' : 'ad-por toque sem-preco'} onClick={aoPor}>
           <Icone nome="sacola" tamanho={18} />
           <span>Pôr na sacola</span>
-          {c.total != null && c.total > 0 && <span className="ad-por-preco">{brl(c.total)}</span>}
+          {temPreco && <span className="ad-por-preco">{brl(c.total ?? 0)}</span>}
         </button>
       </div>
       <Empurrao produto={produto} variacao={variacao} qtd={qtd} max={max} />

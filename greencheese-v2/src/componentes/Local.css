@@ -77,6 +77,10 @@ button.adesivo-local-g {
   transform: translateY(0) scale(0.88);
   pointer-events: auto;
 }
+/* a faixa encolhe o adesivo (0,88): com 50 px de altura o alvo de toque fica em 44 px de verdade na tela */
+.topo-local button.adesivo-local {
+  min-height: 50px;
+}
 .topo-faixa {
   position: fixed;
   z-index: 39;

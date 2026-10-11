@@ -456,10 +456,26 @@ for (const [nome, w, h] of aparelhos) {
     const q = document.querySelector('.story-quadro').getBoundingClientRect()
     const rod = document.querySelector('.story-rodape')?.getBoundingClientRect()
     const por = document.querySelector('.ad-por')?.getBoundingClientRect()
-    return { q: [q.top, q.bottom], rod: rod ? [rod.top, rod.bottom] : null, por: por ? [por.top, por.bottom] : null, h: window.innerHeight }
+    // o texto de cada linha do combo dentro dela (nas pílulas do celular baixo: "2 por" em cima, o preço embaixo) e o
+    // preço do "Pôr na sacola" inteiro dentro do botão, ou fora da linha (auditoria de navegação, NAV-03)
+    const linhas = [...document.querySelectorAll('.story-quadro .ad-quiz-linha')].map((l) => {
+      const b = l.getBoundingClientRect()
+      return [...l.querySelectorAll('span')]
+        .filter((s) => !s.children.length && s.textContent.trim() && getComputedStyle(s).display !== 'none' && !s.closest('.ad-quiz-letra'))
+        .every((s) => {
+          const r = s.getBoundingClientRect()
+          return r.left >= b.left - 1 && r.right <= b.right + 1
+        })
+    })
+    const preco = document.querySelector('.story-quadro .ad-por-preco')
+    const pr = preco && getComputedStyle(preco).visibility !== 'hidden' ? preco.getBoundingClientRect() : null
+    return { q: [q.top, q.bottom, q.left, q.right], rod: rod ? [rod.top, rod.bottom] : null, por: por ? [por.top, por.bottom, por.left, por.right] : null, linhas, preco: pr ? [pr.left, pr.right] : null, h: window.innerHeight }
   })
   if (caixa.rod && caixa.rod[1] > caixa.h + 1) problemas.push(`${nome}: rodapé do story cortado (${Math.round(caixa.rod[1])} > ${caixa.h})`)
   if (caixa.por && caixa.por[1] > caixa.q[1]) problemas.push(`${nome}: "Pôr na sacola" fora do quadro`)
+  if (caixa.por && (caixa.por[2] < caixa.q[2] - 1 || caixa.por[3] > caixa.q[3] + 1)) problemas.push(`${nome}: "Pôr na sacola" sai do quadro pelos lados`)
+  if (caixa.linhas.some((x) => !x)) problemas.push(`${nome}: texto do combo saindo da linha/pílula (${JSON.stringify(caixa.linhas)})`)
+  if (caixa.preco && caixa.por && caixa.preco[1] > caixa.por[3] + 1) problemas.push(`${nome}: preço do "Pôr na sacola" cortado`)
   // toque no lado direito avança, esquerdo volta
   const nomeAntes = await p.locator('.story-produto .sq-nome').textContent()
   const q = await p.locator('.story-palco').boundingBox()

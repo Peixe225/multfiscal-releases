@@ -15,6 +15,7 @@ import { ArteProduto, gerarImagemArte } from './ArteProduto'
 import { carregarArtesRealistas, useArtesRealistas } from './realista/carregar'
 import { haloDataUrl, sintonizar, temTransparencia } from './sintonia'
 import type { RegistroVideo } from './video-produto'
+import { IDS_REALISTAS } from './realista/ids'
 import './ProdutoVisual.css'
 
 export interface PropsProdutoVisual {
@@ -97,6 +98,8 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
   // a imagem do produto: a foto; sem foto, a capa do vídeo. Onde o vídeo toca, a capa (o 1º quadro dele: a troca não pula)
   const imagem = tocar ? (produto.capa ?? null) : (produto.foto ?? (temVideo ? (produto.capa ?? null) : null))
   const temReal = !!Arte || !!imagem
+  // a ilustração ainda vem (o pedaço não chegou): a pixel art já fica em cima do halo, como na sintonia do real
+  const esperaReal = !temReal && !artes && brilho && IDS_REALISTAS.has(produto.id)
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const raiz = useRef<HTMLDivElement>(null)
   const camada = useRef<HTMLCanvasElement>(null)
@@ -198,12 +201,13 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
     }
   }, [videoSrc])
 
-  // halo como fundo (dataURL pronto, sem canvas vivo)
+  // halo como fundo (dataURL pronto, sem canvas vivo). Também quando a ilustração chega depois de montar (temReal): o
+  // produto que já estava na tela em pixel art (o 1º do story) ficava sem halo, só os seguintes tinham
   useLayoutEffect(() => {
     const el = raiz.current
     if (!el || !brilho) return
     el.style.setProperty('--pv-halo', `url(${haloDataUrl(produto.cor, indisponivel)})`)
-  }, [produto.cor, indisponivel, brilho])
+  }, [produto.cor, indisponivel, brilho, temReal, esperaReal])
 
   useEffect(() => {
     if (!artes) carregarArtesRealistas().catch(() => {})
@@ -218,6 +222,16 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
     return () => io.disconnect()
   }, [indisponivel, temReal])
 
+  // Esperando a ilustração: a mesma caixa .pv com o halo e, dentro, a pixel art sem o brilho próprio (o halo faz o papel
+  // dele, como no meio da sintonia). Quando o pedaço chega, a caixa continua a mesma e só o miolo vira o real: o halo do
+  // 1º story conta como a maior pintura desde a primeira tela (DES-01)
+  if (esperaReal) {
+    return (
+      <div ref={raiz} className={`pv ${indisponivel ? 'pv-off' : ''} pv-com-halo ${className ?? ''}`} style={style} data-real="sim">
+        <ArteProduto {...props} brilho={false} className={undefined} style={undefined} />
+      </div>
+    )
+  }
   if (!temReal) return <ArteProduto {...props} />
 
   const g = `${uid}-g`

@@ -147,7 +147,7 @@ Cada perfil põe na bio o link do próprio estado (é a forma mais confiável de
 | @greencheese_importses | `https://oprojeto.online/greencheese/?uf=es` |
 | @greencheese_importssc | `https://oprojeto.online/greencheese/?uf=sc` |
 
-Link direto de um produto (para o adesivo de link do story): `https://oprojeto.online/greencheese/?uf=mg&p=jack-daniels-old-no7-1l` — o id de cada produto está no `catalogo.json`. No site, o botão de compartilhar do story já copia esse link.
+Link direto de um produto (para o adesivo de link do story do perfil de cada estado): `https://oprojeto.online/greencheese/?uf=mg&p=jack-daniels-old-no7-1l` — o id de cada produto está no `catalogo.json` (e no painel). Esse link com o `?uf=` é montado pela loja, que sabe pra qual estado o perfil posta. O botão de compartilhar do site (o do story, o "Copiar link do produto" do ⋯ e o da página do produto) copia o link **sem o estado** (`…/greencheese/?p=jack-daniels-old-no7-1l`, `…/?produto=…`), de propósito: quem recebe pode ser de outro estado, e o `?uf=` do link passa por cima da escolha salva e do palpite de IP de quem abre (um amigo do RJ que já usa o site no RJ cairia no MG sem perceber). Sem a chave, quem recebe vê o produto no estado dele (a escolha salva ou o palpite de IP). É a mesma regra da Home 2: o que sai do site pra outra pessoa é o endereço da loja, sem o que é só da visita de quem manda (`src/lib/url.ts`, `linkCompartilhar`).
 
 ---
 
@@ -425,8 +425,8 @@ O site é um app só, com quatro abas no molde do Instagram. O **Início** é o 
 - **Celular deitado:** o story do Início cabe inteiro acima da barra (a rua na faixa larga; nos produtos, arte à esquerda e nome, preço e DISPONÍVEL à direita; na Home 2 a rua fica no fim do Início, como em pé). Celular grande deitado (900 px ou mais) pega o layout de computador; a lateral rola quando não cabe. A abertura deitada põe a pergunta à esquerda e a enquete à direita, sempre dentro da tela.
 - **Computador:** a barra lateral tem Início, Buscar, Mercado, Rateio, Pedido guiado, Sacola, Teste minha sorte, Por estado (e Minha conta, com conta), com a aba atual em negrito e o ícone cheio ("Buscar" fica ativo com a busca em uso). Ctrl+clique ou o botão do meio abre a aba numa aba nova do navegador. Em janela baixa a lateral rola sozinha, sem levar a página.
 - **Voltar:** cada troca de aba entra no histórico. O voltar do Android (e do navegador) fecha primeiro a camada aberta (story, página do produto, sacola, chat, jogo, rateio) e depois volta para a aba de antes, com a rolagem de antes. Um link direto (`?aba=mercado`) não inventa um Início embaixo: voltar sai do site. Trocar de estado na aba Por estado leva ao Início, como trocar de conta no Instagram; se a troca foi feita com o chat aberto, o chat continua e o Início entra quando ele fechar.
-- **Teclado e leitor de tela:** a abertura prende o Tab, leva o foco pro "Sim" do palpite de IP e, ao sair, pro título da aba. Nos adesivos brancos (quiz, enquete, caixa de encomenda) o anel de foco é preto. O quiz "Quanto leva?" e a enquete de formato são grupos de rádio (setas trocam, uma parada de Tab). A faixa dos @ traz o botão focado pelo teclado pra dentro dela (no toque e no clique o trilho segue com a rolagem). O "Mais opções" do story abre com o foco no 1º item, anda nas setas e o Esc fecha só o menu. A busca do Mercado diz quantos produtos sobraram (ou que dá pra encomendar).
-- **Rapidez:** as abas escondidas usam `content-visibility: hidden` e cada card fora da tela usa `content-visibility: auto`. A grade do Início e o Mercado montam no tempo ocioso depois da abertura, numa transição do React (o toque passa na frente); trocar de aba não re-renderiza a loja nem o hero. O filtro anima a grade só com transform (Flip no modo simples).
+- **Teclado e leitor de tela:** a abertura prende o Tab, leva o foco pro "Sim" do palpite de IP e, ao sair, pro título da aba. Nos adesivos brancos (quiz, enquete, caixa de encomenda) o anel de foco é preto. O quiz "Quanto leva?" e a enquete de formato são grupos de rádio (setas trocam, uma parada de Tab). A faixa dos @ traz o botão focado pelo teclado pra dentro dela (no toque e no clique o trilho segue com a rolagem). O "Mais opções" do story abre com o foco no 1º item, anda nas setas e o Esc fecha só o menu. A busca do Mercado diz quantos produtos sobraram (ou que dá pra encomendar). No computador o 1º Tab é o **"Pular para o conteúdo"** (aparece no foco e leva ao título da aba à vista, sem passar pelos 11 itens da lateral). No celular e no tablet a rolagem até o foco para entre o adesivo de local fixo e a barra de abas (`scroll-padding` em `layout.css`), nunca atrás deles. A tela "Aqui é só pra maiores de 18." abre com o foco no "Errei, voltar"; fechar a página do produto aberta por link (`?produto=`) leva o foco ao título da aba. O "Pausar stories" tem 44 px no computador; no celular ele fica escondido até o foco e, com o foco, o @ e o tempo abrem espaço.
+- **Rapidez:** as abas escondidas usam `content-visibility: hidden` e cada card fora da tela usa `content-visibility: auto`. A grade do Início monta no tempo ocioso depois da abertura, numa transição do React (o toque passa na frente). O Mercado, o Rateio e Por estado montam na 1ª visita e ficam montados (as trocas seguintes são instantâneas); no Mercado o cabeçalho, os destaques e a busca aparecem na hora e a grade entra numa transição logo depois. Antes o Mercado montava escondido de reserva e a primeira tela tinha ~14 mil elementos (as ilustrações em SVG das duas grades); agora ~7 mil (`Abas.tsx`). Trocar de aba não re-renderiza a loja nem o hero. O filtro anima a grade só com transform (Flip no modo simples). A Pixelify 500 (nome, preço e DISPONÍVEL do story) tem `<link rel="preload">` no `index.html` do build (plugin `precarregarFonte` do `vite.config.ts`): o story pinta já com ela e não muda de altura quando ela chega.
 - Os links de sempre continuam valendo por cima de qualquer aba: `?p=`, `?produto=`, `?jogo=sorte`, `?chat=pedido`, `?rateio=`. Ex.: `?uf=mg&aba=mercado&produto=jack-daniels-old-no7-1l` abre a página do produto e o voltar cai no Mercado.
 - O código das abas está em `src/lib/abas.ts` (URL, histórico e o "Ver loja") e `src/componentes/Abas.tsx` (as vistas); a loja do Início é o mesmo `Catalogo.tsx` com `onde="inicio"` (ids próprios: `inicio-loja`; o `#catalogo` é da aba Mercado, que o chat e a rolagem usam).
 
@@ -478,7 +478,7 @@ Rateio é a compra junto: a loja abre X vagas de um produto importado, cada pess
   - **celular**: a barra de baixo passa a ter 6 células — Início, Mercado, **Rateio** (a caixa de importação com a fita e o corte tracejado; cheia na aba atual), Teste minha sorte, Sacola, Por estado. O selo branco na caixa é quantos rateios dá pra entrar agora no estado (os contadores da barra e da lateral usam o 2 e o 5 redesenhados de `digitos.css`, carregado com o CSS principal: na Pixelify "2" lia "Z"/"a" e "55" lia "SS"). Num estado sem entrega (ex.: `?uf=ba`) o Rateio sai da barra, como a Sorte.
   - **computador**: item "Rateio" na lateral, logo depois de Mercado, com o mesmo número.
   - **Início**: destaque "Rateio" logo depois de Buscar, também no celular (anel aceso enquanto tem rateio aberto pro estado; selo "novo" até a pessoa ver os abertos na aba). As bolinhas ficam no tamanho de sempre; com as 5 abas, o "Tudo" deixa de caber inteiro na primeira tela do celular, e o primeiro destaque que não cabe espia na borda (ver "Destaques do Início", acima; as medidas estão em `Catalogo.css`).
-- **Link de um rateio** (para o adesivo de link dos stories): `https://oprojeto.online/greencheese/?uf=mg&rateio=arizona-green-tea` — abre a página do rateio depois do +18, por cima da aba Rateio (fechar mostra os outros rateios; voltar de novo sai do site, como todo link direto). O botão de compartilhar da página copia esse link. O id de cada rateio aparece no painel.
+- **Link de um rateio** (para o adesivo de link dos stories): `https://oprojeto.online/greencheese/?uf=mg&rateio=arizona-green-tea` — abre a página do rateio depois do +18, por cima da aba Rateio (fechar mostra os outros rateios; voltar de novo sai do site, como todo link direto). O botão de compartilhar da página copia o link sem o estado (`…/?aba=rateio&rateio=arizona-green-tea`, pelo mesmo motivo do link do produto, acima). O id de cada rateio aparece no painel.
 
 **A aba**: título com o "?" (abre a folha **Como funciona**: entra com nome e WhatsApp; a vaga fica guardada por `reservaHoras` enquanto fecha o pagamento no WhatsApp; o contador mostra as vagas pagas; o pedido do rateio é feito depois que fecham as vagas; "Previsão: de `previsaoMin` a `previsaoMax` dias depois que fechar", que pode mudar; por que sai mais barato (sem prometer preço de depois: o cartão mostra o "quando chegar" quando o rateio tem); e se não lotar, a loja chama no WhatsApp pra combinar). Embaixo, as seções **Minhas vagas** (só com vaga neste aparelho), **Abertos** (os do estado primeiro; os de outro estado por último, apagados, com "Só pra MG, SP…"), **Em andamento** (fechou, pedido feito, a caminho, chegou, com a linha do tempo e a previsão em datas) e **Chegaram** (entregues nos últimos 15 dias). Sem nenhum: "Nenhum rateio aberto agora", com o mercador e "Fica de olho no @…" do estado.
 
@@ -641,13 +641,68 @@ Em `src/dados/config.ts`: `dadosDeExemplo` (produtos, prêmios, horário e taxa 
 - Revisão por screenshots: `npm run revisao` com o dev rodando → `revisao/<rodada>/`.
 - Mapa do Brasil ("Por estado", estado sem atendimento e seletor de estado): pixel art com o formato de verdade de cada estado, em `src/dados/mapa-brasil.ts` (uma letra por estado, dá pra ver o Brasil no arquivo). Ele é **gerado** da malha das UFs do IBGE (API de malhas, qualidade mínima) por `node scripts/gerar-mapa-brasil.mjs` (baixa a malha; ou passe um GeoJSON já baixado: `node scripts/gerar-mapa-brasil.mjs malha.json`; `--previa /tmp/mapa` desenha PNGs ampliados para conferir). O site não busca nada no ar. Crédito: **Fonte: IBGE** (aparece embaixo do mapa do "Por estado"). Estado atendido novo aparece aceso sozinho (vem de `canais.ts`); se ele ficar fora da lupa, ajuste `LUPA_UFS` no script e gere de novo. Cidade nova com pino no mapa: coordenada em `CIDADES` no script.
 
+## Correções da auditoria de navegação (11/10)
+
+A auditoria de navegação, visual, acessibilidade e desempenho (3.369 checagens; 12 bugs, NAV-01 a NAV-12, e 14
+polimentos, POL-01 a POL-14, mais o DES-01) voltou com estas correções (o NAV-01, o texto de privacidade do rodapé,
+é da frente da compra):
+
+- **Story aberto com combos (NAV-03, NAV-04)**: os apertos do story aberto medem o **quadro** do story (container
+  `quadro` no `.story-quadro`, `StoryShell.css`), não a janela: no computador a janela é alta e o quadro é baixo e
+  estreito (1024×600: 259×460; 1366×657: 291×517). Os limites de antes viram os do quadro (a janela de 700 do celular =
+  quadro de 604; a de 620 = 556). Em quadro baixo o combo vira **pílulas**, 3 por linha, com a quantidade em cima e o
+  preço embaixo ("2 por" / "R$ 14,99"), inteiras dentro da pílula; combo com 4 linhas ou mais (o painel deixa 5
+  combos) vira pílula também em quadro médio (até 740 px). O preço dentro do "Pôr na sacola" só aparece se couber
+  inteiro (o botão mede antes de pintar e no `ResizeObserver`, sem se enganar com o story crescendo do card: celular de
+  320, deitado, preço comprido); no quadro de 259 px o − + e o
+  botão ficam mais justos. O **RESTAM** desce pro pé da arte onde o adesivo de local fica em cima dela (story aberto e
+  story do topo no computador) e o adesivo de local para na margem (cidade longa ganha reticências; deitado, ele fica
+  na coluna da arte). Conferido em 320×568, 360×640, 360×740, 390×844, 430×932, 568×320, 844×390, 768×1024, 1024×600,
+  1280×650, 1280×720, 1366×657, 1366×768, 1536×730, 1280×800, 1440×900 e 1920×1080, com a OCB e com o pior caso (5
+  combos com preço de 4 dígitos e "Santa Bárbara do Monte Verde").
+- **Busca (NAV-02)**: ver "O que o site faz", abaixo.
+- **Links (NAV-12, POL-13)**: fechar o story aberto por `?p=` (×, Esc, arrastar) ou o chat aberto por `?chat=` limpa a
+  chave da URL, também na volta do histórico (recarregar não reabre o que a pessoa fechou); `?uf=` que não é estado
+  (`?uf=xx`) sai da URL.
+- **Link compartilhado (NAV-10)**: vai sem o estado de quem manda (ver "Link para a bio de cada perfil", acima).
+- **Casca do `index.html` (NAV-06)**: se o JavaScript principal não chegar em 12 s (4G que caiu no meio da carga),
+  aparece "Tá demorando pra abrir. Confere a internet e tenta de novo." com um link que recarrega. Só CSS (a CSP não
+  deixa script em linha); numa carga normal o React troca a casca antes e ninguém vê.
+- **Manifesto (NAV-11)**: sem `orientation` (o app instalado gira, como o site) e com `"id": "./"`.
+- **Foco e teclado (NAV-05, NAV-07, NAV-09, POL-06, POL-07)**: ver "Teclado e leitor de tela", acima. **Alvos**: o
+  adesivo de local fixo do topo tem 44 px de verdade na tela (POL-05).
+- **Textos (NAV-08, POL-01 a POL-04)**: o perfil sem estado diz "5 perfis" (os públicos); "Qual produto?" na caixa
+  "Não achou?"; "Tu respondeu ao story" / "Tu pediu pela página do produto" no pedido guiado; "Chama o Instagram de um
+  dos estados" no rodapé sem estado; o fim do Mercado diz "PRA JOGAR" e o card do jogo, "jogo" (era "interativo").
+- **Prévias dos stories vizinhos (POL-08)**: o texto do produto indisponível fica branco na prévia esmaecida (o cinza
+  dava 2,8:1 no preto).
+- **Mapa (POL-10)**: tocar num estado sem atendimento na borda da lupa (a BA aparece em cima dela) abre o balão
+  apontando pro estado no mapa grande, fora da lupa, e ele abre em cima quando embaixo cairia na lupa.
+- **Rua (POL-11)**: chamado com o casaco já aberto pro cliente, o leitor de tela ouve "Ele está de casaco aberto,
+  atendendo um cliente." (`roteiro.ts` devolve `aberto`; `cta.ts`).
+- **Desempenho (POL-12, POL-14, DES-01)**: o Mercado monta na 1ª visita (DOM da primeira tela ~14 mil → ~7 mil); a
+  Pixelify 500 com preload de prioridade baixa (o story pinta com ela e não muda de altura; a home de sempre não
+  atrasa); na Home 2 do celular a maior pintura (LCP) fica na primeira tela: até o pedaço das ilustrações chegar o
+  produto aparece em pixel art já em cima do halo (`ProdutoVisual.tsx`, `realista/ids.ts`, a lista dos produtos com
+  ilustração; `carregar.ts` confere em desenvolvimento), o halo e o quadro da pixel art têm a caixa do desenho (9:16)
+  desde a 1ª pintura, a primeira entrada do story (a página abrindo num produto, como a Home 2) só esmaece no lugar (a
+  1ª pintura já é do tamanho dele: nada que pinta depois passa dela) e cada entrada começa no quadro seguinte ao
+  commit, no ponto de partida (`Hero.tsx`). As
+  medidas estão em PENDENCIAS ("Desempenho medido depois da auditoria de navegação").
+- **Fonte em px (POL-09)**: fica como está; o motivo está em PENDENCIAS.
+- **Regressão**: o harness da auditoria ganhou o módulo `m-correcoes.mjs` (a matriz do story com combos, com a OCB e
+  com o pior caso, e as checagens dos achados que não tinham uma) e checagens novas em `m-mercado.mjs` (busca) e
+  `m-produto.mjs` (o link compartilhado sem o estado). No repositório: `celulares.mjs` confere as pílulas e o preço do
+  "Pôr na sacola" no story aberto de cada celular; `revisao.mjs`, a busca, o `?p=`/`?chat=` limpos ao fechar e o
+  `?uf=` inválido.
+
 ## O que o site faz
 
 - Abertura em formato de story com a pergunta +18 (lembrada por 30 dias) e o adesivo de localização.
 - Estado do cliente nesta ordem: link da bio (`?uf=`), escolha salva, palpite pelo IP (sempre pergunta "Tu tá em …?"), escolha manual com os 27 estados. A pergunta do palpite aparece na abertura; se a pessoa pular, no celular ela fica no pé do story do Início, no lugar do "Enviar mensagem…" (que volta depois da resposta), e nas outras abas logo acima da barra.
 - Quatro abas (Início, Mercado, Rateio, Por estado), com barra de abas no celular e barra lateral no computador; o voltar do Android passa pelas abas (ver "Abas e Início").
 - Início vivo: no celular, a rua da loja é o primeiro story (na Home 2, `/home2/`, ela fecha o Início, depois da grade); no computador, ela fica embaixo do perfil (ver "Início vivo e Mercado" e "A Home 2").
-- Mercado por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅" (no Início, a mesma grade logo depois do perfil, com os destaques que levam às abas primeiro e as categorias à direita).
+- Mercado por estado com disponível/indisponível, categorias como destaques, busca, "Só DISPONÍVEL ✅" (no Início, a mesma grade logo depois do perfil, com os destaques que levam às abas primeiro e as categorias à direita). A busca procura no nome, no tamanho, no detalhe, no nome da categoria e nos apelidos dela, sem acento e com plural simples. Os apelidos da categoria são só os que valem pra categoria inteira (destilado, bebida, garrafa; seda é papel; piteira, filtro, tips); o tipo de cada produto vem do nome e do detalhe, mais `TIPOS` em `Catalogo.tsx` pro que o nome não diz (o Jack Daniel's é whisky, o Hennessy conhaque, o Jägermeister licor): "gin" acha só o gin, "whisky" só o Jack, "vidro" só a piteira de vidro. Os tipos da categoria (whisky, gin, vodka…) só entram quando nada casa, pra produto novo do painel sem o tipo no nome.
 - Story do topo (hero): passa sozinho; toque nas bordas ou arrastar de lado passa e volta; no computador, setas ao lado do story e ← →. Na primeira visita, uma dica mostra onde tocar.
 - Página do produto ("aba"): tocar no produto do story ou em "VER PRODUTO" abre a página com descrição curta, preço, disponibilidade no estado, formato e combos, quantidade, "Pôr na sacola" (o mesmo nome do story), "Pedir este item" e "Combina com". Voltar pelo botão do topo, pelo voltar do Android ou Esc. Cada produto tem link próprio (`?produto=<id>`), que abre direto depois do +18 (segurar o dedo ou Ctrl+clique abre em aba nova). No story do produto, "Mais opções" → "Ver detalhes do produto".
 - Story do produto com barrinhas, toque nas laterais, segurar para pausar, arrastar para baixo para fechar, setas e Esc no teclado.

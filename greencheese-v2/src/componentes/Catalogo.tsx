@@ -33,18 +33,36 @@ function carregarFlip() {
   })
 }
 
-// Busca que entende o jeito que o cliente escreve: plural simples, sem acento, e apelidos por categoria.
+// Busca que entende o jeito que o cliente escreve: plural simples, sem acento, e apelidos. Os apelidos da categoria são
+// só os que valem pra todo produto dela (seda é papel; todo destilado é bebida e garrafa); o tipo de cada produto (o gin,
+// o whisky, o conhaque, a piteira de vidro) vem do nome, do detalhe e de TIPOS: "gin" acha só o gin, não a categoria toda.
 const APELIDOS: Record<string, string> = {
   bebidas: 'bebida refri refrigerante soda lata importada importado drink',
-  destilados: 'destilado whisky whiskey uisque gin conhaque cognac licor bebida garrafa jack',
-  sedas: 'seda papel papelote slim king size bobina',
-  piteiras: 'piteira filtro tips ponta vidro',
+  destilados: 'destilado bebida garrafa',
+  sedas: 'seda papel papelote bobina',
+  piteiras: 'piteira filtro tips ponta',
   acessorios: 'acessorio dichavador triturador grinder isqueiro bandeja cuia bowl tabacaria',
 }
 
-/** O que a busca procura: nome, tamanho, detalhe, o nome da categoria (a do painel também) e os apelidos dela. */
-function textoDeBusca(p: Produto, categoria: string | undefined): string {
-  return semAcento(`${p.nome} ${p.tamanho ?? ''} ${p.detalhe ?? ''} ${categoria ?? ''} ${APELIDOS[p.categoria] ?? p.categoria}`)
+/** O tipo de cada produto do catálogo que o nome não diz (o Jack Daniel's é whisky; o Jägermeister, licor). */
+const TIPOS: Record<string, string> = {
+  'jack-daniels-old-no7-1l': 'whisky whiskey uisque bourbon',
+  'hennessy-very-special': 'conhaque cognac',
+  'jagermeister-700ml': 'licor',
+}
+
+/**
+ * Tipos da categoria, pra produto novo que o dono pôs no painel sem o tipo no nome: só entram quando a busca não acha
+ * nada com o resto ("whisky" num catálogo sem o Jack Daniel's ainda mostra os destilados, em vez de nada).
+ */
+const TIPOS_DA_CATEGORIA: Record<string, string> = {
+  destilados: 'whisky whiskey uisque gin conhaque cognac licor vodka rum tequila',
+}
+
+/** O que a busca procura: nome, tamanho, detalhe, o tipo do produto, o nome da categoria (a do painel também) e os apelidos dela. */
+function textoDeBusca(p: Produto, categoria: string | undefined, largo = false): string {
+  const tipo = `${TIPOS[p.id] ?? ''} ${largo ? (TIPOS_DA_CATEGORIA[p.categoria] ?? '') : ''}`
+  return semAcento(`${p.nome} ${p.tamanho ?? ''} ${p.detalhe ?? ''} ${tipo} ${categoria ?? ''} ${APELIDOS[p.categoria] ?? p.categoria}`)
 }
 
 /** Termos da busca, sem acento e com plural simples (sedas → seda, piteiras → piteira). */
@@ -404,7 +422,7 @@ export function CaixaEncomenda({ termo, className }: { termo?: string; className
       </span>
       <p className="caixa-titulo">{termo ? `Não achou “${termo}”? A Green Cheese importa.` : 'Não achou? A Green Cheese importa.'}</p>
       <div className="caixa-campo">
-        <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Digite o produto…" aria-label="Produto que tu quer encomendar" maxLength={120} />
+        <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Qual produto?" aria-label="Produto que tu quer encomendar" maxLength={120} />
       </div>
       <button type="submit" className="botao botao-cheio botao-largo caixa-enviar">
         {termo ? `Pedir encomenda de “${termo}”` : 'Pedir encomenda'}
@@ -444,12 +462,16 @@ export function Catalogo({ abrirInfo, onde = 'aba', comGrade = true }: PropsCata
   const lista = useMemo(() => {
     const q = normalizarBusca(busca)
     const nomeCat = new Map(categorias.map((c) => [c.id, c.nome]))
-    const r = produtos.filter((p) => {
-      if (categoria !== 'tudo' && p.categoria !== categoria) return false
-      if (soDisp && !disponivelEm(p, uf)) return false
-      if (q && !q.every((t) => textoDeBusca(p, nomeCat.get(p.categoria)).includes(t))) return false
-      return true
-    })
+    const filtrar = (largo: boolean) =>
+      produtos.filter((p) => {
+        if (categoria !== 'tudo' && p.categoria !== categoria) return false
+        if (soDisp && !disponivelEm(p, uf)) return false
+        if (q.length && !q.every((t) => textoDeBusca(p, nomeCat.get(p.categoria), largo).includes(t))) return false
+        return true
+      })
+    // primeiro o produto de verdade; só sem nenhum, os tipos da categoria (produto novo sem o tipo no nome)
+    let r = filtrar(false)
+    if (q.length && !r.length) r = filtrar(true)
     // disponíveis primeiro (ordem estável)
     return uf ? [...r.filter((p) => disponivelEm(p, uf)), ...r.filter((p) => !disponivelEm(p, uf))] : r
   }, [produtos, categorias, categoria, soDisp, busca, uf])

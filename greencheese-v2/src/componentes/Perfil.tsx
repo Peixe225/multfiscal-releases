@@ -51,7 +51,7 @@ export function Perfil({ variante = 'celular' }: { variante?: 'celular' | 'deskt
             <div>
               <dt className="sr-only">Perfis</dt>
               <dd>
-                <strong>{canais.length + 1}</strong> perfis
+                <strong>{canais.length}</strong> perfis
               </dd>
             </div>
           )}

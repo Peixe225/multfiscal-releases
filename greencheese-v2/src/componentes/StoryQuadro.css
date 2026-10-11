@@ -15,6 +15,8 @@
   position: absolute;
   z-index: 2;
   left: 7%;
+  /* cidade longa (o painel aceita até 60 letras): o adesivo para na margem e o nome ganha reticências */
+  right: 7%;
   pointer-events: none;
 }
 
@@ -169,7 +171,9 @@
   padding: 12px 6% 18px;
 }
 
-@media (max-height: 700px) {
+/* quadro baixo (o .story-quadro do StoryShell é o container "quadro"; no celular de pé ele é a janela menos o rodapé,
+   604 px = a janela de 700 de antes; no computador, 1280×650 e 1366×657 também) */
+@container quadro (max-height: 604px) {
   .sq-tela .sq-nome {
     font-size: 20px;
   }
@@ -216,4 +220,16 @@
   font-size: 20px;
   font-weight: 500;
   padding: 5px 9px 4px;
+}
+/* onde o adesivo de local fica em cima da arte (story aberto; story do topo no computador), o RESTAM desce pro pé da
+   arte: no quadro baixo a arte encolhe e o canto de cima dela subia pra baixo do adesivo ("TEÓFILO OTON'") */
+.sq-tela .sq-arte > .sq-restam {
+  top: auto;
+  bottom: max(6%, 6px);
+}
+@media (min-width: 900px) {
+  .sq-hero .sq-arte > .sq-restam {
+    top: auto;
+    bottom: max(6%, 6px);
+  }
 }

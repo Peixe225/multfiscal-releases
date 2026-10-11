@@ -72,6 +72,29 @@ function htmlDaConfig(): Plugin {
 }
 
 /**
+ * A Pixelify 500 (o nome, o preço e o DISPONÍVEL do story) baixa junto com o JS, não só quando o CSS pede: o story do
+ * Início pinta já com ela e não muda de altura quando ela chega (POL-14: na Home 2 o nome do 1º produto encolhia de 171
+ * pra 146 px com a fonte chegando e a arte descia 13 px). Só no build e só se o arquivo existir (o arquivo único da
+ * prévia leva a fonte embutida).
+ */
+function precarregarFonte(): Plugin {
+  return {
+    name: 'precarregar-fonte',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const arq = Object.keys(ctx.bundle ?? {}).find((f) => /pixelify-sans-latin-500-normal-[^/]*\.woff2$/.test(f))
+        if (!arq) return html
+        // prioridade baixa: não disputa banda com o JS e o CSS da primeira tela (a home de sempre não atrasa) e ainda chega
+        // antes de o React pintar o story
+        return { html, tags: [{ tag: 'link', attrs: { rel: 'preload', href: `./${arq}`, as: 'font', type: 'font/woff2', crossorigin: '', fetchpriority: 'low' }, injectTo: 'head' }] }
+      },
+    },
+  }
+}
+
+/**
  * O pôster da rua (o primeiro story do celular): o quadro 0 da rua, desenhado aqui com o mesmo motor e o mesmo elenco
  * da página (src/componentes/rua/poster.ts) e posto no pedaço principal como PNG de paleta, 1 px por pixel da arte
  * (uns poucos KB). O story mostra ele na hora; a animação assume quando o worker devolve os quadros. O motor (pelo
@@ -160,7 +183,7 @@ function painelAParte(): Plugin {
 export default defineConfig({
   // Caminhos relativos: o dist/ sobe em qualquer pasta ou subdomínio da Hostinger.
   base: './',
-  plugins: [react(), htmlDaConfig(), sementeEmDia(), posterDaRua(), painelAParte()],
+  plugins: [react(), htmlDaConfig(), sementeEmDia(), posterDaRua(), precarregarFonte(), painelAParte()],
   // Hora do build: vira o "há 2 h" do cabeçalho do story quando config.catalogoAtualizadoEm está vazio.
   define: definir,
   build: {

@@ -44,7 +44,7 @@ export function Rodape() {
             na&nbsp;DM.
           </span>
         ) : (
-          <span>Outra dúvida? Chama o Instagram do teu estado:</span>
+          <span>Outra dúvida? Chama o Instagram de um dos estados:</span>
         )}
       </p>
       {/* só os perfis dos estados (o que ainda falta confirmar não entra na lista pública) */}

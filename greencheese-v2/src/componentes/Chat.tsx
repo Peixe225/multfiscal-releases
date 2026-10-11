@@ -711,7 +711,7 @@ export function ChatFolha() {
 
         {produtosCitados.length > 0 && modo === 'pedido' && (
           <div className="dm-citado">
-            <span className="legenda dm-citado-rot">{respondendoDe === 'pagina' ? 'Você pediu pela página do produto' : 'Você respondeu ao story'}</span>
+            <span className="legenda dm-citado-rot">{respondendoDe === 'pagina' ? 'Tu pediu pela página do produto' : 'Tu respondeu ao story'}</span>
             <div className="dm-citado-pilha">
               {produtosCitados.slice(0, 3).map((p, i) => (
                 <div key={p.id} className="dm-citado-quadro" style={{ transform: `translateX(${-i * 14}px) rotate(${i * 3}deg)`, zIndex: 3 - i }}>

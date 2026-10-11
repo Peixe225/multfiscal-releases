@@ -869,9 +869,10 @@ function* vidaDoGato(m: Motor, gato: Ator): Roteiro {
 
 /**
  * O que o chamado fez: `agora` (ele está livre: abre o casaco assim que termina o gesto), `depois` (está atendendo:
- * abre no fim do atendimento) ou `foto` (movimento reduzido: só o balão; ele já está de casaco aberto na foto).
+ * abre no fim do atendimento), `aberto` (está atendendo com o casaco já aberto pro cliente: quem chamou vê o casaco
+ * aberto agora) ou `foto` (movimento reduzido: só o balão; ele já está de casaco aberto na foto).
  */
-export type Chamado = 'agora' | 'depois' | 'foto'
+export type Chamado = 'agora' | 'depois' | 'aberto' | 'foto'
 
 export interface Cena {
   merc: Ator
@@ -937,6 +938,7 @@ export function montarCena(m: Motor, op: OpcoesCena = {}): Cena {
       // (interludio e motoboy passam por batida/atenderChamado antes de qualquer outra coisa)
       const livre = m.mercadorLivre
       m.chamado = true
+      if (!livre && (merc.anim === 'abrir' || merc.anim === 'mostrar')) return 'aberto'
       return livre ? 'agora' : 'depois'
     },
     tocar(x, y, folga, soNaHora = false) {

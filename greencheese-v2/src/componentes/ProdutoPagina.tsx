@@ -8,7 +8,7 @@ import { config } from '../dados/config'
 import { emUf, semAcento, ufPorSigla } from '../dados/ufs'
 import { copiarTexto } from '../lib/copiar'
 import { brl, plural, precoOuConsultar } from '../lib/formato'
-import { prenderTab } from '../lib/foco'
+import { focarVista, prenderTab } from '../lib/foco'
 import { depoisDoHistorico, useCamadaNoHistorico } from '../lib/historico'
 import { ehDesktop, movimentoReduzido } from '../lib/movimento'
 import { calcularLinha, combosDa, precoUnitario } from '../lib/preco'
@@ -203,7 +203,9 @@ export function ProdutoPagina() {
       // no hero por trás
       const story = document.querySelector<HTMLElement>('.story-quadro')
       if (volta?.isConnected && (!story || story.closest('.story')?.contains(volta))) volta.focus({ preventScroll: true })
-      else story?.focus({ preventScroll: true })
+      else if (story) story.focus({ preventScroll: true })
+      // aberta pelo link direto (?produto=, sem quem devolver o foco): vai pro título da aba à vista, não pro <body>
+      else focarVista(useUI.getState().aba)
     }
     if (movimentoReduzido()) {
       fim()

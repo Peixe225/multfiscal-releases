@@ -83,4 +83,10 @@ por um revisor independente e no ar.
 - [x] F7–F13 no ar em oprojeto.online/greencheese/ (ok do Ian em 09/10), com o painel instalado e o acesso do dono criado.
 - [x] 10/10: atualização com o celular no layout de ontem e a rua do mercador só no fim do Início (banco, painel e código de instalação do servidor intactos); a pedido do Ian, a home com a rua no 1º story (7744b7f) voltou pro ar.
 - [ ] Publicar a home com a rua no 1º story junto com a Home 2 (`/home2/`, a rua no fim do Início) — pede o ok do Ian.
-- [ ] LCP do celular da Home 2 (DES-01): a arte do 1º story contar como a maior pintura desde o começo (rascunho guardado, sem teste).
+- [x] LCP do celular da Home 2 (DES-01): a maior pintura na primeira tela (o halo já na pixel art, na caixa do desenho, e a 1ª entrada do story no tamanho dele): 5,9 s → 2,5 s, a home de sempre igual. Medido em 9 rodadas: ver PENDENCIAS ("Desempenho medido depois da auditoria de navegação").
+
+## Auditoria de navegação, visual, acessibilidade e desempenho (11/10) — feito
+- [x] NAV-02 a NAV-12 (busca, story aberto com combos na matriz de tamanhos, RESTAM × local, foco atrás da barra, casca sem JS, foco na saída do +18 e no fechar do produto do link, 5 perfis, link compartilhado sem estado documentado, manifesto, ?p=/?chat= limpos ao fechar). O NAV-01 (privacidade do rodapé) é da frente da compra.
+- [x] POL-01 a POL-08 e POL-10 a POL-14 (textos na voz tu, alvos de 44 px, pausar, "Pular para o conteúdo", contraste das prévias, balão do mapa, aviso do mercador, Mercado na 1ª visita, fonte em pixel com preload, ?uf= inválido).
+- [ ] POL-09 (fonte em px → rem): fica, de propósito (PENDENCIAS, "Da auditoria de navegação").
+- [ ] DOM da primeira tela abaixo de 3 mil: as ilustrações em bitmap são da frente da arte do produto.

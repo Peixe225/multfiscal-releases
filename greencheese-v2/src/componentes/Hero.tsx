@@ -580,42 +580,52 @@ export function Hero() {
   }, [idx, ids, uf, reduz])
 
   // troca de produto (voz app): sozinha, o que esperava atrás vem pro centro; na mão, desliza do lado de onde veio. A
-  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás
+  // rua (a cena de ponta a ponta) entra num esmaecer curto, sem crescer de trás.
+  // A primeira entrada da página (ela abrindo no produto) só esmaece, no lugar, sem crescer de trás: assim a 1ª pintura
+  // do story já é do tamanho dele (o halo do 1º produto é a maior pintura, a LCP, na primeira tela) e nada que pinta
+  // depois passa dela: o próximo que espera atrás é menor, os produtos seguintes pintam pequenos (crescendo de trás) e
+  // o que troca no mesmo lugar quando a loja do servidor chega pinta do mesmo tamanho (DES-01).
+  // O ponto de partida vai direto no estilo e o GSAP assume no quadro seguinte (antes da pintura dele): o produto novo
+  // sempre pinta pela primeira vez no ponto de partida. Começando o GSAP aqui, no meio do commit, o tempo do commit
+  // (centenas de ms num celular lento) contava como animação e a 1ª pintura já saía quase inteira. E o GSAP lê o estilo
+  // calculado ao começar: ler aqui obrigava o navegador a calcular o estilo da página inteira a mais
   const palcoEntrou = useRef(false)
   useLayoutEffect(() => {
     const p = ehRua ? cenaRua.current : palco.current
     if (!p || reduz) return
     if (ehRua) {
+      // a página abriu na rua (a home de sempre): o 1º produto, que vem depois dela, cresce de trás como os outros
+      palcoEntrou.current = true
       if (pos.origem === 'auto') gsap.fromTo(p, { opacity: 0, x: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out', clearProps: 'opacity,transform' })
       else gsap.fromTo(p, { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out', clearProps: 'opacity,transform' })
       return
     }
-    const animar = () => {
-      if (pos.origem === 'auto') {
-        gsap.fromTo(p, { scale: 0.42, opacity: 0.3, x: 40, y: -30 }, { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out' })
-      } else {
-        gsap.fromTo(p, { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2, scale: 1, y: 0 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out' })
-      }
-    }
-    if (palcoEntrou.current || pos.origem !== 'auto') {
-      palcoEntrou.current = true
-      return animar()
-    }
-    // a primeira entrada de um produto (a página abrindo nele): o ponto de partida vai direto no estilo e o GSAP assume
-    // no quadro seguinte, antes da pintura. Ele lê o estilo calculado do palco ao começar, e ler aqui, no meio da
-    // montagem, obrigava o navegador a calcular o estilo da página inteira a mais, atrasando a primeira tela
+    const sozinha = pos.origem === 'auto'
+    const primeira = !palcoEntrou.current && sozinha
     palcoEntrou.current = true
-    p.style.transform = 'translate(40px, -30px) scale(0.42)'
-    p.style.opacity = '0.3'
+    const de = primeira
+      ? { scale: 1, opacity: 0.3, x: 0, y: 0 }
+      : sozinha
+        ? { scale: 0.42, opacity: 0.3, x: 40, y: -30 }
+        : { x: pos.dir * (pos.origem === 'arrasto' ? 72 : 48), opacity: 0.2, scale: 1, y: 0 }
+    // a primeira só esmaece: force3D põe o palco numa camada própria durante o esmaecer (sem isso o navegador repinta o
+    // produto inteiro a cada quadro, centenas de ms num celular lento) e clearProps tira a camada no fim
+    const para = primeira
+      ? { opacity: 1, duration: 0.35, ease: 'power2.out', force3D: true, clearProps: 'transform' }
+      : sozinha
+        ? { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out' }
+        : { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out' }
+    p.style.transform = primeira ? '' : `translate(${de.x}px, ${de.y}px) scale(${de.scale})`
+    p.style.opacity = String(de.opacity)
     let quadro = requestAnimationFrame(() => {
       quadro = 0
-      animar()
+      gsap.fromTo(p, de, para)
     })
     return () => {
       if (!quadro) return
       // trocou antes da primeira pintura (o estado chegou, o story se ajeitou): a entrada seguinte ainda é a primeira
       cancelAnimationFrame(quadro)
-      palcoEntrou.current = false
+      if (primeira) palcoEntrou.current = false
       p.style.transform = ''
       p.style.opacity = ''
     }

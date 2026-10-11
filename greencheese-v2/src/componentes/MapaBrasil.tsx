@@ -727,16 +727,21 @@ export function MapaBrasil({
           ) : null
         })()}
 
-        {balao && (
-          <Balao
-            larguraPalco={plano.w}
-            alturaPalco={plano.h}
-            ponto={toque ?? (brasil.rotulos[balao.uf] ? { x: brasil.rotulos[balao.uf][0] * m, y: brasil.rotulos[balao.uf][1] * m } : { x: plano.w / 2, y: plano.h / 2 })}
-            aoSairComFoco={focarMapa}
-          >
-            {balao.conteudo}
-          </Balao>
-        )}
+        {balao &&
+          (() => {
+            // o balão aponta pro estado no mapa grande, fora da lupa: tocado na borda da lupa (a BA aparece em cima dela),
+            // ele abria embaixo do toque, dentro da lupa e por cima dos botões de SP e do ES. Se o estado nem aparece fora
+            // da lupa, fica o toque
+            const r = brasil.rotulos[balao.uf]
+            const doMapa = r && !naLupa(r[0] * m, r[1] * m) ? { x: r[0] * m, y: r[1] * m } : null
+            const ponto = toque && !naLupa(toque.x, toque.y) ? toque : (doMapa ?? toque ?? { x: plano.w / 2, y: plano.h / 2 })
+            const lupaCaixa = plano.lupa ? { x: lx + R_LUPA * l - plano.lupa.r, y: ly + R_LUPA * l - plano.lupa.r, lado: plano.lupa.r * 2 } : null
+            return (
+              <Balao larguraPalco={plano.w} alturaPalco={plano.h} ponto={ponto} evitar={lupaCaixa} aoSairComFoco={focarMapa}>
+                {balao.conteudo}
+              </Balao>
+            )
+          })()}
       </div>
     </div>
   )
@@ -766,18 +771,21 @@ function Dica({ ponto, larguraPalco, children }: { ponto: [number, number]; larg
 
 /**
  * Balão de fala apontando para o ponto tocado, sem sair do palco: abre embaixo do ponto e, perto da base do
- * palco (o RS na lupa), abre em cima, com o bico embaixo. Se o foco estiver nele quando fechar, o foco vai para o mapa.
+ * palco (o RS na lupa), abre em cima, com o bico embaixo. Se embaixo ele cair em cima da lupa (`evitar`, a caixa dela)
+ * e em cima couber sem ela, abre em cima. Se o foco estiver nele quando fechar, o foco vai para o mapa.
  */
 function Balao({
   ponto,
   larguraPalco,
   alturaPalco,
+  evitar = null,
   aoSairComFoco,
   children,
 }: {
   ponto: { x: number; y: number }
   larguraPalco: number
   alturaPalco: number
+  evitar?: { x: number; y: number; lado: number } | null
   aoSairComFoco: () => void
   children: ReactNode
 }) {
@@ -793,11 +801,13 @@ function Balao({
     if (!el) return
     const h = el.offsetHeight
     const embaixo = ponto.y + 12
+    const emCima = ponto.y - 12 - h
+    const naLupa = (t: number) => !!evitar && left < evitar.x + evitar.lado && left + larg > evitar.x && t < evitar.y + evitar.lado && t + h > evitar.y
     let top = embaixo
     let cima = false
-    if (embaixo + h > alturaPalco) {
-      if (ponto.y - 12 - h >= 0) {
-        top = ponto.y - 12 - h
+    if (embaixo + h > alturaPalco || (naLupa(embaixo) && emCima >= 0 && !naLupa(emCima))) {
+      if (emCima >= 0) {
+        top = emCima
         cima = true
       } else top = Math.max(0, alturaPalco - h)
     }

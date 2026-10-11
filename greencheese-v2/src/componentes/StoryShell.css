@@ -40,6 +40,9 @@
   overflow: hidden;
   outline: none;
   will-change: transform;
+  /* os apertos do story aberto (StoryQuadro.css, StoryProduto.css) medem o quadro, não a janela: no computador a janela
+     é alta e o quadro é baixo e estreito (1366×657: janela de 657 px, quadro de 286×508) */
+  container: quadro / size;
 }
 @media (max-width: 599px) {
   /* no celular o story ocupa a tela (como no app), sem faixas pretas dos lados */
@@ -197,6 +200,13 @@
   /* o miolo esmaecido fica fora do leitor (o botão já tem nome) */
   .story-vizinho > span {
     display: block;
+  }
+  /* produto indisponível na prévia: o cinza da legenda esmaecido a 0,5 dava 2,8:1 no preto; na prévia o texto fica
+     branco (5,3:1 esmaecido) e o "INDISPONÍVEL" e a arte apagada continuam dizendo que não tem */
+  .story-vizinho .sq-off .sq-nome,
+  .story-vizinho .sq-off .sq-preco,
+  .story-vizinho .sq-indisp {
+    color: var(--branco);
   }
   .story-vizinho-esq {
     right: calc(100% + 96px);
