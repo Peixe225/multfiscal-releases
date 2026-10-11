@@ -132,6 +132,7 @@ class Cli {
 }
 
 /** Servidor falso dos gateways: guarda cada requisição (método, caminho, cabeçalhos, corpo) e responde no modo da vez. */
+let gatewaysAbertos = 0
 export async function gatewayFalso() {
   const recebidos = []
   const estado = { modo: 'ok', atraso: 0 }
@@ -154,7 +155,9 @@ export async function gatewayFalso() {
       else responder()
     })
   })
-  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok))
+  // com GC_TESTE_PORTA, uma porta fixa da mesma faixa (base + 9, + 10…); sem ela, uma livre
+  const porta = process.env.GC_TESTE_PORTA ? Number(process.env.GC_TESTE_PORTA) + 9 + gatewaysAbertos++ : 0
+  await new Promise((ok) => srv.listen(porta, '127.0.0.1', ok))
   return { srv, porta: srv.address().port, recebidos, estado }
 }
 
