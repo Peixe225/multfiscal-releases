@@ -2178,9 +2178,27 @@ for (const reduzir of [false, true]) {
     const m = await page.locator('.vista-inicio .rua-em-story .rua-mercador').boundingBox()
     // onde o mercador estava no quadro (0 = borda esquerda, 1 = direita) e em qual segmento: pra entender uma falha rara
     const fx = Math.round(((m.x + m.width / 2 - q.x) / q.width) * 100) / 100
+    // o balão do chamado sai na hora; no meio de um atendimento a fala seguinte do cliente pode tomar o lugar dele logo
+    // depois (um balão por vez): vale ele ter aparecido (cada balão do mercador que entra desde o toque)
+    await page.evaluate(() => {
+      const camada = document.querySelector('.vista-inicio .rua-baloes')
+      const vistos = new Set()
+      window.__baloesStory = vistos
+      if (!camada) return
+      window.__vigiaStory = new MutationObserver(() => camada.querySelectorAll('.rua-balao[data-ator="mercador"]').forEach((e) => vistos.add(e.textContent)))
+      window.__vigiaStory.observe(camada, { childList: true, subtree: true, characterData: true })
+    })
     await page.mouse.click(m.x + m.width / 2, m.y + m.height / 2)
     await page.waitForTimeout(400)
-    const balao = await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()
+    const balao = [
+      ...new Set([
+        ...(await page.locator('.vista-inicio .rua-balao[data-ator="mercador"]').allTextContents()),
+        ...(await page.evaluate(() => {
+          window.__vigiaStory?.disconnect()
+          return [...(window.__baloesStory ?? [])]
+        })),
+      ]),
+    ]
     const aberto = (await page.locator('.vista-inicio .rua-ver').count()) === 1
     const b1 = await barraDaRua()
     await page.waitForTimeout(1500)
