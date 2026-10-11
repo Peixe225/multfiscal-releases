@@ -72,3 +72,12 @@ img.pv-real {
     animation: none;
   }
 }
+
+/* Esperando a ilustração (a pixel art em cima do halo, DES-01): o quadro da pixel art já nasce 9:16 e centrado, o lugar
+   que o ResizeObserver dela acerta no quadro seguinte. Na caixa toda (a reserva dela), a 1ª pintura do produto vinha
+   larga e o quadro pulava pro meio logo depois: era a mudança de layout (CLS) do 1º story da Home 2 */
+.pv > .arte-produto .arte-quadro {
+  width: auto;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+}
