@@ -6,7 +6,9 @@ import { ErroApi, mensagemDe } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { Folha } from '../Folha'
 import { Topo } from '../Moldura'
+import { recado } from '../recado'
 import { caminho } from '../rotas'
+import { perguntarSair } from '../sair'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
 import * as api from './api'
@@ -34,24 +36,30 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
     setF({ ...f, [k]: v })
     setErros((e) => ({ ...e, [k]: undefined }))
   }
-  const salvar = async () => {
-    if (ocupado) return
+  // fechar (X, Esc, fora, voltar do Android) com mudança pergunta antes
+  const mexeu = JSON.stringify(f) !== JSON.stringify(alvo)
+  const fechar = () => (mexeu && !ocupado ? perguntarSair({ seguir: aoFechar, salvar }) : aoFechar())
+  async function salvar(): Promise<boolean> {
+    if (ocupado || !f) return false
     const e: Partial<Record<keyof FormCat, string>> = {}
     if (tamanho(f.nome) < 2 || tamanho(f.nome) > 30) e.nome = 'Nome de 2 a 30 letras.'
     else if (problemaNoTexto(f.nome, 'loja')) e.nome = problemaNoTexto(f.nome, 'loja') ?? undefined
     if (tamanho(f.curto) < 2 || tamanho(f.curto) > 14) e.curto = 'Nome curto de 2 a 14 letras (é o que aparece embaixo da bolinha).'
     else if (problemaNoTexto(f.curto, 'loja')) e.curto = problemaNoTexto(f.curto, 'loja') ?? undefined
     setErros(e)
-    if (e.nome || e.curto) return
+    if (e.nome || e.curto) return false
     setOcupado(true)
     setGeral(null)
     try {
       await api.salvarCategoria({ ...(f.id ? { id: f.id } : {}), nome: f.nome.trim(), curto: f.curto.trim(), icone: f.icone, bebida: f.bebida })
       aoSalvar()
       aoFechar()
+      recado(f.id ? `${f.nome.trim()}: salva. O site já mostra.` : `Categoria ${f.nome.trim()} criada.`)
+      return true
     } catch (err) {
       if (err instanceof ErroApi && (err.campo === 'nome' || err.campo === 'curto' || err.campo === 'bebida')) setErros({ [err.campo]: err.message })
       else setGeral(mensagemDe(err))
+      return false
     } finally {
       setOcupado(false)
     }
@@ -59,7 +67,7 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
   return (
     <Folha
       aberta
-      aoFechar={aoFechar}
+      aoFechar={fechar}
       preso={ocupado}
       titulo={f.id ? `Editar ${alvo.nome}` : 'Nova categoria'}
       focoInicial={nome}
@@ -194,7 +202,7 @@ export function Categorias() {
   return (
     <>
       <Topo
-        voltar={caminho.loja}
+        voltar={caminho.mais}
         titulo={<TituloTela>Categorias</TituloTela>}
         acoes={
           <button type="button" className="pn-botao pn-botao-cheio pn-botao-p" aria-label="Nova categoria" onClick={() => setEditando({ nome: '', curto: '', icone: 'estrela', bebida: false })}>

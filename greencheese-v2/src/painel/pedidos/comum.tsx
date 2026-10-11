@@ -157,6 +157,15 @@ export function situacaoDoAviso(e: EnvioAviso, agora: number): string {
   }
 }
 
+/**
+ * O porquê do aviso que não foi: a 1ª linha é a frase de dono (o que fazer agora); o resto, o detalhe do serviço pra
+ * quem cuida do site (fica em "Ver detalhes"). Erro de antes (uma linha só) vem inteiro na frase.
+ */
+export function partesDoErro(erro: string): { frase: string; detalhe: string | null } {
+  const i = erro.indexOf('\n')
+  return i < 0 ? { frase: erro, detalhe: null } : { frase: erro.slice(0, i), detalhe: erro.slice(i + 1).trim() || null }
+}
+
 const POR: Record<string, string> = { sistema: 'automático' }
 
 function quemTentou(por: string): string {
@@ -184,7 +193,7 @@ function LinhaAviso({ e, agora, ocupado, aoReenviar, comPedido }: { e: EnvioAvis
           <span>{situacaoDoAviso(e, agora)}</span>
         </span>
       </div>
-      {e.status === 'falhou' && e.erro && <p className="pd-envio-erro">{e.erro}</p>}
+      {e.status === 'falhou' && e.erro && <p className="pd-envio-erro">{partesDoErro(e.erro).frase}</p>}
       <div className="pd-envio-acoes">
         {e.reenvia && e.status === 'falhou' && reenviar('Mandar de novo', 'cinza')}
         {pedido != null && (
@@ -194,13 +203,14 @@ function LinhaAviso({ e, agora, ocupado, aoReenviar, comPedido }: { e: EnvioAvis
         )}
       </div>
       <details className="pd-detalhes pd-envio-mais">
-        <summary>{e.reenvia ? 'Ver a mensagem' : 'Ver o registro'}</summary>
+        <summary>{e.status === 'falhou' && e.erro ? 'Ver detalhes' : e.reenvia ? 'Ver a mensagem' : 'Ver o registro'}</summary>
+        {e.status === 'falhou' && e.erro && partesDoErro(e.erro).detalhe && <p className="pd-tentativas">Pra quem cuida do site: {partesDoErro(e.erro).detalhe}</p>}
         <p className="pd-zap-msg">{e.texto}</p>
         {e.ultimas.length > 0 && (
           <ul className="pd-tentativas" aria-label="Últimas tentativas">
             {e.ultimas.map((t, i) => (
               <li key={i}>
-                {diaHora(t.em, agora)} · {t.motor === 'zapi' ? 'Z-API' : t.motor === 'evolution' ? 'Evolution' : t.motor === 'webhook' ? 'Webhook' : t.motor} · {t.ok ? `foi (${(t.ms / 1000).toFixed(1).replace('.', ',')} s)` : `não foi${t.erro ? `: ${t.erro}` : ''}`} · {quemTentou(t.por)}
+                {diaHora(t.em, agora)} · {t.motor === 'zapi' ? 'Z-API' : t.motor === 'evolution' ? 'Evolution' : t.motor === 'webhook' ? 'Webhook' : t.motor} · {t.ok ? `foi (${(t.ms / 1000).toFixed(1).replace('.', ',')} s)` : `não foi${t.erro ? `: ${partesDoErro(t.erro).detalhe ?? partesDoErro(t.erro).frase}` : ''}`} · {quemTentou(t.por)}
               </li>
             ))}
           </ul>

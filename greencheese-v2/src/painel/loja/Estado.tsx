@@ -1,14 +1,21 @@
-// Um estado (o canal de atendimento): aparece no site, Instagram, nome do perfil e do destaque, WhatsApp próprio ou
-// o da loja, cidades, horário da semana (com madrugada e "repetir nos outros dias"), taxa ou "a confirmar", entrega
-// grátis por dia da semana e formas de pagamento. Estado que a loja ainda não tem: o mesmo formulário ativa ele.
+// Um estado (o canal de atendimento), na ordem do dia a dia: horário de entrega (com madrugada e "repetir nos outros
+// dias"), taxa ou "a confirmar", entrega grátis por dia da semana, formas de pagamento, cidades, WhatsApp próprio ou o da
+// loja e o perfil (Instagram, nome do perfil e do destaque). Por último, separado, o "Tirar [estado] do site", que
+// confirma antes (e o recado tem "Desfazer"); estado fora do site tem o "Pôr de volta no site" em cima. Estado que a
+// loja ainda não tem: o mesmo formulário ativa ele.
 // Na edição, só vai o que mudou: o que ninguém mexeu continua como estava (e o que era exemplo continua exemplo).
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+// O que tá sendo digitado fica guardado no aparelho até salvar (recarregar ou voltar não perde) e sair com mudança
+// pergunta antes (sair.tsx). A cidade digitada sem tocar em "Adicionar" entra ao salvar.
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import * as apiBase from '../api'
 import { ErroApi } from '../api'
+import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { reaisNoCampo, whatsappBonito } from '../formato'
+import { lembrarJson, lidoJson } from '../lembrar'
 import { Link, Topo } from '../Moldura'
+import { recado } from '../recado'
 import { caminho, ir, voltar } from '../rotas'
-import { avisarNaProxima } from '../telas/flash'
+import { useAvisarAoSair } from '../sair'
 import { useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
 import * as api from './api'
@@ -38,6 +45,8 @@ interface Form {
   gratisDias: number[]
   gratisTexto: string
   pagamentos: FormaPagamento[]
+  /** A cidade digitada que ainda não foi pra lista (entra ao salvar, com as mesmas conferências do "Adicionar"). */
+  cidadeNova: string
 }
 
 type Erros = Partial<Record<string, string>>
@@ -60,6 +69,7 @@ function doEstado(e: EstadoAdmin): Form {
     gratisDias: e.entregaGratis?.dias ?? [],
     gratisTexto: e.entregaGratis?.texto ?? 'Sextou com entrega grátis!',
     pagamentos: e.pagamento.opcoes,
+    cidadeNova: '',
   }
 }
 
@@ -79,6 +89,7 @@ function novo(uf: string): Form {
     gratisDias: [],
     gratisTexto: 'Sextou com entrega grátis!',
     pagamentos: ['pix', 'dinheiro', 'cartao'],
+    cidadeNova: '',
   }
 }
 
@@ -99,7 +110,8 @@ function validar(f: Form): Erros {
     if (!horaValida(x.abre) || !horaValida(x.fecha)) e[`dia-${i}`] = `Horário de ${DIAS[i].toLowerCase()} em HH:MM (ex.: 14:00).`
     else if (x.abre === x.fecha) e[`dia-${i}`] = `Em ${DIAS[i].toLowerCase()}, abre e fecha no mesmo horário.`
   })
-  if (f.taxaModo === 'valor' && (f.taxa.trim() === '' || lerPreco(f.taxa) == null)) e.taxa = 'Taxa de R$ 0,00 a R$ 100.000,00, ou “A confirmar”.'
+  if (f.taxaModo === 'valor' && (f.taxa.trim() === '' || lerPreco(f.taxa) == null)) e.taxa = 'Taxa de R$ 0,01 a R$ 100.000,00, ou “A confirmar”.'
+  else if (f.taxaModo === 'valor' && lerPreco(f.taxa) === 0) e.taxa = 'Taxa R$ 0,00: pra entregar sem taxa, liga “Entrega grátis” nos dias que valem (logo aqui embaixo).'
   if (f.gratis) {
     if (!f.gratisDias.length) e.gratisDias = 'Escolhe em que dia a entrega é grátis.'
     const t = f.gratisTexto.trim()
@@ -110,6 +122,19 @@ function validar(f: Form): Erros {
   for (const k of Object.keys(e)) if (!e[k]) delete e[k]
   return e
 }
+
+/** A cidade nova serve? (o mesmo do "Adicionar"): null = serve. */
+function problemaNaCidade(n: string, cidades: string[]): string | null {
+  if (!n) return 'Escreve o nome da cidade.'
+  if (tamanho(n) < 2 || tamanho(n) > 60) return 'Nome da cidade de 2 a 60 letras.'
+  const problema = problemaNoTexto(n, 'loja')
+  if (problema) return problema
+  if (cidades.some((c) => slug(c) === slug(n))) return `“${n}” já tá na lista.`
+  if (cidades.length >= 30) return 'Até 30 cidades.'
+  return null
+}
+
+const limparCidade = (s: string) => s.trim().replace(/\s+/g, ' ')
 
 /**
  * O nome do destaque cabe inteiro embaixo da bolinha no celular? A fonte e a largura do site (11 px; a bolinha do estado
@@ -134,7 +159,8 @@ function horario(f: Form): Turno[] {
 function corpo(f: Form, uf: string, antes: Form | null): EstadoCorpo {
   const c: EstadoCorpo = { uf }
   const mudou = (k: keyof Form) => !antes || JSON.stringify(f[k]) !== JSON.stringify(antes[k])
-  if (mudou('ativo')) c.ativo = f.ativo
+  // o "Aparece no site" de um estado que já existe vai sozinho (Tirar do site / Pôr de volta); o novo nasce no site
+  if (!antes) c.ativo = true
   if (mudou('instagram')) c.instagram = lerInstagram(f.instagram) ?? f.instagram
   if (mudou('nomePerfil')) c.nomePerfil = f.nomePerfil.trim() || null
   if (mudou('destaque')) c.destaque = f.destaque.trim()
@@ -189,36 +215,19 @@ function Secao({ titulo, id, children, dica }: { titulo: string; id: string; chi
   )
 }
 
-function Cidades({ cidades, aoMudar, erro }: { cidades: string[]; aoMudar: (c: string[]) => void; erro?: string }) {
-  const [nova, setNova] = useState('')
+function Cidades({ cidades, nova, aoMudarNova, aoMudar, erro }: { cidades: string[]; nova: string; aoMudarNova: (v: string) => void; aoMudar: (c: string[]) => void; erro?: string }) {
   const [falha, setFalha] = useState<string | null>(null)
   const campo = useRef<HTMLInputElement>(null)
   const adicionar = () => {
-    const n = nova.trim().replace(/\s+/g, ' ')
-    if (!n) {
-      setFalha('Escreve o nome da cidade.')
-      campo.current?.focus()
-      return
-    }
-    if (tamanho(n) < 2 || tamanho(n) > 60) {
-      setFalha('Nome da cidade de 2 a 60 letras.')
-      return
-    }
-    const problema = problemaNoTexto(n, 'loja')
-    if (problema) {
-      setFalha(problema)
-      return
-    }
-    if (cidades.some((c) => slug(c) === slug(n))) {
-      setFalha(`“${n}” já tá na lista.`)
-      return
-    }
-    if (cidades.length >= 30) {
-      setFalha('Até 30 cidades.')
+    const n = limparCidade(nova)
+    const p = problemaNaCidade(n, cidades)
+    if (p) {
+      setFalha(p)
+      if (!n) campo.current?.focus()
       return
     }
     aoMudar([...cidades, n])
-    setNova('')
+    aoMudarNova('')
     setFalha(null)
     campo.current?.focus()
   }
@@ -251,9 +260,9 @@ function Cidades({ cidades, aoMudar, erro }: { cidades: string[]; aoMudar: (c: s
           autoComplete="off"
           maxLength={60}
           value={nova}
-          aria-describedby={falha || erro ? 'e-cidade-erro' : undefined}
+          aria-describedby={falha || erro ? 'e-cidade-erro' : 'e-cidade-dica'}
           onChange={(e) => {
-            setNova(e.target.value)
+            aoMudarNova(e.target.value)
             setFalha(null)
           }}
           onKeyDown={(e) => {
@@ -267,10 +276,14 @@ function Cidades({ cidades, aoMudar, erro }: { cidades: string[]; aoMudar: (c: s
           Adicionar
         </Botao>
       </div>
-      {(falha || erro) && (
+      {falha || erro ? (
         <p id="e-cidade-erro" className="pn-erro">
           <Ic nome="atencao" tamanho={16} />
           <span>{falha ?? erro}</span>
+        </p>
+      ) : (
+        <p id="e-cidade-dica" className="pn-dica">
+          {nova.trim() ? `“${limparCidade(nova)}” entra na lista quando tu salvar.` : 'Escreve e toca em Adicionar (ou só salva: a cidade digitada entra junto).'}
         </p>
       )}
     </div>
@@ -283,20 +296,43 @@ export function Estado({ uf }: { uf: string }) {
   const e = l?.estados.find((x) => x.uf === uf) ?? null
   const nome = NOMES_UF[uf] ? nomeUf(uf) : null
   useTitulo(nome ?? 'Estado')
+  const chaveRascunho = `estado:${uf}`
   const [f, setF] = useState<Form | null>(null)
+  // o que tá no servidor (null = estado novo) e o formulário limpo (o que conta como "não mexeu")
   const antes = useRef<Form | null>(null)
+  const limpo = useRef<string | null>(null)
   const [erros, setErros] = useState<Erros>({})
   const [geral, setGeral] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [voltouRascunho, setVoltouRascunho] = useState(false)
+  const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
+  const [noSite, setNoSite] = useState<'tirando' | 'pondo' | null>(null)
   const trava = useRef(false)
 
+  // abre o formulário uma vez, quando a loja chega (e o rascunho deste aparelho, se ninguém mudou o estado desde ele)
   useEffect(() => {
     if (f || !l) return
-    const limpo = e ? doEstado(e) : novo(uf)
-    antes.current = e ? limpo : null
-    setF(limpo)
+    const base = e ? doEstado(e) : novo(uf)
+    antes.current = e ? base : null
+    limpo.current = JSON.stringify(base)
+    const guardado = lidoJson<{ form: Form; base: string }>(chaveRascunho)
+    if (guardado && guardado.base === limpo.current && JSON.stringify(guardado.form) !== limpo.current) {
+      setF({ ...base, ...guardado.form, ativo: base.ativo })
+      setVoltouRascunho(true)
+    } else {
+      if (guardado) lembrarJson(chaveRascunho, null)
+      setF(base)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l, e])
+
+  const mexeu = !!f && JSON.stringify(f) !== limpo.current
+  // o rascunho no aparelho (some quando volta a ficar igual ao do servidor)
+  useEffect(() => {
+    if (!f || limpo.current === null) return
+    const t = window.setTimeout(() => lembrarJson(chaveRascunho, JSON.stringify(f) === limpo.current ? null : { form: f, base: limpo.current }), 300)
+    return () => window.clearTimeout(t)
+  }, [f, chaveRascunho])
 
   const mudar = <K extends keyof Form>(k: K, v: Form[K]) => {
     setF((s) => (s ? { ...s, [k]: v } : s))
@@ -306,45 +342,101 @@ export function Estado({ uf }: { uf: string }) {
     setF((s) => (s ? { ...s, semana: s.semana.map((x, j) => (j === i ? { ...x, ...d } : x)) } : s))
     if (erros[`dia-${i}`]) setErros((x) => ({ ...x, [`dia-${i}`]: undefined }))
   }
-  const mexeu = useMemo(() => !!f && (!antes.current || JSON.stringify(f) !== JSON.stringify(antes.current)), [f])
 
-  const salvar = async (ev?: FormEvent) => {
+  // salvar: com ficar (a pergunta de "mudança não salva"), salva e não sai da tela; true = salvou
+  const salvar = async (ev?: FormEvent, ficar = false): Promise<boolean> => {
     ev?.preventDefault()
-    if (!f || salvando) return
-    // a hora que ficou no meio (Enter sem sair do campo) vai no formato certo
+    if (!f || salvando) return false
+    // a hora que ficou no meio (Enter sem sair do campo) vai no formato certo; a cidade digitada entra na lista
     const semana = f.semana.map((x) => ({ ...x, abre: normalizarHora(x.abre), fecha: normalizarHora(x.fecha) }))
-    const fn = JSON.stringify(semana) === JSON.stringify(f.semana) ? f : { ...f, semana }
-    if (fn !== f) setF(fn)
+    let fn: Form = JSON.stringify(semana) === JSON.stringify(f.semana) ? f : { ...f, semana }
+    const cidade = limparCidade(f.cidadeNova)
     const n = validar(fn)
+    if (cidade) {
+      const p = problemaNaCidade(cidade, fn.cidades)
+      if (p) n.cidades = p
+      else fn = { ...fn, cidades: [...fn.cidades, cidade], cidadeNova: '' }
+    }
+    if (fn !== f) setF(fn)
     setErros(n)
     setGeral(null)
     const primeiro = Object.keys(n)[0]
     if (primeiro) {
-      const id = primeiro.startsWith('dia-') ? `e-abre-${primeiro.slice(4)}` : primeiro === 'gratisDias' ? 'e-gratis-0' : primeiro === 'pagamentos' ? 'e-pag-pix' : `e-${primeiro}`
+      const id = primeiro.startsWith('dia-') ? `e-abre-${primeiro.slice(4)}` : primeiro === 'gratisDias' ? 'e-gratis-0' : primeiro === 'pagamentos' ? 'e-pag-pix' : primeiro === 'cidades' ? 'e-cidade-nova' : `e-${primeiro}`
       const el = document.getElementById(id)
       el?.focus()
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      return
+      return false
     }
-    if (trava.current) return
+    if (trava.current) return false
     trava.current = true
     setSalvando(true)
     try {
       const r = await api.salvarEstado(corpo(fn, uf, antes.current))
       guardarLoja((x) => comEstado(x, r.estado, r))
-      avisarNaProxima(e ? `${r.estado.nome}: salvo. O site já mostra.` : `${r.estado.nome} ativado no site. Agora liga os produtos que tem lá (Produtos → ${uf.toUpperCase()}).`)
-      if (e) voltar(caminho.estados)
-      else ir(caminho.estados, true)
+      leitura.trocar((x) => comEstado(x, r.estado, r))
+      lembrarJson(chaveRascunho, null)
+      const novoForm = doEstado(r.estado)
+      antes.current = novoForm
+      limpo.current = JSON.stringify(novoForm)
+      setF(novoForm)
+      setVoltouRascunho(false)
+      recado(e ? `${r.estado.nome}: salvo. O site já mostra.` : `${r.estado.nome} ativado no site. Agora liga os produtos que tem lá (Produtos → ${uf.toUpperCase()}).`)
+      if (!ficar) {
+        liberar()
+        if (e) voltar(caminho.estados)
+        else ir(caminho.estados, true)
+      }
+      return true
     } catch (err) {
       if (err instanceof ErroApi && err.campo) {
         const c = err.campo === 'horario' ? `dia-${Number(err.dados.dia ?? 0)}` : err.campo === 'entregaGratis' ? 'gratisTexto' : err.campo
         setErros({ [c]: err.codigo === 'proibido' ? 'Tabaco e vape não entram no site (regra da Anvisa pra venda online).' : err.message })
       } else setGeral(apiBase.mensagemDe(err))
+      return false
     } finally {
       trava.current = false
       setSalvando(false)
     }
   }
+
+  const { liberar } = useAvisarAoSair(mexeu, {
+    salvar: () => salvar(undefined, true),
+    descartar: () => lembrarJson(chaveRascunho, null),
+  })
+
+  /** Tirar do site / pôr de volta: vai sozinho (o resto do formulário continua como tá). */
+  const mudarNoSite = async (ativo: boolean): Promise<void> => {
+    if (noSite || !nome) return
+    setNoSite(ativo ? 'pondo' : 'tirando')
+    try {
+      const r = await api.salvarEstado({ uf, ativo })
+      guardarLoja((x) => comEstado(x, r.estado, r))
+      leitura.trocar((x) => comEstado(x, r.estado, r))
+      if (antes.current) antes.current = { ...antes.current, ativo }
+      const base = limpo.current ? (JSON.parse(limpo.current) as Form) : null
+      if (base) limpo.current = JSON.stringify({ ...base, ativo })
+      setF((x) => (x ? { ...x, ativo } : x))
+      recado(ativo ? `${nome} voltou pro site.` : `${nome} saiu do site: quem é de ${uf.toUpperCase()} vê “ainda não chegou aí”.`, {
+        desfazer: { acao: () => mudarNoSite(!ativo).catch(() => {}) },
+      })
+    } finally {
+      setNoSite(null)
+    }
+  }
+
+  const pedirTirar = () =>
+    setConfirmacao({
+      titulo: `Tirar ${nome} do site?`,
+      texto: (
+        <p>
+          Quem é de {uf.toUpperCase()} passa a ver “A Green Cheese ainda não chegou aí”, e {nome} some da escolha de estado, do “Por estado” e da faixa dos @. Os dados ficam guardados: dá pra pôr de volta depois.
+        </p>
+      ),
+      botao: `Tirar ${nome} do site`,
+      perigo: true,
+      acao: () => mudarNoSite(false),
+    })
 
   const titulo = <TituloTela>{nome ?? 'Estado'}</TituloTela>
   if (!nome) {
@@ -376,6 +468,7 @@ export function Estado({ uf }: { uf: string }) {
     )
   }
   const mesmo = l.ajustes.mesmoWhatsappParaTodos
+  const taxaZero = f.taxaModo === 'valor' && f.taxa.trim() !== '' && lerPreco(f.taxa) === 0
 
   return (
     <>
@@ -387,83 +480,39 @@ export function Estado({ uf }: { uf: string }) {
               {nome} ainda não tá no site. Preenche o Instagram e o pagamento e ativa: o resto pode ficar “a confirmar”.
             </Aviso>
           )}
-          {e && (
-            <Secao titulo="No site" id="s-e-site">
-              <label className="pn-troca">
-                <input id="e-ativo" type="checkbox" checked={f.ativo} onChange={(x) => mudar('ativo', x.target.checked)} />
-                <span className="pn-troca-marca" aria-hidden="true" />
-                <span>Aparece no site</span>
-              </label>
-              <p className="pn-dica-bloco">{f.ativo ? 'Desligado, o estado some do site (a escolha de estado, o “Por estado”, a faixa dos @) e os dados ficam guardados.' : 'Fora do site. Liga pra voltar.'}</p>
-            </Secao>
-          )}
-
-          <Secao titulo="Perfil" id="s-e-perfil">
-            <Campo id="e-instagram" rotulo="Instagram do estado" erro={erros.instagram} dica="As dúvidas e o “Avisar quando chegar” vão pra DM dele.">
-              {(a) => (
-                <div className="pn-arroba">
-                  <span aria-hidden="true">@</span>
-                  <input {...a} name="instagram" className="pn-input" autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="greencheese_imports" value={f.instagram} onChange={(x) => mudar('instagram', x.target.value)} />
-                </div>
-              )}
-            </Campo>
-            <Campo id="e-nomePerfil" rotulo="Nome do perfil" erro={erros.nomePerfil} dica="O nome que aparece no perfil do Instagram (vazio: só o @)." lado={<span className="pn-opcional">opcional</span>}>
-              {(a) => <input {...a} name="nomePerfil" className="pn-input" autoComplete="off" maxLength={40} placeholder="GREEN CHEESE LTDA" value={f.nomePerfil} onChange={(x) => mudar('nomePerfil', x.target.value)} />}
-            </Campo>
-            <Campo
-              id="e-destaque"
-              rotulo="Nome do destaque"
-              erro={erros.destaque}
-              dica={
-                cabeNaBolinha(f.destaque)
-                  ? 'A bolinha do estado nos destaques do Início (abre o atendimento).'
-                  : 'No celular, esse nome passa da bolinha e o fim vira “…” (como no Instagram). Umas 11 letras cabem inteiras (ex.: DELIVERY RJ).'
+          {e && !f.ativo && (
+            <Aviso
+              tipo="info"
+              acao={
+                <Botao variante="cinza" className="pn-botao-p" ocupado={noSite === 'pondo'} onClick={() => void mudarNoSite(true).catch((err) => recado(apiBase.mensagemDe(err), { tipo: 'erro' }))}>
+                  Pôr de volta no site
+                </Botao>
               }
-              lado={<span className="pn-contagem">{tamanho(f.destaque)}/20</span>}
             >
-              {(a) => <input {...a} name="destaque" className="pn-input" autoComplete="off" maxLength={20} value={f.destaque} onChange={(x) => mudar('destaque', x.target.value)} />}
-            </Campo>
-          </Secao>
-
-          <Secao titulo="WhatsApp do pedido" id="s-e-whats">
-            {mesmo && (
-              <Aviso tipo="info">
-                Hoje todos os estados fecham no WhatsApp da loja, {whatsappBonito(l.ajustes.whatsapp)}. O número daqui fica guardado e vale quando tu desligar “o mesmo pra todos” na{' '}
-                <Link href={caminho.loja} className="pn-link pn-link-dentro">
-                  Loja
-                </Link>
-                .
-              </Aviso>
-            )}
-            <fieldset className="pn-opcoes">
-              <legend className="sr-only">WhatsApp do pedido</legend>
-              <label className="pn-opcao">
-                <input type="radio" name="whatsModo" checked={f.whatsModo === 'loja'} onChange={() => mudar('whatsModo', 'loja')} />
-                <span className="pn-opcao-marca" aria-hidden="true" />
-                <span>
-                  O da loja
-                  <small>{whatsappBonito(l.ajustes.whatsapp)}</small>
-                </span>
-              </label>
-              <label className="pn-opcao">
-                <input type="radio" name="whatsModo" checked={f.whatsModo === 'proprio'} onChange={() => mudar('whatsModo', 'proprio')} />
-                <span className="pn-opcao-marca" aria-hidden="true" />
-                <span>
-                  Um próprio pra {nome}
-                  <small>o pedido daqui fecha nele</small>
-                </span>
-              </label>
-            </fieldset>
-            {f.whatsModo === 'proprio' && (
-              <Campo id="e-whatsapp" rotulo={`WhatsApp de ${nome}`} erro={erros.whatsapp} dica="Celular com DDD (ex.: 21 99999-8888).">
-                {(a) => <input {...a} name="whatsapp" className="pn-input" type="tel" inputMode="tel" autoComplete="off" placeholder="(21) 99999-8888" value={f.whatsapp} onChange={(x) => mudar('whatsapp', x.target.value)} />}
-              </Campo>
-            )}
-          </Secao>
-
-          <Secao titulo="Cidades" id="s-e-cidades" dica="Com mais de uma, o site pergunta a cidade.">
-            <Cidades cidades={f.cidades} aoMudar={(c) => mudar('cidades', c)} erro={erros.cidades} />
-          </Secao>
+              {nome} tá fora do site. Os dados ficam guardados.
+            </Aviso>
+          )}
+          {voltouRascunho && (
+            <Aviso
+              tipo="info"
+              acao={
+                <button
+                  type="button"
+                  className="pn-link-botao"
+                  onClick={() => {
+                    lembrarJson(chaveRascunho, null)
+                    setVoltouRascunho(false)
+                    setErros({})
+                    setF(limpo.current ? (JSON.parse(limpo.current) as Form) : null)
+                  }}
+                >
+                  Desfazer mudanças
+                </button>
+              }
+            >
+              Continuando de onde tu parou (ficou guardado neste aparelho).
+            </Aviso>
+          )}
 
           <Secao titulo="Horário de entrega" id="s-e-horario" dica="Fechar depois da meia-noite vale: das 14:00 às 03:00 é até as 3h da madrugada do dia seguinte.">
             {e?.horario.demo && <Aviso tipo="info">Esse horário é de exemplo: o site não mostra até tu salvar o de verdade.</Aviso>}
@@ -547,6 +596,25 @@ export function Estado({ uf }: { uf: string }) {
                 )}
               </Campo>
             )}
+            {taxaZero && !erros.taxa && (
+              <Aviso
+                tipo="info"
+                acao={
+                  <Botao
+                    variante="cinza"
+                    className="pn-botao-p"
+                    onClick={() => {
+                      setF((s) => (s ? { ...s, taxaModo: 'confirmar', taxa: '', gratis: true } : s))
+                      window.requestAnimationFrame(() => document.getElementById('e-gratis-0')?.focus())
+                    }}
+                  >
+                    Ligar entrega grátis
+                  </Botao>
+                }
+              >
+                Taxa R$ 0? Liga a “Entrega grátis” nos dias que valem: nesses dias o site mostra a frase do dia.
+              </Aviso>
+            )}
           </Secao>
 
           <Secao titulo="Entrega grátis" id="s-e-gratis">
@@ -609,6 +677,97 @@ export function Estado({ uf }: { uf: string }) {
               )}
             </div>
           </Secao>
+
+          <Secao titulo="Cidades" id="s-e-cidades" dica="Com mais de uma, o site pergunta a cidade.">
+            <Cidades
+              cidades={f.cidades}
+              nova={f.cidadeNova}
+              aoMudarNova={(v) => {
+                mudar('cidadeNova', v)
+                if (erros.cidades) setErros((x) => ({ ...x, cidades: undefined }))
+              }}
+              aoMudar={(c) => {
+                mudar('cidades', c)
+                if (erros.cidades) setErros((x) => ({ ...x, cidades: undefined }))
+              }}
+              erro={erros.cidades}
+            />
+          </Secao>
+
+          <Secao titulo="WhatsApp do pedido" id="s-e-whats">
+            {mesmo && (
+              <Aviso tipo="info">
+                Hoje todos os estados fecham no WhatsApp da loja, {whatsappBonito(l.ajustes.whatsapp)}. O número daqui fica guardado e vale quando tu desligar “o mesmo pra todos” nos{' '}
+                <Link href={caminho.loja} className="pn-link pn-link-dentro">
+                  Ajustes da loja
+                </Link>
+                .
+              </Aviso>
+            )}
+            <fieldset className="pn-opcoes">
+              <legend className="sr-only">WhatsApp do pedido</legend>
+              <label className="pn-opcao">
+                <input type="radio" name="whatsModo" checked={f.whatsModo === 'loja'} onChange={() => mudar('whatsModo', 'loja')} />
+                <span className="pn-opcao-marca" aria-hidden="true" />
+                <span>
+                  O da loja
+                  <small>{whatsappBonito(l.ajustes.whatsapp)}</small>
+                </span>
+              </label>
+              <label className="pn-opcao">
+                <input type="radio" name="whatsModo" checked={f.whatsModo === 'proprio'} onChange={() => mudar('whatsModo', 'proprio')} />
+                <span className="pn-opcao-marca" aria-hidden="true" />
+                <span>
+                  Um próprio pra {nome}
+                  <small>o pedido daqui fecha nele</small>
+                </span>
+              </label>
+            </fieldset>
+            {f.whatsModo === 'proprio' && (
+              <Campo id="e-whatsapp" rotulo={`WhatsApp de ${nome}`} erro={erros.whatsapp} dica="Celular com DDD (ex.: 21 99999-8888).">
+                {(a) => <input {...a} name="whatsapp" className="pn-input" type="tel" inputMode="tel" autoComplete="off" placeholder="(21) 99999-8888" value={f.whatsapp} onChange={(x) => mudar('whatsapp', x.target.value)} />}
+              </Campo>
+            )}
+          </Secao>
+
+          <Secao titulo="Perfil" id="s-e-perfil">
+            <Campo id="e-instagram" rotulo="Instagram do estado" erro={erros.instagram} dica="As dúvidas e o “Avisar quando chegar” vão pra DM dele.">
+              {(a) => (
+                <div className="pn-arroba">
+                  <span aria-hidden="true">@</span>
+                  <input {...a} name="instagram" className="pn-input" autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="greencheese_imports" value={f.instagram} onChange={(x) => mudar('instagram', x.target.value)} />
+                </div>
+              )}
+            </Campo>
+            <Campo id="e-nomePerfil" rotulo="Nome do perfil" erro={erros.nomePerfil} dica="O nome que aparece no perfil do Instagram (vazio: só o @)." lado={<span className="pn-opcional">opcional</span>}>
+              {(a) => <input {...a} name="nomePerfil" className="pn-input" autoComplete="off" maxLength={40} placeholder="GREEN CHEESE LTDA" value={f.nomePerfil} onChange={(x) => mudar('nomePerfil', x.target.value)} />}
+            </Campo>
+            <Campo
+              id="e-destaque"
+              rotulo="Nome do destaque"
+              erro={erros.destaque}
+              dica={
+                cabeNaBolinha(f.destaque)
+                  ? 'A bolinha do estado nos destaques do Início (abre o atendimento).'
+                  : 'No celular, esse nome passa da bolinha e o fim vira “…” (como no Instagram). Umas 11 letras cabem inteiras (ex.: DELIVERY RJ).'
+              }
+              lado={<span className="pn-contagem">{tamanho(f.destaque)}/20</span>}
+            >
+              {(a) => <input {...a} name="destaque" className="pn-input" autoComplete="off" maxLength={20} value={f.destaque} onChange={(x) => mudar('destaque', x.target.value)} />}
+            </Campo>
+          </Secao>
+
+          {e && f.ativo && (
+            <section className="pn-form-secao pn-perigo-zona" aria-labelledby="s-e-tirar">
+              <h2 id="s-e-tirar" className="pn-h2">
+                Tirar do site
+              </h2>
+              <p className="pn-dica-bloco">O estado some do site e quem é de lá vê “ainda não chegou aí”. Os dados ficam guardados pra pôr de volta.</p>
+              <Botao variante="perigo" icone="atencao" ocupado={noSite === 'tirando'} onClick={pedirTirar}>
+                Tirar {nome} do site
+              </Botao>
+            </section>
+          )}
         </div>
 
         <div className="pn-editar-pe">
@@ -618,6 +777,7 @@ export function Estado({ uf }: { uf: string }) {
           </Botao>
         </div>
       </form>
+      <Confirmar pedido={confirmacao} aoFechar={() => setConfirmacao(null)} />
     </>
   )
 }

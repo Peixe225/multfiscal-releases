@@ -9,6 +9,7 @@ import { quando } from '../formato'
 import * as api from '../api'
 import { Folha } from '../Folha'
 import { Topo } from '../Moldura'
+import { caminho } from '../rotas'
 import { termoProibido } from '../proibidos'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
@@ -188,7 +189,7 @@ export function Textos() {
 
   return (
     <>
-      <Topo titulo={<TituloTela>Textos do pedido</TituloTela>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Textos do pedido</TituloTela>} />
       <div className="pn-pagina pn-pagina-estreita pd-textos">
         <p className="pn-dica-bloco pd-textos-intro">
           As falas do chat que monta o pedido no site. Dá pra trocar o jeito de falar de cada uma; a mensagem que vai pro WhatsApp continua igual. Sem promessa de prazo ou frete: a loja combina

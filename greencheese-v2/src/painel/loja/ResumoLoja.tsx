@@ -1,5 +1,6 @@
-// O bloco da loja no Resumo: o que pede atenção nos produtos (esgotado em algum estado, acabando, fora do site) e os
-// atalhos pras partes da loja. No celular é por aqui que se chega nos produtos com um toque.
+// O bloco da loja no Início: o que pede atenção nos produtos (esgotado em algum estado, acabando, fora do site) e os
+// atalhos que não estão no topo do Início (Teste minha sorte e os ajustes da loja). Produtos, Estados e Stories ficam
+// nos atalhos de cima e no "Mais".
 import { Link } from '../Moldura'
 import { caminho } from '../rotas'
 import { Ic } from '../ui'
@@ -20,8 +21,8 @@ export function ResumoLoja() {
         <h2 id="h-loja-resumo" className="pn-h2">
           Loja
         </h2>
-        <Link href={caminho.loja} className="pn-link">
-          Ajustes
+        <Link href={caminho.produtos} className="pn-link">
+          Produtos
         </Link>
       </div>
       {linhas.length > 0 ? (
@@ -43,22 +44,14 @@ export function ResumoLoja() {
           <Ic nome="check" tamanho={16} /> {c.noSite === 1 ? '1 produto no site' : `${c.noSite} produtos no site`}, nada esgotado.
         </p>
       )}
-      <div className="pn-atalhos">
-        <Link href={caminho.produtos} className="pn-atalho toque">
-          <Ic nome="sacola" tamanho={24} />
-          <span>Produtos</span>
-        </Link>
-        <Link href={caminho.estados} className="pn-atalho toque">
-          <Ic nome="pin" tamanho={24} />
-          <span>Estados</span>
-        </Link>
-        <Link href={caminho.stories} className="pn-atalho toque">
-          <Ic nome="estrela" tamanho={24} />
-          <span>Stories</span>
-        </Link>
+      <div className="pn-atalhos pn-atalhos-2">
         <Link href={caminho.sorte} className="pn-atalho toque">
           <Ic nome="dichavador" tamanho={24} />
-          <span>Sorte</span>
+          <span>Teste minha sorte</span>
+        </Link>
+        <Link href={caminho.loja} className="pn-atalho toque">
+          <Ic nome="loja" tamanho={24} />
+          <span>Ajustes da loja</span>
         </Link>
       </div>
     </section>

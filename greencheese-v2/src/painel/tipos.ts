@@ -22,6 +22,25 @@ export interface Sessao {
   usuario: Usuario | null
   csrf: string | null
   versao: string
+  /** O "Esqueci a senha" oferece o código pelo WhatsApp da loja (servidor de antes: não vem). */
+  recuperarPeloWhatsapp?: boolean
+}
+
+/** Os itens da lista "Pra deixar a loja pronta" (a ordem da tela). */
+export type ItemPronto = 'senha' | 'estados' | 'exemplos' | 'precos' | 'fotos' | 'equipe' | 'avisos' | 'copia'
+
+/** GET admin-pronto: o que só o servidor sabe pra lista do Resumo e pra Conta. */
+export interface Pronto {
+  agora: string
+  instaladoEm: string | null
+  senhaTrocada: boolean
+  /** Quantos outros acessos ativos (dono, gerente, atendente). */
+  equipe: number
+  outrosDonos: { nome: string; login: string }[]
+  avisos: { ligado: boolean }
+  copia: { ultimaEm: string | null }
+  pulados: ItemPronto[]
+  recuperacao: { disponivel: boolean; ligado: boolean; para: string | null }
 }
 
 export interface RateioAdmin {

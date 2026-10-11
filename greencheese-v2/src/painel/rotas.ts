@@ -12,7 +12,7 @@ export type Rota =
   | { tela: 'avisos' }
   | { tela: 'textos' }
   // equipe e clientes (as contas)
-  | { tela: 'equipe' }
+  | { tela: 'equipe'; novo: 'dono' | null }
   | { tela: 'usuario'; login: string }
   | { tela: 'clientes'; promo: boolean }
   | { tela: 'cliente'; id: number }
@@ -24,6 +24,10 @@ export type Rota =
   | { tela: 'atividade'; quem: string | null }
   | { tela: 'conta' }
   | { tela: 'servidor' }
+  // o "Mais" (tudo que não cabe na barra, agrupado), o estoque de quem não cuida da loja inteira (gerente) e o guia
+  | { tela: 'mais' }
+  | { tela: 'estoque'; uf: string | null }
+  | { tela: 'ajuda' }
   // loja: produtos, estados, stories do Início, categorias, ajustes e Teste minha sorte
   | { tela: 'produtos'; ver: VerProdutos | null }
   | { tela: 'produto'; id: string }
@@ -60,7 +64,7 @@ function ler(): Rota {
     case 'textos':
       return { tela: 'textos' }
     case 'equipe':
-      return partes[1] && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(partes[1]) ? { tela: 'usuario', login: partes[1] } : { tela: 'equipe' }
+      return partes[1] && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(partes[1]) ? { tela: 'usuario', login: partes[1] } : { tela: 'equipe', novo: q.get('novo') === 'dono' ? 'dono' : null }
     case 'clientes':
       return { tela: 'clientes', promo: q.get('promo') === '1' }
     case 'cliente':
@@ -80,6 +84,12 @@ function ler(): Rota {
       return { tela: 'conta' }
     case 'servidor':
       return { tela: 'servidor' }
+    case 'mais':
+      return { tela: 'mais' }
+    case 'ajuda':
+      return { tela: 'ajuda' }
+    case 'estoque':
+      return { tela: 'estoque', uf: partes[1] && UF.test(partes[1]) ? partes[1] : null }
     case 'produtos': {
       if (partes[1] === 'novo') return { tela: 'produto-novo' }
       const ver = q.get('ver') as VerProdutos | null
@@ -114,8 +124,56 @@ function avisar() {
   atual = ler()
   ouvintes.forEach((f) => f())
 }
-window.addEventListener('popstate', avisar)
-window.addEventListener('hashchange', avisar)
+
+// ─── mudança não salva: a tela de formulário pergunta antes de sair (sair.tsx, useAvisarAoSair) ────────────────
+// Vale pro voltar do topo, pros links (barra, lateral, atalhos) e pro voltar do Android/navegador. O voltar do
+// navegador já trocou o endereço quando avisa: a tela volta pro lugar (sem desenhar de novo) e pergunta; "Descartar"
+// faz o voltar de novo, sem a guarda.
+
+export interface Guarda {
+  /** Tem mudança não salva agora? */
+  mexeu: () => boolean
+  /** Abre a pergunta; seguir() faz a navegação que foi barrada (já sem a guarda). */
+  perguntar: (seguir: () => void) => void
+}
+
+let guarda: Guarda | null = null
+
+/** A tela de formulário registra a guarda dela (null tira; só tira se ainda for a mesma). */
+export function definirGuarda(g: Guarda | null, se?: Guarda): void {
+  if (g === null && se && guarda !== se) return
+  guarda = g
+}
+
+/** Barra a navegação quando tem mudança não salva: pergunta e devolve true (quem chamou para ali). */
+function barrado(seguir: () => void): boolean {
+  const g = guarda
+  if (!g || !g.mexeu()) return false
+  g.perguntar(() => {
+    if (guarda === g) guarda = null
+    seguir()
+  })
+  return true
+}
+
+function aoNavegador() {
+  if (location.hash === chave) return
+  const g = guarda
+  if (g && g.mexeu()) {
+    // o voltar do Android saiu da tela com mudança: põe a tela de volta no histórico, igual estava, e pergunta
+    const destino = location.hash
+    const n = (history.state as { pn?: number } | null)?.pn ?? 0
+    history.pushState({ pn: n + 1 }, '', chave)
+    g.perguntar(() => {
+      if (guarda === g) guarda = null
+      voltar(destino || '#/')
+    })
+    return
+  }
+  avisar()
+}
+window.addEventListener('popstate', aoNavegador)
+window.addEventListener('hashchange', aoNavegador)
 
 function assinar(f: () => void) {
   ouvintes.add(f)
@@ -164,6 +222,7 @@ export function ir(caminho: string, trocar = false): void {
   }
   const url = caminho.startsWith('#') ? caminho : `#${caminho}`
   if (url === location.hash || (url === '#/' && !location.hash)) return
+  if (barrado(() => ir(caminho, trocar))) return
   rolagens.set(location.hash, window.scrollY)
   rolagens.delete(url)
   const n = (history.state as { pn?: number } | null)?.pn ?? 0
@@ -178,6 +237,7 @@ export function voltar(padrao: string): void {
     void voltando.then(() => voltar(padrao))
     return
   }
+  if (barrado(() => voltar(padrao))) return
   const n = (history.state as { pn?: number; folha?: string } | null)?.pn ?? 0
   if (n > 0) {
     rolagens.set(location.hash, window.scrollY)
@@ -207,12 +267,18 @@ export const caminho = {
   atividadeDe: (login: string) => `#/atividade?quem=${encodeURIComponent(login)}`,
   // equipe e clientes
   equipe: '#/equipe',
+  /** Equipe com o "Novo acesso" aberto no papel de dono (o 2º dono, pra senha esquecida). */
+  equipeNovoDono: '#/equipe?novo=dono',
   usuario: (login: string) => `#/equipe/${login}`,
   clientes: '#/clientes',
   clientesPromo: '#/clientes?promo=1',
   cliente: (id: number) => `#/cliente/${id}`,
   conta: '#/conta',
   servidor: '#/servidor',
+  mais: '#/mais',
+  ajuda: '#/ajuda',
+  estoque: '#/estoque',
+  estoqueDe: (uf: string) => `#/estoque/${uf}`,
   // loja
   produtos: '#/produtos',
   produtosVer: (ver: VerProdutos) => `#/produtos?ver=${ver}`,

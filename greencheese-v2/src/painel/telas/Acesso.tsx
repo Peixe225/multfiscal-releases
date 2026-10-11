@@ -1,5 +1,6 @@
-// Entrada do painel: primeiro acesso (código de instalação + login + senha), entrar, esqueci a senha e a folha que
-// aparece por cima quando a sessão cai no meio do trabalho (a tela de trás continua com o que estava digitado).
+// Entrada do painel: primeiro acesso (código de instalação + login + senha), entrar, esqueci a senha (o dono da equipe
+// gera a provisória; outro dono também; o código no WhatsApp da loja; e, por último, o código de instalação novo) e a
+// folha que aparece por cima quando a sessão cai no meio do trabalho (a tela de trás continua com o que estava digitado).
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Logo, LogoPixel } from '../../arte/Logo'
 import * as api from '../api'
@@ -269,7 +270,7 @@ function Recuperar({ aoEntrar, voltar }: { aoEntrar: (u: Usuario, csrf: string) 
   }
   return (
     <main className="pn-acesso">
-      <Cabeca titulo="Senha nova">Pede um código de instalação novo pra quem cuida do site (o primeiro não vale de novo). Com ele, tu escolhe outra senha e todo aparelho conectado sai.</Cabeca>
+      <Cabeca titulo="Senha nova">Com o código de instalação novo (quem cuida do site gera; o primeiro não vale de novo), tu escolhe outra senha e todo aparelho conectado sai.</Cabeca>
       <form ref={form} className="pn-form" onSubmit={enviar} noValidate>
         <Campo id="r-codigo" rotulo="Código novo" erro={erros.codigo}>
           {(a) => <input {...a} name="codigo" className="pn-input pn-input-codigo" autoComplete="one-time-code" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={v.codigo} onChange={(e) => mudar('codigo')(e.target.value)} maxLength={64} />}
@@ -284,19 +285,181 @@ function Recuperar({ aoEntrar, voltar }: { aoEntrar: (u: Usuario, csrf: string) 
           Trocar a senha e entrar
         </Botao>
         <button type="button" className="pn-link-botao" onClick={voltar}>
-          Lembrei a senha
+          Voltar pros outros jeitos
         </button>
       </form>
     </main>
   )
 }
 
-export function Entrar({ aoEntrar }: { aoEntrar: (u: Usuario, csrf: string) => void }) {
-  const [esqueci, setEsqueci] = useState(false)
-  if (esqueci) return <Recuperar aoEntrar={aoEntrar} voltar={() => setEsqueci(false)} />
+/** 2ª via: o código de 6 números no WhatsApp da loja (só pro dono; a resposta é a mesma pra qualquer login). */
+function RecuperarPeloWhatsapp({ aoEntrar }: { aoEntrar: (u: Usuario, csrf: string) => void }) {
+  const [v, setV] = useState({ login: lido('login') ?? '', codigo: '', senha: '', confirma: '' })
+  const [enviado, setEnviado] = useState<string | null>(null)
+  const [erros, setErros] = useState<Erros>({})
+  const [geral, setGeral] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+  const trava = useRef(false)
+  const form = useRef<HTMLFormElement>(null)
+  const mudar = (k: keyof typeof v) => (x: string) => {
+    setV((s) => ({ ...s, [k]: x }))
+    if (erros[k]) setErros((s) => ({ ...s, [k]: undefined }))
+  }
+  const pedir = async (e?: FormEvent) => {
+    e?.preventDefault()
+    const login = v.login.trim().toLowerCase()
+    if (!LOGIN_OK.test(login)) {
+      const n = { login: 'Põe teu login (letras minúsculas, números, ponto ou traço).' }
+      setErros(n)
+      focarErro(form.current, n)
+      return
+    }
+    if (trava.current) return
+    trava.current = true
+    setOcupado(true)
+    setGeral(null)
+    try {
+      const r = await api.pedirCodigoSenha(login)
+      setEnviado(r.mensagem)
+    } catch (err) {
+      setGeral(api.mensagemDe(err))
+    } finally {
+      trava.current = false
+      setOcupado(false)
+    }
+  }
+  const entrar = async (e: FormEvent) => {
+    e.preventDefault()
+    const login = v.login.trim().toLowerCase()
+    const novos: Erros = {
+      codigo: /^\d{6}$/.test(v.codigo.replace(/\D/g, '')) ? undefined : 'O código tem 6 números (chegou no WhatsApp da loja).',
+      senha: validarSenha(v.senha),
+      confirma: v.confirma !== v.senha ? 'As duas senhas não batem.' : undefined,
+    }
+    setErros(novos)
+    setGeral(null)
+    if (Object.values(novos).some(Boolean)) {
+      focarErro(form.current, novos)
+      return
+    }
+    if (trava.current) return
+    trava.current = true
+    setOcupado(true)
+    try {
+      const r = await api.entrarComCodigo({ login, codigo: v.codigo.replace(/\D/g, ''), senha: v.senha })
+      lembrar('login', r.usuario.login)
+      aoEntrar(r.usuario, r.csrf)
+    } catch (err) {
+      const s = separar(err, ['codigo', 'senha'], { 'codigo-invalido': 'codigo' })
+      if (s.campo) {
+        const n = { [s.campo]: (err as ErroApi).message }
+        setErros(n)
+        focarErro(form.current, n)
+      } else setGeral(s.geral ?? null)
+    } finally {
+      trava.current = false
+      setOcupado(false)
+    }
+  }
+  if (!enviado) {
+    return (
+      <form ref={form} className="pn-form" onSubmit={pedir} noValidate>
+        <Campo id="w-login" rotulo="Login" erro={erros.login}>
+          {(a) => <input {...a} name="login" className="pn-input" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={v.login} onChange={(e) => mudar('login')(e.target.value.toLowerCase())} maxLength={32} />}
+        </Campo>
+        {geral && <Aviso tipo="erro">{geral}</Aviso>}
+        <Botao type="submit" largo icone="whatsapp" ocupado={ocupado}>
+          Mandar código pro WhatsApp da loja
+        </Botao>
+      </form>
+    )
+  }
+  return (
+    <form ref={form} className="pn-form" onSubmit={entrar} noValidate>
+      <Aviso tipo="info">{enviado}</Aviso>
+      <Campo id="w-codigo" rotulo="Código" erro={erros.codigo} dica="Os 6 números que chegaram no WhatsApp da loja.">
+        {(a) => <input {...a} name="codigo" className="pn-input pn-input-codigo" inputMode="numeric" autoComplete="one-time-code" value={v.codigo} onChange={(e) => mudar('codigo')(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} />}
+      </Campo>
+      <CampoSenha id="w-senha" nome="senha" rotulo="Senha nova" valor={v.senha} aoMudar={mudar('senha')} erro={erros.senha} auto="new-password" dica="10 caracteres ou mais." />
+      <CampoSenha id="w-confirma" nome="confirma" rotulo="Repete a senha nova" valor={v.confirma} aoMudar={mudar('confirma')} erro={erros.confirma} auto="new-password" />
+      {geral && <Aviso tipo="erro">{geral}</Aviso>}
+      <Botao type="submit" largo ocupado={ocupado}>
+        Trocar a senha e entrar
+      </Botao>
+      <button type="button" className="pn-link-botao" onClick={() => void pedir()} disabled={ocupado}>
+        Mandar outro código
+      </button>
+    </form>
+  )
+}
+
+/**
+ * "Esqueci a senha": o jeito de cada um, sem depender de quem fez o site. Equipe: o dono gera uma senha provisória.
+ * Dono: outro dono gera; com os Avisos no WhatsApp ligados, um código pro WhatsApp da loja; por último, o código de
+ * instalação novo (com quem cuida do site).
+ */
+function Esqueci({ aoEntrar, voltar }: { aoEntrar: (u: Usuario, csrf: string) => void; voltar: () => void }) {
+  const [whats, setWhats] = useState<boolean | null>(null)
+  const [jeito, setJeito] = useState<'whatsapp' | 'instalacao' | null>(null)
+  useEffect(() => {
+    let vivo = true
+    api
+      .sessao()
+      .then((s) => vivo && setWhats(!!s.recuperarPeloWhatsapp))
+      .catch(() => vivo && setWhats(false))
+    return () => {
+      vivo = false
+    }
+  }, [])
+  if (jeito === 'instalacao') return <Recuperar aoEntrar={aoEntrar} voltar={() => setJeito(null)} />
   return (
     <main className="pn-acesso">
-      <Cabeca titulo="Painel da loja">Entra com teu login pra cuidar dos rateios.</Cabeca>
+      <Cabeca titulo="Esqueci a senha">Tem jeito sem precisar de ninguém de fora. Escolhe o teu caso:</Cabeca>
+      <ul className="pn-esqueci">
+        <li>
+          <strong>É da equipe (gerente ou atendente)?</strong>
+          <span>Pede pro dono gerar uma senha provisória pra ti: Equipe › teu nome › Gerar senha provisória.</span>
+        </li>
+        <li>
+          <strong>É dono e a loja tem outro dono?</strong>
+          <span>Ele gera uma senha provisória pra ti em Equipe.</span>
+        </li>
+        {whats && (
+          <li>
+            <strong>É dono: código no WhatsApp da loja</strong>
+            {jeito === 'whatsapp' ? (
+              <RecuperarPeloWhatsapp aoEntrar={aoEntrar} />
+            ) : (
+              <>
+                <span>Chega um código de 6 números no WhatsApp da loja; com ele tu escolhe a senha nova.</span>
+                <Botao variante="cinza" icone="whatsapp" onClick={() => setJeito('whatsapp')}>
+                  Receber o código no WhatsApp da loja
+                </Botao>
+              </>
+            )}
+          </li>
+        )}
+        <li>
+          <strong>Nada disso deu?</strong>
+          <span>Pede um código de instalação novo pra quem cuida do site (o primeiro não vale de novo).</span>
+          <button type="button" className="pn-link-botao pn-esqueci-link" onClick={() => setJeito('instalacao')}>
+            Tenho um código de instalação novo
+          </button>
+        </li>
+      </ul>
+      <button type="button" className="pn-link-botao" onClick={voltar}>
+        Lembrei a senha
+      </button>
+    </main>
+  )
+}
+
+export function Entrar({ aoEntrar }: { aoEntrar: (u: Usuario, csrf: string) => void }) {
+  const [esqueci, setEsqueci] = useState(false)
+  if (esqueci) return <Esqueci aoEntrar={aoEntrar} voltar={() => setEsqueci(false)} />
+  return (
+    <main className="pn-acesso">
+      <Cabeca titulo="Painel da loja">Entra pra cuidar da loja: pedidos, produtos e rateios.</Cabeca>
       <FormEntrar aoEntrar={aoEntrar} />
       <button type="button" className="pn-link-botao" onClick={() => setEsqueci(true)}>
         Esqueci a senha

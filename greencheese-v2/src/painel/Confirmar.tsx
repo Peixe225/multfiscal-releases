@@ -11,6 +11,8 @@ export interface PedidoConfirmacao {
   /** Linhas de detalhe (quem, quanto). */
   detalhes?: ReactNode
   botao: string
+  /** O botão de não fazer (padrão "Deixa como tá": nunca o mesmo nome do de fazer). */
+  cancelar?: string
   perigo?: boolean
   /** A ação. Se devolver um resultado, a folha troca pra ele em vez de fechar. */
   acao: () => Promise<Resultado | void>
@@ -79,7 +81,7 @@ function ConfirmarAberto({ pedido, aoFechar }: { pedido: PedidoConfirmacao; aoFe
             {pedido.botao}
           </Botao>
           <Botao variante="texto" largo onClick={aoFechar} disabled={ocupado}>
-            Voltar
+            {pedido.cancelar ?? 'Deixa como tá'}
           </Botao>
         </div>
       }

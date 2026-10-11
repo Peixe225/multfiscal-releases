@@ -9,6 +9,7 @@ import { Link, Topo } from '../Moldura'
 import { caminho, ir } from '../rotas'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { pegarRecado } from '../telas/flash'
+import { recado as mostrarRecado } from '../recado'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
 import { ajustesClientes, baixarPromocoes, clientes } from './api'
 import './estilo'
@@ -40,7 +41,7 @@ export function Clientes({ promo }: { promo: boolean }) {
 
   return (
     <>
-      <Topo titulo={<TituloTela>Clientes</TituloTela>} />
+      <Topo voltar={caminho.mais} titulo={<TituloTela>Clientes</TituloTela>} />
       <div className="pn-pagina pn-pagina-estreita">
         {recado && <Aviso tipo="ok">{recado}</Aviso>}
         {d && <Codigo situacao={d.codigo} aoMudar={() => void leitura.recarregar()} />}
@@ -118,7 +119,8 @@ export function Clientes({ promo }: { promo: boolean }) {
               setBaixando(true)
               setErroBaixar(null)
               try {
-                await baixarPromocoes()
+                const nome = await baixarPromocoes()
+                mostrarRecado(`Lista baixada (${nome}). Guarda em lugar seguro: são dados de clientes.`)
               } catch (e) {
                 setErroBaixar(api.mensagemDe(e))
               } finally {

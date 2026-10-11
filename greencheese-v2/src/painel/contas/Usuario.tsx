@@ -62,7 +62,7 @@ export function Usuario({ login }: { login: string }) {
       u.ativo
         ? {
             titulo: `Desativar o acesso de ${u.nome}?`,
-            texto: 'A pessoa sai do painel na hora, em todos os aparelhos, e não entra mais. O que ela fez continua na Atividade. Dá pra reativar depois.',
+            texto: 'A pessoa sai do painel na hora, em todos os aparelhos, e não entra mais. O que ela fez continua no Histórico. Dá pra reativar depois.',
             botao: 'Desativar',
             perigo: true,
             acao: async () => {
@@ -182,7 +182,7 @@ function EditarAcesso({ u, aoFim }: { u: UsuarioAdmin; aoFim: (novo: UsuarioAdmi
     }
     setErros(n)
     if (n.nome || n.ufs) {
-      form.current?.querySelector<HTMLElement>(n.nome ? '[name="nome"]' : '#ct-uf-rj')?.focus()
+      form.current?.querySelector<HTMLElement>(n.nome ? '[name="nome"]' : '.pn-chips button')?.focus()
       return
     }
     trava.current = true

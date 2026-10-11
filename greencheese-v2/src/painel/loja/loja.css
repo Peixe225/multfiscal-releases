@@ -244,19 +244,11 @@
   font-size: 20px;
   text-align: center;
 }
-/* botão do topo: no celular só o ícone (o nome segue pro leitor de tela); "Novo produto" vira "Novo" */
+/* botão do topo com o nome sempre à vista ("Organizar", "Prêmio"): no celular só fica mais justo */
 @media (max-width: 599px) {
   .pn-so-icone-celular {
-    width: 44px;
-    padding: 0;
-  }
-  .pn-so-icone-celular .pn-botao-txt {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    padding: 0 10px;
+    gap: 6px;
   }
 }
 @media (max-width: 479px) {
@@ -325,7 +317,7 @@ html.com-teclado .pn-pe-fixo {
   bottom: 0;
   padding-bottom: calc(12px + var(--seg-baixo));
 }
-@media (min-width: 900px) {
+@media (min-width: 720px) {
   .pn-pe-fixo {
     bottom: 0;
   }
@@ -440,7 +432,7 @@ html.com-teclado .pn-pe-fixo {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: 600 11px/1.2 var(--ui);
+  font: 600 12px/1.2 var(--ui);
 }
 /* cabeçalho do story do prêmio, como no site: o @ e o "agora", e embaixo o selo dos Melhores amigos */
 .pn-sq-cab {
@@ -458,14 +450,14 @@ html.com-teclado .pn-pe-fixo {
 }
 .pn-sq-tempo {
   flex: none;
-  font: 400 10px/1 var(--ui);
+  font: 400 12px/1 var(--ui);
   color: var(--legenda);
 }
 .pn-sq-selo {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font: 600 10px/1 var(--ui);
+  font: 600 12px/1 var(--ui);
   white-space: nowrap;
 }
 .pn-sq-story .pn-sq-arte,
@@ -1205,6 +1197,9 @@ html.com-teclado .pn-pe-fixo {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-top: 12px;
+}
+.pn-atalhos-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .pn-atalho {
   display: flex;

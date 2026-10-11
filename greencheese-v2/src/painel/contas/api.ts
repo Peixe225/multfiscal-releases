@@ -36,7 +36,8 @@ export const ajustesClientes = (corpo: { codigo?: boolean; tetoHora?: number; te
 export const cupomUsado = (codigo: string, usado: boolean) => pedir<Ok<{ cupom: CupomCliente }>>('POST', 'admin-cupom-usado', { corpo: { codigo, usado } })
 
 /** Baixa a lista de quem aceitou promoções (CSV pro Excel). */
-export async function baixarPromocoes(): Promise<void> {
+/** Baixa a lista de promoções e devolve o nome do arquivo (pro recado). */
+export async function baixarPromocoes(): Promise<string> {
   const a = await pedir<Arquivo>('GET', 'admin-clientes-csv', { arquivo: true, prazo: 60_000 })
   const url = URL.createObjectURL(a.blob)
   const link = document.createElement('a')
@@ -47,4 +48,5 @@ export async function baixarPromocoes(): Promise<void> {
   link.click()
   link.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  return a.nome ?? 'clientes-promocoes.csv'
 }

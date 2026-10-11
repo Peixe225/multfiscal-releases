@@ -14,6 +14,7 @@ import './estilo'
 import type { ResumoPedidos as TResumo } from './tipos'
 
 let novos = 0
+let falhas = 0
 const ouvintes = new Set<() => void>()
 function assinar(f: () => void) {
   ouvintes.add(f)
@@ -22,19 +23,36 @@ function assinar(f: () => void) {
   }
 }
 
-/** Quantos pedidos novos o bloco do Resumo achou (0 até ele carregar). */
+/** Quantos pedidos novos a última leitura achou (0 até carregar): a frase do Resumo e a bolinha da barra. */
 export function useNovosPedidos(): number {
   return useSyncExternalStore(assinar, () => novos)
 }
 
-export function ResumoPedidos() {
-  const leitura = useDados<TResumo>('pedidos-resumo', (s) => resumoPedidos(s))
-  const d = leitura.dados
+/** Quantos avisos no grupo não foram nos últimos 7 dias (só o dono recebe; 0 pros outros). */
+export function useAvisosQueFalharam(): number {
+  return useSyncExternalStore(assinar, () => falhas)
+}
+
+/**
+ * A leitura do resumo dos pedidos (a mesma chave do bloco do Resumo, então uma alimenta a outra), anotando os novos e os
+ * avisos que falharam pra quem só precisa do número. ligado = false não pergunta nada (papel sem pedidos).
+ */
+export function useResumoPedidos(ligado = true, intervalo = 30_000) {
+  const leitura = useDados<TResumo>(ligado ? 'pedidos-resumo' : 'pedidos-resumo-desligado', (s) => (ligado ? resumoPedidos(s) : Promise.reject(new Error('sem'))), ligado ? intervalo : 0)
+  const d = ligado ? leitura.dados : undefined
   useEffect(() => {
-    if (!d || d.novos === novos) return
+    if (!d) return
+    const f = d.avisos?.ligado ? d.avisos.falhas : 0
+    if (d.novos === novos && f === falhas) return
     novos = d.novos
-    ouvintes.forEach((f) => f())
+    falhas = f
+    ouvintes.forEach((x) => x())
   }, [d])
+  return d
+}
+
+export function ResumoPedidos() {
+  const d = useResumoPedidos()
   // sem resposta (servidor sem a rota, rede): o Resumo segue sem o bloco
   if (!d) return null
   const agora = api.agora()

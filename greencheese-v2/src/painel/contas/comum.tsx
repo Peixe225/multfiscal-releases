@@ -1,5 +1,7 @@
 // Peças das telas de Equipe e Clientes: os papéis (com o que cada um pode), os estados, o selo do acesso e a senha
 // provisória (que aparece uma vez só).
+import { useLoja } from '../loja/dados'
+import { nomeUf } from '../loja/nomes'
 import type { Papel } from '../tipos'
 import { BotaoCopiar } from '../pedidos/comum'
 import { Ic } from '../ui'
@@ -7,11 +9,11 @@ import type { UsuarioAdmin } from './tipos'
 
 export const PAPEIS: { id: Papel; nome: string; pode: string }[] = [
   { id: 'atendente', nome: 'Atendente', pode: 'Pedidos e participantes dos rateios, só dos estados dele. Não mexe nos rateios nem apaga dados.' },
-  { id: 'gerente', nome: 'Gerente', pode: 'Pedidos, rateios, participantes e (quando tiver no painel) produtos e estoque, só dos estados dele.' },
+  { id: 'gerente', nome: 'Gerente', pode: 'Pedidos, rateios, participantes e o estoque (o que acabou e quantas unidades), só dos estados dele.' },
   { id: 'dono', nome: 'Dono', pode: 'Tudo: equipe, clientes, avisos no WhatsApp, textos e ajustes da loja, em todos os estados.' },
 ]
 
-/** Os estados que a loja atende (os mesmos do Criar rateio). */
+/** Os estados embutidos (enquanto a loja do servidor não chega). */
 export const UFS_LOJA: { uf: string; nome: string }[] = [
   { uf: 'rj', nome: 'Rio de Janeiro' },
   { uf: 'mg', nome: 'Minas Gerais' },
@@ -20,11 +22,23 @@ export const UFS_LOJA: { uf: string; nome: string }[] = [
   { uf: 'sc', nome: 'Santa Catarina' },
 ]
 
-/** Estados como chips (RJ MG SP ES SC), na ordem do Criar rateio. */
+/**
+ * Os estados que dá pra dar acesso: os da loja (os do site primeiro, depois os fora do site, na ordem da loja; o estado
+ * ativado no painel entra aqui), mais algum que a pessoa já tem e a loja não tem mais. Sem a loja ainda: os embutidos.
+ */
+export function useUfsDaLoja(jaTem: string[] = []): { uf: string; nome: string }[] {
+  const { dados: l } = useLoja()
+  const base = l ? [...l.estados.filter((e) => e.ativo), ...l.estados.filter((e) => !e.ativo)].map((e) => ({ uf: e.uf, nome: e.nome })) : UFS_LOJA
+  const sobra = jaTem.filter((uf) => !base.some((e) => e.uf === uf)).map((uf) => ({ uf, nome: nomeUf(uf) }))
+  return [...base, ...sobra]
+}
+
+/** Estados como chips (RJ MG SP ES SC…), na ordem da loja. */
 export function EscolherUfs({ valor, aoMudar, rotuloId, erroId }: { valor: string[]; aoMudar: (ufs: string[]) => void; rotuloId: string; erroId?: string }) {
+  const ufs = useUfsDaLoja(valor)
   return (
     <div className="pn-chips" role="group" aria-labelledby={rotuloId} aria-describedby={erroId}>
-      {UFS_LOJA.map((u) => {
+      {ufs.map((u) => {
         const on = valor.includes(u.uf)
         return (
           <button
@@ -34,7 +48,7 @@ export function EscolherUfs({ valor, aoMudar, rotuloId, erroId }: { valor: strin
             className={`pn-chip-uf px${on ? ' on' : ''}`}
             aria-pressed={on}
             aria-label={u.nome}
-            onClick={() => aoMudar(on ? valor.filter((x) => x !== u.uf) : UFS_LOJA.map((x) => x.uf).filter((x) => x === u.uf || valor.includes(x)))}
+            onClick={() => aoMudar(on ? valor.filter((x) => x !== u.uf) : ufs.map((x) => x.uf).filter((x) => x === u.uf || valor.includes(x)))}
           >
             {on && <Ic nome="check" tamanho={16} />}
             {u.uf.toUpperCase()}

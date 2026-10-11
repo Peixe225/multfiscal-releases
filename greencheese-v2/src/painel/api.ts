@@ -11,8 +11,10 @@ import type {
   Diagnostico,
   Envio,
   Evento,
+  ItemPronto,
   Participante,
   ParticipanteCorpo,
+  Pronto,
   RateioAdmin,
   RateioCorpo,
   Resumo,
@@ -230,6 +232,13 @@ export const entrar = (c: { login: string; senha: string }) => pedir<Ok<{ usuari
 export const recuperar = (c: { codigo: string; senha: string; login?: string }) =>
   pedir<Ok<{ usuario: Usuario; csrf: string }>>('POST', 'admin-recuperar', { corpo: c, aberta: true })
 
+/** Senha esquecida, 2ª via: o código vai pro WhatsApp da loja (a resposta é a mesma pra qualquer login). */
+export const pedirCodigoSenha = (login: string) =>
+  pedir<Ok<{ enviado: boolean; para: string | null; expiraEm: string; mensagem: string }>>('POST', 'admin-recuperar-codigo', { corpo: { login }, aberta: true })
+
+export const entrarComCodigo = (c: { login: string; codigo: string; senha: string }) =>
+  pedir<Ok<{ usuario: Usuario; csrf: string }>>('POST', 'admin-recuperar-codigo-entrar', { corpo: c, aberta: true })
+
 export const sair = () => pedir<Ok<object>>('POST', 'admin-sair', { aberta: false, tentativa: 2 })
 
 export const trocarSenha = (c: { atual: string; nova: string }) => pedir<Ok<{ usuario?: Usuario }>>('POST', 'admin-senha', { corpo: c })
@@ -263,6 +272,11 @@ export const diagnostico = () => pedir<Ok<Diagnostico>>('GET', 'admin-diagnostic
 
 export const eventos = (sinal?: AbortSignal) => pedir<Ok<{ eventos: Evento[] }>>('GET', 'admin-eventos', { sinal })
 
+/** A lista "Pra deixar a loja pronta", a última cópia e a senha esquecida (só o dono). */
+export const pronto = (sinal?: AbortSignal) => pedir<Ok<Pronto>>('GET', 'admin-pronto', { sinal })
+
+export const salvarPronto = (c: { pular?: { item: ItemPronto; pular: boolean }; recuperarPeloWhatsapp?: boolean }) => pedir<Ok<Pronto>>('POST', 'admin-pronto-salvar', { corpo: c })
+
 /** Entrega o arquivo baixado pro navegador salvar (o mesmo "baixar" de um link com download). */
 function salvar({ blob, nome }: Arquivo, reserva: string): void {
   const url = URL.createObjectURL(blob)
@@ -285,9 +299,11 @@ export async function baixarCsv(rateioId: string): Promise<void> {
   const a = await pedir<Arquivo>('GET', 'admin-participantes-csv', { params: { rateio: rateioId }, arquivo: true, prazo: 60_000 })
   salvar(a, `rateio-${rateioId}.csv`)
 }
-export async function baixarBackup(): Promise<void> {
+/** Baixa a cópia de segurança e devolve o nome do arquivo (pro recado). */
+export async function baixarBackup(): Promise<string> {
   const a = await pedir<Arquivo>('GET', 'admin-backup', { arquivo: true, prazo: 120_000 })
   salvar(a, 'greencheese-loja.sqlite')
+  return a.nome ?? 'greencheese-loja.sqlite'
 }
 
 /**

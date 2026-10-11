@@ -45,7 +45,7 @@ export function Atividade({ quem = null }: { quem?: string | null }) {
   const eu = useUsuario()
   const dono = !eu || eu.papel === 'dono'
   const de = dono ? quem : null
-  useTitulo(de ? `Atividade de @${de}` : 'Atividade')
+  useTitulo(de ? `Histórico de @${de}` : 'Histórico')
   const leitura = useDados<{ eventos: Evento[] }>(de ? `eventos:${de}` : 'eventos', (s) => (de ? eventosDe(de, s) : api.eventos(s)))
   useRestaurarRolagem(!!leitura.dados)
   const lista = leitura.dados?.eventos ?? []
@@ -62,7 +62,7 @@ export function Atividade({ quem = null }: { quem?: string | null }) {
   }
   return (
     <>
-      <Topo titulo={<TituloTela>{de ? `Atividade de @${de}` : 'Atividade'}</TituloTela>} voltar={de ? caminho.usuario(de) : undefined} />
+      <Topo titulo={<TituloTela>{de ? `Histórico de @${de}` : 'Histórico'}</TituloTela>} voltar={de ? caminho.usuario(de) : caminho.mais} />
       <div className="pn-pagina pn-pagina-estreita">
         {!dono && <p className="pn-dica-bloco ct-intro">O que tu fez no painel. O resto da loja aparece pro dono.</p>}
         {de && (

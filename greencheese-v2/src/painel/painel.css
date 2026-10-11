@@ -101,6 +101,16 @@ html.pn-compondo .pn-app {
   white-space: nowrap;
   outline: none;
 }
+/* o título do topo quebra em até 2 linhas em vez de cortar com "…" (320 px: "Teste minha sorte") */
+.pn-topo .pn-h1 {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+}
 .pn-h1-rateio {
   font-size: 20px;
   white-space: normal;
@@ -133,12 +143,52 @@ html.pn-compondo .pn-barra {
   flex: 1 1 0;
   min-width: 0;
   height: var(--pn-barra);
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 2px;
+  color: var(--legenda);
+}
+.pn-barra-item.ativa {
   color: var(--branco);
 }
 .pn-barra-item:focus-visible {
   outline-offset: -4px;
+}
+/* o nome embaixo de cada ícone (Início, Pedidos, Criar, Produtos, Mais) */
+.pn-barra-nome {
+  max-width: 100%;
+  font: 600 12px/1.1 var(--ui);
+  white-space: nowrap;
+}
+.pn-barra-item.ativa .pn-barra-nome {
+  font-weight: 700;
+}
+.pn-barra-ic {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+/* a bolinha dos pedidos novos (na barra e na lateral) */
+.pn-bolinha {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--branco);
+  color: var(--preto);
+  font-size: 12px;
+  line-height: 1;
+}
+.pn-barra-ic .pn-bolinha {
+  position: absolute;
+  top: -6px;
+  left: calc(100% - 8px);
+  box-shadow: 0 0 0 2px var(--preto);
 }
 .pn-barra-item.ativa svg,
 .pn-barra-item.ativa .pn-avatar {
@@ -179,15 +229,14 @@ html.pn-compondo .pn-barra {
   display: none !important;
 }
 
-@media (min-width: 900px) {
+/* tablet (768) e computador: a lateral no lugar da barra de baixo */
+@media (min-width: 720px) {
   .pn-topo-marca {
     display: none;
   }
   :root {
-    --pn-lateral: 244px;
-    /* as folhas do base.css centram na área da direita */
-    --lateral: 244px;
-    --gutter: 24px;
+    --pn-lateral: 212px;
+    --gutter: 20px;
   }
   .pn-app {
     padding-left: var(--pn-lateral);
@@ -209,7 +258,7 @@ html.pn-compondo .pn-barra {
     width: var(--pn-lateral);
     display: flex;
     flex-direction: column;
-    padding: 20px 12px;
+    padding: 16px 10px;
     border-right: 1px solid var(--bolha);
     background: var(--preto);
     overflow-y: auto;
@@ -219,7 +268,7 @@ html.pn-compondo .pn-barra {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 12px 28px;
+    padding: 8px 10px 20px;
   }
   .pn-lateral-marca-txt {
     display: flex;
@@ -227,7 +276,7 @@ html.pn-compondo .pn-barra {
     gap: 4px;
   }
   .pn-lateral-marca-txt .px {
-    font-size: 24px;
+    font-size: 22px;
   }
   .pn-lateral-marca-txt small {
     font-size: 13px;
@@ -241,15 +290,72 @@ html.pn-compondo .pn-barra {
   .pn-lateral-item {
     display: flex;
     align-items: center;
-    gap: 16px;
-    min-height: 48px;
-    padding: 0 12px;
+    gap: 14px;
+    width: 100%;
+    min-height: 46px;
+    padding: 0 10px;
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 15px;
+    text-align: left;
     color: var(--branco);
   }
   .pn-lateral-item.ativa {
     font-weight: 700;
+  }
+  .pn-lateral-item .pn-bolinha {
+    margin-left: auto;
+  }
+  /* quem tá logado, no pé da lateral: leva pra Conta */
+  .pn-lateral-conta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: auto;
+    min-height: 56px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: var(--branco);
+  }
+  .pn-lateral-conta-txt {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+  }
+  .pn-lateral-conta-txt strong {
+    font-size: 15px;
+  }
+  .pn-lateral-conta-txt small {
+    font-size: 12px;
+    color: var(--legenda);
+    overflow-wrap: anywhere;
+  }
+  .pn-lateral-conta.ativa strong {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+@media (min-width: 900px) {
+  :root {
+    --pn-lateral: 244px;
+    /* as folhas do base.css centram na área da direita */
+    --lateral: 244px;
+    --gutter: 24px;
+  }
+  .pn-lateral {
+    padding: 20px 12px;
+  }
+  .pn-lateral-marca {
+    padding: 8px 12px 28px;
+  }
+  .pn-lateral-marca-txt .px {
+    font-size: 24px;
+  }
+  .pn-lateral-item {
+    gap: 16px;
+    min-height: 48px;
+    padding: 0 12px;
+    font-size: 16px;
   }
   .pn-topo {
     min-height: 64px;
@@ -261,8 +367,9 @@ html.pn-compondo .pn-barra {
     font-size: 24px;
   }
 }
-@media (min-width: 900px) and (hover: hover) {
-  .pn-lateral-item:hover {
+@media (min-width: 720px) and (hover: hover) {
+  .pn-lateral-item:hover,
+  .pn-lateral-conta:hover {
     background: var(--bolha);
   }
 }
@@ -2599,4 +2706,414 @@ html.pn-compondo .pn-barra {
   .pn-contador-num {
     font-size: 56px;
   }
+}
+
+/* ───────────────────────── polimento da entrega: barra, Mais, recado, Início, Conta, guia ───────────────────────── */
+
+/* o carimbo (EXEMPLO, FORA DO SITE) legível no painel (o do site continua com o tamanho dele) */
+.pn-app .carimbo,
+.pn-folha .carimbo {
+  font-size: 12px;
+}
+
+/* a folha do "+" (Criar): Novo produto e Novo rateio */
+.pn-criar-opcoes {
+  padding: 4px 0 12px;
+}
+.pn-criar-opcoes > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.pn-criar-opcao {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 68px;
+  padding: 10px var(--gutter);
+  color: var(--branco);
+}
+.pn-criar-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--pn-raio);
+  background: var(--bolha);
+}
+.pn-criar-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pn-criar-txt strong {
+  font-size: 16px;
+}
+.pn-criar-txt small {
+  font-size: 13px;
+  color: var(--legenda);
+}
+
+/* o recado depois de cada ação: embaixo, logo acima da barra, sempre no mesmo lugar */
+.pn-recados {
+  position: fixed;
+  z-index: 60;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(var(--pn-barra) + var(--seg-baixo) + 10px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+html.pn-compondo .pn-recados,
+html.com-teclado .pn-recados {
+  bottom: calc(10px + var(--seg-baixo));
+}
+.pn-recado {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  min-height: 52px;
+  padding: 6px 4px 6px 14px;
+  border-radius: var(--pn-raio);
+  background: var(--branco);
+  color: var(--preto);
+  box-shadow: 0 0 0 1px var(--preto), 0 8px 24px rgb(0 0 0 / 0.6);
+  animation: pn-recado-entra 0.16s steps(3, end);
+}
+.pn-recado-erro {
+  box-shadow: 0 0 0 2px var(--preto), 0 8px 24px rgb(0 0 0 / 0.6);
+}
+.pn-recado-ic {
+  display: grid;
+  flex: none;
+}
+.pn-recado-txt {
+  flex: 1;
+  min-width: 0;
+  font: 600 14px/1.35 var(--ui);
+  overflow-wrap: anywhere;
+}
+.pn-recado-acao {
+  flex: none;
+  min-height: 44px;
+  padding: 0 10px;
+  font: 800 14px/1 var(--ui);
+  color: var(--preto);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pn-recado-x {
+  flex: none;
+  color: var(--preto);
+}
+@keyframes pn-recado-entra {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pn-recado {
+    animation: none;
+  }
+}
+@media (min-width: 720px) {
+  .pn-recados,
+  html.pn-compondo .pn-recados,
+  html.com-teclado .pn-recados {
+    left: calc(var(--pn-lateral) + 24px);
+    right: 24px;
+    bottom: 24px;
+  }
+}
+
+/* Mais */
+.pn-mais-quem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 8px 0 16px;
+  color: var(--branco);
+}
+.pn-mais-quem-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pn-mais-quem-txt strong {
+  font-size: 17px;
+}
+.pn-mais-quem-txt small {
+  font-size: 13px;
+  color: var(--legenda);
+  overflow-wrap: anywhere;
+}
+.pn-mais-grupo .pn-h2 {
+  margin-bottom: 6px;
+}
+.pn-mais-grupo .pn-dica-bloco {
+  margin-bottom: 4px;
+}
+.pn-mais-item {
+  min-height: 64px;
+  padding: 8px 0;
+}
+.pn-rodape-painel {
+  margin: 32px 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--legenda);
+}
+
+/* Início: os atalhos do que mais se faz, logo embaixo da frase do dia */
+.pn-fazer {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 4px;
+}
+.pn-fazer-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pn-fazer-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pn-fazer-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 76px;
+  padding: 8px 4px;
+  border-radius: var(--pn-raio);
+  background: var(--bolha);
+  font: 600 13px/1.2 var(--ui);
+  text-align: center;
+  color: var(--branco);
+}
+@media (hover: hover) {
+  .pn-fazer-item:hover {
+    background: #363636;
+  }
+}
+@media (min-width: 600px) {
+  .pn-fazer {
+    max-width: 720px;
+  }
+  .pn-fazer-item {
+    flex-direction: row;
+    min-height: 56px;
+    gap: 10px;
+    font-size: 14px;
+  }
+}
+.pn-resumo-ajuda {
+  margin: 0 0 8px;
+}
+.pn-resumo-ajuda .pn-link {
+  gap: 6px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-lembrete-copia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+/* "Pra deixar a loja pronta" */
+.pn-pronto {
+  border-top: 0;
+  padding-top: 8px;
+}
+.pn-pronto .pn-h2-linha {
+  margin-bottom: 8px;
+}
+.pn-pronto-conta {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-pronto-barra {
+  height: 6px;
+  margin-bottom: 4px;
+  background: var(--bolha);
+}
+.pn-pronto-barra i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+}
+.pn-pronto-lista > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.pn-pronto-item {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+.pn-pronto-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0 0;
+  color: var(--branco);
+}
+.pn-pronto-caixa {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--branco);
+}
+.pn-pronto-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pn-pronto-txt strong {
+  font-size: 15px;
+}
+.pn-pronto-txt span {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--legenda);
+}
+.pn-pronto-pular {
+  align-self: flex-start;
+  margin-left: 26px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+
+/* Conta: a cópia de segurança e a senha esquecida */
+.pn-copia-ultima {
+  margin: 8px 0 12px;
+  font-size: 14px;
+}
+.pn-copia-ultima.pn-urgente {
+  display: block;
+  margin: 8px 0 12px;
+}
+.pn-copia .pn-botao + .pn-dica-bloco {
+  margin-top: 12px;
+}
+.pn-plano-senha {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.pn-plano-senha li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--legenda);
+}
+.pn-plano-senha li.feito {
+  color: var(--branco);
+}
+.pn-plano-senha li > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--branco);
+}
+.pn-plano-senha .pn-link-dentro {
+  min-height: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Como usar o painel */
+.pn-ajuda-lista {
+  margin: 12px 0 8px;
+}
+.pn-ajuda-lista > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.pn-ajuda-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 0;
+  font: 600 16px/1.3 var(--ui);
+  cursor: pointer;
+  list-style: none;
+}
+.pn-ajuda-item summary::-webkit-details-marker {
+  display: none;
+}
+.pn-ajuda-item summary > svg {
+  flex: none;
+}
+.pn-ajuda-item[open] summary > svg {
+  transform: rotate(180deg);
+}
+.pn-ajuda-item ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  list-style: decimal;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.pn-ajuda-item ol li + li {
+  margin-top: 6px;
+}
+.pn-ajuda-item .pn-botao {
+  margin-bottom: 16px;
+}
+
+/* Estado: o "tirar do site" separado, no fim */
+.pn-perigo-zona {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--bolha);
+}
+.pn-perigo-zona .pn-dica-bloco {
+  margin-bottom: 12px;
+}
+
+/* "Esqueci a senha": os jeitos, um embaixo do outro */
+.pn-esqueci {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.pn-esqueci > li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--bolha);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.pn-esqueci > li > span {
+  color: var(--legenda);
+}
+.pn-esqueci > li > .pn-botao,
+.pn-esqueci > li > .pn-form {
+  margin-top: 6px;
+}
+.pn-esqueci-link {
+  align-self: flex-start;
+  padding: 0;
 }

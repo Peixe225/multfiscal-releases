@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { ErroApi, mensagemDe } from '../api'
 import { Link, Topo } from '../Moldura'
 import { caminho } from '../rotas'
-import { pegarRecado } from '../telas/flash'
+import { recado } from '../recado'
 import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
 import * as api from './api'
@@ -30,8 +30,6 @@ export function Sorte() {
   const [salvandoRegras, setSalvandoRegras] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [erroRegra, setErroRegra] = useState<Partial<Record<keyof RegrasSorte, string>>>({})
-  const [ok, setOk] = useState<string | null>(null)
-  const [recado, setRecado] = useState(pegarRecado)
   const [mexendo, setMexendo] = useState<string | null>(null)
   useRestaurarRolagem(!!l)
 
@@ -39,18 +37,17 @@ export function Sorte() {
     if (l && !regras) setRegras({ girosSemConta: String(l.sorte.girosSemConta), girosPorDiaComConta: String(l.sorte.girosPorDiaComConta), reservaSemContaHoras: String(l.sorte.reservaSemContaHoras) })
   }, [l, regras])
 
-  const salvarSorte = async (c: Partial<RegrasSorte>, frase: string) => {
+  const salvarSorte = async (c: Partial<RegrasSorte>, frase: string, desfazer?: Partial<RegrasSorte>): Promise<void> => {
     setSalvandoRegras(true)
     setErro(null)
     setErroRegra({})
-    setOk(null)
     try {
       const r = await api.salvarSorte(c)
       const f = (x: LojaAdmin): LojaAdmin => ({ ...x, versao: r.versao, atualizadoEm: r.atualizadoEm, sorte: { ...x.sorte, ...r.sorte } })
       guardarLoja(f)
       leitura.trocar(f)
       setRegras({ girosSemConta: String(r.sorte.girosSemConta), girosPorDiaComConta: String(r.sorte.girosPorDiaComConta), reservaSemContaHoras: String(r.sorte.reservaSemContaHoras) })
-      setOk(frase)
+      recado(frase, desfazer ? { desfazer: { acao: () => salvarSorte(desfazer, desfazer.ligado ? 'Teste minha sorte ligado de novo.' : 'Teste minha sorte desligado de novo.') } } : {})
     } catch (e) {
       if (e instanceof ErroApi && e.campo) setErroRegra({ [e.campo]: e.message })
       else setErro(mensagemDe(e))
@@ -67,6 +64,7 @@ export function Sorte() {
       const r = await api.salvarPremio({ id: p.id, ativo: !p.ativo })
       guardarLoja((x) => comPremio(x, r.premio, r))
       leitura.trocar((x) => comPremio(x, r.premio, r))
+      recado(r.premio.ativo ? `${p.titulo}: no jogo.` : `${p.titulo}: fora do jogo.`)
     } catch (e) {
       setErro(mensagemDe(e))
     } finally {
@@ -77,7 +75,7 @@ export function Sorte() {
   if (!l || !regras) {
     return (
       <>
-        <Topo voltar={caminho.loja} titulo={<TituloTela>Teste minha sorte</TituloTela>} />
+        <Topo voltar={caminho.mais} titulo={<TituloTela>Teste minha sorte</TituloTela>} />
         <div className="pn-pagina">{leitura.erro ? <Aviso tipo="erro">{leitura.erro.message}</Aviso> : <Carregando />}</div>
       </>
     )
@@ -90,30 +88,24 @@ export function Sorte() {
   return (
     <>
       <Topo
-        voltar={caminho.loja}
+        voltar={caminho.mais}
         titulo={<TituloTela>Teste minha sorte</TituloTela>}
         acoes={
-          <Link href={caminho.premioNovo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-icone-celular">
+          <Link href={caminho.premioNovo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-icone-celular" aria-label="Novo prêmio">
             <Ic nome="mais" tamanho={16} />
-            <span className="pn-botao-txt">Novo prêmio</span>
+            <span className="pn-botao-txt">Prêmio</span>
           </Link>
         }
       />
       <div className="pn-pagina pn-pagina-estreita">
-        {recado && (
-          <Aviso tipo="ok" acao={<button type="button" className="icone-botao" aria-label="Fechar o recado" onClick={() => setRecado(null)}><Ic nome="fechar" tamanho={16} /></button>}>
-            {recado}
-          </Aviso>
-        )}
         {erro && <Aviso tipo="erro">{erro}</Aviso>}
-        {ok && <Aviso tipo="ok">{ok}</Aviso>}
 
         <section className="pn-bloco" aria-labelledby="h-s-jogo">
           <h2 id="h-s-jogo" className="pn-h2">
             No site
           </h2>
           <label className="pn-troca">
-            <input type="checkbox" checked={l.sorte.ligado} disabled={salvandoRegras} onChange={(e) => void salvarSorte({ ligado: e.target.checked }, e.target.checked ? 'Teste minha sorte ligado no site.' : 'Teste minha sorte desligado: some do site inteiro.')} />
+            <input type="checkbox" checked={l.sorte.ligado} disabled={salvandoRegras} onChange={(e) => void salvarSorte({ ligado: e.target.checked }, e.target.checked ? 'Teste minha sorte ligado no site.' : 'Teste minha sorte desligado: some do site inteiro.', { ligado: !e.target.checked })} />
             <span className="pn-troca-marca" aria-hidden="true" />
             <span>Teste minha sorte no site</span>
           </label>
