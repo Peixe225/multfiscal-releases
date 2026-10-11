@@ -132,6 +132,10 @@ class Cli {
 }
 
 /** Servidor falso dos gateways: guarda cada requisição (método, caminho, cabeçalhos, corpo) e responde no modo da vez. */
+// GC_TESTE_PORTA_FALSO: os servidores falsos (Z-API, Evolution, webhook) sobem em portas fixas a partir dela (sem ela,
+// numa porta livre qualquer)
+let portaFalsa = process.env.GC_TESTE_PORTA_FALSO ? Number(process.env.GC_TESTE_PORTA_FALSO) : 0
+
 export async function gatewayFalso() {
   const recebidos = []
   const estado = { modo: 'ok', atraso: 0 }
@@ -154,7 +158,7 @@ export async function gatewayFalso() {
       else responder()
     })
   })
-  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok))
+  await new Promise((ok) => srv.listen(portaFalsa ? portaFalsa++ : 0, '127.0.0.1', ok))
   return { srv, porta: srv.address().port, recebidos, estado }
 }
 
@@ -695,6 +699,7 @@ export async function testarPedidos(t) {
         return env?.status === 'falhou'
       }), 'gateway com erro: o aviso fica como falhou')
       ok(/HTTP 500/.test(env.erro) && env.tentarEm && env.tentativas === 1, `erro em português e nova tentativa marcada (${env.erro})`)
+      ok(!/falhou no gateway|HTTP/.test(env.erro.split('\n')[0]) && /falhou no gateway/.test(env.erro.split('\n')[1] ?? ''), `500: o texto cru do serviço só no detalhe (${env.erro.split('\n')[0]})`)
       igual((await loja.get('admin-pedidos-resumo')).json.avisos.falhas, 1, 'o Resumo conta a falha')
       // ainda não deu o tempo: ninguém tenta de novo
       falso.recebidos.length = 0
@@ -720,7 +725,10 @@ export async function testarPedidos(t) {
         eq = (await loja.get('admin-avisos')).json.envios.find((x) => x.alvo === `pedido:${idq}`)
         return eq?.status === 'falhou'
       })
-      ok(/recusou a chave/.test(eq.erro), `401: "recusou a chave" (${eq.erro})`)
+      // a 1ª linha é a frase de dono (o que fazer agora); a 2ª, o detalhe do serviço (o painel mostra em "Ver detalhes")
+      const [frase401, tec401 = ''] = eq.erro.split('\n')
+      ok(/recusou o token/.test(frase401) && /Copia o token de novo/.test(frase401) && !/Unauthorized|HTTP/.test(frase401), `401: frase de dono, o que fazer, sem o texto cru (${frase401})`)
+      ok(/Z-API · HTTP 401 · Unauthorized/.test(tec401), `401: o detalhe do serviço na 2ª linha (${tec401})`)
       falso.estado.modo = '404-eco'
       const r404 = await loja.post('admin-aviso-reenviar', { id: eq.id })
       ok(r404.json?.envio?.status === 'falhou' && /não achou a instância/.test(r404.json.envio.erro), `404: "não achou a instância" (${r404.json?.envio?.erro})`)

@@ -26,7 +26,8 @@ async function servidorFalso() {
       res.end(JSON.stringify(s.status < 300 ? { ok: true } : { erro: 'falhou de propósito' }))
     })
   })
-  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok))
+  // GC_TESTE_PORTA_FALSO: o webhook falso numa porta fixa (sem ela, numa livre qualquer)
+  await new Promise((ok) => srv.listen(process.env.GC_TESTE_PORTA_FALSO ? Number(process.env.GC_TESTE_PORTA_FALSO) : 0, '127.0.0.1', ok))
   s.porta = srv.address().port
   s.fechar = () => new Promise((ok) => srv.close(ok))
   return s
