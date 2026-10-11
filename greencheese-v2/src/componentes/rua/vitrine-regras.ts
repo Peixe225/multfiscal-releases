@@ -5,7 +5,7 @@
 // que vai na plaquinha passa pela lista PALAVRAS_PROIBIDAS, como as falas.
 
 import { PALAVRAS_PROIBIDAS } from '../../dados/sorte'
-import { pareceAlcool } from '../../lib/alcool'
+import { categoriaAlcoolica, pareceAlcool } from '../../lib/alcool'
 import type { Categoria, Produto } from '../../lib/tipos'
 import { termoProibido } from '../../painel/proibidos'
 
@@ -17,24 +17,17 @@ const GARRAFAS = new Set(['garrafa-quadrada', 'garrafa-gin', 'garrafa-conhaque',
 /** Isqueiro (o desenho e o nome): fica fora da rua, como no forro do casaco dela. */
 const ISQUEIRO = ['isqueiro', 'isqueiros', 'lighter', 'zippo', 'macarico']
 
-/**
- * Palavras de categoria de bebida alcoólica (sem acento, palavra inteira), além das marcas e tipos de src/lib/alcool.ts:
- * a categoria "Destilados" e as que o dono pode criar ("Cervejas", "Drinks", "Adega"...).
- */
-const CATEGORIA_ALCOOL = [
-  'destilado', 'destilados', 'alcool', 'alcoolica', 'alcoolicas', 'alcoolico', 'alcoolicos', 'drink', 'drinks', 'adega',
-  'licores', 'whiskies', 'whiskys', 'destilaria', 'coquetel', 'coqueteis', 'bar', 'boteco', 'dose', 'doses',
-]
-
 const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 /** O texto em palavras soltas, sem acento, com espaço nas pontas (" seda ocb premium slim "). */
 const palavras = (s: string) => ` ${semAcento(s).replace(/['’`´]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()} `
 const PROIBIDAS = PALAVRAS_PROIBIDAS.map((p) => palavras(p).trim())
 
-/** A categoria é de bebida alcoólica pelo nome dela (ou pelo id)? */
-export function categoriaDeAlcool(c: Pick<Categoria, 'id' | 'nome' | 'curto'>): boolean {
-  const t = palavras(`${c.id.replace(/-/g, ' ')} ${c.nome} ${c.curto}`)
-  return CATEGORIA_ALCOOL.some((p) => t.includes(` ${p} `)) || pareceAlcool(`${c.nome} ${c.curto}`)
+/**
+ * A categoria é de bebida alcoólica? A marca "Bebida alcoólica" do painel (a garantia) e, de reforço, o nome dela (ou o
+ * id): src/lib/alcool.ts.
+ */
+export function categoriaDeAlcool(c: Pick<Categoria, 'id' | 'nome' | 'curto' | 'alcool'>): boolean {
+  return categoriaAlcoolica(c)
 }
 
 /** O produto, pelo que ele mesmo diz (nome, tamanho, linha de baixo, descrição e desenho), é bebida alcoólica? */

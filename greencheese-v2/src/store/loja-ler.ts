@@ -163,7 +163,9 @@ function categoriaDe(v: unknown): Categoria | null {
   const id = typeof v.id === 'string' && ID.test(v.id) ? v.id : null
   const nome = textoDe(v.nome, 40)
   if (!id || !nome) return null
-  return { id, nome, curto: textoDe(v.curto, 20) ?? nome, icone: typeof v.icone === 'string' && ICONES.has(v.icone) ? v.icone : 'estrela', bebida: v.bebida !== false }
+  // alcool: a marca "Bebida alcoólica" do painel (servidor de antes dela não manda: vale a dedução pelo nome)
+  const alcool = v.alcool === true
+  return { id, nome, curto: textoDe(v.curto, 20) ?? nome, icone: typeof v.icone === 'string' && ICONES.has(v.icone) ? v.icone : 'estrela', bebida: v.bebida !== false || alcool, alcool }
 }
 
 /** Texto da loja: o do servidor, ou o embutido quando falta ou tem palavra da lista. */

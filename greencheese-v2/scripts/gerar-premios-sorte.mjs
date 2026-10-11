@@ -33,7 +33,8 @@ const catalogo = JSON.parse(readFileSync(join(raiz, 'src/dados/catalogo.json'), 
 
 const semAcento = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const PROIBIDAS = PALAVRAS_PROIBIDAS.map(semAcento)
-const FORA = new Set(['bebidas', 'destilados'])
+// fora dos prêmios: as categorias marcadas como bebida ou bebida alcoólica no catálogo (hoje bebidas e destilados)
+const FORA = new Set(catalogo.categorias.filter((c) => c.bebida === true || c.alcool === true).map((c) => c.id))
 // com os exemplos desligados, produto de exemplo some do catálogo (e o prêmio que depende dele também)
 const produtos = catalogo.produtos.filter((p) => config.dadosDeExemplo || !p.demo)
 const porId = new Map(produtos.map((p) => [p.id, p]))

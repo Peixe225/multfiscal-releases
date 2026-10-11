@@ -38,6 +38,8 @@ export interface CategoriaAdmin {
   curto: string
   icone: string
   bebida: boolean
+  /** Bebida alcoólica (a marca): fora da rua do mercador e de prêmio. Sempre junto com bebida. */
+  alcool: boolean
   ordem: number
   /** Produtos nela (até os fora do site). */
   produtos: number

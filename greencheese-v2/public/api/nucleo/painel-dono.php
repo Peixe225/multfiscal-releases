@@ -12,7 +12,8 @@ defined('GC_API') || exit;
 //   uma vez, 5 chutes; 1 pedido por minuto, 3 por hora por login, 5 por hora por IP e 10 por hora na loja inteira; a
 //   resposta é a mesma pra login que existe ou não (e o envio sai depois dela). Só dono ativo recebe; gerente e
 //   atendente resolvem com o dono (Equipe → Gerar senha provisória). O dono desliga em Conta.
-// Migrações na faixa 300–399 (gc_migracoes_dono, registradas em banco.php).
+// Migrações na faixa 300–399 (gc_migracoes_dono, registradas em banco.php): os códigos da senha pelo WhatsApp (300) e
+// a marca "Bebida alcoólica" das categorias (301).
 
 const GC_REC_DURA = 600;
 const GC_REC_TENTATIVAS = 5;
@@ -24,7 +25,7 @@ const GC_PRONTO_ITENS = ['senha', 'estados', 'exemplos', 'precos', 'fotos', 'equ
 /** @return array<int, string|callable(PDO): void> */
 function gc_migracoes_dono(): array
 {
-    return [
+    $m = [
         300 => <<<'SQL'
         CREATE TABLE painel_codigos (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +39,17 @@ function gc_migracoes_dono(): array
         CREATE INDEX painel_codigos_usuario ON painel_codigos(usuario_id, criado_em);
         SQL,
     ];
+    // a marca "Bebida alcoólica" da categoria (alcool): a categoria fica fora da rua do mercador e de qualquer prêmio
+    // (alcoólica é sempre bebida: loja-validar.php). Num banco que já tinha a loja, os Destilados da semente (a
+    // categoria de álcool dela) ficam marcados; banco novo é semeado já com a marca. Mexe na tabela da loja: só entra
+    // com o módulo da loja carregado (como a 206 com o dos pedidos).
+    if (function_exists('gc_migracoes_loja')) {
+        $m[301] = <<<'SQL'
+        ALTER TABLE loja_categorias ADD COLUMN alcool INTEGER NOT NULL DEFAULT 0;
+        UPDATE loja_categorias SET alcool = 1 WHERE id = 'destilados' AND bebida = 1;
+        SQL;
+    }
+    return $m;
 }
 
 // ─── cópia de segurança ─────────────────────────────────────────────────────────────────────────────────────────

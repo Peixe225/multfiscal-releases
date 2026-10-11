@@ -84,7 +84,7 @@ const regrasEmbutidas: RegrasDaSorte = {
 }
 
 function montarEmbutida(): Loja {
-  const categorias: Categoria[] = (dados.categorias as Categoria[]).map((c) => ({ id: c.id, nome: c.nome, curto: c.curto, icone: c.icone, bebida: c.bebida === true }))
+  const categorias: Categoria[] = (dados.categorias as Categoria[]).map((c) => ({ id: c.id, nome: c.nome, curto: c.curto, icone: c.icone, bebida: c.bebida === true || c.alcool === true, alcool: c.alcool === true }))
   const produtos = dados.produtos as Produto[]
   return {
     whatsapp: config.whatsappPedidos,

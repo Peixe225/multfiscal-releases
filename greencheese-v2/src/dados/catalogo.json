@@ -1,5 +1,5 @@
 {
-  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: desenho em pixel art usado enquanto não há foto oficial. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null. categorias: bebida: true = bebida (com ou sem álcool), que nunca entra em prêmio do Teste minha sorte.",
+  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: desenho em pixel art usado enquanto não há foto oficial. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null. categorias: bebida: true = bebida (com ou sem álcool), que nunca entra em prêmio do Teste minha sorte; alcool: true = bebida alcoólica (fica fora da rua do mercador e de prêmio; sempre junto com bebida: true).",
   "categorias": [
     {
       "id": "bebidas",
@@ -13,7 +13,8 @@
       "nome": "Destilados",
       "curto": "Destilados",
       "icone": "garrafa",
-      "bebida": true
+      "bebida": true,
+      "alcool": true
     },
     {
       "id": "sedas",
