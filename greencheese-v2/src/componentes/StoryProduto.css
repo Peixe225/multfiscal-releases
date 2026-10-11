@@ -150,7 +150,7 @@
     font-size: 12px;
     /* preço de 4 dígitos (R$ 3.799,90) no quadro de 259 px: a letra acompanha a largura do quadro, até 12 px */
     font-size: min(12px, 3.9cqw);
-    line-height: 1.1;
+    line-height: 1.25;
   }
   .story-produto .ad-quiz-linha > .ad-quiz-txt {
     display: flex;
@@ -195,7 +195,7 @@
     font-size: 12px;
     /* preço de 4 dígitos (R$ 3.799,90) no quadro de 259 px: a letra acompanha a largura do quadro, até 12 px */
     font-size: min(12px, 3.9cqw);
-    line-height: 1.1;
+    line-height: 1.25;
   }
   .story-produto .ad-quiz-muitas .ad-quiz-linha > .ad-quiz-txt {
     display: flex;
