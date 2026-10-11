@@ -678,6 +678,8 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
               <Icone nome="check" tamanho={16} />
               <span>
                 Na sacola: <span className="px px-16">{nDeste}</span>
+                {/* no teto da linha: o "Pôr na sacola" só avisa, e a barra já diz por quê */}
+                {nDeste >= MAX_POR_ITEM && <span className="legenda"> · até {MAX_POR_ITEM} por item</span>}
               </span>
             </span>
             <button type="button" className="pp-ver-sacola toque" onClick={() => setSacola(true)}>
