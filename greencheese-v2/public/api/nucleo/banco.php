@@ -90,6 +90,7 @@ function gc_migracoes(): array
         $m += gc_migracoes_contas();
     }
     // o que deixa o dono independente (300–399, nucleo/painel-dono.php): os códigos da senha pelo WhatsApp da loja
+    // (300) e a marca "Bebida alcoólica" das categorias (301, só com o módulo da loja carregado)
     if (function_exists('gc_migracoes_dono')) {
         $m += gc_migracoes_dono();
     }

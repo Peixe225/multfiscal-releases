@@ -394,6 +394,67 @@ const loja: Record<string, Grade> = {
   ]),
 }
 
+/** A dica da foto do produto (Produto → Foto): bem iluminada, o produto inteiro na foto e o fundo liso. */
+const dicaFoto: Record<string, Grade> = {
+  // o sol com os raios
+  'dica-luz': g([
+    '.......xx.......',
+    '..x....xx....x..',
+    '...x........x...',
+    '......xxxx......',
+    '.....xxxxxx.....',
+    '....xxxxxxxx....',
+    '....xxxxxxxx....',
+    'xx..xxxxxxxx..xx',
+    'xx..xxxxxxxx..xx',
+    '....xxxxxxxx....',
+    '....xxxxxxxx....',
+    '.....xxxxxx.....',
+    '......xxxx......',
+    '...x........x...',
+    '..x....xx....x..',
+    '.......xx.......',
+  ]),
+  // a lata inteira dentro dos cantos da foto
+  'dica-inteiro': g([
+    'xxx..........xxx',
+    'x..............x',
+    'x.....xxxx.....x',
+    '......x..x......',
+    '.....xxxxxx.....',
+    '.....x....x.....',
+    '.....x.xx.x.....',
+    '.....x.xx.x.....',
+    '.....x....x.....',
+    '.....x....x.....',
+    '.....x....x.....',
+    '.....x....x.....',
+    '.....xxxxxx.....',
+    'x..............x',
+    'x..............x',
+    'xxx..........xxx',
+  ]),
+  // a lata na frente de uma parede lisa (só o chão marcado)
+  'dica-liso': g([
+    'xxxxxxxxxxxxxxxx',
+    'x..............x',
+    'x..............x',
+    'x.....xxxx.....x',
+    'x.....x..x.....x',
+    'x....xxxxxx....x',
+    'x....x....x....x',
+    'x....x.xx.x....x',
+    'x....x.xx.x....x',
+    'x....x....x....x',
+    'x....x....x....x',
+    'x....xxxxxx....x',
+    'xxxxxxxxxxxxxxxx',
+    'x..............x',
+    'x..............x',
+    'xxxxxxxxxxxxxxxx',
+  ]),
+}
+
 /** A grade deitada de lado (linha vira coluna): o chevron da direita vira o de baixo, o da esquerda o de cima. */
 function deitar(x: Grade | undefined): Grade | undefined {
   if (!x) return undefined
@@ -404,7 +465,7 @@ const setas: Record<string, Grade | undefined> = {
   'chevron-baixo': deitar(iconesExtras['chevron-dir']),
 }
 
-const todos: Record<string, Grade | undefined> = { ...icones, ...iconesExtras, ...(iconesAbas as Record<string, Grade>), ...proprios, ...loja, ...setas }
+const todos: Record<string, Grade | undefined> = { ...icones, ...iconesExtras, ...(iconesAbas as Record<string, Grade>), ...proprios, ...loja, ...dicaFoto, ...setas }
 
 export function grade(nome: string): Grade | undefined {
   // os de pedidos, avisos e falas moram em pedidos/icones.ts; os da equipe e dos clientes, em contas/icones.ts

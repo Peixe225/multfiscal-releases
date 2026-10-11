@@ -30,7 +30,11 @@ export async function montarSemente() {
   const { premios, regrasSorte } = await lerTs('src/dados/sorte.ts')
   const { textosLoja } = await lerTs('src/dados/textos-loja.ts')
 
-  const categorias = catalogo.categorias.map((c) => ({ id: c.id, nome: c.nome, curto: c.curto, icone: c.icone, bebida: c.bebida === true }))
+  // alcool: a marca "Bebida alcoólica" (os Destilados): alcoólica é sempre bebida, no servidor também
+  const categorias = catalogo.categorias.map((c) => {
+    if (c.alcool === true && c.bebida !== true) throw new Error(`categoria ${c.id}: alcool sem bebida (bebida alcoólica é bebida)`)
+    return { id: c.id, nome: c.nome, curto: c.curto, icone: c.icone, bebida: c.bebida === true, alcool: c.alcool === true }
+  })
   const ids = new Set(categorias.map((c) => c.id))
   const produtos = catalogo.produtos.map((p) => {
     if (!ids.has(p.categoria)) throw new Error(`produto ${p.id}: categoria "${p.categoria}" não existe`)

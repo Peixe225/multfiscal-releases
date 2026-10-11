@@ -1,5 +1,6 @@
 // Categorias: as bolinhas dos destaques do site (que filtram a grade). Nome, nome curto (o de baixo da bolinha),
-// ícone e se é bebida (bebida nunca entra em prêmio do Teste minha sorte). Subir e descer muda a ordem no site.
+// ícone, se é bebida (bebida nunca entra em prêmio do Teste minha sorte) e se é bebida alcoólica (a marca: fica fora
+// da rua do mercador e de prêmio; ligar a marca liga o "É bebida" junto). Subir e descer muda a ordem no site.
 // Apagar (dentro da edição) só vazia e sem prêmio.
 import { useRef, useState } from 'react'
 import { ErroApi, mensagemDe } from '../api'
@@ -23,6 +24,7 @@ interface FormCat {
   curto: string
   icone: string
   bebida: boolean
+  alcool: boolean
 }
 
 function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: FormCat | null; cat?: CategoriaAdmin; aoFechar: () => void; aoSalvar: () => void; aoApagar?: () => void }) {
@@ -51,13 +53,13 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
     setOcupado(true)
     setGeral(null)
     try {
-      await api.salvarCategoria({ ...(f.id ? { id: f.id } : {}), nome: f.nome.trim(), curto: f.curto.trim(), icone: f.icone, bebida: f.bebida })
+      await api.salvarCategoria({ ...(f.id ? { id: f.id } : {}), nome: f.nome.trim(), curto: f.curto.trim(), icone: f.icone, bebida: f.bebida, alcool: f.alcool })
       aoSalvar()
       aoFechar()
       recado(f.id ? `${f.nome.trim()}: salva. O site já mostra.` : `Categoria ${f.nome.trim()} criada.`)
       return true
     } catch (err) {
-      if (err instanceof ErroApi && (err.campo === 'nome' || err.campo === 'curto' || err.campo === 'bebida')) setErros({ [err.campo]: err.message })
+      if (err instanceof ErroApi && (err.campo === 'nome' || err.campo === 'curto' || err.campo === 'bebida' || err.campo === 'alcool')) setErros({ [err.campo]: err.message })
       else setGeral(mensagemDe(err))
       return false
     } finally {
@@ -105,7 +107,7 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
           )}
         </Campo>
         <Campo id="c-curto" rotulo="Nome curto" erro={erros.curto} dica="Embaixo da bolinha nos destaques do site." lado={<span className="pn-contagem">{tamanho(f.curto)}/14</span>}>
-          {(a) => <input {...a} name="curto" className="pn-input" autoComplete="off" maxLength={14} placeholder="Importadas" value={f.curto} onChange={(e) => mudar('curto', e.target.value)} />}
+          {(a) => <input {...a} name="curto" className="pn-input" autoComplete="off" maxLength={14} placeholder="Ex.: Importadas" value={f.curto} onChange={(e) => mudar('curto', e.target.value)} />}
         </Campo>
         <fieldset className="pn-opcoes">
           <legend className="pn-rotulo">Ícone</legend>
@@ -120,7 +122,16 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
           </div>
         </fieldset>
         <label className="pn-troca">
-          <input type="checkbox" checked={f.bebida} onChange={(e) => mudar('bebida', e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={f.bebida}
+            onChange={(e) => {
+              // deixou de ser bebida: também não é alcoólica
+              const bebida = e.target.checked
+              setF({ ...f, bebida, alcool: bebida && f.alcool })
+              setErros((x) => ({ ...x, bebida: undefined, alcool: undefined }))
+            }}
+          />
           <span className="pn-troca-marca" aria-hidden="true" />
           <span>É bebida</span>
         </label>
@@ -131,6 +142,28 @@ function FolhaCategoria({ alvo, cat, aoFechar, aoSalvar, aoApagar }: { alvo: For
           </p>
         ) : (
           <p className="pn-dica-bloco">Bebida (com ou sem álcool) nunca entra em prêmio do Teste minha sorte.</p>
+        )}
+        <label className="pn-troca">
+          <input
+            type="checkbox"
+            checked={f.alcool}
+            onChange={(e) => {
+              // alcoólica é sempre bebida: liga as duas
+              const alcool = e.target.checked
+              setF({ ...f, alcool, bebida: alcool || f.bebida })
+              setErros((x) => ({ ...x, bebida: undefined, alcool: undefined }))
+            }}
+          />
+          <span className="pn-troca-marca" aria-hidden="true" />
+          <span>Bebida alcoólica</span>
+        </label>
+        {erros.alcool ? (
+          <p className="pn-erro">
+            <Ic nome="atencao" tamanho={16} />
+            <span>{erros.alcool}</span>
+          </p>
+        ) : (
+          <p className="pn-dica-bloco">Destilado, cerveja, vinho, drink: a categoria inteira fica fora da rua do mercador (o site não mostra álcool lá) e de prêmio.</p>
         )}
         {geral && <Aviso tipo="erro">{geral}</Aviso>}
         {cat && aoApagar && (
@@ -205,7 +238,7 @@ export function Categorias() {
         voltar={caminho.mais}
         titulo={<TituloTela>Categorias</TituloTela>}
         acoes={
-          <button type="button" className="pn-botao pn-botao-cheio pn-botao-p" aria-label="Nova categoria" onClick={() => setEditando({ nome: '', curto: '', icone: 'estrela', bebida: false })}>
+          <button type="button" className="pn-botao pn-botao-cheio pn-botao-p" aria-label="Nova categoria" onClick={() => setEditando({ nome: '', curto: '', icone: 'estrela', bebida: false, alcool: false })}>
             <Ic nome="mais" tamanho={16} />
             <span className="pn-botao-txt">
               Nova<span className="pn-txt-sufixo"> categoria</span>
@@ -224,7 +257,7 @@ export function Categorias() {
               {l.categorias.map((c, i) => {
                 return (
                   <li key={c.id} className="pn-cat">
-                    <button type="button" className="pn-cat-abrir toque" onClick={() => setEditando({ id: c.id, nome: c.nome, curto: c.curto, icone: c.icone, bebida: c.bebida })} aria-label={`Editar ${c.nome}`}>
+                    <button type="button" className="pn-cat-abrir toque" onClick={() => setEditando({ id: c.id, nome: c.nome, curto: c.curto, icone: c.icone, bebida: c.bebida, alcool: c.alcool === true })} aria-label={`Editar ${c.nome}`}>
                       <span className="pn-cat-bola" aria-hidden="true">
                         <Ic nome={c.icone} tamanho={32} />
                       </span>
@@ -233,7 +266,7 @@ export function Categorias() {
                         <span>
                           {c.curto !== c.nome ? `${c.curto} · ` : ''}
                           {c.produtos === 1 ? '1 produto' : `${c.produtos} produtos`}
-                          {c.bebida ? ' · bebida' : ''}
+                          {c.alcool ? ' · bebida alcoólica' : c.bebida ? ' · bebida' : ''}
                           {c.premios.length ? ` · ${c.premios.length === 1 ? '1 prêmio' : `${c.premios.length} prêmios`}` : ''}
                         </span>
                       </span>

@@ -1,8 +1,9 @@
-// O que é bebida pra regra "prêmio só em acessório" do Teste minha sorte, além da categoria marcada como bebida: o
-// desenho de bebida (lata alta e garrafas) e o nome de bebida alcoólica (os tipos e as marcas comuns). É a rede pra
-// quando o produto foi parar numa categoria sem bebida. O site (src/lib/premios.ts), o painel (src/painel/loja) e o
-// servidor (GC_LOJA_ALCOOL e GC_LOJA_ARTES_BEBIDA em api/nucleo/loja-validar.php) usam as mesmas listas: o
-// scripts/testar-api-loja.mjs confere que batem.
+// O que é bebida pra regra "prêmio só em acessório" do Teste minha sorte, além da categoria marcada como bebida (ou
+// como bebida alcoólica): o desenho de bebida (lata alta e garrafas) e o nome de bebida alcoólica (os tipos e as
+// marcas comuns). É a rede pra quando o produto foi parar numa categoria sem bebida. O site (src/lib/premios.ts), o
+// painel (src/painel/loja) e o servidor (GC_LOJA_ALCOOL e GC_LOJA_ARTES_BEBIDA em api/nucleo/loja-validar.php) usam as
+// mesmas listas: o scripts/testar-api-loja.mjs confere que batem. E a categoria de bebida alcoólica (a da rua do
+// mercador, em src/componentes/rua/vitrine-regras.ts): a marca "Bebida alcoólica" do painel e, de reforço, o nome.
 
 /** Nome de bebida alcoólica: palavra (ou palavras) inteira, sem acento. */
 export const ALCOOL = [
@@ -36,4 +37,24 @@ export function pareceAlcool(nome: string): boolean {
 /** O produto é bebida pelo que ele mesmo diz (o desenho ou o nome), sem olhar a categoria. */
 export function bebidaPeloProduto(p: { nome?: string; arte?: { tipo?: string } | null }): boolean {
   return (!!p.arte?.tipo && ARTES_DE_BEBIDA.includes(p.arte.tipo)) || (!!p.nome && pareceAlcool(p.nome))
+}
+
+/**
+ * Palavras de categoria de bebida alcoólica (sem acento, palavra inteira), além das marcas e tipos de ALCOOL: a
+ * categoria "Destilados" e as que o dono pode criar ("Cervejas", "Drinks", "Adega"...).
+ */
+export const CATEGORIA_ALCOOL = [
+  'destilado', 'destilados', 'alcool', 'alcoolica', 'alcoolicas', 'alcoolico', 'alcoolicos', 'drink', 'drinks', 'adega',
+  'licores', 'whiskies', 'whiskys', 'destilaria', 'coquetel', 'coqueteis', 'bar', 'boteco', 'dose', 'doses',
+]
+
+/**
+ * A categoria é de bebida alcoólica? A marca "Bebida alcoólica" que o dono liga no painel (`alcool`, a garantia) e, de
+ * reforço, o nome dela (ou o id): a categoria sem a marca, mas chamada "Cervejas" ou "Drinks", conta também (e a loja
+ * de antes da marca, ou guardada no aparelho, continua coberta).
+ */
+export function categoriaAlcoolica(c: { id: string; nome: string; curto: string; alcool?: boolean }): boolean {
+  if (c.alcool === true) return true
+  const t = ` ${semAcento(`${c.id.replace(/-/g, ' ')} ${c.nome} ${c.curto}`).replace(/['’`´]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()} `
+  return CATEGORIA_ALCOOL.some((p) => t.includes(` ${p} `)) || pareceAlcool(`${c.nome} ${c.curto}`)
 }

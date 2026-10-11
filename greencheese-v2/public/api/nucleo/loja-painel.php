@@ -199,7 +199,7 @@ function gc_loja_conferir_premios_do_produto(string $id, array $col): void
         return;
     }
     $nome = '“' . $premios[0]['titulo'] . '”';
-    if ((int) gc_valor('SELECT bebida FROM loja_categorias WHERE id = ?', [$col['categoria_id']]) === 1) {
+    if ((int) gc_valor('SELECT (bebida OR alcool) FROM loja_categorias WHERE id = ?', [$col['categoria_id']]) === 1) {
         throw gc_invalido('categoria', "Esse produto é do prêmio $nome do Teste minha sorte, e bebida não entra em prêmio. Muda o prêmio antes.");
     }
     if (gc_loja_parece_alcool((string) $col['nome'])) {
@@ -411,7 +411,7 @@ function gc_rota_admin_produtos_ordem(): array
 
 // ─── categorias ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** POST admin-categoria-salvar { id?, nome, curto, icone, bebida }: sem id cria (id = slug do nome), com id edita. */
+/** POST admin-categoria-salvar { id?, nome, curto, icone, bebida, alcool }: sem id cria (id = slug do nome), com id edita. */
 function gc_rota_admin_categoria_salvar(): array
 {
     gc_exigir_dono();
@@ -437,7 +437,7 @@ function gc_rota_admin_categoria_salvar(): array
             }
             $mudou = gc_loja_mudancas($col, $atual);
             if ($mudou !== []) {
-                gc_sql('UPDATE loja_categorias SET nome = ?, curto = ?, icone = ?, bebida = ?, atualizado_em = ? WHERE id = ?', [$col['nome'], $col['curto'], $col['icone'], $col['bebida'], $agora, $atual['id']]);
+                gc_sql('UPDATE loja_categorias SET nome = ?, curto = ?, icone = ?, bebida = ?, alcool = ?, atualizado_em = ? WHERE id = ?', [$col['nome'], $col['curto'], $col['icone'], $col['bebida'], $col['alcool'], $agora, $atual['id']]);
                 gc_loja_mudou();
                 gc_evento('painel', 'categoria-editada', 'categoria:' . $atual['id'], ['nome' => $col['nome'], 'campos' => $mudou]);
             }
@@ -446,7 +446,7 @@ function gc_rota_admin_categoria_salvar(): array
         $col = gc_loja_ler_categoria($c, null);
         $id = gc_loja_id_livre(gc_loja_slug($col['nome'], 'categoria'), 'loja_categorias');
         $ordem = (int) gc_valor('SELECT COALESCE(MAX(ordem), -1) + 1 FROM loja_categorias');
-        gc_sql('INSERT INTO loja_categorias (id, nome, curto, icone, bebida, ordem, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$id, $col['nome'], $col['curto'], $col['icone'], $col['bebida'], $ordem, $agora, $agora]);
+        gc_sql('INSERT INTO loja_categorias (id, nome, curto, icone, bebida, alcool, ordem, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [$id, $col['nome'], $col['curto'], $col['icone'], $col['bebida'], $col['alcool'], $ordem, $agora, $agora]);
         gc_loja_mudou();
         gc_evento('painel', 'categoria-criada', 'categoria:' . $id, ['nome' => $col['nome']]);
         return ['_status' => 201, 'categoria' => gc_loja_categoria_publica((array) gc_um('SELECT * FROM loja_categorias WHERE id = ?', [$id]))] + gc_loja_carimbo();

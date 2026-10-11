@@ -1,8 +1,12 @@
-// Produto (criar e editar): foto (vira a capa do card e da página do produto no site; o Estúdio deixa ela no estilo
-// do site) e thumb animada (MidiaProduto.tsx), nome, tamanho, categoria,
-// preço ou "Consultar", combos, variações, onde tem (à venda e estoque por estado), "Combina com", o desenho de
-// quando não tem foto e a prévia do card como o cliente vê. O que está sendo digitado fica guardado no aparelho até
-// salvar. Na edição, só vai pro servidor o que mudou (a troca rápida feita no outro aparelho não é desfeita).
+// Produto (criar e editar). Em cima, o básico, que é o que o dono mais mexe: a foto (vira a capa do card e da página do
+// produto no site; o Estúdio deixa ela no estilo do site) e a thumb animada (MidiaProduto.tsx), nome (com o tamanho
+// do lado: vai junto dele na mensagem do pedido), categoria, preço ou "Consultar" e onde tem (à venda e estoque por
+// estado), com o Salvar fixo embaixo. O resto mora em "Mais detalhes": linha de baixo, descrição, combos, variações,
+// "Combina com", o desenho de quando não tem foto, no site sim/não, exemplo, anotação e apagar. O card do lado da foto mostra o estado do filtro da lista (ou o primeiro
+// onde tá à venda) e diz qual é. O produto novo já nasce à venda no estado do filtro e o botão diz onde vai à venda.
+// O que está sendo digitado fica guardado no aparelho até salvar, e sair com mudança pergunta antes (useAvisarAoSair).
+// O erro de um campo some assim que ele fica certo. Na edição, só vai pro servidor o que mudou (a troca rápida feita
+// no outro aparelho não é desfeita).
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { ARTES_DE_BEBIDA } from '../../lib/alcool'
 import * as apiBase from '../api'
@@ -10,10 +14,11 @@ import { ErroApi } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { Folha } from '../Folha'
 import { brl, lerReais, reaisNoCampo } from '../formato'
-import { lembrarJson, lidoJson } from '../lembrar'
+import { lembrar, lembrarJson, lido, lidoJson } from '../lembrar'
 import { Topo } from '../Moldura'
+import { recado } from '../recado'
 import { caminho, ir, voltar } from '../rotas'
-import { avisarNaProxima } from '../telas/flash'
+import { useAvisarAoSair } from '../sair'
 import { useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
 import * as api from './api'
@@ -23,7 +28,7 @@ import { FotoProduto, VideoProduto } from './MidiaProduto'
 import { ARTES } from './nomes'
 import { PreviaCard } from './Previa'
 import { lerPreco, pareceAlcool, problemaNoTexto, tamanho } from './validar'
-import type { Arte, LojaAdmin, NoEstado, ProdutoAdmin, ProdutoCorpo, TipoArte } from './tipos'
+import type { Arte, EstadoAdmin, LojaAdmin, NoEstado, ProdutoAdmin, ProdutoCorpo, TipoArte } from './tipos'
 
 interface FormEstado {
   disponivel: boolean
@@ -90,7 +95,8 @@ function doProduto(p: ProdutoAdmin, l: LojaAdmin): Form {
   }
 }
 
-function novo(l: LojaAdmin): Form {
+/** Produto novo: à venda só no estado do filtro da lista (uf), se tiver um; sem filtro, em nenhum (nada de prometer). */
+function novo(l: LojaAdmin, uf: string | null): Form {
   return {
     nome: '',
     tamanho: '',
@@ -107,8 +113,7 @@ function novo(l: LojaAdmin): Form {
     formato: 'lata',
     cor1: '#a8a8a8',
     cor2: '',
-    // produto novo nasce sem estar à venda: o dono liga onde tem (nada de prometer o que não tem)
-    estados: Object.fromEntries(l.estados.map((e) => [e.uf, { disponivel: false, contar: false, estoque: '' }])),
+    estados: Object.fromEntries(l.estados.map((e) => [e.uf, { disponivel: e.uf === uf, contar: false, estoque: '' }])),
     combinaCom: [],
     obs: '',
     ativo: true,
@@ -329,7 +334,34 @@ function EscolherCombina({ l, proprio, ids, aoMudar }: { l: LojaAdmin; proprio: 
   )
 }
 
-export function Produto({ id }: { id: string | null }) {
+/** Os grupos de erro: combo-0 e combo-1 são do grupo "combo"; est-mg é do "est". */
+const grupoDoErro = (k: string) => k.replace(/-(\d+|[a-z]{2})$/, '')
+
+/** Os campos que moram em "Mais detalhes": o erro num deles abre a seção antes de levar o foco. */
+const EM_DETALHES = new Set(['detalhe', 'descricao', 'combo', 'combos', 'var', 'variacoes', 'combinaCom', 'arte', 'cor', 'obs'])
+
+/** "MG", "MG e SP", "3 estados". */
+function listaUfs(ufs: string[]): string {
+  const u = ufs.map((x) => x.toUpperCase())
+  if (u.length <= 1) return u[0] ?? ''
+  if (u.length === 2) return `${u[0]} e ${u[1]}`
+  return `${u.length} estados`
+}
+
+/** O que tem em "Mais detalhes", numa linha (embaixo do botão que abre). */
+function resumoDetalhes(f: Form): string {
+  const tem: string[] = []
+  if (f.descricao.trim() || f.detalhe.trim()) tem.push('descrição')
+  if (f.combos.length) tem.push(f.combos.length === 1 ? '1 combo' : `${f.combos.length} combos`)
+  if (f.variacoes.length) tem.push(f.variacoes.length === 1 ? '1 variação' : `${f.variacoes.length} variações`)
+  if (f.combinaCom.length) tem.push(`combina com ${f.combinaCom.length}`)
+  if (f.obs.trim()) tem.push('anotação')
+  if (!f.ativo) tem.push('fora do site')
+  if (f.demo) tem.push('exemplo')
+  return tem.length ? tem.join(' · ') : 'Linha de baixo, descrição, combos, variações, desenho, anotação'
+}
+
+export function Produto({ id, ufNovo = null }: { id: string | null; ufNovo?: string | null }) {
   useTitulo(id ? 'Editar produto' : 'Novo produto')
   const leitura = useLoja(0)
   const l = leitura.dados
@@ -337,22 +369,35 @@ export function Produto({ id }: { id: string | null }) {
   const chaveRascunho = `produto:${id ?? 'novo'}`
   const [f, setF] = useState<Form | null>(null)
   const [voltouRascunho, setVoltouRascunho] = useState(false)
+  /** Os erros do último "Salvar" (conferidos de novo a cada mudança: o que ficou certo some na hora). */
   const [erros, setErros] = useState<Erros>({})
+  /** O erro que o servidor devolveu (some quando o campo dele muda). */
+  const [erroServidor, setErroServidor] = useState<Erros>({})
   const [geral, setGeral] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
-  const [previaUf, setPreviaUf] = useState<string | null>(null)
+  const [previaEscolhida, setPreviaEscolhida] = useState<string | null>(null)
+  const [detalhes, setDetalhesBruto] = useState(() => lido('produto-detalhes') === '1')
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
   const trava = useRef(false)
   const inicial = useRef<string | null>(null)
   const base = useRef<string | null>(null)
   const ilustracoes = useIlustracoes()
   const idDesenho = useId()
+  const setDetalhes = (v: boolean) => {
+    setDetalhesBruto(v)
+    lembrar('produto-detalhes', v ? '1' : null)
+  }
+
+  // o estado do filtro da lista de Produtos (o do link do "Novo", ou o último lembrado), se ainda tá no site
+  const ufsSite = l ? estadosNoSite(l).map((e) => e.uf) : []
+  const ufFiltroBruto = ufNovo ?? lido('produtos-uf')
+  const ufFiltro = ufFiltroBruto && ufsSite.includes(ufFiltroBruto) ? ufFiltroBruto : null
 
   // abre o formulário uma vez, quando a loja chega (e o rascunho guardado neste aparelho, se for do mesmo produto)
   useEffect(() => {
     if (f || !l) return
     if (id && !p) return
-    const limpo = p ? doProduto(p, l) : novo(l)
+    const limpo = p ? doProduto(p, l) : novo(l, ufFiltro)
     inicial.current = JSON.stringify(limpo)
     base.current = p?.atualizadoEm ?? null
     const guardado = lidoJson<{ form: Form; base: string | null }>(chaveRascunho)
@@ -363,7 +408,6 @@ export function Produto({ id }: { id: string | null }) {
       if (guardado) lembrarJson(chaveRascunho, null)
       setF(limpo)
     }
-    setPreviaUf(estadosNoSite(l)[0]?.uf ?? null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l, p, id])
 
@@ -375,50 +419,84 @@ export function Produto({ id }: { id: string | null }) {
 
   const mudar = <K extends keyof Form>(k: K, v: Form[K]) => {
     setF((s) => (s ? { ...s, [k]: v } : s))
-    if (erros[k as string]) setErros((e) => ({ ...e, [k]: undefined }))
+    // o erro do servidor sai quando o campo dele muda (combos leva os combo-N; variações, os var-N; onde tem, os est-UF)
+    const prefixo = k === 'combos' ? 'combo-' : k === 'variacoes' ? 'var-' : k === 'estados' ? 'est-' : null
+    setErroServidor((e) => {
+      const n = Object.fromEntries(Object.entries(e).filter(([c]) => c !== k && !(prefixo && c.startsWith(prefixo))))
+      return Object.keys(n).length === Object.keys(e).length ? e : n
+    })
   }
 
   const focar = (campo: string) => {
-    const mapa: Record<string, string> = { combos: 'p-combo-qtd-0', variacoes: 'p-var-0', estados: `p-est-${Object.keys(f?.estados ?? {})[0] ?? ''}`, combinaCom: 's-combina', arte: 's-desenho', cor: 's-desenho' }
+    const mapa: Record<string, string> = { combos: 'p-combo-qtd-0', variacoes: 'p-var-0', estados: `p-est-${Object.keys(f?.estados ?? {})[0] ?? ''}`, combinaCom: 's-combina', arte: `${idDesenho}-formato`, cor: `${idDesenho}-formato` }
     const alvo = mapa[campo] ?? (campo.startsWith('combo-') ? `p-combo-qtd-${campo.slice(6)}` : campo.startsWith('var-') ? `p-var-${campo.slice(4)}` : campo.startsWith('est-') ? `p-est-n-${campo.slice(4)}` : `p-${campo}`)
-    const el = document.getElementById(alvo)
-    el?.focus()
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const levar = () => {
+      const el = document.getElementById(alvo)
+      el?.focus()
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+    // o campo tá em "Mais detalhes" fechado: abre e leva o foco depois que ele aparece
+    if (EM_DETALHES.has(grupoDoErro(campo)) && !detalhes) {
+      setDetalhes(true)
+      requestAnimationFrame(() => requestAnimationFrame(levar))
+    } else levar()
   }
 
-  const salvar = async (e?: FormEvent) => {
+  // sair com mudança não salva pergunta antes (Salvar · Descartar · Continuar editando); descartar apaga o rascunho
+  const mexeu = !!f && JSON.stringify(f) !== inicial.current
+  const salvarRef = useRef<(e?: FormEvent, ficar?: boolean) => Promise<boolean>>(async () => false)
+  const { liberar } = useAvisarAoSair(mexeu, { salvar: () => salvarRef.current(undefined, true), descartar: () => lembrarJson(chaveRascunho, null) })
+
+  const salvar = async (e?: FormEvent, ficar = false): Promise<boolean> => {
     e?.preventDefault()
-    if (!f || !l || salvando) return
+    if (!f || !l || salvando) return false
     const novos = validar(f, p, l)
     setErros(novos)
+    setErroServidor({})
     setGeral(null)
     const primeiro = Object.keys(novos)[0]
     if (primeiro) {
       focar(primeiro)
-      return
+      return false
     }
-    if (trava.current) return
+    if (trava.current) return false
     trava.current = true
     setSalvando(true)
     try {
       const r = await api.salvarProduto(corpo(f, p))
       lembrarJson(chaveRascunho, null)
+      inicial.current = JSON.stringify(f)
       guardarLoja((x) => comProduto(x, r.produto, r))
-      avisarNaProxima(p ? `${r.produto.nome}: salvo. O site já mostra.` : `${r.produto.nome} criado. ${Object.values(r.produto.estados).some((x) => x?.disponivel) ? 'Já tá no site.' : 'Liga os estados onde tem pra aparecer à venda.'}`)
-      if (p) voltar(caminho.produtos)
-      else ir(caminho.produtos, true)
+      const onde = estadosNoSite(l)
+        .map((x) => x.uf)
+        .filter((uf) => r.produto.estados[uf]?.disponivel)
+      recado(
+        p
+          ? `${r.produto.nome}: salvo. O site já mostra.`
+          : onde.length
+            ? `${r.produto.nome} criado e à venda em ${listaUfs(onde)}. O site já mostra.`
+            : `${r.produto.nome} criado, sem estar à venda: liga os estados em “Onde tem” pra aparecer no site.`,
+      )
+      liberar()
+      if (!ficar) {
+        if (p) voltar(caminho.produtos)
+        else ir(caminho.produtos, true)
+      }
+      return true
     } catch (err) {
       if (err instanceof ErroApi && err.campo) {
         const uf = typeof err.dados.uf === 'string' ? err.dados.uf : null
         const c = err.campo === 'combos' ? `combo-${Number(err.dados.indice ?? 0)}` : err.campo === 'variacoes' ? `var-${Number(err.dados.indice ?? 0)}` : err.campo === 'estados' && uf ? `est-${uf}` : err.campo
-        setErros({ [c]: err.message })
+        setErroServidor({ [c]: err.message })
         focar(c)
       } else setGeral(apiBase.mensagemDe(err))
+      return false
     } finally {
       trava.current = false
       setSalvando(false)
     }
   }
+  salvarRef.current = salvar
 
   const pedirApagar = () => {
     if (!p) return
@@ -431,7 +509,8 @@ export function Produto({ id }: { id: string | null }) {
         const r = await api.apagarProduto(p.id)
         lembrarJson(chaveRascunho, null)
         guardarLoja((x) => semProduto(x, p.id, r))
-        avisarNaProxima(`${p.nome} apagado.`)
+        recado(`${p.nome} apagado.`)
+        liberar()
         ir(caminho.produtos, true)
       },
     })
@@ -469,17 +548,99 @@ export function Produto({ id }: { id: string | null }) {
     )
   }
 
+  // os erros à vista: os do último "Salvar" que ainda valem (com a frase de agora) e o do servidor
+  const vivos = validar(f, p, l)
+  const gruposComErro = new Set(Object.keys(erros).map(grupoDoErro))
+  const erroDe = (k: string): string | undefined => (gruposComErro.has(grupoDoErro(k)) ? vivos[k] : undefined) ?? erroServidor[k]
+  const erroEmDetalhes = [...Object.keys(vivos).filter((k) => gruposComErro.has(grupoDoErro(k))), ...Object.keys(erroServidor)].some((k) => EM_DETALHES.has(grupoDoErro(k)))
+
   const preco = lerPreco(f.preco)
   const estados = l.estados
+  const noSite = estadosNoSite(l)
   const cat = l.categorias.find((c) => c.id === f.categoria)
   const temIlustracao = !!(p && ilustracoes?.[p.id])
   const arte = arteDoForm(f, p?.arte ?? null)
   const corBrilho = f.corFoto && f.foto ? f.corFoto : p && JSON.stringify(arte) === JSON.stringify(p.arte) ? p.cor : corDoBrilho(f.cor1, f.cor2)
+  // o card mostra: o estado que a pessoa escolheu ali, o do filtro da lista, o primeiro onde tá à venda ou o 1º do site
+  const ufsAVenda = noSite.map((e) => e.uf).filter((uf) => f.estados[uf]?.disponivel)
+  const previaUf = (previaEscolhida && ufsSite.includes(previaEscolhida) ? previaEscolhida : null) ?? ufFiltro ?? ufsAVenda[0] ?? ufsSite[0] ?? null
+  const previaEstado = previaUf ? noSite.find((e) => e.uf === previaUf) : undefined
   const previaEst = previaUf ? f.estados[previaUf] : undefined
   const previaNo: NoEstado | null = previaEst ? { disponivel: previaEst.disponivel, estoque: previaEst.contar ? (inteiro(previaEst.estoque) ?? 0) : null } : null
   const previaP = { id: p?.id ?? 'novo', nome: f.nome.trim(), cor: corBrilho, arte, foto: f.foto, video: f.video, capa: f.capa, preco: preco ?? null, detalhe: f.detalhe }
   const sit = previaUf && previaNo ? situacao({ ...(p ?? ({} as ProdutoAdmin)), ativo: f.ativo, estados: { [previaUf]: previaNo } } as ProdutoAdmin, previaUf, l.ajustes.restamAte) : null
   const restam = sit === 'acabando' ? (previaNo?.estoque ?? null) : null
+  const situacaoPrevia = !f.ativo ? 'desligado' : sit
+  const fraseSituacao = !f.ativo ? 'fora do site' : sit === 'acabando' ? `à venda, com “restam ${restam}”` : sit === 'disponivel' ? 'à venda' : sit === 'esgotado' ? 'esgotado (0 no estoque)' : 'fora de venda'
+  // o botão do produto novo diz onde ele vai à venda
+  const botaoCriar = ufsAVenda.length ? `Criar e pôr à venda em ${listaUfs(ufsAVenda)}` : 'Criar sem pôr à venda'
+
+  /** "Em MG ▾" debaixo do card: de qual estado é o que o card mostra (e troca). */
+  const seletorPrevia =
+    previaUf && previaEstado ? (
+      noSite.length > 1 ? (
+        <label className="pn-previa-em">
+          <span className="sr-only">O card mostra como fica em</span>
+          <select className="pn-input pn-select pn-previa-em-sel px" value={previaUf} onChange={(e) => setPreviaEscolhida(e.target.value)}>
+            {noSite.map((e) => (
+              <option key={e.uf} value={e.uf}>
+                Em {e.uf.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <p className="pn-previa-em pn-previa-em-txt px">Em {previaUf.toUpperCase()}</p>
+      )
+    ) : null
+
+  const linhaOnde = (e: EstadoAdmin) => {
+    const x = f.estados[e.uf] ?? { disponivel: false, contar: false, estoque: '' }
+    const set = (n: Partial<FormEstado>) => mudar('estados', { ...f.estados, [e.uf]: { ...x, ...n } })
+    const erro = erroDe(`est-${e.uf}`)
+    return (
+      <li key={e.uf} className={`pn-onde-item${e.ativo ? '' : ' pn-onde-fora'}`}>
+        <label className="pn-troca" htmlFor={`p-est-${e.uf}`}>
+          <input id={`p-est-${e.uf}`} type="checkbox" checked={x.disponivel} onChange={(ev) => set({ disponivel: ev.target.checked })} />
+          <span className="pn-troca-marca" aria-hidden="true" />
+          <span className="pn-onde-nome">
+            <span className="px">{e.uf.toUpperCase()}</span> {e.nome}
+            {!e.ativo && <small> · fora do site</small>}
+            <span className="sr-only">: à venda</span>
+          </span>
+        </label>
+        <label className="pn-marcar pn-onde-contar">
+          <input type="checkbox" checked={x.contar} onChange={(ev) => set({ contar: ev.target.checked, estoque: ev.target.checked && !x.estoque ? '0' : x.estoque })} />
+          <span className="pn-marcar-caixa" aria-hidden="true">
+            {x.contar && <Ic nome="check" tamanho={16} />}
+          </span>
+          <span>
+            Contar estoque<span className="sr-only"> em {e.nome}</span>
+          </span>
+        </label>
+        {x.contar && (
+          <div className="pn-onde-n">
+            <Numero
+              aria={{ id: `p-est-n-${e.uf}`, 'aria-label': `Unidades em ${e.nome}`, ...(erro ? { 'aria-invalid': true as const, 'aria-describedby': `p-est-n-${e.uf}-erro` } : {}) }}
+              valor={x.estoque}
+              aoMudar={(v) => set({ estoque: v })}
+              min={0}
+              max={9999}
+              sufixo="un."
+              rotuloMenos={`Menos um no estoque de ${e.nome}`}
+              rotuloMais={`Mais um no estoque de ${e.nome}`}
+            />
+            {erro && (
+              <p id={`p-est-n-${e.uf}-erro`} className="pn-erro">
+                <Ic nome="atencao" tamanho={16} />
+                <span>{erro}</span>
+              </p>
+            )}
+          </div>
+        )}
+      </li>
+    )
+  }
 
   return (
     <>
@@ -497,7 +658,9 @@ export function Produto({ id }: { id: string | null }) {
                     lembrarJson(chaveRascunho, null)
                     setVoltouRascunho(false)
                     setErros({})
-                    const limpo = p ? doProduto(p, l) : novo(l)
+                    setErroServidor({})
+                    setPreviaEscolhida(null)
+                    const limpo = p ? doProduto(p, l) : novo(l, ufFiltro)
                     inicial.current = JSON.stringify(limpo)
                     setF(limpo)
                   }}
@@ -509,21 +672,26 @@ export function Produto({ id }: { id: string | null }) {
               Continuando de onde tu parou (ficou guardado neste aparelho).
             </Aviso>
           )}
+          {!f.ativo && <Aviso tipo="info">Fora do site: só tu vê esse produto. Pra voltar, liga o “Aparece no site” em Mais detalhes.</Aviso>}
 
-          <Secao titulo="Foto" id="s-foto" dica="Vira a capa do produto no site: o card da grade, o story e a página dele.">
+          {/* ── o básico ── */}
+          <Secao titulo="Foto" id="s-foto">
             <FotoProduto
               foto={f.foto}
               nome={f.nome.trim()}
               preco={preco ?? null}
               cor={corBrilho}
               aoMudar={(foto, cor) => setF((s) => (s ? { ...s, foto, corFoto: foto ? cor : null } : s))}
-              previa={<PreviaCard p={previaP} situacao={!f.ativo ? 'desligado' : sit} restam={restam} largura={132} />}
-              semFoto={temIlustracao ? 'Sem foto, o site mostra a ilustração do produto (essa do lado).' : 'Sem foto, o site mostra o desenho em pixel (o formato e as cores ficam em “Desenho”, lá embaixo).'}
+              previa={
+                <>
+                  <PreviaCard p={previaP} situacao={situacaoPrevia} restam={restam} largura={124} />
+                  {seletorPrevia}
+                </>
+              }
+              semFoto={temIlustracao ? 'Sem foto, vale a ilustração do site (a do card).' : 'Sem foto, vale o desenho em pixel (Mais detalhes › Desenho).'}
             />
-          </Secao>
-
-          <Secao titulo="Thumb animada" id="s-video" dica="Opcional: um vídeo curto do produto toca no card da grade, no story e na página dele (sem som). O painel deixa no estilo da loja.">
             <VideoProduto
+              compacto
               video={f.video}
               capa={f.capa}
               nome={f.nome.trim()}
@@ -533,15 +701,18 @@ export function Produto({ id }: { id: string | null }) {
             />
           </Secao>
 
-          <Secao titulo="Produto" id="s-produto">
-            <Campo id="p-nome" rotulo="Nome" erro={erros.nome} lado={<span className="pn-contagem">{tamanho(f.nome)}/60</span>}>
-              {(a) => <input {...a} name="nome" className="pn-input" autoComplete="off" maxLength={60} placeholder="Ex.: Fanta Ghost Face Punch" value={f.nome} onChange={(e) => mudar('nome', e.target.value)} />}
-            </Campo>
-            <div className="pn-dupla">
-              <Campo id="p-tamanho" rotulo="Tamanho" erro={erros.tamanho} lado={<span className="pn-opcional">opcional</span>}>
-                {(a) => <input {...a} name="tamanho" className="pn-input" autoComplete="off" maxLength={20} placeholder="350 ml" value={f.tamanho} onChange={(e) => mudar('tamanho', e.target.value)} />}
+          <Secao titulo="Nome e preço" id="s-produto">
+            {/* o tamanho vai junto do nome na mensagem do pedido ("Fanta 350 ml"): fica do lado dele, sem custar altura */}
+            <div className="pn-dupla pn-dupla-nome">
+              <Campo id="p-nome" rotulo="Nome" erro={erroDe('nome')} lado={<span className="pn-contagem">{tamanho(f.nome)}/60</span>}>
+                {(a) => <input {...a} name="nome" className="pn-input" autoComplete="off" maxLength={60} placeholder="Ex.: Fanta Uva" value={f.nome} onChange={(e) => mudar('nome', e.target.value)} />}
               </Campo>
-              <Campo id="p-categoria" rotulo="Categoria" erro={erros.categoria}>
+              <Campo id="p-tamanho" rotulo="Tamanho" erro={erroDe('tamanho')}>
+                {(a) => <input {...a} name="tamanho" className="pn-input pn-input-exemplo" autoComplete="off" maxLength={20} placeholder="ex.: 350 ml" aria-description="Opcional. Vai junto do nome na mensagem do pedido." value={f.tamanho} onChange={(e) => mudar('tamanho', e.target.value)} />}
+              </Campo>
+            </div>
+            <div className="pn-dupla pn-dupla-basico">
+              <Campo id="p-categoria" rotulo="Categoria" erro={erroDe('categoria')}>
                 {(a) => (
                   <select {...a} name="categoria" className="pn-input pn-select" value={f.categoria} onChange={(e) => mudar('categoria', e.target.value)}>
                     <option value="">Escolhe</option>
@@ -553,222 +724,197 @@ export function Produto({ id }: { id: string | null }) {
                   </select>
                 )}
               </Campo>
+              <Campo id="p-preco" rotulo="Preço" erro={erroDe('preco')} dica="Vazio = “Consultar” no site.">
+                {(a) => <Reais id={a.id} rotulo="Preço da unidade" erro={!!a['aria-invalid']} valor={f.preco} aoMudar={(v) => mudar('preco', v)} placeholder="Consultar" />}
+              </Campo>
             </div>
-            <Campo id="p-detalhe" rotulo="Linha de baixo" erro={erros.detalhe} dica="Aparece embaixo do nome no story e na página (ex.: Lata 350 ml · importada)." lado={<span className="pn-opcional">opcional</span>}>
-              {(a) => <input {...a} name="detalhe" className="pn-input" autoComplete="off" maxLength={60} value={f.detalhe} onChange={(e) => mudar('detalhe', e.target.value)} />}
-            </Campo>
-            <Campo id="p-descricao" rotulo="Descrição" erro={erros.descricao} dica="1 ou 2 frases do produto, na página dele. Sem promessa de preço, frete ou prazo." lado={<span className="pn-contagem">{tamanho(f.descricao)}/300</span>}>
-              {(a) => <textarea {...a} name="descricao" className="pn-input pn-texto" rows={3} maxLength={300} value={f.descricao} onChange={(e) => mudar('descricao', e.target.value)} />}
-            </Campo>
           </Secao>
 
-          <Secao titulo="Preço" id="s-preco">
-            <Campo id="p-preco" rotulo="Preço da unidade" erro={erros.preco} dica="Vazio = aparece “Consultar” no site (nunca inventa preço).">
-              {(a) => <Reais id={a.id} rotulo="Preço da unidade" erro={!!a['aria-invalid']} valor={f.preco} aoMudar={(v) => mudar('preco', v)} placeholder="Consultar" />}
-            </Campo>
-            <h3 className="pn-h3 pn-h3-colado">Combos</h3>
-            <p className="pn-dica-bloco">Ex.: 2 por R$ 14,99. A sacola do site aplica o melhor preço sozinha.</p>
-            {f.combos.map((c, i) => {
-              const q = inteiro(c.qtd)
-              const t = lerReais(c.total)
-              const eco = q && t != null && preco != null ? q * preco - t : null
-              return (
-                <div key={i} className={`pn-linha-combo${erros[`combo-${i}`] ? ' pn-campo-erro' : ''}`}>
-                  <input
-                    id={`p-combo-qtd-${i}`}
-                    className="pn-input pn-input-num"
-                    inputMode="numeric"
-                    aria-label={`Combo ${i + 1}: quantidade`}
-                    value={c.qtd}
-                    onChange={(e) => mudar('combos', f.combos.map((x, j) => (j === i ? { ...x, qtd: e.target.value.replace(/\D/g, '').slice(0, 2) } : x)))}
-                  />
-                  <span className="pn-linha-combo-por">por</span>
-                  <Reais id={`p-combo-total-${i}`} rotulo={`Combo ${i + 1}: preço`} valor={c.total} aoMudar={(v) => mudar('combos', f.combos.map((x, j) => (j === i ? { ...x, total: v } : x)))} placeholder="14,99" />
-                  <button type="button" className="icone-botao" aria-label={`Tirar o combo ${i + 1}`} onClick={() => mudar('combos', f.combos.filter((_, j) => j !== i))}>
-                    <Ic nome="lixo" tamanho={16} />
-                  </button>
-                  {erros[`combo-${i}`] ? (
-                    <p className="pn-erro pn-linha-combo-msg">
-                      <Ic nome="atencao" tamanho={16} />
-                      <span>{erros[`combo-${i}`]}</span>
-                    </p>
-                  ) : (
-                    eco != null && eco > 0 && <p className="pn-dica pn-linha-combo-msg">Economiza {brl(Math.round(eco * 100) / 100)} no combo.</p>
-                  )}
-                </div>
-              )
-            })}
-            {f.combos.length < 5 && (
-              <Botao variante="cinza" icone="mais" onClick={() => mudar('combos', [...f.combos, { qtd: String(Math.max(2, ...f.combos.map((c) => (inteiro(c.qtd) ?? 1) + 1))), total: '' }])}>
-                Adicionar combo
-              </Botao>
-            )}
+          <Secao
+            titulo="Onde tem"
+            id="s-estados"
+            dica={ufsAVenda.length ? `À venda em ${listaUfs(ufsAVenda)}. Contando o estoque, chegou a 0 sai do site sozinho e volta quando tu põe mais.` : 'Liga os estados onde tem: sem nenhum, o produto fica fora de venda no site.'}
+          >
+            <ul className="pn-onde">{estados.map(linhaOnde)}</ul>
+            {erroDe('estados') && <Aviso tipo="erro">{erroDe('estados')}</Aviso>}
           </Secao>
 
-          <Secao titulo="Variações" id="s-variacoes" dica="Sabor, tamanho ou modelo (ex.: Flat · 6 mm e Slim · 7 mm). O cliente escolhe na página do produto.">
-            {f.variacoes.map((v, i) => (
-              <div key={v.id ?? `n${i}`} className={`pn-linha-var${erros[`var-${i}`] ? ' pn-campo-erro' : ''}`}>
-                <input id={`p-var-${i}`} className="pn-input" aria-label={`Variação ${i + 1}: nome`} maxLength={40} placeholder="Nome" value={v.nome} onChange={(e) => mudar('variacoes', f.variacoes.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))} />
-                <Reais id={`p-var-preco-${i}`} rotulo={`Variação ${i + 1}: preço (opcional)`} valor={v.preco} aoMudar={(x) => mudar('variacoes', f.variacoes.map((y, j) => (j === i ? { ...y, preco: x } : y)))} placeholder="mesmo" />
-                <button type="button" className="icone-botao" aria-label={`Tirar a variação ${v.nome || i + 1}`} onClick={() => mudar('variacoes', f.variacoes.filter((_, j) => j !== i))}>
-                  <Ic nome="lixo" tamanho={16} />
-                </button>
-                {erros[`var-${i}`] && (
-                  <p className="pn-erro pn-linha-combo-msg">
-                    <Ic nome="atencao" tamanho={16} />
-                    <span>{erros[`var-${i}`]}</span>
-                  </p>
-                )}
-              </div>
-            ))}
-            {f.variacoes.length < 12 && (
-              <Botao variante="cinza" icone="mais" onClick={() => mudar('variacoes', [...f.variacoes, { nome: '', preco: '' }])}>
-                Adicionar variação
-              </Botao>
-            )}
-          </Secao>
-
-          <Secao titulo="Onde tem" id="s-estados" dica="À venda em cada estado. Contando o estoque, chegou a 0 sai do site sozinho e volta quando tu põe mais.">
-            <ul className="pn-onde">
-              {estados.map((e) => {
-                const x = f.estados[e.uf] ?? { disponivel: false, contar: false, estoque: '' }
-                const set = (n: Partial<FormEstado>) => mudar('estados', { ...f.estados, [e.uf]: { ...x, ...n } })
-                const erro = erros[`est-${e.uf}`]
-                return (
-                  <li key={e.uf} className={`pn-onde-item${e.ativo ? '' : ' pn-onde-fora'}`}>
-                    <label className="pn-troca" htmlFor={`p-est-${e.uf}`}>
-                      <input id={`p-est-${e.uf}`} type="checkbox" checked={x.disponivel} onChange={(ev) => set({ disponivel: ev.target.checked })} />
-                      <span className="pn-troca-marca" aria-hidden="true" />
-                      <span className="pn-onde-nome">
-                        <span className="px">{e.uf.toUpperCase()}</span> {e.nome}
-                        {!e.ativo && <small> · fora do site</small>}
-                        <span className="sr-only">: à venda</span>
-                      </span>
-                    </label>
-                    <label className="pn-marcar pn-onde-contar">
-                      <input type="checkbox" checked={x.contar} onChange={(ev) => set({ contar: ev.target.checked, estoque: ev.target.checked && !x.estoque ? '0' : x.estoque })} />
-                      <span className="pn-marcar-caixa" aria-hidden="true">
-                        {x.contar && <Ic nome="check" tamanho={16} />}
-                      </span>
-                      <span>
-                        Contar estoque<span className="sr-only"> em {e.nome}</span>
-                      </span>
-                    </label>
-                    {x.contar && (
-                      <div className="pn-onde-n">
-                        <Numero
-                          aria={{ id: `p-est-n-${e.uf}`, 'aria-label': `Unidades em ${e.nome}`, ...(erro ? { 'aria-invalid': true as const, 'aria-describedby': `p-est-n-${e.uf}-erro` } : {}) }}
-                          valor={x.estoque}
-                          aoMudar={(v) => set({ estoque: v })}
-                          min={0}
-                          max={9999}
-                          sufixo="un."
-                          rotuloMenos={`Menos um no estoque de ${e.nome}`}
-                          rotuloMais={`Mais um no estoque de ${e.nome}`}
-                        />
-                        {erro && (
-                          <p id={`p-est-n-${e.uf}-erro`} className="pn-erro">
-                            <Ic nome="atencao" tamanho={16} />
-                            <span>{erro}</span>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-            {erros.estados && <Aviso tipo="erro">{erros.estados}</Aviso>}
-          </Secao>
-
-          <Secao titulo="Combina com" id="s-combina">
-            <EscolherCombina l={l} proprio={p?.id ?? null} ids={f.combinaCom} aoMudar={(v) => mudar('combinaCom', v)} />
-          </Secao>
-
-          <Secao titulo="Desenho" id="s-desenho" dica={f.foto ? 'Com foto, o desenho só aparece no chiado que o site faz antes de mostrar a foto.' : temIlustracao ? 'Esse produto tem a ilustração do site: o formato e as cores daqui só valem se ela sair.' : 'Sem foto, é esse desenho em pixel que aparece no site.'}>
-            <div className="pn-desenho">
-              <ArteProduto produto={{ id: `${p?.id ?? 'novo'}-desenho`, nome: f.nome, cor: corBrilho, arte, foto: null }} largura={72} />
-              <div className="pn-desenho-campos">
-                <Campo id={`${idDesenho}-formato`} rotulo="Formato" erro={erros.arte}>
-                  {(a) => (
-                    <select {...a} className="pn-input pn-select" value={f.formato} onChange={(e) => mudar('formato', e.target.value as TipoArte)}>
-                      {ARTES.map((x) => (
-                        <option key={x.tipo} value={x.tipo}>
-                          {x.nome}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+          {/* ── o resto, em "Mais detalhes" ── */}
+          <div className={`pn-detalhes${detalhes ? ' aberto' : ''}`}>
+            <button type="button" className="pn-detalhes-botao toque" aria-expanded={detalhes} aria-controls="p-detalhes" onClick={() => setDetalhes(!detalhes)}>
+              <span className="pn-detalhes-txt">
+                <strong>Mais detalhes</strong>
+                <small>{erroEmDetalhes && !detalhes ? 'Tem coisa pra arrumar aqui' : resumoDetalhes(f)}</small>
+              </span>
+              <Ic nome={detalhes ? 'chevron-cima' : 'chevron-baixo'} tamanho={16} />
+            </button>
+          </div>
+          {detalhes && (
+            <div id="p-detalhes" className="pn-detalhes-corpo">
+              <Secao titulo="Detalhes" id="s-detalhes">
+                <Campo id="p-detalhe" rotulo="Linha de baixo" erro={erroDe('detalhe')} dica="Aparece embaixo do nome no story e na página (ex.: Lata 350 ml · importada)." lado={<span className="pn-opcional">opcional</span>}>
+                  {(a) => <input {...a} name="detalhe" className="pn-input" autoComplete="off" maxLength={60} value={f.detalhe} onChange={(e) => mudar('detalhe', e.target.value)} />}
                 </Campo>
-                <div className="pn-cores">
-                  <label className="pn-cor">
-                    <input type="color" value={f.cor1} onChange={(e) => mudar('cor1', e.target.value)} />
-                    <span>Cor principal</span>
-                  </label>
-                  <label className="pn-cor">
-                    <input type="color" value={f.cor2 || '#ffffff'} onChange={(e) => mudar('cor2', e.target.value)} />
-                    <span>{GARRAFAS.includes(f.formato) ? 'Rótulo' : 'Faixa'}</span>
-                  </label>
-                  {f.cor2 && (
-                    <button type="button" className="pn-link-botao" onClick={() => mudar('cor2', '')}>
-                      Sem {GARRAFAS.includes(f.formato) ? 'rótulo' : 'faixa'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Secao>
+                <Campo id="p-descricao" rotulo="Descrição" erro={erroDe('descricao')} dica="1 ou 2 frases do produto, na página dele. Sem promessa de preço, frete ou prazo." lado={<span className="pn-contagem">{tamanho(f.descricao)}/300</span>}>
+                  {(a) => <textarea {...a} name="descricao" className="pn-input pn-texto" rows={3} maxLength={300} value={f.descricao} onChange={(e) => mudar('descricao', e.target.value)} />}
+                </Campo>
+              </Secao>
 
-          <Secao titulo="No site" id="s-site">
-            <label className="pn-troca">
-              <input type="checkbox" checked={f.ativo} onChange={(e) => mudar('ativo', e.target.checked)} />
-              <span className="pn-troca-marca" aria-hidden="true" />
-              <span>Aparece no site</span>
-            </label>
-            <p className="pn-dica-bloco">{f.ativo ? 'Desligado, o produto some do site (a grade, o story e o Teste minha sorte) e fica guardado aqui.' : 'Fora do site: só tu vê. Liga pra voltar.'}</p>
-            <label className="pn-troca">
-              <input type="checkbox" checked={f.demo} onChange={(e) => mudar('demo', e.target.checked)} />
-              <span className="pn-troca-marca" aria-hidden="true" />
-              <span>Produto de exemplo</span>
-            </label>
-            {f.demo && <p className="pn-dica-bloco">Sai junto quando tu apagar os dados de exemplo (Loja).</p>}
-            <Campo id="p-obs" rotulo="Anotação só tua" erro={erros.obs} dica="Não aparece no site (ex.: visto no story de MG, preço a confirmar)." lado={<span className="pn-contagem">{tamanho(f.obs)}/300</span>}>
-              {(a) => <textarea {...a} name="obs" className="pn-input pn-texto" rows={2} maxLength={300} value={f.obs} onChange={(e) => mudar('obs', e.target.value)} />}
-            </Campo>
-            {p && (
-              <div className="pn-apagar">
-                {p.podeApagar ? (
-                  <Botao variante="perigo" icone="lixo" onClick={pedirApagar}>
-                    Apagar produto
+              <Secao titulo="Combos" id="s-combos" dica="Ex.: 2 por R$ 14,99. A sacola do site aplica o melhor preço sozinha.">
+                {f.combos.map((c, i) => {
+                  const q = inteiro(c.qtd)
+                  const t = lerReais(c.total)
+                  const eco = q && t != null && preco != null ? q * preco - t : null
+                  const erro = erroDe(`combo-${i}`)
+                  return (
+                    <div key={i} className={`pn-linha-combo${erro ? ' pn-campo-erro' : ''}`}>
+                      <input
+                        id={`p-combo-qtd-${i}`}
+                        className="pn-input pn-input-num"
+                        inputMode="numeric"
+                        aria-label={`Combo ${i + 1}: quantidade`}
+                        value={c.qtd}
+                        onChange={(e) => mudar('combos', f.combos.map((x, j) => (j === i ? { ...x, qtd: e.target.value.replace(/\D/g, '').slice(0, 2) } : x)))}
+                      />
+                      <span className="pn-linha-combo-por">por</span>
+                      <Reais id={`p-combo-total-${i}`} rotulo={`Combo ${i + 1}: preço`} valor={c.total} aoMudar={(v) => mudar('combos', f.combos.map((x, j) => (j === i ? { ...x, total: v } : x)))} />
+                      <button type="button" className="icone-botao" aria-label={`Tirar o combo ${i + 1}`} onClick={() => mudar('combos', f.combos.filter((_, j) => j !== i))}>
+                        <Ic nome="lixo" tamanho={16} />
+                      </button>
+                      {erro ? (
+                        <p className="pn-erro pn-linha-combo-msg">
+                          <Ic nome="atencao" tamanho={16} />
+                          <span>{erro}</span>
+                        </p>
+                      ) : (
+                        eco != null && eco > 0 && <p className="pn-dica pn-linha-combo-msg">Economiza {brl(Math.round(eco * 100) / 100)} no combo.</p>
+                      )}
+                    </div>
+                  )
+                })}
+                {f.combos.length < 5 && (
+                  <Botao variante="cinza" icone="mais" onClick={() => mudar('combos', [...f.combos, { qtd: String(Math.max(2, ...f.combos.map((c) => (inteiro(c.qtd) ?? 1) + 1))), total: '' }])}>
+                    Adicionar combo
                   </Botao>
-                ) : (
-                  <p className="pn-dica-bloco">
-                    Não dá pra apagar: tem histórico ({[...p.uso.rateios.map((r) => `rateio “${r.titulo}”`), ...p.uso.premios.map((x) => `prêmio “${x.titulo}”`)].join(', ')}). Pra sumir do site, desliga o “Aparece no site”.
-                  </p>
                 )}
-              </div>
-            )}
-          </Secao>
+              </Secao>
+
+              <Secao titulo="Variações" id="s-variacoes" dica="Sabor, tamanho ou modelo (ex.: Flat · 6 mm e Slim · 7 mm). O cliente escolhe na página do produto. Preço vazio = o do produto.">
+                {f.variacoes.map((v, i) => {
+                  const erro = erroDe(`var-${i}`)
+                  return (
+                    <div key={v.id ?? `n${i}`} className={`pn-linha-var${erro ? ' pn-campo-erro' : ''}`}>
+                      <input id={`p-var-${i}`} className="pn-input" aria-label={`Variação ${i + 1}: nome`} maxLength={40} placeholder="Nome" value={v.nome} onChange={(e) => mudar('variacoes', f.variacoes.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))} />
+                      <Reais id={`p-var-preco-${i}`} rotulo={`Variação ${i + 1}: preço (opcional)`} valor={v.preco} aoMudar={(x) => mudar('variacoes', f.variacoes.map((y, j) => (j === i ? { ...y, preco: x } : y)))} />
+                      <button type="button" className="icone-botao" aria-label={`Tirar a variação ${v.nome || i + 1}`} onClick={() => mudar('variacoes', f.variacoes.filter((_, j) => j !== i))}>
+                        <Ic nome="lixo" tamanho={16} />
+                      </button>
+                      {erro && (
+                        <p className="pn-erro pn-linha-combo-msg">
+                          <Ic nome="atencao" tamanho={16} />
+                          <span>{erro}</span>
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+                {f.variacoes.length < 12 && (
+                  <Botao variante="cinza" icone="mais" onClick={() => mudar('variacoes', [...f.variacoes, { nome: '', preco: '' }])}>
+                    Adicionar variação
+                  </Botao>
+                )}
+              </Secao>
+
+              <Secao titulo="Combina com" id="s-combina">
+                <EscolherCombina l={l} proprio={p?.id ?? null} ids={f.combinaCom} aoMudar={(v) => mudar('combinaCom', v)} />
+              </Secao>
+
+              <Secao titulo="Desenho" id="s-desenho" dica={f.foto ? 'Com foto, o desenho só aparece no chiado que o site faz antes de mostrar a foto.' : temIlustracao ? 'Esse produto tem a ilustração do site: o formato e as cores daqui só valem se ela sair.' : 'Sem foto, é esse desenho em pixel que aparece no site.'}>
+                <div className="pn-desenho">
+                  <ArteProduto produto={{ id: `${p?.id ?? 'novo'}-desenho`, nome: f.nome, cor: corBrilho, arte, foto: null }} largura={72} />
+                  <div className="pn-desenho-campos">
+                    <Campo id={`${idDesenho}-formato`} rotulo="Formato" erro={erroDe('arte')}>
+                      {(a) => (
+                        <select {...a} className="pn-input pn-select" value={f.formato} onChange={(e) => mudar('formato', e.target.value as TipoArte)}>
+                          {ARTES.map((x) => (
+                            <option key={x.tipo} value={x.tipo}>
+                              {x.nome}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </Campo>
+                    <div className="pn-cores">
+                      <label className="pn-cor">
+                        <input type="color" value={f.cor1} onChange={(e) => mudar('cor1', e.target.value)} />
+                        <span>Cor principal</span>
+                      </label>
+                      <label className="pn-cor">
+                        <input type="color" value={f.cor2 || '#ffffff'} onChange={(e) => mudar('cor2', e.target.value)} />
+                        <span>{GARRAFAS.includes(f.formato) ? 'Rótulo' : 'Faixa'}</span>
+                      </label>
+                      {f.cor2 && (
+                        <button type="button" className="pn-link-botao" onClick={() => mudar('cor2', '')}>
+                          Sem {GARRAFAS.includes(f.formato) ? 'rótulo' : 'faixa'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Secao>
+
+              <Secao titulo="No site" id="s-site">
+                <label className="pn-troca">
+                  <input type="checkbox" checked={f.ativo} onChange={(e) => mudar('ativo', e.target.checked)} />
+                  <span className="pn-troca-marca" aria-hidden="true" />
+                  <span>Aparece no site</span>
+                </label>
+                <p className="pn-dica-bloco">{f.ativo ? 'Desligado, o produto some do site (a grade, o story e o Teste minha sorte) e fica guardado aqui.' : 'Fora do site: só tu vê. Liga pra voltar.'}</p>
+                <label className="pn-troca">
+                  <input type="checkbox" checked={f.demo} onChange={(e) => mudar('demo', e.target.checked)} />
+                  <span className="pn-troca-marca" aria-hidden="true" />
+                  <span>Produto de exemplo</span>
+                </label>
+                {f.demo && <p className="pn-dica-bloco">Sai junto quando tu apagar os dados de exemplo (Loja).</p>}
+                <Campo id="p-obs" rotulo="Anotação só tua" erro={erroDe('obs')} dica="Não aparece no site (ex.: visto no story de MG, preço a confirmar)." lado={<span className="pn-contagem">{tamanho(f.obs)}/300</span>}>
+                  {(a) => <textarea {...a} name="obs" className="pn-input pn-texto" rows={2} maxLength={300} value={f.obs} onChange={(e) => mudar('obs', e.target.value)} />}
+                </Campo>
+                {p && (
+                  <div className="pn-apagar">
+                    {p.podeApagar ? (
+                      <Botao variante="perigo" icone="lixo" onClick={pedirApagar}>
+                        Apagar produto
+                      </Botao>
+                    ) : (
+                      <p className="pn-dica-bloco">
+                        Não dá pra apagar: tem histórico ({[...p.uso.rateios.map((r) => `rateio “${r.titulo}”`), ...p.uso.premios.map((x) => `prêmio “${x.titulo}”`)].join(', ')}). Pra sumir do site, desliga o “Aparece no site”.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </Secao>
+            </div>
+          )}
         </div>
 
         <aside className="pn-editar-previa" aria-labelledby="h-previa-p">
           <h2 id="h-previa-p" className="pn-h2">
             Como fica no site
           </h2>
-          {estadosNoSite(l).length > 1 && (
+          {noSite.length > 1 && (
             <div className="pn-filtros pn-previa-ufs" role="group" aria-label="Ver como fica em">
-              {estadosNoSite(l).map((e) => (
-                <button key={e.uf} type="button" className={`pn-filtro px${previaUf === e.uf ? ' on' : ''}`} aria-pressed={previaUf === e.uf} aria-label={`Como fica em ${e.nome}`} onClick={() => setPreviaUf(e.uf)}>
+              {noSite.map((e) => (
+                <button key={e.uf} type="button" className={`pn-filtro px${previaUf === e.uf ? ' on' : ''}`} aria-pressed={previaUf === e.uf} aria-label={`Como fica em ${e.nome}`} onClick={() => setPreviaEscolhida(e.uf)}>
                   {e.uf.toUpperCase()}
                 </button>
               ))}
             </div>
           )}
           <div className="pn-previa-card">
-            <PreviaCard p={previaP} situacao={!f.ativo ? 'desligado' : sit} restam={restam} />
+            <PreviaCard p={previaP} situacao={situacaoPrevia} restam={restam} />
           </div>
           <p className="pn-dica-bloco pn-previa-legenda-p">
-            {!f.ativo ? 'Fora do site: não aparece pra ninguém.' : previaUf ? `Em ${l.estados.find((e) => e.uf === previaUf)?.nome}: ${sit === 'acabando' ? `à venda, com “restam ${restam}”` : sit === 'disponivel' ? 'à venda' : sit === 'esgotado' ? 'esgotado (0 no estoque)' : 'indisponível'}.` : ''}
+            {!f.ativo ? 'Fora do site: não aparece pra ninguém.' : previaEstado ? `Em ${previaEstado.nome}: ${fraseSituacao}.` : ''}
             {cat?.bebida === false && ' Pode ser prêmio do Teste minha sorte.'}
           </p>
         </aside>
@@ -776,8 +922,8 @@ export function Produto({ id }: { id: string | null }) {
         <div className="pn-editar-pe">
           {geral && <Aviso tipo="erro">{geral}</Aviso>}
           {/* editando sem mudar nada: o botão espera (como no estado) */}
-          <Botao type="submit" largo ocupado={salvando} disabled={!!p && JSON.stringify(f) === inicial.current}>
-            {p ? 'Salvar' : 'Criar produto'}
+          <Botao type="submit" largo ocupado={salvando} disabled={!!p && !mexeu}>
+            {p ? 'Salvar' : botaoCriar}
           </Botao>
         </div>
       </form>

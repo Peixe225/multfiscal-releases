@@ -80,4 +80,6 @@ export interface Categoria {
   icone: string
   /** Bebida (com ou sem álcool): nunca entra em prêmio do Teste minha sorte. */
   bebida?: boolean
+  /** Bebida alcoólica (a marca do painel): fora da rua do mercador e de prêmio. Sempre junto com bebida. */
+  alcool?: boolean
 }

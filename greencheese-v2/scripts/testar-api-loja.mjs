@@ -103,7 +103,7 @@ export async function loja(t, { nomesUf }) {
   igual(L.ruaNoStory, true, 'a rua do mercador no celular (ruaNoStory: o 1º story na home, o fim do Início na Home 2) nasce ligada')
   igual(L.vitrineNaRua, true, 'o mercador mostrando produtos da loja na rua (vitrineNaRua) nasce ligado')
   mesmo(L.textos, s.textos, 'textos da loja = src/dados/textos-loja.ts')
-  mesmo(L.categorias, s.categorias, 'categorias da semente, com o "bebida"')
+  mesmo(L.categorias, s.categorias, 'categorias da semente, com o "bebida" e o "alcool" (os Destilados)')
   ok(r0.texto.includes('"stories":{}') && r0.texto.includes('"restam":{}'), 'mapa vazio sai como {} (nunca [])')
   const ufs0 = s.estados.map((e) => e.uf)
   igual(L.estados.map((e) => e.uf), ufs0, 'os estados da semente, na ordem')
@@ -516,7 +516,7 @@ export async function loja(t, { nomesUf }) {
     erro(tb, 422, 'proibido', 'categoria com tabaco')
     igual(tb.json.campo, 'nome', 'campo nome')
     const c = await dono.post('admin-categoria-salvar', { nome: 'Tabuleiros', curto: 'Tabuleiros', icone: 'estrela' })
-    igual([c.status, c.json.categoria], [201, { id: 'tabuleiros', nome: 'Tabuleiros', curto: 'Tabuleiros', icone: 'estrela', bebida: true }], 'categoria nova nasce bebida (até o dono dizer que não)')
+    igual([c.status, c.json.categoria], [201, { id: 'tabuleiros', nome: 'Tabuleiros', curto: 'Tabuleiros', icone: 'estrela', bebida: true, alcool: false }], 'categoria nova nasce bebida (até o dono dizer que não), sem a marca de alcoólica')
     const c2 = await dono.post('admin-categoria-salvar', { nome: 'Cuias e copos', icone: 'cuia', bebida: false })
     igual([c2.status, c2.json.categoria.curto, c2.json.categoria.bebida], [201, 'Cuias e copos', false], 'nome curto o bastante vira o curto')
     igual((await pub()).loja.categorias.slice(-2).map((x) => x.id), ['tabuleiros', 'cuias-e-copos'], 'o site vê as categorias novas no fim')
@@ -551,6 +551,40 @@ export async function loja(t, { nomesUf }) {
     igual((await pub()).loja.categorias[0].id, 'sedas', 'o site vê sedas primeiro')
     erro(await dono.post('admin-categorias-ordem', { ids: ['sedas', 'nao-existe'] }), 400, 'invalido', 'ordem com categoria que não existe')
     igual((await dono.post('admin-categorias-ordem', { ids: todas })).json.ordem, todas, 'volta a ordem')
+
+    // a marca "Bebida alcoólica" (alcool): a semente marca os Destilados; alcoólica é sempre bebida; o GET loja leva a
+    // marca (o ETag muda junto); categoria alcoólica não tem prêmio
+    const marcas = (await pub()).loja.categorias.map((x) => [x.id, x.alcool])
+    igual(marcas, todas.map((id) => [id, id === 'destilados']), 'a semente marca só os Destilados como bebida alcoólica (o GET loja leva a marca de cada categoria)')
+    igual((await adm()).categorias.find((x) => x.id === 'destilados')?.alcool, true, 'o painel vê a marca')
+    for (const [corpo, campo, porque] of [
+      [{ nome: 'Cervejas', icone: 'lata', bebida: false, alcool: true }, 'alcool', 'alcoólica sem ser bebida'],
+      [{ nome: 'Cervejas', icone: 'lata', alcool: 'sim' }, 'alcool', 'marca que não é sim ou não'],
+      [{ id: 'destilados', bebida: false }, 'bebida', 'tirar o "é bebida" de uma alcoólica'],
+      [{ id: 'sedas', alcool: true }, 'alcool', 'marcar alcoólica sem ligar o "é bebida"'],
+      [{ id: 'sedas', alcool: true, bebida: true }, 'bebida', 'sedas (com prêmio) não vira alcoólica'],
+    ]) {
+      const x = await dono.post('admin-categoria-salvar', corpo)
+      erro(x, 400, 'invalido', `marca alcoólica: recusa ${porque}`)
+      igual(x.json.campo, campo, `campo ${campo} (${porque})`)
+    }
+    const etagAntes = (await site().get('loja')).headers.get('etag')
+    const cv = await dono.post('admin-categoria-salvar', { nome: 'Cervejas', icone: 'lata', alcool: true })
+    igual([cv.status, cv.json.categoria.bebida, cv.json.categoria.alcool], [201, true, true], 'categoria nova marcada como alcoólica (é bebida junto)')
+    const rv = await site().get('loja')
+    const etagDepois = rv.headers.get('etag')
+    ok(etagDepois && etagDepois !== etagAntes, `a marca muda o ETag do GET loja (${etagAntes} → ${etagDepois})`)
+    igual(rv.json.loja.categorias.find((x) => x.id === 'cervejas')?.alcool, true, 'o site recebe a marca da categoria nova')
+    igual((await comEtag(etagDepois)).status, 304, 'sem mudança depois: 304 com o ETag novo')
+    const pc = await dono.post('admin-premio-salvar', {
+      tipo: 'desconto-percentual', valor: 5, titulo: 'Cinco nas cervejas', descricao: 'Cerveja mais em conta.', regra: '5% de desconto nas cervejas',
+      aplicaA: { categorias: ['cervejas'] }, peso: 1, validadeDias: 2,
+    })
+    erro(pc, 400, 'invalido', 'prêmio em categoria alcoólica: recusado')
+    igual((await dono.post('admin-categoria-salvar', { id: 'cervejas', alcool: false })).json.categoria, { id: 'cervejas', nome: 'Cervejas', curto: 'Cervejas', icone: 'lata', bebida: true, alcool: false }, 'tirar só a marca (continua bebida)')
+    igual((await pub()).loja.categorias.find((x) => x.id === 'cervejas')?.alcool, false, 'o site vê sem a marca')
+    igual((await dono.post('admin-categoria-salvar', { id: 'cervejas', alcool: true, bebida: true })).json.categoria.alcool, true, 'marca de novo')
+    igual((await dono.post('admin-categoria-apagar', { id: 'cervejas' })).status, 200, 'apaga a categoria de teste')
   }
 
   // ─── estados ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -903,6 +937,13 @@ export async function lojaMigracao(t) {
     execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes', 'painel-dono'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
   igual(todas.filter((n) => n < 200), [1, 100, 101, 102], 'as migrações até a loja são 1, 100, 101 e 102 (o vídeo e a capa do produto)')
+  igual(todas.filter((n) => n >= 300), [300, 301], 'as do painel do dono (300–399): 300 (os códigos da senha) e 301 (a marca "Bebida alcoólica" das categorias)')
+  // a 301 mexe na tabela da loja: sem o módulo da loja carregado, ela espera (como a 206 com o dos pedidos)
+  const semLoja = JSON.parse(
+    execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'painel-dono'] as $m) { require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
+  )
+  ok(semLoja.includes(300) && !semLoja.includes(301), `sem o módulo da loja, a 301 espera (${semLoja.filter((n) => n >= 300).join(', ')})`)
+  const marcaDe = (j) => (j.loja?.categorias ?? []).filter((x) => x.alcool).map((x) => x.id).join(',')
   const filhos = []
   try {
     filhos.push(await t.subirPhp(portaA, { GC_TESTE: '1', GC_DADOS: dirA, GC_UPLOADS: join(dirA, 'up') }, ['-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')]))
@@ -910,6 +951,7 @@ export async function lojaMigracao(t) {
     const r = await fetch(`${bA}/api/index.php?r=loja`)
     const j = await r.json()
     igual([r.status, j.versao, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 1, 17, 5, 5], 'banco já instalado: a migração 101 semeia a loja')
+    igual(marcaDe(j), 'destilados', 'banco já instalado: a 101 semeia sem a coluna e a 301 marca os Destilados como bebida alcoólica')
     igual(banco(join(dirA, 'loja.sqlite')), [todas, 1, 1], 'registro com 1 (a de antes), 100, 101 e as das outras frentes; user_version segue 1 (a base); semeou uma vez')
     await fetch(`${bA}/api/index.php?r=loja`).then((x) => x.text())
     igual(banco(join(dirA, 'loja.sqlite'))[2], 1, 'pedir de novo não semeia de novo')
@@ -925,7 +967,9 @@ export async function lojaMigracao(t) {
     })
     igual(inst.status, 201, 'instala')
     const s1 = await fetch(`${bB}/api/index.php?r=loja`)
-    igual([s1.status, (await s1.json()).loja?.produtos?.length], [200, 17], 'a instalação semeia a loja')
+    const j1 = await s1.json()
+    igual([s1.status, j1.loja?.produtos?.length], [200, 17], 'a instalação semeia a loja')
+    igual(marcaDe(j1), 'destilados', 'banco novo: a semente já entra com os Destilados marcados como bebida alcoólica')
     igual(banco(join(dirB, 'loja.sqlite'))[2], 1, 'uma vez')
     ok(readFileSync(join(raiz, 'public/api/nucleo/loja-migracoes.php'), 'utf8').includes('100 =>'), 'as migrações da loja ficam na faixa 100–199')
   } finally {

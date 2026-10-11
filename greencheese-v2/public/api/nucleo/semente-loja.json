@@ -25,35 +25,40 @@
       "nome": "Bebidas importadas",
       "curto": "Importadas",
       "icone": "lata",
-      "bebida": true
+      "bebida": true,
+      "alcool": false
     },
     {
       "id": "destilados",
       "nome": "Destilados",
       "curto": "Destilados",
       "icone": "garrafa",
-      "bebida": true
+      "bebida": true,
+      "alcool": true
     },
     {
       "id": "sedas",
       "nome": "Sedas",
       "curto": "Sedas",
       "icone": "seda",
-      "bebida": false
+      "bebida": false,
+      "alcool": false
     },
     {
       "id": "piteiras",
       "nome": "Piteiras",
       "curto": "Piteiras",
       "icone": "piteira",
-      "bebida": false
+      "bebida": false,
+      "alcool": false
     },
     {
       "id": "acessorios",
       "nome": "Acessórios",
       "curto": "Acessórios",
       "icone": "cuia",
-      "bebida": false
+      "bebida": false,
+      "alcool": false
     }
   ],
   "produtos": [

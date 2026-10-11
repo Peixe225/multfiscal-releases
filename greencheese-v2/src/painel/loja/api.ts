@@ -32,7 +32,7 @@ export const apagarProduto = (id: string) => pedir<Ok<object>>('POST', 'admin-pr
 
 export const ordemProdutos = (ids: string[]) => pedir<Ok<{ ordem: string[] }>>('POST', 'admin-produtos-ordem', { corpo: { ids } })
 
-export const salvarCategoria = (c: { id?: string; nome?: string; curto?: string; icone?: string; bebida?: boolean }) =>
+export const salvarCategoria = (c: { id?: string; nome?: string; curto?: string; icone?: string; bebida?: boolean; alcool?: boolean }) =>
   pedir<Ok<{ categoria: Omit<CategoriaAdmin, 'ordem' | 'produtos' | 'premios'> }>>('POST', 'admin-categoria-salvar', { corpo: c })
 
 export const apagarCategoria = (id: string) => pedir<Ok<object>>('POST', 'admin-categoria-apagar', { corpo: { id } })

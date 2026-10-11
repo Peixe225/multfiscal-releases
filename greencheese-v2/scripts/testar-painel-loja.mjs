@@ -1,6 +1,10 @@
 // A loja no painel, no navegador e contra o servidor de verdade (roda dentro do scripts/testar-painel.mjs, com a
-// página dele já logada, num celular 390×844): o atalho do Resumo, desligar um produto num estado com 1 toque (1
-// pedido), contar estoque, − e + até esgotar e voltar, editar o preço, mandar a foto pelo Estúdio da foto (recorte,
+// página dele já logada, num celular 390×844): o atalho do Resumo, "À venda em:" com o chip que diz o que é e o recado
+// com Desfazer, desligar um produto num estado com 1 toque (1 pedido), contar estoque, − e + até esgotar e voltar, o
+// produto com o básico em cima (o preço sem rolar, o resto em "Mais detalhes", o card no estado do filtro, sair sem
+// salvar pergunta, a lista marca o que ficou só no aparelho), a foto pequena que avisa, o combo que deixa de ficar
+// vermelho quando corrigido, o produto novo que já nasce à venda no estado da lista, a marca "Bebida alcoólica" das
+// categorias, editar o preço, mandar a foto pelo Estúdio da foto (recorte,
 // antes/depois, varinha, o arquivo 9:16 com transparência, a cor do halo, "Ajustar a foto") e ver ela no card do site,
 // criar produto, a thumb animada (o Estúdio do vídeo grava no navegador; sem MediaRecorder, vai o MP4 original; a
 // lista mostra a thumb pequena), ativar a Bahia, a hora com máscara, escolher e ordenar o story, criar prêmio com a conferência ao vivo (e
@@ -46,15 +50,27 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await axe(p, 'produtos')
   await print(p, 'loja-produtos')
 
+  // em "Todos": "À venda em:" e o chip que diz o que é (com a legenda em cima); o toque deixa o recado com "Desfazer"
+  await p.getByRole('button', { name: 'Todos', exact: true }).tap()
+  const linha = p.locator('.pn-prod').filter({ hasText: 'Seda OCB Premium Slim' })
+  ok((await linha.getByText('À venda em:').isVisible()) && (await p.locator('.pn-legenda-chips').isVisible()), 'Todos: "À venda em:" na linha e a legenda dos chips em cima (✓ à venda · riscado fora de venda · tracejado esgotado)')
+  await linha.getByRole('button', { name: /^Seda OCB Premium Slim em Minas Gerais: à venda/ }).tap()
+  ok(await esperar(async () => (await ocbEm('mg'))[0] === false), 'o chip de MG tira a OCB de MG no site')
+  await p.locator('.pn-recados').getByText(/Seda OCB Premium Slim saiu de MG/).waitFor()
+  ok(await linha.getByRole('button', { name: /^Seda OCB Premium Slim em Minas Gerais: fora de venda/ }).isVisible(), 'o chip passa a dizer "fora de venda" (MG riscado)')
+  await print(p, 'loja-produtos-chips-recado')
+  await p.locator('.pn-recados').getByRole('button', { name: 'Desfazer' }).tap()
+  ok(await esperar(async () => (await ocbEm('mg'))[0] === true), '"Desfazer" no recado põe a OCB de volta em MG (antes, sem recado nem desfazer)')
+
   // desligar e ligar num estado: 1 toque, 1 pedido
   await p.getByRole('button', { name: 'Minas Gerais', exact: true }).tap()
-  const linha = p.locator('.pn-prod').filter({ hasText: 'Seda OCB Premium Slim' })
   let pedidos = 0
   p.on('request', (r) => r.url().includes('admin-produto-estado') && r.method() === 'POST' && pedidos++)
   await linha.locator('label.pn-troca').tap()
   ok(await esperar(async () => (await ocbEm('mg'))[0] === false), 'um toque no interruptor: a OCB sai de MG no site')
   ok(pedidos === 1, `um toque, um pedido (${pedidos})`)
   ok(await linha.getByText(/^Indisponível/).isVisible(), 'a linha diz Indisponível')
+  ok(await p.locator('.pn-recados').getByRole('button', { name: 'Desfazer' }).isVisible(), 'o interruptor também deixa o recado com "Desfazer"')
   await linha.locator('label.pn-troca').tap()
   ok(await esperar(async () => (await ocbEm('mg'))[0] === true), 'outro toque: volta pro site')
 
@@ -77,14 +93,71 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   ok(await esperar(async () => JSON.stringify(await ocbEm('mg')) === '[true,1]'), '+: volta pro site com "restam 1"')
   await print(p, 'loja-produtos-mg')
 
-  // editar o preço e mandar a foto (o card do site na prévia)
+  // o produto com o básico em cima (UX-06): foto, nome e preço, onde tem e o Salvar; o resto em "Mais detalhes"
   await linha.getByRole('link', { name: 'Seda OCB Premium Slim: editar' }).tap()
   const preco = p.getByLabel('Preço da unidade')
   await preco.waitFor()
+  ok((await p.locator('.pn-recado').count()) === 0, 'abriu o produto: o recado da troca (com Desfazer) fica na lista, não vem cobrir o Salvar')
+  const secoesP = (await p.locator('.pn-editar-form h2').allInnerTexts()).map((x) => x.trim())
+  ok(secoesP.join(' · ') === 'Foto · Nome e preço · Onde tem', `Produto: o básico em cima (${secoesP.join(' · ')})`)
+  const maisDetalhes = p.getByRole('button', { name: /^Mais detalhes/ })
+  ok((await maisDetalhes.getAttribute('aria-expanded')) === 'false' && (await p.locator('#p-descricao').count()) === 0 && (await p.getByLabel('Tamanho').isVisible()), 'o resto (linha de baixo, descrição, combos, variações, desenho, anotação) em "Mais detalhes", fechado; o tamanho do lado do nome')
+  const precoNaTela = await preco.evaluate((e) => {
+    const r = e.getBoundingClientRect()
+    return r.top >= 0 && r.bottom <= document.querySelector('.pn-editar-pe').getBoundingClientRect().top
+  })
+  ok(precoNaTela, 'o preço à vista sem rolar no 390×844, acima do Salvar fixo (antes, a 1,5 tela de rolagem)')
+  // PNL-09: o card do lado da foto mostra o estado do filtro da lista (MG) e diz qual é
+  ok((await p.locator('.pn-previa-em-sel').inputValue()) === 'mg' && /Em MG/.test(await p.locator('.pn-previa-em-sel').innerText()), 'o card do lado da foto mostra MG, o estado do filtro, e diz "Em MG" (antes, o RJ calado)')
+  await axe(p, 'produto: o básico')
+  await print(p, 'loja-produto-basico')
+  // PNL-20: o Tamanho sem placeholder que parece valor (era "350 ml", cinza, num isqueiro)
+  ok(/^ex\.: /.test((await p.getByLabel('Tamanho').getAttribute('placeholder')) ?? ''), `Tamanho com o exemplo dito como exemplo ("${await p.getByLabel('Tamanho').getAttribute('placeholder')}", não "350 ml")`)
+  // PNL-08: voltar com mudança pergunta; descartar volta pro preço salvo e apaga o rascunho
+  await preco.fill('10,99')
+  await p.getByRole('button', { name: 'Voltar', exact: true }).tap()
+  const perguntaP = p.getByRole('alertdialog', { name: 'Tem mudança não salva' })
+  await perguntaP.waitFor()
+  ok(true, 'Produto: voltar com o preço mudado pergunta antes de sair (antes, voltava calado)')
+  await print(p, 'loja-produto-pergunta')
+  await perguntaP.getByRole('button', { name: 'Descartar' }).tap()
+  await p.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
+  ok(/R\$\s9,99/.test(await linha.innerText()) && (await linha.locator('.pn-carimbo-rascunho').count()) === 0, 'descartou: a lista com o preço salvo, sem selo')
+  await linha.getByRole('link', { name: /^Seda OCB Premium Slim: editar/ }).tap()
+  await preco.waitFor()
+  ok((await preco.inputValue()) === '9,99' && (await p.getByText('Continuando de onde tu parou').count()) === 0, 'descartar apagou o rascunho do aparelho')
+  // saiu sem passar pelo voltar (fechou a aba, o celular matou o navegador): a lista não mostra o preço velho como salvo
+  await preco.fill('10,99')
+  await p.waitForTimeout(600)
+  const outra = await p.context().newPage()
+  await outra.goto(`${BASE}/painel/#/produtos`)
+  const selo = outra.locator('.pn-prod').filter({ hasText: 'Seda OCB Premium Slim' }).locator('.pn-carimbo-rascunho')
+  await selo.waitFor({ timeout: 10000 }).catch(() => {})
+  ok(/não salvo: R\$\s10,99/i.test((await selo.innerText().catch(() => '')) ?? ''), `a lista marca o produto com mudança só no aparelho ("${await selo.innerText().catch(() => '')}")`)
+  await print(outra, 'loja-produtos-nao-salvo')
+  await outra.close()
+
+  // editar o preço e mandar a foto (o card do site na prévia)
   await preco.fill('10,49')
   const corAntes = prod(await loja(), 'seda-ocb-premium-slim').cor
+  // PNL-12: a foto pequena (60×60) avisa no Estúdio e depois, do lado da foto (sem impedir)
+  if (sharp) {
+    const pequena = await sharp({ create: { width: 60, height: 60, channels: 3, background: '#d04020' } }).png().toBuffer()
+    const [escP] = await Promise.all([p.waitForEvent('filechooser'), p.getByText('Enviar foto').tap()])
+    await escP.setFiles({ name: 'pequena.png', mimeType: 'image/png', buffer: pequena })
+    const estP = p.getByRole('dialog', { name: 'Estúdio da foto' })
+    await estP.waitFor()
+    await estP.getByText(/Essa foto é pequena \(60×60\)/).waitFor({ timeout: 10000 }).catch(() => {})
+    ok(await estP.getByText(/Essa foto é pequena \(60×60\): no site vai ficar borrada/).isVisible(), 'foto de 60×60: o Estúdio avisa que no site vai ficar borrada (antes, entrava calada)')
+    await print(p, 'loja-estudio-foto-pequena')
+    await estP.getByRole('button', { name: 'Usar a foto original' }).tap()
+    await estP.waitFor({ state: 'detached', timeout: 30000 })
+    ok(await p.locator('.pn-foto-avisos').getByText(/Essa foto é pequena \(60×60\)/).isVisible(), 'o aviso da foto pequena fica do lado da foto depois de usar')
+  }
+  // a dica da foto em desenho (o Estúdio recorta: o que importa é luz, o produto inteiro e o fundo liso)
+  ok((await p.locator('.pn-dica-foto li').allInnerTexts()).map((x) => x.trim()).join(' · ') === 'Bem iluminada · Produto inteiro · Fundo liso', 'a dica da foto: bem iluminada, produto inteiro, fundo liso')
   // a foto do celular (fundo claro, com sombra) abre o Estúdio da foto: recorta, enquadra e mostra como o site mostra
-  const [escolha] = await Promise.all([p.waitForEvent('filechooser'), p.getByText('Enviar foto').tap()])
+  const [escolha] = await Promise.all([p.waitForEvent('filechooser'), p.locator('label').filter({ hasText: /Enviar foto|Trocar foto/ }).tap()])
   await escolha.setFiles(fotoClara ?? foto)
   const estudio = p.getByRole('dialog', { name: 'Estúdio da foto' })
   await estudio.waitFor()
@@ -128,6 +201,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   ok(await p.locator('.pn-foto-card img.pn-arte-foto-loja').isVisible(), 'a foto tratada aparece no card do site, do lado dos botões')
   ok(await esperar(() => p.locator('.pn-foto-card img.pn-arte-foto-loja[data-alfa]').count().then((n) => n === 1)), 'a foto tratada tem transparência: cobre o halo como no site (sem lighten)')
   ok(await p.getByRole('button', { name: 'Ajustar a foto' }).isVisible(), '"Ajustar a foto" pra foto salva')
+  ok((await p.locator('.pn-foto-avisos').getByText(/foto é pequena/).count()) === 0, 'trocou por uma foto boa: o aviso da pequena sai')
   await axe(p, 'produto')
   await print(p, 'loja-produto', true)
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
@@ -159,15 +233,31 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await estudio.waitFor({ state: 'detached' })
   ok(JSON.stringify(await ocbEm('mg')) === '[true,1]', 'salvar o produto não mexeu no estoque contado')
 
-  // produto novo, à venda em MG
-  await p.goto(`${BASE}/painel/#/produtos/novo`)
+  // produto novo pela lista em MG: já nasce à venda em MG e o botão diz onde
+  await p.goto(`${BASE}/painel/#/produtos`)
+  await p.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
+  await p.getByRole('link', { name: 'Novo produto' }).tap()
+  await p.getByLabel('Nome', { exact: true }).waitFor()
+  ok(p.url().endsWith('#/produtos/novo?uf=mg'), `o "Novo" da lista em MG leva o estado (${p.url().split('#')[1]})`)
+  ok((await p.locator('#p-est-mg').isChecked()) && !(await p.locator('#p-est-rj').isChecked()), 'produto novo vindo da lista em MG: já nasce à venda em MG (antes, nascia fora de venda)')
+  const criar = p.getByRole('button', { name: 'Criar e pôr à venda em MG' })
+  ok(await criar.isVisible(), 'o botão diz onde vai à venda ("Criar e pôr à venda em MG")')
   await p.getByLabel('Nome', { exact: true }).fill('Isqueiro Bic Mini')
   await p.getByLabel('Categoria').selectOption('acessorios')
   await p.getByLabel('Preço da unidade').fill('6,50')
-  await p.locator('label[for="p-est-mg"]').tap()
+  // PNL-04: o combo errado fica vermelho; corrigido, o erro some na hora (e aparece a economia)
+  await p.getByRole('button', { name: /^Mais detalhes/ }).tap()
+  await p.getByRole('button', { name: 'Adicionar combo' }).tap()
+  await p.getByLabel('Combo 1: preço').fill('20')
+  await criar.tap()
+  ok(/mais barato que 2 avulsos/.test(await p.locator('.pn-linha-combo').innerText()), 'combo de 2 por R$ 20 (mais caro que 2 avulsos): o erro aparece')
+  await p.getByLabel('Combo 1: preço').fill('12')
+  ok((await p.locator('.pn-linha-combo .pn-erro').count()) === 0 && (await p.getByText(/Economiza R\$\s1,00 no combo/).isVisible()), 'corrigiu o combo: o erro some na hora e aparece a economia (antes, ficava vermelho até salvar de novo)')
+  await p.getByRole('button', { name: 'Tirar o combo 1' }).tap()
   await axe(p, 'produto novo')
-  await p.getByRole('button', { name: 'Criar produto' }).tap()
-  await p.getByText(/Isqueiro Bic Mini criado/).waitFor()
+  await print(p, 'loja-produto-novo', true)
+  await criar.tap()
+  await p.getByText(/Isqueiro Bic Mini criado e à venda em MG/).waitFor()
   ok(await esperar(async () => {
     const x = prod(await loja(), 'isqueiro-bic-mini')
     return x?.preco === 6.5 && x.disponivel.mg === true && x.disponivel.rj === false
@@ -177,7 +267,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   if (videos) {
     await p.goto(`${BASE}/painel/#/produto/isqueiro-bic-mini`)
     await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
-    const [ev] = await Promise.all([p.waitForEvent('filechooser'), p.locator('label', { hasText: 'Thumb animada' }).tap()])
+    const [ev] = await Promise.all([p.waitForEvent('filechooser'), p.locator('label', { hasText: 'Escolher vídeo' }).tap()])
     await ev.setFiles(videos.webm)
     const ev2 = p.getByRole('dialog', { name: 'Thumb animada' })
     await ev2.waitFor()
@@ -230,7 +320,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     const r = await semRec.newPage()
     await r.goto(`${BASE}/painel/#/produto/dichavador-metal-4-partes`)
     await r.getByRole('heading', { name: 'Editar produto' }).waitFor()
-    const [ev3] = await Promise.all([r.waitForEvent('filechooser'), r.locator('label', { hasText: 'Thumb animada' }).tap()])
+    const [ev3] = await Promise.all([r.waitForEvent('filechooser'), r.locator('label', { hasText: 'Escolher vídeo' }).tap()])
     await ev3.setFiles(videos.mp4)
     const d3 = r.getByRole('dialog', { name: 'Thumb animada' })
     await d3.getByText(/no Chrome fica no estilo da loja/).waitFor({ timeout: 30000 })
@@ -395,6 +485,24 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await p.getByRole('heading', { name: 'Categorias', level: 1 }).waitFor()
   await axe(p, 'categorias')
   await print(p, 'loja-categorias')
+  // a marca "Bebida alcoólica": os Destilados vêm marcados (a semente); ligar a marca liga o "É bebida", desligar o
+  // "É bebida" tira a marca (alcoólica é sempre bebida)
+  ok(/Destilados[\s\S]*bebida alcoólica/.test(await p.locator('.pn-cat').filter({ hasText: 'Destilados' }).innerText()), 'Categorias: os Destilados com "bebida alcoólica" na linha')
+  await p.getByRole('button', { name: 'Editar Destilados' }).tap()
+  const folhaCat = p.getByRole('dialog', { name: 'Editar Destilados' })
+  await folhaCat.waitFor()
+  const marca = folhaCat.getByRole('checkbox', { name: 'Bebida alcoólica' })
+  const ehBebida = folhaCat.getByRole('checkbox', { name: 'É bebida' })
+  ok((await marca.isChecked()) && (await ehBebida.isChecked()), 'a folha dos Destilados com "Bebida alcoólica" e "É bebida" ligados')
+  await folhaCat.locator('label.pn-troca').filter({ hasText: 'É bebida' }).tap()
+  ok(!(await marca.isChecked()) && !(await ehBebida.isChecked()), 'desligar "É bebida" tira a marca de alcoólica junto')
+  await folhaCat.locator('label.pn-troca').filter({ hasText: 'Bebida alcoólica' }).tap()
+  ok((await marca.isChecked()) && (await ehBebida.isChecked()), 'ligar "Bebida alcoólica" liga o "É bebida" junto')
+  await axe(p, 'categoria com a marca de alcoólica')
+  await print(p, 'loja-categoria-alcoolica')
+  await p.keyboard.press('Escape')
+  await folhaCat.waitFor({ state: 'detached' })
+  ok((await loja()).categorias.find((c) => c.id === 'destilados')?.alcool === true, 'o site recebe os Destilados como bebida alcoólica')
 
   if (browser) await siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar, videos })
 }
@@ -516,18 +624,21 @@ async function siteVeLoja({ p, BASE, ok, print, axe, browser, loja, esperar, vid
     const q = await k.newPage()
     const cdp = await k.newCDPSession(q)
     await cdp.send('Network.enable')
+    // os eventos "ExtraInfo" podem chegar antes do requestWillBeSent do mesmo pedido: guarda tudo por id e junta no fim
     const pedidos = new Map()
-    const vistos = []
+    const comInm = new Set()
+    const status = new Map()
     cdp.on('Network.requestWillBeSent', (e) => e.request.url.includes('r=loja') && pedidos.set(e.requestId, true))
     cdp.on('Network.requestWillBeSentExtraInfo', (e) => {
       const h = Object.fromEntries(Object.entries(e.headers ?? {}).map(([a, b]) => [a.toLowerCase(), b]))
-      if (pedidos.has(e.requestId) && h['if-none-match']) vistos.push('if-none-match')
+      if (h['if-none-match']) comInm.add(e.requestId)
     })
-    cdp.on('Network.responseReceivedExtraInfo', (e) => pedidos.has(e.requestId) && vistos.push(e.statusCode))
+    cdp.on('Network.responseReceivedExtraInfo', (e) => status.set(e.requestId, e.statusCode))
     await q.goto(`${BASE}/?uf=mg`)
     await q.waitForFunction(() => !!localStorage.getItem('gc-loja'), null, { timeout: 8000 }).catch(() => {})
     await q.goto(`${BASE}/?uf=mg&de-novo=1`)
     await q.waitForTimeout(3000)
+    const vistos = [...pedidos.keys()].flatMap((id) => [...(comInm.has(id) ? ['if-none-match'] : []), ...(status.has(id) ? [status.get(id)] : [])])
     ok(vistos.includes('if-none-match') && vistos.includes(304), `site: aberto de novo sem mudança, o navegador pergunta com If-None-Match e recebe 304 (${vistos.join(', ')})`)
     ok((await q.locator('.hero .story-cab-nome').textContent().catch(() => '')) === 'greencheese_importsmg', 'site: com o 304, a loja continua a mesma na tela')
     await k.close()

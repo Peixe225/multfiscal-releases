@@ -525,7 +525,14 @@ function gc_loja_ler_categoria(array $c, ?array $atual): array
     }
     // categoria nova é bebida até o dono dizer que não (bebida nunca entra em prêmio)
     $bebida = $tem('bebida') ? (gc_loja_bool($c, 'bebida', 'Bebida é sim ou não.') ? 1 : 0) : (int) ($atual['bebida'] ?? 1);
-    return ['nome' => $nome, 'curto' => $curto, 'icone' => (string) $icone, 'bebida' => $bebida];
+    // a marca "Bebida alcoólica" (fora da rua do mercador e de prêmio): só quando o dono marca, e sempre com "é bebida"
+    $alcool = $tem('alcool') ? (gc_loja_bool($c, 'alcool', 'Bebida alcoólica é sim ou não.') ? 1 : 0) : (int) ($atual['alcool'] ?? 0);
+    if ($alcool === 1 && $bebida === 0) {
+        throw $tem('alcool') && !empty($c['alcool'])
+            ? gc_invalido('alcool', 'Bebida alcoólica é bebida: liga o “É bebida” também.')
+            : gc_invalido('bebida', 'Essa categoria tá marcada como bebida alcoólica: desliga o “Bebida alcoólica” antes.');
+    }
+    return ['nome' => $nome, 'curto' => $curto, 'icone' => (string) $icone, 'bebida' => $bebida, 'alcool' => $alcool];
 }
 
 // ─── estado ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -834,7 +841,7 @@ function gc_loja_ler_premio(array $c, ?array $atual): array
         $ap['produtos'][] = (string) $acessorio($id, 'aplicaA')['id'];
     }
     foreach ($categorias as $id) {
-        $cat = gc_id_valido($id) ? gc_um('SELECT id, nome, bebida FROM loja_categorias WHERE id = ?', [$id]) : null;
+        $cat = gc_id_valido($id) ? gc_um('SELECT id, nome, (bebida OR alcool) AS bebida FROM loja_categorias WHERE id = ?', [$id]) : null;
         if ($cat === null) {
             throw gc_invalido('aplicaA', 'Categoria não encontrada.');
         }
@@ -885,7 +892,7 @@ function gc_loja_produto_e_categoria(mixed $id): ?array
     if (!gc_id_valido($id)) {
         return null;
     }
-    return gc_um('SELECT p.id, p.nome, p.arte, c.bebida FROM loja_produtos p JOIN loja_categorias c ON c.id = p.categoria_id WHERE p.id = ?', [$id]);
+    return gc_um('SELECT p.id, p.nome, p.arte, (c.bebida OR c.alcool) AS bebida FROM loja_produtos p JOIN loja_categorias c ON c.id = p.categoria_id WHERE p.id = ?', [$id]);
 }
 
 /**

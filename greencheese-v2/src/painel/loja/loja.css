@@ -1244,3 +1244,251 @@ html.com-teclado .pn-pe-fixo {
     background: #363636;
   }
 }
+
+/* ───────────────────────── troca rápida: "À venda em:" e a legenda dos chips ───────────────────────── */
+
+.pn-chips-linha {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pn-chips-legenda {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--legenda);
+}
+/* fora de venda: o estado riscado (o ligado tem o ✓; o esgotado, o tracejado e o 0) */
+.pn-chip-est:not(.on) .pn-chip-est-uf {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+.pn-legenda-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-legenda-par {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+.pn-chip-mini {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  pointer-events: none;
+}
+.pn-chip-mini .pn-chip-est-n,
+.pn-chip-mini svg {
+  font-size: 13px;
+}
+@media (min-width: 600px) {
+  .pn-chips-linha {
+    margin-left: 52px;
+  }
+  .pn-chips-linha .pn-chips-est {
+    margin-left: 0;
+  }
+}
+@media (min-width: 1100px) {
+  .pn-chips-linha {
+    flex: none;
+    width: 320px;
+    margin-left: 0;
+  }
+  .pn-chips-linha .pn-chips-est {
+    width: auto;
+  }
+}
+/* o produto com mudança guardada só no aparelho (saiu sem salvar) */
+.pn-carimbo-rascunho {
+  border-style: dashed;
+  color: var(--branco);
+}
+/* "Organizar" no topo: no celular bem estreito vira "Ordem" (o título "Produtos" não quebra no meio) */
+.pn-txt-curto {
+  display: none;
+}
+@media (max-width: 359px) {
+  .pn-botao-organizar .pn-txt-longo {
+    display: none;
+  }
+  .pn-botao-organizar .pn-txt-curto {
+    display: inline;
+  }
+}
+
+/* ───────────────────────── produto: o básico em cima, "Mais detalhes" embaixo ───────────────────────── */
+
+.pn-editar-produto .pn-form-secao {
+  gap: 14px;
+}
+/* nome e tamanho na mesma linha (o tamanho é curto); no celular bem estreito, um embaixo do outro */
+.pn-dupla-nome {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+@media (max-width: 359px) {
+  .pn-dupla-nome {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* placeholder que é exemplo ("ex.: 350 ml"): em itálico e apagado, pra não parecer preenchido */
+.pn-input-exemplo::placeholder {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--chiado);
+}
+/* "Em MG ▾" debaixo do card do lado da foto: de qual estado é o que o card mostra */
+.pn-previa-em {
+  display: block;
+  margin-top: 8px;
+}
+.pn-previa-em-sel {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 34px 0 12px;
+  font-size: 16px;
+  background-position: right 10px center;
+}
+.pn-previa-em-txt {
+  font-size: 16px;
+  text-align: center;
+}
+/* a dica da foto: três desenhos com o nome */
+.pn-dica-foto-tit {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-dica-foto-itens {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pn-dica-foto-itens li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--legenda);
+}
+.pn-dica-foto-itens li svg {
+  flex: none;
+  color: var(--branco);
+}
+/* celular estreito (a coluna do lado do card fica fina): um embaixo do outro, o desenho do lado do nome */
+@media (max-width: 419px) {
+  .pn-dica-foto-itens {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .pn-dica-foto-itens li {
+    flex-direction: row;
+    gap: 8px;
+    text-align: left;
+  }
+}
+.pn-foto-avisos {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pn-foto-produto {
+  flex-wrap: wrap;
+}
+/* a thumb animada numa linha só, embaixo da foto */
+.pn-video-compacto {
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bolha);
+}
+.pn-video-compacto .pn-foto-card {
+  display: grid;
+  place-items: center;
+  width: 48px;
+}
+.pn-video-compacto .pn-video-vazio {
+  width: 40px;
+}
+.pn-video-compacto .pn-foto-lado {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.pn-video-compacto .pn-video-txt {
+  flex: 1 1 96px;
+}
+.pn-video-compacto .pn-foto-acoes {
+  flex: none;
+}
+.pn-video-compacto .pn-foto-lado > .pn-aviso {
+  flex-basis: 100%;
+}
+.pn-video-txt {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--legenda);
+}
+.pn-video-txt strong {
+  font-weight: 600;
+  color: var(--branco);
+}
+@media (min-width: 1100px) {
+  /* no computador o card da foto fica na coluna da prévia; a thumb pequena continua na linha dela */
+  .pn-video-compacto .pn-foto-card {
+    display: grid;
+  }
+}
+/* "Mais detalhes": o botão que abre o resto, com o resumo do que tem lá */
+.pn-detalhes {
+  border-top: 1px solid var(--bolha);
+}
+.pn-detalhes-botao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 0;
+  color: var(--branco);
+  text-align: left;
+}
+.pn-detalhes-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pn-detalhes-txt strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+.pn-detalhes-txt small {
+  font-size: 13px;
+  color: var(--legenda);
+  overflow-wrap: anywhere;
+}
+.pn-detalhes-corpo > .pn-form-secao:first-child {
+  border-top: 1px solid var(--bolha);
+}
+/* a prévia grande "Como fica no site" só no computador (no celular o card fica do lado da foto, com o "Em MG") */
+@media (max-width: 1099px) {
+  .pn-editar-produto .pn-editar-previa {
+    display: none;
+  }
+}

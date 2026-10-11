@@ -17,19 +17,20 @@ export function palavraProibida(texto: string): string | null {
 /** O pedaço do catálogo que decide se um prêmio vale: os produtos (a categoria, o nome e o desenho) e o que é bebida. */
 export interface CatalogoDosPremios {
   produtos: readonly { id: string; categoria: string; nome?: string; arte?: { tipo?: string } | null }[]
-  categorias: readonly { id: string; bebida?: boolean }[]
+  categorias: readonly { id: string; bebida?: boolean; alcool?: boolean }[]
 }
 
 const TIPOS = new Set<string>(['desconto-percentual', 'leve-x-pague-y', 'brinde'])
 
 /**
- * Por que o prêmio não entra (ou null). Prêmio nunca cai em bebida: as categorias marcadas `bebida` e, fora delas, o
- * produto com desenho de bebida ou nome de bebida alcoólica (src/lib/alcool.ts, as listas do servidor).
+ * Por que o prêmio não entra (ou null). Prêmio nunca cai em bebida: as categorias marcadas `bebida` ou `alcool`
+ * (bebida alcoólica, a marca do painel) e, fora delas, o produto com desenho de bebida ou nome de bebida alcoólica
+ * (src/lib/alcool.ts, as listas do servidor).
  */
 export function motivoInvalido(p: Premio, idsVistos: Set<string>, cat: CatalogoDosPremios): string | null {
   const produtos = new Map(cat.produtos.map((x) => [x.id, x]))
   const categorias = new Set(cat.categorias.map((c) => c.id))
-  const fora = new Set(cat.categorias.filter((c) => c.bebida).map((c) => c.id))
+  const fora = new Set(cat.categorias.filter((c) => c.bebida || c.alcool).map((c) => c.id))
   const bebida = (x: CatalogoDosPremios['produtos'][number]) => fora.has(x.categoria) || bebidaPeloProduto(x)
   if (!p.id || idsVistos.has(p.id)) return 'id vazio ou repetido'
   if (!TIPOS.has(p.tipo)) return 'tipo desconhecido'

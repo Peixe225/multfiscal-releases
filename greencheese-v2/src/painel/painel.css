@@ -44,6 +44,12 @@ html.pn-travado body {
 html.pn-compondo .pn-app {
   padding-bottom: 0;
 }
+/* tela de formulário: o campo que recebe o foco (Tab, erro, "Mais detalhes") não para escondido atrás do topo nem do
+   Salvar fixo embaixo */
+html.pn-compondo {
+  scroll-padding-top: calc(var(--pn-topo) + var(--seg-topo) + 8px);
+  scroll-padding-bottom: calc(104px + var(--seg-baixo));
+}
 .pn-principal {
   outline: none;
 }
@@ -2770,9 +2776,13 @@ html.pn-compondo .pn-barra {
   justify-content: center;
   pointer-events: none;
 }
-html.pn-compondo .pn-recados,
 html.com-teclado .pn-recados {
   bottom: calc(10px + var(--seg-baixo));
+}
+/* tela de formulário (sem a barra, com o Salvar fixo embaixo): o recado fica acima do Salvar, sem cobrir o botão (o
+   recado da troca na lista, com Desfazer, ainda aparece quando a pessoa abre o produto) */
+html.pn-compondo .pn-recados {
+  bottom: calc(96px + var(--seg-baixo));
 }
 .pn-recado {
   pointer-events: auto;
@@ -2833,6 +2843,9 @@ html.com-teclado .pn-recados {
     left: calc(var(--pn-lateral) + 24px);
     right: 24px;
     bottom: 24px;
+  }
+  html.pn-compondo .pn-recados {
+    bottom: 112px;
   }
 }
 

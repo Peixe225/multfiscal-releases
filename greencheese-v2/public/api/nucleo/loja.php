@@ -143,9 +143,20 @@ function gc_loja_semear(PDO $db, array $s): void
         'INSERT INTO ajustes (chave, valor, atualizado_em) VALUES (?, ?, ?)
          ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, atualizado_em = excluded.atualizado_em',
     );
-    $categoria = $db->prepare('INSERT INTO loja_categorias (id, nome, curto, icone, bebida, ordem, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    // a marca "Bebida alcoólica" (migração 301): na 101 (banco instalado antes da loja) a coluna ainda não existe, e a
+    // própria 301 marca os Destilados logo depois
+    $comAlcool = false;
+    foreach ($db->query('PRAGMA table_info(loja_categorias)')->fetchAll(PDO::FETCH_ASSOC) as $coluna) {
+        $comAlcool = $comAlcool || $coluna['name'] === 'alcool';
+    }
+    $categoria = $comAlcool
+        ? $db->prepare('INSERT INTO loja_categorias (id, nome, curto, icone, bebida, alcool, ordem, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        : $db->prepare('INSERT INTO loja_categorias (id, nome, curto, icone, bebida, ordem, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     foreach (array_values($s['categorias']) as $i => $c) {
-        $categoria->execute([$c['id'], $c['nome'], $c['curto'], $c['icone'], !empty($c['bebida']) ? 1 : 0, $i, $agora, $agora]);
+        $bebida = !empty($c['bebida']) || !empty($c['alcool']) ? 1 : 0;
+        $categoria->execute($comAlcool
+            ? [$c['id'], $c['nome'], $c['curto'], $c['icone'], $bebida, !empty($c['alcool']) ? 1 : 0, $i, $agora, $agora]
+            : [$c['id'], $c['nome'], $c['curto'], $c['icone'], $bebida, $i, $agora, $agora]);
     }
     $produto = $db->prepare(
         'INSERT INTO loja_produtos (id, nome, tamanho, detalhe, descricao, categoria_id, preco, combos, variacoes, combina_com, foto, cor, arte, obs, ativo, demo, ordem, criado_em, atualizado_em)
@@ -279,7 +290,8 @@ function gc_loja_variacoes(array $p): array
 
 function gc_loja_categoria_publica(array $c): array
 {
-    return ['id' => (string) $c['id'], 'nome' => (string) $c['nome'], 'curto' => (string) $c['curto'], 'icone' => (string) $c['icone'], 'bebida' => (bool) $c['bebida']];
+    // alcool: a marca "Bebida alcoólica" do painel (o site deixa a categoria fora da rua do mercador e de prêmio)
+    return ['id' => (string) $c['id'], 'nome' => (string) $c['nome'], 'curto' => (string) $c['curto'], 'icone' => (string) $c['icone'], 'bebida' => (bool) $c['bebida'], 'alcool' => (bool) ($c['alcool'] ?? false)];
 }
 
 /**
@@ -414,7 +426,8 @@ function gc_loja_contexto_premios(array $produtos, array $categorias): array
     $ctx = ['ativos' => [], 'categorias' => [], 'bebidas' => [], 'categoriasBebida' => []];
     foreach ($categorias as $c) {
         $ctx['categorias'][(string) $c['id']] = true;
-        if ((int) $c['bebida'] === 1) {
+        // alcoólica é sempre bebida (loja-validar.php); as duas valem aqui pra nada escapar
+        if ((int) $c['bebida'] === 1 || (int) ($c['alcool'] ?? 0) === 1) {
             $ctx['categoriasBebida'][(string) $c['id']] = true;
         }
     }

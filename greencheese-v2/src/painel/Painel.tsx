@@ -115,7 +115,7 @@ function Tela({ rota, usuario, sair }: { rota: Rota; usuario: Usuario; sair: () 
     case 'produto':
       return <Produto key={rota.id} id={rota.id} />
     case 'produto-novo':
-      return <Produto key="novo" id={null} />
+      return <Produto key="novo" id={null} ufNovo={rota.uf} />
     case 'loja':
       return <Loja />
     case 'estados':
