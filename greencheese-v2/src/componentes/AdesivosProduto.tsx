@@ -165,9 +165,11 @@ function usePrecoCabe(botao: RefObject<HTMLButtonElement | null>, temPreco: bool
       if (!preco) return setCabe(true)
       const st = getComputedStyle(el)
       const vao = parseFloat(st.columnGap) || 0
-      // o que vem antes do preço (ícone e texto) + o preço + os vãos + o recheio, contra a largura do botão
+      // o que vem antes do preço (ícone e texto) + o preço + os vãos + o recheio, contra a largura do botão. As caixas
+      // na tela vêm escaladas enquanto o story abre (ele cresce do card): divide pela escala do próprio botão
+      const k = el.getBoundingClientRect().width / (el.offsetWidth || 1) || 1
       let usado = parseFloat(st.paddingLeft) + parseFloat(st.paddingRight)
-      for (const filho of el.children) usado += (filho as HTMLElement).getBoundingClientRect().width + (filho === preco ? 0 : vao)
+      for (const filho of el.children) usado += filho.getBoundingClientRect().width / k + (filho === preco ? 0 : vao)
       setCabe(usado <= el.clientWidth + 0.5)
     }
     // já antes da 1ª pintura do story (sem um quadro com o preço passando do botão); depois, no ResizeObserver
