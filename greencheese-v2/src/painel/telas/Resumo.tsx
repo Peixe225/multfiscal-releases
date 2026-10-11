@@ -16,7 +16,7 @@ import { caminho } from '../rotas'
 import type { ParticipanteComTitulo, RateioAdmin, Resumo as TResumo } from '../tipos'
 import { Aviso, Carregando, Ic, TituloTela } from '../ui'
 import { BotaoWhats, NOME_VAGA, avisoDeAgora, pedirConfirmarPagamento } from '../vaga'
-import { contagens, useLoja } from '../loja/dados'
+import { contagens, useLojaSe } from '../loja/dados'
 import { ResumoLoja } from '../loja/ResumoLoja'
 import { Botao } from '../ui'
 import { useRestaurarRolagem } from './comum'
@@ -158,7 +158,7 @@ export function Resumo({ nome }: { nome: string }) {
   // o quadro da loja (esgotados, acabando, atalhos) leva às telas da loja: só pra quem pode abrir elas (o dono)
   const cuidaDaLoja = usePode('loja')
   const temEstoque = usePode('produtos')
-  const loja = useLoja()
+  const loja = useLojaSe(cuidaDaLoja)
   const esgotados = cuidaDaLoja && loja.dados ? contagens(loja.dados).esgotados : 0
   // a lista "Pra deixar a loja pronta" e o lembrete da cópia (só o dono)
   const pronto = usePronto(cuidaDaLoja)
@@ -173,6 +173,14 @@ export function Resumo({ nome }: { nome: string }) {
   const abertos = d?.rateios.filter((r) => r.status === 'aberto') ?? []
   const andamento = d?.rateios.filter((r) => ['pedido', 'caminho'].includes(r.status)) ?? []
   const esperando = d?.resumo.esperandoPagamento ?? []
+  // o lembrete da cópia e a lista "Pra deixar a loja pronta" (só o dono): em cima, ou depois do que pede ação
+  const urgente = pedidosNovos > 0 || esperando.length > 0 || avisosFalhos > 0
+  const paraDeixarPronto = cuidaDaLoja && (
+    <>
+      <LembreteCopia leitura={pronto} naLista={copiaNaLista} />
+      {d && <ProntoLista leitura={pronto} rateios={d.rateios} />}
+    </>
+  )
 
   return (
     <>
@@ -188,8 +196,7 @@ export function Resumo({ nome }: { nome: string }) {
             <Ic nome="interrogacao" tamanho={16} /> Como usar o painel
           </Link>
         </p>
-        {cuidaDaLoja && <LembreteCopia leitura={pronto} naLista={copiaNaLista} />}
-        {cuidaDaLoja && d && <ProntoLista leitura={pronto} rateios={d.rateios} />}
+        {!urgente && paraDeixarPronto}
         {leitura.erro && (
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
             {leitura.erro.message}
@@ -249,6 +256,9 @@ export function Resumo({ nome }: { nome: string }) {
                 </>
               )}
             </section>
+
+            {/* com pedido novo, pagamento ou aviso esperando, a lista da loja pronta vem depois do que pede ação */}
+            {urgente && paraDeixarPronto}
 
             {/* loja: produtos esgotados, acabando, fora do site e os atalhos */}
             {cuidaDaLoja && <ResumoLoja />}

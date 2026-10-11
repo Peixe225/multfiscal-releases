@@ -136,8 +136,8 @@ export function ProntoLista({ leitura, rateios }: { leitura: Leitura<Pronto>; ra
                 </Botao>
               </div>
             )}
-            <button type="button" className="pn-link-botao pn-pronto-pular" disabled={pulando === i.id} onClick={() => void pular(i)}>
-              Pular<span className="sr-only">: {i.texto}</span>
+            <button type="button" className="pn-link-botao pn-pronto-pular" disabled={pulando === i.id} aria-label={`Pular: ${i.texto}`} onClick={() => void pular(i)}>
+              Pular
             </button>
           </li>
         ))}

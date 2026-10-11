@@ -45,12 +45,12 @@ export const secoes: Secao[] = [
   { id: 'stories', nome: 'Stories do Início', sub: 'Os produtos que passam no story de cada estado', href: caminho.stories, icone: 'estrela', iconeAtivo: 'estrela', telas: ['stories'], permissao: 'loja', grupo: 'loja' },
   { id: 'sorte', nome: 'Teste minha sorte', sub: 'Liga e desliga o jogo, prêmios e regras', href: caminho.sorte, icone: 'dichavador', iconeAtivo: 'dichavador', telas: ['sorte', 'premio'], permissao: 'loja', grupo: 'loja' },
   { id: 'loja', nome: 'Ajustes da loja', sub: 'WhatsApp do pedido, “restam X”, textos e dados de exemplo', href: caminho.loja, icone: 'loja', iconeAtivo: 'loja-cheia', telas: ['loja'], permissao: 'loja', grupo: 'loja' },
-  // o que se configura uma vez
-  { id: 'avisos', nome: 'Avisos no WhatsApp', sub: 'Cada pedido vira um aviso no grupo da loja', href: caminho.avisos, icone: 'sino', iconeAtivo: 'sino-cheio', telas: ['avisos'], permissao: 'avisos', grupo: 'config' },
-  { id: 'textos', nome: 'Textos do pedido', sub: 'As falas do chat que monta o pedido', href: caminho.textos, icone: 'balao', iconeAtivo: 'balao-cheio', telas: ['textos'], permissao: 'textos', grupo: 'config' },
-  { id: 'categorias', nome: 'Categorias', sub: 'As bolinhas do Início e a ordem delas', href: caminho.categorias, icone: 'tudo', iconeAtivo: 'tudo', telas: ['categorias'], permissao: 'loja', grupo: 'config' },
+  // o que se configura uma vez (Equipe primeiro: é o que mais se abre daqui)
   { id: 'equipe', nome: 'Equipe', sub: 'Logins de gerente e atendente, senha provisória', href: caminho.equipe, icone: 'equipe', iconeAtivo: 'equipe-cheia', telas: ['equipe', 'usuario'], permissao: 'equipe', grupo: 'config' },
+  { id: 'avisos', nome: 'Avisos no WhatsApp', sub: 'Cada pedido vira um aviso no grupo da loja', href: caminho.avisos, icone: 'sino', iconeAtivo: 'sino-cheio', telas: ['avisos'], permissao: 'avisos', grupo: 'config' },
   { id: 'clientes', nome: 'Clientes', sub: 'Contas do site, lista de promoções e o código pelo WhatsApp', href: caminho.clientes, icone: 'clientes', iconeAtivo: 'clientes-cheio', telas: ['clientes', 'cliente'], permissao: 'clientes', grupo: 'config' },
+  { id: 'categorias', nome: 'Categorias', sub: 'As bolinhas do Início e a ordem delas', href: caminho.categorias, icone: 'tudo', iconeAtivo: 'tudo', telas: ['categorias'], permissao: 'loja', grupo: 'config' },
+  { id: 'textos', nome: 'Textos do pedido', sub: 'As falas do chat que monta o pedido', href: caminho.textos, icone: 'balao', iconeAtivo: 'balao-cheio', telas: ['textos'], permissao: 'textos', grupo: 'config' },
   { id: 'servidor', nome: 'Diagnóstico', sub: 'Pra quem cuida do site: o servidor por dentro', href: caminho.servidor, icone: 'servidor', iconeAtivo: 'servidor-cheio', telas: ['servidor'], permissao: 'servidor', grupo: 'config' },
   // ajuda e a conta
   { id: 'ajuda', nome: 'Como usar o painel', sub: 'As tarefas do dia a dia, passo a passo', href: caminho.ajuda, icone: 'interrogacao', iconeAtivo: 'interrogacao', telas: ['ajuda'], permissao: 'conta', grupo: 'ajuda' },

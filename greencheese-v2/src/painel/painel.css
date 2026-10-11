@@ -2862,9 +2862,9 @@ html.com-teclado .pn-recados {
 .pn-mais-grupo .pn-dica-bloco {
   margin-bottom: 4px;
 }
-.pn-mais-item {
+.pn-bloco .pn-mais-item {
   min-height: 64px;
-  padding: 8px 0;
+  padding: 10px 0;
 }
 .pn-rodape-painel {
   margin: 32px 0 8px;
@@ -3033,8 +3033,12 @@ html.com-teclado .pn-recados {
   margin-top: 2px;
   color: var(--branco);
 }
+/* o link da linha vai embaixo do texto, com altura de dedo (44 px) */
 .pn-plano-senha .pn-link-dentro {
-  min-height: 0;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-height: 44px;
   padding: 0;
   font-size: inherit;
 }

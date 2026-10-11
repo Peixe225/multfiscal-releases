@@ -20,7 +20,7 @@ export function Mais() {
   return (
     <>
       <Topo titulo={<TituloTela>Mais</TituloTela>} />
-      <div className="pn-pagina pn-pagina-estreita pn-mais">
+      <div className="pn-pagina pn-pagina-estreita pn-tela-mais">
         {usuario && (
           <Link href={caminho.conta} className="pn-mais-quem toque">
             <span className="pn-avatar pn-avatar-aceso" style={{ width: 48, height: 48 }}>
@@ -31,6 +31,7 @@ export function Mais() {
               <small>
                 @{usuario.login} · {descreverAcesso(usuario)}
               </small>
+              <small>Tua senha, a cópia de segurança e sair</small>
             </span>
             <Ic nome="chevron-dir" tamanho={16} />
           </Link>

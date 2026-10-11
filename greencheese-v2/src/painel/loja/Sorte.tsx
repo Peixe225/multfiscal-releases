@@ -75,7 +75,7 @@ export function Sorte() {
   if (!l || !regras) {
     return (
       <>
-        <Topo voltar={caminho.mais} titulo={<TituloTela>Teste minha sorte</TituloTela>} />
+        <Topo voltar={caminho.mais} titulo={<TituloTela><span className="pn-txt-longo">Teste minha sorte</span><span className="pn-txt-curto" aria-hidden="true">Sorte</span></TituloTela>} />
         <div className="pn-pagina">{leitura.erro ? <Aviso tipo="erro">{leitura.erro.message}</Aviso> : <Carregando />}</div>
       </>
     )
@@ -89,7 +89,7 @@ export function Sorte() {
     <>
       <Topo
         voltar={caminho.mais}
-        titulo={<TituloTela>Teste minha sorte</TituloTela>}
+        titulo={<TituloTela><span className="pn-txt-longo">Teste minha sorte</span><span className="pn-txt-curto" aria-hidden="true">Sorte</span></TituloTela>}
         acoes={
           <Link href={caminho.premioNovo} className="pn-botao pn-botao-cheio pn-botao-p pn-so-icone-celular" aria-label="Novo prêmio">
             <Ic nome="mais" tamanho={16} />
