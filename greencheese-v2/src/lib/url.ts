@@ -143,7 +143,8 @@ export function manterNaURL(fonte: () => Partial<Parametros>): () => void {
 
 /**
  * Link absoluto para compartilhar (produto ou estado), preservando a pasta onde o site está. Vai para outra pessoa: o
- * endereço da loja, sem a chave da Home 2.
+ * endereço da loja, sem a chave da Home 2 e sem o ?uf=/?cidade= de quem manda (quem recebe pode ser de outro estado, e
+ * o ?uf= do link passaria por cima da escolha salva dele; o link com estado do adesivo do story é a loja que monta).
  */
 export function linkCompartilhar(params: Record<string, string>): string {
   const u = new URL(location.href)

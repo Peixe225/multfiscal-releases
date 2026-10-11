@@ -118,6 +118,9 @@ export async function iniciarLocal(): Promise<void> {
     useLocal.getState().escolher(p.uf, cidade, 'link')
     return
   }
+  // ?uf= que não é estado nenhum (?uf=xx): o site segue como sem o link, e o lixo sai da URL (quem copia o endereço
+  // não manda junto)
+  if (p.uf) atualizarParametros({ uf: null, cidade: null })
   if (st.confirmado && st.uf) {
     useLocal.setState({ origem: 'salvo' })
     return

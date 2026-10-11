@@ -19,6 +19,12 @@ import { StoryQuadro } from './StoryQuadro'
 import { StoryShell } from './StoryShell'
 import './StoryProduto.css'
 
+/** Algum story de produto já abriu nesta página (só então o ?p= que sobrou na URL é limpo na volta do histórico). */
+let storyAbriu = !!useUI.getState().story
+useUI.subscribe((s) => {
+  if (s.story) storyAbriu = true
+})
+
 function MenuStory({ produto, canal }: { produto: Produto; canal: Canal | undefined }) {
   const [aberto, setAberto] = useState(false)
   const setSeletor = useUI((s) => s.setSeletor)
@@ -183,13 +189,14 @@ export function StoryProduto() {
     return () => atualizarParametros({ p: null })
   }, [id])
   // trocou de produto com uma folha por cima (sacola vazia → outra miniatura): a volta da folha cai na entrada do
-  // story, que ainda tem o ?p= de antes
+  // story, que ainda tem o ?p= de antes. Story fechado (×, Esc, arrastar): a volta cai na entrada de baixo, que no link
+  // direto ainda tem o ?p= do link — sem limpar, recarregar (ou o Android restaurar a aba) reabria o story fechado
   useEffect(
     () =>
       manterNaURL(() => {
         const s = useUI.getState().story
         const atual = s?.lista[s.indice]
-        return atual ? { p: atual } : {}
+        return atual ? { p: atual } : storyAbriu ? { p: null } : {}
       }),
     [],
   )

@@ -13,7 +13,7 @@ import { tentar } from './lib/pedaco'
 import { focarVista } from './lib/foco'
 import { depoisDoHistorico, quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
-import { atualizarParametros, ehHome2, lerParametros } from './lib/url'
+import { atualizarParametros, ehHome2, lerParametros, manterNaURL } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
 import { useChat } from './store/chat'
 import { iniciarLocal } from './store/local'
@@ -32,6 +32,16 @@ gsap.registerPlugin(ScrollTrigger)
 
 // abas antes do primeiro render: a vista da URL (?aba=) já monta por trás da abertura
 iniciarAbas()
+
+// ?chat= (o link do pedido guiado): ninguém escreve essa chave, só o link de entrada. Quando o chat fecha ela sai da URL,
+// também na volta do histórico (a entrada do link ainda tem o ?chat=: recarregar, ou o Android restaurar a aba, reabria
+// o pedido que a pessoa fechou). Só depois que o chat abriu nesta página.
+let chatAbriu = useChat.getState().aberto
+useChat.subscribe((s, a) => {
+  if (s.aberto) chatAbriu = true
+  else if (a.aberto) atualizarParametros({ chat: null })
+})
+manterNaURL(() => (chatAbriu && !useChat.getState().aberto ? { chat: null } : {}))
 
 // Camadas que só aparecem com toque: carregam depois da primeira tela (durante a abertura).
 // Cada uma tem o próprio Suspense (uma camada lenta não segura a página do produto) e a própria guarda de erro: um
