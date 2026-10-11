@@ -207,7 +207,7 @@ export function CascaInterativo({ interativo, aberto, aoFechar, aoSair, children
             <Avatar tamanho={28} />
             <span className="casca-loja-txt">
               <strong>{interativo.titulo}</strong>
-              <span className="legenda">interativo · {instagram ? `@${instagram}` : 'Green Cheese'}</span>
+              <span className="legenda">jogo · {instagram ? `@${instagram}` : 'Green Cheese'}</span>
             </span>
           </p>
           {conta && (

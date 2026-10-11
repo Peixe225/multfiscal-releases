@@ -236,7 +236,7 @@ const ConteudoInicio = memo(function ConteudoInicio({ abrirInfo, comGrade }: { a
 
 const RodapeFixo = memo(Rodape)
 
-/** Título de seção no fim do Mercado (INTERATIVO): fio em cima, rótulo pequeno em caixa-alta. */
+/** Título de seção no fim do Mercado (PRA JOGAR): fio em cima, rótulo pequeno em caixa-alta. */
 function TituloSecao({ id, icone, children }: { id: string; icone: string; children: string }) {
   return (
     <h2 id={id} className="aba-secao-titulo">
@@ -272,7 +272,7 @@ const AbaCatalogo = memo(function AbaCatalogo({ abrirInfo }: { abrirInfo: () => 
         <div className="aba-fim aba-fim-um">
           <section className="aba-secao" aria-labelledby="secao-interativo">
             <TituloSecao id="secao-interativo" icone="dichavador">
-              Interativo
+              Pra jogar
             </TituloSecao>
             <AdesivoInterativo />
           </section>
