@@ -708,7 +708,7 @@ nunca sobe por alguém sem nome nem WhatsApp); cancelar continua valendo.
 
 ### Painel do dono: lista, cópia e senha pelo WhatsApp
 
-Módulo `nucleo/painel-dono.php` (migração 300). Duas rotas com sessão (permissão `loja`, só o dono) e duas abertas
+Módulo `nucleo/painel-dono.php` (migração 300; a 301, da marca "Bebida alcoólica" das categorias, mora aqui também). Duas rotas com sessão (permissão `loja`, só o dono) e duas abertas
 (sem usuário: quem esqueceu a senha), todas com Origin; as com sessão também com CSRF.
 
 | Rota | Corpo / parâmetros | Sucesso |
@@ -769,7 +769,7 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 | 1–99 | base (painel e rateio) | `nucleo/banco.php`, `gc_migracoes_base()` |
 | 100–199 | loja (catálogo, estados, stories, ajustes, Teste minha sorte) | `nucleo/loja-migracoes.php`, `gc_migracoes_loja()` |
 | 200–299 | pedidos, avisos, falas e contas | `nucleo/pedido-migracoes.php` (`gc_migracoes_pedidos()`) e `nucleo/contas-migracoes.php` (`gc_migracoes_contas()`) |
-| 300–399 | painel do dono (lista "pra deixar a loja pronta", cópia, senha pelo WhatsApp) | `nucleo/painel-dono.php`, `gc_migracoes_dono()` |
+| 300–399 | painel do dono (lista "pra deixar a loja pronta", cópia, senha pelo WhatsApp, a marca "Bebida alcoólica" das categorias) | `nucleo/painel-dono.php`, `gc_migracoes_dono()` |
 
 - Nunca edite uma migração que já foi pro ar: acrescente outra com o próximo número livre da faixa.
 - Uma migração é SQL ou uma função que recebe o `PDO` (pra semear dados). A função roda dentro da trava, com a conexão
@@ -787,7 +787,10 @@ Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, par
 capa da thumb animada do produto: `loja_produtos.video` e `.capa`) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
-mudado guarda qual ele substitui) e `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp).
+mudado guarda qual ele substitui), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
+(a marca "Bebida alcoólica": `loja_categorias.alcool`, padrão 0; num banco que já tinha a loja, a categoria
+`destilados` da semente, se continuar bebida, fica marcada. Mexe na tabela da loja: só entra com o módulo da loja
+carregado, como a `206` com o dos pedidos).
 
 ## Loja
 
@@ -848,7 +851,7 @@ interface Loja {
   ruaNoStory: boolean            // a rua do mercador no celular: 1º story do Início na home, fim do Início na Home 2 (sem o ajuste, true)
   vitrineNaRua: boolean          // o mercador mostra produtos da loja na rua, nos três lugares dela (sem o ajuste, true)
   textos: { bio: string[]; fraseStory: string; sacolaVazia: string; falasMercado: string[] } // src/dados/textos-loja.ts
-  categorias: { id: string; nome: string; curto: string; icone: string; bebida: boolean }[] // na ordem dos destaques
+  categorias: { id: string; nome: string; curto: string; icone: string; bebida: boolean; alcool: boolean }[] // na ordem dos destaques; alcool = bebida alcoólica (a marca do painel; sempre com bebida)
   produtos: ProdutoLoja[]        // só os que estão no site, na ordem da grade
   estados: EstadoLoja[]          // só os que estão no site, na ordem
   stories: Record<string, string[]> // uf → ids na ordem do dono; uf ausente = automático (o site escolhe, como hoje)
@@ -926,9 +929,10 @@ site (a URL), não da API: o `GET loja` é o mesmo nas duas.
 da tabela `ajustes`), entre um cliente e outro o mercador ergue um produto da loja, com a plaquinha do nome e do preço
 (`preco` null = "Consultar"), nos três lugares da rua (o 1º story do celular, a faixa do computador e o fim do Início da
 Home 2). Quem escolhe os produtos é o site, com o que este `GET loja` manda: só os `disponivel[uf]` do estado da pessoa,
-os do `stories[uf]` primeiro (na ordem do dono) e depois os outros, até 8; nunca bebida alcoólica (categoria com nome
-de álcool, desenho de garrafa, nome ou descrição com álcool, e a categoria de bebida inteira quando um produto dela tem
-cara de álcool) nem isqueiro (`src/componentes/rua/vitrine-regras.ts`; tabaco já não entra no catálogo). Desligada, a
+os do `stories[uf]` primeiro (na ordem do dono) e depois os outros, até 8; nunca bebida alcoólica (a categoria marcada
+`alcool` no painel e, de reforço, a categoria com nome de álcool; desenho de garrafa, nome ou descrição com álcool; e a
+categoria de bebida inteira quando um produto dela tem cara de álcool) nem isqueiro
+(`src/componentes/rua/vitrine-regras.ts` e `src/lib/alcool.ts`; tabaco já não entra no catálogo). Desligada, a
 rua fica só com os itens desenhados. Sem a loja do servidor nesta visita (fora do ar, antes de chegar), o site também
 fica nos itens desenhados: preço da loja guardada de outra visita não vai pra rua.
 
@@ -946,7 +950,7 @@ campo ausente fica como está.
 | POST `admin-produto-estado` | `{ id, uf, disponivel?, estoque? }` | `{ produto, versao, atualizadoEm }` |
 | POST `admin-produto-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-produtos-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
-| POST `admin-categoria-salvar` | `{ id?, nome, curto?, icone, bebida? }` | 201 ou 200 `{ categoria, versao, atualizadoEm }` |
+| POST `admin-categoria-salvar` | `{ id?, nome, curto?, icone, bebida?, alcool? }` | 201 ou 200 `{ categoria, versao, atualizadoEm }` |
 | POST `admin-categoria-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-categorias-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
 | POST `admin-estado-salvar` | `EstadoCorpo` (UF que a loja não tem = ativar) | 201 ou 200 `{ estado: EstadoAdmin, versao, atualizadoEm }` |
@@ -990,8 +994,11 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   ordem que tinha. Lista vazia, repetida ou com id que não existe → 400 (`campo: 'ids'`).
 - **Categoria**: nome 2–30; curto 2–14 (sem curto, vale o nome se couber); `icone` `lata`, `garrafa`, `seda`,
   `piteira`, `cuia`, `dichavador`, `tesoura`, `sacola` ou `estrela`; `bebida` (categoria nova nasce bebida até o dono
-  dizer que não; bebida nunca entra em prêmio). Virar bebida com prêmio valendo nela ou nos produtos dela → 400
-  (`campo: 'bebida'`). Apagar só vazia (nenhum produto, nem desativado) e sem prêmio → senão 409 `em-uso` (com
+  dizer que não; bebida nunca entra em prêmio); `alcool`, a marca "Bebida alcoólica" (sim ou não; categoria nova nasce
+  sem; a categoria fica fora da rua do mercador e de prêmio). Alcoólica é sempre bebida: `alcool: true` com
+  `bebida: false` (ou numa categoria que não é bebida, sem mandar `bebida: true`) → 400 `campo: 'alcool'`; tirar o
+  `bebida` de uma alcoólica sem tirar a marca → 400 `campo: 'bebida'`. A marca vai no `GET loja` e no `admin-loja` (o
+  ETag muda junto). Virar bebida com prêmio valendo nela ou nos produtos dela → 400 (`campo: 'bebida'`). Apagar só vazia (nenhum produto, nem desativado) e sem prêmio → senão 409 `em-uso` (com
   `produtos` ou `premios`). Nome e curto sem tabaco nem a gíria e a promessa (422, como no produto).
 - **Estado**: `uf` uma das 27. UF que a loja ainda não tem = ativar um estado novo: Instagram e pagamento obrigatórios,
   emblema `generico`, horário "a confirmar" (fica de exemplo, que o site não mostra, até vir um), taxa a confirmar e
@@ -1022,7 +1029,7 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   `girosPorDiaComConta` 1–5, `reservaSemContaHoras` 1–72, `ligado`.
 - **Prêmio** (as regras de `src/lib/cupom.ts`): `tipo`; desconto 1–50 (%); leva 2–20 > paga 1–19; brinde
   `{ produto, qtd 1–10 }`; `aplicaA` `{ produtos?: até 20, categorias?: até 10 }`, pelo menos um, tudo existindo e nada
-  de bebida (categoria marcada como bebida; ou produto com desenho de bebida, `GC_LOJA_ARTES_BEBIDA`: lata alta e as
+  de bebida (categoria marcada como bebida ou como bebida alcoólica; ou produto com desenho de bebida, `GC_LOJA_ARTES_BEBIDA`: lata alta e as
   garrafas; ou com nome de bebida alcoólica, `GC_LOJA_ALCOOL`: os tipos, como whisky, gin, vodka, chope, saquê, e as
   marcas comuns, como Jack Daniels, Smirnoff, Heineken, Brahma, Skol, Campari; a mesma lista do site e do painel em
   `src/lib/alcool.ts`); `titulo` 2–60 (só no painel); `descricao` 2–40; `regra` 2–120;
