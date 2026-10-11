@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Canal } from '../dados/canais'
 import { config } from '../dados/config'
 import { emUf, ufPorSigla } from '../dados/ufs'
-import { primeiroNome, useConta } from '../lib/conta'
+import { primeiroNome, useAgora, useConta } from '../lib/conta'
 import { useEntrarPorCodigo } from '../lib/conta-modo'
 import { ehDiaDeEntregaGratis, entregaGratisNoDia, situacao } from '../lib/horario'
 import { linkPerfil } from '../lib/mensagem'
@@ -69,6 +69,8 @@ function TuaConta() {
 export function PorEstado() {
   const { uf } = useLocal()
   const abrirChat = useChat((s) => s.abrir)
+  // a hora da loja (Brasília, corrigida pelo servidor): o aberto/fechado redesenha quando ela muda
+  const agora = new Date(useAgora())
   const [fora, setFora] = useState<string | null>(null)
   const [realce, setRealce] = useState<string | null>(null)
   const canais = useCanais()
@@ -154,7 +156,7 @@ export function PorEstado() {
                     <span className="pe-conta-uf px">{c.uf.toUpperCase()}</span>
                   </span>
                 )
-                const sit = situacao(c)
+                const sit = situacao(c, agora)
                 // a linha é sempre o mesmo <button> (a do cliente também, com aria-current): ao escolher, o foco
                 // continua nela; o horário e os botões da conta atual entram depois, como irmãos
                 return (
@@ -191,7 +193,7 @@ export function PorEstado() {
                           </p>
                         )}
                         {c.entregaGratis &&
-                          (ehDiaDeEntregaGratis(c) ? (
+                          (ehDiaDeEntregaGratis(c, agora) ? (
                             <p className="pe-conta-sextou">{c.entregaGratis.texto}</p>
                           ) : (
                             <p className="pe-conta-horario legenda">{entregaGratisNoDia(c)}</p>

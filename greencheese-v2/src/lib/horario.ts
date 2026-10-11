@@ -1,4 +1,5 @@
 import type { Canal, Turno } from '../dados/canais'
+import { agoraLoja, relogioBrasilia } from './relogio'
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
 const DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
@@ -18,11 +19,13 @@ export interface Situacao {
   texto: string
 }
 
-/** "Aberto agora · até 3h" / "Fechado · abre 14h" — considera turno que atravessa a meia-noite. */
-export function situacao(canal: Canal, agora = new Date()): Situacao {
+/**
+ * "Aberto agora · até 3h" / "Fechado · abre 14h" — considera turno que atravessa a meia-noite. O dia e a hora são os
+ * de Brasília (o horário da loja), pela hora do servidor quando ela veio: o fuso e o relógio do aparelho não contam.
+ */
+export function situacao(canal: Canal, agora = new Date(agoraLoja())): Situacao {
   const semana = canal.horario.semana
-  const dia = agora.getDay()
-  const m = agora.getHours() * 60 + agora.getMinutes()
+  const { dia, minuto: m } = relogioBrasilia(agora.getTime())
   const hoje = semana[dia]
   const ontem = semana[(dia + 6) % 7]
   // turno de ontem que vira a madrugada de hoje
@@ -61,8 +64,9 @@ export function resumoHorario(canal: Canal): string {
     .join(' · ')
 }
 
-export function ehDiaDeEntregaGratis(canal: Canal, agora = new Date()): boolean {
-  return !!canal.entregaGratis && canal.entregaGratis.dias.includes(agora.getDay())
+/** Hoje (em Brasília, pela hora da loja) é dia de entrega grátis? */
+export function ehDiaDeEntregaGratis(canal: Canal, agora = new Date(agoraLoja())): boolean {
+  return !!canal.entregaGratis && canal.entregaGratis.dias.includes(relogioBrasilia(agora.getTime()).dia)
 }
 
 const NO_DIA = ['no domingo', 'na segunda', 'na terça', 'na quarta', 'na quinta', 'na sexta', 'no sábado']

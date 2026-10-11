@@ -35,6 +35,8 @@ export function InfoStory() {
   // a entrega grátis só fala "Sextou" no dia dela (como no Início e no perfil)
   const sextou = ehDiaDeEntregaGratis(canal) ? canal.entregaGratis : null
   const demoVisivel = config.carimboDeExemplo
+  // a taxa do painel (0 = o dono disse que não tem taxa); a de exemplo só com o carimbo à vista
+  const taxa = canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? canal.taxaEntrega.valor : null
   const quadros: ReactNode[] = [
     <Quadro key="c">
       <Icone nome="moto" tamanho={96} />
@@ -67,9 +69,9 @@ export function InfoStory() {
       ) : (
         <>
           <p className="info-grande px">
-            {canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? `Taxa ${brl(canal.taxaEntrega.valor)}` : 'Taxa a confirmar'}
+            {taxa == null ? 'Taxa a confirmar' : taxa === 0 ? 'Entrega grátis' : `Taxa ${brl(taxa)}`}
           </p>
-          <p className="info-txt">A taxa certa vem na resposta do atendimento.</p>
+          {taxa !== 0 && <p className="info-txt">A taxa certa vem na resposta do atendimento.</p>}
           {canal.entregaGratis && <p className="info-txt legenda">{entregaGratisNoDia(canal)}</p>}
           <Demo ativo={canal.taxaEntrega.demo} />
         </>

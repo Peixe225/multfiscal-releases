@@ -35,6 +35,8 @@ function nomeGuardado(item: ItemSacola, nomeAtual?: string): string {
 function textoEntrega(canal: ReturnType<typeof useCanalDa>): string {
   const e = canal ? entregaDoCanal(canal) : null
   if (e === 'gratis') return 'Entrega grátis hoje.'
+  // taxa 0 no painel: o dono disse que a entrega não tem taxa (nada de "R$ 0,00 … a loja confirma")
+  if (e === 0) return 'Entrega grátis.'
   if (e != null) return `Entrega: ${brl(e)} (a loja confirma no atendimento).`
   return 'Entrega: taxa a confirmar no atendimento.'
 }

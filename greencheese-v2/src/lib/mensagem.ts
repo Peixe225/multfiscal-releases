@@ -2,6 +2,7 @@ import type { Canal, FormaPagamento } from '../dados/canais'
 import { config } from '../dados/config'
 import { brl } from './formato'
 import { ehDiaDeEntregaGratis } from './horario'
+import { agoraLoja } from './relogio'
 import { calcularLinha } from './preco'
 import { formatarCelular } from './telefone'
 import type { Produto } from './tipos'
@@ -88,13 +89,21 @@ export function textoPagamento(pagamento: FormaPagamento | null, troco?: number 
 
 /**
  * A entrega do estado como o painel deixou: 'gratis' (hoje é dia de entrega grátis), o valor da taxa (o dono pôs um
- * valor de verdade; o de exemplo só com o carimbo de exemplo à vista) ou null (a confirmar no atendimento).
+ * valor de verdade; o de exemplo só com o carimbo de exemplo à vista; 0 = o dono disse que a entrega não tem taxa) ou
+ * null (a confirmar no atendimento). O dia é o de Brasília, pela hora da loja (src/lib/relogio.ts).
  */
-export function entregaDoCanal(canal: Canal, agora = new Date()): 'gratis' | number | null {
+export function entregaDoCanal(canal: Canal, agora = new Date(agoraLoja())): 'gratis' | number | null {
   const g = canal.entregaGratis
   if (g && (!g.demo || config.carimboDeExemplo) && ehDiaDeEntregaGratis(canal, agora)) return 'gratis'
   const t = canal.taxaEntrega
   return t.valor != null && (!t.demo || config.carimboDeExemplo) ? t.valor : null
+}
+
+/** O que vai entre parênteses na linha da entrega: "entrega grátis hoje", "entrega grátis" (taxa 0), "taxa R$ 15,50" ou "taxa a confirmar". */
+export function textoEntrega(entrega: 'gratis' | number | null): string {
+  if (entrega === 'gratis') return 'entrega grátis hoje'
+  if (entrega === 0) return 'entrega grátis'
+  return entrega != null ? `taxa ${brl(entrega)}` : 'taxa a confirmar'
 }
 
 /**
@@ -112,8 +121,7 @@ export function montarPedido(d: DadosPedido): string {
   out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
   // sem cupom (e sem código), a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
   if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
-  const entrega = entregaDoCanal(d.canal, d.agora)
-  out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (${entrega === 'gratis' ? 'entrega grátis hoje' : entrega != null ? `taxa ${brl(entrega)}` : 'taxa a confirmar'})`)
+  out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (${textoEntrega(entregaDoCanal(d.canal, d.agora))})`)
   out.push(`Pagamento: ${textoPagamento(d.pagamento, d.troco)}`)
   out.push(`Nome: ${d.nome.trim()}`)
   if (d.obs?.trim()) out.push(`Obs.: ${d.obs.trim()}`)
