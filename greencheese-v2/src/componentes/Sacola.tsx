@@ -14,7 +14,7 @@ import { useChat } from '../store/chat'
 import { useDisponiveis, useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa, useLojaConferida, useTextosLoja } from '../store/loja'
-import { contarItens, useSacola, type ItemSacola } from '../store/sacola'
+import { contarItens, MAX_POR_ITEM, useSacola, type ItemSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import { CupomSacola } from './CupomSacola'
@@ -57,6 +57,8 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   const noPedido = new Map<string, number>()
   for (const l of pedido) noPedido.set(l.item.id, (noPedido.get(l.item.id) ?? 0) + l.qtd)
   const cabeMais = (id: string, limite: number | null) => (limite == null ? Infinity : limite - (noPedido.get(id) ?? 0))
+  // e o teto de cada linha (99 da mesma opção): o "Mais um" desliga e a linha avisa
+  const noTeto = (qtd: number) => qtd >= MAX_POR_ITEM
 
   return (
     <div className={`lista-sacola ${compacta ? 'compacta' : ''}`}>
@@ -89,6 +91,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
                     {foiAjustado(l.item.id, l.item.variacao) ? ': ajustei a quantidade.' : '.'}
                   </p>
                 )}
+                {!compacta && noTeto(l.qtd) && <p className="ls-restam legenda">Até {MAX_POR_ITEM} por item.</p>}
                 {l.precoAntes !== undefined && (
                   <p className="ls-restam ls-preco-novo legenda">Preço novo: era {l.precoAntes == null ? 'a consultar' : `${brl(l.precoAntes)} a unidade`}.</p>
                 )}
@@ -106,7 +109,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
                     className="icone-botao toque"
                     onClick={() => alterar(l.item.id, l.item.variacao, l.qtd + 1)}
                     aria-label="Mais um"
-                    disabled={cabeMais(l.item.id, l.limite) <= 0}
+                    disabled={cabeMais(l.item.id, l.limite) <= 0 || noTeto(l.qtd)}
                   >
                     <Icone nome="mais" tamanho={16} />
                   </button>

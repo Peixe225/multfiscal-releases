@@ -2,7 +2,7 @@ import { gsap } from 'gsap'
 import type { KeyboardEvent } from 'react'
 import { brl } from '../lib/formato'
 import { movimentoReduzido } from '../lib/movimento'
-import { calcularLinha } from '../lib/preco'
+import { calcularLinha, combosDa, precoUnitario } from '../lib/preco'
 import type { Produto } from '../lib/tipos'
 import { Icone } from './comum'
 import './AdesivosProduto.css'
@@ -71,9 +71,18 @@ export function EnqueteVariacao({ produto, valor, mudar }: { produto: Produto; v
   )
 }
 
-/** Combo = adesivo de quiz: cada linha é um preço; tocar escolhe a quantidade. Acima do que resta, a linha apaga. */
-export function QuizCombo({ produto, qtd, mudar, max = 99 }: { produto: Produto; qtd: number; mudar: (q: number) => void; max?: number }) {
-  const linhas = [{ qtd: 1, total: produto.preco ?? 0 }, ...(produto.combos ?? [])]
+/**
+ * Combo = adesivo de quiz: cada linha é um preço; tocar escolhe a quantidade. Acima do que resta, a linha apaga.
+ * Com a variação escolhida: o preço dela. A variação de preço próprio não herda o combo do produto (combosDa): as
+ * mesmas quantidades aparecem com a conta cheia ("2 por R$ 100,00"), sem o "cada", que só diz o desconto.
+ */
+export function QuizCombo({ produto, variacao = null, qtd, mudar, max = 99 }: { produto: Produto; variacao?: string | null; qtd: number; mudar: (q: number) => void; max?: number }) {
+  const unit = precoUnitario(produto, variacao) ?? 0
+  const combos = combosDa(produto, variacao)
+  const linhas = [
+    { qtd: 1, total: unit },
+    ...(produto.combos ?? []).map((c) => combos.find((x) => x.qtd === c.qtd) ?? { qtd: c.qtd, total: Math.round(unit * 100 * c.qtd) / 100 }),
+  ]
   // as setas e a parada de Tab só andam pelas linhas que dá pra levar (acima do que resta, a linha apaga)
   const cabem = linhas.filter((l) => l.qtd <= max).map((l) => l.qtd)
   // fora do combo (ex.: 4 pelo − +), nenhuma linha marcada: a parada de Tab fica na 1ª
@@ -113,7 +122,7 @@ export function QuizCombo({ produto, qtd, mudar, max = 99 }: { produto: Produto;
           <span>
             {l.qtd} por {brl(l.total)}
           </span>
-          {l.qtd > 1 && <span className="ad-quiz-cada">{brl(Math.round((l.total / l.qtd) * 100) / 100)} cada</span>}
+          {l.qtd > 1 && Math.round(l.total * 100) < Math.round(unit * 100) * l.qtd && <span className="ad-quiz-cada">{brl(Math.round((l.total / l.qtd) * 100) / 100)} cada</span>}
         </button>
       ))}
     </div>
@@ -137,9 +146,12 @@ export function SeletorQtd({ qtd, mudar, className, tamanhoIcone = 14, max = 99 
   )
 }
 
-/** Empurrão de combo: "leva mais 1 e as 3 saem por R$ 19,99". Sem combo na próxima quantidade (ou sem estoque pra ela), nada. */
-export function Empurrao({ produto, qtd, className, max = 99 }: { produto: Produto; qtd: number; className?: string; max?: number }) {
-  const prox = produto.combos?.find((cb) => cb.qtd === qtd + 1)
+/**
+ * Empurrão de combo: "leva mais 1 e as 3 saem por R$ 19,99". Sem combo na próxima quantidade (ou sem estoque pra ela,
+ * ou numa variação de preço próprio, que não leva o combo do produto), nada.
+ */
+export function Empurrao({ produto, variacao = null, qtd, className, max = 99 }: { produto: Produto; variacao?: string | null; qtd: number; className?: string; max?: number }) {
+  const prox = combosDa(produto, variacao).find((cb) => cb.qtd === qtd + 1)
   if (!prox || prox.qtd > max) return null
   return (
     <p className={className ? `ad-empurrao px px-n ${className}` : 'ad-empurrao px px-n'}>
@@ -175,7 +187,7 @@ export function AdesivoSacola({
           {c.total != null && c.total > 0 && <span className="ad-por-preco">{brl(c.total)}</span>}
         </button>
       </div>
-      <Empurrao produto={produto} qtd={qtd} max={max} />
+      <Empurrao produto={produto} variacao={variacao} qtd={qtd} max={max} />
     </>
   )
 }

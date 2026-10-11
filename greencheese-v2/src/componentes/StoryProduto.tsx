@@ -9,7 +9,7 @@ import { disponivelEm, produtoPorId, restamEm, useCatalogo } from '../store/cata
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa } from '../store/loja'
-import { contarItens, useSacola } from '../store/sacola'
+import { contarItens, MAX_POR_ITEM, useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
 import { AdesivoSacola, EnqueteVariacao, QuizCombo, voarAteSacola } from './AdesivosProduto'
 import { LinkAvisar } from './Catalogo'
@@ -204,8 +204,11 @@ export function StoryProduto() {
   const cidadeNome = nomeCidade(canal, cidade, cidadeInformada)
   // "restam X": a quantidade não passa do que sobra no estado (com o que já tá na sacola)
   const restam = disponivel ? restamEm(produto, uf) : null
-  const cabe = restam == null ? null : Math.max(0, restam - itens.reduce((n, i) => n + (i.id === produto.id ? i.qtd : 0), 0))
-  const maxQtd = cabe == null ? 99 : Math.max(1, cabe)
+  const cabeEstoque = restam == null ? Infinity : Math.max(0, restam - itens.reduce((n, i) => n + (i.id === produto.id ? i.qtd : 0), 0))
+  // e o teto de 99 da linha (a mesma opção): o menor dos dois
+  const nDeste = itens.reduce((n, i) => n + (i.id === produto.id && i.variacao === variacao ? i.qtd : 0), 0)
+  const cabe = Math.min(cabeEstoque, Math.max(0, MAX_POR_ITEM - nDeste))
+  const maxQtd = Math.max(1, cabe)
   const qtdOk = Math.min(qtd, maxQtd)
 
   const interagir = () => setInteragiu(true)
@@ -213,10 +216,12 @@ export function StoryProduto() {
   const porNaSacola = () => {
     interagir()
     if (cabe === 0) {
-      useUI.getState().avisar(`As ${restam === 1 ? 'unidade que resta' : `${restam} que restam`} aqui já tão na tua sacola.`)
+      useUI
+        .getState()
+        .avisar(cabeEstoque === 0 ? `As ${restam === 1 ? 'unidade que resta' : `${restam} que restam`} aqui já tão na tua sacola.` : `Até ${MAX_POR_ITEM} por item: tua sacola já tem ${nDeste} deste.`)
       return
     }
-    adicionar(produto.id, variacao, qtdOk)
+    adicionar(produto.id, variacao, Math.min(qtdOk, cabe))
     setCarimbo((c) => c + 1)
     voarAteSacola(document.querySelector<HTMLElement>(`.story-produto [data-arte="${produto.id}"]`), sacolaRef.current)
   }
@@ -230,8 +235,8 @@ export function StoryProduto() {
     // já na sacola: o pedido leva pelo menos a quantidade escolhida no adesivo (nunca menos do que já tinha)
     const naSacola = itens.find((i) => i.id === produto.id && i.variacao === variacao)
     if (!naSacola) {
-      if (cabe !== 0) adicionar(produto.id, variacao, qtdOk)
-    } else if (qtd > naSacola.qtd) useSacola.getState().alterar(produto.id, variacao, cabe == null ? qtd : Math.min(qtd, naSacola.qtd + cabe))
+      if (cabe !== 0) adicionar(produto.id, variacao, Math.min(qtdOk, cabe))
+    } else if (qtd > naSacola.qtd) useSacola.getState().alterar(produto.id, variacao, Math.min(qtd, naSacola.qtd + cabe))
     abrirChat('pedido', { respondendo: [produto.id] })
   }
 
@@ -243,7 +248,7 @@ export function StoryProduto() {
     ) : (
       <div className="ad-pilha" onPointerDown={interagir}>
         {produto.variacoes && <EnqueteVariacao produto={produto} valor={variacao} mudar={setVariacao} />}
-        {produto.combos && produto.preco != null && <QuizCombo produto={produto} qtd={qtdOk} mudar={setQtd} max={maxQtd} />}
+        {produto.combos && produto.preco != null && <QuizCombo produto={produto} variacao={variacao} qtd={qtdOk} mudar={setQtd} max={maxQtd} />}
         <AdesivoSacola produto={produto} variacao={variacao} qtd={qtdOk} mudar={setQtd} aoPor={porNaSacola} max={maxQtd} />
       </div>
     )
