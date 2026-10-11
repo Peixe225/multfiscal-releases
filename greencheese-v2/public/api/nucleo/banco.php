@@ -66,7 +66,7 @@ function gc_db(): PDO
 /**
  * Migrações por número: cada uma roda uma vez e fica anotada na tabela migracoes (o número e quando rodou). Cada
  * frente tem a sua faixa, pra duas frentes nunca pegarem o mesmo número: 1–99 a base (painel e rateio, aqui),
- * 100–199 a loja (nucleo/loja-migracoes.php), 200–299 pedidos e contas. Nunca edite uma que já foi pro ar: acrescente
+ * 100–199 a loja (nucleo/loja-migracoes.php), 200–299 pedidos e contas, 300–399 o painel do dono (nucleo/painel-dono.php). Nunca edite uma que já foi pro ar: acrescente
  * outra com o próximo número livre da faixa. Uma migração é SQL ou uma função que recebe o PDO (pra semear dados: ela
  * roda dentro da trava, com a conexão ainda sendo aberta, então nada de gc_sql/gc_transacao/gc_evento lá dentro).
  * @return array<int, string|callable(PDO): void>
@@ -88,6 +88,10 @@ function gc_migracoes(): array
     // só entra junto com elas)
     if (function_exists('gc_migracoes_contas') && function_exists('gc_migracoes_pedidos')) {
         $m += gc_migracoes_contas();
+    }
+    // o que deixa o dono independente (300–399, nucleo/painel-dono.php): os códigos da senha pelo WhatsApp da loja
+    if (function_exists('gc_migracoes_dono')) {
+        $m += gc_migracoes_dono();
     }
     ksort($m);
     return $m;

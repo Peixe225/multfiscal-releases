@@ -33,6 +33,9 @@ require __DIR__ . '/nucleo/contas-migracoes.php';
 require __DIR__ . '/nucleo/equipe.php';
 require __DIR__ . '/nucleo/clientes.php';
 require __DIR__ . '/nucleo/sorte.php';
+// o que deixa o dono independente: a lista "Pra deixar a loja pronta", a última cópia de segurança e a senha do dono
+// pelo WhatsApp da loja (migrações 300–399)
+require __DIR__ . '/nucleo/painel-dono.php';
 
 $rotas = [
     // site
@@ -122,6 +125,11 @@ $rotas = [
     'admin-cliente-apagar' => ['POST', 'gc_rota_admin_cliente_apagar'],
     'admin-clientes-ajustes' => ['POST', 'gc_rota_admin_clientes_ajustes'],
     'admin-cupom-usado' => ['POST', 'gc_rota_admin_cupom_usado'],
+    // o dono sem depender de quem fez o site: a lista do Resumo, a cópia e a senha pelo WhatsApp da loja
+    'admin-pronto' => ['GET', 'gc_rota_admin_pronto'],
+    'admin-pronto-salvar' => ['POST', 'gc_rota_admin_pronto_salvar'],
+    'admin-recuperar-codigo' => ['POST', 'gc_rota_admin_recuperar_codigo'],
+    'admin-recuperar-codigo-entrar' => ['POST', 'gc_rota_admin_recuperar_codigo_entrar'],
 ];
 
 if (gc_teste()) {
