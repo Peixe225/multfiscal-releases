@@ -1,9 +1,28 @@
-# Green Cheese — regras só desta pasta (oprojeto.online/greencheese/).
+# Green Cheese — regras só desta pasta (public_html/greencheese/, que é a raiz de https://greencheese.oprojeto.online/
+# desde 11/10 e continua respondendo, só pra redirecionar, em oprojeto.online/greencheese/).
 # A raiz do domínio tem uma CSP estrita (connect-src só o próprio domínio) que bloquearia a detecção de
 # estado por IP e a busca de CEP. Aqui ela é substituída por uma própria, igualmente fechada, que libera
 # só os serviços que o site usa. Os links do WhatsApp e do Instagram são navegação, não entram na CSP.
 Options -Indexes -MultiViews
 DirectoryIndex index.html
+
+# A loja mora em https://greencheese.oprojeto.online/ (11/10): o painel e as contas não dividem mais o endereço com o
+# outro site do oprojeto.online. Quem chega pelo endereço antigo (link, favorito, QR) vai pro mesmo lugar no novo, com o
+# resto do link; o que não é GET/HEAD no endereço antigo (a API escrevendo) para com 410, pra nenhuma sessão nascer lá.
+# Com regras de rewrite aqui, as da raiz deixam de valer nesta pasta: o https obrigatório da raiz vem repetido (fora do
+# 127.0.0.1/localhost dos testes).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^(www\.)?oprojeto\.online$ [NC]
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteRule ^(.*)$ https://greencheese.oprojeto.online/$1 [R=301,L]
+  RewriteCond %{HTTP_HOST} ^(www\.)?oprojeto\.online$ [NC]
+  RewriteRule ^ - [G,L]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteCond %{HTTP_HOST} !^(127\.0\.0\.1|localhost)(:[0-9]+)?$ [NC]
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
 
 <IfModule mod_headers.c>
   Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"

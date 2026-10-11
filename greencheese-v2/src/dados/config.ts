@@ -13,7 +13,7 @@ export const config = {
 
   marca: 'Green Cheese Imports',
   /** Endereço público do site (usado na imagem de compartilhamento e nos links da bio). */
-  urlPublica: 'https://oprojeto.online/greencheese/',
+  urlPublica: 'https://greencheese.oprojeto.online/',
 
   /**
    * WhatsApp que fecha os pedidos e as encomendas (55 + DDD + número, só dígitos). Passado pelo dono da loja como

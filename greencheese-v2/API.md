@@ -1,6 +1,6 @@
 # API da Green Cheese (servidor da loja)
 
-O servidor é PHP + SQLite na mesma hospedagem do site (Hostinger), em `public/api/` → `dist/api/` → `oprojeto.online/greencheese/api/`.
+O servidor é PHP + SQLite na mesma hospedagem do site (Hostinger), em `public/api/` → `dist/api/` → `greencheese.oprojeto.online/api/` (desde 11/10; o endereço antigo `oprojeto.online/greencheese/` só redireciona).
 Este arquivo é o contrato entre o site, o painel do dono e o servidor. A parte pública (abaixo) é fixa: o que entra nela
 depois é só acréscimo compatível, marcado assim (campo opcional que o outro lado pode ignorar sem quebrar nada, como o
 `token` do `rateio-entrar`); a parte do painel fica descrita no fim, por quem escreve o servidor.

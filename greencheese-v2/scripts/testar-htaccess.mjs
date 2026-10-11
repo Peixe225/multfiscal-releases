@@ -9,6 +9,7 @@
 // Precisa do apache2 e do libapache2-mod-php (APACHE=/caminho/do/apache2; GC_TESTE_PORTA escolhe a porta).
 import { execFileSync, spawn } from 'node:child_process'
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { request as pedirHttp } from 'node:http'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -90,6 +91,19 @@ async function portaLivre() {
   })
 }
 
+
+/** GET/POST cru com o Host escolhido (o fetch não deixa trocar o Host): status e Location, sem seguir redirecionamento. */
+function comHost(porta, caminho, host, metodo = 'GET', cab = {}) {
+  return new Promise((res, rej) => {
+    const r = pedirHttp({ host: '127.0.0.1', port: porta, path: caminho, method: metodo, headers: { Host: host, ...cab } }, (resp) => {
+      resp.resume()
+      resp.on('end', () => res({ status: resp.statusCode, location: resp.headers.location ?? '' }))
+    })
+    r.on('error', rej)
+    r.end(metodo === 'GET' || metodo === 'HEAD' ? undefined : '{}')
+  })
+}
+
 async function rodada(modo, porta) {
   const antes = falhas
   const okm = (cond, msg) => ok(cond, `[${modo}] ${msg}`)
@@ -137,6 +151,7 @@ ${mod('mime')}
 ${mod('headers')}
 ${mod('expires')}
 ${mod('env')}
+${mod('rewrite')}
 LoadModule php_module ${modulos}/${modPhp}
 ${root ? 'User www-data\nGroup www-data' : ''}
 TypesConfig /etc/mime.types
@@ -188,6 +203,24 @@ php_admin_value post_max_size 20M
     const home = await fetch(`${base}/`)
     okm(home.status === 200 && (await home.clone().text()).includes('<div id="raiz"'), 'o site abre')
     okm(/default-src 'self'/.test(home.headers.get('content-security-policy') ?? ''), 'o .htaccess do site vale (CSP)')
+
+    // o endereço novo (11/10): https://greencheese.oprojeto.online/ é a raiz desta pasta; o antigo só redireciona
+    {
+      const velho = await comHost(porta, '/greencheese/?uf=mg&produto=dr-pepper', 'oprojeto.online')
+      okm(velho.status === 301 && velho.location === 'https://greencheese.oprojeto.online/?uf=mg&produto=dr-pepper', `endereço antigo leva pro novo com o resto do link (${velho.status} ${velho.location})`)
+      const painelVelho = await comHost(porta, '/greencheese/painel/', 'www.oprojeto.online', 'HEAD')
+      okm(painelVelho.status === 301 && painelVelho.location === 'https://greencheese.oprojeto.online/painel/', `painel no endereço antigo (www) leva pro novo (${painelVelho.status} ${painelVelho.location})`)
+      const h2Velho = await comHost(porta, '/greencheese/home2/', 'OPROJETO.ONLINE')
+      okm(h2Velho.status === 301 && h2Velho.location === 'https://greencheese.oprojeto.online/home2/', `home2 no endereço antigo leva pro novo (${h2Velho.status} ${h2Velho.location})`)
+      const postVelho = await comHost(porta, '/greencheese/api/index.php?r=admin-entrar', 'oprojeto.online', 'POST', { 'Content-Type': 'application/json' })
+      okm(postVelho.status === 410, `API escrevendo no endereço antigo para com 410 (${postVelho.status})`)
+      const novoHttp = await comHost(porta, '/greencheese/?uf=rj', 'greencheese.oprojeto.online')
+      okm(novoHttp.status === 301 && novoHttp.location === 'https://greencheese.oprojeto.online/greencheese/?uf=rj', `http no endereço novo vira https (${novoHttp.status} ${novoHttp.location})`)
+      const novoHttps = await comHost(porta, '/greencheese/', 'greencheese.oprojeto.online', 'GET', { 'X-Forwarded-Proto': 'https' })
+      okm(novoHttps.status === 200, `endereço novo em https abre direto (${novoHttps.status})`)
+      const apiNova = await comHost(porta, '/greencheese/api/index.php?r=loja', 'greencheese.oprojeto.online', 'GET', { 'X-Forwarded-Proto': 'https' })
+      okm(apiNova.status === 200 || apiNova.status === 404, `API no endereço novo responde sem redirecionar (${apiNova.status})`)
+    }
 
     // painel do dono em /greencheese/painel/: abre, fora dos buscadores, sem cache, com a CSP do site e os arquivos
     // achados por caminho relativo (como na Hostinger, numa subpasta)

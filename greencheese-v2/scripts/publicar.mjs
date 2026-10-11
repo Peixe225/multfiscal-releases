@@ -62,7 +62,7 @@ function enviar(arquivo, caminho) {
 if ((!so || so.includes('index.html')) && process.env.RATEIO_SEM_API !== '1' && /dadosDeExemplo:\s*true/.test(readFileSync(new URL('../src/dados/config.ts', import.meta.url), 'utf8'))) {
   let temApi = existsSync(join(dist, 'api', 'index.php'))
   if (!temApi && !seco) {
-    const site = process.env.SITE_URL ?? `https://oprojeto.online/${destino}/`
+    const site = process.env.SITE_URL ?? (destino === 'greencheese' ? 'https://greencheese.oprojeto.online/' : `https://oprojeto.online/${destino}/`)
     try {
       const r = await fetch(new URL('api/index.php?r=rateios', site), { signal: AbortSignal.timeout(10000) })
       temApi = (r.headers.get('content-type') ?? '').includes('json') && (await r.json())?.ok === true

@@ -35,7 +35,7 @@ Para conferir o build antes de subir: `npm run preview` e abra o endereço mostr
 
 ## Subir na Hostinger (oprojeto.online)
 
-**No ar:** `https://oprojeto.online/greencheese/` (pasta `public_html/greencheese/`). Só essa pasta é do site; o resto do domínio não é tocado.
+**No ar:** `https://greencheese.oprojeto.online/` (desde 11/10; o subdomínio tem como raiz a pasta `public_html/greencheese/`). O endereço antigo, `https://greencheese.oprojeto.online/…`, continua levando pro mesmo lugar no novo (301 com o resto do link, pelo `.htaccess` da pasta; o que não é GET no endereço antigo para com 410, pra nenhuma sessão de painel ou de cliente nascer na origem do outro site do domínio). Só essa pasta é do site; o resto do domínio não é tocado.
 
 ### Publicar uma atualização (automático)
 
@@ -73,7 +73,7 @@ Quer na raiz ou num subdomínio? Troque `urlPublica` em `src/dados/config.ts` e 
 
 ## Servidor (API)
 
-O rateio (e o painel do dono) usam um servidor pequeno em **PHP + SQLite** que mora junto do site, na mesma hospedagem: `public/api/` → `dist/api/` → `oprojeto.online/greencheese/api/`. Sem MySQL e sem serviço de fora. Rotas, campos e erros: **API.md** (é o contrato entre site, painel e servidor).
+O rateio (e o painel do dono) usam um servidor pequeno em **PHP + SQLite** que mora junto do site, na mesma hospedagem: `public/api/` → `dist/api/` → `greencheese.oprojeto.online/api/`. Sem MySQL e sem serviço de fora. Rotas, campos e erros: **API.md** (é o contrato entre site, painel e servidor).
 
 ### Como fica no ar
 
@@ -141,19 +141,19 @@ Cada perfil põe na bio o link do próprio estado (é a forma mais confiável de
 
 | Perfil | Link da bio |
 |---|---|
-| @greencheese_importsrj | `https://oprojeto.online/greencheese/?uf=rj&cidade=rio-de-janeiro` |
-| @greencheese_importsmg | `https://oprojeto.online/greencheese/?uf=mg&cidade=teofilo-otoni` |
-| @greencheese_importssp | `https://oprojeto.online/greencheese/?uf=sp` |
-| @greencheese_importses | `https://oprojeto.online/greencheese/?uf=es` |
-| @greencheese_importssc | `https://oprojeto.online/greencheese/?uf=sc` |
+| @greencheese_importsrj | `https://greencheese.oprojeto.online/?uf=rj&cidade=rio-de-janeiro` |
+| @greencheese_importsmg | `https://greencheese.oprojeto.online/?uf=mg&cidade=teofilo-otoni` |
+| @greencheese_importssp | `https://greencheese.oprojeto.online/?uf=sp` |
+| @greencheese_importses | `https://greencheese.oprojeto.online/?uf=es` |
+| @greencheese_importssc | `https://greencheese.oprojeto.online/?uf=sc` |
 
-Link direto de um produto (para o adesivo de link do story do perfil de cada estado): `https://oprojeto.online/greencheese/?uf=mg&p=jack-daniels-old-no7-1l` — o id de cada produto está no `catalogo.json` (e no painel). Esse link com o `?uf=` é montado pela loja, que sabe pra qual estado o perfil posta. O botão de compartilhar do site (o do story, o "Copiar link do produto" do ⋯ e o da página do produto) copia o link **sem o estado** (`…/greencheese/?p=jack-daniels-old-no7-1l`, `…/?produto=…`), de propósito: quem recebe pode ser de outro estado, e o `?uf=` do link passa por cima da escolha salva e do palpite de IP de quem abre (um amigo do RJ que já usa o site no RJ cairia no MG sem perceber). Sem a chave, quem recebe vê o produto no estado dele (a escolha salva ou o palpite de IP). É a mesma regra da Home 2: o que sai do site pra outra pessoa é o endereço da loja, sem o que é só da visita de quem manda (`src/lib/url.ts`, `linkCompartilhar`).
+Link direto de um produto (para o adesivo de link do story do perfil de cada estado): `https://greencheese.oprojeto.online/?uf=mg&p=jack-daniels-old-no7-1l` — o id de cada produto está no `catalogo.json` (e no painel). Esse link com o `?uf=` é montado pela loja, que sabe pra qual estado o perfil posta. O botão de compartilhar do site (o do story, o "Copiar link do produto" do ⋯ e o da página do produto) copia o link **sem o estado** (`…/greencheese/?p=jack-daniels-old-no7-1l`, `…/?produto=…`), de propósito: quem recebe pode ser de outro estado, e o `?uf=` do link passa por cima da escolha salva e do palpite de IP de quem abre (um amigo do RJ que já usa o site no RJ cairia no MG sem perceber). Sem a chave, quem recebe vê o produto no estado dele (a escolha salva ou o palpite de IP). É a mesma regra da Home 2: o que sai do site pra outra pessoa é o endereço da loja, sem o que é só da visita de quem manda (`src/lib/url.ts`, `linkCompartilhar`).
 
 ---
 
 ## Painel do dono
 
-O painel é onde o dono cria os rateios, confirma os pagamentos e avisa a galera no WhatsApp: **`https://oprojeto.online/greencheese/painel/`**. Não tem link no site (nem aparece no Google: `noindex` no HTML e `X-Robots-Tag` no `.htaccess` da pasta). Feito pro celular (barra embaixo com o nome escrito em cada ícone: **Início · Pedidos · + · Produtos · Mais**; o **+** abre "Novo produto · Novo rateio"; a bolinha em Pedidos conta os novos) e com lateral a partir de 720 px (tablet deitado e em pé, computador). O que não cabe na barra mora em **Mais**, em grupos: Dia a dia (Rateios, Histórico), Loja (Estados, Stories, Teste minha sorte, Ajustes da loja), Configurações da loja (Avisos no WhatsApp, Textos do pedido, Categorias, Equipe, Clientes, Diagnóstico), Ajuda (**Como usar o painel**) e Tua conta.
+O painel é onde o dono cria os rateios, confirma os pagamentos e avisa a galera no WhatsApp: **`https://greencheese.oprojeto.online/painel/`**. Não tem link no site (nem aparece no Google: `noindex` no HTML e `X-Robots-Tag` no `.htaccess` da pasta). Feito pro celular (barra embaixo com o nome escrito em cada ícone: **Início · Pedidos · + · Produtos · Mais**; o **+** abre "Novo produto · Novo rateio"; a bolinha em Pedidos conta os novos) e com lateral a partir de 720 px (tablet deitado e em pé, computador). O que não cabe na barra mora em **Mais**, em grupos: Dia a dia (Rateios, Histórico), Loja (Estados, Stories, Teste minha sorte, Ajustes da loja), Configurações da loja (Avisos no WhatsApp, Textos do pedido, Categorias, Equipe, Clientes, Diagnóstico), Ajuda (**Como usar o painel**) e Tua conta.
 
 ### Entrar
 
@@ -326,7 +326,7 @@ Cupom: SORTE-K8EA — Leva 4 Seda OCB Premium Slim e paga 3 _(a loja confirma)_
 *Cliente:* Ian · wa.me/5533…
 *Obs.:* Portão azul
 
-Painel: https://oprojeto.online/greencheese/painel/#/pedido/12
+Painel: https://greencheese.oprojeto.online/painel/#/pedido/12
 ```
 
 A encomenda (`*NOVA ENCOMENDA*`, com produto, quantidade e o link do cliente), o pedido que o cliente mudou (`*PEDIDO ATUALIZADO*`, dizendo qual saiu da lista) e o rateio (`*RATEIO · NOVA RESERVA*` com o placar e até quando a vaga fica guardada; `*RATEIO · PAGAMENTO CONFIRMADO* ✅` com o placar e quem confirmou) têm os modelos deles. Nada de prazo, frete ou valor que a loja não passou.
@@ -430,7 +430,7 @@ O site é um app só, com quatro abas no molde do Instagram. O **Início** é o 
 - Os links de sempre continuam valendo por cima de qualquer aba: `?p=`, `?produto=`, `?jogo=sorte`, `?chat=pedido`, `?rateio=`. Ex.: `?uf=mg&aba=mercado&produto=jack-daniels-old-no7-1l` abre a página do produto e o voltar cai no Mercado.
 - O código das abas está em `src/lib/abas.ts` (URL, histórico e o "Ver loja") e `src/componentes/Abas.tsx` (as vistas); a loja do Início é o mesmo `Catalogo.tsx` com `onde="inicio"` (ids próprios: `inicio-loja`; o `#catalogo` é da aba Mercado, que o chat e a rolagem usam).
 
-**A Home 2** (pedido do Ian em 10/10: a home do celular com o mercador no 1º story fica como está; a versão com ele no fim do Início, só na Home 2): `https://oprojeto.online/greencheese/home2/` (e `Home2/`, `HOME2/`, que o `scripts/publicar.mjs` sobe junto) leva para a loja com `?home=2` na frente e o resto do link (`home2/?uf=rj&produto=…` abre no RJ, com o produto, na Home 2). A página é a mesma da loja, na pasta dela (o `./api/` e os pedaços continuam no lugar); quem escolhe a home é a chave na URL (`src/lib/url.ts`: `normalizarHome`, `ehHome2`), e ela fica na URL a visita inteira: trocar de aba, abrir e fechar story, página do produto, sacola, chat, jogo e rateio, o voltar, recarregar e voltar do WhatsApp mantêm a Home 2. Os links que a pessoa abre em aba nova (as abas, o produto do story) levam a chave junto; o que ela manda pra outra pessoa (compartilhar o produto, o rateio, a Sorte) é o endereço da loja, sem a chave. Abrir `…/greencheese/` sem a chave (numa visita nova ou na mesma aba) é a home de sempre. Os jeitos velhos da chave (`?home2`, `?Home2`, `?HOME=2`, `?home-2`) viram `?home=2`; `?home=1` e `?home1` saem da URL (a home de sempre). A diferença é só no celular: o 1º story é de produto e a rua viva fica no fim do Início; no computador as duas são iguais. O `.app` ganha `data-home="2"`.
+**A Home 2** (pedido do Ian em 10/10: a home do celular com o mercador no 1º story fica como está; a versão com ele no fim do Início, só na Home 2): `https://greencheese.oprojeto.online/home2/` (e `Home2/`, `HOME2/`, que o `scripts/publicar.mjs` sobe junto) leva para a loja com `?home=2` na frente e o resto do link (`home2/?uf=rj&produto=…` abre no RJ, com o produto, na Home 2). A página é a mesma da loja, na pasta dela (o `./api/` e os pedaços continuam no lugar); quem escolhe a home é a chave na URL (`src/lib/url.ts`: `normalizarHome`, `ehHome2`), e ela fica na URL a visita inteira: trocar de aba, abrir e fechar story, página do produto, sacola, chat, jogo e rateio, o voltar, recarregar e voltar do WhatsApp mantêm a Home 2. Os links que a pessoa abre em aba nova (as abas, o produto do story) levam a chave junto; o que ela manda pra outra pessoa (compartilhar o produto, o rateio, a Sorte) é o endereço da loja, sem a chave. Abrir `…/greencheese/` sem a chave (numa visita nova ou na mesma aba) é a home de sempre. Os jeitos velhos da chave (`?home2`, `?Home2`, `?HOME=2`, `?home-2`) viram `?home=2`; `?home=1` e `?home1` saem da URL (a home de sempre). A diferença é só no celular: o 1º story é de produto e a rua viva fica no fim do Início; no computador as duas são iguais. O `.app` ganha `data-home="2"`.
 
 > Num estado sem entrega (ex.: `?uf=ba`) o Início vira a tela "A Green Cheese ainda não chegou aí", sem destaques nem grade, e diz que a loja atende no RJ, MG, SP, ES e SC (as cidades, cada perfil confirma).
 
@@ -478,7 +478,7 @@ Rateio é a compra junto: a loja abre X vagas de um produto importado, cada pess
   - **celular**: a barra de baixo passa a ter 6 células — Início, Mercado, **Rateio** (a caixa de importação com a fita e o corte tracejado; cheia na aba atual), Teste minha sorte, Sacola, Por estado. O selo branco na caixa é quantos rateios dá pra entrar agora no estado (os contadores da barra e da lateral usam o 2 e o 5 redesenhados de `digitos.css`, carregado com o CSS principal: na Pixelify "2" lia "Z"/"a" e "55" lia "SS"). Num estado sem entrega (ex.: `?uf=ba`) o Rateio sai da barra, como a Sorte.
   - **computador**: item "Rateio" na lateral, logo depois de Mercado, com o mesmo número.
   - **Início**: destaque "Rateio" logo depois de Buscar, também no celular (anel aceso enquanto tem rateio aberto pro estado; selo "novo" até a pessoa ver os abertos na aba). As bolinhas ficam no tamanho de sempre; com as 5 abas, o "Tudo" deixa de caber inteiro na primeira tela do celular, e o primeiro destaque que não cabe espia na borda (ver "Destaques do Início", acima; as medidas estão em `Catalogo.css`).
-- **Link de um rateio** (para o adesivo de link dos stories): `https://oprojeto.online/greencheese/?uf=mg&rateio=arizona-green-tea` — abre a página do rateio depois do +18, por cima da aba Rateio (fechar mostra os outros rateios; voltar de novo sai do site, como todo link direto). O botão de compartilhar da página copia o link sem o estado (`…/?aba=rateio&rateio=arizona-green-tea`, pelo mesmo motivo do link do produto, acima). O id de cada rateio aparece no painel.
+- **Link de um rateio** (para o adesivo de link dos stories): `https://greencheese.oprojeto.online/?uf=mg&rateio=arizona-green-tea` — abre a página do rateio depois do +18, por cima da aba Rateio (fechar mostra os outros rateios; voltar de novo sai do site, como todo link direto). O botão de compartilhar da página copia o link sem o estado (`…/?aba=rateio&rateio=arizona-green-tea`, pelo mesmo motivo do link do produto, acima). O id de cada rateio aparece no painel.
 
 **A aba**: título com o "?" (abre a folha **Como funciona**: entra com nome e WhatsApp; a vaga fica guardada por `reservaHoras` enquanto fecha o pagamento no WhatsApp; o contador mostra as vagas pagas; o pedido do rateio é feito depois que fecham as vagas; "Previsão: de `previsaoMin` a `previsaoMax` dias depois que fechar", que pode mudar; por que sai mais barato (sem prometer preço de depois: o cartão mostra o "quando chegar" quando o rateio tem); e se não lotar, a loja chama no WhatsApp pra combinar). Embaixo, as seções **Minhas vagas** (só com vaga neste aparelho), **Abertos** (os do estado primeiro; os de outro estado por último, apagados, com "Só pra MG, SP…"), **Em andamento** (fechou, pedido feito, a caminho, chegou, com a linha do tempo e a previsão em datas) e **Chegaram** (entregues nos últimos 15 dias). Sem nenhum: "Nenhum rateio aberto agora", com o mercador e "Fica de olho no @…" do estado.
 
@@ -620,7 +620,7 @@ Cada prêmio é um bloco na lista `premios`:
 - A validade que aparece nas Regras sai de `validadeDias` ("vale 7 dias" quando todos os prêmios têm a mesma; senão, "até a data escrita no cupom").
 - Limites (`regrasSorte`): 1 giro sem conta (para sempre, no aparelho), 1 giro por dia com conta (vira à meia-noite de Brasília), prêmio sem conta reservado por 24 h. Na prévia, tudo fica só no aparelho; na versão oficial, o servidor valida (ver PENDENCIAS.md).
 - A copy do jogo fica em `src/interativos/sorte/textos.ts`; a das entradas do site (destaque, lateral, adesivo, sacola), em `src/interativos/sorte/textos-entrada.ts`.
-- Link direto: `https://oprojeto.online/greencheese/?uf=mg&jogo=sorte` abre o jogo depois do +18.
+- Link direto: `https://greencheese.oprojeto.online/?uf=mg&jogo=sorte` abre o jogo depois do +18.
 - O próximo interativo entra com uma linha em `src/interativos/registro.ts`, o jogo em `src/interativos/<id>/` e a tabela de prêmios dele em `src/dados/`.
 - Conferir a mensagem do pedido (sem cupom, igual ao formato de sempre; com cupom, +1 linha): `node scripts/conferir-mensagem.mjs`.
 - Conferir o story do prêmio em 21 tamanhos (celular em pé e deitado, do 568×320 ao 932×430, tablet e notebook com janela baixa): `node scripts/sorte-tamanhos.mjs [pasta] [url]` com o site rodando. Confere prêmio, "Ver condições" aberto e guardado: nada sai do quadro nem encavala, todo botão dá pra tocar, o story não pula no fim da revelação, o teclado e o Esc com a lista aberta. Usa o prêmio de destaque mais comprido e o código mais largo (`PREMIO=brinde` etc. troca o prêmio; `VP=915x412,568x320` escolhe os tamanhos).
