@@ -1,6 +1,8 @@
 // Prêmio do Teste minha sorte (criar e editar), com a conferência ao vivo das regras do site (src/lib/cupom.ts): só
 // acessório (bebida e categoria de bebida nunca), percentual de 1 a 50, leva mais que paga, validade de 1 a 30 dias,
-// peso > 0 e nenhuma palavra da lista. A prévia é o story do prêmio como a pessoa vê.
+// peso > 0 e nenhuma palavra da lista. A raridade em 4 fichas coloridas, com a chance real de sair (a mesma conta do
+// servidor, com os outros prêmios no jogo); o peso dentro da raridade fica em "Mais detalhes". A prévia é o story do
+// prêmio como a pessoa vê, e "Testar a animação" abre a revelação do site por cima (sem contar giro).
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { ErroApi, mensagemDe } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
@@ -11,10 +13,14 @@ import { avisarNaProxima } from '../telas/flash'
 import { useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
 import * as api from './api'
+import { lembrar, lido } from '../lembrar'
+import { INFO_RARIDADE } from '../../lib/raridade'
+import { chancesReais } from '../../lib/sorteio'
 import { ArteProduto, NomeProduto } from './Arte'
 import { comPremio, estadosNoSite, guardarLoja, nomeCompleto, useLoja } from './dados'
 import { fraseDoPremio, PreviaPremio } from './premio-ui'
-import type { LojaAdmin, PremioAdmin, PremioCorpo, ProdutoAdmin, TipoPremio, ValorPremio } from './tipos'
+import { FichasRaridade, SeloRaridade, TesteAnimacao, cenaDoPremio, textoChance } from './sorte-ui'
+import type { LojaAdmin, PremioAdmin, PremioCorpo, ProdutoAdmin, Raridade, TipoPremio, ValorPremio } from './tipos'
 import { bebidaPeloProduto, problemaNoTexto, tamanho } from './validar'
 
 interface Form {
@@ -32,6 +38,7 @@ interface Form {
   comoUsar: string
   peso: string
   validadeDias: string
+  raridade: Raridade
   ativo: boolean
   demo: boolean
 }
@@ -56,6 +63,7 @@ function doPremio(p: PremioAdmin): Form {
     comoUsar: p.comoUsar ?? '',
     peso: String(p.peso),
     validadeDias: String(p.validadeDias),
+    raridade: p.raridade,
     ativo: p.ativo,
     demo: p.demo,
   }
@@ -74,8 +82,9 @@ const NOVO: Form = {
   descricao: '',
   regra: '',
   comoUsar: '',
-  peso: '10',
+  peso: '1',
   validadeDias: '7',
+  raridade: 'comum',
   ativo: true,
   demo: false,
 }
@@ -126,7 +135,7 @@ function validar(f: Form, l: LojaAdmin): Erros {
     else e[k] = problemaNoTexto(t, true) ?? undefined
   }
   const peso = n(f.peso)
-  if (peso == null || peso < 1 || peso > 1000) e.peso = 'Peso de 1 a 1000 (quanto maior, mais sai).'
+  if (peso == null || peso < 1 || peso > 1000) e.peso = 'Peso de 1 a 1000 (dentro da raridade: quanto maior, mais sai).'
   const v = n(f.validadeDias)
   if (v == null || v < 1 || v > 30) e.validadeDias = 'Validade de 1 a 30 dias.'
   for (const k of Object.keys(e)) if (!e[k]) delete e[k]
@@ -145,6 +154,7 @@ function corpo(f: Form, id: string | null): PremioCorpo {
     comoUsar: f.comoUsar.trim(),
     peso: n(f.peso) ?? 1,
     validadeDias: n(f.validadeDias) ?? 7,
+    raridade: f.raridade,
     ativo: f.ativo,
     demo: f.demo,
   }
@@ -179,6 +189,13 @@ export function Premio({ id }: { id: string | null }) {
   const [salvando, setSalvando] = useState(false)
   const [tocou, setTocou] = useState<Set<string>>(new Set())
   const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
+  const [teste, setTeste] = useState(false)
+  // "Mais detalhes" (o peso dentro da raridade): lembra se ficou aberto
+  const [detalhes, setDetalhesBruto] = useState(() => lido('premio-detalhes') === '1')
+  const setDetalhes = (v: boolean) => {
+    setDetalhesBruto(v)
+    lembrar('premio-detalhes', v ? '1' : null)
+  }
   const trava = useRef(false)
   const inicial = useRef<string | null>(null)
 
@@ -226,6 +243,13 @@ export function Premio({ id }: { id: string | null }) {
   const aplicaA = { produtos: f.produtos, categorias: f.categorias }
   // o prêmio dito do jeito do site (sem alvo: '' no lugar do nome interno)
   const vivo = fraseDoPremio({ tipo: f.tipo, valor: valorDo(f), titulo: '', aplicaA }, l)
+  // a chance real de sair: os prêmios no jogo, com este do jeito que tá no formulário no lugar dele (a mesma conta do
+  // servidor: a raridade pela chance dela entre as que têm prêmio, depois o peso dentro dela)
+  const noJogo = l.sorte.premios.filter((x) => x.noSite && x.id !== p?.id)
+  const esteNoJogo = f.ativo && (!p || p.noSite || !p.ativo)
+  const comEste = esteNoJogo ? [...noJogo, { id: '__este', peso: n(f.peso) ?? 1, raridade: f.raridade }] : noJogo
+  const chanceEste = esteNoJogo ? (chancesReais(comEste, l.sorte.chances).get(comEste[comEste.length - 1]) ?? 0) : 0
+  const mesmaRaridade = noJogo.filter((x) => x.raridade === f.raridade).length
   const acessorios = l.produtos.filter((x) => x.ativo && acessorio(x, l))
   const categorias = l.categorias.filter((c) => !c.bebida)
   const insta = estadosNoSite(l)[0]?.instagram ?? 'greencheese_imports'
@@ -239,9 +263,14 @@ export function Premio({ id }: { id: string | null }) {
     const primeiro = Object.keys(e)[0]
     if (primeiro) {
       const alvo = primeiro === 'valor' ? (f.tipo === 'brinde' ? 'pr-brinde' : f.tipo === 'leve-x-pague-y' ? 'pr-leve' : 'pr-percentual') : primeiro === 'aplicaA' ? 's-pr-vale' : `pr-${primeiro}`
-      const el = document.getElementById(alvo)
-      el?.focus()
-      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      // o peso mora em "Mais detalhes": abre antes de levar o foco
+      const abrir = primeiro === 'peso' && !detalhes
+      if (abrir) setDetalhes(true)
+      window.setTimeout(() => {
+        const el = document.getElementById(alvo)
+        el?.focus()
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }, abrir ? 50 : 0)
       return false
     }
     if (trava.current) return false
@@ -258,8 +287,10 @@ export function Premio({ id }: { id: string | null }) {
       }
       return true
     } catch (err) {
-      if (err instanceof ErroApi && err.campo) setErros({ [err.campo]: err.message })
-      else setGeral(mensagemDe(err))
+      if (err instanceof ErroApi && err.campo) {
+        setErros({ [err.campo]: err.message })
+        if (err.campo === 'peso') setDetalhes(true)
+      } else setGeral(mensagemDe(err))
       return false
     } finally {
       trava.current = false
@@ -354,6 +385,32 @@ export function Premio({ id }: { id: string | null }) {
             )}
           </Secao>
 
+          <Secao titulo="Raridade" id="s-pr-raridade" dica="Quanto mais raro, menos sai e mais caprichada é a animação. A chance de cada raridade fica em Teste minha sorte.">
+            <FichasRaridade id="pr-raridade" valor={f.raridade} aoMudar={(r) => mudar('raridade', r)} />
+            <p className="pn-chance-este" aria-live="polite">
+              {esteNoJogo ? (
+                <>
+                  <SeloRaridade raridade={f.raridade} />
+                  <span>
+                    Sai <strong>{textoChance(chanceEste)}</strong> dos giros
+                    {l.sorte.chances[f.raridade] === 0 ? ' (essa raridade tá com 0%)' : mesmaRaridade ? `, dividindo o ${INFO_RARIDADE[f.raridade].nome} com ${mesmaRaridade === 1 ? 'mais 1 prêmio' : `mais ${mesmaRaridade} prêmios`}` : ''}.
+                  </span>
+                </>
+              ) : (
+                <span>Fora do jogo: não sai até voltar pro jogo.</span>
+              )}
+            </p>
+            {erroDe('raridade') && (
+              <p className="pn-erro">
+                <Ic nome="atencao" tamanho={16} />
+                <span>{erroDe('raridade')}</span>
+              </p>
+            )}
+            <Botao variante="contorno" icone="olho" className="pn-testar-anim" onClick={() => setTeste(true)}>
+              Testar a animação
+            </Botao>
+          </Secao>
+
           <Secao titulo="Vale em" id="s-pr-vale" dica="O produto (ou a categoria) que tem que estar no pedido. Só acessório: bebida nunca entra.">
             <div className={`pn-campo${erroDe('aplicaA') ? ' pn-campo-erro' : ''}`}>
               <p className="pn-rotulo">Produtos</p>
@@ -415,15 +472,10 @@ export function Premio({ id }: { id: string | null }) {
             </Campo>
           </Secao>
 
-          <Secao titulo="Chance e validade" id="s-pr-chance">
-            <div className="pn-dupla">
-              <Campo id="pr-peso" rotulo="Peso" erro={erroDe('peso')} dica="Quanto maior, mais sai (relativo aos outros).">
-                {(a) => <Numero aria={a} valor={f.peso} aoMudar={(v) => mudar('peso', v)} min={1} max={1000} rotuloMenos="Peso menor" rotuloMais="Peso maior" />}
-              </Campo>
-              <Campo id="pr-validadeDias" rotulo="Vale por" erro={erroDe('validadeDias')} dica="Conta de quando a pessoa guarda.">
-                {(a) => <Numero aria={a} valor={f.validadeDias} aoMudar={(v) => mudar('validadeDias', v)} min={1} max={30} sufixo="dias" rotuloMenos="Um dia a menos" rotuloMais="Um dia a mais" />}
-              </Campo>
-            </div>
+          <Secao titulo="Validade" id="s-pr-validade">
+            <Campo id="pr-validadeDias" rotulo="Vale por" erro={erroDe('validadeDias')} dica="Conta de quando a pessoa guarda.">
+              {(a) => <Numero aria={a} valor={f.validadeDias} aoMudar={(v) => mudar('validadeDias', v)} min={1} max={30} sufixo="dias" rotuloMenos="Um dia a menos" rotuloMais="Um dia a mais" />}
+            </Campo>
           </Secao>
 
           <Secao titulo="No jogo" id="s-pr-jogo">
@@ -437,14 +489,34 @@ export function Premio({ id }: { id: string | null }) {
               <span className="pn-troca-marca" aria-hidden="true" />
               <span>Prêmio de exemplo</span>
             </label>
-            {p && (
-              <div className="pn-apagar">
-                <Botao variante="perigo" icone="lixo" onClick={pedirApagar}>
-                  Apagar prêmio
-                </Botao>
-              </div>
-            )}
           </Secao>
+
+          {/* ── o ajuste fino, em "Mais detalhes" ── */}
+          <div className={`pn-detalhes${detalhes ? ' aberto' : ''}`}>
+            <button type="button" className="pn-detalhes-botao toque" aria-expanded={detalhes} aria-controls="pr-detalhes" onClick={() => setDetalhes(!detalhes)}>
+              <span className="pn-detalhes-txt">
+                <strong>Mais detalhes</strong>
+                <small>{erroDe('peso') && !detalhes ? 'Tem coisa pra arrumar aqui' : `Peso dentro da raridade: ${f.peso || '1'}${p ? ' · apagar' : ''}`}</small>
+              </span>
+              <Ic nome={detalhes ? 'chevron-cima' : 'chevron-baixo'} tamanho={16} />
+            </button>
+          </div>
+          {detalhes && (
+            <div id="pr-detalhes" className="pn-detalhes-corpo">
+              <Secao titulo="Peso dentro da raridade" id="s-pr-peso" dica="Só faz diferença quando tem mais de um prêmio na mesma raridade: peso 2 sai o dobro de um prêmio de peso 1.">
+                <Campo id="pr-peso" rotulo="Peso" erro={erroDe('peso')}>
+                  {(a) => <Numero aria={a} valor={f.peso} aoMudar={(v) => mudar('peso', v)} min={1} max={1000} rotuloMenos="Peso menor" rotuloMais="Peso maior" />}
+                </Campo>
+              </Secao>
+              {p && (
+                <div className="pn-apagar">
+                  <Botao variante="perigo" icone="lixo" onClick={pedirApagar}>
+                    Apagar prêmio
+                  </Botao>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <aside className="pn-editar-previa" aria-labelledby="h-pr-previa">
@@ -465,6 +537,7 @@ export function Premio({ id }: { id: string | null }) {
         </div>
       </form>
       <Confirmar pedido={confirmacao} aoFechar={() => setConfirmacao(null)} />
+      {teste && <TesteAnimacao cenas={[cenaDoPremio({ tipo: f.tipo, valor: valorDo(f), titulo: f.titulo, aplicaA, raridade: f.raridade }, l)]} aoFechar={() => setTeste(false)} />}
     </>
   )
 }

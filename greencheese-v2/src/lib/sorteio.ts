@@ -101,7 +101,7 @@ export function problemaNasChances(c: Partial<Record<Raridade, unknown>>): ErroC
     if (Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) return { erro: `A chance do ${nome} tem até 1 casa depois da vírgula (ex.: 12,5%).`, raridade: r }
     dec[r] = Math.round(v * 10)
   }
-  const soma = somaDecimos(dec)
+  const soma = RARIDADES.reduce((n, r) => n + (dec[r] ?? 0), 0)
   if (soma !== 1000) return { erro: `As 4 chances somam 100% (agora dão ${String(soma / 10).replace('.', ',')}%).`, raridade: null }
   for (let i = 1; i < RARIDADES.length; i++) {
     const r = RARIDADES[i]

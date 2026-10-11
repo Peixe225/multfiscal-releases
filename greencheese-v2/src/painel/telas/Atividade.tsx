@@ -36,7 +36,7 @@ function destinoDe(e: Evento, dono: boolean): string | null {
   if (tipo === 'premio' && id) return caminho.premio(id)
   if (tipo === 'categoria' || e.acao === 'categorias-ordem') return caminho.categorias
   if (e.acao === 'produtos-ordem') return caminho.produtos
-  if (e.acao === 'sorte-regras') return caminho.sorte
+  if (e.acao === 'sorte-regras' || e.acao === 'sorte-simulada' || e.acao === 'sorte-raridades') return caminho.sorte
   if (e.acao.startsWith('loja-')) return caminho.loja
   return null
 }

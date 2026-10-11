@@ -11,9 +11,24 @@
 //   com um prêmio mudado pelo dono, nada muda);
 // - o admin-sorte-simular (dono e gerente, a atendente não; CSRF, Origin, limites; não grava nada; a Atividade).
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { rolldown } from 'rolldown'
 import { gatewayFalso, novoToken } from './testar-api-pedidos.mjs'
+
+/** Um .ts do site, empacotado e carregado aqui (a mesma conta que o site e o painel usam). */
+async function carregarTs(raiz, arquivo) {
+  const tmp = mkdtempSync(join(tmpdir(), 'gc-sorte-ts-'))
+  const saida = join(tmp, 'm.mjs')
+  const pacote = await rolldown({ input: join(raiz, arquivo), logLevel: 'silent' })
+  await pacote.write({ file: saida, format: 'esm' })
+  await pacote.close()
+  const m = await import(pathToFileURL(saida).href)
+  rmSync(tmp, { recursive: true, force: true })
+  return m
+}
 
 /** Cliente HTTP com os dois cookies (painel e conta do site), o csrf do painel e o relógio de teste. */
 class Cli {
@@ -362,6 +377,54 @@ export async function testarSorte(t) {
     }
 
     // ─── o sorteio ──────────────────────────────────────────────────────────────────────────────────────────────
+    parte('sorte: a mesma conta no site, no painel e no servidor (TS × PHP)')
+    {
+      const fq = await carregarTs(raiz, 'src/lib/frequencia.ts')
+      const so = await carregarTs(raiz, 'src/lib/sorteio.ts')
+      const modsTs = ['base', 'banco', 'validar', 'limite', 'sessao', 'rateio', 'pedido-migracoes', 'pedido', 'avisos', 'textos', 'contas-migracoes', 'equipe', 'clientes', 'sorte']
+        .map((m) => `require '${raiz}public/api/nucleo/${m}.php';`).join(' ')
+      // janelas: 400 casos sorteados (X de 1 a 30, N de 1 a 5, até 8 giros nos últimos 40 dias)
+      let semente = 7
+      const aleat = (n) => ((semente = (semente * 1103515245 + 12345) % 2147483648), semente % n)
+      const hoje = '2026-12-10'
+      const casos = Array.from({ length: 400 }, () => {
+        const X = 1 + aleat(30)
+        const N = 1 + aleat(5)
+        const dias = Array.from({ length: aleat(9) }, () => fq.diaDoNum(fq.numDia(hoje) - aleat(40)))
+        return { X, N, dias }
+      })
+      const php = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); ${modsTs}
+        $c = json_decode($argv[1], true); $o = [];
+        foreach ($c as $x) { $o[] = [gc_janela_libera($x['dias'], $argv[2], $x['X'], $x['N']), gc_sorte_frase($x['X'], $x['N']), gc_janela_cabe($x['dias'], $argv[2], $x['X'], $x['N'])]; }
+        echo json_encode($o);`, JSON.stringify(casos), hoje], { encoding: 'utf8', env: { ...process.env, GC_DADOS: join(tmp, 'sorte-cli') } }))
+      const ts = casos.map((x) => [fq.liberaEm(x.dias, hoje, { intervaloDias: x.X, girosPorIntervalo: x.N }), fq.giroPorPeriodo({ intervaloDias: x.X, girosPorIntervalo: x.N }), fq.liberaEm(x.dias, hoje, { intervaloDias: x.X, girosPorIntervalo: x.N }) === null])
+      igual(ts.map((x) => x[0]), php.map((x) => x[0]), 'o dia que libera: o mesmo no site (liberaEm) e no servidor (gc_janela_libera), em 400 casos')
+      igual(ts.map((x) => x[1]), php.map((x) => x[1]), 'a frase da frequência: a mesma ("1 giro por dia", "2 giros por semana"…)')
+      igual(php.map((x) => x[2]), ts.map((x) => x[2]), 'guardar um giro de hoje cabe exatamente quando o giro de hoje tá liberado')
+      igual([fq.giroPorPeriodo({ intervaloDias: 1, girosPorIntervalo: 1 }), fq.giroPorPeriodo({ intervaloDias: 2, girosPorIntervalo: 1 }), fq.giroPorPeriodo({ intervaloDias: 7, girosPorIntervalo: 1 }), fq.giroPorPeriodo({ intervaloDias: 7, girosPorIntervalo: 2 }), fq.giroPorPeriodo({ intervaloDias: 30, girosPorIntervalo: 1 })], ['1 giro por dia', '1 giro a cada 2 dias', '1 giro por semana', '2 giros por semana', '1 giro por mês'], 'as frases do pedido do Ian')
+      igual([fq.diaQueLibera('2026-12-11', '2026-12-10'), fq.diaQueLibera('2026-12-12', '2026-12-10'), fq.diaQueLibera('2026-10-17', '2026-10-11')], ['amanhã', 'sábado, 12/12', 'sábado, 17/10'], 'o dia que libera: "amanhã" ou o dia da semana e a data')
+      // as chances: as mesmas recusas e as mesmas chances reais
+      const cs = [[60, 25, 12, 3], [60, 25, 12, 2], [40, 45, 12, 3], [60.05, 24.95, 12, 3], [62.5, 25, 10, 2.5], [70, 30, 0, 0], [25, 25, 25, 25], [100, 0, 0, 0], [50, 50.5, 0, -0.5]].map(([comum, raro, epico, lendario]) => ({ comum, raro, epico, lendario }))
+      const phpC = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); ${modsTs} echo json_encode(array_map(static fn ($c) => gc_chances_ler($c)['erro'], json_decode($argv[1], true)));`, JSON.stringify(cs)], { encoding: 'utf8', env: { ...process.env, GC_DADOS: join(tmp, 'sorte-cli') } }))
+      igual(cs.map((c) => so.problemaNasChances(c)?.erro ?? null), phpC, 'as chances: o painel recusa o mesmo que o servidor, com a mesma frase')
+      const lista = [{ id: 'c1', raridade: 'comum', peso: 3 }, { id: 'c2', raridade: 'comum', peso: 1 }, { id: 'r1', raridade: 'raro', peso: 2 }, { id: 'l1', raridade: 'lendario', peso: 1 }, { id: 'v', peso: 5 }]
+      for (const c of [cs[0], cs[4], cs[5], cs[7]]) {
+        const p = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); ${modsTs} echo json_encode(gc_sorteio_chances(json_decode($argv[1], true), json_decode($argv[2], true)));`, JSON.stringify(lista), JSON.stringify(c)], { encoding: 'utf8', env: { ...process.env, GC_DADOS: join(tmp, 'sorte-cli') } }))
+        const m = so.chancesReais(lista, c)
+        const t = Object.fromEntries(lista.map((x) => [x.id, Math.round(m.get(x) * 1e9) / 1e9]))
+        igual(t, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, Math.round(v * 1e9) / 1e9])), `a chance real de cada prêmio: a mesma no painel e no servidor (${Object.values(c).join('/')})`)
+      }
+      // o sorteio do aparelho (sem servidor) em dois passos, com um aleatório de mentira que percorre tudo
+      const contas = {}
+      for (let i = 0; i < 1000; i++) {
+        let k = 0
+        const p = so.sortearPorRaridade(lista, cs[0], (n) => [Math.floor((i / 1000) * n), (i * 7919) % n][k++])
+        contas[p.id] = (contas[p.id] ?? 0) + 1
+      }
+      igual(Object.keys(contas).sort(), ['c1', 'c2', 'l1', 'r1', 'v'], 'o sorteio do aparelho chega em todos os prêmios')
+      ok(Math.abs(contas.l1 / 1000 - 30 / 880) < 0.005, `o sorteio do aparelho: o lendário perto de 3,4% (os 3% com a parte do épico, que não tem prêmio: ${contas.l1 / 10}%)`)
+    }
+
     parte('sorte: o sorteio em dois passos (estatístico)')
     {
       const mods = ['base', 'banco', 'validar', 'limite', 'sessao', 'rateio', 'pedido-migracoes', 'pedido', 'avisos', 'textos', 'contas-migracoes', 'equipe', 'clientes', 'sorte']
