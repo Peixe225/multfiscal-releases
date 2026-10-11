@@ -1,0 +1,579 @@
+{
+ "nome": "c1-como-funciona",
+ "bpm": 120,
+ "estilo": "hype",
+ "cenas": [
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 235.5,
+   "ate": 237.5,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.12
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 17.6,
+   "ate": 21.6,
+   "vel": 2.0,
+   "zoom": [
+    1.28,
+    1.32
+   ],
+   "foco": [
+    0.5,
+    0.22
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 28.9,
+   "ate": 31.1,
+   "vel": 1.1,
+   "zoom": [
+    1.2,
+    1.24
+   ],
+   "foco": [
+    0.5,
+    0.82
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 89.9,
+   "ate": 92.0,
+   "vel": 1.05,
+   "zoom": [
+    1.22,
+    1.26
+   ],
+   "foco": [
+    0.5,
+    0.42
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 123.55,
+   "ate": 125.55,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 149.0,
+   "ate": 150.5,
+   "vel": 0.75,
+   "zoom": [
+    1.15,
+    1.2
+   ],
+   "foco": [
+    0.5,
+    0.58
+   ]
+  },
+  {
+   "src": "v-imersivo-02.mp4",
+   "de": 4.7,
+   "ate": 6.7,
+   "vel": 1.0,
+   "zoom": [
+    1.2,
+    1.26
+   ],
+   "foco": [
+    0.5,
+    0.2
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 24.0,
+   "ate": 26.0,
+   "vel": 1.0,
+   "zoom": [
+    1.3,
+    1.34
+   ],
+   "foco": [
+    0.5,
+    0.16
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 176.0,
+   "ate": 184.0,
+   "vel": 4.0,
+   "zoom": [
+    1.1,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 141.85,
+   "ate": 142.85,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 159.45,
+   "ate": 160.45,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 173.45,
+   "ate": 174.45,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 188.45,
+   "ate": 189.45,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 204.35,
+   "ate": 205.35,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 220.15,
+   "ate": 221.15,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 343.3,
+   "ate": 346.3,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.22
+   ],
+   "foco": [
+    0.5,
+    0.78
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 348.6,
+   "ate": 351.6,
+   "vel": 1.0,
+   "zoom": [
+    1.42,
+    1.5
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-hall-01.mp4",
+   "de": 20.6,
+   "ate": 22.6,
+   "vel": 1.0,
+   "zoom": [
+    1.3,
+    1.34
+   ],
+   "foco": [
+    0.5,
+    0.3
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 355.0,
+   "ate": 357.5,
+   "vel": 0.625,
+   "zoom": [
+    1,
+    1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  }
+ ],
+ "textos": [
+  {
+   "de": 0,
+   "ate": 2.0,
+   "tipo": "gancho",
+   "texto": "Você decide *tudo*.\nDa base à *Bola de Ouro*.",
+   "anim": "pop"
+  },
+  {
+   "de": 2.05,
+   "ate": 4.0,
+   "tipo": "legenda",
+   "texto": "*1.* Crie o seu jogador"
+  },
+  {
+   "de": 4.05,
+   "ate": 6.0,
+   "tipo": "legenda",
+   "texto": "*2.* Escolha onde começar",
+   "y": 520
+  },
+  {
+   "de": 6.05,
+   "ate": 10.0,
+   "tipo": "legenda",
+   "texto": "*3.* Cada decisão\nmuda a sua história",
+   "y": 1180
+  },
+  {
+   "de": 10.0,
+   "ate": 12.0,
+   "tipo": "chips",
+   "itens": [
+    "Clássico",
+    "Imersivo",
+    "Live"
+   ],
+   "ativo": 0,
+   "anim": "corte",
+   "y": 1250
+  },
+  {
+   "de": 10.0,
+   "ate": 16.0,
+   "tipo": "gancho",
+   "texto": "*3 modos* de jogar",
+   "tam": 96,
+   "y": 250,
+   "anim": "sobe"
+  },
+  {
+   "de": 12.0,
+   "ate": 14.0,
+   "tipo": "chips",
+   "itens": [
+    "Clássico",
+    "Imersivo",
+    "Live"
+   ],
+   "ativo": 1,
+   "anim": "corte",
+   "y": 1250
+  },
+  {
+   "de": 14.0,
+   "ate": 16.0,
+   "tipo": "chips",
+   "itens": [
+    "Clássico",
+    "Imersivo",
+    "Live"
+   ],
+   "ativo": 2,
+   "anim": "corte",
+   "y": 1250
+  },
+  {
+   "de": 14.0,
+   "ate": 16.0,
+   "tipo": "selo",
+   "texto": "SIMULAÇÃO DA LIVE",
+   "anim": "corte",
+   "y": 1150
+  },
+  {
+   "de": 16.0,
+   "ate": 16.667,
+   "tipo": "chips",
+   "itens": [
+    "Intenso",
+    "Normal",
+    "Expresso"
+   ],
+   "ativo": 0,
+   "anim": "corte",
+   "y": 1250
+  },
+  {
+   "de": 16.667,
+   "ate": 17.334,
+   "tipo": "chips",
+   "itens": [
+    "Intenso",
+    "Normal",
+    "Expresso"
+   ],
+   "ativo": 1,
+   "anim": "corte",
+   "y": 1250
+  },
+  {
+   "de": 17.334,
+   "ate": 18.001,
+   "tipo": "chips",
+   "itens": [
+    "Intenso",
+    "Normal",
+    "Expresso"
+   ],
+   "ativo": 2,
+   "anim": "corte",
+   "y": 1250
+  },
+  {
+   "de": 16.0,
+   "ate": 18.0,
+   "tipo": "legenda",
+   "texto": "Uma decisão por temporada…\nou a cada três",
+   "y": 1060,
+   "escuro": true
+  },
+  {
+   "de": 18.0,
+   "ate": 19.0,
+   "tipo": "contador",
+   "numero": "2037",
+   "rotulo": "Bola de Ouro",
+   "tam": 230,
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 19.0,
+   "ate": 20.0,
+   "tipo": "contador",
+   "numero": "2038",
+   "rotulo": "Bola de Ouro",
+   "tam": 230,
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 20.0,
+   "ate": 21.0,
+   "tipo": "contador",
+   "numero": "2039",
+   "rotulo": "Bola de Ouro",
+   "tam": 230,
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 21.0,
+   "ate": 22.0,
+   "tipo": "contador",
+   "numero": "2040",
+   "rotulo": "Bola de Ouro",
+   "tam": 230,
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 22.0,
+   "ate": 23.0,
+   "tipo": "contador",
+   "numero": "2041",
+   "rotulo": "Bola de Ouro",
+   "tam": 230,
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 23.0,
+   "ate": 24.0,
+   "tipo": "contador",
+   "numero": "2042",
+   "rotulo": "Bola de Ouro",
+   "tam": 230,
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 27.2,
+   "ate": 30.0,
+   "tipo": "legenda",
+   "texto": "Nota de Legado: *93 · Imortal*",
+   "y": 1150
+  },
+  {
+   "de": 30.0,
+   "ate": 32.0,
+   "tipo": "legenda",
+   "texto": "Compare com *50 lendas reais*",
+   "y": 1180
+  },
+  {
+   "de": 32.0,
+   "ate": 36.0,
+   "tipo": "cta",
+   "texto": "Sua carreira. *Suas decisões.*",
+   "anim": "fade"
+  }
+ ],
+ "efeitos": [
+  {
+   "t": 2.0,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 4.0,
+   "tipo": "whoosh",
+   "nivel": 0.6
+  },
+  {
+   "t": 8.3,
+   "tipo": "ding",
+   "nota": 0,
+   "nivel": 0.7
+  },
+  {
+   "t": 10.0,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 13.25,
+   "tipo": "impacto",
+   "nivel": 0.6
+  },
+  {
+   "t": 16.0,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 16.0,
+   "tipo": "tick"
+  },
+  {
+   "t": 16.667,
+   "tipo": "tick"
+  },
+  {
+   "t": 17.334,
+   "tipo": "tick"
+  },
+  {
+   "t": 18.05,
+   "tipo": "ding",
+   "nota": 0,
+   "nivel": 0.8
+  },
+  {
+   "t": 19.05,
+   "tipo": "ding",
+   "nota": 2,
+   "nivel": 0.8
+  },
+  {
+   "t": 20.05,
+   "tipo": "ding",
+   "nota": 4,
+   "nivel": 0.8
+  },
+  {
+   "t": 21.05,
+   "tipo": "ding",
+   "nota": 5,
+   "nivel": 0.8
+  },
+  {
+   "t": 22.05,
+   "tipo": "ding",
+   "nota": 7,
+   "nivel": 0.8
+  },
+  {
+   "t": 23.05,
+   "tipo": "ding",
+   "nota": 9,
+   "nivel": 0.8
+  },
+  {
+   "t": 24.0,
+   "tipo": "impacto"
+  },
+  {
+   "t": 27.2,
+   "tipo": "ding",
+   "nota": 12
+  },
+  {
+   "t": 32.0,
+   "tipo": "whoosh"
+  }
+ ],
+ "drop": 2.0,
+ "fim": 32.5
+}

@@ -1,0 +1,304 @@
+{
+ "nome": "c3-qual-nota-voce-tiraria",
+ "bpm": 92,
+ "estilo": "hype",
+ "cenas": [
+  {
+   "src": "v-hall-01.mp4",
+   "de": 1.4,
+   "ate": 4.01,
+   "vel": 1.0,
+   "zoom": [
+    1.22,
+    1.3
+   ],
+   "foco": [
+    0.5,
+    0.3
+   ]
+  },
+  {
+   "src": "v-pessima-01.mp4",
+   "de": 86.15,
+   "ate": 88.76,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-ruim-03.mp4",
+   "de": 87.95,
+   "ate": 90.56,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-mediana-03.mp4",
+   "de": 136.95,
+   "ate": 139.56,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-boa-03.mp4",
+   "de": 118.15,
+   "ate": 120.76,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-otima-04.mp4",
+   "de": 145.35,
+   "ate": 147.96,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-extraordinaria-03.mp4",
+   "de": 143.65,
+   "ate": 146.26,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 348.75,
+   "ate": 352.66,
+   "vel": 1.0,
+   "zoom": [
+    1.45,
+    1.52
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 355.0,
+   "ate": 357.52,
+   "vel": 0.7,
+   "zoom": [
+    1,
+    1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  }
+ ],
+ "textos": [
+  {
+   "de": 0,
+   "ate": 2.609,
+   "tipo": "gancho",
+   "texto": "Qual *nota* a sua\ncarreira tiraria?",
+   "anim": "pop",
+   "y": 1150
+  },
+  {
+   "de": 2.659,
+   "ate": 5.218,
+   "tipo": "legenda",
+   "texto": "*5* · Promessa\nUm clube só. Zero títulos.",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 5.268,
+   "ate": 7.827,
+   "tipo": "legenda",
+   "texto": "*14* · Promessa\nParou aos 37 na Austrália",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 7.877,
+   "ate": 10.436,
+   "tipo": "legenda",
+   "texto": "*33* · Profissional\n117 gols e muita assistência",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 10.486,
+   "ate": 13.045,
+   "tipo": "legenda",
+   "texto": "*51* · Ídolo\nLateral campeão em 4 países",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 13.095,
+   "ate": 15.654,
+   "tipo": "legenda",
+   "texto": "*67* · Craque\nDeu o *hexa* pro Brasil",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 15.704,
+   "ate": 18.263,
+   "tipo": "legenda",
+   "texto": "*85* · Lenda\n3 Bolas de Ouro + Copa",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 18.313,
+   "ate": 22.176,
+   "tipo": "legenda",
+   "texto": "*93* · IMORTAL\n12 Bolas de Ouro",
+   "y": 1100,
+   "escuro": true,
+   "anim": "pop"
+  },
+  {
+   "de": 18.263,
+   "ate": 18.383,
+   "tipo": "flash",
+   "anim": "corte"
+  },
+  {
+   "de": 22.176,
+   "ate": 25.776,
+   "tipo": "cta",
+   "texto": "Descubra a *sua*\nNota de Legado",
+   "anim": "fade"
+  }
+ ],
+ "efeitos": [
+  {
+   "t": 2.609,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 2.709,
+   "tipo": "ding",
+   "nota": 0,
+   "nivel": 0.6
+  },
+  {
+   "t": 5.218,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 5.318,
+   "tipo": "ding",
+   "nota": 2,
+   "nivel": 0.65
+  },
+  {
+   "t": 7.827,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 7.927,
+   "tipo": "ding",
+   "nota": 4,
+   "nivel": 0.7
+  },
+  {
+   "t": 10.436,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 10.536,
+   "tipo": "ding",
+   "nota": 7,
+   "nivel": 0.75
+  },
+  {
+   "t": 13.045,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 13.145,
+   "tipo": "ding",
+   "nota": 9,
+   "nivel": 0.8
+  },
+  {
+   "t": 15.654,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 15.754,
+   "tipo": "ding",
+   "nota": 12,
+   "nivel": 0.85
+  },
+  {
+   "t": 18.263,
+   "tipo": "whoosh",
+   "nivel": 0.5
+  },
+  {
+   "t": 18.363,
+   "tipo": "ding",
+   "nota": 16,
+   "nivel": 0.9
+  },
+  {
+   "t": 18.263,
+   "tipo": "impacto"
+  }
+ ],
+ "drop": 2.608695652173913,
+ "fim": 22.576
+}

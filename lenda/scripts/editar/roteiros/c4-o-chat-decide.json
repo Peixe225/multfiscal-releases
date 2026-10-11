@@ -1,0 +1,245 @@
+{
+ "nome": "c4-o-chat-decide",
+ "bpm": 124,
+ "estilo": "hype",
+ "cenas": [
+  {
+   "src": "v-live-04.mp4",
+   "de": 3.0,
+   "ate": 8.81,
+   "vel": 2.0,
+   "zoom": [
+    1.32,
+    1.36
+   ],
+   "foco": [
+    0.5,
+    0.14
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 11.6,
+   "ate": 15.95,
+   "vel": 1.5,
+   "zoom": [
+    1.32,
+    1.36
+   ],
+   "foco": [
+    0.5,
+    0.14
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 17.6,
+   "ate": 20.5,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.15
+   ],
+   "foco": [
+    0.5,
+    0.12
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 24.0,
+   "ate": 30.97,
+   "vel": 1.8,
+   "zoom": [
+    1.3,
+    1.34
+   ],
+   "foco": [
+    0.5,
+    0.17
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 32.6,
+   "ate": 34.54,
+   "vel": 1.0,
+   "zoom": [
+    1.3,
+    1.34
+   ],
+   "foco": [
+    0.5,
+    0.17
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 51.4,
+   "ate": 53.34,
+   "vel": 1.0,
+   "zoom": [
+    1.05,
+    1.15
+   ],
+   "foco": [
+    0.5,
+    0.35
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 99.9,
+   "ate": 102.8,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.42
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 149.3,
+   "ate": 152.2,
+   "vel": 1.0,
+   "zoom": [
+    1.3,
+    1.34
+   ],
+   "foco": [
+    0.5,
+    0.26
+   ]
+  },
+  {
+   "src": "v-live-04.mp4",
+   "de": 154.0,
+   "ate": 157.1,
+   "vel": 0.8,
+   "zoom": [
+    1,
+    1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  }
+ ],
+ "textos": [
+  {
+   "de": 0,
+   "ate": 2.903,
+   "tipo": "gancho",
+   "texto": "E se o *CHAT*\ndecidisse a carreira\ninteira?",
+   "anim": "pop",
+   "y": 1080,
+   "tam": 100
+  },
+  {
+   "de": 2.903,
+   "ate": 5.806,
+   "tipo": "legenda",
+   "texto": "Quem doa mais\n*cria o jogador*",
+   "y": 1150
+  },
+  {
+   "de": 6.006,
+   "ate": 8.709,
+   "tipo": "legenda",
+   "texto": "Nasce uma lenda",
+   "y": 1150,
+   "escuro": true
+  },
+  {
+   "de": 8.709,
+   "ate": 12.58,
+   "tipo": "legenda",
+   "texto": "Comente *1, 2, 3 ou 4*\nou mande uma rosa (10 votos)",
+   "y": 1180
+  },
+  {
+   "de": 12.58,
+   "ate": 14.515,
+   "tipo": "legenda",
+   "texto": "*O chat decidiu!*",
+   "y": 1180
+  },
+  {
+   "de": 14.515,
+   "ate": 16.45,
+   "tipo": "legenda",
+   "texto": "Rebaixou? *Culpa do chat.*",
+   "y": 1180,
+   "escuro": true
+  },
+  {
+   "de": 16.45,
+   "ate": 19.353,
+   "tipo": "legenda",
+   "texto": "Título também.",
+   "y": 330
+  },
+  {
+   "de": 19.353,
+   "ate": 22.256,
+   "tipo": "legenda",
+   "texto": "No fim, os maiores\napoiadores *na tela*",
+   "y": 1180
+  },
+  {
+   "de": 0,
+   "ate": 22.256,
+   "tipo": "selo",
+   "texto": "SIMULAÇÃO DA LIVE",
+   "anim": "corte",
+   "y": 210
+  },
+  {
+   "de": 22.256,
+   "ate": 26.127,
+   "tipo": "cta",
+   "texto": "*Live interativa*\naqui no perfil",
+   "rodape": "Siga pra jogar com a gente",
+   "anim": "fade"
+  }
+ ],
+ "efeitos": [
+  {
+   "t": 2.903,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 5.806,
+   "tipo": "impacto"
+  },
+  {
+   "t": 8.709,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 12.58,
+   "tipo": "pop"
+  },
+  {
+   "t": 14.515,
+   "tipo": "impacto",
+   "nivel": 0.7
+  },
+  {
+   "t": 16.55,
+   "tipo": "ding",
+   "nota": 7
+  },
+  {
+   "t": 22.256,
+   "tipo": "whoosh"
+  }
+ ],
+ "drop": 2.903225806451613,
+ "fim": 22.256032258064515
+}

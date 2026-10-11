@@ -1,0 +1,539 @@
+{
+ "nome": "c2-bolas-de-ouro-seguidas",
+ "bpm": 100,
+ "estilo": "epico",
+ "cenas": [
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 49.4,
+   "ate": 51.8,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 89.9,
+   "ate": 92.3,
+   "vel": 1.0,
+   "zoom": [
+    1.2,
+    1.26
+   ],
+   "foco": [
+    0.5,
+    0.42
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 93.0,
+   "ate": 100.92,
+   "vel": 3.3,
+   "zoom": [
+    1.08,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 123.85,
+   "ate": 125.05,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 141.75,
+   "ate": 142.95,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 159.35,
+   "ate": 160.55,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 173.35,
+   "ate": 174.55,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 188.35,
+   "ate": 189.55,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 204.25,
+   "ate": 205.45,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 220.05,
+   "ate": 221.25,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 235.55,
+   "ate": 236.75,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 251.45,
+   "ate": 252.65,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 267.95,
+   "ate": 269.15,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 281.95,
+   "ate": 283.15,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 309.0,
+   "ate": 311.4,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 343.3,
+   "ate": 346.3,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.22
+   ],
+   "foco": [
+    0.5,
+    0.78
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 348.6,
+   "ate": 352.2,
+   "vel": 1.0,
+   "zoom": [
+    1.42,
+    1.5
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-intenso-01.mp4",
+   "de": 355.0,
+   "ate": 357.52,
+   "vel": 0.7,
+   "zoom": [
+    1,
+    1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  }
+ ],
+ "textos": [
+  {
+   "de": 0,
+   "ate": 2.4,
+   "tipo": "gancho",
+   "texto": "Rebaixado\naos *18 anos*…",
+   "anim": "pop",
+   "y": 300
+  },
+  {
+   "de": 2.4,
+   "ate": 4.8,
+   "tipo": "legenda",
+   "texto": "…até escolher\no *Barcelona*",
+   "y": 1180
+  },
+  {
+   "de": 4.8,
+   "ate": 7.2,
+   "tipo": "legenda",
+   "texto": "Dois anos depois…",
+   "y": 1180,
+   "escuro": true
+  },
+  {
+   "de": 7.2,
+   "ate": 8.4,
+   "tipo": "contador",
+   "numero": "1",
+   "prefixo": "×",
+   "rotulo": "Bola de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 7.2,
+   "ate": 7.32,
+   "tipo": "flash",
+   "anim": "corte"
+  },
+  {
+   "de": 8.4,
+   "ate": 9.6,
+   "tipo": "contador",
+   "numero": "2",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 9.6,
+   "ate": 10.8,
+   "tipo": "contador",
+   "numero": "3",
+   "prefixo": "×",
+   "rotulo": "+ *Copa do Mundo*",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 10.8,
+   "ate": 12.0,
+   "tipo": "contador",
+   "numero": "4",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 12.0,
+   "ate": 13.2,
+   "tipo": "contador",
+   "numero": "5",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 13.2,
+   "ate": 14.4,
+   "tipo": "contador",
+   "numero": "6",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 14.4,
+   "ate": 15.6,
+   "tipo": "contador",
+   "numero": "7",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 15.6,
+   "ate": 16.8,
+   "tipo": "contador",
+   "numero": "8",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 16.8,
+   "ate": 18.0,
+   "tipo": "contador",
+   "numero": "9",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 18.0,
+   "ate": 19.2,
+   "tipo": "contador",
+   "numero": "10",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 19.2,
+   "ate": 20.4,
+   "tipo": "contador",
+   "numero": "11",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro seguidas",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 20.4,
+   "ate": 22.8,
+   "tipo": "contador",
+   "numero": "12",
+   "prefixo": "×",
+   "rotulo": "e mais uma *aos 37*",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 23.2,
+   "ate": 25.8,
+   "tipo": "legenda",
+   "texto": "794 gols:\n*mais que o Pelé*",
+   "y": 210
+  },
+  {
+   "de": 26.1,
+   "ate": 29.4,
+   "tipo": "nota",
+   "nota": "93",
+   "tier": "Imortal",
+   "anim": "pop",
+   "y": 980
+  },
+  {
+   "de": 29.4,
+   "ate": 33.0,
+   "tipo": "cta",
+   "texto": "E a *sua* carreira,\nvai até onde?",
+   "anim": "fade"
+  }
+ ],
+ "efeitos": [
+  {
+   "t": 0.15,
+   "tipo": "impacto",
+   "nivel": 0.7
+  },
+  {
+   "t": 2.4,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 7.2,
+   "tipo": "riser",
+   "nivel": 0.9
+  },
+  {
+   "t": 7.24,
+   "tipo": "ding",
+   "nota": 0,
+   "nivel": 0.85
+  },
+  {
+   "t": 7.2,
+   "tipo": "impacto"
+  },
+  {
+   "t": 8.44,
+   "tipo": "ding",
+   "nota": 2,
+   "nivel": 0.85
+  },
+  {
+   "t": 9.64,
+   "tipo": "ding",
+   "nota": 4,
+   "nivel": 0.85
+  },
+  {
+   "t": 10.84,
+   "tipo": "ding",
+   "nota": 5,
+   "nivel": 0.85
+  },
+  {
+   "t": 12.04,
+   "tipo": "ding",
+   "nota": 7,
+   "nivel": 0.85
+  },
+  {
+   "t": 13.24,
+   "tipo": "ding",
+   "nota": 9,
+   "nivel": 0.85
+  },
+  {
+   "t": 14.44,
+   "tipo": "ding",
+   "nota": 11,
+   "nivel": 0.85
+  },
+  {
+   "t": 15.64,
+   "tipo": "ding",
+   "nota": 12,
+   "nivel": 0.85
+  },
+  {
+   "t": 16.84,
+   "tipo": "ding",
+   "nota": 14,
+   "nivel": 0.85
+  },
+  {
+   "t": 18.04,
+   "tipo": "ding",
+   "nota": 16,
+   "nivel": 0.85
+  },
+  {
+   "t": 19.24,
+   "tipo": "ding",
+   "nota": 17,
+   "nivel": 0.85
+  },
+  {
+   "t": 20.45,
+   "tipo": "ding",
+   "nota": 19
+  },
+  {
+   "t": 22.8,
+   "tipo": "impacto"
+  },
+  {
+   "t": 26.0,
+   "tipo": "ding",
+   "nota": 12
+  },
+  {
+   "t": 29.4,
+   "tipo": "whoosh"
+  }
+ ],
+ "drop": 7.2,
+ "fim": 29.8
+}

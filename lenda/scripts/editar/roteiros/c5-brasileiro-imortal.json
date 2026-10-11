@@ -1,0 +1,511 @@
+{
+ "nome": "c5-brasileiro-imortal",
+ "bpm": 116,
+ "estilo": "epico",
+ "cenas": [
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 323.9,
+   "ate": 325.97,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 30.4,
+   "ate": 32.47,
+   "vel": 1.0,
+   "zoom": [
+    1.2,
+    1.24
+   ],
+   "foco": [
+    0.5,
+    0.8
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 38.0,
+   "ate": 54.55,
+   "vel": 8.0,
+   "zoom": [
+    1.1,
+    1.1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 102.3,
+   "ate": 103.33,
+   "vel": 0.5,
+   "zoom": [
+    1.2,
+    1.26
+   ],
+   "foco": [
+    0.5,
+    0.8
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 114.9,
+   "ate": 116.14,
+   "vel": 0.6,
+   "zoom": [
+    1.2,
+    1.26
+   ],
+   "foco": [
+    0.5,
+    0.62
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 139.5,
+   "ate": 140.53,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 168.1,
+   "ate": 169.13,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 194.5,
+   "ate": 195.53,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 209.7,
+   "ate": 210.73,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 225.0,
+   "ate": 226.03,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 242.8,
+   "ate": 243.83,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 258.6,
+   "ate": 259.63,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 271.6,
+   "ate": 272.63,
+   "vel": 1.0,
+   "zoom": [
+    1.08,
+    1.0
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 284.3,
+   "ate": 285.33,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 323.8,
+   "ate": 326.9,
+   "vel": 1.0,
+   "zoom": [
+    1.0,
+    1.12
+   ],
+   "foco": [
+    0.5,
+    0.45
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 341.1,
+   "ate": 344.2,
+   "vel": 1.0,
+   "zoom": [
+    1.42,
+    1.5
+   ],
+   "foco": [
+    0.15,
+    0.27
+   ]
+  },
+  {
+   "src": "v-intenso-02.mp4",
+   "de": 347.6,
+   "ate": 349.71,
+   "vel": 0.6,
+   "zoom": [
+    1,
+    1
+   ],
+   "foco": [
+    0.5,
+    0.5
+   ]
+  }
+ ],
+ "textos": [
+  {
+   "de": 0,
+   "ate": 2.069,
+   "tipo": "gancho",
+   "texto": "Campeão do mundo\n*aos 39 anos*",
+   "anim": "pop",
+   "y": 230
+  },
+  {
+   "de": 2.069,
+   "ate": 4.138,
+   "tipo": "legenda",
+   "texto": "Tudo começou\nna base do *Náutico*",
+   "y": 520
+  },
+  {
+   "de": 4.138,
+   "ate": 6.207,
+   "tipo": "legenda",
+   "texto": "Ponte Preta. Operário.\nNovorizontino.",
+   "y": 1180,
+   "escuro": true
+  },
+  {
+   "de": 6.207,
+   "ate": 8.276,
+   "tipo": "legenda",
+   "texto": "Até a Europa\n*bater na porta*",
+   "y": 1180
+  },
+  {
+   "de": 8.276,
+   "ate": 10.345,
+   "tipo": "legenda",
+   "texto": "*Barcelona.*",
+   "y": 1180
+  },
+  {
+   "de": 10.345,
+   "ate": 11.379,
+   "tipo": "contador",
+   "numero": "1",
+   "prefixo": "×",
+   "rotulo": "Bola de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 10.345,
+   "ate": 10.465,
+   "tipo": "flash",
+   "anim": "corte"
+  },
+  {
+   "de": 11.379,
+   "ate": 12.413,
+   "tipo": "contador",
+   "numero": "2",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 12.413,
+   "ate": 13.447,
+   "tipo": "contador",
+   "numero": "3",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 13.447,
+   "ate": 14.481,
+   "tipo": "contador",
+   "numero": "4",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 14.481,
+   "ate": 15.515,
+   "tipo": "contador",
+   "numero": "5",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 15.515,
+   "ate": 16.549,
+   "tipo": "contador",
+   "numero": "6",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 16.549,
+   "ate": 17.583,
+   "tipo": "contador",
+   "numero": "7",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 17.583,
+   "ate": 18.617,
+   "tipo": "contador",
+   "numero": "8",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 18.617,
+   "ate": 19.651,
+   "tipo": "contador",
+   "numero": "9",
+   "prefixo": "×",
+   "rotulo": "Bolas de Ouro",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 19.651,
+   "ate": 19.771,
+   "tipo": "flash",
+   "anim": "corte"
+  },
+  {
+   "de": 19.651,
+   "ate": 22.754,
+   "tipo": "contador",
+   "numero": "10",
+   "prefixo": "×",
+   "rotulo": "+ *Copa do Mundo* aos 39",
+   "anim": "pop",
+   "y": 200
+  },
+  {
+   "de": 23.054,
+   "ate": 25.857,
+   "tipo": "nota",
+   "nota": "92",
+   "tier": "Imortal",
+   "anim": "pop",
+   "y": 980
+  },
+  {
+   "de": 25.857,
+   "ate": 29.374,
+   "tipo": "cta",
+   "texto": "Crie o *seu* craque",
+   "anim": "fade"
+  }
+ ],
+ "efeitos": [
+  {
+   "t": 0.1,
+   "tipo": "impacto",
+   "nivel": 0.8
+  },
+  {
+   "t": 2.069,
+   "tipo": "whoosh"
+  },
+  {
+   "t": 4.138,
+   "tipo": "whoosh",
+   "nivel": 0.6
+  },
+  {
+   "t": 10.345,
+   "tipo": "riser",
+   "nivel": 0.8
+  },
+  {
+   "t": 10.385,
+   "tipo": "ding",
+   "nota": 0,
+   "nivel": 0.85
+  },
+  {
+   "t": 10.345,
+   "tipo": "impacto"
+  },
+  {
+   "t": 11.419,
+   "tipo": "ding",
+   "nota": 2,
+   "nivel": 0.85
+  },
+  {
+   "t": 12.453,
+   "tipo": "ding",
+   "nota": 4,
+   "nivel": 0.85
+  },
+  {
+   "t": 13.487,
+   "tipo": "ding",
+   "nota": 5,
+   "nivel": 0.85
+  },
+  {
+   "t": 14.521,
+   "tipo": "ding",
+   "nota": 7,
+   "nivel": 0.85
+  },
+  {
+   "t": 15.555,
+   "tipo": "ding",
+   "nota": 9,
+   "nivel": 0.85
+  },
+  {
+   "t": 16.589,
+   "tipo": "ding",
+   "nota": 11,
+   "nivel": 0.85
+  },
+  {
+   "t": 17.623,
+   "tipo": "ding",
+   "nota": 12,
+   "nivel": 0.85
+  },
+  {
+   "t": 18.657,
+   "tipo": "ding",
+   "nota": 14,
+   "nivel": 0.85
+  },
+  {
+   "t": 19.651,
+   "tipo": "impacto"
+  },
+  {
+   "t": 19.751,
+   "tipo": "ding",
+   "nota": 16
+  },
+  {
+   "t": 22.954,
+   "tipo": "ding",
+   "nota": 12
+  },
+  {
+   "t": 25.857,
+   "tipo": "whoosh"
+  }
+ ],
+ "drop": 10.344827586206897,
+ "fim": 26.27055172413793
+}
