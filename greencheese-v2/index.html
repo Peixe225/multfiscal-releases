@@ -38,10 +38,15 @@
       @media (min-width:900px){.casca-barras{left:calc(50% - 214px);right:auto;width:428px}}
       @media (prefers-reduced-motion:reduce){.casca-px i{animation:none;opacity:.6}}
       .casca-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+      /* o JS principal não chegou em 12 s (4G que caiu no meio da carga): aviso e "tenta de novo" (recarrega). Sem script
+         em linha (a CSP do .htaccess bloqueia): só CSS. Numa carga normal o React troca a casca antes e ninguém vê */
+      .casca-lento{position:absolute;left:24px;right:24px;top:calc(50% + 28px);margin:0;text-align:center;font:15px/1.4 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#a8a8a8;visibility:hidden;animation:casca-lento 0s 12s forwards}
+      .casca-lento a{display:inline-block;padding:12px 4px;color:#fff;text-decoration:underline;text-underline-offset:3px}
+      @keyframes casca-lento{to{visibility:visible}}
     </style>
   </head>
   <body>
-    <div id="raiz"><div class="casca" role="status"><div class="casca-barras" aria-hidden="true"><i></i><i></i><i></i></div><div class="casca-px" aria-hidden="true"><i></i><i></i><i></i></div><span class="casca-sr">Carregando a Green Cheese…</span></div></div>
+    <div id="raiz"><div class="casca" role="status"><div class="casca-barras" aria-hidden="true"><i></i><i></i><i></i></div><div class="casca-px" aria-hidden="true"><i></i><i></i><i></i></div><span class="casca-sr">Carregando a Green Cheese…</span><p class="casca-lento">Tá demorando pra abrir. Confere a internet e <a href="">tenta de novo</a>.</p></div></div>
     <noscript><p style="font:16px system-ui;padding:24px">A Green Cheese precisa de JavaScript ligado pra montar o pedido. Chama no Instagram: @greencheese_importsrj · @greencheese_importsmg · @greencheese_importssp · @greencheese_importses · @greencheese_importssc</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

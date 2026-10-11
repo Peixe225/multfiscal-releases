@@ -5,6 +5,42 @@
   --barra-baixo: 52px;
 }
 
+/* "Pular para o conteúdo" (App.tsx): só no computador, escondido até o foco do teclado chegar nele */
+.pular {
+  position: fixed;
+  z-index: 60;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--branco);
+  color: var(--preto);
+  font: 700 15px/1.2 var(--ui);
+  text-decoration: none;
+  transform: translateY(calc(-100% - 24px));
+}
+.pular:focus-visible {
+  transform: none;
+  outline-color: var(--branco);
+}
+@media (max-width: 899px) {
+  .pular {
+    display: none;
+  }
+}
+
+/* foco do teclado (Tab, leitor de tela com Bluetooth) no celular e no tablet: a rolagem até o elemento focado para acima
+   da barra de abas fixa e abaixo do adesivo de local fixo do topo, nunca atrás deles (WCAG 2.4.11, foco não encoberto) */
+@media (max-width: 899px) {
+  html {
+    scroll-padding-top: calc(var(--seg-topo) + 64px);
+    scroll-padding-bottom: calc(var(--barra-baixo) + var(--seg-baixo) + 8px);
+  }
+}
+
 .principal {
   /* bloco de referência do catálogo "aquecendo" (Abas.css): a mesma largura que ele terá no fluxo */
   position: relative;

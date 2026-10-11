@@ -404,6 +404,17 @@ export function App() {
       )}
       {/* data-home: a Home 2 (?home=2, src/lib/url.ts), que só muda o Início do celular */}
       <div className="app" inert={abertura || saida} data-home={ehHome2() ? '2' : undefined}>
+        {/* computador: a lateral tem 11 paradas de Tab antes do story; o 1º Tab mostra o atalho pro conteúdo da aba */}
+        <a
+          className="pular"
+          href="#principal"
+          onClick={(e) => {
+            e.preventDefault()
+            focarVista(useUI.getState().aba)
+          }}
+        >
+          Pular para o conteúdo
+        </a>
         <Lateral />
         <TopoLocal />
         <main className="principal" id="principal">

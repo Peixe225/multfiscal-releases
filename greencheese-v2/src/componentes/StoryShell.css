@@ -201,6 +201,13 @@
   .story-vizinho > span {
     display: block;
   }
+  /* produto indisponível na prévia: o cinza da legenda esmaecido a 0,5 dava 2,8:1 no preto; na prévia o texto fica
+     branco (5,3:1 esmaecido) e o "INDISPONÍVEL" e a arte apagada continuam dizendo que não tem */
+  .story-vizinho .sq-off .sq-nome,
+  .story-vizinho .sq-off .sq-preco,
+  .story-vizinho .sq-indisp {
+    color: var(--branco);
+  }
   .story-vizinho-esq {
     right: calc(100% + 96px);
   }
