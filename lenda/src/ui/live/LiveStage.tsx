@@ -6,7 +6,7 @@
  */
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Check, Crown, Dices, Gauge, Gift, Pause, PenLine, Play, Radio } from 'lucide-react'
+import { Check, Crown, Dices, Gauge, Gift, Mic, Pause, PenLine, Play, Radio } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { newLegendNow } from '@/live/autopilot'
 import { lockHolder, sendLiveCommand } from '@/live/channel'
@@ -17,8 +17,8 @@ import { topBids, topSupporters, useLive, type Creation } from '@/live/store'
 import { percents } from '@/live/votes'
 import { Button, Flag, cx } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
-import { Countdown, GiftIcon, OPTION_COLORS, coinsLabel, howToVote, useNow, useSafeArea } from './bits'
-import { PAUSED_HOW, outcomeWhy } from './LiveHud'
+import { Countdown, GiftIcon, OPTION_COLORS, coinsLabel, howToVote, useNow, useSafeArea, useSafePortrait } from './bits'
+import { PAUSED_HOW, outcomeWhy, resultKicker } from './LiveHud'
 import { DayRecordLine } from './LiveRanking'
 
 /** Cabeçalho da disputa/criação no palco; em pausa vira "… pausada", em amarelo. */
@@ -50,6 +50,10 @@ function StageVote() {
         <span className="lv-stage__k">
           <Dices size={14} aria-hidden="true" /> O destino escolheu
         </span>
+      ) : !round && result?.outcome.streamer ? (
+        <span className="lv-stage__k">
+          <Mic size={14} aria-hidden="true" /> {resultKicker(result.outcome)}
+        </span>
       ) : (
         <span className="lv-stage__k">
           <span className="lv-dot-live" aria-hidden="true" /> {round ? 'Votação do chat' : 'O chat decidiu'}
@@ -79,17 +83,23 @@ function StageVote() {
 function Bidding({ c }: { c: Creation }) {
   const paused = useLiveSession((s) => s.paused)
   const min = useLiveConfig((s) => s.config.minBidCoins)
-  const bids = topBids(c, 5)
-  // sala vazia: sem lance nenhum, a disputa acaba em quietAt — a tela avisa (honesto e dá pressa)
-  const now = useNow(c.quietAt != null && !bids.length, 500)
-  const quietIn = c.quietAt != null && !bids.length && !paused ? Math.max(0, Math.ceil((c.quietAt - now) / 1000)) : null
+  const identityVote = useLiveConfig((s) => s.config.identityVote)
+  // janela em pé: top 3 (o 4º e o 5º ficariam por baixo do chat do TikTok)
+  const compact = useSafePortrait()
+  const bids = topBids(c, compact ? 3 : 5)
+  // sala vazia: sem lance nenhum, a disputa acaba em quietAt — o anel conta até lá (é quando ela fecha de
+  // fato) e a tela avisa o que vem depois (honesto e dá pressa). Chegou um lance, o anel volta para o fim normal.
+  const quiet = c.quietAt != null && c.quietAt < c.endsAt && !bids.length
+  const ringEnd = quiet && c.quietAt != null ? c.quietAt : c.endsAt
+  const now = useNow(quiet, 500)
+  const quietIn = quiet && !paused ? Math.max(0, Math.ceil((ringEnd - now) / 1000)) : null
   return (
     <div className="lv-stage__vote lv-bid">
       <div className="lv-create__top">
         <Kicker paused={paused} pausedText="Disputa pausada" icon={<Gift size={14} aria-hidden="true" />}>
           Disputa pela criação
         </Kicker>
-        <Countdown endsAt={c.endsAt} total={c.endsAt - c.startedAt} size={54} paused={paused} />
+        <Countdown endsAt={ringEnd} total={ringEnd - c.startedAt} size={54} paused={paused} />
       </div>
       <h1 className="lv-stage__t">Quem doar mais agora cria a próxima lenda!</h1>
       <p className={cx('lv-stage__how', paused && 'is-paused')}>
@@ -108,9 +118,13 @@ function Bidding({ c }: { c: Creation }) {
       ) : (
         <p className="lv-stage__empty lv-bids__empty">
           Ninguém doou ainda. Seja o primeiro!
-          {quietIn != null && quietIn > 0 && <span className="lv-bids__quiet"> Sem lances, a lenda nasce em {quietIn} s.</span>}
+          {/* com a votação de identidade, sem lance o chat escolhe posição e país antes de a lenda nascer */}
+          {quietIn != null && quietIn > 0 && <span className="lv-bids__quiet"> {identityVote ? `Sem lances, em ${quietIn} s o chat escolhe a lenda.` : `Sem lances, a disputa fecha em ${quietIn} s.`}</span>}
         </p>
       )}
+      {/* o recorde do dia fica no cartão da disputa (e não só no pódio, que na janela em pé fica por baixo do
+          chat do TikTok): é a hora de "crie a lenda que bate o recorde" */}
+      <DayRecordLine />
     </div>
   )
 }
@@ -208,6 +222,8 @@ function Announce() {
 
 function Podium() {
   const supporters = useLive((s) => s.supporters)
+  // na disputa o recorde do dia já está no cartão dela
+  const bidding = useLive((s) => s.creation?.phase === 'bidding')
   const nameMode = useLiveConfig((s) => s.config.nameMode)
   const creator = useLiveConfig((s) => s.config.creator)
   // com as chamadas ligadas, "quem doar mais cria a próxima lenda" já gira na faixa: o pódio não repete
@@ -239,7 +255,7 @@ function Podium() {
       ) : (
         nameMode === 'apoiador' && <p className="lv-stage__hint">O maior apoiador dá o nome para a próxima lenda!</p>
       )}
-      <DayRecordLine />
+      {!bidding && <DayRecordLine />}
     </aside>
   )
 }

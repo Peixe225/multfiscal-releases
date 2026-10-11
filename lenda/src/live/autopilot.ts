@@ -31,7 +31,7 @@ import { PACE_NAMES, autoPace, useLiveConfig, useLiveSession } from './config'
 import { coinsLabel } from './gifts'
 import { NUMBER_BY_POSITION, POSITION_CHOICES, cleanFixed, footFor, nationChoices, randomSurname, surnameFromNick, type CreatorDraft } from './identity'
 import { recordLiveLegend } from './ranking'
-import { realSource, recentParticipants, topBids, topSupporters, useLive, type Bid, type RoundSpec, type Supporter } from './store'
+import { realLive, realSource, recentParticipants, topBids, topSupporters, useLive, type Bid, type RoundSpec, type Supporter } from './store'
 import type { LiveUser } from './types'
 import { MAX_OPTIONS, fitOptions } from './votes'
 
@@ -132,7 +132,11 @@ export function resolvePace(): { pace: Pace; auto: boolean; people: number; badg
 
 /**
  * Carreira encerrada na live → ranking de hoje (Nota de Legado, faixa e quem criou). Numa live de verdade,
- * lenda criada com o simulador/lance de teste vai marcada e não aparece (ranking.ts).
+ * lenda de teste vai marcada `sim` e não aparece (ranking.ts). É de teste a lenda:
+ *   - criada no simulador, na demonstração da ponte ou com lance de teste (credit.sim);
+ *   - sem crédito nenhum (não se sabe quem criou: carreira de antes da live, recarregou horas depois…) —
+ *     na dúvida, não vai ao ar como se fosse do chat;
+ *   - que terminou fora de uma live de verdade (simulador/demonstração), mesmo nascida numa.
  */
 async function rankFinished(st: CareerState) {
   if (rankedFor === st.id || !seenPlaying.has(st.id)) return
@@ -151,8 +155,8 @@ async function rankFinished(st: CareerState) {
     console.warn('[LENDA live] nota de legado para o ranking falhou', err)
   }
   if (score == null) return
-  const real = realSource()
-  const sim = mine ? !!mine.sim : !real
+  const real = realLive()
+  const sim = !real || !mine || !!mine.sim
   const { record } = recordLiveLegend({ id: st.id, surname: st.identity.surname, score, tier, ...(mine?.by ? { by: mine.by.id } : {}), ...(sim ? { sim: true } : {}), at: Date.now() }, real)
   if (record) useLive.getState().pushInfo(`Novo recorde do dia! ${st.identity.surname}: nota ${score} 🏆`)
 }
@@ -293,7 +297,8 @@ async function runIdentity() {
     if (resumeAnnounce?.identity) {
       identity = resumeAnnounce.identity
       pace = resumeAnnounce.pace ?? resolvePace().pace
-      madeBy = resumeAnnounce.credit ?? { sim: !realSource() }
+      // anúncio sem crédito (de uma versão antiga): sem saber quem criou, vale como teste
+      madeBy = resumeAnnounce.credit ?? { sim: true }
       await sleep(Math.max(0, Math.min(5000, resumeAnnounce.until - Date.now())))
       if (!alive()) return
     } else {
@@ -346,7 +351,8 @@ async function runIdentity() {
       // (a contagem de pessoas fica só no painel: o feed vai ao ar, e "0 pessoas" numa sala vazia não ajuda ninguém)
       const chosen = resolvePace()
       pace = chosen.pace
-      madeBy = { ...(creator ? { by: creator.user } : {}), ...(!realSource() || creator?.sim ? { sim: true } : {}) }
+      // de teste: simulador, demonstração da ponte (público "real" de mentira) ou lance de teste
+      madeBy = { ...(creator ? { by: creator.user } : {}), ...(!realLive() || creator?.sim ? { sim: true } : {}) }
       const country = getCountry(nationality)?.name ?? nationality
       const credit = creator
         ? cfg.creator === 'apoiador'
@@ -419,9 +425,10 @@ async function tick() {
       void runIdentity()
       return
     }
-    // a carreira jogada nesta live acabou: entra no ranking de hoje (uma vez)
-    void rankFinished(st)
     if (r.phase !== 'idle') return
+    // a carreira jogada nesta live acabou (e a última temporada já foi mostrada): entra no ranking de hoje,
+    // uma vez — o "Novo recorde do dia!" chega junto com a tela final, sem estragar a revelação
+    void rankFinished(st)
     if (useApp.getState().route.path !== '/carreira') {
       // já no palco sem votação (ex.: recarregou a página): segue para a próxima lenda
       void runIdentity()

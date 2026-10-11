@@ -377,7 +377,7 @@ function RulesSection() {
         <Field label="Tempo de cada votação">
           <NumberInput value={cfg.voteSeconds} min={10} max={120} onChange={(v) => set({ voteSeconds: v })} suffix="segundos" />
         </Field>
-        <Field label="Sala vazia: sem nenhum voto, fechar em" hint="Votação ou disputa sem nenhum voto (lance) fecha antes, com o sorteio de sempre (“o destino escolheu”). Chegou um voto, vai até o fim. 0 = desligado.">
+        <Field label="Sala vazia: sem nenhum voto, fechar em" hint="Votação ou disputa sem nenhum voto (lance) fecha antes, com o sorteio de sempre (“o destino escolheu”). Chegou um voto, vai até o fim; alguém entrou ou comentou, o prazo anda. Menos de 15 s corta quem vê a live com atraso. 0 = desligado.">
           <NumberInput value={cfg.quietSeconds} min={0} max={60} onChange={(v) => set({ quietSeconds: v })} suffix="segundos" />
         </Field>
         <Field label="Cada moeda de presente vale" hint="1 Rosa = 1 moeda. Com 10, uma rosa vale 10 comentários.">
@@ -865,7 +865,11 @@ function ControlBar() {
  * página, as teclas 1 a 4 votam também (fora dos campos de texto).
  */
 function StreamerVote() {
-  const real = useLiveConfig((s) => !LIVE_SANDBOXED && s.config.source !== 'simulador')
+  const source = useLiveConfig((s) => !LIVE_SANDBOXED && s.config.source !== 'simulador')
+  // o voto do streamer é um comentário: com "comentário vale voto" desligado ele não pontuaria (nem segura a
+  // sala vazia) — os botões e as teclas somem e fica só o aviso
+  const commentVotes = useLiveConfig((s) => s.config.commentVotes)
+  const real = source && commentVotes
   const on = useLiveSession((s) => s.on)
   const local = useLive((s) => s.round)
   const now = useNow(real, 1000)
@@ -899,6 +903,17 @@ function StreamerVote() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [real, roundId, vote])
+  if (source && !commentVotes && on)
+    return (
+      <section className="lv-svote lx-glass" aria-label="Votar como streamer">
+        <div className="lv-svote__txt">
+          <span className="lv-ctrl__k">
+            <Mic size={14} aria-hidden="true" /> Votar como streamer
+          </span>
+          <span>O voto do streamer vale um comentário: ligue “Comentário vale voto” em 2. Como o chat vota para usar.</span>
+        </div>
+      </section>
+    )
   if (!real || !(on || holder)) return null
   const picked = mine && mine.round === roundId ? mine.option : null
   return (

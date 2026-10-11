@@ -94,7 +94,9 @@ function open() {
           if (p.status.state === 'idle' && !p.status.user && user.trim()) bridgeJoin(user)
         }
       } else if (p.type === 'gifts') live.setCatalog(p.list)
-      else if (p.type === 'hello') continue
+      // a ponte diz se está no modo demonstração (público de teste): a store marca e não deixa a demo
+      // virar "live de verdade" no ranking — e zera a sessão quando a ponte sai da demo
+      else if (p.type === 'hello') live.setBridgeDemo(!!p.demo)
       else live.ingest(p)
     }
   }

@@ -99,7 +99,7 @@ function step() {
   const live = useLive.getState()
   // de vez em quando alguém "entra na sala" (boas-vindas na tela — só aqui, no SIMULADOR; numa live de
   // verdade só gente de verdade entra)
-  if (Math.random() < 0.05) autoEvent({ type: 'join', user: viewer(), at: Date.now() })
+  if (Math.random() < 0.025) autoEvent({ type: 'join', user: viewer(), at: Date.now() })
   if (simCreator()) return next(900)
   // disputa: o público de teste dá lances (presentes) para criar a lenda
   if (live.creation?.phase === 'bidding' && Math.random() < 0.6) {

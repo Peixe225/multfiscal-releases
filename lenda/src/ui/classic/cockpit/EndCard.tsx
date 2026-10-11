@@ -2,7 +2,7 @@
  * "Sua carreira chegou ao fim" — replaces the decision card once the career is over:
  * retirement art, the reason, a 4-up stat strip and Ver resumo · Jogar novamente.
  */
-import { memo, useEffect, useRef } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowRight, Crown, RotateCcw, Sparkles } from 'lucide-react'
 import { navigate } from '@/store/app'
@@ -11,9 +11,9 @@ import { newLegendNow } from '@/live/autopilot'
 import { lockHolder, sendLiveCommand } from '@/live/channel'
 import { useLiveSession } from '@/live/config'
 import { topSupporters, useLive } from '@/live/store'
-import { coinsLabel } from '@/ui/live/bits'
+import { coinsLabel, useSafePortrait } from '@/ui/live/bits'
 import { LiveRanking } from '@/ui/live/LiveRanking'
-import { Button, formatInt, useReducedMotion } from '@/ui/primitives'
+import { Button, cx, formatInt, useReducedMotion } from '@/ui/primitives'
 import { EventArt } from '@/ui/art/EventArt'
 import { careerTotals, isKeeper } from './model'
 import type { CockpitData } from './view'
@@ -24,12 +24,54 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   const abandon = useCareer((s) => s.abandon)
   const live = useLiveSession((s) => s.on)
   const ref = useRef<HTMLElement>(null)
-  // live: a janela é capturada e ninguém rola a página — o fim de carreira vem para o meio da tela
+  // versão enxuta (sem o texto da aposentadoria, ranking top 3): na janela da live em pé (área segura do
+  // TikTok) e quando o conteúdo não cabe no cartão — lado a lado (paisagem/computador) ele tem a altura que
+  // sobra na coluna, e o ranking da live o faria transbordar e ser cortado em cima e embaixo. Uma vez enxuto,
+  // fica (senão, ao caber, voltaria a crescer e a transbordar)
+  const safePortrait = useSafePortrait()
+  const [tight, setTight] = useState(false)
+  const compact = live && (safePortrait || tight)
+  // live: a janela é capturada e ninguém rola a página — o fim de carreira vem para o meio da faixa VISÍVEL
+  // (entre a faixa da live e a sobreposição de baixo do TikTok). Mais alto que ela, o topo do cartão encosta
+  // logo abaixo da faixa (o título nunca fica escondido atrás dela).
   useEffect(() => {
-    if (!live) return
-    const t = setTimeout(() => ref.current?.scrollIntoView({ block: 'center', behavior: rm ? 'auto' : 'smooth' }), 400)
-    return () => clearTimeout(t)
-  }, [live, rm])
+    const el = ref.current
+    if (!live || !el) return
+    let t: ReturnType<typeof setTimeout> | null = null
+    const place = () => {
+      const hud = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lv-hud-h')) || 0
+      const bottom = document.documentElement.dataset.lvSafe === '1' && matchMedia('(orientation: portrait)').matches ? innerHeight * 0.22 : 0
+      const band = innerHeight - hud - bottom
+      const r = el.getBoundingClientRect()
+      const gap = 8
+      const top = scrollY + r.top - hud - gap - Math.max(0, (band - gap * 2 - r.height) / 2)
+      if (Math.abs(top - scrollY) > 2) window.scrollTo({ top: Math.max(0, top), behavior: rm ? 'auto' : 'smooth' })
+    }
+    const later = (ms: number) => {
+      if (t) clearTimeout(t)
+      t = setTimeout(place, ms)
+    }
+    later(400)
+    // o ranking (e o "Novo recorde do dia!") entra um instante depois — a nota de legado é calculada à parte:
+    // o cartão cresce e volta para o lugar certo (ou, com altura fixa, passa para a versão enxuta)
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            if (el.scrollHeight > el.clientHeight + 2) setTight(true)
+            // com overflow escondido o navegador ainda rola o cartão por dentro (ancoragem de rolagem quando o
+            // conteúdo encolhe): o topo — "Sua carreira chegou ao fim" — tem de ficar à vista
+            if (el.scrollTop) el.scrollTop = 0
+            later(250)
+          })
+        : null
+    ro?.observe(el)
+    const inner = el.querySelector('.ck-end__in')
+    if (inner) ro?.observe(inner)
+    return () => {
+      if (t) clearTimeout(t)
+      ro?.disconnect()
+    }
+  }, [live, rm, compact])
   const t = careerTotals(state.seasons)
   const gk = isKeeper(state.identity.position)
   const last = state.seasons[state.seasons.length - 1]
@@ -54,7 +96,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   return (
     <motion.section
       ref={ref}
-      className="lx-glass lx-top-light ck-decision ck-end"
+      className={cx('lx-glass lx-top-light ck-decision ck-end', compact && 'is-compact')}
       aria-labelledby="ck-end-title"
       initial={rm ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -69,7 +111,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
         <h2 id="ck-end-title" className="ck-end__title">
           Sua carreira chegou ao fim
         </h2>
-        <p className="ck-decision__sub">
+        <p className="ck-decision__sub ck-end__why">
           {retiredText(state.retiredReason, last?.age)}
           {peak > 0 && (
             <>
@@ -88,7 +130,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
           ))}
         </dl>
         {live ? (
-          <LiveEndActions careerId={state.id} />
+          <LiveEndActions careerId={state.id} compact={compact} />
         ) : (
           <div className="ck-end__actions">
             <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => navigate('/resumo')}>
@@ -109,7 +151,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
  * seguiria sozinha por trás). Agradece aos maiores apoiadores, mostra o ranking da live de hoje (com a
  * comemoração quando esta lenda bate o recorde do dia) e oferece a próxima lenda.
  */
-function LiveEndActions({ careerId }: { careerId: string }) {
+function LiveEndActions({ careerId, compact }: { careerId: string; compact: boolean }) {
   const supporters = useLive((s) => s.careerSupporters)
   const top = topSupporters(supporters, 3).filter((s) => s.coins > 0)
   return (
@@ -125,10 +167,10 @@ function LiveEndActions({ careerId }: { careerId: string }) {
           ))}
         </p>
       )}
-      <LiveRanking highlight={careerId} />
+      <LiveRanking highlight={careerId} limit={compact ? 3 : 5} compact={compact} />
       <div className="ck-end__actions">
         {/* numa janela "painel" o autopiloto não roda: o pedido vai para a janela da live */}
-        <Button variant="primary" size="lg" icon={Sparkles} onClick={() => (lockHolder() ? sendLiveCommand('new-legend') : newLegendNow())}>
+        <Button variant="primary" size={compact ? 'md' : 'lg'} icon={Sparkles} onClick={() => (lockHolder() ? sendLiveCommand('new-legend') : newLegendNow())}>
           Nova lenda agora
         </Button>
       </div>

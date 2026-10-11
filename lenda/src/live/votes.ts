@@ -279,6 +279,25 @@ export function hasVotes(r: Round): boolean {
   return totalPoints(r) > 0 || Object.keys(r.commentVote ?? {}).length > 0 || pendingCoins(r) > 0 || r.tallies.some((t) => t.coins > 0 || t.voters > 0)
 }
 
+/** Todo mundo que participou da rodada (comentou número, pontuou, apoiou uma opção, mandou ou guardou presente). */
+export function participants(r: Round): Set<string> {
+  const out = new Set<string>([...Object.keys(r.commentVote ?? {}), ...Object.keys(r.scored ?? {}), ...Object.keys(r.backers ?? {}), ...Object.keys(r.pendingGifts ?? {})])
+  for (const k of Object.keys(r.gifted ?? {})) out.add(k.slice(0, k.lastIndexOf('|')))
+  if (r.decidedBy) out.add(r.decidedBy.user.id)
+  return out
+}
+
+/**
+ * O relógio que a tela mostra. Sem voto ainda e com a sala vazia ligada, ele conta até quietAt — é quando a
+ * rodada fecha de fato (mostrar o fim normal faria a votação "sumir" com o anel ainda em 13 s). Chegou o
+ * primeiro voto, volta para o fim normal (o anel enchendo de novo também mostra que o voto salvou a rodada).
+ */
+export function roundClock(r: Round): { endsAt: number; total: number; quiet: boolean } {
+  const quiet = r.quietAt != null && r.quietAt < r.endsAt && !hasVotes(r)
+  const endsAt = quiet && r.quietAt != null ? r.quietAt : r.endsAt
+  return { endsAt, total: endsAt - r.startedAt, quiet }
+}
+
 export function totalPoints(r: Round): number {
   return r.tallies.reduce((s, t) => s + t.points, 0)
 }
@@ -332,6 +351,11 @@ export interface Outcome {
   tieBy?: 'coins' | 'voters' | 'draw'
   /** Sem votos e fechada antes do fim pela "sala vazia" (quietAt): a tela diz "o destino escolheu". */
   quiet?: boolean
+  /**
+   * Só o streamer votou (painel, "votar como streamer"): quem escolheu foi ele, não o chat — a tela diz
+   * "O streamer escolheu" e não mostra "100% dos votos" (numa live de verdade nada finge um chat votando).
+   */
+  streamer?: boolean
 }
 
 /** Resultado final. Sem votos → sorteio estável pela rodada (a live não trava esperando o chat). */

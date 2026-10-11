@@ -14,10 +14,17 @@
  * Sala vazia (o começo de toda live):
  *   - quem participa (comenta, manda presente, curte, segue, compartilha) entra na conta de "pessoas nos
  *     últimos 5 min" (recentParticipants) — é ela que escolhe o ritmo automático da próxima lenda;
- *   - votação/disputa sem nenhum voto depois de config.quietSeconds fecha antes do fim (quietAt);
+ *   - votação/disputa sem nenhum voto depois de config.quietSeconds fecha antes do fim (quietAt). Sinal de
+ *     gente de verdade na sala (entrou, comentou qualquer coisa, curtiu…) empurra esse prazo: quem acabou de
+ *     chegar ainda vê a live com atraso (TikTok) e precisa de tempo para ler e comentar;
  *   - quem entra na sala, segue ou compartilha ganha uma chamada na tela (fila em shoutouts.ts → `shout`);
  *   - o streamer pode votar como uma pessoa do chat (streamerVote): vale um comentário e pode mudar.
  * Nada disso inventa gente: numa live de verdade, teste e voto do streamer não contam como participante.
+ *
+ * Demonstração da ponte (npm run live:demo): o público é de teste, mesmo chegando pela ponte. `bridgeDemo`
+ * guarda isso e realLive() fica false — lenda criada na demonstração vai marcada como de teste (ranking) e,
+ * quando a ponte volta para a live de verdade com a janela aberta, a sessão zera (apoiadores da demo não
+ * passam para a live).
  */
 import { create } from 'zustand'
 import type { Pace, PlayerIdentity } from '@/engine/types'
@@ -25,9 +32,9 @@ import { getCountry, useData } from '@/store/data'
 import { AUTO_PACE, LIVE_SANDBOXED, useLiveConfig, useLiveSession } from './config'
 import { giftLabel } from './gifts'
 import { creatorFeedback, makeCountryFinder, parseCreatorCommand, type CountryFinder, type CreatorDraft } from './identity'
-import { SHOUT, createShoutQueue, type Shout, type ShoutKind } from './shoutouts'
+import { JOIN_SHOUT_MAX_VIEWERS, SHOUT, createShoutQueue, shoutGap, type Shout, type ShoutKind } from './shoutouts'
 import type { BridgeStatus, LiveEvent, LiveGiftInfo, LiveSource, LiveUser } from './types'
-import { applyEvent, createRound, decide, extend, hasVotes, shouldExtend, type Outcome, type Round, type RoundKind, type VoteOption } from './votes'
+import { applyEvent, createRound, decide, extend, hasVotes, participants as roundVoters, shouldExtend, type Outcome, type Round, type RoundKind, type VoteOption } from './votes'
 
 export interface FeedItem {
   id: number
@@ -155,10 +162,15 @@ interface LiveStore {
   pendingLegend: PendingLegend | null
   /** Boas-vindas / agradecimento na tela agora (some em `until`). */
   shout: (Shout & { until: number }) | null
+  /** Quem criou a lenda da carreira em jogo. É da carreira, não da sessão: clearSession não apaga. */
   credit: LegendCredit | null
+  /** A ponte está no modo demonstração (público de teste gerado por ela). Fica até a ponte dizer o contrário. */
+  bridgeDemo: boolean
 
   setSource(s: LiveSource | null): void
   setStatus(s: BridgeStatus): void
+  /** "hello" da ponte: `demo` = ela está no modo demonstração. */
+  setBridgeDemo(demo: boolean): void
   setCatalog(list: LiveGiftInfo[]): void
   /** `sim`: evento do simulador ou de um botão de teste. `streamer`: voto do streamer pelo painel. */
   ingest(e: LiveEvent, meta?: { sim?: boolean; streamer?: boolean }): void
@@ -241,13 +253,22 @@ export function realSource(source: LiveSource | null = useLive.getState().source
   return !LIVE_SANDBOXED && source != null && source !== 'simulador'
 }
 
+/**
+ * Live de verdade com gente de verdade: fonte real E a ponte fora do modo demonstração. É o que decide se uma
+ * lenda vale para o ranking da live de hoje (a demo da ponte manda eventos "reais" de um público de teste).
+ */
+export function realLive(s: Pick<LiveStore, 'source' | 'bridgeDemo'> = useLive.getState()): boolean {
+  return realSource(s.source) && !s.bridgeDemo
+}
+
 const draftComplete = (d: CreatorDraft) => !!(d.surname && d.nationality && d.position)
 const CONFIRM_RE = /^\s*[!/]\s*(ok|okay|confirmar|confirma|pronto|bora)\s*[!.]*\s*$/i
 
 // ── retomada depois de recarregar (sessionStorage da aba) ──
 
 const SNAP_KEY = 'lenda:live:estado'
-type Snapshot = Pick<LiveStore, 'creation' | 'announce' | 'pendingLegend' | 'supporters' | 'careerSupporters' | 'stage' | 'credit'> & { v: 1; at: number }
+// bridgeDemo vai junto: recarregar a janela bem quando a ponte sai da demonstração ainda zera a sessão
+type Snapshot = Pick<LiveStore, 'creation' | 'announce' | 'pendingLegend' | 'supporters' | 'careerSupporters' | 'stage' | 'credit' | 'bridgeDemo'> & { v: 1; at: number }
 
 function readSnapshot(): Snapshot | null {
   try {
@@ -263,7 +284,7 @@ function readSnapshot(): Snapshot | null {
 
 function writeSnapshot(s: LiveStore) {
   try {
-    const snap: Snapshot = { v: 1, at: Date.now(), creation: s.creation, announce: s.announce, pendingLegend: s.pendingLegend, supporters: s.supporters, careerSupporters: s.careerSupporters, stage: s.stage, credit: s.credit }
+    const snap: Snapshot = { v: 1, at: Date.now(), creation: s.creation, announce: s.announce, pendingLegend: s.pendingLegend, supporters: s.supporters, careerSupporters: s.careerSupporters, stage: s.stage, credit: s.credit, bridgeDemo: s.bridgeDemo }
     sessionStorage.setItem(SNAP_KEY, JSON.stringify(snap))
   } catch {
     /* sem storage: só não retoma */
@@ -286,7 +307,11 @@ export const useLive = create<LiveStore>()((set, get) => {
     const r = get().round
     if (!r) return
     const done: Round = { ...r, closed: true }
-    const outcome: Outcome = quiet ? { ...decide(done), quiet: true } : decide(done)
+    const base = decide(done)
+    // só o streamer votou: a tela diz que foi ele (não "o chat decidiu · 100% dos votos")
+    const voters = roundVoters(done)
+    const solo = base.reason !== 'no-votes' && voters.size === 1 && voters.has(STREAMER.id)
+    const outcome: Outcome = { ...base, ...(quiet ? { quiet: true } : {}), ...(solo ? { streamer: true } : {}) }
     set({ round: null, result: { round: done, outcome, at: Date.now() } })
     const opt = done.options[outcome.winner]
     if (quiet) pushFeed({ kind: 'info', text: 'Ninguém votou: o destino escolheu', at: Date.now() })
@@ -340,7 +365,28 @@ export const useLive = create<LiveStore>()((set, get) => {
     if (!ticker) ticker = setInterval(tick, 200)
   }
 
-  /** Mostra a próxima chamada da fila quando der (1 a cada SHOUT.gapMs, cada uma por SHOUT.showMs). */
+  /**
+   * Sinal de gente de verdade na sala (entrou, comentou qualquer coisa, curtiu, seguiu…) com a votação/disputa
+   * ainda sem voto: o prazo da sala vazia passa a ser pelo menos `agora + quietSeconds`. Quem acabou de
+   * entrar vê a live alguns segundos atrasada e ainda precisa ler as opções — cortar a rodada na cara dele é
+   * perder o primeiro voto. Se o prazo novo passar do fim normal, a rodada vai até o fim.
+   */
+  const extendQuiet = (now: number) => {
+    const quiet = Math.max(0, useLiveConfig.getState().config.quietSeconds || 0) * 1000
+    if (!quiet) return
+    const r = get().round
+    if (r?.quietAt != null && !hasVotes(r) && now + quiet > r.quietAt) {
+      const { quietAt: _q, ...rest } = r
+      set({ round: now + quiet < r.endsAt ? { ...r, quietAt: now + quiet } : rest })
+    }
+    const c = get().creation
+    if (c?.phase === 'bidding' && c.quietAt != null && !Object.keys(c.bids).length && now + quiet > c.quietAt) {
+      const { quietAt: _q, ...rest } = c
+      set({ creation: now + quiet < c.endsAt ? { ...c, quietAt: now + quiet } : rest })
+    }
+  }
+
+  /** Mostra a próxima chamada da fila quando der (1 a cada shoutGap(espectadores), cada uma por SHOUT.showMs). */
   const pumpShouts = () => {
     if (shoutTimer) clearTimeout(shoutTimer)
     shoutTimer = null
@@ -350,17 +396,20 @@ export const useLive = create<LiveStore>()((set, get) => {
       shoutTimer = setTimeout(pumpShouts, Math.max(50, ms))
     }
     if (cur && now < cur.until) return later(cur.until - now)
-    const next = shouts.take(now)
+    const gap = shoutGap(get().viewers)
+    const next = shouts.take(now, gap)
     if (next) {
       set({ shout: { ...next, until: now + SHOUT.showMs } })
       return later(SHOUT.showMs)
     }
     if (cur) set({ shout: null })
-    const wait = shouts.wait(now)
+    const wait = shouts.wait(now, gap)
     if (wait != null) later(wait)
   }
 
   const shoutOut = (kind: ShoutKind, user: LiveUser) => {
+    // sala cheia: a linha é das chamadas de como jogar — entrar não ganha boas-vindas (seguir/compartilhar ganha)
+    if (kind === 'join' && (get().viewers ?? 0) >= JOIN_SHOUT_MAX_VIEWERS) return
     if (shouts.push(kind, user, Date.now())) pumpShouts()
   }
 
@@ -426,9 +475,24 @@ export const useLive = create<LiveStore>()((set, get) => {
     pendingLegend: null,
     shout: null,
     credit: null,
+    bridgeDemo: false,
 
-    setSource: (source) => set({ source }),
-    setStatus: (status) => set({ status }),
+    setSource: (source) => set((s) => (s.source === source ? { source } : { source, bridgeDemo: false })),
+    setStatus(status) {
+      // "demo" só é a demonstração da PONTE com a fonte ponte (o simulador também usa o estado 'demo')
+      const demo = status.state === 'demo' && get().source === 'ponte' ? true : status.state === 'connected' ? false : get().bridgeDemo
+      set({ status })
+      get().setBridgeDemo(demo)
+    },
+    setBridgeDemo(demo) {
+      const was = get().bridgeDemo
+      if (was === demo) return
+      set({ bridgeDemo: demo })
+      // a ponte saiu da demonstração e entrou na live de verdade com esta janela aberta: o público de teste
+      // (apoiadores, lances, quem já foi saudado) não passa para a live — mesma regra da troca de fonte
+      // (sem aviso no feed: ele vai ao ar, e o público da live não precisa saber da demonstração)
+      if (was && !demo) get().clearSession()
+    },
     setCatalog: (catalog) => set({ catalog }),
 
     ingest(e, meta) {
@@ -441,8 +505,11 @@ export const useLive = create<LiveStore>()((set, get) => {
         set({ viewers: e.count })
         return
       }
+      const person = counts && !streamer && e.user.id !== STREAMER.id
       // participou (ritmo automático): gente de verdade — ou o público do simulador, no simulador
-      if (counts && !streamer && e.type !== 'join' && e.user.id !== STREAMER.id) noteParticipant(e.user.id, Date.now())
+      if (person && e.type !== 'join') noteParticipant(e.user.id, Date.now())
+      // tem gente na sala: a votação/disputa sem voto ainda não fecha pela sala vazia (ver extendQuiet)
+      if (person) extendQuiet(Date.now())
       if (e.type === 'like') {
         const goal = Math.max(50, cfg.likesGoal)
         const meter = get().likesMeter + e.count
@@ -508,6 +575,9 @@ export const useLive = create<LiveStore>()((set, get) => {
     streamerVote(option, roundId) {
       const r = get().round
       if (!r || (roundId && r.id !== roundId) || !Number.isInteger(option) || option < 0 || option >= r.options.length) return false
+      // com "comentário vale voto" desligado o comentário do streamer não pontua: nem finge votar, nem
+      // segura a rodada contra a sala vazia (o painel esconde os botões)
+      if (!useLiveConfig.getState().config.commentVotes) return false
       get().ingest({ type: 'chat', user: STREAMER, text: String(option + 1), at: Date.now() }, { streamer: true })
       return true
     },
@@ -570,7 +640,9 @@ export const useLive = create<LiveStore>()((set, get) => {
       shouts.clear()
       if (shoutTimer) clearTimeout(shoutTimer)
       shoutTimer = null
-      set({ result: null, feed: [], supporters: {}, careerSupporters: {}, likes: 0, likesMeter: 0, likeBursts: 0, stage: 'idle', nextCareerAt: null, announce: null, creation: null, pendingLegend: null, shout: null, credit: null })
+      // `credit` fica: ele é da carreira (careerId), e o `sim` dele precisa sobreviver a "parar o simulador e
+      // continuar a mesma carreira na live de verdade" — senão a lenda de teste entraria no ranking como real
+      set({ result: null, feed: [], supporters: {}, careerSupporters: {}, likes: 0, likesMeter: 0, likeBursts: 0, stage: 'idle', nextCareerAt: null, announce: null, creation: null, pendingLegend: null, shout: null })
       dropSnapshot()
     },
 
@@ -586,7 +658,7 @@ export const useLive = create<LiveStore>()((set, get) => {
     useLive.setState(rest)
   }
   let pending: ReturnType<typeof setTimeout> | null = null
-  const KEYS = ['creation', 'announce', 'pendingLegend', 'supporters', 'careerSupporters', 'stage', 'credit'] as const
+  const KEYS = ['creation', 'announce', 'pendingLegend', 'supporters', 'careerSupporters', 'stage', 'credit', 'bridgeDemo'] as const
   useLive.subscribe((s, prev) => {
     if (!KEYS.some((k) => s[k] !== prev[k])) return
     if (pending) return

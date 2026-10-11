@@ -5,22 +5,22 @@
  *      a fila da store (shoutouts.ts) já limita a 1 a cada 4 s;
  *   2. votação pausada → o aviso da pausa;
  *   3. votação que acabou de fechar → por que a opção venceu (4,5 s);
- *   4. chamadas girando a cada 6 s (config.ctaOn, src/live/cta.ts): "quente" quando a votação está aberta e
- *      ninguém votou ainda;
+ *   4. chamadas girando a cada 6 s (config.ctaOn, src/live/cta.ts): "quente" (fixa em "Seja o primeiro:
+ *      comente…") quando a votação está aberta e ninguém votou ainda;
  *   5. chamadas desligadas → o texto "como participar" de sempre.
  *
  * Fica no lugar da linha "como participar" da faixa (mesma altura: a faixa não pula e nada cobre os cards
  * das opções); no palco, onde o cartão grande já explica a fase, entra como uma linha própria.
  */
 import type { ReactNode } from 'react'
-import { Crown, Dices, Gamepad2, Gift, Hand, Heart, Megaphone, MessageCircle, Pause, Share2, Sparkles, UserPlus } from 'lucide-react'
+import { Crown, Dices, Gamepad2, Gift, Hand, Heart, Megaphone, MessageCircle, Mic, Pause, Share2, Sparkles, UserPlus } from 'lucide-react'
 import { useLiveConfig, useLiveSession } from '@/live/config'
-import { ctaItems, pickCta, type CtaItem, type CtaPhase } from '@/live/cta'
+import { CTA_PERIOD_MS, ctaItems, pickCta, type CtaItem, type CtaPhase } from '@/live/cta'
 import { giftMeta, sameGift } from '@/live/gifts'
 import { isOffensive } from '@/live/identity'
 import { useLive } from '@/live/store'
 import type { LiveUser } from '@/live/types'
-import { hasVotes, type Round } from '@/live/votes'
+import { hasVotes, roundClock, type Round } from '@/live/votes'
 import { cx } from '@/ui/primitives'
 import { GiftIcon, OPTION_COLORS, useNow } from './bits'
 
@@ -52,6 +52,17 @@ interface Line {
   oc?: string
 }
 
+/**
+ * O convite da boas-vindas, pelo que dá para fazer AGORA: comentar um número só serve com a votação aberta
+ * (no anúncio, na criação, entre as decisões e no fim de carreira um "1" seria ignorado sem resposta).
+ */
+export function joinInvite(phase: { round: Round | null; creation: 'bidding' | 'creating' | null }): string {
+  if (phase.round) return `comenta 1 a ${phase.round.options.length} pra jogar`
+  if (phase.creation === 'bidding') return 'doe e crie a próxima lenda'
+  if (phase.creation === 'creating') return 'a próxima lenda está nascendo'
+  return 'a próxima votação já vem: comente o número'
+}
+
 export function LiveCallout({ round, showResult, how, onStage }: { round: Round | null; showResult: boolean; how: string; onStage: boolean }) {
   const cfg = useLiveConfig((s) => s.config)
   const shout = useLive((s) => s.shout)
@@ -59,13 +70,14 @@ export function LiveCallout({ round, showResult, how, onStage }: { round: Round 
   const creation = useLive((s) => s.creation)
   const catalog = useLive((s) => s.catalog)
   const paused = useLiveSession((s) => s.paused)
-  // gira as chamadas e a contagem da sala vazia
-  const now = useNow(cfg.ctaOn || !!shout, 1000)
+  // gira as chamadas e a contagem da sala vazia (rodada sem voto: 4× por segundo, para o "em N s" andar junto
+  // com o número do anel da faixa)
+  const quietRound = !!round && round.quietAt != null && !hasVotes(round)
+  const now = useNow(cfg.ctaOn || !!shout, quietRound ? 250 : 1000)
 
   let line: Line | null = null
   if (shout && now < shout.until) {
     const name = <b>{shoutName(shout.user)}</b>
-    const n = round?.options.length ?? 4
     if (shout.kind === 'join')
       line = {
         key: `s${shout.id}`,
@@ -73,7 +85,7 @@ export function LiveCallout({ round, showResult, how, onStage }: { round: Round 
         icon: <Hand size={17} aria-hidden="true" />,
         text: (
           <>
-            Chegou {name} · {creation?.phase === 'bidding' ? 'doe e crie a próxima lenda' : `comenta 1 a ${n} pra jogar`}
+            Chegou {name} · {joinInvite({ round, creation: creation?.phase ?? null })}
           </>
         ),
       }
@@ -82,17 +94,20 @@ export function LiveCallout({ round, showResult, how, onStage }: { round: Round 
   } else if (paused) {
     line = { key: 'paused', tone: 'paused', icon: <Pause size={17} aria-hidden="true" />, text: how }
   } else if (showResult && result && !round) {
-    line = { key: `r${result.at}`, tone: result.outcome.reason === 'no-votes' ? 'quiet' : 'result', icon: result.outcome.reason === 'no-votes' ? <Dices size={17} aria-hidden="true" /> : <Sparkles size={17} aria-hidden="true" />, text: how, oc: OPTION_COLORS[result.outcome.winner] }
+    const fate = result.outcome.reason === 'no-votes'
+    const icon = fate ? <Dices size={17} aria-hidden="true" /> : result.outcome.streamer ? <Mic size={17} aria-hidden="true" /> : <Sparkles size={17} aria-hidden="true" />
+    line = { key: `r${result.at}`, tone: fate ? 'quiet' : 'result', icon, text: how, oc: OPTION_COLORS[result.outcome.winner] }
   } else if (cfg.ctaOn) {
     const phase: CtaPhase = round ? 'vote' : creation?.phase === 'bidding' ? 'bidding' : creation?.phase === 'creating' ? 'creating' : 'other'
-    const voted = round ? hasVotes(round) : true
-    const { items, hot } = ctaItems({
+    // o mesmo relógio do anel da faixa (roundClock): sem voto, conta até o fechamento da sala vazia
+    const clock = round ? roundClock(round) : null
+    const { items, hot, anchor } = ctaItems({
       cfg,
       phase,
-      round: round ? { options: round.options.length, voted, quietIn: round.quietAt != null && !voted ? Math.max(0, Math.ceil((round.quietAt - now) / 1000)) : null } : null,
+      round: round && clock ? { options: round.options.length, voted: hasVotes(round), quietIn: clock.quiet ? Math.max(0, Math.ceil((clock.endsAt - now) / 1000)) : null, startedAt: round.startedAt } : null,
       giftCoins: (name) => catalog.find((g) => sameGift(g, name))?.coins ?? giftMeta(name)?.coins ?? 1,
     })
-    const item = pickCta(items, now)
+    const item = pickCta(items, now, CTA_PERIOD_MS, anchor)
     if (item) {
       const Icon = CTA_ICON[item.kind]
       line = {

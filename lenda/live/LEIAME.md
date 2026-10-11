@@ -202,8 +202,62 @@ Sem chave de transmissão, use o **TikTok LIVE Studio**, o programa do TikTok pa
    - **Nova lenda**, que pede confirmação quando há uma carreira em andamento;
    - **Parar**.
 
-   O menu ⚙ da faixa tem os mesmos comandos.
+   O menu ⚙ da faixa tem os mesmos comandos. Logo abaixo, com a live de verdade no ar, fica **Votar como streamer**: veja [Voto do streamer](#voto-do-streamer).
 6. **Para terminar:** clique em **Parar**. A janela da live (ou o OBS) volta para "A live já vai começar!". Encerre a live no TikTok e a transmissão no OBS ou no LIVE Studio. Depois feche a janela preta da ponte (ou aperte `Ctrl+C` nela).
+
+## Começando com a sala vazia
+
+No começo quase ninguém vai estar assistindo. O jogo foi ajustado para isso: as rodadas não ficam paradas esperando voto, a tela ensina a jogar sozinha e cada pessoa que chega é recebida pelo nome.
+
+**Configuração recomendada** (painel):
+
+| Onde | O quê | Por quê |
+|---|---|---|
+| *3. Carreira automática → Ritmo da carreira* | **Automático** | Com pouca gente, carreiras curtas (Expresso): mais disputas, mais momentos de presente. A sala encheu? A próxima lenda já nasce em Normal ou Intenso. |
+| *2. Como o chat vota → Sala vazia* | **15 segundos** (o padrão) | Sem nenhum voto em 15 s, a rodada fecha ("o destino escolheu") e o jogo anda. Com voto, vai até o fim. Menos que isso não: quem assiste vê a live uns 3 a 6 s atrasada e ainda precisa ler e comentar. |
+| *2. Como o chat vota → Tempo de cada votação* | **25 segundos** (o padrão) | Com alguém votando, dá tempo de quem chegou entender e votar (com o atraso do TikTok). Sala vazia não espera isso tudo: fecha nos 15 s. |
+| *3. Carreira automática → Tempo da disputa* | **25 segundos** | Disputa curta. Sem lance, ela também fecha em 15 s (sala vazia). |
+| *5. Transmitir no TikTok → Chamadas na tela* | **Ligado** | A faixa ensina a jogar a cada 6 s. Ponha a sua frase em **Sua chamada** (ex.: "Meta de hoje: 100 seguidores!"). |
+
+**O que fazer e falar:**
+
+- **Narre como se a sala estivesse cheia.** Leia a decisão em voz alta, dê a sua opinião ("eu iria de Palmeiras…") e vote como streamer. O público vê o voto na faixa ("voto do streamer") e entende o jogo sem você explicar regra. Se só você votou, a tela diz **"O streamer escolheu"** (nunca "o chat decidiu") e convida: "comente o número e decida a próxima".
+- **Chame quem chegou pelo nome.** A faixa mostra "Chegou Ana · comenta 1 a 4 pra jogar". Repita em voz alta: "Ana, comenta 2 aí que é a minha!". O primeiro voto de uma pessoa é o que segura ela na live.
+- **Explique a disputa uma vez por carreira:** "quem mandar o maior presente agora escolhe nome, país e posição do próximo craque". Mesmo uma rosa vence se ninguém mais doar.
+- **Fixe no chat** os dois textos prontos de *2. Como o chat vota* (como votar e próxima lenda).
+- **Comemore o ranking.** No fim de cada carreira aparece o *Ranking da live de hoje* e o recorde do dia: "a lenda do @fulano é a melhor de hoje, quem bate?".
+- **Não peça presente sem parar** nem prometa nada fora do jogo (veja [Boas práticas](#boas-práticas-e-regras-do-tiktok)). As chamadas da tela já lembram dos presentes de um jeito leve.
+
+## Ritmo automático, sala vazia, chamadas e boas-vindas
+
+- **Ritmo automático** (*3. Carreira automática*, padrão em configurações novas; quem já usava outro ritmo continua nele). A cada nova lenda, o jogo conta quantas **pessoas diferentes** comentaram, mandaram presente, curtiram, seguiram ou compartilharam nos últimos 5 minutos: menos de 3 → **Expresso** (8 decisões); de 3 a 14 → **Normal** (12); 15 ou mais → **Intenso** (24). Entrar na sala não conta, nem o voto do streamer e os testes. O anúncio "Nasce uma lenda" mostra o selo, por exemplo **Ritmo Normal · automático**, e o painel mostra quantas pessoas estão contando agora.
+- **Sala vazia** (*2. Como o chat vota*, padrão 15 s, 0 desliga). Votação sem **nenhum** voto (comentário com número, presente, voto do streamer) depois desse tempo fecha antes do fim, com o mesmo sorteio de sempre. A faixa diz **"Ninguém votou: o destino escolheu"**.
+  - Enquanto ninguém vota, o **relógio da faixa conta até esse fechamento** (e não até o fim normal): o que o público vê é o que acontece. Chegou o primeiro voto, o relógio volta para o tempo inteiro da votação e ela vai até o fim.
+  - **Sinal de gente na sala empurra o prazo:** alguém entrou, comentou qualquer coisa (mesmo sem número), curtiu, seguiu ou compartilhou → a rodada ganha pelo menos mais 15 s. O TikTok avisa a entrada antes de a pessoa ver a live (que chega atrasada), então quem acabou de chegar ainda tem tempo de ler e votar. Teste e o seu próprio voto não contam como sinal.
+  - Na disputa é igual: sem nenhum lance, ela acaba no mesmo tempo (o relógio do cartão conta até lá) e segue como "Ninguém doou na disputa".
+  - A pausa congela também esse prazo.
+  - Configuração salva com o padrão antigo (10 s) passa sozinha para 15 s.
+- **Chamadas na tela** (*5. Transmitir no TikTok*, ligado por padrão). No lugar da linha "como participar" da faixa, uma frase curta a cada 6 s: "Comente 1, 2, 3 ou 4 para escolher", "Rosa = 10 pontos na opção 1" (com os presentes e o peso das moedas que você configurou), "Quem doar mais cria a próxima lenda", "Jogue grátis: oprojeto.online/lenda", "Siga para ver a próxima lenda nascer" e a sua frase (passa pelo filtro de palavrões; até 80 letras). Com a votação aberta e ninguém votou ainda, a chamada **para de girar**, fica vermelha e pulsando no jeito grátis de jogar: **"Seja o primeiro: comente 1, 2 ou 3"**; nos últimos 5 s vira "Comente 1, 2 ou 3 já · sem votos, o destino escolhe em 4 s". (O presente de cada opção continua no cartão dela; os preços voltam a girar depois do primeiro voto. Com "Comentário vale voto" desligado, a chamada alterna "Mande o presente da opção" com cada presente.) Ela respeita a área segura e não cobre as opções; com "reduzir movimento" ligado, não pulsa.
+- **Boas-vindas.** Quem entra na sala aparece na faixa: **"Chegou Ana · comenta 1 a 4 pra jogar"** (com a votação aberta; na disputa, "doe e crie a próxima lenda"; entre as votações, "a próxima votação já vem: comente o número"). Quem segue ou compartilha ganha um agradecimento ("Valeu por seguir, Bia!").
+  - No máximo uma a cada 4 s com a sala vazia (menos de 5 espectadores). A sala enchendo, o intervalo cresce (8 s de 5 a 19 espectadores, 14 s com 20 ou mais) para sobrar tempo para as chamadas de como jogar; com 50 ou mais, só seguir/compartilhar ganha chamada.
+  - Até 3 na fila (seguir/compartilhar passa na frente de uma entrada); entrada que esperou mais de 20 s sai da fila. A mesma pessoa não é saudada de novo em 10 minutos.
+  - Apelido com palavrão vira o @ (ou "um torcedor"). Funciona com a ponte do LENDA e com o TikFinity; no simulador, o público de teste também "entra".
+- **Ranking da live de hoje.** Toda lenda que termina a carreira na live entra no ranking do dia (data do seu PC), com a **Nota de Legado**, a faixa (Promessa… Imortal) e quem criou (o @ do vencedor da disputa, ou "o chat").
+  - A tela de fim de carreira mostra o top 5 e **"Recorde do dia: nota 82 — SILVA, criada por @fulano"** (ou "criada pelo chat"); quando uma lenda bate o recorde, aparece **"Novo recorde do dia! 🏆"**. Na janela em pé (área segura ligada) ela fica enxuta para caber entre a faixa e o chat do TikTok: top 3, sem o texto da aposentadoria.
+  - O cartão da disputa mostra o recorde do dia ("crie a lenda que bate o recorde"); fora da disputa, ele fica ao lado dos maiores apoiadores.
+  - Fica guardado na janela da live (ou no OBS), um ranking por dia. @ com palavrão aparece como "um torcedor".
+  - **Lenda de teste não vai ao ar numa live de verdade:** criada no simulador, na demonstração da ponte (`--demo`) ou com lance de teste; terminada fora da live de verdade; ou sem saber quem criou (ex.: carreira continuada de outro dia). Elas só aparecem no simulador e na demonstração, e nunca tomam a vaga das lendas de verdade.
+
+### Voto do streamer
+
+Com a fonte **TikTok (ponte do LENDA)** ou **TikFinity** e o modo live ligado, o painel mostra **Votar como streamer**, com os botões **1 2 3 4** e o nome de cada opção da votação aberta. As teclas **1 a 4** também votam (fora dos campos de texto do painel).
+
+- Vale **um comentário** do chat (como o de qualquer pessoa) e dá para mudar de ideia.
+- Aparece na faixa como **"Voto do streamer → 2"**.
+- Vai para a janela da live ou para o OBS pela ponte, mesmo com o painel em outro navegador.
+- Conta como voto: a votação com o voto do streamer não fecha pela sala vazia.
+- Se só você votou, a tela diz **"O streamer escolheu"** (e não "o chat decidiu · 100% dos votos").
+- É um comentário: com **Comentário vale voto** desligado, os botões somem (o painel avisa) e as teclas não votam.
 
 ## Área segura do TikTok
 
@@ -229,7 +283,7 @@ A área segura vale para a janela em pé (9:16) e para a fonte do OBS. Num monit
 - Ganha a opção com mais pontos.
 - Empate nos pontos: ganha a opção com mais moedas, depois a que tem mais gente. A faixa explica: "Empate nos votos — venceu quem mandou mais moedas".
 - Se o empate continuar no fim do tempo, a votação ganha **mais 10 segundos**, uma vez só. Se ainda assim empatar, há um sorteio.
-- Se ninguém votar, o jogo sorteia para a live não travar.
+- Se ninguém votar, o jogo sorteia para a live não travar. Com a **Sala vazia** ligada, isso acontece já depois de 15 s sem nenhum voto ("Ninguém votou: o destino escolheu").
 - **Presentes em sequência** (combo) contam uma vez só: a ponte desconta as repetições que o TikTok manda durante o combo.
 - Na faixa, um presente guardado aparece com o aviso **"comente 1 a 4"**. Quando a pessoa comenta, aparece "presente guardado → 2".
 - Cada votação tem no máximo 4 opções. Se uma decisão tiver mais que isso, ficam "ficar no clube" e "aposentar-se" e as primeiras propostas.
@@ -272,27 +326,29 @@ O criador tem 60 s (ajustável) para digitar no chat. **Só as mensagens dele co
 ## O que acontece sozinho
 
 - **Comemoração de título:** fica alguns segundos na tela (padrão 6) e o jogo segue.
-- **Fim de carreira:** a tela final agradece aos 3 maiores apoiadores da carreira e mostra **Nova lenda agora**. Depois de 20 s (ajustável) começa a próxima lenda (no modo padrão, abre a disputa). Com 0 segundos, o jogo espera você clicar em **Nova lenda**.
+- **Fim de carreira:** a tela final agradece aos 3 maiores apoiadores da carreira, mostra o **Ranking da live de hoje** e **Nova lenda agora**. Depois de 20 s (ajustável) começa a próxima lenda (no modo padrão, abre a disputa). Com 0 segundos, o jogo espera você clicar em **Nova lenda**.
 - **Nome da lenda quando ninguém cria:** sai do apelido do maior apoiador, com o filtro de palavrões. Também dá para usar um nome fixo ou um aleatório.
-- **Ritmo:** *Expresso* tem menos decisões por carreira e é bom para lives curtas.
-- **Pausa:** congela a votação, a disputa, a criação (com a contagem de 6 s), a contagem do fim de carreira e a comemoração. A faixa mostra "Votação pausada" em amarelo.
+- **Ritmo:** *Expresso* tem 8 decisões por carreira, *Normal* 12 e *Intenso* 24. No **Automático**, o jogo escolhe a cada lenda pelo movimento da sala (veja [Ritmo automático](#ritmo-automático-sala-vazia-chamadas-e-boas-vindas)).
+- **Pausa:** congela a votação, a disputa, a criação (com a contagem de 6 s), o prazo da sala vazia, a contagem do fim de carreira e a comemoração. A faixa mostra "Votação pausada" em amarelo.
 - **Intervenção manual:** você pode clicar numa opção para escolher no lugar do chat; a votação em andamento é cancelada.
 - **Recarregou a janela da live (F5) no meio?** A disputa (com os lances), a criação (com a ficha) e o anúncio continuam de onde pararam.
 
 ## Testar sem estar ao vivo
 
-- **Simulador:** em *1. Conexão*, escolha **Simulador**. Um público de mentira comenta números, manda presentes, curte, segue e até cria a lenda. A velocidade é ajustável.
+- **Simulador:** em *1. Conexão*, escolha **Simulador**. Um público de mentira entra na sala, comenta números, manda presentes, curte, segue e até cria a lenda. A velocidade é ajustável. Com o público de teste a sala parece cheia, então o ritmo automático tende a escolher Intenso.
 - **Demonstração da ponte:** rode `npm run live:demo` (ou `INICIAR-LIVE.bat --demo`). A ponte gera eventos no formato do TikTok e testa o caminho completo, ponte → jogo:
   - votos de 1 a 4, conversa, presentes com a lista de presentes, curtidas, seguidores e espectadores;
   - um "maior doador", @gabi.fut, que vence a disputa e digita `!criar`, `!posicao` e `!ok`.
 
   A faixa mostra **DEMO**. O botão Desconectar não para a demonstração; para parar, feche a ponte.
+
+  O público da demonstração é de teste, mesmo passando pela ponte: lenda criada nela não aparece no ranking de uma live de verdade, e quando a ponte volta a rodar sem `--demo` com a janela da live (ou o OBS) aberta, os apoiadores e a disputa da demonstração são zerados.
 - **Demonstração no OBS:** `LIVE-OBS.bat --demo` faz o mesmo com o jogo dentro do OBS, sem pedir a chave e sem transmitir.
 - **4. Testar votos:** botões para comentar e mandar presentes durante uma votação. Na disputa e na criação aparecem também botões para dar lance e digitar os comandos como o criador.
   - Com a live rodando na janela da live (ou no OBS), os botões mandam o teste para lá, e o painel lista "Enviado para a janela da live: …" (ou "Enviado para o OBS: …").
   - Numa live de verdade, um teste conta como voto, mas nunca vira apoiador nem lance da disputa.
 
-Gente de teste (simulador ou botões) nunca entra numa live de verdade: começar a live ou trocar a fonte zera os apoiadores, e um apoiador de teste nunca dá nome nem cria a lenda.
+Gente de teste (simulador, demonstração da ponte ou botões) nunca entra numa live de verdade: começar a live, trocar a fonte ou sair da demonstração zera os apoiadores, e um apoiador de teste nunca dá nome nem cria a lenda. Numa live de verdade, teste também não conta para o ritmo automático, não ganha boas-vindas e lenda de teste não aparece no ranking da live.
 
 ## Usa o TikFinity?
 

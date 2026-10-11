@@ -8,19 +8,20 @@ import { useCareer } from '@/store/career'
 import { useData } from '@/store/data'
 import { director } from '@/ui/classic/reveal/director'
 import { useReveal } from '@/ui/classic/reveal/store'
-import { outcomeWhy } from '@/ui/live/LiveHud'
+import { joinInvite } from '@/ui/live/LiveCallout'
+import { outcomeWhy, resultKicker } from '@/ui/live/LiveHud'
 import { newLegendNow, resolvePace, startAutopilot, stopAutopilot } from './autopilot'
 import { WINDOW_ID, onStreamerVote } from './channel'
-import { AUTO_PACE, DEFAULT_LIVE_CONFIG, autoPace, mergePersistedConfig, mergeSyncedConfig, useLiveConfig, useLiveSession } from './config'
+import { AUTO_PACE, DEFAULT_LIVE_CONFIG, autoPace, mergePersistedConfig, mergeSyncedConfig, migrateConfig, useLiveConfig, useLiveSession } from './config'
 import { disconnectLive } from './connection'
-import { CTA_PERIOD_MS, cleanCustomCta, ctaItems, pickCta, type CtaContext } from './cta'
+import { CTA_PERIOD_MS, CTA_QUIET_WARN_S, cleanCustomCta, ctaItems, pickCta, type CtaContext } from './cta'
 import { parseMessage } from './protocol'
-import { RANKING_CAP, RANKING_PREFIX, dayKey, insertRanking, readRanking, recordLiveLegend, useLiveRanking, visibleRanking, type RankEntry } from './ranking'
+import { RANKING_CAP, RANKING_PREFIX, SIM_RANKING_CAP, creatorLabel, creatorPhrase, dayKey, insertRanking, readRanking, recordLiveLegend, useLiveRanking, visibleRanking, type RankEntry } from './ranking'
 import { dispatchRelay } from './relay'
-import { SHOUT, createShoutQueue } from './shoutouts'
-import { STREAMER, recentParticipants, useLive } from './store'
+import { JOIN_SHOUT_MAX_VIEWERS, SHOUT, createShoutQueue, shoutGap } from './shoutouts'
+import { STREAMER, realLive, recentParticipants, useLive } from './store'
 import type { LiveEvent, LiveUser } from './types'
-import { createRound, hasVotes, type VoteRules } from './votes'
+import { createRound, hasVotes, roundClock, type VoteRules } from './votes'
 
 // o motor de legado de verdade precisa de uma carreira inteira: aqui a nota vem pronta
 vi.mock('@/engine/legacy', () => ({
@@ -68,7 +69,7 @@ beforeEach(() => {
   useLiveConfig.setState({ config: { ...DEFAULT_LIVE_CONFIG, creator: 'disputa', bidSeconds: 30, createSeconds: 20, voteSeconds: 25, quietSeconds: 10, identityVote: false, nameMode: 'aleatorio', nextCareerSeconds: 5, simAuto: false } })
   useLiveSession.setState({ on: true, paused: false })
   useLive.getState().clearSession()
-  useLive.setState({ source: 'simulador' })
+  useLive.setState({ source: 'simulador', viewers: null, bridgeDemo: false, credit: null })
   useLiveRanking.setState({ day: '', list: [], last: null })
   startCareer = vi.fn(async () => ({}))
   useCareer.setState({ status: 'ready', isFixture: false, busy: false, state: null, start: startCareer as never })
@@ -150,12 +151,20 @@ describe('F1 · ritmo automático', () => {
 
   it('configuração nova começa no automático; a salva guarda o ritmo dela; ritmo desconhecido não entra', () => {
     expect(DEFAULT_LIVE_CONFIG.pace).toBe('auto')
-    expect(mergePersistedConfig(undefined).config).toMatchObject({ pace: 'auto', quietSeconds: 10, ctaOn: true, ctaCustom: '' })
+    expect(mergePersistedConfig(undefined).config).toMatchObject({ pace: 'auto', quietSeconds: 15, ctaOn: true, ctaCustom: '' })
     // salva antes do ritmo automático existir: continua no Normal e ganha os campos novos com o padrão
-    expect(mergePersistedConfig({ config: { pace: 'normal', voteSeconds: 30 }, editedAt: 5 })).toMatchObject({ editedAt: 5, config: { pace: 'normal', voteSeconds: 30, quietSeconds: 10, ctaOn: true } })
+    expect(mergePersistedConfig({ config: { pace: 'normal', voteSeconds: 30 }, editedAt: 5 })).toMatchObject({ editedAt: 5, config: { pace: 'normal', voteSeconds: 30, quietSeconds: 15, ctaOn: true } })
     expect(mergePersistedConfig({ config: { pace: 'turbo' } }).config.pace).toBe('auto')
     expect(mergeSyncedConfig({ ...DEFAULT_LIVE_CONFIG, pace: 'intensa' }, { pace: 'turbo' }).pace).toBe('intensa')
     expect(mergeSyncedConfig(DEFAULT_LIVE_CONFIG, { pace: 'expressa' }).pace).toBe('expressa')
+  })
+
+  it('v1 → v2: quem estava com a sala vazia no padrão antigo (10 s) passa para 15 s; outro valor fica', () => {
+    expect(migrateConfig({ config: { quietSeconds: 10, pace: 'normal' }, editedAt: 3 }, 1)).toEqual({ config: { quietSeconds: 15, pace: 'normal' }, editedAt: 3 })
+    expect(migrateConfig({ config: { quietSeconds: 20 } }, 1)).toEqual({ config: { quietSeconds: 20 } })
+    expect(migrateConfig({ config: { quietSeconds: 0 } }, 1)).toEqual({ config: { quietSeconds: 0 } })
+    expect(migrateConfig({ config: { quietSeconds: 10 } }, 2)).toEqual({ config: { quietSeconds: 10 } })
+    expect(migrateConfig(null, 1)).toBeNull()
   })
 })
 
@@ -229,6 +238,62 @@ describe('F2 · sala vazia (rodadas sem votos fecham antes)', () => {
     expect(useLive.getState().creation?.phase).toBe('bidding')
     expect(useLive.getState().creation?.endsAt).toBeGreaterThan(Date.now())
   })
+
+  it('sinal de gente na sala (entrou, comentou qualquer coisa) empurra o prazo; teste não; passou do fim, vai até o fim', () => {
+    useLive.setState({ source: 'ponte' })
+    const s = useLive.getState()
+    void s.startRound({ id: 'd:vida', kind: 'decision', title: 'T', options: opts(3) })
+    const t0 = Date.now()
+    expect(useLive.getState().round?.quietAt).toBe(t0 + 10_000)
+    vi.advanceTimersByTime(8000)
+    // entrou alguém (o evento chega antes de a pessoa ver a live, que tem atraso): ganha quietSeconds
+    s.ingest({ type: 'join', user: fan('novo'), at: Date.now() })
+    expect(useLive.getState().round?.quietAt).toBe(t0 + 18_000)
+    // teste numa live de verdade não é gente
+    vi.advanceTimersByTime(1000)
+    s.ingest(chat(fan('teste'), 'oi'), { sim: true })
+    expect(useLive.getState().round?.quietAt).toBe(t0 + 18_000)
+    // comentário sem número também é gente; o prazo novo passaria do fim normal → a rodada vai até o fim
+    vi.advanceTimersByTime(7000)
+    s.ingest(chat(fan('novo'), 'que jogo'))
+    expect(useLive.getState().round?.quietAt).toBeUndefined()
+    vi.advanceTimersByTime(5000)
+    expect(useLive.getState().round).not.toBeNull()
+  })
+
+  it('na disputa também: entrou alguém → o prazo da sala vazia anda (e depois fecha se ninguém der lance)', () => {
+    useLive.setState({ source: 'ponte' })
+    useLive.getState().startBidding(30)
+    const t0 = Date.now()
+    expect(useLive.getState().creation?.quietAt).toBe(t0 + 10_000)
+    vi.advanceTimersByTime(6000)
+    useLive.getState().ingest({ type: 'join', user: fan('ana'), at: Date.now() })
+    expect(useLive.getState().creation?.quietAt).toBe(t0 + 16_000)
+    vi.advanceTimersByTime(9_500)
+    expect(useLive.getState().creation?.quiet).toBeUndefined()
+    vi.advanceTimersByTime(700)
+    expect(useLive.getState().creation).toMatchObject({ quiet: true })
+  })
+
+  it('só o streamer votou: "O streamer escolheu", sem "100% dos votos"; com o chat junto, o chat decidiu', async () => {
+    useLive.setState({ source: 'ponte' })
+    const p = useLive.getState().startRound({ id: 'd:so', kind: 'decision', title: 'T', options: opts(3) })
+    useLive.getState().streamerVote(2)
+    vi.advanceTimersByTime(25_500)
+    const out = await p
+    expect(out).toMatchObject({ winner: 2, reason: 'votes', streamer: true })
+    const res = useLive.getState().result!
+    expect(resultKicker(res.outcome)).toBe('O streamer escolheu')
+    expect(outcomeWhy(res.round, res.outcome)).toBe('Só o streamer votou: comente o número e decida a próxima')
+
+    const p2 = useLive.getState().startRound({ id: 'd:so2', kind: 'decision', title: 'T', options: opts(3) })
+    useLive.getState().streamerVote(2)
+    useLive.getState().ingest(chat(fan('ana'), '3'))
+    vi.advanceTimersByTime(25_500)
+    const out2 = await p2
+    expect(out2?.streamer).toBeUndefined()
+    expect(resultKicker(out2!)).toBe('O chat decidiu')
+  })
 })
 
 // ───────────────────────── F3 · chamadas na tela ─────────────────────────
@@ -242,11 +307,31 @@ describe('F3 · chamadas na tela', () => {
     ...over,
   })
 
-  it('ninguém votou: chamada "quente" só com o jeito de votar, os presentes da rodada (pontos de verdade) e o aviso do destino', () => {
-    const { items, hot } = ctaItems(ctx())
-    expect(hot).toBe(true)
-    expect(items.map((i) => i.text)).toEqual(['Seja o primeiro: comente 1, 2 ou 3', 'Rosa = 10 pontos na opção 1', 'TikTok = 10 pontos na opção 2', 'GG = 10 pontos na opção 3', 'Sem votos, o destino escolhe em 7 s'])
-    expect(items[1].gift).toBe('Rose')
+  it('ninguém votou: chamada "quente" FIXA no jeito grátis de votar; nos últimos segundos, o aviso do destino', () => {
+    const r = ctaItems(ctx({ round: { options: 3, voted: false, quietIn: 9, startedAt: 1000 } }))
+    expect(r.hot).toBe(true)
+    expect(r.items.map((i) => i.text)).toEqual(['Seja o primeiro: comente 1, 2 ou 3'])
+    // a rodada inteira mostra a mesma chamada (nada de preço de presente girando no lugar do jeito de jogar)
+    for (let t = 1000; t < 16_000; t += 1000) expect(pickCta(r.items, t, CTA_PERIOD_MS, r.anchor)?.text).toBe('Seja o primeiro: comente 1, 2 ou 3')
+    const end = ctaItems(ctx({ round: { options: 3, voted: false, quietIn: CTA_QUIET_WARN_S - 1, startedAt: 1000 } }))
+    expect(end.items).toEqual([expect.objectContaining({ id: 'vote', kind: 'quiet', text: 'Comente 1, 2 ou 3 já · sem votos, o destino escolhe em 4 s' })])
+  })
+
+  it('sem "comentário vale voto": o presente é o único jeito — jeito de votar intercalado com cada presente, contado do começo da rodada', () => {
+    const r = ctaItems(ctx({ cfg: { ...ctx().cfg, commentVotes: false }, round: { options: 3, voted: false, quietIn: 12, startedAt: 7777 } }))
+    expect(r.items.map((i) => i.text)).toEqual(['Mande o presente da opção para escolher', 'Rosa = 10 pontos na opção 1', 'Mande o presente da opção para escolher', 'TikTok = 10 pontos na opção 2', 'Mande o presente da opção para escolher', 'GG = 10 pontos na opção 3'])
+    expect(r.anchor).toBe(7777)
+    // a primeira chamada de cada rodada é sempre como votar, qualquer que seja a hora
+    expect(pickCta(r.items, 7777, CTA_PERIOD_MS, r.anchor)?.text).toBe('Mande o presente da opção para escolher')
+    expect(pickCta(r.items, 7777 + CTA_PERIOD_MS, CTA_PERIOD_MS, r.anchor)?.gift).toBe('Rose')
+  })
+
+  it('o anel da faixa conta até o fechamento da sala vazia; com voto, até o fim normal', () => {
+    const r = { ...createRound({ id: 'r', kind: 'decision', title: 'T', options: opts(2), seconds: 25 }, 0), quietAt: 15_000 }
+    expect(roundClock(r)).toEqual({ endsAt: 15_000, total: 15_000, quiet: true })
+    expect(roundClock({ ...r, commentVote: { ana: 0 } })).toEqual({ endsAt: 25_000, total: 25_000, quiet: false })
+    const { quietAt: _q, ...plain } = r
+    expect(roundClock(plain)).toEqual({ endsAt: 25_000, total: 25_000, quiet: false })
   })
 
   it('com votos: gira tudo — votar, presentes, quem cria a lenda, jogar grátis, seguir e a frase do streamer', () => {
@@ -334,6 +419,31 @@ describe('F4 · boas-vindas', () => {
     s.ingest({ type: 'join', user: fan('fake'), at: Date.now() }, { sim: true })
     expect(useLive.getState().shout).toBeNull()
   })
+
+  it('sala enchendo: o intervalo entre boas-vindas cresce; sala cheia não saúda entrada (só seguir); entrada velha na fila cai', () => {
+    expect([null, 0, 4, 5, 19, 20, 300].map(shoutGap)).toEqual([4000, 4000, 4000, 8000, 8000, 14_000, 14_000])
+    const q = createShoutQueue()
+    q.push('join', fan('a'), 0)
+    q.push('join', fan('b'), 0)
+    expect(q.take(0, 14_000)?.user.id).toBe('a')
+    expect(q.take(8000, 14_000)).toBeNull()
+    // 'b' esperou mais que joinMaxAgeMs: talvez nem esteja mais na sala
+    expect(q.take(SHOUT.joinMaxAgeMs + 1, 14_000)).toBeNull()
+    expect(q.size()).toBe(0)
+    useLive.setState({ viewers: JOIN_SHOUT_MAX_VIEWERS })
+    useLive.getState().ingest({ type: 'join', user: fan('ana'), at: Date.now() })
+    expect(useLive.getState().shout).toBeNull()
+    useLive.getState().ingest({ type: 'follow', user: fan('ana'), at: Date.now() })
+    expect(useLive.getState().shout).toMatchObject({ kind: 'follow', user: { id: 'ana' } })
+  })
+
+  it('boas-vindas convida para o que dá para fazer agora (número só com a votação aberta)', () => {
+    const round = createRound({ id: 'r', kind: 'decision', title: 'T', options: opts(3), seconds: 20 }, 0)
+    expect(joinInvite({ round, creation: null })).toBe('comenta 1 a 3 pra jogar')
+    expect(joinInvite({ round: null, creation: 'bidding' })).toBe('doe e crie a próxima lenda')
+    expect(joinInvite({ round: null, creation: 'creating' })).toBe('a próxima lenda está nascendo')
+    expect(joinInvite({ round: null, creation: null })).toBe('a próxima votação já vem: comente o número')
+  })
 })
 
 // ───────────────────────── F5 · ranking da live ─────────────────────────
@@ -405,6 +515,109 @@ describe('F5 · ranking da live de hoje', () => {
   })
 })
 
+describe('F5 · ranking: só lenda de verdade vai ao ar numa live de verdade', () => {
+  const entry = (id: string, score: number, over: Partial<RankEntry> = {}): RankEntry => ({ id, surname: id.toUpperCase(), score, tier: 'Craque', at: score, ...over })
+
+  /** Disputa vencida por `who` (presente de 100), ficha pelo chat, carreira que termina — como numa live. */
+  async function playCareer(who: LiveUser, careerId: string) {
+    vi.spyOn(director, 'pick').mockResolvedValue(undefined)
+    startCareer.mockImplementation(async (identity: { surname: string }) => {
+      useCareer.setState({ state: { id: careerId, phase: 'deciding', retired: false, identity, seasons: [], pendingDecision: null } as never })
+    })
+    startAutopilot()
+    await vi.advanceTimersByTimeAsync(500)
+    useLive.getState().ingest(gift(who, 100))
+    await vi.advanceTimersByTimeAsync(30_500)
+    useLive.getState().ingest(chat(who, '!criar Recorde, Brasil, atacante'))
+    useLive.getState().ingest(chat(who, '!ok'))
+    await vi.advanceTimersByTimeAsync(6000)
+    setRoute('/carreira')
+    await vi.advanceTimersByTimeAsync(500)
+    useCareer.setState({ state: { ...useCareer.getState().state!, phase: 'finished', retired: true } as never })
+    await vi.advanceTimersByTimeAsync(1000)
+  }
+
+  it('demonstração da ponte (npm run live:demo): a lenda vai como teste e some numa live de verdade; sair da demo zera a sessão', async () => {
+    useLive.setState({ source: 'ponte' })
+    useLive.getState().setStatus({ state: 'demo', user: 'demo' })
+    expect(useLive.getState().bridgeDemo).toBe(true)
+    expect(realLive()).toBe(false)
+    await playCareer(fan('gabi.fut'), 'c-demo')
+    expect(useLive.getState().credit).toMatchObject({ careerId: 'c-demo', sim: true })
+    const list = readRanking()
+    expect(list).toEqual([expect.objectContaining({ id: 'c-demo', by: 'gabi.fut', sim: true })])
+    expect(visibleRanking(list, true)).toEqual([])
+    expect(visibleRanking(list, realLive())).toHaveLength(1)
+    expect(useLive.getState().supporters['gabi.fut']).toBeDefined()
+    // a ponte reinicia sem --demo (a janela continua aberta): o público da demo sai de cena
+    stopAutopilot()
+    useLive.getState().setStatus({ state: 'connected', user: 'meu.perfil' })
+    expect(useLive.getState().bridgeDemo).toBe(false)
+    expect(realLive()).toBe(true)
+    expect(useLive.getState().supporters).toEqual({})
+    // o "hello" da ponte também diz o modo (a ponte de verdade chega dizendo que não é demo)
+    useLive.getState().setBridgeDemo(true)
+    useLive.getState().setBridgeDemo(false)
+    expect(useLive.getState().bridgeDemo).toBe(false)
+    // o simulador também usa o estado 'demo', mas não é a demonstração da ponte
+    useLive.setState({ source: 'simulador' })
+    useLive.getState().setStatus({ state: 'demo' })
+    expect(useLive.getState().bridgeDemo).toBe(false)
+  })
+
+  it('quem criou é da carreira: começar a live não apaga o crédito; carreira sem crédito conhecido entra como teste', async () => {
+    useLive.setState({ credit: { careerId: 'c-sim', sim: true } })
+    useLive.getState().clearSession()
+    expect(useLive.getState().credit).toEqual({ careerId: 'c-sim', sim: true })
+    // live de verdade, carreira jogada aqui sem saber quem criou (continuada de antes): não vai ao ar como "do chat"
+    useLive.setState({ source: 'tikfinity', credit: null })
+    useCareer.setState({ state: { id: 'c-x', phase: 'deciding', retired: false, identity: { surname: 'SEMDONO' }, seasons: [], pendingDecision: null } as never })
+    setRoute('/carreira')
+    startAutopilot()
+    await vi.advanceTimersByTimeAsync(500)
+    useCareer.setState({ state: { ...useCareer.getState().state!, phase: 'finished', retired: true } as never })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(readRanking()).toEqual([expect.objectContaining({ id: 'c-x', sim: true })])
+    expect(visibleRanking(readRanking(), true)).toEqual([])
+  })
+
+  it('lenda do simulador que termina depois de trocar para a live de verdade continua de teste', async () => {
+    useCareer.setState({ state: { id: 'c-s', phase: 'deciding', retired: false, identity: { surname: 'DUDU' }, seasons: [], pendingDecision: null } as never })
+    useLive.setState({ credit: { careerId: 'c-s', sim: true } })
+    // trocou a fonte: a store zera a sessão (o crédito fica)
+    useLive.getState().clearSession()
+    useLive.setState({ source: 'ponte' })
+    setRoute('/carreira')
+    startAutopilot()
+    await vi.advanceTimersByTimeAsync(500)
+    useCareer.setState({ state: { ...useCareer.getState().state!, phase: 'finished', retired: true } as never })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(readRanking()).toEqual([expect.objectContaining({ id: 'c-s', sim: true })])
+  })
+
+  it('lendas de teste não tomam a vaga das de verdade; gravar relê o armazenamento (outra janela gravou no meio)', () => {
+    let list: RankEntry[] = []
+    for (let i = 0; i < RANKING_CAP + 10; i++) list = insertRanking(list, entry(`s${i}`, 60 + (i % 30), { sim: true }))
+    list = insertRanking(list, entry('real', 55))
+    expect(list.filter((e) => e.sim)).toHaveLength(SIM_RANKING_CAP)
+    expect(visibleRanking(list, true).map((e) => e.id)).toEqual(['real'])
+    recordLiveLegend(entry('a1', 50), true)
+    // outra janela deste navegador grava depois que esta leu
+    const key = `${RANKING_PREFIX}${dayKey()}`
+    localStorage.setItem(key, JSON.stringify([...JSON.parse(localStorage.getItem(key)!), entry('b1', 40)]))
+    recordLiveLegend(entry('a2', 30), true)
+    expect(readRanking().map((e) => e.id)).toEqual(['a1', 'b1', 'a2'])
+  })
+
+  it('"criada pelo chat" (com a contração); @ ofensivo no ranking vira "um torcedor"', () => {
+    expect(creatorPhrase({})).toBe('criada pelo chat')
+    expect(creatorPhrase({ by: 'gabi.fut' })).toBe('criada por @gabi.fut')
+    expect(creatorLabel({})).toBe('o chat')
+    expect(creatorLabel({ by: 'vai_tomar_no_cu' })).toBe('um torcedor')
+    expect(creatorPhrase({ by: 'vai_tomar_no_cu' })).toBe('criada por um torcedor')
+  })
+})
+
 // ───────────────────────── F6 · voto do streamer ─────────────────────────
 
 describe('F6 · voto do streamer', () => {
@@ -424,6 +637,17 @@ describe('F6 · voto do streamer', () => {
     // é voto: a sala vazia não corta a rodada
     vi.advanceTimersByTime(12_000)
     expect(useLive.getState().round).not.toBeNull()
+  })
+
+  it('com "comentário vale voto" desligado: o voto do streamer não acontece (nem segura a sala vazia)', () => {
+    useLive.setState({ source: 'ponte' })
+    useLiveConfig.getState().set({ commentVotes: false })
+    void useLive.getState().startRound({ id: 'd:off', kind: 'decision', title: 'T', options: opts(3) })
+    expect(useLive.getState().streamerVote(1)).toBe(false)
+    expect(hasVotes(useLive.getState().round!)).toBe(false)
+    expect(useLive.getState().feed.some((f) => f.streamer)).toBe(false)
+    vi.advanceTimersByTime(10_300)
+    expect(useLive.getState().result?.outcome).toMatchObject({ reason: 'no-votes', quiet: true })
   })
 
   it('chega pela ponte (painel em outro navegador): só a mensagem certa, uma vez', () => {

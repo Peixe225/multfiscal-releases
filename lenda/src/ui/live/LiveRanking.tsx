@@ -4,8 +4,8 @@
  */
 import { useEffect } from 'react'
 import { Trophy } from 'lucide-react'
-import { creatorLabel, refreshRanking, useLiveRanking, visibleRanking, type RankEntry } from '@/live/ranking'
-import { realSource, useLive } from '@/live/store'
+import { creatorLabel, creatorPhrase, refreshRanking, useLiveRanking, visibleRanking, type RankEntry } from '@/live/ranking'
+import { realLive, useLive } from '@/live/store'
 import { cx } from '@/ui/primitives'
 import './live.css'
 
@@ -14,15 +14,21 @@ export function useTodayRanking(): { list: RankEntry[]; last: { id: string; reco
   const list = useLiveRanking((s) => s.list)
   const last = useLiveRanking((s) => s.last)
   const source = useLive((s) => s.source)
+  const bridgeDemo = useLive((s) => s.bridgeDemo)
   // abriu a janela (ou virou o dia): lê o ranking de hoje do armazenamento
   useEffect(() => {
     refreshRanking()
   }, [])
-  return { list: visibleRanking(list, realSource(source)), last }
+  // live de verdade (fora da demonstração da ponte): só as lendas de verdade
+  return { list: visibleRanking(list, realLive({ source, bridgeDemo })), last }
 }
 
-/** Ranking compacto (top `limit`) + recorde do dia. `highlight` = a carreira que acabou de terminar. */
-export function LiveRanking({ highlight, limit = 5 }: { highlight?: string; limit?: number }) {
+/**
+ * Ranking compacto (top `limit`) + recorde do dia. `highlight` = a carreira que acabou de terminar.
+ * `compact` (janela em pé): sem a linha "Recorde do dia" embaixo — a 1ª linha dourada já é o recorde, com a
+ * nota e quem criou, e a faixa visível entre a faixa da live e o chat do TikTok é curta.
+ */
+export function LiveRanking({ highlight, limit = 5, compact }: { highlight?: string; limit?: number; compact?: boolean }) {
   const { list, last } = useTodayRanking()
   if (!list.length) return null
   const best = list[0]
@@ -30,7 +36,7 @@ export function LiveRanking({ highlight, limit = 5 }: { highlight?: string; limi
   const mine = highlight ? list.findIndex((e) => e.id === highlight) : -1
   const record = !!highlight && last?.id === highlight && last.record
   return (
-    <section className={cx('lv-rank', record && 'is-record')} aria-label="Ranking da live de hoje">
+    <section className={cx('lv-rank', record && 'is-record', compact && 'is-compact')} aria-label="Ranking da live de hoje">
       <header className="lv-rank__head">
         <span className="lv-rank__k">
           <Trophy size={14} aria-hidden="true" /> Ranking da live de hoje
@@ -54,9 +60,11 @@ export function LiveRanking({ highlight, limit = 5 }: { highlight?: string; limi
           Esta lenda ficou em <b>{mine + 1}º</b> hoje, com nota {list[mine].score}.
         </p>
       )}
-      <p className="lv-rank__best">
-        Recorde do dia: <b>nota {best.score}</b> — {best.surname}, criada por {creatorLabel(best)}
-      </p>
+      {!compact && (
+        <p className="lv-rank__best">
+          Recorde do dia: <b>nota {best.score}</b> — {best.surname}, {creatorPhrase(best)}
+        </p>
+      )}
     </section>
   )
 }
@@ -68,7 +76,11 @@ export function DayRecordLine() {
   if (!best) return null
   return (
     <p className="lv-rank__line">
-      <Trophy size={15} aria-hidden="true" /> Recorde do dia: <b>nota {best.score}</b> — {best.surname}, criada por {creatorLabel(best)}
+      <Trophy size={15} aria-hidden="true" />
+      {/* o texto num span só: no flex, cada pedaço solto ganharia o espaçamento do ícone */}
+      <span>
+        Recorde do dia: <b>nota {best.score}</b> — {best.surname}, {creatorPhrase(best)}
+      </span>
     </p>
   )
 }

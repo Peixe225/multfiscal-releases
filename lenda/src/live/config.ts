@@ -79,7 +79,11 @@ export interface LiveConfig extends VoteRules {
   pace: LivePace
   /**
    * "Sala vazia": votação (ou disputa) sem NENHUM voto (lance) depois destes segundos fecha antes do fim,
-   * com o sorteio de sempre (na disputa, o caminho de "ninguém doou"). Chegou um voto, vai até o fim. 0 = desligado.
+   * com o sorteio de sempre (na disputa, o caminho de "ninguém doou"). Chegou um voto, vai até o fim; sinal de
+   * gente na sala (entrou, comentou, curtiu) empurra o prazo. 0 = desligado.
+   *
+   * Padrão 15 s (não menos): o espectador vê a live do TikTok uns 3–6 s atrasada e o comentário dele leva ~1 s
+   * para chegar — com 10 s, quem chegou sozinho teria uns 4 s para ler a decisão e comentar.
    */
   quietSeconds: number
   /** Chamadas na tela: frases curtas girando a cada ~6 s (como jogar, presentes, seguir, jogar grátis). */
@@ -117,7 +121,7 @@ export const DEFAULT_LIVE_CONFIG: LiveConfig = {
   fixedName: '',
   // configurações novas começam no automático; as já salvas guardam o ritmo que tinham (merge do persist)
   pace: 'auto',
-  quietSeconds: 10,
+  quietSeconds: 15,
   ctaOn: true,
   ctaCustom: '',
   simAuto: true,
@@ -184,6 +188,17 @@ export function mergePersistedConfig(persisted: unknown): { config: LiveConfig; 
   return { editedAt, config: { ...config, pace: validPace(config.pace, DEFAULT_LIVE_CONFIG.pace), giftBindings: dedupeBindings(Array.isArray(config.giftBindings) ? config.giftBindings : [...DEFAULT_BINDINGS]) } }
 }
 
+/**
+ * Configuração salva numa versão anterior → a atual. v1 → v2: sala vazia em 10 s (o padrão antigo) vira 15 s.
+ * Fica antes da store (o persist relê o localStorage já na criação dela).
+ */
+export function migrateConfig(persisted: unknown, version: number): unknown {
+  const p = persisted as { config?: Partial<LiveConfig> } | null | undefined
+  if (!p || typeof p !== 'object' || !p.config || typeof p.config !== 'object') return persisted
+  if (version < 2 && p.config.quietSeconds === 10) return { ...p, config: { ...p.config, quietSeconds: 15 } }
+  return persisted
+}
+
 export const useLiveConfig = create<ConfigStore>()(
   persist(
     (set) => ({
@@ -212,10 +227,12 @@ export const useLiveConfig = create<ConfigStore>()(
     }),
     {
       name: CONFIG_KEY,
-      version: 1,
       // sem storage (navegador bloqueando): o próprio zustand cai para memória — um wrapper que engole o
       // erro faria o persist chamar setItem em undefined e a página ficar em branco
       storage: createJSONStorage(() => localStorage),
+      // v2: o padrão da sala vazia subiu de 10 para 15 s (atraso do TikTok): quem estava com o padrão antigo sobe junto
+      version: 2,
+      migrate: (persisted, version) => migrateConfig(persisted, version) as ConfigStore,
       merge: (persisted, current) => ({ ...current, ...mergePersistedConfig(persisted) }),
     },
   ),

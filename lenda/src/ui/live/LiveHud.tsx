@@ -11,7 +11,7 @@ import { newLegendNow, requestStop } from '@/live/autopilot'
 import { lockHolder, sendLiveCommand } from '@/live/channel'
 import { useLiveConfig, useLiveSession } from '@/live/config'
 import { topSupporters, useLive, type FeedItem } from '@/live/store'
-import { percents, type Outcome, type Round } from '@/live/votes'
+import { percents, roundClock, type Outcome, type Round } from '@/live/votes'
 import { useReveal } from '@/ui/classic/reveal/store'
 import { cx } from '@/ui/primitives'
 import { Countdown, GiftIcon, NEW_LEGEND_LABEL, OPTION_COLORS, coinsLabel, confirmNewLegend, fmtCoins, howToVote, useNow, useSafeArea } from './bits'
@@ -85,6 +85,8 @@ function RoundHead({ round, paused }: { round: Round; paused: boolean }) {
 export function outcomeWhy(round: Round, outcome: Outcome): string {
   if (outcome.reason === 'instant' && round.decidedBy) return `@${round.decidedBy.user.id} decidiu com ${coinsLabel(round.decidedBy.coins)}!`
   if (outcome.reason === 'no-votes') return outcome.quiet ? 'Ninguém votou: o destino escolheu' : 'Ninguém votou: sorteio'
+  // só o streamer votou: nada de "100% dos votos" (o chat não votou)
+  if (outcome.streamer) return 'Só o streamer votou: comente o número e decida a próxima'
   if (outcome.reason === 'tie-break')
     return outcome.tieBy === 'coins'
       ? 'Empate nos votos — venceu quem mandou mais moedas'
@@ -94,17 +96,23 @@ export function outcomeWhy(round: Round, outcome: Outcome): string {
   return `${percents(round)[outcome.winner]}% dos votos`
 }
 
+/** Quem decidiu, para o cabeçalho do resultado (faixa e palco). */
+export function resultKicker(outcome: Outcome): string {
+  return outcome.reason === 'no-votes' ? 'O destino escolheu' : outcome.streamer ? 'O streamer escolheu' : 'O chat decidiu'
+}
+
 function ResultHead() {
   const result = useLive((s) => s.result)
   if (!result) return null
   const { round, outcome } = result
   const opt = round.options[outcome.winner]
-  // sem voto nenhum quem escolheu não foi o chat: a faixa não diz que foi
+  // sem voto nenhum (ou só o do streamer) quem escolheu não foi o chat: a faixa não diz que foi
   const fate = outcome.reason === 'no-votes'
   return (
     <div className="lv-head is-result" style={{ ['--oc' as string]: OPTION_COLORS[outcome.winner] }}>
       <span className="lv-head__k">
-        {fate ? <Dices size={13} aria-hidden="true" /> : <Sparkles size={13} aria-hidden="true" />} <span className="lv-head__kt">{fate ? 'O destino escolheu' : 'O chat decidiu'}</span>
+        {fate ? <Dices size={13} aria-hidden="true" /> : outcome.streamer ? <Mic size={13} aria-hidden="true" /> : <Sparkles size={13} aria-hidden="true" />}{' '}
+        <span className="lv-head__kt">{resultKicker(outcome)}</span>
       </span>
       <span className="lv-head__t">
         <b className="lv-head__n">{outcome.winner + 1}</b> {opt?.label}
@@ -423,7 +431,7 @@ export function LiveHud({ leader }: { leader: boolean }) {
       <div className="lv-hud__row">
         <LiveBadge />
         {round ? <RoundHead round={round} paused={paused} /> : showResult ? <ResultHead /> : <StageHead />}
-        {round && <Countdown endsAt={round.endsAt} total={round.endsAt - round.startedAt} paused={paused} />}
+        {round && <RoundCountdown round={round} paused={paused} />}
         <HudMenu leader />
       </div>
       <HowLine round={round} showResult={showResult} onStage={onStage} />
@@ -436,6 +444,12 @@ export function LiveHud({ leader }: { leader: boolean }) {
       </div>
     </header>
   )
+}
+
+/** Anel da votação: sem voto ainda, conta até o fechamento da sala vazia (roundClock), que é quando ela fecha. */
+function RoundCountdown({ round, paused }: { round: Round; paused: boolean }) {
+  const { endsAt, total } = roundClock(round)
+  return <Countdown endsAt={endsAt} total={total} paused={paused} />
 }
 
 function LegendSlot() {

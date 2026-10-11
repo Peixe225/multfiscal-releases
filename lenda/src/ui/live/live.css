@@ -288,7 +288,7 @@
 .lv-bids__quiet { color: #c9b6ff; font-weight: 700; }
 
 /* ranking da live de hoje (fim de carreira) e o recorde do dia (palco) */
-.lv-rank { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 16px; background: rgba(8, 9, 14, .55); border: 1px solid rgba(255, 200, 87, .22); text-align: left; }
+.lv-rank { display: grid; gap: 8px; box-sizing: border-box; width: 100%; justify-self: stretch; align-self: stretch; margin-top: 12px; padding: 12px; border-radius: 16px; background: rgba(8, 9, 14, .55); border: 1px solid rgba(255, 200, 87, .22); text-align: left; }
 .lv-rank.is-record { border-color: rgba(255, 200, 87, .6); box-shadow: 0 0 34px -12px rgba(255, 200, 87, .7); }
 .lv-rank__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lv-rank__k { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px/1.3 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--warning); }
@@ -310,6 +310,20 @@
 .lv-rank__me, .lv-rank__best { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
 .lv-rank__best b { color: var(--warning); }
 .lv-rank__line { display: flex; align-items: center; gap: 7px; margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: var(--text-2); }
+/* no cartão da disputa: logo abaixo dos lances, separado por um fio */
+.lv-bid .lv-rank__line { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+/* fim de carreira na janela em pé (área segura do TikTok): cabe entre a faixa da live e o chat de baixo —
+   sem o texto da aposentadoria (os números ficam), números e ranking mais enxutos */
+.ck-end.is-compact { justify-content: flex-start; overflow-anchor: none; }
+.ck-end.is-compact .ck-end__in { padding: 4px 6px; }
+.ck-end.is-compact .ck-end__why { display: none; }
+.ck-end.is-compact .ck-end__title { margin: 6px 0 4px; font-size: 26px; }
+.ck-end.is-compact .ck-end__stats { margin: 4px 0 8px; padding: 6px; }
+.ck-end.is-compact .ck-end__stats dd { font-size: 21px; }
+.ck-end.is-compact .ck-decision__sub { font-size: 14px; line-height: 1.4; }
+.ck-end.is-compact .ck-end__actions { margin-top: 2px; }
+.lv-rank.is-compact { margin: 6px 0 8px; padding: 9px 10px; gap: 5px; }
+.lv-rank.is-compact .lv-rank__list li { min-height: 30px; }
 .lv-rank__line svg { flex: none; color: var(--warning); }
 .lv-rank__line b { color: var(--warning); }
 @media (max-width: 640px) {
@@ -480,6 +494,12 @@
   :root[data-lv-safe] .ck-hero__name { font-size: 26px; margin: 6px 0 4px; }
   /* o fim da página pode rolar até acima da faixa de baixo (o fim de carreira vem para o meio da tela) */
   :root[data-lv-safe] main.ck { padding-bottom: calc(var(--lv-safe-bottom) + 12px); }
-  /* palco: o conteúdo para acima da faixa de baixo */
-  :root[data-lv-safe] .lv-stage { padding-bottom: calc(var(--lv-safe-bottom) + 16px); }
+  /* palco: o conteúdo para acima da faixa de baixo; cartão mais enxuto (a linha de chamadas da faixa já
+     ocupa ~60 px no topo — sem isso, o fim dos lances e o recorde do dia iam para baixo do chat do TikTok) */
+  :root[data-lv-safe] .lv-stage { padding-top: 12px; padding-bottom: calc(var(--lv-safe-bottom) + 16px); gap: 12px; }
+  :root[data-lv-safe] .lv-stage__card { padding: 16px 16px; min-height: 0; }
+  :root[data-lv-safe] .lv-stage__t { margin: 6px 0 12px; }
+  :root[data-lv-safe] .lv-stage__how { margin-top: 10px; font-size: 14px; line-height: 1.4; }
+  :root[data-lv-safe] .lv-bids { margin-top: 10px; gap: 7px; }
+  :root[data-lv-safe] .lv-bids li { min-height: 46px; }
 }

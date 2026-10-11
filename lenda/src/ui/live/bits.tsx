@@ -1,12 +1,13 @@
 /**
  * Peças da live: ícone de presente, relógio, cores das opções, linha "como votar".
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { isCaptureWindow, type LiveBeat } from '@/live/channel'
 import { LIVE_IN_CLAUDE, useLiveConfig, type CreatorMode } from '@/live/config'
 import { giftEmoji, giftLabel, sameGift } from '@/live/gifts'
 import { useLive } from '@/live/store'
 import { cx } from '@/ui/primitives'
+import { useMediaQuery } from '@/ui/primitives/hooks'
 
 /** Cor de cada opção (1 a 4) — a mesma no palco, na faixa e nos cards. */
 export const OPTION_COLORS = ['#ff4d6d', '#2fd3ff', '#a98bff', '#ffc857']
@@ -111,6 +112,26 @@ export function useSafeArea(active = true) {
       if (--safeUsers <= 0) delete document.documentElement.dataset.lvSafe
     }
   }, [active, enabled])
+}
+
+/**
+ * Janela da live em pé com a área segura do TikTok ligada (data-lv-safe + retrato): sobra só a faixa entre a
+ * faixa da live e a sobreposição de baixo do TikTok (~500 px a 540×960), então palco e fim de carreira
+ * mostram a versão enxuta (top 3 em vez de top 5, sem o texto repetido).
+ */
+export function useSafePortrait(): boolean {
+  const portrait = useMediaQuery('(orientation: portrait)')
+  const safe = useSyncExternalStore(
+    (cb) => {
+      if (typeof MutationObserver === 'undefined') return () => {}
+      const mo = new MutationObserver(cb)
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-lv-safe'] })
+      return () => mo.disconnect()
+    },
+    () => document.documentElement.dataset.lvSafe === '1',
+    () => false,
+  )
+  return portrait && safe
 }
 
 const PORTRAIT_9_16 = '(max-width: 760px) and (min-aspect-ratio: 9/18) and (max-aspect-ratio: 10/16)'
