@@ -360,6 +360,16 @@
   color: var(--branco);
   padding-left: 16px;
 }
+/* contador do campo com limite (o endereço sem CEP): aparece perto do limite; passou, fica branco e em negrito */
+.dm-contador {
+  align-self: flex-end;
+  padding-right: 16px;
+  font-size: 12px;
+}
+.dm-contador-passou {
+  color: var(--branco);
+  font-weight: 700;
+}
 .dm-dica {
   text-align: center;
   font-size: 13px;

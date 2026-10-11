@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import type { FormaPagamento } from '../dados/canais'
+import { canalDa, type FormaPagamento } from '../dados/canais'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 import { codigoValido, novoCodigoPedido, tokenValido } from '../lib/codigo-pedido'
+import { useLocal } from './local'
 
 export type ModoChat = 'pedido' | 'encomenda'
 
@@ -108,10 +109,20 @@ interface ChatState {
   /** Quando a pessoa tocou em "Fechar pedido no WhatsApp" (para perguntar "Já mandou?" na volta). */
   enviadoEm: number | null
   marcarEnviado: (v: number | null) => void
+  /**
+   * O estado do site quando a pessoa confirmou o atendimento (o passo "local"). Se o site trocar de estado depois, o
+   * pedido volta pro "local" (conferirEstado): endereço, taxa e pagamento são de outro atendimento.
+   */
+  ufLocal: string | null
+  /** O site trocou de estado com o pedido pela metade: recomeça pelo atendimento e tira o que era do estado de antes. */
+  conferirEstado: () => void
   pedido: CodigoPedido
   /** A cópia com esse código foi pro servidor (no toque do WhatsApp). */
   marcarPedidoEnviado: (mensagem: string) => void
-  /** O pedido mudou depois de ir pro servidor: código novo, que substitui o de antes. */
+  /**
+   * O pedido mudou depois de ir pro servidor: código novo, que substitui o de antes. O "Já mandou?" sai junto: a
+   * mensagem nova ainda não foi pro WhatsApp (o resumo volta a pedir pra fechar lá).
+   */
   trocarCodigo: () => void
   abrir: (modo: ModoChat, opts?: { produtoEncomenda?: string; respondendo?: string[]; de?: 'story' | 'pagina' }) => void
   fechar: () => void
@@ -136,15 +147,32 @@ export const useChat = create<ChatState>()(
       respondendoDe: 'story',
       enviadoEm: null,
       marcarEnviado: (v) => set({ enviadoEm: v }),
+      ufLocal: null,
+      conferirEstado: () => {
+        const s = get()
+        const uf = useLocal.getState().uf
+        // sem atendimento confirmado (antes do campo existir: o estado do CEP), nada a conferir
+        const confirmado = s.ufLocal ?? (s.feitos.length ? s.respostas.ufCep || null : null)
+        if (!confirmado || confirmado === uf || (!s.feitos.length && s.passo === 'local')) return
+        const r = { ...s.respostas }
+        // o CEP de outro estado não serve mais (o endereço digitado sem CEP fica como sugestão, a pessoa escolhe de novo)
+        if (r.ufCep && r.ufCep !== uf) Object.assign(r, { cep: '', rua: '', bairro: '', cidadeCep: '', ufCep: '', numero: '' })
+        // pagamento que o estado novo não aceita sai (o passo do pagamento pergunta de novo)
+        const opcoes = canalDa(uf)?.pagamento.opcoes
+        if (r.pagamento && opcoes && !opcoes.includes(r.pagamento)) Object.assign(r, { pagamento: null, troco: null })
+        set({ feitos: [], passo: inicio(s.modo), enviadoEm: null, ufLocal: null, respostas: r })
+      },
       pedido: codigoNovo(),
       marcarPedidoEnviado: (mensagem) => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now() } })),
       trocarCodigo: () =>
         set((s) => {
           const { codigo, token, enviadaEm } = s.pedido
           const recente = enviadaEm !== null && Date.now() - enviadaEm < JANELA_TROCA_MS
-          return { pedido: codigoNovo(recente ? { codigo, token } : null) }
+          return { pedido: codigoNovo(recente ? { codigo, token } : null), enviadoEm: null }
         }),
       abrir: (modo, opts) => {
+        // trocou de estado desde que confirmou o atendimento: recomeça por ele
+        get().conferirEstado()
         const s = get()
         // Reabrir o mesmo modo continua de onde parou; trocar de modo recomeça o roteiro (as respostas ficam).
         if (s.modo !== modo || ((s.passo === 'resumo' || s.passo === 'enc-resumo') && !s.enviadoEm)) {
@@ -161,6 +189,8 @@ export const useChat = create<ChatState>()(
           respostas: { ...s.respostas, ...dados },
           feitos: [...s.feitos.filter((p) => p !== passo), passo],
           passo: proximo,
+          // o atendimento confirmado é o do estado do site agora
+          ...(passo === 'local' ? { ufLocal: useLocal.getState().uf } : {}),
         })),
       avancar: (proximo) => set({ passo: proximo }),
       voltarPara: (passo) =>
@@ -173,12 +203,17 @@ export const useChat = create<ChatState>()(
     {
       name: 'gc-chat',
       storage: createJSONStorage(() => armazenamentoSeguro),
-      partialize: (s) => ({ modo: s.modo, feitos: s.feitos, passo: s.passo, respostas: s.respostas, respondendo: s.respondendo, respondendoDe: s.respondendoDe, enviadoEm: s.enviadoEm, pedido: s.pedido }),
+      partialize: (s) => ({ modo: s.modo, feitos: s.feitos, passo: s.passo, respostas: s.respostas, respondendo: s.respondendo, respondendoDe: s.respondendoDe, enviadoEm: s.enviadoEm, ufLocal: s.ufLocal, pedido: s.pedido }),
       // respostas novas (campos acrescentados depois) não quebram quem já tinha dados salvos
       merge: (salvo, atual) => {
         const s = (salvo ?? {}) as Partial<ChatState>
-        return { ...atual, ...s, respostas: { ...respostasVazias, ...(s.respostas ?? {}) }, pedido: codigoLido(s.pedido) }
+        return { ...atual, ...s, respostas: { ...respostasVazias, ...(s.respostas ?? {}) }, ufLocal: typeof s.ufLocal === 'string' ? s.ufLocal : null, pedido: codigoLido(s.pedido) }
       },
     },
   ),
 )
+
+// o site trocou de estado (seletor, Por estado, CEP de outro estado) com o pedido pela metade: volta pro atendimento
+useLocal.subscribe((s, antes) => {
+  if (s.uf !== antes.uf) useChat.getState().conferirEstado()
+})

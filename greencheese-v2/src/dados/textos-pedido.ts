@@ -73,6 +73,7 @@ export const TEXTOS_PEDIDO = {
   'cep.naoAchei': { padrao: 'Não achei esse CEP. Confere os números ou segue sem CEP.', tipo: 'fala' },
   'cep.foraDoAr': { padrao: 'O serviço de CEP não respondeu agora. Dá pra digitar o endereço.', tipo: 'fala' },
   'cep.outroEstado': { padrao: 'Esse CEP é de {cidade}/{uf}. O atendimento escolhido é o de {ufAtendimento}.', tipo: 'fala', marcadores: ['cidade', 'uf', 'ufAtendimento'] },
+  'cep.outraCidade': { padrao: 'Esse CEP é de {cidade}/{uf}. A Green Cheese {uf} entrega em {cidades}.', tipo: 'fala', marcadores: ['cidade', 'uf', 'cidades'] },
   'cep.trocar': { padrao: 'Trocar pra Green Cheese {uf}', tipo: 'botao', marcadores: ['uf'] },
   'cep.esseMesmo': { padrao: 'É esse mesmo', tipo: 'botao' },
   'cep.outro': { padrao: 'Outro CEP', tipo: 'botao' },
@@ -84,6 +85,8 @@ export const TEXTOS_PEDIDO = {
   'rua.pergunta': { padrao: 'Manda o endereço: rua, número e bairro.', tipo: 'fala' },
   'rua.dica': { padrao: 'Rua, número, bairro', tipo: 'dica' },
   'rua.erro': { padrao: 'Falta coisa: rua, número e bairro.', tipo: 'erro' },
+  'rua.longo': { padrao: 'Até {max} letras. Ponto de referência vai na observação, no fim.', tipo: 'erro', marcadores: ['max'] },
+  'endereco.outros': { padrao: 'Outros endereços ({n})', tipo: 'botao', marcadores: ['n'] },
 
   // pagamento e troco
   'pagamento.pergunta': { padrao: 'Como vai pagar?', tipo: 'fala', marcadores: ['nome'] },
@@ -91,6 +94,7 @@ export const TEXTOS_PEDIDO = {
   'troco.sem': { padrao: 'Sem troco', tipo: 'botao' },
   'troco.dica': { padrao: 'Ex.: 100', tipo: 'dica' },
   'troco.erro': { padrao: 'Só o valor, tipo 100 ou 50,00.', tipo: 'erro' },
+  'troco.menor': { padrao: 'Esse valor não cobre o pedido ({subtotal}). Troco pra quanto?', tipo: 'erro', marcadores: ['subtotal'] },
   'troco.resposta': { padrao: 'Troco pra {valor}', tipo: 'resposta', marcadores: ['valor'] },
 
   // observação

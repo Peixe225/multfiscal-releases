@@ -38,10 +38,12 @@ export const ROTULO_FALA: Record<ChaveTexto, string> = {
   'endereco.semCep': 'Botão: seguir sem CEP',
   'endereco.dica': 'Escrito dentro do campo do CEP',
   'endereco.erro': 'Erro: CEP incompleto',
+  'endereco.outros': 'Botão: mostrar os outros endereços guardados da conta',
   'cep.procurando': 'Enquanto procura o CEP',
   'cep.naoAchei': 'CEP não encontrado',
   'cep.foraDoAr': 'O serviço de CEP não respondeu',
   'cep.outroEstado': 'O CEP é de outro estado',
+  'cep.outraCidade': 'O CEP é de uma cidade que o estado não atende',
   'cep.trocar': 'Botão: trocar pro estado do CEP',
   'cep.esseMesmo': 'Botão: manter o CEP',
   'cep.outro': 'Botão: digitar outro CEP',
@@ -53,12 +55,14 @@ export const ROTULO_FALA: Record<ChaveTexto, string> = {
   'rua.pergunta': 'Pede o endereço completo (sem CEP)',
   'rua.dica': 'Escrito dentro do campo do endereço',
   'rua.erro': 'Erro: endereço incompleto',
+  'rua.longo': 'Erro: endereço passou do limite de letras',
 
   'pagamento.pergunta': 'Pergunta como vai pagar',
   'troco.pergunta': 'Pergunta o troco',
   'troco.sem': 'Botão: sem troco',
   'troco.dica': 'Escrito dentro do campo do troco',
   'troco.erro': 'Erro: valor do troco',
+  'troco.menor': 'Erro: troco menor que o pedido',
   'troco.resposta': 'Resposta do cliente com o troco',
 
   'obs.pergunta': 'Pergunta se tem observação',
@@ -144,6 +148,10 @@ export const EXEMPLO_MARCADOR: Record<string, string> = {
   cupom: 'SORTE-K8EA',
   motivo: 'falta 1 OCB',
   premio: 'LEVA 4 PAGA 3 · Seda OCB Premium Slim',
+  cidades: 'Teófilo Otoni',
+  max: '200',
+  n: '2',
+  subtotal: 'R$ 169,89',
 }
 
 /** O que cada marcador vira (o chip do editor). */
@@ -163,4 +171,8 @@ export const NOME_MARCADOR: Record<string, string> = {
   cupom: 'código do cupom',
   motivo: 'por que o cupom não vale',
   premio: 'o prêmio do cupom',
+  cidades: 'cidades atendidas no estado',
+  max: 'limite de letras',
+  n: 'quantos faltam mostrar',
+  subtotal: 'subtotal do pedido',
 }
