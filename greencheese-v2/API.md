@@ -435,7 +435,7 @@ interface EnvioAviso {
   status: 'pendente' | 'enviando' | 'enviado' | 'falhou'
   motor: string
   tentativas: number
-  erro: string                   // frase pronta, sem segredo
+  erro: string                   // 2 linhas, sem segredo: a 1ª é a frase pro dono (o que fazer), a 2ª o detalhe técnico
   criadoEm: string
   atualizadoEm: string
   enviadoEm: string | null
@@ -475,7 +475,7 @@ erros seguem as regras gerais.
 
 | Rota | Corpo / parâmetros | Sucesso |
 |---|---|---|
-| GET `admin-sessao` | — | `{ instalado, usuario: Usuario \| null, csrf: string \| null, versao }` |
+| GET `admin-sessao` | — | `{ instalado, usuario: Usuario \| null, csrf: string \| null, versao, recuperarPeloWhatsapp: boolean }` (`recuperarPeloWhatsapp`: o "Esqueci a senha" pode mandar o código pro WhatsApp da loja; ver "Painel do dono: lista, cópia e senha pelo WhatsApp") |
 | POST `admin-instalar` | `{ codigo, login, nome, senha }` | 201 `{ usuario, csrf }` + cookie; semeia os 2 rateios de exemplo |
 | POST `admin-recuperar` | `{ codigo, senha, login? }` | `{ usuario, csrf }` + cookie; derruba todas as sessões |
 | POST `admin-entrar` | `{ login, senha }` | `{ usuario, csrf }` + cookie (token novo sempre) |
@@ -492,7 +492,7 @@ erros seguem as regras gerais.
 | POST `admin-participante-status` | `{ id, status }` | `{ participante, rateio, jaEstava? }` (`jaEstava: true`: já tinha esse status, nada mudou) |
 | POST `admin-participante-apagar` | `{ id }` | `{ participante, rateio }` (dados pessoais apagados) |
 | GET `admin-participantes-csv` | `&rateio=` | arquivo `rateio-<id>-<data>.csv` (`;`, BOM UTF-8: abre direto no Excel; data no horário de Brasília) |
-| GET `admin-backup` | — | arquivo `greencheese-loja-<data>-<hora>.sqlite` (cópia inteira e coerente do banco; horário de Brasília) |
+| GET `admin-backup` | — | arquivo `greencheese-loja-<data>-<hora>.sqlite` (cópia inteira e coerente do banco; horário de Brasília); anota a hora em `ajustes.copia_em` (o `admin-pronto` devolve) |
 | POST `admin-upload` | multipart, campo `imagem` | 201 `{ imagem: 'uploads/<nome>', largura, altura, bytes, tipo }` |
 | GET `admin-diagnostico` | — | `Diagnostico` |
 | GET `admin-eventos` | `[&usuario=<login>]` (só o dono) | `{ eventos: Evento[] }` (os últimos 100, do mais novo; gerente e atendente veem só os deles) |
@@ -691,6 +691,58 @@ nunca sobe por alguém sem nome nem WhatsApp); cancelar continua valendo.
 **Cópia do banco**: `admin-backup` baixa o banco inteiro num arquivo só, já com o que estava no diário do SQLite
 (copiar o `loja.sqlite` à mão pode sair sem as últimas mudanças). Tem nome, WhatsApp e tudo: guardar em lugar seguro.
 
+### Painel do dono: lista, cópia e senha pelo WhatsApp
+
+Módulo `nucleo/painel-dono.php` (migração 300). Duas rotas com sessão (permissão `loja`, só o dono) e duas abertas
+(sem usuário: quem esqueceu a senha), todas com Origin; as com sessão também com CSRF.
+
+| Rota | Corpo / parâmetros | Sucesso |
+|---|---|---|
+| GET `admin-pronto` | — | `Pronto` |
+| POST `admin-pronto-salvar` | `{ pular?: { item, pular: boolean }, recuperarPeloWhatsapp?: boolean }` | `Pronto` |
+| POST `admin-recuperar-codigo` | `{ login }` | `{ enviado: true, para: '(33) 9••••-9036', expiraEm, mensagem }` (sempre a mesma resposta, com ou sem login) |
+| POST `admin-recuperar-codigo-entrar` | `{ login, codigo, senha }` | `{ usuario, csrf }` + cookie; derruba todas as sessões |
+
+```ts
+interface Pronto {
+  agora: string
+  instaladoEm: string | null
+  senhaTrocada: boolean          // o dono já trocou a senha da entrega (senha_em depois do criado_em)
+  equipe: number                 // outros acessos ativos
+  outrosDonos: { nome: string; login: string }[] // outros donos ativos (resolvem a senha esquecida sem nós)
+  avisos: { ligado: boolean }
+  copia: { ultimaEm: string | null } // a última cópia de segurança (ajustes.copia_em; banco de antes: o último evento backup-baixado)
+  pulados: string[]              // itens que o dono pulou: senha, estados, exemplos, precos, fotos, equipe, avisos, copia
+  recuperacao: { disponivel: boolean; ligado: boolean; para: string | null } // código no WhatsApp da loja
+}
+```
+
+O que está feito na lista "Pra deixar a loja pronta" o painel calcula do estado de verdade (este `Pronto`, a loja e os
+rateios); o servidor guarda só o que foi pulado (`ajustes.pronto_pulados`). Item desconhecido ou valor torto: 400
+`invalido` (`campo: 'pular'` ou `'recuperarPeloWhatsapp'`). Atividade: `pronto-pulou` e `recuperacao-whatsapp`.
+
+**Senha pelo WhatsApp da loja** (a saída do dono que esqueceu a senha sem outro dono e sem código de instalação):
+
+- **Quando vale**: os Avisos no WhatsApp ligados num motor que manda pra número (Z-API ou Evolution), o WhatsApp da
+  loja preenchido (Ajustes da loja) e o ajuste `recuperar_whatsapp` diferente de `'0'` (o dono desliga em Conta, pelo
+  `admin-pronto-salvar`). Fora disso: 409 `sem-whatsapp` ("A senha pelo WhatsApp da loja tá desligada. Pede pra outro
+  dono…") e o `admin-sessao` manda `recuperarPeloWhatsapp: false`.
+- **Pedir** (`admin-recuperar-codigo`): 6 números (HMAC com o sal do servidor e o id do usuário; o banco não guarda o
+  código), válidos por **10 minutos** e **uma vez só**; pedir de novo invalida o anterior. Só dono ativo recebe; para
+  login que não existe, que não é dono ou está desativado, a resposta é **a mesma** (nada revela se o login existe) e
+  o tempo de resposta também (o envio vai depois da resposta, `gc_depois`). Limites: 1 por minuto por login (429
+  `muitas-tentativas`, "Acabou de sair um código…", com `esperaSegundos`), 3 por hora por login, 5 por hora por IP e 10 por hora pra loja inteira
+  (429). O código vai pro **WhatsApp da loja** (nunca pra um número digitado): "*NNNNNN* é o código pra trocar a senha
+  do painel da Green Cheese (login @x). Vale por 10 minutos, uma vez só. Se não foi tu que pediu, ignora: a senha
+  continua a mesma.". Atividade: `senha-codigo-pedido`.
+- **Usar** (`admin-recuperar-codigo-entrar`): confere a senha nova primeiro (400 `invalido`, `campo: 'senha'`), depois o código:
+  errado, vencido ou já usado → 403 `codigo-invalido` ("Código errado ou vencido. Confere no WhatsApp da loja ou pede
+  outro."), sempre a mesma resposta. 5 erros matam o código. Limites: 10 por 15 min por login e por IP. Certo: troca a
+  senha, derruba todas as sessões, entra (cookie novo), grava `senha-recuperada-whatsapp` na Atividade e manda pro
+  grupo da loja "*SENHA DO PAINEL TROCADA* · @login…" (quem não pediu fica sabendo).
+- **Risco que fica**: quem está com o celular do WhatsApp da loja na mão consegue trocar a senha do dono. Por isso o
+  aviso no grupo, o desligar em Conta e a sugestão de um 2º dono (que resolve sem WhatsApp nenhum).
+
 ## Banco: migrações por número
 
 O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de número e numa trava só
@@ -702,6 +754,7 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 | 1–99 | base (painel e rateio) | `nucleo/banco.php`, `gc_migracoes_base()` |
 | 100–199 | loja (catálogo, estados, stories, ajustes, Teste minha sorte) | `nucleo/loja-migracoes.php`, `gc_migracoes_loja()` |
 | 200–299 | pedidos, avisos, falas e contas | `nucleo/pedido-migracoes.php` (`gc_migracoes_pedidos()`) e `nucleo/contas-migracoes.php` (`gc_migracoes_contas()`) |
+| 300–399 | painel do dono (lista "pra deixar a loja pronta", cópia, senha pelo WhatsApp) | `nucleo/painel-dono.php`, `gc_migracoes_dono()` |
 
 - Nunca edite uma migração que já foi pro ar: acrescente outra com o próximo número livre da faixa.
 - Uma migração é SQL ou uma função que recebe o `PDO` (pra semear dados). A função roda dentro da trava, com a conexão
@@ -717,8 +770,8 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, participações), `100` (as tabelas da loja),
 `101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
-ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho) e `208` (o pedido
-mudado guarda qual ele substitui).
+ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
+mudado guarda qual ele substitui) e `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp).
 
 ## Loja
 
@@ -1031,14 +1084,15 @@ Cada pessoa entra no painel com o login dela. Três papéis (`nucleo/equipe.php`
 Permissões que existem (`GC_PERMISSOES`): as de cima mais `loja`, `avisos`, `textos`, `servidor`, `equipe` e
 `clientes`, que só o dono tem. Na loja: `produtos` (ler a loja do painel, `admin-loja`, e mudar o disponível e o
 estoque de um estado, `admin-produto-estado`, só nos estados de quem pede) e `loja` (o resto: produto, categorias,
-estados, stories, textos da loja, Teste minha sorte e prêmios). No painel, Produtos e Loja ficam só pro dono por
-enquanto: a tela de estoque do gerente (só o disponível e o estoque dos estados dele) é o passo seguinte.
+estados, stories, textos da loja, Teste minha sorte e prêmios). No painel, Produtos e Loja ficam só pro dono; o gerente
+tem a tela **Estoque** (só o disponível e o estoque dos estados dele, pelas mesmas `admin-loja` e
+`admin-produto-estado`).
 
 **O mapa** (`GC_PERMISSAO_ROTA`): toda rota `admin-*` tem a permissão que pede, num lugar só. O `gc_exigir_dono()`
 (que toda rota do painel já chamava) passou a conferir o mapa depois do CSRF: papel sem a permissão → 403
 `sem-permissao` ("Teu acesso não deixa fazer isso. Fala com o dono da loja."). Rota que não está no mapa: só o dono
-passa (gerente e atendente levam 403). As rotas abertas (`admin-sessao`, `-instalar`, `-entrar`, `-recuperar`) ficam
-fora: não têm usuário ainda. O `testar-api` recusa rota `admin-*` do `index.php` sem linha no mapa.
+passa (gerente e atendente levam 403). As rotas abertas (`admin-sessao`, `-instalar`, `-entrar`, `-recuperar`,
+`-recuperar-codigo`, `-recuperar-codigo-entrar`) ficam fora: não têm usuário ainda. O `testar-api` recusa rota `admin-*` do `index.php` sem linha no mapa.
 
 **Rota nova**: põe a linha `'admin-<rota>' => '<permissão>'` no `GC_PERMISSAO_ROTA`
 (`produtos` pra produto, estoque e disponibilidade; `loja` pra estados, stories, textos da loja e prêmios; ou outra
