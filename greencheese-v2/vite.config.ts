@@ -86,7 +86,9 @@ function precarregarFonte(): Plugin {
       handler(html, ctx) {
         const arq = Object.keys(ctx.bundle ?? {}).find((f) => /pixelify-sans-latin-500-normal-[^/]*\.woff2$/.test(f))
         if (!arq) return html
-        return { html, tags: [{ tag: 'link', attrs: { rel: 'preload', href: `./${arq}`, as: 'font', type: 'font/woff2', crossorigin: '' }, injectTo: 'head' }] }
+        // prioridade baixa: não disputa banda com o JS e o CSS da primeira tela (a home de sempre não atrasa) e ainda chega
+        // antes de o React pintar o story
+        return { html, tags: [{ tag: 'link', attrs: { rel: 'preload', href: `./${arq}`, as: 'font', type: 'font/woff2', crossorigin: '', fetchpriority: 'low' }, injectTo: 'head' }] }
       },
     },
   }
