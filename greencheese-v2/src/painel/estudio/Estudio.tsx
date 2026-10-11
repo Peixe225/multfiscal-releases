@@ -34,6 +34,8 @@ interface Props {
   /** Sobe a original como veio (null no "Ajustar": a original é a que já está salva). */
   aoUsarOriginal: ((andou: (fracao: number) => void) => Promise<void>) | null
   aoFechar: () => void
+  /** Um aviso de quem abriu, em cima da foto (ex.: a foto é pequena e vai ficar borrada no site). */
+  aviso?: string | null
 }
 
 /** Lado maior da foto pra trabalhar (a final sai em 720×1280) e da cópia pequena que decide o recorte. */
@@ -57,7 +59,7 @@ function analisarCanvas(c: HTMLCanvasElement): Analise {
 /** Respira um quadro (a tela anda entre um passo pesado e outro). */
 const respirar = () => new Promise<void>((ok) => requestAnimationFrame(() => setTimeout(ok, 0)))
 
-export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal, aoFechar }: Props) {
+export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal, aoFechar, aviso: avisoDeFora = null }: Props) {
   usarCssDoEstudio()
   const [base, setBase] = useState<Base | null>(null)
   const [falhou, setFalhou] = useState<string | null>(null)
@@ -333,6 +335,7 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
       }
     >
       <div className="pn-est">
+        {avisoDeFora && !falhou && <Aviso tipo="info">{avisoDeFora}</Aviso>}
         {falhou ? (
           <Aviso tipo="erro">{falhou}</Aviso>
         ) : !base ? (
@@ -491,7 +494,7 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
               </label>
               {corDaFoto && vista === 'depois' && (
                 <p className="pn-dica pn-est-cor">
-                  <span className="pn-est-amostra" style={{ background: corDaFoto }} aria-hidden="true" /> O brilho atrás do produto no site vai ficar dessa cor (dá pra trocar em “Desenho”).
+                  <span className="pn-est-amostra" style={{ background: corDaFoto }} aria-hidden="true" /> O brilho atrás do produto no site vai ficar dessa cor (dá pra trocar em Mais detalhes › Desenho).
                 </p>
               )}
             </div>

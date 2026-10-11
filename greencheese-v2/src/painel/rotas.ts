@@ -31,7 +31,8 @@ export type Rota =
   // loja: produtos, estados, stories do Início, categorias, ajustes e Teste minha sorte
   | { tela: 'produtos'; ver: VerProdutos | null }
   | { tela: 'produto'; id: string }
-  | { tela: 'produto-novo' }
+  /** uf: o estado do filtro da lista (o produto novo nasce à venda nele). */
+  | { tela: 'produto-novo'; uf: string | null }
   | { tela: 'loja' }
   | { tela: 'estados' }
   | { tela: 'estado'; uf: string }
@@ -91,7 +92,10 @@ function ler(): Rota {
     case 'estoque':
       return { tela: 'estoque', uf: partes[1] && UF.test(partes[1]) ? partes[1] : null }
     case 'produtos': {
-      if (partes[1] === 'novo') return { tela: 'produto-novo' }
+      if (partes[1] === 'novo') {
+        const uf = q.get('uf')
+        return { tela: 'produto-novo', uf: uf && UF.test(uf) ? uf : null }
+      }
       const ver = q.get('ver') as VerProdutos | null
       return { tela: 'produtos', ver: ver && VER.includes(ver) ? ver : null }
     }
@@ -284,6 +288,8 @@ export const caminho = {
   produtosVer: (ver: VerProdutos) => `#/produtos?ver=${ver}`,
   produto: (id: string) => `#/produto/${id}`,
   produtoNovo: '#/produtos/novo',
+  /** O produto novo à venda no estado do filtro da lista (null = o último filtro lembrado, ou nenhum). */
+  produtoNovoEm: (uf: string | null) => (uf ? `#/produtos/novo?uf=${uf}` : '#/produtos/novo'),
   loja: '#/loja',
   estados: '#/loja/estados',
   estado: (uf: string) => `#/loja/estado/${uf}`,
