@@ -185,8 +185,14 @@
 .rua-vitrine[data-estreita] .rua-vitrine-preco {
   font-size: 15px;
 }
-/* o nome em até duas linhas; o preço embaixo, maior, com o ícone de link (como o VER PRODUTO do story) */
+.rua-vitrine[data-estreita] .rua-vitrine-nome {
+  font-size: 12px;
+}
+/* o nome em até duas linhas; o preço embaixo, maior, com o ícone de link (como o VER PRODUTO do story). O nome vai na
+   letra do sistema: a Pixelify só lê bem do 16 px pra cima, e nos 12–14 px da placa "OCB" virava "0C8" */
 .rua-vitrine-nome {
+  font: 600 13px/1.15 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
