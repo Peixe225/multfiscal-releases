@@ -226,6 +226,8 @@ php_admin_value post_max_size 20M
       'api/privado/.htaccess', 'api/nucleo/base.php', 'api/nucleo/', 'api/nucleo/.htaccess', 'api/instalacao.php', 'api/.htaccess', 'uploads/', 'uploads/.htaccess',
       // os módulos dos pedidos, dos avisos (que leem os segredos do gateway) e a lista das falas
       'api/nucleo/pedido.php', 'api/nucleo/avisos.php', 'api/nucleo/textos.php', 'api/nucleo/pedido-migracoes.php', 'api/nucleo/textos-pedido.json',
+      // o módulo do dono (lista "pra deixar a loja pronta" e o código da senha no WhatsApp)
+      'api/nucleo/painel-dono.php',
     ]
     for (const c of fechados) {
       const r = await fetch(`${base}/${c}`)
