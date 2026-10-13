@@ -61,8 +61,10 @@ export async function fluxoSiteSorte(h) {
       await p.keyboard.press('ArrowRight')
       await p.waitForTimeout(220)
     }
-    await p.locator('.story-premio').waitFor({ timeout: 10000 })
-    await p.waitForTimeout(3000)
+    // a revelação na fumaça vai até ~9 s no lendário, e com o relógio falso do Playwright o quadro anda mais devagar
+    // (o comum, que leva ~6,8 s, passou de 9 s): espera o story sair da fumaça com folga
+    await p.locator('.story-premio:not([inert])').waitFor({ timeout: 30000 })
+    await p.waitForTimeout(1500)
   }
   /** Abre o jogo e devolve o texto do bloqueado (vazio se não bloqueou). */
   const bloqueado = async (p) => {
