@@ -30,6 +30,11 @@ function diaDoProximo(): string {
   const ms = proximoGiro()
   return ms == null ? 'amanhã' : diaQueLibera(diaSP(ms), diaSP(agoraLoja()))
 }
+/** "Cria tua conta pra girar de novo amanhã." · "… de novo domingo, 18/10." (o mesmo do adesivo do Início, estado.ts) */
+function criaNoDia(): string {
+  const dia = diaDoProximo()
+  return dia === 'amanhã' ? TE.criaAmanha : `Cria tua conta pra girar de novo ${dia}.`
+}
 
 export const T = {
   ...TE,
@@ -146,8 +151,12 @@ export const T = {
   },
   // girou sem conta e o giro ainda conta na janela de quem criar a conta aqui: "amanhã" ou o dia (a frequência do painel)
   get criaAmanha() {
-    const dia = diaDoProximo()
-    return dia === 'amanhã' ? TE.criaAmanha : `Cria tua conta pra girar de novo ${dia}.`
+    return criaNoDia()
+  },
+  // "cria e gira agora" só quando a conta que nascer aqui gira na hora; se os giros sem conta deste aparelho já enchem a
+  // janela dela (2 giros por semana e o aparelho girou 2 vezes), o dia que libera — nunca promete giro que não vem
+  get criaAgora() {
+    return proximoGiro() == null ? TE.criaAgora : criaNoDia()
   },
   jaTenhoConta: 'Já tenho conta',
 

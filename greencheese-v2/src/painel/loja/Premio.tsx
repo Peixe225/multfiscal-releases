@@ -19,7 +19,7 @@ import { chancesReais } from '../../lib/sorteio'
 import { ArteProduto, NomeProduto } from './Arte'
 import { comPremio, estadosNoSite, guardarLoja, nomeCompleto, useLoja } from './dados'
 import { fraseDoPremio, PreviaPremio } from './premio-ui'
-import { FichasRaridade, SeloRaridade, TesteAnimacao, cenaDoPremio, textoChance } from './sorte-ui'
+import { FichasRaridade, SeloRaridade, TesteAnimacao, cenaDoPremio, foraDoSite, textoChance } from './sorte-ui'
 import type { LojaAdmin, PremioAdmin, PremioCorpo, ProdutoAdmin, Raridade, TipoPremio, ValorPremio } from './tipos'
 import { bebidaPeloProduto, problemaNoTexto, tamanho } from './validar'
 
@@ -246,7 +246,10 @@ export function Premio({ id }: { id: string | null }) {
   // a chance real de sair: os prêmios no jogo, com este do jeito que tá no formulário no lugar dele (a mesma conta do
   // servidor: a raridade pela chance dela entre as que têm prêmio, depois o peso dentro dela)
   const noJogo = l.sorte.premios.filter((x) => x.noSite && x.id !== p?.id)
-  const esteNoJogo = f.ativo && (!p || p.noSite || !p.ativo)
+  // não sai agora? Desligado ("Esse prêmio pode sair"), ou o que ele vale tá fora do site (o mesmo motivo da lista da
+  // Sorte, com o que tá no formulário: "Bandeja RAW pequena tá fora do site")
+  const foraAgora = f.ativo ? foraDoSite({ aplicaA, valor: valorDo(f) }, l) : null
+  const esteNoJogo = f.ativo && !foraAgora
   const comEste = esteNoJogo ? [...noJogo, { id: '__este', peso: n(f.peso) ?? 1, raridade: f.raridade }] : noJogo
   const chanceEste = esteNoJogo ? (chancesReais(comEste, l.sorte.chances).get(comEste[comEste.length - 1]) ?? 0) : 0
   const mesmaRaridade = noJogo.filter((x) => x.raridade === f.raridade).length
@@ -396,6 +399,8 @@ export function Premio({ id }: { id: string | null }) {
                     {l.sorte.chances[f.raridade] === 0 ? ' (essa raridade tá com 0%)' : mesmaRaridade ? `, dividindo o ${INFO_RARIDADE[f.raridade].nome} com ${mesmaRaridade === 1 ? 'mais 1 prêmio' : `mais ${mesmaRaridade} prêmios`}` : ''}.
                   </span>
                 </>
+              ) : foraAgora ? (
+                <span>Não sai agora: {foraAgora}.</span>
               ) : (
                 <span>Fora do jogo: não sai até voltar pro jogo.</span>
               )}

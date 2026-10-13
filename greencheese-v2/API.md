@@ -1279,7 +1279,9 @@ máximo 2** (o prêmio reservado primeiro), só de prêmio que existe e **só os
 existir** (o primeiro dia em que o entrar com código esteve ligado, guardado no ajuste `contas_desde`: depois disso
 todo cupom nasce no servidor), com a validade contada do dia em que foram ganhos (`ganhoEm` + a validade do prêmio) e o
 mesmo código quando está livre (`origem: 'aparelho'`). Os dias de giro do aparelho contam como giro da conta (sempre:
-só restringem). `migrados` diz quantos cupons vieram.
+só restringem; os dos últimos 30 dias): a lista tem um dia por giro, e cada dia entra com quantos giros vieram nele (até
+N, que já enche toda janela que passa por ele), descontando os que o servidor já tem naquele dia pra conta ou pro
+aparelho. `migrados` diz quantos cupons vieram.
 
 **Pedidos e vagas da conta**: o pedido (ou a vaga) entra na conta quando foi feito com ela logada, ou quando o
 WhatsApp dele foi **conferido**: veio da conta logada (que entrou pelo código) ou a loja salvou o número no painel
@@ -1350,9 +1352,10 @@ recusam).
 - **A frequência com conta**: `girosPorIntervalo` (N) giros a cada `intervaloDias` (X) dias de calendário de Brasília
   (-03:00), por conta, por WhatsApp e por aparelho (trocar de conta no mesmo aparelho não dá giro a mais). Em quaisquer
   X dias seguidos, no máximo N giros: conta os dias de giro dos últimos X dias (hoje e os X − 1 antes); com N ou mais,
-  o próximo libera à meia-noite (Brasília) do dia em que o N-ésimo giro mais recente sai da janela (`proximoEm`). X = 1
-  e N = 1 é o 1 por dia de sempre (vira à meia-noite). O cupom já nasce guardado, com o código `SORTE-XXXX` gerado no
-  servidor. O nome do motivo ficou o de antes (`ja-girou-hoje`) e o `girouHoje` quer dizer "girou dentro do período".
+  o próximo libera à meia-noite (Brasília) do dia em que o N-ésimo giro mais recente sai da janela, o dia dele + X
+  (`proximoEm`; com N = 1, o giro mais novo + X — com a janela cheia de antes de o dono apertar a frequência, não é o
+  mais antigo que segura). X = 1 e N = 1 é o 1 por dia de sempre (vira à meia-noite). O cupom já nasce guardado, com o
+  código `SORTE-XXXX` gerado no servidor. O nome do motivo ficou o de antes (`ja-girou-hoje`) e o `girouHoje` quer dizer "girou dentro do período".
 - Sem conta: **1 giro por aparelho** (o segredo `aparelho`, 32 hex, que o site guarda); o prêmio fica reservado pro
   aparelho por 24 h. Entrar ou criar a conta nesse aparelho guarda a reserva como cupom (`cupomGuardado`), e esse giro
   conta como giro da conta **no dia em que foi feito**: só guarda se, com ele, nenhuma janela de X dias que contém

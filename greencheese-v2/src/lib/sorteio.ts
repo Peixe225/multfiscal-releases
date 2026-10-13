@@ -82,8 +82,13 @@ export function sortearPorRaridade<T extends Sorteavel>(lista: readonly T[], cha
 
 /* ───────────────────────── as chances (painel e o que chega do servidor) ───────────────────────── */
 
-/** Soma das chances em décimos de % (100% = 1000). */
-export const somaDecimos = (c: Partial<Record<Raridade, number>>): number => RARIDADES.reduce((s, r) => s + Math.round((c[r] ?? 0) * 10), 0)
+/**
+ * Quanto falta pra fechar 100% (negativo: passou), do jeito que a pessoa digitou: sem arredondar cada campo antes de
+ * somar (60,05 + 24,95 + 12 + 3 fecha 100%, e o erro que fica é o das casas). Campo torto conta 0; até 3 casas, sem o
+ * ruído do ponto flutuante.
+ */
+export const faltaPara100 = (c: Partial<Record<Raridade, number>>): number =>
+  Math.round((100 - RARIDADES.reduce((s, r) => s + (Number.isFinite(c[r]) ? (c[r] as number) : 0), 0)) * 1000) / 1000
 
 export type ErroChances = { erro: string; raridade: Raridade | null }
 

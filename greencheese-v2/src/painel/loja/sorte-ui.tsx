@@ -10,6 +10,7 @@ import { Botao, Carregando, Ic } from '../ui'
 import { ArteProduto } from './Arte'
 import { fraseDoPremio } from './premio-ui'
 import type { LojaAdmin, PremioAdmin } from './tipos'
+import { bebidaPeloProduto } from './validar'
 
 const cores = (r: Raridade) => ({ '--rar': INFO_RARIDADE[r].cor, '--rar-clara': INFO_RARIDADE[r].clara, '--rar-escura': INFO_RARIDADE[r].escura }) as CSSProperties
 
@@ -38,6 +39,34 @@ export function FichasRaridade({ valor, aoMudar, nome = 'raridade', id }: { valo
       ))}
     </div>
   )
+}
+
+/**
+ * Por que o prêmio não sai agora, pelo que ele vale (a mesma conta do servidor, gc_loja_premio_no_site): o produto fora
+ * do site ou apagado, bebida, a categoria que não existe mais; null = sai. A lista da Sorte e a tela do prêmio dizem o
+ * mesmo motivo ("Bandeja RAW pequena tá fora do site").
+ */
+export function foraDoSite(p: Pick<PremioAdmin, 'aplicaA' | 'valor'>, l: LojaAdmin): string | null {
+  const brinde = typeof p.valor === 'object' && 'produto' in p.valor && p.valor.produto ? [p.valor.produto] : []
+  for (const id of [...(p.aplicaA.produtos ?? []), ...brinde]) {
+    const x = l.produtos.find((y) => y.id === id)
+    if (!x) return 'o produto não existe mais'
+    if (!x.ativo) return `${x.nome} tá fora do site`
+    if (l.categorias.find((c) => c.id === x.categoria)?.bebida || bebidaPeloProduto(x)) return `${x.nome} é bebida`
+  }
+  for (const id of p.aplicaA.categorias ?? []) {
+    const c = l.categorias.find((y) => y.id === id)
+    if (!c) return 'a categoria não existe mais'
+    if (c.bebida) return `a categoria ${c.nome} é de bebida`
+  }
+  return null
+}
+
+/** Por que o prêmio salvo não sai (fora do jogo, ou o motivo de foraDoSite); null = tá no jogo. */
+export function motivoFora(p: PremioAdmin, l: LojaAdmin): string | null {
+  if (!p.ativo) return 'fora do jogo'
+  if (p.noSite) return null
+  return foraDoSite(p, l) ?? 'vale em bebida ou numa categoria que não existe'
 }
 
 /** A chance real de cada prêmio sair (0 a 1), com os prêmios que estão no jogo (os outros: 0). */

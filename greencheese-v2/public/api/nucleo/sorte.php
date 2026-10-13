@@ -9,10 +9,11 @@ defined('GC_API') || exit;
 //   pessoa guardar (criar a conta ou entrar, aí vira cupom);
 // - com conta: N giros a cada X dias (dias de calendário de Brasília; de fábrica, 1 a cada 1 dia) por conta, por
 //   WhatsApp e por aparelho — em quaisquer X dias seguidos, no máximo N giros; sair, apagar a conta ou entrar em outra
-//   não dá giro novo no mesmo aparelho. Bloqueado, libera à meia-noite (Brasília) do dia do giro que segura a janela + X
-//   (com N = 1, o mais antigo da janela + X; com X = 1, amanhã). O giro sem conta guardado depois (cliente-guardar,
-//   entrar) conta como giro do dia dele: só entra se, com ele, nenhuma janela de X dias da conta (ou do WhatsApp dela)
-//   passar de N;
+//   não dá giro novo no mesmo aparelho. Bloqueado, libera à meia-noite (Brasília) do dia do N-ésimo giro mais novo + X
+//   (com N = 1, o giro mais novo + X; com X = 1, amanhã): depois que o dono aperta a frequência, quem girou muito na
+//   janela espera mais que "o mais antigo + X", senão a janela passaria de N. O giro sem conta guardado depois
+//   (cliente-guardar, entrar) conta como giro do dia dele: só entra se, com ele, nenhuma janela de X dias da conta (ou
+//   do WhatsApp dela) passar de N;
 // - todo giro ganha: o sorteio é em dois passos (gc_sortear), entre os prêmios que valem no estado (sem nenhum lá,
 //   entre todos os que valem): primeiro a raridade, pela chance dela entre as raridades que têm prêmio (a chance das
 //   vazias se reparte entre as outras, na proporção); depois o prêmio, pelo peso dele dentro da raridade.
@@ -86,8 +87,9 @@ function gc_dia_de_num(int $n): string
 /**
  * Com conta: o dia ('AAAA-MM-DD', à meia-noite de Brasília) em que libera o próximo giro, ou null se tá liberado
  * hoje. Em quaisquer X dias seguidos, no máximo N giros: com N ou mais giros entre hoje − X + 1 e hoje, libera no dia
- * do giro que segura a janela (o N-ésimo mais novo) + X — com N = 1, o mais antigo da janela + X. A mesma conta do
- * site (src/lib/frequencia.ts, liberaEm).
+ * do giro que segura a janela (o N-ésimo mais novo) + X — com N = 1, o giro mais novo + X (com a janela cheia de antes
+ * de o dono apertar a frequência, é ele, e não o mais antigo, que segura). A mesma conta do site (src/lib/frequencia.ts,
+ * liberaEm).
  * @param list<string> $dias os dias de giro (um por giro: pode repetir)
  */
 function gc_janela_libera(array $dias, string $hoje, int $intervalo, int $porIntervalo): ?string
@@ -638,20 +640,28 @@ function gc_cliente_migrar(int $clienteId, string $whatsapp, array $m, ?string $
         }
         gc_sql('UPDATE clientes SET migrado_em = ? WHERE id = ?', [$agora, $clienteId]);
     }
-    // os dias em que o aparelho girou (só restringem: o giro de hoje no aparelho conta como giro de hoje)
+    // os giros que o aparelho fez (só restringem: o giro de hoje no aparelho conta como giro de hoje). A lista tem um dia
+    // por giro (2 giros hoje = hoje 2 vezes): cada dia entra com quantos giros vieram nele, até N (com N num dia, toda
+    // janela que passa por ele já tá cheia), descontando os que o servidor já tem naquele dia pra conta ou pro aparelho
     $giros = is_array($m['giros'] ?? null) ? $m['giros'] : [];
+    $porIntervalo = gc_sorte_regras()['porIntervalo'];
+    $limite = gc_dia_sp($agora - 30 * 86400);
+    $hoje = gc_dia_sp($agora);
+    [$quem, $pq] = gc_giro_quem($clienteId, '', $aparelho);
     foreach (GC_INTERATIVOS as $interativo) {
-        $dias = is_array($giros[$interativo] ?? null) && array_is_list($giros[$interativo]) ? array_slice($giros[$interativo], -30) : [];
-        $limite = gc_dia_sp($agora - 30 * 86400);
-        foreach (array_unique(array_filter($dias, 'is_string')) as $dia) {
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dia) !== 1 || $dia < $limite || $dia > gc_dia_sp($agora)) {
-                continue;
+        $dias = is_array($giros[$interativo] ?? null) && array_is_list($giros[$interativo]) ? array_slice($giros[$interativo], -60) : [];
+        $porDia = [];
+        foreach ($dias as $dia) {
+            if (is_string($dia) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dia) === 1 && $dia >= $limite && $dia <= $hoje) {
+                $porDia[$dia] = ($porDia[$dia] ?? 0) + 1;
             }
-            [$quem, $pq] = gc_giro_quem($clienteId, '', $aparelho);
-            if (gc_valor("SELECT 1 FROM giros WHERE interativo = ? AND dia = ? AND ($quem)", [$interativo, $dia, ...$pq]) === null) {
+        }
+        foreach ($porDia as $dia => $vieram) {
+            $ja = (int) gc_valor("SELECT COUNT(*) FROM giros WHERE interativo = ? AND dia = ? AND ($quem)", [$interativo, (string) $dia, ...$pq]);
+            for ($i = $ja; $i < min($vieram, $porIntervalo); $i++) {
                 gc_sql(
                     "INSERT INTO giros (interativo, dia, em, cliente_id, whatsapp_hash, aparelho_hash, origem) VALUES (?, ?, ?, ?, ?, ?, 'aparelho')",
-                    [$interativo, $dia, $agora, $clienteId, gc_hash_whatsapp($whatsapp), gc_hash_aparelho($aparelho)],
+                    [$interativo, (string) $dia, $agora, $clienteId, gc_hash_whatsapp($whatsapp), gc_hash_aparelho($aparelho)],
                 );
             }
         }

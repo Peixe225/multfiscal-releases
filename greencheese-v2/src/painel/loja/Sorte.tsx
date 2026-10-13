@@ -11,25 +11,16 @@ import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Numero, TituloTela } from '../ui'
 import { ATALHOS_INTERVALO, GIROS_MAX, GIROS_MIN, INTERVALO_MAX, INTERVALO_MIN, giroPorPeriodo, vezesPorPeriodo } from '../../lib/frequencia'
 import { CHANCES_PADRAO, INFO_RARIDADE, RARIDADES, type Raridade } from '../../lib/raridade'
-import { formatarPct, problemaNasChances, somaDecimos, type Chances } from '../../lib/sorteio'
+import { faltaPara100, formatarPct, problemaNasChances, type Chances } from '../../lib/sorteio'
 import * as api from './api'
 import { comPremio, estadosNoSite, guardarLoja, useLoja } from './dados'
 import { nomeDoPremio } from './premio-ui'
-import { SeloRaridade, TesteAnimacao, cenasDasRaridades, chancesDosPremios, textoChance } from './sorte-ui'
+import { SeloRaridade, TesteAnimacao, cenasDasRaridades, chancesDosPremios, motivoFora, textoChance } from './sorte-ui'
 import type { LojaAdmin, PremioAdmin, RegrasSorte, SimulacaoSorte } from './tipos'
 
-function motivoFora(p: PremioAdmin, l: LojaAdmin): string | null {
-  if (!p.ativo) return 'fora do jogo'
-  if (p.noSite) return null
-  const ids = [...(p.aplicaA.produtos ?? []), ...(typeof p.valor === 'object' && 'produto' in p.valor ? [p.valor.produto] : [])]
-  const foraDoSite = ids.map((id) => l.produtos.find((x) => x.id === id)).find((x) => !x || !x.ativo)
-  if (foraDoSite !== undefined) return foraDoSite ? `${foraDoSite.nome} tá fora do site` : 'o produto não existe mais'
-  return 'vale em bebida ou numa categoria que não existe'
-}
-
 const num = (s: string) => (/^\d{1,3}$/.test(s.trim()) ? Number(s.trim()) : NaN)
-/** "12,5" ou "12.5" → 12.5; vazio ou torto → NaN. */
-const pct = (s: string) => (/^\s*\d{1,3}([.,]\d+)?\s*%?\s*$/.test(s) ? Number(s.replace('%', '').replace(',', '.').trim()) : NaN)
+/** "12,5" ou "12.5" → 12.5 ("12," no meio da digitação: 12); vazio ou torto → NaN. */
+const pct = (s: string) => (/^\s*\d{1,3}([.,]\d*)?\s*%?\s*$/.test(s) ? Number(s.replace('%', '').replace(',', '.').trim()) : NaN)
 const textoPct = (n: number) => String(n).replace('.', ',')
 type FormChances = Record<Raridade, string>
 const formDe = (c: Chances): FormChances => ({ comum: textoPct(c.comum), raro: textoPct(c.raro), epico: textoPct(c.epico), lendario: textoPct(c.lendario) })
@@ -114,7 +105,13 @@ export function Sorte() {
   // ─── chances ───
   const cForm = chancesDoForm(chances)
   const problema = problemaNasChances(cForm)
-  const soma = somaDecimos(Object.fromEntries(RARIDADES.map((r) => [r, Number.isFinite(cForm[r]) ? cForm[r] : 0])))
+  const falta = faltaPara100(cForm)
+  // o erro de um campo (casas depois da vírgula, número, de 0 a 100, a ordem) aparece na hora, com o campo marcado; o da
+  // soma fica no "Falta"/"Passou". Campo vazio (no meio da digitação) só ganha o contorno e conta 0 aqui, pra não
+  // esconder o erro de outro campo
+  const problemaCampo = problemaNasChances(Object.fromEntries(RARIDADES.map((r) => [r, chances[r].trim() === '' ? 0 : cForm[r]])))
+  const erroCampo = problemaCampo?.raridade ? problemaCampo.erro : null
+  const invalido = (r: Raridade) => problema?.raridade === r || (!!erroCampo && problemaCampo?.raridade === r)
   const mudouChances = !iguais(cForm, l.sorte.chances)
   const chancesValendo: Chances = !problema ? cForm : l.sorte.chances
   const zeradas = !problema ? RARIDADES.filter((r) => cForm[r] === 0) : []
@@ -204,7 +201,7 @@ export function Sorte() {
           <p className="pn-dica-bloco">Quanto mais raro, menor a chance. As 4 somam 100%. Raridade sem prêmio no jogo divide a chance dela com as outras.</p>
           <ul className="pn-chances">
             {RARIDADES.map((r) => (
-              <li key={r} className={`pn-chance${problema?.raridade === r ? ' pn-campo-erro' : ''}`}>
+              <li key={r} className={`pn-chance${invalido(r) ? ' pn-campo-erro' : ''}`}>
                 <label className="pn-chance-nome" htmlFor={`s-chance-${r}`}>
                   <SeloRaridade raridade={r} />
                   <small>{porRaridade[r] === 0 ? 'nenhum prêmio no jogo' : porRaridade[r] === 1 ? '1 prêmio no jogo' : `${porRaridade[r]} prêmios no jogo`}</small>
@@ -217,8 +214,8 @@ export function Sorte() {
                     autoComplete="off"
                     maxLength={5}
                     value={chances[r]}
-                    aria-invalid={problema?.raridade === r || undefined}
-                    aria-describedby="s-chances-soma"
+                    aria-invalid={invalido(r) || undefined}
+                    aria-describedby={erroCampo ? 's-chances-soma s-chances-erro' : 's-chances-soma'}
                     onChange={(e) => setChances({ ...chances, [r]: e.target.value.replace(/[^\d.,]/g, '').slice(0, 5) })}
                   />
                   <span aria-hidden="true">%</span>
@@ -226,13 +223,13 @@ export function Sorte() {
               </li>
             ))}
           </ul>
-          <p id="s-chances-soma" className={`pn-chances-soma${soma === 1000 ? ' ok' : ''}`} aria-live="polite">
-            {soma === 1000 ? 'Soma 100%' : soma < 1000 ? `Falta ${formatarPct((1000 - soma) / 10)}` : `Passou ${formatarPct((soma - 1000) / 10)}`}
+          <p id="s-chances-soma" className={`pn-chances-soma${falta === 0 ? ' ok' : ''}`} aria-live="polite">
+            {falta === 0 ? 'Soma 100%' : falta > 0 ? `Falta ${formatarPct(falta, 3)}` : `Passou ${formatarPct(-falta, 3)}`}
           </p>
-          {problema && soma === 1000 && (
-            <p className="pn-erro">
+          {erroCampo && (
+            <p className="pn-erro" id="s-chances-erro">
               <Ic nome="atencao" tamanho={16} />
-              <span>{problema.erro}</span>
+              <span>{erroCampo}</span>
             </p>
           )}
           {erroRegra.chances && (

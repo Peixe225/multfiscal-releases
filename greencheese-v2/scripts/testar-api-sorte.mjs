@@ -2,7 +2,8 @@
 // "Simular giros" do painel (chamados pelo scripts/testar-api.mjs, num php -S próprio com o Z-API falso):
 // - frequência: N giros a cada X dias (janela de 1, 2, 7 e 30 dias com N = 1 e N = 2), no relógio de teste (X-GC-Agora,
 //   só com GC_TESTE=1): o bloqueio, o proximoEm (a meia-noite de Brasília do dia que libera), a frase da recusa, o giro
-//   sem conta (girouHoje e proximoComConta) e o guardar com o período (a janela inteira em volta do dia do giro);
+//   sem conta (girouHoje e proximoComConta), o guardar com o período (a janela inteira em volta do dia do giro), o dono
+//   apertando a frequência (libera no dia do N-ésimo giro mais novo + X) e a conta do aparelho com 2 giros no mesmo dia;
 // - o sorteio em dois passos: as chances de cada raridade (estatístico, com folga de 5 desvios), a raridade sem prêmio
 //   que reparte a chance, 0% que nunca sai, tudo em 0% (todo giro ainda ganha) e o peso dentro da raridade;
 // - as chances no painel (soma, ordem, decimais, tipos), a frequência (1–30 dias, 1–5 giros, o nome de antes) e a
@@ -329,6 +330,61 @@ export async function testarSorte(t) {
       igual(g40.json?.mensagem, 'Tua conta já tinha girado no dia desse giro: o prêmio dele não entra nela. É 1 giro por dia por conta.', '1 por dia: a frase de sempre')
     }
 
+    parte('sorte: apertar a frequência (libera no dia do N-ésimo giro mais novo + X)')
+    {
+      // girou nos dias 0, 1 e 2 com 1 por dia e o dono passou pra 1 por semana: o giro do dia 2 segura a janela até o dia
+      // 9 (2 + 7); no dia 7 (o mais antigo + 7) a janela [1, 7] ainda teria 2 giros
+      await regras({ intervaloDias: 1, girosPorIntervalo: 1 })
+      const ini = meioDia(T0, 300)
+      const k = await contaNova(ini - 3600)
+      for (const d of [0, 1, 2]) igual((await girar(k, meioDia(ini, d))).status, 200, `1 por dia: gira no dia ${d}`)
+      await regras({ intervaloDias: 7, girosPorIntervalo: 1 })
+      const r = await girar(k, meioDia(ini, 3))
+      igual([r.status, r.json?.giro?.proximoEm], [409, meiaNoiteIso(ini, 9)], 'passou pra 1 por semana: no dia 3, libera no dia 9 (o giro mais novo, do dia 2, + 7), não no 7')
+      igual([(await info(k, meioDia(ini, 7))).disponivel, (await info(k, meioDia(ini, 8))).disponivel], [false, false], 'nos dias 7 e 8, ainda não (a janela ainda tem o giro do dia 2)')
+      igual((await girar(k, meioDia(ini, 9) - 12 * 3600 + 60)).status, 200, 'no dia 9, gira')
+      // 2 por semana depois de 4 dias seguidos com 1 por dia (20 a 23): o 2º giro mais novo (o do dia 22) segura até o 29
+      await regras({ intervaloDias: 1, girosPorIntervalo: 1 })
+      const k2 = await contaNova(meioDia(ini, 20) - 3600)
+      for (const d of [20, 21, 22, 23]) igual((await girar(k2, meioDia(ini, d))).status, 200, `1 por dia: gira no dia ${d}`)
+      await regras({ intervaloDias: 7, girosPorIntervalo: 2 })
+      igual((await info(k2, meioDia(ini, 24))).proximoEm, meiaNoiteIso(ini, 29), 'passou pra 2 por semana: libera no dia 29 (o 2º giro mais novo, do dia 22, + 7)')
+      igual((await info(k2, meioDia(ini, 28))).disponivel, false, 'no dia 28 ainda não (a janela [22, 28] tem 2 giros)')
+      igual((await girar(k2, meioDia(ini, 29) - 12 * 3600 + 60)).status, 200, 'no dia 29, gira')
+      await regras({ intervaloDias: 1, girosPorIntervalo: 1 })
+    }
+
+    parte('sorte: a conta do aparelho com mais de 1 giro no dia (migração)')
+    {
+      // a lista do aparelho tem um dia por giro: 2 giros hoje são hoje 2 vezes, e os 2 contam na conta
+      await regras({ intervaloDias: 7, girosPorIntervalo: 2 })
+      const D = meioDia(T0, 340)
+      const hoje = new Date((D - 3 * 3600) * 1000).toISOString().slice(0, 10)
+      const ontem = new Date((D - DIA - 3 * 3600) * 1000).toISOString().slice(0, 10)
+      const entrarCom = async (sorte, k = null, quando = D) => {
+        const c = k?.c ?? novo()
+        const ap = novoToken()
+        const z = k?.z ?? whats()
+        await c.post('cliente-codigo', { whatsapp: z }, { agora: quando })
+        const e = await c.post('cliente-entrar', { whatsapp: z, codigo: ultimoCodigo(z), nome: 'Migra Teste', aparelho: ap, migrar: { nome: 'Migra Teste', giros: { sorte } } }, { agora: quando })
+        return { c, ap, z, e }
+      }
+      const a = await entrarCom([hoje, hoje])
+      igual([a.e.status, a.e.json?.dias?.sorte], [201, [hoje, hoje]], '2 por semana: o aparelho girou 2 vezes hoje e os 2 giros entram na conta (não 1)')
+      const g = await girar(a, D + 60)
+      igual([g.status, g.json?.giro?.proximoEm], [409, meiaNoiteIso(D, 7)], 'e a conta não ganha um 3º giro na semana: libera daqui a 7 dias')
+      const b = await entrarCom([ontem, hoje, hoje, hoje, hoje])
+      igual(b.e.json?.dias?.sorte, [ontem, hoje, hoje], 'mais giros num dia que N: entram N (já enchem toda janela que passa por ele)')
+      // a mesma conta entra de novo noutro aparelho com os mesmos dias: não soma com o que o servidor já tem
+      await a.c.post('cliente-sair', {}, { agora: D + 120 })
+      const a2 = await entrarCom([hoje, hoje], a, D + 600)
+      igual([a2.e.status, a2.e.json?.dias?.sorte], [200, [hoje, hoje]], 'entrar de novo com os mesmos dias: o servidor já tinha os 2, nada repete')
+      // com 1 por dia, o de sempre: o dia entra uma vez
+      await regras({ intervaloDias: 1, girosPorIntervalo: 1 })
+      const c1 = await entrarCom([hoje, hoje])
+      igual(c1.e.json?.dias?.sorte, [hoje], '1 por dia: 2 giros do aparelho hoje entram como 1 (já basta pra segurar o dia)')
+    }
+
     // ─── raridade dos prêmios ───────────────────────────────────────────────────────────────────────────────────
     parte('sorte: raridade do prêmio (painel, GET loja, cupom)')
     {
@@ -403,6 +459,7 @@ export async function testarSorte(t) {
       igual(php.map((x) => x[2]), ts.map((x) => x[2]), 'guardar um giro de hoje cabe exatamente quando o giro de hoje tá liberado')
       igual([fq.giroPorPeriodo({ intervaloDias: 1, girosPorIntervalo: 1 }), fq.giroPorPeriodo({ intervaloDias: 2, girosPorIntervalo: 1 }), fq.giroPorPeriodo({ intervaloDias: 7, girosPorIntervalo: 1 }), fq.giroPorPeriodo({ intervaloDias: 7, girosPorIntervalo: 2 }), fq.giroPorPeriodo({ intervaloDias: 30, girosPorIntervalo: 1 })], ['1 giro por dia', '1 giro a cada 2 dias', '1 giro por semana', '2 giros por semana', '1 giro por mês'], 'as frases do pedido do Ian')
       igual([fq.diaQueLibera('2026-12-11', '2026-12-10'), fq.diaQueLibera('2026-12-12', '2026-12-10'), fq.diaQueLibera('2026-10-17', '2026-10-11')], ['amanhã', 'sábado, 12/12', 'sábado, 17/10'], 'o dia que libera: "amanhã" ou o dia da semana e a data')
+      igual([fq.liberaEm(['2026-12-01', '2026-12-02', '2026-12-03'], '2026-12-04', { intervaloDias: 7, girosPorIntervalo: 1 }), fq.liberaEm(['2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04'], '2026-12-05', { intervaloDias: 7, girosPorIntervalo: 2 })], ['2026-12-10', '2026-12-10'], 'o site também libera no dia do N-ésimo giro mais novo + X (1 por semana com giros nos dias 1, 2 e 3: 3 + 7; 2 por semana com giros de 1 a 4: o 2º mais novo, 3, + 7)')
       // as chances: as mesmas recusas e as mesmas chances reais
       const cs = [[60, 25, 12, 3], [60, 25, 12, 2], [40, 45, 12, 3], [60.05, 24.95, 12, 3], [62.5, 25, 10, 2.5], [70, 30, 0, 0], [25, 25, 25, 25], [100, 0, 0, 0], [50, 50.5, 0, -0.5]].map(([comum, raro, epico, lendario]) => ({ comum, raro, epico, lendario }))
       const phpC = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); ${modsTs} echo json_encode(array_map(static fn ($c) => gc_chances_ler($c)['erro'], json_decode($argv[1], true)));`, JSON.stringify(cs)], { encoding: 'utf8', env: { ...process.env, GC_DADOS: join(tmp, 'sorte-cli') } }))

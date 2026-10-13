@@ -1,7 +1,9 @@
 // Com que frequência quem tem conta gira o Teste minha sorte (pedido do Ian em 11/10): N giros a cada X dias, em dias
 // de calendário de Brasília. Em quaisquer X dias seguidos, no máximo N giros (contando os da conta, do WhatsApp dela e
-// do aparelho). Bloqueado, libera à meia-noite (Brasília) do dia do giro que segura a janela + X: com N = 1, o mais
-// antigo da janela + X; com X = 1 e N = 1, amanhã (o "1 giro por dia" de sempre).
+// do aparelho). Bloqueado, libera à meia-noite (Brasília) do dia do giro que segura a janela (o N-ésimo mais novo) + X:
+// com N = 1, o giro mais novo + X; com X = 1 e N = 1, amanhã (o "1 giro por dia" de sempre). Na janela normal só cabem
+// N giros e esse é também o mais antigo; depois que o dono aperta a frequência (de 1 por dia pra 1 por semana), quem
+// girou nos dias 0, 1 e 2 espera até o dia 2 + 7 = 9, não o 0 + 7 (no dia 7 a janela ainda teria 2 giros).
 // Conta pura (sem store, sem relógio): o site (src/lib/conta.ts) e o painel (Teste minha sorte) usam a mesma; o
 // servidor faz a mesma conta em PHP (sorte.php: gc_janela_libera, gc_janela_cabe, gc_sorte_frase).
 

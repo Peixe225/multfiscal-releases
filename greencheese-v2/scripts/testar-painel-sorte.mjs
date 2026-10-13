@@ -1,12 +1,12 @@
 // O Teste minha sorte no painel, no navegador e contra o servidor de verdade (roda dentro do scripts/testar-painel.mjs,
 // com a página dele já logada como dono, num celular 390×844, depois da loja): "Com que frequência" (os atalhos, o
 // "Outro", os giros por vez e a frase pronta; salvar muda o GET loja e o jogo do site passa a dizer "2 giros por
-// semana"), "Chance de cada raridade" (a soma ao vivo "Falta"/"Passou", a ordem "quanto mais raro, menor", o aviso do
-// 0%, salvar, Desfazer e o "Voltar ao padrão"), a lista de prêmios com a raridade e a chance real (a mesma que o
-// servidor calcula no Simular), o Simular giros (as tabelas e a Atividade), o teste da animação em tela cheia ("Ver as
-// 4 raridades" e "Testar a animação" no prêmio: as fichas, Repetir, Fechar, Esc, o foco de volta), a raridade do
-// prêmio nas 4 fichas e o peso em "Mais detalhes". E no computador (1280×800): os atalhos numa linha e o teste
-// cobrindo a tela. axe e prints em cada passo.
+// semana"), "Chance de cada raridade" (a soma ao vivo "Falta"/"Passou", a ordem "quanto mais raro, menor", as casas e a
+// faixa na hora, o aviso do 0%, salvar, Desfazer e o "Voltar ao padrão"), a lista de prêmios com a raridade e a chance
+// real (a mesma que o servidor calcula no Simular), o Simular giros (as tabelas e a Atividade), o teste da animação em
+// tela cheia ("Ver as 4 raridades" e "Testar a animação" no prêmio: as fichas, Repetir, Fechar, Esc, o foco de volta),
+// a raridade do prêmio nas 4 fichas, o peso em "Mais detalhes" e o motivo de não sair (produto fora do site × fora do
+// jogo). E no computador (1280×800): os atalhos numa linha e o teste cobrindo a tela. axe e prints em cada passo.
 
 const FABRICA = { comum: 60, raro: 25, epico: 12, lendario: 3 }
 
@@ -142,6 +142,22 @@ export async function fluxoSorte({ p, BASE, ok, print, axe, browser }) {
   ok(await p.getByText('Com 0%, os prêmios Épico e Lendário nunca saem.').isVisible(), '0% no Épico e no Lendário: pode, com o aviso de que nunca saem')
   const lendarioNaLista = p.locator('.pn-premio[data-raridade="lendario"] .pn-premio-chance').first()
   ok((await lendarioNaLista.innerText()) === 'não sai', `a lista já mostra a chance com o que tá na tela: o lendário "não sai" (${await lendarioNaLista.innerText()})`)
+  // casas demais: o erro do campo aparece na hora, mesmo com a soma fechando (o "Passou 0,1%" escondia o erro de verdade)
+  const erroCasas = (nome) => p.locator('.pn-erro').filter({ hasText: `A chance do ${nome} tem até 1 casa depois da vírgula (ex.: 12,5%).` })
+  for (const c of [{ comum: '60,05', raro: '24,95', epico: '12', lendario: '3' }, { comum: '59,95', raro: '25,05', epico: '12', lendario: '3' }]) {
+    for (const [r, v] of Object.entries(c)) await chance(r).fill(v)
+    ok((await soma()) === 'Soma 100%' && (await erroCasas('Comum').isVisible()) && (await chance('comum').getAttribute('aria-invalid')) === 'true' && (await salvarChances.isDisabled()), `${Object.values(c).join(' / ')}: a soma fecha 100% e aparece o erro das casas do Comum, a frase do servidor (soma "${await soma()}")`)
+  }
+  await ir('#h-s-chances')
+  await print(p, 'sorte-chances-casas')
+  await porChances({ comum: 60, raro: 25.05, epico: 12, lendario: 3 })
+  ok((await soma()) === 'Passou 0,05%' && (await erroCasas('Raro').isVisible()), `raro 25,05: "Passou 0,05%" e o erro das casas do Raro juntos (${await soma()})`)
+  await porChances({ comum: 150, raro: 25, epico: 12, lendario: 3 })
+  ok(await p.locator('.pn-erro').filter({ hasText: 'A chance do Comum vai de 0% a 100%.' }).isVisible(), 'comum 150: o erro da faixa na hora, junto do "Passou"')
+  await chance('comum').fill('')
+  ok((await soma()) === 'Falta 60%' && (await p.locator('#s-chances-erro').count()) === 0 && (await chance('comum').getAttribute('aria-invalid')) === 'true', 'campo vazio: só o contorno e o "Falta 60%" (sem frase de erro enquanto digita)')
+  await chance('raro').fill('25,05')
+  ok((await soma()) === 'Falta 59,95%' && (await erroCasas('Raro').isVisible()) && (await chance('raro').getAttribute('aria-invalid')) === 'true' && (await chance('comum').getAttribute('aria-invalid')) === 'true', `o Comum vazio não esconde o erro das casas do Raro (${await soma()})`)
   await p.getByRole('button', { name: /Voltar ao padrão/ }).tap()
   ok((await soma()) === 'Soma 100%' && (await chance('epico').inputValue()) === '12' && (await salvarChances.isDisabled()), '"Voltar ao padrão": 60/25/12/3 de novo (igual ao salvo: nada pra salvar)')
   // salvar 62,5/25/10/2,5 (uma casa decimal) e desfazer pelo recado
@@ -278,6 +294,36 @@ export async function fluxoSorte({ p, BASE, ok, print, axe, browser }) {
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
   await p.getByRole('heading', { name: 'Com que frequência' }).waitFor()
   ok(await esperar(async () => (await loja()).sorte.premios.find((x) => x.id === 'bandeja-25')?.raridade === 'epico'), 'de volta a Épico')
+
+  // ─── o prêmio no jogo com o produto fora do site: a tela do prêmio diz por que não sai ─────────────────────────
+  const apiPainel = (rota, corpo) =>
+    p.evaluate(
+      async ([rota, corpo]) => {
+        const csrf = (await (await fetch('../api/index.php?r=admin-sessao', { credentials: 'same-origin' })).json()).csrf
+        const r = await fetch(`../api/index.php?r=${rota}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf }, body: JSON.stringify(corpo), credentials: 'same-origin' })
+        return r.status
+      },
+      [rota, corpo],
+    )
+  ok((await apiPainel('admin-produto-salvar', { id: 'bandeja-raw-pequena', ativo: false })) === 200, 'tira a Bandeja RAW pequena do site (o prêmio de 10% vale nela)')
+  await p.goto(`${BASE}/painel/#/loja/sorte/premio/bandeja-10`)
+  await p.reload()
+  await p.getByRole('heading', { name: 'Raridade', exact: true }).waitFor()
+  const podeSair = p.getByLabel('Esse prêmio pode sair')
+  ok((await podeSair.isChecked()) && (await linhaChance()) === 'Não sai agora: Bandeja RAW pequena tá fora do site.', `no jogo com o produto fora do site: a tela diz por que não sai, como a lista (${await linhaChance()})`)
+  await ir('#s-pr-raridade')
+  await print(p, 'sorte-premio-produto-fora')
+  const chave = p.locator('label.pn-troca').filter({ hasText: 'Esse prêmio pode sair' })
+  await chave.tap()
+  ok(!(await podeSair.isChecked()) && (await linhaChance()) === 'Fora do jogo: não sai até voltar pro jogo.', `com "Esse prêmio pode sair" desligado: "Fora do jogo" (${await linhaChance()})`)
+  await chave.tap()
+  ok(await podeSair.isChecked(), 'liga de novo (o formulário volta a ser o salvo: sair não pergunta nada)')
+  await p.goto(`${BASE}/painel/#/loja/sorte`)
+  await p.getByRole('heading', { name: 'Com que frequência' }).waitFor()
+  ok((await p.locator('.pn-premio-chance').filter({ hasText: 'Bandeja RAW pequena tá fora do site' }).count()) === 2, 'a lista da Sorte diz o mesmo motivo nos 2 prêmios da bandeja')
+  ok((await apiPainel('admin-produto-salvar', { id: 'bandeja-raw-pequena', ativo: true })) === 200, 'a Bandeja RAW pequena volta pro site')
+  await p.reload()
+  await p.getByRole('heading', { name: 'Com que frequência' }).waitFor()
 
   // ─── a Atividade em palavras ──────────────────────────────────────────────────────────────────────────────────
   await p.goto(`${BASE}/painel/#/atividade`)

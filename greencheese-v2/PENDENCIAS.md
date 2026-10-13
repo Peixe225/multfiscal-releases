@@ -94,6 +94,8 @@ O que está na prévia: o dichavador que gira, abre e mostra o prêmio num story
    - A chance real que o painel mostra soma todos os estados; num estado sem algum prêmio, a dos outros sobe (o Simular por estado mostra a de lá).
    - O gerente pode simular pela API (permissão `produtos`, nos estados dele), mas a tela do Teste minha sorte no painel continua só do dono. O atendente não simula nem muda nada.
    - O guia "Como usar o painel" não ganhou uma tarefa do Teste minha sorte (o teste do painel espera de 10 a 12 tarefas e já são 12).
+   - **Apertar a frequência pesa pra quem girou muito**: o giro libera no dia do N-ésimo giro mais novo + X, então quem girou nos dias 0, 1 e 2 com 1 por dia e viu o dono passar pra 1 por semana só gira de novo no dia 9 (2 + 7), não no 7 (a janela ainda teria 2 giros). É a regra "em quaisquer X dias, no máximo N" levada ao pé da letra; se o Ian preferir contar só os giros depois da mudança, é uma decisão a tomar (e uma mudança no servidor e no site).
+   - O texto do jogo bloqueado ("Cria tua conta e gira de novo agora." só quando a conta criada ali gira na hora; senão, o dia) ficou certo em `src/interativos/sorte/textos.ts`, sem mexer no `JogoSorte.tsx` (é da frente da revelação); o comentário de lá ("com mais, gira agora") ficou velho e sai quando aquela frente mexer no arquivo.
 
 ## Repost: tragos do mercador
 
