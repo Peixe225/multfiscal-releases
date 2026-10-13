@@ -24,6 +24,27 @@ Para ver na tela: os prints lado a lado (antes à esquerda, depois à direita) q
   como reforço). Os Destilados já vêm marcados.
 - **Rodapé** com "© 2026 Green Cheese Imports. Todos os direitos reservados."
 
+## Rodada de 11 a 13/10
+
+- **Endereço próprio**: `greencheese.oprojeto.online`, com certificado. O endereço antigo leva ao novo (301 em GET e
+  HEAD; pedido de outro tipo no antigo recebe 410). O painel deixa de dividir o endereço com o outro site.
+- **Teste minha sorte, regras do dono**: N giros a cada X dias (1 a 5 giros, 1 a 30 dias, no calendário de Brasília),
+  quatro raridades com cor (Comum prata, Raro azul, Épico fúcsia, Lendário ouro), chance por raridade somando 100% (de
+  fábrica 60/25/12/3), a chance real de cada prêmio ("1 em 8"), "Simular giros" no servidor e "Testar a animação" de
+  cada prêmio ou das 4 raridades.
+- **Revelação na fumaça**: o beck sobe aceso no isqueiro, é fumado, a fumaça enche a tela e o prêmio aparece grande no
+  meio dela, depois voa para o story. Uma cena por raridade, mais viajada quanto mais rara (comum ~5,4 s, raro ~6,7 s,
+  épico ~8,1 s, lendário ~8,8 s). Desenhada sem WebGL: ~57 quadros por segundo com o processador 4× mais lento.
+  "Pular" chega ao story em ~0,5 s; com movimento reduzido, nada anima (o quadro final parado).
+- **Conta do cliente**: criar e entrar auditados de ponta a ponta, 14 + 9 achados corrigidos com teste (sair sem
+  internet, o passo do código guardado por 10 min, código pausado no meio do entrar, entre outros).
+- **Material da loja de 11/10**: Jack Daniel's Tennessee Apple e Fanta Maçã da China (só no RJ, sem preço), fotos da
+  Fanta Ghost Face Punch e do Hennessy Very Special, thumb animada do Hennessy em MP4/H.264. O Estúdio aceita a
+  gravação de tela do Instagram (acha a janela do vídeo sozinho) e não recorta fundo que já é preto; o tamanho do
+  produto ficou opcional.
+- **Banco no ar**: as migrações 103 (raridade dos prêmios) e 104 (o material novo, sem repetir produto e nunca por
+  cima do que o dono pôs) rodam sozinhas no primeiro acesso.
+
 ## Painel (auditoria: 2.534 checagens, 21 erros e 20 propostas de uso)
 
 - Barra nova: Início · Pedidos · + · Produtos · Mais, com o nome embaixo de cada ícone; gerente com **Estoque** (tela
@@ -55,9 +76,9 @@ deixam lixo na URL; textos em "tu"; alvos de toque de 44 px; contraste. **Home 2
 
 ## Segurança (auditoria: 89 ataques simulados, nota 8,5/10)
 
-Sem brecha nova no código. Os dois pontos altos dependem de hospedagem: o painel dividir o endereço com o outro site do
-oprojeto.online (resolve com subdomínio ou domínio próprio) e o IP atrás da CDN (conferir no painel no ar). Ver
-PENDENCIAS.md, "Servidor".
+Sem brecha nova no código. Os dois pontos altos dependiam de hospedagem: o painel dividir o endereço com o outro site
+do oprojeto.online (resolvido com o subdomínio, na rodada de 11 a 13/10) e o IP atrás da CDN (conferir no painel no
+ar). Ver PENDENCIAS.md, "Servidor".
 
 ## O que ficou de fora de propósito
 
