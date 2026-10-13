@@ -28,6 +28,18 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 - Coca-Cola Vanilla (lata)
 - Hennessy Very Special
 - Cuia de silicone RAW
+- Jack Daniel's Tennessee Apple (novo, 11/10: visto no story do RJ)
+- Fanta Maçã (China) (novo, 11/10: visto no story do RJ)
+
+**Produtos do material de 11/10** (prints dos stories e o reel do Hennessy que a loja mandou): o Jack Daniel's Tennessee
+Apple (Destilados, marcado como bebida alcoólica: fora da rua e dos prêmios) e a Fanta Maçã (China) (Bebidas
+importadas) entraram **à venda só no RJ** (`disponivelConfirmado: ["rj"]`, vieram do @greencheese_importsrj), sem preço
+e **sem tamanho** (não dá pra ler na foto: confirmar com a loja e pôr em Produtos → Tamanho). Ligar nos outros estados
+é com o dono. A Fanta Ghost Face Punch e o Hennessy ganharam foto; o Hennessy, a thumb animada (o reel). Os prints são
+pequenos (591×1280, o produto com 120–330 px): as fotos saem um pouco moles no story grande; a foto do celular do dono,
+quando vier, fica melhor (Produtos → Trocar foto). Duas fotos tiveram ajuste no recorte: no Jack, a lata deitada tapava
+o canto de baixo à esquerda da garrafa, que voltou espelhando o lado direito (a garrafa é simétrica); a Fanta da China é
+a lata deitada da frente (a única inteira no print), posta em pé.
 
 **Preços reais** (vistos nos stories): Jack Daniel's Old No. 7 1 L R$ 149,90 (MG) · Gin Tanqueray London Dry 750 ml R$ 99,99 (RJ e MG) · Seda OCB Premium Slim R$ 9,99 / 2 por R$ 14,99 / 3 por R$ 19,99 (RJ) · Piteira de vidro RAW R$ 29,99 (RJ). Confirmar se o preço é o mesmo nos outros estados.
 
@@ -35,13 +47,13 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 
 **9 produtos de exemplo** (`demo: true`, marcados "exemplo" na prévia; somem com `modoPrevia: false`): Arizona Green Tea, Dr Pepper, Jägermeister, Seda RAW Classic King Size, Seda Smoking Brown, Piteira de papel RAW, Dichavador de metal 4 partes, Isqueiro Clipper, Bandeja RAW pequena. Preços de exemplo.
 
-**Fotos oficiais**: nenhuma. A pasta `referencias/` (os 16 prints) **não veio** com o projeto. Os 17 produtos estão como **ilustrações realistas desenhadas em código**, a partir da embalagem pública de cada um (rótulos simplificados: o texto miúdo é aproximado). Fica bom para a prévia; para a versão oficial, o ideal é foto do produto que a loja vende de fato: `npm run recortar` (ver `referencias/LEIA-ME.md`) — a foto entra no lugar da ilustração sozinha.
+**Fotos oficiais**: 4, do material de 11/10 (Fanta Ghost Face Punch, Hennessy Very Special, Jack Daniel's Tennessee Apple e Fanta Maçã (China), em `public/produtos/`). A pasta `referencias/` (os 16 prints) **não veio** com o projeto. Os outros produtos estão como **ilustrações realistas desenhadas em código**, a partir da embalagem pública de cada um (rótulos simplificados: o texto miúdo é aproximado). Fica bom para a prévia; para a versão oficial, o ideal é foto do produto que a loja vende de fato: `npm run recortar` (ver `referencias/LEIA-ME.md`) — a foto entra no lugar da ilustração sozinha.
 
 **Logo**: redesenhado em SVG a partir da descrição do briefing (círculo preto, cuia em linha, GREEN CHEESE inclinado, tesoura). Comparar com a foto de perfil real quando os prints chegarem.
 
 ## Fora do site, de propósito
 
-- **Derivados do tabaco** (Backwoods, charutos, cigarros, fumo): não entram. A Anvisa veda oferta e venda pela internet (RDC 840/2023, art. 6º). Sedas, piteiras, cuias e acessórios entram normalmente.
+- **Derivados do tabaco** (Backwoods, charutos, cigarros, fumo): não entram. A Anvisa veda oferta e venda pela internet (RDC 840/2023, art. 6º). Sedas, piteiras, cuias e acessórios entram normalmente. O Backwoods Rum Cake do material de 11/10 (dois stories do RJ, "última unidade" e "disponível para reserva") é charuto: ficou de fora, e a lista do tabaco do servidor e do painel recusa o nome.
 - **Depoimentos de clientes**: a seção de repost usa só a ilustração da marca. Reposts reais entram com print e permissão do cliente.
 - Perfil pessoal citado na bio: não usado.
 
@@ -200,7 +212,10 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
   bagunçado fica com o fundo (moldura escura). Os limites do recorte (`src/painel/estudio/recorte.ts`) foram afinados
   com fotos geradas aqui: conferir com fotos reais do dono (celular dele, luz da loja) e ajustar se precisar.
   Combinar com o dono: fundo liso e claro atrás do produto, sem outro objeto encostado.
-- **Thumb animada**: nenhum vídeo de exemplo do dono veio; os testes usam vídeos gerados. Falta conferir num celular
+- **Thumb animada**: o vídeo de exemplo veio (11/10, o reel do Hennessy girando no preto): o Estúdio agora reconhece o
+  fundo já preto (não recorta, só deixa o preto liso), marca o vídeo curto inteiro e acelera até 1,5× pro giro caber nos
+  6 s; a thumb do Hennessy é de fábrica (`public/produtos/hennessy-very-special.mp4`, H.264). O reel termina uns 15°
+  antes de completar a volta: no loop, o rótulo pula um tantinho. Falta conferir num celular
   de verdade: gravação no Chrome do Android (MP4/H.264 ou WebM), no Safari do iPhone (sem gravação em alguns iOS:
   aí vai o MP4 original, até 6 MB e 6 s) e o vídeo tocando na grade do site no iPhone (WebM gravado no Chrome não
   toca em iPhone antigo: a capa fica e o site não quebra; gravar no iPhone ou no Chrome que grava MP4 resolve).

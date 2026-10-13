@@ -14,6 +14,8 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
   /** Muda pra tocar a sintonia (com a imagem de agora). null = sem sintonia. */
   sintonia: { vez: number; imagem: HTMLCanvasElement } | null
+  /** Sem o halo (a thumb animada: quadro sobre preto, sem transparência; no site ela fica sem o halo). */
+  semHalo?: boolean
 }
 
 /** A arte em pixel da foto tratada, como o site gera (90×160, sem o brilho: o da revelação). */
@@ -22,7 +24,7 @@ export function pixelDaImagem(imagem: HTMLCanvasElement, cor: string): ImageData
   return compor(p, 90, 160, false, false, imagem, 'estudio')
 }
 
-export function Vitrine({ largura, cor, cinza = false, children, sintonia, className, style, ...resto }: Props) {
+export function Vitrine({ largura, cor, cinza = false, children, sintonia, semHalo = false, className, style, ...resto }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
   const camada = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
@@ -54,7 +56,7 @@ export function Vitrine({ largura, cor, cinza = false, children, sintonia, class
   return (
     <div
       ref={raiz}
-      className={`pn-est-vitrine${cinza ? ' pn-est-cinza' : ''}${className ? ` ${className}` : ''}`}
+      className={`pn-est-vitrine${cinza ? ' pn-est-cinza' : ''}${semHalo ? ' pn-est-sem-halo' : ''}${className ? ` ${className}` : ''}`}
       style={{ width: largura, height: Math.round((largura * 16) / 9), ['--pn-est-halo' as string]: `url(${haloDataUrl(cor, cinza)})`, ...style }}
       data-real="sim"
       {...resto}

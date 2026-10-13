@@ -1,5 +1,5 @@
 {
-  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: desenho em pixel art usado enquanto não há foto oficial. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null. categorias: bebida: true = bebida (com ou sem álcool), que nunca entra em prêmio do Teste minha sorte; alcool: true = bebida alcoólica (fica fora da rua do mercador e de prêmio; sempre junto com bebida: true).",
+  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: desenho em pixel art usado enquanto não há foto oficial. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null. video e capa: a thumb animada de fábrica, os dois juntos (ex.: 'produtos/hennessy-very-special.mp4' e 'produtos/hennessy-very-special-capa.webp'; sem eles, o produto não tem vídeo); nome de arquivo em produtos/ só com letra minúscula, número e traço. categorias: bebida: true = bebida (com ou sem álcool), que nunca entra em prêmio do Teste minha sorte; alcool: true = bebida alcoólica (fica fora da rua do mercador e de prêmio; sempre junto com bebida: true).",
   "categorias": [
     {
       "id": "bebidas",
@@ -58,7 +58,7 @@
         "mg"
       ],
       "demo": false,
-      "foto": null,
+      "foto": "produtos/fanta-ghost-face-punch.webp",
       "cor": "#d8325f",
       "arte": {
         "tipo": "lata",
@@ -67,6 +67,34 @@
         "detalhe": "#f2f2f2"
       },
       "obs": "Visto disponível no story de MG. Preço PENDENTE."
+    },
+    {
+      "id": "fanta-maca-china",
+      "nome": "Fanta Maçã (China)",
+      "detalhe": "Lata alta · importada da China",
+      "descricao": "Fanta sabor maçã, importada da China, na lata alta. Serve bem gelada.",
+      "categoria": "bebidas",
+      "preco": null,
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": false,
+        "es": false,
+        "sc": false
+      },
+      "disponivelConfirmado": [
+        "rj"
+      ],
+      "demo": false,
+      "foto": "produtos/fanta-maca-china.webp",
+      "cor": "#316f7f",
+      "arte": {
+        "tipo": "lata-alta",
+        "corpo": "#7dbb3c",
+        "faixa": "#1f4fa8",
+        "detalhe": "#f2f2f2"
+      },
+      "obs": "Visto no story do RJ em 11/10. Preço PENDENTE."
     },
     {
       "id": "coca-cola-vanilla",
@@ -181,6 +209,35 @@
       "obs": "R$ 149,90 visto no story de MG."
     },
     {
+      "id": "jack-daniels-tennessee-apple",
+      "nome": "Jack Daniel's Tennessee Apple",
+      "detalhe": "Whiskey com licor de maçã · garrafa",
+      "descricao": "O Tennessee whiskey da Jack Daniel's com licor de maçã. Vai bem gelado ou com gelo.",
+      "categoria": "destilados",
+      "preco": null,
+      "disponivel": {
+        "rj": true,
+        "mg": false,
+        "sp": false,
+        "es": false,
+        "sc": false
+      },
+      "disponivelConfirmado": [
+        "rj"
+      ],
+      "demo": false,
+      "foto": "produtos/jack-daniels-tennessee-apple.webp",
+      "cor": "#6c5f37",
+      "arte": {
+        "tipo": "garrafa-quadrada",
+        "corpo": "#a8641f",
+        "rotulo": "#5f8a3a",
+        "detalhe": "#e8e2c4",
+        "tampa": "#c9b98a"
+      },
+      "obs": "Visto no story do RJ em 11/10. Preço PENDENTE."
+    },
+    {
       "id": "gin-tanqueray-london-dry",
       "nome": "Gin Tanqueray London Dry",
       "tamanho": "750 ml",
@@ -229,7 +286,9 @@
         "rj"
       ],
       "demo": false,
-      "foto": null,
+      "foto": "produtos/hennessy-very-special.webp",
+      "video": "produtos/hennessy-very-special.mp4",
+      "capa": "produtos/hennessy-very-special-capa.webp",
       "cor": "#b8662a",
       "arte": {
         "tipo": "garrafa-conhaque",

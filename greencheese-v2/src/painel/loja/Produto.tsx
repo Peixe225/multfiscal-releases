@@ -707,8 +707,9 @@ export function Produto({ id, ufNovo = null }: { id: string | null; ufNovo?: str
               <Campo id="p-nome" rotulo="Nome" erro={erroDe('nome')} lado={<span className="pn-contagem">{tamanho(f.nome)}/60</span>}>
                 {(a) => <input {...a} name="nome" className="pn-input" autoComplete="off" maxLength={60} placeholder="Ex.: Fanta Uva" value={f.nome} onChange={(e) => mudar('nome', e.target.value)} />}
               </Campo>
-              <Campo id="p-tamanho" rotulo="Tamanho" erro={erroDe('tamanho')}>
-                {(a) => <input {...a} name="tamanho" className="pn-input pn-input-exemplo" autoComplete="off" maxLength={20} placeholder="ex.: 350 ml" aria-description="Opcional. Vai junto do nome na mensagem do pedido." value={f.tamanho} onChange={(e) => mudar('tamanho', e.target.value)} />}
+              {/* opcional (decisão do Ian: fica do lado do nome, mas vazio salva): o rótulo diz, pra ninguém travar no cadastro */}
+              <Campo id="p-tamanho" rotulo={<>Tamanho <span className="pn-opcional">(opcional)</span></>} erro={erroDe('tamanho')}>
+                {(a) => <input {...a} name="tamanho" className="pn-input pn-input-exemplo" autoComplete="off" maxLength={20} placeholder="ex.: 350 ml" aria-description="Pode deixar vazio. Quando tem, vai junto do nome na mensagem do pedido." value={f.tamanho} onChange={(e) => mudar('tamanho', e.target.value)} />}
               </Campo>
             </div>
             <div className="pn-dupla pn-dupla-basico">

@@ -4,14 +4,17 @@
 // regrava no próprio navegador (MP4 com H.264 quando ele grava, senão WebM), com a capa (o 1º quadro tratado). Navegador
 // que não regrava (sem MediaRecorder): manda o MP4 original pequeno (até 6 MB e 6 s), que o site só enquadra, e avisa
 // que no Chrome fica no estilo da loja. GIF só onde o navegador decodifica (ImageDecoder); fora disso, pede vídeo.
+// Vídeo com o fundo já preto (o do exemplo do Ian: a garrafa girando no preto liso): nada é recortado, o preto fica liso
+// e o produto, inteiro e no meio. Vídeo curto (até 9 s) já vem inteiro marcado; passando de 6 s, a thumb sai acelerada
+// (até 1,5×), pro giro inteiro caber.
 import { useEffect, useMemo, useRef, useState, type PointerEvent as EventoPonteiro } from 'react'
 import { corDominante } from '../../arte/produtos/dither'
 import { Folha } from '../Folha'
 import { brl } from '../formato'
 import { Aviso, Botao, Ic, Pontinhos } from '../ui'
-import { ajusteDeCor, analisar, fundoLiso, recortar, SEM_AJUSTE, toleranciaPara, type Analise, type Caixa } from './recorte'
+import { ajusteDeCor, analisar, caixaNoPreto, fundoDoPreto, fundoLiso, fundoPreto, pretoDoFundo, pretoPara, recortar, SEM_AJUSTE, toleranciaPara, type Analise, type Caixa, type Imagem, type PontoDoPreto } from './recorte'
 import { contexto, novoCanvas, quadroAutomatico, reduzir, type Quadro } from './render'
-import { abreGif, abrirGif, abrirVideo, capaDe, capaSimples, gravar, mascaraDoQuadro, Processador, quadroPequeno, SAIDA_VIDEO, tipoDeGravacao, TRECHO_MAXIMO, TRECHO_PADRAO, type FonteVideo, type Tratamento } from './video'
+import { abreGif, abrirGif, abrirVideo, capaDe, capaSimples, gravar, mascaraDoQuadro, Processador, quadroPequeno, SAIDA_VIDEO, tipoDeGravacao, TRECHO_FONTE_MAXIMO, TRECHO_MAXIMO, TRECHO_PADRAO, trechoInicial, velocidadeDo, type FonteVideo, type Tratamento } from './video'
 import { Vitrine } from './Vitrine'
 import { usarCssDoEstudio } from './estilo'
 
@@ -49,6 +52,9 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
   const [ini, setIni] = useState(0)
   const [dur, setDur] = useState(TRECHO_PADRAO)
   const [base, setBase] = useState<Analise | null>(null)
+  // o fundo já é preto: o ponto do preto medido na borda do 1º quadro (null = fundo comum) e a cópia que o mediu
+  const [pretoBase, setPretoBase] = useState<PontoDoPreto | null>(null)
+  const [imgBase, setImgBase] = useState<Imagem | null>(null)
   const [tirarFundo, setTirarFundo] = useState(true)
   const [quanto, setQuanto] = useState(50)
   const [quantoDigitado, setQuantoDigitado] = useState(50)
@@ -86,7 +92,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
         }
         setProc(p)
         setSemEstilo(!p || !tipo)
-        setDur(Math.min(TRECHO_PADRAO, aberto.duracao))
+        setDur(trechoInicial(aberto.duracao))
         setFonte(aberto)
       } catch (e) {
         if (!vivo) return
@@ -143,27 +149,38 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
     const t = window.setTimeout(async () => {
       setAjustando(true)
       try {
-        const img = await fonte.quadro(ini)
-        const grande = reduzir(img, fonte.w, fonte.h, 480)
-        const an = analisar({ w: grande.width, h: grande.height, d: contexto(grande).getImageData(0, 0, grande.width, grande.height).data })
+        const q0 = await fonte.quadro(ini)
+        const grande = reduzir(q0, fonte.w, fonte.h, 480)
+        const img: Imagem = { w: grande.width, h: grande.height, d: contexto(grande).getImageData(0, 0, grande.width, grande.height).data }
+        const an = analisar(img)
         if (!vivo) return
         const primeiro = recortar(an, an.tolerancia, null)
         const liso = fundoLiso(an) && primeiro.area > 0.015 && primeiro.area < 0.92
+        // fundo já preto: não se recorta (o ponto do preto decide o que é fundo); a caixa é o que passa dele
+        const preto = fundoPreto(an) ? pretoDoFundo(img) : null
         setBase(an)
+        setPretoBase(preto)
+        setImgBase(img)
         if (!decidiuFundo.current) {
           decidiuFundo.current = true
-          setTirarFundo(liso)
+          setTirarFundo(liso || !!preto)
         }
-        // o 1º quadro já dá um quadro (a prévia aparece logo); depois, a união das caixas do produto em 5 quadros do trecho
+        // o 1º quadro já dá um quadro (a prévia aparece logo); depois, a união das caixas do produto em 9 quadros do
+        // trecho (o produto girando fica mais largo de frente: com poucos quadros, a caixa podia cortar ele no giro)
         const tol = toleranciaPara(an, quanto)
+        const pontoPreto = preto ? pretoPara(preto, quanto) : null
         const k1 = grande.width / fonte.w
-        if (primeiro.caixa && uniao === undefined) setUniao({ x0: primeiro.caixa.x0 / k1, y0: primeiro.caixa.y0 / k1, x1: primeiro.caixa.x1 / k1, y1: primeiro.caixa.y1 / k1 })
+        const caixa1 = pontoPreto ? caixaNoPreto(img, pontoPreto) : primeiro.caixa
+        if (caixa1 && uniao === undefined) setUniao({ x0: caixa1.x0 / k1, y0: caixa1.y0 / k1, x1: caixa1.x1 / k1, y1: caixa1.y1 / k1 })
         let uniao2: Caixa | null = null as Caixa | null
-        for (let i = 0; i < 5; i++) {
-          const q = await fonte.quadro(ini + (dur * i) / 4)
+        for (let i = 0; i < 9; i++) {
+          const q = await fonte.quadro(ini + (dur * i) / 8)
           if (!vivo) return
-          const px = quadroPequeno(q, fonte.w, fonte.h)
-          const m = mascaraDoQuadro(px, an, tol)
+          let m: { w: number; h: number; caixa: Caixa | null }
+          if (pontoPreto) {
+            const px = quadroPequeno(q, fonte.w, fonte.h, 200)
+            m = { w: px.width, h: px.height, caixa: caixaNoPreto({ w: px.width, h: px.height, d: px.data }, pontoPreto) }
+          } else m = mascaraDoQuadro(quadroPequeno(q, fonte.w, fonte.h), an, tol)
           if (!m.caixa) continue
           const kx = fonte.w / m.w
           const ky = fonte.h / m.h
@@ -186,9 +203,17 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
   }, [fonte, proc, ini, dur, quanto])
 
   const tol = base ? toleranciaPara(base, quanto) : 10
-  const recorte1 = useMemo(() => (base ? recortar(base, tol, null) : null), [base, tol])
-  const ajusteCor = useMemo(() => (base && corNoEstilo ? ajusteDeCor(base, tirarFundo && recorte1 ? recorte1.fundo : null) : SEM_AJUSTE), [base, corNoEstilo, tirarFundo, recorte1])
-  const tratamento: Tratamento | null = quadro ? { base: tirarFundo ? base : null, tol, quadro, cor: ajusteCor } : null
+  // fundo preto com "Tirar o fundo" ligado: o ponto do preto (o "quanto" mexe nele); desligado, o vídeo como veio
+  const pretoDe = pretoBase && tirarFundo ? pretoPara(pretoBase, quanto).de : 0
+  const pretoAte = pretoBase && tirarFundo ? pretoPara(pretoBase, quanto).ate : 0
+  const preto = useMemo(() => (pretoAte ? { de: pretoDe, ate: pretoAte } : null), [pretoDe, pretoAte])
+  const recorte1 = useMemo(() => (base && !pretoBase ? recortar(base, tol, null) : null), [base, tol, pretoBase])
+  // a cor no estilo é medida só no produto: no fundo preto, o que passa do ponto do preto (o preto não entra na conta
+  // e não vira cinza)
+  const fundoDaCor = useMemo(() => (preto && imgBase ? fundoDoPreto(imgBase, preto) : tirarFundo && recorte1 ? recorte1.fundo : null), [preto, imgBase, tirarFundo, recorte1])
+  const ajusteCor = useMemo(() => (base && corNoEstilo ? ajusteDeCor(base, fundoDaCor) : SEM_AJUSTE), [base, corNoEstilo, fundoDaCor])
+  const tratamento: Tratamento | null = quadro ? { base: tirarFundo && !preto ? base : null, preto, tol, quadro, cor: ajusteCor, semVinheta: !!pretoBase } : null
+  const vel = velocidadeDo(dur)
 
   /** Desenha um quadro tratado (com a máscara do quadro, quando tira o fundo). */
   const desenhar = (img: CanvasImageSource, t: Tratamento) => {
@@ -213,15 +238,15 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
       vivo = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fonte, proc, quadro, tirarFundo, tol, ajusteCor, ini, tocando, fase])
+  }, [fonte, proc, quadro, tirarFundo, tol, ajusteCor, preto, ini, tocando, fase])
 
   // o quadro automático: o produto (a união dos quadros) no molde das ilustrações; com o fundo mantido, o vídeo inteiro.
   // Volta pro automático quando o trecho muda, o fundo liga ou desliga, ou no "Centralizar"
   const [centralizar, setCentralizar] = useState(0)
   useEffect(() => {
     if (!fonte || uniao === undefined) return
-    setQuadro(quadroAutomatico(fonte.w, fonte.h, tirarFundo ? uniao : null))
-  }, [fonte, uniao, tirarFundo, centralizar])
+    setQuadro(quadroAutomatico(fonte.w, fonte.h, tirarFundo || pretoBase ? uniao : null))
+  }, [fonte, uniao, tirarFundo, pretoBase, centralizar])
   const ligarFundo = (v: boolean) => setTirarFundo(v)
 
   const primeira = useRef(false)
@@ -250,7 +275,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
     setTocando(true)
     sinal.current = { parar: false }
     try {
-      await fonte.tocar(ini, dur, (img) => desenhar(img, tratamento), sinal.current)
+      await fonte.tocar(ini, dur, (img) => desenhar(img, tratamento), sinal.current, vel)
     } finally {
       setTocando(false)
     }
@@ -304,13 +329,14 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
           (img, t) => {
             desenhar(img, tratamento)
             pronto()
-            const passo = Math.floor((t - ini) * 4)
+            const passo = Math.floor(((t - ini) / vel) * 4)
             if (passo !== mostrado) {
               mostrado = passo
-              setFase({ qual: 'gravando', t: Math.max(0, t - ini) })
+              setFase({ qual: 'gravando', t: Math.max(0, (t - ini) / vel) })
             }
           },
           sinal.current,
+          vel,
         ),
       )
       ;(window as unknown as { __gcGravacao?: unknown }).__gcGravacao = { quadros: g.quadros, segundos: g.segundos, bytes: g.blob.size, tipo: g.tipo }
@@ -343,9 +369,10 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
 
   const ocupado = !!fase
   const maxIni = fonte ? Math.max(0, fonte.duracao - dur) : 0
-  const maxDur = fonte ? Math.min(TRECHO_MAXIMO, fonte.duracao) : TRECHO_MAXIMO
+  const maxDur = fonte ? Math.min(TRECHO_FONTE_MAXIMO, Math.floor(fonte.duracao * 10) / 10) : TRECHO_MAXIMO
+  const durThumb = Math.min(dur, maxDur) / vel
   const larguraGrande = 'min(56vw, 252px)'
-  const complexo = !!base && !fundoLiso(base)
+  const complexo = !!base && !pretoBase && !fundoLiso(base)
   return (
     <Folha
       aberta
@@ -362,9 +389,9 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
             <div className="pn-foto-andamento-linha" role="status">
               <Pontinhos rotulo={fase.qual === 'gravando' ? 'Gravando a thumb…' : 'Subindo o vídeo…'} />
               <span className="pn-foto-barra" aria-hidden="true">
-                <i style={{ transform: `scaleX(${fase.qual === 'gravando' ? Math.min(1, fase.t / dur) : fase.fracao})` }} />
+                <i style={{ transform: `scaleX(${fase.qual === 'gravando' ? Math.min(1, fase.t / durThumb) : fase.fracao})` }} />
               </span>
-              <span>{fase.qual === 'gravando' ? `gravando ${segundos(fase.t)} de ${segundos(dur)}` : `${Math.round(fase.fracao * 100)}%`}</span>
+              <span>{fase.qual === 'gravando' ? `gravando ${segundos(fase.t)} de ${segundos(durThumb)}` : `${Math.round(fase.fracao * 100)}%`}</span>
             </div>
           )}
           {!semEstilo ? (
@@ -415,6 +442,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
             <div className="pn-est-vitrines">
               <figure className="pn-est-fig">
                 <Vitrine
+                  semHalo
                   largura={252}
                   style={{ width: larguraGrande, height: `calc(${larguraGrande} * 16 / 9)` }}
                   cor={corHalo}
@@ -434,7 +462,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
               <figure className="pn-est-fig">
                 <div className="pn-sq pn-est-card" style={{ width: 'min(30vw, 132px)' }}>
                   <div className="pn-sq-arte">
-                    <Vitrine largura={56} cor={corHalo} sintonia={null} style={{ width: '43%', height: 'auto', aspectRatio: '9 / 16' }}>
+                    <Vitrine semHalo largura={56} cor={corHalo} sintonia={null} style={{ width: '43%', height: 'auto', aspectRatio: '9 / 16' }}>
                       <CopiaDoQuadro fonte={capaQuadro.current} versao={versao} />
                     </Vitrine>
                   </div>
@@ -469,7 +497,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
                   type="range"
                   min={Math.min(1, maxDur)}
                   max={maxDur}
-                  step={0.5}
+                  step={0.1}
                   value={Math.min(dur, maxDur)}
                   disabled={ocupado}
                   onChange={(e) => {
@@ -483,8 +511,16 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
               <p className="pn-est-numeros">
                 Vídeo de {segundos(fonte.duracao)} · a thumb sai em {SAIDA_VIDEO.w}×{SAIDA_VIDEO.h}, {tipo?.includes('mp4') ? 'MP4' : 'WebM'}, sem som
               </p>
+              {vel > 1 && (
+                <p className="pn-est-numeros pn-est-vel">
+                  Trecho de {segundos(Math.min(dur, maxDur))}: a thumb sai com {segundos(durThumb)}, {vel.toFixed(1).replace('.', ',')}× mais rápida (o trecho inteiro cabe nos {TRECHO_MAXIMO} s).
+                </p>
+              )}
             </div>
 
+            {pretoBase && tirarFundo && (
+              <Aviso tipo="info">O fundo desse vídeo já é preto: não recortei nada, só deixei o preto liso. No site o preto some no preto, e a parte escura do produto não perde pedaço.</Aviso>
+            )}
             {complexo && (
               <Aviso tipo="info" acao={tirarFundo ? <button type="button" className="pn-link-botao" onClick={() => ligarFundo(false)}>Manter o fundo</button> : undefined}>
                 {tirarFundo ? 'O fundo desse vídeo tem muita coisa: o recorte pode errar. Se ficar estranho, mantém o fundo.' : 'O fundo desse vídeo tem muita coisa, então mantive o fundo: só enquadrei e escureci as bordas.'}

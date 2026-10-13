@@ -4,7 +4,8 @@
 // Home 2, ?home=2, o story só com os do dono e a rua no fim do Início, que some com a chave desligada); o
 // "RESTAM 2" no card, no story e na página do produto, a quantidade que não passa do que resta e o aviso; o estado
 // ativado no painel (BA) no site inteiro, sem a tela de sem atendimento piscar; o WhatsApp próprio do estado e o "o
-// mesmo pra todos"; a entrega grátis em mais de um dia; a frase do story; o Teste minha sorte desligado; a loja guardada
+// mesmo pra todos"; a entrega grátis em mais de um dia; a frase do story; o material da loja de 11/10 (os 2 novos só no
+// RJ, com a foto de fábrica e "Consultar"; a capa da thumb do Hennessy); o Teste minha sorte desligado; a loja guardada
 // no aparelho com o servidor fora do ar; o 404 sem-loja (volta pra embutida); a resposta torta (ignorada); e o estado
 // que sai do site (quem estava nele vê a tela de sem atendimento).
 import { readFileSync } from 'node:fs'
@@ -219,6 +220,51 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   conferir(/greencheese_importsba/.test(lista ?? ''), 'loja: Por estado com o perfil da BA')
   await foto(ba, 'loja-06-ba-por-estado')
   conferir(/greencheese_importsba/.test((await ba.locator('.rodape').textContent()) ?? ''), 'loja: o rodapé com o @ da BA')
+
+  // ── RJ: o material da loja de 11/10 (na semente): os 2 novos à venda só no RJ, com a foto de fábrica e "Consultar"
+  // (MG: indisponíveis); a Fanta Ghost Face com a foto; o Hennessy com a capa da thumb animada de fábrica (produtos/) ──
+  {
+    const ctxRj = await contexto(browser, { width: 390, height: 844 })
+    await ctxRj.route(/\/api\/index\.php\?r=loja(&|$)/, responder)
+    await ctxRj.addInitScript(() => {
+      try {
+        localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5))
+        sessionStorage.setItem('gc-abertura', '1')
+        sessionStorage.setItem('gc-dica-hero', '1')
+      } catch {
+        /* ignora */
+      }
+    })
+    const rj = await ctxRj.newPage()
+    vigiarSemRede(rj, 'loja-rj')
+    const cards = async (uf) => {
+      await rj.goto(`${base}?uf=${uf}`)
+      await esperar(rj, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 7)
+      await rj.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ timeout: 8000 }).catch(() => {})
+      await rj.waitForTimeout(400)
+      return rj.evaluate(() =>
+        Object.fromEntries(
+          [...document.querySelectorAll('.vista-inicio .catalogo-inicio .grade > .card[data-flip-id]')].map((li) => [
+            li.getAttribute('data-flip-id'),
+            { off: li.classList.contains('card-off'), preco: li.querySelector('.sq-preco')?.textContent ?? '', img: li.querySelector('img')?.getAttribute('src') ?? '', halo: !!li.querySelector('.pv.pv-com-halo') },
+          ]),
+        ),
+      )
+    }
+    const noRj = await cards('rj')
+    for (const id of ['jack-daniels-tennessee-apple', 'fanta-maca-china']) {
+      const c = noRj[id]
+      conferir(!!c && !c.off && c.preco === 'Consultar' && c.img.endsWith(`produtos/${id}.webp`), `loja: RJ, ${id} à venda, "Consultar" e a foto de fábrica (${JSON.stringify(c)})`)
+    }
+    conferir(noRj['hennessy-very-special']?.img.endsWith('produtos/hennessy-very-special-capa.webp'), `loja: o Hennessy na grade com a capa da thumb animada de fábrica (${noRj['hennessy-very-special']?.img})`)
+    // a thumb animada (quadro sobre preto, sem transparência) sem o halo, que vazava pelo vidro escuro; a foto recortada, com
+    conferir(noRj['hennessy-very-special']?.halo === false && noRj['fanta-maca-china']?.halo === true, `loja: a thumb animada sem o halo pontilhado, a foto com (${noRj['hennessy-very-special']?.halo}, ${noRj['fanta-maca-china']?.halo})`)
+    conferir(noRj['fanta-ghost-face-punch']?.img.endsWith('produtos/fanta-ghost-face-punch.webp'), `loja: a Fanta Ghost Face com a foto de fábrica (${noRj['fanta-ghost-face-punch']?.img})`)
+    await foto(rj, 'loja-04b-rj-novos')
+    const noMg = await cards('mg')
+    conferir(noMg['jack-daniels-tennessee-apple']?.off === true && noMg['fanta-maca-china']?.off === true, 'loja: MG, os 2 novos indisponíveis (só RJ)')
+    await ctxRj.close()
+  }
 
   // ── a loja muda de novo: o Teste minha sorte desligado, "o mesmo WhatsApp pra todos", a rua desligada ──
   servidor.versao = 8

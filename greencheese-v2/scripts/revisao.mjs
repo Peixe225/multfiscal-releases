@@ -292,7 +292,7 @@ async function digitar(page, texto) {
 async function fluxoPedido(page, uf, cep, nomeArq) {
   // monta a sacola pela aba Catálogo: Jack com 1; depois a seda OCB com 3 (combo)
   await irAba(page, 'catalogo')
-  await page.getByRole('button', { name: /Jack Daniel's.*Abrir story/ }).click()
+  await page.getByRole('button', { name: /Jack Daniel's Old No\. 7.*Abrir story/ }).click()
   await page.waitForTimeout(900)
   await page.getByRole('button', { name: 'Pôr na sacola' }).click()
   await page.waitForTimeout(900)
@@ -702,7 +702,7 @@ const browser = await chromium.launch()
   await page.goto(`${base}?uf=mg`)
   await passarAbertura(page)
   await irAba(page, 'catalogo')
-  await page.getByRole('button', { name: /Jack Daniel's.*Abrir story/ }).click()
+  await page.getByRole('button', { name: /Jack Daniel's Old No\. 7.*Abrir story/ }).click()
   await page.waitForTimeout(900)
   await page.getByRole('button', { name: 'Pôr na sacola' }).click()
   await page.waitForTimeout(900)
@@ -1393,7 +1393,7 @@ for (const h2 of [true, false]) {
   await irAba(page, 'catalogo')
   await page.waitForTimeout(900)
   await foto(page, 'desk-03-catalogo')
-  await page.getByRole('button', { name: /Jack Daniel's.*Abrir story/ }).click()
+  await page.getByRole('button', { name: /Jack Daniel's Old No\. 7.*Abrir story/ }).click()
   await page.waitForTimeout(1300)
   await foto(page, 'desk-04-story')
   await page.getByRole('button', { name: 'Pôr na sacola' }).click()
@@ -1431,7 +1431,8 @@ for (const h2 of [true, false]) {
   await page.keyboard.type('jack')
   await page.waitForTimeout(300)
   conferir(JSON.stringify(await ativo()) === '["Buscar"]', 'lateral: Buscar ativo com a busca em uso')
-  // a busca acha o produto certo (NAV-02): "jack" e "whisky" só o Jack Daniel's, "gin" só o gin, "vidro" só a de vidro
+  // a busca acha o produto certo (NAV-02): "jack" e "whisky" só os 2 Jack Daniel's (o Old No. 7 e o Tennessee Apple),
+  // "gin" só o gin, "vidro" só a de vidro
   const achados = async (q) => {
     await page.locator('.vista[data-vista="catalogo"] .busca input').fill(q)
     await page.waitForTimeout(500)
@@ -1439,8 +1440,8 @@ for (const h2 of [true, false]) {
   }
   const busca = { jack: await achados('jack'), whisky: await achados('whisky'), gin: await achados('gin'), vidro: await achados('vidro') }
   conferir(
-    busca.jack.length === 1 && /Jack/.test(busca.jack[0]) && busca.whisky.length === 1 && /Jack/.test(busca.whisky[0]) && busca.gin.length === 1 && /Gin/.test(busca.gin[0]) && busca.vidro.length === 1 && /vidro/i.test(busca.vidro[0]),
-    `busca: "jack"/"whisky" só o Jack, "gin" só o gin, "vidro" só a piteira de vidro (${JSON.stringify(busca)})`,
+    busca.jack.length === 2 && busca.jack.every((n) => /Jack/.test(n)) && JSON.stringify(busca.whisky) === JSON.stringify(busca.jack) && busca.gin.length === 1 && /Gin/.test(busca.gin[0]) && busca.vidro.length === 1 && /vidro/i.test(busca.vidro[0]),
+    `busca: "jack"/"whisky" só os 2 Jack, "gin" só o gin, "vidro" só a piteira de vidro (${JSON.stringify(busca)})`,
   )
   await page.locator('.vista[data-vista="catalogo"] .busca input').fill('')
   await page.locator('.lateral [data-aba="catalogo"]').click()

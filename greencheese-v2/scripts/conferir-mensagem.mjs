@@ -135,6 +135,19 @@ const linhaVar = (variacaoId, qtd) => m.montarPedido({ ...pedido, linhas: [{ pro
 if (linhaVar('premium', 2) !== '2x Seda OCB Premium Slim (Premium) — R$ 100,00') problemas.push(`variação Premium × 2 veio "${linhaVar('premium', 2)}"`)
 if (linhaVar('premium', 3) !== '3x Seda OCB Premium Slim (Premium) — R$ 150,00') problemas.push(`variação Premium × 3 veio "${linhaVar('premium', 3)}"`)
 if (linhaVar('comum', 3) !== '3x Seda OCB Premium Slim (Comum) — R$ 19,99') problemas.push(`variação sem preço × 3 veio "${linhaVar('comum', 3)}"`)
+// tamanho é opcional (painel → Produto): sem ele (vazio do painel ou ausente do catálogo), o nome vai sozinho, sem
+// espaço nem " · " sobrando; e sem preço, "preço a consultar" (nunca um valor inventado)
+const semTamanho = { id: 'fanta-maca-china', nome: 'Fanta Maçã (China)', categoria: 'bebidas', preco: null, disponivel: {}, demo: false, foto: null, cor: '#000', arte: { tipo: 'lata-alta', corpo: '#000' } }
+for (const [rotulo, prod] of [['ausente', semTamanho], ['vazio', { ...semTamanho, tamanho: '' }]]) {
+  const msg = m.montarPedido({ ...pedido, linhas: [{ produto: prod, qtd: 1 }] }).split('\n')
+  const linha = msg.find((l) => /^\d+x /.test(l))
+  if (linha !== '1x Fanta Maçã (China) — preço a consultar') problemas.push(`produto sem tamanho (${rotulo}) veio "${linha}"`)
+  if (msg.some((l) => / · $| ·  | {2,}—|\s$/.test(l))) problemas.push(`produto sem tamanho (${rotulo}): sobrou separador ou espaço: ${JSON.stringify(msg)}`)
+  const sub = msg.find((l) => l.startsWith('Subtotal:'))
+  if (sub !== 'Subtotal: a consultar') problemas.push(`produto sem preço: o subtotal veio "${sub}"`)
+}
+if (m.nomeNaMensagem({ produto: { ...semTamanho, tamanho: '' }, qtd: 1 }) !== 'Fanta Maçã (China)') problemas.push('nomeNaMensagem com tamanho vazio deixou sobra')
+
 // o código do pedido: UMA linha logo depois do cabeçalho, e mais nada muda (com e sem cupom)
 const comCodigo = m.montarPedido({ ...pedido, codigo: 'GC-7KD2X' }).split('\n')
 if (comCodigo.length !== a.length + 1 || comCodigo[1] !== 'Código: GC-7KD2X') problemas.push(`com código, a 2ª linha veio "${comCodigo[1]}"`)

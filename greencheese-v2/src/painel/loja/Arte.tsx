@@ -85,21 +85,26 @@ export function ArteProduto({ produto, largura, halo = true, cinza = false, clas
   const mod = useSyncExternalStore(assinarPixel, () => pixel)
   // foto que não abre (apagada do servidor, sem rede): cai no desenho
   const [fotoFalhou, setFotoFalhou] = useState<string | null>(null)
-  // com thumb animada: a capa e o vídeo por cima (como o card do site); sem, a foto
-  const animada = !!produto.video && !!produto.capa && fotoFalhou !== produto.capa
-  const foto = animada ? (produto.capa ?? null) : produto.foto && fotoFalhou !== produto.foto ? produto.foto : null
+  // vídeo que o navegador não toca (o MP4/H.264 num Chromium sem H.264, o WebM no iPhone antigo): fica a capa parada
+  const [videoFalhou, setVideoFalhou] = useState<string | null>(null)
+  // com thumb animada: a capa e o vídeo por cima (como o card do site); sem, a foto (ou a capa, se o vídeo não toca)
+  const capaOk = !!produto.capa && fotoFalhou !== produto.capa
+  const animada = !!produto.video && capaOk && videoFalhou !== produto.video
+  const foto = animada ? (produto.capa ?? null) : produto.foto && fotoFalhou !== produto.foto ? produto.foto : produto.video && capaOk ? (produto.capa ?? null) : null
   const emPixel = !foto && !Desenho && !!lista
+  // a thumb animada (a capa e o vídeo, sem transparência) fica sem o halo, como no site: ele vazava pelo escuro do produto
+  const comHalo = halo && !(foto && foto === produto.capa)
   useEffect(() => {
     if (emPixel && !mod) carregarPixel()
   }, [emPixel, mod])
   // a arte em pixel com resolução de ~1 pixel da arte por 2 px de tela (nítida e leve)
   const url = emPixel && mod ? mod.pixelDoProduto({ id: produto.id, nome: produto.nome, cor: produto.cor, arte: produto.arte, largura: Math.min(90, Math.max(27, Math.round(largura / 2))), cinza }) : null
   // o halo é o mesmo desenho do site (pontilhado Bayer da cor do produto, cinza no indisponível)
-  const estilo = { width: largura, '--pn-halo': cinza ? '#636363' : corDoHalo(produto.cor), '--pn-halo-img': halo ? `url(${haloDataUrl(produto.cor, cinza)})` : undefined } as CSSProperties
+  const estilo = { width: largura, '--pn-halo': cinza ? '#636363' : corDoHalo(produto.cor), '--pn-halo-img': comHalo ? `url(${haloDataUrl(produto.cor, cinza)})` : undefined } as CSSProperties
   return (
-    <span className={`pn-arte pn-arte-loja${halo ? ' pn-arte-halo pn-arte-halo-site' : ''}${cinza ? ' pn-arte-cinza' : ''}${className ? ` ${className}` : ''}`} style={estilo} aria-hidden="true">
+    <span className={`pn-arte pn-arte-loja${comHalo ? ' pn-arte-halo pn-arte-halo-site' : ''}${cinza ? ' pn-arte-cinza' : ''}${className ? ` ${className}` : ''}`} style={estilo} aria-hidden="true">
       {animada && !cinza && produto.video && foto ? (
-        <VideoPequeno src={urlImagem(produto.video)} capa={urlImagem(foto)} aoFalhar={() => setFotoFalhou(produto.capa ?? null)} />
+        <VideoPequeno src={urlImagem(produto.video)} capa={urlImagem(foto)} aoFalhar={() => setVideoFalhou(produto.video ?? null)} />
       ) : foto ? (
         <img className="pn-arte-foto pn-arte-foto-loja" src={urlImagem(foto)} alt="" draggable={false} onError={() => setFotoFalhou(foto)} onLoad={(e) => e.currentTarget.toggleAttribute('data-alfa', temTransparencia(e.currentTarget))} />
       ) : Desenho ? (

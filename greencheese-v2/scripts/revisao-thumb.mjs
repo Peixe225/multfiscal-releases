@@ -2,7 +2,8 @@
 // com vídeo e capa em 4 produtos (os primeiros da grade de MG), o vídeo de verdade (WebM gerado pelo ffmpeg; sem ele,
 // a rodada fica de fora e diz). Confere: na primeira tela nenhum vídeo baixa (nem antes da maior pintura, LCP); só toca
 // o que está à vista, no máximo 2 ao mesmo tempo (celular e computador); aba escondida pausa e volta; movimento
-// reduzido e economia de dados ficam na capa, sem baixar vídeo; vídeo com erro volta pra ilustração; o story aberto toca
+// reduzido e economia de dados ficam na capa, sem baixar vídeo; vídeo com erro volta pra foto (ou pra ilustração, sem
+// foto); o story aberto toca
 // o dele; o story do Início não toca (é a primeira tela).
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -192,18 +193,26 @@ export async function rodadaThumb({ browser, base, contexto, conferir, foto }) {
     await ctx.close()
   }
 
-  // vídeo que dá erro: o card volta pra ilustração (o produto não tem foto), sem ficar preso na capa
+  // vídeo que dá erro: o card volta pra foto do produto (a Fanta Ghost Face tem a de fábrica, produtos/…) ou, sem foto,
+  // pra ilustração, sem ficar preso na capa
   {
+    const fotoDele = lojaDaSemente().produtos.find((x) => x.id === COM_VIDEO[0])?.foto ?? null
     const { ctx, p } = await abrir({ width: 390, height: 844 }, {}, { falhar: [COM_VIDEO[0]] })
     await p.waitForTimeout(3500)
     await irPraGrade(p)
     const voltou = await p
-      .waitForFunction((id) => {
-        const caixa = document.querySelector(`.vista-inicio .grade [data-arte="${id}"]`)
-        return !!caixa && !!caixa.querySelector('svg.pv-real') && !caixa.querySelector('video.pv-video') && !caixa.querySelector('img.pv-real')
-      }, COM_VIDEO[0], { timeout: 12000 })
+      .waitForFunction(
+        ({ id, foto }) => {
+          const caixa = document.querySelector(`.vista-inicio .grade [data-arte="${id}"]`)
+          if (!caixa || caixa.querySelector('video.pv-video')) return false
+          const img = caixa.querySelector('img.pv-real')
+          return foto ? !!img && (img.getAttribute('src') ?? '').endsWith(foto) : !!caixa.querySelector('svg.pv-real') && !img
+        },
+        { id: COM_VIDEO[0], foto: fotoDele },
+        { timeout: 12000 },
+      )
       .then(() => true, () => false)
-    conferir(voltou, 'thumb: vídeo com erro volta pra ilustração do produto')
+    conferir(voltou, `thumb: vídeo com erro volta pra ${fotoDele ? `foto do produto (${fotoDele})` : 'ilustração do produto'}, sem ficar preso na capa`)
     await ctx.close()
   }
 }

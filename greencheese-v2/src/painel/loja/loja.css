@@ -1332,6 +1332,8 @@ html.com-teclado .pn-pe-fixo {
 /* nome e tamanho na mesma linha (o tamanho é curto); no celular bem estreito, um embaixo do outro */
 .pn-dupla-nome {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  /* "Tamanho (opcional)" pode quebrar em 2 linhas no celular estreito: as caixas ficam alinhadas embaixo */
+  align-items: end;
 }
 @media (max-width: 359px) {
   .pn-dupla-nome {

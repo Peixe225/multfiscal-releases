@@ -67,6 +67,10 @@
   image-rendering: pixelated;
   pointer-events: none;
 }
+/* a thumb animada fica sem o halo, como no site (o quadro não tem transparência: o halo vazava pelo escuro do produto) */
+.pn-est-vitrine.pn-est-sem-halo::before {
+  content: none;
+}
 .pn-est-vitrine > canvas,
 .pn-est-vitrine > video {
   position: absolute;

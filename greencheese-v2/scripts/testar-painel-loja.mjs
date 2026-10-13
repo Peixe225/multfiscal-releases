@@ -113,6 +113,13 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await print(p, 'loja-produto-basico')
   // PNL-20: o Tamanho sem placeholder que parece valor (era "350 ml", cinza, num isqueiro)
   ok(/^ex\.: /.test((await p.getByLabel('Tamanho').getAttribute('placeholder')) ?? ''), `Tamanho com o exemplo dito como exemplo ("${await p.getByLabel('Tamanho').getAttribute('placeholder')}", não "350 ml")`)
+  // o tamanho é opcional (fica do lado do nome, decisão do Ian, mas vazio salva): o rótulo diz
+  ok((await p.locator('label[for="p-tamanho"]').innerText()).replace(/\s+/g, ' ').trim() === 'Tamanho (opcional)' && (await p.getByLabel('Tamanho (opcional)').count()) === 1, `o rótulo diz que o tamanho é opcional ("${(await p.locator('label[for="p-tamanho"]').innerText()).replace(/\s+/g, ' ').trim()}")`)
+  {
+    // a caixa do tamanho alinhada com a do nome (o rótulo pode quebrar em 2 linhas no celular estreito)
+    const [yn, yt] = await Promise.all(['#p-nome', '#p-tamanho'].map((sel) => p.locator(sel).evaluate((e) => Math.round(e.getBoundingClientRect().bottom))))
+    ok(Math.abs(yn - yt) <= 1, `nome e tamanho com as caixas na mesma linha (${yn} × ${yt})`)
+  }
   // PNL-08: voltar com mudança pergunta; descartar volta pro preço salvo e apaga o rascunho
   await preco.fill('10,99')
   await p.getByRole('button', { name: 'Voltar', exact: true }).tap()
@@ -262,6 +269,27 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     const x = prod(await loja(), 'isqueiro-bic-mini')
     return x?.preco === 6.5 && x.disponivel.mg === true && x.disponivel.rj === false
   }), 'produto novo no site, à venda só em MG')
+  ok(!('tamanho' in prod(await loja(), 'isqueiro-bic-mini')), 'criado com o tamanho vazio (é opcional): salvou, e o site recebe sem tamanho (nada de " · " sobrando)')
+  {
+    // tamanho preenchido e depois apagado: salva vazio de novo
+    await p.goto(`${BASE}/painel/#/produto/isqueiro-bic-mini`)
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+    await p.getByLabel('Tamanho (opcional)').fill('mini')
+    await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+    await p.getByText('Isqueiro Bic Mini: salvo. O site já mostra.').waitFor()
+    ok(prod(await loja(), 'isqueiro-bic-mini').tamanho === 'mini', 'tamanho preenchido vai pro site')
+    // (salvar volta pra lista, pelo history.back(): espera chegar lá antes do próximo goto, senão o back chega depois
+    // e desfaz o goto)
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+    await p.goto(`${BASE}/painel/#/produto/isqueiro-bic-mini`)
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+    ok((await p.getByLabel('Tamanho (opcional)').inputValue()) === 'mini', 'o tamanho salvo volta no campo')
+    await p.getByLabel('Tamanho (opcional)').fill('')
+    await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+    await p.getByText('Isqueiro Bic Mini: salvo. O site já mostra.').waitFor()
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+    ok(await esperar(async () => !('tamanho' in prod(await loja(), 'isqueiro-bic-mini'))), 'apagou o tamanho: salva vazio (o servidor aceita) e o site volta a receber sem')
+  }
 
   // a thumb animada: um vídeo do celular → o trecho → o mesmo estilo, gravado no navegador → no produto → no site
   if (videos) {
@@ -273,7 +301,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     await ev2.waitFor()
     await ev2.getByText('No story', { exact: true }).waitFor({ timeout: 40000 })
     const dur = ev2.getByLabel('Duração')
-    ok((await dur.inputValue()) === '3.5' && (await ev2.getByLabel('Começa em').inputValue()) === '0', `trecho: começa em 0, 3,5 s de padrão (${await dur.inputValue()})`)
+    ok((await dur.inputValue()) === '4' && (await ev2.getByLabel('Começa em').inputValue()) === '0', `trecho: começa em 0 e o vídeo curto (4 s) vem inteiro marcado (${await dur.inputValue()})`)
     await dur.fill('3')
     ok((await ev2.locator('output[for="est-dur"]').textContent()) === '3,0 s', 'a duração muda pra 3 s')
     await p.waitForTimeout(1500)
@@ -337,6 +365,37 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     ok(tam === statSync(videos.mp4).size, 'é o arquivo original, byte a byte')
     await semRec.close()
   } else ok(true, 'sem ffmpeg aqui: a thumb animada no painel fica de fora')
+
+  // a thumb animada de fábrica (o Hennessy, do material da loja): aparece no produto e salvar não perde ela
+  {
+    await p.goto(`${BASE}/painel/#/produto/hennessy-very-special`)
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+    // o MP4 de fábrica é H.264 (toca no celular e no Chrome de verdade); o Chromium dos testes não abre H.264: lá o
+    // vídeo dá erro e a miniatura cai na foto de fábrica, como foi feito pra fazer
+    const h264 = await p.evaluate(() => document.createElement('video').canPlayType('video/mp4; codecs="avc1.42E01E"') !== '')
+    const card = p.locator('.pn-video-produto .pn-foto-card')
+    const esperado = h264 ? card.locator('video.pn-arte-video[src="../produtos/hennessy-very-special.mp4"][poster="../produtos/hennessy-very-special-capa.webp"]') : card.locator('img.pn-arte-foto[src="../produtos/hennessy-very-special-capa.webp"]')
+    ok(await esperado.waitFor({ timeout: 15000 }).then(() => true, () => false), h264 ? 'o vídeo de fábrica no produto, com a capa de fábrica de pôster' : 'o vídeo de fábrica no produto (sem H.264 aqui, a miniatura fica na capa parada, sem cair num desenho qualquer)')
+    ok(await p.getByText('Trocar vídeo').isVisible(), 'a linha da thumb animada sabe que tem vídeo ("Trocar vídeo")')
+    // a thumb animada sem o halo (como no site: o quadro não tem transparência e o halo vazava pelo vidro escuro)
+    const halo = await card.locator('.pn-arte').first().evaluate((el) => ({ classe: el.classList.contains('pn-arte-halo-site'), antes: getComputedStyle(el, '::before').backgroundImage }))
+    ok(!halo.classe && !/url\(/.test(halo.antes), `a thumb animada fica sem o halo pontilhado (${JSON.stringify(halo).slice(0, 80)})`)
+    const capa = await fetch(`${BASE}/produtos/hennessy-very-special-capa.webp`)
+    ok(capa.ok && /image\/webp/.test(capa.headers.get('content-type') ?? ''), `a capa de fábrica abre pelo site (${capa.status})`)
+    await print(p, 'loja-produto-video-fabrica')
+    // salvar outra coisa (o preço) não perde a thumb de fábrica; depois volta pro "Consultar"
+    for (const v of ['199,90', '']) {
+      await p.goto(`${BASE}/painel/#/produto/hennessy-very-special`)
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+      await p.getByLabel('Preço da unidade').fill(v)
+      await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+      await p.getByText(/Hennessy Very Special: salvo/).waitFor()
+      // salvar volta pra lista (history.back()): espera chegar lá, pro próximo goto não ser desfeito por ele
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+      const h = prod(await loja(), 'hennessy-very-special')
+      ok(h.video === 'produtos/hennessy-very-special.mp4' && h.capa === 'produtos/hennessy-very-special-capa.webp' && h.preco === (v ? 199.9 : null), `salvar o produto (preço ${v || 'vazio = Consultar'}) mantém a thumb de fábrica (${h.video})`)
+    }
+  }
 
   // ativar a Bahia
   await p.goto(`${BASE}/painel/#/loja/estados`)
