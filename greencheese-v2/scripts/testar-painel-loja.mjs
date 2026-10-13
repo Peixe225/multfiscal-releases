@@ -307,6 +307,8 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     await p.waitForTimeout(1500)
     await ev2.getByText('No story', { exact: true }).waitFor({ timeout: 40000 })
     ok(await ev2.getByRole('checkbox', { name: 'Tirar o fundo' }).isChecked(), 'vídeo em fundo liso: tira o fundo')
+    // fundo claro: nada de janela (não é gravação da tela) e nenhum aviso de moldura
+    ok((await p.evaluate(() => window.__gcJanela)) === null && (await ev2.getByText(/gravação da tela|Usar o vídeo inteiro/).count()) === 0, 'vídeo de fundo claro: não acha moldura nem corta nada (o caso de sempre segue igual)')
     // a prévia: o 1º quadro tratado sobre preto (o canto escuro, o produto laranja no meio)
     const q = await ev2.locator('.pn-est-palco canvas').evaluate((c) => {
       const t = document.createElement('canvas')
@@ -339,6 +341,125 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     const linhaV = p.locator('.pn-prod').filter({ hasText: 'Isqueiro Bic Mini' })
     ok((await linhaV.locator('video.pn-arte-video').count()) === 1, 'a lista de produtos mostra a thumb animada pequena')
     await print(p, 'loja-produtos-thumb')
+
+    // a gravação da tela (o reel dentro do story do Instagram, como a loja manda): a janela do vídeo é achada sozinha,
+    // a interface (a barra do celular, o nome do perfil, o tempo do reel, "Enviar mensagem") fica de fora, o preto do
+    // reel vira preto liso (nada do retângulo roxo) e o produto fica grande e no meio. Com GC_TESTE_REEL, também no
+    // reel de verdade
+    for (const [arquivo, rotulo, produto] of [[videos.tela, 'gravação da tela (sintética)', 'gin-tanqueray-london-dry'], ...(videos.reel ? [[videos.reel, 'o reel do Hennessy como veio (GC_TESTE_REEL)', 'jagermeister-700ml']] : [])]) {
+      await p.goto(`${BASE}/painel/#/produto/${produto}`)
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+      await p.evaluate(() => delete window.__gcJanela)
+      const [evT] = await Promise.all([p.waitForEvent('filechooser'), p.locator('label', { hasText: /Escolher vídeo|Trocar vídeo/ }).tap()])
+      await evT.setFiles(arquivo)
+      const dT = p.getByRole('dialog', { name: 'Thumb animada' })
+      await dT.waitFor()
+      await p.waitForFunction(() => window.__gcJanela !== undefined, null, { timeout: 60000 })
+      const jan = await p.evaluate(() => window.__gcJanela)
+      ok(!!jan && jan.moldura === true, `${rotulo}: achou a moldura do Instagram (${JSON.stringify(jan)})`)
+      if (arquivo === videos.tela)
+        ok(!!jan && Math.abs(jan.x0 * 384 - 40) < 8 && Math.abs(jan.x1 * 384 - 344) < 8 && jan.y0 * 832 > 138 && jan.y0 * 832 < 230 && Math.abs(jan.y1 * 832 - 658) < 8, `${rotulo}: a janela é a do reel, sem o nome do perfil e o tempo de cima (em px: ${jan && [jan.x0 * 384, jan.y0 * 832, jan.x1 * 384, jan.y1 * 832].map(Math.round).join(', ')})`)
+      await dT.getByText('cortei a moldura e o texto da tela', { exact: false }).waitFor({ timeout: 60000 })
+      await dT.getByText('O fundo desse vídeo já é preto', { exact: false }).waitFor({ timeout: 60000 })
+      ok(true, `${rotulo}: avisa que cortou a moldura e que o fundo já é preto`)
+      await dT.getByText('No story', { exact: true }).waitFor({ timeout: 60000 })
+      await p.waitForTimeout(1500)
+      await dT.getByText('No story', { exact: true }).waitFor({ timeout: 60000 })
+      const olhar = (sel) =>
+        dT.locator(sel).first().evaluate((c) => {
+          const t = document.createElement('canvas')
+          t.width = c.width
+          t.height = c.height
+          const g = t.getContext('2d')
+          g.drawImage(c, 0, 0)
+          const d = g.getImageData(0, 0, c.width, c.height).data
+          let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1, faixas = 0
+          for (let y = 0; y < c.height; y++)
+            for (let x = 0; x < c.width; x++) {
+              const i = (y * c.width + x) * 4
+              if (d[i] + d[i + 1] + d[i + 2] > 60) {
+                if (x < x0) x0 = x
+                if (x > x1) x1 = x
+                if (y < y0) y0 = y
+                if (y > y1) y1 = y
+                if (y < c.height * 0.1 || y > c.height * 0.94) faixas++
+              }
+            }
+          // o fundo: tudo fora da caixa do produto (com folga), o canal mais claro
+          const m = Math.round(c.width * 0.04)
+          let maxPreto = 0
+          for (let y = 0; y < c.height; y++)
+            for (let x = 0; x < c.width; x++) {
+              if (x >= x0 - m && x <= x1 + m && y >= y0 - m && y <= y1 + m) continue
+              const i = (y * c.width + x) * 4
+              maxPreto = Math.max(maxPreto, d[i], d[i + 1], d[i + 2])
+            }
+          return { w: c.width, h: c.height, caixa: [x0, y0, x1, y1], faixas, maxPreto }
+        })
+      const q = await olhar('.pn-est-palco canvas')
+      ok(q.faixas === 0, `${rotulo}: nada da interface na prévia (faixa de cima e de baixo pretas: ${q.faixas} pixels acesos)`)
+      ok(q.maxPreto <= 3, `${rotulo}: o preto do reel vira preto liso, sem o retângulo roxo (o mais claro do fundo: ${q.maxPreto})`)
+      const alt = (q.caixa[3] - q.caixa[1]) / q.h
+      const meio = (q.caixa[0] + q.caixa[2]) / 2 / q.w
+      ok(alt > 0.62 && Math.abs(meio - 0.5) < 0.06, `${rotulo}: o produto grande e no meio (${(alt * 100).toFixed(0)}% da altura, centro em ${(meio * 100).toFixed(0)}%)`)
+      if (arquivo === videos.tela) {
+        await print(p, 'loja-estudio-video-gravacao-tela')
+        // o dono pode usar o vídeo inteiro (e voltar)
+        await dT.getByRole('button', { name: 'Usar o vídeo inteiro' }).tap()
+        await dT.getByText('Usando o vídeo inteiro, com a moldura do Instagram em volta.').waitFor()
+        await dT.getByText('No story', { exact: true }).waitFor({ timeout: 60000 })
+        await p.waitForTimeout(1500)
+        const inteiro = await olhar('.pn-est-palco canvas')
+        ok(inteiro.faixas > 0 || inteiro.maxPreto > 3, `"Usar o vídeo inteiro": a moldura volta pra prévia (${inteiro.faixas} acesos nas faixas, fundo até ${inteiro.maxPreto})`)
+        await dT.getByRole('button', { name: 'Cortar a moldura' }).tap()
+        await dT.getByText('cortei a moldura e o texto da tela', { exact: false }).waitFor()
+        await dT.getByText('No story', { exact: true }).waitFor({ timeout: 60000 })
+        await p.waitForTimeout(1500)
+        const devolta = await olhar('.pn-est-palco canvas')
+        ok(devolta.faixas === 0 && devolta.maxPreto <= 3, `"Cortar a moldura": volta a cortar (${devolta.faixas} acesos, fundo até ${devolta.maxPreto})`)
+        await axe(p, 'estúdio do vídeo com a gravação da tela')
+      }
+      await dT.getByRole('button', { name: 'Usar assim' }).tap()
+      await dT.waitFor({ state: 'detached', timeout: 120000 })
+      await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+      await p.getByText(/: salvo\. O site já mostra\./).waitFor()
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+      const pr = prod(await loja(), produto)
+      // a capa gravada (o 1º quadro tratado): sem a interface, o preto liso, o produto grande
+      const capa = await p.evaluate(async (u) => {
+        const img = new Image()
+        img.src = `../${u}`
+        await img.decode()
+        const c = document.createElement('canvas')
+        c.width = img.naturalWidth
+        c.height = img.naturalHeight
+        const g = c.getContext('2d')
+        g.drawImage(img, 0, 0)
+        const d = g.getImageData(0, 0, c.width, c.height).data
+        let x0 = c.width, x1 = -1, y0 = c.height, y1 = -1, faixas = 0
+        for (let y = 0; y < c.height; y++)
+          for (let x = 0; x < c.width; x++) {
+            const i = (y * c.width + x) * 4
+            if (d[i] + d[i + 1] + d[i + 2] > 60) {
+              x0 = Math.min(x0, x)
+              x1 = Math.max(x1, x)
+              y0 = Math.min(y0, y)
+              y1 = Math.max(y1, y)
+              if (y < c.height * 0.1 || y > c.height * 0.94) faixas++
+            }
+          }
+        const m = Math.round(c.width * 0.04)
+        let maxPreto = 0
+        for (let y = 0; y < c.height; y++)
+          for (let x = 0; x < c.width; x++) {
+            if (x >= x0 - m && x <= x1 + m && y >= y0 - m && y <= y1 + m) continue
+            const i = (y * c.width + x) * 4
+            maxPreto = Math.max(maxPreto, d[i], d[i + 1], d[i + 2])
+          }
+        return { alt: (y1 - y0) / c.height, faixas, maxPreto }
+      }, pr.capa)
+      ok(/^uploads\//.test(pr.video ?? '') && capa.faixas === 0 && capa.maxPreto <= 6 && capa.alt > 0.62, `${rotulo}: a thumb gravada e a capa saem sem a interface, no preto liso e com o produto grande (${JSON.stringify(capa)})`)
+    }
 
     // navegador sem MediaRecorder (iPhone antigo): manda o MP4 original pequeno, que o site só enquadra
     const semRec = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'pt-BR', storageState: await p.context().storageState() })

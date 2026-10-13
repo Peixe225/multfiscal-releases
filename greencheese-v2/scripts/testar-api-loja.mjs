@@ -68,6 +68,20 @@ export async function lojaSemServidor(t) {
   igual(listaTs(lojaTs, 'const PAGAMENTOS = new Set<FormaPagamento>(['), pagamentos, 'formas de pagamento: as que o site aceita do servidor')
   igual(listaTs(lojaTs, 'const EMBLEMAS = new Set<Emblema>(['), emblemas, 'emblemas: os que o site desenha (com o pino do genérico)')
   igual(listaTs(join(raiz, 'src/dados/canais.ts'), 'export type Emblema =', '\n'), emblemas, 'emblemas: o tipo Emblema do site')
+  // a foto de fábrica: o nome que o site aceita (FOTO de loja-ler.ts), o que o servidor aceita (GC_LOJA_FABRICA_IMAGEM)
+  // e o que o .htaccess de public/produtos/ serve são o mesmo (o servidor aceitava "_" e ".", que o Apache recusa)
+  {
+    const fotoSite = new RegExp(/const FOTO = \/(.+)\/\n/.exec(readFileSync(lojaTs, 'utf8'))?.[1] ?? '^$')
+    const ht = /FilesMatch "([^"]+)"/.exec(readFileSync(join(raiz, 'public/produtos/.htaccess'), 'utf8'))?.[1] ?? '^$'
+    const nomes = ['fanta-ghost-face-punch.webp', 'x1.png', 'a.jpg', 'a.jpeg', 'foto_dono.webp', 'a.b.webp', 'Fanta.webp', '-a.webp', 'a.svg', 'a.webp.php', 'a.mp4', `${'a'.repeat(81)}.webp`, `${'a'.repeat(82)}.webp`]
+    const servidor = JSON.parse(
+      execFileSync(PHP, ['-r', 'define("GC_API", 1); require $argv[1] . "/validar.php"; require $argv[1] . "/loja.php"; require $argv[1] . "/loja-validar.php"; echo json_encode(array_map(fn ($n) => preg_match(GC_LOJA_FABRICA_IMAGEM, "produtos/" . $n) === 1, json_decode($argv[2])));', join(raiz, 'public', 'api', 'nucleo'), JSON.stringify(nomes)], { encoding: 'utf8' }),
+    )
+    const apache = nomes.map((n) => new RegExp(ht).test(n) && !/\.(mp4|webm)$/.test(n))
+    igual(nomes.map((n) => fotoSite.test(`produtos/${n}`)), apache, 'foto de fábrica: o site aceita o mesmo nome que o .htaccess de produtos/ serve')
+    igual(servidor, apache, 'foto de fábrica: o servidor aceita o mesmo nome que o .htaccess de produtos/ serve')
+    igual(apache.filter(Boolean).length, 5, 'só os 5 nomes simples passam (sem _, ponto no meio, maiúscula, traço no começo, outra extensão ou nome longo)')
+  }
   return { nomesUf }
 }
 
@@ -370,7 +384,21 @@ export async function loja(t, { nomesUf }) {
     igual([ft.status, ft.json.produto.foto], [200, up.json.imagem], 'produto com a foto enviada')
     igual(prodPub(await pub(), 'isqueiro-bic-mini').foto, up.json.imagem, 'o site recebe o caminho da foto')
     igual((await dono.post('admin-produto-salvar', { id: 'isqueiro-bic-mini', descricao: 'O pequeno da Bic.' })).json.produto.foto, up.json.imagem, 'editar outro campo mantém a foto')
-    igual((await dono.post('admin-produto-salvar', { id: 'isqueiro-bic-mini', foto: 'produtos/isqueiro-bic.webp' })).status, 200, 'foto do build do site (produtos/…) vale')
+    igual((await dono.post('admin-produto-salvar', { id: 'isqueiro-bic-mini', foto: 'produtos/fanta-ghost-face-punch.webp' })).status, 200, 'foto do build do site (produtos/…) vale')
+    // a de fábrica tem de existir no build e ter o nome que o .htaccess de produtos/ serve (o resto dá 403 no Apache e
+    // o site ficava com a foto quebrada)
+    for (const [foto, nome] of [
+      ['produtos/isqueiro-bic.webp', 'foto de fábrica que não está no build'],
+      ['produtos/foto_dono.webp', 'foto de fábrica com _ (o .htaccess de produtos/ recusa)'],
+      ['produtos/a.b.webp', 'foto de fábrica com ponto no meio'],
+      ['produtos/Fanta.webp', 'foto de fábrica com maiúscula'],
+      ['produtos/-fanta.webp', 'foto de fábrica começando com traço'],
+    ]) {
+      const r = await dono.post('admin-produto-salvar', { id: 'isqueiro-bic-mini', foto })
+      erro(r, 400, 'invalido', nome)
+      igual(r.json?.campo, 'foto', `${nome}: o erro é da foto`)
+    }
+    igual((await adm()).produtos.find((p) => p.id === 'isqueiro-bic-mini').foto, 'produtos/fanta-ghost-face-punch.webp', 'a recusada não troca a foto que estava')
     igual((await dono.post('admin-produto-salvar', { id: 'isqueiro-bic-mini', foto: null })).json.produto.foto, null, 'tirar a foto: o site volta pro desenho')
 
     // "combina com": só aponta pra produto no site
@@ -930,9 +958,30 @@ export async function loja(t, { nomesUf }) {
   }
 }
 
+/** Um cliente do painel num servidor de teste à parte (cookie e CSRF como o do testar-api). */
+function clienteDe(base) {
+  let cookie = null
+  let csrf = null
+  const req = async (rota, corpo) => {
+    const headers = { Origin: base, 'X-GC-IP': '198.51.100.210' }
+    if (cookie) headers.Cookie = `gc_painel=${cookie}`
+    if (csrf && corpo) headers['X-CSRF'] = csrf
+    if (corpo) headers['Content-Type'] = 'application/json'
+    const r = await fetch(`${base}/api/index.php?r=${rota}`, { method: corpo ? 'POST' : 'GET', headers, body: corpo ? JSON.stringify(corpo) : undefined })
+    for (const c of r.headers.getSetCookie()) {
+      const m = /^gc_painel=([^;]*)/.exec(c)
+      if (m) cookie = m[1] || null
+    }
+    const json = await r.json().catch(() => null)
+    if (json?.csrf) csrf = json.csrf
+    return { status: r.status, json }
+  }
+  return { get: (rota) => req(rota), post: (rota, corpo) => req(rota, corpo) }
+}
+
 /** Banco de antes da loja (só a migração 1 da base, no PRAGMA user_version): a migração por número põe a loja. */
 export async function lojaMigracao(t) {
-  const { ok, igual, parte, raiz, PHP, tmp } = t
+  const { ok, igual, erro, parte, raiz, PHP, tmp } = t
   parte('loja: migração num banco de antes')
   const portaA = process.env.GC_TESTE_PORTA ? t.porta + 4 : await t.portaLivre()
   const portaB = process.env.GC_TESTE_PORTA ? t.porta + 5 : await t.portaLivre()
@@ -1025,7 +1074,7 @@ export async function lojaMigracao(t) {
     igual([pr('hennessy-very-special').foto, pr('hennessy-very-special').video, pr('hennessy-very-special').capa], ['produtos/hennessy-very-special.webp', 'uploads/videododono1234.mp4', 'uploads/capadodono1234.webp'], '104: o Hennessy sem foto ganha a de fábrica; o vídeo que o dono gravou fica')
     igual([pr('jack-daniels-tennessee-apple').nome, pr('jack-daniels-tennessee-apple').preco, pr('jack-daniels-tennessee-apple').foto], ['Jack Apple do dono', 159.9, null], '104: o produto que já existe (o dono cadastrou) não é tocado')
     const china = pr('fanta-maca-china')
-    ok(!!china && china.preco === null && china.foto === 'produtos/fanta-maca-china.webp' && !('tamanho' in china) && china.categoria === 'bebidas', '104: a Fanta Maçã (China), que não existia, entra sem preço ("Consultar"), sem tamanho e com a foto de fábrica')
+    ok(!!china && china.preco === null && china.foto === 'produtos/fanta-maca-china.webp' && !('tamanho' in china) && china.categoria === 'bebidas', '104: a Fanta Maçã da China, que não existia, entra sem preço ("Consultar"), sem tamanho e com a foto de fábrica')
     igual(Object.entries(china.disponivel).filter(([, v]) => v).map(([uf]) => uf), ['rj'], '104: à venda só no RJ')
     const linha = ler("SELECT ordem, ativo, demo, obs, preco FROM loja_produtos WHERE id = 'fanta-maca-china'")[0]
     igual([linha.ordem, linha.ativo, linha.demo, linha.preco, linha.obs], [ordemAntes + 1, 1, 0, null, 'Visto no story do RJ em 11/10. Preço PENDENTE.'], '104: no fim da grade (a ordem do dono não muda), no site, não é exemplo, com a anotação')
@@ -1037,6 +1086,61 @@ export async function lojaMigracao(t) {
     sql("DELETE FROM migracoes WHERE numero = 104")
     const j3 = await (await fetch(`${bB}/api/index.php?r=loja`)).json()
     igual([j3.versao, j3.loja.produtos.length], [8, j2.loja.produtos.length], '104 de novo, com tudo já no lugar: nada muda (nem a versão)')
+
+    // a 104 com o que o dono cadastrou pelo PAINEL depois do story (o id que o painel gera não é o da migração: o
+    // apóstrofo vira traço e o tamanho entra no id) e com o nome escrito de outro jeito: nunca entra o repetido
+    const donoB = clienteDe(bB)
+    igual((await donoB.post('admin-entrar', { login: 'dono', senha: 'senha-forte-123' })).status, 200, 'o dono entra no banco de antes')
+    const rodar104 = async () => {
+      sql('DELETE FROM migracoes WHERE numero = 104')
+      return (await fetch(`${bB}/api/index.php?r=loja`)).json()
+    }
+    const tirarOsNovos = () => sql("DELETE FROM loja_produtos WHERE id IN ('jack-daniels-tennessee-apple', 'fanta-maca-china')")
+    const comNome = (j, re) => j.loja.produtos.filter((p) => re.test(p.nome)).map((p) => `${p.id}:${p.tamanho ?? ''}:${p.preco}:${Object.entries(p.disponivel).filter(([, v]) => v).map(([u]) => u).join(',')}`)
+    for (const [rotulo, cadastros, ids] of [
+      ['com tamanho', [["Jack Daniel's Tennessee Apple", '1 L', 'destilados', '189,90'], ['Fanta Maçã (China)', '330 ml', 'bebidas', '14,90']], ['jack-daniel-s-tennessee-apple-1-l', 'fanta-maca-china-330-ml']],
+      ['sem tamanho', [["Jack Daniel's Tennessee Apple", '', 'destilados', ''], ['Fanta Maçã da China', '', 'bebidas', '']], ['jack-daniel-s-tennessee-apple', 'fanta-maca-da-china']],
+      ['escrito de outro jeito', [['JACK DANIELS TENNESSEE APPLE 1L', '', 'destilados', ''], ['Fanta China Maçã', 'lata 350 ml', 'bebidas', '']], ['jack-daniels-tennessee-apple-1l', 'fanta-china-maca-lata-350-ml']],
+    ]) {
+      tirarOsNovos()
+      const criados = []
+      for (const [nome, tamanho, categoria, preco] of cadastros) {
+        const c = await donoB.post('admin-produto-salvar', { nome, tamanho, categoria, preco, estados: { mg: { disponivel: true } } })
+        criados.push(c.json?.produto?.id)
+      }
+      igual(criados, ids, `104 (${rotulo}): o painel dá outro id que o da migração (${criados.join(', ')})`)
+      const v0 = (await (await fetch(`${bB}/api/index.php?r=loja`)).json()).versao
+      const j = await rodar104()
+      igual(comNome(j, /tennessee apple/i).map((x) => x.split(':')[0]), [ids[0]], `104 (${rotulo}): só o Jack Apple do dono, nenhum repetido`)
+      igual(comNome(j, /fanta.*(china|maçã)|maçã.*china/i).map((x) => x.split(':')[0]), [ids[1]], `104 (${rotulo}): só a Fanta da China do dono, nenhuma repetida`)
+      igual(j.versao, v0, `104 (${rotulo}): nada pra fazer, a versão não sobe`)
+      for (const id of ids) await donoB.post('admin-produto-apagar', { id })
+    }
+    // parecido não é o mesmo: a Fanta Maçã daqui e o Jack de outro sabor não seguram os novos
+    tirarOsNovos()
+    const outros = []
+    for (const [nome, categoria] of [['Fanta Maçã', 'bebidas'], ["Jack Daniel's Tennessee Fire", 'destilados']]) outros.push((await donoB.post('admin-produto-salvar', { nome, categoria, estados: {} })).json?.produto?.id)
+    const jo = await rodar104()
+    ok(['jack-daniels-tennessee-apple', 'fanta-maca-china', ...outros].every((id) => jo.loja.produtos.some((p) => p.id === id)), `104: a Fanta Maçã e o Jack Tennessee Fire do dono não seguram os novos (entram os 2, e os dele ficam: ${outros.join(', ')})`)
+    for (const id of outros) await donoB.post('admin-produto-apagar', { id })
+
+    // a foto que o dono pôs no Hennessy, sem vídeo: a thumb de fábrica não entra (a capa dela tomaria o lugar da foto
+    // dele no card, no story e na página)
+    sql("UPDATE loja_produtos SET foto = 'uploads/fotododono1234.webp', video = NULL, capa = NULL WHERE id = 'hennessy-very-special'")
+    const vh = (await (await fetch(`${bB}/api/index.php?r=loja`)).json()).versao
+    const jh = await rodar104()
+    const hh = jh.loja.produtos.find((p) => p.id === 'hennessy-very-special')
+    igual([hh.foto, hh.video ?? null, hh.capa ?? null, jh.versao], ['uploads/fotododono1234.webp', null, null, vh], '104: com a foto do dono no Hennessy, nada de vídeo e capa de fábrica por cima (e a versão não sobe)')
+    // sem foto nenhuma: ganha as duas, foto e thumb de fábrica, juntas
+    sql("UPDATE loja_produtos SET foto = NULL WHERE id = 'hennessy-very-special'")
+    const hs = (await rodar104()).loja.produtos.find((p) => p.id === 'hennessy-very-special')
+    igual([hs.foto, hs.video, hs.capa], ['produtos/hennessy-very-special.webp', 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], '104: sem foto e sem vídeo, o Hennessy ganha a foto e a thumb de fábrica')
+
+    // foto de fábrica que já estava salva e saiu do build: editar outro campo passa (só o caminho novo é conferido)
+    sql("UPDATE loja_produtos SET foto = 'produtos/sumiu-do-build.webp' WHERE id = 'isqueiro-clipper'")
+    const ed = await donoB.post('admin-produto-salvar', { id: 'isqueiro-clipper', descricao: 'O isqueiro de sempre.' })
+    igual([ed.status, ed.json?.produto?.foto], [200, 'produtos/sumiu-do-build.webp'], 'foto de fábrica já salva que saiu do build: editar outro campo passa e mantém')
+    erro(await donoB.post('admin-produto-salvar', { id: 'cuia-de-silicone-raw', foto: 'produtos/sumiu-do-build.webp' }), 400, 'invalido', 'a mesma foto que não existe, num produto novo pra ela: recusa')
   } finally {
     filhos.forEach(t.derrubar)
   }

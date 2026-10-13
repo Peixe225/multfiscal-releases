@@ -6,15 +6,17 @@
 // que no Chrome fica no estilo da loja. GIF só onde o navegador decodifica (ImageDecoder); fora disso, pede vídeo.
 // Vídeo com o fundo já preto (o do exemplo do Ian: a garrafa girando no preto liso): nada é recortado, o preto fica liso
 // e o produto, inteiro e no meio. Vídeo curto (até 9 s) já vem inteiro marcado; passando de 6 s, a thumb sai acelerada
-// (até 1,5×), pro giro inteiro caber.
+// (até 1,5×), pro giro inteiro caber. Gravação da tela (o reel dentro do story do Instagram, como a loja manda): a
+// janela do vídeo é achada sozinha (janelaDoVideo) e só ela entra: a moldura da interface e o texto solto colado na
+// borda (o nome do perfil, o tempo) ficam de fora; o dono pode usar o vídeo inteiro.
 import { useEffect, useMemo, useRef, useState, type PointerEvent as EventoPonteiro } from 'react'
 import { corDominante } from '../../arte/produtos/dither'
 import { Folha } from '../Folha'
 import { brl } from '../formato'
 import { Aviso, Botao, Ic, Pontinhos } from '../ui'
-import { ajusteDeCor, analisar, caixaNoPreto, fundoDoPreto, fundoLiso, fundoPreto, pretoDoFundo, pretoPara, recortar, SEM_AJUSTE, toleranciaPara, type Analise, type Caixa, type Imagem, type PontoDoPreto } from './recorte'
-import { contexto, novoCanvas, quadroAutomatico, reduzir, type Quadro } from './render'
-import { abreGif, abrirGif, abrirVideo, capaDe, capaSimples, gravar, mascaraDoQuadro, Processador, quadroPequeno, SAIDA_VIDEO, tipoDeGravacao, TRECHO_FONTE_MAXIMO, TRECHO_MAXIMO, TRECHO_PADRAO, trechoInicial, velocidadeDo, type FonteVideo, type Tratamento } from './video'
+import { ajusteDeCor, analisar, caixaNoPreto, fundoDoPreto, fundoLiso, fundoPreto, janelaDoVideo, pretoDoFundo, pretoPara, recortar, SEM_AJUSTE, toleranciaPara, type Analise, type Caixa, type Imagem, type Janela, type PontoDoPreto } from './recorte'
+import { contexto, novoCanvas, quadroAutomatico, type Quadro } from './render'
+import { abreGif, abrirGif, abrirVideo, capaDe, capaSimples, copiaDoQuadro, gravar, janelaEmPixels, mascaraDoQuadro, Processador, quadroPequeno, SAIDA_VIDEO, tipoDeGravacao, TRECHO_FONTE_MAXIMO, TRECHO_MAXIMO, TRECHO_PADRAO, trechoInicial, velocidadeDo, type FonteVideo, type Tratamento } from './video'
 import { Vitrine } from './Vitrine'
 import { usarCssDoEstudio } from './estilo'
 
@@ -51,6 +53,9 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
   const [semEstilo, setSemEstilo] = useState(false)
   const [ini, setIni] = useState(0)
   const [dur, setDur] = useState(TRECHO_PADRAO)
+  // a janela do vídeo na gravação da tela (undefined = ainda olhando; null = o vídeo inteiro serve) e se corta nela
+  const [janelaAuto, setJanelaAuto] = useState<Janela | null | undefined>(undefined)
+  const [cortarJanela, setCortarJanela] = useState(true)
   const [base, setBase] = useState<Analise | null>(null)
   // o fundo já é preto: o ponto do preto medido na borda do 1º quadro (null = fundo comum) e a cópia que o mediu
   const [pretoBase, setPretoBase] = useState<PontoDoPreto | null>(null)
@@ -120,7 +125,8 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
     return () => proc.canvas.remove()
   }, [proc, fonte])
 
-  // a tira de quadros (8 ao longo do vídeo)
+  // a tira de quadros (8 ao longo do vídeo) e, depois dela (um quadro de cada vez: o vídeo é um só), a janela do vídeo
+  // na gravação da tela do Instagram, em 5 quadros numa cópia de ~320 px. A análise espera a janela
   useEffect(() => {
     if (!fonte) return
     let vivo = true
@@ -135,22 +141,39 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
         g.drawImage(img, (54 - fonte.w * k) / 2, (96 - fonte.h * k) / 2, fonte.w * k, fonte.h * k)
         urls.push(c.toDataURL('image/jpeg', 0.7))
       }
-      if (vivo) setTira(urls)
+      if (!vivo) return
+      setTira(urls)
+      const quadros: Imagem[] = []
+      for (const f of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+        const px = quadroPequeno(await fonte.quadro(fonte.duracao * f), fonte.w, fonte.h, 320)
+        if (!vivo) return
+        quadros.push({ w: px.width, h: px.height, d: px.data })
+      }
+      const j = janelaDoVideo(quadros)
+      // os testes (testar-painel-loja) leem a janela achada
+      ;(window as unknown as { __gcJanela?: unknown }).__gcJanela = j
+      setJanelaAuto(j)
     })()
     return () => {
       vivo = false
     }
   }, [fonte])
 
+  // a janela em uso (px do vídeo), e o tamanho da fonte que o enquadramento enxerga (a janela, ou o vídeo inteiro)
+  const janela = useMemo(() => (fonte && janelaAuto && cortarJanela ? janelaEmPixels(janelaAuto, fonte.w, fonte.h) : null), [fonte, janelaAuto, cortarJanela])
+  const fw = janela ? janela.x1 - janela.x0 : fonte?.w ?? 1
+  const fh = janela ? janela.y1 - janela.y0 : fonte?.h ?? 1
+  const chaveJanela = janela ? `${janela.x0},${janela.y0},${janela.x1},${janela.y1}` : ''
+
   // o fundo (modelado no 1º quadro do trecho) e o quadro pela união dos quadros do trecho
   useEffect(() => {
-    if (!fonte || !proc) return
+    if (!fonte || !proc || janelaAuto === undefined) return
     let vivo = true
     const t = window.setTimeout(async () => {
       setAjustando(true)
       try {
         const q0 = await fonte.quadro(ini)
-        const grande = reduzir(q0, fonte.w, fonte.h, 480)
+        const grande = copiaDoQuadro(q0, fonte.w, fonte.h, 480, janela)
         const img: Imagem = { w: grande.width, h: grande.height, d: contexto(grande).getImageData(0, 0, grande.width, grande.height).data }
         const an = analisar(img)
         if (!vivo) return
@@ -169,7 +192,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
         // trecho (o produto girando fica mais largo de frente: com poucos quadros, a caixa podia cortar ele no giro)
         const tol = toleranciaPara(an, quanto)
         const pontoPreto = preto ? pretoPara(preto, quanto) : null
-        const k1 = grande.width / fonte.w
+        const k1 = grande.width / fw
         const caixa1 = pontoPreto ? caixaNoPreto(img, pontoPreto) : primeiro.caixa
         if (caixa1 && uniao === undefined) setUniao({ x0: caixa1.x0 / k1, y0: caixa1.y0 / k1, x1: caixa1.x1 / k1, y1: caixa1.y1 / k1 })
         let uniao2: Caixa | null = null as Caixa | null
@@ -178,12 +201,12 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
           if (!vivo) return
           let m: { w: number; h: number; caixa: Caixa | null }
           if (pontoPreto) {
-            const px = quadroPequeno(q, fonte.w, fonte.h, 200)
+            const px = quadroPequeno(q, fonte.w, fonte.h, 200, janela)
             m = { w: px.width, h: px.height, caixa: caixaNoPreto({ w: px.width, h: px.height, d: px.data }, pontoPreto) }
-          } else m = mascaraDoQuadro(quadroPequeno(q, fonte.w, fonte.h), an, tol)
+          } else m = mascaraDoQuadro(quadroPequeno(q, fonte.w, fonte.h, undefined, janela), an, tol)
           if (!m.caixa) continue
-          const kx = fonte.w / m.w
-          const ky = fonte.h / m.h
+          const kx = fw / m.w
+          const ky = fh / m.h
           const c = { x0: m.caixa.x0 * kx, y0: m.caixa.y0 * ky, x1: m.caixa.x1 * kx, y1: m.caixa.y1 * ky }
           uniao2 = uniao2 ? { x0: Math.min(uniao2.x0, c.x0), y0: Math.min(uniao2.y0, c.y0), x1: Math.max(uniao2.x1, c.x1), y1: Math.max(uniao2.y1, c.y1) } : c
           await respirar()
@@ -198,9 +221,9 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
       vivo = false
       window.clearTimeout(t)
     }
-    // refaz com o trecho e o "quanto"; ligar/desligar o fundo só refaz o quadro (abaixo)
+    // refaz com o trecho, o "quanto" e a janela; ligar/desligar o fundo só refaz o quadro (abaixo)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fonte, proc, ini, dur, quanto])
+  }, [fonte, proc, ini, dur, quanto, janelaAuto, chaveJanela])
 
   const tol = base ? toleranciaPara(base, quanto) : 10
   // fundo preto com "Tirar o fundo" ligado: o ponto do preto (o "quanto" mexe nele); desligado, o vídeo como veio
@@ -212,7 +235,7 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
   // e não vira cinza)
   const fundoDaCor = useMemo(() => (preto && imgBase ? fundoDoPreto(imgBase, preto) : tirarFundo && recorte1 ? recorte1.fundo : null), [preto, imgBase, tirarFundo, recorte1])
   const ajusteCor = useMemo(() => (base && corNoEstilo ? ajusteDeCor(base, fundoDaCor) : SEM_AJUSTE), [base, corNoEstilo, fundoDaCor])
-  const tratamento: Tratamento | null = quadro ? { base: tirarFundo && !preto ? base : null, preto, tol, quadro, cor: ajusteCor, semVinheta: !!pretoBase } : null
+  const tratamento: Tratamento | null = quadro ? { base: tirarFundo && !preto ? base : null, preto, tol, quadro, cor: ajusteCor, semVinheta: !!pretoBase, janela } : null
   const vel = velocidadeDo(dur)
 
   /** Desenha um quadro tratado (com a máscara do quadro, quando tira o fundo). */
@@ -238,16 +261,25 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
       vivo = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fonte, proc, quadro, tirarFundo, tol, ajusteCor, preto, ini, tocando, fase])
+  }, [fonte, proc, quadro, tirarFundo, tol, ajusteCor, preto, ini, tocando, fase, chaveJanela])
 
   // o quadro automático: o produto (a união dos quadros) no molde das ilustrações; com o fundo mantido, o vídeo inteiro.
   // Volta pro automático quando o trecho muda, o fundo liga ou desliga, ou no "Centralizar"
   const [centralizar, setCentralizar] = useState(0)
   useEffect(() => {
     if (!fonte || uniao === undefined) return
-    setQuadro(quadroAutomatico(fonte.w, fonte.h, tirarFundo || pretoBase ? uniao : null))
+    setQuadro(quadroAutomatico(fw, fh, tirarFundo || pretoBase ? uniao : null))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fonte, uniao, tirarFundo, pretoBase, centralizar])
   const ligarFundo = (v: boolean) => setTirarFundo(v)
+  // cortar ou não na janela: o quadro e o fundo são medidos de novo (e o "tirar o fundo" decidido de novo)
+  const trocarJanela = (v: boolean) => {
+    if (v === cortarJanela) return
+    decidiuFundo.current = false
+    setQuadro(null)
+    setUniao(undefined)
+    setCortarJanela(v)
+  }
 
   const primeira = useRef(false)
   useEffect(() => {
@@ -518,6 +550,24 @@ export function EstudioVideo({ arquivo, nome, preco, cor, aoUsar, aoFechar }: Pr
               )}
             </div>
 
+            {janelaAuto && (
+              <Aviso
+                tipo="info"
+                acao={
+                  <button type="button" className="pn-link-botao" onClick={() => trocarJanela(!cortarJanela)} disabled={ocupado}>
+                    {cortarJanela ? 'Usar o vídeo inteiro' : janelaAuto.moldura ? 'Cortar a moldura' : 'Cortar o texto'}
+                  </button>
+                }
+              >
+                {cortarJanela
+                  ? janelaAuto.moldura
+                    ? 'Esse vídeo é uma gravação da tela (o vídeo dentro do Instagram): cortei a moldura e o texto da tela, ficou só o vídeo.'
+                    : 'Cortei o texto da tela que estava colado na borda do vídeo (o nome do perfil, o tempo).'
+                  : janelaAuto.moldura
+                    ? 'Usando o vídeo inteiro, com a moldura do Instagram em volta.'
+                    : 'Usando o vídeo inteiro, com o texto da tela na borda.'}
+              </Aviso>
+            )}
             {pretoBase && tirarFundo && (
               <Aviso tipo="info">O fundo desse vídeo já é preto: não recortei nada, só deixei o preto liso. No site o preto some no preto, e a parte escura do produto não perde pedaço.</Aviso>
             )}

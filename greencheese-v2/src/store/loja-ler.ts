@@ -26,8 +26,9 @@ const ID = /^[a-z0-9][a-z0-9-]{0,79}$/
 const UF = /^[a-z]{2}$/
 const COR = /^#[0-9a-f]{6}$/i
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/
-// só foto de dentro do site: a que o painel enviou (uploads/) ou a do build (produtos/)
-const FOTO = /^(uploads|produtos)\/[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/
+// só foto de dentro do site: a que o painel enviou (uploads/, nome gerado pelo servidor) ou a do build (produtos/<nome>,
+// só minúscula, número e traço: o que o .htaccess de produtos/ serve e o servidor aceita)
+const FOTO = /^(uploads\/[a-z0-9]{8,64}|produtos\/[a-z0-9][a-z0-9-]{0,80})\.(webp|jpe?g|png)$/
 // a thumb animada: o vídeo e a capa que o painel enviou (nome gerado pelo servidor) ou os de fábrica, do build
 // (produtos/<nome>, só letra, número e traço)
 const VIDEO = /^(uploads\/[a-z0-9]{8,64}|produtos\/[a-z0-9][a-z0-9-]{0,80})\.(mp4|webm)$/
@@ -62,7 +63,7 @@ function produtoDe(v: unknown): Produto | null {
     preco: preco != null && preco >= 0 ? preco : null,
     disponivel: {},
     demo: v.demo === true,
-    foto: typeof v.foto === 'string' && FOTO.test(v.foto) && !v.foto.includes('..') ? v.foto : null,
+    foto: typeof v.foto === 'string' && FOTO.test(v.foto) ? v.foto : null,
     cor,
     arte: arteDe(v.arte, cor),
   }
