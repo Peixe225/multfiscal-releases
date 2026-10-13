@@ -5,6 +5,7 @@ import type { Canal, Cidade, Emblema, FormaPagamento, Turno } from '../dados/can
 import type { Premio } from '../dados/sorte'
 import { ufPorSigla } from '../dados/ufs'
 import { palavraProibida, validarPremios } from '../lib/premios'
+import { ehRaridade } from '../lib/raridade'
 import type { Arte, Categoria, Combo, Produto, TipoArte, Variacao } from '../lib/tipos'
 import type { Loja } from './loja'
 
@@ -196,6 +197,8 @@ function premioDe(v: unknown): Premio | null {
   } as Premio
   const como = textoDe(v.comoUsar, 200)
   if (como) p.comoUsar = como
+  // a raridade (o contrato de src/lib/raridade.ts): sem ela, comum na hora de mostrar
+  if (ehRaridade(v.raridade)) (p as Premio & { raridade?: string }).raridade = v.raridade
   if (!p.aplicaA.produtos) delete p.aplicaA.produtos
   if (!p.aplicaA.categorias) delete p.aplicaA.categorias
   return p

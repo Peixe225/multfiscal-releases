@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { Premio, ValorPremio } from '../dados/sorte'
+import type { Raridade } from '../lib/raridade'
 import { armazenamentoSeguro } from '../lib/armazenamento'
 
 // Cache da conta do cliente e dos cupons dos interativos neste aparelho (localStorage 'gc-conta').
@@ -24,7 +25,8 @@ export interface Conta {
 }
 
 /** O texto do prêmio congelado no dia em que a pessoa ganhou: é ele que vale, mesmo que src/dados/sorte.ts mude. */
-export type RetratoPremio = Pick<Premio, 'titulo' | 'regra' | 'aplicaA' | 'comoUsar'> & ValorPremio
+/** O prêmio congelado no cupom (o que ele era no dia), com a raridade dele (sem o campo, comum). */
+export type RetratoPremio = Pick<Premio, 'titulo' | 'regra' | 'aplicaA' | 'comoUsar'> & ValorPremio & { raridade?: Raridade }
 
 export interface Cupom {
   codigo: string

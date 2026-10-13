@@ -1,8 +1,9 @@
 // Laboratório da revelação da fumaça (só desenvolvimento: laboratorio/fumaca.html no `npm run dev`; o build de
 // produção não leva). Mostra a RevelacaoFumaca de cada raridade com um prêmio de exemplo, com repetir, raridade,
-// pular, reduzido, velocidade (1× · 0,5× · 0,25× · parado + passo de 1/12 s), a técnica (pixel 4 · pixel 3 · suave ·
-// canvas 2D) e o tamanho do quadro. Na URL (pra print e vídeo): ?r=epico&premio=piteira-vidro-15&w=390&h=844
+// pular, reduzido, velocidade (1× · 0,5× · 0,25× · parado + passo de 1/12 s), a célula (4 · 5 do Modo leve · 3) e o
+// tamanho do quadro. Na URL (pra print e vídeo): ?r=epico&premio=piteira-vidro-15&w=390&h=844
 // &modo=jogo&tec=px4&v=0.25&t=3.2 (para no quadro t) &limpo=1 (só o quadro) &reduzido=1.
+// A técnica: px4 (a do site), px5 (Modo leve), px3.
 import { StrictMode, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@fontsource/pixelify-sans/400.css'
@@ -32,22 +33,19 @@ const TAMANHOS: [string, number, number][] = [
   ['568×320', 568, 320],
   ['480×680 (diálogo)', 480, 680],
 ]
-// px4/px3/px5/suave: o shader (aceita o WebGL emulado do headless); auto: como no ar (sem placa de vídeo, canvas 2D); 2d: o
-// caminho sem WebGL
+// px4: a célula de 4 px (o de sempre); px5: a do Modo leve (aparelho fraco, economia de dados); px3: mais fina (só pra
+// comparar). O desenho é um só (no processador): o mesmo no celular com e sem placa de vídeo.
 const TECNICAS = {
-  px4: { pixel: 4, glSoftware: true },
-  px3: { pixel: 3, glSoftware: true },
-  px5: { pixel: 5, glSoftware: true },
-  suave: { suave: true, glSoftware: true },
-  auto: {},
-  '2d': { forcar2d: true },
+  px4: { pixel: 4 },
+  px5: { pixel: 5, leve: true },
+  px3: { pixel: 3 },
 } as const
 type Tecnica = keyof typeof TECNICAS
 
 declare global {
   interface Window {
     __fumaca?: Motor
-    __fumacaLab?: { pixel?: number; suave?: boolean; forcar2d?: boolean; leve?: boolean; glSoftware?: boolean }
+    __fumacaLab?: { pixel?: number; leve?: boolean }
     __lab?: { irPara: (t: number) => void; velocidade: (v: number) => void; pular: () => void; tempo: () => number; pronto: () => boolean }
   }
 }

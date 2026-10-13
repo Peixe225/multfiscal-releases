@@ -194,28 +194,10 @@
 .sorte-labio {
   z-index: 5;
 }
-/* o beck dentro da câmara: entre o corpo (3) e o lábio (5), recortado pela borda da frente da boca (clip-path no
-   Palco); sobe quando a tampa sai e para no meio da tela, onde a fumaça assume (revelar.ts) */
-.sorte-beck-caixa {
-  position: absolute;
-  z-index: 4;
-  inset: 0;
-  pointer-events: none;
-}
-.sorte-beck {
-  position: absolute;
-  opacity: 0;
-  visibility: hidden;
-  will-change: transform;
-}
-.sorte-beck > svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-/* o palco da fumaça: a área visível da coluna (a altura vem do JogoSorte), por cima da cena e embaixo do story */
+/* o palco da fumaça: a área visível da coluna (a altura vem do JogoSorte), por cima da cena e embaixo do story. Monta
+   já no convite, sem tocar em nada (o gesto é do dichavador); na revelação recebe o toque que pula. O beck sobe da
+   câmara desenhado nela (a borda da frente da boca recorta o pé dele). Quando o story sai da fumaça, ela fica por
+   cima dele (a cortina abrindo e o resto subindo) sem pegar o toque. */
 .sorte > .sorte-fumaca {
   position: absolute;
   z-index: 2;
@@ -227,6 +209,26 @@
 }
 .sorte > .sorte-fumaca.ativa {
   pointer-events: auto;
+}
+.sorte > .sorte-fumaca.voando {
+  z-index: 4;
+  pointer-events: none;
+}
+/* o cartão do prêmio voando até o story: as placas escuras somem no caminho (o story tem o preto dele) */
+.sorte-fumaca.voando .fm-visual::before,
+.sorte-fumaca.voando .fm-visual::after,
+.sorte-fumaca.voando .fm-texto {
+  transition:
+    opacity 0.3s,
+    background-color 0.3s;
+}
+.sorte-fumaca.voando .fm-visual::before,
+.sorte-fumaca.voando .fm-visual::after {
+  opacity: 0;
+}
+.sorte-fumaca.voando .fm-texto {
+  background-color: transparent;
+  clip-path: none;
 }
 .sorte-tampa {
   position: absolute;
@@ -578,6 +580,19 @@
   left: 0;
   right: 0;
   margin: 0 auto;
+  /* na revelação o story é só o lugar final (escondido até sair da fumaça): o toque passa pra fumaça (pular) */
+  pointer-events: none;
+}
+/* o story monta escondido (por classe, sem gsap.set em cada peça no estalo); a saída da fumaça mostra cada parte */
+.sorte.sorte-revelando > .sorte-story .story-premio,
+.sorte.sorte-revelando > .sorte-story .sorte-pe {
+  visibility: hidden;
+  opacity: 0;
+}
+/* depois de pular, o 2º e o 3º toque de quem tem pressa não apertam nada do story */
+.sorte.sorte-blindada .sorte-story,
+.sorte.sorte-blindada .sorte-pe {
+  pointer-events: none;
 }
 .story-premio {
   position: relative;
@@ -1416,8 +1431,13 @@
     grid-row: 1 / span 8;
     margin-top: 4px;
   }
-  .sorte > :not(.sorte-estrelas):not(.sorte-cena) {
+  .sorte > :not(.sorte-estrelas):not(.sorte-cena):not(.sorte-fumaca) {
     grid-column: 2;
+  }
+  /* absoluta numa grade: sem área, o bloco que contém é a caixa inteira (a fumaça cobre as duas colunas) */
+  .sorte > .sorte-fumaca {
+    grid-column: auto;
+    grid-row: auto;
   }
   .sorte-intro .sorte-pergunta {
     display: none;

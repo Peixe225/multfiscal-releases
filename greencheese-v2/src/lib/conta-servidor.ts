@@ -7,6 +7,7 @@
 import type { Conta, Cupom, EnderecoConta, EstadoConta, Pendente, RetratoPremio } from '../store/conta'
 import { useContaStore } from '../store/conta'
 import { sessaoDoServidorCaiu } from './conta-modo'
+import { ehRaridade } from './raridade'
 
 const BASE = './api/index.php?r='
 
@@ -72,6 +73,13 @@ export function contaDaApi(x: unknown): Conta | null {
   }
 }
 
+/** O retrato do cupom como o servidor manda, com a raridade conferida (a que não é do contrato sai: comum). */
+function retratoDaApi(r: RetratoPremio): RetratoPremio {
+  if (r.raridade == null || ehRaridade(r.raridade)) return r
+  const { raridade: _fora, ...resto } = r
+  return resto as RetratoPremio
+}
+
 export function cupomDaApi(x: unknown): Cupom | null {
   const k = x as Record<string, unknown> | null
   if (!k || typeof k.codigo !== 'string' || typeof k.premioId !== 'string' || !k.retrato || typeof k.retrato !== 'object') return null
@@ -83,7 +91,7 @@ export function cupomDaApi(x: unknown): Cupom | null {
     codigo: k.codigo,
     interativo: txt(k.interativo) || 'sorte',
     premioId: k.premioId,
-    retrato: k.retrato as RetratoPremio,
+    retrato: retratoDaApi(k.retrato as RetratoPremio),
     demo: k.demo === true,
     ganhoEm: ganho,
     // o servidor guarda até o segundo (23:59:59): fecha o dia como o site (23:59:59,999)

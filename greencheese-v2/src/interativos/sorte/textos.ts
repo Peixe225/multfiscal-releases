@@ -39,7 +39,7 @@ export const T = {
   ariaTampa: 'Tampa do dichavador',
   valorTampa: (q: number) => `${q} de 8 quartos de volta`,
   vivoMetade: 'Metade. Continua.',
-  vivoAbriu: 'Abriu!',
+  vivoAbriu: 'Abriu! Enter ou toque pra pular.',
   erroGiro: 'Não deu pra girar agora. Tenta de novo.',
   segmentos: ['Girar', 'Abrir', 'Prêmio'] as const,
 

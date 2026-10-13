@@ -7,6 +7,7 @@ import { disponivelEm, useCatalogo } from '../store/catalogo'
 import type { Cupom, RetratoPremio } from '../store/conta'
 import type { LinhaSacola } from '../store/derivados'
 import { premiosValidos, statusDo } from './cupom'
+import { ehRaridade } from './raridade'
 
 // o nome do prêmio mora em cupom.ts (o adesivo do site, no pedaço principal, também usa)
 export { destaqueDo, fraseDoPremio, nomeCategoria, nomeDoPremio } from './cupom'
@@ -70,7 +71,11 @@ export function premiosElegiveis(uf: string | null | undefined): Premio[] {
 /** Retrato do prêmio no dia em que foi ganho. */
 export function retratoDe(p: Premio): RetratoPremio {
   const base = { titulo: p.titulo, regra: p.regra, aplicaA: p.aplicaA, comoUsar: p.comoUsar }
-  return { ...base, tipo: p.tipo, valor: p.valor } as RetratoPremio
+  const r = { ...base, tipo: p.tipo, valor: p.valor } as RetratoPremio
+  // a raridade do dia do prêmio fica congelada no cupom (o prêmio pode mudar de raridade depois, no painel)
+  const raridade = (p as Premio & { raridade?: unknown }).raridade
+  if (ehRaridade(raridade)) r.raridade = raridade
+  return r
 }
 
 /* ───────────────────────── situação no pedido ───────────────────────── */

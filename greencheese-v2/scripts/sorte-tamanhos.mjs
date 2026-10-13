@@ -283,13 +283,18 @@ for (const [i, [nomeVp, w, h, celular]] of aparelhos.entries()) for (const rarid
     await p.keyboard.press('ArrowRight')
     await p.waitForTimeout(220)
   }
-  // o lugar do story na revelação (escondido atrás do beck e da fumaça, ele já está lá) = o lugar final
-  await p.waitForTimeout(500)
+  // o lugar do story na revelação (ele monta logo depois do estalo, escondido atrás da fumaça, já no lugar) = o final
+  await p.locator('.sorte.sorte-revelando .story-premio').waitFor({ state: 'attached', timeout: 4000 }).catch(() => prob('o story não montou na revelação'))
+  await p.waitForTimeout(300)
   const naRevelacao = await quadroAgora(p)
-  // o auge da fumaça: o prêmio no meio dela
-  await p.locator('.fm[data-fase="pronto"]').waitFor({ timeout: 20000 }).catch(() => prob('a fumaça não chegou no auge'))
-  await p.waitForTimeout(150)
-  const auge = await p.evaluate(medirAuge)
+  if (!naRevelacao) prob('sem o lugar do story na revelação')
+  // o auge da fumaça: o prêmio no meio dela (medido no 1º quadro do auge: ele dura uns 0,3 s antes do story sair)
+  await p.evaluate(`window.__medirAuge = ${medirAuge.toString()}`)
+  const auge =
+    (await p
+      .waitForFunction(() => document.querySelector('.fm')?.getAttribute('data-fase') === 'pronto' && window.__medirAuge(), null, { polling: 'raf', timeout: 20000 })
+      .then((h) => h.jsonValue())
+      .catch(() => null)) ?? (prob('a fumaça não chegou no auge'), await p.evaluate(medirAuge))
   auge.problemas.forEach((s) => prob(`auge: ${s}`))
   if (auge.info.raridade && auge.info.raridade !== raridade && !avisouBuild) {
     avisouBuild = true
@@ -301,7 +306,8 @@ for (const [i, [nomeVp, w, h, celular]] of aparelhos.entries()) for (const rarid
   const final = await quadroAgora(p)
   if (naRevelacao && final && (Math.abs(naRevelacao.x - final.x) > 1 || Math.abs(naRevelacao.y - final.y) > 1 || naRevelacao.w !== final.w || naRevelacao.h !== final.h))
     prob(`o story pula no fim da revelação (${JSON.stringify(naRevelacao)} → ${JSON.stringify(final)})`)
-  if (await p.locator('.fm').count()) prob('a fumaça ficou na tela depois do story')
+  // a fumaça abre como cortina e o resto dela sobe no fundo do story: depois disso, sai da tela
+  if (!(await p.locator('.fm').waitFor({ state: 'detached', timeout: 3500 }).then(() => true).catch(() => false))) prob('a fumaça ficou na tela depois do story')
   await p.screenshot({ path: `${out}${nome}-1-premio.png` })
   const m1 = await p.evaluate(medir)
   m1.problemas.forEach((s) => prob(`prêmio: ${s}`))

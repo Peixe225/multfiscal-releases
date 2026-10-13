@@ -151,7 +151,7 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, rarid
         </div>
 
         <h3 id={idTitulo} className="sp-titulo" tabIndex={-1} inert={condAberta} data-foco-jogo={focoJogo ? '' : undefined}>
-          <span className="sr-only">{T.deuSorte} </span>
+          <span className="sr-only">{T.deuSorte} {`Prêmio ${info.nome.toLowerCase()}.`} </span>
           <span className="sp-valor px" data-valor>
             {destaque}
             <Brilho className="sp-brilho-1" />

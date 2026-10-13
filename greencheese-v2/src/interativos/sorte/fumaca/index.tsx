@@ -1,15 +1,22 @@
 // A revelação da fumaça do Teste minha sorte (pedido do Ian em 11/10): o beck bolado sai da câmara do dichavador, é
-// aceso e fumado, solta muita fumaça e o prêmio aparece destacado no meio dela; quanto mais raro, mais viajada.
+// aceso com um isqueiro de desenho e fumado (cada puxada: antecipação, a brasa incandesce, a linha de queima anda, a
+// cinza cresce, pende e cai), a fumaça de desenho animado enche a tela e a viagem da raridade acontece nela; o prêmio
+// aparece destacado no meio da fumaça. Quanto mais raro, mais viajada (roteiro.ts).
 // Componente sozinho (não lê store do site): o jogo (JogoSorte) e o painel (Testar a animação) usam o mesmo.
 // CONTRATO: as props abaixo (src/lib/raridade.ts tem as raridades e as cores).
 //
-// Este arquivo é leve (o DOM: o beck, o cartão do prêmio, os dois canvas e o anúncio pro leitor de tela); o motor (o
-// relógio, o WebGL/canvas 2D, as partículas: motor.ts e o resto da pasta) baixa à parte, por import dinâmico, quando o
-// jogo abre (preCarregarFumaca). O roteiro de cada raridade está em roteiro.ts; a técnica, em gl.ts e no LEIA-ME.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+// Este arquivo é leve (o DOM: o canvas, o cartão do prêmio e o anúncio pro leitor de tela); o motor (relógio, o pintor
+// em pixel, as partículas: motor.ts e o resto da pasta) baixa à parte, por import dinâmico, quando o jogo abre
+// (preCarregarFumaca).
+//
+// Sozinha (painel, laboratório) ela começa quando monta e cuida do toque/Enter que pula. No jogo ela é CONDUZIDA: dentro
+// de um elemento com [data-fumaca-conduzida] ela monta cedo (no giro), cria o motor e espera; o jogo manda começar
+// (comecarFumaca, com a câmara de onde o beck sobe), pular (pularFumaca), soltar o cartão pro voo até o story
+// (soltarCartaoFumaca) e se desfazer (dissiparFumaca). Nada disso muda as props.
+import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { INFO_RARIDADE, type Raridade } from '../../../lib/raridade'
 import { modoLeve } from '../tato'
-import { Beck } from './Beck'
+import type { Origem } from './cena'
 import css from './fumaca.css?inline'
 import type { Motor } from './motor'
 import { TINTA_RARIDADE } from './tinta'
@@ -36,6 +43,8 @@ export interface PropsRevelacaoFumaca {
   onPular?: () => void
 }
 
+export type { Origem }
+
 /* ───────────── CSS e o motor (à parte) ───────────── */
 
 const ID_CSS = 'gc-css-fumaca'
@@ -59,26 +68,63 @@ export function preCarregarFumaca(): Promise<typeof import('./motor')> {
   return carregando
 }
 
-/** O evento que o jogo manda pra fumaça se desfazer (o story entra saindo dela). */
+/* ───────────── o jogo conduz (eventos no elemento .fm: as props não mudam) ───────────── */
+
+const COMECAR = 'fumaca:comecar'
+const PULAR = 'fumaca:pular'
+const SOLTAR = 'fumaca:soltar'
 const DISSIPAR = 'fumaca:dissipar'
+/** A fumaça avisa quem conduz: o motor está pronto (data-desenho) ou não baixou (data-falhou). */
+const PRONTA = 'fumaca:pronta'
+
+const alvoDe = (raiz: Element | null): HTMLElement | null => (raiz?.matches('.fm') ? (raiz as HTMLElement) : (raiz?.querySelector<HTMLElement>('.fm') ?? null))
+
+/** O motor já está pronto pra começar (resolve true) ou não baixou (false). */
+export function fumacaPronta(raiz: Element | null): Promise<boolean> {
+  const alvo = alvoDe(raiz)
+  if (!alvo) return Promise.resolve(false)
+  if (alvo.dataset.desenho) return Promise.resolve(true)
+  if (alvo.dataset.falhou != null) return Promise.resolve(false)
+  return new Promise((ok) => alvo.addEventListener(PRONTA, () => ok(!!alvo.dataset.desenho), { once: true }))
+}
+
+/** O beck começa a subir (no jogo, de dentro da câmara do dichavador: a origem, em px do palco da fumaça). */
+export function comecarFumaca(raiz: Element | null, origem: Origem | null): void {
+  alvoDe(raiz)?.dispatchEvent(new CustomEvent<Origem | null>(COMECAR, { detail: origem }))
+}
+
+/** Pula pro auge (o prêmio e o carimbo no lugar). */
+export function pularFumaca(raiz: Element | null): void {
+  alvoDe(raiz)?.dispatchEvent(new CustomEvent(PULAR))
+}
+
+/** O cartão do prêmio passa a ser do jogo (voa até o story): devolve as partes dele pra medir e animar. */
+export function soltarCartaoFumaca(raiz: Element | null): { cartao: HTMLElement; visual: HTMLElement | null; carimbo: HTMLElement | null; destaque: HTMLElement | null; nome: HTMLElement | null } | null {
+  const alvo = alvoDe(raiz)
+  const cartao = alvo?.querySelector<HTMLElement>('.fm-cartao')
+  if (!alvo || !cartao) return null
+  alvo.dispatchEvent(new CustomEvent(SOLTAR))
+  return { cartao, visual: cartao.querySelector('.fm-visual'), carimbo: cartao.querySelector('.fm-carimbo'), destaque: cartao.querySelector('.fm-destaque'), nome: cartao.querySelector('.fm-produto') }
+}
+
 interface PedidoDissipar {
   seg: number
   ok: () => void
 }
 
 /**
- * No jogo, depois do auge: a fumaça vira o fundo do story e se desfaz (as nuvens encolhem e abrem pra fora, o prêmio e
- * o brilho somem). `raiz` é o elemento que contém a RevelacaoFumaca. Resolve quando acabou (ou na hora, sem fumaça).
+ * No jogo, depois do auge: a fumaça abre como cortina (seg) e o resto dela sobe e se desfaz no fundo do story. Resolve
+ * quando acabou tudo (ou na hora, sem fumaça).
  */
-export function dissiparFumaca(raiz: Element | null, seg = 0.9): Promise<void> {
-  const alvo = raiz?.matches('.fm') ? raiz : raiz?.querySelector('.fm')
+export function dissiparFumaca(raiz: Element | null, seg = 0.52): Promise<void> {
+  const alvo = alvoDe(raiz)
   if (!alvo) return Promise.resolve()
   return new Promise<void>((ok) => {
     alvo.dispatchEvent(new CustomEvent<PedidoDissipar>(DISSIPAR, { detail: { seg, ok } }))
   })
 }
 
-/** Modo leve: aparelho fraco (o jogo mede no gesto) ou economia de dados: o desenho mais simples (canvas 2D). */
+/** Modo leve: aparelho fraco (o jogo mede no gesto) ou economia de dados: a célula maior (5 px). */
 function leveAgora(): boolean {
   try {
     const rede = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
@@ -88,25 +134,14 @@ function leveAgora(): boolean {
   }
 }
 
-/** Laboratório (só em dev): o tamanho do pixel, o modo suave e o canvas 2D forçado. */
+/** Laboratório (só em dev): o tamanho da célula e o modo leve. */
 interface OpcoesLab {
   pixel?: number
-  suave?: boolean
-  forcar2d?: boolean
   leve?: boolean
-  glSoftware?: boolean
 }
 function opcoesLab(): OpcoesLab {
   if (!import.meta.env.DEV) return {}
-  const lab = ((window as unknown as { __fumacaLab?: OpcoesLab }).__fumacaLab ?? {}) as OpcoesLab
-  // ?gl=software (só em dev): o WebGL emulado do headless, pras mídias e pro laboratório
-  let glSoftware = lab.glSoftware
-  try {
-    if (new URLSearchParams(location.search).get('gl') === 'software') glSoftware = true
-  } catch {
-    /* sem URL */
-  }
-  return { ...lab, glSoftware }
+  return ((window as unknown as { __fumacaLab?: OpcoesLab }).__fumacaLab ?? {}) as OpcoesLab
 }
 
 /** A frase do leitor de tela quando o prêmio aparece: "Prêmio épico: 15% OFF, Piteira de vidro RAW." */
@@ -115,42 +150,47 @@ export function anuncioDoPremio(p: PremioNaFumaca): string {
 }
 
 /** Tecla que pula: Enter/Espaço fora de campo de texto e de botão de outra coisa. */
-function teclaQuePula(e: KeyboardEvent, raiz: HTMLElement, modo: 'jogo' | 'previa'): boolean {
+function teclaQuePula(e: KeyboardEvent, raiz: HTMLElement): boolean {
   if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat || e.altKey || e.ctrlKey || e.metaKey) return false
   const alvo = e.target
   if (!(alvo instanceof Element) || alvo === document.body || raiz.contains(alvo)) return true
-  if (modo !== 'jogo') return false
-  return !alvo.closest('input, textarea, select, button, a, [contenteditable="true"]')
+  return false
 }
 
 /* ───────────── componente ───────────── */
 
 export function RevelacaoFumaca({ premio, visual, modo, reduzido = false, onPronto, onPular }: PropsRevelacaoFumaca) {
   const info = INFO_RARIDADE[premio.raridade]
-  const idBeck = `fmb${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const raiz = useRef<HTMLDivElement>(null)
   const palco = useRef<HTMLDivElement>(null)
-  const beck = useRef<HTMLDivElement>(null)
   const fumaca = useRef<HTMLCanvasElement>(null)
-  const faiscas = useRef<HTMLCanvasElement>(null)
   const cartao = useRef<HTMLDivElement>(null)
   const carimbo = useRef<HTMLParagraphElement>(null)
+  const holo = useRef<HTMLSpanElement>(null)
   const [anuncio, setAnuncio] = useState('')
-  const [suave] = useState(() => !!opcoesLab().suave)
+  // o desenho do produto entra depois, sem pressa (montar a arte realista no estalo travava a câmera deitando)
+  const visualAdiado = useDeferredValue(visual)
   const cb = useRef({ onPronto, onPular, premio })
   cb.current = { onPronto, onPular, premio }
+  const config = useRef({ raridade: premio.raridade, previa: modo === 'previa', reduzido })
+  config.current = { raridade: premio.raridade, previa: modo === 'previa', reduzido }
   const motor = useRef<Motor | null>(null)
   const pronto = useRef(false)
-  const pularAoChegar = useRef(false)
+  const conduzida = useRef(false)
 
   useLayoutEffect(() => {
     const r = raiz.current
-    const els = { raiz: r, palco: palco.current, fumaca: fumaca.current, faiscas: faiscas.current, beck: beck.current, cartao: cartao.current }
-    if (!r || !els.palco || !els.fumaca || !els.faiscas || !els.beck || !els.cartao) return
+    const els = { palco: palco.current, fumaca: fumaca.current, cartao: cartao.current }
+    if (!r || !els.palco || !els.fumaca || !els.cartao) return
     let vivo = true
     let m: Motor | null = null
+    const esperar = !!r.closest('[data-fumaca-conduzida]')
+    conduzida.current = esperar
+    let pedido: { origem: Origem | null } | null = null
+    let pularAoChegar = false
+    let pedidoDissipar: PedidoDissipar | null = null
+    let solto = false
     pronto.current = false
-    r.dataset.fase = 'acende'
     const terminou = () => {
       if (pronto.current) return
       pronto.current = true
@@ -158,64 +198,98 @@ export function RevelacaoFumaca({ premio, visual, modo, reduzido = false, onPron
     }
     const anunciar = () => setAnuncio(anuncioDoPremio(cb.current.premio))
     const lab = opcoesLab()
-    // o motor nasce no quadro seguinte ao da montagem: a montagem (React + layout) e o motor (canvas, shader, primeiro
-    // desenho) não caem no mesmo quadro (no jogo, o beck do dichavador segura a pose até o da fumaça aparecer)
-    const depoisDoQuadro = <T,>(v: T) => new Promise<T>((ok) => requestAnimationFrame(() => ok(v)))
-    preCarregarFumaca().then(depoisDoQuadro).then(
+    preCarregarFumaca().then(
       ({ criarMotor }) => {
         if (!vivo) return
+        const c = config.current
         m = criarMotor(
-          { raiz: r, palco: els.palco!, fumaca: els.fumaca!, faiscas: els.faiscas!, beck: els.beck!, cartao: els.cartao!, carimbo: carimbo.current },
-          { raridade: premio.raridade, previa: modo === 'previa', reduzido, leve: lab.leve ?? leveAgora(), pixel: lab.pixel, suave: lab.suave, forcar2d: lab.forcar2d, glSoftware: lab.glSoftware, aoPremio: anunciar, aoPronto: terminou },
+          { raiz: r, palco: els.palco!, fumaca: els.fumaca!, cartao: els.cartao!, carimbo: carimbo.current, holo: holo.current },
+          { raridade: c.raridade, previa: c.previa, reduzido: c.reduzido, leve: lab.leve ?? leveAgora(), pixel: lab.pixel, esperar, aoPremio: anunciar, aoPronto: terminou },
         )
         motor.current = m
         r.dataset.desenho = m.tipo
         if (import.meta.env.DEV) (window as unknown as { __fumaca?: Motor }).__fumaca = m
-        if (pularAoChegar.current) {
-          pularAoChegar.current = false
-          m.pular()
-        }
+        if (solto) m.soltarCartao()
+        if (pedido) m.comecar(pedido.origem)
+        if (pularAoChegar) m.pular()
+        if (pedidoDissipar) void m.dissipar(pedidoDissipar.seg).then(pedidoDissipar.ok)
+        r.dispatchEvent(new CustomEvent(PRONTA))
       },
       () => {
         // o motor não baixou (rede caiu): o prêmio aparece parado, sem fumaça
         if (!vivo) return
-        const c = cartao.current
-        if (c) Object.assign(c.style, { opacity: '1', visibility: 'visible' })
-        if (carimbo.current) Object.assign(carimbo.current.style, { opacity: '1', visibility: 'visible' })
-        if (beck.current) beck.current.style.visibility = 'hidden'
-        r.dataset.fase = 'pronto'
-        anunciar()
-        terminou()
+        r.dataset.falhou = ''
+        r.dispatchEvent(new CustomEvent(PRONTA))
+        const mostrar = () => {
+          const c = cartao.current
+          if (c) Object.assign(c.style, { opacity: '1', visibility: 'visible', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' })
+          if (carimbo.current) Object.assign(carimbo.current.style, { opacity: '1', visibility: 'visible' })
+          r.dataset.fase = 'pronto'
+          anunciar()
+          terminou()
+        }
+        if (!esperar || pedido || pularAoChegar) mostrar()
+        else r.addEventListener(COMECAR, mostrar, { once: true })
       },
     )
-    // a fumaça se desfaz quando o jogo pede (o story entra)
+    // o jogo conduz: começar, pular, soltar o cartão, se desfazer
+    const comecar = (e: Event) => {
+      const origem = (e as CustomEvent<Origem | null>).detail ?? null
+      if (m) m.comecar(origem)
+      else pedido = { origem }
+    }
+    const pular = () => {
+      if (m) m.pular()
+      else pularAoChegar = true
+    }
+    const soltar = () => {
+      solto = true
+      m?.soltarCartao()
+    }
     const dissipar = (e: Event) => {
       const d = (e as CustomEvent<PedidoDissipar>).detail
       if (m) void m.dissipar(d.seg).then(d.ok)
-      else d.ok()
+      else if (r.dataset.falhou != null) d.ok()
+      else pedidoDissipar = d
     }
+    r.addEventListener(COMECAR, comecar)
+    r.addEventListener(PULAR, pular)
+    r.addEventListener(SOLTAR, soltar)
     r.addEventListener(DISSIPAR, dissipar)
     return () => {
       vivo = false
+      r.removeEventListener(COMECAR, comecar)
+      r.removeEventListener(PULAR, pular)
+      r.removeEventListener(SOLTAR, soltar)
       r.removeEventListener(DISSIPAR, dissipar)
+      pedidoDissipar?.ok()
       m?.destruir()
       motor.current = null
     }
-    // o motor recomeça só se a raridade, o modo ou o movimento mudarem (o texto do prêmio troca sem recomeçar)
+    // o motor nasce uma vez; raridade, modo e movimento reconfiguram ele (efeito abaixo)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premio.raridade, modo, reduzido])
+  }, [])
 
-  // pular: um toque de verdade (sem arrasto) ou Enter/Espaço; no jogo, o JogoSorte leva direto pro story pronto
+  // a raridade (ou o modo, ou o movimento) mudou: a mesma fumaça, outra cena (no jogo: o prêmio chegou no estalo)
+  const chave = `${premio.raridade}|${modo}|${reduzido}`
+  const ultimaChave = useRef(chave)
+  useEffect(() => {
+    if (ultimaChave.current === chave) return
+    ultimaChave.current = chave
+    pronto.current = false
+    setAnuncio('')
+    motor.current?.reconfigurar(config.current)
+  }, [chave])
+
+  // pular (sozinha: painel e laboratório): um toque de verdade (sem arrasto) ou Enter/Espaço
   useEffect(() => {
     const r = raiz.current
-    if (!r || reduzido) return
+    if (!r || reduzido || r.closest('[data-fumaca-conduzida]')) return
     let ini: { x: number; y: number; id: number } | null = null
     const pular = () => {
-      if (pronto.current) return false
+      if (pronto.current) return
       cb.current.onPular?.()
-      if (motor.current) motor.current.pular()
-      else pularAoChegar.current = true
-      return true
+      motor.current?.pular()
     }
     const desce = (e: PointerEvent) => {
       ini = e.isPrimary ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null
@@ -230,7 +304,7 @@ export function RevelacaoFumaca({ premio, visual, modo, reduzido = false, onPron
       ini = null
     }
     const tecla = (e: KeyboardEvent) => {
-      if (!teclaQuePula(e, r, modo) || pronto.current) return
+      if (!teclaQuePula(e, r) || pronto.current) return
       e.preventDefault()
       e.stopPropagation()
       pular()
@@ -249,23 +323,26 @@ export function RevelacaoFumaca({ premio, visual, modo, reduzido = false, onPron
 
   const cores = { '--fm-cor': info.cor, '--fm-clara': info.clara, '--fm-escura': info.escura, '--fm-tinta': TINTA_RARIDADE[premio.raridade] } as CSSProperties
   return (
-    <div ref={raiz} className={`fm fm-${premio.raridade}${suave ? ' fm-suave' : ''}`} style={cores} data-raridade={premio.raridade} data-modo={modo}>
+    <div ref={raiz} className={`fm fm-${premio.raridade}`} style={cores} data-raridade={premio.raridade} data-modo={modo}>
       <div ref={palco} className="fm-palco" aria-hidden="true">
-        <div ref={beck} className="fm-beck">
-          <Beck id={idBeck} />
-        </div>
         <canvas ref={fumaca} className="fm-fumaca" width={1} height={1} />
-        <canvas ref={faiscas} className="fm-faiscas" width={1} height={1} />
         <div ref={cartao} className="fm-cartao" data-premio>
-          <div className="fm-visual">{visual}</div>
           <p ref={carimbo} className="fm-carimbo fm-px">
-            {info.carimbo}
+            {premio.raridade === 'lendario' && <span ref={holo} className="fm-holo" />}
+            <span className="fm-carimbo-txt">{info.carimbo}</span>
           </p>
-          <p className="fm-destaque fm-px">{premio.destaque}</p>
-          <p className="fm-produto">{premio.produto}</p>
+          <div className="fm-visual">{visualAdiado}</div>
+          <div className="fm-texto">
+            <p className="fm-destaque fm-px">{premio.destaque}</p>
+            <p className="fm-produto">{premio.produto}</p>
+          </div>
         </div>
       </div>
       {modo === 'previa' && <span className="fm-selo fm-px">PRÉVIA</span>}
+      {/* do raro pra cima a revelação é longa: uma dica discreta de que dá pra pular (o leitor de tela já ouve no "Abriu!") */}
+      <span className="fm-dica fm-px" aria-hidden="true">
+        toque pra pular
+      </span>
       <p className="fm-sr" aria-live="polite">
         {anuncio}
       </p>
