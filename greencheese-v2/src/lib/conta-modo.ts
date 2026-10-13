@@ -36,11 +36,21 @@ function aplicar(novo: ModoConta, ligado: boolean) {
     // a conta do aparelho aberta sai da tela até a pessoa confirmar o número (vai junto no primeiro login)
     const s = st()
     if (s.atual && s.atual !== s.servidor) useContaStore.setState({ paraMigrar: s.atual, atual: null })
-  }
+  } else devolverContaDoAparelho()
   if (novo !== modo) {
     modo = novo
   }
   avisar()
+}
+
+/**
+ * O código pausou (o teto da loja), o dono desligou ou o servidor não respondeu: a conta do aparelho que esperava ir
+ * pra loja (paraMigrar) volta a ser a conta aberta, como era antes de a loja ligar as contas. Sem isto ela sumia das
+ * telas (nem "Entrar", nem "Minha conta") com os cupons dentro. Quando o código voltar, ela espera de novo.
+ */
+function devolverContaDoAparelho() {
+  const s = st()
+  if (!s.servidor && !s.atual && s.paraMigrar && s.contas[s.paraMigrar]) useContaStore.setState({ atual: s.paraMigrar, paraMigrar: null })
 }
 
 /** A conta da loja saiu sozinha nesta visita (a sessão acabou): o "Entrar" diz por quê, até a pessoa entrar de novo. */
@@ -87,25 +97,33 @@ function guardar(codigo: boolean, sessao: boolean) {
 
 /**
  * Termina o "sair" que não chegou no servidor (saiu com a internet caída): a sessão ainda vale lá e voltaria sozinha.
- * Até o servidor confirmar, a conta não volta pra tela.
+ * Até o servidor confirmar, a conta não volta pra tela. Roda na próxima resposta do recursos, quando a internet volta
+ * (evento 'online') e antes de qualquer outra rota cliente-* (conta-servidor.ts: na mesma visita, o giro não pode cair
+ * na conta de que a pessoa saiu). true = terminou (ou não tinha nada pra terminar).
  */
-let saindo = false
-function terminarDeSair() {
-  if (saindo) return
-  saindo = true
-  void fetch(`${BASE_API}cliente-sair`, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: '{}' })
+let saindo: Promise<boolean> | null = null
+export function terminarDeSair(): Promise<boolean> {
+  if (!st().sairPendente) return Promise.resolve(true)
+  if (saindo) return saindo
+  saindo = fetch(`${BASE_API}cliente-sair`, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: '{}' })
     .then((r) => {
-      if (r.ok || r.status === 401) {
-        useContaStore.setState({ sairPendente: false })
-        esquecerRecursos()
-      }
+      if (!r.ok && r.status !== 401) return false
+      useContaStore.setState({ sairPendente: false })
+      esquecerRecursos()
+      return true
     })
-    .catch(() => {
-      /* sem servidor de novo: tenta na próxima visita */
-    })
+    .catch(() => false) // sem servidor de novo: tenta na próxima
     .finally(() => {
-      saindo = false
+      saindo = null
     })
+  return saindo
+}
+
+// a internet voltou (o celular saiu do modo avião, o Wi-Fi voltou): termina o sair na hora
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    if (st().sairPendente) void terminarDeSair()
+  })
 }
 
 /** Decide o modo pelo que o servidor respondeu (codigo: dá pra entrar por código; sessao: tem sessão viva). */
@@ -113,7 +131,7 @@ function decidir(codigo: boolean, sessaoNoServidor: boolean): ModoConta {
   let sessao = sessaoNoServidor
   if (st().sairPendente) {
     // saiu com o servidor fora: termina agora (e a conta não volta); sem sessão lá, não tem nada pra terminar
-    if (sessao && !st().servidor) terminarDeSair()
+    if (sessao && !st().servidor) void terminarDeSair()
     else if (!sessao) useContaStore.setState({ sairPendente: false })
     if (!st().servidor) sessao = false
   }
@@ -146,7 +164,11 @@ export function descobrirModo(forcar = false): Promise<ModoConta> {
     aplicar('local', false)
     return (promessa = Promise.resolve(modo))
   }
-  const g = forcar ? null : lerGuardado()
+  // o que esta aba guardou do servidor vale só se ainda bate com a conta do aparelho (o localStorage, que as abas
+  // dividem): a aba aberta antes de a pessoa entrar em outra guardou sessao:false, e confiar nisso derrubava a conta
+  // das duas abas com "Tua sessão acabou" (a sessão estava viva). Não bateu: pergunta ao servidor
+  const guardado = forcar ? null : lerGuardado()
+  const g = guardado && guardado.sessao === !!st().servidor ? guardado : null
   if (g) {
     aplicar(decidir(g.codigo, g.sessao), g.codigo)
     return (promessa = Promise.resolve(modo))
@@ -211,7 +233,10 @@ export function definirModo(novo: ModoConta) {
 export function codigoDesligou() {
   codigoLigado = false
   guardar(false, !!st().servidor)
-  if (!st().servidor) modo = 'local'
+  if (!st().servidor) {
+    modo = 'local'
+    devolverContaDoAparelho()
+  }
   avisar()
 }
 

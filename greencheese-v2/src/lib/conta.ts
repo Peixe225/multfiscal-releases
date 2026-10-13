@@ -39,15 +39,32 @@ export interface ContaAberta {
    * reserva fica no aparelho, sem cupom.
    */
   pendenteRecusado?: 'ja-girou-hoje'
-  /** A conta do aparelho foi junto no primeiro login: quantos cupons ela levou e quantos vieram (entram até 2). */
-  migracao?: { levou: number; vieram: number }
+  /**
+   * A conta do aparelho foi junto no primeiro login: quantos cupons ela levou e quantos deles vieram (entram até 2);
+   * comPremio: o prêmio reservado no aparelho veio junto (virou o cupomGuardado) e ocupou uma das 2 vagas.
+   */
+  migracao?: { levou: number; vieram: number; comPremio?: boolean }
 }
 
 /**
  * Os erros do código pelo WhatsApp (só o adaptador do servidor manda código). 'pausado': a loja desligou o código ou
- * bateu o teto de códigos (a conta volta pro aparelho); 'rede': o servidor da loja não respondeu.
+ * bateu o teto de códigos (a conta volta pro aparelho); 'rede': o servidor da loja não respondeu; 'nome-invalido': o
+ * servidor recusou o nome (a frase dele vai pro campo do nome; o código continua valendo).
  */
-export type ErroCodigo = 'codigo-errado' | 'codigo-vencido' | 'muitas-tentativas' | 'sem-envio' | 'pausado' | 'rede' | 'falhou'
+export type ErroCodigo = 'codigo-errado' | 'codigo-vencido' | 'muitas-tentativas' | 'sem-envio' | 'pausado' | 'rede' | 'nome-invalido' | 'falhou'
+
+// controles, invisíveis de largura zero e os de direção do texto: os mesmos que o servidor tira (validar.php, gc_texto)
+const INVISIVEIS = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g
+
+/** O nome como o servidor guarda: sem os invisíveis, os espaços juntos, até 60 letras (contadas como ele conta). */
+export function limparNome(v: string): string {
+  return [...v.replace(INVISIVEIS, '').replace(/\s+/g, ' ').trim()].slice(0, 60).join('').trim()
+}
+
+/** Quantas letras o nome tem pro servidor (um emoji é 1, não os 2 do JavaScript): menos de 2, ele recusa. */
+export function letrasDoNome(v: string): number {
+  return [...limparNome(v)].length
+}
 
 export interface AdaptadorConta {
   modo: 'local' | 'servidor'

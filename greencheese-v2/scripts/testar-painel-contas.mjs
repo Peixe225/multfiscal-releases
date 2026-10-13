@@ -111,7 +111,12 @@ export async function fluxoContas(a) {
     // erro no console: só os que o próprio teste provoca (recusas de propósito) passam
     p.on('console', (m) => {
       // o 503 só na página do WhatsApp da loja fora do ar (o sem-envio que o teste provoca)
-      const provocados = nome === 'gateway' ? /Failed to load resource: the server responded with a status of (401|403|404|409|429|503)/ : /Failed to load resource: the server responded with a status of (401|403|404|409|429)/
+      const provocados =
+        nome === 'gateway'
+          ? /Failed to load resource: the server responded with a status of (401|403|404|409|429|503)/
+          : nome === 'sair-sem-internet'
+            ? /Failed to load resource: (net::ERR_INTERNET_DISCONNECTED|the server responded with a status of (401|403|404|409|429))/
+            : /Failed to load resource: the server responded with a status of (401|403|404|409|429)/
       if (m.type() === 'error' && !provocados.test(m.text())) erros.push(`contas ${nome} console: ${m.text()}`)
     })
     return p
@@ -659,6 +664,13 @@ export async function fluxoContas(a) {
     await pD.getByLabel('Buscar cliente').fill('bia')
     await pD.waitForFunction(() => document.querySelectorAll('.ct-linha').length === 1, null, { timeout: 6000 }).catch(() => {})
     ok((await pD.locator('.ct-linha').count()) === 1 && /Bia do Aparelho/.test(await pD.locator('.ct-linha').innerText()), 'clientes: busca pelo nome')
+    // pelo WhatsApp do jeito que o painel mostra na linha (antes: com a máscara, nenhuma linha)
+    await pD.getByLabel('Buscar cliente').fill(ZAP3)
+    await pD.waitForTimeout(900)
+    await pD.waitForFunction(() => document.querySelectorAll('.ct-linha').length === 1, null, { timeout: 6000 }).catch(() => {})
+    ok((await pD.locator('.ct-linha').count()) === 1 && /Bia do Aparelho/.test(await pD.locator('.ct-linha').innerText()), `clientes: busca pelo WhatsApp com máscara (${ZAP3})`)
+    await pD.getByLabel('Buscar cliente').fill('bia')
+    await pD.waitForTimeout(900)
     const baixa = pD.waitForEvent('download')
     await pD.getByRole('button', { name: 'Baixar lista (Excel)' }).click()
     const arq = await baixa
@@ -737,6 +749,87 @@ export async function fluxoContas(a) {
     await tocarTroca()
     await pD.waitForFunction(() => !/Desligado/.test(document.querySelector('.ct-codigo')?.textContent ?? ''), null, { timeout: 6000 }).catch(() => {})
     ok((await (await site('recursos')).json()).contas?.codigo === true, 'código ligado de novo')
+
+    // ─── duas abas: a aba aberta antes de entrar, recarregada depois, continua logada (antes derrubava as duas) ──────
+    {
+      const ZAP5 = '(33) 99555-1212'
+      const cT = await contexto(390, 844, { site: true })
+      const pB = await pagina(cT, 'aba B')
+      await pB.goto(`${BASE}/?uf=mg&aba=estados`)
+      await pB.waitForFunction(() => !!sessionStorage.getItem('gc-recursos'), null, { timeout: 10000 }).catch(() => {})
+      const pA = await pagina(cT, 'aba A')
+      await pA.goto(`${BASE}/?uf=mg&aba=estados`)
+      await pA.locator('.pe-conta-tua button').waitFor({ timeout: 10000 })
+      await pA.waitForFunction(() => /Entrar com teu WhatsApp/.test(document.querySelector('.pe-conta-tua')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => {})
+      await pA.locator('.pe-conta-tua button').click()
+      const eA = pA.locator('.conta-entrar')
+      await eA.waitFor()
+      await eA.getByLabel('Teu WhatsApp', { exact: true }).fill(ZAP5)
+      antes = falso.recebidos.length
+      await eA.locator('button[type=submit]').click()
+      await eA.locator('.form-codigo').waitFor()
+      await eA.locator('.form-codigo').fill((await esperarCodigo(ZAP5, antes)) ?? '')
+      await eA.locator('button[type=submit]').click()
+      await eA.getByLabel('Teu nome').waitFor()
+      await eA.getByLabel('Teu nome').fill('Ana Duas Abas')
+      await eA.locator('button[type=submit]').click()
+      await pA.locator('.conta-oi').waitFor({ timeout: 8000 })
+      await pB.reload()
+      await pB.waitForTimeout(2500)
+      const tuaB = await pB.locator('.pe-conta-tua').innerText().catch(() => '')
+      await pA.waitForTimeout(500)
+      ok(/Ana · Minha conta/.test(tuaB) && (await pA.locator('.folha-conta .conta-oi').count()) === 1 && (await apiSite(pA, 'cliente-eu')).status === 200, `duas abas: a aba aberta antes de entrar, recarregada, continua logada, e a outra também (antes: as duas caíam) ("${tuaB.replace(/\n/g, ' ')}")`)
+      await pB.locator('.pe-conta-tua button').click()
+      await pB.locator('.folha-conta').waitFor()
+      await pB.waitForTimeout(500)
+      ok((await pB.locator('.folha-conta .conta-oi').count()) === 1 && !/Tua sessão acabou/.test(await pB.locator('.folha-conta').innerText()), 'duas abas: a Minha conta da aba B abre na conta, sem "Tua sessão acabou"')
+      await cT.close()
+    }
+
+    // ─── sair sem internet e a internet volta na mesma visita: o sair termina antes do giro (computador) ─────────────
+    {
+      const ZAP6 = '(33) 99444-3434'
+      const cO = await contexto(1280, 800, { site: true })
+      const pO = await pagina(cO, 'sair-sem-internet')
+      const ordem = []
+      pO.on('request', (r) => {
+        const m = /[?&]r=(cliente-[a-z-]+)/.exec(r.url())
+        if (m) ordem.push(m[1])
+      })
+      await pO.goto(`${BASE}/?uf=mg`)
+      await pO.locator('.lateral-item', { hasText: 'Entrar' }).waitFor({ timeout: 10000 })
+      await pO.locator('.lateral-item', { hasText: 'Entrar' }).click()
+      const eO = pO.locator('.conta-entrar')
+      await eO.waitFor()
+      await eO.getByLabel('Teu WhatsApp', { exact: true }).fill(ZAP6)
+      antes = falso.recebidos.length
+      await eO.locator('button[type=submit]').click()
+      await eO.locator('.form-codigo').waitFor()
+      await eO.locator('.form-codigo').fill((await esperarCodigo(ZAP6, antes)) ?? '')
+      await eO.locator('button[type=submit]').click()
+      await eO.getByLabel('Teu nome').waitFor()
+      await eO.getByLabel('Teu nome').fill('Sol Saindo')
+      await eO.locator('button[type=submit]').click()
+      await pO.locator('.conta-oi').waitFor({ timeout: 8000 })
+      await cO.route('**/api/index.php?r=cliente-sair', (r) => r.abort('internetdisconnected'))
+      await pO.getByRole('button', { name: 'Sair', exact: true }).click()
+      await pO.waitForTimeout(800)
+      await cO.unroute('**/api/index.php?r=cliente-sair')
+      ordem.length = 0
+      await pO.locator('.lateral-item', { hasText: 'Teste minha sorte' }).click()
+      await pO.locator('.sorte [role="slider"]').first().waitFor({ timeout: 15000 })
+      await pO.waitForTimeout(800)
+      await pO.locator('.sorte [role="slider"]').first().focus()
+      for (let i = 0; i < 8; i++) {
+        await pO.keyboard.press('ArrowRight')
+        await pO.waitForTimeout(220)
+      }
+      await pO.locator('.story-premio').waitFor({ timeout: 10000 }).catch(() => {})
+      await pO.waitForTimeout(1200)
+      const sol = (await dono('admin-clientes', null)).json?.clientes?.find((c) => c.nome === 'Sol Saindo')
+      ok(ordem[0] === 'cliente-sair' && ordem.includes('cliente-girar') && (await apiSite(pO, 'cliente-eu')).status === 401 && sol?.cuponsAtivos === 0, `sair sem internet, a internet volta na mesma visita: o sair termina antes do giro, e o prêmio não vai pra conta de que ela saiu (${ordem.join(' → ')}; cupons da Sol: ${sol?.cuponsAtivos})`)
+      await cO.close()
+    }
 
     // ─── 4 tamanhos: rolagem lateral e prints ─────────────────────────────────────────────────────────────────────
     for (const [w, h] of TAMANHOS) {

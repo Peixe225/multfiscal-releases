@@ -21,11 +21,15 @@ export const TC = {
   deuErro: 'Deu um erro aqui. Tenta de novo daqui a pouco.',
   // a conta da loja saiu sozinha (apagada em outro aparelho ou pelo painel, 90 dias sem usar)
   sessaoAcabou: 'Tua sessão acabou. Entra de novo com teu WhatsApp: o WhatsApp da loja te manda um código de 6 números.',
-  // a conta do aparelho esperando ir pra loja (antes de entrar)
-  contaDoAparelhoVai: (nome: string, cupons: number) =>
-    cupons > 2
-      ? `Tua conta deste aparelho (${nome}, ${cupons} cupons) vai junto, com até 2 cupons: confirma teu WhatsApp com o código que a loja manda.`
-      : `Tua conta deste aparelho (${nome}${cupons ? `, ${plural(cupons, 'cupom', 'cupons')}` : ''}) vai junto: confirma teu WhatsApp com o código que a loja manda.`,
+  // a conta do aparelho esperando ir pra loja (antes de entrar): os cupons que valem e o prêmio reservado no aparelho,
+  // que entra primeiro nas 2 vagas
+  contaDoAparelhoVai: (nome: string, cupons: number, premio = false) => {
+    const leva = [cupons ? plural(cupons, 'cupom', 'cupons') : '', premio ? 'o prêmio reservado' : ''].filter(Boolean).join(' e ')
+    const limite = cupons + (premio ? 1 : 0) > 2 ? `, com até 2 cupons${premio ? ' (o prêmio reservado primeiro)' : ''}` : ''
+    return `Tua conta deste aparelho (${nome}${leva ? `, ${leva}` : ''}) vai junto${limite}: confirma teu WhatsApp com o código que a loja manda.`
+  },
+  // o servidor recusou o nome (a frase dele vem no lugar quando ele manda uma)
+  nomeRecusado: 'Põe teu nome (de 2 a 60 letras).',
 }
 
 /**
@@ -36,10 +40,12 @@ export function recadoDeEntrada(r: ContaAberta, criou: boolean): string {
   const nome = primeiroNome(r.conta.nome)
   const partes = [criou ? (nome ? `Conta criada, ${nome}.` : 'Conta criada.') : nome ? `Oi de novo, ${nome}.` : 'Oi de novo.']
   if (r.migracao) {
-    const { levou, vieram } = r.migracao
+    // vieram: só os cupons do aparelho (o prêmio reservado que veio junto é o "teu prêmio tá guardado" logo abaixo)
+    const { levou, vieram, comPremio } = r.migracao
+    const limite = comPremio ? 'entram até 2, contando o prêmio reservado' : 'entram até 2'
     if (vieram >= levou) partes.push(levou === 1 ? 'O cupom deste aparelho veio junto.' : `Os ${levou} cupons deste aparelho vieram junto.`)
-    else if (vieram > 0) partes.push(`Vieram ${vieram} dos ${levou} cupons deste aparelho (entram até 2).`)
-    else partes.push(levou === 1 ? 'O cupom deste aparelho não pôde vir pra conta da loja.' : 'Os cupons deste aparelho não puderam vir pra conta da loja.')
+    else if (vieram > 0) partes.push(`${vieram === 1 ? 'Veio 1' : `Vieram ${vieram}`} dos ${levou} cupons deste aparelho (${limite}).`)
+    else partes.push(levou === 1 ? `O cupom deste aparelho não pôde vir pra conta da loja${comPremio ? ` (${limite})` : ''}.` : `Os cupons deste aparelho não puderam vir pra conta da loja${comPremio ? ` (${limite})` : ''}.`)
   }
   if (r.cupomGuardado) partes.push(`Teu prêmio tá guardado: cupom ${r.cupomGuardado.codigo}.`)
   if (r.pendenteRecusado) partes.push('Tua conta já tinha girado nesse dia: o prêmio desse giro não entra nela.')

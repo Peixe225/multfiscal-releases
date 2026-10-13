@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { T } from '../interativos/sorte/textos'
-import { armazenamentoOk, useConta, type ContaAberta, type DetalheErro } from '../lib/conta'
+import { armazenamentoOk, letrasDoNome, limparNome, pendenteValido, useConta, type ContaAberta, type DetalheErro } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { descobrirModo, modoConta as modoContaAgora, modoDescoberto, sessaoCaiuNestaVisita, useModoConta } from '../lib/conta-modo'
 import { copiarTexto } from '../lib/copiar'
@@ -20,7 +20,9 @@ import './FormConta.css'
 //   entrar são o mesmo caminho (número → código; número novo pede o nome depois do código), e trocar o WhatsApp da
 //   conta também pede o código, que vai pro número novo. A conta do aparelho vai junto no primeiro login.
 // O passo do código fica guardado na aba (sessionStorage, 10 min, sem o código): recarregou a página ou o navegador do
-// Instagram voltou do WhatsApp recarregando, a tela volta no passo do código com o número (o código que chegou vale).
+// Instagram voltou do WhatsApp recarregando, a tela volta no passo do código com o número (o código que chegou vale) e
+// com o nome que já estava escrito. Recarregou no passo do nome (número novo): volta no passo do código pedindo o nome
+// junto, com o campo do nome aberto (o código não fica guardado: a pessoa digita de novo o que chegou).
 
 export type ModoForm = 'criar' | 'entrar' | 'editar'
 
@@ -54,13 +56,13 @@ type TipoErro =
   | 'pausado'
   | 'rede'
   | 'invalido'
+  | 'nome-invalido'
   | 'falhou'
 type Erro = { tipo: TipoErro; detalhe?: DetalheErro }
 
 /** O passo do formulário: os dados; o código que chegou no WhatsApp; o nome (número novo, depois do código). */
 type Passo = 'dados' | 'codigo' | 'nome'
 
-const limparNome = (v: string) => v.replace(/\s+/g, ' ').trim()
 /** Pausa entre um código e outro (a mesma do servidor). */
 const PAUSA_CODIGO = 60
 /** Quanto vale o código (o mesmo do servidor): o passo guardado na aba não passa disso. */
@@ -104,6 +106,8 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
   const nomeChat = useChat((s) => s.respostas.nome)
   // a conta do aparelho esperando ir pro servidor: o número já vem no campo
   const paraMigrar = useContaStore((s) => (s.paraMigrar ? (s.contas[s.paraMigrar] ?? null) : null))
+  // o prêmio reservado no aparelho (girou sem conta antes de a loja ligar as contas): vai junto e ocupa uma das 2 vagas
+  const pendenteDoAparelho = useContaStore((s) => (s.pendente && !s.pendente.servidor ? s.pendente : null))
   const avisar = useUI((s) => s.avisar)
   const uid = useId()
   // o passo do código que ficou guardado na aba (recarregou no meio): volta nele, com o número e o nome
@@ -120,6 +124,8 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
   const [tentou, setTentou] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [erroGeral, setErroGeral] = useState<Erro | null>(null)
+  // o servidor recusou o nome (a frase dele, no campo do nome)
+  const [nomeRecusado, setNomeRecusado] = useState<string | null>(null)
   const [passo, setPasso] = useState<Passo>(volta ? 'codigo' : 'dados')
   const [codigo, setCodigo] = useState('')
   const [enviadoEm, setEnviadoEm] = useState(volta?.enviadoEm ?? 0)
@@ -147,6 +153,12 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
   useEffect(() => {
     void descobrirModo()
   }, [])
+  // o nome escrito depois do código (ou corrigido no passo do código) entra no passo guardado: recarregar não perde
+  useEffect(() => {
+    if (modo === 'editar' || passo === 'dados') return
+    const g = lerPassoGuardado()
+    if (g && g.modo === modo && g.zap === normalizarCelular(zap) && (g.nome !== limparNome(nome) || g.promo !== promo)) guardarPasso({ ...g, nome: limparNome(nome), promo })
+  }, [modo, passo, nome, promo, zap])
   // "Mandar outro código" libera depois de 1 min (o relógio só anda no passo do código)
   useEffect(() => {
     if (passo !== 'codigo') return
@@ -157,7 +169,8 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
   const digitos = normalizarCelular(zap)
   // nome: no criar e no editar; no entrar, só quando o número é novo (passo 'nome', e depois dele)
   const pedeNome = modo !== 'entrar' || passo === 'nome' || nomePedido
-  const erroNome = pedeNome && limparNome(nome).length < 2 ? T.erroNome : null
+  // as letras contadas como o servidor conta (um emoji é 1): "🔥" sozinho não passa aqui nem lá
+  const erroNome = pedeNome && letrasDoNome(nome) < 2 ? T.erroNome : pedeNome ? nomeRecusado : null
   const erroZap = validarCelular(digitos)
   const mostraNome = tentou && !!erroNome
   const mostraZap = tentou && !!erroZap && passo === 'dados'
@@ -197,15 +210,24 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
     setZap(r.valor)
   }
 
-  // "Próximo" do teclado no nome: vai pro WhatsApp sem enviar (e sem acusar erro num campo que nem foi tocado)
+  // "Próximo" do teclado no nome: vai pro WhatsApp sem enviar (e sem acusar erro num campo que nem foi tocado); no
+  // passo do código, vai pro código (o WhatsApp fica travado), ou envia se ele já está escrito
   const proximoNoNome = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || e.nativeEvent.isComposing || passo === 'nome') return
+    if (passo === 'codigo' && codigo.replace(/\D/g, '').length === 6) return
     e.preventDefault()
-    zapRef.current?.focus()
+    ;(passo === 'codigo' ? codigoRef : zapRef).current?.focus()
   }
 
   /** Mostra o erro do adaptador (a loja pausou o código: quem abriu decide, ou o formulário mostra). */
   const mostrarErro = (tipo: TipoErro, detalhe?: DetalheErro) => {
+    if (tipo === 'nome-invalido') {
+      // o servidor não aceitou o nome: o erro fica no campo, com o foco nele (o código continua valendo)
+      setNomeRecusado(detalhe?.mensagem ?? TC.nomeRecusado)
+      setTentou(true)
+      requestAnimationFrame(() => nomeRef.current?.focus())
+      return
+    }
     if (tipo === 'pausado' && aoPausar) {
       guardarPasso(null)
       aoPausar(detalhe?.mensagem ?? TC.codigoPausado)
@@ -280,7 +302,7 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
         else if (r.erro === 'invalido' || r.erro === 'sem-armazenamento') mostrarErro('falhou')
         else {
           mostrarErro(r.erro, r.detalhe)
-          codigoRef.current?.select()
+          if (r.erro !== 'nome-invalido') codigoRef.current?.select()
         }
       } else if (modo === 'entrar') {
         if (passo === 'dados' && (await pedirCodigo('entrar')) !== 'direto') return
@@ -303,7 +325,7 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
           setErroGeral({ tipo: 'codigo-vencido-nome' })
         } else {
           mostrarErro(r.erro, r.detalhe)
-          codigoRef.current?.select()
+          if (r.erro !== 'nome-invalido') codigoRef.current?.select()
         }
       } else {
         if (trocandoNumero && passo === 'dados') {
@@ -385,8 +407,9 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
               : T.salvar
   const noCodigo = passo === 'codigo'
   const erroCodigo = !!erroGeral && ['codigo-errado', 'codigo-curto', 'codigo-vencido', 'codigo-vencido-nome'].includes(erroGeral.tipo)
-  // a conta do aparelho leva só os cupons que ainda valem (os vencidos e os usados ficam)
+  // a conta do aparelho leva só os cupons que ainda valem (os vencidos e os usados ficam), e o prêmio reservado nela
   const cuponsQueVao = paraMigrar ? paraMigrar.cupons.filter((c) => statusDo(c, agora) === 'ativo').length : 0
+  const premioVai = !!paraMigrar && !!pendenteDoAparelho && pendenteValido(pendenteDoAparelho, pendenteDoAparelho.interativo, agora)
   // dados travados enquanto confere o código (trocar número volta pro passo 1)
   const travado = passo !== 'dados'
   const mostraCheck = modo !== 'entrar' || passo === 'nome' || nomePedido
@@ -404,9 +427,9 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
       )}
       {modo === 'criar' && passo === 'dados' && <p className="form-sub">{comPremio ? T.subComPremio : T.subSemPremio}</p>}
       {modo === 'entrar' && passo === 'dados' && servidor && (
-        <p className="form-sub">{paraMigrar ? TC.contaDoAparelhoVai(paraMigrar.conta.nome, cuponsQueVao) : sessaoCaiuNestaVisita() ? TC.sessaoAcabou : T.entrarSub}</p>
+        <p className="form-sub">{paraMigrar ? TC.contaDoAparelhoVai(paraMigrar.conta.nome, cuponsQueVao, premioVai) : sessaoCaiuNestaVisita() ? TC.sessaoAcabou : T.entrarSub}</p>
       )}
-      {passo === 'nome' && <p className="form-sub">{T.primeiraVezSub}</p>}
+      {(passo === 'nome' || (noCodigo && nomePedido)) && <p className="form-sub">{T.primeiraVezSub}</p>}
 
       {pedeNome && (
         <div className="form-campo">
@@ -415,8 +438,13 @@ export function FormConta({ modo, comPremio = false, aoSucesso, aoTrocarModo, ao
             ref={nomeRef}
             id={`${uid}-nome`}
             value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            readOnly={noCodigo}
+            onChange={(e) => {
+              setNome(e.target.value)
+              setNomeRecusado(null)
+            }}
+            // o número fica travado no passo do código (o código é dele); o nome não (recarregou no passo do nome, o
+            // código venceu enquanto escrevia, o servidor recusou o nome): só no editar, que confirma o número novo
+            readOnly={noCodigo && modo === 'editar'}
             placeholder={T.nomePlaceholder}
             autoComplete="name"
             maxLength={60}

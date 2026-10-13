@@ -2,7 +2,7 @@ import { regrasSorte } from '../dados/sorte'
 import { useContaStore, type Conta, type Cupom, type EstadoConta, type Pendente } from '../store/conta'
 import { regrasDaSorte } from '../store/loja'
 import { useSacola } from '../store/sacola'
-import { armazenamentoOk, calcularGiro, contaAtual, pendenteValido, type AdaptadorConta, type ContaAberta, type DetalheErro, type ErroCodigo, type GiroInfo } from './conta'
+import { armazenamentoOk, calcularGiro, contaAtual, letrasDoNome, limparNome, pendenteValido, type AdaptadorConta, type ContaAberta, type DetalheErro, type ErroCodigo, type GiroInfo } from './conta'
 import { codigoDesligou, definirModo, descobrirModo, esquecerRecursos, modoConta, registrarRestauro } from './conta-modo'
 import { contaDaApi, cupomDaApi, diasDaApi, gravarEu, pedirApi, pendenteDaApi, type RespostaApi } from './conta-servidor'
 import { diaSP, fimDoDiaSP, premioPorId, statusDo } from './cupom'
@@ -36,9 +36,7 @@ function novoId(): string {
   return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function nomeLimpo(nome: string): string {
-  return nome.replace(/\s+/g, ' ').trim().slice(0, 60)
-}
+const nomeLimpo = limparNome
 
 /** Cria o cupom do prêmio na conta aberta (o código nasce aqui). */
 function criarCupom(s: EstadoConta, interativo: string, premioId: string, agora: number): Cupom | null {
@@ -95,7 +93,7 @@ export const contaLocal: AdaptadorConta = {
     await reler()
     const whatsapp = celularParaGuardar(d.whatsapp)
     const nome = nomeLimpo(d.nome)
-    if (!whatsapp || nome.length < 2) return { ok: false, erro: 'invalido' }
+    if (!whatsapp || letrasDoNome(nome) < 2) return { ok: false, erro: 'invalido' }
     if (st().contas[whatsapp]) return { ok: false, erro: 'whatsapp-existe' }
     const agora = Date.now()
     const conta: Conta = {
@@ -149,7 +147,7 @@ export const contaLocal: AdaptadorConta = {
     const atual = contaAtual(s)
     if (!atual || !s.atual) return { ok: false, erro: 'invalido' }
     const nome = d.nome != null ? nomeLimpo(d.nome) : atual.conta.nome
-    if (nome.length < 2) return { ok: false, erro: 'invalido' }
+    if (letrasDoNome(nome) < 2) return { ok: false, erro: 'invalido' }
     const whatsapp = d.whatsapp != null ? celularParaGuardar(d.whatsapp) : atual.conta.whatsapp
     if (!whatsapp) return { ok: false, erro: 'invalido' }
     if (whatsapp !== s.atual && s.contas[whatsapp]) return { ok: false, erro: 'whatsapp-existe' }
@@ -252,6 +250,8 @@ export function aparelho(): string {
 function erroCodigo(r: Extract<RespostaApi<unknown>, { ok: false }>): ErroCodigo {
   if (r.erro === 'codigo-errado' || r.erro === 'codigo-vencido' || r.erro === 'muitas-tentativas' || r.erro === 'sem-envio') return r.erro
   if (r.erro === 'invalido' && r.extra.campo === 'codigo') return 'codigo-errado'
+  // o nome que o servidor não aceita (antes virava "Deu um erro aqui", sem dizer o que fazer): a frase vai pro campo
+  if (r.erro === 'invalido' && r.extra.campo === 'nome') return 'nome-invalido'
   if (r.erro === 'sem-codigo') return 'pausado'
   if (r.erro === 'rede' || r.erro === 'resposta' || r.erro === 'sem-servidor') return 'rede'
   return 'falhou'
@@ -319,14 +319,17 @@ function abriuNoServidor(d: Record<string, unknown>, migrou: ReturnType<typeof d
   esquecerRecursos()
   const levados = migrou?.corpo.cupons
   const levou = Array.isArray(levados) ? levados.length : 0
-  // o prêmio reservado do aparelho também entra na conta dos que vieram (vem primeiro): não passa dos levados
-  const vieram = Math.min(levou, typeof d.migrados === 'number' ? d.migrados : 0)
+  // o servidor separa os cupons do aparelho do prêmio reservado nele (que entra primeiro nas 2 vagas e vira cupom
+  // agora): antes o prêmio contava como cupom ("Vieram 2 dos 3" quando veio 1). Servidor de antes: só o total
+  const premioMigrado = cupomDaApi(d.premioMigrado)
+  const vieram = Math.min(levou, typeof d.migradosCupons === 'number' ? d.migradosCupons : typeof d.migrados === 'number' ? d.migrados : 0)
   return {
     conta,
-    cupomGuardado: guardado,
+    // o prêmio reservado no aparelho que virou cupom também é "teu prêmio tá guardado"
+    cupomGuardado: guardado ?? premioMigrado,
     jaTinha: d.criada === false,
     ...(d.pendenteRecusado === 'ja-girou-hoje' ? { pendenteRecusado: 'ja-girou-hoje' as const } : {}),
-    ...(levou > 0 ? { migracao: { levou, vieram } } : {}),
+    ...(levou > 0 ? { migracao: { levou, vieram, ...(premioMigrado ? { comPremio: true } : {}) } } : {}),
   }
 }
 
@@ -369,7 +372,7 @@ export const contaServidor: AdaptadorConta = {
   async criar(d) {
     if (!d.codigo) return { ok: false, erro: 'precisa-codigo' }
     const whatsapp = celularParaGuardar(d.whatsapp)
-    if (!whatsapp || nomeLimpo(d.nome).length < 2) return { ok: false, erro: 'invalido' }
+    if (!whatsapp || letrasDoNome(d.nome) < 2) return { ok: false, erro: 'invalido' }
     const r = await contaServidor.confirmarCodigo(whatsapp, d.codigo, { nome: nomeLimpo(d.nome), aceitaPromo: d.aceitaPromo })
     if (r.ok) return r
     return { ok: false, erro: r.erro === 'precisa-nome' || r.erro === 'nao-encontrada' ? 'invalido' : r.erro, detalhe: r.detalhe }
@@ -441,6 +444,7 @@ export const contaServidor: AdaptadorConta = {
     const r = await pedirApi<{ conta: unknown }>('cliente-atualizar', { metodo: 'POST', corpo })
     if (!r.ok) {
       if (r.erro === 'whatsapp-existe') return { ok: false, erro: 'whatsapp-existe' }
+      if (r.erro === 'invalido' && r.extra.campo === 'nome') return falhaCodigo(r)
       if (r.erro === 'invalido' && r.extra.campo !== 'codigo') return { ok: false, erro: 'invalido', detalhe: detalheDo(r) }
       return falhaCodigo(r)
     }

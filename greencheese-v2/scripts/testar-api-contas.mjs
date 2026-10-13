@@ -323,7 +323,13 @@ export async function testarContas(t) {
     const zapAna = whats()
     {
       erro(await ana.post('cliente-codigo', { whatsapp: '123' }), 400, 'invalido', 'número que não fecha')
-      erro(await ana.post('cliente-codigo', { whatsapp: zapAna, site: 'robo' }), 400, 'invalido', 'armadilha de robô')
+      {
+        // a armadilha de robô: 400 invalido com campo site (o API.md diz isso), não manda nada pro WhatsApp e conta no IP
+        const antes = falso.recebidos.length
+        const robo = await ana.post('cliente-codigo', { whatsapp: zapAna, site: 'robo' })
+        erro(robo, 400, 'invalido', 'armadilha de robô')
+        igual([robo.json?.campo, falso.recebidos.length - antes], ['site', 0], 'armadilha: campo site, e nada sai pro WhatsApp')
+      }
       erro(await ana.post('cliente-codigo', { whatsapp: zapAna }, { origem: 'https://golpe.example' }), 403, 'origem', 'de outro site')
       falso.recebidos.length = 0
       const c = await ana.post('cliente-codigo', { whatsapp: zapAna })
@@ -354,13 +360,21 @@ export async function testarContas(t) {
       const e1 = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo: errado })
       erro(e1, 403, 'codigo-errado', 'código errado')
       igual(e1.json?.restam, 4, 'restam 4 tentativas')
+      // nome que não fecha (um emoji só é 1 letra; o site conta igual): 400 com campo nome, ANTES de conferir o código, que
+      // continua valendo (a tela corrige o nome e manda de novo com o mesmo código)
+      for (const ruim of ['🔥', ' Z ', '\u200bA\u200b']) {
+        const n = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo, nome: ruim })
+        igual([n.status, n.json?.erro, n.json?.campo], [400, 'invalido', 'nome'], `nome ${JSON.stringify(ruim)} recusado no campo nome`)
+      }
+      ok(!ana.cliente, 'o nome recusado não abre sessão')
       const p = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo: ` ${codigo.slice(0, 3)} ${codigo.slice(3)} ` })
       igual([p.status, p.json?.ok, p.json?.precisaNome, p.json?.campo, p.json?.conta], [200, true, true, 'nome', undefined], 'código certo, sem conta e sem nome: pede o nome (200 com precisaNome, sem conta)')
       ok(!ana.cliente, 'ainda sem sessão')
       const c = await ana.post('cliente-entrar', { whatsapp: zapAna, codigo, nome: '  Ana   Souza ', aceitaPromo: true })
       igual([c.status, c.json?.criada, c.json?.conta?.nome, c.json?.conta?.whatsapp, c.json?.conta?.aceitaPromo], [201, true, 'Ana Souza', guardado(zapAna), true], 'conta criada com o mesmo código (que continuou valendo)')
       ok(ISO.test(c.json?.conta?.aceitaPromoEm ?? '') && ISO.test(c.json?.conta?.confirmou18Em ?? ''), 'promoções e +18 gravados com a data')
-      igual(chaves(c.json), ['conta', 'criada', 'cupomGuardado', 'cupons', 'dias', 'enderecos', 'migrados', 'ok', 'pendente', 'pendenteRecusado'], 'resposta do entrar com as chaves do contrato')
+      igual(chaves(c.json), ['conta', 'criada', 'cupomGuardado', 'cupons', 'dias', 'enderecos', 'migrados', 'migradosCupons', 'ok', 'pendente', 'pendenteRecusado', 'premioMigrado'], 'resposta do entrar com as chaves do contrato')
+      igual([c.json?.migrados, c.json?.migradosCupons, c.json?.premioMigrado], [0, 0, null], 'sem conta do aparelho: nada migrado')
       igual(chaves(c.json?.conta), ['aceitaPromo', 'aceitaPromoEm', 'confirmou18Em', 'criadaEm', 'id', 'nome', 'whatsapp'], 'ContaCliente com as chaves do contrato')
       const ck = c.cookies.find((x) => x.startsWith('gc_cliente=')) ?? ''
       ok(/gc_cliente=[0-9a-f]{64};/.test(ck) && /HttpOnly/i.test(ck) && /SameSite=Lax/i.test(ck) && /path=\/;/i.test(ck) && /Max-Age=7776000/i.test(ck) && !/Secure/i.test(ck), `cookie gc_cliente: HttpOnly, SameSite=Lax, 90 dias, sem Secure no http (${ck})`)
@@ -692,6 +706,9 @@ export async function testarContas(t) {
       igual([e.status, e.json?.criada, e.json?.conta?.nome, e.json?.conta?.aceitaPromo], [201, true, 'Dani do Aparelho', true], 'a conta nasceu com o nome do aparelho (sem pedir de novo)')
       ok(Math.abs(Date.parse(e.json.conta.aceitaPromoEm) - (agoraMs - 5 * 86400000)) < 2000, 'a data das promoções é a de quando ela marcou no aparelho')
       igual(e.json?.migrados, 2, 'entraram 2 (o teto): o prêmio reservado e o primeiro cupom que vale')
+      // separados (antes o site contava o prêmio como cupom: "Vieram 2 dos 3" quando veio 1)
+      igual([e.json?.migradosCupons, e.json?.premioMigrado?.premioId, e.json?.premioMigrado?.origem], [1, 'dichavador-10', 'aparelho'], 'migradosCupons: 1 cupom do aparelho; premioMigrado: o prêmio reservado que virou cupom')
+      ok(e.json?.cupons?.some((x) => x.codigo === e.json?.premioMigrado?.codigo), 'o prêmio que virou cupom está nos cupons da conta')
       const k = Object.fromEntries(e.json.cupons.map((x) => [x.premioId, x]))
       ok(k['ocb-4-por-3']?.codigo === 'SORTE-AB34', 'o código do aparelho fica quando está livre')
       ok(!k['piteira-vidro-15'] && !k['premio-inventado'], 'vencido, prêmio que não existe e o que passou do teto ficam de fora')
@@ -703,6 +720,7 @@ export async function testarContas(t) {
       await cli2.post('cliente-codigo', { whatsapp: z }, { agora: AGORA + 2000 })
       const de2 = await cli2.post('cliente-entrar', { whatsapp: z, codigo: ultimoCodigo(z), aparelho: novoToken(), migrar: { ...migrar, pendente: undefined, cupons: [migrar.cupons[5]] } }, { agora: AGORA + 2005 })
       igual([de2.status, de2.json?.migrados, de2.json?.cupons?.length], [200, 0, 2], 'a conta do aparelho entra uma vez só por conta')
+      igual([de2.json?.migradosCupons, de2.json?.premioMigrado], [0, null], 'e a 2ª vez não conta nada como migrado')
       const g = await cli.post('cliente-girar', { interativo: 'sorte', uf: 'mg', aparelho: ap })
       erro(g, 409, 'sem-giro', 'o giro de hoje do aparelho veio junto: não gira de novo hoje')
       ok(e.json?.dias?.sorte?.includes(hoje) && !e.json.dias.sorte.includes('2020-01-01'), 'só os dias dos últimos 30 entram')
@@ -713,6 +731,7 @@ export async function testarContas(t) {
       const longo = { codigo: 'SORTE-PQ34', interativo: 'sorte', premioId: 'bandeja-10', ganhoEm: agoraMs - 2 * 86400000, validoAte: agoraMs + 365 * 86400000 }
       const e2 = await c2.post('cliente-entrar', { whatsapp: z2, codigo: ultimoCodigo(z2), migrar: { nome: 'Edu', cupons: [migrar.cupons[4], longo] } })
       const k2 = Object.fromEntries((e2.json?.cupons ?? []).map((x) => [x.premioId, x]))
+      igual([e2.json?.migrados, e2.json?.migradosCupons, e2.json?.premioMigrado], [2, 2, null], 'sem prêmio reservado: os 2 que entraram são cupons do aparelho')
       ok(k2['ocb-4-por-3']?.codigo && k2['ocb-4-por-3'].codigo !== 'SORTE-AB34', 'código já usado por outra conta: troca')
       const bandeja = JSON.parse(readFileSync(join(raiz, 'public/api/nucleo/premios-sorte.json'), 'utf8')).premios.find((p) => p.id === 'bandeja-10')
       ok(k2['bandeja-10'] && Date.parse(k2['bandeja-10'].validoAte) <= agoraMs - 2 * 86400000 + (bandeja.validadeDias + 1) * 86400000, 'a validade conta do dia em que o cupom foi ganho, não de hoje')
@@ -798,6 +817,15 @@ export async function testarContas(t) {
       igual(chaves(l.json.codigo?.teto), ['dia', 'hora', 'pausadoAte', 'usadosDia', 'usadosHora'], 'com o teto de códigos da loja')
       const b = await dono.get('admin-clientes', { query: '&busca=dani' })
       igual(b.json.clientes.map((c) => c.nome), ['Dani do Aparelho'], 'busca pelo nome, sem acento e sem caixa')
+      // pelo WhatsApp do jeito que o painel mostra e o dono copia do WhatsApp (antes: com a máscara, nada)
+      {
+        const w = b.json.clientes[0].whatsapp.slice(2)
+        const formas = [`(${w.slice(0, 2)}) ${w.slice(2, 7)}-${w.slice(7)}`, `${w.slice(2, 7)}-${w.slice(7)}`, `+55 ${w.slice(0, 2)} ${w.slice(2, 7)}-${w.slice(7)}`, `0${w.slice(0, 2)} ${w.slice(2, 7)} ${w.slice(7)}`, w]
+        const achou = []
+        for (const q of formas) achou.push((await dono.get('admin-clientes', { query: `&busca=${encodeURIComponent(q)}` })).json?.clientes?.map((c) => c.nome).join(',') ?? '')
+        igual(achou, formas.map(() => 'Dani do Aparelho'), `busca pelo WhatsApp com máscara, +55, 0 e só os dígitos (${formas.join(' | ')})`)
+        igual((await dono.get('admin-clientes', { query: `&busca=${encodeURIComponent('(99) 91234-5678')}` })).json?.clientes?.length, 0, 'número que não é de ninguém: nada')
+      }
       const p = await dono.get('admin-clientes', { query: '&promo=1' })
       ok(p.json.clientes.length === p.json.comPromo && p.json.clientes.every((c) => c.aceitaPromo), 'só quem aceitou promoções')
       const dani = b.json.clientes[0]

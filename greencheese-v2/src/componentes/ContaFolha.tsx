@@ -17,6 +17,7 @@ import { mascararCelular } from '../lib/telefone'
 import { useLocal } from '../store/local'
 import { useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
+import { FOCAVEIS, focarVista } from '../lib/foco'
 import { Icone } from './comum'
 import { Folha } from './Folha'
 import { FormConta, lerPassoGuardado, type ModoForm } from './FormConta'
@@ -52,16 +53,63 @@ export function ContaFolha() {
     focarOi.current = true
     avisar(recadoDeEntrada(r, m === 'criar'))
   }
-  // a loja pausou o código no meio (desligou ou bateu o teto): a conta volta pro aparelho, a folha fecha e diz por quê
+  // quem abriu a folha e os vizinhos dele: o "Entrar" some das telas quando o código pausa, e o foco precisa de um lugar
+  const abriu = useRef<PertoDe>({ caixa: null, vizinhos: [] })
+  useEffect(() => {
+    if (aberta) abriu.current = vizinhosDe(document.activeElement)
+  }, [aberta])
+  // a loja pausou o código no meio (desligou ou bateu o teto): a conta volta pro aparelho, a folha fecha e diz por quê.
+  // O botão que abriu sumiu: o foco vai pra Minha conta (a conta do aparelho voltou) ou pra perto de onde a pessoa estava
   const pausou = (frase: string) => {
     avisar(frase)
     setConta(false)
+    focarDepoisDeFechar(abriu.current)
   }
   return (
     <Folha id="conta" className="folha-conta" aberta={ativa} aoFechar={fechar} rotulo="Minha conta" cabecalho={<span>{T.minhaConta}</span>}>
       {conta ? <Conteudo fechar={fechar} /> : servidor ? <Entrar aoSucesso={entrou} aoPausar={pausou} /> : null}
     </Folha>
   )
+}
+
+/** Onde estava quem abriu a folha: a lista, o menu ou a seção, e o que dá pra focar ali (o de antes, o de depois). */
+interface PertoDe {
+  caixa: Element | null
+  vizinhos: HTMLElement[]
+}
+
+const naTela = (x: HTMLElement) => x.isConnected && x.getClientRects().length > 0 && !x.closest('[inert]')
+
+function vizinhosDe(ativo: Element | null): PertoDe {
+  // no toque (o Safari, o celular) o botão tocado nem sempre fica com o foco: vale a entrada da conta que está na tela
+  const el =
+    ativo instanceof HTMLElement && ativo !== document.body && !ativo.closest('.folha')
+      ? ativo
+      : [...document.querySelectorAll<HTMLElement>('[data-conta-entrada]')].find(naTela)
+  if (!el) return { caixa: null, vizinhos: [] }
+  const caixa = el.closest('ul, nav, section') ?? document.body
+  const lista = [...caixa.querySelectorAll<HTMLElement>(FOCAVEIS)].filter((x) => x.tabIndex >= 0)
+  const i = lista.indexOf(el)
+  return { caixa, vizinhos: i < 0 ? [] : [lista[i - 1], lista[i + 1]].filter((x): x is HTMLElement => !!x) }
+}
+
+/**
+ * Depois que a Minha conta sai da tela (a folha anima a saída), se o foco caiu no <body>: a entrada da conta que está na
+ * tela (a conta do aparelho voltou), um vizinho de quem abriu, ou o título da aba.
+ */
+function focarDepoisDeFechar({ caixa, vizinhos }: PertoDe) {
+  let n = 0
+  const tentar = () => {
+    if (document.querySelector('.folha-conta') && n++ < 40) return void window.setTimeout(tentar, 50)
+    const ativo = document.activeElement
+    if (ativo && ativo !== document.body && ativo.isConnected) return
+    // a entrada da conta de onde a pessoa estava vem primeiro (no computador, a da lateral e a do Por estado)
+    const entradas = [...document.querySelectorAll<HTMLElement>('[data-conta-entrada]')].sort((a, b) => Number(!!caixa?.contains(b)) - Number(!!caixa?.contains(a)))
+    const alvo = [...entradas, ...vizinhos].find(naTela)
+    if (alvo) alvo.focus({ preventScroll: true })
+    else focarVista(useUI.getState().aba)
+  }
+  window.setTimeout(tentar, 50)
 }
 
 /** Sem conta, no modo servidor: entrar (ou criar) com o WhatsApp e o código, dentro da folha. */

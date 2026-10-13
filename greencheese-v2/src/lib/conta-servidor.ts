@@ -7,7 +7,7 @@
 import type { Conta, Cupom, EnderecoConta, EstadoConta, Pendente, RetratoPremio } from '../store/conta'
 import { useContaStore } from '../store/conta'
 import { useUI } from '../store/ui'
-import { sessaoDoServidorCaiu } from './conta-modo'
+import { sessaoDoServidorCaiu, terminarDeSair } from './conta-modo'
 
 const BASE = './api/index.php?r='
 
@@ -21,6 +21,9 @@ export async function pedirApi<T = Record<string, unknown>>(
   op: { metodo?: 'GET' | 'POST'; corpo?: unknown; params?: Record<string, string>; ms?: number } = {},
 ): Promise<RespostaApi<T>> {
   const metodo = op.metodo ?? 'GET'
+  // saiu com o servidor fora e a sessão ainda vale lá: termina o sair antes de qualquer outra conversa da conta (senão,
+  // na mesma visita, o giro e o cupom iam pra conta de que a pessoa saiu). Não terminou: não manda nada
+  if (rota !== 'cliente-sair' && useContaStore.getState().sairPendente && !(await terminarDeSair())) return { ok: false, status: 0, erro: 'rede', mensagem: null, extra: {} }
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), op.ms ?? 15_000)
   const busca = op.params ? `&${new URLSearchParams(op.params)}` : ''

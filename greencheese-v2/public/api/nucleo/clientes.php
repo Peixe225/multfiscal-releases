@@ -545,7 +545,22 @@ function gc_rota_cliente_entrar(): array
         gc_codigo_usado($conf['codigo']);
         gc_cliente_sessao_criar($id);
         gc_aparelho_lembrar($id, $aparelho);
+        $ultimoCupom = (int) gc_valor('SELECT COALESCE(MAX(id), 0) FROM cupons');
         $migrados = $migrar !== null ? gc_cliente_migrar($id, $whats, $migrar, $aparelho) : 0;
+        // o que veio do aparelho, separado pro site dizer certo: os cupons dele (ganhos antes de a conta da loja existir) e
+        // o prêmio reservado nele, que virou cupom agora (ganho agora). O prêmio entra primeiro nas 2 vagas
+        $cuponsMigrados = 0;
+        $premioMigrado = null;
+        if ($migrados > 0) {
+            $desde = gc_contas_desde();
+            foreach (gc_todos("SELECT * FROM cupons WHERE cliente_id = ? AND origem = 'aparelho' AND id > ? ORDER BY id", [$id, $ultimoCupom]) as $k) {
+                if ((int) $k['ganho_em'] >= $desde) {
+                    $premioMigrado = $k;
+                } else {
+                    $cuponsMigrados++;
+                }
+            }
+        }
         $guardar = gc_cupom_da_reserva($id, $whats, $aparelho);
         $cli = (array) gc_um('SELECT * FROM clientes WHERE id = ?', [$id]);
         return [
@@ -555,6 +570,8 @@ function gc_rota_cliente_entrar(): array
                 // o prêmio do giro sem conta não entrou porque a conta já tinha girado naquele dia (a reserva fica)
                 'pendenteRecusado' => $guardar['erro'] === 'ja-girou-hoje' ? 'ja-girou-hoje' : null,
                 'migrados' => $migrados,
+                'migradosCupons' => $cuponsMigrados,
+                'premioMigrado' => $premioMigrado === null ? null : gc_cupom_publico($premioMigrado),
                 'pendente' => null,
             ],
         ];
@@ -977,6 +994,11 @@ function gc_rota_admin_clientes(): array
     $onde = [];
     $p = [$agora];
     if ($busca !== '') {
+        // o WhatsApp do jeito que o dono copia (do próprio painel ou do WhatsApp): "(33) 97712-0001", "+55 33 97712-0001",
+        // "033 97712 0001" — só número e pontuação de telefone: busca pelos dígitos (a busca guarda o número sem máscara)
+        if (preg_match('/^[\d\s()+\-.]+$/', $busca) === 1 && preg_match('/\d/', $busca) === 1) {
+            $busca = (string) preg_replace('/^0+/', '', (string) preg_replace('/\D/', '', $busca));
+        }
         $termo = str_replace(['%', '_', '\\'], '', gc_sem_acento($busca));
         if ($termo !== '') {
             $onde[] = 'c.busca LIKE ?';
