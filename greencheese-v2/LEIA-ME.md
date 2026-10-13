@@ -59,8 +59,8 @@ npm run empacotar      # → entrega/greencheese-dist.zip (outro lugar: npm run 
 
 O `empacotar` recusa o código de instalação de desenvolvimento (gere o de verdade antes: "Primeiro acesso: o código de instalação", lá embaixo) e deixa de fora banco, log e fotos enviadas: o Vite copia `public/` inteiro pro build, e um `loja.sqlite` ou uma foto esquecidos ali, extraídos no ar, sobrescreveriam os de verdade. **Não zipe a pasta `dist/` à mão**, nem use um zip velho: o `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site).
 
-1. Painel → Servidor → **Baixar cópia do banco** (sempre, antes de publicar).
-2. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (crie se não existir).
+1. Painel → Mais → Conta → **Baixar cópia de segurança** (sempre, antes de publicar).
+2. **hPanel** → **Sites** → `oprojeto.online` → **Gerenciador de Arquivos** → `public_html/greencheese/` (é a pasta do subdomínio `greencheese.oprojeto.online`; crie se não existir).
 3. **Enviar** → `greencheese-dist.zip` → botão direito → **Extrair** ali mesmo, por cima do que já tem (substituir). O `index.html` e o `.htaccess` têm de ficar direto em `greencheese/`.
 4. **Nunca apague** `greencheese/`, `greencheese/api/privado/` nem `greencheese/uploads/` antes de extrair: o banco, o log e as fotos dos rateios moram lá, e o zip não traz nenhum deles (de propósito).
 5. Apague o zip do servidor e abra o endereço no celular. Os atalhos `Home2/` e `HOME2/` só o `publicar.mjs` sobe (pastas que só mudam a caixa colidem no Windows e no macOS); no zip vai só `home2/`.
