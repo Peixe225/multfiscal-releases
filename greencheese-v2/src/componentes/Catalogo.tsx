@@ -47,6 +47,7 @@ const APELIDOS: Record<string, string> = {
 /** O tipo de cada produto do catálogo que o nome não diz (o Jack Daniel's é whisky; o Jägermeister, licor). */
 const TIPOS: Record<string, string> = {
   'jack-daniels-old-no7-1l': 'whisky whiskey uisque bourbon',
+  'jack-daniels-tennessee-apple': 'whisky whiskey uisque',
   'hennessy-very-special': 'conhaque cognac',
   'jagermeister-700ml': 'licor',
 }

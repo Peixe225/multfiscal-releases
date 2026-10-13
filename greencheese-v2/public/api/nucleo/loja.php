@@ -158,10 +158,17 @@ function gc_loja_semear(PDO $db, array $s): void
             ? [$c['id'], $c['nome'], $c['curto'], $c['icone'], $bebida, !empty($c['alcool']) ? 1 : 0, $i, $agora, $agora]
             : [$c['id'], $c['nome'], $c['curto'], $c['icone'], $bebida, $i, $agora, $agora]);
     }
-    $produto = $db->prepare(
-        'INSERT INTO loja_produtos (id, nome, tamanho, detalhe, descricao, categoria_id, preco, combos, variacoes, combina_com, foto, cor, arte, obs, ativo, demo, ordem, criado_em, atualizado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)',
-    );
+    // a thumb animada de fábrica (vídeo e capa, migração 102): na 101 (banco instalado antes da loja) as colunas ainda
+    // não existem, e a 104 põe o vídeo de fábrica depois, onde ainda não tem
+    $comVideo = false;
+    foreach ($db->query('PRAGMA table_info(loja_produtos)')->fetchAll(PDO::FETCH_ASSOC) as $coluna) {
+        $comVideo = $comVideo || $coluna['name'] === 'video';
+    }
+    $produto = $db->prepare($comVideo
+        ? 'INSERT INTO loja_produtos (id, nome, tamanho, detalhe, descricao, categoria_id, preco, combos, variacoes, combina_com, foto, cor, arte, obs, ativo, demo, ordem, criado_em, atualizado_em, video, capa)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)'
+        : 'INSERT INTO loja_produtos (id, nome, tamanho, detalhe, descricao, categoria_id, preco, combos, variacoes, combina_com, foto, cor, arte, obs, ativo, demo, ordem, criado_em, atualizado_em)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)');
     $porUf = $db->prepare('INSERT INTO loja_produto_estados (produto_id, uf, disponivel, estoque, atualizado_em) VALUES (?, ?, ?, NULL, ?)');
     foreach (array_values($s['produtos']) as $i => $p) {
         $combos = array_map(static fn (array $c): array => ['qtd' => (int) $c['qtd'], 'total' => gc_loja_centavos_semente($c['total'])], $p['combos'] ?? []);
@@ -169,11 +176,18 @@ function gc_loja_semear(PDO $db, array $s): void
             static fn (array $v): array => ['id' => (string) $v['id'], 'nome' => (string) $v['nome']] + (isset($v['preco']) ? ['preco' => gc_loja_centavos_semente($v['preco'])] : []),
             $p['variacoes'] ?? [],
         );
-        $produto->execute([
+        $valores = [
             $p['id'], $p['nome'], $p['tamanho'] ?? '', $p['detalhe'] ?? '', $p['descricao'] ?? '', $p['categoria'],
             gc_loja_centavos_semente($p['preco'] ?? null), gc_loja_json($combos), gc_loja_json($variacoes), gc_loja_json(array_values($p['combinaCom'] ?? [])),
             $p['foto'] ?? null, $p['cor'], gc_loja_json($p['arte']), $p['obs'] ?? '', !empty($p['demo']) ? 1 : 0, $i, $agora, $agora,
-        ]);
+        ];
+        if ($comVideo) {
+            // vídeo e capa juntos ou nenhum (loja-validar.php)
+            $temVideo = isset($p['video'], $p['capa']) && is_string($p['video']) && is_string($p['capa']);
+            $valores[] = $temVideo ? $p['video'] : null;
+            $valores[] = $temVideo ? $p['capa'] : null;
+        }
+        $produto->execute($valores);
         foreach ((array) ($p['disponivel'] ?? []) as $uf => $sim) {
             $porUf->execute([$p['id'], $uf, $sim ? 1 : 0, $agora]);
         }

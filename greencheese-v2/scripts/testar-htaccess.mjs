@@ -1,7 +1,9 @@
 // Testa os .htaccess de verdade num Apache local com mod_php (o mais perto da Hostinger que dá pra ter aqui; lá é
 // LiteSpeed, que lê o mesmo .htaccess). Copia o build pra uma pasta temporária em /greencheese/, sem GC_DADOS
 // (como no ar: banco em api/privado/), gera um código de instalação de verdade e confere: o site abre, a API
-// responde, banco/log/módulos/instalacao.php dão 403, uploads/ só serve imagem e o vídeo do produto (nenhum .php roda), o envio de
+// responde, banco/log/módulos/instalacao.php dão 403, uploads/ só serve imagem e o vídeo do produto (nenhum .php roda), a mídia
+// de fábrica em produtos/ (a foto e a thumb animada que vêm no build) abre com o tipo certo e com Range, e nada de nome
+// torto ou plantado ali roda, o envio de
 // imagem e de vídeo (com Range) funcionam, o pedido do site entra (e as falas do pedido guiado voltam com ETag e 304), o diagnóstico do
 // painel, pela web, acha tudo fechado e o GET da loja sai com no-cache e ETag (304 quando nada mudou) enquanto o resto
 // da API segue no-store.
@@ -316,6 +318,39 @@ php_admin_value post_max_size 20M
     const fingido = await fetch(`${base}/uploads/abcdefgh12.mp4`)
     const corpoFingido = await fingido.text()
     okm(fingido.headers.get('content-type') === 'video/mp4' && fingido.headers.get('x-content-type-options') === 'nosniff' && !corpoFingido.includes('EXECUTOU'), `página com nome de vídeo sai como video/mp4 com nosniff, sem rodar o PHP (${fingido.headers.get('content-type')})`)
+
+    // a mídia de fábrica (produtos/, vem no build): a foto e a thumb animada abrem com o tipo certo, byte a byte, com
+    // nosniff, CSP sandbox, um dia de cache e Range (206) no vídeo; a pasta, o .htaccess dela, nome torto (maiúscula,
+    // ponto no meio, outra extensão) e arquivo plantado dão 403, e nada roda
+    const fabrica = existsSync(join(site, 'produtos')) ? readdirSync(join(site, 'produtos')).filter((n) => /^[a-z0-9][a-z0-9-]{0,80}\.(webp|mp4)$/.test(n)) : []
+    okm(fabrica.some((n) => n.endsWith('.mp4')) && fabrica.some((n) => n.endsWith('.webp')), `o build traz a mídia de fábrica em produtos/ (${fabrica.join(', ')})`)
+    for (const n of fabrica) {
+      const buf = readFileSync(join(site, 'produtos', n))
+      const tipo = n.endsWith('.mp4') ? 'video/mp4' : 'image/webp'
+      const g = await fetch(`${base}/produtos/${n}`)
+      const corpo = Buffer.from(await g.arrayBuffer())
+      okm(g.status === 200 && g.headers.get('content-type') === tipo && corpo.equals(buf), `produtos/${n} abre como ${tipo}, byte a byte (${g.status} ${g.headers.get('content-type')})`)
+      okm(g.headers.get('x-content-type-options') === 'nosniff' && g.headers.get('content-security-policy') === "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox", `produtos/${n} com nosniff e CSP sandbox, sem nada em dobro`)
+      okm(g.headers.get('cache-control') === 'public, max-age=86400', `produtos/${n} com um dia de cache (${g.headers.get('cache-control')})`)
+      if (tipo !== 'video/mp4') continue
+      const r = await fetch(`${base}/produtos/${n}`, { headers: { Range: 'bytes=0-99' } })
+      const pedaco = Buffer.from(await r.arrayBuffer())
+      okm(r.status === 206 && r.headers.get('content-range') === `bytes 0-99/${buf.length}` && pedaco.equals(buf.subarray(0, 100)), `Range em produtos/${n}: 206 com os 100 primeiros bytes (${r.status} ${r.headers.get('content-range')})`)
+    }
+    const plantadosFabrica = {
+      'gc-mal.php': '<?php echo "EXEC" . "UTOU";', 'gc-mal.phtml': '<?php echo "EXEC" . "UTOU";', 'abc.php.webp': '<?php echo "EXEC" . "UTOU";', 'abc.webp.php': '<?php echo "EXEC" . "UTOU";',
+      'gc-mal.html': '<script>alert(1)</script>', 'gc-mal.svg': '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>', 'Hennessy.mp4': 'x', '-abc.mp4': 'x', '.user.ini': 'auto_prepend_file=gc-mal.php',
+    }
+    for (const [n, c] of Object.entries(plantadosFabrica)) writeFileSync(join(site, 'produtos', n), c)
+    for (const n of ['', '.htaccess', ...Object.keys(plantadosFabrica)]) {
+      const r = await fetch(`${base}/produtos/${n}`)
+      const corpo = await r.text()
+      okm(r.status === 403 && !corpo.includes('EXECUTOU') && !corpo.includes('FilesMatch'), `produtos/${n} → ${r.status} (esperado 403, sem executar nem vazar)`)
+    }
+    writeFileSync(join(site, 'produtos', 'gc-fingido.mp4'), '<html><script>alert(1)</script><?php echo "EXEC" . "UTOU"; ?>')
+    const fingidoF = await fetch(`${base}/produtos/gc-fingido.mp4`)
+    const corpoFingidoF = await fingidoF.text()
+    okm(fingidoF.headers.get('content-type') === 'video/mp4' && fingidoF.headers.get('x-content-type-options') === 'nosniff' && !corpoFingidoF.includes('EXECUTOU'), `em produtos/, página com nome de vídeo sai como video/mp4 com nosniff, sem rodar o PHP (${fingidoF.headers.get('content-type')})`)
 
     // o pedido do site pelo Apache (no toque do WhatsApp) e as falas do pedido guiado com ETag e 304
     const pedido = pedidoValido()

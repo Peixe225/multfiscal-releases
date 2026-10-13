@@ -98,6 +98,9 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
   // a imagem do produto: a foto; sem foto, a capa do vídeo. Onde o vídeo toca, a capa (o 1º quadro dele: a troca não pula)
   const imagem = tocar ? (produto.capa ?? null) : (produto.foto ?? (temVideo ? (produto.capa ?? null) : null))
   const temReal = !!Arte || !!imagem
+  // a thumb animada (a capa e o vídeo, quadros sobre preto, sem transparência): sem o halo, que vazava pelas partes
+  // escuras do produto (o vidro escuro do conhaque ficava pontilhado); o produto gira no preto liso, como no exemplo
+  const semHalo = !!imagem && imagem === produto.capa
   // a ilustração ainda vem (o pedaço não chegou): a pixel art já fica em cima do halo, como na sintonia do real
   const esperaReal = !temReal && !artes && brilho && IDS_REALISTAS.has(produto.id)
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -238,7 +241,7 @@ export function ProdutoVisual(props: PropsProdutoVisual) {
   return (
     <div
       ref={raiz}
-      className={`pv ${indisponivel ? 'pv-off' : ''} ${brilho ? 'pv-com-halo' : ''} ${className ?? ''}`}
+      className={`pv ${indisponivel ? 'pv-off' : ''} ${brilho && !semHalo ? 'pv-com-halo' : ''} ${className ?? ''}`}
       style={style}
       role={props.rotulo === null ? undefined : 'img'}
       aria-label={props.rotulo === null ? undefined : (props.rotulo ?? produto.nome) + (indisponivel ? ', indisponível' : '')}

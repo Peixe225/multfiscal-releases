@@ -7,15 +7,31 @@
 // - O canvas é gravado com canvas.captureStream + MediaRecorder, em tempo real, enquanto o trecho toca: MP4 (H.264,
 //   toca em todo lugar) quando o navegador grava, senão WebM.
 // - A capa é o 1º quadro tratado (imagem): aparece antes de tocar e onde vídeo não roda.
+// - Fundo que já é preto (o vídeo de catálogo, o render 3D girando, o reel da loja): nada é recortado (recortar o preto
+//   come o vidro escuro de um conhaque e a caixa do gargalo), só o ruído do preto vira preto liso, a cor é medida só
+//   no produto (o preto não vira cinza) e não tem vinheta (a garrafa grande no quadro não escurece em cima e embaixo).
+// - Trecho maior que 6 s (até 9): a thumb sai acelerada (até 1,5×), pro giro inteiro caber nos 6 s.
 
-import { medirComModelo, recortar, type AjusteCor, type Analise, type MapaDoFundo } from './recorte'
+import { medirComModelo, recortar, type AjusteCor, type Analise, type MapaDoFundo, type PontoDoPreto } from './recorte'
 import { contexto, novoCanvas, transformar, type Quadro } from './render'
 
 /** O tamanho da thumb animada (9:16; lado menor 432). */
 export const SAIDA_VIDEO = { w: 432, h: 768 }
-/** Trecho: padrão 3,5 s, no máximo 6 s. */
+/** Trecho: padrão 3,5 s (vídeo curto, até 9 s: ele inteiro), a thumb com no máximo 6 s. */
 export const TRECHO_PADRAO = 3.5
 export const TRECHO_MAXIMO = 6
+/** Trecho maior que 6 s sai acelerado, até 1,5× (o trecho vai até 9 s): o giro inteiro cabe na thumb. */
+export const VELOCIDADE_MAXIMA = 1.5
+export const TRECHO_FONTE_MAXIMO = TRECHO_MAXIMO * VELOCIDADE_MAXIMA
+/** A velocidade da thumb pra um trecho de `dur` segundos do vídeo (1 = como foi gravado). */
+export function velocidadeDo(dur: number): number {
+  return dur > TRECHO_MAXIMO + 0.01 ? Math.min(VELOCIDADE_MAXIMA, dur / TRECHO_MAXIMO) : 1
+}
+/** O trecho que já vem marcado: o vídeo curto inteiro (até 9 s, é a própria thumb); o longo, 3,5 s. */
+export function trechoInicial(duracao: number): number {
+  const inteiro = Math.floor(duracao * 10) / 10
+  return inteiro <= TRECHO_FONTE_MAXIMO ? Math.max(inteiro, Math.min(duracao, 0.5)) : TRECHO_PADRAO
+}
 /** ~24 quadros por segundo e bits pra ficar bem abaixo de 3 MB em 6 s. */
 const QPS = 24
 const BITS = 1_800_000
@@ -30,8 +46,8 @@ export interface FonteVideo {
   duracao: number
   /** Vai pro tempo t e devolve o quadro (análise, tira de quadros, capa). */
   quadro(t: number): Promise<CanvasImageSource>
-  /** Toca de t0 a t0+dur (tempo real), chamando aoQuadro a cada quadro novo; resolve no fim. */
-  tocar(t0: number, dur: number, aoQuadro: (img: CanvasImageSource, t: number) => void, sinal?: { parar: boolean }): Promise<void>
+  /** Toca de t0 a t0+dur (na velocidade vel: 1 = tempo real), chamando aoQuadro a cada quadro novo; resolve no fim. */
+  tocar(t0: number, dur: number, aoQuadro: (img: CanvasImageSource, t: number) => void, sinal?: { parar: boolean }, vel?: number): Promise<void>
   soltar(): void
 }
 
@@ -86,16 +102,18 @@ export async function abrirVideo(arquivo: Blob): Promise<FonteVideo> {
       await irPara(t)
       return v
     },
-    async tocar(t0, dur, aoQuadro, sinal) {
+    async tocar(t0, dur, aoQuadro, sinal, vel = 1) {
       await irPara(t0)
       aoQuadro(v, t0)
       const fim = t0 + dur
+      v.playbackRate = vel
       await new Promise<void>((ok) => {
         let acabou = false
         const parar = () => {
           if (acabou) return
           acabou = true
           v.pause()
+          v.playbackRate = 1
           ok()
         }
         const passo = (t: number) => {
@@ -112,7 +130,7 @@ export async function abrirVideo(arquivo: Blob): Promise<FonteVideo> {
         agendar()
         v.play().catch(parar)
         // rede de segurança: nunca fica preso (vídeo que trava no meio)
-        window.setTimeout(parar, (dur + 4) * 1000)
+        window.setTimeout(parar, (dur / vel + 4) * 1000)
       })
     },
     soltar() {
@@ -169,12 +187,12 @@ export async function abrirGif(arquivo: Blob): Promise<FonteVideo> {
     async quadro(s) {
       return em(s)
     },
-    async tocar(t0, dur, aoQuadro, sinal) {
+    async tocar(t0, dur, aoQuadro, sinal, vel = 1) {
       const ini = performance.now()
       await new Promise<void>((ok) => {
         let ultimo: unknown = null
         const passo = () => {
-          const s = t0 + (performance.now() - ini) / 1000
+          const s = t0 + ((performance.now() - ini) / 1000) * vel
           if (sinal?.parar || s >= t0 + dur) return ok()
           const img = em(s)
           if (img !== ultimo) {
@@ -251,6 +269,7 @@ uniform float usarMascara;
 uniform vec4 cor;
 uniform float vinheta;
 uniform float cy;
+uniform vec2 preto;
 
 // sRGB ↔ linear sem pow (polinômio e raízes: erro abaixo de 1 nível de 255, e barato na GPU fraca)
 vec3 lin(vec3 c) { return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878); }
@@ -280,7 +299,13 @@ void main() {
   if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
   vec3 l = lin(texture2D(quadro, vec2(v.x, 1.0 - v.y)).rgb);
   float a = 1.0;
-  if (recortar > 0.5) {
+  if (preto.y > 0.0) {
+    // fundo que já é preto: nada se recorta; a luz abaixo do ponto do preto vira preto puro, acima fica inteira, e entre
+    // os dois vai aos poucos (o vidro escuro do produto não some). Um pixel só (o quadro já vem suavizado do canvas 2D:
+    // o ruído do preto chega amaciado), que a média 3×3 aqui custava metade dos quadros na GPU fraca
+    float Y = max(dot(l, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+    a = smoothstep(preto.x, preto.y, 100.0 * pow(Y, 1.0 / 3.0));
+  } else if (recortar > 0.5) {
     // a máscara do quadro decide o miolo e o lado de fora; só a faixa da borda (e quem não tem máscara) faz a conta
     float m = usarMascara > 0.5 ? texture2D(mascara, vec2(v.x, 1.0 - v.y)).a : 0.5;
     if (m >= 0.97) a = 1.0;
@@ -316,11 +341,15 @@ void main() {
 }`
 
 export interface Tratamento {
-  /** null = manter o fundo. */
+  /** null = manter o fundo (ou o fundo é preto: ver `preto`). */
   base: Analise | null
   tol: number
   quadro: Quadro
   cor: AjusteCor
+  /** O fundo já é preto: só o ponto do preto (nada se recorta, sem vinheta). */
+  preto?: PontoDoPreto | null
+  /** Mantendo o fundo sem a vinheta (o fundo preto, com "Tirar o fundo" desligado: fica como veio). */
+  semVinheta?: boolean
 }
 
 /** O processador: um canvas WebGL do tamanho da thumb, que desenha cada quadro tratado. */
@@ -378,7 +407,7 @@ export class Processador {
     this.texQuadro = textura(0)
     this.texMascara = textura(1)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, 1, 1, 0, gl.ALPHA, gl.UNSIGNED_BYTE, new Uint8Array([255]))
-    for (const nome of ['quadro', 'mascara', 'saida', 'transf', 'fonte', 'coefLab[0]', 'coefRgb[0]', 'tol', 'recortar', 'usarMascara', 'cor', 'vinheta', 'cy']) this.u[nome] = gl.getUniformLocation(prog, nome)
+    for (const nome of ['quadro', 'mascara', 'saida', 'transf', 'fonte', 'coefLab[0]', 'coefRgb[0]', 'tol', 'recortar', 'usarMascara', 'cor', 'vinheta', 'cy', 'preto']) this.u[nome] = gl.getUniformLocation(prog, nome)
     gl.uniform1i(this.u.quadro, 0)
     gl.uniform1i(this.u.mascara, 1)
     gl.viewport(0, 0, w, h)
@@ -404,7 +433,7 @@ export class Processador {
     g2.setTransform(s, 0, 0, s, tx, ty)
     g2.drawImage(img, 0, 0, fw, fh)
     let mascara: { m: Uint8Array; w: number; h: number } | null = null
-    if (t.base && comMascara) {
+    if (t.base && !t.preto && comMascara) {
       const k = Math.min(1, LADO_MASCARA / Math.max(W, H))
       const pw = Math.max(1, Math.round(W * k))
       const ph = Math.max(1, Math.round(H * k))
@@ -437,15 +466,16 @@ export class Processador {
     gl.uniform2f(u.saida, W, H)
     gl.uniform3f(u.transf, s, tx, ty)
     gl.uniform2f(u.fonte, fw, fh)
-    const base = t.base
+    const base = t.preto ? null : t.base
     gl.uniform1fv(u['coefLab[0]'], base ? Float32Array.from(base.modelo.lab) : new Float32Array(18))
     gl.uniform1fv(u['coefRgb[0]'], base ? Float32Array.from(base.modelo.rgb) : new Float32Array(18))
     gl.uniform1f(u.tol, t.tol)
     gl.uniform1f(u.recortar, base ? 1 : 0)
     gl.uniform1f(u.usarMascara, mascara ? 1 : 0)
     gl.uniform4f(u.cor, t.cor.de, t.cor.base, t.cor.ganho, t.cor.sat)
-    gl.uniform1f(u.vinheta, base ? 0 : 1)
+    gl.uniform1f(u.vinheta, base || t.preto || t.semVinheta ? 0 : 1)
     gl.uniform1f(u.cy, 0.515)
+    gl.uniform2f(u.preto, t.preto ? t.preto.de : 0, t.preto ? t.preto.ate : 0)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 

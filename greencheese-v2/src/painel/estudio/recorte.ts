@@ -308,6 +308,102 @@ export function fundoLiso(an: Analise): boolean {
   return an.recortada || (an.borda >= 0.62 && an.ruido < 6)
 }
 
+/**
+ * O fundo já é preto (o vídeo de catálogo, o render 3D girando, o story da loja): o fundo modelado na borda é escuro
+ * e sem cor no contorno inteiro. Aí não tem o que recortar (o site já junta o preto ao preto): recortar só arriscaria
+ * comer a parte escura do produto (o vidro de um conhaque, a tampa preta). O Estúdio só deixa o preto liso.
+ */
+export function fundoPreto(an: Analise): boolean {
+  if (an.recortada || an.borda < 0.5) return false
+  const t = [0, 0, 0]
+  for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+    noModelo(an.modelo.lab, x, y, t)
+    // L 20 ≈ cinza 19/255; mais que isso já é um fundo escuro de verdade (parede, pano), que se recorta
+    if (t[0] > 20 || Math.hypot(t[1], t[2]) > 5) return false
+  }
+  return true
+}
+
+/** O ponto do preto: abaixo de `de` é fundo (vira preto puro), acima de `ate` é produto inteiro; entre os dois, aos poucos. */
+export interface PontoDoPreto {
+  de: number
+  ate: number
+}
+
+/** Luz (L do OKLab ×100) da média 3×3 da luminância em volta do pixel: o ruído do preto pesa menos (o shader faz igual). */
+export function luzMedia(img: Imagem, x: number, y: number): number {
+  const { w, h, d } = img
+  let soma = 0
+  let n = 0
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const xx = Math.min(w - 1, Math.max(0, x + dx))
+      const yy = Math.min(h - 1, Math.max(0, y + dy))
+      const i = (yy * w + xx) * 4
+      soma += 0.2126 * LINEAR[d[i]] + 0.7152 * LINEAR[d[i + 1]] + 0.0722 * LINEAR[d[i + 2]]
+      n++
+    }
+  return 100 * Math.cbrt(soma / n)
+}
+
+/**
+ * O ponto do preto medido na faixa da borda (o fundo): a mediana e o quase-máximo (99,5%) da luz ali. O ruído do preto
+ * (compressão do Instagram, o sensor no escuro) fica abaixo de `ate`; o produto escuro (L 18 ou mais) fica acima.
+ */
+export function pretoDoFundo(img: Imagem): PontoDoPreto {
+  const { w, h } = img
+  const faixa = Math.max(2, Math.round(Math.min(w, h) * 0.025))
+  const v: number[] = []
+  const passo = Math.max(1, Math.round((2 * faixa * (w + h)) / 6000))
+  let k = 0
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (y >= faixa && y < h - faixa && x >= faixa && x < w - faixa) continue
+      if (k++ % passo) continue
+      v.push(luzMedia(img, x, y))
+    }
+  v.sort((a, b) => a - b)
+  const med = v[v.length >> 1] ?? 0
+  const alto = v[Math.min(v.length - 1, Math.floor(v.length * 0.995))] ?? 0
+  const de = Math.max(med, 1) + 1
+  return { de, ate: Math.max(alto + 2.5, de + 4) }
+}
+
+/** "Quanto do fundo apagar" no fundo preto: menos guarda mais do escuro do produto; mais deixa o preto mais limpo. */
+export function pretoPara(p: PontoDoPreto, quanto: number): PontoDoPreto {
+  const f = Math.sqrt(2 ** ((quanto - 50) / 25))
+  return { de: p.de * f, ate: Math.max(p.de * f + 2, p.ate * f) }
+}
+
+/** O que é fundo no fundo preto (luz abaixo do `ate`), na resolução da análise: pra medir a cor só no produto. */
+export function fundoDoPreto(img: Imagem, p: PontoDoPreto): Uint8Array {
+  const m = new Uint8Array(img.w * img.h)
+  for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) m[y * img.w + x] = luzMedia(img, x, y) < p.ate ? 1 : 0
+  return m
+}
+
+/** A caixa do produto no fundo preto (o que passa do `ate`), sem a poeira solta (pixel aceso sozinho). */
+export function caixaNoPreto(img: Imagem, p: PontoDoPreto): Caixa | null {
+  const { w, h } = img
+  const fundo = fundoDoPreto(img, p)
+  let x0 = w
+  let y0 = h
+  let x1 = -1
+  let y1 = -1
+  for (let y = 1; y < h - 1; y++)
+    for (let x = 1; x < w - 1; x++) {
+      const q = y * w + x
+      if (fundo[q]) continue
+      // produto só com vizinho produto (pixel aceso sozinho no preto é ruído)
+      if (fundo[q - 1] + fundo[q + 1] + fundo[q - w] + fundo[q + w] > 2) continue
+      if (x < x0) x0 = x
+      if (x > x1) x1 = x
+      if (y < y0) y0 = y
+      if (y > y1) y1 = y
+    }
+  return x1 >= 0 ? { x0, y0, x1: x1 + 1, y1: y1 + 1 } : null
+}
+
 /* ---------------------------------------------------------------- recorte */
 
 /**

@@ -785,7 +785,12 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 
 Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, participações), `100` (as tabelas da loja),
 `101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel), `102` (o vídeo e a
-capa da thumb animada do produto: `loja_produtos.video` e `.capa`) e, dos pedidos e das
+capa da thumb animada do produto: `loja_produtos.video` e `.capa`), `104` (o material da loja de 11/10, no banco que já
+está no ar: a foto de fábrica da Fanta Ghost Face Punch e do Hennessy Very Special e a thumb animada de fábrica do
+Hennessy só onde o produto existe e o campo está vazio, nunca por cima do que o dono pôs; o Jack Daniel's Tennessee
+Apple e a Fanta Maçã (China) só se o id não existir, no fim da grade, sem preço, à venda só no RJ; loja ainda não
+semeada: nada; mudou algo, `loja.versao` sobe e o ETag muda. Os dados moram na migração, `GC_LOJA_NOVOS_1110`, e o
+`testar-api` confere que batem com o catálogo) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
 mudado guarda qual ele substitui), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
@@ -883,8 +888,9 @@ interface ProdutoLoja {
   combinaCom?: string[]          // só ids de produtos que estão no site
   demo: boolean
   foto: string | null            // 'uploads/<nome>' (enviada pelo painel) ou 'produtos/<arquivo>' (do build do site)
-  video?: string                 // a thumb animada: 'uploads/<nome>.mp4|webm' (já no estilo do site, sobre preto); só vem com a capa
-  capa?: string                  // o 1º quadro dela, imagem ('uploads/<nome>.webp…'): antes de tocar e onde vídeo não roda
+  video?: string                 // a thumb animada: 'uploads/<nome>.mp4|webm' (já no estilo do site, sobre preto) ou a de fábrica,
+                                 // 'produtos/<nome>.mp4|webm' (do build do site); só vem com a capa
+  capa?: string                  // o 1º quadro dela, imagem ('uploads/<nome>.webp…' ou 'produtos/<nome>.webp…'): antes de tocar e onde vídeo não roda
   cor: string                    // '#rrggbb' (o halo)
   arte: { tipo: TipoArte; corpo: string; faixa?: string; rotulo?: string; detalhe?: string; tampa?: string }
 }
@@ -975,7 +981,10 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   fica o mesmo na edição; `combinaCom` até 8 produtos que existem (nunca ele mesmo); `foto` `'uploads/<nome>'` (o que o
   `admin-upload` devolveu: tem que existir) ou `'produtos/<arquivo>'`; `video` `'uploads/<nome>.mp4|webm'` (o que o
   `admin-video-upload` devolveu) com `capa` `'uploads/<nome>.webp|jpg|png'` (do `admin-upload`), os dois juntos (vídeo
-  sem capa → 400 `campo: 'capa'`; `video: null` tira os dois); `cor` `#rrggbb`; `arte` `{ tipo, corpo, faixa?,
+  sem capa → 400 `campo: 'capa'`; `video: null` tira os dois), ou os de fábrica, que vêm no build do site
+  (`'produtos/<nome>.mp4|webm'` e `'produtos/<nome>.webp|jpg|png'`, nome só com minúscula, número e traço: outra pasta,
+  `..`, maiúscula ou outra extensão → 400; o servidor nunca apaga nem grava em `produtos/`); `tamanho` vazio vale (é
+  opcional: o site e a mensagem do pedido usam só o nome); `cor` `#rrggbb`; `arte` `{ tipo, corpo, faixa?,
   rotulo?, detalhe?, tampa? }` (tipo da lista do `TipoArte`, cores `#rrggbb`); `obs` até 300 (só no painel); `demo` e
   `ativo` sim/não; `estados` `{ <uf>: { disponivel: boolean, estoque: number | null } }`, só estados da loja, estoque de 0
   a 99.999. Tabaco e vape (a lista do Rateio) em nome, tamanho, detalhe, descrição ou variação → 422 `proibido`

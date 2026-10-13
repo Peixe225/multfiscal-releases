@@ -124,9 +124,9 @@ export async function loja(t, { nomesUf }) {
       id: p.id, nome: p.nome, ...(p.tamanho ? { tamanho: p.tamanho } : {}), ...(p.detalhe ? { detalhe: p.detalhe } : {}), ...(p.descricao ? { descricao: p.descricao } : {}),
       categoria: p.categoria, preco: p.preco, ...(p.combos.length ? { combos: p.combos } : {}), ...(p.variacoes.length ? { variacoes: p.variacoes } : {}),
       disponivel: Object.fromEntries(ufs0.map((uf) => [uf, p.disponivel[uf] === true])), restam: {}, ...(p.combinaCom.length ? { combinaCom: p.combinaCom } : {}),
-      demo: p.demo, foto: p.foto, cor: p.cor, arte: p.arte,
+      demo: p.demo, foto: p.foto, ...(p.video ? { video: p.video, capa: p.capa } : {}), cor: p.cor, arte: p.arte,
     })),
-    'cada produto no formato do site (preço null = Consultar, os "demo" da semente, disponível por estado)',
+    'cada produto no formato do site (preço null = Consultar, os "demo" da semente, disponível por estado, a thumb de fábrica só em quem tem)',
   )
   mesmo(L.sorte, { ligado: s.sorte.ligado, regras: s.sorte.regras, premios: s.sorte.premios }, 'Teste minha sorte: regras e prêmios da semente')
   igual(L.stories, {}, 'stories: todos no automático')
@@ -155,7 +155,29 @@ export async function loja(t, { nomesUf }) {
   igual(a0.versao, r0.json.versao, 'a mesma versão do site')
   const ocb0 = a0.produtos.find((p) => p.id === 'seda-ocb-premium-slim')
   igual(chaves(ocb0), ['arte', 'ativo', 'atualizadoEm', 'capa', 'categoria', 'combinaCom', 'combos', 'cor', 'criadoEm', 'demo', 'descricao', 'detalhe', 'estados', 'foto', 'id', 'nome', 'obs', 'ordem', 'podeApagar', 'preco', 'tamanho', 'uso', 'variacoes', 'video'], 'produto do painel: as chaves (com o vídeo e a capa da thumb animada)')
-  igual([ocb0.video, ocb0.capa], [null, null], 'a semente vem sem thumb animada')
+  igual([ocb0.video, ocb0.capa], [null, null], 'produto sem thumb animada na semente: vídeo e capa null')
+  {
+    // o material da loja (11/10): as fotos e a thumb animada de fábrica (produtos/, no build) e os 2 produtos novos do RJ
+    const h0 = a0.produtos.find((p) => p.id === 'hennessy-very-special')
+    igual([h0.foto, h0.video, h0.capa], ['produtos/hennessy-very-special.webp', 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], 'Hennessy: foto e thumb animada de fábrica (produtos/) na semente')
+    igual(a0.produtos.find((p) => p.id === 'fanta-ghost-face-punch').foto, 'produtos/fanta-ghost-face-punch.webp', 'Fanta Ghost Face: foto de fábrica')
+    for (const id of ['jack-daniels-tennessee-apple', 'fanta-maca-china']) {
+      const n = a0.produtos.find((p) => p.id === id)
+      const pubN = L.produtos.find((p) => p.id === id)
+      ok(!!n && n.preco === null && n.tamanho === '' && n.demo === false && n.foto === `produtos/${id}.webp` && n.obs === 'Visto no story do RJ em 11/10. Preço PENDENTE.', `${id}: na semente, sem preço ("Consultar"), sem tamanho, com a foto de fábrica`)
+      igual(Object.entries(pubN.disponivel).filter(([, v]) => v).map(([uf]) => uf), ['rj'], `${id}: à venda só no RJ (veio do Instagram do RJ)`)
+    }
+    igual(L.categorias.find((c) => c.id === a0.produtos.find((p) => p.id === 'jack-daniels-tennessee-apple').categoria).alcool, true, "Jack Daniel's Tennessee Apple numa categoria de bebida alcoólica (fora da rua e dos prêmios)")
+    // a migração 104 carrega os próprios dados dos 2 novos: têm de bater com o catálogo (a semente)
+    const daMigracao = JSON.parse(
+      execFileSync(t.PHP, ['-r', `define('GC_API', 1); require $argv[1] . '/nucleo/loja-migracoes.php'; echo json_encode(GC_LOJA_NOVOS_1110, JSON_UNESCAPED_UNICODE);`, join(t.raiz, 'public', 'api')], { encoding: 'utf8' }),
+    )
+    for (const m of daMigracao) {
+      const sp = s.produtos.find((p) => p.id === m.id)
+      mesmo(canon({ nome: m.nome, tamanho: m.tamanho, detalhe: m.detalhe, descricao: m.descricao, categoria: m.categoria, foto: m.foto, cor: m.cor, arte: m.arte, obs: m.obs }), canon({ nome: sp.nome, tamanho: sp.tamanho, detalhe: sp.detalhe, descricao: sp.descricao, categoria: sp.categoria, foto: sp.foto, cor: sp.cor, arte: sp.arte, obs: sp.obs }), `migração 104: ${m.id} igual ao catálogo`)
+      igual([sp.preco, Object.entries(sp.disponivel).filter(([, v]) => v).map(([uf]) => uf)], [null, ['rj']], `migração 104 e catálogo: ${m.id} sem preço, só no RJ`)
+    }
+  }
   igual([ocb0.podeApagar, ocb0.uso.premios.map((x) => x.id)], [false, ['ocb-4-por-3']], 'a OCB tem histórico (prêmio)')
   igual(a0.produtos.find((p) => p.id === 'arizona-green-tea').uso.rateios.map((x) => x.id), ['arizona-green-tea'], 'o Arizona tem histórico (rateio de exemplo)')
   igual(a0.categorias.find((c) => c.id === 'sedas').premios.map((x) => x.id), ['brinde-piteira-papel'], 'categoria mostra o prêmio que vale nela')
@@ -936,7 +958,7 @@ export async function lojaMigracao(t) {
   const todas = JSON.parse(
     execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes', 'painel-dono'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
-  igual(todas.filter((n) => n < 200), [1, 100, 101, 102], 'as migrações até a loja são 1, 100, 101 e 102 (o vídeo e a capa do produto)')
+  igual(todas.filter((n) => n < 200), [1, 100, 101, 102, 104], 'as migrações até a loja são 1, 100, 101, 102 (o vídeo e a capa do produto) e 104 (o material da loja de 11/10)')
   igual(todas.filter((n) => n >= 300), [300, 301], 'as do painel do dono (300–399): 300 (os códigos da senha) e 301 (a marca "Bebida alcoólica" das categorias)')
   // a 301 mexe na tabela da loja: sem o módulo da loja carregado, ela espera (como a 206 com o dos pedidos)
   const semLoja = JSON.parse(
@@ -950,7 +972,9 @@ export async function lojaMigracao(t) {
     const bA = `http://127.0.0.1:${portaA}`
     const r = await fetch(`${bA}/api/index.php?r=loja`)
     const j = await r.json()
-    igual([r.status, j.versao, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 1, 17, 5, 5], 'banco já instalado: a migração 101 semeia a loja')
+    igual([r.status, j.versao, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 2, 19, 5, 5], 'banco já instalado: a migração 101 semeia a loja (e a 104 põe a thumb de fábrica: versão 2)')
+    const hA = j.loja.produtos.find((p) => p.id === 'hennessy-very-special')
+    igual([hA.foto, hA.video, hA.capa], ['produtos/hennessy-very-special.webp', 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], 'a 101 semeia sem as colunas do vídeo (a 102 vem depois) e a 104 põe a thumb de fábrica do Hennessy')
     igual(marcaDe(j), 'destilados', 'banco já instalado: a 101 semeia sem a coluna e a 301 marca os Destilados como bebida alcoólica')
     igual(banco(join(dirA, 'loja.sqlite')), [todas, 1, 1], 'registro com 1 (a de antes), 100, 101 e as das outras frentes; user_version segue 1 (a base); semeou uma vez')
     await fetch(`${bA}/api/index.php?r=loja`).then((x) => x.text())
@@ -968,10 +992,46 @@ export async function lojaMigracao(t) {
     igual(inst.status, 201, 'instala')
     const s1 = await fetch(`${bB}/api/index.php?r=loja`)
     const j1 = await s1.json()
-    igual([s1.status, j1.loja?.produtos?.length], [200, 17], 'a instalação semeia a loja')
+    igual([s1.status, j1.loja?.produtos?.length], [200, 19], 'a instalação semeia a loja')
+    igual(j1.versao, 1, 'banco novo: a 104 não mexe (a loja nem existia); a instalação já semeia com o material novo')
     igual(marcaDe(j1), 'destilados', 'banco novo: a semente já entra com os Destilados marcados como bebida alcoólica')
     igual(banco(join(dirB, 'loja.sqlite'))[2], 1, 'uma vez')
     ok(readFileSync(join(raiz, 'public/api/nucleo/loja-migracoes.php'), 'utf8').includes('100 =>'), 'as migrações da loja ficam na faixa 100–199')
+
+    // a 104 num banco que já está no ar (a loja semeada antes do material de 11/10), com coisa do dono no caminho: a
+    // foto que ele pôs na Fanta, o vídeo que ele gravou no Hennessy e um Jack Apple que ele mesmo cadastrou
+    const sql = (q) => execFileSync(PHP, ['-r', '$d = new PDO("sqlite:" . $argv[1]); $d->exec("PRAGMA foreign_keys = ON"); foreach (explode(";;", $argv[2]) as $c) if (trim($c) !== "") $d->exec($c);', join(dirB, 'loja.sqlite'), q])
+    const ler = (q) => JSON.parse(execFileSync(PHP, ['-r', '$d = new PDO("sqlite:" . $argv[1]); echo json_encode($d->query($argv[2])->fetchAll(PDO::FETCH_ASSOC));', join(dirB, 'loja.sqlite'), q], { encoding: 'utf8' }))
+    const etagAntes = (await fetch(`${bB}/api/index.php?r=loja`)).headers.get('etag')
+    sql(
+      "DELETE FROM migracoes WHERE numero = 104;;" +
+        "UPDATE loja_produtos SET foto = 'uploads/fotododono1234.webp' WHERE id = 'fanta-ghost-face-punch';;" +
+        "UPDATE loja_produtos SET foto = NULL, video = 'uploads/videododono1234.mp4', capa = 'uploads/capadodono1234.webp' WHERE id = 'hennessy-very-special';;" +
+        "DELETE FROM loja_produtos WHERE id = 'fanta-maca-china';;" +
+        "UPDATE loja_produtos SET nome = 'Jack Apple do dono', preco = 15990, foto = NULL WHERE id = 'jack-daniels-tennessee-apple';;" +
+        "UPDATE ajustes SET valor = '7' WHERE chave = 'loja.versao'",
+    )
+    const ordemAntes = ler("SELECT MAX(ordem) AS m FROM loja_produtos")[0].m
+    // o próximo pedido roda a 104 (ela não está anotada)
+    const s2 = await fetch(`${bB}/api/index.php?r=loja`)
+    const j2 = await s2.json()
+    const pr = (id) => j2.loja.produtos.find((p) => p.id === id)
+    igual(pr('fanta-ghost-face-punch').foto, 'uploads/fotododono1234.webp', '104: a foto que o dono pôs na Fanta fica (só preenche o vazio)')
+    igual([pr('hennessy-very-special').foto, pr('hennessy-very-special').video, pr('hennessy-very-special').capa], ['produtos/hennessy-very-special.webp', 'uploads/videododono1234.mp4', 'uploads/capadodono1234.webp'], '104: o Hennessy sem foto ganha a de fábrica; o vídeo que o dono gravou fica')
+    igual([pr('jack-daniels-tennessee-apple').nome, pr('jack-daniels-tennessee-apple').preco, pr('jack-daniels-tennessee-apple').foto], ['Jack Apple do dono', 159.9, null], '104: o produto que já existe (o dono cadastrou) não é tocado')
+    const china = pr('fanta-maca-china')
+    ok(!!china && china.preco === null && china.foto === 'produtos/fanta-maca-china.webp' && !('tamanho' in china) && china.categoria === 'bebidas', '104: a Fanta Maçã (China), que não existia, entra sem preço ("Consultar"), sem tamanho e com a foto de fábrica')
+    igual(Object.entries(china.disponivel).filter(([, v]) => v).map(([uf]) => uf), ['rj'], '104: à venda só no RJ')
+    const linha = ler("SELECT ordem, ativo, demo, obs, preco FROM loja_produtos WHERE id = 'fanta-maca-china'")[0]
+    igual([linha.ordem, linha.ativo, linha.demo, linha.preco, linha.obs], [ordemAntes + 1, 1, 0, null, 'Visto no story do RJ em 11/10. Preço PENDENTE.'], '104: no fim da grade (a ordem do dono não muda), no site, não é exemplo, com a anotação')
+    igual(ler("SELECT uf, disponivel FROM loja_produto_estados WHERE produto_id = 'fanta-maca-china' ORDER BY uf").map((x) => `${x.uf}:${x.disponivel}`).join(' '), 'es:0 mg:0 rj:1 sc:0 sp:0', '104: um estado por linha (RJ à venda, os outros fora)')
+    igual(j2.versao, 8, '104: mudou a loja, a versão sobe (7 → 8)')
+    ok(/^"[0-9a-f]{32}"$/.test(etagAntes ?? '') && s2.headers.get('etag') !== etagAntes, '104: o ETag muda junto (o site com a loja guardada recebe a nova, não um 304)')
+    igual(banco(join(dirB, 'loja.sqlite'))[0], todas, '104 anotada de novo no registro')
+    // rodar de novo não faz nada (anotada); e sem nada pra fazer, a versão não sobe
+    sql("DELETE FROM migracoes WHERE numero = 104")
+    const j3 = await (await fetch(`${bB}/api/index.php?r=loja`)).json()
+    igual([j3.versao, j3.loja.produtos.length], [8, j2.loja.produtos.length], '104 de novo, com tudo já no lugar: nada muda (nem a versão)')
   } finally {
     filhos.forEach(t.derrubar)
   }

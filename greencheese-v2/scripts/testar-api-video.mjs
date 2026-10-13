@@ -240,6 +240,36 @@ export async function testarVideo(t) {
     ok(!noDisco(f2), 'tirar a foto também limpa')
   }
 
+  parte('vídeo: a thumb animada de fábrica (produtos/, no build do site)')
+  {
+    // o Hennessy vem da semente com a thumb de fábrica: salvar de novo (o painel manda o que tem) passa e não muda nada
+    const h = (await dono.get('admin-loja')).json.loja.produtos.find((p) => p.id === 'hennessy-very-special')
+    igual([h.video, h.capa], ['produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], 'o Hennessy tem a thumb de fábrica')
+    const v0 = (await lojaPub()).json.versao
+    const sh = await dono.post('admin-produto-salvar', { id: 'hennessy-very-special', video: h.video, capa: h.capa, foto: h.foto })
+    igual([sh.status, sh.json.versao], [200, v0], 'salvar de novo com o vídeo de fábrica passa e não muda nada')
+    ok(readFileSync(join(raiz, 'public', h.video)).length > 1000 && readFileSync(join(raiz, 'public', h.capa)).length > 1000, 'os arquivos de fábrica estão no build (public/produtos/)')
+    // outro produto pode usar uma de fábrica; caminho torto não passa
+    const so = (video, capa) => dono.post('admin-produto-salvar', { id: 'cuia-de-silicone-raw', video, capa })
+    igual((await so('produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp')).status, 200, 'vídeo e capa de fábrica num produto')
+    for (const [video, capa, nome] of [
+      ['produtos/../api/privado/loja.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica com ../'],
+      ['produtos/sub/x.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica em subpasta'],
+      ['produtos/x.php', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica .php'],
+      ['produtos/X.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica com maiúscula'],
+      ['produtos/x.mp4.php', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica .mp4.php'],
+      ['produtos/hennessy-very-special.mp4', 'produtos/x.svg', 'capa de fábrica .svg'],
+      ['produtos/hennessy-very-special.mp4', 'produtos/../x.webp', 'capa de fábrica com ../'],
+      ['produtos/hennessy-very-special.mp4', 'https://golpe.example/x.webp', 'capa de fora'],
+      ['https://golpe.example/x.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fora'],
+    ]) {
+      const r = await so(video, capa)
+      erro(r, 400, 'invalido', nome)
+    }
+    igual((await so(null, null)).json.produto.video, null, 'tirar o vídeo de fábrica do produto')
+    ok(readFileSync(join(raiz, 'public', h.video)).length > 1000, 'tirar a de fábrica não apaga nada do build (o servidor só limpa uploads/)')
+  }
+
   parte('vídeo: produto apagado leva o vídeo, a capa e a foto')
   {
     const capaN = await imagem()

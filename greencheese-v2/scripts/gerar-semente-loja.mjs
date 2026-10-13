@@ -51,6 +51,8 @@ export async function montarSemente() {
       combinaCom: p.combinaCom ?? [],
       disponivel: p.disponivel,
       foto: p.foto ?? null,
+      // a thumb animada de fábrica (vídeo e capa em produtos/), só quando o produto tem os dois
+      ...(p.video && p.capa ? { video: p.video, capa: p.capa } : {}),
       cor: p.cor,
       arte: p.arte,
       demo: p.demo === true,
