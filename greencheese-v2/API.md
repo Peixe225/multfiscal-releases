@@ -785,7 +785,10 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 
 Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, participações), `100` (as tabelas da loja),
 `101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel), `102` (o vídeo e a
-capa da thumb animada do produto: `loja_produtos.video` e `.capa`), `104` (o material da loja de 11/10, no banco que já
+capa da thumb animada do produto: `loja_produtos.video` e `.capa`), `103` (a raridade dos prêmios do Teste minha sorte:
+`loja_premios.raridade`, `'comum'` de padrão; se os prêmios ainda são exatamente os exemplos de fábrica de antes, sem
+mudança do dono, eles ganham a raridade de fábrica e entram os 2 exemplos novos, o Épico e o Lendário; prêmio que o dono
+mudou, criou ou apagou: nada mexe, tudo fica Comum), `104` (o material da loja de 11/10, no banco que já
 está no ar: a foto de fábrica da Fanta Ghost Face Punch e do Hennessy Very Special e a thumb animada de fábrica do
 Hennessy só onde o produto existe e o campo está vazio, nunca por cima do que o dono pôs; o Jack Daniel's Tennessee
 Apple e a Fanta Maçã (China) só se o id não existir, no fim da grade, sem preço, à venda só no RJ; loja ainda não
@@ -867,7 +870,14 @@ interface Loja {
   stories: Record<string, string[]> // uf → ids na ordem do dono; uf ausente = automático (o site escolhe, como hoje)
   sorte: {
     ligado: boolean              // desligado: o Teste minha sorte some do site
-    regras: { girosSemConta: number; girosPorDiaComConta: number; reservaSemContaHoras: number }
+    regras: {
+      girosSemConta: number
+      intervaloDias: number      // com conta: N giros (girosPorIntervalo) a cada X dias (intervaloDias), 1–30
+      girosPorIntervalo: number  // 1–5
+      girosPorDiaComConta: number // = girosPorIntervalo (o nome de antes, pro JS velho no cache)
+      reservaSemContaHoras: number
+      chances: { comum: number; raro: number; epico: number; lendario: number } // % (até 1 casa), somam 100; o site usa no sorteio da conta do aparelho e nunca mostra
+    }
     premios: PremioLoja[]        // só os que valem agora
   }
 }
@@ -921,8 +931,9 @@ interface PremioLoja {
   regra: string
   aplicaA: { produtos?: string[]; categorias?: string[] }
   comoUsar?: string
-  peso: number
+  peso: number                   // dentro da raridade
   validadeDias: number
+  raridade: 'comum' | 'raro' | 'epico' | 'lendario'
   demo: boolean
 }
 ```
@@ -967,7 +978,8 @@ campo ausente fica como está.
 | POST `admin-estado-salvar` | `EstadoCorpo` (UF que a loja não tem = ativar) | 201 ou 200 `{ estado: EstadoAdmin, versao, atualizadoEm }` |
 | POST `admin-stories-salvar` | `{ uf, produtos: string[] }` | `{ uf, produtos, versao, atualizadoEm }` |
 | POST `admin-loja-salvar` | `{ whatsapp?, mesmoWhatsappParaTodos?, restamAte?, ruaNoStory?, vitrineNaRua?, textos? }` | `{ ajustes, textos, versao, atualizadoEm }` |
-| POST `admin-sorte-salvar` | `{ ligado?, girosSemConta?, girosPorDiaComConta?, reservaSemContaHoras? }` | `{ sorte, versao, atualizadoEm }` |
+| POST `admin-sorte-salvar` | `{ ligado?, girosSemConta?, intervaloDias?, girosPorIntervalo?, reservaSemContaHoras?, chances? }` (`girosPorDiaComConta`, o nome de antes, vale como `girosPorIntervalo`) | `{ sorte, versao, atualizadoEm }` |
+| POST `admin-sorte-simular` | `{ giros: 100–10000, uf?: string \| null }` | `SimulacaoSorte` (não grava nada; não sobe a versão) |
 | POST `admin-premio-salvar` | `PremioCorpo` (sem `id` cria) | 201 ou 200 `{ premio: PremioAdmin, versao, atualizadoEm }` |
 | POST `admin-premio-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-loja-exemplos-apagar` | `{ conferir: true }` ou `{ assinatura }` | `{ plano, assinatura, apagou, versao, atualizadoEm }` |
@@ -1039,15 +1051,26 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   branco some), `fraseStory` 2–28, `sacolaVazia` 2–48, `falasMercado` 1–5 de até 32. Nos textos, tabaco (422,
   `lista: 'tabaco'`) e as `PALAVRAS_PROIBIDAS` do site (422 `proibido`, `lista: 'palavras'`, no começo de palavra:
   "tapa" não pega "etapa").
-- **Regras do Teste minha sorte**: `girosSemConta` 1–3 (o primeiro giro sem conta é sempre livre),
-  `girosPorDiaComConta` 1–5, `reservaSemContaHoras` 1–72, `ligado`.
+- **Regras do Teste minha sorte**: `girosSemConta` 1–3 (o primeiro giro sem conta é sempre livre), `intervaloDias`
+  1–30 e `girosPorIntervalo` 1–5 (com conta, N giros a cada X dias; ver "Teste minha sorte no servidor"),
+  `reservaSemContaHoras` 1–72, `ligado` e `chances`: as 4 raridades (`comum`, `raro`, `epico`, `lendario`), cada uma
+  número de 0 a 100 com até 1 casa decimal, somando 100, e quanto mais raro, menor ou igual (Raro ≤ Comum, Épico ≤ Raro,
+  Lendário ≤ Épico); 0% vale (aquela raridade nunca sai). Erro: 400 `campo: 'chances'` com a frase ("As 4 chances somam
+  100% (agora dão 105%).", "Quanto mais raro, menor a chance: Raro não pode passar de Comum.", "A chance do Épico tem
+  até 1 casa depois da vírgula (ex.: 12,5%).") e `raridade` quando é de uma só.
+- **Simular giros** (`admin-sorte-simular`): roda o sorteio de verdade (`gc_sortear`) `giros` vezes com os prêmios que
+  valeriam no estado (`uf`; sem `uf`, todos os estados) e as chances salvas, sem gravar nada. Dono e gerente
+  (permissão `produtos`; o gerente só nos estados dele, 403 fora deles), 60 por hora por IP (429). Entra na Atividade
+  ("Simulou 10.000 giros em MG"). Estado fora do site ou sem prêmio que valha lá: sorteia entre todos, como o giro, e
+  avisa (`todosOsEstados`, `foraDoSite`); sorte desligada: simula como se estivesse ligada (`desligado`).
 - **Prêmio** (as regras de `src/lib/cupom.ts`): `tipo`; desconto 1–50 (%); leva 2–20 > paga 1–19; brinde
   `{ produto, qtd 1–10 }`; `aplicaA` `{ produtos?: até 20, categorias?: até 10 }`, pelo menos um, tudo existindo e nada
   de bebida (categoria marcada como bebida ou como bebida alcoólica; ou produto com desenho de bebida, `GC_LOJA_ARTES_BEBIDA`: lata alta e as
   garrafas; ou com nome de bebida alcoólica, `GC_LOJA_ALCOOL`: os tipos, como whisky, gin, vodka, chope, saquê, e as
   marcas comuns, como Jack Daniels, Smirnoff, Heineken, Brahma, Skol, Campari; a mesma lista do site e do painel em
   `src/lib/alcool.ts`); `titulo` 2–60 (só no painel); `descricao` 2–40; `regra` 2–120;
-  `comoUsar` até 160; `peso` 1–1000; `validadeDias` 1–30; `ativo`; `demo`. Textos sem tabaco nem as palavras da lista
+  `comoUsar` até 160; `peso` 1–1000 (dentro da raridade; criar sem peso = 1); `raridade` `'comum' | 'raro' | 'epico'
+  | 'lendario'` (criar sem = comum); `validadeDias` 1–30; `ativo`; `demo`. Textos sem tabaco nem as palavras da lista
   (422). Trocar o tipo pede o valor novo junto. Id novo = slug do título. Os cupons já guardados no site têm o retrato
   do prêmio: apagar não quebra nada.
 - **Apagar dados de exemplo**: `conferir: true` só devolve o `plano` (`{ premios, rateios, manter, produtos,
@@ -1073,7 +1096,18 @@ interface LojaAdmin {
   produtos: ProdutoAdmin[]       // todos, até os desativados
   estados: EstadoAdmin[]         // todos, até os desativados
   stories: Record<string, string[]> // a lista inteira que o dono escolheu (o GET loja filtra o que não tá à venda)
-  sorte: { ligado: boolean; girosSemConta: number; girosPorDiaComConta: number; reservaSemContaHoras: number; premios: PremioAdmin[] }
+  sorte: Loja['sorte']['regras'] & { ligado: boolean; premios: PremioAdmin[] }
+}
+
+interface SimulacaoSorte {
+  giros: number
+  uf: string | null
+  todosOsEstados: boolean        // nenhum prêmio vale nesse estado (ou ele tá fora do site): sorteia entre todos
+  foraDoSite: boolean
+  desligado: boolean             // o jogo tá desligado: é como sairia ligado
+  chances: Loja['sorte']['regras']['chances']
+  premios: { id: string; titulo: string; raridade: string; peso: number; esperado: number; saiu: number; saiuPct: number }[] // esperado e saiuPct em %
+  raridades: { raridade: string; chance: number; premios: number; esperado: number; saiu: number; saiuPct: number }[] // as 4, na ordem
 }
 
 interface ProdutoAdmin {
@@ -1123,9 +1157,13 @@ Auditoria (`alvo` → `produto:<id>`, `categoria:<id>`, `estado:<uf>`, `premio:<
 (sistema), `produto-criado`, `produto-editado`, `produto-ativado`, `produto-desativado`, `produto-estado` (a troca
 rápida: `MG: "Seda OCB" esgotado (0 un.)`), `produto-apagado`, `produtos-ordem`, `categoria-criada`,
 `categoria-editada`, `categoria-apagada`, `categorias-ordem`, `estado-ativado`, `estado-desativado`, `estado-editado`,
-`stories-salvos`, `loja-ajustes`, `sorte-regras`, `premio-criado`, `premio-editado`, `premio-ativado`,
-`premio-desativado`, `premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto` (o
-`loja-ajustes` só da rua diz o que ela faz: "Ligou a rua do mercador no celular" ou "Desligou…", nas duas homes).
+`stories-salvos`, `loja-ajustes`, `sorte-regras`, `sorte-simulada`, `sorte-raridades` (sistema: a migração 103 deu a
+raridade aos exemplos de fábrica), `premio-criado`, `premio-editado`, `premio-ativado`, `premio-desativado`,
+`premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto` (o `loja-ajustes` só da rua diz o
+que ela faz: "Ligou a rua do mercador no celular" ou "Desligou…", nas duas homes; o `sorte-regras` diz o que mudou:
+"Desligou o Teste minha sorte no site", "Mudou a frequência do Teste minha sorte: 1 giro por semana com conta", "Mudou
+as chances das raridades: Comum 62,5%, Raro 25%, Épico 10%, Lendário 2,5%"; o `premio-editado` só da raridade, "Mudou o
+prêmio "25% na bandeja" pra Épico"; o `premio-criado` leva a raridade quando não é Comum).
 
 **Sem os segredos dos avisos**: o token e o Client-Token do Z-API, a apikey da Evolution e o segredo e o endereço do
 webhook saem da cópia (zerados, com `secure_delete` e `VACUUM`); quem voltar uma cópia põe eles de novo em Avisos no
@@ -1144,7 +1182,9 @@ Cada pessoa entra no painel com o login dela. Três papéis (`nucleo/equipe.php`
 Permissões que existem (`GC_PERMISSOES`): as de cima mais `loja`, `avisos`, `textos`, `servidor`, `equipe` e
 `clientes`, que só o dono tem. Na loja: `produtos` (ler a loja do painel, `admin-loja`, e mudar o disponível e o
 estoque de um estado, `admin-produto-estado`, só nos estados de quem pede) e `loja` (o resto: produto, o vídeo da
-thumb animada (`admin-video-upload`), categorias, estados, stories, textos da loja, Teste minha sorte e prêmios). A foto
+thumb animada (`admin-video-upload`), categorias, estados, stories, textos da loja, Teste minha sorte e prêmios). O
+Simular giros do Teste minha sorte (`admin-sorte-simular`) pede `produtos` (só lê e não grava: o gerente simula nos
+estados dele; no painel, a tela do Teste minha sorte continua só do dono). A foto
 (`admin-upload`) segue na permissão `imagens`, que o gerente tem (é a do rateio também); o vídeo só serve ao produto,
 que só quem tem `loja` salva. No painel, Produtos e Loja ficam só pro dono; o gerente tem a tela **Estoque** (só o
 disponível e o estoque dos estados dele, pelas mesmas `admin-loja` e `admin-produto-estado`).
@@ -1248,7 +1288,9 @@ máximo 2** (o prêmio reservado primeiro), só de prêmio que existe e **só os
 existir** (o primeiro dia em que o entrar com código esteve ligado, guardado no ajuste `contas_desde`: depois disso
 todo cupom nasce no servidor), com a validade contada do dia em que foram ganhos (`ganhoEm` + a validade do prêmio) e o
 mesmo código quando está livre (`origem: 'aparelho'`). Os dias de giro do aparelho contam como giro da conta (sempre:
-só restringem). `migrados` diz quantos cupons vieram.
+só restringem; os dos últimos 30 dias): a lista tem um dia por giro, e cada dia entra com quantos giros vieram nele (até
+N, que já enche toda janela que passa por ele), descontando os que o servidor já tem naquele dia pra conta ou pro
+aparelho. `migrados` diz quantos cupons vieram.
 
 **Pedidos e vagas da conta**: o pedido (ou a vaga) entra na conta quando foi feito com ela logada, ou quando o
 WhatsApp dele foi **conferido**: veio da conta logada (que entrou pelo código) ou a loja salvou o número no painel
@@ -1269,7 +1311,7 @@ interface ContaEu {
 interface CupomConta {
   codigo: string                 // 'SORTE-K8EA'
   interativo: 'sorte'; premioId: string
-  retrato: object                // o prêmio congelado no dia (titulo, regra, aplicaA, comoUsar, tipo, valor)
+  retrato: object                // o prêmio congelado no dia (titulo, regra, aplicaA, comoUsar, tipo, valor, raridade)
   demo: boolean; origem: 'giro' | 'aparelho' | 'conta'
   ganhoEm: string; validoAte: string; usadoEm: string | null
 }
@@ -1303,23 +1345,39 @@ do prêmio à venda no estado e, no brinde, o brinde também). Sorte desligada n
 409 `sem-premio`. Antes da loja ser montada no servidor (painel sem instalar), valem os da semente:
 `nucleo/premios-semente.php` (`gc_premios_da_semente`) lê `api/nucleo/premios-sorte.json`, gerado de
 `src/dados/sorte.ts` (`node scripts/gerar-premios-sorte.mjs`; `--conferir` só confere; o `testar-api` recusa lista
-velha). As regras (giros sem conta, giros por dia com conta e as horas da reserva) também vêm do painel
-(`gc_sorte_regras`, as do GET `loja`); sem a loja no servidor, as de fábrica (1, 1 e 24 h, as de baixo). Contrato da função: devolve a lista de prêmios `{ id, tipo, valor, titulo, descricao, regra, aplicaA,
-comoUsar, peso, validadeDias, demo, ufs? }` (o mesmo formato do `sorte.ts`); `uf` null = todos; com `uf`, os que valem
+velha). As regras (giros sem conta, a frequência com conta, as horas da reserva e as chances das raridades) também vêm
+do painel (`gc_sorte_regras`, as do GET `loja`); sem a loja no servidor, as de fábrica (1 giro sem conta, 1 giro a cada
+1 dia, 24 h, 60/25/12/3). Contrato da função: devolve a lista de prêmios `{ id, tipo, valor, titulo, descricao, regra, aplicaA,
+comoUsar, peso, validadeDias, raridade, demo, ufs? }` (o mesmo formato do `sorte.ts`); `uf` null = todos; com `uf`, os que valem
 nesse estado (sem nenhum no estado, o sorteio usa todos). Bebida alcoólica nunca é prêmio (o gerador e o `testar-api`
 recusam).
 
+- **O sorteio** (`gc_sortear`), em dois passos e em inteiros (`random_int`): 1) a raridade, pela chance dela em
+  décimos de % (60% = 600), só entre as raridades que têm algum prêmio na lista do estado e chance acima de 0 (a chance
+  das vazias se reparte entre as outras, na proporção); 2) o prêmio, pelo `peso` dentro da raridade. Se nenhuma
+  raridade com prêmio tem chance (todas em 0%), todo giro ainda ganha: um grupo só, pelo peso. A mesma conta mora em
+  `src/lib/sorteio.ts` (o sorteio da conta do aparelho e a chance real que o painel mostra); o `testar-api` confere as
+  duas.
+- **A frequência com conta**: `girosPorIntervalo` (N) giros a cada `intervaloDias` (X) dias de calendário de Brasília
+  (-03:00), por conta, por WhatsApp e por aparelho (trocar de conta no mesmo aparelho não dá giro a mais). Em quaisquer
+  X dias seguidos, no máximo N giros: conta os dias de giro dos últimos X dias (hoje e os X − 1 antes); com N ou mais,
+  o próximo libera à meia-noite (Brasília) do dia em que o N-ésimo giro mais recente sai da janela, o dia dele + X
+  (`proximoEm`; com N = 1, o giro mais novo + X — com a janela cheia de antes de o dono apertar a frequência, não é o
+  mais antigo que segura). X = 1 e N = 1 é o 1 por dia de sempre (vira à meia-noite). O cupom já nasce guardado, com o
+  código `SORTE-XXXX` gerado no servidor. O nome do motivo ficou o de antes (`ja-girou-hoje`) e o `girouHoje` quer dizer "girou dentro do período".
 - Sem conta: **1 giro por aparelho** (o segredo `aparelho`, 32 hex, que o site guarda); o prêmio fica reservado pro
   aparelho por 24 h. Entrar ou criar a conta nesse aparelho guarda a reserva como cupom (`cupomGuardado`), e esse giro
-  vira o giro daquele dia da conta: se a conta (ou o WhatsApp dela) já tinha girado no dia do giro reservado, não
-  guarda (`pendenteRecusado: 'ja-girou-hoje'` no entrar; 409 `ja-girou-hoje` no `cliente-guardar`) e a reserva fica
-  sem cupom — senão bastava girar sem o cookie num aparelho novo e guardar pra ter um giro a mais por dia.
-- Com conta: **1 giro por dia** (dia de Brasília) por conta, por WhatsApp e por aparelho (trocar de conta no mesmo
-  aparelho não dá giro a mais); o cupom já nasce guardado, com o código `SORTE-XXXX` gerado no servidor.
+  conta como giro da conta **no dia em que foi feito**: só guarda se, com ele, nenhuma janela de X dias que contém
+  aquele dia passar de N giros (da conta, do WhatsApp dela ou do aparelho); senão não guarda
+  (`pendenteRecusado: 'ja-girou-hoje'` no entrar; 409 `ja-girou-hoje` no `cliente-guardar`, com a frase "Tua conta já
+  tinha girado nesse período: o prêmio desse giro não entra nela. É 1 giro por semana por conta."; com 1 por dia, a
+  frase de sempre) e a reserva fica sem cupom — senão bastava girar sem o cookie num aparelho novo e guardar pra ter um
+  giro a mais. Sem conta e já girou: `proximoComConta` diz quando a conta daquele aparelho giraria de novo (quando o
+  aparelho girou dentro do período).
 
 | Rota | Corpo / parâmetros | Sucesso |
 |---|---|---|
-| GET `cliente-giro` | `&interativo=sorte&aparelho=` | `{ agora, giro: { disponivel, motivo?: 'ja-girou-hoje' \| 'sem-conta-ja-girou', proximoEm?, girouHoje? }, pendente, dias }` |
+| GET `cliente-giro` | `&interativo=sorte&aparelho=` | `{ agora, giro: { disponivel, motivo?: 'ja-girou-hoje' \| 'sem-conta-ja-girou', proximoEm?, girouHoje?, proximoComConta? }, pendente, dias }` (`proximoEm`: a meia-noite de Brasília em que o próximo giro libera) |
 | POST `cliente-girar` | `{ interativo, uf, aparelho }` | `{ agora, premioId, cupom: CupomConta \| null, pendente: Pendente \| null, dias }` |
 | POST `cliente-guardar` | `{ interativo, aparelho }` (com sessão) | `{ cupom }` (409 `ja-girou-hoje` quando a conta já girou no dia daquele giro) |
 | POST `cliente-cupom-usar` | `{ codigo }` (com sessão) | `{ cupom }` (o cupom foi no pedido; a loja desfaz no painel se precisar) |

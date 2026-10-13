@@ -3,13 +3,38 @@
 // Nunca: "sorteio", "grátis", "frete", prazo, chance em %, valor de desconto calculado, nem as palavras de
 // PALAVRAS_PROIBIDAS (src/dados/sorte.ts). Em dev, a lista é conferida aqui embaixo.
 import { PALAVRAS_PROIBIDAS } from '../../dados/sorte'
+import { calcularGiro } from '../../lib/conta'
+import { diaSP, formatarLibera } from '../../lib/cupom'
+import { diaQueLibera, giroPorPeriodo, umPorDia, vezesPorPeriodo } from '../../lib/frequencia'
+import { agoraLoja } from '../../lib/relogio'
+import { useContaStore } from '../../store/conta'
 import { regrasDaSorte } from '../../store/loja'
 import { TE } from './textos-entrada'
 
-// os números das regras vêm do painel (Teste minha sorte → Regras; sem servidor, os de src/dados/sorte.ts): os textos
-// que citam giro por dia leem na hora (getter), e as telas continuam usando T.limites etc. do jeito de sempre
+// os números das regras vêm do painel (Teste minha sorte → Com que frequência; sem servidor, os de src/dados/sorte.ts):
+// os textos que citam a frequência ("1 giro por dia", "1 giro por semana") e o dia que libera ("amanhã", "sábado,
+// 17/10") leem na hora (getter), e as telas continuam usando T.limites etc. do jeito de sempre. Com 1 giro por dia, os
+// textos são os de sempre (com "hoje" e "amanhã").
 const giros = (n: number) => (n === 1 ? '1 giro' : `${n} giros`)
-const vezes = (n: number) => (n === 1 ? '1 vez' : `${n} vezes`)
+/** "1 giro por dia" · "1 giro por semana" · "2 giros a cada 3 dias" */
+const frequencia = () => giroPorPeriodo(regrasDaSorte())
+const umPorDiaAgora = () => umPorDia(regrasDaSorte())
+const porDia = () => regrasDaSorte().intervaloDias === 1
+/** O próximo giro da conta (ou da conta que nascer neste aparelho), em ms, pelo cache da conta; null = liberado. */
+function proximoGiro(): number | null {
+  const g = calcularGiro(useContaStore.getState(), 'sorte', agoraLoja())
+  return g.disponivel ? null : g.motivo === 'ja-girou-hoje' ? g.proximoEm : (g.proximoComConta ?? null)
+}
+/** "amanhã" · "sábado, 17/10" (o dia que libera o próximo giro); sem bloqueio, "amanhã". */
+function diaDoProximo(): string {
+  const ms = proximoGiro()
+  return ms == null ? 'amanhã' : diaQueLibera(diaSP(ms), diaSP(agoraLoja()))
+}
+/** "Cria tua conta pra girar de novo amanhã." · "… de novo domingo, 18/10." (o mesmo do adesivo do Início, estado.ts) */
+function criaNoDia(): string {
+  const dia = diaDoProximo()
+  return dia === 'amanhã' ? TE.criaAmanha : `Cria tua conta pra girar de novo ${dia}.`
+}
 
 export const T = {
   ...TE,
@@ -24,8 +49,7 @@ export const T = {
   botaoGirar: 'Girar',
   ariaGirar: 'Girar a tampa um quarto de volta',
   get limites() {
-    const r = regrasDaSorte()
-    return `Sem conta: ${giros(r.girosSemConta)}. Com conta: ${giros(r.girosPorDiaComConta)} por dia.`
+    return `Sem conta: ${giros(regrasDaSorte().girosSemConta)}. Com conta: ${frequencia()}.`
   },
   verRegras: 'O que pode sair? · Regras',
   contaLocal: 'Por enquanto, a conta fica só neste aparelho.',
@@ -83,29 +107,56 @@ export const T = {
   // prêmio com conta
   usarAgora: 'Usar agora',
   verCuponsN: (n: number) => `Ver meus cupons (${n})`,
-  naConta: 'Tá na tua conta. Amanhã tem mais.',
-  naContaMaisHoje: 'Tá na tua conta. Ainda tem giro hoje.',
+  get naConta() {
+    return umPorDiaAgora() ? 'Tá na tua conta. Amanhã tem mais.' : `Tá na tua conta. O próximo giro libera ${diaDoProximo()}.`
+  },
+  get naContaMaisHoje() {
+    return porDia() ? 'Tá na tua conta. Ainda tem giro hoje.' : 'Tá na tua conta. Ainda dá pra girar de novo.'
+  },
 
   // guardado
   faixaPremio: (titulo: string) => `Teu prêmio: ${titulo}`,
   fechou: (nome: string) => (nome ? `Fechou, ${nome}. Tá guardado.` : 'Fechou. Tá guardado.'),
   vivoGuardado: (codigo: string, ate: string) => `Código ${codigo}. Vale até ${ate}.`,
   contaCriada: (nome: string) => (nome ? `Conta criada, ${nome}.` : 'Conta criada.'),
-  giroLiberado: 'Teu giro de hoje tá liberado.',
-  proximoAmanha: 'Teu próximo giro libera amanhã.',
+  get giroLiberado() {
+    return porDia() ? 'Teu giro de hoje tá liberado.' : 'Teu giro tá liberado.'
+  },
+  get proximoAmanha() {
+    return `Teu próximo giro libera ${diaDoProximo()}.`
+  },
   entrou: (nome: string) => (nome ? `Oi de novo, ${nome}.` : 'Oi de novo.'),
 
   // espera
   proximoGiro: 'Próximo giro',
-  ariaProximo: 'Próximo giro amanhã, depois da meia-noite',
-  hojeJaFoi: 'Hoje já foi. Amanhã tem mais.',
-  hojeSaiu: 'Hoje saiu:',
-  avisoLiberou: 'Teu giro de hoje tá liberado',
+  get ariaProximo() {
+    return `Próximo giro ${diaDoProximo()}, depois da meia-noite`
+  },
+  get hojeJaFoi() {
+    if (umPorDiaAgora()) return 'Hoje já foi. Amanhã tem mais.'
+    const n = regrasDaSorte().girosPorIntervalo
+    return `${n === 1 ? 'Teu giro já foi' : `Teus ${n} giros já foram`}. O próximo libera ${diaDoProximo()}.`
+  },
+  get hojeSaiu() {
+    return porDia() ? 'Hoje saiu:' : 'No último giro saiu:'
+  },
+  get avisoLiberou() {
+    return porDia() ? 'Teu giro de hoje tá liberado' : 'Teu giro tá liberado'
+  },
 
   // bloqueado
   premioVenceu: (dia: string) => `O prêmio de ${dia} venceu.`,
   get vantagens() {
-    return `Com conta: ${giros(regrasDaSorte().girosPorDiaComConta)} por dia, cupons guardados e teu nome já no pedido.`
+    return `Com conta: ${frequencia()}, cupons guardados e teu nome já no pedido.`
+  },
+  // girou sem conta e o giro ainda conta na janela de quem criar a conta aqui: "amanhã" ou o dia (a frequência do painel)
+  get criaAmanha() {
+    return criaNoDia()
+  },
+  // "cria e gira agora" só quando a conta que nascer aqui gira na hora; se os giros sem conta deste aparelho já enchem a
+  // janela dela (2 giros por semana e o aparelho girou 2 vezes), o dia que libera — nunca promete giro que não vem
+  get criaAgora() {
+    return proximoGiro() == null ? TE.criaAgora : criaNoDia()
   },
   jaTenhoConta: 'Já tenho conta',
 
@@ -114,7 +165,9 @@ export const T = {
   /** `dias`: a validade, quando todos os prêmios têm a mesma (src/dados/sorte.ts); null = cada cupom diz a dele. */
   regrasLista: (dias: number | null) => [
     'Todo giro ganha.',
-    `Sem conta: ${giros(regrasDaSorte().girosSemConta)}. Com conta: ${giros(regrasDaSorte().girosPorDiaComConta)} por dia (vira à meia-noite, horário de Brasília).`,
+    porDia()
+      ? `Sem conta: ${giros(regrasDaSorte().girosSemConta)}. Com conta: ${frequencia()} (vira à meia-noite, horário de Brasília).`
+      : `Sem conta: ${giros(regrasDaSorte().girosSemConta)}. Com conta: ${frequencia()} (os dias viram à meia-noite, horário de Brasília).`,
     dias != null
       ? `O cupom vale ${dias} ${dias === 1 ? 'dia' : 'dias'} depois de guardado, 1 vez, em 1 pedido.`
       : 'O cupom vale até a data escrita nele, 1 vez, em 1 pedido.',
@@ -130,10 +183,10 @@ export const T = {
   // conta (formulário)
   criaTuaConta: 'Cria tua conta',
   get subComPremio() {
-    return `Só nome e WhatsApp. O prêmio fica guardado, tu gira ${vezes(regrasDaSorte().girosPorDiaComConta)} por dia e teu nome já vai no pedido.`
+    return `Só nome e WhatsApp. O prêmio fica guardado, tu gira ${vezesPorPeriodo(regrasDaSorte())} e teu nome já vai no pedido.`
   },
   get subSemPremio() {
-    return `Só nome e WhatsApp. Com conta: ${giros(regrasDaSorte().girosPorDiaComConta)} por dia, cupons guardados e teu nome já no pedido.`
+    return `Só nome e WhatsApp. Com conta: ${frequencia()}, cupons guardados e teu nome já no pedido.`
   },
   teuNome: 'Teu nome',
   nomePlaceholder: 'Como a loja te chama',
@@ -185,7 +238,9 @@ export const T = {
   linkCopiado: 'Link copiado.',
   erroGuardar: 'Não deu pra guardar agora. Tenta de novo.',
   premioVencidoAoGuardar: 'Esse prêmio já tinha vencido. A conta foi criada.',
-  premioContaJaGirou: 'Tua conta já tinha girado nesse dia: o prêmio desse giro não entra nela. É 1 giro por dia por conta.',
+  get premioContaJaGirou() {
+    return `Tua conta já tinha girado ${porDia() ? 'nesse dia' : 'nesse período'}: o prêmio desse giro não entra nela. É ${frequencia()} por conta.`
+  },
 
   // minha conta
   minhaConta: 'Minha conta',
@@ -194,10 +249,19 @@ export const T = {
   avisoContaLocal:
     'Por enquanto, a conta fica só neste aparelho. Abriu pelo Instagram? Ela fica no navegador do Instagram. Limpar os dados do navegador apaga tudo.',
   avisoContaServidor: 'Tua conta fica guardada na loja: entra com teu WhatsApp em qualquer aparelho.',
-  giroDeHoje: 'Giro de hoje',
-  liberadoHoje: 'Teu giro de hoje tá liberado',
+  get giroDeHoje() {
+    return porDia() ? 'Giro de hoje' : 'Teu giro'
+  },
+  get liberadoHoje() {
+    return porDia() ? 'Teu giro de hoje tá liberado' : 'Teu giro tá liberado'
+  },
   girarDichavador: 'Girar o dichavador',
-  usadoHoje: (espera: string) => `Hoje já foi. Próximo giro ${espera}.`,
+  // `espera`: a contagem que a tela já tem ("em 14 h"); passou de 24 h (a frequência do painel), o dia que libera
+  usadoHoje: (espera: string) => {
+    if (umPorDiaAgora()) return `Hoje já foi. Próximo giro ${espera}.`
+    const ms = proximoGiro()
+    return `Teu giro já foi. Próximo giro ${ms == null ? espera : formatarLibera(ms, agoraLoja())}.`
+  },
   teusCupons: (n: number) => `Teus cupons (${n})`,
   naSacola: 'Na sacola ✓',
   tirar: 'Tirar',
@@ -216,8 +280,12 @@ export const T = {
   sairLegendaServidor: 'Pra entrar de novo, é só teu WhatsApp e o código que a loja manda.',
   apagarConta: 'Apagar minha conta deste aparelho',
   apagarContaServidor: 'Apagar minha conta',
-  apagarPergunta: 'Apagar conta e cupons deste aparelho? Não dá pra desfazer. O giro de hoje continua usado.',
-  apagarPerguntaServidor: 'Apagar tua conta, teus cupons e teus endereços? Não dá pra desfazer. Teus pedidos continuam com a loja, e o giro de hoje continua usado.',
+  get apagarPergunta() {
+    return `Apagar conta e cupons deste aparelho? Não dá pra desfazer. ${porDia() ? 'O giro de hoje continua usado.' : 'Os giros que tu já deu continuam contando.'}`
+  },
+  get apagarPerguntaServidor() {
+    return `Apagar tua conta, teus cupons e teus endereços? Não dá pra desfazer. Teus pedidos continuam com a loja, e ${porDia() ? 'o giro de hoje continua usado.' : 'os giros que tu já deu continuam contando.'}`
+  },
   apagar: 'Apagar',
   apagada: 'Conta apagada deste aparelho.',
   apagadaServidor: 'Conta apagada.',

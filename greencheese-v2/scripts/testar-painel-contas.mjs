@@ -8,7 +8,8 @@
 // apagar conta, desligar/ligar o código.
 // Site (celular): entrar com o WhatsApp e o código (número sem conta pede o nome), Minha conta com pedidos, endereços
 // (guardar, apagar, o do pedido entra sozinho) e o pedido guiado oferecendo o endereço guardado; o Teste minha sorte
-// sorteado no servidor (giro sem conta → reserva do aparelho → entrar guarda o cupom; 1 por dia com conta); a conta do
+// sorteado no servidor (giro sem conta → reserva do aparelho → entrar guarda o cupom; 1 por dia com conta; com a
+// frequência do painel e o relógio adiantado, o jogo bloqueado diz o dia certo: scripts/testar-site-sorte.mjs); a conta do
 // aparelho indo pro servidor no primeiro login (nome e cupom); sair; apagar (LGPD); sem o código ligado, a conta volta
 // a ser só do aparelho. Em cada tela: axe, sem rolagem lateral; prints dos 4 tamanhos com GC_PRINTS.
 import { spawn } from 'node:child_process'
@@ -18,6 +19,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gatewayFalso, pedidoValido } from './testar-api-pedidos.mjs'
+import { fluxoSiteSorte } from './testar-site-sorte.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const TAMANHOS = [
@@ -564,6 +566,9 @@ export async function fluxoContas(a) {
     const giroDepois = await apiSite(pJ, `cliente-giro&interativo=sorte&aparelho=${aparelhoJ}`)
     ok(giroDepois.json?.giro?.disponivel === false && giroDepois.json.giro.motivo === 'ja-girou-hoje', 'sorte: com conta, 1 giro por dia (o de hoje já foi)')
     ok((await apiSite(pJ, 'cliente-girar', { interativo: 'sorte', uf: 'mg', aparelho: aparelhoJ })).json?.erro === 'sem-giro', 'sorte: girar de novo hoje é recusado pelo servidor')
+
+    // ─── Teste minha sorte com a frequência do painel e o relógio adiantado (scripts/testar-site-sorte.mjs) ─────────
+    await fluxoSiteSorte({ BASE, ok, contexto, pagina, dono, print, esperarCodigo, falso })
 
     // ─── a conta do aparelho vai pro servidor no primeiro login ────────────────────────────────────────────────────
     const ZAP3 = '(33) 99777-1234'

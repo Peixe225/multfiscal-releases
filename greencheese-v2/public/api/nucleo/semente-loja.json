@@ -938,8 +938,16 @@
     "ligado": true,
     "regras": {
       "girosSemConta": 1,
+      "intervaloDias": 1,
+      "girosPorIntervalo": 1,
       "girosPorDiaComConta": 1,
-      "reservaSemContaHoras": 24
+      "reservaSemContaHoras": 24,
+      "chances": {
+        "comum": 60,
+        "raro": 25,
+        "epico": 12,
+        "lendario": 3
+      }
     },
     "premios": [
       {
@@ -960,7 +968,8 @@
         "comoUsar": "Põe 4 na sacola e usa o cupom. Com o combo da OCB, a conta fecha na conversa.",
         "peso": 30,
         "validadeDias": 7,
-        "demo": true
+        "demo": true,
+        "raridade": "comum"
       },
       {
         "id": "piteira-vidro-15",
@@ -977,7 +986,8 @@
         "comoUsar": "Põe a piteira na sacola e usa o cupom.",
         "peso": 20,
         "validadeDias": 7,
-        "demo": true
+        "demo": true,
+        "raridade": "raro"
       },
       {
         "id": "brinde-piteira-papel",
@@ -997,7 +1007,8 @@
         "comoUsar": "Põe qualquer seda na sacola e usa o cupom.",
         "peso": 25,
         "validadeDias": 7,
-        "demo": true
+        "demo": true,
+        "raridade": "raro"
       },
       {
         "id": "dichavador-10",
@@ -1013,7 +1024,8 @@
         },
         "peso": 15,
         "validadeDias": 7,
-        "demo": true
+        "demo": true,
+        "raridade": "comum"
       },
       {
         "id": "bandeja-10",
@@ -1029,7 +1041,44 @@
         },
         "peso": 10,
         "validadeDias": 7,
-        "demo": true
+        "demo": true,
+        "raridade": "comum"
+      },
+      {
+        "id": "bandeja-25",
+        "tipo": "desconto-percentual",
+        "valor": 25,
+        "titulo": "25% na bandeja RAW",
+        "descricao": "Bandeja bem mais em conta.",
+        "regra": "25% de desconto na Bandeja RAW pequena",
+        "aplicaA": {
+          "produtos": [
+            "bandeja-raw-pequena"
+          ]
+        },
+        "comoUsar": "Põe a bandeja na sacola e usa o cupom.",
+        "peso": 1,
+        "validadeDias": 7,
+        "demo": true,
+        "raridade": "epico"
+      },
+      {
+        "id": "dichavador-40",
+        "tipo": "desconto-percentual",
+        "valor": 40,
+        "titulo": "40% no dichavador",
+        "descricao": "Sorte grande no dichavador.",
+        "regra": "40% de desconto no Dichavador de metal 4 partes",
+        "aplicaA": {
+          "produtos": [
+            "dichavador-metal-4-partes"
+          ]
+        },
+        "comoUsar": "Põe o dichavador na sacola e usa o cupom.",
+        "peso": 1,
+        "validadeDias": 7,
+        "demo": true,
+        "raridade": "lendario"
       }
     ]
   }

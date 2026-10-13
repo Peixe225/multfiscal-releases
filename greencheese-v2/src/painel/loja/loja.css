@@ -1494,3 +1494,384 @@ html.com-teclado .pn-pe-fixo {
     display: none;
   }
 }
+
+/* ───────────────────────── Teste minha sorte: frequência, raridade, chances, simular e o teste da animação ───────── */
+
+/* a raridade: a bolinha da cor (src/lib/raridade.ts) e o nome; a cor vem em --rar (nada de verde: é só do anel) */
+.pn-rar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--rar-clara, var(--branco));
+  white-space: nowrap;
+}
+.pn-rar-bola {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rar);
+  box-shadow: 0 0 0 2px var(--rar-escura);
+}
+
+/* as 4 fichas da raridade (rádios): grandes no celular, 2 por linha; 4 numa linha a partir de 480 px */
+.pn-fichas-rar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (min-width: 480px) {
+  .pn-fichas-rar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.pn-ficha-rar {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+.pn-ficha-rar input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.pn-ficha-rar-cara {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: var(--pn-raio);
+  box-shadow: inset 0 0 0 1px var(--chiado);
+  font-size: 15px;
+  color: var(--branco);
+}
+.pn-ficha-rar input:checked + .pn-ficha-rar-cara,
+.pn-ficha-rar-botao[aria-pressed='true'] .pn-ficha-rar-cara {
+  background: var(--rar-escura);
+  box-shadow: inset 0 0 0 2px var(--rar);
+  font-weight: 600;
+}
+.pn-ficha-rar input:focus-visible + .pn-ficha-rar-cara,
+.pn-ficha-rar-botao:focus-visible .pn-ficha-rar-cara {
+  outline: 2px solid var(--branco);
+  outline-offset: 2px;
+}
+.pn-ficha-rar-botao {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+}
+.pn-chance-este {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 12px 0 4px;
+  font-size: 14px;
+  color: var(--legenda);
+}
+.pn-chance-este strong {
+  color: var(--branco);
+  font-weight: 600;
+}
+.pn-testar-anim {
+  margin-top: 12px;
+}
+
+/* com que frequência: os atalhos em botões grandes (2 por linha no celular, 4 a partir de 600 px) */
+.pn-freq {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pn-freq legend {
+  padding: 0;
+  margin: 6px 0 8px;
+}
+/* o "Outro" sozinho na última linha (7 atalhos em 2 colunas) ocupa a linha toda */
+@media (max-width: 599px) {
+  .pn-freq-op:last-child {
+    grid-column: 1 / -1;
+  }
+}
+.pn-freq-ops {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (min-width: 600px) {
+  .pn-freq-ops {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.pn-freq-op {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+.pn-freq-op input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.pn-freq-op > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: var(--pn-raio);
+  box-shadow: inset 0 0 0 1px var(--chiado);
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.2;
+}
+.pn-freq-op input:checked + span {
+  background: var(--branco);
+  color: var(--preto);
+  box-shadow: none;
+  font-weight: 600;
+}
+.pn-freq-op input:focus-visible + span {
+  outline: 2px solid var(--branco);
+  outline-offset: 2px;
+}
+.pn-freq-campos {
+  margin-top: 12px;
+}
+.pn-freq-frase {
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--pn-raio);
+  background: var(--bolha);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* chance de cada raridade: a cor e o nome, quantos prêmios tem nela e o campo de % */
+.pn-chances {
+  display: flex;
+  flex-direction: column;
+}
+.pn-chance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  padding: 6px 0;
+}
+.pn-chance + .pn-chance {
+  border-top: 1px solid var(--bolha);
+}
+.pn-chance-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pn-chance-nome .pn-rar {
+  font-size: 16px;
+  color: var(--branco);
+}
+.pn-chance-nome small {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-chance-campo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.pn-chance-campo .pn-input {
+  width: 84px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pn-chance.pn-campo-erro .pn-input {
+  box-shadow: inset 0 0 0 2px #ff6b6b;
+}
+.pn-chances-soma {
+  margin: 8px 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffb0b0;
+}
+.pn-chances-soma.ok {
+  color: var(--legenda);
+  font-weight: 400;
+}
+.pn-chances-botoes {
+  margin-top: 12px;
+}
+
+/* o cabeçalho de um bloco com um botão do lado (Prêmios · Ver as 4 raridades) */
+.pn-bloco-cab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+}
+.pn-bloco-cab .pn-h2 {
+  margin-bottom: 0;
+}
+
+/* a lista de prêmios: a raridade e a chance real numa linha */
+.pn-premio-txt .carimbo {
+  margin-left: 6px;
+}
+.pn-premio-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.pn-premio-chance {
+  color: var(--branco);
+  font-variant-numeric: tabular-nums;
+}
+.pn-premio-fora .pn-premio-chance {
+  color: var(--legenda);
+}
+
+/* simular giros: a tabela do esperado e do que saiu */
+.pn-simular-form {
+  margin-bottom: 12px;
+}
+.pn-simulado {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pn-tabela-sim {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.pn-tabela-sim th,
+.pn-tabela-sim td {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--bolha);
+  text-align: right;
+  vertical-align: middle;
+}
+.pn-tabela-sim th:first-child {
+  text-align: left;
+  font-weight: 400;
+  padding-right: 8px;
+}
+.pn-tabela-sim thead th {
+  font-size: 12px;
+  color: var(--legenda);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pn-tabela-sim td + td {
+  padding-left: 12px;
+}
+.pn-tabela-sim small {
+  color: var(--legenda);
+}
+.pn-sim-nome {
+  margin-left: 8px;
+  overflow-wrap: anywhere;
+}
+.pn-sim-rar .pn-rar {
+  font-size: 14px;
+  color: var(--branco);
+}
+
+/* o teste da animação: a folha do painel em tela cheia, preta, com a revelação no meio */
+.folha.pn-folha-tela {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: auto;
+  max-height: none;
+  outline: none;
+}
+.pn-folha-tela::before,
+.pn-folha-tela > .folha-alca {
+  display: none;
+}
+@media (min-width: 900px) {
+  .folha.pn-folha-tela {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: none;
+  }
+}
+.pn-folha-tela .pn-folha-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.pn-folha-tela .pn-folha-corpo {
+  display: flex;
+  min-height: 0;
+}
+.pn-teste-palco {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 16px var(--gutter);
+  text-align: center;
+}
+.pn-teste-erro {
+  max-width: 32ch;
+}
+.pn-teste-pe {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+}
+.pn-teste-rars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.pn-teste-rars .pn-ficha-rar-cara {
+  min-height: 44px;
+  padding: 6px 2px;
+  font-size: 13px;
+  gap: 5px;
+}
+.pn-teste-rars .pn-rar-bola {
+  width: 8px;
+  height: 8px;
+}
+.pn-teste-botoes {
+  display: flex;
+  gap: 8px;
+}
+.pn-teste-botoes > .pn-botao {
+  flex: 1;
+}
+@media (min-width: 900px) {
+  .pn-teste-pe {
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+  }
+}

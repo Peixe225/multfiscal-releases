@@ -878,11 +878,14 @@ function gc_loja_ler_premio(array $c, ?array $atual): array
     }
     gc_loja_sem_palavras($textos);
 
-    $peso = $tem('peso') ? gc_inteiro($c['peso'], 1, 1000) : ($atual === null ? null : (int) $atual['peso']);
+    // o peso vale dentro da raridade (relativo aos outros prêmios dela); prêmio novo sem peso: 1
+    $peso = $tem('peso') ? gc_inteiro($c['peso'], 1, 1000) : ($atual === null ? 1 : (int) $atual['peso']);
     if ($peso === null) {
-        throw gc_invalido('peso', 'Peso de 1 a 1000 (quanto maior, mais sai).');
+        throw gc_invalido('peso', 'Peso de 1 a 1000 (dentro da raridade: quanto maior, mais sai).');
     }
     $col['peso'] = $peso;
+    // a raridade (prêmio novo sem raridade: comum; na edição, sem o campo, fica a que era)
+    $col['raridade'] = $tem('raridade') ? gc_loja_ler_raridade($c['raridade']) : ($atual === null ? 'comum' : gc_raridade_de($atual));
     $validade = $tem('validadeDias') ? gc_inteiro($c['validadeDias'], 1, 30) : ($atual === null ? null : (int) $atual['validade_dias']);
     if ($validade === null) {
         throw gc_invalido('validadeDias', 'Validade de 1 a 30 dias.');
@@ -903,10 +906,12 @@ function gc_loja_produto_e_categoria(mixed $id): ?array
 }
 
 /**
- * Regras do Teste minha sorte (src/dados/sorte.ts, regrasSorte): ligado, giros sem conta, giros por dia com conta e as
- * horas que o prêmio de quem girou sem conta fica guardado.
+ * Regras do Teste minha sorte (src/dados/sorte.ts, regrasSorte): ligado, giros sem conta, a frequência com conta
+ * (`girosPorIntervalo` giros a cada `intervaloDias` dias; o `girosPorDiaComConta` de antes ainda vale como
+ * `girosPorIntervalo`, pro painel com o JS velho no cache), as horas que o prêmio de quem girou sem conta fica guardado
+ * e as chances de cada raridade (gc_chances_ler: somam 100, até 1 casa, quanto mais raro, menor).
  * @param array<string, mixed> $atual
- * @return array{ligado: bool, girosSemConta: int, girosPorDiaComConta: int, reservaSemContaHoras: int}
+ * @return array<string, mixed> o gc_loja_sorte() novo
  */
 function gc_loja_ler_sorte(array $c, array $atual): array
 {
@@ -914,15 +919,34 @@ function gc_loja_ler_sorte(array $c, array $atual): array
     if (array_key_exists('ligado', $c)) {
         $out['ligado'] = gc_loja_bool($c, 'ligado', 'Ligado é sim ou não.');
     }
+    if (array_key_exists('girosPorDiaComConta', $c) && !array_key_exists('girosPorIntervalo', $c)) {
+        $c['girosPorIntervalo'] = $c['girosPorDiaComConta'];
+        $campoPorIntervalo = 'girosPorDiaComConta';
+    }
     // sem conta gira pelo menos 1 vez: conta é incentivo, nunca pedágio (DECISOES.md, item 13)
     foreach ([
         'girosSemConta' => [1, 3, 'Giros sem conta de 1 a 3 (o primeiro é sempre livre).'],
-        'girosPorDiaComConta' => [1, 5, 'Giros por dia com conta de 1 a 5.'],
+        'intervaloDias' => [1, 30, 'A cada quantos dias: de 1 (todo dia) a 30 (1x por mês).'],
+        'girosPorIntervalo' => [1, 5, 'Giros por vez com conta de 1 a 5.'],
         'reservaSemContaHoras' => [1, 72, 'O prêmio sem conta fica guardado de 1 a 72 horas.'],
     ] as $k => [$min, $max, $msg]) {
         if (array_key_exists($k, $c)) {
-            $out[$k] = gc_inteiro($c[$k], $min, $max) ?? throw gc_invalido($k, $msg);
+            $out[$k] = gc_inteiro($c[$k], $min, $max) ?? throw gc_invalido($k === 'girosPorIntervalo' ? ($campoPorIntervalo ?? $k) : $k, $msg);
         }
     }
+    $out['girosPorDiaComConta'] = $out['girosPorIntervalo'];
+    if (array_key_exists('chances', $c)) {
+        $lidas = gc_chances_ler($c['chances']);
+        if ($lidas['chances'] === null) {
+            throw gc_invalido('chances', (string) $lidas['erro'], $lidas['raridade'] === null ? [] : ['raridade' => $lidas['raridade']]);
+        }
+        $out['chances'] = $lidas['chances'];
+    }
     return $out;
+}
+
+/** A raridade do prêmio: comum, raro, epico ou lendario. */
+function gc_loja_ler_raridade(mixed $v): string
+{
+    return is_string($v) && in_array($v, GC_RARIDADES, true) ? $v : throw gc_invalido('raridade', 'Escolhe a raridade: comum, raro, épico ou lendário.');
 }

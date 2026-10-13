@@ -128,7 +128,8 @@ export function diasDaApi(x: unknown): Record<string, string[]> {
   const out: Record<string, string[]> = {}
   if (x && typeof x === 'object') {
     for (const [k, v] of Object.entries(x as Record<string, unknown>)) {
-      if (Array.isArray(v)) out[k] = v.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(-30)
+      // um por giro, os 60 mais novos (cobre a janela de até 30 dias da frequência do painel)
+      if (Array.isArray(v)) out[k] = v.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(-60)
     }
   }
   return out

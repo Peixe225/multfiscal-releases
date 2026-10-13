@@ -12,7 +12,8 @@
 // campos de senha com "Mostrar", os textos do Entrar e do Esqueci a senha e a lateral no tablet (768).
 // Também confere o HTML do painel (noindex, título, manifesto, caminhos relativos, sem o CSS do site) e que o site
 // não carrega nada do painel. A loja (produtos, estoque, foto, estado novo, story, prêmio, textos) fica em
-// scripts/testar-painel-loja.mjs, chamado daqui.
+// scripts/testar-painel-loja.mjs, e o Teste minha sorte (frequência, chances, raridade, simular, teste da animação) em
+// scripts/testar-painel-sorte.mjs, chamados daqui.
 // Uso: node scripts/testar-painel.mjs <pasta-do-build>   (termina com "painel ok")
 // GC_TESTE_PORTA = porta do PHP (a do preview é a seguinte, ou GC_TESTE_PORTA_SITE); as contas sobem outro PHP e outro
 // preview (GC_TESTE_PORTA_CONTAS e GC_TESTE_PORTA_CONTAS_SITE, ou portas livres); GC_PRINTS=<pasta> guarda os prints; GC_AXE=<axe.min.js>
@@ -24,6 +25,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fluxoLoja, ROTAS_LOJA } from './testar-painel-loja.mjs'
+import { fluxoSorte } from './testar-painel-sorte.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const build = process.argv[2] ? resolve(process.argv[2]) : null
@@ -374,6 +376,8 @@ try {
   ok(true, 'Esc fecha a folha')
 
   await fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, videos, browser, sharp })
+  // o Teste minha sorte: frequência, chances, raridade, chance real, simular e o teste da animação
+  await fluxoSorte({ p, BASE, ok, print, axe, browser })
 
   // ─── o dono sem depender de ninguém ──────────────────────────────────────────────────────────────────────────────
   // o "+" da barra: Novo produto e Novo rateio

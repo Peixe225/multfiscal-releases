@@ -82,6 +82,7 @@ $rotas = [
     'admin-estado-salvar' => ['POST', 'gc_rota_admin_estado_salvar'],
     'admin-stories-salvar' => ['POST', 'gc_rota_admin_stories_salvar'],
     'admin-sorte-salvar' => ['POST', 'gc_rota_admin_sorte_salvar'],
+    'admin-sorte-simular' => ['POST', 'gc_rota_admin_sorte_simular'],
     'admin-premio-salvar' => ['POST', 'gc_rota_admin_premio_salvar'],
     'admin-premio-apagar' => ['POST', 'gc_rota_admin_premio_apagar'],
     // pedidos, avisos no WhatsApp e textos do pedido guiado: o site manda o pedido e lê as falas; o painel cuida do resto

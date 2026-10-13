@@ -1099,6 +1099,14 @@ try {
 } catch (e) {
   ok(false, `exceção nas contas: ${e.stack}`)
 }
+// Teste minha sorte: a frequência com conta, a raridade, as chances e o simular (scripts/testar-api-sorte.mjs), num
+// servidor próprio
+try {
+  const { testarSorte } = await import('./testar-api-sorte.mjs')
+  await testarSorte({ parte, ok, igual, erro, raiz, tmp, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
+} catch (e) {
+  ok(false, `exceção na sorte: ${e.stack}`)
+}
 derrubar(php)
 if (process.env.GC_TESTE_MANTER === '1') console.log(`dados do teste em ${tmp}`)
 else rmSync(tmp, { recursive: true, force: true })

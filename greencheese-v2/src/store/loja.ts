@@ -20,12 +20,19 @@ import { apagar, ler, gravar } from '../lib/armazenamento'
 import { definirWhatsappDaLoja } from '../lib/mensagem'
 import { validarPremios } from '../lib/premios'
 import { registrarHoraDaResposta } from '../lib/relogio'
+import { CHANCES_PADRAO, type Raridade } from '../lib/raridade'
 import type { Categoria, Produto } from '../lib/tipos'
 
 export interface RegrasDaSorte {
   girosSemConta: number
+  /** Com conta: N giros (girosPorIntervalo) a cada X dias (intervaloDias), em dias de calendário de Brasília. */
+  intervaloDias: number
+  girosPorIntervalo: number
+  /** O nome de antes, igual ao girosPorIntervalo (quem ainda lê ele: o jogo). */
   girosPorDiaComConta: number
   reservaSemContaHoras: number
+  /** A chance de cada raridade, em % (o sorteio do aparelho usa; a tela nunca mostra). */
+  chances: Record<Raridade, number>
 }
 
 export interface Loja {
@@ -80,8 +87,11 @@ export const MAX_STORY = 8
 
 const regrasEmbutidas: RegrasDaSorte = {
   girosSemConta: regrasSorte.girosSemConta,
-  girosPorDiaComConta: regrasSorte.girosPorDiaComConta,
+  intervaloDias: regrasSorte.intervaloDias,
+  girosPorIntervalo: regrasSorte.girosPorIntervalo,
+  girosPorDiaComConta: regrasSorte.girosPorIntervalo,
   reservaSemContaHoras: regrasSorte.reservaSemContaHoras,
+  chances: { ...CHANCES_PADRAO },
 }
 
 function montarEmbutida(): Loja {
@@ -170,7 +180,7 @@ function estadoDe(l: Loja, fonte: FonteLoja, versao: number | null, atualizadoEm
 const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : ''
 
 interface Guardada {
-  formato: 2
+  formato: 3
   build: string
   versao: number
   atualizadoEm: string
@@ -183,19 +193,19 @@ interface Guardada {
 const ehObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
 /**
- * A guardada no aparelho: a `pronta` (formato 2) abre a primeira tela; guardada por outro build (ou no formato velho, só
- * a crua), ela também vai pra conferir de novo.
+ * A guardada no aparelho: a `pronta` (formato 3) abre a primeira tela; guardada por outro build (ou num formato velho,
+ * só a crua: o 2 não tinha a frequência e as chances do Teste minha sorte), ela também vai pra conferir de novo.
  */
 function lerGuardada(): { pronta: Loja | null; conferir: boolean; crua: unknown; versao: number; atualizadoEm: string } | null {
   const g = ler<unknown>(CHAVE, null)
-  if (!ehObjeto(g) || typeof g.versao !== 'number' || typeof g.atualizadoEm !== 'string' || (g.formato !== 1 && g.formato !== 2)) return null
-  const p = g.formato === 2 && ehObjeto(g.pronta) ? (g.pronta as unknown as Loja) : null
+  if (!ehObjeto(g) || typeof g.versao !== 'number' || typeof g.atualizadoEm !== 'string' || (g.formato !== 1 && g.formato !== 2 && g.formato !== 3)) return null
+  const p = g.formato === 3 && ehObjeto(g.pronta) ? (g.pronta as unknown as Loja) : null
   const pronta = p && Array.isArray(p.canais) && p.canais.length && Array.isArray(p.produtos) && Array.isArray(p.categorias) && ehObjeto(p.sorte) && ehObjeto(p.textos) ? p : null
   return { pronta, conferir: !pronta || g.build !== BUILD, crua: g.loja, versao: g.versao, atualizadoEm: g.atualizadoEm }
 }
 
 function guardar(crua: unknown, pronta: Loja, versao: number, atualizadoEm: string) {
-  gravar(CHAVE, { formato: 2, build: BUILD, versao, atualizadoEm, loja: crua, pronta } satisfies Guardada)
+  gravar(CHAVE, { formato: 3, build: BUILD, versao, atualizadoEm, loja: crua, pronta } satisfies Guardada)
 }
 
 /** Guardada por outro build (ou no formato velho): conferida de novo depois da conversa com o servidor. */

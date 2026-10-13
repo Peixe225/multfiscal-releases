@@ -24,7 +24,8 @@ export interface Conta {
 }
 
 /** O texto do prêmio congelado no dia em que a pessoa ganhou: é ele que vale, mesmo que src/dados/sorte.ts mude. */
-export type RetratoPremio = Pick<Premio, 'titulo' | 'regra' | 'aplicaA' | 'comoUsar'> & ValorPremio
+/** O prêmio congelado no dia em que saiu (a raridade também: cupom de antes dela não tem, e é comum). */
+export type RetratoPremio = Pick<Premio, 'titulo' | 'regra' | 'aplicaA' | 'comoUsar' | 'raridade'> & ValorPremio
 
 export interface Cupom {
   codigo: string

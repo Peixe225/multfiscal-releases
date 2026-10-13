@@ -1,11 +1,15 @@
 import { useId, useState } from 'react'
 import { useModoConta } from '../../lib/conta-modo'
 import { nomeDoPremio, premiosElegiveis } from '../../lib/cupom-uso'
+import { INFO_RARIDADE, raridadeDe } from '../../lib/raridade'
 import { useLocal } from '../../store/local'
 import { T } from './textos'
 import './estilo'
 
-/** Regras e "O que pode sair" (só leitura, sem as chances), em disclosure. Também aparece na Minha conta. */
+/**
+ * Regras e "O que pode sair" (só leitura, sem as chances; cada prêmio com a raridade, no nome e na cor dela), em
+ * disclosure. Também aparece na Minha conta.
+ */
 export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; className?: string }) {
   const [aberto, setAberto] = useState(false)
   const id = useId()
@@ -36,7 +40,13 @@ export function Regras({ rotulo = T.verRegras, className }: { rotulo?: string; c
                 <span className="regras-quiz-letra" aria-hidden="true">
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span>{nomeDoPremio(p)}</span>
+                <span>
+                  {nomeDoPremio(p)}{' '}
+                  {/* a raridade (nome e cor; a chance nunca aparece no site) */}
+                  <small className="regras-quiz-rar" style={{ color: INFO_RARIDADE[raridadeDe(p)].cor }}>
+                    · {INFO_RARIDADE[raridadeDe(p)].nome}
+                  </small>
+                </span>
               </li>
             ))}
           </ol>

@@ -319,7 +319,7 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
     await ba.waitForTimeout(150)
   }
   conferir(!piscou && (await esperar(ba, () => document.querySelector('.hero .story-cab-nome')?.textContent === 'greencheese_importsba')), 'loja: guardada por outro build, com o servidor fora: conferida de novo e a BA abre (sem "ainda não chegou aí")')
-  conferir(await esperar(ba, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.formato === 2), 'loja: a guardada é regravada já conferida por este build')
+  conferir(await esperar(ba, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.formato === 3), 'loja: a guardada é regravada já conferida por este build (formato 3, com a frequência e as chances do Teste minha sorte)')
   // guardada (já conferida) por outro build: abre a primeira tela na hora e é conferida de novo por este
   await ba.evaluate(() => {
     const g = JSON.parse(localStorage.getItem('gc-loja'))
@@ -355,6 +355,23 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
     )
     await h2.close()
   }
+  // ── o Teste minha sorte com a frequência do dono (2 giros por semana): o jogo fala da semana, não do dia ──
+  servidor.modo = 'ok'
+  servidor.versao = 10
+  servidor.em = new Date().toISOString()
+  servidor.loja = { ...servidor.loja, sorte: { ...loja.sorte, ligado: true, regras: { ...loja.sorte.regras, intervaloDias: 7, girosPorIntervalo: 2, girosPorDiaComConta: 2 } } }
+  {
+    const sp = await ctx.newPage()
+    vigiar(sp, 'loja-sorte-semana')
+    await sp.goto(`${base}?uf=mg&jogo=sorte`)
+    conferir(await esperar(sp, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.loja?.sorte?.regras?.intervaloDias === 7, undefined, 8000), 'loja: a frequência do dono (a cada 7 dias) chega e fica guardada')
+    const rodape = (await esperar(sp, () => /Com conta:/.test(document.querySelector('.casca .sorte-rodape')?.textContent ?? ''), undefined, 8000))
+      ? ((await sp.locator('.casca .sorte-rodape').first().textContent()) ?? '')
+      : ''
+    conferir(rodape.includes('Com conta: 2 giros por semana.') && !/por dia/.test(rodape), `loja: Teste minha sorte com 2 giros por semana: o jogo diz "2 giros por semana" (${rodape.slice(0, 90)})`)
+    await sp.close()
+  }
+
   conferir(servidor.pedidos >= 4, `loja: o site perguntou a loja a cada abertura (${servidor.pedidos} pedidos)`)
   await ctx.close()
 }

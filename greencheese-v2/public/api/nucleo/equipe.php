@@ -93,6 +93,9 @@ const GC_PERMISSAO_ROTA = [
     'admin-estado-salvar' => 'loja',
     'admin-stories-salvar' => 'loja',
     'admin-sorte-salvar' => 'loja',
+    // simular giros (Teste minha sorte): roda o sorteio sem gravar nada; o gerente lê a loja (com os prêmios) e pode testar
+    // nos estados dele, a atendente não
+    'admin-sorte-simular' => 'produtos',
     'admin-premio-salvar' => 'loja',
     'admin-premio-apagar' => 'loja',
     // o dono: a lista "Pra deixar a loja pronta" (com a cópia e a senha esquecida). As de pedir e usar o código da senha

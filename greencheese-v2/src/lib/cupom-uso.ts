@@ -4,9 +4,12 @@
 import { canalDa } from '../dados/canais'
 import type { Premio } from '../dados/sorte'
 import { disponivelEm, useCatalogo } from '../store/catalogo'
+import { regrasDaSorte } from '../store/loja'
 import type { Cupom, RetratoPremio } from '../store/conta'
 import type { LinhaSacola } from '../store/derivados'
 import { premiosValidos, statusDo } from './cupom'
+import { raridadeDe } from './raridade'
+import { sortearPorRaridade } from './sorteio'
 
 // o nome do prêmio mora em cupom.ts (o adesivo do site, no pedaço principal, também usa)
 export { destaqueDo, fraseDoPremio, nomeCategoria, nomeDoPremio } from './cupom'
@@ -36,16 +39,13 @@ export function gerarCodigo(prefixo: string, existentes: Set<string>): string {
   return c
 }
 
-/** Escolhe por peso (crypto.getRandomValues; Uint32 / 2^32). */
-export function sortear<T extends { peso: number }>(lista: T[]): T | null {
-  if (!lista.length) return null
-  const total = lista.reduce((s, p) => s + p.peso, 0)
-  let r = (aleatorios(1)[0] / 2 ** 32) * total
-  for (const p of lista) {
-    r -= p.peso
-    if (r < 0) return p
-  }
-  return lista[lista.length - 1]
+/**
+ * O sorteio do aparelho (a conta sem servidor), em dois passos como o do servidor (src/lib/sorteio.ts): primeiro a
+ * raridade, pela chance dela (as regras do painel, ou as de fábrica) entre as que têm prêmio na lista; depois o prêmio,
+ * pelo peso dentro da raridade.
+ */
+export function sortear<T extends { peso: number; raridade?: unknown }>(lista: T[]): T | null {
+  return sortearPorRaridade(lista, regrasDaSorte().chances)
 }
 
 function valeNaUf(p: Premio, uf: string): boolean {
@@ -67,9 +67,9 @@ export function premiosElegiveis(uf: string | null | undefined): Premio[] {
   return aqui.length ? aqui : validos
 }
 
-/** Retrato do prêmio no dia em que foi ganho. */
+/** Retrato do prêmio no dia em que foi ganho (com a raridade daquele dia). */
 export function retratoDe(p: Premio): RetratoPremio {
-  const base = { titulo: p.titulo, regra: p.regra, aplicaA: p.aplicaA, comoUsar: p.comoUsar }
+  const base = { titulo: p.titulo, regra: p.regra, aplicaA: p.aplicaA, comoUsar: p.comoUsar, raridade: raridadeDe(p) }
   return { ...base, tipo: p.tipo, valor: p.valor } as RetratoPremio
 }
 
