@@ -239,7 +239,7 @@ function ItemConta() {
   const entrar = useEntrarPorCodigo()
   if (!conta && entrar)
     return (
-      <button type="button" className="lateral-item toque" onClick={() => setConta(true)} aria-haspopup="dialog">
+      <button type="button" className="lateral-item toque" onClick={() => setConta(true)} aria-haspopup="dialog" data-conta-entrada>
         <span className="lateral-icone">
           <Icone nome="conta" tamanho={24} />
         </span>
@@ -249,7 +249,7 @@ function ItemConta() {
   if (!conta) return null
   const n = cupons.filter((c) => c.status === 'ativo').length
   return (
-    <button type="button" className="lateral-item toque" onClick={() => setConta(true)} aria-haspopup="dialog">
+    <button type="button" className="lateral-item toque" onClick={() => setConta(true)} aria-haspopup="dialog" data-conta-entrada>
       <span className="lateral-icone">
         <Icone nome="conta" tamanho={24} />
       </span>

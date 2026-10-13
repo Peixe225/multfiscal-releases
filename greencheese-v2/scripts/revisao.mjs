@@ -14,7 +14,9 @@
 // duas são iguais;
 // as setas da linha de destaques no computador, o axe em cada aba e os pontos de referência.
 // Conta no servidor (simulada como no API.md): a conta do aparelho espera o número e vai junto no primeiro login;
-// Minha conta com pedidos, vagas e endereços da loja.
+// Minha conta com pedidos, vagas e endereços da loja; os erros e os passos do código ("conta-passos": tentativas que
+// restam, recarregar no passo do código, o código que vence no passo do nome, "Sem conexão", sair sem internet, o teto
+// da loja batido no meio, o recado e o foco depois de criar).
 // Rateio: a aba abre, o cartão com o contador, o "?" abre o como funciona (que rola pelo teclado em 320×568), o
 // formulário valida, a confirmação leva pro WhatsApp com a mensagem certa (o botão cabe em 320), sem servidor vira
 // "Entrar pelo WhatsApp", a resposta perdida pede pra tentar de novo com o mesmo token (servidor que guarda o token
@@ -2650,6 +2652,387 @@ for (const [w, h, reduzir] of [[390, 844, false], [390, 844, true], [1280, 800, 
     conferir(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 0.5), `${nome}: Minha conta sem rolagem lateral`)
     await axeNaPagina(page, `${nome} minha conta`)
     await foto(page, `${nome}-minha-conta`)
+    await ctx.close()
+  }
+}
+
+// ---------- conta no servidor: os erros e os passos do código (auditoria da conta, 11/10). O servidor simulado
+// como no API.md, com estado: código errado diz quantas tentativas restam; código curto; o passo do código volta depois
+// de recarregar; o código que vence no passo do nome volta pro passo do código com o nome; o 429 de 1 por minuto com a
+// frase do servidor; servidor fora ("Sem conexão"); sair com o servidor fora não deixa a conta voltar; o teto da loja
+// batido no meio fecha a folha avisando e tira o "Entrar"; a conta do aparelho com 3 cupons diz que vão até 2 e quantos
+// vieram; depois de criar, o recado e o foco no "Oi". Revisão de 13/10: recarregar no passo do nome (o nome aberto e o
+// que estava escrito); a conta do aparelho que esperava ir pra loja volta quando o código pausa; o foco depois da pausa
+// (celular e computador); nome de um emoji só e o nome que o servidor recusa; o prêmio reservado no aparelho contado à
+// parte dos cupons; sair com o servidor fora e ele voltar na mesma visita (o sair termina antes de qualquer outro
+// pedido da conta) ----------
+{
+  const agora = Date.now()
+  const iso = (t) => new Date(t).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  const retrato = { titulo: '4 por 3 na OCB', regra: 'Leva 4 Seda OCB Premium Slim e paga 3', aplicaA: { produtos: ['seda-ocb-premium-slim'] }, comoUsar: 'Põe 4 na sacola e usa o cupom.', tipo: 'leve-x-pague-y', valor: { leve: 4, pague: 3 } }
+  /** Um contexto com o servidor das contas simulado; `st` muda o que ele responde no meio do teste. */
+  async function ctxConta(local, vp = { width: 390, height: 844 }) {
+    const ctx = await contexto(browser, vp)
+    await ctx.addInitScript((s) => {
+      localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5))
+      sessionStorage.setItem('gc-abertura', '1')
+      if (s && !localStorage.getItem('gc-conta')) localStorage.setItem('gc-conta', s)
+    }, local ? JSON.stringify(local) : '')
+    const st = { sessao: false, nome: null, zap: null, tentativas: 0, umPorMinuto: false, vencer: false, pausado: false, fora: false, recusarNome: false, pedidos: [], corpos: [], comSessao: [] }
+    const eu = () => ({
+      conta: { id: '9', nome: st.nome, whatsapp: st.zap, aceitaPromo: false, aceitaPromoEm: null, confirmou18Em: iso(agora), criadaEm: iso(agora) },
+      cupons: [],
+      enderecos: [],
+      dias: {},
+    })
+    await ctx.route('**/api/index.php**', async (route) => {
+      const r = new URL(route.request().url()).searchParams.get('r')
+      const corpo = route.request().postData() ? JSON.parse(route.request().postData()) : {}
+      st.pedidos.push(r)
+      st.corpos.push({ r, corpo })
+      if (st.fora && r !== 'loja') return route.abort('connectionrefused')
+      // as conversas da conta que chegaram, e se a sessão (o cookie) ainda valia nessa hora
+      if (r?.startsWith('cliente-')) st.comSessao.push({ r, sessao: st.sessao })
+      if (r === 'recursos') return route.fulfill({ json: { ok: true, contas: { codigo: !st.pausado, sessao: st.sessao } } })
+      if (r === 'cliente-codigo') {
+        if (st.pausado) return route.fulfill({ status: 409, json: { ok: false, erro: 'sem-codigo', mensagem: 'Entrar com código pelo WhatsApp tá pausado agora. Tua conta fica neste aparelho por enquanto.', pausado: true } })
+        if (st.umPorMinuto) return route.fulfill({ status: 429, json: { ok: false, erro: 'muitas-tentativas', mensagem: 'Acabou de sair um código pra esse número. Espera um pouquinho pra pedir outro.', esperaSegundos: 40, codigoValendo: false } })
+        st.tentativas = 0
+        st.vencer = false
+        return route.fulfill({ json: { ok: true, enviado: true, para: '(33) 9••••-2345', expiraEm: iso(Date.now() + 6e5), reenviarEm: iso(Date.now() + 6e4) } })
+      }
+      if (r === 'cliente-entrar') {
+        if (st.vencer) return route.fulfill({ status: 403, json: { ok: false, erro: 'codigo-vencido', mensagem: 'Esse código venceu. Pede outro.', campo: 'codigo' } })
+        // o nome que não fecha: o servidor recusa antes de conferir o código (que continua valendo)
+        if (corpo.nome && st.recusarNome) return route.fulfill({ status: 400, json: { ok: false, erro: 'invalido', mensagem: 'Põe teu nome (de 2 a 60 letras).', campo: 'nome' } })
+        if (corpo.codigo !== '482913') return route.fulfill({ status: 403, json: { ok: false, erro: 'codigo-errado', mensagem: 'Código errado.', campo: 'codigo', restam: 5 - ++st.tentativas } })
+        const nome = corpo.nome || corpo.migrar?.nome
+        if (!nome) return route.fulfill({ json: { ok: true, precisaNome: true, campo: 'nome', mensagem: 'Primeira vez por aqui: põe teu nome pra criar a conta.' } })
+        st.sessao = true
+        st.nome = nome
+        st.zap = corpo.whatsapp
+        // como o servidor: o prêmio reservado no aparelho entra primeiro nas 2 vagas, os cupons depois (contados à parte)
+        const pend = corpo.migrar?.pendente ? 1 : 0
+        const migradosCupons = Array.isArray(corpo.migrar?.cupons) ? Math.min(2 - pend, corpo.migrar.cupons.length) : 0
+        const premioMigrado = pend ? { codigo: 'SORTE-PR3M', interativo: 'sorte', premioId: corpo.migrar.pendente.premioId, retrato, demo: true, ganhoEm: iso(Date.now()), validoAte: iso(Date.now() + 3 * 864e5), usadoEm: null, origem: 'aparelho' } : null
+        return route.fulfill({ status: 201, json: { ok: true, ...eu(), criada: true, cupomGuardado: null, pendenteRecusado: null, migrados: migradosCupons + pend, migradosCupons, premioMigrado, pendente: null } })
+      }
+      if (r === 'cliente-sair') {
+        st.sessao = false
+        return route.fulfill({ json: { ok: true } })
+      }
+      if (r === 'cliente-eu') return st.sessao ? route.fulfill({ json: { ok: true, agora: iso(Date.now()), ...eu() } }) : route.fulfill({ status: 401, json: { ok: false, erro: 'sem-sessao', mensagem: 'Entra de novo.' } })
+      if (r === 'cliente-pedidos') return route.fulfill({ json: { ok: true, pedidos: [] } })
+      if (r === 'cliente-vagas') return route.fulfill({ json: { ok: true, vagas: [] } })
+      if (r === 'cliente-giro') return route.fulfill({ json: { ok: true, agora: iso(Date.now()), giro: { disponivel: true }, pendente: null, dias: [] } })
+      return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>sem servidor</title>' })
+    })
+    const page = await ctx.newPage()
+    vigiarSemRede(page, 'conta-passos')
+    return { ctx, page, st }
+  }
+  const abrir = async (page) => {
+    const tua = page.locator('.pe-conta-tua button')
+    await tua.waitFor({ timeout: 10000 })
+    await page.waitForFunction(() => /Entrar com teu WhatsApp|Minha conta/.test(document.querySelector('.pe-conta-tua')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => {})
+    await tua.scrollIntoViewIfNeeded()
+    await tua.click()
+    const f = page.locator('.conta-entrar')
+    await f.waitFor()
+    await page.waitForTimeout(300)
+    return f
+  }
+  const recado = (page) => page.locator('.aviso-area').innerText().catch(() => '')
+  const zapCampo = (f) => f.getByLabel('Teu WhatsApp', { exact: true })
+  const axeNaPagina = async (page, nome) => {
+    if (!AXE || !existsSync(AXE)) return relatorio.push('axe: axe-core não encontrado (AXE=caminho), pulei')
+    await page.addScriptTag({ path: AXE })
+    const v = await page.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id}: ${x.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(' | ')}`))
+    if (v.length) erros.push(`[axe ${nome}] ${v.join('; ')}`)
+    else relatorio.push(`axe ${nome}: 0 violações`)
+  }
+
+  // criar: código curto, errado (restam), o nome, o recado e o foco
+  {
+    const { ctx, page, st } = await ctxConta()
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    await zapCampo(f).fill('(33) 97771-2345')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await f.locator('.form-codigo').fill('4829')
+    await f.locator('button[type=submit]').click()
+    conferir((await f.locator('.form-alerta').innerText()) === 'O código tem 6 números.', 'conta-passos: código com menos de 6 números diz isso (antes: "não confere")')
+    await f.locator('.form-codigo').fill('111111')
+    await f.locator('button[type=submit]').click()
+    await page.waitForFunction(() => /Restam/.test(document.querySelector('.form-alerta')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {})
+    conferir(/Restam 4 tentativas/.test(await f.locator('.form-alerta').innerText()), `conta-passos: código errado diz quantas tentativas restam ("${await f.locator('.form-alerta').innerText()}")`)
+    conferir(await page.evaluate(() => (document.activeElement?.getAttribute('aria-describedby') ?? '').split(' ').some((id) => document.getElementById(id)?.classList.contains('form-alerta'))), 'conta-passos: o campo do código aponta pro erro e fica com o foco')
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await f.getByLabel('Teu nome').waitFor()
+    await f.getByLabel('Teu nome').fill('Nina Souza')
+    await f.locator('button[type=submit]').click()
+    await page.locator('.conta-oi').waitFor({ timeout: 8000 })
+    await page.waitForTimeout(500)
+    conferir(/Conta criada, Nina\./.test(await recado(page)), `conta-passos: criou pela Minha conta e avisa ("${await recado(page)}")`)
+    conferir(await page.evaluate(() => document.activeElement?.classList.contains('conta-nome')), 'conta-passos: o foco vai pro "Oi, Nina" (antes caía no <body>)')
+    conferir(/As vagas que tu pegar com a conta aberta aparecem aqui/.test(await page.locator('.conta').innerText()), 'conta-passos: vagas vazias sem prometer "com este WhatsApp"')
+    // logada, trocando o número com o código pausado na loja: a conta continua aberta e a tela diz pra tentar depois
+    st.pausado = true
+    await page.getByRole('button', { name: 'Editar' }).click()
+    const ed = page.locator('.form-editar')
+    await zapCampo(ed).fill('(33) 97771-9999')
+    await ed.locator('button[type=submit]').click()
+    await ed.locator('.form-alerta').waitFor({ timeout: 5000 }).catch(() => {})
+    conferir(/Tenta trocar o número mais tarde/.test(await ed.locator('.form-alerta').innerText().catch(() => '')) && (await page.locator('.conta-oi').count()) === 1, 'conta-passos: logada, trocar o número com o código pausado: a conta continua e a tela diz pra tentar depois')
+    // a conta foi apagada em outro aparelho (a sessão morreu): a Minha conta volta pro "Entrar" e diz por quê
+    st.pausado = false
+    st.sessao = false
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(600)
+    const f2 = await abrir(page)
+    conferir(/Tua sessão acabou\. Entra de novo com teu WhatsApp/.test(await f2.innerText()), 'conta-passos: a sessão acabou em outro lugar: o "Entrar" diz por quê (antes a conta sumia calada)')
+    await ctx.close()
+  }
+  // recarregar no passo do código; o código vence no passo do nome
+  {
+    const { ctx, page, st } = await ctxConta()
+    await page.clock.install()
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    let f = await abrir(page)
+    await zapCampo(f).fill('(33) 97771-2345')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await page.reload()
+    f = await abrir(page)
+    conferir((await f.locator('.form-codigo').count()) === 1 && (await zapCampo(f).inputValue()) === '(33) 97771-2345', 'conta-passos: recarregou no passo do código: volta nele, com o número')
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await f.getByLabel('Teu nome').waitFor()
+    st.vencer = true
+    await page.clock.fastForward(11 * 60_000)
+    await f.getByLabel('Teu nome').fill('Teca Demorada')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor({ timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(300)
+    const outro = f.getByRole('button', { name: /Mandar outro código/ })
+    conferir((await f.locator('.form-codigo').count()) === 1 && (await f.getByLabel('Teu nome').inputValue()) === 'Teca Demorada' && (await outro.count()) === 1 && (await outro.isEnabled()), 'conta-passos: o código venceu no passo do nome: volta pro código com o nome e o "Mandar outro código" (antes: "pede outro" sem botão)')
+    await axeNaPagina(page, 'conta-passos código vencido no nome')
+    await foto(page, 'conta-passos-nome-venceu')
+    await outro.click()
+    await page.waitForTimeout(400)
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await page.locator('.conta-oi').waitFor({ timeout: 8000 })
+    conferir(st.corpos.filter((x) => x.r === 'cliente-entrar').pop()?.corpo?.nome === 'Teca Demorada', 'conta-passos: o código novo entra já com o nome que estava escrito')
+    await ctx.close()
+  }
+  // 1 por minuto (a frase do servidor); servidor fora; sair com o servidor fora
+  {
+    const { ctx, page, st } = await ctxConta()
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    st.umPorMinuto = true
+    await zapCampo(f).fill('(33) 97771-2345')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-alerta').waitFor()
+    conferir(/Acabou de sair um código pra esse número/.test(await f.locator('.form-alerta').innerText()), `conta-passos: 1 por minuto com a frase do servidor (antes: "Muitas tentativas. Espera uns minutos") ("${await f.locator('.form-alerta').innerText()}")`)
+    st.umPorMinuto = false
+    st.fora = true
+    await f.locator('button[type=submit]').click()
+    await page.waitForFunction(() => /Sem conexão/.test(document.querySelector('.form-alerta')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => {})
+    conferir(/Sem conexão com a loja agora/.test(await f.locator('.form-alerta').innerText()), `conta-passos: servidor fora: "Sem conexão com a loja" (antes: "Não deu pra guardar agora")`)
+    st.fora = false
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await f.getByLabel('Teu nome').waitFor()
+    await f.getByLabel('Teu nome').fill('Sara Saindo')
+    await f.locator('button[type=submit]').click()
+    await page.locator('.conta-oi').waitFor({ timeout: 8000 })
+    st.fora = true
+    await page.getByRole('button', { name: 'Sair', exact: true }).click()
+    await page.waitForTimeout(800)
+    st.fora = false
+    // o servidor volta na MESMA visita (sem recarregar) e a pessoa já pede um código: antes, a sessão de que ela saiu
+    // ainda valia e ia junto (o giro e o cupom caíam na conta de que ela saiu); agora o sair termina antes
+    const desde = st.comSessao.length
+    const fs = await abrir(page)
+    await zapCampo(fs).fill('(33) 97771-6789')
+    await fs.locator('button[type=submit]').click()
+    await fs.locator('.form-codigo').waitFor({ timeout: 6000 }).catch(() => {})
+    const depois = st.comSessao.slice(desde)
+    conferir(depois[0]?.r === 'cliente-sair' && depois.slice(1).every((x) => !x.sessao) && depois.some((x) => x.r === 'cliente-codigo'), `conta-passos: saiu com o servidor fora e ele voltou na mesma visita: o sair termina antes de qualquer outro pedido da conta (${depois.map((x) => `${x.r}${x.sessao ? '+sessão' : ''}`).join(' → ')})`)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(500)
+    await page.evaluate(() => sessionStorage.removeItem('gc-recursos'))
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    await page.waitForTimeout(2500)
+    conferir(!/Sara/.test(await page.locator('.pe-conta-tua').innerText().catch(() => '')) && !st.sessao, 'conta-passos: saiu com o servidor fora: a conta não volta sozinha e o site termina de sair quando o servidor volta')
+    await ctx.close()
+  }
+  // o teto da loja batido no meio
+  {
+    const { ctx, page, st } = await ctxConta()
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    st.pausado = true
+    await zapCampo(f).fill('(33) 97771-2345')
+    await f.locator('button[type=submit]').click()
+    await page.waitForTimeout(1200)
+    conferir((await page.locator('.conta-entrar').count()) === 0 && /pausado agora/.test(await recado(page)), `conta-passos: teto batido no meio: a folha fecha e diz por quê (antes sumia calada) ("${await recado(page)}")`)
+    conferir((await page.locator('.pe-conta-tua').count()) === 0, 'conta-passos: e o "Entrar com teu WhatsApp" sai do Por estado (antes ficava, e não abria nada)')
+    const foco = await page.evaluate(() => (document.activeElement && document.activeElement !== document.body ? `${document.activeElement.tagName} ${(document.activeElement.textContent ?? '').trim().slice(0, 30)}` : 'BODY'))
+    conferir(foco !== 'BODY' && (await page.evaluate(() => !!document.activeElement?.closest('.pe-contas-lista'))), `conta-passos: teto batido no meio: o foco fica na lista do Por estado, perto de onde a pessoa estava (antes: <body>) (${foco})`)
+    await ctx.close()
+  }
+  // a mesma pausa no computador, só no teclado, pela lateral: o foco fica na lateral (antes: <body>, e o Tab ia pro topo)
+  {
+    const { ctx, page, st } = await ctxConta(null, { width: 1280, height: 800 })
+    await page.goto(`${base}?uf=mg`)
+    const entrar = page.locator('.lateral-item', { hasText: 'Entrar' })
+    await entrar.waitFor({ timeout: 10000 })
+    await entrar.focus()
+    await page.keyboard.press('Enter')
+    const f = page.locator('.conta-entrar')
+    await f.waitFor()
+    await zapCampo(f).focus()
+    await page.keyboard.type('33977712345')
+    st.pausado = true
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(1500)
+    const foco = await page.evaluate(() => (document.activeElement && document.activeElement !== document.body ? (document.activeElement.textContent ?? '').trim().slice(0, 30) : 'BODY'))
+    conferir((await page.locator('.conta-entrar').count()) === 0 && foco !== 'BODY' && (await page.evaluate(() => !!document.activeElement?.closest('.lateral'))), `conta-passos 1280: código pausado no meio, só no teclado: a folha fecha e o foco fica na lateral (antes: <body>) (${foco})`)
+    await ctx.close()
+  }
+  // a conta do aparelho esperando ir pra loja (paraMigrar) e o código pausa: ela volta a ser a conta aberta (antes sumia
+  // das telas com os cupons, e o recado dizia "tua conta fica neste aparelho"); quando o código volta, ela espera de novo
+  {
+    const zap = '5533977713579'
+    const local = { state: { contas: { [zap]: { conta: { id: 'l', nome: 'Lia Aparelho', whatsapp: zap, aceitaPromo: false, aceitaPromoEm: null, confirmou18Em: agora, criadaEm: agora }, cupons: [{ codigo: 'SORTE-AB2C', interativo: 'sorte', premioId: 'ocb-4-por-3', retrato, demo: true, ganhoEm: agora - 36e5, validoAte: agora + 3 * 864e5 }] } }, atual: zap, giros: {}, pendente: null, vistos: [] }, version: 1 }
+    const { ctx, page, st } = await ctxConta(local)
+    const tuaTexto = () => page.locator('.pe-conta-tua').innerText().catch(() => '')
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    conferir(/Lia Aparelho, 1 cupom\) vai junto/.test(await f.innerText()), 'conta-passos: a conta do aparelho espera ir pra loja (vai junto)')
+    st.pausado = true
+    await f.locator('button[type=submit]').click()
+    await page.waitForTimeout(1500)
+    conferir((await page.locator('.conta-entrar').count()) === 0 && /Lia · Minha conta/.test(await tuaTexto()) && /fica neste aparelho/.test(await recado(page)), `conta-passos: teto batido no meio com a conta do aparelho esperando: ela volta (Minha conta) e o recado diz que fica no aparelho (antes: sumia com o cupom) ("${(await tuaTexto()).replace(/\n/g, ' ')}")`)
+    conferir(await page.evaluate(() => document.activeElement?.hasAttribute('data-conta-entrada') && /Lia/.test(document.activeElement.textContent ?? '')), 'conta-passos: e o foco vai pra Minha conta dela (antes: <body>)')
+    await page.evaluate(() => sessionStorage.removeItem('gc-recursos'))
+    await page.reload()
+    await page.locator('.pe-conta-tua').waitFor({ timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(1500)
+    const cache = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-conta') ?? '{}').state)
+    conferir(/Lia · Minha conta/.test(await tuaTexto()) && cache?.atual === zap && !cache.paraMigrar, 'conta-passos: recarregou com o código pausado: a conta do aparelho continua aberta (antes: nem "Entrar" nem "Minha conta")')
+    st.pausado = false
+    await page.evaluate(() => sessionStorage.removeItem('gc-recursos'))
+    await page.reload()
+    await page.waitForFunction(() => /Entrar com teu WhatsApp/.test(document.querySelector('.pe-conta-tua')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => {})
+    conferir(/Entrar com teu WhatsApp/.test(await tuaTexto()), 'conta-passos: o código voltou: a conta do aparelho espera de novo pra ir junto')
+    await ctx.close()
+  }
+  // recarregar no passo do nome (número novo pelo "Entrar"): volta no passo do código com o nome aberto e o que estava
+  // escrito (antes: o nome vazio e só leitura, e "Criar conta" dizia "Escreve teu nome." sem deixar escrever)
+  {
+    const { ctx, page, st } = await ctxConta()
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    let f = await abrir(page)
+    await zapCampo(f).fill('(33) 97771-2345')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await f.getByLabel('Teu nome').waitFor()
+    await f.getByLabel('Teu nome').pressSequentially('Lu Recarregou')
+    await page.reload()
+    f = await abrir(page)
+    const nome = f.getByLabel('Teu nome')
+    conferir((await f.locator('.form-codigo').count()) === 1 && (await nome.count()) === 1 && (await nome.inputValue()) === 'Lu Recarregou' && !(await nome.evaluate((e) => e.readOnly)), `conta-passos: recarregou no passo do nome: volta no código com o nome aberto e escrito ("${await nome.inputValue().catch(() => '-')}")`)
+    await foto(page, 'conta-passos-recarregou-nome')
+    // (no código de antes o campo era só leitura: o fill não passa, e a conferência de baixo acusa)
+    await nome.fill('Lu Recarregada', { timeout: 3000 }).catch(() => {})
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await page.locator('.conta-oi').waitFor({ timeout: 8000 }).catch(() => {})
+    conferir((await page.locator('.conta-oi').count()) === 1 && st.corpos.filter((x) => x.r === 'cliente-entrar').pop()?.corpo?.nome === 'Lu Recarregada' && st.pedidos.filter((x) => x === 'cliente-codigo').length === 1, 'conta-passos: e cria a conta com o nome, sem gastar outro código')
+    await ctx.close()
+  }
+  // o nome: um emoji só não passa no site (o servidor conta letras: "🔥" é 1; antes ia e voltava "Deu um erro aqui"); o
+  // nome que o servidor recusa mostra a frase dele no campo do nome, com o foco nele, e o mesmo código vale
+  {
+    const { ctx, page, st } = await ctxConta()
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    await zapCampo(f).fill('(33) 97771-2468')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await f.getByLabel('Teu nome').waitFor()
+    await f.getByLabel('Teu nome').fill('🔥')
+    const antes = st.corpos.length
+    await f.locator('button[type=submit]').click()
+    await page.waitForTimeout(500)
+    conferir(/Escreve teu nome/.test(await f.locator('.form-erro').innerText().catch(() => '')) && st.corpos.length === antes && !/Deu um erro/.test(await f.innerText()), 'conta-passos: nome de um emoji só: o erro fica no campo, sem ir pro servidor (antes: "Deu um erro aqui")')
+    // (no código de antes, o "🔥" passava e a folha já tinha fechado: o resto não tem como seguir)
+    if ((await f.getByLabel('Teu nome').count()) === 1) {
+      st.recusarNome = true
+      await f.getByLabel('Teu nome').fill('Zé Recusado')
+      await f.locator('button[type=submit]').click()
+      await page.waitForFunction(() => /2 a 60 letras/.test(document.querySelector('.form-conta')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {})
+      conferir(/Põe teu nome \(de 2 a 60 letras\)/.test(await f.locator('.form-erro').innerText().catch(() => '')) && (await page.evaluate(() => document.activeElement?.getAttribute('autocomplete') === 'name')) && !/Deu um erro/.test(await f.innerText()), 'conta-passos: o servidor recusou o nome: a frase dele no campo do nome, com o foco nele')
+      await axeNaPagina(page, 'conta-passos nome recusado')
+      st.recusarNome = false
+      await f.getByLabel('Teu nome').fill('Zé')
+      await f.locator('button[type=submit]').click()
+      await page.locator('.conta-oi').waitFor({ timeout: 8000 }).catch(() => {})
+      conferir((await page.locator('.conta-oi').count()) === 1, 'conta-passos: com "Zé" (2 letras) cria, com o mesmo código')
+    } else conferir(false, 'conta-passos: o servidor recusou o nome (não deu pra conferir: o "🔥" passou e a folha fechou)')
+    await ctx.close()
+  }
+  // a conta do aparelho com 3 cupons
+  {
+    const zap = '5533977712345'
+    const cupom = (codigo) => ({ codigo, interativo: 'sorte', premioId: 'ocb-4-por-3', retrato, demo: true, ganhoEm: agora - 36e5, validoAte: agora + 3 * 864e5 })
+    const local = { state: { contas: { [zap]: { conta: { id: 'l', nome: 'Duda Aparelho', whatsapp: zap, aceitaPromo: false, aceitaPromoEm: null, confirmou18Em: agora, criadaEm: agora }, cupons: [cupom('SORTE-AB2C'), cupom('SORTE-AB3D'), cupom('SORTE-AB7F')] } }, atual: zap, giros: {}, pendente: null, vistos: [] }, version: 1 }
+    const { ctx, page } = await ctxConta(local)
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    conferir(/3 cupons\) vai junto, com até 2 cupons/.test(await f.innerText()), 'conta-passos: a conta do aparelho com 3 cupons diz que vão até 2')
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await page.locator('.conta-oi').waitFor({ timeout: 8000 })
+    await page.waitForTimeout(400)
+    conferir(/Conta criada, Duda\. Vieram 2 dos 3 cupons deste aparelho/.test(await recado(page)), `conta-passos: depois diz quantos cupons vieram ("${await recado(page)}")`)
+    await ctx.close()
+  }
+  // a conta do aparelho com cupons e um prêmio reservado nele (girou sem conta antes de a loja ligar as contas): o prêmio
+  // entra primeiro nas 2 vagas. Antes ele contava como cupom ("Vieram 2 dos 3" quando veio 1; com 2, "Os 2 cupons vieram
+  // junto" e o 2º sumia calado) e não era anunciado
+  for (const n of [2, 3]) {
+    const zap = '5533977712345'
+    const cupom = (codigo) => ({ codigo, interativo: 'sorte', premioId: 'ocb-4-por-3', retrato, demo: true, ganhoEm: agora - 36e5, validoAte: agora + 3 * 864e5 })
+    const cupons = [cupom('SORTE-AB2C'), cupom('SORTE-AB3D'), cupom('SORTE-AB7F')].slice(0, n)
+    const local = { state: { contas: { [zap]: { conta: { id: 'l', nome: 'Bia Aparelho', whatsapp: zap, aceitaPromo: false, aceitaPromoEm: null, confirmou18Em: agora, criadaEm: agora }, cupons } }, atual: zap, giros: {}, pendente: { interativo: 'sorte', premioId: 'dichavador-10', sorteadoEm: agora - 36e5, expiraEm: agora + 20 * 36e5 }, vistos: [] }, version: 1 }
+    const { ctx, page } = await ctxConta(local)
+    await page.goto(`${base}?uf=mg&aba=estados`)
+    const f = await abrir(page)
+    const antes = await f.locator('.form-sub').innerText()
+    conferir(new RegExp(`\\(Bia Aparelho, ${n} cupons e o prêmio reservado\\) vai junto, com até 2 cupons \\(o prêmio reservado primeiro\\)`).test(antes), `conta-passos: ${n} cupons e o prêmio reservado: diz antes que vão até 2, o prêmio primeiro ("${antes}")`)
+    await f.locator('button[type=submit]').click()
+    await f.locator('.form-codigo').waitFor()
+    await f.locator('.form-codigo').fill('482913')
+    await f.locator('button[type=submit]').click()
+    await page.locator('.conta-oi').waitFor({ timeout: 8000 })
+    await page.waitForTimeout(400)
+    const depois = await recado(page)
+    conferir(new RegExp(`Veio 1 dos ${n} cupons deste aparelho \\(entram até 2, contando o prêmio reservado\\)\\. Teu prêmio tá guardado: cupom SORTE-PR3M\\.`).test(depois), `conta-passos: ${n} cupons e o prêmio reservado: depois diz que veio 1 cupom e o prêmio guardado ("${depois}")`)
     await ctx.close()
   }
 }

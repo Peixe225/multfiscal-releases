@@ -4,7 +4,7 @@ import { interativoPorId, interativosEmBreve } from '../interativos/registro'
 import { Regras } from '../interativos/sorte/Regras'
 import { ID_SORTE, useEstadoSorte, usarNoPedido } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
-import { primeiroNome, useConta, useCupons, type CupomComStatus } from '../lib/conta'
+import { primeiroNome, useConta, useCupons, type ContaAberta, type CupomComStatus } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
 import { useModoConta } from '../lib/conta-modo'
 import { useContaStore } from '../store/conta'
@@ -17,9 +17,11 @@ import { mascararCelular } from '../lib/telefone'
 import { useLocal } from '../store/local'
 import { useSacola } from '../store/sacola'
 import { useUI } from '../store/ui'
+import { FOCAVEIS, focarVista } from '../lib/foco'
 import { Icone } from './comum'
 import { Folha } from './Folha'
-import { FormConta } from './FormConta'
+import { FormConta, lerPassoGuardado, type ModoForm } from './FormConta'
+import { recadoDeEntrada } from './conta-textos'
 import { SecaoEnderecos, SecaoMeusDados, SecaoPedidos, SecaoVagas, useAtualizarConta } from './ContaServidor'
 import './ContaFolha.css'
 
@@ -32,29 +34,95 @@ export function ContaFolha() {
   const setConta = useUI((s) => s.setConta)
   const conta = useConta()
   const servidor = useModoConta() === 'servidor'
+  const avisar = useUI((s) => s.avisar)
   const fechar = () => setConta(false)
   // sem conta só abre pra entrar na conta da loja; com a conta do aparelho, saiu ou apagou com a folha aberta: fecha
   const ativa = aberta && (!!conta || servidor)
   useEffect(() => {
     if (aberta && !conta && !servidor) setConta(false)
   }, [aberta, conta, servidor, setConta])
+  // entrou ou criou a conta aqui: o "Entrar" sai e a Minha conta entra no lugar; o foco vai pro "Oi, Fulano" (sem isto,
+  // o botão tocado sumia e o foco caía no <body>)
+  const focarOi = useRef(false)
+  useEffect(() => {
+    if (!conta || !focarOi.current) return
+    focarOi.current = false
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.folha-conta .conta-nome')?.focus({ preventScroll: true }))
+  }, [conta])
+  const entrou = (r: ContaAberta, m: ModoForm) => {
+    focarOi.current = true
+    avisar(recadoDeEntrada(r, m === 'criar'))
+  }
+  // quem abriu a folha e os vizinhos dele: o "Entrar" some das telas quando o código pausa, e o foco precisa de um lugar
+  const abriu = useRef<PertoDe>({ caixa: null, vizinhos: [] })
+  useEffect(() => {
+    if (aberta) abriu.current = vizinhosDe(document.activeElement)
+  }, [aberta])
+  // a loja pausou o código no meio (desligou ou bateu o teto): a conta volta pro aparelho, a folha fecha e diz por quê.
+  // O botão que abriu sumiu: o foco vai pra Minha conta (a conta do aparelho voltou) ou pra perto de onde a pessoa estava
+  const pausou = (frase: string) => {
+    avisar(frase)
+    setConta(false)
+    focarDepoisDeFechar(abriu.current)
+  }
   return (
-    <Folha id="conta" aberta={ativa} aoFechar={fechar} rotulo="Minha conta" cabecalho={<span>{T.minhaConta}</span>}>
-      {conta ? <Conteudo fechar={fechar} /> : servidor ? <Entrar /> : null}
+    <Folha id="conta" className="folha-conta" aberta={ativa} aoFechar={fechar} rotulo="Minha conta" cabecalho={<span>{T.minhaConta}</span>}>
+      {conta ? <Conteudo fechar={fechar} /> : servidor ? <Entrar aoSucesso={entrou} aoPausar={pausou} /> : null}
     </Folha>
   )
 }
 
+/** Onde estava quem abriu a folha: a lista, o menu ou a seção, e o que dá pra focar ali (o de antes, o de depois). */
+interface PertoDe {
+  caixa: Element | null
+  vizinhos: HTMLElement[]
+}
+
+const naTela = (x: HTMLElement) => x.isConnected && x.getClientRects().length > 0 && !x.closest('[inert]')
+
+function vizinhosDe(ativo: Element | null): PertoDe {
+  // no toque (o Safari, o celular) o botão tocado nem sempre fica com o foco: vale a entrada da conta que está na tela
+  const el =
+    ativo instanceof HTMLElement && ativo !== document.body && !ativo.closest('.folha')
+      ? ativo
+      : [...document.querySelectorAll<HTMLElement>('[data-conta-entrada]')].find(naTela)
+  if (!el) return { caixa: null, vizinhos: [] }
+  const caixa = el.closest('ul, nav, section') ?? document.body
+  const lista = [...caixa.querySelectorAll<HTMLElement>(FOCAVEIS)].filter((x) => x.tabIndex >= 0)
+  const i = lista.indexOf(el)
+  return { caixa, vizinhos: i < 0 ? [] : [lista[i - 1], lista[i + 1]].filter((x): x is HTMLElement => !!x) }
+}
+
+/**
+ * Depois que a Minha conta sai da tela (a folha anima a saída), se o foco caiu no <body>: a entrada da conta que está na
+ * tela (a conta do aparelho voltou), um vizinho de quem abriu, ou o título da aba.
+ */
+function focarDepoisDeFechar({ caixa, vizinhos }: PertoDe) {
+  let n = 0
+  const tentar = () => {
+    if (document.querySelector('.folha-conta') && n++ < 40) return void window.setTimeout(tentar, 50)
+    const ativo = document.activeElement
+    if (ativo && ativo !== document.body && ativo.isConnected) return
+    // a entrada da conta de onde a pessoa estava vem primeiro (no computador, a da lateral e a do Por estado)
+    const entradas = [...document.querySelectorAll<HTMLElement>('[data-conta-entrada]')].sort((a, b) => Number(!!caixa?.contains(b)) - Number(!!caixa?.contains(a)))
+    const alvo = [...entradas, ...vizinhos].find(naTela)
+    if (alvo) alvo.focus({ preventScroll: true })
+    else focarVista(useUI.getState().aba)
+  }
+  window.setTimeout(tentar, 50)
+}
+
 /** Sem conta, no modo servidor: entrar (ou criar) com o WhatsApp e o código, dentro da folha. */
-function Entrar() {
-  const [modo, setModo] = useState<'entrar' | 'criar'>('entrar')
+function Entrar({ aoSucesso, aoPausar }: { aoSucesso: (r: ContaAberta, m: ModoForm) => void; aoPausar: (frase: string) => void }) {
+  // recarregou no passo do código do "Criar conta": volta nele (o formulário guarda o passo na aba)
+  const [modo, setModo] = useState<'entrar' | 'criar'>(() => (lerPassoGuardado()?.modo === 'criar' ? 'criar' : 'entrar'))
   const raiz = useRef<HTMLDivElement>(null)
   useEffect(() => {
     raiz.current?.querySelector<HTMLElement>('.form-titulo')?.focus()
   }, [modo])
   return (
     <div ref={raiz} className="conta conta-entrar">
-      <FormConta key={modo} modo={modo} tituloMenor aoSucesso={() => undefined} aoTrocarModo={setModo} />
+      <FormConta key={modo} modo={modo} tituloMenor aoSucesso={aoSucesso} aoTrocarModo={setModo} aoPausar={aoPausar} />
     </div>
   )
 }

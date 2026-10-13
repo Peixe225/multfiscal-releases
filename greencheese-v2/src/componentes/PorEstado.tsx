@@ -52,7 +52,7 @@ function TuaConta() {
   if (!conta && !entrar) return null
   return (
     <li className="pe-conta pe-conta-tua">
-      <button type="button" className="pe-conta-linha toque" onClick={() => setConta(true)} aria-haspopup="dialog">
+      <button type="button" className="pe-conta-linha toque" onClick={() => setConta(true)} aria-haspopup="dialog" data-conta-entrada>
         <span className="pe-conta-avatar pe-conta-avatar-mais" aria-hidden="true">
           <Icone nome="conta" tamanho={24} />
         </span>

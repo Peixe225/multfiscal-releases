@@ -169,6 +169,10 @@
   justify-content: space-between;
   gap: 0 8px;
 }
+/* no celular estreito os dois quebram em duas linhas: o "Mandar outro código" fica do lado direito, como na linha só */
+.form-codigo-acoes > :last-child {
+  margin-left: auto;
+}
 .form-codigo-acoes .botao-texto[disabled] {
   color: var(--legenda);
   text-decoration: none;

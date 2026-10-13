@@ -1263,7 +1263,7 @@ Sem isso, o site segue com a conta só no aparelho (como antes). O site pergunta
 |---|---|---|
 | GET `recursos` | — | `{ contas: { codigo: boolean, sessao: boolean } }` (`codigo`: dá pra entrar com código; `sessao`: este aparelho tem conta aberta) |
 | POST `cliente-codigo` | `{ whatsapp, motivo?: 'entrar' \| 'trocar', aparelho?, site: '' }` | `{ enviado: true, para: '(33) 9••••-4567', expiraEm, reenviarEm }` |
-| POST `cliente-entrar` | `{ whatsapp, codigo, nome?, aceitaPromo?, aparelho?, migrar? }` | 201 (criou) / 200 `ContaEu & { criada, cupomGuardado, pendenteRecusado: 'ja-girou-hoje' \| null, migrados, pendente: null }` + cookie · sem conta e sem nome: 200 `{ precisaNome: true, campo: 'nome' }` (sem sessão; o código continua valendo) |
+| POST `cliente-entrar` | `{ whatsapp, codigo, nome?, aceitaPromo?, aparelho?, migrar? }` | 201 (criou) / 200 `ContaEu & { criada, cupomGuardado, pendenteRecusado: 'ja-girou-hoje' \| null, migrados, migradosCupons, premioMigrado: Cupom \| null, pendente: null }` + cookie · sem conta e sem nome: 200 `{ precisaNome: true, campo: 'nome' }` (sem sessão; o código continua valendo) · nome que não fecha (menos de 2 ou mais de 60 letras depois de limpar; um emoji é 1 letra): 400 `invalido` com `campo: 'nome'`, antes de conferir o código (que continua valendo) |
 | GET `cliente-eu` | `[&aparelho=]` | `{ agora } & ContaEu` |
 | POST `cliente-atualizar` | `{ nome?, aceitaPromo?, whatsapp?, codigo? }` (WhatsApp novo pede o código que foi pra ele, `motivo: 'trocar'`) | `{ conta }` |
 | POST `cliente-sair` | `{}` | `{}`, apaga a sessão e o cookie |
@@ -1275,10 +1275,13 @@ Sem isso, o site segue com a conta só no aparelho (como antes). O site pergunta
 | POST `cliente-endereco-apagar` | `{ id }` | `{ enderecos }` |
 
 Erros: `sem-codigo` 409 (o código está desligado: o site volta pra conta do aparelho), `sem-envio` 503 (o WhatsApp da
-loja não mandou; o código não vale), `codigo-errado` 403 (com `restam`), `codigo-vencido` 403 (passou dos 10 min ou das
+loja não mandou; o código não vale e não conta no "1 por minuto" nem nos 3 em 15 min do número: dá pra pedir de novo na
+hora — os limites por IP, por rede, por dia e o teto da loja continuam contando), `codigo-errado` 403 (com `restam`), `codigo-vencido` 403 (passou dos 10 min ou das
 5 tentativas: pede outro), `whatsapp-existe` 409 (trocar pra um número que já tem conta), `limite-enderecos` 409,
 `sem-sessao` 401 (o site larga a conta do servidor e volta pro "Entrar"), `invalido` 400 (com `campo`),
-`muitas-tentativas` 429. O `site` é a armadilha de robô (preenchido → finge que mandou).
+`muitas-tentativas` 429. O `site` é a armadilha de robô: preenchido → `invalido` 400 com `campo: 'site'` ("Não deu pra
+mandar o código. Recarrega a página e tenta de novo."), sem mandar nada, e conta no limite do IP (o mesmo jeito do
+`POST pedido`).
 
 **Primeiro login com a conta do aparelho** (`migrar`): `{ nome, aceitaPromo, aceitaPromoEm, cupons: [{ codigo,
 interativo, premioId, ganhoEm, validoAte }], pendente?, giros }`. Número sem conta na loja: a conta nasce com o nome e
@@ -1290,7 +1293,11 @@ todo cupom nasce no servidor), com a validade contada do dia em que foram ganhos
 mesmo código quando está livre (`origem: 'aparelho'`). Os dias de giro do aparelho contam como giro da conta (sempre:
 só restringem; os dos últimos 30 dias): a lista tem um dia por giro, e cada dia entra com quantos giros vieram nele (até
 N, que já enche toda janela que passa por ele), descontando os que o servidor já tem naquele dia pra conta ou pro
-aparelho. `migrados` diz quantos cupons vieram.
+aparelho. `migrados` diz quantos entraram no total; `migradosCupons`, quantos deles eram cupons do aparelho; e
+`premioMigrado`, o prêmio reservado no aparelho que virou cupom agora (ou `null`), que entra primeiro nas 2 vagas — com
+3 cupons e o prêmio, `migrados: 2`, `migradosCupons: 1` e o prêmio. O site diz antes "vai junto, com até 2 cupons (o
+prêmio reservado primeiro)" e depois "Veio 1 dos 3 cupons deste aparelho (entram até 2, contando o prêmio reservado).
+Teu prêmio tá guardado: cupom SORTE-XXXX".
 
 **Pedidos e vagas da conta**: o pedido (ou a vaga) entra na conta quando foi feito com ela logada, ou quando o
 WhatsApp dele foi **conferido**: veio da conta logada (que entrou pelo código) ou a loja salvou o número no painel
@@ -1329,7 +1336,7 @@ vai só pro gateway, nunca pro banco) e o alvo `conta:<hash do número>`, que so
 
 | Rota | Corpo / parâmetros | Sucesso |
 |---|---|---|
-| GET `admin-clientes` | `[&busca=][&promo=1][&antes=<id>][&limite=50]` | `{ agora, clientes: ClienteLinha[], mais, total, comPromo, codigo: { ligado, motor, desligadoPeloDono, teto: { hora, dia, usadosHora, usadosDia, pausadoAte } } }` |
+| GET `admin-clientes` | `[&busca=][&promo=1][&antes=<id>][&limite=50]` (`busca`: pedaço do nome, sem acento e sem caixa, ou do WhatsApp; só número e pontuação de telefone — `(33) 97712-0001`, `+55 33 …`, `033 …` — vira os dígitos) | `{ agora, clientes: ClienteLinha[], mais, total, comPromo, codigo: { ligado, motor, desligadoPeloDono, teto: { hora, dia, usadosHora, usadosDia, pausadoAte } } }` |
 | GET `admin-cliente` | `&id=` | `{ cliente, cupons, enderecos, pedidos, vagas, giros }` |
 | GET `admin-clientes-csv` | — | arquivo `clientes-promocoes-<data>.csv` (`;`, BOM: Nome, WhatsApp, Estado, Aceitou promoções em, Conta criada em; só quem aceitou) |
 | POST `admin-cliente-apagar` | `{ id }` | `{}` (o pedido de exclusão que chegou pela conversa; as sessões do cliente caem) |

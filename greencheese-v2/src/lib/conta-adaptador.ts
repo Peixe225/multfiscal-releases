@@ -2,8 +2,8 @@ import { regrasSorte } from '../dados/sorte'
 import { useContaStore, type Conta, type Cupom, type EstadoConta, type Pendente } from '../store/conta'
 import { regrasDaSorte } from '../store/loja'
 import { useSacola } from '../store/sacola'
-import { armazenamentoOk, calcularGiro, contaAtual, pendenteValido, type AdaptadorConta, type ContaAberta, type ErroCodigo, type GiroInfo } from './conta'
-import { definirModo, descobrirModo, esquecerRecursos, modoConta, registrarRestauro } from './conta-modo'
+import { armazenamentoOk, calcularGiro, contaAtual, letrasDoNome, limparNome, pendenteValido, type AdaptadorConta, type ContaAberta, type DetalheErro, type ErroCodigo, type GiroInfo } from './conta'
+import { codigoDesligou, definirModo, descobrirModo, esquecerRecursos, modoConta, registrarRestauro } from './conta-modo'
 import { contaDaApi, cupomDaApi, diasDaApi, gravarEu, pedirApi, pendenteDaApi, type RespostaApi } from './conta-servidor'
 import { diaSP, fimDoDiaSP, premioPorId, statusDo } from './cupom'
 import { gerarCodigo, premiosElegiveis, retratoDe, sortear } from './cupom-uso'
@@ -36,9 +36,7 @@ function novoId(): string {
   return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function nomeLimpo(nome: string): string {
-  return nome.replace(/\s+/g, ' ').trim().slice(0, 60)
-}
+const nomeLimpo = limparNome
 
 /** Cria o cupom do prêmio na conta aberta (o código nasce aqui). */
 function criarCupom(s: EstadoConta, interativo: string, premioId: string, agora: number): Cupom | null {
@@ -95,7 +93,7 @@ export const contaLocal: AdaptadorConta = {
     await reler()
     const whatsapp = celularParaGuardar(d.whatsapp)
     const nome = nomeLimpo(d.nome)
-    if (!whatsapp || nome.length < 2) return { ok: false, erro: 'invalido' }
+    if (!whatsapp || letrasDoNome(nome) < 2) return { ok: false, erro: 'invalido' }
     if (st().contas[whatsapp]) return { ok: false, erro: 'whatsapp-existe' }
     const agora = Date.now()
     const conta: Conta = {
@@ -149,7 +147,7 @@ export const contaLocal: AdaptadorConta = {
     const atual = contaAtual(s)
     if (!atual || !s.atual) return { ok: false, erro: 'invalido' }
     const nome = d.nome != null ? nomeLimpo(d.nome) : atual.conta.nome
-    if (nome.length < 2) return { ok: false, erro: 'invalido' }
+    if (letrasDoNome(nome) < 2) return { ok: false, erro: 'invalido' }
     const whatsapp = d.whatsapp != null ? celularParaGuardar(d.whatsapp) : atual.conta.whatsapp
     if (!whatsapp) return { ok: false, erro: 'invalido' }
     if (whatsapp !== s.atual && s.contas[whatsapp]) return { ok: false, erro: 'whatsapp-existe' }
@@ -244,11 +242,34 @@ export function aparelho(): string {
   return novo
 }
 
-/** Erro do código no formato da interface (o resto vira 'falhou': a tela diz pra tentar de novo). */
+/**
+ * Erro do código no formato da interface: o servidor fora do ar (sem resposta, a hospedagem respondendo outra coisa, o
+ * 503 do Vite sem o PHP) vira 'rede'; o código desligado ou pausado na loja, 'pausado'; o resto vira 'falhou' (a tela
+ * diz pra tentar de novo).
+ */
 function erroCodigo(r: Extract<RespostaApi<unknown>, { ok: false }>): ErroCodigo {
   if (r.erro === 'codigo-errado' || r.erro === 'codigo-vencido' || r.erro === 'muitas-tentativas' || r.erro === 'sem-envio') return r.erro
   if (r.erro === 'invalido' && r.extra.campo === 'codigo') return 'codigo-errado'
+  // o nome que o servidor não aceita (antes virava "Deu um erro aqui", sem dizer o que fazer): a frase vai pro campo
+  if (r.erro === 'invalido' && r.extra.campo === 'nome') return 'nome-invalido'
+  if (r.erro === 'sem-codigo') return 'pausado'
+  if (r.erro === 'rede' || r.erro === 'resposta' || r.erro === 'sem-servidor') return 'rede'
   return 'falhou'
+}
+
+/** O que o servidor mandou junto com o erro (tentativas que restam, a espera, a frase pronta dele). */
+function detalheDo(r: Extract<RespostaApi<unknown>, { ok: false }>): DetalheErro {
+  const d: DetalheErro = {}
+  if (typeof r.extra.restam === 'number') d.restam = r.extra.restam
+  if (typeof r.extra.esperaSegundos === 'number') d.esperaSegundos = r.extra.esperaSegundos
+  if (r.mensagem) d.mensagem = r.mensagem
+  if (r.erro === 'invalido' && r.extra.campo === 'codigo') d.mensagem = 'O código tem 6 números.'
+  return d
+}
+
+/** A resposta de erro do código, com o detalhe. */
+function falhaCodigo(r: Extract<RespostaApi<unknown>, { ok: false }>) {
+  return { ok: false as const, erro: erroCodigo(r), detalhe: detalheDo(r) }
 }
 
 /**
@@ -282,6 +303,8 @@ function abriuNoServidor(d: Record<string, unknown>, migrou: ReturnType<typeof d
   const s = st()
   if (migrou?.pendente || guardado || s.pendente?.servidor) extra.pendente = null
   if (migrou?.conta && s.paraMigrar === migrou.conta) extra.paraMigrar = null
+  // entrou de novo: o "sair" que tinha ficado pela metade (a sessão velha) não vale mais
+  extra.sairPendente = false
   // a conta do aparelho que foi junto sai do cache (a do servidor entra no lugar, com o mesmo número)
   const conta = gravarEu(d, extra)
   if (!conta) return null
@@ -294,7 +317,20 @@ function abriuNoServidor(d: Record<string, unknown>, migrou: ReturnType<typeof d
   }
   definirModo('servidor')
   esquecerRecursos()
-  return { conta, cupomGuardado: guardado, jaTinha: d.criada === false, ...(d.pendenteRecusado === 'ja-girou-hoje' ? { pendenteRecusado: 'ja-girou-hoje' as const } : {}) }
+  const levados = migrou?.corpo.cupons
+  const levou = Array.isArray(levados) ? levados.length : 0
+  // o servidor separa os cupons do aparelho do prêmio reservado nele (que entra primeiro nas 2 vagas e vira cupom
+  // agora): antes o prêmio contava como cupom ("Vieram 2 dos 3" quando veio 1). Servidor de antes: só o total
+  const premioMigrado = cupomDaApi(d.premioMigrado)
+  const vieram = Math.min(levou, typeof d.migradosCupons === 'number' ? d.migradosCupons : typeof d.migrados === 'number' ? d.migrados : 0)
+  return {
+    conta,
+    // o prêmio reservado no aparelho que virou cupom também é "teu prêmio tá guardado"
+    cupomGuardado: guardado ?? premioMigrado,
+    jaTinha: d.criada === false,
+    ...(d.pendenteRecusado === 'ja-girou-hoje' ? { pendenteRecusado: 'ja-girou-hoje' as const } : {}),
+    ...(levou > 0 ? { migracao: { levou, vieram, ...(premioMigrado ? { comPremio: true } : {}) } } : {}),
+  }
 }
 
 /** A conta do servidor sai deste aparelho (sair, apagar): o cache esquece ela, o cupom aplicado sai da sacola. */
@@ -337,10 +373,10 @@ export const contaServidor: AdaptadorConta = {
   async criar(d) {
     if (!d.codigo) return { ok: false, erro: 'precisa-codigo' }
     const whatsapp = celularParaGuardar(d.whatsapp)
-    if (!whatsapp || nomeLimpo(d.nome).length < 2) return { ok: false, erro: 'invalido' }
+    if (!whatsapp || letrasDoNome(d.nome) < 2) return { ok: false, erro: 'invalido' }
     const r = await contaServidor.confirmarCodigo(whatsapp, d.codigo, { nome: nomeLimpo(d.nome), aceitaPromo: d.aceitaPromo })
     if (r.ok) return r
-    return { ok: false, erro: r.erro === 'precisa-nome' || r.erro === 'nao-encontrada' ? 'invalido' : r.erro }
+    return { ok: false, erro: r.erro === 'precisa-nome' || r.erro === 'nao-encontrada' ? 'invalido' : r.erro, detalhe: r.detalhe }
   },
 
   async pedirCodigo(whatsappTexto, motivo = 'entrar') {
@@ -352,13 +388,11 @@ export const contaServidor: AdaptadorConta = {
     if (r.ok) return { ok: true, valor: { enviado: true } }
     // limite do número, mas o código que já chegou no WhatsApp ainda vale (valem os 2 últimos): vai pro passo do código
     if (r.erro === 'muitas-tentativas' && r.extra.codigoValendo === true) return { ok: true, valor: { enviado: true, jaValendo: true } }
-    if (r.erro === 'sem-codigo') {
-      // a loja desligou o código no meio do caminho: a conta volta pro aparelho
-      definirModo('local')
-      esquecerRecursos()
-    }
-    if (r.erro === 'invalido' && r.extra.campo === 'whatsapp') return { ok: false, erro: 'invalido' }
-    return { ok: false, erro: erroCodigo(r) }
+    // a loja desligou o código (ou bateu o teto) no meio do caminho: sem conta da loja aberta, a conta volta pro aparelho
+    // e o "Entrar" some das telas (antes ficava um "Entrar com teu WhatsApp" que não abria nada)
+    if (r.erro === 'sem-codigo') codigoDesligou()
+    if (r.erro === 'invalido' && r.extra.campo === 'whatsapp') return { ok: false, erro: 'invalido', detalhe: detalheDo(r) }
+    return falhaCodigo(r)
   },
 
   async confirmarCodigo(whatsappTexto, codigo, extra) {
@@ -370,7 +404,7 @@ export const contaServidor: AdaptadorConta = {
     if (extra?.aceitaPromo != null) corpo.aceitaPromo = extra.aceitaPromo
     if (migrar) corpo.migrar = migrar.corpo
     const r = await pedirApi<Record<string, unknown>>('cliente-entrar', { metodo: 'POST', corpo })
-    if (!r.ok) return { ok: false, erro: erroCodigo(r) }
+    if (!r.ok) return falhaCodigo(r)
     // número sem conta: o código continua valendo e a pessoa manda de novo com o nome
     if (r.dados.precisaNome === true) return { ok: false, erro: 'precisa-nome' }
     const aberta = abriuNoServidor(r.dados, migrar)
@@ -378,8 +412,11 @@ export const contaServidor: AdaptadorConta = {
   },
 
   async sair() {
-    await pedirApi('cliente-sair', { metodo: 'POST', corpo: {} })
+    const r = await pedirApi('cliente-sair', { metodo: 'POST', corpo: {} })
     largarContaDoServidor()
+    // o servidor não respondeu: a sessão (o cookie HttpOnly, que só ele apaga) ainda vale lá. A conta sai da tela agora
+    // e o site termina de sair na próxima conversa com o servidor (senão ela voltava sozinha na próxima visita)
+    if (!r.ok && r.erro !== 'sem-sessao') gravar({ sairPendente: true })
   },
 
   async apagar() {
@@ -408,8 +445,9 @@ export const contaServidor: AdaptadorConta = {
     const r = await pedirApi<{ conta: unknown }>('cliente-atualizar', { metodo: 'POST', corpo })
     if (!r.ok) {
       if (r.erro === 'whatsapp-existe') return { ok: false, erro: 'whatsapp-existe' }
-      if (r.erro === 'invalido' && r.extra.campo !== 'codigo') return { ok: false, erro: 'invalido' }
-      return { ok: false, erro: erroCodigo(r) }
+      if (r.erro === 'invalido' && r.extra.campo === 'nome') return falhaCodigo(r)
+      if (r.erro === 'invalido' && r.extra.campo !== 'codigo') return { ok: false, erro: 'invalido', detalhe: detalheDo(r) }
+      return falhaCodigo(r)
     }
     const conta = contaDaApi(r.dados.conta)
     if (!conta) return { ok: false, erro: 'falhou' }
