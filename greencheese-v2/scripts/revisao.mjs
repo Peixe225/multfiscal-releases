@@ -29,7 +29,8 @@
 // mexido como o dono mexe no painel) tem a rodada dela em scripts/revisao-loja.mjs; a vitrine da rua (o mercador
 // mostrando produtos de verdade da loja, nos três lugares da rua), em scripts/revisao-vitrine.mjs; a thumb animada (o
 // vídeo do produto: só à vista, no máximo 2, nunca antes da primeira tela, parada com movimento reduzido), em
-// scripts/revisao-thumb.mjs.
+// scripts/revisao-thumb.mjs; a revelação do Teste minha sorte (o beck que sobe, a fumaça, o story que sai dela, pular,
+// movimento reduzido), em scripts/revisao-sorte.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
@@ -41,6 +42,7 @@ import { join } from 'node:path'
 import { rodadaLoja } from './revisao-loja.mjs'
 import { rodadaVitrine } from './revisao-vitrine.mjs'
 import { rodadaThumb } from './revisao-thumb.mjs'
+import { rodadaSorte } from './revisao-sorte.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -3110,6 +3112,8 @@ await rodadaLoja({ browser, base, contexto, conferir, foto, vigiar, vigiarSemRed
 await rodadaVitrine({ browser, base, contexto, conferir, foto, vigiarSemRede })
 // ---------- a thumb animada no site (scripts/revisao-thumb.mjs) ----------
 await rodadaThumb({ browser, base, contexto, conferir, foto })
+// ---------- a revelação do Teste minha sorte (scripts/revisao-sorte.mjs): beck, fumaça, auge, story, pular ----------
+await rodadaSorte({ browser, base, contexto, conferir, foto, vigiarSemRede })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

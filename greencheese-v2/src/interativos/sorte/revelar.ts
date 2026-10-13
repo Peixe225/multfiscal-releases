@@ -1,17 +1,24 @@
 import { gsap } from 'gsap'
 import { K } from '../../arte/realista/acessorios-dichavador'
-import { revelar as sintonizar } from '../../arte/produtos/dither'
+import { BOCA } from '../../arte/realista/dichavador-jogo'
+import { BECK_ALT } from './Palco'
+import type { Origem } from './fumaca'
 import { vibrar } from './tato'
 
-// Storyboard da revelação (t = 0 é o 8º quarto). Uma timeline GSAP só; quem monta mata ao desmontar.
-// Duas vozes: "app" (consequência do dedo: a câmera deita, a tampa sai, o mergulho) e "pixel" (steps(): adesivos,
-// destaque, confete). Só transform e opacity. Movimento reduzido: cortes secos. Modo leve: deitar vira corte e a
-// câmera não cresce no mergulho (só o preto da câmara, que é um div liso).
+// Storyboard da revelação (t = 0 é o 8º quarto; pedido do Ian em 11/10, direção da 2ª rodada). Duas vozes: "app"
+// (consequência do dedo: a câmera deita, a tampa sai, o dichavador cai, o story voa) e "pixel" (steps(): adesivos,
+// destaque, confete). Só transform e opacity. Movimento reduzido: cortes secos. Modo leve: deitar vira corte.
 //
-// O corte por correspondência: a tampa sai, a câmera mergulha na câmara escura e o preto do buraco (um div elíptico
-// exatamente em cima dele, `boca`) cresce até cobrir o quadro do story. O quadro aparece por cima já preto (o mesmo
-// preto) e sintoniza do chiado pro real com a revelação em dither dos produtos (dither.ts), enquanto o produto faz a
-// dele (ProdutoVisual: chiado → pixel → real).
+//   0,12–0,42  a câmera deita (a tampa achata e o corpo entra por baixo); o texto de cima some
+//   0,40–0,75  a tampa salta e voa pra fora
+//   0,45       COMEÇA A FUMAÇA (comecarFumaca): o beck bolado sobe de dentro da câmara, desenhado pela própria fumaça
+//              (a borda da frente da boca recorta o pé dele), já deitando e crescendo (a câmera chega perto); o isqueiro
+//              entra de lado ainda na subida — dali a fumaça faz o resto (fumaca/roteiro.ts)
+//   0,75–1,10  o dichavador cai pelo pé do quadro (girando de leve), em vez de escurecer
+//   auge       (onPronto da fumaça) o prêmio respira um instante e o story SAI DA FUMAÇA: o produto, o carimbo e o
+//              destaque voam (FLIP) do auge até o lugar deles no story, a fumaça abre como cortina e o resto dela sobe e
+//              se desfaz no fundo; nunca dois produtos à vista; a comemoração em pixel bate no story; no fim a fase vira
+//              "prêmio" e o foco vai pro destaque
 
 export const EASE_APP = 'cubic-bezier(0.22,1,0.36,1)'
 gsap.registerEase?.('app', (p: number) => {
@@ -32,14 +39,32 @@ gsap.registerEase?.('app', (p: number) => {
   t = Math.min(1, Math.max(0, t))
   return ((ay * t + by) * t + cy) * t
 })
+// o voo do produto até o story: cubic-bezier(.2,.8,.2,1)
+gsap.registerEase?.('voo', (p: number) => {
+  const cx = 3 * 0.2
+  const bx = 3 * (0.2 - 0.2) - cx
+  const ax = 1 - cx - bx
+  const cy = 3 * 0.8
+  const by = 3 * (1 - 0.8) - cy
+  const ay = 1 - cy - by
+  let t = p
+  for (let i = 0; i < 6; i++) {
+    const x = ((ax * t + bx) * t + cx) * t - p
+    const d = (3 * ax * t + 2 * bx) * t + cx
+    if (Math.abs(d) < 1e-6) break
+    t -= x / d
+  }
+  t = Math.min(1, Math.max(0, t))
+  return ((ay * t + by) * t + cy) * t
+})
 const APP = 'app'
 
-/** Desde quando um toque pula a revelação (s): a tampa já saiu e a câmera está mergulhando. */
+/** Desde quando um toque pula a revelação (s): a tampa já saiu. Antes disso, o toque é o reflexo de quem girava. */
 export const PULAR_DESDE = 0.9
-/** Até quando o toque ainda pula (depois disso a fase vira "prêmio" logo). */
-export const PULAR_ATE = 2.6
-/** O corte: o quadro do story aparece por cima do preto da câmara. */
-const CORTE = 1.3
+/** A fumaça começa: o beck sobe da câmara (a tampa já está voando). */
+export const COMECA = 0.45
+/** Depois do auge (o prêmio assentado na fumaça), quanto ele fica sozinho antes de o story sair da fumaça. */
+export const RESPIRO_AUGE = 0.3
 
 export interface ElementosRevelacao {
   palco: HTMLElement
@@ -51,28 +76,22 @@ export interface ElementosRevelacao {
   disco: HTMLElement
   rotor: HTMLElement
   indicador: HTMLElement
-  /** O preto do buraco da câmara (cresce até cobrir o quadro). */
-  boca: HTMLElement
+  /** O palco da fumaça (a área visível da coluna): a origem do beck é medida nele. */
+  fumaca: HTMLElement
   /** O que some quando a câmera deita (texto de cima, legenda, botão, rodapé). */
   sumir: Element[]
   /** O que sobe junto quando o texto de cima sai do fluxo no fim (a cena): sem pulo de layout. */
   subir: HTMLElement[]
   /** Altura que o texto de cima ocupa (sai do layout quando a revelação termina). */
   alturaIntro: number
-  /** O quadro do story. */
-  quadro: HTMLElement
-  /** O chiado que cobre o quadro e sintoniza. */
-  cobertura: HTMLCanvasElement
-  /** As ações no pé do story (sobem no fim). */
-  pe: HTMLElement | null
-  /** Segmentos "Abrir" e "Prêmio" do cromo do jogo, e o cromo (some no corte: o story tem a barrinha dele). */
+  /** O quadro do story e as ações no pé dele (o story monta depois do estalo: pegos na hora). */
+  quadro: () => HTMLElement | null
+  pe: () => HTMLElement | null
+  /** Segmentos "Abrir" e "Prêmio" do cromo do jogo, e o cromo (some quando o story entra: ele tem a barrinha dele). */
   segAbrir: Element | null
   segPremio: Element | null
   cromo: HTMLElement | null
-  /**
-   * O título do jogo ("TESTE MINHA SORTE"): some no corte, quando o story aparece por cima (em pé o quadro já cobre
-   * ele; com o story deitado, a coluna das ações é transparente e ele aparecia por trás dela).
-   */
+  /** O título do jogo ("TESTE MINHA SORTE"): some quando a fumaça ocupa a tela. */
   titulo?: HTMLElement | null
 }
 
@@ -105,7 +124,9 @@ function fixar(alvos: gsap.TweenTarget | (Element | null | undefined)[], v: gsap
 function partesDoStory(q: HTMLElement) {
   const um = (s: string) => q.querySelector<HTMLElement>(s)
   return {
+    produto: um('[data-produto]'),
     deu: um('[data-deu]'),
+    raridade: um('[data-raridade-selo]'),
     valor: um('[data-valor]'),
     alvo: um('[data-alvo]'),
     apoio: um('[data-apoio]'),
@@ -117,34 +138,23 @@ function partesDoStory(q: HTMLElement) {
   }
 }
 
-/* ───────────── chiado do quadro ───────────── */
+/* ───────────── a origem do beck (a câmara do dichavador) ───────────── */
 
-const parar = new WeakMap<HTMLCanvasElement, () => void>()
-
-/** Cobre o quadro de preto, na resolução do pixel dos produtos (4 px de tela por pixel). */
-function cobrir(c: HTMLCanvasElement) {
-  const r = c.getBoundingClientRect()
-  c.width = Math.max(8, Math.round(r.width / 4))
-  c.height = Math.max(8, Math.round(r.height / 4))
-  const ctx = c.getContext('2d')
-  if (!ctx) return
-  ctx.fillStyle = '#000'
-  ctx.fillRect(0, 0, c.width, c.height)
-}
-
-/** Sintoniza o quadro: chiado sobre o preto, que se desfaz em ordem Bayer e deixa o story à vista. */
-function sintonizarQuadro(c: HTMLCanvasElement) {
-  parar.get(c)?.()
-  const vazio = new ImageData(c.width, c.height)
-  const fim = sintonizar(c, vazio, { duracao: 560, cobrir: [0, 0, 0], densidade: 0.42, vinheta: false, aoTerminar: () => parar.delete(c) })
-  parar.set(c, fim)
-}
-
-/** Tira o chiado de vez (pulou, estado final). */
-function limparQuadro(c: HTMLCanvasElement) {
-  parar.get(c)?.()
-  parar.delete(c)
-  c.getContext('2d')?.clearRect(0, 0, c.width, c.height)
+/**
+ * Onde o beck está dentro da câmara do dichavador e a boca dela, em px do palco da fumaça, como vão estar quando a fumaça
+ * começa (a câmera já deitou e o texto de cima já subiu). Medido no 8º quarto, antes de qualquer transform.
+ */
+export function origemDoBeck(el: ElementosRevelacao): Origem | null {
+  const p = el.palco.getBoundingClientRect()
+  const f = el.fumaca.getBoundingClientRect()
+  if (!p.width || !f.width) return null
+  const d = p.width - 32
+  const subida = el.subir.some((x) => x.classList.contains('sorte-cena')) ? el.alturaIntro : 0
+  const x0 = p.left - f.left + 16
+  const y0 = p.top - f.top + 16 - subida
+  const boca = { x: x0 + d * BOCA.x, y: y0 + d * BOCA.y, rx: d * BOCA.rxBuraco, ry: d * BOCA.ryBuraco }
+  const h = d * BECK_ALT
+  return { x: boca.x, base: boca.y + h * 0.5, h, boca }
 }
 
 /* ───────────── brilhos e confete ───────────── */
@@ -200,17 +210,27 @@ function rumoDoConfete(festa: HTMLElement[], quadro: HTMLElement) {
   }
 }
 
+/** O palco do dichavador some de uma vez (pulou: a fumaça já está na tela). */
+export function esconderPalco(el: ElementosRevelacao) {
+  fixar([el.anel, el.indicador, ...el.sumir], { opacity: 0 })
+  fixar([el.tampa, el.corpo, el.labio, el.lado, el.disco], { autoAlpha: 0 })
+  if (el.titulo) fixar(el.titulo, { autoAlpha: 0 })
+}
+
 /** Estado final pintado de uma vez: o story pronto, as ações à vista (o palco, quando existe, escondido). */
 export function pintarFinal(el: ElementosRevelacao) {
-  const s = partesDoStory(el.quadro)
+  const q = el.quadro()
+  const pe = el.pe()
   fixar([el.anel, el.indicador, ...el.sumir], { opacity: 0 })
-  fixar([el.tampa, el.corpo, el.labio, el.boca], { autoAlpha: 0 })
-  fixar(el.quadro, { autoAlpha: 1 })
-  limparQuadro(el.cobertura)
-  fixar([s.deu, s.valor, s.codigo, s.contagem], { autoAlpha: 1, clearProps: 'transform' })
-  fixar([s.alvo, s.apoio, s.cond], { autoAlpha: 1 })
-  fixar([...s.festa, ...s.brilhos], { autoAlpha: 0, x: 0, y: 0 })
-  if (el.pe) fixar([el.pe, ...el.pe.children], { autoAlpha: 1, y: 0 })
+  fixar([el.tampa, el.corpo, el.labio], { autoAlpha: 0 })
+  if (q) {
+    const s = partesDoStory(q)
+    fixar(q, { autoAlpha: 1, clearProps: 'transform' })
+    fixar([s.deu, s.raridade, s.valor, s.codigo, s.contagem], { autoAlpha: 1, clearProps: 'transform' })
+    fixar([s.produto, s.alvo, s.apoio, s.cond], { autoAlpha: 1 })
+    fixar([...s.festa, ...s.brilhos], { autoAlpha: 0, x: 0, y: 0 })
+  }
+  if (pe) fixar([pe, ...pe.children], { autoAlpha: 1, y: 0 })
   fixar([el.segAbrir, el.segPremio], { scaleX: 1 })
   fixar(el.cromo, { autoAlpha: 0 })
   fixar(el.subir, { clearProps: 'transform' })
@@ -219,142 +239,164 @@ export function pintarFinal(el: ElementosRevelacao) {
 interface Opcoes {
   reduzido: boolean
   leve: boolean
-  /** No corte: o produto começa a sintonizar (React monta o ProdutoVisual com revelar 'sempre'). */
-  aoSintonizar: () => void
-  /** Fim: a fase vira "prêmio" e o foco vai pro destaque do story. */
-  aoFim: () => void
+  /** Quanto a fumaça dura (até o auge), pro segmento "Prêmio" do cromo encher junto. */
+  duracaoFumaca: number
+  /** A fumaça começa (o beck sobe da câmara). */
+  aoComecar: () => void
 }
 
-/** Monta a timeline da revelação (a partir do fim do estalo). */
+/**
+ * Monta a primeira parte da revelação (a partir do fim do estalo): a câmera deita, a tampa sai, a fumaça começa (o beck
+ * sobe da câmara, desenhado por ela) e o dichavador cai pelo pé do quadro. Nenhuma medida aqui (a origem do beck já foi
+ * medida) e só valores explícitos (fromTo): o GSAP não precisa ler estilo de ninguém no estalo.
+ */
 export function montarRevelacao(el: ElementosRevelacao, o: Opcoes): gsap.core.Timeline {
-  const s = partesDoStory(el.quadro)
   const segs = [el.segAbrir, el.segPremio].filter(Boolean) as Element[]
-  const peFilhos = el.pe ? [...el.pe.children] : []
   const tl = gsap.timeline()
-
-  // estado inicial: o quadro escondido e já coberto de preto; o que entra na comemoração, escondido
-  fixar(el.quadro, { autoAlpha: 0 })
-  cobrir(el.cobertura)
-  fixar(el.boca, { autoAlpha: 0, scale: 1 })
-  fixar([s.deu, s.valor, s.alvo, s.apoio, s.codigo, s.contagem, s.cond, ...s.festa, ...s.brilhos], { autoAlpha: 0 })
-  if (el.pe) fixar([el.pe, ...peFilhos], { autoAlpha: 0 })
-  fixar(peFilhos, { y: 12 })
-  fixar(segs, { scaleX: 0, transformOrigin: '0% 50%' })
+  if (segs.length) tl.set(segs, { scaleX: 0, transformOrigin: '0% 50%' }, 0)
 
   if (o.reduzido) {
-    // cortes secos: o dichavador aberto, com a câmara escura à vista (400 ms parado) → o story pronto
+    // cortes secos: o dichavador aberto, parado 400 ms → a fumaça parada com o prêmio (RevelacaoFumaca reduzido)
     tl.set([el.anel, el.indicador, ...el.sumir], { opacity: 0 }, 0)
     if (el.alturaIntro) tl.set(el.subir, { y: -el.alturaIntro }, 0)
     tl.set(el.tampa, { autoAlpha: 0 }, 0)
     tl.set(el.disco, { yPercent: -18, scaleY: K }, 0)
     tl.set([el.corpo, el.labio, el.lado], { opacity: 1, y: 0 }, 0)
     if (el.segAbrir) tl.set(el.segAbrir, { scaleX: 1 }, 0)
+    tl.set([el.corpo, el.labio, el.lado, el.disco], { autoAlpha: 0 }, 0.4)
     if (el.titulo) tl.set(el.titulo, { autoAlpha: 0 }, 0.4)
-    tl.call(() => pintarFinal(el), [], 0.4)
-    tl.call(o.aoFim, [], 0.4)
+    if (el.segPremio) tl.set(el.segPremio, { scaleX: 1 }, 0.4)
+    tl.call(o.aoComecar, [], 0.4)
     return tl
   }
 
-  // medidas no começo (a coluna já rolou pro topo e nada tem transform ainda)
-  const subida = el.subir.some((x) => x.classList.contains('sorte-cena')) ? el.alturaIntro : 0
-  const b = el.boca.getBoundingClientRect()
-  const q = el.quadro.getBoundingClientRect()
-  const cx = b.left + b.width / 2
-  const cy = b.top + b.height / 2 - subida
-  // elipse em volta do quadro, com o centro na boca: os 4 cantos ficam dentro (√2 × a maior distância em cada eixo)
-  const ax = Math.max(cx - q.left, q.right - cx) * Math.SQRT2 * 1.04
-  const ay = Math.max(cy - q.top, q.bottom - cy) * Math.SQRT2 * 1.04
-  const escala = { x: (2 * ax) / Math.max(1, b.width), y: (2 * ay) / Math.max(1, b.height) }
-  const c = el.corpo.getBoundingClientRect()
-  const origemBoca = `${cx - c.left}px ${cy + subida - c.top}px`
-  if (s.valor) posicionarBrilhos(s.valor, s.brilhos, el.quadro)
-  if (s.festa.length) rumoDoConfete(s.festa, el.quadro)
-
-  // 0,12–0,52 · CÂMERA DEITA (app): a tampa achata (vista de lado) e o corpo entra por baixo
-  const deita = o.leve ? { duration: 0.12, ease: 'steps(2)' } : { duration: 0.4, ease: APP }
-  tl.to(el.disco, { yPercent: -18, scaleY: K, ...deita }, 0.12)
+  // 0,12–0,42 · CÂMERA DEITA (app): a tampa achata (vista de lado) e o corpo entra por baixo
+  const deita = o.leve ? { duration: 0.12, ease: 'steps(2)' } : { duration: 0.3, ease: APP }
+  tl.fromTo(el.disco, { yPercent: 0, scaleY: 1 }, { yPercent: -18, scaleY: K, ...deita, immediateRender: false }, 0.12)
   tl.fromTo([el.corpo, el.labio], { y: 24, opacity: 0 }, { y: 0, opacity: 1, ...deita, immediateRender: false }, 0.12)
   tl.fromTo(el.lado, { opacity: 0 }, { opacity: 1, ...deita, immediateRender: false }, 0.12)
-  tl.to([el.anel, el.indicador, ...el.sumir], { opacity: 0, duration: 0.2, ease: 'steps(3)' }, 0.12)
+  tl.fromTo([el.anel, el.indicador, ...el.sumir], { opacity: 1 }, { opacity: 0, duration: 0.2, ease: 'steps(3)', immediateRender: false }, 0.12)
   // o texto de cima some e a cena sobe no lugar dele (no fim ele sai do layout e a cena fica onde está)
-  if (el.alturaIntro) tl.to(el.subir, { y: -el.alturaIntro, ...deita }, 0.12)
+  if (el.alturaIntro) tl.fromTo(el.subir, { y: 0 }, { y: -el.alturaIntro, ...deita, immediateRender: false }, 0.12)
 
-  // 0,52–0,82 · TAMPA SAI: levanta e deita de lado; a boca da câmara fica à vista, vazia e escura
-  tl.to(el.tampa, { y: -64, rotation: -14, xPercent: -18, opacity: 0.6, duration: 0.3, ease: 'power3.out', transformOrigin: '50% 30%' }, 0.52)
-  tl.to(el.tampa, { opacity: 0, duration: 0.16, ease: 'none' }, 0.82)
+  // 0,40–0,75 · A TAMPA SALTA: sobe girando e voa pra fora (a boca da câmara fica à vista, com o beck lá dentro)
+  tl.fromTo(el.tampa, { y: 0, xPercent: 0, rotation: 0 }, { y: -170, xPercent: -30, rotation: -42, duration: 0.32, ease: 'power2.out', transformOrigin: '50% 30%', immediateRender: false }, 0.4)
+  tl.fromTo(el.tampa, { opacity: 1 }, { opacity: 0, duration: 0.12, ease: 'none', immediateRender: false }, 0.6)
 
-  // 0,86–1,30 · MERGULHO: a câmera chega perto (o corpo cresce em volta da boca, acelerando) e o preto do buraco
-  // acompanha a borda; no fim a câmera vira pra dentro da câmara: o buraco se abre (a elipse arredonda e cresce mais
-  // rápido que a borda) e cobre o quadro inteiro. Um valor só (p) move os dois, pra nunca desgrudarem.
-  const S = o.leve ? 1 : 3
-  const corpoX = gsap.quickSetter([el.corpo, el.labio], 'scaleX') as (v: number) => void
-  const corpoY = gsap.quickSetter([el.corpo, el.labio], 'scaleY') as (v: number) => void
-  const bocaX = gsap.quickSetter(el.boca, 'scaleX') as (v: number) => void
-  const bocaY = gsap.quickSetter(el.boca, 'scaleY') as (v: number) => void
-  const mergulho = { p: 0 }
-  const aplicar = () => {
-    const p = mergulho.p
-    const cam = 1 + (S - 1) * p * p
-    const q = Math.max(0, (p - 0.4) / 0.6)
-    const abre = q * q * q
-    if (S > 1) {
-      corpoX(cam)
-      corpoY(cam)
-    }
-    bocaX(Math.max(cam, cam + (escala.x - cam) * abre))
-    bocaY(Math.max(cam, cam + (escala.y - cam) * abre))
+  // 0,45 · a fumaça começa: o beck sobe de dentro da câmara (desenhado por ela, na mesma grade de pixel)
+  tl.call(() => vibrar('trava'), [], COMECA + 0.05)
+  tl.call(o.aoComecar, [], COMECA)
+  // 0,75–1,10 · o dichavador cai pelo pé do quadro (a câmera chega perto do beck)
+  tl.fromTo([el.corpo, el.labio, el.lado, el.disco], { yPercent: 0, rotation: 0 }, { yPercent: 60, rotation: 8, duration: 0.35, ease: 'power2.in', immediateRender: false }, 0.75)
+  tl.fromTo([el.corpo, el.labio, el.lado, el.disco], { opacity: 1 }, { opacity: 0, duration: 0.12, ease: 'none', immediateRender: false }, 0.98)
+  if (el.titulo) tl.fromTo(el.titulo, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2, ease: 'steps(2)', immediateRender: false }, 0.8)
+
+  // segmentos do cromo do jogo: "Abrir" enche até a tampa sair; "Prêmio", durante a fumaça (nunca passam sozinhos)
+  if (el.segAbrir) tl.fromTo(el.segAbrir, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: 'none', immediateRender: false }, 0.12)
+  if (el.segPremio) tl.fromTo(el.segPremio, { scaleX: 0 }, { scaleX: 1, duration: o.duracaoFumaca, ease: 'none', immediateRender: false }, COMECA)
+  return tl
+}
+
+/** As partes do cartão do prêmio na fumaça (o que voa até o story). */
+export interface CartaoFumaca {
+  cartao: HTMLElement
+  visual: HTMLElement | null
+  carimbo: HTMLElement | null
+  destaque: HTMLElement | null
+  nome: HTMLElement | null
+}
+
+/**
+ * O story sai da fumaça: o produto, o carimbo, o destaque e o nome voam (FLIP) do lugar e do tamanho deles no auge até o
+ * lugar deles no story (sem mudar de opacidade); a fumaça abre como cortina por cima do story (que entra por baixo,
+ * 0,15 s depois) e o resto dela sobe e se desfaz; quando o voo pousa, troca no mesmo quadro (o do story aparece, o da
+ * fumaça some: nunca dois). Aí a comemoração em pixel bate no story e as ações sobem; no fim, aoFim.
+ * `rapido`: quem pulou (o voo e a cortina mais curtos).
+ */
+export function entrarStory(el: ElementosRevelacao, o: { aoFim: () => void; cartao: CartaoFumaca | null; abrirFumaca: (seg: number) => void; rapido?: boolean }): gsap.core.Timeline {
+  const tl = gsap.timeline()
+  const q = el.quadro()
+  const pe = el.pe()
+  if (!q) {
+    tl.call(o.aoFim, [], 0)
+    return tl
   }
-  // o corpo vira textura enquanto cresce (sem redesenhar o SVG a cada quadro; o preto engole a borda no fim)
-  tl.set([el.corpo, el.labio], { transformOrigin: origemBoca, willChange: 'transform' }, 0.86)
-  tl.to(el.boca, { autoAlpha: 1, duration: 0.12, ease: 'none' }, 0.86)
-  tl.fromTo(mergulho, { p: 0 }, { p: 1, duration: CORTE - 0.86, ease: 'none', onUpdate: aplicar, immediateRender: false }, 0.86)
+  const s = partesDoStory(q)
+  const peFilhos = pe ? [...pe.children] : []
+  // medidas (antes de escrever qualquer estilo)
+  if (s.valor) posicionarBrilhos(s.valor, s.brilhos, q)
+  if (s.festa.length) rumoDoConfete(s.festa, q)
+  const c = o.cartao
+  const voos: [HTMLElement, DOMRect, DOMRect, number][] = []
+  if (c) {
+    const par = (a: HTMLElement | null, b: HTMLElement | null, giro = 0) => {
+      if (!a || !b) return
+      const ra = a.getBoundingClientRect()
+      const rb = b.getBoundingClientRect()
+      if (ra.width && rb.width) voos.push([a, ra, rb, giro])
+    }
+    par(c.visual, s.produto)
+    par(c.carimbo, s.raridade, 6)
+    par(c.destaque, s.valor)
+    par(c.nome, s.alvo)
+  }
+  const escCartao = c ? c.cartao.getBoundingClientRect().width / Math.max(1, c.cartao.offsetWidth) : 1
+  const voo = o.rapido ? 0.22 : 0.45
+  const cortina = o.rapido ? 0.34 : 0.52
 
-  // 1,30 · CORTE: o quadro aparece por cima, preto (o mesmo preto); o produto e o chiado começam a sintonizar
-  tl.set(el.quadro, { autoAlpha: 1 }, CORTE)
-  tl.set([el.corpo, el.labio, el.lado, el.disco], { autoAlpha: 0 }, CORTE)
-  if (el.cromo) tl.set(el.cromo, { autoAlpha: 0 }, CORTE)
-  if (el.titulo) tl.set(el.titulo, { autoAlpha: 0 }, CORTE)
-  tl.call(o.aoSintonizar, [], CORTE)
-  tl.call(() => sintonizarQuadro(el.cobertura), [], CORTE + 0.06)
-  // o preto da câmara fica em volta até o story sintonizar; depois volta o céu de estrelas (corte seco)
-  tl.set(el.boca, { autoAlpha: 0 }, CORTE + 0.62)
-
-  // 1,94–2,54 · COMEMORAÇÃO (pixel, uma vez), com o story já sintonizado: o "DEU SORTE!" bate como adesivo, o destaque
-  // carimba, o confete estoura de trás do produto (pros lados e pra cima, nunca no texto) e cai de volta atrás dele,
-  // e 3 brilhos piscam
-  const t0 = 1.94
+  // o story pronto embaixo, ainda sem o que vai chegar voando
+  fixar([s.produto, s.raridade, s.valor, s.alvo, s.deu, s.apoio, s.codigo, s.contagem, s.cond, ...s.festa, ...s.brilhos], { autoAlpha: 0 })
+  if (pe) fixar([pe, ...peFilhos], { autoAlpha: 0 })
+  fixar(peFilhos, { y: 12 })
+  fixar(q, { autoAlpha: 0 })
+  if (el.cromo) tl.to(el.cromo, { autoAlpha: 0, duration: 0.15, ease: 'none' }, 0)
+  if (el.segPremio) tl.to(el.segPremio, { scaleX: 1, duration: 0.15, ease: 'none' }, 0)
+  tl.call(() => o.abrirFumaca(cortina), [], 0)
+  // o voo: cada parte do cartão até a do story (translate + escala, no referencial do cartão, que tem a escala dele)
+  for (const [a, ra, rb, giro] of voos) {
+    const dx = (rb.left + rb.width / 2 - (ra.left + ra.width / 2)) / escCartao
+    const dy = (rb.top + rb.height / 2 - (ra.top + ra.height / 2)) / escCartao
+    const k = a === c?.nome || a === c?.destaque ? rb.height / ra.height : rb.width / ra.width
+    tl.to(a, { x: dx, y: dy, scale: k, rotation: giro, duration: voo, ease: 'voo' }, 0)
+  }
+  // o quadro do story entra por baixo (a fumaça abrindo por cima dele)
+  tl.fromTo(q, { autoAlpha: 0 }, { autoAlpha: 1, duration: voo * 0.66, ease: 'sine.out', immediateRender: false }, voo * 0.33)
+  // pousou: troca no mesmo quadro
+  tl.call(
+    () => {
+      fixar([s.produto, s.raridade, s.valor, s.alvo], { autoAlpha: 1 })
+      if (c) fixar(c.cartao, { autoAlpha: 0 })
+    },
+    [],
+    voo,
+  )
+  const t0 = voo
   if (s.deu) tl.fromTo(s.deu, { autoAlpha: 0, scale: 1.8 }, { autoAlpha: 1, scale: 1, duration: 0.18, ease: 'steps(3)', immediateRender: false }, t0)
-  tl.call(() => vibrar('premio'), [], t0 + 0.06)
-  if (s.valor) tl.fromTo(s.valor, { autoAlpha: 0, scale: 1.35 }, { autoAlpha: 1, scale: 1, duration: 0.12, ease: 'steps(2)', immediateRender: false }, t0 + 0.14)
+  if (s.valor) tl.fromTo(s.valor, { scale: 1.12 }, { scale: 1, duration: 0.1, ease: 'steps(2)', immediateRender: false }, t0)
   if (s.festa.length) {
-    tl.set(s.festa, { autoAlpha: 1, x: 0, y: 0 }, t0 + 0.18)
-    tl.to(s.festa, { x: (_: number, p: HTMLElement) => +(p.dataset.x ?? 0), y: (_: number, p: HTMLElement) => +(p.dataset.y ?? 0), duration: 0.24, ease: 'steps(4)', stagger: { each: 0.004, from: 'random' } }, t0 + 0.18)
-    tl.to(s.festa, { y: '+=24', autoAlpha: 0, duration: 0.21, ease: 'steps(3)', stagger: { each: 0.004, from: 'random' } }, t0 + 0.48)
+    tl.set(s.festa, { autoAlpha: 1, x: 0, y: 0 }, t0 + 0.04)
+    tl.to(s.festa, { x: (_: number, p: HTMLElement) => +(p.dataset.x ?? 0), y: (_: number, p: HTMLElement) => +(p.dataset.y ?? 0), duration: 0.24, ease: 'steps(4)', stagger: { each: 0.004, from: 'random' } }, t0 + 0.04)
+    tl.to(s.festa, { y: '+=24', autoAlpha: 0, duration: 0.21, ease: 'steps(3)', stagger: { each: 0.004, from: 'random' } }, t0 + 0.34)
   }
   s.brilhos.forEach((x, i) => {
-    const t = t0 + 0.24 + i * 0.12
+    const t = t0 + 0.1 + i * 0.12
     tl.fromTo(x, { autoAlpha: 1, scale: 0 }, { scale: 1, duration: 0.1, ease: 'steps(2)', repeat: 1, yoyo: true, immediateRender: false }, t)
     tl.set(x, { autoAlpha: 0 }, t + 0.2)
   })
-  if (s.alvo) tl.to(s.alvo, { autoAlpha: 1, duration: 0.001 }, t0 + 0.24)
-  if (s.apoio) tl.to(s.apoio, { autoAlpha: 1, duration: 0.001 }, t0 + 0.3)
+  if (s.apoio) tl.to(s.apoio, { autoAlpha: 1, duration: 0.001 }, t0 + 0.08)
   // adesivos: colam com um pulinho em degraus (passa do tamanho e volta)
   ;[s.codigo, s.contagem].forEach((x, i) => {
     if (!x) return
-    const t = t0 + 0.38 + i * 0.08
+    const t = t0 + 0.14 + i * 0.08
     tl.fromTo(x, { autoAlpha: 0, scale: 0.4 }, { autoAlpha: 1, scale: 1.12, duration: 0.1, ease: 'steps(2)', immediateRender: false }, t)
     tl.to(x, { scale: 1, duration: 0.05, ease: 'steps(1)' }, t + 0.1)
   })
-  if (s.cond) tl.to(s.cond, { autoAlpha: 1, duration: 0.08, ease: 'steps(2)' }, t0 + 0.52)
-
-  // 2,40–2,66 · AÇÕES (app): sobem no pé do story; no fim delas, a fase vira "prêmio" (o story deixa de ser inerte e o
-  // foco vai pro destaque)
-  if (el.pe) tl.set(el.pe, { autoAlpha: 1 }, 2.4)
-  tl.to(peFilhos, { autoAlpha: 1, y: 0, duration: 0.26, ease: APP }, 2.4)
-  tl.call(o.aoFim, [], 2.66)
-
-  // segmentos do cromo do jogo: "Abrir" enche até a tampa sair; "Prêmio", no mergulho (nunca passam sozinhos)
-  if (el.segAbrir) tl.to(el.segAbrir, { scaleX: 1, duration: 0.74, ease: 'none' }, 0.12)
-  if (el.segPremio) tl.to(el.segPremio, { scaleX: 1, duration: CORTE - 0.86, ease: 'none' }, 0.86)
+  if (s.cond) tl.to(s.cond, { autoAlpha: 1, duration: 0.08, ease: 'steps(2)' }, t0 + 0.28)
+  // ações (app): sobem no pé do story; quando a comemoração acaba, a fase vira "prêmio" (o story deixa de ser inerte e
+  // o foco vai pro destaque)
+  if (pe) tl.set(pe, { autoAlpha: 1 }, t0 + 0.06)
+  tl.to(peFilhos, { autoAlpha: 1, y: 0, duration: 0.26, ease: APP }, t0 + 0.06)
+  // o pé (as ações) acabou de subir: o story já é do cliente (o resto da festa termina sozinho)
+  tl.call(o.aoFim, [], t0 + (o.rapido ? 0.16 : 0.36))
   return tl
 }

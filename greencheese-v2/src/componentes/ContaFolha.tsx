@@ -11,6 +11,7 @@ import { useContaStore } from '../store/conta'
 import { formatarDiaMes, formatarEspera } from '../lib/cupom'
 import { fraseDoPremio, nomeDoPremio } from '../lib/cupom-uso'
 import { AdesivoCodigo, AdesivoContagem, BolhaPremio } from '../interativos/sorte/Adesivos'
+import { raridadeDoRetrato, SeloRaridade } from '../interativos/sorte/SeloRaridade'
 import { Condicoes, listaCondicoes } from '../interativos/sorte/Condicoes'
 import { depoisDoHistorico } from '../lib/historico'
 import { mascararCelular } from '../lib/telefone'
@@ -361,6 +362,7 @@ function Ingresso({ c, fechar, agora }: { c: CupomComStatus; fechar: () => void;
           <span className="ingresso-alvo">{nome}</span>
         </p>
         {exemplo && <span className="ingresso-exemplo carimbo">{T.exemplo}</span>}
+        <SeloRaridade raridade={raridadeDoRetrato(c.retrato)} apagado={!ativo} className="ingresso-raridade" />
       </div>
       <div className="ingresso-adesivos">
         <AdesivoCodigo codigo={c.codigo} apagado={!ativo} />

@@ -201,6 +201,8 @@ function premioDe(v: unknown): Premio | null {
   if (ehRaridade(v.raridade)) p.raridade = v.raridade
   const como = textoDe(v.comoUsar, 200)
   if (como) p.comoUsar = como
+  // a raridade (o contrato de src/lib/raridade.ts): sem ela, comum na hora de mostrar
+  if (ehRaridade(v.raridade)) (p as Premio & { raridade?: string }).raridade = v.raridade
   if (!p.aplicaA.produtos) delete p.aplicaA.produtos
   if (!p.aplicaA.categorias) delete p.aplicaA.categorias
   return p

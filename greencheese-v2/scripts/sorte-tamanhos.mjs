@@ -5,12 +5,18 @@
 //   um adesivo × o outro, produto × texto no story deitado);
 // - todo botão do story e das ações dá pra tocar (o centro dele não fica coberto por outra coisa, nem fora da tela);
 // - o adesivo trancado em no máximo 3 linhas; sem rolagem lateral; a coluna rola no máximo o tolerado;
-// - o story não pula no fim da revelação (o lugar dele na revelação é o lugar final);
+// - a revelação nova (pedido do Ian em 11/10): no auge da fumaça (data-fase="pronto"), o prêmio inteiro na tela, sem
+//   texto encavalado nem pequeno demais, e o anúncio do prêmio e da raridade pro leitor de tela; cada tamanho roda uma
+//   raridade (em rodízio: as 4 passam por celular em pé, deitado, tablet e computador; RARIDADES=todas roda as 4 em
+//   cada tamanho, RARIDADES=epico,lendario escolhe). A raridade é forçada por ?raridade=, que só vale no `npm run dev`;
+//   contra um build, todas saem com a raridade dos dados (o script avisa);
+// - o story não pula no fim da revelação (o lugar dele na revelação, escondido atrás da fumaça, é o lugar final);
 // - com "Ver condições" aberto: a lista dentro do quadro e da tela, o que ela cobre fora do Tab, Esc fecha só a lista.
 // O prêmio sorteado é fixo (PREMIO=ocb|vidro|brinde|dichavador|bandeja; padrão ocb, o destaque mais comprido) e o
 // código do cupom sai com as letras mais largas (SORTE-WMWM).
 // Uso: npm run dev (ou vite preview) e depois: node scripts/sorte-tamanhos.mjs [pasta-saida] [url-base]
 //      VP=915x412,568x320 node scripts/sorte-tamanhos.mjs   (só esses tamanhos)
+//      RARIDADES=todas VP=568x320 node scripts/sorte-tamanhos.mjs   (as 4 raridades no 568×320)
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = await import(new URL('../node_modules/playwright/index.mjs', import.meta.url).href)
 import { mkdirSync } from 'node:fs'
@@ -50,6 +56,11 @@ const FRACAO = { ocb: 0.05, vidro: 0.4, brinde: 0.6, dichavador: 0.8, bandeja: 0
 const premio = process.env.PREMIO ?? 'ocb'
 /** Quanto a coluna pode rolar com o story na tela (px): só o celular deitado pequeno (568×320) rola um pouco. */
 const ROLA_MAX = (w, h) => (h <= 320 ? 48 : 0)
+const TODAS_RARIDADES = ['comum', 'raro', 'epico', 'lendario']
+const pedidas = process.env.RARIDADES === 'todas' ? 'todas' : (process.env.RARIDADES?.split(',').filter((r) => TODAS_RARIDADES.includes(r)) ?? null)
+/** As raridades de cada tamanho: uma por tamanho em rodízio, ou todas. */
+const raridadesDo = (i) => (pedidas === 'todas' ? TODAS_RARIDADES : pedidas?.length ? [pedidas[i % pedidas.length]] : [TODAS_RARIDADES[i % 4]])
+let avisouBuild = false
 
 const b = await chromium.launch()
 const problemas = []
@@ -133,7 +144,14 @@ function medir() {
   const linha = linhaTxt.length ? linhaTxt.reduce((a, c) => ({ left: Math.min(a.left, c.left), right: Math.max(a.right, c.right), top: Math.min(a.top, c.top), bottom: Math.max(a.bottom, c.bottom) })) : null
   const produto = um('.sp-produto')
   const deu = um('.sp-deu')
+  const rar = um('.sp-raridade')
+  if (!rar) r.push('sem o carimbo da raridade no story')
   const pares = [
+    ['DEU SORTE!', deu, 'carimbo da raridade', rar],
+    ['cabeçalho', cab, 'carimbo da raridade', rar],
+    ['carimbo da raridade', rar, 'destaque', titulo],
+    ['carimbo da raridade', rar, 'adesivo do código', codigo],
+    ['carimbo da raridade', rar, 'adesivo da contagem', contagem],
     ['cabeçalho', cab, 'destaque', valor],
     ['cabeçalho', cab, 'produto (texto)', alvo],
     ['cabeçalho', cab, 'DEU SORTE!', deu],
@@ -212,32 +230,84 @@ function alcance() {
   return r
 }
 
+/** O auge da fumaça: o prêmio inteiro na área visível, o texto legível e sem encavalar, o anúncio pro leitor de tela. */
+function medirAuge() {
+  const r = []
+  const fm = document.querySelector('.fm')
+  const c = document.querySelector('.fm-cartao')
+  if (!fm || !c) return { problemas: ['a fumaça não apareceu'], info: {} }
+  const F = fm.getBoundingClientRect()
+  const corpo = document.querySelector('.casca-corpo')?.getBoundingClientRect() ?? F
+  const vis = { l: Math.max(F.left, corpo.left, 0), t: Math.max(F.top, corpo.top, 0), r: Math.min(F.right, corpo.right, innerWidth), b: Math.min(F.bottom, corpo.bottom, innerHeight) }
+  const partes = { produto: c.querySelector('.fm-visual'), carimbo: c.querySelector('.fm-carimbo'), destaque: c.querySelector('.fm-destaque'), nome: c.querySelector('.fm-produto') }
+  const R = {}
+  for (const [n, el] of Object.entries(partes)) {
+    if (!el) {
+      r.push(`sem ${n} no prêmio`)
+      continue
+    }
+    const e = el.getBoundingClientRect()
+    R[n] = e
+    if (e.left < vis.l - 1 || e.right > vis.r + 1 || e.top < vis.t - 1 || e.bottom > vis.b + 1) r.push(`${n} do prêmio sai da área visível [${Math.round(e.left)},${Math.round(e.top)},${Math.round(e.right)},${Math.round(e.bottom)}]`)
+  }
+  const cruza = (a, b, folga = 2) => a && b && a.left < b.right - folga && a.right > b.left + folga && a.top < b.bottom - folga && a.bottom > b.top + folga
+  if (cruza(R.destaque, R.nome)) r.push('encavala: destaque × nome do produto')
+  if (cruza(R.carimbo, R.destaque)) r.push('encavala: carimbo da raridade × destaque')
+  if (cruza(R.carimbo, R.nome)) r.push('encavala: carimbo da raridade × nome do produto')
+  const fs = (el) => (el ? parseFloat(getComputedStyle(el).fontSize) : 0)
+  if (fs(partes.destaque) < 26) r.push(`destaque pequeno demais (${fs(partes.destaque)} px)`)
+  if (fs(partes.nome) < 14) r.push(`nome do produto pequeno demais (${fs(partes.nome)} px)`)
+  if (+getComputedStyle(c).opacity < 0.99) r.push(`o prêmio ainda não apareceu inteiro (opacidade ${getComputedStyle(c).opacity})`)
+  const anuncio = fm.querySelector('.fm-sr')?.textContent ?? ''
+  if (!/^Prêmio (comum|raro|épico|lendário): /.test(anuncio)) r.push(`sem o anúncio do prêmio pro leitor de tela ("${anuncio}")`)
+  return { problemas: r, info: { raridade: fm.getAttribute('data-raridade'), desenho: fm.getAttribute('data-desenho'), cartao: `${Math.round(c.offsetWidth)}×${Math.round(c.offsetHeight)}` } }
+}
+
 const quadroAgora = (p) => p.evaluate(() => {
   const q = document.querySelector('.story-premio')?.getBoundingClientRect()
   return q ? { x: Math.round(q.left), y: Math.round(q.top), w: Math.round(q.width), h: Math.round(q.height) } : null
 })
 
-for (const [nome, w, h, celular] of aparelhos) {
+for (const [i, [nomeVp, w, h, celular]] of aparelhos.entries()) for (const raridade of raridadesDo(i)) {
+  const nome = `${nomeVp}-${raridade}`
   const ctx = await contexto(w, h, celular)
   const p = await ctx.newPage()
   const erros = []
   p.on('pageerror', (e) => erros.push(e.message))
   const prob = (s) => problemas.push(`${nome}: ${s}`)
-  await p.goto(`${base}?uf=mg&jogo=sorte`)
+  await p.goto(`${base}?uf=mg&jogo=sorte&raridade=${raridade}`)
   await p.locator('.sorte [role="slider"]').first().waitFor({ timeout: 15000 })
   await p.waitForTimeout(800)
   await p.locator('.sorte [role="slider"]').first().focus()
-  for (let i = 0; i < 8; i++) {
+  for (let k = 0; k < 8; k++) {
     await p.keyboard.press('ArrowRight')
     await p.waitForTimeout(220)
   }
-  // o lugar do story na revelação (antes do corte ele já está lá, escondido) = o lugar final
-  await p.waitForTimeout(500)
+  // o lugar do story na revelação (ele monta logo depois do estalo, escondido atrás da fumaça, já no lugar) = o final
+  await p.locator('.sorte.sorte-revelando .story-premio').waitFor({ state: 'attached', timeout: 4000 }).catch(() => prob('o story não montou na revelação'))
+  await p.waitForTimeout(300)
   const naRevelacao = await quadroAgora(p)
-  await p.waitForTimeout(3300)
+  if (!naRevelacao) prob('sem o lugar do story na revelação')
+  // o auge da fumaça: o prêmio no meio dela (medido no 1º quadro do auge: ele dura uns 0,3 s antes do story sair)
+  await p.evaluate(`window.__medirAuge = ${medirAuge.toString()}`)
+  const auge =
+    (await p
+      .waitForFunction(() => document.querySelector('.fm')?.getAttribute('data-fase') === 'pronto' && window.__medirAuge(), null, { polling: 'raf', timeout: 20000 })
+      .then((h) => h.jsonValue())
+      .catch(() => null)) ?? (prob('a fumaça não chegou no auge'), await p.evaluate(medirAuge))
+  auge.problemas.forEach((s) => prob(`auge: ${s}`))
+  if (auge.info.raridade && auge.info.raridade !== raridade && !avisouBuild) {
+    avisouBuild = true
+    console.log(`aviso: ?raridade= não forçou (${auge.info.raridade}): contra um build, a raridade é a dos dados (rode no npm run dev pra ver as 4)`)
+  }
+  await p.screenshot({ path: `${out}${nome}-0-auge.png` })
+  await p.locator('.sorte.sorte-premio').waitFor({ timeout: 8000 }).catch(() => prob('o story não entrou depois do auge'))
+  await p.waitForTimeout(500)
   const final = await quadroAgora(p)
   if (naRevelacao && final && (Math.abs(naRevelacao.x - final.x) > 1 || Math.abs(naRevelacao.y - final.y) > 1 || naRevelacao.w !== final.w || naRevelacao.h !== final.h))
     prob(`o story pula no fim da revelação (${JSON.stringify(naRevelacao)} → ${JSON.stringify(final)})`)
+  // a fumaça abre como cortina e o resto dela sobe no fundo do story: depois disso, sai da tela
+  if (!(await p.locator('.fm').waitFor({ state: 'detached', timeout: 3500 }).then(() => true).catch(() => false))) prob('a fumaça ficou na tela depois do story')
   await p.screenshot({ path: `${out}${nome}-1-premio.png` })
   const m1 = await p.evaluate(medir)
   m1.problemas.forEach((s) => prob(`prêmio: ${s}`))
@@ -306,7 +376,7 @@ for (const [nome, w, h, celular] of aparelhos) {
   ;(await p.evaluate(alcance)).forEach((s) => prob(`guardado: ${s}`))
   if (!celular && m1.info.modo !== m3.info.modo) prob(`o story muda de modo ao guardar (${m1.info.modo} → ${m3.info.modo})`)
   erros.forEach((e) => prob(`pageerror ${e}`))
-  console.log(`${nome}: prêmio ${m1.info.modo} ${m1.info.quadro} rola ${m1.info.rola}${m1.info.trancado ? ` · trancado ${m1.info.trancado} linhas` : ''}${m1.info.verProdutoEmbaixo ? ' · Ver produto embaixo' : ''} | guardado ${m3.info.modo} ${m3.info.quadro} rola ${m3.info.rola}`)
+  console.log(`${nome}: auge ${auge.info.raridade}/${auge.info.desenho} cartão ${auge.info.cartao} | prêmio ${m1.info.modo} ${m1.info.quadro} rola ${m1.info.rola}${m1.info.trancado ? ` · trancado ${m1.info.trancado} linhas` : ''}${m1.info.verProdutoEmbaixo ? ' · Ver produto embaixo' : ''} | guardado ${m3.info.modo} ${m3.info.quadro} rola ${m3.info.rola}`)
   await ctx.close()
 }
 await b.close()

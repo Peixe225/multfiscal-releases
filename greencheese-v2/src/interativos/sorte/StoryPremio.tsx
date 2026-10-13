@@ -1,15 +1,18 @@
-import { useState, type Ref } from 'react'
-import { corDoHalo, ProdutoVisual } from '../../arte/ProdutoVisual'
+import { useState, type CSSProperties, type Ref } from 'react'
+import { ProdutoVisual } from '../../arte/ProdutoVisual'
+import { haloDataUrl } from '../../arte/sintonia'
 import { Avatar, tempoRelativo } from '../../componentes/comum'
 import { config } from '../../dados/config'
 import type { ValorPremio } from '../../dados/sorte'
 import { formatarValidade } from '../../lib/cupom'
+import { INFO_RARIDADE, type Raridade } from '../../lib/raridade'
 import { fraseDoPremio } from '../../lib/cupom-uso'
 import type { Cupom } from '../../store/conta'
 import { useUI } from '../../store/ui'
 import { useCasca } from '../CascaInterativo'
 import { AdesivoCodigo, AdesivoContagem, BolhaPremio, Brilho, SeloAmigos, VERDE_AMIGOS } from './Adesivos'
 import { Condicoes, listaCondicoes } from './Condicoes'
+import { TINTA_RARIDADE } from './fumaca/tinta'
 import { T } from './textos'
 
 // O prêmio é um story dos Melhores amigos, só pra pessoa: o conceito do site (o Instagram da loja) levado ao prêmio.
@@ -17,6 +20,8 @@ import { T } from './textos'
 // anel verde e o selo "Melhores amigos", o produto flutuando com o brilho da cor dele, "DEU SORTE!" como adesivo de
 // texto, o destaque grande em pixel, o produto e 1 linha de apoio. Dois adesivos lado a lado: o do código (como o de
 // link; trancado até guardar) e o da contagem da validade. As condições ficam no "Ver condições", que abre por cima.
+// A raridade (pedido do Ian em 11/10): o carimbo dela como adesivo na vitrine e o brilho do produto na cor dela (o verde
+// continua só no anel e no selo dos Melhores amigos).
 // O tamanho do quadro vem de fora (--sw, --sh: JogoSorte mede a tela); dentro, tudo acompanha a largura (cqi).
 
 export interface DadosPremio {
@@ -33,8 +38,6 @@ export interface DadosPremio {
 
 export interface RefsStory {
   quadro?: Ref<HTMLDivElement>
-  /** Canvas do chiado que cobre o story e sintoniza (revelar.ts). */
-  cobertura?: Ref<HTMLCanvasElement>
   progresso?: Ref<HTMLElement>
 }
 
@@ -48,6 +51,8 @@ interface Props {
   idTitulo: string
   instagram: string | null
   sintonia: Sintonia
+  /** A raridade do prêmio (sem o campo, comum): o adesivo e a cor do brilho. */
+  raridade?: Raridade
   agora: number
   /** Quando o story "foi postado" (sorteio do prêmio reservado). Sem isto: agora. */
   postadoEm?: number | null
@@ -99,7 +104,7 @@ function Festa({ cor }: { cor: string }) {
 
 /* ───────────── story ───────────── */
 
-export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora, postadoEm, reserva, aoGuardar, inerte, focoJogo, refs }: Props) {
+export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, raridade = 'comum', agora, postadoEm, reserva, aoGuardar, inerte, focoJogo, refs }: Props) {
   const { destaque, alvo, produto } = fraseDoPremio({ titulo: dados.titulo, aplicaA: dados.aplicaA, ...dados.valor })
   const abrirPagina = useUI((s) => s.abrirPagina)
   const { prenderEsc } = useCasca()
@@ -107,7 +112,7 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
   const [condAberta, setCondAberta] = useState(false)
   const exemplo = dados.demo && config.carimboDeExemplo
   const codigo = cupom?.codigo ?? null
-  const [r, g, b] = produto ? corDoHalo(produto.cor, false) : [255, 255, 255]
+  const info = INFO_RARIDADE[raridade]
   const validade = cupom ? T.condValidadeGuardado(formatarValidade(cupom.validoAte)) : dados.validadeDias != null ? T.condValidadeSemConta(dados.validadeDias) : null
   const tempo = postadoEm ? tempoRelativo(new Date(postadoEm).toISOString(), agora) : T.agora
   return (
@@ -129,18 +134,24 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
 
       <div className="sp-corpo" data-cond-aberta={condAberta ? '' : undefined}>
         <div className="sp-vitrine" inert={condAberta}>
-          <Festa cor={`rgb(${r} ${g} ${b})`} />
+          <Festa cor={info.cor} />
           <div className="sp-produto" data-produto>
-            {produto && sintonia !== 'antes' && <ProdutoVisual key={sintonia} produto={produto} largura={108} revelar={sintonia === 'agora' ? 'sempre' : false} prioridade rotulo={null} />}
+            {/* o brilho do produto na cor da raridade (o mesmo halo pontilhado dos produtos) */}
+            {produto && sintonia !== 'antes' && <div className="sp-halo" style={{ backgroundImage: `url(${haloDataUrl(info.cor, false)})` }} aria-hidden="true" />}
+            {produto && sintonia !== 'antes' && <ProdutoVisual key={sintonia} produto={produto} largura={108} revelar={sintonia === 'agora' ? 'sempre' : false} brilho={false} prioridade rotulo={null} />}
             {!produto && <BolhaPremio produto={null} tamanho={72} />}
           </div>
           <p className="sp-deu px" data-deu aria-hidden="true">
             {T.deuSorte}
           </p>
+          <p className={`sp-raridade px sp-raridade-${raridade}`} data-raridade-selo style={{ '--r-cor': info.cor, '--r-escura': info.escura, '--r-tinta': TINTA_RARIDADE[raridade] } as CSSProperties}>
+            <span className="sr-only">Prêmio </span>
+            {info.carimbo}
+          </p>
         </div>
 
         <h3 id={idTitulo} className="sp-titulo" tabIndex={-1} inert={condAberta} data-foco-jogo={focoJogo ? '' : undefined}>
-          <span className="sr-only">{T.deuSorte} </span>
+          <span className="sr-only">{T.deuSorte} {`Prêmio ${info.nome.toLowerCase()}.`} </span>
           <span className="sp-valor px" data-valor>
             {destaque}
             <Brilho className="sp-brilho-1" />
@@ -180,7 +191,6 @@ export function StoryPremio({ dados, cupom, idTitulo, instagram, sintonia, agora
           />
         </div>
       </div>
-      <canvas ref={refs?.cobertura} className="sp-cobertura" width={1} height={1} aria-hidden="true" />
     </div>
   )
 }
