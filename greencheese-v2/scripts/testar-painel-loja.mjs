@@ -331,6 +331,10 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     await print(p, 'loja-produto-video', true)
     await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
     await p.getByText('Isqueiro Bic Mini: salvo. O site já mostra.').waitFor()
+    // o recado do salvar de antes (o tamanho) pode ainda estar na tela: só sair do produto prova que este salvou (e o
+    // history.back() chega antes do próximo goto)
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+    await esperar(async () => !!prod(await loja(), 'isqueiro-bic-mini').video)
     const comVideo = prod(await loja(), 'isqueiro-bic-mini')
     ok(/^uploads\/[0-9a-f]{24}\.(webm|mp4)$/.test(comVideo.video ?? '') && /^uploads\/[0-9a-f]{24}\.\w+$/.test(comVideo.capa ?? ''), `o GET loja leva o vídeo e a capa (${comVideo.video}, ${comVideo.capa})`)
     const arq = await fetch(`${BASE}/${comVideo.video}`)
