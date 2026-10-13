@@ -252,7 +252,7 @@ export async function testarVideo(t) {
     // outro produto pode usar uma de fábrica; caminho torto não passa
     const so = (video, capa) => dono.post('admin-produto-salvar', { id: 'cuia-de-silicone-raw', video, capa })
     igual((await so('produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp')).status, 200, 'vídeo e capa de fábrica num produto')
-    for (const [video, capa, nome] of [
+    for (const [video, capa, nome, campo] of [
       ['produtos/../api/privado/loja.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica com ../'],
       ['produtos/sub/x.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica em subpasta'],
       ['produtos/x.php', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica .php'],
@@ -262,9 +262,15 @@ export async function testarVideo(t) {
       ['produtos/hennessy-very-special.mp4', 'produtos/../x.webp', 'capa de fábrica com ../'],
       ['produtos/hennessy-very-special.mp4', 'https://golpe.example/x.webp', 'capa de fora'],
       ['https://golpe.example/x.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fora'],
+      // nome certo, mas o arquivo não está no build (o site ficava com a mídia quebrada e caía no desenho)
+      ['produtos/nao-existe.mp4', 'produtos/hennessy-very-special-capa.webp', 'vídeo de fábrica que não está no build', 'video'],
+      ['produtos/hennessy-very-special.mp4', 'produtos/nao-existe-capa.webp', 'capa de fábrica que não está no build', 'capa'],
+      ['produtos/hennessy-very-special.mp4', 'produtos/hennessy_capa.webp', 'capa de fábrica com _ (o .htaccess de produtos/ recusa)', 'capa'],
+      ['produtos/hennessy-very-special.mp4', 'produtos/hennessy.capa.webp', 'capa de fábrica com ponto no meio', 'capa'],
     ]) {
       const r = await so(video, capa)
       erro(r, 400, 'invalido', nome)
+      if (campo) igual(r.json?.campo, campo, `${nome}: o erro é do campo ${campo}`)
     }
     igual((await so(null, null)).json.produto.video, null, 'tirar o vídeo de fábrica do produto')
     ok(readFileSync(join(raiz, 'public', h.video)).length > 1000, 'tirar a de fábrica não apaga nada do build (o servidor só limpa uploads/)')

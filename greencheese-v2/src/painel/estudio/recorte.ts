@@ -404,6 +404,275 @@ export function caixaNoPreto(img: Imagem, p: PontoDoPreto): Caixa | null {
   return x1 >= 0 ? { x0, y0, x1: x1 + 1, y1: y1 + 1 } : null
 }
 
+/* ---------------------------------------------------------------- a janela do vídeo (gravação de tela) */
+
+/**
+ * A janela do vídeo dentro do quadro, em frações (0–1) do quadro inteiro: o reel ou o story gravado da tela do celular
+ * (o jeito que a loja manda: o produto girando no preto, com a interface do Instagram em volta).
+ */
+export interface Janela {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  /** Achou a moldura em volta (a barra do celular, o nome do perfil, "Enviar mensagem", o cinza do story); false = o
+   *  preto já vai de ponta a ponta e só saiu o texto solto da interface, colado na borda. */
+  moldura: boolean
+}
+
+/** A luz (média 3×3) de cada pixel. */
+function mapaDeLuz(img: Imagem): Float32Array {
+  const L = new Float32Array(img.w * img.h)
+  for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) L[y * img.w + x] = luzMedia(img, x, y)
+  return L
+}
+
+function percentil(v: ArrayLike<number>, p: number): number {
+  const o = Float32Array.from(v).sort()
+  return o.length ? o[Math.min(o.length - 1, Math.floor(o.length * p))] : 0
+}
+
+/** Os pedaços ligados de uma máscara (4 vizinhos, ou 8): o rótulo de cada pixel (−1 = fora), e de cada pedaço a contagem e a caixa. */
+function pedacos(m: Uint8Array, w: number, h: number, oito: boolean): { rotulo: Int32Array; n: number[]; caixa: Caixa[] } {
+  const rotulo = new Int32Array(w * h).fill(-1)
+  const n: number[] = []
+  const caixa: Caixa[] = []
+  const pilha = new Int32Array(w * h)
+  const viz = oito ? [-1, 1, -w, w, -w - 1, -w + 1, w - 1, w + 1] : [-1, 1, -w, w]
+  for (let q0 = 0; q0 < w * h; q0++) {
+    if (!m[q0] || rotulo[q0] >= 0) continue
+    const k = n.length
+    let topo = 0
+    pilha[topo++] = q0
+    rotulo[q0] = k
+    let c = 0
+    const cx = { x0: w, y0: h, x1: 0, y1: 0 }
+    while (topo) {
+      const q = pilha[--topo]
+      const x = q % w
+      const y = (q - x) / w
+      c++
+      if (x < cx.x0) cx.x0 = x
+      if (y < cx.y0) cx.y0 = y
+      if (x + 1 > cx.x1) cx.x1 = x + 1
+      if (y + 1 > cx.y1) cx.y1 = y + 1
+      for (const d of viz) {
+        const r = q + d
+        if (r < 0 || r >= w * h) continue
+        const rx = r % w
+        if (Math.abs(rx - x) > 1 || !m[r] || rotulo[r] >= 0) continue
+        rotulo[r] = k
+        pilha[topo++] = r
+      }
+    }
+    n.push(c)
+    caixa.push(cx)
+  }
+  return { rotulo, n, caixa }
+}
+
+/**
+ * A moldura: o maior pedaço quase preto do quadro, quase um retângulo (o que tem dentro dele, o produto e o texto,
+ * conta como dele), com a borda do quadro mais clara em volta e escura (a interface do Instagram no modo escuro). Os
+ * lados vêm pra dentro até ficarem inteiros (os cantos arredondados do reel, a borda borrada da compressão). null = não
+ * tem moldura (o preto vai até a borda, ou o fundo é claro: não é gravação de tela).
+ */
+function molduraEscura(img: Imagem, L: Float32Array): Caixa | null {
+  const { w, h } = img
+  const total = w * h
+  const preto = percentil(L, 0.02)
+  const faixa = Math.max(2, Math.round(Math.min(w, h) * 0.02))
+  const anel: number[] = []
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) if (y < faixa || y >= h - faixa || x < faixa || x >= w - faixa) anel.push(L[y * w + x])
+  const borda = percentil(anel, 0.5)
+  // L 45 ≈ cinza 60/255: mais claro que isso não é a interface escura do Instagram
+  if (preto > 16 || borda < preto + 6 || borda > 45) return null
+  const lim = Math.min(preto + 12, Math.max(preto + 3, (preto + borda) / 2))
+  const m = new Uint8Array(total)
+  for (let q = 0; q < total; q++) m[q] = L[q] <= lim ? 1 : 0
+  const pd = pedacos(m, w, h, false)
+  if (!pd.n.length) return null
+  let k = 0
+  for (let i = 1; i < pd.n.length; i++) if (pd.n[i] > pd.n[k]) k = i
+  const B = pd.caixa[k]
+  const areaB = (B.x1 - B.x0) * (B.y1 - B.y0)
+  if (areaB < total * 0.2 || areaB > total * 0.95) return null
+  // de fora: o que se alcança da borda do quadro sem passar pela janela; o resto (a janela e o que ela cerca) é dela
+  const fora = new Uint8Array(total)
+  const pilha = new Int32Array(total)
+  let topo = 0
+  const entrar = (q: number) => {
+    if (fora[q] || pd.rotulo[q] === k) return
+    fora[q] = 1
+    pilha[topo++] = q
+  }
+  for (let x = 0; x < w; x++) {
+    entrar(x)
+    entrar((h - 1) * w + x)
+  }
+  for (let y = 0; y < h; y++) {
+    entrar(y * w)
+    entrar(y * w + w - 1)
+  }
+  while (topo) {
+    const q = pilha[--topo]
+    const x = q % w
+    if (x > 0) entrar(q - 1)
+    if (x < w - 1) entrar(q + 1)
+    if (q >= w) entrar(q - w)
+    if (q < total - w) entrar(q + w)
+  }
+  let dentro = 0
+  for (let y = B.y0; y < B.y1; y++) for (let x = B.x0; x < B.x1; x++) dentro += fora[y * w + x] ? 0 : 1
+  if (dentro / areaB < 0.93) return null
+  // os lados pra dentro até ficarem inteiros (até 6% de cada lado; mais que isso, o lado é torto: não é uma janela)
+  let { x0, y0, x1, y1 } = B
+  const limX = Math.max(2, Math.round((x1 - x0) * 0.06))
+  const limY = Math.max(2, Math.round((y1 - y0) * 0.06))
+  const linha = (y: number) => {
+    let n = 0
+    for (let x = x0; x < x1; x++) n += fora[y * w + x]
+    return n
+  }
+  const coluna = (x: number) => {
+    let n = 0
+    for (let y = y0; y < y1; y++) n += fora[y * w + x]
+    return n
+  }
+  for (let volta = 0; volta < 64; volta++) {
+    let mexeu = false
+    if (linha(y0) > 0) (y0++, (mexeu = true))
+    if (linha(y1 - 1) > 0) (y1--, (mexeu = true))
+    if (coluna(x0) > 0) (x0++, (mexeu = true))
+    if (coluna(x1 - 1) > 0) (x1--, (mexeu = true))
+    if (!mexeu) break
+    if (y0 - B.y0 > limY || B.y1 - y1 > limY || x0 - B.x0 > limX || B.x1 - x1 > limX) return null
+  }
+  // mais um pixel de folga (a borda da janela vem borrada pela compressão)
+  return { x0: x0 + 1, y0: y0 + 1, x1: x1 - 1, y1: y1 - 1 }
+}
+
+/** Um pedaço da imagem (a cópia dos pixels da caixa). */
+export function recorteDaImagem(img: Imagem, c: Caixa): Imagem {
+  const w = c.x1 - c.x0
+  const h = c.y1 - c.y0
+  const d = new Uint8ClampedArray(w * h * 4)
+  for (let y = 0; y < h; y++) d.set(img.d.subarray(((c.y0 + y) * img.w + c.x0) * 4, ((c.y0 + y) * img.w + c.x1) * 4), y * w * 4)
+  return { w, h, d }
+}
+
+/** A distância entre duas caixas (0 se encostam ou se cruzam). */
+function distancia(a: Caixa, b: Caixa): number {
+  const dx = Math.max(0, a.x0 - b.x1, b.x0 - a.x1)
+  const dy = Math.max(0, a.y0 - b.y1, b.y0 - a.y1)
+  return Math.max(dx, dy)
+}
+
+/**
+ * O texto solto da interface colado na borda da janela (o nome do perfil e o tempo do reel, em cima; a legenda
+ * embaixo): o que passa do ponto do preto, pequeno, baixinho (uma linha) ou estreito, perto da borda e separado do
+ * produto por uma faixa de preto. O
+ * produto é o maior pedaço aceso, com os que ficam perto dele (a tampa separada da garrafa pelo vidro escuro). Devolve
+ * a janela aparada (nas coordenadas da imagem), sem cortar o produto.
+ */
+function semTextoNaBorda(img: Imagem): Caixa {
+  const { w, h } = img
+  const inteira = { x0: 0, y0: 0, x1: w, y1: h }
+  // o preto pela mediana da faixa da borda (o quase-máximo do pretoDoFundo pegava o próprio texto, quando ele encosta
+  // na borda) e uma folga pro ruído da compressão em volta do texto
+  const faixa = Math.max(2, Math.round(Math.min(w, h) * 0.025))
+  const L = mapaDeLuz(img)
+  const anel: number[] = []
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (y < faixa || y >= h - faixa || x < faixa || x >= w - faixa) anel.push(L[y * w + x])
+  const lim = percentil(anel, 0.5) + 8
+  const m = new Uint8Array(w * h)
+  for (let q = 0; q < w * h; q++) m[q] = L[q] >= lim ? 1 : 0
+  const pd = pedacos(m, w, h, true)
+  const vivos = pd.n.map((_, i) => i).filter((i) => pd.n[i] >= 3)
+  if (!vivos.length) return inteira
+  let k = vivos[0]
+  for (const i of vivos) if (pd.n[i] > pd.n[k]) k = i
+  const perto = Math.max(w, h) * 0.06
+  const juntos = new Set([k])
+  const cl = { ...pd.caixa[k] }
+  for (let mudou = true; mudou; ) {
+    mudou = false
+    for (const i of vivos) {
+      if (juntos.has(i) || distancia(pd.caixa[i], cl) > perto) continue
+      juntos.add(i)
+      const c = pd.caixa[i]
+      cl.x0 = Math.min(cl.x0, c.x0)
+      cl.y0 = Math.min(cl.y0, c.y0)
+      cl.x1 = Math.max(cl.x1, c.x1)
+      cl.y1 = Math.max(cl.y1, c.y1)
+      mudou = true
+    }
+  }
+  const corte = { ...inteira }
+  const folgaY = h * 0.05
+  const folgaX = w * 0.05
+  for (const i of vivos) {
+    if (juntos.has(i) || pd.n[i] > w * h * 0.03) continue
+    const c = pd.caixa[i]
+    // texto é baixinho (uma linha) em cima e embaixo, e estreito nos lados; a tampa solta de uma garrafa é mais alta
+    const linha = c.y1 - c.y0 <= h * 0.05
+    const coluna = c.x1 - c.x0 <= w * 0.1
+    if (linha && c.y1 <= cl.y0 - folgaY && c.y0 <= h * 0.15) corte.y0 = Math.max(corte.y0, Math.round(c.y1 + (cl.y0 - c.y1) * 0.3))
+    else if (linha && c.y0 >= cl.y1 + folgaY && c.y1 >= h * 0.85) corte.y1 = Math.min(corte.y1, Math.round(c.y0 - (c.y0 - cl.y1) * 0.3))
+    else if (coluna && c.x1 <= cl.x0 - folgaX && c.x0 <= w * 0.15) corte.x0 = Math.max(corte.x0, Math.round(c.x1 + (cl.x0 - c.x1) * 0.3))
+    else if (coluna && c.x0 >= cl.x1 + folgaX && c.x1 >= w * 0.85) corte.x1 = Math.min(corte.x1, Math.round(c.x0 - (c.x0 - cl.x1) * 0.3))
+  }
+  return corte
+}
+
+/**
+ * A janela do vídeo, olhando alguns quadros (cópias pequenas, ~320 px): a moldura escura (a mesma em pelo menos 3 dos
+ * quadros: a janela não se mexe, o produto sim) e, dentro dela, o texto solto da interface colado na borda, que sai
+ * (de cada lado, o corte que guarda mais, entre os quadros: o produto girando nunca é cortado). null = nada pra cortar:
+ * o vídeo de fundo claro, ou o de fundo preto de ponta a ponta sem texto na borda (o caso do vídeo já pronto).
+ */
+export function janelaDoVideo(quadros: Imagem[]): Janela | null {
+  if (!quadros.length) return null
+  const { w, h } = quadros[0]
+  const luzes = quadros.map(mapaDeLuz)
+  const achadas = quadros.map((q, i) => molduraEscura(q, luzes[i])).filter((c): c is Caixa => !!c)
+  let janela: Caixa | null = null
+  if (achadas.length >= Math.min(3, quadros.length)) {
+    const mediana = (f: (c: Caixa) => number) => percentil(achadas.map(f), 0.5)
+    const c = { x0: mediana((c) => c.x0), y0: mediana((c) => c.y0), x1: mediana((c) => c.x1), y1: mediana((c) => c.y1) }
+    const tol = Math.max(w, h) * 0.03
+    const iguais = achadas.filter((a) => Math.abs(a.x0 - c.x0) + Math.abs(a.y0 - c.y0) + Math.abs(a.x1 - c.x1) + Math.abs(a.y1 - c.y1) <= tol)
+    // a mais apertada das que batem (a moldura de cada quadro pode vir 1 px maior com a compressão)
+    if (iguais.length >= Math.min(3, quadros.length))
+      janela = { x0: Math.max(...iguais.map((a) => a.x0)), y0: Math.max(...iguais.map((a) => a.y0)), x1: Math.min(...iguais.map((a) => a.x1)), y1: Math.min(...iguais.map((a) => a.y1)) }
+  }
+  const moldura = !!janela
+  if (!janela) {
+    // sem moldura: só no preto de ponta a ponta (o fundo modelado na borda é preto) o texto solto da borda sai
+    const preto = quadros.every((q, i) => {
+      const L = luzes[i]
+      const faixa = Math.max(2, Math.round(Math.min(q.w, q.h) * 0.02))
+      const anel: number[] = []
+      for (let y = 0; y < q.h; y++) for (let x = 0; x < q.w; x++) if (y < faixa || y >= q.h - faixa || x < faixa || x >= q.w - faixa) anel.push(L[y * q.w + x])
+      return percentil(anel, 0.9) < 20
+    })
+    if (!preto) return null
+    janela = { x0: 0, y0: 0, x1: w, y1: h }
+  }
+  // o texto da borda: de cada lado, o corte que guarda mais entre os quadros
+  const cortes = quadros.map((q) => semTextoNaBorda(recorteDaImagem(q, janela)))
+  const jw = janela.x1 - janela.x0
+  const jh = janela.y1 - janela.y0
+  const corte = { x0: Math.min(...cortes.map((c) => c.x0)), y0: Math.min(...cortes.map((c) => c.y0)), x1: Math.max(...cortes.map((c) => c.x1)), y1: Math.max(...cortes.map((c) => c.y1)) }
+  const final = { x0: janela.x0 + corte.x0, y0: janela.y0 + corte.y0, x1: janela.x0 + corte.x1, y1: janela.y0 + corte.y1 }
+  const aparou = corte.x0 > 0 || corte.y0 > 0 || corte.x1 < jw || corte.y1 < jh
+  if (!moldura && !aparou) return null
+  // janela pequena demais (menos de 25% do quadro): melhor não cortar
+  if ((final.x1 - final.x0) * (final.y1 - final.y0) < w * h * 0.25 * (moldura ? 0.5 : 1)) return null
+  return { x0: final.x0 / w, y0: final.y0 / h, x1: final.x1 / w, y1: final.y1 / h, moldura }
+}
+
 /* ---------------------------------------------------------------- recorte */
 
 /**

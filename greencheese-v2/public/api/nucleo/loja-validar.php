@@ -228,6 +228,19 @@ function gc_loja_id_livre(string $base, string $tabela): string
 // ─── produto ────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Imagem de fábrica (foto ou capa da thumb animada, do build do site): `produtos/<nome>`, nome só com minúscula,
+ * número e traço, o mesmo que o FilesMatch de public/produtos/.htaccess serve (o resto dá 403 no Apache) e que o site
+ * aceita (src/store/loja-ler.ts).
+ */
+const GC_LOJA_FABRICA_IMAGEM = '#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:webp|jpe?g|png))$#';
+
+/** A pasta da mídia de fábrica (produtos/, ao lado da api/ no build; o servidor só confere se o arquivo existe). */
+function gc_pasta_produtos(): string
+{
+    return dirname(__DIR__, 2) . '/produtos';
+}
+
+/**
  * Combos coerentes: com o preço da unidade, quantidade sem repetir, cada um mais barato que comprar avulso e o total
  * subindo com a quantidade.
  * @param list<array{qtd: int, total: int}> $combos (em ordem de quantidade)
@@ -428,7 +441,9 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
         $col['combina_com'] = (string) ($atual['combina_com'] ?? '[]');
     }
 
-    // foto: a enviada pelo painel (uploads/…) ou uma do build do site (produtos/…); sem foto, o site desenha a arte
+    // foto: a enviada pelo painel (uploads/…) ou uma do build do site (produtos/…, nome só com minúscula, número e
+    // traço: o que o .htaccess de produtos/ serve); sem foto, o site desenha a arte. Caminho novo tem de existir (o
+    // que já estava salvo passa, pra editar outro campo de um produto cuja foto de fábrica saiu do build)
     $foto = $tem('foto') ? $c['foto'] : ($atual['foto'] ?? null);
     if ($foto === '' || $foto === null) {
         $foto = null;
@@ -438,7 +453,11 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
         if ($foto !== ($atual['foto'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
             throw gc_invalido('foto', 'Foto não encontrada. Envia de novo.');
         }
-    } elseif (preg_match('#^produtos/[a-z0-9][a-z0-9._-]{0,80}\.(?:webp|png|jpe?g)$#', $foto) !== 1) {
+    } elseif (preg_match(GC_LOJA_FABRICA_IMAGEM, $foto, $m) === 1) {
+        if ($foto !== ($atual['foto'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
+            throw gc_invalido('foto', 'Foto não encontrada. Envia de novo.');
+        }
+    } else {
         throw gc_invalido('foto', 'Foto inválida. Envia de novo.');
     }
     $col['foto'] = $foto;
@@ -456,7 +475,11 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
         if ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
             throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
         }
-    } elseif (preg_match('#^produtos/[a-z0-9][a-z0-9-]{0,80}\.(?:mp4|webm)$#', $video) !== 1) {
+    } elseif (preg_match('#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:mp4|webm))$#', $video, $m) === 1) {
+        if ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
+            throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
+        }
+    } else {
         throw gc_invalido('video', 'Vídeo inválido. Envia de novo.');
     }
     $capa = $video === null ? null : ($tem('capa') ? $c['capa'] : ($atual['capa'] ?? null));
@@ -468,7 +491,11 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
             if ($capa !== ($atual['capa'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
                 throw gc_invalido('capa', 'Capa do vídeo não encontrada. Manda o vídeo de novo.');
             }
-        } elseif (preg_match('#^produtos/[a-z0-9][a-z0-9-]{0,80}\.(?:webp|jpe?g|png)$#', $capa) !== 1) {
+        } elseif (preg_match(GC_LOJA_FABRICA_IMAGEM, $capa, $m) === 1) {
+            if ($capa !== ($atual['capa'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
+                throw gc_invalido('capa', 'Capa do vídeo não encontrada. Manda o vídeo de novo.');
+            }
+        } else {
             throw gc_invalido('capa', 'Capa do vídeo inválida. Manda o vídeo de novo.');
         }
     }

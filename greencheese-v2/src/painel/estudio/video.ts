@@ -11,8 +11,10 @@
 //   come o vidro escuro de um conhaque e a caixa do gargalo), só o ruído do preto vira preto liso, a cor é medida só
 //   no produto (o preto não vira cinza) e não tem vinheta (a garrafa grande no quadro não escurece em cima e embaixo).
 // - Trecho maior que 6 s (até 9): a thumb sai acelerada (até 1,5×), pro giro inteiro caber nos 6 s.
+// - Gravação da tela (o reel ou o story dentro do Instagram, como a loja manda): a janela do vídeo (janelaDoVideo, em
+//   recorte.ts) vira a fonte; a moldura da interface e o texto solto colado na borda ficam de fora (`janela`).
 
-import { medirComModelo, recortar, type AjusteCor, type Analise, type MapaDoFundo, type PontoDoPreto } from './recorte'
+import { medirComModelo, recortar, type AjusteCor, type Analise, type Caixa, type MapaDoFundo, type PontoDoPreto } from './recorte'
 import { contexto, novoCanvas, transformar, type Quadro } from './render'
 
 /** O tamanho da thumb animada (9:16; lado menor 432). */
@@ -212,14 +214,38 @@ export async function abrirGif(arquivo: Blob): Promise<FonteVideo> {
 
 /* ---------------------------------------------------------------- máscara de cada quadro */
 
-/** A cópia pequena de um quadro (até 128 px no lado maior), pra decidir a máscara. */
-export function quadroPequeno(img: CanvasImageSource, w: number, h: number, lado = LADO_MASCARA): ImageData {
-  const k = Math.min(1, lado / Math.max(w, h))
-  const c = novoCanvas(w * k, h * k)
+/** A cópia pequena de um quadro (até 128 px no lado maior), pra decidir a máscara; com a janela, só ela. */
+export function quadroPequeno(img: CanvasImageSource, w: number, h: number, lado = LADO_MASCARA, janela?: Caixa | null): ImageData {
+  const j = janela ?? { x0: 0, y0: 0, x1: w, y1: h }
+  const jw = j.x1 - j.x0
+  const jh = j.y1 - j.y0
+  const k = Math.min(1, lado / Math.max(jw, jh))
+  const c = novoCanvas(jw * k, jh * k)
   const g = contexto(c)
   g.imageSmoothingEnabled = true
-  g.drawImage(img, 0, 0, c.width, c.height)
+  g.drawImage(img, j.x0, j.y0, jw, jh, 0, 0, c.width, c.height)
   return g.getImageData(0, 0, c.width, c.height)
+}
+
+/** A cópia de um quadro (ou só da janela dele) com o lado maior até `lado`, em alta qualidade (a análise do fundo). */
+export function copiaDoQuadro(img: CanvasImageSource, w: number, h: number, lado: number, janela?: Caixa | null): HTMLCanvasElement {
+  const j = janela ?? { x0: 0, y0: 0, x1: w, y1: h }
+  const jw = j.x1 - j.x0
+  const jh = j.y1 - j.y0
+  const k = Math.min(1, lado / Math.max(jw, jh))
+  const c = novoCanvas(jw * k, jh * k)
+  const g = contexto(c)
+  g.imageSmoothingEnabled = true
+  g.imageSmoothingQuality = 'high'
+  g.drawImage(img, j.x0, j.y0, jw, jh, 0, 0, c.width, c.height)
+  return c
+}
+
+/** A janela do vídeo (frações de janelaDoVideo) em pixels inteiros do vídeo. */
+export function janelaEmPixels(j: { x0: number; y0: number; x1: number; y1: number }, w: number, h: number): Caixa {
+  const x0 = Math.max(0, Math.round(j.x0 * w))
+  const y0 = Math.max(0, Math.round(j.y0 * h))
+  return { x0, y0, x1: Math.max(x0 + 2, Math.min(w, Math.round(j.x1 * w))), y1: Math.max(y0 + 2, Math.min(h, Math.round(j.y1 * h))) }
 }
 
 /**
@@ -350,6 +376,9 @@ export interface Tratamento {
   preto?: PontoDoPreto | null
   /** Mantendo o fundo sem a vinheta (o fundo preto, com "Tirar o fundo" desligado: fica como veio). */
   semVinheta?: boolean
+  /** Só esse pedaço do vídeo (px do vídeo): a janela do reel na gravação da tela, sem a moldura do Instagram. O
+   *  quadro (`quadro`) é medido nela. */
+  janela?: Caixa | null
 }
 
 /** O processador: um canvas WebGL do tamanho da thumb, que desenha cada quadro tratado. */
@@ -419,11 +448,15 @@ export class Processador {
    * Desenha um quadro tratado: o vídeo vai uma vez pro canvas 2D já enquadrado (W×H); dele sai a cópia pequena que
    * decide a máscara (o preenchimento a partir da borda, com o fundo do 1º quadro) e a textura do shader.
    */
-  desenhar(img: CanvasImageSource, fw: number, fh: number, t: Tratamento, comMascara = true): void {
+  desenhar(img: CanvasImageSource, larguraVideo: number, alturaVideo: number, t: Tratamento, comMascara = true): void {
     const { gl, u } = this
     const W = this.canvas.width
     const H = this.canvas.height
     const [s, tx, ty] = transformar(t.quadro, W, H)
+    // com a janela, a fonte é só ela (o resto do vídeo, a moldura do Instagram, fica no preto de fora)
+    const j = t.janela ?? { x0: 0, y0: 0, x1: larguraVideo, y1: alturaVideo }
+    const fw = j.x1 - j.x0
+    const fh = j.y1 - j.y0
     const g2 = this.g2
     g2.setTransform(1, 0, 0, 1, 0, 0)
     g2.fillStyle = '#000'
@@ -431,7 +464,8 @@ export class Processador {
     g2.imageSmoothingEnabled = true
     g2.imageSmoothingQuality = 'high'
     g2.setTransform(s, 0, 0, s, tx, ty)
-    g2.drawImage(img, 0, 0, fw, fh)
+    if (t.janela) g2.drawImage(img, j.x0, j.y0, fw, fh, 0, 0, fw, fh)
+    else g2.drawImage(img, 0, 0, fw, fh)
     let mascara: { m: Uint8Array; w: number; h: number } | null = null
     if (t.base && !t.preto && comMascara) {
       const k = Math.min(1, LADO_MASCARA / Math.max(W, H))

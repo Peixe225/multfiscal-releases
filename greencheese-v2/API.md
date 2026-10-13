@@ -786,11 +786,16 @@ O banco cresce por migrações numeradas. Cada uma roda uma vez só, em ordem de
 Hoje: `1` (base: ajustes, usuários, sessões, tentativas, eventos, rateios, participações), `100` (as tabelas da loja),
 `101` (semeia a loja num banco instalado antes dela; banco novo é semeado na instalação do painel), `102` (o vídeo e a
 capa da thumb animada do produto: `loja_produtos.video` e `.capa`), `104` (o material da loja de 11/10, no banco que já
-está no ar: a foto de fábrica da Fanta Ghost Face Punch e do Hennessy Very Special e a thumb animada de fábrica do
-Hennessy só onde o produto existe e o campo está vazio, nunca por cima do que o dono pôs; o Jack Daniel's Tennessee
-Apple e a Fanta Maçã (China) só se o id não existir, no fim da grade, sem preço, à venda só no RJ; loja ainda não
-semeada: nada; mudou algo, `loja.versao` sobe e o ETag muda. Os dados moram na migração, `GC_LOJA_NOVOS_1110`, e o
-`testar-api` confere que batem com o catálogo) e, dos pedidos e das
+está no ar: a foto de fábrica da Fanta Ghost Face Punch e do Hennessy Very Special só onde o produto existe e a foto
+está vazia, e a thumb animada de fábrica do Hennessy só onde não tem vídeo e a foto é a de fábrica (com a foto que o
+dono pôs, a capa de fábrica tomaria o lugar dela no card), nunca por cima do que o dono pôs; o Jack Daniel's Tennessee
+Apple e a Fanta Maçã da China só se a loja ainda não tem o produto: nem pelo id da migração, nem pelo id que o painel
+daria pelo nome (`gc_loja_slug`, que faz `jack-daniel-s-tennessee-apple`, com ou sem sufixo como `-1-l` ou `-2`), nem
+um produto cujo nome com o tamanho tem todas as palavras do nome do novo (sem acento, apóstrofo, pontuação,
+"da/de/do" e o "s" do fim: "FANTA MAÇÃ CHINA LATA", "Fanta Maçã (China)" e "Jack Daniels Tennessee Apple 1L" contam
+como o mesmo; "Fanta Maçã" e "Jack Daniel's Tennessee Fire" não), no fim da grade, sem preço, à venda só no RJ; loja
+ainda não semeada: nada; mudou algo, `loja.versao` sobe e o ETag muda. Os dados moram na migração,
+`GC_LOJA_NOVOS_1110`, e o `testar-api` confere que batem com o catálogo) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
 mudado guarda qual ele substitui), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
@@ -887,7 +892,7 @@ interface ProdutoLoja {
   restam: Record<string, number> // só os estados com de 1 a restamAte unidades contadas
   combinaCom?: string[]          // só ids de produtos que estão no site
   demo: boolean
-  foto: string | null            // 'uploads/<nome>' (enviada pelo painel) ou 'produtos/<arquivo>' (do build do site)
+  foto: string | null            // 'uploads/<nome>' (enviada pelo painel) ou 'produtos/<nome>.webp|jpg|png' (do build do site; minúscula, número e traço)
   video?: string                 // a thumb animada: 'uploads/<nome>.mp4|webm' (já no estilo do site, sobre preto) ou a de fábrica,
                                  // 'produtos/<nome>.mp4|webm' (do build do site); só vem com a capa
   capa?: string                  // o 1º quadro dela, imagem ('uploads/<nome>.webp…' ou 'produtos/<nome>.webp…'): antes de tocar e onde vídeo não roda
@@ -979,11 +984,15 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   precisam do preço da unidade, cada um mais barato que avulso e o total subindo com a quantidade (conferidos de novo
   quando o preço muda); `variacoes` até 12, nome 1–40 sem repetir (sem olhar acento e caixa), preço opcional, o `id`
   fica o mesmo na edição; `combinaCom` até 8 produtos que existem (nunca ele mesmo); `foto` `'uploads/<nome>'` (o que o
-  `admin-upload` devolveu: tem que existir) ou `'produtos/<arquivo>'`; `video` `'uploads/<nome>.mp4|webm'` (o que o
+  `admin-upload` devolveu: tem que existir) ou `'produtos/<nome>.webp|jpg|png'` (a de fábrica, do build: nome só com
+  minúscula, número e traço, o que o `.htaccess` de `produtos/` serve, e o arquivo tem que existir; `_`, ponto no
+  meio, maiúscula ou arquivo que não está no build → 400 `campo: 'foto'`); `video` `'uploads/<nome>.mp4|webm'` (o que o
   `admin-video-upload` devolveu) com `capa` `'uploads/<nome>.webp|jpg|png'` (do `admin-upload`), os dois juntos (vídeo
   sem capa → 400 `campo: 'capa'`; `video: null` tira os dois), ou os de fábrica, que vêm no build do site
   (`'produtos/<nome>.mp4|webm'` e `'produtos/<nome>.webp|jpg|png'`, nome só com minúscula, número e traço: outra pasta,
-  `..`, maiúscula ou outra extensão → 400; o servidor nunca apaga nem grava em `produtos/`); `tamanho` vazio vale (é
+  `..`, maiúscula ou outra extensão → 400; o arquivo tem que estar no build, senão 400 `campo: 'video'` ou `'capa'`; o
+  servidor nunca apaga nem grava em `produtos/`). O caminho que já estava salvo passa sem conferir o arquivo (editar
+  outro campo de um produto cuja mídia de fábrica saiu do build não trava); `tamanho` vazio vale (é
   opcional: o site e a mensagem do pedido usam só o nome); `cor` `#rrggbb`; `arte` `{ tipo, corpo, faixa?,
   rotulo?, detalhe?, tampa? }` (tipo da lista do `TipoArte`, cores `#rrggbb`); `obs` até 300 (só no painel); `demo` e
   `ativo` sim/não; `estados` `{ <uf>: { disponivel: boolean, estoque: number | null } }`, só estados da loja, estoque de 0

@@ -133,9 +133,26 @@ let videos = null
 try {
   const ff = (args) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args], { stdio: 'pipe' })
   const cena = ['-f', 'lavfi', '-i', 'color=c=0xf2f1ec:s=360x640:r=24:d=4', '-f', 'lavfi', '-i', 'color=c=0xd8432a:s=120x330:r=24:d=4', '-filter_complex', "[1]scale=w='max(8,trunc(120*abs(cos(t*1.6))/2)*2)':h=330:eval=frame[l];[0][l]overlay=x='(W-w)/2':y=150:eval=frame,format=yuv420p"]
-  videos = { webm: join(dados, 'produto-girando.webm'), mp4: join(dados, 'produto-original.mp4') }
+  videos = { webm: join(dados, 'produto-girando.webm'), mp4: join(dados, 'produto-original.mp4'), tela: join(dados, 'gravacao-da-tela.webm'), reel: process.env.GC_TESTE_REEL || null }
   ff([...cena, '-t', '4', '-c:v', 'libvpx-vp9', '-b:v', '600k', videos.webm])
   ff([...cena, '-t', '3', '-c:v', 'libvpx-vp9', '-b:v', '600k', '-f', 'mp4', videos.mp4])
+  // a gravação da tela, como a loja manda o reel (o item1.mp4 de 11/10): a interface do Instagram no modo escuro em
+  // volta (a barra do celular, as barrinhas, o nome do perfil, "Enviar mensagem", o cinza do story) e, no meio, a
+  // janela preta do reel com os cantos arredondados, o nome do perfil e o tempo em cima, e o produto girando. Com
+  // GC_TESTE_REEL=<o reel de verdade em WebM> o mesmo teste roda também nele (o Chromium daqui não abre H.264).
+  const caixa = (x, y, w, h, cor, t = 'fill') => `drawbox=x=${x}:y=${y}:w=${w}:h=${h}:color=${cor}:t=${t}`
+  const tela = [
+    caixa(0, 0, 384, 46, '0x0f1015'), caixa(26, 12, 56, 20, '0xd02030'), caixa(300, 16, 60, 10, '0xe0e0e0'), caixa(8, 46, 368, 3, '0xbbbbbb'),
+    caixa(56, 60, 150, 10, '0xe8e8e8'), caixa(56, 76, 110, 8, '0xc8c8c8'), caixa(38, 110, 308, 550, '0x020003'),
+    caixa(38, 110, 4, 4, '0x1e1b1f'), caixa(342, 110, 4, 4, '0x1e1b1f'), caixa(38, 656, 4, 4, '0x1e1b1f'), caixa(342, 656, 4, 4, '0x1e1b1f'),
+    caixa(52, 126, 120, 10, '0xe8e8e8'), caixa(316, 126, 22, 10, '0xe8e8e8'),
+    caixa(0, 740, 384, 92, '0x0f1015'), caixa(14, 756, 200, 40, '0x9a9a9a', 2), caixa(150, 822, 84, 5, '0xf0f0f0'),
+  ].join(',')
+  ff([
+    '-f', 'lavfi', '-i', 'color=c=0x1e1b1f:s=384x832:r=24:d=4', '-f', 'lavfi', '-i', 'color=c=0xd8432a:s=110x260:r=24:d=4',
+    '-filter_complex', `[1]scale=w='max(8,trunc(110*abs(cos(t*1.6))/2)*2)':h=260:eval=frame[l];[0]${tela}[b];[b][l]overlay=x='(W-w)/2':y=270:eval=frame,${caixa(177, 232, 30, 38, '0xd8b040')},format=yuv420p`,
+    '-t', '4', '-c:v', 'libvpx-vp9', '-b:v', '900k', videos.tela,
+  ])
 } catch {
   videos = null
 }

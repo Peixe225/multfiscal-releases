@@ -113,8 +113,10 @@ function gc_migracoes_loja(): array
         SQL,
         // o material que a loja mandou (11/10), no banco que já está no ar: as fotos de fábrica (produtos/…, no build
         // do site) e a thumb animada de fábrica do Hennessy, só onde o produto existe e o campo ainda está vazio (nunca
-        // troca a foto ou o vídeo que o dono pôs), e os 2 produtos novos vistos no story do RJ, só se o id não existir
-        // (à venda só no RJ, sem preço = "Consultar"). Os dados moram aqui (a semente muda com o tempo; a migração não).
+        // troca a foto ou o vídeo que o dono pôs; a thumb só com a foto de fábrica: com a foto do dono, a capa tomaria o
+        // lugar dela no card), e os 2 produtos novos vistos no story do RJ, só se a loja ainda não tem o produto (nem
+        // pelo id, nem cadastrado pelo dono no painel com outro id ou outro jeito de escrever o nome; à venda só no RJ,
+        // sem preço = "Consultar"). Os dados moram aqui (a semente muda com o tempo; a migração não).
         104 => static function (PDO $db): void {
             gc_loja_material_1110($db);
         },
@@ -132,7 +134,7 @@ const GC_LOJA_NOVOS_1110 = [
         'obs' => 'Visto no story do RJ em 11/10. Preço PENDENTE.',
     ],
     [
-        'id' => 'fanta-maca-china', 'nome' => 'Fanta Maçã (China)', 'tamanho' => '',
+        'id' => 'fanta-maca-china', 'nome' => 'Fanta Maçã da China', 'tamanho' => '',
         'detalhe' => 'Lata alta · importada da China',
         'descricao' => 'Fanta sabor maçã, importada da China, na lata alta. Serve bem gelada.',
         'categoria' => 'bebidas', 'foto' => 'produtos/fanta-maca-china.webp', 'cor' => '#316f7f',
@@ -142,9 +144,55 @@ const GC_LOJA_NOVOS_1110 = [
 ];
 
 /**
- * A migração 104: foto e thumb animada de fábrica onde o produto existe e o campo está vazio, e os produtos novos onde
- * o id não existe. Loja ainda não semeada (banco novo, antes de instalar): nada (a instalação semeia já com tudo isso).
- * Mudou alguma coisa: a versão da loja sobe (o ETag muda e o site pega na próxima abertura).
+ * As palavras de um nome de produto, pra achar o mesmo produto escrito de outro jeito: sem acento e sem maiúscula, o
+ * apóstrofo some ("Daniel's" e "Daniels" dão o mesmo), parêntese e pontuação separam, sem "a/o/e/da/de/do/das/dos" e
+ * sem o "s" do fim das palavras compridas.
+ * @return list<string>
+ */
+function gc_loja_palavras_do_nome(string $nome): array
+{
+    $t = (string) preg_replace("/['’‘´`]/u", '', gc_loja_comparavel($nome));
+    $out = [];
+    foreach (preg_split('/[^a-z0-9]+/', $t, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $p) {
+        if (in_array($p, ['a', 'o', 'e', 'da', 'de', 'do', 'das', 'dos'], true)) {
+            continue;
+        }
+        $out[] = strlen($p) > 3 ? (string) preg_replace('/s$/', '', $p) : $p;
+    }
+    return $out;
+}
+
+/**
+ * O produto novo da 104 já está na loja? O dono pode ter cadastrado pelo painel depois do story de 11/10, e o painel
+ * gera outro id (o apóstrofo vira traço, o tamanho entra: "jack-daniel-s-tennessee-apple-1-l"). Conta como o mesmo: o
+ * id da migração, o id que o painel daria pelo nome (ou um dos dois com sufixo: "-1-l", "-2"), ou um produto cujo
+ * nome (com o tamanho) tem todas as palavras do nome do novo ("FANTA MAÇÃ CHINA LATA", "Fanta Maçã (China)").
+ * @param array<string, mixed> $p
+ * @param list<array{id: string, nome: string, tamanho: string}> $produtos
+ */
+function gc_loja_novo_ja_existe(array $p, array $produtos): bool
+{
+    $ids = array_values(array_unique([(string) $p['id'], gc_loja_slug((string) $p['nome'], (string) $p['id'])]));
+    $palavras = gc_loja_palavras_do_nome((string) $p['nome']);
+    foreach ($produtos as $x) {
+        foreach ($ids as $id) {
+            if ($x['id'] === $id || str_starts_with($x['id'], $id . '-')) {
+                return true;
+            }
+        }
+        $dele = gc_loja_palavras_do_nome($x['nome'] . ' ' . $x['tamanho']);
+        if ($palavras !== [] && array_diff($palavras, $dele) === []) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * A migração 104: foto de fábrica onde o produto existe e o campo está vazio, a thumb animada de fábrica onde não tem
+ * vídeo e a foto é a de fábrica, e os produtos novos que a loja ainda não tem (gc_loja_novo_ja_existe). Loja ainda não
+ * semeada (banco novo, antes de instalar): nada (a instalação semeia já com tudo isso). Mudou alguma coisa: a versão
+ * da loja sobe (o ETag muda e o site pega na próxima abertura).
  */
 function gc_loja_material_1110(PDO $db): void
 {
@@ -160,12 +208,15 @@ function gc_loja_material_1110(PDO $db): void
         $foto->execute([$caminho, $agora, $id]);
         $mudou += $foto->rowCount();
     }
-    // vídeo e capa juntos, só sem vídeo nenhum (o que o dono gravou no Estúdio fica)
-    $video = $db->prepare("UPDATE loja_produtos SET video = ?, capa = ?, atualizado_em = ? WHERE id = ? AND (video IS NULL OR video = '')");
-    $video->execute(['produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp', $agora, 'hennessy-very-special']);
+    // vídeo e capa juntos, só sem vídeo nenhum (o que o dono gravou no Estúdio fica) e com a foto de fábrica (a que a
+    // linha de cima pôs, ou que já estava): o site mostra a capa e o vídeo na frente da foto, e a foto que o dono
+    // escolheu deixaria de aparecer no card, no story e na página
+    $video = $db->prepare("UPDATE loja_produtos SET video = ?, capa = ?, atualizado_em = ? WHERE id = ? AND (video IS NULL OR video = '') AND foto = ?");
+    $video->execute(['produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp', $agora, 'hennessy-very-special', 'produtos/hennessy-very-special.webp']);
     $mudou += $video->rowCount();
 
-    $existe = $db->prepare('SELECT 1 FROM loja_produtos WHERE id = ?');
+    /** @var list<array{id: string, nome: string, tamanho: string}> $produtos */
+    $produtos = $db->query('SELECT id, nome, tamanho FROM loja_produtos')->fetchAll(PDO::FETCH_ASSOC);
     $categoria = $db->prepare('SELECT 1 FROM loja_categorias WHERE id = ?');
     $ordem = (int) $db->query('SELECT COALESCE(MAX(ordem), -1) FROM loja_produtos')->fetchColumn();
     $novo = $db->prepare(
@@ -174,8 +225,7 @@ function gc_loja_material_1110(PDO $db): void
     );
     $porUf = $db->prepare('INSERT OR IGNORE INTO loja_produto_estados (produto_id, uf, disponivel, estoque, atualizado_em) VALUES (?, ?, ?, NULL, ?)');
     foreach (GC_LOJA_NOVOS_1110 as $p) {
-        $existe->execute([$p['id']]);
-        if ($existe->fetchColumn() !== false) {
+        if (gc_loja_novo_ja_existe($p, $produtos)) {
             continue;
         }
         // a categoria saiu do painel: o produto não entra (sem ela não tem onde mostrar; o dono cadastra se quiser)
@@ -192,6 +242,7 @@ function gc_loja_material_1110(PDO $db): void
         foreach (['rj' => 1, 'mg' => 0, 'sp' => 0, 'es' => 0, 'sc' => 0] as $uf => $sim) {
             $porUf->execute([$p['id'], $uf, $sim, $agora]);
         }
+        $produtos[] = ['id' => $p['id'], 'nome' => $p['nome'], 'tamanho' => $p['tamanho']];
         $mudou++;
     }
     if ($mudou > 0) {
