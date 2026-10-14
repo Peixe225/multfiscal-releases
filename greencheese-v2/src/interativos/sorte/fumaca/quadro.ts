@@ -2,17 +2,23 @@
 // (origem no canto de cima à esquerda, y pra baixo). Os objetos são criados uma vez e reescritos a cada quadro (nada é
 // alocado no meio da animação).
 
-/** Bolhas da fumaça (metaballs): 8 números por bolha. */
-export const NB = 112
-export const PASSO_BOLHA = 8
+/**
+ * Lóbulos da fumaça (metaballs): 14 números por lóbulo: x, y, raio, peso, estica, direção (x, y), camada, o giro (cos,
+ * sen: a borda do lóbulo tem 3 calombos que rolam com ele), a amplitude dos calombos, a opacidade (se desfazendo em
+ * dither), a profundidade (px: quem fica na frente quando dois lóbulos se cruzam) e se é fumaça "de verdade" (cinza: as
+ * baforadas das puxadas; 0 = na cor da raridade).
+ */
+export const NB = 176
+export const PASSO_BOLHA = 14
 /** Camada de cada bolha: o fundo (mais escuro, atrás do beck), a frente e a cabeça do épico (uma cor só, por cima). */
 export const FUNDO = 0
 export const FRENTE = 1
 export const CABECA = 2
 
-/** As 4 cores de uma camada de fumaça (cores já em Uint32 do ImageData). */
+/** As cores de uma camada de fumaça (já em Uint32 do ImageData): contorno, a sombra funda, a sombra, o meio e a luz. */
 export interface Paleta {
   contorno: number
+  funda: number
   sombra: number
   meio: number
   luz: number
@@ -43,6 +49,8 @@ export interface EstadoBeckPx {
   torcidaAcesa: number
   /** O recorte da boca da câmara (o beck subindo do dichavador): só aparece acima da borda da frente. */
   corte: { x: number; y: number; rx: number; ry: number } | null
+  /** Engolido pelo sopro: desenhado atrás de toda a fumaça. */
+  atras: boolean
 }
 
 export interface EstadoIsqueiro {
@@ -69,7 +77,15 @@ export interface Fita {
   lado: number
   /** A base solta (subindo, sem a brasa): o fiapo afina por baixo (0–1). */
   solta: number
+  /** A inclinação (rad, 0 = pra cima) e a opacidade (some em dither). */
+  inc: number
+  alfa: number
+  /** Quantas voltinhas na ponta (os da brasa 2, os que se soltam das nuvens 1). */
+  voltas: number
 }
+
+/** Quantos fiapos cabem no quadro (os da brasa, os que se soltam das baforadas e das nuvens). */
+export const NFITAS = 12
 
 export interface Anel {
   x: number
@@ -100,7 +116,7 @@ export interface Quadro {
   /** A semente da fervura (troca 12 vezes por segundo). */
   ferve: number
   /* ── fumaça ── */
-  blobs: Float32Array // NB × (x, y, r, peso, estica, dirX, dirY, camada)
+  blobs: Float32Array // NB × PASSO_BOLHA (ver NB)
   nBlobs: number
   /** O buraco do prêmio: x, y, rx, ry, força. */
   buraco: Float32Array
@@ -110,8 +126,6 @@ export interface Quadro {
   frente: Paleta
   fundo: Paleta
   cabeca: Paleta
-  /** A fumaça "de verdade" (cinza) antes do sopro grande: 1 = cinza, 0 = a cor da raridade. */
-  cinza: number
   /** As faixas psicodélicas (isolinhas do campo): força (0–1, dither), fase (anda pra dentro). */
   iso: number
   isoFase: number
@@ -124,6 +138,8 @@ export interface Quadro {
   estalo: Float32Array
   /** O brilho da brasa em volta (dither): x, y, raio, força. */
   brilhoBrasa: Float32Array
+  /** A brasa engolida pela fumaça ainda brilhando através dela: x, y, raio, força. */
+  brasaSobre: Float32Array
   fitas: Fita[]
   nFitas: number
   /* ── a viagem de cada raridade ── */
@@ -133,7 +149,7 @@ export interface Quadro {
   aneis: Anel[]
   nAneis: number
   espiral: Float32Array
-  /** x, y, rx, ry, abre (pálpebras), pupila (raio px), aro (0–1 a moldura azul depois), vis */
+  /** x, y, rx, ry, abre (pálpebras), pupila (raio px), aro (0–1 a moldura azul depois), vis, pra onde a pupila olha (x, y px) */
   iris: Float32Array
   /** Épico: os olhos (2) e a boca (x, y, largura, sorriso 0–1, bico 0–1, sopro 0–1) e a sobrancelha (sobe 0–1). */
   olhos: Olho[]
@@ -177,12 +193,12 @@ export function misturar(a: string, b: string, k: number): string {
 }
 
 export function paleta(cores: readonly [string, string, string, string]): Paleta {
-  return { contorno: px32(cores[0]), sombra: px32(cores[1]), meio: px32(cores[2]), luz: px32(cores[3]) }
+  return { contorno: px32(cores[0]), funda: px32(misturar(cores[1], cores[0], 0.42)), sombra: px32(cores[1]), meio: px32(cores[2]), luz: px32(cores[3]) }
 }
 
 export function quadroVazio(): Quadro {
   const olho = (): Olho => ({ x: 0, y: 0, r: 0, prop: 0.6, abre: 0, ox: 0, oy: 0 })
-  const vazia: Paleta = { contorno: 0, sombra: 0, meio: 0, luz: 0 }
+  const vazia: Paleta = { contorno: 0, funda: 0, sombra: 0, meio: 0, luz: 0 }
   return {
     t: 0,
     ferve: 0,
@@ -194,21 +210,21 @@ export function quadroVazio(): Quadro {
     frente: { ...vazia },
     fundo: { ...vazia },
     cabeca: { ...vazia },
-    cinza: 1,
     iso: 0,
     isoFase: 0,
     alfa: 1,
-    beck: { vis: false, x0: 0, y0: 0, ax: 0, ay: -1, L: 100, sx: 1, sy: 1, linha: 1, cinza: 0, pende: 0, racha: 0, brasa: 0, luz: 0, torcida: 1, torcidaAcesa: 0, corte: null },
+    beck: { vis: false, x0: 0, y0: 0, ax: 0, ay: -1, L: 100, sx: 1, sy: 1, linha: 1, cinza: 0, pende: 0, racha: 0, brasa: 0, luz: 0, torcida: 1, torcidaAcesa: 0, corte: null, atras: false },
     isqueiro: { vis: false, x: 0, y: 0, ang: 0, h: 60, chama: 0, chamaAng: 0, faisca: 0 },
     estalo: new Float32Array(3),
     brilhoBrasa: new Float32Array(4),
-    fitas: Array.from({ length: 3 }, () => ({ x: 0, y: 0, comp: 0, larg: 2, fase: 0, lado: 1, solta: 0 })),
+    brasaSobre: new Float32Array(4),
+    fitas: Array.from({ length: NFITAS }, () => ({ x: 0, y: 0, comp: 0, larg: 2, fase: 0, lado: 1, solta: 0, inc: 0, alfa: 1, voltas: 2 })),
     nFitas: 0,
     sorriso: new Float32Array(5),
     aneis: Array.from({ length: 3 }, () => ({ x: 0, y: 0, rx: 0, ry: 0, esp: 0, vis: 0, atras: false })),
     nAneis: 0,
     espiral: new Float32Array(7),
-    iris: new Float32Array(8),
+    iris: new Float32Array(10),
     olhos: Array.from({ length: 8 }, olho),
     nOlhos: 0,
     olhosTipo: 0,

@@ -1,5 +1,5 @@
-import { createRef, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as PointerEventReact } from 'react'
-import { createPortal } from 'react-dom'
+import { createRef, memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as PointerEventReact } from 'react'
+import { createPortal, flushSync } from 'react-dom'
 import { gsap } from 'gsap'
 import { Icone } from '../../componentes/comum'
 import { FormConta, type ModoForm } from '../../componentes/FormConta'
@@ -21,10 +21,10 @@ import { AdesivoCodigo, BolhaPremio } from './Adesivos'
 import { ID_SORTE, useEstadoSorte, usarNoPedido, type ResumoSorte } from './estado'
 import { Palco, type RefsPalco } from './Palco'
 import { Regras } from './Regras'
-import { entrarStory, esconderPalco, estalo, montarRevelacao, origemDoBeck, pintarFinal, PULAR_DESDE, RESPIRO_AUGE, type ElementosRevelacao } from './revelar'
+import { aquecerRevelacao, aquecerStory, cartaoDaFumaca, entrarStory, esconderPalco, estalo, montarRevelacao, origemDoBeck, medirSaida, pintarFinal, PULAR_DESDE, RESPIRO_AUGE, type ElementosRevelacao, type MedidasSaida } from './revelar'
 import { FaixaPremio, StoryPremio, type DadosPremio } from './StoryPremio'
 import { raridadeDoRetrato, SeloRaridade } from './SeloRaridade'
-import { anuncioDoPremio, comecarFumaca, dissiparFumaca, fumacaPronta, preCarregarFumaca, pularFumaca, RevelacaoFumaca, soltarCartaoFumaca, type PremioNaFumaca } from './fumaca'
+import { anuncioDoPremio, comecarFumaca, dissiparFumaca, fumacaPronta, preCarregarFumaca, pularFumaca, RevelacaoFumaca, soltarCartaoFumaca, type Origem, type PremioNaFumaca } from './fumaca'
 import { raridadeForcada } from './fumaca/forcar'
 import { duracao } from './fumaca/roteiro'
 import { ProdutoVisual } from '../../arte/ProdutoVisual'
@@ -57,6 +57,9 @@ function faseBase(r: Base): Fase {
   if (r.giro.disponivel) return 'convite'
   return r.conta ? 'espera' : 'bloqueado'
 }
+
+// o story só re-renderiza quando o que ele mostra muda (a cada quarto de volta e a cada fase o jogo re-renderiza)
+const StoryPremioMemo = memo(StoryPremio)
 
 function dadosDe(premio: Premio | undefined, cupom: Cupom | null): DadosPremio | null {
   if (cupom) {
@@ -204,6 +207,12 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const [restoFumaca, setRestoFumaca] = useState(false)
   // o story monta depois do estalo, sem pressa (startTransition): na hora do 8º quarto só a câmera deitando
   const [storyNaRevelacao, setStoryNaRevelacao] = useState(false)
+  // ... ou, melhor, já no convite (num momento ocioso), escondido, com um prêmio provisório: o layout pesado dele (o
+  // quadro 9:16, a arte, as ações) é feito e medido antes do giro; no estalo ele só troca os dados
+  const [preStory, setPreStory] = useState(false)
+  // no estalo o prêmio de verdade ainda não entra no story escondido nem no cartão da fumaça: o commit do estalo é só a
+  // câmera; a troca sai logo depois, em dois commits pequenos (a fumaça antes de começar, o story antes do auge)
+  const [trocado, setTrocado] = useState<{ fumaca: number; story: number }>({ fumaca: -1, story: -1 })
   // o fim da revelação pede o foco no destaque (num efeito, depois que o React aplicou a fase: o story já não é inerte)
   const focarDestaque = useRef(false)
   // guardou agora: o adesivo do código começa trancado e destrava com um estalo
@@ -270,15 +279,27 @@ export default function JogoSorte({ tela }: PropsJogo) {
     if (palcoFumaca.current) palcoFumaca.current.style.height = `${corpoCasca.clientHeight}px`
     return m
   }, [corpoCasca])
+  // Mede quando a coluna ou o story aparecem e quando mudam de tamanho (ResizeObserver): nunca logo depois de um commit
+  // da revelação (ler geometria ali forçava estilo e layout da página inteira no meio da fumaça)
+  const temStory = useRef(false)
+  const [storyMontado, setStoryMontado] = useState(false)
   useLayoutEffect(() => {
     if (!corpoCasca) return
     ajustarStory()
     if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => ajustarStory())
+    let primeiro = true
+    const ro = new ResizeObserver(() => {
+      // a 1ª chamada é a do observe (o tamanho de agora, já medido acima)
+      if (primeiro) {
+        primeiro = false
+        return
+      }
+      ajustarStory()
+    })
     ro.observe(corpoCasca)
     if (pe.current) ro.observe(pe.current)
     return () => ro.disconnect()
-  }, [corpoCasca, ajustarStory, fase, rodada, storyNaRevelacao])
+  }, [corpoCasca, ajustarStory, storyMontado])
 
   /* ───────────── fase de descanso acompanha o relógio (virada do dia, prêmio que venceu, outra aba) ───────────── */
   useEffect(() => {
@@ -316,9 +337,14 @@ export default function JogoSorte({ tela }: PropsJogo) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r, fase])
 
-  // troca de tela (fora da revelação): a coluna volta pro topo
+  // troca de tela (fora da revelação): a coluna volta pro topo. Saindo da revelação ela já está no topo (rolou pro topo
+  // no giro e não rola durante a revelação): ler a rolagem ali calculava o layout do story inteiro no meio do commit
+  const faseAntes = useRef(fase)
   useEffect(() => {
-    if (fase !== 'revelando' && fase !== 'girando') corpoCasca?.scrollTo({ top: 0 })
+    const veio = faseAntes.current
+    faseAntes.current = fase
+    if (veio === 'revelando') return
+    if (fase !== 'revelando' && fase !== 'girando' && corpoCasca?.scrollTop) corpoCasca.scrollTo({ top: 0 })
   }, [fase, corpoCasca])
 
   /* ───────────── subtela (cadastro/entrar): o voltar e o Esc voltam pra tela de onde veio ───────────── */
@@ -354,6 +380,11 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const abrir = useCallback(async () => {
     if (abrindo.current) return
     abrindo.current = true
+    // o foco sai da tampa já (com o estilo limpo, no quadro do giro): no commit da revelação ela deixa de ser focável, e
+    // o React devolvia o foco e lia a rolagem de cada ancestral no meio do commit, com o estilo da revelação inteira
+    // calculado ali mesmo
+    const ativo = document.activeElement
+    if (ativo instanceof HTMLElement && refs.palco.current?.contains(ativo)) ativo.blur()
     setVivo(T.vivoAbriu)
     vibrar('estalo')
     const rotor = refs.rotor.current
@@ -487,6 +518,9 @@ export default function JogoSorte({ tela }: PropsJogo) {
   }
 
   /* ───────────── revelação ───────────── */
+  // A geometria da revelação (de onde o beck sai, a altura do texto de cima, o que sobe junto) é medida no giro, a cada
+  // quarto (nada se mexe no layout até o estalo, o dichavador só gira por transform); no estalo ela é só lida daqui
+  const geoRevelacao = useRef<{ origem: Origem | null; alturaIntro: number; subir: HTMLElement[]; rodada: number } | null>(null)
   const coletar = (): ElementosRevelacao | null => {
     const p = refs
     if (!palcoFumaca.current) return null
@@ -504,8 +538,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
       indicador: p.indicador.current,
       fumaca: palcoFumaca.current,
       sumir: [...(raiz.current?.querySelectorAll('[data-some]') ?? [])],
-      subir: subirNaRevelacao(raiz.current),
-      alturaIntro: alturaDe(raiz.current?.querySelector<HTMLElement>('.sorte-intro')),
+      subir: geoRevelacao.current?.rodada === rodada ? geoRevelacao.current.subir : subirNaRevelacao(raiz.current),
+      alturaIntro: geoRevelacao.current?.rodada === rodada ? geoRevelacao.current.alturaIntro : alturaDe(raiz.current?.querySelector<HTMLElement>('.sorte-intro')),
       quadro: () => quadro.current,
       pe: () => pe.current,
       segAbrir: segAbrir.current,
@@ -562,19 +596,48 @@ export default function JogoSorte({ tela }: PropsJogo) {
     }
   }, [])
 
+  // mede a geometria da revelação no giro (a cada quarto; o 8º quarto chama abrir() antes do commit da revelação)
+  useLayoutEffect(() => {
+    if (fase !== 'convite' && fase !== 'girando') return
+    // o 8º quarto já é o estalo (a geometria do 7º vale: nada mexeu no layout)
+    if (quartos >= 8 && geoRevelacao.current?.rodada === rodada) return
+    const corpo = casca.corpo
+    if (corpo?.scrollTop) corpo.scrollTo({ top: 0 })
+    const el = coletar()
+    if (!el) return
+    geoRevelacao.current = { origem: null, alturaIntro: 0, subir: [], rodada: -1 }
+    const subir = subirNaRevelacao(raiz.current)
+    const alturaIntro = alturaDe(raiz.current?.querySelector<HTMLElement>('.sorte-intro'))
+    const origem = origemDoBeck({ ...el, subir, alturaIntro })
+    geoRevelacao.current = { origem, alturaIntro, subir, rodada }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase, quartos, rodada, medida, preStory])
+
+  // o story escondido monta no convite, quando o jogo respira (antes de a pessoa começar a girar); montado, o GSAP lê
+  // uma vez as peças que a revelação vai mexer (no próximo respiro)
+  useEffect(() => {
+    if (fase !== 'convite' && fase !== 'girando') return
+    if (!preStory) return quandoRespirar(() => startTransition(() => setPreStory(true)), 2500)
+    return quandoRespirar(() => {
+      const el = coletar()
+      if (el) aquecerRevelacao(el)
+    }, 2500)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase, preStory, rodada])
+
   useLayoutEffect(() => {
     if (fase !== 'revelando') return
     const corpo = casca.corpo
     // medidas primeiro (nada escrito ainda): de onde o beck sai, a altura do texto de cima
-    if (corpo?.scrollTop) corpo.scrollTo({ top: 0 })
     const el = coletar()
     if (!el) {
       setFase('premio')
       return
     }
-    const origem = origemDoBeck(el)
-    // o story monta depois, sem pressa (ele só aparece no auge)
-    startTransition(() => setStoryNaRevelacao(true))
+    const geo = geoRevelacao.current
+    const origem = geo?.rodada === rodada ? geo.origem : origemDoBeck(el)
+    // o story monta depois, sem pressa (ele só aparece no auge); já montado no convite, só troca os dados
+    if (!temStory.current) startTransition(() => setStoryNaRevelacao(true))
     // a coluna não rola durante a revelação (o palco da fumaça é a área visível)
     const rolagem = corpo?.style.overflowY ?? ''
     if (corpo) corpo.style.overflowY = 'hidden'
@@ -592,14 +655,45 @@ export default function JogoSorte({ tela }: PropsJogo) {
     let espera = 0
     let tlStory: gsap.core.Timeline | null = null
     let soltaBlindagem = () => {}
+    let fumacaAcabou = false
+    let saiuDaFumaca = false
+    // a troca do prêmio (ver `trocado`): o cartão da fumaça antes de ela começar, o story antes do auge, cada um no seu
+    // commit (em transição); quem precisar antes (a fumaça começando, pular, o auge, o fim) troca na hora
+    const r0 = rodada
+    const trocou = { fumaca: reduzido, story: reduzido }
+    const trocar = (qual: 'fumaca' | 'story') => {
+      trocou[qual] = true
+      startTransition(() => setTrocado((x) => (x[qual] === r0 ? x : { ...x, [qual]: r0 })))
+    }
+    const tTroca = [window.setTimeout(() => trocar('fumaca'), 180), window.setTimeout(() => trocar('story'), 330)]
+    const garantirTroca = (soFumaca = false) => {
+      if (trocou.fumaca && (soFumaca || trocou.story)) return
+      trocou.fumaca = true
+      if (!soFumaca) {
+        trocou.story = true
+        tTroca.forEach((id) => window.clearTimeout(id))
+      }
+      flushSync(() => setTrocado((x) => (x.fumaca === r0 && (soFumaca || x.story === r0) ? x : { fumaca: r0, story: soFumaca ? x.story : r0 })))
+    }
+    // as medidas da saída da fumaça (no auge, um respiro antes de o story sair)
+    let medidas: MedidasSaida | null = null
+    let medir = 0
     const terminar = () => {
       if (terminou) return
+      garantirTroca()
       terminou = true
       abrindo.current = false
+      // o story já está pintado no estado final (a saída da fumaça mostrou cada parte): o efeito da fase não repinta
+      jaPintado.current = true
       // a fumaça anuncia o prêmio e a raridade no auge; quem pulou (ou com movimento reduzido) ouve tudo aqui, com a regra
       if (d0) setVivo(`${pulou || reduzido ? `${anuncio} ` : ''}${T.vivoRegra(d0.regra, d0.demo && config.carimboDeExemplo)}`)
       focarDestaque.current = true
-      setFase('premio')
+      // a troca de fase re-renderiza o jogo inteiro: em transição (fatiada), sem um quadro longo no fim da festa; a
+      // fumaça que ainda sobe no fundo fica montada (junto, no mesmo commit)
+      startTransition(() => {
+        if (saiuDaFumaca && !fumacaAcabou) setRestoFumaca(true)
+        setFase('premio')
+      })
       window.setTimeout(() => soltaBlindagem(), 350)
     }
     // Depois de pular, o story e o pé não respondem ao toque por um tempo (quem tem pressa toca 2 ou 3 vezes: o 2º toque
@@ -628,21 +722,28 @@ export default function JogoSorte({ tela }: PropsJogo) {
     }
     const irProStory = (rapido: boolean) => {
       if (terminou || tlStory) return
+      garantirTroca()
       if (reduzido) {
         pintarFinal(el)
         terminar()
         return
       }
-      setRestoFumaca(true)
-      el.fumaca.classList.add('voando')
+      saiuDaFumaca = true
+      window.clearTimeout(medir)
+      // leituras antes de qualquer escrita: o cartão solto (o motor para de mexer nele) e o transform do carimbo (o
+      // único que o motor mexia até agora)
       const cartao = soltarCartaoFumaca(el.fumaca)
+      if (cartao?.carimbo) gsap.getProperty(cartao.carimbo, 'x')
+      el.fumaca.classList.add('voando')
       tlStory = entrarStory(el, {
         aoFim: terminar,
         cartao,
+        medidas: pulou ? null : medidas,
         rapido,
         abrirFumaca: (seg) =>
           void dissiparFumaca(el.fumaca, seg).then(() => {
             // a fumaça sai em idle (nada de desmontar no meio da comemoração)
+            fumacaAcabou = true
             const ir = () => setRestoFumaca(false)
             const ocioso = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback
             if (ocioso) ocioso(ir, { timeout: 600 })
@@ -654,6 +755,17 @@ export default function JogoSorte({ tela }: PropsJogo) {
     aoAuge.current = () => {
       if (auge) return
       auge = true
+      garantirTroca()
+      // as medidas numa tarefa só delas, logo depois deste quadro (o auge chega no meio do quadro da fumaça: medir ali
+      // calculava o layout no meio dele); quem pulou mede na hora do voo (o quadro final da fumaça ainda vai sair)
+      if (!reduzido && !pulou)
+        medir = window.setTimeout(() => {
+          medir = 0
+          if (terminou || tlStory || pulou) return
+          const cf = cartaoDaFumaca(el.fumaca)
+          medidas = medirSaida(el, cf)
+          aquecerStory(el, cf)
+        }, 0)
       espera = window.setTimeout(() => irProStory(pulou), (reduzido ? 1.2 : pulou ? 0.06 : RESPIRO_AUGE) * 1000)
     }
     // pular: o prêmio no lugar (no quadro seguinte) e o mesmo voo pro story, mais curto. Antes de PULAR_DESDE, o toque é o reflexo de
@@ -666,6 +778,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
         return
       }
       pulou = true
+      garantirTroca()
       blindar()
       if (tlStory) {
         // já voando pro story: acelera
@@ -695,6 +808,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
       aoComecar: () => {
         const ir = () => {
           comecou = true
+          garantirTroca(true)
           comecarFumaca(el.fumaca, origem)
         }
         if (el.fumaca.querySelector('.fm[data-desenho], .fm[data-falhou]')) ir()
@@ -710,6 +824,18 @@ export default function JogoSorte({ tela }: PropsJogo) {
       },
     })
     tlRev.current = tl
+    // a revelação anda a partir do quadro seguinte ao do commit: a 1ª volta do GSAP lê o estilo das peças, e no mesmo
+    // quadro do commit (estilo e pintura da troca de fase) eram dois trabalhos grandes num quadro só
+    let quadroIr = 0
+    if (!reduzido) {
+      tl.pause(0)
+      quadroIr = requestAnimationFrame(() => {
+        quadroIr = requestAnimationFrame(() => {
+          quadroIr = 0
+          if (!terminou && !pulou && tl.paused()) tl.resume()
+        })
+      })
+    }
     // Pular: um toque de verdade (sem arrasto) em qualquer lugar ou Enter/Espaço (nunca a tecla ainda segurada do giro)
     let toque: { x: number; y: number; id: number } | null = null
     const desce = (e: PointerEvent) => {
@@ -740,6 +866,9 @@ export default function JogoSorte({ tela }: PropsJogo) {
       window.removeEventListener('keydown', tecla, true)
       window.clearTimeout(espera)
       window.clearTimeout(pedido)
+      tTroca.forEach((id) => window.clearTimeout(id))
+      window.clearTimeout(medir)
+      if (quadroIr) cancelAnimationFrame(quadroIr)
       tl.kill()
       tlStory?.kill()
       tlEstalo.current?.kill()
@@ -766,16 +895,40 @@ export default function JogoSorte({ tela }: PropsJogo) {
   }, [fase, focar, idTitulo])
 
   // prêmio, guardado (sem animação de revelação): o story pronto de uma vez
+  const jaPintado = useRef(false)
   useLayoutEffect(() => {
     if (fase !== 'premio' && fase !== 'guardado') return
     if (tlRev.current?.isActive()) return
+    // acabou de sair da revelação: o story já está no estado final (repintar fazia o GSAP ler os transforms no commit)
+    if (jaPintado.current) {
+      jaPintado.current = false
+      return
+    }
     const el = coletarStory()
     if (el) pintarFinal(el)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fase, rodada, ganho])
 
+  // o prêmio provisório do story escondido (convite e giro): o 1º dos válidos; no estalo chega o de verdade
+  const emJogo = fase === 'convite' || fase === 'girando'
+  // no começo da revelação o story escondido e o cartão da fumaça seguram o que tinham (ver `trocado`)
+  const segura = fase === 'revelando' && !reduzido
+  const seguraFumaca = segura && trocado.fumaca !== rodada
+  const seguraStory = segura && preStory && trocado.story !== rodada
+  const provisorio = preStory && ((emJogo && !ganho) || seguraStory) ? premiosValidos()[0] : undefined
+  const ganhoStory: Ganho | null = provisorio ? { premio: provisorio, cupom: null, origem: 'giro' } : ganho
+  const storyPre = !ganho && !!provisorio
+  const premioStory = ganhoStory?.premio
+  const cupomDoStory = ganhoStory?.cupom ?? null
+  const dadosStory = useMemo(() => (premioStory ? dadosDe(premioStory, cupomDoStory) : null), [premioStory, cupomDoStory])
+  const refsStory = useMemo(() => ({ quadro }), [])
   // fora do story, o cromo do jogo (Girar, Abrir, Prêmio) volta
-  const comStory = !!ganho && ((fase === 'revelando' && storyNaRevelacao) || fase === 'premio' || fase === 'guardado')
+  const comStory = !!ganho && ((fase === 'revelando' && (storyNaRevelacao || preStory)) || fase === 'premio' || fase === 'guardado')
+  // o story na árvore (o de verdade ou o escondido do convite)
+  const montaStory = (comStory || storyPre) && !!ganhoStory && !!dadosStory
+  temStory.current = montaStory
+  // o story entrou ou saiu da árvore: mede de novo (só aí; trocar de fase não mede)
+  useLayoutEffect(() => setStoryMontado(montaStory), [montaStory])
   useLayoutEffect(() => {
     if (!comStory && cromo.current) gsap.set(cromo.current, { clearProps: 'opacity,visibility' })
   }, [comStory])
@@ -899,7 +1052,8 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const raridade = raridadeDoGanho(ganho)
   const premioNaTela = dados ? fraseDoPremio({ titulo: dados.titulo, aplicaA: dados.aplicaA, ...dados.valor }) : { destaque: '', alvo: '', produto: null }
   // antes do giro a fumaça espera com um prêmio vazio (o cartão está escondido); no estalo chega o de verdade
-  const premioDaFumaca: PremioNaFumaca = { destaque: premioNaTela.destaque, produto: premioNaTela.alvo, raridade }
+  const fumacaVazia = !ganho || seguraFumaca
+  const premioDaFumaca: PremioNaFumaca = fumacaVazia ? { destaque: '', produto: '', raridade: raridadeDoGanho(null) } : { destaque: premioNaTela.destaque, produto: premioNaTela.alvo, raridade }
   const jogando = fase === 'convite' || fase === 'girando'
   const temPalco = jogando || fase === 'revelando' || fase === 'espera' || fase === 'bloqueado'
   const modoPalco = fase === 'espera' ? 'parado' : fase === 'bloqueado' ? 'travado' : 'girar'
@@ -909,7 +1063,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
   const guardadoAgora = fase === 'guardado' && !!ganho?.cupom
   // guardou agora: até o estalo, o story mostra o adesivo ainda trancado
   const cupomNaTela = destrava === 'trancado' ? null : (ganho?.cupom ?? null)
-  const reservaTexto = ganho && !ganho.cupom ? T.condReserva(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora)) : null
+  const reservaTexto = ganhoStory && !ganhoStory.cupom && !provisorio ? T.condReserva(formatarAte(r.pendente?.expiraEm ?? Date.now() + 864e5, r.agora)) : null
   // com o story pronto na tela, o alvo de foco da fase é o destaque dele (o h2 fica só pro leitor de tela)
   const focoNoStory = comStory && !!dados && fase !== 'revelando'
   const estiloStory = medida ? ({ '--sw': `${medida.w}px`, '--sh': `${medida.h}px`, '--pe-h': `${medida.pe}px`, '--col': `${medida.col}px` } as CSSProperties) : undefined
@@ -999,7 +1153,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
         >
           <RevelacaoFumaca
             premio={premioDaFumaca}
-            visual={ganho ? premioNaTela.produto ? <ProdutoVisual produto={premioNaTela.produto} largura={180} revelar={false} brilho={false} prioridade rotulo={null} /> : <BolhaPremio produto={null} tamanho={96} /> : null}
+            visual={!fumacaVazia ? premioNaTela.produto ? <ProdutoVisual produto={premioNaTela.produto} largura={180} revelar={false} brilho={false} prioridade rotulo={null} /> : <BolhaPremio produto={null} tamanho={96} /> : null}
             modo="jogo"
             reduzido={reduzido}
             onPronto={() => aoAuge.current()}
@@ -1010,26 +1164,33 @@ export default function JogoSorte({ tela }: PropsJogo) {
 
       {/* o story do prêmio: na revelação fica por cima de tudo, já no lugar final (sai da fumaça); depois, no fluxo, no
           mesmo lugar. As ações ficam no pé dele (embaixo ou por cima do pé, conforme a tela) */}
-      {comStory && dados && ganho && (
-        <div ref={story} className="sorte-story" style={estiloStory} data-modo={medida?.modo}>
-          <StoryPremio
-            key={`${rodada}-${ganho.premio.id}`}
-            dados={dados}
-            cupom={cupomNaTela}
+      {montaStory && ganhoStory && dadosStory && (
+        <div
+          ref={story}
+          className={`sorte-story${storyPre ? ' sorte-story-pre' : ''}`}
+          style={estiloStory}
+          data-modo={medida?.modo}
+          aria-hidden={storyPre || undefined}
+          inert={storyPre || fase === 'revelando' || undefined}
+        >
+          <StoryPremioMemo
+            key={rodada}
+            dados={dadosStory}
+            cupom={provisorio ? null : cupomNaTela}
             idTitulo={idTitulo}
             instagram={instagram}
             sintonia="pronto"
-            raridade={raridade}
+            raridade={raridadeDoGanho(ganhoStory)}
             agora={r.agora}
-            postadoEm={ganho.origem === 'pendente' ? (r.pendente?.sorteadoEm ?? null) : null}
+            postadoEm={ganhoStory.origem === 'pendente' ? (r.pendente?.sorteadoEm ?? null) : null}
             reserva={reservaTexto}
-            aoGuardar={fase === 'premio' && !ganho.cupom ? () => irParaCadastro('cadastro', 'premio') : undefined}
-            inerte={fase === 'revelando'}
+            aoGuardar={fase === 'premio' && !ganhoStory.cupom ? () => irParaCadastro('cadastro', 'premio') : undefined}
+            inerte={fase === 'revelando' || storyPre}
             focoJogo={focoNoStory}
-            refs={{ quadro }}
+            refs={refsStory}
           />
-          <div ref={pe} className="sorte-pe" inert={fase === 'revelando'}>
-            {guardadoAgora || (comConta && ganho.cupom) ? (
+          <div ref={pe} className="sorte-pe" inert={fase === 'revelando' || storyPre}>
+            {guardadoAgora || (comConta && ganhoStory.cupom) ? (
               <>
                 {guardadoAgora ? (
                   <p className="sorte-pe-nota sorte-fechou" tabIndex={-1} data-foco-fase>
@@ -1039,7 +1200,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
                   <p className="sorte-pe-nota legenda">{r.giro.disponivel ? T.naContaMaisHoje : T.naConta}</p>
                 )}
                 <div className="sorte-pe-botoes">
-                  <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganho.cupom!.codigo)}>
+                  <button type="button" className="botao botao-cheio botao-largo" onClick={() => usarAgora(ganhoStory.cupom!.codigo)}>
                     {T.usarAgora}
                   </button>
                   <button type="button" className="botao botao-contorno botao-largo" onClick={() => setConta(true)}>
@@ -1049,7 +1210,7 @@ export default function JogoSorte({ tela }: PropsJogo) {
               </>
             ) : (
               <>
-                {ganho.origem === 'pendente' && r.pendente && <p className="sorte-pe-nota legenda">{T.esperando(formatarAte(r.pendente.expiraEm, r.agora))}</p>}
+                {ganhoStory.origem === 'pendente' && r.pendente && <p className="sorte-pe-nota legenda">{T.esperando(formatarAte(r.pendente.expiraEm, r.agora))}</p>}
                 <div className="sorte-pe-botoes">
                   <button type="button" className="botao botao-cheio botao-largo" onClick={() => irParaCadastro('cadastro', 'premio')}>
                     {T.guardar}

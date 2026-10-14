@@ -95,25 +95,80 @@ class Integral {
 
 /* ───────────── trilhas ───────────── */
 
-interface Nuvem {
-  t0: number
+/**
+ * Um lóbulo de fumaça soprado: nasce em `te` na boca (ox, oy), voa até o alvo em `dur` desacelerando (o jato), crescendo
+ * e girando rápido; depois sobe devagar, balança e continua rolando (os 3 calombos da borda giram com ele, e a luz e a
+ * sombra mostram o giro). Os que se desfazem (td) perdem a opacidade em dither, encolhem e sobem mais rápido.
+ */
+interface Puff {
+  /** 0 a baforada de uma puxada, 1 o jato do sopro, 2 a fumaça que a brasa solta no sopro, 3 o rabo do jato. */
+  grupo: 0 | 1 | 2 | 3
+  te: number
   dur: number
-  x0: number
-  y0: number
-  x1: number
-  y1: number
-  r: number
-  curva: number
+  /** A desaceleração do voo (1 − (1 − s)^pot). */
+  pot: number
+  ox: number
+  oy: number
+  tx: number
+  ty: number
+  dist: number
+  /** Arco pro lado (px) no voo e a direção dele (perpendicular ao voo). */
+  bow: number
+  perpX: number
+  perpY: number
+  r0: number
+  r1: number
+  /** O giro: inicial (rad), a velocidade no voo e depois (rad/s). */
+  rot0: number
+  w0: number
+  w1: number
+  /** A amplitude dos calombos da borda (0 = redondo). */
+  amp: number
+  /** Depois de chegar: sobe (px/s), balança (px). */
+  sobe: number
+  bal: number
   fase: number
-  fundo: boolean
-  /** Satélites: ângulo, distância (× r), raio (× r), giro (rad/s). */
-  sat: [number, number, number, number][]
-  /** Solta pedaços por cima a cada `periodo` s (as do alto). */
-  periodo: number
-  /** Termina em fiapo (as do alto): o lado da curva. */
-  rabo: number
+  camada: number
+  /** Começa a se desfazer em td e some em dd s (td enorme = fica até o buraco ou a cortina). */
+  td: number
+  dd: number
+  /** O do meio (o sorriso do comum mora nele; o buraco do prêmio abre nele). */
+  meio: boolean
+  /** No alto da massa (ou a cabeça da baforada): enrola caracóis que afinam em fiapo e solta pedaços. */
+  topo: boolean
   lado: number
+  ciclo: number
+  /** A profundidade (px): quem fica na frente quando dois lóbulos se cruzam. */
+  z: number
+  /** Depois de chegar, roda em volta do lugar (raio, px) e quantos lóbulos pequenos rolam pela borda dele. */
+  roda: number
+  rola: number
+  /** De onde os lóbulos que rolam nascem (× r do meio; vão até 0,78). */
+  rolaD: number
+  /** Subindo, quanto vai pro lado (× sobe; + direita) e quanto o caracol enrola no máximo (voltas × 2π ≈ 1,5). */
+  deriva: number
+  enrola: number
+  /** Desfazendo, solta um fiapo pra cima. */
+  fiapo: boolean
 }
+
+/** O estado de um lóbulo agora (reaproveitado: nada alocado no quadro). */
+interface PuffAgora {
+  x: number
+  y: number
+  r: number
+  giro: number
+  alfa: number
+  estica: number
+  dx: number
+  dy: number
+  chegou: number
+}
+
+const NUNCA = 1e9
+
+type PorLobulo = (x: number, y: number, raio: number, peso: number, estica: number, dx: number, dy: number, camada: number, giro?: number, amp?: number, alfa?: number, z?: number, cinza?: number) => void
+type PorFiapo = (x: number, y: number, comp: number, inc: number, alfa: number, lado: number, fase: number) => void
 
 interface Beck {
   x: number
@@ -137,7 +192,11 @@ export class Cena {
   readonly fim: number
   private geo!: Geo
   private origem: Origem | null = null
-  private nuvens: Nuvem[] = []
+  private puffs: Puff[] = []
+  private agora: PuffAgora = { x: 0, y: 0, r: 0, giro: 0, alfa: 1, estica: 0, dx: 0, dy: -1, chegou: 0 }
+  /** Onde está o lóbulo do meio agora (o sorriso do comum anda com ele). */
+  private meioX = 0
+  private meioY = 0
   private faseTunel: Integral
   private relogioPremio: Integral
   /** As cores da raridade e a apagada da cabeça (épico depois do sopro). */
@@ -194,52 +253,208 @@ export class Cena {
     const { W, H, u } = g
     const r = this.rot
     const rnd = semente(1234 + r.nuvens * 7 + Math.round(W) * 31 + Math.round(H))
-    // as nuvens grandes do sopro: linhas de baixo pra cima cobrindo o quadro; as de baixo chegam primeiro
-    const linhas = Math.max(3, Math.round(H / (u * 0.36)))
-    const porLinha = Math.max(2, Math.round(W / (u * 0.42)))
-    const alvos: [number, number, number][] = []
-    for (let j = 0; j < linhas; j++) {
-      const y = H * (1 - (j + 0.5) / linhas)
-      const n = porLinha + (j % 2)
-      for (let i = 0; i < n; i++) {
-        const x = W * ((i + (j % 2 ? 0 : 0.5)) / porLinha)
-        alvos.push([x, y, j])
-      }
-    }
-    // mais alvos que nuvens: escolhe espalhado (sempre os dos cantos do alto e de baixo)
-    const n = Math.min(r.nuvens, alvos.length)
-    const passo = alvos.length / n
-    const escolhidos = Array.from({ length: n }, (_, k) => alvos[Math.min(alvos.length - 1, Math.floor(k * passo + rnd() * passo * 0.6))])
-    // e uma no meio, da frente, que chega junto (o sorriso do comum mora nela; o buraco do prêmio abre nela)
-    escolhidos.push([W / 2, g.premio.y, Math.floor(linhas / 2)])
-    this.nuvens = escolhidos.map(([x, y, j], k) => {
-      const meio = k === escolhidos.length - 1
-      const x1 = meio ? x : x + (rnd() - 0.5) * u * 0.12
-      const y1 = meio ? y : y + (rnd() - 0.5) * u * 0.1
-      const raio = u * (meio ? 0.3 : (0.19 + rnd() * 0.09) * (j === linhas - 1 ? 0.85 : 1))
-      const dist = Math.hypot(x1 - W / 2, H + raio - y1)
-      const alto = j >= linhas - 2
-      // os lobos saem da borda da mãe (a silhueta fica cheia de calombos, não um círculo)
-      const nSat = alto ? 3 : 2
-      const sat: Nuvem['sat'] = []
-      for (let s = 0; s < nSat; s++) sat.push([(s / nSat) * Math.PI * 2 + rnd() * 1.4, 0.85 + rnd() * 0.25, 0.36 + rnd() * 0.16, (s % 2 ? -1 : 1) * (0.3 + rnd() * 0.3)])
-      return {
-        t0: r.sopro + j * 0.05 + rnd() * 0.05,
-        dur: 0.42 + Math.min(0.32, (dist / H) * 0.32) + rnd() * 0.06,
-        x0: lerp(W / 2, x1, 0.35) + (rnd() - 0.5) * u * 0.2,
-        y0: H + raio * 0.9,
-        x1,
-        y1,
-        r: raio,
-        curva: (rnd() < 0.5 ? -1 : 1) * (0.06 + rnd() * 0.1) * u,
+    const P: Puff[] = []
+    const novo = (p: Partial<Puff> & Pick<Puff, 'grupo' | 'te' | 'dur' | 'ox' | 'oy' | 'tx' | 'ty' | 'r0' | 'r1'>): Puff => {
+      const dist = Math.hypot(p.tx - p.ox, p.ty - p.oy) || 1
+      const pp: Puff = {
+        pot: 2.4,
+        bow: 0,
+        rot0: rnd() * 6.28,
+        w0: 2,
+        w1: 0.6,
+        amp: 0.12,
+        sobe: u * 0.04,
+        bal: u * 0.012,
         fase: rnd() * 6.28,
-        fundo: !meio && k % 3 === 1,
-        sat,
-        periodo: alto ? 0.4 + rnd() * 0.3 : 0,
-        rabo: alto && k % 2 === 0 ? 1 : 0,
-        lado: rnd() < 0.5 ? -1 : 1,
+        camada: FRENTE,
+        td: NUNCA,
+        dd: 0.6,
+        meio: false,
+        topo: false,
+        lado: 1,
+        ciclo: 1.3,
+        z: rnd() * u * 0.12,
+        roda: 0,
+        rola: 0,
+        rolaD: 0.25,
+        deriva: 0,
+        enrola: 1.5,
+        fiapo: false,
+        ...p,
+        dist,
+        perpX: -(p.ty - p.oy) / dist,
+        perpY: (p.tx - p.ox) / dist,
+      }
+      P.push(pp)
+      return pp
+    }
+
+    // as baforadas pequenas depois das puxadas: quem fuma solta pelo canto da boca, então entram pelo pé da tela no canto
+    // vazio (embaixo à direita, longe da cinza que cai da ponta): a cabeça vem na frente e cresce num cacho de lóbulos que
+    // rolam e enrola na ponta; o rastro são lóbulos menores no MESMO caminho, atrasados (um rabo ligado, nada de
+    // pedrinhas), que alcançam a cabeça quando ela freia. Sobem girando e se desfazem em dither e fiapos, o rabo primeiro.
+    // Fumaça "de verdade": cinza
+    r.puxadas.forEach((p: Puxada, k) => {
+      if (!p.baforada) return
+      const lado = k % 2 ? -1 : 1
+      const R = p.baforada * W
+      const ox = W * (0.88 - 0.03 * (k % 2))
+      const oy = H + u * 0.1
+      const tx = W * (0.8 - 0.02 * (k % 2))
+      const ty = H * (0.62 - 0.04 * (k % 2))
+      const dl = Math.hypot(tx - ox, ty - oy)
+      const px = -(ty - oy) / dl
+      const py = (tx - ox) / dl
+      const t0 = p.solta + 0.03
+      const base = { grupo: 0 as const, dur: 0.52, pot: 2.6, ox, oy, bow: lado * u * 0.05, w1: lado * 1.8, amp: 0.08, sobe: u * 0.13, deriva: 0.35, lado, ciclo: 1.1, enrola: 0.75, camada: FUNDO }
+      // a cabeça: o lóbulo da frente e dois do lado, que se abrem quando ela freia
+      for (let m = 0; m < 3; m++) {
+        const abre = (m - 1) * R * 0.7
+        novo({
+          ...base,
+          te: t0 + Math.abs(m - 1) * 0.03,
+          tx: tx + px * abre,
+          ty: ty + py * abre + (m === 1 ? -R * 0.25 : 0),
+          r0: R * 0.4,
+          r1: R * (m === 1 ? 1.05 : 0.78),
+          w0: lado * 6,
+          roda: u * 0.02,
+          rola: 3,
+          rolaD: 0.4,
+          td: t0 + 0.56,
+          dd: 0.5,
+          fiapo: m !== 1,
+          z: m === 1 ? u * 0.12 : u * 0.08,
+        })
+      }
+      // o rabo: no caminho da cabeça, atrasado; some primeiro (a boca parou de soltar)
+      for (let m = 1; m <= 4; m++) {
+        novo({
+          ...base,
+          te: t0 + m * 0.03,
+          tx,
+          ty: ty + R * 0.3,
+          r0: R * (0.42 - m * 0.05),
+          r1: R * (0.8 - m * 0.12),
+          w0: lado * 4,
+          td: t0 + 0.2 + m * 0.06,
+          dd: 0.42,
+          z: u * (0.06 - m * 0.01),
+        })
       }
     })
+
+    // o sopro: a baforada grande sai em JATO da boca (no pé da tela, embaixo da piteira), passa por cima do beck e
+    // abre em leque até o alto; os lóbulos mais longe saem primeiro (a cabeça do jato) e voam mais rápido, os de perto
+    // enchem atrás. Cada um chega girando rápido (o jato rola pra fora dos dois lados do eixo) e depois segue rolando.
+    const ts = r.sopro
+    const O = { x: W * 0.16, y: H + u * 0.16 }
+    const eixo = { x: 0.3, y: -1 }
+    const topoY = H * 0.26
+    const pe = H * 0.97
+    const linhas = Math.max(3, Math.round((pe - topoY) / (u * 0.29)) + 1)
+    const porLinha = Math.max(2, Math.round(W / (u * 0.36)))
+    const alvos: [number, number, number][] = []
+    for (let j = 0; j < linhas; j++) {
+      const y = lerp(pe, topoY, j / (linhas - 1))
+      const nl = porLinha + (j % 2)
+      for (let i = 0; i < nl; i++) alvos.push([W * ((i + (j % 2 ? 0 : 0.5)) / porLinha), y, j])
+    }
+    let dmax = 1
+    for (const [x, y] of alvos) dmax = Math.max(dmax, Math.hypot(x - O.x, y - O.y))
+    alvos.forEach(([x0, y0, j], k) => {
+      const alto = j === linhas - 1
+      const x = x0 + (rnd() - 0.5) * u * 0.1
+      // o alto da massa é um morro de lóbulos de alturas diferentes (nada de linha reta)
+      const y = y0 + (rnd() - 0.5) * u * (alto ? 0.22 : 0.08)
+      const dist = Math.hypot(x - O.x, y - O.y)
+      const fr = dist / dmax
+      const lado = eixo.x * (y - O.y) - eixo.y * (x - O.x) > 0 ? 1 : -1
+      const te = ts + 0.22 * (1 - fr) + rnd() * 0.04
+      novo({
+        grupo: 1,
+        te,
+        dur: 0.26 + 0.44 * fr,
+        pot: 2.7,
+        ox: O.x + (rnd() - 0.5) * u * 0.08,
+        oy: O.y,
+        tx: x,
+        ty: y,
+        bow: lado * (0.04 + 0.08 * rnd()) * u * fr,
+        r0: u * 0.09,
+        r1: u * (0.19 + 0.07 * rnd()) * (j === 0 ? 0.9 : 1),
+        w0: lado * (3 + 2 * rnd()),
+        w1: lado * (1.2 + 0.7 * rnd()),
+        amp: 0.13 + 0.08 * rnd(),
+        sobe: u * (0.03 + 0.025 * rnd()),
+        bal: u * 0.014,
+        camada: k % 4 === 2 ? FUNDO : FRENTE,
+        roda: u * (0.08 + 0.04 * rnd()),
+        rola: 2,
+        topo: alto,
+        lado,
+        ciclo: 1.2 + rnd() * 0.4,
+      })
+    })
+    // o do meio (o sorriso do comum mora nele; o buraco do prêmio abre nele): grande, chega cedo e quase não anda
+    novo({ grupo: 1, te: ts + 0.08, dur: 0.46, pot: 2.7, ox: O.x, oy: O.y, tx: W / 2, ty: g.premio.y, r0: u * 0.08, r1: u * 0.3, w0: 2.4, w1: 1.1, amp: 0.08, sobe: 0, bal: u * 0.008, meio: true, z: u * 0.2, roda: u * 0.035, rola: 3, rolaD: 0.72 })
+    // a brasa no máximo solta a fumaça dela junto: uma coluna que sobe da ponta e se abre (o beck some dentro)
+    const [ebx, eby] = this.brasaEm(ts)
+    for (let m = 0; m < 5; m++) {
+      const lado = m % 2 ? 1 : -1
+      novo({
+        grupo: 2,
+        te: ts + 0.02 + m * 0.05,
+        dur: 0.44,
+        pot: 2,
+        ox: ebx + (rnd() - 0.5) * u * 0.02,
+        oy: eby,
+        tx: ebx + u * (0.05 + (rnd() - 0.5) * 0.16),
+        ty: eby - u * (0.2 + 0.1 * m),
+        bow: lado * u * 0.04,
+        r0: u * 0.03,
+        r1: u * (0.1 + 0.025 * m),
+        w0: lado * 5,
+        w1: lado * 1,
+        amp: 0.14,
+        sobe: u * 0.05,
+        topo: m === 4,
+        lado,
+      })
+    }
+    // o rabo do jato: a boca continua soltando (cada vez menos) até o prêmio aparecer; o pé da massa nunca para
+    const fimRabo = r.abre
+    for (let te = ts + 0.32, k = 0; te < fimRabo; te += 0.15, k++) {
+      const x = W * (0.08 + 0.84 * rnd())
+      const y = H * (0.52 + 0.44 * rnd())
+      const lado = x > O.x ? 1 : -1
+      const dist = Math.hypot(x - O.x, y - O.y)
+      novo({
+        grupo: 3,
+        te,
+        dur: 0.36 + 0.24 * (dist / H),
+        pot: 2.4,
+        ox: O.x + (rnd() - 0.5) * u * 0.1,
+        oy: O.y,
+        tx: x,
+        ty: y,
+        bow: lado * u * 0.05,
+        r0: u * 0.05,
+        r1: u * (0.13 + 0.06 * rnd()),
+        w0: lado * 4,
+        w1: lado * 0.9,
+        amp: 0.13,
+        sobe: u * 0.06,
+        td: te + 0.9 + 0.4 * rnd(),
+        dd: 0.6,
+        lado,
+        rola: 1,
+        roda: u * 0.05,
+        fiapo: k % 2 === 0,
+        camada: k % 3 === 1 ? FUNDO : FRENTE,
+      })
+    }
+    this.puffs = P
     // lendário: os 8 olhos na borda do portal e as 5 gotas que derretem
     this.olhosPortal = Array.from({ length: 8 }, (_, k) => {
       const a = -Math.PI / 2 + (k / 8) * Math.PI * 2 + 0.2
@@ -328,12 +543,14 @@ export class Cena {
         sy = s < 0.5 ? lerp(0.97, 1.01, saiQuad(s * 2)) : lerp(1.01, 1, sm(0, 1, (s - 0.5) * 2))
       }
     }
-    // o sopro: a "mão" abaixa o beck pra fora do quadro enquanto a fumaça sobe por cima
-    if (t > r.sopro) {
-      const s = entraSai(clamp01((t - r.sopro) / 0.45))
-      y += s * g.H * 0.7
-      x -= s * g.u * 0.1
-      ang -= 25 * s
+    // o sopro: o beck fica no lugar e a baforada grande chega nele (o empurrão: gira uns graus e balança), até sumir
+    // dentro da fumaça
+    if (t > r.sopro + 0.12) {
+      const s = sm(r.sopro + 0.12, r.sopro + 0.34, t)
+      const volta = Math.sin(clamp01((t - r.sopro - 0.12) / 0.5) * Math.PI) * 0.4
+      ang += 6 * s - 3 * volta
+      x += s * g.u * 0.02
+      y -= s * g.u * 0.015
     }
     return { x, y, ang, L, sx, sy }
   }
@@ -350,13 +567,15 @@ export class Cena {
     const r = this.rot
     const brasa = sm(r.isqueiro.pega, r.isqueiro.pega + 0.08, t)
     let luz = 0.2
-    for (const p of r.puxadas) {
-      if (t < p.de - 0.01 || t > p.ate + 0.05) continue
+    const ult = r.puxadas.length - 1
+    r.puxadas.forEach((p, k) => {
+      // a última desemboca no sopro: a brasa fica no máximo até a fumaça engolir o beck
+      if (t < p.de - 0.01 || (k < ult && t > p.ate + 0.05)) return
       if (t < p.puxa) luz = lerp(0.2, 0.12, sm(p.de, p.puxa, t))
       else if (t < p.segura) luz = lerp(0.12, 1, Math.pow(clamp01((t - p.puxa) / (p.segura - p.puxa)), 1.6)) * p.forca + 0.12 * (1 - p.forca)
-      else if (t < p.solta) luz = (0.9 + 0.1 * Math.sin(q12(t) * 37)) * p.forca
+      else if (t < p.solta || k === ult) luz = (0.9 + 0.1 * Math.sin(q12(t) * 37)) * p.forca
       else luz = lerp(p.forca * 0.95, 0.2, saiCubica(clamp01((t - p.solta) / (p.ate - p.solta))))
-    }
+    })
     return { brasa, luz: clamp01(luz) }
   }
 
@@ -446,8 +665,9 @@ export class Cena {
     q.t = t
     q.ferve = Math.floor(t * 12)
     q.alfa = resto > 0 ? 0.25 * (1 - sm(0.6, 1, resto)) + 0.0001 : 1
-    q.ondulado = u * 0.035
-    q.fervura = 4 * 0.45
+    // a borda ferve de leve (troca a 12 qps) e ondula devagar: os lóbulos é que dão a forma (nada de serrilhado)
+    q.ondulado = u * 0.01
+    q.fervura = 1.3
     const prem = g.premio
     const pcx = prem.x
     const pcy = prem.y
@@ -456,15 +676,24 @@ export class Cena {
     const bk = this.beckEm(t)
     this.aplicarBeck(bk, t)
     const e = q.beck
-    e.vis = bk.y - bk.L * 0.6 < H && dissipa <= 0 && resto <= 0
+    // fica na tela até a fumaça engolir (cheio): nunca sai pelo pé
+    e.vis = bk.y - bk.L * 0.6 < H && t < r.cheio && dissipa <= 0 && resto <= 0
     // no jogo, enquanto o pé ainda está dentro da câmara, a borda da frente da boca recorta
     const o = this.origem
     e.corte = o && !this.previa && t < 0.4 ? o.boca : null
+    e.atras = t > r.sopro + 0.08
     const [bx, by] = this.brasaEm(t)
+    // o brilho da brasa em volta: pulsa (mais forte e mais largo na puxada)
+    const pulso = 1 + 0.08 * Math.sin(q12(t) * 19) + 0.05 * Math.sin(t * 7.3)
     q.brilhoBrasa[0] = bx
     q.brilhoBrasa[1] = by
-    q.brilhoBrasa[2] = 0.092 * bk.L * 2 * 1.3
-    q.brilhoBrasa[3] = e.vis ? e.brasa * Math.max(0, (e.luz - 0.35) / 0.65) : 0
+    q.brilhoBrasa[2] = 0.092 * bk.L * (1.7 + 1.3 * e.luz) * pulso
+    q.brilhoBrasa[3] = e.vis ? e.brasa * clamp01((e.luz - 0.15) / 0.85) : 0
+    // engolida pela fumaça, a brasa no máximo ainda brilha através dela um instante
+    q.brasaSobre[0] = bx
+    q.brasaSobre[1] = by
+    q.brasaSobre[2] = 0.092 * bk.L * 1.5 * pulso
+    q.brasaSobre[3] = e.brasa > 0 && dissipa <= 0 ? sm(r.sopro + 0.16, r.sopro + 0.26, t) * (1 - sm(r.sopro + 0.32, r.cheio + 0.05, t)) : 0
 
     /* ── isqueiro: entra de lado (embaixo à direita), clica, a chama lambe a torcida, ela pega, ele sai ── */
     const is = r.isqueiro
@@ -526,14 +755,17 @@ export class Cena {
         f.fase = k * 2.1
         f.lado = k % 2 ? -1 : 1
         f.solta = sAge > 0 ? clamp01(sAge / 0.7) : 0
+        f.inc = 0
+        f.alfa = 1
+        f.voltas = 2
       }
     }
 
-    /* ── as nuvens ── */
+    /* ── as nuvens: os lóbulos (baforadas, o jato do sopro, a fumaça da brasa, o rabo do jato) ── */
     const B = q.blobs
     let nb = 0
-    const pôr = (x: number, y: number, raio: number, peso: number, estica: number, dx: number, dy: number, camada: number) => {
-      if (nb >= NB || raio <= 0.5 || peso <= 0.001) return
+    const pôr = (x: number, y: number, raio: number, peso: number, estica: number, dx: number, dy: number, camada: number, giro = 0, amp = 0, alfa = 1, z = 0, cinza = 0) => {
+      if (nb >= NB || raio <= 0.5 || peso <= 0.001 || alfa <= 0.02) return
       const i = nb * PASSO_BOLHA
       B[i] = x
       B[i + 1] = y
@@ -543,33 +775,29 @@ export class Cena {
       B[i + 5] = dx
       B[i + 6] = dy
       B[i + 7] = camada
+      B[i + 8] = Math.cos(giro)
+      B[i + 9] = Math.sin(giro)
+      B[i + 10] = amp
+      B[i + 11] = alfa
+      B[i + 12] = z
+      B[i + 13] = cinza
       nb++
     }
-    // as baforadas depois de cada puxada (quem fuma solta embaixo, fora do quadro): entram pelo pé no canto vazio
-    // embaixo à direita do beck, sobem girando (os lobos dão a volta no miolo) e se desfazem em pedaços
-    r.puxadas.forEach((p: Puxada, k) => {
-      if (!p.baforada || dissipa > 0) return
-      const t0 = p.solta + 0.02
-      const a = t - t0
-      if (a < 0 || a > 1.5) return
-      const raio = p.baforada * W * 1.05
-      const ent = saiCubica(clamp01(a / 0.6))
-      const some = sm(0.6, 1.5, a)
-      const lado = k % 2 ? 1 : -1
-      const x = W * (0.66 + lado * 0.06) + Math.sin(a * 2 + k) * u * 0.04 + some * u * 0.05
-      const y = lerp(H + raio * 1.3, H * 0.7, ent) - some * u * 0.4
-      const rr = raio * (0.5 + 0.5 * ent) * (1 - some * 0.6)
-      const vel = (1 - ent) * 1.5
-      const giro = a * 2.2 * lado
-      // o miolo some primeiro: no fim só os lobos, já soltos, subindo
-      pôr(x, y, rr * 0.8 * (1 - some), 1, Math.min(0.6, 0.3 + vel * 0.4), 0, -1, FRENTE)
-      for (let m = 0; m < 5; m++) {
-        const an = giro + m * 1.257 + (m % 2) * 0.3
-        const d = rr * (0.78 + some * 0.9)
-        const rl = rr * (0.5 - (m % 3) * 0.06) * (1 - some * (0.8 + m * 0.06))
-        pôr(x + Math.cos(an) * d, y + Math.sin(an) * d * 0.75 - some * m * u * 0.02, rl, 1, 0.12, 0, -1, FRENTE)
-      }
-    })
+    // os fiapos que se soltam (das pontas dos caracóis e dos pedaços que se desfazem)
+    const fiapo = (x: number, y: number, comp: number, inc: number, alfa: number, lado: number, fase: number) => {
+      if (q.nFitas >= q.fitas.length || comp < 4 || alfa <= 0.05) return
+      const f = q.fitas[q.nFitas++]
+      f.x = x
+      f.y = y
+      f.comp = comp
+      f.larg = 0.9
+      f.fase = fase
+      f.lado = lado
+      f.solta = 0
+      f.inc = inc
+      f.alfa = alfa
+      f.voltas = 1
+    }
     // o buraco do prêmio
     const bur = this.buraco(t)
     q.buraco[0] = pcx
@@ -585,65 +813,50 @@ export class Cena {
     const cabX = W / 2
     let cabY = pcy - u * 0.12
     const longeDaCabeca = ro ? sm(ro.cabeca - 0.1, ro.cabeca + 0.3, t) * (1 - sm(ro.sopra + 0.1, ro.sopra + 0.5, t)) : 0
-    for (let k = 0; k < this.nuvens.length; k++) {
-      const n = this.nuvens[k]
-      if (t < n.t0) continue
-      const a = t - n.t0
-      // entrada em in-out: ~0,08 s acelerando, pico na frente da baforada, desacelerando até o alvo
-      const aq = a - 0.04 * (1 - Math.exp(-a / 0.04))
-      const sE = clamp01(aq / n.dur)
-      const eE = saiCubica(sE)
-      const px0 = -(n.y1 - n.y0)
-      const py0 = n.x1 - n.x0
-      const pl = Math.hypot(px0, py0) || 1
-      let x = lerp(n.x0, n.x1, eE) + (px0 / pl) * n.curva * Math.sin(Math.PI * eE)
-      let y = lerp(n.y0, n.y1, eE) + (py0 / pl) * n.curva * Math.sin(Math.PI * eE)
-      // empuxo: depois de chegar, sobe devagar; e respira
-      const chegou = Math.max(0, a - n.dur)
-      y -= chegou * u * 0.065
-      x += Math.sin(t * 0.7 + n.fase) * u * 0.015
-      let raio = n.r * lerp(0.35, 1, saiQuad(sE)) * (1 + 0.05 * Math.sin(t * 1.6 + n.fase))
-      // velocidade (pra esticar no sentido do movimento)
-      const vel = sE < 1 ? (3 * Math.pow(1 - sE, 2) * Math.hypot(n.x1 - n.x0, n.y1 - n.y0)) / n.dur / u : 0
-      let dx = n.x1 - n.x0
-      let dy = n.y1 - n.y0
-      const dl = Math.hypot(dx, dy) || 1
-      dx /= dl
-      dy /= dl
-      let estica = Math.min(0.6, vel * 0.3)
-      if (estica < 0.12) {
-        estica = 0.12
-        dx = 0
-        dy = -1
-      }
-      // moldura (lendário): pra fora da elipse do portal
-      if (moldura > 0) {
-        // a moldura: só os 22% de fora (o túnel é o fundo principal)
+    const A = this.agora
+    this.meioX = W / 2
+    this.meioY = pcy
+    for (let k = 0; k < this.puffs.length; k++) {
+      const p = this.puffs[k]
+      if (!this.puffEm(p, t, A)) continue
+      if (p.grupo === 0 && dissipa > 0) continue
+      let x = A.x
+      let y = A.y
+      let raio = A.r
+      let estica = A.estica
+      let dx = A.dx
+      let dy = A.dy
+      // moldura (lendário): pra fora da elipse do portal (o túnel é o fundo principal)
+      if (moldura > 0 && p.grupo > 0) {
         const ex = (x - W / 2) / (W * 0.44)
         const ey = (y - H / 2) / (H * 0.45)
         const dn = Math.hypot(ex, ey)
         if (dn < 1.12) {
           const nd = lerp(dn, 1.12, moldura)
-          const ux = dn > 1e-3 ? ex / dn : Math.cos(n.fase)
-          const uy = dn > 1e-3 ? ey / dn : Math.sin(n.fase)
+          const ux = dn > 1e-3 ? ex / dn : Math.cos(p.fase)
+          const uy = dn > 1e-3 ? ey / dn : Math.sin(p.fase)
           x = W / 2 + ux * nd * W * 0.44
           y = H / 2 + uy * nd * H * 0.45
         }
         raio *= 1 - 0.25 * moldura
       }
       // longe da cabeça (épico)
-      if (longeDaCabeca > 0) {
+      if (longeDaCabeca > 0 && p.grupo > 0) {
         const ex = (x - cabX) / (u * 0.36)
         const ey = (y - cabY) / (u * 0.32)
         const dn = Math.hypot(ex, ey)
         const alvo = 1 + (raio / (u * 0.34)) * 0.7
         if (dn < alvo) {
           const nd = lerp(dn, alvo, longeDaCabeca)
-          const ux = dn > 1e-3 ? ex / dn : Math.cos(n.fase)
-          const uy = dn > 1e-3 ? ey / dn : Math.sin(n.fase)
+          const ux = dn > 1e-3 ? ex / dn : Math.cos(p.fase)
+          const uy = dn > 1e-3 ? ey / dn : Math.sin(p.fase)
           x = cabX + ux * nd * u * 0.36
           y = cabY + uy * nd * u * 0.32
         }
+      }
+      if (p.meio) {
+        this.meioX = x
+        this.meioY = y
       }
       // o buraco empurra as nuvens pra borda dele
       if (bur.o > 0) {
@@ -653,69 +866,55 @@ export class Cena {
         const alvo = 1 + (raio / Math.min(bur.rx, bur.ry)) * 0.5
         if (dn < alvo) {
           const nd = lerp(dn, alvo, bur.o)
-          const ux = dn > 1e-3 ? ex / dn : Math.cos(n.fase)
-          const uy = dn > 1e-3 ? ey / dn : Math.sin(n.fase)
+          const ux = dn > 1e-3 ? ex / dn : Math.cos(p.fase)
+          const uy = dn > 1e-3 ? ey / dn : Math.sin(p.fase)
           x = pcx + ux * nd * bur.rx
           y = pcy + uy * nd * bur.ry
         }
       }
-      // a cortina: as da esquerda vão pra esquerda, as da direita pra direita, esticando (os satélites arrastam)
-      let cortina = 0
-      let lado = 1
+      // a cortina: as da esquerda vão pra esquerda, as da direita pra direita, esticando
       if (dissipa > 0) {
         if (resto > 0) continue
-        lado = x < W / 2 ? -1 : 1
-        cortina = entraQuad(dissipa)
-        x += lado * cortina * W * (0.85 + 0.2 * Math.sin(n.fase))
+        const lado = x < W / 2 ? -1 : 1
+        const cortina = entraQuad(dissipa)
+        x += lado * cortina * W * (0.85 + 0.2 * Math.sin(p.fase))
         y += (y - H / 2) * cortina * 0.35
         raio *= 1 - 0.45 * dissipa
         estica = Math.max(estica, 0.55 * dissipa)
         dx = lado
         dy = 0
       }
-      const camada = n.fundo ? FUNDO : FRENTE
-      pôr(x, y, raio, 1, estica, dx, dy, camada)
-      // os lobos giram em volta (sentidos alternados); na entrada, ficam pra trás (rabo)
-      for (const [ang0, dist, rs, giro] of n.sat) {
-        const an = ang0 + giro * t
-        const atraso = sE < 1 ? (1 - eE) * 0.5 : 0
-        let sxp = x + Math.cos(an) * raio * dist - dx * raio * atraso * 1.4
-        const syp = y + Math.sin(an) * raio * dist - dy * raio * atraso * 1.4
-        if (dissipa > 0) sxp -= lado * cortina * W * 0.14
-        pôr(sxp, syp, raio * rs, 1, estica * 0.6, dx, dy, camada)
-      }
-      // as do alto se desfazem em pedaços menores (um a cada período) e terminam em fiapo
-      if (n.periodo && chegou > 0 && dissipa <= 0) {
-        const ciclo = (chegou + n.fase * 0.1) / n.periodo
-        const c = Math.floor(ciclo)
-        const f = ciclo - c
-        const an = -Math.PI / 2 + Math.sin(c * 2.3 + n.fase) * 0.7
-        const dist = raio * (0.8 + f * 1.1)
-        pôr(x + Math.cos(an) * dist, y + Math.sin(an) * dist - f * u * 0.08, raio * 0.32 * (1 - f) * (f < 0.15 ? f / 0.15 : 1), 1, 0.2, Math.cos(an), Math.sin(an), camada)
-      }
-      if (n.rabo && dissipa <= 0) {
-        let fx = x
-        let fy = y - raio * 0.85
-        let fa = -Math.PI / 2
-        let fr = raio * 0.36 * clamp01(chegou * 3 + sE * 0.5)
-        for (let m = 0; m < 6; m++) {
-          fa += n.lado * 0.5 * Math.sin(t * 1.1 + m * 0.7 + n.fase) * 0.9
-          fx += Math.cos(fa) * fr * 1.25
-          fy += Math.sin(fa) * fr * 1.25
-          fr *= 0.78
-          pôr(fx, fy, fr, 1, 0.3, Math.cos(fa), Math.sin(fa), camada)
+      // a fumaça "de verdade" (cinza) é a das baforadas das puxadas; o sopro grande já vem na cor da raridade
+      const cz = p.grupo === 0 ? 1 : 0
+      pôr(x, y, raio, 1, estica, dx, dy, p.camada, A.giro, p.amp, A.alfa, p.z, cz)
+      // os lóbulos que rolam em volta da borda (nascem pequenos, crescem, dão a volta por cima do lóbulo e somem nele)
+      if (p.rola > 0 && raio > u * 0.05) {
+        for (let m = 0; m < p.rola; m++) {
+          const ciclo = 1.2 + 0.3 * m
+          const c0 = (t - p.te) / ciclo + p.fase * 0.31 + m / p.rola
+          const c = c0 - Math.floor(c0)
+          const vida = Math.sin(Math.PI * c)
+          const an = p.rot0 + (m * Math.PI * 2) / p.rola + p.lado * (1.9 + 0.4 * m) * (t - p.te)
+          // nasce perto do meio e rola pra borda (passa por cima da cara do lóbulo)
+          const d = raio * (p.rolaD + (0.78 - p.rolaD) * c)
+          const rs = raio * (0.18 + 0.3 * vida)
+          pôr(x + Math.cos(an) * d, y + Math.sin(an) * d * 0.9, rs, 1, 0, 0, -1, p.camada, 0, 0, A.alfa, p.z + raio * 0.42, cz)
         }
-        // o pedaço solto na ponta
-        const solto = ((t * 0.8 + n.fase) % 1.4) / 1.4
-        pôr(fx + Math.cos(fa) * fr * (2 + solto * 6), fy + Math.sin(fa) * fr * (2 + solto * 6) - solto * u * 0.05, fr * (1 - solto), 1, 0, 0, -1, camada)
       }
+      // no alto da massa: o caracol que enrola subindo e afina em fiapo, e os pedaços que se soltam e se desfazem
+      if (p.topo && A.chegou > 0 && dissipa <= 0 && moldura < 0.5) {
+        this.caracol(p, x, y, raio, A.alfa, A.chegou, pôr, fiapo)
+        this.pedaco(p, x, y, raio, A.alfa, A.chegou, pôr, fiapo)
+      }
+      // as que se desfazem soltam um fiapo pra cima
+      if (A.alfa < 0.75 && p.fiapo) fiapo(x, y - raio * 0.6, u * 0.16 * (1 - A.alfa), 0.25 * p.lado, A.alfa * 1.3, p.lado, p.fase)
     }
     // o resto da fumaça no fundo do story (sobe e se desfaz)
     if (resto > 0) {
       for (let k = 0; k < 6; k++) {
         const x = W * (0.12 + 0.76 * ((k * 0.37) % 1))
         const y = H * (0.75 - 0.08 * (k % 3)) - resto * u * 0.4
-        pôr(x, y, u * (0.09 + 0.03 * (k % 2)) * (1 - resto), 1, 0.2, 0, -1, FRENTE)
+        pôr(x, y, u * (0.09 + 0.03 * (k % 2)) * (1 - resto), 1, 0.2, 0, -1, FRENTE, t * 1.4 + k, 0.14, 1 - resto * 0.6)
       }
     }
 
@@ -755,8 +954,6 @@ export class Cena {
     q.frente = this.palFrente
     q.fundo = this.palFundo
     q.cabeca = q.cabecaApaga > 0.5 ? this.palCabecaApagada : this.palCabeca
-    // a fumaça "de verdade" (cinza) só nas baforadas; o sopro grande já vem na cor da raridade
-    q.cinza = t < r.sopro - 0.05 ? 1 : 0
     q.iso = r.iso ? clamp01((q12(t) - r.iso.de) / 0.25) * (1 - dissipa) : 0
     q.isoFase = r.iso ? t * r.iso.vel : 0
 
@@ -764,8 +961,9 @@ export class Cena {
     q.sorriso[3] = 0
     const so = r.sorriso
     if (so && dissipa <= 0) {
-      q.sorriso[0] = W / 2
-      q.sorriso[1] = pcy - u * 0.02
+      // mora no lóbulo do meio e anda com ele
+      q.sorriso[0] = this.meioX
+      q.sorriso[1] = this.meioY - u * 0.02
       q.sorriso[2] = W * 0.28
       q.sorriso[3] = sm(so.abre, so.abre + 0.25, q12(t)) * (1 - sm(so.some, so.some + 0.15, t))
       const tp2 = t - so.pisca
@@ -829,6 +1027,11 @@ export class Cena {
         iris[4] = abre
         const dil = entraSai(clamp01((t - es.dilata) / (es.aro - es.dilata + 0.06)))
         iris[5] = lerp(u * 0.06, u * 0.3, dil)
+        // a pupila passeia (olha pra um lado, pro outro, pra cima) até dilatar, em saltos de desenho (12 qps)
+        const olha = clamp01((tq - es.iris - 0.2) / 0.05) * (1 - sm(es.dilata - 0.1, es.dilata, t))
+        const salto = Math.floor((tq - es.iris) * 3)
+        iris[8] = olha * u * 0.05 * [0, -1, 1, 0.6, -0.8, 0][((salto % 6) + 6) % 6]
+        iris[9] = olha * u * 0.025 * [0, 0.3, -0.2, -1, 0.4, 0][((salto % 6) + 6) % 6]
         iris[6] = t > es.aro ? clamp01((t - es.aro) / 0.42) : 0
         if (t > es.aro) iris[5] = lerp(u * 0.3, Math.min(Math.max(prem.w, prem.h) * 0.52 * r.escala, W * 0.44), saiCubica(clamp01((t - es.aro) / 0.3)))
         iris[7] = t > es.aro + 0.42 ? 0 : 1
@@ -884,11 +1087,13 @@ export class Cena {
     q.centro[0] = pcx
     q.centro[1] = pcy
     if (pt) {
-      q.tunel[0] = sm(pt.abre, pt.abre + 0.8, t) * (1 - dissipa)
+      // na saída pro story o túnel apaga primeiro (em ~0,1 s, antes de o story começar a aparecer por baixo): o texto do
+      // story nunca fica em cima do caleidoscópio
+      q.tunel[0] = sm(pt.abre, pt.abre + 0.8, t) * (1 - sm(0, 0.16, dissipa))
       q.tunel[1] = this.faseTunel.em(t)
       q.tunel[2] = t * 0.12
       q.tunel[3] = 1 - 0.45 * sm(pt.recua, pt.recua + 0.8, t)
-      q.estrelas = sm(pt.abre + 0.2, pt.abre + 0.6, t) * (1 - dissipa)
+      q.estrelas = sm(pt.abre + 0.2, pt.abre + 0.6, t) * (1 - sm(0, 0.16, dissipa))
       if (t > pt.clarao) q.clarao = t < pt.clarao + 1 / 12 ? 1 : (1 - sm(pt.clarao + 1 / 12, pt.clarao + 0.42, t)) * 0.9
       // os 8 olhos na borda: abrem em onda, olham pro meio, piscam juntos
       if (dissipa <= 0 && t > pt.olhos) {
@@ -936,7 +1141,7 @@ export class Cena {
     d.cartaoAng = info.ang
     d.premioVisivel = info.alfa > 0.5
     const ex2 = info.esc
-    const forcaHalo = sm(r.premio, r.premio + 0.35, t) * (1 - sm(0, 0.35, dissipa))
+    const forcaHalo = sm(r.premio, r.premio + 0.35, t) * (1 - sm(0, 0.16, dissipa))
     // o anel em volta do cartão (elipse do tamanho dele, de 1 a 1,32×): fica no buraco da fumaça, nunca em cima do produto
     q.halo[0] = prem.x + info.x
     q.halo[1] = prem.y + info.y
@@ -944,7 +1149,7 @@ export class Cena {
     q.halo[3] = (prem.h / 2) * Math.max(0.2, ex2)
     q.halo[4] = forcaHalo * (r.raridade === 'comum' ? 0.75 : 0.95)
     if (r.raios) {
-      q.raios[0] = sm(r.raios.de, r.raios.de + 0.35, t) * (1 - sm(0, 0.3, dissipa))
+      q.raios[0] = sm(r.raios.de, r.raios.de + 0.35, t) * (1 - sm(0, 0.16, dissipa))
       q.raios[1] = r.raios.n
       q.raios[2] = t * (r.raridade === 'lendario' ? 0.05 : 0.035)
       q.raios[3] = Math.max(prem.vw, prem.vh) * 0.5 * Math.max(0.2, ex2)
@@ -982,6 +1187,115 @@ export class Cena {
       d.palcoX += Math.sin(ts * 90) * a
       d.palcoY += Math.cos(ts * 70) * a * 0.6
     }
+  }
+
+  /* ───────────── os lóbulos ───────────── */
+
+  /** Onde está o lóbulo no tempo t (falso: ainda não nasceu ou já se desfez). */
+  private puffEm(p: Puff, t: number, o: PuffAgora): boolean {
+    const a = t - p.te
+    if (a < 0) return false
+    const alfa = p.td < NUNCA ? 1 - sm(p.td, p.td + p.dd, t) : 1
+    if (alfa <= 0.1) return false
+    const s = clamp01(a / p.dur)
+    const E = 1 - Math.pow(1 - s, p.pot)
+    const arco = Math.sin(Math.PI * E) * p.bow
+    let x = lerp(p.ox, p.tx, E) + p.perpX * arco
+    let y = lerp(p.oy, p.ty, E) + p.perpY * arco
+    const pos = Math.max(0, a - p.dur)
+    const some = 1 - alfa
+    // depois de chegar: o empuxo (sobe), o balanço; desfazendo, sobe mais rápido
+    const solto = clamp01(pos * 2)
+    const subiu = pos * p.sobe + some * some * p.sobe * 1.4
+    y -= subiu
+    x += subiu * p.deriva
+    x += Math.sin(t * 0.9 + p.fase) * p.bal * solto
+    y += Math.cos(t * 0.7 + p.fase * 1.3) * p.bal * 0.6 * solto
+    // a convecção: depois de chegar, cada lóbulo grande roda devagar em volta do lugar dele (a massa nunca para)
+    if (p.roda > 0) {
+      const an = p.fase + p.lado * (1.8 + 0.4 * Math.sin(p.fase)) * pos
+      x += (Math.cos(an) - Math.cos(p.fase)) * p.roda * solto
+      y += (Math.sin(an) - Math.sin(p.fase)) * p.roda * 0.8 * solto
+    }
+    const cresce = 1 - (1 - s) * (1 - s)
+    o.r = lerp(p.r0, p.r1, cresce) * (1 + 0.05 * Math.sin(t * 1.6 + p.fase)) * (1 - 0.62 * some)
+    // gira rápido no voo (o jato rola) e continua rolando depois
+    o.giro = p.rot0 + p.w1 * a + (p.w0 - p.w1) * 0.45 * (1 - Math.exp(-a / 0.45))
+    // estica no sentido do voo enquanto voa rápido
+    const vel = s < 1 ? (p.pot * Math.pow(1 - s, p.pot - 1) * p.dist) / p.dur : 0
+    // (as baforadas esticam mais: o rabo vira um cometa ligado à cabeça)
+    const est = p.grupo === 0 ? Math.min(0.6, (vel / this.geo.u) * 0.14) : Math.min(0.32, (vel / this.geo.u) * 0.07)
+    if (some > 0.05 && est < 0.2) {
+      // desfazendo: estica pra cima e afina (vira fiapo), em vez de virar um xadrez de dither
+      o.estica = Math.min(0.6, some * 0.75)
+      o.dx = p.deriva * 0.3
+      o.dy = -1
+    } else if (est < 0.05) {
+      o.estica = 0
+      o.dx = 0
+      o.dy = -1
+    } else {
+      o.estica = est
+      o.dx = (p.tx - p.ox) / p.dist
+      o.dy = (p.ty - p.oy) / p.dist
+    }
+    o.x = x
+    o.y = y
+    o.alfa = alfa
+    o.chegou = pos
+    return true
+  }
+
+  /**
+   * O caracol no alto de um lóbulo: nasce na borda de cima, cresce pra fora numa corrente de lóbulos cada vez menores que
+   * se enrola (cada vez mais, enquanto sobe) e afina num fiapo; no fim do ciclo se solta e se desfaz, e nasce outro do
+   * outro lado.
+   */
+  private caracol(p: Puff, x: number, y: number, raio: number, alfa: number, chegou: number, pôr: PorLobulo, fiapo: PorFiapo) {
+    const u = this.geo.u
+    const P = p.ciclo
+    const c0 = chegou + p.fase * 0.37
+    const k = Math.floor(c0 / P)
+    const c = (c0 - k * P) / P
+    const cresce = sm(0, 0.32, c)
+    const enrola = 0.35 + (p.enrola - 0.35) * sm(0.04, 0.9, c)
+    const some = sm(0.7, 1, c)
+    const lado = (k % 2 ? -1 : 1) * p.lado
+    const phi = -Math.PI / 2 + lado * (0.5 + 0.25 * Math.sin(k * 1.9 + p.fase))
+    let fx = x + Math.cos(phi) * raio * 0.8
+    let fy = y + Math.sin(phi) * raio * 0.8 - some * u * 0.07
+    let fa = phi - lado * 0.35
+    let rr = raio * 0.36
+    const n = 7
+    let m = 0
+    for (; m < n; m++) {
+      if (m / n > cresce) break
+      fa += lado * enrola * (0.22 + m * 0.09)
+      const passo = rr * 1.05
+      fx += Math.cos(fa) * passo
+      fy += Math.sin(fa) * passo
+      rr *= 0.8
+      pôr(fx, fy, rr, 1, 0.2, Math.cos(fa), Math.sin(fa), p.camada, fa * 2, 0, alfa * (1 - some * (0.55 + m * 0.07)), p.z + u * (0.05 + m * 0.01), p.grupo === 0 ? 1 : 0)
+    }
+    if (m === n) fiapo(fx, fy, u * (0.05 + 0.12 * c), fa + Math.PI / 2 + lado * 0.6, alfa * (1 - some), lado, p.fase + k)
+  }
+
+  /** Um pedaço que se solta do alto do lóbulo, sobe, encolhe e se desfaz em dither (e solta um fiapo). */
+  private pedaco(p: Puff, x: number, y: number, raio: number, alfa: number, chegou: number, pôr: PorLobulo, fiapo: PorFiapo) {
+    const u = this.geo.u
+    const P = 0.8
+    const c0 = chegou + p.fase * 0.53 + 0.4
+    const k = Math.floor(c0 / P)
+    const c = (c0 - k * P) / P
+    const lado = (k % 2 ? 1 : -1) * p.lado
+    const phi = -Math.PI / 2 - lado * (0.15 + 0.3 * Math.abs(Math.sin(k * 2.3 + p.fase)))
+    const d = raio * (0.85 + c * 0.8)
+    const px = x + Math.cos(phi) * d + lado * c * u * 0.03
+    const py = y + Math.sin(phi) * d - c * u * 0.1
+    const rr = u * 0.065 * sm(0, 0.12, c) * (1 - 0.55 * c)
+    const a = alfa * (1 - sm(0.3, 1, c))
+    pôr(px, py, rr, 1, 0.12, 0, -1, p.camada, c * 5 * lado, 0.16, a, p.z + u * 0.06, p.grupo === 0 ? 1 : 0)
+    if (c > 0.4) fiapo(px, py - rr * 0.8, u * 0.1 * sm(0.4, 0.8, c), 0.2 * lado, a * 1.4, lado, p.fase * 3 + k)
   }
 
   /** O buraco do prêmio no tempo t: progresso e raios (px). */

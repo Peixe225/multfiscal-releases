@@ -43,6 +43,14 @@ interface Props {
   convite: boolean
 }
 
+// as peças do desenho (~240 elementos de SVG) só dependem do id: memo, o quarto de volta re-renderiza só o anel
+const CorpoAbertoM = memo(CorpoAberto)
+const LabioCamaraM = memo(LabioCamara)
+const LadoTampaM = memo(LadoTampa)
+const FundoTampaM = memo(FundoTampa)
+const RotorM = memo(Rotor)
+const EstaticoM = memo(Estatico)
+
 /** O palco (memo: o jogo re-renderiza a cada fase; o dichavador em SVG só muda com quartos, modo e convite). */
 export const Palco = memo(function Palco({ refs, quartos, modo, interativo, aoTecla, aoSoltarTecla, convite }: Props) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -63,14 +71,14 @@ export const Palco = memo(function Palco({ refs, quartos, modo, interativo, aoTe
     <div ref={refs.palco} className={`sorte-palco sorte-palco-${modo}${interativo ? ' sorte-palco-ativo' : ''}`} data-lenis-prevent>
       <Anel refAnel={refs.anel} acesos={modo === 'girar' ? quartos : 0} tamanho={Math.max(40, tam - 4)} />
       <div ref={refs.corpo} className="sorte-corpo" style={caixaCorpo} aria-hidden="true">
-        <CorpoAberto id={`${id}c`} />
+        <CorpoAbertoM id={`${id}c`} />
       </div>
       <div ref={refs.labio} className="sorte-labio" style={caixaCorpo} aria-hidden="true">
-        <LabioCamara id={`${id}l`} />
+        <LabioCamaraM id={`${id}l`} />
       </div>
       <div ref={refs.tampa} className="sorte-tampa">
         <div ref={refs.lado} className="sorte-lado" style={caixaCorpo} aria-hidden="true">
-          <LadoTampa id={`${id}t`} />
+          <LadoTampaM id={`${id}t`} />
         </div>
         <div
           ref={refs.disco}
@@ -90,13 +98,13 @@ export const Palco = memo(function Palco({ refs, quartos, modo, interativo, aoTe
             : { 'aria-hidden': true })}
         >
           <div className="sorte-camada sorte-fundo">
-            <FundoTampa id={`${id}f`} />
+            <FundoTampaM id={`${id}f`} />
           </div>
           <div ref={refs.rotor} className="sorte-camada sorte-rotor">
-            <Rotor id={`${id}r`} />
+            <RotorM id={`${id}r`} />
           </div>
           <div className="sorte-camada sorte-estatico">
-            <Estatico id={`${id}e`} />
+            <EstaticoM id={`${id}e`} />
           </div>
         </div>
       </div>
