@@ -386,7 +386,8 @@ function HeroFoot({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOp
 
 function Overall({ hall, linhas, com, filtro, seg, onSeg, onOpen }: { hall: HallModel; linhas: LinhaMista[]; com: ComunidadeHall; filtro: FiltroHall; seg: Filter; onSeg: (f: Filter) => void; onOpen: (e: RankEntry) => void }) {
   const [all, setAll] = useState(false)
-  const filter: Filter = seg === 'comunidade' && !com.ativo ? 'todos' : seg
+  // segmento da URL que não existe aqui (sem comunidade fora do site; sem carreiras suas no filtro): "Todos"
+  const filter: Filter = (seg === 'comunidade' && !com.ativo) || (seg === 'runs' && !hall.runs.length) ? 'todos' : seg
   const rows = useMemo<LinhaMista[]>(() => {
     if (filter === 'comunidade') return com.itens.map((c, i) => ({ kind: 'comunidade', rank: i + 1, c }))
     if (filter === 'todos') return linhas

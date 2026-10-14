@@ -198,16 +198,20 @@ um responde 404 se for chamado direto). `bonus.php` e `admin.php` saem com `no-s
 - Ordem do Hall (dentro da conta e no geral): nota, pico de OVR, Bolas de Ouro, títulos, gols, a salva primeiro. Cada
   `HallEntry.id` aparece uma vez só (se duas contas salvarem o mesmo id, fica a de melhor posição).
 - Entram só carreiras do **Clássico** enquanto `imersivo_publico = false` (as de teste do admin no Imersivo não vazam).
-- Fotografia: refeita no primeiro pedido depois de `hall_intervalo_min`, com `GET_LOCK('lenda_hall:<banco>', 0)`
-  (o nome do banco vai junto porque o servidor de banco é dividido); a leitura das carreiras é sem trava de linha (quem
-  salva não espera) e a troca é numa transação (quem lê vê a anterior até o fim). Estado em `site_config._hall_foto`
+- Fotografia: o primeiro pedido depois de `hall_intervalo_min` **responde com a fotografia anterior e refaz logo depois
+  da resposta** (no LiteSpeed/FPM o visitante não espera; a primeira fotografia de todas é feita antes de responder),
+  com `GET_LOCK('lenda_hall:<banco>', 0)` (o nome do banco vai junto porque o servidor de banco é dividido) para só um
+  refazer; a leitura das carreiras é sem trava de linha (quem salva não espera) e a troca é numa transação (quem lê vê a
+  anterior até o fim). Estado em `site_config._hall_foto`
   (`{em, total, ms, msLeitura, por}`). **Tirar do Hall é na hora** (ocultar, apagar, suspender, denúncias, "não
   aparecer", tirar a publicação, carreira que virou suspeita, excluir conta); **entrar é na próxima fotografia** (ou
   no "Atualizar Hall agora").
 - `POST denunciar`: logado; `id` = `HallEntry.id` que está na fotografia (senão `404`); `motivo` fora da lista: `400
   motivo`; a própria carreira: `400 propria`; repetir na mesma carreira: `200 {"ok":true}` sem contar de novo; 10 por
   conta por dia (`429`). Com 5 denúncias **abertas** de contas diferentes, `carreiras.oculta = 2` (escondida pelas
-  denúncias; `1` = pelo admin) e sai do Hall.
+  denúncias; `1` = pelo admin) e sai do Hall. As denúncias da mesma carreira entram uma de cada vez (trava da linha da
+  carreira): 5 ao mesmo tempo também escondem. Quem já denunciou uma carreira não denuncia de novo, nem depois de o
+  admin resolver.
 
 ### 8.5 Conquistas (`conquistas.php`)
 
@@ -293,3 +297,77 @@ carreira_pk, carreira_id UNIQUE, usuario_id, apelido, jogador, numero, pais, pos
 gols, titulos, bolas_ouro, copas, headline, clubes, bonus_ovr, terminou_em)`, `hall_foto_clubes PK(club_id, foto_id)`;
 `denuncias(id, carreira_pk, usuario_id, motivo, texto, criada_em, status 'aberta'|'ok'|'ocultar', resolvida_em,
 UNIQUE(carreira_pk, usuario_id))`; `site_config.valor` é `MEDIUMTEXT`; `indicacoes.indicado_id` aceita `NULL`.
+
+## 9. Jogo (cliente): o que foi implementado e as decisões dos pontos em aberto
+
+Tudo só no build do site (`VITE_SITE=1`, `src/site/*` por import dinâmico); o build local e o do claude.ai ficam como
+antes (tudo aberto, sem servidor). Nenhum nome de rota ou campo dos §1–§8 mudou.
+
+### 9.1 Público × admin
+
+- Padrão **fechado**: até o `GET conta.php` responder (ou se ele falhar), Live e Imersivo valem como "só admin".
+- `GET painel.php?so=eu` só é pedido quando faz diferença — rota fechada aberta (`#/live`, `#/imersivo`,
+  `#/identidade?modo=imersivo`, `#/kit`), site em manutenção, ou este navegador já foi confirmado como admin antes
+  (`localStorage['lenda:admin']`, só uma dica para perguntar; quem decide é o servidor). Um "não" é perguntado de
+  novo no máximo a cada 30 s. Com muita gente jogando, o público não soma um pedido por visita.
+- Público: Live some do menu, da tela inicial e do rodapé; `#/live` e `#/kit` mostram "Página não encontrada";
+  o Imersivo aparece "Em desenvolvimento" (cartão desabilitado, sem link) e `#/imersivo`/`?modo=imersivo` mostram a
+  tela "Em breve"; `?fixture=` (estados de exemplo) não carrega. Admin: tudo abre, com o selo "Teste · só admin"
+  (nunca no palco da live nem com a live ligada, que vão para a transmissão) e o menu ganha "Painel do admin" e
+  "Modo Imersivo (teste)". Um modo live que tinha ficado ligado na aba de quem não é admin é desligado.
+- `aviso`: faixa no topo (fecha no X; o mesmo texto não volta neste aparelho; nunca na live). `manutencao`: tela
+  "Em manutenção" sem a barra do topo, para quem não é admin (o servidor não bloqueia nada — §8.7).
+  `cadastroAberto = false`: some a aba "Criar conta" e o convite das 5 partidas não abre.
+
+### 9.2 Hall público no Hall das Lendas
+
+- Filtros na URL (link compartilhável): `#/hall?pais=BOL&clube=e2022&seg=comunidade` (`seg`: todos · runs · lendas ·
+  comunidade). País = `<select>` das seleções; clube = busca com escudo (sem acento; clubes das lendas primeiro). O
+  filtro vale para as 50 lendas (`nationality`, `clubs[].clubId`), para as carreiras do aparelho (identidade e todos
+  os clubes das temporadas) e para a comunidade (o servidor filtra; o jogo confere de novo).
+- Ranking geral: as carreiras da comunidade entram pela nota (empate: Bolas de Ouro → Copas → títulos → gols; tudo
+  igual, as do aparelho e as lendas na frente), com o selo "Comunidade", o apelido do dono e "+N de bônus". Uma
+  carreira que também está no Hall deste aparelho aparece uma vez só (como a daqui). Segmento "Comunidade": as
+  páginas de 50 sob demanda ("Carregar mais"), com a posição dentro do filtro.
+- Cache em memória por filtro: 5 min e nunca depois de `proximaEm`; um pedido por filtro de cada vez; reintento
+  (1 s, 2 s, ±25%) só em falha de rede/5xx; sem rede, o Hall segue com as lendas e as carreiras do aparelho e
+  tenta de novo quando a internet volta. Os pedidos de lista e de `?id=` usam o cache do navegador (`max-age=300`).
+- Abrir uma da comunidade: `#/resumo?id=<HallEntry.id>&de=comunidade` (GET `hall.php?id=`), com "Carreira de
+  <apelido>", "Denunciar" (logado; sem conta abre o "Entrar") e sem "Salvar na conta"/bônus de compartilhar. A
+  carreira fica só na memória (no máximo 12 abertas) e nunca entra no Hall do aparelho.
+- "Minhas carreiras" → "Na conta": painel "Hall público" com o modo (As 3 melhores · Eu escolho · Nenhuma →
+  `perfil hallPublico`), o aviso do que fica público (apelido, nome do jogador, números) e, por carreira, "No Hall
+  público" (`C.noHall`) e "Pôr no Hall"/"Tirar do Hall" (`publicar`). Mais de 3: aviso antes de pedir.
+
+### 9.3 Conquistas na conta
+
+- Entrar/criar conta: todas as do aparelho vão em `sincronizar` (pedaços de 500) e a união desce. Abrir o jogo já
+  logado: `GET conquistas.php` no máximo a cada 10 min por aparelho (`localStorage['lenda:conquistas-lidas']`), e só
+  sobe o que faltar lá. Sempre depois de o jogo ler o IndexedDB (senão "as do aparelho" estariam vazias).
+- Conquista nova, com conta: fila em `localStorage['lenda:conquistas-fila']` (`{uid, itens}` — de uma conta só),
+  envio 3 s depois (junta várias), reintento com espera crescente (até 6 vezes, teto 2 min), ao voltar a internet e
+  ao esconder a aba. As que descem entram sem "nova" e sem toast, com `context: "Da sua conta"`.
+- Raridade: `?raridade=1` ao abrir a tela de conquistas (cache 1 h); "12% dos jogadores" só com 5+ jogadores.
+
+### 9.4 Convite, compartilhar e bônus de OVR
+
+- `?c=`: o primeiro código válido (4–16 letras/números) fica 30 dias em `localStorage['lenda:convite']` (outro link
+  não troca), sai da barra de endereço e vai no `cadastrar`; depois do cadastro é apagado.
+- "Minha conta" → "Convide amigos": link (Compartilhar com `navigator.share` / Copiar), degraus +2/+3/+5 (ganho ·
+  jogando a 1ª · livre), o que falta para liberar, `guardados` e `disponiveis`.
+- Card final: o texto compartilhado leva o link com o código (`U.codigoConvite` ou `bonus.php`). Só carreira
+  encerrada **do próprio jogador**: depois que o `navigator.share` resolve (ou do "Copiar link"), `compartilhei` →
+  "+2 de OVR na próxima carreira!", "o de hoje já é seu" ou "ainda bloqueado: faltam N partidas". Sem rede, fica em
+  `localStorage['lenda:compartilhei-pendente']` (12 h) e vai quando a internet voltar ou ao entrar.
+- Criação da carreira do Clássico: com conta e bônus disponível, "Bônus de OVR: +N (origem)" com "usar" ligado.
+  Ao começar: semente nova → `usar {carreiraId: "career-<semente>"}` (o mesmo id do HallEntry; reintento 3x, é
+  idempotente) → `newCareer(…, { bonusOvr })`. Sem rede: a carreira começa sem bônus (ele continua guardado).
+- Motor: `CareerState.bonusOvr` (1–10; ausente = 0), OVR inicial `50 + N` e o mesmo desenvolvimento — o jogador fica
+  N acima a carreira inteira (papel, propostas, convocação e prêmios leem esse OVR). Sem bônus a carreira é idêntica
+  à de antes. Resumo, card e Hall mostram "+N de bônus".
+
+### 9.5 Salvar carreira (mais robusto, mesmas regras)
+
+Pico ≥ 90 continua salvando sozinho (`auto`) e as outras pelo botão (`manual`). O salvar sozinho tenta 3 vezes com
+espera crescente; o que não subiu (sem rede) fica na fila do aparelho — `lenda:carreiras-pendentes` (auto) e
+`lenda:carreiras-pendentes-manual` (botão) — e sobe sozinho ao abrir o jogo e quando a internet volta.

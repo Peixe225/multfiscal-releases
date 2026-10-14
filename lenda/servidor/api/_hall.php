@@ -1,8 +1,9 @@
 <?php
 /**
  * LENDA · fotografia do Hall público (hall_foto + hall_foto_clubes). O hall.php lê só a fotografia; ela é
- * refeita no máximo a cada hall_intervalo_min (preguiçosa: o primeiro pedido depois do prazo refaz, com
- * GET_LOCK para só um refazer; os outros leem a anterior) ou na hora pelo admin. Tirar do Hall (carreira
+ * refeita no máximo a cada hall_intervalo_min (preguiçosa: o primeiro pedido depois do prazo responde com a
+ * anterior e refaz logo depois da resposta, com GET_LOCK para só um refazer; os outros leem a anterior) ou na
+ * hora pelo admin. Tirar do Hall (carreira
  * oculta, conta suspensa, "não aparecer") é na hora; entrar no Hall é na próxima fotografia.
  * Nunca é servido (o .htaccess nega _*.php). Contrato: servidor/CONTRATO-v3.md §4.
  */
@@ -37,17 +38,19 @@ function hallVencido(?array $e): bool
     return $em === null || $em + hallIntervaloS() <= time();
 }
 
-/** Para o hall.php: refaz se venceu e ninguém está refazendo; devolve o estado em vigor. */
-function hallTalvez(): ?array
+/**
+ * Para o hall.php: a fotografia em vigor e se ela deve ser refeita DEPOIS da resposta (venceu). Sem fotografia
+ * nenhuma (a primeira vez), faz agora (esperando até 5 s se outro pedido já estiver fazendo).
+ * @return array{0: ?array, 1: bool}
+ */
+function hallTalvez(): array
 {
     $e = hallEstado();
-    if (hallVencido($e)) {
-        $novo = refazerFoto(false, 0);
-        if ($novo !== null) {
-            $e = $novo;
-        }
+    if ($e === null) {
+        $novo = refazerFoto(false, 5);
+        return [$novo ?? hallEstado(), false];
     }
-    return $e;
+    return [$e, hallVencido($e)];
 }
 
 /**

@@ -8,7 +8,7 @@
  * Source: the current career (`useCareer.state`, summarized by the engine) or a Hall das Lendas entry
  * (`#/resumo?id=<hallId>`). Finished careers are saved to the Hall automatically by the store.
  */
-import { memo, useEffect, useMemo, type CSSProperties } from 'react'
+import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, ChartLine, Crown, Flag as FlagIcon, Landmark, Quote, RotateCcw, Share2, Sparkles, Star, Trophy as TrophyIcon, Users } from 'lucide-react'
 import type { CareerSummary } from '@/engine/types'
@@ -95,7 +95,15 @@ function ResumoComunidade({ id }: { id: string }) {
     if (abrir) abrir(id)
   }, [abrir, id])
   useShellSlots({ sub: '', center: <span className="sm-topbar-t">Carreira da comunidade</span>, stage: { preset: 'legend' } }, [])
-  if (!ativo || aberta?.status === 'erro') {
+  // link aberto direto: o pedaço do site ainda está chegando — espera um pouco antes de dizer "não encontrada"
+  const [desistiu, setDesistiu] = useState(false)
+  useEffect(() => {
+    if (ativo) return
+    const t = window.setTimeout(() => setDesistiu(true), 8000)
+    return () => window.clearTimeout(t)
+  }, [ativo])
+  const esperandoSite = !ativo && import.meta.env.VITE_SITE === '1' && !desistiu
+  if (!esperandoSite && (!ativo || aberta?.status === 'erro')) {
     return (
       <PlaceholderScreen
         eyebrow="Hall da comunidade"

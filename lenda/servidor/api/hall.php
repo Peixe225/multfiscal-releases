@@ -1,7 +1,8 @@
 <?php
 /**
  * LENDA · Hall público: as melhores carreiras dos jogadores (até 3 por conta), servidas da fotografia
- * (hall_foto), que é refeita no máximo a cada hall_intervalo_min. Público, sem login, com cache de 5 min.
+ * (hall_foto), que é refeita no máximo a cada hall_intervalo_min (o primeiro pedido depois do prazo responde
+ * com a anterior e refaz logo em seguida). Público, sem login; navegador e CDN guardam 5 min.
  *   GET  hall.php?pais=BOL&clube=<clubId>&pagina=1 → {atualizadoEm, proximaEm, total, pagina, porPagina, itens}
  *   GET  hall.php?id=<HallEntry.id>                → {carreira: HallEntry, apelido, posicao} (só se está na foto)
  *   POST hall.php {"acao":"denunciar","id","motivo":"nome"|"trapaca"|"outro","texto"?} → {ok: true} (logado)
@@ -18,13 +19,6 @@ const HALL_POR_PAGINA = 50;
 const DENUNCIAS_PARA_OCULTAR = 5;   // contas diferentes
 const DENUNCIAS_DIA_CONTA = 10;
 
-/** Resposta pública: navegador e CDN guardam por 5 min (a fotografia muda no máximo de hora em hora). */
-function cachePublico(): void
-{
-    header('Cache-Control: public, max-age=300');
-    header('Vary: Accept-Encoding');
-}
-
 function lerIdHall(mixed $v): string
 {
     if (!is_string($v) || $v === '' || mb_strlen($v, 'UTF-8') > 64 || preg_match('/[\p{Cc}]/u', $v)) {
@@ -33,10 +27,29 @@ function lerIdHall(mixed $v): string
     return $v;
 }
 
+/**
+ * Manda a resposta pública e, se a fotografia venceu, refaz depois de responder (no LiteSpeed/FPM o visitante
+ * não espera; sem isso, só o pedido que refaz demora um pouco). Os outros pedidos leem a anterior enquanto isso.
+ */
+function responderHall(string $corpo, bool $refazer): never
+{
+    header('Cache-Control: public, max-age=300');
+    header('Vary: Accept-Encoding');
+    terminarRespostaBruta(200, $corpo);
+    if ($refazer) {
+        try {
+            refazerFoto(false, 0);
+        } catch (Throwable $e) {
+            error_log('LENDA hall (refazer depois da resposta): ' . $e->getMessage());
+        }
+    }
+    exit;
+}
+
 $m = metodo();
 
 if ($m === 'GET') {
-    $e = hallTalvez();
+    [$e, $refazer] = hallTalvez();
     if (isset($_GET['id'])) {
         $id = lerIdHall($_GET['id']);
         $l = umaLinha('SELECT f.id AS posicao, f.apelido, c.dados FROM hall_foto f
@@ -46,8 +59,7 @@ if ($m === 'GET') {
         if (!is_string($json) || $json === '') {
             erro(404, 'nao_encontrada', 'Essa carreira não está no Hall público.');
         }
-        cachePublico();
-        responderBruto(200, '{"carreira":' . $json . ',"apelido":' . json((string) $l['apelido']) . ',"posicao":' . (int) $l['posicao'] . '}');
+        responderHall('{"carreira":' . $json . ',"apelido":' . json((string) $l['apelido']) . ',"posicao":' . (int) $l['posicao'] . '}', $refazer);
     }
 
     $pais = $_GET['pais'] ?? '';
@@ -83,8 +95,7 @@ if ($m === 'GET') {
     }
     $em = $e !== null ? (string) ($e['em'] ?? '') : '';
     $t = $em !== '' ? strtotime($em) : false;
-    cachePublico();
-    responder(200, [
+    responderHall(json([
         'atualizadoEm' => $t !== false && $em !== '' ? gmdate('Y-m-d\TH:i:s\Z', $t) : null,
         'proximaEm' => $t !== false && $em !== '' ? gmdate('Y-m-d\TH:i:s\Z', $t + hallIntervaloS()) : null,
         'total' => $total,
@@ -92,7 +103,7 @@ if ($m === 'GET') {
         'porPagina' => HALL_POR_PAGINA,
         'filtro' => ['pais' => $pais !== '' ? $pais : null, 'clube' => $clube !== '' ? $clube : null],
         'itens' => $itens,
-    ]);
+    ]), $refazer);
 }
 
 if ($m !== 'POST') {
@@ -123,6 +134,10 @@ if ((int) $f['usuario_id'] === $uid) {
     erro(400, 'propria', 'Não dá para denunciar a própria carreira.');
 }
 $ocultou = transacao(static function () use ($pk, $uid, $motivo, $texto): bool {
+    // uma denúncia da mesma carreira de cada vez: a contagem abaixo vê as que acabaram de entrar
+    if (umValor('SELECT id FROM carreiras WHERE id = ? FOR UPDATE', [$pk]) === null) {
+        return false; // a carreira foi apagada agora há pouco
+    }
     sql('INSERT IGNORE INTO denuncias (carreira_pk, usuario_id, motivo, texto, criada_em, status) VALUES (?, ?, ?, ?, ?, \'aberta\')',
         [$pk, $uid, $motivo, $texto, dt(time())]);
     $abertas = (int) umValor("SELECT COUNT(*) FROM denuncias WHERE carreira_pk = ? AND status = 'aberta'", [$pk]);

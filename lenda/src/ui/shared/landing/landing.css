@@ -179,6 +179,7 @@
 .ld-soon { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 5px; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #1b1405; background: linear-gradient(100deg, #ffe7a3, #f3c65c); white-space: nowrap; }
 .ld-mode.is-off { cursor: not-allowed; opacity: .62; filter: saturate(.6); }
 .ld-mode.is-off:hover { transform: none; }
+.ld-mode__dev { margin-top: 3px; }
 .ld-nav__off { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--text-3); cursor: default; }
 .ld-soon--ghost { color: #ffe39a; background: rgba(255, 210, 110, .12); box-shadow: inset 0 0 0 1px rgba(255, 210, 110, .35); }
 

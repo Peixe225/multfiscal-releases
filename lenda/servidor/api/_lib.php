@@ -821,11 +821,16 @@ function enviarEmail(string $para, string $assunto, string $corpo): bool
 /** Responde já e continua o trabalho depois (FPM/LiteSpeed); sem suporte, só segue. */
 function terminarResposta(int $status, mixed $dados): void
 {
+    terminarRespostaBruta($status, json($dados));
+}
+
+/** Igual a terminarResposta, com o corpo já em JSON. */
+function terminarRespostaBruta(int $status, string $corpo): void
+{
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
     http_response_code($status);
-    $corpo = json($dados);
     header('Content-Length: ' . strlen($corpo));
     echo $corpo;
     if (function_exists('fastcgi_finish_request')) {

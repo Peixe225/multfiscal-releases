@@ -175,6 +175,18 @@ function agendar(ms = ESPERA_MS) {
   timer = window.setTimeout(() => void enviarFila(), ms)
 }
 
+/** As conquistas do aparelho só valem depois que o jogo terminou de ler o IndexedDB (init). */
+function carreiraPronta(): Promise<void> {
+  if (useCareer.getState().status === 'ready') return Promise.resolve()
+  return new Promise((res) => {
+    const un = useCareer.subscribe((s) => {
+      if (s.status !== 'ready') return
+      un()
+      res()
+    })
+  })
+}
+
 /** Última leitura da conta neste aparelho (abrir o jogo já logado relê no máximo a cada 10 min). */
 const CHAVE_LIDA = 'lenda:conquistas-lidas'
 const RELER_MS = 10 * 60_000
@@ -184,6 +196,9 @@ const RELER_MS = 10 * 60_000
  * Abriu o jogo já logado (`sessao`): só lê a conta (GET, no máximo a cada 10 min) — e sobe só o que faltar lá.
  */
 export async function sincronizarAoEntrar(como: 'cadastro' | 'login' | 'redefinir' | 'sessao' = 'login'): Promise<void> {
+  if (!useConta.getState().usuario) return
+  // antes do jogo ler o que está guardado, "as do aparelho" estariam vazias (e o que descesse seria apagado)
+  await carreiraPronta()
   const u = useConta.getState().usuario
   if (!u) return
   const locais = doAparelho(useCareer.getState().achievements)
@@ -254,7 +269,8 @@ export function iniciarConquistas() {
 
   // conquista nova no jogo: com conta, vai para a fila e sobe daqui a pouco (várias juntas)
   useCareer.subscribe((s, p) => {
-    if (importando || s.achievements === p.achievements || s.isFixture) return
+    // a leitura do IndexedDB na abertura (init) não é conquista nova
+    if (importando || s.achievements === p.achievements || s.isFixture || s.status !== 'ready' || p.status !== 'ready') return
     const u = useConta.getState().usuario
     if (!u) return
     const novas = doAparelho(s.achievements).filter((c) => !p.achievements[c.id] || Date.parse(p.achievements[c.id].unlockedAt) > Date.parse(c.em))

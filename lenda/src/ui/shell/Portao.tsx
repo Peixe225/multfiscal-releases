@@ -8,6 +8,7 @@ import { motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Crown, FlaskConical, Mic, RotateCw, SearchX, Sparkles, Swords, Tv2, Users, Wrench } from 'lucide-react'
 import { navigate, useApp } from '@/store/app'
 import { podeImersivo, podeLive, rotaImersiva, soAdmin, useAcesso, type Portao } from '@/store/acesso'
+import { useLiveSession } from '@/live/config'
 import { Button, Eyebrow, Skeleton } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
 import { PlaceholderScreen } from './Placeholder'
@@ -130,9 +131,11 @@ function Manutencao() {
 export function SeloAdmin() {
   const route = useApp((s) => s.route)
   const acesso = useAcesso()
+  const liveOn = useLiveSession((s) => s.on)
   const imm = rotaImersiva(route)
-  const live = route.path === '/live'
-  const mostra = (imm && podeImersivo(acesso) && soAdmin(acesso, acesso.imersivoPublico)) || (live && podeLive(acesso) && soAdmin(acesso, acesso.livePublica))
+  // na live, só na página de configuração: o palco e a carreira com a live ligada vão para a transmissão
+  const live = route.path === '/live' && !route.query.tela && !liveOn
+  const mostra = (imm && !liveOn && podeImersivo(acesso) && soAdmin(acesso, acesso.imersivoPublico)) || (live && podeLive(acesso) && soAdmin(acesso, acesso.livePublica))
   if (!mostra) return null
   return (
     <span className="pt-selo" role="status">

@@ -310,7 +310,8 @@ export function iniciarSite() {
   const tentadas = new Set<string>()
   const resumoDaConta = () => {
     const r = useApp.getState().route
-    const id = r.path === '/resumo' ? r.query.id : undefined
+    // carreira da comunidade (de outro jogador): quem busca é o Hall público, nunca a conta
+    const id = r.path === '/resumo' && r.query.de !== 'comunidade' ? r.query.id : undefined
     if (!id || tentadas.has(id) || !useConta.getState().usuario || useCareer.getState().status !== 'ready') return
     if (useCareer.getState().finishedCareers.some((h) => h.id === id)) return
     tentadas.add(id)

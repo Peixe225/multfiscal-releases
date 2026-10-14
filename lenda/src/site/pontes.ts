@@ -107,12 +107,14 @@ export function iniciarPontes() {
   }
 
   // conta entrou/saiu: o bônus da tela de criação acompanha (e um compartilhamento sem rede tenta de novo)
-  aoEntrar(() => {
-    useBonus.getState().limpar()
-    useBonusCarreira.setState({ usar: true })
-    void useBonus.getState().carregar(true).then(oferta)
+  aoEntrar((_u, como) => {
     const p = pendente()
     if (p) void registrar(p.carreiraId)
+    useBonus.getState().limpar()
+    useBonusCarreira.setState({ usar: true })
+    // abrir o jogo já logado não busca o bônus: quem precisa (criação da carreira, card, Minha conta) pede
+    if (como === 'sessao') return
+    void useBonus.getState().carregar(true).then(oferta)
   })
   useConta.subscribe((s, p) => {
     if (p.usuario && !s.usuario) {

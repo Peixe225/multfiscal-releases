@@ -193,7 +193,7 @@ export default function LandingScreen() {
                     <Check size={12} strokeWidth={3.2} />
                   </span>
                 ) : (
-                  <span className={cx('ld-mode__badge ld-soon', !imersivo && 'ld-soon--ghost')}>{!imersivo ? 'Em desenvolvimento' : imersivoTeste ? 'Teste · admin' : 'Novo'}</span>
+                  imersivo && <span className="ld-mode__badge ld-soon">{imersivoTeste ? 'Teste · admin' : 'Novo'}</span>
                 )}
                 <span className="flex items-center gap-2.5 pr-16">
                   <span className="ld-mode__ic" aria-hidden="true">
@@ -201,7 +201,7 @@ export default function LandingScreen() {
                   </span>
                   <span>
                     <span className="ld-mode__t block">Modo Imersivo</span>
-                    <span className="ld-mode__k block">Jogue partida a partida</span>
+                    {imersivo ? <span className="ld-mode__k block">Jogue partida a partida</span> : <span className="ld-soon ld-soon--ghost ld-mode__dev">Em desenvolvimento</span>}
                   </span>
                 </span>
                 <span className="ld-mode__d block" id={imersivo ? undefined : 'ld-imm-breve'}>

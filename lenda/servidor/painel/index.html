@@ -10,8 +10,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
 <title>LENDA · Painel</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="painel.css?v=20261014">
-<script src="painel.js?v=20261014" defer></script>
+<link rel="stylesheet" href="painel.css?v=3.0.0">
+<!-- Ordem importa: o núcleo primeiro, o painel.js (que liga tudo) por último. Nada de script embutido (CSP). -->
+<script src="nucleo.js?v=3.0.0" defer></script>
+<script src="visao.js?v=3.0.0" defer></script>
+<script src="usuarios.js?v=3.0.0" defer></script>
+<script src="moderacao.js?v=3.0.0" defer></script>
+<script src="sistema.js?v=3.0.0" defer></script>
+<script src="painel.js?v=3.0.0" defer></script>
 </head>
 <body>
 
@@ -19,8 +25,8 @@
 <main id="tela-entrar" class="entrar" hidden>
   <form id="form-entrar" class="entrar-cartao" autocomplete="on">
     <div class="marca"><span class="marca-nome">LENDA</span><span class="marca-sub">painel</span></div>
-    <h1>Números do jogo</h1>
-    <p class="texto-2">Só para o administrador.</p>
+    <h1>Painel do administrador</h1>
+    <p class="texto-2">Números, usuários, Hall público e configurações do site. Só para o administrador.</p>
     <label for="senha" class="rotulo">Senha</label>
     <input id="senha" name="senha" type="password" autocomplete="current-password" required maxlength="256" autofocus>
     <p id="erro-entrar" class="erro" role="alert" hidden></p>
@@ -29,103 +35,161 @@
 </main>
 
 <!-- Painel -->
-<div id="tela-painel" hidden>
-  <header class="topo">
-    <div class="marca"><span class="marca-nome">LENDA</span><span class="marca-sub">painel</span></div>
-    <button type="button" id="botao-sair" class="botao-fantasma">Sair</button>
-  </header>
-
-  <nav class="filtros" aria-label="Período">
-    <div class="segmentos" role="group" aria-label="Período">
-      <button type="button" data-periodo="hoje">Hoje</button>
-      <button type="button" data-periodo="7">7 dias</button>
-      <button type="button" data-periodo="30">30 dias</button>
+<div id="tela-painel" class="app" hidden>
+  <aside class="lateral">
+    <div class="lateral-topo">
+      <a class="marca" href="#/visao" aria-label="LENDA painel — Visão geral"><span class="marca-nome">LENDA</span><span class="marca-sub">painel</span></a>
+      <span class="ao-vivo" id="ao-vivo" title="Abas abertas no último minuto · com partida ou carreira em andamento (atualiza a cada 15 s)">
+        <span class="pulso" aria-hidden="true"></span><b id="lat-online">–</b> online · <b id="lat-jogando">–</b> jogando
+      </span>
+      <button type="button" class="botao-icone so-celular" id="botao-sair-celular" aria-label="Sair do painel" title="Sair">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+      </button>
     </div>
-    <label class="caixa"><input type="checkbox" id="incluir-bots"> incluir robôs/testes</label>
-    <span id="atualizado" class="texto-3" aria-live="polite"></span>
-  </nav>
-
-  <main id="conteudo" class="conteudo">
-    <p id="aviso" class="aviso" role="status" hidden></p>
-
-    <section class="agora" aria-label="Agora">
-      <article class="cartao-grande">
-        <h2><span class="pulso" aria-hidden="true"></span>Online agora</h2>
-        <p class="numero-grande" id="online">0</p>
-        <p class="texto-3">abas abertas no último minuto · atualiza a cada 15 s</p>
-      </article>
-      <article class="cartao-grande">
-        <h2><span class="pulso pulso-azul" aria-hidden="true"></span>Jogando agora</h2>
-        <p class="numero-grande" id="jogando">0</p>
-        <p class="texto-3">com uma partida ou carreira em andamento</p>
-      </article>
-    </section>
-
-    <p id="sem-dados" class="sem-dados" hidden>Ainda sem visitas no período</p>
-
-    <section aria-labelledby="t-periodo">
-      <h2 class="titulo-secao" id="t-periodo">No período <span id="periodo-texto" class="texto-3"></span></h2>
-      <div class="ladrilhos" id="ladrilhos"></div>
-    </section>
-
-    <section class="cartao" aria-labelledby="t-dias">
-      <div class="cartao-cabeca">
-        <h2 id="t-dias">Por dia</h2>
-        <div class="legenda" aria-hidden="true">
-          <span><i class="chave chave-1"></i>Visitantes</span>
-          <span><i class="chave chave-2"></i>Jogaram</span>
-        </div>
+    <nav class="abas" aria-label="Seções do painel">
+      <a href="#/visao" data-aba="visao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Visão geral</span><kbd>1</kbd></a>
+      <a href="#/usuarios" data-aba="usuarios"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 8"/><path d="M22 21a7 7 0 0 0-5-6.7"/></svg><span>Usuários</span><span class="contador" id="cont-usuarios" hidden></span><kbd>2</kbd></a>
+      <a href="#/hall" data-aba="hall"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9H4a2 2 0 0 1 0-4h2"/><path d="M18 9h2a2 2 0 0 0 0-4h-2"/><path d="M6 3h12v7a6 6 0 0 1-12 0z"/><path d="M12 16v3"/><path d="M8 21h8"/></svg><span>Hall público</span><span class="contador contador-alerta" id="cont-hall" hidden title="Carreiras suspeitas esperando decisão"></span><kbd>3</kbd></a>
+      <a href="#/denuncias" data-aba="denuncias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></svg><span>Denúncias</span><span class="contador contador-perigo" id="cont-denuncias" hidden title="Denúncias abertas"></span><kbd>4</kbd></a>
+      <a href="#/conquistas" data-aba="conquistas"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="m8.5 14-1.5 8 5-3 5 3-1.5-8"/></svg><span>Conquistas</span><kbd>5</kbd></a>
+      <a href="#/indicacoes" data-aba="indicacoes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 21V7"/><path d="M12 7H8a2.5 2.5 0 0 1 0-5c3 0 4 5 4 5z"/><path d="M12 7h4a2.5 2.5 0 0 0 0-5c-3 0-4 5-4 5z"/></svg><span>Indicações e bônus</span><kbd>6</kbd></a>
+      <a href="#/config" data-aba="config"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg><span>Configurações</span><kbd>7</kbd></a>
+      <a href="#/testes" data-aba="testes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7 15h10"/></svg><span>Testes</span><span class="selo-admin">só você</span><kbd>8</kbd></a>
+      <a href="#/registro" data-aba="registro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg><span>Registro</span><kbd>9</kbd></a>
+    </nav>
+    <div class="lateral-pe">
+      <div id="estado-site" class="estado-site" aria-label="Estado do site"></div>
+      <a href="../" target="_blank" rel="noopener" class="botao-fantasma botao-bloco">Abrir o jogo ↗</a>
+      <div class="lateral-linha">
+        <button type="button" class="botao-fantasma" id="botao-atalhos" title="Atalhos do teclado (?)">Atalhos</button>
+        <button type="button" class="botao-fantasma" id="botao-sair">Sair</button>
       </div>
-      <div class="grafico" id="grafico-dias"></div>
-      <details class="tabela-detalhe">
-        <summary>Ver tabela</summary>
-        <div class="rolagem"><table id="tabela-dias"></table></div>
-      </details>
-    </section>
-
-    <div class="duas-colunas">
-      <section class="cartao" aria-labelledby="t-funil">
-        <h2 id="t-funil">Funil</h2>
-        <p class="texto-3">Quantos seguem de uma etapa para a outra. "5 partidas" conta a vida toda de quem veio no período.</p>
-        <div id="funil" class="barras"></div>
-      </section>
-      <section class="cartao" aria-labelledby="t-origens">
-        <h2 id="t-origens">De onde vieram</h2>
-        <p class="texto-3">Sessões por origem (utm_source ou o site de onde clicou).</p>
-        <div id="origens" class="barras"></div>
-      </section>
-      <section class="cartao" aria-labelledby="t-disp">
-        <h2 id="t-disp">Aparelhos</h2>
-        <div id="dispositivos" class="barras"></div>
-      </section>
-      <section class="cartao" aria-labelledby="t-horas">
-        <h2 id="t-horas">Horários <span class="texto-3">(Brasília)</span></h2>
-        <div class="grafico grafico-baixo" id="grafico-horas"></div>
-      </section>
     </div>
+  </aside>
 
-    <section class="cartao" aria-labelledby="t-contas">
-      <h2 id="t-contas">Contas</h2>
-      <div class="ladrilhos ladrilhos-pequenos" id="ladrilhos-contas"></div>
-      <div class="duas-colunas duas-colunas-dentro">
-        <div>
-          <h3>Melhores carreiras salvas</h3>
-          <div class="rolagem"><table id="tabela-melhores" class="tabela"></table></div>
+  <div class="principal">
+    <header class="cabeca">
+      <div class="cabeca-titulo">
+        <h1 id="titulo-aba">Visão geral</h1>
+        <p id="sub-aba" class="texto-3"></p>
+      </div>
+      <div id="acoes-aba" class="cabeca-acoes"></div>
+    </header>
+
+    <!-- Visão geral: os números do painel de antes, iguais, mais o resumo da plataforma -->
+    <section id="aba-visao" class="aba" hidden>
+      <nav class="filtros" aria-label="Período">
+        <div class="segmentos" role="group" aria-label="Período">
+          <button type="button" data-periodo="hoje">Hoje</button>
+          <button type="button" data-periodo="7">7 dias</button>
+          <button type="button" data-periodo="30">30 dias</button>
         </div>
-        <div>
-          <h3>Últimos cadastros</h3>
-          <div class="rolagem"><table id="tabela-cadastros" class="tabela"></table></div>
+        <label class="caixa"><input type="checkbox" id="incluir-bots"> incluir robôs/testes</label>
+        <span id="atualizado" class="texto-3" aria-live="polite"></span>
+      </nav>
+
+      <div id="conteudo" class="conteudo">
+        <p id="aviso" class="aviso" role="status" hidden></p>
+
+        <section class="agora" aria-label="Agora">
+          <article class="cartao-grande">
+            <h2><span class="pulso" aria-hidden="true"></span>Online agora</h2>
+            <p class="numero-grande" id="online">0</p>
+            <p class="texto-3">abas abertas no último minuto · atualiza a cada 15 s</p>
+          </article>
+          <article class="cartao-grande">
+            <h2><span class="pulso pulso-azul" aria-hidden="true"></span>Jogando agora</h2>
+            <p class="numero-grande" id="jogando">0</p>
+            <p class="texto-3">com uma partida ou carreira em andamento</p>
+          </article>
+        </section>
+
+        <section aria-labelledby="t-plataforma">
+          <h2 class="titulo-secao" id="t-plataforma">Plataforma <span class="texto-3">agora · clique para abrir</span></h2>
+          <div class="ladrilhos ladrilhos-links" id="ladrilhos-plataforma"></div>
+        </section>
+
+        <p id="sem-dados" class="sem-dados" hidden>Ainda sem visitas no período</p>
+
+        <section aria-labelledby="t-periodo">
+          <h2 class="titulo-secao" id="t-periodo">No período <span id="periodo-texto" class="texto-3"></span></h2>
+          <div class="ladrilhos" id="ladrilhos"></div>
+        </section>
+
+        <section class="cartao" aria-labelledby="t-dias">
+          <div class="cartao-cabeca">
+            <h2 id="t-dias">Por dia</h2>
+            <div class="legenda" aria-hidden="true">
+              <span><i class="chave chave-1"></i>Visitantes</span>
+              <span><i class="chave chave-2"></i>Jogaram</span>
+            </div>
+          </div>
+          <div class="grafico" id="grafico-dias"></div>
+          <details class="tabela-detalhe">
+            <summary>Ver tabela</summary>
+            <div class="rolagem"><table id="tabela-dias"></table></div>
+          </details>
+        </section>
+
+        <div class="duas-colunas">
+          <section class="cartao" aria-labelledby="t-funil">
+            <h2 id="t-funil">Funil</h2>
+            <p class="texto-3">Quantos seguem de uma etapa para a outra. "5 partidas" conta a vida toda de quem veio no período.</p>
+            <div id="funil" class="barras"></div>
+          </section>
+          <section class="cartao" aria-labelledby="t-origens">
+            <h2 id="t-origens">De onde vieram</h2>
+            <p class="texto-3">Sessões por origem (utm_source ou o site de onde clicou).</p>
+            <div id="origens" class="barras"></div>
+          </section>
+          <section class="cartao" aria-labelledby="t-disp">
+            <h2 id="t-disp">Aparelhos</h2>
+            <div id="dispositivos" class="barras"></div>
+          </section>
+          <section class="cartao" aria-labelledby="t-horas">
+            <h2 id="t-horas">Horários <span class="texto-3">(Brasília)</span></h2>
+            <div class="grafico grafico-baixo" id="grafico-horas"></div>
+          </section>
         </div>
+
+        <section class="cartao" aria-labelledby="t-contas">
+          <h2 id="t-contas">Contas</h2>
+          <div class="ladrilhos ladrilhos-pequenos" id="ladrilhos-contas"></div>
+          <div class="duas-colunas duas-colunas-dentro">
+            <div>
+              <h3>Melhores carreiras salvas</h3>
+              <div class="rolagem"><table id="tabela-melhores" class="tabela"></table></div>
+            </div>
+            <div>
+              <h3>Últimos cadastros</h3>
+              <div class="rolagem"><table id="tabela-cadastros" class="tabela"></table></div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="rodape texto-3">
+          Horários em Brasília (UTC−3). Robôs e testes ficam de fora, a não ser que a caixa esteja marcada.
+          IP não é guardado. <a href="../privacidade.html">Política de privacidade</a>
+        </footer>
       </div>
     </section>
 
-    <footer class="rodape texto-3">
-      Horários em Brasília (UTC−3). Robôs e testes ficam de fora, a não ser que a caixa esteja marcada.
-      IP não é guardado. <a href="../privacidade.html">Política de privacidade</a>
-    </footer>
-  </main>
+    <!-- As outras abas são montadas pelo JavaScript (sempre com textContent, nunca HTML vindo do servidor) -->
+    <section id="aba-usuarios" class="aba" hidden></section>
+    <section id="aba-usuario" class="aba" hidden></section>
+    <section id="aba-hall" class="aba" hidden></section>
+    <section id="aba-denuncias" class="aba" hidden></section>
+    <section id="aba-conquistas" class="aba" hidden></section>
+    <section id="aba-indicacoes" class="aba" hidden></section>
+    <section id="aba-config" class="aba" hidden></section>
+    <section id="aba-testes" class="aba" hidden></section>
+    <section id="aba-registro" class="aba" hidden></section>
+  </div>
   <div id="dica" class="dica" role="tooltip" hidden></div>
 </div>
+
+<dialog id="dialogo" class="dialogo" aria-labelledby="dialogo-titulo"></dialog>
+<div id="avisos" class="avisos" aria-live="polite" aria-atomic="false"></div>
 
 <noscript><p class="sem-dados">O painel precisa de JavaScript.</p></noscript>
 </body>

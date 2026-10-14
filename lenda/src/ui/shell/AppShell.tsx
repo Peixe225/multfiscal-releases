@@ -152,7 +152,8 @@ export function AppShell() {
         Pular para o conteúdo
       </button>
       <AmbientStage path={route.path} theme={theme} />
-      {ready && portao !== 'manutencao' && <AvisoFaixa />}
+      {/* o aviso do site nunca aparece na live (palco/janela de captura vão para a transmissão) */}
+      {ready && portao !== 'manutencao' && !liveHud && !captureIdle && route.path !== '/live' && <AvisoFaixa />}
       {ready && !liveHud && !captureIdle && portao !== 'manutencao' && <TopBar path={route.path} />}
       {ready && liveMounted && (
         <Suspense fallback={null}>

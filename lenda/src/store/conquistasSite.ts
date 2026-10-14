@@ -22,7 +22,7 @@ interface ConquistasSite {
 export const useConquistasSite = create<ConquistasSite>()(() => ({ raridade: null, naConta: false, pendentes: 0, pedirRaridade: null }))
 
 /** "12% dos jogadores" · "menos de 1% dos jogadores" (null sem dado suficiente). */
-export function textoRaridade(r: Raridade | null, id: string, minimo = 10): string | null {
+export function textoRaridade(r: Raridade | null, id: string, minimo = 5): string | null {
   if (!r || r.jogadores < minimo) return null
   const n = r.porConquista[id] ?? 0
   const pct = (n / r.jogadores) * 100
