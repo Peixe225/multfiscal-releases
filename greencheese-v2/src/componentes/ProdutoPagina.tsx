@@ -509,11 +509,20 @@ function ConteudoProduto({ produto, nivel, topo, origem }: { produto: Produto; n
   }, [produto, produtos, uf, canal])
   const categoria = categorias.find((c) => c.id === produto.categoria)
 
-  // altura da barra de compra: o aviso (toast) fica logo acima dela
+  // altura da barra de compra: o aviso (toast) fica logo acima dela. Quando a barra cresce (entra a linha "Na sacola")
+  // com a pessoa no fim da página, a rolagem desce junto: senão a barra subiria por cima do último link
   useEffect(() => {
     const el = barra.current
     if (!topo || !el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--pp-barra', `${Math.round(el.getBoundingClientRect().height)}px`))
+    let antes = el.getBoundingClientRect().height
+    const ro = new ResizeObserver(() => {
+      const altura = el.getBoundingClientRect().height
+      document.documentElement.style.setProperty('--pp-barra', `${Math.round(altura)}px`)
+      const cresceu = altura - antes
+      antes = altura
+      const j = el.closest<HTMLElement>('.pp-janela')
+      if (j && cresceu > 0 && j.scrollTop >= j.scrollHeight - j.clientHeight - cresceu - 2) j.scrollTop += cresceu
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [topo])

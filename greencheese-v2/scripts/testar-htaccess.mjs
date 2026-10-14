@@ -205,6 +205,25 @@ php_admin_value post_max_size 20M
     const home = await fetch(`${base}/`)
     okm(home.status === 200 && (await home.clone().text()).includes('<div id="raiz"'), 'o site abre')
     okm(/default-src 'self'/.test(home.headers.get('content-security-policy') ?? ''), 'o .htaccess do site vale (CSP)')
+    // 14/10: no subdomínio, os cabeçalhos de segurança da raiz do domínio não chegam; o .htaccess da pasta manda os mesmos
+    {
+      const SEG = {
+        'strict-transport-security': 'max-age=31536000',
+        'x-content-type-options': 'nosniff',
+        'x-frame-options': 'DENY',
+        'referrer-policy': 'strict-origin-when-cross-origin',
+        'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+      }
+      const js = (await home.clone().text()).match(/src="([^"]+\.js)"/)?.[1]
+      const alvos = [['o Início', home], ['o painel', await fetch(`${base}/painel/`)]]
+      if (js) alvos.push([`o script ${js}`, await fetch(new URL(js, `${base}/`))])
+      for (const [nome, r] of alvos) {
+        const lidos = Object.keys(SEG).map((k) => r.headers.get(k))
+        okm(JSON.stringify(lidos) === JSON.stringify(Object.values(SEG)), `${nome} com HSTS e os cabeçalhos de segurança da raiz, sem nada em dobro: ${JSON.stringify(lidos)}`)
+      }
+      const apiSeg = await fetch(`${base}/api/index.php?r=rateios`)
+      okm(apiSeg.headers.get('strict-transport-security') === 'max-age=31536000', `a API também leva o HSTS (${apiSeg.headers.get('strict-transport-security')})`)
+    }
 
     // o endereço novo (11/10): https://greencheese.oprojeto.online/ é a raiz desta pasta; o antigo só redireciona
     {
