@@ -38,7 +38,10 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
   const estados = l ? estadosNoSite(l) : []
   const uf = ufRota && estados.some((e) => e.uf === ufRota) ? ufRota : (estados[0]?.uf ?? null)
   const salvo = useMemo(() => (l && uf ? (l.stories[uf] ?? []) : []), [l, uf])
-  const [lista, setLista] = useState<string[] | null>(null)
+  // a lista mexida e de qual estado ela é: o toque que chega antes do efeito de baixo (a loja acabou de chegar) fica
+  const [rascunho, setRascunho] = useState<{ uf: string; ids: string[] } | null>(null)
+  const lista = rascunho && rascunho.uf === uf ? rascunho.ids : null
+  const setLista = (ids: string[] | null) => setRascunho(ids && uf ? { uf, ids } : null)
   const [soAVenda, setSoAVenda] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -46,9 +49,10 @@ export function Stories({ uf: ufRota }: { uf: string | null }) {
   const [atual, setAtual] = useState(0)
   const [rua, setRua] = useState<{ ocupado: boolean; erro: string | null; ok: string | null }>({ ocupado: false, erro: null, ok: null })
 
-  // trocou de estado (ou a loja chegou): começa da lista salva dele
+  // trocou de estado (ou a loja chegou): começa da lista salva dele. Só some o rascunho de outro estado: o deste
+  // (um toque logo que a tela apareceu, antes deste efeito rodar) não se perde
   useEffect(() => {
-    setLista(null)
+    setRascunho((r) => (r && r.uf === uf ? r : null))
     setErro(null)
     setOk(null)
     setAtual(0)
