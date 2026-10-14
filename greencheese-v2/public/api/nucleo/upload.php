@@ -139,8 +139,7 @@ function gc_orientar(GdImage $img, string $arquivo): GdImage
     if ($angulo !== 0) {
         $girada = imagerotate($img, $angulo, 0);
         if ($girada instanceof GdImage) {
-            imagedestroy($img);
-            $img = $girada;
+            $img = $girada; // a de antes se solta sozinha (imagedestroy é obsoleto no PHP 8.5)
         }
     }
     return $img;
@@ -247,7 +246,6 @@ function gc_rota_admin_upload(): array
                 imagesavealpha($menor, true);
                 imagefill($menor, 0, 0, imagecolorallocatealpha($menor, 0, 0, 0, 127));
                 imagecopyresampled($menor, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
-                imagedestroy($img);
                 $img = $menor;
                 [$w, $h] = [$nw, $nh];
             }
@@ -262,7 +260,7 @@ function gc_rota_admin_upload(): array
             } elseif ($mime === 'image/png') {
                 $ok = imagepng($img, $temp, 6);
             }
-            imagedestroy($img);
+            unset($img);
             if (!$ok) {
                 throw new RuntimeException('GD não gravou a imagem');
             }

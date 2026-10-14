@@ -531,6 +531,29 @@ for (const [nome, w, h] of aparelhos) {
   await p.screenshot({ path: `${out}${nome}-5-chat.png` })
   const chips = await p.locator('.dm-atual .dm-chip').evaluateAll((els) => els.map((e) => { const b = e.getBoundingClientRect(); return b.bottom <= window.innerHeight && b.right <= window.innerWidth }))
   if (chips.some((v) => !v)) problemas.push(`${nome}: resposta rápida fora da tela no chat`)
+
+  // página do produto (14/10, achado da conferência no ar): no fim da página, o "Pôr na sacola" faz a barra crescer
+  // (entra a linha "Na sacola") e a rolagem desce junto; o último link não fica atrás da barra
+  await p.goto(`${base}?uf=mg&produto=seda-ocb-premium-slim`)
+  const porPp = p.locator('.pp-janela:not(.pp-escondida) .pp-barra .pp-por')
+  if (await porPp.waitFor({ timeout: 8000 }).then(() => true, () => false)) {
+    await p.waitForTimeout(900)
+    await p.evaluate(() => {
+      const j = document.querySelector('.pp-janela:not(.pp-escondida)')
+      j.scrollTop = j.scrollHeight
+    })
+    await p.waitForTimeout(600)
+    await porPp.tap()
+    await p.waitForTimeout(900)
+    const fimPp = await p.evaluate(() => {
+      const j = document.querySelector('.pp-janela:not(.pp-escondida)')
+      const ult = [...j.querySelectorAll('.pp-link')].at(-1)?.getBoundingClientRect()
+      const barra = j.querySelector('.pp-barra').getBoundingClientRect()
+      return { naSacola: !!j.querySelector('.pp-na-sacola'), folga: ult ? Math.round(barra.top - ult.bottom) : null }
+    })
+    await p.screenshot({ path: `${out}${nome}-6-produto-na-sacola.png` })
+    if (!fimPp.naSacola || fimPp.folga === null || fimPp.folga < 0) problemas.push(`${nome}: página do produto, depois do "Pôr na sacola" no fim, a barra cobre o último link (${JSON.stringify(fimPp)})`)
+  } else problemas.push(`${nome}: página do produto da seda OCB sem o "Pôr na sacola"`)
   await ctx.close()
   console.log('✓', nome)
 }

@@ -552,7 +552,10 @@ export async function fluxoContas(a) {
       await pJ.waitForTimeout(220)
     }
     // a revelação (11/10): o beck sobe, a fumaça da raridade do prêmio vai até o auge e o story sai dela pronto
+    // a fumaça nasce montada no convite com uma raridade provisória; a que vale é a de depois do estalo (fase que
+    // não é mais "espera"), quando o prêmio do servidor já chegou
     await pJ.locator('.sorte-fumaca .fm').waitFor({ timeout: 10000 })
+    await pJ.waitForFunction(() => { const f = document.querySelector('.fm'); return !!f && !!f.getAttribute('data-fase') && f.getAttribute('data-fase') !== 'espera' }, null, { timeout: 15000 })
     const rarJ = await pJ.locator('.fm').getAttribute('data-raridade')
     await pJ.locator('.sorte.sorte-premio').waitFor({ timeout: 20000 })
     await pJ.waitForTimeout(400)

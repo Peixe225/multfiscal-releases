@@ -275,7 +275,7 @@ function gc_http_post(string $url, array $cabecalhos, string $corpo, int $conexa
         ],
     ]);
     $r = @file_get_contents($url, false, $ctx, 0, 8192);
-    $cab = $http_response_header ?? [];
+    $cab = function_exists('http_get_last_response_headers') ? (http_get_last_response_headers() ?? []) : (get_defined_vars()['http_response_header'] ?? []);
     $status = preg_match('#^HTTP/\S+\s+(\d{3})#', (string) ($cab[0] ?? ''), $m) === 1 ? (int) $m[1] : 0;
     $ms = (int) ((hrtime(true) - $inicio) / 1e6);
     return ['status' => $status, 'corpo' => is_string($r) ? $r : '', 'erro' => $status === 0 ? ($ms >= $total * 1000 - 50 ? 'tempo' : 'conexao') : '', 'ms' => $ms];

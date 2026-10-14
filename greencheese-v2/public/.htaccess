@@ -31,6 +31,17 @@ DirectoryIndex index.html
   <FilesMatch "\.html$">
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://ipwho.is https://get.geojs.io https://brasilapi.com.br https://viacep.com.br https://docs.google.com https://*.googleusercontent.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests"
   </FilesMatch>
+  # No subdomínio (11/10), os cabeçalhos de segurança da raiz do domínio não chegam mais nesta pasta: vêm daqui, com os
+  # mesmos valores da raiz. O HSTS vai em toda resposta (o navegador só o leva em conta no https; sem includeSubDomains,
+  # que é coisa da raiz). Os outros vão nos arquivos estáticos: o PHP da API já manda os dele (gc_cabecalhos) e as
+  # pastas uploads/ e produtos/ mandam os delas, que trocam estes sem dobrar.
+  Header always set Strict-Transport-Security "max-age=31536000"
+  <FilesMatch "\.(html|webmanifest|js|css|json|png|jpe?g|webp|gif|svg|ico|woff2?|mp4|webm|txt|xml)$">
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+  </FilesMatch>
   # HTML sempre revalidado: quem abre no celular vê a versão nova na hora.
   # Os arquivos de assets/ têm o hash no nome, então podem ficar em cache por 1 ano.
   <FilesMatch "\.(html|webmanifest)$">

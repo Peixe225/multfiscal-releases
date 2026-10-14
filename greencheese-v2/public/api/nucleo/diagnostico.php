@@ -45,8 +45,7 @@ function gc_buscar_varias(array $urls): array
         $status = (int) curl_getinfo($c, CURLINFO_RESPONSE_CODE);
         $erro = curl_errno($c) === 23 ? '' : curl_error($c);
         $out[$k] = ['status' => $status, 'corpo' => $corpos[$k], 'erro' => $erro];
-        curl_multi_remove_handle($multi, $c);
-        curl_close($c);
+        curl_multi_remove_handle($multi, $c); // sem curl_close: obsoleto no PHP 8.5, a alça fecha sozinha
     }
     curl_multi_close($multi);
     return $out;
