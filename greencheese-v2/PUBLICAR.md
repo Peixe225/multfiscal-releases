@@ -64,12 +64,12 @@ depende dele):
 `hosting_files_list-website-and-directories` com `username: u785231359`, `domain: greencheese.oprojeto.online`,
 `directory: api`, `max_depth: 1`.
 
-### 4. Guardar a versão do ar (pra voltar atrás se precisar)
+### 4. Saber pra onde voltar
 
-Com `hosting_files_website-content` (`username: u785231359`, `domain: greencheese.oprojeto.online`), salve numa
-pasta temporária fora do repositório o conteúdo de: `index.html`, `.htaccess`, `painel/index.html`,
-`painel/.htaccess`, `home2/index.html`, `api/.htaccess`, `api/index.php` e cada `api/nucleo/*.php` e `*.json`
-(liste a pasta antes). São esses que a publicação troca; os `assets/` antigos continuam no servidor.
+Até 14/10, o que está no ar é a pasta `greencheese/` do repositório (commit `f30c143`; os tamanhos dos arquivos do ar
+batem com ela). Se esta publicação der errado, voltar é publicar de novo aquela pasta, do mesmo jeito (build dela,
+cópia sem o `api/instalacao.php`, ensaio e envio). Depois que a v2 estiver no ar e conferida, a versão "de antes" passa
+a ser o commit que você publicou: anote o hash dele no fim (passo 9).
 
 ### 5. Ensaio (nada sobe)
 
@@ -118,14 +118,15 @@ pedido de teste pelo celular, pelo link da bio.
 
 ### 8. Se algo der errado
 
-- **O site não abre ou o painel quebrou:** suba de volta os arquivos salvos no passo 4 (o mesmo `publicar.mjs`
-  com `PUBLICAR_DIST` numa pasta só com eles e `SO=` com a lista, ou o gerenciador de arquivos do hPanel). O banco
-  continua bom: as migrações só acrescentam coluna e linha.
+- **O site não abre ou o painel quebrou:** publique de novo a versão de antes (passo 4), com o mesmo cuidado (sem o
+  `api/instalacao.php`). O banco continua bom: as migrações só acrescentam coluna e linha, e o código de antes ignora o
+  que é novo.
 - **O banco estragou** (raro): no hPanel, apague `api/privado/loja.sqlite-wal` e `loja.sqlite-shm` e suba a cópia de
   segurança do Ian como `api/privado/loja.sqlite`.
 - **O endereço antigo não redireciona:** confira se o `.htaccess` da pasta subiu (é o primeiro da lista).
 
 ### 9. Fechar
 
-Conte ao Ian o que subiu (quantos arquivos), o que as conferências deram, e o que ele precisa testar no celular.
+Conte ao Ian o que subiu (quantos arquivos e o hash do commit), o que as conferências deram, e o que ele precisa testar
+no celular. Atualize a frase do passo 4 com o commit que ficou no ar.
 Não deixe credencial em nenhum arquivo. Nada de commit com o build (`dist/` volta como estava).
