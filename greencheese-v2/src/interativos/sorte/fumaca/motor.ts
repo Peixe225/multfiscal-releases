@@ -96,6 +96,14 @@ export function criarMotor(el: ElementosMotor, o: OpcoesMotor): Motor {
   let faseAtual = ''
   let beckY = ''
   let alfa = ''
+  // o orçamento: quanto custa o desenho completo (média, ms). Passando de ~11,5 ms (aparelho fraco, a cabeça do épico, o
+  // túnel), a fumaça passa a ser refeita um quadro sim, um não (a cara do épico junto: ela anda com a fumaça) e o que vai
+  // por cima dela (o prêmio, os brilhos, as faíscas, o confete) continua todo quadro: a tela não engasga. Volta a refazer
+  // todo quadro abaixo de ~8,5 ms.
+  let custo = 0
+  let emDois = false
+  let ultimoCompleto = true
+  let tCompleto = 0
 
   const dis = () => (dissipaDe >= 0 ? Math.min(1, (t - dissipaDe) / dissipaDur) : 0)
   const resto = () => (dissipaDe >= 0 ? Math.max(0, Math.min(1, (t - dissipaDe - dissipaDur) / RESTO)) : 0)
@@ -159,21 +167,29 @@ export function criarMotor(el: ElementosMotor, o: OpcoesMotor): Motor {
     return 'sobe'
   }
 
-  function pintar() {
+  function pintar(reusar = false) {
     if (!geo || destruido || !comecou) return
     const dbg = import.meta.env.DEV ? (window as unknown as { __fumacaDbg?: Record<string, boolean> }).__fumacaDbg : undefined
     const dd = dis()
     const rr = resto()
-    cena.calcular(t, dd, rr)
+    // reaproveitando a fumaça, a cara do épico fica no tempo do último quadro completo (é dela a cabeça calculada)
+    cena.calcular(t, dd, rr, reusar ? tCompleto : t)
+    if (!reusar) tCompleto = t
     const q = cena.q
     const d = cena.dom
     if (!dbg?.semDesenho) {
-      const t0 = import.meta.env.DEV ? performance.now() : 0
-      if (rr < 1) pintor?.pintar(q)
+      const t0 = performance.now()
+      if (rr < 1) pintor?.pintar(q, true, reusar)
       else pintor?.limpar()
+      if (!reusar && rr < 1) {
+        const ms = performance.now() - t0
+        custo = custo ? custo * 0.8 + ms * 0.2 : ms
+        emDois = emDois ? custo > 8.5 : custo > 11.5
+      }
       if (import.meta.env.DEV) {
-        const w = window as unknown as { __fumacaPerf?: [number, number][] }
+        const w = window as unknown as { __fumacaPerf?: [number, number][]; __fumacaQ?: unknown }
         if (w.__fumacaPerf) w.__fumacaPerf.push([+t.toFixed(2), +(performance.now() - t0).toFixed(1)])
+        w.__fumacaQ = q
       }
     }
     const a = q.alfa.toFixed(2)
@@ -227,9 +243,13 @@ export function criarMotor(el: ElementosMotor, o: OpcoesMotor): Motor {
     const antes = t
     t += dt
     if (forcar || !(pronto && impar && dissipaDe < 0)) {
+      // passou do orçamento: a fumaça é refeita um quadro sim, um não (o que vai por cima, todo quadro)
+      // (também na cortina da saída pro story; depois do auge, parado, ele já desenha a 30 qps)
+      const reusar = emDois && ultimoCompleto && !forcar && (!pronto || dissipaDe >= 0)
+      ultimoCompleto = !reusar
       forcar = false
       marcos(antes, t)
-      pintar()
+      pintar(reusar)
     }
     if (!pronto && t >= cena.fim) {
       pronto = true
@@ -293,7 +313,15 @@ export function criarMotor(el: ElementosMotor, o: OpcoesMotor): Motor {
     const ordem: Raridade[] = [opc.raridade, ...(['comum', 'raro', 'epico', 'lendario'] as Raridade[]).filter((x) => x !== opc.raridade)]
     for (const rr of ordem) {
       const R = ROTEIROS[rr]
-      for (const tt of [0.05, 0.4, R.isqueiro.lambe, R.puxadas[0].puxa, R.sopro + 0.2, R.cheio, R.premio + 0.3, R.pronto]) fila.push([rr, tt])
+      // (os momentos de cada viagem também: o primeiro quadro do sorriso, da íris, da cabeça, do portal e do clarão já
+      // acha o código compilado)
+      const viagem: number[] = []
+      if (R.sorriso) viagem.push(R.sorriso.abre + 0.2)
+      if (R.espiral) viagem.push(R.espiral.aneis[1], R.espiral.gira + 0.1, R.espiral.iris + 0.2, R.espiral.aro + 0.1)
+      if (R.rosto) viagem.push(R.rosto.cabeca + 0.2, R.rosto.olhosAbrem + 0.2, R.rosto.sorri + 0.1, R.rosto.bochecha + 0.1, R.rosto.sopra + 0.08)
+      if (R.portal) viagem.push(R.portal.abre + 0.3, R.portal.olhos + 0.3, R.portal.clarao + 0.02, R.portal.desce + 0.3)
+      if (R.cinzaCai.length) viagem.push(R.cinzaCai[0] + 0.3)
+      for (const tt of [0.05, 0.4, R.isqueiro.lambe, R.puxadas[0].puxa, R.puxadas[0].solta + 0.2, R.sopro + 0.2, R.cheio, ...viagem, R.premio + 0.3, R.pronto]) fila.push([rr, tt])
     }
     let c: Cena | null = null
     let p: Particulas | null = null
