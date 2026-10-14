@@ -1,5 +1,5 @@
 // Um estado (o canal de atendimento), na ordem do dia a dia: horário de entrega (com madrugada e "repetir nos outros
-// dias"), taxa ou "a confirmar", entrega grátis por dia da semana, formas de pagamento, cidades, WhatsApp próprio ou o da
+// dias"), taxa ou "a confirmar", o pedido mínimo pra entrega (vazio = sem mínimo), entrega grátis por dia da semana, formas de pagamento, cidades, WhatsApp próprio ou o da
 // loja e o perfil (Instagram, nome do perfil e do destaque). Por último, separado, o "Tirar [estado] do site", que
 // confirma antes (e o recado tem "Desfazer"); estado fora do site tem o "Pôr de volta no site" em cima. Estado que a
 // loja ainda não tem: o mesmo formulário ativa ele.
@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import * as apiBase from '../api'
 import { ErroApi } from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
-import { reaisNoCampo, whatsappBonito } from '../formato'
+import { brl, reaisNoCampo, whatsappBonito } from '../formato'
 import { lembrarJson, lidoJson } from '../lembrar'
 import { Link, Topo } from '../Moldura'
 import { recado } from '../recado'
@@ -41,6 +41,8 @@ interface Form {
   semana: Dia[]
   taxaModo: 'confirmar' | 'valor'
   taxa: string
+  /** Pedido mínimo pra entrega (vazio = sem mínimo). O nome é o do campo no servidor: o erro dele cai aqui. */
+  pedidoMinimo: string
   gratis: boolean
   gratisDias: number[]
   gratisTexto: string
@@ -65,6 +67,7 @@ function doEstado(e: EstadoAdmin): Form {
     semana: e.horario.semana.map((t) => (t ? { aberto: true, abre: t[0], fecha: t[1] } : { ...DIA_PADRAO })),
     taxaModo: e.taxaEntrega.valor == null ? 'confirmar' : 'valor',
     taxa: reaisNoCampo(e.taxaEntrega.valor),
+    pedidoMinimo: reaisNoCampo(e.pedidoMinimo ?? null),
     gratis: !!e.entregaGratis,
     gratisDias: e.entregaGratis?.dias ?? [],
     gratisTexto: e.entregaGratis?.texto ?? 'Sextou com entrega grátis!',
@@ -85,6 +88,7 @@ function novo(uf: string): Form {
     semana: Array.from({ length: 7 }, () => ({ ...DIA_PADRAO })),
     taxaModo: 'confirmar',
     taxa: '',
+    pedidoMinimo: '',
     gratis: false,
     gratisDias: [],
     gratisTexto: 'Sextou com entrega grátis!',
@@ -112,6 +116,10 @@ function validar(f: Form): Erros {
   })
   if (f.taxaModo === 'valor' && (f.taxa.trim() === '' || lerPreco(f.taxa) == null)) e.taxa = 'Taxa de R$ 0,01 a R$ 100.000,00, ou “A confirmar”.'
   else if (f.taxaModo === 'valor' && lerPreco(f.taxa) === 0) e.taxa = 'Taxa R$ 0,00: pra entregar sem taxa, liga “Entrega grátis” nos dias que valem (logo aqui embaixo).'
+  if (f.pedidoMinimo.trim() !== '') {
+    const m = lerPreco(f.pedidoMinimo)
+    if (m == null || m > 1000) e.pedidoMinimo = 'Pedido mínimo de R$ 0,01 a R$ 1.000,00, ou vazio (sem mínimo).'
+  }
   if (f.gratis) {
     if (!f.gratisDias.length) e.gratisDias = 'Escolhe em que dia a entrega é grátis.'
     const t = f.gratisTexto.trim()
@@ -169,6 +177,8 @@ function corpo(f: Form, uf: string, antes: Form | null): EstadoCorpo {
   // estado novo sem nenhum dia aberto: o horário fica "a confirmar" (o servidor marca como exemplo e o site não mostra)
   if (mudou('semana') && (antes || f.semana.some((x) => x.aberto))) c.horario = horario(f)
   if (mudou('taxaModo') || mudou('taxa')) c.taxa = f.taxaModo === 'valor' ? (lerPreco(f.taxa) ?? null) : null
+  // vazio ou R$ 0 = sem mínimo (o servidor guarda null)
+  if (mudou('pedidoMinimo')) c.pedidoMinimo = f.pedidoMinimo.trim() ? (lerPreco(f.pedidoMinimo) || null) : null
   if (mudou('gratis') || mudou('gratisDias') || mudou('gratisTexto')) c.entregaGratis = f.gratis ? { dias: [...f.gratisDias].sort(), texto: f.gratisTexto.trim() } : null
   if (mudou('pagamentos')) c.pagamentos = f.pagamentos
   return c
@@ -469,6 +479,8 @@ export function Estado({ uf }: { uf: string }) {
   }
   const mesmo = l.ajustes.mesmoWhatsappParaTodos
   const taxaZero = f.taxaModo === 'valor' && f.taxa.trim() !== '' && lerPreco(f.taxa) === 0
+  const minimoLido = f.pedidoMinimo.trim() ? lerPreco(f.pedidoMinimo) : null
+  const minimoNoCampo = minimoLido != null && minimoLido > 0 && minimoLido <= 1000 ? minimoLido : null
 
   return (
     <>
@@ -615,6 +627,36 @@ export function Estado({ uf }: { uf: string }) {
                 Taxa R$ 0? Liga a “Entrega grátis” nos dias que valem: nesses dias o site mostra a frase do dia.
               </Aviso>
             )}
+          </Secao>
+
+          <Secao titulo="Pedido mínimo pra entrega" id="s-e-minimo" dica="Vazio = sem mínimo. A conta é sobre os produtos da sacola (com os combos), antes da taxa de entrega e do desconto do cupom.">
+            <Campo
+              id="e-pedidoMinimo"
+              rotulo="Valor mínimo"
+              erro={erros.pedidoMinimo}
+              lado={<span className="pn-opcional">opcional</span>}
+              dica={
+                minimoNoCampo != null
+                  ? `No site, o “Fechar pedido no WhatsApp” fica travado até a sacola chegar em ${brl(minimoNoCampo)}, dizendo quanto falta.`
+                  : 'Sem mínimo: qualquer pedido fecha.'
+              }
+            >
+              {(a) => (
+                <div className="pn-reais">
+                  <span aria-hidden="true">R$</span>
+                  <input
+                    {...a}
+                    name="pedidoMinimo"
+                    className="pn-input"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="20,00"
+                    value={f.pedidoMinimo}
+                    onChange={(x) => mudar('pedidoMinimo', x.target.value.replace(/[^\d,.]/g, '').slice(0, 10))}
+                  />
+                </div>
+              )}
+            </Campo>
           </Secao>
 
           <Secao titulo="Entrega grátis" id="s-e-gratis">

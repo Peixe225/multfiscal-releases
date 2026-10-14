@@ -14,7 +14,8 @@ function resumoDoEstado(e: EstadoAdmin, l: LojaAdmin): string {
   const whats = l.ajustes.mesmoWhatsappParaTodos || !e.whatsapp ? 'WhatsApp da loja' : `WhatsApp ${whatsappBonito(e.whatsapp)}`
   const taxa = e.taxaEntrega.valor == null || e.taxaEntrega.demo ? 'taxa a confirmar' : `taxa ${brl(e.taxaEntrega.valor)}`
   const cidades = e.cidades.length ? e.cidades.map((c) => c.nome).join(', ') : 'cidade a perguntar'
-  return `${cidades} · ${whats} · ${taxa}`
+  const minimo = e.pedidoMinimo != null && e.pedidoMinimo > 0 ? ` · mínimo ${brl(e.pedidoMinimo)}` : ''
+  return `${cidades} · ${whats} · ${taxa}${minimo}`
 }
 
 function LinhaEstado({ e, l }: { e: EstadoAdmin; l: LojaAdmin }) {

@@ -7,8 +7,12 @@
 // - Rateio: a mensagem da vaga reservada (com o código), a de quem entra pelo WhatsApp sem servidor (sem código), a
 //   de quem já tem vaga (ja-participa: só o código, sem conta de vagas que o site não sabe) e a da loja fora do ar
 //   (a aba sem os rateios, ou a página de um, com o link).
-// Uso: node scripts/conferir-mensagem.mjs            → confere
-//      node scripts/conferir-mensagem.mjs --gravar   → (re)grava a referência (só quando o formato mudar de propósito)
+// - Sacola (o caminho direto, 14/10): a mensagem que abre no WhatsApp num toque, sem nome, endereço nem pagamento,
+//   byte a byte igual a scripts/mensagem-sacola-referencia.txt; o código, o cupom, o nome da conta e a entrega mudam só a
+//   linha deles; e o pedido mínimo pra entrega (src/lib/pedido-minimo.ts): falta, fecha, a consultar e o cupom.
+// Uso: node scripts/conferir-mensagem.mjs                     → confere
+//      node scripts/conferir-mensagem.mjs --gravar            → (re)grava o modelo da sacola
+//      node scripts/conferir-mensagem.mjs --gravar --guiado   → e o do guiado (só quando o formato mudar de propósito)
 import { rolldown } from 'rolldown'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -17,15 +21,22 @@ import { pathToFileURL } from 'node:url'
 
 const raiz = new URL('../', import.meta.url).pathname
 const refArq = join(raiz, 'scripts/mensagem-referencia.txt')
+// a mensagem da sacola (o caminho direto, 14/10): um modelo à parte, o do guiado continua o de sempre
+const refSacolaArq = join(raiz, 'scripts/mensagem-sacola-referencia.txt')
 
-// empacota mensagem.ts (e o que ele importa) num .mjs temporário
-const tmp = mkdtempSync(join(tmpdir(), 'gc-mensagem-'))
-const saida = join(tmp, 'mensagem.mjs')
-const pacote = await rolldown({ input: join(raiz, 'src/lib/mensagem.ts'), logLevel: 'silent' })
-await pacote.write({ file: saida, format: 'esm' })
-await pacote.close()
-const m = await import(pathToFileURL(saida).href)
-rmSync(tmp, { recursive: true, force: true })
+// empacota mensagem.ts (e o que ele importa) num .mjs temporário; e o pedido mínimo (src/lib/pedido-minimo.ts)
+async function carregar(arquivo) {
+  const tmp = mkdtempSync(join(tmpdir(), 'gc-mensagem-'))
+  const saida = join(tmp, 'm.mjs')
+  const pacote = await rolldown({ input: join(raiz, arquivo), logLevel: 'silent' })
+  await pacote.write({ file: saida, format: 'esm' })
+  await pacote.close()
+  const mod = await import(pathToFileURL(saida).href)
+  rmSync(tmp, { recursive: true, force: true })
+  return mod
+}
+const m = await carregar('src/lib/mensagem.ts')
+const pm = await carregar('src/lib/pedido-minimo.ts')
 
 // pedido de referência fixo: canal RJ, 2 linhas (com combo), nome, endereço, pix
 const canal = {
@@ -73,10 +84,15 @@ const pedido = {
 }
 
 const sem = m.montarPedido(pedido)
+// a sacola: as mesmas linhas, sem nome, endereço nem pagamento (o cliente manda na conversa)
+const sacola = { canal, cidade: 'Rio de Janeiro', linhas: pedido.linhas }
+const semSacola = m.montarPedidoSacola(sacola)
 
 if (process.argv.includes('--gravar')) {
-  writeFileSync(refArq, sem)
-  console.log(`referência gravada em scripts/mensagem-referencia.txt:\n${sem}`)
+  // o do guiado só se o formato dele mudou de propósito (--guiado); o da sacola nasce aqui
+  if (process.argv.includes('--guiado')) writeFileSync(refArq, sem)
+  writeFileSync(refSacolaArq, semSacola)
+  console.log(`modelo da sacola gravado em scripts/mensagem-sacola-referencia.txt:\n${semSacola}`)
   process.exit(0)
 }
 
@@ -192,8 +208,90 @@ const foraPagina = m.montarRateioSemConexao(mg, 'Teófilo Otoni', 'https://oproj
 if (foraPagina !== 'RATEIO GREEN CHEESE — MG / Teófilo Otoni\nQuero entrar nesse rateio: https://oprojeto.online/greencheese/?aba=rateio&rateio=arizona-green-tea') problemas.push(`rateio fora do ar (página) veio:\n${foraPagina}`)
 if (!m.linkWhatsAppLoja(null, 'x').startsWith('https://wa.me/5533991139036?text=')) problemas.push('rateio fora do ar sem estado: não foi pro WhatsApp da loja')
 
+// ─── a mensagem da sacola (o caminho direto) ─────────────────────────────────────────────────────────────────
+// sem cupom, sem código e sem nome: byte a byte igual ao modelo; o endereço vai na conversa (a última linha, sempre)
+if (!existsSync(refSacolaArq)) problemas.push('falta scripts/mensagem-sacola-referencia.txt (rode com --gravar)')
+else if (readFileSync(refSacolaArq, 'utf8') !== semSacola) problemas.push(`sacola: a mensagem mudou:\n--- referência\n${readFileSync(refSacolaArq, 'utf8')}\n--- agora\n${semSacola}`)
+const sa = semSacola.split('\n')
+if (sa[0] !== a[0]) problemas.push(`sacola: o cabeçalho não é o do guiado ("${sa[0]}")`)
+if (sa.at(-1) !== 'Endereço: mando aqui na conversa' || sa.at(-1) !== m.LINHA_ENDERECO_SACOLA) problemas.push(`sacola: a última linha veio "${sa.at(-1)}"`)
+if (sa.some((l) => /^(Pagamento|Nome|Obs\.):/.test(l))) problemas.push('sacola: sem nome, pagamento nem obs. (o site não pergunta)')
+if (!sa.includes('4x Seda OCB Premium Slim — R$ 29,98 (combo 3 por R$ 19,99 + 1 avulsa)')) problemas.push(`sacola: o combo como a sacola mostra não veio (${sa[2]})`)
+if (!sa.includes("1x Jack Daniel's Old No. 7 1 L — R$ 149,90")) problemas.push('sacola: a linha sem combo mudou')
+if (sa.find((l) => l.startsWith('Subtotal:')) !== a[iSub]) problemas.push('sacola: o subtotal não é o mesmo do guiado (com os combos)')
+if (sa.find((l) => l.startsWith('Entrega:')) !== 'Entrega: taxa a confirmar') problemas.push(`sacola: com a taxa de exemplo, a entrega veio "${sa.find((l) => l.startsWith('Entrega:'))}"`)
+// o código: UMA linha logo depois do cabeçalho
+const sCod = m.montarPedidoSacola({ ...sacola, codigo: 'GC-7KD2X' }).split('\n')
+if (sCod[1] !== 'Código: GC-7KD2X' || [sCod[0], ...sCod.slice(2)].join('\n') !== semSacola) problemas.push(`sacola com código veio:\n${sCod.join('\n')}`)
+// o cupom que vale: a mesma linha do guiado, logo depois do Subtotal; o subtotal nunca muda
+const sCup = m.montarPedidoSacola({ ...sacola, cupom }).split('\n')
+const sSub = sa.findIndex((l) => l.startsWith('Subtotal:'))
+if (sCup[sSub + 1] !== esperada || [...sCup.slice(0, sSub + 1), ...sCup.slice(sSub + 2)].join('\n') !== semSacola) problemas.push(`sacola com cupom veio:\n${sCup.join('\n')}`)
+// o nome que a conta já tem: "Nome:" antes do endereço; vazio ou só espaço não vira linha
+const sNome = m.montarPedidoSacola({ ...sacola, nome: ' Ana Souza ' }).split('\n')
+if (sNome.at(-2) !== 'Nome: Ana Souza' || sNome.at(-1) !== m.LINHA_ENDERECO_SACOLA || sNome.length !== sa.length + 1) problemas.push(`sacola com o nome da conta veio:\n${sNome.join('\n')}`)
+if (m.montarPedidoSacola({ ...sacola, nome: '   ' }) !== semSacola) problemas.push('sacola: nome em branco virou linha')
+// a entrega como o estado diz: a taxa do painel, a grátis do dia, a taxa 0 (grátis), a confirmar — sem inventar
+const sEnt = (c, agora = sexta) => m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...c }, agora }).split('\n').find((l) => l.startsWith('Entrega:'))
+for (const [c, agora, esperado] of [
+  [{ taxaEntrega: { valor: 15.5, demo: false } }, sexta, 'Entrega: taxa R$ 15,50'],
+  [gratis, sexta, 'Entrega: grátis hoje'],
+  [gratis, new Date(2026, 9, 8, 15), 'Entrega: taxa R$ 15,50'],
+  [{ taxaEntrega: { valor: 0, demo: false } }, sexta, 'Entrega: grátis'],
+  [{ taxaEntrega: { valor: null, demo: false } }, sexta, 'Entrega: taxa a confirmar'],
+]) {
+  if (sEnt(c, agora) !== esperado) problemas.push(`sacola: a entrega (${JSON.stringify(c).slice(0, 60)}) veio "${sEnt(c, agora)}", esperado "${esperado}"`)
+}
+// sem preço: "preço a consultar" (nunca um valor), e o subtotal diz que tem item a consultar
+const sCons = m.montarPedidoSacola({ ...sacola, linhas: [{ produto: jack, qtd: 1 }, { produto: semTamanho, qtd: 2 }] }).split('\n')
+if (!sCons.includes('2x Fanta Maçã da China — preço a consultar') || !sCons.includes('Subtotal: R$ 149,90 + itens a consultar')) problemas.push(`sacola com item a consultar veio:\n${sCons.join('\n')}`)
+// a variação com preço próprio não herda o combo (como no guiado), e o combo não aparece nela
+const sVar = m.montarPedidoSacola({ ...sacola, linhas: [{ produto: ocbVar, qtd: 2, variacaoId: 'premium' }] }).split('\n')
+if (!sVar.includes('2x Seda OCB Premium Slim (Premium) — R$ 100,00')) problemas.push(`sacola: variação de preço próprio veio:\n${sVar.join('\n')}`)
+// e o guiado continua byte a byte o de sempre (o modelo dele, lá em cima)
+if (m.montarPedido(pedido) !== readFileSync(refArq, 'utf8')) problemas.push('o pedido guiado mudou')
+
+// ─── o pedido mínimo pra entrega (src/lib/pedido-minimo.ts) ─────────────────────────────────────────────────
+const comMin = (v) => ({ ...canal, pedidoMinimo: v })
+const sit = (c, linhas, cup = null) => pm.situacaoMinimo(c, linhas, cup)
+const so = (produto, qtd, variacaoId) => [{ produto, qtd, variacaoId }]
+const casos = [
+  ['sem mínimo no estado', sit(canal, so(ocb, 1)), { tipo: 'sem' }],
+  ['mínimo null', sit(comMin(null), so(ocb, 1)), { tipo: 'sem' }],
+  ['mínimo 0 (o servidor nunca manda, mas não trava)', sit(comMin(0), so(ocb, 1)), { tipo: 'sem' }],
+  ['R$ 9,99 num mínimo de R$ 20', sit(comMin(20), so(ocb, 1)), { tipo: 'falta', minimo: 20, falta: 10.01, subtotal: 9.99 }],
+  ['o combo conta (2 por R$ 14,99): falta R$ 5,01', sit(comMin(20), so(ocb, 2)), { tipo: 'falta', minimo: 20, falta: 5.01, subtotal: 14.99 }],
+  ['3 por R$ 19,99: falta 1 centavo', sit(comMin(20), so(ocb, 3)), { tipo: 'falta', minimo: 20, falta: 0.01, subtotal: 19.99 }],
+  ['exatamente o mínimo fecha', sit(comMin(19.99), so(ocb, 3)), { tipo: 'ok', minimo: 19.99 }],
+  ['passou do mínimo', sit(comMin(20), [{ produto: jack, qtd: 1 }]), { tipo: 'ok', minimo: 20 }],
+  ['item a consultar e o resto abaixo: não trava, a loja confere', sit(comMin(20), [{ produto: ocb, qtd: 1 }, { produto: semTamanho, qtd: 1 }]), { tipo: 'conferir', minimo: 20, motivo: 'consultar' }],
+  ['item a consultar e o resto já passa: fecha', sit(comMin(20), [{ produto: jack, qtd: 1 }, { produto: semTamanho, qtd: 1 }]), { tipo: 'ok', minimo: 20 }],
+  ['só itens a consultar: a loja confere', sit(comMin(20), so(semTamanho, 3)), { tipo: 'conferir', minimo: 20, motivo: 'consultar' }],
+  ['a variação de preço próprio (R$ 50) passa', sit(comMin(20), so(ocbVar, 1, 'premium')), { tipo: 'ok', minimo: 20 }],
+  ['sacola vazia com mínimo: falta tudo', sit(comMin(20), []), { tipo: 'falta', minimo: 20, falta: 20, subtotal: 0 }],
+]
+// o cupom: a conta é sobre o subtotal sem o desconto; se o desconto poderia levar pra baixo do mínimo, a loja confere
+const ocb40 = { tipo: 'desconto-percentual', valor: 40, aplicaA: { produtos: ['seda-ocb-premium-slim'] } }
+const jack10 = { tipo: 'desconto-percentual', valor: 10, aplicaA: { produtos: ['jack-daniels-old-no7-1l'] } }
+const leva4 = { tipo: 'leve-x-pague-y', valor: { leve: 4, pague: 3 }, aplicaA: { produtos: ['seda-ocb-premium-slim'] } }
+const brinde = { tipo: 'brinde', valor: { produto: 'seda-ocb-premium-slim', qtd: 1 }, aplicaA: { categorias: ['destilados'] } }
+casos.push(
+  ['cupom de 40% que leva R$ 29,98 pra baixo de R$ 20: a loja confere', sit(comMin(20), so(ocb, 4), ocb40), { tipo: 'conferir', minimo: 20, motivo: 'cupom' }],
+  ['cupom de 10% num pedido bem acima: fecha', sit(comMin(20), [{ produto: jack, qtd: 1 }], jack10), { tipo: 'ok', minimo: 20 }],
+  ['cupom num item que não tá na sacola: fecha', sit(comMin(20), [{ produto: jack, qtd: 1 }], ocb40), { tipo: 'ok', minimo: 20 }],
+  ['leva 4 paga 3 que poderia levar R$ 29,98 a R$ 19,99: a loja confere', sit(comMin(20), so(ocb, 4), leva4), { tipo: 'conferir', minimo: 20, motivo: 'cupom' }],
+  ['leva 4 paga 3 com 3 unidades (não vale ainda): só o subtotal', sit(comMin(19.99), so(ocb, 3), leva4), { tipo: 'ok', minimo: 19.99 }],
+  ['brinde de um produto que tá na sacola: a loja confere', sit(comMin(155), [{ produto: jack, qtd: 1 }, { produto: ocb, qtd: 1 }], brinde), { tipo: 'conferir', minimo: 155, motivo: 'cupom' }],
+  ['cupom abaixo do mínimo: falta (o cupom nunca ajuda a chegar)', sit(comMin(20), so(ocb, 1), ocb40), { tipo: 'falta', minimo: 20, falta: 10.01, subtotal: 9.99 }],
+)
+for (const [rotulo, veio, esperado] of casos) {
+  if (JSON.stringify(veio) !== JSON.stringify(esperado)) problemas.push(`mínimo: ${rotulo}: esperado ${JSON.stringify(esperado)}, veio ${JSON.stringify(veio)}`)
+}
+if (pm.minimoDoCanal(comMin(20)) !== 20 || pm.minimoDoCanal(canal) !== null || pm.minimoDoCanal(null) !== null) problemas.push('minimoDoCanal não leu o mínimo do estado')
+
 if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
+console.log(`sacola ok: igual ao modelo (scripts/mensagem-sacola-referencia.txt); com o código, o cupom, o nome da conta e a entrega como o estado diz:\n${m.montarPedidoSacola({ ...sacola, codigo: 'GC-7KD2X', cupom, nome: 'Ana Souza', canal: { ...canal, taxaEntrega: { valor: 15.5, demo: false } } })}\n\npedido mínimo ok: ${casos.length} casos (falta, fecha, a consultar, cupom)\n`)
 console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\ncom o código do pedido (+1 linha depois do cabeçalho):\n${codigoECupom.join('\n')}\n\nencomenda com o código:\n${encCom.join('\n')}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

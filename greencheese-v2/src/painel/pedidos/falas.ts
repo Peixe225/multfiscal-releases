@@ -30,6 +30,10 @@ export const ROTULO_FALA: Record<ChaveTexto, string> = {
   'sacola.quero': 'O cliente pediu 1 produto pelo story',
   'sacola.queroVarios': 'O cliente pediu vários produtos pelo story',
 
+  'minimo.falta': 'Falta pro pedido mínimo pra entrega (o botão do WhatsApp trava)',
+  'minimo.consultar': 'Item a consultar: a loja confere o pedido mínimo na conversa',
+  'minimo.cupom': 'Com cupom: a loja confere o pedido mínimo na conversa',
+
   'nome.pergunta': 'Pergunta o nome',
   'nome.dica': 'Escrito dentro do campo do nome',
   'nome.erro': 'Erro: nome em branco',
@@ -121,6 +125,7 @@ export interface GrupoFalas {
 export const GRUPOS_FALAS: GrupoFalas[] = [
   { nome: 'Começo: estado e cidade', prefixos: ['local.', 'cidade.'] },
   { nome: 'Sacola', prefixos: ['sacola.'] },
+  { nome: 'Pedido mínimo pra entrega', prefixos: ['minimo.'] },
   { nome: 'Nome', prefixos: ['nome.'] },
   { nome: 'Endereço e CEP', prefixos: ['endereco.', 'cep.', 'numero.', 'rua.'] },
   { nome: 'Pagamento e troco', prefixos: ['pagamento.', 'troco.'] },
@@ -152,6 +157,8 @@ export const EXEMPLO_MARCADOR: Record<string, string> = {
   max: '200',
   n: '2',
   subtotal: 'R$ 169,89',
+  falta: 'R$ 4,10',
+  minimo: 'R$ 20,00',
 }
 
 /** O que cada marcador vira (o chip do editor). */
@@ -175,4 +182,6 @@ export const NOME_MARCADOR: Record<string, string> = {
   max: 'limite de letras',
   n: 'quantos faltam mostrar',
   subtotal: 'subtotal do pedido',
+  falta: 'quanto falta pro mínimo',
+  minimo: 'o pedido mínimo do estado',
 }

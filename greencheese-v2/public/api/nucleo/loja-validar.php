@@ -696,6 +696,20 @@ function gc_loja_ler_estado(array $c, ?array $atual, string $uf): array
     $col['taxa'] = $taxa;
     $col['taxa_demo'] = $demo('taxaDemo', 'taxa_demo', $tem('taxa'));
 
+    // o pedido mínimo pra entrega (migração 105): vazio, null ou R$ 0 = sem mínimo; o resto, de R$ 0,01 a R$ 1.000,00
+    if (gc_loja_tem_minimo()) {
+        if ($tem('pedidoMinimo')) {
+            $v = $c['pedidoMinimo'];
+            $minimo = $v === null || $v === '' ? 0 : gc_loja_centavos($v);
+            if ($minimo === null || $minimo > GC_LOJA_MINIMO_MAX) {
+                throw gc_invalido('pedidoMinimo', 'Pedido mínimo de R$ 0,01 a R$ 1.000,00, ou vazio (sem mínimo).');
+            }
+            $col['pedido_minimo'] = $minimo === 0 ? null : $minimo;
+        } else {
+            $col['pedido_minimo'] = $atual === null ? null : gc_int_ou_nulo($atual['pedido_minimo'] ?? null);
+        }
+    }
+
     if ($tem('entregaGratis')) {
         $g = $c['entregaGratis'];
         if ($g === null) {

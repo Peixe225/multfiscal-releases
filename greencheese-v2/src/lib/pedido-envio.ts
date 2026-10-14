@@ -1,6 +1,6 @@
 // O pedido no servidor da loja (API.md, "Pedidos"): a cópia estruturada que sai no toque de "Fechar pedido no
-// WhatsApp" — sendBeacon (ou fetch keepalive), sem segurar o link (regra do Instagram: o link já está montado; nada
-// espera resposta). O código GC-XXXXX e o token nascem em codigo-pedido.ts; os itens, em pedido-itens.ts.
+// WhatsApp" (o da sacola, direto, e o do fim do pedido guiado) — sendBeacon (ou fetch keepalive), sem segurar o link
+// (regra do Instagram: o link já está montado; nada espera resposta). O código GC-XXXXX e o token nascem em codigo-pedido.ts; os itens, em pedido-itens.ts.
 // A cópia fica pendente no aparelho até o servidor confirmar (201, ou 200 "repetido"): quando a aba volta a ficar à
 // vista, ou na próxima visita, ela vai de novo (o mesmo código com o mesmo token nunca vira outro pedido). Erro que não
 // muda tentando de novo (pedido recusado, site sem servidor) tira da fila — e a recusa fica anotada no aparelho
@@ -40,10 +40,15 @@ export interface CorpoPedido {
   codigo: string
   token: string
   tipo: 'pedido' | 'encomenda'
+  /**
+   * De onde veio: 'sacola' (o "Fechar pedido no WhatsApp" da sacola, um toque, sem nome nem endereço) ou 'guiado' (o
+   * chat do pedido guiado; toda encomenda). Sem o campo, o servidor entende guiado (a cópia velha na fila do aparelho).
+   */
+  origem?: 'sacola' | 'guiado'
   uf: string
   cidade: string
   nome: string
-  /** Só quando o aparelho sabe (a conta do Teste minha sorte); '' = a loja vê na conversa. */
+  /** Só quando o aparelho sabe (a conta da loja aberta); '' = a loja vê na conversa. */
   whatsapp: string
   itens?: ItemPedido[]
   subtotal?: number | null

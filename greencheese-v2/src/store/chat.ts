@@ -79,12 +79,22 @@ export interface CodigoPedido {
   enviada: string | null
   enviadaEm: number | null
   substitui: { codigo: string; token: string } | null
+  /**
+   * Quem mandou a `enviada`: a sacola (o "Fechar pedido no WhatsApp" direto) ou o pedido guiado. Os dois dividem o
+   * código: o guiado que fecha depois da sacola (ou o contrário) entra no lugar do de antes, como o pedido mudado.
+   */
+  enviadaPor: 'sacola' | 'guiado' | null
 }
 
 /** Até quanto tempo depois de mandar uma mudança ainda é "o mesmo pedido, mudado" (o servidor confere o mesmo). */
 export const JANELA_TROCA_MS = 2 * 3600_000
 
-const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui })
+const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui, enviadaPor: null })
+
+/** O de antes, se foi mandado há pouco (dentro da JANELA_TROCA_MS): o pedido novo entra no lugar dele. */
+export function substituiDe(p: CodigoPedido): CodigoPedido['substitui'] {
+  return p.enviadaEm !== null && Date.now() - p.enviadaEm < JANELA_TROCA_MS ? { codigo: p.codigo, token: p.token } : null
+}
 
 function codigoLido(v: unknown): CodigoPedido {
   const c = v as Partial<CodigoPedido> | null
@@ -92,7 +102,8 @@ function codigoLido(v: unknown): CodigoPedido {
   const sub = c.substitui && codigoValido(c.substitui.codigo) && tokenValido(c.substitui.token) ? { codigo: c.substitui.codigo, token: c.substitui.token } : null
   const enviada = typeof c.enviada === 'string' ? c.enviada : null
   const enviadaEm = enviada !== null && typeof c.enviadaEm === 'number' && Number.isFinite(c.enviadaEm) ? c.enviadaEm : null
-  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub }
+  const enviadaPor = enviada !== null && (c.enviadaPor === 'sacola' || c.enviadaPor === 'guiado') ? c.enviadaPor : enviada !== null ? 'guiado' : null
+  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub, enviadaPor }
 }
 
 interface ChatState {
@@ -117,8 +128,13 @@ interface ChatState {
   /** O site trocou de estado com o pedido pela metade: recomeça pelo atendimento e tira o que era do estado de antes. */
   conferirEstado: () => void
   pedido: CodigoPedido
-  /** A cópia com esse código foi pro servidor (no toque do WhatsApp). */
-  marcarPedidoEnviado: (mensagem: string) => void
+  /** A cópia com esse código foi pro servidor (no toque do WhatsApp). por: quem mandou (padrão: o pedido guiado). */
+  marcarPedidoEnviado: (mensagem: string, por?: 'sacola' | 'guiado') => void
+  /**
+   * A sacola mandou com um código que ela sorteou na hora (o de agora já tinha ido com outra mensagem): ele vira o
+   * código do pedido, já enviado, no lugar do de antes (substitui, dentro das 2 h). O "Já mandou?" do guiado sai junto.
+   */
+  usarCodigoDaSacola: (novo: { codigo: string; token: string }, mensagem: string) => void
   /**
    * O pedido mudou depois de ir pro servidor: código novo, que substitui o de antes. O "Já mandou?" sai junto: a
    * mensagem nova ainda não foi pro WhatsApp (o resumo volta a pedir pra fechar lá).
@@ -163,13 +179,13 @@ export const useChat = create<ChatState>()(
         set({ feitos: [], passo: inicio(s.modo), enviadoEm: null, ufLocal: null, respostas: r })
       },
       pedido: codigoNovo(),
-      marcarPedidoEnviado: (mensagem) => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now() } })),
-      trocarCodigo: () =>
-        set((s) => {
-          const { codigo, token, enviadaEm } = s.pedido
-          const recente = enviadaEm !== null && Date.now() - enviadaEm < JANELA_TROCA_MS
-          return { pedido: codigoNovo(recente ? { codigo, token } : null), enviadoEm: null }
-        }),
+      marcarPedidoEnviado: (mensagem, por = 'guiado') => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now(), enviadaPor: por } })),
+      usarCodigoDaSacola: (novo, mensagem) =>
+        set((s) => ({
+          pedido: { codigo: novo.codigo, token: novo.token, enviada: mensagem, enviadaEm: Date.now(), substitui: substituiDe(s.pedido), enviadaPor: 'sacola' },
+          enviadoEm: null,
+        })),
+      trocarCodigo: () => set((s) => ({ pedido: codigoNovo(substituiDe(s.pedido)), enviadoEm: null })),
       abrir: (modo, opts) => {
         // trocou de estado desde que confirmou o atendimento: recomeça por ele
         get().conferirEstado()

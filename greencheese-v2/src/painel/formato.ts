@@ -49,6 +49,28 @@ export function quando(iso: string | number, agora = Date.now()): string {
   return `${dia(iso, agora)} às ${hora(iso)}`
 }
 
+/** "15:42" (24 h, Brasília) */
+export function horaMinuto(iso: string | number): string {
+  return fmtHM.format(ms(iso))
+}
+
+/**
+ * Quando o pedido chegou, curto e exato, pra lista: "hoje 15:42" · "ontem 21:08" · "13/10 · 09:14" (e com o ano,
+ * "13/10/2025 · 09:14", quando não é deste ano). Horário de Brasília, com o aparelho em qualquer fuso.
+ */
+export function dataHoraPedido(iso: string | number, agora = Date.now()): string {
+  const d = diaCorrido(ms(iso)) - diaCorrido(agora)
+  if (d === 0) return `hoje ${horaMinuto(iso)}`
+  if (d === -1) return `ontem ${horaMinuto(iso)}`
+  const ano = (t: number) => fmtPartes.formatToParts(t).find((x) => x.type === 'year')?.value
+  return `${ano(ms(iso)) === ano(agora) ? diaMes(iso) : fmtData.format(ms(iso))} · ${horaMinuto(iso)}`
+}
+
+/** Por extenso (o leitor de tela e o title): "terça-feira, 14/10/2026 às 15:42 (horário de Brasília)" */
+export function dataHoraExtenso(iso: string | number): string {
+  return `${fmtSemanaLonga.format(ms(iso))}, ${fmtData.format(ms(iso))} às ${horaMinuto(iso)} (horário de Brasília)`
+}
+
 /** "08/10/2026" */
 export function dataCompleta(iso: string | number): string {
   return fmtData.format(ms(iso))

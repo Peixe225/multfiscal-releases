@@ -1089,6 +1089,10 @@ try {
   const dono = new Cliente('198.51.100.120')
   igual((await dono.post('admin-entrar', { login: 'dono', senha: 'recuperada-789' })).status, 200, 'dono entra pros testes dos pedidos')
   await testarPedidos({ parte, ok, igual, erro, Cliente, base, dono, AGORA, tmp, dados, raiz, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
+  // o pedido rápido (14/10): a sacola sem nome nem endereço, o painel ao vivo (ETag) e o pedido mínimo pra entrega
+  // (scripts/testar-api-rapido.mjs), com o mesmo dono
+  const { testarPedidoRapido } = await import('./testar-api-rapido.mjs')
+  await testarPedidoRapido({ parte, ok, igual, erro, Cliente, base, dono, tmp, dados, raiz, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
 } catch (e) {
   ok(false, `exceção nos pedidos: ${e.stack}`)
 }

@@ -87,7 +87,7 @@ export function encomendaValida(extra = {}) {
 }
 
 /** Cliente HTTP de um servidor (cookie do painel, csrf, Origin). */
-class Cli {
+export class Cli {
   constructor(base, ip) {
     this.base = base
     this.ip = ip
@@ -191,22 +191,22 @@ export async function testarPedidos(t) {
     execFileSync(PHP, ['-r', `${base1} $d = new PDO('sqlite:${arq}'); $d->exec(gc_migracoes_base()[1]); $d->exec('PRAGMA user_version = 1'); $d->exec("INSERT INTO ajustes (chave, valor) VALUES ('sal', 'velho')");`])
     const ler = () => JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode(['m' => $db->query('SELECT numero, aplicada_em FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_ASSOC), 'v' => (int) $db->query('PRAGMA user_version')->fetchColumn(), 'versao' => gc_versao_banco(), 'sal' => gc_ajuste('sal'), 'tabelas' => $db->query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN)]);`], { env: { ...process.env, GC_DADOS: d }, encoding: 'utf8' }))
     const a = ler()
-    igual(a.m.map((x) => Number(x.numero)), [1, 200, 201, 202, 208], 'banco antigo: a 1 entra anotada e as dos pedidos (200–202, 208) rodam')
-    igual([a.v, a.versao, a.sal], [1, 208, 'velho'], 'user_version segue contando só a base (código de antes não recria nada), o Diagnóstico mostra a 208 e os dados de antes ficam')
+    igual(a.m.map((x) => Number(x.numero)), [1, 200, 201, 202, 208, 209], 'banco antigo: a 1 entra anotada e as dos pedidos (200–202, 208 e a 209 da origem) rodam')
+    igual([a.v, a.versao, a.sal], [1, 209, 'velho'], 'user_version segue contando só a base (código de antes não recria nada), o Diagnóstico mostra a 209 e os dados de antes ficam')
     ok(['avisos_envios', 'avisos_tentativas', 'migracoes', 'pedidos', 'textos_pedido', 'usuarios'].every((x) => a.tabelas.includes(x)), `tabelas novas criadas (${a.tabelas.join(', ')})`)
     const b = ler()
     igual(b.m, a.m, 'de novo: nada roda nem muda (aplicada_em igual)')
     const novo = join(tmp, 'banco-novo')
     mkdirSync(novo, { recursive: true })
     const c = JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: novo }, encoding: 'utf8' }))
-    igual(c.map(Number), [1, 200, 201, 202, 208], 'banco novo: todas, na ordem')
+    igual(c.map(Number), [1, 200, 201, 202, 208, 209], 'banco novo: todas, na ordem')
     // o index.php de antes (sem o módulo dos pedidos) com o banco.php novo, no meio da publicação: só a base, sem erro
     const meio = join(tmp, 'banco-meio')
     mkdirSync(meio, { recursive: true })
     const so = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); require '${raiz}public/api/nucleo/base.php'; require '${raiz}public/api/nucleo/banco.php'; $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: meio }, encoding: 'utf8' }))
     igual(so.map(Number), [1], 'sem o módulo carregado (publicação no meio): só a base, e as dos pedidos esperam a próxima chamada')
     const depois = JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: meio }, encoding: 'utf8' }))
-    igual(depois.map(Number), [1, 200, 201, 202, 208], 'com o módulo de volta: as que faltavam rodam')
+    igual(depois.map(Number), [1, 200, 201, 202, 208, 209], 'com o módulo de volta: as que faltavam rodam')
   }
 
   // ─── pedido ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -448,7 +448,7 @@ export async function testarPedidos(t) {
     erro(await site().get('admin-pedidos'), 401, 'sem-sessao', 'lista sem sessão')
     const todos = (await dono.get('admin-pedidos', { query: '&status=todos&limite=100' })).json
     ok(todos.pedidos.length > 20 && todos.pedidos.every((x, i, a) => i === 0 || a[i - 1].id > x.id), 'o mais novo primeiro')
-    igual(chaves(todos.pedidos[0]), ['atualizadoEm', 'cidade', 'codigo', 'criadoEm', 'dadosApagados', 'id', 'nome', 'resumo', 'status', 'substitui', 'substituidoPor', 'subtotal', 'subtotalTexto', 'tipo', 'uf', 'unidades', 'whatsapp'], 'chaves da linha')
+    igual(chaves(todos.pedidos[0]), ['atualizadoEm', 'cidade', 'codigo', 'criadoEm', 'dadosApagados', 'id', 'nome', 'origem', 'resumo', 'status', 'substitui', 'substituidoPor', 'subtotal', 'subtotalTexto', 'tipo', 'uf', 'unidades', 'whatsapp'], 'chaves da linha (com a origem: sacola ou guiado)')
     igual(todos.contagem.todos, todos.pedidos.length, 'contagem de todos')
     ok(todos.contagem.novo > 0 && todos.contagem.cancelado > 0 && todos.contagem.confirmado > 0, `contagem por status (${JSON.stringify(todos.contagem)})`)
     igual(todos.ufs, ['mg', 'rj'], 'estados que já tiveram pedido')
@@ -687,6 +687,30 @@ export async function testarPedidos(t) {
       ok(await esperar(() => falso.recebidos.length === 2), 'pedido trocado avisa')
       const mb = JSON.parse(falso.recebidos[1].corpo).message
       ok(mb.startsWith(`*PEDIDO ATUALIZADO* · #${b.codigo}`) && mb.includes(`_Entra no lugar do #${a.codigo}, que saiu da lista._`) && mb.includes('*Pagamento:* Dinheiro (troco pra R$ 100,00)'), 'pedido atualizado: diz qual saiu e o troco')
+      // o pedido da sacola (um toque, sem nome nem endereço): o grupo sabe que o endereço e o pagamento vêm na conversa
+      falso.recebidos.length = 0
+      const { pedidoSacola } = await import('./testar-api-rapido.mjs')
+      const sac = pedidoSacola()
+      igual((await cli().post('pedido', sac)).status, 201, 'pedido da sacola entra com o Z-API ligado')
+      ok(await esperar(() => falso.recebidos.length === 1), 'pedido da sacola avisa no grupo')
+      const ms = JSON.parse(falso.recebidos[0].corpo).message.split('\n')
+      igual(
+        [ms[0], ms[2], ...ms.slice(4, 13)],
+        [
+          `*NOVO PEDIDO* · #${sac.codigo}`,
+          '_Pela sacola: endereço e pagamento vêm na conversa._',
+          '*Itens*',
+          "1x Jack Daniel's Old No. 7 1 L — R$ 149,90",
+          '3x Seda OCB Premium Slim — R$ 19,99 _(combo 3 por R$ 19,99)_',
+          'Subtotal: *R$ 169,89*',
+          '',
+          '*Entrega:* na conversa _(taxa a confirmar)_',
+          '*Pagamento:* a combinar',
+          '*Cliente:* Sem nome',
+          '',
+        ],
+        'sacola no grupo: a linha da sacola, os itens, "Entrega: na conversa" e "Sem nome"',
+      )
     }
 
     parte('avisos: falha, nova tentativa e reenviar')

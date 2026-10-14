@@ -13,6 +13,7 @@ import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { encomendaValida, pedidoValido, portaDoFalso } from './testar-api-pedidos.mjs'
+import { pedidoSacola } from './testar-api-rapido.mjs'
 
 /** Servidor falso do webhook: guarda o que chegou e responde o status de agora. */
 async function servidorFalso() {
@@ -140,6 +141,73 @@ export async function fluxoPedidos(a) {
     await p.locator('.pd-lista .pd-linha').nth(2).waitFor()
     await axe(p, 'lista de pedidos')
     await print(p, 'pedidos-lista')
+
+    // ─── ao vivo: o pedido novo aparece sozinho (sem recarregar), em cima, destacado, sem empurrar quem lê ─────────
+    // a lista pergunta a cada 15 s com o ETag (sem mudança: 304 sem corpo); a aba escondida não pergunta nada
+    const leituras = []
+    const ouvir = (r) => {
+      if (/r=admin-pedidos(&|$|-resumo)/.test(r.url())) leituras.push({ t: Date.now(), url: r.url(), status: r.status() })
+    }
+    p.on('response', ouvir)
+    const linhaDe = (codigo) => p.locator('.pd-lista .pd-linha', { hasText: codigo })
+    const textoA = await linhaDe(A.codigo).innerText()
+    ok(/Pedido guiado/.test(textoA) && /\bhoje \d{2}:\d{2}\b/.test(textoA), `linha: de onde veio ("Pedido guiado") e a hora em que chegou ("hoje 15:42") (${textoA.replace(/\s+/g, ' ').slice(-60)})`)
+    ok(/Encomenda/.test(await linhaDe(C.codigo).innerText()), 'linha da encomenda: "Encomenda"')
+    ok(/horário de Brasília/.test((await linhaDe(A.codigo).locator('time').getAttribute('title')) ?? ''), 'a hora com o dia por extenso no title (horário de Brasília)')
+    // quem tá lá embaixo lendo não é empurrado: tela baixa, rolada até o fim
+    await p.setViewportSize({ width: 390, height: 460 })
+    await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await p.waitForTimeout(400)
+    const rolou = await p.evaluate(() => window.scrollY)
+    const topoA = await linhaDe(A.codigo).evaluate((e) => e.getBoundingClientRect().top)
+    const antes304 = Date.now()
+    ok(await esperar(async () => leituras.some((l) => l.t >= antes304 && l.status === 304 && l.url.includes('r=admin-pedidos&')), 20000), 'sem pedido novo: a lista pergunta sozinha e o servidor responde 304 (nada baixa)')
+    const E = pedidoSacola()
+    ok((await site('pedido', E)).status === 201, `pedido ${E.codigo} da sacola chegou pelo POST pedido (sem nome nem endereço)`)
+    const chegou = Date.now()
+    await linhaDe(E.codigo).waitFor({ timeout: 20000 }).catch(() => {})
+    ok((await linhaDe(E.codigo).count()) === 1, `o pedido novo aparece sozinho, sem recarregar (${((Date.now() - chegou) / 1000).toFixed(1)} s)`)
+    await p.waitForTimeout(300)
+    const topoA2 = await linhaDe(A.codigo).evaluate((e) => e.getBoundingClientRect().top)
+    ok(rolou > 40 && Math.abs(topoA2 - topoA) <= 1.5, `rolado lá embaixo: a linha que tava na tela não pula quando o novo entra em cima (rolagem ${rolou}, ${topoA.toFixed(1)} → ${topoA2.toFixed(1)})`)
+    await p.setViewportSize({ width: 390, height: 844 })
+    await p.evaluate(() => window.scrollTo(0, 0))
+    const primeira = p.locator('.pd-lista .pd-linha').first()
+    const textoE = await primeira.innerText()
+    ok(textoE.includes(E.codigo) && (await primeira.evaluate((e) => e.classList.contains('pd-linha-nova'))), 'o novo entra em cima, destacado')
+    const destacados = await p.locator('.pd-lista .pd-linha-nova').count()
+    ok(destacados === 1, `só ele fica destacado: os de antes, depois do filtro e da busca, não voltam como "Acabou de chegar" (${destacados})`)
+    ok(/Sem nome/.test(textoE) && /Sacola/.test(textoE) && /Acabou de chegar/.test(textoE) && /\bhoje \d{2}:\d{2}\b/.test(textoE), `linha do pedido da sacola: "Sem nome", "Sacola", "Acabou de chegar" e a hora (${textoE.replace(/\s+/g, ' ')})`)
+    ok(/4/.test(await aberto.innerText()), `o contador sobe junto: "${(await aberto.innerText()).replace(/\s+/g, ' ')}"`)
+    ok((await p.locator('.pd-pedidos [role="status"]').first().innerText()).includes(`Chegou 1 pedido novo: ${E.codigo} (sacola, MG)`), 'o leitor de tela ouve "Chegou 1 pedido novo" (sem som nem notificação)')
+    ok(await esperar(async () => /4 novos/.test((await p.locator('body').innerText().catch(() => '')) + (await p.locator('.sr-only').allTextContents()).join(' ')), 8000), 'a bolinha dos pedidos novos sobe pra 4 (sem esperar o minuto do Resumo)')
+    await axe(p, 'lista ao vivo')
+    await print(p, 'pedidos-ao-vivo')
+    // aba escondida: nenhuma pergunta; voltou: pergunta na hora
+    const esconder = (estado) =>
+      p.evaluate((v) => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => v })
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => v === 'hidden' })
+        document.dispatchEvent(new Event('visibilitychange'))
+      }, estado)
+    await esconder('hidden')
+    const escondeu = Date.now()
+    await p.waitForTimeout(16500)
+    const escondida = leituras.filter((l) => l.t > escondeu).length
+    ok(escondida === 0, `aba escondida por 16 s: ${escondida} pergunta(s) ao servidor`)
+    const voltou = Date.now()
+    await esconder('visible')
+    ok(await esperar(async () => leituras.some((l) => l.t >= voltou && l.url.includes('r=admin-pedidos&')), 3000), 'a aba voltou: pergunta na hora (sem esperar os 15 s)')
+    p.off('response', ouvir)
+    // o pedido da sacola por dentro
+    await primeira.click()
+    await p.getByRole('heading', { name: `Pedido ${E.codigo}` }).waitFor()
+    const detE = await p.locator('.pd-detalhe').innerText()
+    ok(/Sacola/.test(detE) && /sem nome \(o cliente diz na conversa\)/.test(detE) && /na conversa \(o cliente manda no WhatsApp\)/.test(detE) && /a combinar na conversa/.test(detE) && /R\$ 169,89/.test(detE), 'pedido da sacola por dentro: "Sacola", sem nome, endereço e pagamento na conversa, itens e subtotal')
+    await axe(p, 'pedido da sacola')
+    await print(p, 'pedidos-detalhe-sacola')
+    await p.goBack()
+    await p.getByRole('heading', { name: 'Pedidos', exact: true }).waitFor()
 
     // ─── pedido por dentro ────────────────────────────────────────────────────────────────────────────────────────
     await p.locator('.pd-linha', { hasText: A.codigo }).click()
@@ -324,7 +392,7 @@ export async function fluxoPedidos(a) {
     await p.goto(`${BASE}/painel/#/textos`)
     await p.getByRole('heading', { name: 'Textos do pedido' }).waitFor()
     await p.locator('.pd-grupo').first().waitFor()
-    ok((await p.locator('.pd-grupo[open]').count()) === 0 && (await p.locator('.pd-grupo').count()) === 10, 'textos: 10 grupos, fechados')
+    ok((await p.locator('.pd-grupo[open]').count()) === 0 && (await p.locator('.pd-grupo').count()) === 11, 'textos: 11 grupos (com o do pedido mínimo), fechados')
     await axe(p, 'textos')
     await print(p, 'textos-lista')
     await p.getByLabel('Buscar fala').fill('atendimento')

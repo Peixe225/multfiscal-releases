@@ -89,6 +89,8 @@ export interface EstadoAdmin {
   cidades: { slug: string; nome: string }[]
   horario: { semana: Turno[]; demo: boolean }
   taxaEntrega: { valor: number | null; demo: boolean }
+  /** Pedido mínimo pra entrega, em reais (null = sem mínimo). Servidor de antes da migração 105 não manda (= sem). */
+  pedidoMinimo?: number | null
   entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
   pagamento: { opcoes: FormaPagamento[]; demo: boolean }
   emblema: string
@@ -202,6 +204,8 @@ export interface EstadoCorpo {
   horarioDemo?: boolean
   taxa?: number | null
   taxaDemo?: boolean
+  /** Pedido mínimo pra entrega em reais; null (ou 0) = sem mínimo. */
+  pedidoMinimo?: number | null
   entregaGratis?: { dias: number[]; texto: string } | null
   entregaGratisDemo?: boolean
   pagamentos?: FormaPagamento[]

@@ -327,6 +327,39 @@ function gc_banco_ocupado(Throwable $e): bool
  * A função devolve o corpo do sucesso (sem o "ok"); '_status' troca o 200 (ex.: 201).
  * @param array<string, array{0: string, 1: callable}> $rotas
  */
+/**
+ * If-None-Match bate com o ETag? Aceita W/, lista, * e o sufixo que o compressor do servidor põe ("…-gzip"), como o
+ * GET loja (gc_loja_etag_bate).
+ */
+function gc_etag_bate(string $pedido, string $etag): bool
+{
+    if ($pedido === '') {
+        return false;
+    }
+    foreach (explode(',', $pedido) as $e) {
+        $e = trim($e);
+        if ($e === '*') {
+            return true;
+        }
+        $e = (string) preg_replace(['#^W/#', '/-(?:gzip|br|zstd|deflate)"$/'], ['', '"'], $e);
+        if (hash_equals($etag, $e)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * O ETag de uma resposta do painel: o hash do que ela leva, sem o "agora" (a hora do servidor muda a cada pedido; o
+ * resto, só quando algo mudou de verdade). Quem vê outra coisa (outro papel, outros estados) tem outro ETag.
+ * @param array<string, mixed> $res
+ */
+function gc_etag_de(array $res): string
+{
+    unset($res['agora'], $res['_status'], $res['_etag']);
+    return '"' . substr(hash('sha256', (string) json_encode($res, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)), 0, 32) . '"';
+}
+
 function gc_atender(array $rotas): void
 {
     ini_set('display_errors', '0');
@@ -360,8 +393,16 @@ function gc_atender(array $rotas): void
         }
         $res = $funcao();
         $status = (int) ($res['_status'] ?? 200);
-        unset($res['_status']);
-        if (gc_depois() === []) {
+        // _etag: a rota (GET do painel que se atualiza sozinho) disse a versão do que respondeu. Vai no ETag e, se o
+        // If-None-Match bate, a resposta é 304 sem corpo (o trabalho do gc_depois roda do mesmo jeito)
+        $etag = isset($res['_etag']) && is_string($res['_etag']) ? $res['_etag'] : null;
+        unset($res['_status'], $res['_etag']);
+        if ($etag !== null && !headers_sent()) {
+            header('ETag: ' . $etag);
+        }
+        if ($etag !== null && $status === 200 && gc_etag_bate((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''), $etag)) {
+            gc_responder_e_soltar(null, 304);
+        } elseif (gc_depois() === []) {
             gc_enviar_json(['ok' => true] + $res, $status);
         } else {
             gc_responder_e_soltar(['ok' => true] + $res, $status);
@@ -408,14 +449,17 @@ function gc_depois(?callable $f = null): array
  * hospedagem deixa e roda a fila do gc_depois. Erro daqui pra frente só vai pro log: a resposta já saiu.
  * @param array<string, mixed> $dados
  */
-function gc_responder_e_soltar(array $dados, int $status): void
+function gc_responder_e_soltar(?array $dados, int $status): void
 {
-    $corpo = (string) json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    // null = sem corpo (o 304 do ETag)
+    $corpo = $dados === null ? '' : (string) json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     if (!headers_sent()) {
         http_response_code($status);
         gc_cabecalhos();
-        // com a compressão do PHP o tamanho muda: aí o aparelho espera o fim (e o envio usa o tempo curto)
-        if (!filter_var(ini_get('zlib.output_compression'), FILTER_VALIDATE_BOOLEAN)) {
+        if ($dados === null) {
+            header_remove('Content-Type');
+        } elseif (!filter_var(ini_get('zlib.output_compression'), FILTER_VALIDATE_BOOLEAN)) {
+            // com a compressão do PHP o tamanho muda: aí o aparelho espera o fim (e o envio usa o tempo curto)
             header('Content-Length: ' . strlen($corpo));
         }
     }

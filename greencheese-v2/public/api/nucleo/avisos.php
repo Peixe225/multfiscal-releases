@@ -683,7 +683,11 @@ function gc_aviso_endereco(array $p): string
         }
         return $s;
     }
-    return (string) $p['endereco'] !== '' ? (string) $p['endereco'] : 'a combinar';
+    if ((string) $p['endereco'] !== '') {
+        return (string) $p['endereco'];
+    }
+    // o pedido da sacola não pergunta o endereço: o cliente manda na conversa
+    return ($p['origem'] ?? '') === 'sacola' ? 'na conversa' : 'a combinar';
 }
 
 /**
@@ -702,6 +706,10 @@ function gc_aviso_texto_pedido(array $p, ?array $antes): string
         $l[] = $atualizado
             ? "_Entra no lugar do #{$antes['codigo']}, que saiu da lista._"
             : "_O cliente mandou de novo depois do #{$antes['codigo']} (" . (GC_PEDIDO_ROTULO[$antes['status']] ?? $antes['status']) . '): confere os dois._';
+    }
+    if (!$enc && ($p['origem'] ?? '') === 'sacola') {
+        // um toque na sacola: o cliente manda o endereço (e combina o pagamento) na conversa
+        $l[] = '_Pela sacola: endereço e pagamento vêm na conversa._';
     }
     $l[] = '';
     if (function_exists('gc_pedido_resgatado') && gc_pedido_resgatado($p)) {
@@ -744,7 +752,7 @@ function gc_aviso_texto_pedido(array $p, ?array $antes): string
         }
         $l[] = '*Pagamento:* ' . $pag;
     }
-    $l[] = '*Cliente:* ' . $p['nome'] . ((string) $p['whatsapp'] !== '' ? ' · wa.me/' . $p['whatsapp'] : '');
+    $l[] = '*Cliente:* ' . ((string) $p['nome'] !== '' ? $p['nome'] : 'Sem nome') . ((string) $p['whatsapp'] !== '' ? ' · wa.me/' . $p['whatsapp'] : '');
     if ((string) $p['observacao'] !== '') {
         $l[] = '*Obs.:* ' . $p['observacao'];
     }

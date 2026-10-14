@@ -199,6 +199,10 @@
   -webkit-user-select: text;
 }
 
+/* a fala do pedido mínimo no resumo: o "Fechar" travado aponta pra ela (o foco vem pra cá no toque) */
+.dm-minimo:focus {
+  outline: none;
+}
 .dm-acoes {
   display: flex;
   flex-direction: column;

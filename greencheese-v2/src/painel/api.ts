@@ -123,7 +123,21 @@ interface Opcoes {
   arquivo?: boolean
   /** Prazo em ms (padrão 25 s). */
   prazo?: number
+  /**
+   * GET que se atualiza sozinho (a lista de pedidos, o resumo): manda o ETag da última resposta no If-None-Match. Sem
+   * mudança, o servidor responde 304 sem corpo e o pedir devolve { ok: true, naoMudou: true }; com mudança, o JSON
+   * novo com o ETag dele em `_etag`. undefined = pedido comum.
+   */
+  etag?: string | null
 }
+
+/** A resposta do GET com ETag quando nada mudou (304). */
+export interface NaoMudou {
+  ok: true
+  naoMudou: true
+}
+
+export const naoMudou = (x: unknown): x is NaoMudou => !!x && typeof x === 'object' && (x as { naoMudou?: unknown }).naoMudou === true
 
 /** Arquivo baixado da API: o conteúdo e o nome que o servidor deu (Content-Disposition). */
 export interface Arquivo {
@@ -151,6 +165,7 @@ function erroDaResposta(status: number, json: Record<string, unknown> | null): E
 export async function pedir<T>(metodo: 'GET' | 'POST', rota: string, op: Opcoes = {}): Promise<T> {
   const tentativa = op.tentativa ?? 0
   const cab: Record<string, string> = { Accept: 'application/json' }
+  if (op.etag) cab['If-None-Match'] = op.etag
   let corpo: string | undefined
   if (metodo === 'POST') {
     cab['Content-Type'] = 'application/json'
@@ -183,6 +198,8 @@ export async function pedir<T>(metodo: 'GET' | 'POST', rota: string, op: Opcoes 
     clearTimeout(relogio)
     op.sinal?.removeEventListener('abort', largar)
   }
+  // nada mudou desde a última (o If-None-Match bateu): sem corpo
+  if (op.etag !== undefined && res.status === 304) return { ok: true, naoMudou: true } satisfies NaoMudou as T
   let json: Record<string, unknown> | null = null
   try {
     json = (await res.json()) as Record<string, unknown>
@@ -190,6 +207,7 @@ export async function pedir<T>(metodo: 'GET' | 'POST', rota: string, op: Opcoes 
     json = null
   }
   if (res.ok && json?.ok === true) {
+    if (op.etag !== undefined) json._etag = res.headers.get('ETag')
     if (typeof json.agora === 'string') {
       const t = Date.parse(json.agora)
       if (Number.isFinite(t)) desvio = t - Date.now()

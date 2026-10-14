@@ -128,6 +128,60 @@ export function montarPedido(d: DadosPedido): string {
   return out.join('\n')
 }
 
+/** "3 por R$ 19,99" · "2× 3 por R$ 19,99 + 1 avulsa" · null (sem combo): o combo como a sacola mostra. */
+export function textoCombo(c: ReturnType<typeof calcularLinha>): string | null {
+  if (!c.combos.length) return null
+  const partes = c.combos.map((x) => `${x.vezes > 1 ? `${x.vezes}× ` : ''}${x.qtd} por ${brl(x.total)}`)
+  if (c.avulsas > 0) partes.push(`${c.avulsas} ${c.avulsas === 1 ? 'avulsa' : 'avulsas'}`)
+  return partes.join(' + ')
+}
+
+/** A última linha do pedido da sacola: o endereço vai na conversa (o site não pergunta). */
+export const LINHA_ENDERECO_SACOLA = 'Endereço: mando aqui na conversa'
+
+export interface DadosPedidoSacola {
+  canal: Canal
+  cidade?: string | null
+  linhas: LinhaPedido[]
+  /** O nome que a conta do aparelho já tem (nunca perguntado): vira a linha "Nome:". Sem ele, a linha não vai. */
+  nome?: string | null
+  /** O cupom que vale nesse pedido (a mesma linha do pedido guiado). */
+  cupom?: DadosPedido['cupom']
+  agora?: Date
+  codigo?: string | null
+}
+
+/** A linha da entrega do pedido da sacola: "grátis hoje" · "grátis" (taxa 0) · "taxa R$ 15,50" · "taxa a confirmar". */
+export function entregaDaSacola(entrega: 'gratis' | number | null): string {
+  if (entrega === 'gratis') return 'grátis hoje'
+  if (entrega === 0) return 'grátis'
+  return entrega != null ? `taxa ${brl(entrega)}` : 'taxa a confirmar'
+}
+
+/**
+ * O pedido da sacola (o caminho direto, pedido do Ian em 14/10): um toque e o WhatsApp abre com isto pronto. O mesmo
+ * cabeçalho e a mesma linha do código do pedido guiado; cada item com quantidade, nome (tamanho e variação) e preço, com
+ * o combo como a sacola mostra; o subtotal; o cupom quando vale; a entrega como o estado diz (sem inventar); o nome só
+ * quando a conta já tem; e o endereço, que o cliente manda na conversa. Nada de pedir nome, endereço ou pagamento antes.
+ */
+export function montarPedidoSacola(d: DadosPedidoSacola): string {
+  const linhas = d.linhas.filter((l) => l.qtd > 0)
+  const out = [cabecalho('PEDIDO', d.canal, d.cidade)]
+  if (d.codigo) out.push(`Código: ${d.codigo}`)
+  for (const l of linhas) {
+    const c = calcularLinha(l.produto, l.qtd, l.variacaoId)
+    const combo = c.total == null ? null : textoCombo(c)
+    out.push(`${l.qtd}x ${nomeNaMensagem(l)} — ${c.total == null ? 'preço a consultar' : brl(c.total)}${combo ? ` (combo ${combo})` : ''}`)
+  }
+  out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
+  if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
+  out.push(`Entrega: ${entregaDaSacola(entregaDoCanal(d.canal, d.agora))}`)
+  const nome = d.nome?.trim()
+  if (nome) out.push(`Nome: ${nome}`)
+  out.push(LINHA_ENDERECO_SACOLA)
+  return out.join('\n')
+}
+
 export interface DadosEncomenda {
   canal: Canal
   cidade?: string | null
@@ -218,7 +272,7 @@ export function whatsappDoCanal(canal: Canal): string {
   return (canal.whatsapp ?? whatsappLoja).replace(/\D/g, '')
 }
 
-/** wa.me com a mensagem pronta. Só o último passo do pedido guiado (pedido e encomenda) e o rateio usam. */
+/** wa.me com a mensagem pronta: o "Fechar pedido no WhatsApp" da sacola, o último passo do pedido guiado (pedido e encomenda) e o rateio. */
 export function linkWhatsApp(canal: Canal, texto: string): string {
   return `https://wa.me/${whatsappDoCanal(canal)}?text=${encodeURIComponent(texto)}`
 }

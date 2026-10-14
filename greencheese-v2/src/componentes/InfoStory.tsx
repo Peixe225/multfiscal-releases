@@ -6,6 +6,7 @@ import { brl } from '../lib/formato'
 import { ehDiaDeEntregaGratis, entregaGratisNoDia, resumoHorario, situacao } from '../lib/horario'
 import { alvoDeSaida } from '../lib/ambiente'
 import { NOME_PAGAMENTO, linkDM } from '../lib/mensagem'
+import { minimoDoCanal } from '../lib/pedido-minimo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa } from '../store/loja'
@@ -37,6 +38,7 @@ export function InfoStory() {
   const demoVisivel = config.carimboDeExemplo
   // a taxa do painel (0 = o dono disse que não tem taxa); a de exemplo só com o carimbo à vista
   const taxa = canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? canal.taxaEntrega.valor : null
+  const minimo = minimoDoCanal(canal)
   const quadros: ReactNode[] = [
     <Quadro key="c">
       <Icone nome="moto" tamanho={96} />
@@ -76,6 +78,8 @@ export function InfoStory() {
           <Demo ativo={canal.taxaEntrega.demo} />
         </>
       )}
+      {/* o pedido mínimo pra entrega do estado (o painel), nos dias de entrega grátis também */}
+      {minimo != null && <p className="info-txt legenda">Pedido mínimo pra entrega: {brl(minimo)}</p>}
     </Quadro>,
     <Quadro key="p">
       <Icone nome="check" tamanho={64} />

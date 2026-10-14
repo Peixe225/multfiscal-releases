@@ -130,6 +130,40 @@
 .pd-linha-apagado .pd-linha-itens {
   color: var(--legenda);
 }
+/* o pedido da sacola não pergunta o nome: "Sem nome" em cinza (o cliente diz na conversa) */
+.pd-sem-nome {
+  color: var(--legenda);
+  font-style: italic;
+}
+/* de onde veio: a sacola (um toque) em contorno, o guiado no cinza de sempre, a encomenda igual */
+.pd-tag-sacola {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--legenda);
+}
+/* acabou de chegar com a tela aberta: a faixa branca na borda e o selo, até sair da tela (sem piscar nem som) */
+.pd-tag-chegou {
+  background: var(--branco);
+  color: var(--preto);
+}
+.pd-linha-nova {
+  position: relative;
+  padding-left: 12px;
+}
+.pd-linha-nova::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--branco);
+}
+/* a lista que se atualiza sozinha cuida da rolagem dela (o pedido novo entra em cima sem empurrar quem tá lendo):
+   sem a âncora do navegador, que compensaria de novo */
+.pd-pedidos {
+  overflow-anchor: none;
+}
 .pd-mais {
   margin-top: 8px;
 }
@@ -180,6 +214,9 @@
 .pd-cab-sub {
   font-size: 14px;
   color: var(--legenda);
+}
+.pd-cab-sacola {
+  margin-top: 8px;
 }
 .pd-recado {
   margin-top: 12px;

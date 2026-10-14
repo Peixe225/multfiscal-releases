@@ -5,6 +5,11 @@ export function brl(valor: number): string {
   return fmt.format(valor).replace(/\s/g, ' ')
 }
 
+/** R$ 20,00 que não quebra entre o "R$" e o número: só pra texto na tela (nunca pra mensagem de WhatsApp). */
+export function brlNaTela(valor: number): string {
+  return brl(valor).replace(' ', ' ')
+}
+
 /** Preço do produto ou "Consultar" quando não há preço (nunca inventar). */
 export function precoOuConsultar(valor: number | null | undefined): string {
   return valor == null ? 'Consultar' : brl(valor)

@@ -22,6 +22,9 @@
 // e os adesivos do pé, sem rolagem lateral e com alvo de 44 px; no fim do Início da Home 2, dentro da faixa.
 // A thumb animada (o vídeo do produto, GET loja simulado com 4 produtos com vídeo) em cada celular: a primeira tela não
 // baixa vídeo, a grade toca só o que está à vista (no máximo 2) e, com movimento reduzido, fica na capa.
+// A sacola em cada celular (o pedido rápido, pedido do Ian em 14/10; GET loja simulado com R$ 20 de mínimo em MG): o
+// "Fechar pedido no WhatsApp" numa linha, inteiro na tela, travado com o aviso de quanto falta e destravado, e o
+// pedido guiado discreto embaixo, com alvo de 44 px.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua como "sem servidor").
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -1246,6 +1249,69 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
         console.log('✓', tag)
       }
     }
+}
+
+// ---------- a sacola em cada celular: o botão do caminho direto cabe, travado e destravado, e o guiado embaixo ----------
+{
+  const loja = lojaDaSemente()
+  loja.estados.find((e) => e.uf === 'mg').pedidoMinimo = 20
+  for (const [nome, w, h] of aparelhos) {
+    const tag = `${nome} sacola`
+    const ctx = await contexto(w, h)
+    await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: { ok: true, versao: 9, atualizadoEm: new Date().toISOString(), loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"9"' } }))
+    await ctx.addInitScript(() => localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id: 'seda-ocb-premium-slim', variacao: null, qtd: 1 }], ultimo: [], cupom: null }, version: 0 })))
+    const p = await ctx.newPage()
+    await abrir(p, tag, `${base}?uf=mg`)
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 9, null, { timeout: 8000 }).catch(() => {})
+    await p.locator('.barra-abas [data-aba="sacola"]').tap()
+    await p.locator('.sacola-fechar').waitFor({ timeout: 8000 })
+    await p.waitForTimeout(800)
+    const medir = () =>
+      p.evaluate(() => {
+        const zap = document.querySelector('.sacola-zap')
+        const gui = document.querySelector('.sacola-guiado-botao')
+        zap?.scrollIntoView({ block: 'nearest' })
+        const rz = zap?.getBoundingClientRect()
+        const rg = gui?.getBoundingClientRect()
+        const texto = zap ? [...zap.querySelector('span').childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()) : null
+        let linhas = 0
+        if (texto) {
+          const r = document.createRange()
+          r.selectNodeContents(texto)
+          linhas = new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size
+        }
+        const folha = zap?.closest('.folha')
+        return {
+          link: zap?.tagName === 'A',
+          aviso: document.querySelector('#sacola-minimo')?.textContent ?? null,
+          zap: rz ? { l: Math.round(rz.left), r: Math.round(rz.right), b: Math.round(rz.bottom), h: Math.round(rz.height) } : null,
+          gui: rg ? { h: Math.round(rg.height), b: Math.round(rg.bottom) } : null,
+          linhas,
+          alto: innerHeight,
+          larg: innerWidth,
+          lateral: document.documentElement.scrollWidth > innerWidth + 0.5 || (folha ? folha.scrollWidth > folha.clientWidth + 0.5 : false),
+        }
+      })
+    const conferirSacola = (m, qual) => {
+      if (!m.zap) return problemas.push(`${tag} ${qual}: sem o "Fechar pedido no WhatsApp"`)
+      if (m.zap.l < -1 || m.zap.r > m.larg + 1 || m.zap.b > m.alto + 1) problemas.push(`${tag} ${qual}: o botão sai da tela (${JSON.stringify(m.zap)})`)
+      if (m.linhas !== 1 || m.zap.h > 60) problemas.push(`${tag} ${qual}: o "Fechar pedido no WhatsApp" quebrou (${m.linhas} linhas, ${m.zap.h} px)`)
+      if (!m.gui || m.gui.h < 44 || m.gui.b > m.alto + 1) problemas.push(`${tag} ${qual}: o "Pedido guiado" fora da tela ou com alvo pequeno (${JSON.stringify(m.gui)})`)
+      if (m.lateral) problemas.push(`${tag} ${qual}: a sacola rola pro lado`)
+    }
+    const travado = await medir()
+    if (travado.link || !/Faltam R\$\s10,01 pro pedido mínimo de R\$\s20,00/.test(travado.aviso ?? '')) problemas.push(`${tag}: abaixo do mínimo, o botão não travou ou o aviso não veio (${travado.aviso})`)
+    conferirSacola(travado, 'travado')
+    await p.screenshot({ path: `${out}${nome}-sacola-travada.png` })
+    for (let k = 0; k < 3; k++) await p.getByRole('button', { name: 'Mais um', exact: true }).first().tap()
+    await p.waitForTimeout(400)
+    const livre = await medir()
+    if (!livre.link || livre.aviso) problemas.push(`${tag}: com R$ 29,98, o botão não virou o link do WhatsApp (${livre.aviso})`)
+    conferirSacola(livre, 'destravado')
+    await p.screenshot({ path: `${out}${nome}-sacola-destravada.png` })
+    await ctx.close()
+    console.log('✓', tag)
+  }
 }
 
 await b.close()

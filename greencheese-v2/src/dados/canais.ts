@@ -41,6 +41,11 @@ export interface Canal {
   /** Domingo = 0 ... sábado = 6. */
   horario: { semana: [Turno, Turno, Turno, Turno, Turno, Turno, Turno]; demo: boolean }
   taxaEntrega: { valor: number | null; texto?: string; demo: boolean }
+  /**
+   * Pedido mínimo pra entrega, em reais (o dono põe no painel, em Estados; pedido do cliente em 14/10). Sem o campo
+   * (ou null) = sem mínimo. Nunca inventado: os estados daqui não têm.
+   */
+  pedidoMinimo?: number | null
   /** Entrega grátis nos dias da semana da lista (domingo = 0), com a frase do story. */
   entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
   pagamento: { opcoes: FormaPagamento[]; demo: boolean }

@@ -485,7 +485,7 @@ export async function fluxoContas(a) {
     await pS.waitForTimeout(700)
     await pS.locator('.barra-abas [data-aba="sacola"]:visible, .lateral-item:has-text("Sacola"):visible').first().click()
     await pS.waitForTimeout(700)
-    await pS.getByRole('button', { name: 'Fazer pedido' }).click()
+    await pS.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
     await pS.waitForTimeout(700)
     const clicar = async (nome) => {
       await pS.getByRole('button', { name: nome, exact: true }).last().click()

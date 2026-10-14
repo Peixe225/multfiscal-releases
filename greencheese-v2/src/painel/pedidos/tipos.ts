@@ -14,9 +14,15 @@ export interface PedidoLinha {
   id: number
   codigo: string
   tipo: 'pedido' | 'encomenda'
+  /**
+   * De onde veio: 'sacola' (o "Fechar pedido no WhatsApp" da sacola: um toque, sem nome nem endereço, que o cliente
+   * manda na conversa) ou 'guiado' (o chat do pedido guiado; toda encomenda). Servidor de antes não manda: guiado.
+   */
+  origem?: 'sacola' | 'guiado'
   status: StatusPedido
   uf: string
   cidade: string
+  /** '' = o pedido da sacola sem nome (o painel mostra "Sem nome"). */
   nome: string
   /** '' quando o site não sabia (a loja vê na conversa e pode pôr aqui). */
   whatsapp: string
@@ -88,6 +94,8 @@ export interface ResumoPedidos {
   agora: string
   novos: number
   emAndamento: number
+  /** O pedido mais novo que essa pessoa vê (0 = nenhum). Servidor de antes não manda. */
+  ultimoId?: number
   ultimos: PedidoLinha[]
   /** null pra quem não cuida dos avisos (só o dono). */
   avisos: SituacaoAvisos | null

@@ -88,6 +88,7 @@ function gc_loja_estado_admin(array $e): array
         'cidades' => $publico['cidades'],
         'horario' => $publico['horario'],
         'taxaEntrega' => $publico['taxaEntrega'],
+        'pedidoMinimo' => $publico['pedidoMinimo'] ?? null,
         'entregaGratis' => $gratis === null ? null : $gratis + ['demo' => (bool) $e['entrega_gratis_demo']],
         'pagamento' => $publico['pagamento'],
         'emblema' => $publico['emblema'],
@@ -536,7 +537,11 @@ function gc_rota_admin_estado_salvar(): array
             gc_sql("UPDATE loja_estados SET $sets, atualizado_em = ? WHERE uf = ?", [...array_values($col), $agora, $uf]);
             gc_loja_mudou();
             $acao = $mudou === ['ativo'] ? ($col['ativo'] ? 'estado-ativado' : 'estado-desativado') : 'estado-editado';
-            gc_evento('painel', $acao, 'estado:' . $uf, ['uf' => $uf, 'campos' => $mudou]);
+            // o pedido mínimo vai com o valor (de antes e de agora): a Atividade diz o que mudou
+            $minimo = in_array('pedido_minimo', $mudou, true)
+                ? ['pedidoMinimo' => $col['pedido_minimo'] === null ? null : gc_reais((int) $col['pedido_minimo']), 'pedidoMinimoAntes' => ($atual['pedido_minimo'] ?? null) === null ? null : gc_reais((int) $atual['pedido_minimo'])]
+                : [];
+            gc_evento('painel', $acao, 'estado:' . $uf, ['uf' => $uf, 'campos' => $mudou] + $minimo);
         }
         return ['estado' => gc_loja_estado_admin((array) gc_um('SELECT * FROM loja_estados WHERE uf = ?', [$uf]))] + gc_loja_carimbo();
     });
@@ -965,7 +970,15 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         'categorias-ordem' => 'Mudou a ordem das categorias',
         'estado-ativado' => !empty($d['novo']) ? "Ativou $uf no site" : "Pôs $uf de volta no site",
         'estado-desativado' => "Tirou $uf do site",
-        'estado-editado' => "Editou o atendimento de $uf",
+        'estado-editado' => match (true) {
+            // só o pedido mínimo: a frase diz o valor; com mais coisa junto, a frase de sempre e o mínimo no fim
+            ($d['campos'] ?? null) === ['pedido_minimo'] => ($d['pedidoMinimo'] ?? null) === null
+                ? "Tirou o pedido mínimo pra entrega de $uf"
+                : "Pôs o pedido mínimo pra entrega de $uf em " . gc_brl((int) round((float) $d['pedidoMinimo'] * 100)),
+            in_array('pedido_minimo', (array) ($d['campos'] ?? []), true) => "Editou o atendimento de $uf (pedido mínimo: "
+                . (($d['pedidoMinimo'] ?? null) === null ? 'sem mínimo' : gc_brl((int) round((float) $d['pedidoMinimo'] * 100))) . ')',
+            default => "Editou o atendimento de $uf",
+        },
         'stories-salvos' => (int) ($d['produtos'] ?? 0) === 0 ? "Story do Início de $uf no automático" : "Escolheu o story do Início de $uf (" . gc_loja_plural((int) $d['produtos'], 'produto', 'produtos') . ')',
         // só uma das chaves da rua (a rua do mercador no celular, os produtos que ele mostra nela): a frase diz o que ela
         // faz; o resto, a frase de sempre

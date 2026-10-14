@@ -1,6 +1,6 @@
 // Conversa do painel com o servidor sobre pedidos, avisos no WhatsApp e falas do pedido guiado (API.md). Passa pelo
 // mesmo pedir() do painel: csrf, sessão que cai (o login abre por cima e o pedido é refeito), banco ocupado e rede.
-import { pedir } from '../api'
+import { pedir, type NaoMudou } from '../api'
 import type { ChaveTexto } from '../../dados/textos-pedido'
 import type { CorpoAvisos, DadosAvisos, EnvioAviso, FiltroPedidos, ListaPedidos, PedidoAdmin, PedidoLinha, ResumoPedidos, StatusPedido, ConfigAvisos, SituacaoAvisos, TrocaFala } from './tipos'
 
@@ -14,16 +14,21 @@ export interface FiltroLista {
   limite?: number
 }
 
-export const listaPedidos = (f: FiltroLista, sinal?: AbortSignal) => {
+/**
+ * A lista dos pedidos. etag (a lista que se atualiza sozinha): o da última resposta; sem mudança, NaoMudou (304, nada
+ * baixa); undefined = pedido comum.
+ */
+export const listaPedidos = (f: FiltroLista, sinal?: AbortSignal, etag?: string | null) => {
   const params: Record<string, string> = { status: f.status }
   if (f.uf) params.uf = f.uf
   if (f.busca.trim()) params.busca = f.busca.trim()
   if (f.antes) params.antes = String(f.antes)
   if (f.limite) params.limite = String(f.limite)
-  return pedir<Ok<ListaPedidos>>('GET', 'admin-pedidos', { params, sinal })
+  return pedir<Ok<ListaPedidos> | NaoMudou>('GET', 'admin-pedidos', { params, sinal, etag })
 }
 
-export const resumoPedidos = (sinal?: AbortSignal) => pedir<Ok<ResumoPedidos>>('GET', 'admin-pedidos-resumo', { sinal })
+/** O resumo dos pedidos (a bolinha da barra e o Início), com o ETag da última (sem mudança, NaoMudou). */
+export const resumoPedidos = (sinal?: AbortSignal, etag?: string | null) => pedir<Ok<ResumoPedidos> | NaoMudou>('GET', 'admin-pedidos-resumo', { sinal, etag })
 
 export const pedido = (id: number, sinal?: AbortSignal) =>
   pedir<Ok<{ agora: string; pedido: PedidoAdmin; mesmoCodigo: PedidoLinha[]; avisos: EnvioAviso[] }>>('GET', 'admin-pedido', { params: { id: String(id) }, sinal })

@@ -227,3 +227,94 @@
   overflow: hidden;
   outline: 1px solid var(--bolha);
 }
+
+/* ---------- o rodapé: fechar direto no WhatsApp (o caminho da sacola) e o pedido guiado embaixo ---------- */
+.sacola-fechar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sacola-zap {
+  min-height: 52px;
+  padding-inline: 16px;
+  font-size: 16px;
+}
+/* travado (pedido mínimo): continua tocável, pra o toque levar o foco pro aviso de quanto falta (o leitor de tela lê) */
+.sacola-zap[aria-disabled='true'] {
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+/* o ícone corre junto do texto: se a linha quebrar (fonte grande no aparelho), ele vai junto da primeira palavra */
+.sacola-zap-icone {
+  display: inline-block;
+  margin: -3px 8px 0 0;
+  vertical-align: middle;
+}
+/* 320 px: "Fechar pedido no WhatsApp" numa linha só */
+@media (max-width: 359px) {
+  .sacola-zap {
+    padding-inline: 12px;
+    font-size: 15px;
+  }
+}
+/* o pedido mínimo: o que falta (com a barrinha do quanto já foi) ou o aviso de que a loja confere na conversa */
+.sacola-minimo {
+  font: 400 13px/1.4 var(--ui);
+  color: var(--legenda);
+  text-wrap: pretty;
+}
+.sacola-minimo:focus {
+  outline: none;
+}
+.sacola-minimo-falta {
+  color: var(--branco);
+  font-weight: 600;
+}
+.sacola-minimo-barra {
+  display: block;
+  height: 4px;
+  margin-bottom: 8px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--branco) var(--feito, 0%), var(--bolha) var(--feito, 0%));
+}
+/* depois do toque: o pedido tá no WhatsApp (ou não abriu), com o próximo passo num botão */
+.sacola-enviado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font: 400 13px/1.4 var(--ui);
+}
+.sacola-enviado p {
+  flex: 1 1 200px;
+  text-wrap: pretty;
+}
+.sacola-numero {
+  white-space: nowrap;
+}
+/* o pedido guiado: discreto, embaixo do botão (nunca competindo com ele) */
+.sacola-guiado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 2px;
+  margin-bottom: -6px;
+  font: 400 13px/1.3 var(--ui);
+  text-align: center;
+}
+.sacola-guiado-botao {
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 22px;
+  color: var(--branco);
+  font: 600 13px/1 var(--ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sacola-enviado .sacola-guiado-botao {
+  padding: 0 14px;
+  border: 1px solid var(--bolha);
+  text-decoration: none;
+}

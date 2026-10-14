@@ -1,8 +1,14 @@
 // Pedidos do site, o mais novo primeiro: "Em aberto" de cara (novo, confirmado e saiu pra entrega), os outros status
-// nos filtros, o estado (quando já teve pedido de mais de um) e a busca por código, nome, cidade ou WhatsApp.
-import { useEffect, useRef, useState } from 'react'
+// nos filtros, o estado (quando já teve pedido de mais de um) e a busca por código, nome, cidade ou WhatsApp. Cada linha
+// diz de onde veio (Sacola, Pedido guiado, Encomenda) e a data e a hora em que chegou (horário de Brasília).
+// Ao vivo (pedido do Ian em 14/10): com a tela aberta e a aba à vista, pergunta de novo a cada 15 s com o ETag (sem
+// mudança, 304 sem corpo: nada baixa nem redesenha); com a aba escondida, nada; quando ela volta, na hora. O pedido que
+// chega entra em cima, destacado ("Acabou de chegar", e o leitor de tela ouve), sem empurrar a lista de quem tá lendo
+// lá embaixo (a rolagem é compensada) e sem mexer na busca, no filtro ou no "Ver mais antigos". A bolinha da barra sobe
+// junto (atualizarResumoPedidos).
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as api from '../api'
-import { useDados } from '../dados'
+import { doCache, useDados } from '../dados'
 import { plural } from '../formato'
 import { Link, Topo } from '../Moldura'
 import { usePode } from '../permissoes'
@@ -11,6 +17,7 @@ import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
 import { listaPedidos } from './api'
 import { LinhaPedido } from './comum'
+import { atualizarResumoPedidos, RITMO_RAPIDO_MS } from './ResumoPedidos'
 import './estilo'
 import type { FiltroPedidos, ListaPedidos } from './tipos'
 
@@ -53,7 +60,8 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
   }, [busca])
   useEffect(() => setLimite(PASSO_LIMITE), [filtro, uf, termo])
 
-  const leitura = useDados<ListaPedidos>(`pedidos:${filtro}:${uf ?? ''}:${termo}:${limite}`, (s) => listaPedidos({ status: filtro, uf, busca: termo, limite }, s))
+  const chave = `pedidos:${filtro}:${uf ?? ''}:${termo}:${limite}`
+  const leitura = useDados<ListaPedidos>(chave, (s, etag) => listaPedidos({ status: filtro, uf, busca: termo, limite }, s, etag), RITMO_RAPIDO_MS)
   // trocando de filtro (ou buscando), a lista de antes fica na tela até a nova chegar
   const anterior = useRef<ListaPedidos | undefined>(undefined)
   if (leitura.dados) anterior.current = leitura.dados
@@ -61,6 +69,8 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
   const trocando = !leitura.dados && !!anterior.current
   useRestaurarRolagem(!!d)
   const agora = api.agora()
+  const { chegaram, anuncio } = useChegadas(chave, leitura.dados)
+  useRolagemFirme(d, chegaram)
 
   const irPara = (s: FiltroPedidos, u: string | null) => ir(caminho.pedidosDe(s === 'abertos' ? null : s, u), true)
   const ufs = d?.ufs ?? []
@@ -107,6 +117,9 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
           ))}
         </div>
 
+        <p className="sr-only" role="status" aria-live="polite">
+          {anuncio}
+        </p>
         {leitura.erro && (
           <Aviso tipo="erro" acao={<button type="button" className="pn-link-botao" onClick={() => void leitura.recarregar()}>Tentar de novo</button>}>
             {leitura.erro.message}
@@ -135,8 +148,8 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
             {d.pedidos.length > 0 && (
               <ul className="pd-lista">
                 {d.pedidos.map((p) => (
-                  <li key={p.id}>
-                    <LinhaPedido p={p} agora={agora} />
+                  <li key={p.id} data-id={p.id}>
+                    <LinhaPedido p={p} agora={agora} nova={chegaram.has(p.id)} />
                   </li>
                 ))}
               </ul>
@@ -182,4 +195,89 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
       </div>
     </>
   )
+}
+
+/**
+ * O que chegou com a tela aberta: a primeira leitura de cada filtro é a base (nada destacado); depois, todo pedido que
+ * aparece com o id maior que os de antes é novo de verdade (o mais novo tem o maior id). Fica destacado até sair da
+ * tela; o leitor de tela ouve "Chegou 1 pedido novo: GC-7KD2X (Sacola, MG)". Quando a lista mudou (pedido novo ou
+ * passo mudado em outro aparelho), a bolinha da barra confere junto.
+ */
+function useChegadas(chave: string, dados: ListaPedidos | undefined): { chegaram: Set<number>; anuncio: string } {
+  const base = useRef<{ chave: string; maior: number; dados: ListaPedidos | undefined } | null>(null)
+  const [chegaram, setChegaram] = useState<Set<number>>(() => new Set())
+  const [anuncio, setAnuncio] = useState('')
+  useEffect(() => {
+    // logo depois de trocar o filtro (ou apagar a busca), a tela ainda tem a lista da chave de antes por um instante:
+    // essa não vale como base (senão os pedidos de sempre voltam como "Acabou de chegar")
+    if (!dados || doCache(chave) !== dados) return
+    const maior = dados.pedidos.reduce((m, p) => Math.max(m, p.id), 0)
+    const b = base.current
+    if (!b || b.chave !== chave) {
+      base.current = { chave, maior, dados }
+      return
+    }
+    if (b.dados === dados) return
+    const novos = dados.pedidos.filter((p) => p.id > b.maior)
+    base.current = { chave, maior: Math.max(b.maior, maior), dados }
+    // a lista mudou: a bolinha e o Início conferem agora (e não daqui a 60 s)
+    atualizarResumoPedidos()
+    if (!novos.length) return
+    setChegaram((s) => new Set([...s, ...novos.map((p) => p.id)]))
+    const quais = novos
+      .slice(0, 3)
+      .map((p) => `${p.codigo} (${p.tipo === 'encomenda' ? 'encomenda' : p.origem === 'sacola' ? 'sacola' : 'pedido guiado'}, ${p.uf.toUpperCase()})`)
+      .join(', ')
+    setAnuncio(novos.length === 1 ? `Chegou 1 pedido novo: ${quais}.` : `Chegaram ${novos.length} pedidos novos: ${quais}.`)
+  }, [chave, dados])
+  return { chegaram, anuncio }
+}
+
+/**
+ * A lista que se atualiza sozinha não empurra quem tá lendo: guarda a linha que tá no topo da tela (e onde ela tava) a
+ * cada rolagem e, quando a lista muda (ou o destaque do novo entra e a linha dele cresce), rola o tanto que ela
+ * andou. Quem tá no topo da página fica no topo e vê o novo.
+ */
+function useRolagemFirme(dados: ListaPedidos | undefined, destaque: Set<number>): void {
+  const ancora = useRef<{ id: string; topo: number } | null>(null)
+  useEffect(() => {
+    let quadro = 0
+    const medir = () => {
+      quadro = 0
+      if (window.scrollY < 8) {
+        ancora.current = null
+        return
+      }
+      const topoTela = (document.querySelector('.pn-topo')?.getBoundingClientRect().bottom ?? 0) + 1
+      const linhas = document.querySelectorAll<HTMLElement>('.pd-lista > li[data-id]')
+      for (const li of linhas) {
+        const r = li.getBoundingClientRect()
+        if (r.bottom > topoTela) {
+          ancora.current = { id: li.dataset.id ?? '', topo: r.top }
+          return
+        }
+      }
+      ancora.current = null
+    }
+    const aoRolar = () => {
+      if (!quadro) quadro = requestAnimationFrame(medir)
+    }
+    medir()
+    window.addEventListener('scroll', aoRolar, { passive: true })
+    window.addEventListener('resize', aoRolar)
+    return () => {
+      cancelAnimationFrame(quadro)
+      window.removeEventListener('scroll', aoRolar)
+      window.removeEventListener('resize', aoRolar)
+    }
+  }, [])
+  useLayoutEffect(() => {
+    const a = ancora.current
+    if (!a || !dados) return
+    const li = document.querySelector<HTMLElement>(`.pd-lista > li[data-id="${CSS.escape(a.id)}"]`)
+    if (!li) return
+    const andou = li.getBoundingClientRect().top - a.topo
+    if (Math.abs(andou) > 0.5) window.scrollBy(0, andou)
+    ancora.current = { id: a.id, topo: li.getBoundingClientRect().top }
+  }, [dados, destaque])
 }

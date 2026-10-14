@@ -13,6 +13,7 @@ import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
 import { celularNoCampo, conferirCelular, mascaraCelular } from '../whats'
 import { avisos as lerAvisos, reenviarAviso, salvarAvisos, testarAvisos } from './api'
 import { diaHora, ListaAvisos, partesDoErro } from './comum'
+import { atualizarResumoPedidos } from './ResumoPedidos'
 import './estilo'
 import type { ConfigAvisos, CorpoAvisos, DadosAvisos, EnvioAviso, EventoAviso, Motor, SituacaoAvisos } from './tipos'
 
@@ -363,6 +364,7 @@ export function Avisos() {
     if (r) {
       leitura.trocar((x) => ({ ...x, config: r.config, situacao: r.situacao }))
       setF(formDe(r.config))
+      atualizarResumoPedidos()
       mostrarRecado(r.config.motor === 'nenhum' ? 'Salvo. Os avisos no grupo tão desligados.' : `Salvo. Os avisos saem pelo ${NOME_MOTOR[r.config.motor]}: toca em “Enviar teste” pra conferir.`)
     }
   }
@@ -390,6 +392,8 @@ export function Avisos() {
       const r = await reenviarAviso(e.id)
       leitura.trocar((x) => ({ ...x, envios: x.envios.map((a) => (a.id === r.envio.id ? r.envio : a)) }))
       void leitura.recarregar()
+      // o alerta "1 aviso no grupo não foi" do Início confere junto
+      atualizarResumoPedidos()
     })
   const reenviando = reenvio.ocupado ? Number(reenvio.ocupado.slice(2)) : null
 

@@ -8,9 +8,9 @@ import { palpebrasGarrafa } from '../arte/pixel/mercador-garrafa'
 import { brl, plural } from '../lib/formato'
 import { depoisDoHistorico } from '../lib/historico'
 import { entregaDoCanal, nomeNaMensagem, textoSubtotal, totais } from '../lib/mensagem'
+import { minimoDoCanal } from '../lib/pedido-minimo'
 import { calcularLinha } from '../lib/preco'
 import { disponivelEm, produtoPorId } from '../store/catalogo'
-import { useChat } from '../store/chat'
 import { useDisponiveis, useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa, useLojaConferida, useTextosLoja } from '../store/loja'
@@ -18,6 +18,7 @@ import { contarItens, MAX_POR_ITEM, useSacola, type ItemSacola } from '../store/
 import { useUI } from '../store/ui'
 import { Icone } from './comum'
 import { CupomSacola } from './CupomSacola'
+import { FecharSacola } from './FecharSacola'
 import { Folha } from './Folha'
 import './Sacola.css'
 
@@ -53,6 +54,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   const canal = useCanalDa(uf)
   const lugar = nomeCidade(canal, cidade, cidadeInformada) ?? canal?.nome ?? 'teu estado'
   const t = totais(pedido)
+  const minimo = minimoDoCanal(canal)
   // o que ainda cabe de cada produto (o "restam X" é do produto: as variações dividem)
   const noPedido = new Map<string, number>()
   for (const l of pedido) noPedido.set(l.item.id, (noPedido.get(l.item.id) ?? 0) + l.qtd)
@@ -204,6 +206,8 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
       {pedido.length > 0 && t.economia > 0 && <p className="ls-economia legenda">Combo aplicado: {brl(t.economia)} a menos.</p>}
       <CupomSacola compacta={compacta} />
       {pedido.length > 0 && <p className="ls-taxa legenda">{textoEntrega(canal)}</p>}
+      {/* o pedido mínimo do estado, junto da entrega (o quanto falta, quando falta, fica no rodapé, perto do botão) */}
+      {pedido.length > 0 && minimo != null && <p className="ls-taxa legenda">Pedido mínimo pra entrega: {brl(minimo)}.</p>}
     </div>
   )
 }
@@ -217,8 +221,6 @@ export function SacolaFolha() {
   const repetirUltimo = useSacola((s) => s.repetirUltimo)
   const adicionar = useSacola((s) => s.adicionar)
   const { pedido } = useLinhasSacola()
-  const abrirChat = useChat((s) => s.abrir)
-  const chatAberto = useChat((s) => s.aberto)
   const uf = useLocal((s) => s.uf)
   const disponiveis = useDisponiveis()
   const textos = useTextosLoja()
@@ -255,21 +257,8 @@ export function SacolaFolha() {
           Sacola <span className="legenda">· {plural(n, 'item', 'itens')}</span>
         </span>
       }
-      rodape={
-        itens.length > 0 ? (
-          <button
-            type="button"
-            className="botao botao-cheio botao-largo"
-            disabled={pedido.length === 0}
-            onClick={() => {
-              setSacola(false)
-              if (!chatAberto) abrirChat('pedido')
-            }}
-          >
-            {chatAberto ? 'Voltar pro pedido' : 'Fazer pedido'}
-          </button>
-        ) : undefined
-      }
+      // o caminho direto: um toque e o WhatsApp abre com o pedido pronto (o pedido guiado fica como opção embaixo)
+      rodape={itens.length > 0 ? <FecharSacola /> : undefined}
     >
       {itens.length === 0 ? (
         <div className="sacola-vazia">

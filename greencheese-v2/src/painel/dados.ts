@@ -1,12 +1,18 @@
 // Leitura das telas: guarda a última resposta de cada uma (voltar de tela desenha na hora e confere por trás),
 // atualiza sozinho a cada 30 s com a aba à vista e ao voltar pra ela (a reserva do site aparece sem recarregar).
+// Com a aba do navegador escondida, não pergunta nada (o relógio só confere se ela voltou). A busca que aceita ETag (a
+// lista de pedidos, o resumo) recebe o da última resposta e, sem mudança, devolve o NaoMudou do api.ts: a tela fica
+// como tá, sem baixar nem redesenhar nada.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ErroApi } from './api'
+import { ErroApi, naoMudou, type NaoMudou } from './api'
 
 const cache = new Map<string, unknown>()
+/** O ETag da última resposta de cada leitura (só das que mandam). */
+const etags = new Map<string, string>()
 
 export function limparCache(): void {
   cache.clear()
+  etags.clear()
 }
 
 export function guardar<T>(chave: string, dados: T): void {
@@ -30,7 +36,7 @@ export interface Leitura<T> extends Estado<T> {
   trocar: (f: (d: T) => T) => void
 }
 
-export function useDados<T>(chave: string, buscar: (sinal: AbortSignal) => Promise<T>, intervalo = 30_000): Leitura<T> {
+export function useDados<T>(chave: string, buscar: (sinal: AbortSignal, etag: string | null) => Promise<T | NaoMudou>, intervalo = 30_000): Leitura<T> {
   const [estado, setEstado] = useState<Estado<T>>(() => ({ dados: cache.get(chave) as T | undefined, erro: null, carregando: !cache.has(chave) }))
   const buscarRef = useRef(buscar)
   buscarRef.current = buscar
@@ -43,10 +49,18 @@ export function useDados<T>(chave: string, buscar: (sinal: AbortSignal) => Promi
     emCurso.current = ctrl
     const k = chave
     try {
-      const d = await buscarRef.current(ctrl.signal)
+      // o ETag só vale com os dados dele na tela (sem nada no cache, pede inteiro)
+      const r = await buscarRef.current(ctrl.signal, cache.has(k) ? (etags.get(k) ?? null) : null)
       if (ctrl.signal.aborted || chaveRef.current !== k) return
-      cache.set(k, d)
-      setEstado({ dados: d, erro: null, carregando: false })
+      if (naoMudou(r)) {
+        setEstado((s) => (s.erro || s.carregando ? { dados: s.dados, erro: null, carregando: false } : s))
+        return
+      }
+      const e = (r as { _etag?: unknown })._etag
+      if (typeof e === 'string' && e) etags.set(k, e)
+      else etags.delete(k)
+      cache.set(k, r)
+      setEstado({ dados: r, erro: null, carregando: false })
     } catch (e) {
       if (ctrl.signal.aborted || chaveRef.current !== k) return
       const erro = e instanceof ErroApi ? e : new ErroApi('erro', 'Deu erro aqui. Tenta de novo.')

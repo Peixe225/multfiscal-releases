@@ -43,6 +43,37 @@ function gc_codigo_pedido(mixed $v): ?string
     return preg_match('/^GC-[' . GC_ALFABETO_CODIGO . ']{5}$/', $c) === 1 ? $c : null;
 }
 
+/**
+ * De onde veio o pedido: 'sacola' (o "Fechar pedido no WhatsApp" da sacola: um toque, sem nome nem endereço) ou
+ * 'guiado' (o chat do pedido guiado, e toda encomenda). Sem o campo (o site de antes, a cópia velha na fila do
+ * aparelho) ou com outro valor: 'guiado', que é o que confere mais.
+ * @param array<string, mixed> $c
+ */
+function gc_origem_pedido(array $c, mixed $tipo): string
+{
+    return ($c['origem'] ?? null) === 'sacola' && $tipo === 'pedido' ? 'sacola' : 'guiado';
+}
+
+/** A coluna da origem do pedido (migração 209) já existe? */
+function gc_pedidos_com_origem(): bool
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = false;
+        foreach (gc_todos('PRAGMA table_info(pedidos)') as $c) {
+            $tem = $tem || $c['name'] === 'origem';
+        }
+    }
+    return $tem;
+}
+
+/** O nome que só informa (o pedido da sacola): de 2 a 60 letras, ou '' (o painel mostra "Sem nome"). */
+function gc_nome_informativo(mixed $v): string
+{
+    $n = is_string($v) ? gc_texto($v) : null;
+    return $n !== null && gc_tamanho($n) >= 2 && gc_tamanho($n) <= 60 ? $n : '';
+}
+
 /** Texto curto opcional: limpo, cortado no máximo ('' quando não veio). Não-texto vira ''. */
 function gc_texto_curto(mixed $v, int $max): string
 {
@@ -128,12 +159,15 @@ function gc_ler_pedido(array $c, string $codigo): array
         throw gc_invalido('tipo', 'O pedido não veio certo. Recarrega a página e tenta de novo.');
     }
     $uf = gc_uf($c['uf'] ?? null) ?? throw gc_invalido('uf', 'O estado do pedido não veio certo.');
-    $nome = gc_nome($c['nome'] ?? null);
+    $origem = gc_origem_pedido($c, $tipo);
+    // o pedido da sacola não pergunta o nome (o cliente manda na conversa): vem só quando o aparelho já sabia (a conta),
+    // e o que não fechar fica de fora, nunca derruba o pedido. O guiado pergunta: nome de 2 a 60 letras, como sempre
+    $nome = $origem === 'sacola' ? gc_nome_informativo($c['nome'] ?? null) : gc_nome($c['nome'] ?? null);
     // o WhatsApp é opcional (o site só sabe quando a pessoa tem conta no aparelho): o que não fechar fica de fora
     $whatsapp = gc_whatsapp($c['whatsapp'] ?? null) ?? '';
 
     $col = [
-        'tipo' => $tipo, 'uf' => $uf, 'cidade' => gc_texto_curto($c['cidade'] ?? '', 60), 'nome' => $nome, 'whatsapp' => $whatsapp,
+        'tipo' => $tipo, 'origem' => $origem, 'uf' => $uf, 'cidade' => gc_texto_curto($c['cidade'] ?? '', 60), 'nome' => $nome, 'whatsapp' => $whatsapp,
         'itens' => '[]', 'subtotal' => null, 'subtotal_texto' => '', 'cupom' => null, 'endereco' => '', 'rua' => '', 'numero' => '',
         'bairro' => '', 'cep' => '', 'cidade_entrega' => '', 'uf_entrega' => '', 'pagamento' => null, 'troco' => null,
         'observacao' => gc_texto_curto($c['obs'] ?? '', 200), 'encomenda' => null,
@@ -251,8 +285,10 @@ function gc_ler_pedido_resgate(array $c, string $codigo, ErroApi $erro): ?array
     $cep = is_string($e['cep'] ?? null) ? (string) preg_replace('/\D/', '', $e['cep']) : '';
     $pagamento = in_array($c['pagamento'] ?? null, GC_PAGAMENTOS, true) ? $c['pagamento'] : null;
     $campo = (string) ($erro->extra['campo'] ?? '');
+    // o da sacola sem nome fica sem nome (o painel mostra "Sem nome", como no pedido da sacola que entrou inteiro)
+    $origem = gc_origem_pedido($c, $tipo);
     return [
-        'tipo' => $tipo, 'uf' => $uf, 'cidade' => gc_texto_curto($c['cidade'] ?? '', 60), 'nome' => gc_tamanho($nome) >= 2 ? $nome : 'Sem nome',
+        'tipo' => $tipo, 'origem' => $origem, 'uf' => $uf, 'cidade' => gc_texto_curto($c['cidade'] ?? '', 60), 'nome' => gc_tamanho($nome) >= 2 ? $nome : ($origem === 'sacola' ? '' : 'Sem nome'),
         'whatsapp' => gc_whatsapp($c['whatsapp'] ?? null) ?? '', 'itens' => '[]', 'subtotal' => null, 'subtotal_texto' => '', 'cupom' => null,
         'endereco' => $tipo === 'pedido' ? gc_texto_curto($e['endereco'] ?? '', 240) : '', 'rua' => $tipo === 'pedido' ? gc_texto_curto($e['rua'] ?? '', 140) : '',
         'numero' => $tipo === 'pedido' ? gc_texto_curto($e['numero'] ?? '', 60) : '', 'bairro' => $tipo === 'pedido' ? gc_texto_curto($e['bairro'] ?? '', 80) : '',
@@ -367,10 +403,18 @@ function gc_rota_pedido(): array
             if ((string) $col['whatsapp'] === '') {
                 $col['whatsapp'] = (string) $cliente['whatsapp'];
             }
+            // o pedido da sacola que veio sem nome: o da conta de quem tá logado (nunca perguntado no site)
+            if ((string) $col['nome'] === '' && gc_tamanho((string) ($cliente['nome'] ?? '')) >= 2) {
+                $col['nome'] = gc_texto_curto($cliente['nome'], 60);
+            }
             $col['whatsapp_conferido'] = (string) $col['whatsapp'] === (string) $cliente['whatsapp'] ? 1 : 0;
         }
         $nota = (string) ($col['nota'] ?? '');
         unset($col['nota']);
+        // a coluna da origem (migração 209) ainda não existe: publicação no meio, o módulo novo antes da migração
+        if (!gc_pedidos_com_origem()) {
+            unset($col['origem']);
+        }
         $col = ['codigo' => $codigo, 'token_hash' => $hash, 'status' => 'novo'] + $col + [
             'substitui_id' => $antigo === null ? null : (int) $antigo['id'],
             'substitui_codigo' => $subCodigo !== null && $subToken !== null && $subToken !== $token ? $subCodigo : '',
@@ -408,8 +452,9 @@ function gc_rota_pedido(): array
             gc_cliente_pedido_feito((int) $cliente['id'], $p);
         }
         gc_evento('site', $col['tipo'] === 'pedido' ? 'pedido-recebido' : 'encomenda-recebida', 'pedido:' . $codigo, [
-            'id' => $id, 'uf' => $col['uf'], 'nome' => $col['nome'], 'itens' => count(json_decode((string) $col['itens'], true) ?: []),
-        ]);
+            'id' => $id, 'uf' => $col['uf'], 'itens' => count(json_decode((string) $col['itens'], true) ?: []),
+            'origem' => (string) ($col['origem'] ?? 'guiado'),
+        ] + ((string) $col['nome'] !== '' ? ['nome' => $col['nome']] : []));
         gc_aviso_pedido($p, $antigo === null ? null : ['codigo' => (string) $antigo['codigo'], 'trocou' => $trocou, 'status' => (string) $antigo['status']]);
         return ['_status' => 201, 'pedido' => gc_pedido_publico($p)];
     });
@@ -466,6 +511,9 @@ function gc_pedido_linha(array $p): array
         'id' => (int) $p['id'],
         'codigo' => (string) $p['codigo'],
         'tipo' => (string) $p['tipo'],
+        // de onde veio: 'sacola' (um toque, sem nome nem endereço) ou 'guiado' (o chat; toda encomenda). Antes da
+        // migração 209, todo pedido era do guiado
+        'origem' => ($p['origem'] ?? 'guiado') === 'sacola' ? 'sacola' : 'guiado',
         'status' => (string) $p['status'],
         'uf' => (string) $p['uf'],
         'cidade' => (string) $p['cidade'],
@@ -595,13 +643,15 @@ function gc_rota_admin_pedidos(): array
     $linhas = gc_todos(GC_PEDIDOS_SELECT . ($onde ? ' WHERE ' . implode(' AND ', $onde) : '') . ' ORDER BY p.id DESC LIMIT ' . ($limite + 1), $p);
     $mais = count($linhas) > $limite;
     $ufs = array_map(static fn (array $l): string => (string) $l['uf'], gc_todos('SELECT DISTINCT p.uf FROM pedidos p' . ($fUf === '' ? '' : " WHERE $fUf") . ' ORDER BY p.uf', $pUf));
-    return [
+    $res = [
         'agora' => gc_iso(gc_agora()),
         'pedidos' => array_map('gc_pedido_linha', array_slice($linhas, 0, $limite)),
         'contagem' => $contagem,
         'ufs' => $ufs,
         'mais' => $mais,
     ];
+    // o painel pergunta de novo a cada 15 s com a tela aberta: sem mudança (o mesmo conteúdo pra quem pergunta), 304
+    return $res + ['_etag' => gc_etag_de($res)];
 }
 
 /** GET admin-pedidos-resumo: o que o Resumo do painel mostra (pedidos novos e avisos que não chegaram). */
@@ -612,14 +662,18 @@ function gc_rota_admin_pedidos_resumo(): array
     [$fUf, $pUf] = function_exists('gc_filtro_ufs') ? gc_filtro_ufs('p.uf') : ['', []];
     $e = $fUf === '' ? '' : " AND $fUf";
     $novos = gc_todos(GC_PEDIDOS_SELECT . " WHERE p.status = 'novo'$e ORDER BY p.id DESC LIMIT 5", $pUf);
-    return [
+    $res = [
         'agora' => gc_iso(gc_agora()),
         'novos' => (int) gc_valor("SELECT COUNT(*) FROM pedidos p WHERE p.status = 'novo'$e", $pUf),
         'emAndamento' => (int) gc_valor("SELECT COUNT(*) FROM pedidos p WHERE p.status IN ('confirmado','saiu')$e", $pUf),
+        // o pedido mais novo que essa pessoa vê (0 = nenhum): o painel sabe que chegou pedido sem baixar a lista
+        'ultimoId' => (int) gc_valor('SELECT COALESCE(MAX(p.id), 0) FROM pedidos p' . ($fUf === '' ? '' : " WHERE $fUf"), $pUf),
         'ultimos' => array_map('gc_pedido_linha', $novos),
         // a situação dos avisos no WhatsApp é coisa de quem cuida deles (o dono); os outros recebem null
         'avisos' => !function_exists('gc_pode') || gc_pode('avisos') ? gc_avisos_situacao() : null,
     ];
+    // a bolinha da barra e o Início perguntam de novo sozinhos: sem mudança, 304 sem corpo
+    return $res + ['_etag' => gc_etag_de($res)];
 }
 
 /** GET admin-pedido&id=: o pedido inteiro, os outros com o mesmo código (dois aparelhos que sortearam igual) e os avisos dele. */
@@ -805,7 +859,7 @@ function gc_pedidos_evento_texto(string $acao, string $alvo, array $d): ?string
         return '"' . (gc_tamanho($padrao) > 48 ? rtrim(mb_substr($padrao, 0, 47, 'UTF-8')) . '…' : $padrao) . '"';
     };
     return match ($acao) {
-        'pedido-recebido' => "Pedido $alvo" . $de() . " pelo site$uf",
+        'pedido-recebido' => "Pedido $alvo" . $de() . (($d['origem'] ?? '') === 'sacola' ? ' pela sacola do site' : ' pelo site') . $uf,
         'encomenda-recebida' => "Encomenda $alvo" . $de() . " pelo site$uf",
         'pedido-substituido' => "Pedido $alvo trocado pelo " . ($d['por'] ?? 'novo') . ' (o cliente mudou e mandou de novo)',
         'pedido-status' => match ((string) ($d['para'] ?? '')) {

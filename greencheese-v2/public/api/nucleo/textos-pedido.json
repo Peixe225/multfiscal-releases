@@ -148,6 +148,28 @@
       "tipo": "resposta",
       "marcadores": []
     },
+    "minimo.falta": {
+      "padrao": "Faltam {falta} pro pedido mínimo de {minimo} pra entrega. Bota mais alguma coisa na sacola?",
+      "tipo": "fala",
+      "marcadores": [
+        "falta",
+        "minimo"
+      ]
+    },
+    "minimo.consultar": {
+      "padrao": "Tem item com preço a consultar: a loja confere o pedido mínimo de {minimo} na conversa.",
+      "tipo": "fala",
+      "marcadores": [
+        "minimo"
+      ]
+    },
+    "minimo.cupom": {
+      "padrao": "Com o desconto do cupom, a loja confere o pedido mínimo de {minimo} na conversa.",
+      "tipo": "fala",
+      "marcadores": [
+        "minimo"
+      ]
+    },
     "nome.pergunta": {
       "padrao": "Teu nome?",
       "tipo": "fala",

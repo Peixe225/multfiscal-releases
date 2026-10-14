@@ -160,7 +160,7 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
     await page.goto(`${base}?uf=mg`)
     await page.waitForTimeout(1200)
     await page.locator('.barra-abas [data-aba="sacola"]').click()
-    await page.getByRole('button', { name: 'Fazer pedido' }).click()
+    await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
     await page.waitForTimeout(700)
     await clicar(page, 'Isso')
     await clicar(page, 'Tá certo')

@@ -1,17 +1,12 @@
 // Os itens do pedido como a sacola e a mensagem do WhatsApp mostram (nome, quantidade, preço unitário, total da linha
-// com o combo e o combo aplicado), pra cópia que vai pro servidor (pedido-envio.ts). Só o chat usa: fica no pedaço dele.
-import { brl } from './formato'
-import { nomeNaMensagem, textoSubtotal, totais, type LinhaPedido } from './mensagem'
-import type { ItemPedido } from './pedido-envio'
+// com o combo e o combo aplicado), pra cópia que vai pro servidor (pedido-envio.ts). A sacola (o "Fechar pedido no
+// WhatsApp" direto) e o chat usam: fica no pedaço deles.
+import { nomeNaMensagem, textoCombo, textoSubtotal, totais, type LinhaPedido } from './mensagem'
+import type { CorpoPedido, ItemPedido } from './pedido-envio'
 import { calcularLinha, precoUnitario } from './preco'
 
-/** "3 por R$ 19,99" · "2× 3 por R$ 19,99 + 1 avulsa" · null (sem combo). */
-export function textoCombo(c: ReturnType<typeof calcularLinha>): string | null {
-  if (!c.combos.length) return null
-  const partes = c.combos.map((x) => `${x.vezes > 1 ? `${x.vezes}× ` : ''}${x.qtd} por ${brl(x.total)}`)
-  if (c.avulsas > 0) partes.push(`${c.avulsas} ${c.avulsas === 1 ? 'avulsa' : 'avulsas'}`)
-  return partes.join(' + ')
-}
+// o texto do combo mora em mensagem.ts (a mensagem da sacola mostra ele também)
+export { textoCombo }
 
 /** Os itens como a sacola e a mensagem mostram (preço unitário, total com combo), o subtotal e o texto dele. */
 export function itensDoPedido(linhas: LinhaPedido[]): { itens: ItemPedido[]; subtotal: number | null; subtotalTexto: string } {
@@ -36,5 +31,36 @@ export function itensDoPedido(linhas: LinhaPedido[]): { itens: ItemPedido[]; sub
     // sem nenhum preço conhecido, o subtotal é "a consultar" (null), nunca zero
     subtotal: itens.some((i) => i.total != null) ? t.subtotal : null,
     subtotalTexto: textoSubtotal(t, validas.length > 0),
+  }
+}
+
+/**
+ * A cópia do pedido da sacola (o caminho direto): os itens, o subtotal e o cupom como a mensagem mostra, sem endereço
+ * e sem pagamento (o cliente manda na conversa). O nome e o WhatsApp só quando a conta já sabe (nunca perguntados).
+ */
+export function corpoDaSacola(d: {
+  codigo: { codigo: string; token: string; substitui: CorpoPedido['substitui'] }
+  uf: string
+  cidade: string | null
+  linhas: LinhaPedido[]
+  nome: string
+  whatsapp: string
+  cupom: CorpoPedido['cupom']
+  mensagem: string
+}): CorpoPedido {
+  return {
+    codigo: d.codigo.codigo,
+    token: d.codigo.token,
+    tipo: 'pedido',
+    origem: 'sacola',
+    uf: d.uf,
+    cidade: d.cidade ?? '',
+    nome: d.nome.trim(),
+    whatsapp: d.whatsapp,
+    ...itensDoPedido(d.linhas),
+    cupom: d.cupom,
+    mensagem: d.mensagem,
+    site: '',
+    substitui: d.codigo.substitui,
   }
 }

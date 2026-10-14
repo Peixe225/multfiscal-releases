@@ -12,6 +12,9 @@ function primeiroNome(nome: string): string {
   return n.length >= 2 ? n : nome.trim()
 }
 
+/** "Oi, Ana!" · "Oi!" (o pedido da sacola sem nome: a loja sabe quem é pela conversa) */
+const oiPara = (nome: string, fim = '!') => (primeiroNome(nome) ? `Oi, ${primeiroNome(nome)}${fim}` : `Oi${fim}`)
+
 /** "teu pedido GC-7KD2X" · "tua encomenda GC-7KD2X (Fanta de uva japonesa)". */
 function oQue(p: PedidoAdmin): string {
   if (p.tipo === 'encomenda') return `tua encomenda ${p.codigo}${p.encomenda?.produto ? ` (${p.encomenda.produto})` : ''}`
@@ -20,7 +23,7 @@ function oQue(p: PedidoAdmin): string {
 
 /** A mensagem do passo (o status que o pedido tem agora, ou o que acabou de ganhar). */
 export function mensagemDoPasso(p: PedidoAdmin, status: StatusPedido = p.status): string {
-  const oi = `Oi, ${primeiroNome(p.nome)}!`
+  const oi = oiPara(p.nome)
   const O = oQue(p).replace(/^t/, 'T')
   switch (status) {
     case 'novo':
@@ -35,10 +38,10 @@ export function mensagemDoPasso(p: PedidoAdmin, status: StatusPedido = p.status)
     case 'entregue': {
       // o @ do estado no painel (Loja → Estados); até a loja chegar, o embutido no site
       const insta = doCache<LojaAdmin>(CHAVE_LOJA)?.estados.find((e) => e.uf === p.uf)?.instagram ?? canalDa(p.uf)?.instagram
-      return `${p.tipo === 'encomenda' ? 'Encomenda' : 'Pedido'} ${p.codigo} entregue ✅ Valeu, ${primeiroNome(p.nome)}!${insta ? ` Chegou certinho? Marca @${insta} no story.` : ''}`
+      return `${p.tipo === 'encomenda' ? 'Encomenda' : 'Pedido'} ${p.codigo} entregue ✅ Valeu${primeiroNome(p.nome) ? `, ${primeiroNome(p.nome)}` : ''}!${insta ? ` Chegou certinho? Marca @${insta} no story.` : ''}`
     }
     case 'cancelado':
-      return `Oi, ${primeiroNome(p.nome)}. ${O} foi cancelad${p.tipo === 'encomenda' ? 'a' : 'o'}. Se quiser refazer ou tiver dúvida, é só me chamar aqui.`
+      return `${oiPara(p.nome, '.')} ${O} foi cancelad${p.tipo === 'encomenda' ? 'a' : 'o'}. Se quiser refazer ou tiver dúvida, é só me chamar aqui.`
   }
 }
 

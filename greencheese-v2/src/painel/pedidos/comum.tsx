@@ -1,6 +1,6 @@
 // Peças das telas de pedidos e avisos: o selo do status, a linha da lista, o histórico dos avisos e o copiar.
 import { useEffect, useRef, useState } from 'react'
-import { brl, dia, hora, plural, relativo, whatsappBonito } from '../formato'
+import { brl, dataHoraExtenso, dataHoraPedido, dia, hora, plural, whatsappBonito } from '../formato'
 import { Link } from '../Moldura'
 import { caminho } from '../rotas'
 import { Botao, Ic } from '../ui'
@@ -23,15 +23,31 @@ export function diaHora(iso: string, agora: number): string {
   return `${dia(iso, agora)} ${hora(iso)}`
 }
 
-/** Uma linha da lista: quem, o status, o valor, os itens e de onde. Toca e abre o pedido. */
-export function LinhaPedido({ p, agora }: { p: PedidoLinha; agora: number }) {
+/** O nome de quem pediu ("Sem nome": o pedido da sacola, que não pergunta; o cliente diz na conversa). */
+export function nomeDoPedido(p: Pick<PedidoLinha, 'nome'>): string {
+  return p.nome.trim() || 'Sem nome'
+}
+
+/** De onde veio: "Sacola" (um toque, sem nome nem endereço), "Pedido guiado" (o chat) ou "Encomenda". */
+export function origemDoPedido(p: Pick<PedidoLinha, 'tipo' | 'origem'>): string {
+  if (p.tipo === 'encomenda') return 'Encomenda'
+  return p.origem === 'sacola' ? 'Sacola' : 'Pedido guiado'
+}
+
+/**
+ * Uma linha da lista: quem, o status, de onde veio, o valor, os itens, o código, o lugar e a data e a hora em que chegou
+ * (horário de Brasília). Toca e abre o pedido. nova = acabou de chegar com a tela aberta (destacada até sair da tela).
+ */
+export function LinhaPedido({ p, agora, nova = false }: { p: PedidoLinha; agora: number; nova?: boolean }) {
   const valor = p.tipo === 'encomenda' ? null : p.subtotal != null ? brl(p.subtotal) : 'a consultar'
+  const semNome = !p.nome.trim()
   return (
-    <Link href={caminho.pedido(p.id)} className={`pd-linha toque${p.dadosApagados ? ' pd-linha-apagado' : ''}`}>
+    <Link href={caminho.pedido(p.id)} className={`pd-linha toque${p.dadosApagados ? ' pd-linha-apagado' : ''}${nova ? ' pd-linha-nova' : ''}`}>
       <span className="pd-linha-topo">
-        <strong className="pd-linha-nome">{p.nome}</strong>
+        <strong className={`pd-linha-nome${semNome ? ' pd-sem-nome' : ''}`}>{nomeDoPedido(p)}</strong>
         <SeloPedido status={p.status} tipo={p.tipo} />
-        {p.tipo === 'encomenda' && <span className="pd-tag">Encomenda</span>}
+        <span className={`pd-tag pd-tag-${p.tipo === 'encomenda' ? 'encomenda' : p.origem === 'sacola' ? 'sacola' : 'guiado'}`}>{origemDoPedido(p)}</span>
+        {nova && <span className="pd-tag pd-tag-chegou">Acabou de chegar</span>}
       </span>
       <span className="pd-linha-valor">
         {valor}
@@ -45,7 +61,9 @@ export function LinhaPedido({ p, agora }: { p: PedidoLinha; agora: number }) {
       {p.resumo && <span className="pd-linha-itens">{p.resumo}</span>}
       <span className="pd-linha-meta">
         <span className="pn-codigo">{p.codigo}</span> · {p.cidade ? `${p.cidade} (${p.uf.toUpperCase()})` : p.uf.toUpperCase()} ·{' '}
-        <time dateTime={p.criadoEm}>{relativo(p.criadoEm, agora)}</time>
+        <time dateTime={p.criadoEm} title={dataHoraExtenso(p.criadoEm)}>
+          {dataHoraPedido(p.criadoEm, agora)}
+        </time>
         {p.substituidoPor && <> · trocado pelo {p.substituidoPor.codigo}</>}
       </span>
     </Link>

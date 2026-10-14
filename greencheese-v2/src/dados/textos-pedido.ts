@@ -59,6 +59,11 @@ export const TEXTOS_PEDIDO = {
   'sacola.quero': { padrao: 'Quero esse', tipo: 'resposta' },
   'sacola.queroVarios': { padrao: 'Quero esses', tipo: 'resposta' },
 
+  // pedido mínimo pra entrega (o do estado, no painel): a conta é sobre o subtotal, antes da taxa de entrega
+  'minimo.falta': { padrao: 'Faltam {falta} pro pedido mínimo de {minimo} pra entrega. Bota mais alguma coisa na sacola?', tipo: 'fala', marcadores: ['falta', 'minimo'] },
+  'minimo.consultar': { padrao: 'Tem item com preço a consultar: a loja confere o pedido mínimo de {minimo} na conversa.', tipo: 'fala', marcadores: ['minimo'] },
+  'minimo.cupom': { padrao: 'Com o desconto do cupom, a loja confere o pedido mínimo de {minimo} na conversa.', tipo: 'fala', marcadores: ['minimo'] },
+
   // nome
   'nome.pergunta': { padrao: 'Teu nome?', tipo: 'fala' },
   'nome.dica': { padrao: 'Teu nome…', tipo: 'dica' },

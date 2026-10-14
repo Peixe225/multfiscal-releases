@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import * as api from '../api'
 import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { useAcao, useDados } from '../dados'
-import { brl, dia, diaMes, hora, quando, whatsappBonito } from '../formato'
+import { brl, dataHoraExtenso, dataHoraPedido, dia, diaMes, hora, quando, whatsappBonito } from '../formato'
 import { linkWhats } from '../mensagens'
 import { Link, Topo } from '../Moldura'
 import { usePode } from '../permissoes'
@@ -14,7 +14,8 @@ import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Campo, Carregando, Ic, Linha, TituloTela } from '../ui'
 import { celularNoCampo, conferirCelular, mascaraCelular } from '../whats'
 import { apagarDadosPedido, pedido as lerPedido, reenviarAviso, salvarPedido, statusPedido } from './api'
-import { BotaoCopiar, ListaAvisos, SeloPedido, nomeStatus } from './comum'
+import { BotaoCopiar, ListaAvisos, SeloPedido, nomeDoPedido, nomeStatus, origemDoPedido } from './comum'
+import { atualizarResumoPedidos } from './ResumoPedidos'
 import './estilo'
 import { mensagemDoPasso, ROTULO_AVISO } from './mensagens'
 import type { EnvioAviso, PedidoAdmin, PedidoLinha, StatusPedido } from './tipos'
@@ -356,6 +357,8 @@ export function Pedido({ id }: { id: number }) {
       const r = await statusPedido(p.id, para)
       trocar(r.pedido)
       anunciar(para)
+      // a bolinha da barra e o Início acompanham (o novo que foi confirmado sai dos novos)
+      atualizarResumoPedidos()
       setEsfriando(true)
       window.clearTimeout(relogio.current)
       relogio.current = window.setTimeout(() => setEsfriando(false), 1200)
@@ -368,6 +371,7 @@ export function Pedido({ id }: { id: number }) {
         const r = await statusPedido(p.id, para)
         trocar(r.pedido)
         anunciar(para)
+        atualizarResumoPedidos()
       },
     })
 
@@ -429,6 +433,8 @@ export function Pedido({ id }: { id: number }) {
 
   const de = p.cidade ? `${p.cidade} (${p.uf.toUpperCase()})` : p.uf.toUpperCase()
   const endereco = enderecoTexto(p.entrega)
+  // o pedido da sacola não pergunta nome, endereço nem pagamento: vem tudo na conversa do WhatsApp
+  const sacola = !enc && p.origem === 'sacola'
 
   return (
     <>
@@ -441,15 +447,19 @@ export function Pedido({ id }: { id: number }) {
 
         <div className="pd-col-esq">
           <div className="pd-cab">
-            <p className="pd-cab-nome">{p.nome}</p>
+            <p className={`pd-cab-nome${p.nome.trim() ? '' : ' pd-sem-nome'}`}>{nomeDoPedido(p)}</p>
             <div className="pd-cab-linha">
               <SeloPedido status={p.status} tipo={p.tipo} />
-              {enc && <span className="pd-tag">Encomenda</span>}
+              <span className={`pd-tag pd-tag-${enc ? 'encomenda' : p.origem === 'sacola' ? 'sacola' : 'guiado'}`}>{origemDoPedido(p)}</span>
               <span className="pn-codigo">{p.codigo}</span>
             </div>
             <p className="pd-cab-sub">
-              {de} · chegou {quando(p.criadoEm, agora)}
+              {de} · chegou{' '}
+              <time dateTime={p.criadoEm} title={dataHoraExtenso(p.criadoEm)}>
+                {dataHoraPedido(p.criadoEm, agora)}
+              </time>
             </p>
+            {sacola && <p className="pn-dica-bloco pd-cab-sacola">Pela sacola: um toque, sem nome nem endereço. O cliente manda o endereço e combina o pagamento na conversa do WhatsApp.</p>}
           </div>
 
           {p.substituidoPor && (
@@ -539,7 +549,7 @@ export function Pedido({ id }: { id: number }) {
                   <a className="pn-botao pn-botao-contorno" href={p.whatsapp ? linkWhats(p.whatsapp, msg) : `https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer">
                     <Ic nome="whatsapp" tamanho={16} />
                     <span className="pn-botao-txt">{p.whatsapp ? ROTULO_AVISO[p.status] : 'Abrir no WhatsApp'}</span>
-                    <span className="sr-only">{p.whatsapp ? ` (abre a conversa com ${p.nome})` : ' (tu escolhe a conversa)'}</span>
+                    <span className="sr-only">{p.whatsapp ? ` (abre a conversa com ${nomeDoPedido(p)})` : ' (tu escolhe a conversa)'}</span>
                   </a>
                   <BotaoCopiar texto={msg} variante="texto" className="pd-copiar" />
                 </div>
@@ -553,7 +563,7 @@ export function Pedido({ id }: { id: number }) {
               Quem pediu
             </h2>
             <dl className="pn-lista-det">
-              <Linha rotulo="Nome">{p.nome}</Linha>
+              <Linha rotulo="Nome">{p.nome.trim() ? p.nome : <span className="pd-sem">sem nome (o cliente diz na conversa)</span>}</Linha>
               <Linha rotulo="WhatsApp">
                 {p.whatsapp ? (
                   <a className="pd-ligado" href={`https://wa.me/${p.whatsapp}`} target="_blank" rel="noopener noreferrer">
@@ -637,10 +647,10 @@ export function Pedido({ id }: { id: number }) {
                     </a>
                   </>
                 ) : (
-                  <span className="pd-sem">{p.dadosApagados ? 'apagado' : 'a combinar no WhatsApp'}</span>
+                  <span className="pd-sem">{p.dadosApagados ? 'apagado' : sacola ? 'na conversa (o cliente manda no WhatsApp)' : 'a combinar no WhatsApp'}</span>
                 )}
               </LinhaLonga>
-              {!enc && <Linha rotulo="Pagamento">{pagamentoTexto(p)}</Linha>}
+              {!enc && <Linha rotulo="Pagamento">{sacola && !p.pagamento ? <span className="pd-sem">a combinar na conversa</span> : pagamentoTexto(p)}</Linha>}
               {p.observacao && (
                 <LinhaLonga rotulo="Observação">
                   <span className="pd-quebra">{p.observacao}</span>

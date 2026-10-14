@@ -131,6 +131,7 @@ function canalDe(v: unknown): Canal | null {
   const horarioOk = !!semana && semana.every((t) => t !== undefined)
   const t = obj(v.taxaEntrega) ? v.taxaEntrega : {}
   const taxa = numeroDe(t.valor)
+  const minimo = numeroDe(v.pedidoMinimo)
   const g = obj(v.entregaGratis) ? v.entregaGratis : null
   const diasCrus = g && Array.isArray(g.dias) ? g.dias : g && typeof g.diaSemana === 'number' ? [g.diaSemana] : []
   const dias = [...new Set(diasCrus.filter((d): d is number => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6))]
@@ -159,6 +160,8 @@ function canalDe(v: unknown): Canal | null {
     // pagamento que não fecha: as três, como exemplo ("Como vai pagar?" nunca fica sem opção)
     pagamento: opcoes.length ? { opcoes, demo: pg.demo === true } : { opcoes: ['pix', 'dinheiro', 'cartao'], demo: true },
     emblema: EMBLEMAS.has(v.emblema as Emblema) ? (v.emblema as Emblema) : 'generico',
+    // o pedido mínimo pra entrega (só vem quando o dono pôs um): de R$ 0,01 a R$ 1.000,00, como o servidor confere
+    ...(minimo != null && minimo > 0 && minimo <= 1000 ? { pedidoMinimo: Math.round(minimo * 100) / 100 } : {}),
   }
 }
 

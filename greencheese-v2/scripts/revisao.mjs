@@ -30,7 +30,8 @@
 // mostrando produtos de verdade da loja, nos três lugares da rua), em scripts/revisao-vitrine.mjs; a thumb animada (o
 // vídeo do produto: só à vista, no máximo 2, nunca antes da primeira tela, parada com movimento reduzido), em
 // scripts/revisao-thumb.mjs; a revelação do Teste minha sorte (o beck que sobe, a fumaça, o story que sai dela, pular,
-// movimento reduzido), em scripts/revisao-sorte.mjs.
+// movimento reduzido), em scripts/revisao-sorte.mjs; o pedido rápido da sacola (um toque no WhatsApp, a cópia no
+// servidor, o pedido mínimo do estado travando e destravando, o pedido guiado discreto), em scripts/revisao-sacola.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
@@ -43,6 +44,7 @@ import { rodadaLoja } from './revisao-loja.mjs'
 import { rodadaVitrine } from './revisao-vitrine.mjs'
 import { rodadaThumb } from './revisao-thumb.mjs'
 import { rodadaSorte } from './revisao-sorte.mjs'
+import { rodadaSacola } from './revisao-sacola.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -314,7 +316,7 @@ async function fluxoPedido(page, uf, cep, nomeArq) {
   await page.locator('.barra-abas [data-aba="sacola"]:visible, .lateral-item:has-text("Sacola"):visible').first().click()
   await page.waitForTimeout(700)
   await foto(page, `${nomeArq}-sacola`)
-  await page.getByRole('button', { name: 'Fazer pedido' }).click()
+  await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
   await page.waitForTimeout(700)
   // chat
   await clicar(page, 'Isso')
@@ -714,7 +716,7 @@ const browser = await chromium.launch()
   await page.waitForTimeout(700)
   await page.locator('.barra-abas [data-aba="sacola"]:visible, .lateral-item:has-text("Sacola"):visible').first().click()
   await page.waitForTimeout(700)
-  await page.getByRole('button', { name: 'Fazer pedido' }).click()
+  await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
   await page.waitForTimeout(700)
   await clicar(page, 'Isso')
   await clicar(page, 'Tá certo')
@@ -802,7 +804,7 @@ const browser = await chromium.launch()
   await page.waitForTimeout(500)
   await page.locator('.barra-abas [data-aba="sacola"]:visible').first().click()
   await page.waitForTimeout(500)
-  await page.getByRole('button', { name: 'Fazer pedido' }).click()
+  await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
   await page.waitForTimeout(600)
   const passo = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-chat') ?? 'null')?.state?.passo)
   const fala = (await page.locator('.dm-atual .dm-loja').allTextContents()).join(' ')
@@ -993,7 +995,7 @@ const browser = await chromium.launch()
     await irAba(page, 'catalogo')
     await page.locator('.barra-abas [data-aba="sacola"]').click()
     await page.waitForTimeout(700)
-    await page.getByRole('button', { name: 'Fazer pedido' }).click().catch(() => {})
+    await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click().catch(() => {})
     await page.waitForTimeout(800)
     for (let k = 0; k < 3 && (await page.locator('.folha').count()); k++) await voltar(page)
     conferir(!(await page.locator('.folha').count()) && (await abaAberta(page)) === 'catalogo', 'voltar: sacola → pedido, uma camada por vez, fica no Catálogo')
@@ -1407,7 +1409,7 @@ for (const h2 of [true, false]) {
   await page.locator('.lateral-item:has-text("Sacola")').click()
   await page.waitForTimeout(700)
   await foto(page, 'desk-05-sacola')
-  await page.getByRole('button', { name: 'Fazer pedido' }).click()
+  await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
   await page.waitForTimeout(800)
   await foto(page, 'desk-06-chat')
   await page.keyboard.press('Escape')
@@ -3114,6 +3116,8 @@ await rodadaVitrine({ browser, base, contexto, conferir, foto, vigiarSemRede })
 await rodadaThumb({ browser, base, contexto, conferir, foto })
 // ---------- a revelação do Teste minha sorte (scripts/revisao-sorte.mjs): beck, fumaça, auge, story, pular ----------
 await rodadaSorte({ browser, base, contexto, conferir, foto, vigiarSemRede })
+// ---------- o pedido rápido da sacola (scripts/revisao-sacola.mjs): um toque no WhatsApp e o pedido mínimo ----------
+await rodadaSacola({ browser, base, contexto, conferir, foto, vigiarSemRede })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

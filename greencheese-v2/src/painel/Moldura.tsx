@@ -179,8 +179,9 @@ function Barra({ rota, aoCriar }: { rota: Rota; aoCriar: () => void }) {
 export function Moldura({ rota, children }: { rota: Rota; children: ReactNode }) {
   const usuario = useUsuario()
   const [criando, setCriando] = useState(false)
-  // a bolinha dos pedidos novos (na barra e na lateral) se atualiza sozinha em qualquer tela
-  useResumoPedidos(pode('pedidos', usuario), 60_000)
+  // a bolinha dos pedidos novos (na barra e na lateral) se atualiza sozinha em qualquer tela (a cada 60 s; 15 s com o
+  // Início ou a lista de Pedidos aberta; nada com a aba escondida)
+  useResumoPedidos(pode('pedidos', usuario), usuario?.login ?? null)
   return (
     <div className="pn-app">
       <a className="pn-pular" href="#conteudo" onClick={(e) => {

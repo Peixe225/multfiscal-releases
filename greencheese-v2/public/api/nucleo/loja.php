@@ -398,7 +398,7 @@ function gc_loja_estado_publico(array $e, bool $mesmoParaTodos): array
 {
     $gratis = gc_loja_entrega_gratis($e);
     $semana = gc_loja_lido($e['horario'], []);
-    return [
+    $publico = [
         'uf' => (string) $e['uf'],
         'nome' => GC_LOJA_NOMES_UF[(string) $e['uf']] ?? strtoupper((string) $e['uf']),
         'destaque' => (string) $e['destaque'],
@@ -412,6 +412,12 @@ function gc_loja_estado_publico(array $e, bool $mesmoParaTodos): array
         'pagamento' => ['opcoes' => array_values((array) gc_loja_lido($e['pagamentos'], [])), 'demo' => (bool) $e['pagamentos_demo']],
         'emblema' => (string) $e['emblema'],
     ];
+    // o pedido mínimo pra entrega (migração 105) só vai quando o dono pôs um: o JSON de quem não tem fica igual (e o
+    // ETag também); pôr, trocar ou tirar muda os dois
+    if (($e['pedido_minimo'] ?? null) !== null) {
+        $publico['pedidoMinimo'] = gc_reais((int) $e['pedido_minimo']);
+    }
+    return $publico;
 }
 
 /** O Premio do site (src/dados/sorte.ts). */

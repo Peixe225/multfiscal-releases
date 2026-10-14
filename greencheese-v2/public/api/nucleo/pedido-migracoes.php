@@ -109,5 +109,11 @@ function gc_migracoes_pedidos(): array
         ALTER TABLE pedidos ADD COLUMN substitui_token_hash TEXT NOT NULL DEFAULT '';
         CREATE INDEX pedidos_substitui_token ON pedidos(substitui_token_hash);
         SQL,
+        // 209: de onde veio o pedido (pedido do Ian em 14/10): 'sacola' (o "Fechar pedido no WhatsApp" da sacola, um
+        // toque, sem nome nem endereço: o cliente manda na conversa) ou 'guiado' (o chat do pedido guiado; a encomenda
+        // também nasce nele). Todo pedido que já existia veio do guiado.
+        209 => <<<'SQL'
+        ALTER TABLE pedidos ADD COLUMN origem TEXT NOT NULL DEFAULT 'guiado' CHECK (origem IN ('sacola','guiado'));
+        SQL,
     ];
 }

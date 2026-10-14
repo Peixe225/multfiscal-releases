@@ -7,7 +7,7 @@ import { config } from '../dados/config'
 import { situacao } from '../lib/horario'
 import { relogioBrasilia } from '../lib/relogio'
 import { copiarTexto } from '../lib/copiar'
-import { brl, formatarCep, lerReais, REAIS_MAX, soDigitos } from '../lib/formato'
+import { brl, brlNaTela, formatarCep, lerReais, REAIS_MAX, soDigitos } from '../lib/formato'
 import {
   NOME_PAGAMENTO,
   linkDM,
@@ -22,6 +22,7 @@ import type { Pedaco } from '../dados/textos-pedido'
 import { atualizarFalas, primeiroNome, useFala } from '../lib/falas'
 import { enviarPedido, type CorpoPedido } from '../lib/pedido-envio'
 import { itensDoPedido } from '../lib/pedido-itens'
+import { situacaoMinimo, type SituacaoMinimo } from '../lib/pedido-minimo'
 import { termoProibido } from '../painel/proibidos'
 import { movimentoReduzido } from '../lib/movimento'
 import { celularNoCampo } from '../lib/telefone'
@@ -125,6 +126,7 @@ export function ChatFolha() {
   }, [aberto])
   // o cupom só entra na mensagem quando vale nesse pedido (encomenda nunca leva cupom)
   const cupomOk = modo === 'pedido' && cupom && situacaoCupom?.tipo === 'ok' ? cupom : null
+  // o pedido mínimo do estado (src/lib/pedido-minimo.ts), a mesma conta da sacola; encomenda não tem mínimo
   // sem cupom aplicado: um cupom guardado que vale nesse pedido, pra perguntar se usa
   const sugerido =
     modo === 'pedido' && !cupom ? (cupons.find((c) => c.status === 'ativo' && situacaoNoPedido(c, todas, local.uf, agora).tipo === 'ok') ?? null) : null
@@ -167,6 +169,9 @@ export function ChatFolha() {
   const canal: Canal | undefined = modo === 'encomenda' && !canalSite ? canalDa(respostas.canalEnc) : canalSite
   const cidade = canal === canalSite ? nomeCidade(canal, local.cidade, local.cidadeInformada) : null
   const lugar = canal ? `${cidade ?? canal.nome} (${canal.uf.toUpperCase()})` : ''
+  const minimo: SituacaoMinimo = modo === 'pedido' ? situacaoMinimo(canal, pedido, cupomOk?.retrato ?? null) : { tipo: 'sem' }
+  const doMinimo = (m: SituacaoMinimo) =>
+    m.tipo === 'falta' ? { falta: brlNaTela(m.falta), minimo: brlNaTela(m.minimo) } : m.tipo === 'sem' ? { falta: '', minimo: '' } : { falta: '', minimo: brlNaTela(m.minimo) }
 
   const resp = (dados: Partial<Respostas>, p: Passo, proximo: Passo) => {
     setAvisoCep(null)
@@ -233,6 +238,7 @@ export function ChatFolha() {
       codigo: codigoPedido.codigo,
       token: codigoPedido.token,
       tipo: modo,
+      origem: 'guiado' as const,
       uf: canal.uf,
       cidade: cidade ?? '',
       nome: respostas.nome.trim(),
@@ -455,17 +461,34 @@ export function ChatFolha() {
             ],
           }
         }
+        // o pedido mínimo do estado: faltando, o pedido não segue (o "Tá certo" sai até a sacola chegar nele); sem dar
+        // pra conferir (item a consultar, cupom), segue e a loja confere na conversa
+        const avisoMinimo =
+          minimo.tipo === 'falta' ? t('minimo.falta', doMinimo(minimo)) : minimo.tipo === 'conferir' ? t(minimo.motivo === 'cupom' ? 'minimo.cupom' : 'minimo.consultar', doMinimo(minimo)) : null
         return {
           perguntas: [
             t('sacola.confere'),
             <div className="dm-cartao" key="sacola">
               <ListaSacola compacta />
             </div>,
+            ...(avisoMinimo ? [avisoMinimo] : []),
           ],
-          chips: [
-            { rotulo: t('sacola.certo'), acao: () => resp({}, 'sacola', 'nome') },
-            { rotulo: t('sacola.mexer'), acao: () => setSacola(true) },
-          ],
+          chips:
+            minimo.tipo === 'falta'
+              ? [
+                  { rotulo: t('sacola.mexer'), acao: () => setSacola(true) },
+                  {
+                    rotulo: t('sacola.verMercado'),
+                    acao: () => {
+                      fechar()
+                      setTimeout(() => rolarPara('#catalogo', -70), 320)
+                    },
+                  },
+                ]
+              : [
+                  { rotulo: t('sacola.certo'), acao: () => resp({}, 'sacola', 'nome') },
+                  { rotulo: t('sacola.mexer'), acao: () => setSacola(true) },
+                ],
           resposta: t('sacola.certo'),
         }
       }
@@ -787,6 +810,8 @@ export function ChatFolha() {
             canal={canal}
             mensagem={mensagem}
             encomenda={modo === 'encomenda'}
+            minimo={minimo}
+            textoMinimo={minimo.tipo === 'falta' ? t('minimo.falta', doMinimo(minimo)) : minimo.tipo === 'conferir' ? t(minimo.motivo === 'cupom' ? 'minimo.cupom' : 'minimo.consultar', doMinimo(minimo)) : null}
             pagamento={respostas.pagamento}
             nome={primeiroNome(respostas.nome)}
             enviadoEm={enviadoEm}
@@ -798,7 +823,7 @@ export function ChatFolha() {
               const corpo = corpoDoPedido()
               if (corpo) {
                 enviarPedido(corpo)
-                marcarPedidoEnviado(mensagem)
+                marcarPedidoEnviado(mensagem, 'guiado')
               }
             }}
             naoConsegui={() => marcarEnviado(null)}
@@ -938,6 +963,8 @@ function Resumo({
   canal,
   mensagem,
   encomenda,
+  minimo,
+  textoMinimo,
   pagamento,
   nome,
   enviadoEm,
@@ -957,6 +984,10 @@ function Resumo({
   canal: Canal
   mensagem: string
   encomenda: boolean
+  /** O pedido mínimo do estado: faltando, o "Fechar pedido no WhatsApp" trava (o motivo vai pro leitor de tela também). */
+  minimo: SituacaoMinimo
+  /** A fala do mínimo (falta, ou a loja confere na conversa), ou null. */
+  textoMinimo: string | null
   /** Forma de pagamento escolhida no pedido (a resposta do "Pix em breve" muda quando não é Pix). */
   pagamento: FormaPagamento | null
   /** Primeiro nome de quem pede (marcador {nome} das falas). */
@@ -990,6 +1021,7 @@ function Resumo({
   const zap = useRef<HTMLAnchorElement>(null)
   const respostaPix = useRef<HTMLDivElement>(null)
   const aceitaPix = canal.pagamento.opcoes.includes('pix')
+  const travado = !encomenda && minimo.tipo === 'falta'
   const cupomOk = cupom?.situacao.tipo === 'ok'
   const numero = celularNoCampo(whatsappDoCanal(canal))
   // no celular o link troca de app sem nova aba; no computador ou dentro de iframe, nova aba
@@ -1061,18 +1093,39 @@ function Resumo({
           />
         </>
       )}
-      <BolhaLoja>{t('resumo.fechar', { nome })}</BolhaLoja>
+      {/* o pedido mínimo: faltando, a fala diz quanto e o WhatsApp trava; sem dar pra conferir, a loja confere na conversa */}
+      {!encomenda && textoMinimo && (
+        <div id="dm-minimo" tabIndex={-1} className="dm-minimo">
+          <BolhaLoja>{textoMinimo}</BolhaLoja>
+        </div>
+      )}
+      {!travado && <BolhaLoja>{t('resumo.fechar', { nome })}</BolhaLoja>}
       <div className="dm-acoes">
         {/* ícone dentro do texto: se a linha quebrar (fonte grande no aparelho), ele vai junto da primeira palavra.
             Celular estreito: a encomenda lê "Fechar no WhatsApp" (o "encomenda" sai do nome acessível também) */}
-        <a ref={zap} className="botao botao-cheio botao-largo dm-zap" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={tocou}>
-          <span>
-            <Icone nome="whatsapp" tamanho={20} className="dm-zap-icone" />
-            Fechar {encomenda ? <span className="dm-zap-meio">encomenda </span> : 'pedido '}no WhatsApp
-          </span>
-        </a>
+        {travado ? (
+          <button
+            type="button"
+            className="botao botao-cheio botao-largo dm-zap"
+            aria-disabled="true"
+            aria-describedby="dm-minimo"
+            onClick={() => document.getElementById('dm-minimo')?.focus()}
+          >
+            <span>
+              <Icone nome="whatsapp" tamanho={20} className="dm-zap-icone" />
+              Fechar pedido no WhatsApp
+            </span>
+          </button>
+        ) : (
+          <a ref={zap} className="botao botao-cheio botao-largo dm-zap" href={linkWhatsApp(canal, mensagem)} target={alvo} rel="noopener noreferrer" onClick={tocou}>
+            <span>
+              <Icone nome="whatsapp" tamanho={20} className="dm-zap-icone" />
+              Fechar {encomenda ? <span className="dm-zap-meio">encomenda </span> : 'pedido '}no WhatsApp
+            </span>
+          </a>
+        )}
         {/* encomenda ainda não tem preço: o Pix não se aplica */}
-        {!encomenda && aceitaPix && (
+        {!encomenda && aceitaPix && !travado && (
           <button
             type="button"
             className="botao botao-contorno botao-largo dm-pix toque"
@@ -1149,6 +1202,7 @@ function Resumo({
                   { rotulo: t('enc.mudarNome'), acao: () => editar('enc-nome') },
                 ]
               : [
+                  ...(travado ? [{ rotulo: t('sacola.mexer'), acao: mexerSacola }] : []),
                   { rotulo: t('resumo.mudarEndereco'), acao: () => editar('endereco') },
                   { rotulo: t('resumo.mudarPagamento'), acao: () => editar('pagamento') },
                   { rotulo: t('resumo.mudarObs'), acao: () => editar('obs') },

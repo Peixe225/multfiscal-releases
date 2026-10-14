@@ -160,8 +160,9 @@ confirma a participação pela mesma função do painel e o contador sobe sozinh
 
 ## Pedidos do site
 
-O pedido continua fechando no WhatsApp da loja: o cliente toca em "Fechar pedido no WhatsApp" e manda a mensagem de
-lá. Junto com o toque, o site manda uma cópia estruturada pro servidor (`POST r=pedido`), sem segurar o link (regra do
+O pedido continua fechando no WhatsApp da loja: o cliente toca em "Fechar pedido no WhatsApp" — na **sacola** (o
+caminho direto: um toque, sem nome nem endereço, `origem: 'sacola'`) ou no fim do **pedido guiado** (o chat que
+pergunta tudo, `origem: 'guiado'`) — e manda a mensagem de lá. Junto com o toque, o site manda uma cópia estruturada pro servidor (`POST r=pedido`), sem segurar o link (regra do
 Instagram: o link já está montado e nada espera resposta). O dono vê o pedido no painel (Pedidos) e, se ligar, recebe
 um aviso num grupo do WhatsApp (Avisos no WhatsApp, abaixo).
 
@@ -193,9 +194,10 @@ interface CorpoPedido {
   codigo: string                 // 'GC-7KD2X'
   token: string                  // 32 hex (o servidor guarda só o hash)
   tipo: 'pedido' | 'encomenda'
+  origem?: 'sacola' | 'guiado'   // de onde veio; sem o campo (o site de antes), 'guiado'; 'sacola' só vale com tipo 'pedido'
   uf: string
   cidade: string                 // até 60
-  nome: string                   // 2 a 60
+  nome: string                   // 2 a 60; na sacola, '' (ela não pergunta) ou o da conta: o que não fechar vira '' (não recusa)
   whatsapp: string               // só com a conta da loja aberta (a do código pelo WhatsApp); a conta só do aparelho
                                  // não manda; '' = a loja vê na conversa;
                                  // o que não fechar vira '' (nunca recusa o pedido por isso)
@@ -229,6 +231,13 @@ interface CorpoPedido {
 - 201 `{ ok, pedido: { codigo, tipo, status: 'novo', criadoEm } }` (nada pessoal volta: o aparelho já tem tudo).
 - 200 `{ ok, pedido, repetido: true }`: a mesma entrada de novo (código + token). Não grava, não avisa o grupo e não
   gasta o limite.
+- **Pedido da sacola** (`origem: 'sacola'`, pedido do Ian em 14/10): vem sem nome, sem `entrega` e sem `pagamento` (a
+  conversa resolve; a mensagem termina em `Endereço: mando aqui na conversa`). Com a sessão da conta da loja e sem
+  nome, o servidor usa o da conta. Todo o resto confere igual ao guiado: código, token, itens, subtotal, estado,
+  mensagem com o cabeçalho e a linha do código, Origin, armadilha, tabaco e o limite por IP. O painel mostra "Sem
+  nome" e o endereço "na conversa"; o aviso do grupo, `*Cliente:* Sem nome` e a linha `_Pela sacola: endereço e
+  pagamento vêm na conversa._`; a Atividade, "Pedido GC-… pela sacola do site". (O servidor não confere o preço contra o
+  catálogo, nem antes: quem confirma o valor é a loja, na conversa.)
 - **Campo informativo não derruba o pedido**: cupom, pagamento e troco tortos ficam de fora (null) e o pedido entra.
   Campo estrutural torto (`uf`, `nome`, `itens`, `subtotal`, `encomenda`) com a **mensagem certa** (começa com o
   cabeçalho e tem a linha do código): o pedido entra só com a mensagem (sem itens; o estado e o nome saem do cabeçalho e
@@ -250,7 +259,7 @@ vale). Sem servidor, vale o que o aparelho tinha (na primeira vez, as de sempre)
 
 Cada fala tem um tipo (`fala` 280 letras, `resposta` 80, `botao` 40, `dica` 60, `erro` 120) e só aceita os marcadores
 da lista dela (`{nome}` — o primeiro nome —, `{uf}`, `{estado}`, `{cidade}`, `{lugar}`, `{horario}`, `{onde}`, `{endereco}`,
-`{ufAtendimento}`, `{valor}`, `{numero}`, `{instagram}` — já com o @ —, `{cupom}`, `{motivo}`, `{premio}`). A lista
+`{ufAtendimento}`, `{valor}`, `{numero}`, `{instagram}` — já com o @ —, `{cupom}`, `{motivo}`, `{premio}`, `{falta}` e `{minimo}` — os do pedido mínimo, já em reais). A lista
 das chaves, tipos e marcadores que o servidor confere é `api/nucleo/textos-pedido.json`, gerado do arquivo do site
 (`node scripts/gerar-textos-pedido.mjs`; o `testar-api` recusa lista velha). A mensagem que vai pro WhatsApp não é fala:
 o formato dela é combinado com a loja e não muda pelo painel.
@@ -260,7 +269,8 @@ o formato dela é combinado com a loja e não muda pelo painel.
 O banco cresce por migrações numeradas com registro (tabela `migracoes`, `gc_migracoes()` em `nucleo/banco.php`;
 faixas: 1–99 base, 100–199 loja, 200–299 pedidos e contas). As desta frente moram em `nucleo/pedido-migracoes.php`
 (`gc_migracoes_pedidos()`, somada só quando o módulo existe): `200` pedidos, `201` avisos no WhatsApp (envios e
-tentativas), `202` falas trocadas do pedido guiado. Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
+tentativas), `202` falas trocadas do pedido guiado, `209` a origem do pedido (`pedidos.origem`: `'sacola'` ou `'guiado'`, padrão
+`'guiado'` — os de antes eram todos do chat; só acrescenta a coluna). Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
 
 As das contas moram em `nucleo/contas-migracoes.php` (`gc_migracoes_contas()`, somada quando o módulo existe):
 `203` equipe (colunas `ativo`, `ufs`, `trocar_senha`, `criado_por`, `desativado_em` em `usuarios`; índice dos eventos
@@ -275,7 +285,7 @@ Rotas `admin-*` com a sessão e o CSRF do Painel do dono (abaixo).
 | Rota | Corpo / parâmetros | Sucesso |
 |---|---|---|
 | GET `admin-pedidos` | `[&status=abertos\|novo\|confirmado\|saiu\|entregue\|cancelado\|todos][&uf=][&busca=][&antes=<id>][&limite=50]` | `ListaPedidos` (o mais novo primeiro) |
-| GET `admin-pedidos-resumo` | — | `{ agora, novos, emAndamento, ultimos: PedidoLinha[] (até 5 novos), avisos: SituacaoAvisos }` |
+| GET `admin-pedidos-resumo` | — | `{ agora, novos, emAndamento, ultimoId, ultimos: PedidoLinha[] (até 5 novos), avisos: SituacaoAvisos }` |
 | GET `admin-pedido` | `&id=` | `{ agora, pedido: PedidoAdmin, mesmoCodigo: PedidoLinha[], avisos: EnvioAviso[] (até 5) }` |
 | POST `admin-pedido-status` | `{ id, status }` | `{ pedido, jaEstava? }` |
 | POST `admin-pedido-salvar` | `{ id, whatsapp?, nota? }` | `{ pedido }` (campo ausente fica; `whatsapp: ''` tira) |
@@ -289,6 +299,13 @@ Rotas `admin-*` com a sessão e o CSRF do Painel do dono (abaixo).
 
 `busca` procura no código (com ou sem o `GC-`), no nome, na cidade e no WhatsApp, sem acento e sem caixa (até 40). A
 contagem por status vale pro estado escolhido (`abertos` = novo + confirmado + saiu). `antes` pagina pelo id.
+
+**Ao vivo (ETag)**: `admin-pedidos` e `admin-pedidos-resumo` mandam `ETag` (o hash da resposta sem o `agora`: muda
+quando chega pedido, quando um muda de passo ou de dados; é de quem pergunta — os estados que ele vê, o filtro, a
+busca) e respondem **304 sem corpo** ao `If-None-Match` igual (`W/"…"`, a lista `"a", "b"` e o `"…-gzip"` do
+proxy valem). O painel pergunta de novo a cada 15 s com a lista ou o Início abertos e a cada 60 s nas outras telas (a
+bolinha da barra), só com a aba à vista; quando ela volta, na hora. `ultimoId` = o id do pedido mais novo que a
+pessoa vê (0 = nenhum).
 
 **Status do pedido** (`admin-pedido-status`): `novo → confirmado → saiu → entregue`, voltar um passo (toque errado:
 `confirmado → novo`, `saiu → confirmado`, `entregue → saiu`; a data do passo desfeito sai), `cancelado` de qualquer
@@ -316,10 +333,11 @@ interface PedidoLinha {
   id: number
   codigo: string
   tipo: 'pedido' | 'encomenda'
+  origem: 'sacola' | 'guiado'    // a encomenda é sempre 'guiado'
   status: StatusPedido
   uf: string
   cidade: string
-  nome: string
+  nome: string                   // '' = pedido da sacola sem nome (o painel mostra "Sem nome")
   whatsapp: string               // '' quando o site não sabia (o dono põe pelo admin-pedido-salvar)
   resumo: string                 // '1x Jack Daniel's Old No. 7 1 L, 3x Seda OCB…' · 'Encomenda: Fanta de uva japonesa (2)'
   unidades: number
@@ -798,10 +816,11 @@ um produto cujo nome com o tamanho tem todas as palavras do nome do novo (sem ac
 "da/de/do" e o "s" do fim: "FANTA MAÇÃ CHINA LATA", "Fanta Maçã (China)" e "Jack Daniels Tennessee Apple 1L" contam
 como o mesmo; "Fanta Maçã" e "Jack Daniel's Tennessee Fire" não), no fim da grade, sem preço, à venda só no RJ; loja
 ainda não semeada: nada; mudou algo, `loja.versao` sobe e o ETag muda. Os dados moram na migração,
-`GC_LOJA_NOVOS_1110`, e o `testar-api` confere que batem com o catálogo) e, dos pedidos e das
+`GC_LOJA_NOVOS_1110`, e o `testar-api` confere que batem com o catálogo), `105` (o pedido mínimo pra entrega de cada estado:
+`loja_estados.pedido_minimo`, em centavos, `NULL` = sem mínimo; só acrescenta a coluna) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
-mudado guarda qual ele substitui), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
+mudado guarda qual ele substitui), `209` (a origem do pedido, `pedidos.origem`), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
 (a marca "Bebida alcoólica": `loja_categorias.alcool`, padrão 0; num banco que já tinha a loja, a categoria
 `destilados` da semente, se continuar bebida, fica marcada. Mexe na tabela da loja: só entra com o módulo da loja
 carregado, como a `206` com o dos pedidos).
@@ -923,6 +942,8 @@ interface EstadoLoja {
   taxaEntrega: { valor: number | null; demo: boolean }            // valor null = a confirmar
   entregaGratis: { diaSemana: number; dias: number[]; texto: string; demo: boolean } | null // diaSemana = dias[0]
   pagamento: { opcoes: ('pix' | 'dinheiro' | 'cartao')[]; demo: boolean }
+  pedidoMinimo?: number          // o pedido mínimo pra entrega, em reais (20 = R$ 20,00), de 0,01 a 1000; sem o campo = sem
+                                 // mínimo. A conta: os produtos com os combos, antes da taxa e sem o desconto do cupom (DECISOES 18)
   emblema: 'pao-de-acucar' | 'pedra-preciosa' | 'predio-sp' | 'convento-es' | 'ponte-sc' | 'generico' // generico: estado ativado no painel
 }
 
@@ -1042,7 +1063,8 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   2 a 60 letras, sem repetir (`[{ nome }]` ou `['nome']`: o slug sai do nome); `horario` 7 dias, cada um `null` ou
   `['HH:MM', 'HH:MM']` (abre ≠ fecha; fechar antes de abrir = madrugada do dia seguinte), o erro diz o `dia`; `taxa`
   `null` (a confirmar) ou de R$ 0 a R$ 100.000; `entregaGratis` `null` ou `{ dias: number[] (0–6), texto (2–40) }`;
-  `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `ativo` (o último estado no site não sai: 409
+  `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `pedidoMinimo` `null` ou vazio (sem mínimo) ou de
+  R$ 0,01 a R$ 1.000,00 (fora disso, 400 `campo: 'pedidoMinimo'`; sem o campo, fica como tava); `ativo` (o último estado no site não sai: 409
   `ultimo-estado`). Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
   junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`. Destaque, nome do perfil e cidades
   sem tabaco nem a gíria e a promessa (422, como no produto; o nome do perfil aparece no cabeçalho do site). A taxa de
@@ -1147,8 +1169,9 @@ interface ProdutoAdmin {
 }
 
 // O EstadoLoja + o que é do dono. whatsapp: o próprio do estado, mesmo com "o mesmo pra todos" ligado.
-interface EstadoAdmin extends Omit<EstadoLoja, 'entregaGratis'> {
+interface EstadoAdmin extends Omit<EstadoLoja, 'entregaGratis' | 'pedidoMinimo'> {
   ativo: boolean
+  pedidoMinimo: number | null    // em reais; null = sem mínimo
   entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
   ordem: number
   atualizadoEm: string
@@ -1171,7 +1194,8 @@ raridade aos exemplos de fábrica), `premio-criado`, `premio-editado`, `premio-a
 `premio-apagado` e `loja-exemplos-apagados`. Cada um com a frase pronta em `texto` (o `loja-ajustes` só da rua diz o
 que ela faz: "Ligou a rua do mercador no celular" ou "Desligou…", nas duas homes; o `sorte-regras` diz o que mudou:
 "Desligou o Teste minha sorte no site", "Mudou a frequência do Teste minha sorte: 1 giro por semana com conta", "Mudou
-as chances das raridades: Comum 62,5%, Raro 25%, Épico 10%, Lendário 2,5%"; o `premio-editado` só da raridade, "Mudou o
+as chances das raridades: Comum 62,5%, Raro 25%, Épico 10%, Lendário 2,5%"; o `estado-editado` só do mínimo diz "Pôs o pedido mínimo pra entrega de MG em R$ 20,00" ou "Tirou o pedido mínimo
+pra entrega de MG" e, com outras mudanças, "Editou o atendimento de MG (pedido mínimo: R$ 20,00)"; o `premio-editado` só da raridade, "Mudou o
 prêmio "25% na bandeja" pra Épico"; o `premio-criado` leva a raridade quando não é Comum).
 
 **Sem os segredos dos avisos**: o token e o Client-Token do Z-API, a apikey da Evolution e o segredo e o endereço do

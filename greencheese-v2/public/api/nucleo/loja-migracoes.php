@@ -4,8 +4,9 @@ defined('GC_API') || exit;
 
 // Migrações da loja, na faixa 100–199 do registro de banco.php: as tabelas (100), a semente nos bancos que já
 // estavam instalados antes da loja ir pro servidor (101), o vídeo do produto com a capa (102), a raridade dos prêmios do Teste
-// minha sorte (103) e o material que a loja mandou em 11/10 (104: fotos, a thumb animada de fábrica e 2 produtos novos). Banco novo é semeado na instalação do
-// painel (já com tudo isso, pela semente).
+// minha sorte (103), o material que a loja mandou em 11/10 (104: fotos, a thumb animada de fábrica e 2 produtos novos) e o
+// pedido mínimo pra entrega de cada estado (105). Banco novo é semeado na instalação do painel (já com tudo isso, pela
+// semente).
 // Dinheiro em centavos; listas e objetos pequenos (combos, cidades, horário…) em JSON; hora em unix UTC.
 
 /** @return array<int, string|callable(PDO): void> */
@@ -127,7 +128,28 @@ function gc_migracoes_loja(): array
         104 => static function (PDO $db): void {
             gc_loja_material_1110($db);
         },
+        // o pedido mínimo pra entrega de cada estado (pedido do cliente em 14/10: "mínimo 20 reais pra entrega"), em
+        // centavos; NULL = sem mínimo (o de todo estado que já existia: nada muda até o dono pôr um no painel).
+        105 => <<<'SQL'
+        ALTER TABLE loja_estados ADD COLUMN pedido_minimo INTEGER CHECK (pedido_minimo IS NULL OR pedido_minimo > 0);
+        SQL,
     ];
+}
+
+/** Teto do pedido mínimo pra entrega (centavos): R$ 1.000,00 (passou disso é engano de digitação). */
+const GC_LOJA_MINIMO_MAX = 100000;
+
+/** A coluna do pedido mínimo (migração 105) já existe? (publicação no meio: o módulo novo antes da migração rodar) */
+function gc_loja_tem_minimo(): bool
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = false;
+        foreach (gc_todos('PRAGMA table_info(loja_estados)') as $c) {
+            $tem = $tem || $c['name'] === 'pedido_minimo';
+        }
+    }
+    return $tem;
 }
 
 /** Os produtos novos da migração 104 (os mesmos do src/dados/catalogo.json; o testar-api confere que batem). */
