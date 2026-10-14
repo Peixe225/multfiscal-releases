@@ -18,7 +18,7 @@ const MAX_CARREIRA_GZ = 128 * 1024;          // já comprimida (uma real fica ab
 const COTA_CONTA_BYTES = 20 * 1024 * 1024;   // soma de `tamanho` (JSON) das carreiras de uma conta
 const SALVAR_KB_CONTA = 2048;                // KB comprimidos por conta a cada 10 min
 const SALVAR_KB_IP = 4096;                   // KB comprimidos por IP a cada 10 min
-const CAMPOS_C = 'carreira_id, modo, jogador, numero, pais, posicao, nota, pico_ovr, temporadas, gols, titulos,
+const CAMPOS_C = 'carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas, gols, titulos,
     bolas_ouro, headline, como, salva_em, terminou_em';
 
 /** Linha do banco → C (item da lista). */
@@ -32,6 +32,7 @@ function carreiraC(array $l): array
         'pais' => (string) $l['pais'],
         'posicao' => (string) $l['posicao'],
         'nota' => (int) $l['nota'],
+        'notaV' => $l['nota_v'] === null ? null : (int) $l['nota_v'],
         'picoOvr' => (int) $l['pico_ovr'],
         'temporadas' => (int) $l['temporadas'],
         'gols' => (int) $l['gols'],
@@ -102,6 +103,8 @@ function extrairCampos(stdClass $h): array
         'pais' => texto(campo($id, 'nationality'), 8) ?? '',
         'posicao' => texto(campo($id, 'position'), 8) ?? '',
         'nota' => inteiro($nota, -999, 999),
+        // versão dos pesos da Nota de Legado (LEGACY_VERSION do jogo); sem `v` = gravada antes da v2
+        'nota_v' => is_int(campo($legacy, 'v')) ? inteiro($legacy->v, 0, 999) : null,
         'pico_ovr' => inteiro(campo($s, 'peakOvr'), 0, 999),
         'temporadas' => inteiro(campo($s, 'seasons'), 0, 999),
         'gols' => inteiro(campo($totals, 'goals'), 0, 1000000),
@@ -187,16 +190,16 @@ if ($acao === 'salvar') {
         if ($usado + strlen($json) > COTA_CONTA_BYTES) {
             erro(409, 'cheio', 'Sua conta está cheia. Apague alguma carreira para salvar esta.');
         }
-        sql('INSERT INTO carreiras (usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, pico_ovr, temporadas,
+        sql('INSERT INTO carreiras (usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas,
                 gols, titulos, bolas_ouro, headline, como, dados, tamanho, terminou_em, salva_em)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE modo = VALUES(modo), jogador = VALUES(jogador), numero = VALUES(numero),
-                pais = VALUES(pais), posicao = VALUES(posicao), nota = VALUES(nota), pico_ovr = VALUES(pico_ovr),
+                pais = VALUES(pais), posicao = VALUES(posicao), nota = VALUES(nota), nota_v = VALUES(nota_v), pico_ovr = VALUES(pico_ovr),
                 temporadas = VALUES(temporadas), gols = VALUES(gols), titulos = VALUES(titulos),
                 bolas_ouro = VALUES(bolas_ouro), headline = VALUES(headline),
                 como = IF(como = \'manual\', \'manual\', VALUES(como)),
                 dados = VALUES(dados), tamanho = VALUES(tamanho), terminou_em = VALUES(terminou_em), salva_em = VALUES(salva_em)',
-            [$uid, $id, $f['modo'], $f['jogador'], $f['numero'], $f['pais'], $f['posicao'], $f['nota'], $f['pico_ovr'],
+            [$uid, $id, $f['modo'], $f['jogador'], $f['numero'], $f['pais'], $f['posicao'], $f['nota'], $f['nota_v'], $f['pico_ovr'],
                 $f['temporadas'], $f['gols'], $f['titulos'], $f['bolas_ouro'], $f['headline'], $como, $gz, strlen($json),
                 $f['terminou_em'], $agora]);
         return umaLinha('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);

@@ -11,7 +11,8 @@
  */
 import { create } from 'zustand'
 import { navigate, useApp } from '@/store/app'
-import { useCareer, withRunNumbers, type HallEntry } from '@/store/career'
+import { refreshLegacy, useCareer, withRunNumbers, type HallEntry } from '@/store/career'
+import { LEGACY_VERSION } from '@/engine/legacy/score'
 import { kv, KV_KEYS } from '@/store/persist'
 import { api, ErroApi } from './api'
 import { armazem, type Armazem } from './medicao'
@@ -25,6 +26,8 @@ export interface CarreiraConta {
   pais: string
   posicao: string
   nota: number | null
+  /** Versão dos pesos com que a nota foi gravada (LEGACY_VERSION); null = antes da v2. */
+  notaV: number | null
   picoOvr: number
   temporadas: number
   gols: number
@@ -138,6 +141,7 @@ export function resumoLocal(h: HallEntry): CarreiraConta {
     pais: h.identity?.nationality ?? '',
     posicao: h.career?.seasons?.at(-1)?.position ?? h.identity?.position ?? '',
     nota: typeof h.legacy?.score === 'number' ? h.legacy.score : typeof s?.legacyScore === 'number' ? Math.round(s.legacyScore) : null,
+    notaV: typeof h.legacy?.v === 'number' ? h.legacy.v : null,
     picoOvr: picoDe(h),
     temporadas: s?.seasons ?? 0,
     gols: s?.totals?.goals ?? 0,
@@ -162,6 +166,7 @@ export function normalizarCarreira(x: unknown): CarreiraConta | null {
     pais: typeof c.pais === 'string' ? c.pais : '',
     posicao: typeof c.posicao === 'string' ? c.posicao : '',
     nota: typeof c.nota === 'number' ? c.nota : null,
+    notaV: typeof c.notaV === 'number' ? c.notaV : null,
     picoOvr: num(c.picoOvr),
     temporadas: num(c.temporadas),
     gols: num(c.gols),
@@ -245,6 +250,7 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
       const r = await api<{ carreiras?: unknown[]; limite?: number }>('carreiras.php')
       const lista = (r.carreiras ?? []).map(normalizarCarreira).filter((c): c is CarreiraConta => !!c)
       set({ lista, limite: typeof r.limite === 'number' ? r.limite : LIMITE_PADRAO, carregando: false })
+      void atualizarNotasVelhas(lista)
       return lista
     } catch (err) {
       tratar401(err)
@@ -253,7 +259,9 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
     }
   },
 
-  async salvar(h, como) {
+  async salvar(original, como) {
+    // a nota vai sempre na versão atual dos pesos (a mesma que o Hall mostra)
+    const [h] = await refreshLegacy([original])
     if (get().salvando[h.id]) throw new ErroApi('ocupado', 0, 'Essa carreira já está sendo salva.')
     set({ salvando: { ...get().salvando, [h.id]: true } })
     try {
@@ -310,6 +318,30 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
     set({ lista: null, erro: null, salvando: {} })
   },
 }))
+
+/**
+ * Carreiras da conta gravadas com outra versão dos pesos da Nota de Legado: abre, recalcula e salva de novo
+ * (mesmo `como`), uma de cada vez e no máximo 20 por abertura, para a nota da lista bater com a do Hall.
+ */
+let atualizando = false
+export async function atualizarNotasVelhas(lista: readonly CarreiraConta[]) {
+  if (atualizando) return
+  const velhas = lista.filter((c) => c.notaV !== LEGACY_VERSION).slice(0, 20)
+  if (!velhas.length) return
+  atualizando = true
+  try {
+    for (const c of velhas) {
+      try {
+        const h = await useCarreiras.getState().abrir(c.id)
+        await useCarreiras.getState().salvar(h, c.como === 'manual' ? 'manual' : 'auto')
+      } catch {
+        // sem rede ou carreira incompleta: tenta de novo na próxima vez que a lista abrir
+      }
+    }
+  } finally {
+    atualizando = false
+  }
+}
 
 export const idsNaConta = (lista: readonly CarreiraConta[] | null): Set<string> => new Set((lista ?? []).map((c) => c.id))
 export const apagadasNoAparelho = () => lerIds(ls, CHAVE_APAGADAS)

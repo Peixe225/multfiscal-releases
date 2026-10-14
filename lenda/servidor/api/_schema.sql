@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS carreiras (
   pais         VARCHAR(8)        NOT NULL DEFAULT '',
   posicao      VARCHAR(8)        NOT NULL DEFAULT '',
   nota         SMALLINT          NOT NULL DEFAULT 0,
+  nota_v       SMALLINT          NULL DEFAULT NULL,
   pico_ovr     SMALLINT          NOT NULL DEFAULT 0,
   temporadas   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   gols         INT UNSIGNED      NOT NULL DEFAULT 0,

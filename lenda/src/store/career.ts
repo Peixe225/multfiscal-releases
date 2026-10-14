@@ -14,6 +14,8 @@
 import { create } from 'zustand'
 import type { CareerEngine, RevealScript } from '@/engine/api'
 import type { CareerState, CareerSummary, GameData, GameMode, Pace, PlayerIdentity } from '@/engine/types'
+// só a constante (score.ts é leve); o motor de legado inteiro vem por import dinâmico
+import { LEGACY_VERSION } from '@/engine/legacy/score'
 import { kv, KV_KEYS } from './persist'
 import { useData } from './data'
 import { resolveCareerEngine, type EngineKind } from './engine'
@@ -32,11 +34,68 @@ export interface HallEntry {
   /** Número sequencial da run no Hall das Lendas (1 = a primeira carreira encerrada). Nunca é reaproveitado. */
   runNo?: number
   /**
-   * Nota de Legado congelada no dia da aposentadoria (src/engine/legacy). A nota é função só da
-   * própria run, então o Hall recalcula o mesmo número; este registro serve para ordenar o corte
-   * do Hall e como referência caso os pesos mudem.
+   * Nota de Legado gravada (src/engine/legacy). A nota é função só da própria run, então o Hall
+   * recalcula o mesmo número; este registro ordena o corte do Hall e é a `nota` que sobe para a conta
+   * (carreiras.php). `v` = versão dos pesos (LEGACY_VERSION): gravada com outra versão (ou sem `v`,
+   * antes da v2), é recalculada ao ler o Hall (refreshLegacy), para o corte e a conta usarem a mesma
+   * nota que o Hall mostra.
    */
-  legacy?: { score: number; raw: number; at: string }
+  legacy?: { score: number; raw: number; at: string; v?: number }
+}
+
+type LegacyRecord = NonNullable<HallEntry['legacy']>
+type EvaluateRun = typeof import('@/engine/legacy').evaluateRun
+type LegacyInput = Pick<import('@/engine/legacy').RunInput, 'id' | 'identity' | 'seasons' | 'national' | 'summary'>
+
+/** A nota gravada usa os pesos atuais? */
+export const legacyIsCurrent = (h: Pick<HallEntry, 'legacy'>) => h.legacy?.v === LEGACY_VERSION
+
+const legacyWith = (evaluateRun: EvaluateRun, r: LegacyInput, at: string): LegacyRecord => {
+  const run = evaluateRun({ id: r.id, identity: r.identity, seasons: r.seasons ?? [], national: r.national, summary: r.summary }, { finished: true })
+  return { v: LEGACY_VERSION, score: run.score, raw: Math.round(run.raw * 100) / 100, at }
+}
+
+/** Nota de Legado de uma carreira encerrada com os pesos atuais (o motor vem por import dinâmico). */
+export async function computeLegacy(r: LegacyInput): Promise<LegacyRecord> {
+  const { evaluateRun } = await import('@/engine/legacy')
+  return legacyWith(evaluateRun, r, new Date().toISOString())
+}
+
+/**
+ * Recalcula `legacy` das entradas gravadas com outra versão dos pesos. Devolve a MESMA lista quando
+ * nada muda (e quando o motor não carrega); uma entrada que não dá para avaliar fica como estava.
+ */
+export async function refreshLegacy(list: HallEntry[]): Promise<HallEntry[]> {
+  if (list.every(legacyIsCurrent)) return list
+  let evaluateRun: EvaluateRun
+  try {
+    ;({ evaluateRun } = await import('@/engine/legacy'))
+  } catch (err) {
+    console.warn('[LENDA] nota de legado: motor indisponível', err)
+    return list
+  }
+  const at = new Date().toISOString()
+  let changed = false
+  const out = list.map((h) => {
+    if (legacyIsCurrent(h)) return h
+    try {
+      const legacy = legacyWith(evaluateRun, { id: h.id, identity: h.identity, seasons: h.career?.seasons ?? [], national: h.career?.national, summary: h.summary }, at)
+      changed = true
+      return { ...h, legacy }
+    } catch {
+      return h
+    }
+  })
+  return changed ? out : list
+}
+
+/** Nota usada no corte do Hall (a gravada; sem ela, a do resumo). */
+const cutScore = (h: HallEntry) => h.legacy?.raw ?? h.summary?.legacyScore ?? 0
+
+/** Corte do Hall: as de menor Nota de Legado saem primeiro (recalcula antes as notas de outra versão). */
+export async function capHall(list: HallEntry[], cap = HALL_CAP): Promise<HallEntry[]> {
+  const fresh = await refreshLegacy(list)
+  return fresh.slice().sort((a, b) => cutScore(b) - cutScore(a)).slice(0, cap)
 }
 
 /** Hall das Lendas: garante `runNo` em todas as entradas (as antigas ganham número pela data de término). */
@@ -49,7 +108,7 @@ export function withRunNumbers(list: HallEntry[]): HallEntry[] {
 }
 
 /** Máximo de carreiras guardadas no Hall (as de menor legado saem primeiro). */
-const HALL_CAP = 100
+export const HALL_CAP = 100
 
 export interface AchievementUnlock {
   id: string
@@ -148,6 +207,21 @@ export function mergeHall(stored: HallEntry[], memory: HallEntry[]): HallEntry[]
   return withRunNumbers([...byId.values()])
 }
 
+/**
+ * Recalcula as notas do Hall gravadas com outra versão dos pesos e grava o Hall (ler-mesclar-gravar,
+ * como addToHall). Na memória, troca só o `legacy` de cada entrada (o resto pode ter mudado no meio).
+ */
+async function refreshStoredLegacy(get: () => CareerStore, set: (p: Partial<CareerStore>) => void) {
+  if (get().isFixture || get().finishedCareers.every(legacyIsCurrent)) return
+  const fresh = await refreshLegacy(get().finishedCareers)
+  const byId = new Map(fresh.filter(legacyIsCurrent).map((h) => [h.id, h.legacy]))
+  if (!byId.size || get().isFixture) return
+  set({ finishedCareers: get().finishedCareers.map((h) => (!legacyIsCurrent(h) && byId.has(h.id) ? { ...h, legacy: byId.get(h.id) } : h)) })
+  const stored = await refreshLegacy(await readHall())
+  if (get().isFixture) return
+  await kv.set(KV_KEYS.hall, mergeHall(stored, get().finishedCareers))
+}
+
 async function ensureEngine(get: () => CareerStore, set: (p: Partial<CareerStore>) => void) {
   const s = get()
   const data = s.data ?? (await useData.getState().load())
@@ -179,9 +253,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
     let legacy: HallEntry['legacy']
     try {
       // import dinâmico: o motor de legado (e as 50 lendas) fica fora do bundle inicial
-      const { evaluateRun } = await import('@/engine/legacy')
-      const run = evaluateRun({ id: state.id, identity: state.identity, seasons: state.seasons, national: state.national }, { finished: true })
-      legacy = { score: run.score, raw: Math.round(run.raw * 100) / 100, at: new Date().toISOString() }
+      legacy = await computeLegacy({ id: state.id, identity: state.identity, seasons: state.seasons, national: state.national })
     } catch (err) {
       console.warn('[LENDA] nota de legado falhou', err)
     }
@@ -200,11 +272,10 @@ export const useCareer = create<CareerStore>()((set, get) => {
       engine: kind,
       legacy,
     }
-    // corte do Hall: saem as de menor Nota de Legado (a nota de uma run não depende das outras)
-    const nota = (h: HallEntry) => h.legacy?.raw ?? h.summary.legacyScore
-    const capped = (l: HallEntry[]) => l.sort((a, b) => nota(b) - nota(a)).slice(0, HALL_CAP)
+    // corte do Hall: saem as de menor Nota de Legado (a nota de uma run não depende das outras; as
+    // gravadas com pesos antigos são recalculadas antes de comparar)
     if (get().isFixture) {
-      set({ finishedCareers: capped([entry, ...get().finishedCareers]) })
+      set({ finishedCareers: await capHall([entry, ...get().finishedCareers]) })
       return
     }
     // ler-mesclar-gravar: outra janela (ex.: a da live) pode ter gravado runs que esta memória não tem
@@ -215,7 +286,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
       return
     }
     entry.runNo = Math.max(merged.length, ...merged.map((h) => h.runNo ?? 0)) + 1
-    const list = capped([entry, ...merged])
+    const list = await capHall([entry, ...merged])
     set({ finishedCareers: list, lastFinished: entry })
     await kv.set(KV_KEYS.hall, list)
   }
@@ -260,6 +331,8 @@ export const useCareer = create<CareerStore>()((set, get) => {
       set({ status: 'ready' })
       // warm the engine in the background
       void ensureEngine(get, set).catch(() => {})
+      // notas gravadas com outros pesos: recalcula em segundo plano e grava (o Hall já mostra a nota nova)
+      void refreshStoredLegacy(get, set).catch(() => {})
     },
 
     async reload() {
@@ -271,7 +344,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
           kv.get<{ unlocked: Record<string, AchievementUnlock>; unseen: string[] }>(KV_KEYS.achievements),
         ])
         const s = get()
-        const patch: Partial<CareerStore> = { finishedCareers: mergeHall(hall, s.finishedCareers) }
+        const patch: Partial<CareerStore> = { finishedCareers: await refreshLegacy(mergeHall(hall, s.finishedCareers)) }
         if (ach?.unlocked) {
           patch.achievements = { ...s.achievements, ...ach.unlocked }
           patch.unseenAchievements = [...new Set([...s.unseenAchievements, ...(ach.unseen ?? [])])]

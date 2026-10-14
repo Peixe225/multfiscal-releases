@@ -327,13 +327,13 @@ function cEsperado(stdClass $h, string $como): array
     return [
         'id' => $h->id, 'modo' => $h->mode === 'immersive' ? 'imersivo' : 'classico', 'jogador' => $h->identity->surname,
         'numero' => $h->identity->number, 'pais' => $h->identity->nationality, 'posicao' => $h->identity->position,
-        'nota' => (int) $h->legacy->score, 'picoOvr' => $h->summary->peakOvr, 'temporadas' => $h->summary->seasons,
+        'nota' => (int) $h->legacy->score, 'notaV' => isset($h->legacy->v) && is_int($h->legacy->v) ? $h->legacy->v : null, 'picoOvr' => $h->summary->peakOvr, 'temporadas' => $h->summary->seasons,
         'gols' => $h->summary->totals->goals, 'titulos' => $tit, 'bolasOuro' => $bo, 'headline' => $h->summary->headline,
         'como' => $como, 'terminouEm' => gmdate('Y-m-d\TH:i:s\Z', strtotime($h->finishedAt)),
     ];
 }
 
-const CAMPOS_C = ['bolasOuro', 'como', 'gols', 'headline', 'id', 'jogador', 'modo', 'nota', 'numero', 'pais', 'picoOvr',
+const CAMPOS_C = ['bolasOuro', 'como', 'gols', 'headline', 'id', 'jogador', 'modo', 'nota', 'notaV', 'numero', 'pais', 'picoOvr',
     'posicao', 'salvaEm', 'temporadas', 'terminouEm', 'titulos'];
 
 function conferirC(string $nome, mixed $c, array $esperado): void
@@ -1041,6 +1041,15 @@ $r = $navA->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' 
 checar('auto + auto fica auto', ($r->json['carreira']['como'] ?? '') === 'auto');
 $r = $navA->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $A2]);
 checar('sem "como" conta como manual', ($r->json['carreira']['como'] ?? '') === 'manual');
+q("UPDATE carreiras SET como = 'auto' WHERE carreira_id = ?", [$A2->id]);
+// versão dos pesos da nota (legacy.v): sem v → null; com v → guarda e devolve
+$A2v = json_decode(json_encode($A2));
+$A2v->legacy->v = 2;
+$r = $navA->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $A2v, 'como' => 'manual']);
+checar('nota com versão: notaV = legacy.v', ($r->json['carreira']['notaV'] ?? null) === 2 && (int) v('SELECT nota_v FROM carreiras WHERE carreira_id = ?', [$A2->id]) === 2, $r->resumo());
+$A2v->legacy->v = 'x';
+$r = $navA->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $A2v, 'como' => 'manual']);
+checar('legacy.v que não é inteiro → notaV null', array_key_exists('notaV', $r->json['carreira'] ?? []) && $r->json['carreira']['notaV'] === null, $r->resumo());
 q("UPDATE carreiras SET como = 'auto' WHERE carreira_id = ?", [$A2->id]);
 checar('salvar de novo atualiza (não duplica)', (int) v('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ?', [$uid]) === 3);
 // validação

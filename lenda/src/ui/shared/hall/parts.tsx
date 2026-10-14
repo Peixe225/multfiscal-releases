@@ -1,14 +1,14 @@
 /** Hall das Lendas — peças visuais compartilhadas (anel da nota, avatares, glifos de categoria). */
 import { memo, useId, type CSSProperties } from 'react'
-import { Goal, HandHelping, Medal, Shirt, Target, Zap, type LucideProps } from 'lucide-react'
+import { Award, Goal, HandHelping, Medal, Scale, Shirt, Target, Trophy, Zap, type LucideProps } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { CATEGORIES, formatCategoryValue, type CategoryId, type LegendLegacy, type RankEntry, type RunLegacy } from '@/engine/legacy'
+import { CATEGORIES, formatCategoryValue, type CategoryId, type LegendLegacy, type RankEntry, type RankRow, type RunLegacy } from '@/engine/legacy'
 import { useCareer } from '@/store/career'
 import { useClub } from '@/store/data'
 import { Crest, Flag, OvrBadge, cx } from '@/ui/primitives'
 import { TrophyArt } from '@/ui/trophies'
 
-const ICONS: Partial<Record<CategoryId, ComponentType<LucideProps>>> = { clubs: Shirt, goals: Goal, assists: HandHelping, records: Zap, goalsPerGame: Target, leagueTitles: Medal }
+const ICONS: Partial<Record<CategoryId, ComponentType<LucideProps>>> = { clubs: Shirt, goals: Goal, assists: HandHelping, records: Zap, goalsPerGame: Target, leagueTitles: Medal, titles: Trophy, awards: Award }
 
 /** Troféu (quando a categoria tem arte) ou ícone num ladrilho. */
 export const CategoryGlyph = memo(function CategoryGlyph({ id, size = 28, photo }: { id: CategoryId; size?: number; photo?: boolean }) {
@@ -141,6 +141,32 @@ export function RunCrests({ run, max = 5, size = 18, exclude }: { run: RunLegacy
         <LegendCrest key={id} id={id} size={size} />
       ))}
       {ids.length > max && <span className="hl-crests__more">+{ids.length - max}</span>}
+    </span>
+  )
+}
+
+/**
+ * Por que a linha ficou à frente da de baixo com o mesmo valor: "Desempate com Ronaldo Fenômeno: nota
+ * bruta 53,23 × 53,03". `compact` = só "desempate: nota bruta 53,23 × 53,03" (listas estreitas).
+ */
+export function TieNote({ row, compact, behind, className }: { row: RankRow; compact?: boolean; behind?: boolean; className?: string }) {
+  const t = behind ? row.behind : row.tieBreak
+  if (!t) return null
+  const text = `${t.label} ${t.mine} × ${t.theirs}`
+  return (
+    <span className={cx('hl-tie', behind && 'is-behind', className)} title={`Mesmo valor que ${t.against}; desempate por ${t.label} (${t.mine} × ${t.theirs})`}>
+      <Scale size={11} aria-hidden />
+      {compact ? (
+        <span>desempate: {text}</span>
+      ) : behind ? (
+        <span>
+          Mesma nota de {t.against}, que fica à frente: {text}
+        </span>
+      ) : (
+        <span>
+          Desempate com {t.against}: {text}
+        </span>
+      )}
     </span>
   )
 }

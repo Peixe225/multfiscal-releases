@@ -26,7 +26,7 @@ import type { GameData, PlayerIdentity } from '@/engine/types'
 import { kv, KV_KEYS } from './persist'
 import { useData } from './data'
 import { engineFlag } from './engine'
-import { useCareer, withRunNumbers, type HallEntry } from './career'
+import { capHall, computeLegacy, useCareer, withRunNumbers, type HallEntry } from './career'
 
 export type ImmersiveEngineKind = 'real' | 'mock' | 'custom'
 
@@ -255,9 +255,7 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
       const summary = engine.summarize(data, state)
       let legacy: HallEntry['legacy']
       try {
-        const { evaluateRun } = await import('@/engine/legacy')
-        const run = evaluateRun({ id: state.id, identity: state.identity, seasons: state.seasons, national: state.national }, { finished: true })
-        legacy = { score: run.score, raw: Math.round(run.raw * 100) / 100, at: new Date().toISOString() }
+        legacy = await computeLegacy({ id: state.id, identity: state.identity, seasons: state.seasons, national: state.national })
       } catch (err) {
         console.warn('[LENDA] nota de legado (imersivo) falhou', err)
       }
@@ -294,8 +292,8 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
         engine: kind === 'real' ? 'real' : 'mock',
         legacy,
       }
-      const nota = (h: HallEntry) => h.legacy?.raw ?? h.summary.legacyScore
-      const list = withRunNumbers([entry, ...hall].sort((a, b) => nota(b) - nota(a)).slice(0, 100))
+      // corte do Hall: o mesmo de career.ts (recalcula antes as notas gravadas com pesos antigos)
+      const list = withRunNumbers(await capHall([entry, ...hall]))
       useCareer.setState({ finishedCareers: list, lastFinished: entry })
       await kv.set(KV_KEYS.hall, list)
     } catch (err) {

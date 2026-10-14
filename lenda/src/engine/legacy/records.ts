@@ -10,7 +10,7 @@
  * detém o recorde mundial hoje (HISTORIC_RECORDS.holderIds / máximo do Hall) ou deteve na época
  * (`Legend.pastRecords`). Os textos livres de `Legend.records` são só para exibição.
  */
-import { HISTORIC_RECORDS, REAL_LEGENDS, type Legend, type LegendRecordMetric } from '../../data/catalog/legends'
+import { HISTORIC_RECORDS, REAL_LEGENDS, legendTotalTitles, type Legend, type LegendRecordMetric } from '../../data/catalog/legends'
 import type { RunStats } from './stats'
 
 /** Métricas de recorde (definidas junto das lendas, que usam as mesmas). */
@@ -66,7 +66,12 @@ export const RECORD_METRICS: Record<RecordMetric, MetricDef> = {
   clubGoals: { label: 'Gols por um só clube', get: (s) => s.bestClubGoals?.goals ?? 0, fmt: (v) => `${pl(v, 'gol', 'gols')} por um só clube` },
   nationalGoals: { label: 'Gols pela seleção', get: (s) => s.nationalGoals, fmt: (v) => `${pl(v, 'gol', 'gols')} pela seleção` },
   youngestBallonDor: { label: 'Bola de Ouro mais jovem', get: (s) => s.youngestBallonDorAge, fmt: (v) => `Bola de Ouro aos ${int(v)} anos`, lowerIsBetter: true },
+  puskas: { label: 'Prêmios Puskás', get: (s) => s.values.puskas, fmt: (v) => pl(v, 'Prêmio Puskás', 'Prêmios Puskás') },
+  wcGoldenBalls: { label: 'Bolas de Ouro da Copa', get: (s) => s.awardCounts?.wc_golden_ball ?? 0, fmt: (v) => pl(v, 'Bola de Ouro da Copa', 'Bolas de Ouro da Copa') },
 }
+
+/** Marcas de quem ainda joga que acompanham o número da ficha (o maior entre o fixo e o da lenda). */
+const LIVE_METRIC: Partial<Record<RecordMetric, (l: Legend) => number>> = { goals: (l) => l.goals, assists: (l) => l.assists, titles: legendTotalTitles }
 
 interface HistoricRef {
   metric: RecordMetric
@@ -83,7 +88,12 @@ let refCache: { src: Legend[]; refs: HistoricRef[] } | null = null
 /** Referências históricas: lista explícita + máximos do conjunto de lendas (títulos nacionais, jogos, média). */
 export function historicRefs(legends: Legend[] = REAL_LEGENDS): HistoricRef[] {
   if (refCache && refCache.src === legends) return refCache.refs
-  const refs: HistoricRef[] = HISTORIC_RECORDS.map((r) => ({ ...r }))
+  const byId = new Map(legends.map((l) => [l.id, l]))
+  const refs: HistoricRef[] = HISTORIC_RECORDS.map((r) => {
+    const live = LIVE_METRIC[r.metric]
+    const holders = (r.holderIds ?? []).map((id) => byId.get(id)).filter((l): l is Legend => !!l)
+    return live && holders.length ? { ...r, value: Math.max(r.value, ...holders.map(live)) } : { ...r }
+  })
   const top = (get: (l: Legend) => number, filter: (l: Legend) => boolean = () => true) => {
     const pool = legends.filter(filter)
     const max = Math.max(0, ...pool.map(get))
@@ -131,7 +141,7 @@ export function historicRecords(stats: RunStats, opts: { legends?: Legend[]; fin
 }
 
 /** Métricas comparadas com as runs anteriores. */
-const PERSONAL: RecordMetric[] = ['goals', 'assists', 'apps', 'ballonDor', 'worldCups', 'goldenBoots', 'ucl', 'libertadores', 'leagueTitles', 'titles', 'seasonGoals', 'seasonAssists', 'clubGoals', 'nationalGoals', 'goalsPerGame']
+const PERSONAL: RecordMetric[] = ['goals', 'assists', 'apps', 'ballonDor', 'worldCups', 'goldenBoots', 'ucl', 'libertadores', 'leagueTitles', 'titles', 'puskas', 'seasonGoals', 'seasonAssists', 'clubGoals', 'nationalGoals', 'goalsPerGame']
 
 /** Recordes pessoais: supera o melhor valor de TODAS as runs anteriores (precisa existir ao menos uma). */
 export function personalRecords(stats: RunStats, previous: { stats: RunStats; runNo?: number }[]): LegacyRecord[] {

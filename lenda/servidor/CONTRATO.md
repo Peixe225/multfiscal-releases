@@ -102,10 +102,17 @@ Cada carreira salva é um `HallEntry` inteiro do jogo (o mesmo objeto do Hall da
 
 - `GET` → `200 {"carreiras": [C…], "limite": 200}`, mais recentes primeiro. `C = {"id": "<HallEntry.id>",
   "modo": "classico"|"imersivo", "jogador": "BATISTA", "numero": 10, "pais": "BRA", "posicao": "MEI",
-  "nota": 51, "picoOvr": 87, "temporadas": 21, "gols": 132, "titulos": 30, "bolasOuro": 0, "headline": "Lenda do
+  "nota": 51, "notaV": 2, "picoOvr": 87, "temporadas": 21, "gols": 132, "titulos": 30, "bolasOuro": 0, "headline": "Lenda do
   Flamengo", "como": "auto"|"manual", "salvaEm": "…", "terminouEm": "…"}` (os campos da lista saem do
   próprio HallEntry: `identity`, `summary.peakOvr`, `summary.seasons`, `summary.totals`, `summary.trophies`,
   `summary.awards`, `legacy.score`, `summary.headline`, `finishedAt`).
+- Nota (`nota`, `legacy.score`) e versão dos pesos: o `HallEntry.legacy` traz `v` (versão da fórmula da Nota de
+  Legado, `LEGACY_VERSION` em `src/engine/legacy/score.ts`; hoje `2`; sem `v` = gravada antes da v2). O cliente
+  SEMPRE manda o `HallEntry` com `legacy` já recalculado na versão atual (`refreshLegacy` em `src/store/career.ts`,
+  o mesmo número que o Hall mostra). O servidor guarda `legacy.v` junto da nota (coluna `nota_v`, `NULL` sem `v`)
+  e devolve `"notaV": 2 | null` em cada `C`. Em "Minhas carreiras" e no painel, carreira com `notaV` diferente da
+  versão atual: o cliente abre (`GET ?id`), recalcula e reenvia com `salvar` (mesmo `como`), e a nota da lista
+  passa a bater com a do Hall. O servidor não recalcula nada (a fórmula fica só no jogo).
 - `GET ?id=<HallEntry.id>` → `200 {"carreira": HallEntry}`; outra conta ou inexistente: `404`.
 - `POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"}` → `200 {"carreira": C}`. Grava ou
   atualiza pelo par (usuário, `id`). Confere: objeto com `id` (texto até 64), `identity` e `summary`; JSON até
@@ -178,7 +185,7 @@ derruba os cookies; 12 h, `Path=/lenda/`) ou `Authorization: Bearer <token>`.
 
 `usuarios(id, email UNIQUE, apelido, senha_hash, criado_em, ultimo_login, origem, aceite_em)`,
 `sessoes_login(token_sha256 PK, usuario_id, criada_em, expira_em, renovada_em)`,
-`carreiras(id PK, usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, pico_ovr, temporadas, gols,
+`carreiras(id PK, usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas, gols,
 titulos, bolas_ouro, headline, como, dados MEDIUMBLOB, tamanho, terminou_em, salva_em, UNIQUE(usuario_id,
 carreira_id), INDEX(usuario_id, salva_em))`, `visitantes_usuarios(vid PK, usuario_id, ligado_em)`, e em
 `usuarios` também `time_coracao, uf, partidas, ultimo_acesso`,
