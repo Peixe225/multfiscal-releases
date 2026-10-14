@@ -11,6 +11,9 @@
  */
 import { create } from 'zustand'
 import { api } from './api'
+import { useAcesso } from '@/store/acesso'
+import { aplicarSite } from './acesso'
+import { conviteGuardado, esquecerConvite } from './indicacao'
 import { armazem, origemAtual, visitanteAtual, type Armazem } from './medicao'
 
 export interface Estatisticas {
@@ -27,6 +30,9 @@ export interface Estatisticas {
   aparelhos: string[]
 }
 
+/** Quais carreiras da conta vão para o Hall público: as 3 melhores sozinhas, as que o jogador marcou, ou nenhuma. */
+export type ModoHallPublico = 'auto' | 'manual' | 'nao'
+
 export interface Usuario {
   id: number
   apelido: string
@@ -35,6 +41,10 @@ export interface Usuario {
   timeCoracao: string | null
   uf: string | null
   origem: string | null
+  /** Padrão 'auto' (servidor/CONTRATO-v3.md §3–4). */
+  hallPublico: ModoHallPublico
+  /** Código do link de convite (…/lenda/?c=<código>), §8.2. */
+  codigoConvite: string | null
   estatisticas: Estatisticas
 }
 
@@ -97,6 +107,8 @@ export function normalizarUsuario(x: unknown): Usuario | null {
     timeCoracao: typeof u.timeCoracao === 'string' && u.timeCoracao ? u.timeCoracao : null,
     uf: typeof u.uf === 'string' && u.uf ? u.uf : null,
     origem: typeof u.origem === 'string' ? u.origem : null,
+    hallPublico: u.hallPublico === 'manual' || u.hallPublico === 'nao' ? u.hallPublico : 'auto',
+    codigoConvite: typeof u.codigoConvite === 'string' && /^[A-Za-z0-9]{4,16}$/.test(u.codigoConvite) ? u.codigoConvite : null,
     estatisticas: {
       partidas: num(e.partidas),
       carreirasSalvas: num(e.carreirasSalvas),
@@ -161,14 +173,14 @@ interface ContaStore {
   sessaoExpirou(): void
   esqueci(email: string): Promise<void>
   redefinir(email: string, codigo: string, senha: string): Promise<Usuario>
-  perfil(p: { apelido?: string; timeCoracao?: string; uf?: string }): Promise<Usuario>
+  perfil(p: { apelido?: string; timeCoracao?: string; uf?: string; hallPublico?: ModoHallPublico }): Promise<Usuario>
   excluir(senha: string): Promise<void>
 }
 
 const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : undefined))
 
-/** Quem quiser saber de cada login/cadastro (ex.: subir as carreiras do aparelho). */
-type AoEntrar = (u: Usuario, como: 'cadastro' | 'login' | 'redefinir') => void
+/** Quem quiser saber de cada login/cadastro (ex.: subir as carreiras e as conquistas do aparelho). */
+type AoEntrar = (u: Usuario, como: 'cadastro' | 'login' | 'redefinir' | 'sessao') => void
 const ouvintes = new Set<AoEntrar>()
 export function aoEntrar(fn: AoEntrar): () => void {
   ouvintes.add(fn)
@@ -192,10 +204,7 @@ export const useConta = create<ContaStore>()((set, get) => {
     if (!get().usuario || n <= 0) return
     void api('conta.php', { corpo: { acao: 'partidas', n } }).catch(() => {})
   }
-  const logou = (u: Usuario, como: 'cadastro' | 'login' | 'redefinir') => {
-    lembrar(u)
-    set({ usuario: u, lembrado: u.apelido })
-    if (get().partidas > u.estatisticas.partidas) enviarPartidas(get().partidas)
+  const avisar = (u: Usuario, como: 'cadastro' | 'login' | 'redefinir' | 'sessao') => {
     for (const fn of ouvintes) {
       try {
         fn(u, como)
@@ -203,6 +212,13 @@ export const useConta = create<ContaStore>()((set, get) => {
         console.warn('[LENDA] pós-login falhou', err)
       }
     }
+  }
+  const logou = (u: Usuario, como: 'cadastro' | 'login' | 'redefinir') => {
+    if (como === 'cadastro') esquecerConvite(ls)
+    lembrar(u)
+    set({ usuario: u, lembrado: u.apelido })
+    if (get().partidas > u.estatisticas.partidas) enviarPartidas(get().partidas)
+    avisar(u, como)
   }
   const comUsuario = (r: { usuario?: unknown }) => {
     const u = normalizarUsuario(r?.usuario)
@@ -220,13 +236,20 @@ export const useConta = create<ContaStore>()((set, get) => {
 
     async carregar() {
       try {
-        const r = await api<{ usuario: unknown; regras: unknown }>('conta.php', { tempo: 8000 })
+        const r = await api<{ usuario: unknown; regras: unknown; site?: unknown }>('conta.php', { tempo: 8000 })
+        // o que é público e o que é só do admin (Live, Imersivo, aviso, manutenção, cadastro, bônus)
+        aplicarSite(r.site ?? {})
+        const antes = get().usuario
         const u = normalizarUsuario(r.usuario)
         lembrar(u)
         set({ usuario: u, lembrado: u?.apelido ?? null, regras: normalizarRegras(r.regras), status: 'pronto' })
         if (u && get().partidas > u.estatisticas.partidas) enviarPartidas(get().partidas)
+        // já estava logado ao abrir (cookie de antes) ou entrou em outra aba: quem sincroniza fica sabendo
+        if (u && antes?.id !== u.id) avisar(u, 'sessao')
       } catch {
-        // sem servidor: regras padrão; quem já entrou neste aparelho segue "lembrado" (sem convite)
+        // sem servidor: regras padrão e o que é só do admin fechado; quem já entrou neste aparelho segue
+        // "lembrado" (sem convite)
+        if (!useAcesso.getState().configPronta) aplicarSite(null)
         set({ regras: REGRAS_PADRAO, status: 'pronto' })
       }
     },
@@ -256,6 +279,9 @@ export const useConta = create<ContaStore>()((set, get) => {
       if (origem) corpo.origem = origem
       if (d.timeCoracao?.trim()) corpo.timeCoracao = d.timeCoracao.trim().slice(0, 40)
       if (d.uf) corpo.uf = d.uf
+      // quem indicou (link ?c= dos últimos 30 dias): o servidor confere e valida depois da 1ª partida
+      const convite = conviteGuardado(ls)
+      if (convite) corpo.convite = convite
       const u = comUsuario(await api('conta.php', { corpo }))
       logou(u, 'cadastro')
       return u
@@ -303,6 +329,7 @@ export const useConta = create<ContaStore>()((set, get) => {
       if (p.apelido !== undefined) corpo.apelido = p.apelido.trim()
       if (p.timeCoracao !== undefined) corpo.timeCoracao = p.timeCoracao.trim().slice(0, 40)
       if (p.uf !== undefined) corpo.uf = p.uf
+      if (p.hallPublico !== undefined) corpo.hallPublico = p.hallPublico
       const u = comUsuario(await api('conta.php', { corpo }))
       lembrar(u)
       set({ usuario: u, lembrado: u.apelido })

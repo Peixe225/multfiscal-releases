@@ -33,6 +33,11 @@ const PADRAO: Record<string, string> = {
   grande: 'Essa carreira é grande demais para salvar na conta.',
   nao_encontrada: 'Essa carreira não está mais na sua conta.',
   servidor: 'O servidor teve um problema. Tente de novo em instantes.',
+  suspenso: 'Sua conta está suspensa. Fale com o suporte se achar que é um engano.',
+  apelido_proibido: 'Esse nome não pode ser usado. Escolha outro.',
+  limite_hall: 'Você já tem 3 carreiras no Hall público. Tire uma para pôr outra.',
+  cadastro_fechado: 'Os cadastros estão fechados no momento. Tente de novo mais tarde.',
+  ja_denunciou: 'Você já denunciou essa carreira. Obrigado!',
 }
 
 export class ErroApi extends Error {
@@ -65,6 +70,8 @@ export interface OpcoesApi {
   query?: Record<string, string>
   /** ms (padrão 15 s). */
   tempo?: number
+  /** Cache do navegador (padrão 'no-store'); 'default' para as rotas públicas com max-age (hall.php, raridade). */
+  cache?: RequestCache
 }
 
 export async function api<T = unknown>(arquivo: string, opts: OpcoesApi = {}): Promise<T> {
@@ -76,7 +83,7 @@ export async function api<T = unknown>(arquivo: string, opts: OpcoesApi = {}): P
     res = await fetch(apiUrl(arquivo, opts.query), {
       method: body === undefined ? 'GET' : 'POST',
       credentials: 'same-origin',
-      cache: 'no-store',
+      cache: opts.cache ?? 'no-store',
       headers: body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
       body,
       signal: ctrl?.signal,
@@ -109,3 +116,26 @@ export function mensagemDeErro(err: unknown): string {
 }
 
 export const codigoDeErro = (err: unknown): string | null => (err instanceof ErroApi ? err.codigo : null)
+
+/** Vale tentar de novo sozinho? Só falha de rede, demora ou erro do servidor (5xx) — nunca 4xx nem limite. */
+export const valeTentar = (err: unknown): boolean => err instanceof ErroApi && (err.codigo === 'rede' || err.codigo === 'tempo' || err.status >= 500)
+
+/** Espera crescente com um pouco de sorteio (muita gente voltando ao mesmo tempo não bate junto): 1 s, 2 s, 4 s… */
+export const esperaReintento = (tentativa: number, base = 1000, teto = 30_000, sorte: () => number = Math.random) => Math.min(teto, base * 2 ** tentativa) * (0.75 + sorte() * 0.5)
+
+/**
+ * Chama `fn` e, se falhar por rede/servidor, tenta de novo com espera crescente (até `tentativas` vezes no
+ * total). Erro de regra (4xx) sai na hora. Só para pedidos idempotentes (GET, sincronizar, usar o bônus).
+ */
+export async function comReintento<T>(fn: () => Promise<T>, o: { tentativas?: number; base?: number; dormir?: (ms: number) => Promise<void> } = {}): Promise<T> {
+  const total = Math.max(1, o.tentativas ?? 3)
+  const dormir = o.dormir ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+  for (let i = 0; ; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (i + 1 >= total || !valeTentar(err)) throw err
+      await dormir(esperaReintento(i, o.base))
+    }
+  }
+}

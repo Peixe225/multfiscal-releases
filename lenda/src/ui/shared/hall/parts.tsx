@@ -176,3 +176,14 @@ export function useRunModeLabel(id: string): string | null {
   const mode = useCareer((s) => s.finishedCareers.find((h) => h.id === id)?.mode)
   return mode === 'immersive' ? 'Imersivo' : mode === 'classic' ? 'Clássico' : null
 }
+
+/** Bônus de OVR da carreira deste aparelho (site: indicação / compartilhar), 0 sem bônus. */
+export function useRunBonus(id: string): number {
+  return useCareer((s) => s.finishedCareers.find((h) => h.id === id)?.career?.bonusOvr ?? 0)
+}
+
+/** Selo "+N de bônus" (nada sem bônus). */
+export function BonusTag({ id }: { id: string }) {
+  const n = useRunBonus(id)
+  return n > 0 ? <span className="hl-runtag hl-runtag--bonus">+{n} de bônus</span> : null
+}

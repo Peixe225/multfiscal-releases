@@ -38,6 +38,14 @@ export interface CarreiraConta {
   como: 'auto' | 'manual' | null
   salvaEm: string | null
   terminouEm: string | null
+  /** Hall público (CONTRATO-v3.md §4): marcada pelo jogador (modo manual). */
+  publica: boolean
+  /** O servidor diz que ela está (ou entra na próxima atualização) no Hall público; null = não disse. */
+  noHall: boolean | null
+  /** Ficou fora do Hall público: escondida pela moderação ou em análise (números estranhos). */
+  oculta: boolean
+  suspeita: boolean
+  bonusOvr: number
 }
 
 /** Pico de OVR a partir do qual a carreira vai para a conta sozinha ("acima de 89"). */
@@ -50,6 +58,8 @@ const bytes = (s: string) => (typeof TextEncoder !== 'undefined' ? new TextEncod
 
 export const CHAVE_APAGADAS = 'lenda:carreiras-apagadas'
 export const CHAVE_PENDENTES = 'lenda:carreiras-pendentes'
+/** As que o jogador mandou salvar (botão) e não subiram por falta de rede: sobem como "manual". */
+export const CHAVE_PENDENTES_MANUAL = 'lenda:carreiras-pendentes-manual'
 /** Id e momento da última carreira encerrada neste aparelho (sabe que ela existiu mesmo se o Hall a cortou). */
 export const CHAVE_ULTIMA = 'lenda:ultima-carreira'
 
@@ -151,6 +161,11 @@ export function resumoLocal(h: HallEntry): CarreiraConta {
     como: null,
     salvaEm: null,
     terminouEm: h.finishedAt ?? null,
+    publica: false,
+    noHall: null,
+    oculta: false,
+    suspeita: false,
+    bonusOvr: typeof h.career?.bonusOvr === 'number' ? h.career.bonusOvr : 0,
   }
 }
 
@@ -176,7 +191,33 @@ export function normalizarCarreira(x: unknown): CarreiraConta | null {
     como: c.como === 'manual' ? 'manual' : 'auto',
     salvaEm: typeof c.salvaEm === 'string' ? c.salvaEm : null,
     terminouEm: typeof c.terminouEm === 'string' ? c.terminouEm : null,
+    publica: c.publica === true || (c.publica as unknown) === 1,
+    noHall: typeof c.noHall === 'boolean' ? c.noHall : null,
+    oculta: c.oculta === true || (c.oculta as unknown) === 1,
+    suspeita: !!c.suspeita,
+    bonusOvr: Math.max(0, Math.min(10, num(c.bonusOvr))),
   }
+}
+
+/** No Hall público só até 3 por conta (servidor/CONTRATO-v3.md §4). */
+export const HALL_PUBLICO_MAX = 3
+
+/**
+ * Quais carreiras da conta estão (ou entram na próxima atualização) no Hall público. Se o servidor disse
+ * (`noHall`), vale o dele; senão: modo `auto` = as 3 de maior nota na versão atual (fora as ocultas e em
+ * análise); `manual` = as marcadas (até 3); `nao` = nenhuma.
+ */
+export function idsNoHallPublico(lista: readonly CarreiraConta[], modo: 'auto' | 'manual' | 'nao', versao = LEGACY_VERSION): Set<string> {
+  if (modo === 'nao') return new Set()
+  if (lista.some((c) => c.noHall !== null)) return new Set(lista.filter((c) => c.noHall).map((c) => c.id))
+  const validas = lista.filter((c) => !c.oculta && !c.suspeita && c.nota !== null && c.notaV === versao)
+  if (modo === 'manual') return new Set(validas.filter((c) => c.publica).slice(0, HALL_PUBLICO_MAX).map((c) => c.id))
+  return new Set(
+    [...validas]
+      .sort((a, b) => (b.nota ?? 0) - (a.nota ?? 0) || String(a.terminouEm ?? '').localeCompare(String(b.terminouEm ?? '')))
+      .slice(0, HALL_PUBLICO_MAX)
+      .map((c) => c.id),
+  )
 }
 
 /** HallEntry que veio do servidor tem o mínimo para o resumo abrir? */
@@ -224,6 +265,8 @@ interface CarreirasStore {
   salvar(h: HallEntry, como: 'auto' | 'manual'): Promise<CarreiraConta>
   apagar(id: string): Promise<void>
   abrir(id: string): Promise<HallEntry>
+  /** Marca/desmarca para o Hall público (passa a conta para o modo "escolher", se estava no automático). */
+  publicar(id: string, sim: boolean): Promise<void>
   limpar(): void
 }
 
@@ -247,9 +290,13 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
     if (get().lista && !forcar) return get().lista
     set({ carregando: true, erro: null })
     try {
-      const r = await api<{ carreiras?: unknown[]; limite?: number }>('carreiras.php')
+      const r = await api<{ carreiras?: unknown[]; limite?: number; hallPublico?: unknown }>('carreiras.php')
       const lista = (r.carreiras ?? []).map(normalizarCarreira).filter((c): c is CarreiraConta => !!c)
       set({ lista, limite: typeof r.limite === 'number' ? r.limite : LIMITE_PADRAO, carregando: false })
+      // o modo do Hall público vem junto (pode ter mudado em outro aparelho)
+      const u = useConta.getState().usuario
+      const modo = r.hallPublico === 'auto' || r.hallPublico === 'manual' || r.hallPublico === 'nao' ? r.hallPublico : null
+      if (u && modo && modo !== u.hallPublico) useConta.setState({ usuario: { ...u, hallPublico: modo } })
       void atualizarNotasVelhas(lista)
       return lista
     } catch (err) {
@@ -273,6 +320,8 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
       // salvou: sai das pendentes e das apagadas (o jogador quis de volta)
       const pend = lerIds(ls, CHAVE_PENDENTES)
       if (pend.delete(h.id)) gravarIds(ls, CHAVE_PENDENTES, pend)
+      const pendM = lerIds(ls, CHAVE_PENDENTES_MANUAL)
+      if (pendM.delete(h.id)) gravarIds(ls, CHAVE_PENDENTES_MANUAL, pendM)
       const apag = lerIds(ls, CHAVE_APAGADAS)
       if (apag.delete(h.id)) gravarIds(ls, CHAVE_APAGADAS, apag)
       const u = useConta.getState().usuario
@@ -312,6 +361,27 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
       tratar401(err)
       throw err
     }
+  },
+
+  async publicar(id, sim) {
+    let r: { carreira?: unknown; hallPublico?: unknown }
+    try {
+      r = await api<{ carreira?: unknown; hallPublico?: unknown }>('carreiras.php', { corpo: { acao: 'publicar', id, sim } })
+    } catch (err) {
+      tratar401(err)
+      throw err
+    }
+    const atual = get().lista
+    const c = normalizarCarreira(r?.carreira)
+    // vindo do automático, o servidor marca as 3 que já estavam no Hall: até a lista nova chegar, a conta
+    // aqui mostra a escolha manual
+    if (atual) set({ lista: atual.map((x) => (x.id === id ? (c ?? { ...x, publica: sim }) : x)) })
+    const u = useConta.getState().usuario
+    const modo = r?.hallPublico === 'auto' || r?.hallPublico === 'manual' || r?.hallPublico === 'nao' ? r.hallPublico : 'manual'
+    if (u && u.hallPublico !== modo) useConta.setState({ usuario: { ...u, hallPublico: modo } })
+    void get()
+      .carregar(true)
+      .catch(() => {})
   },
 
   limpar() {
@@ -372,12 +442,15 @@ export function lerUltima(a: Armazem = ls): { id: string; em: number } | null {
   }
 }
 
-export function marcarPendente(id: string) {
-  const p = lerIds(ls, CHAVE_PENDENTES)
+/** Não subiu agora (sem rede): fica na fila do aparelho e sobe quando a internet voltar (ou na próxima abertura). */
+export function marcarPendente(id: string, como: 'auto' | 'manual' = 'auto') {
+  const chave = como === 'manual' ? CHAVE_PENDENTES_MANUAL : CHAVE_PENDENTES
+  const p = lerIds(ls, chave)
   p.add(id)
-  gravarIds(ls, CHAVE_PENDENTES, p)
+  gravarIds(ls, chave, p)
 }
 export const pendentesNoAparelho = () => lerIds(ls, CHAVE_PENDENTES)
+export const pendentesManuais = () => lerIds(ls, CHAVE_PENDENTES_MANUAL)
 
 // ───────────────────────────── abrir no resumo ─────────────────────────────
 

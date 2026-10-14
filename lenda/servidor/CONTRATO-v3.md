@@ -134,3 +134,162 @@ filtros e ordem; detalhe com todas as ações do §2), **Hall público** (modera
 abrir, ocultar, mostrar, apagar; "Atualizar Hall agora"), **Conquistas** (raridade), **Indicações e bônus**,
 **Configurações** (todas as chaves do §1, com validação), **Testes** (abrir o Imersivo e a Live em outra aba, só para
 o admin) e **Registro** (log). Tudo escapado (nada de `innerHTML` com dado de usuário), CSP `default-src 'self'`.
+
+## 8. Servidor: o que foi implementado (detalhes que valem sobre o resumo acima)
+
+Nomes de rotas, ações e campos dos §1–§7 não mudaram; aqui estão os campos a mais e as decisões dos pontos que o
+resumo deixava em aberto. Para publicar: suba os arquivos novos de `api/` e rode o `instalar.php` de novo (ver
+LEIAME).
+
+### 8.1 Arquivos novos
+
+`api/hall.php`, `api/conquistas.php`, `api/bonus.php`, `api/admin.php` (rotas) e `api/_palavras.php` (lista do filtro),
+`api/_contas.php`, `api/_carreiras.php`, `api/_hall.php`, `api/_bonus.php` (módulos; o `.htaccess` nega `_*`, e cada
+um responde 404 se for chamado direto). `bonus.php` e `admin.php` saem com `no-store` também pelo `.htaccess`;
+`hall.php` e `conquistas.php` definem o próprio cache (como o `lendas.php`).
+
+### 8.2 Conta (`conta.php`)
+
+- `GET` → `{"usuario": U|null, "regras": {...}, "site": {"imersivoPublico", "livePublica", "aviso", "manutencao",
+  "cadastroAberto", "bonus": {"indicacao":[2,3,5],"compartilhar":2,"liberaAposPartidas":3,"maxIndicacoes":3}}}`.
+  `regras` agora vem de `site_config.regras` (o arquivo de config é só o padrão).
+- `U` ganha `"hallPublico": "auto"|"manual"|"nao"` e `"codigoConvite": "ABCD2345"` (contas antigas ganham o código na
+  primeira leitura).
+- Erros novos: `403 suspenso` (entrar, redefinir e qualquer rota logada; a mensagem traz a data e o motivo),
+  `403 cadastro_fechado` (`cadastro_aberto = false`; entrar continua), `400 apelido_proibido`, `400 hall_invalido`.
+- Apelido: além do formato antigo, só letras do alfabeto latino (com acento): letra de outro alfabeto que parece
+  latina ("а" cirílico) passaria pelo filtro. O admin (`renomear`) pode usar nome reservado, mas não palavrão.
+- `perfil` com `hallPublico: "manual"` vindo de outro modo e nenhuma carreira marcada: marca as 3 que já estavam no
+  Hall (nada some sem o jogador pedir). `"nao"` tira as carreiras da conta da fotografia na hora.
+- Suspensão com `suspenso_ate` vencido conta como ativa (o `entrar` limpa o status).
+- `cadastrar` com `convite` de código que não existe: o cadastro segue normal, sem indicação.
+- `partidas` (n ≥ 1): acerta `usuarios.partidas_conta` pelos eventos ligados à conta depois do cadastro e confere a
+  indicação pendente (§8.6).
+- `excluir` (e `admin excluir_usuario`) apagam também conquistas, bônus, indicações feitas, denúncias feitas e o lugar
+  no Hall; a indicação recebida fica com `indicado_id = NULL` (o bônus do amigo continua dele).
+
+### 8.3 Carreiras (`carreiras.php`)
+
+- `C` ganha `"publica": bool` (escolha manual), `"noHall": bool` (entra no Hall público nas regras de agora: modo da
+  conta, as 3 melhores ou as marcadas, visível, nota da versão atual) e `"bonusOvr": n`.
+- `GET` (lista) ganha `"hallPublico": "auto"|"manual"|"nao"` e `"hallMax": 3`.
+- `publicar` → `200 {"carreira": C, "hallPublico": "manual"}`; carreira de outra conta ou inexistente: `404`; `sim`
+  que não é booleano: `400 dados`; 60 por conta a cada 10 min. Vindo de `auto`, a conta passa a `manual` já com as 3
+  que o automático mostrava; vindo de `nao`, passa a `manual` só com esta (com `sim: false` em `nao`, nada muda). O
+  limite de 3 é conferido depois disso: `409 limite_hall` desfaz tudo (o modo não muda).
+- Plausibilidade: `suspeita` guarda os motivos separados por vírgula (`temporadas`, `pico`, `nota`, `gols`, `bolas`,
+  `titulos`, `idade`, `bonus`, `nome`). `bonus` = `career.bonusOvr > 0` sem um bônus usado nesta carreira com o mesmo
+  valor (`bonus.php usar`); `nome` = nome do jogador com palavrão/ofensa. É conferida quando a carreira entra ou quando
+  os números dela mudam; salvar de novo com os mesmos números mantém a decisão anterior (inclusive a liberação do
+  admin). **Decisão:** `legacy.v` diferente de `2` não vira suspeita (não é trapaça, é carreira antiga): ela só fica
+  fora do Hall pela coluna `nota_v` até o jogo reenviar com a nota recalculada.
+- `apagar` tira a carreira do Hall na hora e apaga as denúncias dela.
+
+### 8.4 Hall público (`hall.php`)
+
+- Lista: `GET hall.php?pais=&clube=&pagina=` → `{"atualizadoEm", "proximaEm", "total", "pagina", "porPagina": 50,
+  "filtro": {"pais": "BOL"|null, "clube": "e1234"|null}, "itens": [item…]}`. `item` = o do §4 mais `"posicaoGeral"`:
+  **`posicao` é a posição dentro do filtro** (1 = a melhor da Bolívia), `posicaoGeral` a do Hall inteiro. `pais`: 2 a 4
+  letras (maiúsculo); `clube`: `[A-Za-z0-9_-]{1,16}`; fora disso `400 filtro`. Os dois filtros juntos valem (lendas da
+  Bolívia que passaram pelo Cruzeiro). `atualizadoEm`/`proximaEm` = `null` antes da primeira fotografia.
+- `GET hall.php?id=` → `{"carreira": HallEntry, "apelido", "posicao"}` (`posicao` = geral). Só se ela está na
+  fotografia **e** continua visível agora (carreira não oculta/suspeita, conta ativa e sem "não aparecer"); senão `404`.
+- Respostas `200` com `Cache-Control: public, max-age=300`; erros com `no-store`.
+- Ordem do Hall (dentro da conta e no geral): nota, pico de OVR, Bolas de Ouro, títulos, gols, a salva primeiro. Cada
+  `HallEntry.id` aparece uma vez só (se duas contas salvarem o mesmo id, fica a de melhor posição).
+- Entram só carreiras do **Clássico** enquanto `imersivo_publico = false` (as de teste do admin no Imersivo não vazam).
+- Fotografia: refeita no primeiro pedido depois de `hall_intervalo_min`, com `GET_LOCK('lenda_hall:<banco>', 0)`
+  (o nome do banco vai junto porque o servidor de banco é dividido); a leitura das carreiras é sem trava de linha (quem
+  salva não espera) e a troca é numa transação (quem lê vê a anterior até o fim). Estado em `site_config._hall_foto`
+  (`{em, total, ms, msLeitura, por}`). **Tirar do Hall é na hora** (ocultar, apagar, suspender, denúncias, "não
+  aparecer", tirar a publicação, carreira que virou suspeita, excluir conta); **entrar é na próxima fotografia** (ou
+  no "Atualizar Hall agora").
+- `POST denunciar`: logado; `id` = `HallEntry.id` que está na fotografia (senão `404`); `motivo` fora da lista: `400
+  motivo`; a própria carreira: `400 propria`; repetir na mesma carreira: `200 {"ok":true}` sem contar de novo; 10 por
+  conta por dia (`429`). Com 5 denúncias **abertas** de contas diferentes, `carreiras.oculta = 2` (escondida pelas
+  denúncias; `1` = pelo admin) e sai do Hall.
+
+### 8.5 Conquistas (`conquistas.php`)
+
+- `sincronizar` → `{"conquistas":[{id, em}]}` (a união, a mais antiga primeiro). `conquistas` que não é lista: `400
+  dados`; mais de 500: `400 dados`; id fora do formato: ignorado (as outras entram); `em` ruim, sem `em` ou no futuro:
+  agora; antes de 2025-01-01: 2025-01-01. No máximo 500 conquistas por conta; 60 envios por conta a cada 10 min.
+- `?raridade=1` → `{"jogadores", "porConquista": {id: n}, "atualizadoEm"}`. `jogadores` = contas ativas com pelo menos
+  uma conquista. Ids com palavrão ficam fora (a resposta é pública). Calculada no máximo 1 vez por hora (estado em
+  `site_config._raridade`, com trava); `Cache-Control: public, max-age=3600`.
+
+### 8.6 Indicações e bônus (`bonus.php`)
+
+- `usuarios.partidas_conta` (coluna nova): partidas terminadas com a conta ligada (o `e.php` soma cada `jogo_fim` do
+  Clássico/Imersivo e cada `partida_fim` gravados com o cookie; o `conta.php partidas` acerta pelo maior entre isso e
+  os eventos). `liberado` = `partidas_conta >= liberaAposPartidas`.
+- Indicação: no cadastro com código válido nasce `pendente`, ou `recusada` com `motivo` `propria_conta`,
+  `mesmo_aparelho` (o `vid` do cadastro tem visita ou vínculo com o indicador), `suspenso` ou `limite` (o indicador já
+  tem `maxIndicacoes` válidas). Vale no primeiro `jogo_fim` do Clássico do indicado (ou no `conta.php partidas` que
+  achar um nos eventos); se o aparelho dessa partida é do indicador: `recusada mesmo_aparelho`.
+- Ao validar, o bônus do indicador é criado na hora (`origem 'indicacao'`, `ref 'indicacao:<id>'`, valor
+  `indicacao[k]`, k = válidas antes desta); ele só fica **disponível** quando o indicador estiver liberado (até lá
+  aparece em `guardados`). Bônus do admin valem sempre.
+- `GET bonus.php` → `{"liberado", "faltamPartidas", "disponiveis":[{id, valor, origem, criadoEm}], "guardados":[…],
+  "usados": n, "indicacoes": {"validas", "pendentes", "limite", "proximoValor"}, "compartilharHoje": bool,
+  "compartilharValor": 2, "codigoConvite", "linkConvite"}`. **`compartilharHoje` = ainda dá para ganhar o bônus de
+  compartilhar hoje** (liberado e ainda não ganhou hoje). `proximoValor` = 0 no limite.
+- `usar` → `{"valor": n, "origem": "indicacao"|"compartilhar"|"admin"}` ou `{"valor": 0}`. Sem bônus, nada fica
+  guardado (chamar de novo depois de ganhar um bônus usa o novo). `carreiraId` inválido: `400 id`. 60 por conta a cada
+  10 min (junto com `compartilhei`).
+- `compartilhei` → `{"ganhou": n}` ou `{"ganhou": 0, "motivo": "ja_hoje"|"bloqueado"}` (`bloqueado` também com
+  `compartilhar = 0`). O dia é o de Brasília (`ref 'dia:YYYY-MM-DD'`).
+- O jogo deve gravar `career.bonusOvr` com o valor que o `usar` respondeu: a carreira salva com `bonusOvr` sem o bônus
+  usado nela fica `suspeita: bonus` (fora do Hall).
+
+### 8.7 Admin (`admin.php`)
+
+Sem admin: `401 nao_logado` em tudo. POST: JSON sempre; com o cookie, `Origin` do site (CSRF); com o Bearer, sem
+`Origin`. Corpo até 64 KB. Paginado = `{"total", "pagina", "porPagina": 50, "itens"}`. Toda escrita grava
+`admin_log` (`detalhes` em JSON com `via`: `painel`|`token`); `excluir_usuario` grava só o id (LGPD).
+
+| rota | resposta |
+|---|---|
+| `GET ?r=resumo` (extra) | `{usuarios:{total, ativos, suspensos, novosHoje, novos7Dias}, carreiras:{total, noHall, suspeitas, ocultas, ocultasPorDenuncia}, denunciasAbertas, indicacoes:{pendentes, validas, recusadas}, bonus:{naoUsados, usados}, hall:{atualizadoEm, proximaEm, total, ms}, site}` |
+| `GET ?r=usuarios` | paginado; `ordem` também aceita `acesso`; `q` busca apelido, e-mail, id (número) e código de convite; `status` = `ativo`\|`suspenso`. Itens como no §2 (`bonusDisponiveis` = os que dá para usar agora) |
+| `GET ?r=usuario&id=` | `{"usuario": U + {status, suspensoAte, motivo, partidasConta, bonusLiberado, carreiras:[C + {pk, oculta, suspeita, copas}], conquistas:[{id, em}], indicacoes:{feitas:[{id, indicado:{id, apelido}\|null, status, motivo, criadaEm, validadaEm}], recebida:{id, indicador:{id, apelido}, status, motivo, criadaEm, validadaEm}\|null}, bonus:[{id, valor, origem, ref, criadoEm, usadoEm, carreiraId, disponivel}], sessoes:[{criadaEm, expiraEm, renovadaEm}], visitas:[{inicio, tempoS, origem, aparelho, bot}], eventos:[{em, tipo, modo, dados}], denuncias:{feitas, recebidas}}}`; `404 nao_encontrado` |
+| `GET ?r=hall&filtro=publicas\|ocultas\|suspeitas\|denunciadas\|todas&q=&pagina=` | paginado + `filtro`, `atualizadoEm`; item = `{id (carreiras.id), carreiraId, usuario:{id, apelido, status}, modo, jogador, numero, pais, posicao, nota, notaV, picoOvr, temporadas, gols, titulos, bolasOuro, copas, bonusOvr, headline, como, publica, oculta: 0\|1\|2, suspeita: "motivos"\|null, denuncias (abertas), posicaoHall\|null, salvaEm, terminouEm}`. `q` busca jogador, apelido ou HallEntry.id |
+| `GET ?r=carreira&id=<carreiras.id>` (extra) | `{"meta": item do ?r=hall, "denuncias": [{id, motivo, texto, criadaEm, status, denunciante:{id, apelido}}], "carreira": HallEntry}` (abrir qualquer carreira, mesmo oculta/suspeita) |
+| `GET ?r=denuncias&status=abertas\|todas&pagina=` | paginado; item = `{id, motivo, texto, criadaEm, status: aberta\|ok\|ocultar, resolvidaEm, denunciante:{id, apelido}, carreira:{id, carreiraId, jogador, nota, oculta, suspeita, dono:{id, apelido}}\|null, abertasNaCarreira}` |
+| `GET ?r=config` | `{"valores": {chave: valor em vigor}, "padroes": {...}, "atualizados": {chave: {em, por}}}` |
+| `GET ?r=indicacoes&status=&pagina=` | paginado; item = `{id, indicador:{id, apelido}, indicado:{id, apelido}\|null, status, motivo, criadaEm, validadaEm, bonus:{valor, usado}\|null}` |
+| `GET ?r=conquistas` | `{"jogadores", "itens": [{id, jogadores, pct, primeiraEm}]}` (da mais comum à mais rara) |
+| `GET ?r=log&acao=&alvo=&pagina=` | paginado; item = `{id, em, acao, alvo, detalhes}`; `alvo` = `usuario:12`, `carreira:55`, `indicacao:3`, `config`, `hall`, `usuarios` |
+| `GET ?r=exportar&tipo=usuarios` | CSV `;` com BOM, `text/csv`, `attachment; filename="lenda-usuarios-AAAA-MM-DD.csv"`; datas em Brasília (`AAAA-MM-DD HH:MM`); célula de texto entre aspas e, se começa com `= + - @` (ou tab/CR), com `'` na frente |
+| `POST suspender {id, motivo?, dias?}` | `{ok, sessoesEncerradas, status, suspensoAte, motivo}`; `dias` 1–3650 (`400 dias`) |
+| `POST reativar {id}` | `{ok, status, suspensoAte, motivo}` (volta ao Hall na próxima fotografia) |
+| `POST deslogar {id}` | `{ok, sessoesEncerradas}` |
+| `POST renomear {id, apelido}` | `{ok, apelido}`; atualiza a fotografia na hora |
+| `POST excluir_usuario {id}` | `{ok}` |
+| `POST dar_bonus {id, valor 1–5, motivo}` | `{ok, bonusId}`; `motivo` (até 100) obrigatório e guardado em `bonus.ref`; `400 valor`/`400 motivo` |
+| `POST tirar_bonus {bonusId}` | `{ok}`; já usado: `409 usado`; de indicação: a indicação vira `recusada` (`motivo 'admin'`) |
+| `POST recusar_indicacao {id}` (extra) | `{ok, bonusTirado}`: recusa e tira o bônus dela se ainda não foi usado |
+| `POST ocultar_carreira {id}` | `oculta = 1`, fecha as denúncias abertas como `ocultar`, sai do Hall na hora → `{ok, denunciasFechadas}` |
+| `POST mostrar_carreira {id}` | `oculta = 0` **e `suspeita = NULL` (liberar)**, fecha as denúncias abertas como `ok`; volta na próxima fotografia |
+| `POST apagar_carreira {id}` | apaga a carreira e as denúncias dela |
+| `POST atualizar_hall` | `{ok, hall: {em, total, ms, msLeitura, por, proximaEm}}`; outro refazendo: `409 ocupado` (espera até 10 s) |
+| `POST resolver_denuncia {id, resultado}` | fecha todas as abertas da carreira com o resultado; `ok` devolve ao Hall a que as denúncias esconderam (`oculta 2 → 0`); `ocultar` → `oculta = 1` |
+| `POST config {valores}` | valida tudo antes de gravar: `400 config_invalida` com `"chave"` e a mensagem; grava numa transação → `{ok, valores}` |
+
+Faixas da config: `regras.aposPartidas`/`lembrarACada` 1–100; `bonus.indicacao` lista de 1–10 valores 0–10,
+`compartilhar` 0–10, `liberaAposPartidas` 0–50, `maxIndicacoes` 0–10; `hall_intervalo_min` 60–180; `aviso` = `null`
+ou `{texto 1–200, tipo info|alerta}`; os outros, booleanos. **Decisão:** `manutencao` é só para o jogo mostrar a tela;
+o servidor não bloqueia nada (uma carreira terminando nessa hora continua sendo salva).
+
+### 8.8 `painel.php?so=eu`
+
+`200 {"admin":true}` ou `401 nao_logado`, sem tocar no banco (só confere o cookie/Bearer).
+
+### 8.9 Tabelas (o que o `_schema.sql` tem a mais que o §1–§6)
+
+`usuarios.partidas_conta`; índices `uq_usuarios_convite`, `ix_usuarios_status`; `carreiras.oculta` vai de 0 a 2;
+índices `ix_carreiras_usuario_nota`, `ix_carreiras_suspeita`, `ix_carreiras_oculta`; `hall_foto(id = posição geral,
+carreira_pk, carreira_id UNIQUE, usuario_id, apelido, jogador, numero, pais, posicao_campo, nota, pico_ovr, temporadas,
+gols, titulos, bolas_ouro, copas, headline, clubes, bonus_ovr, terminou_em)`, `hall_foto_clubes PK(club_id, foto_id)`;
+`denuncias(id, carreira_pk, usuario_id, motivo, texto, criada_em, status 'aberta'|'ok'|'ocultar', resolvida_em,
+UNIQUE(carreira_pk, usuario_id))`; `site_config.valor` é `MEDIUMTEXT`; `indicacoes.indicado_id` aceita `NULL`.

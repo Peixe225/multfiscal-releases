@@ -7,15 +7,18 @@
 # servidor/teste/teste.php contra ele. Se houver Apache, confere também as regras do api/.htaccess.
 # Termina com PASSOU/FALHOU; código de saída 0 só se tudo passou. Mata pelo PID só o que ele subiu.
 # Variáveis opcionais: LENDA_TESTE_PORTA (php -S, padrão 8711), LENDA_TESTE_PORTA_APACHE (8712),
-# LENDA_TESTE_BANCO (lenda_teste_back_e2e), LENDA_TESTE_SEM_CARGA=1 (pula a carga de 100 mil eventos).
+# LENDA_TESTE_PORTA_PAR (php -S com 4 processos para a concorrência; padrão LENDA_TESTE_PORTA + 4),
+# LENDA_TESTE_BANCO (lenda_teste_back_e2e), LENDA_TESTE_BASE (pasta de trabalho, /tmp/lenda-teste),
+# LENDA_TESTE_SEM_CARGA=1 (pula as cargas: 100 mil eventos e 2.000 contas / 6.000 carreiras no Hall).
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 set -u
 
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVIDOR="$(dirname "$AQUI")"
-BASE=/tmp/lenda-teste
+BASE="${LENDA_TESTE_BASE:-/tmp/lenda-teste}"
 PORTA="${LENDA_TESTE_PORTA:-8711}"
 PORTA_APACHE="${LENDA_TESTE_PORTA_APACHE:-8712}"
+PORTA_PAR="${LENDA_TESTE_PORTA_PAR:-$((PORTA + 4))}"   # php -S com 4 processos (teste de concorrência)
 PORTA_BANCO_PROPRIO=8706
 BANCO="${LENDA_TESTE_BANCO:-lenda_teste_back_e2e}"
 SOCK_COMPARTILHADO=/run/mysqld/mysqld.sock
@@ -98,7 +101,7 @@ escrever_config() {
   'segredo' => '$SEGREDO',
   'admin_senha_hash' => '$SENHA_HASH',
   'admin_token_sha256' => '$TOKEN_SHA',
-  'origens' => ['http://127.0.0.1:$PORTA', 'http://localhost:$PORTA'],
+  'origens' => ['http://127.0.0.1:$PORTA', 'http://localhost:$PORTA', 'http://127.0.0.1:$PORTA_PAR'],
   'regras' => ['apos_partidas' => 5, 'obrigatorio' => false, 'lembrar_a_cada' => 3],
   'email_remetente' => 'contato@oprojeto.online',
   'email_modo' => 'arquivo',
@@ -136,6 +139,20 @@ for _ in $(seq 1 50); do
 done
 (exec 3<>"/dev/tcp/127.0.0.1/$PORTA") 2>/dev/null || falhar "php -S não subiu (veja $LOG_PHP)"
 echo "· php -S em http://127.0.0.1:$PORTA (docroot $WWW)"
+# Um segundo php -S, com 4 processos atendendo ao mesmo tempo, só para o teste de concorrência (o de cima atende
+# um pedido por vez de propósito: alguns testes contam com isso).
+if (exec 3<>"/dev/tcp/127.0.0.1/$PORTA_PAR") 2>/dev/null; then
+  falhar "a porta $PORTA_PAR já está em uso (use LENDA_TESTE_PORTA_PAR=...)"
+fi
+PHP_CLI_SERVER_WORKERS=4 php -d display_errors=1 -d error_reporting=-1 -d log_errors=1 -d error_log="$LOG_PHP" -d opcache.enable=0 \
+  -S "127.0.0.1:$PORTA_PAR" -t "$WWW" >>"$LOG_PHP" 2>&1 &
+PIDS+=($!)
+for _ in $(seq 1 50); do
+  (exec 3<>"/dev/tcp/127.0.0.1/$PORTA_PAR") 2>/dev/null && break
+  sleep 0.1
+done
+(exec 3<>"/dev/tcp/127.0.0.1/$PORTA_PAR") 2>/dev/null || falhar "php -S (4 processos) não subiu (veja $LOG_PHP)"
+echo "· php -S com 4 processos em http://127.0.0.1:$PORTA_PAR (concorrência)"
 
 # ── 5. Apache (opcional): só as regras do .htaccess (sem PHP; CGI de eco para o Authorization) ─
 URL_APACHE=""
@@ -212,6 +229,9 @@ fi
 # ── 6. o teste ───────────────────────────────────────────────────────────────────────────────
 export LENDA_URL="http://127.0.0.1:$PORTA/lenda"
 export LENDA_ORIGEM="http://127.0.0.1:$PORTA"
+export LENDA_URL_PAR="http://127.0.0.1:$PORTA_PAR/lenda"
+export LENDA_ORIGEM_PAR="http://127.0.0.1:$PORTA_PAR"
+export LENDA_SRC="$(dirname "$SERVIDOR")/src"
 export LENDA_DSN="$DSN" LENDA_BD_USUARIO=lenda LENDA_BD_SENHA=lenda
 export LENDA_EMAILS="$EMAILS" LENDA_CONFIG_ARQ="$CONFIG" LENDA_LOG_PHP="$LOG_PHP"
 export LENDA_AMOSTRAS="$AQUI/amostras" LENDA_URL_APACHE="$URL_APACHE"

@@ -127,7 +127,8 @@ export function summarize(data: GameData, s: CareerState): CareerSummary {
   const awards = [...awardMap.values()].sort((a, b) => AWARD_ORDER.indexOf(a.award) - AWARD_ORDER.indexOf(b.award))
 
   // picos
-  let peakOvr = START_OVR
+  // com bônus de OVR a carreira começa acima de 50 (o pico nunca fica abaixo do OVR inicial)
+  let peakOvr = START_OVR + (s.bonusOvr ?? 0)
   let peakOvrAge = 16
   for (const r of seasons) {
     if (r.ovrStart > peakOvr) (peakOvr = r.ovrStart), (peakOvrAge = r.age)

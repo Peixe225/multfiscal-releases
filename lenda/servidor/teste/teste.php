@@ -2,6 +2,7 @@
 /**
  * LENDA · teste de ponta a ponta do servidor. Rodado por rodar.sh, que sobe o banco, a config e o php -S
  * e passa tudo por variáveis de ambiente. Fala com as rotas só por HTTP (curl) e confere o banco por PDO.
+ * O que veio na v3 (CONTRATO-v3.md) está em teste-v3.php, incluído antes do .htaccess e dos vazamentos.
  */
 declare(strict_types=1);
 
@@ -212,6 +213,7 @@ final class Navegador
         }
         if ($this->conferir) {
             $CORPOS[] = $r->corpo;
+            $GLOBALS['METODO_ATUAL'] = [$metodo];
             conferirResposta($r, $caminho);
         }
         return $r;
@@ -228,10 +230,15 @@ function conferirResposta(Resposta $r, string $caminho): void
     if ($r->status >= 500) {
         checar("sem erro 500 ($caminho)", false, $r->resumo());
     }
-    if (str_contains($caminho, '/api/') && !str_contains($caminho, '_lib.php') && $r->status !== 204 && $r->status > 0) {
+    if (str_contains($caminho, '/api/') && !str_contains($caminho, '_lib.php') && !str_contains($caminho, '/api/_') && $r->status !== 204 && $r->status > 0
+        && !str_contains($caminho, 'r=exportar')) {
         $chave = $caminho . $r->status;
+        // hall.php (GET 200) e a raridade das conquistas são públicos e ficam em cache; o resto, no-store
+        $publica = $r->status === 200 && preg_match('#/api/(hall\.php(\?|$)|conquistas\.php\?raridade=1)#', $caminho) === 1
+            && !in_array('POST', $GLOBALS['METODO_ATUAL'] ?? [], true);
+        $cacheOk = $publica ? str_starts_with($r->cab1('cache-control'), 'public, max-age=') : $r->cab1('cache-control') === 'no-store';
         $ok = str_starts_with($r->cab1('content-type'), 'application/json')
-            && $r->cab1('cache-control') === 'no-store' && $r->cab1('x-content-type-options') === 'nosniff'
+            && $cacheOk && $r->cab1('x-content-type-options') === 'nosniff'
             && is_array($r->json);
         if (!$ok || !isset($vistos[$chave])) {
             $vistos[$chave] = true;
@@ -333,8 +340,8 @@ function cEsperado(stdClass $h, string $como): array
     ];
 }
 
-const CAMPOS_C = ['bolasOuro', 'como', 'gols', 'headline', 'id', 'jogador', 'modo', 'nota', 'notaV', 'numero', 'pais', 'picoOvr',
-    'posicao', 'salvaEm', 'temporadas', 'terminouEm', 'titulos'];
+const CAMPOS_C = ['bolasOuro', 'bonusOvr', 'como', 'gols', 'headline', 'id', 'jogador', 'modo', 'noHall', 'nota', 'notaV', 'numero', 'pais',
+    'picoOvr', 'posicao', 'publica', 'salvaEm', 'temporadas', 'terminouEm', 'titulos'];
 
 function conferirC(string $nome, mixed $c, array $esperado): void
 {
@@ -414,9 +421,10 @@ $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . str_
 checar('token errado → 401', $r->status === 401, $r->resumo());
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Basic ' . base64_encode('x:' . $PAINEL_TOKEN)]);
 checar('Authorization que não é Bearer → 401', $r->status === 401, $r->resumo());
-$tabelasEsperadas = ['carreiras', 'eventos', 'redefinicoes', 'sessoes_login', 'tentativas', 'usuarios', 'visitantes_usuarios', 'visitas'];
+$tabelasEsperadas = ['admin_log', 'bonus', 'carreiras', 'conquistas_usuario', 'denuncias', 'eventos', 'hall_foto', 'hall_foto_clubes',
+    'indicacoes', 'redefinicoes', 'sessoes_login', 'site_config', 'tentativas', 'usuarios', 'visitantes_usuarios', 'visitas'];
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
-checar('com token → 200 e as 8 tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
+checar('com token → 200 e as 16 tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
 $r = $anon->pedir('GET', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('de novo (idempotente) → 200, nada a alterar', $r->status === 200 && ($r->json['ok'] ?? false) === true && ($r->json['alteracoes'] ?? null) === [], $r->resumo());
 q('ALTER TABLE eventos DROP INDEX ix_eventos_sid');
@@ -710,7 +718,14 @@ checar('senha de 5 → 400 senha_curta', $r->status === 400 && $r->erro() === 's
 $r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'Ana', 'email' => 'a3@exemplo.com', 'senha' => 'qualquer123', 'aceite' => false]);
 checar('sem aceite → 400 aceite', $r->status === 400 && $r->erro() === 'aceite', $r->resumo());
 $r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'Ana', 'email' => 'a4@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
-checar('6º cadastro do mesmo IP em 10 min → 429 limite', $r->status === 429 && $r->erro() === 'limite', $r->resumo());
+checar('6º cadastro do mesmo IP em 10 min passa (o limite agora é 30, por causa do 4G)', $r->status === 201, $r->resumo());
+q("DELETE s FROM sessoes_login s JOIN usuarios u ON u.id = s.usuario_id WHERE u.email = 'a4@exemplo.com'");
+q("DELETE FROM usuarios WHERE email = 'a4@exemplo.com'");
+encherLimite('cadastrar:' . quemIpTeste('127.0.0.1'), 29);
+$r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'a', 'email' => 'a5@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
+checar('30º cadastro do mesmo IP ainda é atendido (400 do apelido curto)', $r->status === 400 && $r->erro() === 'apelido_invalido', $r->resumo());
+$r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'Ana', 'email' => 'a6@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
+checar('31º cadastro do mesmo IP em 10 min → 429 limite', $r->status === 429 && $r->erro() === 'limite', $r->resumo());
 
 resetarLimites();
 $invalidos = [
@@ -861,8 +876,11 @@ $st = [];
 for ($i = 0; $i < 10; $i++) {
     $st[] = conta(novoNav(), ['acao' => 'entrar', 'email' => "n$i@exemplo.com", 'senha' => 'errada'])->status;
 }
+encherLimite('entrar:' . quemIpTeste('127.0.0.1'), 59);
+$r59 = conta(novoNav(), ['acao' => 'entrar', 'email' => 'n98@exemplo.com', 'senha' => 'errada']);
 $r = conta(novoNav(), ['acao' => 'entrar', 'email' => 'n99@exemplo.com', 'senha' => 'errada']);
-checar('10 tentativas do mesmo IP → a 11ª dá 429', count(array_filter($st, static fn($s) => $s === 401)) === 10 && $r->status === 429, implode(',', $st) . " / $r->status");
+checar('entrar: 60 por IP (4G), a 61ª dá 429', count(array_filter($st, static fn($s) => $s === 401)) === 10 && $r59->status === 401 && $r->status === 429,
+    implode(',', $st) . " / $r59->status / $r->status");
 resetarLimites();
 
 secao('conta.php — esqueci e redefinir');
@@ -1665,24 +1683,31 @@ if (!$SEM_CARGA) {
     checar('30 dias: os números somam (visitantes > 0, dias = 30)', ($r !== null) && count($adm->pedir('GET', "/api/painel.php?de=$de30&ate=$hoje")->json['dias'] ?? []) === 30);
 }
 
+// ══ v3: configuração, admin, Hall público, conquistas, indicações, bônus, carga e concorrência ═══
+
+require __DIR__ . '/teste-v3.php';
+
 // ══ 9. .htaccess no Apache ═══════════════════════════════════════════════════════════════════════
 
 if ($URL_APACHE !== '') {
     secao('api/.htaccess no Apache');
     $ap = new Navegador($URL_APACHE, null);
     $ap->conferir = false;
-    foreach (['_lib.php', '_schema.sql', '.htaccess', 'LEIAME.md', '_config.php'] as $arq) {
+    foreach (['_lib.php', '_schema.sql', '.htaccess', 'LEIAME.md', '_config.php', '_palavras.php', '_hall.php', '_bonus.php', '_contas.php',
+        '_carreiras.php'] as $arq) {
         $r = $ap->pedir('GET', "/api/$arq");
         checar("$arq negado", in_array($r->status, $arq === '_config.php' ? [403, 404] : [403], true), "HTTP $r->status");
     }
     $r = $ap->pedir('GET', '/api/');
     checar('sem listagem da pasta', $r->status === 403, "HTTP $r->status");
-    foreach (['e.php', 'conta.php', 'carreiras.php', 'painel.php', 'instalar.php', 'lendas.php'] as $arq) {
+    foreach (['e.php', 'conta.php', 'carreiras.php', 'painel.php', 'instalar.php', 'lendas.php', 'hall.php', 'conquistas.php', 'bonus.php', 'admin.php'] as $arq) {
         $r = $ap->pedir('GET', "/api/$arq");
         checar("$arq liberado", $r->status === 200, "HTTP $r->status");
     }
-    checar('rotas com Cache-Control: no-store', $ap->pedir('GET', '/api/conta.php')->cab1('cache-control') === 'no-store');
-    checar('lendas.php fica com o cache dele', $ap->pedir('GET', '/api/lendas.php')->cab1('cache-control') !== 'no-store');
+    checar('rotas com Cache-Control: no-store (conta, bonus, admin)', $ap->pedir('GET', '/api/conta.php')->cab1('cache-control') === 'no-store'
+        && $ap->pedir('GET', '/api/bonus.php')->cab1('cache-control') === 'no-store' && $ap->pedir('GET', '/api/admin.php')->cab1('cache-control') === 'no-store');
+    checar('lendas.php, hall.php e conquistas.php ficam com o cache deles', $ap->pedir('GET', '/api/lendas.php')->cab1('cache-control') !== 'no-store'
+        && $ap->pedir('GET', '/api/hall.php')->cab1('cache-control') !== 'no-store' && $ap->pedir('GET', '/api/conquistas.php')->cab1('cache-control') !== 'no-store');
     $r = $ap->pedir('GET', '/api/eco.cgi', null, ['auth' => 'Bearer abc123']);
     checar('Authorization chega no PHP/CGI', str_contains($r->corpo, 'auth=Bearer abc123'), $r->resumo());
 }

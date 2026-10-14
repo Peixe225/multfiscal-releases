@@ -134,3 +134,10 @@
 .id-how ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
 .id-how li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
 .id-how li::before { content: ''; position: absolute; left: 2px; top: .6em; width: 6px; height: 6px; background: var(--accent); transform: rotate(45deg); }
+
+/* site: bônus de OVR da conta na criação da carreira */
+.id-bonus { margin-top: 14px; display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); transition: border-color .2s, background-color .2s; }
+.id-bonus.is-on { background: rgba(255, 210, 110, .08); border-color: rgba(255, 210, 110, .4); }
+.id-bonus__ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(255, 200, 87, .14); color: var(--nx-gold, #ffd66e); }
+.id-bonus__sw b { color: #ffe39a; }
+.id-bonus__o { font-weight: 600; color: var(--text-3); }

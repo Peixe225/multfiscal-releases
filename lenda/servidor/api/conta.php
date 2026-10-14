@@ -1,12 +1,14 @@
 <?php
 /**
  * LENDA · conta do jogador: cadastrar, entrar, sair, esqueci, redefinir, perfil, partidas, excluir.
- *   GET  conta.php                  → {usuario: U | null, regras}
- *   POST conta.php {"acao": "..."}  → ver servidor/CONTRATO.md
+ *   GET  conta.php                  → {usuario: U | null, regras, site}
+ *   POST conta.php {"acao": "..."}  → ver servidor/CONTRATO.md e CONTRATO-v3.md §3
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
+require __DIR__ . '/_contas.php';
+require __DIR__ . '/_bonus.php';
 
 cabecalhos();
 
@@ -29,16 +31,6 @@ function lerSenha(mixed $v): string
         erro(400, 'senha_curta', 'A senha precisa ter de 6 a 72 caracteres.');
     }
     return $v;
-}
-
-function lerApelido(mixed $v): string
-{
-    $a = is_string($v) ? trim($v) : '';
-    $n = mb_strlen($a, 'UTF-8');
-    if ($n < 2 || $n > 20 || !preg_match('/^[\p{L}\p{M}\p{N}_.\- ]+$/u', $a) || preg_match('/\s{2,}/u', $a)) {
-        erro(400, 'apelido_invalido', 'O apelido precisa ter de 2 a 20 caracteres: letras, números, espaço, _ . ou -.');
-    }
-    return $a;
 }
 
 /** Senha que dá para conferir: o bcrypt para no byte nulo e só lê 72 bytes. */
@@ -72,92 +64,21 @@ function lerUf(mixed $v): ?string
     return $uf;
 }
 
-// ── usuário U ────────────────────────────────────────────────────────────────────────────────────
-
-/** Objeto U do contrato, com as estatísticas tiradas do banco. */
-function usuarioJson(array $u): array
+/** Modo do Hall público da conta: auto | manual | nao. */
+function lerHallPublico(mixed $v): string
 {
-    $id = (int) $u['id'];
-    $c = umaLinha('SELECT COUNT(*) AS n, MAX(nota) AS melhor, COALESCE(SUM(bolas_ouro), 0) AS bo,
-        COALESCE(SUM(gols), 0) AS gols, COALESCE(SUM(titulos), 0) AS tit FROM carreiras WHERE usuario_id = ?', [$id]);
-    $melhorJogador = $c && (int) $c['n'] > 0
-        ? umValor('SELECT jogador FROM carreiras WHERE usuario_id = ? ORDER BY nota DESC, pico_ovr DESC, salva_em ASC LIMIT 1', [$id])
-        : null;
-    $v = umaLinha('SELECT COALESCE(SUM(ativo_s), 0) AS s, MIN(inicio) AS p, MAX(ultimo) AS u FROM visitas WHERE usuario_id = ?', [$id]);
-    $aparelhos = sql('SELECT dispositivo FROM visitas WHERE usuario_id = ? AND dispositivo IS NOT NULL
-        GROUP BY dispositivo ORDER BY MIN(inicio)', [$id])->fetchAll(PDO::FETCH_COLUMN);
-    $partidasEventos = (int) umValor("SELECT COUNT(*) FROM visitas v JOIN eventos e ON e.sid = v.sid
-        WHERE v.usuario_id = ? AND e.tipo IN ('jogo_fim', 'partida_fim')
-          AND (e.tipo = 'partida_fim' OR e.modo IN ('classico', 'imersivo'))", [$id]);
-
-    $primeiro = $u['criado_em'];
-    if (!empty($v['p']) && $v['p'] < $primeiro) {
-        $primeiro = $v['p'];
+    if (!in_array($v, ['auto', 'manual', 'nao'], true)) {
+        erro(400, 'hall_invalido', 'Escolha como suas carreiras aparecem no Hall: automático, escolhidas ou não aparecer.');
     }
-    $ultimo = $u['criado_em'];
-    foreach ([$u['ultimo_acesso'] ?? null, $u['ultimo_login'] ?? null, $v['u'] ?? null] as $x) {
-        if (!empty($x) && $x > $ultimo) {
-            $ultimo = $x;
-        }
-    }
-    return [
-        'id' => $id,
-        'apelido' => (string) $u['apelido'],
-        'email' => (string) $u['email'],
-        'criadoEm' => iso($u['criado_em']),
-        'timeCoracao' => $u['time_coracao'] !== null ? (string) $u['time_coracao'] : null,
-        'uf' => $u['uf'] !== null ? (string) $u['uf'] : null,
-        'origem' => (string) $u['origem'],
-        'estatisticas' => [
-            'partidas' => max((int) $u['partidas'], $partidasEventos),
-            'carreirasSalvas' => (int) ($c['n'] ?? 0),
-            'melhorNota' => isset($c['melhor']) ? (int) $c['melhor'] : null,
-            'melhorJogador' => $melhorJogador !== null ? (string) $melhorJogador : null,
-            'bolasOuro' => (int) ($c['bo'] ?? 0),
-            'gols' => (int) ($c['gols'] ?? 0),
-            'titulos' => (int) ($c['tit'] ?? 0),
-            'tempoJogadoMin' => intdiv((int) ($v['s'] ?? 0), 60),
-            'primeiroAcesso' => iso($primeiro),
-            'ultimoAcesso' => iso($ultimo),
-            'aparelhos' => array_values(array_map('strval', $aparelhos)),
-        ],
-    ];
-}
-
-function buscarUsuario(int $id): array
-{
-    $u = umaLinha('SELECT * FROM usuarios WHERE id = ?', [$id]);
-    if ($u === null) {
-        erro(401, 'nao_logado', 'Entre na sua conta para continuar.');
-    }
-    return $u;
-}
-
-/** Liga o visitante (aparelho) à conta e passa para ela as visitas sem dono desse aparelho. */
-function ligarVisitante(?string $vid, int $uid): void
-{
-    if ($vid === null) {
-        return;
-    }
-    $t = dt(time());
-    sql('INSERT INTO visitantes_usuarios (vid, usuario_id, ligado_em) VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE usuario_id = VALUES(usuario_id), ligado_em = VALUES(ligado_em)', [$vid, $uid, $t]);
-    sql('UPDATE visitas SET usuario_id = ? WHERE vid = ? AND usuario_id IS NULL', [$uid, $vid]);
+    return $v;
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────────────────────────
 
-$cfg = config();
-$regras = [
-    'aposPartidas' => (int) $cfg['regras']['apos_partidas'],
-    'obrigatorio' => (bool) $cfg['regras']['obrigatorio'],
-    'lembrarACada' => (int) $cfg['regras']['lembrar_a_cada'],
-];
-
 if (metodo() === 'GET') {
     $u = usuarioLogado();
     limpezaTalvez();
-    responder(200, ['usuario' => $u ? usuarioJson($u) : null, 'regras' => $regras]);
+    responder(200, ['usuario' => $u ? usuarioJson($u) : null, 'regras' => regrasPublicas(), 'site' => sitePublico()]);
 }
 if (metodo() !== 'POST') {
     erroMetodo();
@@ -173,8 +94,12 @@ limpezaTalvez();
 
 switch ($acao) {
     case 'cadastrar':
-        limitar('cadastrar', quemIp(), 5);
+        // 30 por IP: no 4G muita gente sai pelo mesmo IP da operadora (CGNAT)
+        limitar('cadastrar', quemIp(), 30);
         limitar('cadastrar-todos', 'todos', 200); // teto do site inteiro (folgado para o pico de um vídeo)
+        if (!siteConfig()['cadastro_aberto']) {
+            erro(403, 'cadastro_fechado', 'Os cadastros estão fechados no momento. Quem já tem conta pode entrar normalmente.');
+        }
         $apelido = lerApelido($j['apelido'] ?? null);
         $email = lerEmail($j['email'] ?? null);
         $senha = lerSenha($j['senha'] ?? null);
@@ -188,14 +113,17 @@ switch ($acao) {
         if (!is_string($origem) || $origem === '') {
             $origem = normalizarOrigem(is_string($j['origem'] ?? null) ? $j['origem'] : null, null);
         }
+        $convite = lerCodigoConvite($j['convite'] ?? null);
         $hash = password_hash($senha, PASSWORD_DEFAULT);
         $t = dt(time());
         try {
-            $uid = transacao(static function (PDO $pdo) use ($email, $apelido, $hash, $t, $origem, $time, $uf, $vid): int {
+            $uid = transacao(static function (PDO $pdo) use ($email, $apelido, $hash, $t, $origem, $time, $uf, $vid, $convite): int {
                 sql('INSERT INTO usuarios (email, apelido, senha_hash, criado_em, ultimo_login, ultimo_acesso, origem, aceite_em,
-                    time_coracao, uf, partidas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+                    time_coracao, uf, partidas, codigo_convite) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)',
                     [$email, $apelido, $hash, $t, $t, $t, $origem, $t, $time, $uf]);
                 $uid = (int) $pdo->lastInsertId();
+                garantirCodigoConvite($uid, null);
+                registrarIndicacao($uid, $convite, $vid); // antes de ligar o aparelho (ver se ele é do indicador)
                 ligarVisitante($vid, $uid);
                 encerrarSessaoAtual();
                 criarSessao($uid);
@@ -212,9 +140,9 @@ switch ($acao) {
     case 'entrar':
         $email = is_string($j['email'] ?? null) ? strtolower(trim($j['email'])) : '';
         $senha = is_string($j['senha'] ?? null) ? $j['senha'] : '';
-        limitar('entrar', quemIp(), 10);
+        limitar('entrar', quemIp(), 60); // 60 por IP (CGNAT do 4G); 5 por e-mail segura a força bruta
         limitar('entrar-e', quemEmail($email), 5);
-        $u = ($email !== '' && strlen($email) <= 190) ? umaLinha('SELECT id, senha_hash FROM usuarios WHERE email = ?', [$email]) : null;
+        $u = ($email !== '' && strlen($email) <= 190) ? umaLinha('SELECT * FROM usuarios WHERE email = ?', [$email]) : null;
         $ok = false;
         if ($u !== null && senhaVerificavel($senha)) {
             $ok = password_verify($senha, (string) $u['senha_hash']);
@@ -225,6 +153,13 @@ switch ($acao) {
             erro(401, 'credenciais', MSG_CREDENCIAIS);
         }
         $uid = (int) $u['id'];
+        if (contaSuspensa($u)) {
+            erro(403, 'suspenso', mensagemSuspenso($u));
+        }
+        if (($u['status'] ?? 'ativo') === 'suspenso') {
+            // a suspensão com data venceu: volta a valer
+            sql("UPDATE usuarios SET status = 'ativo', suspenso_ate = NULL, motivo_suspensao = NULL WHERE id = ?", [$uid]);
+        }
         $novoHash = password_needs_rehash((string) $u['senha_hash'], PASSWORD_DEFAULT) ? password_hash($senha, PASSWORD_DEFAULT) : null;
         transacao(static function () use ($uid, $vid, $novoHash): void {
             $t = dt(time());
@@ -245,7 +180,7 @@ switch ($acao) {
 
     case 'esqueci':
         $email = lerEmail($j['email'] ?? null);
-        limitar('esqueci', quemIp(), 10);
+        limitar('esqueci', quemIp(), 20);
         limitar('esqueci-e', quemEmail($email), 3);
         // Tetos de e-mails mandados, antes de procurar a conta (o 429 não revela se ela existe): no site inteiro
         // (a cota de envio da hospedagem) e por e-mail no dia (ninguém recebe uma enxurrada de códigos).
@@ -289,7 +224,8 @@ switch ($acao) {
         if (!preg_match('/^\d{6}$/', $cod)) {
             erro(400, 'codigo', 'Código inválido ou vencido. Peça um novo.');
         }
-        $uid = transacao(static function () use ($email, $cod, $senha, $vid): ?int {
+        $suspensa = null;
+        $uid = transacao(static function () use ($email, $cod, $senha, $vid, &$suspensa): ?int {
             $r = umaLinha('SELECT codigo_hash, expira_em, tentativas FROM redefinicoes WHERE email = ? FOR UPDATE', [$email]);
             if ($r === null || (paraTempo($r['expira_em']) ?? 0) < time() || (int) $r['tentativas'] >= 5) {
                 return null;
@@ -298,7 +234,7 @@ switch ($acao) {
                 sql('UPDATE redefinicoes SET tentativas = tentativas + 1 WHERE email = ?', [$email]);
                 return null;
             }
-            $u = umaLinha('SELECT id FROM usuarios WHERE email = ? FOR UPDATE', [$email]);
+            $u = umaLinha('SELECT * FROM usuarios WHERE email = ? FOR UPDATE', [$email]);
             sql('DELETE FROM redefinicoes WHERE email = ?', [$email]);
             if ($u === null) {
                 return null;
@@ -308,6 +244,10 @@ switch ($acao) {
             sql('UPDATE usuarios SET senha_hash = ?, ultimo_login = ?, ultimo_acesso = ? WHERE id = ?',
                 [password_hash($senha, PASSWORD_DEFAULT), $t, $t, $uid]);
             sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]); // derruba as outras sessões
+            if (contaSuspensa($u)) {
+                $suspensa = $u; // a senha muda, mas a conta suspensa não entra
+                return $uid;
+            }
             ligarVisitante($vid, $uid);
             criarSessao($uid);
             return $uid;
@@ -315,15 +255,27 @@ switch ($acao) {
         if ($uid === null) {
             erro(400, 'codigo', 'Código inválido ou vencido. Peça um novo.');
         }
+        if ($suspensa !== null) {
+            erro(403, 'suspenso', mensagemSuspenso($suspensa));
+        }
         responder(200, ['usuario' => usuarioJson(buscarUsuario($uid))]);
 
     case 'perfil':
         $u = exigirUsuario();
+        $uid = (int) $u['id'];
         $campos = [];
         $params = [];
+        $apelidoNovo = null;
+        $hallNovo = null;
         if (array_key_exists('apelido', $j)) {
+            $apelidoNovo = lerApelido($j['apelido']);
             $campos[] = 'apelido = ?';
-            $params[] = lerApelido($j['apelido']);
+            $params[] = $apelidoNovo;
+        }
+        if (array_key_exists('hallPublico', $j)) {
+            $hallNovo = lerHallPublico($j['hallPublico']);
+            $campos[] = 'hall_publico = ?';
+            $params[] = $hallNovo;
         }
         if (array_key_exists('timeCoracao', $j)) {
             $campos[] = 'time_coracao = ?';
@@ -334,10 +286,26 @@ switch ($acao) {
             $params[] = lerUf($j['uf']);
         }
         if ($campos) {
-            $params[] = (int) $u['id'];
-            sql('UPDATE usuarios SET ' . implode(', ', $campos) . ' WHERE id = ?', $params);
+            transacao(static function () use ($campos, $params, $uid, $u, $apelidoNovo, $hallNovo): void {
+                sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]);
+                if ($hallNovo === 'manual' && ($u['hall_publico'] ?? 'auto') !== 'manual'
+                    && (int) umValor('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ? AND publica = 1', [$uid]) === 0) {
+                    // passou para "escolhidas" sem nenhuma marcada: começa com as que já estavam no Hall
+                    $ids = idsAutoNoHall($uid);
+                    if ($ids) {
+                        sql('UPDATE carreiras SET publica = 1 WHERE usuario_id = ? AND id IN (' . marcas(count($ids)) . ')', array_merge([$uid], $ids));
+                    }
+                }
+                sql('UPDATE usuarios SET ' . implode(', ', $campos) . ' WHERE id = ?', array_merge($params, [$uid]));
+                if ($apelidoNovo !== null) {
+                    sql('UPDATE hall_foto SET apelido = ? WHERE usuario_id = ?', [$apelidoNovo, $uid]);
+                }
+            });
+            if ($hallNovo === 'nao') {
+                tirarDoHall(null, $uid); // sair do Hall é na hora; entrar, na próxima fotografia
+            }
         }
-        responder(200, ['usuario' => usuarioJson(buscarUsuario((int) $u['id']))]);
+        responder(200, ['usuario' => usuarioJson(buscarUsuario($uid))]);
 
     case 'partidas':
         $u = exigirUsuario();
@@ -349,6 +317,9 @@ switch ($acao) {
             erro(400, 'dados', 'Número de partidas inválido.');
         }
         sql('UPDATE usuarios SET partidas = GREATEST(partidas, ?) WHERE id = ?', [$n, (int) $u['id']]);
+        if ($n >= 1) {
+            acertarPartidasConta($u); // partidas desde o cadastro (bônus) e a indicação pendente, pelos eventos
+        }
         responder(200, ['ok' => true]);
 
     case 'excluir':
@@ -360,22 +331,7 @@ switch ($acao) {
         if (!senhaVerificavel($senha) || !password_verify($senha, $h)) {
             erro(401, 'credenciais', 'Senha incorreta.');
         }
-        transacao(static function () use ($uid, $u): void {
-            sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
-            sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
-            sql('DELETE FROM visitantes_usuarios WHERE usuario_id = ?', [$uid]);
-            // As visitas ficam só como estatística anônima: cada aparelho da conta ganha um vid novo, senão a
-            // próxima conta criada nele herdaria esse histórico (ligarVisitante liga as visitas sem dono do vid).
-            $vids = sql('SELECT DISTINCT vid FROM visitas WHERE usuario_id = ?', [$uid])->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($vids as $velho) {
-                $novo = uuidNovo();
-                sql('UPDATE eventos e JOIN visitas v ON v.sid = e.sid SET e.vid = ? WHERE v.usuario_id = ? AND v.vid = ?', [$novo, $uid, $velho]);
-                sql('UPDATE visitas SET vid = ?, usuario_id = NULL WHERE usuario_id = ? AND vid = ?', [$novo, $uid, $velho]);
-            }
-            sql('UPDATE visitas SET usuario_id = NULL WHERE usuario_id = ?', [$uid]);
-            sql('DELETE FROM redefinicoes WHERE email = ?', [(string) $u['email']]);
-            sql('DELETE FROM usuarios WHERE id = ?', [$uid]);
-        });
+        excluirUsuario($uid);
         apagarCookie(LENDA_COOKIE_SESSAO);
         responder(200, ['ok' => true]);
 

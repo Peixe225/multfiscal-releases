@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react'
 import { CloudCheck, CloudUpload, HardDriveDownload } from 'lucide-react'
 import { useCareer } from '@/store/career'
 import { Button, toast } from '@/ui/primitives'
-import { mensagemDeErro } from './api'
 import { ehTransitoria, guardarNoAparelho, idsNaConta, useCarreiras } from './carreiras'
+import { salvarManual } from './salvar'
 import { useConta } from './conta'
 import { abrirCarreiras, abrirConta } from './ui'
 import './site.css'
@@ -67,12 +67,7 @@ export default function SalvarNaConta({ careerId, finished, size = 'lg' }: { car
           abrirConta({ modo: 'manual', depois: { salvar: careerId } })
           return
         }
-        try {
-          await useCarreiras.getState().salvar(entry, 'manual')
-          toast.success('Salva na sua conta', `${entry.identity.surname} · pico ${entry.summary.peakOvr}`)
-        } catch (err) {
-          toast.error('Não deu para salvar na conta', mensagemDeErro(err))
-        }
+        await salvarManual(entry)
       }}
     >
       Salvar na minha conta

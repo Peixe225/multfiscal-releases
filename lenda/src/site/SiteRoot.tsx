@@ -43,6 +43,8 @@ export default function SiteRoot() {
       precarregarSite('MinhaConta', () => import('./MinhaConta'))
       precarregarSite('MinhasCarreiras', () => import('./MinhasCarreiras'))
       precarregarSite('SalvarNaConta', () => import('./SalvarNaConta'))
+      precarregarSite('ConvideAmigos', () => import('./ConvideAmigos'))
+      precarregarSite('DenunciarCarreira', () => import('./DenunciarCarreira'))
     }, 2500)
     return () => window.clearTimeout(t)
   }, [])

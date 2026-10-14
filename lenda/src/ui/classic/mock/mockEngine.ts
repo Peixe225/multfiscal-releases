@@ -590,10 +590,12 @@ function applyClubChange(d: GameData, s: CareerState, opt: DecisionOption, kind:
 
 export function createMockEngine(): CareerEngine {
   return {
-    newCareer(data, identity, pace, seed) {
+    newCareer(data, identity, pace, seed, opts = {}) {
       const r = rng(seed, 'new')
       const devProfile = r.pick(['early', 'normal', 'normal', 'late'] as const)
-      const ovr = r.int(51, 56)
+      // bônus de OVR (site): o mesmo sorteio de sempre, N pontos acima
+      const bonus = Math.max(0, Math.min(10, Math.round(Number(opts.bonusOvr) || 0)))
+      const ovr = r.int(51, 56) + bonus
       const s: CareerState = {
         version: 1,
         id: `c-${seed}`,
@@ -620,6 +622,7 @@ export function createMockEngine(): CareerEngine {
         log: [],
         retired: false,
       }
+      if (bonus) s.bonusOvr = bonus
       s.pendingDecision = academyDecision(data, identity, r)
       return s
     },

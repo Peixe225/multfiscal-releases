@@ -11,6 +11,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ArrowRight, Tv2 } from 'lucide-react'
 import { navigate, useApp } from '@/store/app'
+import { podeDebug, useAcesso } from '@/store/acesso'
 import { useClub, useData } from '@/store/data'
 import { useImmersive } from '@/store/immersive'
 import { Button, Stadium, clubVars } from '@/ui/primitives'
@@ -114,11 +115,13 @@ export default function ImmersiveApp() {
   useEffect(() => {
     void useImmersive.getState().init()
   }, [])
-  const fixtureKey = query.fixture ? (query.clube ? `${query.fixture}@${query.clube}` : query.fixture) : null
+  // estados de exemplo (?fixture=): no site, só para o admin
+  const debug = useAcesso((s) => podeDebug(s))
+  const fixtureKey = query.fixture && debug ? (query.clube ? `${query.fixture}@${query.clube}` : query.fixture) : null
   useEffect(() => {
-    if (!query.fixture || !dataReady || status !== 'ready' || fixture === fixtureKey) return
+    if (!query.fixture || !debug || !dataReady || status !== 'ready' || fixture === fixtureKey) return
     void useImmersive.getState().loadFixture(query.fixture, { club: query.clube })
-  }, [query.fixture, query.clube, fixtureKey, dataReady, status, fixture])
+  }, [query.fixture, query.clube, fixtureKey, dataReady, status, fixture, debug])
 
   const live = !!state?.live
   const press = !!state?.press

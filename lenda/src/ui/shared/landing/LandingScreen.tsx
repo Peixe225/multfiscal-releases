@@ -8,6 +8,7 @@ import { motion } from 'motion/react'
 import { ArrowRight, Check, Clock3, Layers, Play, Trophy, Tv2 } from 'lucide-react'
 import type { Pace } from '@/engine/types'
 import { buildHash, navigate, useApp } from '@/store/app'
+import { podeImersivo, podeLive, soAdmin, useAcesso } from '@/store/acesso'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { peekSavedImmersive } from '@/store/immersive'
 import type { ImmersiveState } from '@/engine/immersive/types'
@@ -25,20 +26,31 @@ import { LiveTicker } from './LiveTicker'
 import './landing.css'
 
 export function LandingNav() {
-  const links: [string, string, boolean?][] = [
+  // site: com o Modo Imersivo ainda em desenvolvimento, o público vê "Em breve" (sem link); o admin, "Teste"
+  const acesso = useAcesso()
+  const imersivo = podeImersivo(acesso)
+  const teste = soAdmin(acesso, acesso.imersivoPublico)
+  const links: [string, string, string?][] = [
     ['Modo Clássico', '#/identidade'],
-    ['Modo Imersivo', '#/imersivo', true],
+    ['Modo Imersivo', '#/imersivo', teste ? 'Teste' : 'Novo'],
     ['Ligas ao vivo', '#/ligas'],
     ['Hall das Lendas', '#/hall'],
   ]
   return (
     <nav aria-label="Principal" className="ld-nav max-lg:hidden">
-      {links.map(([label, href, soon]) => (
-        <a key={href} href={href}>
-          {label}
-          {soon && <span className="ld-soon">Novo</span>}
-        </a>
-      ))}
+      {links.map(([label, href, tag]) =>
+        href === '#/imersivo' && !imersivo ? (
+          <span key={href} className="ld-nav__off" aria-disabled="true">
+            {label}
+            <span className="ld-soon ld-soon--ghost">Em breve</span>
+          </span>
+        ) : (
+          <a key={href} href={href}>
+            {label}
+            {tag && <span className="ld-soon">{tag}</span>}
+          </a>
+        ),
+      )}
     </nav>
   )
 }
@@ -60,12 +72,19 @@ export default function LandingScreen() {
   const pace = usePrefs((s) => s.pace)
   const setPace = usePrefs((s) => s.setPace)
   const [confirmNew, setConfirmNew] = useState(false)
+  // site: Modo Imersivo "Em desenvolvimento" para o público (cartão desabilitado); o admin joga (selo "Teste")
+  const acesso = useAcesso()
+  const imersivo = podeImersivo(acesso)
+  const imersivoTeste = soAdmin(acesso, acesso.imersivoPublico)
+  const liveVisivel = podeLive(acesso)
   // modo de jogo escolhido nos cards (o Imersivo abre a identidade em ?modo=imersivo)
-  const [mode, setMode] = useState<'classico' | 'imersivo'>(query.modo === 'imersivo' ? 'imersivo' : 'classico')
-  const [imm, setImm] = useState<ImmersiveState | null>(null)
+  const [modeSel, setMode] = useState<'classico' | 'imersivo'>(query.modo === 'imersivo' ? 'imersivo' : 'classico')
+  const mode = imersivo ? modeSel : 'classico'
+  const [immSaved, setImm] = useState<ImmersiveState | null>(null)
   useEffect(() => {
-    void peekSavedImmersive().then(setImm).catch(() => {})
-  }, [])
+    if (imersivo) void peekSavedImmersive().then(setImm).catch(() => {})
+  }, [imersivo])
+  const imm = imersivo ? immSaved : null
   // só há carreira imersiva salva (nenhuma clássica ativa): a landing já abre no Modo Imersivo, com "Continuar"
   const careerStatus = useCareer((s) => s.status)
   const autoMode = useRef(false)
@@ -159,9 +178,12 @@ export default function LandingScreen() {
               </button>
               <button
                 type="button"
-                className={cx('lx-mode ld-mode', mode === 'imersivo' && 'is-on')}
-                aria-pressed={mode === 'imersivo'}
+                className={cx('lx-mode ld-mode', mode === 'imersivo' && 'is-on', !imersivo && 'is-off')}
+                aria-pressed={imersivo ? mode === 'imersivo' : undefined}
+                aria-disabled={imersivo ? undefined : true}
+                aria-describedby={imersivo ? undefined : 'ld-imm-breve'}
                 onClick={() => {
+                  if (!imersivo) return
                   sfx.play('tap')
                   setMode('imersivo')
                 }}
@@ -171,7 +193,7 @@ export default function LandingScreen() {
                     <Check size={12} strokeWidth={3.2} />
                   </span>
                 ) : (
-                  <span className="ld-mode__badge ld-soon">Novo</span>
+                  <span className={cx('ld-mode__badge ld-soon', !imersivo && 'ld-soon--ghost')}>{!imersivo ? 'Em desenvolvimento' : imersivoTeste ? 'Teste · admin' : 'Novo'}</span>
                 )}
                 <span className="flex items-center gap-2.5 pr-16">
                   <span className="ld-mode__ic" aria-hidden="true">
@@ -182,7 +204,9 @@ export default function LandingScreen() {
                     <span className="ld-mode__k block">Jogue partida a partida</span>
                   </span>
                 </span>
-                <span className="ld-mode__d block">Entre em campo nos lances decisivos, fale com a imprensa e dispute cada rodada.</span>
+                <span className="ld-mode__d block" id={imersivo ? undefined : 'ld-imm-breve'}>
+                  {imersivo ? 'Entre em campo nos lances decisivos, fale com a imprensa e dispute cada rodada.' : 'Em desenvolvimento: em breve você entra em campo nos lances decisivos, partida a partida.'}
+                </span>
                 <span className="ld-mini" aria-label="Prévia: Palmeiras 2 a 1 Flamengo, 78 minutos">
                   <Crest clubId="e2029" size={18} decorative />
                   <span aria-hidden>PAL</span>
@@ -302,10 +326,14 @@ export default function LandingScreen() {
             <a className="ld-footer__link" href={buildHash('/creditos')}>
               Créditos e licenças
             </a>
-            {' · '}
-            <a className="ld-footer__link" href={buildHash('/live')}>
-              Live interativa (TikTok)
-            </a>
+            {liveVisivel && (
+              <>
+                {' · '}
+                <a className="ld-footer__link" href={buildHash('/live')}>
+                  Live interativa (TikTok)
+                </a>
+              </>
+            )}
           </span>
           <span>Dados de tabela: rodada atual de cada liga{data?.generatedAt ? ` · ${new Date(data.generatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}</span>
         </footer>

@@ -6,13 +6,14 @@
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, ArrowRight, Check, Minus, Plus, RotateCcw, Save, X, type LucideProps } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Minus, Plus, RotateCcw, Save, Sparkles, X, type LucideProps } from 'lucide-react'
 import type { Pace, PlayerIdentity } from '@/engine/types'
 import { navigate, useApp } from '@/store/app'
-import { selectHasActiveCareer, useCareer } from '@/store/career'
+import { randomSeed, selectHasActiveCareer, useCareer } from '@/store/career'
+import { useBonusCarreira } from '@/store/bonusCarreira'
 import { selectHasImmersiveCareer, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
-import { Button, Flag, FootIcon, Glass, IconButton, Modal, OvrBadge, POSITION_LABEL, Segmented, Tooltip, cx, toast, useMediaQuery, useReducedMotion } from '@/ui/primitives'
+import { Button, Flag, FootIcon, Glass, IconButton, Modal, OvrBadge, POSITION_LABEL, Segmented, Switch, Tooltip, cx, toast, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
 import { sfx } from '@/ui/shell/sfx'
 import { bestInk, clubVars, nationColors } from '@/ui/theme/club'
@@ -72,7 +73,16 @@ export default function IdentityScreen() {
   const immersive = query.modo === 'imersivo'
   const classicBusy = useCareer((s) => s.busy)
   const immBusy = useImmersive((s) => s.busy)
-  const busy = immersive ? immBusy : classicBusy
+  // site: o bônus de OVR da conta (indicações, compartilhar) — usar nesta carreira do Clássico, por padrão sim
+  const oferta = useBonusCarreira((s) => (immersive ? null : s.oferta))
+  const usarBonus = useBonusCarreira((s) => s.usar)
+  const carregarBonus = useBonusCarreira((s) => s.carregar)
+  useEffect(() => {
+    if (!immersive) carregarBonus?.()
+  }, [immersive, carregarBonus])
+  const bonus = oferta && usarBonus ? oferta.valor : 0
+  const [comecando, setComecando] = useState(false)
+  const busy = (immersive ? immBusy : classicBusy) || comecando
   const hasClassic = useCareer(selectHasActiveCareer)
   const hasImmersive = useImmersive(selectHasImmersiveCareer)
   const hasActive = immersive ? hasImmersive : hasClassic
@@ -164,7 +174,22 @@ export default function IdentityScreen() {
         navigate('/imersivo', { replace: true })
         return
       }
-      await useCareer.getState().start(identity, pace)
+      // bônus de OVR (site): marca no servidor como usado NESTA carreira (o id sai da semente) e passa ao motor
+      const seed = randomSeed()
+      let bonusOvr = 0
+      const b = useBonusCarreira.getState()
+      if (b.oferta && b.usar && b.consumir) {
+        setComecando(true)
+        try {
+          bonusOvr = await b.consumir(`career-${seed}`)
+        } catch {
+          toast.info('O bônus fica para a próxima', 'Sem conexão com o servidor agora: esta carreira começa sem ele, e ele continua guardado na sua conta.')
+        } finally {
+          setComecando(false)
+        }
+      }
+      await useCareer.getState().start(identity, pace, { seed, bonusOvr })
+      if (bonusOvr) toast.gold(`+${bonusOvr} de OVR nesta carreira!`, `Você começa com OVR ${START_OVR + bonusOvr} e fica ${bonusOvr} acima do normal até a aposentadoria.`)
       navigate('/carreira', { replace: true })
     } catch (err) {
       console.error(err)
@@ -172,6 +197,7 @@ export default function IdentityScreen() {
     }
   }
   const confirm = () => {
+    if (busy) return
     if (!identity) {
       toast.info('Quase lá', `Falta escolher: ${missing.join(' e ')}.`)
       if (!draft.nationality) searchRef.current?.focus()
@@ -196,8 +222,8 @@ export default function IdentityScreen() {
       <div className="id-jersey">
         <div className="id-jersey__ovr">
           {/* no Imersivo (tema Transmissão) o selo de OVR é o do próprio modo — o da Noite não encaixa lá */}
-          {immersive ? <ImOvr ovr={START_OVR} w={58} /> : <OvrBadge ovr={START_OVR} size="md" sheen={false} />}
-          <span className="id-jersey__cap">Inicial</span>
+          {immersive ? <ImOvr ovr={START_OVR} w={58} /> : <OvrBadge ovr={START_OVR + bonus} size="md" sheen={false} />}
+          <span className="id-jersey__cap">{bonus ? `+${bonus} bônus` : 'Inicial'}</span>
         </div>
         <motion.div
           className={cx('id-jersey__kit', !rm && 'lx-sway')}
@@ -286,6 +312,28 @@ export default function IdentityScreen() {
         <p className="id-err" id="id-number-err" role="alert">
           Use um número de 1 a 99.
         </p>
+      )}
+      {oferta && (
+        <div className={cx('id-bonus', usarBonus && 'is-on')}>
+          <span className="id-bonus__ic" aria-hidden="true">
+            <Sparkles size={16} />
+          </span>
+          <Switch
+            className="id-bonus__sw"
+            checked={usarBonus}
+            onChange={(usar) => useBonusCarreira.setState({ usar })}
+            label={
+              <>
+                Bônus de OVR: <b className="num">+{oferta.valor}</b> <span className="id-bonus__o">({oferta.origem})</span>
+              </>
+            }
+            description={
+              usarBonus
+                ? `Começa com OVR ${START_OVR + oferta.valor} e fica ${oferta.valor} acima do normal a carreira inteira.${oferta.depois ? ` Mais ${oferta.depois} guardado${oferta.depois === 1 ? '' : 's'} para as próximas.` : ''}`
+                : 'Fica guardado para a próxima carreira.'
+            }
+          />
+        </div>
       )}
       <div className="mt-4">
         <span className="id-label" id="id-foot-l">

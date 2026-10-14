@@ -720,6 +720,12 @@ export interface CareerState {
   achievements?: string[]
   /** Memória interna do motor da carreira (JSON; a UI não deve depender dela). */
   engine?: Record<string, unknown>
+  /**
+   * Bônus de OVR da carreira (1–10; indicação de amigos, compartilhar o card — só no site). O jogador
+   * começa N pontos acima do normal e segue com o mesmo desenvolvimento, então fica N acima a carreira
+   * inteira. Ausente = sem bônus (a carreira é idêntica à de sempre).
+   */
+  bonusOvr?: number
 }
 
 /** Resumo final (tela "Ver resumo" e card compartilhável). */

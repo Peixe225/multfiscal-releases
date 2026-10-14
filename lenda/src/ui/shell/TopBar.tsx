@@ -5,6 +5,7 @@
 import { memo } from 'react'
 import { Menu, Save, Volume2, VolumeX } from 'lucide-react'
 import { useApp, type RoutePath } from '@/store/app'
+import { podeImersivo, soAdmin, useAcesso } from '@/store/acesso'
 import { decisionProgress, useCareer } from '@/store/career'
 import { Brand, IconButton, MedalIcon, cx, toast, NewBadge } from '@/ui/primitives'
 import { formatSeason } from '@/ui/primitives/format'
@@ -79,6 +80,10 @@ function DefaultCenter({ path }: { path: RoutePath }) {
 
 /** Landing nav (Modo Clássico · Modo Imersivo NOVO · Ligas ao vivo · Hall das Lendas). */
 export function TopNav() {
+  // site: o Modo Imersivo em desenvolvimento não tem link para o público
+  const acesso = useAcesso()
+  const imersivo = podeImersivo(acesso)
+  const teste = soAdmin(acesso, acesso.imersivoPublico)
   const links: [string, string, boolean?][] = [
     ['Modo Clássico', '#/identidade'],
     ['Modo Imersivo', '#/imersivo', true],
@@ -87,12 +92,18 @@ export function TopNav() {
   ]
   return (
     <nav aria-label="Principal" className="flex items-center gap-1 ml-5 max-lg:hidden">
-      {links.map(([label, href, isNew]) => (
-        <a key={href} href={href} className="h-[34px] px-3 inline-flex items-center gap-[7px] rounded-sm text-[13.5px] font-semibold text-text-2 no-underline transition-colors hover:text-text hover:bg-surface">
-          {label}
-          {isNew && <NewBadge />}
-        </a>
-      ))}
+      {links.map(([label, href, isNew]) =>
+        href === '#/imersivo' && !imersivo ? (
+          <span key={href} className="h-[34px] px-3 inline-flex items-center gap-[7px] text-[13.5px] font-semibold text-text-3" aria-disabled="true">
+            {label} <span className="ld-soon ld-soon--ghost">Em breve</span>
+          </span>
+        ) : (
+          <a key={href} href={href} className="h-[34px] px-3 inline-flex items-center gap-[7px] rounded-sm text-[13.5px] font-semibold text-text-2 no-underline transition-colors hover:text-text hover:bg-surface">
+            {label}
+            {isNew && (teste ? <span className="ld-soon">Teste</span> : <NewBadge />)}
+          </a>
+        ),
+      )}
     </nav>
   )
 }

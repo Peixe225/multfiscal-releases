@@ -45,3 +45,6 @@
 .ac-cell:not(.is-on) .ac-tile { opacity: .7; }
 .ac-empty { margin: 16px 0; padding: 28px 16px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 16px; color: var(--text-3); font-size: 13.5px; }
 }
+
+/* site: quantos jogadores têm a conquista */
+.ac-pct { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700; color: var(--text-2); background: var(--surface-2, rgba(255, 255, 255, .06)); border: 1px solid var(--border); white-space: nowrap; }

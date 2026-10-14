@@ -9,6 +9,8 @@ import { mensagemDeErro } from './api'
 import { escolherUltima, hallComUltima, idsNaConta, lerUltima, useCarreiras } from './carreiras'
 import { useConta } from './conta'
 import { track } from './medicao'
+import { salvarManual } from './salvar'
+import { useAcesso } from '@/store/acesso'
 import { abrirCarreiras, abrirConta, abrirPerfil } from './ui'
 import './site.css'
 
@@ -29,6 +31,7 @@ function Linha({ icon: Ico, titulo, sub, onClick, tom, carregando }: { icon: Com
 
 export default function ContaMenu({ fechar }: { fechar: () => void }) {
   const usuario = useConta((s) => s.usuario)
+  const cadastroAberto = useAcesso((s) => s.cadastroAberto)
   const [salvando, setSalvando] = useState(false)
   const [saindo, setSaindo] = useState(false)
 
@@ -38,7 +41,7 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
         <Linha
           icon={LogIn}
           tom="cta"
-          titulo="Entrar / Criar conta"
+          titulo={cadastroAberto ? 'Entrar / Criar conta' : 'Entrar'}
           sub="Salve suas carreiras em qualquer aparelho"
           onClick={() => {
             fechar()
@@ -71,8 +74,7 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
         toast.info('Essa carreira já está na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}`)
         return
       }
-      await useCarreiras.getState().salvar(h, 'manual')
-      toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}`)
+      await salvarManual(h)
     } catch (err) {
       toast.error('Não deu para salvar na conta', mensagemDeErro(err))
     } finally {

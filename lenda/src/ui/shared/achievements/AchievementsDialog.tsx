@@ -9,6 +9,7 @@ import { motion } from 'motion/react'
 import { ArrowDownAZ, CalendarArrowDown, CalendarArrowUp, Gem, LayoutGrid, List, Lock } from 'lucide-react'
 import type { Achievement } from '@/engine/types'
 import { useCareer } from '@/store/career'
+import { textoRaridade, useConquistasSite } from '@/store/conquistasSite'
 import { IconButton, MedalIcon, Modal, Segmented, Tooltip, cx, useReducedMotion } from '@/ui/primitives'
 import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
 import { achievementIcon, formatUnlockDate, longDate, RARITY, type Rarity } from './meta'
@@ -64,6 +65,14 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
   const markSeen = useCareer((s) => s.markAchievementsSeen)
   const [pref, setPref] = useState(readPref)
   const freshRef = useRef<Set<string>>(new Set())
+  // site: raridade ("12% dos jogadores") e se as conquistas estão na conta
+  const raridade = useConquistasSite((s) => s.raridade)
+  const naConta = useConquistasSite((s) => s.naConta)
+  const pendentes = useConquistasSite((s) => s.pendentes)
+  const pedirRaridade = useConquistasSite((s) => s.pedirRaridade)
+  useEffect(() => {
+    if (open) pedirRaridade?.()
+  }, [open, pedirRaridade])
 
   // remember what was new when the dialog opened, then clear the top-bar dot
   const booted = useCareer((s) => s.status === 'ready')
@@ -127,7 +136,7 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
           Conquistas da carreira
         </span>
       }
-      description={`${done} de ${list.length} desbloqueadas · salvas neste navegador`}
+      description={`${done} de ${list.length} desbloqueadas · ${naConta ? (pendentes ? `salvas neste aparelho (${pendentes} subindo para a conta)` : 'salvas na sua conta') : 'salvas neste navegador'}`}
       bodyClassName="ac-body"
     >
       <div className="ac-summary">
@@ -192,7 +201,16 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
             const label = `${secret ? 'Conquista secreta' : a.title}${u ? ` — desbloqueada em ${longDate(u.unlockedAt)}` : ' — bloqueada'}`
             return (
               <li key={a.id}>
-                <Tooltip tapToShow content={<span className="block max-w-[220px]"><b className="block">{secret ? 'Conquista secreta' : a.title}</b>{!secret && <span className="text-text-2">{a.description}</span>}</span>}>
+                <Tooltip
+                  tapToShow
+                  content={
+                    <span className="block max-w-[220px]">
+                      <b className="block">{secret ? 'Conquista secreta' : a.title}</b>
+                      {!secret && <span className="text-text-2">{a.description}</span>}
+                      {!secret && textoRaridade(raridade, a.id) && <span className="block text-text-3 mt-1">{textoRaridade(raridade, a.id)}</span>}
+                    </span>
+                  }
+                >
                   <button type="button" className={cx('ac-cell', u && 'is-on')} aria-label={label}>
                     <AchTile a={a} on={!!u} size={56} />
                     {u && freshRef.current.has(a.id) && <span className="ac-new ac-new--dot" />}
@@ -226,6 +244,11 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
                   <div className="ac-item__m">
                     {fresh && <span className="ac-new">Nova</span>}
                     <span className={cx('ac-rpill', `ac-rpill--${a.rarity}`)}>{r.label}</span>
+                    {!secret && textoRaridade(raridade, a.id) && (
+                      <span className="ac-pct" title="Jogadores com conta que já desbloquearam">
+                        {textoRaridade(raridade, a.id)}
+                      </span>
+                    )}
                     {u?.context && <span className="truncate">{u.context}</span>}
                   </div>
                 </div>

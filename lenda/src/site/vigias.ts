@@ -32,6 +32,14 @@ import {
 } from './carreiras'
 import { aoEntrar } from './conta'
 import { abrirCarreiras, abrirConta, useSiteUi } from './ui'
+import { comReintento, valeTentar } from './api'
+import { useAcesso } from '@/store/acesso'
+import { iniciarAcesso } from './acesso'
+import { iniciarConquistas } from './conquistas'
+import { iniciarHallPublico } from './hallPublico'
+import { iniciarPontes } from './pontes'
+import { pendentesManuais } from './carreiras'
+import { salvarManual } from './salvar'
 
 /** Está jogando agora (para o batimento)? */
 function estadoJogo(): { jogando: boolean; modo: ModoJogo | null } {
@@ -62,11 +70,13 @@ async function salvarSozinha(h: HallEntry) {
   const carreiras = useCarreiras.getState()
   if (!deveSalvarSozinha(h, { logado: true, naConta: idsNaConta(carreiras.lista), apagadas: apagadasNoAparelho() })) return
   try {
-    await carreiras.salvar(h, 'auto')
+    // salvar é idempotente (grava ou atualiza pelo id): sem rede, tenta de novo com espera crescente
+    await comReintento(() => useCarreiras.getState().salvar(h, 'auto'), { tentativas: 3, base: 2000 })
     toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}`, { key: `conta-salva-${h.id}` })
   } catch (err) {
     marcarPendente(h.id)
-    toast.error('Não deu para salvar na conta', mensagemDeErro(err), { key: `conta-salva-${h.id}` })
+    if (valeTentar(err)) toast.info('Sem conexão agora', `${h.identity.surname} sobe para a sua conta sozinha quando a internet voltar.`, { key: `conta-salva-${h.id}` })
+    else toast.error('Não deu para salvar na conta', mensagemDeErro(err), { key: `conta-salva-${h.id}` })
   }
 }
 
@@ -112,14 +122,7 @@ export async function sincronizarAoEntrar(salvarId?: string) {
   const hall = hallComUltima()
   if (salvarId) {
     const h = hall.find((x) => x.id === salvarId)
-    if (h) {
-      try {
-        await useCarreiras.getState().salvar(h, 'manual')
-        toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}`)
-      } catch (err) {
-        toast.error('Não deu para salvar na conta', mensagemDeErro(err))
-      }
-    }
+    if (h) await salvarManual(h)
   }
   const subir = paraSubirAoEntrar(hall, idsNaConta(useCarreiras.getState().lista), apagadasNoAparelho())
   let n = 0
@@ -139,24 +142,38 @@ export async function sincronizarAoEntrar(salvarId?: string) {
   }
 }
 
-/** Já logado ao abrir o jogo: tenta de novo as 90+ que não subiram (sem rede na hora em que terminaram). */
+/**
+ * Tenta de novo as carreiras que não subiram (sem rede na hora): as 90+ ("auto") e as do botão ("manual").
+ * Roda ao abrir o jogo já logado e quando a internet volta. Uma de cada vez; a primeira falha para tudo.
+ */
+let reenviando = false
 async function reenviarPendentes() {
   const pend = pendentesNoAparelho()
-  if (!pend.size || !useConta.getState().usuario) return
+  const manuais = pendentesManuais()
+  if ((!pend.size && !manuais.size) || !useConta.getState().usuario || reenviando) return
+  reenviando = true
   try {
-    await useCarreiras.getState().carregar(true)
-  } catch {
-    return
-  }
-  const naConta = idsNaConta(useCarreiras.getState().lista)
-  const apagadas = apagadasNoAparelho()
-  for (const h of hallComUltima()) {
-    if (!pend.has(h.id) || naConta.has(h.id) || apagadas.has(h.id)) continue
     try {
-      await useCarreiras.getState().salvar(h, 'auto')
+      await useCarreiras.getState().carregar(true)
     } catch {
       return
     }
+    const naConta = idsNaConta(useCarreiras.getState().lista)
+    const apagadas = apagadasNoAparelho()
+    let n = 0
+    for (const h of hallComUltima()) {
+      const manual = manuais.has(h.id)
+      if ((!pend.has(h.id) && !manual) || naConta.has(h.id) || (!manual && apagadas.has(h.id))) continue
+      try {
+        await useCarreiras.getState().salvar(h, manual ? 'manual' : 'auto')
+        n++
+      } catch {
+        return
+      }
+    }
+    if (n) toast.success(n === 1 ? 'A carreira que estava esperando subiu para a sua conta' : `${n} carreiras que estavam esperando subiram para a sua conta`, undefined, { key: 'conta-pendentes' })
+  } finally {
+    reenviando = false
   }
 }
 
@@ -190,7 +207,15 @@ export function iniciarSite() {
   if (iniciado || typeof window === 'undefined') return
   iniciado = true
   iniciarMedicao({ estadoJogo })
+  // público × admin (Live, Imersivo de teste, aviso, manutenção), Hall público, conquistas na conta,
+  // bônus de OVR / convite de amigos
+  iniciarAcesso()
+  iniciarHallPublico()
+  iniciarConquistas()
+  iniciarPontes()
   vigiarTransitorias()
+  // a internet voltou: o que não subiu (carreiras salvas sem rede) tenta de novo
+  window.addEventListener('online', () => void reenviarPendentes())
 
   // regras do convite + quem está logado
   void useConta
@@ -250,6 +275,8 @@ export function iniciarSite() {
 
   // ── conta: depois de entrar, sobe as carreiras ──
   aoEntrar((_u, como) => {
+    // já estava logado (cookie) ou entrou em outra aba: as carreiras pendentes já são tratadas acima
+    if (como === 'sessao') return
     track(como === 'cadastro' ? 'cadastro' : 'login')
     const d = useSiteUi.getState().dialogo
     const salvarId = d?.tipo === 'conta' ? d.depois?.salvar : undefined
@@ -314,7 +341,8 @@ export function iniciarSite() {
       seguroDesde = 0
       return
     }
-    if (!deveAbrirConvite({ partidas: c.partidas, regras: c.regras, logado: selectTemConta(c), proximoConvite: c.proximoConvite })) {
+    // cadastros fechados pelo painel: nada de convite para criar conta
+    if (!useAcesso.getState().cadastroAberto || !deveAbrirConvite({ partidas: c.partidas, regras: c.regras, logado: selectTemConta(c), proximoConvite: c.proximoConvite })) {
       seguroDesde = 0
       return
     }

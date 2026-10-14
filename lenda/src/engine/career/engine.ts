@@ -5,7 +5,7 @@
  * sorteado) → simula o período (1/2/3 temporadas, uma linha por temporada) → sequências de
  * banco → volta de empréstimo → aposentadoria aos 40 → próxima decisão (Copero `$l`).
  */
-import type { CareerEngine, RevealScript, WorldEngine } from '../api'
+import type { CareerEngine, NewCareerOptions, RevealScript, WorldEngine } from '../api'
 import { rng } from '../rng'
 import type {
   CareerLogEntry,
@@ -19,7 +19,7 @@ import type {
   TrophyWin,
 } from '../types'
 import { detectAchievements } from './achievements'
-import { ENGINE_VERSION, PACES, RETIREMENT_AGE, START_AGE, START_OVR, START_SEASON, START_VALUE } from './constants'
+import { ENGINE_VERSION, PACES, RETIREMENT_AGE, START_AGE, START_OVR, START_SEASON, START_VALUE, clampBonusOvr } from './constants'
 import { assembleDecision, planEventSlots, tryEventDecision } from './events/runtime'
 import type { BuiltEvent, EffectSpec, EventOption, OptionSpec, OutcomeSpec } from './events/types'
 import { emptyPeriod, mem, newMemory, type CareerMemory } from './memory'
@@ -376,8 +376,13 @@ function updateStreaks(data: GameData, s: CareerState, periodRecords: CareerStat
 
 export function createCareerEngine(world: WorldEngine): CareerEngine {
   const engine: CareerEngine = {
-    newCareer(data: GameData, identity: PlayerIdentity, pace: Pace, seed: string): CareerState {
+    newCareer(data: GameData, identity: PlayerIdentity, pace: Pace, seed: string, opts: NewCareerOptions = {}): CareerState {
       if (!PACES[pace]) throw new Error(`Ritmo desconhecido: ${pace}`)
+      // bônus de OVR: começa N acima e o desenvolvimento (as mesmas tabelas por idade) segue igual, então o
+      // jogador fica N acima do normal a carreira inteira — e papel no elenco, propostas, convocação e
+      // prêmios já leem esse OVR. Sem bônus, nada muda (nem o campo existe no estado).
+      const bonus = clampBonusOvr(opts.bonusOvr)
+      const ovr0 = START_OVR + bonus
       const id: PlayerIdentity = { ...identity, surname: identity.surname.trim().slice(0, 15), number: Math.max(1, Math.min(99, Math.round(identity.number))) }
       const w = world.createWorld(data, seed)
       const s: CareerState = {
@@ -391,7 +396,7 @@ export function createCareerEngine(world: WorldEngine): CareerEngine {
         phase: 'deciding',
         age: START_AGE,
         season: START_SEASON,
-        ovr: START_OVR,
+        ovr: ovr0,
         devProfile: developmentProfile(seed, id),
         marketValue: START_VALUE,
         clubId: null,
@@ -403,11 +408,12 @@ export function createCareerEngine(world: WorldEngine): CareerEngine {
         modifiers: {},
         streaks: { lowRole: 0, substitute: 0 },
         world: w,
-        log: [{ season: START_SEASON, age: START_AGE, type: 'decision', text: 'Começa a jornada: 16 anos, OVR 50, sem clube.' }],
+        log: [{ season: START_SEASON, age: START_AGE, type: 'decision', text: bonus ? `Começa a jornada: 16 anos, OVR ${ovr0} (+${bonus} de bônus), sem clube.` : 'Começa a jornada: 16 anos, OVR 50, sem clube.' }],
         retired: false,
         achievements: [],
         engine: { ...newMemory(id.nationality, indexData(data).country.get(id.nationality)?.confed), engineVersion: ENGINE_VERSION } as unknown as Record<string, unknown>,
       }
+      if (bonus) s.bonusOvr = bonus
       s.pendingDecision = academyDecision(data, s)
       return s
     },

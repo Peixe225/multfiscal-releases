@@ -8,36 +8,75 @@
  *   categorias .. 17 abas em três grupos (Prêmios, Títulos, Números) com pódio, top 10 e desempate
  *   suas runs ... cards → detalhe (composição da nota, recordes, comparações, resumo)
  *
- * `#/hall?run=<id>` abre o detalhe de uma run (link do Resumo).
+ * `#/hall?run=<id>` abre o detalhe de uma run (link do Resumo). Filtros na URL (compartilháveis):
+ * `?pais=BOL&clube=e2022` (lendas por nacionalidade e por clube — vale para as lendas, as suas carreiras e,
+ * no site, as da comunidade) e `?seg=comunidade` (todos · suas · lendas · comunidade).
  */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
 import { ArrowRight, ChevronDown, Crown, ExternalLink, Info, Play, Quote, Sparkles, Swords, Zap } from 'lucide-react'
 import { CATEGORIES, CATEGORY_GROUPS, CATEGORY_IDS, CATEGORY_TIEBREAK, LEGENDS_AS_OF, LEGENDS_CHECKED_AT, categoryWeight, compareRun, legendTotalTitles, nextTarget, type CategoryId, type LegendLegacy, type RankEntry, type RankRow, type RunLegacy } from '@/engine/legacy'
 import { liveUpdatedLabel } from '@/data/legendsLive'
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
+import { chaveFiltro, useComunidade, type FiltroHall } from '@/store/comunidade'
 import { useClub, useCountry } from '@/store/data'
 import { Button, Eyebrow, POSITION_LABEL, Segmented, clubVars, cx, formatInt, rowClubVars, useReducedMotion } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
 import { clubKit } from '@/ui/shared/identity/kit'
 import { PlayerCard } from '@/ui/shared/landing/PlayerCard'
-import { CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, TieNote, entryName, useRunModeLabel, valueOf } from './parts'
+import { BonusTag, CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, TieNote, entryName, useRunModeLabel, valueOf } from './parts'
 import { HowModal, LegendDetail, RunDetail } from './RunDetail'
 import { dayLabel, gapText, monthLabel, runHeadline, useHallModel, yearsLabel, type HallModel } from './model'
+import { comunidadeNoFiltro, filtrarHall, filtroAtivo, misturarRanking, type LinhaMista } from './filtros'
+import { ComunidadeVazia, FiltroBar, FiltroHero, LinhaComunidade, LinhasCarregando, StatusComunidade, abrirComunidade } from './Comunidade'
 import '@/ui/shared/achievements/unlockToasts'
 import './hall.css'
 
-type Filter = 'todos' | 'runs' | 'lendas'
+type Filter = 'todos' | 'runs' | 'lendas' | 'comunidade'
+const FILTERS: Filter[] = ['todos', 'runs', 'lendas', 'comunidade']
 const EASE = [0.16, 1, 0.3, 1] as const
 const TOP_ROWS = 12
+
+/** Carreiras da comunidade (Hall público) para este filtro: o site busca, com cache por filtro. */
+function useComunidadeHall(f: FiltroHall) {
+  const ativo = useComunidade((s) => s.ativo)
+  const pedir = useComunidade((s) => s.pedir)
+  const k = chaveFiltro(f)
+  const pg = useComunidade((s) => (s.ativo ? s.filtros[k] : undefined))
+  useEffect(() => {
+    if (ativo && pedir) pedir(f)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo, pedir, k])
+  const itens = useMemo(() => (pg?.itens ?? []).filter((c) => comunidadeNoFiltro(c, f)), [pg, f])
+  return {
+    ativo,
+    pg,
+    itens,
+    retry: () => useComunidade.getState().tentarDeNovo?.(f),
+    mais: () => useComunidade.getState().mais?.(f),
+  }
+}
+export type ComunidadeHall = ReturnType<typeof useComunidadeHall>
 
 export default function HallScreen() {
   useShellSlots({ sub: 'HALL DAS LENDAS', stage: { preset: 'legend' } })
   const hall = useHallModel()
-  const q = useApp((s) => s.route.query.run)
+  const query = useApp((s) => s.route.query)
+  const q = query.run
   const [open, setOpen] = useState<RankEntry | null>(null)
   const [how, setHow] = useState(false)
+  // filtros na URL: o link já abre filtrado (e o "voltar" do navegador desfaz)
+  const filtro = useMemo<FiltroHall>(() => ({ pais: query.pais || undefined, clube: query.clube || undefined }), [query.pais, query.clube])
+  const seg: Filter = FILTERS.includes(query.seg as Filter) ? (query.seg as Filter) : 'todos'
+  const mudar = (patch: Record<string, string | undefined>) => navigate('/hall', { replace: true, query: { ...query, ...patch } })
+  const com = useComunidadeHall(filtro)
+  const fh = useMemo(() => filtrarHall(hall, filtro), [hall, filtro])
+  // as telas abaixo usam o Hall filtrado; as comparações (frases, próximo alvo) seguem contra as 50 lendas
+  const vista = useMemo<HallModel>(() => ({ ...hall, runs: fh.runs, overall: fh.overall, categories: fh.categories, bestRun: fh.bestRun }), [hall, fh])
+  const idsAqui = useMemo(() => new Set(hall.runs.map((r) => r.id)), [hall.runs])
+  const linhas = useMemo(() => misturarRanking(fh.overall, com.ativo ? com.itens : [], idsAqui), [fh.overall, com.ativo, com.itens, idsAqui])
+  const ativo = filtroAtivo(filtro)
 
   // o detalhe aberto pelo link (?run=) segue a URL: sai da URL → fecha
   const fromQuery = useRef(false)
@@ -56,8 +95,9 @@ export default function HallScreen() {
 
   const close = () => {
     setOpen(null)
-    if (q) navigate('/hall', { replace: true })
+    if (q) mudar({ run: undefined })
   }
+  const abrirLinha = (l: LinhaMista) => (l.kind === 'rank' ? setOpen(l.row.entry) : abrirComunidade(l.c.id))
 
   const runs = hall.runs.length
   return (
@@ -70,8 +110,10 @@ export default function HallScreen() {
           </h1>
           <p>
             {runs
-              ? `${runs === 1 ? 'Sua carreira' : `Suas ${runs} carreiras`} contra ${hall.legends.length} lendas reais, na mesma escala: a Nota de Legado, de 0 a 100.`
-              : `${hall.legends.length} lendas reais já estão aqui. Termine uma carreira e descubra onde ela entra.`}
+              ? `${runs === 1 ? 'Sua carreira' : `Suas ${runs} carreiras`}${com.ativo ? ' e as da comunidade' : ''} contra ${hall.legends.length} lendas reais, na mesma escala: a Nota de Legado, de 0 a 100.`
+              : com.ativo
+                ? `${hall.legends.length} lendas reais e as melhores carreiras dos jogadores, na mesma escala. Termine uma carreira e descubra onde ela entra.`
+                : `${hall.legends.length} lendas reais já estão aqui. Termine uma carreira e descubra onde ela entra.`}
           </p>
         </div>
         <Button variant="ghost" size="sm" icon={Info} onClick={() => setHow(true)}>
@@ -79,10 +121,19 @@ export default function HallScreen() {
         </Button>
       </header>
 
-      <Hero hall={hall} onOpen={setOpen} />
-      <Overall hall={hall} onOpen={setOpen} />
-      <Categories hall={hall} onOpen={setOpen} />
-      {runs > 0 && <Runs hall={hall} onOpen={setOpen} />}
+      <div className="hl-fwrap">
+        <FiltroBar filtro={filtro} onChange={(f) => mudar({ pais: f.pais, clube: f.clube })} />
+        {com.ativo && <StatusComunidade pg={com.pg} onRetry={com.retry} />}
+      </div>
+
+      {ativo ? (
+        <FiltroHero filtro={filtro} linhas={linhas} lendas={fh.legends.length} suas={fh.runs.length} comunidade={com.ativo ? (com.pg?.status === 'pronto' ? com.pg.total : null) : null} carregando={com.ativo && com.pg?.status === 'carregando'} onOpen={abrirLinha} />
+      ) : (
+        <Hero hall={hall} onOpen={setOpen} />
+      )}
+      <Overall hall={vista} linhas={linhas} com={com} filtro={filtro} seg={seg} onSeg={(v) => mudar({ seg: v === 'todos' ? undefined : v })} onOpen={setOpen} />
+      <Categories hall={vista} onOpen={setOpen} filtrado={ativo} />
+      {vista.runs.length > 0 && <Runs hall={vista} onOpen={setOpen} />}
       <p className="hl-foot">
         Números oficiais de clubes + seleção principal, conferidos em duas fontes em {dayLabel(LEGENDS_CHECKED_AT)} (até {monthLabel(LEGENDS_AS_OF)} para quem ainda joga); "≈" marca valores estimados ou com fontes divergentes. Títulos e prêmios
         completos estão na ficha de cada lenda. Antes de 1995 a Bola de Ouro era só para europeus — por isso Pelé, Maradona e Zico têm zero oficial; as Bolas retroativas da France Football (Pelé 7, Maradona 2…) valem 3/4 na nota.
@@ -333,102 +384,145 @@ function HeroFoot({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOp
 
 // ───────────────────────── ranking geral ─────────────────────────
 
-function Overall({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => void }) {
-  const [filter, setFilter] = useState<Filter>('todos')
+function Overall({ hall, linhas, com, filtro, seg, onSeg, onOpen }: { hall: HallModel; linhas: LinhaMista[]; com: ComunidadeHall; filtro: FiltroHall; seg: Filter; onSeg: (f: Filter) => void; onOpen: (e: RankEntry) => void }) {
   const [all, setAll] = useState(false)
-  const rows = useMemo(() => hall.overall.filter((r) => filter === 'todos' || (filter === 'runs' ? r.entry.kind === 'run' : r.entry.kind === 'legend')), [hall.overall, filter])
+  const filter: Filter = seg === 'comunidade' && !com.ativo ? 'todos' : seg
+  const rows = useMemo<LinhaMista[]>(() => {
+    if (filter === 'comunidade') return com.itens.map((c, i) => ({ kind: 'comunidade', rank: i + 1, c }))
+    if (filter === 'todos') return linhas
+    return linhas.filter((l) => l.kind === 'rank' && (filter === 'runs' ? l.row.entry.kind === 'run' : l.row.entry.kind === 'legend'))
+  }, [linhas, com.itens, filter])
   // top N + as runs que ficaram de fora (com separador)
   const shown = useMemo(() => {
-    if (all || rows.length <= TOP_ROWS + 2) return rows.map((r) => ({ row: r, gap: false }))
-    const out: { row: RankRow; gap: boolean }[] = []
+    if (all || filter === 'comunidade' || rows.length <= TOP_ROWS + 2) return rows.map((l) => ({ l, gap: false }))
+    const out: { l: LinhaMista; gap: boolean }[] = []
     let last = -1
-    rows.forEach((r, i) => {
-      if (i < TOP_ROWS || r.entry.kind === 'run') {
-        out.push({ row: r, gap: last >= 0 && i - last > 1 })
+    rows.forEach((l, i) => {
+      if (i < TOP_ROWS || (l.kind === 'rank' && l.row.entry.kind === 'run')) {
+        out.push({ l, gap: last >= 0 && i - last > 1 })
         last = i
       }
     })
     return out
-  }, [rows, all])
+  }, [rows, all, filter])
+  const pg = com.pg
+  const maisComunidade = com.ativo && !!pg && pg.status === 'pronto' && pg.itens.length < pg.total && (filter === 'comunidade' || (filter === 'todos' && all))
+  const opts: { value: Filter; label: string }[] = [
+    { value: 'todos', label: 'Todos' },
+    ...(hall.runs.length > 0 ? [{ value: 'runs' as const, label: com.ativo ? 'Suas' : 'Suas carreiras' }] : []),
+    { value: 'lendas', label: 'Lendas' },
+    ...(com.ativo ? [{ value: 'comunidade' as const, label: 'Comunidade' }] : []),
+  ]
+  const vazioComunidade = filter === 'comunidade' && !rows.length
   return (
     <section className="hl-panel lx-glass" aria-labelledby="hl-overall-h">
       <header className="hl-panel__h">
         <div>
-          <h2 id="hl-overall-h">Ranking geral</h2>
-          <p>Nota de Legado · suas carreiras e as lendas na mesma régua</p>
+          <h2 id="hl-overall-h">{filter === 'comunidade' ? 'Hall da comunidade' : 'Ranking geral'}</h2>
+          <p>
+            {filter === 'comunidade'
+              ? 'As melhores carreiras dos jogadores (até 3 de cada um), pela Nota de Legado'
+              : com.ativo
+                ? 'Nota de Legado · lendas, as suas carreiras e as da comunidade na mesma régua'
+                : 'Nota de Legado · suas carreiras e as lendas na mesma régua'}
+          </p>
         </div>
-        {hall.runs.length > 0 && (
+        {opts.length > 2 && (
           <Segmented<Filter>
             size="sm"
             value={filter}
             onChange={(f) => {
-              setFilter(f)
+              onSeg(f)
               setAll(false)
             }}
             aria-label="Filtrar ranking"
-            options={[
-              { value: 'todos', label: 'Todos' },
-              { value: 'runs', label: 'Suas carreiras' },
-              { value: 'lendas', label: 'Lendas' },
-            ]}
+            options={opts}
           />
         )}
       </header>
-      <div className="hl-table" role="table" aria-label="Ranking geral do Hall das Lendas">
-        <div className="hl-row hl-row--head" role="row">
-          <span role="columnheader">#</span>
-          <span role="columnheader" className="hl-row__who">
-            Jogador
-          </span>
-          <span role="columnheader" className="hl-col-kt">
-            Taças-chave
-          </span>
-          <span role="columnheader" className="hl-col-n">
-            Gols
-          </span>
-          <span role="columnheader" className="hl-col-n">
-            Títulos*
-          </span>
-          <span role="columnheader" className="hl-col-n">
-            Prêmios†
-          </span>
-          <span role="columnheader" className="hl-col-nota">
-            Nota
-          </span>
+      {vazioComunidade && (com.pg?.status === 'carregando' || !com.pg) ? (
+        <LinhasCarregando />
+      ) : vazioComunidade ? (
+        <ComunidadeVazia filtro={filtro} pg={com.pg} onRetry={com.retry} />
+      ) : !rows.length ? (
+        <div className="hl-cempty" role="status">
+          <Crown size={22} aria-hidden />
+          <b>Ninguém neste filtro</b>
+          <p>{filter === 'runs' ? 'Nenhuma carreira sua passa nesse filtro ainda.' : 'Nenhuma das 50 lendas reais passa nesse filtro.'}</p>
         </div>
-        {shown.map(({ row, gap }) => (
-          <OverallRow key={row.entry.id} row={row} gap={gap} onOpen={onOpen} />
-        ))}
-      </div>
-      {!all && rows.length > shown.length && (
+      ) : (
+        <div className="hl-table" role="table" aria-label={filter === 'comunidade' ? 'Ranking da comunidade' : 'Ranking geral do Hall das Lendas'}>
+          <div className="hl-row hl-row--head" role="row">
+            <span role="columnheader">#</span>
+            <span role="columnheader" className="hl-row__who">
+              Jogador
+            </span>
+            <span role="columnheader" className="hl-col-kt">
+              Taças-chave
+            </span>
+            <span role="columnheader" className="hl-col-n">
+              Gols
+            </span>
+            <span role="columnheader" className="hl-col-n">
+              Títulos*
+            </span>
+            <span role="columnheader" className="hl-col-n">
+              Prêmios†
+            </span>
+            <span role="columnheader" className="hl-col-nota">
+              Nota
+            </span>
+          </div>
+          {shown.map(({ l, gap }) =>
+            l.kind === 'rank' ? (
+              <OverallRow key={l.row.entry.id} row={l.row} rank={l.rank} gap={gap} onOpen={onOpen} />
+            ) : (
+              <Fragment key={`c-${l.c.id}`}>
+                {gap && <GapRow />}
+                <LinhaComunidade c={l.c} rank={l.rank} />
+              </Fragment>
+            ),
+          )}
+        </div>
+      )}
+      {!all && filter !== 'comunidade' && rows.length > shown.length && (
         <button type="button" className="hl-more" onClick={() => setAll(true)}>
           Ver ranking completo ({rows.length}) <ChevronDown size={15} aria-hidden />
         </button>
       )}
+      {maisComunidade && (
+        <button type="button" className="hl-more" onClick={com.mais} disabled={pg?.carregandoMais} aria-busy={pg?.carregandoMais || undefined}>
+          {pg?.carregandoMais ? 'Carregando…' : pg?.erroMais ? 'Não carregou · tentar de novo' : `Carregar mais da comunidade (${pg!.itens.length} de ${pg!.total})`} <ChevronDown size={15} aria-hidden />
+        </button>
+      )}
       <p className="hl-note">
         *Todos os títulos oficiais (ligas, copas, supercopas, estaduais, continentais, mundiais e de seleção). †Prêmios individuais que o jogo também dá. Notas iguais: desempate por nota bruta → Bolas de Ouro → Copas do Mundo → títulos →
-        prêmios → gols → jogos.
+        prêmios → gols → jogos.{com.ativo ? ' Carreiras da comunidade: nota da versão atual, recalculada a cada atualização do Hall; empate → Bolas de Ouro → Copas → títulos → gols.' : ''}
       </p>
     </section>
   )
 }
 
-function OverallRow({ row, gap, onOpen }: { row: RankRow; gap: boolean; onOpen: (e: RankEntry) => void }) {
+function GapRow() {
+  return (
+    <div className="hl-gap" role="presentation" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </div>
+  )
+}
+
+function OverallRow({ row, rank = row.rank, gap, onOpen }: { row: RankRow; rank?: number; gap: boolean; onOpen: (e: RankEntry) => void }) {
   const e = row.entry
   const club = useClub(e.kind === 'run' ? e.stats.mainClubId : null)
   const style = e.kind === 'run' ? (rowClubVars(club) as CSSProperties) : undefined
   return (
     <>
-      {gap && (
-        <div className="hl-gap" role="presentation" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </div>
-      )}
-      <button type="button" role="row" className={cx('hl-row', e.kind === 'run' ? 'is-run lx-club-row lx-club-row--filled' : 'is-legend', row.rank <= 3 && `is-top${row.rank}`)} style={style} onClick={() => onOpen(e)}>
+      {gap && <GapRow />}
+      <button type="button" role="row" className={cx('hl-row', e.kind === 'run' ? 'is-run lx-club-row lx-club-row--filled' : 'is-legend', rank <= 3 && `is-top${rank}`)} style={style} onClick={() => onOpen(e)}>
         <span role="cell" className="hl-row__pos">
-          {row.rank}
+          {rank}
         </span>
         <span role="cell" className="hl-row__who">
           <EntryAvatar entry={e} size={e.kind === 'run' ? 36 : 32} />
@@ -436,6 +530,7 @@ function OverallRow({ row, gap, onOpen }: { row: RankRow; gap: boolean; onOpen: 
             <b>
               {entryName(e)}
               {e.kind === 'run' && <span className="hl-runtag">Carreira nº {e.runNo}</span>}
+              {e.kind === 'run' && <BonusTag id={e.id} />}
             </b>
             <small>{e.kind === 'run' ? <RunSub run={e} /> : <LegendSub legend={e} />}</small>
           </span>
@@ -502,7 +597,7 @@ function LegendSub({ legend }: { legend: LegendLegacy }) {
 
 // ───────────────────────── categorias ─────────────────────────
 
-function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => void }) {
+function Categories({ hall, onOpen, filtrado }: { hall: HallModel; onOpen: (e: RankEntry) => void; filtrado?: boolean }) {
   const [cat, setCat] = useState<CategoryId>('ballonDor')
   const rm = useReducedMotion()
   const rows = hall.categories[cat]
@@ -517,7 +612,9 @@ function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) 
       <header className="hl-panel__h">
         <div>
           <h2 id="hl-cat-h">Por categoria</h2>
-          <p>Pódio e top 10 de cada categoria{meta.minApps ? ` · mínimo de ${meta.minApps} jogos` : ''} · prêmios e títulos que o jogo também dá</p>
+          <p>
+            Pódio e top 10 de cada categoria{meta.minApps ? ` · mínimo de ${meta.minApps} jogos` : ''} · prêmios e títulos que o jogo também dá{filtrado ? ' · só quem passa no filtro (lendas e as suas carreiras)' : ''}
+          </p>
         </div>
       </header>
       <div className="hl-cats" role="tablist" aria-label="Categorias">
@@ -540,9 +637,13 @@ function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) 
       <motion.div key={cat} id="hl-cat-panel" role="tabpanel" aria-labelledby={`hl-tab-${cat}`} className="hl-cat" initial={rm ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
         <div className="hl-cat__main">
           <CatHero cat={cat} rows={rows} />
-          <div className="hl-podium" aria-label={`Pódio: ${meta.label}`}>
-            {[1, 0, 2].map((i) => podium[i] && <PodiumStep key={podium[i].entry.id} row={podium[i]} place={i + 1} cat={cat} onOpen={onOpen} />)}
-          </div>
+          {podium.length ? (
+            <div className="hl-podium" aria-label={`Pódio: ${meta.label}`}>
+              {[1, 0, 2].map((i) => podium[i] && <PodiumStep key={podium[i].entry.id} row={podium[i]} place={i + 1} cat={cat} onOpen={onOpen} />)}
+            </div>
+          ) : (
+            <p className="hl-cat__none">Ninguém com esse filtro nesta categoria{meta.minApps ? ` (mínimo de ${meta.minApps} jogos)` : ''}.</p>
+          )}
           {podiumTies.length > 0 && (
             <ul className="hl-podium__ties">
               {podiumTies.map((r) => (
@@ -725,6 +826,7 @@ function RunCard({ run, hall, onOpen }: { run: RunLegacy; hall: HallModel; onOpe
         <div className="min-w-0 flex-1">
           <span className="hl-runtag">Carreira nº {run.runNo}</span>
           {mode && <span className="hl-runtag hl-runtag--mode">{mode}</span>}
+          <BonusTag id={run.id} />
           <h3>{run.input.identity.surname}</h3>
           <p>{runHeadline(entry, run, rank)}</p>
         </div>

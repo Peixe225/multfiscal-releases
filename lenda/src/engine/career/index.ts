@@ -55,6 +55,8 @@ export {
   START_VALUE,
   RETIREMENT_AGE,
   ENGINE_VERSION,
+  BONUS_OVR_MAX,
+  clampBonusOvr,
 } from './constants'
 export type { CareerMemory } from './memory'
 

@@ -3,22 +3,25 @@
  * (Hall local que não está na conta: abrir, salvar na conta).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Cloud, CloudUpload, Crown, FolderOpen, HardDrive, LogIn, RefreshCw, Sparkles, Trash, Tv2 } from 'lucide-react'
+import { Cloud, CloudUpload, Crown, Eye, FolderOpen, HardDrive, LogIn, RefreshCw, ShieldAlert, Sparkles, Star, StarOff, Trash, Tv2, Users } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
-import { Button, Flag, Modal, OvrPill, Tabs, formatInt, toast } from '@/ui/primitives'
-import { mensagemDeErro } from './api'
+import { Button, Flag, Modal, OvrPill, Segmented, Tabs, formatInt, toast } from '@/ui/primitives'
+import { codigoDeErro, mensagemDeErro } from './api'
 import {
   abrirCarreiraDaConta,
   ehTransitoria,
+  HALL_PUBLICO_MAX,
   idsNaConta,
+  idsNoHallPublico,
   nesteAparelho,
   PICO_AUTO,
   resumoLocal,
   useCarreiras,
   type CarreiraConta,
 } from './carreiras'
-import { useConta } from './conta'
+import { useConta, type ModoHallPublico } from './conta'
+import { salvarManual } from './salvar'
 import { dataBr } from './MinhaConta'
 import { abrirConta, useSiteUi, type AbaCarreiras } from './ui'
 import './site.css'
@@ -108,14 +111,85 @@ function NaConta() {
       </div>
     )
   }
+  return <ListaDaConta lista={lista} modo={usuario.hallPublico} apelido={usuario.apelido} />
+}
+
+/** Hall público: as 3 melhores sozinhas, as que o jogador escolhe, ou nenhuma — e o aviso do que fica público. */
+function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: ModoHallPublico; apelido: string }) {
+  const noHall = useMemo(() => idsNoHallPublico(lista, modo), [lista, modo])
+  const [mudando, setMudando] = useState(false)
+  const mudarModo = async (m: ModoHallPublico) => {
+    if (m === modo || mudando) return
+    setMudando(true)
+    try {
+      // "eu escolho" vindo do automático: o servidor já marca as 3 que estavam no Hall (nada some de surpresa)
+      await useConta.getState().perfil({ hallPublico: m })
+      void useCarreiras.getState().carregar(true).catch(() => {})
+      toast.success(m === 'auto' ? 'As 3 melhores vão para o Hall sozinhas' : m === 'manual' ? 'Você escolhe quais vão para o Hall' : 'Nenhuma carreira sua no Hall público', 'O Hall da comunidade é atualizado a cada 1–3 h.')
+    } catch (err) {
+      toast.error('Não deu para mudar', mensagemDeErro(err))
+    } finally {
+      setMudando(false)
+    }
+  }
+  const alternar = async (c: CarreiraConta) => {
+    const sim = !noHall.has(c.id)
+    const quer = sim ? [...noHall, c.id] : [...noHall].filter((id) => id !== c.id)
+    if (quer.length > HALL_PUBLICO_MAX) {
+      toast.info(`Até ${HALL_PUBLICO_MAX} carreiras no Hall público`, 'Tire uma das que estão lá para pôr esta.')
+      return
+    }
+    try {
+      // no automático, mexer em uma passa para "eu escolho" mantendo as outras que estavam no Hall (o servidor faz)
+      await useCarreiras.getState().publicar(c.id, sim)
+      toast.success(sim ? `${c.jogador} vai para o Hall público` : `${c.jogador} saiu do Hall público`, 'Aparece (ou some) na próxima atualização do Hall, em até 3 h.')
+    } catch (err) {
+      toast.error('Não deu para mudar o Hall público', codigoDeErro(err) === 'cheio' || codigoDeErro(err) === 'limite_hall' ? `Até ${HALL_PUBLICO_MAX} carreiras no Hall público. Tire uma para pôr outra.` : mensagemDeErro(err))
+    }
+  }
   return (
     <>
+      <section className="sc-hp" aria-labelledby="sc-hp-h">
+        <div className="sc-hp__h">
+          <span className="sc-hp__i" aria-hidden="true">
+            <Users />
+          </span>
+          <div className="min-w-0">
+            <b id="sc-hp-h">Hall público</b>
+            <span>
+              {noHall.size}/{HALL_PUBLICO_MAX} no Hall da comunidade
+            </span>
+          </div>
+        </div>
+        <Segmented<ModoHallPublico>
+          size="sm"
+          value={modo}
+          onChange={(m) => void mudarModo(m)}
+          aria-label="Quais carreiras vão para o Hall público"
+          options={[
+            { value: 'auto', label: 'As 3 melhores' },
+            { value: 'manual', label: 'Eu escolho' },
+            { value: 'nao', label: 'Nenhuma' },
+          ]}
+        />
+        <p className="sc-hp__aviso">
+          <Eye aria-hidden="true" />
+          <span>
+            {modo === 'nao' ? 'Nenhuma carreira sua aparece para os outros jogadores.' : modo === 'auto' ? 'As 3 de maior nota entram sozinhas no Hall das Lendas da comunidade. ' : `Marque até ${HALL_PUBLICO_MAX} com a estrela. `}
+            {modo !== 'nao' && (
+              <>
+                Fica <b>público</b> para todo mundo: o seu apelido (<b>{apelido}</b>), o nome do jogador e os números da carreira (nota, títulos, gols, clubes, país). O e-mail e o resto da conta nunca aparecem.
+              </>
+            )}
+          </span>
+        </p>
+      </section>
       <p className="sc-bar">
         <span>Mais recentes primeiro. Abrir mostra o resumo completo da carreira.</span>
       </p>
       <div className="sc-list">
         {lista.map((c) => (
-          <Cartao key={c.id} c={c} naConta />
+          <Cartao key={c.id} c={c} naConta hall={{ dentro: noHall.has(c.id), modo, alternar: () => alternar(c) }} />
         ))}
       </div>
     </>
@@ -169,7 +243,8 @@ function NoAparelho() {
   )
 }
 
-function Cartao({ c, naConta }: { c: CarreiraConta; naConta?: boolean }) {
+function Cartao({ c, naConta, hall }: { c: CarreiraConta; naConta?: boolean; hall?: { dentro: boolean; modo: ModoHallPublico; alternar: () => Promise<void> } }) {
+  const [alternando, setAlternando] = useState(false)
   const salvando = useCarreiras((s) => !!s.salvando[c.id])
   const [abrindo, setAbrindo] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -203,12 +278,7 @@ function Cartao({ c, naConta }: { c: CarreiraConta; naConta?: boolean }) {
     }
     const h = useCareer.getState().finishedCareers.find((x) => x.id === c.id)
     if (!h) return
-    try {
-      await useCarreiras.getState().salvar(h, 'manual')
-      toast.success('Salva na sua conta', `${c.jogador} · pico ${c.picoOvr}`)
-    } catch (err) {
-      toast.error('Não deu para salvar na conta', mensagemDeErro(err))
-    }
+    await salvarManual(h)
   }
   const apagar = async () => {
     setApagando(true)
@@ -269,6 +339,22 @@ function Cartao({ c, naConta }: { c: CarreiraConta; naConta?: boolean }) {
             {c.como === 'auto' ? 'Automática' : 'Manual'}
           </span>
         )}
+        {!!c.bonusOvr && <span className="sc-chip sc-chip--auto">+{c.bonusOvr} de bônus</span>}
+        {hall && c.oculta && (
+          <span className="sc-chip sc-chip--warn" title="A moderação tirou do Hall público">
+            <ShieldAlert aria-hidden="true" /> Fora do Hall (moderação)
+          </span>
+        )}
+        {hall && !c.oculta && c.suspeita && (
+          <span className="sc-chip sc-chip--warn" title="Os números estão em análise: fica fora do Hall público até a moderação liberar">
+            <ShieldAlert aria-hidden="true" /> Em análise
+          </span>
+        )}
+        {hall && hall.dentro && (
+          <span className="sc-chip sc-chip--ok" title="Aparece no Hall das Lendas da comunidade">
+            <Users aria-hidden="true" /> No Hall público
+          </span>
+        )}
         <span>{naConta ? `Salva em ${dataBr(c.salvaEm)}` : `Terminou em ${dataBr(c.terminouEm)}`}</span>
       </div>
       {confirmar ? (
@@ -290,6 +376,22 @@ function Cartao({ c, naConta }: { c: CarreiraConta; naConta?: boolean }) {
           <Button variant="primary" size="sm" icon={FolderOpen} loading={abrindo} onClick={abrir}>
             Abrir
           </Button>
+          {naConta && hall && hall.modo !== 'nao' && !c.oculta && !c.suspeita && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={hall.dentro ? StarOff : Star}
+              loading={alternando}
+              aria-pressed={hall.dentro}
+              onClick={async () => {
+                setAlternando(true)
+                await hall.alternar()
+                setAlternando(false)
+              }}
+            >
+              {hall.dentro ? 'Tirar do Hall' : 'Pôr no Hall'}
+            </Button>
+          )}
           {naConta ? (
             <Button ref={apagarBtn} variant="ghost" size="sm" icon={Trash} onClick={() => setConfirmar(true)} aria-label={`Apagar ${c.jogador} da conta`}>
               Apagar

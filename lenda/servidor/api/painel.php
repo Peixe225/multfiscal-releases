@@ -4,6 +4,7 @@
  *   POST {"acao":"entrar","senha":"…"} → cookie lenda_painel (12 h)     POST {"acao":"sair"} → apaga
  *   GET  ?de=YYYY-MM-DD&ate=YYYY-MM-DD&bots=0   (cookie ou Authorization: Bearer <token>)
  *   GET  ?so=agora                              → só {agora} (o painel atualiza isso a cada 15 s)
+ *   GET  ?so=eu                                 → {admin: true} ou 401 (o jogo libera o que é só do admin)
  * Dias no fuso America/Sao_Paulo (UTC-3 fixo): o período vira [de 03:00 UTC, ate+1 03:00 UTC).
  */
 declare(strict_types=1);
@@ -41,6 +42,9 @@ if ($m !== 'GET') {
 }
 if (!cookiePainelValido() && !tokenAdminValido()) {
     erro(401, 'nao_logado', 'Entre com a senha do painel.');
+}
+if (($_GET['so'] ?? '') === 'eu') {
+    responder(200, ['admin' => true]); // sem banco: só o cookie (ou o Bearer)
 }
 
 // ── agora ────────────────────────────────────────────────────────────────────────────────────────

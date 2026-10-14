@@ -8,16 +8,20 @@
  * No celular vira bottom sheet e sobe junto com o teclado; o botão fica logo abaixo do último campo.
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { CircleCheck, Cloud, Crown, Plus, Sparkles, Trophy, X } from 'lucide-react'
+import { CircleCheck, Cloud, Crown, Gift, Info, Plus, Sparkles, Users, X } from 'lucide-react'
+import { useAcesso } from '@/store/acesso'
 import { Button, Modal, Tabs, toast, useIsDesktop } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
 import { Campo, CampoSenha, CampoUf, Erro, useTecladoVirtual } from './campos'
 import { erroApelido, erroEmail, erroSenha, useConta } from './conta'
-import { track } from './medicao'
+import { conviteGuardado } from './indicacao'
+import { armazem, track } from './medicao'
 import { useSiteUi, type AbaConta } from './ui'
 import './site.css'
 
 type Tela = AbaConta | 'esqueci' | 'codigo'
+
+const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : undefined))
 
 export default function ConviteConta() {
   const d = useSiteUi((s) => s.dialogo)
@@ -31,7 +35,12 @@ export default function ConviteConta() {
   const podeFechar = !convite || !regras.obrigatorio
   const [tela, setTela] = useState<Tela>(aberto && d.aba ? d.aba : convite ? 'criar' : 'entrar')
   const [emailEsqueci, setEmailEsqueci] = useState('')
+  // cadastros fechados pelo painel: só "Entrar" (quem já tem conta continua entrando)
+  const cadastroAberto = useAcesso((s) => s.cadastroAberto)
   useTecladoVirtual(aberto)
+  useEffect(() => {
+    if (!cadastroAberto && tela === 'criar') setTela('entrar')
+  }, [cadastroAberto, tela])
 
   // cada abertura começa na aba pedida (convite e "salvar esta carreira": criar; menu: entrar)
   const abaInicial: Tela = aberto && d.aba ? d.aba : convite || salvarDepois ? 'criar' : 'entrar'
@@ -121,27 +130,34 @@ export default function ConviteConta() {
                 </span>
                 <b>Pico 90+ vai sozinho para a conta</b>
               </li>
-              <li className="sc-perk sc-perk--soon">
+              <li className="sc-perk">
                 <span className="sc-perk__i">
-                  <Trophy aria-hidden="true" />
+                  <Users aria-hidden="true" />
                 </span>
-                <b>Em breve: ranking entre jogadores</b>
+                <b>Suas lendas no Hall da comunidade</b>
               </li>
             </ul>
           )}
-          <Tabs
-            aria-label="Conta"
-            idPrefix="sc-conta"
-            className="sc-tabs"
-            value={tela}
-            onChange={(v) => setTela(v)}
-            tabs={[
-              { value: 'criar', label: 'Criar conta' },
-              { value: 'entrar', label: 'Já tenho conta' },
-            ]}
-          />
-          <div role="tabpanel" id={`sc-conta-panel-${tela}`} aria-labelledby={`sc-conta-tab-${tela}`}>
-            {tela === 'criar' ? <FormCriar autoFoco={autoFoco} onPronto={(a) => pronto(a, true)} /> : <FormEntrar autoFoco={autoFoco} onPronto={(a) => pronto(a, false)} onEsqueci={() => setTela('esqueci')} />}
+          {cadastroAberto ? (
+            <Tabs
+              aria-label="Conta"
+              idPrefix="sc-conta"
+              className="sc-tabs"
+              value={tela}
+              onChange={(v) => setTela(v)}
+              tabs={[
+                { value: 'criar', label: 'Criar conta' },
+                { value: 'entrar', label: 'Já tenho conta' },
+              ]}
+            />
+          ) : (
+            <p className="sc-ok sc-aviso-cad" role="status">
+              <Info aria-hidden="true" />
+              <span>Novos cadastros estão fechados no momento. Quem já tem conta entra normalmente.</span>
+            </p>
+          )}
+          <div role="tabpanel" id={`sc-conta-panel-${tela}`} aria-labelledby={cadastroAberto ? `sc-conta-tab-${tela}` : undefined}>
+            {tela === 'criar' && cadastroAberto ? <FormCriar autoFoco={autoFoco} onPronto={(a) => pronto(a, true)} /> : <FormEntrar autoFoco={autoFoco} onPronto={(a) => pronto(a, false)} onEsqueci={() => setTela('esqueci')} />}
           </div>
         </>
       )}
@@ -194,6 +210,7 @@ function FormCriar({ autoFoco, onPronto }: { autoFoco: boolean; onPronto: (apeli
   const [uf, setUf] = useState('')
   const [tentou, setTentou] = useState(false)
   const { carregando, erro, rodar } = useEnvio()
+  const [convite] = useState(() => conviteGuardado(ls))
   const eA = tentou ? erroApelido(apelido.trim()) : null
   const eE = tentou ? erroEmail(email) : null
   const eS = tentou ? erroSenha(senha) : null
@@ -240,6 +257,11 @@ function FormCriar({ autoFoco, onPronto }: { autoFoco: boolean; onPronto: (apeli
         </div>
       )}
       {erro && <Erro>{erro}</Erro>}
+      {convite && (
+        <p className="sc-hint sc-hint--convite">
+          <Gift aria-hidden="true" /> Você veio pelo convite de um amigo: quando terminar a 1ª carreira com a conta, ele ganha bônus de OVR.
+        </p>
+      )}
       <Button type="submit" variant="primary" size="lg" block loading={carregando} icon={carregando ? undefined : CircleCheck}>
         {carregando ? 'Criando a conta…' : 'Criar conta'}
       </Button>

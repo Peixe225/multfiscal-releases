@@ -8,7 +8,7 @@
  * Source: the current career (`useCareer.state`, summarized by the engine) or a Hall das Lendas entry
  * (`#/resumo?id=<hallId>`). Finished careers are saved to the Hall automatically by the store.
  */
-import { memo, useMemo, type CSSProperties } from 'react'
+import { memo, useEffect, useMemo, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, ChartLine, Crown, Flag as FlagIcon, Landmark, Quote, RotateCcw, Share2, Sparkles, Star, Trophy as TrophyIcon, Users } from 'lucide-react'
 import type { CareerSummary } from '@/engine/types'
@@ -16,11 +16,13 @@ import { LEGENDS } from '@/engine/career/summary'
 import { clubArticle } from '@/engine/career/util'
 import { navigate, useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
+import { useComunidade } from '@/store/comunidade'
 import { getClub, getCompetition, getCountry, getLeague, getTrophy } from '@/store/data'
 import {
   BallIcon,
   BootIcon,
   Button,
+  Skeleton,
   CountUp,
   Crest,
   Flag,
@@ -73,9 +75,63 @@ import './summary.css'
 const SalvarNaConta = import.meta.env.VITE_SITE === '1' ? lazySite('SalvarNaConta', () => import('@/site/SalvarNaConta')) : null
 /** Só no site: carreira aberta da conta que não está no Hall deste aparelho (marcada em src/site/carreiras.ts). */
 const soNaConta = (h: object | undefined) => import.meta.env.VITE_SITE === '1' && !!h && Symbol.for('lenda:so-na-conta') in h
+/** Só no site: "Denunciar" numa carreira da comunidade (Hall público). */
+const DenunciarCarreira = import.meta.env.VITE_SITE === '1' ? lazySite('DenunciarCarreira', () => import('@/site/DenunciarCarreira')) : null
 
 export default function SummaryScreen() {
   const id = useApp((s) => s.route.query.id)
+  // #/resumo?id=…&de=comunidade: a carreira de outro jogador (Hall público), buscada pelo site — nunca entra
+  // no Hall deste aparelho
+  const deComunidade = useApp((s) => s.route.query.de === 'comunidade')
+  if (deComunidade && id) return <ResumoComunidade id={id} />
+  return <ResumoDaqui id={id} />
+}
+
+function ResumoComunidade({ id }: { id: string }) {
+  const ativo = useComunidade((s) => s.ativo)
+  const abrir = useComunidade((s) => s.abrir)
+  const aberta = useComunidade((s) => s.abertas[id])
+  useEffect(() => {
+    if (abrir) abrir(id)
+  }, [abrir, id])
+  useShellSlots({ sub: '', center: <span className="sm-topbar-t">Carreira da comunidade</span>, stage: { preset: 'legend' } }, [])
+  if (!ativo || aberta?.status === 'erro') {
+    return (
+      <PlaceholderScreen
+        eyebrow="Hall da comunidade"
+        title="Carreira não encontrada"
+        icon={Users}
+        description={aberta?.status === 'erro' && !aberta.naoEncontrada ? 'Não deu para carregar essa carreira agora. Confira a internet e tente de novo.' : 'Essa carreira não está mais no Hall público (o dono pode ter tirado, ou ela saiu na última atualização).'}
+      >
+        <div className="mt-5 flex gap-3 flex-wrap">
+          <Button variant="primary" icon={ArrowLeft} onClick={() => navigate('/hall', { query: { seg: 'comunidade' } })}>
+            Voltar ao Hall
+          </Button>
+          {aberta?.status === 'erro' && !aberta.naoEncontrada && (
+            <Button variant="ghost" icon={RotateCcw} onClick={() => abrir?.(id)}>
+              Tentar de novo
+            </Button>
+          )}
+        </div>
+      </PlaceholderScreen>
+    )
+  }
+  if (aberta?.status !== 'pronta') {
+    return (
+      <div className="relative z-[1] flex-1 w-full max-w-[1392px] mx-auto px-4 sm:px-6 pt-4 grid gap-3 content-start" aria-busy="true" aria-label="Carregando a carreira">
+        <Skeleton h={220} r={22} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Skeleton h={240} r={22} />
+          <Skeleton h={240} r={22} />
+        </div>
+      </div>
+    )
+  }
+  const h = aberta.entry
+  return <SummaryBody career={h.career} summary={h.summary} live={false} saved={false} immersive={h.mode === 'immersive'} comunidade={{ id: h.id, apelido: aberta.apelido }} />
+}
+
+function ResumoDaqui({ id }: { id: string | undefined }) {
   const status = useCareer((s) => s.status)
   const hall = useCareer((s) => (id ? s.finishedCareers.find((h) => h.id === id) : undefined))
   const state = useCareer((s) => s.state)
@@ -187,7 +243,24 @@ function PlayAgain({ size = 'md', live, finished }: { size?: 'sm' | 'md' | 'lg';
 
 // ───────────────────────── body ─────────────────────────
 
-const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, naConta, immersive }: { career: SummaryCareer; summary: CareerSummary; live: boolean; saved: boolean; naConta?: boolean; immersive?: boolean }) {
+const SummaryBody = memo(function SummaryBody({
+  career,
+  summary,
+  live,
+  saved,
+  naConta,
+  immersive,
+  comunidade,
+}: {
+  career: SummaryCareer
+  summary: CareerSummary
+  live: boolean
+  saved: boolean
+  naConta?: boolean
+  immersive?: boolean
+  /** Carreira de outro jogador (Hall público): sem salvar, sem bônus de compartilhar, com "Denunciar". */
+  comunidade?: { id: string; apelido: string }
+}) {
   const rm = useReducedMotion()
   const desktop = useIsDesktop()
   const seasons = career.seasons
@@ -228,6 +301,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, na
     trophies: cab.items.map((t) => ({ trophyId: t.trophyId, count: t.count })),
     mainClubId: main,
     retired: finished,
+    bonusOvr: career.bonusOvr,
   }
   // goleiro: jogos sem sofrer gol no lugar dos gols, e sem a coluna de assistências (sempre 0 ou quase)
   const kpis: [string, number][] =
@@ -307,6 +381,16 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, na
             <span className="sm-chip">
               Valor máx. <b className="num">{formatMoney(summary.peakValue)}</b>
             </span>
+            {!!career.bonusOvr && (
+              <span className="sm-chip sm-chip--bonus" title="Bônus de OVR da carreira (indicação de amigos ou compartilhar o card)">
+                <b className="num">+{career.bonusOvr}</b> de bônus
+              </span>
+            )}
+            {comunidade && (
+              <span className="sm-chip sm-chip--com">
+                <Users aria-hidden="true" /> Carreira de <b>{comunidade.apelido}</b>
+              </span>
+            )}
           </div>
           <dl className="sm-kpis" style={{ '--n': kpis.length } as CSSProperties}>
             {kpis.map(([k, v], i) => (
@@ -444,7 +528,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, na
         <LegendsCard summary={summary} />
       </div>
 
-      <LegacyRankCard career={career} />
+      <LegacyRankCard career={career} comunidade={!!comunidade} />
 
       {(summary.ballonDorPodiums.length > 0 || hasTop10(career)) && (
         <div className="sm-bdo">
@@ -456,7 +540,11 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, na
       <section id="sm-share" className="lx-glass sm-panel sm-sharepanel" aria-labelledby="sm-share-h">
         <header className="sm-panel__h">
           <h2 id="sm-share-h">Card para compartilhar</h2>
-          {saved ? (
+          {comunidade ? (
+            <button type="button" className="sm-saved" onClick={() => navigate('/hall', { query: { seg: 'comunidade' } })}>
+              <Users aria-hidden="true" /> No Hall da comunidade <ArrowRight aria-hidden="true" />
+            </button>
+          ) : saved ? (
             <button type="button" className="sm-saved" onClick={() => navigate('/hall')}>
               <Landmark aria-hidden="true" /> Salvo no Hall das Lendas <ArrowRight aria-hidden="true" />
             </button>
@@ -464,12 +552,14 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, na
             <span className="sm-panel__aside">{naConta ? 'Na sua conta · ainda não está no Hall deste aparelho' : finished ? 'Salvando no Hall das Lendas…' : 'Vai para o Hall das Lendas quando a carreira terminar'}</span>
           )}
         </header>
-        <SharePanel m={share} compact={!desktop} />
+        {/* o bônus de compartilhar é só do card final das SUAS carreiras */}
+        <SharePanel m={share} compact={!desktop} careerId={comunidade ? undefined : career.id} />
       </section>
 
       <footer className="sm-foot">
         <PlayAgain size="lg" live={live} finished={finished} />
-        {SalvarNaConta && <SalvarNaConta careerId={career.id} finished={finished} />}
+        {SalvarNaConta && !comunidade && <SalvarNaConta careerId={career.id} finished={finished} />}
+        {DenunciarCarreira && comunidade && <DenunciarCarreira id={comunidade.id} jogador={career.identity.surname} />}
         {live && finished && (
           <Button variant="ghost" size="lg" icon={ChartLine} onClick={() => navigate('/carreira')}>
             Ver tabela completa

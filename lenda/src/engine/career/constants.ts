@@ -16,6 +16,14 @@ export const START_VALUE = 100_000
 export const RETIREMENT_AGE = 40
 export const OVR_MIN = 40
 export const OVR_MAX = 99
+/** Teto do bônus de OVR de uma carreira (indicações + compartilhar, no site). */
+export const BONUS_OVR_MAX = 10
+
+/** Bônus de OVR válido: inteiro de 0 a BONUS_OVR_MAX (qualquer outra coisa vira 0 ou o teto). */
+export function clampBonusOvr(v: unknown): number {
+  const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : 0
+  return Math.max(0, Math.min(BONUS_OVR_MAX, n))
+}
 
 export interface PaceConfig {
   seasons: 1 | 2 | 3

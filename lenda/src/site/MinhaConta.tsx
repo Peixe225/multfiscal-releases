@@ -12,7 +12,11 @@ import { Campo, CampoSenha, CampoUf, Erro, nomeUf, useTecladoVirtual } from './c
 import { erroApelido, useConta, type Usuario } from './conta'
 import { track } from './medicao'
 import { abrirCarreiras, useSiteUi } from './ui'
+import { lazySite } from '@/ui/shell/lazySite'
 import './site.css'
+
+/** O cartão de convites vem num pedaço à parte (sem rede, some sem derrubar a conta). */
+const ConvideAmigos = lazySite('ConvideAmigos', () => import('./ConvideAmigos'))
 
 const DIA = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
 const DIA_HORA = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
@@ -121,6 +125,9 @@ function Corpo({ u, excluirAberto }: { u: Usuario; excluirAberto: boolean }) {
         </Button>
         <BotaoSair />
       </div>
+
+      <h3 className="sc-sec">Indicações e bônus de OVR</h3>
+      <ConvideAmigos />
 
       <h3 className="sc-sec">Seu perfil</h3>
       <FormPerfil u={u} />

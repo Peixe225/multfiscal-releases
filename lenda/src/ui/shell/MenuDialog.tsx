@@ -3,9 +3,10 @@
  * With a classic AND an immersive career saved, both "Continuar" rows show (the classic one labelled).
  */
 import { useEffect, useRef, useState } from 'react'
-import { ChevronRight, Crown, Flag as FlagIcon, House, ChartLine, Play, Radio, ScrollText, Settings2, Sparkles, Trash, Tv2, UserRound, Video } from 'lucide-react'
+import { ChevronRight, Crown, Flag as FlagIcon, FlaskConical, House, ChartLine, LayoutDashboard, Play, Radio, ScrollText, Settings2, Sparkles, Trash, Tv2, UserRound, Video } from 'lucide-react'
 import type { ImmersiveState } from '@/engine/immersive/types'
 import { navigate, useApp, type RoutePath } from '@/store/app'
+import { podeImersivo, podeLive, soAdmin, useAcesso } from '@/store/acesso'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { peekSavedImmersive, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
@@ -18,7 +19,7 @@ import { sfx } from './sfx'
 /** Só no site público: o bloco de conta (Entrar / Criar conta, Minha conta, Minhas carreiras…). */
 const ContaMenu = import.meta.env.VITE_SITE === '1' ? lazySite('ContaMenu', () => import('@/site/ContaMenu')) : null
 
-function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label: string; sub?: string; to?: RoutePath; onGo: () => void }) {
+function NavRow({ icon: Ico, label, sub, to, query, onGo }: { icon: typeof House; label: string; sub?: string; to?: RoutePath; query?: Record<string, string>; onGo: () => void }) {
   return (
     <button
       type="button"
@@ -26,7 +27,7 @@ function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label
       onClick={() => {
         sfx.play('click')
         onGo()
-        if (to) navigate(to)
+        if (to) navigate(to, query ? { query } : undefined)
       }}
     >
       <span className="grid place-items-center w-9 h-9 rounded-[11px] bg-surface-2 border border-border text-text-2 group-hover:text-text flex-none">
@@ -57,6 +58,12 @@ export function MenuDialog() {
   const unlocked = useCareer((s) => Object.keys(s.achievements).length)
   const total = useAchievementCatalog((s) => s.list.length)
   const rm = useReducedMotion()
+  // site: Live e Modo Imersivo só aparecem para quem pode (o admin, enquanto não forem públicos)
+  const acesso = useAcesso()
+  const live = podeLive(acesso)
+  const imersivo = podeImersivo(acesso)
+  const liveTeste = soAdmin(acesso, acesso.livePublica)
+  const imersivoTeste = soAdmin(acesso, acesso.imersivoPublico)
   const [confirm, setConfirm] = useState(false)
   // a carreira imersiva salva (o store do Imersivo só carrega dentro do modo; aqui basta espiar o save)
   const immLoaded = useImmersive((s) => (s.state && !s.isFixture ? s.state : null))
@@ -64,7 +71,7 @@ export function MenuDialog() {
   useEffect(() => {
     if (open) void peekSavedImmersive().then(setImmSaved).catch(() => {})
   }, [open])
-  const imm = immLoaded ?? immSaved
+  const imm = imersivo ? (immLoaded ?? immSaved) : null
   const both = !!(active && state && imm && !imm.retired)
   // "Abandonar": a confirmação aparece no fim da lista → rola até ela e põe o foco em "Cancelar";
   // ao cancelar, o foco volta para o botão que abriu (nada de foco perdido no <body>)
@@ -93,9 +100,22 @@ export function MenuDialog() {
         <NavRow icon={Radio} label="Ligas ao vivo" sub={tablesDay ? `Tabelas reais de ${tablesDay}` : 'Tabelas reais'} to="/ligas" onGo={close} />
         <NavRow icon={Crown} label="Hall das Lendas" sub="Suas carreiras contra as lendas reais" to="/hall" onGo={close} />
         <NavRow icon={MedalIcon as unknown as typeof House} label="Conquistas" sub={`${unlocked} de ${total} desbloqueadas`} onGo={() => openDialog('achievements')} />
-        <NavRow icon={Video} label="Live interativa" sub="TikTok LIVE: o chat decide com comentários e presentes" to="/live" onGo={close} />
+        {live && <NavRow icon={Video} label="Live interativa" sub={liveTeste ? 'Teste · só você vê (admin)' : 'TikTok LIVE: o chat decide com comentários e presentes'} to="/live" onGo={close} />}
+        {imersivoTeste && <NavRow icon={FlaskConical} label="Modo Imersivo (teste)" sub="Em desenvolvimento · só você vê (admin)" to="/identidade" query={{ modo: 'imersivo' }} onGo={close} />}
         <NavRow icon={ScrollText} label="Créditos" sub="Fotos, fontes, dados e licenças" to="/creditos" onGo={close} />
         {import.meta.env.DEV && <NavRow icon={Sparkles} label="Design kit" sub="Primitivos e estados" to="/kit" onGo={close} />}
+        {acesso.admin && (
+          <a href="./painel/" target="_blank" rel="noopener" className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left no-underline text-inherit transition-colors hover:bg-surface-2 focus-visible:bg-surface-2" onClick={close}>
+            <span className="grid place-items-center w-9 h-9 rounded-[11px] bg-surface-2 border border-border text-text-2 group-hover:text-text flex-none">
+              <LayoutDashboard size={17} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-semibold text-text">Painel do admin</span>
+              <span className="block text-[12px] text-text-3 truncate">Usuários, Hall público, configurações (abre em outra aba)</span>
+            </span>
+            <ChevronRight size={16} className="text-text-3 flex-none" aria-hidden />
+          </a>
+        )}
       </div>
 
       <Hairline className="my-4" />

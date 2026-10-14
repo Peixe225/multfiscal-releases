@@ -156,7 +156,8 @@ interface CareerStore {
    * em andamento nesta janela (busy / revelação aberta) nem em fixtures.
    */
   reload(): Promise<void>
-  start(identity: PlayerIdentity, pace: Pace, opts?: { seed?: string }): Promise<CareerState>
+  /** `bonusOvr` (site): pontos de OVR acima do normal durante a carreira inteira (0–10). */
+  start(identity: PlayerIdentity, pace: Pace, opts?: { seed?: string; bonusOvr?: number }): Promise<CareerState>
   choose(optionId: string): Promise<RevealScript | null>
   ackReveal(): void
   resume(): Promise<boolean>
@@ -166,6 +167,11 @@ interface CareerStore {
   summaryOf(state: CareerState | Omit<CareerState, 'world'>): CareerSummary | null
   /** `from` = the state the unlocks belong to (defaults to the current one; context uses its last season's age). */
   unlockAchievements(ids: string[], from?: CareerState | null): string[]
+  /**
+   * Conquistas que vieram da conta (outro aparelho — src/site/conquistas.ts): entram sem o aviso de "nova" e
+   * sem toast; uma que já existe aqui fica com a data mais antiga das duas. Devolve os ids que entraram.
+   */
+  importAchievements(items: { id: string; em: string }[], context?: string): string[]
   markAchievementsSeen(): void
   removeHallEntry(id: string): Promise<void>
   loadFixture(name: FixtureName): Promise<void>
@@ -173,7 +179,8 @@ interface CareerStore {
   setEngine(engine: CareerEngine, kind?: EngineKind): void
 }
 
-const randomSeed = () => {
+/** Semente nova de carreira (o id da carreira é `career-<semente>` no motor real). */
+export const randomSeed = () => {
   try {
     const a = new Uint32Array(2)
     crypto.getRandomValues(a)
@@ -367,7 +374,8 @@ export const useCareer = create<CareerStore>()((set, get) => {
       try {
         const { engine, data } = await ensureEngine(get, set)
         const seed = opts.seed ?? randomSeed()
-        const state = engine.newCareer(data, identity, pace, seed)
+        // sem bônus, a chamada é a de sempre (o motor nem vê o parâmetro)
+        const state = opts.bonusOvr ? engine.newCareer(data, identity, pace, seed, { bonusOvr: opts.bonusOvr }) : engine.newCareer(data, identity, pace, seed)
         set({ state, reveal: null, previous: null, isFixture: false, busy: false, lastUnlocked: [] })
         await persistCurrent()
         return state
@@ -455,6 +463,32 @@ export const useCareer = create<CareerStore>()((set, get) => {
       set({ achievements: next, unseenAchievements: unseen })
       if (!get().isFixture) void kv.set(KV_KEYS.achievements, { unlocked: next, unseen })
       return fresh
+    },
+
+    importAchievements(items, context = 'Da sua conta') {
+      if (get().isFixture || !items.length) return []
+      const cur = get().achievements
+      const next = { ...cur }
+      const novas: string[] = []
+      let mudou = false
+      for (const it of items) {
+        const t = Date.parse(it.em)
+        if (!it.id || !Number.isFinite(t)) continue
+        const em = new Date(t).toISOString()
+        const ja = next[it.id]
+        if (!ja) {
+          next[it.id] = { id: it.id, unlockedAt: em, careerId: null, context }
+          novas.push(it.id)
+          mudou = true
+        } else if (Date.parse(ja.unlockedAt) > t) {
+          next[it.id] = { ...ja, unlockedAt: em }
+          mudou = true
+        }
+      }
+      if (!mudou) return []
+      set({ achievements: next })
+      void kv.set(KV_KEYS.achievements, { unlocked: next, unseen: get().unseenAchievements })
+      return novas
     },
 
     markAchievementsSeen() {

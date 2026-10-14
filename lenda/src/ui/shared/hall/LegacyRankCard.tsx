@@ -14,11 +14,16 @@ import { LegendAvatar, NotaRing } from './parts'
 import { careerToRun, gapText, useHallModel } from './model'
 import './hall.css'
 
-export function LegacyRankCard({ career, className }: { career: CareerState | Omit<CareerState, 'world'>; className?: string }) {
+/**
+ * `comunidade`: a carreira é de outro jogador (Hall público) — posição só contra as 50 lendas, sem misturar
+ * com as carreiras deste aparelho.
+ */
+export function LegacyRankCard({ career, className, comunidade }: { career: CareerState | Omit<CareerState, 'world'>; className?: string; comunidade?: boolean }) {
   const hall = useHallModel()
   const finished = !!career.retired || career.phase === 'finished'
-  const inHall = hall.runById.has(career.id)
+  const inHall = !comunidade && hall.runById.has(career.id)
   const p = useMemo(() => {
+    if (comunidade) return placeRun(careerToRun(career), [], { finished, legends: hall.legendList, recordBase: REAL_LEGENDS })
     // já está no Hall: a mesma avaliação da tela #/hall (posição atual entre todas as runs e lendas)
     const run = hall.runById.get(career.id)
     if (run) {
@@ -35,7 +40,7 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
     }
     // carreira em andamento (ou ainda não salva): contra tudo o que já está no Hall
     return placeRun(careerToRun(career), hall.runs.map((r) => r.input), { finished, legends: hall.legendList, recordBase: REAL_LEGENDS })
-  }, [hall, career, finished])
+  }, [hall, career, finished, comunidade])
   const { run } = p
   return (
     <section className={cx('lx-glass hl-lrc', className)} aria-labelledby="hl-lrc-h">
@@ -43,14 +48,14 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
         <NotaRing score={run.score} size={86} />
         <div className="min-w-0">
           <span className="hl-kicker hl-kicker--gold">
-            <Landmark size={12} aria-hidden /> Hall das Lendas{inHall ? ` · Carreira nº ${run.runNo}` : ''}
+            <Landmark size={12} aria-hidden /> Hall das Lendas{comunidade ? ' · Comunidade' : inHall ? ` · Carreira nº ${run.runNo}` : ''}
           </span>
           <h2 id="hl-lrc-h" className="hl-lrc__t">
             {run.tier.label} · <span className="lx-metal-text">{p.rank}º</span> de {p.total}
           </h2>
           <p className="hl-lrc__s">
             {p.legendsBelow > 0 ? `Acima de ${p.legendsBelow} das 50 lendas reais` : 'Ainda abaixo das 50 lendas reais'}
-            {p.runCount > 1 ? ` · ${p.runRank}ª entre as suas ${p.runCount} carreiras` : ''}
+            {!comunidade && p.runCount > 1 ? ` · ${p.runRank}ª entre as suas ${p.runCount} carreiras` : ''}
             {!finished ? ' · parcial' : ''}
           </p>
         </div>
@@ -60,7 +65,7 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
           <Trophy size={14} aria-hidden />
           <b>{run.historic.length}</b> {run.historic.length === 1 ? 'recorde histórico' : 'recordes históricos'}
         </span>
-        {run.personal.length > 0 && (
+        {!comunidade && run.personal.length > 0 && (
           <span title="Só selo: não entra na nota nem é comparado com as lendas">
             <Zap size={14} aria-hidden />
             <b>{run.personal.length}</b> {run.personal.length === 1 ? 'recorde das suas carreiras' : 'recordes das suas carreiras'}
@@ -83,7 +88,7 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
           ))}
         </ul>
       )}
-      <button type="button" className="hl-link hl-lrc__go" onClick={() => navigate('/hall', { query: inHall ? { run: career.id } : undefined })}>
+      <button type="button" className="hl-link hl-lrc__go" onClick={() => navigate('/hall', { query: comunidade ? { seg: 'comunidade' } : inHall ? { run: career.id } : undefined })}>
         Abrir o Hall das Lendas <ArrowRight size={14} aria-hidden />
       </button>
     </section>

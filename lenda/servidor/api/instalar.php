@@ -2,12 +2,16 @@
 /**
  * LENDA · cria/atualiza as tabelas (roda _schema.sql). Só com Authorization: Bearer <token do administrador>.
  * Idempotente: CREATE TABLE IF NOT EXISTS e, em tabela que já existia, acrescenta a coluna ou o índice do
- * _schema.sql que faltar (nunca apaga nem muda o que já existe). Responde a lista de tabelas do banco.
+ * _schema.sql que faltar (nunca apaga nem muda o que já existe). Depois preenche o que a v3 trouxe para os
+ * dados antigos: código de convite das contas e, das carreiras salvas antes, os clubes, as Copas, o bônus e a
+ * plausibilidade (lidos do HallEntry guardado). Responde a lista de tabelas do banco e o que preencheu; se a
+ * resposta disser "faltam" > 0, rode de novo.
  *   curl -X POST -H "Authorization: Bearer $TOKEN" https://oprojeto.online/lenda/api/instalar.php
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
+require __DIR__ . '/_carreiras.php';
 
 cabecalhos();
 
@@ -59,4 +63,37 @@ foreach ($comandos as $c) {
 }
 $tabelas = array_values(array_map('strval', $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN)));
 sort($tabelas);
-responder(200, ['ok' => true, 'comandos' => count($comandos), 'alteracoes' => $alteracoes, 'tabelas' => $tabelas]);
+
+// ── dados antigos (v2 → v3) ──────────────────────────────────────────────────────────────────────
+
+$fim = microtime(true) + 20; // por pedido; o que faltar fica para a próxima vez
+$convites = 0;
+foreach (sql('SELECT id FROM usuarios WHERE codigo_convite IS NULL LIMIT 20000')->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+    garantirCodigoConvite((int) $uid, null);
+    $convites++;
+    if (microtime(true) > $fim) {
+        break;
+    }
+}
+$carreiras = 0;
+while (microtime(true) < $fim) {
+    $lote = sql('SELECT id, usuario_id, carreira_id, dados FROM carreiras WHERE clubes IS NULL ORDER BY id LIMIT 200')->fetchAll();
+    if (!$lote) {
+        break;
+    }
+    foreach ($lote as $l) {
+        $json = is_string($l['dados']) ? @gzdecode($l['dados']) : false;
+        $h = is_string($json) ? json_decode($json, false, 512) : null;
+        if (!($h instanceof stdClass)) {
+            sql("UPDATE carreiras SET clubes = '[]', suspeita = 'dados' WHERE id = ?", [(int) $l['id']]); // não abre: fora do Hall
+        } else {
+            $f = extrairCampos($h);
+            sql('UPDATE carreiras SET clubes = ?, copas = ?, bonus_ovr = ?, suspeita = ? WHERE id = ?',
+                [$f['clubes'], $f['copas'], $f['bonus_ovr'], plausibilidade($f, (int) $l['usuario_id'], (string) $l['carreira_id']), (int) $l['id']]);
+        }
+        $carreiras++;
+    }
+}
+$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL') + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL');
+responder(200, ['ok' => true, 'comandos' => count($comandos), 'alteracoes' => $alteracoes, 'tabelas' => $tabelas,
+    'preenchidas' => ['convites' => $convites, 'carreiras' => $carreiras, 'faltam' => $faltam]]);

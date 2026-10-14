@@ -216,9 +216,17 @@ export interface RevealScript {
   finished: boolean
 }
 
+export interface NewCareerOptions {
+  /** Bônus de OVR (0–10; fora disso é limitado; não inteiro é arredondado). */
+  bonusOvr?: number
+}
+
 export interface CareerEngine {
-  /** Cria a carreira: mundo inicial (dados reais de hoje) + decisão de "Oferta de base". */
-  newCareer(data: GameData, identity: PlayerIdentity, pace: Pace, seed: string): CareerState
+  /**
+   * Cria a carreira: mundo inicial (dados reais de hoje) + decisão de "Oferta de base". `opts.bonusOvr`
+   * (0–10, padrão 0): pontos de OVR acima do normal durante a carreira inteira (CareerState.bonusOvr).
+   */
+  newCareer(data: GameData, identity: PlayerIdentity, pace: Pace, seed: string, opts?: NewCareerOptions): CareerState
   /** Aplica a opção escolhida na decisão pendente, simula o período e prepara a próxima decisão. */
   choose(data: GameData, state: CareerState, optionId: string): { state: CareerState; reveal: RevealScript }
   /** Resumo final (também serve para carreira em andamento). */

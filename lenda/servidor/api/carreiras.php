@@ -1,14 +1,17 @@
 <?php
 /**
  * LENDA · carreiras salvas na conta (cada uma é um HallEntry inteiro do jogo, guardado com gzip).
- *   GET  carreiras.php            → {carreiras: [C…], limite: 200}
+ *   GET  carreiras.php            → {carreiras: [C…], limite: 200, hallPublico, hallMax: 3}
  *   GET  carreiras.php?id=<id>    → {carreira: HallEntry}
  *   POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"} → {carreira: C}
  *   POST {"acao":"apagar","id": "<id>"}                                  → {ok: true}
+ *   POST {"acao":"publicar","id": "<id>","sim": true|false}             → {carreira: C, hallPublico}
+ * Contrato: servidor/CONTRATO.md e CONTRATO-v3.md §4.
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
+require __DIR__ . '/_hall.php';
 
 cabecalhos();
 
@@ -18,102 +21,6 @@ const MAX_CARREIRA_GZ = 128 * 1024;          // já comprimida (uma real fica ab
 const COTA_CONTA_BYTES = 20 * 1024 * 1024;   // soma de `tamanho` (JSON) das carreiras de uma conta
 const SALVAR_KB_CONTA = 2048;                // KB comprimidos por conta a cada 10 min
 const SALVAR_KB_IP = 4096;                   // KB comprimidos por IP a cada 10 min
-const CAMPOS_C = 'carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas, gols, titulos,
-    bolas_ouro, headline, como, salva_em, terminou_em';
-
-/** Linha do banco → C (item da lista). */
-function carreiraC(array $l): array
-{
-    return [
-        'id' => (string) $l['carreira_id'],
-        'modo' => (string) $l['modo'],
-        'jogador' => (string) $l['jogador'],
-        'numero' => (int) $l['numero'],
-        'pais' => (string) $l['pais'],
-        'posicao' => (string) $l['posicao'],
-        'nota' => (int) $l['nota'],
-        'notaV' => $l['nota_v'] === null ? null : (int) $l['nota_v'],
-        'picoOvr' => (int) $l['pico_ovr'],
-        'temporadas' => (int) $l['temporadas'],
-        'gols' => (int) $l['gols'],
-        'titulos' => (int) $l['titulos'],
-        'bolasOuro' => (int) $l['bolas_ouro'],
-        'headline' => (string) $l['headline'],
-        'como' => (string) $l['como'],
-        'salvaEm' => iso($l['salva_em']),
-        'terminouEm' => iso($l['terminou_em']),
-    ];
-}
-
-function inteiro(mixed $v, int $min, int $max): int
-{
-    if (is_float($v) && is_finite($v)) {
-        $v = (int) round($v);
-    }
-    if (!is_int($v)) {
-        return $min > 0 ? $min : 0;
-    }
-    return max($min, min($max, $v));
-}
-
-function campo(?stdClass $o, string $k): mixed
-{
-    return $o !== null && property_exists($o, $k) ? $o->{$k} : null;
-}
-
-/** Os campos da lista, tirados do próprio HallEntry. */
-function extrairCampos(stdClass $h): array
-{
-    $id = $h->identity instanceof stdClass ? $h->identity : null;
-    $s = $h->summary instanceof stdClass ? $h->summary : null;
-    $legacy = campo($h, 'legacy') instanceof stdClass ? $h->legacy : null;
-    $totals = campo($s, 'totals') instanceof stdClass ? $s->totals : null;
-
-    $titulos = 0;
-    foreach ((array) (is_array(campo($s, 'trophies')) ? $s->trophies : []) as $t) {
-        if ($t instanceof stdClass) {
-            $titulos += inteiro(campo($t, 'count'), 0, 10000);
-        }
-    }
-    $bolas = 0;
-    foreach ((array) (is_array(campo($s, 'awards')) ? $s->awards : []) as $a) {
-        if ($a instanceof stdClass && campo($a, 'award') === 'ballon_dor') {
-            $bolas += inteiro(campo($a, 'count'), 0, 1000);
-        }
-    }
-    $nota = campo($legacy, 'score');
-    if (!is_int($nota) && !is_float($nota)) {
-        $nota = campo($s, 'legacyScore');
-    }
-    $modo = campo($h, 'mode');
-    $modo = $modo === 'immersive' || $modo === 'imersivo' ? 'imersivo' : 'classico';
-
-    $terminou = null;
-    $fin = campo($h, 'finishedAt');
-    if (is_string($fin) && strlen($fin) <= 40) {
-        $t = strtotime($fin);
-        if ($t !== false && $t > 0) {
-            $terminou = dt($t);
-        }
-    }
-    return [
-        'modo' => $modo,
-        'jogador' => texto(campo($id, 'surname'), 40) ?? '',
-        'numero' => inteiro(campo($id, 'number'), 0, 999),
-        'pais' => texto(campo($id, 'nationality'), 8) ?? '',
-        'posicao' => texto(campo($id, 'position'), 8) ?? '',
-        'nota' => inteiro($nota, -999, 999),
-        // versão dos pesos da Nota de Legado (LEGACY_VERSION do jogo); sem `v` = gravada antes da v2
-        'nota_v' => is_int(campo($legacy, 'v')) ? inteiro($legacy->v, 0, 999) : null,
-        'pico_ovr' => inteiro(campo($s, 'peakOvr'), 0, 999),
-        'temporadas' => inteiro(campo($s, 'seasons'), 0, 999),
-        'gols' => inteiro(campo($totals, 'goals'), 0, 1000000),
-        'titulos' => $titulos,
-        'bolas_ouro' => $bolas,
-        'headline' => texto(campo($s, 'headline'), 120) ?? '',
-        'terminou_em' => $terminou,
-    ];
-}
 
 function lerId(mixed $v): string
 {
@@ -121,6 +28,13 @@ function lerId(mixed $v): string
         erro(400, 'id', 'Carreira inválida.');
     }
     return $v;
+}
+
+/** C de uma carreira da conta, com o noHall em vigor. */
+function cDaConta(int $uid, string $id, string $modoHall): ?array
+{
+    $l = umaLinha('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+    return $l === null ? null : carreiraC($l, idsNoHall($uid, $modoHall));
 }
 
 // ── rotas ────────────────────────────────────────────────────────────────────────────────────────
@@ -135,6 +49,7 @@ if ($m === 'POST') {
 }
 $u = exigirUsuario();
 $uid = (int) $u['id'];
+$modoHall = (string) ($u['hall_publico'] ?? 'auto');
 limpezaTalvez();
 
 if ($m === 'GET') {
@@ -148,7 +63,13 @@ if ($m === 'GET') {
         responderBruto(200, '{"carreira":' . $json . '}');
     }
     $lista = sql('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll();
-    responder(200, ['carreiras' => array_map('carreiraC', $lista), 'limite' => LIMITE_CARREIRAS]);
+    $noHall = idsNoHall($uid, $modoHall);
+    responder(200, [
+        'carreiras' => array_map(static fn(array $l): array => carreiraC($l, $noHall), $lista),
+        'limite' => LIMITE_CARREIRAS,
+        'hallPublico' => $modoHall,
+        'hallMax' => LENDA_HALL_POR_CONTA,
+    ]);
 }
 
 $acao = is_string($corpo->acao ?? null) ? $corpo->acao : '';
@@ -180,37 +101,97 @@ if ($acao === 'salvar') {
     limitar('salvar-kb', 'u' . $uid, SALVAR_KB_CONTA, $kb);
     limitar('salvar-ip-kb', quemIp(), SALVAR_KB_IP, $kb);
     $agora = dt(time());
-    $linha = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora): array {
+    $mudouSuspeita = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora): bool {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma gravação por conta de cada vez
-        $existe = umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
-        if ($existe === null && (int) umValor('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ?', [$uid]) >= LIMITE_CARREIRAS) {
+        $antes = umaLinha('SELECT id, temporadas, pico_ovr, nota, gols, bolas_ouro, titulos, bonus_ovr, jogador, suspeita, clubes
+            FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+        if ($antes === null && (int) umValor('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ?', [$uid]) >= LIMITE_CARREIRAS) {
             erro(409, 'cheio', 'Sua conta já tem ' . LIMITE_CARREIRAS . ' carreiras salvas. Apague alguma para salvar esta.');
         }
         $usado = (int) umValor('SELECT COALESCE(SUM(tamanho), 0) FROM carreiras WHERE usuario_id = ? AND carreira_id <> ?', [$uid, $id]);
         if ($usado + strlen($json) > COTA_CONTA_BYTES) {
             erro(409, 'cheio', 'Sua conta está cheia. Apague alguma carreira para salvar esta.');
         }
+        // Plausibilidade: conferida quando a carreira entra ou quando os números dela mudam. Com os mesmos
+        // números, fica a decisão anterior (inclusive a do admin, que liberou uma suspeita).
+        $suspeita = ($antes !== null && $antes['clubes'] !== null && !numerosMudaram($antes, $f))
+            ? $antes['suspeita'] : plausibilidade($f, $uid, $id);
         sql('INSERT INTO carreiras (usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas,
-                gols, titulos, bolas_ouro, headline, como, dados, tamanho, terminou_em, salva_em)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                gols, titulos, bolas_ouro, headline, como, dados, tamanho, terminou_em, salva_em, suspeita, clubes, copas, bonus_ovr)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE modo = VALUES(modo), jogador = VALUES(jogador), numero = VALUES(numero),
                 pais = VALUES(pais), posicao = VALUES(posicao), nota = VALUES(nota), nota_v = VALUES(nota_v), pico_ovr = VALUES(pico_ovr),
                 temporadas = VALUES(temporadas), gols = VALUES(gols), titulos = VALUES(titulos),
                 bolas_ouro = VALUES(bolas_ouro), headline = VALUES(headline),
                 como = IF(como = \'manual\', \'manual\', VALUES(como)),
-                dados = VALUES(dados), tamanho = VALUES(tamanho), terminou_em = VALUES(terminou_em), salva_em = VALUES(salva_em)',
+                dados = VALUES(dados), tamanho = VALUES(tamanho), terminou_em = VALUES(terminou_em), salva_em = VALUES(salva_em),
+                suspeita = VALUES(suspeita), clubes = VALUES(clubes), copas = VALUES(copas), bonus_ovr = VALUES(bonus_ovr)',
             [$uid, $id, $f['modo'], $f['jogador'], $f['numero'], $f['pais'], $f['posicao'], $f['nota'], $f['nota_v'], $f['pico_ovr'],
                 $f['temporadas'], $f['gols'], $f['titulos'], $f['bolas_ouro'], $f['headline'], $como, $gz, strlen($json),
-                $f['terminou_em'], $agora]);
-        return umaLinha('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+                $f['terminou_em'], $agora, $suspeita, $f['clubes'], $f['copas'], $f['bonus_ovr']]);
+        return $antes !== null && $antes['suspeita'] === null && $suspeita !== null;
     });
-    responder(200, ['carreira' => carreiraC($linha)]);
+    if ($mudouSuspeita) {
+        tirarDoHall((int) umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]));
+    }
+    responder(200, ['carreira' => cDaConta($uid, $id, $modoHall)]);
 }
 
 if ($acao === 'apagar') {
     $id = lerId($corpo->id ?? null);
-    sql('DELETE FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+    $pk = umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+    if ($pk !== null) {
+        tirarDoHall((int) $pk);
+        transacao(static function () use ($pk): void {
+            sql('DELETE FROM denuncias WHERE carreira_pk = ?', [(int) $pk]);
+            sql('DELETE FROM carreiras WHERE id = ?', [(int) $pk]);
+        });
+    }
     responder(200, ['ok' => true]);
+}
+
+if ($acao === 'publicar') {
+    // Escolher quais carreiras vão para o Hall público (até 3). Em "auto" ou "nao", passa para "manual"; vindo
+    // de "auto", começa com as 3 que já estavam no Hall (nada some sem o jogador pedir).
+    limitar('publicar', 'u' . $uid, 60);
+    $id = lerId($corpo->id ?? null);
+    $sim = $corpo->sim ?? null;
+    if (!is_bool($sim)) {
+        erro(400, 'dados', 'Diga se a carreira vai (sim) ou não para o Hall.');
+    }
+    $pk = umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+    if ($pk === null) {
+        erro(404, 'nao_encontrada', 'Carreira não encontrada.');
+    }
+    $pk = (int) $pk;
+    $modoNovo = transacao(static function () use ($uid, $pk, $sim): string {
+        $modo = (string) umValor('SELECT hall_publico FROM usuarios WHERE id = ? FOR UPDATE', [$uid]);
+        if ($modo === 'auto') {
+            $ids = idsAutoNoHall($uid);
+            sql('UPDATE carreiras SET publica = 0 WHERE usuario_id = ?', [$uid]);
+            if ($ids) {
+                sql('UPDATE carreiras SET publica = 1 WHERE usuario_id = ? AND id IN (' . marcas(count($ids)) . ')', array_merge([$uid], $ids));
+            }
+        } elseif ($modo === 'nao') {
+            if (!$sim) {
+                return 'nao'; // já não aparece nada
+            }
+            sql('UPDATE carreiras SET publica = 0 WHERE usuario_id = ?', [$uid]);
+        }
+        if ($sim) {
+            $outras = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ? AND publica = 1 AND id <> ?', [$uid, $pk]);
+            if ($outras >= LENDA_HALL_POR_CONTA) {
+                erro(409, 'limite_hall', 'Você já tem ' . LENDA_HALL_POR_CONTA . ' carreiras no Hall. Tire uma para pôr esta.');
+            }
+        }
+        sql('UPDATE carreiras SET publica = ? WHERE id = ?', [$sim ? 1 : 0, $pk]);
+        sql("UPDATE usuarios SET hall_publico = 'manual' WHERE id = ?", [$uid]);
+        return 'manual';
+    });
+    if (!$sim) {
+        tirarDoHall($pk); // sair do Hall é na hora; entrar, na próxima fotografia
+    }
+    responder(200, ['carreira' => cDaConta($uid, $id, $modoNovo), 'hallPublico' => $modoNovo]);
 }
 
 erro(400, 'acao', 'Ação desconhecida.');

@@ -5,10 +5,14 @@
  * "hb" (batimento) só atualiza a visita; os outros tipos viram linhas em `eventos`, com `d` só nas chaves
  * conhecidas do tipo (CAMPOS_D). Tetos de linhas: 1.500 por IP a cada 10 min e 3.000 por sessão na vida
  * toda (o que passa é descartado em silêncio). Resposta: 204.
+ * Com a conta ligada (cookie), cada partida terminada gravada (jogo_fim do Clássico/Imersivo ou partida_fim)
+ * soma em usuarios.partidas_conta (libera os bônus) e um jogo_fim do Clássico valida a indicação pendente:
+ * um UPDATE e, no máximo, uma consulta por envio que tem fim de partida (os batimentos não pagam nada disso).
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
+require __DIR__ . '/_bonus.php';
 
 cabecalhos();
 
@@ -129,7 +133,7 @@ if ($linhas) {
 $usuario = usuarioLogado();
 $uid = $usuario !== null ? (int) $usuario['id'] : null;
 
-transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $jogando, $linhas): void {
+[$linhas, $vidSessao] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $jogando, $linhas): array {
     $v = umaLinha('SELECT vid, ultimo, usuario_id, bot, eventos FROM visitas WHERE sid = ? FOR UPDATE', [$sid]);
     // teto da sessão na vida toda: passou de 3.000 linhas, o resto é descartado em silêncio
     $linhas = array_slice($linhas, 0, max(0, MAX_LINHAS_SESSAO - ($v === null ? 0 : (int) $v['eventos'])));
@@ -193,7 +197,22 @@ transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $
         }
         sql('INSERT INTO eventos (sid, vid, tipo, modo, dados, em) VALUES ' . implode(', ', $marcas), $params);
     }
+    return [$linhas, $vid];
 });
+
+if ($uid !== null && $linhas) {
+    $partidas = 0;
+    $classico = false;
+    foreach ($linhas as [$tipo, $modo]) {
+        if ($tipo === 'partida_fim' || ($tipo === 'jogo_fim' && ($modo === 'classico' || $modo === 'imersivo'))) {
+            $partidas++;
+            $classico = $classico || ($tipo === 'jogo_fim' && $modo === 'classico');
+        }
+    }
+    if ($partidas > 0) {
+        registrarPartidas($uid, $partidas, $classico, $vidSessao);
+    }
+}
 
 limpezaTalvez();
 semCorpo();

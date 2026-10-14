@@ -5,6 +5,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { navigate, startRouter, syncDocumentFlags, useApp, type RoutePath } from '@/store/app'
+import { podeDebug, podeLive, portaoDaRota, useAcesso } from '@/store/acesso'
 import { useCareer } from '@/store/career'
 import { useLiveSession } from '@/live/config'
 import { isCaptureWindow } from '@/live/channel'
@@ -15,6 +16,8 @@ import { clubVars, type ClubColors } from '@/ui/theme/club'
 import { ErrorBoundary } from './ErrorBoundary'
 import { lazySite } from './lazySite'
 import { MenuDialog } from './MenuDialog'
+import { AvisoFaixa } from './AvisoFaixa'
+import { PortaoTela, SeloAdmin } from './Portao'
 import { AchievementsDialog, SCREENS, themeFor } from './routes'
 import { useSlotStore } from './slots'
 import { Splash } from './Splash'
@@ -75,9 +78,18 @@ export function AppShell() {
   const rm = useReducedMotion()
   const theme = themeFor(route.path, route.query)
   const liveOn = useLiveSession((s) => s.on)
-  const liveMounted = liveOn || route.path === '/live'
+  // site: o que o público não vê (Live, Modo Imersivo em teste, #/kit, manutenção) — src/store/acesso.ts
+  const portao = useAcesso((s) => portaoDaRota(route, s))
+  const liveLiberada = useAcesso(podeLive)
+  const debug = useAcesso((s) => podeDebug(s))
+  const liveMounted = liveLiberada && (liveOn || route.path === '/live')
+  // a Live não é pública e quem está aqui não é o admin: um modo live que ficou ligado nesta aba desliga
+  const liveNegada = useAcesso((s) => s.configPronta && s.adminStatus === 'nao' && !podeLive(s))
+  useEffect(() => {
+    if (liveNegada && useLiveSession.getState().on) useLiveSession.getState().stop()
+  }, [liveNegada])
   // a faixa da live ocupa o lugar da barra do topo onde o público vê o jogo
-  const liveHud = liveOn && (route.path === '/carreira' || (route.path === '/live' && route.query.tela === 'palco'))
+  const liveHud = liveLiberada && liveOn && (route.path === '/carreira' || (route.path === '/live' && route.query.tela === 'palco'))
   // janela de captura esperando o começo: sem a barra do jogo no ar (nada de menu clicável na live)
   const captureIdle = !liveOn && route.path === '/live' && route.query.tela === 'palco' && isCaptureWindow()
 
@@ -93,7 +105,7 @@ export function AppShell() {
   // dev/screenshots: #/carreira?fixture=mid|end|reveal|new loads a fixture career (never persisted)
   const fixture = route.query.fixture
   useEffect(() => {
-    if (!fixture || status !== 'ready') return
+    if (!fixture || status !== 'ready' || !debug) return
     if (fixture === 'new' || fixture === 'mid' || fixture === 'end' || fixture === 'reveal') {
       const run = () => void useCareer.getState().loadFixture(fixture)
       if (useCareer.getState().status === 'ready') run()
@@ -107,7 +119,7 @@ export function AppShell() {
         return un
       }
     }
-  }, [fixture, status])
+  }, [fixture, status, debug])
   useEffect(() => {
     document.documentElement.setAttribute('data-lx-theme', theme)
     useApp.setState({ theme })
@@ -140,7 +152,8 @@ export function AppShell() {
         Pular para o conteúdo
       </button>
       <AmbientStage path={route.path} theme={theme} />
-      {ready && !liveHud && !captureIdle && <TopBar path={route.path} />}
+      {ready && portao !== 'manutencao' && <AvisoFaixa />}
+      {ready && !liveHud && !captureIdle && portao !== 'manutencao' && <TopBar path={route.path} />}
       {ready && liveMounted && (
         <Suspense fallback={null}>
           <LiveRoot />
@@ -156,9 +169,7 @@ export function AppShell() {
             exit={rm ? { opacity: 0, transition: { duration: 0.08 } } : { opacity: 0, y: -6 * navDir, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } }}
           >
             <ErrorBoundary resetKey={route.path}>
-              <Suspense fallback={<ScreenFallback />}>
-                <Screen />
-              </Suspense>
+              <Suspense fallback={<ScreenFallback />}>{portao === 'ok' ? <Screen /> : <PortaoTela tipo={portao} />}</Suspense>
             </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
@@ -166,6 +177,7 @@ export function AppShell() {
       <AnimatePresence>{!ready && <Splash key="splash" error={status === 'error' ? error : null} onRetry={() => location.reload()} />}</AnimatePresence>
       <MenuDialog />
       <AchievementsHost />
+      {ready && <SeloAdmin />}
       {SiteRoot && <SiteRoot />}
       <Toaster />
     </div>

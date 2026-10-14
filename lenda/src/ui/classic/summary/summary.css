@@ -44,6 +44,10 @@
 .sm-chip { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-strong);
   font-size: 12px; font-weight: 650; color: var(--text-2); white-space: nowrap; }
 .sm-chip b { color: var(--text); font-size: 14px; font-weight: 800; }
+.sm-chip--bonus { background: rgba(255, 210, 110, .14); border-color: rgba(255, 210, 110, .4); color: #ffe39a; }
+.sm-chip--bonus b { color: #fff1c4; }
+.sm-chip--com { background: rgba(108, 178, 255, .12); border-color: rgba(108, 178, 255, .35); color: #cfe6ff; }
+.sm-chip--com svg { width: 14px; height: 14px; }
 .sm-chip--pos { background: rgba(255, 94, 120, .14); border-color: rgba(255, 94, 120, .3); color: #ffc2cc; }
 .sm-kpis { display: grid; grid-template-columns: repeat(var(--n, 4), max-content); justify-content: start; gap: 30px; margin: 20px 0 0; }
 .sm-kpis div { min-width: 0; }
@@ -273,6 +277,7 @@
 .sc__chips { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
 .sc__chip { height: 15px; padding: 0 5px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; font-size: 7.5px; font-weight: 700; white-space: nowrap;
   background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); color: rgba(244, 245, 248, .85); }
+.sc__chip--bonus { background: rgba(255, 210, 110, .16); border-color: rgba(255, 210, 110, .4); color: #ffe39a; }
 .sc__chip--pos { background: rgba(255, 94, 120, .16); border-color: rgba(255, 94, 120, .3); color: #ffc2cc; }
 .sc__kpis { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; padding: 7px 0 6px; border-radius: 10px; background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .06); }
 .sc__kpis > div { text-align: center; display: grid; gap: 3px; }

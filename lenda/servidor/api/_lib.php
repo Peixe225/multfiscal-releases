@@ -29,6 +29,12 @@ const LENDA_JANELA_S = 600;
 const LENDA_FUSO_H = 3; // America/Sao_Paulo = UTC-3 fixo (sem horário de verão desde 2019)
 const LENDA_UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR',
     'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO', 'EX'];
+/** Versão da fórmula da Nota de Legado (LEGACY_VERSION em src/engine/legacy/score.ts). Subiu lá? Suba aqui. */
+const LENDA_NOTA_VERSAO = 2;
+const LENDA_HALL_POR_CONTA = 3;       // carreiras de cada conta no Hall público
+/** Conta valendo agora (status ativo, ou suspensão com data já vencida). Usa o apelido `u` para usuarios. */
+const LENDA_SQL_ATIVO = "(u.status = 'ativo' OR (u.suspenso_ate IS NOT NULL AND u.suspenso_ate <= UTC_TIMESTAMP()))";
+const LENDA_CONVITE_LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0 e 1 (que se confundem)
 
 ob_start();
 
@@ -593,7 +599,39 @@ function encerrarSessaoAtual(): void
     }
 }
 
-/** Usuário do cookie (linha de `usuarios`) ou null. Renova a sessão depois de 7 dias. */
+/** A conta está suspensa agora? (suspensão com data vencida não vale mais) */
+function contaSuspensa(array $u): bool
+{
+    if (($u['status'] ?? 'ativo') !== 'suspenso') {
+        return false;
+    }
+    $ate = paraTempo($u['suspenso_ate'] ?? null);
+    return $ate === null || $ate > time();
+}
+
+/** Mensagem para quem tem a conta suspensa (com a data, em Brasília, e o motivo, se houver). */
+function mensagemSuspenso(array $u): string
+{
+    $ate = paraTempo($u['suspenso_ate'] ?? null);
+    $msg = 'Sua conta está suspensa' . ($ate !== null ? ' até ' . gmdate('d/m/Y', $ate - LENDA_FUSO_H * 3600) : '') . '.';
+    $motivo = texto($u['motivo_suspensao'] ?? null, 200);
+    return $msg . ($motivo !== null ? ' Motivo: ' . $motivo . '.' : '') . ' Fale com contato@oprojeto.online se achar que é um engano.';
+}
+
+/** Linha da conta suspensa que mandou o cookie neste pedido (para exigirUsuario responder 403 em vez de 401). */
+function sessaoSuspensa(?array $l = null, bool $definir = false): ?array
+{
+    static $s = null;
+    if ($definir) {
+        $s = $l;
+    }
+    return $s;
+}
+
+/**
+ * Usuário do cookie (linha de `usuarios`) ou null. Renova a sessão depois de 7 dias. Conta suspensa: null
+ * (e exigirUsuario responde 403 suspenso).
+ */
 function usuarioLogado(bool $recarregar = false): ?array
 {
     static $feito = false, $u = null;
@@ -602,6 +640,7 @@ function usuarioLogado(bool $recarregar = false): ?array
     }
     $feito = true;
     $u = null;
+    sessaoSuspensa(null, true);
     $tok = tokenDoCookie();
     if ($tok === null) {
         return null;
@@ -611,6 +650,11 @@ function usuarioLogado(bool $recarregar = false): ?array
     $l = umaLinha('SELECT s.renovada_em AS s_renovada, u.* FROM sessoes_login s JOIN usuarios u ON u.id = s.usuario_id
         WHERE s.token_sha256 = ? AND s.expira_em > ?', [$hash, dt($t)]);
     if ($l === null) {
+        return null;
+    }
+    if (contaSuspensa($l)) {
+        unset($l['s_renovada']);
+        sessaoSuspensa($l, true);
         return null;
     }
     if ((paraTempo($l['s_renovada']) ?? 0) < $t - LENDA_RENOVA_S) {
@@ -631,6 +675,10 @@ function exigirUsuario(): array
 {
     $u = usuarioLogado();
     if ($u === null) {
+        $s = sessaoSuspensa();
+        if ($s !== null) {
+            erro(403, 'suspenso', mensagemSuspenso($s));
+        }
         erro(401, 'nao_logado', 'Entre na sua conta para continuar.');
     }
     return $u;
@@ -787,4 +835,460 @@ function terminarResposta(int $status, mixed $dados): void
     } else {
         flush();
     }
+}
+
+// ── utilidades v3 ────────────────────────────────────────────────────────────────────────────────
+
+/** "?, ?, ?" para um IN (...) com $n itens. */
+function marcas(int $n): string
+{
+    return implode(', ', array_fill(0, max(1, $n), '?'));
+}
+
+/** Data de hoje em Brasília (YYYY-MM-DD), para "1 por dia". */
+function diaBrasilia(?int $t = null): string
+{
+    return gmdate('Y-m-d', ($t ?? time()) - LENDA_FUSO_H * 3600);
+}
+
+/** Inteiro de um valor JSON (aceita 5.0); fora da faixa ou de outro tipo: null. */
+function inteiroOuNulo(mixed $v, int $min, int $max): ?int
+{
+    if (is_float($v) && is_finite($v) && floor($v) === $v && abs($v) < 1e15) {
+        $v = (int) $v;
+    }
+    return is_int($v) && $v >= $min && $v <= $max ? $v : null;
+}
+
+/** Página pedida (?pagina=N), de 1 a 10.000. */
+function paginaPedida(): int
+{
+    $p = $_GET['pagina'] ?? '1';
+    return is_string($p) && ctype_digit($p) && (int) $p >= 1 ? min(10000, (int) $p) : 1;
+}
+
+/** Trava do MySQL (GET_LOCK) com o nome do banco junto (o servidor de banco é dividido com outros sites/bancos). */
+function nomeTrava(string $nome): string
+{
+    static $banco = null;
+    $banco ??= (string) umValor('SELECT DATABASE()');
+    return substr($nome . ':' . $banco, 0, 64);
+}
+
+function pegarTrava(string $nome, int $esperaS = 0): bool
+{
+    return (int) umValor('SELECT GET_LOCK(?, ?)', [nomeTrava($nome), $esperaS]) === 1;
+}
+
+function soltarTrava(string $nome): void
+{
+    umValor('SELECT RELEASE_LOCK(?)', [nomeTrava($nome)]);
+}
+
+/** Erro com campos a mais (ex.: qual chave da config está errada). */
+function erroCom(int $status, string $codigo, string $mensagem, array $extra): never
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    if (!headers_sent()) {
+        header_remove('Set-Cookie');
+        cabecalhos();
+    }
+    http_response_code($status);
+    echo json(['erro' => $codigo, 'mensagem' => $mensagem] + $extra);
+    exit;
+}
+
+// ── filtro de palavrões, ofensas e nomes reservados ──────────────────────────────────────────────
+
+/** Minúsculo, sem acento, leetspeak simples desfeito, só letras a-z separadas por um espaço. */
+function normalizarFiltro(string $s): string
+{
+    $s = mb_strtolower($s, 'UTF-8');
+    if (class_exists('Normalizer')) {
+        $d = Normalizer::normalize($s, Normalizer::FORM_D);
+        if (is_string($d)) {
+            $s = $d;
+        }
+    }
+    $s = (string) preg_replace('/\p{M}+/u', '', $s); // acentos soltos (decompostos)
+    $s = strtr($s, ['á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a', 'å' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e',
+        'ë' => 'e', 'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i', 'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u', 'ç' => 'c', 'ñ' => 'n', 'ý' => 'y', 'ÿ' => 'y', 'ß' => 'ss']);
+    $s = strtr($s, ['4' => 'a', '@' => 'a', '3' => 'e', '1' => 'i', '!' => 'i', '0' => 'o', '5' => 's', '$' => 's', '7' => 't']);
+    return trim((string) preg_replace('/[^a-z]+/', ' ', $s));
+}
+
+/** "caaaraaalho" → "caralho" (letras repetidas viram uma). */
+function juntarRepetidas(string $s): string
+{
+    return (string) preg_replace('/(.)\1+/', '$1', $s);
+}
+
+/**
+ * O texto tem palavrão/ofensa ('palavrao') ou nome reservado ('reservado')? null = pode. Confere cada palavra
+ * inteira (e sem o "s" do fim), o texto inteiro sem espaços ("p u t a") e, das palavras fortes, qualquer pedaço
+ * do texto colado ("filhodaputa"). Lista em _palavras.php.
+ */
+function textoProibido(string $s, bool $reservados = true): ?string
+{
+    static $listas = null;
+    if ($listas === null) {
+        $bruto = require __DIR__ . '/_palavras.php';
+        $listas = [];
+        foreach (['inteiras', 'reservadas_inteiras'] as $k) {
+            $listas[$k] = [];
+            foreach ($bruto[$k] as $p) {
+                $listas[$k][$p] = true;
+                $listas[$k][juntarRepetidas($p)] = true;
+            }
+        }
+        foreach (['coladas', 'reservadas_coladas'] as $k) {
+            $listas[$k] = [];
+            foreach ($bruto[$k] as $p) {
+                $listas[$k][$p] = juntarRepetidas($p);
+            }
+        }
+    }
+    $n = normalizarFiltro($s);
+    if ($n === '') {
+        return null;
+    }
+    $colado = str_replace(' ', '', $n);
+    $coladoJ = juntarRepetidas($colado);
+    $inteira = static function (string $t, array $lista): bool {
+        foreach ([$t, juntarRepetidas($t)] as $x) {
+            if (isset($lista[$x]) || (strlen($x) >= 3 && str_ends_with($x, 's') && isset($lista[substr($x, 0, -1)]))) {
+                return true;
+            }
+        }
+        return false;
+    };
+    $grupos = [['inteiras', 'coladas', 'palavrao']];
+    if ($reservados) {
+        $grupos[] = ['reservadas_inteiras', 'reservadas_coladas', 'reservado'];
+    }
+    foreach ($grupos as [$ki, $kc, $motivo]) {
+        foreach (array_merge(explode(' ', $n), [$colado]) as $t) {
+            if ($inteira($t, $listas[$ki])) {
+                return $motivo;
+            }
+        }
+        foreach ($listas[$kc] as $c => $cj) {
+            if (str_contains($colado, $c) || str_contains($coladoJ, $cj)) {
+                return $motivo;
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Apelido: 2 a 20 caracteres, letras latinas (com acento), números, espaço, _ . -; sem espaço nas pontas nem
+ * duplo; sem palavrão/ofensa e (com $reservados) sem nome reservado. Só letras latinas: letra de outro alfabeto
+ * que parece latina ("а" cirílico) passaria pelo filtro.
+ */
+function lerApelido(mixed $v, bool $reservados = true): string
+{
+    $a = is_string($v) ? trim($v) : '';
+    $n = mb_strlen($a, 'UTF-8');
+    if ($n < 2 || $n > 20 || !preg_match('/^[\p{Latin}\p{M}\p{N}_.\- ]+$/u', $a) || preg_match('/\s{2,}/u', $a)) {
+        erro(400, 'apelido_invalido', 'O apelido precisa ter de 2 a 20 caracteres: letras, números, espaço, _ . ou -.');
+    }
+    if (textoProibido($a, $reservados) !== null) {
+        erro(400, 'apelido_proibido', 'Esse apelido não é permitido. Escolha outro.');
+    }
+    return $a;
+}
+
+// ── configuração do site (tabela site_config; o banco manda, o arquivo de config dá o padrão) ───
+
+const LENDA_CONFIG_CHAVES = ['regras', 'imersivo_publico', 'live_publica', 'aviso', 'manutencao', 'bonus', 'hall_intervalo_min',
+    'cadastro_aberto'];
+
+/** Padrões de cada chave (o `regras` vem do arquivo de config). */
+function configPadrao(): array
+{
+    $r = config()['regras'];
+    return [
+        'regras' => ['aposPartidas' => (int) $r['apos_partidas'], 'obrigatorio' => (bool) $r['obrigatorio'],
+            'lembrarACada' => (int) $r['lembrar_a_cada']],
+        'imersivo_publico' => false,
+        'live_publica' => false,
+        'aviso' => null,
+        'manutencao' => false,
+        'bonus' => ['indicacao' => [2, 3, 5], 'compartilhar' => 2, 'liberaAposPartidas' => 3, 'maxIndicacoes' => 3],
+        'hall_intervalo_min' => 60,
+        'cadastro_aberto' => true,
+    ];
+}
+
+/**
+ * Confere e normaliza o valor de uma chave da config. Inválido: InvalidArgumentException com a mensagem
+ * (pt-BR) para o painel mostrar.
+ */
+function normalizarConfig(string $chave, mixed $v): mixed
+{
+    $ruim = static fn(string $m): never => throw new InvalidArgumentException($m);
+    $int = static fn(mixed $x, int $a, int $b): ?int => inteiroOuNulo($x, $a, $b);
+    switch ($chave) {
+        case 'regras':
+            if (!is_array($v)) {
+                $ruim('Regras do convite de conta: informe aposPartidas, obrigatorio e lembrarACada.');
+            }
+            $a = $int($v['aposPartidas'] ?? null, 1, 100);
+            $l = $int($v['lembrarACada'] ?? null, 1, 100);
+            $o = $v['obrigatorio'] ?? null;
+            if ($a === null || $l === null || !is_bool($o)) {
+                $ruim('Regras do convite de conta: aposPartidas e lembrarACada de 1 a 100, obrigatorio sim ou não.');
+            }
+            return ['aposPartidas' => $a, 'obrigatorio' => $o, 'lembrarACada' => $l];
+        case 'imersivo_publico':
+        case 'live_publica':
+        case 'manutencao':
+        case 'cadastro_aberto':
+            if (!is_bool($v)) {
+                $ruim("“{$chave}” tem de ser sim ou não.");
+            }
+            return $v;
+        case 'aviso':
+            if ($v === null || $v === '' || $v === false) {
+                return null;
+            }
+            if (!is_array($v)) {
+                $ruim('Aviso: informe o texto (até 200 caracteres) e o tipo (info ou alerta), ou deixe vazio.');
+            }
+            $txt = texto($v['texto'] ?? null, 400);
+            $tipo = $v['tipo'] ?? 'info';
+            if ($txt === null || mb_strlen($txt, 'UTF-8') > 200 || !in_array($tipo, ['info', 'alerta'], true)) {
+                $ruim('Aviso: o texto precisa ter de 1 a 200 caracteres e o tipo ser info ou alerta.');
+            }
+            return ['texto' => $txt, 'tipo' => $tipo];
+        case 'bonus':
+            if (!is_array($v) || !is_array($v['indicacao'] ?? null) || !array_is_list($v['indicacao'])
+                || count($v['indicacao']) < 1 || count($v['indicacao']) > 10) {
+                $ruim('Bônus: “indicacao” é uma lista de 1 a 10 valores (ex.: 2, 3, 5).');
+            }
+            $ind = [];
+            foreach ($v['indicacao'] as $x) {
+                $x = $int($x, 0, 10);
+                if ($x === null) {
+                    $ruim('Bônus: cada valor de indicação vai de 0 a 10.');
+                }
+                $ind[] = $x;
+            }
+            $c = $int($v['compartilhar'] ?? null, 0, 10);
+            $lib = $int($v['liberaAposPartidas'] ?? null, 0, 50);
+            $max = $int($v['maxIndicacoes'] ?? null, 0, 10);
+            if ($c === null || $lib === null || $max === null) {
+                $ruim('Bônus: compartilhar de 0 a 10, liberaAposPartidas de 0 a 50 e maxIndicacoes de 0 a 10.');
+            }
+            return ['indicacao' => $ind, 'compartilhar' => $c, 'liberaAposPartidas' => $lib, 'maxIndicacoes' => $max];
+        case 'hall_intervalo_min':
+            $m = $int($v, 60, 180);
+            if ($m === null) {
+                $ruim('O Hall público é recalculado a cada 60 a 180 minutos.');
+            }
+            return $m;
+    }
+    $ruim('Chave de configuração desconhecida: ' . mb_substr($chave, 0, 40) . '.');
+}
+
+/** Valores em vigor (padrão + o que está no banco), com cache curto (APCu, se houver). */
+function siteConfig(bool $recarregar = false): array
+{
+    static $c = null;
+    if ($c !== null && !$recarregar) {
+        return $c;
+    }
+    $apcu = function_exists('apcu_fetch') && filter_var(ini_get('apc.enabled'), FILTER_VALIDATE_BOOL) && PHP_SAPI !== 'cli';
+    $chaveApcu = 'lenda:site:' . md5((string) (config()['db']['dsn'] ?? ''));
+    if ($apcu && !$recarregar) {
+        $v = apcu_fetch($chaveApcu, $ok);
+        if ($ok && is_array($v)) {
+            return $c = $v;
+        }
+    }
+    $c = configPadrao();
+    try {
+        $linhas = sql('SELECT chave, valor FROM site_config WHERE chave IN (' . marcas(count(LENDA_CONFIG_CHAVES)) . ')',
+            LENDA_CONFIG_CHAVES)->fetchAll();
+    } catch (PDOException $e) {
+        error_log('LENDA site_config: ' . $e->getMessage()); // tabela ainda não criada (rode o instalar.php)
+        $linhas = [];
+    }
+    foreach ($linhas as $l) {
+        try {
+            $c[$l['chave']] = normalizarConfig((string) $l['chave'], json_decode((string) $l['valor'], true, 16, JSON_THROW_ON_ERROR));
+        } catch (Throwable) {
+            // valor estragado no banco: fica o padrão
+        }
+    }
+    if ($apcu) {
+        apcu_store($chaveApcu, $c, 10);
+    }
+    return $c;
+}
+
+function esquecerSiteConfig(): void
+{
+    if (function_exists('apcu_delete')) {
+        @apcu_delete('lenda:site:' . md5((string) (config()['db']['dsn'] ?? '')));
+    }
+    siteConfig(true);
+}
+
+/** Grava uma linha de site_config (config ou estado interno, chave com _). */
+function gravarSiteConfig(string $chave, mixed $valor, ?string $por): void
+{
+    sql('INSERT INTO site_config (chave, valor, atualizado_em, atualizado_por) VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE valor = VALUES(valor), atualizado_em = VALUES(atualizado_em), atualizado_por = VALUES(atualizado_por)',
+        [$chave, json($valor), dt(time()), $por]);
+}
+
+/** Estado interno guardado em site_config (chave começando com _): array ou null. */
+function lerEstado(string $chave): ?array
+{
+    try {
+        $v = umValor('SELECT valor FROM site_config WHERE chave = ?', [$chave]);
+    } catch (PDOException) {
+        return null;
+    }
+    $a = is_string($v) ? json_decode($v, true) : null;
+    return is_array($a) ? $a : null;
+}
+
+/** Regras do convite de conta no formato do GET conta.php. */
+function regrasPublicas(): array
+{
+    return siteConfig()['regras'];
+}
+
+/** O que o jogo precisa saber do site (sem nada secreto). */
+function sitePublico(): array
+{
+    $c = siteConfig();
+    return [
+        'imersivoPublico' => $c['imersivo_publico'],
+        'livePublica' => $c['live_publica'],
+        'aviso' => $c['aviso'],
+        'manutencao' => $c['manutencao'],
+        'cadastroAberto' => $c['cadastro_aberto'],
+        'bonus' => $c['bonus'],
+    ];
+}
+
+// ── administrador: quem é e registro do que fez ──────────────────────────────────────────────────
+
+/** 'painel' (cookie lenda_painel), 'token' (Authorization: Bearer) ou null. */
+function adminLogado(): ?string
+{
+    if (cookiePainelValido()) {
+        return 'painel';
+    }
+    return tokenAdminValido() ? 'token' : null;
+}
+
+function exigirAdmin(): string
+{
+    $a = adminLogado();
+    if ($a === null) {
+        erro(401, 'nao_logado', 'Entre com a senha do painel.');
+    }
+    return $a;
+}
+
+/** Escrita do admin: JSON sempre; Origin do site quando vem do painel (cookie). Com o Bearer não há CSRF. */
+function exigirEscritaAdmin(string $via): void
+{
+    if ($via !== 'token') {
+        exigirEscrita();
+        return;
+    }
+    $ct = strtolower(trim(explode(';', (string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? ''), 2)[0]));
+    if ($ct !== 'application/json') {
+        erro(403, 'origem', 'Pedido recusado.');
+    }
+}
+
+/** Uma linha em admin_log (detalhes curtos: textos longos são cortados). */
+function registrarAdmin(string $acao, ?string $alvo, array $detalhes = []): void
+{
+    $cortar = static function (mixed $v) use (&$cortar): mixed {
+        if (is_string($v)) {
+            return mb_substr($v, 0, 300, 'UTF-8');
+        }
+        if (is_array($v)) {
+            return array_map($cortar, array_slice($v, 0, 40, true));
+        }
+        return $v;
+    };
+    $detalhes = ['via' => adminLogado() ?? 'sistema'] + $cortar($detalhes);
+    $txt = json($detalhes);
+    if (strlen($txt) > 8000) {
+        $txt = json(['via' => $detalhes['via'], 'cortado' => true]);
+    }
+    sql('INSERT INTO admin_log (em, acao, alvo, detalhes) VALUES (?, ?, ?, ?)',
+        [dt(time()), substr($acao, 0, 40), $alvo !== null ? mb_substr($alvo, 0, 80, 'UTF-8') : null, $txt]);
+}
+
+// ── código de convite ────────────────────────────────────────────────────────────────────────────
+
+function codigoConviteNovo(): string
+{
+    $c = '';
+    for ($i = 0; $i < 8; $i++) {
+        $c .= LENDA_CONVITE_LETRAS[random_int(0, strlen(LENDA_CONVITE_LETRAS) - 1)];
+    }
+    return $c;
+}
+
+/** Código no formato certo (maiúsculo) ou null. */
+function lerCodigoConvite(mixed $v): ?string
+{
+    if (!is_string($v)) {
+        return null;
+    }
+    $c = strtoupper(trim($v));
+    return preg_match('/^[' . LENDA_CONVITE_LETRAS . ']{8}$/', $c) ? $c : null;
+}
+
+/** O código da conta; cria um (único) se ela ainda não tem (conta de antes da v3). */
+function garantirCodigoConvite(int $uid, ?string $atual): string
+{
+    if (is_string($atual) && $atual !== '') {
+        return $atual;
+    }
+    for ($i = 0; $i < 10; $i++) {
+        try {
+            $n = sql('UPDATE usuarios SET codigo_convite = ? WHERE id = ? AND codigo_convite IS NULL', [codigoConviteNovo(), $uid])->rowCount();
+        } catch (PDOException $e) {
+            if (eChaveDuplicada($e)) {
+                continue; // outro já tem esse código: sorteia outro
+            }
+            throw $e;
+        }
+        $c = umValor('SELECT codigo_convite FROM usuarios WHERE id = ?', [$uid]);
+        if (is_string($c) && $c !== '') {
+            return $c;
+        }
+        if ($n === 0) {
+            break; // a conta não existe mais
+        }
+    }
+    throw new RuntimeException('não consegui criar o código de convite');
+}
+
+/** Link de convite: a primeira origem da config + /lenda/?c=CODIGO. */
+function linkConvite(string $codigo): string
+{
+    $o = '';
+    foreach ((array) config()['origens'] as $x) {
+        if (is_string($x) && $x !== '') {
+            $o = rtrim($x, '/');
+            break;
+        }
+    }
+    return ($o !== '' ? $o : 'https://oprojeto.online') . LENDA_CAMINHO_COOKIE . '?c=' . $codigo;
 }

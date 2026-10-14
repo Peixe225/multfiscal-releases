@@ -1,0 +1,10 @@
+/* LENDA · faixa do aviso do site (acima da barra do topo). */
+.lx-aviso { position: relative; z-index: 6; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 7px 10px 7px 16px; flex: none; font-size: 13px; line-height: 1.4; color: var(--text); background: linear-gradient(90deg, rgba(92, 80, 255, .22), rgba(108, 178, 255, .12)); border-bottom: 1px solid rgba(108, 178, 255, .25); }
+.lx-aviso--alerta { background: linear-gradient(90deg, rgba(255, 170, 60, .22), rgba(255, 94, 120, .12)); border-bottom-color: rgba(255, 170, 60, .3); }
+.lx-aviso__i { flex: none; width: 16px; height: 16px; color: var(--info, #6cb2ff); }
+.lx-aviso--alerta .lx-aviso__i { color: #ffb648; }
+.lx-aviso__t { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.lx-aviso__x { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: none; border: 0; color: var(--text-2); cursor: pointer; }
+.lx-aviso__x:hover { color: var(--text); background: rgba(255, 255, 255, .06); }
+.lx-aviso__x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lx-aviso__x svg { width: 16px; height: 16px; }
