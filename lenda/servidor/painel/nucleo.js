@@ -384,7 +384,8 @@
   LP.avisarErro = (e) => { if (!e || e.status !== 401) LP.avisar(LP.mensagem(e), 'erro'); };
 
   // ── diálogo (confirmar, formulário, detalhe) ────────────────────────────────────────────────
-  let dialogoAtual = null;
+  // Pilha: um diálogo pode abrir outro por cima (ex.: confirmar uma ação no detalhe da carreira).
+  const pilha = [];
   /**
    * Abre o diálogo. Opções: titulo, texto (ou lista de textos), corpo (nó ou função → nó), campos [{nome, rotulo, tipo:
    * 'texto'|'textarea'|'numero'|'opcoes', valor, min, max, maxlength, obrigatorio, ajuda, placeholder, opcoes:[{valor,
@@ -393,23 +394,22 @@
    * Promise (erro mostra dentro do diálogo; deu certo, fecha). Resolve com o retorno de executar (ou os valores), ou null.
    */
   LP.dialogo = function (op) {
-    const d = LP.$('dialogo');
-    if (dialogoAtual) dialogoAtual.cancelar();
     return new Promise((resolver) => {
       let trabalhando = false;
       let terminado = false;
-      LP.limpar(d);
-      d.className = 'dialogo' + (op.largo ? ' largo' : '') + (op.perigo ? ' dialogo-perigo' : '');
+      const d = h('dialog', { class: 'dialogo' + (op.largo ? ' largo' : '') + (op.perigo ? ' dialogo-perigo' : ''), 'aria-labelledby': 'dialogo-titulo-' + (pilha.length + 1) });
+      const antes = document.activeElement;
+      const sufixo = '-' + (pilha.length + 1);
       const form = h('form', { method: 'dialog', novalidate: true });
       const fecharX = h('button', { type: 'button', class: 'botao-icone', 'aria-label': 'Fechar' }, LP.icone('x'));
-      form.appendChild(h('div', { class: 'dialogo-cabeca' }, h('h2', { id: 'dialogo-titulo' }, op.titulo || ''), fecharX));
+      form.appendChild(h('div', { class: 'dialogo-cabeca' }, h('h2', { id: 'dialogo-titulo-' + (pilha.length + 1) }, op.titulo || ''), fecharX));
       const corpo = h('div', { class: 'dialogo-corpo' });
       [].concat(op.texto || []).forEach((t) => corpo.appendChild(t instanceof Node ? t : h('p', null, t)));
       if (op.corpo) corpo.appendChild(typeof op.corpo === 'function' ? op.corpo() : op.corpo);
       const entradas = {};
       const errosCampo = {};
       (op.campos || []).forEach((c) => {
-        const id = 'campo-' + c.nome;
+        const id = 'campo-' + c.nome + sufixo;
         const caixa = h('div', { class: 'campo' });
         if (c.rotulo) caixa.appendChild(h('label', { class: 'rotulo', for: id }, c.rotulo));
         let entrada;
@@ -449,9 +449,9 @@
       });
       let entradaDigitar = null;
       if (op.digitar) {
-        entradaDigitar = h('input', { type: 'text', id: 'campo-digitar', autocomplete: 'off', spellcheck: 'false' });
+        entradaDigitar = h('input', { type: 'text', id: 'campo-digitar' + sufixo, autocomplete: 'off', spellcheck: 'false' });
         corpo.appendChild(h('div', { class: 'campo confirmar-digitando' },
-          h('label', { class: 'rotulo', for: 'campo-digitar' }, 'Para confirmar, digite ', h('code', null, op.digitar)),
+          h('label', { class: 'rotulo', for: 'campo-digitar' + sufixo }, 'Para confirmar, digite ', h('code', null, op.digitar)),
           entradaDigitar));
       }
       const erroGeral = h('p', { class: 'dialogo-erro', role: 'alert', hidden: true });
@@ -479,8 +479,11 @@
       function fim(valor) {
         if (terminado) return;
         terminado = true;
-        dialogoAtual = null;
+        const i = pilha.indexOf(controle);
+        if (i >= 0) pilha.splice(i, 1);
         if (d.open) d.close();
+        d.remove();
+        if (antes && antes.isConnected && typeof antes.focus === 'function') antes.focus();
         resolver(valor);
       }
       function lerValores() {
@@ -551,7 +554,9 @@
         if (!trabalhando) fim(null);
       };
       d.onclose = () => { if (!terminado) fim(null); };
-      dialogoAtual = { cancelar: () => fim(null) };
+      const controle = { cancelar: () => fim(null) };
+      pilha.push(controle);
+      document.body.appendChild(d);
       d.showModal();
       const primeiro = op.campos && op.campos.length ? entradas[op.campos[0].nome] : entradaDigitar;
       if (primeiro && primeiro.focus && primeiro.tagName !== 'DIV') primeiro.focus();
@@ -559,8 +564,12 @@
       else cancelar.focus();
     });
   };
-  LP.dialogoAberto = () => !!dialogoAtual;
-  LP.fecharDialogo = () => { if (dialogoAtual) dialogoAtual.cancelar(); };
+  LP.dialogoAberto = () => pilha.length > 0;
+  /** Fecha o diálogo de cima (todos: tudo = true, ex.: a sessão acabou). */
+  LP.fecharDialogo = (tudo) => {
+    if (tudo) { while (pilha.length) pilha[pilha.length - 1].cancelar(); return; }
+    if (pilha.length) pilha[pilha.length - 1].cancelar();
+  };
 
   // ── estados de carregando / vazio / erro ────────────────────────────────────────────────────
   LP.estadoCarregando = function (linhas) {
