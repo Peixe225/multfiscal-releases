@@ -10,6 +10,7 @@ import {
   CATEGORY_IDS,
   compareRun,
   evaluateHall,
+  evaluateLegend,
   evaluateLegends,
   evaluateRun,
   historicRecords,
@@ -93,18 +94,22 @@ describe('Nota de Legado', () => {
     expect(Object.values(LEGACY_WEIGHTS).reduce((a, b) => a + b, 0)).toBe(100)
     const zero = scoreValues({ values: emptyValues(), apps: 0, positionGroup: 'attacking' })
     expect(zero.score).toBe(0)
-    const max = scoreValues({ values: { ...emptyValues(), ballonDor: 30, worldCups: 20, goldenBoots: 30, ucl: 30, libertadores: 30, leagueTitles: 99, clubs: 40, goals: 9999, assists: 9999, records: 99, goalsPerGame: 2 }, apps: 2000, positionGroup: 'attacking' })
+    // teto: todas as categorias que entram na nota cheias (Luvas de Ouro inclusive — o peso não muda por posição)
+    const max = scoreValues({ values: { ...emptyValues(), ballonDor: 30, bestPlayer: 99, goldenBoots: 30, topScorer: 99, puskas: 20, goldenGloves: 40, worldCups: 20, ucl: 30, libertadores: 30, leagueTitles: 99, titles: 999, clubs: 40, goals: 9999, assists: 9999, records: 99, goalsPerGame: 2 }, apps: 2000, positionGroup: 'attacking' })
     expect(max.score).toBe(100)
     expect(max.breakdown.reduce((a, b) => a + b.points, 0)).toBeCloseTo(max.raw, 6)
+    // Prêmios individuais é só ranking (soma das categorias de prêmio): fora da composição da nota
+    expect(max.breakdown.some((b) => b.id === 'awards')).toBe(false)
+    expect(scoreValues({ values: { ...emptyValues(), awards: 50 }, apps: 0, positionGroup: 'attacking' }).raw).toBe(0)
   })
 
-  it('lendas: Messi no topo, Pelé e Cristiano no top 5, todas entre 0 e 100', () => {
+  it('lendas: Messi, Pelé e Cristiano Ronaldo nos três primeiros, nesta ordem; todas entre 0 e 100', () => {
     const L = evaluateLegends()
     expect(L).toHaveLength(50)
-    expect(L[0].id).toBe('messi')
-    const top5 = L.slice(0, 5).map((l) => l.id)
-    expect(top5).toContain('pele')
-    expect(top5).toContain('cristiano-ronaldo')
+    expect(L.slice(0, 3).map((l) => l.id)).toEqual(['messi', 'pele', 'cristiano-ronaldo'])
+    // margem: Pelé à frente por mais de 1 ponto bruto (números ao vivo do Cristiano não invertem por um gol)
+    expect(L[1].raw - L[2].raw).toBeGreaterThan(1)
+    expect(L[3].score).toBeLessThan(L[2].score - 3)
     for (const l of L) {
       expect(l.score).toBeGreaterThanOrEqual(0)
       expect(l.score).toBeLessThanOrEqual(100)
@@ -113,6 +118,46 @@ describe('Nota de Legado', () => {
     const base = scoreValues({ values: { ...emptyValues(), goals: 300, goalsPerGame: 0.5 }, apps: 600, positionGroup: 'attacking' })
     const more = scoreValues({ values: { ...emptyValues(), goals: 300, goalsPerGame: 0.5, ballonDor: 1 }, apps: 600, positionGroup: 'attacking' })
     expect(more.raw).toBeGreaterThan(base.raw)
+  })
+})
+
+describe('top 50 defensável (carreiras longas em ligas dominadas não passam das lendas)', () => {
+  const L = evaluateLegends()
+  const pos = (id: string) => L.findIndex((l) => l.id === id) + 1
+  const raw = (id: string) => L.find((l) => l.id === id)!.raw
+  it('Maradona no top 12, à frente de Benzema e Lewandowski', () => {
+    expect(pos('maradona')).toBeLessThanOrEqual(12)
+    expect(raw('maradona')).toBeGreaterThan(raw('benzema'))
+    expect(raw('maradona')).toBeGreaterThan(raw('lewandowski'))
+  })
+  it('Zico, Neymar, Xavi e Iniesta acima de Ibrahimović (sem Champions, Copa nem Bola de Ouro)', () => {
+    for (const id of ['zico', 'neymar', 'xavi', 'iniesta']) expect(raw(id), id).toBeGreaterThan(raw('ibrahimovic'))
+  })
+  it('Garrincha (bicampeão do mundo) acima de Haaland', () => {
+    expect(raw('garrincha')).toBeGreaterThan(raw('haaland'))
+  })
+  it('estaduais e supercopas valem meio título na nota (runs e lendas)', () => {
+    const big = (n: number) => Array.from({ length: n }, () => ({ kind: 'domestic_cup' as const }))
+    const small = (n: number) => Array.from({ length: n }, () => ({ kind: 'domestic_cup' as const, minor: true }))
+    const r = (t: Partial<TrophyWin>[]) => evaluateRun(run([rec(20, { t }), ...Array.from({ length: 9 }, (_, i) => rec(21 + i))]))
+    const titles = (x: ReturnType<typeof r>) => x.breakdown.find((b) => b.id === 'titles')!.points
+    // 4 taças menores rendem o mesmo que 2 títulos de verdade; o valor da categoria segue contando todas
+    expect(titles(r(small(4)))).toBeCloseTo(titles(r(big(2))), 9)
+    expect(r(small(4)).values.titles).toBe(4)
+  })
+})
+
+describe('lenda no formato antigo (JSON ou lista montada à mão)', () => {
+  it('sem totalTitles, honours, awards, feats e sources a nota não vira NaN', () => {
+    const socrates = REAL_LEGENDS.find((l) => l.id === 'socrates')!
+    const { awards: _a, honours: _h, totalTitles: _t, feats: _f, sources: _s, uncertainAwards: _u, ...old } = socrates
+    const e = evaluateLegend(old as unknown as typeof socrates)
+    expect(Number.isFinite(e.score)).toBe(true)
+    expect(Number.isFinite(e.raw)).toBe(true)
+    expect(e.values.titles).toBe(0)
+    // com honours e sem totalTitles: a soma das honours
+    const withHonours = evaluateLegend({ ...(old as unknown as typeof socrates), honours: socrates.honours })
+    expect(withHonours.values.titles).toBe(socrates.totalTitles)
   })
 })
 
@@ -239,7 +284,7 @@ describe('comparações e ranking', () => {
     expect(compareRun(r2, evaluateLegends(), { max: 20 }).map((c) => c.text)).toContain('Sua carreira nº 3 tem mais Libertadores que Pelé (2).')
   })
 
-  it('evaluateHall mistura runs e lendas no geral e em todas as 11 categorias', () => {
+  it('evaluateHall mistura runs e lendas no geral e em todas as 17 categorias', () => {
     const { state } = playCareer('hall-1', 'normal')
     const { state: s2 } = playCareer('hall-2', 'normal')
     const toRun = (s: CareerState, n: number): RunInput => ({ id: s.id + n, runNo: n, identity: s.identity, seasons: s.seasons, national: s.national })
@@ -279,7 +324,8 @@ describe('conquistas em níveis (Hall das Lendas)', () => {
 
   it('detecção: contagens, média só ao fim, nota e "Maior que Pelé"', () => {
     const seasons = Array.from({ length: 20 }, (_, i) =>
-      rec(18 + i, { clubId: `c${i % 11}`, stats: { apps: 55, goals: 60, assists: 22, rating: 9 }, a: [bdo(), { award: 'golden_boot', place: 1 }], t: [league(), ...(i < 6 ? [primary('UEFA'), primary('CONMEBOL')] : []), ...(i % 4 === 0 ? [wc()] : [])] }),
+      // a carreira-monstro ganha, como no jogo, The Best e a artilharia da liga junto com a Bola de Ouro
+      rec(18 + i, { clubId: `c${i % 11}`, stats: { apps: 55, goals: 60, assists: 22, rating: 9 }, a: [bdo(), { award: 'golden_boot', place: 1 }, { award: 'the_best', place: 1 }, { award: 'league_top_scorer', place: 1 }], t: [league(), ...(i < 6 ? [primary('UEFA'), primary('CONMEBOL')] : []), ...(i % 4 === 0 ? [wc()] : [])] }),
     )
     const running = detectAchievements(withSeasons(seasons))
     expect(running).toEqual(expect.arrayContaining(['goals_100', 'goals_1000', 'ballon_5', 'ballon_8', 'ballon_9', 'world_cup_3', 'world_cup_4', 'ucl_3', 'libertadores_5', 'league_titles_20', 'clubs_10', 'assists_400', 'records_1', 'records_5']))

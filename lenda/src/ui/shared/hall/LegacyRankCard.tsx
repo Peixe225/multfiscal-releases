@@ -7,7 +7,7 @@
 import { useMemo } from 'react'
 import { ArrowRight, Landmark, Quote, Trophy, Zap } from 'lucide-react'
 import type { CareerState } from '@/engine/types'
-import { compareRun, nextTarget, placeRun } from '@/engine/legacy'
+import { REAL_LEGENDS, compareRun, nextTarget, placeRun } from '@/engine/legacy'
 import { navigate } from '@/store/app'
 import { cx } from '@/ui/primitives'
 import { LegendAvatar, NotaRing } from './parts'
@@ -34,7 +34,7 @@ export function LegacyRankCard({ career, className }: { career: CareerState | Om
       }
     }
     // carreira em andamento (ou ainda não salva): contra tudo o que já está no Hall
-    return placeRun(careerToRun(career), hall.runs.map((r) => r.input), { finished })
+    return placeRun(careerToRun(career), hall.runs.map((r) => r.input), { finished, legends: hall.legendList, recordBase: REAL_LEGENDS })
   }, [hall, career, finished])
   const { run } = p
   return (

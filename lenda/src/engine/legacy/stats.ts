@@ -2,8 +2,8 @@
  * Números de uma run (carreira do jogador) a partir de SeasonRecord[] — funciona para o Clássico e
  * para o Imersivo (os dois produzem SeasonRecord). Sem temporadas, cai para o CareerSummary.
  */
-import type { CareerSummary, NationalTeamCareer, PlayerIdentity, Position, PositionGroup, SeasonRecord, TrophyWin } from '../types'
-import { emptyValues, positionGroupOf, type CategoryValues } from './categories'
+import type { AwardId, CareerSummary, NationalTeamCareer, PlayerIdentity, Position, PositionGroup, SeasonRecord, TrophyWin } from '../types'
+import { awardCategoryValues, emptyValues, positionGroupOf, type CategoryValues } from './categories'
 
 export interface RunInput {
   id: string
@@ -40,8 +40,12 @@ export interface RunStats {
   assists: number
   cleanSheets: number
   seasons: number
-  /** Todos os títulos, inclusive estaduais e supercopas. */
+  /** Todos os títulos, inclusive estaduais e supercopas (= values.titles). */
   titles: number
+  /** Quantos de `titles` são taças menores (estaduais e supercopas: `TrophyWin.minor`) — valem menos na nota. */
+  minorTitles: number
+  /** Prêmios vencidos (1º lugar) por tipo. */
+  awardCounts: Partial<Record<AwardId, number>>
   otherMajorTitles: number
   position: Position
   positionGroup: PositionGroup
@@ -93,6 +97,7 @@ export function runStats(input: RunInput): RunStats {
   let natGoals = 0
   let natAssists = 0
   let titles = 0
+  let minorTitles = 0
   let otherMajor = 0
   let peak = input.peakOvr ?? input.summary?.peakOvr ?? 0
   const clubs = new Map<string, { clubId: string; seasons: number; apps: number; goals: number }>()
@@ -101,6 +106,7 @@ export function runStats(input: RunInput): RunStats {
   let bestSeasonAssists: SeasonBest | null = null
   let youngest: number | null = null
   const bdoYears: number[] = []
+  const awardCounts: Partial<Record<AwardId, number>> = {}
 
   for (const r of seasons) {
     apps += r.stats.apps
@@ -124,6 +130,7 @@ export function runStats(input: RunInput): RunStats {
     if (!bestSeasonAssists || r.stats.assists > bestSeasonAssists.value) bestSeasonAssists = { value: r.stats.assists, season: r.season, age: r.age, clubId: r.clubId }
     for (const t of r.trophies) {
       titles++
+      if (t.minor) minorTitles++
       const k = classify(t, r.tier)
       if (k === 'worldCup') values.worldCups++
       else if (k === 'ucl') values.ucl++
@@ -133,12 +140,12 @@ export function runStats(input: RunInput): RunStats {
     }
     for (const a of r.awards) {
       if (a.place !== 1) continue
+      awardCounts[a.award] = (awardCounts[a.award] ?? 0) + 1
       if (a.award === 'ballon_dor') {
-        values.ballonDor++
         bdoYears.push(a.year)
         const age = a.year - (r.season - r.age)
         youngest = youngest === null ? age : Math.min(youngest, age)
-      } else if (a.award === 'golden_boot') values.goldenBoots++
+      }
     }
   }
 
@@ -158,8 +165,8 @@ export function runStats(input: RunInput): RunStats {
     cleanSheets = sum.totals.cleanSheets ?? 0
     for (const c of sum.clubs) clubs.set(c.clubId, { clubId: c.clubId, seasons: c.seasons, apps: c.apps, goals: c.goals })
     for (const a of sum.awards) {
-      if (a.award === 'ballon_dor') (values.ballonDor = a.count), bdoYears.push(...a.years)
-      if (a.award === 'golden_boot') values.goldenBoots = a.count
+      awardCounts[a.award] = a.count
+      if (a.award === 'ballon_dor') bdoYears.push(...a.years)
     }
     for (const t of sum.trophies) {
       titles += t.count
@@ -188,6 +195,9 @@ export function runStats(input: RunInput): RunStats {
   let best = -1
   for (const [p, n] of posApps) if (n > best) (best = n), (position = p)
 
+  // prêmios: Bola de Ouro, Melhor jogador, Chuteira, Artilharias, Puskás, Luvas e o total
+  Object.assign(values, awardCategoryValues((a) => awardCounts[a] ?? 0))
+  values.titles = titles
   values.clubs = clubs.size
   values.goals = goals
   values.assists = assists
@@ -201,6 +211,8 @@ export function runStats(input: RunInput): RunStats {
     cleanSheets,
     seasons: seasons.length || (sum ? Math.max(0, ...sum.clubs.map((c) => c.seasons)) : 0),
     titles,
+    minorTitles,
+    awardCounts,
     otherMajorTitles: otherMajor,
     position,
     positionGroup: positionGroupOf(position),

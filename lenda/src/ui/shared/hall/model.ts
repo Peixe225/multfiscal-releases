@@ -3,10 +3,15 @@
  *
  *   const hall = useHallModel()        // HallEvaluation + entryById, memoizado
  *   hallEntryToRun(entry)              // HallEntry → RunInput
+ *
+ * No build do site, Messi e Cristiano Ronaldo vêm com os números ao vivo do MessivsRonaldo.app
+ * (src/data/legendsLive.ts); os recordes das suas carreiras seguem medidos contra os números fixos,
+ * para a nota delas não mudar.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CareerState } from '@/engine/types'
-import { evaluateHall, type HallEvaluation, type RunInput, type RunLegacy } from '@/engine/legacy'
+import { REAL_LEGENDS, evaluateHall, type HallEvaluation, type Legend, type RunInput, type RunLegacy } from '@/engine/legacy'
+import { LIVE_LEGENDS_ENABLED, applyLiveLegends, fetchLiveLegends, type LiveInfo } from '@/data/legendsLive'
 import { useCareer, type HallEntry } from '@/store/career'
 import { useData } from '@/store/data'
 
@@ -30,18 +35,52 @@ export function careerToRun(c: CareerState | Omit<CareerState, 'world'>, runNo?:
 export interface HallModel extends HallEvaluation {
   entryById: Map<string, HallEntry>
   runById: Map<string, RunLegacy>
+  /** As 50 lendas avaliadas (com os números ao vivo, quando vieram). */
+  legendList: Legend[]
+  /** Atualização do MessivsRonaldo.app (null: números fixos). */
+  live: LiveInfo | null
+}
+
+let liveCache: { legends: Legend[]; live: LiveInfo } | null = null
+
+/** Lendas com os números ao vivo de Messi e Cristiano (só no site; senão, as fixas). */
+export function useLiveLegends(): { legends: Legend[]; live: LiveInfo | null } {
+  const [state, setState] = useState(() => liveCache ?? { legends: REAL_LEGENDS, live: null })
+  useEffect(() => {
+    if (!LIVE_LEGENDS_ENABLED || liveCache) return
+    let on = true
+    void fetchLiveLegends().then((payload) => {
+      if (!payload) return
+      try {
+        const r = applyLiveLegends(REAL_LEGENDS, payload)
+        liveCache = { legends: r.legends, live: r.info }
+        if (on) setState(liveCache)
+      } catch (err) {
+        // resposta num formato que a validação não pegou: o Hall segue com os números fixos
+        console.warn('[LENDA] números ao vivo ignorados', err)
+      }
+    })
+    return () => {
+      on = false
+    }
+  }, [])
+  return state
 }
 
 export function useHallModel(): HallModel {
   const list = useCareer((s) => s.finishedCareers)
   const leagues = useData((s) => s.data?.leagues)
+  const { legends, live } = useLiveLegends()
   return useMemo(() => {
     // só usado por runs sem temporadas (resumos antigos): divisão da liga de cada troféu
     const tiers = new Map((leagues ?? []).map((l) => [l.trophyId, l.tier]))
     const leagueTier = leagues ? (id: string) => tiers.get(id) : undefined
-    const ev = evaluateHall(list.map((h) => hallEntryToRun(h, leagueTier)))
-    return { ...ev, entryById: new Map(list.map((h) => [h.id, h])), runById: new Map(ev.runs.map((r) => [r.id, r])) }
-  }, [list, leagues])
+    const ev = evaluateHall(
+      list.map((h) => hallEntryToRun(h, leagueTier)),
+      { legends, recordBase: REAL_LEGENDS },
+    )
+    return { ...ev, entryById: new Map(list.map((h) => [h.id, h])), runById: new Map(ev.runs.map((r) => [r.id, r])), legendList: legends, live }
+  }, [list, leagues, legends, live])
 }
 
 /**
@@ -54,6 +93,16 @@ export function runHeadline(h: HallEntry | undefined, run: RunLegacy, rank: numb
   if (/melhor de todos os tempos/i.test(hl) && rank !== 1) return run.values.ballonDor >= 5 ? 'Colecionador de Bolas de Ouro' : run.tier.label
   return hl
 }
+
+/** "out/2026" a partir de "2026-10". */
+export const monthLabel = (ym: string) => {
+  const M = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  const [y, m] = ym.split('-').map(Number)
+  return M[(m || 1) - 1] ? `${M[(m || 1) - 1]}/${y}` : ym
+}
+
+/** "14/10/2026" a partir de "2026-10-14". */
+export const dayLabel = (ymd: string) => ymd.split('-').reverse().join('/')
 
 /** "2004–" / "1956–1977". */
 export const yearsLabel = (y: [number, number | null]) => `${y[0]}–${y[1] ?? ''}`

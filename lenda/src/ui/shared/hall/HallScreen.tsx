@@ -3,16 +3,18 @@
  * contra 50 lendas reais, na mesma escala: a Nota de Legado (src/engine/legacy).
  *
  *   hero ........ sua melhor run × o nº 1 do Hall (duelo por categoria, próximo alvo)
- *   ranking ..... geral misto (runs destacadas com OVR/escudo, lendas com bandeira)
- *   categorias .. 11 abas com pódio e top 10 (Bolas de Ouro … Média de gols)
+ *   ranking ..... geral misto (runs destacadas com OVR/escudo, lendas com bandeira) e o desempate
+ *                 de quem tem a mesma nota
+ *   categorias .. 17 abas em três grupos (Prêmios, Títulos, Números) com pódio, top 10 e desempate
  *   suas runs ... cards → detalhe (composição da nota, recordes, comparações, resumo)
  *
  * `#/hall?run=<id>` abre o detalhe de uma run (link do Resumo).
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, ChevronDown, Crown, Info, Play, Quote, Sparkles, Swords, Zap } from 'lucide-react'
-import { CATEGORIES, CATEGORY_IDS, LEGACY_WEIGHTS, compareRun, nextTarget, type CategoryId, type LegendLegacy, type RankEntry, type RankRow, type RunLegacy } from '@/engine/legacy'
+import { ArrowRight, ChevronDown, Crown, ExternalLink, Info, Play, Quote, Sparkles, Swords, Zap } from 'lucide-react'
+import { CATEGORIES, CATEGORY_GROUPS, CATEGORY_IDS, CATEGORY_TIEBREAK, LEGENDS_AS_OF, LEGENDS_CHECKED_AT, categoryWeight, compareRun, legendTotalTitles, nextTarget, type CategoryId, type LegendLegacy, type RankEntry, type RankRow, type RunLegacy } from '@/engine/legacy'
+import { liveUpdatedLabel } from '@/data/legendsLive'
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { useClub, useCountry } from '@/store/data'
@@ -20,9 +22,9 @@ import { Button, Eyebrow, POSITION_LABEL, Segmented, clubVars, cx, formatInt, ro
 import { useShellSlots } from '@/ui/shell/slots'
 import { clubKit } from '@/ui/shared/identity/kit'
 import { PlayerCard } from '@/ui/shared/landing/PlayerCard'
-import { CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, entryName, useRunModeLabel, valueOf } from './parts'
+import { CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, LegendCrests, NotaRing, RunAvatar, RunCrests, TieNote, entryName, useRunModeLabel, valueOf } from './parts'
 import { HowModal, LegendDetail, RunDetail } from './RunDetail'
-import { gapText, runHeadline, useHallModel, yearsLabel, type HallModel } from './model'
+import { dayLabel, gapText, monthLabel, runHeadline, useHallModel, yearsLabel, type HallModel } from './model'
 import '@/ui/shared/achievements/unlockToasts'
 import './hall.css'
 
@@ -82,8 +84,18 @@ export default function HallScreen() {
       <Categories hall={hall} onOpen={setOpen} />
       {runs > 0 && <Runs hall={hall} onOpen={setOpen} />}
       <p className="hl-foot">
-        Números oficiais de clubes + seleção principal até {`dez/2025`} para quem ainda joga; "≈" marca valores estimados ou com fontes divergentes. Antes de 1995 a Bola de Ouro era só para europeus — por isso Pelé, Maradona e
-        Zico têm zero oficial; as Bolas retroativas da France Football (Pelé 7, Maradona 2…) valem meia na nota.
+        Números oficiais de clubes + seleção principal, conferidos em duas fontes em {dayLabel(LEGENDS_CHECKED_AT)} (até {monthLabel(LEGENDS_AS_OF)} para quem ainda joga); "≈" marca valores estimados ou com fontes divergentes. Títulos e prêmios
+        completos estão na ficha de cada lenda. Antes de 1995 a Bola de Ouro era só para europeus — por isso Pelé, Maradona e Zico têm zero oficial; as Bolas retroativas da France Football (Pelé 7, Maradona 2…) valem 3/4 na nota.
+        {hall.live && (
+          <>
+            {' '}
+            Messi e Cristiano Ronaldo: {liveUpdatedLabel(hall.live)} · fonte:{' '}
+            <a className="hl-src-link" href={hall.live.url} target="_blank" rel="noopener noreferrer">
+              {hall.live.source}
+            </a>
+            .
+          </>
+        )}
       </p>
 
       <RunDetail entry={open?.kind === 'run' ? open : null} hall={hall} onClose={close} />
@@ -95,7 +107,7 @@ export default function HallScreen() {
 
 // ───────────────────────── hero ─────────────────────────
 
-const DUELS: CategoryId[] = ['ballonDor', 'worldCups', 'ucl', 'libertadores', 'goldenBoots', 'leagueTitles', 'goals', 'assists']
+const DUELS: CategoryId[] = ['ballonDor', 'worldCups', 'ucl', 'libertadores', 'titles', 'bestPlayer', 'topScorer', 'goals']
 
 function Hero({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => void }) {
   const rm = useReducedMotion()
@@ -215,7 +227,9 @@ function HeroLegend({ legend, onOpen }: { legend: LegendLegacy; onOpen: (e: Rank
         <div className="hl-hero__score hl-hero__score--legend">
           <div>
             <b className="hl-tier">{legend.tier.label}</b>
-            <span>{formatInt(l.goals)} gols oficiais</span>
+            <span>
+              {formatInt(legendTotalTitles(l))} títulos · {formatInt(l.goals)} gols
+            </span>
             <button type="button" className="hl-link" onClick={() => onOpen(legend)}>
               Ficha da lenda <ArrowRight size={13} aria-hidden />
             </button>
@@ -375,6 +389,9 @@ function Overall({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => 
           <span role="columnheader" className="hl-col-n">
             Títulos*
           </span>
+          <span role="columnheader" className="hl-col-n">
+            Prêmios†
+          </span>
           <span role="columnheader" className="hl-col-nota">
             Nota
           </span>
@@ -388,7 +405,10 @@ function Overall({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => 
           Ver ranking completo ({rows.length}) <ChevronDown size={15} aria-hidden />
         </button>
       )}
-      <p className="hl-note">*Títulos nacionais de primeira divisão.</p>
+      <p className="hl-note">
+        *Todos os títulos oficiais (ligas, copas, supercopas, estaduais, continentais, mundiais e de seleção). †Prêmios individuais que o jogo também dá. Notas iguais: desempate por nota bruta → Bolas de Ouro → Copas do Mundo → títulos →
+        prêmios → gols → jogos.
+      </p>
     </section>
   )
 }
@@ -427,7 +447,10 @@ function OverallRow({ row, gap, onOpen }: { row: RankRow; gap: boolean; onOpen: 
           {valueOf(e, 'goals')}
         </span>
         <span role="cell" className="hl-col-n num">
-          {valueOf(e, 'leagueTitles')}
+          {valueOf(e, 'titles')}
+        </span>
+        <span role="cell" className="hl-col-n num">
+          {valueOf(e, 'awards')}
         </span>
         <span role="cell" className="hl-col-nota">
           <span className="hl-bar" aria-hidden="true">
@@ -435,6 +458,11 @@ function OverallRow({ row, gap, onOpen }: { row: RankRow; gap: boolean; onOpen: 
           </span>
           <b className="num">{e.score}</b>
         </span>
+        {row.tieBreak && (
+          <span role="cell" className="hl-row__tie">
+            <TieNote row={row} />
+          </span>
+        )}
       </button>
     </>
   )
@@ -482,20 +510,31 @@ function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) 
   const podium = rows.slice(0, 3)
   const rest = rows.slice(3, 10)
   const myRuns = rows.filter((r) => r.entry.kind === 'run')
+  // empates no pódio: quem ficou à frente e por quê (o resto da lista mostra na própria linha)
+  const podiumTies = podium.filter((r) => r.tieBreak && r.value > 0)
   return (
     <section className="hl-panel lx-glass" aria-labelledby="hl-cat-h">
       <header className="hl-panel__h">
         <div>
           <h2 id="hl-cat-h">Por categoria</h2>
-          <p>Pódio e top 10 de cada categoria{meta.minApps ? ` · mínimo de ${meta.minApps} jogos` : ''}</p>
+          <p>Pódio e top 10 de cada categoria{meta.minApps ? ` · mínimo de ${meta.minApps} jogos` : ''} · prêmios e títulos que o jogo também dá</p>
         </div>
       </header>
       <div className="hl-cats" role="tablist" aria-label="Categorias">
-        {CATEGORY_IDS.map((id) => (
-          <button key={id} type="button" role="tab" id={`hl-tab-${id}`} aria-selected={cat === id} aria-controls="hl-cat-panel" className={cx('hl-cat-tab', cat === id && 'is-on')} onClick={() => setCat(id)}>
-            <CategoryGlyph id={id} size={22} />
-            <span>{CATEGORIES[id].label}</span>
-          </button>
+        {CATEGORY_GROUPS.map((g) => (
+          <div key={g.id} className={cx('hl-cats__g', `hl-cats__g--${g.id}`)} role="presentation">
+            <span className="hl-cats__lbl" aria-hidden="true">
+              {g.label}
+            </span>
+            <div className="hl-cats__row" role="presentation">
+              {CATEGORY_IDS.filter((id) => CATEGORIES[id].group === g.id).map((id) => (
+                <button key={id} type="button" role="tab" id={`hl-tab-${id}`} aria-selected={cat === id} aria-controls="hl-cat-panel" className={cx('hl-cat-tab', cat === id && 'is-on')} onClick={() => setCat(id)}>
+                  <CategoryGlyph id={id} size={22} />
+                  <span>{CATEGORIES[id].label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
       <motion.div key={cat} id="hl-cat-panel" role="tabpanel" aria-labelledby={`hl-tab-${cat}`} className="hl-cat" initial={rm ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
@@ -504,6 +543,15 @@ function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) 
           <div className="hl-podium" aria-label={`Pódio: ${meta.label}`}>
             {[1, 0, 2].map((i) => podium[i] && <PodiumStep key={podium[i].entry.id} row={podium[i]} place={i + 1} cat={cat} onOpen={onOpen} />)}
           </div>
+          {podiumTies.length > 0 && (
+            <ul className="hl-podium__ties">
+              {podiumTies.map((r) => (
+                <li key={r.entry.id}>
+                  <b>{entryName(r.entry)}</b> <TieNote row={r} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="hl-cat__side">
           <ol className="hl-list" start={4}>
@@ -537,11 +585,17 @@ function Categories({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) 
 
 const CAT_BLURB: Record<CategoryId, string> = {
   ballonDor: 'O prêmio individual mais cobiçado. Até 1995, só europeus podiam ganhar.',
-  worldCups: 'A taça que define gerações. Pelé é o único tricampeão.',
+  bestPlayer: 'Melhor do mundo da FIFA (The Best), craque de uma liga na temporada e Bola de Ouro da Copa — os prêmios de melhor jogador que o jogo também dá.',
   goldenBoots: 'Maior artilheiro das ligas europeias na temporada.',
+  topScorer: 'Artilharias de liga nacional e Chuteiras de Ouro da Copa do Mundo. No Brasil até 1970, a do estadual (era a liga do clube).',
+  puskas: 'O gol mais bonito do ano, eleito pela FIFA desde 2009. Ninguém ganhou dois.',
+  goldenGloves: 'Melhor goleiro do mundo no ano (IFFHS, The Best, Troféu Yashin).',
+  awards: 'Todos os prêmios individuais que o jogo também dá, somados: Bola de Ouro, The Best, craque da liga, Chuteiras, artilharias, Puskás, Luva de Ouro e melhor jovem.',
+  worldCups: 'A taça que define gerações. Pelé é o único tricampeão.',
   ucl: 'A Champions League — a orelhuda.',
   libertadores: 'A glória eterna da América do Sul.',
   leagueTitles: 'Campeonatos nacionais de primeira divisão, em qualquer país.',
+  titles: 'Todos os títulos oficiais: ligas, copas, supercopas, estaduais, continentais, mundiais e de seleção. Na nota, estaduais e supercopas valem meio título.',
   clubs: 'Clubes defendidos na carreira (empréstimos incluídos).',
   goals: 'Gols oficiais por clubes e pela seleção principal.',
   assists: 'Passes para gol. Para lendas antigas, estimativa.',
@@ -554,11 +608,12 @@ function CatHero({ cat, rows }: { cat: CategoryId; rows: RankRow[] }) {
   const topLegend = rows.find((r) => r.entry.kind === 'legend')
   const bestRun = rows.find((r) => r.entry.kind === 'run')
   const shared = cat === 'ucl' || cat === 'libertadores'
-  const weight = shared ? LEGACY_WEIGHTS.continental : LEGACY_WEIGHTS[cat as keyof typeof LEGACY_WEIGHTS]
+  const weight = categoryWeight(cat)
+  const big = !!meta.art && cat !== 'leagueTitles'
   return (
     <div className="hl-cathero">
       <span className="hl-cathero__art">
-        <CategoryGlyph id={cat} size={meta.art && cat !== 'leagueTitles' ? 108 : 64} photo />
+        <CategoryGlyph id={cat} size={big ? 108 : 64} photo />
       </span>
       <div className="min-w-0">
         <h3>{meta.label}</h3>
@@ -578,9 +633,11 @@ function CatHero({ cat, rows }: { cat: CategoryId; rows: RankRow[] }) {
           </div>
           <div>
             <dt>Peso na nota</dt>
-            <dd>
-              <b className="num">{weight}</b> {shared ? `de 100, com a ${cat === 'ucl' ? 'Libertadores' : 'Champions'}` : 'de 100'}
-            </dd>
+            <dd>{weight ? <><b className="num">{weight}</b> {shared ? `de 100, com a ${cat === 'ucl' ? 'Libertadores' : 'Champions'}` : 'de 100'}</> : <span className="text-text-2">fora da nota (é a soma dos prêmios)</span>}</dd>
+          </div>
+          <div className="hl-cathero__tie">
+            <dt>Desempate</dt>
+            <dd>{CATEGORY_TIEBREAK[cat].map((c) => c.label).join(' → ')} → nome</dd>
           </div>
         </dl>
       </div>
@@ -618,10 +675,13 @@ function CatRow({ row, cat, onOpen }: { row: RankRow; cat: CategoryId; onOpen: (
       <button type="button" className={cx('hl-lrow', e.kind === 'run' && 'is-run lx-club-row lx-club-row--filled')} style={e.kind === 'run' ? (rowClubVars(club) as CSSProperties) : undefined} onClick={() => onOpen(e)}>
         <span className="hl-lrow__pos num">{row.rank}</span>
         <EntryAvatar entry={e} size={26} />
-        <b>
-          {entryName(e)}
-          {e.kind === 'run' && <span className="hl-runtag">Carreira nº {e.runNo}</span>}
-        </b>
+        <span className="hl-lrow__n">
+          <b>
+            {entryName(e)}
+            {e.kind === 'run' && <span className="hl-runtag">Carreira nº {e.runNo}</span>}
+          </b>
+          {row.tieBreak && row.value > 0 && <TieNote row={row} compact />}
+        </span>
         <span className="hl-lrow__v num">{valueOf(e, cat)}</span>
       </button>
     </li>
