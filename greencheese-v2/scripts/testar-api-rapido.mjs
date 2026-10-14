@@ -116,6 +116,39 @@ export async function testarPedidoRapido(t) {
     erro(ultimo, 429, 'muitas-tentativas', 'sacola: o 21º pedido novo do mesmo IP na hora')
   }
 
+  parte('pedido rápido: a sacola que troca um guiado do mesmo aparelho herda nome, endereço e pagamento')
+  {
+    // o guiado completo; depois a pessoa põe mais um item e toca no botão direto da sacola (achado da conferência de 14/10)
+    const guiado = pedidoValido({ pagamento: 'dinheiro', troco: 200 })
+    igual((await site().post('pedido', guiado)).status, 201, 'o guiado completo entra')
+    const troca = pedidoSacola({ substitui: { codigo: guiado.codigo, token: guiado.token } })
+    igual((await site().post('pedido', troca)).status, 201, 'a sacola no lugar dele entra')
+    const n = await detalhe(troca.codigo)
+    const v = await detalhe(guiado.codigo)
+    igual(
+      [n.linha?.origem, n.linha?.nome, n.pedido?.entrega?.rua, n.pedido?.entrega?.numero, n.pedido?.entrega?.cep, n.pedido?.pagamento, n.pedido?.troco],
+      ['sacola', 'Ian Teste', 'Rua Doutor Manoel Esteves', '120, apto 201', '39800000', 'dinheiro', 200],
+      'o da sacola herda o nome, o endereço, o pagamento e o troco do guiado',
+    )
+    ok((n.pedido?.nota ?? '').includes(`vieram do ${guiado.codigo}`), `e a anotação diz de onde vieram (${n.pedido?.nota})`)
+    igual(n.pedido?.mensagem, troca.mensagem, 'a mensagem continua a da sacola, como foi pro WhatsApp')
+    igual(v.linha?.status, 'cancelado', 'o guiado sai da lista, trocado')
+    // de outro estado não herda (o endereço seria de outro lugar); o que a sacola trouxe não é trocado
+    const guiadoMg = pedidoValido()
+    igual((await site().post('pedido', guiadoMg)).status, 201, 'outro guiado entra')
+    const deOutroEstado = pedidoSacola({ uf: 'sp', cidade: 'São Paulo', substitui: { codigo: guiadoMg.codigo, token: guiadoMg.token } })
+    deOutroEstado.mensagem = deOutroEstado.mensagem.replace('MG / Teófilo Otoni', 'SP / São Paulo')
+    igual((await site().post('pedido', deOutroEstado)).status, 201, 'a sacola de outro estado entra')
+    const o = await detalhe(deOutroEstado.codigo)
+    igual([o.linha?.nome, o.pedido?.entrega?.endereco, o.pedido?.pagamento, o.pedido?.nota ?? ''], ['', '', null, ''], 'de outro estado: não herda nada')
+    const guiado2 = pedidoValido()
+    igual((await site().post('pedido', guiado2)).status, 201, 'mais um guiado entra')
+    const comNome = pedidoSacola({ nome: 'Ana Souza', substitui: { codigo: guiado2.codigo, token: guiado2.token } })
+    igual((await site().post('pedido', comNome)).status, 201, 'a sacola com o nome da conta entra')
+    const c = await detalhe(comNome.codigo)
+    igual([c.linha?.nome, c.pedido?.entrega?.rua], ['Ana Souza', 'Rua Doutor Manoel Esteves'], 'o nome que veio fica; só o que faltava vem do guiado')
+  }
+
   parte('pedido rápido: o guiado continua pedindo o nome; encomenda nunca é da sacola')
   {
     // sem a mensagem certa, o nome em branco do guiado é recusado (com ela, entra só com a mensagem, como sempre)

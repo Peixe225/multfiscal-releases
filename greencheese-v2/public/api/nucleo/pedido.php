@@ -509,6 +509,24 @@ function gc_rota_pedido(): array
         // e o contrário: este é o de antes de um pedido mudado que já chegou (o envio deste falhou e ele chegou atrasado,
         // da fila do aparelho). O cliente já trocou ele pelo novo: entra trocado, ligado ao novo, sem aviso no grupo
         $novo = gc_um("SELECT * FROM pedidos WHERE substitui_token_hash = ? AND substitui_codigo = ? AND substitui_id IS NULL ORDER BY id DESC LIMIT 1", [$hash, $codigo]);
+        // o pedido da sacola que entra no lugar de um pedido do mesmo aparelho (o guiado completo, e depois mexeram na
+        // sacola): herda do de antes o que a pessoa já tinha respondido (nome, WhatsApp, endereço, pagamento e troco),
+        // quando é do mesmo estado. A mensagem do WhatsApp continua a da sacola; o painel e o aviso não perdem o dado
+        if ($antigo !== null && ($col['origem'] ?? '') === 'sacola' && $col['tipo'] === 'pedido' && (string) $antigo['tipo'] === 'pedido'
+            && (string) $antigo['uf'] === (string) $col['uf'] && !gc_pedido_dados_apagados($antigo)) {
+            $herdou = false;
+            foreach (['nome', 'whatsapp', 'endereco', 'rua', 'numero', 'bairro', 'cep', 'cidade_entrega', 'uf_entrega', 'pagamento', 'troco'] as $k) {
+                $velho = $antigo[$k] ?? null;
+                if ((($col[$k] ?? null) !== null && (string) $col[$k] !== '') || $velho === null || (string) $velho === '' || ($k === 'nome' && (string) $velho === 'Sem nome')) {
+                    continue;
+                }
+                $col[$k] = $velho;
+                $herdou = true;
+            }
+            if ($herdou) {
+                $col['nota'] = trim((string) ($col['nota'] ?? '') . " Nome, endereço e pagamento vieram do {$antigo['codigo']}, do mesmo aparelho, antes de mexerem na sacola.");
+            }
+        }
         // quem estava logado na conta do site (clientes.php): o pedido entra nos "Meus pedidos" e, quando o aparelho não
         // mandou o WhatsApp, vale o da conta (conferido pelo código); o endereço fica guardado pra próxima vez. Só o
         // WhatsApp conferido (o da conta) liga o pedido à conta de quem tem o número (whatsapp_conferido)

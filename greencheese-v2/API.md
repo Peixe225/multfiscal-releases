@@ -183,6 +183,9 @@ um aviso num grupo do WhatsApp (Avisos no WhatsApp, abaixo).
   de novo a mesma sacola não é o pedido mudado). O de antes que ainda não tinha chegado (o envio dele falhou):
   o aparelho tira a cópia dele da fila quando manda o mudado, e o servidor guarda no mudado o código e o hash do token
   do `substitui` — se o de antes chegar depois mesmo assim, entra já `cancelado`, ligado ao mudado, sem aviso no grupo.
+  O da sacola (`origem: "sacola"`) com `substitui` de um pedido do mesmo estado herda dele o que veio vazio (nome,
+  WhatsApp, endereço, pagamento e troco), com a anotação "Nome, endereço e pagamento vieram do GC-…"; o aviso do grupo
+  então mostra o endereço, sem a linha "Pela sacola: endereço e pagamento vêm na conversa".
 - No aparelho, a cópia fica pendente (`localStorage` `gc-pedidos`, até 10, por 3 dias) até o servidor confirmar: a
   volta pra aba (o retorno do WhatsApp) ou a próxima visita mandam de novo, com espera crescente (30 s, 1 min, 2 min…
   até 6 h, ou o `esperaSegundos` do 429). Erro que não muda tentando de novo (recusado, site sem servidor) sai da fila,

@@ -707,8 +707,9 @@ function gc_aviso_texto_pedido(array $p, ?array $antes, array $conferir = []): s
             ? "_Entra no lugar do #{$antes['codigo']}, que saiu da lista._"
             : "_O cliente mandou de novo depois do #{$antes['codigo']} (" . (GC_PEDIDO_ROTULO[$antes['status']] ?? $antes['status']) . '): confere os dois._';
     }
-    if (!$enc && ($p['origem'] ?? '') === 'sacola') {
-        // um toque na sacola: o cliente manda o endereço (e combina o pagamento) na conversa
+    if (!$enc && ($p['origem'] ?? '') === 'sacola' && (string) $p['endereco'] === '' && (string) $p['rua'] === '') {
+        // um toque na sacola: o cliente manda o endereço (e combina o pagamento) na conversa. Quando o pedido herdou o
+        // endereço do guiado que ele trocou (pedido.php), o endereço vai nas linhas de baixo, como num guiado
         $l[] = '_Pela sacola: endereço e pagamento vêm na conversa._';
     }
     $l[] = '';

@@ -459,7 +459,8 @@ export function Pedido({ id }: { id: number }) {
                 {dataHoraPedido(p.criadoEm, agora)}
               </time>
             </p>
-            {sacola && <p className="pn-dica-bloco pd-cab-sacola">Pela sacola: um toque, sem nome nem endereço. O cliente manda o endereço e combina o pagamento na conversa do WhatsApp.</p>}
+            {/* o da sacola que herdou o endereço do guiado que trocou (pedido.php) já tem tudo: a anotação diz de onde veio */}
+            {sacola && !endereco && <p className="pn-dica-bloco pd-cab-sacola">Pela sacola: um toque, sem nome nem endereço. O cliente manda o endereço e combina o pagamento na conversa do WhatsApp.</p>}
           </div>
 
           {p.substituidoPor && (
