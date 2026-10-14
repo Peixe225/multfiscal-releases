@@ -266,6 +266,44 @@
 .sacola-minimo:focus {
   outline: none;
 }
+/* a região viva (quanto falta, o "Pronto"): sempre montada pro leitor de tela; vazia, não ocupa o espaço do gap */
+.sacola-vivo:empty {
+  margin-top: -8px;
+}
+/* o toque no botão travado: o aviso de quanto falta acende por um instante (quem não usa leitor de tela vê o porquê) */
+.sacola-minimo-realce {
+  border-radius: 6px;
+  animation: sacola-realce 1.2s steps(6, end);
+}
+@keyframes sacola-realce {
+  0%,
+  66% {
+    background: var(--bolha);
+    box-shadow: 0 0 0 6px var(--bolha);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sacola-minimo-realce {
+    animation: none;
+    background: var(--bolha);
+    box-shadow: 0 0 0 6px var(--bolha);
+  }
+}
+/* chegou no mínimo: o "Pronto" fica um instante no lugar do que faltava */
+.sacola-minimo-pronto {
+  color: var(--branco);
+  font-weight: 600;
+}
+/* a loja fechada agora: quando abre (a resposta vem quando abrir), sem travar nada */
+.sacola-horario {
+  font: 400 13px/1.4 var(--ui);
+  color: var(--legenda);
+  text-wrap: pretty;
+}
 .sacola-minimo-falta {
   color: var(--branco);
   font-weight: 600;

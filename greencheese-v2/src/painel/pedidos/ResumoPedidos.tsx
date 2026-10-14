@@ -8,9 +8,9 @@
 // com a aba do navegador escondida, nada; quando ela volta (e quando a internet volta), na hora. A lista de Pedidos
 // pede uma conferência na hora quando ela mesma mudou (atualizarResumoPedidos): a bolinha sobe junto.
 import { useEffect, useSyncExternalStore } from 'react'
-import * as api from '../api'
 import { naoMudou } from '../api'
 import { plural } from '../formato'
+import { useAgoraDoMinuto } from '../minuto'
 import { Link } from '../Moldura'
 import { caminho } from '../rotas'
 import { Ic } from '../ui'
@@ -149,9 +149,10 @@ export function ResumoPedidos() {
   // o Início tá aberto: o resumo vem a cada 15 s (o pedido novo aparece aqui sem recarregar)
   usePressaNosPedidos()
   const d = useResumoAtual()
+  // a hora de minuto em minuto: o "hoje 23:57" vira "ontem" na virada do dia mesmo quando o resumo vem 304
+  const agora = useAgoraDoMinuto()
   // sem resposta (servidor sem a rota, rede): o Resumo segue sem o bloco
   if (!d) return null
-  const agora = api.agora()
   // avisos no grupo: só pra quem cuida deles (o dono); pros outros o servidor manda null
   const a = d.avisos
   return (

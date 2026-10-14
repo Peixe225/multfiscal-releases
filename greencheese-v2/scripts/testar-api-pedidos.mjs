@@ -711,6 +711,14 @@ export async function testarPedidos(t) {
         ],
         'sacola no grupo: a linha da sacola, os itens, "Entrega: na conversa" e "Sem nome"',
       )
+      // o valor que não bate com o catálogo: o grupo vê a marca logo embaixo do subtotal (o pedido entra igual)
+      falso.recebidos.length = 0
+      const forjado = pedidoSacola({ itens: [{ produtoId: 'jack-daniels-old-no7-1l', nome: "Jack Daniel's Old No. 7 1 L", variacao: null, qtd: 10, precoUnit: 0.01, total: 0.1, combo: null }], subtotal: 0.1, subtotalTexto: 'R$ 0,10' })
+      igual((await cli().post('pedido', forjado)).status, 201, 'sacola com o preço adulterado entra com o Z-API ligado')
+      ok(await esperar(() => falso.recebidos.length === 1), 'e avisa no grupo')
+      const mf = JSON.parse(falso.recebidos[0].corpo).message.split('\n')
+      const iSub = mf.indexOf('Subtotal: *R$ 0,10*')
+      igual(mf[iSub + 1], "_Confere o valor na conversa: 10x Jack Daniel's Old No. 7 1 L: R$ 0,10 no site, R$ 1.499,00 no catálogo._", 'o aviso marca o valor que não bateu, logo embaixo do subtotal')
     }
 
     parte('avisos: falha, nova tentativa e reenviar')

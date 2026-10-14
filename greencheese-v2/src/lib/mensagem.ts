@@ -1,7 +1,7 @@
 import type { Canal, FormaPagamento } from '../dados/canais'
 import { config } from '../dados/config'
 import { brl } from './formato'
-import { ehDiaDeEntregaGratis } from './horario'
+import { atendeAindaHoje, ehDiaDeEntregaGratis } from './horario'
 import { agoraLoja } from './relogio'
 import { calcularLinha } from './preco'
 import { formatarCelular } from './telefone'
@@ -90,11 +90,14 @@ export function textoPagamento(pagamento: FormaPagamento | null, troco?: number 
 /**
  * A entrega do estado como o painel deixou: 'gratis' (hoje é dia de entrega grátis), o valor da taxa (o dono pôs um
  * valor de verdade; o de exemplo só com o carimbo de exemplo à vista; 0 = o dono disse que a entrega não tem taxa) ou
- * null (a confirmar no atendimento). O dia é o de Brasília, pela hora da loja (src/lib/relogio.ts).
+ * null (a confirmar no atendimento). O dia é o de Brasília, pela hora da loja (src/lib/relogio.ts). O "grátis hoje" só
+ * com a loja atendendo ainda hoje (aberta, ou abre mais tarde): fechada até amanhã, o pedido só sai amanhã, e a
+ * mensagem não promete o grátis de hoje (fica a taxa do painel, ou a confirmar). O horário de exemplo não conta.
  */
 export function entregaDoCanal(canal: Canal, agora = new Date(agoraLoja())): 'gratis' | number | null {
   const g = canal.entregaGratis
-  if (g && (!g.demo || config.carimboDeExemplo) && ehDiaDeEntregaGratis(canal, agora)) return 'gratis'
+  const horarioVale = !canal.horario.demo || config.carimboDeExemplo
+  if (g && (!g.demo || config.carimboDeExemplo) && ehDiaDeEntregaGratis(canal, agora) && (!horarioVale || atendeAindaHoje(canal, agora))) return 'gratis'
   const t = canal.taxaEntrega
   return t.valor != null && (!t.demo || config.carimboDeExemplo) ? t.valor : null
 }

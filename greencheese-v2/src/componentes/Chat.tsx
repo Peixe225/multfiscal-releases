@@ -35,7 +35,7 @@ import { trocarEstado } from '../lib/troca'
 import { semAcento } from '../dados/ufs'
 import { useContaStore } from '../store/conta'
 import { produtoPorId } from '../store/catalogo'
-import { useChat, type Passo, type Respostas } from '../store/chat'
+import { chaveDaSacola, codigoVencido, useChat, type Passo, type Respostas } from '../store/chat'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { siglasDosEstados, useLojaMarca } from '../store/loja'
@@ -225,11 +225,15 @@ export function ChatFolha() {
   const noResumo = passo === 'resumo' || passo === 'enc-resumo'
   // Só com o chat aberto: mudou a sacola com ele fechado, o pedido reabre no resumo (o "Já mandou?" ainda vale até aqui)
   // e só então ganha o código novo, que tira o "Já mandou?" e o "Mandei" (a mensagem nova ainda não foi pro WhatsApp)
+  // O código que venceu (mais de 2 h desde que foi: a pessoa voltou outro dia sem tocar em "Mandei") também troca: o
+  // pedido de novo, mesmo igual, é outro pedido (com o mesmo código o servidor diria "repetido" e não gravaria nem
+  // avisaria). Aí o "Já mandou?" fica, perguntando do de antes; o link já sai com o novo.
   useLayoutEffect(() => {
     if (!aberto || !noResumo || !mensagem) return
-    const { pedido: atual, trocarCodigo } = useChat.getState()
+    const { pedido: atual, trocarCodigo, renovarCodigo } = useChat.getState()
     if (atual.enviada !== null && atual.enviada !== mensagem) trocarCodigo()
-  }, [aberto, noResumo, mensagem])
+    else if (codigoVencido(atual)) renovarCodigo()
+  }, [aberto, noResumo, mensagem, agora])
 
   /** A cópia estruturada do pedido, do jeito que a mensagem mostra (vai pro servidor no toque do WhatsApp). */
   function corpoDoPedido(): CorpoPedido | null {
@@ -823,7 +827,8 @@ export function ChatFolha() {
               const corpo = corpoDoPedido()
               if (corpo) {
                 enviarPedido(corpo)
-                marcarPedidoEnviado(mensagem, 'guiado')
+                // a sacola de agora vai junto: a sacola reconhece depois que este pedido já foi (a mesma, sem outro por cima)
+                marcarPedidoEnviado(mensagem, 'guiado', modo === 'pedido' && canal ? chaveDaSacola(canal.uf, pedido) : null)
               }
             }}
             naoConsegui={() => marcarEnviado(null)}

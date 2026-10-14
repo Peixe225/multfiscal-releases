@@ -94,8 +94,9 @@ const derrubar = () => filhos.forEach((f) => {
 process.on('exit', derrubar)
 for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => process.exit(1))
 
+// GC_TESTE=1: a hora do servidor vem do X-GC-Agora quando o teste manda (a lista de pedidos que vira na meia-noite)
 const php = spawn(PHP, ['-d', 'display_errors=0', '-d', 'upload_max_filesize=8M', '-d', 'post_max_size=10M', '-S', `127.0.0.1:${portaPhp}`, '-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')], {
-  env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4', GC_DADOS: dados, GC_UPLOADS: join(dados, 'uploads') },
+  env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4', GC_TESTE: '1', GC_DADOS: dados, GC_UPLOADS: join(dados, 'uploads') },
   stdio: 'ignore',
   detached: true,
 })

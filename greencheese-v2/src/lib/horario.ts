@@ -64,6 +64,23 @@ export function resumoHorario(canal: Canal): string {
     .join(' · ')
 }
 
+/**
+ * A loja ainda atende hoje (em Brasília)? Aberta agora (também no turno de ontem que vira a madrugada) ou com o turno de
+ * hoje ainda por começar. Fechada até amanhã (ou outro dia): não. O "grátis hoje" só vale assim: o pedido feito depois
+ * do último turno do dia só sai no próximo, que pode não ser dia de entrega grátis.
+ */
+export function atendeAindaHoje(canal: Canal, agora = new Date(agoraLoja())): boolean {
+  const semana = canal.horario.semana
+  const { dia, minuto: m } = relogioBrasilia(agora.getTime())
+  const ontem = semana[(dia + 6) % 7]
+  if (ontem && min(ontem[1]) <= min(ontem[0]) && m < min(ontem[1])) return true
+  const hoje = semana[dia]
+  if (!hoje) return false
+  const [a, f] = hoje
+  // o turno que passa da meia-noite atende hoje; o outro, até a hora de fechar (antes de abrir e aberto agora)
+  return min(f) <= min(a) || m < min(f)
+}
+
 /** Hoje (em Brasília, pela hora da loja) é dia de entrega grátis? */
 export function ehDiaDeEntregaGratis(canal: Canal, agora = new Date(agoraLoja())): boolean {
   return !!canal.entregaGratis && canal.entregaGratis.dias.includes(relogioBrasilia(agora.getTime()).dia)

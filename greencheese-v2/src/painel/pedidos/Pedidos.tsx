@@ -7,7 +7,6 @@
 // lá embaixo (a rolagem é compensada) e sem mexer na busca, no filtro ou no "Ver mais antigos". A bolinha da barra sobe
 // junto (atualizarResumoPedidos).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import * as api from '../api'
 import { doCache, useDados } from '../dados'
 import { plural } from '../formato'
 import { Link, Topo } from '../Moldura'
@@ -17,7 +16,8 @@ import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
 import { listaPedidos } from './api'
 import { LinhaPedido } from './comum'
-import { atualizarResumoPedidos, RITMO_RAPIDO_MS } from './ResumoPedidos'
+import { useAgoraDoMinuto } from '../minuto'
+import { atualizarResumoPedidos, RITMO_RAPIDO_MS, usePressaNosPedidos } from './ResumoPedidos'
 import './estilo'
 import type { FiltroPedidos, ListaPedidos } from './tipos'
 
@@ -68,7 +68,11 @@ export function Pedidos({ status, uf }: { status: FiltroPedidos | null; uf: stri
   const d = leitura.dados ?? anterior.current
   const trocando = !leitura.dados && !!anterior.current
   useRestaurarRolagem(!!d)
-  const agora = api.agora()
+  // a bolinha da barra também pergunta a cada 15 s com a lista aberta (a lista filtrada por estado não vê o pedido de
+  // outro estado mudar a contagem dela, e a bolinha esperaria o ritmo de 60 s)
+  usePressaNosPedidos()
+  // o "hoje 23:57" vira "ontem 23:57" na virada do dia mesmo sem pedido novo (o 304 não redesenha a lista)
+  const agora = useAgoraDoMinuto()
   const { chegaram, anuncio } = useChegadas(chave, leitura.dados)
   useRolagemFirme(d, chegaram)
 

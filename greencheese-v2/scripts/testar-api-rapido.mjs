@@ -250,6 +250,41 @@ export async function testarPedidoRapido(t) {
     await salvar({ uf: 'mg', taxa: mgAntes.taxaEntrega.valor, taxaDemo: mgAntes.taxaEntrega.demo })
   }
 
+  // ─── o valor que não bate com o catálogo (ou abaixo do mínimo): entra marcado, nunca recusado ──────────────────
+  // (a revisão de 14/10: a cópia com o preço adulterado entrava sem marca nenhuma, e o grupo recebia "Subtotal: R$ 0,10")
+  parte('pedido rápido: preço adulterado ou abaixo do mínimo entra marcado pra conferir na conversa')
+  {
+    const nota = async (p) => (await detalhe(p.codigo)).pedido?.nota
+    const jack = (qtd, unit) => ({ produtoId: 'jack-daniels-old-no7-1l', nome: "Jack Daniel's Old No. 7 1 L", variacao: null, qtd, precoUnit: unit, total: Math.round(qtd * unit * 100) / 100, combo: null })
+    const forjado = pedidoSacola({ itens: [jack(10, 0.01)], subtotal: 0.1, subtotalTexto: 'R$ 0,10' })
+    igual((await site().post('pedido', forjado)).status, 201, 'preço adulterado (10 Jack a R$ 0,01): entra, a loja confere na conversa')
+    igual(await nota(forjado), "Confere o valor na conversa: 10x Jack Daniel's Old No. 7 1 L: R$ 0,10 no site, R$ 1.499,00 no catálogo.", 'e a anotação do pedido diz o que não bateu (o preço do catálogo de agora)')
+    // o combo é a mesma conta do site (4 OCB = 3 por R$ 19,99 + 1): bate, não marca; o combo inventado, marca
+    const ocb = (qtd, total) => ({ produtoId: 'seda-ocb-premium-slim', nome: 'Seda OCB Premium Slim', variacao: null, qtd, precoUnit: 9.99, total, combo: null })
+    const certo = pedidoSacola({ itens: [ocb(4, 29.98)], subtotal: 29.98, subtotalTexto: 'R$ 29,98' })
+    igual((await site().post('pedido', certo)).status, 201, '4 OCB com o combo certo: entra')
+    igual(await nota(certo), '', 'com o combo certo: sem anotação')
+    const combo = pedidoSacola({ itens: [ocb(4, 9.99)], subtotal: 9.99, subtotalTexto: 'R$ 9,99' })
+    await site().post('pedido', combo)
+    igual(await nota(combo), 'Confere o valor na conversa: 4x Seda OCB Premium Slim: R$ 9,99 no site, R$ 29,98 no catálogo.', 'o total da linha menor que o melhor combo: marca')
+    // produto que não tá no catálogo com preço: marca; a consultar sem produto: nada a conferir
+    const fora = pedidoSacola({ itens: [{ produtoId: 'produto-que-nao-existe', nome: 'Coisa', variacao: null, qtd: 1, precoUnit: 10, total: 10, combo: null }], subtotal: 10, subtotalTexto: 'R$ 10,00' })
+    await site().post('pedido', fora)
+    igual(await nota(fora), 'Confere o valor na conversa: 1x Coisa: não tá no catálogo agora.', 'produto fora do catálogo com preço: marca')
+    // abaixo do mínimo do estado (o site trava; a cópia forjada não): marca. Com item a consultar, não (a loja confere)
+    igual((await dono.post('admin-estado-salvar', { uf: 'mg', pedidoMinimo: 200 })).status, 200, 'MG com mínimo de R$ 200')
+    const abaixo = pedidoSacola()
+    await site().post('pedido', abaixo)
+    igual(await nota(abaixo), 'Confere o valor na conversa: abaixo do pedido mínimo de R$ 200,00 pra entrega.', 'R$ 169,89 com o mínimo de R$ 200: marca')
+    const consultar = pedidoSacola({ itens: [...pedidoSacola().itens, { produtoId: 'cuia-de-silicone-raw', nome: 'Cuia de silicone RAW', variacao: null, qtd: 1, precoUnit: null, total: null, combo: null }], subtotalTexto: 'R$ 169,89 + itens a consultar' })
+    await site().post('pedido', consultar)
+    igual(await nota(consultar), '', 'abaixo do mínimo com item a consultar: não marca (o site também não trava; a loja confere)')
+    igual((await dono.post('admin-estado-salvar', { uf: 'mg', pedidoMinimo: null })).status, 200, 'MG sem mínimo de novo')
+    const semMinimo = pedidoSacola()
+    await site().post('pedido', semMinimo)
+    igual(await nota(semMinimo), '', 'sem mínimo e tudo certo: sem anotação')
+  }
+
   // ─── as migrações 105 e 209 num banco que já está no ar ─────────────────────────────────────────────────────
   parte('pedido rápido: as migrações 105 (mínimo) e 209 (origem) num banco de antes, com dados')
   {

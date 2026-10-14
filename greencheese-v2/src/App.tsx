@@ -15,10 +15,11 @@ import { depoisDoHistorico, quandoEmpilharem } from './lib/historico'
 import { registrarLenis } from './lib/rolagem'
 import { atualizarParametros, ehHome2, lerParametros, manterNaURL } from './lib/url'
 import { carregarPlanilha, produtoPorId, useCatalogo } from './store/catalogo'
-import { useChat } from './store/chat'
+import { codigoVencido, useChat } from './store/chat'
 import { iniciarLocal } from './store/local'
 import { esperarLoja, esperarLojaToda, lojaConferida, lojaDoServidorRespondeu } from './store/loja'
 import { carregarRateios } from './store/rateio'
+import { useSacola } from './store/sacola'
 import { useUI } from './store/ui'
 import { interativoPorParam } from './interativos/registro'
 import { Abertura, Saida, idadeLembrada } from './componentes/Abertura'
@@ -170,10 +171,21 @@ function voltandoDoWhatsApp(): boolean {
   return !!c.enviadoEm && Date.now() - c.enviadoEm < TRES_HORAS && (c.passo === 'resumo' || c.passo === 'enc-resumo')
 }
 
+/**
+ * Voltou do WhatsApp depois do "Fechar pedido no WhatsApp" da sacola (o caminho direto), com a sacola ainda cheia e o
+ * código de há pouco (dentro das 2 h)? Reabre a sacola, que pergunta "Já mandou o pedido GC-…?" com o "Já mandei: limpar
+ * a sacola" — como o pedido guiado reabre e pergunta. No navegador do Instagram o link troca a própria página pro
+ * WhatsApp, e a volta recarrega: sem isso, a sacola cheia ficava pro próximo pedido sem ninguém perguntar.
+ */
+function voltandoDaSacola(): boolean {
+  const p = useChat.getState().pedido
+  return p.enviadaPor === 'sacola' && p.enviada !== null && !codigoVencido(p) && useSacola.getState().itens.length > 0
+}
+
 export function App() {
   const [abertura, setAbertura] = useState(() => {
     if (lerSessao('gc-abertura') && idadeLembrada()) return false
-    if (voltandoDoWhatsApp() && idadeLembrada()) return false
+    if ((voltandoDoWhatsApp() || voltandoDaSacola()) && idadeLembrada()) return false
     return true
   })
   const [saida, setSaida] = useState(false)
@@ -263,6 +275,16 @@ export function App() {
       atualizarParametros({ produto: null, p: null, jogo: null, rateio: null })
       useChat.getState().abrir(useChat.getState().modo)
       // "Trocar" na abertura (o +18 tinha vencido): o seletor abre por cima do pedido
+      if (trocarDepois.current) {
+        trocarDepois.current = false
+        quandoEmpilharem(1, () => useUI.getState().setSeletor(true))
+      }
+      return
+    }
+    if (voltandoDaSacola()) {
+      // a sacola reabre (e pergunta se mandou); o ?produto=/?p=/?jogo= da URL não reabre nada por baixo dela
+      atualizarParametros({ produto: null, p: null, jogo: null, rateio: null })
+      useUI.getState().setSacola(true)
       if (trocarDepois.current) {
         trocarDepois.current = false
         quandoEmpilharem(1, () => useUI.getState().setSeletor(true))

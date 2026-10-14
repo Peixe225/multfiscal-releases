@@ -300,6 +300,115 @@ function gc_ler_pedido_resgate(array $c, string $codigo, ErroApi $erro): ?array
     ];
 }
 
+/**
+ * O total da linha com o melhor combo, em centavos: a mesma conta do site (src/lib/preco.ts, calcularLinha), o menor
+ * custo combinando os combos (qtd > 1 e total > 0) e as unidades avulsas.
+ * @param list<mixed> $combos
+ */
+function gc_pedido_total_linha(int $unit, int $qtd, array $combos): int
+{
+    $validos = [];
+    foreach ($combos as $c) {
+        if (is_array($c) && (int) ($c['qtd'] ?? 0) > 1 && (int) ($c['total'] ?? 0) > 0) {
+            $validos[] = [(int) $c['qtd'], (int) $c['total']];
+        }
+    }
+    $custo = [0];
+    for ($n = 1; $n <= $qtd; $n++) {
+        $melhor = $custo[$n - 1] + $unit;
+        foreach ($validos as [$q, $t]) {
+            if ($q <= $n) {
+                $melhor = min($melhor, $custo[$n - $q] + $t);
+            }
+        }
+        $custo[$n] = $melhor;
+    }
+    return $custo[$qtd];
+}
+
+/**
+ * Confere os valores da cópia com o catálogo de agora e com o pedido mínimo do estado. Só marca, nunca recusa: a
+ * mensagem já foi do cliente pra loja no WhatsApp, e quem confirma o valor é a loja, na conversa (o preço que o dono
+ * acabou de mudar no painel também aparece aqui: o cliente viu o de antes). Cada item com produto: o preço da unidade
+ * (a da opção, pelo nome, ou a do produto) e o total da linha com o melhor combo (o combo só vale quando a opção não
+ * tem preço próprio diferente, como no site). O mínimo: o subtotal sem o desconto do cupom (DECISOES, item 18), só com
+ * todos os itens com preço. Catálogo que não dá pra ler (loja não instalada, publicação no meio): nada a marcar.
+ * @param array<string, mixed> $col
+ * @return list<string> o que não bateu, em frases curtas
+ */
+function gc_pedido_conferir_valores(array $col): array
+{
+    if (($col['tipo'] ?? '') !== 'pedido') {
+        return [];
+    }
+    $difs = [];
+    $todosComPreco = true;
+    try {
+        $itens = json_decode((string) $col['itens'], true);
+        foreach (is_array($itens) ? $itens : [] as $i) {
+            if (!is_array($i)) {
+                continue;
+            }
+            $qtd = (int) ($i['qtd'] ?? 0);
+            $nome = $qtd . 'x ' . (string) ($i['nome'] ?? '');
+            $total = isset($i['total']) ? (int) $i['total'] : null;
+            $todosComPreco = $todosComPreco && $total !== null;
+            $id = $i['produtoId'] ?? null;
+            $p = is_string($id) ? gc_um('SELECT preco, combos, variacoes FROM loja_produtos WHERE id = ? AND ativo = 1', [$id]) : null;
+            if ($p === null) {
+                // sem produto do catálogo: com preço, não tem com o que conferir (diz); a consultar, nada a conferir
+                if ($total !== null) {
+                    $difs[] = "$nome: não tá no catálogo agora";
+                }
+                continue;
+            }
+            $opcao = null;
+            $variacoes = json_decode((string) $p['variacoes'], true);
+            foreach (is_array($variacoes) ? $variacoes : [] as $v) {
+                if (is_array($v) && ($i['variacao'] ?? null) !== null && (string) ($v['nome'] ?? '') === (string) $i['variacao']) {
+                    $opcao = $v;
+                }
+            }
+            $doProduto = $p['preco'] === null ? null : (int) $p['preco'];
+            $unit = $opcao !== null && isset($opcao['preco']) ? (int) $opcao['preco'] : $doProduto;
+            if ($unit === null || $total === null) {
+                if (($unit === null) !== ($total === null)) {
+                    $difs[] = $unit === null ? "$nome: " . gc_brl((int) $total) . ' no site, a consultar no catálogo' : "$nome: a consultar no site, " . gc_brl($unit) . ' a unidade no catálogo';
+                }
+                continue;
+            }
+            $proprio = $opcao !== null && isset($opcao['preco']) && (int) $opcao['preco'] !== $doProduto;
+            $combos = $proprio ? [] : json_decode((string) $p['combos'], true);
+            $esperado = gc_pedido_total_linha($unit, $qtd, is_array($combos) ? $combos : []);
+            if ($total !== $esperado) {
+                $difs[] = "$nome: " . gc_brl($total) . ' no site, ' . gc_brl($esperado) . ' no catálogo';
+            }
+        }
+    } catch (Throwable) {
+        return [];
+    }
+    try {
+        $subtotal = $col['subtotal'] ?? null;
+        if ($todosComPreco && $subtotal !== null) {
+            $e = gc_um('SELECT pedido_minimo FROM loja_estados WHERE uf = ?', [(string) $col['uf']]);
+            $min = $e === null ? null : gc_int_ou_nulo($e['pedido_minimo'] ?? null);
+            if ($min !== null && (int) $subtotal < $min) {
+                $difs[] = 'abaixo do pedido mínimo de ' . gc_brl($min) . ' pra entrega';
+            }
+        }
+    } catch (Throwable) {
+        // a coluna do mínimo (migração 105) ainda não existe: nada a conferir
+    }
+    return array_slice($difs, 0, 6);
+}
+
+/** A anotação que o servidor deixa no pedido quando o valor não bateu (o dono vê no detalhe e pode apagar). */
+function gc_pedido_nota_conferir(array $difs): string
+{
+    $t = 'Confere o valor na conversa: ' . implode('; ', $difs) . '.';
+    return gc_tamanho($t) > 500 ? rtrim(mb_substr($t, 0, 499, 'UTF-8')) . '…' : $t;
+}
+
 /** Pedido do site que entrou só com a mensagem (gc_ler_pedido_resgate): sem itens nem produto. */
 function gc_pedido_resgatado(array $p): bool
 {
@@ -359,8 +468,14 @@ function gc_rota_pedido(): array
     if ($token === null) {
         throw gc_invalido('token', 'O pedido não veio certo. Recarrega a página e tenta de novo.');
     }
+    $conferir = [];
     try {
         $col = gc_ler_pedido($c, $codigo);
+        // o valor que não bate com o catálogo (ou abaixo do mínimo do estado): só marca, o pedido entra igual
+        $conferir = gc_pedido_conferir_valores($col);
+        if ($conferir !== []) {
+            $col['nota'] = gc_pedido_nota_conferir($conferir);
+        }
     } catch (ErroApi $e) {
         // campo estrutural torto com a mensagem certa: entra só com a mensagem (o cliente já mandou ela pra loja)
         $col = $e->codigo === 'invalido' ? gc_ler_pedido_resgate($c, $codigo, $e) : null;
@@ -374,7 +489,7 @@ function gc_rota_pedido(): array
     $subCodigo = $sub === null ? null : gc_codigo_pedido($sub['codigo'] ?? null);
     $subToken = $sub === null ? null : gc_token_do_aparelho($sub['token'] ?? null);
 
-    return gc_transacao(static function () use ($col, $codigo, $token, $subCodigo, $subToken, $tentativa): array {
+    return gc_transacao(static function () use ($col, $codigo, $token, $subCodigo, $subToken, $tentativa, $conferir): array {
         $hash = hash('sha256', $token);
         // dois envios juntos passam pela conferência de cima; aqui é um de cada vez
         $ja = gc_um('SELECT * FROM pedidos WHERE token_hash = ?', [$hash]);
@@ -455,7 +570,7 @@ function gc_rota_pedido(): array
             'id' => $id, 'uf' => $col['uf'], 'itens' => count(json_decode((string) $col['itens'], true) ?: []),
             'origem' => (string) ($col['origem'] ?? 'guiado'),
         ] + ((string) $col['nome'] !== '' ? ['nome' => $col['nome']] : []));
-        gc_aviso_pedido($p, $antigo === null ? null : ['codigo' => (string) $antigo['codigo'], 'trocou' => $trocou, 'status' => (string) $antigo['status']]);
+        gc_aviso_pedido($p, $antigo === null ? null : ['codigo' => (string) $antigo['codigo'], 'trocou' => $trocou, 'status' => (string) $antigo['status']], $conferir);
         return ['_status' => 201, 'pedido' => gc_pedido_publico($p)];
     });
 }

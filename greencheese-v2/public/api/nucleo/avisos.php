@@ -696,7 +696,7 @@ function gc_aviso_endereco(array $p): string
  * @param array<string, mixed> $p
  * @param array{codigo: string, trocou: bool, status: string}|null $antes o pedido de antes do mesmo aparelho
  */
-function gc_aviso_texto_pedido(array $p, ?array $antes): string
+function gc_aviso_texto_pedido(array $p, ?array $antes, array $conferir = []): string
 {
     $enc = $p['tipo'] === 'encomenda';
     $atualizado = $antes !== null && $antes['trocou'];
@@ -740,6 +740,10 @@ function gc_aviso_texto_pedido(array $p, ?array $antes): string
         }
         $sub = $p['subtotal'] === null ? 'a consultar' : gc_brl((int) $p['subtotal']) . ($consultar ? ' + itens a consultar' : '');
         $l[] = "Subtotal: *$sub*";
+        // o valor da cópia não bateu com o catálogo de agora (ou ficou abaixo do mínimo): a loja confere na conversa
+        if ($conferir !== []) {
+            $l[] = '_Confere o valor na conversa: ' . implode('; ', array_map('strval', $conferir)) . '._';
+        }
         $cupom = $p['cupom'] === null ? null : json_decode((string) $p['cupom'], true);
         if (is_array($cupom)) {
             $l[] = 'Cupom: ' . $cupom['codigo'] . (($cupom['regra'] ?? '') !== '' ? ' — ' . $cupom['regra'] : '') . ' _(a loja confirma)_';
@@ -765,11 +769,11 @@ function gc_aviso_texto_pedido(array $p, ?array $antes): string
 }
 
 /** Aviso de pedido ou encomenda nova (chamado dentro da transação que gravou o pedido). */
-function gc_aviso_pedido(array $p, ?array $antes): void
+function gc_aviso_pedido(array $p, ?array $antes, array $conferir = []): void
 {
     $enc = $p['tipo'] === 'encomenda';
     $tipo = ($enc ? 'encomenda' : 'pedido') . ($antes !== null && $antes['trocou'] ? '-atualizado' : '');
-    gc_aviso_enfileirar($enc ? 'encomenda' : 'pedido', $tipo, 'pedido:' . $p['id'], gc_aviso_texto_pedido($p, $antes), ['pedido' => gc_pedido_admin($p)]);
+    gc_aviso_enfileirar($enc ? 'encomenda' : 'pedido', $tipo, 'pedido:' . $p['id'], gc_aviso_texto_pedido($p, $antes, $conferir), ['pedido' => gc_pedido_admin($p)]);
 }
 
 /** "16/24 pagas · +5 reservadas" */

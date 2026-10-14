@@ -145,6 +145,21 @@ for (const tz of ['America/Sao_Paulo', 'UTC', 'Asia/Tokyo', 'America/Manaus', 'P
 }
 if (tzAntes === undefined) delete process.env.TZ
 else process.env.TZ = tzAntes
+// o grátis de hoje só com a loja atendendo ainda hoje (o horário de verdade do painel; a revisão de 14/10): fechada até
+// amanhã, o pedido só sai amanhã e a mensagem não promete o grátis (fica a taxa); antes de abrir ou aberta, vale. O turno
+// que passa da meia-noite atende hoje. O horário de exemplo não conta (fica como sempre foi)
+const turno = { horario: { semana: Array.from({ length: 7 }, () => ['10:00', '15:00']), demo: false } }
+const sextaBR = (h) => new Date(`2026-10-09T${h}:00-03:00`)
+for (const [c, h, esperado, rotulo] of [
+  [turno, '15:40', '(taxa R$ 15,50)', 'fechada até amanhã (10h–15h, 15:40)'],
+  [turno, '08:30', '(entrega grátis hoje)', 'antes de abrir (10h–15h, 08:30)'],
+  [turno, '12:00', '(entrega grátis hoje)', 'aberta (10h–15h, 12:00)'],
+  [{ horario: { semana: Array.from({ length: 7 }, () => ['18:00', '02:00']), demo: false } }, '23:00', '(entrega grátis hoje)', 'turno que passa da meia-noite (18h–2h, 23:00)'],
+  [{ horario: { semana: turno.horario.semana, demo: true } }, '15:40', '(entrega grátis hoje)', 'horário de exemplo (não conta)'],
+]) {
+  const e = entregaCom({ ...gratis, ...c }, sextaBR(h))[iEnt]
+  if (!e.endsWith(esperado)) problemas.push(`guiado, sexta de entrega grátis, ${rotulo}: "${e}", esperado o fim "${esperado}"`)
+}
 // variação com preço próprio não herda o combo do produto (o combo foi pensado pro preço dele); a sem preço herda
 const ocbVar = { ...ocb, variacoes: [{ id: 'comum', nome: 'Comum' }, { id: 'premium', nome: 'Premium', preco: 50 }] }
 const linhaVar = (variacaoId, qtd) => m.montarPedido({ ...pedido, linhas: [{ produto: ocbVar, qtd, variacaoId }] }).split('\n').find((l) => /^\d+x /.test(l))
@@ -239,6 +254,9 @@ for (const [c, agora, esperado] of [
   [gratis, new Date(2026, 9, 8, 15), 'Entrega: taxa R$ 15,50'],
   [{ taxaEntrega: { valor: 0, demo: false } }, sexta, 'Entrega: grátis'],
   [{ taxaEntrega: { valor: null, demo: false } }, sexta, 'Entrega: taxa a confirmar'],
+  // fechada até amanhã no dia grátis: não promete o grátis de hoje; antes de abrir, promete
+  [{ ...gratis, ...turno }, sextaBR('15:40'), 'Entrega: taxa R$ 15,50'],
+  [{ ...gratis, ...turno }, sextaBR('08:30'), 'Entrega: grátis hoje'],
 ]) {
   if (sEnt(c, agora) !== esperado) problemas.push(`sacola: a entrega (${JSON.stringify(c).slice(0, 60)}) veio "${sEnt(c, agora)}", esperado "${esperado}"`)
 }

@@ -490,6 +490,98 @@ export async function fluxoPedidos(a) {
       ok(todas, `${w}×${h}: pedidos, pedido, avisos e textos sem rolagem lateral e sem nada cortado na borda`)
       await c.close()
     }
+
+    // ─── ao vivo com a lista filtrada por um estado: a bolinha dos novos sobe em ~15 s, como com a lista inteira ──
+    // (a revisão de 14/10: com o filtro de RJ, o pedido de MG não mudava a lista, e a bolinha esperava o ritmo de 60 s)
+    {
+      const cb = await novoContexto(390, 844)
+      ctxs.push(cb)
+      const q = await cb.newPage()
+      q.on('pageerror', (e) => erros.push(`pedidos (bolinha): ${e.message}`))
+      const resumos = []
+      q.on('response', (r) => {
+        if (r.url().includes('r=admin-pedidos-resumo')) resumos.push(Date.now())
+      })
+      await entrar(q)
+      await q.goto(`${BASE}/painel/#/pedidos?uf=rj`)
+      await q.locator('.pd-lista .pd-linha').first().waitFor()
+      const novosNaBarra = () =>
+        q.evaluate(() => {
+          const m = /, (\d+) novos?\b/.exec([...document.querySelectorAll('.sr-only')].map((x) => x.textContent).join(' '))
+          return m ? Number(m[1]) : 0
+        })
+      await q.waitForTimeout(1500)
+      const n0 = await novosNaBarra()
+      // espera uma pergunta do resumo e manda o pedido logo depois: a próxima pergunta é a que traz
+      const r0 = resumos.length
+      await esperar(async () => resumos.length > r0, 65000)
+      const t0 = Date.now()
+      const M = pedidoSacola()
+      ok((await site('pedido', M)).status === 201, `pedido ${M.codigo} de MG chegou com a lista filtrada em RJ`)
+      const subiu = await esperar(async () => (await novosNaBarra()) === n0 + 1, 22000)
+      ok(subiu, `lista filtrada em RJ: a bolinha dos novos sobe sozinha em até ~15 s com o pedido de MG (${((Date.now() - t0) / 1000).toFixed(1)} s, ${n0} → ${await novosNaBarra()})`)
+      await cb.close()
+    }
+
+    // ─── a hora da lista vira na meia-noite mesmo sem pedido novo (o 304 não redesenha a lista) ─────────────────
+    // (a revisão de 14/10: "hoje 23:57" continuava "hoje" depois da meia-noite, até recarregar)
+    {
+      // 13/10 23:58 em Brasília (02:58 UTC de 14/10); o pedido chegou às 23:57. O servidor de teste aceita a hora no
+      // X-GC-Agora (GC_TESTE=1), e o aparelho anda junto (o relógio falso do Playwright)
+      const T0 = Math.floor(Date.UTC(2026, 9, 14, 2, 58, 0) / 1000)
+      let servidor = T0
+      const N = pedidoSacola()
+      const r = await fetch(`${BASE}/api/index.php?r=pedido`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: BASE, 'X-GC-Agora': String(T0 - 60) }, body: JSON.stringify(N) })
+      ok(r.status === 201, `pedido ${N.codigo} chegou às 23:57 de 13/10`)
+      const cm = await novoContexto(390, 844)
+      ctxs.push(cm)
+      const q = await cm.newPage()
+      q.on('pageerror', (e) => erros.push(`pedidos (meia-noite): ${e.message}`))
+      await q.clock.install({ time: new Date(T0 * 1000) })
+      // o login sem a hora falsa: a sessão nasce "agora" (com a de 13/10, ela seria a menos usada das 10 do dono e
+      // sairia na hora, depois das outras rodadas); o resto do painel na hora falsa
+      // depois de ver o "hoje 23:57", a lista e o resumo respondem só "nada mudou" (304): o que muda a linha é o relógio
+      // do painel, não um pedido ou um aviso que mudou no servidor (as outras rodadas deixam avisos tentando de novo)
+      let congelar = false
+      await q.route('**/api/index.php**', (rota) => {
+        const u = rota.request().url()
+        if (congelar && /r=admin-pedidos(&|-resumo)/.test(u)) return rota.fulfill({ status: 304, headers: { ETag: '"congelado"' } })
+        return /r=admin-entrar(&|$)/.test(u) ? rota.continue() : rota.continue({ headers: { ...rota.request().headers(), 'x-gc-agora': String(servidor) } })
+      })
+      const lidas = []
+      q.on('response', (x) => {
+        if (/r=admin-pedidos&/.test(x.url())) lidas.push(x.status())
+      })
+      await entrar(q)
+      await q.goto(`${BASE}/painel/#/pedidos?status=todos`)
+      // com muitos pedidos de hoje na frente, o de ontem pode ficar fora dos 50 mais novos: a busca acha ele
+      await q.getByLabel('Buscar pedido').fill(N.codigo)
+      const linha = q.locator('.pd-lista .pd-linha', { hasText: N.codigo })
+      const achou = await linha.waitFor({ timeout: 15000 }).then(() => true, () => false)
+      if (!achou) {
+        await print(q, 'pedidos-meia-noite-sem-a-linha')
+        throw new Error(`meia-noite: a linha do ${N.codigo} não apareceu (${q.url()} · ${(await q.locator('main, body').first().innerText()).replace(/\s+/g, ' ').slice(0, 400)})`)
+      }
+      const hora = async () => (await linha.locator('time').innerText()).trim()
+      const antes = await hora()
+      ok(antes === 'hoje 23:57', `às 23:58 de 13/10 a linha diz "hoje 23:57" (${antes})`)
+      // passam 3 minutos (00:01 de 14/10), o servidor e o aparelho, sem pedido novo: de 5 em 5 s, pra cada pergunta da
+      // lista (a cada 15 s) terminar antes do próximo passo (um pulo grande venceria o prazo das perguntas no caminho, e
+      // o erro redesenharia a tela por outro motivo)
+      congelar = true
+      const de = lidas.length
+      for (let i = 0; i < 36; i++) {
+        servidor += 5
+        await q.clock.fastForward(5000)
+        await q.waitForTimeout(60)
+      }
+      await q.waitForTimeout(500)
+      const depois = await hora()
+      const status = lidas.slice(de)
+      ok(depois === 'ontem 23:57' && status.length > 0 && status.every((s) => s === 304), `00:01 de 14/10, sem pedido novo (a lista recebe ${status.length}× ${[...new Set(status)].join(',')}): a linha vira "ontem 23:57" sozinha (${depois})`)
+      await print(q, 'pedidos-depois-da-meia-noite')
+      await cm.close()
+    }
   } finally {
     for (const c of ctxs) await c.close().catch(() => {})
     await webhook.fechar()
@@ -542,7 +634,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     }
   })
   process.on('exit', derrubar)
-  filhos.push(spawn(process.env.PHP ?? 'php', ['-d', 'display_errors=0', '-S', `127.0.0.1:${portaPhp}`, '-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')], { env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4', GC_DADOS: dados, GC_UPLOADS: join(dados, 'uploads') }, stdio: 'ignore', detached: true }))
+  filhos.push(spawn(process.env.PHP ?? 'php', ['-d', 'display_errors=0', '-S', `127.0.0.1:${portaPhp}`, '-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')], { env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4', GC_TESTE: '1', GC_DADOS: dados, GC_UPLOADS: join(dados, 'uploads') }, stdio: 'ignore', detached: true }))
   filhos.push(spawn(process.execPath, [join(raiz, 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--outDir', build, '--port', String(portaSite), '--strictPort', '--host', '127.0.0.1'], { cwd: raiz, env: { ...process.env, GC_API_PORTA: String(portaPhp) }, stdio: 'ignore', detached: true }))
   for (let i = 0; i < 150; i++) {
     if (await fetch(`${BASE}/api/index.php?r=admin-sessao`).then((r) => r.ok, () => false)) break

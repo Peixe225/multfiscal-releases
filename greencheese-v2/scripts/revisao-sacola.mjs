@@ -24,9 +24,13 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
   loja.produtos.find((p) => p.id === 'cuia-de-silicone-raw').disponivel.mg = true
   const recebidos = []
 
-  const montar = async (viewport) => {
+  // lojaAgora: a loja que o GET loja devolve agora (o dono muda no painel no meio do teste); de fábrica, a do topo
+  const montar = async (viewport, { lojaAgora = () => ({ versao: 8, loja }) } = {}) => {
     const ctx = await contexto(browser, viewport)
-    await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: { ok: true, versao: 8, atualizadoEm: new Date().toISOString(), loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"8"' } }))
+    await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => {
+      const l = lojaAgora()
+      return r.fulfill({ json: { ok: true, versao: l.versao, atualizadoEm: new Date(Date.UTC(2026, 9, 14, 12, 0, l.versao)).toISOString(), loja: l.loja }, headers: { 'Cache-Control': 'no-cache', ETag: `"${l.versao}"` } })
+    })
     await ctx.route('**/api/index.php?r=pedido', async (route) => {
       const req = route.request()
       if (req.method() !== 'POST') return route.fallback()
@@ -63,19 +67,28 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
     return ctx
   }
   /** Abre o site no estado com a sacola pronta e abre a sacola. */
-  const abrir = async (ctx, uf, itens, nome) => {
+  const abrir = async (ctx, uf, itens, nome, { versao = 8, antes } = {}) => {
     const page = await ctx.newPage()
     vigiarSemRede(page, nome)
+    if (antes) await antes(page)
     await page.goto(`${base}?uf=${uf}`)
     await page.evaluate((x) => localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: x, ultimo: [], cupom: null }, version: 0 })), itens)
     await page.reload()
     // a loja do servidor chegou (o mínimo vem nela)
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 8, null, { timeout: 8000 }).catch(() => {})
+    await page.waitForFunction((v) => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === v, versao, { timeout: 8000 }).catch(() => {})
     await page.waitForTimeout(500)
+    await abrirSacola(page)
+    return page
+  }
+  const abrirSacola = async (page) => {
     await page.locator('.barra-abas [data-aba="sacola"]:visible, .lateral-item:has-text("Sacola"):visible').first().click()
     await page.locator('.sacola-fechar').waitFor({ timeout: 8000 })
     await page.waitForTimeout(500)
-    return page
+  }
+  /** Espera o POST pedido de número n chegar (o beacon do toque), até `ms`. */
+  const esperarPost = async (page, n, ms = 4000) => {
+    for (let k = 0; k < ms / 100 && recebidos.length <= n; k++) await page.waitForTimeout(100)
+    return recebidos[n]?.c ?? null
   }
   const ver = (page) =>
     page.evaluate(() => {
@@ -113,6 +126,11 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
     await page.waitForTimeout(500)
     const foco = await page.evaluate(() => document.activeElement?.id ?? null)
     conferir(recebidos.length === 0 && (await page.evaluate(() => window.__zap ?? null)) === null && foco === 'sacola-minimo', `tocar no travado: nada vai pro servidor nem pro WhatsApp, o foco vai pro aviso (${foco})`)
+    // e quem não usa leitor de tela vê o porquê: o aviso de quanto falta acende no toque (a revisão de 14/10: nada mudava)
+    await page.locator('.sacola-zap').click({ force: true })
+    const realce = await page.evaluate(() => document.getElementById('sacola-minimo')?.classList.contains('sacola-minimo-realce') ?? false)
+    conferir(realce, 'tocar no travado: o aviso de quanto falta acende (retorno na tela, não só no leitor de tela)')
+    await foto(page, 'sacola-01b-mg-travada-toque')
     // 3 OCB = combo 3 por R$ 19,99: ainda falta 1 centavo (a conta é com o combo)
     await page.getByRole('button', { name: 'Mais um', exact: true }).first().click()
     await page.getByRole('button', { name: 'Mais um', exact: true }).first().click()
@@ -123,6 +141,12 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
     await page.waitForTimeout(400)
     v = await ver(page)
     conferir(v.aviso === null && v.ehLink && !v.travado && v.href?.startsWith(ZAP), `4 OCB (R$ 29,98): destrava, o botão vira o link do WhatsApp do estado (${v.href?.slice(0, 40)})`)
+    // o destravar é dito (na região viva que fica sempre montada: o leitor de tela ouve), e quem vê também lê
+    const vivo = await page.evaluate(() => {
+      const r = document.querySelector('.sacola-fechar .sacola-vivo')
+      return { role: r?.getAttribute('role') ?? null, texto: r?.textContent ?? '' }
+    })
+    conferir(vivo.role === 'status' && semNbsp(vivo.texto) === 'Pronto: chegou no pedido mínimo de R$ 20,00 pra entrega.', `chegou no mínimo: "Pronto: chegou no pedido mínimo de R$ 20,00 pra entrega." na região viva (${vivo.role} · ${semNbsp(vivo.texto)})`)
     await foto(page, 'sacola-02-mg-destravada')
     const texto = mensagemDe(v.href)
     const linhas = texto.split('\n')
@@ -154,6 +178,23 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
     await page.locator('a.sacola-zap').click()
     for (let k = 0; k < 20 && recebidos.length === n; k++) await page.waitForTimeout(100)
     conferir(recebidos.slice(n).every((x) => x.c?.codigo === a?.codigo && x.c?.token === a?.token), 'tocou de novo sem mudar nada: vai com o mesmo código e token (o servidor reconhece o repetido)')
+    // a volta do WhatsApp no navegador do Instagram: o link trocou a própria página, e voltar recarrega (com o ?produto=
+    // de quando a sacola abriu por cima da página do produto). A sacola reabre e pergunta se mandou, como o guiado
+    await page.goto(`${base}?uf=mg&cidade=teofilo-otoni&produto=seda-ocb-premium-slim`)
+    const reabriu = await page.locator('.sacola-fechar').waitFor({ timeout: 8000 }).then(() => true, () => false)
+    await page.waitForTimeout(600)
+    const naVolta = semNbsp(await page.locator('.sacola-enviado').textContent().catch(() => ''))
+    conferir(
+      reabriu && naVolta.includes(`Já mandou o pedido ${a?.codigo} no WhatsApp?`) && naVolta.includes('Já mandei: limpar a sacola') && !page.url().includes('produto='),
+      `a volta do WhatsApp (página recarregada): a sacola reabre sozinha com "Já mandou o pedido ${a?.codigo} no WhatsApp?" e o "Já mandei", sem a página do produto por baixo (${naVolta} · ${page.url()})`,
+    )
+    await foto(page, 'sacola-03b-mg-volta-do-whatsapp')
+    // (sem a sacola reaberta, abre à mão pra seguir: o "Já mandei" ainda tá lá dentro)
+    if (!naVolta) {
+      await page.goto(`${base}?uf=mg`)
+      await page.waitForTimeout(800)
+      await abrirSacola(page)
+    }
     await page.getByRole('button', { name: 'Já mandei: limpar a sacola' }).click()
     await page.waitForTimeout(500)
     const vazia = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-sacola') || '{}')?.state?.itens?.length ?? -1)
@@ -206,6 +247,24 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
     conferir(/Faltam R\$ 10,01 pro pedido mínimo de R\$ 20,00 pra entrega/.test(bolhas), `pedido guiado abaixo do mínimo: avisa quanto falta (${bolhas.slice(-160)})`)
     conferir((await page.getByRole('button', { name: 'Mexer na sacola' }).count()) > 0, 'pedido guiado abaixo do mínimo: oferece "Mexer na sacola"')
     await foto(page, 'sacola-06-guiado-minimo')
+    // "Mexer na sacola": a sacola abre por cima do guiado e o botão grande dela volta pro guiado (com o que a pessoa já
+    // respondeu); o caminho direto não aparece ali (a revisão de 14/10: o botão grande mandava sem as respostas)
+    await page.getByRole('button', { name: 'Mexer na sacola' }).last().click()
+    await page.locator('.sacola-fechar').waitFor({ timeout: 8000 })
+    await page.waitForTimeout(500)
+    const porCima = await page.evaluate(() => ({
+      principal: document.querySelector('.sacola-fechar .sacola-zap')?.textContent?.trim() ?? null,
+      zaps: document.querySelectorAll('.sacola-fechar a[href*="wa.me"]').length,
+    }))
+    conferir(porCima.principal === 'Voltar pro pedido guiado' && porCima.zaps === 0, `a sacola por cima do guiado: o botão grande é "Voltar pro pedido guiado", sem link do WhatsApp ali (${JSON.stringify(porCima)})`)
+    await foto(page, 'sacola-06b-por-cima-do-guiado')
+    await page.locator('.sacola-fechar .sacola-zap').click({ force: true })
+    await page.waitForTimeout(700)
+    const voltou = await page.evaluate(() => ({
+      sacola: !!document.querySelector('.folha:not(.folha-saindo) .sacola-fechar'),
+      chat: !!document.querySelector('[aria-modal="true"][aria-label="Pedido guiado"]'),
+    }))
+    conferir(!voltou.sacola && voltou.chat, `"Voltar pro pedido guiado": a sacola fecha e o guiado continua aberto (${JSON.stringify(voltou)})`)
     await ctx.close()
     // ?chat=pedido (o link direto): o pedido guiado abre como antes
     const ctx2 = await montar({ width: 390, height: 844 })
@@ -242,6 +301,154 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
       `${w}×${h}: o "Fechar pedido no WhatsApp" cabe numa linha, dentro da tela, travado e destravado (${livre.h} px)`,
     )
     if (w === 360) await foto(page, 'sacola-07-360-destravada')
+    await ctx.close()
+  }
+
+  // ── o mesmo pedido dias depois (sem tocar em "Já mandei"): código novo, que chega ao painel ──────────────────────
+  // (a revisão de 14/10: o código do pedido já entregue ia de novo, o servidor dizia "repetido" e nada entrava)
+  {
+    const ctx = await montar({ width: 390, height: 844 })
+    const page = await abrir(ctx, 'mg', ocb(4), 'sacola-dias-depois')
+    const n0 = recebidos.length
+    await page.locator('a.sacola-zap').click()
+    const primeiro = await esperarPost(page, n0)
+    conferir(!!primeiro, 'o primeiro toque manda a cópia')
+    await page.close()
+    // 3 dias depois, o mesmo aparelho (a sacola continua com as 4 OCB): o link da bio
+    const pg = await ctx.newPage()
+    vigiarSemRede(pg, 'sacola-dias-depois-2')
+    await pg.clock.install({ time: new Date(Date.now() + 3 * 864e5) })
+    // o +18 lembrado continua valendo no relógio de 3 dias depois (a pessoa já disse que tem)
+    await pg.addInitScript(() => localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5)))
+    await pg.goto(`${base}?uf=mg`)
+    await pg.waitForTimeout(1200)
+    const sozinha = await pg.locator('.sacola-fechar').isVisible().catch(() => false)
+    await abrirSacola(pg)
+    const v = await ver(pg)
+    const codigo = /Código: (GC-\w{5})/.exec(mensagemDe(v.href))?.[1]
+    const banner = await pg.locator('.sacola-enviado').count()
+    conferir(!sozinha && banner === 0 && !!codigo && codigo !== primeiro?.codigo, `3 dias depois: a sacola não reabre sozinha nem diz "pronto no WhatsApp" do pedido velho, e o link vai com outro código (${primeiro?.codigo} → ${codigo})`)
+    const n1 = recebidos.length
+    await pg.locator('a.sacola-zap').click()
+    const novo = await esperarPost(pg, n1)
+    conferir(!!novo && novo.codigo === codigo && novo.token !== primeiro?.token && novo.substitui === null, `o toque manda o pedido novo: outro código e outro token, sem substituir o de antes (${novo?.codigo}, substitui ${JSON.stringify(novo?.substitui)})`)
+    await ctx.close()
+  }
+
+  // ── a loja fechada agora: a sacola diz quando abre, e não promete o grátis de hoje que só sai amanhã ───────────
+  {
+    // MG aberta das 10h às 15h todo dia, entrega grátis na quarta (horário e grátis de verdade, do painel)
+    const comHorario = structuredClone(loja)
+    const mg = comHorario.estados.find((e) => e.uf === 'mg')
+    mg.horario = { semana: Array.from({ length: 7 }, () => ['10:00', '15:00']), demo: false }
+    mg.entregaGratis = { diaSemana: 3, dias: [3], texto: 'Quarta com entrega grátis!', demo: false }
+    const naHora = async (hora, nome) => {
+      const ctx = await montar({ width: 390, height: 844 }, { lojaAgora: () => ({ versao: 40, loja: comHorario }) })
+      // quarta, 14/10/2026, na hora de Brasília
+      const page = await abrir(ctx, 'mg', ocb(4), nome, { versao: 40, antes: (pg) => pg.clock.install({ time: new Date(`2026-10-14T${hora}:00-03:00`) }) })
+      const v = await ver(page)
+      const horario = semNbsp(await page.locator('.sacola-fechar .sacola-horario').textContent({ timeout: 500 }).catch(() => ''))
+      return { ctx, page, v, horario, entrega: mensagemDe(v.href).split('\n').find((l) => l.startsWith('Entrega:')) }
+    }
+    const fechada = await naHora('15:40', 'sacola-fechada')
+    conferir(fechada.horario === 'Fechado · abre amanhã 10h: a loja responde quando abrir.' && fechada.v.ehLink && !fechada.v.travado, `quarta 15:40, MG fechada até amanhã: "Fechado · abre amanhã 10h: a loja responde quando abrir." perto do botão, sem travar (${fechada.horario})`)
+    conferir(fechada.entrega === 'Entrega: taxa a confirmar' && !/grátis hoje/i.test(fechada.v.taxa), `e não promete o grátis de hoje (o pedido só sai amanhã): "${fechada.entrega}" · "${fechada.v.taxa}"`)
+    await foto(fechada.page, 'sacola-09-loja-fechada')
+    await fechada.ctx.close()
+    const cedo = await naHora('08:30', 'sacola-abre-hoje')
+    conferir(cedo.horario === 'Fechado · abre 10h: a loja responde quando abrir.' && cedo.entrega === 'Entrega: grátis hoje', `quarta 08:30 (abre às 10h): diz que abre às 10h e o grátis de hoje vale (${cedo.horario} · ${cedo.entrega})`)
+    await cedo.ctx.close()
+    const aberta = await naHora('12:00', 'sacola-aberta')
+    conferir(aberta.horario === '' && aberta.entrega === 'Entrega: grátis hoje' && /Entrega grátis hoje/.test(aberta.v.taxa), `quarta 12:00, aberta: sem linha de horário, "Entrega: grátis hoje" (${aberta.entrega})`)
+    await aberta.ctx.close()
+  }
+
+  // ── o pedido guiado que já foi com esta sacola: a sacola reconhece, e o toque nela não troca o guiado por menos ──
+  // (a revisão de 14/10: um toque na sacola cancelava o guiado no painel e punha um "Sem nome" sem endereço no lugar)
+  {
+    const ctx = await montar({ width: 390, height: 844 })
+    const page = await abrir(ctx, 'mg', ocb(4), 'sacola-depois-do-guiado')
+    const clicar = async (nome) => {
+      await page.getByRole('button', { name: nome, exact: true }).last().click()
+      await page.waitForTimeout(400)
+    }
+    const digitar = async (t) => {
+      await page.locator('.dm-entrada input').fill(t)
+      await page.locator('.dm-entrada').evaluate((f) => f.requestSubmit())
+      await page.waitForTimeout(600)
+    }
+    await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
+    await page.locator('[aria-modal="true"][aria-label="Pedido guiado"]').waitFor({ timeout: 8000 })
+    await page.waitForTimeout(900)
+    await clicar('Isso')
+    await clicar('Tá certo')
+    await digitar('Ian Teste')
+    await digitar('39800000')
+    await page.waitForTimeout(600)
+    await digitar('120, apto 201')
+    await clicar('Pix')
+    await digitar('Portão azul')
+    await page.waitForTimeout(600)
+    const n0 = recebidos.length
+    await page.locator('.folha-chat a.dm-zap').click()
+    const guiado = await esperarPost(page, n0)
+    conferir(guiado?.origem === 'guiado' && guiado?.nome === 'Ian Teste' && /Rua Doutor Manoel Esteves, 120/.test(guiado?.entrega?.endereco ?? ''), `o pedido guiado inteiro foi (${guiado?.codigo}, ${guiado?.nome}, ${guiado?.entrega?.endereco})`)
+    // voltou sem tocar em "Mandei", fechou o chat e abriu a sacola
+    await page.locator('.folha-chat .folha-topo button[aria-label="Fechar"]').click()
+    await page.waitForTimeout(700)
+    await abrirSacola(page)
+    const v = await ver(page)
+    const banner = semNbsp(await page.locator('.sacola-enviado').textContent().catch(() => ''))
+    conferir(banner.includes(`O pedido ${guiado?.codigo} já foi montado no pedido guiado`) && banner.includes('Já mandei: limpar a sacola'), `a sacola reconhece o guiado que já foi com estes itens (${banner})`)
+    conferir(!!guiado && mensagemDe(v.href) === guiado.mensagem, 'o botão da sacola abre a mesma mensagem do guiado (com o endereço e o Pix), o mesmo código')
+    await foto(page, 'sacola-10-depois-do-guiado')
+    const n1 = recebidos.length
+    await page.locator('a.sacola-zap').click()
+    await page.waitForTimeout(1500)
+    conferir(recebidos.length === n1, `o toque na sacola não manda outra cópia por cima do guiado (${recebidos.length - n1} cópia(s))`)
+    await page.getByRole('button', { name: 'Já mandei: limpar a sacola' }).click()
+    await page.waitForTimeout(500)
+    const vazia = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-sacola') || '{}')?.state?.itens?.length ?? -1)
+    conferir(vazia === 0, `"Já mandei" depois do guiado: a sacola limpa (${vazia})`)
+    await ctx.close()
+  }
+
+  // ── o dono muda o mínimo no painel com a página aberta: a sacola confere a loja de novo (ETag), sem recarregar ──
+  // (a revisão de 14/10: o mínimo tirado continuava travando, e o mínimo novo não valia até recarregar)
+  {
+    const semMinimo = structuredClone(loja)
+    delete semMinimo.estados.find((e) => e.uf === 'mg').pedidoMinimo
+    const de50 = structuredClone(loja)
+    de50.estados.find((e) => e.uf === 'mg').pedidoMinimo = 50
+    let agora = { versao: 50, loja }
+    const ctx = await montar({ width: 390, height: 844 }, { lojaAgora: () => agora })
+    const page = await abrir(ctx, 'mg', ocb(1), 'sacola-minimo-mudou', { versao: 50, antes: (pg) => pg.clock.install() })
+    conferir((await ver(page)).travado, 'MG com mínimo de R$ 20 e 1 OCB: travada')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+    // o dono tira o mínimo; a pessoa passeia 20 s e abre a sacola de novo
+    agora = { versao: 51, loja: semMinimo }
+    await page.clock.fastForward(20_000)
+    await abrirSacola(page)
+    let v = null
+    for (let k = 0; k < 30; k++) {
+      v = await ver(page)
+      if (!v.travado) break
+      await page.waitForTimeout(200)
+    }
+    conferir(!v.travado && v.aviso === null && v.ehLink, `o dono tirou o mínimo: a sacola que abre de novo pergunta a loja e destrava sem recarregar (${v.aviso})`)
+    await page.getByRole('button', { name: 'Mais um', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Mais um', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Mais um', exact: true }).first().click()
+    // com a sacola aberta, o dono põe o mínimo em R$ 50: a conferência de tempos em tempos traz
+    agora = { versao: 52, loja: de50 }
+    await page.clock.fastForward(31_000)
+    for (let k = 0; k < 30; k++) {
+      v = await ver(page)
+      if (v.travado) break
+      await page.waitForTimeout(200)
+    }
+    conferir(v.travado && semNbsp(v.aviso) === 'Faltam R$ 20,02 pro pedido mínimo de R$ 50,00 pra entrega.', `com a sacola aberta, o mínimo novo de R$ 50 vale antes do toque (${semNbsp(v.aviso)})`)
     await ctx.close()
   }
 

@@ -1275,14 +1275,23 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
 }
 
 // ---------- a sacola em cada celular: o botão do caminho direto cabe, travado e destravado, e o guiado embaixo ----------
+// (e, com a loja fechada, a linha do horário; depois do toque e da volta do WhatsApp, o "Já mandou?" com o "Já mandei")
 {
   const loja = lojaDaSemente()
-  loja.estados.find((e) => e.uf === 'mg').pedidoMinimo = 20
+  const mgLoja = loja.estados.find((e) => e.uf === 'mg')
+  mgLoja.pedidoMinimo = 20
+  // o horário de verdade do painel, sem turno nenhum: a loja fechada agora (a linha do horário aparece no rodapé)
+  mgLoja.horario = { semana: [null, null, null, null, null, null, null], demo: false }
   for (const [nome, w, h] of aparelhos) {
     const tag = `${nome} sacola`
     const ctx = await contexto(w, h)
     await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: { ok: true, versao: 9, atualizadoEm: new Date().toISOString(), loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"9"' } }))
-    await ctx.addInitScript(() => localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id: 'seda-ocb-premium-slim', variacao: null, qtd: 1 }], ultimo: [], cupom: null }, version: 0 })))
+    // a sacola só na primeira carga da aba (a volta do WhatsApp recarrega a página com a sacola que tava)
+    await ctx.addInitScript(() => {
+      if (sessionStorage.getItem('gc-teste-sacola')) return
+      sessionStorage.setItem('gc-teste-sacola', '1')
+      localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id: 'seda-ocb-premium-slim', variacao: null, qtd: 1 }], ultimo: [], cupom: null }, version: 0 }))
+    })
     const p = await ctx.newPage()
     await abrir(p, tag, `${base}?uf=mg`)
     await p.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 9, null, { timeout: 8000 }).catch(() => {})
@@ -1304,9 +1313,16 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
           linhas = new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size
         }
         const folha = zap?.closest('.folha')
+        const caixa = (sel) => {
+          const r = document.querySelector(sel)?.getBoundingClientRect()
+          return r ? { t: Math.round(r.top), b: Math.round(r.bottom) } : null
+        }
         return {
           link: zap?.tagName === 'A',
           aviso: document.querySelector('#sacola-minimo')?.textContent ?? null,
+          horario: caixa('.sacola-fechar .sacola-horario'),
+          enviado: caixa('.sacola-fechar .sacola-enviado'),
+          enviadoTexto: document.querySelector('.sacola-fechar .sacola-enviado')?.textContent ?? '',
           zap: rz ? { l: Math.round(rz.left), r: Math.round(rz.right), b: Math.round(rz.bottom), h: Math.round(rz.height) } : null,
           gui: rg ? { h: Math.round(rg.height), b: Math.round(rg.bottom) } : null,
           linhas,
@@ -1321,6 +1337,7 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
       if (m.linhas !== 1 || m.zap.h > 60) problemas.push(`${tag} ${qual}: o "Fechar pedido no WhatsApp" quebrou (${m.linhas} linhas, ${m.zap.h} px)`)
       if (!m.gui || m.gui.h < 44 || m.gui.b > m.alto + 1) problemas.push(`${tag} ${qual}: o "Pedido guiado" fora da tela ou com alvo pequeno (${JSON.stringify(m.gui)})`)
       if (m.lateral) problemas.push(`${tag} ${qual}: a sacola rola pro lado`)
+      if (!m.horario || m.horario.t < 0 || m.horario.b > m.zap.b) problemas.push(`${tag} ${qual}: a linha do horário (loja fechada) fora da tela ou embaixo do botão (${JSON.stringify(m.horario)})`)
     }
     const travado = await medir()
     if (travado.link || !/Faltam R\$\s10,01 pro pedido mínimo de R\$\s20,00/.test(travado.aviso ?? '')) problemas.push(`${tag}: abaixo do mínimo, o botão não travou ou o aviso não veio (${travado.aviso})`)
@@ -1332,6 +1349,22 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
     if (!livre.link || livre.aviso) problemas.push(`${tag}: com R$ 29,98, o botão não virou o link do WhatsApp (${livre.aviso})`)
     conferirSacola(livre, 'destravado')
     await p.screenshot({ path: `${out}${nome}-sacola-destravada.png` })
+    // o toque (o WhatsApp não abre aqui) e a volta do WhatsApp (a página recarrega): a sacola reabre e pergunta
+    await p.evaluate(() =>
+      document.addEventListener('click', (e) => {
+        if (e.target instanceof Element && e.target.closest('a[href*="wa.me"]')) e.preventDefault()
+      }, true),
+    )
+    await p.locator('a.sacola-zap').tap()
+    await p.waitForTimeout(600)
+    await p.reload()
+    await p.locator('.sacola-fechar').waitFor({ timeout: 8000 }).catch(() => {})
+    await p.waitForTimeout(900)
+    const volta = await medir()
+    if (!/Já mandou o pedido GC-\w{5} no WhatsApp\?/.test(volta.enviadoTexto)) problemas.push(`${tag}: na volta do WhatsApp, a sacola não reabriu perguntando se mandou (${volta.enviadoTexto})`)
+    else if (!volta.enviado || volta.enviado.t < 0 || volta.enviado.b > volta.alto + 1) problemas.push(`${tag}: na volta, o "Já mandou?" fora da tela (${JSON.stringify(volta.enviado)})`)
+    conferirSacola(volta, 'na volta do WhatsApp')
+    await p.screenshot({ path: `${out}${nome}-sacola-na-volta.png` })
     await ctx.close()
     console.log('✓', tag)
   }

@@ -84,12 +84,35 @@ export interface CodigoPedido {
    * código: o guiado que fecha depois da sacola (ou o contrário) entra no lugar do de antes, como o pedido mudado.
    */
   enviadaPor: 'sacola' | 'guiado' | null
+  /**
+   * A sacola de quando a `enviada` foi (chaveDaSacola: o estado, os itens e as quantidades). A sacola reconhece por ela o
+   * pedido guiado que já foi com estes mesmos itens: mandar de novo a mesma sacola não é "o pedido mudado".
+   */
+  sacola: string | null
 }
 
 /** Até quanto tempo depois de mandar uma mudança ainda é "o mesmo pedido, mudado" (o servidor confere o mesmo). */
 export const JANELA_TROCA_MS = 2 * 3600_000
 
-const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui, enviadaPor: null })
+const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui, enviadaPor: null, sacola: null })
+
+/**
+ * O código já foi pro servidor há mais que a JANELA_TROCA_MS (ou sem a hora): o pedido de antes já é outro. A pessoa
+ * voltou outro dia sem tocar em "Já mandei" e pede de novo, mesmo igual: é um pedido novo, com código novo (o mesmo
+ * código com o mesmo token o servidor reconhece como repetido e não grava, nem avisa o grupo).
+ */
+export function codigoVencido(p: CodigoPedido, agora = Date.now()): boolean {
+  return p.enviada !== null && (p.enviadaEm === null || agora - p.enviadaEm >= JANELA_TROCA_MS)
+}
+
+/** "mg|seda-ocb-premium-slim:-:4|…": o estado e cada item com a opção e a quantidade, em ordem (o mesmo pedido, a mesma chave). */
+export function chaveDaSacola(uf: string, linhas: readonly { produto: { id: string }; variacaoId?: string | null; qtd: number }[]): string {
+  const itens = linhas
+    .filter((l) => l.qtd > 0)
+    .map((l) => `${l.produto.id}:${l.variacaoId ?? '-'}:${l.qtd}`)
+    .sort()
+  return [uf.toLowerCase(), ...itens].join('|')
+}
 
 /** O de antes, se foi mandado há pouco (dentro da JANELA_TROCA_MS): o pedido novo entra no lugar dele. */
 export function substituiDe(p: CodigoPedido): CodigoPedido['substitui'] {
@@ -103,7 +126,8 @@ function codigoLido(v: unknown): CodigoPedido {
   const enviada = typeof c.enviada === 'string' ? c.enviada : null
   const enviadaEm = enviada !== null && typeof c.enviadaEm === 'number' && Number.isFinite(c.enviadaEm) ? c.enviadaEm : null
   const enviadaPor = enviada !== null && (c.enviadaPor === 'sacola' || c.enviadaPor === 'guiado') ? c.enviadaPor : enviada !== null ? 'guiado' : null
-  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub, enviadaPor }
+  const sacola = enviada !== null && typeof c.sacola === 'string' && c.sacola.length <= 4000 ? c.sacola : null
+  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub, enviadaPor, sacola }
 }
 
 interface ChatState {
@@ -128,18 +152,27 @@ interface ChatState {
   /** O site trocou de estado com o pedido pela metade: recomeça pelo atendimento e tira o que era do estado de antes. */
   conferirEstado: () => void
   pedido: CodigoPedido
-  /** A cópia com esse código foi pro servidor (no toque do WhatsApp). por: quem mandou (padrão: o pedido guiado). */
-  marcarPedidoEnviado: (mensagem: string, por?: 'sacola' | 'guiado') => void
   /**
-   * A sacola mandou com um código que ela sorteou na hora (o de agora já tinha ido com outra mensagem): ele vira o
-   * código do pedido, já enviado, no lugar do de antes (substitui, dentro das 2 h). O "Já mandou?" do guiado sai junto.
+   * A cópia com esse código foi pro servidor (no toque do WhatsApp). por: quem mandou (padrão: o pedido guiado);
+   * sacola: a chave da sacola que foi (chaveDaSacola).
    */
-  usarCodigoDaSacola: (novo: { codigo: string; token: string }, mensagem: string) => void
+  marcarPedidoEnviado: (mensagem: string, por?: 'sacola' | 'guiado', sacola?: string | null) => void
+  /**
+   * A sacola mandou com um código que ela sorteou na hora (o de agora já tinha ido com outra mensagem, ou venceu): ele
+   * vira o código do pedido, já enviado, no lugar do de antes (substitui, dentro das 2 h). O "Já mandou?" do guiado sai
+   * junto.
+   */
+  usarCodigoDaSacola: (novo: { codigo: string; token: string }, mensagem: string, sacola: string) => void
   /**
    * O pedido mudou depois de ir pro servidor: código novo, que substitui o de antes. O "Já mandou?" sai junto: a
    * mensagem nova ainda não foi pro WhatsApp (o resumo volta a pedir pra fechar lá).
    */
   trocarCodigo: () => void
+  /**
+   * O código venceu (codigoVencido): o próximo envio é outro pedido, com código novo e sem substituir o de antes. O
+   * "Já mandou?" do resumo fica (ele pergunta do de antes); o link do WhatsApp já sai com o novo.
+   */
+  renovarCodigo: () => void
   abrir: (modo: ModoChat, opts?: { produtoEncomenda?: string; respondendo?: string[]; de?: 'story' | 'pagina' }) => void
   fechar: () => void
   responder: (passo: Passo, dados: Partial<Respostas>, proximo: Passo) => void
@@ -179,13 +212,15 @@ export const useChat = create<ChatState>()(
         set({ feitos: [], passo: inicio(s.modo), enviadoEm: null, ufLocal: null, respostas: r })
       },
       pedido: codigoNovo(),
-      marcarPedidoEnviado: (mensagem, por = 'guiado') => set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now(), enviadaPor: por } })),
-      usarCodigoDaSacola: (novo, mensagem) =>
+      marcarPedidoEnviado: (mensagem, por = 'guiado', sacola = null) =>
+        set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now(), enviadaPor: por, sacola } })),
+      usarCodigoDaSacola: (novo, mensagem, sacola) =>
         set((s) => ({
-          pedido: { codigo: novo.codigo, token: novo.token, enviada: mensagem, enviadaEm: Date.now(), substitui: substituiDe(s.pedido), enviadaPor: 'sacola' },
+          pedido: { codigo: novo.codigo, token: novo.token, enviada: mensagem, enviadaEm: Date.now(), substitui: substituiDe(s.pedido), enviadaPor: 'sacola', sacola },
           enviadoEm: null,
         })),
       trocarCodigo: () => set((s) => ({ pedido: codigoNovo(substituiDe(s.pedido)), enviadoEm: null })),
+      renovarCodigo: () => set((s) => ({ pedido: codigoNovo(substituiDe(s.pedido)) })),
       abrir: (modo, opts) => {
         // trocou de estado desde que confirmou o atendimento: recomeça por ele
         get().conferirEstado()

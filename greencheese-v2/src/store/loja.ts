@@ -418,6 +418,7 @@ export function iniciarLoja({
   ufPedida = null,
   produtosPedidos = [],
 }: { pedidoAberto?: () => boolean; ufPedida?: string | null; produtosPedidos?: readonly (string | null | undefined)[] } = {}): void {
+  comPedidoAberto = pedidoAberto
   if (typeof window === 'undefined' || semServidorAqui()) {
     avisarPrimeira()
     return
@@ -442,6 +443,21 @@ export function iniciarLoja({
     }
     if (escondidaEm && Date.now() - Math.max(escondidaEm, ultimaBusca) >= VOLTA_MS && !pedidoAberto()) void buscarLoja()
   })
+}
+
+let comPedidoAberto: () => boolean = () => false
+
+/**
+ * Confere a loja de novo, barato (o ETag: sem mudança, 304 sem corpo), se a última conversa foi há mais de `depoisDe`
+ * ms: a sacola aberta pergunta (na hora que abre e de tempos em tempos), pra o pedido mínimo ou a taxa que o dono
+ * mudou no painel valerem antes do toque, sem recarregar a página. Com o pedido guiado aberto, não (o pedido montado
+ * não muda debaixo da pessoa); com a aba escondida, também não.
+ */
+export function conferirLoja(depoisDe: number): void {
+  if (typeof window === 'undefined' || semServidorAqui() || buscando) return
+  if (document.visibilityState !== 'visible' || comPedidoAberto()) return
+  if (Date.now() - ultimaBusca < depoisDe) return
+  void buscarLoja()
 }
 
 /* ───────────────────────── leitura ───────────────────────── */

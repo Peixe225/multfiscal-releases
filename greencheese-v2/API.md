@@ -175,7 +175,12 @@ um aviso num grupo do WhatsApp (Avisos no WhatsApp, abaixo).
   até 2 h depois do envio, o pedido novo vai com `substitui: { codigo, token }` do de antes. O de antes, se ainda `novo`
   e de até 2 h atrás (relógio do servidor), vira `cancelado` com `substituidoPor`; se já andou (ou passou das 2 h), os
   dois ficam, ligados, e o aviso do grupo pede pra conferir. Depois das 2 h o aparelho manda sem `substitui`: é outro
-  pedido (a pessoa voltou outro dia sem tocar em "Mandei"). O de antes que ainda não tinha chegado (o envio dele falhou):
+  pedido (a pessoa voltou outro dia sem tocar em "Mandei"). E depois das 2 h o código também **vence** no aparelho: o
+  mesmo pedido mandado de novo, até igual, sai com **código e token novos** (com o mesmo, o servidor responderia
+  `repetido` e não gravaria nem avisaria; o mesmo token é sempre o mesmo pedido, sem prazo: a fila do aparelho manda de
+  novo por até 3 dias). A sacola e o pedido guiado dividem o código; o guiado que já foi com a mesma sacola (os mesmos
+  itens e quantidades, dentro das 2 h) a sacola reconhece: o botão dela abre a mesma mensagem, sem outra cópia (mandar
+  de novo a mesma sacola não é o pedido mudado). O de antes que ainda não tinha chegado (o envio dele falhou):
   o aparelho tira a cópia dele da fila quando manda o mudado, e o servidor guarda no mudado o código e o hash do token
   do `substitui` — se o de antes chegar depois mesmo assim, entra já `cancelado`, ligado ao mudado, sem aviso no grupo.
 - No aparelho, a cópia fica pendente (`localStorage` `gc-pedidos`, até 10, por 3 dias) até o servidor confirmar: a
@@ -236,8 +241,17 @@ interface CorpoPedido {
   nome, o servidor usa o da conta. Todo o resto confere igual ao guiado: código, token, itens, subtotal, estado,
   mensagem com o cabeçalho e a linha do código, Origin, armadilha, tabaco e o limite por IP. O painel mostra "Sem
   nome" e o endereço "na conversa"; o aviso do grupo, `*Cliente:* Sem nome` e a linha `_Pela sacola: endereço e
-  pagamento vêm na conversa._`; a Atividade, "Pedido GC-… pela sacola do site". (O servidor não confere o preço contra o
-  catálogo, nem antes: quem confirma o valor é a loja, na conversa.)
+  pagamento vêm na conversa._`; a Atividade, "Pedido GC-… pela sacola do site".
+- **Valor que não bate: só marca** (vale pra sacola e pro guiado, desde a revisão de 14/10). O servidor confere a cópia
+  com o catálogo de agora e com o pedido mínimo do estado, mas **nunca recusa** por isso (a mensagem já foi do cliente
+  pra loja, e quem confirma o valor é a loja, na conversa): o preço da unidade (o da opção, pelo nome, ou o do produto)
+  e o total da linha com o melhor combo (a mesma conta do site, `src/lib/preco.ts`; a opção com preço próprio diferente
+  não leva o combo), o item com preço que não tá no catálogo (`produtoId` que não existe ou desativado) e o subtotal
+  abaixo do `pedidoMinimo` do estado (só com todos os itens com preço, sem o desconto do cupom, como no site). O que não
+  bater vira a **anotação** do pedido (`nota`: `Confere o valor na conversa: 10x Jack Daniel's Old No. 7 1 L: R$ 0,10 no
+  site, R$ 1.499,00 no catálogo.`, até 6 itens) e uma linha no aviso do grupo, logo embaixo do subtotal
+  (`_Confere o valor na conversa: …_`). O preço que o dono acabou de mudar no painel também aparece assim (o cliente viu
+  o de antes). Catálogo que não dá pra ler (loja não instalada, a 105 ainda não rodou): nada a marcar.
 - **Campo informativo não derruba o pedido**: cupom, pagamento e troco tortos ficam de fora (null) e o pedido entra.
   Campo estrutural torto (`uf`, `nome`, `itens`, `subtotal`, `encomenda`) com a **mensagem certa** (começa com o
   cabeçalho e tem a linha do código): o pedido entra só com a mensagem (sem itens; o estado e o nome saem do cabeçalho e
@@ -303,8 +317,10 @@ contagem por status vale pro estado escolhido (`abertos` = novo + confirmado + s
 **Ao vivo (ETag)**: `admin-pedidos` e `admin-pedidos-resumo` mandam `ETag` (o hash da resposta sem o `agora`: muda
 quando chega pedido, quando um muda de passo ou de dados; é de quem pergunta — os estados que ele vê, o filtro, a
 busca) e respondem **304 sem corpo** ao `If-None-Match` igual (`W/"…"`, a lista `"a", "b"` e o `"…-gzip"` do
-proxy valem). O painel pergunta de novo a cada 15 s com a lista ou o Início abertos e a cada 60 s nas outras telas (a
-bolinha da barra), só com a aba à vista; quando ela volta, na hora. `ultimoId` = o id do pedido mais novo que a
+proxy valem). O painel pergunta de novo a cada 15 s com a lista ou o Início abertos — os dois, a lista e o resumo (a
+bolinha da barra), também com a lista filtrada por um estado — e a cada 60 s nas outras telas (só a bolinha), só com
+a aba à vista; quando ela volta, na hora. A data e a hora das linhas ("hoje 15:42", "ontem", "14/10 · 15:42") são
+relidas de minuto em minuto no aparelho, então viram na meia-noite mesmo quando o servidor responde 304. `ultimoId` = o id do pedido mais novo que a
 pessoa vê (0 = nenhum).
 
 **Status do pedido** (`admin-pedido-status`): `novo → confirmado → saiu → entregue`, voltar um passo (toque errado:
@@ -943,7 +959,9 @@ interface EstadoLoja {
   entregaGratis: { diaSemana: number; dias: number[]; texto: string; demo: boolean } | null // diaSemana = dias[0]
   pagamento: { opcoes: ('pix' | 'dinheiro' | 'cartao')[]; demo: boolean }
   pedidoMinimo?: number          // o pedido mínimo pra entrega, em reais (20 = R$ 20,00), de 0,01 a 1000; sem o campo = sem
-                                 // mínimo. A conta: os produtos com os combos, antes da taxa e sem o desconto do cupom (DECISOES 18)
+                                 // mínimo. A conta: os produtos com os combos, antes da taxa e sem o desconto do cupom (DECISOES 18).
+                                 // A sacola aberta pergunta a loja de novo (o ETag: 304 sem mudança) ao abrir e a cada 30 s:
+                                 // o mínimo que o dono muda no painel vale sem recarregar
   emblema: 'pao-de-acucar' | 'pedra-preciosa' | 'predio-sp' | 'convento-es' | 'ponte-sc' | 'generico' // generico: estado ativado no painel
 }
 
@@ -1063,13 +1081,17 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   2 a 60 letras, sem repetir (`[{ nome }]` ou `['nome']`: o slug sai do nome); `horario` 7 dias, cada um `null` ou
   `['HH:MM', 'HH:MM']` (abre ≠ fecha; fechar antes de abrir = madrugada do dia seguinte), o erro diz o `dia`; `taxa`
   `null` (a confirmar) ou de R$ 0 a R$ 100.000; `entregaGratis` `null` ou `{ dias: number[] (0–6), texto (2–40) }`;
-  `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `pedidoMinimo` `null` ou vazio (sem mínimo) ou de
-  R$ 0,01 a R$ 1.000,00 (fora disso, 400 `campo: 'pedidoMinimo'`; sem o campo, fica como tava); `ativo` (o último estado no site não sai: 409
+  `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `pedidoMinimo` `null`, vazio ou R$ 0 (`0`, `'0,00'`: os
+  três = sem mínimo, o painel guarda `null`) ou de R$ 0,01 a R$ 1.000,00 (negativo, acima de R$ 1.000,00, mais de 2
+  casas ou o que não é valor: 400 `campo: 'pedidoMinimo'`; sem o campo, fica como tava); `ativo` (o último estado no site não sai: 409
   `ultimo-estado`). Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
   junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`. Destaque, nome do perfil e cidades
   sem tabaco nem a gíria e a promessa (422, como no produto; o nome do perfil aparece no cabeçalho do site). A taxa de
   verdade e o dia de entrega grátis aparecem na sacola e na mensagem do pedido (`(taxa R$ 15,50)`,
-  `(entrega grátis hoje)`); a de exemplo, não ("taxa a confirmar").
+  `(entrega grátis hoje)`); a de exemplo, não ("taxa a confirmar"). O "grátis hoje" só com a loja atendendo ainda
+  hoje pelo horário de verdade (aberta, ou abre mais tarde; o turno que passa da meia-noite conta): fechada até amanhã,
+  a mensagem sai com a taxa do painel (ou "a confirmar"), e a sacola diz quando abre ("Fechado · abre amanhã 10h: a
+  loja responde quando abrir.", sem travar).
 - **Stories**: até 8 (as barrinhas do topo), sem repetir, produtos que existem, `uf` da loja; lista vazia =
   automático. No `GET loja` passam só os que estão à venda no estado na hora (no site, ligado, com estoque); se nenhum
   estiver, o estado fica no automático.
