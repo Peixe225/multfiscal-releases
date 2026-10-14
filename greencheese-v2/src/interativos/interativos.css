@@ -5,6 +5,9 @@
   inset: 0;
   bottom: var(--teclado, 0px);
   z-index: 55; /* igual à página do produto (que vem depois no DOM e pinta por cima); folhas (60+) por cima */
+  /* a casca cobre a tela inteira e é um mundo à parte: o que muda dentro dela (a revelação do jogo, o story) não
+     recalcula o layout da página inteira por baixo (eram ~3 mil caixas a cada troca de fase) */
+  contain: strict;
 }
 .casca-cortina {
   display: none;

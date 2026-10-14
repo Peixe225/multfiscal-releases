@@ -159,11 +159,14 @@
   -webkit-touch-callout: none;
 }
 /* o gesto só no palco do jogo: touch-action none só aqui (o resto da tela rola) */
-.sorte-palco-ativo {
+/* o toque e o cursor do giro ficam no modo (girar), não no "ativo": os dois passam pra todas as ~240 peças do desenho
+   do dichavador (o cursor é herdado, o toque efetivo também), e tirar o ativo no estalo recalculava o estilo de todas no
+   quadro do estalo. Na revelação (ainda no modo girar) a coluna não rola e a fumaça cobre o palco */
+.sorte-palco-girar {
   touch-action: none;
   cursor: grab;
 }
-.sorte-palco-ativo:active {
+.sorte-palco-girar.sorte-palco-ativo:active {
   cursor: grabbing;
 }
 
@@ -182,11 +185,22 @@
   stroke: var(--branco);
 }
 
+/* escondidos até a câmera deitar; opacidade quase zero (e não zero) pra camada já sair rasterizada no convite: com 0 o
+   navegador não rasteriza, e a 1ª rasterização do desenho inteiro caía nos primeiros quadros da revelação */
 .sorte-corpo,
 .sorte-labio {
   position: absolute;
   pointer-events: none;
-  opacity: 0;
+  opacity: 0.002;
+}
+/* as peças do dichavador que a revelação mexe já ficam em camadas próprias: deitar, saltar e cair são só compositor
+   (nada de repintar o desenho delas no estalo) */
+.sorte-corpo,
+.sorte-labio,
+.sorte-tampa,
+.sorte-lado,
+.sorte-disco {
+  will-change: transform, opacity;
 }
 .sorte-corpo {
   z-index: 3;
@@ -238,7 +252,7 @@
 }
 .sorte-lado {
   position: absolute;
-  opacity: 0;
+  opacity: 0.002;
 }
 .sorte-disco {
   position: absolute;
@@ -583,7 +597,29 @@
   /* na revelação o story é só o lugar final (escondido até sair da fumaça): o toque passa pra fumaça (pular) */
   pointer-events: none;
 }
-/* o story monta escondido (por classe, sem gsap.set em cada peça no estalo); a saída da fumaça mostra cada parte */
+/* no convite o story já fica montado, escondido, no lugar final (com um prêmio provisório): o layout pesado dele sai
+   antes do giro. Escondido como na revelação (as partes, não o conjunto; o conjunto fica inerte nas duas): no estalo só
+   o z-index dele muda, nada é recalculado nas peças; os dados de verdade entram logo depois, em outro commit */
+.sorte > .sorte-story.sorte-story-pre {
+  position: absolute;
+  z-index: 0;
+  top: 8px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  pointer-events: none;
+}
+.sorte > .sorte-story.sorte-story-pre[data-modo='lado'] {
+  grid-column: auto;
+  grid-row: auto;
+}
+/* o story monta escondido (por classe, sem gsap.set em cada peça no estalo); a saída da fumaça mostra cada parte. O
+   quadro tem camada própria: o story entra só mudando a opacidade dela (sem repintar o 9:16 inteiro a cada quadro) */
+.sorte > .sorte-story .story-premio {
+  will-change: opacity;
+}
+.sorte > .sorte-story.sorte-story-pre .story-premio,
+.sorte > .sorte-story.sorte-story-pre .sorte-pe,
 .sorte.sorte-revelando > .sorte-story .story-premio,
 .sorte.sorte-revelando > .sorte-story .sorte-pe {
   visibility: hidden;

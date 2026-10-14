@@ -120,6 +120,20 @@ function fixar(alvos: gsap.TweenTarget | (Element | null | undefined)[], v: gsap
   if (lista.length) gsap.set(lista, v)
 }
 
+/**
+ * A opacidade escrita direto (sem o gsap.set, que lê o estilo calculado de cada peça antes de escrever: com as escritas
+ * no meio cada leitura recalculava o estilo; era o grosso do quadro da saída da fumaça). Pra esconder, a opacidade 0 e
+ * a visibilidade herdada (não "hidden": ela é herdada, e mudar recalculava cada peça inteira; o story está inerte até o
+ * fim da festa); as duas ficam escritas na peça, e o autoAlpha dos tweens depois lê daí, sem calcular o estilo.
+ */
+function alfa(lista: (Element | null | undefined)[], v: 0 | 1) {
+  for (const x of lista) {
+    if (!(x instanceof HTMLElement || x instanceof SVGElement)) continue
+    x.style.opacity = String(v)
+    x.style.visibility = 'inherit'
+  }
+}
+
 /** O que entra no story na comemoração. */
 function partesDoStory(q: HTMLElement) {
   const um = (s: string) => q.querySelector<HTMLElement>(s)
@@ -164,13 +178,13 @@ export function origemDoBeck(el: ElementosRevelacao): Origem | null {
  * da linha quando tem espaço; quando o destaque ocupa a largura toda ("LEVA 4 PAGA 3" em 320 px), em cima das pontas.
  * Medido uma vez, antes da comemoração (left/top fixos; o movimento é só scale e opacity).
  */
-function posicionarBrilhos(valor: HTMLElement, brilhos: HTMLElement[], quadro: HTMLElement) {
+function medirBrilhos(valor: HTMLElement, brilhos: HTMLElement[], quadro: HTMLElement): { b: HTMLElement; left: number; top: number }[] {
   const texto = valor.firstChild
-  if (!texto || texto.nodeType !== Node.TEXT_NODE) return
+  if (!texto || texto.nodeType !== Node.TEXT_NODE) return []
   const faixa = document.createRange()
   faixa.selectNodeContents(texto)
   const linhas = [...faixa.getClientRects()]
-  if (!linhas.length) return
+  if (!linhas.length) return []
   const c = valor.getBoundingClientRect()
   const q = quadro.getBoundingClientRect()
   const minX = q.left + 6
@@ -184,30 +198,102 @@ function posicionarBrilhos(valor: HTMLElement, brilhos: HTMLElement[], quadro: H
     lugar(1, [prim.right + 5, prim.top - 12], [prim.right - tam[1] - 2, prim.top - tam[1] - 4]),
     lugar(2, [ult.right + 8, ult.top + ult.height * 0.35], [prim.left + prim.width * 0.74, prim.top - tam[2] - 2]),
   ]
+  const lugares: { b: HTMLElement; left: number; top: number }[] = []
   brilhos.forEach((b, i) => {
     const p = pos[i]
     if (!p) return
     const x = Math.min(Math.max(p[0], minX), maxX - tam[i])
-    Object.assign(b.style, { left: `${Math.round(x - c.left)}px`, top: `${Math.round(p[1] - c.top)}px` })
+    lugares.push({ b, left: Math.round(x - c.left), top: Math.round(p[1] - c.top) })
   })
+  return lugares
 }
 
 /** Rumo de cada pedaço de confete em px: fração gravada no pedaço × o espaço da vitrine (lados e em cima). */
-function rumoDoConfete(festa: HTMLElement[], quadro: HTMLElement) {
+function medirConfete(festa: HTMLElement[], quadro: HTMLElement): { p: HTMLElement; x: number; y: number }[] {
   const vitrine = festa[0]?.closest<HTMLElement>('.sp-vitrine')
-  if (!vitrine) return
+  if (!vitrine) return []
   const v = vitrine.getBoundingClientRect()
   const q = quadro.getBoundingClientRect()
   const centro = festa[0].parentElement!.getBoundingClientRect()
   const ladoEsq = centro.left - q.left - 10
   const ladoDir = q.right - centro.left - 10
   const cima = centro.top - v.top
-  for (const p of festa) {
+  return festa.map((p) => {
     const fx = +(p.dataset.dx ?? 0)
     const fy = +(p.dataset.dy ?? 0)
-    p.dataset.x = String(Math.round(fx * (fx < 0 ? ladoEsq : ladoDir) * 0.92))
-    p.dataset.y = String(Math.round(fy * cima * 0.95))
+    return { p, x: Math.round(fx * (fx < 0 ? ladoEsq : ladoDir) * 0.92), y: Math.round(fy * cima * 0.95) }
+  })
+}
+
+/**
+ * O que a saída da fumaça precisa medir, só leituras: os brilhos, o rumo do confete e o voo de cada parte do cartão até
+ * a do story. Medido no auge (o cartão assentado, o story escondido parado no lugar, o layout limpo), um respiro antes
+ * de o story sair: na hora da saída nada é lido (era o quadro mais longo do fim, com o layout calculado no meio).
+ */
+export interface MedidasSaida {
+  brilhos: { b: HTMLElement; left: number; top: number }[]
+  confete: { p: HTMLElement; x: number; y: number }[]
+  voos: [HTMLElement, DOMRect, DOMRect, number][]
+  escCartao: number
+}
+
+/** As partes do cartão do prêmio na fumaça, sem soltar ele (só pra medir). */
+export function cartaoDaFumaca(fumaca: Element | null): CartaoFumaca | null {
+  const cartao = fumaca?.querySelector<HTMLElement>('.fm-cartao')
+  if (!cartao) return null
+  return { cartao, visual: cartao.querySelector('.fm-visual'), carimbo: cartao.querySelector('.fm-carimbo'), destaque: cartao.querySelector('.fm-destaque'), nome: cartao.querySelector('.fm-produto') }
+}
+
+export function medirSaida(el: ElementosRevelacao, c: CartaoFumaca | null): MedidasSaida | null {
+  const q = el.quadro()
+  if (!q) return null
+  const s = partesDoStory(q)
+  const voos: [HTMLElement, DOMRect, DOMRect, number][] = []
+  if (c) {
+    const par = (a: HTMLElement | null, b: HTMLElement | null, giro = 0) => {
+      if (!a || !b) return
+      const ra = a.getBoundingClientRect()
+      const rb = b.getBoundingClientRect()
+      if (ra.width && rb.width) voos.push([a, ra, rb, giro])
+    }
+    par(c.visual, s.produto)
+    par(c.carimbo, s.raridade, 6)
+    par(c.destaque, s.valor)
+    par(c.nome, s.alvo)
   }
+  return {
+    brilhos: s.valor ? medirBrilhos(s.valor, s.brilhos, q) : [],
+    confete: s.festa.length ? medirConfete(s.festa, q) : [],
+    voos,
+    escCartao: c ? c.cartao.getBoundingClientRect().width / Math.max(1, c.cartao.offsetWidth) : 1,
+  }
+}
+
+/**
+ * Aquece o GSAP no convite (num momento ocioso): lê uma vez o transform de cada peça que a revelação vai mexer (o GSAP
+ * guarda e não lê de novo). Sem isto o 1º quadro de cada tween lia o estilo calculado das peças no meio da fumaça.
+ * Só as peças que nada além do GSAP mexe (o cartão da fumaça é do motor: fica de fora).
+ */
+export function aquecerRevelacao(el: ElementosRevelacao) {
+  const q = el.quadro()
+  const pe = el.pe()
+  const s = q ? partesDoStory(q) : null
+  const alvos: (Element | null | undefined)[] = [el.disco, el.corpo, el.labio, el.lado, el.tampa, el.rotor, el.anel, el.indicador, ...el.sumir, ...el.subir, el.segAbrir, el.segPremio, el.cromo, el.titulo, q, pe, ...(pe ? [...pe.children] : [])]
+  if (s) alvos.push(s.produto, s.deu, s.raridade, s.valor, s.alvo, s.apoio, s.codigo, s.contagem, s.cond)
+  for (const a of alvos) if (a) gsap.getProperty(a, 'x')
+}
+
+/**
+ * No auge (o story já com o prêmio de verdade): o GSAP lê uma vez o transform das peças do story, do pé e das partes do
+ * cartão que voam (menos o carimbo, que o motor ainda mexe até soltar o cartão).
+ */
+export function aquecerStory(el: ElementosRevelacao, c: CartaoFumaca | null) {
+  const q = el.quadro()
+  const pe = el.pe()
+  const s = q ? partesDoStory(q) : null
+  const alvos: (Element | null | undefined)[] = [q, pe, ...(pe ? [...pe.children] : []), c?.visual, c?.destaque, c?.nome]
+  if (s) alvos.push(s.produto, s.deu, s.raridade, s.valor, s.alvo, s.apoio, s.codigo, s.contagem, s.cond, ...s.festa, ...s.brilhos)
+  for (const a of alvos) if (a) gsap.getProperty(a, 'x')
 }
 
 /** O palco do dichavador some de uma vez (pulou: a fumaça já está na tela). */
@@ -313,7 +399,7 @@ export interface CartaoFumaca {
  * fumaça some: nunca dois). Aí a comemoração em pixel bate no story e as ações sobem; no fim, aoFim.
  * `rapido`: quem pulou (o voo e a cortina mais curtos).
  */
-export function entrarStory(el: ElementosRevelacao, o: { aoFim: () => void; cartao: CartaoFumaca | null; abrirFumaca: (seg: number) => void; rapido?: boolean }): gsap.core.Timeline {
+export function entrarStory(el: ElementosRevelacao, o: { aoFim: () => void; cartao: CartaoFumaca | null; abrirFumaca: (seg: number) => void; rapido?: boolean; medidas?: MedidasSaida | null }): gsap.core.Timeline {
   const tl = gsap.timeline()
   const q = el.quadro()
   const pe = el.pe()
@@ -323,33 +409,31 @@ export function entrarStory(el: ElementosRevelacao, o: { aoFim: () => void; cart
   }
   const s = partesDoStory(q)
   const peFilhos = pe ? [...pe.children] : []
-  // medidas (antes de escrever qualquer estilo)
-  if (s.valor) posicionarBrilhos(s.valor, s.brilhos, q)
-  if (s.festa.length) rumoDoConfete(s.festa, q)
   const c = o.cartao
-  const voos: [HTMLElement, DOMRect, DOMRect, number][] = []
-  if (c) {
-    const par = (a: HTMLElement | null, b: HTMLElement | null, giro = 0) => {
-      if (!a || !b) return
-      const ra = a.getBoundingClientRect()
-      const rb = b.getBoundingClientRect()
-      if (ra.width && rb.width) voos.push([a, ra, rb, giro])
-    }
-    par(c.visual, s.produto)
-    par(c.carimbo, s.raridade, 6)
-    par(c.destaque, s.valor)
-    par(c.nome, s.alvo)
+  // as medidas do auge (ou agora, antes de escrever qualquer estilo, quando não vieram)
+  const m = o.medidas ?? medirSaida(el, c)
+  const voos = m?.voos ?? []
+  const escCartao = m?.escCartao ?? 1
+  for (const x of m?.brilhos ?? []) Object.assign(x.b.style, { left: `${x.left}px`, top: `${x.top}px` })
+  for (const x of m?.confete ?? []) {
+    x.p.dataset.x = String(x.x)
+    x.p.dataset.y = String(x.y)
   }
-  const escCartao = c ? c.cartao.getBoundingClientRect().width / Math.max(1, c.cartao.offsetWidth) : 1
   const voo = o.rapido ? 0.22 : 0.45
   const cortina = o.rapido ? 0.34 : 0.52
 
   // o story pronto embaixo, ainda sem o que vai chegar voando
-  fixar([s.produto, s.raridade, s.valor, s.alvo, s.deu, s.apoio, s.codigo, s.contagem, s.cond, ...s.festa, ...s.brilhos], { autoAlpha: 0 })
-  if (pe) fixar([pe, ...peFilhos], { autoAlpha: 0 })
+  alfa([s.produto, s.raridade, s.valor, s.alvo, s.deu, s.apoio, s.codigo, s.contagem, s.cond, ...s.festa, ...s.brilhos], 0)
+  if (pe) alfa([pe, ...peFilhos], 0)
   fixar(peFilhos, { y: 12 })
-  fixar(q, { autoAlpha: 0 })
-  if (el.cromo) tl.to(el.cromo, { autoAlpha: 0, duration: 0.15, ease: 'none' }, 0)
+  alfa([q], 0)
+  if (el.cromo) {
+    // o valor de partida já escrito (o GSAP não lê o estilo calculado do cromo no 1º quadro do voo: o autoAlpha lê a
+    // opacidade e a visibilidade)
+    el.cromo.style.opacity = '1'
+    el.cromo.style.visibility = 'inherit'
+    tl.to(el.cromo, { autoAlpha: 0, duration: 0.15, ease: 'none' }, 0)
+  }
   if (el.segPremio) tl.to(el.segPremio, { scaleX: 1, duration: 0.15, ease: 'none' }, 0)
   tl.call(() => o.abrirFumaca(cortina), [], 0)
   // o voo: cada parte do cartão até a do story (translate + escala, no referencial do cartão, que tem a escala dele)
@@ -364,8 +448,8 @@ export function entrarStory(el: ElementosRevelacao, o: { aoFim: () => void; cart
   // pousou: troca no mesmo quadro
   tl.call(
     () => {
-      fixar([s.produto, s.raridade, s.valor, s.alvo], { autoAlpha: 1 })
-      if (c) fixar(c.cartao, { autoAlpha: 0 })
+      alfa([s.produto, s.raridade, s.valor, s.alvo], 1)
+      if (c) alfa([c.cartao], 0)
     },
     [],
     voo,

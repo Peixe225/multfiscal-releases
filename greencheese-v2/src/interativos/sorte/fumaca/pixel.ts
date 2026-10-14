@@ -17,14 +17,46 @@
 // O beck, o isqueiro, a chama, os fiapos, as argolas, os olhos e as bocas são "sprites" desenhados célula a célula numa
 // máscara (código da parte + tom) e compostos com o contorno de 1 célula de quem está na borda (vizinho vazio).
 import { TORCIDA_ANG, TORCIDA_L } from './cena'
-import { CABECA, FRENTE, FUNDO, misturar, NB, PASSO_BOLHA, px32, type Anel, type EstadoBeckPx, type EstadoIsqueiro, type Olho, type Paleta, type Quadro } from './quadro'
+import { CABECA, FRENTE, FUNDO, misturar, NB, paleta, PASSO_BOLHA, px32, type Anel, type EstadoBeckPx, type EstadoIsqueiro, type Olho, type Paleta, type Quadro } from './quadro'
 
 const T = 0.25
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16)
 const bayer = (i: number, j: number) => BAYER4[((j & 3) << 2) | (i & 3)]
-/** A luz vem de cima à esquerda. */
+/** A luz vem de cima à esquerda (no plano); na fumaça, também da frente (o relevo dos lóbulos). */
 const LX = -0.6
 const LY = -0.8
+const LX3 = -0.42
+const LY3 = -0.56
+const LZ = 0.71
+/** As faixas da luz na fumaça: acima de LUZ a luz, de MEIO o meio, de SOMBRA a sombra; abaixo, a sombra funda. */
+const LUZ = 0.87
+const MEIO = 0.6
+const SOMBRA = 0.27
+/** O pedaço da grade grossa em que a lista de lóbulos é recortada (nós de lado). */
+const PED = 4
+/**
+ * O alcance do lóbulo no campo: o núcleo é (1 − q²), q = d / (SUP·r), e o limiar T = 0,25 cai em d = r (o lóbulo
+ * aparece com o raio dele). Um núcleo afiado, de alcance curto: os lóbulos se fundem com um vinco pequeno (redondos,
+ * não massa de modelar) e cada ponto da tela soma poucos lóbulos (o campo custa metade do que custava com (1 − q²)³).
+ */
+const SUP = 1 / Math.sqrt(1 - T)
+/** Dentro do raio do lóbulo (a esfera dele): q² < 1/SUP². */
+const RHO2 = SUP * SUP
+const DENTRO = 1 / RHO2
+/** Quanto a normal de cada lóbulo torce com os calombos dele (o sombreado rola junto com o giro). */
+const TORCE = 0.55
+/** O brilho de cada lóbulo dá uma voltinha em torno do lugar dele conforme ele gira (o miolo também rola). */
+const ORBITA = 0.16
+/** O contraste da luz cai no miolo da massa (campo alto): a fumaça se funde, as faixas fortes ficam na borda. */
+function funde(d: number, f: number): number {
+  const c = f < 1.4 ? 1 : Math.max(0.88, 1 - (f - 1.4) * 0.06)
+  return LZ + (d - LZ) * c
+}
+/** A luz numa esfera (achatada: os lóbulos de fumaça são fofos, não bolas). */
+function luzEsfera(nx: number, ny: number, nz: number): number {
+  const k = 0.95
+  return (nx * k * LX3 + ny * k * LY3 + nz * LZ) / Math.sqrt(k * k * (nx * nx + ny * ny) + nz * nz)
+}
 
 /** 0–1, estável por (a, b, c). */
 export function hash3(a: number, b: number, c: number): number {
@@ -61,15 +93,26 @@ const P_BOCA = 22
 const P_DENTE = 23
 const P_LINGUA = 24
 const P_CONTORNO = 25
-const NPARTES = 26
+/** O fogo do carvão (amarelo e o miolo quase branco), o carvão apagado e o papel na luz da brasa. */
+const P_FOGO = 26
+const P_CARVAO = 27
+const P_QUENTE = 28
+const NPARTES = 29
+/** Onde ficam as rachaduras da cinza (fração do comprimento dela). */
+const RACHAS = [0.34, 0.68]
 
 /** Cores fixas (tons 1, 2, 3) e o contorno de cada parte. */
 const FIXAS: Partial<Record<number, [string, string, string, string]>> = {
   [P_PITEIRA]: ['#2a170c', '#a8875a', '#d9c39a', '#efe2c4'],
   [P_PAPEL]: ['#2a170c', '#b8956a', '#e3cfa8', '#f6ead2'],
   [P_TOSTADO]: ['#2a170c', '#4a2a14', '#7a4a22', '#9a6a3a'],
-  [P_CINZA]: ['#3a3532', '#6f6a66', '#a9a39d', '#d9d4ce'],
-  [P_RACHA]: ['#3a3532', '#4d4743', '#4d4743', '#4d4743'],
+  [P_CINZA]: ['#3a3532', '#8f8881', '#bdb6ae', '#e4dfd8'],
+  [P_RACHA]: ['#3a3532', '#59524d', '#59524d', '#59524d'],
+  // o carvão: vermelho-escuro, vermelho e laranja; o fogo: amarelo e o miolo quase branco
+  [P_BRASA]: ['#2a0a04', '#8a1e0a', '#d8361a', '#ff7a1a'],
+  [P_FOGO]: ['#2a0a04', '#ffc23a', '#fff3c4', '#fff3c4'],
+  [P_CARVAO]: ['#2a0a04', '#3e0e06', '#5a1608', '#6e1c0a'],
+  [P_QUENTE]: ['#2a170c', '#c97a3e', '#eaa462', '#ffcf8f'],
   [P_TORCIDA]: ['#2a170c', '#b8956a', '#e3cfa8', '#f6ead2'],
   [P_BOCA_PIT]: ['#2a170c', '#a8875a', '#c9b088', '#d9c39a'],
   [P_M]: ['#2a170c', '#2a170c', '#2a170c', '#2a170c'],
@@ -86,7 +129,7 @@ const FIXAS: Partial<Record<number, [string, string, string, string]>> = {
 }
 
 interface PaletaIso {
-  /** 5 faixas × (sombra, meio, luz) e o contorno; a de trás um pouco mais escura. */
+  /** 5 faixas × (sombra funda, sombra, meio, luz) e o contorno; a de trás um pouco mais escura. */
   frente: Uint32Array
   fundo: Uint32Array
   contorno: number
@@ -129,9 +172,13 @@ class Pintor implements Desenho {
   private gx = 1
   private gy = 1
   private cg: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
+  /** Por camada, na grade grossa: a opacidade acumulada (Σ v·alfa) e a luz do relevo. */
+  private ca: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
+  private cd: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
+  /** Quanto da fumaça no nó é "de verdade" (cinza: as baforadas), por camada (Σ v·cinza / Σ v). */
+  private cc: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
   private fg: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
   private temCamada = [false, false, false]
-  private ruido = new Float32Array(1)
   // recorte por pedaços (8×8 nós) da lista de bolhas
   private pedX = 1
   private pedY = 1
@@ -139,6 +186,7 @@ class Pintor implements Desenho {
   private pedL = new Int16Array(1)
   private bIa = new Float32Array(NB)
   private bIc = new Float32Array(NB)
+  private bLim = new Float32Array(NB)
   // caches (o que não muda de um quadro pro outro): a fervura por semente, o ondulado separável por linha e coluna,
   // o raio e o ângulo de cada célula em volta do meio do túnel e do prêmio, as cores do túnel
   private ferveX = new Float32Array(1)
@@ -154,8 +202,9 @@ class Pintor implements Desenho {
   // cores
   private corParte = new Uint32Array(NPARTES * 4)
   private iso: PaletaIso | null = null
-  private cinzaFrente: Paleta = { contorno: px32('#1b2228'), sombra: px32('#9aa6ae'), meio: px32('#d3dbe0'), luz: px32('#eef2f4') }
-  private cinzaFundo: Paleta = { contorno: px32('#141a1f'), sombra: px32('#6c7780'), meio: px32('#9aa6ae'), luz: px32('#c4cdd4') }
+  private cinzaFrente: Paleta = paleta(['#1b2228', '#9aa6ae', '#d3dbe0', '#f4f7f8'])
+  // (as baforadas passam atrás do beck: o mesmo cinza claro de fumaça, um pouco mais apagado)
+  private cinzaFundo: Paleta = paleta(['#1b2228', '#8c99a3', '#c3ccd2', '#e8edf0'])
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -188,9 +237,12 @@ class Pintor implements Desenho {
     this.gy = (lins >> 1) + 2
     const n = this.gx * this.gy
     this.cg = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
+    this.ca = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
+    this.cd = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
+    this.cc = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
     this.fg = [new Float32Array(cols * lins), new Float32Array(cols * lins), new Float32Array(cols * lins)]
-    this.pedX = Math.ceil(this.gx / 8)
-    this.pedY = Math.ceil(this.gy / 8)
+    this.pedX = Math.ceil(this.gx / PED)
+    this.pedY = Math.ceil(this.gy / PED)
     this.pedN = new Int32Array(this.pedX * this.pedY)
     this.pedL = new Int16Array(this.pedX * this.pedY * NB)
     this.ferveX = new Float32Array(n)
@@ -202,24 +254,6 @@ class Pintor implements Desenho {
     this.ondCol2 = new Float32Array(this.gx)
     this.polar = null
     this.polarRaios = null
-    // o ruído que quebra a linha do terminador (blocos de ~4 células, interpolado): estável no quadro
-    const r = new Float32Array(cols * lins)
-    const g = 4
-    for (let j = 0; j < lins; j++)
-      for (let i = 0; i < cols; i++) {
-        const a = i / g
-        const b = j / g
-        const a0 = Math.floor(a)
-        const b0 = Math.floor(b)
-        const fa = a - a0
-        const fb = b - b0
-        const v00 = hash3(a0, b0, 11)
-        const v10 = hash3(a0 + 1, b0, 11)
-        const v01 = hash3(a0, b0 + 1, 11)
-        const v11 = hash3(a0 + 1, b0 + 1, 11)
-        r[j * cols + i] = (v00 * (1 - fa) + v10 * fa) * (1 - fb) + (v01 * (1 - fa) + v11 * fa) * fb
-      }
-    this.ruido = r
   }
 
   definirIso(cores: readonly string[] | null, contorno: string) {
@@ -227,13 +261,14 @@ class Pintor implements Desenho {
       this.iso = null
       return
     }
-    const frente = new Uint32Array(cores.length * 4)
-    const fundo = new Uint32Array(cores.length * 4)
+    // 5 por faixa: (nada), a sombra funda, a sombra, o meio, a luz
+    const frente = new Uint32Array(cores.length * 5)
+    const fundo = new Uint32Array(cores.length * 5)
     cores.forEach((c, k) => {
-      const tons = [misturar(c, '#000000', 0.38), c, misturar(c, '#ffffff', 0.35)]
+      const tons = [misturar(c, contorno, 0.62), misturar(c, '#000000', 0.38), c, misturar(c, '#ffffff', 0.35)]
       tons.forEach((x, t) => {
-        frente[k * 4 + t + 1] = px32(x)
-        fundo[k * 4 + t + 1] = px32(misturar(x, '#000000', 0.3))
+        frente[k * 5 + t + 1] = px32(x)
+        fundo[k * 5 + t + 1] = px32(misturar(x, '#000000', 0.3))
       })
     })
     this.iso = { frente, fundo, contorno: px32(contorno), contornoFundo: px32(misturar(contorno, '#000000', 0.3)) }
@@ -260,14 +295,20 @@ class Pintor implements Desenho {
     if (q.tunel[0] > 0.001) this.tunel(q)
     if (q.estrelas > 0.001) this.estrelasDoFundo(q)
     this.campo(q)
+    // engolido pelo sopro, o beck passa pra trás de toda a fumaça
+    if (q.beck.atras) this.beck(q.beck, q.ferve)
     if (this.temCamada[FUNDO]) this.camada(FUNDO, q)
     for (let k = 0; k < q.nAneis; k++) if (q.aneis[k].atras) this.anel(q.aneis[k])
     if (q.brilhoBrasa[3] > 0.01) this.brilho(q.brilhoBrasa)
-    this.beck(q.beck, q.ferve)
+    if (!q.beck.atras) this.beck(q.beck, q.ferve)
     this.isqueiro(q.isqueiro, q.ferve)
     if (q.estalo[2] > 0.01) this.estalo(q.estalo)
-    for (let k = 0; k < q.nFitas; k++) this.fita(q, k)
+    // os fiapos da brasa (os 3 primeiros) passam por trás da frente; os que se soltam das nuvens, por cima
+    const nb = Math.min(3, q.nFitas)
+    for (let k = 0; k < nb; k++) this.fita(q, k)
     if (this.temCamada[FRENTE]) this.camada(FRENTE, q)
+    if (q.brasaSobre[3] > 0.01) this.brilhoSobre(q.brasaSobre)
+    for (let k = nb; k < q.nFitas; k++) this.fita(q, k)
     if (this.temCamada[CABECA]) this.camada(CABECA, q)
     // os raios e o anel do prêmio passam por cima da fumaça (atrás do cartão, que é do DOM): o prêmio brilha nela
     if (q.raios[0] > 0.001) this.raios(q)
@@ -287,13 +328,7 @@ class Pintor implements Desenho {
 
   private corDinamica(q: Quadro) {
     const c = this.corParte
-    const luz = q.beck.luz
     const m = (a: string, b: string, k: number) => px32(misturar(a, b, Math.max(0, Math.min(1, k))))
-    // brasa: do vermelho-escuro (encostada) ao miolo amarelo-claro (puxando)
-    c[P_BRASA * 4] = px32('#2a170c')
-    c[P_BRASA * 4 + 1] = m('#6a1404', '#ff5418', luz)
-    c[P_BRASA * 4 + 2] = m('#b4300e', '#ffb534', luz)
-    c[P_BRASA * 4 + 3] = m('#e8561c', '#fff4c0', luz)
     // a torcida pegando fogo
     const a = q.beck.torcidaAcesa
     c[P_TORCIDA * 4 + 1] = m('#b8956a', '#ff5418', a)
@@ -512,7 +547,13 @@ class Pintor implements Desenho {
 
   /* ───────────── a fumaça ───────────── */
 
-  /** Soma o campo das bolhas na grade grossa (com o ondulado e a fervura) e interpola nas células. */
+  /**
+   * Soma o campo dos lóbulos na grade grossa (2 células), com o ondulado e a fervura no ponto da amostra: cada lóbulo
+   * é um metaball esticado no sentido do voo, com a borda em 3 calombos que giram com ele (calombo = 1 + amp·sen 3φ, no
+   * referencial do giro). Junto vão a opacidade (Σ v·alfa: o miolo de um pedaço que se desfaz continua cheio e a borda
+   * vira dither) e a luz: a inclinação do campo é a normal (o campo é um relevo de calombos que se fundem), e a luz
+   * fixa de cima à esquerda dá as faixas. Interpola o campo nas células.
+   */
   private campo(q: Quadro) {
     const B = q.blobs
     const n = Math.min(NB, q.nBlobs)
@@ -535,32 +576,57 @@ class Pintor implements Desenho {
       const w = B[o + 3]
       if (r <= 0.5 || w <= 0.001) continue
       const kk = B[o + 4]
-      const ra = r * (1 + kk) * 1.65
-      const rc = r * (1 - 0.35 * kk) * 1.65
+      const amp = B[o + 10]
+      const ra = r * (1 + kk) * SUP
+      const rc = r * (1 - 0.35 * kk) * SUP
       this.bIa[k] = 1 / (ra * ra)
       this.bIc[k] = 1 / (rc * rc)
-      const R = Math.max(ra, rc) + folga
+      this.bLim[k] = (1 + amp) * (1 + amp)
+      const R = Math.max(ra, rc) * (1 + amp) + folga
       const x = B[o]
       const y = B[o + 1]
-      const a0 = Math.max(0, Math.floor((x - R) / G / 8))
-      const a1 = Math.min(PX - 1, Math.floor((x + R) / G / 8))
-      const b0 = Math.max(0, Math.floor((y - R) / G / 8))
-      const b1 = Math.min(PY - 1, Math.floor((y + R) / G / 8))
-      for (let b = b0; b <= b1; b++)
+      const TP = G * PED
+      const a0 = Math.max(0, Math.floor((x - R) / TP))
+      const a1 = Math.min(PX - 1, Math.floor((x + R) / TP))
+      const b0 = Math.max(0, Math.floor((y - R) / TP))
+      const b1 = Math.min(PY - 1, Math.floor((y + R) / TP))
+      if (a1 < a0 || b1 < b0) continue
+      const R2 = R * R
+      for (let b = b0; b <= b1; b++) {
+        // só os pedaços que o círculo do lóbulo toca (não a caixa inteira)
+        const ty0 = b * TP - G * 0.5
+        const qy = y < ty0 ? ty0 - y : y > ty0 + TP ? y - ty0 - TP : 0
         for (let a = a0; a <= a1; a++) {
+          const tx0 = a * TP - G * 0.5
+          const qx = x < tx0 ? tx0 - x : x > tx0 + TP ? x - tx0 - TP : 0
+          if (qx * qx + qy * qy > R2) continue
           const p = b * PX + a
           if (pedN[p] < NB) pedL[p * NB + pedN[p]++] = k
         }
+      }
       this.temCamada[B[o + 7] | 0] = true
       alguma = true
     }
     if (!alguma) return
-    const cF = this.cg[FUNDO]
-    const cR = this.cg[FRENTE]
-    const cH = this.cg[CABECA]
-    cF.fill(0)
-    cR.fill(0)
-    cH.fill(0)
+    const cF = this.cg
+    const cA = this.ca
+    for (let c = 0; c < 3; c++) {
+      cF[c].fill(0)
+      cA[c].fill(0)
+      this.cd[c].fill(NaN)
+      this.cc[c].fill(0)
+    }
+    const F0 = cF[0]
+    const F1 = cF[1]
+    const F2 = cF[2]
+    const A0 = cA[0]
+    const A1 = cA[1]
+    const A2 = cA[2]
+    const D0 = this.cd[0]
+    const D1 = this.cd[1]
+    const D2 = this.cd[2]
+    const G0 = this.cc[0]
+    const G1 = this.cc[1]
     const A = q.ondulado
     const fv = q.fervura
     const t = q.t
@@ -570,6 +636,7 @@ class Pintor implements Desenho {
     const ihy = hry > 0 ? 1 / hry : 0
     const bIa = this.bIa
     const bIc = this.bIc
+    const bLim = this.bLim
     const w2 = (Math.PI * 2 * 3) / Math.min(this.W, this.H)
     const oL = this.ondLin
     const oL2 = this.ondLin2
@@ -597,20 +664,19 @@ class Pintor implements Desenho {
           fY[b * gx + a] = (hash3(b, a, seed + 77) - 0.5) * 2 * fv
         }
     }
+    const temBuraco = hf > 0
     for (let pb = 0; pb < PY; pb++)
       for (let pa = 0; pa < PX; pa++) {
         const p = pb * PX + pa
         const cnt = pedN[p]
-        const temBuraco = hf > 0
         if (!cnt && !temBuraco) continue
         const lista = p * NB
-        const ya0 = pb * 8
-        const xa0 = pa * 8
-        for (let b = ya0; b < Math.min(gy, ya0 + 8); b++) {
+        const ya0 = pb * PED
+        const xa0 = pa * PED
+        for (let b = ya0; b < Math.min(gy, ya0 + PED); b++) {
           const py0 = b * G + pix * 0.5
-          for (let a = xa0; a < Math.min(gx, xa0 + 8); a++) {
+          for (let a = xa0; a < Math.min(gx, xa0 + PED); a++) {
             const px0 = a * G + pix * 0.5
-            // o ondulado (baixa frequência, andando) e a fervura (troca a 12 qps)
             let sx = px0
             let sy = py0
             if (A > 0) {
@@ -624,6 +690,24 @@ class Pintor implements Desenho {
             let f0 = 0
             let f1 = 0
             let f2 = 0
+            let a0 = 0
+            let a1 = 0
+            let a2 = 0
+            let g0 = 0
+            let g1 = 0
+            // o lóbulo de cima em cada camada (o z-buffer de esferas): a altura e a normal dele
+            let h0 = -1e9
+            let h1 = -1e9
+            let h2 = -1e9
+            let n0x = 0
+            let n0y = 0
+            let n0z = 1
+            let n1x = 0
+            let n1y = 0
+            let n1z = 1
+            let n2x = 0
+            let n2y = 0
+            let n2z = 1
             for (let m = 0; m < cnt; m++) {
               const k = pedL[lista + m]
               const o = k * PASSO_BOLHA
@@ -633,14 +717,76 @@ class Pintor implements Desenho {
               const dyy = B[o + 6]
               const al = dx * dxx + dy * dyy
               const ac = dy * dxx - dx * dyy
-              const q2 = al * al * bIa[k] + ac * ac * bIc[k]
-              if (q2 >= 1) continue
+              let q2 = al * al * bIa[k] + ac * ac * bIc[k]
+              if (q2 >= bLim[k]) continue
+              const amp = B[o + 10]
+              let mm = 1
+              let fac = 0
+              if (amp > 0) {
+                // os 3 calombos da borda, girando com o lóbulo: sen 3φ = s(3 − 4s²), s = sen φ no referencial do giro
+                const d2 = dx * dx + dy * dy + 0.01
+                const s = (dy * B[o + 8] - dx * B[o + 9]) / Math.sqrt(d2)
+                fac = s * (3 - 4 * s * s)
+                mm = 1 + amp * fac
+                q2 /= mm * mm
+                if (q2 >= 1) continue
+              } else if (q2 >= 1) continue
               const v1 = 1 - q2
-              const v = v1 * v1 * v1 * B[o + 3]
+              const v = v1 * B[o + 3]
+              const al2 = v * B[o + 11]
               const cam = B[o + 7]
-              if (cam < 0.5) f0 += v
-              else if (cam < 1.5) f1 += v
-              else f2 += v
+              // dentro do raio do lóbulo: a esfera dele (a altura decide quem fica por cima)
+              let h = -1e9
+              let nz = 1
+              if (q2 < DENTRO) {
+                nz = Math.sqrt(1 - q2 * RHO2)
+                h = B[o + 12] + B[o + 2] * nz
+              }
+              if (cam < 0.5) {
+                f0 += v
+                a0 += al2
+                g0 += v * B[o + 13]
+                if (h > h0) {
+                  h0 = h
+                  const ir = 1 / (B[o + 2] * mm)
+                  // os calombos também no sombreado: a normal torce um pouco em volta do lóbulo, mais na borda, e
+                  // gira com ele (o lóbulo rola e a luz e a sombra dele rolam junto)
+                  const tw = TORCE * q2 * fac
+                  const orb = ORBITA * (1 - q2)
+                  n0x = (dx - tw * dy) * ir + orb * B[o + 8]
+                  n0y = (dy + tw * dx) * ir + orb * B[o + 9]
+                  n0z = nz
+                }
+              } else if (cam < 1.5) {
+                f1 += v
+                a1 += al2
+                g1 += v * B[o + 13]
+                if (h > h1) {
+                  h1 = h
+                  const ir = 1 / (B[o + 2] * mm)
+                  // os calombos também no sombreado: a normal torce um pouco em volta do lóbulo, mais na borda, e
+                  // gira com ele (o lóbulo rola e a luz e a sombra dele rolam junto)
+                  const tw = TORCE * q2 * fac
+                  const orb = ORBITA * (1 - q2)
+                  n1x = (dx - tw * dy) * ir + orb * B[o + 8]
+                  n1y = (dy + tw * dx) * ir + orb * B[o + 9]
+                  n1z = nz
+                }
+              } else {
+                f2 += v
+                a2 += al2
+                if (h > h2) {
+                  h2 = h
+                  const ir = 1 / (B[o + 2] * mm)
+                  // os calombos também no sombreado: a normal torce um pouco em volta do lóbulo, mais na borda, e
+                  // gira com ele (o lóbulo rola e a luz e a sombra dele rolam junto)
+                  const tw = TORCE * q2 * fac
+                  const orb = ORBITA * (1 - q2)
+                  n2x = (dx - tw * dy) * ir + orb * B[o + 8]
+                  n2y = (dy + tw * dx) * ir + orb * B[o + 9]
+                  n2z = nz
+                }
+              }
             }
             if (temBuraco) {
               const ex = (sx - hx) * ihx
@@ -654,18 +800,56 @@ class Pintor implements Desenho {
               }
             }
             const idx = b * gx + a
-            cF[idx] = f0
-            cR[idx] = f1
-            cH[idx] = f2
+            F0[idx] = f0
+            F1[idx] = f1
+            F2[idx] = f2
+            A0[idx] = a0
+            A1[idx] = a1
+            A2[idx] = a2
+            G0[idx] = f0 > 0 ? g0 / f0 : 0
+            G1[idx] = f1 > 0 ? g1 / f1 : 0
+            // a luz da esfera de cima (NaN: nenhum lóbulo cobre o nó, a luz vem do relevo)
+            // (no miolo, onde muitos lóbulos se somam, o contraste cai: a massa se funde; na borda, a forma inteira)
+            D0[idx] = h0 > -1e8 ? funde(luzEsfera(n0x, n0y, n0z), f0) : NaN
+            D1[idx] = h1 > -1e8 ? funde(luzEsfera(n1x, n1y, n1z), f1) : NaN
+            D2[idx] = h2 > -1e8 ? funde(luzEsfera(n2x, n2y, n2z), f2) : NaN
           }
         }
       }
-    // interpola nas células (nó (a, b) = centro da célula (2a, 2b))
+    // a luz em cada nó: a normal sai da inclinação do campo (um relevo), a luz fixa vem de cima à esquerda e da frente.
+    // O relevo satura (F / (F + 0,6)): onde muitos lóbulos se somam o miolo é chapado (o meio); as faixas aparecem na
+    // silhueta e nos vales entre os lóbulos de fora, seguindo a forma
+    const u = Math.min(this.W, this.H)
+    const S = (0.62 * u) / (2 * G)
+    const sat = (v: number) => (v > 0 ? v / (v + 0.6) : 0)
+    for (let c = 0; c < 3; c++) {
+      if (!this.temCamada[c]) continue
+      const cg = cF[c]
+      const D = this.cd[c]
+      for (let b = 0; b < gy; b++) {
+        const bm = b > 0 ? b - 1 : b
+        const bp = b < gy - 1 ? b + 1 : b
+        for (let a = 0; a < gx; a++) {
+          const idx = b * gx + a
+          if (D[idx] === D[idx]) continue
+          if (cg[idx] <= T * 0.5) {
+            D[idx] = LZ
+            continue
+          }
+          const am = a > 0 ? a - 1 : a
+          const ap = a < gx - 1 ? a + 1 : a
+          const nx = -(sat(cg[b * gx + ap]) - sat(cg[b * gx + am])) * S
+          const ny = -(sat(cg[bp * gx + a]) - sat(cg[bm * gx + a])) * S
+          D[idx] = (nx * LX3 + ny * LY3 + LZ) / Math.sqrt(nx * nx + ny * ny + 1)
+        }
+      }
+    }
+    // interpola o campo nas células (nó (a, b) = centro da célula (2a, 2b))
     const cols = this.cols
     const lins = this.lins
     for (let c = 0; c < 3; c++) {
       if (!this.temCamada[c]) continue
-      const cg = this.cg[c]
+      const cg = cF[c]
       const fg = this.fg[c]
       for (let j = 0; j < lins; j++) {
         const b = j >> 1
@@ -683,36 +867,45 @@ class Pintor implements Desenho {
     }
   }
 
-  /** Uma camada de fumaça: contorno por fora, faixas de luz e sombra pela silhueta, terminador quebrado, isolinhas. */
+  /** O valor de uma grade grossa na célula (i, j), interpolado (meia célula entre os nós). */
+  private naCelula(c: Float32Array, i: number, j: number): number {
+    const gx = this.gx
+    const r0 = (j >> 1) * gx + (i >> 1)
+    let v = c[r0]
+    if (i & 1) v = (v + c[r0 + 1]) * 0.5
+    if (j & 1) {
+      let w = c[r0 + gx]
+      if (i & 1) w = (w + c[r0 + gx + 1]) * 0.5
+      v = (v + w) * 0.5
+    }
+    return v
+  }
+
+  /**
+   * Uma camada de fumaça: contorno só por fora da silhuta (e onde a frente dobra sobre a de trás), a opacidade em dither
+   * (os pedaços que se desfazem), e 4 faixas pela luz do relevo: a luz, o meio, a sombra e a sombra funda, com dither de
+   * 1 célula na costura. Nas raridades viajadas, as faixas psicodélicas (isolinhas do campo) com a mesma luz por cima.
+   */
   private camada(c: number, q: Quadro) {
-    const { cols, lins, pix, buf } = this
+    const { cols, lins, buf } = this
     const F = this.fg[c]
-    const u = Math.min(this.W, this.H)
-    const dl = (0.05 * u) / pix
-    const ds = (0.07 * u) / pix
-    // deslocamentos (em células) com 2 variantes pra costura em dither
-    const lx0 = Math.round(LX * dl)
-    const ly0 = Math.round(LY * dl)
-    const lx1 = Math.round(LX * (dl + 1.2))
-    const ly1 = Math.round(LY * (dl + 1.2))
-    const sx0 = Math.round(-LX * ds)
-    const sy0 = Math.round(-LY * ds)
-    const sx1 = Math.round(-LX * (ds + 1.2))
-    const sy1 = Math.round(-LY * (ds + 1.2))
+    const D = this.cd[c]
+    const Ac = this.ca[c]
     const fundo = c === FUNDO
     const pal = c === CABECA ? q.cabeca : fundo ? q.fundo : q.frente
-    const cinza = c === CABECA ? 0 : q.cinza
+    const Gc = c === CABECA ? null : this.cc[c]
     const pc = fundo ? this.cinzaFundo : this.cinzaFrente
     const iso = this.iso && c !== CABECA ? this.iso : null
     const isoK = iso ? q.iso : 0
     const isoTab = iso ? (fundo ? iso.fundo : iso.frente) : null
     const isoC = iso ? (fundo ? iso.contornoFundo : iso.contorno) : 0
-    const nIso = isoTab ? isoTab.length >> 2 : 0
+    const nIso = isoTab ? isoTab.length / 5 : 0
     const isoF = q.isoFase
     const frenteF = this.temCamada[FRENTE] ? this.fg[FRENTE] : null
-    const ruido = this.ruido
     const ultI = cols - 1
     const ultJ = lins - 1
+    const opac = 1 / T
+    const ferve = q.ferve
     for (let j = 0; j < lins; j++) {
       const row = j * cols
       for (let i = 0; i < cols; i++) {
@@ -722,36 +915,30 @@ class Pintor implements Desenho {
         // o fundo embaixo da frente não aparece (nem o contorno dele)
         if (fundo && frenteF && frenteF[idx] > T) continue
         const by = bayer(i, j)
-        const usaCinza = cinza > 0 && by < cinza
+        // a opacidade: o miolo cheio, a borda de quem se desfaz em dither (o limiar mistura o Bayer com um ruído de 2
+        // células que anda: some em grãos irregulares, não num xadrez); quem se desfaz não tem contorno
+        const op = this.naCelula(Ac, i, j) * opac
+        if (op < 1 && by * 0.55 + hash3(i >> 1, j >> 1, ferve >> 1) * 0.45 >= op) continue
+        const fino = op < 0.9
+        // a fumaça "de verdade" (as baforadas) é cinza; onde ela encontra a da raridade, mistura em dither
+        const usaCinza = Gc !== null && Gc[(j >> 1) * this.gx + (i >> 1)] > by
         const P = usaCinza ? pc : pal
         let isoB = -1
         if (isoK > 0 && !usaCinza && by < isoK) {
-          const b = Math.floor(Math.log(f / T) * 2.3 - isoF)
+          // as faixas seguem a forma da massa (o campo saturado: nada de manchas onde muitos lóbulos se somam)
+          const b = Math.floor((f / (f + 0.9)) * 7.5 - isoF)
           isoB = ((b % nIso) + nIso) % nIso
         }
         // contorno: vizinho de fora
-        if ((i > 0 && F[idx - 1] <= T) || (i < ultI && F[idx + 1] <= T) || (j > 0 && F[idx - cols] <= T) || (j < ultJ && F[idx + cols] <= T)) {
+        if (!fino && ((i > 0 && F[idx - 1] <= T) || (i < ultI && F[idx + 1] <= T) || (j > 0 && F[idx - cols] <= T) || (j < ultJ && F[idx + cols] <= T))) {
           buf[idx] = isoB >= 0 ? isoC : P.contorno
           continue
         }
-        const v = by < 0.5
-        const li = clampI(i + (v ? lx0 : lx1), ultI)
-        const lj = clampI(j + (v ? ly0 : ly1), ultJ)
-        const si = clampI(i + (v ? sx0 : sx1), ultI)
-        const sj = clampI(j + (v ? sy0 : sy1), ultJ)
-        const claro = F[lj * cols + li] <= T
-        const escuro = F[sj * cols + si] <= T
-        let tom = claro && !escuro ? 3 : escuro && !claro ? 1 : 2
-        if (tom === 1) {
-          // o terminador (sombra → meio) vira linha em ~60% do comprimento: ganchos, não círculos
-          const ni = clampI(i - 1, ultI)
-          const nj = clampI(j - 1, ultJ)
-          const nsi = clampI(ni + sx0, ultI)
-          const nsj = clampI(nj + sy0, ultJ)
-          if (F[nsj * cols + nsi] > T && ruido[idx] > 0.42) tom = 0
-        }
-        if (isoB >= 0) buf[idx] = tom === 0 ? isoC : isoTab![isoB * 4 + tom]
-        else buf[idx] = tom === 0 ? P.contorno : tom === 1 ? P.sombra : tom === 2 ? P.meio : P.luz
+        // a luz do relevo, com a costura em dither
+        const d = this.naCelula(D, i, j) + (by - 0.5) * 0.07
+        const tom = d > LUZ ? 4 : d > MEIO ? 3 : d > SOMBRA ? 2 : 1
+        if (isoB >= 0) buf[idx] = isoTab![isoB * 5 + (tom === 4 ? 4 : tom === 1 ? 2 : 3)]
+        else buf[idx] = tom === 4 ? P.luz : tom === 3 ? P.meio : tom === 2 ? P.sombra : P.funda
       }
     }
   }
@@ -787,7 +974,12 @@ class Pintor implements Desenho {
     return [Math.floor((Math.min(x0, x1) - folga) / p), Math.floor((Math.min(y0, y1) - folga) / p), Math.ceil((Math.max(x0, x1) + folga) / p), Math.ceil((Math.max(y0, y1) + folga) / p)]
   }
 
-  /** O beck: piteira, papel cônico, a torcida dobrada, a linha de queima com o tostado, a brasa e a cinza que pende. */
+  /**
+   * O beck: piteira, papel cônico, a torcida dobrada e a ponta que queima: a linha de queima irregular (o papel tostado,
+   * com a beirada acesa na puxada e a luz quente batendo no papel), o carvão aceso (do vermelho ao laranja e ao miolo
+   * amarelo-claro, mais quente e mais comprido quanto mais forte a puxada, com a base da cinza ainda em brasa) e a cinza:
+   * irregular, cinza-claro com pintas e rachaduras, a ponta um pouco mais larga e torta, que pende.
+   */
   private beck(b: EstadoBeckPx, ferve: number) {
     if (!b.vis) return
     const { cols, lins, pix, mask } = this
@@ -802,12 +994,14 @@ class Pintor implements Desenho {
     const r1 = 0.092 * L
     const rAt = (s: number) => (s <= sPit ? rPit : r0 + ((r1 - r0) * (s - sPit)) / (L - sPit))
     const acesa = b.brasa > 0.01
+    const luz = acesa ? b.luz : 0
     const sb = b.linha * L
-    const brasaW = acesa ? 1.6 * pix : 0
+    // o carvão: mais comprido na puxada; a base da cinza fica em brasa (quente) enquanto puxa
+    const bw = acesa ? (1.3 + 1.5 * luz) * pix : 0
+    const quente = acesa ? (0.01 + 0.055 * luz) * L : 0
     const cinza = acesa ? b.cinza : 0
-    const tostW = acesa ? 2 * pix : 0
+    const tostW = acesa ? 1.6 * pix : 0
     const rb = rAt(sb)
-    const rCinza = rb * 0.88
     // a torcida: curta, dobrada pro lado de fora, crimpada
     const tL = TORCIDA_L * L * b.torcida
     const phi = TORCIDA_ANG
@@ -817,10 +1011,11 @@ class Pintor implements Desenho {
     const bny = bx
     const tx0 = b.x0 + ax * L * b.sx
     const ty0 = b.y0 + ay * L * b.sx
-    const sFim = Math.max(sb + cinza, tL > 0 ? L : 0)
+    const sCinza0 = sb + bw
+    const sFim = Math.max(sCinza0 + cinza, tL > 0 ? L : 0)
     const ex = b.x0 + ax * sFim * b.sx
     const ey = b.y0 + ay * sFim * b.sx
-    const folga = r1 * Math.max(b.sx, b.sy) + Math.abs(b.pende) + tL + 3 * pix
+    const folga = r1 * 1.3 * Math.max(b.sx, b.sy) + Math.abs(b.pende) + tL + 3 * pix
     const [i0, j0, i1, j1] = this.caixa(b.x0 - ax * pix * 2, b.y0 - ay * pix * 2, ex, ey, folga)
     const ci0 = Math.max(0, i0)
     const cj0 = Math.max(0, j0)
@@ -830,6 +1025,9 @@ class Pintor implements Desenho {
     const isx = 1 / b.sx
     const isy = 1 / b.sy
     const faceMax = rPit * 0.3
+    const fervo = ferve >> 1
+    // o raio máximo do corpo e da cinza (com o que ela pende): fora disso não tem beck
+    const rLim = r1 * 1.4 + Math.abs(b.pende) + 2 * pix
     for (let j = cj0; j <= cj1; j++) {
       const cy = (j + 0.5) * pix
       for (let i = ci0; i <= ci1; i++) {
@@ -843,52 +1041,87 @@ class Pintor implements Desenho {
         const dy = cy - b.y0
         const s = (dx * ax + dy * ay) * isx
         const v = (dx * nx + dy * ny) * isy
+        // longe do corpo e da torcida: nada a desenhar (a caixa do beck deitado é quase toda vazia)
+        if ((s < -pix || s > sFim + rb * 1.6 || Math.abs(v) > rLim) && tL <= 0) continue
+        if (tL > 0 && (s < -pix || Math.abs(v) > rLim) && Math.hypot(cx - tx0, cy - ty0) > tL + rb * 1.2) continue
         // a linha que ferve: o raio treme ±0,55 célula a cada 2 células do comprimento, a 12 qps
         const jit = (hash3(Math.floor(s / (2 * pix)), ferve, 7) - 0.5) * 1.1 * pix
+        // a linha de queima irregular (dentes que mudam devagar)
+        const vc = Math.floor(v / pix)
+        const sbv = sb + (hash3(vc + 31, 5, 1) - 0.5) * 1.5 * pix + (hash3(vc + 31, fervo, 2) - 0.5) * 0.6 * pix
         let code = 0
-        if (s >= -0.5 * pix && s <= sb + brasaW + cinza) {
+        if (s >= -0.5 * pix && s <= sFim + rb) {
           if (s <= sPit) {
             const r = rPit + jit
             const av = Math.abs(v)
             if (av <= r) {
               const face = faceMax * Math.sqrt(Math.max(0, 1 - (v / rPit) * (v / rPit)))
-              if (s < face) code = Math.abs(v) < rPit * 0.75 && ((Math.floor(((v / rPit + 1) * 2.6)) & 1) === 1) ? P_M * 4 + 1 : P_BOCA_PIT * 4 + tomDe(v / r)
+              if (s < face) code = Math.abs(v) < rPit * 0.75 && (Math.floor((v / rPit + 1) * 2.6) & 1) === 1 ? P_M * 4 + 1 : P_BOCA_PIT * 4 + tomDe(v / r)
               else code = s > sPit - pix ? P_PITEIRA * 4 + 1 : P_PITEIRA * 4 + tomDe(v / r)
             }
-          } else if (s <= sb) {
+          } else if (s <= sbv || !acesa) {
             const r = rAt(s) + jit
-            if (Math.abs(v) <= r) {
-              if (acesa && s > sb - tostW) code = P_TOSTADO * 4 + (s > sb - pix ? 1 : 2)
-              else {
+            if (Math.abs(v) <= r && s <= (acesa ? sbv : L)) {
+              if (acesa && s > sbv - tostW) {
+                // o tostado: a beirada da queima acende na puxada
+                code = s > sbv - pix ? (luz > 0.35 ? P_BRASA * 4 + 3 : P_TOSTADO * 4 + 1) : P_TOSTADO * 4 + 2
+              } else {
                 code = P_PAPEL * 4 + tomDe(v / r)
                 // a costura da seda (a beirada colada), tracejada, e uma fibra aqui e ali
                 const kv = v / r
                 if (kv > 0.08 && kv < 0.08 + pix / r && Math.floor(s / (3 * pix)) % 3 !== 0) code = P_PAPEL * 4 + 1
                 else if (hash3(Math.floor(s / pix), Math.floor(v / pix) + 99, 5) < 0.025) code = P_PAPEL * 4 + (kv < -0.36 ? 2 : 1)
+                // a luz da brasa batendo no papel perto da queima
+                if (acesa && luz > 0.3) {
+                  const perto = 1 - (sbv - tostW - s) / (3.2 * pix)
+                  if (perto > 0 && bayer(i, j) < (luz - 0.3) * 1.7 * perto) code = P_QUENTE * 4 + tomDe(v / r)
+                }
               }
             }
-          } else if (s <= sb + brasaW) {
+          } else if (s <= sCinza0) {
+            // o carvão aceso: o calor no meio, mais fraco na borda; estala a 12 qps
             const r = rb * 0.97 + jit
-            if (Math.abs(v) <= r) code = P_BRASA * 4 + tomBrasa(v / r)
-          } else {
-            // a cinza: um cilindro um pouco mais fino, que pende pro lado da gravidade e tem a ponta arredondada
-            const k = (s - sb) / Math.max(1, cinza)
-            const vc = b.pende * k * k + (b.racha > 0 ? b.racha * pix * 0.6 : 0)
-            let r = rCinza
-            const fimR = sb + brasaW + cinza - rCinza * 0.55
-            if (s > fimR) {
-              const e = (s - fimR) / (rCinza * 0.55)
-              r *= Math.sqrt(Math.max(0, 1 - e * e))
+            const kv = v / r
+            if (Math.abs(kv) <= 1) {
+              const calor = (0.42 + 0.58 * luz) * (1 - 0.32 * kv * kv) + (hash3(i, j, ferve) - 0.5) * 0.2
+              code = corDoCalor(calor)
             }
-            r += jit * 0.6
-            const vv = v - vc
-            if (Math.abs(vv) <= r) {
-              const dS = s - sb - brasaW
-              const rachaAqui = b.racha > 0 && dS < pix
-              if (rachaAqui) code = P_RACHA * 4 + 1
-              else if (dS % (5 * pix) < pix * 0.9 && dS > 2 * pix && Math.abs(vv) < r * 0.8 && hash3(Math.floor(dS / (5 * pix)), 3, 0) > 0.25) code = P_RACHA * 4 + 1
-              else if (dS < pix * 1.2 && hash3(i, j, ferve) < 0.25 + 0.5 * b.luz) code = P_BRASA * 4 + 3
-              else code = P_CINZA * 4 + tomDe(vv / r)
+          } else {
+            // a cinza: irregular (o raio varia), alarga e entorta pra ponta, pende pro lado da gravidade
+            const k = Math.max(0, (s - sCinza0) / Math.max(1, cinza))
+            // o raio irregular (calombos de 2 células, interpolados) e a ponta mais larga e torta
+            const qs = (s - sCinza0) / (2.2 * pix)
+            const q0 = Math.floor(qs)
+            const n1 = lerpN(hash3(q0, 3, 11), hash3(q0 + 1, 3, 11), qs - q0) - 0.5
+            let r = rb * (0.84 + 0.32 * n1 + 0.22 * k)
+            const centro = b.pende * k * k + rb * 0.26 * Math.sin(k * 3.4 + 1.3) * k + (b.racha > 0 ? b.racha * pix * 0.6 : 0)
+            const fimR = sCinza0 + cinza - r * 0.5
+            if (s > fimR) {
+              const e = (s - fimR) / (r * 0.5)
+              r *= Math.sqrt(Math.max(0, 1 - e * e))
+              r -= hash3(vc + 7, 2, 13) * pix * 0.9
+            }
+            r += jit * 0.5
+            const vv = v - centro
+            if (Math.abs(vv) <= r && s <= sCinza0 + cinza) {
+              const dS = s - sCinza0
+              const vq = Math.floor(vv / pix)
+              const sq = Math.floor(dS / pix)
+              // a base ainda em brasa enquanto puxa
+              const calor = quente > 0 ? luz * 0.86 * Math.pow(Math.max(0, 1 - dS / quente), 1.2) * (1 - 0.3 * (vv / r) ** 2) + (hash3(i, j, ferve + 3) - 0.5) * 0.22 : 0
+              if (b.racha > 0 && dS < pix * 1.2) code = P_RACHA * 4 + 1
+              else if (calor > 0.24) code = corDoCalor(calor)
+              else {
+                code = P_CINZA * 4 + tomDe(vv / r)
+                // as pintas escuras e as rachaduras (tortas, atravessando parte da largura)
+                if (hash3(sq + 7, vq + 3, 9) < 0.08) code = P_RACHA * 4 + 1
+                else if (cinza > 6 * pix) {
+                  for (const kc of RACHAS) {
+                    const sc = kc * cinza + vv * 0.32 + (hash3(vq, Math.round(kc * 10), 4) - 0.5) * 1.3 * pix
+                    if (Math.abs(dS - sc) < 0.55 * pix && Math.abs(vv) < r * 0.78) code = P_RACHA * 4 + 1
+                  }
+                }
+              }
             }
           }
         }
@@ -913,22 +1146,50 @@ class Pintor implements Desenho {
     this.compor(ci0, cj0, ci1, cj1)
   }
 
-  /** O brilho pontilhado da brasa em volta dela na puxada (atrás do beck). */
+  /**
+   * O brilho da brasa em volta (atrás do beck), que pulsa: no preto, 3 tons em dither do vermelho-escuro de fora ao
+   * laranja de perto (uma luz suave, não pontinhos); em cima da fumaça, a luz quente batendo nela.
+   */
   private brilho(g: Float32Array) {
     const { cols, lins, pix, buf } = this
     const [x, y, R, forca] = g
     const [i0, j0, i1, j1] = this.caixa(x, y, x, y, R)
-    const c1 = px32('#ff5418')
-    const c2 = px32('#ffb534')
+    const escuro = [px32('#2e0a04'), px32('#621806'), px32('#a8300c')]
+    const quente = [px32('#ffb27a'), px32('#ff8a4a')]
     for (let j = Math.max(0, j0); j <= Math.min(lins - 1, j1); j++)
       for (let i = Math.max(0, i0); i <= Math.min(cols - 1, i1); i++) {
         const dx = (i + 0.5) * pix - x
         const dy = (j + 0.5) * pix - y
         const r = Math.sqrt(dx * dx + dy * dy) / R
         if (r >= 1) continue
-        const v = Math.pow(1 - r, 1.6) * forca
+        const v = Math.pow(1 - r, 1.25) * forca
         const by = bayer(i, j)
-        if (by < v * 0.55) buf[j * cols + i] = by < v * 0.25 ? c2 : c1
+        const nivel = v * 3.3 + (by - 0.5) * 0.95
+        if (nivel < 0.55) continue
+        const idx = j * cols + i
+        if (buf[idx] === 0) buf[idx] = escuro[nivel > 2.3 ? 2 : nivel > 1.4 ? 1 : 0]
+        else if (nivel > 1.6 && by < v * 0.7) buf[idx] = quente[nivel > 2.4 ? 0 : 1]
+      }
+  }
+
+  /** A brasa engolida pela fumaça: a luz dela atravessa a fumaça por um instante (laranja e amarelo em dither). */
+  private brilhoSobre(g: Float32Array) {
+    const { cols, lins, pix, buf } = this
+    const [x, y, R, forca] = g
+    const [i0, j0, i1, j1] = this.caixa(x, y, x, y, R)
+    const c1 = px32('#ffd27a')
+    const c2 = px32('#ff9a4a')
+    for (let j = Math.max(0, j0); j <= Math.min(lins - 1, j1); j++)
+      for (let i = Math.max(0, i0); i <= Math.min(cols - 1, i1); i++) {
+        const idx = j * cols + i
+        if (buf[idx] === 0) continue
+        const dx = (i + 0.5) * pix - x
+        const dy = (j + 0.5) * pix - y
+        const r = Math.sqrt(dx * dx + dy * dy) / R
+        if (r >= 1) continue
+        const v = Math.pow(1 - r, 1.4) * forca
+        const by = bayer(i, j)
+        if (by < v * 0.8) buf[idx] = by < v * 0.3 ? c1 : c2
       }
   }
 
@@ -1062,16 +1323,22 @@ class Pintor implements Desenho {
     this.compor(ci0, cj0, ci1, cj1)
   }
 
-  /** Um fiapo: fita fina que sai da brasa, ondula, afina e quebra em caracóis no alto. */
+  /** Um fiapo: fita fina que sai da brasa (ou de um pedaço que se desfaz), ondula, afina e quebra em caracóis na ponta. */
   private fita(q: Quadro, k: number) {
     const f = q.fitas[k]
-    if (f.comp < 2) return
+    if (f.comp < 2 || f.alfa <= 0.05) return
     const { cols, lins, pix, mask } = this
     const u = Math.min(this.W, this.H)
     const passo = pix * 0.5
     const n = Math.ceil(f.comp / passo)
     const A = 0.04 * u
     const onda = (Math.PI * 2) / (0.24 * u)
+    // o eixo (inc = 0: pra cima) e a perpendicular
+    const ex = Math.sin(f.inc)
+    const ey = -Math.cos(f.inc)
+    const nx = -ey
+    const ny = ex
+    const alfa = f.alfa
     let mi0 = cols
     let mj0 = lins
     let mi1 = 0
@@ -1086,6 +1353,7 @@ class Pintor implements Desenho {
           const i = ci + di
           const j = cj + dj
           if (i < 0 || j < 0 || i >= cols || j >= lins) continue
+          if (alfa < 1 && bayer(i, j) >= alfa) continue
           const idx = j * cols + i
           if (!sobre && mask[idx]) continue
           mask[idx] = code === 0 ? P_FITA * 4 : P_FITA * 4 + (di * lado > 0 && raio > 0.9 ? 1 : 2)
@@ -1099,26 +1367,29 @@ class Pintor implements Desenho {
     for (let s = 0; s <= n; s++) {
       const k2 = s / n
       const ds = k2 * f.comp
-      const x = f.x + A * k2 * Math.sin(ds * onda - q.t * 5 + f.fase)
-      const y = f.y - ds
+      const off = A * k2 * Math.sin(ds * onda - q.t * 5 + f.fase)
+      const x = f.x + ex * ds + nx * off
+      const y = f.y + ey * ds + ny * off
       // afina de 2 células pra 1; solta: a base some primeiro
       let w = f.larg * (1 - 0.55 * k2)
       if (f.solta > 0) w *= Math.min(1, Math.max(0, (k2 - f.solta * 0.7) / 0.18))
       if (w < 0.35) continue
       pontos.push(x, y, w)
     }
-    // os caracóis no alto (2 voltinhas de 3–5 células)
+    // os caracóis na ponta (2 voltinhas de 3–5 células)
     if (pontos.length >= 3) {
       const tx = pontos[pontos.length - 3]
       const ty = pontos[pontos.length - 2]
-      for (let c = 0; c < 2; c++) {
+      for (let c = 0; c < f.voltas; c++) {
         const lado = (c ? -1 : 1) * f.lado
         const R0 = pix * (2.4 - c * 0.6)
-        const ox = tx + lado * R0 * 0.9
-        const oy = ty - pix * (1 + c * 2.2)
+        const ox = tx + nx * lado * R0 * 0.9 + ex * pix * (1 + c * 2.2)
+        const oy = ty + ny * lado * R0 * 0.9 + ey * pix * (1 + c * 2.2)
         for (let a = 0; a < 1.35 * Math.PI * 2; a += 0.35) {
           const rr = R0 * (1 - a / (1.5 * Math.PI * 2))
-          pontos.push(ox - lado * Math.cos(a) * rr, oy - Math.sin(a) * rr, 0.5)
+          const ca = -lado * Math.cos(a) * rr
+          const sa = Math.sin(a) * rr
+          pontos.push(ox + nx * ca + ex * sa, oy + ny * ca + ey * sa, 0.5)
         }
       }
     }
@@ -1194,7 +1465,7 @@ class Pintor implements Desenho {
 
   /** O olho do raro (a espiral vira íris): branco, íris azul, pupila que dilata e vira o buraco do prêmio, pálpebras. */
   private iris(q: Quadro) {
-    const [x, y, rx, ry, abre, pupila, aro, vis] = q.iris
+    const [x, y, rx, ry, abre, pupila, aro, vis, ox, oy] = q.iris
     const { cols, lins, pix, mask } = this
     const [i0, j0, i1, j1] = this.caixa(x - rx, y - ry, x + rx, y + ry, pix * 3)
     const ci0 = Math.max(0, i0)
@@ -1223,14 +1494,20 @@ class Pintor implements Desenho {
         const ey = dy / ry
         const e = ex * ex + ey * ey
         if (e > 1) continue
-        // pálpebras de fumaça: a fresta aberta é |dy| ≤ ry·abre·√(1 − ex²)
-        const fresta = ry * abre * Math.sqrt(Math.max(0, 1 - ex * ex))
+        // pálpebras de fumaça: a fresta aberta é |dy| ≤ ry·abre·√(1 − ex²); a linha delas ferve (12 qps)
+        const fresta = ry * abre * Math.sqrt(Math.max(0, 1 - ex * ex)) + (hash3(i, q.ferve, 3) - 0.5) * pix * 0.9 * Math.min(1, abre * 4)
         if (Math.abs(dy) > fresta) {
           code = P_PALPEBRA * 4 + (dy < 0 ? (ey < -0.55 ? 3 : 2) : 1)
           if (Math.abs(Math.abs(dy) - fresta) < pix * 0.9) code = P_CONTORNO * 4 + 1
-        } else if (r <= pupila) code = r > pupila - pix || (dx + pupila * 0.35) ** 2 + (dy + pupila * 0.35) ** 2 > (pupila * 0.22) ** 2 ? P_PUPILA * 4 + 2 : P_BRILHO * 4 + 2
-        else if (r <= ri) code = P_IRIS * 4 + (r > ri - pix ? 1 : dx * LX + dy * LY > r * 0.4 ? 3 : 2)
-        else code = P_BRANCO * 4 + (dy > ry * 0.35 ? 1 : 2)
+        } else {
+          // a íris e a pupila andam juntas pra onde o olho olha
+          const qx = dx - ox
+          const qy = dy - oy
+          const rq = Math.sqrt(qx * qx + qy * qy)
+          if (rq <= pupila) code = rq > pupila - pix || (qx + pupila * 0.35) ** 2 + (qy + pupila * 0.35) ** 2 > (pupila * 0.22) ** 2 ? P_PUPILA * 4 + 2 : P_BRILHO * 4 + 2
+          else if (rq <= ri) code = P_IRIS * 4 + (rq > ri - pix ? 1 : qx * LX + qy * LY > rq * 0.4 ? 3 : 2)
+          else code = P_BRANCO * 4 + (dy > ry * 0.35 ? 1 : 2)
+        }
         mask[j * cols + i] = code
       }
     this.compor(ci0, cj0, ci1, cj1)
@@ -1241,10 +1518,12 @@ class Pintor implements Desenho {
     const [x, y, w, abre, pisca] = q.sorriso
     const { pix } = this
     const cor = q.frente.contorno
-    const ci = x / pix
-    const cj = y / pix
-    const W = (w / pix) * abre
-    const curva = 0.12 * (w / pix)
+    // a linha do rosto ferve como o resto do desenho (a 12 qps: muda um pouco de lugar e de curva), nunca parada
+    const fv = q.ferve
+    const ci = x / pix + (hash3(fv, 11, 3) - 0.5) * 1.3
+    const cj = y / pix + (hash3(fv, 12, 3) - 0.5) * 1.1
+    const W = (w / pix) * abre * (1 + (hash3(fv, 13, 3) - 0.5) * 0.12)
+    const curva = 0.12 * (w / pix) * (1 + (hash3(fv, 14, 3) - 0.5) * 0.3)
     // traço de 2 células (lê no celular), só onde tem fumaça da frente
     const marca = (i: number, j: number) => {
       const ii = Math.round(i)
@@ -1328,8 +1607,8 @@ class Pintor implements Desenho {
                 // a pupila em espiral: anéis nas cores da viagem que correm pra dentro
                 const b = Math.floor((rp / pupR) * 4.5 - q.t * 2.6)
                 if ((b & 1) === 0) {
-                  const n = isoCores.frente.length >> 2
-                  this.buf[j * cols + i] = isoCores.frente[((((b >> 1) % n) + n) % n) * 4 + 2]
+                  const n = isoCores.frente.length / 5
+                  this.buf[j * cols + i] = isoCores.frente[((((b >> 1) % n) + n) % n) * 5 + 3]
                   continue
                 }
                 code = P_PUPILA * 4 + 2
@@ -1393,17 +1672,15 @@ class Pintor implements Desenho {
   }
 }
 
-function clampI(v: number, max: number): number {
-  return v < 0 ? 0 : v > max ? max : v
-}
 
 /** O tom pelo lado do cilindro (v/r: −1 do lado da luz, +1 do lado da sombra). */
 function tomDe(k: number): number {
   return k < -0.36 ? 3 : k > 0.44 ? 1 : 2
 }
 
-/** A brasa: o miolo claro no meio, a borda mais escura. */
-function tomBrasa(k: number): number {
-  const a = Math.abs(k)
-  return a < 0.45 ? 3 : a < 0.78 ? 2 : 1
+const lerpN = (a: number, b: number, k: number) => a + (b - a) * k
+
+/** A cor do carvão pelo calor (0–1): o apagado, o vermelho-escuro, o vermelho, o laranja, o amarelo, o miolo. */
+function corDoCalor(c: number): number {
+  return c > 0.84 ? P_FOGO * 4 + 2 : c > 0.68 ? P_FOGO * 4 + 1 : c > 0.52 ? P_BRASA * 4 + 3 : c > 0.36 ? P_BRASA * 4 + 2 : c > 0.2 ? P_BRASA * 4 + 1 : P_CARVAO * 4 + 2
 }
