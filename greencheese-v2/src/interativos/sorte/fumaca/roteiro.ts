@@ -5,14 +5,17 @@
 //                     e um olho que pisca numa nuvem
 //   raro     ~5,1 s · 2 puxadas, 3 argolas saem da fumaça, se enrolam numa espiral que vira um olho azul, pisca, a
 //                     pupila dilata e o prêmio sai dela; a íris fica de moldura e se parte nos raios
-//   épico    ~6,5 s · 3 puxadas, a fumaça em faixas psicodélicas (isolinhas), uma cabeça de fumaça cor-de-rosa abre os
-//                     olhos (pálpebra pesada, pupila em espiral), olha pros lados, pisca, sorri, enche as bochechas e
-//                     sopra o prêmio pela boca
-//   lendário ~7,2 s · 3 puxadas, um portal (túnel em caleidoscópio, puxado pro ouro) com a fumaça só de moldura, 8 olhos
-//                     abrindo em onda na borda, olhando pro meio e piscando juntos, a borda derretendo, estrelas, o clarão
-//                     e o prêmio descendo pelo túnel em câmera lenta
+//   épico    ~6,8 s · 3 puxadas, a fumaça em faixas psicodélicas (isolinhas), uma cabeça redonda de fumaça (mais de 70%
+//                     da largura, montada com lóbulos nas cores das faixas) junta, abre os olhos (pálpebra pesada,
+//                     pupila em espiral), olha pros lados, pisca, abre um sorrisão (e dá uma piscadela), enche as
+//                     bochechas e sopra o prêmio pela boca; depois se desfaz na fumaça
+//   lendário ~7,2 s · 3 puxadas, a fumaça em ouro com faixas iridescentes (rosa, ciano, violeta) deslizando por cima, um
+//                     portal (túnel em caleidoscópio grande, ciano, rosa, violeta e ouro) com a fumaça só de moldura, 8
+//                     olhos abrindo em onda na borda, olhando pro meio e piscando juntos, a borda derretendo, estrelas
+//                     grandes, o clarão numa placa holográfica e o prêmio descendo pelo túnel em câmera lenta
 // Cada puxada tem 4 tempos (antecipação, puxa, segura, solta) e entre uma e outra a brasa volta a ≤ 0,25; depois de cada
-// uma (menos a última) uma baforada pequena sobe pelo canto vazio. A última desemboca no sopro: com a brasa ainda no
+// uma (menos a última) uma baforada semitransparente sai embaixo à esquerda, junto da piteira, e se desfaz subindo por
+// trás dela. A última desemboca no sopro: com a brasa ainda no
 // máximo, a baforada grande sai em jato do pé da tela (de onde fica a boca de quem fuma, embaixo da piteira) e, junto
 // com a fumaça que a brasa solta, engole o beck; a fumaça enche a tela rolando e a viagem acontece nela.
 import type { Raridade } from '../../../lib/raridade'
@@ -33,7 +36,7 @@ export interface Puxada {
   /** Fração do comprimento que queima nela. */
   queima: number
   forca: number
-  /** A baforada que sobe pelo canto depois dela (fração da largura); 0 = a última (vem o sopro grande). */
+  /** O tamanho da baforada que sai junto da piteira depois dela (fração da largura); 0 = a última (vem o sopro grande). */
   baforada: number
 }
 
@@ -60,9 +63,11 @@ export interface Roteiro {
   pronto: number
   /** A escala final do cartão (cresce com a raridade). */
   escala: number
-  /** Paleta da fumaça: contorno, sombra, meio, luz; e a de trás. */
-  cores: [string, string, string, string]
-  coresFundo: [string, string, string, string]
+  /** Paleta da fumaça: contorno, sombra, meio, luz (e, se tiver, a sombra funda); e a de trás. */
+  cores: readonly string[]
+  coresFundo: readonly string[]
+  /** As faixas iridescentes por cima da fumaça (lendário). */
+  holo?: boolean
   /** As faixas psicodélicas (isolinhas): de quando e as 5 cores. */
   iso?: { de: number; cores: [string, string, string, string, string]; contorno: string; vel: number }
   chamaDourada: boolean
@@ -70,7 +75,7 @@ export interface Roteiro {
   sorriso?: { abre: number; pisca: number; some: number }
   /** Raro: as argolas saem da fumaça, se juntam, a espiral gira, vira olho, pisca, a pupila dilata. */
   espiral?: { aneis: number[]; junta: number; gira: number; iris: number; pisca: number; dilata: number; aro: number }
-  /** Épico: a cabeça junta, os olhos abrem, olham, piscam, a boca sorri, as bochechas enchem e sopram. */
+  /** Épico: a cabeça junta, os olhos abrem, olham, piscam, a boca sorri (piscadela), as bochechas enchem e sopram. */
   rosto?: { cabeca: number; olhosAbrem: number; olhaEsq: number; olhaDir: number; olhaFrente: number; sorri: number; bochecha: number; sopra: number; piscadela: number }
   /** Lendário: o portal abre, os olhos em onda, olham pro meio, piscam juntos, a borda derrete, o clarão, a descida. */
   portal?: { abre: number; olhos: number; olham: number; piscam: number; derrete: number; clarao: number; desce: number; lento: [number, number]; recua: number }
@@ -87,9 +92,10 @@ const AZUL: Roteiro['cores'] = ['#061a33', '#1d5f9a', '#4fa9e6', '#b4e0ff']
 const AZUL_FUNDO: Roteiro['cores'] = ['#04142a', '#174a7a', '#3a86c4', '#8cc6f0']
 const ROSA: Roteiro['cores'] = ['#2e0520', '#b0216e', '#ff5cae', '#ffc6e4']
 const ROSA_FUNDO: Roteiro['cores'] = ['#1e0316', '#741249', '#b83a80', '#e07fb4']
-// lendário: a moldura dourada (o violeta só no contorno)
-const OURO: Roteiro['cores'] = ['#24103a', '#c79a45', '#ffd877', '#fff6d6']
-const OURO_FUNDO: Roteiro['cores'] = ['#170a28', '#8a6a2e', '#c79a45', '#f0d48c']
+// lendário (crítica da 3ª rodada: o dourado lia como mostarda): ouro quente e saturado com a sombra funda violeta (o
+// iridescente), e as faixas rosa, ciano e violeta deslizando por cima (holo)
+const OURO: Roteiro['cores'] = ['#2a0f4a', '#e8981e', '#ffc93d', '#fff3c2', '#7a3aa8']
+const OURO_FUNDO: Roteiro['cores'] = ['#1d0a36', '#a8581a', '#e09a2a', '#ffe08a', '#562a82']
 
 /** O começo é igual em todas: o beck sobe e assenta, o isqueiro entra de lado ainda na subida, a torcida pega. */
 const ISQUEIRO = { entra: 0.4, clique: 0.6, lambe: 0.66, pega: 0.9, sai: 0.96, fora: 1.16 }
@@ -153,17 +159,17 @@ export const ROTEIROS: Record<Raridade, Roteiro> = {
     sopro: 3.36,
     nuvens: 22,
     cheio: 3.9,
-    abre: 5.8,
+    abre: 6.05,
     abreDur: 0.4,
-    premio: 5.82,
-    carimbo: 6.28,
-    pronto: 6.54,
+    premio: 6.06,
+    carimbo: 6.52,
+    pronto: 6.8,
     escala: 1.08,
     cores: ROSA,
     coresFundo: ROSA_FUNDO,
     iso: { de: 3.62, cores: ['#ff5cae', '#ff9a3d', '#9466ff', '#35b8ff', '#ffd877'], contorno: '#2e0520', vel: 2.4 },
     chamaDourada: false,
-    rosto: { cabeca: 3.98, olhosAbrem: 4.44, olhaEsq: 4.7, olhaDir: 4.92, olhaFrente: 5.12, sorri: 5.38, bochecha: 5.66, sopra: 5.81, piscadela: 6.38 },
+    rosto: { cabeca: 3.94, olhosAbrem: 4.42, olhaEsq: 4.68, olhaDir: 4.88, olhaFrente: 5.08, sorri: 5.3, bochecha: 5.8, sopra: 6.04, piscadela: 5.52 },
     brilhos: 'rosa',
   },
   lendario: {
@@ -184,6 +190,7 @@ export const ROTEIROS: Record<Raridade, Roteiro> = {
     escala: 1.12,
     cores: OURO,
     coresFundo: OURO_FUNDO,
+    holo: true,
     chamaDourada: true,
     portal: { abre: 3.92, olhos: 4.2, olham: 4.8, piscam: 4.98, derrete: 4.64, clarao: 5.46, desce: 5.5, lento: [5.46, 6.34], recua: 6.54 },
     brilhos: 'ouro',

@@ -17,7 +17,7 @@
 // O beck, o isqueiro, a chama, os fiapos, as argolas, os olhos e as bocas são "sprites" desenhados célula a célula numa
 // máscara (código da parte + tom) e compostos com o contorno de 1 célula de quem está na borda (vizinho vazio).
 import { TORCIDA_ANG, TORCIDA_L } from './cena'
-import { CABECA, FRENTE, FUNDO, misturar, NB, paleta, PASSO_BOLHA, px32, type Anel, type EstadoBeckPx, type EstadoIsqueiro, type Olho, type Paleta, type Quadro } from './quadro'
+import { CABECA, FRENTE, FUNDO, misturar, NB, paleta, PASSO_BOLHA, PASSO_CAB, px32, type Anel, type EstadoBeckPx, type EstadoIsqueiro, type Olho, type Paleta, type Quadro } from './quadro'
 
 const T = 0.25
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16)
@@ -101,21 +101,25 @@ const NPARTES = 29
 /** Onde ficam as rachaduras da cinza (fração do comprimento dela). */
 const RACHAS = [0.34, 0.68]
 
-/** Cores fixas (tons 1, 2, 3) e o contorno de cada parte. */
+/**
+ * Cores fixas (tons 1, 2, 3) e o contorno de cada parte. O beck tem contorno de tom médio (no preto, o marrom quase
+ * preto sumia: a crítica pediu presença de desenho): laranja-queimado do lado da sombra e das pontas, e uma luz de borda
+ * (BORDA_LUZ) do lado de onde vem a luz (cima à esquerda); a linha ferve a 12 qps junto com o raio do beck.
+ */
 const FIXAS: Partial<Record<number, [string, string, string, string]>> = {
-  [P_PITEIRA]: ['#2a170c', '#a8875a', '#d9c39a', '#efe2c4'],
-  [P_PAPEL]: ['#2a170c', '#b8956a', '#e3cfa8', '#f6ead2'],
-  [P_TOSTADO]: ['#2a170c', '#4a2a14', '#7a4a22', '#9a6a3a'],
-  [P_CINZA]: ['#3a3532', '#8f8881', '#bdb6ae', '#e4dfd8'],
-  [P_RACHA]: ['#3a3532', '#59524d', '#59524d', '#59524d'],
+  [P_PITEIRA]: ['#8e5a2c', '#a8875a', '#d9c39a', '#efe2c4'],
+  [P_PAPEL]: ['#9c5c28', '#b8956a', '#e3cfa8', '#f6ead2'],
+  [P_TOSTADO]: ['#7a3a14', '#4a2a14', '#7a4a22', '#9a6a3a'],
+  [P_CINZA]: ['#6e6a67', '#a19c97', '#c9c5c0', '#ebe8e4'],
+  [P_RACHA]: ['#6e6a67', '#77726e', '#77726e', '#77726e'],
   // o carvão: vermelho-escuro, vermelho e laranja; o fogo: amarelo e o miolo quase branco
-  [P_BRASA]: ['#2a0a04', '#8a1e0a', '#d8361a', '#ff7a1a'],
-  [P_FOGO]: ['#2a0a04', '#ffc23a', '#fff3c4', '#fff3c4'],
-  [P_CARVAO]: ['#2a0a04', '#3e0e06', '#5a1608', '#6e1c0a'],
-  [P_QUENTE]: ['#2a170c', '#c97a3e', '#eaa462', '#ffcf8f'],
-  [P_TORCIDA]: ['#2a170c', '#b8956a', '#e3cfa8', '#f6ead2'],
-  [P_BOCA_PIT]: ['#2a170c', '#a8875a', '#c9b088', '#d9c39a'],
-  [P_M]: ['#2a170c', '#2a170c', '#2a170c', '#2a170c'],
+  [P_BRASA]: ['#8a2208', '#8a1e0a', '#d8361a', '#ff7a1a'],
+  [P_FOGO]: ['#8a2208', '#ffc23a', '#fff3c4', '#fff3c4'],
+  [P_CARVAO]: ['#8a2208', '#3e0e06', '#5a1608', '#6e1c0a'],
+  [P_QUENTE]: ['#a8481c', '#c97a3e', '#eaa462', '#ffcf8f'],
+  [P_TORCIDA]: ['#9c5c28', '#b8956a', '#e3cfa8', '#f6ead2'],
+  [P_BOCA_PIT]: ['#8e5a2c', '#a8875a', '#c9b088', '#d9c39a'],
+  [P_M]: ['#5a3416', '#5a3416', '#5a3416', '#5a3416'],
   // o corpo do isqueiro: plástico de desenho animado (coral), o capuz de metal
   [P_CORPO]: ['#2a170c', '#a8283a', '#e2474f', '#ff8f7f'],
   [P_CAPUZ]: ['#2a170c', '#7a848e', '#b8c0c8', '#e6eaee'],
@@ -126,6 +130,20 @@ const FIXAS: Partial<Record<number, [string, string, string, string]>> = {
   [P_BRILHO]: ['#ffffff', '#ffffff', '#ffffff', '#ffffff'],
   [P_DENTE]: ['#000000', '#e9dfe4', '#fffaf2', '#fffaf2'],
   [P_LINGUA]: ['#000000', '#d8466e', '#ff6b9a', '#ff9dbb'],
+}
+/** A luz de borda do beck (o contorno do lado da luz: vizinho vazio em cima ou à esquerda). */
+const BORDA_LUZ: Partial<Record<number, string>> = {
+  [P_PITEIRA]: '#e6b878',
+  [P_PAPEL]: '#f2c288',
+  [P_TOSTADO]: '#b06a30',
+  [P_CINZA]: '#f4f2ef',
+  [P_RACHA]: '#f4f2ef',
+  [P_BRASA]: '#ff9a3a',
+  [P_FOGO]: '#ffd27a',
+  [P_CARVAO]: '#ff7a2a',
+  [P_QUENTE]: '#ffc27a',
+  [P_TORCIDA]: '#f2c288',
+  [P_BOCA_PIT]: '#e6b878',
 }
 
 interface PaletaIso {
@@ -139,8 +157,12 @@ interface PaletaIso {
 export interface Desenho {
   readonly tipo: 'pixel'
   medir(W: number, H: number, pix: number): void
-  /** `subir` falso: só calcula no ImageData (o aquecimento do motor, no giro). */
-  pintar(q: Quadro, subir?: boolean): void
+  /**
+   * `subir` falso: só calcula no ImageData (o aquecimento do motor, no giro). `reusar`: a fumaça (e o que fica embaixo
+   * dela: o túnel, o beck, os fiapos da brasa, a cabeça calculada) é a do último quadro completo; só o que vem por cima
+   * (a cabeça pintada, olhos, boca, o prêmio, as partículas) é refeito.
+   */
+  pintar(q: Quadro, subir?: boolean, reusar?: boolean): void
   limpar(): void
   destruir(): void
   /** As faixas psicodélicas (5 cores) e o contorno delas. */
@@ -177,6 +199,11 @@ class Pintor implements Desenho {
   private cd: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
   /** Quanto da fumaça no nó é "de verdade" (cinza: as baforadas), por camada (Σ v·cinza / Σ v). */
   private cc: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
+  /** O véu (a opacidade máxima) no nó, por camada (Σ v·véu / Σ v), e se a camada tem algum lóbulo com véu. */
+  private cv: Float32Array[] = [new Float32Array(1), new Float32Array(1)]
+  private temVeu = [false, false]
+  /** Se a camada tem fumaça "de verdade" (cinza) neste quadro: sem ela, nem olha a mistura. */
+  private temCinza = [false, false]
   private fg: Float32Array[] = [new Float32Array(1), new Float32Array(1), new Float32Array(1)]
   private temCamada = [false, false, false]
   // recorte por pedaços (8×8 nós) da lista de bolhas
@@ -199,10 +226,35 @@ class Pintor implements Desenho {
   private polar: { cx: number; cy: number; r: Float32Array; a: Float32Array } | null = null
   private polarRaios: { cx: number; cy: number; r: Float32Array; a: Float32Array } | null = null
   private corTunel: { esc: number; tab: Uint32Array } | null = null
+  /** A cabeça do épico (por célula, na caixa dela): o lóbulo de cima, a altura dele e o tom. */
+  private cabTop = new Int8Array(1)
+  private cabH = new Float32Array(1)
+  private cabTom = new Uint8Array(1)
+  private cabLista = new Int16Array(64)
+  private cabG = new Int8Array(1)
+  /** A caixa da cabeça calculada neste quadro (células) e se tem cabeça pra pintar. */
+  private cabOk = false
+  /** A fumaça do último quadro completo (o quadro seguinte pode reaproveitar). */
+  private fumacaBuf = new Uint32Array(1)
+  private fumacaOk = false
+  /** O que a cabeça calculada usou (os lóbulos e a semente da fervura): igual no quadro seguinte, não recalcula. */
+  private cabChave = new Float32Array(16 * 6 + 2)
+  private cabI0 = 0
+  private cabJ0 = 0
+  private cabW = 0
+  private cabHh = 0
   // cores
   private corParte = new Uint32Array(NPARTES * 4)
+  /** A luz de borda de cada parte (0: sem; o contorno é um só). */
+  private corLuz = new Uint32Array(NPARTES)
   private iso: PaletaIso | null = null
   private cinzaFrente: Paleta = paleta(['#1b2228', '#9aa6ae', '#d3dbe0', '#f4f7f8'])
+  /** As cores iridescentes do lendário: a luz (rosa, ciano, violeta claros) e o meio (saturados), na frente e atrás. */
+  private holoLuz = Uint32Array.from(['#ffb8ea', '#b8f8ff', '#dcc8ff'].map((c) => px32(c)))
+  private holoMeio = Uint32Array.from(['#ff5fb0', '#35d4ff', '#9a6cff'].map((c) => px32(c)))
+  private holoMeioFundo = Uint32Array.from(['#c23c86', '#2296c0', '#6c48c0'].map((c) => px32(c)))
+  private raioHolo = Uint32Array.from(['#ffc53d', '#ff5fb0', '#35d4ff', '#9a6cff'].map((c) => px32(c)))
+  private raioHoloMiolo = Uint32Array.from(['#fff1b8', '#ffd0ee', '#c8f8ff', '#e2d4ff'].map((c) => px32(c)))
   // (as baforadas passam atrás do beck: o mesmo cinza claro de fumaça, um pouco mais apagado)
   private cinzaFundo: Paleta = paleta(['#1b2228', '#8c99a3', '#c3ccd2', '#e8edf0'])
 
@@ -217,6 +269,7 @@ class Pintor implements Desenho {
       const p = Number(k)
       cores!.forEach((c, t) => (this.corParte[p * 4 + t] = px32(c)))
     }
+    for (const [k, c] of Object.entries(BORDA_LUZ)) this.corLuz[Number(k)] = px32(c!)
   }
 
   medir(W: number, H: number, pix: number) {
@@ -240,6 +293,7 @@ class Pintor implements Desenho {
     this.ca = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
     this.cd = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
     this.cc = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]
+    this.cv = [new Float32Array(n), new Float32Array(n)]
     this.fg = [new Float32Array(cols * lins), new Float32Array(cols * lins), new Float32Array(cols * lins)]
     this.pedX = Math.ceil(this.gx / PED)
     this.pedY = Math.ceil(this.gy / PED)
@@ -254,6 +308,7 @@ class Pintor implements Desenho {
     this.ondCol2 = new Float32Array(this.gx)
     this.polar = null
     this.polarRaios = null
+    this.fumacaOk = false
   }
 
   definirIso(cores: readonly string[] | null, contorno: string) {
@@ -280,6 +335,7 @@ class Pintor implements Desenho {
   }
 
   limpar() {
+    this.fumacaOk = false
     this.buf.fill(0)
     this.ctx.putImageData(this.img, 0, 0)
   }
@@ -288,13 +344,31 @@ class Pintor implements Desenho {
     /* nada guardado fora do canvas */
   }
 
-  pintar(q: Quadro, subir = true) {
+  pintar(q: Quadro, subir = true, reusar = false) {
     const buf = this.buf
-    buf.fill(0)
     this.corDinamica(q)
+    if (reusar && this.fumacaOk && this.fumacaBuf.length === buf.length) {
+      buf.set(this.fumacaBuf)
+      this.porCima(q, subir)
+      return
+    }
+    buf.fill(0)
     if (q.tunel[0] > 0.001) this.tunel(q)
     if (q.estrelas > 0.001) this.estrelasDoFundo(q)
+    const dbg = import.meta.env.DEV ? (window as unknown as { __fumacaT?: Record<string, number> }).__fumacaT : undefined
+    let t0 = dbg ? performance.now() : 0
+    const marca = (nome: string) => {
+      if (!dbg) return
+      const t1 = performance.now()
+      dbg[nome] = (dbg[nome] ?? 0) + t1 - t0
+      t0 = t1
+    }
+    marca('tunel')
     this.campo(q)
+    marca('campo')
+    // a cabeça do épico: calcula antes das camadas (a fumaça por baixo dela nem é pintada) e pinta por cima
+    this.cabOk = q.nCabeca > 0 && this.cabecaCalcular(q)
+    marca('cabecaCalc')
     // engolido pelo sopro, o beck passa pra trás de toda a fumaça
     if (q.beck.atras) this.beck(q.beck, q.ferve)
     if (this.temCamada[FUNDO]) this.camada(FUNDO, q)
@@ -306,10 +380,32 @@ class Pintor implements Desenho {
     // os fiapos da brasa (os 3 primeiros) passam por trás da frente; os que se soltam das nuvens, por cima
     const nb = Math.min(3, q.nFitas)
     for (let k = 0; k < nb; k++) this.fita(q, k)
+    marca('fundo')
     if (this.temCamada[FRENTE]) this.camada(FRENTE, q)
+    marca('frente')
+    // guarda a fumaça (pro quadro seguinte poder reaproveitar, quando o desenho passa do orçamento)
+    if (this.fumacaBuf.length !== buf.length) this.fumacaBuf = new Uint32Array(buf.length)
+    this.fumacaBuf.set(buf)
+    this.fumacaOk = true
+    this.porCima(q, subir, nb)
+  }
+
+  /** O que vai por cima da fumaça (refeito todo quadro). */
+  private porCima(q: Quadro, subir: boolean, nb = Math.min(3, q.nFitas)) {
+    const buf = this.buf
+    const dbg = import.meta.env.DEV ? (window as unknown as { __fumacaT?: Record<string, number> }).__fumacaT : undefined
+    let t0 = dbg ? performance.now() : 0
+    const marca = (nome: string) => {
+      if (!dbg) return
+      const t1 = performance.now()
+      dbg[nome] = (dbg[nome] ?? 0) + t1 - t0
+      t0 = t1
+    }
     if (q.brasaSobre[3] > 0.01) this.brilhoSobre(q.brasaSobre)
     for (let k = nb; k < q.nFitas; k++) this.fita(q, k)
     if (this.temCamada[CABECA]) this.camada(CABECA, q)
+    if (this.cabOk) this.cabecaPintar(q)
+    marca('cabeca')
     // os raios e o anel do prêmio passam por cima da fumaça (atrás do cartão, que é do DOM): o prêmio brilha nela
     if (q.raios[0] > 0.001) this.raios(q)
     if (q.halo[4] > 0.001) this.halo(q)
@@ -320,8 +416,10 @@ class Pintor implements Desenho {
     for (let k = 0; k < q.nOlhos; k++) this.olho(q.olhos[k], q)
     if (q.boca[3] > 0.01 || q.boca[4] > 0.01) this.boca(q)
     this.aoPintar?.(buf, this.cols, this.lins, this.pix, q)
-    if (q.clarao > 0.001) this.clarao(q.clarao)
+    if (q.clarao > 0.001) this.clarao(q.clarao, q.t)
+    marca('resto')
     if (subir) this.ctx.putImageData(this.img, 0, 0)
+    marca('subir')
   }
 
   /* ───────────── cores que mudam no quadro (a brasa, a chama, as argolas, a cabeça) ───────────── */
@@ -393,7 +491,12 @@ class Pintor implements Desenho {
 
   /* ───────────── fundo: túnel, estrelas, halo, raios ───────────── */
 
-  /** O túnel do lendário: faixas que correm pro fundo em 6 gomos espelhados (caleidoscópio), puxadas pro ouro. */
+  /**
+   * O túnel do lendário (o caleidoscópio que o dono elogiou na 1ª rodada; a 3ª tinha puxado pro ouro e encolhido): faixas
+   * que correm pro fundo em 6 gomos espelhados, numa estrela forte; 4 cores iguais (ciano, rosa, violeta e ouro: o ouro
+   * no máximo 1/4), o traço escuro na costura, a beirada clara de cada faixa e o fundo do túnel mais escuro (4 degraus
+   * em dither).
+   */
   private tunel(q: Quadro) {
     const { cols, lins, buf } = this
     const u = Math.min(this.W, this.H)
@@ -404,14 +507,15 @@ class Pintor implements Desenho {
     const giro = q.tunel[2]
     const esc = q.tunel[3]
     const alcance = forca * 2.2 * u
-    // as cores: ouro 50%, creme 20%, rosa/ciano/violeta em faixas finas (≤ 30%), e o contorno escuro
     const niveis = 4
     const escQ = Math.round(esc * 50) / 50
     if (!this.corTunel || this.corTunel.esc !== escQ) {
-      const base = ['#ffc53d', '#fff1b8', '#ff5fb0', '#35d4ff', '#9466ff']
-      const t2 = new Uint32Array(base.length * niveis)
+      const base = ['#35ccff', '#ff5fb0', '#9466ff', '#ffc53d']
+      // por cor: 4 degraus de profundidade e a beirada clara
+      const t2 = new Uint32Array(base.length * (niveis + 1))
       base.forEach((c, k) => {
-        for (let n = 0; n < niveis; n++) t2[k * niveis + n] = px32(misturar(c, '#1a0b2e', (1 - (n + 1) / niveis) * 0.42 + (1 - escQ) * 0.5))
+        for (let n = 0; n < niveis; n++) t2[k * (niveis + 1) + n] = px32(misturar(c, '#1a0b2e', (1 - (n + 1) / niveis) * 0.5 + (1 - escQ) * 0.5))
+        t2[k * (niveis + 1) + niveis] = px32(misturar(misturar(c, '#ffffff', 0.45), '#1a0b2e', (1 - escQ) * 0.5))
       })
       this.corTunel = { esc: escQ, tab: t2 }
     }
@@ -419,6 +523,7 @@ class Pintor implements Desenho {
     const tinta = px32('#1a0b2e')
     const seg = (Math.PI * 2) / 6
     const P = (this.polar = this.polarDe(this.polar, cx, cy))
+    const ni = niveis + 1
     for (let j = 0; j < lins; j++) {
       for (let i = 0; i < cols; i++) {
         const idx = j * cols + i
@@ -428,20 +533,16 @@ class Pintor implements Desenho {
         let an = P.a[idx] + giro
         an = an - seg * Math.floor(an / seg)
         const af = Math.abs(an - seg * 0.5)
-        const z = (0.32 * u) / Math.max(r, 0.015 * u)
-        const s = z + af * 0.55 - fase
+        const z = (0.24 * u) / Math.max(r, 0.015 * u)
+        const s = z + af * 2.2 - fase
         const fl = Math.floor(s)
         const fr = s - fl
-        // a profundidade: mais escuro no fundo do túnel (4 degraus com dither)
-        const prof = Math.min(1, r / (0.6 * u))
-        const nv = Math.min(niveis - 1, Math.floor(prof * niveis + (by - 0.5) * 0.9))
-        let c: number
-        if (fr < 0.07) c = tinta
-        else if (fr < 0.57) c = tab[0 * niveis + Math.max(0, nv)]
-        else if (fr < 0.77) c = tab[1 * niveis + Math.max(0, nv)]
-        else if (fr < 0.8) c = tinta
-        else c = tab[(2 + (((fl % 3) + 3) % 3)) * niveis + Math.max(0, nv)]
-        buf[idx] = c
+        // o fundo do túnel mais escuro (4 degraus com dither)
+        const prof = Math.min(1, Math.max(0, (r - 0.05 * u) / (0.55 * u)))
+        const nv = Math.max(0, Math.min(niveis - 1, Math.floor(prof * niveis + (by - 0.5) * 0.9)))
+        const cor = ((fl % 4) + 4) % 4
+        const linha = 0.07 + 0.05 * Math.max(0, 1 - r / (0.4 * u))
+        buf[idx] = fr < linha ? tinta : fr > 0.8 ? tab[cor * ni + niveis] : tab[cor * ni + nv]
       }
     }
   }
@@ -466,24 +567,35 @@ class Pintor implements Desenho {
     return { cx: rx, cy: ry, r, a }
   }
 
-  /** 12 estrelas de 4 pontas (2–3 células) cintilando no fundo do túnel. */
+  /** 18 estrelas de 4 pontas (até 6 células de braço, as grandes com o miolo de 3×3) cintilando no túnel: branco, ciano e rosa. */
   private estrelasDoFundo(q: Quadro) {
     const { cols, lins } = this
-    const cor = px32('#fffbe6')
-    const cor2 = px32('#fff1b8')
-    for (let k = 0; k < 12; k++) {
+    const cores = [px32('#ffffff'), px32('#bff6ff'), px32('#ffd0ee'), px32('#fff1b8')]
+    const ponta = [px32('#fff1b8'), px32('#5fe0ff'), px32('#ff7ad1'), px32('#ffc53d')]
+    for (let k = 0; k < 18; k++) {
       const i = Math.floor(hash3(k, 1, 5) * cols)
       const j = Math.floor(hash3(k, 2, 5) * lins)
+      const grande = k % 3 === 0
       const fase = (q.t * (1.3 + hash3(k, 3, 5)) + hash3(k, 4, 5) * 6) % 3
-      const tam = fase < 1 ? 1 : fase < 1.5 ? 2 : fase < 2 ? 3 : fase < 2.5 ? 2 : 0
+      const pico = grande ? 6 : 4
+      const tam = fase < 0.4 ? 1 : fase < 0.9 ? Math.ceil(pico * 0.5) : fase < 1.5 ? pico : fase < 2 ? Math.ceil(pico * 0.5) : fase < 2.4 ? 1 : 0
       if (!tam || hash3(k, 6, 5) > q.estrelas) continue
-      this.ponto(i, j, cor)
+      const c = cores[k % 4]
+      const cp = ponta[k % 4]
+      this.ponto(i, j, c)
+      if (grande && tam >= 3) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) this.ponto(i + di, j + dj, c)
       for (let a = 1; a <= tam; a++) {
-        const c = a === tam ? cor2 : cor
-        this.ponto(i + a, j, c)
-        this.ponto(i - a, j, c)
-        this.ponto(i, j + a, c)
-        this.ponto(i, j - a, c)
+        const cc = a >= tam - 1 ? cp : c
+        this.ponto(i + a, j, cc)
+        this.ponto(i - a, j, cc)
+        this.ponto(i, j + a, cc)
+        this.ponto(i, j - a, cc)
+      }
+      if (tam >= 3) {
+        this.ponto(i + 1, j + 1, cp)
+        this.ponto(i - 1, j - 1, cp)
+        this.ponto(i + 1, j - 1, cp)
+        this.ponto(i - 1, j + 1, cp)
       }
     }
   }
@@ -528,19 +640,23 @@ class Pintor implements Desenho {
     const cor = q.raiosCor
     const miolo = q.raiosMiolo
     const P = (this.polarRaios = this.polarDe(this.polarRaios, hx, hy))
+    const holo = q.holo > 0.01
     void pix
     for (let j = 0; j < lins; j++) {
       for (let i = 0; i < cols; i++) {
         const r = P.r[j * cols + i]
         if (r < r0 || r > r1) continue
-        let st = (P.a[j * cols + i] / (Math.PI * 2)) * n + giro
-        st -= Math.floor(st)
+        const st0 = (P.a[j * cols + i] / (Math.PI * 2)) * n + giro
+        const fl = Math.floor(st0)
+        const st = st0 - fl
         const d = Math.abs(st - 0.5)
         if (d > 0.2) continue
         const fade = (1 - (r - r0) / (r1 - r0)) * forca
         const by = bayer(i, j)
-        if (d < 0.06 && by < fade * 0.75) buf[j * cols + i] = miolo
-        else if (by < fade * 0.42) buf[j * cols + i] = cor
+        // (no lendário cada raio numa cor da placa holográfica: ouro, rosa, ciano, violeta)
+        const k = holo ? ((fl % 4) + 4) % 4 : -1
+        if (d < 0.06 && by < fade * 0.75) buf[j * cols + i] = k >= 0 ? this.raioHoloMiolo[k] : miolo
+        else if (by < fade * 0.42) buf[j * cols + i] = k >= 0 ? this.raioHolo[k] : cor
       }
     }
   }
@@ -558,6 +674,8 @@ class Pintor implements Desenho {
     const B = q.blobs
     const n = Math.min(NB, q.nBlobs)
     this.temCamada[0] = this.temCamada[1] = this.temCamada[2] = false
+    this.temVeu[0] = this.temVeu[1] = false
+    this.temCinza[0] = this.temCinza[1] = false
     if (!n) return
     const pix = this.pix
     const G = pix * 2
@@ -604,7 +722,10 @@ class Pintor implements Desenho {
           if (pedN[p] < NB) pedL[p * NB + pedN[p]++] = k
         }
       }
-      this.temCamada[B[o + 7] | 0] = true
+      const cam0 = B[o + 7] | 0
+      this.temCamada[cam0] = true
+      if (cam0 < 2 && B[o + 14] < 0.999) this.temVeu[cam0] = true
+      if (cam0 < 2 && B[o + 13] > 0.001) this.temCinza[cam0] = true
       alguma = true
     }
     if (!alguma) return
@@ -627,6 +748,8 @@ class Pintor implements Desenho {
     const D2 = this.cd[2]
     const G0 = this.cc[0]
     const G1 = this.cc[1]
+    const V0 = this.cv[0]
+    const V1 = this.cv[1]
     const A = q.ondulado
     const fv = q.fervura
     const t = q.t
@@ -665,6 +788,10 @@ class Pintor implements Desenho {
         }
     }
     const temBuraco = hf > 0
+    // a cabeça do épico (inteira, por cima): a fumaça bem por baixo dos lóbulos dela não aparece; nem calcula
+    const nCab = q.nCabeca
+    const Lc = q.cabecaLobos
+    const margem = G * 2
     for (let pb = 0; pb < PY; pb++)
       for (let pa = 0; pa < PX; pa++) {
         const p = pb * PX + pa
@@ -677,6 +804,21 @@ class Pintor implements Desenho {
           const py0 = b * G + pix * 0.5
           for (let a = xa0; a < Math.min(gx, xa0 + PED); a++) {
             const px0 = a * G + pix * 0.5
+            if (nCab) {
+              let coberto = false
+              for (let k = 0; k < nCab; k++) {
+                const o = k * PASSO_CAB
+                const rr = Lc[o + 2] - margem
+                if (rr <= 0 || Lc[o + 5] < 0.99) continue
+                const dx = px0 - Lc[o]
+                const dy = py0 - Lc[o + 1]
+                if (dx * dx + dy * dy < rr * rr) {
+                  coberto = true
+                  break
+                }
+              }
+              if (coberto) continue
+            }
             let sx = px0
             let sy = py0
             if (A > 0) {
@@ -695,6 +837,8 @@ class Pintor implements Desenho {
             let a2 = 0
             let g0 = 0
             let g1 = 0
+            let e0 = 0
+            let e1 = 0
             // o lóbulo de cima em cada camada (o z-buffer de esferas): a altura e a normal dele
             let h0 = -1e9
             let h1 = -1e9
@@ -746,6 +890,7 @@ class Pintor implements Desenho {
                 f0 += v
                 a0 += al2
                 g0 += v * B[o + 13]
+                e0 += v * B[o + 14]
                 if (h > h0) {
                   h0 = h
                   const ir = 1 / (B[o + 2] * mm)
@@ -761,6 +906,7 @@ class Pintor implements Desenho {
                 f1 += v
                 a1 += al2
                 g1 += v * B[o + 13]
+                e1 += v * B[o + 14]
                 if (h > h1) {
                   h1 = h
                   const ir = 1 / (B[o + 2] * mm)
@@ -806,8 +952,12 @@ class Pintor implements Desenho {
             A0[idx] = a0
             A1[idx] = a1
             A2[idx] = a2
-            G0[idx] = f0 > 0 ? g0 / f0 : 0
-            G1[idx] = f1 > 0 ? g1 / f1 : 0
+            // (cinza e véu ficam somados: na célula, divididos pelo campo interpolado; assim a borda não pega a cor
+            // nem a opacidade do nó vazio do lado)
+            G0[idx] = g0
+            G1[idx] = g1
+            V0[idx] = e0
+            V1[idx] = e1
             // a luz da esfera de cima (NaN: nenhum lóbulo cobre o nó, a luz vem do relevo)
             // (no miolo, onde muitos lóbulos se somam, o contraste cai: a massa se funde; na borda, a forma inteira)
             D0[idx] = h0 > -1e8 ? funde(luzEsfera(n0x, n0y, n0z), f0) : NaN
@@ -893,7 +1043,10 @@ class Pintor implements Desenho {
     const Ac = this.ca[c]
     const fundo = c === FUNDO
     const pal = c === CABECA ? q.cabeca : fundo ? q.fundo : q.frente
-    const Gc = c === CABECA ? null : this.cc[c]
+    const Gc = c < 2 && this.temCinza[c] ? this.cc[c] : null
+    const Vc = c < 2 && this.temVeu[c] ? this.cv[c] : null
+    const cab = this.cabOk
+    const cabL = q.cabecaLobos
     const pc = fundo ? this.cinzaFundo : this.cinzaFrente
     const iso = this.iso && c !== CABECA ? this.iso : null
     const isoK = iso ? q.iso : 0
@@ -902,6 +1055,12 @@ class Pintor implements Desenho {
     const nIso = isoTab ? isoTab.length / 5 : 0
     const isoF = q.isoFase
     const frenteF = this.temCamada[FRENTE] ? this.fg[FRENTE] : null
+    // lendário: as faixas iridescentes que deslizam por cima do ouro (a luz e a beirada de cada faixa) e a luz de borda
+    const holoK = c !== CABECA ? q.holo : 0
+    const holoL = this.holoLuz
+    const holoM = fundo ? this.holoMeioFundo : this.holoMeio
+    const holoPasso = (0.2 * Math.min(this.W, this.H)) / this.pix
+    const holoF = q.holoFase
     const ultI = cols - 1
     const ultJ = lins - 1
     const opac = 1 / T
@@ -914,14 +1073,20 @@ class Pintor implements Desenho {
         if (f <= T) continue
         // o fundo embaixo da frente não aparece (nem o contorno dele)
         if (fundo && frenteF && frenteF[idx] > T) continue
+        if (cab && this.cobertaPelaCabeca(i, j, cabL)) continue
         const by = bayer(i, j)
         // a opacidade: o miolo cheio, a borda de quem se desfaz em dither (o limiar mistura o Bayer com um ruído de 2
         // células que anda: some em grãos irregulares, não num xadrez); quem se desfaz não tem contorno
-        const op = this.naCelula(Ac, i, j) * opac
-        if (op < 1 && by * 0.55 + hash3(i >> 1, j >> 1, ferve >> 1) * 0.45 >= op) continue
+        let op = this.naCelula(Ac, i, j) * opac
+        // o véu (as baforadas semitransparentes): meio-tom ordenado e limpo (Bayer puro), o meio-tom clássico do pixel
+        const veu = Vc ? this.naCelula(Vc, i, j) / f : 1
+        if (veu < op) {
+          if (by >= veu) continue
+          op = veu
+        } else if (op < 1 && by * 0.55 + hash3(i >> 1, j >> 1, ferve >> 1) * 0.45 >= op) continue
         const fino = op < 0.9
         // a fumaça "de verdade" (as baforadas) é cinza; onde ela encontra a da raridade, mistura em dither
-        const usaCinza = Gc !== null && Gc[(j >> 1) * this.gx + (i >> 1)] > by
+        const usaCinza = Gc !== null && this.naCelula(Gc, i, j) / f > by
         const P = usaCinza ? pc : pal
         let isoB = -1
         if (isoK > 0 && !usaCinza && by < isoK) {
@@ -938,21 +1103,301 @@ class Pintor implements Desenho {
         const d = this.naCelula(D, i, j) + (by - 0.5) * 0.07
         const tom = d > LUZ ? 4 : d > MEIO ? 3 : d > SOMBRA ? 2 : 1
         if (isoB >= 0) buf[idx] = isoTab![isoB * 5 + (tom === 4 ? 4 : tom === 1 ? 2 : 3)]
-        else buf[idx] = tom === 4 ? P.luz : tom === 3 ? P.meio : tom === 2 ? P.sombra : P.funda
+        else if (holoK > 0 && !usaCinza && by < holoK) {
+          // as faixas diagonais correm; a luz pega a cor da faixa, o meio ganha a faixa em dither, a beirada de cima
+          // (luz de borda: 2 células pra dentro do contorno, do lado da luz) acende na cor da faixa
+          const ph = (i * 0.75 + j * 0.42) / holoPasso - holoF
+          const b = Math.floor(ph)
+          const fr = ph - b
+          const h = ((b % 3) + 3) % 3
+          const borda = !fino && ((i > 1 && F[idx - 2] <= T) || (j > 1 && F[idx - 2 * cols] <= T))
+          if (borda && tom > 1) buf[idx] = holoL[h]
+          else if (tom === 4) buf[idx] = fr < 0.72 ? holoL[h] : P.luz
+          else if (tom === 3 && fr > 0.1 && fr < 0.42 && by < 0.5) buf[idx] = holoM[h]
+          else buf[idx] = tom === 3 ? P.meio : tom === 2 ? P.sombra : P.funda
+        } else buf[idx] = tom === 4 ? P.luz : tom === 3 ? P.meio : tom === 2 ? P.sombra : P.funda
       }
     }
   }
 
+  /**
+   * A cabeça de fumaça do épico, célula a célula (as bordas dos lóbulos nítidas): o campo dos lóbulos dá a silhueta
+   * (fundidos numa só, contorno de 1 célula só por fora, que ferve a 12 qps), o lóbulo de cima em cada célula dá a cor
+   * (as cores das faixas psicodélicas) e a luz da esfera dele (4 tons, costura em dither); onde um lóbulo passa por
+   * baixo de outro, 1 célula da sombra funda (a dobra macia). O rubor nas bochechas em dither; desfazendo, em dither.
+   */
+  private cabecaCalcular(q: Quadro): boolean {
+    if (!this.iso) return false
+    const n = q.nCabeca
+    // (a cabeça anda a 30 qps, como desenho: entre um passo e outro o cálculo é o mesmo)
+    const ch = this.cabChave
+    const m = n * PASSO_CAB
+    let igual = ch[0] === n && ch[1] === q.ferve && this.cabW > 0
+    for (let k = 0; igual && k < m; k++) if (ch[k + 2] !== q.cabecaLobos[k]) igual = false
+    if (igual) return true
+    ch[0] = n
+    ch[1] = q.ferve
+    for (let k = 0; k < m; k++) ch[k + 2] = q.cabecaLobos[k]
+    const Lb = q.cabecaLobos
+    const { cols, lins, pix } = this
+    let x0 = 1e9
+    let y0 = 1e9
+    let x1 = -1e9
+    let y1 = -1e9
+    for (let k = 0; k < n; k++) {
+      const o = k * PASSO_CAB
+      const r = Lb[o + 2] * SUP
+      x0 = Math.min(x0, Lb[o] - r)
+      x1 = Math.max(x1, Lb[o] + r)
+      y0 = Math.min(y0, Lb[o + 1] - r)
+      y1 = Math.max(y1, Lb[o + 1] + r)
+    }
+    const i0 = Math.max(0, Math.floor(x0 / pix) - 1)
+    const j0 = Math.max(0, Math.floor(y0 / pix) - 1)
+    const i1 = Math.min(cols - 1, Math.ceil(x1 / pix) + 1)
+    const j1 = Math.min(lins - 1, Math.ceil(y1 / pix) + 1)
+    if (i1 < i0 || j1 < j0) return false
+    const w = i1 - i0 + 1
+    const h = j1 - j0 + 1
+    this.cabI0 = i0
+    this.cabJ0 = j0
+    this.cabW = w
+    this.cabHh = h
+    if (this.cabTop.length < w * h) {
+      this.cabTop = new Int8Array(w * h)
+      this.cabH = new Float32Array(w * h)
+      this.cabTom = new Uint8Array(w * h)
+    }
+    const top = this.cabTop
+    const alt = this.cabH
+    const tomA = this.cabTom
+    const seed = q.ferve
+    // por linha, só os lóbulos que a linha cruza (a cabeça tem ~10; cada linha cruza uns 4)
+    const lista = this.cabLista
+    // passada grossa (blocos de 2×2 células): o lóbulo de cima no meio de cada bloco, só onde está bem por dentro da
+    // silhueta (−1: fora ou perto da borda). Na passada fina, a célula cujo bloco e os 8 vizinhos têm o mesmo lóbulo
+    // só calcula a luz dele (o miolo dos lóbulos); as outras (bordas, dobras) calculam tudo
+    const gw = (w + 1) >> 1
+    const gh = (h + 1) >> 1
+    if (this.cabG.length < gw * gh) this.cabG = new Int8Array(gw * gh)
+    const G2 = this.cabG
+    for (let gj = 0; gj < gh; gj++) {
+      const yc = (j0 + 2 * gj + 1) * pix
+      let nl = 0
+      for (let k = 0; k < n; k++) {
+        const o = k * PASSO_CAB
+        if (Math.abs(yc - Lb[o + 1]) < Lb[o + 2] * SUP + 3) lista[nl++] = k
+      }
+      for (let gi = 0; gi < gw; gi++) {
+        const xc = (i0 + 2 * gi + 1) * pix
+        let f = 0
+        let kt = -1
+        let hb = -1e9
+        for (let m = 0; m < nl; m++) {
+          const k = lista[m]
+          const o = k * PASSO_CAB
+          const r = Lb[o + 2]
+          if (r <= 0.5) continue
+          const dx = xc - Lb[o]
+          const dy = yc - Lb[o + 1]
+          const q2 = (dx * dx + dy * dy) / (r * r * RHO2)
+          if (q2 >= 1) continue
+          f += 1 - q2
+          if (q2 < DENTRO * 0.8) {
+            const hh = Lb[o + 4] + r * Math.sqrt(1 - q2 * RHO2)
+            if (hh > hb) {
+              hb = hh
+              kt = k
+            }
+          }
+        }
+        G2[gj * gw + gi] = f > T * 2 ? kt : -1
+      }
+    }
+    for (let j = j0; j <= j1; j++) {
+      const yc = (j + 0.5) * pix
+      let nl = 0
+      for (let k = 0; k < n; k++) {
+        const o = k * PASSO_CAB
+        const r = Lb[o + 2] * SUP + 3
+        if (Math.abs(yc - Lb[o + 1]) < r) lista[nl++] = k
+      }
+      const gj = (j - j0) >> 1
+      for (let i = i0; i <= i1; i++) {
+        const li = (j - j0) * w + (i - i0)
+        // o miolo de um lóbulo: só a luz dele
+        const gi = (i - i0) >> 1
+        const kg = G2[gj * gw + gi]
+        if (kg >= 0 && gi > 0 && gj > 0 && gi < gw - 1 && gj < gh - 1) {
+          const b0 = (gj - 1) * gw + gi
+          const b2 = (gj + 1) * gw + gi
+          if (G2[b0 - 1] === kg && G2[b0] === kg && G2[b0 + 1] === kg && G2[b0 + gw - 1] === kg && G2[b0 + gw + 1] === kg && G2[b2 - 1] === kg && G2[b2] === kg && G2[b2 + 1] === kg) {
+            const o = kg * PASSO_CAB
+            const r = Lb[o + 2]
+            const dx = (i + 0.5) * pix - Lb[o]
+            const dy = yc - Lb[o + 1]
+            const q2 = (dx * dx + dy * dy) / (r * r * RHO2)
+            if (q2 < DENTRO) {
+              const z = Math.sqrt(1 - q2 * RHO2)
+              top[li] = kg
+              alt[li] = Lb[o + 4] + r * z
+              const d = luzEsfera((dx / r) * 0.62, (dy / r) * 0.62, z) + (bayer(i, j) - 0.5) * 0.07
+              tomA[li] = d > LUZ ? 4 : d > MEIO ? 3 : d > SOMBRA ? 2 : 1
+              continue
+            }
+          }
+        }
+        // a linha ferve: o ponto da amostra treme até ~0,4 célula a 12 qps
+        const sx = (i + 0.5) * pix + (hash3(i >> 1, j >> 1, seed) - 0.5) * 2.8
+        const sy = yc + (hash3(j >> 1, i >> 1, seed + 77) - 0.5) * 2.8
+        let f = 0
+        let kt = -1
+        let hb = -1e9
+        let nx = 0
+        let ny = 0
+        let nz = 1
+        let kmax = -1
+        let vmax = 0
+        for (let m = 0; m < nl; m++) {
+          const k = lista[m]
+          const o = k * PASSO_CAB
+          const r = Lb[o + 2]
+          if (r <= 0.5) continue
+          const dx = sx - Lb[o]
+          const dy = sy - Lb[o + 1]
+          if (dx > r * SUP || dx < -r * SUP) continue
+          const q2 = (dx * dx + dy * dy) / (r * r * RHO2)
+          if (q2 >= 1) continue
+          const v = 1 - q2
+          f += v
+          if (v > vmax) {
+            vmax = v
+            kmax = k
+          }
+          if (q2 < DENTRO) {
+            const z = Math.sqrt(1 - q2 * RHO2)
+            const hh = Lb[o + 4] + r * z
+            if (hh > hb) {
+              hb = hh
+              kt = k
+              nx = dx / r
+              ny = dy / r
+              nz = z
+            }
+          }
+        }
+        if (f <= T) {
+          top[li] = -1
+          continue
+        }
+        if (kt < 0) {
+          // no vinco entre dois lóbulos (fora das duas esferas): o mais perto, com a normal deitada
+          kt = kmax
+          const o = kt * PASSO_CAB
+          const dx = sx - Lb[o]
+          const dy = sy - Lb[o + 1]
+          const d = Math.sqrt(dx * dx + dy * dy) || 1
+          nx = dx / d
+          ny = dy / d
+          nz = 0.2
+          hb = Lb[o + 4]
+        }
+        top[li] = kt
+        alt[li] = hb
+        // (a luz numa esfera achatada: a cara fica quase toda no meio, com o brilho em cima à esquerda e a sombra só
+        // na beirada de baixo à direita)
+        const d = luzEsfera(nx * 0.62, ny * 0.62, nz) + (bayer(i, j) - 0.5) * 0.07
+        tomA[li] = d > LUZ ? 4 : d > MEIO ? 3 : d > SOMBRA ? 2 : 1
+      }
+    }
+    return true
+  }
+
+  /** A cabeça coberta inteira (opaca) na célula: a fumaça ali nem é pintada. */
+  private cobertaPelaCabeca(i: number, j: number, Lb: Float32Array): boolean {
+    const li = i - this.cabI0
+    const lj = j - this.cabJ0
+    if (li < 1 || lj < 1 || li >= this.cabW - 1 || lj >= this.cabHh - 1) return false
+    const k = this.cabTop[lj * this.cabW + li]
+    return k >= 0 && Lb[k * PASSO_CAB + 5] >= 0.999
+  }
+
+  private cabecaPintar(q: Quadro) {
+    const iso = this.iso!
+    const Lb = q.cabecaLobos
+    const { cols, pix, buf } = this
+    const i0 = this.cabI0
+    const j0 = this.cabJ0
+    const w = this.cabW
+    const h = this.cabHh
+    const i1 = i0 + w - 1
+    const j1 = j0 + h - 1
+    const top = this.cabTop
+    const alt = this.cabH
+    const tomA = this.cabTom
+    const contorno = iso.contorno
+    const tab = iso.frente
+    const nIso = tab.length / 5
+    const [hcx, hcy, , rubor, rr] = q.cabecaInfo
+    const corRubor = px32('#ff2f6d')
+    const R = q.cabecaInfo[2]
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) {
+        const li = (j - j0) * w + (i - i0)
+        const kt = top[li]
+        if (kt < 0) continue
+        const o = kt * PASSO_CAB
+        const a = Lb[o + 5]
+        const by = bayer(i, j)
+        if (a < 1 && by >= a) continue
+        const idx = j * cols + i
+        const li0 = i - i0
+        const lj0 = j - j0
+        if (a > 0.9 && (li0 === 0 || lj0 === 0 || li0 === w - 1 || lj0 === h - 1 || top[li - 1] < 0 || top[li + 1] < 0 || top[li - w] < 0 || top[li + w] < 0)) {
+          buf[idx] = contorno
+          continue
+        }
+        let tom = tomA[li]
+        // a dobra: o vizinho é de outro lóbulo, mais alto (este passa por baixo dele)
+        const h0 = alt[li]
+        for (let m = 0; m < 4; m++) {
+          const ii = i - i0 + (m === 0 ? -1 : m === 1 ? 1 : 0)
+          const jj = j - j0 + (m === 2 ? -1 : m === 3 ? 1 : 0)
+          if (ii < 0 || jj < 0 || ii >= w || jj >= h) continue
+          const kv = top[jj * w + ii]
+          if (kv >= 0 && kv !== kt && alt[jj * w + ii] > h0 + R * 0.02) {
+            tom = 1
+            break
+          }
+        }
+        const cor = ((Lb[o + 3] | 0) % nIso + nIso) % nIso
+        let c = tab[cor * 5 + tom]
+        // o rubor das bochechas
+        if (rubor > 0.02 && tom > 1) {
+          for (const lado of [-1, 1]) {
+            const ex = ((i + 0.5) * pix - (hcx + lado * R * 0.56)) / rr
+            const ey = ((j + 0.5) * pix - (hcy + R * 0.3)) / (rr * 0.62)
+            if (ex * ex + ey * ey < 1 && by < rubor * 0.55) c = corRubor
+          }
+        }
+        buf[idx] = c
+      }
+  }
+
   /* ───────────── sprites: máscara (parte·4 + tom) → cor com contorno de 1 célula ───────────── */
 
-  /** Compõe a máscara na caixa (células) e limpa: quem tem vizinho vazio vira contorno (cor 0 da parte). */
-  private compor(i0: number, j0: number, i1: number, j1: number, auto = true) {
+  /**
+   * Compõe a máscara na caixa (células) e limpa: quem tem vizinho vazio vira contorno (cor 0 da parte); com `luz`, o
+   * contorno do lado da luz (vizinho vazio em cima ou à esquerda) vira a luz de borda da parte (quem tiver).
+   */
+  private compor(i0: number, j0: number, i1: number, j1: number, auto = true, luz = false) {
     const { cols, lins, buf, mask } = this
     i0 = Math.max(0, i0)
     j0 = Math.max(0, j0)
     i1 = Math.min(cols - 1, i1)
     j1 = Math.min(lins - 1, j1)
     const cor = this.corParte
+    const corLuz = this.corLuz
     for (let j = j0; j <= j1; j++) {
       const row = j * cols
       for (let i = i0; i <= i1; i++) {
@@ -961,7 +1406,17 @@ class Pintor implements Desenho {
         if (!m) continue
         const parte = m >> 2
         let tom = m & 3
-        if (auto && tom && ((i > 0 && !mask[idx - 1]) || (i < cols - 1 && !mask[idx + 1]) || (j > 0 && !mask[idx - cols]) || (j < lins - 1 && !mask[idx + cols]))) tom = 0
+        if (auto && tom) {
+          const esq = i > 0 && !mask[idx - 1]
+          const cima = j > 0 && !mask[idx - cols]
+          if (esq || cima || (i < cols - 1 && !mask[idx + 1]) || (j < lins - 1 && !mask[idx + cols])) {
+            if (luz && (esq || cima) && corLuz[parte]) {
+              buf[idx] = corLuz[parte]
+              continue
+            }
+            tom = 0
+          }
+        }
         buf[idx] = cor[parte * 4 + tom]
       }
     }
@@ -1143,7 +1598,7 @@ class Pintor implements Desenho {
         if (code) mask[j * cols + i] = code
       }
     }
-    this.compor(ci0, cj0, ci1, cj1)
+    this.compor(ci0, cj0, ci1, cj1, true, true)
   }
 
   /**
@@ -1323,79 +1778,136 @@ class Pintor implements Desenho {
     this.compor(ci0, cj0, ci1, cj1)
   }
 
-  /** Um fiapo: fita fina que sai da brasa (ou de um pedaço que se desfaz), ondula, afina e quebra em caracóis na ponta. */
+  /**
+   * Um fiapo (crítica da 3ª rodada: a ponta fechada numa bolota com rabo lia como girino): uma fita de fumaça que sobe
+   * da brasa ondulando, fina na base (1 célula), engrossa no meio (até ~2,4 células, com a luz de um lado e a sombra do
+   * outro) e afina de novo até 1 célula; a ponta termina num caracol ABERTO (uma espiral de pouco mais de meia volta que
+   * vai fechando o raio sem nunca encostar no começo) e se desfaz em pontos de dither. Sem contorno escuro: fumaça
+   * clara no preto.
+   */
   private fita(q: Quadro, k: number) {
     const f = q.fitas[k]
     if (f.comp < 2 || f.alfa <= 0.05) return
     const { cols, lins, pix, mask } = this
     const u = Math.min(this.W, this.H)
     const passo = pix * 0.5
-    const n = Math.ceil(f.comp / passo)
-    const A = 0.04 * u
-    const onda = (Math.PI * 2) / (0.24 * u)
-    // o eixo (inc = 0: pra cima) e a perpendicular
+    // o corpo (até o caracol) e o caracol
+    const corpo = f.comp * 0.8
+    const n = Math.max(2, Math.ceil(corpo / passo))
+    const A0 = 0.05 * u
+    const onda = (Math.PI * 2) / (0.26 * u)
     const ex = Math.sin(f.inc)
     const ey = -Math.cos(f.inc)
     const nx = -ey
     const ny = ex
     const alfa = f.alfa
+    const t = q.t
     let mi0 = cols
     let mj0 = lins
     let mi1 = 0
     let mj1 = 0
-    const carimbo = (x: number, y: number, raio: number, code: number, sobre: boolean, lado: number) => {
+    const marca = (i: number, j: number, dither: number) => {
+      if (i < 0 || j < 0 || i >= cols || j >= lins) return
+      const by = bayer(i, j)
+      if (by >= alfa * dither) return
+      mask[j * cols + i] = P_FITA * 4 + 2
+      if (i < mi0) mi0 = i
+      if (j < mj0) mj0 = j
+      if (i > mi1) mi1 = i
+      if (j > mj1) mj1 = j
+    }
+    /** Um disco de diâmetro d (células) no ponto (px); d < 1,3: uma célula só. */
+    const disco = (x: number, y: number, d: number, dither: number) => {
       const ci = Math.floor(x / pix)
       const cj = Math.floor(y / pix)
-      const R = Math.ceil(raio)
+      if (d < 1.3) {
+        marca(ci, cj, dither)
+        return
+      }
+      const r = d / 2
+      const fx = x / pix - 0.5
+      const fy = y / pix - 0.5
+      const R = Math.ceil(r)
       for (let dj = -R; dj <= R; dj++)
         for (let di = -R; di <= R; di++) {
-          if (di * di + dj * dj > raio * raio + 0.3) continue
           const i = ci + di
           const j = cj + dj
-          if (i < 0 || j < 0 || i >= cols || j >= lins) continue
-          if (alfa < 1 && bayer(i, j) >= alfa) continue
-          const idx = j * cols + i
-          if (!sobre && mask[idx]) continue
-          mask[idx] = code === 0 ? P_FITA * 4 : P_FITA * 4 + (di * lado > 0 && raio > 0.9 ? 1 : 2)
-          if (i < mi0) mi0 = i
-          if (j < mj0) mj0 = j
-          if (i > mi1) mi1 = i
-          if (j > mj1) mj1 = j
+          const ddx = i - fx
+          const ddy = j - fy
+          if (ddx * ddx + ddy * ddy <= r * r) marca(i, j, dither)
         }
     }
-    const pontos: number[] = []
+    // o corpo: sobe ondulando (a onda corre pra cima, a amplitude cresce com a altura) e balança de leve
+    const balanca = Math.sin(t * 1.3 + f.fase) * 0.02 * u
+    let x = f.x
+    let y = f.y
+    let hx = ex
+    let hy = ey
+    let px0 = x
+    let py0 = y
     for (let s = 0; s <= n; s++) {
-      const k2 = s / n
-      const ds = k2 * f.comp
-      const off = A * k2 * Math.sin(ds * onda - q.t * 5 + f.fase)
-      const x = f.x + ex * ds + nx * off
-      const y = f.y + ey * ds + ny * off
-      // afina de 2 células pra 1; solta: a base some primeiro
-      let w = f.larg * (1 - 0.55 * k2)
-      if (f.solta > 0) w *= Math.min(1, Math.max(0, (k2 - f.solta * 0.7) / 0.18))
-      if (w < 0.35) continue
-      pontos.push(x, y, w)
-    }
-    // os caracóis na ponta (2 voltinhas de 3–5 células)
-    if (pontos.length >= 3) {
-      const tx = pontos[pontos.length - 3]
-      const ty = pontos[pontos.length - 2]
-      for (let c = 0; c < f.voltas; c++) {
-        const lado = (c ? -1 : 1) * f.lado
-        const R0 = pix * (2.4 - c * 0.6)
-        const ox = tx + nx * lado * R0 * 0.9 + ex * pix * (1 + c * 2.2)
-        const oy = ty + ny * lado * R0 * 0.9 + ey * pix * (1 + c * 2.2)
-        for (let a = 0; a < 1.35 * Math.PI * 2; a += 0.35) {
-          const rr = R0 * (1 - a / (1.5 * Math.PI * 2))
-          const ca = -lado * Math.cos(a) * rr
-          const sa = Math.sin(a) * rr
-          pontos.push(ox + nx * ca + ex * sa, oy + ny * ca + ey * sa, 0.5)
-        }
+      const kk = s / n
+      const ds = kk * corpo
+      const amp = A0 * (0.2 + 0.8 * kk)
+      const off = amp * Math.sin(ds * onda - t * 4 + f.fase) + balanca * kk * kk
+      x = f.x + ex * ds + nx * off
+      y = f.y + ey * ds + ny * off
+      if (s > 0) {
+        const dl = Math.hypot(x - px0, y - py0) || 1
+        hx = (x - px0) / dl
+        hy = (y - py0) / dl
       }
+      px0 = x
+      py0 = y
+      // a espessura: 1 célula na base, engorda no meio, 1 célula no fim do corpo; solta, a base some primeiro
+      const inch = kk < 0.78 ? Math.pow(Math.sin(Math.PI * Math.min(1, kk / 0.78)), 0.8) : 0
+      let d = (1 + 1.4 * inch * f.larg) * (1 + 0.12 * Math.sin(ds * onda * 2.3 + f.fase - t * 3))
+      let dith = 1
+      if (f.solta > 0) {
+        const corteK = f.solta * 0.85
+        if (kk < corteK) continue
+        dith = Math.min(1, (kk - corteK) / 0.12)
+        d *= 0.6 + 0.4 * dith
+      }
+      disco(x, y, d, dith)
     }
-    for (let p = 0; p < pontos.length; p += 3) carimbo(pontos[p], pontos[p + 1], pontos[p + 2] + 1, 0, false, f.lado)
-    for (let p = 0; p < pontos.length; p += 3) carimbo(pontos[p], pontos[p + 1], pontos[p + 2], 1, true, f.lado)
-    if (mi1 >= mi0) this.compor(mi0, mj0, mi1, mj1, false)
+    // o caracol aberto: o rumo vira pro lado (mais de meia volta, menos de uma), o raio fecha de R0 até ~0,55·R0; a
+    // ponta (o último terço) se desfaz em dither e solta uns pontos
+    const lado = f.lado
+    // (o caracol cresce com o fiapo: pequeno, só um gancho; comprido, mais de meia volta, sempre com o miolo aberto)
+    const cresce = Math.min(1, Math.max(0, (f.comp - 0.15 * u) / (0.3 * u)))
+    const R0 = Math.min(0.05 * u, Math.max(3.2 * pix, f.comp * 0.11))
+    const Th = Math.PI * (0.85 + 0.22 * cresce + 0.08 * Math.sin(t * 1.7 + f.fase))
+    // o centro do caracol: do lado de dentro da curva, a R0 da ponta do corpo
+    const cxp = x + -hy * lado * R0
+    const cyp = y + hx * lado * R0
+    const a0 = Math.atan2(y - cyp, x - cxp)
+    const m = Math.ceil((Th * R0) / passo)
+    let tx = x
+    let ty = y
+    for (let s = 1; s <= m; s++) {
+      const kk = s / m
+      const th = kk * Th
+      const r = R0 * (1 - 0.45 * kk)
+      const an = a0 + lado * th
+      tx = cxp + Math.cos(an) * r
+      ty = cyp + Math.sin(an) * r
+      const dith = kk < 0.55 ? 1 : 1 - ((kk - 0.55) / 0.45) * 0.85
+      disco(tx, ty, 1, dith)
+    }
+    if (mi1 < mi0) return
+    // a luz e a sombra da fita: o lado de cima à esquerda acende, o de baixo à direita escurece (só onde ela tem mais
+    // de uma célula de largura)
+    for (let j = mj0; j <= mj1; j++)
+      for (let i = mi0; i <= mi1; i++) {
+        const idx = j * cols + i
+        if (mask[idx] !== P_FITA * 4 + 2) continue
+        const luz = (i > 0 && !mask[idx - 1]) || (j > 0 && !mask[idx - cols])
+        const sombra = (i < cols - 1 && !mask[idx + 1]) || (j < lins - 1 && !mask[idx + cols])
+        if (luz && !sombra) mask[idx] = P_FITA * 4 + 3
+        else if (sombra && !luz) mask[idx] = P_FITA * 4 + 1
+      }
+    this.compor(mi0, mj0, mi1, mj1, false)
   }
 
   /** Argola (raro): toro inclinado, a luz em cima do tubo. */
@@ -1647,29 +2159,50 @@ class Pintor implements Desenho {
         const qy = ((j + 0.5) * pix - y) / L
         let code = 0
         if (bico > 0.5) {
-          const ro = 0.36 * (1 + 0.5 * sopro)
+          // o "o" (bochechas cheias) e a boca aberta soprando
+          const ro = 0.2 + 0.36 * sopro
           const e = (qx / ro) ** 2 + (qy / (ro * 1.15)) ** 2
           if (e <= 1) code = e > 0.55 ? P_BOCA * 4 + 3 : P_BOCA * 4 + 1
         } else {
+          // o sorrisão: os cantos sobem (o lábio de cima é um sorriso, o de baixo mais fundo), os dentes de cima, a
+          // língua embaixo e as covinhas nos cantos
           const ab = sorri
-          const topo = -0.1 * ab + 0.38 * qx * qx * ab
-          const base = 0.72 * ab * Math.sqrt(Math.max(0, 1 - qx * qx))
-          if (Math.abs(qx) <= 1 && qy >= topo && qy <= base) {
+          const ax = Math.abs(qx)
+          const topo = -0.34 * qx * qx * ab
+          const base = topo + 0.64 * ab * Math.pow(Math.max(0, 1 - qx * qx), 0.7)
+          if (ax <= 1 && qy >= topo && qy <= base) {
             code = P_BOCA * 4 + 2
-            if (qy < topo + 0.2 * ab) code = P_DENTE * 4 + 2
-            else if (qy > base * 0.55 + 0.08 && Math.abs(qx) < 0.55) code = P_LINGUA * 4 + 2
-          }
+            if (qy < topo + 0.17 * ab) code = P_DENTE * 4 + 2
+            else if (qy > base - 0.24 * ab && ax < 0.5) code = P_LINGUA * 4 + 2
+          } else if (ab > 0.6 && qy > -0.52 * ab && qy < -0.26 * ab && Math.abs(ax - (1.08 - 0.5 * (qy + 0.39 * ab) * (qy + 0.39 * ab) / ab)) < 0.055) code = P_CONTORNO * 4 + 1
         }
         if (code) mask[j * cols + i] = code
       }
     this.compor(ci0, cj0, ci1, cj1)
   }
 
-  private clarao(k: number) {
-    const { cols, lins, buf } = this
-    const c = px32('#fffbe6')
-    for (let j = 0; j < lins; j++) for (let i = 0; i < cols; i++) if (bayer(i, j) < k) buf[j * cols + i] = c
+  /**
+   * O clarão do lendário numa placa holográfica: faixas diagonais em tons pastel (rosa, ciano, violeta, creme) que
+   * correm, cobrindo tudo no primeiro quadro e indo embora em dither.
+   */
+  private clarao(k: number, t: number) {
+    const { cols, lins, buf, pix } = this
+    const u = Math.min(this.W, this.H)
+    const cores = [px32('#ffd6f0'), px32('#d2fbff'), px32('#e6d6ff'), px32('#fffbe6')]
+    const brilho = px32('#ffffff')
+    const larg = (0.16 * u) / pix
+    const f = t * 2.2
+    for (let j = 0; j < lins; j++)
+      for (let i = 0; i < cols; i++) {
+        const by = bayer(i, j)
+        if (by >= k) continue
+        const ph = (i * 0.8 + j * 0.45) / larg - f
+        const b = Math.floor(ph)
+        const fr = ph - b
+        buf[j * cols + i] = fr > 0.86 && by < k * 0.6 ? brilho : cores[((b % 4) + 4) % 4]
+      }
   }
+
 }
 
 

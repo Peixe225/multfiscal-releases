@@ -1,5 +1,5 @@
 // Partículas em pixel, na mesma grade da fumaça (pintam no ImageData do pintor, depois do resto): as faíscas do estalo e
-// da brasa (2–3 por puxada: brasa, não estrelinha), a cinza que racha, cai, quica e se parte em 3, os brilhos de 4
+// da brasa (2–3 por puxada: brasa, não estrelinha), a lasca de cinza que se solta e se esfarela em pontos, os brilhos de 4
 // pontas em volta do prêmio (nunca em cima do texto), a explosão da raridade e o confete do lendário. Tudo sorteado uma
 // vez (semente fixa) e desenhado como função do tempo: pular e voltar dá o mesmo quadro.
 import type { Cena } from './cena'
@@ -19,11 +19,25 @@ interface P {
   tipo: 0 | 1 | 2 | 3
   cor: number
   fase: number
-  /** Pedaço de cinza: tamanho (px), largura, giro (rad/s) e até onde cai (y). */
+  /** Pedaço de cinza: tamanho (px), largura, giro (rad/s) e os grãos (a grade local da lasca). */
   tam?: number
   larg?: number
   giro?: number
-  chao?: number
+  graos?: Graos
+}
+
+/**
+ * Os grãos da lasca de cinza, numa grade local (ns ao longo do eixo do beck × nv de través, uma célula cada): quando
+ * cada um se solta (s depois de cair; a borda primeiro, o miolo por último), quanto vive solto e pra onde vai.
+ */
+interface Graos {
+  ns: number
+  nv: number
+  existe: Uint8Array
+  solta: Float32Array
+  vida: Float32Array
+  vx: Float32Array
+  vy: Float32Array
 }
 
 const BRASA = ['#fff3c0', '#ffb347', '#ff6a1f'].map((c) => px32(c))
@@ -34,7 +48,11 @@ const CORES: Record<string, number[]> = {
   rosa: ['#ffffff', '#ffbfe0', '#ff3fa4', '#ff9a3d'].map((c) => px32(c)),
   ouro: ['#ffffff', '#fff1b8', '#ffc53d', '#ff5fb0', '#35d4ff', '#9466ff'].map((c) => px32(c)),
 }
-const CINZA = ['#3a3532', '#8f8881', '#bdb6ae', '#e4dfd8'].map((c) => px32(c))
+// a cinza: contorno cinza-médio (nada de marrom: lia como torrão), a sombra, o meio e a luz; os farelos
+const CINZA = ['#7a7672', '#aaa6a1', '#cfcbc6', '#efede9'].map((c) => px32(c))
+const FARELO = ['#d9d6d2', '#b9b5b0', '#f4f2ef'].map((c) => px32(c))
+/** O passo da grade local dos grãos da lasca (px de CSS: a célula de 4 px do desenho). */
+const PASSO_GRAO = 4
 
 /** Um número de 0 a 1 fixo por par de inteiros (a borda e os grãos da cinza). */
 function ruido(a: number, b: number) {
@@ -88,10 +106,33 @@ export class Particulas {
     }
     // a cinza: racha, se solta da ponta e cai girando (presa no peso dela, sem chão invisível), se esfarela no meio do
     // caminho em pedaços que caem juntos e sai pelo pé do quadro
+    // (a lasca: o pedaço da ponta, um pouco mais fino que o beck, com a borda roída; se esfarela em grãos de 1 célula
+    // da borda pro miolo enquanto cai, e os grãos piscam e somem)
     for (const tc of r.cinzaCai) {
       const cz = c.cinzaQueCai(tc)
       if (cz.comp < 4) continue
-      L.push({ t0: tc, x0: cz.x, y0: cz.y, vx: -12 * escala, vy: 30 * escala, g: 2100 * escala, k: 0, vida: 1.4, tipo: 3, cor: CINZA[2], fase: cz.ang, tam: cz.comp * 0.9, larg: cz.raio * 1.6, giro: 2.4, chao: g.H + 40 })
+      const tam = Math.max(cz.comp * 0.95, PASSO_GRAO * 3)
+      const larg = cz.raio * 1.1
+      const ns = Math.max(3, Math.round(tam / PASSO_GRAO))
+      const nv = Math.max(3, Math.round(larg / PASSO_GRAO))
+      const n = ns * nv
+      const gr: Graos = { ns, nv, existe: new Uint8Array(n), solta: new Float32Array(n), vida: new Float32Array(n), vx: new Float32Array(n), vy: new Float32Array(n) }
+      for (let b = 0; b < nv; b++)
+        for (let a = 0; a < ns; a++) {
+          const id = b * ns + a
+          const ks = Math.abs((a - (ns - 1) / 2) / (ns / 2))
+          const kv = Math.abs((b - (nv - 1) / 2) / (nv / 2))
+          // as pontas arredondadas e a borda roída
+          const borda = Math.max(ks * ks * 0.7 + kv * kv, kv)
+          if (borda > 1 || (borda > 0.62 && ruido(a + 7, b * 13 + 1) < 0.32)) continue
+          gr.existe[id] = 1
+          gr.solta[id] = 0.05 + (1 - Math.min(1, borda)) * 0.4 + rnd() * 0.1
+          gr.vida[id] = 0.25 + rnd() * 0.3
+          // os grãos caem (um pouco pros lados), não explodem
+          gr.vx[id] = (rnd() - 0.5) * 50 * escala
+          gr.vy[id] = (20 + rnd() * 70) * escala
+        }
+      L.push({ t0: tc, x0: cz.x, y0: cz.y, vx: -10 * escala, vy: 20 * escala, g: 1500 * escala, k: 0, vida: 1.2, tipo: 3, cor: CINZA[2], fase: cz.ang, tam, larg, giro: 3.2, graos: gr })
     }
     const cores = CORES[r.brilhos]
     const pc = g.premio
@@ -185,68 +226,70 @@ export class Particulas {
   }
 
   /**
-   * A cinza caindo: o pedaço inteiro gira e cai; em 0,16 s se esfarela (2 pedaços grandes e 3 farelos que se afastam um
-   * pouco) e todos seguem caindo até sair do quadro. Irregular, com as pintas e a borda esfarelada.
+   * A lasca de cinza caindo: gira devagar e cai; da borda pro miolo, cada grão se solta, ganha um empurrão pra fora,
+   * cai um pouco mais rápido, pisca e some (se esfarela em pontos). Cinza-claro, contorno cinza-médio.
    */
   private cinza(buf: Uint32Array, cols: number, lins: number, pix: number, p: P, a: number, coberto?: (i: number, j: number) => boolean) {
-    const A = 0.5 * p.g
-    const pedacos: [number, number, number, number, number][] = []
-    const quebra = 0.16
-    if (a < quebra) {
-      pedacos.push([p.x0 + p.vx * a, p.y0 + p.vy * a + A * a * a, p.tam ?? 20, p.fase + (p.giro ?? 3) * a, p.larg ?? 12])
-    } else {
-      const b = a - quebra
-      const xq = p.x0 + p.vx * quebra
-      const yq = p.y0 + p.vy * quebra + A * quebra * quebra
-      const vyq = p.vy + p.g * quebra
-      const tam = p.tam ?? 20
-      const larg = p.larg ?? 12
-      const partes: [number, number, number, number][] = [
-        [-26, 0.5, 0.9, -1.6],
-        [24, 0.42, 0.8, 2.1],
-        [-60, 0.16, 0.42, 4],
-        [8, 0.14, 0.38, -3],
-        [52, 0.12, 0.34, 5],
-      ]
-      partes.forEach(([vx, kt, kl, giro], k) => {
-        const off = (k - 2) * larg * 0.18
-        pedacos.push([xq + off + (p.vx + vx) * b, yq + vyq * b * (1 + k * 0.04) + A * b * b, tam * kt, p.fase + (p.giro ?? 3) * quebra + giro * b, larg * kl])
-      })
-    }
-    pedacos.forEach(([x, y, comp, ang, larg], n) => {
-      if (y - comp > lins * pix) return
-      const ax = Math.cos(ang)
-      const ay = Math.sin(ang)
-      const R = Math.ceil((comp / 2 + larg) / pix) + 1
-      const ci = Math.round(x / pix)
-      const cj = Math.round(y / pix)
-      const h = comp / 2
-      // uma pedra de cinza com a borda esfarelada (o raio varia por fatia de 1 célula, fixo no pedaço)
-      const dentro = (i: number, j: number) => {
-        const dx = (i + 0.5) * pix - x
-        const dy = (j + 0.5) * pix - y
-        const s = dx * ax + dy * ay
-        const v = -dx * ay + dy * ax
-        const ds = s - Math.max(-h, Math.min(h, s))
-        const r = larg / 2 - ruido(Math.round(s / pix) + 40, n * 7 + 3) * pix * 2.2 - (ruido(Math.round(v / pix) + 9, n + 1) > 0.7 ? pix : 0)
-        return ds * ds + v * v <= r * r
+    const gr = p.graos
+    if (!gr) return
+    const { ns, nv, existe, solta, vida, vx, vy } = gr
+    const X = p.x0 + p.vx * a
+    const Y = p.y0 + p.vy * a + 0.5 * p.g * a * a
+    const ang = p.fase + (p.giro ?? 1.6) * a
+    // o eixo do beck (ang = a inclinação a partir da vertical) e a normal (pro lado de baixo à direita: a sombra)
+    const Ax = Math.sin(ang)
+    const Ay = -Math.cos(ang)
+    const Nx = Math.cos(ang)
+    const Ny = Math.sin(ang)
+    const meioS = (ns - 1) / 2
+    const meioV = (nv - 1) / 2
+    const preso = (sa: number, sb: number) => sa >= 0 && sb >= 0 && sa < ns && sb < nv && existe[sb * ns + sa] === 1 && a < solta[sb * ns + sa]
+    // o pedaço que ainda está inteiro: varre a caixa e volta cada célula pra grade local (sem buraco no giro)
+    const R = Math.ceil((Math.hypot(ns, nv) / 2) * (PASSO_GRAO / pix)) + 1
+    const ci = Math.round(X / pix)
+    const cj = Math.round(Y / pix)
+    for (let j = cj - R; j <= cj + R; j++) {
+      if (j < 0 || j >= lins) continue
+      for (let i = ci - R; i <= ci + R; i++) {
+        if (i < 0 || i >= cols) continue
+        const dx = (i + 0.5) * pix - X
+        const dy = (j + 0.5) * pix - Y
+        const sa = Math.round((dx * Ax + dy * Ay) / PASSO_GRAO + meioS)
+        const sb = Math.round((dx * Nx + dy * Ny) / PASSO_GRAO + meioV)
+        if (!preso(sa, sb) || coberto?.(i, j)) continue
+        const borda = !preso(sa - 1, sb) || !preso(sa + 1, sb) || !preso(sa, sb - 1) || !preso(sa, sb + 1)
+        const kv = (sb - meioV) / Math.max(1, nv / 2)
+        let c = borda ? CINZA[0] : kv < -0.3 ? CINZA[3] : kv > 0.4 ? CINZA[1] : CINZA[2]
+        // a luz de borda do lado de cima (como a do beck)
+        if (borda && kv < -0.2) c = CINZA[3]
+        buf[j * cols + i] = c
       }
-      for (let j = cj - R; j <= cj + R; j++)
-        for (let i = ci - R; i <= ci + R; i++) {
-          if (i < 0 || j < 0 || i >= cols || j >= lins || !dentro(i, j) || coberto?.(i, j)) continue
-          const borda = !dentro(i - 1, j) || !dentro(i + 1, j) || !dentro(i, j - 1) || !dentro(i, j + 1)
-          if (borda) {
-            buf[j * cols + i] = CINZA[0]
-            continue
-          }
-          const dx = (i + 0.5) * pix - x
-          const dy = (j + 0.5) * pix - y
-          const v = -dx * ay + dy * ax
-          // a luz vem de cima; as pintas escuras
-          const k = (v * Math.sign(ax || 1)) / (larg / 2)
-          const pinta = ruido(i * 3 + n, j * 5 + 1) < 0.1
-          buf[j * cols + i] = pinta ? CINZA[1] : k < -0.36 ? CINZA[3] : k > 0.44 ? CINZA[1] : CINZA[2]
-        }
-    })
+    }
+    // os grãos soltos
+    const flick = Math.floor((p.t0 + a) * 24)
+    for (let id = 0; id < ns * nv; id++) {
+      if (!existe[id]) continue
+      const b0 = a - solta[id]
+      if (b0 < 0 || b0 > vida[id]) continue
+      if (b0 > vida[id] * 0.6 && (flick + id) % 2) continue
+      const sa = id % ns
+      const sb = Math.floor(id / ns)
+      const ts = solta[id]
+      // onde estava preso quando soltou
+      const Xs = p.x0 + p.vx * ts
+      const Ys = p.y0 + p.vy * ts + 0.5 * p.g * ts * ts
+      const an = p.fase + (p.giro ?? 1.6) * ts
+      const ls = (sa - meioS) * PASSO_GRAO
+      const lv = (sb - meioV) * PASSO_GRAO
+      const x0 = Xs + ls * Math.sin(an) + lv * Math.cos(an)
+      const y0 = Ys - ls * Math.cos(an) + lv * Math.sin(an)
+      const vy0 = p.vy + p.g * ts
+      const x = x0 + (p.vx + vx[id]) * b0
+      const y = y0 + (vy0 + vy[id]) * b0 + 0.5 * p.g * 1.15 * b0 * b0
+      const i = Math.floor(x / pix)
+      const j = Math.floor(y / pix)
+      if (i < 0 || j < 0 || i >= cols || j >= lins || coberto?.(i, j)) continue
+      buf[j * cols + i] = FARELO[id % 3]
+    }
   }
 }

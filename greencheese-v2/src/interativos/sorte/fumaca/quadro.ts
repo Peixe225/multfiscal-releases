@@ -3,17 +3,24 @@
 // alocado no meio da animação).
 
 /**
- * Lóbulos da fumaça (metaballs): 14 números por lóbulo: x, y, raio, peso, estica, direção (x, y), camada, o giro (cos,
+ * Lóbulos da fumaça (metaballs): 15 números por lóbulo: x, y, raio, peso, estica, direção (x, y), camada, o giro (cos,
  * sen: a borda do lóbulo tem 3 calombos que rolam com ele), a amplitude dos calombos, a opacidade (se desfazendo em
- * dither), a profundidade (px: quem fica na frente quando dois lóbulos se cruzam) e se é fumaça "de verdade" (cinza: as
- * baforadas das puxadas; 0 = na cor da raridade).
+ * dither), a profundidade (px: quem fica na frente quando dois lóbulos se cruzam), se é fumaça "de verdade" (cinza: as
+ * baforadas das puxadas; 0 = na cor da raridade) e o véu (a opacidade máxima, até no miolo: 1 = cheia; as baforadas
+ * entre as puxadas são semitransparentes, em dither de 40–70%).
  */
 export const NB = 176
-export const PASSO_BOLHA = 14
-/** Camada de cada bolha: o fundo (mais escuro, atrás do beck), a frente e a cabeça do épico (uma cor só, por cima). */
+export const PASSO_BOLHA = 15
+/** Camada de cada bolha: o fundo (mais escuro, atrás do beck) e a frente. */
 export const FUNDO = 0
 export const FRENTE = 1
 export const CABECA = 2
+/**
+ * A cabeça do épico: até NCAB lóbulos, 6 números cada: x, y, raio, a cor (0–4: as cores das faixas psicodélicas), a
+ * profundidade (px: quem fica por cima) e a opacidade (se desfazendo depois do sopro, em dither).
+ */
+export const NCAB = 16
+export const PASSO_CAB = 6
 
 /** As cores de uma camada de fumaça (já em Uint32 do ImageData): contorno, a sombra funda, a sombra, o meio e a luz. */
 export interface Paleta {
@@ -129,6 +136,9 @@ export interface Quadro {
   /** As faixas psicodélicas (isolinhas do campo): força (0–1, dither), fase (anda pra dentro). */
   iso: number
   isoFase: number
+  /** Lendário: as faixas iridescentes que deslizam por cima do ouro (força 0–1 e a fase: correm com o tempo). */
+  holo: number
+  holoFase: number
   /** Opacidade do canvas inteiro (o resto da fumaça no fundo do story). */
   alfa: number
   /* ── beck, isqueiro e os fiapos ── */
@@ -158,8 +168,10 @@ export interface Quadro {
   olhosTipo: number
   boca: Float32Array
   sobrancelha: number
-  /** A cabeça do épico apagada (depois do sopro): 0–1. */
-  cabecaApaga: number
+  /** A cabeça do épico: os lóbulos (NCAB × PASSO_CAB) e x, y, R, rubor (0–1), meia largura do rubor (px). */
+  cabecaLobos: Float32Array
+  nCabeca: number
+  cabecaInfo: Float32Array
   /** Lendário: o túnel (força, fase, giro, escurece), o centro, e as estrelas (força). */
   tunel: Float32Array
   centro: Float32Array
@@ -192,8 +204,9 @@ export function misturar(a: string, b: string, k: number): string {
   return `#${((c(16) << 16) | (c(8) << 8) | c(0)).toString(16).padStart(6, '0')}`
 }
 
-export function paleta(cores: readonly [string, string, string, string]): Paleta {
-  return { contorno: px32(cores[0]), funda: px32(misturar(cores[1], cores[0], 0.42)), sombra: px32(cores[1]), meio: px32(cores[2]), luz: px32(cores[3]) }
+/** A paleta de uma camada: contorno, sombra, meio, luz e (opcional) a sombra funda; sem ela, a sombra puxada pro contorno. */
+export function paleta(cores: readonly string[]): Paleta {
+  return { contorno: px32(cores[0]), funda: px32(cores[4] ?? misturar(cores[1], cores[0], 0.42)), sombra: px32(cores[1]), meio: px32(cores[2]), luz: px32(cores[3]) }
 }
 
 export function quadroVazio(): Quadro {
@@ -212,6 +225,8 @@ export function quadroVazio(): Quadro {
     cabeca: { ...vazia },
     iso: 0,
     isoFase: 0,
+    holo: 0,
+    holoFase: 0,
     alfa: 1,
     beck: { vis: false, x0: 0, y0: 0, ax: 0, ay: -1, L: 100, sx: 1, sy: 1, linha: 1, cinza: 0, pende: 0, racha: 0, brasa: 0, luz: 0, torcida: 1, torcidaAcesa: 0, corte: null, atras: false },
     isqueiro: { vis: false, x: 0, y: 0, ang: 0, h: 60, chama: 0, chamaAng: 0, faisca: 0 },
@@ -230,7 +245,9 @@ export function quadroVazio(): Quadro {
     olhosTipo: 0,
     boca: new Float32Array(6),
     sobrancelha: 0,
-    cabecaApaga: 0,
+    cabecaLobos: new Float32Array(NCAB * PASSO_CAB),
+    nCabeca: 0,
+    cabecaInfo: new Float32Array(5),
     tunel: new Float32Array(4),
     centro: new Float32Array(2),
     estrelas: 0,
