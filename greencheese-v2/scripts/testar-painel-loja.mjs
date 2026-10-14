@@ -615,7 +615,11 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   ok(await esperar(async () => (await loja()).estados.find((x) => x.uf === 'mg').pedidoMinimo === 20), 'salvou o mínimo de R$ 20: o site recebe pedidoMinimo 20 no GET loja')
   await p.goto(`${BASE}/painel/#/loja/estados`)
   await p.getByText(/mínimo R\$ 20,00/).first().waitFor({ timeout: 8000 }).catch(() => {})
-  ok(/mínimo R\$ 20,00/.test(await p.locator('main').innerText()), 'lista de estados: MG com "mínimo R$ 20,00"')
+  {
+    const txt = await p.locator('main').innerText()
+    const linhaMg = txt.split('\n').filter((l) => /Minas|MG/.test(l)).join(' | ').slice(0, 200)
+    ok(/mínimo R\$ 20,00/.test(txt), `lista de estados: MG com "mínimo R$ 20,00" (${linhaMg})`)
+  }
   await p.goto(`${BASE}/painel/#/loja/estado/mg`)
   await minimo.waitFor()
   ok((await minimo.inputValue()) === '20,00', `de volta no Estado: o campo com 20,00 (${await minimo.inputValue()})`)
