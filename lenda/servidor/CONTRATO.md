@@ -14,7 +14,8 @@ public_html/lenda/
     _schema.sql        tabelas (nunca servido)
     e.php              medição (eventos e batimentos)
     conta.php          cadastro, entrar, sair, eu, esqueci, redefinir, excluir
-    progresso.php      Hall das Lendas na nuvem (GET / POST)
+    carreiras.php      carreiras salvas na conta (listar, abrir, salvar, apagar)
+    lendas.php         números atualizados de Messi e Cristiano Ronaldo (cache do messivsronaldo.app)
     painel.php         números do painel (só administrador)
     instalar.php       cria/atualiza as tabelas (só administrador, idempotente)
   painel/
@@ -46,7 +47,7 @@ retorna um array:
 - Respostas `application/json; charset=utf-8`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
 - Escrita (POST) só com `Content-Type: application/json` (ou `text/plain` no `e.php`, por causa do
   `sendBeacon`) e `Origin` (ou, sem Origin, `Referer`) dentro de `origens`. Fora disso: `403 {"erro":"origem"}`.
-- Corpo máximo: 16 KB (`e.php`, `conta.php`), 6 MB (`progresso.php`). Acima: `413`.
+- Corpo máximo: 16 KB (`e.php`, `conta.php`), 600 KB (`carreiras.php`). Acima: `413`.
 - Erros: `{"erro":"<codigo>","mensagem":"<texto pt-BR para mostrar>"}` com o status certo (400, 401, 403,
   404, 409, 413, 429, 500). Nunca vaza SQL, caminho ou pilha.
 - IP nunca é gravado. Para limite de tentativas: `hash_hmac('sha256', ip . date('Y-m-d'), segredo)`.
@@ -65,26 +66,47 @@ retorna um array:
 
 | acao | entrada | sucesso |
 |---|---|---|
-| `cadastrar` | `apelido, email, senha, aceite: true, vid?, origem?` | `201 {"usuario":U}` + cookie |
+| `cadastrar` | `apelido, email, senha, aceite: true, vid?, origem?, timeCoracao?, uf?` | `201 {"usuario":U}` + cookie |
 | `entrar` | `email, senha, vid?` | `200 {"usuario":U}` + cookie |
 | `sair` | — | `200 {"ok":true}`, apaga a sessão e o cookie |
 | `esqueci` | `email` | `200 {"ok":true}` sempre (não revela se existe). Se existe: código de 6 dígitos, válido 30 min, `mail()` de `email_remetente` |
 | `redefinir` | `email, codigo, senha` | `200 {"usuario":U}` + cookie; derruba as outras sessões |
-| `excluir` | `senha` | `200 {"ok":true}`; apaga usuário, sessões e progresso (LGPD) |
+| `perfil` | `apelido?, timeCoracao?, uf?` | `200 {"usuario":U}` |
+| `partidas` | `n` (contador do aparelho) | `200 {"ok":true}`; guarda o maior entre o salvo e `n` |
+| `excluir` | `senha` | `200 {"ok":true}`; apaga usuário, sessões e carreiras; tira o `usuario_id` das visitas (LGPD) |
 
 `GET /lenda/api/conta.php` → `200 {"usuario": U | null, "regras": {"aposPartidas":5,"obrigatorio":false,"lembrarACada":3}}`.
 
-`U = {"id": 12, "apelido": "Foguete", "email": "a@b.com", "criadoEm": "2026-10-14T12:00:00Z"}`.
+`U = {"id": 12, "apelido": "Foguete", "email": "a@b.com", "criadoEm": "2026-10-14T12:00:00Z", "timeCoracao": "Flamengo" | null,
+"uf": "PE" | null, "origem": "tiktok", "estatisticas": {"partidas": 9, "carreirasSalvas": 4, "melhorNota": 88,
+"melhorJogador": "BATISTA", "bolasOuro": 3, "gols": 912, "titulos": 61, "tempoJogadoMin": 140,
+"primeiroAcesso": "…", "ultimoAcesso": "…", "aparelhos": ["mobile", "desktop"]}}`.
+
+- Ao `cadastrar`/`entrar` com `vid`, o servidor liga ao usuário o visitante (`visitantes_usuarios(vid, usuario_id)`)
+  e marca `usuario_id` nas visitas desse `vid`: o histórico de antes do cadastro passa a ser da conta.
+- `estatisticas` vem do banco: `partidas` = maior entre o contador salvo e o que os eventos mostram;
+  `tempoJogadoMin` = soma de `ativo_s` das visitas do usuário; o resto, das carreiras salvas.
+- `timeCoracao`: texto livre de até 40 caracteres (opcional). `uf`: sigla de estado brasileiro ou `EX` (fora do Brasil).
 
 Erros de `conta.php`: `email_invalido`, `apelido_invalido`, `senha_curta`, `aceite`, `email_em_uso` (409),
 `credenciais` (401, mesma mensagem para e-mail inexistente e senha errada), `codigo` (400), `nao_logado` (401).
 
-## `GET|POST /lenda/api/progresso.php` (precisa da sessão)
+## `/lenda/api/carreiras.php` (precisa da sessão; `401 nao_logado` sem ela)
 
-- `GET` → `200 {"hall": [HallEntry…] | [], "partidas": 7, "atualizadoEm": "…"}`.
-- `POST {"hall": [HallEntry…], "partidas": 7}` → `200 {"ok":true,"atualizadoEm":"…"}`. O servidor só
-  confere que `hall` é lista (até 100 itens, cada um com `id` string) e guarda o JSON comprimido (`gzencode`).
-  `partidas` = maior entre o salvo e o enviado. O cliente mescla antes de mandar (`mergeHall`).
+Cada carreira salva é um `HallEntry` inteiro do jogo (o mesmo objeto do Hall das Lendas do aparelho: `id`,
+`identity`, `summary`, `career`, `legacy`, …), guardado comprimido (`gzencode`). Limite: 200 por conta.
+
+- `GET` → `200 {"carreiras": [C…], "limite": 200}`, mais recentes primeiro. `C = {"id": "<HallEntry.id>",
+  "modo": "classico"|"imersivo", "jogador": "BATISTA", "numero": 10, "pais": "BRA", "posicao": "MEI",
+  "nota": 51, "picoOvr": 87, "temporadas": 21, "gols": 132, "titulos": 30, "bolasOuro": 0, "headline": "Lenda do
+  Flamengo", "como": "auto"|"manual", "salvaEm": "…", "terminouEm": "…"}` (os campos da lista saem do
+  próprio HallEntry: `identity`, `summary.peakOvr`, `summary.seasons`, `summary.totals`, `summary.trophies`,
+  `summary.awards`, `legacy.score`, `summary.headline`, `finishedAt`).
+- `GET ?id=<HallEntry.id>` → `200 {"carreira": HallEntry}`; outra conta ou inexistente: `404`.
+- `POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"}` → `200 {"carreira": C}`. Grava ou
+  atualiza pelo par (usuário, `id`). Confere: objeto com `id` (texto até 64), `identity` e `summary`; JSON até
+  600 KB. Conta cheia: `409 {"erro":"cheio"}`. `como` só sobe de `auto` para `manual`, nunca o contrário.
+- `POST {"acao":"apagar","id": "<HallEntry.id>"}` → `200 {"ok":true}`.
 
 ## `POST /lenda/api/e.php` — medição
 
@@ -144,7 +166,10 @@ Autenticação: cookie `lenda_painel` (HMAC de `exp`, 12 h, `Path=/lenda/`) ou `
 
 `usuarios(id, email UNIQUE, apelido, senha_hash, criado_em, ultimo_login, origem, aceite_em)`,
 `sessoes_login(token_sha256 PK, usuario_id, criada_em, expira_em, renovada_em)`,
-`progresso(usuario_id PK, dados MEDIUMBLOB, tamanho, partidas, atualizado_em)`,
+`carreiras(id PK, usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, pico_ovr, temporadas, gols,
+titulos, bolas_ouro, headline, como, dados MEDIUMBLOB, tamanho, terminou_em, salva_em, UNIQUE(usuario_id,
+carreira_id), INDEX(usuario_id, salva_em))`, `visitantes_usuarios(vid PK, usuario_id, ligado_em)`, e em
+`usuarios` também `time_coracao, uf, partidas, ultimo_acesso`,
 `redefinicoes(email PK, codigo_hash, expira_em, tentativas)`,
 `tentativas(chave, janela, n, PK(chave, janela))`,
 `visitas(sid PK, vid, usuario_id, inicio, ultimo, ativo_s, jogando_ate, origem, utm_source, utm_medium,
@@ -161,6 +186,40 @@ Datas em UTC (`DATETIME`); o painel converte para America/Sao_Paulo.
   `obrigatorio: false`, "Agora não" fecha e o convite volta depois de mais `lembrarACada` partidas; com
   `obrigatorio: true` não há como fechar. Nunca interrompe uma partida em andamento: abre na tela seguinte ao
   fim da partida/carreira, ou ao tentar começar outra.
-- Com conta: o Hall das Lendas sobe para a nuvem (`progresso.php`) ao entrar (mescla com o do aparelho) e a cada
-  carreira terminada; em outro aparelho, desce ao entrar.
-- O menu ganha "Entrar / Criar conta" (sempre disponível) ou o apelido com "Sair" e "Excluir conta".
+- Carreiras na conta (`carreiras.php`):
+  - Salva SOZINHA, com conta, toda carreira terminada com pico de OVR acima de 89 (`summary.peakOvr >= 90`),
+    `como: "auto"`. Ao entrar/cadastrar, as carreiras do aparelho com pico >= 90 que ainda não estão na conta
+    sobem sozinhas.
+  - As outras: botão "Salvar na minha conta" na tela de fim de carreira / resumo, e "Salvar a última carreira"
+    no menu da conta (`como: "manual"`). Sem conta, o botão abre o diálogo de conta e salva logo depois de entrar.
+  - Tela "Minhas carreiras" (no menu da conta e no Hall): aba "Na conta" (lista do servidor, com abrir e apagar)
+    e aba "Neste aparelho" (Hall local que não está na conta, com "Salvar na conta"). Abrir uma carreira da
+    conta mostra a mesma tela de resumo da carreira (`/resumo`) com aquele HallEntry, em qualquer aparelho, e
+    oferece pôr no Hall deste aparelho.
+- O menu ganha "Entrar / Criar conta" (sempre disponível) ou o apelido com "Minha conta" (perfil com as
+  estatísticas, time do coração e estado editáveis), "Minhas carreiras", "Salvar a última carreira", "Sair" e
+  "Excluir conta".
+- O painel ganha "Contas": total, novas no período, carreiras salvas (auto x manual) e as 10 melhores carreiras
+  salvas (apelido, jogador, nota).
+
+## `GET /lenda/api/lendas.php` — números atualizados de Messi e Cristiano Ronaldo
+
+Arquivo independente (não usa `_lib.php`). Busca no servidor, no máximo a cada 6 h, o arquivo de dados público
+do site MessivsRonaldo.app (`https://www.messivsronaldo.app/page-data/index/page-data.json`, gerado pelo
+Gatsby: `allSheetMessiAllTimeStats`, `allSheetRonaldoAllTimeStats`, `allSheetHonours`) com timeout de 8 s e
+User-Agent `LENDA/1.0 (+https://oprojeto.online/lenda/)`. Guarda o resultado já convertido em
+`dirname(__DIR__, 3) . '/lenda-cache/lendas.json'` (fora do public_html; cria a pasta). Se a busca falhar,
+responde o último cache (com `"desatualizado": true`); sem cache nenhum, `503`. `Cache-Control: public,
+max-age=3600`.
+
+```json
+{"fonte":"MessivsRonaldo.app","url":"https://www.messivsronaldo.app/","buscadoEm":"2026-10-14T05:00:00Z",
+ "lendas":{"messi":{"jogos":1179,"gols":934,"assistencias":426,"golsSelecao":…,"jogosSelecao":…,
+   "golsChampions":…,"golsCopa":…,"titulos":49,"bolasOuro":8,"premios":[{"nome":"Ballon d'Or","n":8,"anos":"2023, 2021, …"}, …]},
+  "cristiano-ronaldo":{…}}}
+```
+
+`titulos` = soma dos títulos coletivos da tabela de honras; `premios` = a tabela inteira (nome original, número
+e anos de cada um), para o Hall mostrar e o jogo mapear para as categorias dele. No jogo (só `VITE_SITE=1`), o
+Hall das Lendas busca `lendas.php` e, se vier, usa esses números para Messi e Cristiano Ronaldo no lugar dos
+fixos, com a linha "Atualizado em 12/10/2026 · fonte: MessivsRonaldo.app" (link). Sem resposta: usa os fixos.
