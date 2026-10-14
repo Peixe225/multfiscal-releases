@@ -152,6 +152,25 @@ function lerZip(arq) {
 const temGd = execFileSync(PHP, ['-r', 'echo extension_loaded("gd") ? 1 : 0;'], { encoding: 'utf8' }) === '1'
 const temWebp = temGd && execFileSync(PHP, ['-r', 'echo function_exists("imagewebp") && (imagetypes() & IMG_WEBP) ? 1 : 0;'], { encoding: 'utf8' }) === '1'
 
+// PHP novo da Hostinger (8.5, 14/10): aviso de "obsoleto" não derruba a rota, e o código não usa o que o 8.5 marcou
+{
+  secao = 'php-obsoleto'
+  const dadosObs = mkdtempSync(join(tmpdir(), 'gc-obsoleto-'))
+  const saida = execFileSync(PHP, [join(raiz, 'scripts', 'testar-obsoleto.php'), join(api, 'nucleo', 'base.php')], { encoding: 'utf8', env: { ...process.env, GC_DADOS: dadosObs } })
+  igual(JSON.parse(saida), { ok: true, passou: true }, 'aviso de obsoleto (E_DEPRECATED) no meio da rota: a rota segue')
+  const logObs = existsSync(join(dadosObs, 'erros.log')) ? readFileSync(join(dadosObs, 'erros.log'), 'utf8') : ''
+  ok((logObs.match(/obsoleto: imagedestroy\(\) is deprecated/g) ?? []).length === 1, `o aviso vai pro log uma vez por lugar (${logObs.trim()})`)
+  rmSync(dadosObs, { recursive: true, force: true })
+  const fontes = []
+  const juntar = (d) => { for (const n of readdirSync(d, { withFileTypes: true })) n.isDirectory() ? juntar(join(d, n.name)) : n.name.endsWith('.php') && fontes.push(join(d, n.name)) }
+  juntar(api)
+  for (const f of fontes) {
+    const codigo = readFileSync(f, 'utf8').split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
+    ok(!/\b(imagedestroy|curl_close|curl_share_close|finfo_close|xml_parser_free)\s*\(/.test(codigo), `${f.slice(api.length + 1)}: sem função que o PHP 8.5 marcou como obsoleta`)
+    ok(!/\$http_response_header\b/.test(codigo), `${f.slice(api.length + 1)}: sem $http_response_header (obsoleto no PHP 8.5)`)
+  }
+}
+
 const CHAVES_RATEIO = [
   'aceitaEntradas', 'atualizadoEm', 'chegouEm', 'confirmadas', 'demo', 'descricao', 'disponiveis', 'fechaEm', 'fechadoEm', 'id', 'imagem',
   'limitePorPessoa', 'pedidoEm', 'precoDepois', 'precoRateio', 'previsaoMax', 'previsaoMin', 'produtoId', 'reservaHoras', 'reservadas',

@@ -331,14 +331,26 @@ function gc_atender(array $rotas): void
 {
     ini_set('display_errors', '0');
     error_reporting(E_ALL);
-    set_error_handler(static function (int $n, string $msg, string $arq, int $linha): bool {
+    $rota = $_GET['r'] ?? '';
+    $rota = is_string($rota) ? $rota : '';
+    $obsoletos = [];
+    set_error_handler(static function (int $n, string $msg, string $arq, int $linha) use ($rota, &$obsoletos): bool {
         if (!(error_reporting() & $n)) {
             return false;
         }
+        // "obsoleto" (E_DEPRECATED) é aviso, não erro: a função ainda funciona. Virar exceção derrubava a rota quando a
+        // Hostinger subia o PHP (no 8.5, o imagedestroy() quebrou o envio de foto do painel). Fica no log, 1 vez por
+        // lugar em cada pedido, e a rota segue.
+        if ($n === E_DEPRECATED || $n === E_USER_DEPRECATED) {
+            $onde = basename($arq) . ':' . $linha;
+            if (!isset($obsoletos[$onde])) {
+                $obsoletos[$onde] = true;
+                gc_log("[$rota] obsoleto: $msg em $onde");
+            }
+            return true;
+        }
         throw new ErrorException($msg, 0, $n, $arq, $linha);
     });
-    $rota = $_GET['r'] ?? '';
-    $rota = is_string($rota) ? $rota : '';
     register_shutdown_function(static function () use ($rota): void {
         $e = error_get_last();
         if ($e !== null && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
