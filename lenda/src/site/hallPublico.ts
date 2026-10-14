@@ -10,7 +10,7 @@
  * pedido por filtro de cada vez, páginas de 50 sob demanda e reintento com espera crescente só em falha de
  * rede. Sem rede, o Hall segue com as lendas e as carreiras deste aparelho.
  */
-import { chaveFiltro, useComunidade, type CarreiraAberta, type CarreiraComunidade, type FiltroHall, type PaginasComunidade } from '@/store/comunidade'
+import { chaveFiltro, proximaVencida, useComunidade, type CarreiraAberta, type CarreiraComunidade, type FiltroHall, type PaginasComunidade } from '@/store/comunidade'
 import { api, comReintento, ErroApi } from './api'
 import { hallEntryValido } from './carreiras'
 
@@ -90,6 +90,30 @@ const query = (f: FiltroHall, pagina: number) => {
 
 const buscadoEm = new Map<string, number>()
 const noAr = new Set<string>()
+/** Filtros com uma busca de novo já marcada (a página veio com a próxima atualização no passado), e quantas seguidas. */
+const deNovo = new Set<string>()
+const vezesDeNovo = new Map<string, number>()
+
+/**
+ * A página veio de uma fotografia vencida (o servidor responde a anterior e refaz logo depois): uma busca só deste
+ * filtro daqui a 20–30 s, revalidando no servidor (sem esperar os 5 min do cache do navegador).
+ */
+function buscarDeNovoDepois(f: FiltroHall, proximaEm: string | null) {
+  const k = chaveFiltro(f)
+  if (!proximaVencida(proximaEm)) {
+    vezesDeNovo.delete(k) // veio a nova: conta do zero
+    return
+  }
+  const vezes = vezesDeNovo.get(k) ?? 0
+  // no máximo 3 seguidas: um servidor que não refaz não vira um pedido a cada 30 s
+  if (deNovo.has(k) || vezes >= 3 || typeof window === 'undefined') return
+  vezesDeNovo.set(k, vezes + 1)
+  deNovo.add(k)
+  window.setTimeout(() => {
+    deNovo.delete(k)
+    void buscar(f, true, 'no-cache')
+  }, 20_000 + Math.random() * 10_000)
+}
 
 function gravar(k: string, p: Partial<PaginasComunidade>) {
   const atual = useComunidade.getState().filtros[k]
@@ -99,7 +123,7 @@ function gravar(k: string, p: Partial<PaginasComunidade>) {
 
 const semRede = (err: unknown) => (typeof navigator !== 'undefined' && navigator.onLine === false) || (err instanceof ErroApi && (err.codigo === 'rede' || err.codigo === 'tempo'))
 
-async function buscar(f: FiltroHall, forcar = false) {
+async function buscar(f: FiltroHall, forcar = false, cache: RequestCache = 'default') {
   const k = chaveFiltro(f)
   const atual = useComunidade.getState().filtros[k]
   if (noAr.has(`${k}#1`)) return
@@ -108,9 +132,10 @@ async function buscar(f: FiltroHall, forcar = false) {
   // uma lista que já estava na tela continua lá enquanto a nova não chega
   gravar(k, { status: atual?.itens.length ? 'pronto' : 'carregando', semRede: false })
   try {
-    const r = normalizarPaginaHall(await comReintento(() => api('hall.php', { query: query(f, 1), cache: 'default', tempo: 12_000 }), { tentativas: 3 }))
+    const r = normalizarPaginaHall(await comReintento(() => api('hall.php', { query: query(f, 1), cache, tempo: 12_000 }), { tentativas: 3 }))
     buscadoEm.set(k, Date.now())
     gravar(k, { status: 'pronto', itens: r.itens, total: r.total, paginas: 1, atualizadoEm: r.atualizadoEm, proximaEm: r.proximaEm, carregandoMais: false, erroMais: false })
+    buscarDeNovoDepois(f, r.proximaEm)
   } catch (err) {
     if (atual?.itens.length) gravar(k, { status: 'pronto' })
     else gravar(k, { status: 'erro', semRede: semRede(err) })

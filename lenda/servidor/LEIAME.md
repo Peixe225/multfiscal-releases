@@ -11,9 +11,11 @@ servidor/
                                                   admin.php, painel.php, instalar.php, _lib.php, _palavras.php,
                                                   _contas.php, _carreiras.php, _hall.php, _bonus.php, _schema.sql,
                                                   .htaccess; o lendas.php é de outro time)
-  painel/         → public_html/lenda/painel/   (index.html, painel.js, painel.css)
+  painel/         → public_html/lenda/painel/   (a pasta inteira: index.html, painel.css, nucleo.js, visao.js,
+                                                  usuarios.js, moderacao.js, sistema.js, painel.js, nomes.json)
   privacidade.html→ public_html/lenda/privacidade.html
-  teste/          fica no repositório (não sobe)
+  teste/          fica no repositório (não sobe): rodar.sh (servidor) e integracao/ (jogo + servidor + painel juntos:
+                  subir.sh, e2e.mjs com vários aparelhos no navegador, hall-prazo.mjs, carga.mjs, teto-cadastro.mjs)
 ```
 
 ## Publicar na Hostinger
@@ -64,6 +66,8 @@ pasta `public_html`). Nunca suba este arquivo para o repositório.
   // 'ip_cabecalho' => '',              // vazio = REMOTE_ADDR; veja "IP do visitante" abaixo antes de mudar
   // 'ip_proxies' => [],                // com ip_cabecalho: só confia no cabeçalho vindo destes IPs/faixas (ex.: '10.0.0.0/8')
   // 'limpeza_a_cada' => 100,           // limpeza leve em 1 a cada N pedidos
+  // 'hall_revisao_nota' => 90,         // carreira com nota a partir disto espera você liberar no painel (101 = desligado)
+  // 'painel_cache_s' => 90,            // a Visão geral do painel recalcula no máximo a cada N segundos (0 = sempre)
 ];
 ```
 
@@ -104,8 +108,8 @@ para `public_html/lenda/`. Confira que o `api/.htaccess` subiu (arquivo que come
 
 ```sh
 curl -sS -X POST -H "Authorization: Bearer SEU-TOKEN" https://oprojeto.online/lenda/api/instalar.php
-# {"ok":true,"comandos":16,"alteracoes":[],"tabelas":["admin_log","bonus","carreiras",...],
-#  "preenchidas":{"convites":0,"carreiras":0,"faltam":0}}
+# {"ok":true,"comandos":18,"alteracoes":[],"tabelas":["admin_log","bonus","carreiras",...],
+#  "preenchidas":{"convites":0,"carreiras":0,"resumos":0,"moderacao":0,"partidasVid":0,"faltam":0}}
 ```
 
 Pode rodar de novo sempre que o `_schema.sql` mudar: ele cria tabela nova e acrescenta em tabela antiga a
@@ -118,7 +122,9 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
 1. Suba **todos** os arquivos de `servidor/api/` (os novos: `hall.php`, `conquistas.php`, `bonus.php`, `admin.php`,
    `_palavras.php`, `_contas.php`, `_carreiras.php`, `_hall.php`, `_bonus.php`; e os que mudaram: `_lib.php`,
    `_schema.sql`, `conta.php`, `carreiras.php`, `e.php`, `painel.php`, `instalar.php`, `.htaccess`) e o
-   `privacidade.html`. Se for pelo `dist-site/`, o build já leva tudo.
+   `privacidade.html`, e a pasta `servidor/painel/` **inteira** (o painel da v3 tem 9 arquivos; subir só o
+   `index.html`, o `painel.js` e o `painel.css` de antes quebra o painel). Se for pelo `dist-site/`, o build já leva
+   tudo.
 2. **Logo em seguida**, rode o `instalar.php` (passo 5) até `"faltam": 0`. Entre o upload e o instalar as rotas novas
    respondem 500 (as colunas ainda não existem); o `GET conta.php` continua funcionando com os padrões.
 3. Confira (passo 6) e abra o painel: em **Configurações** ficam o Imersivo e a Live (fechados ao público por padrão),
@@ -129,6 +135,13 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
 5. A versão da Nota de Legado fica em `LENDA_NOTA_VERSAO` (`_lib.php`, hoje 2) e tem de acompanhar o
    `LEGACY_VERSION` do jogo (`src/engine/legacy/score.ts`): só entram no Hall público carreiras com a nota dessa
    versão. Subiu a versão no jogo? Suba aqui no mesmo deploy.
+6. **v3.1 (CONTRATO-v3 §12):** suba de novo a pasta `api/` inteira (mudaram quase todos os arquivos e há colunas e
+   tabelas novas: `carreiras_moderacao`, `partidas_vid`, `carreiras.resumo_hash`, `eventos.nota`) e a pasta `painel/`,
+   e rode o `instalar.php` **logo em seguida** até `"faltam": 0`: até lá o `e.php` e o salvar carreira dão erro. Na
+   primeira vez ele soma as partidas por aparelho a partir dos eventos (uma consulta mais pesada, de segundos).
+7. **Revisão do Hall:** carreira com nota 90 ou mais entra no Hall só depois que você conferir e clicar em
+   "Liberar" (painel → Hall público → **Esperando revisão**; o contador fica na aba). Para mudar o corte, ponha
+   `'hall_revisao_nota' => 95` (ou 101 para desligar) na config.
 
 ### 6. Conferir
 
@@ -217,7 +230,7 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
 3. monta `/tmp/lenda-teste/public_html/lenda/{api,painel,privacidade.html}` (cópia, como na hospedagem) e sobe
    `php -S 127.0.0.1:8711` (com `display_errors` ligado de propósito);
 4. se houver Apache, sobe um na porta 8712 só para conferir as regras do `api/.htaccess`;
-5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`): ~790 verificações por HTTP (curl) e no banco
+5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`): ~870 verificações por HTTP (curl) e no banco
    (PDO) — cadastro, entrar,
    sair, limites (429, inclusive os tetos do site inteiro e os diários), esqueci/redefinir com o código lido do
    arquivo de e-mail, perfil, partidas, estatísticas, vínculo do aparelho, excluir (LGPD, com o vid trocado),
@@ -233,7 +246,12 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
    plausibilidade, fotografia do Hall (prazo, atualizar, trava, filtros por país e clube, abrir por id, tudo o que tem
    de sair na hora), denúncias, conquistas e raridade, indicações (recusas, validação, +2 +3 +5, limite), bônus
    (liberar após 3 partidas, usar, compartilhar 1 por dia, admin), suspensão, todas as rotas do admin, registro, CSV,
-   tipos errados em todos os campos novos, carga (2.000 contas, 8.000 carreiras, 6.000 no Hall, 60 mil conquistas:
+   tipos errados em todos os campos novos; e as correções da v3.1 (CONTRATO-v3 §12): cópia de carreira do Hall,
+   revisão das notas 90+, faixas novas e textos do resumo no filtro, letras disfarçadas (largura total, versalete,
+   ø, ı, l no lugar do I), os títulos com os ~1.000 clubes do jogo, moderação que volta depois de apagar e salvar,
+   denúncias de contas novas e do topo do Hall, partidas pareadas (início antes do fim, no mesmo aparelho) e a
+   indicação com 3 min de jogo, tetos novos (cadastro, esqueci, painel, e.php) e o cache do painel; carga (2.000
+   contas, 8.000 carreiras, 6.000 no Hall, 60 mil conquistas:
    tempos medidos e índices conferidos com EXPLAIN) e concorrência num segundo `php -S` com 4 processos (~200 pedidos
    ao mesmo tempo; "usar" e "compartilhei" em paralelo sem bônus em dobro; 5 denúncias simultâneas; fotografia
    vencida com 24 leitores);

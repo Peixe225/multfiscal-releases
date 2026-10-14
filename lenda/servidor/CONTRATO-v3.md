@@ -196,7 +196,7 @@ um responde 404 se for chamado direto). `bonus.php` e `admin.php` saem com `no-s
   fotografia **e** continua visível agora (carreira não oculta/suspeita, conta ativa e sem "não aparecer"); senão `404`.
 - Respostas `200` com `Cache-Control: public, max-age=300`; erros com `no-store`.
 - Ordem do Hall (dentro da conta e no geral): nota, pico de OVR, Bolas de Ouro, títulos, gols, a salva primeiro. Cada
-  `HallEntry.id` aparece uma vez só (se duas contas salvarem o mesmo id, fica a de melhor posição).
+  `HallEntry.id` aparece uma vez só (se duas contas salvarem o mesmo id, fica a primeira que foi salva — ver §12.1).
 - Entram só carreiras do **Clássico** enquanto `imersivo_publico = false` (as de teste do admin no Imersivo não vazam).
 - Fotografia: o primeiro pedido depois de `hall_intervalo_min` **responde com a fotografia anterior e refaz logo depois
   da resposta** (no LiteSpeed/FPM o visitante não espera; a primeira fotografia de todas é feita antes de responder),
@@ -371,3 +371,267 @@ antes (tudo aberto, sem servidor). Nenhum nome de rota ou campo dos §1–§8 mu
 Pico ≥ 90 continua salvando sozinho (`auto`) e as outras pelo botão (`manual`). O salvar sozinho tenta 3 vezes com
 espera crescente; o que não subiu (sem rede) fica na fila do aparelho — `lenda:carreiras-pendentes` (auto) e
 `lenda:carreiras-pendentes-manual` (botão) — e sobe sozinho ao abrir o jogo e quando a internet volta.
+
+## 10. Painel (front): o que foi implementado
+
+Nenhuma rota ou campo dos §1–§9 mudou; o painel só lê e escreve o que está no §8.7 (e o `painel.php` de antes).
+
+### 10.1 Arquivos (`painel/`, sobem juntos — o `build:site` já copia a pasta inteira)
+
+`index.html` (CSP `default-src 'self'`, nada embutido), `painel.css`, `nucleo.js` (formatação, rede, avisos,
+diálogos, listas), `visao.js`, `usuarios.js`, `moderacao.js`, `sistema.js`, `painel.js` (senha, abas, atalhos) e
+`nomes.json` (nomes de clubes, países, troféus, prêmios e conquistas tirados dos dados do jogo, só para exibir;
+faltando ou desatualizado, o painel mostra o id). Todo dado do servidor entra por `textContent`/`createElement`.
+
+### 10.2 Endereços e atualização
+
+`#/visao`, `#/usuarios?q=&status=&ordem=&pagina=`, `#/usuario/<id>`, `#/hall?filtro=&q=&pagina=`,
+`#/denuncias?status=&pagina=`, `#/conquistas`, `#/indicacoes?status=&pagina=`, `#/config`, `#/testes`,
+`#/registro?acao=&alvo=&pagina=` (link compartilhável; voltar do navegador funciona). Ao abrir: `painel.php?so=eu`
+decide entre a senha e o painel; um `401` em qualquer pedido volta para a senha e, depois de entrar, para a mesma
+aba. `?so=agora` a cada 15 s (aba visível), `admin.php?r=resumo` a cada 60 s e depois de cada ação (contadores da
+lateral, estado do site), `painel.php` completo a cada 5 min na Visão geral. Resposta `200` que não é JSON conta
+como erro (a página de erro da hospedagem nunca vira "lista vazia").
+
+### 10.3 Decisões
+
+- **Abrir a carreira no jogo**: só para as que estão na fotografia (`posicaoHall`/`noHall`), em outra aba, em
+  `../#/resumo?id=<HallEntry.id>&de=comunidade` — o jogo só abre carreira de outro jogador pelo `hall.php?id`. Oculta,
+  suspeita ou fora do Hall: o detalhe abre no próprio painel (`r=carreira`: números, clubes, troféus, prêmios,
+  denúncias, "Baixar JSON").
+- **`bonus.liberaAposPartidas`**: o painel aceita só **3 a 5** (o combinado com o dono); o servidor continua 0–50
+  (o Bearer pode usar outro valor). Valor salvo fora da faixa aparece marcado e só precisa ser corrigido para salvar
+  mudanças nos bônus. `bonus.indicacao`: um campo por amigo até `maxIndicacoes` (mudar o máximo aumenta ou encurta a
+  lista; o novo repete o último valor).
+- **Salvar configurações**: manda só as chaves alteradas, sempre com confirmação (lista "de → para"); ligar a
+  manutenção, fechar o cadastro ou abrir o Imersivo/a Live a todos vêm com aviso de perigo. Sair da aba com
+  alteração não salva pergunta antes. Depois de salvar, desenha com os `valores` que o servidor devolveu.
+- **Confirmações**: toda ação de escrita abre um diálogo; erro do servidor aparece dentro dele (que continua aberto
+  para corrigir). Excluir conta pede digitar o apelido; apagar carreira pede digitar `APAGAR`.
+- **Denúncias**: agrupadas por carreira na página; "Manter no Hall"/"Ocultar" chamam `resolver_denuncia` com uma
+  aberta (o servidor fecha todas as abertas da carreira).
+- **Exportar CSV**: confere a sessão (`?so=eu`) antes de baixar `r=exportar`, para não salvar a mensagem de erro
+  como planilha.
+- **Conquistas**: a lista é o catálogo do jogo (`nomes.json`) somado aos ids que vieram do servidor (fora do
+  catálogo aparece com o id), ordenável por nome, raridade no jogo, jogadores e primeira vez.
+- **Testes** (só o admin): links em outra aba para `#/identidade?modo=imersivo`, `#/imersivo`, `#/live`, `#/kit` e
+  `#/hall?seg=comunidade`; o jogo libera porque o navegador tem o cookie do painel (`Path=/lenda/`).
+
+## 11. Integração de ponta a ponta: o que foi conferido junto e o que mudou
+
+Nenhuma rota, ação ou campo dos §1–§10 mudou. Pilha local igual à da Hostinger (MariaDB + `php -S` servindo um
+`public_html` com o `dist-site` em `lenda/` e a config fora dele, onde o `_lib.php` procura), com vários aparelhos ao
+mesmo tempo no navegador (visitante, dono da conta em dois aparelhos, amigo convidado, admin no painel) e uma carga
+de jogadores simulados.
+
+### 11.1 Partida terminada chega logo ao servidor (correção no jogo)
+
+- **Problema encontrado:** o `jogo_fim` ia na fila da medição, que sai a cada 10 s. A partida que abre o convite de
+  conta (a 5ª) chegava ao `e.php` já com o cookie da conta recém-criada e contava em `partidas_conta` — o bônus de
+  indicar/compartilhar liberava uma partida antes das `liberaAposPartidas` "desde o cadastro" (§6). E, com o envio
+  atrasado, a tela de criação da próxima carreira podia perguntar ao `bonus.php` antes de o servidor saber da partida
+  (o bônus recém-liberado só aparecia uma carreira depois).
+- **Decisão (só no jogo: `src/site/medicao.ts`, `conta.ts`, `vigias.ts`, `pontes.ts`):** `jogo_fim` e `partida_fim`
+  saem da fila em ~250 ms (`ENVIAR_JA`); antes de `cadastrar`, `entrar` e `redefinir`, o jogo manda o que está na fila
+  e espera (no máximo 1,5 s, `enviarAgora`), então a partida de antes do cadastro vai como do visitante; ao terminar uma
+  partida com conta, os dados do `bonus.php` em memória vencem, e a tela de criação da carreira do Clássico sempre
+  pergunta ao `bonus.php` (um `GET` por carreira nova, só com conta): o bônus que acabou de chegar — amigo que jogou,
+  presente do admin, partida que liberou — já aparece, sem esperar o cache de 1 min. O valor que vale continua sendo o
+  que o `usar` devolve. O servidor continua igual: `partidas_conta` soma o que o `e.php` recebe com o cookie.
+- **Texto** (`src/site/MinhasCarreiras.tsx`): "Tirar do Hall" e "Nenhuma" diziam que a carreira some "na próxima
+  atualização, em até 3 h", mas sair do Hall é na hora no servidor (§8.4). Agora: "Sai do Hall da comunidade em poucos
+  minutos" (o navegador de quem já abriu o Hall guarda a página por até 5 min). Entrar continua "na próxima atualização".
+
+### 11.2 O que foi conferido de ponta a ponta (`servidor/teste/integracao/`)
+
+- `subir.sh` monta a pilha (banco próprio, segredos aleatórios fora do repositório, `cookie_seguro=false`,
+  `email_modo=arquivo`; `ip_cabecalho = HTTP_X_FORWARDED_FOR` aceito só de `127.0.0.1`, para a carga simular jogadores
+  em IPs diferentes — na Hostinger o `REMOTE_ADDR` já é o IP real e isso fica vazio).
+- `e2e.mjs` (Playwright, 6 aparelhos ao mesmo tempo, carreiras jogadas pela tela com sementes fixas): público sem Live
+  nem Imersivo; 5ª partida → convite → conta; salvar pelo botão e sozinha (pico ≥ 90); conquistas subindo e descendo
+  noutro aparelho; convite `?c=` → amigo cadastra e joga 1 partida → indicação válida → bônus guardado até a 3ª partida
+  do dono → `+2` na carreira nova (OVR 52, 1ª temporada exatamente 2 acima da mesma semente sem bônus, salva sem
+  suspeita); compartilhar bloqueado antes, `+2` depois, 1× por dia; Hall público (auto → "Eu escolho", troca, 4ª →
+  `409 limite_hall`), "Atualizar Hall agora" no painel, filtro Bolívia/Cruzeiro pela URL e pela tela, resumo completo
+  da comunidade, denúncia; no painel: visão geral, usuários, suspender (sai das sessões e do Hall na hora; entrar
+  mostra "suspensa"), reativar, renomear (o Hall muda na hora), dar bônus (aparece na criação da carreira), ocultar,
+  resolver denúncia, configurações (aviso no jogo; Imersivo aberto ao público e fechado de novo), Testes (Imersivo e
+  Live em outra aba, com o selo de admin), CSV e Registro; sem erro de console, sem 5xx, log do PHP vazio.
+- `hall-prazo.mjs`: fotografia vencida (61 min) → o 1º pedido recebe a anterior na hora e a nova entra logo depois;
+  `hall_intervalo_min` 180 → próxima em 3 h; 30 → `400 config_invalida`.
+- `carga.mjs`: 50 jogadores ao mesmo tempo (medição, cadastro, partidas, 2 carreiras cada, conquistas, bônus,
+  compartilhar, Hall com filtros, raridade) e o admin refazendo o Hall no meio: nenhum 5xx, nenhum erro, todos os
+  bônus e carreiras no banco.
+
+### 11.3 Limites e moderação: o que mudou e o que fica para o dono decidir
+
+- **Teto de cadastros do site inteiro** (`cadastrar-todos`, 200 a cada 10 min, `conta.php`). **Corrigido no servidor
+  (sem mudar o número do contrato):** ele contava todo pedido de `cadastrar`, inclusive os inválidos — 210 pedidos ruins
+  de 7 IPs (30 cada, dentro do limite por IP) fechavam o cadastro de todo mundo por 10 min (conferido na pilha:
+  `teste/integracao/teto-cadastro.mjs`). Agora o teto do site só conta o cadastro que passou na validação (apelido,
+  e-mail, senha, aceite); o inválido continua contando no limite por IP (30). **Em aberto:** num pico de vídeo o teto
+  ainda limita a ~1.200 contas/h, e cadastros válidos com e-mails inventados ainda o gastam; se o painel mostrar 429 em
+  cadastro, subir o número (ex.: 1.000) é uma linha no `conta.php`. O `entrar` não tem teto do site (só por IP e por
+  e-mail).
+- **Denúncias**: 5 contas diferentes escondem uma carreira do Hall até o admin decidir (`oculta = 2`). Com contas
+  recém-criadas isso é fácil de abusar contra o topo do Hall. Sugestão: só contar denúncias de contas com algumas
+  partidas na conta (`partidas_conta`) — e o painel já mostra a fila para decidir rápido.
+- **Medição e bônus vêm do jogo**: `jogo_fim`/`partida_fim` são eventos do cliente (como antes). Os bônus têm teto
+  (+2/+3/+5 por amigo até 3, +2 por dia), a carreira com bônus precisa do `usar` casado e o Hall mostra o bônus.
+
+## 12. Correções da revisão de segurança e robustez (v3.1)
+
+Nenhum nome de rota, ação ou campo dos §1–§11 mudou; o que muda são regras (e alguns campos e tabelas a mais). Para
+publicar: subir `api/` e `painel/` inteiros e rodar o `instalar.php` até `"faltam": 0` (ele cria as tabelas e colunas
+novas e preenche o que falta). **Rode logo depois de subir**: até lá o `e.php` e o `carreiras.php` dão erro (usam as
+colunas novas).
+
+### 12.1 Hall público: a carreira é de quem salvou primeiro
+
+- **Ataque:** o `hall.php?id` entrega o HallEntry inteiro; outra conta copiava, subia a nota e tomava o lugar (a regra
+  "fica a de melhor posição" do §8.4 premiava a cópia).
+- **Agora:** na fotografia e no `noHall` (`idsNoHall`), uma carreira só entra se nenhuma outra conta tem a mesma
+  (`carreira_id`) gravada antes e visível — **fica a primeira que foi salva** (`ROW_NUMBER … ORDER BY id`), mesmo que
+  o admin libere a cópia.
+- No `salvar`, a carreira (mesmo `HallEntry.id` **ou o mesmo resumo** com outro id) que outra conta já tem vira
+  `suspeita: copia` (fora do Hall até o admin liberar). Um aparelho dividido por duas contas cai na mesma fila (as 90+
+  do aparelho sobem para as duas), o que não faz mal.
+- `carreiras.resumo_hash` (coluna nova, `sha1` do `summary` em JSON) e os índices `ix_carreiras_carreira`
+  (`carreira_id`) e `ix_carreiras_resumo`.
+
+### 12.2 Plausibilidade (§8.3): faixas novas, textos e revisão
+
+- `bolas` agora é Bolas de Ouro > temporadas − 1 (nunca na 1ª temporada); `copas` (novo) = Copas do Mundo >
+  ⌈temporadas/4⌉ + 1; `nota` também quando nota ≥ 80 com pico < 85 (nas carreiras reais toda nota 77+ tem pico 91+).
+- `nome` passa a valer para **todo texto que o resumo mostra da carreira de outra pessoa**: `identity.surname`,
+  `career.identity.surname`, `summary.headline`, `summary.comparisons`, `retiredReason`, a fase dos torneios da seleção,
+  os 3 primeiros da Bola de Ouro de cada ano (`career.world`) e os ids que aparecem como texto quando o jogo não os
+  conhece (troféu, clube, competição). Também vira `nome` o nome do jogador com letra fora de A-Z, À-ÿ e Latim
+  Estendido-A (`Ł`, `Ž`…), espaço, `' . -` (ex.: `ɑ`, `р` cirílico).
+- `dados` (novo): `career.identity.surname`/`nationality` diferentes dos de `identity` (no jogo são o mesmo objeto).
+- `revisao` (novo, só quando não há outro motivo): **nota ≥ 90** (config `hall_revisao_nota` no arquivo de config,
+  padrão 90; 101 desliga). A carreira extraordinária entra no Hall depois do `mostrar_carreira` do admin ("Liberar").
+  `GET admin.php?r=hall&filtro=revisao` (filtro novo, da maior nota para a menor) e `r=resumo` →
+  `carreiras.emRevisao` e `carreiras.revisaoNota` (campos novos). No painel: aba "Esperando revisão".
+- A suspeita é conferida quando a carreira entra ou quando **qualquer coisa nela muda** (antes: só os números). Salvar
+  de novo exatamente a mesma carreira mantém a decisão anterior (inclusive a liberação do admin).
+- `suspeita` guarda até 64 caracteres (os motivos separados por vírgula).
+- Depois: portar para o PHP o cálculo da nota (`src/engine/legacy/score.ts`, que usa também `career.seasons` e
+  `national`) e marcar `nota` quando a do cliente diferir em mais de 1.
+
+### 12.3 Filtro de palavrões e apelido (§8.2)
+
+- O texto é transliterado antes de comparar (`Transliterator 'Any-Latin; Latin-ASCII; Lower()'` do intl; sem ele,
+  `Normalizer FORM_KC`): `ｐｕｔａ`, `ᴘᴜᴛᴀ`, `viadø`, `pıroca`, `kʀʟ` viram `puta`, `viado`, `piroca`, `krl`.
+- Nomes reservados também com `l` no lugar de `I` (`ADMlN`, `Oflcial`).
+- Apelido: NFC primeiro e depois só `A-Z a-z À-Ö Ø-ö ø-ÿ 0-9 _ . -` e espaço (antes `\p{Latin}`, que aceitava
+  versalete, largura total e IPA). Nome com acento decomposto continua passando (é guardado composto).
+- Todos os títulos "Lenda do / Ídolo da <clube>" dos ~1.000 clubes do jogo passam no filtro (teste no `rodar.sh`).
+
+### 12.4 Moderação que sobrevive ao "apagar" (§8.3, §8.7)
+
+- Tabela nova `carreiras_moderacao(usuario_id, carreira_id, resumo_hash, oculta, em)`, só com ids e o hash do resumo
+  (LGPD). Gravada no `ocultar_carreira`, no `apagar_carreira` do admin (o aparelho do dono subiria de novo), no
+  `resolver_denuncia ocultar` e quando as denúncias escondem (`oculta = 2`); apagada no `mostrar_carreira` e no
+  `resolver_denuncia ok` de uma escondida pelas denúncias.
+- No `salvar`, uma carreira que entra na conta com o mesmo `carreira_id` ou o mesmo `resumo_hash` de uma decisão
+  guardada **nasce com aquele `oculta`**. O `apagar` do dono continua apagando a carreira de verdade (nada de exclusão
+  lógica: seria guardar a carreira contra a vontade dele).
+- O `excluir` da conta (e o `excluir_usuario`) apagam também essa tabela. O `instalar.php` grava a decisão das
+  carreiras que já estavam ocultas.
+
+### 12.5 Denúncias (§8.4)
+
+- Para chegar a `oculta = 2`, contam só as denúncias abertas de contas **criadas há mais de 24 h e com
+  `partidas_conta` ≥ 3**; as outras ficam na fila do painel.
+- As **10 primeiras do Hall geral** nunca saem só pelas denúncias: elas sinalizam e quem oculta é o admin.
+- `limitar('denunciar-ip', quemIp(), 5)` por janela de 10 min (cabe na promessa de "código do IP por até 20 min";
+  nada de HMAC de IP guardado na denúncia).
+- O teto do dia (`dia-denunciar`, 10) é conferido só depois de achar a carreira e ver que a denúncia não é repetida:
+  repetir não gasta.
+
+### 12.6 Partidas "com a conta" (§8.6) e os tetos do `e.php`
+
+- **Ataque:** um POST com 3 `jogo_fim` liberava os bônus em 22 ms; 3 contas "amigas" com um `jogo_fim` cada davam
+  +2/+3/+5; 100 `partida_fim` num pedido somavam 100.
+- **Agora**, `usuarios.partidas_conta` só soma no `e.php` (na mesma transação que grava o evento) quando o `jogo_fim`
+  do Clássico se junta ao **último `jogo_inicio` do mesmo aparelho (`vid`) e modo de pelo menos 20 s antes** (nos
+  últimos 30 dias) e nenhum outro fim veio depois desse início (1 fim por início; um início perdido ou um fim inventado
+  lá atrás não atrapalham as partidas seguintes); no máximo **1 partida por aparelho a cada 20 s** e 1 por envio. O
+  Imersivo (`jogo_fim` e `partida_fim`, esta com um `jogo_inicio` do Imersivo nos últimos 180 dias) só conta com
+  `imersivo_publico` ligado.
+- O `conta.php partidas` **não acerta mais `partidas_conta` pelos eventos** (deixaria um `jogo_fim` inventado contar);
+  ele só confere a indicação pendente.
+- Indicação (§8.6): vale quando o indicado termina uma partida do Clássico **que conta**, num aparelho que não é do
+  indicador, e já tem **≥ 180 s de jogo** (soma de `ativo_s`, que o servidor já limita ao tempo real). Sem os 3 min,
+  fica pendente e é conferida de novo na próxima partida, no `conta.php partidas` e a cada minuto de jogo a mais numa
+  sessão logada (um `SELECT` pela chave única, só no batimento que passa de um minuto). Sem comparação de IP (amigos
+  na mesma Wi-Fi valem; a política só usa o código do IP por 20 min). Cadastro com convite e sem `vid`: a checagem de
+  aparelho fica para a partida (o `vid` dela).
+- **Tetos do `e.php`:** `jogo_inicio`, `jogo_fim`, `partida_fim`, `cadastro` e `login` ficam fora do teto por IP
+  (1.500/10 min) e do teto de 3.000 por sessão — que ficam para `view`, `gate_*`, `compartilhar` e `logout` — e têm
+  teto próprio de **20 por sessão a cada 10 min**. A 301ª sessão nova do IP em 10 min: em vez de 429, o envio que
+  traz início/fim de partida entra (sem `ctx` e só com esses eventos); o resto continua 429.
+- No jogo, `jogo_inicio` também sai da fila em ~250 ms (como os fins): o servidor só conta o fim que chega 20 s
+  depois do início.
+
+### 12.7 Tetos do site inteiro (§3, §11.3)
+
+- `cadastrar-todos`: **1.500 a cada 10 min** (era 200; ~9.000 contas por hora num pico de vídeo) e, novo, 5 contas
+  por aparelho (`vid`) a cada 10 min.
+- `esqueci`: os tetos do site (40 a cada 10 min e 300 por dia, a cota de envio da hospedagem) só somam quando um
+  e-mail **vai mesmo sair** (a conta existe e não há código recente). Estourado: `200 {"ok":true}` do mesmo jeito,
+  sem mandar (não revela nada). O servidor anota em `site_config._esqueci_teto` (`{em, n}`) e o
+  `GET admin.php?r=resumo` mostra em `emailsBarrados {total, ultimoEm}` (campo novo; no painel, o quadro "E-mails de
+  senha segurados", que só aparece quando aconteceu). E-mail inventado não gasta a cota. O limite por e-mail por dia
+  (5) continua antes de procurar a conta.
+- Login do painel: o `painel-todos` (50 a cada 10 min) só soma **senha errada** e, estourado, bloqueia só os IPs que
+  já erraram nesta janela (`painel-erro:<ip>`): o dono, de um IP limpo e com a senha certa, entra no meio de um ataque.
+  O limite de 10 por IP continua. A senha do painel deve ser longa e aleatória.
+
+### 12.8 Hall: sair é na hora, também no "Eu escolho" e no Imersivo (§8.4)
+
+- `perfil` com qualquer `hallPublico`: as carreiras da conta que o modo novo não mostra saem da fotografia na hora
+  (antes só no `nao`); as que entram, na próxima fotografia.
+- `hall.php?id` e a limpeza da fotografia conferem também `hall_publico = 'manual'` → `publica = 1` e, com o Imersivo
+  fechado, o modo da carreira.
+- `config` com `imersivo_publico` de `true` para `false`: as carreiras do Imersivo saem da fotografia na hora e ela é
+  refeita (`admin_log` → `"hall": "refeito"`).
+
+### 12.9 Custo por pedido com muita gente (§8.2, painel)
+
+- `GET conta.php`: `estatisticas.partidas = max(partidas, partidas_conta)` (antes contava os eventos da vida inteira
+  da conta a cada abertura do jogo). Limite leve: 300 por conta a cada 10 min.
+- `painel.php`: a resposta do período fica guardada por `painel_cache_s` (arquivo de config, padrão 90 s; 0 desliga)
+  em `site_config._painel:<de>:<ate>:<bots>`, com trava (`lenda_painel`) para só um recalcular; o `agora` é sempre na
+  hora; campo novo `geradoEm`. O funil "5 partidas" lê a tabela nova `partidas_vid(vid, n, atualizado_em)` (o `e.php`
+  soma; o `instalar.php` preenche a partir dos eventos na primeira vez) em vez de agrupar a tabela `eventos` inteira; a
+  nota do `jogo_fim` vai para a coluna nova `eventos.nota` (as linhas de antes continuam lidas do JSON).
+
+### 12.10 LGPD: registro do admin
+
+- No `excluirUsuario`, na mesma transação, as linhas do `admin_log` com alvo `usuario:<id>` e `carreira:<pk>` (das
+  carreiras da conta) ficam só com `{"via", "excluido": true}`: continua registrado que a ação aconteceu e quando, sem
+  apelido nem motivo escrito. A política de privacidade diz isso.
+
+### 12.11 Jogo (cliente)
+
+- **Carreira 90+ que não subiu ao entrar:** se o `GET carreiras.php` falhar logo depois de entrar/criar a conta
+  (5xx, demora, sem rede), as 90+ do aparelho e a do botão vão para a fila (`lenda:carreiras-pendentes(-manual)`); no
+  laço, uma falha de rede põe a atual e as que faltam na fila (um 409/413 não). A fila tenta de novo na mesma sessão
+  com espera crescente (30 s, 1 min, 2 min… até 6 vezes; um 503 não dispara o evento `online`), ao voltar a internet e
+  ao abrir o jogo já logado (o `aoEntrar('sessao')` agora chama o reenvio). O reenvio **não** sobe toda 90+ que falta
+  na conta (ressuscitaria a apagada em outro aparelho): só as da fila.
+- **Conta que não respondeu:** o `GET conta.php` que falha (por rede ou 5xx) num aparelho que já entrou tenta de novo
+  sozinho (2 s, 4 s, 8 s… até 2 min, 6 vezes) e no `online`; quando responde, o `aoEntrar('sessao')` dispara o resto.
+  Nessa espera, a 90+ que termina vai para a fila e uma conquista nova faz a próxima leitura da conta ser na hora (sem
+  a espera de 10 min).
+- **Bônus de OVR sem resposta:** o `usar` tenta 2 vezes de até 7 s (o botão mostra "Confirmando bônus…"). Sem
+  resposta, a carreira **não** começa sozinha: "Não deu para confirmar o bônus" com "Tentar de novo" (o mesmo
+  `career-<semente>`, idempotente) e "Começar sem bônus" (outra semente e o aviso de falar com o suporte se o bônus
+  sumir). Num 401 (ou conta suspensa), a sessão sai e o aviso pede para entrar de novo (o bônus não foi gasto). O
+  servidor não "devolve" bônus de carreira salva com `bonusOvr 0` (o valor vem do cliente: seria bônus infinito).
+- **Manutenção:** o convite de conta das 5 partidas não abre por cima da tela "Em manutenção".
+- **Hall da comunidade:** com a próxima atualização no passado (o servidor responde a fotografia anterior e refaz logo
+  depois), mostra "atualizando agora" e busca o mesmo filtro de novo em 20–30 s com `cache: 'no-cache'` (no máximo 3
+  vezes seguidas).

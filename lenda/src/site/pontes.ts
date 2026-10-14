@@ -5,7 +5,7 @@
  *   iniciarPontes()   // uma vez (vigias)
  */
 import { ArrowRight } from 'lucide-react'
-import { useBonusCarreira } from '@/store/bonusCarreira'
+import { FalhaBonus, useBonusCarreira } from '@/store/bonusCarreira'
 import { pontes } from '@/store/compartilhar'
 import { toast } from '@/ui/primitives'
 import { ErroApi, valeTentar } from './api'
@@ -73,10 +73,26 @@ export function iniciarPontes() {
   useBonusCarreira.setState({
     carregar: () => {
       if (!useConta.getState().usuario) return useBonusCarreira.setState({ oferta: null })
-      void useBonus.getState().carregar().then(oferta)
+      // a tela de criação pergunta sempre (um pedido por carreira nova): o bônus que acabou de chegar (amigo que
+      // jogou, presente do admin, partida que liberou) já aparece; o valor que vale é o que o "usar" devolve
+      void useBonus.getState().carregar(true).then(oferta)
     },
     consumir: async (carreiraId) => {
-      const valor = await usarBonus(carreiraId)
+      let valor: number
+      try {
+        valor = await usarBonus(carreiraId)
+      } catch (err) {
+        // a sessão caiu (ou a conta foi suspensa): nada foi gasto, a carreira espera o jogador entrar de novo
+        if (err instanceof ErroApi && (err.status === 401 || err.codigo === 'suspenso')) {
+          useConta.getState().sessaoExpirou()
+          toast.info('Sua sessão expirou', 'Entre de novo para usar o bônus: ele não foi gasto.', {
+            key: 'bonus-sessao',
+            action: { label: 'Entrar', icon: ArrowRight, onClick: () => abrirConta({ modo: 'manual', aba: 'entrar' }) },
+          })
+          throw new FalhaBonus('sessao')
+        }
+        throw new FalhaBonus(valeTentar(err) ? 'rede' : 'outro', err instanceof Error ? err.message : '')
+      }
       // o bônus usado sai da lista; o próximo (se houver) aparece na próxima carreira
       void useBonus.getState().carregar(true).then(oferta)
       return valor

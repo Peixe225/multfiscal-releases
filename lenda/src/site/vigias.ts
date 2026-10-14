@@ -27,12 +27,13 @@ import {
   marcarUltima,
   paraSubirAoEntrar,
   pendentesNoAparelho,
+  salvaSozinha,
   useCarreiras,
   vigiarTransitorias,
 } from './carreiras'
 import { aoEntrar } from './conta'
 import { abrirCarreiras, abrirConta, useSiteUi } from './ui'
-import { comReintento, valeTentar } from './api'
+import { comReintento, esperaReintento, valeTentar } from './api'
 import { useAcesso } from '@/store/acesso'
 import { iniciarAcesso } from './acesso'
 import { iniciarConquistas } from './conquistas'
@@ -40,6 +41,7 @@ import { iniciarHallPublico } from './hallPublico'
 import { iniciarPontes } from './pontes'
 import { pendentesManuais } from './carreiras'
 import { salvarManual } from './salvar'
+import { useBonus } from './bonus'
 
 /** Está jogando agora (para o batimento)? */
 function estadoJogo(): { jogando: boolean; modo: ModoJogo | null } {
@@ -66,7 +68,12 @@ const notaDe = (h: HallEntry) => (typeof h.legacy?.score === 'number' ? h.legacy
 /** Salva na conta (como "auto") uma carreira 90+ que acabou de terminar. */
 async function salvarSozinha(h: HallEntry) {
   const conta = useConta.getState()
-  if (!conta.usuario) return
+  if (!conta.usuario) {
+    // a conta não respondeu agora (servidor lento), mas este aparelho já entrou: a 90+ espera na fila e sobe quando
+    // a conta for confirmada (o GET conta.php tenta de novo sozinho)
+    if (conta.lembrado && salvaSozinha(h) && !apagadasNoAparelho().has(h.id)) marcarPendente(h.id)
+    return
+  }
   const carreiras = useCarreiras.getState()
   if (!deveSalvarSozinha(h, { logado: true, naConta: idsNaConta(carreiras.lista), apagadas: apagadasNoAparelho() })) return
   try {
@@ -106,6 +113,8 @@ function entregarFins() {
     if (!h) continue
     esperandoHall.delete(id)
     track('jogo_fim', e.modo, { nota: notaDe(h), temporadas: h.summary?.seasons ?? 0, pico: h.summary?.peakOvr ?? 0 })
+    // a partida conta no servidor (pode liberar os bônus): a próxima carreira pergunta de novo, sem o guardado
+    if (useConta.getState().usuario) useBonus.setState({ em: 0 })
     void salvarSozinha(h)
   }
 }
@@ -116,7 +125,16 @@ export async function sincronizarAoEntrar(salvarId?: string) {
   try {
     await carreiras.carregar(true)
   } catch (err) {
-    if (salvarId) toast.error('Não deu para salvar na conta', mensagemDeErro(err))
+    // sem a lista da conta agora (5xx, demora, sem rede): as 90+ do aparelho e a do botão vão para a fila e sobem
+    // sozinhas daqui a pouco (um 503 não dispara o evento "online")
+    if (valeTentar(err)) {
+      for (const h of paraSubirAoEntrar(hallComUltima(), idsNaConta(useCarreiras.getState().lista), apagadasNoAparelho())) marcarPendente(h.id)
+      if (salvarId) {
+        marcarPendente(salvarId, 'manual')
+        toast.info('Sem conexão agora', 'A carreira sobe para a sua conta sozinha quando der.', { key: `conta-salva-${salvarId}` })
+      }
+      agendarReenvio()
+    } else if (salvarId) toast.error('Não deu para salvar na conta', mensagemDeErro(err))
     return
   }
   const hall = hallComUltima()
@@ -126,12 +144,17 @@ export async function sincronizarAoEntrar(salvarId?: string) {
   }
   const subir = paraSubirAoEntrar(hall, idsNaConta(useCarreiras.getState().lista), apagadasNoAparelho())
   let n = 0
-  for (const h of subir) {
+  for (let i = 0; i < subir.length; i++) {
     try {
-      await useCarreiras.getState().salvar(h, 'auto')
+      await useCarreiras.getState().salvar(subir[i], 'auto')
       n++
     } catch (err) {
-      toast.error('Algumas carreiras não subiram', mensagemDeErro(err))
+      if (valeTentar(err)) {
+        // a atual e as que faltam esperam na fila (um 409/413 é regra: não adianta repetir a cada abertura)
+        for (const h of subir.slice(i)) marcarPendente(h.id)
+        agendarReenvio()
+        toast.info('Algumas carreiras ficaram para depois', 'Sem conexão agora: elas sobem para a sua conta sozinhas quando der.')
+      } else toast.error('Algumas carreiras não subiram', mensagemDeErro(err))
       break
     }
   }
@@ -144,9 +167,17 @@ export async function sincronizarAoEntrar(salvarId?: string) {
 
 /**
  * Tenta de novo as carreiras que não subiram (sem rede na hora): as 90+ ("auto") e as do botão ("manual").
- * Roda ao abrir o jogo já logado e quando a internet volta. Uma de cada vez; a primeira falha para tudo.
+ * Roda ao abrir o jogo já logado, quando a internet volta e, depois de uma falha do servidor, com espera crescente
+ * (30 s, 1 min, 2 min… até 6 vezes). Uma de cada vez; a primeira falha para tudo.
  */
 let reenviando = false
+let tentativaReenvio = 0
+let timerReenvio = 0
+function agendarReenvio() {
+  if (typeof window === 'undefined' || tentativaReenvio >= 6) return
+  window.clearTimeout(timerReenvio)
+  timerReenvio = window.setTimeout(() => void reenviarPendentes(), esperaReintento(tentativaReenvio++, 30_000, 300_000))
+}
 async function reenviarPendentes() {
   const pend = pendentesNoAparelho()
   const manuais = pendentesManuais()
@@ -155,7 +186,8 @@ async function reenviarPendentes() {
   try {
     try {
       await useCarreiras.getState().carregar(true)
-    } catch {
+    } catch (err) {
+      if (valeTentar(err)) agendarReenvio()
       return
     }
     const naConta = idsNaConta(useCarreiras.getState().lista)
@@ -167,10 +199,12 @@ async function reenviarPendentes() {
       try {
         await useCarreiras.getState().salvar(h, manual ? 'manual' : 'auto')
         n++
-      } catch {
+      } catch (err) {
+        if (valeTentar(err)) agendarReenvio()
         return
       }
     }
+    tentativaReenvio = 0
     if (n) toast.success(n === 1 ? 'A carreira que estava esperando subiu para a sua conta' : `${n} carreiras que estavam esperando subiram para a sua conta`, undefined, { key: 'conta-pendentes' })
   } finally {
     reenviando = false
@@ -214,8 +248,13 @@ export function iniciarSite() {
   iniciarConquistas()
   iniciarPontes()
   vigiarTransitorias()
-  // a internet voltou: o que não subiu (carreiras salvas sem rede) tenta de novo
-  window.addEventListener('online', () => void reenviarPendentes())
+  // a internet voltou: a conta que não respondeu pergunta de novo e o que não subiu (carreiras salvas sem rede) tenta de novo
+  window.addEventListener('online', () => {
+    const c = useConta.getState()
+    if (!c.usuario && c.lembrado) void c.carregar()
+    tentativaReenvio = 0
+    void reenviarPendentes()
+  })
 
   // regras do convite + quem está logado
   void useConta
@@ -275,8 +314,11 @@ export function iniciarSite() {
 
   // ── conta: depois de entrar, sobe as carreiras ──
   aoEntrar((_u, como) => {
-    // já estava logado (cookie) ou entrou em outra aba: as carreiras pendentes já são tratadas acima
-    if (como === 'sessao') return
+    // já estava logado (cookie), entrou em outra aba ou a conta só respondeu agora: sobe o que ficou na fila
+    if (como === 'sessao') {
+      void reenviarPendentes()
+      return
+    }
     track(como === 'cadastro' ? 'cadastro' : 'login')
     const d = useSiteUi.getState().dialogo
     const salvarId = d?.tipo === 'conta' ? d.depois?.salvar : undefined
@@ -333,6 +375,12 @@ export function iniciarSite() {
   const avaliar = () => {
     // aba no fundo: nada de convite (nem gate_ver) que ninguém vê
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      seguroDesde = 0
+      return
+    }
+    // site em manutenção (para quem não é admin, ou enquanto o admin ainda é conferido): nada de convite por cima
+    const acesso = useAcesso.getState()
+    if (acesso.manutencao && !acesso.admin) {
       seguroDesde = 0
       return
     }

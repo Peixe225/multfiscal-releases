@@ -159,8 +159,8 @@ if (metodo() === 'GET') {
             $u = umaLinha('SELECT COUNT(*) AS total, COALESCE(SUM(NOT ' . LENDA_SQL_ATIVO . '), 0) AS suspensos,
                 COALESCE(SUM(criado_em >= ?), 0) AS hoje, COALESCE(SUM(criado_em >= ?), 0) AS semana FROM usuarios u',
                 [$iniHoje, dt(time() - 7 * 86400)]);
-            $c = umaLinha('SELECT COUNT(*) AS total, COALESCE(SUM(suspeita IS NOT NULL), 0) AS suspeitas, COALESCE(SUM(oculta = 1), 0) AS ocultas,
-                COALESCE(SUM(oculta = 2), 0) AS denunciadas FROM carreiras');
+            $c = umaLinha("SELECT COUNT(*) AS total, COALESCE(SUM(suspeita IS NOT NULL), 0) AS suspeitas, COALESCE(SUM(oculta = 1), 0) AS ocultas,
+                COALESCE(SUM(oculta = 2), 0) AS denunciadas, COALESCE(SUM(suspeita = 'revisao'), 0) AS revisao FROM carreiras");
             $ind = ['pendente' => 0, 'valida' => 0, 'recusada' => 0];
             foreach (sql('SELECT status, COUNT(*) AS n FROM indicacoes GROUP BY status') as $l) {
                 $ind[$l['status']] = (int) $l['n'];
@@ -172,7 +172,8 @@ if (metodo() === 'GET') {
                 'usuarios' => ['total' => (int) $u['total'], 'ativos' => (int) $u['total'] - (int) $u['suspensos'],
                     'suspensos' => (int) $u['suspensos'], 'novosHoje' => (int) $u['hoje'], 'novos7Dias' => (int) $u['semana']],
                 'carreiras' => ['total' => (int) $c['total'], 'noHall' => (int) umValor('SELECT COUNT(*) FROM hall_foto'),
-                    'suspeitas' => (int) $c['suspeitas'], 'ocultas' => (int) $c['ocultas'], 'ocultasPorDenuncia' => (int) $c['denunciadas']],
+                    'suspeitas' => (int) $c['suspeitas'], 'ocultas' => (int) $c['ocultas'], 'ocultasPorDenuncia' => (int) $c['denunciadas'],
+                    'emRevisao' => (int) $c['revisao'], 'revisaoNota' => notaRevisao()],
                 'denunciasAbertas' => (int) umValor("SELECT COUNT(*) FROM denuncias WHERE status = 'aberta'"),
                 'indicacoes' => ['pendentes' => $ind['pendente'], 'validas' => $ind['valida'], 'recusadas' => $ind['recusada']],
                 'bonus' => ['naoUsados' => (int) $b['abertos'], 'usados' => (int) $b['usados']],
@@ -180,6 +181,8 @@ if (metodo() === 'GET') {
                     'proximaEm' => $em !== false && $em ? gmdate('Y-m-d\TH:i:s\Z', $em + hallIntervaloS()) : null,
                     'total' => (int) ($e['total'] ?? 0), 'ms' => (int) ($e['ms'] ?? 0)],
                 'site' => sitePublico(),
+                // e-mails de troca de senha que o teto do site (40 a cada 10 min, 300 por dia) não deixou sair
+                'emailsBarrados' => ['total' => (int) (lerEstado('_esqueci_teto')['n'] ?? 0), 'ultimoEm' => lerEstado('_esqueci_teto')['em'] ?? null],
             ]);
 
         case 'usuarios':
@@ -317,6 +320,7 @@ if (metodo() === 'GET') {
             [$onde, $ordem] = match ($filtro) {
                 'ocultas' => ['c.oculta > 0', 'c.salva_em DESC, c.id DESC'],
                 'suspeitas' => ['c.suspeita IS NOT NULL', 'c.salva_em DESC, c.id DESC'],
+                'revisao' => ["c.suspeita = 'revisao'", 'c.nota DESC, c.id ASC'],
                 'denunciadas' => ['d.n > 0', 'd.n DESC, c.id DESC'],
                 'todas' => ['1 = 1', 'c.salva_em DESC, c.id DESC'],
                 default => ['f.id IS NOT NULL', 'f.id ASC'],
@@ -330,7 +334,7 @@ if (metodo() === 'GET') {
             $itens = array_map('itemCarreiraAdmin', sql(SQL_CARREIRA_ADMIN . SQL_CARREIRA_ADMIN_DE . " WHERE $onde ORDER BY $ordem LIMIT "
                 . POR_PAGINA . " OFFSET $off", $params)->fetchAll());
             $e = hallEstado();
-            responder(200, paginado($total, $pagina, $itens) + ['filtro' => in_array($filtro, ['ocultas', 'suspeitas', 'denunciadas', 'todas'], true)
+            responder(200, paginado($total, $pagina, $itens) + ['filtro' => in_array($filtro, ['ocultas', 'suspeitas', 'revisao', 'denunciadas', 'todas'], true)
                 ? $filtro : 'publicas', 'atualizadoEm' => $e['em'] ?? null]);
 
         case 'carreira':
@@ -584,12 +588,16 @@ switch ($acao) {
         $fechadas = transacao(static function () use ($acao, $pk): int {
             if ($acao === 'ocultar_carreira') {
                 sql('UPDATE carreiras SET oculta = 1 WHERE id = ?', [$pk]);
+                gravarModeracao($pk, 1); // vale também se o dono apagar e salvar de novo
                 return fecharDenuncias($pk, 'ocultar');
             }
             if ($acao === 'mostrar_carreira') {
                 sql('UPDATE carreiras SET oculta = 0, suspeita = NULL WHERE id = ?', [$pk]); // libera também a suspeita
+                apagarModeracao($pk);
                 return fecharDenuncias($pk, 'ok');
             }
+            // apagada pelo admin: se o aparelho do dono subir de novo (ela continua no Hall dele), volta escondida
+            gravarModeracao($pk, 1);
             $n = sql('DELETE FROM denuncias WHERE carreira_pk = ?', [$pk])->rowCount();
             sql('DELETE FROM carreiras WHERE id = ?', [$pk]);
             return $n;
@@ -623,8 +631,9 @@ switch ($acao) {
         $fechadas = transacao(static function () use ($pk, $did, $resultado): int {
             if ($resultado === 'ocultar') {
                 sql('UPDATE carreiras SET oculta = 1 WHERE id = ?', [$pk]);
-            } else {
-                sql('UPDATE carreiras SET oculta = 0 WHERE id = ? AND oculta = 2', [$pk]); // a que as denúncias esconderam volta
+                gravarModeracao($pk, 1);
+            } elseif (sql('UPDATE carreiras SET oculta = 0 WHERE id = ? AND oculta = 2', [$pk])->rowCount() === 1) {
+                apagarModeracao($pk); // a que as denúncias esconderam volta (a escondida pelo admin continua)
             }
             $n = fecharDenuncias($pk, $resultado);
             // a própria denúncia, mesmo se já estava fechada, fica com o resultado de agora
@@ -664,6 +673,13 @@ switch ($acao) {
         $mudou = [];
         foreach ($limpos as $chave => $v) {
             $mudou[$chave] = ['de' => $antes[$chave] ?? null, 'para' => $v];
+        }
+        if (($antes['imersivo_publico'] ?? false) === true && ($limpos['imersivo_publico'] ?? true) === false) {
+            // o Imersivo voltou a ser só do admin: as carreiras dele saem do Hall público na hora
+            limparFotoMudancas();
+            if (refazerFoto(true, 10, 'admin') !== null) {
+                $mudou['hall'] = 'refeito';
+            }
         }
         registrarAdmin('config', 'config', $mudou);
         responder(200, ['ok' => true, 'valores' => siteConfig(true)]);

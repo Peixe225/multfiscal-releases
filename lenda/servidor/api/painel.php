@@ -5,7 +5,8 @@
  *   GET  ?de=YYYY-MM-DD&ate=YYYY-MM-DD&bots=0   (cookie ou Authorization: Bearer <token>)
  *   GET  ?so=agora                              → só {agora} (o painel atualiza isso a cada 15 s)
  *   GET  ?so=eu                                 → {admin: true} ou 401 (o jogo libera o que é só do admin)
- * Dias no fuso America/Sao_Paulo (UTC-3 fixo): o período vira [de 03:00 UTC, ate+1 03:00 UTC).
+ * Dias no fuso America/Sao_Paulo (UTC-3 fixo): o período vira [de 03:00 UTC, ate+1 03:00 UTC). A resposta do
+ * período fica guardada por painel_cache_s (90 s; "geradoEm" diz de quando é); o "agora" é sempre na hora.
  */
 declare(strict_types=1);
 
@@ -19,12 +20,19 @@ if ($m === 'POST') {
     $j = lerJson(16 * 1024);
     $acao = is_string($j['acao'] ?? null) ? $j['acao'] : '';
     if ($acao === 'entrar') {
-        limitar('painel', quemIp(), 10);
-        // Teto do site inteiro contra força bruta de muitos IPs. Sob ataque, o login dá 429 (o Bearer segue valendo).
-        limitar('painel-todos', 'todos', 50);
+        $ip = quemIp();
+        limitar('painel', $ip, 10);
+        // Teto do site inteiro contra força bruta de muitos IPs: soma só as senhas erradas e, estourado, barra só os IPs
+        // que já erraram nesta janela — o dono, de um IP limpo e com a senha certa, entra mesmo no meio de um ataque
+        // (a senha do painel deve ser longa e aleatória: com o bcrypt e 10 por IP, chutar não dá em nada).
+        if (lerLimite('painel-todos', 'todos') >= 50 && lerLimite('painel-erro', $ip) > 0) {
+            erroLimite();
+        }
         $senha = is_string($j['senha'] ?? null) ? $j['senha'] : '';
         $hash = (string) (config()['admin_senha_hash'] ?? '');
         if ($senha === '' || strlen($senha) > 256 || str_contains($senha, "\0") || $hash === '' || !password_verify($senha, $hash)) {
+            somarLimite('painel-erro', $ip);
+            somarLimite('painel-todos', 'todos');
             erro(401, 'credenciais', 'Senha incorreta.');
         }
         $exp = (string) (time() + 12 * 3600);
@@ -85,6 +93,33 @@ $a = dt(diaUtc($de) + LENDA_FUSO_H * 3600);
 $b = dt(diaUtc($ate) + 86400 + LENDA_FUSO_H * 3600);
 $bots = ($_GET['bots'] ?? '0') === '1';
 
+// O resto pesa (eventos de 13 meses): a resposta fica guardada por painel_cache_s (90 s) por período, e só um pedido
+// recalcula de cada vez (os outros recebem a guardada, mesmo um pouco velha). O "agora" é sempre na hora.
+$cacheS = max(0, (int) (config()['painel_cache_s'] ?? 90));
+$chaveCache = '_painel:' . $de . ':' . $ate . ':' . ($bots ? '1' : '0');
+$travou = false;
+if ($cacheS > 0) {
+    $guardado = lerEstado($chaveCache);
+    $fresco = is_array($guardado) && is_int($guardado['em'] ?? null) && is_array($guardado['dados'] ?? null);
+    if ($fresco && $guardado['em'] > $t - $cacheS) {
+        responder(200, ['agora' => $agora] + $guardado['dados']);
+    }
+    $travou = pegarTrava('lenda_painel', 0);
+    if (!$travou && $fresco) {
+        responder(200, ['agora' => $agora] + $guardado['dados']); // outro está recalculando: a de antes serve
+    }
+    if (!$travou) {
+        $travou = pegarTrava('lenda_painel', 10);
+        $guardado = lerEstado($chaveCache);
+        if (is_array($guardado) && is_int($guardado['em'] ?? null) && is_array($guardado['dados'] ?? null) && $guardado['em'] > $t - $cacheS) {
+            if ($travou) {
+                soltarTrava('lenda_painel');
+            }
+            responder(200, ['agora' => $agora] + $guardado['dados']);
+        }
+    }
+}
+
 // Filtros fixos (nada do pedido entra no texto do SQL). Robôs: as visitas pela coluna bot; os eventos pela
 // lista (pequena, com índice) das sessões-robô do período, em vez de um JOIN por evento.
 $a1 = dt(diaUtc($de) + LENDA_FUSO_H * 3600 - 86400); // sessão-robô que começou até 1 dia antes
@@ -133,20 +168,20 @@ $cadastrosDepois = (int) umValor("SELECT COUNT(DISTINCT c.vid) FROM eventos c
       AND EXISTS (SELECT 1 FROM eventos g WHERE g.vid = c.vid AND g.tipo = 'gate_ver' AND g.em <= c.em)", $abE);
 $cadastros = (int) umValor('SELECT COUNT(*) FROM usuarios WHERE criado_em >= ? AND criado_em < ?', $ab);
 
-// 5 partidas: visitantes do período com 5 ou mais (jogo_fim clássico/imersivo + partida_fim) na vida toda.
-$cinco = (int) umValor("SELECT COUNT(*) FROM (
-        SELECT e.vid FROM eventos e
-        WHERE e.tipo IN ('jogo_fim', 'partida_fim') AND (e.tipo = 'partida_fim' OR e.modo IN ('classico', 'imersivo'))
-        GROUP BY e.vid HAVING COUNT(*) >= 5
-    ) f WHERE EXISTS (SELECT 1 FROM visitas w FORCE INDEX (ix_visitas_vid)
-        WHERE w.vid = f.vid AND w.inicio >= ? AND w.inicio < ?$fw)", $ab);
+// 5 partidas: visitantes do período com 5 ou mais (jogo_fim clássico/imersivo + partida_fim) na vida toda — a soma
+// por aparelho fica em partidas_vid (o e.php soma), em vez de agrupar a tabela eventos inteira.
+$cinco = (int) umValor("SELECT COUNT(*) FROM partidas_vid p
+    WHERE p.n >= 5 AND EXISTS (SELECT 1 FROM visitas w FORCE INDEX (ix_visitas_vid)
+        WHERE w.vid = p.vid AND w.inicio >= ? AND w.inicio < ?$fw)", $ab);
 
+// a nota do jogo_fim fica na coluna eventos.nota (o e.php grava); as linhas de antes dela, no JSON de dados
 $notas = umaLinha('SELECT ROUND(AVG(x)) AS media, MAX(x) AS melhor FROM (
-        SELECT JSON_EXTRACT(e.dados, \'$.nota\') + 0 AS x FROM eventos e
-        WHERE e.tipo = \'jogo_fim\' AND e.modo IN (\'classico\', \'imersivo\') AND ' . $le . $nbE . ' AND e.dados IS NOT NULL
-          AND JSON_TYPE(JSON_EXTRACT(e.dados, \'$.nota\')) IN (\'INTEGER\', \'UNSIGNED INTEGER\', \'DOUBLE\', \'DECIMAL\')
-          AND JSON_EXTRACT(e.dados, \'$.nota\') + 0 BETWEEN -999 AND 999
-    ) t', $abE);
+        SELECT COALESCE(e.nota, CASE WHEN JSON_TYPE(JSON_EXTRACT(e.dados, \'$.nota\')) IN (\'INTEGER\', \'UNSIGNED INTEGER\', \'DOUBLE\', \'DECIMAL\')
+                AND JSON_EXTRACT(e.dados, \'$.nota\') + 0 BETWEEN -999 AND 999 THEN JSON_EXTRACT(e.dados, \'$.nota\') + 0 END) AS x
+        FROM eventos e
+        WHERE e.tipo = \'jogo_fim\' AND e.modo IN (\'classico\', \'imersivo\') AND ' . $le . $nbE . '
+          AND (e.nota IS NOT NULL OR e.dados IS NOT NULL)
+    ) t WHERE x IS NOT NULL', $abE);
 
 // ── por dia, hora, origem e aparelho ─────────────────────────────────────────────────────────────
 
@@ -229,8 +264,7 @@ $melhores = array_map(static fn(array $l): array => [
 limpezaTalvez();
 
 $jogaram = $pessoas['jogo_inicio'] ?? 0;
-responder(200, [
-    'agora' => $agora,
+$dados = [
     'periodo' => [
         'de' => $de,
         'ate' => $ate,
@@ -276,4 +310,17 @@ responder(200, [
     ],
     'fuso' => 'America/Sao_Paulo',
     'bots' => $bots,
-]);
+    'geradoEm' => gmdate('Y-m-d\TH:i:s\Z', $t),
+];
+if ($cacheS > 0) {
+    try {
+        gravarSiteConfig($chaveCache, ['em' => $t, 'dados' => $dados], 'painel');
+        // os períodos que ninguém pede há mais de 1 dia saem
+        sql("DELETE FROM site_config WHERE chave LIKE '\\_painel:%' AND atualizado_em < ?", [dt($t - 86400)]);
+    } finally {
+        if ($travou) {
+            soltarTrava('lenda_painel');
+        }
+    }
+}
+responder(200, ['agora' => $agora] + $dados);

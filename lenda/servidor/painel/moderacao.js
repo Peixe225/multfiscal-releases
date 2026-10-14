@@ -16,11 +16,11 @@
       bs.push(LP.botao(c.suspeita && !c.oculta ? 'Liberar' : 'Mostrar', () => mostrar(c, depois), { tipo: 'ok', pequeno: !o.grande, icone: 'olho',
         title: 'Volta ao Hall na próxima fotografia' + (c.suspeita ? ' (e libera a suspeita)' : '') }));
     } else {
-      bs.push(LP.botao('Ocultar', () => ocultar(c, depois), { tipo: 'fantasma', pequeno: !o.grande, icone: 'ocultar', title: 'Tira do Hall público na hora' }));
+      bs.push(LP.botao('Ocultar', () => ocultar(c, depois), { tipo: 'fantasma', pequeno: !o.grande, compacto: !o.grande, icone: 'ocultar', title: 'Ocultar: tira do Hall público na hora' }));
     }
-    bs.push(LP.botao('Apagar', () => apagar(c, depois), { tipo: 'perigo', pequeno: !o.grande, icone: 'lixo' }));
+    bs.push(LP.botao('Apagar', () => apagar(c, depois), { tipo: 'perigo', pequeno: !o.grande, compacto: !o.grande, icone: 'lixo', title: 'Apagar a carreira' }));
     if ((c.posicaoHall || c.noHall) && c.carreiraId) {
-      bs.push(LP.linkJogo('No jogo', '#/resumo?id=' + encodeURIComponent(c.carreiraId) + '&de=comunidade', { tipo: 'fantasma', pequeno: !o.grande, title: 'Abre esta carreira no Hall das Lendas do jogo (outra aba)' }));
+      bs.push(LP.linkJogo('No jogo', '#/resumo?id=' + encodeURIComponent(c.carreiraId) + '&de=comunidade', { tipo: 'fantasma', pequeno: !o.grande, compacto: !o.grande, title: 'Abrir esta carreira no Hall das Lendas do jogo (outra aba)' }));
     }
     return bs;
   };
@@ -68,9 +68,9 @@
     if (depois) depois(true);
   }
 
-  function chipsSituacao(c) {
+  function chipsSituacao(c, semPosicao) {
     const chips = [];
-    if (c.posicaoHall) chips.push(LP.chip('No Hall #' + LP.inteiro(c.posicaoHall), 'ok'));
+    if (c.posicaoHall && semPosicao !== true) chips.push(LP.chip('No Hall #' + LP.inteiro(c.posicaoHall), 'ok'));
     if (c.oculta === 1) chips.push(LP.chip('Oculta (admin)', 'alerta'));
     if (c.oculta === 2) chips.push(LP.chip('Oculta (denúncias)', 'perigo'));
     if (c.suspeita) chips.push(LP.chip('Suspeita: ' + LP.motivosSuspeita(c.suspeita), 'alerta'));
@@ -190,7 +190,7 @@
   }
 
   // ═══ aba Hall público ════════════════════════════════════════════════════════════════════════
-  const FILTROS = ['publicas', 'suspeitas', 'denunciadas', 'ocultas', 'todas'];
+  const FILTROS = ['publicas', 'revisao', 'suspeitas', 'denunciadas', 'ocultas', 'todas'];
   const hall = { filtro: 'publicas', q: '', pagina: 1, pedido: 0, corpo: null, info: null, filtros: null, temDados: false, atualizadoEm: null };
 
   function montarHall(raiz, rota) {
@@ -221,6 +221,7 @@
     const c = r.carreiras || {};
     LP.trocar(hall.filtros, LP.segmentos('Filtro', [
       { valor: 'publicas', rotulo: 'No Hall', contador: c.noHall || 0 },
+      { valor: 'revisao', rotulo: 'Esperando revisão', contador: c.emRevisao || 0, tipoContador: 'alerta' },
       { valor: 'suspeitas', rotulo: 'Suspeitas', contador: c.suspeitas || 0, tipoContador: 'alerta' },
       { valor: 'denunciadas', rotulo: 'Denunciadas', contador: r.denunciasAbertas || 0, tipoContador: 'perigo' },
       { valor: 'ocultas', rotulo: 'Ocultas', contador: (c.ocultas || 0) + (c.ocultasPorDenuncia || 0) },
@@ -250,18 +251,19 @@
 
   async function carregarHall() {
     const n = ++hall.pedido;
+    if (!LP.visivel(hall.corpo)) return;
     LP.trocarQuery('hall', { filtro: hall.filtro === 'publicas' ? '' : hall.filtro, q: hall.q, pagina: hall.pagina > 1 ? hall.pagina : '' });
     if (!hall.temDados) LP.trocar(hall.corpo, LP.estadoCarregando(6));
     else hall.corpo.classList.add('esmaecido');
     try {
       const d = await LP.adminGet('hall', { filtro: hall.filtro, q: hall.q, pagina: hall.pagina });
-      if (n !== hall.pedido) return;
+      if (n !== hall.pedido || !LP.visivel(hall.corpo)) return;
       hall.temDados = true;
       hall.atualizadoEm = d.atualizadoEm || null;
       desenharInfo();
       desenharHall(d);
     } catch (e) {
-      if (n !== hall.pedido || (e && e.status === 401)) return;
+      if (n !== hall.pedido || (e && e.status === 401) || !LP.visivel(hall.corpo)) return;
       hall.temDados = false;
       LP.trocar(hall.corpo, LP.estadoErro(e, carregarHall));
     } finally {
@@ -271,7 +273,8 @@
 
   const VAZIO_HALL = {
     publicas: ['O Hall público está vazio', 'Entram as até 3 melhores carreiras de cada conta (ou as que o jogador escolheu), na próxima fotografia.'],
-    suspeitas: ['Nenhuma carreira suspeita', 'Carreiras com números fora do normal ficam aqui, fora do Hall, até você decidir.'],
+    revisao: ['Nenhuma carreira esperando revisão', 'Carreiras com nota extraordinária ficam aqui, fora do Hall, até você conferir e liberar (botão "Liberar").'],
+    suspeitas: ['Nenhuma carreira suspeita', 'Carreiras com números fora do normal (e as que esperam revisão) ficam aqui, fora do Hall, até você decidir.'],
     denunciadas: ['Nenhuma carreira denunciada', 'Quando alguém denunciar uma carreira do Hall, ela aparece aqui.'],
     ocultas: ['Nenhuma carreira oculta', 'As que você ocultar (ou que 5 denúncias esconderem) aparecem aqui.'],
     todas: ['Nenhuma carreira salva ainda', 'As carreiras salvas nas contas aparecem aqui.'],
@@ -279,7 +282,7 @@
 
   function desenharHall(d) {
     const itens = Array.isArray(d.itens) ? d.itens : [];
-    LP.subAba(LP.inteiro(d.total || 0) + ' ' + ({ publicas: 'no Hall', suspeitas: 'suspeitas', denunciadas: 'denunciadas', ocultas: 'ocultas', todas: 'salvas' }[hall.filtro] || ''));
+    LP.subAba(LP.inteiro(d.total || 0) + ' ' + ({ publicas: 'no Hall', revisao: 'esperando revisão', suspeitas: 'suspeitas', denunciadas: 'denunciadas', ocultas: 'ocultas', todas: 'salvas' }[hall.filtro] || ''));
     if (!itens.length) {
       const [t, x] = hall.q ? ['Nada encontrado', 'Confira a busca: nome do jogador, apelido do dono ou o id da carreira.'] : VAZIO_HALL[hall.filtro];
       LP.trocar(hall.corpo, LP.estadoVazio(t, x));
@@ -298,11 +301,11 @@
         { rotulo: 'Pico', num: true, celula: (c) => LP.inteiro(c.picoOvr) },
         { rotulo: 'Temp.', num: true, celula: (c) => LP.inteiro(c.temporadas) },
         { rotulo: 'Gols', num: true, celula: (c) => LP.inteiro(c.gols) },
-        { rotulo: 'Títulos', num: true, celula: (c) => LP.inteiro(c.titulos) },
+        { rotulo: 'Tít.', num: true, celula: (c) => LP.inteiro(c.titulos) },
         { rotulo: 'B. Ouro', num: true, celula: (c) => LP.inteiro(c.bolasOuro) },
         { rotulo: 'Copas', num: true, celula: (c) => LP.inteiro(c.copas) },
         { rotulo: 'Bônus', num: true, celula: (c) => (c.bonusOvr ? '+' + c.bonusOvr : '—') },
-        { rotulo: 'Situação', celula: chipsSituacao },
+        { rotulo: 'Situação', classe: 'situacao', celula: (c) => chipsSituacao(c, true) },
         { rotulo: 'Salva', celula: (c) => LP.quando(c.salvaEm) },
         { rotulo: 'Ações', acoes: true, celula: (c) => LP.botoesCarreira(c, recarregar) },
       ],
@@ -361,16 +364,17 @@
 
   async function carregarDen() {
     const n = ++den.pedido;
+    if (!LP.visivel(den.corpo)) return;
     LP.trocarQuery('denuncias', { status: den.status === 'abertas' ? '' : den.status, pagina: den.pagina > 1 ? den.pagina : '' });
     if (!den.temDados) LP.trocar(den.corpo, LP.estadoCarregando(5));
     else den.corpo.classList.add('esmaecido');
     try {
       const d = await LP.adminGet('denuncias', { status: den.status, pagina: den.pagina });
-      if (n !== den.pedido) return;
+      if (n !== den.pedido || !LP.visivel(den.corpo)) return;
       den.temDados = true;
       desenharDen(d);
     } catch (e) {
-      if (n !== den.pedido || (e && e.status === 401)) return;
+      if (n !== den.pedido || (e && e.status === 401) || !LP.visivel(den.corpo)) return;
       den.temDados = false;
       LP.trocar(den.corpo, LP.estadoErro(e, carregarDen));
     } finally {
@@ -388,8 +392,18 @@
       return;
     }
     const recarregar = () => { carregarDen(); LP.atualizarResumo(); };
-    const cartoes = itens.map((x) => {
-      const c = x.carreira;
+    // Uma caixa por carreira (as denúncias desta página juntas): decidir uma vez fecha todas as abertas dela.
+    const grupos = [];
+    const porCarreira = {};
+    itens.forEach((x) => {
+      const k = x.carreira ? 'c' + x.carreira.id : 'd' + x.id;
+      if (!porCarreira[k]) { porCarreira[k] = { carreira: x.carreira, itens: [] }; grupos.push(porCarreira[k]); }
+      porCarreira[k].itens.push(x);
+    });
+    const cartoes = grupos.map((g) => {
+      const c = g.carreira;
+      const aberta = g.itens.find((x) => x.status === 'aberta');
+      const abertas = aberta ? aberta.abertasNaCarreira || g.itens.filter((x) => x.status === 'aberta').length : 0;
       const cab = c
         ? h('div', { class: 'chips' },
           h('button', { type: 'button', class: 'link', onclick: () => LP.abrirCarreira(c.id, { aoMudar: recarregar }) }, h('b', null, c.jogador || '—')),
@@ -397,17 +411,21 @@
           c.oculta === 1 ? LP.chip('Oculta (admin)', 'alerta') : c.oculta === 2 ? LP.chip('Oculta (denúncias)', 'perigo') : null,
           c.suspeita ? LP.chip('Suspeita', 'alerta') : null)
         : h('span', { class: 'texto-3' }, 'Carreira apagada');
-      const acoes = x.status === 'aberta' && c
+      const lista = g.itens.map((x) => h('div', { class: 'denuncia-item' },
+        h('div', { class: 'chips' }, LP.chip(LP.NOMES_DENUNCIA[x.motivo] || x.motivo, 'perigo', { semPonto: true }),
+          x.status !== 'aberta' ? estadoDenuncia(x.status) : null,
+          h('span', { class: 'texto-3' }, 'por ', LP.linkUsuario(x.denunciante), ' · ', LP.quando(x.criadaEm))),
+        x.texto ? h('p', { class: 'denuncia-texto' }, x.texto) : null));
+      const acoes = aberta && c
         ? h('div', { class: 'botoes' },
           LP.botao('Ver carreira', () => LP.abrirCarreira(c.id, { aoMudar: recarregar }), { tipo: 'fantasma', pequeno: true, icone: 'olho' }),
-          LP.botao('Manter no Hall', () => resolver(x, 'ok', recarregar), { tipo: 'ok', pequeno: true, icone: 'check' }),
-          LP.botao('Ocultar', () => resolver(x, 'ocultar', recarregar), { tipo: 'perigo', pequeno: true, icone: 'ocultar' }))
-        : h('span', { class: 'chips' }, estadoDenuncia(x.status), x.resolvidaEm ? h('span', { class: 'texto-3' }, LP.relativo(x.resolvidaEm)) : null);
+          LP.botao('Manter no Hall', () => resolver(aberta, 'ok', recarregar), { tipo: 'ok', pequeno: true, icone: 'check' }),
+          LP.botao('Ocultar', () => resolver(aberta, 'ocultar', recarregar), { tipo: 'perigo', pequeno: true, icone: 'ocultar' }))
+        : c ? h('div', { class: 'botoes' }, LP.botao('Ver carreira', () => LP.abrirCarreira(c.id, { aoMudar: recarregar }), { tipo: 'fantasma', pequeno: true, icone: 'olho' })) : null;
       return h('article', { class: 'denuncia' },
-        h('div', { class: 'denuncia-topo' }, cab, x.abertasNaCarreira > 1 ? LP.chip(LP.plural(x.abertasNaCarreira, 'aberta', 'abertas') + ' nesta carreira', 'perigo', { semPonto: true }) : null),
-        h('div', { class: 'chips' }, LP.chip(LP.NOMES_DENUNCIA[x.motivo] || x.motivo, 'perigo', { semPonto: true })),
-        x.texto ? h('p', { class: 'denuncia-texto' }, x.texto) : null,
-        h('div', { class: 'denuncia-pe' }, h('span', { class: 'texto-3' }, 'Denunciada por ', LP.linkUsuario(x.denunciante), ' · ', LP.quando(x.criadaEm)), acoes));
+        h('div', { class: 'denuncia-topo' }, cab, abertas ? LP.chip(LP.plural(abertas, 'aberta', 'abertas') + ' nesta carreira', 'perigo', { semPonto: true }) : null),
+        lista,
+        acoes ? h('div', { class: 'denuncia-pe' }, h('span', { class: 'texto-3' }, aberta ? 'Decidir aqui fecha todas as abertas desta carreira.' : ''), acoes) : null);
     });
     LP.trocar(den.corpo, h('div', null, cartoes), LP.paginacao(d.total || 0, d.pagina || den.pagina, d.porPagina || 50, (p) => { den.pagina = p; carregarDen(); window.scrollTo(0, 0); }));
   }

@@ -24,9 +24,6 @@ function usuarioJson(array $u): array
     $v = umaLinha('SELECT COALESCE(SUM(ativo_s), 0) AS s, MIN(inicio) AS p, MAX(ultimo) AS u FROM visitas WHERE usuario_id = ?', [$id]);
     $aparelhos = sql('SELECT dispositivo FROM visitas WHERE usuario_id = ? AND dispositivo IS NOT NULL
         GROUP BY dispositivo ORDER BY MIN(inicio)', [$id])->fetchAll(PDO::FETCH_COLUMN);
-    $partidasEventos = (int) umValor("SELECT COUNT(*) FROM visitas v JOIN eventos e ON e.sid = v.sid
-        WHERE v.usuario_id = ? AND e.tipo IN ('jogo_fim', 'partida_fim')
-          AND (e.tipo = 'partida_fim' OR e.modo IN ('classico', 'imersivo'))", [$id]);
 
     $primeiro = $u['criado_em'];
     if (!empty($v['p']) && $v['p'] < $primeiro) {
@@ -50,7 +47,9 @@ function usuarioJson(array $u): array
         'hallPublico' => (string) ($u['hall_publico'] ?? 'auto'),
         'codigoConvite' => $codigo,
         'estatisticas' => [
-            'partidas' => max((int) $u['partidas'], $partidasEventos),
+            // o contador do aparelho (inclui as de antes do cadastro) ou as contadas com a conta: nada de contar os
+            // eventos da vida inteira a cada abertura do jogo
+            'partidas' => max((int) $u['partidas'], (int) ($u['partidas_conta'] ?? 0)),
             'carreirasSalvas' => (int) ($c['n'] ?? 0),
             'melhorNota' => isset($c['melhor']) ? (int) $c['melhor'] : null,
             'melhorJogador' => $melhorJogador !== null ? (string) $melhorJogador : null,
@@ -87,10 +86,11 @@ function ligarVisitante(?string $vid, int $uid): void
 }
 
 /**
- * Exclui a conta (LGPD): usuário, sessões, carreiras (e o lugar delas no Hall público e as denúncias contra
- * elas), conquistas, bônus, indicações que ela fez, denúncias que ela fez; a indicação que ela recebeu fica
- * sem o indicado (o bônus do amigo continua dele). As visitas ficam só como estatística anônima, com um vid
- * novo por aparelho. Sem senha: quem chama confere (conta.php pede a senha; admin.php exige o admin).
+ * Exclui a conta (LGPD): usuário, sessões, carreiras (e o lugar delas no Hall público, as denúncias contra
+ * elas e a decisão de moderação guardada), conquistas, bônus, indicações que ela fez, denúncias que ela fez; a
+ * indicação que ela recebeu fica sem o indicado (o bônus do amigo continua dele). As visitas ficam só como
+ * estatística anônima, com um vid novo por aparelho. No registro do admin, as linhas da conta e das carreiras dela
+ * ficam só com a ação, a data e o id. Sem senha: quem chama confere (conta.php pede a senha; admin.php exige o admin).
  */
 function excluirUsuario(int $uid): void
 {
@@ -100,10 +100,20 @@ function excluirUsuario(int $uid): void
             return;
         }
         tirarDoHall(null, $uid);
-        $pks = sql('SELECT id FROM carreiras WHERE usuario_id = ?', [$uid])->fetchAll(PDO::FETCH_COLUMN);
-        foreach (array_chunk(array_map('intval', $pks), 500) as $lote) {
+        $pks = array_map('intval', sql('SELECT id FROM carreiras WHERE usuario_id = ?', [$uid])->fetchAll(PDO::FETCH_COLUMN));
+        foreach (array_chunk($pks, 500) as $lote) {
             sql('DELETE FROM denuncias WHERE carreira_pk IN (' . marcas(count($lote)) . ')', $lote);
         }
+        // registro do admin: fica que a ação aconteceu (e quando), sem o apelido nem os motivos escritos (LGPD)
+        $alvos = array_merge(['usuario:' . $uid], array_map(static fn(int $pk): string => 'carreira:' . $pk, $pks));
+        foreach (array_chunk($alvos, 500) as $lote) {
+            foreach (sql('SELECT id, detalhes FROM admin_log WHERE alvo IN (' . marcas(count($lote)) . ')', $lote)->fetchAll() as $l) {
+                $d = is_string($l['detalhes']) ? json_decode($l['detalhes'], true) : null;
+                sql('UPDATE admin_log SET detalhes = ? WHERE id = ?', [json(['via' => is_array($d) && is_string($d['via'] ?? null) ? $d['via'] : 'sistema',
+                    'excluido' => true]), (int) $l['id']]);
+            }
+        }
+        sql('DELETE FROM carreiras_moderacao WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM visitantes_usuarios WHERE usuario_id = ?', [$uid]);
@@ -119,6 +129,7 @@ function excluirUsuario(int $uid): void
             $novo = uuidNovo();
             sql('UPDATE eventos e JOIN visitas v ON v.sid = e.sid SET e.vid = ? WHERE v.usuario_id = ? AND v.vid = ?', [$novo, $uid, $velho]);
             sql('UPDATE visitas SET vid = ?, usuario_id = NULL WHERE usuario_id = ? AND vid = ?', [$novo, $uid, $velho]);
+            sql('UPDATE partidas_vid SET vid = ? WHERE vid = ?', [$novo, $velho]);
         }
         sql('UPDATE visitas SET usuario_id = NULL WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM redefinicoes WHERE email = ?', [(string) $u['email']]);

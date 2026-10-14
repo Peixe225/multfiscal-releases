@@ -47,17 +47,18 @@
 
   async function carregar() {
     const n = ++lista.pedido;
+    if (!LP.visivel(lista.corpo)) return;
     LP.trocarQuery('usuarios', queryLista());
     LP.ultimaListaUsuarios = location.hash;
     if (!lista.temDados) LP.trocar(lista.corpo, LP.estadoCarregando(6));
     else lista.corpo.classList.add('esmaecido');
     try {
       const d = await LP.adminGet('usuarios', { q: lista.q, status: lista.status, ordem: lista.ordem, pagina: lista.pagina });
-      if (n !== lista.pedido) return;
+      if (n !== lista.pedido || !LP.visivel(lista.corpo)) return;
       lista.temDados = true;
       desenharLista(d);
     } catch (e) {
-      if (n !== lista.pedido || (e && e.status === 401)) return;
+      if (n !== lista.pedido || (e && e.status === 401) || !LP.visivel(lista.corpo)) return;
       lista.temDados = false;
       LP.trocar(lista.corpo, LP.estadoErro(e, carregar));
     } finally {
@@ -90,7 +91,7 @@
         { rotulo: 'Carreiras', num: true, celula: (u) => LP.inteiro(u.carreiras) },
         { rotulo: 'Melhor nota', num: true, celula: (u) => (u.melhorNota === null || u.melhorNota === undefined ? '—' : LP.inteiro(u.melhorNota)) },
         { rotulo: 'Tempo', num: true, celula: (u) => LP.minutos(u.tempoJogadoMin) },
-        { rotulo: 'Origem', celula: (u) => LP.origem(u.origem) },
+        { rotulo: 'Origem', celula: (u) => LP.origemCurta(u.origem) },
         { rotulo: 'Indicações', num: true, celula: (u) => LP.inteiro(u.indicacoes) },
         { rotulo: 'Bônus', num: true, celula: (u) => (u.bonusDisponiveis ? LP.chip('+' + u.bonusDisponiveis + (u.bonusDisponiveis === 1 ? ' bônus' : ' bônus'), 'ouro', { semPonto: true, title: 'Bônus que dá para usar agora' }) : '—') },
       ],
@@ -144,10 +145,11 @@
       LP.trocar(det.raiz, voltar(), LP.estadoVazio('Usuário não encontrado', 'O endereço não tem um id válido.'));
       return;
     }
+    if (!LP.visivel(det.raiz)) return;
     if (det.u) det.raiz.classList.add('esmaecido');
     try {
       const [d, nomes] = await Promise.all([LP.adminGet('usuario', { id: det.id }), LP.nomes()]);
-      if (n !== det.pedido) return;
+      if (n !== det.pedido || !LP.visivel(det.raiz)) return;
       if (!d.usuario) throw new LP.ErroApi(500, 'formato', 'Resposta sem o usuário.');
       const rolagem = window.scrollY;
       const primeira = !det.u;
@@ -155,7 +157,7 @@
       desenharDetalhe(det.u, nomes);
       if (!primeira) window.scrollTo(0, rolagem);
     } catch (e) {
-      if (n !== det.pedido || (e && e.status === 401)) return;
+      if (n !== det.pedido || (e && e.status === 401) || !LP.visivel(det.raiz)) return;
       if (e && e.status === 404) {
         LP.tituloAba('Usuário');
         LP.trocar(det.raiz, voltar(), LP.estadoVazio('Usuário não encontrado', 'A conta pode ter sido excluída.', h('a', { href: '#/usuarios', class: 'botao' }, 'Ver todos os usuários')));
@@ -181,8 +183,8 @@
   function desenharDetalhe(u, nomes) {
     const s = u.estatisticas || {};
     const suspenso = u.status === 'suspenso';
-    LP.tituloAba(u.apelido);
-    LP.subAba('Conta #' + u.id + ' · criada ' + LP.relativo(u.criadoEm));
+    LP.tituloAba('Usuário');
+    LP.subAba(u.apelido + ' · conta #' + u.id + ' · criada ' + LP.relativo(u.criadoEm));
     const cfgBonus = (LP.resumo && LP.resumo.site && LP.resumo.site.bonus) || null;
     const faltam = cfgBonus ? Math.max(0, (cfgBonus.liberaAposPartidas || 0) - (u.partidasConta || 0)) : null;
     const sessoes = Array.isArray(u.sessoes) ? u.sessoes : [];
@@ -283,7 +285,7 @@
         { rotulo: 'B. Ouro', num: true, celula: (c) => LP.inteiro(c.bolasOuro) },
         { rotulo: 'Copas', num: true, celula: (c) => LP.inteiro(c.copas) },
         { rotulo: 'Bônus', num: true, celula: (c) => (c.bonusOvr ? '+' + c.bonusOvr : '—') },
-        { rotulo: 'Hall', celula: chipsCarreira },
+        { rotulo: 'Hall', classe: 'situacao', celula: chipsCarreira },
         { rotulo: 'Salva', celula: (c) => h('span', { class: 'chips' }, h('span', { class: 'selo' + (c.como === 'auto' ? ' selo-auto' : '') }, c.como === 'auto' ? 'auto' : 'manual'), LP.quando(c.salvaEm)) },
         { rotulo: 'Ações', acoes: true, celula: (c) => LP.botoesCarreira({ id: c.pk, carreiraId: c.id, jogador: c.jogador, oculta: c.oculta, suspeita: c.suspeita, noHall: c.noHall }, recarregarDetalhe) },
       ],
@@ -316,7 +318,7 @@
         { rotulo: 'Ações', acoes: true, celula: (b) => (b.usadoEm ? null : LP.botao('Tirar', () => tirarBonus(u, b), { tipo: 'perigo', pequeno: true, icone: 'menos' })) },
       ],
     }) : LP.estadoVazio('Nenhum bônus', 'Indicações válidas, o compartilhar do dia e os bônus que você der aparecem aqui.');
-    return secao('u-bonus', 'Bônus de OVR', estadoTxt, LP.botao('Dar bônus', () => darBonus(u), { tipo: 'fantasma', pequeno: true, icone: 'presente' }), conteudo);
+    return secao('u-bonus', 'Bônus de OVR', estadoTxt, LP.botao('Dar bônus', () => darBonus(u), { tipo: 'fantasma', pequeno: true, icone: 'presente' }), conteudo, true);
   }
 
   function secaoIndicacoes(u, cfg) {
@@ -342,7 +344,7 @@
       ],
     }) : h('p', { class: 'texto-3' }, 'Ainda não indicou ninguém.');
     return secao('u-indicacoes', 'Indicações', feitas.length ? LP.inteiro(feitas.filter((i) => i.status === 'valida').length) + ' válidas de ' + feitas.length : '', null,
-      [h('h3', null, 'Recebida'), recebida, h('h3', null, 'Feitas'), regras ? h('p', { class: 'texto-3' }, regras) : null, tabela]);
+      [h('h3', null, 'Recebida'), recebida, h('h3', null, 'Feitas'), regras ? h('p', { class: 'texto-3' }, regras) : null, tabela], true);
   }
 
   function secaoConquistas(conq, nomes) {
@@ -351,7 +353,7 @@
       ? h('div', { class: 'lista-conquistas' }, lista.map((c) => {
         const n = nomes.conquistas[c.id];
         const tipo = n && n.r === 'lendaria' ? 'ouro' : n && n.r === 'epica' ? 'info' : '';
-        return LP.chip(n ? n.t : c.id, tipo, { semPonto: !tipo, title: (n ? n.d + ' · ' : '') + c.id + ' · ' + LP.dataHoraAno(c.em) });
+        return LP.chip(n ? n.t : c.id, tipo, { semPonto: true, title: (n ? n.d + ' · ' : '') + c.id + ' · ' + LP.dataHoraAno(c.em) });
       }))
       : h('p', { class: 'texto-3' }, 'Nenhuma conquista sincronizada com a conta ainda.');
     return secao('u-conquistas', 'Conquistas', lista.length ? LP.inteiro(lista.length) : '', null, conteudo);
@@ -376,7 +378,7 @@
       colunas: [
         { rotulo: 'Início', principal: true, celula: (v) => LP.dataHoraAno(v.inicio) },
         { rotulo: 'Tempo', num: true, celula: (v) => LP.duracao(v.tempoS) },
-        { rotulo: 'Origem', celula: (v) => LP.origem(v.origem) },
+        { rotulo: 'Origem', celula: (v) => LP.origemCurta(v.origem) },
         { rotulo: 'Aparelho', celula: (v) => h('span', { class: 'chips' }, LP.aparelho(v.aparelho), v.bot ? LP.chip('robô/teste', 'alerta') : null) },
       ],
     }) : h('p', { class: 'texto-3' }, 'Nenhuma visita ligada à conta.');
@@ -409,7 +411,7 @@
         { rotulo: 'Detalhes', classe: 'quebra', celula: dadosEvento },
       ],
     }) : h('p', { class: 'texto-3' }, 'Nenhum evento ligado à conta.');
-    return secao('u-eventos', 'Últimos eventos', es.length ? 'os ' + es.length + ' mais recentes' : '', null, conteudo, true);
+    return secao('u-eventos', 'Últimos eventos', es.length ? 'os ' + es.length + ' mais recentes' : '', null, conteudo);
   }
 
   // ── ações ──────────────────────────────────────────────────────────────────────────────────

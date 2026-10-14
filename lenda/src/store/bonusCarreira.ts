@@ -8,6 +8,20 @@
  */
 import { create } from 'zustand'
 
+/**
+ * Por que o bônus não foi confirmado: 'rede' = sem resposta (o servidor pode ter marcado como usado; tentar de novo
+ * com a MESMA carreira devolve o mesmo valor), 'sessao' = a conta caiu (nada foi gasto; o aviso já saiu), 'outro' =
+ * recusado antes de usar (nada foi gasto).
+ */
+export class FalhaBonus extends Error {
+  readonly tipo: 'rede' | 'sessao' | 'outro'
+  constructor(tipo: 'rede' | 'sessao' | 'outro', mensagem = '') {
+    super(mensagem)
+    this.name = 'FalhaBonus'
+    this.tipo = tipo
+  }
+}
+
 export interface OfertaBonus {
   /** Pontos de OVR do próximo bônus (o mais antigo disponível). */
   valor: number
@@ -22,7 +36,7 @@ interface BonusCarreira {
   /** Usar nesta carreira (padrão: sim). */
   usar: boolean
   carregar: (() => void) | null
-  /** Marca o bônus como usado nesta carreira no servidor e devolve o valor (lança se a rede falhar). */
+  /** Marca o bônus como usado nesta carreira no servidor e devolve o valor (lança FalhaBonus se não deu). */
   consumir: ((carreiraId: string) => Promise<number>) | null
 }
 

@@ -16,8 +16,14 @@ require __DIR__ . '/_hall.php';
 cabecalhos();
 
 const HALL_POR_PAGINA = 50;
-const DENUNCIAS_PARA_OCULTAR = 5;   // contas diferentes
+const DENUNCIAS_PARA_OCULTAR = 5;   // contas diferentes, que valem (abaixo)
 const DENUNCIAS_DIA_CONTA = 10;
+const DENUNCIAS_IP = 5;             // por IP a cada 10 min (o código do IP some em ~20 min, como os outros limites)
+/** Para a denúncia esconder sozinha: conta com mais de 24 h e pelo menos 3 partidas terminadas com ela. */
+const DENUNCIANTE_IDADE_S = 86400;
+const DENUNCIANTE_PARTIDAS = 3;
+/** As 10 primeiras do Hall geral nunca saem só pelas denúncias: quem decide é o admin (a fila do painel mostra). */
+const DENUNCIA_TOPO_PROTEGIDO = 10;
 
 function lerIdHall(mixed $v): string
 {
@@ -54,7 +60,8 @@ if ($m === 'GET') {
         $id = lerIdHall($_GET['id']);
         $l = umaLinha('SELECT f.id AS posicao, f.apelido, c.dados FROM hall_foto f
             JOIN carreiras c ON c.id = f.carreira_pk JOIN usuarios u ON u.id = c.usuario_id
-            WHERE f.carreira_id = ? AND ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . " AND u.hall_publico <> 'nao'", [$id]);
+            WHERE f.carreira_id = ? AND ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . "
+              AND (u.hall_publico = 'auto' OR (u.hall_publico = 'manual' AND c.publica = 1))", [$id]);
         $json = $l !== null && is_string($l['dados']) ? @gzdecode($l['dados']) : false;
         if (!is_string($json) || $json === '') {
             erro(404, 'nao_encontrada', 'Essa carreira não está no Hall público.');
@@ -124,8 +131,7 @@ if (!in_array($motivo, ['nome', 'trapaca', 'outro'], true)) {
     erro(400, 'motivo', 'Escolha o motivo: nome ofensivo, trapaça ou outro.');
 }
 $texto = array_key_exists('texto', $j) && $j['texto'] !== null ? texto($j['texto'], 300) : null;
-limitar('dia-denunciar', 'u' . $uid, DENUNCIAS_DIA_CONTA, 1, 86400);
-$f = umaLinha('SELECT carreira_pk, usuario_id FROM hall_foto WHERE carreira_id = ?', [$id]);
+$f = umaLinha('SELECT id, carreira_pk, usuario_id FROM hall_foto WHERE carreira_id = ?', [$id]);
 if ($f === null) {
     erro(404, 'nao_encontrada', 'Essa carreira não está no Hall público.');
 }
@@ -133,17 +139,33 @@ $pk = (int) $f['carreira_pk'];
 if ((int) $f['usuario_id'] === $uid) {
     erro(400, 'propria', 'Não dá para denunciar a própria carreira.');
 }
-$ocultou = transacao(static function () use ($pk, $uid, $motivo, $texto): bool {
+// repetir na mesma carreira: ok, sem contar de novo (nem gastar o limite do dia)
+if (umValor('SELECT 1 FROM denuncias WHERE carreira_pk = ? AND usuario_id = ?', [$pk, $uid]) !== null) {
+    responder(200, ['ok' => true]);
+}
+limitar('dia-denunciar', 'u' . $uid, DENUNCIAS_DIA_CONTA, 1, 86400);
+limitar('denunciar-ip', quemIp(), DENUNCIAS_IP);
+$protegida = (int) $f['id'] <= DENUNCIA_TOPO_PROTEGIDO;
+$ocultou = transacao(static function () use ($pk, $uid, $motivo, $texto, $protegida): bool {
     // uma denúncia da mesma carreira de cada vez: a contagem abaixo vê as que acabaram de entrar
     if (umValor('SELECT id FROM carreiras WHERE id = ? FOR UPDATE', [$pk]) === null) {
         return false; // a carreira foi apagada agora há pouco
     }
     sql('INSERT IGNORE INTO denuncias (carreira_pk, usuario_id, motivo, texto, criada_em, status) VALUES (?, ?, ?, ?, ?, \'aberta\')',
         [$pk, $uid, $motivo, $texto, dt(time())]);
-    $abertas = (int) umValor("SELECT COUNT(*) FROM denuncias WHERE carreira_pk = ? AND status = 'aberta'", [$pk]);
-    if ($abertas >= DENUNCIAS_PARA_OCULTAR) {
-        // 5 contas diferentes: some do Hall até o admin decidir (oculta = 2, pelas denúncias)
-        return sql('UPDATE carreiras SET oculta = 2 WHERE id = ? AND oculta = 0', [$pk])->rowCount() === 1;
+    if ($protegida) {
+        return false; // topo do Hall: só sinaliza na fila do painel
+    }
+    // só contam as de contas com mais de 24 h e algumas partidas: contas criadas na hora não escondem ninguém
+    $validas = (int) umValor("SELECT COUNT(*) FROM denuncias d JOIN usuarios u ON u.id = d.usuario_id
+        WHERE d.carreira_pk = ? AND d.status = 'aberta' AND u.criado_em <= ? AND u.partidas_conta >= ?",
+        [$pk, dt(time() - DENUNCIANTE_IDADE_S), DENUNCIANTE_PARTIDAS]);
+    if ($validas >= DENUNCIAS_PARA_OCULTAR) {
+        // 5 contas diferentes que valem: some do Hall até o admin decidir (oculta = 2, pelas denúncias)
+        if (sql('UPDATE carreiras SET oculta = 2 WHERE id = ? AND oculta = 0', [$pk])->rowCount() === 1) {
+            gravarModeracao($pk, 2);
+            return true;
+        }
     }
     return false;
 });

@@ -8,6 +8,7 @@
 -- v3 (CONTRATO-v3.md): colunas novas em usuarios e carreiras e as tabelas site_config, admin_log, hall_foto,
 -- hall_foto_clubes, denuncias, conquistas_usuario, indicacoes e bonus. Para atualizar um banco da v2, rode o
 -- instalar.php de novo: ele cria o que falta e preenche as colunas novas das contas e carreiras antigas.
+-- v3.1 (CONTRATO-v3.md §12): carreiras.resumo_hash, eventos.nota e as tabelas carreiras_moderacao e partidas_vid.
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -74,13 +75,16 @@ CREATE TABLE IF NOT EXISTS carreiras (
   clubes       TEXT              CHARACTER SET ascii COLLATE ascii_bin NULL,
   copas        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   bonus_ovr    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  resumo_hash  CHAR(40)          CHARACTER SET ascii COLLATE ascii_bin NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_carreiras_usuario_carreira (usuario_id, carreira_id),
   KEY ix_carreiras_usuario_salva (usuario_id, salva_em),
   KEY ix_carreiras_nota (nota),
   KEY ix_carreiras_usuario_nota (usuario_id, nota),
   KEY ix_carreiras_suspeita (suspeita),
-  KEY ix_carreiras_oculta (oculta)
+  KEY ix_carreiras_oculta (oculta),
+  KEY ix_carreiras_carreira (carreira_id),
+  KEY ix_carreiras_resumo (resumo_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS visitantes_usuarios (
@@ -140,6 +144,7 @@ CREATE TABLE IF NOT EXISTS eventos (
   modo  VARCHAR(10) CHARACTER SET ascii COLLATE ascii_bin NULL,
   dados TEXT        NULL,
   em    DATETIME    NOT NULL,
+  nota  SMALLINT    NULL,
   PRIMARY KEY (id),
   KEY ix_eventos_em_tipo (em, tipo),
   KEY ix_eventos_tipo_em (tipo, em, modo, vid, sid),
@@ -262,4 +267,29 @@ CREATE TABLE IF NOT EXISTS bonus (
   KEY ix_bonus_usuario (usuario_id, usado_em, criado_em),
   KEY ix_bonus_carreira (usuario_id, carreira_id),
   KEY ix_bonus_ref (usuario_id, origem, ref)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── v3.1 ────────────────────────────────────────────────────────────────────────────────────────
+
+-- Decisão de moderação de uma carreira (oculta 1 = pelo admin, 2 = pelas denúncias), fora da linha que o dono pode
+-- apagar: salvar de novo o mesmo HallEntry (ou o mesmo resumo com outro id) volta escondido. Só ids e o hash do
+-- resumo, nada da carreira. Some junto com a conta (excluir).
+CREATE TABLE IF NOT EXISTS carreiras_moderacao (
+  usuario_id  INT UNSIGNED     NOT NULL,
+  carreira_id VARCHAR(64)      CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  resumo_hash CHAR(40)         CHARACTER SET ascii COLLATE ascii_bin NULL,
+  oculta      TINYINT UNSIGNED NOT NULL,
+  em          DATETIME         NOT NULL,
+  PRIMARY KEY (usuario_id, carreira_id),
+  KEY ix_moderacao_resumo (usuario_id, resumo_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Partidas terminadas por aparelho (jogo_fim do Clássico/Imersivo + partida_fim), somadas pelo e.php: o funil
+-- "5 partidas" do painel lê daqui em vez de agrupar a tabela eventos inteira.
+CREATE TABLE IF NOT EXISTS partidas_vid (
+  vid           CHAR(36)     CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  n             INT UNSIGNED NOT NULL DEFAULT 0,
+  atualizado_em DATETIME     NOT NULL,
+  PRIMARY KEY (vid),
+  KEY ix_partidas_vid_n (n)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

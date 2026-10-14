@@ -3,9 +3,10 @@
  * LENDA · cria/atualiza as tabelas (roda _schema.sql). Só com Authorization: Bearer <token do administrador>.
  * Idempotente: CREATE TABLE IF NOT EXISTS e, em tabela que já existia, acrescenta a coluna ou o índice do
  * _schema.sql que faltar (nunca apaga nem muda o que já existe). Depois preenche o que a v3 trouxe para os
- * dados antigos: código de convite das contas e, das carreiras salvas antes, os clubes, as Copas, o bônus e a
- * plausibilidade (lidos do HallEntry guardado). Responde a lista de tabelas do banco e o que preencheu; se a
- * resposta disser "faltam" > 0, rode de novo.
+ * dados antigos: código de convite das contas e, das carreiras salvas antes, os clubes, as Copas, o bônus, o hash
+ * do resumo e a plausibilidade (lidos do HallEntry guardado); a decisão de moderação das carreiras já escondidas
+ * (carreiras_moderacao) e, na primeira vez, as partidas por aparelho (partidas_vid, a partir dos eventos).
+ * Responde a lista de tabelas do banco e o que preencheu; se a resposta disser "faltam" > 0, rode de novo.
  *   curl -X POST -H "Authorization: Bearer $TOKEN" https://oprojeto.online/lenda/api/instalar.php
  */
 declare(strict_types=1);
@@ -88,12 +89,42 @@ while (microtime(true) < $fim) {
             sql("UPDATE carreiras SET clubes = '[]', suspeita = 'dados' WHERE id = ?", [(int) $l['id']]); // não abre: fora do Hall
         } else {
             $f = extrairCampos($h);
-            sql('UPDATE carreiras SET clubes = ?, copas = ?, bonus_ovr = ?, suspeita = ? WHERE id = ?',
-                [$f['clubes'], $f['copas'], $f['bonus_ovr'], plausibilidade($f, (int) $l['usuario_id'], (string) $l['carreira_id']), (int) $l['id']]);
+            sql('UPDATE carreiras SET clubes = ?, copas = ?, bonus_ovr = ?, resumo_hash = ?, suspeita = ? WHERE id = ?',
+                [$f['clubes'], $f['copas'], $f['bonus_ovr'], $f['resumo_hash'],
+                    plausibilidade($f, (int) $l['usuario_id'], (string) $l['carreira_id'], (int) $l['id']), (int) $l['id']]);
         }
         $carreiras++;
     }
 }
-$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL') + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL');
+// v3.1: o hash do resumo das carreiras da v3 (a cópia com outro id e a moderação usam)
+$resumos = 0;
+while (microtime(true) < $fim) {
+    $lote = sql('SELECT id, dados FROM carreiras WHERE resumo_hash IS NULL AND clubes IS NOT NULL ORDER BY id LIMIT 200')->fetchAll();
+    if (!$lote) {
+        break;
+    }
+    foreach ($lote as $l) {
+        $json = is_string($l['dados']) ? @gzdecode($l['dados']) : false;
+        $h = is_string($json) ? json_decode($json, false, 512) : null;
+        $hash = $h instanceof stdClass ? extrairCampos($h)['resumo_hash'] : null;
+        sql('UPDATE carreiras SET resumo_hash = ? WHERE id = ?', [$hash ?? '', (int) $l['id']]);
+        $resumos++;
+    }
+}
+// v3.1: as carreiras já escondidas (admin ou denúncias) guardam a decisão fora da linha (sobrevive ao "apagar")
+$moderacao = sql('INSERT IGNORE INTO carreiras_moderacao (usuario_id, carreira_id, resumo_hash, oculta, em)
+    SELECT usuario_id, carreira_id, resumo_hash, oculta, UTC_TIMESTAMP() FROM carreiras WHERE oculta > 0')->rowCount();
+// v3.1: partidas por aparelho (o funil "5 partidas" do painel), a partir dos eventos, uma vez só (tabela nova)
+$partidasVid = 0;
+if (!in_array('partidas_vid', $antes, true)) {
+    $partidasVid = sql("INSERT INTO partidas_vid (vid, n, atualizado_em)
+        SELECT e.vid, COUNT(*), UTC_TIMESTAMP() FROM eventos e
+        WHERE e.tipo IN ('jogo_fim', 'partida_fim') AND (e.tipo = 'partida_fim' OR e.modo IN ('classico', 'imersivo'))
+        GROUP BY e.vid
+        ON DUPLICATE KEY UPDATE n = GREATEST(n, VALUES(n))")->rowCount();
+}
+$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL OR resumo_hash IS NULL')
+    + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL');
 responder(200, ['ok' => true, 'comandos' => count($comandos), 'alteracoes' => $alteracoes, 'tabelas' => $tabelas,
-    'preenchidas' => ['convites' => $convites, 'carreiras' => $carreiras, 'faltam' => $faltam]]);
+    'preenchidas' => ['convites' => $convites, 'carreiras' => $carreiras, 'resumos' => $resumos, 'moderacao' => $moderacao,
+        'partidasVid' => $partidasVid, 'faltam' => $faltam]]);

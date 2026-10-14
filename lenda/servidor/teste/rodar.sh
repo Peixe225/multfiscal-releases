@@ -108,6 +108,7 @@ escrever_config() {
   'email_pasta' => '$EMAILS',
   'cookie_seguro' => false,
   'limpeza_a_cada' => $1,
+  'painel_cache_s' => 0,
 ];
 PHP
   umask 022

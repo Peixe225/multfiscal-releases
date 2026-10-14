@@ -120,16 +120,21 @@
     const hall = r.hall || {};
     const den = r.denunciasAbertas || 0;
     const susp = c.suspeitas || 0;
+    const rev = c.emRevisao || 0;
+    const mails = r.emailsBarrados || {};
     [
       LP.ladrilho('Contas', num(u.total), num(u.novosHoje) + ' hoje · ' + num(u.novos7Dias) + ' em 7 dias', { href: '#/usuarios' }),
       LP.ladrilho('Suspensas', num(u.suspensos), num(u.ativos) + ' ativas', { href: '#/usuarios?status=suspenso' }),
       LP.ladrilho('No Hall público', num(c.noHall), hall.atualizadoEm ? 'foto ' + LP.relativo(hall.atualizadoEm) + (hall.proximaEm ? ' · próxima ' + LP.relativo(hall.proximaEm) : '') : 'ainda sem fotografia', { href: '#/hall' }),
       LP.ladrilho('Denúncias abertas', num(den), num(c.ocultasPorDenuncia) + ' escondidas por denúncia', { href: '#/denuncias', classe: den ? 'ladrilho-perigo' : '' }),
+      LP.ladrilho('Esperando revisão', num(rev), 'nota ' + num(c.revisaoNota || 90) + '+ só entra no Hall depois de você liberar', { href: '#/hall?filtro=revisao', classe: rev ? 'ladrilho-alerta' : '' }),
       LP.ladrilho('Carreiras suspeitas', num(susp), num(c.ocultas) + ' ocultas pelo admin', { href: '#/hall?filtro=suspeitas', classe: susp ? 'ladrilho-alerta' : '' }),
       LP.ladrilho('Carreiras salvas', num(c.total), 'em todas as contas', { href: '#/hall?filtro=todas' }),
       LP.ladrilho('Indicações', num(ind.validas), num(ind.pendentes) + ' pendentes · ' + num(ind.recusadas) + ' recusadas', { href: '#/indicacoes' }),
       LP.ladrilho('Bônus de OVR', num(b.naoUsados), 'esperando uso · ' + num(b.usados) + ' usados', { href: '#/indicacoes' }),
-    ].forEach((x) => box.appendChild(x));
+      // o teto de e-mails (a cota de envio da hospedagem) segurou códigos de troca de senha: só aparece se aconteceu
+      mails.total ? LP.ladrilho('E-mails de senha segurados', num(mails.total), 'pelo teto do site · último ' + LP.relativo(mails.ultimoEm), { classe: 'ladrilho-alerta' }) : null,
+    ].filter(Boolean).forEach((x) => box.appendChild(x));
   };
 
   function porModo(m) {

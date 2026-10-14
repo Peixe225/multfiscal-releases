@@ -80,3 +80,12 @@ export const useComunidade = create<ComunidadeStore>()(() => ({
 
 /** A mesma chave para o mesmo filtro (ordem e caixa não importam). */
 export const chaveFiltro = (f: FiltroHall) => `${(f.pais ?? '').toUpperCase()}|${f.clube ?? ''}`
+
+/**
+ * A hora da próxima atualização do Hall já passou? (o servidor responde a fotografia anterior e refaz logo depois:
+ * a tela diz "atualizando agora" em vez de uma hora no passado)
+ */
+export const proximaVencida = (proximaEm: string | null | undefined, agora = Date.now()): boolean => {
+  const p = proximaEm ? Date.parse(proximaEm) : NaN
+  return Number.isFinite(p) && p <= agora
+}

@@ -49,6 +49,17 @@ const CHAVE_SID_CTX = 'lenda:sid:ctx'
 export const FILA_MAX = 200
 export const ENVIAR_AO_JUNTAR = 20
 export const ENVIO_MS = 10_000
+/**
+ * Eventos que mexem na conta (servidor/CONTRATO-v3.md §8.6): a partida terminada soma em `partidas_conta` (libera
+ * os bônus) e a 1ª do amigo valida a indicação. Vão logo, sem esperar os 10 s — senão o bônus só aparece uma
+ * carreira depois e a partida que abriu o convite de conta chegaria ao servidor já com a conta criada.
+ */
+/**
+ * Saem da fila em ~250 ms (não esperam os 10 s): o fim de partida (a 5ª, que abre o convite, vai antes do cadastro)
+ * e o início — o servidor só conta a partida "com a conta" se o início chegou pelo menos 20 s antes do fim.
+ */
+export const ENVIAR_JA: ReadonlySet<TipoEvento> = new Set(['jogo_inicio', 'jogo_fim', 'partida_fim'])
+export const ENVIAR_JA_MS = 250
 export const BATIMENTO_MS = 15_000
 export const SESSAO_OCIOSA_MS = 30 * 60_000
 /** O e.php aceita até 16 KB por pedido: cada envio fica abaixo disto. */
@@ -317,6 +328,33 @@ export function track(t: Exclude<TipoEvento, 'hb'>, m: ModoJogo | null = null, d
   if (d && Object.keys(d).length) e.d = d
   r.fila.push(e)
   if (r.fila.tamanho >= ENVIAR_AO_JUNTAR) void enviar()
+  else if (ENVIAR_JA.has(t)) enviarLogo()
+}
+
+/** Envia daqui a pouco (junta o que vier junto); com um envio no ar, tenta de novo logo depois dele. */
+function enviarLogo(tentativa = 0) {
+  window.setTimeout(() => {
+    const r = rt
+    if (!r || !r.fila.tamanho) return
+    if (r.enviando) {
+      if (tentativa < 8) enviarLogo(tentativa + 1)
+      return
+    }
+    void enviar()
+  }, ENVIAR_JA_MS)
+}
+
+/**
+ * Manda a fila agora e espera (no máximo `maxMs`). Antes de criar a conta ou entrar: o que aconteceu até aqui
+ * (a partida que abriu o convite) vai como do visitante, sem a conta — não conta como partida "com a conta".
+ */
+export async function enviarAgora(maxMs = 1500): Promise<void> {
+  const r = rt
+  if (!r) return
+  const ate = Date.now() + maxMs
+  while (r.enviando && Date.now() < ate) await new Promise((res) => window.setTimeout(res, 50))
+  if (r.enviando || !r.fila.tamanho) return
+  await Promise.race([enviar(), new Promise((res) => window.setTimeout(res, Math.max(0, ate - Date.now())))])
 }
 
 export function visitanteAtual(): string | null {

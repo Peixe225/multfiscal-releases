@@ -15,8 +15,8 @@ $SRC = (string) getenv('LENDA_SRC');
 /** Apaga tudo o que é de conta (começa cada bloco de um estado conhecido). */
 function limparContas(): void
 {
-    foreach (['hall_foto_clubes', 'hall_foto', 'denuncias', 'conquistas_usuario', 'indicacoes', 'bonus', 'carreiras', 'sessoes_login',
-        'visitantes_usuarios', 'redefinicoes', 'usuarios', 'tentativas', 'admin_log'] as $t) {
+    foreach (['hall_foto_clubes', 'hall_foto', 'denuncias', 'conquistas_usuario', 'indicacoes', 'bonus', 'carreiras', 'carreiras_moderacao',
+        'sessoes_login', 'visitantes_usuarios', 'redefinicoes', 'usuarios', 'tentativas', 'admin_log'] as $t) {
         q("DELETE FROM $t");
     }
     q("DELETE FROM site_config WHERE chave IN ('_hall_foto', '_raridade')");
@@ -65,7 +65,9 @@ $BASE_HALL = json_decode(canon(amostra('v-intenso-01')), false); // pico 98, not
 
 /**
  * Um HallEntry real (v-intenso-01) com o id e o que mudar: nota, pais, clubes (lista de clubId), jogador,
- * temporadas, gols, bolas, titulosExtra, pico, idade, bonus, modo, v (null = sem legacy.v).
+ * temporadas, gols, bolas, titulosExtra, copas (Copas do Mundo), pico, idade, bonus, modo, v (null = sem legacy.v),
+ * headline, comparacao (mais uma frase), careerNome / careerPais (só o career.identity, como um HallEntry forjado).
+ * Como no jogo, identity e career.identity andam juntos (jogador e pais mudam os dois).
  */
 function hallEntry(string $id, array $m = []): stdClass
 {
@@ -74,11 +76,19 @@ function hallEntry(string $id, array $m = []): stdClass
     $h->id = $id;
     $h->career->id = $id;
     $h->legacy->v = 2;
+    // cada carreira de teste com um resumo só dela (duas carreiras de verdade nunca têm o mesmo resumo; o servidor
+    // trata o mesmo resumo em outra conta como cópia)
+    $h->summary->testeId = $id;
     foreach ($m as $k => $v) {
         switch ($k) {
             case 'nota': $h->legacy->score = $v; break;
-            case 'pais': $h->identity->nationality = $v; break;
-            case 'jogador': $h->identity->surname = $v; break;
+            case 'pais': $h->identity->nationality = $v; $h->career->identity->nationality = $v; break;
+            case 'jogador': $h->identity->surname = $v; $h->career->identity->surname = $v; break;
+            case 'careerNome': $h->career->identity->surname = $v; break;
+            case 'careerPais': $h->career->identity->nationality = $v; break;
+            case 'headline': $h->summary->headline = $v; break;
+            case 'comparacao': $h->summary->comparisons[] = $v; break;
+            case 'copas': $h->summary->trophies[] = (object) ['trophyId' => 'world-cup', 'count' => $v - 1, 'seasons' => []]; break;
             case 'temporadas': $h->summary->seasons = $v; break;
             case 'gols': $h->summary->totals->goals = $v; break;
             case 'pico': $h->summary->peakOvr = $v; break;
@@ -111,10 +121,19 @@ function hallEntry(string $id, array $m = []): stdClass
     return $h;
 }
 
-function salvarC(Navegador $n, stdClass $h, string $como = 'manual'): Resposta
+/**
+ * Salva na conta. Carreira de nota extraordinária (90+) fica esperando a revisão do admin (suspeita "revisao"):
+ * com $liberar, o teste faz o papel do admin e libera logo depois (como o mostrar_carreira). A resposta é a do
+ * salvar (de antes da liberação).
+ */
+function salvarC(Navegador $n, stdClass $h, string $como = 'manual', bool $liberar = true): Resposta
 {
     resetarLimitesCurtos();
-    return $n->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $h, 'como' => $como]);
+    $r = $n->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $h, 'como' => $como]);
+    if ($liberar && $r->status === 200) {
+        q("UPDATE carreiras SET suspeita = NULL WHERE carreira_id = ? AND suspeita = 'revisao'", [(string) $h->id]);
+    }
+    return $r;
 }
 
 function hallGet(string $qs = ''): Resposta
@@ -165,19 +184,22 @@ const CAMPOS_ITEM_HALL = ['apelido', 'bolasOuro', 'bonusOvr', 'clubes', 'copas',
 secao('v3 · instalar.php num banco da v2 (acrescenta e preenche, sem apagar)');
 limparContas();
 q('DELETE FROM site_config');
-foreach (['site_config', 'admin_log', 'hall_foto', 'hall_foto_clubes', 'denuncias', 'conquistas_usuario', 'indicacoes', 'bonus'] as $t) {
+foreach (['site_config', 'admin_log', 'hall_foto', 'hall_foto_clubes', 'denuncias', 'conquistas_usuario', 'indicacoes', 'bonus', 'carreiras_moderacao',
+    'partidas_vid'] as $t) {
     q("DROP TABLE $t");
 }
+q('ALTER TABLE eventos DROP COLUMN nota');
 q('ALTER TABLE usuarios DROP COLUMN status, DROP COLUMN suspenso_ate, DROP COLUMN motivo_suspensao, DROP COLUMN codigo_convite,
     DROP COLUMN hall_publico, DROP COLUMN partidas_conta');
 q('ALTER TABLE carreiras DROP COLUMN publica, DROP COLUMN oculta, DROP COLUMN suspeita, DROP COLUMN clubes, DROP COLUMN copas,
-    DROP COLUMN bonus_ovr, DROP INDEX ix_carreiras_usuario_nota');
+    DROP COLUMN bonus_ovr, DROP COLUMN resumo_hash, DROP INDEX ix_carreiras_usuario_nota, DROP INDEX ix_carreiras_carreira');
 q("INSERT INTO usuarios (email, apelido, senha_hash, criado_em, origem, aceite_em, partidas) VALUES ('antiga@exemplo.com', 'Antiga', ?, UTC_TIMESTAMP(),
     'tiktok', UTC_TIMESTAMP(), 7)", [password_hash('senha-antiga', PASSWORD_DEFAULT)]);
 $uidV2 = (int) v("SELECT id FROM usuarios WHERE email = 'antiga@exemplo.com'");
-$hOk = hallEntry('v2-boa');
+$hOk = hallEntry('v2-boa', ['nota' => 89]);
 $hRuim = hallEntry('v2-ruim', ['gols' => 99999]);
-foreach ([$hOk, $hRuim] as $h) {
+$hTop = hallEntry('v2-top'); // nota 93: extraordinária, espera a revisão do admin
+foreach ([$hOk, $hRuim, $hTop] as $h) {
     $js = canon($h);
     q("INSERT INTO carreiras (usuario_id, carreira_id, modo, jogador, nota, nota_v, pico_ovr, temporadas, gols, como, dados, tamanho, salva_em)
         VALUES (?, ?, 'classico', ?, ?, 2, ?, ?, ?, 'auto', ?, ?, UTC_TIMESTAMP())",
@@ -186,25 +208,30 @@ foreach ([$hOk, $hRuim] as $h) {
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 $alt = $r->json['alteracoes'] ?? [];
 checar('instalar na v2: 200 e as 16 tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
-checar('instalar na v2: as colunas novas de usuarios e carreiras e o índice (usuario_id, nota)', count(array_intersect([
+checar('instalar na v2: as colunas novas de usuarios, carreiras e eventos e os índices', count(array_intersect([
     'usuarios: coluna status', 'usuarios: coluna codigo_convite', 'usuarios: coluna hall_publico', 'usuarios: coluna partidas_conta',
     'usuarios: índice uq_usuarios_convite', 'carreiras: coluna publica', 'carreiras: coluna suspeita', 'carreiras: coluna clubes',
-    'carreiras: coluna bonus_ovr', 'carreiras: índice ix_carreiras_usuario_nota'], $alt)) === 10, json_encode($alt));
-checar('instalar na v2: preencheu o código de convite e as 2 carreiras antigas', ($r->json['preenchidas'] ?? null) === ['convites' => 1, 'carreiras' => 2, 'faltam' => 0],
-    json_encode($r->json['preenchidas'] ?? null));
-$cv = q('SELECT carreira_id, clubes, copas, suspeita, bonus_ovr, publica, oculta FROM carreiras WHERE usuario_id = ? ORDER BY carreira_id', [$uidV2]);
+    'carreiras: coluna bonus_ovr', 'carreiras: índice ix_carreiras_usuario_nota', 'carreiras: coluna resumo_hash', 'carreiras: índice ix_carreiras_carreira',
+    'eventos: coluna nota'], $alt)) === 13, json_encode($alt));
+$pre = $r->json['preenchidas'] ?? [];
+checar('instalar na v2: preencheu o código de convite e as 3 carreiras antigas (com o hash do resumo); partidas por aparelho a partir dos eventos',
+    ($pre['convites'] ?? -1) === 1 && ($pre['carreiras'] ?? -1) === 3 && ($pre['resumos'] ?? -1) === 0 && ($pre['moderacao'] ?? -1) === 0
+    && is_int($pre['partidasVid'] ?? null) && ($pre['faltam'] ?? -1) === 0 && (int) v('SELECT COUNT(*) FROM carreiras WHERE resumo_hash IS NULL') === 0,
+    json_encode($pre));
+$cv = q('SELECT carreira_id, clubes, copas, suspeita, bonus_ovr, publica, oculta, resumo_hash FROM carreiras WHERE usuario_id = ? ORDER BY carreira_id', [$uidV2]);
 $clubesA1 = array_values(array_unique(array_map(static fn($c) => $c->clubId, $BASE_HALL->summary->clubs)));
 checar('carreira antiga: clubes tirados do HallEntry, 1 Copa, sem suspeita, sem bônus, visível', ($cv[0]['carreira_id'] ?? '') === 'v2-boa'
     && ($cv[0]['clubes'] ?? '') === json_encode($clubesA1) && (int) $cv[0]['copas'] === 1 && $cv[0]['suspeita'] === null
-    && (int) $cv[0]['bonus_ovr'] === 0 && (int) $cv[0]['publica'] === 0 && (int) $cv[0]['oculta'] === 0, json_encode($cv));
+    && (int) $cv[0]['bonus_ovr'] === 0 && (int) $cv[0]['publica'] === 0 && (int) $cv[0]['oculta'] === 0 && strlen((string) $cv[0]['resumo_hash']) === 40, json_encode($cv));
 checar('carreira antiga com 99.999 gols vira suspeita (gols)', ($cv[1]['suspeita'] ?? '') === 'gols', json_encode($cv[1] ?? null));
+checar('carreira antiga de nota 93 espera a revisão do admin (revisao)', ($cv[2]['suspeita'] ?? '') === 'revisao', json_encode($cv[2] ?? null));
 $u2 = q('SELECT status, codigo_convite, hall_publico, partidas, partidas_conta FROM usuarios WHERE id = ?', [$uidV2])[0] ?? [];
 checar('conta antiga: ativa, auto, código de 8 sem letras ambíguas, partidas preservadas', ($u2['status'] ?? '') === 'ativo' && ($u2['hall_publico'] ?? '') === 'auto'
     && preg_match('/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/', (string) ($u2['codigo_convite'] ?? '')) === 1 && (int) $u2['partidas'] === 7
     && (int) $u2['partidas_conta'] === 0, json_encode($u2));
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('instalar de novo: nada a alterar nem a preencher', $r->status === 200 && ($r->json['alteracoes'] ?? null) === []
-    && ($r->json['preenchidas'] ?? null) === ['convites' => 0, 'carreiras' => 0, 'faltam' => 0], $r->resumo());
+    && ($r->json['preenchidas'] ?? null) === ['convites' => 0, 'carreiras' => 0, 'resumos' => 0, 'moderacao' => 0, 'partidasVid' => 0, 'faltam' => 0], $r->resumo());
 $r = conta(novoNav(), ['acao' => 'entrar', 'email' => 'antiga@exemplo.com', 'senha' => 'senha-antiga']);
 checar('a conta antiga entra e ganha hallPublico e codigoConvite no U', $r->status === 200 && ($r->json['usuario']['hallPublico'] ?? '') === 'auto'
     && ($r->json['usuario']['codigoConvite'] ?? '') === $u2['codigo_convite'], $r->resumo());
@@ -377,6 +404,33 @@ foreach (['P0rr4', 'filho da puta', 'Admin', 'LENDA', 'Macaco'] as $ap) {
 resetarLimitesCurtos();
 $r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => "Pu\u{0442}a", 'email' => 'cirilico@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
 checar('apelido com letra cirílica parecida com latina → 400 apelido_invalido', $r->status === 400 && $r->erro() === 'apelido_invalido', $r->resumo());
+// letras "disfarçadas" (largura total, versalete, ø, ı, IPA) e o l no lugar do I: não passam
+foreach (["\u{FF50}\u{FF55}\u{FF54}\u{FF41}", "\u{1D18}\u{1D1C}\u{1D1B}\u{1D00}", "\u{FF2D}\u{FF45}\u{FF52}\u{FF44}\u{FF41}", "viad\u{F8}", "p\u{131}roca",
+    "put\u{251}", "k\u{280}\u{29F}", 'ADMlN', 'Oflcial', "Pu\u{0442}a10"] as $ap) {
+    resetarLimitesCurtos();
+    $r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => $ap, 'email' => 'u' . bin2hex(random_bytes(4)) . '@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
+    checar('cadastrar com apelido disfarçado ' . json_encode($ap) . ' → 400', $r->status === 400 && in_array($r->erro(), ['apelido_invalido', 'apelido_proibido'], true), $r->resumo());
+}
+$res = phpComLib('echo json_encode(array_map(fn($a) => [$a, normalizarFiltro($a), textoProibido($a)], ["\u{FF50}\u{FF55}\u{FF54}\u{FF41}", "\u{1D18}\u{1D1C}\u{1D1B}\u{1D00}", "viad\u{F8}", "p\u{131}roca", "k\u{280}\u{29F}", "ADMlN"]));');
+checar('o filtro transforma as letras disfarçadas em a-z (puta, puta, viado, piroca, krl) e pega o ADMlN', is_array($res)
+    && array_column($res, 1) === ['puta', 'puta', 'viado', 'piroca', 'krl', 'admln'] && !in_array(null, array_column($res, 2), true), json_encode($res, JSON_UNESCAPED_UNICODE));
+resetarLimitesCurtos();
+$r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => "Ze\u{301} Nu\u{301}n\u{303}ez", 'email' => 'nfd@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
+checar('apelido com acento decomposto (NFD) passa e é guardado composto (NFC)', $r->status === 201 && ($r->json['usuario']['apelido'] ?? '') === "Z\u{E9} N\u{FA}\u{F1}ez", $r->resumo());
+$res = phpComLib('$d = json_decode(file_get_contents(' . var_export("$SRC/data/generated/game-data.json", true) . '), true); $n = 0; $ruins = [];'
+    . ' foreach ($d["clubs"] as $c) { foreach (array_unique(array_filter([$c["shortName"] ?? null, $c["name"] ?? null])) as $nm) {'
+    . ' foreach (["Lenda do $nm", "Lenda da $nm", "Ídolo do $nm", "Ídolo da $nm"] as $hl) { $n++; if (textoProibido($hl, false) !== null) $ruins[] = $hl; } } }'
+    . ' echo json_encode([$n, $ruins]);');
+checar('nenhum título de carreira com nome de clube do jogo ("Lenda do …", "Ídolo da …") é barrado pelo filtro (' . (int) ($res[0] ?? 0) . ')',
+    is_array($res) && ($res[0] ?? 0) > 2000 && ($res[1] ?? null) === [], json_encode(array_slice($res[1] ?? [], 0, 10), JSON_UNESCAPED_UNICODE));
+$res = phpComLib('require ' . var_export(dirname(__DIR__) . '/api/_carreiras.php', true) . '; $out = [];'
+    . ' foreach (glob(' . var_export("$AMOSTRAS/*.json", true) . ') as $f) { $h = json_decode(file_get_contents($f), false); $x = extrairCampos($h);'
+    . ' $ruins = array_values(array_filter($x["textos"], fn($t) => textoProibido($t, false) !== null));'
+    . ' $out[basename($f)] = [count($x["textos"]), $ruins, nomeJogadorSeguro($x["nomes"][0]) && nomeJogadorSeguro($x["nomes"][1]), $x["dados_ok"], strlen((string) $x["resumo_hash"])]; }'
+    . ' echo json_encode($out);');
+checar('carreiras reais: os textos do resumo (nome, título, comparações, torneios) passam no filtro, nomes seguros, identity = career.identity',
+    is_array($res) && count($res) === 3 && !array_filter($res, static fn($x) => $x[0] < 5 || $x[1] !== [] || $x[2] !== true || $x[3] !== true || $x[4] !== 40),
+    json_encode($res, JSON_UNESCAPED_UNICODE));
 $r = conta($navJog, ['acao' => 'perfil', 'apelido' => 'Merda Total']);
 checar('perfil com apelido proibido → 400 apelido_proibido (o antigo fica)', $r->status === 400 && $r->erro() === 'apelido_proibido'
     && v("SELECT apelido FROM usuarios WHERE apelido = 'Jogador Comum'") === 'Jogador Comum', $r->resumo());
@@ -388,13 +442,22 @@ secao('v3 · carreiras: noHall, plausibilidade (suspeita fica fora), colunas nov
 limparContas();
 $ADM = entrarAdmin();
 [$navP, $uidP] = novaConta('Publicador');
-$r = salvarC($navP, hallEntry('p-93', ['nota' => 93]), 'auto');
+$r = salvarC($navP, hallEntry('p-93', ['nota' => 93]), 'auto', false);
 $c = $r->json['carreira'] ?? [];
-checar('salvar (v=2, plausível) → C com publica false, noHall true (auto), bonusOvr 0', $r->status === 200 && ($c['publica'] ?? null) === false
-    && ($c['noHall'] ?? null) === true && ($c['bonusOvr'] ?? null) === 0 && ($c['notaV'] ?? null) === 2, $r->resumo());
-$row = q('SELECT clubes, copas, suspeita, bonus_ovr, publica, oculta FROM carreiras WHERE carreira_id = ?', ['p-93'])[0] ?? [];
-checar('colunas novas: clubes (JSON dos clubId, sem repetir), copas 1, sem suspeita', ($row['clubes'] ?? '') === json_encode($clubesA1) && (int) $row['copas'] === 1
-    && $row['suspeita'] === null && (int) $row['oculta'] === 0, json_encode($row));
+checar('salvar (v=2, plausível, nota 93) → C com publica false, bonusOvr 0 e fora do Hall: nota extraordinária espera a revisão', $r->status === 200
+    && ($c['publica'] ?? null) === false && ($c['noHall'] ?? null) === false && ($c['bonusOvr'] ?? null) === 0 && ($c['notaV'] ?? null) === 2, $r->resumo());
+$row = q('SELECT clubes, copas, suspeita, bonus_ovr, publica, oculta, resumo_hash FROM carreiras WHERE carreira_id = ?', ['p-93'])[0] ?? [];
+checar('colunas novas: clubes (JSON dos clubId, sem repetir), copas 1, suspeita revisao, hash do resumo', ($row['clubes'] ?? '') === json_encode($clubesA1)
+    && (int) $row['copas'] === 1 && $row['suspeita'] === 'revisao' && (int) $row['oculta'] === 0 && strlen((string) $row['resumo_hash']) === 40, json_encode($row));
+$r = admGet('r=hall&filtro=revisao');
+checar('admin hall filtro=revisao: a de nota 93 está na fila; o resumo conta 1 esperando revisão', $r->status === 200 && ($r->json['filtro'] ?? '') === 'revisao'
+    && array_column($r->json['itens'] ?? [], 'carreiraId') === ['p-93'] && (admGet('r=resumo')->json['carreiras']['emRevisao'] ?? 0) === 1, $r->resumo());
+admPost(['acao' => 'mostrar_carreira', 'id' => pkCarreira('p-93', $uidP)]);
+$r = $navP->pedir('GET', '/api/carreiras.php');
+checar('o admin libera (mostrar_carreira) → entra no Hall (noHall true)', (array_column($r->json['carreiras'] ?? [], 'noHall', 'id')['p-93'] ?? null) === true, $r->resumo());
+$r = salvarC($navP, hallEntry('p-93', ['nota' => 93]), 'auto', false);
+checar('salvar de novo a mesma carreira (igual): continua liberada', ($r->json['carreira']['noHall'] ?? null) === true
+    && v("SELECT suspeita FROM carreiras WHERE carreira_id = 'p-93'") === null, $r->resumo());
 foreach ([80, 70, 60] as $n) {
     salvarC($navP, hallEntry("p-$n", ['nota' => $n]));
 }
@@ -415,7 +478,7 @@ $suspeitas = [
     ['s-temporadas', ['temporadas' => 31], 'temporadas'],
     ['s-temporadas0', ['temporadas' => 0], 'temporadas,gols,bolas,titulos'],
     ['s-pico', ['pico' => 100], 'pico'],
-    ['s-pico-baixo', ['pico' => 39], 'pico'],
+    ['s-pico-baixo', ['pico' => 39], 'pico,nota'],
     ['s-nota', ['nota' => 101], 'nota'],
     ['s-nota-neg', ['nota' => -1], 'nota'],
     ['s-gols', ['gols' => 90 * 24 + 1], 'gols'],
@@ -429,25 +492,55 @@ $suspeitas = [
     ['s-nome', ['jogador' => 'PORRA'], 'nome'],
     ['s-nome-leet', ['jogador' => 'V1AD0'], 'nome'],
     ['s-dois', ['gols' => 99999, 'bolas' => 30], 'gols,bolas'],
+    ['s-bolas-todas', ['bolas' => 24], 'bolas'],
+    ['s-bolas-ok', ['bolas' => 23], null],
+    ['s-copas', ['copas' => 8], 'copas'],
+    ['s-copas-ok', ['copas' => 7], null],
+    ['s-nota-pico', ['nota' => 85, 'pico' => 84], 'nota'],
+    ['s-forjada', ['nota' => 100, 'pico' => 62, 'temporadas' => 12, 'gols' => 10, 'bolas' => 0], 'nota'],
+    ['s-headline', ['headline' => 'Lenda do Flamengo, filho da puta'], 'nome'],
+    ['s-comparacao', ['comparacao' => 'Mais gols que Pelé, seu merda'], 'nome'],
+    ['s-career-nome', ['careerNome' => 'FILHO DA PUTA'], 'nome,dados'],
+    ['s-career-pais', ['careerPais' => 'BOL'], 'dados'],
+    ['s-unicode', ['jogador' => "\u{1D18}\u{1D1C}\u{1D1B}\u{1D00}"], 'nome'],
+    ['s-alfa', ['jogador' => "PUT\u{251}"], 'nome'],
+    ['s-cirilico', ['jogador' => "SIL\u{0412}A"], 'nome'],
+    ['s-polones', ['jogador' => "\u{141}UKASZEWSKI"], null],
+    ['s-apostrofo', ['jogador' => "O'NEIL-SØRENSEN"], null],
 ];
 foreach ($suspeitas as [$id, $mut, $esperado]) {
-    $r = salvarC($navP, hallEntry($id, $mut + ['nota' => 99]));
+    $r = salvarC($navP, hallEntry($id, $mut + ['nota' => 89]));
     $s = v('SELECT suspeita FROM carreiras WHERE carreira_id = ? AND usuario_id = ?', [$id, $uidP]);
     checar("plausibilidade $id → " . ($esperado ?? 'ok'), $r->status === 200 && $s === $esperado && ($r->json['carreira']['noHall'] ?? null) === ($esperado === null),
         var_export($s, true) . ' ' . $r->resumo());
+    if ($esperado === null) {
+        $navP->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => $id]); // não toma o lugar das 3 melhores
+    }
 }
-// limpa as plausíveis de nota 99 (senão tomam o lugar das 3 melhores)
-foreach (['s-gols-ok', 's-titulos-ok', 's-idade-ok'] as $id) {
+// limpa as plausíveis de nota 89 (senão tomam o lugar das 3 melhores)
+foreach (['s-gols-ok', 's-titulos-ok', 's-idade-ok', 's-bolas-ok', 's-copas-ok', 's-polones', 's-apostrofo'] as $id) {
     $navP->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => $id]);
 }
+$r = salvarC($navP, hallEntry('s-revisao', ['nota' => 95]), 'manual', false);
+checar('plausibilidade s-revisao (nota 95, tudo certo) → revisao (só ela, fora do Hall)', v("SELECT suspeita FROM carreiras WHERE carreira_id = 's-revisao'") === 'revisao'
+    && ($r->json['carreira']['noHall'] ?? null) === false, $r->resumo());
+$r = salvarC($navP, hallEntry('s-revisao-gols', ['nota' => 95, 'gols' => 99999]), 'manual', false);
+checar('nota 95 com outro motivo → só o outro motivo (gols)', v("SELECT suspeita FROM carreiras WHERE carreira_id = 's-revisao-gols'") === 'gols', $r->resumo());
+$navP->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 's-revisao-gols']);
 // admin libera uma suspeita; salvar de novo com os mesmos números não volta a suspeitar; mudar os números, sim
 $pkGols = pkCarreira('s-gols', $uidP);
 $r = admPost(['acao' => 'mostrar_carreira', 'id' => $pkGols]);
 checar('admin mostrar_carreira libera a suspeita', $r->status === 200 && v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkGols]) === null, $r->resumo());
-salvarC($navP, hallEntry('s-gols', ['gols' => 90 * 24 + 1, 'nota' => 99]));
-checar('salvar de novo com os mesmos números: continua liberada', v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkGols]) === null);
-salvarC($navP, hallEntry('s-gols', ['gols' => 90 * 24 + 5, 'nota' => 99]));
+salvarC($navP, hallEntry('s-gols', ['gols' => 90 * 24 + 1, 'nota' => 89]));
+checar('salvar de novo a mesma carreira: continua liberada', v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkGols]) === null);
+salvarC($navP, hallEntry('s-gols', ['gols' => 90 * 24 + 5, 'nota' => 89]));
 checar('salvar com os números mudados: volta a suspeita', v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkGols]) === 'gols');
+$pkHl = pkCarreira('s-headline', $uidP);
+admPost(['acao' => 'mostrar_carreira', 'id' => $pkHl]);
+salvarC($navP, hallEntry('s-headline', ['headline' => 'Lenda do Flamengo, filho da puta', 'nota' => 89]));
+checar('liberada pelo admin e salva igual: continua liberada', v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkHl]) === null);
+salvarC($navP, hallEntry('s-headline', ['headline' => 'Lenda do Flamengo, seu bosta', 'nota' => 89]));
+checar('mesmos números, mas um texto novo (o título): volta a ser conferida (nome)', v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkHl]) === 'nome');
 $r = $navP->pedir('GET', '/api/carreiras.php');
 $noHall = array_keys(array_filter(array_column($r->json['carreiras'] ?? [], 'noHall', 'id')));
 sort($noHall);
@@ -673,40 +766,124 @@ $navB3->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 'b3-b']
 checar('carreira apagada → sai na hora', !$naFoto('b3-b'));
 $r = salvarC($navB3, hallEntry('b3-a', ['nota' => 85, 'pais' => 'ARG', 'clubes' => [$BOCA], 'bolas' => 99]));
 checar('carreira do Hall que virou suspeita ao salvar de novo → sai na hora', !$naFoto('b3-a') && ($r->json['carreira']['noHall'] ?? null) === false, $r->resumo());
-// mesmo HallEntry.id em duas contas: fica uma vez só (a melhor)
-salvarC($navB4, hallEntry('b1-a', ['nota' => 89, 'pais' => 'CHI'])); // entra nas 3 da conta, mas abaixo da original (95)
+// cópia: outra conta baixa o HallEntry público (hall.php?id), sobe a nota e salva — fica a primeira dona
+$copia = json_decode(hallGet('id=b1-a')->corpo, false)->carreira;
+$copia->legacy->score = 96;
+$r = salvarC($navB4, $copia, 'manual', false);
+$pkCopia = pkCarreira('b1-a', $uidB4);
+checar('cópia de uma carreira do Hall (mesmo id, nota 96) salva por outra conta → suspeita copia, fora do Hall', $r->status === 200
+    && v('SELECT suspeita FROM carreiras WHERE id = ?', [$pkCopia]) === 'copia' && ($r->json['carreira']['noHall'] ?? null) === false, $r->resumo());
 admPost(['acao' => 'atualizar_hall']);
 $r = hallGet('id=b1-a');
-checar('mesmo HallEntry.id salvo por outra conta: na fotografia uma vez só, a de melhor posição', (int) v("SELECT COUNT(*) FROM hall_foto WHERE carreira_id = 'b1-a'") === 1
-    && ($r->json['apelido'] ?? '') === 'Boliviano', $r->resumo());
+checar('…na fotografia continua uma vez só, a da primeira dona', (int) v("SELECT COUNT(*) FROM hall_foto WHERE carreira_id = 'b1-a'") === 1
+    && ($r->json['apelido'] ?? '') === 'Boliviano' && (json_decode($r->corpo)->carreira->legacy->score ?? 0) === 95, $r->resumo());
+admPost(['acao' => 'mostrar_carreira', 'id' => $pkCopia]);
+admPost(['acao' => 'atualizar_hall']);
+$r = hallGet('id=b1-a');
+checar('…mesmo se o admin liberar a cópia: fica a primeira que foi salva (não a de nota maior)', (int) v("SELECT COUNT(*) FROM hall_foto WHERE carreira_id = 'b1-a'") === 1
+    && ($r->json['apelido'] ?? '') === 'Boliviano' && !in_array($pkCopia, array_map('intval', q('SELECT carreira_pk FROM hall_foto')), true), $r->resumo());
+$r = $navB4->pedir('GET', '/api/carreiras.php');
+checar('…e o "Minhas carreiras" de quem copiou não diz que está no Hall', (array_column($r->json['carreiras'] ?? [], 'noHall', 'id')['b1-a'] ?? null) === false, $r->resumo());
+$navB4->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 'b1-a']);
+$outroId = json_decode(hallGet('id=b1-a')->corpo, false)->carreira;
+$outroId->id = 'b1-a-outro';
+$r = salvarC($navB4, $outroId, 'manual', false);
+checar('o mesmo resumo com outro id, de outra conta → copia', v("SELECT suspeita FROM carreiras WHERE carreira_id = 'b1-a-outro'") === 'copia', $r->resumo());
+$navB4->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 'b1-a-outro']);
 // Imersivo só entra com imersivo_publico (a conta volta para o automático: as 3 melhores)
 conta($navB1, ['acao' => 'perfil', 'hallPublico' => 'auto']);
 admPost(['acao' => 'config', 'valores' => ['imersivo_publico' => true]]);
 admPost(['acao' => 'atualizar_hall']);
 checar('imersivo_publico = true → a carreira do Imersivo entra', $naFoto('b1-imersivo'));
 admPost(['acao' => 'config', 'valores' => ['imersivo_publico' => false]]);
+checar('imersivo_publico = false → sai de novo na hora (sem esperar a fotografia), da lista e do ?id', !$naFoto('b1-imersivo')
+    && !in_array('b1-imersivo', idsHall(hallGet('pais=BOL')), true) && hallGet('id=b1-imersivo')->status === 404);
 admPost(['acao' => 'atualizar_hall']);
-checar('imersivo_publico = false → sai de novo', !$naFoto('b1-imersivo'));
+checar('…e não volta ao refazer', !$naFoto('b1-imersivo'));
 // renomear e apelido novo: a fotografia acompanha na hora
 admPost(['acao' => 'renomear', 'id' => $uidB1, 'apelido' => 'Boliviano Renomeado']);
 checar('admin renomear → o apelido muda no Hall na hora', (hallGet('id=b1-a')->json['apelido'] ?? '') === 'Boliviano Renomeado');
 conta($navB1, ['acao' => 'perfil', 'apelido' => 'Bolivia Lenda10']);
 checar('perfil apelido → muda no Hall na hora', (hallGet('id=b1-a')->json['apelido'] ?? '') === 'Bolivia Lenda10');
+// "As 3 melhores" → "Eu escolho" com outra carreira marcada de antes: as 3 do automático saem na hora
+[$navM, $uidM] = novaConta('Troca Modo');
+foreach ([50, 51, 52, 53] as $n) {
+    salvarC($navM, hallEntry("m-$n", ['nota' => $n, 'pais' => 'PER']));
+}
+q("UPDATE carreiras SET publica = 1 WHERE usuario_id = ? AND carreira_id = 'm-50'", [$uidM]);
+admPost(['acao' => 'atualizar_hall']);
+checar('auto: as 3 melhores (53, 52, 51) no Hall', $naFoto('m-53') && $naFoto('m-52') && $naFoto('m-51') && !$naFoto('m-50'));
+$r = conta($navM, ['acao' => 'perfil', 'hallPublico' => 'manual']);
+checar('perfil → manual (com a 50 já marcada): as 3 do automático saem do Hall na hora, da lista e do ?id', $r->status === 200 && !$naFoto('m-53')
+    && !$naFoto('m-52') && !$naFoto('m-51') && hallGet('id=m-53')->status === 404 && !array_intersect(['m-51', 'm-52', 'm-53'], idsHall(hallGet('pais=PER'))), $r->resumo());
+admPost(['acao' => 'atualizar_hall']);
+checar('…e a escolhida entra na fotografia seguinte', $naFoto('m-50') && !$naFoto('m-53'));
+q("UPDATE carreiras SET publica = 0 WHERE usuario_id = ? AND carreira_id = 'm-50'", [$uidM]);
+checar('desmarcada direto no banco: o ?id já não serve (manual só mostra as marcadas)', hallGet('id=m-50')->status === 404);
+admPost(['acao' => 'atualizar_hall']);
+checar('…e a limpeza da fotografia tira ela', !$naFoto('m-50'));
+// moderação que sobrevive ao "apagar": ocultar, o dono apaga e salva de novo → volta escondida
+salvarC($navM, hallEntry('m-mod', ['nota' => 70, 'pais' => 'PER']));
+$pkMod = pkCarreira('m-mod', $uidM);
+admPost(['acao' => 'ocultar_carreira', 'id' => $pkMod]);
+$navM->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 'm-mod']);
+$r = salvarC($navM, hallEntry('m-mod', ['nota' => 70, 'pais' => 'PER']));
+$pkMod2 = pkCarreira('m-mod', $uidM);
+conta($navM, ['acao' => 'perfil', 'hallPublico' => 'auto']);
+admPost(['acao' => 'atualizar_hall']);
+checar('carreira oculta pelo admin, apagada e salva de novo pelo dono → volta oculta (1), fora do Hall', $r->status === 200 && $pkMod2 !== $pkMod
+    && (int) v('SELECT oculta FROM carreiras WHERE id = ?', [$pkMod2]) === 1 && !$naFoto('m-mod') && hallGet('id=m-mod')->status === 404, $r->resumo());
+$r = admGet('r=hall&filtro=ocultas');
+checar('…e continua na aba Ocultas do painel', in_array('m-mod', array_column($r->json['itens'] ?? [], 'carreiraId'), true), $r->resumo());
+$navM->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 'm-mod']);
+$modOutro = hallEntry('m-mod', ['nota' => 70, 'pais' => 'PER']);
+$modOutro->id = 'm-mod-novo-id';
+salvarC($navM, $modOutro);
+checar('o mesmo conteúdo com outro id → também volta oculta', (int) v("SELECT oculta FROM carreiras WHERE carreira_id = 'm-mod-novo-id'") === 1);
+admPost(['acao' => 'mostrar_carreira', 'id' => pkCarreira('m-mod-novo-id', $uidM)]);
+$navM->pedir('POST', '/api/carreiras.php', ['acao' => 'apagar', 'id' => 'm-mod-novo-id']);
+salvarC($navM, $modOutro);
+checar('depois de o admin mostrar, salvar de novo não volta oculta', (int) v("SELECT oculta FROM carreiras WHERE carreira_id = 'm-mod-novo-id'") === 0
+    && (int) v('SELECT COUNT(*) FROM carreiras_moderacao WHERE usuario_id = ?', [$uidM]) === 0);
+salvarC($navM, hallEntry('m-apagada', ['nota' => 71, 'pais' => 'PER']));
+admPost(['acao' => 'apagar_carreira', 'id' => pkCarreira('m-apagada', $uidM)]);
+salvarC($navM, hallEntry('m-apagada', ['nota' => 71, 'pais' => 'PER']));
+checar('apagada pelo admin e subida de novo pelo aparelho do dono → volta oculta', (int) v("SELECT oculta FROM carreiras WHERE carreira_id = 'm-apagada'") === 1);
+checar('carreiras_moderacao só com ids e o hash do resumo (nada da carreira)', array_keys(q('SELECT * FROM carreiras_moderacao LIMIT 1')[0] ?? [])
+    === ['usuario_id', 'carreira_id', 'resumo_hash', 'oculta', 'em']);
 // excluir a conta: some do Hall
 [$navEx, $uidEx] = novaConta('Vai Sair');
 salvarC($navEx, hallEntry('ex-a', ['nota' => 97]));
 admPost(['acao' => 'atualizar_hall']);
 checar('conta nova no Hall', $naFoto('ex-a'));
+admPost(['acao' => 'ocultar_carreira', 'id' => pkCarreira('ex-a', $uidEx)]);
 conta($navEx, ['acao' => 'excluir', 'senha' => 'senha-v3-' . $CONTAS_N]);
 checar('excluir a conta → sai do Hall na hora (LGPD)', !$naFoto('ex-a') && (int) v('SELECT COUNT(*) FROM hall_foto WHERE usuario_id = ?', [$uidEx]) === 0);
+checar('…e a moderação guardada das carreiras dela também some', (int) v('SELECT COUNT(*) FROM carreiras_moderacao WHERE usuario_id = ?', [$uidEx]) === 0);
 
 // ══ v3.7 denúncias ═══════════════════════════════════════════════════════════════════════════════
 
-secao('v3 · denúncias (limites, 5 contas diferentes ocultam, fila do admin)');
-$denunciar = static fn(Navegador $n, array $c): Resposta => $n->pedir('POST', '/api/hall.php', ['acao' => 'denunciar'] + $c);
+secao('v3 · denúncias (limites, 5 contas que valem ocultam, topo protegido, fila do admin)');
+// só contam para esconder as denúncias de contas com mais de 24 h e 3 partidas: as contas do teste "envelhecem"
+$envelhecer = static function (array $uids): void {
+    q('UPDATE usuarios SET criado_em = UTC_TIMESTAMP() - INTERVAL 2 DAY, partidas_conta = GREATEST(partidas_conta, 3) WHERE id IN (' . marcasT(count($uids)) . ')', $uids);
+};
+$denunciar = static function (Navegador $n, array $c): Resposta {
+    q("DELETE FROM tentativas WHERE chave LIKE 'denunciar-ip:%'"); // o limite por IP (5 a cada 10 min) tem teste próprio
+    return $n->pedir('POST', '/api/hall.php', ['acao' => 'denunciar'] + $c);
+};
+// o topo do Hall (as 10 primeiras) não sai só pelas denúncias: 12 carreiras acima do alvo
+for ($i = 0; $i < 4; $i++) {
+    [$navT] = novaConta("Topo $i");
+    for ($k = 0; $k < 3; $k++) {
+        salvarC($navT, hallEntry("topo-$i-$k", ['nota' => 91 + $i * 2 + ($k > 0 ? 1 : 0), 'pais' => 'COL']));
+    }
+}
+admPost(['acao' => 'atualizar_hall']);
 $alvoId = 'b4-0';
 $pkAlvo = pkCarreira($alvoId, $uidB4);
-checar('a carreira alvo está no Hall', $naFoto($alvoId));
+checar('a carreira alvo está no Hall, fora das 10 primeiras', $naFoto($alvoId) && (int) v('SELECT id FROM hall_foto WHERE carreira_id = ?', [$alvoId]) > 10,
+    (string) v('SELECT id FROM hall_foto WHERE carreira_id = ?', [$alvoId]));
 $r = $denunciar($anon, ['id' => $alvoId, 'motivo' => 'trapaca']);
 checar('denunciar sem login → 401', $r->status === 401 && $r->erro() === 'nao_logado', $r->resumo());
 $r = $denunciar($navB1, ['id' => $alvoId, 'motivo' => 'feio']);
@@ -721,11 +898,25 @@ $r = $navB1->pedir('POST', '/api/hall.php', ['acao' => 'outra']);
 checar('ação desconhecida → 400', $r->status === 400 && $r->erro() === 'acao', $r->resumo());
 $r = $navB1->pedir('POST', '/api/hall.php', ['acao' => 'denunciar', 'id' => $alvoId, 'motivo' => 'nome'], ['origem' => false]);
 checar('denunciar sem Origin → 403', $r->status === 403, $r->resumo());
-$denunciantes = [$navB1, $navB3]; // (a B2 foi suspensa antes: a sessão dela caiu)
-for ($i = 0; $i < 3; $i++) {
-    [$nv] = novaConta("Fiscal $i");
-    $denunciantes[] = $nv;
+// contas criadas agora (sem 24 h nem 3 partidas): 5 denúncias não escondem nada (só entram na fila do admin)
+$novatas = [];
+for ($i = 0; $i < 5; $i++) {
+    [$nv, $uidNv] = novaConta("Novata $i");
+    $novatas[] = $uidNv;
+    $denunciar($nv, ['id' => 'b4-1', 'motivo' => 'trapaca']);
 }
+$pkB41 = pkCarreira('b4-1', $uidB4);
+checar('5 denúncias de contas recém-criadas: a carreira continua no Hall (as 5 ficam abertas na fila)', $naFoto('b4-1')
+    && (int) v('SELECT oculta FROM carreiras WHERE id = ?', [$pkB41]) === 0 && (int) v("SELECT COUNT(*) FROM denuncias WHERE carreira_pk = ? AND status = 'aberta'", [$pkB41]) === 5);
+q('DELETE FROM denuncias WHERE carreira_pk = ?', [$pkB41]);
+$denunciantes = [$navB1, $navB3]; // (a B2 foi suspensa antes: a sessão dela caiu)
+$uidsDen = [$uidB1, $uidB3];
+for ($i = 0; $i < 3; $i++) {
+    [$nv, $uidNv] = novaConta("Fiscal $i");
+    $denunciantes[] = $nv;
+    $uidsDen[] = $uidNv;
+}
+$envelhecer($uidsDen);
 $st = [];
 foreach (array_slice($denunciantes, 0, 4) as $i => $nv) {
     $st[] = $denunciar($nv, ['id' => $alvoId, 'motivo' => 'trapaca', 'texto' => "  denúncia\n$i  "])->status;
@@ -773,10 +964,43 @@ foreach ([['id' => $dNova, 'resultado' => 'talvez'], ['id' => 999999, 'resultado
 checar('resolver_denuncia no admin_log', (int) v("SELECT COUNT(*) FROM admin_log WHERE acao = 'resolver_denuncia'") === 2);
 admPost(['acao' => 'mostrar_carreira', 'id' => $pkAlvo]);
 admPost(['acao' => 'atualizar_hall']);
+// o topo do Hall: 5 denúncias que valem só sinalizam (quem decide é o admin)
+$topoId = (string) v('SELECT carreira_id FROM hall_foto WHERE id = 1');
+$pkTopo = (int) v('SELECT carreira_pk FROM hall_foto WHERE id = 1');
+$donoTopo = (int) v('SELECT usuario_id FROM hall_foto WHERE id = 1');
+$cincoQueValem = [];
+foreach ($denunciantes as $i => $nv) {
+    if ($uidsDen[$i] !== $donoTopo) {
+        $cincoQueValem[] = $nv;
+    }
+}
+[$nvExtra, $uidExtra] = novaConta('Fiscal Extra');
+$envelhecer([$uidExtra]);
+$cincoQueValem[] = $nvExtra;
+foreach (array_slice($cincoQueValem, 0, 5) as $nv) {
+    $denunciar($nv, ['id' => $topoId, 'motivo' => 'trapaca']);
+}
+checar('a nº 1 do Hall com 5 denúncias que valem: continua no Hall (o admin decide)', $naFoto($topoId) && (int) v('SELECT oculta FROM carreiras WHERE id = ?', [$pkTopo]) === 0
+    && (int) v("SELECT COUNT(*) FROM denuncias WHERE carreira_pk = ? AND status = 'aberta'", [$pkTopo]) === 5);
+$r = admGet('r=hall&filtro=denunciadas');
+checar('…e aparece na fila das denunciadas do painel', in_array($topoId, array_column($r->json['itens'] ?? [], 'carreiraId'), true), $r->resumo());
+q('DELETE FROM denuncias WHERE carreira_pk = ?', [$pkTopo]);
 resetarLimites();
 encherLimite('dia-denunciar:u' . $uidB3, 10, true);
 $r = $denunciar($navB3, ['id' => 'b1-a', 'motivo' => 'nome']);
 checar('10 denúncias por conta por dia: a 11ª → 429', $r->status === 429 && $r->erro() === 'limite', $r->resumo());
+resetarLimites();
+$denunciar($navB3, ['id' => 'b2-a', 'motivo' => 'nome']);
+encherLimite('dia-denunciar:u' . $uidB3, 10, true);
+$r = $denunciar($navB3, ['id' => 'b2-a', 'motivo' => 'nome']);
+checar('repetir a denúncia da mesma carreira: 200 sem gastar o limite do dia (mesmo no limite)', $r->status === 200, $r->resumo());
+resetarLimites();
+$st = [];
+foreach (['b2-b', 'b2-c', 'b4-1', 'b4-2', 'topo-0-1', 'topo-1-1'] as $alvo) {
+    $st[] = $navB3->pedir('POST', '/api/hall.php', ['acao' => 'denunciar', 'id' => $alvo, 'motivo' => 'outro'])->status;
+}
+checar('denúncias: 5 por IP a cada 10 min, a 6ª → 429', $st === [200, 200, 200, 200, 200, 429], implode(',', $st));
+q('DELETE FROM denuncias WHERE usuario_id = ?', [$uidB3]);
 resetarLimites();
 $pkD = pkCarreira('b2-a', $uidB2);
 $denunciar($navB1, ['id' => 'b2-a', 'motivo' => 'nome']);
@@ -911,14 +1135,34 @@ for ($i = 1; $i <= 4; $i++) {
     $amigos[$i] = novaConta("Amigo $i", ['convite' => $codigo]);
 }
 checar('4 amigos com o código → 4 pendentes', count(array_filter(array_map(static fn($a) => $ind($a[1])['status'] ?? '', $amigos), static fn($s) => $s === 'pendente')) === 4);
-$jogar = static function (array $conta, string $modo = 'classico', string $tipo = 'jogo_fim', ?string $vid = null): void {
+/** Uma partida de verdade do amigo (início 40 s antes do fim, no aparelho dele) e 3 min e pouco de jogo no site. */
+$jogar = static function (array $conta, string $modo = 'classico', string $tipo = 'jogo_fim', ?string $vid = null, int $ativo = 200): void {
     resetarLimitesCurtos();
-    medir($conta[0], $vid ?? $conta[3], uuid4(), [['t' => $tipo, 'm' => $modo, 'd' => ['nota' => 60]]], ctx());
+    $vid ??= $conta[3];
+    $sid = uuid4();
+    medir($conta[0], $vid, $sid, [['t' => 'jogo_inicio', 'm' => $modo, 'd' => ['ritmo' => 'expressa']]], ctx());
+    q('UPDATE visitas SET ativo_s = ? WHERE sid = ?', [$ativo, $sid]);
+    q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vid]);
+    medir($conta[0], $vid, $sid, [['t' => $tipo, 'm' => $modo, 'd' => ['nota' => 60]]]);
 };
-$jogar($amigos[1], 'live');
+$jogar($amigos[1], 'live', 'jogo_fim', null, 0);
 checar('fim de jogo da Live não valida', ($ind($amigos[1][1])['status'] ?? '') === 'pendente');
-$jogar($amigos[1], 'imersivo', 'partida_fim');
+$jogar($amigos[1], 'imersivo', 'partida_fim', null, 0);
 checar('partida do Imersivo não valida (só o Clássico)', ($ind($amigos[1][1])['status'] ?? '') === 'pendente');
+resetarLimitesCurtos();
+medir($amigos[1][0], $amigos[1][3], uuid4(), [['t' => 'jogo_fim', 'm' => 'classico', 'd' => ['nota' => 60]]], ctx());
+checar('jogo_fim sem jogo_inicio antes (um curl) não valida', ($ind($amigos[1][1])['status'] ?? '') === 'pendente'
+    && (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$amigos[1][1]]) === 0);
+$jogar($amigos[1], 'classico', 'jogo_fim', null, 60);
+checar('partida de verdade, mas com só 1 min de jogo no site: continua pendente (pede 3 min)', ($ind($amigos[1][1])['status'] ?? '') === 'pendente'
+    && (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$amigos[1][1]]) === 1);
+$sidMin = (string) v('SELECT sid FROM visitas WHERE usuario_id = ? ORDER BY inicio DESC LIMIT 1', [$amigos[1][1]]);
+q('UPDATE visitas SET ativo_s = 170, ultimo = ultimo - INTERVAL 20 SECOND WHERE sid = ?', [$sidMin]);
+medir($amigos[1][0], $amigos[1][3], $sidMin, [['t' => 'hb', 'p' => 0]]);
+$i1 = $ind($amigos[1][1]);
+checar('…passou de 3 min jogando (um batimento a mais): a indicação vale na hora', ($i1['status'] ?? '') === 'valida' && $i1['validada_em'] !== null, json_encode($i1));
+q("UPDATE indicacoes SET status = 'pendente', validada_em = NULL WHERE id = ?", [(int) $i1['id']]);
+q("DELETE FROM bonus WHERE usuario_id = ? AND origem = 'indicacao'", [$uidI]);
 $jogar($amigos[1]);
 $i1 = $ind($amigos[1][1]);
 checar('1º jogo_fim do Clássico do amigo → valida', ($i1['status'] ?? '') === 'valida' && $i1['validada_em'] !== null, json_encode($i1));
@@ -945,12 +1189,20 @@ $amigoP = novaConta('Amigo Partidas', ['convite' => $codO]);
 $r = conta($amigoP[0], ['acao' => 'partidas', 'n' => 1]);
 checar('conta.php partidas sem evento que confirme → continua pendente', $r->status === 200 && ($ind($amigoP[1])['status'] ?? '') === 'pendente', $r->resumo());
 $sidP = uuid4();
-q("INSERT INTO visitas (sid, vid, usuario_id, inicio, ultimo, origem, bot) VALUES (?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 'direto', 0)", [$sidP, $amigoP[3], $amigoP[1]]);
+q("INSERT INTO visitas (sid, vid, usuario_id, inicio, ultimo, ativo_s, origem, bot) VALUES (?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 600, 'direto', 0)", [$sidP, $amigoP[3], $amigoP[1]]);
 q("INSERT INTO eventos (sid, vid, tipo, modo, dados, em) VALUES (?, ?, 'jogo_fim', 'classico', NULL, UTC_TIMESTAMP())", [$sidP, $amigoP[3]]);
 $r = conta($amigoP[0], ['acao' => 'partidas', 'n' => 1]);
-checar('conta.php partidas (n ≥ 1) com o jogo_fim nos eventos da conta → valida', ($ind($amigoP[1])['status'] ?? '') === 'valida' && $bon($uidO) === [[2, 'indicacao']],
+checar('conta.php partidas com um jogo_fim inventado nos eventos (sem partida contada) → continua pendente, partidas_conta 0',
+    ($ind($amigoP[1])['status'] ?? '') === 'pendente' && (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$amigoP[1]]) === 0, json_encode($ind($amigoP[1])));
+q('DELETE FROM eventos WHERE sid = ?', [$sidP]);
+q('UPDATE visitas SET ativo_s = 0 WHERE sid = ?', [$sidP]);
+$jogar($amigoP, 'classico', 'jogo_fim', null, 30);
+checar('partida de verdade com pouco tempo de jogo: pendente, mas contada (partidas_conta 1)', ($ind($amigoP[1])['status'] ?? '') === 'pendente'
+    && (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$amigoP[1]]) === 1);
+q('UPDATE visitas SET ativo_s = 200 WHERE sid = ?', [$sidP]);
+$r = conta($amigoP[0], ['acao' => 'partidas', 'n' => 1]);
+checar('conta.php partidas (n ≥ 1) com a partida contada e 3 min de jogo → valida', ($ind($amigoP[1])['status'] ?? '') === 'valida' && $bon($uidO) === [[2, 'indicacao']],
     json_encode($ind($amigoP[1])));
-checar('…e acerta as partidas desde o cadastro pelos eventos', (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$amigoP[1]]) === 1);
 $r = conta($amigoP[0], ['acao' => 'partidas', 'n' => 0]);
 checar('partidas n = 0 não confere nada (e não quebra)', $r->status === 200, $r->resumo());
 // amigo que joga no aparelho do indicador
@@ -972,17 +1224,57 @@ $r = admGet('r=indicacoes&status=valida');
 checar('admin indicacoes status=valida: as 4 válidas, com o valor do bônus', ($r->json['total'] ?? 0) === 4
     && array_column(array_column($r->json['itens'] ?? [], 'bonus'), 'valor') === [2, 5, 3, 2], $r->resumo());
 
+secao('v3 · partidas com a conta: só as de verdade (início antes do fim, no mesmo aparelho)');
+[$navF, $uidF, , $vidF] = novaConta('Sem Atalho');
+resetarLimitesCurtos();
+medir($navF, $vidF, uuid4(), [['t' => 'jogo_fim', 'm' => 'classico'], ['t' => 'jogo_fim', 'm' => 'classico'], ['t' => 'jogo_fim', 'm' => 'classico']], ctx());
+medir($navF, $vidF, uuid4(), array_fill(0, 100, ['t' => 'partida_fim', 'm' => 'imersivo']), ctx());
+$r = $navF->pedir('GET', '/api/bonus.php');
+checar('3 jogo_fim inventados num pedido e 100 partida_fim: nada conta (liberado false, faltam 3)', ($r->json['liberado'] ?? true) === false
+    && ($r->json['faltamPartidas'] ?? 0) === 3 && (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$uidF]) === 0, $r->resumo());
+conta($navF, ['acao' => 'partidas', 'n' => 50]);
+checar('…nem o conta.php partidas (que não conta mais pelos eventos)', (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$uidF]) === 0);
+resetarLimitesCurtos();
+$sidF = uuid4();
+medir($navF, $vidF, $sidF, [['t' => 'jogo_inicio', 'm' => 'classico'], ['t' => 'jogo_inicio', 'm' => 'classico'], ['t' => 'jogo_inicio', 'm' => 'classico']], ctx());
+q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vidF]);
+medir($navF, $vidF, $sidF, [['t' => 'jogo_fim', 'm' => 'classico'], ['t' => 'jogo_fim', 'm' => 'classico']]);
+q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vidF]);
+medir($navF, $vidF, $sidF, [['t' => 'jogo_fim', 'm' => 'classico']]);
+checar('3 inícios juntos e depois 3 fins: só 1 partida conta (1 fim por início, 1 por envio)', (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$uidF]) === 1);
+partidaReal($navF, $vidF);
+checar('uma partida de verdade depois: conta (2)', (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$uidF]) === 2);
+resetarLimitesCurtos();
+medir($navF, $vidF, uuid4(), [['t' => 'jogo_inicio', 'm' => 'classico']], ctx());
+q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vidF]);
+$outroVid = uuid4();
+medir($navF, $outroVid, uuid4(), [['t' => 'jogo_fim', 'm' => 'classico']], ctx());
+checar('o fim num aparelho diferente do início não conta', (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$uidF]) === 2);
+
 secao('v3 · bônus liberados só depois de 3 partidas desde o cadastro');
 $jogarI = static function (string $tipo = 'jogo_fim', string $modo = 'classico') use ($navI, $vidI): void {
     resetarLimitesCurtos();
-    medir($navI, $vidI, uuid4(), [['t' => $tipo, 'm' => $modo, 'd' => ['nota' => 70]]], ctx());
+    $sid = uuid4();
+    medir($navI, $vidI, $sid, [['t' => 'jogo_inicio', 'm' => $modo]], ctx());
+    q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vidI]);
+    medir($navI, $vidI, $sid, [['t' => $tipo, 'm' => $modo, 'd' => ['nota' => 70]]]);
 };
 $jogarI();
 $jogarI('jogo_fim', 'live');
 $r = $navI->pedir('GET', '/api/bonus.php');
 checar('1 partida (a da Live não conta): faltam 2', ($r->json['faltamPartidas'] ?? 0) === 2 && ($r->json['liberado'] ?? true) === false, $r->resumo());
 $jogarI('partida_fim', 'imersivo');
-checar('partida do Imersivo conta: faltam 1', ($navI->pedir('GET', '/api/bonus.php')->json['faltamPartidas'] ?? 0) === 1);
+checar('com o Imersivo fechado ao público, a partida dele não conta: faltam 2', ($navI->pedir('GET', '/api/bonus.php')->json['faltamPartidas'] ?? 0) === 2);
+admPost(['acao' => 'config', 'valores' => ['imersivo_publico' => true]]);
+$jogarI('partida_fim', 'imersivo');
+checar('com o Imersivo aberto, a partida dele conta: faltam 1', ($navI->pedir('GET', '/api/bonus.php')->json['faltamPartidas'] ?? 0) === 1);
+admPost(['acao' => 'config', 'valores' => ['imersivo_publico' => false]]);
+resetarLimitesCurtos();
+$sidRap = uuid4();
+medir($navI, $vidI, $sidRap, [['t' => 'jogo_inicio', 'm' => 'classico']], ctx());
+medir($navI, $vidI, $sidRap, [['t' => 'jogo_fim', 'm' => 'classico', 'd' => ['nota' => 70]]]);
+checar('início e fim com menos de 20 s: não conta (faltam 1)', ($navI->pedir('GET', '/api/bonus.php')->json['faltamPartidas'] ?? 0) === 1);
+q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vidI]);
 $r = $navI->pedir('POST', '/api/bonus.php', ['acao' => 'compartilhei', 'carreiraId' => 'c-share']);
 checar('compartilhar antes de liberar → {ganhou 0, motivo bloqueado} e nada fica guardado', $r->status === 200 && $r->json === ['ganhou' => 0, 'motivo' => 'bloqueado']
     && (int) v("SELECT COUNT(*) FROM bonus WHERE usuario_id = ? AND origem = 'compartilhar'", [$uidI]) === 0, $r->resumo());
@@ -1208,7 +1500,7 @@ function conquistasDe0(Navegador $n): void
 {
     $n->pedir('POST', '/api/conquistas.php', ['acao' => 'sincronizar', 'conquistas' => [['id' => 'goat', 'em' => '2026-10-01T00:00:00Z']]]);
 }
-medir($navU1, $vidU1, uuid4(), [['t' => 'jogo_fim', 'm' => 'classico', 'd' => ['nota' => 77]]], ctx());
+partidaReal($navU1, $vidU1, 'classico', ['nota' => 77]);
 $r = admGet('r=usuario&id=' . $uidU1);
 $D = $r->json['usuario'] ?? [];
 checar('usuario: 200 com o U do contrato + status, conquistas, carreiras, bônus, sessões, visitas e eventos', $r->status === 200 && ($D['id'] ?? 0) === $uidU1
@@ -1275,11 +1567,15 @@ checar('…o amigo continua com as conquistas dele', (int) v('SELECT COUNT(*) FR
 $lx = q("SELECT alvo, detalhes FROM admin_log WHERE acao = 'excluir_usuario'");
 checar('excluir_usuario no admin_log só com o id (nada pessoal)', count($lx) === 1 && $lx[0]['alvo'] === 'usuario:' . $uidX1
     && !str_contains((string) $lx[0]['detalhes'], 'Vai Ser') && !str_contains((string) $lx[0]['detalhes'], '@'), json_encode($lx));
+$ld = q("SELECT acao, detalhes FROM admin_log WHERE alvo = ? AND acao = 'dar_bonus'", ['usuario:' . $uidX1]);
+checar('…e o que o admin fez antes com a conta (dar bônus com motivo e apelido) fica só com a ação, a data e o id (LGPD)', count($ld) === 1
+    && json_decode((string) $ld[0]['detalhes'], true) === ['via' => 'painel', 'excluido' => true]
+    && (int) v("SELECT COUNT(*) FROM admin_log WHERE detalhes LIKE '%Vai Ser Excluido%'") === 0, json_encode($ld));
 // o indicado que se exclui: a indicação fica sem ele
 [$navI9, $uidI9] = novaConta('Indica Nove');
 $cod9 = (string) v('SELECT codigo_convite FROM usuarios WHERE id = ?', [$uidI9]);
 $am9 = novaConta('Amigo Nove', ['convite' => $cod9]);
-medir($am9[0], $am9[3], uuid4(), [['t' => 'jogo_fim', 'm' => 'classico']], ctx());
+partidaReal($am9[0], $am9[3], 'classico', ['nota' => 60], null, 200);
 admPost(['acao' => 'excluir_usuario', 'id' => $am9[1]]);
 checar('indicado excluído: a indicação fica com indicado NULL e o bônus do indicador continua', (int) v("SELECT COUNT(*) FROM indicacoes WHERE indicador_id = ? AND indicado_id IS NULL AND status = 'valida'", [$uidI9]) === 1
     && (int) v("SELECT COUNT(*) FROM bonus WHERE usuario_id = ? AND origem = 'indicacao'", [$uidI9]) === 1);
@@ -1600,8 +1896,13 @@ if (!$SEM_CARGA) {
     $jog = array_slice($uids, 100, 40);
     q('UPDATE usuarios SET partidas_conta = 5 WHERE id IN (' . marcasT(count($jog)) . ')', $jog);
     $cks = [];
+    $vidsPar = [];
     foreach ($jog as $uid) {
         $cks[$uid] = sessaoDireta($uid);
+        // cada um começou a carreira há 1 min (o e.php só conta o fim pareado com um início do mesmo aparelho)
+        $vidsPar[$uid] = uuid4();
+        q("INSERT INTO eventos (sid, vid, tipo, modo, dados, em) VALUES (?, ?, 'jogo_inicio', 'classico', NULL, UTC_TIMESTAMP() - INTERVAL 60 SECOND)",
+            [uuid4(), $vidsPar[$uid]]);
     }
     $pedidos = [];
     foreach ($jog as $i => $uid) {
@@ -1610,7 +1911,7 @@ if (!$SEM_CARGA) {
         $pedidos[] = ['POST', '/api/conquistas.php', ['acao' => 'sincronizar', 'conquistas' => [['id' => 'goat'], ['id' => "par_$i"]]], $cks[$uid], "conq-$uid"];
         $pedidos[] = ['POST', '/api/bonus.php', ['acao' => 'compartilhei', 'carreiraId' => "par-$uid"], $cks[$uid], "comp-$uid"];
         $pedidos[] = ['GET', '/api/hall.php?' . ['', 'pais=BRA', 'clube=e150', 'pais=ARG&clube=e120'][$i % 4], null, [], "hall-$uid"];
-        $pedidos[] = ['POST', '/api/e.php', ['v' => uuid4(), 's' => uuid4(), 'bot' => 0, 'ctx' => ctx(), 'ev' => [['t' => 'hb', 'p' => 1], ['t' => 'jogo_fim', 'm' => 'classico']]],
+        $pedidos[] = ['POST', '/api/e.php', ['v' => $vidsPar[$uid], 's' => uuid4(), 'bot' => 0, 'ctx' => ctx(), 'ev' => [['t' => 'hb', 'p' => 1], ['t' => 'jogo_fim', 'm' => 'classico']]],
             $cks[$uid], "e-$uid"];
         if ($i % 10 === 5) {
             $pedidos[] = ['POST', '/api/admin.php', ['acao' => 'atualizar_hall'], $ADM->jar, "adm-$i"];
@@ -1657,9 +1958,11 @@ if (!$SEM_CARGA) {
         && (int) v('SELECT COUNT(DISTINCT carreira_id) FROM bonus WHERE usuario_id = ? AND usado_em IS NOT NULL', [$u0]) === 3, json_encode($valores));
     checar('6 "compartilhei" ao mesmo tempo: só um ganha (+2), um bônus só', $ganhos === 2
         && (int) v("SELECT COUNT(*) FROM bonus WHERE usuario_id = ? AND origem = 'compartilhar'", [$u0]) === 1, "ganhos $ganhos");
-    // 5 denúncias ao mesmo tempo na mesma carreira
+    // 5 denúncias ao mesmo tempo na mesma carreira (contas de mais de 24 h, com partidas; fora das 10 primeiras do Hall)
     $fiscais = array_slice($jog, 1, 5);
-    $alvo = (string) v('SELECT carreira_id FROM hall_foto WHERE usuario_id NOT IN (' . marcasT(5) . ') ORDER BY id LIMIT 1', $fiscais);
+    q('UPDATE usuarios SET criado_em = UTC_TIMESTAMP() - INTERVAL 3 DAY WHERE id IN (' . marcasT(5) . ')', $fiscais);
+    resetarLimites();
+    $alvo = (string) v('SELECT carreira_id FROM hall_foto WHERE usuario_id NOT IN (' . marcasT(5) . ') AND id > 20 ORDER BY id LIMIT 1', $fiscais);
     $ped = [];
     foreach ($fiscais as $uid) {
         $ped[] = ['POST', '/api/hall.php', ['acao' => 'denunciar', 'id' => $alvo, 'motivo' => 'trapaca'], $cks[$uid], "den-$uid"];

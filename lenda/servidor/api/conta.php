@@ -77,6 +77,9 @@ function lerHallPublico(mixed $v): string
 
 if (metodo() === 'GET') {
     $u = usuarioLogado();
+    if ($u !== null) {
+        limitar('conta-get', 'u' . $u['id'], 300); // o jogo pede uma vez por abertura: folga para muitas abas
+    }
     limpezaTalvez();
     responder(200, ['usuario' => $u ? usuarioJson($u) : null, 'regras' => regrasPublicas(), 'site' => sitePublico()]);
 }
@@ -96,7 +99,6 @@ switch ($acao) {
     case 'cadastrar':
         // 30 por IP: no 4G muita gente sai pelo mesmo IP da operadora (CGNAT)
         limitar('cadastrar', quemIp(), 30);
-        limitar('cadastrar-todos', 'todos', 200); // teto do site inteiro (folgado para o pico de um vídeo)
         if (!siteConfig()['cadastro_aberto']) {
             erro(403, 'cadastro_fechado', 'Os cadastros estão fechados no momento. Quem já tem conta pode entrar normalmente.');
         }
@@ -108,6 +110,14 @@ switch ($acao) {
         }
         $time = lerTime($j['timeCoracao'] ?? null);
         $uf = lerUf($j['uf'] ?? null);
+        // 5 contas por aparelho (vid) a cada 10 min.
+        if ($vid !== null) {
+            limitar('cadastrar-vid', $vid, 5);
+        }
+        // Teto do site inteiro (folgado para o pico de um vídeo: ~9.000 contas por hora): só conta o cadastro que passou
+        // na validação — pedido inválido já conta no limite por IP e, contando aqui, uns poucos IPs fechariam o
+        // cadastro de todo mundo.
+        limitar('cadastrar-todos', 'todos', 1500);
         // Origem: a da primeira visita deste aparelho; sem ela, a que o jogo mandou.
         $origem = $vid !== null ? umValor('SELECT origem FROM visitas WHERE vid = ? ORDER BY inicio LIMIT 1', [$vid]) : null;
         if (!is_string($origem) || $origem === '') {
@@ -182,16 +192,26 @@ switch ($acao) {
         $email = lerEmail($j['email'] ?? null);
         limitar('esqueci', quemIp(), 20);
         limitar('esqueci-e', quemEmail($email), 3);
-        // Tetos de e-mails mandados, antes de procurar a conta (o 429 não revela se ela existe): no site inteiro
-        // (a cota de envio da hospedagem) e por e-mail no dia (ninguém recebe uma enxurrada de códigos).
-        limitar('esqueci-todos', 'todos', 40);
-        limitar('dia-esqueci-todos', 'todos', 300, 1, 86400);
+        // Por e-mail no dia, antes de procurar a conta (o 429 não revela se ela existe): ninguém recebe uma enxurrada.
         limitar('dia-esqueci-e', quemEmail($email), 5, 1, 86400);
         $u = umaLinha('SELECT id, apelido FROM usuarios WHERE email = ?', [$email]);
         $codigo = null;
         // Código válido emitido há menos de 2 min: não manda outro (nem zera as tentativas dele).
         $recente = $u !== null && umValor('SELECT 1 FROM redefinicoes WHERE email = ? AND expira_em > ?', [$email, dt(time() + 1680)]) !== null;
-        if ($u !== null && !$recente) {
+        $manda = $u !== null && !$recente;
+        if ($manda) {
+            // Tetos do site inteiro (a cota de envio da hospedagem): só conta o e-mail que vai sair de verdade (e-mail
+            // inventado não gasta). Estourou: responde 200 do mesmo jeito, sem mandar (não revela se a conta existe).
+            $n10 = somarLimite('esqueci-todos', 'todos');
+            $nDia = somarLimite('dia-esqueci-todos', 'todos', 1, 86400);
+            if ($n10 > 40 || $nDia > 300) {
+                $manda = false;
+                // o painel mostra (resumo do admin): quantos e-mails de troca de senha o teto do site segurou
+                $e = lerEstado('_esqueci_teto') ?? [];
+                gravarSiteConfig('_esqueci_teto', ['em' => gmdate('Y-m-d\TH:i:s\Z'), 'n' => (int) ($e['n'] ?? 0) + 1], 'sistema');
+            }
+        }
+        if ($manda) {
             $codigo = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             sql('INSERT INTO redefinicoes (email, codigo_hash, expira_em, tentativas) VALUES (?, ?, ?, 0)
                 ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), expira_em = VALUES(expira_em), tentativas = 0',
@@ -301,8 +321,9 @@ switch ($acao) {
                     sql('UPDATE hall_foto SET apelido = ? WHERE usuario_id = ?', [$apelidoNovo, $uid]);
                 }
             });
-            if ($hallNovo === 'nao') {
-                tirarDoHall(null, $uid); // sair do Hall é na hora; entrar, na próxima fotografia
+            if ($hallNovo !== null) {
+                // sair do Hall é na hora (o que o modo novo não mostra sai da fotografia); entrar, na próxima fotografia
+                tirarDoHallForaDe($uid, idsNoHall($uid, $hallNovo));
             }
         }
         responder(200, ['usuario' => usuarioJson(buscarUsuario($uid))]);

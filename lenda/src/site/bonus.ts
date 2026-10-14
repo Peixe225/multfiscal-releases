@@ -158,10 +158,11 @@ export const useBonus = create<BonusStore>()((set, get) => ({
 
 /**
  * Usa o bônus disponível mais antigo nesta carreira: devolve o valor (0 sem bônus). Idempotente no
- * servidor (o mesmo `carreiraId` devolve o mesmo valor), então tenta de novo sem medo se a rede cair.
+ * servidor (o mesmo `carreiraId` devolve o mesmo valor), então tenta de novo sem medo se a rede cair. Duas
+ * tentativas de até 7 s: o jogador não fica meio minuto olhando o botão girar (a tela pergunta o que fazer).
  */
 export async function usarBonus(carreiraId: string): Promise<number> {
-  const r = await comReintento(() => api<{ valor?: unknown }>('bonus.php', { corpo: { acao: 'usar', carreiraId }, tempo: 10_000 }), { tentativas: 3 })
+  const r = await comReintento(() => api<{ valor?: unknown }>('bonus.php', { corpo: { acao: 'usar', carreiraId }, tempo: 7_000 }), { tentativas: 2 })
   useBonus.setState({ em: 0 })
   return Math.min(10, int(r?.valor))
 }

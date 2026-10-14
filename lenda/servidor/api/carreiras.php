@@ -103,8 +103,7 @@ if ($acao === 'salvar') {
     $agora = dt(time());
     $mudouSuspeita = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora): bool {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma gravação por conta de cada vez
-        $antes = umaLinha('SELECT id, temporadas, pico_ovr, nota, gols, bolas_ouro, titulos, bonus_ovr, jogador, suspeita, clubes
-            FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+        $antes = umaLinha('SELECT id, suspeita, clubes, dados FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
         if ($antes === null && (int) umValor('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ?', [$uid]) >= LIMITE_CARREIRAS) {
             erro(409, 'cheio', 'Sua conta já tem ' . LIMITE_CARREIRAS . ' carreiras salvas. Apague alguma para salvar esta.');
         }
@@ -112,23 +111,27 @@ if ($acao === 'salvar') {
         if ($usado + strlen($json) > COTA_CONTA_BYTES) {
             erro(409, 'cheio', 'Sua conta está cheia. Apague alguma carreira para salvar esta.');
         }
-        // Plausibilidade: conferida quando a carreira entra ou quando os números dela mudam. Com os mesmos
-        // números, fica a decisão anterior (inclusive a do admin, que liberou uma suspeita).
-        $suspeita = ($antes !== null && $antes['clubes'] !== null && !numerosMudaram($antes, $f))
-            ? $antes['suspeita'] : plausibilidade($f, $uid, $id);
+        // Plausibilidade: conferida quando a carreira entra ou quando qualquer coisa nela muda (números, nomes, textos).
+        // Salvar de novo exatamente a mesma carreira mantém a decisão anterior (inclusive a do admin, que liberou).
+        $mesma = $antes !== null && $antes['clubes'] !== null && is_string($antes['dados']) && @gzdecode($antes['dados']) === $json;
+        $suspeita = $mesma ? $antes['suspeita'] : plausibilidade($f, $uid, $id);
+        // carreira que entra agora: se ela (ou o mesmo resumo com outro id) já foi escondida antes, volta escondida
+        $oculta = $antes === null ? moderacaoHerdada($uid, $id, $f['resumo_hash']) : 0;
         sql('INSERT INTO carreiras (usuario_id, carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas,
-                gols, titulos, bolas_ouro, headline, como, dados, tamanho, terminou_em, salva_em, suspeita, clubes, copas, bonus_ovr)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                gols, titulos, bolas_ouro, headline, como, dados, tamanho, terminou_em, salva_em, suspeita, clubes, copas, bonus_ovr,
+                resumo_hash, oculta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE modo = VALUES(modo), jogador = VALUES(jogador), numero = VALUES(numero),
                 pais = VALUES(pais), posicao = VALUES(posicao), nota = VALUES(nota), nota_v = VALUES(nota_v), pico_ovr = VALUES(pico_ovr),
                 temporadas = VALUES(temporadas), gols = VALUES(gols), titulos = VALUES(titulos),
                 bolas_ouro = VALUES(bolas_ouro), headline = VALUES(headline),
                 como = IF(como = \'manual\', \'manual\', VALUES(como)),
                 dados = VALUES(dados), tamanho = VALUES(tamanho), terminou_em = VALUES(terminou_em), salva_em = VALUES(salva_em),
-                suspeita = VALUES(suspeita), clubes = VALUES(clubes), copas = VALUES(copas), bonus_ovr = VALUES(bonus_ovr)',
+                suspeita = VALUES(suspeita), clubes = VALUES(clubes), copas = VALUES(copas), bonus_ovr = VALUES(bonus_ovr),
+                resumo_hash = VALUES(resumo_hash)',
             [$uid, $id, $f['modo'], $f['jogador'], $f['numero'], $f['pais'], $f['posicao'], $f['nota'], $f['nota_v'], $f['pico_ovr'],
                 $f['temporadas'], $f['gols'], $f['titulos'], $f['bolas_ouro'], $f['headline'], $como, $gz, strlen($json),
-                $f['terminou_em'], $agora, $suspeita, $f['clubes'], $f['copas'], $f['bonus_ovr']]);
+                $f['terminou_em'], $agora, $suspeita, $f['clubes'], $f['copas'], $f['bonus_ovr'], $f['resumo_hash'], $oculta]);
         return $antes !== null && $antes['suspeita'] === null && $suspeita !== null;
     });
     if ($mudouSuspeita) {
@@ -138,6 +141,8 @@ if ($acao === 'salvar') {
 }
 
 if ($acao === 'apagar') {
+    // a decisão de moderação (oculta pelo admin ou pelas denúncias) fica em carreiras_moderacao: salvar de novo
+    // a mesma carreira não a desfaz
     $id = lerId($corpo->id ?? null);
     $pk = umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
     if ($pk !== null) {

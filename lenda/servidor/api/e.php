@@ -3,11 +3,19 @@
  * LENDA · medição. POST (JSON ou text/plain, por causa do sendBeacon), até 16 KB:
  *   {"v": uuid do visitante, "s": uuid da sessão, "bot": 0|1, "ctx": {...}, "ev": [{"t": tipo, "m": modo, "d": {...}}]}
  * "hb" (batimento) só atualiza a visita; os outros tipos viram linhas em `eventos`, com `d` só nas chaves
- * conhecidas do tipo (CAMPOS_D). Tetos de linhas: 1.500 por IP a cada 10 min e 3.000 por sessão na vida
- * toda (o que passa é descartado em silêncio). Resposta: 204.
- * Com a conta ligada (cookie), cada partida terminada gravada (jogo_fim do Clássico/Imersivo ou partida_fim)
- * soma em usuarios.partidas_conta (libera os bônus) e um jogo_fim do Clássico valida a indicação pendente:
- * um UPDATE e, no máximo, uma consulta por envio que tem fim de partida (os batimentos não pagam nada disso).
+ * conhecidas do tipo (CAMPOS_D). Resposta: 204.
+ *
+ * Tetos (o que passa é descartado em silêncio):
+ * - view, gate_*, compartilhar e logout: 1.500 linhas por IP a cada 10 min e 3.000 por sessão na vida toda;
+ * - os eventos que importam para a conta (jogo_inicio, jogo_fim, partida_fim, cadastro, login) ficam fora desses dois
+ *   (atrás de um IP de 4G cheio o jogador ainda libera os bônus) e têm um teto próprio: 20 por sessão a cada 10 min.
+ * - Sessão nova: 300 por IP a cada 10 min; passou disso, só entra (sem ctx) o envio que traz início/fim de partida.
+ *
+ * Partida "com a conta" (usuarios.partidas_conta, que libera os bônus): um jogo_fim do Clássico só conta se o mesmo
+ * aparelho (vid) mandou um jogo_inicio do Clássico pelo menos 20 s antes (nos últimos 30 dias) e nenhum fim veio
+ * depois desse início (1 fim por início), e no máximo 1 partida por aparelho a cada 20 s. Com o Imersivo aberto ao público, também o
+ * jogo_fim e a partida_fim dele (a partida_fim precisa de um jogo_inicio do Imersivo antes). Um jogo_fim do Clássico
+ * que conta confere a indicação pendente. Tudo isso só no envio que tem fim de partida (os batimentos não pagam).
  */
 declare(strict_types=1);
 
@@ -23,6 +31,13 @@ const MAX_EVENTOS_PEDIDO = 100;
 const MAX_SESSOES_NOVAS_IP = 300;
 const MAX_LINHAS_IP = 1500;       // linhas em `eventos` por IP a cada 10 min (os hb não contam)
 const MAX_LINHAS_SESSAO = 3000;   // linhas em `eventos` por sessão, na vida toda (visitas.eventos)
+/** Os que importam para a conta: fora dos dois tetos acima, com o teto próprio por sessão. */
+const ESSENCIAIS = ['jogo_inicio', 'jogo_fim', 'partida_fim', 'cadastro', 'login'];
+const MAX_ESSENCIAIS_SESSAO = 20; // por sessão a cada 10 min
+const DE_PARTIDA = ['jogo_inicio', 'jogo_fim', 'partida_fim'];
+const PARTIDA_MIN_S = 20;         // início → fim, e entre duas partidas contadas do mesmo aparelho
+const PARTIDA_JANELA_S = 30 * 86400;          // o início de uma carreira do Clássico vale por 30 dias
+const PARTIDA_JANELA_IMERSIVO_S = 180 * 86400; // o de uma carreira do Imersivo (partida a partida), por 180
 const DADOS_MAX_BYTES = 256;
 const ROBO_UA = '/bot|crawl|spider|preview|headless|facebookexternalhit|slurp|curl|wget|python/i';
 /** Chaves aceitas em `d`, por tipo: t = texto (até 64), n = nota/temporadas/pico (-999 a 999), q = contagem (0 a 10^7). */
@@ -90,21 +105,18 @@ if ($vid === null || $sid === null) {
 $lista = is_array($j['ev'] ?? null) && array_is_list($j['ev']) ? array_slice($j['ev'], 0, MAX_EVENTOS_PEDIDO) : [];
 
 limitar('e', $sid, 240, max(1, count($lista)));
-// Sessão nova: no máximo 300 por IP a cada 10 min (folgado para muita gente atrás do mesmo IP de operadora).
-if (umValor('SELECT 1 FROM visitas WHERE sid = ?', [$sid]) === null) {
-    limitar('e-nova', quemIp(), MAX_SESSOES_NOVAS_IP);
-}
 
 $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
 $sim = [1, true, '1'];
 $bot = in_array($j['bot'] ?? 0, $sim, true) || trim($ua) === '' || preg_match(ROBO_UA, $ua) === 1;
 
-// Eventos válidos (o resto é ignorado em silêncio).
+// Eventos válidos (o resto é ignorado em silêncio), separados em essenciais e o resto.
 $t = time();
 $agora = dt($t);
 $batimentos = 0;
 $jogando = false;
-$linhas = [];
+$essenciais = [];
+$outras = [];
 foreach ($lista as $e) {
     if (!is_array($e) || !is_string($e['t'] ?? null) || !in_array($e['t'], TIPOS_EVENTO, true)) {
         continue;
@@ -117,29 +129,105 @@ foreach ($lista as $e) {
         continue;
     }
     $modo = is_string($e['m'] ?? null) && in_array($e['m'], MODOS, true) ? $e['m'] : null;
-    $linhas[] = [$e['t'], $modo, dadosLimpos($e['t'], $e['d'] ?? null)];
+    $dados = dadosLimpos($e['t'], $e['d'] ?? null);
+    $nota = null;
+    if ($e['t'] === 'jogo_fim' && is_array($e['d'] ?? null) && array_key_exists('nota', $e['d'])) {
+        $nota = numeroEmFaixa($e['d']['nota'], -999, 999);
+    }
+    $linha = [$e['t'], $modo, $dados, $nota, count($essenciais) + count($outras)];
+    if (in_array($e['t'], ESSENCIAIS, true)) {
+        $essenciais[] = $linha;
+    } else {
+        $outras[] = $linha;
+    }
 }
 
-// Teto por IP das linhas gravadas (sem contar os hb): o que passar é descartado em silêncio; os batimentos
-// do mesmo envio continuam valendo (online/jogando não somem para quem divide o IP da operadora).
-if ($linhas) {
-    $total = somarLimite('e-ip', quemIp(), count($linhas));
-    $cabem = MAX_LINHAS_IP - ($total - count($linhas));
-    if ($cabem < count($linhas)) {
-        $linhas = array_slice($linhas, 0, max(0, $cabem));
+// Sessão nova: no máximo 300 por IP a cada 10 min (folgado para muita gente atrás do mesmo IP de operadora). Passou:
+// o envio com início/fim de partida ainda entra (sem ctx e só com esses eventos), o resto recebe 429.
+$semCtx = false;
+if (umValor('SELECT 1 FROM visitas WHERE sid = ?', [$sid]) === null && somarLimite('e-nova', quemIp()) > MAX_SESSOES_NOVAS_IP) {
+    $essenciais = array_values(array_filter($essenciais, static fn(array $l): bool => in_array($l[0], DE_PARTIDA, true)));
+    if (!$essenciais) {
+        erroLimite();
+    }
+    $semCtx = true;
+    $outras = [];
+}
+
+// Teto por IP das linhas comuns (sem contar os hb nem os essenciais): o que passar é descartado em silêncio; os
+// batimentos do mesmo envio continuam valendo (online/jogando não somem para quem divide o IP da operadora).
+if ($outras) {
+    $total = somarLimite('e-ip', quemIp(), count($outras));
+    $cabem = MAX_LINHAS_IP - ($total - count($outras));
+    if ($cabem < count($outras)) {
+        $outras = array_slice($outras, 0, max(0, $cabem));
+    }
+}
+// Teto próprio dos essenciais, por sessão.
+if ($essenciais) {
+    $total = somarLimite('e-fim', $sid, count($essenciais));
+    $cabem = MAX_ESSENCIAIS_SESSAO - ($total - count($essenciais));
+    if ($cabem < count($essenciais)) {
+        $essenciais = array_slice($essenciais, 0, max(0, $cabem));
     }
 }
 
 $usuario = usuarioLogado();
 $uid = $usuario !== null ? (int) $usuario['id'] : null;
 
-[$linhas, $vidSessao] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $jogando, $linhas): array {
-    $v = umaLinha('SELECT vid, ultimo, usuario_id, bot, eventos FROM visitas WHERE sid = ? FOR UPDATE', [$sid]);
-    // teto da sessão na vida toda: passou de 3.000 linhas, o resto é descartado em silêncio
-    $linhas = array_slice($linhas, 0, max(0, MAX_LINHAS_SESSAO - ($v === null ? 0 : (int) $v['eventos'])));
+/**
+ * Esta leva de eventos traz uma partida que conta para a conta? Devolve o modo ('classico' | 'imersivo') ou null.
+ * Roda ANTES de gravar a leva (o que olha é o que já estava no banco). Um jogo_fim se junta ao último jogo_inicio do
+ * mesmo aparelho e modo de pelo menos 20 s antes, e só se nenhum outro fim já se juntou a ele (1 fim por início): um
+ * início perdido ou um fim inventado lá atrás não atrapalham as partidas seguintes.
+ */
+function partidaPareada(string $vid, array $linhas, int $t): ?string
+{
+    $imersivoPublico = (bool) siteConfig()['imersivo_publico'];
+    $candidatas = [];
+    foreach ($linhas as [$tipo, $modo]) {
+        if ($tipo === 'jogo_fim' && ($modo === 'classico' || ($modo === 'imersivo' && $imersivoPublico))) {
+            $candidatas[] = [$tipo, $modo];
+        } elseif ($tipo === 'partida_fim' && $imersivoPublico && ($modo === 'imersivo' || $modo === null)) {
+            $candidatas[] = [$tipo, 'imersivo'];
+        }
+    }
+    if (!$candidatas) {
+        return null;
+    }
+    // no máximo 1 partida por aparelho a cada 20 s (nenhum fim deste aparelho nos últimos 20 s)
+    if (umValor("SELECT 1 FROM eventos WHERE vid = ? AND tipo IN ('jogo_fim', 'partida_fim') AND em > ? LIMIT 1", [$vid, dt($t - PARTIDA_MIN_S)]) !== null) {
+        return null;
+    }
+    $ate = dt($t - PARTIDA_MIN_S);
+    foreach ($candidatas as [$tipo, $modo]) {
+        // a carreira do Imersivo dura muito mais (uma partida por vez): o início dela pode ser bem antigo
+        $desde = dt($t - ($tipo === 'partida_fim' ? PARTIDA_JANELA_IMERSIVO_S : PARTIDA_JANELA_S));
+        $inicio = umValor("SELECT MAX(em) FROM eventos WHERE vid = ? AND tipo = 'jogo_inicio' AND modo = ? AND em >= ? AND em <= ?",
+            [$vid, $modo, $desde, $ate]);
+        if (!is_string($inicio)) {
+            continue;
+        }
+        if ($tipo === 'partida_fim') {
+            return $modo;
+        }
+        if (umValor("SELECT 1 FROM eventos WHERE vid = ? AND tipo = 'jogo_fim' AND modo = ? AND em > ? LIMIT 1", [$vid, $modo, $inicio]) === null) {
+            return $modo;
+        }
+    }
+    return null;
+}
+
+[$linhas, $vidSessao, $contou, $cruzouMinuto] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $jogando, $outras, $essenciais, $semCtx): array {
+    $v = umaLinha('SELECT vid, ultimo, usuario_id, bot, eventos, ativo_s FROM visitas WHERE sid = ? FOR UPDATE', [$sid]);
+    // teto da sessão na vida toda (só as linhas comuns): passou de 3.000, o resto é descartado em silêncio
+    $outras = array_slice($outras, 0, max(0, MAX_LINHAS_SESSAO - ($v === null ? 0 : (int) $v['eventos'])));
+    $linhas = array_merge($outras, $essenciais);
+    usort($linhas, static fn(array $a, array $b): int => $a[4] <=> $b[4]); // na ordem em que vieram
+    $cruzouMinuto = false;
     if ($v === null) {
-        // Sessão nova: o ctx só é lido aqui.
-        $ctx = is_array($j['ctx'] ?? null) ? $j['ctx'] : [];
+        // Sessão nova: o ctx só é lido aqui (e não é lido quando o IP passou do teto de sessões novas).
+        $ctx = !$semCtx && is_array($j['ctx'] ?? null) ? $j['ctx'] : [];
         $utm = is_array($ctx['utm'] ?? null) ? $ctx['utm'] : [];
         $us = texto($utm['source'] ?? null, 64);
         $dev = is_string($ctx['dev'] ?? null) && in_array($ctx['dev'], ['mobile', 'tablet', 'desktop'], true)
@@ -163,14 +251,17 @@ $uid = $usuario !== null ? (int) $usuario['id'] : null;
         if ($batimentos > 0) {
             // Até 15 s por batimento, nunca mais que o tempo real desde o último.
             $desde = max(0, $t - (paraTempo($v['ultimo']) ?? $t));
+            $somar = min(15 * $batimentos, $desde);
             $sets[] = 'ativo_s = ativo_s + ?';
-            $params[] = min(15 * $batimentos, $desde);
+            $params[] = $somar;
             $sets[] = 'ultimo = ?';
             $params[] = $agora;
             if ($jogando) {
                 $sets[] = 'jogando_ate = ?';
                 $params[] = dt($t + 45);
             }
+            // passou de mais um minuto jogado nesta sessão: a indicação pendente (que pede tempo de jogo) é conferida
+            $cruzouMinuto = $uid !== null && $somar > 0 && intdiv((int) $v['ativo_s'], 60) !== intdiv((int) $v['ativo_s'] + $somar, 60);
         }
         if ($uid !== null && $v['usuario_id'] === null) {
             $sets[] = 'usuario_id = ?';
@@ -188,30 +279,36 @@ $uid = $usuario !== null ? (int) $usuario['id'] : null;
             sql('UPDATE visitas SET ' . implode(', ', $sets) . ' WHERE sid = ?', $params);
         }
     }
+    // partida com a conta: conferida antes de gravar a leva, somada na mesma transação (nada se perde no meio)
+    $contou = $uid !== null && $essenciais ? partidaPareada($vid, $essenciais, $t) : null;
+    if ($contou !== null) {
+        sql('UPDATE usuarios SET partidas_conta = partidas_conta + 1 WHERE id = ?', [$uid]);
+    }
     if ($linhas) {
         $marcas = [];
         $params = [];
-        foreach ($linhas as [$tipo, $modo, $dados]) {
-            $marcas[] = '(?, ?, ?, ?, ?, ?)';
-            array_push($params, $sid, $vid, $tipo, $modo, $dados, $agora);
+        $fins = 0;
+        foreach ($linhas as [$tipo, $modo, $dados, $nota]) {
+            $marcas[] = '(?, ?, ?, ?, ?, ?, ?)';
+            array_push($params, $sid, $vid, $tipo, $modo, $dados, $nota, $agora);
+            if ($tipo === 'partida_fim' || ($tipo === 'jogo_fim' && ($modo === 'classico' || $modo === 'imersivo'))) {
+                $fins++;
+            }
         }
-        sql('INSERT INTO eventos (sid, vid, tipo, modo, dados, em) VALUES ' . implode(', ', $marcas), $params);
+        sql('INSERT INTO eventos (sid, vid, tipo, modo, dados, nota, em) VALUES ' . implode(', ', $marcas), $params);
+        if ($fins > 0) {
+            // partidas por aparelho (o funil "5 partidas" do painel)
+            sql('INSERT INTO partidas_vid (vid, n, atualizado_em) VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE n = n + VALUES(n), atualizado_em = VALUES(atualizado_em)', [$vid, $fins, $agora]);
+        }
     }
-    return [$linhas, $vid];
+    return [$linhas, $vid, $contou, $cruzouMinuto];
 });
 
-if ($uid !== null && $linhas) {
-    $partidas = 0;
-    $classico = false;
-    foreach ($linhas as [$tipo, $modo]) {
-        if ($tipo === 'partida_fim' || ($tipo === 'jogo_fim' && ($modo === 'classico' || $modo === 'imersivo'))) {
-            $partidas++;
-            $classico = $classico || ($tipo === 'jogo_fim' && $modo === 'classico');
-        }
-    }
-    if ($partidas > 0) {
-        registrarPartidas($uid, $partidas, $classico, $vidSessao);
-    }
+if ($uid !== null && $contou === 'classico') {
+    conferirIndicacao($uid, $vidSessao, true);
+} elseif ($uid !== null && $cruzouMinuto) {
+    conferirIndicacao($uid, null, false); // só faz algo se houver uma indicação pendente (um SELECT pela chave única)
 }
 
 limpezaTalvez();

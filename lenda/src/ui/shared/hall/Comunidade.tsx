@@ -14,7 +14,7 @@ import { ArrowRight, CloudOff, Crown, Globe, RefreshCw, Search, Shield, Users, X
 import { REAL_LEGENDS } from '@/engine/legacy'
 import { navigate } from '@/store/app'
 import { useData, useClub, useCountry } from '@/store/data'
-import type { CarreiraComunidade, FiltroHall, PaginasComunidade } from '@/store/comunidade'
+import { proximaVencida, type CarreiraComunidade, type FiltroHall, type PaginasComunidade } from '@/store/comunidade'
 import { Button, Crest, Eyebrow, Flag, OvrBadge, POSITION_LABEL, cx, formatInt } from '@/ui/primitives'
 import { CategoryGlyph, EntryAvatar, entryName } from './parts'
 import { buscarClubes, filtroAtivo, horaBr, type LinhaMista } from './filtros'
@@ -189,13 +189,15 @@ export function StatusComunidade({ pg, onRetry }: { pg: PaginasComunidade | unde
     )
   const a = horaBr(pg.atualizadoEm)
   const p = horaBr(pg.proximaEm)
+  // a hora da próxima já passou (o servidor está refazendo a fotografia agora): nada de "às 14:05" às 14:30
+  const vencida = proximaVencida(pg.proximaEm)
   return (
     <p className="hl-cstatus">
       <span className="hl-cstatus__dot" aria-hidden="true" />
       <span>
         Comunidade: <b className="num">{formatInt(pg.total)}</b> {pg.total === 1 ? 'carreira' : 'carreiras'}
         {a ? ` · Atualizado às ${a}` : ''}
-        {p ? ` · próxima atualização às ${p}` : ''}
+        {vencida ? ' · atualizando agora' : p ? ` · próxima atualização às ${p}` : ''}
       </span>
     </p>
   )

@@ -272,9 +272,15 @@ export function iniciarConquistas() {
     // a leitura do IndexedDB na abertura (init) não é conquista nova
     if (importando || s.achievements === p.achievements || s.isFixture || s.status !== 'ready' || p.status !== 'ready') return
     const u = useConta.getState().usuario
-    if (!u) return
+    if (!u && !useConta.getState().lembrado) return
     const novas = doAparelho(s.achievements).filter((c) => !p.achievements[c.id] || Date.parse(p.achievements[c.id].unlockedAt) > Date.parse(c.em))
     if (!novas.length) return
+    if (!u) {
+      // a conta ainda não respondeu (servidor lento), mas este aparelho já entrou: quando ela responder, a leitura da
+      // conta é feita na hora (sem a espera de 10 min) e sobe o que faltar lá
+      ls.set(CHAVE_LIDA, '')
+      return
+    }
     porNaFila(ls, u.id, novas)
     atualizarPendentes()
     agendar()

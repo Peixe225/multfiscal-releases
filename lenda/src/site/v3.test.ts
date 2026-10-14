@@ -12,7 +12,7 @@ import { CHAVE_FILA, doAparelho, lerFila, mesclarConquistas, normalizarConquista
 import { CHAVE_CONVITE, capturarConvite, codigoValido, conviteGuardado, esquecerConvite, linkConvite } from './indicacao'
 import { aindaVale, juntarPaginas, normalizarCarreiraPublica, normalizarPaginaHall, VALIDADE_MS } from './hallPublico'
 import { normalizarUsuario } from './conta'
-import type { Armazem } from './medicao'
+import { ENVIAR_JA, enviarAgora, type Armazem } from './medicao'
 
 const mem = (): Armazem & { dados: Map<string, string> } => {
   const dados = new Map<string, string>()
@@ -355,5 +355,19 @@ describe('reintentos com espera crescente', () => {
     expect(esperaReintento(10, 1000, 30_000, () => 0.5)).toBe(30_000)
     expect(esperaReintento(0, 1000, 30_000, () => 0)).toBe(750)
     expect(esperaReintento(0, 1000, 30_000, () => 1)).toBe(1250)
+  })
+})
+
+describe('medição: partidas terminadas vão logo para o servidor (bônus e indicação)', () => {
+  it('início e fim de partida saem sem esperar o envio de 10 s (o servidor pareia início e fim); o resto espera', () => {
+    expect(ENVIAR_JA.has('jogo_inicio')).toBe(true)
+    expect(ENVIAR_JA.has('jogo_fim')).toBe(true)
+    expect(ENVIAR_JA.has('partida_fim')).toBe(true)
+    for (const t of ['view', 'gate_ver', 'compartilhar', 'cadastro'] as const) expect(ENVIAR_JA.has(t)).toBe(false)
+  })
+  it('enviarAgora antes de iniciar a medição (fora do site) não espera nada', async () => {
+    const t0 = Date.now()
+    await enviarAgora()
+    expect(Date.now() - t0).toBeLessThan(50)
   })
 })

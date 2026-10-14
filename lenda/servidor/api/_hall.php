@@ -70,17 +70,16 @@ function refazerFoto(bool $forcar, int $esperaS, string $por = 'auto'): ?array
         $t0 = microtime(true);
         // 1) leitura sem trava de linha (leitura consistente): quem salva carreira agora não espera.
         $ordemC = 'c.' . str_replace(', ', ', c.', ORDEM_HALL);
-        $ordemS = 's.' . str_replace(', ', ', s.', ORDEM_HALL);
         $linhas = sql('SELECT t.id, t.usuario_id, t.carreira_id, t.apelido, t.jogador, t.numero, t.pais, t.posicao, t.nota,
                 t.pico_ovr, t.temporadas, t.gols, t.titulos, t.bolas_ouro, t.copas, t.headline, t.clubes, t.bonus_ovr, t.terminou_em
             FROM (
-                SELECT s.*, ROW_NUMBER() OVER (PARTITION BY s.carreira_id ORDER BY ' . $ordemS . ') AS rd
+                SELECT s.*, ROW_NUMBER() OVER (PARTITION BY s.carreira_id ORDER BY s.id ASC) AS rd
                 FROM (
                     SELECT c.id, c.usuario_id, c.carreira_id, u.apelido, c.jogador, c.numero, c.pais, c.posicao, c.nota,
                         c.pico_ovr, c.temporadas, c.gols, c.titulos, c.bolas_ouro, c.copas, c.headline, c.clubes, c.bonus_ovr,
                         c.terminou_em, ROW_NUMBER() OVER (PARTITION BY c.usuario_id ORDER BY ' . $ordemC . ') AS rn
                     FROM carreiras c JOIN usuarios u ON u.id = c.usuario_id
-                    WHERE ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . "
+                    WHERE ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . ' AND ' . sqlNaoECopia() . "
                       AND (u.hall_publico = 'auto' OR (u.hall_publico = 'manual' AND c.publica = 1))
                 ) s WHERE s.rn <= " . LENDA_HALL_POR_CONTA . '
             ) t WHERE t.rd = 1
@@ -137,14 +136,33 @@ function refazerFoto(bool $forcar, int $esperaS, string $por = 'auto'): ?array
     }
 }
 
-/** Tira da fotografia o que não pode mais estar lá (carreira apagada/oculta/suspeita, conta suspensa ou fora). */
+/**
+ * Tira da fotografia o que não pode mais estar lá: carreira apagada, oculta ou suspeita, conta suspensa ou fora do
+ * Hall, carreira desmarcada no "Eu escolho" e, com o Imersivo fechado ao público, as do Imersivo.
+ */
 function limparFotoMudancas(): void
 {
+    $modo = siteConfig()['imersivo_publico'] ? '' : " OR c.modo <> 'classico'";
     $ids = sql('SELECT f.id FROM hall_foto f LEFT JOIN carreiras c ON c.id = f.carreira_pk LEFT JOIN usuarios u ON u.id = f.usuario_id
         WHERE c.id IS NULL OR u.id IS NULL OR c.oculta <> 0 OR c.suspeita IS NOT NULL OR u.hall_publico = \'nao\'
+           OR (u.hall_publico = \'manual\' AND c.publica = 0)' . $modo . '
            OR NOT ' . LENDA_SQL_ATIVO)->fetchAll(PDO::FETCH_COLUMN);
     if ($ids) {
         tirarDoHallIds(array_map('intval', $ids));
+    }
+}
+
+/** Tira da fotografia na hora as carreiras da conta que não estão em $manter (carreiras.id): o modo do Hall mudou. */
+function tirarDoHallForaDe(int $uid, array $manter): void
+{
+    $ids = [];
+    foreach (sql('SELECT id, carreira_pk FROM hall_foto WHERE usuario_id = ?', [$uid]) as $l) {
+        if (!in_array((int) $l['carreira_pk'], $manter, true)) {
+            $ids[] = (int) $l['id'];
+        }
+    }
+    if ($ids) {
+        tirarDoHallIds($ids);
     }
 }
 

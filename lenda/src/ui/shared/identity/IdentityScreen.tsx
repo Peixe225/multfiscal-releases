@@ -10,7 +10,7 @@ import { ArrowLeft, ArrowRight, Check, Minus, Plus, RotateCcw, Save, Sparkles, X
 import type { Pace, PlayerIdentity } from '@/engine/types'
 import { navigate, useApp } from '@/store/app'
 import { randomSeed, selectHasActiveCareer, useCareer } from '@/store/career'
-import { useBonusCarreira } from '@/store/bonusCarreira'
+import { FalhaBonus, useBonusCarreira } from '@/store/bonusCarreira'
 import { selectHasImmersiveCareer, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
 import { Button, Flag, FootIcon, Glass, IconButton, Modal, OvrBadge, POSITION_LABEL, Segmented, Switch, Tooltip, cx, toast, useMediaQuery, useReducedMotion } from '@/ui/primitives'
@@ -82,6 +82,8 @@ export default function IdentityScreen() {
   }, [immersive, carregarBonus])
   const bonus = oferta && usarBonus ? oferta.valor : 0
   const [comecando, setComecando] = useState(false)
+  // o "usar" do bônus ficou sem resposta: a carreira espera o jogador decidir (a semente fica, para repetir igual)
+  const [falhaBonus, setFalhaBonus] = useState<{ seed: string; valor: number } | null>(null)
   const busy = (immersive ? immBusy : classicBusy) || comecando
   const hasClassic = useCareer(selectHasActiveCareer)
   const hasImmersive = useImmersive(selectHasImmersiveCareer)
@@ -179,18 +181,64 @@ export default function IdentityScreen() {
       let bonusOvr = 0
       const b = useBonusCarreira.getState()
       if (b.oferta && b.usar && b.consumir) {
-        setComecando(true)
-        try {
-          bonusOvr = await b.consumir(`career-${seed}`)
-        } catch {
-          toast.info('O bônus fica para a próxima', 'Sem conexão com o servidor agora: esta carreira começa sem ele, e ele continua guardado na sua conta.')
-        } finally {
-          setComecando(false)
-        }
+        const r = await confirmarBonus(seed)
+        if (r === null) return // a tela pergunta o que fazer (ou a sessão caiu e o aviso já saiu)
+        bonusOvr = r
       }
-      await useCareer.getState().start(identity, pace, { seed, bonusOvr })
-      if (bonusOvr) toast.gold(`+${bonusOvr} de OVR nesta carreira!`, `Você começa com OVR ${START_OVR + bonusOvr} e fica ${bonusOvr} acima do normal até a aposentadoria.`)
-      navigate('/carreira', { replace: true })
+      await comecarClassico(seed, bonusOvr)
+    } catch (err) {
+      console.error(err)
+      toast.error('Não foi possível começar a carreira', 'Tente de novo em instantes.')
+    }
+  }
+  /** Começa a carreira do Clássico com o bônus já decidido. */
+  const comecarClassico = async (seed: string, bonusOvr: number) => {
+    if (!identity) return
+    await useCareer.getState().start(identity, pace, { seed, bonusOvr })
+    if (bonusOvr) toast.gold(`+${bonusOvr} de OVR nesta carreira!`, `Você começa com OVR ${START_OVR + bonusOvr} e fica ${bonusOvr} acima do normal até a aposentadoria.`)
+    navigate('/carreira', { replace: true })
+  }
+  /**
+   * Marca o bônus no servidor nesta carreira e devolve o valor. null = não começar agora: sem resposta (o servidor
+   * pode ter marcado; a tela pergunta, e "Tentar de novo" repete com a mesma carreira) ou a sessão caiu.
+   */
+  const confirmarBonus = async (seed: string): Promise<number | null> => {
+    const consumir = useBonusCarreira.getState().consumir
+    if (!consumir) return 0
+    setComecando(true)
+    try {
+      return await consumir(`career-${seed}`)
+    } catch (err) {
+      if (err instanceof FalhaBonus && err.tipo === 'rede') {
+        setFalhaBonus({ seed, valor: useBonusCarreira.getState().oferta?.valor ?? 0 })
+        return null
+      }
+      if (err instanceof FalhaBonus && err.tipo === 'sessao') return null
+      // recusado antes de usar (limite de pedidos, por exemplo): nada foi gasto
+      toast.info('O bônus fica para a próxima', 'Não deu para usar o bônus agora: esta carreira começa sem ele, e ele continua guardado na sua conta.')
+      return 0
+    } finally {
+      setComecando(false)
+    }
+  }
+  const tentarBonusDeNovo = async () => {
+    const f = falhaBonus
+    if (!f) return
+    setFalhaBonus(null)
+    try {
+      const r = await confirmarBonus(f.seed)
+      if (r !== null) await comecarClassico(f.seed, r)
+    } catch (err) {
+      console.error(err)
+      toast.error('Não foi possível começar a carreira', 'Tente de novo em instantes.')
+    }
+  }
+  const comecarSemBonus = async () => {
+    setFalhaBonus(null)
+    try {
+      // outra semente: a carreira de antes pode ter ficado com o bônus marcado no servidor
+      await comecarClassico(randomSeed(), 0)
+      toast.info('Carreira sem o bônus', 'Se o bônus sumir da sua conta sem ter sido usado, fale com o suporte: contato@oprojeto.online.')
     } catch (err) {
       console.error(err)
       toast.error('Não foi possível começar a carreira', 'Tente de novo em instantes.')
@@ -430,6 +478,26 @@ export default function IdentityScreen() {
     </div>
   )
 
+  const bonusModal = (
+    <Modal
+      open={!!falhaBonus}
+      onClose={() => setFalhaBonus(null)}
+      size="sm"
+      title="Não deu para confirmar o bônus"
+      description={`A conexão caiu antes de o servidor confirmar o bônus de +${falhaBonus?.valor ?? 0} de OVR. Tente de novo para usar o bônus nesta carreira.`}
+      footer={
+        <div className="flex gap-2 justify-end flex-wrap w-full">
+          <Button variant="ghost" size="md" onClick={() => void comecarSemBonus()}>
+            Começar sem bônus
+          </Button>
+          <Button variant="primary" size="md" iconRight={RotateCcw} loading={busy} onClick={() => void tentarBonusDeNovo()}>
+            Tentar de novo
+          </Button>
+        </div>
+      }
+    />
+  )
+
   const replaceModal = (
     <Modal
       open={confirmReplace}
@@ -511,7 +579,7 @@ export default function IdentityScreen() {
             </Button>
             {last ? (
               <Button variant="primary" size="lg" pill iconRight={ArrowRight} loading={busy} aria-disabled={!identity} className={cx(!identity && 'opacity-60')} onClick={confirm}>
-                Confirmar
+                {comecando ? 'Confirmando bônus…' : 'Confirmar'}
               </Button>
             ) : (
               <Button
@@ -536,6 +604,7 @@ export default function IdentityScreen() {
           </div>
         </div>
         {replaceModal}
+        {bonusModal}
       </main>
     )
   }
@@ -557,10 +626,11 @@ export default function IdentityScreen() {
         </Button>
         {summary}
         <Button variant="primary" size="lg" iconRight={ArrowRight} loading={busy} aria-disabled={!identity} className={cx(!identity && 'opacity-60')} onClick={confirm}>
-          Confirmar identidade
+          {comecando ? 'Confirmando bônus…' : 'Confirmar identidade'}
         </Button>
       </Glass>
       {replaceModal}
+      {bonusModal}
     </main>
   )
 }

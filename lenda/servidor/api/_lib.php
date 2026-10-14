@@ -182,6 +182,10 @@ function config(): array
             'ip_cabecalho' => '',
             'ip_proxies' => [],
             'limpeza_a_cada' => 100,
+            // carreira com nota a partir disto espera a revisão do admin para entrar no Hall público (101 = desligado)
+            'hall_revisao_nota' => 90,
+            // a resposta completa do painel.php fica guardada por isto (s); 0 = sempre recalcula
+            'painel_cache_s' => 90,
         ];
         $v['regras'] = (is_array($v['regras'] ?? null) ? $v['regras'] : []) + $padrao['regras'];
         $c = $v + $padrao;
@@ -499,14 +503,26 @@ function quemEmail(string $email): string
  * com $janelaS = 86400 ela é o começo do dia (UTC). Chaves de janela diária começam com "dia-" (a limpeza
  * curta as poupa).
  */
-function somarLimite(string $acao, string $quem, int $n = 1, int $janelaS = LENDA_JANELA_S): int
+/** [chave, janela] da tabela tentativas para ($acao, $quem) na janela de agora. */
+function chaveLimite(string $acao, string $quem, int $janelaS = LENDA_JANELA_S): array
 {
     $janelaS = max(LENDA_JANELA_S, $janelaS);
     if ($janelaS > LENDA_JANELA_S && !str_starts_with($acao, 'dia-')) {
         $acao = 'dia-' . $acao;
     }
-    $chave = substr($acao . ':' . $quem, 0, 100);
-    $janela = intdiv(time(), $janelaS) * intdiv($janelaS, LENDA_JANELA_S);
+    return [substr($acao . ':' . $quem, 0, 100), intdiv(time(), $janelaS) * intdiv($janelaS, LENDA_JANELA_S)];
+}
+
+/** Quanto ($acao, $quem) já somou na janela de agora (sem somar nada). */
+function lerLimite(string $acao, string $quem, int $janelaS = LENDA_JANELA_S): int
+{
+    [$chave, $janela] = chaveLimite($acao, $quem, $janelaS);
+    return (int) umValor('SELECT n FROM tentativas WHERE chave = ? AND janela = ?', [$chave, $janela]);
+}
+
+function somarLimite(string $acao, string $quem, int $n = 1, int $janelaS = LENDA_JANELA_S): int
+{
+    [$chave, $janela] = chaveLimite($acao, $quem, $janelaS);
     sql('INSERT INTO tentativas (chave, janela, n) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE n = n + VALUES(n)',
         [$chave, $janela, $n]);
     // Uma vez por janela de 10 min (o primeiro pedido dela), mesmo com pouco tráfego: a política promete ~20 min.
@@ -907,9 +923,29 @@ function erroCom(int $status, string $codigo, string $mensagem, array $extra): n
 
 // ── filtro de palavrões, ofensas e nomes reservados ──────────────────────────────────────────────
 
-/** Minúsculo, sem acento, leetspeak simples desfeito, só letras a-z separadas por um espaço. */
+/**
+ * Minúsculo, sem acento, leetspeak simples desfeito, só letras a-z separadas por um espaço. Antes de tudo, letra
+ * "disfarçada" vira a-z: largura total ("ｐｕｔａ"), versalete ("ᴘᴜᴛᴀ"), ø, ı, ʀ e outras de outros alfabetos
+ * (Transliterator do intl; sem ele, ao menos a forma de compatibilidade NFKC). Sem isso elas virariam espaço e a
+ * palavra sumiria da comparação.
+ */
 function normalizarFiltro(string $s): string
 {
+    static $tr = false;
+    if ($tr === false) {
+        $tr = class_exists('Transliterator') ? (Transliterator::create('Any-Latin; Latin-ASCII; Lower()') ?: null) : null;
+    }
+    if ($tr instanceof Transliterator) {
+        $t = $tr->transliterate($s);
+        if (is_string($t)) {
+            $s = $t;
+        }
+    } elseif (class_exists('Normalizer')) {
+        $k = Normalizer::normalize($s, Normalizer::FORM_KC);
+        if (is_string($k)) {
+            $s = $k;
+        }
+    }
     $s = mb_strtolower($s, 'UTF-8');
     if (class_exists('Normalizer')) {
         $d = Normalizer::normalize($s, Normalizer::FORM_D);
@@ -955,13 +991,18 @@ function textoProibido(string $s, bool $reservados = true): ?string
                 $listas[$k][$p] = juntarRepetidas($p);
             }
         }
+        // os reservados também comparados com "l" virando "i" dos dois lados ("ADMlN", "Oflcial")
+        foreach (['reservadas_inteiras', 'reservadas_coladas'] as $k) {
+            $listas[$k . '_li'] = [];
+            foreach ($listas[$k] as $p => $v) {
+                $listas[$k . '_li'][strtr((string) $p, 'l', 'i')] = is_string($v) ? strtr($v, 'l', 'i') : true;
+            }
+        }
     }
     $n = normalizarFiltro($s);
     if ($n === '') {
         return null;
     }
-    $colado = str_replace(' ', '', $n);
-    $coladoJ = juntarRepetidas($colado);
     $inteira = static function (string $t, array $lista): bool {
         foreach ([$t, juntarRepetidas($t)] as $x) {
             if (isset($lista[$x]) || (strlen($x) >= 3 && str_ends_with($x, 's') && isset($lista[substr($x, 0, -1)]))) {
@@ -970,18 +1011,22 @@ function textoProibido(string $s, bool $reservados = true): ?string
         }
         return false;
     };
-    $grupos = [['inteiras', 'coladas', 'palavrao']];
+    $grupos = [['inteiras', 'coladas', 'palavrao', $n]];
     if ($reservados) {
-        $grupos[] = ['reservadas_inteiras', 'reservadas_coladas', 'reservado'];
+        $grupos[] = ['reservadas_inteiras', 'reservadas_coladas', 'reservado', $n];
+        // "l" minúsculo no lugar do "I" maiúsculo ("ADMlN"): compara com l → i no texto e na lista
+        $grupos[] = ['reservadas_inteiras_li', 'reservadas_coladas_li', 'reservado', strtr($n, 'l', 'i')];
     }
-    foreach ($grupos as [$ki, $kc, $motivo]) {
-        foreach (array_merge(explode(' ', $n), [$colado]) as $t) {
+    foreach ($grupos as [$ki, $kc, $motivo, $v]) {
+        $colado = str_replace(' ', '', $v);
+        $coladoJ = juntarRepetidas($colado);
+        foreach (array_merge(explode(' ', $v), [$colado]) as $t) {
             if ($inteira($t, $listas[$ki])) {
                 return $motivo;
             }
         }
         foreach ($listas[$kc] as $c => $cj) {
-            if (str_contains($colado, $c) || str_contains($coladoJ, $cj)) {
+            if (str_contains($colado, (string) $c) || str_contains($coladoJ, $cj)) {
                 return $motivo;
             }
         }
@@ -989,16 +1034,39 @@ function textoProibido(string $s, bool $reservados = true): ?string
     return null;
 }
 
+/** Composto (NFC): "e" + acento solto vira "é" (o que as regras de letras abaixo esperam). */
+function nfc(string $s): string
+{
+    if (class_exists('Normalizer')) {
+        $c = Normalizer::normalize($s, Normalizer::FORM_C);
+        if (is_string($c)) {
+            return $c;
+        }
+    }
+    return $s;
+}
+
 /**
- * Apelido: 2 a 20 caracteres, letras latinas (com acento), números, espaço, _ . -; sem espaço nas pontas nem
- * duplo; sem palavrão/ofensa e (com $reservados) sem nome reservado. Só letras latinas: letra de outro alfabeto
- * que parece latina ("а" cirílico) passaria pelo filtro.
+ * Nome de jogador (sobrenome do HallEntry) que dá para mostrar no Hall: só letras latinas que o filtro entende
+ * (A-Z, À-ÿ e o Latim Estendido-A, "Ł", "Ž"…), espaço, ' . e -. Letra de outro alfabeto ou "disfarçada" (ɑ, р
+ * cirílico) passaria pelo filtro de palavrões.
+ */
+function nomeJogadorSeguro(string $s): bool
+{
+    return preg_match("/^[A-Za-zÀ-ÖØ-öø-ſ' .\\-]*$/u", nfc($s)) === 1;
+}
+
+/**
+ * Apelido: 2 a 20 caracteres, letras do português/espanhol (A-Z e À-ÿ, já compostas: NFC), algarismos 0-9,
+ * espaço, _ . -; sem espaço nas pontas nem duplo; sem palavrão/ofensa e (com $reservados) sem nome reservado.
+ * Letra de outro alfabeto que parece latina ("а" cirílico) ou "disfarçada" (ｐ de largura total, ᴘ versalete,
+ * ɑ) passaria pelo filtro.
  */
 function lerApelido(mixed $v, bool $reservados = true): string
 {
-    $a = is_string($v) ? trim($v) : '';
+    $a = is_string($v) ? nfc(trim($v)) : '';
     $n = mb_strlen($a, 'UTF-8');
-    if ($n < 2 || $n > 20 || !preg_match('/^[\p{Latin}\p{M}\p{N}_.\- ]+$/u', $a) || preg_match('/\s{2,}/u', $a)) {
+    if ($n < 2 || $n > 20 || !preg_match('/^[A-Za-zÀ-ÖØ-öø-ÿ0-9_.\- ]+$/u', $a) || preg_match('/\s{2,}/u', $a)) {
         erro(400, 'apelido_invalido', 'O apelido precisa ter de 2 a 20 caracteres: letras, números, espaço, _ . ou -.');
     }
     if (textoProibido($a, $reservados) !== null) {

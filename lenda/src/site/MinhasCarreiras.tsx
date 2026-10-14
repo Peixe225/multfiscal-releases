@@ -125,7 +125,11 @@ function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: 
       // "eu escolho" vindo do automático: o servidor já marca as 3 que estavam no Hall (nada some de surpresa)
       await useConta.getState().perfil({ hallPublico: m })
       void useCarreiras.getState().carregar(true).catch(() => {})
-      toast.success(m === 'auto' ? 'As 3 melhores vão para o Hall sozinhas' : m === 'manual' ? 'Você escolhe quais vão para o Hall' : 'Nenhuma carreira sua no Hall público', 'O Hall da comunidade é atualizado a cada 1–3 h.')
+      // sair do Hall é na hora no servidor (quem já abriu o Hall guarda a página por até 5 min); entrar, na próxima foto
+      toast.success(
+        m === 'auto' ? 'As 3 melhores vão para o Hall sozinhas' : m === 'manual' ? 'Você escolhe quais vão para o Hall' : 'Nenhuma carreira sua no Hall público',
+        m === 'nao' ? 'Elas saem do Hall da comunidade em poucos minutos.' : 'O Hall da comunidade é atualizado a cada 1–3 h.',
+      )
     } catch (err) {
       toast.error('Não deu para mudar', mensagemDeErro(err))
     } finally {
@@ -142,7 +146,7 @@ function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: 
     try {
       // no automático, mexer em uma passa para "eu escolho" mantendo as outras que estavam no Hall (o servidor faz)
       await useCarreiras.getState().publicar(c.id, sim)
-      toast.success(sim ? `${c.jogador} vai para o Hall público` : `${c.jogador} saiu do Hall público`, 'Aparece (ou some) na próxima atualização do Hall, em até 3 h.')
+      toast.success(sim ? `${c.jogador} vai para o Hall público` : `${c.jogador} saiu do Hall público`, sim ? 'Aparece na próxima atualização do Hall, em até 3 h.' : 'Sai do Hall da comunidade em poucos minutos.')
     } catch (err) {
       toast.error('Não deu para mudar o Hall público', codigoDeErro(err) === 'cheio' || codigoDeErro(err) === 'limite_hall' ? `Até ${HALL_PUBLICO_MAX} carreiras no Hall público. Tire uma para pôr outra.` : mensagemDeErro(err))
     }

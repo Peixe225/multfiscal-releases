@@ -3,12 +3,13 @@
  * LENDA · indicações e bônus de OVR (CONTRATO-v3 §6). Usado por conta.php (cadastro com convite, partidas),
  * e.php (partida terminada), bonus.php e admin.php. Nunca é servido (o .htaccess nega _*.php).
  *
- * - Cada partida terminada com a conta ligada (jogo_fim do Clássico/Imersivo ou partida_fim) soma 1 em
- *   usuarios.partidas_conta. Os bônus de indicar e de compartilhar só valem (liberado) depois de
- *   bonus.liberaAposPartidas partidas assim.
- * - Indicação: nasce 'pendente' no cadastro com código; vale ('valida') quando o indicado termina a 1ª partida
- *   do Clássico depois do cadastro. Ao validar, o bônus do indicador (+2, +3, +5…) é criado na hora; ele só fica
- *   disponível quando o indicador estiver liberado ("guardado" até lá).
+ * - Cada partida terminada com a conta ligada que o e.php aceita como de verdade (jogo_fim pareado com um
+ *   jogo_inicio do mesmo aparelho pelo menos 20 s antes — ver e.php) soma 1 em usuarios.partidas_conta. Os bônus de
+ *   indicar e de compartilhar só valem (liberado) depois de bonus.liberaAposPartidas partidas assim.
+ * - Indicação: nasce 'pendente' no cadastro com código; vale ('valida') quando o indicado termina uma partida do
+ *   Clássico que conta, depois do cadastro, num aparelho que não é do indicador, e já jogou pelo menos 3 min no site
+ *   (soma de ativo_s). Ao validar, o bônus do indicador (+2, +3, +5…) é criado na hora; ele só fica disponível quando
+ *   o indicador estiver liberado ("guardado" até lá).
  * - Toda escrita de bônus de uma conta trava a linha dela em usuarios (FOR UPDATE): sem corrida entre pedidos.
  */
 declare(strict_types=1);
@@ -87,34 +88,45 @@ function registrarIndicacao(int $uid, ?string $codigo, ?string $vid): void
         [$iid, $uid, dt(time()), $motivo === null ? 'pendente' : 'recusada', $motivo]);
 }
 
+/** Tempo de jogo (soma de ativo_s das visitas) que o indicado precisa ter para a indicação valer. */
+const INDICADO_ATIVO_MIN_S = 180;
+
 /**
- * Valida a indicação pendente da conta $uid (o indicado), se houver. $porEvento = chamado pelo e.php logo depois
- * de gravar um jogo_fim do Clássico; senão confere nos eventos se já houve um depois do cadastro.
- * $vidAgora = aparelho do pedido (se for do indicador, recusa).
+ * Valida a indicação pendente da conta $uid (o indicado), se houver. $porEvento = chamado pelo e.php logo depois de
+ * contar uma partida do Clássico, com $vidPartida = o aparelho dela; senão (conta.php partidas, minuto a mais de jogo)
+ * precisa de uma partida contada (partidas_conta ≥ 1) e usa o aparelho do último jogo_fim do Clássico depois do
+ * cadastro. Ainda sem 3 min de jogo: continua pendente (vale numa próxima vez). Aparelho do indicador: recusa.
  */
-function conferirIndicacao(int $uid, ?string $vidAgora, bool $porEvento): void
+function conferirIndicacao(int $uid, ?string $vidPartida, bool $porEvento): void
 {
-    $ind = umaLinha("SELECT i.id, i.indicador_id, u.criado_em FROM indicacoes i JOIN usuarios u ON u.id = i.indicado_id
+    $ind = umaLinha("SELECT i.id, i.indicador_id, u.criado_em, u.partidas_conta FROM indicacoes i JOIN usuarios u ON u.id = i.indicado_id
         WHERE i.indicado_id = ? AND i.status = 'pendente'", [$uid]);
     if ($ind === null) {
         return;
     }
+    if ((int) umValor('SELECT COALESCE(SUM(ativo_s), 0) FROM visitas WHERE usuario_id = ?', [$uid]) < INDICADO_ATIVO_MIN_S) {
+        return;
+    }
     if (!$porEvento) {
-        $jogou = umValor("SELECT 1 FROM visitas v JOIN eventos e ON e.sid = v.sid
-            WHERE v.usuario_id = ? AND e.tipo = 'jogo_fim' AND e.modo = 'classico' AND e.em >= ? LIMIT 1", [$uid, $ind['criado_em']]);
-        if ($jogou === null) {
+        if ((int) $ind['partidas_conta'] < 1) {
+            return;
+        }
+        $vidPartida = umValor("SELECT e.vid FROM visitas v JOIN eventos e ON e.sid = v.sid
+            WHERE v.usuario_id = ? AND e.tipo = 'jogo_fim' AND e.modo = 'classico' AND e.em >= ? ORDER BY e.em DESC, e.id DESC LIMIT 1",
+            [$uid, $ind['criado_em']]);
+        if (!is_string($vidPartida)) {
             return;
         }
     }
     $iid = (int) $ind['indicador_id'];
     $id = (int) $ind['id'];
-    transacao(static function () use ($iid, $id, $vidAgora): void {
+    transacao(static function () use ($iid, $id, $vidPartida): void {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$iid]); // um bônus do indicador de cada vez
         if (umValor("SELECT status FROM indicacoes WHERE id = ? FOR UPDATE", [$id]) !== 'pendente') {
             return;
         }
         $t = dt(time());
-        if ($vidAgora !== null && aparelhoDaConta($vidAgora, $iid)) {
+        if ($vidPartida !== null && aparelhoDaConta($vidPartida, $iid)) {
             sql("UPDATE indicacoes SET status = 'recusada', motivo = 'mesmo_aparelho', validada_em = ? WHERE id = ?", [$t, $id]);
             return;
         }
@@ -128,31 +140,13 @@ function conferirIndicacao(int $uid, ?string $vidAgora, bool $porEvento): void
     });
 }
 
-/** e.php: $n partidas terminadas com a conta ligada; com um jogo_fim do Clássico, confere a indicação. */
-function registrarPartidas(int $uid, int $n, bool $classico, ?string $vid): void
-{
-    if ($n > 0) {
-        sql('UPDATE usuarios SET partidas_conta = partidas_conta + ? WHERE id = ?', [$n, $uid]);
-    }
-    if ($classico) {
-        conferirIndicacao($uid, $vid, true);
-    }
-}
-
 /**
- * conta.php partidas: acerta partidas_conta pelos eventos ligados à conta depois do cadastro (o maior entre o
- * contado e o que os eventos mostram) e confere a indicação pendente.
+ * conta.php partidas: confere a indicação pendente. As partidas desde o cadastro (partidas_conta) são só as que o
+ * e.php contou (pareadas): contar de novo pelos eventos deixaria um jogo_fim inventado liberar os bônus.
  */
 function acertarPartidasConta(array $u): void
 {
-    $uid = (int) $u['id'];
-    $n = (int) umValor("SELECT COUNT(*) FROM visitas v JOIN eventos e ON e.sid = v.sid
-        WHERE v.usuario_id = ? AND e.em >= ? AND e.tipo IN ('jogo_fim', 'partida_fim')
-          AND (e.tipo = 'partida_fim' OR e.modo IN ('classico', 'imersivo'))", [$uid, $u['criado_em']]);
-    if ($n > (int) ($u['partidas_conta'] ?? 0)) {
-        sql('UPDATE usuarios SET partidas_conta = GREATEST(partidas_conta, ?) WHERE id = ?', [$n, $uid]);
-    }
-    conferirIndicacao($uid, null, false);
+    conferirIndicacao((int) $u['id'], null, false);
 }
 
 /** bonus.php usar: o disponível mais antigo vai para a carreira; repetir com a mesma carreira devolve o mesmo. */

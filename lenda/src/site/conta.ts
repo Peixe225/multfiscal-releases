@@ -10,11 +10,11 @@
  * partida jogada no Imersivo (a Live não conta). Logado, o servidor guarda o maior número que já viu.
  */
 import { create } from 'zustand'
-import { api } from './api'
+import { api, esperaReintento, valeTentar } from './api'
 import { useAcesso } from '@/store/acesso'
 import { aplicarSite } from './acesso'
 import { conviteGuardado, esquecerConvite } from './indicacao'
-import { armazem, origemAtual, visitanteAtual, type Armazem } from './medicao'
+import { armazem, enviarAgora, origemAtual, visitanteAtual, type Armazem } from './medicao'
 
 export interface Estatisticas {
   partidas: number
@@ -199,6 +199,10 @@ function lembrado(): string | null {
   }
 }
 
+/** O GET conta.php falhou (servidor lento, sem rede) e este aparelho já entrou antes: tenta de novo sozinho. */
+let tentativaCarregar = 0
+let timerCarregar: ReturnType<typeof setTimeout> | 0 = 0
+
 export const useConta = create<ContaStore>()((set, get) => {
   const enviarPartidas = (n: number) => {
     if (!get().usuario || n <= 0) return
@@ -244,13 +248,24 @@ export const useConta = create<ContaStore>()((set, get) => {
         lembrar(u)
         set({ usuario: u, lembrado: u?.apelido ?? null, regras: normalizarRegras(r.regras), status: 'pronto' })
         if (u && get().partidas > u.estatisticas.partidas) enviarPartidas(get().partidas)
-        // já estava logado ao abrir (cookie de antes) ou entrou em outra aba: quem sincroniza fica sabendo
+        tentativaCarregar = 0
+        // já estava logado ao abrir (cookie de antes), entrou em outra aba ou a conta só respondeu agora: quem
+        // sincroniza (carreiras na fila, conquistas, bônus) fica sabendo
         if (u && antes?.id !== u.id) avisar(u, 'sessao')
-      } catch {
+      } catch (err) {
         // sem servidor: regras padrão e o que é só do admin fechado; quem já entrou neste aparelho segue
         // "lembrado" (sem convite)
         if (!useAcesso.getState().configPronta) aplicarSite(null)
         set({ regras: REGRAS_PADRAO, status: 'pronto' })
+        // quem já entrou neste aparelho pergunta de novo, com espera crescente (2 s, 4 s, 8 s… até 2 min, 6 vezes):
+        // sem isso a sessão inteira seguiria "sem conta" (nada salvo sozinho, conquistas e bônus parados)
+        if (valeTentar(err) && get().lembrado && !get().usuario && tentativaCarregar < 6 && typeof window !== 'undefined') {
+          if (timerCarregar) clearTimeout(timerCarregar)
+          timerCarregar = setTimeout(() => {
+            timerCarregar = 0
+            if (!get().usuario) void get().carregar()
+          }, esperaReintento(tentativaCarregar++, 2000, 120_000))
+        }
       }
     },
 
@@ -282,6 +297,9 @@ export const useConta = create<ContaStore>()((set, get) => {
       // quem indicou (link ?c= dos últimos 30 dias): o servidor confere e valida depois da 1ª partida
       const convite = conviteGuardado(ls)
       if (convite) corpo.convite = convite
+      // a partida que abriu o convite (ainda na fila da medição) vai antes, como do visitante: não conta como
+      // partida "com a conta" para liberar os bônus (CONTRATO-v3 §6)
+      await enviarAgora()
       const u = comUsuario(await api('conta.php', { corpo }))
       logou(u, 'cadastro')
       return u
@@ -291,6 +309,7 @@ export const useConta = create<ContaStore>()((set, get) => {
       const corpo: Record<string, unknown> = { acao: 'entrar', email: email.trim(), senha }
       const vid = visitanteAtual()
       if (vid) corpo.vid = vid
+      await enviarAgora()
       const u = comUsuario(await api('conta.php', { corpo }))
       logou(u, 'login')
       return u
@@ -319,6 +338,7 @@ export const useConta = create<ContaStore>()((set, get) => {
     },
 
     async redefinir(email, codigo, senha) {
+      await enviarAgora()
       const u = comUsuario(await api('conta.php', { corpo: { acao: 'redefinir', email: email.trim(), codigo: codigo.trim(), senha } }))
       logou(u, 'redefinir')
       return u

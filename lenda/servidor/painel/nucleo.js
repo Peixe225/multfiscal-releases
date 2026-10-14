@@ -97,7 +97,7 @@
     if (a < 86400 && !futuro) return 'há ' + Math.round(a / 3600) + ' h';
     if (a < 86400) { const h = Math.floor(a / 3600); const m = Math.round((a % 3600) / 60); return 'em ' + h + ' h' + (m ? ' ' + m + ' min' : ''); }
     if (!futuro && a < 2 * 86400) return 'ontem ' + LP.hora(iso);
-    return LP.dataHoraAno(iso);
+    return new Date(t).getUTCFullYear() === new Date().getUTCFullYear() ? LP.dataHora(iso) : LP.dataHoraAno(iso);
   };
   LP.hojeSp = () => new Date(Date.now() - FUSO_MS).toISOString().slice(0, 10);
   LP.diasAntes = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
@@ -113,7 +113,8 @@
   };
   LP.NOMES_SUSPEITA = {
     temporadas: 'temporadas', pico: 'pico de OVR', nota: 'nota', gols: 'gols demais', bolas: 'Bolas de Ouro demais',
-    titulos: 'títulos demais', idade: 'idade final', bonus: 'bônus sem registro', nome: 'nome proibido',
+    titulos: 'títulos demais', idade: 'idade final', bonus: 'bônus sem registro', nome: 'nome ou texto proibido',
+    copas: 'Copas do Mundo demais', dados: 'dados que não batem', copia: 'cópia de outra conta', revisao: 'nota alta: esperando revisão',
   };
   LP.NOMES_DENUNCIA = { nome: 'Nome ofensivo', trapaca: 'Trapaça', outro: 'Outro' };
   LP.NOMES_ORIGEM_BONUS = { indicacao: 'Indicação', compartilhar: 'Compartilhar', admin: 'Dado pelo admin' };
@@ -131,6 +132,8 @@
     atualizar_hall: 'Atualizou o Hall', resolver_denuncia: 'Resolveu denúncia', config: 'Mudou configurações', exportar: 'Exportou usuários',
   };
   LP.origem = (o) => LP.NOMES_ORIGEM[o] || o || '—';
+  /** Para tabelas: "Direto" no lugar de "Direto (link ou digitado)". */
+  LP.origemCurta = (o) => (o === 'direto' ? 'Direto' : LP.origem(o));
   LP.aparelho = (a) => LP.NOMES_APARELHO[a] || a || '—';
 
   /** Nomes de clubes, países, troféus, prêmios e conquistas (nomes.json, gerado dos dados do jogo). Falhou: mapas vazios. */
@@ -208,26 +211,26 @@
   };
   /** Ícone SVG (traço, 16px pelo CSS). */
   LP.icone = function (nome) {
-    const s = LP.svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+    const s = LP.svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', class: 'icone' });
     (ICONES[nome] || []).forEach((d) => s.appendChild(LP.svg('path', { d: d })));
     return s;
   };
   /** Botão com ícone opcional. tipo: '' | 'fantasma' | 'ouro' | 'perigo' | 'ok'; pequeno: true. */
   LP.botao = function (texto, aoClicar, opcoes) {
     const o = opcoes || {};
-    const cls = (o.tipo ? 'botao-' + o.tipo : 'botao') + (o.pequeno ? ' botao-pequeno' : '') + (o.classe ? ' ' + o.classe : '');
-    const b = h('button', { type: o.submit ? 'submit' : 'button', class: cls, title: o.title, 'aria-label': o.rotulo, disabled: o.disabled });
+    const cls = (o.tipo ? 'botao-' + o.tipo : 'botao') + (o.pequeno ? ' botao-pequeno' : '') + (o.compacto ? ' botao-compacto' : '') + (o.classe ? ' ' + o.classe : '');
+    const b = h('button', { type: o.submit ? 'submit' : 'button', class: cls, title: o.title || (o.compacto ? texto : undefined), 'aria-label': o.rotulo, disabled: o.disabled });
     if (o.icone) b.appendChild(LP.icone(o.icone));
-    if (texto) b.appendChild(h('span', null, texto));
+    if (texto) b.appendChild(h('span', { class: o.compacto ? 'rotulo-btn' : null }, texto));
     if (aoClicar) b.addEventListener('click', (ev) => { ev.stopPropagation(); aoClicar(ev, b); });
     return b;
   };
   /** Link para o jogo (outra aba). caminho: '#/live', '#/resumo?id=…'. */
   LP.linkJogo = function (texto, hash, opcoes) {
     const o = opcoes || {};
-    const a = h('a', { href: '../' + hash, target: '_blank', rel: 'noopener', class: (o.tipo ? 'botao-' + o.tipo : 'botao') + (o.pequeno ? ' botao-pequeno' : ''), title: o.title });
+    const a = h('a', { href: '../' + hash, target: '_blank', rel: 'noopener', class: (o.tipo ? 'botao-' + o.tipo : 'botao') + (o.pequeno ? ' botao-pequeno' : '') + (o.compacto ? ' botao-compacto' : ''), title: o.title || (o.compacto ? texto : undefined) });
     if (o.icone !== false) a.appendChild(LP.icone(o.icone || 'externo'));
-    a.appendChild(h('span', null, texto));
+    a.appendChild(h('span', { class: o.compacto ? 'rotulo-btn' : null }, texto));
     a.addEventListener('click', (ev) => ev.stopPropagation());
     return a;
   };
@@ -346,10 +349,17 @@
     }
     if (!r.ok) {
       const cod = json && typeof json.erro === 'string' ? json.erro : 'http_' + r.status;
-      const msg = json && typeof json.mensagem === 'string' && json.mensagem ? json.mensagem : mensagemPadrao(r.status);
+      // 404 sem o JSON da API = o arquivo da rota não está no servidor (painel novo com a api/ antiga)
+      const msg = json && typeof json.mensagem === 'string' && json.mensagem ? json.mensagem
+        : r.status === 404 ? 'Esta parte do servidor ainda não foi publicada: suba a pasta api/ nova e rode o instalar.php (veja o LEIAME).'
+          : mensagemPadrao(r.status);
       throw new ErroApi(r.status, cod, msg, json);
     }
-    return json && typeof json === 'object' ? json : {};
+    if (!json || typeof json !== 'object') {
+      // 200 sem JSON (página de erro da hospedagem, proxy, resposta cortada): erro, nunca "lista vazia"
+      throw new ErroApi(r.status, 'formato', 'O servidor respondeu algo inesperado. Tente de novo em instantes.');
+    }
+    return json;
   }
   LP.pedir = pedir;
   LP.painelGet = (qs, opcoes) => pedir(API_PAINEL + (qs || ''), opcoes);
@@ -709,9 +719,12 @@
   };
   /** Troca a query da aba atual sem remontar (substitui no histórico). */
   LP.trocarQuery = function (caminho, query) {
+    if (LP.rota().aba !== caminho) return; // resposta atrasada de uma aba que já foi trocada
     const novo = LP.hash(caminho, query);
     if (location.hash !== novo) history.replaceState(null, '', novo);
   };
+  /** O nó está na aba que aparece agora? (respostas atrasadas de outra aba não desenham nem mexem no título) */
+  LP.visivel = (no) => !!no && no.isConnected && !no.closest('.aba[hidden]');
   LP.usuarioHash = (id) => '#/usuario/' + encodeURIComponent(String(id));
   /** Link para o detalhe de um usuário (apelido). */
   LP.linkUsuario = function (u, extra) {

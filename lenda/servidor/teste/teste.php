@@ -277,6 +277,23 @@ function visita(string $sid): ?array
     return $l[0] ?? null;
 }
 
+/**
+ * Uma partida "de verdade" para o e.php: jogo_inicio numa sessão nova, os eventos do aparelho ficam 40 s mais velhos
+ * (o início fica 40 s antes do fim e um fim anterior sai da janela de 20 s) e o jogo_fim. $ativo = segundos de jogo
+ * da sessão (a indicação pede 3 min). Devolve o sid.
+ */
+function partidaReal(Navegador $n, string $vid, string $modo = 'classico', array $d = ['nota' => 60], ?string $sid = null, int $ativo = 0): string
+{
+    $sid ??= uuid4();
+    medir($n, $vid, $sid, [['t' => 'jogo_inicio', 'm' => $modo, 'd' => ['ritmo' => 'expressa']]], ctx());
+    if ($ativo > 0) {
+        q('UPDATE visitas SET ativo_s = ? WHERE sid = ?', [$ativo, $sid]); // tempo de jogo nesta sessão
+    }
+    q('UPDATE eventos SET em = em - INTERVAL 40 SECOND WHERE vid = ?', [$vid]);
+    medir($n, $vid, $sid, [['t' => 'jogo_fim', 'm' => $modo, 'd' => $d]]);
+    return $sid;
+}
+
 function conta(Navegador $n, array $corpo, array $opc = []): Resposta
 {
     return $n->pedir('POST', '/api/conta.php', $corpo, $opc);
@@ -421,10 +438,11 @@ $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . str_
 checar('token errado → 401', $r->status === 401, $r->resumo());
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Basic ' . base64_encode('x:' . $PAINEL_TOKEN)]);
 checar('Authorization que não é Bearer → 401', $r->status === 401, $r->resumo());
-$tabelasEsperadas = ['admin_log', 'bonus', 'carreiras', 'conquistas_usuario', 'denuncias', 'eventos', 'hall_foto', 'hall_foto_clubes',
-    'indicacoes', 'redefinicoes', 'sessoes_login', 'site_config', 'tentativas', 'usuarios', 'visitantes_usuarios', 'visitas'];
+$tabelasEsperadas = ['admin_log', 'bonus', 'carreiras', 'carreiras_moderacao', 'conquistas_usuario', 'denuncias', 'eventos', 'hall_foto',
+    'hall_foto_clubes', 'indicacoes', 'partidas_vid', 'redefinicoes', 'sessoes_login', 'site_config', 'tentativas', 'usuarios', 'visitantes_usuarios',
+    'visitas'];
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
-checar('com token → 200 e as 16 tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
+checar('com token → 200 e as 18 tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
 $r = $anon->pedir('GET', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('de novo (idempotente) → 200, nada a alterar', $r->status === 200 && ($r->json['ok'] ?? false) === true && ($r->json['alteracoes'] ?? null) === [], $r->resumo());
 q('ALTER TABLE eventos DROP INDEX ix_eventos_sid');
@@ -629,6 +647,11 @@ for ($i = 0; $i < 300; $i++) {
 $r = medir($anon, uuid4(), uuid4(), [['t' => 'view']], ctx());
 checar('300 sessões novas do mesmo IP em 10 min passam, a 301ª → 429', $ok204 === 300 && $r->status === 429 && $r->erro() === 'limite', "$ok204 / $r->status");
 checar('…e as sessões que já existem seguem aceitas', medir($anon, $vid, $sid, [['t' => 'hb', 'p' => 0]])->status === 204);
+$sNova = uuid4();
+$r = medir($anon, uuid4(), $sNova, [['t' => 'view'], ['t' => 'jogo_fim', 'm' => 'classico', 'd' => ['nota' => 30]]], ctx('https://www.tiktok.com/', 'mobile'));
+$evNova = q('SELECT tipo FROM eventos WHERE sid = ?', [$sNova]);
+checar('sessão nova acima do teto com fim de partida → 204: entra sem ctx e só com o evento da partida', $r->status === 204
+    && array_column($evNova, 'tipo') === ['jogo_fim'] && (visita($sNova)['origem'] ?? '') === 'direto', $r->resumo() . json_encode($evNova));
 resetarLimites();
 
 secao('e.php — tetos de linhas: 1.500 por IP a cada 10 min, 3.000 por sessão');
@@ -651,6 +674,18 @@ $r = medir($anon, uuid4(), $sHb, [['t' => 'hb', 'p' => 1, 'm' => 'classico'], ['
 checar('acima do teto do IP: 204, a linha sai, o batimento vale (ativo_s e jogando_ate)', $r->status === 204
     && (int) v('SELECT COUNT(*) FROM eventos') - $antesIp === 1500 && (int) visita($sHb)['ativo_s'] === $ativoAntes + 15 && visita($sHb)['jogando_ate'] !== null, $r->resumo());
 checar('o teto do IP soma só as linhas (os hb não contam): 1.601', (int) v("SELECT n FROM tentativas WHERE chave = ? AND janela = ?", ['e-ip:' . quemIpTeste('127.0.0.1'), intdiv(time(), 600)]) === 1601, (string) v("SELECT n FROM tentativas WHERE chave LIKE 'e-ip:%'"));
+$r = medir($anon, uuid4(), $sHb, [['t' => 'jogo_inicio', 'm' => 'classico'], ['t' => 'view'], ['t' => 'jogo_fim', 'm' => 'classico', 'd' => ['nota' => 51]],
+    ['t' => 'cadastro'], ['t' => 'login']]);
+checar('acima do teto do IP, início/fim de partida, cadastro e login continuam entrando (a view não)', $r->status === 204
+    && (int) v("SELECT COUNT(*) FROM eventos WHERE sid = ? AND tipo IN ('jogo_inicio', 'jogo_fim', 'cadastro', 'login')", [$sHb]) === 4
+    && (int) v("SELECT COUNT(*) FROM eventos WHERE sid = ? AND tipo = 'jogo_fim' AND nota = 51", [$sHb]) === 1, $r->resumo());
+$st = [];
+for ($i = 0; $i < 4; $i++) {
+    $st[] = medir($anon, uuid4(), $sHb, array_fill(0, 5, ['t' => 'jogo_fim', 'm' => 'classico']))->status;
+}
+checar('os essenciais têm teto próprio: 20 por sessão a cada 10 min (o resto sai em silêncio, 204)', $st === [204, 204, 204, 204]
+    && (int) v("SELECT COUNT(*) FROM eventos WHERE sid = ? AND tipo IN ('jogo_inicio', 'jogo_fim', 'partida_fim', 'cadastro', 'login')", [$sHb]) === 20,
+    (string) v("SELECT COUNT(*) FROM eventos WHERE sid = ? AND tipo IN ('jogo_inicio', 'jogo_fim', 'cadastro', 'login')", [$sHb]));
 resetarLimites();
 $sVida = uuid4();
 medir($anon, uuid4(), $sVida, [['t' => 'view']], ctx());
@@ -790,8 +825,13 @@ medir($nav1, $vid1, $sid1b, array_merge(
     [['t' => 'jogo_fim', 'm' => 'live', 'd' => ['nota' => 99]]]
 ));
 $r = $nav1->pedir('GET', '/api/conta.php');
-checar('partidas = maior entre o salvo (7) e os eventos (6 + 2, Live fora)', ($r->json['usuario']['estatisticas']['partidas'] ?? 0) === 8,
-    (string) ($r->json['usuario']['estatisticas']['partidas'] ?? ''));
+checar('fins sem início não contam como partida com a conta (continua o contador do aparelho, 7)', ($r->json['usuario']['estatisticas']['partidas'] ?? 0) === 7
+    && (int) v('SELECT partidas_conta FROM usuarios WHERE id = ?', [$uid]) === 0, (string) ($r->json['usuario']['estatisticas']['partidas'] ?? ''));
+q('UPDATE usuarios SET partidas_conta = 9 WHERE id = ?', [$uid]);
+$r = $nav1->pedir('GET', '/api/conta.php');
+checar('partidas = maior entre o contador do aparelho (7) e as contadas com a conta (9), sem contar os eventos da vida toda',
+    ($r->json['usuario']['estatisticas']['partidas'] ?? 0) === 9, (string) ($r->json['usuario']['estatisticas']['partidas'] ?? ''));
+q('UPDATE usuarios SET partidas_conta = 0 WHERE id = ?', [$uid]);
 $r = conta($nav1, ['acao' => 'perfil', 'timeCoracao' => '  Sport  Club do Recife ', 'uf' => 'sp', 'apelido' => 'Foguete Azul']);
 checar('perfil: time, UF e apelido', $r->status === 200 && ($r->json['usuario']['timeCoracao'] ?? '') === 'Sport Club do Recife'
     && ($r->json['usuario']['uf'] ?? '') === 'SP' && ($r->json['usuario']['apelido'] ?? '') === 'Foguete Azul', $r->resumo());
@@ -979,17 +1019,42 @@ checar('esqueci: 5 por e-mail no dia, o 6º dá 429 (mesmo com os limites de 10 
 checar('o teto diário fica numa chave dia-* com a janela do começo do dia', (int) v('SELECT n FROM tentativas WHERE chave = ? AND janela = ?',
     [substr('dia-esqueci-e:' . quemEmailTeste($EMAIL), 0, 100), intdiv(time(), 86400) * 144]) === 6);
 resetarLimites();
-encherLimite('esqueci-todos:todos', 40);
-$r1 = conta($anon, ['acao' => 'esqueci', 'email' => 'ninguem@exemplo.com']);
+q('DELETE FROM redefinicoes');
+$st = [];
+for ($i = 0; $i < 45; $i++) {
+    if ($i % 15 === 0) {
+        q("DELETE FROM tentativas WHERE chave LIKE 'esqueci:%'"); // o limite por IP (20) não é o que se testa aqui
+    }
+    $st[] = conta($anon, ['acao' => 'esqueci', 'email' => "inventado$i@exemplo.com"])->status;
+}
+$antes = emailsPara($EMAIL);
+$r = conta($anon, ['acao' => 'esqueci', 'email' => $EMAIL]);
+checar('esqueci: e-mails inventados não gastam o teto do site — 45 deles e o dono da conta ainda recebe o código', count(array_filter($st, static fn($x) => $x === 200)) === 45
+    && $r->status === 200 && (int) v("SELECT COALESCE(SUM(n), 0) FROM tentativas WHERE chave = 'esqueci-todos:todos'") === 1
+    && esperarEmailNovo($EMAIL, $antes) !== null, implode(',', array_unique($st)) . " / $r->status");
 resetarLimites();
+q('DELETE FROM redefinicoes');
 encherLimite('esqueci-todos:todos', 40);
+$antes = emailsPara($EMAIL);
+$r1 = conta($anon, ['acao' => 'esqueci', 'email' => 'ninguem@exemplo.com']);
 $r2 = conta($anon, ['acao' => 'esqueci', 'email' => $EMAIL]);
-checar('esqueci: 40 no site a cada 10 min, depois 429 (igual exista ou não a conta)', $r1->status === 429 && $r2->status === 429 && $r1->corpo === $r2->corpo, $r1->resumo());
+conta($anon, ['acao' => 'esqueci', 'email' => 'ninguem@exemplo.com']); // o php -S só atende este depois do anterior
+checar('esqueci: com o teto do site (40 e-mails a cada 10 min) estourado, 200 igual, sem mandar e sem código novo', $r1->status === 200 && $r2->status === 200
+    && $r1->corpo === $r2->corpo && count(emailsPara($EMAIL)) === count($antes) && (int) v('SELECT COUNT(*) FROM redefinicoes WHERE email = ?', [$EMAIL]) === 0,
+    $r1->resumo() . ' / ' . $r2->resumo());
 resetarLimites();
 encherLimite('dia-esqueci-todos:todos', 300, true);
+$antes = emailsPara($EMAIL);
 $r = conta($anon, ['acao' => 'esqueci', 'email' => $EMAIL]);
-checar('esqueci: 300 no site por dia, depois 429', $r->status === 429, $r->resumo());
+conta($anon, ['acao' => 'esqueci', 'email' => 'ninguem@exemplo.com']);
+checar('esqueci: com o teto do dia (300) estourado, 200 sem mandar', $r->status === 200 && count(emailsPara($EMAIL)) === count($antes), $r->resumo());
+$tetoEsq = json_decode((string) v("SELECT valor FROM site_config WHERE chave = '_esqueci_teto'"), true);
+checar('…e o painel fica sabendo quantos e-mails o teto segurou (resumo do admin: emailsBarrados)', (int) ($tetoEsq['n'] ?? 0) === 2
+    && preg_match($RE_ISO, (string) ($tetoEsq['em'] ?? '')) === 1, json_encode($tetoEsq));
+q("DELETE FROM site_config WHERE chave = '_esqueci_teto'");
 resetarLimites();
+q("DELETE FROM tentativas WHERE chave LIKE 'dia-esqueci%'");
+q('DELETE FROM redefinicoes');
 q('DELETE FROM redefinicoes');
 $st = [];
 for ($i = 0; $i < 15; $i++) {
@@ -1003,9 +1068,31 @@ $r = conta($anon, ['acao' => 'redefinir', 'email' => $EMAIL, 'codigo' => '123456
 checar('redefinir: 15 chutes por e-mail no dia, o 16º dá 429', count(array_filter($st, static fn($x) => $x === 400)) === 15 && $r->status === 429,
     implode(',', array_unique($st)) . " / $r->status");
 resetarLimites();
-encherLimite('cadastrar-todos:todos', 200);
-$r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'Pico', 'email' => 'pico@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
-checar('cadastrar: 200 no site a cada 10 min, o seguinte dá 429', $r->status === 429 && (int) v("SELECT COUNT(*) FROM usuarios WHERE email = 'pico@exemplo.com'") === 0, $r->resumo());
+encherLimite('cadastrar-todos:todos', 1499);
+$r = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'Pico Um', 'email' => 'pico1@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
+$r2 = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'Pico', 'email' => 'pico@exemplo.com', 'senha' => 'qualquer123', 'aceite' => true]);
+checar('cadastrar: 1.500 no site a cada 10 min (o pico de um vídeo), o seguinte dá 429', $r->status === 201 && $r2->status === 429
+    && (int) v("SELECT COUNT(*) FROM usuarios WHERE email = 'pico@exemplo.com'") === 0, $r->resumo() . ' / ' . $r2->resumo());
+q("DELETE FROM usuarios WHERE email = 'pico1@exemplo.com'");
+resetarLimites();
+$vidPico = uuid4();
+$st = [];
+for ($i = 0; $i < 6; $i++) {
+    $st[] = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => "Aparelho $i", 'email' => "aparelho$i@exemplo.com", 'senha' => 'qualquer123', 'aceite' => true,
+        'vid' => $vidPico])->status;
+}
+checar('cadastrar: 5 contas por aparelho (vid) a cada 10 min, a 6ª dá 429', $st === [201, 201, 201, 201, 201, 429], implode(',', $st));
+q("DELETE FROM usuarios WHERE email LIKE 'aparelho%@exemplo.com'");
+resetarLimites();
+// pedidos inválidos não gastam o teto do site (só o do IP): senão uns poucos IPs fechariam o cadastro de todo mundo
+$st = [];
+for ($i = 0; $i < 25; $i++) {
+    $st[] = conta(novoNav(), ['acao' => 'cadastrar', 'apelido' => 'x', 'email' => 'invalido', 'senha' => '1', 'aceite' => true])->status;
+}
+$noSite = (int) v("SELECT COALESCE(SUM(n), 0) FROM tentativas WHERE chave = 'cadastrar-todos:todos'");
+$noIp = (int) v("SELECT COALESCE(SUM(n), 0) FROM tentativas WHERE chave LIKE 'cadastrar:%'");
+checar('cadastrar: inválidos contam no limite do IP, não no teto do site', count(array_filter($st, static fn($x) => $x === 400)) === 25
+    && $noSite === 0 && $noIp === 25, implode(',', array_unique($st)) . " / site $noSite / ip $noIp");
 resetarLimites();
 
 secao('conta.php — recusas gerais');
@@ -1279,7 +1366,14 @@ checar('senha do painel: 10 por IP, a 11ª dá 429', count(array_filter($st, sta
 resetarLimites();
 encherLimite('painel-todos:todos', 50);
 $r = novoNav()->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $PAINEL_SENHA]);
-checar('senha do painel: 50 no site a cada 10 min, depois 429 (mesmo certa, de um IP novo)', $r->status === 429 && !isset($r->cookies['lenda_painel']), $r->resumo());
+checar('senha do painel: com 50 erradas no site, o dono (IP limpo, senha certa) entra mesmo assim', $r->status === 200 && isset($r->cookies['lenda_painel']), $r->resumo());
+$r = novoNav()->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => 'errada-de-novo']);
+$r2 = novoNav()->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $PAINEL_SENHA]);
+checar('…um IP que errou nesta janela, com o teto do site estourado, recebe 429 (mesmo com a senha certa)', $r->status === 401 && $r2->status === 429
+    && !isset($r2->cookies['lenda_painel']), $r->resumo() . ' / ' . $r2->resumo());
+resetarLimites();
+novoNav()->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $PAINEL_SENHA]);
+checar('o teto do site só soma as senhas erradas', (int) v("SELECT COALESCE(SUM(n), 0) FROM tentativas WHERE chave = 'painel-todos:todos'") === 0);
 resetarLimites();
 $expF = (string) (time() + 3600);
 $mexido->jar['lenda_painel'] = $expF . '.' . hash_hmac('sha256', 'painel|' . $expF, (string) getenv('LENDA_SEGREDO'));
@@ -1354,7 +1448,7 @@ checar('config de volta: o cookie de antes volta a valer e o da outra senha não
 resetarLimites();
 
 secao('painel.php — sem dados');
-foreach (['visitas', 'eventos', 'carreiras', 'sessoes_login', 'visitantes_usuarios', 'redefinicoes', 'usuarios', 'tentativas'] as $tab) {
+foreach (['visitas', 'eventos', 'partidas_vid', 'carreiras', 'sessoes_login', 'visitantes_usuarios', 'redefinicoes', 'usuarios', 'tentativas'] as $tab) {
     q("DELETE FROM $tab");
 }
 $r = $adm->pedir('GET', '/api/painel.php?de=2020-01-01&ate=2020-01-07');
@@ -1468,6 +1562,33 @@ $p = $r->json['periodo'] ?? [];
 checar('11 dias: E conta uma vez, a sessão velha entra, E vira novo', ($p['visitantes'] ?? -1) === 4 && ($p['sessoes'] ?? -1) === 6 && ($p['novos'] ?? -1) === 4, json_encode($p));
 $dia10 = array_values(array_filter($r->json['dias'] ?? [], static fn($d) => $d['sessoes'] > 0 && $d['dia'] !== $hoje));
 checar('a sessão velha cai no dia certo (fuso de Brasília)', count($dia10) === 1 && $dia10[0]['dia'] === gmdate('Y-m-d', time() - 10 * 86400 - 3 * 3600) && $dia10[0]['tempoMedioS'] === 77, json_encode($dia10));
+checar('funil "5 partidas" vem da soma por aparelho (partidas_vid): B com 6', (int) v('SELECT n FROM partidas_vid WHERE vid = ?', [$vB]) === 6
+    && (int) v('SELECT n FROM partidas_vid WHERE vid = ?', [$vA]) === 1);
+comConfig(['painel_cache_s' => 90], static function () use ($adm, $hoje, $vA, $sA): void {
+    q("DELETE FROM site_config WHERE chave LIKE '\\_painel:%'");
+    $r1 = $adm->pedir('GET', "/api/painel.php?de=$hoje&ate=$hoje");
+    medir(novoNav(), uuid4(), uuid4(), [['t' => 'view']], ctx('', 'desktop'));
+    $r2 = $adm->pedir('GET', "/api/painel.php?de=$hoje&ate=$hoje");
+    checar('painel com cache (90 s): a 2ª resposta é a guardada (mesmo geradoEm e visitantes), o "agora" é na hora',
+        $r1->status === 200 && $r2->status === 200 && ($r1->json['geradoEm'] ?? 1) === ($r2->json['geradoEm'] ?? 2)
+        && ($r1->json['periodo']['visitantes'] ?? -1) === ($r2->json['periodo']['visitantes'] ?? -2)
+        && ($r2->json['agora']['online'] ?? 0) === ($r1->json['agora']['online'] ?? 0) + 1, $r2->resumo());
+    $e = json_decode((string) v("SELECT valor FROM site_config WHERE chave = ?", ['_painel:' . $hoje . ':' . $hoje . ':0']), true);
+    $e['em'] = time() - 91;
+    q('UPDATE site_config SET valor = ? WHERE chave = ?', [json_encode($e), '_painel:' . $hoje . ':' . $hoje . ':0']);
+    $r3 = $adm->pedir('GET', "/api/painel.php?de=$hoje&ate=$hoje");
+    checar('…depois dos 90 s recalcula (o visitante novo aparece)', ($r3->json['periodo']['visitantes'] ?? 0) === ($r1->json['periodo']['visitantes'] ?? 0) + 1, $r3->resumo());
+    $nomeTrava = substr('lenda_painel:' . (string) v('SELECT DATABASE()'), 0, 64);
+    $e['em'] = time() - 91;
+    q('UPDATE site_config SET valor = ? WHERE chave = ?', [json_encode($e), '_painel:' . $hoje . ':' . $hoje . ':0']);
+    v('SELECT GET_LOCK(?, 0)', [$nomeTrava]);
+    $t0 = microtime(true);
+    $r4 = $adm->pedir('GET', "/api/painel.php?de=$hoje&ate=$hoje");
+    v('SELECT RELEASE_LOCK(?)', [$nomeTrava]);
+    checar('…com outro recalculando (trava presa), responde a guardada sem esperar', $r4->status === 200 && ($r4->json['geradoEm'] ?? '') === ($r1->json['geradoEm'] ?? 1)
+        && microtime(true) - $t0 < 2, $r4->resumo());
+    q("DELETE FROM site_config WHERE chave LIKE '\\_painel:%'");
+});
 // fuso: sessão às 01:30 UTC de hoje = 22:30 de ontem em Brasília
 $sF = uuid4();
 $ontemSp = gmdate('Y-m-d', strtotime("$hoje UTC") - 86400);
