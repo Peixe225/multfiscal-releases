@@ -48,6 +48,10 @@ A url e as duas chaves saem da API da Hostinger ("Generate upload URL" do site `
 
 O `.htaccess` da pasta (vem de `public/.htaccess`) troca a política de segurança (CSP) da raiz do domínio por uma própria: a da raiz só deixa o site falar com o próprio domínio e bloquearia a detecção de estado (ipwho.is, geojs) e o CEP (BrasilAPI, ViaCEP). Também deixa o HTML sem cache (quem abre no celular vê a versão nova na hora) e os arquivos de `assets/` em cache de 1 ano (têm o hash no nome).
 
+### Publicar com o conector da Hostinger (sessão nova)
+
+O roteiro completo, com as regras que nunca quebram, o ensaio, a conferência no ar e como voltar atrás, está em **PUBLICAR.md**.
+
 ### Publicar à mão (hPanel)
 
 Sem as chaves da API da Hostinger, dá pra publicar pelo gerenciador de arquivos. O pacote sai do build, com as mesmas regras do `publicar.mjs`:
