@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="same-origin">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d0f14">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
+<title>LENDA · Painel</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="painel.css?v=20261014">
+<script src="painel.js?v=20261014" defer></script>
+</head>
+<body>
+
+<!-- Tela de senha -->
+<main id="tela-entrar" class="entrar" hidden>
+  <form id="form-entrar" class="entrar-cartao" autocomplete="on">
+    <div class="marca"><span class="marca-nome">LENDA</span><span class="marca-sub">painel</span></div>
+    <h1>Números do jogo</h1>
+    <p class="texto-2">Só para o administrador.</p>
+    <label for="senha" class="rotulo">Senha</label>
+    <input id="senha" name="senha" type="password" autocomplete="current-password" required maxlength="256" autofocus>
+    <p id="erro-entrar" class="erro" role="alert" hidden></p>
+    <button type="submit" class="botao-principal" id="botao-entrar">Entrar</button>
+  </form>
+</main>
+
+<!-- Painel -->
+<div id="tela-painel" hidden>
+  <header class="topo">
+    <div class="marca"><span class="marca-nome">LENDA</span><span class="marca-sub">painel</span></div>
+    <button type="button" id="botao-sair" class="botao-fantasma">Sair</button>
+  </header>
+
+  <nav class="filtros" aria-label="Período">
+    <div class="segmentos" role="group" aria-label="Período">
+      <button type="button" data-periodo="hoje">Hoje</button>
+      <button type="button" data-periodo="7">7 dias</button>
+      <button type="button" data-periodo="30">30 dias</button>
+    </div>
+    <label class="caixa"><input type="checkbox" id="incluir-bots"> incluir robôs/testes</label>
+    <span id="atualizado" class="texto-3" aria-live="polite"></span>
+  </nav>
+
+  <main id="conteudo" class="conteudo">
+    <p id="aviso" class="aviso" role="status" hidden></p>
+
+    <section class="agora" aria-label="Agora">
+      <article class="cartao-grande">
+        <h2><span class="pulso" aria-hidden="true"></span>Online agora</h2>
+        <p class="numero-grande" id="online">0</p>
+        <p class="texto-3">abas abertas no último minuto · atualiza a cada 15 s</p>
+      </article>
+      <article class="cartao-grande">
+        <h2><span class="pulso pulso-azul" aria-hidden="true"></span>Jogando agora</h2>
+        <p class="numero-grande" id="jogando">0</p>
+        <p class="texto-3">com uma partida ou carreira em andamento</p>
+      </article>
+    </section>
+
+    <p id="sem-dados" class="sem-dados" hidden>Ainda sem visitas no período</p>
+
+    <section aria-labelledby="t-periodo">
+      <h2 class="titulo-secao" id="t-periodo">No período <span id="periodo-texto" class="texto-3"></span></h2>
+      <div class="ladrilhos" id="ladrilhos"></div>
+    </section>
+
+    <section class="cartao" aria-labelledby="t-dias">
+      <div class="cartao-cabeca">
+        <h2 id="t-dias">Por dia</h2>
+        <div class="legenda" aria-hidden="true">
+          <span><i class="chave chave-1"></i>Visitantes</span>
+          <span><i class="chave chave-2"></i>Jogaram</span>
+        </div>
+      </div>
+      <div class="grafico" id="grafico-dias"></div>
+      <details class="tabela-detalhe">
+        <summary>Ver tabela</summary>
+        <div class="rolagem"><table id="tabela-dias"></table></div>
+      </details>
+    </section>
+
+    <div class="duas-colunas">
+      <section class="cartao" aria-labelledby="t-funil">
+        <h2 id="t-funil">Funil</h2>
+        <p class="texto-3">Quantos seguem de uma etapa para a outra. "5 partidas" conta a vida toda de quem veio no período.</p>
+        <div id="funil" class="barras"></div>
+      </section>
+      <section class="cartao" aria-labelledby="t-origens">
+        <h2 id="t-origens">De onde vieram</h2>
+        <p class="texto-3">Sessões por origem (utm_source ou o site de onde clicou).</p>
+        <div id="origens" class="barras"></div>
+      </section>
+      <section class="cartao" aria-labelledby="t-disp">
+        <h2 id="t-disp">Aparelhos</h2>
+        <div id="dispositivos" class="barras"></div>
+      </section>
+      <section class="cartao" aria-labelledby="t-horas">
+        <h2 id="t-horas">Horários <span class="texto-3">(Brasília)</span></h2>
+        <div class="grafico grafico-baixo" id="grafico-horas"></div>
+      </section>
+    </div>
+
+    <section class="cartao" aria-labelledby="t-contas">
+      <h2 id="t-contas">Contas</h2>
+      <div class="ladrilhos ladrilhos-pequenos" id="ladrilhos-contas"></div>
+      <div class="duas-colunas duas-colunas-dentro">
+        <div>
+          <h3>Melhores carreiras salvas</h3>
+          <div class="rolagem"><table id="tabela-melhores" class="tabela"></table></div>
+        </div>
+        <div>
+          <h3>Últimos cadastros</h3>
+          <div class="rolagem"><table id="tabela-cadastros" class="tabela"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="rodape texto-3">
+      Horários em Brasília (UTC−3). Robôs e testes ficam de fora, a não ser que a caixa esteja marcada.
+      IP não é guardado. <a href="../privacidade.html">Política de privacidade</a>
+    </footer>
+  </main>
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+</div>
+
+<noscript><p class="sem-dados">O painel precisa de JavaScript.</p></noscript>
+</body>
+</html>

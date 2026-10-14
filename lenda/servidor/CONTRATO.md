@@ -50,9 +50,13 @@ retorna um array:
 - Corpo máximo: 16 KB (`e.php`, `conta.php`), 600 KB (`carreiras.php`). Acima: `413`.
 - Erros: `{"erro":"<codigo>","mensagem":"<texto pt-BR para mostrar>"}` com o status certo (400, 401, 403,
   404, 409, 413, 429, 500). Nunca vaza SQL, caminho ou pilha.
-- IP nunca é gravado. Para limite de tentativas: `hash_hmac('sha256', ip . date('Y-m-d'), segredo)`.
-- Limites (tabela `tentativas`, janela de 10 min): entrar 10/IP e 5/e-mail; cadastrar 5/IP; esqueci 3/e-mail
-  e 10/IP; redefinir 5/e-mail; `e.php` 240 eventos/sessão/10 min. Estourou: `429 {"erro":"limite"}`.
+- IP nunca é gravado. Para limite de tentativas: `hash_hmac('sha256', ip . date('Y-m-d'), segredo)` (IPv6: o /64).
+  Com `ip_cabecalho` na config, vale o último item válido do cabeçalho (e, com `ip_proxies`, só vindo deles).
+- Limites (tabela `tentativas`, janela de 10 min): entrar 10/IP e 5/e-mail; cadastrar 5/IP e 200 no site;
+  esqueci 3/e-mail, 10/IP, 40 no site, 5/e-mail/dia e 300 no site/dia; redefinir 5/e-mail e 15/e-mail/dia; login
+  do painel 10/IP e 50 no site; salvar carreira 2048 KB comprimidos/conta e 4096 KB/IP; `e.php` 240
+  eventos/sessão/10 min. Estourou: `429 {"erro":"limite"}`. Janelas encerradas de 10 min são apagadas na janela
+  seguinte; as diárias (chave `dia-*`), depois de 1 dia.
 
 ## Sessão de jogador
 
@@ -69,11 +73,11 @@ retorna um array:
 | `cadastrar` | `apelido, email, senha, aceite: true, vid?, origem?, timeCoracao?, uf?` | `201 {"usuario":U}` + cookie |
 | `entrar` | `email, senha, vid?` | `200 {"usuario":U}` + cookie |
 | `sair` | — | `200 {"ok":true}`, apaga a sessão e o cookie |
-| `esqueci` | `email` | `200 {"ok":true}` sempre (não revela se existe). Se existe: código de 6 dígitos, válido 30 min, `mail()` de `email_remetente` |
+| `esqueci` | `email` | `200 {"ok":true}` sempre (não revela se existe). Se existe: código de 6 dígitos, válido 30 min, `mail()` de `email_remetente` (com um código emitido há menos de 2 min, não manda outro) |
 | `redefinir` | `email, codigo, senha` | `200 {"usuario":U}` + cookie; derruba as outras sessões |
 | `perfil` | `apelido?, timeCoracao?, uf?` | `200 {"usuario":U}` |
 | `partidas` | `n` (contador do aparelho) | `200 {"ok":true}`; guarda o maior entre o salvo e `n` |
-| `excluir` | `senha` | `200 {"ok":true}`; apaga usuário, sessões e carreiras; tira o `usuario_id` das visitas (LGPD) |
+| `excluir` | `senha` | `200 {"ok":true}`; apaga usuário, sessões e carreiras; tira o `usuario_id` das visitas e troca o `vid` delas (e dos eventos) por um novo, um por aparelho (LGPD) |
 
 `GET /lenda/api/conta.php` → `200 {"usuario": U | null, "regras": {"aposPartidas":5,"obrigatorio":false,"lembrarACada":3}}`.
 
@@ -105,7 +109,8 @@ Cada carreira salva é um `HallEntry` inteiro do jogo (o mesmo objeto do Hall da
 - `GET ?id=<HallEntry.id>` → `200 {"carreira": HallEntry}`; outra conta ou inexistente: `404`.
 - `POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"}` → `200 {"carreira": C}`. Grava ou
   atualiza pelo par (usuário, `id`). Confere: objeto com `id` (texto até 64), `identity` e `summary`; JSON até
-  600 KB. Conta cheia: `409 {"erro":"cheio"}`. `como` só sobe de `auto` para `manual`, nunca o contrário.
+  600 KB (e até 128 KB já comprimido; acima: `413 grande`). Conta cheia (200 carreiras ou 20 MB de JSON):
+  `409 {"erro":"cheio"}`. `como` só sobe de `auto` para `manual`, nunca o contrário.
 - `POST {"acao":"apagar","id": "<HallEntry.id>"}` → `200 {"ok":true}`.
 
 ## `POST /lenda/api/e.php` — medição
@@ -126,7 +131,13 @@ Corpo (texto JSON, até 16 KB):
   `gate_fechar`, `cadastro`, `login`, `logout`, `compartilhar`. Outros tipos: ignorados.
 - `hb`: atualiza `visitas.ultimo = agora`, soma até 15 s em `ativo_s` (nunca mais que o tempo real desde o
   último batimento) e, com `p:1`, `jogando_ate = agora + 45 s`. Não vira linha em `eventos`.
-- Os outros tipos viram linha em `eventos` (`dados` = JSON de até 1 KB).
+- Os outros tipos viram linha em `eventos`. `dados` = só as chaves conhecidas do tipo, em JSON de até 256 bytes:
+  `view {rota}`, `jogo_inicio {ritmo}`, `jogo_fim {nota, temporadas, pico}`, `partida_fim {resultado, placar,
+  gols}`, `gate_ver {partidas, rota}`, `gate_fechar {partidas}`, `compartilhar {acao, rota}`. Texto até 64
+  caracteres; `nota`, `temporadas` e `pico` números finitos de -999 a 999 (decimal arredondado), os outros
+  números de 0 a 10^7; fora disso a chave sai.
+- Teto de linhas em `eventos`: 1.500 por IP a cada 10 min (os `hb` não contam) e 3.000 por sessão na vida toda
+  (`visitas.eventos`). O que passa é descartado em silêncio (continua `204`; os `hb` do envio continuam valendo).
 - Sessão com `bot:1`, `navigator.webdriver` ou User-Agent de robô (`bot|crawl|spider|preview|headless|
   facebookexternalhit|Slurp|curl|wget|python`) é gravada com `bot = 1` (o painel esconde por padrão).
 - Se o jogador estiver logado (cookie válido), grava `usuario_id` na sessão.
@@ -134,7 +145,8 @@ Corpo (texto JSON, até 16 KB):
 
 ## `GET /lenda/api/painel.php` (administrador)
 
-Autenticação: cookie `lenda_painel` (HMAC de `exp`, 12 h, `Path=/lenda/`) ou `Authorization: Bearer <token>`.
+Autenticação: cookie `lenda_painel` (`exp.HMAC(exp)`, com chave `segredo|admin_senha_hash`: trocar a senha do painel
+derruba os cookies; 12 h, `Path=/lenda/`) ou `Authorization: Bearer <token>`.
 `POST {"acao":"entrar","senha":"…"}` cria o cookie; `POST {"acao":"sair"}` apaga. Sem autenticação: `401`.
 
 `GET ?de=YYYY-MM-DD&ate=YYYY-MM-DD&bots=0` (padrão: últimos 7 dias, fuso America/Sao_Paulo) →
@@ -173,7 +185,7 @@ carreira_id), INDEX(usuario_id, salva_em))`, `visitantes_usuarios(vid PK, usuari
 `redefinicoes(email PK, codigo_hash, expira_em, tentativas)`,
 `tentativas(chave, janela, n, PK(chave, janela))`,
 `visitas(sid PK, vid, usuario_id, inicio, ultimo, ativo_s, jogando_ate, origem, utm_source, utm_medium,
-utm_campaign, dispositivo, idioma, tela, bot)` com índices em `inicio`, `ultimo`, `vid`,
+utm_campaign, dispositivo, idioma, tela, bot, eventos)` com índices em `inicio`, `ultimo`, `vid`,
 `eventos(id PK, sid, vid, tipo, modo, dados, em)` com índices em `(em, tipo)`, `sid`, `(vid, tipo)`.
 Datas em UTC (`DATETIME`); o painel converte para America/Sao_Paulo.
 

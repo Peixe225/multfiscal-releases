@@ -17,6 +17,10 @@ import { PlayerPlate } from '../hub/panels'
 import { prizeArt } from '../model/constants'
 import { fmtRating, plural, retiredLead, zoneOf } from '../model/view'
 import { getLeague } from '@/store/data'
+import { lazySite } from '@/ui/shell/lazySite'
+
+/** Só no site público: "Salvar na minha conta" (src/site). */
+const SalvarNaConta = import.meta.env.VITE_SITE === '1' ? lazySite('SalvarNaConta', () => import('@/site/SalvarNaConta')) : null
 
 const AWARD_NAME: Record<string, string> = {
   ballon_dor: 'Bola de Ouro',
@@ -228,6 +232,9 @@ export default function CareerTab() {
           <Button variant="primary" size="md" iconRight={ArrowRight} onClick={() => navigate('/identidade', { query: { modo: 'imersivo', nova: 1 } })}>
             Nova carreira imersiva
           </Button>
+          {SalvarNaConta && (
+            <SalvarNaConta careerId={s.id} finished size="md" />
+          )}
         </div>
       )}
       <div className="im-career__grid">

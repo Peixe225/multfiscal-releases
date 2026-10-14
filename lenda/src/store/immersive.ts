@@ -296,7 +296,7 @@ export const useImmersive = create<ImmersiveStore>()((set, get) => {
       }
       const nota = (h: HallEntry) => h.legacy?.raw ?? h.summary.legacyScore
       const list = withRunNumbers([entry, ...hall].sort((a, b) => nota(b) - nota(a)).slice(0, 100))
-      useCareer.setState({ finishedCareers: list })
+      useCareer.setState({ finishedCareers: list, lastFinished: entry })
       await kv.set(KV_KEYS.hall, list)
     } catch (err) {
       console.warn('[LENDA] não foi possível registrar a carreira imersiva no Hall', err)

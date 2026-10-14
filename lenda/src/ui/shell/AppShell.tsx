@@ -13,6 +13,7 @@ import { Skeleton, Stadium, Stage, Toaster } from '@/ui/primitives'
 import { useReducedMotion } from '@/ui/primitives/hooks'
 import { clubVars, type ClubColors } from '@/ui/theme/club'
 import { ErrorBoundary } from './ErrorBoundary'
+import { lazySite } from './lazySite'
 import { MenuDialog } from './MenuDialog'
 import { AchievementsDialog, SCREENS, themeFor } from './routes'
 import { useSlotStore } from './slots'
@@ -21,6 +22,9 @@ import { TopBar } from './TopBar'
 
 /** Live interativa (TikTok): conexão, autopiloto e a faixa da live — carregados só quando usados. */
 const LiveRoot = lazy(() => import('@/ui/live/LiveRoot'))
+
+/** Só no site público (VITE_SITE=1): medição de visitantes e conta (src/site). Fora dele nem entra no bundle. */
+const SiteRoot = import.meta.env.VITE_SITE === '1' ? lazySite('SiteRoot', () => import('@/site/SiteRoot')) : null
 
 /** Brand light when there is no club (indigo + gold, from the landing mockup). */
 export const BRAND_COLORS: ClubColors = { primary: '#5c50ff', secondary: '#ffc45c', glow: '#5c50ff' }
@@ -162,6 +166,7 @@ export function AppShell() {
       <AnimatePresence>{!ready && <Splash key="splash" error={status === 'error' ? error : null} onRetry={() => location.reload()} />}</AnimatePresence>
       <MenuDialog />
       <AchievementsHost />
+      {SiteRoot && <SiteRoot />}
       <Toaster />
     </div>
   )

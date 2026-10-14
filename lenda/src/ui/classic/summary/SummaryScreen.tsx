@@ -43,6 +43,7 @@ import {
 } from '@/ui/primitives'
 import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
+import { lazySite } from '@/ui/shell/lazySite'
 import { PlayerCard } from '@/ui/shared/landing/PlayerCard'
 import { clubKit } from '@/ui/shared/identity/kit'
 import { CompLogo, Prize } from '@/ui/classic/tabs/parts'
@@ -68,12 +69,18 @@ import {
 import '@/ui/classic/tabs/tabs.css'
 import './summary.css'
 
+/** Só no site público: "Salvar na minha conta" / "Salva na sua conta" (src/site). */
+const SalvarNaConta = import.meta.env.VITE_SITE === '1' ? lazySite('SalvarNaConta', () => import('@/site/SalvarNaConta')) : null
+/** Só no site: carreira aberta da conta que não está no Hall deste aparelho (marcada em src/site/carreiras.ts). */
+const soNaConta = (h: object | undefined) => import.meta.env.VITE_SITE === '1' && !!h && Symbol.for('lenda:so-na-conta') in h
+
 export default function SummaryScreen() {
   const id = useApp((s) => s.route.query.id)
   const status = useCareer((s) => s.status)
   const hall = useCareer((s) => (id ? s.finishedCareers.find((h) => h.id === id) : undefined))
   const state = useCareer((s) => s.state)
-  const live = !!state && (!hall || hall.career.id === state.id)
+  // com ?id=, a carreira atual só vale se for a pedida (um id da conta ainda não carregado não mostra outra)
+  const live = !!state && (id ? state.id === id : true)
   const career: SummaryCareer | null = live ? state : (hall?.career ?? null)
   const summary = useCareer((s) => (live && s.state ? s.summaryOf(s.state) : (hall?.summary ?? null)))
   const saved = useCareer((s) => !!career && s.finishedCareers.some((h) => h.career.id === career.id))
@@ -106,7 +113,8 @@ export default function SummaryScreen() {
       </PlaceholderScreen>
     )
   }
-  return <SummaryBody career={career} summary={summary} live={live} saved={saved || !!hall} immersive={!live && hall?.mode === 'immersive'} />
+  const naConta = !live && soNaConta(hall)
+  return <SummaryBody career={career} summary={summary} live={live} saved={(saved || !!hall) && !naConta} naConta={naConta} immersive={!live && hall?.mode === 'immersive'} />
 }
 
 // ───────────────────────── top bar ─────────────────────────
@@ -179,7 +187,7 @@ function PlayAgain({ size = 'md', live, finished }: { size?: 'sm' | 'md' | 'lg';
 
 // ───────────────────────── body ─────────────────────────
 
-const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, immersive }: { career: SummaryCareer; summary: CareerSummary; live: boolean; saved: boolean; immersive?: boolean }) {
+const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, naConta, immersive }: { career: SummaryCareer; summary: CareerSummary; live: boolean; saved: boolean; naConta?: boolean; immersive?: boolean }) {
   const rm = useReducedMotion()
   const desktop = useIsDesktop()
   const seasons = career.seasons
@@ -453,7 +461,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, im
               <Landmark aria-hidden="true" /> Salvo no Hall das Lendas <ArrowRight aria-hidden="true" />
             </button>
           ) : (
-            <span className="sm-panel__aside">{finished ? 'Salvando no Hall das Lendas…' : 'Vai para o Hall das Lendas quando a carreira terminar'}</span>
+            <span className="sm-panel__aside">{naConta ? 'Na sua conta · ainda não está no Hall deste aparelho' : finished ? 'Salvando no Hall das Lendas…' : 'Vai para o Hall das Lendas quando a carreira terminar'}</span>
           )}
         </header>
         <SharePanel m={share} compact={!desktop} />
@@ -461,6 +469,7 @@ const SummaryBody = memo(function SummaryBody({ career, summary, live, saved, im
 
       <footer className="sm-foot">
         <PlayAgain size="lg" live={live} finished={finished} />
+        {SalvarNaConta && <SalvarNaConta careerId={career.id} finished={finished} />}
         {live && finished && (
           <Button variant="ghost" size="lg" icon={ChartLine} onClick={() => navigate('/carreira')}>
             Ver tabela completa

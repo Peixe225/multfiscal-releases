@@ -11,6 +11,10 @@ import { formatSeason } from '@/ui/primitives/format'
 import { getLeague } from '@/store/data'
 import { useSlotStore } from './slots'
 import { useAchievementCatalog } from './achievementsRegistry'
+import { lazySite } from './lazySite'
+
+/** Só no site público: atalhos da conta na barra (ex.: "Minhas carreiras na conta" no Hall). */
+const SiteTopo = import.meta.env.VITE_SITE === '1' ? lazySite('SiteTopo', () => import('@/site/SiteTopo')) : null
 
 const SUB: Partial<Record<RoutePath, string>> = {
   '/': 'SIMULADOR DE CARREIRA',
@@ -139,6 +143,7 @@ export const TopBar = memo(function TopBar({ path }: { path: RoutePath }) {
       <Brand sub={slots.sub ?? SUB[path]} href="#/" />
       <div className="lx-topbar__center">{slots.center !== undefined ? slots.center : <DefaultCenter path={path} />}</div>
       <div className="lx-topbar__right">
+        {SiteTopo && <SiteTopo path={path} />}
         {slots.extraActions}
         {slots.actions !== undefined ? slots.actions : <RightCluster path={path} />}
       </div>

@@ -12,7 +12,11 @@ import { useData } from '@/store/data'
 import { Button, Eyebrow, Hairline, MedalIcon, Modal, Segmented, Switch, toast, useReducedMotion } from '@/ui/primitives'
 import { shortDate } from '@/ui/shared/live/leagues'
 import { useAchievementCatalog } from './achievementsRegistry'
+import { lazySite } from './lazySite'
 import { sfx } from './sfx'
+
+/** Só no site público: o bloco de conta (Entrar / Criar conta, Minha conta, Minhas carreiras…). */
+const ContaMenu = import.meta.env.VITE_SITE === '1' ? lazySite('ContaMenu', () => import('@/site/ContaMenu')) : null
 
 function NavRow({ icon: Ico, label, sub, to, onGo }: { icon: typeof House; label: string; sub?: string; to?: RoutePath; onGo: () => void }) {
   return (
@@ -79,6 +83,7 @@ export function MenuDialog() {
   const rmValue = settings.reducedMotion == null ? 'auto' : settings.reducedMotion ? 'on' : 'off'
   return (
     <Modal open={open} onClose={() => (setConfirm(false), close())} title="Menu" size="md">
+      {ContaMenu && <ContaMenu fechar={close} />}
       <div className="grid gap-1">
         <NavRow icon={House} label="Início" to="/" onGo={close} />
         {active && state && <NavRow icon={Play} label={both ? 'Continuar carreira clássica' : 'Continuar carreira'} sub={`${state.identity.surname} · ${state.age} anos · OVR ${state.ovr}`} to="/carreira" onGo={close} />}

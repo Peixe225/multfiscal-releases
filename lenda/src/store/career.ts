@@ -77,6 +77,11 @@ interface CareerStore {
   saving: boolean
   lastSavedAt: number | null
   finishedCareers: HallEntry[]
+  /**
+   * A última carreira encerrada nesta janela (Clássico ou Imersivo), como entrou no Hall — fica aqui mesmo
+   * quando o corte do Hall (HALL_CAP) a deixa de fora. Só na memória.
+   */
+  lastFinished: HallEntry | null
   achievements: Record<string, AchievementUnlock>
   /** Unlocked but not yet seen in the achievements dialog (drives the top-bar dot). */
   unseenAchievements: string[]
@@ -211,7 +216,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
     }
     entry.runNo = Math.max(merged.length, ...merged.map((h) => h.runNo ?? 0)) + 1
     const list = capped([entry, ...merged])
-    set({ finishedCareers: list })
+    set({ finishedCareers: list, lastFinished: entry })
     await kv.set(KV_KEYS.hall, list)
   }
 
@@ -228,6 +233,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
     saving: false,
     lastSavedAt: null,
     finishedCareers: [],
+    lastFinished: null,
     achievements: {},
     unseenAchievements: [],
     lastUnlocked: [],

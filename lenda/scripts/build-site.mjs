@@ -15,6 +15,8 @@
  *      `node scripts/site/render-og.mjs`) e gera o apple-touch-icon.png (180×180) a partir do favicon.svg;
  *   4. tira o carimbo .lenda-build (é da ponte, só faz sentido no dist/ local) e confere o resultado;
  *   5. imprime um resumo (arquivos, tamanho, os maiores).
+ *   Antes do .htaccess, copia o servidor (servidor/CONTRATO.md), se já existir: servidor/api → api/ (sem
+ *   _config.php nem testes), servidor/painel → painel/ e servidor/privacidade.html. Faltando, segue sem eles.
  *
  * Sem `tsc` de propósito: a checagem de tipos é o `npm run typecheck`; aqui é só empacotar.
  *
@@ -79,6 +81,39 @@ renameSync(crestsOut, crestsTmp)
 mkdirSync(crestsOut)
 renameSync(crestsTmp, join(crestsOut, crestsV))
 
+// ── 1b. servidor (medição + contas) ──
+// PHP da API, painel e política de privacidade vão junto, na mesma pasta do jogo (o jogo chama ./api/*.php).
+// Se o servidor ainda não existir (ou estiver pela metade), o build segue sem ele. Nunca vai: a config com
+// senhas (_config.php, que mora fora do public_html), testes e anotações.
+const servidor = join(root, 'servidor')
+const NUNCA = (nome) => /^_config.*\.php$/i.test(nome) || /(^|[._-])(test|tests|teste|testes)([._-]|$)/i.test(nome) || /\.(md|log|bak|swp)$/i.test(nome) || nome === '.DS_Store' || nome === 'node_modules'
+const copiados = []
+const copiarPasta = (de, para) => {
+  mkdirSync(para, { recursive: true })
+  for (const nome of readdirSync(de)) {
+    if (NUNCA(nome)) continue
+    const a = join(de, nome)
+    const b = join(para, nome)
+    if (statSync(a).isDirectory()) copiarPasta(a, b)
+    else {
+      copyFileSync(a, b)
+      copiados.push(relative(out, b).split('\\').join('/'))
+    }
+  }
+}
+for (const [de, para] of [
+  ['api', 'api'],
+  ['painel', 'painel'],
+]) {
+  const src = join(servidor, de)
+  if (existsSync(src) && statSync(src).isDirectory()) copiarPasta(src, join(out, para))
+}
+if (existsSync(join(servidor, 'privacidade.html'))) {
+  copyFileSync(join(servidor, 'privacidade.html'), join(out, 'privacidade.html'))
+  copiados.push('privacidade.html')
+}
+if (copiados.some((f) => /(^|\/)_config/i.test(f))) fail('a config do servidor (_config*.php) não pode ir para o site')
+
 // ── 2. .htaccess ──
 // Vale só para public_html/lenda/ e o que está dentro: o .htaccess do public_html continua mandando no
 // resto do site, e nada daqui chega às pastas irmãs. Nenhuma RewriteRule/RewriteEngine de propósito (ver o
@@ -100,9 +135,26 @@ const TEXT_TYPES = 'text/html text/css text/javascript application/javascript ap
 // "Header set" e "always set" substitui a que veio por "Header always set" — com só um dos dois, o navegador
 // recebe DUAS CSPs e aplica as duas (vale a mais fechada). Dentro de <FilesMatch> porque um <FilesMatch> do
 // .htaccess de cima é aplicado depois das linhas soltas deste e venceria (testado no Apache 2.4).
+// A MESMA CSP vale para as outras páginas .html da pasta (painel/, privacidade.html): elas só carregam
+// arquivos próprios ('self'). Se alguma tiver <script> embutido, o hash dele entra também (senão seria
+// barrado em silêncio) — e o aviso no fim lembra que o combinado é sem script embutido.
 const html0 = readFileSync(join(out, 'index.html'), 'utf8')
-const inlineScripts = [...html0.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1])
-const scriptHashes = inlineScripts.map((code) => `'sha256-${createHash('sha256').update(code, 'utf8').digest('base64')}'`)
+const INLINE_RE = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
+const inlineScripts = [...html0.matchAll(INLINE_RE)].map((m) => m[1])
+const outrasPaginas = copiados.filter((f) => /\.html?$/i.test(f))
+const avisosCsp = []
+for (const f of outrasPaginas) {
+  const h = readFileSync(join(out, f), 'utf8')
+  const embutidos = [...h.matchAll(INLINE_RE)].map((m) => m[1]).filter((c) => c.trim())
+  if (embutidos.length) {
+    avisosCsp.push(`${f}: ${embutidos.length} <script> embutido(s) — hash incluído na CSP`)
+    inlineScripts.push(...embutidos)
+  }
+  for (const m of h.matchAll(/<(?:script|link|img|iframe)\b[^>]*\b(?:src|href)=["'](https?:)?\/\/([^"'/]+)/gi)) {
+    if (!/^(a\.espncdn\.com)$/i.test(m[2])) avisosCsp.push(`${f}: recurso externo de ${m[2]} (a CSP só deixa arquivos daqui)`)
+  }
+}
+const scriptHashes = [...new Set(inlineScripts)].map((code) => `'sha256-${createHash('sha256').update(code, 'utf8').digest('base64')}'`)
 const CSP = [
   "default-src 'self'",
   ['script-src', "'self'", ...scriptHashes].join(' '),
@@ -308,6 +360,12 @@ for (const f of files) {
 console.log(`\n✓ site: ${files.length} arquivos · ${kb(total)} em ${outName.startsWith('..') ? out : outName}/ → suba o conteúdo para public_html/lenda/`)
 console.log(`  endereço: ${siteUrl}`)
 console.log(`  escudos: crests/${crestsV}/ · CSP: ${scriptHashes.length} script(s) embutido(s) com hash`)
+const temApi = copiados.some((f) => f.startsWith('api/'))
+console.log(
+  `  servidor: ${copiados.length ? `${copiados.filter((f) => f.startsWith('api/')).length} arq. em api/ · ${copiados.filter((f) => f.startsWith('painel/')).length} em painel/ · privacidade.html ${copiados.includes('privacidade.html') ? 'sim' : 'não'}` : 'ainda não existe (servidor/) — o jogo funciona sem, só não mede nem tem conta'}`,
+)
+if (copiados.length && !temApi) console.log('  ⚠ servidor/api não encontrado: sem medição nem conta neste build')
+for (const a of avisosCsp) console.log(`  ⚠ ${a}`)
 console.log('  por pasta:')
 for (const [d, v] of Object.entries(byDir).sort((a, b) => b[1].size - a[1].size)) console.log(`    ${d.padEnd(12)} ${String(v.n).padStart(4)} arq.  ${kb(v.size).padStart(10)}`)
 console.log('  maiores:')

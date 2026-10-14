@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# LENDA · public_html/lenda/api/.htaccess
+# Serve só as rotas públicas (e.php, conta.php, carreiras.php, lendas.php, painel.php, instalar.php).
+# Nega _*.php (biblioteca e config), *.sql, *.md e afins. Sem listagem. Sem cache.
+# Sem RewriteEngine de propósito: ligar o mod_rewrite aqui desligaria, nesta pasta, as regras herdadas
+# do .htaccess de cima (ex.: forçar https).
+# Os arquivos _*.php também se recusam a rodar sozinhos (respondem 404), caso esta regra falhe.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+
+<IfModule mod_autoindex.c>
+  Options -Indexes
+</IfModule>
+<IfModule LiteSpeed>
+  Options -Indexes
+</IfModule>
+
+# Arquivos que nunca são servidos: começam com _ ou ., ou são texto/dados internos.
+<FilesMatch "(^[_.]|\.(sql|md|bak|old|orig|swp|inc|ini|log|sh|json|txt|dist)$|~$)">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Authorization: Bearer chega no PHP mesmo quando ele roda como CGI/FPM.
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# Respostas da API nunca ficam em cache (o lendas.php define o próprio cache e fica de fora). O cache do
+# LiteSpeed é desligado pelo próprio PHP (X-LiteSpeed-Cache-Control: no-cache).
+<IfModule mod_headers.c>
+  <FilesMatch "^(e|conta|carreiras|painel|instalar)\.php$">
+    Header set Cache-Control "no-store"
+    Header set X-Content-Type-Options "nosniff"
+  </FilesMatch>
+</IfModule>

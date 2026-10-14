@@ -16,6 +16,8 @@
 /* class scanning: the app only (the design snippets in docs/ are reference HTML) */
 @source not "../../docs";
 @source not "../../scripts";
+/* src/site (só no build do site) tem o CSS dele: fora da varredura, o CSS dos outros builds não muda */
+@source not "../site";
 
 /* ── esqueleto do claude.ai ────────────────────────────────────────────────
    Publicado como Artifact, a página ganha um <head> com um reset SEM @layer

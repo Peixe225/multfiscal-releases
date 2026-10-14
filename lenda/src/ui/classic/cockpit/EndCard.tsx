@@ -17,6 +17,10 @@ import { Button, cx, formatInt, useReducedMotion } from '@/ui/primitives'
 import { EventArt } from '@/ui/art/EventArt'
 import { careerTotals, isKeeper } from './model'
 import type { CockpitData } from './view'
+import { lazySite } from '@/ui/shell/lazySite'
+
+/** Só no site público: "Salvar na minha conta" (src/site). */
+const SalvarNaConta = import.meta.env.VITE_SITE === '1' ? lazySite('SalvarNaConta', () => import('@/site/SalvarNaConta')) : null
 
 export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   const { state } = data
@@ -139,6 +143,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
             <Button variant="ghost" size="lg" icon={RotateCcw} onClick={again}>
               Jogar novamente
             </Button>
+            {SalvarNaConta && <SalvarNaConta careerId={state.id} finished />}
           </div>
         )}
       </div>
