@@ -574,6 +574,9 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
   ok(/Taxa R\$ 0,00: pra entregar sem taxa/.test(await p.locator('#e-taxa-erro').innerText().catch(() => '')), 'taxa R$ 0 não salva como valor fixo (antes, salvava {"valor":0})')
   await p.locator('#e-taxa').fill('8,00')
+  // salvar um estado que já existe volta sozinho pra lista (voltar → history.back, quando a resposta chega): o p.goto
+  // seguinte só vai depois disso, senão a volta chega atrasada e tira a tela que o teste abriu
+  const saiuDoEstado = () => p.locator('#e-pedidoMinimo').waitFor({ state: 'detached', timeout: 15000 })
   // a cidade digitada sem tocar em "Adicionar" entra ao salvar
   await p.locator('#e-cidade-nova').fill('Nanuque')
   // a hora com máscara: "930" vira 09:30; salva e o horário deixa de ser exemplo
@@ -585,6 +588,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await axe(p, 'estado')
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
   await p.getByText('Minas Gerais: salvo. O site já mostra.').waitFor()
+  await saiuDoEstado()
   ok(await esperar(async () => {
     const e = (await loja()).estados.find((x) => x.uf === 'mg')
     return e.horario.demo === false && e.horario.semana[1]?.[0] === '09:30'
@@ -594,6 +598,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await p.goto(`${BASE}/painel/#/loja/estado/mg`)
   await p.getByRole('button', { name: 'Tirar Nanuque' }).tap()
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+  await saiuDoEstado()
   ok(await esperar(async () => !JSON.stringify((await loja()).estados.find((x) => x.uf === 'mg').cidades).includes('Nanuque')), 'tirou a cidade e salvou: o site deixa de mostrar')
 
   // pedido mínimo pra entrega: vazio = sem; fora da faixa não salva; salvo, o site recebe no GET loja; tira de novo
@@ -612,6 +617,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await print(p, 'loja-estado-minimo')
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
   await p.getByText('Minas Gerais: salvo. O site já mostra.').waitFor()
+  await saiuDoEstado()
   ok(await esperar(async () => (await loja()).estados.find((x) => x.uf === 'mg').pedidoMinimo === 20), 'salvou o mínimo de R$ 20: o site recebe pedidoMinimo 20 no GET loja')
   await p.goto(`${BASE}/painel/#/loja/estados`)
   await p.getByText(/mínimo R\$ 20,00/).first().waitFor({ timeout: 8000 }).catch(() => {})
@@ -626,6 +632,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await minimo.fill('')
   await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
   await p.getByText('Minas Gerais: salvo. O site já mostra.').waitFor()
+  await saiuDoEstado()
   ok(await esperar(async () => !('pedidoMinimo' in (await loja()).estados.find((x) => x.uf === 'mg'))), 'apagou o mínimo: o site volta a fechar qualquer pedido (sem o campo no GET loja)')
 
   // story de MG: escolher dois e subir o segundo
