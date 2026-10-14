@@ -1,0 +1,2232 @@
+[
+  {
+    "id": "suarez",
+    "asOf": "2026-10",
+    "apps": 1056,
+    "goals": 615,
+    "assists": 323,
+    "assistsEstimated": false,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 1,
+    "libertadores": 0,
+    "leagueTitles": 9,
+    "otherMajorTitles": 2,
+    "goldenBoots": 2,
+    "titulosTotais": 25,
+    "titulos": [
+      {
+        "nome": "Campeonato Uruguaio",
+        "equipe": "Nacional",
+        "n": 2,
+        "anos": "2005/06, 2022",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Holandês (Eredivisie)",
+        "equipe": "Ajax",
+        "n": 1,
+        "anos": "2010/11",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da Holanda (KNVB Beker)",
+        "equipe": "Ajax",
+        "n": 1,
+        "anos": "2009/10",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa da Liga Inglesa",
+        "equipe": "Liverpool",
+        "n": 1,
+        "anos": "2011/12",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Barcelona",
+        "n": 4,
+        "anos": "2014/15, 2015/16, 2017/18, 2018/19",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Barcelona",
+        "n": 4,
+        "anos": "2014/15, 2015/16, 2016/17, 2017/18",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2016, 2018",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Atlético de Madrid",
+        "n": 1,
+        "anos": "2020/21",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Gaúcho",
+        "equipe": "Grêmio",
+        "n": 1,
+        "anos": "2023",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Recopa Gaúcha",
+        "equipe": "Grêmio",
+        "n": 1,
+        "anos": "2023",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "MLS Cup (campeão da MLS)",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2025",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supporters' Shield (melhor campanha da fase regular da MLS)",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2024",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Campeones Cup",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2026",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa América",
+        "equipe": "Uruguai",
+        "n": 1,
+        "anos": "2011",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Chuteira de Ouro europeia",
+        "n": 2,
+        "anos": "2013/14 (31 gols, dividida com Cristiano Ronaldo), 2015/16 (40 gols)",
+        "chave": "golden_boot"
+      },
+      {
+        "nome": "Artilheiro da Eredivisie",
+        "n": 1,
+        "anos": "2009/10 (35 gols)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Premier League",
+        "n": 1,
+        "anos": "2013/14 (31 gols)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Pichichi (artilheiro de La Liga)",
+        "n": 1,
+        "anos": "2015/16 (40 gols)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Futebolista holandês do ano (melhor jogador da Eredivisie)",
+        "n": 1,
+        "anos": "2009/10",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Melhor jogador da Premier League (Player of the Season)",
+        "n": 1,
+        "anos": "2013/14",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Bola de Ouro do Brasileirão (ESPN Bola de Prata)",
+        "n": 1,
+        "anos": "2023",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Melhor jogador da Copa América",
+        "n": 1,
+        "anos": "2011",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial de Clubes",
+        "n": 1,
+        "anos": "2015",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Artilheiro do Mundial de Clubes",
+        "n": 1,
+        "anos": "2015 (5 gols)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Jogador do ano na Inglaterra pela PFA (jogadores) e pela FWA (jornalistas)",
+        "n": 2,
+        "anos": "2013/14",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata do Brasileirão (melhor atacante)",
+        "n": 1,
+        "anos": "2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Troféu Mesa Redonda — melhor jogador do Brasileirão",
+        "n": 1,
+        "anos": "2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Trofeo Alfredo Di Stéfano (Marca, melhor jogador de La Liga)",
+        "n": 1,
+        "anos": "2020/21",
+        "chave": "outro"
+      },
+      {
+        "nome": "Troféu EFE (melhor ibero-americano de La Liga)",
+        "n": 1,
+        "anos": "2014/15",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio LFP 'World Player' (edição única)",
+        "n": 1,
+        "anos": "2015/16",
+        "chave": "outro"
+      },
+      {
+        "nome": "MVP da final do Mundial de Clubes",
+        "n": 1,
+        "anos": "2015",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências de La Liga",
+        "n": 3,
+        "anos": "2015/16, 2016/17, 2017/18",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Maior artilheiro de primeira divisão do mundo",
+        "n": 3,
+        "anos": "2010, 2014, 2016",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA FIFPro World XI",
+        "n": 1,
+        "anos": "2016",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção estatística da Copa do Mundo (Índice Castrol; não oficial)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Champions League (Squad of the Season)",
+        "n": 2,
+        "anos": "2014/15, 2015/16",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção do ano da PFA (Premier League)",
+        "n": 2,
+        "anos": "2012/13, 2013/14",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa América",
+        "n": 1,
+        "anos": "2011",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Maior artilheiro da história da seleção do Uruguai: 69 gols em 143 jogos (2007–2024)",
+      "Chuteira de Ouro europeia em 2013/14 (31 gols, dividida com Cristiano Ronaldo) e 2015/16 (40 gols)",
+      "Em 2015/16 foi o primeiro desde 2009, fora Messi e Cristiano Ronaldo, a ganhar Pichichi e Chuteira de Ouro na mesma temporada",
+      "Primeiro jogador a liderar La Liga em gols e assistências na mesma temporada (2015/16: 40 gols e 16 assistências)",
+      "59 gols em 53 jogos oficiais pelo Barcelona na temporada 2015/16",
+      "Igualou o recorde de 31 gols numa Premier League de 38 rodadas (2013/14) e foi eleito o melhor jogador da liga",
+      "Primeiro jogador a fazer hat-trick no Mundial de Clubes da FIFA (3–0 no Guangzhou Evergrande, semifinal de 2015)",
+      "Com Messi e Neymar, formou o trio MSN: 131 gols em 2015/16, recorde de um trio de ataque no futebol espanhol",
+      "198 gols pelo Barcelona: era o 3º maior artilheiro da história do clube ao sair, em 2020",
+      "Campeão de liga em quatro países: Uruguai, Holanda, Espanha (5 vezes) e Estados Unidos (MLS Cup 2025)",
+      "Melhor jogador e campeão da Copa América 2011, com gol e assistência na final (3–0 no Paraguai)",
+      "Primeiro uruguaio a passar de 1.000 jogos na carreira; marcou o 600º gol em 12/10/2025, pelo Inter Miami"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Luis_Su%C3%A1rez_(Uruguayan_footballer)",
+      "https://pt.wikipedia.org/wiki/Luis_Alberto_Su%C3%A1rez",
+      "https://www.transfermarkt.com/luis-suarez/leistungsdaten/spieler/44352",
+      "https://www.transfermarkt.com/ceapi/performance-game/44352",
+      "https://en.wikipedia.org/wiki/2026_Campeones_Cup",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata",
+      "https://en.wikipedia.org/wiki/La_Liga_Awards",
+      "https://en.wikipedia.org/wiki/Trofeo_Alfredo_Di_St%C3%A9fano",
+      "https://www.rsssf.org/players/prolific.html",
+      "https://es.wikipedia.org/wiki/Luis_Su%C3%A1rez_D%C3%ADaz",
+      "https://en.wikipedia.org/wiki/2015_FIFA_Club_World_Cup",
+      "https://en.wikipedia.org/wiki/FIFA_Club_World_Cup_records_and_statistics",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards"
+    ],
+    "incertos": [
+      "assists (Transfermarkt: 323, sem cerca de 22 jogos do Nacional em 2005/06; a Wikipedia em espanhol soma ≈338)"
+    ],
+    "notas": "Números até o jogo de 10/10/2026. Jogos e gols: tabela da Wikipedia em inglês ('updated match played 10 October 2026'): clubes 913 jogos/546 gols (Nacional 35/12 em 2005–06 e 16/8 em 2022, Groningen 37/15, Ajax 159/111, Liverpool 133/82, Barcelona 283/198, Atlético 83/34, Grêmio 54/29 com Gauchão e Recopa Gaúcha, Inter Miami 113/57) + seleção principal 143/69 (amistosos da seleção principal incluídos; Mundial Sub-20 2007 e Olimpíada 2012 fora). A temporada 2026 (26 jogos, 15 gols, 5 assistências) bate com o jogo a jogo do Transfermarkt. O Transfermarkt soma 891 jogos de clube porque não tem cerca de 22 jogos do Nacional em 2005/06. O RSSSF (atualizado em 19/7/2026) lista 612 gols em 1054 jogos porque soma seleções de base, Olimpíada e jogos de All-Star; na mesma data esta contagem dá 1042/606. Assistências: 323 = Transfermarkt (284 por clubes + 39 pela seleção principal). leagueTitles 9 = Uruguai 2005/06 e 2022, Eredivisie 2010/11 (jogou pelo Ajax antes de sair em janeiro), La Liga x5 (4 pelo Barcelona + 2020/21 pelo Atlético) e MLS Cup 2025 (jogou os playoffs, mas não entrou na final). Mesma regra usada para o Messi: o Supporters' Shield 2024 entra só em titulosTotais, com tipo 'outro', e o título da Conferência Leste 2025 não conta. A Wikipedia em português credita também o Campeonato Uruguaio 2005, mas ele não jogou nenhuma partida dessa liga (só 1 jogo de Libertadores), então ficou fora. Campeones Cup 2026 (2–0 no Cruz Azul, 16/9/2026): jogou os 90 minutos e deu uma assistência. Foi suspenso da Leagues Cup 2026 pela briga na final de 2025. Contrato com o Inter Miami renovado em 17/12/2025 até 31/12/2026. O prêmio 'Best World Player' da LFP em 2015/16 foi uma categoria de edição única (o melhor jogador daquela temporada foi Griezmann), por isso ficou em 'outro'. Correções em relação ao arquivo antigo (12/2025): apps 1000→1056, gols 600→615, assistências 290→323, leagueTitles 10→9 (o antigo contava o Shield como liga). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol (atualizada até 20/9/2026) dá 911 jogos/544 gols por clubes e 143/69 pela seleção; somando os 2 jogos do Inter Miami entre 20/9 e 10/10 que o jogo a jogo do Transfermarkt registra (27/9: 0 gol; 10/10: 2 gols e 1 assistência, último jogo dele até 14/10/2026), chega-se aos mesmos 913/546 + 143/69 = 1056/615. Nacional bate (51/20 com o jogo de Libertadores de 2005). Assistências divergem: a Wikipedia em espanhol soma 298 por clubes + 39 pela seleção (≈338 com o jogo de 10/10) contra 323 do Transfermarkt; mantido 323 (mesma base usada para os outros jogadores) e o campo segue em incertos. Títulos: a mesma página confirma as 4 La Liga, 4 Copas do Rei e 2 Supercopas pelo Barcelona, a La Liga 2020/21 pelo Atlético, Gauchão e Recopa Gaúcha 2023, MLS Cup 2025, Supporters' Shield 2024 e Campeones Cup 2026 (2–0 no Cruz Azul em 16/9/2026, confirmado também por MLS e Inter Miami); ela lista ainda o Uruguaio 2005 (ele não jogou a liga), os Torneos Clausura 2006 e 2022 (fases do Campeonato Uruguaio, não contadas à parte) e o título da Conferência Leste 2025 — os três ficam fora. Bola de Ouro do Mundial de Clubes 2015: a Wikipedia em espanhol diz 'Balón de bronce', mas a página do Mundial de 2015 dá Ouro a Suárez, Prata a Messi e Bronze a Iniesta — mantido Ouro. Bola de Ouro do Brasileirão 2023 (ESPN) confirmada. O 'Seleção da Copa do Mundo 2010' era o time estatístico do Índice Castrol (não oficial), renomeado. Feitos conferidos: 143/69 pelo Uruguai, hat-trick no Guangzhou (primeiro da lista de hat-tricks do Mundial de Clubes; ele também tem o recorde de 5 gols numa edição) e 198 gols pelo Barcelona — batem."
+  },
+  {
+    "id": "eusebio",
+    "asOf": "1980",
+    "apps": 629,
+    "goals": 591,
+    "assists": 150,
+    "assistsEstimated": true,
+    "ballonDor": 1,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 1,
+    "libertadores": 0,
+    "leagueTitles": 12,
+    "otherMajorTitles": 0,
+    "goldenBoots": 2,
+    "titulosTotais": 32,
+    "titulos": [
+      {
+        "nome": "Campeonato Provincial de Moçambique",
+        "equipe": "Sporting de Lourenço Marques",
+        "n": 1,
+        "anos": "1960",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Distrital de Lourenço Marques",
+        "equipe": "Sporting de Lourenço Marques",
+        "n": 1,
+        "anos": "1960",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Português (Primeira Divisão)",
+        "equipe": "Benfica",
+        "n": 11,
+        "anos": "1960/61, 1962/63, 1963/64, 1964/65, 1966/67, 1967/68, 1968/69, 1970/71, 1971/72, 1972/73, 1974/75",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Taça de Portugal",
+        "equipe": "Benfica",
+        "n": 5,
+        "anos": "1961/62, 1963/64, 1968/69, 1969/70, 1971/72",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Taça Ribeiro dos Reis",
+        "equipe": "Benfica",
+        "n": 3,
+        "anos": "1963/64, 1965/66, 1970/71",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Taça de Honra da AF Lisboa",
+        "equipe": "Benfica",
+        "n": 9,
+        "anos": "1962/63, 1964/65, 1966/67, 1967/68, 1968/69, 1971/72, 1972/73, 1973/74, 1974/75",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Copa dos Campeões da Europa (atual Champions League)",
+        "equipe": "Benfica",
+        "n": 1,
+        "anos": "1962",
+        "tipo": "continental"
+      },
+      {
+        "nome": "NASL (Soccer Bowl)",
+        "equipe": "Toronto Metros-Croatia",
+        "n": 1,
+        "anos": "1976",
+        "tipo": "liga"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 1,
+        "anos": "1965",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Chuteira de Ouro europeia",
+        "n": 2,
+        "anos": "1967/68 (42 gols, primeira edição), 1972/73 (40 gols)",
+        "chave": "golden_boot"
+      },
+      {
+        "nome": "Bola de Prata (artilheiro do Campeonato Português)",
+        "n": 7,
+        "anos": "1963/64, 1964/65, 1965/66, 1966/67, 1967/68, 1969/70, 1972/73",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Futebolista português do ano (CNID)",
+        "n": 2,
+        "anos": "1970, 1973",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Artilheiro da Copa do Mundo",
+        "n": 1,
+        "anos": "1966 (9 gols)",
+        "chave": "wc_golden_boot"
+      },
+      {
+        "nome": "Artilheiro da Copa dos Campeões da Europa",
+        "n": 2,
+        "anos": "1965/66 (7 gols, dividido com Flórián Albert), 1967/68 (6)",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Bola de Bronze da Copa do Mundo (seleção da France Football/L'Équipe; não oficial)",
+        "n": 1,
+        "anos": "1966",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo",
+        "n": 1,
+        "anos": "1966",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Taça de Portugal",
+        "n": 5,
+        "anos": "1962, 1964, 1965, 1969, 1972",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Provincial de Moçambique",
+        "n": 1,
+        "anos": "1960",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção FIFA (FIFA XI)",
+        "n": 2,
+        "anos": "1963, 1967",
+        "chave": "outro"
+      },
+      {
+        "nome": "BBC — Personalidade esportiva estrangeira do ano",
+        "n": 1,
+        "anos": "1966",
+        "chave": "outro"
+      },
+      {
+        "nome": "Jogador de Ouro de Portugal (Jubileu da UEFA)",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot (categoria lendas)",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem de Mérito da FIFA",
+        "n": 1,
+        "anos": "1994",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio do Presidente da UEFA",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Bola de Ouro de 1965; vice em 1962 e 1966",
+      "Primeiro vencedor da Chuteira de Ouro europeia (1967/68, 42 gols) e bicampeão em 1972/73 (40 gols)",
+      "Primeiro jogador a ser artilheiro de Copa do Mundo, Copa dos Campeões e Chuteira de Ouro europeia",
+      "Artilheiro da Copa de 1966 com 9 gols; Portugal terminou em 3º lugar",
+      "Marcou 4 gols na virada de 5–3 sobre a Coreia do Norte, nas quartas de 1966, depois de Portugal perder por 3–0",
+      "Maior artilheiro da história do Benfica: 473 gols em 440 jogos oficiais",
+      "Recordista de Bolas de Prata de artilheiro do Campeonato Português: 7",
+      "Fez 2 gols na final da Copa dos Campeões de 1962 (5–3 sobre o Real Madrid)",
+      "11 vezes campeão português e campeão da NASL em 1976, pelo Toronto",
+      "Maior artilheiro da seleção portuguesa (41 gols em 64 jogos) até Pauleta superá-lo em 2005",
+      "Eleito o Jogador de Ouro de Portugal no Jubileu da UEFA, em 2003, como o melhor dos 50 anos anteriores",
+      "Desde 2015 está sepultado no Panteão Nacional, em Lisboa"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Eus%C3%A9bio",
+      "https://pt.wikipedia.org/wiki/Eus%C3%A9bio",
+      "https://www.rsssf.org/players/peusebiodata.html",
+      "https://www.rsssf.org/players/prolific.html",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://es.wikipedia.org/wiki/Eus%C3%A9bio",
+      "https://it.wikipedia.org/wiki/Eus%C3%A9bio",
+      "https://en.wikipedia.org/wiki/1964%E2%80%9365_European_Cup",
+      "https://en.wikipedia.org/wiki/1965%E2%80%9366_European_Cup",
+      "https://en.wikipedia.org/wiki/1967%E2%80%9368_European_Cup"
+    ],
+    "incertos": [
+      "apps",
+      "goals",
+      "assists",
+      "titulosTotais (Taça de Honra x9 e Taça Ribeiro dos Reis x3 dependem do critério; o RSSSF não lista jogos dele na Ribeiro dos Reis, que a Wikipedia em português diz estarem em \"outras competições\"; o Distrital de Lourenço Marques 1960, agora incluído, aparece nas Wikipedias em português e italiano, mas sem referência)"
+    ],
+    "notas": "Jogos oficiais pela contagem por equipe do RSSSF (atualizada em 08/2024), sem juniores, reservas do Benfica, seleções militares e regionais, torneios de preparação e futebol indoor: Sporting de Lourenço Marques 18/35 (Distrital de Lourenço Marques e fase final do Provincial de Moçambique, 1960), Benfica 449/482 (os 440/473 oficiais do clube + 9 jogos/9 gols da Taça de Honra), Boston 9/3, Monterrey 10/1, Toronto 25/18, Beira-Mar 12/3, Las Vegas 17/2, União de Tomar 13/3, três clubes sul-africanos em 1978 3/1, New Jersey Americans 9/2, mais Portugal 64/41 = 629/591. A Wikipedia em inglês dá 577/582 por clubes porque soma 1957–59 em Moçambique (que o RSSSF classifica como jogos de juniores) e o indoor do Buffalo Stallions. Os '733 gols em 745 jogos' e os '896 em 914' (Wikipedia em português) incluem amistosos. leagueTitles 12 = 11 campeonatos portugueses + NASL 1976 (título de playoff conta como nacional). titulosTotais conta a Taça de Honra da AF Lisboa como regional ('estadual'; o RSSSF trata seus jogos como oficiais) e a Taça Ribeiro dos Reis como copa nacional da FPF (1961–71). Copa dos Campeões 1960/61: o Benfica foi campeão, mas Eusébio só estreou em jogo oficial em 1/6/1961 e não jogou a competição, por isso ucl 1. Artilharia da Copa dos Campeões pela lista da Wikipedia (sem fase preliminar): 1965/66 (dividida) e 1967/68; a Wikipedia em português cita também 1964/65, mas naquele ano o artilheiro foi José Torres. As Bolas de Ouro/Prata/Bronze de Copa antes de 1982 são seleções retroativas da imprensa; a de bronze ficou em 'outro'. asOf 1980 = fim da carreira (temporada indoor 1979/80); o último jogo oficial de campo foi em 1978. Assistências: sem registro, estimativa. Correções: apps 590→629, gols 545→591. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol confirma Benfica 440/473 oficiais, 11 campeonatos portugueses + NASL 1976, 5 Taças de Portugal e a Copa dos Campeões 1962; a tabela dela soma 643/621 porque inclui 42 jogos/77 gols da liga regional de Moçambique (o RSSSF trata 1957–59 como juniores) — apps/goals seguem em incertos. Recalculei a soma do RSSSF por equipe (Sporting LM 18/35, Benfica 449/482 com a Taça de Honra, demais clubes 98/33, Portugal 64/41) = 629/591: bate. A Wikipedia em italiano confirma as 7 artilharias do Campeonato Português (1963/64 a 1967/68, 1969/70 e 1972/73), as Chuteiras de Ouro 1968 e 1973 e o Futebolista Português do Ano 1970 e 1973. Ela (e a espanhola) dá também a artilharia da Copa dos Campeões 1964/65 'ex aequo com José Torres', mas a página da temporada na Wikipedia em inglês mostra Torres com 11 e Eusébio com 9 (contando a fase preliminar) — mantidas só 1965/66 (dividida com Albert, 7) e 1967/68 (6), conferidas nas páginas de cada temporada. Acrescentado o Campeonato Distrital de Lourenço Marques 1960 (Wikipedias em italiano e português; o RSSSF registra 14 jogos/30 gols dele nessa competição oficial), tipo 'estadual': titulosTotais 31→32. Feitos conferidos: 440/473 pelo Benfica, 4 gols na virada de 5–3 sobre a Coreia do Norte e o recorde da seleção superado por Pauleta em 2005 — batem."
+  },
+  {
+    "id": "raul",
+    "asOf": "2015",
+    "apps": 1034,
+    "goals": 432,
+    "assists": 173,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 3,
+    "libertadores": 0,
+    "leagueTitles": 7,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 22,
+    "titulos": [
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 6,
+        "anos": "1994/95, 1996/97, 2000/01, 2002/03, 2006/07, 2007/08",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Real Madrid",
+        "n": 4,
+        "anos": "1997, 2001, 2003, 2008",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "1998, 2000, 2002",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa Intercontinental",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "1998, 2002",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Copa da Alemanha (DFB-Pokal)",
+        "equipe": "Schalke 04",
+        "n": 1,
+        "anos": "2010/11",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Alemanha",
+        "equipe": "Schalke 04",
+        "n": 1,
+        "anos": "2011",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Campeonato Catariano (Qatar Stars League)",
+        "equipe": "Al-Sadd",
+        "n": 1,
+        "anos": "2012/13",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Emir do Catar",
+        "equipe": "Al-Sadd",
+        "n": 1,
+        "anos": "2014",
+        "tipo": "copa"
+      },
+      {
+        "nome": "NASL — Soccer Bowl (2ª divisão dos EUA)",
+        "equipe": "New York Cosmos",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "outro"
+      },
+      {
+        "nome": "NASL — melhor campanha da temporada (North American Supporters' Trophy)",
+        "equipe": "New York Cosmos",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "outro"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Pichichi (artilheiro de La Liga)",
+        "n": 2,
+        "anos": "1998/99 (25 gols), 2000/01 (24)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Champions League",
+        "n": 2,
+        "anos": "1999/2000 (10 gols, dividido com Jardel e Rivaldo), 2000/01 (7)",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador da final da Copa Intercontinental (Toyota Cup)",
+        "n": 1,
+        "anos": "1998 (gol da vitória por 2–1 sobre o Vasco)",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Melhor atacante da UEFA (UEFA Club Forward of the Year)",
+        "n": 3,
+        "anos": "1999/2000, 2000/01, 2001/02",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador espanhol de La Liga (Prêmio Don Balón; recorde)",
+        "n": 5,
+        "anos": "1996/97, 1998/99, 1999/2000, 2000/01, 2001/02",
+        "chave": "outro"
+      },
+      {
+        "nome": "Troféu Zarra (maior artilheiro espanhol de La Liga)",
+        "n": 4,
+        "anos": "1995/96, 1998/99, 2000/01, 2002/03",
+        "chave": "outro"
+      },
+      {
+        "nome": "Trofeo Alfredo Di Stéfano (Marca, melhor jogador de La Liga)",
+        "n": 1,
+        "anos": "2007/08",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa do Rei",
+        "n": 2,
+        "anos": "2001/02, 2003/04",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Artilheiro do mundo",
+        "n": 1,
+        "anos": "1999",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências da Champions League",
+        "n": 1,
+        "anos": "2002/03",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 1,
+        "anos": "2000",
+        "chave": "outro"
+      },
+      {
+        "nome": "Revelação de La Liga (Prêmio Don Balón)",
+        "n": 1,
+        "anos": "1994/95",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Eurocopa Sub-21",
+        "n": 1,
+        "anos": "1996",
+        "chave": "outro"
+      },
+      {
+        "nome": "Gol do ano na Alemanha",
+        "n": 2,
+        "anos": "2011, 2013 (dividido com Julian Draxler)",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Marca Leyenda",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Recordista de jogos pelo Real Madrid: 741 jogos oficiais (1994–2010)",
+      "323 gols pelo Real Madrid; superou em 2009 o recorde de Di Stéfano (307) no clube",
+      "Primeiro jogador a marcar 50 gols na Champions League (2005) e o primeiro a disputar 100 jogos na competição",
+      "71 gols na Champions League: maior artilheiro espanhol da história do torneio",
+      "Primeiro jogador a marcar em duas finais da Champions na era Champions League (2000 e 2002)",
+      "Tricampeão da Champions (1998, 2000 e 2002) e bicampeão da Copa Intercontinental (1998 e 2002)",
+      "Vice da Bola de Ouro em 2001 e 3º no prêmio de Melhor do Mundo da FIFA no mesmo ano",
+      "Eleito o melhor atacante da UEFA três temporadas seguidas (1999/2000 a 2001/02)",
+      "44 gols em 102 jogos pela Espanha, recorde da seleção até David Villa superá-lo em 2011",
+      "Recordista do prêmio Don Balón de melhor jogador espanhol de La Liga (5 vezes)",
+      "Nunca recebeu cartão vermelho em toda a carreira",
+      "Encerrou a carreira campeão da NASL pelo New York Cosmos (Soccer Bowl 2015)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Ra%C3%BAl_Gonz%C3%A1lez",
+      "https://www.transfermarkt.com/raul/leistungsdaten/spieler/7349",
+      "https://www.transfermarkt.com/ceapi/performance-game/7349",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://en.wikipedia.org/wiki/Trofeo_Alfredo_Di_St%C3%A9fano",
+      "https://es.wikipedia.org/wiki/Ra%C3%BAl_Gonz%C3%A1lez_Blanco",
+      "https://en.wikipedia.org/wiki/1998_Intercontinental_Cup",
+      "https://en.wikipedia.org/wiki/Sheikh_Jassim_Cup"
+    ],
+    "incertos": [
+      "assists (Transfermarkt: 173, sem dados para as copas pelo Al-Sadd e com cobertura incompleta nos anos 1990)"
+    ],
+    "notas": "Jogos e gols: Wikipedia em inglês — Real Madrid 741/323, Schalke 04 98/40, Al-Sadd 61/16, New York Cosmos 32/9 — + Espanha 102/44 (amistosos da seleção principal incluídos) = 1034/432. Ficam fora Real Madrid C e B (10 jogos e 16 gols em 1994/95) e as seleções de base e olímpica. O Transfermarkt bate em Real Madrid, Schalke, Cosmos e seleção, mas não tem as copas do Al-Sadd (44 jogos). Assistências: 173 pelo Transfermarkt (137 Real Madrid, 21 Schalke, 3 Cosmos, 12 Espanha, 0 Al-Sadd), contagem incompleta, por isso marcada como estimativa. leagueTitles 7 = 6 La Liga + Qatar Stars League 2012/13. A NASL de 2015 era a 2ª divisão dos EUA, então o Soccer Bowl e o Supporters' Trophy do Cosmos entram só em titulosTotais (tipo 'outro'); o título do turno ('Spring Season' 2015) não conta. Raúl nunca ganhou a Copa do Rei. O prêmio Don Balón de melhor jogador espanhol e o de melhor atacante da UEFA ficaram em 'outro' por não serem prêmios de melhor jogador da liga ou da Europa. Em 13/10/2026 Raúl e Mbappé dividiam o 5º lugar entre os artilheiros da Champions (71 gols). Correções: apps 1000→1034, gols 420→432, assistências 150→173. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol: Real Madrid 741/323, Schalke 98/40, Al-Sadd 61/16, Cosmos 32/9 e Espanha 102/44 = 1034/432 (bate); assistências 150 + 23 = 173 (bate com o Transfermarkt). Títulos batem (6 La Liga, 4 Supercopas, 3 Champions, Supercopa da UEFA 2002, Intercontinental 1998 e 2002, DFB-Pokal e Supercopa alemã 2011, Qatar Stars League 2012/13, Copa do Emir 2014, NASL 2015). Ela lista ainda a Copa Sheikh Jassim 2014 pelo Al-Sadd, mas essa edição abriu a temporada 2014/15, depois que ele saiu do clube (Gulf Times, citado na página da competição), por isso fica fora. ESQUECIDO e acrescentado: melhor jogador da final da Copa Intercontinental 1998 (Toyota Cup), citado nas Wikipedias em inglês e espanhol e na página da final — chave tournament_best, mesmo critério usado para Zico, Ronaldo, Platini e Del Piero nos outros lotes. Feitos conferidos: primeiro a 100 jogos de Champions (UEFA: 21/2/2006), nunca expulso (Wikipedia em espanhol) e 44 gols pela Espanha — batem."
+  },
+  {
+    "id": "casillas",
+    "asOf": "2019",
+    "apps": 1048,
+    "goals": 0,
+    "assists": 1,
+    "assistsEstimated": false,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 3,
+    "libertadores": 0,
+    "leagueTitles": 6,
+    "otherMajorTitles": 4,
+    "goldenBoots": 0,
+    "titulosTotais": 23,
+    "titulos": [
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 5,
+        "anos": "2000/01, 2002/03, 2006/07, 2007/08, 2011/12",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2010/11, 2013/14",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Real Madrid",
+        "n": 4,
+        "anos": "2001, 2003, 2008, 2012",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "2000, 2002, 2014",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2002, 2014",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa Intercontinental",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2014",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Português (Primeira Liga)",
+        "equipe": "Porto",
+        "n": 1,
+        "anos": "2017/18",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supertaça Cândido de Oliveira (Supercopa de Portugal)",
+        "equipe": "Porto",
+        "n": 1,
+        "anos": "2018",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Espanha",
+        "n": 1,
+        "anos": "2010",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Eurocopa",
+        "equipe": "Espanha",
+        "n": 2,
+        "anos": "2008, 2012",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "IFFHS — Melhor goleiro do mundo",
+        "n": 5,
+        "anos": "2008, 2009, 2010, 2011, 2012",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Luva de Ouro da Copa do Mundo",
+        "n": 1,
+        "anos": "2010",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Melhor goleiro da Europa (Best European Goalkeeper)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Melhor goleiro de La Liga (Prêmios LFP)",
+        "n": 2,
+        "anos": "2008/09, 2011/12",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Troféu Zamora (goleiro menos vazado de La Liga)",
+        "n": 1,
+        "anos": "2007/08",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Melhor goleiro do Campeonato Português",
+        "n": 1,
+        "anos": "2018/19",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Prêmio Bravo (melhor jogador jovem da Europa)",
+        "n": 1,
+        "anos": "2000",
+        "chave": "kopa"
+      },
+      {
+        "nome": "FIFA FIFPro World XI",
+        "n": 5,
+        "anos": "2008, 2009, 2010, 2011, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção do ano da UEFA",
+        "n": 6,
+        "anos": "2007, 2008, 2009, 2010, 2011, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 2,
+        "anos": "2008, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (Dream Team)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Príncipe das Astúrias de Esportes",
+        "n": 2,
+        "anos": "2010 (seleção campeã do mundo), 2012 (com Xavi)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Revelação de La Liga (Prêmio Don Balón)",
+        "n": 1,
+        "anos": "2000",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot",
+        "n": 1,
+        "anos": "2017",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Prêmio pela carreira",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Capitão da Espanha nos títulos da Euro 2008, da Copa de 2010 e da Euro 2012",
+      "Recordista mundial de jogos sem sofrer gol por seleções: 102 pela Espanha",
+      "167 jogos pela Espanha, o 2º que mais vestiu a camisa da seleção (atrás de Sergio Ramos)",
+      "Luva de Ouro da Copa de 2010, com cinco jogos sem sofrer gol (recorde igualado numa edição)",
+      "Na Euro 2012 sofreu só 1 gol e ficou 509 minutos sem ser vazado, recorde da competição",
+      "Goleiro mais jovem a jogar e a vencer uma final de Champions League: 19 anos e 4 dias (2000)",
+      "177 jogos de Champions League, o 2º na história, e primeiro goleiro a vencer 100 partidas na competição",
+      "Recordista de prêmios IFFHS de melhor goleiro do mundo: 5, empatado com Buffon e Neuer",
+      "Goleiro que mais vezes entrou na Seleção do ano da UEFA (6) e na FIFPro World XI (5)",
+      "Defendeu pênaltis com a bola rolando em duas Copas do Mundo: contra a Irlanda (2002) e o Paraguai (2010)",
+      "20 temporadas seguidas disputando a Champions League",
+      "725 jogos pelo Real Madrid em 16 temporadas"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Iker_Casillas",
+      "https://www.transfermarkt.com/iker-casillas/leistungsdaten/spieler/3979",
+      "https://www.transfermarkt.com/ceapi/performance-game/3979",
+      "https://en.wikipedia.org/wiki/Xavi_(footballer,_born_1980)",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://en.wikipedia.org/wiki/La_Liga_Awards",
+      "https://es.wikipedia.org/wiki/Iker_Casillas"
+    ],
+    "incertos": [],
+    "notas": "Real Madrid 725 + Porto 156 + Espanha 167 (amistosos da seleção principal incluídos) = 1048; Wikipedia e Transfermarkt batem. Ficam fora o Real Madrid C (4 jogos em 1998/99, título da Tercera División) e os títulos de base (Euro Sub-16 1997, Mundial Sub-20 1999, Meridian Cup 1999). otherMajorTitles 4 = Euro 2008 e 2012 + Intercontinental 2002 + Mundial de Clubes 2014. Na final da Champions de 2002 entrou no segundo tempo, no lugar de César. Os prêmios de goleiro (IFFHS, Luva de Ouro da Copa, melhor goleiro de La Liga e da liga portuguesa, Troféu Zamora) estão em golden_glove; o Prêmio Bravo (melhor jovem da Europa) em 'kopa'. O Príncipe das Astúrias de 2010 foi dado aos campeões do mundo e o de 2012 a ele e a Xavi (nota da Wikipedia do Xavi). Assistência: 1, registrada pelo Transfermarkt no Porto. Último jogo em abril de 2019 (sofreu um infarto em maio); anunciou a aposentadoria em agosto de 2020. Bola de Ouro: melhor colocação 4º em 2008. O arquivo antigo já estava certo nos números principais. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol: Real Madrid 725, Porto 156 e Espanha 167 = 1048 (bate). Ela lista também a Intercontinental 1998 (ele ainda não estava no time principal; estreou em setembro de 1999) e a Primeira Liga e a Taça de Portugal 2019/20 pelo Porto (ele não jogou mais depois do infarto de maio de 2019); os três ficam fora pela regra de ter jogado a competição — a Wikipedia em inglês também não os credita. Prêmios de goleiro batem (IFFHS 2008–12, Zamora 2007/08, melhor goleiro de La Liga 2009 e 2012, melhor goleiro da liga portuguesa 2018/19, Luva de Ouro da Copa de 2010). Em 2010 o prêmio da Copa já se chamava Luva de Ouro, e não Prêmio Yashin (nome usado de 1994 a 2006), por isso foi renomeado. Feitos conferidos: 102 jogos sem sofrer gol pela seleção, 20 temporadas seguidas de Champions e goleiro mais jovem numa final de Champions (19 anos e 4 dias) — batem nas duas Wikipedias. O feito dos pênaltis nas Copas de 2002 e 2010 perdeu o 'único', que não achei em segunda fonte."
+  },
+  {
+    "id": "xavi",
+    "asOf": "2019",
+    "apps": 1017,
+    "goals": 123,
+    "assists": 241,
+    "assistsEstimated": false,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 4,
+    "libertadores": 0,
+    "leagueTitles": 9,
+    "otherMajorTitles": 4,
+    "goldenBoots": 0,
+    "titulosTotais": 32,
+    "titulos": [
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Barcelona",
+        "n": 8,
+        "anos": "1998/99, 2004/05, 2005/06, 2008/09, 2009/10, 2010/11, 2012/13, 2014/15",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Barcelona",
+        "n": 3,
+        "anos": "2008/09, 2011/12, 2014/15",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Barcelona",
+        "n": 6,
+        "anos": "2005, 2006, 2009, 2010, 2011, 2013",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Barcelona",
+        "n": 4,
+        "anos": "2006, 2009, 2011, 2015",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2009, 2011",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2009, 2011",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Catariano (Qatar Stars League)",
+        "equipe": "Al-Sadd",
+        "n": 1,
+        "anos": "2018/19",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Emir do Catar",
+        "equipe": "Al-Sadd",
+        "n": 1,
+        "anos": "2017",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa do Catar",
+        "equipe": "Al-Sadd",
+        "n": 1,
+        "anos": "2017",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa Sheikh Jassim (supercopa do Catar)",
+        "equipe": "Al-Sadd",
+        "n": 1,
+        "anos": "2017",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Espanha",
+        "n": 1,
+        "anos": "2010",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Eurocopa",
+        "equipe": "Espanha",
+        "n": 2,
+        "anos": "2008, 2012",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Melhor jogador da Eurocopa",
+        "n": 1,
+        "anos": "2008",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Melhor meio-campista da UEFA (UEFA Club Midfielder of the Year)",
+        "n": 1,
+        "anos": "2008/09",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador do ano",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Melhor armador do mundo",
+        "n": 4,
+        "anos": "2008, 2009, 2010, 2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor meio-campista de La Liga (Prêmios LFP)",
+        "n": 3,
+        "anos": "2008/09, 2009/10, 2010/11",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador espanhol de La Liga (Prêmio Don Balón)",
+        "n": 1,
+        "anos": "2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Revelação de La Liga (Prêmio Don Balón)",
+        "n": 1,
+        "anos": "1999",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências de La Liga e da Champions League",
+        "n": 2,
+        "anos": "2008/09 (20 na liga e 7 na Champions)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor em campo da final da Champions League (escolha da UEFA)",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata do Mundial de Clubes",
+        "n": 1,
+        "anos": "2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Bronze do Mundial de Clubes",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA FIFPro World XI",
+        "n": 6,
+        "anos": "2008, 2009, 2010, 2011, 2012, 2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção do ano da UEFA",
+        "n": 5,
+        "anos": "2008, 2009, 2010, 2011, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 2,
+        "anos": "2008, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (Dream Team)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Príncipe das Astúrias de Esportes",
+        "n": 2,
+        "anos": "2010 (seleção campeã do mundo), 2012 (com Casillas)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Desportista espanhol do ano (Prêmios Nacionais do Esporte)",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "767 jogos pelo Barcelona, recorde do clube até Messi superá-lo em 2021",
+      "3º colocado na Bola de Ouro três anos seguidos (2009, 2010 e 2011)",
+      "Melhor jogador da Euro 2008 e campeão também da Copa de 2010 e da Euro 2012",
+      "Primeiro jogador a dar assistência em duas finais de Eurocopa (2008 e 2012)",
+      "Recorde de 599 passes certos numa Copa do Mundo (2010), superado por Rodri em 2022",
+      "127 passes certos contra a Irlanda na Euro 2012, recorde de um jogo de Eurocopa à época",
+      "Maior garçom espanhol da história da Champions League: 30 assistências",
+      "Primeiro jogador do Barcelona a disputar 150 jogos de competições europeias e do Mundial de Clubes",
+      "Deu quatro assistências no 6–2 sobre o Real Madrid no Bernabéu, em maio de 2009",
+      "Esteve nos dois trebles do Barcelona (2008/09 e 2014/15), o primeiro clube a conquistar a tríplice coroa duas vezes",
+      "Mais de 1.000 jogos oficiais na carreira (1998–2019)",
+      "Eleito para o Ballon d'Or Dream Team da France Football (2020)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Xavi_(footballer,_born_1980)",
+      "https://www.transfermarkt.com/xavi/leistungsdaten/spieler/7607",
+      "https://www.transfermarkt.com/ceapi/performance-game/7607",
+      "https://en.wikipedia.org/wiki/La_Liga_Awards",
+      "https://es.wikipedia.org/wiki/Xavi_Hern%C3%A1ndez",
+      "https://en.wikipedia.org/wiki/2009_UEFA_Champions_League_final"
+    ],
+    "incertos": [
+      "assists (contagem do Transfermarkt; registros anteriores a ~2004 incompletos)"
+    ],
+    "notas": "Barcelona 767/85 + Al-Sadd 117/25 + Espanha 133/13 (amistosos da seleção principal incluídos) = 1017/123, pela Wikipedia; o Transfermarkt bate no Barcelona e nos jogos pela seleção (dá 12 gols pela Espanha e 106 jogos pelo Al-Sadd). Ficam fora o Barcelona B (61 jogos/3 gols) e as seleções de base e olímpica (Mundial Sub-20 1999; prata em Sydney 2000). Assistências: 241 pelo Transfermarkt (186 Barcelona, 31 Al-Sadd, 24 Espanha). A Copa Sheikh Jassim 2017 foi contada como supercopa catariana. Os títulos como técnico (Al-Sadd, e La Liga e Supercopa pelo Barcelona em 2022/23) não entram. Correções: apps 1050→1017, gols 125→123, assistências 250→241 (agora registrada, não estimada). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol: Barcelona 767/85 e Al-Sadd 117/25 (batem); a tabela de seleção dela dá 133/12, mas a lista de gols da mesma página tem 13 gols, como a inglesa — mantido 1017/123. Títulos batem um a um (8 La Liga, 3 Copas do Rei, 6 Supercopas, 4 Champions, 2 Supercopas da UEFA, 2 Mundiais; Al-Sadd: Copa do Emir, Copa do Catar e Sheikh Jassim 2017 e Qatar Stars League 2018/19; Copa 2010 e Euros 2008/2012). Os '34 títulos como jogador' da página espanhola incluem o Mundial Sub-20 1999 e a prata olímpica de 2000, que não contam. Prêmios batem (melhor jogador da Euro 2008, IFFHS armador 2008–11, melhor meio-campista de La Liga 2009–11, 3º da Bola de Ouro 2009–11). ESQUECIDO e acrescentado: melhor em campo da final da Champions de 2009 pela UEFA (página da final), em 'outro'. Feitos conferidos: recorde de 767 jogos pelo Barcelona superado por Messi, 3º na Bola de Ouro três anos seguidos e 599 passes certos na Copa de 2010 — batem."
+  },
+  {
+    "id": "iniesta",
+    "asOf": "2024",
+    "apps": 962,
+    "goals": 101,
+    "assists": 192,
+    "assistsEstimated": false,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 4,
+    "libertadores": 0,
+    "leagueTitles": 10,
+    "otherMajorTitles": 5,
+    "goldenBoots": 0,
+    "titulosTotais": 36,
+    "titulos": [
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Barcelona",
+        "n": 9,
+        "anos": "2004/05, 2005/06, 2008/09, 2009/10, 2010/11, 2012/13, 2014/15, 2015/16, 2017/18",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Barcelona",
+        "n": 6,
+        "anos": "2008/09, 2011/12, 2014/15, 2015/16, 2016/17, 2017/18",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Barcelona",
+        "n": 6,
+        "anos": "2005, 2006, 2010, 2011, 2013, 2016",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Barcelona",
+        "n": 4,
+        "anos": "2006, 2009, 2011, 2015",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2011, 2015",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Barcelona",
+        "n": 3,
+        "anos": "2009, 2011, 2015",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Japonês (J1 League)",
+        "equipe": "Vissel Kobe",
+        "n": 1,
+        "anos": "2023",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Imperador",
+        "equipe": "Vissel Kobe",
+        "n": 1,
+        "anos": "2019",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa do Japão",
+        "equipe": "Vissel Kobe",
+        "n": 1,
+        "anos": "2020",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Espanha",
+        "n": 1,
+        "anos": "2010",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Eurocopa",
+        "equipe": "Espanha",
+        "n": 2,
+        "anos": "2008, 2012",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Melhor jogador da UEFA na Europa (UEFA Best Player in Europe)",
+        "n": 1,
+        "anos": "2011/12",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Melhor jogador da Eurocopa",
+        "n": 1,
+        "anos": "2012",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Melhor em campo nas finais da Copa do Mundo, da Eurocopa e da Champions League",
+        "n": 3,
+        "anos": "2010, 2012, 2015",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor meia ofensivo de La Liga (Prêmios LFP)",
+        "n": 5,
+        "anos": "2008/09, 2010/11, 2011/12, 2012/13, 2013/14",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador espanhol de La Liga (Prêmio Don Balón)",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "Onze Mondial — pódio (Onze de Bronze 2009, Onze de Prata 2011)",
+        "n": 2,
+        "anos": "2009, 2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Melhor armador do mundo",
+        "n": 2,
+        "anos": "2012, 2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata da Copa das Confederações",
+        "n": 1,
+        "anos": "2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Bronze do Mundial de Clubes",
+        "n": 1,
+        "anos": "2015",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências de La Liga",
+        "n": 1,
+        "anos": "2012/13",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot",
+        "n": 1,
+        "anos": "2014",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA FIFPro World XI",
+        "n": 9,
+        "anos": "2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção do ano da UEFA",
+        "n": 6,
+        "anos": "2009, 2010, 2011, 2012, 2015, 2016",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 2,
+        "anos": "2008, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (Dream Team)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Champions League (Squad of the Season)",
+        "n": 2,
+        "anos": "2014/15, 2015/16",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da J1 League",
+        "n": 2,
+        "anos": "2019, 2021",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Príncipe das Astúrias de Esportes (seleção campeã do mundo)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team (3º time)",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Prêmio pela carreira (dividido)",
+        "n": 1,
+        "anos": "2025",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Fez o gol do título da Espanha na final da Copa de 2010, contra a Holanda",
+      "Único jogador eleito o melhor em campo numa final de Copa do Mundo, de Eurocopa e de Champions League (2010, 2012 e 2015)",
+      "Melhor jogador da Euro 2012 e melhor jogador da UEFA na temporada 2011/12",
+      "Vice da Bola de Ouro em 2010 e 3º colocado em 2012",
+      "Gol nos acréscimos em Stamford Bridge que levou o Barcelona à final da Champions de 2009",
+      "Campeão da Champions em 2006, 2009, 2011 e 2015, com dois trebles pelo Barcelona (2008/09 e 2014/15)",
+      "Em 2012 chegou a 51 jogos seguidos de La Liga sem derrota, recorde à época",
+      "9 vezes na FIFA FIFPro World XI, de 2009 a 2017",
+      "9 títulos de La Liga e 6 Copas do Rei pelo Barcelona",
+      "Campeão japonês (J1 2023) e da Copa do Imperador (2019) pelo Vissel Kobe",
+      "131 jogos e 13 gols pela seleção espanhola"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Andr%C3%A9s_Iniesta",
+      "https://www.transfermarkt.com/andres-iniesta/leistungsdaten/spieler/7600",
+      "https://www.transfermarkt.com/ceapi/performance-game/7600",
+      "https://en.wikipedia.org/wiki/La_Liga_Awards",
+      "https://es.wikipedia.org/wiki/Andr%C3%A9s_Iniesta"
+    ],
+    "incertos": [
+      "assists (contagem do Transfermarkt)"
+    ],
+    "notas": "Barcelona 674/57 + Vissel Kobe 134/26 + Emirates Club 23/5 + Espanha 131/13 (amistosos da seleção principal incluídos) = 962/101, pela Wikipedia; o Transfermarkt bate (dá 14 gols pela Espanha). Ficam fora o Barcelona B (54 jogos/5 gols) e as seleções de base. A J1 League 2023 conta: ele jogou 6 partidas pelo Vissel Kobe naquele campeonato antes de sair, em julho (regra do arquivo), por isso leagueTitles 9→10. A Supercopa da Espanha 2009 e a Supercopa da UEFA 2009 não contam: estava machucado e não jogou (a Wikipedia lista só 6 Supercopas e 2 Supercopas da UEFA, conferidas no RSSSF). O prêmio da LFP 'La Liga Best Midfielder' (2009, 2011–2014) é, na tabela oficial, a categoria de melhor meia ofensivo. Assistências: 192 pelo Transfermarkt (136 Barcelona, 25 Vissel Kobe, 1 Emirates, 30 Espanha). Correções: apps 965→962, gols 100→101, leagueTitles 9→10, assistências 200 (estimadas)→192 (registradas). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol: Barcelona 674/57, Emirates 23/5 e Espanha 131/13 (batem); Vissel Kobe 135/26 nela contra 134/26 aqui — a diferença é o jogo de Champions da Ásia de 2020 contra o Johor Darul Ta'zim, anulado depois que o clube malaio desistiu (a própria nota da tabela diz isso), então 962 fica. Títulos batem (9 La Liga, 6 Copas do Rei, 6 Supercopas sem a de 2009, 4 Champions, 2 Supercopas da UEFA, 3 Mundiais, Copa do Imperador 2019, Supercopa do Japão 2020, J1 2023); ela confirma 30 títulos pelo Barcelona. Prêmios batem (melhor jogador da UEFA 2012, melhor da Euro 2012, IFFHS armador 2012 e 2013, melhor meio-campista de La Liga 2009 e 2011–14). ESQUECIDO e acrescentado: prêmio de carreira da Globe Soccer 2025 (dividido), em 'outro'. Feitos conferidos: gol da final de 2010, melhor em campo nas finais de Copa, Euro e Champions (as duas Wikipedias) e o gol em Stamford Bridge em 2009 — batem. O 'recorde' de 51 jogos sem derrota é de 2012 (fonte da época); reescrito como recorde à época, porque não achei confirmação de que continua de pé."
+  },
+  {
+    "id": "puskas",
+    "asOf": "1966",
+    "apps": 724,
+    "goals": 715,
+    "assists": 150,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 3,
+    "libertadores": 0,
+    "leagueTitles": 10,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 18,
+    "titulos": [
+      {
+        "nome": "Campeonato Húngaro",
+        "equipe": "Budapest Honvéd",
+        "n": 5,
+        "anos": "1949/50, 1950, 1952, 1954, 1955",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 5,
+        "anos": "1960/61, 1961/62, 1962/63, 1963/64, 1964/65",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei (Copa del Generalísimo)",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "1961/62",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa dos Campeões da Europa (atual Champions League)",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "1959, 1960, 1966",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Copa Intercontinental",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "1960",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Ouro olímpico",
+        "equipe": "Hungria",
+        "n": 1,
+        "anos": "1952",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa Internacional da Europa Central",
+        "equipe": "Hungria",
+        "n": 1,
+        "anos": "1948–53",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa dos Bálcãs",
+        "equipe": "Hungria",
+        "n": 1,
+        "anos": "1947",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Artilheiro do Campeonato Húngaro",
+        "n": 4,
+        "anos": "1947/48 (50 gols), 1949/50 (31), 1950 (25), 1953 (27)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Pichichi (artilheiro de La Liga)",
+        "n": 4,
+        "anos": "1959/60 (25 gols), 1960/61 (28), 1962/63 (26), 1963/64 (21)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa dos Campeões da Europa",
+        "n": 2,
+        "anos": "1959/60 (12 gols), 1963/64 (7, dividido)",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador da Copa do Mundo (Bola de Ouro retroativa; o prêmio oficial existe desde 1982)",
+        "n": 1,
+        "anos": "1954",
+        "chave": "wc_golden_ball"
+      },
+      {
+        "nome": "Artilheiro da Copa Internacional da Europa Central",
+        "n": 1,
+        "anos": "1948–53 (10 gols)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa Intercontinental",
+        "n": 1,
+        "anos": "1960 (2 gols no 5–1 sobre o Peñarol)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Futebolista húngaro do ano (Federação Húngara)",
+        "n": 1,
+        "anos": "1950",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Bola de Ouro — 2º lugar",
+        "n": 1,
+        "anos": "1960",
+        "chave": "outro"
+      },
+      {
+        "nome": "Maior artilheiro da Europa na temporada",
+        "n": 1,
+        "anos": "1947/48 (50 gols)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo",
+        "n": 1,
+        "anos": "1954",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Seleção do mundo (World XI)",
+        "n": 4,
+        "anos": "1960, 1961, 1962, 1963",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Maior artilheiro do século XX e melhor jogador húngaro do século",
+        "n": 2,
+        "anos": "século XX",
+        "chave": "outro"
+      },
+      {
+        "nome": "Jogador de Ouro da Hungria (Jubileu da UEFA)",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot (categoria lendas)",
+        "n": 1,
+        "anos": "2006",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "84 gols em 85 jogos pela Hungria: maior artilheiro de seleções do mundo até Ali Daei (2003) e da Europa até Cristiano Ronaldo (2018)",
+      "Campeão olímpico em 1952 e vice da Copa de 1954, eleito o melhor jogador do torneio",
+      "Capitão da 'Seleção de Ouro' húngara, que ficou 32 jogos seguidos invicta",
+      "Venceu a Inglaterra por 6–3 em Wembley (1953) e por 7–1 em Budapeste (1954)",
+      "Jogou a final da Copa de 1954 com uma fissura no tornozelo e abriu o placar, aos 6 minutos",
+      "4 gols na final da Copa dos Campeões de 1960 (7–3 no Eintracht Frankfurt) e hat-trick na final de 1962: 7 gols em duas finais",
+      "Quatro vezes artilheiro de La Liga e quatro vezes do Campeonato Húngaro",
+      "Marcou 20 ou mais gols em cada uma de suas seis primeiras temporadas de La Liga",
+      "Pentacampeão espanhol seguido (1961–1965) e tricampeão da Copa dos Campeões com o Real Madrid",
+      "Maior artilheiro da Europa em 1947/48, com 50 gols no Campeonato Húngaro",
+      "Dá nome ao Prêmio Puskás da FIFA, criado em 2009 para o gol mais bonito do ano, e ao estádio nacional da Hungria",
+      "Defendeu duas seleções: Hungria (85 jogos) e Espanha (4 jogos, 1961–62)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Ferenc_Pusk%C3%A1s",
+      "https://pt.wikipedia.org/wiki/Ferenc_Pusk%C3%A1s",
+      "https://www.rsssf.org/players/ppuskasdata.html",
+      "https://www.rsssf.org/players/prolific.html",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://en.wikipedia.org/wiki/Ali_Daei",
+      "https://en.wikipedia.org/wiki/Cristiano_Ronaldo",
+      "https://es.wikipedia.org/wiki/Ferenc_Pusk%C3%A1s",
+      "https://en.wikipedia.org/wiki/Golden_Team"
+    ],
+    "incertos": [
+      "apps",
+      "goals",
+      "assists"
+    ],
+    "notas": "Jogos oficiais pela tabela por competição do RSSSF: liga húngara 352/360 (variante 358), 3ª divisão húngara em 1943 3/4, copas da Hungria 12/20, Copa Mitropa 4/4, Copa dos Campeões 41/36, liga espanhola 180/156 (variante 155: 4 e não 5 gols no 8–0 sobre o Elche), Copa do Generalísimo 41/49, Intercontinental 2/2, Hungria 85/84 e Espanha 4/0 = 724/715. Ficam fora a liga de reservas (9/28), torneios menores (Esti Kupa e outros, 16/12), o torneio militar (7/5) e as seleções de Budapeste, universitária e da FIFA, que o RSSSF soma nos seus 802 gols em 792 jogos. A Wikipedia em inglês dá 397/428 pelo Honvéd e a em português 367/383 (somas diferentes das temporadas de guerra); o Real Madrid (262/242) bate em todas. titulosTotais 18 inclui a Copa Internacional da Europa Central 1948–53 e a Copa dos Bálcãs 1947, torneios oficiais entre seleções que não entram em otherMajorTitles (não são Euro/Copa América). Copas dos Campeões de 1959 e 1966: jogou as fases anteriores, mas não as finais (lesão em 1959). Bola de Ouro oficial 0 (vice em 1960). 'Golden Ball' de 1954: seleção retroativa (ESPN, Clarín), mesma regra usada para Garrincha e Pelé. Assistências: sem registro de clube; a Wikipedia atribui a ele 53 assistências pela seleção, recorde europeu. Correções: apps 690→724, gols 660→715. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol: os mesmos 5 campeonatos húngaros, 5 La Liga, a Copa del Generalísimo 1962, as Copas dos Campeões 1959, 1960 e 1966 e a Intercontinental 1960; não lista a Copa da Europa Central nem a Copa dos Bálcãs (a inglesa lista as duas), que ficam. Os prêmios batem: Pichichi 1960, 1961, 1963 e 1964, artilharia da Copa dos Campeões 1960 e 1964, artilharia do Campeonato Húngaro (ela escreve 1948, 1950, 1951 e 1953 — anos de fim de temporada, mesmas quatro conquistas). ESQUECIDO e acrescentado: artilheiro da Copa Intercontinental 1960 (2 gols na volta, 5–1 no Peñarol), listado pela Wikipedia em espanhol; chave tournament_top_scorer, mesmo critério do Pelé (artilheiro da Intercontinental de 1962/63) no lote g1. A tabela da Wikipedia em espanhol soma 720 jogos/711 gols (com 2 gols pela Espanha que o RSSSF não registra) — apps/goals seguem em incertos. Feitos conferidos: 32 jogos de invencibilidade da 'Seleção de Ouro' (Wikipedias em inglês, 'Golden Team'), 20 ou mais gols nas seis primeiras temporadas de La Liga e 84 gols em 85 jogos pela Hungria — batem."
+  },
+  {
+    "id": "yashin",
+    "asOf": "1970",
+    "apps": 432,
+    "goals": 0,
+    "assists": 0,
+    "assistsEstimated": true,
+    "ballonDor": 1,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 0,
+    "libertadores": 0,
+    "leagueTitles": 5,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 10,
+    "titulos": [
+      {
+        "nome": "Campeonato Soviético",
+        "equipe": "Dínamo de Moscou",
+        "n": 5,
+        "anos": "1954, 1955, 1957, 1959, 1963",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da União Soviética",
+        "equipe": "Dínamo de Moscou",
+        "n": 3,
+        "anos": "1953, 1966/67, 1970",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Ouro olímpico",
+        "equipe": "União Soviética",
+        "n": 1,
+        "anos": "1956",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Eurocopa (Copa das Nações Europeias)",
+        "equipe": "União Soviética",
+        "n": 1,
+        "anos": "1960",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 1,
+        "anos": "1963",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Goleiro do ano na União Soviética (prêmio da revista Ogonyok)",
+        "n": 3,
+        "anos": "1960, 1963, 1966",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Melhor goleiro do século XX (IFFHS e FIFA)",
+        "n": 1,
+        "anos": "século XX",
+        "chave": "golden_glove"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 2,
+        "anos": "1960, 1964",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Seleção do mundo (World XI)",
+        "n": 4,
+        "anos": "1963, 1964, 1966, 1967",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção FIFA (FIFA XI)",
+        "n": 2,
+        "anos": "1963, 1968",
+        "chave": "outro"
+      },
+      {
+        "nome": "ADN — Melhor jogador do Leste Europeu na temporada",
+        "n": 1,
+        "anos": "1963",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção de todos os tempos da Copa do Mundo (FIFA)",
+        "n": 1,
+        "anos": "1994",
+        "chave": "outro"
+      },
+      {
+        "nome": "Time do Século XX (World Team of the 20th Century)",
+        "n": 1,
+        "anos": "1998",
+        "chave": "outro"
+      },
+      {
+        "nome": "Dream Team da Copa do Mundo (FIFA)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "Jogador de Ouro da Rússia (Jubileu da UEFA)",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem de Mérito da FIFA",
+        "n": 1,
+        "anos": "1988",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem Olímpica de Prata",
+        "n": 1,
+        "anos": "1985",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único goleiro a ganhar a Bola de Ouro (1963)",
+      "Campeão olímpico em 1956 e da primeira Eurocopa, em 1960, com a União Soviética",
+      "Dá nome ao Troféu Yashin, criado em 2019 pela France Football para o melhor goleiro do ano; o prêmio de melhor goleiro da Copa também teve seu nome de 1994 a 2006",
+      "Jogou toda a carreira num só clube, o Dínamo de Moscou (1950–1970)",
+      "Segundo a FIFA, defendeu mais de 150 pênaltis, mais que qualquer outro goleiro",
+      "Mais de 270 jogos sem sofrer gol na carreira",
+      "Eleito o melhor goleiro do século XX pela IFFHS e pela FIFA",
+      "Levou a União Soviética ao 4º lugar na Copa de 1966, a melhor campanha soviética em Copas",
+      "Convocado para quatro Copas (1958 a 1970): 12 jogos, 4 sem sofrer gol",
+      "Cinco vezes campeão soviético e três vezes campeão da Copa da URSS",
+      "Também foi goleiro de hóquei no gelo do Dínamo e ganhou a Copa da URSS de hóquei em 1953",
+      "Integra o Time do Século XX (1998) e o Ballon d'Or Dream Team da France Football (2020)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Lev_Yashin",
+      "https://ru.wikipedia.org/wiki/%D0%AF%D1%88%D0%B8%D0%BD,_%D0%9B%D0%B5%D0%B2_%D0%98%D0%B2%D0%B0%D0%BD%D0%BE%D0%B2%D0%B8%D1%87",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://es.wikipedia.org/wiki/Lev_Yashin",
+      "https://de.wikipedia.org/wiki/Lew_Iwanowitsch_Jaschin",
+      "https://en.wikipedia.org/wiki/UEFA_European_Championship_awards",
+      "https://www.transfermarkt.com/ceapi/performance-game/174987"
+    ],
+    "incertos": [],
+    "notas": "Dínamo de Moscou 326 jogos de liga + 32 de Copa da URSS = 358 (Wikipedia em inglês e em russo) + 74 pela União Soviética (lista jogo a jogo da Wikipedia em russo, base eu-football.info, com 70 gols sofridos) = 432. Os '812 jogos' que circulam incluem amistosos; o arquivo antigo (510) estava alto. A Copa da URSS de hóquei no gelo (1953) e a Espartaquíada de 1956 não entram em titulosTotais. O 'goleiro do ano' da revista Ogonyok (1960, 1963, 1966) tem referência na Wikipedia em russo (a em inglês marca 'citation needed'). A Ordem de Lênin ficou fora da lista porque as fontes divergem no ano (a Wikipedia em inglês diz 1967; a em russo, 16/9/1960). Em 1970 foi à Copa como terceiro goleiro e não jogou. Correção: apps 510→432. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em alemão: 326 jogos de liga pelo Dínamo e 74 pela seleção (batem), 5 campeonatos soviéticos (1954, 1955, 1957, 1959, 1963), 3 Copas da URSS (1953, 1966/67, 1970), ouro olímpico 1956 e Euro 1960; 'goleiro do ano' soviético 1960, 1963 e 1966 (batem). O jogo a jogo do Transfermarkt também dá 358 jogos oficiais pelo Dínamo (326 de liga, somando as duas fases dos campeonatos, + 32 de Copa da URSS). A Wikipedia em espanhol fala em 78 jogos pela seleção, número que inclui partidas não oficiais; ficam os 74. CORRIGIDO: a seleção do torneio da Eurocopa (lista oficial da UEFA) tem Yashin em 1960 e em 1964, não só em 1960 (n 1→2). ESQUECIDO e acrescentado: Jogador de Ouro da Rússia no Jubileu da UEFA (2003), listado nas Wikipedias em russo e espanhol, em 'outro', mesmo critério de Eusébio e Puskás. O Transfermarkt atribui a ele 1 assistência num amistoso da seleção; assists fica 0 (estimado). Feitos conferidos: único goleiro com Bola de Ouro (a de 2026 só será entregue em 26/10), 4º lugar na Copa de 1966 e o nome do prêmio de goleiro da Copa entre 1994 e 2006 — batem."
+  },
+  {
+    "id": "beckenbauer",
+    "asOf": "1983",
+    "apps": 857,
+    "goals": 112,
+    "assists": 120,
+    "assistsEstimated": true,
+    "ballonDor": 2,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 3,
+    "libertadores": 0,
+    "leagueTitles": 8,
+    "otherMajorTitles": 3,
+    "goldenBoots": 0,
+    "titulosTotais": 20,
+    "titulos": [
+      {
+        "nome": "Campeonato Alemão (Bundesliga)",
+        "equipe": "Bayern de Munique",
+        "n": 4,
+        "anos": "1968/69, 1971/72, 1972/73, 1973/74",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da Alemanha (DFB-Pokal)",
+        "equipe": "Bayern de Munique",
+        "n": 4,
+        "anos": "1965/66, 1966/67, 1968/69, 1970/71",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa dos Campeões da Europa (atual Champions League)",
+        "equipe": "Bayern de Munique",
+        "n": 3,
+        "anos": "1974, 1975, 1976",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Recopa Europeia",
+        "equipe": "Bayern de Munique",
+        "n": 1,
+        "anos": "1967",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Copa Intercontinental",
+        "equipe": "Bayern de Munique",
+        "n": 1,
+        "anos": "1976",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Regionalliga Süd (2ª divisão alemã)",
+        "equipe": "Bayern de Munique",
+        "n": 1,
+        "anos": "1964/65",
+        "tipo": "outro"
+      },
+      {
+        "nome": "NASL (Soccer Bowl)",
+        "equipe": "New York Cosmos",
+        "n": 3,
+        "anos": "1977, 1978, 1980",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Alemão (Bundesliga)",
+        "equipe": "Hamburgo",
+        "n": 1,
+        "anos": "1981/82",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Alemanha Ocidental",
+        "n": 1,
+        "anos": "1974",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Eurocopa",
+        "equipe": "Alemanha Ocidental",
+        "n": 1,
+        "anos": "1972",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 2,
+        "anos": "1972, 1976",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Futebolista alemão do ano",
+        "n": 4,
+        "anos": "1966, 1968, 1974, 1976",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "MVP da NASL",
+        "n": 1,
+        "anos": "1977",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Melhor jogador jovem da Copa do Mundo (prêmio retroativo da FIFA)",
+        "n": 1,
+        "anos": "1966",
+        "chave": "kopa"
+      },
+      {
+        "nome": "Chuteira de Bronze da Copa do Mundo",
+        "n": 1,
+        "anos": "1966 (4 gols)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata da Copa do Mundo (seleção da France Football/L'Équipe; não oficial)",
+        "n": 1,
+        "anos": "1966",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 2,
+        "anos": "1972, 1976",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da temporada da Bundesliga (kicker)",
+        "n": 12,
+        "anos": "1965/66 a 1976/77",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Seleção do mundo de Eric Batty",
+        "n": 7,
+        "anos": "1966, 1972, 1973, 1974, 1975, 1976, 1977",
+        "chave": "outro"
+      },
+      {
+        "nome": "Time do Século XX (World Team of the 20th Century)",
+        "n": 1,
+        "anos": "1998",
+        "chave": "outro"
+      },
+      {
+        "nome": "Dream Team da Copa do Mundo (FIFA)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem de Mérito da FIFA",
+        "n": 1,
+        "anos": "1984",
+        "chave": "outro"
+      },
+      {
+        "nome": "Laureus — Prêmio pela carreira",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot (categoria lendas)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio do Presidente da UEFA",
+        "n": 1,
+        "anos": "2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Presidencial da FIFA",
+        "n": 1,
+        "anos": "2012",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único defensor a ganhar a Bola de Ouro duas vezes (1972 e 1976); vice em 1974 e 1975",
+      "Campeão do mundo como capitão (1974) e como técnico (1990), feito igualado só por Didier Deschamps",
+      "Primeiro capitão a levantar Copa do Mundo, Eurocopa e Copa dos Campeões",
+      "Primeiro jogador a ganhar três Copas dos Campeões como capitão (Bayern, 1974 a 1976)",
+      "Primeiro capitão a erguer a atual taça da Copa do Mundo, em 1974",
+      "Considerado o criador do líbero moderno",
+      "Recordista de jogos pela Alemanha Ocidental de 1973 a 1993 (103 jogos)",
+      "Vice-campeão mundial em 1966 e 3º em 1970; melhor jogador jovem da Copa de 1966",
+      "Campeão da Eurocopa de 1972 e vice em 1976",
+      "Tricampeão da NASL com o New York Cosmos (1977, 1978 e 1980), ao lado de Pelé em 1977",
+      "Campeão alemão pela última vez aos 36 anos, pelo Hamburgo (1981/82)",
+      "Eleito para o Time do Século XX (1998) e para o Ballon d'Or Dream Team (2020)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Franz_Beckenbauer",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://de.wikipedia.org/wiki/Franz_Beckenbauer",
+      "https://www.transfermarkt.com/ceapi/performance-game/72347",
+      "https://en.wikipedia.org/wiki/UEFA_European_Championship_awards"
+    ],
+    "incertos": [
+      "assists",
+      "apps/goals: os 27 jogos e 4 gols de playoff da NASL pelo Cosmos só têm a Wikipedia em inglês como fonte"
+    ],
+    "notas": "Jogos e gols pela Wikipedia em inglês: Bayern 584/75 (inclui Regionalliga Süd 1964/65 e o playoff de acesso de 1965), New York Cosmos 132/23 (NASL 1977–80 e 1983, com playoffs), Hamburgo 38/0, mais Alemanha Ocidental 103/14 (amistosos da seleção principal incluídos) = 857/112. Não achei conferência no RSSSF, por isso apps/goals em incertos; o arquivo antigo (760/100) deixava de fora boa parte do Cosmos. leagueTitles 8 = Bundesliga x4 (Bayern) + 1981/82 (Hamburgo) + NASL x3 (Soccer Bowl 1977, 1978 e 1980). otherMajorTitles 3 = Euro 1972, Recopa 1967 e Intercontinental 1976. A Regionalliga Süd 1964/65 (2ª divisão) entra só em titulosTotais, tipo 'outro'. A 'Bola de Prata' de 1966 é uma seleção retroativa da France Football/L'Équipe (não oficial), em 'outro'; o prêmio de melhor jovem da Copa de 1966 é retroativo da FIFA e ficou em 'kopa'. Os títulos como técnico (Copa de 1990, Ligue 1 1990/91, Bundesliga 1993/94, Copa da UEFA 1996) não entram. Assistências: sem registro, estimativa. Correções: apps 760→857, gols 100→112. CONFERÊNCIA (2ª fonte, 14/10/2026): O jogo a jogo do Transfermarkt (sem dados da NASL) dá exatamente Bayern 584 jogos/75 gols — Regionalliga Süd 31/16, playoffs de acesso de 1964 e 1965 12/3, Süddeutscher Pokal 2/1, Bundesliga, DFB-Pokal, Ligapokal, Copa dos Campeões, Recopa, Copa das Feiras, Supercopa e Intercontinental — e Hamburgo 38/0, além de 104 jogos/14 gols pela seleção (um a mais que os 103 oficiais da DFB). A Wikipedia em alemão dá Cosmos 80 (17) + 25 (2) jogos de liga, o mesmo que a inglesa; só os 27 jogos de playoff da NASL ficam com uma fonte. Por isso apps/goals saíram de incertos. Títulos batem com a Wikipedia em alemão (4 Bundesliga pelo Bayern + 1982 pelo Hamburgo, 4 DFB-Pokal, 3 Copas dos Campeões, Recopa 1967, Intercontinental 1976, Regionalliga Süd 1965, NASL 1977, 1978 e 1980, Copa de 1974 e Euro 1972). Prêmios batem: Bola de Ouro 1972 e 1976, Futebolista Alemão do Ano 1966, 1968, 1974 e 1976, MVP da NASL 1977 e seleção da Euro 1972 e 1976 (lista da UEFA). ESQUECIDOS e acrescentados (em 'outro'): Prêmio do Presidente da UEFA e Prêmio Presidencial da FIFA, ambos de 2012. Assistências: o Transfermarkt registra 85 (75 por clubes sem o Cosmos + 10 pela seleção); a estimativa de 120 fica. Feitos conferidos: único defensor com duas Bolas de Ouro, primeiro capitão a ganhar três Copas dos Campeões (Muñoz levantou duas, em 1956 e 1957, e Zárraga duas, em 1959 e 1960) e campeão do mundo como capitão e como técnico, ao lado só de Deschamps (Zagallo foi campeão como jogador, não como capitão) — batem."
+  },
+  {
+    "id": "gerd-muller",
+    "asOf": "1981",
+    "apps": 780,
+    "goals": 724,
+    "assists": 119,
+    "assistsEstimated": true,
+    "ballonDor": 1,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 3,
+    "libertadores": 0,
+    "leagueTitles": 4,
+    "otherMajorTitles": 3,
+    "goldenBoots": 2,
+    "titulosTotais": 16,
+    "titulos": [
+      {
+        "nome": "Campeonato Alemão (Bundesliga)",
+        "equipe": "Bayern de Munique",
+        "n": 4,
+        "anos": "1968/69, 1971/72, 1972/73, 1973/74",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da Alemanha (DFB-Pokal)",
+        "equipe": "Bayern de Munique",
+        "n": 4,
+        "anos": "1965/66, 1966/67, 1968/69, 1970/71",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa dos Campeões da Europa (atual Champions League)",
+        "equipe": "Bayern de Munique",
+        "n": 3,
+        "anos": "1974, 1975, 1976",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Recopa Europeia",
+        "equipe": "Bayern de Munique",
+        "n": 1,
+        "anos": "1967",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Copa Intercontinental",
+        "equipe": "Bayern de Munique",
+        "n": 1,
+        "anos": "1976",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Regionalliga Süd (2ª divisão alemã)",
+        "equipe": "Bayern de Munique",
+        "n": 1,
+        "anos": "1964/65",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Alemanha Ocidental",
+        "n": 1,
+        "anos": "1974",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Eurocopa",
+        "equipe": "Alemanha Ocidental",
+        "n": 1,
+        "anos": "1972",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 1,
+        "anos": "1970",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Chuteira de Ouro europeia",
+        "n": 2,
+        "anos": "1969/70 (38 gols), 1971/72 (40)",
+        "chave": "golden_boot"
+      },
+      {
+        "nome": "Artilheiro da Bundesliga",
+        "n": 7,
+        "anos": "1966/67, 1968/69, 1969/70, 1971/72, 1972/73, 1973/74, 1977/78",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Futebolista alemão do ano",
+        "n": 2,
+        "anos": "1967, 1969",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Artilheiro da Copa do Mundo",
+        "n": 1,
+        "anos": "1970 (10 gols)",
+        "chave": "wc_golden_boot"
+      },
+      {
+        "nome": "Artilheiro da Eurocopa",
+        "n": 1,
+        "anos": "1972 (4 gols)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa dos Campeões da Europa",
+        "n": 4,
+        "anos": "1972/73 (11 gols), 1973/74 (8), 1974/75 (5, dividido), 1976/77 (5, dividido)",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa da Alemanha (DFB-Pokal)",
+        "n": 3,
+        "anos": "1966/67 (9 gols), 1968/69 (7), 1970/71 (11)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo",
+        "n": 1,
+        "anos": "1970",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Eurocopa",
+        "n": 1,
+        "anos": "1972",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da temporada da Bundesliga (kicker)",
+        "n": 4,
+        "anos": "1968/69, 1969/70, 1971/72, 1972/73",
+        "chave": "outro"
+      },
+      {
+        "nome": "Maior artilheiro do mundo no ano",
+        "n": 2,
+        "anos": "1970, 1972",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bravo Otto de ouro (revista Bravo)",
+        "n": 2,
+        "anos": "1973, 1974",
+        "chave": "outro"
+      },
+      {
+        "nome": "Eleito o melhor jogador dos 40 anos da Bundesliga",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem de Mérito da FIFA",
+        "n": 1,
+        "anos": "1998",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot (categoria lendas)",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Maior artilheiro da história da Bundesliga: 365 gols em 427 jogos",
+      "40 gols na Bundesliga 1971/72, recorde por 49 anos, até Lewandowski fazer 41 em 2020/21",
+      "85 gols em 1972 (72 pelo Bayern e 13 pela seleção), recorde de um ano civil até Messi em 2012",
+      "68 gols em 62 jogos pela Alemanha Ocidental: maior artilheiro da seleção até Klose, em 2014",
+      "14 gols em Copas do Mundo, recorde de 1974 a 2006",
+      "Gol do título na final da Copa de 1974 (2–1 sobre a Holanda)",
+      "Artilheiro da Copa de 1970, com 10 gols",
+      "Artilheiro e campeão da Euro 1972, com 2 gols na final",
+      "34 gols em 35 jogos de Copa dos Campeões e quatro vezes artilheiro da competição",
+      "Sete vezes artilheiro da Bundesliga",
+      "Um dos dois únicos jogadores, com Messi, a ganhar Copa do Mundo, Copa dos Campeões, Bola de Ouro e Chuteira de Ouro europeia",
+      "Recorde de gols de um jogador de clube europeu numa temporada (1972/73) por 39 anos, até Messi em 2011/12"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Gerd_M%C3%BCller",
+      "https://www.rsssf.org/players/pgmuellerdata.html",
+      "https://www.rsssf.org/players/prolific.html",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://de.wikipedia.org/wiki/Gerd_M%C3%BCller",
+      "https://www.transfermarkt.com/ceapi/performance-game/35604"
+    ],
+    "incertos": [
+      "apps",
+      "goals (1 gol de diferença entre fontes: 724 pela Wikipedia em alemão, Transfermarkt e Wikipedia em inglês; 725 pelo RSSSF)",
+      "assists"
+    ],
+    "notas": "Jogos oficiais pela tabela do RSSSF por competição: TSV Nördlingen (liga amadora, 1963/64) 31/51, Regionalliga Süd 26/33, playoff de acesso 6/6, Bundesliga 427/365, DFB-Pokal 64/80, DFB-Ligapokal 5/12, copas internacionais 79/70, NASL pelo Fort Lauderdale 80/40 e Alemanha Ocidental 62/68 = 780/725. O RSSSF chega a 793/735 porque soma ainda a seleção juvenil da Baviera (3/2), o time de reservas (3/2), a Copa Intertoto de 1978 (6/5) e a seleção sub-23 (1/1), que ficaram fora. Sem o Nördlingen (time amador, primeiro clube) seriam 749/674; a Wikipedia em inglês dá Bayern 607/565 e Fort Lauderdale 80/40. A Regionalliga Süd 1964/65 (2ª divisão) entra só em titulosTotais, tipo 'outro'. Bola de Ouro: campeão em 1970, vice em 1972 e 3º em 1969 e 1973. A 'Bola de Bronze' da Copa de 1970 aparece comentada como sem fonte na Wikipedia e ficou fora. Assistências: sem registro, estimativa. Correções: apps 740→780, gols 672→725 (o arquivo antigo não contava o Nördlingen). CONFERÊNCIA (2ª fonte, 14/10/2026): A Wikipedia em alemão dá Nördlingen 31/51, Bayern 607/565, Fort Lauderdale 80/40 (71/38 de liga + 7/2 de playoff) e Alemanha Ocidental 62/68. O jogo a jogo do Transfermarkt dá Bayern 613/570, que menos a Intertoto de 1978 (6/5) também vira 607/565, e a Wikipedia em inglês tem os mesmos 607/565. O RSSSF conta 566 pelo Bayern (70 gols em copas internacionais, contra 69 nas outras três fontes: 34 na Copa dos Campeões, 20 na Recopa, 7 na Copa das Feiras, 4 na Copa UEFA, 3 na Supercopa e 1 na Intercontinental). CORRIGIDO: goals 725→724, por três fontes contra uma; apps 780 bate. Títulos batem com a Wikipedia em alemão (Regionalliga 1965, 4 Bundesliga, 4 DFB-Pokal, Recopa 1967, 3 Copas dos Campeões, Intercontinental 1976, Copa de 1974 e Euro 1972), assim como os prêmios: 7 artilharias da Bundesliga, Chuteira de Ouro 1970 (38) e 1972 (40), 4 artilharias da Copa dos Campeões (1973, 1974, 1975 e 1977), artilheiro das Copas de 1970 e da Euro 1972, Bola de Ouro 1970 e Futebolista Alemão do Ano 1967 e 1969. ESQUECIDO e acrescentado: 3 artilharias da DFB-Pokal (1967, 1969 e 1971), em 'outro', como a da Taça de Portugal do Eusébio. Assistências: o Transfermarkt registra 119 (108 pelo Bayern + 11 pela seleção, sem Nördlingen e NASL); como os 100 estimados ficavam abaixo do que já está registrado, o campo passou a 119 (ainda estimado, piso). Feitos conferidos: 85 gols em 1972 (60 jogos oficiais, superado por Messi em 2012 com 91), 14 gols em Copas como recorde de 1974 a 2006 e 68 gols pela seleção até Klose em 2014 — batem. O feito da temporada 1972/73 dizia 'por 40 anos'; de 1972/73 a 2011/12 são 39, corrigido. O feito 'um dos dois únicos, com Messi, a ganhar Copa, Copa dos Campeões, Bola de Ouro e Chuteira de Ouro' vale até hoje; a Bola de Ouro 2026 sai em 26/10."
+  }
+]

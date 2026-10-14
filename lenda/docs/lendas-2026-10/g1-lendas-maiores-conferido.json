@@ -1,0 +1,1212 @@
+[
+  {
+    "id": "messi",
+    "asOf": "2026-10",
+    "apps": 1179,
+    "goals": 934,
+    "assists": 426,
+    "assistsEstimated": false,
+    "ballonDor": 8,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 4,
+    "libertadores": 0,
+    "leagueTitles": 13,
+    "otherMajorTitles": 6,
+    "goldenBoots": 6,
+    "titulosTotais": 46,
+    "titulos": [
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Barcelona",
+        "n": 10,
+        "anos": "2004/05, 2005/06, 2008/09, 2009/10, 2010/11, 2012/13, 2014/15, 2015/16, 2017/18, 2018/19",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Barcelona",
+        "n": 7,
+        "anos": "2008/09, 2011/12, 2014/15, 2015/16, 2016/17, 2017/18, 2020/21",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Barcelona",
+        "n": 7,
+        "anos": "2006, 2009, 2010, 2011, 2013, 2016, 2018",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Barcelona",
+        "n": 4,
+        "anos": "2006, 2009, 2011, 2015",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Barcelona",
+        "n": 3,
+        "anos": "2009, 2011, 2015",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Barcelona",
+        "n": 3,
+        "anos": "2009, 2011, 2015",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Francês (Ligue 1)",
+        "equipe": "Paris Saint-Germain",
+        "n": 2,
+        "anos": "2021/22, 2022/23",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da França (Trophée des Champions)",
+        "equipe": "Paris Saint-Germain",
+        "n": 1,
+        "anos": "2022",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "MLS Cup (campeão da MLS)",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2025",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supporters' Shield (melhor campanha da fase regular da MLS)",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2024",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Leagues Cup",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2023",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Campeones Cup",
+        "equipe": "Inter Miami",
+        "n": 1,
+        "anos": "2026",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "2022",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa América",
+        "equipe": "Argentina",
+        "n": 2,
+        "anos": "2021, 2024",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Finalíssima (CONMEBOL-UEFA)",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "2022",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Ouro olímpico",
+        "equipe": "Argentina Sub-23",
+        "n": 1,
+        "anos": "2008",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football; inclui FIFA Ballon d'Or 2010–2015)",
+        "n": 8,
+        "anos": "2009, 2010, 2011, 2012, 2015, 2019, 2021, 2023",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Melhor do Mundo da FIFA (FIFA World Player 2009; The Best 2019, 2022, 2023)",
+        "n": 4,
+        "anos": "2009, 2019, 2022, 2023",
+        "chave": "the_best"
+      },
+      {
+        "nome": "Chuteira de Ouro europeia",
+        "n": 6,
+        "anos": "2009/10 (34 gols), 2011/12 (50), 2012/13 (46), 2016/17 (37), 2017/18 (34), 2018/19 (36)",
+        "chave": "golden_boot"
+      },
+      {
+        "nome": "Pichichi (artilheiro de La Liga)",
+        "n": 8,
+        "anos": "2009/10, 2011/12, 2012/13, 2016/17, 2017/18, 2018/19, 2019/20, 2020/21",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Chuteira de Ouro da MLS (artilheiro da MLS)",
+        "n": 1,
+        "anos": "2025 (29 gols)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador de La Liga (Prêmios LFP)",
+        "n": 6,
+        "anos": "2008/09, 2009/10, 2010/11, 2011/12, 2012/13, 2014/15",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "MVP da MLS (Landon Donovan MVP Award)",
+        "n": 2,
+        "anos": "2024, 2025",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Bola de Ouro da Copa do Mundo",
+        "n": 2,
+        "anos": "2014, 2022",
+        "chave": "wc_golden_ball"
+      },
+      {
+        "nome": "Bola de Prata da Copa do Mundo",
+        "n": 1,
+        "anos": "2026",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Prata da Copa do Mundo",
+        "n": 2,
+        "anos": "2022, 2026",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Champions League",
+        "n": 6,
+        "anos": "2008/09, 2009/10, 2010/11, 2011/12, 2014/15 (dividido), 2018/19",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador da UEFA (Clube do Ano 2008/09; Jogador do Ano 2010/11 e 2014/15)",
+        "n": 3,
+        "anos": "2008/09, 2010/11, 2014/15",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Melhor atacante da UEFA/Champions (UEFA Club Forward 2008/09; Forward of the Season 2018/19)",
+        "n": 2,
+        "anos": "2008/09, 2018/19",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador da Copa América",
+        "n": 2,
+        "anos": "2015, 2021",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Artilheiro da Copa América",
+        "n": 1,
+        "anos": "2021 (dividido com Luis Díaz)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial de Clubes",
+        "n": 2,
+        "anos": "2009, 2011",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Bola de Prata do Mundial de Clubes",
+        "n": 1,
+        "anos": "2015",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Mundial de Clubes",
+        "n": 1,
+        "anos": "2011 (dividido com Adriano)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Golden Boy (Tuttosport; melhor sub-21 da Europa, usado como equivalente ao Troféu Kopa, criado em 2018)",
+        "n": 1,
+        "anos": "2005",
+        "chave": "kopa"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial Sub-20",
+        "n": 1,
+        "anos": "2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Ouro do Mundial Sub-20",
+        "n": 1,
+        "anos": "2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador jovem da Copa América",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro das Eliminatórias da CONMEBOL",
+        "n": 1,
+        "anos": "2026",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências de liga",
+        "n": 8,
+        "anos": "La Liga 2010/11, 2014/15, 2015/16, 2017/18, 2018/19, 2019/20; Ligue 1 2022/23; MLS 2025",
+        "chave": "outro"
+      },
+      {
+        "nome": "MVP da final da MLS Cup",
+        "n": 1,
+        "anos": "2025",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador e artilheiro da Leagues Cup",
+        "n": 2,
+        "anos": "2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Laureus — Desportista do Ano",
+        "n": 2,
+        "anos": "2020, 2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Melhor jogador do mundo",
+        "n": 1,
+        "anos": "2022",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Melhor armador do mundo",
+        "n": 5,
+        "anos": "2015, 2016, 2017, 2019, 2022",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Artilheiro do mundo (World's Best Top Goal Scorer)",
+        "n": 2,
+        "anos": "2012, 2016",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Melhor jogador da década (2011–2020) e melhor jogador de todos os tempos (2025)",
+        "n": 2,
+        "anos": "2021, 2025",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Melhor jogador do ano",
+        "n": 1,
+        "anos": "2015",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro World XI (seleção do ano)",
+        "n": 17,
+        "anos": "2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro — Jogador jovem do ano",
+        "n": 3,
+        "anos": "2006, 2007, 2008",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador do ano",
+        "n": 6,
+        "anos": "2009, 2011, 2012, 2015, 2019, 2022",
+        "chave": "outro"
+      },
+      {
+        "nome": "Trofeo Alfredo Di Stéfano (Marca)",
+        "n": 7,
+        "anos": "2008/09, 2009/10, 2010/11, 2014/15, 2016/17, 2017/18, 2018/19",
+        "chave": "outro"
+      },
+      {
+        "nome": "TIME — Atleta do Ano",
+        "n": 1,
+        "anos": "2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Olimpia de Oro (desportista argentino do ano)",
+        "n": 4,
+        "anos": "2011, 2021, 2022, 2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Olimpia de Plata (futebolista argentino do ano)",
+        "n": 16,
+        "anos": "2005, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2015, 2016, 2017, 2019, 2020, 2021, 2022, 2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Princesa das Astúrias de Esportes",
+        "n": 1,
+        "anos": "2026",
+        "chave": "outro"
+      },
+      {
+        "nome": "Medalha Presidencial da Liberdade (EUA)",
+        "n": 1,
+        "anos": "2025",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador da Finalíssima (CONMEBOL-UEFA)",
+        "n": 1,
+        "anos": "2022",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador da Campeones Cup",
+        "n": 1,
+        "anos": "2026",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Recordista de Bolas de Ouro: 8 (2009 a 2023)",
+      "Recordista de prêmios de melhor do mundo da FIFA: 8",
+      "Recordista de Chuteiras de Ouro europeias: 6",
+      "Maior garçom da história em jogos oficiais: 426 assistências",
+      "Maior garçom da história do futebol de seleções masculino",
+      "Jogador com mais títulos coletivos da história: 46 oficiais profissionais (47 com o Mundial Sub-20)",
+      "91 gols num ano civil (2012), recorde mundial",
+      "73 gols numa temporada por clube (2011/12), recorde europeu",
+      "Maior artilheiro por um único clube: 672 gols pelo Barcelona",
+      "Maior artilheiro da história de La Liga: 474 gols",
+      "Recordista de Pichichis (artilharias de La Liga): 8",
+      "Recordista de hat-tricks em La Liga: 36 (62 na carreira); 8 numa só temporada (2011/12), marca depois igualada por Cristiano Ronaldo",
+      "Único bicampeão da Bola de Ouro da Copa do Mundo (2014 e 2022)",
+      "Recordista de jogos em Copas do Mundo: 34, em seis Copas (2006 a 2026)",
+      "Recordista de assistências em Copas do Mundo: 12 (registros desde 1966)",
+      "Segundo maior artilheiro das Copas (21 gols); foi o maior durante a Copa de 2026",
+      "Maior artilheiro (126 gols) e recordista de jogos (208) da seleção argentina",
+      "Recordista de jogos na Copa América: 39",
+      "Maior artilheiro da história das Eliminatórias da CONMEBOL",
+      "Duas tríplices coroas com o Barcelona (2008/09 e 2014/15); a de 2009 foi a primeira do futebol espanhol",
+      "Primeiro bicampeão consecutivo do MVP da MLS (2024 e 2025)",
+      "Recorde de assistências num jogo da MLS: 5 (2024)",
+      "Vice-campeão do mundo em 2014 e 2026; em 2026, Bola de Prata e Chuteira de Prata com 8 gols e 4 assistências",
+      "Duas vezes Desportista do Ano do Laureus (2020 e 2023)",
+      "Eleito pela IFFHS o melhor jogador de todos os tempos (2025)"
+    ],
+    "fontes": [
+      "https://www.messivsronaldo.app/page-data/index/page-data.json",
+      "https://en.wikipedia.org/wiki/Lionel_Messi",
+      "https://en.wikipedia.org/wiki/List_of_career_achievements_by_Lionel_Messi",
+      "https://en.wikipedia.org/wiki/La_Liga_Awards",
+      "https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_top_goalscorers",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://en.wikipedia.org/wiki/2026_Finalissima",
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or",
+      "https://www.transfermarkt.com/ceapi/performance-game/28003",
+      "https://www.transfermarkt.com/lionel-messi/erfolge/spieler/28003",
+      "https://es.wikipedia.org/wiki/Lionel_Messi",
+      "https://es.wikipedia.org/wiki/Copa_Mundial_de_F%C3%BAtbol_de_2026",
+      "https://es.wikipedia.org/wiki/Premios_LaLiga",
+      "https://es.wikipedia.org/wiki/Major_League_Soccer_2025",
+      "https://es.wikipedia.org/wiki/Campeones_Cup_2026",
+      "https://es.wikipedia.org/wiki/Copa_de_Campeones_Conmebol-UEFA_2022",
+      "https://es.wikipedia.org/wiki/Bal%C3%B3n_de_Oro_2026",
+      "https://www.hola.com/actualidad/20260603905208/leo-messi-premio-princesa-de-asturias-de-los-deportes-2026/"
+    ],
+    "incertos": [
+      "assists",
+      "titulosTotais",
+      "premios.league_best_player (6 prêmios oficiais da LFP; Transfermarkt, es.wikipedia e a Wikipedia do jogador contam 9)",
+      "premios.kopa (Golden Boy usado como equivalente)",
+      "premios.outro (FIFPro jovem do ano: 3 na Wikipedia, 1 no messivsronaldo)"
+    ],
+    "notas": "Números: linha 'All Time Career' do messivsronaldo.app (1179 jogos, 934 gols, 426 assistências), conferida com a Wikipedia atualizada até o jogo de 11/10/2026: clube 971 jogos/808 gols (Barcelona 778/672, PSG 75/32, Inter Miami 118/104; sem Barcelona B/C) + seleção principal 208/126. Contam os amistosos da seleção principal (jogos 'A'); não contam amistosos de clube, Sub-20 nem a Olimpíada. Assistências: contagem do messivsronaldo; Opta/Transfermarkt usam critérios diferentes, por isso o campo está em incertos. ballonDor 8 inclui os FIFA Ballon d'Or 2010, 2011, 2012 e 2015. the_best = 4 (FIFA World Player 2009 + The Best 2019, 2022, 2023), para não contar 2010–2015 duas vezes; a FIFA o reconhece 8 vezes como melhor do mundo. titulosTotais 46: a Wikipedia lista 47 (inclui o Mundial Sub-20 de 2005, que aqui não conta). O messivsronaldo lista 49: soma também a Supercopa da Espanha 2005 (Messi ficou fora do elenco e não jogou) e o troféu da Conferência Leste da MLS 2025 (fase dos playoffs, não reconhecido pela FIFA). Os dois ficaram fora. leagueTitles 13 = 10 La Liga + 2 Ligue 1 + MLS Cup 2025 (título de playoff conta como título nacional, regra do arquivo). O Supporters' Shield 2024 (melhor campanha da fase regular) entra em titulosTotais com tipo 'outro' para não contar a mesma liga duas vezes; o messivsronaldo faz o inverso (Shield como liga, MLS Cup como copa) e também chega a 13. otherMajorTitles 6 = Copa América 2021 e 2024 + Mundial de Clubes 2009, 2011 e 2015 + ouro olímpico 2008. Leagues Cup, Campeones Cup e Finalíssima ficam só em titulosTotais. Copa de 2026: vice-campeão (derrota por 1–0 na prorrogação para a Espanha na final de 19/7/2026), 8 gols e 4 assistências, Bola de Prata e Chuteira de Prata (Mbappé ficou com a Chuteira de Ouro e passou Messi na artilharia histórica: 22 x 21). Messi se despediu da seleção em 6/10/2026. A Finalíssima 2026 (Espanha x Argentina) foi cancelada em março. Bola de Ouro 2026: está entre os 30 indicados; a cerimônia é em 26/10/2026, então ainda não há resultado. Melhor jogador de La Liga: a Wikipedia do jogador lista 9 (soma 'MVP' 2016/17 a 2018/19), mas a página La Liga Awards mostra o prêmio oficial descontinuado de 2016 a 2023; ficaram os 6 prêmios oficiais da LFP. Puskás: nenhum (7 indicações: 2010, 2011, 2012, 2015, 2016, 2018 e 2019). Correções em relação ao arquivo antigo (12/2025): apps 1142→1179, gols 896→934, assistências 405→426; o recorde de jogos em Copas passou de 26 para 34. CONFERÊNCIA (14/10/2026, 2ª fonte = Transfermarkt jogo a jogo + es.wikipedia): jogos e gols batem exatamente. Transfermarkt, só jogos disputados, sem Barcelona B, Sub-20 e Olimpíada: Barcelona 778/672, PSG 75/32, Inter Miami 118/104 (último jogo em 10/10/2026, 2 gols), Argentina 208/126 (despedida em 6/10/2026, confirmada na es.wikipedia) = 1179/934. Assistências: o Transfermarkt dá 465 (396 por clubes e 69 pela seleção), contra 426 do messivsronaldo; ficou 426 e o campo continua em incertos. Títulos: o Transfermarkt lista os mesmos 46 (mais o Mundial Sub-20). A es.wikipedia exclui a Supercopa de 2005 ('no fue parte de la convocatoria'), conta 34 títulos pelo Barcelona e inclui a Conferência Leste 2025. Copa de 2026 conferida na es.wikipedia: Espanha 1–0 na prorrogação, Bola de Ouro para Rodri, Bola de Prata para Messi e Chuteira de Prata com 8 gols e 4 assistências; Mbappé fez 10 gols (Chuteira de Ouro) e chegou a 22 na história. Bola de Ouro 2026: cerimônia em 26/10/2026, em Londres. The Best 2025: Dembélé. Ballon d'Or 8, The Best 4, Chuteira de Ouro 6, Pichichi 8, artilharia da Champions 6, UEFA 3, MVP da MLS 2 e artilharia da MLS 2025: todos com contagem e anos confirmados no Transfermarkt. Copa América (melhor jogador em 2015 e 2021) e MVP da MLS Cup 2025 confirmados na es.wikipedia. Prêmio Princesa das Astúrias 2026 confirmado (anúncio em 3/6/2026, entrega em 23/10). LFP: a es.wikipedia (Premios LaLiga) e o Transfermarkt somam 2016/17, 2017/18 e 2018/19, com base na RSSSF, mas a LaLiga cancelou a gala em 2017; ficaram os 6 oficiais e o campo foi para incertos. Acrescentados os prêmios de melhor jogador da Finalíssima 2022 e da Campeones Cup 2026. Feito dos hat-tricks completado: 8 em La Liga 2011/12, segundo o Transfermarkt, o mesmo número de Cristiano em 2014/15."
+  },
+  {
+    "id": "cristiano-ronaldo",
+    "asOf": "2026-10",
+    "apps": 1340,
+    "goals": 981,
+    "assists": 261,
+    "assistsEstimated": false,
+    "ballonDor": 5,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 5,
+    "libertadores": 0,
+    "leagueTitles": 8,
+    "otherMajorTitles": 5,
+    "goldenBoots": 4,
+    "titulosTotais": 35,
+    "titulos": [
+      {
+        "nome": "Supercopa de Portugal (Supertaça Cândido de Oliveira)",
+        "equipe": "Sporting",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Premier League",
+        "equipe": "Manchester United",
+        "n": 3,
+        "anos": "2006/07, 2007/08, 2008/09",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da Inglaterra (FA Cup)",
+        "equipe": "Manchester United",
+        "n": 1,
+        "anos": "2003/04",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa da Liga Inglesa",
+        "equipe": "Manchester United",
+        "n": 2,
+        "anos": "2005/06, 2008/09",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Inglaterra (Community Shield)",
+        "equipe": "Manchester United",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Manchester United",
+        "n": 1,
+        "anos": "2008",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Manchester United",
+        "n": 1,
+        "anos": "2008",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2011/12, 2016/17",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2010/11, 2013/14",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2012, 2017",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Real Madrid",
+        "n": 4,
+        "anos": "2014, 2016, 2017, 2018",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2014, 2017",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "2014, 2016, 2017",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Juventus",
+        "n": 2,
+        "anos": "2018/19, 2019/20",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da Itália",
+        "equipe": "Juventus",
+        "n": 1,
+        "anos": "2020/21",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Itália",
+        "equipe": "Juventus",
+        "n": 2,
+        "anos": "2018, 2020",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Campeonato Saudita (Saudi Pro League)",
+        "equipe": "Al-Nassr",
+        "n": 1,
+        "anos": "2025/26",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa dos Campeões Árabes (UAFA)",
+        "equipe": "Al-Nassr",
+        "n": 1,
+        "anos": "2023",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Eurocopa",
+        "equipe": "Portugal",
+        "n": 1,
+        "anos": "2016",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Liga das Nações da UEFA",
+        "equipe": "Portugal",
+        "n": 2,
+        "anos": "2019, 2025",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football; inclui FIFA Ballon d'Or 2013–2014)",
+        "n": 5,
+        "anos": "2008, 2013, 2014, 2016, 2017",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Melhor do Mundo da FIFA (FIFA World Player 2008; The Best 2016, 2017)",
+        "n": 3,
+        "anos": "2008, 2016, 2017",
+        "chave": "the_best"
+      },
+      {
+        "nome": "Chuteira de Ouro europeia",
+        "n": 4,
+        "anos": "2007/08 (31 gols), 2010/11 (40), 2013/14 (31, dividida com Suárez), 2014/15 (48)",
+        "chave": "golden_boot"
+      },
+      {
+        "nome": "Artilheiro da Premier League",
+        "n": 1,
+        "anos": "2007/08 (31 gols)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Pichichi (artilheiro de La Liga)",
+        "n": 3,
+        "anos": "2010/11 (40), 2013/14 (31), 2014/15 (48)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Capocannoniere (artilheiro da Serie A)",
+        "n": 1,
+        "anos": "2020/21 (29)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Saudi Pro League",
+        "n": 2,
+        "anos": "2023/24 (35), 2024/25 (25)",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador da Premier League (Player of the Season)",
+        "n": 2,
+        "anos": "2006/07, 2007/08",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Melhor jogador de La Liga (Prêmios LFP)",
+        "n": 1,
+        "anos": "2013/14",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Melhor jogador da Serie A (Gran Galà del Calcio AIC)",
+        "n": 2,
+        "anos": "2019, 2020",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "PFA — Jogador do Ano (eleito pelos jogadores)",
+        "n": 2,
+        "anos": "2006/07, 2007/08",
+        "chave": "outro"
+      },
+      {
+        "nome": "FWA — Futebolista do Ano (jornalistas ingleses)",
+        "n": 2,
+        "anos": "2006/07, 2007/08",
+        "chave": "outro"
+      },
+      {
+        "nome": "PFA — Jogador Jovem do Ano",
+        "n": 1,
+        "anos": "2006/07",
+        "chave": "outro"
+      },
+      {
+        "nome": "MVP da Serie A (Lega Serie A) e melhor atacante da Serie A",
+        "n": 2,
+        "anos": "2018/19, 2020/21",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Champions League",
+        "n": 7,
+        "anos": "2007/08 (8), 2012/13 (12), 2013/14 (17), 2014/15 (10, dividido), 2015/16 (16), 2016/17 (12), 2017/18 (15)",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador da UEFA (Clube do Ano 2007/08; Jogador do Ano 2013/14, 2015/16, 2016/17)",
+        "n": 4,
+        "anos": "2007/08, 2013/14, 2015/16, 2016/17",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Melhor atacante da UEFA/Champions (UEFA Club Forward 2007/08; Forward of the Season 2016/17, 2017/18)",
+        "n": 3,
+        "anos": "2007/08, 2016/17, 2017/18",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Puskás (gol do ano da FIFA)",
+        "n": 1,
+        "anos": "2009",
+        "chave": "puskas"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial de Clubes",
+        "n": 1,
+        "anos": "2016",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Bola de Prata do Mundial de Clubes",
+        "n": 3,
+        "anos": "2008, 2014, 2017",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Mundial de Clubes",
+        "n": 2,
+        "anos": "2016 (4 gols), 2017 (2, dividido)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Chuteira de Ouro da Eurocopa (artilheiro)",
+        "n": 1,
+        "anos": "2020 (Euro 2020, disputada em 2021; 5 gols)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Chuteira de Prata da Eurocopa",
+        "n": 1,
+        "anos": "2016",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro das finais da Liga das Nações",
+        "n": 2,
+        "anos": "2019, 2025 (dividido)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio especial The Best da FIFA (maior artilheiro de seleções)",
+        "n": 1,
+        "anos": "2021",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio da UEFA de maior artilheiro da história da Champions",
+        "n": 1,
+        "anos": "2024",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Melhor jogador do ano",
+        "n": 6,
+        "anos": "2011, 2014, 2016, 2017, 2018, 2019",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Jogador do Século (2001–2020)",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro — Melhor jogador do mundo",
+        "n": 1,
+        "anos": "2008",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro World XI (seleção do ano)",
+        "n": 15,
+        "anos": "2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Artilheiro do mundo (World's Best Top Goal Scorer)",
+        "n": 5,
+        "anos": "2011, 2013, 2014, 2015, 2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Artilheiro internacional do mundo",
+        "n": 5,
+        "anos": "2013, 2014, 2016, 2017, 2019",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador do ano",
+        "n": 5,
+        "anos": "2008, 2013, 2014, 2016, 2017",
+        "chave": "outro"
+      },
+      {
+        "nome": "Trofeo Alfredo Di Stéfano (Marca)",
+        "n": 4,
+        "anos": "2011/12, 2012/13, 2013/14, 2015/16",
+        "chave": "outro"
+      },
+      {
+        "nome": "Quinas de Ouro (melhor jogador português da FPF)",
+        "n": 5,
+        "anos": "2015, 2016, 2017, 2018, 2019",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador português de todos os tempos (FPF) e melhor jogador da história da Primeira Liga",
+        "n": 2,
+        "anos": "2015, 2025",
+        "chave": "outro"
+      },
+      {
+        "nome": "BBC — Estrela Mundial do Esporte do Ano",
+        "n": 1,
+        "anos": "2014",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmios LFP — Jogador Mais Valioso (MVP, critério estatístico)",
+        "n": 1,
+        "anos": "2012/13",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa dos Campeões Árabes",
+        "n": 1,
+        "anos": "2023 (6 gols)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Melhor jogador do Oriente Médio",
+        "n": 2,
+        "anos": "2024, 2025",
+        "chave": "outro"
+      },
+      {
+        "nome": "Onze d'Or (Onze Mondial)",
+        "n": 2,
+        "anos": "2008, 2017",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Maior artilheiro da história em jogos oficiais: 981 gols (out/2026)",
+      "Recordista de jogos por seleções masculinas: 234",
+      "Maior artilheiro da história das seleções masculinas: 146 gols",
+      "Recordista de vitórias por seleções masculinas: 142 (out/2026); primeiro a chegar a 700 vitórias por clubes (fev/2025)",
+      "Jogador de linha com mais partidas oficiais da história: 1.340",
+      "Único jogador a marcar em seis Copas do Mundo (2006 a 2026)",
+      "Maior artilheiro da história das Eliminatórias da Copa: 41 gols",
+      "Maior artilheiro (140 gols), recordista de jogos (183) e de vitórias da Champions League",
+      "17 gols numa única edição da Champions (2013/14), recorde",
+      "Artilheiro da Champions em sete temporadas, seis delas seguidas (2012/13 a 2017/18)",
+      "Único a marcar em três finais da era Champions League (2008, 2014 e 2017)",
+      "Maior artilheiro da história do Real Madrid: 450 gols",
+      "Primeiro a marcar 100 gols por quatro clubes: Real Madrid, Manchester United, Al-Nassr e Juventus",
+      "Primeiro a ser artilheiro de quatro ligas nacionais: Inglaterra, Espanha, Itália e Arábia Saudita",
+      "Maior artilheiro das fases finais da Eurocopa (14 gols), recordista de jogos (30) e primeiro a disputar seis Euros",
+      "Maior artilheiro da história do Mundial de Clubes da FIFA: 7 gols",
+      "Recorde de gols numa temporada da Saudi Pro League: 35 (2023/24)",
+      "8 hat-tricks numa temporada de La Liga (2014/15), recorde que divide com Messi (2011/12)",
+      "Único a marcar mais de 50 gols em sete anos civis seguidos (2011 a 2017)",
+      "Primeiro jogador a marcar 500 gols depois dos 30 anos (fevereiro de 2026)",
+      "Primeiro vencedor do Prêmio Puskás (2009)",
+      "Recordista de prêmios de melhor jogador da UEFA: 4",
+      "Campeão da Eurocopa (2016) e bicampeão da Liga das Nações (2019 e 2025)",
+      "Primeiro futebolista bilionário"
+    ],
+    "fontes": [
+      "https://www.messivsronaldo.app/page-data/index/page-data.json",
+      "https://en.wikipedia.org/wiki/Cristiano_Ronaldo",
+      "https://en.wikipedia.org/wiki/List_of_career_achievements_by_Cristiano_Ronaldo",
+      "https://en.wikipedia.org/wiki/2002_Superta%C3%A7a_C%C3%A2ndido_de_Oliveira",
+      "https://en.wikipedia.org/wiki/La_Liga_Awards",
+      "https://www.transfermarkt.com/ceapi/performance-game/8198",
+      "https://www.transfermarkt.com/cristiano-ronaldo/erfolge/spieler/8198",
+      "https://es.wikipedia.org/wiki/Cristiano_Ronaldo",
+      "https://es.wikipedia.org/wiki/Liga_Profesional_Saud%C3%AD_2025-26",
+      "https://www.guinnessworldrecords.com/world-records/577039-most-wins-in-an-international-football-soccer-career",
+      "https://en.wikipedia.org/wiki/List_of_men%27s_footballers_with_1,000_or_more_official_appearances",
+      "https://mais.opovo.com.br/jornal/esportes/2026/10/11/cristiano-ronaldo-e-suspenso-pela-federacao-portuguesa-apos-abandonar-selecao.html"
+    ],
+    "incertos": [
+      "assists",
+      "titulosTotais (35 com a Copa dos Campeões Árabes 2023; Transfermarkt e es.wikipedia contam 34)"
+    ],
+    "notas": "Números: linha 'All Time Career' do messivsronaldo.app (1340 jogos, 981 gols, 261 assistências), conferida com a Wikipedia atualizada até o jogo de 12/10/2026: clube 1106 jogos/835 gols (Sporting 31/5, Manchester United 292/118 + 54/27, Real Madrid 438/450, Juventus 134/101, Al-Nassr 157/134; sem os 2 jogos pelo Sporting B) + Portugal 234/146. A tabela de recordes da Wikipedia (25/9/2026) ainda dizia 979 gols. Assistências: contagem do messivsronaldo; outras bases divergem. titulosTotais 35 (mesma conta da Wikipedia). O messivsronaldo lista 37 porque soma a Community Shield 2008 e a Supercopa da UEFA 2016, em que Ronaldo não jogou (lesionado, fora do elenco); as duas ficaram fora pela mesma regra que exclui a Supercopa 2005 de Messi. A Supertaça 2002 conta: ele estava no banco como reserva não utilizado (súmula na Wikipedia) e a Wikipedia credita o título. leagueTitles 8 = Premier League ×3 + La Liga ×2 + Serie A ×2 + Saudi Pro League 2025/26 (título garantido em 21/5/2026, com dois gols dele contra o Damac). otherMajorTitles 5 = Euro 2016 + Mundial de Clubes 2008, 2014, 2016 e 2017. Liga das Nações (×2) e Copa dos Campeões Árabes 2023 (competição oficial da UAFA) ficam só em titulosTotais. the_best = 3 (FIFA World Player 2008 + The Best 2016 e 2017); os FIFA Ballon d'Or 2013 e 2014 estão em ballon_dor. league_best_player: só um prêmio oficial de liga por temporada (Premier League Player of the Season 2006/07 e 2007/08; LFP 2013/14; Gran Galà AIC da Serie A 2019 e 2020). PFA, FWA e o MVP da Lega Serie A 2018/19 (mesma temporada do AIC 2019) ficaram em 'outro'. A artilharia das finais da Liga das Nações ficou em 'outro', porque o torneio não está na lista de tournament_*. Copa de 2026: 3 gols (2 contra o Uzbequistão e 1 de pênalti contra a Croácia nos 16 avos), eliminação nas oitavas para a Espanha (1–0); virou o primeiro a marcar em seis Copas. Em 10/10/2026 a FPF o suspendeu provisoriamente após atrito com o técnico Jorge Jesus, mas ele segue em atividade. Correções em relação ao arquivo antigo (12/2025): apps 1290→1340, gols 955→981, assistências 255→261, leagueTitles 7→8 (Saudi Pro League). CONFERÊNCIA (14/10/2026, 2ª fonte = Transfermarkt jogo a jogo + es.wikipedia): jogos e gols batem. Transfermarkt, só jogos disputados, sem base nem Olimpíada: Sporting 31/5, Manchester United 346/145, Real Madrid 438/450, Juventus 134/101, Al-Nassr 151/128 e Portugal 234/146, num total de 1334/975 (último jogo em 12/10/2026, 1 gol). O Transfermarkt não registra a Copa dos Campeões Árabes 2023 (6 jogos, 6 gols); com ela: 1340/981. Assistências: o Transfermarkt dá 307 (262 por clubes e 45 pela seleção), contra 261 do messivsronaldo; ficou 261. Títulos: Transfermarkt e es.wikipedia listam os mesmos 34 (20 nacionais e 14 internacionais), sem a Copa dos Campeões Árabes; o arquivo mantém 35, a mesma regra que conta a Leagues Cup de Messi, e o campo foi para incertos. Saudi Pro League 2025/26 confirmada (es.wikipedia: Al-Nassr campeão na última rodada, 4–1 no Damac). Artilharia 2025/26: Quiñones (33); Cristiano foi o 3º com 28, então ficam só as artilharias de 2023/24 e 2024/25. Ballon d'Or 5, The Best 3, UEFA 4, Chuteira de Ouro 4, Pichichi 3, artilharia da Champions 7, Puskás 2009, Bola de Ouro do Mundial de Clubes 2016 e Chuteira de Ouro da Euro 2020: todos com contagem e anos confirmados no Transfermarkt e na es.wikipedia. Feitos corrigidos: (1) vitórias pela seleção: 141 → 142 (Guinness: 133 até 23/3/2025, sem contar disputas de pênaltis; mais 9 vitórias até o 1–0 de 24/9/2026, segundo o Transfermarkt). O número de 858 vitórias na carreira não se sustenta (o Transfermarkt soma mais de 880), por isso saiu e foi trocado pela marca de 700 vitórias por clubes (fev/2025). (2) Vitórias na Champions: o 115 não bate com o Transfermarkt (114 sem pênaltis, 116 com), então o número saiu. (3) Os 8 hat-tricks numa temporada de La Liga são recorde dividido com Messi (8 em 2011/12). Conferidos e mantidos: gols em seis Copas, recorde de jogos oficiais entre jogadores de linha (só os goleiros Fábio e Shilton têm mais) e os 500 gols depois dos 30 anos em fev/2026 (contando a Copa Árabe). Suspensão preventiva pela FPF em 10/10/2026 confirmada pela imprensa. Prêmios 'outro' acrescentados: MVP LFP 2012/13, artilheiro da Copa Árabe 2023, Globe Soccer Oriente Médio 2024–25 e Onze d'Or 2008/2017."
+  },
+  {
+    "id": "pele",
+    "asOf": "1977",
+    "apps": 815,
+    "goals": 757,
+    "assists": 350,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 7,
+    "worldCups": 3,
+    "ucl": 0,
+    "libertadores": 2,
+    "leagueTitles": 7,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 28,
+    "titulos": [
+      {
+        "nome": "Campeonato Brasileiro (Taça Brasil 1961–65 e Robertão 1968, unificados pela CBF)",
+        "equipe": "Santos",
+        "n": 6,
+        "anos": "1961, 1962, 1963, 1964, 1965, 1968",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa Libertadores",
+        "equipe": "Santos",
+        "n": 2,
+        "anos": "1962, 1963",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Copa Intercontinental (Mundial)",
+        "equipe": "Santos",
+        "n": 2,
+        "anos": "1962, 1963",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Supercopa dos Campeões Intercontinentais",
+        "equipe": "Santos",
+        "n": 1,
+        "anos": "1968",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Campeonato Paulista",
+        "equipe": "Santos",
+        "n": 10,
+        "anos": "1958, 1960, 1961, 1962, 1964, 1965, 1967, 1968, 1969, 1973",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Torneio Rio-São Paulo",
+        "equipe": "Santos",
+        "n": 3,
+        "anos": "1959, 1963, 1964",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "NASL (Soccer Bowl)",
+        "equipe": "New York Cosmos",
+        "n": 1,
+        "anos": "1977",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Brasil",
+        "n": 3,
+        "anos": "1958, 1962, 1970",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro retroativa da France Football (Nouveau Palmarès, 2016; não oficial)",
+        "n": 7,
+        "anos": "1958, 1959, 1960, 1961, 1963, 1964, 1970",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador da Copa do Mundo (Bola de Ouro retroativa; o prêmio oficial existe desde 1982)",
+        "n": 1,
+        "anos": "1970",
+        "chave": "wc_golden_ball"
+      },
+      {
+        "nome": "Melhor jogador jovem e 2º melhor jogador da Copa do Mundo (retroativos)",
+        "n": 2,
+        "anos": "1958",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Brasileiro (Taça Brasil)",
+        "n": 1,
+        "anos": "1961",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Paulista",
+        "n": 11,
+        "anos": "1957, 1958, 1959, 1960, 1961, 1962, 1963, 1964, 1965, 1969, 1973",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Torneio Rio-São Paulo",
+        "n": 1,
+        "anos": "1963 (14 gols)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa Libertadores",
+        "n": 1,
+        "anos": "1965 (8 gols)",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa Intercontinental",
+        "n": 2,
+        "anos": "1962 (5 gols), 1963 (2, dividido)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Artilheiro do Sul-Americano (Copa América)",
+        "n": 1,
+        "anos": "1959 (8 gols)",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador do Sul-Americano (Copa América)",
+        "n": 1,
+        "anos": "1959",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Rei da América — melhor jogador sul-americano do ano (El Mundo)",
+        "n": 1,
+        "anos": "1973",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "MVP da NASL",
+        "n": 1,
+        "anos": "1976",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Seleção da NASL (All-Star)",
+        "n": 3,
+        "anos": "1975, 1976, 1977",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências da NASL",
+        "n": 1,
+        "anos": "1976",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata especial da Placar (hors concours)",
+        "n": 1,
+        "anos": "1970",
+        "chave": "outro"
+      },
+      {
+        "nome": "BBC — Personalidade esportiva estrangeira do ano",
+        "n": 1,
+        "anos": "1970",
+        "chave": "outro"
+      },
+      {
+        "nome": "Atleta do Século (COI e Reuters)",
+        "n": 2,
+        "anos": "1999",
+        "chave": "outro"
+      },
+      {
+        "nome": "Jogador do Século da FIFA (dividido com Maradona) e da IFFHS",
+        "n": 2,
+        "anos": "2000",
+        "chave": "outro"
+      },
+      {
+        "nome": "Laureus — Prêmio pelo conjunto da carreira",
+        "n": 1,
+        "anos": "2000",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Ouro honorária da FIFA (Prix d'Honneur)",
+        "n": 1,
+        "anos": "2013 (entregue em janeiro de 2014)",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem de Mérito da FIFA",
+        "n": 1,
+        "anos": "1984",
+        "chave": "outro"
+      },
+      {
+        "nome": "Cavaleiro Comandante honorário da Ordem do Império Britânico (KBE)",
+        "n": 1,
+        "anos": "1997",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio especial The Best da FIFA",
+        "n": 1,
+        "anos": "2022",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (All-Star)",
+        "n": 2,
+        "anos": "1958, 1970",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Presidencial da FIFA",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot — Lenda",
+        "n": 1,
+        "anos": "2012",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único jogador tricampeão do mundo (1958, 1962 e 1970)",
+      "Mais jovem campeão do mundo: 17 anos e 249 dias (1958)",
+      "Mais jovem a marcar numa Copa (17 anos e 239 dias) e numa final de Copa (17 anos e 249 dias)",
+      "Mais jovem a fazer hat-trick em Copa: 17 anos e 244 dias, contra a França (1958)",
+      "Maior artilheiro da história do Santos: 643 gols em 659 jogos oficiais (1.091 contando amistosos)",
+      "Maior artilheiro da Seleção por mais de 50 anos: 77 gols em 92 jogos (superado por Neymar em 2023)",
+      "Único jogador a chegar a 25 gols pela seleção ainda adolescente",
+      "Recorde do Guinness de gols na carreira contando amistosos: 1.279 em 1.363 jogos",
+      "Recorde do Guinness de hat-tricks: 92",
+      "58 gols num único Paulistão (1958), recorde de uma temporada da elite brasileira",
+      "Maior artilheiro da história do Paulistão; 11 vezes artilheiro, 9 seguidas (1957 a 1965)",
+      "8 gols numa única partida do Paulistão (1964)",
+      "Hexacampeão brasileiro: Taça Brasil 1961 a 1965 e Robertão 1968",
+      "Bicampeão da Libertadores e da Copa Intercontinental com o Santos (1962 e 1963)",
+      "Único a fazer hat-trick numa Copa Intercontinental (1962, contra o Benfica) e maior artilheiro do torneio (7 gols)",
+      "Na final de 1970, abriu o placar e deu as assistências para os gols de Jairzinho e Carlos Alberto",
+      "Milésimo gol em 19/11/1969, de pênalti, contra o Vasco, no Maracanã",
+      "Declarado 'tesouro nacional' pelo governo brasileiro em 1961, para não ser vendido ao exterior",
+      "Atleta do Século pelo COI (1999) e Jogador do Século da FIFA (2000, dividido com Maradona)",
+      "7 Bolas de Ouro retroativas da France Football (Nouveau Palmarès, 2016)",
+      "Rei da América (melhor jogador sul-americano do ano) em 1973",
+      "Campeão da NASL (1977) e MVP da liga (1976) pelo New York Cosmos"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Pel%C3%A9",
+      "https://pt.wikipedia.org/wiki/Pel%C3%A9",
+      "https://pt.wikipedia.org/wiki/Lista_de_t%C3%ADtulos_e_pr%C3%AAmios_recebidos_por_Pel%C3%A9",
+      "https://pt.wikipedia.org/wiki/Estat%C3%ADsticas_de_Pel%C3%A9",
+      "https://www.rsssf.org/miscellaneous/pele-intlg.html",
+      "https://en.wikipedia.org/wiki/1966_Torneio_Rio-S%C3%A3o_Paulo",
+      "https://en.wikipedia.org/wiki/Intercontinental_Champions%27_Supercup",
+      "https://en.wikipedia.org/wiki/1961_Campeonato_Brasileiro_S%C3%A9rie_A",
+      "https://en.wikipedia.org/wiki/1963_Campeonato_Brasileiro_S%C3%A9rie_A",
+      "https://en.wikipedia.org/wiki/1964_Campeonato_Brasileiro_S%C3%A9rie_A",
+      "https://en.wikipedia.org/wiki/1959_South_American_Championship_(Argentina)",
+      "https://en.wikipedia.org/wiki/1965_Copa_Libertadores",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+      "https://en.wikipedia.org/wiki/North_American_Soccer_League",
+      "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata",
+      "https://es.wikipedia.org/wiki/Pel%C3%A9",
+      "https://www.rsssf.org/players/ppeledata.html",
+      "https://pt.wikipedia.org/wiki/Ta%C3%A7a_Brasil_de_Futebol",
+      "https://pt.wikipedia.org/wiki/Torneio_Rio-S%C3%A3o_Paulo_de_Futebol_de_1966",
+      "https://pt.wikipedia.org/wiki/Estat%C3%ADsticas_de_Pel%C3%A9"
+    ],
+    "incertos": [
+      "apps",
+      "assists",
+      "premios.wc_golden_ball (1970 retroativa)",
+      "premios.league_top_scorer (Taça Brasil 1964)",
+      "titulosTotais (Rio-São Paulo 1966)"
+    ],
+    "notas": "Gols oficiais 757 = Santos 643 (Paulista, Rio-São Paulo, Taça Brasil/Robertão, Libertadores, Intercontinental e Supercopa Intercontinental) + Cosmos 37 (NASL e playoffs) + Seleção 77. Jogos: 815 pela soma das tabelas da Wikipedia em inglês (Santos 659 + Cosmos 64 + Seleção 92); o resumo da Wikipedia em português dá 819 e a imprensa costuma citar 812. Os gols batem em todas as fontes; o número de jogos não, por isso apps está em incertos. A FIFA não reconhece Brasil x Seleção da FIFA (6/11/1968): 91 jogos pela FIFA, 92 pela CBF e pelo RSSSF. Contagens com amistosos: 1.279 gols em 1.363 jogos (Guinness, citado na Wikipedia em inglês), 1.281 em 1.363 (FIFA/IFFHS), 1.283 (Guinness 2013 e Wikipedia em português, 1.363–1.366 jogos). Pelo Santos, com amistosos: 1.091 gols em 1.116 jogos. Assistências: não há registro confiável; mantida a estimativa do arquivo antigo (a Wikipedia credita 10 assistências em 14 jogos de Copa). titulosTotais 28. O Rio-São Paulo de 1966 (dividido entre quatro clubes) NÃO conta: Pelé não disputou nenhum jogo (o Santos excursionava pela América do Sul em fevereiro de 1966; a tabela da Wikipedia mostra 0 jogos) e a lista da Wikipedia em português também não o inclui. Pela mesma regra de participação ficaram fora a Supercopa 2005 de Messi e dois títulos de Cristiano. Também ficaram fora: Campeonato Brasileiro de Seleções Estaduais 1959 (seleção paulista), o título da Conferência Atlântica da NASL 1977 e as taças bilaterais da Seleção (Copa Roca 1957 e 1963, Taça Oswaldo Cruz 1958, 1962 e 1968, Taça Bernardo O'Higgins 1959, Taça do Atlântico 1960). Essas taças equivalem ao Superclásico de las Américas, que o messivsronaldo classifica como amistoso. A Supercopa dos Campeões Intercontinentais 1968 foi reconhecida como oficial pela CONMEBOL em 2005: entra em titulosTotais como supercopa, fora de otherMajorTitles. leagueTitles 7 = 6 Brasileiros unificados pela CBF + NASL 1977. otherMajorTitles 2 = Intercontinental 1962 e 1963. Prêmios: os prêmios de melhor jogador da Copa anteriores a 1982 são seleções retroativas (a página FIFA World Cup awards diz que Messi é o único bicampeão da Bola de Ouro); o de 1970 ficou em wc_golden_ball e está marcado em incertos. Artilharia do Brasileiro: só 1961 está confirmada nas páginas de temporada (7 gols; a lista em português diz 9). A Wikipedia em inglês também cita 1963 e 1964, mas as páginas daquelas temporadas dão Ruiter (1963) e Gildo (1964). As 11 artilharias do Paulistão ficaram em 'outro' por serem de um estadual; a regra pode ser revista. Libertadores 1965: 8 gols na tabela de artilheiros (o infobox diz 7). O prêmio de melhor jogador do Sul-Americano 1959 aparece na Wikipedia em inglês, mas a versão em português marca 'carece de fontes'. A Bola de Prata da Placar de 1970 foi especial (hors concours), não um prêmio por posição. ballonDor 0 (só europeus eram elegíveis até 1995); retroBallonDor 7; Bola de Ouro honorária da FIFA em 2013. Correção em relação ao arquivo antigo: apps 812→815. CONFERÊNCIA (14/10/2026, 2ª fonte = RSSSF ppeledata + es.wikipedia): RSSSF oficiais: Santos 666 jogos/644 gols, Cosmos 65/37 (inclui 1 jogo cancelado), Brasil 92/77. Soma dos três: 823/758. Contando seleções estaduais e militares: 851/778. Os gols (757, mesma conta de ESPN e El Gráfico) se mantêm. Os jogos continuam em aberto: 815 (Wikipedia), 823 (RSSSF), 812 (imprensa). A tabela 'FIFA' da es.wikipedia cita 249 assistências oficiais, mas sem fonte primária; ficou a estimativa de 350. Títulos: a es.wikipedia confirma Paulistas (10, de 1958 a 1973, sem 1956: pela RSSSF, Pelé só jogou o Paulista a partir de 1957), Rio-SP 1959/63/64, 6 Brasileiros, NASL 1977, 3 Copas, 2 Libertadores, 2 Intercontinentais e a Supercopa 1968. A es.wikipedia também lista o Rio-SP 1966, mas a lista jogo a jogo da pt.wikipedia mostra Pelé sem jogos entre 17/2 (excursão: Colo-Colo em Santiago) e 29/3/1966, e o torneio terminou em 27/3. A exclusão foi mantida (com ele, seriam 29) e o campo foi para incertos. Artilharia da Taça Brasil: 1961 confirmada. Em 1963, a tabela da pt.wikipedia e a página da temporada dão Ruiter (9), então esse ano saiu da dúvida. Em 1964, a tabela geral da pt.wikipedia e a es.wikipedia dão Pelé (7), mas a página da temporada dá Gildo (8); continua em incertos e fora da contagem. O melhor jogador do Sul-Americano 1959 também aparece na es.wikipedia e saiu de incertos. A artilharia da Intercontinental de 1963 foi dividida: 2 gols de Pelé, Pepe, Amarildo e Mora. O feito 'recordista de assistências em finais (3)' não tinha confirmação para a de 1958 e foi trocado pelas duas assistências da final de 1970. Acrescentados os prêmios 'outro': Seleção da Copa 1958/1970, Prêmio Presidencial da FIFA 2007 e Golden Foot Lenda 2012."
+  }
+]

@@ -1,0 +1,2143 @@
+[
+ {
+  "id": "cruyff",
+  "asOf": "1984",
+  "apps": 761,
+  "goals": 433,
+  "assists": 300,
+  "assistsEstimated": true,
+  "ballonDor": 3,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 3,
+  "libertadores": 0,
+  "leagueTitles": 10,
+  "otherMajorTitles": 1,
+  "goldenBoots": 0,
+  "titulosTotais": 22,
+  "titulos": [
+   {
+    "nome": "Campeonato Holandês (Eredivisie)",
+    "equipe": "Ajax",
+    "n": 8,
+    "anos": "1965/66, 1966/67, 1967/68, 1969/70, 1971/72, 1972/73, 1981/82, 1982/83",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Holandês (Eredivisie)",
+    "equipe": "Feyenoord",
+    "n": 1,
+    "anos": "1983/84",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Holanda (KNVB Beker)",
+    "equipe": "Ajax",
+    "n": 5,
+    "anos": "1966/67, 1969/70, 1970/71, 1971/72, 1982/83",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Holanda (KNVB Beker)",
+    "equipe": "Feyenoord",
+    "n": 1,
+    "anos": "1983/84",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa dos Campeões da Europa (atual Champions League)",
+    "equipe": "Ajax",
+    "n": 3,
+    "anos": "1971, 1972, 1973",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Ajax",
+    "n": 1,
+    "anos": "1972",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Ajax",
+    "n": 1,
+    "anos": "1972",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1973/74",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1977/78",
+    "tipo": "copa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro",
+    "n": 3,
+    "anos": "1971, 1973, 1974",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Bola de Ouro da Copa do Mundo",
+    "n": 1,
+    "anos": "1974",
+    "chave": "wc_golden_ball"
+   },
+   {
+    "nome": "Artilheiro da Eredivisie",
+    "n": 2,
+    "anos": "1966/67 (33 gols), 1971/72 (25)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Copa dos Campeões",
+    "n": 1,
+    "anos": "1971/72 (5 gols, dividido)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Gouden Schoen — melhor jogador da Eredivisie (De Telegraaf/Voetbal International)",
+    "n": 1,
+    "anos": "1984",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "MVP da NASL (liga norte-americana)",
+    "n": 1,
+    "anos": "1979",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador estrangeiro da La Liga (Prêmio Don Balón)",
+    "n": 2,
+    "anos": "1976/77, 1977/78",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "1974",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa da Holanda",
+    "n": 5,
+    "anos": "1966/67, 1967/68, 1969/70, 1970/71, 1971/72",
+    "chave": "outro"
+   },
+   {
+    "nome": "Esportista Holandês do Ano",
+    "n": 2,
+    "anos": "1973, 1974",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador europeu do século XX (IFFHS)",
+    "n": 1,
+    "anos": "eleição do século",
+    "chave": "outro"
+   },
+   {
+    "nome": "Vice da Super Bola de Ouro (France Football)",
+    "n": 1,
+    "anos": "1989",
+    "chave": "outro"
+   },
+   {
+    "nome": "Ordem de Mérito da FIFA",
+    "n": 1,
+    "anos": "2010",
+    "chave": "outro"
+   },
+   {
+    "nome": "3º lugar na Bola de Ouro",
+    "n": 1,
+    "anos": "1975",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio do Presidente da UEFA",
+    "n": 1,
+    "anos": "2013",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Primeiro jogador a ganhar três Bolas de Ouro (1971, 1973 e 1974)",
+   "Tricampeão seguido da Copa dos Campeões com o Ajax (1971, 1972 e 1973), com os dois gols da final de 1972 (2–0 na Inter)",
+   "Bola de Ouro da Copa do Mundo de 1974, vice-campeão com a Holanda do 'futebol total'",
+   "Imortalizou o 'giro de Cruyff' contra a Suécia, na Copa de 1974",
+   "33 gols em 48 jogos pela Holanda — a seleção nunca perdeu uma partida em que ele marcou",
+   "Transferência recorde mundial em 1973, do Ajax para o Barcelona (6 milhões de florins)",
+   "Campeão espanhol na primeira temporada pelo Barcelona (1973/74), com direito a 5–0 sobre o Real Madrid no Bernabéu",
+   "Artilheiro da Eredivisie 1966/67 com 33 gols e cinco vezes artilheiro da Copa da Holanda",
+   "MVP da NASL em 1979, pelo Los Angeles Aztecs",
+   "Dobradinha (liga e copa) com o Feyenoord em 1983/84, aos 37 anos, depois de o Ajax não renovar seu contrato",
+   "Eleito o melhor jogador europeu do século XX pela IFFHS",
+   "Camisa 14 aposentada pelo Ajax (2007) e estádio do clube rebatizado Johan Cruyff Arena (2017)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Johan_Cruyff",
+   "https://pt.wikipedia.org/wiki/Johan_Cruijff",
+   "https://www.rsssf.org/miscellaneous/cruijff-intlg.html",
+   "https://tmapi.transfermarkt.technology/player/8021/performance-game",
+   "https://en.wikipedia.org/wiki/Dutch_Footballer_of_the_Year",
+   "https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_top_scorers",
+   "https://es.wikipedia.org/wiki/Johan_Cruyff",
+   "https://en.wikipedia.org/wiki/UEFA_President%27s_Award",
+   "https://tmapi-alpha.transfermarkt.technology/player/8021/performance-game"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "assists",
+   "premios.league_best_player (o prêmio de 1984 que ele ganhou é a Gouden Schoen, da imprensa; o Voetballer van het Jaar dos jogadores, criado no mesmo ano, foi para Gullit. As eleições de 1967–1972 citadas pelas Wikipedias não têm lista oficial)"
+  ],
+  "notas": "Clubes 713 jogos/400 gols pela tabela da Wikipedia inglesa (Ajax 375/273, Barcelona 227/85, Los Angeles Aztecs 26/15 e Washington Diplomats 31/12 com playoffs da NASL, Levante 10/2 na 2ª divisão espanhola, Feyenoord 44/13) + Holanda 48/33 (RSSSF confere) = 761/433. O arquivo antigo tinha 720/400 sem somar a seleção. O Transfermarkt traz números parecidos para o Ajax (370/270), mas incompletos para o Barcelona e sem a NASL. Assistências: o Transfermarkt registra 287 (Ajax 211, Barcelona 28, Feyenoord 20, Holanda 28), sem a NASL e com o Barcelona incompleto, daí a estimativa de ≈300 (era 200). Títulos: 9 Eredivisies (8 Ajax + 1 Feyenoord) + 1 La Liga = 10 ligas. otherMajorTitles 1 = Intercontinental 1972 (a Supercopa Europeia de 1972 fica fora pela regra). O Torneio de Paris de 1978 pela Holanda é amistoso e não conta. Os títulos como treinador (Recopa 1987 e 1989, Champions 1992 etc.) não entram. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + lista oficial do prêmio holandês + Transfermarkt jogo a jogo. Títulos: os 22 conferem na es.wikipedia (8 Eredivisies e 5 Copas da Holanda pelo Ajax, dobradinha 1983/84 pelo Feyenoord, La Liga 1973/74 e Copa do Rei 1977/78 pelo Barcelona, 3 Copas dos Campeões, Intercontinental e Supercopa de 1972). O Transfermarkt confirma que ele jogou as duas partidas da Intercontinental de 1972 (1 gol) e as duas da Supercopa (2 gols). Prêmios conferidos na es.wikipedia: Bolas de Ouro 1971, 1973 e 1974, melhor jogador da Copa de 1974, artilharias da Eredivisie 1966/67 (33) e 1971/72 (25); a artilharia dividida da Copa dos Campeões 1971/72 (5 gols, com Dunai, Macari e Takač) confere na lista de artilheiros da UEFA. CORREÇÃO: a página do Dutch Footballer of the Year mostra que, em 1984, o prêmio dos jogadores foi para Ruud Gullit; Cruyff ganhou a Gouden Schoen (De Telegraaf/Voetbal International), o prêmio da imprensa ao melhor da Eredivisie. Continua contando como league_best_player (um prêmio por temporada, como a Bola de Ouro da Placar), mas com o nome certo. MVP da NASL: só 1979 (a es.wikipedia diz 1979 e 1980, mas a en.wikipedia e a lista da NASL dão só 1979). ACRESCENTADOS (outro): Prêmio do Presidente da UEFA 2013 (lista oficial na en.wikipedia) e 3º lugar na Bola de Ouro 1975. Jogos/gols: a es.wikipedia soma 732 jogos e 406 gols sem a NASL e com o Barcelona só pela liga (139/47); seguem os 761/433 da en.wikipedia, e o campo continua em incertos. Feitos conferidos: a Holanda nunca perdeu quando ele marcou (en.wikipedia), transferência recorde de 6 milhões de florins em 1973 (en.wikipedia), 5–0 no Bernabéu em 17/2/1974 (es.wikipedia), camisa 14 aposentada pelo Ajax nos 60 anos dele, em 2007 (es.wikipedia), e estádio rebatizado em 25/10/2017."
+ },
+ {
+  "id": "van-basten",
+  "asOf": "1995",
+  "apps": 437,
+  "goals": 307,
+  "assists": 100,
+  "assistsEstimated": true,
+  "ballonDor": 3,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 2,
+  "libertadores": 0,
+  "leagueTitles": 6,
+  "otherMajorTitles": 4,
+  "goldenBoots": 1,
+  "titulosTotais": 18,
+  "titulos": [
+   {
+    "nome": "Campeonato Holandês (Eredivisie)",
+    "equipe": "Ajax",
+    "n": 3,
+    "anos": "1981/82, 1982/83, 1984/85",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Holanda (KNVB Beker)",
+    "equipe": "Ajax",
+    "n": 3,
+    "anos": "1982/83, 1985/86, 1986/87",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Recopa Europeia",
+    "equipe": "Ajax",
+    "n": 1,
+    "anos": "1987",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Milan",
+    "n": 3,
+    "anos": "1987/88, 1991/92, 1992/93",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1988, 1992",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa dos Campeões da Europa (atual Champions League)",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1989, 1990",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "1989",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1989, 1990",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Eurocopa",
+    "equipe": "Holanda",
+    "n": 1,
+    "anos": "1988",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro",
+    "n": 3,
+    "anos": "1988, 1989, 1992",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Melhor Jogador do Mundo da FIFA",
+    "n": 1,
+    "anos": "1992",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Chuteira de Ouro europeia",
+    "n": 1,
+    "anos": "1985/86 (37 gols)",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Eredivisie",
+    "n": 4,
+    "anos": "1983/84 (28 gols), 1984/85 (22), 1985/86 (37), 1986/87 (31)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Serie A (Capocannoniere)",
+    "n": 2,
+    "anos": "1989/90 (19 gols), 1991/92 (25)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Futebolista Holandês do Ano",
+    "n": 1,
+    "anos": "1985",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro da Copa dos Campeões",
+    "n": 1,
+    "anos": "1988/89 (10 gols)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Eurocopa",
+    "n": 1,
+    "anos": "1988",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Artilheiro da Eurocopa",
+    "n": 1,
+    "anos": "1988 (5 gols)",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 2,
+    "anos": "1988, 1989",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador do mundo da IFFHS",
+    "n": 2,
+    "anos": "1988, 1989",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do Ano da World Soccer",
+    "n": 2,
+    "anos": "1988, 1992",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Prata europeia",
+    "n": 1,
+    "anos": "1983/84",
+    "chave": "outro"
+   },
+   {
+    "nome": "Troféu Bravo",
+    "n": 1,
+    "anos": "1987",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa da Holanda",
+    "n": 1,
+    "anos": "1986/87",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Três Bolas de Ouro (1988, 1989 e 1992) — o terceiro a chegar a três, depois de Cruyff e Platini",
+   "Melhor Jogador do Mundo da FIFA em 1992",
+   "Artilheiro e melhor jogador da Euro 1988: hat-trick contra a Inglaterra, gol da vitória na semifinal contra a Alemanha Ocidental e o voleio de ângulo na final",
+   "Primeiro jogador a marcar quatro gols num jogo da Champions League (contra o IFK Göteborg, em novembro de 1992)",
+   "Artilheiro da Eredivisie quatro temporadas seguidas (1983/84 a 1986/87), com 118 gols em 112 jogos",
+   "Chuteira de Ouro europeia 1985/86: 37 gols em 26 jogos da Eredivisie",
+   "Gol do título da Recopa Europeia de 1987, contra o Lokomotive Leipzig",
+   "Bicampeão europeu seguido com o Milan (1989 e 1990), artilheiro da Copa dos Campeões 1988/89 com 10 gols",
+   "Duas vezes artilheiro da Serie A (1989/90 e 1991/92)",
+   "Último jogo aos 28 anos, na final da Champions de 1993; as lesões no tornozelo o fizeram anunciar a aposentadoria em 1995"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Marco_van_Basten",
+   "https://pt.wikipedia.org/wiki/Marco_van_Basten",
+   "https://www.acmilan.com/cn/hall-of-fame/membri/marco-van-basten",
+   "https://www.rsssf.org/miscellaneous/vanbasten-intlg.html",
+   "https://tmapi.transfermarkt.technology/player/74471/performance-game",
+   "https://en.wikipedia.org/wiki/European_Golden_Shoe",
+   "https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_top_scorers",
+   "https://es.wikipedia.org/wiki/Marco_van_Basten",
+   "https://en.wikipedia.org/wiki/1990_European_Super_Cup",
+   "https://tmapi-alpha.transfermarkt.technology/player/74471/performance-game"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "assists",
+   "premios.outro (IFFHS melhor do mundo: 1988 e 1989 na Wikipedia inglesa, também 1990 na portuguesa)",
+   "prêmio 'Jogador do Ano da UEFA 1989, 1990 e 1992', citado nas duas Wikipedias sem fonte primária — não foi incluído",
+   "titulosTotais (Supercopa da UEFA 1990: o Milan e as Wikipedias a creditam, mas ele ficou fora da lista nos dois jogos; aqui não conta, pela regra do arquivo)"
+  ],
+  "notas": "Clubes 379/283 pela Wikipedia inglesa (Ajax 174/154, Milan 205/129) + Holanda 58/24 (RSSSF confere) = 437/307. O site oficial do Milan dá 201 jogos e 124 gols pelo clube, diferença de 4 jogos e 5 gols, provavelmente supercopas. A Wikipedia inglesa lista 4 Serie A (com a de 1993/94), mas ele não jogou nenhuma partida naquela temporada: ficou lesionado o ano todo, segundo o Transfermarkt jogo a jogo. O site oficial do Milan e a Wikipedia em português creditam 3, então leagueTitles cai de 7 para 6. Pelo mesmo motivo ficam fora a Champions de 1994 e as Supercopas da Itália de 1993 e 1994. Supercopa da UEFA: 2 (1989 e 1990), como no site oficial do Milan, embora o Transfermarkt diga que ele não foi relacionado em 1990. Assistências: o Transfermarkt registra 97 (Ajax 41, Milan 45, Holanda 11), daí a estimativa de ≈100 (era 70). otherMajorTitles 4 = Recopa 1987 + Intercontinental 1989 e 1990 + Euro 1988. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + súmula da Supercopa de 1990 na en.wikipedia + Transfermarkt jogo a jogo. CORREÇÃO: Supercopa da UEFA 2→1 e titulosTotais 19→18. Na Supercopa de 1990 (Milan × Sampdoria) ele ficou fora da lista nos dois jogos (Transfermarkt: 'not in squad' em 10/10 e 29/11/1990; a súmula da en.wikipedia escala Massaro no ataque). Pela regra já usada em Messi (Supercopa da Espanha 2005) e Cristiano Ronaldo (Community Shield 2008), uma supercopa de jogo único ou de ida e volta em que o jogador não estava na lista não entra. As outras supercopas conferem: ele jogou a Supercopa da Itália de 1988 (disputada em 13/6/1989, 1 gol e 2 assistências), a de 1992 (1 gol) e as duas partidas da Supercopa da UEFA de 1989 (1 gol). Títulos da es.wikipedia: 3 Eredivisies, 3 Copas da Holanda, 3 Serie A, 2 Supercopas da Itália, Recopa 1987, Euro 1988, 2 Copas dos Campeões, 2 Intercontinentais (e a Supercopa de 1990, que fica fora pelo motivo acima). Prêmios conferidos na es.wikipedia: Bolas de Ouro 1988, 1989 e 1992, Melhor do Mundo da FIFA 1992, Chuteira de Ouro 1985/86, artilharias da Eredivisie 1984–87 e da Serie A 1990 e 1992, artilharia da Copa dos Campeões 1989, artilheiro e melhor jogador da Euro 1988. O Voetballer van het Jaar de 1985 confere na lista oficial (en.wikipedia). ACRESCENTADO (outro): artilheiro da Copa da Holanda 1986/87. Jogos/gols: a tabela da es.wikipedia dá Ajax 174/154 e Milan 205/128, total de 437/306 com a seleção (58/24). Os jogos batem e os gols diferem em 1, por isso apps/goals seguem em incertos. Feitos conferidos: 4 gols no Göteborg em 25/11/1992 (es e en), 118 gols em 112 jogos de Eredivisie de 1983/84 a 1986/87 (soma da tabela por temporada da es.wikipedia: 26+33+26+27 jogos e 28+22+37+31 gols) e o gol do título da Recopa 1987 contra o Lokomotive Leipzig (es e en)."
+ },
+ {
+  "id": "platini",
+  "asOf": "1987",
+  "apps": 654,
+  "goals": 354,
+  "assists": 175,
+  "assistsEstimated": true,
+  "ballonDor": 3,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 3,
+  "otherMajorTitles": 3,
+  "goldenBoots": 0,
+  "titulosTotais": 12,
+  "titulos": [
+   {
+    "nome": "Copa da França",
+    "equipe": "Nancy",
+    "n": 1,
+    "anos": "1977/78",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Francês da 2ª divisão (Division 2)",
+    "equipe": "Nancy",
+    "n": 1,
+    "anos": "1974/75",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Campeonato Francês (Division 1)",
+    "equipe": "Saint-Étienne",
+    "n": 1,
+    "anos": "1980/81",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Juventus",
+    "n": 2,
+    "anos": "1983/84, 1985/86",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1982/83",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa dos Campeões da Europa (atual Champions League)",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1985",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Recopa Europeia",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1984",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1984",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1985",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Eurocopa",
+    "equipe": "França",
+    "n": 1,
+    "anos": "1984",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa Artemio Franchi (Copa dos Campeões CONMEBOL–UEFA, antecessora da Finalíssima)",
+    "equipe": "França",
+    "n": 1,
+    "anos": "1985",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro",
+    "n": 3,
+    "anos": "1983, 1984, 1985",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Artilheiro da Serie A (Capocannoniere)",
+    "n": 3,
+    "anos": "1982/83 (16 gols), 1983/84 (20), 1984/85 (18)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Guerin d'Oro (melhor da Serie A pela média de notas do Guerin Sportivo)",
+    "n": 1,
+    "anos": "1983/84",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro da Copa dos Campeões",
+    "n": 1,
+    "anos": "1984/85 (7 gols, dividido com Torbjörn Nilsson)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Eurocopa",
+    "n": 1,
+    "anos": "1984",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Artilheiro da Eurocopa",
+    "n": 1,
+    "anos": "1984 (9 gols)",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Copa Intercontinental",
+    "n": 1,
+    "anos": "1985",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 3,
+    "anos": "1983, 1984, 1985",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do Ano da World Soccer",
+    "n": 2,
+    "anos": "1984, 1985",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista Francês do Ano (France Football)",
+    "n": 2,
+    "anos": "1976, 1977",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 2,
+    "anos": "1982, 1986",
+    "chave": "outro"
+   },
+   {
+    "nome": "Campeão dos Campeões franceses (L'Équipe)",
+    "n": 2,
+    "anos": "1977, 1984",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Primeiro jogador a ganhar três Bolas de Ouro seguidas (1983, 1984 e 1985)",
+   "9 gols numa só Eurocopa (1984), recorde de uma edição, com dois hat-tricks perfeitos (Bélgica e Iugoslávia)",
+   "Capitão, artilheiro e melhor jogador da França campeã da Euro 1984, o primeiro grande título da seleção, com gol de falta na final",
+   "Artilheiro da Serie A três temporadas seguidas (1982/83, 1983/84 e 1984/85)",
+   "Fez o único gol da final da Copa dos Campeões de 1985 (de pênalti, contra o Liverpool, em Heysel)",
+   "Em 1984 ganhou Bola de Ouro, Eurocopa, Serie A e Recopa Europeia; a Supercopa Europeia de 1984 veio em janeiro de 1985",
+   "41 gols em 72 jogos pela França, recorde da seleção até Thierry Henry passá-lo em 2007",
+   "Deu ao Nancy a Copa da França de 1978, marcando o único gol da final",
+   "Jogou também pela seleção do Kuwait, num amistoso contra a União Soviética em 1988",
+   "Presidente da UEFA de 2007 a 2015"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Michel_Platini",
+   "https://pt.wikipedia.org/wiki/Michel_Platini",
+   "https://www.rsssf.org/miscellaneous/platini-intlg.html",
+   "https://tmapi.transfermarkt.technology/player/88994/performance-game",
+   "https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_top_scorers",
+   "https://es.wikipedia.org/wiki/Michel_Platini",
+   "https://it.wikipedia.org/wiki/Michel_Platini",
+   "https://it.wikipedia.org/wiki/Guerin_d%27oro",
+   "https://tmapi-alpha.transfermarkt.technology/player/88994/performance-game"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "assists"
+  ],
+  "notas": "Clubes 582/313 pela Wikipedia inglesa (Nancy 213/127, com a Division 2 de 1974/75; Saint-Étienne 145/82; Juventus 224/104) + França 72/41 (RSSSF confere) = 654/354. O amistoso pelo Kuwait (21 minutos, 1988) fica fora: não é a seleção dele e o RSSSF trata o jogo à parte. O Transfermarkt quase bate (Nancy 216/127, Saint-Étienne 145/83). Assistências: o Transfermarkt só tem Juventus (70) e França (17); sem registro de Nancy e quase nenhum do Saint-Étienne, a estimativa de ≈175 (era 150) aplica ~0,25 por jogo aos anos na França. titulosTotais 12 inclui o título da Division 2 de 1975 (fora de leagueTitles, que só conta 1ª divisão) e a Copa Artemio Franchi de 1985, que a UEFA e a CONMEBOL tratam como antecessora da Finalíssima. O mesmo critério valeu para a Finalíssima 2022 do Messi; ela não entra em otherMajorTitles. otherMajorTitles 3 = Recopa 1984 + Intercontinental 1985 + Euro 1984. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedias em espanhol e italiano + lista do Guerin d'Oro (it.wikipedia) + Transfermarkt jogo a jogo. Títulos: os 12 conferem nas duas (Division 2 1974/75 e Copa da França 1978 pelo Nancy, Division 1 1980/81, 2 Serie A, Copa da Itália 1983, Recopa 1984, Supercopa 1984, Copa dos Campeões 1985, Intercontinental 1985, Euro 1984 e Copa Artemio Franchi 1985). O Transfermarkt confirma que ele jogou a Supercopa de 16/1/1985 e a Intercontinental de 8/12/1985 (1 gol e 1 assistência). Prêmios conferidos na it.wikipedia: Bolas de Ouro 1983–85, artilharias da Serie A 1982/83 (16), 1983/84 (20) e 1984/85 (18), artilharia dividida da Copa dos Campeões 1984/85 (7, com Torbjörn Nilsson), artilharia da Euro 1984 (9), melhor da Intercontinental 1985 e Guerin d'Oro 1983/84 (a lista do prêmio confirma: Vierchowod em 1982/83, Platini em 1983/84 e Maradona em 1984/85). O melhor jogador da Euro 1984 está na lista de honrarias da en.wikipedia. Jogos/gols: a es.wikipedia dá 652/354 (clubes 580/313: Nancy 212, Saint-Étienne 145, Juventus 223). Os gols batem e os jogos diferem em 2, por isso o campo segue em incertos. AJUSTE em feito: a Supercopa Europeia de 1984 foi disputada em 16/1/1985, por isso a frase sobre o ano de 1984 foi corrigida. Feitos conferidos: o pênalti da final de 1985 (it.wikipedia), o amistoso de 21 minutos pelo Kuwait contra a URSS em 1988 (it.wikipedia) e as três Bolas de Ouro seguidas."
+ },
+ {
+  "id": "zidane",
+  "asOf": "2006",
+  "apps": 803,
+  "goals": 156,
+  "assists": 175,
+  "assistsEstimated": true,
+  "ballonDor": 1,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 3,
+  "otherMajorTitles": 3,
+  "goldenBoots": 0,
+  "titulosTotais": 15,
+  "titulos": [
+   {
+    "nome": "Copa Intertoto da UEFA",
+    "equipe": "Bordeaux",
+    "n": 1,
+    "anos": "1995",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Juventus",
+    "n": 2,
+    "anos": "1996/97, 1997/98",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1997",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Copa Intertoto da UEFA",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2002/03",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Real Madrid",
+    "n": 2,
+    "anos": "2001, 2003",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2002",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2002",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2002",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "França",
+    "n": 1,
+    "anos": "1998",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Eurocopa",
+    "equipe": "França",
+    "n": 1,
+    "anos": "2000",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro",
+    "n": 1,
+    "anos": "1998",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Melhor Jogador do Mundo da FIFA",
+    "n": 3,
+    "anos": "1998, 2000, 2003",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Bola de Ouro da Copa do Mundo",
+    "n": 1,
+    "anos": "2006",
+    "chave": "wc_golden_ball"
+   },
+   {
+    "nome": "Melhor jogador da Eurocopa",
+    "n": 1,
+    "anos": "2000",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Melhor jogador da Division 1 francesa (UNFP)",
+    "n": 1,
+    "anos": "1995/96",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da Serie A (Oscar del Calcio, AIC)",
+    "n": 1,
+    "anos": "2000/01",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da La Liga (Prêmio Don Balón)",
+    "n": 1,
+    "anos": "2001/02",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador de clubes da UEFA",
+    "n": 1,
+    "anos": "2001/02",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Melhor jogador estrangeiro da Serie A (AIC)",
+    "n": 2,
+    "anos": "1996/97, 2000/01",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor meio-campista de clubes da UEFA",
+    "n": 1,
+    "anos": "1997/98",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 3,
+    "anos": "1998, 2000, 2001",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do Ano da World Soccer",
+    "n": 1,
+    "anos": "1998",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista Francês do Ano (France Football)",
+    "n": 2,
+    "anos": "1998, 2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 2,
+    "anos": "1998, 2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador europeu dos últimos 50 anos (enquete do Jubileu de Ouro da UEFA)",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jovem da Division 1 francesa (UNFP)",
+    "n": 1,
+    "anos": "1993/94",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Serie A",
+    "n": 1,
+    "anos": "2000/01",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Laureus pelo conjunto da carreira",
+    "n": 1,
+    "anos": "2011",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da La Liga",
+    "n": 1,
+    "anos": "2003/04",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Dois gols de cabeça na final da Copa de 1998 (3–0 no Brasil), o primeiro título mundial da França",
+   "Marcou em duas finais de Copa (1998 e 2006, de cavadinha), feito dividido com Pelé, Vavá, Breitner e Mbappé",
+   "Bola de Ouro da Copa de 2006, mesmo expulso na final",
+   "Melhor jogador da Euro 2000, em que fez de pênalti o gol de ouro da semifinal contra Portugal",
+   "Três vezes Melhor Jogador do Mundo da FIFA (1998, 2000 e 2003)",
+   "Transferência recorde mundial em 2001: cerca de €77,5 milhões da Juventus para o Real Madrid, recorde até 2009",
+   "Gol de voleio de canhota na final da Champions de 2002 (2–1 no Bayer Leverkusen)",
+   "Eleito melhor jogador da liga em três das cinco grandes ligas: França (1996), Itália (2001) e Espanha (2002)",
+   "Eleito o melhor jogador europeu dos últimos 50 anos na enquete do Jubileu de Ouro da UEFA (2004)",
+   "108 jogos e 31 gols pela França",
+   "Como técnico, único a ganhar três Champions seguidas (2016, 2017 e 2018); assumiu a seleção francesa em julho de 2026"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Zinedine_Zidane",
+   "https://pt.wikipedia.org/wiki/Zin%C3%A9dine_Zidane",
+   "https://tmapi.transfermarkt.technology/player/3111/performance-game",
+   "https://es.wikipedia.org/wiki/Zinedine_Zidane",
+   "https://tmapi-alpha.transfermarkt.technology/player/3111/performance-game"
+  ],
+  "incertos": [
+   "assists",
+   "apps (803 pela Wikipedia inglesa; a espanhola dá 796 e o Transfermarkt 797 — a diferença está nas supercopas e jogos de copa do Juventus e do Real Madrid)"
+  ],
+  "notas": "Clubes 695/125 pela Wikipedia inglesa (Cannes 71/6, Bordeaux 179/39, Juventus 214/31, Real Madrid 230/49) + França 108/31 = 803/156, o mesmo do arquivo antigo. O Transfermarkt dá 689 jogos de clube (Juventus 212, Real Madrid 227). Assistências: o Transfermarkt registra 174 (Bordeaux 24, Juventus 54, Real Madrid 67, França 29), sem nada do Cannes e com a Bordeaux provavelmente incompleta, daí a estimativa de ≈175 (era 130). titulosTotais 15 inclui as duas Copas Intertoto da UEFA (1995 e 1999), que são torneios oficiais da UEFA mas ficam fora de otherMajorTitles. otherMajorTitles 3 = Intercontinental 1996 e 2002 + Euro 2000. Os títulos como técnico não entram. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + Transfermarkt jogo a jogo. Títulos: os 15 conferem na es.wikipedia, com as duas Intertotos (1995 pelo Bordeaux e 1999 pelo Juventus). O Transfermarkt mostra que ele jogou as finais das duas Intertotos e todas as supercopas creditadas (Supercopa da UEFA 1996 e 2002, Supercopa da Itália 1997, Supercopas da Espanha 2001 e 2003, Intercontinentais 1996 e 2002). Prêmios conferidos na es.wikipedia: Bola de Ouro 1998; Melhor do Mundo da FIFA 1998, 2000 e 2003; Bola de Ouro da Copa de 2006; melhor da Euro 2000; melhor da Division 1 em 1996, Futebolista do Ano da Serie A 2001 e Prêmio Don Balón 2002 (um por liga e temporada); Jogador do Ano da UEFA 2002; meio-campista do ano da UEFA só em 1998 (o de 2002 foi de Ballack); Laureus pela carreira em 2011. ACRESCENTADO (outro): líder de assistências da La Liga 2003/04. Jogos: a es.wikipedia dá clubes 688 (Cannes 70, Bordeaux 179, Juventus 212, Real Madrid 227), o Transfermarkt 689 e a en.wikipedia 695. Os gols (125 + 31) batem nas três, mas apps foi para incertos. A posse da seleção francesa como técnico, em 28/7/2026, confere na es.wikipedia. Feitos conferidos: os dois gols de cabeça na final de 1998 (es e en), gols em duas finais de Copa, como Pelé, Vavá e Breitner (en.wikipedia; Mbappé entrou na lista em 2022), e a transferência recorde de €77,5 milhões em 2001, que durou oito anos (es e en)."
+ },
+ {
+  "id": "henry",
+  "asOf": "2014",
+  "apps": 917,
+  "goals": 411,
+  "assists": 211,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 5,
+  "otherMajorTitles": 2,
+  "goldenBoots": 2,
+  "titulosTotais": 20,
+  "titulos": [
+   {
+    "nome": "Campeonato Francês (Division 1)",
+    "equipe": "Monaco",
+    "n": 1,
+    "anos": "1996/97",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Inglês (Premier League)",
+    "equipe": "Arsenal",
+    "n": 2,
+    "anos": "2001/02, 2003/04",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Inglaterra (FA Cup)",
+    "equipe": "Arsenal",
+    "n": 3,
+    "anos": "2002, 2003, 2005",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Inglaterra (Community Shield)",
+    "equipe": "Arsenal",
+    "n": 2,
+    "anos": "2002, 2004",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intertoto da UEFA",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Barcelona",
+    "n": 2,
+    "anos": "2008/09, 2009/10",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2008/09",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Mundial de Clubes da FIFA",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Supporters' Shield (melhor campanha da fase regular da MLS)",
+    "equipe": "New York Red Bulls",
+    "n": 1,
+    "anos": "2013",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "França",
+    "n": 1,
+    "anos": "1998",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Eurocopa",
+    "equipe": "França",
+    "n": 1,
+    "anos": "2000",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa das Confederações",
+    "equipe": "França",
+    "n": 1,
+    "anos": "2003",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Chuteira de Ouro europeia",
+    "n": 2,
+    "anos": "2003/04 (30 gols), 2004/05 (25, dividida com Forlán)",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Premier League",
+    "n": 4,
+    "anos": "2001/02 (24 gols), 2003/04 (30), 2004/05 (25), 2005/06 (27)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Jogador do Ano da PFA (eleito pelos jogadores)",
+    "n": 2,
+    "anos": "2002/03, 2003/04",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista do Ano da FWA (jornalistas)",
+    "n": 3,
+    "anos": "2002/03, 2003/04, 2005/06",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador da temporada da Premier League",
+    "n": 2,
+    "anos": "2003/04, 2005/06",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Bola de Ouro da Copa das Confederações",
+    "n": 1,
+    "anos": "2003",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Artilheiro da Copa das Confederações",
+    "n": 1,
+    "anos": "2003 (4 gols)",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Vice da Bola de Ouro",
+    "n": 1,
+    "anos": "2003",
+    "chave": "outro"
+   },
+   {
+    "nome": "Vice do Melhor Jogador do Mundo da FIFA",
+    "n": 2,
+    "anos": "2003, 2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 2,
+    "anos": "2003, 2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista Francês do Ano (France Football)",
+    "n": 5,
+    "anos": "2000, 2003, 2004, 2005, 2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Premier League",
+    "n": 1,
+    "anos": "2002/03 (20)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Maior artilheiro do ano (IFFHS)",
+    "n": 1,
+    "anos": "2003",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jovem da Division 1 francesa (UNFP)",
+    "n": 1,
+    "anos": "1996/97",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama da Premier League",
+    "n": 1,
+    "anos": "2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio do Presidente da UEFA",
+    "n": 1,
+    "anos": "2026",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Maior artilheiro da história do Arsenal: 228 gols em 377 jogos",
+   "Quatro vezes artilheiro da Premier League (2002, 2004, 2005 e 2006), recorde dividido com Salah",
+   "Duas Chuteiras de Ouro europeias seguidas (2003/04 e 2004/05), o primeiro a ganhar oficialmente duas seguidas",
+   "Artilheiro dos 'Invencíveis' do Arsenal, campeões ingleses invictos em 2003/04 (30 gols na liga)",
+   "24 gols e 20 assistências na Premier League 2002/03, o único com 20 gols e 20 assistências numa mesma temporada de Premier League",
+   "Recordista de prêmios de Futebolista do Ano da FWA (três) e de Futebolista Francês do Ano (cinco)",
+   "Campeão da Copa do Mundo de 1998, da Euro 2000 e da Copa das Confederações de 2003 (melhor jogador e artilheiro)",
+   "Tríplice coroa e os seis títulos de 2009 com o Barcelona, num trio com Messi e Eto'o que fez 72 gols no Espanhol",
+   "Maior artilheiro da França de 2007 a 2022: 51 gols em 123 jogos",
+   "Vice da Bola de Ouro em 2003",
+   "Disputou quatro Copas do Mundo (1998, 2002, 2006 e 2010), recorde francês dividido com Lloris",
+   "Prêmio do Presidente da UEFA em 2026, pelos 411 gols por clubes e seleção"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Thierry_Henry",
+   "https://pt.wikipedia.org/wiki/Thierry_Henry",
+   "https://tmapi.transfermarkt.technology/player/3207/performance-game",
+   "https://www.uefa.com/news-media/news/02a8-2172f77deb2a-ba6ea93703e3-1000--thierry-henry-receives-uefa-president-s-award/",
+   "https://en.wikipedia.org/wiki/European_Golden_Shoe",
+   "https://es.wikipedia.org/wiki/Thierry_Henry",
+   "https://en.wikipedia.org/wiki/Premier_League_Player_of_the_Season",
+   "https://en.wikipedia.org/wiki/Premier_League_Golden_Boot",
+   "https://en.wikipedia.org/wiki/Troph%C3%A9e_des_Champions",
+   "https://www.ewn.co.za/thierry-henry-honoured-with-2026-uefa-presidents-award-in-monaco/",
+   "https://tmapi-alpha.transfermarkt.technology/player/3207/performance-game"
+  ],
+  "incertos": [
+   "assists (o Transfermarkt registra 211; a tabela da Wikipedia em espanhol soma 245 nos jogos oficiais; os anos de Monaco, 1994–99, estão incompletos)",
+   "titulosTotais (Copa Intertoto 1999: ele jogou 81 minutos pelo Juventus na 3ª fase, em 24/7/1999, e foi para o Arsenal antes das semifinais; a es.wikipedia credita o título e a en.wikipedia não)"
+  ],
+  "notas": "Clubes 794/360 pela Wikipedia inglesa sem o Monaco B (19/6 no CFA): Monaco 141/28, Juventus 20/3, Arsenal 377/228 (com o empréstimo de 2012), Barcelona 121/49, New York Red Bulls 135/52 (com playoffs da MLS). Somando França 123/51, dá 917/411, o que bate com o Transfermarkt jogo a jogo e com os '411 gols' citados pela UEFA. Assistências: 211 pelo Transfermarkt (Monaco 4, Juventus 2, Arsenal 107, Barcelona 28, NY Red Bulls 40, França 30). Copa da Inglaterra: a lista da Wikipedia inglesa traz 2, mas o site oficial do Arsenal e a Wikipedia em português creditam 3. Ele jogou na campanha de 2004/05, embora tenha perdido a final por lesão, então ficou 3. Os títulos de conferência da MLS (2010 e 2013) não contam. O Supporters' Shield conta em titulosTotais, mas não como liga, já que o campeão da MLS é o da MLS Cup. otherMajorTitles 2 = Mundial de Clubes 2009 + Euro 2000; a Copa das Confederações fica fora pela regra. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + listas oficiais dos prêmios da Premier League + Transfermarkt jogo a jogo. Jogos/gols confirmados: o resumo da es.wikipedia dá 596+57+141 jogos oficiais por clubes (sem os 18 do Monaco B) e 123 pela França, ou seja, 917, com 285+16+59+51 = 411 gols. CORREÇÃO em títulos: +Copa Intertoto 1999 pelo Juventus, titulosTotais 19→20. O Transfermarkt mostra que ele jogou 81 minutos contra o Ceahlăul na 3ª fase (24/7/1999) antes de ir para o Arsenal, e o Juventus foi campeão em agosto. Pela regra de participação usada no arquivo (ex.: o Mineiro de 1972 de Tostão), o título conta; a es.wikipedia o credita. Ficou fora o Trophée des Champions de 1997, que a es.wikipedia credita: no jogo (23/7/1997, Monaco × Nice) ele estava fora da lista, segundo o Transfermarkt. CORREÇÃO em prêmios, pela regra do Cristiano Ronaldo conferido (um prêmio oficial de liga por temporada): league_best_player fica só com o Premier League Player of the Season 2003/04 e 2005/06 (confere na lista oficial). PFA (2002/03 e 2003/04) e FWA (2002/03, 2003/04 e 2005/06) foram para 'outro'. Assim league_best_player cai de 7 para 2. Conferidos: as 4 artilharias da Premier League (recorde dividido com Salah, 4 cada, pela lista do Golden Boot; a de 2025/26 foi de Haaland), as Chuteiras de Ouro 2003/04 e 2004/05 (a primeira dupla seguida oficial: de 1992 a 1996 o prêmio não foi entregue) e a Bola de Ouro e a artilharia da Copa das Confederações 2003. Prêmio do Presidente da UEFA entregue em 27/8/2026, em Mônaco (EWN). Feitos conferidos: 228 gols em 377 jogos pelo Arsenal (Transfermarkt e es.wikipedia), 4 Chuteiras de Ouro da Premier League (lista oficial) e o trio de 72 gols no Espanhol 2008/09 (Messi 23, Eto'o 30, Henry 19)."
+ },
+ {
+  "id": "benzema",
+  "asOf": "2026-10",
+  "apps": 996,
+  "goals": 524,
+  "assists": 225,
+  "assistsEstimated": false,
+  "ballonDor": 1,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 5,
+  "libertadores": 0,
+  "leagueTitles": 9,
+  "otherMajorTitles": 5,
+  "goldenBoots": 0,
+  "titulosTotais": 35,
+  "titulos": [
+   {
+    "nome": "Campeonato Francês (Ligue 1)",
+    "equipe": "Lyon",
+    "n": 4,
+    "anos": "2004/05, 2005/06, 2006/07, 2007/08",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da França",
+    "equipe": "Lyon",
+    "n": 1,
+    "anos": "2007/08",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da França (Trophée des Champions)",
+    "equipe": "Lyon",
+    "n": 2,
+    "anos": "2006, 2007",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Real Madrid",
+    "n": 4,
+    "anos": "2011/12, 2016/17, 2019/20, 2021/22",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Real Madrid",
+    "n": 3,
+    "anos": "2010/11, 2013/14, 2022/23",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Real Madrid",
+    "n": 3,
+    "anos": "2012, 2017, 2022",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Real Madrid",
+    "n": 5,
+    "anos": "2014, 2016, 2017, 2018, 2022",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Real Madrid",
+    "n": 4,
+    "anos": "2014, 2016, 2017, 2022",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Mundial de Clubes da FIFA",
+    "equipe": "Real Madrid",
+    "n": 5,
+    "anos": "2014, 2016, 2017, 2018, 2022",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Campeonato Saudita (Saudi Pro League)",
+    "equipe": "Al-Ittihad",
+    "n": 1,
+    "anos": "2024/25",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei Saudita (King's Cup)",
+    "equipe": "Al-Ittihad",
+    "n": 1,
+    "anos": "2024/25",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa do Rei Saudita (King's Cup)",
+    "equipe": "Al-Hilal",
+    "n": 1,
+    "anos": "2025/26",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Liga das Nações da UEFA",
+    "equipe": "França",
+    "n": 1,
+    "anos": "2021",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro",
+    "n": 1,
+    "anos": "2022",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Melhor jogador da UEFA",
+    "n": 1,
+    "anos": "2021/22",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Melhor jogador da Champions League (mesma temporada do prêmio da UEFA; não conta em dobro)",
+    "n": 1,
+    "anos": "2021/22",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Champions League",
+    "n": 1,
+    "anos": "2021/22 (15 gols)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Pichichi (artilheiro da La Liga)",
+    "n": 1,
+    "anos": "2021/22 (27 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Ligue 1",
+    "n": 1,
+    "anos": "2007/08 (20 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Ligue 1 (UNFP)",
+    "n": 1,
+    "anos": "2007/08",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da La Liga",
+    "n": 2,
+    "anos": "2019/20, 2021/22",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da Saudi Pro League",
+    "n": 1,
+    "anos": "2024/25",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro do Mundial de Clubes",
+    "n": 1,
+    "anos": "2023 (dividido)",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Troféu Alfredo Di Stéfano (Marca)",
+    "n": 2,
+    "anos": "2019/20, 2021/22",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 2,
+    "anos": "2020/21, 2021/22",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista Francês do Ano (France Football)",
+    "n": 4,
+    "anos": "2011, 2012, 2014, 2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor francês atuando no exterior (UNFP)",
+    "n": 4,
+    "anos": "2019, 2021, 2022, 2023",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador do ano do Globe Soccer",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Champions League",
+    "n": 1,
+    "anos": "2011/12",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Bronze da Eurocopa",
+    "n": 1,
+    "anos": "2020",
+    "chave": "outro"
+   },
+   {
+    "nome": "Troféu Bravo",
+    "n": 1,
+    "anos": "2008",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Bola de Ouro 2022, aos 34 anos, depois de uma temporada de 44 gols em 46 jogos pelo Real Madrid",
+   "Cinco Champions League com o Real Madrid (2014, 2016, 2017, 2018 e 2022)",
+   "Segundo maior artilheiro da história do Real Madrid: 354 gols em 648 jogos, atrás só de Cristiano Ronaldo",
+   "O Real Madrid lhe credita 25 títulos, o que igualava na época o recorde de Marcelo como jogador mais vitorioso do clube",
+   "Artilheiro da Champions 2021/22 (15 gols), com hat-tricks no mata-mata contra PSG e Chelsea",
+   "90 gols na Champions League (12 pelo Lyon, 78 pelo Real Madrid), quarto maior artilheiro da história da competição",
+   "Tetracampeão francês seguido com o Lyon (2005 a 2008)",
+   "Artilheiro (20 gols) e melhor jogador da Ligue 1 2007/08, aos 20 anos",
+   "Pichichi 2021/22, com 27 gols",
+   "Campeão saudita e melhor jogador da Saudi Pro League 2024/25, pelo Al-Ittihad",
+   "Hat-trick na estreia pelo Al-Hilal (6–0 no Al-Okhdood, fevereiro de 2026) e campeão da Copa do Rei saudita na mesma temporada",
+   "Gol de empate na final da Liga das Nações de 2021 (2–1 na Espanha)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Karim_Benzema",
+   "https://pt.wikipedia.org/wiki/Karim_Benzema",
+   "https://tmapi.transfermarkt.technology/player/18922/performance-game",
+   "https://www.transfermarkt.com/karim-benzema/leistungsdaten/spieler/18922/plus/0?saison=ges",
+   "https://en.wikipedia.org/wiki/2026%E2%80%9327_Al_Hilal_SFC_season",
+   "https://www.thescore.com/news/3589517/benzema-ends-brief-stint-with-al-hilal-in-saudi-league",
+   "https://www.yardbarker.com/soccer/articles/imminent_announcement_benzema_begins_the_countdown_to_settling_his_future/s1_17790_44257710",
+   "https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_top_scorers",
+   "https://es.wikipedia.org/wiki/Karim_Benzema",
+   "https://en.wikipedia.org/wiki/2020_Supercopa_de_Espa%C3%B1a_final",
+   "https://tmapi-alpha.transfermarkt.technology/player/18922/performance-game",
+   "https://www.tsn.ca/soccer/article/al-hilal-benzema-agree-to-terminate-contract-after-six-months/",
+   "https://www.beinsports.com/en-us/soccer/articles/karim-benzema-could-announce-his-retirement-from-soccer-2026-08-30"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "assists (o Transfermarkt dá 158 assistências no Real Madrid; o clube credita 165)",
+   "titulosTotais (Supercopa da Espanha 2020: o Real Madrid e a en.wikipedia a creditam, mas ele estava lesionado e fora da semifinal e da final; aqui não conta, pela regra do arquivo)"
+  ],
+  "notas": "Sem clube desde 31/08/2026, quando o Al-Hilal rescindiu o contrato em comum acordo. Último jogo oficial em 20/08/2026; até 04/09 não tinha anunciado aposentadoria nem novo clube, e não achei notícia posterior. Por isso os números valem para 10/2026. Clubes 899/487 pela Wikipedia inglesa (atualizada até 20/08/2026), sem o Lyon B (20/15 no CFA): Lyon 148/66, Real Madrid 648/354, Al-Ittihad 87/57, Al-Hilal 16/10. Com França 97/37, dá 996/524. O Transfermarkt jogo a jogo dá Al-Ittihad 83/54 (total 992/521); a diferença de 4 jogos e 3 gols parece ser a Copa dos Campeões Árabes 2023 (UAFA), que a Wikipedia conta e o Transfermarkt não, por isso apps/goals vão em incertos. Assistências 225 pelo Transfermarkt (Lyon 25, Real Madrid 158, Al-Ittihad 17, Al-Hilal 5, França 20). Títulos: lista da Wikipedia inglesa, que bate com os 25 títulos que o Real Madrid credita a ele. Ela inclui a Supercopa da Espanha de 2020, em que ele estava lesionado; a Wikipedia em português lista 3 Supercopas. O Europeu Sub-17 de 2004 é de base e não conta. otherMajorTitles 5 = Mundiais de Clubes; a Liga das Nações fica fora pela regra. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol (até 20/8/2026) + súmula da final da Supercopa 2020 + Transfermarkt jogo a jogo. Jogos/gols confirmados: o resumo da es.wikipedia dá 627+92+180 jogos por clubes e 97 pela França (996), com 329+53+105+37 = 524 gols. O Transfermarkt fica em 992/521 porque não registra a Copa dos Campeões Árabes 2023. Al-Hilal 16 jogos, 10 gols e 5 assistências, como na es.wikipedia. Situação: o Al-Hilal anunciou a rescisão em comum acordo em 31/8/2026 (TSN/AP). Até 14/10/2026 não achei novo clube nem anúncio de aposentadoria; a beIN fala nas duas hipóteses. CORREÇÃO: Supercopa da Espanha 4→3 e titulosTotais 36→35. Na edição de janeiro de 2020 ele estava lesionado na semifinal (Valencia) e na final (Atlético), segundo o Transfermarkt; a súmula da final na en.wikipedia escala Jović. A es.wikipedia também lista só 3 Supercopas. A regra é a mesma usada para Messi, Cristiano Ronaldo, Kaká e Maradona. As demais supercopas e os Mundiais conferem no Transfermarkt (no Mundial de 2022, disputado em 2/2023, perdeu a semifinal, mas jogou a final). A Copa do Rei saudita 2025/26 pelo Al-Hilal confere: final em 8/5/2026, 75 minutos e 1 assistência. CORREÇÃO em prêmios: Jogador do Ano da UEFA e Melhor Jogador da Champions são da mesma temporada (2021/22). Pela regra de um prêmio por temporada, continental_best fica 1 e o da Champions foi para 'outro'. Conferidos na es.wikipedia: Bola de Ouro 2022, Pichichi 2021/22 (27), artilharia da Ligue 1 2007/08 (20), melhor da Ligue 1 2007/08, MVP da La Liga 2019/20 e 2021/22, melhor da Saudi Pro League 2024/25, artilharia da Champions 2021/22 (15). A artilharia dividida do Mundial de Clubes 2023 (2 gols, 1 em cada jogo, pelo Transfermarkt) está na en.wikipedia. Feitos conferidos: hat-trick na estreia pelo Al-Hilal, em 5/2/2026 (6–0 no Al-Okhdood; es.wikipedia e Transfermarkt), 354 gols em 648 jogos pelo Real (Transfermarkt) e 90 gols na Champions, 4º da lista (lista de artilheiros atualizada)."
+ },
+ {
+  "id": "mbappe",
+  "asOf": "2026-10",
+  "apps": 587,
+  "goals": 444,
+  "assists": 184,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 7,
+  "otherMajorTitles": 1,
+  "goldenBoots": 1,
+  "titulosTotais": 20,
+  "titulos": [
+   {
+    "nome": "Campeonato Francês (Ligue 1)",
+    "equipe": "Monaco",
+    "n": 1,
+    "anos": "2016/17",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Francês (Ligue 1)",
+    "equipe": "Paris Saint-Germain",
+    "n": 6,
+    "anos": "2017/18, 2018/19, 2019/20, 2021/22, 2022/23, 2023/24",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da França",
+    "equipe": "Paris Saint-Germain",
+    "n": 4,
+    "anos": "2017/18, 2019/20, 2020/21, 2023/24",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Liga Francesa",
+    "equipe": "Paris Saint-Germain",
+    "n": 2,
+    "anos": "2017/18, 2019/20",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da França (Trophée des Champions)",
+    "equipe": "Paris Saint-Germain",
+    "n": 3,
+    "anos": "2019, 2020, 2023",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2024",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental da FIFA",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2024",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "França",
+    "n": 1,
+    "anos": "2018",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Liga das Nações da UEFA",
+    "equipe": "França",
+    "n": 1,
+    "anos": "2021",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Chuteira de Ouro europeia",
+    "n": 1,
+    "anos": "2024/25 (31 gols)",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Chuteira de Ouro da Copa do Mundo",
+    "n": 2,
+    "anos": "2022 (8 gols), 2026 (10 gols)",
+    "chave": "wc_golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Ligue 1",
+    "n": 6,
+    "anos": "2018/19 (33 gols), 2019/20 (18), 2020/21 (27), 2021/22 (28), 2022/23 (29), 2023/24 (27)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Pichichi (artilheiro da La Liga)",
+    "n": 2,
+    "anos": "2024/25 (31 gols), 2025/26 (25)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Ligue 1 (UNFP)",
+    "n": 5,
+    "anos": "2018/19, 2020/21, 2021/22, 2022/23, 2023/24",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro da Champions League",
+    "n": 2,
+    "anos": "2023/24 (8 gols, dividido com Kane), 2025/26 (15)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Troféu Kopa (melhor jogador sub-21, France Football)",
+    "n": 1,
+    "anos": "2018",
+    "chave": "kopa"
+   },
+   {
+    "nome": "Bola de Prata da Copa do Mundo",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Bronze da Copa do Mundo",
+    "n": 1,
+    "anos": "2026",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador jovem da Copa do Mundo",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Boy",
+    "n": 1,
+    "anos": "2017",
+    "chave": "outro"
+   },
+   {
+    "nome": "Troféu Gerd Müller (France Football)",
+    "n": 1,
+    "anos": "2024 (dividido)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jovem da Ligue 1 (UNFP)",
+    "n": 3,
+    "anos": "2016/17, 2017/18, 2018/19",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista Francês do Ano (France Football)",
+    "n": 4,
+    "anos": "2018, 2019, 2022/23, 2023/24",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da fase final da Liga das Nações",
+    "n": 2,
+    "anos": "2021, 2025 (dividido)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Maior artilheiro do mundo no ano (IFFHS)",
+    "n": 2,
+    "anos": "2022, 2025",
+    "chave": "outro"
+   },
+   {
+    "nome": "Globe Soccer: melhor jogador do ano (2021) e melhor jogador da edição europeia (2024)",
+    "n": 2,
+    "anos": "2021, 2024",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Ligue 1",
+    "n": 1,
+    "anos": "2021/22",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção mundial FIFPRO (World 11)",
+    "n": 6,
+    "anos": "2018, 2019, 2022, 2023, 2024, 2025",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Maior artilheiro da história das Copas do Mundo: 22 gols em três edições (2018, 2022 e 2026)",
+   "Primeiro jogador a ganhar duas Chuteiras de Ouro da Copa (8 gols em 2022, 10 em 2026)",
+   "Recorde de participações em gols numa só Copa desde 1966: 10 gols e 4 assistências em 2026",
+   "Hat-trick na final da Copa de 2022 contra a Argentina, o segundo da história depois de Geoff Hurst (1966)",
+   "Campeão mundial aos 19 anos em 2018, com gol na final; o segundo adolescente a marcar numa final de Copa, depois de Pelé",
+   "Maior artilheiro da história da seleção francesa: 67 gols em 107 jogos (passou Giroud na Copa de 2026)",
+   "Maior artilheiro da história do PSG: 256 gols em 308 jogos",
+   "Artilheiro da Ligue 1 em seis temporadas seguidas (2018/19 a 2023/24) e cinco vezes eleito o melhor jogador da liga",
+   "44 gols na temporada de estreia pelo Real Madrid (2024/25), recorde do clube, e Chuteira de Ouro europeia com 31 gols na La Liga",
+   "Bicampeão da artilharia da La Liga (2024/25 e 2025/26) e artilheiro da Champions 2025/26 com 15 gols",
+   "Primeiro jogador a fazer dois ou mais gols em seis jogos diferentes de Copa do Mundo",
+   "Jogador da França com mais jogos em Copas (passou Lloris em 2026)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Kylian_Mbapp%C3%A9",
+   "https://pt.wikipedia.org/wiki/Kylian_Mbapp%C3%A9",
+   "https://tmapi.transfermarkt.technology/player/342229/performance-game",
+   "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+   "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or",
+   "https://en.wikipedia.org/wiki/European_Golden_Shoe",
+   "https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_top_scorers",
+   "https://es.wikipedia.org/wiki/Kylian_Mbapp%C3%A9",
+   "https://en.wikipedia.org/wiki/Globe_Soccer_Awards",
+   "https://tmapi-alpha.transfermarkt.technology/player/342229/performance-game"
+  ],
+  "incertos": [
+   "ballonDor (a cerimônia de 2026 será em 26/10/2026 e Mbappé está entre os indicados)",
+   "premios.outro (anos da seleção FIFPRO e do Futebolista Francês do Ano diferem entre as Wikipedias inglesa e portuguesa)"
+  ],
+  "notas": "Números até 10/10/2026 (clube) e 25/09/2026 (França); a Wikipedia inglesa e o Transfermarkt jogo a jogo batem exatamente. Clubes 480/377 sem o Monaco B (12/4 no CFA): Monaco 60/27, PSG 308/256, Real Madrid 112/94 (9/8 em 2026/27). Com França 107/67, dá 587/444. Assistências 184 pelo Transfermarkt (Monaco 16, PSG 110, Real Madrid 14, França 44). Copa de 2026: França em 4º (perdeu a semi para a Espanha, campeã, e o 3º lugar para a Inglaterra por 6–4); Mbappé foi artilheiro com 10 gols e Bola de Bronze. Na temporada 2025/26 a Chuteira de Ouro europeia foi de Harry Kane, por isso goldenBoots fica em 1. Supercopa da França: só as 3 em que jogou (2019, 2020 e 2023), como nas duas Wikipedias; em 2018 não foi relacionado e em 2022 estava ausente. A Liga das Nações e o Europeu Sub-19 de 2016 ficam fora de otherMajorTitles (o Sub-19 também fica fora de titulosTotais). otherMajorTitles 1 = Copa Intercontinental da FIFA 2024. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + Transfermarkt jogo a jogo (atualizado até 10/10/2026). Jogos/gols confirmados: a es.wikipedia dá clubes 478/377 até meados de setembro (Monaco 60/27, PSG 308/256, Real 110/94). Depois disso vieram mais 2 jogos pelo Real (20/9 e 10/10, sem gol), o que dá 480/377. Pela França, 106/66 depois da Copa e 107/67 com o gol em 25/9/2026 (Liga das Nações). Total 587/444. Copa de 2026 jogo a jogo (Transfermarkt): 8 jogos, 10 gols e 4 assistências (2+2+0+2+1+1+0+2 gols); 100º jogo pela seleção em 22/6. Títulos: os 20 conferem nas duas Wikipedias. A es.wikipedia credita também o Trophée des Champions de 2018, mas o Transfermarkt o mostra fora da lista (4/8/2018), e em 2022 ele estava ausente; os dois ficam fora. Prêmios conferidos na es.wikipedia: Chuteira de Ouro 2025, Chuteiras de Ouro da Copa 2022 e 2026, 6 artilharias da Ligue 1, Pichichis 2024/25 (31) e 2025/26 (25), 5 prêmios UNFP de melhor jogador, artilharias da Champions 2023/24 (dividida com Kane) e 2025/26 (15), Troféu Kopa 2018 e Bola de Bronze da Copa de 2026. A Chuteira de Ouro europeia 2025/26 foi de Harry Kane (36 gols), pela lista oficial. CORREÇÃO (outro): o Globe Soccer de 2024 de melhor jogador do ano foi de Vinícius Júnior; o de Mbappé em 2024 foi o da edição europeia (temporada 2023/24). O nome do prêmio foi ajustado. Feitos conferidos: os 22 gols em Copas, que superam Messi (21) (es e en), as duas Chuteiras de Ouro da Copa e o recorde de participações em gols numa Copa desde 1966 (en), além dos 44 gols na estreia pelo Real, 43 na temporada e 1 no Mundial de Clubes de 2025 (es.wikipedia: 44 em 59 jogos)."
+ },
+ {
+  "id": "maldini",
+  "asOf": "2009",
+  "apps": 1028,
+  "goals": 40,
+  "assists": 50,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 5,
+  "libertadores": 0,
+  "leagueTitles": 7,
+  "otherMajorTitles": 3,
+  "goldenBoots": 0,
+  "titulosTotais": 23,
+  "titulos": [
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Milan",
+    "n": 7,
+    "anos": "1987/88, 1991/92, 1992/93, 1993/94, 1995/96, 1998/99, 2003/04",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "2002/03",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Milan",
+    "n": 3,
+    "anos": "1992, 1993, 2004",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa dos Campeões / Champions League",
+    "equipe": "Milan",
+    "n": 5,
+    "anos": "1989, 1990, 1994, 2003, 2007",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Milan",
+    "n": 4,
+    "anos": "1989, 1990, 1994, 2003",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1989, 1990",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Mundial de Clubes da FIFA",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "2007",
+    "tipo": "mundial"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Jogador do Ano da World Soccer",
+    "n": 1,
+    "anos": "1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "3º lugar na Bola de Ouro",
+    "n": 2,
+    "anos": "1994, 2003",
+    "chave": "outro"
+   },
+   {
+    "nome": "Vice do Melhor Jogador do Mundo da FIFA",
+    "n": 1,
+    "anos": "1995",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor zagueiro da Serie A (Oscar del Calcio, AIC)",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor zagueiro de clubes da UEFA",
+    "n": 1,
+    "anos": "2006/07",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador da final da Champions League",
+    "n": 1,
+    "anos": "2003",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 2,
+    "anos": "1990, 1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Eurocopa",
+    "n": 3,
+    "anos": "1988, 1996, 2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Troféu Bravo",
+    "n": 1,
+    "anos": "1989",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio do Presidente da UEFA",
+    "n": 1,
+    "anos": "2003",
+    "chave": "outro"
+   },
+   {
+    "nome": "Ordem de Mérito da FIFA",
+    "n": 1,
+    "anos": "2008",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot (categoria lenda)",
+    "n": 1,
+    "anos": "2021",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "902 jogos pelo Milan, recorde do clube, numa carreira inteira por um só time (1985 a 2009)",
+   "25 temporadas na Serie A, recorde dividido com Totti, e 647 jogos de liga (segundo da história, atrás de Buffon)",
+   "Disputou 8 finais de Copa dos Campeões/Champions, recorde dividido com Francisco Gento, e venceu 5",
+   "Gol mais rápido da história das finais de Champions: 51 segundos contra o Liverpool, em 2005",
+   "Jogador mais velho a marcar numa final de Champions: 36 anos e 333 dias (2005)",
+   "Levantou a Champions de 2007 como capitão, aos 38 anos, 18 anos depois do primeiro título europeu",
+   "Sete títulos da Serie A, de 1988 a 2004",
+   "126 jogos pela Itália, com vice na Copa de 1994 e na Euro 2000 e 3º lugar na Copa de 1990",
+   "23 jogos em Copas do Mundo, recorde da seleção italiana",
+   "Camisa 3 aposentada pelo Milan, reservada a um filho dele que chegue ao time principal"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Paolo_Maldini",
+   "https://pt.wikipedia.org/wiki/Paolo_Maldini",
+   "https://tmapi.transfermarkt.technology/player/5803/performance-game",
+   "https://it.wikipedia.org/wiki/Paolo_Maldini",
+   "https://en.wikipedia.org/wiki/1988_Supercoppa_Italiana",
+   "https://en.wikipedia.org/wiki/1994_Supercoppa_Italiana",
+   "https://en.wikipedia.org/wiki/2007_UEFA_Super_Cup",
+   "https://tmapi-alpha.transfermarkt.technology/player/5803/performance-game"
+  ],
+  "incertos": [
+   "assists",
+   "titulosTotais (o Milan e as Wikipedias creditam 26; ficaram fora as Supercopas da Itália de 1988 e 1994 e a Supercopa da UEFA de 2007, em que ele não estava na lista do jogo)"
+  ],
+  "notas": "Milan 902/33 + Itália 126/7 = 1028/40 (Wikipedia inglesa; o Transfermarkt dá Milan 901/33 e Itália 126/7). Assistências: o Transfermarkt registra 47 (Milan 42, Itália 5), com os anos 1980 incompletos, daí a estimativa de ≈50 (era 40). Títulos pela lista da Wikipedia inglesa, que credita o elenco da temporada: inclui a Supercopa da UEFA de 2007 (ele estava lesionado) e a Supercopa da Itália de 1988, jogada em junho de 1989, para a qual ele não foi relacionado. titulosTotais 26. otherMajorTitles 3 = Intercontinental 1989 e 1990 + Mundial de Clubes 2007. Nunca ganhou a Bola de Ouro: foi 3º em 1994 e 2003. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em italiano + súmulas das supercopas na en.wikipedia + Transfermarkt jogo a jogo. Jogos/gols confirmados: a tabela da it.wikipedia dá 902 jogos e 33 gols pelo Milan, e a seleção soma 126/7. CORREÇÃO: titulosTotais 26→23 pela regra da supercopa sem o jogador na lista (a mesma de Messi 2005, Cristiano Ronaldo 2008/2016, Kaká e Maradona). Ficaram fora: (1) a Supercopa da Itália de 1988, jogada em 13/6/1989, com Costacurta de lateral e sem ele entre os 14 da súmula (en.wikipedia; Transfermarkt: 'not in squad'); (2) a Supercopa da Itália de 1994 (28/8/1994), sem ele na súmula (en.wikipedia; Transfermarkt: 'not in squad'); (3) a Supercopa da UEFA de 2007 (31/8/2007), em que ele estava lesionado e fora da súmula (en.wikipedia e Transfermarkt). Ficam assim Supercopas da Itália 1992, 1993 e 2004 e Supercopas da UEFA 1989, 1990 (jogou a volta), 1994 (jogou a ida) e 2003. A it.wikipedia e o Milan creditam 26 títulos, e esse dado foi para incertos. Os outros títulos conferem na it.wikipedia: 7 Serie A, Copa da Itália 2003, 5 Champions, 2 Intercontinentais e o Mundial de Clubes de 2007. Prêmios conferidos na it.wikipedia: World Soccer 1994, Bravo 1989, seleções das Euros de 1988, 1996 e 2000 e das Copas de 1990 e 1994, Prêmio do Presidente da UEFA 2003, melhor zagueiro do Oscar del Calcio 2004 e da UEFA 2007, Ordem de Mérito da FIFA 2008 e Golden Foot (lenda) 2021. CORREÇÃO em feito: o gol na final de 2005 saiu aos 51 segundos (en.wikipedia: 'after 51 seconds'; it.wikipedia: 51,20 segundos). Feitos conferidos: 8 finais de Copa dos Campeões, recorde com Gento, 25 temporadas de Serie A, como Totti, e 23 jogos em Copas, recorde italiano (todos na it.wikipedia). A idade na final de 2005 (36 anos e 333 dias) confere pela data de nascimento (26/6/1968)."
+ },
+ {
+  "id": "baresi",
+  "asOf": "1997",
+  "apps": 800,
+  "goals": 34,
+  "assists": 30,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 3,
+  "libertadores": 0,
+  "leagueTitles": 6,
+  "otherMajorTitles": 2,
+  "goldenBoots": 0,
+  "titulosTotais": 21,
+  "titulos": [
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Milan",
+    "n": 6,
+    "anos": "1978/79, 1987/88, 1991/92, 1992/93, 1993/94, 1995/96",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Italiano da 2ª divisão (Serie B)",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1980/81, 1982/83",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Milan",
+    "n": 4,
+    "anos": "1988, 1992, 1993, 1994",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa dos Campeões / Champions League",
+    "equipe": "Milan",
+    "n": 3,
+    "anos": "1989, 1990, 1994",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1990, 1994",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "1989, 1990",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Copa Mitropa",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "1982",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Itália",
+    "n": 1,
+    "anos": "1982 (no elenco, sem entrar em campo)",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Vice da Bola de Ouro",
+    "n": 1,
+    "anos": "1989",
+    "chave": "outro"
+   },
+   {
+    "nome": "Guerin d'Oro (melhor da Serie A pela média de notas do Guerin Sportivo)",
+    "n": 1,
+    "anos": "1989/90",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro da Copa da Itália",
+    "n": 1,
+    "anos": "1989/90",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "1990",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do Século do Milan",
+    "n": 1,
+    "anos": "1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do Século da Serie A (AIC)",
+    "n": 1,
+    "anos": "2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot (categoria lenda)",
+    "n": 1,
+    "anos": "2012",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama do futebol italiano",
+    "n": 1,
+    "anos": "2013",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Carreira inteira no Milan: 20 temporadas (1977 a 1997) e 719 jogos oficiais",
+   "Capitão do Milan por 15 temporadas, recorde do clube",
+   "Camisa 6 aposentada pelo Milan e eleito o Jogador do Século do clube (1999)",
+   "Vice da Bola de Ouro em 1989, atrás do companheiro Van Basten",
+   "Tricampeão europeu (1989, 1990 e 1994) e hexacampeão italiano com o Milan",
+   "Peça da defesa da Serie A 1991/92 conquistada sem derrota, numa série italiana recorde de 58 jogos invictos",
+   "Defesa que sofreu só 15 gols em 34 jogos na Serie A 1993/94, recorde do campeonato com 18 clubes",
+   "Na Copa de 1990, a Itália passou 518 minutos sem sofrer gol (recorde de Copas) e emendou cinco jogos sem ser vazada",
+   "Ganhou ouro (1982), prata (1994) e bronze (1990) em Copas do Mundo",
+   "Jogou a final da Copa de 1994 25 dias depois de operar o menisco",
+   "Artilheiro da Copa da Itália 1989/90, mesmo sendo líbero",
+   "Morreu em 31 de julho de 2026, aos 66 anos; Milão decretou luto oficial no dia do funeral, 4 de agosto"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Franco_Baresi",
+   "https://pt.wikipedia.org/wiki/Franco_Baresi",
+   "https://www.acmilan.com/cn/hall-of-fame/membri/franco-baresi",
+   "https://tmapi.transfermarkt.technology/player/42049/performance-game",
+   "https://www.ilpost.it/2026/07/31/morto-franco-baresi-calcio-milan/",
+   "https://it.wikipedia.org/wiki/Franco_Baresi",
+   "https://es.wikipedia.org/wiki/Franco_Baresi",
+   "https://en.wikipedia.org/wiki/1989_European_Super_Cup",
+   "https://it.wikipedia.org/wiki/Statistiche_della_Serie_A",
+   "https://www.open.online/2026/08/04/milano-funerali-franco-baresi/",
+   "https://tmapi-alpha.transfermarkt.technology/player/42049/performance-game"
+  ],
+  "incertos": [
+   "assists"
+  ],
+  "notas": "Milan 719/33 (site oficial do Milan e Wikipedia inglesa; o Transfermarkt dá 716/33) + Itália 81/1 = 800/34. Os 719 jogos incluem as duas temporadas de Serie B e a Copa Mitropa de 1982. Assistências: o Transfermarkt só registra 24, daí a estimativa de ≈30. titulosTotais 22 inclui os dois títulos da Serie B (1981 e 1983) e a Copa Mitropa de 1982, que ficam fora de leagueTitles e otherMajorTitles. otherMajorTitles 2 = Intercontinental 1989 e 1990. A Copa do Mundo de 1982 conta: estava no elenco campeão, mesmo sem jogar. Morreu em 31/07/2026 em Rozzano (Milão), aos 66 anos, confirmado pelo Milan e pelo Il Post. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedias em italiano e espanhol + súmula da Supercopa de 1989 + estatísticas da Serie A (it.wikipedia) + Transfermarkt jogo a jogo. Jogos/gols confirmados: a it.wikipedia dá 719 jogos e 33 gols pelo Milan, com Serie B e Mitropa, e a seleção soma 81/1. CORREÇÃO: Supercopa da UEFA 3→2 e titulosTotais 22→21. Na de 1989 (Milan × Barcelona) ele ficou fora da lista nos dois jogos (Transfermarkt; a súmula da en.wikipedia não o escala), e a lista de títulos da it.wikipedia credita só 1990 e 1994. A dúvida do arquivo fica resolvida, e o item saiu de incertos. O Transfermarkt confirma que ele jogou as 4 Supercopas da Itália creditadas (a de 1988 foi disputada em 13/6/1989), as Supercopas da UEFA de 1990 e 1994 e as duas Intercontinentais. Os outros títulos conferem na it.wikipedia (6 Serie A, 2 Serie B, Mitropa 1981/82, 3 Copas dos Campeões, Copa de 1982). Prêmios conferidos na it.wikipedia: Guerin d'Oro 1989/90 (a lista do prêmio confirma), artilharia da Copa da Itália 1989/90 (4 gols), seleção da Copa de 1990, Calciatore del secolo da AIC (2000), Golden Foot (lenda) 2012 e Hall da Fama 2013. CORREÇÃO em feito: os 15 gols sofridos pelo Milan em 1993/94 são o recorde da Serie A com 18 clubes e 34 rodadas, mas não do campeonato em geral. Com 16 clubes, o Cagliari levou 11 em 1969/70, e o próprio Milan de Baresi levou 14 em 1987/88, em 30 jogos (it.wikipedia, Statistiche della Serie A). Morte confirmada em 31/7/2026, no Humanitas de Rozzano, nas três Wikipedias. O luto oficial foi decretado pelo prefeito Sala para o dia do funeral, 4/8/2026, na Basílica de Sant'Ambrogio (Open); o Il Post não fala disso, e a frase foi precisada. Feitos conferidos: 518 minutos sem sofrer gol na Copa de 1990 e a volta 25 dias depois da lesão no menisco (en.wikipedia), além de 15 temporadas como capitão, recorde do Milan (it.wikipedia)."
+ },
+ {
+  "id": "buffon",
+  "asOf": "2023",
+  "apps": 1151,
+  "goals": 0,
+  "assists": 0,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 11,
+  "otherMajorTitles": 1,
+  "goldenBoots": 0,
+  "titulosTotais": 28,
+  "titulos": [
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Parma",
+    "n": 1,
+    "anos": "1998/99",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Parma",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa da UEFA",
+    "equipe": "Parma",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Juventus",
+    "n": 10,
+    "anos": "2001/02, 2002/03, 2011/12, 2012/13, 2013/14, 2014/15, 2015/16, 2016/17, 2017/18, 2019/20",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Italiano da 2ª divisão (Serie B)",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "2006/07",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Juventus",
+    "n": 5,
+    "anos": "2014/15, 2015/16, 2016/17, 2017/18, 2020/21",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Juventus",
+    "n": 6,
+    "anos": "2002, 2003, 2012, 2013, 2015, 2020",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Francês (Ligue 1)",
+    "equipe": "Paris Saint-Germain",
+    "n": 1,
+    "anos": "2018/19",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da França (Trophée des Champions)",
+    "equipe": "Paris Saint-Germain",
+    "n": 1,
+    "anos": "2018",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Itália",
+    "n": 1,
+    "anos": "2006",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Luva de Ouro da Copa do Mundo (Prêmio Yashin)",
+    "n": 1,
+    "anos": "2006",
+    "chave": "golden_glove"
+   },
+   {
+    "nome": "Melhor goleiro do mundo (IFFHS)",
+    "n": 5,
+    "anos": "2003, 2004, 2006, 2007, 2017",
+    "chave": "golden_glove"
+   },
+   {
+    "nome": "Melhor goleiro do mundo da FIFA (The Best)",
+    "n": 1,
+    "anos": "2017",
+    "chave": "golden_glove"
+   },
+   {
+    "nome": "Melhor goleiro de clubes da UEFA",
+    "n": 1,
+    "anos": "2002/03",
+    "chave": "golden_glove"
+   },
+   {
+    "nome": "Melhor goleiro da Champions League",
+    "n": 1,
+    "anos": "2016/17",
+    "chave": "golden_glove"
+   },
+   {
+    "nome": "Melhor goleiro da Serie A (Oscar del Calcio AIC)",
+    "n": 8,
+    "anos": "1999, 2001, 2002, 2003, 2004, 2005, 2006, 2008",
+    "chave": "golden_glove"
+   },
+   {
+    "nome": "Goleiro da seleção do ano da Serie A (Gran Galà del Calcio AIC)",
+    "n": 5,
+    "anos": "2012, 2014, 2015, 2016, 2017",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador de clubes da UEFA",
+    "n": 1,
+    "anos": "2002/03",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Melhor jogador da Serie A (AIC)",
+    "n": 1,
+    "anos": "2016/17",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Vice da Bola de Ouro",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor goleiro do século XXI (IFFHS)",
+    "n": 1,
+    "anos": "2001–2020",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2016",
+    "chave": "outro"
+   },
+   {
+    "nome": "Troféu Bravo",
+    "n": 1,
+    "anos": "1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio do Presidente da UEFA",
+    "n": 1,
+    "anos": "2024",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Recordista de jogos da Serie A: 657",
+   "Recordista de jogos pela Itália: 176, 80 deles como capitão",
+   "975 jogos por clubes, recorde de um jogador italiano; 1.151 na carreira",
+   "Recordista de títulos da Serie A: 10, todos pela Juventus (sem contar os dois revogados no Calciopoli)",
+   "Campeão do mundo em 2006 com o Prêmio Yashin de melhor goleiro, sofrendo só dois gols, nenhum com a bola rolando (um gol contra e um pênalti)",
+   "974 minutos sem sofrer gol na Serie A 2015/16, recorde do campeonato, com 10 jogos seguidos sem ser vazado",
+   "Único goleiro eleito Melhor Jogador de Clubes da UEFA (2003)",
+   "Cinco vezes melhor goleiro do mundo pela IFFHS, recorde dividido com Casillas e Neuer",
+   "Treze vezes eleito o melhor goleiro da Serie A",
+   "Transferência recorde para goleiro em 2001: cerca de €52 milhões, do Parma para a Juventus",
+   "Convocado para cinco Copas do Mundo (1998 a 2014)",
+   "Jogou até os 45 anos, aposentando-se pelo Parma em 2023, onde havia estreado em 1995"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Gianluigi_Buffon",
+   "https://pt.wikipedia.org/wiki/Gianluigi_Buffon",
+   "https://tmapi.transfermarkt.technology/player/5023/performance-game",
+   "https://it.wikipedia.org/wiki/Gianluigi_Buffon",
+   "https://en.wikipedia.org/wiki/Serie_A_Goalkeeper_of_the_Year",
+   "https://tmapi-alpha.transfermarkt.technology/player/5023/performance-game"
+  ],
+  "incertos": [
+   "titulos (Supercopa da Itália de 2020, jogada em 01/2021: era reserva e não entrou; a seção de recordes da Wikipedia inglesa fala em 6 Supercopas no total, 1 pelo Parma e 5 pela Juventus)",
+   "premios.golden_glove (Melhor goleiro da Serie A: 8 prêmios do Oscar del Calcio, de 1999 a 2008; a lista da en.wikipedia chega a 13 somando o goleiro da seleção do ano do Gran Galà, de 2012 a 2017, que aqui ficou em outro)"
+  ],
+  "notas": "Clubes 975 (Parma 265, Juventus 685, PSG 25) + Itália 176 = 1151 jogos. Wikipedia inglesa e Transfermarkt jogo a jogo batem exatamente. Gols e assistências: zero nos dois registros. leagueTitles 11 = 10 Serie A (sem as revogadas de 2004/05 e 2005/06) + Ligue 1 2019. titulosTotais 28 pela lista da Wikipedia inglesa, que inclui o título da Serie B de 2006/07 (fora de leagueTitles), as Copas da Itália de 2015 a 2017 (era o goleiro da liga e não jogou a copa) e a Supercopa de 2020. O Europeu Sub-21 de 1996 e os Jogos do Mediterrâneo de 1997 são de base e não contam. otherMajorTitles 1 = Copa da UEFA 1999. O 'Melhor goleiro da Serie A' foi classificado como golden_glove, por ser prêmio de melhor goleiro. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em italiano + lista do prêmio de goleiro da AIC + Transfermarkt jogo a jogo. Jogos confirmados: a it.wikipedia dá 975 por clubes (Juventus 685, Parma 265, PSG 25) e 176 pela Itália. Títulos: os 28 conferem na it.wikipedia (Copa da Itália 6, Supercopa da Itália 7, Serie A 10 sem a revogada de 2004/05, Serie B 2006/07, Ligue 1 e Supercopa da França 2018/19, Copa da UEFA 1999, Copa de 2006). Participação, pelo Transfermarkt: nas Copas da Itália de 2015, 2016 e 2017 ele foi reserva não utilizado em todos os jogos, incluindo as finais, e na Supercopa de 2020 (20/1/2021) ficou no banco. Pela regra do arquivo (estar no banco conta, como na Supertaça 2002 de Cristiano Ronaldo), os títulos foram mantidos. CORREÇÃO em prêmios: a it.wikipedia separa o 'Miglior portiere' do Oscar del Calcio (1999, 2001, 2002, 2003, 2004, 2005, 2006 e 2008) da 'Squadra dell'anno' (2012 e de 2014 a 2017). A própria página do prêmio na en.wikipedia diz que, desde 2011, o goleiro é escolhido como parte da seleção do ano. golden_glove da Serie A cai de 13 para 8, e as 5 seleções do ano foram para 'outro'. Conferidos na it.wikipedia: Prêmio Yashin 2006, 5 prêmios IFFHS (2003, 2004, 2006, 2007 e 2017, recorde com Casillas e Neuer), The Best de goleiro 2017, melhor goleiro da UEFA 2003 e 2017, Jogador do Ano da UEFA 2003, melhor jogador do Gran Galà 2017, Golden Foot 2016 e Prêmio do Presidente da UEFA 2024. Feitos conferidos na lista de recordes da it.wikipedia: 657 jogos de Serie A, 974 minutos sem sofrer gol, 10 jogos seguidos sem ser vazado, 975 jogos por clubes, 10 títulos da Serie A e cinco Copas do Mundo."
+ }
+]

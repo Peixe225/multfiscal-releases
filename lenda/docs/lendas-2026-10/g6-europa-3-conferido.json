@@ -1,0 +1,1787 @@
+[
+ {
+  "id": "del-piero",
+  "asOf": "2014",
+  "apps": 868,
+  "goals": 343,
+  "assists": 197,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 6,
+  "otherMajorTitles": 1,
+  "goldenBoots": 0,
+  "titulosTotais": 17,
+  "titulos": [
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Juventus",
+    "n": 6,
+    "anos": "1994/95, 1996/97, 1997/98, 2001/02, 2002/03, 2011/12",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Italiano da 2ª divisão (Serie B)",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "2006/07",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1994/95",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Juventus",
+    "n": 4,
+    "anos": "1995, 1997, 2002, 2003",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Copa Intertoto da UEFA",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa Intercontinental",
+    "equipe": "Juventus",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Itália",
+    "n": 1,
+    "anos": "2006",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Artilheiro da Serie A (Capocannoniere)",
+    "n": 1,
+    "anos": "2007/08 (21 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Champions League",
+    "n": 1,
+    "anos": "1997/98 (10 gols)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da final da Copa Intercontinental",
+    "n": 1,
+    "anos": "1996 (gol do título, 1–0 no River Plate)",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Prêmio Bravo (melhor jogador sub-23 das copas europeias)",
+    "n": 1,
+    "anos": "1996",
+    "chave": "kopa"
+   },
+   {
+    "nome": "Artilheiro da Serie B",
+    "n": 1,
+    "anos": "2006/07 (20 gols)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador italiano da Serie A (Gran Galà del Calcio AIC)",
+    "n": 2,
+    "anos": "1998, 2008",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Serie A pela AIC (Serie A Goalscorer of the Year)",
+    "n": 1,
+    "anos": "2008",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2007",
+    "chave": "outro"
+   },
+   {
+    "nome": "Pallone d'Argento (fair play)",
+    "n": 1,
+    "anos": "2008/09",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa da Itália",
+    "n": 1,
+    "anos": "2005/06 (5 gols)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Serie A",
+    "n": 1,
+    "anos": "1999/2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da ESM",
+    "n": 3,
+    "anos": "1995/96, 1996/97, 1997/98",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100 (lista de Pelé)",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio pela carreira da AIC (Lifetime Achievement)",
+    "n": 1,
+    "anos": "2011",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama do futebol italiano",
+    "n": 1,
+    "anos": "2017",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador mais querido da Serie A (Oscar del calcio AIC)",
+    "n": 2,
+    "anos": "2001, 2008",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Nacional Carreira Exemplar Gaetano Scirea",
+    "n": 1,
+    "anos": "2008",
+    "chave": "outro"
+   },
+   {
+    "nome": "Globe Soccer — prêmio pela carreira",
+    "n": 1,
+    "anos": "2011",
+    "chave": "outro"
+   },
+   {
+    "nome": "Gol do ano da A-League",
+    "n": 1,
+    "anos": "2012/13",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Gentleman (fair play)",
+    "n": 2,
+    "anos": "2006 (nacional), 2012 (internacional)",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Recordista de jogos (705) e maior artilheiro (290 gols) da história da Juventus, em 19 temporadas, 11 delas como capitão",
+   "Campeão da Champions 1995/96 e da Copa Intercontinental 1996, com o gol do título contra o River Plate (1–0) e o prêmio de melhor em campo",
+   "Marcou também na final da Supercopa da UEFA de 1996, além da Intercontinental do mesmo ano",
+   "Artilheiro da Champions League 1997/98, com 10 gols",
+   "Campeão do mundo em 2006: fez o 2º gol da vitória por 2–0 sobre a Alemanha na prorrogação da semifinal e converteu um pênalti na decisão contra a França",
+   "Ficou na Juventus rebaixada pelo Calciopoli e foi campeão e artilheiro da Serie B 2006/07 (20 gols)",
+   "Artilheiro da Serie A 2007/08 com 21 gols, aos 33 anos",
+   "Quarto maior artilheiro da história da seleção italiana: 27 gols em 91 jogos, empatado com Roberto Baggio",
+   "Maior artilheiro italiano de faltas em todas as competições: 52 gols (46 por clubes e 6 pela seleção)",
+   "Fez os dois gols da vitória por 2–0 sobre o Real Madrid no Santiago Bernabéu (5/11/2008) e saiu aplaudido de pé pelas duas torcidas",
+   "Quarto colocado na Bola de Ouro em 1995 e 1996",
+   "Fez o gol do primeiro clássico de Sydney (20/10/2012) e bateu o recorde de gols numa temporada pelo Sydney FC (14)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Alessandro_Del_Piero",
+   "https://www.transfermarkt.es/ceapi/performance-game/4289",
+   "https://it.wikipedia.org/wiki/Alessandro_Del_Piero",
+   "https://en.wikipedia.org/wiki/Football_records_and_statistics_in_Italy"
+  ],
+  "incertos": [
+   "assists (Transfermarkt 197; a Wikipedia diz 134 assistências pela Juventus em todas as competições, contra 174 do Transfermarkt)",
+   "feitos (os 52 gols de falta em todas as competições só aparecem na Wikipedia em inglês; a Wikipedia em italiano não traz o número)"
+  ],
+  "notas": "Jogos e gols: tabela da Wikipedia em inglês — Padova 14/1 (Serie B), Juventus 705/290 (inclui a Serie B 2006/07), Sydney FC 48/24, Delhi Dynamos 10/1 — + Itália 91/27 (amistosos da seleção principal incluídos) = 868/343. O Transfermarkt bate jogo a jogo nos mesmos totais (clubes 777/316, Itália 91/27). Ficam fora as seleções sub-21 (bicampeão europeu sub-21 em 1994 e 1996) e o time Primavera da Juventus. A Wikipedia fala em '346 gols' na carreira porque soma os gols pelas seleções de base. Assistências: 197 pelo Transfermarkt (Juventus 174, Sydney 11, Delhi 1, Itália 11); a Wikipedia cita 134 assistências pela Juventus em todas as competições e 108 na Serie A (Transfermarkt: 110). Como as fontes dos anos 1990 divergem, o número fica como estimativa. leagueTitles 6 = Serie A sem os títulos de 2004/05 e 2005/06, revogados pelo Calciopoli; a Serie B 2006/07 e a Copa Intertoto 1999 entram só em titulosTotais. otherMajorTitles 1 = Intercontinental 1996 (a Supercopa da UEFA não entra). Os prêmios de 'melhor jogador italiano' da AIC ficaram em 'outro' porque não são o prêmio de melhor jogador da liga. Correções em relação ao arquivo antigo: apps 860→868, gols 342→343, assistências 180→197 (ainda estimativa). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano — Padova 14/1, Juventus 705/290, Sydney FC 48/24 e Delhi Dynamos 10/1 = 777/316 por clubes, + Itália 91/27 = 868/343 (bate). Títulos batem um a um: 6 Serie A (a de 2004/05 aparece como revogada), Serie B 2006/07, Copa da Itália 1994/95, 4 Supercopas (1995, 1997, 2002, 2003), Champions 1995/96, Intercontinental e Supercopa da UEFA 1996 e Intertoto 1999, Copa de 2006 = 17. Prêmios que pesam no ranking batem: artilheiro da Serie A 2007/08 (21), da Champions 1997/98 (10), melhor jogador da Intercontinental 1996 e Troféu Bravo 1996. ESQUECIDOS e acrescentados (em 'outro'): Jogador mais querido da AIC 2001 e 2008, Prêmio Scirea 2008, prêmio de carreira do Globe Soccer 2011, Gol do ano da A-League 2012/13 e Prêmio Gentleman 2006/2012. A Wikipedia em italiano também lista o artilheiro do Torneio da França de 1997, que é torneio amistoso e ficou fora. Feitos conferidos: 27 gols pela Itália, 4º da história empatado com Roberto Baggio (FIGC, citada na página italiana), os dois gols no Bernabéu em 5/11/2008 e os 14 gols de 2012/13, recorde de uma temporada pelo Sydney — batem. O dos 52 gols de falta (46 por clubes + 6 pela seleção) só tem a Wikipedia em inglês como fonte; a lista de recordes italiana confirma apenas os 22 de falta na Serie A (3º da história)."
+ },
+ {
+  "id": "totti",
+  "asOf": "2017",
+  "apps": 844,
+  "goals": 316,
+  "assists": 230,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 1,
+  "otherMajorTitles": 0,
+  "goldenBoots": 1,
+  "titulosTotais": 6,
+  "titulos": [
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Roma",
+    "n": 1,
+    "anos": "2000/01",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Roma",
+    "n": 2,
+    "anos": "2006/07, 2007/08",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Roma",
+    "n": 2,
+    "anos": "2001, 2007",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Itália",
+    "n": 1,
+    "anos": "2006",
+    "tipo": "selecao"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Chuteira de Ouro europeia",
+    "n": 1,
+    "anos": "2006/07 (26 gols)",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Serie A (Capocannoniere)",
+    "n": 1,
+    "anos": "2006/07 (26 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Serie A (Gran Galà del Calcio AIC)",
+    "n": 2,
+    "anos": "2000, 2003",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Guerin d'Oro (Guerin Sportivo)",
+    "n": 2,
+    "anos": "1997/98, 2003/04",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador italiano da Serie A (AIC)",
+    "n": 5,
+    "anos": "2000, 2001, 2003, 2004, 2007",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador jovem da Serie A (AIC)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Serie A pela AIC (Serie A Goalscorer of the Year)",
+    "n": 1,
+    "anos": "2007",
+    "chave": "outro"
+   },
+   {
+    "nome": "Gol do ano da Serie A (AIC)",
+    "n": 2,
+    "anos": "2005, 2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2010",
+    "chave": "outro"
+   },
+   {
+    "nome": "Pallone d'Argento (fair play)",
+    "n": 1,
+    "anos": "2007/08",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Copa do Mundo",
+    "n": 1,
+    "anos": "2006 (4, empatado com Riquelme)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Eurocopa",
+    "n": 1,
+    "anos": "2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Serie A",
+    "n": 2,
+    "anos": "1998/99, 2013/14",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da ESM",
+    "n": 3,
+    "anos": "2000/01, 2003/04, 2006/07",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio do Presidente da UEFA",
+    "n": 1,
+    "anos": "2017",
+    "chave": "outro"
+   },
+   {
+    "nome": "Laureus — Prêmio de conquista excepcional",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100 (lista de Pelé)",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Nacional Carreira Exemplar Gaetano Scirea",
+    "n": 1,
+    "anos": "2014",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Internacional Giacinto Facchetti",
+    "n": 1,
+    "anos": "2014",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção histórica do Europeu Sub-21",
+    "n": 1,
+    "anos": "2015",
+    "chave": "outro"
+   },
+   {
+    "nome": "Lenda do Gazzetta Sports Awards",
+    "n": 1,
+    "anos": "2017",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama do futebol italiano",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "25 temporadas e 786 jogos oficiais pela Roma, único clube da carreira (1992–2017): recordista de jogos e de gols (307) do clube",
+   "Segundo maior artilheiro da história da Serie A, com 250 gols, e o que mais marcou por um só clube na liga",
+   "Maior artilheiro de pênaltis da história da Serie A: 71 gols",
+   "Líder histórico de assistências da Serie A (162, segundo a lista de recordes da Wikipedia)",
+   "Chuteira de Ouro europeia e artilheiro da Serie A em 2006/07, com 26 gols",
+   "Campeão do mundo em 2006, jogando com placas e parafusos no tornozelo: deu 4 assistências (líder da Copa, com Riquelme) e fez o gol de pênalti nos acréscimos contra a Austrália nas oitavas",
+   "Maior assistente italiano da história das Copas do Mundo (6 assistências)",
+   "Capitão mais jovem da história da Serie A, aos 22 anos e 34 dias",
+   "Igualou o recorde de Paolo Maldini com 25 temporadas disputadas na Serie A",
+   "Mais velho a marcar na Champions (38 anos e 59 dias, de falta, contra o CSKA Moscou, em 25/11/2014), recorde que durou até Pepe, em 2023",
+   "Recorde de 11 prêmios da Associação Italiana de Jogadores (AIC), entre eles dois de melhor jogador da Serie A (2000 e 2003)",
+   "Maior artilheiro do clássico de Roma na Serie A, com 11 gols"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Francesco_Totti",
+   "https://www.transfermarkt.de/ceapi/performance-game/5958",
+   "https://it.wikipedia.org/wiki/Francesco_Totti",
+   "https://en.wikipedia.org/wiki/Football_records_and_statistics_in_Italy"
+  ],
+  "incertos": [],
+  "notas": "Jogos e gols: Wikipedia em inglês — Roma 786/307 (Serie A 619/250, Copa da Itália 59/18, Europa 103/38, Supercopa 5/1) + Itália 58/9 (amistosos da seleção principal incluídos) = 844/316, igual ao arquivo antigo. O Transfermarkt dá 785/307 pela Roma e 58/9 pela Itália. Ficam fora as seleções de base (campeão europeu sub-21 em 1996 e dos Jogos do Mediterrâneo de 1997 com a sub-23). Assistências: 230 pelo Transfermarkt (Roma 205, número que a Wikipedia também cita, + Itália 25); o Transfermarkt dá 158 na Serie A e a lista de recordes da Wikipedia, 162. leagueTitles 1 (Serie A 2000/01). Melhor jogador da liga: só o prêmio de melhor jogador da Serie A da AIC (2000 e 2003); o Guerin d'Oro (prêmio de revista, por média de notas) e os prêmios de melhor italiano ficaram em 'outro'. Correção em relação ao arquivo antigo: assistências 200 (estimativa) → 230 (registro do Transfermarkt). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano — Roma 786/307 (Serie A 619/250, Copa da Itália 59/18, Europa 103/38, Supercopa 5/1) e Itália 58 jogos/9 gols/25 assistências = 844/316 (bate). Títulos batem: Serie A 2000/01, Copas da Itália 2006/07 e 2007/08, Supercopas 2001 e 2007, Copa de 2006 = 6 (Sub-21 de 1996 e Jogos do Mediterrâneo de 1997 ficam fora, como manda a regra). Prêmios batem: Chuteira de Ouro e artilharia da Serie A 2006/07 (26), melhor jogador absoluto da AIC 2000 e 2003, 11 Oscars da AIC no total, Golden Foot 2010. O Guerin d'Oro está nas temporadas 1997/98 e 2003/04 (antes, 1998 e 2004 — mesmos prêmios, agora com a temporada). ESQUECIDOS e acrescentados (em 'outro'): Prêmio Scirea 2014, Prêmio Facchetti 2014, seleção histórica do Europeu Sub-21 (2015), Lenda do Gazzetta Sports Awards 2017 e Hall da Fama do futebol italiano 2018 (o Laureus e o Prêmio do Presidente da UEFA já estavam). A lista de recordes da Serie A (Wikipedia em inglês, 'Football records and statistics in Italy') confirma os 71 gols de pênalti (1º) e as 162 assistências (1º). CORRIGIDO: o gol de falta contra o CSKA que fez dele o mais velho a marcar na Champions foi em 25/11/2014, não 25/10 — a página italiana e a matéria do Metro citada pela própria Wikipedia em inglês (de 25/11/2014) dão a data, e 27/9/1976 + 38 anos e 59 dias = 25/11/2014; a página italiana diz que o recorde caiu com Pepe em 6/11/2023. Feitos conferidos também: 6 assistências em Copas, recorde italiano (página italiana) e capitão mais jovem da Serie A em 31/10/1998, aos 22 anos — batem."
+ },
+ {
+  "id": "ibrahimovic",
+  "asOf": "2023",
+  "apps": 988,
+  "goals": 573,
+  "assists": 232,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 12,
+  "otherMajorTitles": 2,
+  "goldenBoots": 0,
+  "titulosTotais": 32,
+  "titulos": [
+   {
+    "nome": "Campeonato Holandês (Eredivisie)",
+    "equipe": "Ajax",
+    "n": 2,
+    "anos": "2001/02, 2003/04",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Holanda (KNVB Beker)",
+    "equipe": "Ajax",
+    "n": 1,
+    "anos": "2001/02",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Holanda (Johan Cruijff Schaal)",
+    "equipe": "Ajax",
+    "n": 1,
+    "anos": "2002",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Inter de Milão",
+    "n": 3,
+    "anos": "2006/07, 2007/08, 2008/09",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Inter de Milão",
+    "n": 2,
+    "anos": "2006, 2008",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009/10",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Barcelona",
+    "n": 2,
+    "anos": "2009, 2010",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Mundial de Clubes da FIFA",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Milan",
+    "n": 2,
+    "anos": "2010/11, 2021/22",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Itália",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "2011",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Francês (Ligue 1)",
+    "equipe": "Paris Saint-Germain",
+    "n": 4,
+    "anos": "2012/13, 2013/14, 2014/15, 2015/16",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da França",
+    "equipe": "Paris Saint-Germain",
+    "n": 2,
+    "anos": "2014/15, 2015/16",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Liga Francesa",
+    "equipe": "Paris Saint-Germain",
+    "n": 3,
+    "anos": "2013/14, 2014/15, 2015/16",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da França (Trophée des Champions)",
+    "equipe": "Paris Saint-Germain",
+    "n": 3,
+    "anos": "2013, 2014, 2015",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa da Liga Inglesa",
+    "equipe": "Manchester United",
+    "n": 1,
+    "anos": "2016/17",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Inglaterra (Community Shield)",
+    "equipe": "Manchester United",
+    "n": 1,
+    "anos": "2016",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Liga Europa",
+    "equipe": "Manchester United",
+    "n": 1,
+    "anos": "2017",
+    "tipo": "continental"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Prêmio Puskás da FIFA",
+    "n": 1,
+    "anos": "2013 (bicicleta contra a Inglaterra em 14/11/2012)",
+    "chave": "puskas"
+   },
+   {
+    "nome": "Artilheiro da Serie A (Capocannoniere)",
+    "n": 2,
+    "anos": "2008/09 (25 gols), 2011/12 (28 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Ligue 1",
+    "n": 3,
+    "anos": "2012/13 (30 gols), 2013/14 (26 gols), 2015/16 (38 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Serie A (Gran Galà del Calcio AIC)",
+    "n": 3,
+    "anos": "2008, 2009, 2011",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da Ligue 1 (UNFP)",
+    "n": 3,
+    "anos": "2012/13, 2013/14, 2015/16",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2012",
+    "chave": "outro"
+   },
+   {
+    "nome": "Guldbollen (melhor jogador sueco do ano)",
+    "n": 12,
+    "anos": "2005, 2007–2016 (10 seguidos), 2020",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor estrangeiro da Serie A (AIC)",
+    "n": 5,
+    "anos": "2004/05, 2007/08, 2008/09, 2010/11, 2011/12",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor atacante da Ligue 1 (UNFP, Troféu Just Fontaine)",
+    "n": 1,
+    "anos": "2012/13",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Champions League",
+    "n": 1,
+    "anos": "2012/13",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção mundial FIFA FIFPro",
+    "n": 1,
+    "anos": "2013",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da UEFA",
+    "n": 4,
+    "anos": "2007, 2009, 2013, 2014",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Eurocopa",
+    "n": 1,
+    "anos": "2012",
+    "chave": "outro"
+   },
+   {
+    "nome": "Gol da Eurocopa",
+    "n": 2,
+    "anos": "2004 (contra a Itália), 2012 (contra a França)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor em campo da final da Copa da Liga Inglesa (Alan Hardaker Trophy)",
+    "n": 1,
+    "anos": "2017",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa da Liga Inglesa",
+    "n": 1,
+    "anos": "2016/17",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa da França",
+    "n": 2,
+    "anos": "2014/15, 2015/16",
+    "chave": "outro"
+   },
+   {
+    "nome": "Revelação da MLS (Newcomer of the Year)",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "Gol do ano da MLS",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio do Presidente da UEFA",
+    "n": 1,
+    "anos": "2025",
+    "chave": "outro"
+   },
+   {
+    "nome": "Étoile d'Or da France Football (melhor jogador da Ligue 1 por notas)",
+    "n": 2,
+    "anos": "2014, 2016",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da temporada da MLS (MLS Best XI)",
+    "n": 2,
+    "anos": "2018, 2019",
+    "chave": "outro"
+   },
+   {
+    "nome": "Globe Soccer — prêmio pela carreira",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Maior artilheiro da história da seleção sueca: 62 gols em 122 jogos",
+   "Prêmio Puskás 2013 pela bicicleta de cerca de 35 jardas contra a Inglaterra (14/11/2012), o quarto gol dele na vitória por 4–2",
+   "Único jogador a marcar na Champions League por seis clubes diferentes (Ajax, Juventus, Inter, Barcelona, Milan e PSG)",
+   "Mais velho a marcar na história da Serie A: 41 anos e 166 dias, contra a Udinese, em 18/3/2023",
+   "Campeão nacional em quatro países (Holanda, Itália, Espanha e França): 12 ligas válidas, sem contar os dois títulos revogados da Juventus",
+   "Maior artilheiro da história do PSG quando saiu, em 2016 (156 gols); marcou 50 gols em 51 jogos na temporada 2015/16",
+   "Primeiro a marcar 30 gols numa temporada da liga francesa desde Jean-Pierre Papin (1989/90), em 2012/13",
+   "Hat-trick em nove minutos contra o Troyes (9–0, 2016), o mais rápido da história da Ligue 1",
+   "Recorde de 12 Guldbollen (melhor jogador sueco do ano), dez deles seguidos, de 2007 a 2016",
+   "Maior artilheiro sueco da história: passou Gunnar Nordahl em 31/3/2019, pelo LA Galaxy (dois pênaltis contra o Portland Timbers), ao chegar a 515 gols na carreira",
+   "Campeão da Liga Europa, da Copa da Liga e da Community Shield pelo Manchester United aos 35 anos (2016/17); fez o gol de número 25.000 da Premier League",
+   "Voltou ao Milan aos 38 anos e foi campeão italiano em 2021/22, com 40 anos"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Zlatan_Ibrahimovi%C4%87",
+   "https://www.transfermarkt.de/ceapi/performance-game/3455",
+   "https://es.wikipedia.org/wiki/Zlatan_Ibrahimovi%C4%87",
+   "https://en.wikipedia.org/wiki/2000_Superettan"
+  ],
+  "incertos": [
+   "assists (o Transfermarkt só tem 8 dos 47 jogos pelo Malmö)"
+  ],
+  "notas": "Jogos e gols: tabela da Wikipedia em inglês — Malmö 47/18 (1999–2001, inclui a Superettan 2000), Ajax 110/48, Juventus 92/26, Inter 117/66, Barcelona 46/22, Milan 85/56 (2010–12) + 78/37 (2020–23), PSG 180/156, Manchester United 53/29, LA Galaxy 58/53 (com 2 jogos de playoffs da MLS) — = 866/511, + Suécia 122/62 (amistosos da seleção principal incluídos) = 988/573. O Transfermarkt bate em todos os clubes, menos no Malmö (só 8 jogos/3 gols registrados). Fica fora a sub-21 sueca. Assistências: 232 pelo Transfermarkt (205 por clubes + 27 pela Suécia), sem a maior parte do período no Malmö. leagueTitles 12 = Eredivisie ×2, Serie A ×5 (Inter ×3, Milan ×2; os títulos de 2004/05 e 2005/06 pela Juventus foram revogados), La Liga ×1, Ligue 1 ×4. otherMajorTitles 2 = Mundial de Clubes 2009 + Liga Europa 2017. Melhor jogador da liga: prêmios de melhor jogador da Serie A da AIC (2008, 2009, 2011) e da UNFP na Ligue 1 (2013, 2014, 2016). Melhor resultado na Bola de Ouro: 4º lugar em 2013. Correções em relação ao arquivo antigo: apps 990→988 e assistências 215→232. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol — tabela de clubes 866/511 (Malmö 47/18, Ajax 110/48, Juventus 92/26, Inter 117/66, Barcelona 46/22, Milan 85/56 + 78/37, PSG 180/156, Manchester United 53/29, LA Galaxy 58/53) + Suécia 122/62 = 988/573 (bate). Assistências: a mesma tabela soma 202 por clubes + 25 pela Suécia = 227, contra 232 do Transfermarkt; mantido 232. Títulos: a página espanhola lista 29 nacionais + 3 internacionais = 32, os mesmos do arquivo (sem os dois scudetti revogados da Juventus). O Malmö não foi campeão da Superettan 2000 (o campeão foi o Djurgården; o Malmö subiu em 2º), por isso nada entra por lá. Prêmios que pesam no ranking batem: Puskás 2013, Capocannoniere 2008/09 e 2011/12, artilheiro da Ligue 1 2012/13, 2013/14 e 2015/16, melhor jogador da Serie A pela AIC 2007/08, 2008/09 e 2010/11 e melhor jogador da Ligue 1 pela UNFP 2012/13, 2013/14 e 2015/16 (as duas Wikipedias têm as três). ESQUECIDOS e acrescentados (em 'outro'): Étoile d'Or da France Football 2014 e 2016, MLS Best XI 2018 e 2019 e o prêmio de carreira do Globe Soccer 2022. CORRIGIDO: ele passou Gunnar Nordahl como maior artilheiro sueco em 31/3/2019 (LA Galaxy 2–1 Portland Timbers, dois pênaltis, um deles de cavadinha) — Wikipedias em espanhol e em inglês, com matéria do LA Galaxy de 2019 —, e não em 2017. Feitos conferidos também: mais velho a marcar na Serie A (41 anos e 166 dias, 18/3/2023), 62 gols em 122 jogos pela Suécia e único a marcar na Champions por seis clubes (página espanhola) — batem."
+ },
+ {
+  "id": "lewandowski",
+  "asOf": "2026-10",
+  "apps": 1109,
+  "goals": 749,
+  "assists": 200,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 14,
+  "otherMajorTitles": 1,
+  "goldenBoots": 2,
+  "titulosTotais": 34,
+  "titulos": [
+   {
+    "nome": "Campeonato Polonês da 3ª divisão (III liga, grupo I)",
+    "equipe": "Znicz Pruszków",
+    "n": 1,
+    "anos": "2006/07",
+    "tipo": "outro"
+   },
+   {
+    "nome": "Campeonato Polonês (Ekstraklasa)",
+    "equipe": "Lech Poznań",
+    "n": 1,
+    "anos": "2009/10",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Polônia",
+    "equipe": "Lech Poznań",
+    "n": 1,
+    "anos": "2008/09",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Polônia",
+    "equipe": "Lech Poznań",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Alemão (Bundesliga)",
+    "equipe": "Borussia Dortmund",
+    "n": 2,
+    "anos": "2010/11, 2011/12",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Alemanha (DFB-Pokal)",
+    "equipe": "Borussia Dortmund",
+    "n": 1,
+    "anos": "2011/12",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Alemanha",
+    "equipe": "Borussia Dortmund",
+    "n": 1,
+    "anos": "2013",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Alemão (Bundesliga)",
+    "equipe": "Bayern de Munique",
+    "n": 8,
+    "anos": "2014/15, 2015/16, 2016/17, 2017/18, 2018/19, 2019/20, 2020/21, 2021/22",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Alemanha (DFB-Pokal)",
+    "equipe": "Bayern de Munique",
+    "n": 3,
+    "anos": "2015/16, 2018/19, 2019/20",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Alemanha",
+    "equipe": "Bayern de Munique",
+    "n": 5,
+    "anos": "2016, 2017, 2018, 2020, 2021",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Bayern de Munique",
+    "n": 1,
+    "anos": "2020",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Bayern de Munique",
+    "n": 1,
+    "anos": "2020",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Mundial de Clubes da FIFA",
+    "equipe": "Bayern de Munique",
+    "n": 1,
+    "anos": "2020 (disputado em fevereiro de 2021)",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Barcelona",
+    "n": 3,
+    "anos": "2022/23, 2024/25, 2025/26",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "2024/25",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Barcelona",
+    "n": 3,
+    "anos": "2023, 2025, 2026",
+    "tipo": "supercopa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "The Best FIFA (melhor jogador do mundo)",
+    "n": 2,
+    "anos": "2020, 2021",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Chuteira de Ouro europeia",
+    "n": 2,
+    "anos": "2020/21 (41 gols), 2021/22 (35 gols)",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Bundesliga (Torjägerkanone)",
+    "n": 7,
+    "anos": "2013/14, 2015/16, 2017/18, 2018/19, 2019/20, 2020/21, 2021/22",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Ekstraklasa",
+    "n": 1,
+    "anos": "2009/10 (18 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Pichichi (artilheiro de La Liga)",
+    "n": 1,
+    "anos": "2022/23 (23 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Ekstraklasa",
+    "n": 1,
+    "anos": "2009/10",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da Bundesliga (prêmio oficial da liga e/ou VDV, dos jogadores)",
+    "n": 5,
+    "anos": "2012/13 (VDV), 2016/17 (VDV), 2017/18 (VDV), 2019/20 (oficial e VDV), 2020/21 (VDV)",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da UEFA (UEFA Men's Player of the Year)",
+    "n": 1,
+    "anos": "2019/20",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Artilheiro da Champions League",
+    "n": 1,
+    "anos": "2019/20 (15 gols)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Bola de Ouro do Mundial de Clubes da FIFA",
+    "n": 1,
+    "anos": "2020",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Troféu Gerd Müller (artilheiro do ano, France Football)",
+    "n": 2,
+    "anos": "2021, 2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — melhor jogador do mundo",
+    "n": 2,
+    "anos": "2020, 2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — maior artilheiro do mundo",
+    "n": 2,
+    "anos": "2020, 2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção mundial FIFA FIFPro",
+    "n": 2,
+    "anos": "2020, 2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor atacante da Champions League",
+    "n": 1,
+    "anos": "2019/20",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Champions League",
+    "n": 1,
+    "anos": "2019/20",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista alemão do ano (jornalistas)",
+    "n": 2,
+    "anos": "2020, 2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista polonês do ano (Piłka Nożna)",
+    "n": 13,
+    "anos": "2011–2017, 2019–2022, 2024, 2025",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa da Alemanha",
+    "n": 5,
+    "anos": "2011/12, 2016/17, 2017/18, 2018/19, 2019/20",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da 2ª divisão polonesa (II liga, atual I liga)",
+    "n": 1,
+    "anos": "2007/08",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da 3ª divisão polonesa (III liga, grupo I)",
+    "n": 1,
+    "anos": "2006/07",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador das eliminatórias da Euro",
+    "n": 1,
+    "anos": "2016",
+    "chave": "outro"
+   },
+   {
+    "nome": "Laureus — Prêmio de conquista excepcional",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da UEFA",
+    "n": 2,
+    "anos": "2019, 2020",
+    "chave": "outro"
+   },
+   {
+    "nome": "Globe Soccer — melhor jogador do ano",
+    "n": 1,
+    "anos": "2020",
+    "chave": "outro"
+   },
+   {
+    "nome": "Globe Soccer — artilheiro do ano (Prêmio Maradona)",
+    "n": 1,
+    "anos": "2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Esportista polonês do ano (Przegląd Sportowy)",
+    "n": 3,
+    "anos": "2015, 2020, 2021",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Maior artilheiro (92 gols) e recordista de jogos (170) da seleção da Polônia, até 2/10/2026",
+   "41 gols na Bundesliga 2020/21, recorde da liga: passou os 40 de Gerd Müller com um gol aos 90 minutos da última rodada",
+   "Cinco gols em 8min59s saindo do banco contra o Wolfsburg (22/9/2015): hat-trick, quatro e cinco gols mais rápidos da história da Bundesliga, com quatro certificados do Guinness",
+   "Segundo maior artilheiro da história da Bundesliga, com 312 gols (atrás de Gerd Müller, com 365), e o maior entre os estrangeiros",
+   "Terceiro maior artilheiro da história da Champions League: 109 gols em 144 jogos (até 13/10/2026)",
+   "Sete vezes artilheiro da Bundesliga, recorde igualado com Gerd Müller, e oito títulos de artilheiro nas cinco grandes ligas da Europa (7 + Pichichi 2022/23), o mesmo número de Messi (8 Pichichis)",
+   "Primeiro jogador a marcar quatro gols numa semifinal de Champions: Dortmund 4–1 Real Madrid, em 24/4/2013",
+   "Primeiro jogador a fazer hat-trick na Champions por três clubes diferentes (Dortmund, Bayern e Barcelona)",
+   "43 gols na Bundesliga no ano de 2021, recorde de um ano civil na liga, e gols em 19 jogos seguidos em todas as competições, recorde alemão",
+   "16 gols nas eliminatórias da Copa de 2018, recorde de uma campanha europeia (igualado por Haaland em 2025)",
+   "Artilheiro da Champions, da Bundesliga e da Copa da Alemanha na tríplice coroa do Bayern em 2019/20; The Best da FIFA em 2020 e 2021",
+   "14 títulos de liga nacional em três países: Ekstraklasa 2009/10, 10 Bundesligas (2 pelo Dortmund e 8 pelo Bayern) e 3 La Ligas pelo Barcelona"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Robert_Lewandowski",
+   "https://en.wikipedia.org/wiki/Bundesliga_Awards",
+   "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+   "https://www.transfermarkt.de/ceapi/performance-game/38253",
+   "https://it.wikipedia.org/wiki/Robert_Lewandowski",
+   "https://pl.wikipedia.org/wiki/Robert_Lewandowski",
+   "https://de.wikipedia.org/wiki/Robert_Lewandowski",
+   "https://en.wikipedia.org/wiki/List_of_men%27s_footballers_with_100_or_more_international_caps"
+  ],
+  "incertos": [
+   "assists (o Transfermarkt não tem os 53 jogos pelo Delta Varsóvia e pelo Znicz em 2004–2007)"
+  ],
+  "notas": "Números até o jogo de 10/10/2026 (Chicago Fire). Jogos e gols: tabela da Wikipedia em inglês ('updated match played 10 October 2026'), sem os times reservas Legia Varsóvia II (14/4) e Znicz Pruszków II (4/8): Delta Varsóvia 19/4 (4ª divisão, 2004/05), Znicz 66/38, Lech Poznań 82/41, Borussia Dortmund 187/103, Bayern 375/344, Barcelona 193/120, Chicago Fire 17/7 (13 de MLS e 4 de Leagues Cup) = 939/657, + Polônia 170/92 (amistosos da seleção principal incluídos; jogo mais recente em 2/10/2026, hat-trick no 6–0 pela Liga das Nações B) = 1109/749. O Transfermarkt bate jogo a jogo em Lech, Dortmund, Bayern, Barcelona, Chicago e seleção, mas não tem o Delta, nem a temporada 2006/07 do Znicz (886/636 por clubes). Contando os reservas, a Wikipedia soma 957/669 por clubes. Assistências: 200 pelo Transfermarkt (162 por clubes + 38 pela Polônia). leagueTitles 14 = Ekstraklasa 2009/10 + Bundesliga ×10 (2 Dortmund, 8 Bayern) + La Liga ×3 (2022/23, 2024/25, 2025/26), o mesmo total que a Wikipedia cita; o título da 3ª divisão de 2006/07 entra só em titulosTotais, com tipo 'outro'. otherMajorTitles 1 = Mundial de Clubes 2020 (a Supercopa da UEFA não entra). Saiu do Barcelona no fim de 2025/26 e assinou com o Chicago Fire em 29/6/2026, com contrato até 2028. A Polônia perdeu a final da repescagem para a Copa de 2026 para a Suécia (3–2, 31/3/2026); ele chegou a insinuar a despedida, mas seguiu na seleção. Melhor jogador da liga: o prêmio oficial 'Bundesliga Player of the Season' só existe desde 2019/20 (a Wikipedia do jogador também lista 2016/17, mas a página Bundesliga Awards mostra que não houve prêmio naquele ano); nas outras temporadas contou o prêmio de melhor jogador da VDV (sindicato dos jogadores, como a PFA, a AIC e a UNFP), um por temporada. Bola de Ouro: 2º em 2021 e 4º em 2022; a edição de 2020 não foi realizada. Correções em relação ao arquivo antigo (12/2025): apps 1030→1109, gols 700→749, assistências 180→200, leagueTitles 13→14 (La Liga 2025/26), titulosTotais com a Supercopa da Espanha 2026; clubes novos: Delta Varsóvia e Chicago Fire. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano ('statistiche aggiornate al 10 ottobre 2026') — Delta 19/4, Znicz 66/38, Lech 82/41, Dortmund 187/103, Bayern 375/344, Barcelona 193/120 e Chicago Fire 17/7 (MLS 13/6 + Leagues Cup 4/1); a linha de total, 957/669, inclui Legia II (14/4) e Znicz II (4/8); sem os reservas = 939/657 (bate). Seleção: 170 jogos/92 gols, último em 2/10/2026 (6–0 na Romênia, 3 gols) nas Wikipedias em italiano e em polonês e na lista de jogadores com 100+ jogos (atualizada em 6/10/2026). Total 1109/749 (bate). Não há jogo dele registrado entre 10/10 e a manhã de 14/10/2026 (o jogo a jogo do Transfermarkt baixado hoje termina em 10/10). Títulos batem com as Wikipedias em italiano, alemão e polonês (Copa, Supercopa e liga da Polônia, 10 Bundesligas, 4 DFB-Pokal, 6 Supercopas alemãs, Champions, Supercopa da UEFA e Mundial de 2020, 3 La Ligas, Copa do Rei 2024/25 e 3 Supercopas da Espanha); o título da III liga 2006/07 pelo Znicz aparece na Wikipedia em polonês ('Mistrzostwo III ligi'), o que confirma titulosTotais 34. Prêmios que pesam no ranking batem: The Best 2020 e 2021, UEFA 2019/20, Chuteira de Ouro 2020/21 e 2021/22, 7 artilharias da Bundesliga + Ekstraklasa 2009/10 + Pichichi 2022/23, artilharia da Champions 2019/20, Bola de Ouro do Mundial 2020, melhor jogador da Ekstraklasa 2009/10 (a página polonesa dá a temporada) e VDV 2012/13, 2016/17, 2017/18, 2019/20 e 2020/21 (Wikipedias em alemão e italiano), com o prêmio oficial da Bundesliga só em 2019/20. Futebolista polonês do ano (Piłka Nożna): as Wikipedias em alemão e polonês listam 11 (até 2022); a italiana, 13 (com 2024 e 2025); mantido 13, em 'outro'. ESQUECIDOS e acrescentados (em 'outro'): Globe Soccer melhor jogador 2020 e artilheiro 2021 e Esportista polonês do ano 2015, 2020 e 2021. CORRIGIDO: o feito '14 ligas, 13 nas cinco grandes, recorde igualado com Giggs, Thomas Müller, Neuer e Coman' não tem fonte em nenhuma das quatro Wikipedias nem na busca; o recorde foi retirado e ficou só a contagem, que é verificável. No feito das 8 artilharias nas cinco grandes ligas, 'recorde dividido' agora diz com quem: Messi, com 8 Pichichis. Feitos conferidos: 5 gols em 9 minutos contra o Wolfsburg (página polonesa, Guinness), 16 gols nas eliminatórias da Copa de 2018 (página polonesa) e 109 gols em 144 jogos de Champions — a soma das temporadas da tabela italiana dá Dortmund 28/17, Bayern 78/69 e Barcelona 38/23 — batem."
+ },
+ {
+  "id": "modric",
+  "asOf": "2026-10",
+  "apps": 1179,
+  "goals": 137,
+  "assists": 177,
+  "assistsEstimated": false,
+  "ballonDor": 1,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 6,
+  "libertadores": 0,
+  "leagueTitles": 7,
+  "otherMajorTitles": 6,
+  "goldenBoots": 0,
+  "titulosTotais": 34,
+  "titulos": [
+   {
+    "nome": "Campeonato Croata (Prva HNL)",
+    "equipe": "Dinamo Zagreb",
+    "n": 3,
+    "anos": "2005/06, 2006/07, 2007/08",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Croácia",
+    "equipe": "Dinamo Zagreb",
+    "n": 2,
+    "anos": "2006/07, 2007/08",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Croácia",
+    "equipe": "Dinamo Zagreb",
+    "n": 1,
+    "anos": "2006",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Real Madrid",
+    "n": 4,
+    "anos": "2016/17, 2019/20, 2021/22, 2023/24",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Real Madrid",
+    "n": 2,
+    "anos": "2013/14, 2022/23",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Real Madrid",
+    "n": 5,
+    "anos": "2012, 2017, 2020, 2022, 2024",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Real Madrid",
+    "n": 6,
+    "anos": "2014, 2016, 2017, 2018, 2022, 2024",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Real Madrid",
+    "n": 5,
+    "anos": "2014, 2016, 2017, 2022, 2024",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Mundial de Clubes da FIFA",
+    "equipe": "Real Madrid",
+    "n": 5,
+    "anos": "2014, 2016, 2017, 2018, 2022",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Copa Intercontinental da FIFA",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2024",
+    "tipo": "mundial"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro",
+    "n": 1,
+    "anos": "2018",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "The Best FIFA (melhor jogador do mundo)",
+    "n": 1,
+    "anos": "2018",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Bola de Ouro da Copa do Mundo",
+    "n": 1,
+    "anos": "2018",
+    "chave": "wc_golden_ball"
+   },
+   {
+    "nome": "Melhor jogador da UEFA (UEFA Men's Player of the Year)",
+    "n": 1,
+    "anos": "2017/18",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Bola de Ouro do Mundial de Clubes da FIFA",
+    "n": 1,
+    "anos": "2017",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Melhor jogador da liga croata (Prva HNL)",
+    "n": 1,
+    "anos": "2007",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da liga da Bósnia e Herzegovina",
+    "n": 1,
+    "anos": "2003",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Bola de Bronze da Copa do Mundo",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata do Mundial de Clubes da FIFA",
+    "n": 1,
+    "anos": "2016",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2019",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista croata do ano",
+    "n": 14,
+    "anos": "2007, 2008, 2011, 2014, 2016–2025",
+    "chave": "outro"
+   },
+   {
+    "nome": "Oscar do Futebol — melhor jogador croata",
+    "n": 14,
+    "anos": "2013–2026",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor meio-campista de La Liga (Prêmios LFP)",
+    "n": 2,
+    "anos": "2013/14, 2015/16",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor meio-campista da Champions League",
+    "n": 2,
+    "anos": "2016/17, 2017/18",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção mundial FIFA FIFPro",
+    "n": 6,
+    "anos": "2015, 2016, 2017, 2018, 2019, 2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da UEFA",
+    "n": 3,
+    "anos": "2016, 2017, 2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — melhor armador do mundo",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da Serie A",
+    "n": 1,
+    "anos": "2025/26",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Marca Leyenda",
+    "n": 1,
+    "anos": "2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo",
+    "n": 2,
+    "anos": "2018, 2022",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Eurocopa",
+    "n": 1,
+    "anos": "2008",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do ano da World Soccer",
+    "n": 1,
+    "anos": "2018",
+    "chave": "outro"
+   },
+   {
+    "nome": "Camisa Amarela da Sportske novosti (melhor do campeonato croata pelas notas)",
+    "n": 1,
+    "anos": "2008",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Bola de Ouro 2018, a primeira desde 2007 fora Messi e Cristiano Ronaldo; no mesmo ano ganhou também o The Best da FIFA, a Bola de Ouro da Copa e o prêmio de melhor jogador da UEFA",
+   "Seis Champions League (2014, 2016, 2017, 2018, 2022 e 2024), recorde dividido com Gento, Kroos, Carvajal e Nacho",
+   "Jogador com mais títulos na história do Real Madrid (28) e croata mais vencedor de todos os tempos (34 títulos)",
+   "Recordista de jogos pela Croácia (206, até 6/10/2026) e terceiro com mais jogos por seleções na história do futebol masculino",
+   "Melhor jogador da Croácia vice-campeã do mundo em 2018 e Bola de Bronze no 3º lugar de 2022",
+   "Disputou 10 grandes torneios de seleções (Copas de 2006, 2014, 2018, 2022 e 2026; Euros de 2008 a 2024), o segundo europeu a chegar à marca",
+   "Mais velho a dar uma assistência em Copa do Mundo (registros desde 1966): 40 anos e 291 dias, no escanteio do gol da vitória de Vlašić sobre Gana (2–1), em 27/6/2026",
+   "Primeiro jogador a disputar Eurocopa e Copa do Mundo em três décadas diferentes",
+   "Mais velho a jogar e a marcar pelo Real Madrid (gol contra o Valencia aos 39 anos e 116 dias, em 3/1/2025), superando Puskás",
+   "Mais velho a estrear na Serie A (39 anos, 11 meses e 14 dias, pelo Milan, em 23/8/2025), a fazer o primeiro gol na liga (40 anos e 5 dias) e a marcar nela com a bola rolando (40 anos, 5 meses e 4 dias, contra o Pisa, em 13/2/2026)",
+   "597 jogos pelo Real Madrid em 13 temporadas (2012–2025)",
+   "Recorde de 14 prêmios de futebolista croata do ano (2007–2025)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Luka_Modri%C4%87",
+   "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+   "https://www.transfermarkt.de/ceapi/performance-game/27992",
+   "https://it.wikipedia.org/wiki/Luka_Modri%C4%87",
+   "https://es.wikipedia.org/wiki/Luka_Modri%C4%87",
+   "https://hr.wikipedia.org/wiki/Luka_Modri%C4%87",
+   "https://en.wikipedia.org/wiki/List_of_men%27s_footballers_with_100_or_more_international_caps",
+   "https://wtop.com/sports/2026/06/vlasic-scores-winner-as-croatia-beats-ghana-2-1-to-reach-world-cup-knockout-stage/"
+  ],
+  "incertos": [
+   "assists (o Transfermarkt não tem os jogos pelo Zrinjski Mostar e parte dos jogos pelo Dinamo Zagreb)",
+   "goals (Dinamo 2005/06: 8 gols na liga pelas Wikipedias em italiano e espanhol, pelo texto da croata e pelo Transfermarkt; 7 pela Wikipedia em inglês e pela tabela da croata)"
+  ],
+  "notas": "Números até o jogo de 11/10/2026 (Milan). Jogos e gols: tabela da Wikipedia em inglês — Dinamo Zagreb 130/32, Zrinjski Mostar 25/8 e Inter Zaprešić 18/4 (empréstimos), Tottenham 160/17, Real Madrid 597/43, Milan 43/2 = 973/106, + Croácia 206/30 (amistosos da seleção principal incluídos; jogo mais recente em 6/10/2026) = 1179/136. O Transfermarkt bate em Tottenham, Real Madrid, Milan e seleção, mas tem só 118 jogos pelo Dinamo e 2 pelo Zrinjski (938/99 por clubes). Assistências: 177 pelo Transfermarkt (145 por clubes + 32 pela Croácia), sem a maior parte dos jogos de 2003–2005; o arquivo antigo tinha 200, número que nenhuma fonte confirma. titulosTotais 34 = 6 pelo Dinamo + 28 pelo Real Madrid, o mesmo total que a Wikipedia cita ('34 major trophies'); pelo Milan (2025/26) e pela Croácia (vice da Copa 2018, 3º em 2022, vice da Liga das Nações 2023) não ganhou títulos. otherMajorTitles 6 = Mundial de Clubes ×5 + Copa Intercontinental da FIFA 2024. Copa de 2026: eliminado nos 16 avos por Portugal (2–1, em Toronto). Melhor jogador da liga: só os prêmios gerais de melhor jogador da liga croata (2007) e da bósnia (2003); os de melhor meio-campista de La Liga ficaram em 'outro'. Renovou com o Milan em 23/7/2026 até 30/6/2027. Correções em relação ao arquivo antigo (12/2025): apps 1100→1179, gols 130→136, assistências 200→177. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano ('aggiornato all'11 ottobre 2026') — Zrinjski 25/8, Inter Zaprešić 18/4, Dinamo 130/33, Tottenham 160/17, Real Madrid 597/43, Milan 43/2 (2025/26 37/2 + 2026/27 6/0) = 973/107, + Croácia 206/30 (último jogo em 6/10/2026). CORRIGIDO: goals 136→137. A diferença é a liga croata 2005/06 pelo Dinamo: 32 jogos e 8 gols nas Wikipedias em italiano e espanhol e no texto da Wikipedia em croata ('zabio 8 pogodaka'), e 8 gols nos 31 jogos que o Transfermarkt registra; só a Wikipedia em inglês e a tabela da croata dão 7. Ficou Dinamo 130/33 e total 1179/137, com o campo em incertos. Títulos batem um a um com a página italiana (3 ligas, 2 copas e 1 supercopa croatas; 4 La Ligas, 2 Copas do Rei, 5 Supercopas, 6 Champions, 5 Supercopas da UEFA, 5 Mundiais e a Intercontinental 2024) = 34; pelo Milan, a página italiana não lista nenhum título. Prêmios que pesam no ranking batem (Bola de Ouro, The Best, Bola de Ouro da Copa e UEFA de 2018, Bola de Ouro do Mundial de Clubes 2017, melhor jogador da liga bósnia 2003 e da liga croata 2007 — esta, na Wikipedia em croata, é o prêmio da Tportal votado pelos capitães). ESQUECIDOS e acrescentados (em 'outro'): seleção da Copa de 2018 e de 2022, seleção da Euro 2008, Jogador do ano da World Soccer 2018 e a Camisa Amarela da Sportske novosti 2008. Feitos conferidos: 3º com mais jogos por seleções (206, atrás de Cristiano Ronaldo 234 e Messi 208, na lista de 100+ jogos atualizada em 6/10/2026); assistência mais velha em Copas, aos 40 anos e 291 dias, no escanteio para o gol de Vlašić contra Gana (AP, 27/6/2026, que diz 'registros desde 1966'); mais velho a marcar pelo Real Madrid, superando Puskás (página italiana) — batem. A página italiana acrescenta que ele foi o mais velho a fazer o primeiro gol na Serie A (40 anos e 5 dias) e a marcar de bola rolando na liga (13/2/2026, superando Silvio Piola); isso entrou no feito da estreia na Serie A."
+ },
+ {
+  "id": "haaland",
+  "asOf": "2026-10",
+  "apps": 447,
+  "goals": 370,
+  "assists": 74,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 4,
+  "otherMajorTitles": 0,
+  "goldenBoots": 1,
+  "titulosTotais": 13,
+  "titulos": [
+   {
+    "nome": "Campeonato Austríaco (Bundesliga)",
+    "equipe": "Red Bull Salzburg",
+    "n": 2,
+    "anos": "2018/19, 2019/20",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Áustria",
+    "equipe": "Red Bull Salzburg",
+    "n": 2,
+    "anos": "2018/19, 2019/20",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Alemanha (DFB-Pokal)",
+    "equipe": "Borussia Dortmund",
+    "n": 1,
+    "anos": "2020/21",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Inglês (Premier League)",
+    "equipe": "Manchester City",
+    "n": 2,
+    "anos": "2022/23, 2023/24",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Inglaterra (FA Cup)",
+    "equipe": "Manchester City",
+    "n": 2,
+    "anos": "2022/23, 2025/26",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Liga Inglesa",
+    "equipe": "Manchester City",
+    "n": 1,
+    "anos": "2025/26",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Inglaterra (Community Shield)",
+    "equipe": "Manchester City",
+    "n": 1,
+    "anos": "2024",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Manchester City",
+    "n": 1,
+    "anos": "2023",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Manchester City",
+    "n": 1,
+    "anos": "2023",
+    "tipo": "supercopa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Chuteira de Ouro europeia",
+    "n": 1,
+    "anos": "2022/23 (36 gols)",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Premier League (Golden Boot)",
+    "n": 3,
+    "anos": "2022/23 (36 gols), 2023/24 (27 gols), 2025/26 (27 gols)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da liga austríaca",
+    "n": 1,
+    "anos": "2019/20",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da Bundesliga (prêmio oficial)",
+    "n": 1,
+    "anos": "2020/21",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da Premier League (Player of the Season)",
+    "n": 1,
+    "anos": "2022/23",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Melhor jogador da UEFA (UEFA Men's Player of the Year)",
+    "n": 1,
+    "anos": "2022/23",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Artilheiro da Champions League",
+    "n": 2,
+    "anos": "2020/21 (10 gols), 2022/23 (12 gols)",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Golden Boy (Tuttosport)",
+    "n": 1,
+    "anos": "2020",
+    "chave": "kopa"
+   },
+   {
+    "nome": "Troféu Gerd Müller (artilheiro do ano, France Football)",
+    "n": 1,
+    "anos": "2023",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do ano da PFA e da FWA (mesma temporada do Player of the Season)",
+    "n": 2,
+    "anos": "2022/23",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor jogador jovem da Premier League",
+    "n": 1,
+    "anos": "2022/23",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — melhor jogador do mundo",
+    "n": 1,
+    "anos": "2023",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção mundial FIFA FIFPro / FIFA",
+    "n": 5,
+    "anos": "2021, 2022, 2023, 2024 (FIFPro); 2024 (FIFA Men's World 11)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Liga das Nações",
+    "n": 2,
+    "anos": "2020/21, 2022/23",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (Dream XI da FIFA)",
+    "n": 1,
+    "anos": "2026",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Ouro do Mundial Sub-20",
+    "n": 1,
+    "anos": "2019 (9 gols)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Gullballen (melhor jogador norueguês do ano)",
+    "n": 5,
+    "anos": "2020, 2021, 2022, 2023, 2024",
+    "chave": "outro"
+   },
+   {
+    "nome": "Futebolista austríaco do ano",
+    "n": 1,
+    "anos": "2019",
+    "chave": "outro"
+   },
+   {
+    "nome": "Globe Soccer — melhor jogador do ano",
+    "n": 1,
+    "anos": "2023",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 1,
+    "anos": "2022/23",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do ano da World Soccer",
+    "n": 1,
+    "anos": "2023",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — maior artilheiro de seleções do mundo",
+    "n": 1,
+    "anos": "2025",
+    "chave": "outro"
+   },
+   {
+    "nome": "Esportista norueguês do ano",
+    "n": 2,
+    "anos": "2020, 2025",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "36 gols na Premier League 2022/23, recorde de uma temporada da liga",
+   "52 gols em 53 jogos em 2022/23, recorde de um jogador da Premier League numa temporada, na tríplice coroa do City (Premier League, Copa da Inglaterra e Champions)",
+   "Mais rápido a chegar a 100 gols na Premier League: 111 jogos (2/12/2025), contra 124 de Alan Shearer",
+   "Mais rápido a chegar a 50 gols na Champions League (49 jogos, em 18/9/2025); 59 gols em 59 jogos até 13/10/2026",
+   "Cinco gols num jogo de Champions (7–0 no RB Leipzig, 14/3/2023), recorde igualado com Messi e Luiz Adriano",
+   "Maior artilheiro da história da seleção da Noruega: 65 gols em 59 jogos (até 4/10/2026)",
+   "16 gols nas eliminatórias da Copa de 2026, marcando nos oito jogos (recorde europeu igualado com Lewandowski), e levou a Noruega à primeira Copa desde 1998",
+   "Na Copa de 2026 fez 7 gols em 5 jogos, marcou nos quatro primeiros que disputou e levou a Noruega às primeiras quartas de final da sua história, com dois gols na vitória por 2–1 sobre o Brasil",
+   "Três vezes artilheiro da Premier League (2022/23, 2023/24 e 2025/26) e Chuteira de Ouro europeia em 2022/23",
+   "Único a ganhar os prêmios de melhor jogador e de melhor jovem da Premier League na mesma temporada (2022/23)",
+   "Nove gols num só jogo no Mundial Sub-20 de 2019 (12–0 em Honduras), recorde do torneio",
+   "Vice-campeão da Bola de Ouro 2023 e melhor jogador da UEFA em 2022/23"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Erling_Haaland",
+   "https://en.wikipedia.org/wiki/List_of_international_goals_scored_by_Erling_Haaland",
+   "https://en.wikipedia.org/wiki/Bundesliga_Awards",
+   "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+   "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+   "https://www.transfermarkt.us/ceapi/performance-game/418560",
+   "https://www.transfermarkt.us/erling-haaland/erfolge/spieler/418560",
+   "https://it.wikipedia.org/wiki/Erling_Haaland"
+  ],
+  "incertos": [
+   "titulosTotais (Liga e Copa da Áustria 2019/20: ele saiu do Salzburg em janeiro de 2020)"
+  ],
+  "notas": "Números até o jogo de 11/10/2026 (Manchester City). Jogos e gols: tabela da Wikipedia em inglês, sem os times reservas Bryne 2 (18/18) e Molde 2 (4/2): Bryne 16/0 (2ª divisão norueguesa, 2016), Molde 50/20, Red Bull Salzburg 27/29, Borussia Dortmund 89/86, Manchester City 206/170 = 388/305, + Noruega 59/65 (amistosos da seleção principal incluídos; jogo mais recente em 4/10/2026) = 447/370. O Transfermarkt bate exatamente nesses totais. Assistências: 74 pelo Transfermarkt (67 por clubes + 7 pela Noruega). titulosTotais 13: a Wikipedia credita só a liga e a copa austríacas de 2018/19, mas ele jogou 14 jogos da liga e 2 da copa pelo Salzburg em 2019/20 antes de ir para o Dortmund, e o Salzburg ganhou as duas; pela regra do arquivo (o título da liga conta para quem jogou pelo campeão naquela temporada antes de sair) a liga 2019/20 entra em leagueTitles, e o Transfermarkt credita as duas. Sem a copa, o total seria 12; só com os títulos da Wikipedia, 11. leagueTitles 4 = Áustria 2018/19 e 2019/20 + Premier League 2022/23 e 2023/24. otherMajorTitles 0: o arquivo antigo dava 1, mas ele não foi ao Mundial de Clubes de 2023 (lesionado), único título mundial do City no período; a Supercopa da UEFA não entra. Copa de 2026: 7 gols em 5 jogos (2 no Iraque, 2 no Senegal, 1 na Costa do Marfim, 2 no Brasil), eliminação nas quartas para a Inglaterra (2–1 na prorrogação); a Chuteira de Bronze ficou com Bellingham (7 gols e 1 assistência). Melhor jogador da liga: prêmios oficiais da liga austríaca (2019/20), da Bundesliga (2020/21) e da Premier League (2022/23); PFA e FWA de 2022/23 ficaram em 'outro' para não contar a mesma temporada duas vezes. Bola de Ouro: 2º em 2023; a cerimônia de 2026 será em 26/10/2026. Correções em relação ao arquivo antigo (12/2025): apps 390→447, gols 330→370, assistências 65→74, otherMajorTitles 1→0. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano ('aggiornato all'11 ottobre 2026') — Bryne 16/0, Molde 50/20, Salzburg 27/29, Dortmund 89/86 e Manchester City 206/170 (2026/27: 8 jogos/8 gols) = 388/305 sem os reservas (Bryne 2 18/18, Molde 2 4/2), + Noruega 59/65 (último jogo em 4/10/2026) = 447/370 (bate). Champions: Salzburg 6/8 + Dortmund 13/15 + City 40/36 = 59/59 (bate). Não houve jogo do City entre 11/10 e 14/10/2026 (nada no Transfermarkt depois de 11/10). Copa de 2026 conferida na cronologia italiana: 2 gols no Iraque, 2 no Senegal, 1 na Costa do Marfim e 2 no Brasil, eliminação para a Inglaterra na prorrogação; o Transfermarkt mostra que ele não jogou o 3º jogo da fase de grupos (26/6), por isso o feito diz 'marcou nos quatro primeiros que disputou'. Eliminatórias: 1+1+1+1+5+3+2+2 = 16 gols em 8 jogos (cronologia italiana), marcando em todos — bate. Títulos: a página italiana lista também o Mundial de Clubes de 2023 entre os títulos do City, mas o Transfermarkt registra Haaland como lesionado nos dois jogos (19 e 22/12/2023) e a Wikipedia em inglês não o credita; pela regra de ter jogado a competição, fica fora (otherMajorTitles segue 0). A italiana também não credita a liga e a copa austríacas de 2019/20 (a dúvida segue em incertos). Prêmios que pesam no ranking batem: Chuteira de Ouro 2022/23, 3 artilharias da Premier League (2022/23 36, 2023/24 27, 2025/26 27), 2 da Champions (2020/21 e 2022/23), UEFA 2022/23, melhor jogador da Bundesliga 2020/21, da Premier League 2022/23 e da liga austríaca 2019/20, e Golden Boy 2020. ESQUECIDOS e acrescentados (em 'outro'): Onze d'Or 2022/23, Jogador do ano da World Soccer 2023, maior artilheiro de seleções do mundo pela IFFHS 2025 e Esportista norueguês do ano 2020 e 2025. Feitos conferidos: 36 gols na Premier League 2022/23, 100º gol na Premier League em 2/12/2025 e 65 gols em 59 jogos pela Noruega (página italiana) — batem."
+ },
+ {
+  "id": "gerrard",
+  "asOf": "2016",
+  "apps": 863,
+  "goals": 212,
+  "assists": 194,
+  "assistsEstimated": false,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 0,
+  "otherMajorTitles": 1,
+  "goldenBoots": 0,
+  "titulosTotais": 9,
+  "titulos": [
+   {
+    "nome": "Copa da Inglaterra (FA Cup)",
+    "equipe": "Liverpool",
+    "n": 2,
+    "anos": "2000/01, 2005/06",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Liga Inglesa",
+    "equipe": "Liverpool",
+    "n": 3,
+    "anos": "2000/01, 2002/03, 2011/12",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Inglaterra (Community Shield)",
+    "equipe": "Liverpool",
+    "n": 1,
+    "anos": "2006",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Liverpool",
+    "n": 1,
+    "anos": "2005",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Copa da UEFA",
+    "equipe": "Liverpool",
+    "n": 1,
+    "anos": "2001",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Liverpool",
+    "n": 1,
+    "anos": "2001",
+    "tipo": "supercopa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Jogador de clubes do ano da UEFA (UEFA Club Footballer of the Year)",
+    "n": 1,
+    "anos": "2005",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Jogador do ano da PFA (eleito pelos jogadores)",
+    "n": 1,
+    "anos": "2005/06",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Jogador do ano da FWA (jornalistas)",
+    "n": 1,
+    "anos": "2008/09",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jovem jogador do ano da PFA",
+    "n": 1,
+    "anos": "2000/01",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da PFA na Premier League",
+    "n": 8,
+    "anos": "2000/01, 2003/04, 2004/05, 2005/06, 2006/07, 2007/08, 2008/09, 2013/14",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor em campo da final da Champions League",
+    "n": 1,
+    "anos": "2005",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor em campo da final da Copa da Inglaterra",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata do Mundial de Clubes da FIFA",
+    "n": 1,
+    "anos": "2005",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção mundial FIFA FIFPro",
+    "n": 3,
+    "anos": "2007, 2008, 2009",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção do ano da UEFA",
+    "n": 3,
+    "anos": "2005, 2006, 2007",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze de Prata (Onze Mondial)",
+    "n": 1,
+    "anos": "2005",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do ano da seleção inglesa (FA)",
+    "n": 2,
+    "anos": "2007, 2012",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Eurocopa",
+    "n": 1,
+    "anos": "2012",
+    "chave": "outro"
+   },
+   {
+    "nome": "Líder de assistências da Premier League",
+    "n": 1,
+    "anos": "2013/14 (13)",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama da Premier League",
+    "n": 1,
+    "anos": "2021",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do ano da PFA eleito pelos torcedores",
+    "n": 2,
+    "anos": "2000/01, 2008/09",
+    "chave": "outro"
+   },
+   {
+    "nome": "Jogador do mês da Premier League",
+    "n": 6,
+    "anos": "março de 2001, março de 2003, dezembro de 2004, abril de 2006, março de 2009, março de 2014",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio de Mérito da PFA",
+    "n": 1,
+    "anos": "2015",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama do futebol inglês",
+    "n": 1,
+    "anos": "2017",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Único jogador a marcar em finais de Copa da Inglaterra, Copa da Liga Inglesa, Copa da UEFA e Champions League",
+   "Capitão do Liverpool no 'Milagre de Istambul' (2005): fez o primeiro gol da reação de 0–3 para 3–3 contra o Milan e foi eleito o melhor da final, vencida nos pênaltis",
+   "Na 'final do Gerrard' (Copa da Inglaterra 2006), fez dois gols, um deles o empate por 3–3 nos acréscimos contra o West Ham, e o Liverpool venceu nos pênaltis",
+   "Capitão do Liverpool por mais tempo na história do clube (outubro de 2003 a 2015)",
+   "710 jogos e 186 gols pelo Liverpool em 17 temporadas",
+   "Recorde de oito presenças na seleção da temporada da PFA na Premier League",
+   "Primeiro jogador do Liverpool a marcar em 15 temporadas seguidas de liga",
+   "114 jogos e 21 gols pela Inglaterra (38 como capitão), com três Copas (2006, 2010, 2014) e três Euros (2000, 2004, 2012)",
+   "Melhor jogador de clubes da UEFA em 2005 e eleito pelos colegas o melhor da Inglaterra (PFA) em 2005/06",
+   "Líder de assistências da Premier League 2013/14 (13), na campanha do vice-campeonato do Liverpool",
+   "Entrou no Hall da Fama da Premier League em 2021",
+   "Terceiro colocado na Bola de Ouro de 2005, ano do título europeu do Liverpool"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Steven_Gerrard",
+   "https://en.wikipedia.org/wiki/2001_FA_Charity_Shield",
+   "https://en.wikipedia.org/wiki/2005_UEFA_Super_Cup",
+   "https://en.wikipedia.org/wiki/2006_FA_Community_Shield",
+   "https://www.transfermarkt.de/ceapi/performance-game/3109",
+   "https://es.wikipedia.org/wiki/Steven_Gerrard"
+  ],
+  "incertos": [],
+  "notas": "Jogos e gols: Liverpool 710/186 + LA Galaxy 39/5 (inclui 2 jogos de playoffs da MLS) + Inglaterra 114/21 (amistosos da seleção principal incluídos) = 863/212. A Wikipedia e o Transfermarkt batem nos totais por clube; a linha 'Career total' da tabela da Wikipedia soma 190 gols de clube por erro de digitação na coluna de copa nacional (o certo é 191). Assistências: 194 pelo Transfermarkt (Liverpool 156, LA Galaxy 15, Inglaterra 23). titulosTotais 9: ele não jogou a Charity Shield 2001 (lesionado no tornozelo) nem a Supercopa da UEFA 2005 (fora do elenco por lesão na panturrilha), que o Liverpool venceu; as duas ficaram fora, como faz a Wikipedia. otherMajorTitles 1 = Copa da UEFA 2001 (a Supercopa da UEFA não entra). Nunca foi campeão inglês (vice em 2001/02, 2008/09 e 2013/14). Melhor jogador da liga: o Jogador do Ano da PFA 2005/06 conta (prêmio dos jogadores; o 'Player of the Season' oficial daquele ano foi de John Terry); o FWA 2008/09 ficou em 'outro'. Os títulos como técnico (Rangers, Premiership escocesa 2020/21) não entram. Correções em relação ao arquivo antigo: apps 858→863 e assistências 160 (estimativa) → 194 (registro do Transfermarkt). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em espanhol — Liverpool 710/186 e LA Galaxy 39/5 = 749/191 por clubes (a linha de total dela já dá 191) e Inglaterra 114/21 = 863/212 (bate). Títulos: a página espanhola lista os mesmos 9 (Copas da Liga 2000/01, 2002/03 e 2011/12, Copas da Inglaterra 2000/01 e 2005/06, Community Shield 2006, Copa da UEFA e Supercopa da UEFA 2001, Champions 2005) e também deixa fora a Charity Shield 2001 e a Supercopa da UEFA 2005. Prêmios que pesam no ranking batem: Jogador de clubes do ano da UEFA 2005 e PFA 2005/06 (eleito pelos jogadores). ESQUECIDOS e acrescentados (em 'outro'): Jogador do ano da PFA pelos torcedores 2000/01 e 2008/09, 6 prêmios de Jogador do mês da Premier League (a espanhola lista 5, sem março de 2014, que a inglesa tem), Prêmio de Mérito da PFA 2015 e Hall da Fama do futebol inglês 2017. A página espanhola dá a ele o 'Balón de Bronce' de 2005 (3º lugar na Bola de Ouro), que entrou nos feitos. Feitos conferidos: melhor da final de Istambul, os dois gols na final da Copa da Inglaterra de 2006 (o do 3–3 nos acréscimos) e os 710 jogos/186 gols pelo Liverpool (página espanhola) — batem."
+ }
+]

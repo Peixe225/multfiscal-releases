@@ -1,0 +1,2281 @@
+[
+  {
+    "id": "ronaldinho",
+    "asOf": "2026-10",
+    "apps": 796,
+    "goals": 299,
+    "assists": 210,
+    "assistsEstimated": true,
+    "ballonDor": 1,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 1,
+    "libertadores": 1,
+    "leagueTitles": 3,
+    "otherMajorTitles": 1,
+    "goldenBoots": 0,
+    "titulosTotais": 15,
+    "titulos": [
+      {
+        "nome": "Copa Sul (regional)",
+        "equipe": "Grêmio",
+        "n": 1,
+        "anos": "1999",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Gaúcho",
+        "equipe": "Grêmio",
+        "n": 1,
+        "anos": "1999",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2004/05, 2005/06",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2005, 2006",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2006",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2010/11",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Carioca",
+        "equipe": "Flamengo",
+        "n": 1,
+        "anos": "2011",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Mineiro",
+        "equipe": "Atlético Mineiro",
+        "n": 1,
+        "anos": "2013",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Copa Libertadores",
+        "equipe": "Atlético Mineiro",
+        "n": 1,
+        "anos": "2013",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Recopa Sul-Americana",
+        "equipe": "Atlético Mineiro",
+        "n": 1,
+        "anos": "2014",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa América",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "1999",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa das Confederações",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "2005",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 1,
+        "anos": "2005",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Melhor Jogador do Mundo da FIFA (FIFA World Player)",
+        "n": 2,
+        "anos": "2004, 2005",
+        "chave": "the_best"
+      },
+      {
+        "nome": "Bola de Ouro da Placar (melhor jogador do Brasileirão)",
+        "n": 1,
+        "anos": "2012",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Jogador de clubes do ano da UEFA (UEFA Club Footballer of the Year)",
+        "n": 1,
+        "anos": "2005/06",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Rei da América — melhor jogador sul-americano do ano (El País)",
+        "n": 1,
+        "anos": "2013",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Bola de Ouro da Copa das Confederações",
+        "n": 1,
+        "anos": "1999",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Chuteira de Ouro da Copa das Confederações (artilheiro, 6 gols)",
+        "n": 1,
+        "anos": "1999",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Artilheiro do Mundial de Clubes da FIFA (2 gols, dividido com Conca, César Delgado e Iajour)",
+        "n": 1,
+        "anos": "2013",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+        "n": 3,
+        "anos": "2000, 2011, 2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro — Jogador do ano",
+        "n": 2,
+        "anos": "2005, 2006",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador do ano",
+        "n": 2,
+        "anos": "2004, 2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Onze d'Or (Onze Mondial)",
+        "n": 1,
+        "anos": "2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor atacante de clubes da UEFA",
+        "n": 1,
+        "anos": "2004/05",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador da década (anos 2000)",
+        "n": 1,
+        "anos": "2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (All-Star Team)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro World XI (seleção do ano)",
+        "n": 3,
+        "anos": "2005, 2006, 2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção UEFA do ano",
+        "n": 3,
+        "anos": "2004, 2005, 2006",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Bronze (Copa das Confederações 2005 e Mundial de Clubes 2006)",
+        "n": 2,
+        "anos": "2005, 2006",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências (La Liga e Champions 2005/06, Serie A 2009/10, Brasileirão 2012, Libertadores 2012 e 2013)",
+        "n": 6,
+        "anos": "2005/06 (2), 2009/10, 2012 (2), 2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Don Balón — melhor estrangeiro de La Liga",
+        "n": 2,
+        "anos": "2003/04, 2005/06",
+        "chave": "outro"
+      },
+      {
+        "nome": "Trofeo EFE (melhor ibero-americano de La Liga)",
+        "n": 1,
+        "anos": "2003/04",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Craque do Brasileirão — Craque da Galera",
+        "n": 1,
+        "anos": "2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Gol do ano da Ligue 1 (UNFP)",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Gaúcho",
+        "n": 1,
+        "anos": "1999",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team (seleção de prata)",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Prêmio pela carreira",
+        "n": 1,
+        "anos": "2021",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único jogador a ganhar Copa do Mundo, Copa América, Copa das Confederações, Champions League, Libertadores e Bola de Ouro",
+      "Bola de Ouro 2005 e bicampeão do Melhor do Mundo da FIFA (2004 e 2005)",
+      "Ao se aposentar, em 2018, era um dos oito jogadores com Copa do Mundo, Champions League e Bola de Ouro",
+      "Aplaudido de pé pela torcida do Real Madrid no Santiago Bernabéu jogando pelo Barcelona (2005)",
+      "Peça-chave da Champions 2005/06, a primeira do Barcelona em 14 anos",
+      "Campeão do mundo em 2002, com gol de falta de cerca de 40 metros sobre a Inglaterra nas quartas de final",
+      "Bola de Ouro e Chuteira de Ouro da Copa das Confederações de 1999",
+      "Campeão mundial sub-17 em 1997, o primeiro título do Brasil na categoria",
+      "Líder de assistências da Serie A 2009/10 pelo Milan",
+      "Campeão da Libertadores 2013, a primeira do Atlético Mineiro",
+      "Eleito o melhor jogador da América do Sul em 2013, aos 33 anos"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Ronaldinho",
+      "https://pt.wikipedia.org/wiki/Ronaldinho_Ga%C3%BAcho",
+      "https://tmapi-alpha.transfermarkt.technology/player/3373/performance-game",
+      "https://en.wikipedia.org/wiki/2013_FIFA_Club_World_Cup",
+      "https://www.thescore.com/news/3582923",
+      "https://es.wikipedia.org/wiki/Ronaldinho",
+      "https://www.rsssf.org/miscellaneous/braz-recintlp.html",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+      "https://es.wikipedia.org/wiki/Copa_Mundial_de_Clubes_de_la_FIFA_2013"
+    ],
+    "incertos": [
+      "assists",
+      "apps",
+      "titulosTotais (16 com a Copa Intertoto 2001 do PSG, que as Wikipedias em inglês e espanhol creditam; o Transfermarkt o mostra fora da lista nos dois jogos da final)"
+    ],
+    "notas": "Jogos/gols: soma das tabelas da Wikipedia em inglês — clubes 699 jogos/266 gols (Grêmio 125/58 com Gauchão e Copa Sul, PSG 77/25, Barcelona 207/94, Milan 95/26, Flamengo 72/28, Atlético-MG 85/27, Querétaro 29/8, Fluminense 9/0) + Seleção principal 97/33 (inclui amistosos 'A'). O resumo da Wikipedia (853/328) soma sub-17, sub-20 e sub-23/olímpico, que aqui não contam. O Transfermarkt bate em todos os clubes, menos no Grêmio (73 jogos: não registra o Gauchão nem a Copa Sul). Assistências: 210 = soma do Transfermarkt (clubes 181 + Seleção 29); é piso, porque faltam os jogos estaduais de 1998–2001 — por isso assistsEstimated. Intertoto 2001 (PSG) fora: o Transfermarkt o mostra fora da lista nos dois jogos da final, mesma regra da Supercopa 2005 de Messi. Bronze olímpico 2008 não é título. Taça Guanabara/Taça Rio 2011 são turnos do Carioca e não contam à parte. 2026: saiu da aposentadoria e assinou com o Ravenna (Serie C da Itália, anunciado em junho, apresentado em 20/8/2026), mas até 11/10/2026 não entrou em campo (o Transfermarkt o lista como lesionado/fora da lista em todos os jogos); por isso asOf 2026-10 com números iguais aos de 2015. Correções ao arquivo antigo: apps 820→796, gols 313→299, assistências 190→210. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF. Seleção 97/33 confirmada no RSSSF (lista até 5/7/2026). A es.wikipedia dá 695 jogos/266 gols por clubes (Grêmio 121, contra 125 da en.wikipedia; a diferença está nos estaduais/Copa Sul de 1999–2000): seriam 792 jogos, contra 796. Os gols (299) batem nas duas; apps foi para incertos. A es.wikipedia confirma o Ravenna (2026–presente) sem jogos. Títulos: as duas Wikipedias listam a Intertoto 2001, mas o Transfermarkt mostra Ronaldinho fora da lista nos dois jogos da final (7 e 21/8/2001), na mesma época em que já jogava a Ligue 1; ficou fora pela regra de participação. Recopa 2014: jogou as duas partidas da final (Transfermarkt). Supercopas da Espanha 2005 e 2006: jogou. Prêmios: Bola de Ouro da Placar 2012 confirmada na página da Bola de Prata (pt.wikipedia), e Bola de Prata 2000, 2011 e 2012; Rei da América 2013 confirmado (El País); artilharia do Mundial de Clubes 2013 com 2 gols, empatado com César Delgado, Conca e Iajour (es.wikipedia). Feito corrigido: a liderança de assistências da Serie A 2009/10 tem números diferentes conforme a fonte (15 na en.wikipedia, 16 no Transfermarkt, 18 na es.wikipedia), por isso o número saiu. Conferidos: os oito jogadores com Copa, Champions e Bola de Ouro em 2018 (Charlton, Beckenbauer, Gerd Müller, Paolo Rossi, Zidane, Rivaldo, Ronaldinho e Kaká) e a Libertadores 2013 como a primeira do Atlético-MG. Acrescentado o Prêmio pela carreira do Globe Soccer (2021)."
+  },
+  {
+    "id": "kaka",
+    "asOf": "2017",
+    "apps": 746,
+    "goals": 237,
+    "assists": 187,
+    "assistsEstimated": true,
+    "ballonDor": 1,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 1,
+    "libertadores": 0,
+    "leagueTitles": 2,
+    "otherMajorTitles": 1,
+    "goldenBoots": 0,
+    "titulosTotais": 12,
+    "titulos": [
+      {
+        "nome": "Torneio Rio-São Paulo",
+        "equipe": "São Paulo",
+        "n": 1,
+        "anos": "2001",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Supercampeonato Paulista",
+        "equipe": "São Paulo",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2003/04",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da Itália",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2004",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2010/11",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2011/12",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa das Confederações",
+        "equipe": "Brasil",
+        "n": 2,
+        "anos": "2005, 2009",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 1,
+        "anos": "2007",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Melhor Jogador do Mundo da FIFA (FIFA World Player)",
+        "n": 1,
+        "anos": "2007",
+        "chave": "the_best"
+      },
+      {
+        "nome": "Melhor jogador da Serie A (Oscar del Calcio AIC)",
+        "n": 2,
+        "anos": "2004, 2007",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Bola de Ouro da Placar (melhor jogador do Brasileirão)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Artilheiro da Champions League (10 gols)",
+        "n": 1,
+        "anos": "2006/07",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Jogador de clubes do ano da UEFA (UEFA Club Footballer of the Year)",
+        "n": 1,
+        "anos": "2006/07",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial de Clubes",
+        "n": 1,
+        "anos": "2007",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Bola de Ouro da Copa das Confederações",
+        "n": 1,
+        "anos": "2009",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro — Jogador do ano",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador do ano",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "Onze d'Or (Onze Mondial)",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Melhor armador do mundo",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor atacante (2006/07) e melhor meio-campista (2004/05) de clubes da UEFA",
+        "n": 2,
+        "anos": "2004/05, 2006/07",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor estrangeiro da Serie A (Oscar del Calcio AIC)",
+        "n": 3,
+        "anos": "2004, 2006, 2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro World XI (seleção do ano)",
+        "n": 3,
+        "anos": "2006, 2007, 2008",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção UEFA do ano",
+        "n": 3,
+        "anos": "2006, 2007, 2009",
+        "chave": "outro"
+      },
+      {
+        "nome": "Pallone d'Argento",
+        "n": 1,
+        "anos": "2006/07",
+        "chave": "outro"
+      },
+      {
+        "nome": "MVP do Jogo das Estrelas da MLS",
+        "n": 1,
+        "anos": "2015",
+        "chave": "outro"
+      },
+      {
+        "nome": "Samba de Ouro (melhor brasileiro na Europa)",
+        "n": 1,
+        "anos": "2008",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Bola de Ouro, Melhor do Mundo da FIFA e Jogador do Ano FIFPro em 2007",
+      "Último a ganhar a Bola de Ouro e o prêmio da FIFA antes de dez anos seguidos de Messi e Cristiano Ronaldo (2008–2017)",
+      "Artilheiro da Champions 2006/07 com 10 gols, na temporada do título do Milan",
+      "Campeão do mundo em 2002, aos 20 anos",
+      "Melhor jogador do Mundial de Clubes 2007, com gol na final (Milan 4–2 Boca Juniors)",
+      "Bola de Ouro da Copa das Confederações 2009 e bicampeão do torneio (2005 e 2009)",
+      "Campeão italiano em 2003/04, na primeira temporada na Europa",
+      "104 gols em 307 jogos oficiais pelo Milan, em duas passagens",
+      "Embaixador mais jovem do Programa Mundial de Alimentos da ONU (2004)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Kak%C3%A1",
+      "https://pt.wikipedia.org/wiki/Kak%C3%A1",
+      "https://tmapi-alpha.transfermarkt.technology/player/3366/performance-game",
+      "https://es.wikipedia.org/wiki/Kak%C3%A1",
+      "https://www.rsssf.org/miscellaneous/braz-recintlp.html",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers"
+    ],
+    "incertos": [
+      "assists",
+      "apps"
+    ],
+    "notas": "Jogos/gols: Wikipedia em inglês — clubes 654/208 (São Paulo 149/50 nas duas passagens, com Paulistão e Rio-São Paulo; Milan 307/104; Real Madrid 120/29; Orlando City 78/25) + Seleção principal 92/29. O Transfermarkt bate em Milan, Real, Orlando e Seleção; no São Paulo registra 109 jogos (faltam estaduais). Assistências: 187 = soma do Transfermarkt (Milan 81, Real 39, São Paulo 25, Orlando 19, Seleção 23); piso, por faltar parte de 2001–03 — por isso assistsEstimated. Supercopa da UEFA 2003 e Supercopa da Espanha 2012 ficaram fora: o Transfermarkt o mostra fora da lista nos dois jogos (a Wikipedia também não os inclui). O Supercampeonato Paulista 2002 conta como título estadual próprio (torneio à parte do Paulistão). Correções ao arquivo antigo: apps 750→746 (gols 237 confirmados). CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF + lista de artilheiros da Champions. Seleção 92/29 confirmada no RSSSF (o infobox da es.wikipedia diz 95). São Paulo: a es.wikipedia dá 128 jogos na 1ª passagem (en.wikipedia 125) e 24/3 em 2014 (igual ao Transfermarkt): clubes 657/208, total 749/237. Os gols (237) batem; apps foi para incertos (746 ou 749). Milan 307/104, Real 120/29 e Orlando 78/25 batem nas três fontes. Títulos: a es.wikipedia credita a Supercopa da UEFA 2003 e a Supercopa da Espanha 2012, mas o Transfermarkt o mostra fora da lista nesses jogos e a en.wikipedia não os inclui; a exclusão foi mantida. Prêmios conferidos: Bola de Ouro e FIFA World Player 2007; Futebolista do Ano da Serie A 2004 e 2007 (es.wikipedia); Bola de Ouro da Placar 2002 (página da Bola de Prata); artilharia da Champions 2006/07 com 10 gols (lista de artilheiros); Bola de Ouro do Mundial de Clubes 2007 e da Copa das Confederações 2009. Feitos conferidos: 104 gols em 307 jogos pelo Milan (es.wikipedia e Transfermarkt), Bola de Ouro e bicampeonato da Copa das Confederações (2005 e 2009) e embaixador mais jovem do Programa Mundial de Alimentos (en.wikipedia, citando comunicado do PMA de 30/11/2004; a es.wikipedia não traz o dado)."
+  },
+  {
+    "id": "neymar",
+    "asOf": "2026-10",
+    "apps": 774,
+    "goals": 461,
+    "assists": 297,
+    "assistsEstimated": false,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 1,
+    "libertadores": 1,
+    "leagueTitles": 8,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 30,
+    "titulos": [
+      {
+        "nome": "Campeonato Paulista",
+        "equipe": "Santos",
+        "n": 3,
+        "anos": "2010, 2011, 2012",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Copa do Brasil",
+        "equipe": "Santos",
+        "n": 1,
+        "anos": "2010",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa Libertadores",
+        "equipe": "Santos",
+        "n": 1,
+        "anos": "2011",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Recopa Sul-Americana",
+        "equipe": "Santos",
+        "n": 1,
+        "anos": "2012",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2013",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Barcelona",
+        "n": 2,
+        "anos": "2014/15, 2015/16",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Barcelona",
+        "n": 3,
+        "anos": "2014/15, 2015/16, 2016/17",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "2015",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Francês (Ligue 1)",
+        "equipe": "Paris Saint-Germain",
+        "n": 5,
+        "anos": "2017/18, 2018/19, 2019/20, 2021/22, 2022/23",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da França",
+        "equipe": "Paris Saint-Germain",
+        "n": 3,
+        "anos": "2017/18, 2019/20, 2020/21",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa da Liga Francesa",
+        "equipe": "Paris Saint-Germain",
+        "n": 2,
+        "anos": "2017/18, 2019/20",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da França (Trophée des Champions)",
+        "equipe": "Paris Saint-Germain",
+        "n": 3,
+        "anos": "2018, 2020, 2022",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Campeonato Saudita (Saudi Pro League)",
+        "equipe": "Al-Hilal",
+        "n": 1,
+        "anos": "2023/24",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa das Confederações",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "2013",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Ouro olímpico",
+        "equipe": "Brasil Sub-23",
+        "n": 1,
+        "anos": "2016",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Prêmio Puskás (gol do ano da FIFA)",
+        "n": 1,
+        "anos": "2011",
+        "chave": "puskas"
+      },
+      {
+        "nome": "Melhor jogador do Brasileirão (Craque do Brasileirão da CBF e Bola de Ouro da Placar)",
+        "n": 1,
+        "anos": "2011",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Melhor jogador da Ligue 1 (UNFP)",
+        "n": 1,
+        "anos": "2017/18",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Artilheiro da Copa Libertadores (8 gols, dividido com Matías Alustiza)",
+        "n": 1,
+        "anos": "2012",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Champions League (10 gols, dividido com Messi e Cristiano Ronaldo)",
+        "n": 1,
+        "anos": "2014/15",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Melhor jogador da Copa Libertadores",
+        "n": 1,
+        "anos": "2011",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Rei da América — melhor jogador sul-americano do ano (El País)",
+        "n": 2,
+        "anos": "2011, 2012",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Bola de Ouro da Copa das Confederações",
+        "n": 1,
+        "anos": "2013",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Eleito com Messi melhor jogador da Copa América 2021 pelo Grupo de Estudo Técnico da CONMEBOL (anúncio antes da final; o prêmio oficial ficou só com Messi)",
+        "n": 1,
+        "anos": "2021",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+        "n": 2,
+        "anos": "2010, 2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata hors concours (Placar), honra antes dada só a Pelé",
+        "n": 1,
+        "anos": "2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Bronze da Copa do Mundo",
+        "n": 1,
+        "anos": "2014",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Bronze da Copa das Confederações",
+        "n": 1,
+        "anos": "2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Bronze do Mundial de Clubes",
+        "n": 1,
+        "anos": "2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa do Brasil (11 gols)",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa do Rei",
+        "n": 1,
+        "anos": "2014/15",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Paulista (20 gols)",
+        "n": 1,
+        "anos": "2012",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador do Campeonato Paulista",
+        "n": 2,
+        "anos": "2012, 2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências (Libertadores 2011, Mundial de Clubes 2015, Champions 2015/16 e 2016/17, Ligue 1 2017/18)",
+        "n": 5,
+        "anos": "2011, 2015, 2015/16, 2016/17, 2017/18",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador americano de La Liga",
+        "n": 1,
+        "anos": "2014/15",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA FIFPro World 11 (seleção do ano)",
+        "n": 2,
+        "anos": "2015, 2017",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção UEFA do ano",
+        "n": 2,
+        "anos": "2015, 2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "Samba de Ouro (melhor brasileiro na Europa)",
+        "n": 6,
+        "anos": "2014, 2015, 2017, 2020, 2021, 2022",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Jogador jovem do ano",
+        "n": 1,
+        "anos": "2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa América",
+        "n": 1,
+        "anos": "2021",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Prêmio pela carreira",
+        "n": 1,
+        "anos": "2024",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Maior artilheiro da história da Seleção Brasileira: 80 gols em 130 jogos (2010–2026), na contagem da FIFA",
+      "Segundo jogador com mais jogos pela Seleção (130), atrás de Cafu",
+      "Transferência mais cara da história: €222 milhões, do Barcelona para o PSG (2017)",
+      "Prêmio Puskás de 2011, pelo gol contra o Flamengo",
+      "Primeiro ouro olímpico do futebol masculino do Brasil (Rio 2016)",
+      "Tríplice coroa com o Barcelona em 2014/15 (La Liga, Copa do Rei e Champions), com gol na final da Champions",
+      "Artilheiro da Champions 2014/15 (10 gols), dividido com Messi e Cristiano Ronaldo",
+      "Primeiro jogador a marcar 20 gols de Champions por dois clubes diferentes (Barcelona e PSG)",
+      "Segundo brasileiro a marcar em quatro Copas do Mundo (2014, 2018, 2022 e 2026), depois de Pelé: 9 gols em 15 jogos",
+      "Mais de 100 gols por três clubes: Santos (157), PSG (118) e Barcelona (105)",
+      "Terceiro colocado na Bola de Ouro em 2015 e 2017",
+      "Campeão da Libertadores (2011) e da Champions (2015)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Neymar",
+      "https://pt.wikipedia.org/wiki/Neymar",
+      "https://tmapi-alpha.transfermarkt.technology/player/68290/performance-game",
+      "https://es.wikipedia.org/wiki/Neymar",
+      "https://www.rsssf.org/miscellaneous/braz-recintlp.html",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://fr.wikipedia.org/wiki/Troph%C3%A9es_UNFP_du_football",
+      "https://en.wikipedia.org/wiki/2021_Copa_Am%C3%A9rica",
+      "https://es.wikipedia.org/wiki/Copa_Am%C3%A9rica_2021",
+      "https://www.band.com.br/esportes/neymar-confirma-aposentadoria-da-selecao-brasileira-nao-quero-mais-202607290818",
+      "https://ohoje.com/2026/10/08/neymar-marca-dois-e-santos-busca-empate-contra-o-flamengo/",
+      "https://www.cnnbrasil.com.br/esportes/futebol/copa-do-mundo/brasil-e-eliminado-da-copa-pela-noruega-e-chega-a-maior-jejum-sem-titulos/"
+    ],
+    "incertos": [
+      "assists",
+      "premios.outro (melhor jogador do Paulistão: 2012 e 2013 na en.wikipedia; 2010, 2011 e 2012 na es.wikipedia)"
+    ],
+    "notas": "Números até o jogo de 8/10/2026 (Santos 2–2 Flamengo, 2 gols de pênalti); no jogo seguinte, em 11/10, não foi relacionado. Jogos/gols: clubes 644/381 (Santos 278/157 nas duas passagens, com Paulistão; Barcelona 186/105; PSG 173/118; Al-Hilal 7/1) + Seleção principal 130/80 — Wikipedia em inglês e Transfermarkt batem jogo a jogo. Aposentou-se da Seleção após a eliminação para a Noruega nas oitavas da Copa de 2026 (5/7/2026); jogou 2 partidas na Copa e fez 1 gol. Assistências: 297 pelo Transfermarkt (Santos 79, Barcelona 76, PSG 80, Al-Hilal 3, Seleção 59); a Wikipedia em português dá 264 (206 por clubes + 58 pela Seleção), com critério mais restrito — fica o Transfermarkt, de cobertura completa, e o campo vai em incertos. Títulos fora: Supercopa da UEFA 2015 (lesionado), Supercopa da Espanha 2016 (ausente, Olimpíada), Trophée des Champions 2019 (lesionado), Copa do Rei e Supercopa Saudita 2024 do Al-Hilal (lesionado, sem jogos). Medalha de prata olímpica 2012 não é título. Recopa Sul-Americana conta em titulosTotais, não em otherMajorTitles. Correções ao arquivo antigo: apps 730→774, gols 445→461, assistências 280→297. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol (atualizada até 16/8/2026) + RSSSF + imprensa. A es.wikipedia dá Santos 274/155 até 16/8; depois disso o Transfermarkt registra 4 jogos e 2 gols (os dois de pênalti no 2–2 com o Flamengo em 8/10, confirmados pelo O Hoje): 278/157, iguais ao arquivo. Barcelona 186/105, PSG 173/118 e Al-Hilal 7/1 batem. Seleção 130/80 confirmada no RSSSF (até 5/7/2026), no infobox da es.wikipedia e na Band, que registra a despedida da seleção em 28/7/2026 (\"Não quero mais\"); a CNN Brasil confirma o gol de pênalti no 2–1 da Noruega (5/7). Copa do Mundo: 15 jogos e 9 gols também na es.wikipedia. Títulos: os 30 conferem com a es.wikipedia (sem o Sul-Americano Sub-20); o Palmeiras ganhou o Paulistão 2026 e o Santos caiu na Copa do Brasil e na Sul-Americana, então não há título novo em 2026. CORREÇÕES em prêmios: (1) a Bola de Ouro da Placar de 2012 foi de Ronaldinho; Neymar recebeu naquele ano a Bola de Prata hors concours (página da Bola de Prata na pt.wikipedia e es.wikipedia; a en.wikipedia erra ao listar 2011 e 2012). (2) Craque do Brasileirão e Bola de Ouro de 2011 premiam a mesma temporada; viraram uma entrada só (league_best_player 1 + Ligue 1 2017/18 = 2, contra 4 no arquivo). (3) Copa América 2021: o Grupo de Estudo Técnico da CONMEBOL apontou Messi e Neymar antes da final, mas a lista oficial de prêmios (en e es.wikipedia) traz só Messi como melhor jogador; a entrada saiu de tournament_best e foi para outro. UNFP 2017/18 confirmado na fr.wikipedia. Rei da América 2011 e 2012 confirmados (El País). Artilharia da Libertadores 2012 e da Champions 2014/15 confirmadas. Feitos conferidos: tríplice coroa 2014/15 com gol na final; 9 gols em 15 jogos de Copa, marcando em quatro edições; Libertadores 2011 e Champions 2015. Também conferido (fora da amostra): foi o primeiro a fazer 20 gols de Champions por dois clubes, ao chegar a 20 pelo PSG em 9/12/2020, antes de Cristiano Ronaldo (Manchester United, nov/2021) e Lewandowski (Barcelona)."
+  },
+  {
+    "id": "vinicius",
+    "asOf": "2026-10",
+    "apps": 510,
+    "goals": 157,
+    "assists": 118,
+    "assistsEstimated": false,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 2,
+    "libertadores": 0,
+    "leagueTitles": 3,
+    "otherMajorTitles": 3,
+    "goldenBoots": 0,
+    "titulosTotais": 14,
+    "titulos": [
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "2019/20, 2021/22, 2023/24",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2022/23",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "2020, 2022, 2024",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2022, 2024",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2022, 2024",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "2018, 2022",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Copa Intercontinental da FIFA",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2024",
+        "tipo": "mundial"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Melhor do Mundo da FIFA (The Best)",
+        "n": 1,
+        "anos": "2024",
+        "chave": "the_best"
+      },
+      {
+        "nome": "Melhor jogador da Champions League (UEFA Player of the Season)",
+        "n": 1,
+        "anos": "2023/24",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial de Clubes",
+        "n": 1,
+        "anos": "2022",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Bola de Ouro da Copa Intercontinental da FIFA",
+        "n": 1,
+        "anos": "2024",
+        "chave": "tournament_best"
+      },
+      {
+        "nome": "Melhor jogador jovem da Champions League",
+        "n": 1,
+        "anos": "2021/22",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Sócrates (France Football)",
+        "n": 1,
+        "anos": "2023",
+        "chave": "outro"
+      },
+      {
+        "nome": "Globe Soccer — Melhor jogador do ano e melhor atacante",
+        "n": 2,
+        "anos": "2024",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA FIFPro World 11 (seleção do ano)",
+        "n": 2,
+        "anos": "2023, 2024",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Seleção mundial do ano",
+        "n": 1,
+        "anos": "2024",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção de La Liga",
+        "n": 4,
+        "anos": "2021/22, 2022/23, 2023/24, 2024/25",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Champions League",
+        "n": 3,
+        "anos": "2021/22, 2022/23, 2023/24",
+        "chave": "outro"
+      },
+      {
+        "nome": "Jogador do mês de La Liga",
+        "n": 3,
+        "anos": "nov/2021, mar/2024, nov/2024",
+        "chave": "outro"
+      },
+      {
+        "nome": "Samba de Ouro (melhor brasileiro na Europa)",
+        "n": 2,
+        "anos": "2023, 2024",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador do Sul-Americano Sub-17",
+        "n": 1,
+        "anos": "2017",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Eleito o melhor jogador do mundo pela FIFA (The Best) em 2024",
+      "Vice-campeão da Bola de Ouro em 2024",
+      "Gol do título na final da Champions de 2022 (Real Madrid 1–0 Liverpool)",
+      "Mais jovem a marcar em duas finais de Champions (23 anos e 325 dias, em 2024), superando Messi",
+      "Melhor jogador da Champions 2023/24",
+      "Bola de Ouro do Mundial de Clubes 2022 e da Copa Intercontinental 2024",
+      "Segundo maior artilheiro brasileiro da história da Champions, atrás só de Neymar",
+      "Maior assistente da história do Real Madrid na Champions: passou Cristiano Ronaldo e Benzema (27) no 6–1 sobre o Monaco, em 20/1/2026",
+      "5 gols em Copas do Mundo: 1 em 2022 e 4 em 2026",
+      "129 gols pelo Real Madrid em 384 jogos oficiais"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Vin%C3%ADcius_J%C3%BAnior",
+      "https://pt.wikipedia.org/wiki/Vin%C3%ADcius_J%C3%BAnior",
+      "https://tmapi-alpha.transfermarkt.technology/player/371998/performance-game",
+      "https://es.wikipedia.org/wiki/Vin%C3%ADcius_J%C3%BAnior",
+      "https://www.rsssf.org/miscellaneous/braz-recintlp.html",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://en.wikipedia.org/wiki/2025%E2%80%9326_Real_Madrid_CF_season",
+      "https://jornalgrandebahia.com.br/?p=1318114",
+      "https://www.diariodepernambuco.com.br/esportes-dp/internacional/2026/01/11705750-vini-jr-vira-maior-garcom-do-real-na-champions-e-responde-vaias-sou-humano.html",
+      "https://www.cnnbrasil.com.br/esportes/futebol/copa-do-mundo/brasil-e-eliminado-da-copa-pela-noruega-e-chega-a-maior-jejum-sem-titulos/"
+    ],
+    "incertos": [
+      "assists"
+    ],
+    "notas": "Números até 10/10/2026 (último jogo pelo Real; pela Seleção, 3/10/2026). Jogos/gols: Flamengo 69/14 + Real Madrid 384/129 + Seleção principal 57/14. O Real Madrid Castilla (5 jogos/4 gols na Segunda B, 2018/19) fica fora por ser time B, mesma regra do Barcelona B de Messi. A tabela da Wikipedia em inglês dá 385 jogos no total do Real, mas a soma das temporadas é 384, igual ao Transfermarkt (o Mundial de Clubes de 2025, 6 jogos, está somado à temporada 2024/25). Assistências: Transfermarkt (Real 103, Flamengo 5, Seleção 10). Na Copa de 2026 fez 4 gols em 5 jogos; o Brasil caiu nas oitavas para a Noruega. Supercopa da UEFA 2018 perdida (ficou no banco). Correções ao arquivo antigo: apps 420→510, gols 130→157, assistências 95→118, otherMajorTitles 2→3 (Mundial de Clubes 2018 e 2022 + Copa Intercontinental 2024). CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol (até 20/9/2026) + RSSSF + lista de artilheiros da Champions. Real Madrid 383/129 na es.wikipedia até 20/9; depois disso só um jogo, em 10/10 (20 minutos, sem gol): 384/129. Flamengo 69/14 bate. Seleção: o RSSSF dá 54/13 até 5/7/2026, e o infobox da es.wikipedia, 57/14, contando os três amistosos de set./out. de 2026 (1 gol). A tabela anual da es.wikipedia está desatualizada (52/13). Títulos: os 14 conferem com a es.wikipedia (a Taça Guanabara 2018 é turno do Carioca). O Real Madrid não ganhou nada em 2025/26: vice da Supercopa (3–2 para o Barcelona), eliminado pelo Albacete nas oitavas da Copa do Rei, 2º em La Liga e eliminado nas quartas da Champions (página da temporada na en.wikipedia). Prêmios conferidos na es.wikipedia: The Best 2024, melhor jogador da Champions 2023/24, Bola de Ouro do Mundial de Clubes 2022 e da Copa Intercontinental 2024. Não entrou na seleção FIFPro de 2025 (Dembélé, Mbappé e Yamal no ataque). Feitos conferidos: segundo maior artilheiro brasileiro da Champions (34 gols, atrás de Neymar com 43 e à frente de Kaká com 30, na lista atualizada em 13/10/2026). FEITO CORRIGIDO (fora da amostra): ele não igualou Cristiano Ronaldo com 31 assistências. Chegou a 30 em 20/1/2026 e passou Cristiano Ronaldo e Benzema (27 cada), virando o maior assistente do Real na Champions (Jornal Grande Bahia e Diario de Pernambuco)."
+  },
+  {
+    "id": "cafu",
+    "asOf": "2008",
+    "apps": 866,
+    "goals": 59,
+    "assists": 100,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 2,
+    "ucl": 1,
+    "libertadores": 2,
+    "leagueTitles": 3,
+    "otherMajorTitles": 7,
+    "goldenBoots": 0,
+    "titulosTotais": 24,
+    "titulos": [
+      {
+        "nome": "Campeonato Brasileiro",
+        "equipe": "São Paulo",
+        "n": 1,
+        "anos": "1991",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Paulista",
+        "equipe": "São Paulo",
+        "n": 2,
+        "anos": "1991, 1992",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Copa Libertadores",
+        "equipe": "São Paulo",
+        "n": 2,
+        "anos": "1992, 1993",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa Libertadores",
+        "equipe": "São Paulo",
+        "n": 1,
+        "anos": "1993",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Recopa Sul-Americana",
+        "equipe": "São Paulo",
+        "n": 2,
+        "anos": "1993, 1994",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa Intercontinental (Mundial)",
+        "equipe": "São Paulo",
+        "n": 2,
+        "anos": "1992, 1993",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Recopa Europeia",
+        "equipe": "Real Zaragoza",
+        "n": 1,
+        "anos": "1994/95",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Campeonato Paulista",
+        "equipe": "Palmeiras",
+        "n": 1,
+        "anos": "1996",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Roma",
+        "n": 1,
+        "anos": "2000/01",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2003/04",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da Itália",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2004",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Milan",
+        "n": 2,
+        "anos": "2003, 2007",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Mundial de Clubes da FIFA",
+        "equipe": "Milan",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Brasil",
+        "n": 2,
+        "anos": "1994, 2002",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa América",
+        "equipe": "Brasil",
+        "n": 2,
+        "anos": "1997, 1999",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa das Confederações",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "1997",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Rei da América — melhor jogador sul-americano do ano (El País)",
+        "n": 1,
+        "anos": "1994",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+        "n": 2,
+        "anos": "1992, 1993",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção sul-americana do ano (El País)",
+        "n": 4,
+        "anos": "1992, 1993, 1994, 1995",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (All-Star Team; reserva)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção UEFA do ano",
+        "n": 2,
+        "anos": "2004, 2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFPro World XI (seleção do ano)",
+        "n": 1,
+        "anos": "2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      },
+      {
+        "nome": "IFFHS — Seleção de todos os tempos",
+        "n": 1,
+        "anos": "2021",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único jogador a disputar três finais de Copa do Mundo seguidas (1994, 1998 e 2002)",
+      "Capitão do pentacampeonato mundial em 2002",
+      "Recordista de jogos pela Seleção Brasileira: 142",
+      "Bicampeão mundial (1994 e 2002) e quatro Copas disputadas (1994 a 2006)",
+      "Bicampeão da Libertadores e da Copa Intercontinental com o São Paulo (1992 e 1993)",
+      "Campeão da Champions (aos 36 anos) e do Mundial de Clubes pelo Milan em 2007",
+      "Eleito o melhor jogador da América do Sul em 1994, como lateral",
+      "Campeão italiano por Roma (2001) e Milan (2004)",
+      "Ganhou Libertadores, Supercopa Libertadores, Recopa Europeia e Champions League: títulos continentais nos dois lados do Atlântico",
+      "Lateral-direito do Dream Team da Bola de Ouro (2020)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Cafu",
+      "https://pt.wikipedia.org/wiki/Cafu",
+      "https://tmapi-alpha.transfermarkt.technology/player/5937/performance-game",
+      "https://es.wikipedia.org/wiki/Caf%C3%BA",
+      "https://www.rsssf.org/miscellaneous/braz-recintlp.html",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year"
+    ],
+    "incertos": [
+      "apps",
+      "goals",
+      "assists"
+    ],
+    "notas": "Jogos/gols: Wikipedia em inglês — clubes 724/54 (São Paulo 272/38 com Paulistão; Zaragoza 19/0; Juventude 2/0; Palmeiras 48/4; Roma 217/8; Milan 166/4) + Seleção 142/5. A tabela do Palmeiras está incompleta (sem os jogos do Paulistão de 1996), por isso apps/goals em incertos; o número real é um pouco maior. O Transfermarkt dá 143 jogos pela Seleção; ficou o número da CBF/Wikipedia (142). Assistências: o Transfermarkt registra 95, mas não cobre os estaduais de 1989–96; mantida a estimativa de 100. Títulos fora: Copa Conmebol 1994 do São Paulo (fora da lista em todos os jogos, segundo o Transfermarkt) e Supercopa da Itália 2001 da Roma (não jogou). A Supercopa da UEFA 2007 conta: estava no banco na final. Recopas Sul-Americanas contam em titulosTotais, não em otherMajorTitles. otherMajorTitles 7 = Supercopa Libertadores 1993 + Intercontinental 1992 e 1993 + Recopa Europeia 1995 + Mundial de Clubes 2007 + Copa América 1997 e 1999 (o arquivo antigo tinha 6). Bola de Prata da Placar 1992 e 1993 pela Wikipedia em português. Correções: apps 760→866, gols 40→59. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF + Transfermarkt jogo a jogo. Seleção 142/5 no RSSSF. A es.wikipedia soma 722/54 por clubes (São Paulo 272/38, Zaragoza 19/0, Palmeiras 48/4, Roma 217/8, Milan 166/4, sem o Juventude), praticamente o mesmo número da en.wikipedia. As duas têm o Palmeiras incompleto, então apps continua em incertos. Títulos: a es.wikipedia credita também o Paulista de 1989 e a Supercopa da Itália 2001. Pela tabela da própria es.wikipedia ele não jogou o Paulista de 1989, e o Transfermarkt o mostra fora da lista na Supercopa 2001; ficaram fora. Recopa Europeia 1995: jogou a semifinal contra o Chelsea (20/4/1995), mas ficou fora da final; conta pela regra de participação na campanha. Supercopa da UEFA 2007: no banco. Mundial de Clubes 2007: jogou a final. Prêmios: Rei da América 1994 (El País) e Bola de Prata 1992 e 1993 confirmados. Feitos conferidos: bicampeão da Libertadores e da Intercontinental (1992 e 1993), melhor da América do Sul em 1994 e campeão italiano por Roma (2001) e Milan (2004)."
+  },
+  {
+    "id": "roberto-carlos",
+    "asOf": "2015",
+    "apps": 1110,
+    "goals": 128,
+    "assists": 180,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 1,
+    "ucl": 3,
+    "libertadores": 0,
+    "leagueTitles": 6,
+    "otherMajorTitles": 4,
+    "goldenBoots": 0,
+    "titulosTotais": 23,
+    "titulos": [
+      {
+        "nome": "Campeonato Brasileiro",
+        "equipe": "Palmeiras",
+        "n": 2,
+        "anos": "1993, 1994",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Campeonato Paulista",
+        "equipe": "Palmeiras",
+        "n": 2,
+        "anos": "1993, 1994",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Torneio Rio-São Paulo",
+        "equipe": "Palmeiras",
+        "n": 1,
+        "anos": "1993",
+        "tipo": "estadual"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 4,
+        "anos": "1996/97, 2000/01, 2002/03, 2006/07",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da Espanha",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "1997, 2001, 2003",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Champions League",
+        "equipe": "Real Madrid",
+        "n": 3,
+        "anos": "1998, 2000, 2002",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Supercopa da UEFA",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa Intercontinental (Mundial)",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "1998, 2002",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Supercopa da Turquia",
+        "equipe": "Fenerbahçe",
+        "n": 1,
+        "anos": "2007",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "2002",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa América",
+        "equipe": "Brasil",
+        "n": 2,
+        "anos": "1997, 1999",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa das Confederações",
+        "equipe": "Brasil",
+        "n": 1,
+        "anos": "1997",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+        "n": 3,
+        "anos": "1993, 1994, 2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor defensor de clubes da UEFA",
+        "n": 2,
+        "anos": "2001/02, 2002/03",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção UEFA do ano",
+        "n": 2,
+        "anos": "2002, 2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot",
+        "n": 1,
+        "anos": "2008",
+        "chave": "outro"
+      },
+      {
+        "nome": "Trofeo EFE (melhor ibero-americano de La Liga)",
+        "n": 1,
+        "anos": "1997/98",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (All-Star Team)",
+        "n": 2,
+        "anos": "1998, 2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção ESM do ano",
+        "n": 7,
+        "anos": "1996/97, 1997/98, 1999/00, 2000/01, 2001/02, 2002/03, 2003/04",
+        "chave": "outro"
+      },
+      {
+        "nome": "Onze Mondial — seleção do ano",
+        "n": 8,
+        "anos": "1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Craque do Brasileirão — seleção do campeonato",
+        "n": 1,
+        "anos": "2010",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team (seleção de prata)",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Vice-campeão da Bola de Ouro em 2002, raro pódio de um lateral",
+      "Vice do Melhor do Mundo da FIFA em 1997",
+      "Tricampeão da Champions League com o Real Madrid (1998, 2000 e 2002)",
+      "Campeão do mundo em 2002 e vice em 1998",
+      "527 jogos oficiais e 69 gols pelo Real Madrid em 11 temporadas",
+      "Mais de 1.100 jogos oficiais na carreira, 125 deles pela Seleção",
+      "Gol de falta em curva contra a França no Torneio da França de 1997, um dos mais famosos da história",
+      "Bicampeão brasileiro com o Palmeiras (1993 e 1994)",
+      "Duas vezes eleito o melhor defensor de clubes da UEFA (2002 e 2003)",
+      "Quatro vezes campeão espanhol e duas vezes campeão intercontinental pelo Real Madrid"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Roberto_Carlos",
+      "https://pt.wikipedia.org/wiki/Roberto_Carlos_(futebolista)",
+      "https://www.rsssf.org/miscellaneous/rcarlos-intl.html",
+      "https://tmapi-alpha.transfermarkt.technology/player/7518/performance-game",
+      "https://es.wikipedia.org/wiki/Roberto_Carlos_(futbolista)",
+      "https://www.rsssf.org/miscellaneous/braz-recintlp.html",
+      "https://pt.wikipedia.org/wiki/Bola_de_Prata"
+    ],
+    "incertos": [
+      "apps",
+      "goals",
+      "assists"
+    ],
+    "notas": "Jogos/gols: Wikipedia em inglês — clubes 985/117 (União São João 66/5 com Paulistão; Palmeiras 162/16 com Paulistão e Rio-São Paulo; Inter de Milão 34/7; Real Madrid 527/69; Fenerbahçe 104/10; Corinthians 61/5; Anzhi 28/5; Delhi Dynamos 3/0) + Seleção 125/11 (RSSSF; a tabela anual da Wikipedia soma 10 gols, mas a lista do RSSSF tem 11, e o texto da Wikipedia também diz 11). A tabela de clubes da Wikipedia está marcada como 'citation needed' e o infobox cita um empréstimo ao Atlético-MG (3 jogos) que a tabela não traz — por isso apps/goals em incertos. O Transfermarkt bate em Real, Fenerbahçe, Corinthians e Inter, mas não cobre os estaduais (Palmeiras 60 jogos). Assistências: Transfermarkt soma 179 (Real 117), piso sem os anos de União São João e boa parte do Palmeiras — estimativa 180. Títulos fora: Brasileirão 2011 do Corinthians (saiu em fevereiro de 2011 sem jogar o campeonato) e os torneios amistosos da Seleção (Umbro Cup 1995, Copa do Ano Novo Lunar 2005). Correções ao arquivo antigo: apps 950→1110, gols 113→128, assistências 150→180. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF + página da Bola de Prata. Seleção 125/11 no RSSSF (o Transfermarkt e o infobox da es.wikipedia dizem 127). A tabela de clubes da es.wikipedia também é incompleta e não fecha (União São João 90/15 com o empréstimo ao Atlético-MG; total declarado 1044/106; a soma das linhas dá cerca de 1009/126). Por isso apps e goals continuam em incertos, mas as duas contagens passam de 1.100 jogos com a seleção; o feito foi reescrito sem o número de clubes. Real Madrid: 527 jogos nas três fontes, com 69 gols na en.wikipedia e no Transfermarkt e 68 na es.wikipedia. Títulos: a es.wikipedia credita a Supercopa da Turquia 2009, mas o Transfermarkt o mostra lesionado no jogo (2/8/2009); a exclusão foi mantida. A Supercopa da Turquia 2007 conta (jogou). Bola de Prata 1993, 1994 e 2010 confirmadas. Feitos conferidos: vice da Bola de Ouro 2002 (\"Balón de Plata\" na es.wikipedia), campeão do mundo em 2002 e vice em 1998, e 527 jogos e 69 gols pelo Real."
+  },
+  {
+    "id": "di-stefano",
+    "asOf": "1966",
+    "apps": 706,
+    "goals": 509,
+    "assists": 200,
+    "assistsEstimated": true,
+    "ballonDor": 2,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 5,
+    "libertadores": 0,
+    "leagueTitles": 13,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 25,
+    "titulos": [
+      {
+        "nome": "Campeonato Argentino",
+        "equipe": "River Plate",
+        "n": 2,
+        "anos": "1945, 1947",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa Aldao (campeões da Argentina e do Uruguai)",
+        "equipe": "River Plate",
+        "n": 1,
+        "anos": "1947",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Campeonato Colombiano",
+        "equipe": "Millonarios",
+        "n": 3,
+        "anos": "1949, 1951, 1952",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa Colômbia",
+        "equipe": "Millonarios",
+        "n": 1,
+        "anos": "1953",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Campeonato Espanhol (La Liga)",
+        "equipe": "Real Madrid",
+        "n": 8,
+        "anos": "1953/54, 1954/55, 1956/57, 1957/58, 1960/61, 1961/62, 1962/63, 1963/64",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei (Copa do Generalíssimo)",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "1961/62",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa dos Campeões da Europa (Champions League)",
+        "equipe": "Real Madrid",
+        "n": 5,
+        "anos": "1956, 1957, 1958, 1959, 1960",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Copa Latina",
+        "equipe": "Real Madrid",
+        "n": 2,
+        "anos": "1955, 1957",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Copa Intercontinental (Mundial)",
+        "equipe": "Real Madrid",
+        "n": 1,
+        "anos": "1960",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Campeonato Sul-Americano (Copa América)",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "1947",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro (France Football)",
+        "n": 2,
+        "anos": "1957, 1959",
+        "chave": "ballon_dor"
+      },
+      {
+        "nome": "Super Bola de Ouro (France Football; prêmio único)",
+        "n": 1,
+        "anos": "1989",
+        "chave": "outro"
+      },
+      {
+        "nome": "Pichichi (artilheiro de La Liga)",
+        "n": 5,
+        "anos": "1953/54, 1955/56, 1956/57, 1957/58 (dividido), 1958/59",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Argentino (27 gols)",
+        "n": 1,
+        "anos": "1947",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Colombiano",
+        "n": 2,
+        "anos": "1951, 1952",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa dos Campeões / Champions League (10 gols)",
+        "n": 1,
+        "anos": "1957/58",
+        "chave": "continental_top_scorer"
+      },
+      {
+        "nome": "Melhor desportista espanhol do ano",
+        "n": 4,
+        "anos": "1957, 1959, 1960, 1964",
+        "chave": "outro"
+      },
+      {
+        "nome": "World Soccer — Seleção do mundo (World XI)",
+        "n": 5,
+        "anos": "1960, 1961, 1962, 1963, 1964",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ordem de Mérito da FIFA",
+        "n": 1,
+        "anos": "1994",
+        "chave": "outro"
+      },
+      {
+        "nome": "UEFA — Jogador de Ouro da Espanha (Jubileu)",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot (lenda)",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio do Presidente da UEFA",
+        "n": 1,
+        "anos": "2007",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team (seleção de prata)",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único vencedor da Super Bola de Ouro (1989)",
+      "Bicampeão da Bola de Ouro (1957 e 1959)",
+      "Pentacampeão europeu seguido com o Real Madrid (1956–1960), com gol em todas as cinco finais — recorde",
+      "7 gols em finais da Copa dos Campeões, recorde dividido com Puskás",
+      "Hat-trick na final de 1960 (Real Madrid 7–3 Eintracht Frankfurt)",
+      "49 gols na Copa dos Campeões, recorde na época",
+      "308 gols em 396 jogos oficiais pelo Real Madrid; foi o maior artilheiro do clube até ser superado por Raúl",
+      "Cinco vezes Pichichi e 22 hat-tricks em La Liga; só Messi, Cristiano Ronaldo e Telmo Zarra (23) têm mais",
+      "Campeão nacional em três países: Argentina, Colômbia e Espanha (13 ligas)",
+      "Defendeu as seleções da Argentina (campeão sul-americano de 1947) e da Espanha"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Alfredo_Di_St%C3%A9fano",
+      "https://pt.wikipedia.org/wiki/Alfredo_Di_St%C3%A9fano",
+      "https://en.wikipedia.org/wiki/List_of_Argentine_Primera_Divisi%C3%B3n_top_scorers",
+      "https://tmapi-alpha.transfermarkt.technology/player/135778/performance-game",
+      "https://es.wikipedia.org/wiki/Alfredo_Di_St%C3%A9fano",
+      "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+      "https://en.wikipedia.org/wiki/List_of_La_Liga_hat-tricks"
+    ],
+    "incertos": [
+      "apps",
+      "goals",
+      "assists",
+      "titulosTotais"
+    ],
+    "notas": "Jogos/gols: Wikipedia em inglês — clubes 669/480 pela linha 'Career total' (River Plate 76/55 com o jogo de 1945; Huracán 27/10; Millonarios 111/93; Real Madrid 396/308; Espanyol 60/14 — a soma das linhas dá 670) + Argentina 6/6 + Espanha 31/23. Real Madrid 396/308 batem com o Transfermarkt e com o clube; o Transfermarkt não tem os anos de Argentina e Colômbia. A linha de 1949 do Millonarios é inconsistente na própria tabela (15 jogos na liga, 14 no total) e o campeonato colombiano de 1949–53 ('El Dorado') foi disputado fora da FIFA; os jogos contam como oficiais do campeonato nacional, mas apps/goals ficam em incertos. Também jogou 4 partidas não oficiais pela Colômbia (não contam). Assistências: não há registro (o Transfermarkt só tem 52 no Real Madrid); mantida a estimativa de 200. titulosTotais 25 inclui a Copa Aldao 1947 (torneio oficial AFA–AUF) e as Copas Latinas 1955 e 1957 (organizadas pelas federações da Espanha, França, Itália e Portugal); sem elas seriam 22. O 'Pequeno Mundial' de clubes (1953 e 1956) não é oficial e ficou fora. O título argentino de 1945 conta pela regra de participação (1 jogo pelo River). retroBallonDor 0: já era elegível como espanhol naturalizado. Correções: apps 700→706, gols 510→509. CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + lista de artilheiros da Champions + lista de hat-tricks de La Liga. A es.wikipedia dá River 75/55 (incluindo o jogo de 1945), Huracán 27/10, Millonarios 112/94, Real Madrid 396/308 e Espanyol 60/14. A soma das linhas dá 670/481 (o total declarado é 669/483); com as seleções (Argentina 6/6, Espanha 31/23), 707/510, contra 706/509 no arquivo. Ficou o arquivo, com apps e goals em incertos. Títulos: os mesmos 25 da es.wikipedia (sem a Pequena Copa do Mundo). Prêmios: a es.wikipedia diz que ele foi artilheiro da Copa dos Campeões em 1957, 1958 e 1959, mas a lista da UEFA reproduzida na en.wikipedia dá Viollet em 1956/57 (9) e Fontaine em 1958/59 (10). Só 1957/58 (10 gols) se confirma. Pichichi 5, artilharia argentina de 1947 (27) e colombiana de 1951 e 1952, e Bolas de Ouro de 1957 e 1959 confirmados. FEITO CORRIGIDO: os 22 hat-tricks em La Liga não eram recorde na época. A lista da BDFutbol (en.wikipedia) dá 23 a Telmo Zarra, cujo último foi em 1953. Conferidos: 49 gols na Copa dos Campeões, recorde até Raúl em 2005, e 308 gols em 396 jogos pelo Real."
+  },
+  {
+    "id": "maradona",
+    "asOf": "1997",
+    "apps": 680,
+    "goals": 345,
+    "assists": 211,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 2,
+    "worldCups": 1,
+    "ucl": 0,
+    "libertadores": 0,
+    "leagueTitles": 3,
+    "otherMajorTitles": 1,
+    "goldenBoots": 0,
+    "titulosTotais": 10,
+    "titulos": [
+      {
+        "nome": "Campeonato Argentino (Metropolitano)",
+        "equipe": "Boca Juniors",
+        "n": 1,
+        "anos": "1981",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa do Rei",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "1982/83",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa da Liga Espanhola",
+        "equipe": "Barcelona",
+        "n": 1,
+        "anos": "1983",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Napoli",
+        "n": 2,
+        "anos": "1986/87, 1989/90",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa da Itália",
+        "equipe": "Napoli",
+        "n": 1,
+        "anos": "1986/87",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Itália",
+        "equipe": "Napoli",
+        "n": 1,
+        "anos": "1990",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa da UEFA",
+        "equipe": "Napoli",
+        "n": 1,
+        "anos": "1988/89",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Copa do Mundo",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "1986",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa Artemio Franchi (CONMEBOL–UEFA, precursora da Finalíssima)",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "1993",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Bola de Ouro da Copa do Mundo",
+        "n": 1,
+        "anos": "1986",
+        "chave": "wc_golden_ball"
+      },
+      {
+        "nome": "Artilheiro do Campeonato Argentino",
+        "n": 5,
+        "anos": "Metropolitano 1978, Metropolitano 1979, Nacional 1979, Metropolitano 1980, Nacional 1980",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Capocannoniere (artilheiro da Serie A, 15 gols)",
+        "n": 1,
+        "anos": "1987/88",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Guerin d'Oro (melhor jogador da Serie A)",
+        "n": 1,
+        "anos": "1985",
+        "chave": "league_best_player"
+      },
+      {
+        "nome": "Futebolista argentino do ano (Olimpia de Plata)",
+        "n": 4,
+        "anos": "1979, 1980, 1981, 1986",
+        "chave": "outro"
+      },
+      {
+        "nome": "Rei da América — melhor jogador sul-americano do ano (El Mundo)",
+        "n": 2,
+        "anos": "1979, 1980",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Rei da América não oficial do El Mundo (1986–1992, quando o prêmio oficial já era do El País)",
+        "n": 4,
+        "anos": "1986, 1989, 1990, 1992",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Ouro retroativa da France Football (Nouveau Palmarès, 2016; não oficial)",
+        "n": 2,
+        "anos": "1986, 1990",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Ouro honorária da France Football (pelo conjunto da carreira)",
+        "n": 1,
+        "anos": "1995",
+        "chave": "outro"
+      },
+      {
+        "nome": "Jogador do Século da FIFA (dividido com Pelé)",
+        "n": 1,
+        "anos": "2000",
+        "chave": "outro"
+      },
+      {
+        "nome": "Gol do Século da FIFA (contra a Inglaterra, 1986)",
+        "n": 1,
+        "anos": "2002",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Prata da Copa do Mundo",
+        "n": 1,
+        "anos": "1986",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Bronze da Copa do Mundo",
+        "n": 1,
+        "anos": "1990",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências da Copa do Mundo",
+        "n": 1,
+        "anos": "1986",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção da Copa do Mundo (All-Star Team)",
+        "n": 2,
+        "anos": "1986, 1990",
+        "chave": "outro"
+      },
+      {
+        "nome": "Onze d'Or (Onze Mondial)",
+        "n": 2,
+        "anos": "1986, 1987",
+        "chave": "outro"
+      },
+      {
+        "nome": "Olimpia de Oro (desportista argentino do ano)",
+        "n": 2,
+        "anos": "1979, 1986",
+        "chave": "outro"
+      },
+      {
+        "nome": "Guerin Sportivo — Jogador mundial do ano",
+        "n": 3,
+        "anos": "1979, 1986, 1987",
+        "chave": "outro"
+      },
+      {
+        "nome": "El Gráfico — Futebolista das Américas",
+        "n": 2,
+        "anos": "1980, 1981",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa da Itália",
+        "n": 1,
+        "anos": "1987/88",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Ouro do Mundial Sub-20",
+        "n": 1,
+        "anos": "1979",
+        "chave": "outro"
+      },
+      {
+        "nome": "Golden Foot (lenda)",
+        "n": 1,
+        "anos": "2003",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Ballon d'Or Dream Team",
+        "n": 1,
+        "anos": "2020",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Capitão e Bola de Ouro da Copa de 1986, quando a Argentina foi campeã do mundo",
+      "Autor do 'Gol do Século' (contra a Inglaterra, Copa de 1986), eleito pela FIFA em 2002",
+      "Jogador do Século da FIFA (2000), dividido com Pelé",
+      "Transferência recorde mundial duas vezes: Boca→Barcelona (1982) e Barcelona→Napoli (1984)",
+      "Levou o Napoli aos seus primeiros títulos italianos (1987 e 1990) e à Copa da UEFA 1989",
+      "Maior artilheiro da história do Napoli de 1990 a 2017 (115 gols): passou Sallustro (108) em setembro de 1990 e só foi superado por Hamšík em dezembro de 2017",
+      "Cinco vezes artilheiro do Campeonato Argentino; o mais jovem da história, aos 17 anos (Metropolitano 1978)",
+      "Ao lado de José Sanfilippo, único artilheiro do Campeonato Argentino em quatro temporadas seguidas (1978–1980)",
+      "Duas Bolas de Ouro retroativas (1986 e 1990) no Nouveau Palmarès da France Football (2016)",
+      "Disputou quatro Copas (1982 a 1994): 21 jogos e 8 gols; vice-campeão em 1990",
+      "Campeão do Mundial Sub-20 de 1979, eleito o melhor jogador"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Diego_Maradona",
+      "https://pt.wikipedia.org/wiki/Diego_Maradona",
+      "https://www.rsssf.org/miscellaneous/maradona-intl.html",
+      "https://en.wikipedia.org/wiki/List_of_Argentine_Primera_Divisi%C3%B3n_top_scorers",
+      "https://tmapi-alpha.transfermarkt.technology/player/8024/performance-game",
+      "https://es.wikipedia.org/wiki/Diego_Maradona",
+      "https://www.rsssf.org/miscellaneous/arg-recintlp.html",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+      "https://es.wikipedia.org/wiki/Anexo:Goleadores_de_la_Primera_Divisi%C3%B3n_de_Argentina",
+      "https://en.wikipedia.org/wiki/Attila_Sallustro"
+    ],
+    "incertos": [
+      "assists",
+      "feitos (o título de artilheiro mais jovem do Campeonato Argentino só aparece na en.wikipedia)"
+    ],
+    "notas": "Jogos/gols: Wikipedia em inglês — clubes 589/311 (Argentinos Juniors 166/116; Boca 71/35 nas duas passagens; Barcelona 58/38; Napoli 259/115; Sevilla 30/7; Newell's 5/0) + Argentina 91/34 (RSSSF: 91 jogos, 34 gols, 21 jogos e 8 gols em Copas). Os números de Barcelona e Napoli batem com o Transfermarkt. Assistências: o Transfermarkt registra 144 (Napoli 82, Barcelona 23, Sevilla 10, Argentina 26, Boca 3), mas não cobre os 166 jogos do Argentinos nem a maior parte do Boca; mantida a estimativa de 180. Títulos fora: Supercopa da Espanha 1983 (lesionado, segundo o Transfermarkt) e o Mundial Sub-20 de 1979 (base). A Copa Artemio Franchi 1993 conta em titulosTotais como a Finalíssima de Messi (jogou a final contra a Dinamarca). ballonDor 0: inelegível até 1995; recebeu a Bola de Ouro honorária em 1995 e duas retroativas em 2016 (retroBallonDor 2). Guerin d'Oro 1985 entra como melhor jogador da Serie A (não havia prêmio oficial da liga na época). Números do arquivo antigo confirmados (680/345). CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF + Transfermarkt. Jogos e gols batem: clubes 589/311 na es.wikipedia, Argentina 91/34 no RSSSF. ASSISTÊNCIAS: a es.wikipedia tem contagem completa por clube (182: Argentinos 40, Boca 23, Barcelona 24, Napoli 81 e outras), que bate com o Transfermarkt onde os dois se cruzam (Napoli 82, Barcelona 23), mais 29 pela Argentina. Total 211, no lugar da estimativa de 180; continua estimado e em incertos. Títulos: a es.wikipedia credita a Supercopa da Espanha 1983, mas ele estava lesionado (Transfermarkt); a exclusão foi mantida. CORREÇÕES em prêmios: (1) a página do Futebolista Sul-Americano do Ano (en.wikipedia) só reconhece os prêmios do El Mundo até 1985. Os de 1986, 1989, 1990 e 1992 são da versão não oficial do El Mundo (o oficial já era do El País). continental_best ficou 2 (1979 e 1980), e os outros 4 foram para outro. (2) A Olimpia de Plata é prêmio da imprensa ao melhor jogador argentino, onde quer que ele jogue (em 1986 Maradona jogava na Itália), e não prêmio de liga. Foi para outro, como no arquivo conferido de Messi. league_best_player ficou 1 (Guerin d'Oro 1985). As 5 artilharias argentinas (Metropolitano 1978, 22 gols, dividida com Andreuchi; Metropolitano e Nacional de 1979 e de 1980) foram confirmadas no anexo da es.wikipedia. FEITO CORRIGIDO: ele virou o maior artilheiro do Napoli em 30/9/1990, quando chegou ao 109º gol e passou os 108 de Sallustro (Transfermarkt e en.wikipedia). Não foi em 1991. Conferido: os primeiros títulos italianos (1987 e 1990) e a Copa da UEFA 1989. O título de artilheiro mais jovem do Campeonato Argentino (17 anos, 1978) só aparece na en.wikipedia; a idade confere, mas falta 2ª fonte."
+  },
+  {
+    "id": "batistuta",
+    "asOf": "2005",
+    "apps": 629,
+    "goals": 355,
+    "assists": 70,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 0,
+    "libertadores": 0,
+    "leagueTitles": 2,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 10,
+    "titulos": [
+      {
+        "nome": "Campeonato Argentino",
+        "equipe": "River Plate",
+        "n": 1,
+        "anos": "1989/90",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Serie B (2ª divisão italiana)",
+        "equipe": "Fiorentina",
+        "n": 1,
+        "anos": "1993/94",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Copa da Itália",
+        "equipe": "Fiorentina",
+        "n": 1,
+        "anos": "1995/96",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Supercopa da Itália",
+        "equipe": "Fiorentina",
+        "n": 1,
+        "anos": "1996",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Campeonato Italiano (Serie A)",
+        "equipe": "Roma",
+        "n": 1,
+        "anos": "2000/01",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Supercopa da Itália",
+        "equipe": "Roma",
+        "n": 1,
+        "anos": "2001",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa América",
+        "equipe": "Argentina",
+        "n": 2,
+        "anos": "1991, 1993",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa das Confederações (Copa Rei Fahd)",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "1992",
+        "tipo": "selecao"
+      },
+      {
+        "nome": "Copa Artemio Franchi (CONMEBOL–UEFA, precursora da Finalíssima)",
+        "equipe": "Argentina",
+        "n": 1,
+        "anos": "1993",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Capocannoniere (artilheiro da Serie A, 26 gols)",
+        "n": 1,
+        "anos": "1994/95",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro do Campeonato do Catar (25 gols, recorde da liga)",
+        "n": 1,
+        "anos": "2003/04",
+        "chave": "league_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa América",
+        "n": 2,
+        "anos": "1991 (6 gols), 1995",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Artilheiro da Copa das Confederações (Copa Rei Fahd)",
+        "n": 1,
+        "anos": "1992",
+        "chave": "tournament_top_scorer"
+      },
+      {
+        "nome": "Futebolista argentino do ano (Olimpia de Plata)",
+        "n": 1,
+        "anos": "1998",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Prata da Copa do Mundo",
+        "n": 1,
+        "anos": "1998",
+        "chave": "outro"
+      },
+      {
+        "nome": "Artilheiro da Copa da Itália",
+        "n": 1,
+        "anos": "1995/96",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor estrangeiro da Serie A",
+        "n": 1,
+        "anos": "1999",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor Jogador do Mundo da FIFA — 3º lugar",
+        "n": 1,
+        "anos": "1999",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção ESM do ano",
+        "n": 1,
+        "anos": "1998/99",
+        "chave": "outro"
+      },
+      {
+        "nome": "Chuteira de Ouro do Golfo (GCC)",
+        "n": 1,
+        "anos": "2003/04",
+        "chave": "outro"
+      },
+      {
+        "nome": "FIFA 100",
+        "n": 1,
+        "anos": "2004",
+        "chave": "outro"
+      },
+      {
+        "nome": "Hall da Fama do futebol italiano",
+        "n": 1,
+        "anos": "2013",
+        "chave": "outro"
+      },
+      {
+        "nome": "Rei da América não oficial do El Mundo (o oficial já era do El País)",
+        "n": 1,
+        "anos": "1991",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Único jogador a marcar hat-trick em duas Copas do Mundo diferentes (1994 e 1998)",
+      "Foi o maior artilheiro da seleção argentina (56 gols em 78 jogos) até ser superado por Messi em 2016",
+      "10 gols em Copas do Mundo (1994, 1998 e 2002), o segundo argentino com mais gols no torneio, atrás de Messi",
+      "Maior artilheiro da Fiorentina na história da Serie A (151 gols), à frente de Kurt Hamrin",
+      "Marcou nas 11 primeiras rodadas da Serie A 1994/95, quebrando recorde de 32 anos de Ezio Pascutti",
+      "Artilheiro da Serie A 1994/95 com 26 gols",
+      "Bicampeão da Copa América (1991 e 1993), artilheiro em 1991 e 1995",
+      "Campeão da Copa das Confederações 1992 como artilheiro",
+      "Campeão italiano com a Roma em 2000/01",
+      "Recorde de gols numa temporada da liga do Catar: 25 (2003/04)"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Gabriel_Batistuta",
+      "https://pt.wikipedia.org/wiki/Gabriel_Batistuta",
+      "https://www.rsssf.org/miscellaneous/batistuta-intlg.html",
+      "https://tmapi-alpha.transfermarkt.technology/player/5959/performance-game",
+      "https://es.wikipedia.org/wiki/Gabriel_Batistuta",
+      "https://www.rsssf.org/miscellaneous/arg-recintlp.html",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+      "https://www.ilfattoquotidiano.it/2020/05/14/gabriel-batistuta-20-anni-fa-lultimo-gol-tra-le-lacrime-in-maglia-viola-il-re-leone-diviso-tra-lamore-per-firenze-e-la-voglia-di-vincere/5801042/"
+    ],
+    "incertos": [
+      "assists",
+      "apps"
+    ],
+    "notas": "Jogos/gols: Wikipedia em inglês — clubes 551/299 (Newell's 28/8, River 23/4, Boca 46/19, Fiorentina 331/204, Roma 87/33, Inter 12/2, Al-Arabi 24/29) + Argentina 78/56 (RSSSF e FIFA). A AFA chegou a contar 54 gols em 77 jogos por não reconhecer um jogo contra a Seleção da Liga Eslovaca; ficou a contagem da FIFA/RSSSF. Fiorentina, Roma e Seleção batem com o Transfermarkt (Fiorentina 331 jogos). Assistências: o Transfermarkt só registra 48 (cobertura incompleta nos anos 90); mantida a estimativa de 70. O Clausura 1991 do Boca (Batistuta foi o artilheiro do Boca) não conta: a temporada 1990/91 teve final entre os campeões dos dois turnos e o campeão oficial foi o Newell's. A Serie B 1993/94 entra em titulosTotais (título profissional oficial), mas não em leagueTitles (só 1ª divisão). Correção ao arquivo antigo: apps 640→629 (gols 355 confirmados). CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF + imprensa. Argentina 78/56 confirmada no RSSSF. A es.wikipedia dá clubes 555/300 (River 24, Boca 47, Fiorentina 333/207) e cita 632 jogos e 355 gols na carreira; o arquivo tem 629/355 pela en.wikipedia (Fiorentina 331/204; o Transfermarkt dá 331/203). Os gols batem e apps foi para incertos. Títulos: os 10 conferem com a es.wikipedia. Jogou a Copa Artemio Franchi 1993 e as Supercopas da Itália de 1996 (2 gols) e 2001 (Transfermarkt). CORREÇÃO em prêmios: a Olimpia de Plata 1998 foi para outro, porque é prêmio ao melhor argentino (em 1998 ele jogava na Itália), e não prêmio de liga. Foi a mesma regra usada para Messi. Acrescentado o Rei da América não oficial do El Mundo de 1991 (página do Futebolista Sul-Americano do Ano). Artilharias da Serie A 1994/95, da Copa América 1991 e 1995, da Copa Rei Fahd 1992 e da liga do Catar 2003/04 confirmadas. Feitos: maior artilheiro da seleção até Messi em 2016 (es.wikipedia: até 21/6/2016). Fiorentina: a en.wikipedia e o Transfermarkt dão 151 gols na Serie A; o Il Fatto Quotidiano conta 152 contra 151 de Hamrin. O recorde se confirma e ficou o número 151. Catar: 25 gols e recorde da liga, segundo a en.wikipedia e a ESPN; a tabela da es.wikipedia dá 22 na liga e 24 na temporada."
+  },
+  {
+    "id": "riquelme",
+    "asOf": "2014",
+    "apps": 644,
+    "goals": 165,
+    "assists": 172,
+    "assistsEstimated": true,
+    "ballonDor": 0,
+    "retroBallonDor": 0,
+    "worldCups": 0,
+    "ucl": 0,
+    "libertadores": 3,
+    "leagueTitles": 5,
+    "otherMajorTitles": 2,
+    "goldenBoots": 0,
+    "titulosTotais": 13,
+    "titulos": [
+      {
+        "nome": "Campeonato Argentino",
+        "equipe": "Boca Juniors",
+        "n": 5,
+        "anos": "Apertura 1998, Clausura 1999, Apertura 2000, Apertura 2008, Apertura 2011",
+        "tipo": "liga"
+      },
+      {
+        "nome": "Copa Argentina",
+        "equipe": "Boca Juniors",
+        "n": 1,
+        "anos": "2011/12",
+        "tipo": "copa"
+      },
+      {
+        "nome": "Copa Libertadores",
+        "equipe": "Boca Juniors",
+        "n": 3,
+        "anos": "2000, 2001, 2007",
+        "tipo": "continental"
+      },
+      {
+        "nome": "Recopa Sul-Americana",
+        "equipe": "Boca Juniors",
+        "n": 1,
+        "anos": "2008",
+        "tipo": "supercopa"
+      },
+      {
+        "nome": "Copa Intercontinental (Mundial)",
+        "equipe": "Boca Juniors",
+        "n": 1,
+        "anos": "2000",
+        "tipo": "mundial"
+      },
+      {
+        "nome": "Copa Intertoto da UEFA",
+        "equipe": "Villarreal",
+        "n": 1,
+        "anos": "2004",
+        "tipo": "outro"
+      },
+      {
+        "nome": "Ouro olímpico",
+        "equipe": "Argentina Sub-23",
+        "n": 1,
+        "anos": "2008",
+        "tipo": "selecao"
+      }
+    ],
+    "premios": [
+      {
+        "nome": "Rei da América — melhor jogador sul-americano do ano (El País)",
+        "n": 1,
+        "anos": "2001",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Melhor jogador das finais da Copa Libertadores",
+        "n": 2,
+        "anos": "2001, 2007",
+        "chave": "continental_best"
+      },
+      {
+        "nome": "Futebolista argentino do ano (Olimpia de Plata)",
+        "n": 4,
+        "anos": "2000, 2001, 2008, 2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Bola de Prata da Copa das Confederações",
+        "n": 1,
+        "anos": "2005",
+        "chave": "outro"
+      },
+      {
+        "nome": "Líder de assistências da Copa do Mundo",
+        "n": 1,
+        "anos": "2006",
+        "chave": "outro"
+      },
+      {
+        "nome": "Prêmio Don Balón — melhor estrangeiro de La Liga",
+        "n": 1,
+        "anos": "2004/05",
+        "chave": "outro"
+      },
+      {
+        "nome": "Seleção sul-americana do ano (El País)",
+        "n": 5,
+        "anos": "1999, 2000, 2001, 2008, 2011",
+        "chave": "outro"
+      },
+      {
+        "nome": "Melhor jogador do Torneio de Toulon",
+        "n": 1,
+        "anos": "1998",
+        "chave": "outro"
+      }
+    ],
+    "feitos": [
+      "Tricampeão da Copa Libertadores com o Boca Juniors (2000, 2001 e 2007)",
+      "Melhor jogador das finais da Libertadores de 2001 e 2007",
+      "Campeão da Copa Intercontinental de 2000, sobre o Real Madrid",
+      "Eleito o melhor jogador da América do Sul em 2001",
+      "Cinco vezes campeão argentino com o Boca (1998 a 2011)",
+      "Medalha de ouro olímpica em Pequim 2008",
+      "Campeão mundial sub-20 em 1997",
+      "Líder de assistências da Copa do Mundo de 2006",
+      "Levou o Villarreal à semifinal da Champions 2005/06, a primeira da história do clube",
+      "Bola de Prata da Copa das Confederações 2005"
+    ],
+    "fontes": [
+      "https://en.wikipedia.org/wiki/Juan_Rom%C3%A1n_Riquelme",
+      "https://pt.wikipedia.org/wiki/Juan_Rom%C3%A1n_Riquelme",
+      "https://tmapi-alpha.transfermarkt.technology/player/3854/performance-game",
+      "https://es.wikipedia.org/wiki/Juan_Rom%C3%A1n_Riquelme",
+      "https://www.rsssf.org/miscellaneous/arg-recintlp.html",
+      "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year"
+    ],
+    "incertos": [
+      "apps",
+      "goals",
+      "assists"
+    ],
+    "notas": "Jogos/gols: soma dos subtotais da Wikipedia em inglês — Boca 388/92 (194/44 + 194/48), Barcelona 42/6, Villarreal 145/45, Argentinos Juniors 18/5 (Primera B Nacional 2014) = 593/148 + Argentina 51/17. A linha 'Career total' da mesma tabela diz 596/150 e não fecha com as linhas; o Transfermarkt dá 578/146 (Boca 374, sem 14 jogos). Por isso apps/goals em incertos. Assistências: Transfermarkt 172 (Boca 114, Villarreal 28, Barcelona 10, Argentina 20), cobertura quase completa — marcado como estimado porque a contagem dos anos 90 varia entre fontes. A Copa Argentina 2011/12 conta: jogou duas partidas da campanha antes de sair do Boca em julho de 2012 (a final foi em agosto). A Copa Intertoto 2004 conta em titulosTotais (competição oficial da UEFA; jogou os dois jogos da final), mas não em otherMajorTitles. Mundial Sub-20 1997 e Torneio de Toulon 1998 são de base e ficam fora. Correção ao arquivo antigo: apps 620→644 (gols 165 confirmados). CONFERÊNCIA (14/10/2026): 2ª fonte = Wikipedia em espanhol + RSSSF. Argentina 51/17 confirmada no RSSSF. Na es.wikipedia, as linhas dos clubes também somam 593/148 (Boca 388/92, Barcelona 42/6, Villarreal 145/45, Argentinos 18/5), mas o resumo da própria página dá 593/145 e o total 644/162. Ficou 644/165, com apps e goals em incertos. Títulos: os 13 conferem com a es.wikipedia (sem as conquistas de base). CORREÇÃO em prêmios: a Olimpia de Plata (2000, 2001, 2008 e 2011) foi de league_best_player para outro, porque premia o melhor argentino e não a liga. Foi a mesma regra usada para Messi. Rei da América 2001 (El País) confirmado na página do Futebolista Sul-Americano do Ano. Melhor jogador das finais da Libertadores 2001 e 2007 e Bola de Prata da Copa das Confederações 2005 confirmados na es.wikipedia. Feitos conferidos: melhor das finais da Libertadores 2001 e 2007, melhor da América do Sul em 2001 e ouro olímpico em Pequim 2008."
+  }
+]

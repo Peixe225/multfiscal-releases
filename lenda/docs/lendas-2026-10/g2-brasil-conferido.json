@@ -1,0 +1,1832 @@
+[
+ {
+  "id": "garrincha",
+  "asOf": "1972",
+  "apps": 395,
+  "goals": 114,
+  "assists": 120,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 1,
+  "worldCups": 2,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 0,
+  "otherMajorTitles": 0,
+  "goldenBoots": 0,
+  "titulosTotais": 9,
+  "titulos": [
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Brasil",
+    "n": 2,
+    "anos": "1958, 1962",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Campeonato Carioca",
+    "equipe": "Botafogo",
+    "n": 3,
+    "anos": "1957, 1961, 1962",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Torneio Rio-São Paulo",
+    "equipe": "Botafogo",
+    "n": 2,
+    "anos": "1962, 1964 (dividido com o Santos)",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Torneio Rio-São Paulo",
+    "equipe": "Corinthians",
+    "n": 1,
+    "anos": "1966 (dividido entre quatro clubes)",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Taça dos Campeões Estaduais Rio–São Paulo",
+    "equipe": "Botafogo",
+    "n": 1,
+    "anos": "1961 (3–0 no Santos, decidida em 1962)",
+    "tipo": "supercopa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Melhor jogador da Copa do Mundo (Bola de Ouro; o prêmio oficial existe desde 1982, a FIFA o credita)",
+    "n": 1,
+    "anos": "1962",
+    "chave": "wc_golden_ball"
+   },
+   {
+    "nome": "Artilheiro da Copa do Mundo (4 gols, dividido com outros cinco jogadores)",
+    "n": 1,
+    "anos": "1962",
+    "chave": "wc_golden_boot"
+   },
+   {
+    "nome": "Bola de Ouro retroativa da France Football (Nouveau Palmarès, 2016; não oficial)",
+    "n": 1,
+    "anos": "1962",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 2,
+    "anos": "1958, 1962",
+    "chave": "outro"
+   },
+   {
+    "nome": "World Soccer — Seleção do mundo (World XI)",
+    "n": 1,
+    "anos": "1962",
+    "chave": "outro"
+   },
+   {
+    "nome": "Ballon d'Or Dream Team da France Football (2º time)",
+    "n": 1,
+    "anos": "2020",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Bicampeão mundial com a Seleção (1958 e 1962)",
+   "Melhor jogador da Copa de 1962 e um dos artilheiros, com 4 gols, num título conquistado sem Pelé, que se machucou no 2º jogo",
+   "A Seleção nunca perdeu quando Pelé e Garrincha jogaram juntos",
+   "Perdeu só 1 de 50 jogos oficiais pela Seleção (43 vitórias e 6 empates): o 1–3 para a Hungria na Copa de 1966, seu último jogo",
+   "5 gols em 12 jogos de Copa do Mundo (1958, 1962 e 1966)",
+   "No 2–0 sobre a Bulgária na Copa de 1966, ele e Pelé marcaram no mesmo jogo pela única vez (o dele, de falta)",
+   "Eleito para a seleção das Copas de 1958 e 1962",
+   "Bola de Ouro retroativa de 1962 no 'Nouveau Palmarès' da France Football (2016)",
+   "Três vezes campeão carioca pelo Botafogo (1957, 1961 e 1962)",
+   "614 jogos e 245 gols pelo Botafogo contando amistosos e excursões (contagem do clube)",
+   "Integrante do 2º time do Ballon d'Or Dream Team da France Football (2020)",
+   "Dá nome ao Estádio Nacional de Brasília, o Mané Garrincha"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Garrincha",
+   "https://pt.wikipedia.org/wiki/Garrincha",
+   "https://www.rsssf.org/miscellaneous/garrincha-intl.html",
+   "https://en.wikipedia.org/wiki/Ballon_d%27Or",
+   "https://en.wikipedia.org/wiki/Ta%C3%A7a_dos_Campe%C3%B5es_Estaduais_Rio_%E2%80%93_S%C3%A3o_Paulo",
+   "https://es.wikipedia.org/wiki/Garrincha",
+   "https://it.wikipedia.org/wiki/Garrincha",
+   "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "titulosTotais (Taça dos Campeões Estaduais 1961: título creditado pelo Botafogo, participação dele na partida não confirmada)",
+   "premios.wc_golden_ball (1962: escolha retroativa da imprensa; a lista oficial da FIFA da Bola de Ouro começa em 1982 — mantido por coerência com Pelé 1970 e Puskás 1954 nos outros lotes)"
+  ],
+  "notas": "Jogos oficiais = clubes 345 jogos/102 gols (tabela da Wikipedia em inglês, baseada no livro de Assaf e Martins: Botafogo 323/101 em Carioca, Taça Brasil, Libertadores 1963 e Rio-São Paulo; Corinthians 10/1; Junior Barranquilla 1/0; Flamengo 5/0; Olaria 6/0) + Seleção 50/12 (RSSSF, jogos 'A', incluindo amistosos e as taças O'Higgins e Oswaldo Cruz). O arquivo antigo (700/250) misturava amistosos: a Wikipedia em português dá 688 jogos e 268 gols no 'total geral', com 614/245 só pelo Botafogo, e lista ainda Portuguesa Santista (33/7) e outros clubes sem separar jogos oficiais. Por isso apps/goals ficam em incertos. Bola de Ouro oficial = 0 (só europeus concorriam até 1995). titulosTotais 9: ficam fora as taças bilaterais da Seleção (Bernardo O'Higgins 1955, 1959, 1961; Oswaldo Cruz 1958, 1961, 1962; Copa Roca 1957), por serem amistosos entre federações, além do Torneio Início e dos torneios amistosos de excursão. A Taça dos Campeões Estaduais Rio–São Paulo era organizada pela CBD (confronto entre os campeões carioca e paulista) e entra como supercopa; a Wikipedia lista a edição de 1961 (Botafogo 3–0 Santos) e o site do Botafogo a credita a Garrincha como '1962'. Assistências: sem registro; estimativa. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedias em espanhol e italiano confirmam Carioca 1957/1961/1962, Rio-São Paulo 1962 e 1964 (Botafogo) e 1966 (Corinthians), as 2 Copas, a artilharia dividida de 1962, a Bola de Ouro retroativa de 1962 (Nouveau Palmarès) e o 2º time do Ballon d'Or Dream Team 2020; nenhuma das duas lista a Taça dos Campeões Estaduais 1961 (continua em incertos). Seleção 50/12 confirmada pela it. A tabela da es dá 348 jogos/103 gols por clubes (vs. 345/102 aqui: Flamengo 4 em vez de 5, Olaria 8 em vez de 6) — diferença pequena, apps/goals seguem em incertos. Feitos conferidos: invencibilidade com Pelé, 5 gols em 12 jogos de Copa, única derrota (Hungria 1966) — todos batem com a lista de jogos da it."
+ },
+ {
+  "id": "tostao",
+  "asOf": "1973",
+  "apps": 370,
+  "goals": 227,
+  "assists": 110,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 1,
+  "otherMajorTitles": 0,
+  "goldenBoots": 0,
+  "titulosTotais": 8,
+  "titulos": [
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1970",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Campeonato Brasileiro (Taça Brasil, unificada pela CBF)",
+    "equipe": "Cruzeiro",
+    "n": 1,
+    "anos": "1966",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Mineiro",
+    "equipe": "Cruzeiro",
+    "n": 6,
+    "anos": "1965, 1966, 1967, 1968, 1969, 1972",
+    "tipo": "estadual"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Artilheiro do Campeonato Brasileiro (Robertão, 12 gols)",
+    "n": 1,
+    "anos": "1970",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Rei da América — melhor jogador sul-americano do ano (El Mundo)",
+    "n": 1,
+    "anos": "1971",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+    "n": 1,
+    "anos": "1970",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro das Eliminatórias da Copa (CONMEBOL, 10 gols)",
+    "n": 1,
+    "anos": "1969",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Mineiro",
+    "n": 3,
+    "anos": "1966, 1967, 1968",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Campeão mundial como titular em 1970, com 2 gols (ambos no 4–2 sobre o Peru, nas quartas)",
+   "Artilheiro das Eliminatórias para a Copa de 1970: 10 gols em 6 jogos",
+   "Maior artilheiro da história do Cruzeiro (242 gols pela contagem mais citada; a Wikipedia dá 249)",
+   "Campeão da Taça Brasil de 1966 batendo o Santos de Pelé na final (6–2 e 3–2)",
+   "Pentacampeão mineiro com o Cruzeiro (1965 a 1969)",
+   "Artilheiro do Brasileirão (Robertão) de 1970 com 12 gols — o primeiro do Cruzeiro; o clube só voltou a ter o artilheiro do Brasileiro com Kaio Jorge, em 2025",
+   "Rei da América (melhor jogador sul-americano do ano) em 1971",
+   "Sua ida para o Vasco, em 1972, foi a maior transação entre clubes brasileiros até então",
+   "Parou aos 26 anos, em 1973, por causa de um descolamento de retina; formou-se em medicina em 1981",
+   "32 gols em 54 jogos pela Seleção (RSSSF), média de 0,59 por jogo"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Tost%C3%A3o",
+   "https://pt.wikipedia.org/wiki/Tost%C3%A3o",
+   "https://www.rsssf.org/miscellaneous/tostao-intlg.html",
+   "https://en.wikipedia.org/wiki/List_of_Campeonato_Brasileiro_S%C3%A9rie_A_top_scorers",
+   "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+   "https://www.itatiaia.com.br/esportes/futebol/cruzeiro/2025/06/09/kaio-jorge-persegue-feito-que-so-idolo-do-cruzeiro-alcancou-pelo-clube/",
+   "https://www.lance.com.br/cruzeiro/artilheiros-cruzeiro.html",
+   "https://es.wikipedia.org/wiki/Tost%C3%A3o",
+   "https://it.wikipedia.org/wiki/Tost%C3%A3o",
+   "https://en.wikipedia.org/wiki/Campeonato_Mineiro",
+   "https://en.wikipedia.org/wiki/Bola_de_Ouro",
+   "https://es.wikipedia.org/wiki/Anexo:Futbolista_del_a%C3%B1o_en_Sudam%C3%A9rica"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "premios.outro (artilharias do Mineiro: 3 na Wikipedia em inglês, 4 — 1965 a 1968 — na em português)",
+   "titulosTotais (Mineiro 1972: ele jogou 3 partidas do Mineiro, a última em abril/1972, antes de ir para o Vasco; o Cruzeiro foi campeão, mas as listas de títulos das Wikipedias citam só 1965–69)"
+  ],
+  "notas": "Jogos oficiais documentados = Cruzeiro 246/172 (Mineiro 151/124, Taça Brasil/Robertão/Brasileiro 85/43, Libertadores 10/5; a própria Wikipedia avisa que o Mineiro de 1971 está incompleto) + América-MG 26/16 (registro agregado) + Vasco 44/7 + Seleção 54/32 (RSSSF; a FIFA não reconhece o jogo contra a Seleção da FIFA de 6/11/1968, o que daria 53/31). Contando amistosos, o Cruzeiro credita 378–383 jogos e 242–249 gols; a Wikipedia em português soma 468 jogos e 304 gols na carreira. Por isso apps/goals são piso documentado e ficam em incertos. leagueTitles 1 = Taça Brasil 1966. titulosTotais 7: ficam fora as taças da Seleção de caráter amistoso/convite (Copa Roca 1971, Taça Independência 1972), o turno 'Taça José de Albuquerque' 1972 do Vasco, o Torneio Início e torneios amistosos. 'Rei da América' (El Mundo) classificado como continental_best, como no Pelé do outro lote. Bola de Prata da Placar é prêmio por posição (seleção do campeonato), por isso 'outro'. CONFERÊNCIA (2ª fonte, 14/10/2026): CORREÇÃO: titulosTotais 7→8 com o Mineiro de 1972. A tabela da Wikipedia em inglês (zerozero) dá 3 jogos/3 gols dele no Mineiro de 1972 pelo Cruzeiro; a Wikipedia em português diz que o último jogo oficial dele pelo clube foi em abril de 1972, contra o Nacional de Uberaba, pelo Campeonato Mineiro; a es cita \"además de la edición de 1972\"; o Cruzeiro foi o campeão mineiro de 1972 (lista de campeões da Wikipedia em inglês). Pela regra de participação usada no arquivo (ex.: Rivaldo no Uzbeque 2010, Ronaldo em La Liga 2006/07), conta. CORREÇÃO de feito: Kaio Jorge (Cruzeiro) foi artilheiro isolado do Brasileirão 2025 com 21 gols, então Tostão não é mais o \"único\" do Cruzeiro. Confirmados em 2ª fonte: Taça Brasil 1966, Copa 1970, Rei da América 1971 (lista da es: 1971 Tostão, 1972 Cubillas), artilharia do Robertão 1970 (12) e Bola de Prata 1970. A es lista erradamente o Mineiro de 1970 (foi do Atlético) e dá 4 artilharias do Mineiro (1965–68), como a pt. Seleção 54/32 confirmada pela it. A Taça Independência 1972 (listada pela it) segue fora por ser torneio de convite."
+ },
+ {
+  "id": "jairzinho",
+  "asOf": "1982",
+  "apps": 515,
+  "goals": 250,
+  "assists": 120,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 0,
+  "libertadores": 1,
+  "leagueTitles": 3,
+  "otherMajorTitles": 0,
+  "goldenBoots": 0,
+  "titulosTotais": 11,
+  "titulos": [
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1970",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa Libertadores",
+    "equipe": "Cruzeiro",
+    "n": 1,
+    "anos": "1976",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Brasileiro (Taça Brasil, unificada pela CBF)",
+    "equipe": "Botafogo",
+    "n": 1,
+    "anos": "1968",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Carioca",
+    "equipe": "Botafogo",
+    "n": 2,
+    "anos": "1967, 1968",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Torneio Rio-São Paulo",
+    "equipe": "Botafogo",
+    "n": 2,
+    "anos": "1964 (dividido com o Santos), 1966 (dividido entre quatro clubes)",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Mineiro",
+    "equipe": "Cruzeiro",
+    "n": 1,
+    "anos": "1975",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Venezuelano",
+    "equipe": "Portuguesa FC",
+    "n": 1,
+    "anos": "1977",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa Venezuela",
+    "equipe": "Portuguesa FC",
+    "n": 1,
+    "anos": "1977",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Boliviano",
+    "equipe": "Jorge Wilstermann",
+    "n": 1,
+    "anos": "1980",
+    "tipo": "liga"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Artilheiro do Campeonato Venezuelano",
+    "n": 1,
+    "anos": "1977",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Chuteira de Prata da Copa do Mundo (vice-artilheiro, 7 gols)",
+    "n": 1,
+    "anos": "1970",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "1970",
+    "chave": "outro"
+   },
+   {
+    "nome": "World Soccer — Seleção do mundo (World XI)",
+    "n": 2,
+    "anos": "1971, 1972",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Marcou em todos os 6 jogos do Brasil na Copa de 1970, inclusive na final contra a Itália, somando 7 gols",
+   "Campeão mundial e Chuteira de Prata da Copa de 1970",
+   "Recorde de dribles numa Copa (47 em 1970), só superado por Maradona em 1986",
+   "9 gols em Copas do Mundo (7 em 1970 e 2 em 1974), em três Copas disputadas (1966, 1970 e 1974)",
+   "Campeão da Libertadores de 1976 pelo Cruzeiro, com 12 gols (vice-artilheiro da competição)",
+   "Campeão da Taça Brasil de 1968 e bicampeão carioca (1967 e 1968) pelo Botafogo",
+   "Campeão e artilheiro do Campeonato Venezuelano de 1977 pela Portuguesa FC",
+   "Campeão boliviano de 1980 pelo Jorge Wilstermann",
+   "81 jogos e 33 gols pela Seleção entre 1964 e 1982 (RSSSF)",
+   "Indicou o garoto Ronaldo Fenômeno ao Cruzeiro, quando treinava o São Cristóvão"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Jairzinho",
+   "https://pt.wikipedia.org/wiki/Jairzinho",
+   "https://es.wikipedia.org/wiki/Jairzinho",
+   "https://www.rsssf.org/miscellaneous/jairzinho-intlg.html",
+   "https://es.wikipedia.org/wiki/Primera_Divisi%C3%B3n_de_Venezuela_1977",
+   "https://es.wikipedia.org/wiki/Primera_Divisi%C3%B3n_de_Bolivia_1980",
+   "https://es.wikipedia.org/wiki/Primera_Divisi%C3%B3n_de_Bolivia_1981",
+   "https://en.wikipedia.org/wiki/List_of_Copa_Libertadores_top_scorers",
+   "https://en.wikipedia.org/wiki/Ronaldo_(Brazilian_footballer)",
+   "https://www.lance.com.br/lancepedia/a-historia-de-jairzinho-no-botafogo.html",
+   "https://it.wikipedia.org/wiki/Jairzinho",
+   "https://en.wikipedia.org/wiki/1975_in_Brazilian_football",
+   "https://en.wikipedia.org/wiki/1976_in_Brazilian_football",
+   "https://es.wikipedia.org/wiki/Copa_Venezuela"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "leagueTitles (Boliviano 1981 do Wilstermann: honours das Wikipedias citam, mas ele voltou ao Botafogo em 1981 e a temporada boliviana foi de maio/1981 a jan/1982)",
+   "titulosTotais (Mineiro 1975: creditado nas três Wikipedias, mas ele chegou ao Cruzeiro no início de 1976; Carioca 1961 e 1962 só na Wikipedia em inglês, ficaram fora)",
+   "titulosTotais (Copa Venezuela 1977: a Portuguesa FC foi campeã — final 4–1 no Valencia —, mas a participação dele na copa não está documentada)"
+  ],
+  "notas": "Não há contagem oficial consolidada. Estimativa de jogos oficiais: Botafogo ≈289 jogos/125 gols (Lance! e Itatiaia; o clube credita 413–416 jogos e 183–186 gols contando amistosos e excursões), Olympique de Marselha 25/13, Kaizer Chiefs 3/7, Cruzeiro 40–43/22–31, Portuguesa FC 20–24/20–23, Noroeste ≈24/11, Fast Clube 2–4/0–5, Jorge Wilstermann 7–26/4–17, Botafogo 1981 sem jogos oficiais, 9 de Octubre 10–13/1–3 (infoboxes da Wikipedia em inglês e em português divergem muito) + Seleção 81/33 (RSSSF; inclui o jogo contra a Seleção da FIFA de 1968 e o 'Irlanda Unida' de 1974, não reconhecidos como 'A' por FIFA/federações). Faixa de 500–530 jogos e 235–270 gols; usado o meio. O arquivo antigo tinha 680/290 e leagueTitles 1; agora conta Venezuela 1977 e Bolívia 1980 (ligas nacionais de 1ª divisão de qualquer país). Artilharia venezuelana de 1977: 20 gols pela página da temporada na Wikipedia em espanhol (a em inglês fala em 22 gols em 24 jogos). Ficam fora: Pan-Americano 1963 (seleção amadora/olímpica, não é ouro olímpico), Taça Independência 1972 e Copa Rio Branco 1968 (convite/bilateral), Taça Guanabara (turno) e torneios amistosos. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano confirma Rio-São Paulo 1964 e 1966, Carioca 1967 e 1968, Taça Brasil 1968 e Libertadores 1976, mas não lista Mineiro 1975, Venezuela 1977, Copa Venezuela 1977 nem Bolívia 1980 (a es lista Venezuela 1977, Bolívia 1980 e Mineiro 1975). Mineiro 1975: o Cruzeiro foi campeão (en, \"1975 in Brazilian football\"), mas Jairzinho estava no Kaizer Chiefs em 1975 e assinou com o Cruzeiro só no início de 1976; não achei a data da decisão estadual de 1975 — mantido, como no arquivo, e em incertos. Copa Venezuela 1977 confirmada para a Portuguesa (es). A it dá Seleção 82/35 (conta jogos não oficiais); mantido 81/33 do RSSSF. Feitos conferidos: gols em todos os 6 jogos da Copa 1970; 47 dribles em 1970 (FIFA, citado pela en); vice-artilheiro da Libertadores 1976 atrás de Palhinha — batem."
+ },
+ {
+  "id": "zico",
+  "asOf": "1994",
+  "apps": 795,
+  "goals": 539,
+  "assists": 280,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 0,
+  "libertadores": 1,
+  "leagueTitles": 3,
+  "otherMajorTitles": 1,
+  "goldenBoots": 0,
+  "titulosTotais": 12,
+  "titulos": [
+   {
+    "nome": "Copa Libertadores",
+    "equipe": "Flamengo",
+    "n": 1,
+    "anos": "1981",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Copa Intercontinental (Mundial)",
+    "equipe": "Flamengo",
+    "n": 1,
+    "anos": "1981",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Campeonato Brasileiro",
+    "equipe": "Flamengo",
+    "n": 3,
+    "anos": "1980, 1982, 1983",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Carioca",
+    "equipe": "Flamengo",
+    "n": 7,
+    "anos": "1972, 1974, 1978, 1979, 1979 (Especial), 1981, 1986",
+    "tipo": "estadual"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro da Placar (melhor jogador do Brasileirão)",
+    "n": 2,
+    "anos": "1974, 1982",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Brasileiro (21 gols em cada)",
+    "n": 2,
+    "anos": "1980, 1982",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Copa Libertadores (11 gols)",
+    "n": 1,
+    "anos": "1981",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Copa Libertadores",
+    "n": 1,
+    "anos": "1981",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Rei da América — melhor jogador sul-americano do ano (El Mundo)",
+    "n": 3,
+    "anos": "1977, 1981, 1982",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Melhor jogador da final da Copa Intercontinental (Toyota Cup)",
+    "n": 1,
+    "anos": "1981",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+    "n": 5,
+    "anos": "1974, 1975, 1977, 1982, 1987",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Carioca",
+    "n": 6,
+    "anos": "1975, 1977, 1978, 1979, 1979 (Especial), 1982",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Bronze da Copa do Mundo",
+    "n": 1,
+    "anos": "1982",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "1982",
+    "chave": "outro"
+   },
+   {
+    "nome": "World Soccer — Jogador do ano",
+    "n": 1,
+    "anos": "1983",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da 2ª divisão japonesa (JSL 2, Sumitomo Metals)",
+    "n": 1,
+    "anos": "1991–92",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot (lendas)",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Maior artilheiro da história do Flamengo: 508 gols em 731 jogos (contagem do clube, com amistosos)",
+   "Maior artilheiro da história do Maracanã, com 333 gols",
+   "Campeão da Libertadores e do Mundial Interclubes em 1981, eleito o melhor em campo no 3–0 sobre o Liverpool em Tóquio",
+   "Artilheiro da Libertadores de 1981, com 11 gols",
+   "Tricampeão brasileiro (1980, 1982 e 1983) e artilheiro do Brasileirão em 1980 e 1982, com 21 gols em cada",
+   "Três vezes Rei da América, o melhor jogador sul-americano do ano (1977, 1981 e 1982)",
+   "Eleito melhor jogador do mundo pela revista World Soccer em 1983",
+   "Vice-artilheiro da Serie A 1983/84 pela Udinese, com 19 gols, um a menos que Platini, jogando 4 partidas a menos",
+   "48 gols em 71 jogos pela Seleção (RSSSF), média de 0,68, disputando as Copas de 1978, 1982 e 1986",
+   "Sete vezes campeão carioca e cinco vezes artilheiro do Carioca",
+   "65 gols em 51 jogos oficiais em 1979, sua temporada mais goleadora",
+   "Hat-trick na estreia do Kashima Antlers na J.League (5–0 sobre o Nagoya Grampus, 1993)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Zico_(footballer)",
+   "https://pt.wikipedia.org/wiki/Zico",
+   "https://www.rsssf.org/miscellaneous/zico-intlg.html",
+   "https://en.wikipedia.org/wiki/Bola_de_Ouro",
+   "https://en.wikipedia.org/wiki/List_of_Campeonato_Brasileiro_S%C3%A9rie_A_top_scorers",
+   "https://en.wikipedia.org/wiki/List_of_Copa_Libertadores_top_scorers",
+   "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+   "https://es.wikipedia.org/wiki/Zico",
+   "https://it.wikipedia.org/wiki/Zico",
+   "https://en.wikipedia.org/wiki/Intercontinental_Cup_(1960%E2%80%932004)",
+   "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "premios.continental_best (melhor jogador da Libertadores 1981: não era prêmio oficial da CONMEBOL na época)"
+  ],
+  "notas": "Jogos oficiais = clubes 724 jogos/491 gols (tabela da Wikipedia em inglês, baseada em RSSSF e flaestatistica: Flamengo 507/370 + 74/23 em Brasileiro, Carioca, Copa do Brasil, Libertadores e Intercontinental; Udinese 53/30; Sumitomo Metals 24/22 na JSL 2; Kashima 66/46) + Seleção 71/48 (RSSSF/FIFA). A linha 'Career total' da Wikipedia (700/469) deixa de fora o Sumitomo; aqui ele entra. A Wikipedia em português fala em 527 gols oficiais na carreira e a CBF credita 89 jogos/66 gols pela Seleção contando jogos não oficiais. O arquivo antigo (870/590) incluía amistosos. leagueTitles 3 (1980, 1982, 1983): a Copa União 1987 não entra, porque o STF confirmou o Sport como único campeão brasileiro de 1987; o 1º turno (Suntory Series) da J.League 1993 também não, porque o Kashima perdeu a decisão para o Verdy. titulosTotais 12: ficam fora a Copa União 1987, o turno de 1993, a Taça Guanabara (turno), o Pré-Olímpico Sub-23 de 1971 e as taças de convite/bilaterais da Seleção em 1976 (Taça do Atlântico, Copa Rio Branco, Oswaldo Cruz, Torneio do Bicentenário dos EUA) e 1981 (Taça Brasil-Inglaterra). O Carioca Especial de 1979 é um título oficial separado reconhecido pela FERJ e conta. Bola de Prata da Placar é prêmio por posição, por isso 'outro'; a Bola de Ouro da Placar (melhor jogador) é league_best_player. Assistências: sem registro confiável; estimativa. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedia em italiano confirma os 7 Cariocas (com o Especial de 1979), os 3 Brasileiros, Libertadores e Intercontinental 1981, Bola de Ouro da Placar 1974 e 1982, 3 Rei da América (1977, 1981, 1982 — também na lista da es), artilharias do Brasileiro 1980/1982 e da Libertadores 1981, melhor da Libertadores e da Intercontinental 1981 (a lista de MVPs da Toyota Cup da en também), World Soccer 1983, Golden Foot (lendas) 2006 e a Chuteira de Bronze 1982 (lista da FIFA na en). CORREÇÃO menor (chave outro): artilharias do Carioca 5→6 — a it e a es contam também o Carioca Especial de 1979 (a it dá 34 gols nele). A it lista 7 Bolas de Prata (inclui 1980 e 1981); pela tabela da Placar na en, as de posição são 5 (1974, 1975, 1977, 1982, 1987) e as de 1980/1982 são o prêmio de artilheiro — mantido 5. Feitos conferidos: 65 gols em 51 jogos em 1979 (it), 333 gols no Maracanã (en/World Soccer), hat-trick na estreia da J.League — batem."
+ },
+ {
+  "id": "socrates",
+  "asOf": "1989",
+  "apps": 572,
+  "goals": 258,
+  "assists": 150,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 0,
+  "otherMajorTitles": 0,
+  "goldenBoots": 0,
+  "titulosTotais": 4,
+  "titulos": [
+   {
+    "nome": "Campeonato Paulista",
+    "equipe": "Corinthians",
+    "n": 3,
+    "anos": "1979, 1982, 1983",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Carioca",
+    "equipe": "Flamengo",
+    "n": 1,
+    "anos": "1986",
+    "tipo": "estadual"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Rei da América — melhor jogador sul-americano do ano (El Mundo)",
+    "n": 1,
+    "anos": "1983",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Paulista (15 gols, Botafogo-SP)",
+    "n": 1,
+    "anos": "1976",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+    "n": 1,
+    "anos": "1980",
+    "chave": "outro"
+   },
+   {
+    "nome": "World Soccer — Seleção do mundo (World XI)",
+    "n": 3,
+    "anos": "1982, 1983, 1984",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Capitão da Seleção na Copa de 1982",
+   "Rei da América, o melhor jogador sul-americano do ano, em 1983",
+   "Três vezes campeão paulista pelo Corinthians (1979, 1982 e 1983), na época da Democracia Corinthiana, que liderou",
+   "Artilheiro do Campeonato Paulista de 1976 pelo Botafogo de Ribeirão Preto, com 15 gols",
+   "22 gols em 60 jogos pela Seleção (RSSSF), 4 deles em Copas (2 em 1982 e 2 em 1986)",
+   "Marcou na derrota por 3–2 para a Itália, no Sarriá, na Copa de 1982",
+   "Formou-se em medicina (1977) na USP de Ribeirão Preto enquanto jogava profissionalmente",
+   "Campeão carioca pelo Flamengo em 1986",
+   "Está no FIFA 100, a lista de Pelé com os maiores jogadores vivos (2004)",
+   "Aos 50 anos, em 2004, entrou em campo por um jogo pelo Garforth Town, clube semiamador inglês"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/S%C3%B3crates",
+   "https://pt.wikipedia.org/wiki/S%C3%B3crates_(futebolista)",
+   "https://www.rsssf.org/miscellaneous/socrates-intlg.html",
+   "https://en.wikipedia.org/wiki/Bola_de_Ouro",
+   "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+   "https://es.wikipedia.org/wiki/S%C3%B3crates_(futbolista)",
+   "https://it.wikipedia.org/wiki/S%C3%B3crates",
+   "https://es.wikipedia.org/wiki/Anexo:Futbolista_del_a%C3%B1o_en_Sudam%C3%A9rica"
+  ],
+  "incertos": [
+   "apps",
+   "goals",
+   "titulosTotais (Carioca 1986: en, pt e es creditam; a it não; a tabela da en dá 1 jogo dele no estadual de 1986)"
+  ],
+  "notas": "Jogos oficiais = clubes 512 jogos/236 gols (tabela da Wikipedia em inglês, marcada 'citation needed': Botafogo-SP 166/67 + 6/0, Corinthians 269/150, Fiorentina 33/9, Flamengo 13/3, Santos 25/7) + Seleção 60/22 (RSSSF). O jogo amador pelo Garforth Town (2004, liga regional inglesa) não entra. Contagens com amistosos: Corinthians 297 jogos/172 gols, Botafogo-SP 259/101, Seleção 62/25 (Wikipedia em português). O arquivo antigo tinha 560/270. titulosTotais 4: ficam fora a Taça Guanabara 1986 (turno), a Taça Brasil-Inglaterra 1981 (amistoso), a Taça Cidade de São Paulo 1977, a Taça Cidade de Porto Alegre 1983 e o torneio de Hidalgo 1981 (amistosos). Assistências: estimativa. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedias em italiano e espanhol confirmam os Paulistas 1979, 1982 e 1983, o Rei da América 1983 e a Seleção 60/22 (it). Carioca 1986: es, en e pt listam; a tabela da en mostra 1 jogo dele no estadual de 1986 pelo Flamengo, então conta pela regra de participação (em incertos). Bola de Prata 1980 confirmada pela tabela da Placar (en). A Taça dos Campeões Estaduais 1986 foi da Inter de Limeira (3–0 no Flamengo), então não entra. Feitos conferidos: gol no 3–2 da Itália, 4 gols em Copas, jogo pelo Garforth Town — batem."
+ },
+ {
+  "id": "falcao",
+  "asOf": "1986",
+  "apps": 558,
+  "goals": 95,
+  "assists": 90,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 4,
+  "otherMajorTitles": 0,
+  "goldenBoots": 0,
+  "titulosTotais": 13,
+  "titulos": [
+   {
+    "nome": "Campeonato Brasileiro",
+    "equipe": "Internacional",
+    "n": 3,
+    "anos": "1975, 1976, 1979",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Gaúcho",
+    "equipe": "Internacional",
+    "n": 5,
+    "anos": "1973, 1974, 1975, 1976, 1978",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Italiano (Serie A)",
+    "equipe": "Roma",
+    "n": 1,
+    "anos": "1982–83",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Roma",
+    "n": 2,
+    "anos": "1980–81, 1983–84",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Paulista",
+    "equipe": "São Paulo",
+    "n": 1,
+    "anos": "1985",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Taça dos Campeões Estaduais Rio–São Paulo",
+    "equipe": "São Paulo",
+    "n": 1,
+    "anos": "1985 (sobre o Fluminense, decidida em 1986)",
+    "tipo": "supercopa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro da Placar (melhor jogador do Brasileirão)",
+    "n": 2,
+    "anos": "1978, 1979",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+    "n": 3,
+    "anos": "1975, 1978, 1979",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata da Copa do Mundo (2º melhor jogador)",
+    "n": 1,
+    "anos": "1982",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "1982",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze Mondial — pódio (Onze de Bronze 1982, Onze de Prata 1983)",
+    "n": 2,
+    "anos": "1982, 1983",
+    "chave": "outro"
+   },
+   {
+    "nome": "Hall da Fama do Futebol Italiano",
+    "n": 1,
+    "anos": "2016",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Líder da Roma no Scudetto de 1982/83, o 2º da história do clube, 41 anos depois do primeiro",
+   "Ganhou da torcida o apelido de 'oitavo Rei de Roma' e está no Hall da Fama do clube",
+   "Tricampeão brasileiro pelo Internacional (1975, 1976 e 1979)",
+   "Campeão brasileiro invicto em 1979, o único título invicto da história do Brasileirão",
+   "Bola de Ouro da Placar em 1978 e 1979, melhor jogador do Brasileirão dois anos seguidos",
+   "Bola de Prata da Copa de 1982 (2º melhor do torneio), com 3 gols, um deles no 2–3 para a Itália",
+   "Vice-campeão da Copa dos Campeões 1983/84, final perdida nos pênaltis para o Liverpool, em Roma",
+   "Duas Copas da Itália com a Roma (1980/81 e 1983/84)",
+   "Cinco vezes campeão gaúcho com o Internacional",
+   "No Hall da Fama do Futebol Italiano desde 2016"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Paulo_Roberto_Falc%C3%A3o",
+   "https://pt.wikipedia.org/wiki/Paulo_Roberto_Falc%C3%A3o",
+   "https://www.national-football-teams.com/player/18056/Paulo_Falcao.html",
+   "https://en.wikipedia.org/wiki/Bola_de_Ouro",
+   "https://en.wikipedia.org/wiki/Ta%C3%A7a_dos_Campe%C3%B5es_Estaduais_Rio_%E2%80%93_S%C3%A3o_Paulo",
+   "https://es.wikipedia.org/wiki/Paulo_Falc%C3%A3o",
+   "https://it.wikipedia.org/wiki/Paulo_Roberto_Falc%C3%A3o",
+   "https://fr.wikipedia.org/wiki/Onze_d%27or",
+   "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards"
+  ],
+  "incertos": [
+   "apps",
+   "goals"
+  ],
+  "notas": "Jogos oficiais = clubes 530 jogos/89 gols (Wikipedia em inglês: Internacional 364/61, Roma 152/27, São Paulo 14/1) + Seleção 28/6 (jogos FIFA, national-football-teams; a Wikipedia em português dá 34/7 e Internacional 392/76 contando outros jogos). CORREÇÃO: o arquivo antigo dava leagueTitles 5 incluindo o Brasileiro de 1986 do São Paulo, mas Falcão não jogou nenhuma partida daquele Brasileiro (saiu após a Copa de 1986; a tabela mostra 0 jogos de liga em 1986), então pela regra do arquivo ele não conta: leagueTitles 4 (Brasileiro 1975, 1976, 1979 + Serie A 1982/83). A Taça dos Campeões Estaduais Rio–São Paulo (organizada pela CBF) de 1985, São Paulo x Fluminense, entra como supercopa: ele jogou as 2 partidas e marcou 1 gol. Ficam fora: Pré-Olímpico Sub-23 1971, torneio Sub-20 de Cannes, Troféu Teresa Herrera 1984 (amistoso) e as taças de convite/bilaterais da Seleção em 1976 (Copa Roca, Rio Branco, Oswaldo Cruz, Taça do Atlântico, Bicentenário dos EUA). Assistências: estimativa. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedias em espanhol e italiano confirmam os 3 Brasileiros, Serie A 1982/83, Copas da Itália 1980/81 e 1983/84 e o Paulista 1985 (a it escreve \"1986\", o ano da decisão). A es confirma os Gaúchos 1973, 1974, 1975, 1976 e 1978; a it troca 1978 por 1979, mas o Gaúcho de 1979 foi do Grêmio — mantido. Bola de Ouro da Placar 1978/1979 e Bolas de Prata 1975/1978/1979 confirmadas (it e tabela da en). Onze Mondial: a it diz Onze d'Argent 1982 e Bronze 1983, mas a lista da Wikipedia em francês dá Bronze 1982 e Prata 1983 — mantido o arquivo. Taça dos Campeões Estaduais 1985 (São Paulo 2–2 e 2–0 no Fluminense) confirmada na lista da en. Seleção 28/6 confirmada pela it (34/7 com jogos não oficiais). Feitos conferidos: Brasileiro invicto 1979, Bola de Prata da Copa 1982 (lista da FIFA na en), Hall da Fama italiano 2016 (it) — batem."
+ },
+ {
+  "id": "romario",
+  "asOf": "2009",
+  "apps": 963,
+  "goals": 745,
+  "assists": 180,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 1,
+  "worldCups": 1,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 5,
+  "otherMajorTitles": 4,
+  "goldenBoots": 0,
+  "titulosTotais": 19,
+  "titulos": [
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1994",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa América",
+    "equipe": "Brasil",
+    "n": 2,
+    "anos": "1989, 1997",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa das Confederações",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1997",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Campeonato Holandês (Eredivisie)",
+    "equipe": "PSV",
+    "n": 3,
+    "anos": "1988–89, 1990–91, 1991–92",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Holanda (KNVB Beker)",
+    "equipe": "PSV",
+    "n": 2,
+    "anos": "1988–89, 1989–90",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Supercopa da Holanda (Johan Cruijff Schaal)",
+    "equipe": "PSV",
+    "n": 1,
+    "anos": "1992",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1993–94",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Brasileiro (Copa João Havelange)",
+    "equipe": "Vasco da Gama",
+    "n": 1,
+    "anos": "2000",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa Mercosul",
+    "equipe": "Vasco da Gama",
+    "n": 1,
+    "anos": "2000",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Copa Mercosul",
+    "equipe": "Flamengo",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Carioca",
+    "equipe": "Vasco da Gama",
+    "n": 2,
+    "anos": "1987, 1988",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Carioca",
+    "equipe": "Flamengo",
+    "n": 2,
+    "anos": "1996, 1999",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Carioca Série A2 (2ª divisão estadual)",
+    "equipe": "America-RJ",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "estadual"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Melhor Jogador do Mundo da FIFA (FIFA World Player)",
+    "n": 1,
+    "anos": "1994",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Bola de Ouro da Copa do Mundo",
+    "n": 1,
+    "anos": "1994",
+    "chave": "wc_golden_ball"
+   },
+   {
+    "nome": "Artilheiro da Eredivisie",
+    "n": 3,
+    "anos": "1988–89, 1989–90, 1990–91 (dividido com Bergkamp)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Pichichi (artilheiro de La Liga, 30 gols)",
+    "n": 1,
+    "anos": "1993–94",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Brasileiro",
+    "n": 2,
+    "anos": "2001, 2005",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Futebolista holandês do ano (melhor jogador da Eredivisie)",
+    "n": 1,
+    "anos": "1989",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Bola de Ouro da Placar (melhor jogador do Brasileirão)",
+    "n": 1,
+    "anos": "2000",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Artilheiro da Copa dos Campeões / Champions League",
+    "n": 2,
+    "anos": "1989–90 (dividido com Papin), 1992–93",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Chuteira de Ouro da Copa das Confederações (artilheiro, 7 gols)",
+    "n": 1,
+    "anos": "1997",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Artilheiro do Mundial de Clubes da FIFA (3 gols, dividido com Anelka)",
+    "n": 1,
+    "anos": "2000",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Rei da América — melhor jogador sul-americano do ano (El País)",
+    "n": 1,
+    "anos": "2000",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Bola de Ouro retroativa da France Football (Nouveau Palmarès, 2016; não oficial)",
+    "n": 1,
+    "anos": "1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 1,
+    "anos": "1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Bronze da Copa do Mundo",
+    "n": 1,
+    "anos": "1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 1,
+    "anos": "1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata da Copa das Confederações",
+    "n": 1,
+    "anos": "1997",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Bronze do Mundial de Clubes",
+    "n": 1,
+    "anos": "2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro do torneio olímpico (7 gols)",
+    "n": 1,
+    "anos": "1988",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Carioca",
+    "n": 7,
+    "anos": "1986, 1987, 1996, 1997, 1998, 1999, 2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa do Brasil",
+    "n": 2,
+    "anos": "1998, 1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa Mercosul",
+    "n": 2,
+    "anos": "1999, 2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+    "n": 1,
+    "anos": "2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Trofeo EFE (melhor ibero-americano de La Liga)",
+    "n": 1,
+    "anos": "1993–94",
+    "chave": "outro"
+   },
+   {
+    "nome": "MVP e artilheiro da USL First Division (EUA)",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze de Bronze (Onze Mondial)",
+    "n": 1,
+    "anos": "1993",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção sul-americana do ano (El País)",
+    "n": 3,
+    "anos": "1995, 2000, 2001",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro do Torneio Rio-São Paulo",
+    "n": 2,
+    "anos": "1997, 2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot (lendas)",
+    "n": 1,
+    "anos": "2007",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Campeão mundial e eleito melhor jogador da Copa de 1994, com 5 gols",
+   "Melhor Jogador do Mundo da FIFA em 1994",
+   "Pichichi e campeão espanhol na 1ª temporada no Barcelona: 30 gols em 33 jogos de La Liga (1993/94)",
+   "Hat-trick no 5–0 do Barcelona sobre o Real Madrid, no Camp Nou (janeiro de 1994)",
+   "Três vezes seguidas artilheiro da Eredivisie (1988/89 a 1990/91) e tricampeão holandês pelo PSV",
+   "Duas vezes artilheiro da Copa dos Campeões/Champions (1989/90 e 1992/93) pelo PSV",
+   "Artilheiro do Brasileirão em 2001 e em 2005 — neste, aos 39 anos, com 22 gols",
+   "Sete vezes artilheiro do Campeonato Carioca",
+   "55 gols em 70 jogos pela Seleção (RSSSF), média de 0,79 por jogo",
+   "Artilheiro do torneio olímpico de 1988 (7 gols) e da Copa das Confederações de 1997 (7 gols)",
+   "Comemorou o 1.000º gol em 20/05/2007, de pênalti contra o Sport, pela contagem dele (com base e amistosos); a FIFA reconhece 929 e o RSSSF estima 968 em 1.188 jogos",
+   "Bola de Ouro retroativa de 1994 no 'Nouveau Palmarès' da France Football (2016)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Rom%C3%A1rio",
+   "https://www.rsssf.org/miscellaneous/romario-intlg.html",
+   "https://www.rsssf.org/tablesn/nedtops.html",
+   "https://en.wikipedia.org/wiki/Pichichi_Trophy",
+   "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+   "https://en.wikipedia.org/wiki/List_of_Campeonato_Brasileiro_S%C3%A9rie_A_top_scorers",
+   "https://en.wikipedia.org/wiki/Bola_de_Ouro",
+   "https://en.wikipedia.org/wiki/FIFA_Club_World_Cup_awards",
+   "https://en.wikipedia.org/wiki/1997_FIFA_Confederations_Cup",
+   "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+   "https://en.wikipedia.org/wiki/Ballon_d%27Or",
+   "https://es.wikipedia.org/wiki/Rom%C3%A1rio",
+   "https://it.wikipedia.org/wiki/Rom%C3%A1rio",
+   "https://fr.wikipedia.org/wiki/Onze_d%27or",
+   "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards",
+   "https://en.wikipedia.org/wiki/1994_Supercopa_de_Espa%C3%B1a",
+   "https://en.wikipedia.org/wiki/1994%E2%80%9395_FC_Barcelona_season",
+   "https://es.wikipedia.org/wiki/Copa_de_Oro_Nicol%C3%A1s_Leoz_1996",
+   "https://es.wikipedia.org/wiki/Anexo:Futbolista_del_a%C3%B1o_en_Sudam%C3%A9rica"
+  ],
+  "incertos": [
+   "titulosTotais (Supercopa da Espanha 1994 e Copa do Príncipe do Catar 2003 ficaram fora por falta de registro de participação)",
+   "premios.league_top_scorer (Brasileiro 2000: CBF lista Adhemar, 22 gols; Romário foi coartilheiro do Módulo Azul com 20)"
+  ],
+  "notas": "Jogos oficiais = clubes 893 jogos/690 gols (soma conferida da tabela da Wikipedia em inglês: Vasco 141/80 + 135/132 + 54/39 + 19/15, PSV 149/128, Barcelona 65/39, Flamengo 79/68 + 130/116, Valencia 12/6, Fluminense 75/47, Al-Sadd 3/0, Miami FC 26/19, Adelaide 4/1, America-RJ 1/0) + Seleção 70/55 (RSSSF; um gol contra o México em 1997 às vezes é dado a ele e não está contado). O arquivo antigo tinha 950/700. leagueTitles 5 = Eredivisie ×3 + La Liga 1993/94 + Brasileiro 2000. otherMajorTitles 4 = Copa América 1989 e 1997 + Copa Mercosul 1999 (Flamengo) e 2000 (Vasco) — o arquivo antigo dava 3. titulosTotais 19: a Wikipedia em inglês lista também a Supercopa da Espanha 1994 (a tabela dele mostra 0 jogos em 'Other' em 1994/95) e a Copa do Príncipe Herdeiro do Catar 2003 (0 jogos de copa pelo Al-Sadd); pela mesma regra de participação usada para Messi/Cristiano, ficaram fora. A Série A2 carioca 2009 (America-RJ, 1 jogo) é título oficial de 2ª divisão estadual e entra. Copa das Confederações só em titulosTotais. Artilharia do Brasileiro 2000 (Copa João Havelange): a Wikipedia dele credita, mas a lista da CBF dá Adhemar (São Caetano, 22 gols, contando a fase final); Romário dividiu com Dill e Magno Alves a do Módulo Azul (20 gols, Bola de Prata da Placar). Contado só 2001 e 2005. A Wikipedia também lista a Bola de Prata 2001 e 2005, que são o prêmio de artilheiro da Placar (já contado como artilharia). 'Futebolista holandês do ano' = Nederlands Voetballer van het Jaar 1989. Ballon d'Or oficial 0 (até 1995 só europeus concorriam). Assistências: estimativa. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedias em italiano e espanhol confirmam Eredivisie ×3, Copa da Holanda ×2, Supercopa holandesa 1992, La Liga 1993/94, Brasileiro 2000, Carioca 1987/1988/1996/1999, Mercosul 2000 (e 1999 pela es; a it não lista 1999, mas dá a ele a artilharia da Mercosul 1999, com 8 gols, e a tabela da en mostra 7 jogos/8 gols na competição — mantido), Copa América 1989/1997, Copa 1994 e Copa das Confederações 1997; todos os prêmios de chave diferente de \"outro\" batem nas duas (Bola de Ouro e Chuteira de Bronze 1994, FIFA World Player 1994, Pichichi, 3 artilharias da Eredivisie com 19/23/25 gols, 2 da Copa dos Campeões/Champions, Brasileiro 2001/2005, Bola de Ouro da Placar 2000, Rei da América 2000, Futebolista holandês do ano 1989, artilharias da Copa das Confederações 1997 e do Mundial de Clubes 2000). Supercopa da Espanha 1994: it e en listam, mas nenhuma das fontes abertas mostra ele em campo nos jogos de 27 e 30/08/1994 — segue fora e em incertos. Copa de Ouro 1996 (título do Flamengo em 16/08/1996): ele não está na escalação da final (já estava no Valencia) — não conta. COMPLETADO (chave outro): Onze de Bronze 1993 (lista da fr), seleção sul-americana do ano 1995/2000/2001 (it e es), artilharia do Rio-São Paulo 1997/2000 (it e en) e Golden Foot (lendas) 2007 (it e en). Feitos conferidos: hat-trick no 5–0 sobre o Real Madrid, 30 gols em 33 jogos de La Liga 1993/94 (tabela da en), 1.000º gol em 20/05/2007 — batem."
+ },
+ {
+  "id": "rivaldo",
+  "asOf": "2015",
+  "apps": 912,
+  "goals": 419,
+  "assists": 200,
+  "assistsEstimated": true,
+  "ballonDor": 1,
+  "retroBallonDor": 0,
+  "worldCups": 1,
+  "ucl": 1,
+  "libertadores": 0,
+  "leagueTitles": 9,
+  "otherMajorTitles": 1,
+  "goldenBoots": 0,
+  "titulosTotais": 24,
+  "titulos": [
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "2002",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa América",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1999",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa das Confederações",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1997",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Champions League",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "2002–03",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1997",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Supercopa da UEFA",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "2003",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Barcelona",
+    "n": 2,
+    "anos": "1997–98, 1998–99",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1997–98",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Itália",
+    "equipe": "Milan",
+    "n": 1,
+    "anos": "2002–03",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Brasileiro",
+    "equipe": "Palmeiras",
+    "n": 1,
+    "anos": "1994",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Paulista",
+    "equipe": "Palmeiras",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Pernambucano",
+    "equipe": "Santa Cruz",
+    "n": 1,
+    "anos": "1990",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Mineiro",
+    "equipe": "Cruzeiro",
+    "n": 1,
+    "anos": "2004",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Grego",
+    "equipe": "Olympiacos",
+    "n": 3,
+    "anos": "2004–05, 2005–06, 2006–07",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa da Grécia",
+    "equipe": "Olympiacos",
+    "n": 2,
+    "anos": "2004–05, 2005–06",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Uzbeque",
+    "equipe": "Bunyodkor",
+    "n": 3,
+    "anos": "2008, 2009, 2010",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Copa do Uzbequistão",
+    "equipe": "Bunyodkor",
+    "n": 2,
+    "anos": "2008, 2010",
+    "tipo": "copa"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro (France Football)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Melhor Jogador do Mundo da FIFA (FIFA World Player)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Uzbeque (20 gols)",
+    "n": 1,
+    "anos": "2009",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Artilheiro da Champions League (10 gols, dividido com Raúl e Mário Jardel)",
+    "n": 1,
+    "anos": "1999–2000",
+    "chave": "continental_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Copa América",
+    "n": 1,
+    "anos": "1999",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Artilheiro da Copa América (5 gols, dividido com Ronaldo)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Chuteira de Prata da Copa do Mundo",
+    "n": 1,
+    "anos": "2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 2,
+    "anos": "1998, 2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "World Soccer — Jogador do ano",
+    "n": 1,
+    "anos": "1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Trofeo EFE (melhor ibero-americano de La Liga)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Don Balón — melhor estrangeiro de La Liga",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor estrangeiro do Campeonato Grego",
+    "n": 2,
+    "anos": "2005–06, 2006–07",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Copa do Rei",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "outro"
+   },
+   {
+    "nome": "Bola de Prata da Placar (seleção do Brasileirão)",
+    "n": 2,
+    "anos": "1993, 1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — Artilheiro internacional do ano",
+    "n": 1,
+    "anos": "2000",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Bola de Ouro e Melhor Jogador do Mundo da FIFA em 1999",
+   "Campeão mundial em 2002 marcando em 5 jogos seguidos (5 gols) e participando dos 2 gols de Ronaldo na final",
+   "Hat-trick contra o Valencia em 17/06/2001, com gol de bicicleta no último minuto que pôs o Barcelona na Champions; muitas vezes eleito o maior hat-trick da história",
+   "Artilheiro da Champions 1999/2000, com 10 gols",
+   "Melhor jogador e artilheiro (5 gols) da Copa América de 1999, vencida pelo Brasil",
+   "Bicampeão espanhol pelo Barcelona (1997/98 e 1998/99), com 130 gols em 235 jogos oficiais pelo clube",
+   "Campeão da Champions League 2002/03 com o Milan",
+   "Tricampeão grego pelo Olympiacos (2005, 2006 e 2007) e tricampeão uzbeque pelo Bunyodkor (2008, 2009 e 2010)",
+   "8 gols em Copas do Mundo (3 em 1998 e 5 em 2002)",
+   "35 gols em 74 jogos pela Seleção (RSSSF)",
+   "Jogou profissionalmente até os 43 anos, pelo Mogi Mirim, em 2015"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Rivaldo",
+   "https://pt.wikipedia.org/wiki/Rivaldo",
+   "https://www.rsssf.org/miscellaneous/rivaldo-intlg.html",
+   "https://en.wikipedia.org/wiki/List_of_UEFA_Champions_League_top_scorers",
+   "https://en.wikipedia.org/wiki/Copa_Am%C3%A9rica_records_and_statistics",
+   "https://es.wikipedia.org/wiki/Rivaldo",
+   "https://it.wikipedia.org/wiki/Rivaldo",
+   "https://www.palmeiras.com.br/craques/rivaldo/",
+   "https://fr.wikipedia.org/wiki/Onze_d%27or",
+   "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards"
+  ],
+  "incertos": [
+   "apps",
+   "titulosTotais (Pernambucano 1990: jogou partidas ainda juvenil, segundo a Wikipedia em português)",
+   "leagueTitles/titulosTotais (Uzbeque 2010 e Copa do Uzbequistão 2010: a en os credita e mostra 11 jogos de liga e 3 de copa em 2010; it e es não listam)"
+  ],
+  "notas": "Jogos oficiais = clubes 838 jogos/384 gols (soma das linhas por clube da tabela da Wikipedia em inglês: Santa Cruz 27/9, Mogi Mirim 31/13 + 12/1, Corinthians 24/12, Palmeiras 112/67, Deportivo 46/22, Barcelona 235/130, Milan 40/8, Cruzeiro 10/2, Olympiacos 95/43, AEK 44/15, Bunyodkor 76/42, São Paulo 46/7, Kabuscorp 21/11, São Caetano 19/2) + Seleção 74/35 (RSSSF; a Wikipedia em português dá 75/38). A linha 'Career total' da tabela diz 813 jogos, mas não fecha com a soma dos clubes (838); os gols batem (384). Os jogos do Pernambucano de 1990 não estão na tabela. O arquivo antigo tinha 830/350. leagueTitles 9 (o arquivo antigo dava 8): Brasileiro 1994 + La Liga ×2 + Grego ×3 + Uzbeque 2008, 2009 e 2010 — em 2010 ele jogou 11 partidas da liga pelo Bunyodkor antes de sair, e a regra do arquivo conta o título. O Scudetto 2003/04 do Milan não entra: 0 jogos de Serie A naquela temporada. Copa da Grécia: 2004/05 e 2005/06 (a Wikipedia em português diz 2006/07, mas a copa de 2006/07 foi do Larissa). Ficam fora: Copa Umbro 1995 (amistoso), bronze olímpico 1996, Copa Bandeirantes 1994, Copa Euro-América 1996 e Troféu Teresa Herrera (amistosos). CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedias em italiano e espanhol confirmam Copa 2002, Copa América 1999, Copa das Confederações 1997, Champions 2002/03, Supercopas da UEFA 1997 e 2003, La Liga ×2, Copa do Rei 1997/98, Copa da Itália 2002/03, Brasileiro 1994, Paulista 1996, Grego ×3, Copa da Grécia 2004/05 e 2005/06 e o Uzbeque/Copa 2008 e o Uzbeque 2009; a it confirma 0 jogos de Serie A em 2003/04 (Scudetto fora). As duas listam também o Paulista de 1994 com o Palmeiras, mas o site do Palmeiras dá a estreia dele em 14/08/1994 (4–1 no Paraná), depois do Paulista, e só credita o Paulista 1996 — mantido fora. A es lista a Copa Catalunya 2000 (torneio regional da federação catalã, disputado com times mistos) — fora, como Gamper e afins. Mineiro 2004 e Pernambucano 1990: só en e pt creditam (en mostra 7 jogos no Mineiro 2004; o Pernambucano 1990 é anterior ao contrato profissional de 1991) — Pernambucano segue em incertos. Prêmios de chave diferente de \"outro\" batem (Bola de Ouro, FIFA World Player e Onze d'Or 1999 — lista da fr —, artilharia da Champions 1999/2000, melhor jogador e artilheiro da Copa América 1999, artilheiro do Uzbeque 2009 com 20 gols). Seleção 74/35 confirmada pela it. Feitos conferidos: hat-trick contra o Valencia em 2001, 130 gols em 235 jogos pelo Barça, profissional até os 43 anos — batem."
+ },
+ {
+  "id": "ronaldo",
+  "asOf": "2011",
+  "apps": 616,
+  "goals": 414,
+  "assists": 110,
+  "assistsEstimated": true,
+  "ballonDor": 2,
+  "retroBallonDor": 0,
+  "worldCups": 2,
+  "ucl": 0,
+  "libertadores": 0,
+  "leagueTitles": 2,
+  "otherMajorTitles": 5,
+  "goldenBoots": 1,
+  "titulosTotais": 17,
+  "titulos": [
+   {
+    "nome": "Copa do Mundo",
+    "equipe": "Brasil",
+    "n": 2,
+    "anos": "1994, 2002",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa América",
+    "equipe": "Brasil",
+    "n": 2,
+    "anos": "1997, 1999",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa das Confederações",
+    "equipe": "Brasil",
+    "n": 1,
+    "anos": "1997",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa Intercontinental (Mundial)",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2002",
+    "tipo": "mundial"
+   },
+   {
+    "nome": "Recopa Europeia",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1996–97",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Copa da UEFA",
+    "equipe": "Inter de Milão",
+    "n": 1,
+    "anos": "1997–98",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Espanhol (La Liga)",
+    "equipe": "Real Madrid",
+    "n": 2,
+    "anos": "2002–03, 2006–07",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Supercopa da Espanha",
+    "equipe": "Real Madrid",
+    "n": 1,
+    "anos": "2003",
+    "tipo": "supercopa"
+   },
+   {
+    "nome": "Copa do Rei",
+    "equipe": "Barcelona",
+    "n": 1,
+    "anos": "1996–97",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa da Holanda (KNVB Beker)",
+    "equipe": "PSV",
+    "n": 1,
+    "anos": "1995–96",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Copa do Brasil",
+    "equipe": "Corinthians",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "copa"
+   },
+   {
+    "nome": "Campeonato Paulista",
+    "equipe": "Corinthians",
+    "n": 1,
+    "anos": "2009",
+    "tipo": "estadual"
+   },
+   {
+    "nome": "Campeonato Mineiro",
+    "equipe": "Cruzeiro",
+    "n": 1,
+    "anos": "1994",
+    "tipo": "estadual"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Bola de Ouro (France Football)",
+    "n": 2,
+    "anos": "1997, 2002",
+    "chave": "ballon_dor"
+   },
+   {
+    "nome": "Melhor Jogador do Mundo da FIFA (FIFA World Player)",
+    "n": 3,
+    "anos": "1996, 1997, 2002",
+    "chave": "the_best"
+   },
+   {
+    "nome": "Chuteira de Ouro europeia (34 gols)",
+    "n": 1,
+    "anos": "1996–97",
+    "chave": "golden_boot"
+   },
+   {
+    "nome": "Artilheiro da Eredivisie (30 gols)",
+    "n": 1,
+    "anos": "1994–95",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Pichichi (artilheiro de La Liga)",
+    "n": 2,
+    "anos": "1996–97, 2003–04",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Melhor jogador da Serie A (Oscar del Calcio AIC)",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Bola de Ouro da Copa do Mundo",
+    "n": 1,
+    "anos": "1998",
+    "chave": "wc_golden_ball"
+   },
+   {
+    "nome": "Chuteira de Ouro da Copa do Mundo (8 gols)",
+    "n": 1,
+    "anos": "2002",
+    "chave": "wc_golden_boot"
+   },
+   {
+    "nome": "Jogador de clubes do ano da UEFA (UEFA Club Footballer of the Year)",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Melhor jogador da Copa América",
+    "n": 1,
+    "anos": "1997",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Melhor jogador da final da Copa Intercontinental (Toyota Cup)",
+    "n": 1,
+    "anos": "2002",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Artilheiro da Copa América (5 gols, dividido com Rivaldo)",
+    "n": 1,
+    "anos": "1999",
+    "chave": "tournament_top_scorer"
+   },
+   {
+    "nome": "Bola de Prata da Copa do Mundo",
+    "n": 1,
+    "anos": "2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Bronze da Copa do Mundo",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção da Copa do Mundo (All-Star Team)",
+    "n": 2,
+    "anos": "1998, 2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "Chuteira de Bronze da Copa das Confederações",
+    "n": 1,
+    "anos": "1997",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro da Supercopa Libertadores (8 gols)",
+    "n": 1,
+    "anos": "1993",
+    "chave": "outro"
+   },
+   {
+    "nome": "Onze d'Or (Onze Mondial)",
+    "n": 2,
+    "anos": "1997, 2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "World Soccer — Jogador do ano",
+    "n": 3,
+    "anos": "1996, 1997, 2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "Trofeo EFE (melhor ibero-americano de La Liga)",
+    "n": 2,
+    "anos": "1996–97, 2002–03",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Don Balón — melhor estrangeiro de La Liga",
+    "n": 1,
+    "anos": "1996–97",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor estrangeiro da Serie A",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "outro"
+   },
+   {
+    "nome": "IFFHS — Artilheiro do mundo",
+    "n": 1,
+    "anos": "1997",
+    "chave": "outro"
+   },
+   {
+    "nome": "Laureus — Retorno do Ano",
+    "n": 1,
+    "anos": "2003",
+    "chave": "outro"
+   },
+   {
+    "nome": "BBC — Estrela Mundial do Esporte do Ano",
+    "n": 1,
+    "anos": "2002",
+    "chave": "outro"
+   },
+   {
+    "nome": "Golden Foot",
+    "n": 1,
+    "anos": "2006",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   },
+   {
+    "nome": "Ballon d'Or Dream Team da France Football (1º time)",
+    "n": 1,
+    "anos": "2020",
+    "chave": "outro"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Mineiro (22 gols)",
+    "n": 1,
+    "anos": "1994",
+    "chave": "outro"
+   },
+   {
+    "nome": "Prêmio Bravo (Guerin Sportivo, melhor jovem da Europa)",
+    "n": 2,
+    "anos": "1997, 1998",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor atacante de clubes da UEFA",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "outro"
+   },
+   {
+    "nome": "Melhor estrangeiro da Serie A (Oscar del Calcio AIC)",
+    "n": 1,
+    "anos": "1997–98",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Bola de Ouro mais jovem da história: 21 anos, em 1997",
+   "Mais jovem Melhor Jogador do Mundo da FIFA (20 anos, 1996) e três vezes vencedor (1996, 1997 e 2002)",
+   "15 gols em 19 jogos de Copa do Mundo — maior artilheiro das Copas de 2006 até 2014, quando Klose chegou a 16",
+   "Campeão e artilheiro (8 gols) da Copa de 2002, com os 2 gols da final contra a Alemanha",
+   "Eleito melhor jogador da Copa de 1998",
+   "Bicampeão mundial: em 1994, aos 17 anos, como o mais jovem do elenco, e em 2002, como protagonista",
+   "47 gols em 49 jogos na única temporada pelo Barcelona (1996/97) e Chuteira de Ouro europeia, com 34 gols na liga",
+   "Artilheiro da Eredivisie na 1ª temporada na Europa: 30 gols pelo PSV em 1994/95",
+   "Quebrou duas vezes o recorde mundial de transferência (PSV→Barcelona em 1996 e Barcelona→Inter em 1997), o primeiro desde Maradona",
+   "Hat-trick contra o Manchester United em Old Trafford (Champions 2002/03), aplaudido de pé pela torcida rival",
+   "62 gols em 98 jogos pela Seleção (RSSSF)",
+   "Titular do 1º time do Ballon d'Or Dream Team da France Football (2020)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Ronaldo_(Brazilian_footballer)",
+   "https://www.rsssf.org/miscellaneous/ronaldo-intlg.html",
+   "https://www.rsssf.org/tablesn/nedtops.html",
+   "https://en.wikipedia.org/wiki/Pichichi_Trophy",
+   "https://en.wikipedia.org/wiki/Copa_Am%C3%A9rica_records_and_statistics",
+   "https://en.wikipedia.org/wiki/1997_FIFA_Confederations_Cup",
+   "https://en.wikipedia.org/wiki/Ballon_d%27Or",
+   "https://es.wikipedia.org/wiki/Ronaldo",
+   "https://it.wikipedia.org/wiki/Ronaldo",
+   "https://en.wikipedia.org/wiki/Intercontinental_Cup_(1960%E2%80%932004)",
+   "https://en.wikipedia.org/wiki/1993_Copa_do_Brasil",
+   "https://fr.wikipedia.org/wiki/Onze_d%27or",
+   "https://en.wikipedia.org/wiki/FIFA_World_Cup_awards"
+  ],
+  "incertos": [],
+  "notas": "Jogos oficiais = clubes 518 jogos/352 gols (Wikipedia em inglês: Cruzeiro 47/44, PSV 57/54, Barcelona 49/47, Inter 99/59, Real Madrid 177/104, Milan 20/9, Corinthians 69/35) + Seleção 98/62 (RSSSF; inclui a despedida contra a Romênia em 2011). Mesmos números do arquivo antigo. worldCups 2: em 1994 era do elenco campeão sem entrar em campo (a FIFA dá a medalha a todo o elenco). La Liga 2006/07 conta: ele jogou 7 partidas da liga pelo Real antes de ir para o Milan em janeiro de 2007. otherMajorTitles 5 = Copa América 1997 e 1999 + Recopa 1996/97 + Copa da UEFA 1997/98 + Intercontinental 2002. titulosTotais 17: Copa das Confederações e supercopas só aqui. A Copa do Brasil 1993 do Cruzeiro não conta (ele não jogou a competição). 'UEFA Club Footballer of the Year' classificado como continental_best, como os prêmios equivalentes de Messi/Cristiano no outro lote. Assistências: sem contagem confiável completa; mantida a estimativa do arquivo antigo. CONFERÊNCIA (2ª fonte, 14/10/2026): COMPLETADO: faltava o prêmio de melhor jogador da final da Copa Intercontinental 2002 (Real Madrid 2–0 Olimpia) — está na lista de MVPs da Toyota Cup (en, com base no RSSSF) e na Wikipedia em italiano; entra como tournament_best, como o de Zico em 1981. Também completados (chave outro): artilharia do Mineiro 1994 (22 gols), Prêmio Bravo 1997 e 1998, melhor atacante de clubes da UEFA 1997/98 e melhor estrangeiro da Serie A 1998 (en e it). A it credita a Copa do Brasil 1993, mas a própria tabela dela dá 0 jogos dele na competição, que terminou em 03/06/1993, nove dias depois da estreia dele (25/05) — segue fora. A it não lista La Liga 2006/07 (saiu em janeiro de 2007), mas ele jogou 7 partidas da liga — mantido pela regra de participação. Onze d'Or 1997 e 2002 confirmados na lista da fr (a it fala em Onze d'Argent 1998, que a lista da fr não confirma — não incluído). Demais títulos, Bolas de Ouro, FIFA World Player ×3, Chuteira de Ouro 1996/97, Pichichi ×2, Bola de Ouro/Chuteira de Ouro/Bola de Prata e Chuteira de Bronze de Copa e Seleção 98/62 batem na it. Feitos conferidos: 47 gols em 49 jogos pelo Barcelona, 15 gols em 19 jogos de Copa, hat-trick em Old Trafford — batem."
+ },
+ {
+  "id": "francescoli",
+  "asOf": "1997",
+  "apps": 647,
+  "goals": 237,
+  "assists": 140,
+  "assistsEstimated": true,
+  "ballonDor": 0,
+  "retroBallonDor": 0,
+  "worldCups": 0,
+  "ucl": 0,
+  "libertadores": 1,
+  "leagueTitles": 6,
+  "otherMajorTitles": 4,
+  "goldenBoots": 0,
+  "titulosTotais": 11,
+  "titulos": [
+   {
+    "nome": "Copa América",
+    "equipe": "Uruguai",
+    "n": 3,
+    "anos": "1983, 1987, 1995",
+    "tipo": "selecao"
+   },
+   {
+    "nome": "Copa Libertadores",
+    "equipe": "River Plate",
+    "n": 1,
+    "anos": "1996",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Supercopa Libertadores",
+    "equipe": "River Plate",
+    "n": 1,
+    "anos": "1997",
+    "tipo": "continental"
+   },
+   {
+    "nome": "Campeonato Argentino",
+    "equipe": "River Plate",
+    "n": 5,
+    "anos": "1985–86, Apertura 1994, Apertura 1996, Clausura 1997, Apertura 1997",
+    "tipo": "liga"
+   },
+   {
+    "nome": "Campeonato Francês (Division 1)",
+    "equipe": "Olympique de Marselha",
+    "n": 1,
+    "anos": "1989–90",
+    "tipo": "liga"
+   }
+  ],
+  "premios": [
+   {
+    "nome": "Melhor jogador da Copa América",
+    "n": 2,
+    "anos": "1983, 1995",
+    "chave": "tournament_best"
+   },
+   {
+    "nome": "Artilheiro do Campeonato Argentino",
+    "n": 3,
+    "anos": "Metropolitano 1984 (24 gols), 1985–86 (25), Apertura 1994 (12)",
+    "chave": "league_top_scorer"
+   },
+   {
+    "nome": "Futebolista do ano na Argentina (Olimpia de Plata)",
+    "n": 2,
+    "anos": "1985, 1995",
+    "chave": "league_best_player"
+   },
+   {
+    "nome": "Rei da América — melhor jogador sul-americano do ano (El País)",
+    "n": 2,
+    "anos": "1984, 1995",
+    "chave": "continental_best"
+   },
+   {
+    "nome": "Melhor estrangeiro da Division 1 francesa",
+    "n": 1,
+    "anos": "1987",
+    "chave": "outro"
+   },
+   {
+    "nome": "Seleção sul-americana do ano (El País)",
+    "n": 4,
+    "anos": "1994, 1995, 1996, 1997",
+    "chave": "outro"
+   },
+   {
+    "nome": "FIFA 100",
+    "n": 1,
+    "anos": "2004",
+    "chave": "outro"
+   }
+  ],
+  "feitos": [
+   "Tricampeão da Copa América (1983, 1987 e 1995), eleito melhor jogador em 1983 e 1995",
+   "Três vezes artilheiro do Campeonato Argentino (Metropolitano 1984, 1985/86 e Apertura 1994) — com Arsenio Erico, o estrangeiro com mais artilharias na Argentina",
+   "Campeão da Libertadores de 1996 com o River Plate",
+   "Cinco títulos argentinos pelo River (1985/86, Apertura 1994, Apertura 1996, Clausura 1997 e Apertura 1997)",
+   "Duas vezes Rei da América, o melhor jogador sul-americano do ano (1984 e 1995)",
+   "Campeão francês com o Olympique de Marselha em 1989/90",
+   "Campeão da Supercopa Libertadores de 1997 com o River",
+   "Ídolo de Zidane, que deu o nome Enzo a um dos filhos em homenagem a ele",
+   "Ao parar, era o jogador de linha com mais jogos pela seleção uruguaia (73)",
+   "Único uruguaio no FIFA 100, a lista de Pelé com os maiores jogadores vivos (2004)"
+  ],
+  "fontes": [
+   "https://en.wikipedia.org/wiki/Enzo_Francescoli",
+   "https://pt.wikipedia.org/wiki/Enzo_Francescoli",
+   "https://www.rsssf.org/miscellaneous/francescoli-intlg.html",
+   "https://en.wikipedia.org/wiki/List_of_Argentine_Primera_Divisi%C3%B3n_top_scorers",
+   "https://en.wikipedia.org/wiki/Copa_Am%C3%A9rica_records_and_statistics",
+   "https://en.wikipedia.org/wiki/South_American_Footballer_of_the_Year",
+   "https://es.wikipedia.org/wiki/Enzo_Francescoli",
+   "https://it.wikipedia.org/wiki/Enzo_Francescoli",
+   "https://es.wikipedia.org/wiki/Anexo:Futbolista_del_a%C3%B1o_en_Sudam%C3%A9rica"
+  ],
+  "incertos": [
+   "premios.tournament_best (Copa América 1983: escolha retroativa do RSSSF; o prêmio oficial de melhor jogador só começou em 1987, com Valderrama)"
+  ],
+  "notas": "Jogos oficiais = clubes 574 jogos/220 gols (Wikipedia em inglês: Wanderers 74/20, River 113/68 + 120/67, Racing Paris 93/32, Olympique de Marselha 40/11, Cagliari 99/17, Torino 34/5; inclui Libertadores, Supercopa, copas europeias, Supercoppa 1993 e Intercontinental 1996) + Uruguai 73/17 (RSSSF). Igual, na prática, ao arquivo antigo (650/240). Jogou o Apertura 1997 (6 jogos) e a Supercopa 1997 antes de anunciar a aposentadoria no início de 1998; asOf = 1997, o ano do último jogo. Libertadores e Intercontinental de 1986 não contam: ele já tinha ido para o Racing Paris. Fica fora o Sul-Americano Sub-20 de 1981. 'Rei da América' (El País/El Mundo) classificado como continental_best e a 'Olimpia de Plata' (futebolista do ano na Argentina) como league_best_player. Assistências: estimativa. CONFERÊNCIA (2ª fonte, 14/10/2026): Wikipedias em espanhol e italiano confirmam os 5 títulos argentinos (1985/86, Apertura 1994, Apertura 1996, Clausura 1997, Apertura 1997), Division 1 1989/90, Libertadores 1996, Supercopa 1997 e Copas América 1983, 1987 e 1995; a es confirma as 3 artilharias argentinas (1984 com 24, 1985/86 com 25 e Apertura 1994), Rei da América 1984/1995 (também na lista de vencedores), futebolista do ano na Argentina 1985/1995, melhor estrangeiro na França 1986/87 e a seleção sul-americana 1994–97. A it e a es dão 75 jogos/19 gols pelo Uruguai (contam jogos não oficiais); mantido 73/17 do RSSSF, que a en também usa para o recorde de jogador de linha com mais jogos pela seleção. A nota da tabela de recordes da Copa América (en) diz que o primeiro prêmio oficial de melhor jogador foi o de Valderrama em 1987 — o de 1983 é retroativo (em incertos)."
+ }
+]
