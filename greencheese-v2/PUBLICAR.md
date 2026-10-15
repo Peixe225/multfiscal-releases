@@ -66,11 +66,11 @@ depende dele):
 
 ### 4. Saber pra onde voltar
 
-Desde 14/10 (13h44, horário de Brasília), o que está no ar é a `greencheese-v2/` do commit `a3d7372` (os 126 arquivos
-do ar conferidos um a um com a cópia publicada; o banco subiu sozinho para as migrações 103 e 104). Se a próxima
-publicação der errado, voltar é publicar de novo esse commit, do mesmo jeito (build dele, cópia sem o
-`api/instalacao.php`, ensaio e envio). Antes da v2, estava no ar a pasta `greencheese/` do repositório (commit
-`f30c143`). A cada publicação, troque o hash desta frase pelo do commit que ficou no ar (passo 9).
+Desde 14/10 (21h59, horário de Brasília), o que está no ar é a `greencheese-v2/` do commit `263a4ad`, com o pedido
+rápido (os 130 arquivos do ar conferidos um a um com a cópia publicada; o banco subiu sozinho para as migrações 105 e
+209). Se a próxima publicação der errado, voltar é publicar de novo esse commit, do mesmo jeito (build dele, cópia sem
+o `api/instalacao.php`, ensaio e envio). Antes dele, estiveram no ar o `a3d7372` (14/10, 13h44, a v2 sem o pedido
+rápido) e a pasta `greencheese/` do repositório (commit `f30c143`). A cada publicação, troque o hash desta frase pelo do commit que ficou no ar (passo 9).
 
 ### 5. Ensaio (nada sobe)
 
